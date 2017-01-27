@@ -36,22 +36,16 @@
 MODULE mo_cuinitialize
   USE mo_kind,                 ONLY: wp
   USE mo_physical_constants,   ONLY: rd, vtmpc1, alv, als, tmelt
-#ifndef __ICON__
-  USE mo_echam_conv_constants, ONLY: lmfdudv, cbfac, cminbuoy, cmaxbuoy
-#else
   USE mo_echam_conv_config,    ONLY: echam_conv_config
-#endif
   USE mo_cuadjust,             ONLY: cuadjtq
 
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: cuini, cubase
 
-#ifdef __ICON__
   ! to simplify access to components of echam_conv_config
   LOGICAL , POINTER :: lmfdudv
   REAL(wp), POINTER :: cbfac, cminbuoy, cmaxbuoy
-#endif
 
 
 CONTAINS 
@@ -267,13 +261,11 @@ CONTAINS
     INTEGER :: jl, jk, nl, is, ik, ikb, icall
     REAL(wp):: zbuo, zz, zlift
 
-#ifdef __ICON__
     ! to simplify access to components of echam_conv_config
     lmfdudv  => echam_conv_config% lmfdudv
     cbfac    => echam_conv_config% cbfac
     cminbuoy => echam_conv_config% cminbuoy
     cmaxbuoy => echam_conv_config% cmaxbuoy
-#endif
 
     !
     !---------------------------------------------------------------------------------

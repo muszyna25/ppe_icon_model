@@ -34,7 +34,7 @@ CONTAINS
   !!
   SUBROUTINE vdiff_up( kproma, kbdim, klev, klevm1, klevp1, ktrac,       &! in
                        ksfc_type, idx_wtr,                               &! in
-                       pdtime, pstep_len, pfrc,                          &! in
+                       pdtime, pfrc,                                     &! in
                        pcfm_tile,                                        &! in 
                        aa,                                               &! in
                        ihpbl,      pcptgz,      prhoh,       pqshear,    &! in
@@ -42,15 +42,12 @@ CONTAINS
                        pxlm1,      pxim1,       pxtm1,                   &! in
                        pcd,        pcv,                                  &! in
                        pdelpm1,    pgeom1,      pztkevn,                 &! in
-#ifdef __ICON__
                        ptkem1,                                           &! in
-#else
-                       ptkem1, ptkem0,                                   &! in/inout
-#endif
                        ptte_corr,                                        &! in
                        bb,                                               &! inout
                        pzthvvar,   pxvar,       pz0m_tile,   pkedisp,    &! inout
                        pute_vdf,   pvte_vdf,    ptte_vdf,                &! out
+!!$                       pute_vdf,   pvte_vdf,    pq_vdf,                  &! out
                        pqte_vdf,   pxlte_vdf,   pxite_vdf,   pxtte_vdf,  &! out
                        pxvarprod,  pvmixtau,    pz0m,                    &! out
                        pthvvar,    pthvsig,     ptke,                    &! out
@@ -58,7 +55,7 @@ CONTAINS
 
     INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1, klevp1, ktrac
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr
-    REAL(wp),INTENT(IN) :: pdtime, pstep_len
+    REAL(wp),INTENT(IN) :: pdtime
 
     REAL(wp),INTENT(IN) ::           &
       & pfrc      (kbdim,ksfc_type), &!< area fraction of each surface type
@@ -88,12 +85,7 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pdelpm1(kbdim,klev)   !< layer thickness [Pa]
     REAL(wp),INTENT(IN) :: pgeom1 (kbdim,klev)   !< geopotential above ground
     REAL(wp),INTENT(IN) :: pztkevn(kbdim,klev)   !< intermediate value of tke
-#ifdef __ICON__
     REAL(wp),INTENT(IN) :: ptkem1(kbdim,klev)    !< TKE at time step t-dt
-#else
-    REAL(wp),INTENT(INOUT) :: ptkem1(kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: ptkem0(kbdim,klev)
-#endif
     REAL(wp),INTENT(IN)    :: ptte_corr(kbdim)   !< tte correction for snow melt over land
 
     REAL(wp),INTENT(INOUT) :: bb    (kbdim,klev,nvar_vdiff)  !<
@@ -119,6 +111,7 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: pute_vdf (kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: pvte_vdf (kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: ptte_vdf (kbdim,klev)  ! OUT
+!!$    REAL(wp),INTENT(INOUT) :: pq_vdf   (kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: pqte_vdf (kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: pxlte_vdf(kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: pxite_vdf(kbdim,klev)  ! OUT
@@ -146,20 +139,17 @@ CONTAINS
 
     CALL vdiff_tendencies( kproma, kbdim, itop, klev, klevm1, klevp1,   &! in
                          & ktrac, ksfc_type, idx_wtr,                   &! in
-                         & pdtime, pstep_len,                           &! in
+                         & pdtime,                                      &! in
                          & pum1, pvm1, ptm1, pqm1, pxlm1, pxim1,        &! in
                          & pxtm1, pgeom1, pdelpm1, pcptgz,              &! in
                          & pcd, pcv,                                    &! in
-#ifdef __ICON__
                          & ptkem1, pztkevn, pzthvvar, prhoh,            &! in
-#else
-                         & ptkem1, ptkem0, pztkevn, pzthvvar, prhoh,    &! in
-#endif
                          & pqshear, ihpbl,                              &! in
                          & pcfm_tile, pfrc, ptte_corr, bb,              &! in
                          & pkedisp(:),                                  &! inout ("pvdis" in echam)
                          & pxvar(:,:), pz0m_tile(:,:),                  &! inout
                          & pute_vdf, pvte_vdf, ptte_vdf, pqte_vdf,      &! out
+!!$                         & pute_vdf, pvte_vdf, pq_vdf, pqte_vdf,        &! out
                          & pxlte_vdf, pxite_vdf, pxtte_vdf,             &! out
                          & pxvarprod,                                   &! out ("pvdiffp" in echam)
                          & pz0m, ptke, pthvvar, pthvsig, pvmixtau,      &

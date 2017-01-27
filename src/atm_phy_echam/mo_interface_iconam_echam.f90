@@ -65,13 +65,14 @@
 MODULE mo_interface_iconam_echam
 
   USE mo_kind                  ,ONLY: wp
-  USE mo_exception             ,ONLY: finish !, message, message_text, print_value
-
-  USE mo_impl_constants        ,ONLY: min_rlcell_int, grf_bdywidth_c, grf_bdywidth_e
+  USE mo_exception             ,ONLY: finish
 
   USE mo_coupling_config       ,ONLY: is_coupled_run
   USE mo_parallel_config       ,ONLY: nproma
-  USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi
+  USE mo_master_config         ,ONLY: isRestart
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
+    &                                  calculate_time_interpolation_weights
+  USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi, io3
   USE mo_nonhydrostatic_config ,ONLY: lhdiff_rcf
   USE mo_diffusion_config      ,ONLY: diffusion_config
   USE mo_echam_phy_config      ,ONLY: echam_phy_config
@@ -79,38 +80,41 @@ MODULE mo_interface_iconam_echam
   USE mo_model_domain          ,ONLY: t_patch
   USE mo_intp_data_strc        ,ONLY: t_int_state
   USE mo_intp_rbf              ,ONLY: rbf_vec_interpol_cell
-
   USE mo_loopindices           ,ONLY: get_indices_c, get_indices_e
-!!$  USE mo_grid_subset           ,ONLY: get_index_range
+  USE mo_impl_constants        ,ONLY: min_rlcell_int, grf_bdywidth_c, grf_bdywidth_e
   USE mo_sync                  ,ONLY: sync_c, sync_e, sync_patch_array, sync_patch_array_mult
 
   USE mo_nonhydro_types        ,ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nh_diagnose_pres_temp ,ONLY: diagnose_pres_temp
-  USE mo_physical_constants    ,ONLY: rd, p0ref, rd_o_cpd, vtmpc1, grav, amco2, amd
+  USE mo_physical_constants    ,ONLY: rd, p0ref, rd_o_cpd, vtmpc1, grav, &
+    &                                 amd, amo3       
+  USE mtime                    ,ONLY: datetime , newDatetime , deallocateDatetime     ,&
+    &                                 timedelta, newTimedelta, deallocateTimedelta    ,&
+    &                                 max_timedelta_str_len  , getPTStringFromSeconds ,&
+    &                                 OPERATOR(+)
 
-  USE mtime                    ,ONLY: datetime, deallocateDatetime
   USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
   USE mo_interface_echam_ocean ,ONLY: interface_echam_ocean
+  
 #ifndef __NO_JSBACH__
   USE mo_jsb_interface         ,ONLY: jsbach_start_timestep, jsbach_finish_timestep
 #endif
+  
   USE mo_timer                 ,ONLY: ltimer, timer_start, timer_stop,           &
     &                                 timer_dyn2phy, timer_d2p_prep, timer_d2p_sync, timer_d2p_couple, &
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
-  USE mo_bc_greenhouse_gases   ,ONLY: ghg_co2mmr
+
+  USE mo_lcariolle_types       ,ONLY: avi, t_time_interpolation
   IMPLICIT NONE
 
   PRIVATE
 
   PUBLIC :: interface_iconam_echam
 
-  REAL(wp), PARAMETER :: rd_o_p0ref = rd / p0ref
-
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-  CHARACTER(len=*), PARAMETER :: thismodule = 'mo_interface_iconam_echam'
+  CHARACTER(len=*), PARAMETER :: module_name = 'mo_interface_iconam_echam'
 
 CONTAINS
   !
@@ -121,20 +125,20 @@ CONTAINS
   !
   !  Marco Giorgetta, MPI-M, 2014
   !
-  SUBROUTINE interface_iconam_echam( dtadv_loc        ,& !in
-    &                                mtime_current    ,& !in
-    &                                patch            ,& !in
-    &                                pt_int_state     ,& !in
-    &                                p_metrics        ,& !in
-    &                                pt_prog_new      ,& !inout
-    &                                pt_prog_new_rcf  ,& !inout
-    &                                pt_diag          )  !inout
+  SUBROUTINE interface_iconam_echam( dt_loc          ,& !in
+    &                                datetime_new    ,& !in
+    &                                patch           ,& !in
+    &                                pt_int_state    ,& !in
+    &                                p_metrics       ,& !in
+    &                                pt_prog_new     ,& !inout
+    &                                pt_prog_new_rcf ,& !inout
+    &                                pt_diag         )  !inout
 
     !
     !> Arguments:
     !
-    REAL(wp)              , INTENT(in)            :: dtadv_loc       !< advective time step
-    TYPE(datetime),          POINTER              :: mtime_current
+    REAL(wp)              , INTENT(in)            :: dt_loc          !< advective time step
+    TYPE(datetime)        , POINTER               :: datetime_new    !< date and time at the end of this time step
 
     TYPE(t_patch)         , INTENT(in)   , TARGET :: patch           !< grid/patch info
     TYPE(t_int_state)     , INTENT(in)   , TARGET :: pt_int_state    !< interpolation state
@@ -159,9 +163,13 @@ CONTAINS
 
     ! Local variables
 
+    CHARACTER(len=max_timedelta_str_len) :: neg_dt_loc_string !< negative time delta as string
+    TYPE(timedelta), POINTER             :: neg_dt_loc_mtime  !< negative time delta as mtime variable
+    TYPE(datetime) , POINTER             :: datetime_old      !< date and time at the beginning of this time step
+
     REAL(wp) :: z_exner              !< to save provisional new exner
     REAL(wp) :: z_qsum               !< summand of virtual increment
-    REAL(wp) :: z_ddt_qsum           !< summand of virtual increment tendency
+!!$    REAL(wp) :: z_ddt_qsum           !< summand of virtual increment
 
     REAL(wp) :: zvn1, zvn2
     REAL(wp), POINTER :: zdudt(:,:,:), zdvdt(:,:,:)
@@ -174,8 +182,11 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: method_name = "interface_iconam_echam"
 
-    TYPE(datetime), POINTER             :: mtime_radtran
-
+    ! Temporary variables for Cariolle scheme (ozone)
+    REAL(wp)    :: vmr_o3(nproma,nlev)
+    TYPE(t_time_interpolation) :: time_interpolation
+    EXTERNAL       lcariolle_lat_intp_li, lcariolle_pres_intp_li
+    TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
     !-------------------------------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_dyn2phy)
@@ -189,6 +200,17 @@ CONTAINS
     i_endblk   = patch%cells%end_blk(rl_end,i_nchdom)
 
     jg    = patch%id
+
+    ! The date and time needed for the radiation computation in the phyiscs is
+    ! the date and time of the initial data for this step.
+    ! As 'datetime_new' contains already the date and time of the end of this
+    ! time step, we compute here the old datetime 'datetime_old':
+    !
+    CALL getPTStringFromSeconds(-dt_loc, neg_dt_loc_string)
+    neg_dt_loc_mtime  => newTimedelta(neg_dt_loc_string)
+    datetime_old      => newDatetime(datetime_new)
+    datetime_old      =  datetime_new + neg_dt_loc_mtime
+    CALL deallocateTimedelta(neg_dt_loc_mtime)
 
     !=====================================================================================
     !
@@ -213,24 +235,22 @@ CONTAINS
       ! In this case all ECHAM physics is treated as "slow" physics.
       ! The provisional "new" tracer state, resulting from the advection
       ! step, still needs to be updated with the physics tracer tendencies
-      ! computed at the end of the last physics call for the then final
-      ! "new" state that was used as "now" state for the dynamics and
-      ! advection of this time step.
-      ! (The corresponding update for the dynamics variables has
-      ! already happened in the dynamical core.)
+      ! computed by the physics called at the end of the previous time step
+      ! for the then final "new" state that is used in this time step as
+      ! the "now" state for the dynamics and advection.
+      ! (The physics tendencies for the other variables have been used
+      ! already in the dynamical core.)
       !
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
       DO jt = 1,ntracer
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$        DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$          CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
           DO jk = 1,nlev
             DO jc = jcs, jce
               !
               pt_prog_new_rcf%tracer(jc,jk,jb,jt) =   pt_prog_new_rcf%tracer(jc,jk,jb,jt)             &
-                &                                   + prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) * dtadv_loc
+                &                                   + prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) * dt_loc
               !
             END DO
           END DO
@@ -306,20 +326,20 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$    DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$      CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
       DO jk = 1,nlev
         DO jc = jcs, jce
 
           ! Fill the physics state variables, which are used by echam:
           !
-          prm_field(jg)%      geom(jc,jk,jb)     = p_metrics% geopot_agl(jc,jk,jb)
+          prm_field(jg)%        zf(jc,jk,jb)     = p_metrics%        z_mc(jc,jk,jb)
+          prm_field(jg)%        dz(jc,jk,jb)     = p_metrics% ddqz_z_full(jc,jk,jb)
+          prm_field(jg)%      geom(jc,jk,jb)     = p_metrics%  geopot_agl(jc,jk,jb)
           !
-          prm_field(jg)%         u(jc,jk,jb)     = pt_diag%    u(jc,jk,jb)
-          prm_field(jg)%         v(jc,jk,jb)     = pt_diag%    v(jc,jk,jb)
+          prm_field(jg)%        ua(jc,jk,jb)     = pt_diag%    u(jc,jk,jb)
+          prm_field(jg)%        va(jc,jk,jb)     = pt_diag%    v(jc,jk,jb)
           prm_field(jg)%       vor(jc,jk,jb)     = pt_diag%  vor(jc,jk,jb)
           !
-          prm_field(jg)%      temp(jc,jk,jb)     = pt_diag% temp(jc,jk,jb)
+          prm_field(jg)%        ta(jc,jk,jb)     = pt_diag% temp(jc,jk,jb)
           prm_field(jg)%        tv(jc,jk,jb)     = pt_diag% tempv(jc,jk,jb)
           !
           prm_field(jg)% presm_old(jc,jk,jb)     = pt_diag%  pres(jc,jk,jb)
@@ -327,7 +347,7 @@ CONTAINS
           !
           ! Air mass
           prm_field(jg)%       mair(jc,jk,jb)    = pt_prog_new %         rho(jc,jk,jb) &
-            &                                     *p_metrics   % ddqz_z_full(jc,jk,jb)
+            &                                     *prm_field(jg)%         dz(jc,jk,jb)
           !
           ! H2O mass (vap+liq+ice)
           prm_field(jg)%      mh2o(jc,jk,jb)     = ( pt_prog_new_rcf% tracer(jc,jk,jb,iqv)  &
@@ -358,10 +378,10 @@ CONTAINS
           ! Tendencies passed to the ECHAM physics for internal upating are set to 0
           ! because the state passed to physics is already updated with tendencies
           ! due to dynamics and transport.
-          prm_tend(jg)%          u(jc,jk,jb)     = 0.0_wp
-          prm_tend(jg)%          v(jc,jk,jb)     = 0.0_wp
+          prm_tend(jg)%         ua(jc,jk,jb)     = 0.0_wp
+          prm_tend(jg)%         va(jc,jk,jb)     = 0.0_wp
           !
-          prm_tend(jg)%       temp(jc,jk,jb)     = 0.0_wp
+          prm_tend(jg)%         ta(jc,jk,jb)     = 0.0_wp
           !
 
         END DO
@@ -370,6 +390,7 @@ CONTAINS
       DO jk = 1,nlev+1
         DO jc = jcs, jce
 
+          prm_field(jg)%            zh(jc,jk,jb) = p_metrics%          z_ifc(jc,jk,jb)
           prm_field(jg)%          geoi(jc,jk,jb) = p_metrics% geopot_agl_ifc(jc,jk,jb)
           !
           prm_field(jg)%     presi_old(jc,jk,jb) = pt_diag% pres_ifc(jc,jk,jb)
@@ -382,13 +403,36 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
+!   Initialize ozone mass mixing ratios for Cariolle scheme here. 
+!   An approximative initialization 
+!   that considers the atmosphere as being dry is enough.
+    IF (echam_phy_config%lcariolle) THEN
+      IF (.NOT.isRestart().AND. .NOT. avi%l_initialized_o3) THEN
+        avi%ldown=.TRUE.
+        current_time_interpolation_weights = calculate_time_interpolation_weights(datetime_old)
+        time_interpolation%imonth1=current_time_interpolation_weights%month1_index
+        time_interpolation%imonth2=current_time_interpolation_weights%month2_index
+        time_interpolation%weight1=current_time_interpolation_weights%weight1
+        time_interpolation%weight2=current_time_interpolation_weights%weight2
+        DO jb = i_startblk,i_endblk
+          CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+          avi%pres(jcs:jce,:)=prm_field(jg)%presm_old(jcs:jce,:,jb)
+          avi%cell_center_lat(jcs:jce)=patch%cells%center(jcs:jce,jb)%lat
+          CALL lcariolle_init_o3(                                              &
+           & jcs,                   jce,                nproma,                &
+           & nlev,                  time_interpolation, lcariolle_lat_intp_li, &
+           & lcariolle_pres_intp_li,avi,                vmr_o3                 )
+          pt_prog_new_rcf% tracer(jcs:jce,:,jb,io3)=vmr_o3(jcs:jce,:)*amo3/amd
+        END DO
+        avi%l_initialized_o3=.TRUE.
+      END IF
+    END IF
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jt = 1,ntracer
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$        CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
         DO jk = 1,nlev
           DO jc = jcs, jce
 
@@ -441,12 +485,11 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_echam_bcs)
 
-    CALL echam_phy_bcs_global( mtime_current,&! in   
+    CALL echam_phy_bcs_global( datetime_old ,&! in
       &                        jg           ,&! in
       &                        patch        ,&! in
-      &                        dtadv_loc    ,&! in
-      &                        ltrig_rad    ,&! out
-      &                        mtime_radtran) ! out
+      &                        dt_loc       ,&! in
+      &                        ltrig_rad    ) ! out
 
     IF (ltimer) CALL timer_stop(timer_echam_bcs)
     !
@@ -459,21 +502,19 @@ CONTAINS
     !     the land processes, which are vertically implicitly coupled
     !     to the parameterization of vertical turbulent fluxes.
     !
-    IF (ltimer) CALL timer_start(timer_echam_phy)
-
 #ifndef __NO_JSBACH__
     IF (echam_phy_config%ljsbach) THEN
       CALL jsbach_start_timestep(jg)
     END IF
 #endif
 
+    IF (ltimer) CALL timer_start(timer_echam_phy)
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce),  ICON_OMP_GUIDED_SCHEDULE
 
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$    DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$      CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
 
       ! Like in ECHAM, the subroutine *echam_phy_main* has direct access to the memory
       ! buffers prm_field and prm_tend. In addition it can also directly access
@@ -490,25 +531,23 @@ CONTAINS
         &                  jcs          ,&! in
         &                  jce          ,&! in
         &                  nproma       ,&! in
-        &                  mtime_current,&! in
-        &                  dtadv_loc    ,&! in
-        &                  dtadv_loc    ,&! in
-        &                  ltrig_rad    ,&! in
-        &                  mtime_radtran) ! in
+        &                  datetime_old ,&! in
+        &                  dt_loc       ,&! in
+        &                  ltrig_rad    ) ! in
 
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-    CALL deallocateDatetime(mtime_radtran)
-
     IF (ltimer) CALL timer_stop(timer_echam_phy)
+
+    CALL deallocateDatetime(datetime_old)
     !
     !=====================================================================================
 
 #ifndef __NO_JSBACH__
     IF (echam_phy_config%ljsbach) THEN
-      CALL jsbach_finish_timestep(jg, dtadv_loc)
+      CALL jsbach_finish_timestep(jg, dt_loc)
     END IF
 #endif
     !=====================================================================================
@@ -534,13 +573,41 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_p2d_prep)
     !
+!!$    !     (a) (dT/dt|phy, dqv/dt|phy, dqc/dt|phy, dqi/dt|phy) --> dexner/dt|phy
+!!$    !
+!!$    ! Loop over cells
+!!$!$OMP PARALLEL
+!!$!$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_ddt_qsum) ICON_OMP_DEFAULT_SCHEDULE
+!!$    DO jb = i_startblk,i_endblk
+!!$      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+!!$      DO jk = 1,nlev
+!!$        DO jc = jcs, jce
+!!$          z_qsum     = pt_prog_new_rcf%tracer(jc,jk,jb,iqc) + pt_prog_new_rcf%tracer(jc,jk,jb,iqi)
+!!$          z_ddt_qsum = prm_tend(jg)% qtrc_phy(jc,jk,jb,iqc) + prm_tend(jg)% qtrc_phy(jc,jk,jb,iqi)
+!!$          !
+!!$          pt_diag%ddt_exner_phy(jc,jk,jb) =                                               &
+!!$            &  rd_o_cpd / pt_prog_new%theta_v(jc,jk,jb)                                   &
+!!$            &  * (  prm_tend(jg)%temp_phy(jc,jk,jb)                                       &
+!!$            &     * (1._wp + vtmpc1*pt_prog_new_rcf%tracer(jc,jk,jb,iqv) - z_qsum )       &
+!!$            &     + pt_diag%temp(jc,jk,jb)                                                &
+!!$            &     * (        vtmpc1*prm_tend(jg)% qtrc_phy(jc,jk,jb,iqv) - z_ddt_qsum ) )
+!!$          !
+!!$          ! Additionally use this loop also to set the dynamical exner increment to zero.
+!!$          ! (It is accumulated over one advective time step in solve_nh)
+!!$          pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
+!!$        END DO
+!!$      END DO
+!!$    END DO !jb
+!!$!$OMP END DO
+!!$!$OMP END PARALLEL
+
     !     (b) (du/dt|phy, dv/dt|phy) --> dvn/dt|phy
     !
     ALLOCATE(zdudt(nproma,nlev,patch%nblks_c), &
       &      zdvdt(nproma,nlev,patch%nblks_c), &
       &      stat=return_status)
     IF (return_status > 0) THEN
-      CALL finish (method_name, 'ALLOCATE(zdudt,zdvdt)')
+      CALL finish (module_name//method_name, 'ALLOCATE(zdudt,zdvdt)')
     END IF
     zdudt(:,:,:) = 0.0_wp
     zdvdt(:,:,:) = 0.0_wp
@@ -549,10 +616,8 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$    DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$      CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
-      zdudt(jcs:jce,:,jb) = prm_tend(jg)% u_phy(jcs:jce,:,jb)
-      zdvdt(jcs:jce,:,jb) = prm_tend(jg)% v_phy(jcs:jce,:,jb)
+      zdudt(jcs:jce,:,jb) = prm_tend(jg)% ua_phy(jcs:jce,:,jb)
+      zdvdt(jcs:jce,:,jb) = prm_tend(jg)% va_phy(jcs:jce,:,jb)
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -574,7 +639,6 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jk,je,jes,jee,jcn,jbn,zvn1,zvn2) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,jbe
       CALL get_indices_e(patch, jb,jbs,jbe, jes,jee, grf_bdywidth_e+1)
-!!$      CALL get_index_range( patch%edges%in_domain, jb, jes, jee )
 
       DO jk = 1,nlev
         DO je = jes,jee
@@ -629,8 +693,6 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jk,je,jes,jee) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,jbe
         CALL get_indices_e(patch, jb,jbs,jbe, jes,jee, grf_bdywidth_e+1)
-!!$      DO jb = patch%edges%in_domain%start_block, patch%edges%in_domain%end_block
-!!$        CALL get_index_range( patch%edges%in_domain, jb, jes, jee )
 
         DO jk = 1, nlev
           DO je = jes, jee
@@ -639,7 +701,7 @@ CONTAINS
             !
             ! Update with the total phyiscs tendencies
             pt_prog_new%vn    (je,jk,jb) =   pt_prog_new%vn    (je,jk,jb)             &
-              &                            + pt_diag%ddt_vn_phy(je,jk,jb) * dtadv_loc
+              &                            + pt_diag%ddt_vn_phy(je,jk,jb) * dt_loc
             !
             ! Set physics forcing to zero so that it is not re-applied in the dynamical core
             pt_diag%ddt_vn_phy(je,jk,jb) = 0._wp
@@ -657,8 +719,6 @@ CONTAINS
       DO jt =1,ntracer    
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$        DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$          CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
           DO jc = jcs, jce
             prm_field(jg)% mtrcvi    (jc,jb,jt) = 0.0_wp
             prm_tend (jg)% mtrcvi_phy(jc,jb,jt) = 0.0_wp
@@ -684,7 +744,7 @@ CONTAINS
               ! new tracer mass
               prm_field(jg)%  mtrc    (jc,jk,jb,jt)  = prm_field(jg)% mtrc    (jc,jk,jb,jt) &
                 &                                     +prm_tend(jg)%  mtrc_phy(jc,jk,jb,jt) &
-                &                                     *dtadv_loc
+                &                                     *dt_loc
               !
               ! new tracer path
               prm_field(jg)%  mtrcvi  (jc,   jb,jt)  = prm_field(jg)% mtrcvi  (jc,   jb,jt) &
@@ -702,8 +762,6 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$        CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
         DO jc = jcs, jce
           prm_field(jg)% mh2ovi(jc,jb) = 0.0_wp ! initialize air path after physics
           prm_field(jg)% mairvi(jc,jb) = 0.0_wp ! initialize air path after physics
@@ -729,7 +787,7 @@ CONTAINS
               !
               ! new density
               pt_prog_new %     rho(jc,jk,jb) = prm_field(jg)%      mair  (jc,jk,jb) &
-                &                              /p_metrics%     ddqz_z_full(jc,jk,jb)
+                &                              /prm_field(jg)%      dz    (jc,jk,jb)
               !
             ELSE
               !
@@ -759,8 +817,6 @@ CONTAINS
       DO jt =1,ntracer    
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$        DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$          CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
           DO jk = 1,nlev
             DO jc = jcs, jce
               !
@@ -787,8 +843,6 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_exner) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$        CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
 
         DO jk = 1,nlev
           DO jc = jcs, jce
@@ -798,7 +852,7 @@ CONTAINS
             ! (a) Update T, then compute Temp_v, Exner and Theta_v
             !
             pt_diag        %temp  (jc,jk,jb    ) =   pt_diag%     temp    (jc,jk,jb)             &
-              &                                    + prm_tend(jg)%temp_phy(jc,jk,jb) * dtadv_loc
+              &                                    + prm_tend(jg)%ta_phy  (jc,jk,jb) * dt_loc
             !
             z_qsum = pt_prog_new_rcf%tracer(jc,jk,jb,iqc) + pt_prog_new_rcf%tracer(jc,jk,jb,iqi)
             !
@@ -809,8 +863,7 @@ CONTAINS
             z_exner = pt_prog_new%exner(jc,jk,jb)
             !
             ! Compute final new exner
-            pt_prog_new%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                         &
-              &                       * pt_prog_new%rho(jc,jk,jb) * pt_diag%tempv(jc,jk,jb)))
+            pt_prog_new%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd/p0ref * pt_prog_new%rho(jc,jk,jb) * pt_diag%tempv(jc,jk,jb)))
             !
             ! Add exner change from fast phyiscs to exner_old (why?)
             pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + pt_prog_new%exner(jc,jk,jb) - z_exner
@@ -818,12 +871,12 @@ CONTAINS
 !!$            ! (b) Update Exner, then compute Temp_v
 !!$            !
 !!$            pt_prog_new%exner(jc,jk,jb) = pt_prog_new%exner(jc,jk,jb)                 &
-!!$              &                         + pt_diag%ddt_exner_phy(jc,jk,jb) * dtadv_loc
+!!$              &                         + pt_diag%ddt_exner_phy(jc,jk,jb) * dt_loc
 !!$            pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb)                 &
-!!$              &                         + pt_diag%ddt_exner_phy(jc,jk,jb) * dtadv_loc
+!!$              &                         + pt_diag%ddt_exner_phy(jc,jk,jb) * dt_loc
 !!$            !
-!!$            pt_diag%tempv(jc,jk,jb) = EXP(LOG(pt_prog_new%exner(jc,jk,jb)/rd_o_cpd) &
-!!$              &                     / (pt_prog_new%rho(jc,jk,jb)*rd_o_p0ref)
+!!$            pt_diag%tempv(jc,jk,jb) = EXP(LOG(pt_prog_new%exner(jc,jk,jb)/rd_o_cpd)) &
+!!$              &                     / (pt_prog_new%rho(jc,jk,jb)*rd/p0ref)
 !!$            !
             !
             ! (a) and (b) Compute Theta_v

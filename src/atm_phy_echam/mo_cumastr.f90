@@ -56,31 +56,20 @@
 MODULE mo_cumastr
   USE mo_kind,                 ONLY: wp
   USE mo_echam_convect_tables, ONLY: prepare_ua_index_spline,lookup_ua_spline, lookup_ubc
-#ifndef __ICON__
-  USE mo_physical_constants,   ONLY: grav, alv, als, tmelt, vtmpc1, rd, cpd, cpv, vtmpc2
-  USE mo_echam_conv_constants, ONLY: entrpen, entrscv, lmfdd, cmfdeps, lmfdudv, cmftau
-#else
   USE mo_physical_constants,   ONLY: grav, alv, als, tmelt, vtmpc1, rd, cpd, cpv
   USE mo_echam_conv_config,    ONLY: echam_conv_config
-#endif
   USE mo_cuinitialize,         ONLY: cuini, cubase
   USE mo_cuascent,             ONLY: cuasc
   USE mo_cudescent,            ONLY: cudlfs, cuddraf
   USE mo_cufluxdts,            ONLY: cuflx, cudtdq, cududv
-#ifndef __ICON__
-  USE mo_param_switches,       ONLY: lconvmassfix
-  USE mo_tracer_processes,     ONLY: xt_conv_massfix
-#endif
 
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: cucall
 
-#ifdef __ICON__
   ! to simplify access to components of echam_conv_config
   LOGICAL , POINTER :: lmfdd, lmfdudv
   REAL(wp), POINTER :: entrpen, entrscv, cmfdeps, cmftau
-#endif
 
 
 CONTAINS
@@ -103,11 +92,6 @@ CONTAINS
     &                  prsfc,    pssfc,                                &! out
     &                  pxtecl,   pxteci,                               &! out (?)
     &                  ktype,    ictop,    ilab,                       &! out
-#ifndef __ICON__
-    &                  krow,                                           &! in
-    &                  paprc,    paprs,                                &! out (?)
-    &                  ptopmax                                        ) ! inout
-#else
     &                  ptopmax,                                        &! inout
     &                  cevapcu,                                        &! in
     &                  pcd, pcv,                                       &! in
@@ -115,14 +99,11 @@ CONTAINS
     &                  pcon_dtrl, pcon_dtri, pcon_iqte,                &! inout
     &                  ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv,         &! out
     &                  pxtte_cnv                               )        ! out
-#endif
 
     INTEGER, INTENT (IN) :: klev, klevm1, klevp1, kproma, kbdim, ktrac
     REAL(wp),INTENT (IN) :: ptime_step_len
-#ifdef __ICON__
     REAL(wp),INTENT (IN) :: cevapcu(:)
     REAL(wp),INTENT (IN) :: pcd, pcv
-#endif
     REAL(wp)::  ptm1(kbdim,klev),         pqm1(kbdim,klev),              &
       &         pum1(kbdim,klev),         pvm1(kbdim,klev),              &
       &         pqte(kbdim,klev),                                        &
@@ -132,17 +113,12 @@ CONTAINS
     REAL(wp)::  ptte(kbdim,klev),                                        &
       &         pvom(kbdim,klev),         pvol(kbdim,klev)
     REAL(wp)::  pxtte(kbdim,klev,ktrac)
-#ifndef __ICON__
-    INTEGER, INTENT (IN) :: krow
-    REAL(wp)::  paprc(kbdim),             paprs(kbdim)
-#else
     REAL(wp),INTENT(INOUT) :: pcon_dtrl(kbdim), pcon_dtri(kbdim)
     REAL(wp),INTENT(INOUT) :: pcon_iqte(kbdim)
     REAL(wp),INTENT(INOUT) :: ptte_cnv(kbdim,klev)
     REAL(wp),INTENT(INOUT) :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
     REAL(wp),INTENT(INOUT) :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
     REAL(wp),INTENT(IN)    :: pqte_dyn(kbdim,klev), pqte_phy(kbdim,klev)
-#endif
     REAL(wp)::  pthvsig(kbdim)
     INTEGER ::  ktype(kbdim)
     REAL(wp)::  pqhfla(kbdim)
@@ -173,9 +149,7 @@ CONTAINS
     !  Local scalars:
     REAL(wp):: ztmst, zxlp1, zxip1
     INTEGER :: ilevmin, jk, jl, jt
-#ifdef __ICON__
     REAL(wp)::  zqte_dyn_phy(kbdim,klev)
-#endif
     !
     !  Executable statements
     !
@@ -205,12 +179,8 @@ CONTAINS
         zqsat(jl,jk)=ua(jl)/papp1(jl,jk)
         zqsat(jl,jk)=MIN(0.5_wp,zqsat(jl,jk))
         zqsat(jl,jk)=zqsat(jl,jk)/(1._wp-vtmpc1*zqsat(jl,jk))
-#ifndef __ICON__
-        zcpq(jl,jk)=cpd*(1.0_wp+vtmpc2*MAX(pqm1(jl,jk),0.0_wp))
-#else
         zcpq(jl,jk)=cpd+(cpv-cpd)*MAX(pqm1(jl,jk),0.0_wp) ! cp of moist air for comp. of fluxes
         zcq (jl,jk)=pcd+(pcv-pcd)*MAX(pqm1(jl,jk),0.0_wp) ! cp or cv of moist air for temp tendency
-#endif
       END DO
 
       DO jt=1,ktrac
@@ -229,11 +199,9 @@ CONTAINS
     !*    2.     Call 'cumastr'(master-routine for cumulus parameterization)
     !*           -----------------------------------------------------------
     !
-#ifdef __ICON__
     ! Total moisture tendency due to transport and the parameterized processes
     ! computed before "cucall".
     zqte_dyn_phy(1:kproma,:) = pqte_dyn(1:kproma,:)+pqte_phy(1:kproma,:)
-#endif
 
     CALL cumastr(kproma, kbdim, klev, klevp1, klevm1, ilab,           &
       &          ptime_step_len,                                      &
@@ -242,28 +210,17 @@ CONTAINS
       &          zxtp1,    zxtu,                                      &
       &          pverv,    zqsat,    pqhfla,                          &
       &          paphp1,   pgeo,                                      &
-#ifndef __ICON__
-      &          pqte,                                                &
-#else
       &          zqte_dyn_phy,                                        &
-#endif
       &          prsfc,    pssfc,                                     &
       &          pqtec,    zqude,    zcpq,                            &
       &          pch_con,  pcw_con,                                   &
       &          locum,    ktype,    icbot,    ictop,                 &
       &          ztu,      zqu,      zlu,      zlude,                 &
       &          zmfu,     zmfd,     zrain,    pthvsig,               &
-#ifndef __ICON__
-      &          krow,     papp1,                                     &
-      &          pxtte,                                               &
-      &          ptte,     pvom,     pvol,                            &
-      &          paprc,    paprs,                                     &
-#else
       &          cevapcu,                                             &
       &          zcq,                                                 &
       &          pcon_dtrl, pcon_dtri, pcon_iqte,                     &
       &          ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv,pxtte_cnv,    &
-#endif
       &          pxtecl,   pxteci                                     )
     !
     ! ------------------------------------------------------------------
@@ -317,30 +274,15 @@ CONTAINS
     &        ldcum,    ktype,    kcbot,    kctop,                         &
     &        ptu,      pqu,      plu,      plude,                         &
     &        pmfu,     pmfd,     prain,    pthvsig,                       &
-#ifndef __ICON__
-    &        krow,    papp1,                                              &
-    &        pxtte,                                                       &
-    &        ptte,     pvom,     pvol,                                    &
-    &        paprc,    paprs,                                             &
-#else
     &        cevapcu,                                                     &
     &        pcen,                                                        &
     &        pcon_dtrl, pcon_dtri, pcon_iqte,                             &
     &        ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv,           &
-#endif
     &        pxtecl,   pxteci                                             )
     !
     INTEGER, INTENT(IN)   :: kproma, kbdim, klev, klevp1, ktrac, klevm1
     REAL(wp),INTENT(IN)   :: ptime_step_len
     REAL(wp),INTENT(INOUT):: pch_con(kbdim), pcw_con(kbdim)
-#ifndef __ICON__
-    INTEGER, INTENT(IN)   :: krow
-    REAL(wp),INTENT(IN)   :: papp1(kbdim,klev)
-    REAL(wp),INTENT(IN)   :: ptte(kbdim,klev),                                       &
-      &                      pvom(kbdim,klev),        pvol(kbdim,klev),              &
-      &                      paprc(kbdim),            paprs(kbdim)
-    REAL(wp),INTENT(INOUT):: pxtte(kbdim,klev,ktrac)
-#else
     REAL(wp),INTENT(IN)   :: cevapcu(:)
     REAL(wp),INTENT(INOUT):: pcon_dtrl(kbdim), pcon_dtri(kbdim)
     REAL(wp),INTENT(INOUT):: pcon_iqte(kbdim)
@@ -348,7 +290,6 @@ CONTAINS
     REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
     REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
     REAL(wp),INTENT(IN)   :: pcen(kbdim,klev)
-#endif
     REAL(wp),INTENT(IN)   :: pcpen(kbdim,klev), pqte(kbdim,klev)
     !
     REAL(wp):: pten(kbdim,klev),        pqen(kbdim,klev),                  &
@@ -402,9 +343,6 @@ CONTAINS
     LOGICAL :: loddraf(kbdim),          ldland(kbdim)
     LOGICAL :: ldcum(kbdim)
     LOGICAL :: llo1
-#ifndef __ICON__
-    REAL(wp):: zmwc(kbdim,klev),        zmrateprecip(kbdim,klev)
-#endif
     !
     INTEGER :: nl, jl, jk, ikb, jt, itopm2, locnt, ldcnt
     REAL(wp):: zcons2, zqumqe, zdqmin, zmfmax, zalvs, zalvdcp, zqalv       &
@@ -417,7 +355,6 @@ CONTAINS
     !
     !  Executable statements
 
-#ifdef __ICON__
     ! to simplify access to components of echam_conv_config
     lmfdd    => echam_conv_config% lmfdd
     lmfdudv  => echam_conv_config% lmfdudv
@@ -425,16 +362,7 @@ CONTAINS
     entrpen  => echam_conv_config% entrpen
     cmfdeps  => echam_conv_config% cmfdeps
     cmftau   => echam_conv_config% cmftau
-#endif
 
-#ifndef __ICON__
-    IF (lconvmassfix) THEN
-      CALL xt_conv_massfix(kproma,         kbdim,         klev,              &
-        &                  klevp1,         ktrac,         krow,              &
-        &                  papp1,          paphp1,        pxtte,             &
-        &                  .TRUE.  )
-    END IF
-#endif
     !-----------------------------------------------------------------------
     !
     !     1.           Specify constants and parameters
@@ -688,9 +616,6 @@ CONTAINS
       &        ihmin,    zhhatt,   zhcbase,  zqsenh,                     &
       &        pcpen,    zcpcu,                                          &
       &        kcbot,    kctop,    ictop0                                &
-#ifndef __ICON__
-      &      , zmwc,     zmrateprecip                                    &
-#endif
       &       )
     !
     !*     (C) Check cloud depth and change entrainment rate accordingly
@@ -925,9 +850,6 @@ CONTAINS
       &        ihmin,    zhhatt,   zhcbase,  zqsenh,                     &
       &        pcpen,    zcpcu,                                          &
       &        kcbot,    kctop,    ictop0                                &
-#ifndef __ICON__
-      &      , zmwc,     zmrateprecip                                    &
-#endif
       &       )
 
     !-----------------------------------------------------------------------
@@ -938,13 +860,7 @@ CONTAINS
       &        pqen,     pqsen,    ztenh,    zqenh,                      &
       &        ktrac,                                                    &
       &        ptime_step_len,                                           &
-#ifndef __ICON__
-      &        krow,                                                     &
-      &        pxtte,    pxtu,     ptu,                                  &
-      &        zmwc,     zmrateprecip,                                   &
-#else
       &        cevapcu,                                                  &
-#endif
       &        zxtenh,   zmfuxt,   zmfdxt,                               &
       &        paphp1,   zgeoh,                                          &
       &        kcbot,    kctop,    idtop,                                &
@@ -960,28 +876,16 @@ CONTAINS
     !              ---------------------------------------------------
     !
     CALL cudtdq(kproma, kbdim, klev, klevp1, itopm2, ldcum, ktrac,       &
-#ifndef __ICON__
-      &         krow,                                                    &
-      &         ptte,     pqte,                                          &
-      &         pxtte,                                                   &
-      &         paprc,    paprs,                                         &
-#endif
       &         paphp1,   pten,                                          &
       &         zmfuxt,   zmfdxt,                                        &
       &         zmfus,    zmfds,    zmfuq,    zmfdq,                     &
       &         zmful,    zdmfup,   zdmfdp,   plude,                     &
       &         zdpmel,   zrfl,     zsfl,                                &
-#ifndef __ICON__
-      &         pcpen,    zalvsh,   pqtec,    pqude,                     &
-#else
       &         pcen,     zalvsh,   pqtec,    pqude,                     &
-#endif
       &         prsfc,    pssfc,                                         &
       &         pch_con,  pcw_con,                                       &
-#ifdef __ICON__
       &         pcon_dtrl, pcon_dtri, pcon_iqte,                         &
       &         ptte_cnv, pqte_cnv, pxtte_cnv,                           &
-#endif
       &         pxtecl,   pxteci                                        )
     !
     !-----------------------------------------------------------------------
@@ -992,24 +896,12 @@ CONTAINS
     IF(lmfdudv) THEN
       CALL cududv(kproma,   kbdim,    klev,     klevp1,                 &
         &         itopm2,   ktype,    kcbot,    paphp1,   ldcum,        &
-#ifndef __ICON__
-        &         puen,     pven,     pvom,     pvol,                   &
-#else
         &         puen,     pven,     pvom_cnv, pvol_cnv,               &
-#endif
         &         zuu,      zud,      zvu,      zvd,                    &
         &         pmfu,     pmfd)
       !
     END IF
     !
-#ifndef __ICON__
-    IF (lconvmassfix) THEN
-      CALL xt_conv_massfix(kproma,         kbdim,         klev,              &
-        &                  klevp1,         ktrac,         krow,              &
-        &                  papp1,          paphp1,        pxtte,             &
-        &                  .FALSE.  )
-    END IF
-#endif
   END SUBROUTINE cumastr
 
 END MODULE mo_cumastr

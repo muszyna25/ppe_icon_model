@@ -24,78 +24,60 @@
 
 # --- argument list processing
 
-interactive=0
+args = arguments()
+print("parameters: ", args)
+
+expv1      = args[1]    # experiment ID (e.g. ecff)
+expv2      = args[2]    # control exp ID (e.g. eawi)
+datestr    = args[3]    # initial fc dates (e.g. 19871101/19871102)
+yymm_start = args[4]    # first yyyymm in averaging period
+mm_len     = args[5]    # length of averaging period in months
+dtdata     = args[6]    # data time interval used (24. or 12.)
+varid      = args[7]    # GRIB variable ID (e.g. BLH or 101)
+lev        = args[8]    # level (0 for sfc variable)
+levtype    = args[9]    # level type (sfc=surface, ml=model levels, pl=pressure levels)
+vartype    = args[10]   # variable type (acc/ins for accum. or instant.)
+stat       = args[11]   # statistic ("avg" or "std")
+res        = args[12]   # lat/lon resolution for plotting
+lsigt      = args[13]   # 1=colour 2=black and white plots?
+lcol       = args[14]   # 1=colour 2=black and white plots?
+larticle   = args[15]   # 2=changes titles to a b c
+model      = args[16]   # model: 'icon' or 'ifs'
 
 
-if (interactive=0) then
-  args = arguments()
-  print("parameters: ", args)
-
-  expv1      = args[1]    # experiment ID (e.g. ecff)
-  expv2      = args[2]    # control exp ID (e.g. eawi)
-  datestr    = args[3]    # initial fc dates (e.g. 19871101/19871102)
-  yymm_start = args[4]    # first yyyymm in averaging period
-  mm_len     = args[5]    # length of averaging period in months
-  dtdata     = args[6]    # data time interval used (24. or 12.)
-  varid      = args[7]    # GRIB variable ID (e.g. BLH or 101)
-  lev        = args[8]    # level (0 for sfc variable)
-  levtype    = args[9]    # level type (sfc=surface, ml=model levels, pl=pressure levels)
-  vartype    = args[10]   # variable type (acc/ins for accum. or instant.)
-  stat       = args[11]   # statistic ("avg" or "std")
-  res        = args[12]   # lat/lon resolution for plotting
-  lsigt      = args[13]   # 1=colour 2=black and white plots?
-  lcol       = args[14]   # 1=colour 2=black and white plots?
-  larticle   = args[15]   # 2=changes titles to a b c
-  model      = args[16]   # model: 'icon' or 'ifs'
-else
-#
-# test only
-#
-  expv1      =  'ehsc'
-  expv2      =  'ehrp'
-# datestr    =  '20001001/20001002/20001003'
-  datestr    =  '20001001'
-  yymm_start =  200012
-  mm_len     =  3
-  dtdata     =  24
-  varid      =  'LCC'
-  lev        =  0
-  levtype    =  'sfc'
-  vartype    =  'ins'
-  stat       =  'avg'
-end if
 # for the case that the variable names in the model run and in the control run are different
 varidm=varid
 if (model = "icon") then
   case varid of
-     "2T"  : varidm = 500011  ;   end
-     "2D"  : varidm = 500017  ;   end
-     "SD"  : varidm = 500045  ;   end # single layer: 500045,  multi layer: 502329
-     "SST" : varidm = 500475  ;   end # ICON: T_SEA
+     "2T"  : varidm ="167.128";   end #500011
+    #"2D"  : varidm = 500017  ;   end
+     "SD"  : varidm =   3066  ;   end # single layer: 500045,  multi layer: 502329
+    #"SST" : varidm = 500475  ;   end # ICON: T_SEA
      "SKT" : varidm = 500010  ;   end # ICON: T_G
-     "10SI": varidm = 500025  ;   end
-     "10U" : varidm = 500027  ;   end
-     "10V" : varidm = 500029  ;   end
+    #"10SI": varidm = 500025  ;   end
+     "10U" : varidm ="165.129";   end #500027
+     "10V" : varidm ="166.128";   end #500029
      "TCC" : varidm = 500046  ;   end #500046 (metview4/examine/Namespace/mars)
-     "LCC" : varidm = 500098  ;   end #500048
+     "LCC" : varidm = 502343  ;   end #500048, 500098
      "MCC" : varidm = 502342  ;   end #500049
      "HCC" : varidm = 502341  ;   end #500050
-     "SSHF": varidm = 502320  ;   end
-     "SLHF": varidm = 502319  ;   end
-     "TTR" : varidm = 502323  ;   end
+    #"SSHF": varidm = 502320  ;   end
+    #"SLHF": varidm = 502319  ;   end
+    #"TTR" : varidm = 502323  ;   end
      "TSR" : varidm = 502327  ;   end
-     "STR" : varidm = 502322  ;   end
-     "SSR" : varidm = 502321  ;   end
-     "TCWV": varidm = 500038  ;   end
-     "TCLW": varidm = 500051  ;   end
-     "TCIW": varidm = 500040  ;   end
-     "TP"  : varidm = 500041  ;   end
-     "T"   : varidm = 500014  ;   end
-     "Z"   : varidm = 500006  ;   end
+    #"STR" : varidm = 502322  ;   end
+    #"SSR" : varidm = 502321  ;   end
+     "TCWV": varidm = 503058  ;   end #TQV_DIA: 503058  TQV: 260057
+     "TCLW": varidm = 503059  ;   end #TQC_DIA: 503059  TQC: 500051
+     "TCIW": varidm = 503115  ;   end #TQI_DIA: 503115  TQI: 500040
+     "TP"  : varidm = 228228  ;   end #500041
+    #"T"   : varidm = 500014  ;   end
+    #"Z"   : varidm = 500006  ;   end
      "CAPE": varidm = 500183  ;   end
     #"BLH" : varidm = 50  ;   end
       otherwise : print("Set ICON parameters!!!") ;  end
   end case
+
 end if
 
 # --- statistic
@@ -115,8 +97,8 @@ gl_area = [90,-180,-90,180]
 spec_par_tp      =["CP","LSP"]
 spec_par_tp_icon =[500137,500052,500134,500053] #[228228] [500041] ["TOT_PREC"]
 spec_par_cp      =[500137,500052]               #["RAIN_CON","SNOW_CON"]   #ICON
-spec_par_lsp     =[500134,500053]               #["RAIN_GSP","SNOW_GSP"]   #ICON
-spec_par_tcw_icon=[500038,500051,500040]
+spec_par_lsp     =["500134",500053]               #["RAIN_GSP","SNOW_GSP"]   #ICON
+spec_par_tcw_icon=[503058,503059,503115]
 spec_par_surfradn=["SSR","STR"]
 spec_par_topradn =["SSR","STR"]
 spec_par_surfnet =["SSR","STR","SLHF","SSHF"]
@@ -181,13 +163,13 @@ if vartype = "ins" then
 # --- special treatment for "total precip"
 
       case varid of 
-        "TP": 
-          #res=2.5   # fix for metview/emos porblem (no interpolation on IFS precip data!)
-           var_ctr_all=multiget(spec_par_tp     ,expv22,levtype,lev,dates,res,file_ctr)
-           var_mod_all=multiget(spec_par_tp_icon,expv1, levtype,lev,dates,res,file_mod)
-  	   unit = "[mm d<sup>-1</sup>]"
-  	  #unit = "[mm/day]"
-        end
+       #"TP": 
+       #  #res=2.5   # fix for metview/emos porblem (no interpolation on IFS precip data!)
+       #   var_ctr_all=multiget(spec_par_tp     ,expv22,levtype,lev,dates,res,file_ctr)
+       #   var_mod_all=multiget(spec_par_tp_icon,expv1, levtype,lev,dates,res,file_mod)
+       #   unit = "[mm d<sup>-1</sup>]"
+       #  #unit = "[mm/day]"
+       #end
         "SURFRADN": 
            var_ctr_all=multiget(spec_par_surfradn,expv22,levtype,lev,dates,res,file_ctr)
            var_mod_all=multiget(spec_par_surfradn,expv1, levtype,lev,dates,res,file_mod)
@@ -201,17 +183,20 @@ if vartype = "ins" then
           #unit = "[W/m2]"
         end
         "CP": 
-           var_ctr_all=multiget("CP"       ,expv22,levtype,lev,dates,res,file_ctr)
+          #var_ctr_all=multiget("CP"       ,expv22,levtype,lev,dates,res,file_ctr)    # IFS
+           var_ctr_all=multiget(spec_par_cp,expv2, levtype,lev,dates,res,file_ctr)    # ICON
            var_mod_all=multiget(spec_par_cp,expv1, levtype,lev,dates,res,file_mod)
   	   unit = "[mm d<sup>-1</sup>]"
         end
         "LSP": 
-           var_ctr_all=multiget("LSP"       ,expv22,levtype,lev,dates,res,file_ctr)
+          #var_ctr_all=multiget("LSP"       ,expv22,levtype,lev,dates,res,file_ctr)   # IFS
+           var_ctr_all=multiget(spec_par_lsp,expv2, levtype,lev,dates,res,file_ctr)   # ICON
            var_mod_all=multiget(spec_par_lsp,expv1, levtype,lev,dates,res,file_mod)
   	   unit = "[mm d<sup>-1</sup>]"
         end
         "TCW": 
-           var_ctr_all=multiget("TCW"            ,expv22,levtype,lev,dates,res,file_ctr)
+          #var_ctr_all=multiget("TCW"            ,expv22,levtype,lev,dates,res,file_ctr) # IFS
+           var_ctr_all=multiget(spec_par_tcw_icon,expv2, levtype,lev,dates,res,file_ctr) # ICON
            var_mod_all=multiget(spec_par_tcw_icon,expv1, levtype,lev,dates,res,file_mod)
   	   unit = "[mm d<sup>-1</sup>]"
         end
@@ -229,14 +214,19 @@ if vartype = "ins" then
             grid	:	[res,res],
             source	:	file_mod
             )
+          print("Read model from file: ", file_mod) 
+          print("Read level: ", lev0, " variable: ", varidm, " dates: ", dates, " resol:  ", res, "deg # flds: ", var_mod_all)
+
           var_ctr_all = read(
            #levtype	:	levtype,
             levelist	:       lev0,
-            param	:	varid,
+            param	:	varidm,
             date	:	dates,
             grid	:	[res,res],
             source	:	file_ctr
             )
+          print("Read control from file: ", file_ctr) 
+          print("Read level: ", lev0, " variable: ", varidm, " dates: ", dates, " resol: ", res, "deg # flds: ", var_ctr_all)
 
           if (varid = "SD") then
             if (search(expv1,'_') > 0) then                    # test for ICON run
@@ -812,7 +802,13 @@ function multiget(list,expver,levtype,lev,dates,res,file)
 
   for i=1 to count(list) do 
 
-	 fld = read(
+     if list[i] = '500134' then    # fix 201608 from Fernando Ii because MARS doesn't distinguish 500134 & 134
+        filetmp = tmpfile()        # temporary file that will be deleted when metview exits
+        shell("grib_copy -wparam=500134 " & file & " " & filetmp)
+     else
+        filetmp = file
+     end if
+     fld = read(
                #class	:	"rd",
 	       #type	:	"fc",
 	       #expver	:	expver,
@@ -822,13 +818,17 @@ function multiget(list,expver,levtype,lev,dates,res,file)
 		param	:	list[i],
 		date	:	dates,
 	        grid	:	[res,res],
-                source	:	file
+                source	:	filetmp
 		)
-        if i=1 then 
-          fldset=fld
-	else
-	  fldset=fldset+fld
-	end if
+     print("Read model from file: ", file) 
+     print("Read level: ", lev, " variable: ", list[i], " dates: ", dates, " resol:  ", res, "deg # flds: ", fld)
+     print("Average field value: ", average(fld))
+
+     if i=1 then 
+       fldset=fld
+     else
+       fldset=fldset+fld
+     end if
   end for
 
   return fldset

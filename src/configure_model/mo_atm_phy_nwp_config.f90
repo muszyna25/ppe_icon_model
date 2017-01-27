@@ -39,6 +39,8 @@ MODULE mo_atm_phy_nwp_config
   USE mo_les_config,          ONLY: configure_les
   USE mo_limarea_config,      ONLY: configure_latbc
 
+  USE mo_name_list_output_config, ONLY: first_output_name_list, is_variable_in_output
+
   IMPLICIT NONE
 
   PRIVATE
@@ -61,6 +63,7 @@ MODULE mo_atm_phy_nwp_config
     INTEGER ::  inwp_satad       !! saturation adjustment
     INTEGER ::  inwp_convection  !! convection
     LOGICAL ::  lshallowconv_only !! use shallow convection only
+    LOGICAL ::  ldetrain_conv_prec !! detrain convective rain and snow
     INTEGER ::  inwp_radiation   !! radiation
     INTEGER ::  inwp_sso         !! sso
     INTEGER ::  inwp_gwd         !! non-orographic gravity wave drag
@@ -102,7 +105,9 @@ MODULE mo_atm_phy_nwp_config
                                    !       are not computed in operational runs.
                                    !       lcalc_extra_avg is set to true automatically, if any of the 
                                    !       non-standard fields is specified in the output namelist.
-    
+
+    LOGICAL :: lcalc_dpsdt         ! TRUE: compute dpsdt for output even if a low message level (<= 10) is selected
+
     LOGICAL :: is_les_phy          !>TRUE is turbulence is 3D 
                                    !>FALSE otherwise
 
@@ -285,7 +290,8 @@ CONTAINS
 
     ENDDO  ! jg loop
 
-
+    atm_phy_nwp_config(1:n_dom)%lcalc_dpsdt = &
+      is_variable_in_output(first_output_name_list, var_name='ddt_pres_sfc')
 
     !Configure LES physics
     DO jg = 1, n_dom

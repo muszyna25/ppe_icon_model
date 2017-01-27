@@ -41,8 +41,8 @@ MODULE mo_ocean_testbed_modules
   USE mo_random_util,            ONLY: add_random_noise_global
   USE mo_ocean_types,            ONLY: t_hydro_ocean_state, t_operator_coeff, t_solvercoeff_singleprecision
   USE mo_hamocc_types,           ONLY: t_hamocc_state
-  USE mo_io_restart,             ONLY: create_restart_file
-  USE mo_io_restart_attributes,  ONLY: get_restart_attribute
+  USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
+  USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
   USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
@@ -77,9 +77,6 @@ MODULE mo_ocean_testbed_modules
   USE mo_ocean_physics
 
   USE mtime,                     ONLY: datetime, newDatetime, deallocateDatetime, datetimeToString, &
-       &                               timedelta, newTimedelta, deallocateTimedelta, &
-       &                               OPERATOR(+), ASSIGNMENT(=)
-  USE mtime,                     ONLY: datetime, datetimeToString, deallocateDatetime,              &
        &                               timedelta, newTimedelta, deallocateTimedelta,                &
        &                               MAX_DATETIME_STR_LEN, newDatetime,                           &
        &                               MAX_MTIME_ERROR_STR_LEN, no_error, mtime_strerror,           &
@@ -553,8 +550,9 @@ ENDIF
 
     TYPE(timedelta), POINTER :: model_time_step => NULL()
     
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & method_name = 'mo_ocean_testbed_modules:test_output'
+    CLASS(t_RestartDescriptor), POINTER :: restartDescriptor
+    CHARACTER(LEN=max_char_length), PARAMETER :: method_name = 'mo_ocean_testbed_modules:test_output'
+
     TYPE(datetime), POINTER                      :: current_date
     !------------------------------------------------------------------
     patch_2D      => patch_3d%p_patch_2d(1)
@@ -573,7 +571,7 @@ ENDIF
         CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),surface_fluxes,p_ice,hamocc_state, operators_coefficients)
       ENDIF
 
-
+    restartDescriptor => createRestartDescriptor("oce")
 
     ! timeloop
     DO jstep = (jstep0+1), (jstep0+nsteps)
@@ -656,25 +654,19 @@ ENDIF
       ! write a restart or checkpoint file
       lwrite_restart = (nsteps == INT(time_config%dt_restart/dtime))
       IF (MOD(jstep,n_checkpoints())==0 .OR. ((jstep==(jstep0+nsteps)) .AND. lwrite_restart)) THEN
-#ifdef _MTIME_DEBUG
-        ! *** TO BE DEFINED: current_date ***
-        current_date => newDatetime("1970-01-01T00:00:00")
-#endif
-        CALL create_restart_file( patch = patch_2d,       &
-          & current_date=this_datetime,      &
-          & jstep=jstep,            &
-          & model_type="oce",       &
-          & opt_nice_class=1,       &
-          & ocean_zlevels=n_zlev,                                         &
-          & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
-          & ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
-#ifdef _MTIME_DEBUG
-        CALL deallocateDatetime(current_date)
-#endif
-      END IF
 
+          CALL restartDescriptor%updatePatch(patch_2d, &
+                                            &opt_nice_class=1, &
+                                            &opt_ocean_zlevels=n_zlev, &
+                                            &opt_ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:), &
+                                            &opt_ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+          CALL restartDescriptor%writeRestart(this_datetime, jstep)
+
+        END IF
     END DO
-    
+
+    CALL deleteRestartDescriptor(restartDescriptor)
+
     CALL timer_stop(timer_total)
   END SUBROUTINE test_output
 
@@ -723,7 +715,9 @@ ENDIF
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: dstring
     CHARACTER(len=MAX_MTIME_ERROR_STR_LEN):: errstring
-    
+
+    CLASS(t_RestartDescriptor), POINTER :: restartDescriptor
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
     TYPE(datetime), POINTER               :: current_date
     !------------------------------------------------------------------
     patch_2D      => patch_3d%p_patch_2d(1)
@@ -734,9 +728,10 @@ ENDIF
     jg = n_dom
 
     jstep0 = 0
-    IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
+    restartAttributes => getAttributesForRestarting()
+    IF (ASSOCIATED(restartAttributes)) THEN
       ! get start counter for time loop from restart file:
-      CALL get_restart_attribute("jstep", jstep0)
+      jstep0 = restartAttributes%getInteger("jstep")
     END IF
     IF (isRestart() .AND. mod(nold(jg),2) /=1 ) THEN
       ! swap the g_n and g_nm1
@@ -752,7 +747,7 @@ ENDIF
     eventEndDate   => time_config%tc_exp_stopdate
 
     ! use start/end setup from the restart
-    IF (isRestart() .AND. time_config%is_relative_time) THEN
+    IF (isRestart()) THEN
       eventRefDate   => time_config%tc_startdate
       eventStartDate => time_config%tc_startdate
       eventEndDate   => time_config%tc_stopdate
@@ -806,6 +801,8 @@ ENDIF
     !------------------------------------------------------------------
     CALL timer_start(timer_total)
 
+    restartDescriptor => createRestartDescriptor("oce")
+    
     jstep = jstep0
     TIME_LOOP: DO 
 
@@ -939,28 +936,25 @@ ENDIF
       ! write a restart or checkpoint file
 !      IF (MOD(jstep,n_checkpoints())==0) THEN
       IF (lwrite_checkpoint) THEN
-        CALL create_restart_file( patch = patch_2d,       &
-             & current_date=mtime_current, &
-             & jstep=jstep,            &
-             & model_type="oce",       &
-             & opt_nice_class=1,       &
-             & ocean_zlevels=n_zlev,                                         &
-             & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
-             & ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+          CALL restartDescriptor%updatePatch(patch_2d, &
+               &                             opt_nice_class=1, &
+               &                             opt_ocean_zlevels=n_zlev, &
+               &                             opt_ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:), &
+               &                             opt_ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+          CALL restartDescriptor%writeRestart(mtime_current, jstep)
       END IF
 
 
     ENDDO time_loop
     
-    IF (write_last_restart .and. .not. lwrite_checkpoint) &
-        & CALL create_restart_file( patch = patch_2d,       &
-        & current_date=mtime_current, &
-        & jstep=jstep-1,          &
-        & model_type="oce",       &
-        & opt_nice_class=1,       &
-        & ocean_zlevels=n_zlev,                                         &
-        & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
-        & ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+    IF (write_last_restart .and. .not. lwrite_checkpoint) THEN
+      CALL restartDescriptor%updatePatch(patch_2d, &
+           &                             opt_nice_class=1, &
+           &                             opt_ocean_zlevels=n_zlev, &
+           &                             opt_ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:), &
+           &                             opt_ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+      CALL restartDescriptor%writeRestart(mtime_current, jstep)
+    END IF
   
     CALL timer_stop(timer_total)
   END SUBROUTINE test_events

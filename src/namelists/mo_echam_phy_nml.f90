@@ -31,7 +31,7 @@ MODULE mo_echam_phy_nml
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_master_control,     ONLY: use_restart_namelists
-  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &
+  USE mo_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
@@ -53,6 +53,8 @@ MODULE mo_echam_phy_nml
   LOGICAL  :: lssodrag   !< .true. for subgrid scale orographic drag,
                          !< by blocking and gravity waves (lgwdrag in ECHAM6)
   LOGICAL  :: lgw_hines  !< .true. for atmospheric gravity wave drag
+  LOGICAL  :: lcariolle  !< .true. for Cariolle ozone scheme (you need a
+                         !< transported ozone tracer then!)
   LOGICAL  :: lmlo       !< .true. for mixed layer ocean
   LOGICAL  :: lice       !< .true. for sea-ice temperature calculation
   LOGICAL  :: ljsbach    !< .true. for calculating the JSBACH land surface
@@ -64,6 +66,7 @@ MODULE mo_echam_phy_nml
     &                      lrad, dt_rad, lvdiff,    &
     &                      lconv, lcond,            &
     &                      lssodrag, lgw_hines,     &
+    &                      lcariolle,               &
     &                      lmlo, lice, ljsbach,     &
     &                      lamip, lebudget
 
@@ -90,6 +93,7 @@ CONTAINS
     lcond     = .TRUE.
     lssodrag  = .TRUE.
     lgw_hines = .TRUE.
+    lcariolle = .FALSE.
     lmlo      = .FALSE.
     lice      = .FALSE.
     ljsbach   = .FALSE.
@@ -156,6 +160,7 @@ CONTAINS
     echam_phy_config% lcond     = lcond                                               
     echam_phy_config% lssodrag  = lssodrag                                            
     echam_phy_config% lgw_hines = lgw_hines                                           
+    echam_phy_config% lcariolle = lcariolle
     echam_phy_config% lmlo      = lmlo                                                
     echam_phy_config% lice      = lice                                                
     echam_phy_config% ljsbach   = ljsbach

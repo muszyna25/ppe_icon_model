@@ -32,11 +32,8 @@ echo "Arguments: inidate="${inidate}" initime="${initime}" verdate="${verdate}" 
 scriptdir="./"
 cd ${scriptdir}
 
-#metview=metview4
-#metview=metview4_old
-#metview=metview4_new
-metview=metview4_dev
-#metview=/usr/local/apps/Metview/metview4_expt
+metview=metview
+#metview=/usr/local/apps/Metview/metview4_dev
 
 met_job=met.job.all.$nstart
 \rm -rf $met_job
@@ -116,7 +113,7 @@ while [[ $nt < ${#inidate[*]} ]]; do
   
   # -------------------------------------------------------
   	
-  set -A vars T  U  V  Q1  Q2  Q3  QV  QC  QI  CC  P  QR  QS QTVAR #QR QS  QTVAR  O3  P               
+  set -A vars T  U  V  Q1  Q2  Q3  QV  QC  QI  CC  P  QR  QS QTVAR EXTRA3D1 EXTRA3D2 #QR QS  QTVAR  O3  P               
   for var in ${vars[*]}
   do
     echo ${metview} -b ${scriptdir}zonal.error $expnum $expref $var ml diff     ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job

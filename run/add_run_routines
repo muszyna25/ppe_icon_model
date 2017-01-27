@@ -76,6 +76,10 @@ add_link_file()
 {
   in_name=$1
   new_name=$2
+  if [[ -d "$new_name" ]] ; then
+    #In case the new_name is a directory, append the file name to the directory to form the effective path.
+    new_name="${new_name%/}/${in_name##*/}"
+  fi
   
   input_linked_file[$number_of_linked_files]=$in_name
   output_linked_file[$number_of_linked_files]=$new_name  

@@ -16,9 +16,6 @@ AC_PREREQ(2.59)
 dnl ######################################################################
 dnl basic package definitions (by default ICON)
 package="ICON"
-if test -r "./config/set-up" ; then
-. ./config/set-up
-fi
 
 dnl Checks for package options.
 dnl ######################################################################
@@ -58,19 +55,17 @@ AC_ARG_ENABLE([testbed],
               AS_HELP_STRING([--enable-testbed],[Use testbed component.]),
               [],[enable_testbed=no])
 
+dnl ######################################################################
+
 AC_ARG_WITH([fortran],
   [AS_HELP_STRING([--with-fortran=COMPILER],
     [select_available compiler (see README.compiler)])],
   [],
   [])
 
-
-if test x$with_fortran != x; then
-    fortran_compiler=$with_fortran
-else
-    fortran_compiler="default"
-fi
-make_command="make"
+AS_IF([test -n "$with_fortran"],
+      [fortran_compiler=$with_fortran],
+      [fortran_compiler="default"])
 
 AC_ARG_WITH([openmp],
   [AS_HELP_STRING([--with-openmp],
@@ -84,11 +79,9 @@ AC_ARG_WITH([setup],
     [],
     [])
 
-if test x$with_setup != x ; then
-  mh_setup=$with_setup
-else
-  mh_setup=""            
-fi
+AS_IF([test x$with_setup != x],
+      [mh_setup=$with_setup],
+      [mh_setup=""])
 
 AC_ARG_WITH([yac],
   [AS_HELP_STRING([--with-yac],
@@ -126,22 +119,14 @@ AS_IF([test "x$with_art" = "xyes"],
       [use_art="yes"],
       [use_art="no"])
 
-case $host in
-  i*86-*-linux-*)  
-    if test x$fortran_compiler != xintel ; then
-      gcc_lib="$(gcc -print-libgcc-file-name)"
-    fi
-    ;;
-  *)               
-    gcc_lib=""                               
-    ;;
-esac
-
-
+AS_CASE([$host],
+        [i*86-*-linux-*],
+        [AS_IF([test x$fortran_compiler != xintel],
+               [gcc_lib="$(gcc -print-libgcc-file-name)"],
+               [gcc_lib=""])],
+        [gcc_lib=""])                               
 
 dnl ######################################################################
-
-AC_PROG_AWK
 
 AS_CASE([$ac_hostname],
         [wizard*],
@@ -232,6 +217,9 @@ if test -f config/mh-override ; then
 fi
 host_frag=config/mh-config-use
 #------------------------------------
+
+# set default
+make_command="make"
 
 AC_GET_MH($host_frag)
 
@@ -672,6 +660,48 @@ AS_IF(
 export CDIROOT	#inform config/createMakefiles.pl whether it should include cdilib.c in the support/Makefile .
 
 dnl ######################################################################
+dnl Checks for grib_api.
+
+GRIBAPI_LIB=""
+GRIBAPI_INCLUDE=""
+
+AC_ARG_WITH([grib_api],
+            [AC_HELP_STRING([--with-grib_api=DIR],
+                            [Optional GRIB2 package])],
+                            [],
+                            with_grib_api=yes)
+
+AS_CASE([$with_grib_api],
+        [no],
+        [AC_MSG_CHECKING([for grib_api library])
+         AC_MSG_RESULT([suppressed])],
+        [yes],
+        [#AC_CHECK_FILE($GRIBAPIROOT/lib/libgrib_api.a,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
+         AC_CHECK_FILE($GRIBAPIROOT/include/grib_api.h,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h]))],
+        [GRIBAPIROOT=$with_grib_api
+         #AC_CHECK_FILE($GRIBAPIROOT/lib/libgrib_api.a,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
+         AC_CHECK_FILE($GRIBAPIROOT/include/grib_api.h,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h]))])
+
+AS_IF([test -n "$GRIBAPIROOT"],
+      [AS_IF([test -r "$GRIBAPIROOT/lib/libgrib_api.a" || test -r "$GRIBAPIROOT/lib/libgrib_api.dylib"],
+             [GRIBAPI_LIB='-L$(GRIBAPIROOT)/lib -lgrib_api'],
+             [AC_MSG_ERROR([cannot read $GRIBAPIROOT/lib/libgrib_api.a])])
+       AS_IF([test -d "$GRIBAPIROOT/include"],
+             [GRIBAPI_INCLUDE='-I$(GRIBAPIROOT)/include'],
+             [AC_MSG_ERROR([cannot find $GRIBAPIROOT/include])])  
+       FFLAGS="${FFLAGS} ${DEFOPT}HAVE_LIBGRIB ${DEFOPT}HAVE_LIBGRIB_API"
+       CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_LIBGRIB ${DEFCOPT}HAVE_LIBGRIB_API"
+       AS_CASE([$ac_hostname],
+               [mlogin*|btc*],
+               [AS_CASE([$FC],
+                        [nagfor],
+                        [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
+                        [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])],
+               [])],
+      [])
+
+        
+dnl ######################################################################
 dnl Checks for SCT.
 
 SCT_LIB=""
@@ -782,7 +812,7 @@ AS_IF([test x"$with_mpi" = xno],
    MPIROOT=""
    use_mpcc_r=no],
   [AS_IF([test "x$with_mpi" != x -a x"$with_mpi" != xyes -a x"$with_mpi" != xno],
-    [MPIROOT=$with_mpi])
+    [MPIROOT=${MPIROOT:-$with_mpi}])
    AS_IF([test x"$MPIROOT" != x],
     [AC_CHECK_FILE([$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h],,[AC_MSG_ERROR([MPIROOT not properly defined])])
     case $host in
@@ -816,7 +846,10 @@ AS_IF([test x"$with_mpi" = xno],
                 [gfortran],
                 [vers=$(gfortran --version | $AWK 'NR==1{print $4}')
                  mod_file=$(find $real_path/include/gfortran/$vers -name mpi.mod -print | $AWK 'NR==1')],
-                [mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | $AWK 'NR==1')])
+                [pgfortran],
+                [vers=$(pgfortran --version | $AWK 'NR==2{print $2}' | cut -d. -f1)
+                 mod_file=$(find $real_path/include/pgfortran -name mpi.mod -print | $AWK 'NR==1')],
+                [mod_file=$(find $real_path -not \( -path *gfortran/* -prune \) -not \( -path *ilp64* -prune \) -name mpi.mod -print | $AWK 'NR==1')])
         ;;      
       *)
         mod_file=$(find $real_path -name mpi.mod -print | $AWK 'NR==1')
@@ -1051,6 +1084,10 @@ AC_SUBST(ZLIBROOT,$ZLIBROOT)
 AC_SUBST(ZLIB_LIB,$ZLIB_LIB)
 AC_SUBST(ZLIB_INCLUDE,$ZLIB_INCLUDE)
 
+AC_SUBST(GRIBAPIROOT,$GRIBAPIROOT)
+AC_SUBST(GRIBAPI_LIB,$GRIBAPI_LIB)
+AC_SUBST(GRIBAPI_INCLUDE,$GRIBAPI_INCLUDE)
+
 AC_SUBST(XML2ROOT,$XML2ROOT)
 AC_SUBST(XML2_LIB,$XML2_LIB)
 AC_SUBST(XML2_INCLUDE,$XML2_INCLUDE)
@@ -1151,7 +1188,7 @@ case $host in
       ;;
     pgi)
       f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==2')
-      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==2')
       ;;
     sun)
       f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1' | cut -f2- -d" ")
@@ -1281,14 +1318,14 @@ fi
 # general command for running a progmam
 if test "x$mpi_startrun" = "x" ; then
   if  test "x$MPIROOT" = "x" ; then
-    mpi_startrun="mpiexec -n \\\$mpi_total_procs"
+    mpi_startrun="mpiexec -n \$mpi_total_procs"
   else
-    mpi_startrun="$MPIROOT/bin/mpiexec -n \\\$mpi_total_procs"
+    mpi_startrun="$MPIROOT/bin/mpiexec -n \$mpi_total_procs"
   fi
 fi
 
 sync_submit=${sync_submit:=$submit}
-dnl
+
 AC_CONFIG_COMMANDS([Makefiles],[
 config/createMakefiles.pl --target="$build_host" \
   --srcdirs="${my_srcdirs}" \
@@ -1302,76 +1339,27 @@ enable_ocean="${enable_ocean}"
 enable_atmo="${enable_atmo}"
 enable_jsbach="${enable_jsbach}"
 enable_testbed="${enable_testbed}"])
-dnl
-dnl
-AC_CONFIG_COMMANDS([config/set-up.info],[
-echo Creating set-up.info... >&2
-cat > config/set-up.info << EOF
-#############################
-# set-up.info created by configure
-# do not modify this file
-#############################
-use_site='${use_site}'
-use_target='${use_target}'
-use_compiler='${use_compiler}'
-use_mpi='${use_mpi}'
-use_openmp='${use_openmp}'
-use_builddir='${use_builddir}'
-use_mpi_root='${use_mpi_root}'
-use_mpi_procs_pernode='${use_mpi_procs_pernode}'
-use_mpi_startrun='${use_mpi_startrun}'
-use_load_modules='${use_load_modules}'
-use_load_profile='${use_load_profile}'
-use_netcdflibpath='${use_netcdflibpath}'
-use_cdilibpath='${use_cdilibpath}'
-use_make_command='${use_make_command}'
-use_submit='${use_submit}'
-use_sync_submit='${use_sync_submit}'
-use_shell='${use_shell}'
-use_flags_group='${use_flags_group}'
-#############################
-EOF
-],[use_site="${ac_sitename}"
-use_target="${config_target}"
-use_compiler="${config_compiler}"
-use_mpi="${use_mpi}"
-use_openmp="${use_openmp}"
-use_builddir="build/${build_host}"
-use_mpi_root="${MPIROOT}"
-use_mpi_procs_pernode="${use_mpi_procs_pernode}"
-use_mpi_startrun="${mpi_startrun}"
-use_load_modules="$load_modules"
-use_load_profile="$load_profile"
-use_netcdflibpath="$NETCDFLIBPATH"
-use_cdilibpath="$CDILIBPATH"
-use_make_command="$make_command"
-use_submit="$submit"
-use_sync_submit="$sync_submit"
-use_shell="$use_shell"
-use_flags_group="$use_flags_group"])
 
-AC_CONFIG_COMMANDS([build_command],[
-echo Creating the build_command... >&2
-exec 8>build_command
-echo "@%:@! ${SHELL}" >&8
-echo "$load_profile" >&8
-if test "x$load_modules" != x; then
-   echo module purge >&8
-   echo module load "$load_modules" >&8
-   echo module list >&8
-fi
-if test "x${config_target}" = "xblizzard" ; then
-   echo "export LDR_CNTRL=MAXDATA=0xD0000000@DSA"  >&8
-fi
-echo "$make_command" >&8
-echo "exit \$?" >&8
-exec 8>-
-chmod +x build_command
-],[load_profile="$load_profile"
-load_modules="$load_modules"
-make_command="$make_command"
-config_target="$config_target"
-])
+AC_SUBST(config_target,$config_target)
+AC_SUBST(config_compiler,$config_compiler)
+AC_SUBST(load_modules,$load_modules)
+AC_SUBST(make_command,$make_command)
+
+AC_CONFIG_FILES([build_command:config/build_command.in],[chmod +x build_command])
+
+AC_SUBST(ac_sitename,$ac_sitename)      
+AC_SUBST(use_mpi,$use_mpi)                  
+AC_SUBST(use_openmp,$use_openmp)               
+AC_SUBST(build_host,$build_host)               
+AC_SUBST(use_mpi_procs_pernode,$use_mpi_procs_pernode)    
+AC_SUBST(mpi_startrun,$mpi_startrun)             
+AC_SUBST(load_profile,$load_profile)             
+AC_SUBST(submit,$submit)                   
+AC_SUBST(sync_submit,$sync_submit)              
+AC_SUBST(use_shell,$use_shell)                
+AC_SUBST(use_flags_group,$use_flags_group)          
+
+AC_CONFIG_FILES([config/set-up.info])
 
 #echo Creating the run scripts...
 #if test -f ./make_runscripts ; then
@@ -1379,11 +1367,9 @@ config_target="$config_target"
 #fi
 AC_OUTPUT
 
-#############################
 echo ""
 cat config/set-up.info
 echo ""
-#############################
 
 echo ""
 echo "Configuration done. Run GNU make to build ICON."

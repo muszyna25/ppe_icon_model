@@ -8,11 +8,6 @@
 !! Major changes: F. Prill, DWD (2012-2013)
 !! A-priori calculation of output step events: F. Prill, DWD (10/2013)
 !!
-!! Define USE_CRAY_POINTER for platforms having problems with ISO_C_BINDING
-!! BUT understand CRAY pointers
-!!
-!!   #define USE_CRAY_POINTER
-!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -23,10 +18,7 @@
 !!
 MODULE mo_name_list_output_init
 
-#ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer, c_int64_t
-#endif
-! USE_CRAY_POINTER
 
   ! constants and global settings
   USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate, cdiEncodeDate,          &
@@ -71,7 +63,7 @@ MODULE mo_name_list_output_init
     &                                             tolower, int2string, difference,                &
     &                                             sort_and_compress_list, real2string
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
-  USE mo_io_restart_attributes,             ONLY: get_restart_attribute
+  USE mo_restart_attributes,                ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
   USE mo_math_utilities,                    ONLY: merge_values_into_set
   ! config modules
@@ -136,6 +128,7 @@ MODULE mo_name_list_output_init
     &                                             getTotalMilliSecondsTimeDelta, datetime,        &
     &                                             OPERATOR(+), datetimeToString, OPERATOR(>),     &
     &                                             timedeltaToString, calendarType,                &
+    &                                             getPTStringFromSeconds,                         &
     &                                             mtime_proleptic_gregorian => proleptic_gregorian, &
     &                                             mtime_year_of_360_days => year_of_360_days
   USE mo_output_event_types,                ONLY: t_sim_step_info, MAX_EVENT_NAME_STR_LEN,        &
@@ -193,11 +186,6 @@ MODULE mo_name_list_output_init
   PUBLIC :: init_name_list_output
   PUBLIC :: setup_output_vlist
   PUBLIC :: collect_requested_ipz_levels
-#ifdef USE_CRAY_POINTER
-  PUBLIC :: set_mem_ptr_sp
-  PUBLIC :: set_mem_ptr_dp
-#endif
-
 
   !------------------------------------------------------------------------------------------------
 
@@ -1002,7 +990,7 @@ CONTAINS
     TYPE(datetime),            POINTER   :: mtime_datetime, mtime_datetime_start,              &
       &                                     mtime_datetime_end, mtime_date1, mtime_date2,      &
       &                                     mtime_date
-    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: lower_bound_str
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: lower_bound_str, time_offset_str
     CHARACTER(len=MAX_CHAR_LENGTH)       :: attname                        !< attribute name
     CHARACTER(len=MAX_CHAR_LENGTH)       :: proc_list_str                  !< string (unoccupied I/O ranks)
     LOGICAL                              :: occupied_pes(MAX_NUM_IO_PROCS) !< explicitly placed I/O ranks
@@ -1014,6 +1002,7 @@ CONTAINS
     INTEGER                              :: idx, istart, iintvl,  nintvls
     INTEGER(c_int64_t)                   :: total_ms
     LOGICAL                              :: include_last
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
     CHARACTER(LEN=max_char_length)       :: comp_name
 #endif
@@ -1645,11 +1634,12 @@ CONTAINS
         fname_metadata%extn                     = TRIM(p_onl%filename_extn)
       END IF
 
-      IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
+      restartAttributes => getAttributesForRestarting()
+      IF (ASSOCIATED(restartAttributes)) THEN
         ! Restart case: Get starting index of ouput from restart file
         !               (if there is such an attribute available).
         WRITE(attname,'(a,i2.2)') 'output_jfile_',i
-        CALL get_restart_attribute(TRIM(attname), fname_metadata%jfile_offset, opt_default=0)
+        fname_metadata%jfile_offset = restartAttributes%getInteger(TRIM(attname), opt_default=0)
       ELSE
         fname_metadata%jfile_offset             = 0
       END IF
@@ -1657,7 +1647,8 @@ CONTAINS
       ! set model domain start/end time
       dom_sim_step_info = sim_step_info
       mtime_date => newDatetime(time_config%tc_startdate)
-      mtime_td   => newTimedelta("PT"//TRIM(int2string(NINT(start_time(p_of%log_patch_id)),'(i0)'))//"S")
+      CALL getPTStringFromSeconds(NINT(start_time(p_of%log_patch_id),i8), time_offset_str)
+      mtime_td   => newTimedelta(time_offset_str)
       mtime_date = mtime_date + mtime_td
       CALL datetimeToString(mtime_date, dom_sim_step_info%dom_start_time)
       CALL deallocateDatetime(mtime_date)
@@ -1665,7 +1656,8 @@ CONTAINS
 
       IF (end_time(p_of%log_patch_id) < DEFAULT_ENDTIME) THEN
         mtime_date => newDatetime(time_config%tc_startdate)
-        mtime_td   => newTimedelta("PT"//TRIM(int2string(NINT(end_time(p_of%log_patch_id)),'(i0)'))//"S")
+        CALL getPTStringFromSeconds(NINT(end_time(p_of%log_patch_id),i8), time_offset_str)        
+        mtime_td   => newTimedelta(time_offset_str)
         mtime_date = mtime_date + mtime_td
         CALL datetimeToString(mtime_date, dom_sim_step_info%dom_end_time)
         CALL deallocateDatetime(mtime_date)
@@ -1908,7 +1900,7 @@ CONTAINS
           IF(element%field%info%lcontainer) CYCLE
 
           ! get time level
-          tl = get_var_timelevel(element%field)
+          tl = get_var_timelevel(element%field%info)
 
           ! Check for matching name
           IF(tolower(varlist(ivar)) /= tolower(get_var_name(element%field))) CYCLE
@@ -2314,24 +2306,6 @@ CONTAINS
     END IF
   END SUBROUTINE set_reorder_info_lonlat
 #endif
-
-#ifdef USE_CRAY_POINTER
-  !------------------------------------------------------------------------------------------------
-  ! Helper routines for setting mem_ptr with the correct size information
-
-  SUBROUTINE set_mem_ptr_sp(arr, len)
-    INTEGER          :: len
-    REAL(sp), TARGET :: arr(len)
-    mem_ptr_sp => arr
-  END SUBROUTINE set_mem_ptr_sp
-  !------------------------------------------------------------------------------------------------
-  SUBROUTINE set_mem_ptr_dp(arr, len)
-    INTEGER          :: len
-    REAL(dp), TARGET :: arr(len)
-    mem_ptr_dp => arr
-  END SUBROUTINE set_mem_ptr_dp
-#endif
-! USE_CRAY_POINTER
 
   !------------------------------------------------------------------------------------------------
   !> Sets up the vlist for a t_output_file structure
@@ -3192,12 +3166,7 @@ CONTAINS
       ENDDO ! vars
 
       ! allocate amount of memory needed with MPI_Alloc_mem
-#ifdef USE_CRAY_POINTER
-      CALL allocate_mem_cray(mem_size, output_file(i))
-#else
       CALL allocate_mem_noncray(mem_size, output_file(i))
-#endif
-      ! USE_CRAY_POINTER
 
       ! allocate memory window for meta-info communication between
       ! PE#0 and the I/O PEs:
@@ -3207,73 +3176,6 @@ CONTAINS
 
   END SUBROUTINE init_memory_window
 
-
-#ifdef USE_CRAY_POINTER
-  !------------------------------------------------------------------------------------------------
-  !> allocate amount of memory needed with MPI_Alloc_mem
-  !
-  !  @note Implementation for Cray pointers
-  !
-  SUBROUTINE allocate_mem_cray(mem_size, of)
-#ifdef __SUNPRO_F95
-    INCLUDE "mpif.h"
-#else
-    USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL
-#endif
-! __SUNPRO_F95
-
-    INTEGER (KIND=MPI_ADDRESS_KIND), INTENT(IN)    :: mem_size
-    TYPE (t_output_file),            INTENT(INOUT) :: of
-    ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_mem_cray"
-    INTEGER (KIND=MPI_ADDRESS_KIND) :: iptr
-    REAL(sp)                        :: tmp_sp
-    REAL(dp)                        :: tmp_dp
-    INTEGER                         :: mpierr
-    INTEGER                         :: nbytes_real
-    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes
-    POINTER(tmp_ptr_sp,tmp_sp(*))
-    POINTER(tmp_ptr_dp,tmp_dp(*))
-
-    ! Get the amount of bytes per REAL*8 or REAL*4 variable (as used in MPI
-    ! communication)
-    IF (use_dp_mpi2io) THEN
-      CALL MPI_Type_extent(p_real_dp, nbytes_real, mpierr)
-    ELSE
-      CALL MPI_Type_extent(p_real_sp, nbytes_real, mpierr)
-    ENDIF
-
-    ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
-    mem_bytes = MAX(mem_size,1_i8)*INT(nbytes_real,i8)
-
-    CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, iptr, mpierr)
-
-    IF (use_dp_mpi2io) THEN
-      tmp_ptr_dp = iptr
-      CALL set_mem_ptr_dp(tmp_dp, INT(mem_size))
-    ELSE
-      tmp_ptr_sp = iptr
-      CALL set_mem_ptr_sp(tmp_sp, INT(mem_size))
-    ENDIF
-
-    ! Create memory window for communication
-    IF (use_dp_mpi2io) THEN
-      of%mem_win%mem_ptr_dp(:) = 0._dp
-      CALL MPI_Win_create( of%mem_win%mem_ptr_dp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
-        &                  p_comm_work_io,of%mem_win%mpi_win,mpierr )
-    ELSE
-      of%mem_win%mem_ptr_sp(:) = 0._sp
-      CALL MPI_Win_create( of%mem_win%mem_ptr_sp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
-        &                  p_comm_work_io,of%mem_win%mpi_win,mpierr )
-    ENDIF
-    IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
-
-  END SUBROUTINE allocate_mem_cray
-#endif
-! USE_CRAY_POINTER
-
-
-#ifndef USE_CRAY_POINTER
   !------------------------------------------------------------------------------------------------
   !> allocate amount of memory needed with MPI_Alloc_mem
   !
@@ -3348,8 +3250,6 @@ CONTAINS
     ENDIF ! use_dp_mpi2io
 
   END SUBROUTINE allocate_mem_noncray
-#endif
-! .not. USE_CRAY_POINTER
 
 #endif
 ! NOMPI

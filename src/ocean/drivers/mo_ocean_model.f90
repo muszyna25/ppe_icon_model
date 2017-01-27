@@ -99,8 +99,8 @@ MODULE mo_ocean_model
 
   USE mo_alloc_patches,       ONLY: destruct_patches
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
-  USE mo_io_restart,          ONLY: read_restart_header, read_restart_files
-  USE mo_io_restart_attributes,ONLY: get_restart_attribute
+  USE mo_load_restart,         ONLY: read_restart_header, read_restart_files
+  USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_ocean_patch_setup,     ONLY: complete_ocean_patch
   USE mo_time_config,         ONLY: time_config
   USE mo_icon_comm_interface, ONLY: construct_icon_communication, destruct_icon_communication
@@ -150,6 +150,7 @@ MODULE mo_ocean_model
       INTEGER                             :: jg
       TYPE(t_sim_step_info)               :: sim_step_info
       INTEGER                             :: jstep0
+      TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
 
       !-------------------------------------------------------------------
@@ -199,9 +200,12 @@ MODULE mo_ocean_model
 
       sim_step_info%dtime      = dtime
       jstep0 = 0
-      IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
+
+      restartAttributes => getAttributesForRestarting()
+      IF (ASSOCIATED(restartAttributes)) THEN
+
         ! get start counter for time loop from restart file:
-        CALL get_restart_attribute("jstep", jstep0)
+        jstep0 = restartAttributes%getInteger("jstep")
       END IF
       sim_step_info%jstep0    = jstep0
       CALL init_mean_stream(ocean_patch_3d%p_patch_2d(1))
@@ -579,6 +583,7 @@ MODULE mo_ocean_model
 
     TYPE(t_sim_step_info)   :: sim_step_info
     INTEGER                 :: jstep0
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
     CHARACTER(LEN=*), PARAMETER :: &
       & method_name = 'mo_ocean_model:init_io_processes'
     
@@ -617,9 +622,12 @@ MODULE mo_ocean_model
 
         sim_step_info%dtime      = dtime
         jstep0 = 0
-        IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
+
+        restartAttributes => getAttributesForRestarting()
+        IF (ASSOCIATED(restartAttributes)) THEN
+
           ! get start counter for time loop from restart file:
-          CALL get_restart_attribute("jstep", jstep0)
+          jstep0 = restartAttributes%getInteger("jstep")
         END IF
         sim_step_info%jstep0    = jstep0
 !         CALL name_list_io_main_proc(sim_step_info, isample=1)

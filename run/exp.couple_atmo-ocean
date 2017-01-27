@@ -507,22 +507,20 @@ cat >> ${atmo_namelist} << EOF
  file_interval    = "${atmo_file_interval}"          ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'ps','psl',
-                    'cosmu0'  , 'rsdt'    ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
-                    'ts'      , 'ts_rad'  ,
-                    'visdffsfc','nirdffsfc','vissfc'  , 'nirsfc'  ,
+                    'cosmu0'  ,
+                    'rsdt'    ,
+                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'
+                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'
+                    'rsus'    , 'rsuscs'  , 'rlus'    ,
+                    'ts'      ,
                     'albedo'  ,
-                    'albvisdir','albvisdif' , 'albnirdir' , 'albnirdif',
                     'clt'     ,
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
                     'tauu'    , 'tauv'    ,
-                    'sh_vdiff', 'qv_vdiff',
-                    'ch_concloud',
-                    'con_dtrl', 'con_dtri', 'con_iteqv',
-                    'cld_dtrl', 'cld_dtri', 'cld_iteq',
-                    'rintop',   'rtype',    'topmax'
+                    'sfcwind' , 'uas'     , 'vas'     ,
+                    'tas'     , 'dew2'
 /
 &output_nml
  output_filename  = "${EXPNAME}_3d"
@@ -747,7 +745,7 @@ add_required_file ${thisdir}/${atmo_namelist} ./
 #
 # - ozone
 ozone_file="ape_o3_iconR2B04-ocean_aqua_planet.nc"
-add_required_file ${basedir}/data/external/ape_ozone/$ozone_file ./o3_icon_DOM01.nc
+add_required_file ${icon_data_poolFolder}/external/ape_ozone/$ozone_file ./o3_icon_DOM01.nc
 #
 # dictionary for variable names
 # -----------------------------

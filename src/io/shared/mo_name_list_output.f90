@@ -18,10 +18,6 @@
 !!        clear that this does not pertain to a FORTRAN namelist but rather
 !!        to a list of names of output variables
 !!
-!! Define USE_CRAY_POINTER for platforms having problems with ISO_C_BINDING
-!! BUT understand CRAY pointers
-!!   #define USE_CRAY_POINTER
-!!
 !! -------------------------------------------------------------------------
 !!
 !! The "namelist_output" module was originally written by Rainer
@@ -239,6 +235,8 @@ CONTAINS
           of%cdiTaxisID      = of%cdiTaxisID_orig
           of%cdiTaxisID_orig = CDI_UNDEFID
         ENDIF
+        ! file to append to does not exist that means we can use the name without part trailer
+        filename = filename_for_append
         of%cdiFileID       = streamOpenWrite(TRIM(filename), of%output_type)
         of%appending       = .FALSE.
       ENDIF

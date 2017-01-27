@@ -626,6 +626,21 @@ ac_includes_default="\
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+use_flags_group
+use_shell
+sync_submit
+submit
+load_profile
+mpi_startrun
+use_mpi_procs_pernode
+build_host
+use_openmp
+use_mpi
+ac_sitename
+make_command
+load_modules
+config_compiler
+config_target
 OBJDIRS
 SRCDIRS
 MODDIR
@@ -652,6 +667,9 @@ SCTROOT
 XML2_INCLUDE
 XML2_LIB
 XML2ROOT
+GRIBAPI_INCLUDE
+GRIBAPI_LIB
+GRIBAPIROOT
 ZLIB_INCLUDE
 ZLIB_LIB
 ZLIBROOT
@@ -761,6 +779,7 @@ with_szip
 with_hdf5
 with_netcdf
 with_cdi
+with_grib_api
 with_sct
 with_sctlibs
 with_mpi
@@ -1415,6 +1434,7 @@ Optional Packages:
   --with-hdf5=DIR         Required I/O package
   --with-netcdf=DIR       Required I/O package
   --with-cdi=DIR          Required I/O package
+  --with-grib_api=DIR     Optional GRIB2 package
   --with-sct=DIR          Optional SCT timer package
   --with-sctlibs=PATHS    Optional libs needed for SCT
   --with-mpi=DIR          MPI library
@@ -2178,9 +2198,6 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 package="ICON"
-if test -r "./config/set-up" ; then
-. ./config/set-up
-fi
 
 
 
@@ -2468,19 +2485,18 @@ fi
 
 
 
+
 # Check whether --with-fortran was given.
 if test "${with_fortran+set}" = set; then :
   withval=$with_fortran;
 fi
 
 
-
-if test x$with_fortran != x; then
-    fortran_compiler=$with_fortran
+if test -n "$with_fortran"; then :
+  fortran_compiler=$with_fortran
 else
-    fortran_compiler="default"
+  fortran_compiler="default"
 fi
-make_command="make"
 
 
 # Check whether --with-openmp was given.
@@ -2496,7 +2512,7 @@ if test "${with_setup+set}" = set; then :
 fi
 
 
-if test x$with_setup != x ; then
+if test x$with_setup != x; then :
   mh_setup=$with_setup
 else
   mh_setup=""
@@ -2548,61 +2564,16 @@ else
   use_art="no"
 fi
 
-case $host in
-  i*86-*-linux-*)
-    if test x$fortran_compiler != xintel ; then
-      gcc_lib="$(gcc -print-libgcc-file-name)"
-    fi
-    ;;
-  *)
-    gcc_lib=""
-    ;;
+case $host in #(
+  i*86-*-linux-*) :
+    if test x$fortran_compiler != xintel; then :
+  gcc_lib="$(gcc -print-libgcc-file-name)"
+else
+  gcc_lib=""
+fi ;; #(
+  *) :
+    gcc_lib="" ;;
 esac
-
-
-
-
-for ac_prog in gawk mawk nawk awk
-do
-  # Extract the first word of "$ac_prog", so it can be a program name with args.
-set dummy $ac_prog; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_prog_AWK+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  if test -n "$AWK"; then
-  ac_cv_prog_AWK="$AWK" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_prog_AWK="$ac_prog"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-fi
-fi
-AWK=$ac_cv_prog_AWK
-if test -n "$AWK"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $AWK" >&5
-$as_echo "$AWK" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-  test -n "$AWK" && break
-done
 
 
 case $ac_hostname in #(
@@ -2710,6 +2681,9 @@ if test -f config/mh-override ; then
 fi
 host_frag=config/mh-config-use
 #------------------------------------
+
+# set default
+make_command="make"
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for machine dependent configuration" >&5
 $as_echo_n "checking for machine dependent configuration... " >&6; }
@@ -4287,7 +4261,7 @@ if test -n "$NETCDFROOT" ; then
   elif test -r "$NETCDFLIBPATH/libnetcdf.so" ; then
      NETCDF_LIB='-L$(NETCDFLIBPATH) -lnetcdf'
   else
-     echo "cannot read $NETCDFLIBPATH/libnetcdf.a"
+     echo "cannot read $NETCDFROOT/lib/libnetcdf.a"
      exit 1
   fi
   if test x$gcc_lib != x ; then
@@ -4317,8 +4291,8 @@ if test -n "$NETCDFROOT" ; then
   else
      if test -r "$NETCDFFROOT/include/netcdf.inc" ; then
        NETCDF_INCLUDE="-I$NETCDFROOT/include -I$NETCDFFROOT/include"
-       if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFLIBPATH/libnetcdf.a" ; then
-         NETCDF_LIB='-L$(NETCDFLIBPATH) -lnetcdf'
+       if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
+         NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
          case $ac_hostname in
          mlogin*|btc*)
@@ -4338,7 +4312,7 @@ if test -n "$NETCDFROOT" ; then
          esac
          NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
        else
-         echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFLIBPATH/libnetcdf.a"
+         echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
          exit 1
        fi
      fi
@@ -4449,6 +4423,105 @@ fi
 
 fi
 export CDIROOT	#inform config/createMakefiles.pl whether it should include cdilib.c in the support/Makefile .
+
+
+GRIBAPI_LIB=""
+GRIBAPI_INCLUDE=""
+
+
+# Check whether --with-grib_api was given.
+if test "${with_grib_api+set}" = set; then :
+  withval=$with_grib_api;
+else
+  with_grib_api=yes
+fi
+
+
+case $with_grib_api in #(
+  no) :
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for grib_api library" >&5
+$as_echo_n "checking for grib_api library... " >&6; }
+         { $as_echo "$as_me:${as_lineno-$LINENO}: result: suppressed" >&5
+$as_echo "suppressed" >&6; } ;; #(
+  yes) :
+    #AC_CHECK_FILE($GRIBAPIROOT/lib/libgrib_api.a,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
+         as_ac_File=`$as_echo "ac_cv_file_$GRIBAPIROOT/include/grib_api.h" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $GRIBAPIROOT/include/grib_api.h" >&5
+$as_echo_n "checking for $GRIBAPIROOT/include/grib_api.h... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$GRIBAPIROOT/include/grib_api.h"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+
+else
+  as_fn_error $? "GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h" "$LINENO" 5
+fi
+ ;; #(
+  *) :
+    GRIBAPIROOT=$with_grib_api
+         #AC_CHECK_FILE($GRIBAPIROOT/lib/libgrib_api.a,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
+         as_ac_File=`$as_echo "ac_cv_file_$GRIBAPIROOT/include/grib_api.h" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $GRIBAPIROOT/include/grib_api.h" >&5
+$as_echo_n "checking for $GRIBAPIROOT/include/grib_api.h... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$GRIBAPIROOT/include/grib_api.h"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+
+else
+  as_fn_error $? "GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h" "$LINENO" 5
+fi
+ ;;
+esac
+
+if test -n "$GRIBAPIROOT"; then :
+  if test -r "$GRIBAPIROOT/lib/libgrib_api.a" || test -r "$GRIBAPIROOT/lib/libgrib_api.dylib"; then :
+  GRIBAPI_LIB='-L$(GRIBAPIROOT)/lib -lgrib_api'
+else
+  as_fn_error $? "cannot read $GRIBAPIROOT/lib/libgrib_api.a" "$LINENO" 5
+fi
+       if test -d "$GRIBAPIROOT/include"; then :
+  GRIBAPI_INCLUDE='-I$(GRIBAPIROOT)/include'
+else
+  as_fn_error $? "cannot find $GRIBAPIROOT/include" "$LINENO" 5
+fi
+       FFLAGS="${FFLAGS} ${DEFOPT}HAVE_LIBGRIB ${DEFOPT}HAVE_LIBGRIB_API"
+       CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_LIBGRIB ${DEFCOPT}HAVE_LIBGRIB_API"
+       case $ac_hostname in #(
+  mlogin*|btc*) :
+    case $FC in #(
+  nagfor) :
+    GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g') ;; #(
+  *) :
+    GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g') ;;
+esac ;; #(
+  *) :
+     ;;
+esac
+fi
+
 
 
 SCT_LIB=""
@@ -4660,7 +4733,7 @@ if test x"$with_mpi" = xno; then :
    use_mpcc_r=no
 else
   if test "x$with_mpi" != x -a x"$with_mpi" != xyes -a x"$with_mpi" != xno; then :
-  MPIROOT=$with_mpi
+  MPIROOT=${MPIROOT:-$with_mpi}
 fi
    if test x"$MPIROOT" != x; then :
   as_ac_File=`$as_echo "ac_cv_file_$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h" | $as_tr_sh`
@@ -4717,8 +4790,11 @@ fi
   gfortran) :
     vers=$(gfortran --version | $AWK 'NR==1{print $4}')
                  mod_file=$(find $real_path/include/gfortran/$vers -name mpi.mod -print | $AWK 'NR==1') ;; #(
+  pgfortran) :
+    vers=$(pgfortran --version | $AWK 'NR==2{print $2}' | cut -d. -f1)
+                 mod_file=$(find $real_path/include/pgfortran -name mpi.mod -print | $AWK 'NR==1') ;; #(
   *) :
-    mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | $AWK 'NR==1') ;;
+    mod_file=$(find $real_path -not \( -path *gfortran/* -prune \) -not \( -path *ilp64* -prune \) -name mpi.mod -print | $AWK 'NR==1') ;;
 esac
         ;;
       *)
@@ -6487,6 +6563,13 @@ ZLIB_LIB=$ZLIB_LIB
 ZLIB_INCLUDE=$ZLIB_INCLUDE
 
 
+GRIBAPIROOT=$GRIBAPIROOT
+
+GRIBAPI_LIB=$GRIBAPI_LIB
+
+GRIBAPI_INCLUDE=$GRIBAPI_INCLUDE
+
+
 XML2ROOT=$XML2ROOT
 
 XML2_LIB=$XML2_LIB
@@ -6618,7 +6701,7 @@ case $host in
       ;;
     pgi)
       f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==2')
-      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==2')
       ;;
     sun)
       f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1' | cut -f2- -d" ")
@@ -6748,19 +6831,53 @@ fi
 # general command for running a progmam
 if test "x$mpi_startrun" = "x" ; then
   if  test "x$MPIROOT" = "x" ; then
-    mpi_startrun="mpiexec -n \\\$mpi_total_procs"
+    mpi_startrun="mpiexec -n \$mpi_total_procs"
   else
-    mpi_startrun="$MPIROOT/bin/mpiexec -n \\\$mpi_total_procs"
+    mpi_startrun="$MPIROOT/bin/mpiexec -n \$mpi_total_procs"
   fi
 fi
 
 sync_submit=${sync_submit:=$submit}
+
 ac_config_commands="$ac_config_commands Makefiles"
 
-ac_config_commands="$ac_config_commands config/set-up.info"
+
+config_target=$config_target
+
+config_compiler=$config_compiler
+
+load_modules=$load_modules
+
+make_command=$make_command
 
 
-ac_config_commands="$ac_config_commands build_command"
+ac_config_files="$ac_config_files build_command:config/build_command.in"
+
+
+ac_sitename=$ac_sitename
+
+use_mpi=$use_mpi
+
+use_openmp=$use_openmp
+
+build_host=$build_host
+
+use_mpi_procs_pernode=$use_mpi_procs_pernode
+
+mpi_startrun=$mpi_startrun
+
+load_profile=$load_profile
+
+submit=$submit
+
+sync_submit=$sync_submit
+
+use_shell=$use_shell
+
+use_flags_group=$use_flags_group
+
+
+ac_config_files="$ac_config_files config/set-up.info"
 
 
 #echo Creating the run scripts...
@@ -7463,29 +7580,6 @@ enable_ocean="${enable_ocean}"
 enable_atmo="${enable_atmo}"
 enable_jsbach="${enable_jsbach}"
 enable_testbed="${enable_testbed}"
-use_site="${ac_sitename}"
-use_target="${config_target}"
-use_compiler="${config_compiler}"
-use_mpi="${use_mpi}"
-use_openmp="${use_openmp}"
-use_builddir="build/${build_host}"
-use_mpi_root="${MPIROOT}"
-use_mpi_procs_pernode="${use_mpi_procs_pernode}"
-use_mpi_startrun="${mpi_startrun}"
-use_load_modules="$load_modules"
-use_load_profile="$load_profile"
-use_netcdflibpath="$NETCDFLIBPATH"
-use_cdilibpath="$CDILIBPATH"
-use_make_command="$make_command"
-use_submit="$submit"
-use_sync_submit="$sync_submit"
-use_shell="$use_shell"
-use_flags_group="$use_flags_group"
-load_profile="$load_profile"
-load_modules="$load_modules"
-make_command="$make_command"
-config_target="$config_target"
-
 
 _ACEOF
 
@@ -7498,8 +7592,8 @@ do
     "config/config.h") CONFIG_HEADERS="$CONFIG_HEADERS config/config.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "Makefiles") CONFIG_COMMANDS="$CONFIG_COMMANDS Makefiles" ;;
-    "config/set-up.info") CONFIG_COMMANDS="$CONFIG_COMMANDS config/set-up.info" ;;
-    "build_command") CONFIG_COMMANDS="$CONFIG_COMMANDS build_command" ;;
+    "build_command") CONFIG_FILES="$CONFIG_FILES build_command:config/build_command.in" ;;
+    "config/set-up.info") CONFIG_FILES="$CONFIG_FILES config/set-up.info" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
@@ -8058,52 +8152,7 @@ config/createMakefiles.pl --target="$build_host" \
   --enable_jsbach="${enable_jsbach}" \
   --enable_testbed="${enable_testbed}"
  ;;
-    "config/set-up.info":C)
-echo Creating set-up.info... >&2
-cat > config/set-up.info << EOF
-#############################
-# set-up.info created by configure
-# do not modify this file
-#############################
-use_site='${use_site}'
-use_target='${use_target}'
-use_compiler='${use_compiler}'
-use_mpi='${use_mpi}'
-use_openmp='${use_openmp}'
-use_builddir='${use_builddir}'
-use_mpi_root='${use_mpi_root}'
-use_mpi_procs_pernode='${use_mpi_procs_pernode}'
-use_mpi_startrun='${use_mpi_startrun}'
-use_load_modules='${use_load_modules}'
-use_load_profile='${use_load_profile}'
-use_netcdflibpath='${use_netcdflibpath}'
-use_cdilibpath='${use_cdilibpath}'
-use_make_command='${use_make_command}'
-use_submit='${use_submit}'
-use_sync_submit='${use_sync_submit}'
-use_shell='${use_shell}'
-use_flags_group='${use_flags_group}'
-#############################
-EOF
- ;;
-    "build_command":C)
-echo Creating the build_command... >&2
-exec 8>build_command
-echo "#! ${SHELL}" >&8
-echo "$load_profile" >&8
-if test "x$load_modules" != x; then
-   echo module purge >&8
-   echo module load "$load_modules" >&8
-   echo module list >&8
-fi
-if test "x${config_target}" = "xblizzard" ; then
-   echo "export LDR_CNTRL=MAXDATA=0xD0000000@DSA"  >&8
-fi
-echo "$make_command" >&8
-echo "exit \$?" >&8
-exec 8>-
-chmod +x build_command
- ;;
+    "build_command":F) chmod +x build_command ;;
 
   esac
 done # for ac_tag
@@ -8143,11 +8192,9 @@ $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
 
 
-#############################
 echo ""
 cat config/set-up.info
 echo ""
-#############################
 
 echo ""
 echo "Configuration done. Run GNU make to build ICON."
