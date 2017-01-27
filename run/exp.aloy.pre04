@@ -239,20 +239,21 @@ cat > ${atm_namelist} << EOF
 /
 &radiation_nml
  irad_h2o         = 1           ! 1: prognostic vapor, liquid and ice
- irad_co2         = 4           ! 4: from greenhouse gas scenario
- irad_ch4         = 4           ! 4: from greenhouse gas scenario
- irad_n2o         = 4           ! 4: from greenhouse gas scenario
+ irad_co2         = 2           ! 2: global constant; 4: from greenhouse gas scenario
+ irad_ch4         = 2           ! 2: global constant; 4: from greenhouse gas scenario
+ irad_n2o         = 2           ! 2: global constant; 4: from greenhouse gas scenario
  irad_o3          = 8           ! 8: horizontally and vertically variable
  irad_o2          = 2           ! 2: horizontally and vertically constant
- irad_cfc11       = 4           ! 4: from greenhouse gas scenario
- irad_cfc12       = 4           ! 4: from greenhouse gas scenario
+ irad_cfc11       = 0           ! 0: no cfc
+ irad_cfc12       = 0           ! 0: no cfc
  irad_aero        = 0           ! 0: no aerosol
-                                !15: Kinne aerosol optics for troposphere
-                                !   +Stenchikov aerosol optics for stratosphere
  lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
- ighg             = 1           ! 1: transient well mixed greenhouse gas concentrations
+ ighg             = 0           ! 0: select default values; 1: transient well mixed greenhouse gas concentrations
  izenith          = 4           ! 4: seasonal and diurnal cycle
- isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
+ isolrad          = 6           ! 6: pre-industrial CMIP6 solar constant
+ vmr_co2          = 284.317e-6  ! constant volume mixing ration
+ vmr_ch4          = 808.249e-9  ! constant volume mixing ration
+ vmr_n2o          = 273.021e-9  ! constant volume mixing ration
 /
 &psrad_nml
 rad_perm          = 1           ! Integer for perturbing random number seeds
@@ -367,10 +368,6 @@ datadir=$grids_folder/Atmos
 add_link_file $datadir/bc_sic_pcmdi_cmip6_pre04_slo_0158km_1870-2015.nc ./bc_sic.nc
 add_link_file $datadir/bc_sst_pcmdi_cmip6_pre04_slo_0158km_1870-2015.nc ./bc_sst.nc
 
-# - ssi and tsi
-datadir=$INDATA/global/sun
-add_link_file $datadir/bc_solar_irradiance_14band_1849-2399.nc          ./bc_solar_irradiance_sw_b14.nc
-
 # - land parameters
 datadir=$grids_folder/Land
 add_link_file $datadir/bc_land_frac_1976.nc                             ./bc_land_frac.nc
@@ -424,12 +421,11 @@ if [[ "$output_atm_min" == "yes" ]]; then
  ml_varlist       = 'orog'    , 'ps'      ,
                     'frac_wtr', 'frac_ice', 'frac_lnd',
                     'sic'     , 'sit'     , 'qtop_icecl', 'qbot_icecl',
-                    'hfls'    , 'hfss'    , 'evspsbl' ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    , 'rsdt'    ,
                     'clt'     , 'psl'     , 'tas'     , 'ts'      ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
                     'tauu'    , 'tauv'    , 'albedo'  ,
+                    'hfls'    , 'hfss'    , 'evspsbl' ,
                     'hfls_wtr', 'hfls_ice', 'hfls_lnd',
                     'hfss_wtr', 'hfss_ice', 'hfss_lnd',
                     'rsns_wtr', 'rsns_ice', 'rsns_lnd',
@@ -452,26 +448,20 @@ if [[ "$output_atm_min" == "yes" ]]; then
 EOF
 fi
 
+#  Variables not allowed?
+#  'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    , 'rsdt'    ,
+
 #  more variables for test output
 #  'cosmu0'  , 'daylght_frc',
-#  'rsns_wtr', 'rsns_ice', 'rsns_lnd',
-#  'rlns_wtr', 'rlns_ice', 'rlns_lnd', 'tend_ta_rlw_impl',
-#  'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts_rad'  ,
 #  'visdffsfc','nirdffsfc','vissfc'  , 'nirsfc'  ,
 #  'albedo_wtr', 'albedo_ice', 'albedo_lnd',
 #  'albvisdir','albvisdif' , 'albnirdir' , 'albnirdif',
 #  'albvisdir_ice', 'albvisdir_wtr', 'albvisdir_lnd',
-#  'evspsbl_ice', 'evspsbl_wtr', 'evspsbl_lnd',
-#  'hfls_wtr', 'hfls_ice', 'hfls_lnd',
-#  'hfss_wtr', 'hfss_ice', 'hfss_lnd',
-#  'tauu_wtr', 'tauu_ice', 'tauu_lnd',
-#  'tauv_wtr', 'tauv_ice', 'tauv_lnd',
 #  'tauu_sso', 'tauv_sso', 'diss_sso', 
 #  'sh_vdiff', 'qv_vdiff',
 #  'ch_concloud',
 #  'con_dtrl', 'con_dtri', 'con_iteqv',
 #  'cld_dtrl', 'cld_dtri', 'cld_iteq' ,
-#  'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
 #  'dew2'
 
 
@@ -509,18 +499,23 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_interval  = "${atm_output_interval_2d}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ps'      , 'psl' ,
-                    'daylght_frc',
-                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
-                    'sic'     , 'sit'     ,
-                    'hfls'    , 'hfss'    , 'evspsbl' ,
-                    'tauv'    , 'albedo'  ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+ ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
+                    'cosmu0'  ,
                     'rsdt'    ,
-                    'tauu_sso', 'tauv_sso', 'diss_sso', 
-                    'clt'     , 'tas'     , 'ts'      ,
+                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'
+                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'
+                    'rsus'    , 'rsuscs'  , 'rlus'    ,
+                    'ts'      ,
+                    'sic'     , 'sit'     ,
+                    'albedo'  ,
+                    'clt'     ,
+                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
-                    'tauu'
+                    'hfls'    , 'hfss'    , 'evspsbl' ,
+                    'tauu'    , 'tauv'    ,
+                    'tauu_sso', 'tauv_sso', 'diss_sso', 
+                    'sfcwind' , 'uas'     , 'vas'     ,
+                    'tas'     , 'dew2'
 /
 EOF
 fi
