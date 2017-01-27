@@ -143,8 +143,8 @@ CONTAINS
 
     REAL(wp),INTENT(OUT)   :: pu_stress_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(OUT)   :: pv_stress_tile (kbdim,ksfc_type)
-    REAL(wp),INTENT(INOUT)   ::    plhflx_tile (kbdim,ksfc_type)   ! OUT
-    REAL(wp),INTENT(INOUT)   ::    pshflx_tile (kbdim,ksfc_type)   ! OUT
+    REAL(wp),INTENT(INOUT) :: plhflx_tile (kbdim,ksfc_type)   ! OUT
+    REAL(wp),INTENT(INOUT) :: pshflx_tile (kbdim,ksfc_type)   ! OUT
     REAL(wp),INTENT(OUT)   :: pevap_tile (kbdim,ksfc_type)
 
     !! JSBACH input
@@ -185,12 +185,12 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir(kbdim), albvisdif(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdir(kbdim), albnirdif(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albedo_tile(kbdim,ksfc_type)
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc    (kbdim) ! OUT
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc_rad(kbdim) ! OUT
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc    (kbdim)
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc_rad(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: rlus     (kbdim)           ! INOUT upward surface  longwave flux [W/m2]
     REAL(wp),OPTIONAL,INTENT(INOUT) :: rsus     (kbdim)           ! INOUT upward surface shortwave flux [W/m2]
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: rsns_tile(kbdim,ksfc_type) ! shortwave net flux at surface on tiles
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: rlns_tile(kbdim,ksfc_type) ! longwave net flux at surface on tiles
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: rsns_tile(kbdim,ksfc_type) ! shortwave net flux at surface on tiles
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: rlns_tile(kbdim,ksfc_type) ! longwave net flux at surface on tiles
     !! Sea ice
     INTEGER,          INTENT(IN)    :: kice ! Number of ice thickness classes
     REAL(wp),OPTIONAL,INTENT(INOUT) :: Tsurf(kbdim,kice)
@@ -230,7 +230,6 @@ CONTAINS
       & rsns(kbdim), rlns(kbdim),               &
       & zalbvis(kbdim), zalbnir(kbdim)
 
-    !REAL(wp) :: zgrnd_hflx(kbdim,ksfc_type), zgrnd_hcap(kbdim,ksfc_type), ztsfc(kbdim)
     REAL(wp) :: zgrnd_hflx(kbdim,ksfc_type), zgrnd_hcap(kbdim,ksfc_type)
 
     !REAL(wp) :: zt2s_conv(kbdim,ksfc_type)
@@ -256,12 +255,6 @@ CONTAINS
         ENDIF
       ENDDO
     ENDDO
-
-    !! save old grid box mean surface temperature !! not used ...???
-    !ztsfc(:) = 0._wp
-    !DO jsfc=1,ksfc_type
-    !  ztsfc(1:kproma) = ztsfc(1:kproma) + pfrc(1:kproma,jsfc) * ptsfc_tile(1:kproma,jsfc)
-    !ENDDO
 
     ! Compute factor for conversion temperature to dry static energy
     !DO jsfc=1,ksfc_type
@@ -387,7 +380,6 @@ CONTAINS
 #endif
     END IF
 
-    
     !===========================================================================
     ! Ocean model
     !===========================================================================
@@ -395,8 +387,8 @@ CONTAINS
 
 #ifndef __NO_ICON_OCEAN__
 
-    rsns(1:kproma)      = rsds(1:kproma) - rsus(1:kproma)
-    rlns(1:kproma)      = rlds(1:kproma) - rlus(1:kproma)
+      rsns(1:kproma)      = rsds(1:kproma) - rsus(1:kproma)
+      rlns(1:kproma)      = rlds(1:kproma) - rlus(1:kproma)
 
       IF (phy_config%lmlo) THEN
         CALL ml_ocean ( kbdim, 1, kproma, pdtime, &
@@ -661,8 +653,8 @@ CONTAINS
 
     ! Compute lw and sw surface radiation fluxes on tiles
     !    preset values to cdimissval
-    rlns_tile(1:kproma,ksfc_type) = cdimissval
-    rsns_tile(1:kproma,ksfc_type) = cdimissval
+    rlns_tile(1:kbdim,ksfc_type) = cdimissval
+    rsns_tile(1:kbdim,ksfc_type) = cdimissval
 
     DO jsfc=1,ksfc_type
       DO jls = 1,is(jsfc)

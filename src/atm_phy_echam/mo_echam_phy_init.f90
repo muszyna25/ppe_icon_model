@@ -499,6 +499,7 @@ CONTAINS
       field%  evap (:,  :) = 0._wp
       field% lhflx (:,  :) = 0._wp
       field% shflx (:,  :) = 0._wp
+      field%  evap_tile (:,:,:) = 0._wp
       field% lhflx_tile (:,:,:) = 0._wp
       field% shflx_tile (:,:,:) = 0._wp
 
@@ -514,6 +515,11 @@ CONTAINS
       field% dew2   (:,  :) =   0._wp
       field% tasmax (:,  :) = -99._wp
       field% tasmin (:,  :) = 999._wp
+      field% sfcWind_tile(:,:,:) = 0._wp
+      field% uas_tile    (:,:,:) = 0._wp
+      field% vas_tile    (:,:,:) = 0._wp
+      field% tas_tile    (:,:,:) = 0._wp
+      field% dew2_tile   (:,:,:) = 0._wp
 
       field% u_stress_sso(:,:) = 0._wp
       field% v_stress_sso(:,:) = 0._wp

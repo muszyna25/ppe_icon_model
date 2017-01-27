@@ -1031,7 +1031,7 @@ CONTAINS
 
     ! Compute grid-box mean 
 
-    pz0m(1:kproma) = 0._wp
+    pz0m(1:kbdim) = 0._wp
     DO jsfc = 1,ksfc_type
        pz0m(1:kproma) = pz0m(1:kproma) + pfrc(1:kproma,jsfc)*pz0m_tile(1:kproma,jsfc)
     ENDDO

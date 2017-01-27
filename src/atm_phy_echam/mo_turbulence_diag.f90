@@ -620,10 +620,10 @@ CONTAINS
     ! AND STABLE CASE COMMON FACTORS AND NEUTRAL CASE
     ! COMMON PART OF THE DRAG COEFFICIENTS.
     !-------------------------------------------------------------
-!TODO:    preset values to zero
-     pcpt_tile(1:kproma,1:ksfc_type) = 0._wp
-     pqsat_tile(1:kproma,1:ksfc_type) = 0._wp
-     pri_tile(1:kproma,1:ksfc_type) = 0._wp
+    !    preset values to zero
+     pcpt_tile(1:kbdim,1:ksfc_type) = 0._wp
+     pqsat_tile(1:kbdim,1:ksfc_type) = 0._wp
+     pri_tile(1:kbdim,1:ksfc_type) = 0._wp
 
      DO jsfc = 1,ksfc_type
 
@@ -786,9 +786,9 @@ CONTAINS
 
     IF (lsfc_mom_flux.OR.lsfc_heat_flux) THEN  ! Surface flux is considered
 
-!  preset values to missing value
-     pcfh_tile(1:kproma,1:ksfc_type) = 0.0_wp
-     pcfm_tile(1:kproma,1:ksfc_type) = 0.0_wp
+!  preset values to zero
+     pcfh_tile(1:kbdim,1:ksfc_type) = 0.0_wp
+     pcfm_tile(1:kbdim,1:ksfc_type) = 0.0_wp
 
 ! multiply neutral coefficients by stability functions
 
@@ -841,10 +841,11 @@ CONTAINS
     ! new t2m, 2m dew point, 10m wind components
     !------------------------------------------------------------------------------
 
-    pbn_tile (1:kproma,1:ksfc_type) = 0._wp
-    pbhn_tile(1:kproma,1:ksfc_type) = 0._wp
-    pbm_tile (1:kproma,1:ksfc_type) = 0._wp
-    pbh_tile (1:kproma,1:ksfc_type) = 0._wp
+    pbn_tile (1:kbdim,1:ksfc_type) = 0._wp
+    pbhn_tile(1:kbdim,1:ksfc_type) = 0._wp
+    pbm_tile (1:kbdim,1:ksfc_type) = 0._wp
+    pbh_tile (1:kbdim,1:ksfc_type) = 0._wp
+
     DO jsfc = 1,ksfc_type
       DO jls = 1,is(jsfc)
 ! set index
@@ -878,9 +879,10 @@ CONTAINS
     ! Add aggregated Richardson number for the surface
     !-------------------------------------------------------------------------
 
-    pcfm_gbm(1:kproma) = 0._wp
-    pcfh_gbm(1:kproma) = 0._wp
-    pri_gbm (1:kproma) = 0._wp
+    pcfm_gbm(1:kbdim) = 0._wp
+    pcfh_gbm(1:kbdim) = 0._wp
+    pri_gbm (1:kbdim) = 0._wp
+
     DO jsfc = 1,ksfc_type
       DO jls = 1,is(jsfc)
 ! set index
@@ -899,15 +901,16 @@ CONTAINS
     ! (variable cfv), and no surface flux. Set the surface exchange coefficient
     ! to zero.
     !-------------------------------------------------------------------------
-    pcfv_sfc(1:kproma) = 0._wp
+    pcfv_sfc(1:kbdim) = 0._wp
 
     !-------------------------------------------------------------------------
     ! Compute vertical shear of total water
     !-------------------------------------------------------------------------
-    zcsat(1:kproma,1:ksfc_type) = 1._wp
+    zcsat(1:kbdim,1:ksfc_type) = 1._wp
+
     IF (idx_lnd<=ksfc_type) zcsat(1:kproma,idx_lnd)     = pcsat(1:kproma)
 
-    pqshear_sfc(1:kproma) = 0._wp ! initialization for weighted q_total at surface
+    pqshear_sfc(1:kbdim) = 0._wp ! initialization for weighted q_total at surface
 
     DO jsfc = 1,ksfc_type
       DO jls = 1,is(jsfc)
@@ -949,8 +952,9 @@ CONTAINS
  !  this factor is included as "prefactor for the exchange coefficients" in
  !  subroutine matrix_setup_elim
 
-      pustarm(1:kproma) = 0._wp
-      pwstar(1:kproma)= 0._wp
+      pustarm(1:kbdim) = 0._wp
+      pwstar(1:kbdim)= 0._wp
+
       DO jsfc = 1,ksfc_type
         DO jls = 1,is(jsfc)
 ! set index
@@ -975,7 +979,7 @@ CONTAINS
 
     ! TTE at the surface
 
-    ptkevn_sfc(1:kproma) = 0._wp  ! initialize the weighted average
+    ptkevn_sfc(1:kbdim) = 0._wp  ! initialize the weighted average
 
     DO jsfc = 1,ksfc_type
       DO jls = 1,is(jsfc)
@@ -1011,7 +1015,8 @@ CONTAINS
     ! turbulence-induced production of total water variance.
     !------------------------------------------------------------------------------
 
-    prho_sfc(1:kproma) = 0._wp  ! Initialize the area weighted average
+    prho_sfc(1:kbdim) = 0._wp  ! Initialize the area weighted average
+
     DO jsfc = 1,ksfc_type
       DO jls = 1,is(jsfc)
         js=loidx(jls,jsfc) ! set index
