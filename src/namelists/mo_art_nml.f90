@@ -63,9 +63,11 @@ MODULE mo_art_nml
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_vortex_init_date         !< Date of vortex initialization
   CHARACTER(LEN=IART_PATH_LEN)  :: &
-    &  cart_mozartfile               !< Path to mozart initialization file
+    &  cart_cheminit_file            !< Path to chemical initialization file
   CHARACTER(LEN=IART_PATH_LEN)  :: &
-    &  cart_mozartcoord              !< Path to mozart coordinate file
+    &  cart_cheminit_coord           !< Path to chemical initialization coordinate file
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+      &  cart_cheminit_type          !< type of chemical initialization coordinate file
   ! Paths and filenames of XML configuration
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_chemistry_xml            !< Path to XML file for chemical tracers
@@ -108,7 +110,8 @@ MODULE mo_art_nml
    &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
    &                lart_conv, lart_turb, iart_ntracer, iart_init_aero, iart_init_gas, &
    &                lart_diag_out, cart_emiss_xml_file,                                &
-   &                cart_vortex_init_date , cart_mozartfile, cart_mozartcoord,         &
+   &                cart_vortex_init_date , cart_cheminit_file, cart_cheminit_coord,   & 
+   &                cart_cheminit_type,                                                &
    &                cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml,            &
    &                cart_modes_xml, cart_pntSrc_xml, cart_io_suffix, iart_init_passive
 
@@ -162,8 +165,9 @@ CONTAINS
     iart_chem_mechanism   = 0
     cart_emiss_xml_file   = ''
     cart_vortex_init_date = ''
-    cart_mozartfile       = ''
-    cart_mozartcoord      = ''
+    cart_cheminit_file    = ''
+    cart_cheminit_coord   = ''
+    cart_cheminit_type    = ''
     
     ! Paths and filenames of XML configuration
     cart_chemistry_xml    = ''
@@ -269,8 +273,9 @@ CONTAINS
       art_config(jg)%iart_chem_mechanism   = iart_chem_mechanism
       art_config(jg)%cart_emiss_xml_file   = TRIM(cart_emiss_xml_file)
       art_config(jg)%cart_vortex_init_date = TRIM(cart_vortex_init_date)
-      art_config(jg)%cart_mozartfile       = TRIM(cart_mozartfile)
-      art_config(jg)%cart_mozartcoord      = TRIM(cart_mozartcoord)
+      art_config(jg)%cart_cheminit_file    = TRIM(cart_cheminit_file)
+      art_config(jg)%cart_cheminit_coord   = TRIM(cart_cheminit_coord)
+      art_config(jg)%cart_cheminit_type    = TRIM(cart_cheminit_type)
       
       ! Paths and filenames of XML configuration
       art_config(jg)%cart_chemistry_xml    = TRIM(cart_chemistry_xml)

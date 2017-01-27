@@ -118,10 +118,11 @@ MODULE mo_art_config
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_vortex_init_date        !< Date of vortex initialization
     CHARACTER(LEN=IART_PATH_LEN) :: &
-      &  cart_mozartfile              !< Path to mozart initialization file
+      &  cart_cheminit_file           !< Path to chemical initialization file
     CHARACTER(LEN=IART_PATH_LEN) :: &
-      &  cart_mozartcoord             !< Path to mozart coordinate file
-
+      &  cart_cheminit_coord          !< Path to chemical initialization coordinate file
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_cheminit_type           !< Type of  chemical initialization coordinate file
     ! Paths and filenames of XML configuration
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_chemistry_xml           !< Path to XML file for chemical tracers
