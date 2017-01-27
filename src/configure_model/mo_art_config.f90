@@ -48,7 +48,7 @@ MODULE mo_art_config
   PUBLIC :: iTRCH4,iTRC2H6,iTRC3H8,iTRC5H8,iTRCH3COCH3,iTRCO,iTRCO2      !chemical tracer - CH4-C2H6-C3H5-C5H8-CH3COCH3-CO-CO2
   PUBLIC :: iTRH2O,iTRO3,iTRN2O,iTRNH3,iTRSO2,iTRH2SO4,iTRHNO3,iTRAGE    !chemical tracer - others
   PUBLIC :: iTR_vortex,iTR_stn,iTR_stt,iTR_sts                           !artificial tracer
-  PUBLIC :: iTR_trn,iTR_trt,iTR_trs,iTR_ttln,iTR_ttls                    !artificial tracer
+  PUBLIC :: iTR_trn,iTR_trt,iTR_trs,iTR_tiln,iTR_tils                    !artificial tracer
   PUBLIC :: iTR_nh,iTR_sh                                                !artificial tracer
   PUBLIC :: iTR_nin,iTR_sin,iTR_ech,iTR_sea,iTR_sib,iTR_eur              !artificial tracer 
   PUBLIC :: iTR_med,iTR_naf,iTR_saf,iTR_mdg,iTR_aus,iTR_nam              !artificial tracer
@@ -76,7 +76,7 @@ MODULE mo_art_config
     &  iTRCH4,iTRC2H6,iTRC3H8,iTRC5H8,iTRCH3COCH3,iTRCO,iTRCO2,   &
     &  iTRH2O,iTRO3,iTRN2O,iTRNH3,iTRSO2,iTRH2SO4,iTRHNO3,iTRAGE, &
     &  iTR_vortex,iTR_stn,iTR_stt,iTR_sts,                        &
-    &  iTR_trn,iTR_trt,iTR_trs,iTR_ttln,iTR_ttls,                 &
+    &  iTR_trn,iTR_trt,iTR_trs,iTR_tiln,iTR_tils,                 &
     &  iTR_nh,iTR_sh,                                             &
     &  iTR_nin,iTR_sin,iTR_ech,iTR_sea,iTR_sib,iTR_eur,           &
     &  iTR_med,iTR_naf,iTR_saf,iTR_mdg,iTR_aus,iTR_nam,           &
