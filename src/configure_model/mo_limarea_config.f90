@@ -245,7 +245,7 @@ CONTAINS
     WRITE (timedelta_str,'(4(i2.2,a))') td%day,    'D',  td%hour,   'H',   &
       &                                 td%minute, 'M',  td%second, 'S'
     td_seconds = getTotalSecondsTimeDelta(td, mtime_begin, errno)
-    IF (errno /= 0)  CALL finish(routine, "Internal error!")
+    IF (errno /= 0)  CALL finish(routine, "Internal error: "//TRIM(timedelta_str))
     WRITE (timedelta_str,'(4(i2.2))') td_seconds/86400, td%hour, td%minute, td%second 
     CALL associate_keyword("<ddhhmmss>",  TRIM(timedelta_str), keywords)
     CALL deallocateTimedelta(td)

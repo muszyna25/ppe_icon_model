@@ -408,9 +408,6 @@ MODULE mo_async_latbc
       ALLOCATE(grp_vars(200))
       ALLOCATE(StrLowCasegrp(200))
 
-      ! initialising counter
-      counter = 0
-
       !>Looks for variable groups ("group:xyz") and collects
       ! them to map prefetch variable names onto
       ! GRIB2 shortnames or NetCDF var names.
@@ -495,7 +492,7 @@ MODULE mo_async_latbc
             CALL finish(routine, "Unknown file type")
          END SELECT
 
-         !     WRITE(0,*) 'latbc_buffer%grp_name ',  latbc_buffer%grp_vars(1:ngrp_prefetch_vars), 'ngrp_vars ', ngrp_prefetch_vars
+         ! WRITE(0,*) 'latbc_buffer%grp_name ',  latbc_buffer%grp_vars(1:ngrp_prefetch_vars), 'ngrp_vars ', ngrp_prefetch_vars
 
          ! check whether the file is empty (does not work unfortunately; internal CDI error)
          flen_latbc = util_filesize(TRIM(latbc_file))
@@ -510,11 +507,16 @@ MODULE mo_async_latbc
          ! get the number of variables
          nvars = vlistNvars(vlistID)
 
+         ! initialising counter
+         counter = 0
+
          ! get the number of vertical levels for the
          ! required prefetch variables
          LOOP : DO varID=0,(nvars-1)
             CALL vlistInqVarName(vlistID, varID, name)
-            !    WRITE(0,*) 'name ', name
+
+            ! WRITE(0,*) 'name ', TRIM(name)
+
             DO jp = 1, ngrp_prefetch_vars !latbc_buffer%ngrp_vars
                IF(tolower(name) == tolower(latbc_buffer%grp_vars(jp))) THEN
                   ! get the vertical axis ID
@@ -535,7 +537,7 @@ MODULE mo_async_latbc
                   ! getting the variable name in lower case letter
                   StrLowCasegrp(counter) = TRIM(grp_vars(jp))
 
-                  !       WRITE(0,*) 'mapped_name ',  latbc_buffer%mapped_name(counter)
+                  ! WRITE(0,*) '=> mapped_name ',  (latbc_buffer%mapped_name(counter))
                ENDIF
             ENDDO
          END DO LOOP
