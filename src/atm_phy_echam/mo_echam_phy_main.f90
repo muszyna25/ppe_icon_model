@@ -890,6 +890,9 @@ CONTAINS
         &             nlev                     ,&
         &             field% presi_old(:,:,jb) ,&
         &             field% presm_old(:,:,jb) ,&
+        &             field%   zh(:,:,jb)      ,&
+        &             field%  rho(:,:,jb)      ,&
+        &             field% mair(:,:,jb)      ,&
         &             field%   ta(:,:,jb)      ,&
         &             field%   ua(:,:,jb)      ,&
         &             field%   va(:,:,jb)      ,&
