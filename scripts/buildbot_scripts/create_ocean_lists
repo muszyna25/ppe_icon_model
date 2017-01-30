@@ -37,3 +37,20 @@ checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.ocean_inter
 #lets see the list
 ./lslist $listname
 #-----------------------------------------------------------
+
+#############################################################################
+##
+## create omip_10days list
+##
+#############################################################################
+listname=omip_10days
+./rmlist $listname
+./mklist $listname
+
+./set_builder_flags Active            --builders MISTRAL_ocean  --list $listname
+$addexp checksuite.ocean_internal/omip/exp.test_ocean_omip_10days --runflags "cpu_time=00:30:00" --list $listname
+./set_builder_flags Ocean             --builders MISTRAL_ocean  --list $listname
+./set_builder_flags Inactive          --builders MISTRAL_nag_serial  --list $listname
+
+./lslist $listname
+#-----------------------------------------------------------

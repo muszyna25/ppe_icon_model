@@ -487,7 +487,7 @@
        &                     denitrification,             rn2,             &
        &                     cycdec, pi_alpha_cya,cya_growth_max,          &
        &                     Topt_cya,T1_cya,T2_cya,bkcya_N, bkcya_P, bkcya_fe, &
-       &                     remido_cya, dremdoc_cya, buoyancyspeed_cya, &
+       &                     buoyancyspeed_cya, &
        &                     doccya_fac, thresh_aerob, thresh_sred 
 
    USE mo_hamocc_nml, ONLY: i_settling, l_cyadyn, denit_sed, disso_po, &
@@ -537,7 +537,6 @@
    CALL to_bgcout("bkcya_p",bkcya_p)
    CALL to_bgcout("bkcya_n",bkcya_n)
    CALL to_bgcout("bkcya_fe",bkcya_fe)
-!    CALL to_bgcout("remido_cya",remido_cya)
    CALL to_bgcout("doccya_fac",doccya_fac)
   
    ! Detritus
