@@ -97,7 +97,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Instantaneous moisture flux on each tile
 
-    pevap_tile(1:kbdim,:) = 0._wp
+    pevap_tile(:,:) = 0._wp
 
     DO jsfc = 1,ksfc_type
 
@@ -132,7 +132,7 @@ CONTAINS
     ! The instantaneous grid box mean moisture flux will be passed on
     ! to the cumulus convection scheme.
 
-    pevap_gbm(1:kbdim) = 0._wp   ! "pqhfla" in echam
+    pevap_gbm(:) = 0._wp   ! "pqhfla" in echam
 
     DO jsfc = 1,ksfc_type
       pevap_gbm(1:kproma) = pevap_gbm(1:kproma)                           &
@@ -154,7 +154,7 @@ CONTAINS
 
     ! Accumulated grid box mean
 
-    plhflx_gbm(1:kbdim) = 0.0_wp
+    plhflx_gbm(:) = 0.0_wp
 
     DO jsfc = 1,ksfc_type
       plhflx_gbm(1:kproma) = plhflx_gbm(1:kproma)                           &
@@ -194,7 +194,7 @@ CONTAINS
 
     ! grid box mean
 
-    pshflx_gbm(1:kbdim) = 0.0_wp
+    pshflx_gbm(:) = 0.0_wp
 
     DO jsfc = 1,ksfc_type
       pshflx_gbm(1:kproma) = pshflx_gbm(1:kproma)                           &
@@ -242,8 +242,8 @@ CONTAINS
     !===================================================================
     IF (.NOT.lsfc_mom_flux) THEN
 
-      pu_stress_tile(1:kbdim,:) = 0._wp
-      pv_stress_tile(1:kbdim,:) = 0._wp
+      pu_stress_tile(:,:) = 0._wp
+      pv_stress_tile(:,:) = 0._wp
 
     !===================================================================
     ! Otherwise do computation
@@ -258,11 +258,11 @@ CONTAINS
       !  *(surface turbulent exchange coeff)
       !  *[(u-/v-wind at lowest model level)/tpfac1]
 
-      pu_stress_tile(1:kbdim,:) = cdimissval
-      pv_stress_tile(1:kbdim,:) = cdimissval
+      pu_stress_tile(:,:) = cdimissval
+      pv_stress_tile(:,:) = cdimissval
 
-      pu_stress_gbm(1:kbdim) = 0.0_wp
-      pv_stress_gbm(1:kbdim) = 0.0_wp
+      pu_stress_gbm(:) = 0.0_wp
+      pv_stress_gbm(:) = 0.0_wp
 
       ! check for masks
       !
@@ -390,11 +390,11 @@ CONTAINS
    
     ! set total- and tile-fields to zero in order to avoid uninitialised values
 
-    psfcWind_tile(1:kbdim,:) = cdimissval
-    puas_tile    (1:kbdim,:) = cdimissval
-    pvas_tile    (1:kbdim,:) = cdimissval
-    ptas_tile    (1:kbdim,:) = cdimissval
-    pdew2_tile   (1:kbdim,:) = cdimissval
+    psfcWind_tile(:,:) = cdimissval
+    puas_tile    (:,:) = cdimissval
+    pvas_tile    (:,:) = cdimissval
+    ptas_tile    (:,:) = cdimissval
+    pdew2_tile   (:,:) = cdimissval
 
     DO jsfc = 1,ksfc_type
 
@@ -491,11 +491,11 @@ CONTAINS
 
     ! Aggregate all diagnostics 
     !
-    psfcWind_gbm (1:kbdim)   = 0._wp
-    puas_gbm     (1:kbdim)   = 0._wp
-    pvas_gbm     (1:kbdim)   = 0._wp
-    ptas_gbm     (1:kbdim)   = 0._wp
-    pdew2_gbm    (1:kbdim)   = 0._wp
+    psfcWind_gbm (:)   = 0._wp
+    puas_gbm     (:)   = 0._wp
+    pvas_gbm     (:)   = 0._wp
+    ptas_gbm     (:)   = 0._wp
+    pdew2_gbm    (:)   = 0._wp
     !
     DO jsfc = 1,ksfc_type
       DO jls = 1,is(jsfc)

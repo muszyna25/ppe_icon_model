@@ -653,8 +653,8 @@ CONTAINS
 
     ! Compute lw and sw surface radiation fluxes on tiles
     !    preset values to cdimissval
-    rlns_tile(1:kbdim,ksfc_type) = cdimissval
-    rsns_tile(1:kbdim,ksfc_type) = cdimissval
+    rlns_tile(:,ksfc_type) = cdimissval
+    rsns_tile(:,ksfc_type) = cdimissval
 
     DO jsfc=1,ksfc_type
       DO jls = 1,is(jsfc)
