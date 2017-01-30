@@ -962,9 +962,9 @@ CONTAINS
     CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)
 
+    new_list_element%field%info%ndims                    = ndims
+    new_list_element%field%info%used_dimensions(1:ndims) = ldims(1:ndims)
     IF (.NOT. referenced) THEN
-      new_list_element%field%info%ndims                    = ndims
-      new_list_element%field%info%used_dimensions(1:ndims) = ldims(1:ndims)
       idims(1:ndims)    = new_list_element%field%info%used_dimensions(1:ndims)
       idims((ndims+1):) = 1
       NULLIFY(new_list_element%field%r_ptr)
