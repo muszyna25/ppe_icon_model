@@ -240,7 +240,7 @@ CONTAINS
     sulfate_reduction = sulfate_reduction * dtb
     drempoc  = drempoc  *dtb    ! 1/d      
     dremopal = dremopal * dtb  ! 1/d      
-    remido_cya  = remido_cya * dtb
+!     remido_cya  = remido_cya * dtb
     dremn2o  = dremn2o * dtb      ! 1/d
     dremcalc = dremcalc *dtb    ! 
     denit_sed = denit_sed *dtb    ! sediment denitrification rate

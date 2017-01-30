@@ -537,7 +537,7 @@
    CALL to_bgcout("bkcya_p",bkcya_p)
    CALL to_bgcout("bkcya_n",bkcya_n)
    CALL to_bgcout("bkcya_fe",bkcya_fe)
-   CALL to_bgcout("remido_cya",remido_cya)
+!    CALL to_bgcout("remido_cya",remido_cya)
    CALL to_bgcout("doccya_fac",doccya_fac)
   
    ! Detritus

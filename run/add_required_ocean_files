@@ -9,7 +9,7 @@
   #    ocean_location/="" then ocean_data_MainFolder=/pool/data/ICON/oes/${ocean_location}
   
   if [[ x$BB_SYSTEM != "x" ]] ; then
-    ocean_location= ${ocean_location:="buildbot"}
+    ocean_location=${ocean_location:="buildbot"}
   else
     ocean_location=${ocean_location:="fluent"}
   fi
