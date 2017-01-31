@@ -241,6 +241,7 @@ CONTAINS
         END IF
         CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, &
           &                     extpar_varnames_dict)
+        CALL message( TRIM(routine),'read_ext_data_atm completed' )
       END IF
 
     CASE(1) ! itopo, read external data from file
@@ -911,19 +912,19 @@ CONTAINS
 
     END IF
 
-    ! Open/Read slm for HDmodel used in yac-coupler (and for HD river discharge)
-    IF ( is_coupled_run() ) THEN
+    ! Open/Read slm for HDmodel in configuration with jsbach, used in yac-coupler
+    IF ( is_coupled_run() .AND. echam_phy_config%ljsbach) THEN
 
       DO jg = 1,n_dom
 
         stream_id = openInputFile('hd_mask.nc', p_patch(jg), default_read_method)
-       
+     
         ! get land-sea-mask on cells, integer marks are:
         ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
         ! boundary land (1, cells and vertices), inner land (2)
         CALL read_2D_int(stream_id, on_cells, 'cell_sea_land_mask', &
           &              ext_data(jg)%atm%lsm_hd_c)
-       
+
         CALL closeFile(stream_id)
 
       END DO

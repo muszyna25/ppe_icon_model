@@ -25,6 +25,7 @@ MODULE mo_interface_echam_ocean
   USE mo_kind                ,ONLY: wp
   USE mo_model_domain        ,ONLY: t_patch
   USE mo_echam_phy_memory    ,ONLY: prm_field
+  USE mo_echam_phy_config    ,ONLY: echam_phy_config
                                 
   USE mo_parallel_config     ,ONLY: nproma
   
@@ -32,7 +33,7 @@ MODULE mo_interface_echam_ocean
   USE mo_timer,               ONLY: timer_start, timer_stop,                &
        &                            timer_coupling_put, timer_coupling_get, &
        &                            timer_coupling_1stget, timer_coupling_init
-  USE mo_echam_sfc_indices   ,ONLY: iwtr, iice, ilnd
+  USE mo_echam_sfc_indices   ,ONLY: iwtr, iice, ilnd, nsfc_type
 
   USE mo_sync                ,ONLY: SYNC_C, sync_patch_array
   USE mo_impl_constants      ,ONLY: MAX_CHAR_LENGTH
@@ -55,7 +56,7 @@ MODULE mo_interface_echam_ocean
   
   USE mo_model_domain        ,ONLY: t_patch
 
-  USE mo_exception           ,ONLY: warning
+  USE mo_exception           ,ONLY: warning, finish
   USE mo_output_event_types  ,ONLY: t_sim_step_info
 
   USE mo_yac_finterface      ,ONLY: yac_fput, yac_fget,                          &
@@ -248,7 +249,7 @@ CONTAINS
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
-    ! center points in cells (needed e.g. for patch recovery and nearest neighbour)
+    ! center points in cells (needed e.g. for patch recovery and nearest neighbour interpolation)
     CALL yac_fdef_points (        &
       & subdomain_id,             &
       & patch_horz%n_patch_cells, &
@@ -374,12 +375,13 @@ CONTAINS
     !   The integer mask for the HDmodel is ext_data(1)%atm%lsm_hd_c(:,:).
     !   Caution: jg=1 is only valid for coupling to ocean
     !
-    IF ( mask_checksum > 0 ) THEN
+    IF (echam_phy_config%ljsbach) THEN
+
+      IF ( mask_checksum > 0 ) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
-       DO BLOCK = 1, patch_horz%nblks_c
+        DO BLOCK = 1, patch_horz%nblks_c
           DO idx = 1, nproma
              IF ( ext_data(1)%atm%lsm_hd_c(idx, BLOCK) == -1 ) THEN
-!            IF ( ext_data(1)%atm%lsm_ctr_c(idx, BLOCK) == -1 ) THEN
 !            write(0,'(a,3i10)') 'BLOCK,IDX,SLM:', block,idx,ocean_coast(idx,block)
 !            ibuffer((BLOCK-1)*nproma+idx) = ocean_coast(idx,BLOCK)
 !            IF ( prm_field(1)%hdmask(idx, BLOCK) < -0.9_wp .AND. &
@@ -391,23 +393,23 @@ CONTAINS
                 ibuffer((BLOCK-1)*nproma+idx) = 1
              ENDIF
           ENDDO
-       ENDDO
+        ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
-       CALL yac_fdef_mask (           &
-         & patch_horz%n_patch_cells,  &
-         & ibuffer,                   &
-         & cell_point_ids(1),         &
-         & cell_mask_ids(2) )
+        CALL yac_fdef_mask (           &
+          & patch_horz%n_patch_cells,  &
+          & ibuffer,                   &
+          & cell_point_ids(1),         &
+          & cell_mask_ids(2) )
 
-    ENDIF
+      ENDIF
 
-    ! Define additional coupling field(s) for JSBACH/HD
+      ! Define additional coupling field(s) for JSBACH/HD
+      ! Utilize mask field for runoff
+      !  - cell_mask_ids(2:2) is ocean coast points only for source point mapping (source_to_target_map)
+      CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids(2:2))
 
-    ! Utilize mask field for runoff
-    !  - cell_mask_ids(1:1) is whole ocean for nearest neighbor interpolation
-    !  - cell_mask_ids(2:2) is ocean coast points only for source point mapping (source_to_target_map)
-    CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids(2:2))
+    ENDIF  !  ljsbach
 #endif
 
     DEALLOCATE (ibuffer)
@@ -482,7 +484,6 @@ CONTAINS
 
     IF ( .NOT. is_coupled_run() ) RETURN
 
-    
     !-------------------------------------------------------------------------
     ! If running in atm-oce coupled mode, exchange information 
     !-------------------------------------------------------------------------
@@ -588,6 +589,7 @@ CONTAINS
       ENDDO
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
+
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
@@ -610,27 +612,59 @@ CONTAINS
     !         evap.oce = (evap.wtr*frac.wtr + evap.ice*frac.ice)/(1-frac.lnd)
     !
     buffer(:,:) = 0.0_wp  ! temporarily
+
+    ! Aquaplanet coupling: surface types ocean and ice only
+    IF (nsfc_type == 2) THEN
+
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
-    DO i_blk = 1, p_patch%nblks_c
-      nn = (i_blk-1)*nproma
-      IF (i_blk /= p_patch%nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = p_patch%npromz_c
-      END IF
-      DO n = 1, nlen
-
-        ! total rates of rain and snow over whole cell
-        buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk)
-        buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk)
-
-        ! evaporation over ice-free and ice-covered water fraction - of whole ocean part
-        frac_oce=1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)
-        buffer(nn+n,3) = (prm_field(jg)%evap_tile(n,i_blk,iwtr)*prm_field(jg)%frac_tile(n,i_blk,iwtr) + &
-          &               prm_field(jg)%evap_tile(n,i_blk,iice)*prm_field(jg)%frac_tile(n,i_blk,iice))/frac_oce
+      DO i_blk = 1, p_patch%nblks_c
+        nn = (i_blk-1)*nproma
+        IF (i_blk /= p_patch%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = p_patch%npromz_c
+        END IF
+        DO n = 1, nlen
+     
+          ! total rates of rain and snow over whole cell
+          buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk)
+          buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk)
+     
+          ! evaporation over ice-free and ice-covered water fraction - of whole ocean part
+          frac_oce = prm_field(jg)%frac_tile(n,i_blk,iwtr) + prm_field(jg)%frac_tile(n,i_blk,iice) ! 1.0?
+          buffer(nn+n,3) = prm_field(jg)%evap_tile(n,i_blk,iwtr)*prm_field(jg)%frac_tile(n,i_blk,iwtr) + &
+            &              prm_field(jg)%evap_tile(n,i_blk,iice)*prm_field(jg)%frac_tile(n,i_blk,iice)
+        ENDDO
       ENDDO
-    ENDDO
 !ICON_OMP_END_PARALLEL_DO
+
+    ! Full coupling including jsbach: surface types ocean, ice, land
+    ELSE IF (nsfc_type == 3) THEN
+
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
+      DO i_blk = 1, p_patch%nblks_c
+        nn = (i_blk-1)*nproma
+        IF (i_blk /= p_patch%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = p_patch%npromz_c
+        END IF
+        DO n = 1, nlen
+    
+          ! total rates of rain and snow over whole cell
+          buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk)
+          buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk)
+    
+          ! evaporation over ice-free and ice-covered water fraction, of whole ocean part, without land part
+          frac_oce=1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)
+          buffer(nn+n,3) = (prm_field(jg)%evap_tile(n,i_blk,iwtr)*prm_field(jg)%frac_tile(n,i_blk,iwtr) + &
+            &               prm_field(jg)%evap_tile(n,i_blk,iice)*prm_field(jg)%frac_tile(n,i_blk,iice))/frac_oce
+        ENDDO
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
+    ELSE
+      CALL finish('interface_echam_ocean: coupling only for nsfc_type equals 2 or 3. Check your code/configuration!')
+    ENDIF  !  nsfc_type
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
@@ -969,6 +1003,16 @@ CONTAINS
     scr(:,:) = prm_field(jg)%ocu(:,:)
     CALL dbg_print('EchOce: ocu         ',prm_field(jg)%ocu    ,str_module,4,in_subset=p_patch%cells%owned)
     CALL dbg_print('EchOce: ocv         ',prm_field(jg)%ocv    ,str_module,4,in_subset=p_patch%cells%owned)
+
+    ! Fraction of tiles:
+    scr(:,:) = prm_field(jg)%frac_tile(:,:,iwtr)
+    CALL dbg_print('EchOce: frac_tile.wtr',scr,str_module,2,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%frac_tile(:,:,iice)
+    CALL dbg_print('EchOce: frac_tile.ice',scr,str_module,3,in_subset=p_patch%cells%owned)
+    if (nsfc_type == 3) THEN
+      scr(:,:) = prm_field(jg)%frac_tile(:,:,ilnd)
+      CALL dbg_print('EchOce: frac_tile.lnd',scr,str_module,4,in_subset=p_patch%cells%owned)
+    ENDIF
 
     !---------------------------------------------------------------------
 
