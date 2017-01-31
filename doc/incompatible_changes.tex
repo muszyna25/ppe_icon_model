@@ -328,7 +328,6 @@
   \end{itemize}
 \end{changeitem}
 
-
 \begin{changeitem}{initicon\_nml}{2017-01-27}{ae1be66f}
   \begin{itemize}
    \item The default value of the namelist parameter
@@ -337,5 +336,16 @@
      enabled.
   \end{itemize}
 \end{changeitem}
+
+\begin{changeitem}{interpol\_nml}{2017-01-31}{}
+  \begin{itemize}
+   \item With the introduction of the namelist parameter
+     \texttt{lreduced\_nestbdry\_stencil} in the namelist
+     \texttt{interpol\_nml} the nest boundary points are no longer
+     removed from lat-lon interpolation stencil by default.
+  \end{itemize}
+\end{changeitem}
+
+ &
 
 % --------------------------------------------------------------------------------------------
