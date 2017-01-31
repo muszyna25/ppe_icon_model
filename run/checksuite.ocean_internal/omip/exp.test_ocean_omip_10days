@@ -233,7 +233,7 @@ if [[ x$BB_SYSTEM != x ]]; then
   dataPath="${ICON_BASE_PATH}/experiments/${EXPNAME}/"
   cd ${dataPath}
   slave=${BB_SYSTEM:-thunder}_${BB_SLAVE:-gcc}
-  refDir=${ocean_data_MainFolder}/reference/${slave}/${EXPNAME}
+  refDir=${builbot_ocean_reference_path}/${slave}/${EXPNAME}
 
   directoryDiff ${refDir} .
   check_error $? "DIFFCHECK for exp: ${EXPNAME}"
