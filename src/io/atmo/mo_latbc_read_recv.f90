@@ -250,12 +250,12 @@ CONTAINS
     END SELECT
 
     DO jk=1, nlevs
-       DO j = 1,  p_ri%n_own 
-          jb = p_ri%own_blk(j) ! Block index in distributed patch
-          jl = p_ri%own_idx(j) ! Line  index in distributed patch
-          var_out(jl,jk,jb) = REAL(patch_data%mem_win%mem_ptr_sp(eoff+INT(j,i8)),sp)
-    ENDDO
-       eoff = eoff + INT(p_ri%n_own,i8) 
+      DO j = 1,  p_ri%n_own 
+        jb = p_ri%own_blk(j) ! Block index in distributed patch
+        jl = p_ri%own_idx(j) ! Line  index in distributed patch
+        var_out(jl,jk,jb) = REAL(patch_data%mem_win%mem_ptr_sp(eoff+INT(j,i8)),sp)
+      ENDDO
+      eoff = eoff + INT(p_ri%n_own,i8) 
     END DO ! jk=1,nlevs
 
     CALL MPI_Win_unlock(p_pe_work, patch_data%mem_win%mpi_win, mpi_error)
@@ -320,6 +320,11 @@ CONTAINS
             src_start = voff(np)+1
             src_end   = voff(np)+p_ri%pe_own(np)
             voff(np)  = src_end
+            IF ((src_end-src_start+1) /= (dst_end-dst_start+1)) THEN
+              WRITE (0,*) "(src_end-src_start+1) = ", (src_end-src_start+1)
+              WRITE (0,*) "(dst_end-dst_start+1) = ", (dst_end-dst_start+1)
+              CALL finish(routine, "internal error!")
+            END IF
             var3_sp(p_ri%reorder_index(dst_start:dst_end)) = var1_sp(src_start:src_end)
           ENDDO
 !$OMP END DO
@@ -336,9 +341,15 @@ CONTAINS
        nval = p_ri%pe_own(np)*nlevs
 
        CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, np, MPI_MODE_NOCHECK, patch_data%mem_win%mpi_win, mpi_error)
-    
+
+       ! consistency check:
+       IF (SIZE(var3_sp) < nv_off+nval) THEN
+         WRITE (0,*) "SIZE(var3_sp) = ", SIZE(var3_sp), " < nv_off+nval = ", nv_off+nval
+         CALL finish(routine, "Internal error!")
+       END IF
+
        CALL MPI_PUT(var3_sp(nv_off+1), nval, p_real_sp, np, ioff(np), nval, p_real_sp, &
-            & patch_data%mem_win%mpi_win, mpi_error) !MPI_WIN_NULL) 
+         & patch_data%mem_win%mpi_win, mpi_error) !MPI_WIN_NULL) 
 
        CALL MPI_Win_unlock(np, patch_data%mem_win%mpi_win, mpi_error)
 

@@ -23,7 +23,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_exception,           ONLY: finish
   USE mo_model_domain,        ONLY: t_patch
   USE mo_physical_constants,  ONLY: tmelt, tf_salt
-  USE mo_math_constants,      ONLY: dbl_eps
+  USE mo_math_constants,      ONLY: dbl_eps, rad2deg
   USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, zml_soil, min_rlcell, dzsoil, &
     &                               MODE_IAU, SSTICE_ANA_CLINC 
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
@@ -39,7 +39,7 @@ MODULE mo_nwp_sfc_utils
     &                               lsnowtile, isub_water, isub_seaice, isub_lake,    &
     &                               itype_interception, l2lay_rho_snow
   USE mo_nwp_tuning_config,   ONLY: tune_minsnowfrac
-  USE mo_initicon_config,     ONLY: init_mode_soil, ltile_coldstart, init_mode
+  USE mo_initicon_config,     ONLY: init_mode_soil, ltile_coldstart, init_mode, lanaread_tseasfc, use_lakeiceana
   USE mo_run_config,          ONLY: msg_level
   USE mo_nwp_soil_init,       ONLY: terra_multlay_init
   USE mo_flake,               ONLY: flake_init
@@ -140,6 +140,7 @@ CONTAINS
 
     INTEGER  :: soiltyp_t (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: rootdp_t  (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: plcov_t  (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: tai_t     (nproma, p_patch%nblks_c, ntiles_total)
 
     REAL(wp) :: freshsnow_t(nproma, p_patch%nblks_c, ntiles_total)
@@ -173,6 +174,7 @@ CONTAINS
     REAL(wp) :: t_scf_lk_now  (nproma) ! lake surface temperature
 
     LOGICAL  :: lake_mask(nproma)      ! auxiliary field for re-initialization of non-lake points
+    LOGICAL  :: iceana_mask(nproma)    ! mask indicating if sea ice fraction analysis should be used in flake_init
 
     ! local fields for sea ice model
     !
@@ -190,14 +192,15 @@ CONTAINS
     !
     INTEGER  :: icount_ice          ! total number of sea-ice points per block
 
-    INTEGER  :: i_count, ic, i_count_snow, isubs_snow
-    REAL(wp) :: temp
+    INTEGER  :: i_count, ic, i_count_snow, isubs_snow, jg
+    REAL(wp) :: temp, deglat, deglon
     REAL(wp) :: zfrice_thrhld       ! fraction threshold for creating a sea-ice grid point
 
   !-------------------------------------------------------------------------
 
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
+    jg        = p_patch%id
 
     ! exclude nest boundary and halo points
     rl_start = grf_bdywidth_c+1
@@ -219,7 +222,7 @@ CONTAINS
 !$OMP            depth_lk,fetch_lk,dp_bs_lk,t_bs_lk,gamso_lk,t_snow_lk_now,          &
 !$OMP            h_snow_lk_now,t_ice_now,h_ice_now,t_mnw_lk_now,t_wml_lk_now,        &
 !$OMP            t_bot_lk_now,c_t_lk_now,h_ml_lk_now,t_b1_lk_now,h_b1_lk_now,        &
-!$OMP            t_scf_lk_now,zfrice_thrhld,lake_mask), SCHEDULE(guided)
+!$OMP            t_scf_lk_now,zfrice_thrhld,lake_mask,iceana_mask,deglat,deglon), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -294,6 +297,7 @@ CONTAINS
 
           soiltyp_t(ic,jb,isubs)             =  ext_data%atm%soiltyp_t(jc,jb,isubs)
           rootdp_t(ic,jb,isubs)              =  ext_data%atm%rootdp_t(jc,jb,isubs)
+          plcov_t(ic,jb,isubs)              =  ext_data%atm%plcov_t(jc,jb,isubs)
           tai_t(ic,jb,isubs)                 =  ext_data%atm%tai_t(jc,jb,isubs)
         ENDDO
 
@@ -411,6 +415,7 @@ CONTAINS
         &  czmls             = zml_soil                         , & ! processing soil level structure
         &  soiltyp_subs      = soiltyp_t(:,jb,isubs)            , & ! type of the soil (keys 0-9)  --
         &  rootdp            = rootdp_t(:,jb,isubs)             , & ! depth of the roots                ( m  )
+        &  plcov             = plcov_t(:,jb,isubs)             , & ! surface fraction covered by plants ( -  )
         &  t_snow_now        = t_snow_now_t(:,jb,isubs)         , & ! temperature of the snow-surface   (  K  )
         &  t_snow_mult_now   = t_snow_mult_now_t(:,:,jb,isubs)  , & ! temperature of the snow-surface   (  K  )
         &  t_s_now           = t_s_now_t(:,jb,isubs)            , & ! temperature of the ground surface (  K  )
@@ -573,6 +578,7 @@ CONTAINS
 
           fr_lake      (ic) = ext_data%atm%frac_t(jc,jb,isub_lake)
           depth_lk     (ic) = ext_data%atm%depth_lk   (jc,jb)
+          frsi         (ic) = p_lnd_diag%fr_seaice(jc,jb)
           fetch_lk     (ic) = ext_data%atm%fetch_lk   (jc,jb)
           dp_bs_lk     (ic) = ext_data%atm%dp_bs_lk   (jc,jb)
           t_bs_lk      (ic) = ext_data%atm%t_bs_lk    (jc,jb)
@@ -590,12 +596,25 @@ CONTAINS
           h_b1_lk_now  (ic) = p_prog_wtr_now%h_b1_lk  (jc,jb)
           t_scf_lk_now (ic) = p_prog_lnd_now%t_g_t    (jc,jb,isub_lake)
 
+          ! test implementation: compute approximate mask for Great Lakes
+          deglat = p_patch%cells%center(jc,jb)%lat * rad2deg
+          deglon = p_patch%cells%center(jc,jb)%lon * rad2deg
+          IF (deglat >= 41._wp .AND. deglat <= 49._wp .AND. deglon >= -92._wp .AND. deglon <= -76._wp) THEN
+            iceana_mask(ic) = .TRUE.
+            IF (deglon > -85._wp .AND. deglat > 46._wp) iceana_mask(ic) = .FALSE.
+            IF (deglon < -88._wp .AND. deglat < 46._wp) iceana_mask(ic) = .FALSE.
+          ELSE
+            iceana_mask(ic) = .FALSE.
+          ENDIF
+          IF (.NOT. (use_lakeiceana .AND. lanaread_tseasfc(jg)) ) iceana_mask(ic) = .FALSE.
         ENDDO
 
 
         CALL flake_init (nflkgb     = icount_flk,             & !in
+          &         use_iceanalysis = iceana_mask  (:),       & !in
           &              fr_lake    = fr_lake      (:),       & !in
           &              depth_lk   = depth_lk     (:),       & !in
+          &              fr_ice     = frsi         (:),       & !in
           &              fetch_lk   = fetch_lk     (:),       & !inout
           &              dp_bs_lk   = dp_bs_lk     (:),       & !inout
           &              t_bs_lk    = t_bs_lk      (:),       & !inout
