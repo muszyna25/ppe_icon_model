@@ -151,8 +151,8 @@ MODULE mo_echam_phy_memory
       & mdryvi    (:,:),    &!< [kg/m2] dry air content, vertically integrated through the atmospheric column
       & qx        (:,:,:),  &!< [kg/kg] total concentration of hydrometeors
       & omega     (:,:,:),  &!< [Pa/s]  vertical velocity in pressure coord. ("vervel" in ECHAM)
-      & geoi      (:,:,:),  &!< [m2/s2] geopotential at half levels (vertical interfaces)
-      & geom      (:,:,:),  &!< [m2/s2] geopotential at full levels (layer ave. or mid-point value)
+      & geoi      (:,:,:),  &!< [m2/s2] geopotential above ground at half levels (vertical interfaces)
+      & geom      (:,:,:),  &!< [m2/s2] geopotential above ground at full levels (layer ave. or mid-point value)
       & presi_old (:,:,:),  &!< [Pa]    pressure at half levels at time step "old"
       & presm_old (:,:,:),  &!< [Pa]    pressure at full levels at time step "old"
       & presi_new (:,:,:),  &!< [Pa]    pressure at half levels at time step "new"
@@ -341,7 +341,7 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr_2d),ALLOCATABLE :: cfh_tile_ptr(:)
 
     REAL(wp),POINTER ::     &
-      & coriol(:,:),        &!< Coriolis parameter, needed for diagnosing PBL height.
+      & coriol(:,:),        &!< Coriolis parameter
       & ghpbl (:,:),        &!< geopotential of the top of the atmospheric boundary layer
       & z0m_tile(:,:,:),    &!< aerodynamic roughness length (over each surface type)
       & z0m   (:,:),        &!< aerodynamic roughness length (grid box mean)

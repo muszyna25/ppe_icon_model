@@ -931,12 +931,14 @@ CONTAINS
                      nbdim                                     ,& ! in,  dimension of block of cells/columns
                      nlev                                      ,& ! in,  number of levels
                      !
-                     field% clat(:,jb)                         ,& ! in,  Latitude in radians
                      pdtime                                    ,& ! in,  time step length
+                     field% coriol(:,jb)                       ,& ! in,  Coriolis parameter (1/s)
+                     field% zf  (:,:,jb)                       ,& ! in,  full level height (m)
+                     field% zh  (:,nlev+1,jb)                  ,& ! in,  surface height    (m)
                      !
                      field% presi_old(:,:,jb)                  ,& ! in,  p at half levels
                      field% presm_old(:,:,jb)                  ,& ! in,  p at full levels
-                     field% geom(:,:,jb)                       ,& ! in,  geopotential above surface (t-dt)
+                     field% mair(:,:,jb)                       ,& ! in,  air mass
                      field%   ta(:,:,jb)                       ,& ! in,  T
                      field%   ua(:,:,jb)                       ,& ! in,  u
                      field%   va(:,:,jb)                       ,& ! in,  v
