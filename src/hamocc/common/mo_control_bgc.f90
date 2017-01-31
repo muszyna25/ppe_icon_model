@@ -3,17 +3,6 @@
 !!
 !! Definition of variables
 !!
-!! @author S.Legutke (MPI-M)
-!!
-!! @par Revision History
-!!
-!! First version by S.Legutke            (MPI-M)    Feb 28, 2002
-!!
-!! @par Copyright
-!! 2002-2013 by MPI-M
-!! This software is provided for non-commercial use only.
-!! See the LICENSE and the WARRANTY conditions.
-!!
 MODULE mo_control_bgc
 
   USE mo_kind, ONLY : wp
@@ -50,12 +39,11 @@ MODULE mo_control_bgc
   INTEGER  :: bgcstartmonth      !<  month of ocean restart file
   INTEGER  :: bgcstartday        !<  day of ocean restart file
 
-  INTEGER  :: bgc_zlevs             !<  time step number from bgc restart file
+  INTEGER  :: bgc_zlevs           !<  time step number from bgc restart file
   INTEGER  :: bgc_nproma          !<  actual time steps of run.
 
-  REAL(wp) :: rmasks = 0.0_wp    !<  value at wet cells in sediment.
-  !REAL(wp) :: rmasko = -9.e33_wp !<  value at wet cells in ocean.    ! will overwrite value from namelist!
-  REAL(wp) :: rmasko = 0.0_wp !<  value at wet cells in ocean.    ! will overwrite value from namelist!
+  REAL(wp) :: rmasks = 0.0_wp     !<  value at wet cells in sediment.
+  REAL(wp) :: rmasko = 0.0_wp     !<  value at wet cells in ocean.    
 
 
   INTEGER:: bgc_gin, bgc_arctic, bgc_lab, bgc_natl, bgc_atl, bgc_tatl, bgc_tropac,  bgc_land, bgc_ind, bgc_soce, bgc_npac, bgc_carb
