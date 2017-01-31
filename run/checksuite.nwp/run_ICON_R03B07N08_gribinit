@@ -308,7 +308,6 @@ cat > NAMELIST_nwptest << EOF
  lcoriolis                    = .true.
 /
 &transport_nml
- ctracer_list                 = '12345'
  ivadv_tracer                 = 3,3,3,3,3
  itype_hlimit                 = 3,4,4,4,4
  ihadv_tracer                 = 52,2,2,2,2

@@ -96,7 +96,7 @@ cat > ${atmo_namelist} << EOF
  flat_height      = 16000.      ! [m]
 /
 &transport_nml
- ctracer_list     = 'vci'       ! water vapour, cloud water, cloud ice
+ tracer_names     = 'v','c','i'       ! water vapour, cloud water, cloud ice
 /
 EOF
 

@@ -46,6 +46,7 @@ cat > NAMELIST_${EXPNAME} << EOF
 /
 &testcase_nml
  ctest_name  = 'PA'        ! test case identifier
+ tracer_inidist_list = 5,6
  rotate_axis_deg  = 45.0
 /
 &grid_nml
@@ -72,7 +73,7 @@ cat > NAMELIST_${EXPNAME} << EOF
 &dynamics_nml
 /
 &transport_nml
-  ctracer_list = '56'
+  tracer_names = '5','6'
   ihadv_tracer = 3
   lvadv_tracer = .FALSE.
 /

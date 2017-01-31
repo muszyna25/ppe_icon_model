@@ -162,7 +162,6 @@ cat > ${atmo_namelist} << EOF
  ape_sst_case      = 'sst1'
 /
 &transport_nml
- ctracer_list='vwi456'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
 ! ihadv_tracer  = 32,2,2,2,2,0
 ! ivadv_tracer  = 3,3,3,3,3,0
 ! ! igrad_c_miura = 1
