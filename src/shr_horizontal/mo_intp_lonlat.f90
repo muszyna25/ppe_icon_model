@@ -284,7 +284,12 @@
             END IF
 
             ! mask out nest boundary points
-            IF ((jg > 1) .AND. lreduced_nestbdry_stencil) THEN 
+            !
+            ! Tentative fix: "lreduced_nestbdry_stencil" controls
+            ! only barycentric interpolation.
+            !
+            !            IF ((jg > 1) .AND. lreduced_nestbdry_stencil) THEN 
+            IF (jg > 1) THEN 
               CALL mask_out_boundary( p_patch(jg), lonlat_grid_list(i)%intp(jg) )
             END IF
 
@@ -1201,6 +1206,11 @@
           ptr_coeff => ptr_int_lonlat%nnb_coeff
         CASE (HINTP_TYPE_LONLAT_BCTR)
           IF (.NOT. support_baryctr_intp)  CYCLE
+
+          ! Tentative fix: "lreduced_nestbdry_stencil" controls
+          ! only barycentric interpolation.
+          IF (.NOT. lreduced_nestbdry_stencil) CYCLE
+
           ptr_coeff => ptr_int_lonlat%baryctr_coeff
         CASE DEFAULT
           CALL finish(routine, "Internal error!")
