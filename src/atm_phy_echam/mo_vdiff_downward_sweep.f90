@@ -57,8 +57,6 @@ CONTAINS
                        & pcptgz,     prhoh,     pqshear,                &! out
                        & pzthvvar,   pthvsig,   pztkevn,                &! out
                        & pch_tile,                                      &! out, for "nsurf_diag"
-!                       & pch_tile,   pchn_tile,                         &! out, for "nsurf_diag"
-!                       & pcdn_tile,  pcfnc_tile,                        &! out, for "nsurf_diag"
                        & pbn_tile,   pbhn_tile,                         &! out, for "nsurf_diag"
                        & pbm_tile,   pbh_tile,                          &! out, for "nsurf_diag"
                        & pcsat,                                         &! in
@@ -121,9 +119,6 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: pqsat_tile(kbdim,ksfc_type) !< saturation specific     out
                                                           !< humidity at sfc.
                                                           !< (step t-dt)
-!! TODO: ME
-!!    REAL(wp),INTENT(OUT) :: pcpt_sfc  (kbdim,ksfc_type) !< dry static energy
-!    REAL(wp) :: pcpt_sfc  (kbdim,ksfc_type) !< dry static energy
 
     INTEGER, INTENT(INOUT) :: ihpbl (kbdim)  !< PBL height given as level index    out
     REAL(wp),INTENT(INOUT) :: pghpbl(kbdim)  !< geopotential height of PBL top
@@ -162,9 +157,6 @@ CONTAINS
       & pztkevn   (kbdim,klev)       !< intermediate value of TKE
 
     REAL(wp), INTENT(OUT) :: pch_tile(kbdim,ksfc_type)    ! out, for "nsurf_diag"
-!    REAL(wp), INTENT(OUT) :: pchn_tile(kbdim,ksfc_type)   ! out, for "nsurf_diag"
-!    REAL(wp), INTENT(OUT) :: pcdn_tile(kbdim,ksfc_type)   ! out, for "nsurf_diag"
-!    REAL(wp), INTENT(OUT) :: pcfnc_tile(kbdim,ksfc_type)  ! out, for "nsurf_diag"
     REAL(wp), INTENT(OUT) :: pbn_tile(kbdim,ksfc_type)    ! out, for "nsurf_diag"
     REAL(wp), INTENT(OUT) :: pbhn_tile(kbdim,ksfc_type)   ! out, for "nsurf_diag"
     REAL(wp), INTENT(OUT) :: pbm_tile(kbdim,ksfc_type)    ! out, for "nsurf_diag"
@@ -257,8 +249,6 @@ CONTAINS
                            & pqshear(:,klev),                       &! out, for "vdiff_tendencies"
                            & pustar(:),                             &! out, for "atm_exchange_coeff" at next time step
                            & pch_tile(:,:),                         &! out, for "nsurf_diag"
-!                           & pch_tile(:,:),   pchn_tile(:,:),       &! out, for "nsurf_diag"
-!                           & pcdn_tile(:,:),  pcfnc_tile(:,:),      &! out, for "nsurf_diag"
                            & pbn_tile(:,:),   pbhn_tile(:,:),       &! out, for "nsurf_diag"
                            & pbm_tile(:,:),   pbh_tile(:,:),        &! out, for "nsurf_diag"
                            & paz0lh(:),                             &! in, optional

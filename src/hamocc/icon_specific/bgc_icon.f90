@@ -4,18 +4,15 @@
 !! @file bgc.f90
 !! @brief Main biogeochemical subroutine, called at each time step
 !!
-!! This subroutine computes all changes of pelagic biogeochemical 
+!! This subroutine calls all routines that calculate changes of pelagic biogeochemical 
 !! tracers due to local processes (like photosythesis, heterotrophic
 !! processes, N-fixation, and denitrification), the air-sea gas
 !! exchange of carbon dioxide, oxygen, dinitrogen, and the
-!! benthic processes. It further computes the vertical displacement of
+!! benthic processes. It further calls the computation of the vertical displacement of
 !! particles
 !!
 !! called by mo_hydro_ocean_run:perform_ho_stepping
 !!
-!! @author Irene Stemmler, MPI-Met, HH
-!!
-!! @par Revision History
 !!
 #include "icon_definitions.inc"
 
@@ -31,24 +28,27 @@ SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
   USE mo_bgc_icon_comm,       ONLY: update_icon, update_bgc, hamocc_state, &
        &                            set_bgc_tendencies_output
   USE mo_dynamics_config,     ONLY: nold, nnew
-  USE mo_sea_ice_types,       ONLY: t_atmos_for_ocean, t_sea_ice ! for now, use different later
-  USE mo_hamocc_nml,          ONLY: i_settling, l_cyadyn,l_bgc_check,io_stdo_bgc,l_implsed 
+  USE mo_sea_ice_types,       ONLY: t_atmos_for_ocean, t_sea_ice 
+  USE mo_hamocc_nml,          ONLY: i_settling, l_cyadyn,l_bgc_check,io_stdo_bgc,l_implsed, &
+       &                            l_dynamic_pi, l_pdm_settling 
   USE mo_control_bgc,         ONLY: dtb, dtbgc, inv_dtbgc, ndtdaybgc, icyclibgc,  &
-       &                        ndtrunbgc, ldtrunbgc, bgc_zlevs, bgc_nproma
+       &                        ndtrunbgc, ldtrunbgc, bgc_zlevs,bgc_nproma
 
   USE mo_cyano,               ONLY: cyano, cyadyn
-  USE mo_bgc_surface,         ONLY: gasex, update_weathering, dust_deposition
+  USE mo_bgc_surface,         ONLY: gasex, update_weathering, dust_deposition, nitrogen_deposition
   USE mo_bgc_bcond,           ONLY: ext_data_bgc
   USE mo_util_dbg_prnt,       ONLY: dbg_print
-  USE mo_hamocc_diagnostics,  ONLY: get_monitoring, get_inventories
+  USE mo_hamocc_diagnostics,  ONLY: get_monitoring, get_inventories, get_omz
   USE mo_exception, ONLY: message
   USE mo_carchm,              ONLY: calc_dissol 
+  USE mo_powach,              ONLY: powach, powach_impl
   USE mo_sedmnt, ONLY         : ini_bottom
   USE mo_timer, ONLY          : timer_bgc_up_bgc, timer_bgc_swr, timer_bgc_wea,timer_bgc_depo, &
     &                           timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett,timer_bgc_cya,&
     &                           timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
     &                           timer_bgc_tend, timer_start, timer_stop, timers_level
   USE mo_run_config, ONLY    : ltimer
+  USE mo_settling,   ONLY    : settling, settling_pdm
 
   IMPLICIT NONE
 
@@ -129,10 +129,15 @@ ENDIF
 
         start_detail_timer(timer_bgc_depo,5)
       ! Dust deposition
-        CALL dust_deposition(start_index, end_index,  & ! index range, levels, salinity
+        CALL dust_deposition(start_index, end_index,  & ! index range, levels,
    &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb), &! cell thickness (check for z0)
    &                 p_os%p_prog(nold(1))%h(:,jb),& ! surface_height
    &                 ext_data_bgc%dusty(:,jb))       ! dust input
+      ! Nitrogen deposition
+        CALL nitrogen_deposition(start_index, end_index,  & ! index range, levels
+   &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb), &! cell thickness (check for z0)
+   &                 p_os%p_prog(nold(1))%h(:,jb),& ! surface_height
+   &                 ext_data_bgc%nitro(:,jb))      ! nitrogen input
 
         stop_detail_timer(timer_bgc_depo,5)
        !----------------------------------------------------------------------
@@ -154,17 +159,27 @@ ENDIF
          ! plankton dynamics and remineralization  
          CALL ocprod(levels, start_index,end_index, p_os%p_prog(nold(1))%tracer(:,:,jb,1),&
    &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb), & ! cell thickness
-   &               p_os%p_prog(nold(1))%h(:,jb)) ! surface height
+   &               p_os%p_prog(nold(1))%h(:,jb),& ! surface height
+   &               p_patch_3d%p_patch_1d(1)%depth_CellInterface(:,:,jb),& ! depths at interface  
+   &               l_dynamic_pi ) ! depths at interface  
         stop_detail_timer(timer_bgc_ocprod,5)
 
         start_detail_timer(timer_bgc_sett,5)
-         ! particle settling
+         ! particle settling 
+        IF (l_pdm_settling)then
+         CALL settling_pdm(levels,start_index, end_index, &
+   &                   p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),& ! cell thickness
+   &                   p_os%p_prog(nold(1))%h(:,jb))                   ! surface height
+ 
+        ELSE
          CALL settling(levels,start_index, end_index, &
    &                   p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),& ! cell thickness
    &                   p_os%p_prog(nold(1))%h(:,jb))                   ! surface height
-        stop_detail_timer(timer_bgc_sett,5)
+       
+        ENDIF 
+       endif
 
-        endif
+       stop_detail_timer(timer_bgc_sett,5)
 
 
        !----------------------------------------------------------------------
@@ -176,7 +191,9 @@ ENDIF
         CALL cyadyn(levels, start_index,end_index, &  ! vertical range, cell range,
      &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),& ! cell thickness
      &               p_os%p_prog(nold(1))%h(:,jb), &                 ! surface height
-     &               p_os%p_prog(nold(1))%tracer(:,:,jb,1) )          ! pot. temperature 
+     &               p_os%p_prog(nold(1))%tracer(:,:,jb,1), &        ! pot. temperature 
+     &               p_patch_3d%p_patch_1d(1)%depth_CellInterface(:,:,jb),& ! depths at interface  
+     &               l_dynamic_pi ) ! depths at interface  
        ELSE
         ! diagnostic N2 fixation
         CALL cyano (start_index, end_index,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&
@@ -239,6 +256,10 @@ ENDIF
 
         stop_detail_timer(timer_bgc_tend,5)
  ENDDO
+
+! O2 min depth & value diagnostics
+CALL get_omz(hamocc_state,p_os,p_patch_3d)
+
   ! Increment bgc time step counter of run (initialized in INI_BGC).
   !
   ldtrunbgc = ldtrunbgc + 1

@@ -22,6 +22,7 @@ MODULE mo_vdiff_solver
   USE mo_echam_vdiff_params,ONLY: clam, da1, tke_min, cons2, cons25, &
     &                             tpfac1, tpfac2, tpfac3, cchar, z0m_min
   USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config, get_lebudget
+  USE mo_echam_phy_memory,  ONLY: cdimissval
 
   IMPLICIT NONE
   PRIVATE
@@ -777,7 +778,7 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: pxtte_vdf(kbdim,klev,ktrac)  ! OUT
     REAL(wp),INTENT(INOUT) :: pxvarprod(kbdim,klev) !< "pvdiffp" in echam   OUT
 
-    REAL(wp),INTENT(INOUT) :: pz0m    (kbdim)  ! OUT
+    REAL(wp),INTENT(OUT)   :: pz0m    (kbdim)
     REAL(wp),INTENT(INOUT) :: ptke    (kbdim,klev)
     REAL(wp),INTENT(INOUT) :: pthvvar (kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: pthvsig (kbdim)  ! OUT
@@ -1011,15 +1012,19 @@ CONTAINS
     !----------------------------------------------------------------------------
     IF (idx_wtr<=ksfc_type) THEN  ! water surface exists in the simulation
       DO jl = 1,kproma
-        pz0m_tile(jl,idx_wtr) = tpfac1*SQRT( bb(jl,klev,iu)**2+bb(jl,klev,iv)**2 ) &
-                              & *pcfm_tile(jl,idx_wtr)*cchar/grav
-        pz0m_tile(jl,idx_wtr) = MAX(z0m_min,pz0m_tile(jl,idx_wtr))
+        IF(pfrc(jl,idx_wtr).GT.0._wp) THEN
+          pz0m_tile(jl,idx_wtr) = tpfac1*SQRT( bb(jl,klev,iu)**2+bb(jl,klev,iv)**2 ) &
+                                & *pcfm_tile(jl,idx_wtr)*cchar/grav
+          pz0m_tile(jl,idx_wtr) = MAX(z0m_min,pz0m_tile(jl,idx_wtr))
+        ELSE
+          pz0m_tile(jl,idx_wtr) = cdimissval
+        ENDIF
       ENDDO
     ENDIF
 
     ! Compute grid-box mean 
 
-    pz0m(1:kproma) = 0._wp
+    pz0m(:) = 0._wp
     DO jsfc = 1,ksfc_type
        pz0m(1:kproma) = pz0m(1:kproma) + pfrc(1:kproma,jsfc)*pz0m_tile(1:kproma,jsfc)
     ENDDO
