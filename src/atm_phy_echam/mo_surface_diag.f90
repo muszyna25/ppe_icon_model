@@ -319,7 +319,8 @@ CONTAINS
                        & pxm1,                            &
                        & pum1,      pvm1,                 &
                        & pocu,      pocv,                 & 
-                       & pgeom1,                          &! in geopotential above surface
+                       & pzf,                             &! in height of lowermost full level (m)
+                       & pzs,                             &! in height of surface (m)
                        & pcptgz,                          &! in dry static energy
                        & pcpt_tile,                       &! in dry static energy 
                        & pbn_tile,                        &! in for diagnostic
@@ -345,7 +346,8 @@ CONTAINS
 
     REAL(wp),INTENT(IN) :: pfrc     (kbdim,ksfc_type) !< fraction of the grid box occupied by
                                                       !< each surface type
-    REAL(wp), INTENT(in)     :: pqm1(kbdim), pgeom1(kbdim) 
+    REAL(wp), INTENT(in)     :: pqm1(kbdim)
+    REAL(wp), INTENT(in)     :: pzf(kbdim), pzs(kbdim)
     REAL(wp), INTENT(in)     :: pcptgz(kbdim)         !< dry static energy at surface level
     REAL(wp), INTENT(in)     :: pcpt_tile(kbdim,ksfc_type) !< dry static energy on tiles
     REAL(wp), TARGET, INTENT(in) :: pbn_tile(kbdim,ksfc_type)   !< for diagnostics
@@ -378,9 +380,9 @@ CONTAINS
     CONTIGUOUS :: pbtile
 #endif
     !CONSTANTS
-    zhuv          = 10._wp * grav
-    zhtq          = 2._wp * grav
-    zephum        = 5.e-2_wp
+    zhuv          =  10._wp ! 10m
+    zhtq          =   2._wp !  2m
+    zephum        = 0.05_wp ! epsilon for rel. humidity
 
     zc2es         = 610.78_wp * rdv
     zc3les        = 17.269_wp
@@ -421,14 +423,14 @@ CONTAINS
       END IF
       DO jls=1,is(jsfc)
        jl = loidx(jls,jsfc)
-       zrat   = zhtq / pgeom1(jl)
+       zrat   = zhtq / (pzf(jl)-pzs(jl))
        zcbn   = LOG(1._wp + (EXP(pbtile(jl,jsfc)) - 1._wp) * zrat )
        zcbs   = -(pbtile(jl,jsfc) - pbh_tile(jl,jsfc)) * zrat
        zcbu   = -LOG(1._wp + (EXP(pbtile(jl,jsfc) - pbh_tile(jl,jsfc)) - 1._wp) * zrat)
        zmerge = MERGE(zcbs,zcbu,pri_tile(jl,jsfc) .GT. 0._wp)
        zred   = (zcbn + zmerge) / pbh_tile(jl,jsfc)
        zh2m(jl)   = pcpt_tile(jl,jsfc) + zred * (pcptgz(jl) - pcpt_tile(jl,jsfc))
-       ptas_tile(jl,jsfc) = (zh2m(jl) - zhtq ) / (cpd * (1._wp + vtmpc2 * pqm1(jl)))
+       ptas_tile(jl,jsfc) = (zh2m(jl) - zhtq*grav ) / (cpd * (1._wp + vtmpc2 * pqm1(jl)))
      ENDDO
     ENDDO
     !
@@ -446,7 +448,7 @@ CONTAINS
       zrh2m(jl)     = MAX(zephum, pqm1(jl) / zqs1(jl))
  
       zaph2m(jl)     = paphm1(jl) * &  ! = paphm1(1:kproma, klevp1)
-          (1._wp - zhtq / ( rd * ptas_tile(jl,jsfc) * (1._wp + vtmpc1 * pqm1(jl) - pxm1(jl))))
+          (1._wp - zhtq*grav / ( rd * ptas_tile(jl,jsfc) * (1._wp + vtmpc1 * pqm1(jl) - pxm1(jl))))
      ENDDO
 
      WHERE(ptas_tile(1:kproma,jsfc) .GT. tmelt)
@@ -475,7 +477,7 @@ CONTAINS
     DO jsfc = 1,ksfc_type
        DO jls=1,is(jsfc)
          jl = loidx(jls,jsfc)
-           zrat   = zhuv / pgeom1(jl)
+           zrat   = zhuv / (pzf(jl)-pzs(jl))
            zcbn   = LOG(1._wp + (EXP (pbn_tile(jl,jsfc)) - 1._wp) * zrat )
            zcbs   = -(pbn_tile(jl,jsfc) - pbm_tile(jl,jsfc)) * zrat
            zcbu   = -LOG(1._wp + (EXP (pbn_tile(jl,jsfc) - pbm_tile(jl,jsfc)) - 1._wp) * zrat)

@@ -818,7 +818,8 @@ CONTAINS
                    & field%   va(:,nlev,jb),          &! in, vm1
                    & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
                    & field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
-                   & field%  geom(:,nlev,jb),         &! in geopotential above surface
+                   & field% zf  (:,nlev  ,jb),        &! in, height of lowermost full level (m)
+                   & field% zh  (:,nlev+1,jb),        &! in, surface height    (m)
                    & zcptgz(:,nlev),                  &! in dry static energy
                    & zcpt_sfc_tile(:,:),              &! in dry static energy
                    & zbn_tile(:,:),                   &! in for diagnostic
