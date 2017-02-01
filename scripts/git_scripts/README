@@ -1,0 +1,43 @@
+This is a first draft of a git merge review tool. It is only tested on
+xceXXX and lceXXX at DWD and on my Mac. Testing and updating the
+module provided python versions need to be done.
+
+There are certain requirements:
+
+1) pygtk is needed (due to the old system installations available that
+   was the lowest common denominator).
+
+2) gitpython
+
+   There is a version installed at DWD in my local home directory,
+   which I added to the scripts load path so that it can be used by
+   others.
+
+   For python 2.6 the following steps have to be performed:
+
+   wget https://bootstrap.pypa.io/get-pip.py
+   python ./get-pip.py --user
+   export PATH=$HOME/.local/bin:$PATH
+   pip install --user gitpython
+   pip install --user ordereddict
+   pip install --user unittest2
+
+   For python 2.7 the following steps have to be performed (pip and
+   ordereddict are part of python as of 2.7):
+
+   wget https://bootstrap.pypa.io/get-pip.py
+   python ./get-pip.py --user
+   export PATH=$HOME/.local/bin:$PATH
+   pip install --user gitpython
+   pip install --user unittest2
+
+3) Select a grpahical difftool. A selection available could be retrieved with
+
+   git difftool --tool-help
+
+   You need to change your copy's predefined difftool around line 15
+   of the script.
+
+Feel free to contact me by email (luis.kornblueh@mpimet.mpg.de). This
+tool is considered to be in alpha state!
+
