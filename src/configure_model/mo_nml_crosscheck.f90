@@ -1129,6 +1129,10 @@ CONTAINS
       ENDIF
     ENDDO
     
+    IF(art_config(jg)%lart_pntSrc .AND. .NOT. art_config(jg)%lart_passive) THEN
+      CALL finish(TRIM(method_name),'lart_pntSrc needs lart_passive to be .true.')
+    ENDIF
+    
     ! XML specification checks
     
     DO jg= 1,n_dom
