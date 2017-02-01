@@ -313,6 +313,7 @@ MODULE mo_sync_latbc
   !! Initial version by S. Brdar, DWD (2013-07-25)
   !!
   SUBROUTINE read_latbc_icon_data(p_patch, p_nh_state, ext_data, p_int)
+    USE mo_initicon_io, ONLY: height_or_lev
     TYPE(t_patch), TARGET,  INTENT(IN)  :: p_patch
     TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
     TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
@@ -328,6 +329,7 @@ MODULE mo_sync_latbc
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::read_latbc_icon_data"
     CHARACTER(LEN=filename_max)         :: latbc_filename, latbc_full_filename
+    CHARACTER(len=10) :: levstring
 
     ! NOTE: this subroutine is called only for
     !       (latbc_config%itype_latbc /= LATBC_TYPE_EXT). It is
@@ -370,7 +372,8 @@ MODULE mo_sync_latbc
       !
       ! get number of vertical levels
       !
-      CALL nf(nf_inq_dimid(latbc_ncid, 'height', dimid), routine)
+      CALL height_or_lev(latbc_ncid, levstring)
+      CALL nf(nf_inq_dimid(latbc_ncid, TRIM(levstring), dimid), routine)
       CALL nf(nf_inq_dimlen(latbc_ncid, dimid, no_levels), routine)
 
       ! consistency check

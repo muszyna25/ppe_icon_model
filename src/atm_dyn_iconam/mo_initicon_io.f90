@@ -68,8 +68,6 @@ MODULE mo_initicon_io
   USE mo_util_string,         ONLY: int2string
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
 
-
-
   ! High level overview of how `mo_initicon` reads input data
   ! =========================================================
   !
@@ -170,6 +168,8 @@ MODULE mo_initicon_io
   PUBLIC :: process_input_dwdana_atm
   PUBLIC :: process_input_dwdana_sfc
 
+  ! should probably move to some shared I/O module
+  PUBLIC :: height_or_lev
 
   TYPE :: t_fetchParams
     TYPE(t_readInstructionListPtr), ALLOCATABLE :: inputInstructions(:)
