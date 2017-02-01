@@ -20,8 +20,7 @@ MODULE mo_parallel_nml
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
-    & open_and_restore_namelist, close_tmpfile
+  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist, open_and_restore_namelist, close_tmpfile
   USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: max_dom
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings

@@ -7,7 +7,8 @@
 !! headers of the routines.
 MODULE mo_var_metadata_types
 
-  USE mo_kind,                  ONLY: dp, wp
+  USE mo_kind,                  ONLY: dp, wp, sp
+  USE mo_impl_constants,        ONLY: VARNAME_LEN
   USE mo_grib2,                 ONLY: t_grib2_var
   USE mo_action_types,          ONLY: t_var_action
   USE mo_cf_convention,         ONLY: t_cf_var
@@ -22,9 +23,6 @@ MODULE mo_var_metadata_types
   ! CONSTANTS
   ! ---------------------------------------------------------------
 
-
-  ! maximum string length for variable names
-  INTEGER, PARAMETER :: VARNAME_LEN = 256
 
   ! List of variable groups
   ! 
@@ -143,6 +141,7 @@ MODULE mo_var_metadata_types
 
   TYPE t_union_vals
     REAL(dp) :: rval
+    REAL(sp) :: sval
     INTEGER  :: ival
     LOGICAL  :: lval
   END type t_union_vals
@@ -196,6 +195,7 @@ MODULE mo_var_metadata_types
     CHARACTER(len=VARNAME_LEN) :: name                  ! variable name
     INTEGER                    :: var_class             ! variable type
     !                                                   ! 0: CLASS_DEFAULT, 1: CLASS_TILE, ... 
+    INTEGER                    :: data_type             ! variable data type: REAL_T, SINGLE_T, INT_T, BOOL_T
     !
     TYPE(t_cf_var)             :: cf                    ! CF convention information 
     TYPE(t_grib2_var)          :: grib2                 ! GRIB2 related information

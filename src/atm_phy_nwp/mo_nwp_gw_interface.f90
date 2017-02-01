@@ -25,7 +25,7 @@
 
 MODULE mo_nwp_gw_interface
 
-  USE mo_kind,                 ONLY: wp
+  USE mo_kind,                 ONLY: wp, vp => vp2
 
   USE mo_model_domain,         ONLY: t_patch
 
@@ -41,6 +41,7 @@ MODULE mo_nwp_gw_interface
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_sso_cosmo,            ONLY: sso
   USE mo_gwd_wms,              ONLY: gwdrag_wms
+  USE mo_vertical_coord_table, ONLY: vct_a
 
   IMPLICIT NONE
 
@@ -86,13 +87,14 @@ CONTAINS
     INTEGER :: i_nchdom                !< domain index
 
     REAL(wp) ::            &           !< != zonal component of vertical momentum flux (Pa)
-      &  z_fluxu(nproma,p_patch%nlevp1 , p_patch%nblks_c)
+      &  z_fluxu(nproma,p_patch%nlevp1)
     REAL(wp) ::            &           !< != meridional component of vertical momentum flux (Pa)
-      &  z_fluxv (nproma,p_patch%nlevp1, p_patch%nblks_c)
+      &  z_fluxv (nproma,p_patch%nlevp1)
     REAL(wp) ::            &           !< total precipitation rate [kg/m2/s]
       &  ztot_prec_rate(nproma)
+    REAL(vp) :: ssolim(p_patch%nlev), zf
 
-    INTEGER :: jk,jc,jb,jg             !<block indeces
+    INTEGER :: jk,jc,jb,jg,jks             !<block indeces
 
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
@@ -111,9 +113,19 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
+    ! Set height-dependent limits for SSO momentum tendencies
+    DO jk = 1, nlev
+      jks = jk + p_patch%nshift_total
+      zf = 0.5_wp*(vct_a(jks)+vct_a(jks+1))
+      IF (zf <= 20000._vp) THEN
+        ssolim(jk) = 0.05_vp
+      ELSE
+        ssolim(jk) = 0.05_vp*EXP(-1.25e-4_vp*(zf-20000._vp))
+      ENDIF
+    ENDDO
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ztot_prec_rate) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ztot_prec_rate,z_fluxu,z_fluxv) ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -161,14 +173,24 @@ CONTAINS
  !         & pdt_sso   =prm_nwp_tend%ddt_temp_sso(:,:,jb)   ) !< out: temperature tendency
                                                              ! due to SSO
 
-        ! Limit SSO wind tendencies. They can become numerically unstable in the upper stratosphere and mesosphere
+        ! Reduce tendencies in uppermost layer by a factor of 8 because they tend to larger than the tendencies
+        ! in the second layer by about this factor. This is also true at vertical nest interfaces
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+          prm_nwp_tend%ddt_u_sso(jc,1,jb) = 0.125_vp*prm_nwp_tend%ddt_u_sso(jc,1,jb)
+          prm_nwp_tend%ddt_v_sso(jc,1,jb) = 0.125_vp*prm_nwp_tend%ddt_v_sso(jc,1,jb)
+        ENDDO
+
+        ! Limit SSO wind tendencies. They can become numerically unstable in the upper stratosphere and mesosphere.
+        ! Moreover, they tend to be much too strong in northern hemispheric winter, leading to a huge warm
+        ! bias in the north polar middle stratosphere
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
-            prm_nwp_tend%ddt_u_sso(jc,jk,jb) = MAX(-0.1_wp,prm_nwp_tend%ddt_u_sso(jc,jk,jb))
-            prm_nwp_tend%ddt_u_sso(jc,jk,jb) = MIN( 0.1_wp,prm_nwp_tend%ddt_u_sso(jc,jk,jb))
-            prm_nwp_tend%ddt_v_sso(jc,jk,jb) = MAX(-0.1_wp,prm_nwp_tend%ddt_v_sso(jc,jk,jb))
-            prm_nwp_tend%ddt_v_sso(jc,jk,jb) = MIN( 0.1_wp,prm_nwp_tend%ddt_v_sso(jc,jk,jb))
+            prm_nwp_tend%ddt_u_sso(jc,jk,jb) = &
+              SIGN(MIN(ssolim(jk),ABS(prm_nwp_tend%ddt_u_sso(jc,jk,jb))),prm_nwp_tend%ddt_u_sso(jc,jk,jb))
+            prm_nwp_tend%ddt_v_sso(jc,jk,jb) = &
+              SIGN(MIN(ssolim(jk),ABS(prm_nwp_tend%ddt_v_sso(jc,jk,jb))),prm_nwp_tend%ddt_v_sso(jc,jk,jb))
           ENDDO
         ENDDO
 
@@ -204,17 +226,25 @@ CONTAINS
            & pprecip  = ztot_prec_rate          (:)     ,  & !< in:  total surface precipitation rate
            & ptenu    = prm_nwp_tend%ddt_u_gwd  (:,:,jb),  & !< out: u-tendency
            & ptenv    = prm_nwp_tend%ddt_v_gwd  (:,:,jb),  & !< out: v-tendency
-           & pfluxu   = z_fluxu (:,:,jb)                ,  & !< out: zonal  GWD vertical mom flux
-           & pfluxv   = z_fluxv (:,:,jb)   )                 !< out: merid. GWD vertical mom flux
+           & pfluxu   = z_fluxu (:,:)                   ,  & !< out: zonal  GWD vertical mom flux
+           & pfluxv   = z_fluxv (:,:)   )                    !< out: merid. GWD vertical mom flux
+
+        ! Reduce tendencies in uppermost layer by a factor of 8 because they tend to larger than the tendencies
+        ! in the second layer by about this factor. This is also true at vertical nest interfaces
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+          prm_nwp_tend%ddt_u_gwd(jc,1,jb) = 0.125_vp*prm_nwp_tend%ddt_u_gwd(jc,1,jb)
+          prm_nwp_tend%ddt_v_gwd(jc,1,jb) = 0.125_vp*prm_nwp_tend%ddt_v_gwd(jc,1,jb)
+        ENDDO
 
         ! Limit also gwdrag wind tendencies. They can become numerically unstable in the upper mesosphere
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
-            prm_nwp_tend%ddt_u_gwd(jc,jk,jb) = MAX(-0.05_wp,prm_nwp_tend%ddt_u_gwd(jc,jk,jb))
-            prm_nwp_tend%ddt_u_gwd(jc,jk,jb) = MIN( 0.05_wp,prm_nwp_tend%ddt_u_gwd(jc,jk,jb))
-            prm_nwp_tend%ddt_v_gwd(jc,jk,jb) = MAX(-0.05_wp,prm_nwp_tend%ddt_v_gwd(jc,jk,jb))
-            prm_nwp_tend%ddt_v_gwd(jc,jk,jb) = MIN( 0.05_wp,prm_nwp_tend%ddt_v_gwd(jc,jk,jb))
+            prm_nwp_tend%ddt_u_gwd(jc,jk,jb) = &
+              SIGN(MIN(0.05_vp,ABS(prm_nwp_tend%ddt_u_gwd(jc,jk,jb))),prm_nwp_tend%ddt_u_gwd(jc,jk,jb))
+            prm_nwp_tend%ddt_v_gwd(jc,jk,jb) = &
+              SIGN(MIN(0.05_vp,ABS(prm_nwp_tend%ddt_v_gwd(jc,jk,jb))),prm_nwp_tend%ddt_v_gwd(jc,jk,jb))
           ENDDO
         ENDDO
 

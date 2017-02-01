@@ -46,7 +46,7 @@ MODULE mo_nh_testcases_nml
                                    & nlayers_poly,                                   &
                                    & p_base_poly, h_poly, t_poly,                    &
                                    & tgr_poly, rh_poly, rhgr_poly
-  USE mo_nh_init_utils,        ONLY: n_flat_level, layer_thickness
+!!$  USE mo_init_vgrid,           ONLY: n_flat_level, layer_thickness
   USE mo_nh_mrw_exp,           ONLY: mount_lonctr_mrw_deg, mount_latctr_mrw_deg,     &
                                    &  u0_mrw,  mount_height_mrw, mount_half_width,   &
                                    &  temp_i_mwbr_const, p_int_mwbr_const,           &
@@ -67,6 +67,9 @@ MODULE mo_nh_testcases_nml
     &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,              & 
     &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho, u_cbl, v_cbl,      &
     &       th_cbl, psfc_cbl, sol_const, zenithang, bubctr_x, bubctr_y
+
+  PUBLIC :: dcmip_bw
+  PUBLIC :: is_toy_chem, toy_chem
 
   CHARACTER(len=MAX_CHAR_LENGTH) :: nh_test_name
   CHARACTER(len=MAX_CHAR_LENGTH) :: ape_sst_case      !SST for APE experiments
@@ -103,6 +106,35 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: bubctr_x  !X-Center of the warm bubble on torus
   REAL(wp) :: bubctr_y  !Y-Center of the warm bubble on torus
 
+  LOGICAL  :: is_toy_chem            ! .TRUE.: switch on terminator toy chemistry
+
+  ! settings for Gal-Chen vertical coordinate
+  ! Dirty stuff
+  ! Should be placed in a new namelist/configure state.
+  REAL(wp) :: layer_thickness        ! constant layer thickness (A(k)-A(k+1)) for 
+                                     ! Gal-Chen hybrid coordinate. (m)
+                                     ! If layer_thickness<0,  A(k), B(k) are read 
+                                     ! from file.                                    
+  INTEGER  :: n_flat_level           ! Number of flat levels, i.e. where B=0.
+
+  ! terminator toy chemistry namelist switches 
+  TYPE t_toy_chem
+    REAL(wp) :: dt_chem       ! chemistry tendency update interval
+    REAL(wp) :: dt_cpl        ! transport-chemistry coupling interval
+    INTEGER  :: id_cl         ! CL tracer ID (which slice of tracer container)
+    INTEGER  :: id_cl2        ! CL2 tracer ID (which slice of tracer container)
+  END TYPE
+
+  ! DCMIP 2016 baroclinic wave namelist switches
+  TYPE t_dcmip_bw
+    INTEGER :: deep           ! deep atmosphere (1 = yes or 0 = no) 
+    INTEGER :: moist          ! include moisture (1 = yes or 0 = no)
+    INTEGER :: pertt          ! type of perturbation (0 = exponential, 1 = stream function)
+  END TYPE
+
+  TYPE(t_toy_chem) :: toy_chem
+  TYPE(t_dcmip_bw) :: dcmip_bw
+
   NAMELIST/nh_testcase_nml/ nh_test_name, mount_height, torus_domain_length, &
                             nh_brunt_vais, nh_u0, nh_t0, layer_thickness,    &
                             n_flat_level, jw_up, u0_mrw, mount_height_mrw,   &
@@ -130,8 +162,9 @@ MODULE mo_nh_testcases_nml
                             nlayers_poly, p_base_poly, h_poly, t_poly,       &
                             tgr_poly, rh_poly, rhgr_poly, lshear_dcmip,      &
                             lcoupled_rho, gw_clat, gw_u0, gw_delta_temp,     & 
-                            u_cbl, v_cbl, th_cbl, w_perturb, th_perturb,    &
-                            psfc_cbl, sol_const, zenithang, bubctr_x, bubctr_y
+                            u_cbl, v_cbl, th_cbl, w_perturb, th_perturb,     &
+                            psfc_cbl, sol_const, zenithang, bubctr_x,        &
+                            bubctr_y, is_toy_chem, toy_chem, dcmip_bw
                       
 
   CONTAINS
@@ -285,6 +318,18 @@ MODULE mo_nh_testcases_nml
     !Note that (0,0) is the center of the torus
     bubctr_x = 0._wp
     bubctr_y = 0._wp
+
+    ! DCMIP 2016 baroclinic wave
+    dcmip_bw%deep          = 0   ! shallow atmosphere
+    dcmip_bw%moist         = 0   ! dry (qv=0)
+    dcmip_bw%pertt         = 0   ! exponential perturbation
+
+    !Terminator toy chemistry
+    is_toy_chem            = .FALSE.
+    toy_chem%dt_chem       = 300._wp
+    toy_chem%dt_cpl        = 300._wp
+    toy_chem%id_cl         = 1
+    toy_chem%id_cl2        = 2
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)

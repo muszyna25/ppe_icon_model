@@ -203,7 +203,7 @@ CONTAINS
     ! communication ids, these do not need to be different variables,
     ! since they are not treated individualy
     INTEGER :: ddt_u_tot_comm, ddt_v_tot_comm, z_ddt_u_tot_comm, z_ddt_v_tot_comm, &
-      & tracers_comm, tempv_comm, exner_old_comm, w_comm
+      & tracers_comm, tempv_comm, exner_pr_comm, w_comm
 
     INTEGER :: ntracer_sync
 
@@ -369,6 +369,7 @@ CONTAINS
         CALL nh_update_tracer_phy(pt_patch          ,& !in
            &                  dt_phy_jg(itfastphy)  ,& !in
            &                  pt_diag               ,& !in
+           &                  p_metrics             ,& !in
            &                  prm_nwp_tend          ,& !in
            &                  prm_diag              ,& !inout phyfields
            &                  pt_prog_rcf           ,& !inout tracer
@@ -645,7 +646,7 @@ CONTAINS
             pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                   &
               &                     * pt_prog%rho(jc,jk,jb)*pt_diag%tempv(jc,jk,jb)))
 
-            pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + &
+            pt_diag%exner_pr(jc,jk,jb) = pt_diag%exner_pr(jc,jk,jb) + &
               pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb)
 
             pt_prog%theta_v(jc,jk,  jb) = pt_diag%tempv(jc,jk,jb) &
@@ -670,10 +671,6 @@ CONTAINS
             ENDDO
           ENDDO
         ENDIF
-
-        ! reset dynamical exner increment to zero
-        ! (it is accumulated over one advective time step in solve_nh)
-        pt_diag%exner_dyn_incr(:,kstart_moist(jg):nlev,jb) = 0._wp
 
       ENDIF ! recalculation
 
@@ -1067,7 +1064,8 @@ CONTAINS
 
       IF (timers_level > 3) CALL timer_start(timer_sso)
 
-      CALL nwp_gwdrag ( dt_phy_jg(itsso),          & !>input
+      ! GZ: use fixed time step instead of dt_phy_jg(itsso) in order to avoid time-step dependence of low-level blocking
+      CALL nwp_gwdrag ( MAX(240._wp,dt_loc),       & !>input
         &               lcall_phy_jg(itsso),       & !>input
         &               dt_phy_jg(itgwd),          & !>input
         &               lcall_phy_jg(itgwd),       & !>input
@@ -1323,7 +1321,7 @@ CONTAINS
     !--------------------------------------------------------
 
     ! Synchronize tracers if any of the updating (fast-physics) processes was active.
-    ! In addition, tempv needs to be synchronized, and in case of lhdiff_rcf, also exner_old
+    ! In addition, tempv needs to be synchronized, and in case of lhdiff_rcf, also exner_pr
     IF (advection_config(jg)%iadv_tke == 1) THEN
       ! TKE does not need to be synchronized if it is advected only vertically
       ntracer_sync = ntracer-1
@@ -1343,9 +1341,9 @@ CONTAINS
           & status=is_ready, scope=until_sync, name="pt_diag%tempv")
 
         IF (lhdiff_rcf) THEN
-          exner_old_comm = new_icon_comm_variable(pt_diag%exner_old, &
+          exner_pr_comm = new_icon_comm_variable(pt_diag%exner_pr, &
             & pt_patch%sync_cells_not_in_domain, &
-            & status=is_ready, scope=until_sync, name="pt_diag%exner_old")
+            & status=is_ready, scope=until_sync, name="pt_diag%exner_pr")
           IF (diffusion_config(jg)%lhdiff_w) &
             w_comm = new_icon_comm_variable(pt_prog%w, &
               & pt_patch%sync_cells_not_in_domain, &
@@ -1355,14 +1353,14 @@ CONTAINS
       ELSE
         IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w .AND. iprog_aero == 1) THEN
           CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+4, pt_diag%tempv, pt_prog%w, &
-                                     pt_diag%exner_old, prm_diag%aerosol,                        &
+                                     pt_diag%exner_pr, prm_diag%aerosol,                         &
                                      f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
         ELSE IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN
           CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+3, pt_diag%tempv, pt_prog%w, &
-                                     pt_diag%exner_old, f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
+                                     pt_diag%exner_pr, f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
         ELSE IF (lhdiff_rcf) THEN
           CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+2, pt_diag%tempv, &
-                                     pt_diag%exner_old, f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
+                                     pt_diag%exner_pr, f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
         ELSE
           CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+1, pt_diag%tempv, &
                                      f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
@@ -1472,7 +1470,7 @@ CONTAINS
                   pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                   &
                     &                     * pt_prog%rho(jc,jk,jb)*pt_diag%tempv(jc,jk,jb)))
 
-                  pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + &
+                  pt_diag%exner_pr(jc,jk,jb) = pt_diag%exner_pr(jc,jk,jb) + &
                     pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb)
 
                   pt_prog%theta_v(jc,jk,  jb) = pt_diag%tempv(jc,jk,jb) &
@@ -1595,25 +1593,37 @@ CONTAINS
 
 
     ! Diagnosis of ABS(dpsdt) if msg_level >= 11
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = pt_patch%cells%start_blk(rl_start,1)
+    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
     IF (msg_level >= 11) THEN
-
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int
-
-      i_startblk = pt_patch%cells%start_blk(rl_start,1)
-      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
         DO jc = i_startidx, i_endidx
-          ! Note: division by time step follows below
-          dps_blk(jb) = dps_blk(jb) + &
-            ABS(pt_diag%pres_sfc(jc,jb)-pt_diag%pres_sfc_old(jc,jb))
+          pt_diag%ddt_pres_sfc(jc,jb) = (pt_diag%pres_sfc(jc,jb)-pt_diag%pres_sfc_old(jc,jb))/dt_loc
+          pt_diag%pres_sfc_old(jc,jb) = pt_diag%pres_sfc(jc,jb)
+
+          dps_blk(jb) = dps_blk(jb) + ABS(pt_diag%ddt_pres_sfc(jc,jb))
           npoints_blk(jb) = npoints_blk(jb) + 1
+        ENDDO
+      ENDDO
+!$OMP END DO NOWAIT
+    ELSE IF (atm_phy_nwp_config(jg)%lcalc_dpsdt) THEN ! compute dpsdt field for output
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+
+        DO jc = i_startidx, i_endidx
+          pt_diag%ddt_pres_sfc(jc,jb) = (pt_diag%pres_sfc(jc,jb)-pt_diag%pres_sfc_old(jc,jb))/dt_loc
           pt_diag%pres_sfc_old(jc,jb) = pt_diag%pres_sfc(jc,jb)
         ENDDO
       ENDDO
@@ -1638,7 +1648,7 @@ CONTAINS
       dpsdt_avg = global_sum_array(dpsdt_avg, opt_iroot=process_mpi_stdio_id)
       npoints   = global_sum_array(npoints  , opt_iroot=process_mpi_stdio_id)
       IF (my_process_is_stdio()) THEN
-        dpsdt_avg = dpsdt_avg/(REAL(npoints,wp)*dt_loc)
+        dpsdt_avg = dpsdt_avg/(REAL(npoints,wp))
         ! Exclude initial time step where pres_sfc_old is zero
         IF (dpsdt_avg < 10000._wp/dt_loc) THEN
           WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',jg

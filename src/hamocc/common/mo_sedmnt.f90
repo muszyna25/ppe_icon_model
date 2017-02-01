@@ -34,6 +34,7 @@ MODULE mo_sedmnt
   &        isreminn =2,&
   &        isremins =3   
 
+  !TODO: These are used IN currently 29 different source code file - the absolutely need more descriptive names
   INTEGER, PARAMETER :: ks=12, ksp=ks+1 ! sediment layering
 
   REAL(wp), ALLOCATABLE, TARGET :: sedlay (:,:,:)

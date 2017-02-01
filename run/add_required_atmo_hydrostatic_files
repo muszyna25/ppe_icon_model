@@ -6,9 +6,9 @@ add_required_file ${DATADIR}/ECHAM6_CldOptProps.nc ./
 
 # APE BCs
 if [ x$ozon_file != "x" ] ;  then
-  add_required_file ${DATADIR}/external/ape_ozone/$ozon_file ./o3_icon_DOM01.nc
+  add_required_file /pool/data/ICON/external/ape_ozone/$ozon_file ./o3_icon_DOM01.nc
 else
-  add_required_file ${DATADIR}/external/ape_ozone/ape_o3_R2B04_1Pa_spr0.90-cell.nc ./o3_icon_DOM01.nc
+  add_required_file /pool/data/ICON/external/ape_ozone/ape_o3_R2B04_1Pa_spr0.90-cell.nc ./o3_icon_DOM01.nc
 fi
 
 # vertical grid

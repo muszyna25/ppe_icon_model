@@ -40,11 +40,12 @@ PUBLIC :: t_scatterPatternScatterV
         INTEGER, POINTER :: pointIndices(:)    !For each point requested by a process, this lists the global index of the point.
         INTEGER :: pointCount !size of pointIndices
     CONTAINS
-        PROCEDURE :: construct => constructScatterPatternScatterV   !< override
-        PROCEDURE :: distribute_dp => distributeDataScatterV_dp !< override
-        PROCEDURE :: distribute_sp => distributeDataScatterV_sp !< override
-        PROCEDURE :: distribute_int => distributeDataScatterV_int !< override
-        PROCEDURE :: destruct => destructScatterPatternScatterV !< override
+        PROCEDURE :: construct       => constructScatterPatternScatterV !< override
+        PROCEDURE :: distribute_dp   => distributeDataScatterV_dp       !< override
+        PROCEDURE :: distribute_spdp => distributeDataScatterV_spdp     !< override
+        PROCEDURE :: distribute_sp   => distributeDataScatterV_sp       !< override
+        PROCEDURE :: distribute_int  => distributeDataScatterV_int      !< override
+        PROCEDURE :: destruct        => destructScatterPatternScatterV  !< override
     END TYPE
 
 PRIVATE
@@ -157,13 +158,72 @@ CONTAINS
     END SUBROUTINE distributeDataScatterV_dp
 
     !-------------------------------------------------------------------------------------------------------------------------------
+    !> implementation of t_scatterPattern::distribute_spdp()
+    !-------------------------------------------------------------------------------------------------------------------------------
+    SUBROUTINE distributeDataScatterV_spdp(me, globalArray, localArray, ladd_value)
+        IMPLICIT NONE
+        CLASS(t_scatterPatternScatterV), INTENT(INOUT) :: me
+        REAL(sp), INTENT(INOUT) :: globalArray(:)
+        REAL(wp), INTENT(INOUT) :: localArray(:,:)
+        LOGICAL, INTENT(IN) :: ladd_value
+
+        CHARACTER(*), PARAMETER :: routine = modname//":distributeDataScatterV_spdp"
+        REAL(sp), ALLOCATABLE :: sendArray(:), recvArray(:)
+        INTEGER :: i, blk, idx, ierr
+
+        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
+        CALL me%startDistribution()
+
+        IF(my_process_is_stdio()) THEN
+            ALLOCATE(sendArray(me%pointCount), stat = ierr)
+            IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
+            DO i = 1, me%pointCount
+                sendArray(i) = globalArray(me%pointIndices(i))
+            END DO
+        ELSE
+            ALLOCATE(sendArray(1), stat = ierr)
+            IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
+        END IF
+        ALLOCATE(recvArray(me%myPointCount), stat = ierr)
+        IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
+
+        !For some very weird reason, I always get a crash on my system if the following block is moved to its own subroutine.
+!       CALL p_scatterv(sendArray, me%pointCounts, me%displacements, recvArray, me%myPointCount, p_io, me%communicator)
+#ifndef NOMPI
+        CALL MPI_Scatterv(sendArray, me%pointCounts, me%displacements, p_real_sp, recvArray, me%myPointCount, p_real_sp, p_io, &
+        &                 me%communicator, ierr)
+        IF (ierr /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_Scatterv operation!')
+#else
+        recvArray(1:me%myPointCount) = sendArray((me%displacements(1)+1):(me%displacements(1)+me%myPointCount))
+#endif
+
+        IF(ladd_value) THEN
+            DO i = 1, me%myPointCount
+                blk = blk_no(i)
+                idx = idx_no(i)
+                localArray(idx, blk) = localArray(idx, blk) + recvArray(i)
+            END DO
+        ELSE
+            DO i = 1, me%myPointCount
+                localArray(idx_no(i), blk_no(i)) = recvArray(i)
+            END DO
+        END IF
+
+        DEALLOCATE(recvArray)
+        DEALLOCATE(sendArray)
+        CALL me%endDistribution(INT(me%pointCount, i8) * 4_i8)
+        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
+    END SUBROUTINE distributeDataScatterV_spdp
+
+
+    !-------------------------------------------------------------------------------------------------------------------------------
     !> implementation of t_scatterPattern::distribute_sp()
     !-------------------------------------------------------------------------------------------------------------------------------
     SUBROUTINE distributeDataScatterV_sp(me, globalArray, localArray, ladd_value)
         IMPLICIT NONE
         CLASS(t_scatterPatternScatterV), INTENT(INOUT) :: me
         REAL(sp), INTENT(INOUT) :: globalArray(:)
-        REAL(wp), INTENT(INOUT) :: localArray(:,:)
+        REAL(sp), INTENT(INOUT) :: localArray(:,:)
         LOGICAL, INTENT(IN) :: ladd_value
 
         CHARACTER(*), PARAMETER :: routine = modname//":distributeDataScatterV_sp"

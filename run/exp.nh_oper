@@ -135,13 +135,14 @@ cat > ${atmo_namelist} << EOF
 /
 &initicon_nml
  init_mode   = 5           ! operation mode 5: IAU data assimilation cycle including incremental snow analysis
- dt_iau      = 5400        ! 5400 for asymmetric IAU in forecast runs, 10800 in assimilation cycle
+ dt_iau      = 10800       ! 5400 for one-sided IAU in forecast runs if iterate_iau = .false., 10800 in assimilation cycle
  dt_shift    = -5400
+ iterate_iau = .true.      ! iterates IAU cycle with one-sided and centered windows; requires dt_iau = 10800
  zpbl1       = 500. 
  zpbl2       = 1000. 
  dwdfg_filename    = "<path>fg_R<nroot0>B<jlev>_DOM<idom>.grb"
  dwdana_filename   = "<path>an_R<nroot0>B<jlev>_DOM<idom>.grb"
- ltile_coldstart   = .TRUE.  ! intermediate mode until tile-based I/O is available
+ ltile_coldstart   = .false.     ! use full tile-based I/O in assimilation cycle and to start forecasts
  lp2cintp_incr     = .true.      ! parent-to-child-interpolation
  lp2cintp_sfcana   = .false.     ! of analyses
  l_sst_in    = .true.
@@ -173,9 +174,11 @@ cat > ${atmo_namelist} << EOF
  icapdcycl       = 3 ! apply CAPE modification to improve diurnalcycle over tropical land (optimizes NWP scores)
  latm_above_top  = .false., .true.  ! the second entry refers to the nested domain (if present)
  efdt_min_raylfric = 7200.
+ ldetrain_conv_prec = .false.,.true. ! ** new for v2.0.15 **; set .true. to activate detrainment of rain and snow; should be used in R3B08 EU-nest only (not for R2B07)!
  itype_z0         = 2
  icpl_aero_conv   = 1
  icpl_aero_gscp   = 1
+ icpl_o3_tp       = 1
  ! resolution-dependent settings - please choose the appropriate one
  ! dt_rad    = 2160. (R2B6) / 1440. (R3B7) ** should be an integer multiple of dt_conv **
  ! dt_conv   = 720. (R2B6) / 360. (R3B7) / 180. (R3B8 - EU-nest)
@@ -191,7 +194,7 @@ cat > ${atmo_namelist} << EOF
  tkmmin  = 0.75  !           " 
  pat_len = 750.
  c_diff  = 0.2
- rat_sea = 8.0  ! ** new value since rev. 25646 (reduced saturation vapor pressure over salt water) **
+ rat_sea = 7.5  ! ** new value since for v2.0.15; previously 8.0 **
  ltkesso = .true.
  frcsmot = 0.2      ! these 2 switches together apply vertical smoothing of the TKE source terms
  imode_frcsmot = 2  ! in the tropics (only), which reduces the moist bias in the tropical lower troposphere
@@ -199,6 +202,7 @@ cat > ${atmo_namelist} << EOF
  itype_sher = 3    
  ltkeshs    = .true.
  a_hshr     = 2.0
+ icldm_turb = 1     ! ** new recommendation for v2.0.15 in conjunction with evaporation fix for grid-scale rain **
 /
 &lnd_nml
  ntiles         = 3      !!! operational since March 2015
@@ -229,8 +233,8 @@ cat > ${atmo_namelist} << EOF
  itime_scheme   = 4
  exner_expol    = 0.333
  vwind_offctr   = 0.2
- damp_height    = 50000.
- rayleigh_coeff = 0.10
+ damp_height    = 44000.
+ rayleigh_coeff = 1.0   ! R3B7: 1.0 for forecasts, 5.0 in assimilation cycle; 0.5/2.5 for R2B6 (i.e. ensemble) runs
  lhdiff_rcf     = .true.
  divdamp_order  = 24    ! setting for forecast runs; use '2' for assimilation cycle
  divdamp_type   = 32    ! ** new setting for assimilation and forecast runs **
@@ -287,11 +291,11 @@ cat > ${atmo_namelist} << EOF
 /
 &extpar_nml
  itopo          = 1
- n_iter_smooth_topo = 1, 1           ! ** new setting in parallel routine since Dec. 2015 **
- hgtdiff_max_smooth_topo = 0.,750.,  ! ** new setting in parallel routine since Dec. 2015 **
+ n_iter_smooth_topo = 1, 1           ! 
+ hgtdiff_max_smooth_topo = 0.,750.,  ! ** should be changed to 750.,750 with next Extpar update! **
 /
 &io_nml
- itype_pres_msl = 4  ! IFS method with bug fix for self-consistency between SLP and geopotential
+ itype_pres_msl = 5  ! New extrapolation method to circumvent Ninjo problem with surface inversions
  itype_rh       = 1  ! RH w.r.t. water
 /
 ! OUTPUT: Regular grid, model levels, all domains

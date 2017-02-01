@@ -300,8 +300,8 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &  qv_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv),                          & !inout
         &  qc_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc),                          & !inout
         &  tketens=prm_nwp_tend%ddt_tke(:,:,jb),                                      & !inout
-        &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb),                                     & !in
-        &  vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb),                                     & !in
+        &  ut_sso=REAL(prm_nwp_tend%ddt_u_sso(:,:,jb),wp),                            & !in
+        &  vt_sso=REAL(prm_nwp_tend%ddt_v_sso(:,:,jb),wp),                            & !in
         &  tket_conv=prm_nwp_tend%ddt_tke_pconv(:,:,jb),                              & !in
         &  tket_hshr=prm_nwp_tend%ddt_tke_hsh(:,:,jb),                                & !out
         &  shfl_s=prm_diag%shfl_s(:,jb), qvfl_s=prm_diag%qhfl_s(:,jb),                & !in

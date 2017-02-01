@@ -42,7 +42,7 @@ OPTFLAGS =  -Chopt
 VECTFLAGS = -pvctl,loopcnt=1000000,fullmsg
 
 # Compiler messages, warnings etc.
-MSGFLAGS =  -R,fmtlist,diaglist,summary
+MSGFLAGS =  -R,fmtlist,diaglist,summary,transform
 
 # Preprocessing
 PREPFLAGS = -Ep -USX  
@@ -90,7 +90,7 @@ INLINE   = -pi,auto,fullmsg
 
 # standard flags for C compiler
 SVNVERSION=`svnversion`
-CFLAGS  = -Xa -Kc99 -Chopt -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -I/gfs/essjob/grib_api-1.13.1/include -D__SVN_VERSION="${SVNVERSION}"
+CFLAGS  = -Xa -Kstd=c99 -Chopt -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -I/gfs/essjob/grib_api-1.13.1/include -D__SVN_VERSION="${SVNVERSION}"
 
 NETCDFROOT = /gfs/essjob/NetCDF/F03-size_t64
 LAPACKROOT = /SX/opt/mathkeisan/inst/lib0/f03

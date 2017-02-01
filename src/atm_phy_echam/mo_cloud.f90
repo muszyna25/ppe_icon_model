@@ -905,7 +905,7 @@ CONTAINS
 #if defined (__PGI)
         zfrl(jl) = zxlb(jl)*(1._wp-1._wp/(1._wp+zfrl(jl)*ztmst*zxlb(jl)))
 #else
-        zfrl(jl) = zxlb(jl)*(1._wp-SWDIV_NOCHK(1._wp,(1._wp+zfrl(jl)*ztmst*zxlb(jl))))
+        zfrl(jl) = zxlb(jl)*(1._wp -SWDIV_NOCHK(1._wp,(1._wp+zfrl(jl)*ztmst*zxlb(jl))))
 #endif
         ztmp1(nl)= 0.75_wp*zxlb(jl)*zfrho/pi
 622   END DO
