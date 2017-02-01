@@ -608,7 +608,7 @@ CONTAINS
     SeaIceConcentration => concsum
 
 
-    CALL calc_characteristic_physical_numbers(patch_3d, ocean_state)
+!    CALL calc_characteristic_physical_numbers(patch_3d, ocean_state)
 
     
     SELECT CASE (physics_parameters_type)

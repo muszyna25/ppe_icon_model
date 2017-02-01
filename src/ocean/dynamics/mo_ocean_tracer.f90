@@ -655,6 +655,7 @@ CONTAINS
             ENDDO
           END DO
         END DO
+!ICON_OMP_END_PARALLEL_DO
         
         DO level=1,n_zlev
           !CALL dbg_print('AftGMRedi: divGMRediflux',p_os%p_diag%div_of_GMRedi_flux(:,level,:),&
@@ -663,8 +664,6 @@ CONTAINS
           & str_module, idt_src, in_subset=cells_in_domain)      
         END DO
         
-!ICON_OMP_END_PARALLEL_DO
-     
       ELSEIF(tracer_index == 2) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, &
 !ICON_OMP level) ICON_OMP_DEFAULT_SCHEDULE
@@ -710,14 +709,15 @@ CONTAINS
           END DO
         END DO
         
+!ICON_OMP_END_PARALLEL_DO
+        
         DO level=1,n_zlev
           !CALL dbg_print('AftGMRedi: divGMRediflux_h',div_diff_flux_horz(:,level,:),&
           !&str_module,idt_src, in_subset=cells_in_domain)
           CALL dbg_print('AftGMRedi: opotsaltGMRedi',p_os%p_diag%osaltGMRedi(:,level,:),&
           & str_module, idt_src, in_subset=cells_in_domain)      
         END DO
-        
-!ICON_OMP_END_PARALLEL_DO
+
       ENDIF!(tracer_index == 1)
     ENDIF!(GMREDI_COMBINED_DIAGNOSTIC)THEN  
       

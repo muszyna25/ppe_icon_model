@@ -194,7 +194,7 @@ CONTAINS
     END DO ! blocks
 !ICON_OMP_END_DO
 
-! !ICON_OMP_END_PARALLEL
+!ICON_OMP_END_PARALLEL
 !     IF (ltimer) CALL timer_stop(timer_extra10)
 !     IF (ltimer) CALL timer_start(timer_extra11)
 ! !ICON_OMP_PARALLEL

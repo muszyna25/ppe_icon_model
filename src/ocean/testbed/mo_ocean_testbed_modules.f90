@@ -220,7 +220,10 @@ CONTAINS
     REAL(wp) :: density_backup(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     !REAL(wp) :: div_diff_flux_horz_cart(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp),POINTER :: fu10   (:,:)
-    REAL(wp), POINTER :: concsum(:,:)    
+    REAL(wp), POINTER :: concsum(:,:)
+
+    TYPE(timedelta), POINTER :: model_time_step => NULL()
+
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & method_name = 'mo_ocean_testbed_modules:ocean_test_advection'
     !------------------------------------------------------------------
@@ -262,7 +265,8 @@ CONTAINS
 !        ocean_state(n_dom)%p_diag%rho_GM=density_backup             
 !        ocean_state(n_dom)%p_diag%rho   =density_backup             
 ! ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(1)%concentration=ocean_state(n_dom)%p_diag%rho_GM       
-        CALL datetime_to_string(datestring, datetime)
+ 
+        CALL datetimeToString(this_datetime, datestring)
         WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
         CALL message (TRIM(method_name), message_text)
 ! physics_parameters%a_tracer_v=k_pot_temp_v
