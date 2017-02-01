@@ -414,6 +414,10 @@ CONTAINS
       !  nothing to be done, atmospheric fluxes are provided at the end of time stepping
       !  atmospheric fluxes drive the ocean; fluxes are calculated by atmospheric model
       !  use atmospheric fluxes directly, i.e. no bulk formula as for OMIP is applied
+       
+       ! HAMOCC uses p_as to get SW radiation and wind, so we need to copy
+       ! the SW radiation onto it in the coupled case 
+       if(lhamocc) p_as%fswr(:,:) = atmos_fluxes%HeatFlux_ShortWave(:,:)
       CONTINUE
 
     CASE DEFAULT

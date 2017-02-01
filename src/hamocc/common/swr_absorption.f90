@@ -2,8 +2,7 @@
 
   SUBROUTINE swr_absorption(start_idx,end_idx, klevs, pfswr, psicomo, dzw)
 
-    USE mo_carbch, ONLY : bgctra, swr_frac
-    USE mo_biomod, ONLY : strahl
+    USE mo_memory_bgc, ONLY : bgctra, swr_frac, meanswr, strahl
     USE mo_param1_bgc, ONLY : iphy, icya
     USE mo_hamocc_nml, ONLY : l_cyadyn
     USE mo_kind,    ONLY: wp                                               
@@ -49,7 +48,7 @@
       strahl(j) = pfswr(j) * (1._wp - psicomo(j))
 
       swr_frac(j,1) = 1.0_wp
-
+      
       
       kpke = klevs(j)
 
@@ -64,6 +63,10 @@
            swr_frac(j,k) = swr_r + swr_b
 
       END DO
+      DO k=1,kpke-1
+           meanswr(j,k) = (swr_frac(j,k) + swr_frac(j,k+1))/2._wp
+      END DO
+      meanswr(j,kpke) = swr_frac(j,k) 
 
    ENDDO
 !HAMOCC_OMP_END_DO
