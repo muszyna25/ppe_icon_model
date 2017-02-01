@@ -2714,10 +2714,6 @@ CONTAINS
                 & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,       &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.    )
 
-<<<<<<< HEAD
-    ALLOCATE(field%frac_tile_ptr(ksfc_type))
-=======
->>>>>>> aes-dev
     ALLOCATE(field%swflxsfc_tile_ptr(ksfc_type))
     ALLOCATE(field%lwflxsfc_tile_ptr(ksfc_type))
     ALLOCATE(field%evap_tile_ptr(ksfc_type))
