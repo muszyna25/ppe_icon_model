@@ -85,13 +85,13 @@ CONTAINS
                            & rpds_dif,                          &! in
                            & rnds_dif,                          &! in
                            !
-                           & presi_old,                         &! in
+                           & ps,                                &! in
                            & pcosmu0,                           &! in
                            & pch_tile,                          &! in
                            !! for JSBACH
                            & pcsat,                             &! inout
                            & pcair,                             &! inout
-                           & tte_corr,                          &! out
+                           & q_snocpymlt,                       &! out
                            !
                            & z0m_tile, z0h_lnd,                 &! out
                            & albvisdir, albnirdir, albvisdif, albnirdif, &! inout
@@ -168,13 +168,13 @@ CONTAINS
     REAL(wp),INTENT(IN) :: rpds_dif(kbdim)        ! all-sky   par  dif. downward flux at current   time [W/m2]
     REAL(wp),INTENT(IN) :: rnds_dif(kbdim)        ! all-sky   nir  dif. downward flux at current   time [W/m2]
 
-    REAL(wp),OPTIONAL,INTENT(IN) :: presi_old (kbdim,klev+1)       ! half level pressure
+    REAL(wp),OPTIONAL,INTENT(IN) :: ps        (kbdim)              ! surface pressure
     REAL(wp),OPTIONAL,INTENT(IN) :: pcosmu0   (kbdim)              ! cos of zenith angle
     REAL(wp),OPTIONAL,INTENT(IN) :: pch_tile  (kbdim,ksfc_type)
     !! JSBACH output
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcsat(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcair(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: tte_corr(kbdim)  ! OUT
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: q_snocpymlt(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: z0h_lnd(kbdim), z0m_tile(kbdim,ksfc_type)  ! OUT
     !
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir_tile(kbdim,ksfc_type)
@@ -307,7 +307,7 @@ CONTAINS
     !===========================================================================
     
     z0h_lnd(:)       = 0._wp
-    tte_corr(:)      = 0._wp
+    q_snocpymlt(:)   = 0._wp
 
     IF (idx_lnd <= ksfc_type) THEN
 
@@ -333,7 +333,7 @@ CONTAINS
         & swvis_srf_down   = rvds(1:kproma),                                            & ! in
         & swnir_srf_down   = rnds(1:kproma),                                            & ! in
         & swpar_srf_down   = rpds(1:kproma),                                            & ! in
-        & press_srf        = presi_old(1:kproma,klev+1),                                & ! in
+        & press_srf        = ps(1:kproma),                                              & ! in
         & drag_srf         = pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_lnd),          & ! in
         & t_acoef          = zen_h(1:kproma, idx_lnd),                                  & ! in
         & t_bcoef          = zfn_h(1:kproma, idx_lnd),                                  & ! in
@@ -356,7 +356,7 @@ CONTAINS
         & grnd_hcap        = zgrnd_hcap(1:kproma, idx_lnd),                             & ! out
         & rough_h_srf      = z0h_lnd(1:kproma),                                         & ! out
         & rough_m_srf      = z0m_tile(1:kproma, idx_lnd),                               & ! out
-        & tte_corr         = tte_corr(1:kproma),                                        & ! out
+        & q_snocpymlt      = q_snocpymlt(1:kproma),                                     & ! out
         & alb_vis_dir      = albvisdir_tile(1:kproma, idx_lnd),                         & ! out
         & alb_nir_dir      = albnirdir_tile(1:kproma, idx_lnd),                         & ! out
         & alb_vis_dif      = albvisdif_tile(1:kproma, idx_lnd),                         & ! out
@@ -366,8 +366,6 @@ CONTAINS
       ptsfc_tile(1:kproma,idx_lnd) = ztsfc_lnd(1:kproma)
       pcpt_tile (1:kproma,idx_lnd) = dry_static_energy(1:kproma)
       pqsat_tile(1:kproma,idx_lnd) = sat_surface_specific_humidity(1:kproma)
-
-      tte_corr(1:kproma) = tte_corr(1:kproma) / (presi_old(1:kproma,klev+1) - presi_old(1:kproma,klev))
 
       ! Set the evapotranspiration coefficients, to be used later in
       ! blending and in diagnoising surface fluxes.
