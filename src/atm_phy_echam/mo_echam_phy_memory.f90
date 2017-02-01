@@ -2656,14 +2656,6 @@ CONTAINS
     !---------------------------------
     ! values on tiles
 
-    CALL add_var( field_list, prefix//'frac_tile', field%frac_tile,       &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
-                & t_cf_var('frac_tile', '%',                              &
-                &          'surface fraction of tiles', datatype_flt),    &
-                & grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
-                & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,       &
-                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.    )
-
     CALL add_var( field_list, prefix//'rsns_tile',field%swflxsfc_tile,    &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
                 & t_cf_var('rsns_tile', 'W m-2',                          &
@@ -2722,15 +2714,6 @@ CONTAINS
     ALLOCATE(field%frac_tile_ptr(ksfc_type))
 
     DO jsfc = 1,ksfc_type
-
-      CALL add_ref( field_list, prefix//'frac_tile',                                   &
-                  & prefix//'frac_'//csfc(jsfc), field%frac_tile_ptr(jsfc)%p,          &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
-                  & t_cf_var('frac_'//csfc(jsfc), '%',                                 &
-                  &          'surface fraction of tile '//csfc(jsfc),                  &
-                  &          datatype_flt),                                            &
-                  & grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
-                  &  ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
 
       CALL add_ref( field_list, prefix//'rsns_tile',                                   &
                   & prefix//'rsns_'//csfc(jsfc), field%swflxsfc_tile_ptr(jsfc)%p,      &
