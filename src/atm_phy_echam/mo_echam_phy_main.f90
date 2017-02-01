@@ -30,7 +30,6 @@ MODULE mo_echam_phy_main
   !
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv, amd, amo3, Tf, tmelt
-  !
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
     &                               iqv, iqc, iqi, iqt, io3
   !
@@ -38,7 +37,6 @@ MODULE mo_echam_phy_main
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
     &                               t_echam_phy_tend,  prm_tend,      &
     &                               cdimissval
-  !
   USE mo_cover,               ONLY: cover
   !
   USE mo_ext_data_state,      ONLY: ext_data
@@ -176,8 +174,6 @@ CONTAINS
     REAL(wp) :: zbh_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
 
     REAL(wp) :: ztte_corr(nbdim)      !< tte correction for snow melt over land (JSBACH)
-    REAL(wp) :: zq_snocpymlt(nbdim)   !< heating by melting of snow on the canopy [W/m2]
-                                      !  which warms the lowermost atmospheric layer (JSBACH)
 
     ! Temporary variables for Cariolle scheme (ozone)
     REAL(wp)    :: do3dt(nbdim,nlev)
@@ -241,6 +237,14 @@ CONTAINS
     zcvair  (:,:) = cvd+(cvv-cvd)*field%qtrc(:,:,jb,iqv)
     !
     zconv   (:,:) = 1._wp/(field%mair(:,:,jb)*zcpair(:,:))
+
+    DO jk = 1,nlev
+      !
+      ! 3.2 Thickness of model layer in pressure coordinate
+      !
+      zdelp   (:,jk) = field% presi_old (:,jk+1,jb) - field% presi_old (:,jk,jb)
+      !
+    END DO
 
     ! 3.3 Weighting factors for fractional surface coverage
     !     Accumulate ice portion for diagnostics
@@ -534,17 +538,6 @@ CONTAINS
     !     downward sweep (Gaussian elimination from top till level nlev-1)
 
     IF (echam_phy_config%lvdiff) THEN
-
-
-      DO jk = 1,nlev
-        !
-        ! Thickness of model layer in pressure coordinate
-        ! to be replaced by mair or mdry, if used for tracers
-        !
-        zdelp   (:,jk) = field% presi_old (:,jk+1,jb) - field% presi_old (:,jk,jb)
-        !
-      END DO
-
       IF (ltimer) CALL timer_start(timer_vdiff_down)
 
 
@@ -676,12 +669,12 @@ CONTAINS
           & rpds_dif   = field%rpds_dif   (:,jb), &! in, all-sky downward diffuse PAR     radiation at surface
           & rnds_dif   = field%rnds_dif   (:,jb), &! in, all-sky downward diffuse near-IR radiation at surface
           !
-          & ps = field% presi_old(:,nlevp1,jb),&! in, paphm1, half level pressure
+          & presi_old = field% presi_old(:,:,jb),&! in, paphm1, half level pressure
           & pcosmu0 = field% cosmu0(:,jb),&! in, amu0_x, cos of zenith angle
           & pch_tile = zch_tile(:,:),     &! in, from "vdiff_down" for JSBACH
           & pcsat = field%csat(:,jb),      &! inout, area fraction with wet land surface
           & pcair = field%cair(:,jb),      &! inout, area fraction with wet land surface (air)
-          & q_snocpymlt = zq_snocpymlt(:), &! out, heating  by melting snow on the canopy [W/m2]
+          & tte_corr = ztte_corr(:),       &! out, tte correction for snow melt over land
           & z0m_tile = field% z0m_tile(:,jb,:), &! inout, roughness length for momentum over tiles
           & z0h_lnd  = field% z0h_lnd (:,jb),   &! out, roughness length for heat over land
           & albvisdir      = field% albvisdir     (:,jb)  ,                    &! inout
@@ -718,8 +711,6 @@ CONTAINS
     !       provided by the surface model(s);
     !     - Back substitution to get solution of the tridiagonal system;
     !     - Compute tendencies and additional diagnostics.
-
-      ztte_corr(jcs:jce) = zq_snocpymlt(jcs:jce)*zconv(jcs:jce,nlev)
 
       IF (ltimer) CALL timer_start(timer_vdiff_up)
 
