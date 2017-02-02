@@ -404,12 +404,12 @@ MODULE mo_echam_phy_memory
       & lhflx_tile(:,:,:),    &!< latent   heat flux at surface on tiles
       & shflx_tile(:,:,:),    &!< sensible heat flux at surface on tiles
       & evap_tile(:,:,:),     &!< evaporation at surface on tiles
-      & dshflx_dT_tile(:,:,:)  !< temp tendency of SHF at surface on tiles
+      & frac_tile(:,:,:)       !< surface fraction of tiles
 
     TYPE(t_ptr_2d),ALLOCATABLE :: lhflx_tile_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: shflx_tile_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: evap_tile_ptr(:)
-    TYPE(t_ptr_2d),ALLOCATABLE :: dshflx_dT_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: frac_tile_ptr(:)
 
     REAL(wp),POINTER :: &
       & u_stress     (:,  :), &!< grid box mean wind stress
@@ -2679,7 +2679,7 @@ CONTAINS
                 & t_cf_var('evspsbl_tile', 'kg m-2 s-1',                  &
                 &          'evaporation on tiles', datatype_flt),         &
                 & grib2_var(0,1,6, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
-                & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,       &
+                & ldims=shapesfc,                                         &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.    )
 
     CALL add_var( field_list, prefix//'hfls_tile', field%lhflx_tile,      &
@@ -2698,21 +2698,20 @@ CONTAINS
                 & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,       &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.    )
 
-    CALL add_var( field_list,prefix//'dhfss_dT_tile',field%dshflx_dT_tile,&
+    CALL add_var( field_list, prefix//'frac_tile', field%frac_tile,       &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
-                & t_cf_var('dhfss_dT_tile', 'W m-2 K-1',                  &
-                &          'temp tend of SHF on tiles', datatype_flt),    &
-                & grib2_var(0,0,11, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
-                & ldims=shapesfc,                                         &
+                & t_cf_var('frac_tile', '%',                              &
+                &          'surface fraction of tiles', datatype_flt),    &
+                & grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
+                & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,       &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.    )
-
 
     ALLOCATE(field%swflxsfc_tile_ptr(ksfc_type))
     ALLOCATE(field%lwflxsfc_tile_ptr(ksfc_type))
     ALLOCATE(field%evap_tile_ptr(ksfc_type))
     ALLOCATE(field%lhflx_tile_ptr(ksfc_type))
     ALLOCATE(field%shflx_tile_ptr(ksfc_type))
-    ALLOCATE(field%dshflx_dT_tile_ptr(ksfc_type))
+    ALLOCATE(field%frac_tile_ptr(ksfc_type))
 
     DO jsfc = 1,ksfc_type
 
@@ -2763,14 +2762,15 @@ CONTAINS
                   & lrestart=.FALSE., ldims=shape2d,                                   &
                   & lmiss=.TRUE., missval=cdimissval )
 
-      CALL add_ref( field_list, prefix//'dhfss_dT_tile',                               &
-                  & prefix//'dhfss_dT_'//csfc(jsfc), field%dshflx_dT_tile_ptr(jsfc)%p, &
+      CALL add_ref( field_list, prefix//'frac_tile',                                   &
+                  & prefix//'frac_'//csfc(jsfc), field%frac_tile_ptr(jsfc)%p,          &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
-                  & t_cf_var('dhfss_dT_'//csfc(jsfc), 'W m-2 K-1',                     &
-                  &          'temp tend of SHF on tile '//csfc(jsfc), datatype_flt),   &
-                  & grib2_var(0,0,11, ibits, GRID_UNSTRUCTURED, GRID_CELL),            &
-                  & lrestart=.FALSE., ldims=shape2d,                                   &
-                  & lmiss=.TRUE., missval=cdimissval )
+                  & t_cf_var('frac_'//csfc(jsfc), '%',                                 &
+                  &          'surface fraction of tile '//csfc(jsfc),                  &
+                  &          datatype_flt),                                            &
+                  & grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
+                  &  ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
+
     END DO
 
     !-----------------------------------------
@@ -2917,7 +2917,7 @@ CONTAINS
                 & t_cf_var('sfcwind_tile','m s-1','10m windspeed on tiles',     &
                 &          datatype_flt),                                       &
                 & grib2_var(0,2,1, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
-                & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,             &
+                & ldims=shapesfc,                                               &
                 & lcontainer=.TRUE., lrestart=.FALSE.,                          &
                 & isteptype=TSTEP_INSTANT                                       )
 
@@ -2926,7 +2926,7 @@ CONTAINS
                 & t_cf_var('uas_tile','m s-1','zonal wind in 10m on tiles',     &
                 &          datatype_flt),                                       &
                 & grib2_var(0,2,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
-                & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,             &
+                & ldims=shapesfc,                                               &
                 & lcontainer=.TRUE., lrestart=.FALSE.,                          &
                 & isteptype=TSTEP_INSTANT                                       )
 
@@ -2935,7 +2935,7 @@ CONTAINS
                 & t_cf_var('vas_tile','m s-1','meridional wind in 10m on tiles',&
                 &          datatype_flt),                                       &
                 & grib2_var(0,2,3, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
-                & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,             &
+                & ldims=shapesfc,                                               &
                 & lcontainer=.TRUE., lrestart=.FALSE.,                          &
                 & isteptype=TSTEP_INSTANT                                       )
 
@@ -2944,7 +2944,7 @@ CONTAINS
                 & t_cf_var('tas_tile','K','temperature in 2m on tiles',         &
                 &          datatype_flt),                                       &
                 & grib2_var(0,0,0, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
-                & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,             &
+                & ldims=shapesfc,                                               &
                 & lcontainer=.TRUE., lrestart=.FALSE.,                          &
                 & isteptype=TSTEP_INSTANT                                       )
 
@@ -2953,7 +2953,7 @@ CONTAINS
                 & t_cf_var('dew2_tile','K','dew point temperature in 2m on tiles',&
                 &          datatype_flt),                                       &
                 & grib2_var(0,0,6, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
-                & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,             &
+                & ldims=shapesfc,                                               &
                 & lcontainer=.TRUE., lrestart=.FALSE.,                          &
                 & isteptype=TSTEP_INSTANT                                       )
 

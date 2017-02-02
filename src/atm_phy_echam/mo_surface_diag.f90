@@ -20,6 +20,7 @@ MODULE mo_surface_diag
                                   vtmpc1, vtmpc2, rd
   USE mo_echam_convect_tables,     ONLY: lookup_ua_list_spline
   USE mo_echam_vdiff_params,ONLY: tpfac2
+  USE mo_echam_phy_memory,  ONLY: cdimissval
 
   IMPLICIT NONE
   PRIVATE
@@ -37,8 +38,7 @@ CONTAINS
                            & pca, pcs, bb_btm,                     &! in
                            & plhflx_gbm, pshflx_gbm,               &! out
                            & pevap_gbm,                            &! out
-                           & plhflx_tile, pshflx_tile,             &! out
-                           & dshflx_dT_tile,                       &! out
+                           & plhflx_tile, pshflx_tile,             &! inout for JSBACH land
                            & pevap_tile,                           &! out
                            & evapotranspiration)
 
@@ -58,15 +58,13 @@ CONTAINS
 
     REAL(wp),INTENT(IN) :: bb_btm(kbdim,ksfc_type,ih:iqv)
 
-    REAL(wp),INTENT(INOUT) :: plhflx_gbm(kbdim)  ! OUT
-    REAL(wp),INTENT(INOUT) :: pshflx_gbm(kbdim)  ! OUT
-    REAL(wp),INTENT(INOUT) :: pevap_gbm(kbdim)   ! OUT
+    REAL(wp),INTENT(OUT) :: plhflx_gbm(kbdim)
+    REAL(wp),INTENT(OUT) :: pshflx_gbm(kbdim)
+    REAL(wp),INTENT(OUT) :: pevap_gbm(kbdim)
 
-    REAL(wp),INTENT(INOUT) :: plhflx_tile(kbdim,ksfc_type)
-    REAL(wp),INTENT(INOUT) :: pshflx_tile(kbdim,ksfc_type)
-    REAL(wp),INTENT(INOUT) :: pevap_tile(kbdim,ksfc_type)    ! OUT
-
-    REAL(wp),INTENT(INOUT) :: dshflx_dT_tile(kbdim,ksfc_type)  ! OUT
+    REAL(wp),INTENT(INOUT) :: plhflx_tile(kbdim,ksfc_type) ! INOUT due to JSBACH land
+    REAL(wp),INTENT(INOUT) :: pshflx_tile(kbdim,ksfc_type) ! INOUT due to JSBACH land
+    REAL(wp),INTENT(OUT)   :: pevap_tile(kbdim,ksfc_type)
 
     REAL(wp),OPTIONAL,INTENT(IN)    :: evapotranspiration(kbdim) ! present for JSBACH land
 
@@ -78,19 +76,12 @@ CONTAINS
     ! corresponding values to zero and return to the calling subroutine.
     !===================================================================
 
-    ! KF set tile-fields to zero in order to avoid uninitialised values
-    ! at diagnostics and output
-
-    pevap_tile(1:kproma,:) = 0._wp
-    pevap_gbm (1:kproma)   = 0._wp
     DO jsfc = 1,ksfc_type
       IF (jsfc /= idx_lnd .OR. .NOT. PRESENT(evapotranspiration)) THEN  ! for JSBACH land, the fluxes are already in these arrays
         plhflx_tile(1:kproma,jsfc) = 0._wp
         pshflx_tile(1:kproma,jsfc) = 0._wp
       END IF
     END DO
-    ! COMMENT: should span whole array, because there might be dead ends
-    dshflx_dT_tile(:,:)= 0._wp
 
     IF (.NOT.lsfc_heat_flux) THEN
       RETURN
@@ -105,6 +96,8 @@ CONTAINS
     ! Moisture fluxes (aka evaporation rates)
     !-------------------------------------------------------------------
     ! Instantaneous moisture flux on each tile
+
+    pevap_tile(:,:) = 0._wp
 
     DO jsfc = 1,ksfc_type
 
@@ -139,7 +132,7 @@ CONTAINS
     ! The instantaneous grid box mean moisture flux will be passed on
     ! to the cumulus convection scheme.
 
-    pevap_gbm(1:kproma) = 0._wp   ! "pqhfla" in echam
+    pevap_gbm(:) = 0._wp   ! "pqhfla" in echam
 
     DO jsfc = 1,ksfc_type
       pevap_gbm(1:kproma) = pevap_gbm(1:kproma)                           &
@@ -161,7 +154,7 @@ CONTAINS
 
     ! Accumulated grid box mean
 
-    plhflx_gbm(1:kproma) = 0.0_wp
+    plhflx_gbm(:) = 0.0_wp
 
     DO jsfc = 1,ksfc_type
       plhflx_gbm(1:kproma) = plhflx_gbm(1:kproma)                           &
@@ -178,7 +171,6 @@ CONTAINS
       ! Note: sensible heat flux from land is already in pshflx_tile(:,idx_lnd)
       IF (jsfc == idx_lnd) THEN
         ! COMMENT: already done at begin of routine
-        ! dshflx_dT_tile(1:kproma,jsfc) = 0._wp
       ELSE
 
       ! Vertical gradient of dry static energy.
@@ -195,12 +187,6 @@ CONTAINS
                                    & *pcfh_tile(1:kproma,jsfc)  &
                                    & *zdcptv(1:kproma)
 
-      ! KF: For the Sea-ice model!
-      ! attempt to made a first guess of temperature tendency for SHF
-      ! over ICE! by assuming only the cp*delta(T) matters. So: d(SHF)/deltaT
-
-        dshflx_dT_tile(1:kproma,jsfc) =  pshflx_tile(1:kproma,jsfc) &
-          &                           / zdcptv(1:kproma) !*(1._wp+pevap_tile(1:kproma,jsfc)*vtmpc2)
       END IF
 
     ENDDO
@@ -208,7 +194,7 @@ CONTAINS
 
     ! grid box mean
 
-    pshflx_gbm(1:kproma) = 0.0_wp
+    pshflx_gbm(:) = 0.0_wp
 
     DO jsfc = 1,ksfc_type
       pshflx_gbm(1:kproma) = pshflx_gbm(1:kproma)                           &
@@ -236,13 +222,18 @@ CONTAINS
     REAL(wp),INTENT(IN)    :: pfac_sfc        (kbdim)
     REAL(wp),INTENT(IN)    :: pu_rtpfac1      (kbdim)
     REAL(wp),INTENT(IN)    :: pv_rtpfac1      (kbdim)
-    REAL(wp),INTENT(INOUT) :: pu_stress_gbm   (kbdim)           ! OUT
-    REAL(wp),INTENT(INOUT) :: pv_stress_gbm   (kbdim)           ! OUT
-    REAL(wp),INTENT(INOUT) :: pu_stress_tile  (kbdim,ksfc_type) ! OUT
-    REAL(wp),INTENT(INOUT) :: pv_stress_tile  (kbdim,ksfc_type) ! OUT
+    REAL(wp),INTENT(OUT)   :: pu_stress_gbm   (kbdim)
+    REAL(wp),INTENT(OUT)   :: pv_stress_gbm   (kbdim)
+    REAL(wp),INTENT(OUT)   :: pu_stress_tile  (kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT)   :: pv_stress_tile  (kbdim,ksfc_type)
 
     INTEGER  :: jsfc
     REAL(wp) :: zconst
+    ! Local variables
+
+    INTEGER  :: loidx  (kbdim,ksfc_type) !< counter for masks
+    INTEGER  :: is     (ksfc_type)       !< counter for masks
+    INTEGER  :: jls, jl, js
 
     !===================================================================
     ! If surface momentum fluxes is switched off (i.e., using free slip
@@ -251,8 +242,8 @@ CONTAINS
     !===================================================================
     IF (.NOT.lsfc_mom_flux) THEN
 
-      pu_stress_tile(1:kproma,:) = 0._wp
-      pv_stress_tile(1:kproma,:) = 0._wp
+      pu_stress_tile(:,:) = 0._wp
+      pv_stress_tile(:,:) = 0._wp
 
     !===================================================================
     ! Otherwise do computation
@@ -267,26 +258,48 @@ CONTAINS
       !  *(surface turbulent exchange coeff)
       !  *[(u-/v-wind at lowest model level)/tpfac1]
 
-      pu_stress_gbm(1:kproma) = 0.0_wp
-      pv_stress_gbm(1:kproma) = 0.0_wp
+      pu_stress_tile(:,:) = cdimissval
+      pv_stress_tile(:,:) = cdimissval
+
+      pu_stress_gbm(:) = 0.0_wp
+      pv_stress_gbm(:) = 0.0_wp
+
+      ! check for masks
+      !
+      DO jsfc = 1,ksfc_type
+        is(jsfc) = 0
+        DO jl = 1,kproma
+          IF(pfrc(jl,jsfc).GT.0.0_wp) THEN
+            is(jsfc) = is(jsfc) + 1
+            loidx(is(jsfc),jsfc) = jl
+          ENDIF
+        ENDDO
+      ENDDO
 
       DO jsfc = 1,ksfc_type
+        DO jls = 1,is(jsfc)
+          ! set index
+          js=loidx(jls,jsfc)
 
-        pu_stress_tile(1:kproma,jsfc) = zconst*pfac_sfc(1:kproma) &
-                                      & *pcfm_tile(1:kproma,jsfc) &
-                                      & *pu_rtpfac1(1:kproma)
+          pu_stress_tile(js,jsfc) = zconst*pfac_sfc(js) *pcfm_tile(js,jsfc) &
+                                        & *pu_rtpfac1(js)
 
-        pv_stress_tile(1:kproma,jsfc) = zconst*pfac_sfc(1:kproma) &
-                                      & *pcfm_tile(1:kproma,jsfc) &
-                                      & *pv_rtpfac1(1:kproma)
+          pv_stress_tile(js,jsfc) = zconst*pfac_sfc(js) *pcfm_tile(js,jsfc) &
+                                        & *pv_rtpfac1(js)
+        END DO
+      END DO
 
-        pu_stress_gbm(1:kproma)       = pu_stress_gbm(1:kproma)         &
-                                      & + pu_stress_tile(1:kproma,jsfc) &
-                                      &  *pfrc(1:kproma,jsfc)
+      DO jsfc = 1,ksfc_type
+        DO jls = 1,is(jsfc)
+          ! set index
+          js=loidx(jls,jsfc)
 
-        pv_stress_gbm(1:kproma)       = pv_stress_gbm(1:kproma)         &
-                                      & + pv_stress_tile(1:kproma,jsfc) &
-                                      &  *pfrc(1:kproma,jsfc)
+          pu_stress_gbm(js)       = pu_stress_gbm(js) + pu_stress_tile(js,jsfc) &
+                                        &  *pfrc(js,jsfc)
+
+          pv_stress_gbm(js)       = pv_stress_gbm(js) + pv_stress_tile(js,jsfc) &
+                                        &  *pfrc(js,jsfc)
+        END DO
       END DO
 
     END IF ! lsfc_mom_flux
@@ -343,7 +356,7 @@ CONTAINS
     REAL(wp), INTENT(in)     :: ptm1(kbdim), papm1(kbdim), pxm1(kbdim)
     REAL(wp), INTENT(in)     :: pum1(kbdim), pvm1(kbdim), paphm1(kbdim) ! =paphm1(kbdim, klevp1)
     REAL(wp), INTENT(in)     :: pocu(kbdim), pocv(kbdim)
-    REAL(wp), INTENT(inout)  :: psfcWind_gbm(kbdim), psfcWind_tile(kbdim,ksfc_type)
+    REAL(wp), INTENT(out)    :: psfcWind_gbm(kbdim), psfcWind_tile(kbdim,ksfc_type)
     REAL(wp), INTENT(out)    :: ptas_gbm(kbdim),     ptas_tile(kbdim,ksfc_type)
     REAL(wp), INTENT(out)    :: pdew2_gbm(kbdim),    pdew2_tile(kbdim,ksfc_type)
     REAL(wp), INTENT(out)    :: puas_gbm(kbdim),     puas_tile(kbdim,ksfc_type)
@@ -377,11 +390,11 @@ CONTAINS
    
     ! set total- and tile-fields to zero in order to avoid uninitialised values
 
-    psfcWind_tile(1:kproma,:) = 0._wp
-    puas_tile    (1:kproma,:) = 0._wp
-    pvas_tile    (1:kproma,:) = 0._wp
-    ptas_tile    (1:kproma,:) = 0._wp
-    pdew2_tile   (1:kproma,:) = 0._wp
+    psfcWind_tile(:,:) = cdimissval
+    puas_tile    (:,:) = cdimissval
+    pvas_tile    (:,:) = cdimissval
+    ptas_tile    (:,:) = cdimissval
+    pdew2_tile   (:,:) = cdimissval
 
     DO jsfc = 1,ksfc_type
 
@@ -478,11 +491,11 @@ CONTAINS
 
     ! Aggregate all diagnostics 
     !
-    psfcWind_gbm (1:kproma)   = 0._wp
-    puas_gbm     (1:kproma)   = 0._wp
-    pvas_gbm     (1:kproma)   = 0._wp
-    ptas_gbm     (1:kproma)   = 0._wp
-    pdew2_gbm    (1:kproma)   = 0._wp
+    psfcWind_gbm (:)   = 0._wp
+    puas_gbm     (:)   = 0._wp
+    pvas_gbm     (:)   = 0._wp
+    ptas_gbm     (:)   = 0._wp
+    pdew2_gbm    (:)   = 0._wp
     !
     DO jsfc = 1,ksfc_type
       DO jls = 1,is(jsfc)
