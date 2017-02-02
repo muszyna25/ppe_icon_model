@@ -176,24 +176,23 @@ case "$fortran_compiler" in
         MODDIR      = -J
         ;;
     cray_gpu)
-        config_compiler = cce
+        config_compiler  = cray_gpu
         compiler_version = $(ftn -V 2>&1 > /dev/null | awk -F" " '{split($5,v,"."); printf("cray%1d%1d", v[1], v[2])}')
         CC          = cc
         FC          = ftn
         F77         = $FC
-        FFLAGS      = -v -D__OPENACC_BUG_TYPES_1 -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf -hacc_model=deep_copy
-        CFLAGS      = -v -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3
-        CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3
+        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hacc_model=deep_copy -O cache0 -r am -Ktrap=divz,ovf,inv
+        CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -O3
         F77FLAGS    = $FFLAGS
-        FCLIBS      = -v
+        FCLIBS      = 
         GEN_FLAGS   =
-        FDEBUG      = -g
-        OMPFLAG     = 
+        FDEBUG      = -g -R abc
+        ART_FFLAGS  = -D__ICON_ART
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
         MODDIR      = -J
-        ;; 
+        ;;
     intel|intel16|intel15|intel14)
         config_compiler  = intel
         compiler_version = $(ifort -V 2>&1 | awk -F "," 'NR==1{split($2,v," "); printf("intel%d",v[2])}')
@@ -269,7 +268,7 @@ case "$ac_sitename" in
                     ;;
                     cray_gpu)
                         config_target=daint_gpu
-                        load_modules = "PrgEnv-cray" "cray-netcdf" "cray-mpich" "craype-accel-nvidia35" "${load_modules}"
+                        load_modules = "PrgEnv-cray" "cray-netcdf" "cray-mpich" "craype-accel-nvidia60" "${load_modules}"
                         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
                     ;;

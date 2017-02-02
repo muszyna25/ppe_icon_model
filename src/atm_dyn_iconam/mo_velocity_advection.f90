@@ -184,6 +184,7 @@ MODULE mo_velocity_advection
 !$ACC DATA PCOPY( p_prog, p_diag, z_w_concorr_me, z_kin_hor_e, z_vt_ie ), &
 !$ACC CREATE( z_w_concorr_mc, z_w_con_c, cfl_clipping, vcflmax, z_w_con_c_full, z_v_grad_w, z_w_v, zeta, z_ekinh, levmask, levelmask ), &
 !$ACC IF ( i_am_accel_node .AND. acc_on )
+#ifdef _OPENACC
     vn_tmp              => p_prog%vn
     w_tmp               => p_prog%w
     vt_tmp              => p_diag%vt
@@ -194,6 +195,7 @@ MODULE mo_velocity_advection
 
 !$ACC UPDATE DEVICE ( vn_tmp, w_tmp, vt_tmp, vn_ie_tmp, w_concorr_c_tmp, ddt_vn_adv_tmp, ddt_w_adv_tmp ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC UPDATE DEVICE ( z_w_concorr_me, z_kin_hor_e, z_vt_ie ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+#endif
 
     ! Limit on vertical CFL number for applying extra diffusion
     cfl_w_limit = 0.65_wp/dtime   ! this means 65% of the nominal CFL stability limit

@@ -262,9 +262,8 @@ MODULE mo_solve_nonhydro
 
     IF (ltimer) CALL timer_start(timer_solve_nh)
 
-    i_am_accel_node = my_process_is_work()  ! Activate GPUs
-
 #ifdef _OPENACC
+    i_am_accel_node = my_process_is_work()  ! Activate GPUs
 !
 ! OpenACC Implementation:  For testing in ACC_VALIDATE=.TRUE. mode, we would ultimately like to be able to run 
 !                          this routine entirely on the accelerator with input on the host, and moving
@@ -2991,9 +2990,9 @@ MODULE mo_solve_nonhydro
       mass_flx_me_tmp     => prep_adv%mass_flx_me
       mass_flx_ic_tmp     => prep_adv%mass_flx_ic
 !$ACC UPDATE HOST ( vn_traj_tmp, mass_flx_me_tmp, mass_flx_ic_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. lprep_adv )
-#endif
 
-    i_am_accel_node = .FALSE.               ! Deactivate GPUs
+      i_am_accel_node = .FALSE.               ! Deactivate GPUs
+#endif
 
     IF (ltimer) CALL timer_stop(timer_solve_nh)
 
