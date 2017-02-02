@@ -4317,6 +4317,9 @@ if test -n "$NETCDFROOT" ; then
        fi
      fi
   fi
+  if [ "x$use_yac" = xyes ] ; then
+    CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_C_NETCDF"
+  fi
 else
   echo "error: the variable NETCDFROOT is not set in $host_frag"
   echo "       set NETCDFROOT to the netCDF root directory"
