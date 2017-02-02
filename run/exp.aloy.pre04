@@ -62,9 +62,9 @@ fi
 # ------------------
 
 # Variables atmo_dyn_grids and ocean_grids are used in namelist and linked to model directory
-grids_folder=${icon_data_poolFolder}/coupled_input_temp/aloy_mixed-40-160km
-atmo_dyn_grids='r2b4_amip.nc'
-ocean_grids='Earth_Icos_0039km_from160km-amip-cor.nc'
+grids_folder=${icon_data_poolFolder}/coupled_input_temp/aloy_pre04
+atmo_dyn_grids='ATMOOceGridWithCoast_158km.nc'
+ocean_grids='OCEANGridNoLake_pre04_slo_0039km_bathy.edit2016.nc'
 
 # start and end date+time
 # -----------------------
@@ -108,6 +108,7 @@ oce_output_interval="PT6H"
 
 ## long-term low frequency output and restart intervals
 #restart_interval="P2Y"   
+#checkpoint_interval="P1Y"
 #atm_output_interval="P1M"
 #lnd_output_interval="P1M"
 #oce_output_interval="P1M"
@@ -238,20 +239,21 @@ cat > ${atm_namelist} << EOF
 /
 &radiation_nml
  irad_h2o         = 1           ! 1: prognostic vapor, liquid and ice
- irad_co2         = 4           ! 4: from greenhouse gas scenario
- irad_ch4         = 4           ! 4: from greenhouse gas scenario
- irad_n2o         = 4           ! 4: from greenhouse gas scenario
+ irad_co2         = 2           ! 2: global constant; 4: from greenhouse gas scenario
+ irad_ch4         = 2           ! 2: global constant; 4: from greenhouse gas scenario
+ irad_n2o         = 2           ! 2: global constant; 4: from greenhouse gas scenario
  irad_o3          = 8           ! 8: horizontally and vertically variable
  irad_o2          = 2           ! 2: horizontally and vertically constant
- irad_cfc11       = 4           ! 4: from greenhouse gas scenario
- irad_cfc12       = 4           ! 4: from greenhouse gas scenario
+ irad_cfc11       = 0           ! 0: no cfc
+ irad_cfc12       = 0           ! 0: no cfc
  irad_aero        = 0           ! 0: no aerosol
-                                !15: Kinne aerosol optics for troposphere
-                                !   +Stenchikov aerosol optics for stratosphere
  lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
- ighg             = 1           ! 1: transient well mixed greenhouse gas concentrations
+ ighg             = 0           ! 0: select default values; 1: transient well mixed greenhouse gas concentrations
  izenith          = 4           ! 4: seasonal and diurnal cycle
- isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
+ isolrad          = 6           ! 6: pre-industrial CMIP6 solar constant
+ vmr_co2          = 284.317e-6  ! constant volume mixing ration
+ vmr_ch4          = 808.249e-9  ! constant volume mixing ration
+ vmr_n2o          = 273.021e-9  ! constant volume mixing ration
 /
 &psrad_nml
 rad_perm          = 1           ! Integer for perturbing random number seeds
@@ -304,6 +306,12 @@ EOF
 # II.2 Define the input
 # ---------------------
 
+# II.2.0 Grid files
+# ------------------
+# slo.2016/09 atmospere and ocean base masks, no longer copied from HGRIDDIR - not yet tested
+#add_link_file $grids_folder/$atmo_dyn_grids                             ./$atmo_dyn_grids                
+#add_link_file $grids_folder/$ocean_grids                                ./$ocean_grids                
+
 # II.2.1 Model files
 # ------------------
 
@@ -334,7 +342,7 @@ datadir=/pool/data/ICON/setup/ifs_iconremap_amip
 add_link_file $datadir/ifs_remap_R2B4_00XX_AMIP_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
 #
 # - land: source?, date+time?
-datadir=$INDATA/r2b4_amip/lnd
+datadir=$grids_folder/Land
 add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
 
 # II.2.5 Boundary conditions
@@ -352,30 +360,28 @@ add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_gre
 
 # - ozone
 # mbe/slo - attention: do not use, set to constant 1850 via namelist
-datadir=/pool/data/ICON/coupled_input_temp/aloy_r2b4
-add_link_file $datadir/bc_ozone_cmip5_clim1979-2009.nc                  ./bc_ozone.nc
+datadir=$grids_folder/Atmos
+add_link_file $datadir/bc_ozone_pre04_slo_0158km_CMIP6_picontrol.nc     ./bc_ozone.nc
 
 # - sst and sic
-datadir=$INDATA/r2b4_amip/oce
-add_link_file $datadir/bc_sic_pcmdi_1870-2010.nc                        ./bc_sic.nc
-add_link_file $datadir/bc_sst_pcmdi_1870-2010.nc                        ./bc_sst.nc
-
-# - ssi and tsi
-datadir=$INDATA/global/sun
-add_link_file $datadir/bc_solar_irradiance_14band_1849-2399.nc          ./bc_solar_irradiance_sw_b14.nc
+datadir=$grids_folder/Atmos
+add_link_file $datadir/bc_sic_pcmdi_cmip6_pre04_slo_0158km_1870-2015.nc ./bc_sic.nc
+add_link_file $datadir/bc_sst_pcmdi_cmip6_pre04_slo_0158km_1870-2015.nc ./bc_sst.nc
 
 # - land parameters
-
-datadir=$INDATA/r2b4_amip/lnd
+datadir=$grids_folder/Land
 add_link_file $datadir/bc_land_frac_1976.nc                             ./bc_land_frac.nc
 add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
 add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
 add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
-add_link_file $datadir/bc_land_hd.nc                                    ./bc_land_hd.nc
+add_link_file $datadir/hd_para_icon_r2b4_pre04_vs1_5.nc                 ./bc_land_hd.nc
 
-
-# read -2to2 cell_sea_land_mask, name hardcoded as r2b4_amip.nc for HD model
-add_link_file $grids_folder/r2b4_amip.nc                                ./hd_mask.nc
+# slo.2016/09 read -2to2 cell_sea_land_mask, name hardcoded as r2b4_amip.nc - use same as for HD-model (lsf>0:=land)
+add_link_file $datadir/slm-2to2_forHDmodel_158km.nc                     ./r2b4_amip.nc
+add_link_file $datadir/slm-2to2_forHDmodel_158km.nc                     ./hd_mask.nc
+add_link_file $datadir/runoff_a2o.r110.3.HD.corGibr.nc                  ./runoff_a2o.weights.nc
+#add_link_file $datadir/runoff_a2o.r110.2.HD.nc                          ./runoff_a2o.weights.nc
+#
 
 #--------------------------------------------------------------------------------------------------
 
@@ -415,12 +421,11 @@ if [[ "$output_atm_min" == "yes" ]]; then
  ml_varlist       = 'orog'    , 'ps'      ,
                     'frac_wtr', 'frac_ice', 'frac_lnd',
                     'sic'     , 'sit'     , 'qtop_icecl', 'qbot_icecl',
-                    'hfls'    , 'hfss'    , 'evspsbl' ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    , 'rsdt'    ,
                     'clt'     , 'psl'     , 'tas'     , 'ts'      ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
                     'tauu'    , 'tauv'    , 'albedo'  ,
+                    'hfls'    , 'hfss'    , 'evspsbl' ,
                     'hfls_wtr', 'hfls_ice', 'hfls_lnd',
                     'hfss_wtr', 'hfss_ice', 'hfss_lnd',
                     'rsns_wtr', 'rsns_ice', 'rsns_lnd',
@@ -443,23 +448,20 @@ if [[ "$output_atm_min" == "yes" ]]; then
 EOF
 fi
 
+#  Variables not allowed?
+#  'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    , 'rsdt'    ,
+
 #  more variables for test output
 #  'cosmu0'  , 'daylght_frc',
-#  'rsns_wtr', 'rsns_ice', 'rsns_lnd',
-#  'rlns_wtr', 'rlns_ice', 'rlns_lnd', 'tend_ta_rlw_impl',
-#  'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts_rad'  ,
+#  'visdffsfc','nirdffsfc','vissfc'  , 'nirsfc'  ,
 #  'albedo_wtr', 'albedo_ice', 'albedo_lnd',
-#  'evspsbl_ice', 'evspsbl_wtr', 'evspsbl_lnd',
-#  'hfls_wtr', 'hfls_ice', 'hfls_lnd',
-#  'hfss_wtr', 'hfss_ice', 'hfss_lnd',
-#  'tauu_wtr', 'tauu_ice', 'tauu_lnd',
-#  'tauv_wtr', 'tauv_ice', 'tauv_lnd',
+#  'albvisdir','albvisdif' , 'albnirdir' , 'albnirdif',
+#  'albvisdir_ice', 'albvisdir_wtr', 'albvisdir_lnd',
 #  'tauu_sso', 'tauv_sso', 'diss_sso', 
 #  'sh_vdiff', 'qv_vdiff',
 #  'ch_concloud',
 #  'con_dtrl', 'con_dtri', 'con_iteqv',
 #  'cld_dtrl', 'cld_dtri', 'cld_iteq' ,
-#  'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
 #  'dew2'
 
 
@@ -497,18 +499,23 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_interval  = "${atm_output_interval_2d}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ps'      , 'psl' ,
-                    'daylght_frc',
-                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
-                    'sic'     , 'sit'     ,
-                    'hfls'    , 'hfss'    , 'evspsbl' ,
-                    'tauv'    , 'albedo'  ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+ ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
+                    'cosmu0'  ,
                     'rsdt'    ,
-                    'tauu_sso', 'tauv_sso', 'diss_sso', 
-                    'clt'     , 'tas'     , 'ts'      ,
+                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'
+                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'
+                    'rsus'    , 'rsuscs'  , 'rlus'    ,
+                    'ts'      ,
+                    'sic'     , 'sit'     ,
+                    'albedo'  ,
+                    'clt'     ,
+                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
-                    'tauu'
+                    'hfls'    , 'hfss'    , 'evspsbl' ,
+                    'tauu'    , 'tauv'    ,
+                    'tauu_sso', 'tauv_sso', 'diss_sso', 
+                    'sfcwind' , 'uas'     , 'vas'     ,
+                    'tas'     , 'dew2'
 /
 EOF
 fi
@@ -781,10 +788,9 @@ if [[ "$output_oce_min" == "yes" ]]; then
   mode             =  2                               ! 1: forecast mode (relative t-axis),
                                                       ! 2: climate mode (absolute t-axis)
   include_last     = .false.
-  m_levels         = "1...3,10,21,32,44,51,56"        ! reduced output out of 64 levels
-                                                      ! (0-27m, 100m, 305.5, 829, 1986, 3092, 4147m) 
+  m_levels         = "1...3,10"                       ! reduced output out of 64 levels
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c',
+  ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c', 'Qtop', 'Qbot',
                       'mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc',
                       't_acc','s_acc','u_acc','topBoundCond_windStress_u_acc',
                       'HeatFlux_Total_acc','atmos_fluxes_HeatFlux_ShortWave','atmos_fluxes_HeatFlux_LongWave',
@@ -795,6 +801,9 @@ if [[ "$output_oce_min" == "yes" ]]; then
 /
 EOF
 fi
+
+# m_levels         = "1...3,10,21,32,44,51,56"        ! reduced output out of 64 levels
+#                                                     ! (0-27m, 100m, 305.5, 829, 1986, 3092, 4147m) 
 
 if [[ "$output_oce_full" == "yes" ]]; then
   cat >> ${oce_namelist} <<EOF
@@ -825,9 +834,9 @@ fi
 # III.2 Add standard ocean input files 
 # ------------------------------------
 
-# PHC3.0, r2b6 resolution:
-datadir=/pool/data/ICON/coupled_input_temp/aloy_mixed-40-160km
-add_required_file ${datadir}/ts_phc3.0_annual_icon_r2b6_amip_L64.nc initial_state.nc
+# PHC3.0, 40km resolution:
+datadir=$grids_folder/Ocean
+add_required_file ${datadir}/ts_phc3.0_annual_pre04_slo_0039km_L64.nc initial_state.nc
 
 #--------------------------------------------------------------------------------------------------
 # IV. coupling section
@@ -1111,8 +1120,8 @@ cat > ${cpl_xmlctrfn} << EOF
                <target_timelag>1</target_timelag>
             </timestep>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
-               <interpolation method="fixed_value" user_value="-999.0"/>
+               <interpolation method="user_file" filename="runoff_a2o.weights.nc"/>
+               <interpolation method="fixed_value" user_value="0.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
             <enforce_write_restart>false</enforce_write_restart>
@@ -1142,6 +1151,14 @@ cat > ${cpl_xmlctrfn} << EOF
 </coupling>
 EOF
 
+# Mapping parameter:
+#  <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+#  <interpolation allow_extrapolation="true" extend_source_patch="1" gauss_order="7" method="patch_recovery" polynomial_order="1"/>
+#  <interpolation method="source_to_target_map"/>
+#  <interpolation method="fixed_value" user_value="99.0"/>
+#  <interpolation method="user_file" filename="runoff_a2o.weights.nc"/>
+#  <enforce_write_weight_file filename="runoff_a2o_written.weights.nc">true</enforce_write_weight_file>
+
 # IV.4 xsd and xml files for yac
 # ------------------------------
 
@@ -1149,4 +1166,7 @@ add_required_file ${basedir}/run/${cpl_xmlctrfn}  ./coupling.xml
 add_required_file ${basedir}/run/coupling.xsd  ./
 add_required_file ${basedir}/run/component.xsd ./
 
-#--------------------------------------------------------------------------------------------------
+# set grid filenames to undefined to avoid copy mechanism by exec.iconrun (not tested, change later):
+#atmo_dyn_grids=""
+#ocean_grids=""
+
