@@ -1205,8 +1205,12 @@ CONTAINS
       CALL finish(method_name, &
       & 'not enough processors for given values of p_test_run/num_io_procs/num_restart_procs/sizeof_prefetch_processes')
     ELSE IF (p_test_run .AND. num_work_procs == 1) THEN
+#ifdef _OPENACC
+      PRINT *, "Testing 1 CPU against 1 GPU"
+#else
       CALL finish(method_name, &
       & 'running p_test_run with only 1 work processor does not make sense')
+#endif
     ENDIF
 
     WRITE(message_text,'(5(a,i0))') 'Number of procs for test: ',num_test_procs, &

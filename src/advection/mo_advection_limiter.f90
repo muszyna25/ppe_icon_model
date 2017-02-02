@@ -68,12 +68,12 @@ MODULE mo_advection_limiter
   PUBLIC :: v_ppm_slimiter_sm
 
 #if defined( _OPENACC )
-#define ACC_DEBUG $ACC
 #if defined(__ADVECTION_LIMITER_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
+  LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 #endif
 
 CONTAINS
@@ -211,7 +211,7 @@ CONTAINS
 !$ACC      CREATE( z_tracer_new_low, z_tracer_max, z_tracer_min, z_min, z_max ),&
 !$ACC      PCOPYIN( p_cc, p_mass_flx_e ), PCOPY( p_mflx_tracer_h ),                          &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_cc, p_mass_flx_e, p_mflx_tracer_h ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, p_mflx_tracer_h ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! Set default values
     i_rlstart = grf_bdywidth_e
@@ -676,7 +676,7 @@ CONTAINS
 
     ENDDO  ! nit
 
-!ACC_DEBUG UPDATE HOST( p_mflx_tracer_h ), IF (i_am_accel_node .AND. acc_on)
+!$ACC UPDATE HOST( p_mflx_tracer_h ), IF (acc_validate .AND. i_am_accel_node .AND. acc_on)
 !$ACC END DATA
 
   END SUBROUTINE hflx_limiter_mo
@@ -771,7 +771,7 @@ CONTAINS
 !$ACC DATA CREATE( z_mflx, r_m ), &
 !$ACC      PCOPYIN( p_cc ), PCOPY( p_mflx_tracer_h ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_cc, p_mflx_tracer_h ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_h ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! set default values
     i_rlstart = grf_bdywidth_e - 1 ! needed for call from miura_cycl scheme, 
@@ -968,7 +968,7 @@ CONTAINS
 !$OMP END PARALLEL
 #endif
 
-!ACC_DEBUG UPDATE HOST( p_mflx_tracer_h ), IF (i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_mflx_tracer_h ), IF (acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE hflx_limiter_sm
@@ -1044,7 +1044,7 @@ CONTAINS
 
 !$ACC DATA CREATE( r_m ), PCOPYIN( p_cc ), PCOPY( p_mflx_tracer_v ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_cc, p_mflx_tracer_v ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -1149,7 +1149,7 @@ CONTAINS
 !$OMP END PARALLEL
 #endif
 
-!ACC_DEBUG UPDATE HOST( p_mflx_tracer_v ), IF (i_am_accel_node .AND. acc_on)
+!$ACC UPDATE HOST( p_mflx_tracer_v ), IF (acc_validate .AND. i_am_accel_node .AND. acc_on)
 !$ACC END DATA
 
   END SUBROUTINE vflx_limiter_pd
@@ -1226,7 +1226,7 @@ CONTAINS
 
 !$ACC DATA CREATE( r_m ), PCOPYIN( p_cc ), PCOPY( p_mflx_tracer_v ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_cc, p_mflx_tracer_v ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -1329,7 +1329,7 @@ CONTAINS
 !$OMP END PARALLEL
 #endif
 
-!ACC_DEBUG UPDATE HOST( p_mflx_tracer_v ), IF (i_am_accel_node .AND. acc_on)
+!$ACC UPDATE HOST( p_mflx_tracer_v ), IF (acc_validate .AND. i_am_accel_node .AND. acc_on)
 !$ACC END DATA
 
   END SUBROUTINE vflx_limiter_pd_ha

@@ -127,12 +127,12 @@ MODULE mo_advection_hflux
   PUBLIC :: upwind_hflux_miura3
 
 #if defined( _OPENACC )
-#define ACC_DEBUG $ACC
 #if defined(__ADVECTION_HFLUX_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
+  LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 #endif
 
 
@@ -626,7 +626,7 @@ CONTAINS
     ! loop through all patch edges (and blocks)
 #ifdef _OPENACC
 !$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e ), PCOPYOUT( p_upflux ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_cc, p_mass_flx_e ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_mass_flx_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC PARALLEL &
 !$ACC PRESENT( p_patch, iilc, iibc, p_cc, p_mass_flx_e, p_upflux ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
@@ -668,7 +668,7 @@ CONTAINS
     END DO  ! end loop over blocks
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( p_upflux ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_upflux ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 #else
 !$OMP END DO NOWAIT
@@ -826,7 +826,7 @@ CONTAINS
    !-------------------------------------------------------------------------
 
 !$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e, p_vn, p_vt ), PCOPY( p_out_e ), CREATE( z_grad, z_lsq_coeff ), IF( i_am_accel_node .AND. acc_on)
-!ACC_DEBUG UPDATE DEVICE( p_cc, p_mass_flx_e, p_vn, p_vt, p_out_e ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, p_vn, p_vt, p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! number of vertical levels
     nlev = p_patch%nlev
@@ -1127,7 +1127,7 @@ CONTAINS
 
 ! 2015_09_22 WS: This line might be needed because debugging is on in hflx_limiter_mo
 
-!!! !ACC_DEBUG UPDATE HOST( p_out_e ), IF( i_am_accel_node .AND. acc_on )
+!!! !$ACC UPDATE HOST( p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     !
     ! 4. If desired, apply a (semi-)monotone flux limiter to limit computed fluxes.
@@ -1155,7 +1155,7 @@ CONTAINS
       ENDIF
     END IF
 
-!ACC_DEBUG UPDATE HOST( p_out_e ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE upwind_hflux_miura
