@@ -163,7 +163,7 @@ case "$fortran_compiler" in
         CC          = cc
         FC          = ftn
         F77         = $FC
-        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc  -O cache0 -r am -Ktrap=divz,ovf,inv
+        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O cache0 -r am -Ktrap=divz,ovf,inv
         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -O3
         F77FLAGS    = $FFLAGS
         FCLIBS      = 
@@ -268,7 +268,7 @@ case "$ac_sitename" in
                     ;;
                     cray_gpu)
                         config_target=daint_gpu
-                        load_modules = "PrgEnv-cray" "cray-netcdf" "cray-mpich" "craype-accel-nvidia60" "${load_modules}"
+                        load_modules = "PrgEnv-cray" "cray-netcdf" "cray-mpich" "${load_modules}"
                         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
                     ;;
