@@ -169,7 +169,7 @@ case "$fortran_compiler" in
         FCLIBS      = 
         GEN_FLAGS   =
         FDEBUG      = -g -R abc
-        ART_FFLAGS  = -D__ICON_ART
+        ART_FFLAGS  = -D__ICON_ART -D__ART_TMP_IFDEF
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
@@ -302,6 +302,11 @@ case "$ac_sitename" in
                     cray)
                       RTTOV_LIBS      = -L/usr/local/pkg/for0adm/lib -L/usr/local/pkg/for0adm/lib/unsupported -lradiance -lrttov10.2 -lhrit_tools
                       OTHER_LIBS      = $RTTOV_LIBS $OTHER_LIBS
+                      case "$with_art" in
+                           yes)
+                             OTHER_LIBS = ${OTHER_LIBS} -L/e/uhome/jfoerstn/Software/lib -lTIXI -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
+                             ;;
+                      esac
                       STD_FLAGS       = -D__USE_RTTOV -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
                       FFLAGS          = ${FFLAGS} -I/usr/local/pkg/for0adm/include/radiance
                       GRIBAPIROOT     = ${GRIB_API}
@@ -311,6 +316,11 @@ case "$ac_sitename" in
                       FFLAGS          = ${FFLAGS}
                       GRIBAPIROOT     = ${GRIB_API}
                       OTHER_LIBS      = $OTHER_LIBS
+                      case "$with_art" in
+                           yes)
+                             OTHER_LIBS = ${OTHER_LIBS} -L/e/uhome/jfoerstn/Software/lib -lTIXI -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
+                             ;;
+                      esac
                       ;;
                 esac
                 ;;
@@ -566,13 +576,39 @@ case "$ac_sitename" in
     kit.edu)
         case $ac_hostname in
             ic2*)
-                NETCDFROOT  = /pfs/imk/ICON/LIBRARIES
-                NETCDFFROOT = /pfs/imk/ICON/LIBRARIES
-                HDF5ROOT    = /pfs/imk/ICON/LIBRARIES
-                SZIPROOT    = /pfs/imk/ICON/LIBRARIES
+               NETCDFROOT  = /pfs/imk/ICON/LIBRARIES_IFORT16
+               NETCDFFROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
+               HDF5ROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
+               SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
+               ZLIBROOT    = /usr
+               MPIROOT     = /pfs/imk/ICON/LIBRARIES_IFORT16
+               GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
+               MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+               case "$with_art" in
+                    yes)
+                      OTHER_LIBS = ${OTHER_LIBS} -lTIXI
+                      ;;
+               esac
+               CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
+               config_target=ic2
+               make_command=make -j8
+               submit=sbatch
+               mpi_startrun=runjob --ranks-per-node \\\$mpi_procs_pernode --envs OMP_NUM_THREADS=\\\$OMP_NUM_THREADS --exe
+;;
+            fh2*)
+                NETCDFROOT  = /pfs/imk/ICON/LIBRARIES_IFORT16
+                NETCDFFROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
+                HDF5ROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
+                SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
                 ZLIBROOT    = /usr
-                MPIROOT     = /pfs/imk/ICON/LIBRARIES
+                MPIROOT     = /pfs/imk/ICON/LIBRARIES_FH2/lib_omp_Inge
+                GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
                 MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+                case "$with_art" in
+                     yes)
+                       OTHER_LIBS = ${OTHER_LIBS} -lTIXI
+                       ;;
+                esac
                 CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
                 config_target=ic2
                 make_command=make -j8
