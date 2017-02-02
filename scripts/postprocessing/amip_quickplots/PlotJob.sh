@@ -14,9 +14,11 @@ set -e
 # "module avail cdo" and "module avail ncl"
 #
 
+
 TYP=ANN
 
-EXP=mag0097
+
+EXP=mbe0780
 
 # atm_RES= ICON-grid resolution r2b4 or r2b6
 atm_RES=r2b4
@@ -24,21 +26,23 @@ atm_RES=r2b4
 YY1=1979
 YY2=2008
 
-NAME=ml_${EXP}_${YY1}-${YY2}_${TYP}
+NAME=ml_${EXP}_${YY1}-${YY2}_${TYP}  
 
-COMMENT='amip 160 km '
+COMMENT='amip 160 km '      #   only for Single-Plots
 
-SINGLE=0
+SINGLE=1
 PAGE=1
 
 ATM_3d=1
 ATM_2d=1
 TAB=1
 
-WORKDIR=/mnt/lustre01/work/mh0081/m214091/mbe0915_ANN/
 
-MODELDIR=/pool/data/ICON/post/
-#
+
+WORKDIR=/mnt/lustre01/work/mh0081/m214091/${EXP}/
+
+#####MODELDIR=/pool/data/ICON/post/
+MODELDIR=~/icon-aes/
 #######################################################
 #
 # cell=filled triangles cont=filled contour 
@@ -72,7 +76,7 @@ LEV=47
 export ERAinDir
 
 
-FIXCODE=/pool/data/ICON/post/ERA-Interim_T${era_RES}
+
 
 QUELLE=${MODELDIR}/scripts/postprocessing/amip_quickplots/
 
@@ -102,7 +106,7 @@ MODULES=
     case `hostname` in
     mlogin*|mistral*)
         CDO_MODULE=cdo/1.7.2-gcc48;;
-    *)  CDO_MODULE=cdo/1.7.2-gcc48;;
+    *)  CDO_MODULE=cdo/1.7.2-gccsys;;
     esac
     MODULES="$MODULES $CDO_MODULE"
 
@@ -127,12 +131,11 @@ which ncl
 if [ "$TAB" = "1" ]
 then
 
-cp ${FIXCODE}/F${era_RES}${oce_RES}_LAND  F_LAND
-cp ${FIXCODE}/F${era_RES}_GLACIER F_GLACIER 
 
-  ${QUELLE}/TABLEjob_full $TYP $NAME $EXP $YY1 $YY2  $WORKDIR
 
-rm -f F_LAND F_GLACIER
+  ${QUELLE}/TABLE.job $TYP $NAME $EXP $YY1 $YY2  $WORKDIR
+
+
 fi
 echo '####################################################'
 echo  you find your table on
@@ -263,7 +266,7 @@ exit
 # EXP= experiment number, appears in the caption of the plots
 #
 # COMMENT= the comment appears in the subtitle of the plots
-#          maximum length 20 characters 
+#          maximum length 20 characters (it works only for single plots)
 # TYP= average to compare with ERAinterim-data(1979-1999)or (1979-2008)
 #      ANN(annual), DJF(Dec-Feb), MAM(mar-may)  JJA(jul-aug), SON(sep-nov),
 #      JAN ... DEC
@@ -273,10 +276,10 @@ exit
 #                                
 #      
 # NAME= XXX name of data files (maximum length 10 characters)
-# WORKDIR= working directory 
-#         (containing the input data atm_3d_XXX and atm_2d_XXX)
+# WORKDIR= working directory (containing the input data atm_dyn_XXX and atm_phy_XXX)
 #
 # MODELDIR= model directory
+#
 #
 #
 # ATM_3d= 1 plot atmosphere data
