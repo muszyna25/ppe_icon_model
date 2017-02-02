@@ -39,11 +39,6 @@ MODULE mo_art_config
   PUBLIC :: configure_art
   PUBLIC :: IART_PATH_LEN
   ! Running tracer indices in ICON-ART
-  PUBLIC :: iash1,iash2,iash3,iash4,iash5,iash6                          !Volcanic Ash 
-  PUBLIC :: iasha, iashb, iashc, iasha0, iashb0, iashc0                  !Volcanic Ash
-  PUBLIC :: iCS137,iI131,iTE132,iZR95,iXE133,iI131g,iI131o,iBA140,iRU103 !radioactive nuclides
-  PUBLIC :: iseasa,iseasb,iseasc,iseasa0,iseasb0,iseasc0                 !sea salt 
-  PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0                 !mineral dust
   PUBLIC :: iTRCHBR3,iTRCH2BR2                                           !chemical tracer - VSLS
   PUBLIC :: iTRCH4,iTRC2H6,iTRC3H8,iTRC5H8,iTRCH3COCH3,iTRCO,iTRCO2      !chemical tracer - CH4-C2H6-C3H5-C5H8-CH3COCH3-CO-CO2
   PUBLIC :: iTRH2O,iTRO3,iTRN2O,iTRNH3,iTRSO2,iTRH2SO4,iTRHNO3,iTRAGE    !chemical tracer - others
@@ -60,17 +55,6 @@ MODULE mo_art_config
   !!--------------------------------------------------------------------------
   !! Tracer indices of ICON-ART species
   !!--------------------------------------------------------------------------
-  INTEGER :: & !< Volcanic ash tracer indicies (bulk scheme)
-    &  iash1, iash2, iash3, iash4, iash5, iash6
-  INTEGER :: & !< Volcanic ash tracer indicies (modal scheme)
-    &  iasha, iashb, iashc, iasha0, iashb0, iashc0
-  INTEGER :: & !< Radioactive nuclides (bulk scheme)
-    &  iCS137, iI131, iTE132, iZR95, iXE133, &
-    &  iI131g, iI131o, iBA140, iRU103
-  INTEGER :: & !< seasalt aerosol tracer indicies (modal scheme)
-    &  iseasa, iseasb, iseasc, iseasa0, iseasb0, iseasc0
-  INTEGER :: & !< mineral dust aerosol tracer indicies (modal scheme)
-    &  idusta, idustb, idustc, idusta0, idustb0, idustc0
   INTEGER :: & !< Chemical tracers
     &  iTRCHBR3,iTRCH2BR2,                                        &
     &  iTRCH4,iTRC2H6,iTRC3H8,iTRC5H8,iTRCH3COCH3,iTRCO,iTRCO2,   &
