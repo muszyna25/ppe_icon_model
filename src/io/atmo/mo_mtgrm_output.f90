@@ -2242,7 +2242,7 @@ CONTAINS
 
         CALL nf(nf_put_vara_text(ncfile, ncid%dateid, (/ 1, totaltime+itime /), &
              &                      (/ LEN_TRIM(meteogram_data%time_stamp(itime)%zdate), 1 /), &
-             &                      TRIM(meteogram_data%time_stamp(itime)%zdate)), &
+             &                      meteogram_data%time_stamp(itime)%zdate), &
              &                      modname)
         CALL nf(nf_put_vara_int(ncfile, ncid%time_step, totaltime+itime, 1, &
              &                     meteogram_data%time_stamp(itime)%istep),    &
