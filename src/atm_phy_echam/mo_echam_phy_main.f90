@@ -535,18 +535,7 @@ CONTAINS
 
     IF (echam_phy_config%lvdiff) THEN
 
-
-      DO jk = 1,nlev
-        !
-        ! Thickness of model layer in pressure coordinate
-        ! to be replaced by mair or mdry, if used for tracers
-        !
-        zdelp   (:,jk) = field% presi_old (:,jk+1,jb) - field% presi_old (:,jk,jb)
-        !
-      END DO
-
       IF (ltimer) CALL timer_start(timer_vdiff_down)
-
 
       CALL vdiff_down( vdiff_config%lsfc_mom_flux,      &! in
                      & vdiff_config%lsfc_heat_flux,     &! in
@@ -570,7 +559,6 @@ CONTAINS
                      & field% qtrc(:,:,jb,iqt:),        &! in, xtm1
                      & field% presi_old(:,:,jb),        &! in, aphm1
                      & field% presm_old(:,:,jb),        &! in, apm1
-                     & zdelp(:,:),                      &! in, layer thickness [Pa]
                      & field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
                      & field% geoi(:,:,jb),             &! in, pgeohm1 = half-level geopotential
                      & field%   tv(:,:,jb),             &! in, virtual temperaturea
@@ -720,6 +708,15 @@ CONTAINS
     !     - Compute tendencies and additional diagnostics.
 
       ztte_corr(jcs:jce) = zq_snocpymlt(jcs:jce)*zconv(jcs:jce,nlev)
+
+      DO jk = 1,nlev
+        !
+        ! Thickness of model layer in pressure coordinate
+        ! to be replaced by mair or mdry, if used for tracers
+        !
+        zdelp   (:,jk) = field% presi_old (:,jk+1,jb) - field% presi_old (:,jk,jb)
+        !
+      END DO
 
       IF (ltimer) CALL timer_start(timer_vdiff_up)
 

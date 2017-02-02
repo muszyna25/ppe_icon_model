@@ -42,7 +42,7 @@ CONTAINS
                        & ptsfc_tile, pocu,      pocv,       ppsfc,      &! in
                        & pum1,       pvm1,      ptm1,       pqm1,       &! in
                        & pxlm1,      pxim1,     pxm1,       pxtm1,      &! in
-                       & paphm1,     papm1,     pdelpm1,    pgeom1,     &! in
+                       & paphm1,     papm1,     pgeom1,                 &! in
                        & pgeohm1,                                       &! in
                        & ptvm1,      paclc,     pxt_emis,   pthvvar,    &! in
                        & pxvar,      pz0m_tile,                         &! in
@@ -90,7 +90,6 @@ CONTAINS
     REAL(wp),INTENT(IN) ::        &
       & paphm1  (kbdim,klevp1)   ,&!< half level pressure [Pa]
       & papm1   (kbdim,klev)     ,&!< full level pressure [Pa]
-      & pdelpm1 (kbdim,klev)     ,&!< layer thickness [Pa]
       & pgeom1  (kbdim,klev)     ,&!< geopotential above ground
       & pgeohm1 (kbdim,klevp1)   ,&!< half-level geopotential
       & ptvm1   (kbdim,klev)     ,&!< virtual temperature
@@ -187,8 +186,8 @@ CONTAINS
     ! 0. Reciprocal of layer thickness. It will be used repeatedly.
     !----------------------------------------------------------------------
 
-    zrdpm(1:kproma,:) = 1._wp/pdelpm1(1:kproma,:)
-    zrdph(1:kproma,:) = 1._wp/(papm1(1:kproma,2:klev)-papm1(1:kproma,1:klev-1))
+    zrdpm(1:kproma,:) = 1._wp/(paphm1(1:kproma,2:klevp1)-paphm1(1:kproma,1:klev  ))
+    zrdph(1:kproma,:) = 1._wp/(papm1 (1:kproma,2:klev  )-papm1 (1:kproma,1:klevm1))
 
     !----------------------------------------------------------------------
     ! 1. Compute various thermodynamic variables; Diagnose PBL extension;
