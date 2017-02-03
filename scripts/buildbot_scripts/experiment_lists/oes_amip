@@ -1,0 +1,11 @@
+machine|daint_cpu|default
+builder|DAINT_CPU_cce||Inactive
+machine|mistral|compute
+builder|MISTRAL_intel|--with-fortran=intel|Inactive
+builder|MISTRAL_intel_hybrid|--with-fortran=intel --with-openmp|Active
+experiment|checksuite.ocean_internal/other/exp.test_amip_reference|cpu_time=00:30:00
+builder|MISTRAL_intel_openmp|--with-fortran=intel --without-mpi --with-openmp --without-yac|Inactive
+builder|MISTRAL_nag_serial|--with-fortran=nag --without-mpi --without-yac|Inactive
+builder|MISTRAL_ocean|--with-fortran=intel --with-openmp --with-flags=ocean|Inactive
+builder|MISTRAL_gcc|--with-fortran=gcc|Inactive
+builder|MISTRAL_nag|--with-fortran=nag|Inactive
