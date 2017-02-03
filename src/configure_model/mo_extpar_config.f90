@@ -28,7 +28,8 @@ MODULE mo_extpar_config
   USE mo_impl_constants,     ONLY: max_dom, MAX_CHAR_LENGTH
   USE mo_io_units,           ONLY: filename_max
   USE mo_util_string,        ONLY: t_keyword_list, &
-    &                              associate_keyword, with_keywords
+    &                              associate_keyword, with_keywords, &
+    &                              int2string
   USE mo_exception,          ONLY: finish
 
 
@@ -98,16 +99,22 @@ MODULE mo_extpar_config
 
 CONTAINS
 
-  FUNCTION generate_filename(extpar_filename, model_base_dir, grid_filename) &
+  FUNCTION generate_filename(extpar_filename, model_base_dir, grid_filename, &
+    &                        nroot, jlev, idom) &
     &  RESULT(result_str)
     CHARACTER(len=*), INTENT(IN)    :: extpar_filename, &
       &                                model_base_dir,  &
       &                                grid_filename
+    INTEGER,          INTENT(IN)   :: nroot, jlev, idom
     CHARACTER(len=MAX_CHAR_LENGTH)  :: result_str
     TYPE (t_keyword_list), POINTER  :: keywords => NULL()
 
     CALL associate_keyword("<path>",     TRIM(model_base_dir), keywords)
     CALL associate_keyword("<gridfile>", TRIM(grid_filename),  keywords)
+    CALL associate_keyword("<nroot>",  TRIM(int2string(nroot,"(i1)")),   keywords)
+    CALL associate_keyword("<nroot0>", TRIM(int2string(nroot,"(i2.2)")), keywords)
+    CALL associate_keyword("<jlev>",   TRIM(int2string(jlev, "(i2.2)")), keywords)
+    CALL associate_keyword("<idom>",   TRIM(int2string(idom, "(i2.2)")), keywords)
     ! replace keywords in "extpar_filename", which is by default
     ! extpar_filename = "<path>extpar_<gridfile>"
     result_str = TRIM(with_keywords(keywords, TRIM(extpar_filename)))
