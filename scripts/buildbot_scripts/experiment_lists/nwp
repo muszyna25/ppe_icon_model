@@ -3,6 +3,12 @@ builder|DAINT_CPU_cce||NWP
 experiment|exp.test_nwp_R02B04N06multi|cpu_time=00:30:00
 experiment|exp.test_nwp_R02B04_R02B05_nest|cpu_time=00:30:00
 experiment|exp.test_nwp_R02B04N06multi2|cpu_time=00:30:00
+machine|breeze|default
+builder|BREEZE_intel|--with-fortran=intel|NWP
+builder|BREEZE_gcc_openmp|--with-fortran=gcc --with-openmp|NWP
+builder|BREEZE_gcc|--with-fortran=gcc|NWP
+builder|BREEZE_nag|--with-fortran=nag|NWP
+builder|BREEZE_intel_openmp|--with-fortran=intel --with-openmp|NWP
 machine|mistral|compute
 builder|MISTRAL_intel|--with-fortran=intel|NWP
 experiment|exp.test_nwp_R02B04N06multi|cpu_time=00:30:00
@@ -11,10 +17,9 @@ experiment|exp.test_nwp_R02B04N06multi2|cpu_time=00:30:00
 builder|MISTRAL_intel_hybrid|--with-fortran=intel --with-openmp|NWP
 experiment|exp.test_nwp_R02B04N06multi|cpu_time=00:30:00
 experiment|exp.test_nwp_R02B04_R02B05_nest|cpu_time=00:30:00
-builder|MISTRAL_nag_mtime|--with-fortran=nag --enable-mtime-loop --without-yac|Inactive
 builder|MISTRAL_intel_openmp|--with-fortran=intel --without-mpi --with-openmp --without-yac|NWP
-builder|MISTRAL_nag_serial|--with-fortran=nag --without-mpi --without-yac|Inactive
-builder|MISTRAL_ocean|--with-fortran=intel --with-openmp|Inactive
+builder|MISTRAL_nag_serial|--with-fortran=nag --without-mpi --without-yac|NWP
+builder|MISTRAL_ocean|--with-fortran=intel --with-openmp --with-flags=ocean|NWP
 builder|MISTRAL_gcc|--with-fortran=gcc|NWP
 experiment|exp.test_nwp_R02B04N06multi|cpu_time=00:30:00
 experiment|exp.test_nwp_R02B04_R02B05_nest|cpu_time=00:30:00

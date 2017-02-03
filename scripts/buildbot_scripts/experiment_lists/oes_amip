@@ -1,5 +1,11 @@
 machine|daint_cpu|default
 builder|DAINT_CPU_cce||Inactive
+machine|breeze|default
+builder|BREEZE_intel|--with-fortran=intel|Inactive
+builder|BREEZE_gcc_openmp|--with-fortran=gcc --with-openmp|Inactive
+builder|BREEZE_gcc|--with-fortran=gcc|Inactive
+builder|BREEZE_nag|--with-fortran=nag|Inactive
+builder|BREEZE_intel_openmp|--with-fortran=intel --with-openmp|Inactive
 machine|mistral|compute
 builder|MISTRAL_intel|--with-fortran=intel|Inactive
 builder|MISTRAL_intel_hybrid|--with-fortran=intel --with-openmp|Active

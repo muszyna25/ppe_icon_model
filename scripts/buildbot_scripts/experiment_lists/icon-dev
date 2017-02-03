@@ -18,6 +18,12 @@ experiment|checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.ocean_internal/technical/exp.ocean_omip_ptest|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_icoles_nested|cpu_time=00:30:00
+machine|breeze|default
+builder|BREEZE_nag|--with-fortran=nag|build_only
+builder|BREEZE_gcc_openmp|--with-fortran=gcc --with-openmp|build_only
+builder|BREEZE_gcc|--with-fortran=gcc|build_only
+builder|BREEZE_intel|--with-fortran=intel|build_only
+builder|BREEZE_intel_openmp|--with-fortran=intel --with-openmp|build_only
 machine|mistral|compute
 builder|MISTRAL_intel|--with-fortran=intel|Active
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
@@ -69,7 +75,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.ocean_internal/other/exp.oce_testbed_read|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_icoles_nested|cpu_time=00:30:00
 builder|MISTRAL_nag_serial|--with-fortran=nag --without-mpi --without-yac|build_only
-builder|MISTRAL_ocean|--with-fortran=intel --with-openmp|Ocean
+builder|MISTRAL_ocean|--with-fortran=intel --with-openmp --with-flags=ocean|Ocean
 experiment|checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_Hex|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/technical/exp.ocean_omip_ptest|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
