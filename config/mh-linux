@@ -181,7 +181,8 @@ case "$fortran_compiler" in
         CC          = cc
         FC          = ftn
         F77         = $FC
-        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hacc_model=deep_copy -O cache0 -r am -Ktrap=divz,ovf,inv
+#        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hacc_model=deep_copy -O cache0 -r am -Ktrap=divz,ovf,inv
+        FFLAGS      = -D__LOOP_EXCHANGE -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=intolerant -hfp0 -hadd_paren -hacc_model=deep_copy -O1,cache0 -r am -Ktrap=divz,ovf,inv
         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -O3
         F77FLAGS    = $FFLAGS
         FCLIBS      = 
