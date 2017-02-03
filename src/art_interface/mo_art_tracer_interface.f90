@@ -34,6 +34,7 @@ MODULE mo_art_tracer_interface
   USE mo_art_tracer,                    ONLY: art_tracer
   USE mo_art_init,                      ONLY: art_init
   USE mo_art_diag_state,                ONLY: art_create_diagnostics
+  USE mo_art_data,                      ONLY: p_art_data
 #endif
 
   IMPLICIT NONE
@@ -112,7 +113,7 @@ SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix,&
         CALL art_init(jg,this_list,tracer=p_prog%tracer)
       ENDIF
     ELSE !defcase is diag
-      CALL art_create_diagnostics(jg, this_list)
+      CALL art_create_diagnostics(jg, p_art_data(jg)%dict_tracer, this_list)
     ENDIF
   ENDIF ! lart
 #endif
