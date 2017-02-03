@@ -54,7 +54,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.ocean_internal/other/exp.oce_testbed_read|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_icoles_nested|cpu_time=00:30:00
 machine|daint_cpu|default
-builder|DAINT_CPU_cce||Active
+builder|DAINT_CPU_cce|--with-fortran=cray --without-grib_api|Active
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|exp.nat_jww_nwp_mpiomp|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_rce_les|cpu_time=00:30:00
