@@ -237,6 +237,7 @@ case "$ac_sitename" in
                 CC = cc
                 FC = ftn
                 F77= ftn
+                load_modules="cray-netcdf"
 
                 case "$fortran_compiler" in
                     default|gcc)
@@ -263,7 +264,7 @@ case "$ac_sitename" in
                     ;;
                     cray)
                         config_target=daint_cpu
-                        load_modules = "PrgEnv-cray" "cray-netcdf" "cray-mpich" "${load_modules}"
+                        load_modules = "PrgEnv-cray" "cray-mpich" "${load_modules}"
                         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
                     ;;
