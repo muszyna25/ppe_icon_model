@@ -818,6 +818,7 @@ MODULE mo_solve_nonhydro
 !$OMP END DO NOWAIT
 #endif
 
+#ifdef _OPENACC
       CALL check_patch_array(SYNC_C,p_patch, p_nh%diag%theta_v_ic, "dycore: theta_v_ic")
       write(6,*) "FINISHED CHECKING theta_v_ic"
       flush(6)
@@ -829,6 +830,7 @@ MODULE mo_solve_nonhydro
         write(6,*) "FINISHED CHECKING exner_old"
         flush(6)
       ENDIF
+#endif
 
       IF (istep == 1) THEN
         ! Add computation of z_grad_rth (perturbation density and virtual potential temperature at main levels)
@@ -1551,9 +1553,11 @@ MODULE mo_solve_nonhydro
 !$OMP END DO
 #endif
 
+#ifdef _OPENACC
       CALL check_patch_array(SYNC_E, p_patch, p_nh%prog(nnew)%vn,  "dycore: vn")
       write(6,*) "FINISHED CHECKING vn istep ==", istep
       flush(6)
+#endif
 
       IF (istep == 2 .AND. l_bdy_nudge) THEN ! apply boundary nudging if requested
 
@@ -1678,6 +1682,7 @@ MODULE mo_solve_nonhydro
       ! end communication phase
       !-------------------------
 
+#ifdef _OPENACC
       CALL check_patch_array(SYNC_E, p_patch, p_nh%prog(nnew)%vn,  "dycore: vn")
       write(6,*) "FINISHED CHECKING vn after communication istep ==", istep
       flush(6)
@@ -1689,6 +1694,7 @@ MODULE mo_solve_nonhydro
         flush(6)
 
       ENDIF
+#endif
 
 #ifndef _OPENACC
 !$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
@@ -1945,6 +1951,7 @@ MODULE mo_solve_nonhydro
 !$OMP END DO
 #endif
 
+#ifdef _OPENACC
       IF ( (istep == 1) .OR. (itime_scheme >= 5) ) THEN
         CALL check_patch_array(SYNC_E, p_patch, p_nh%diag%vt, "dycore: vt")
         write(6,*) "FINISHED CHECKING vt istep ==", istep
@@ -1957,6 +1964,7 @@ MODULE mo_solve_nonhydro
         write(6,*) "FINISHED CHECKING vn_ie istep ==", istep
         flush(6)
       ENDIF
+#endif
 
       ! Apply mass fluxes across lateral nest boundary interpolated from parent domain
       IF (jg > 1 .AND. grf_intmethod_e >= 5 .AND. idiv_method == 1) THEN
@@ -2076,6 +2084,10 @@ MODULE mo_solve_nonhydro
 
         ENDDO
 !$ACC END PARALLEL
+        CALL check_patch_array(SYNC_C, p_patch, p_nh%diag%w_concorr_c,  "dycore: w_concorr_c")
+        write(6,*) "FINISHED CHECKING w_concorr_c istep ==", istep
+        flush(6)
+
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_w_concorr_mc) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
@@ -2121,9 +2133,6 @@ MODULE mo_solve_nonhydro
         ENDDO
 !$OMP END DO
 #endif
-        CALL check_patch_array(SYNC_C, p_patch, p_nh%diag%w_concorr_c,  "dycore: w_concorr_c")
-        write(6,*) "FINISHED CHECKING w_concorr_c istep ==", istep
-        flush(6)
 
       ENDIF
 
@@ -2167,13 +2176,12 @@ MODULE mo_solve_nonhydro
         ENDDO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-#else
-!$OMP END DO
-#endif
-
         CALL check_patch_array(SYNC_E, p_patch, p_nh%diag%mass_fl_e,  "dycore: mass_fl_e")
         write(6,*) "FINISHED CHECKING mass_fl_e istep ==", istep
         flush(6)
+#else
+!$OMP END DO
+#endif
 
       ENDIF  ! idiv_method = 2
 
@@ -2642,10 +2650,6 @@ MODULE mo_solve_nonhydro
       ENDDO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-#else
-!$OMP END DO
-#endif
-
         CALL check_patch_array(SYNC_C, p_patch, p_nh%prog(nnew)%w,  "dycore: w")
         write(6,*) "FINISHED CHECKING w istep ==", istep
         flush(6)
@@ -2658,6 +2662,9 @@ MODULE mo_solve_nonhydro
         CALL check_patch_array(SYNC_C, p_patch, p_nh%prog(nnew)%exner,  "dycore: exner")
         write(6,*) "FINISHED CHECKING w istep ==", istep
         flush(6)
+#else
+!$OMP END DO
+#endif
 
       ! Boundary update in case of nesting
       IF (l_limited_area .OR. jg > 1) THEN
