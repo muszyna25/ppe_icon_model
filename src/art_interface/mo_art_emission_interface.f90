@@ -58,11 +58,7 @@ MODULE mo_art_emission_interface
                                           &   t_fields_volc,t_fields_1mom
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_aerosol_utilities,         ONLY: art_air_properties
-  USE mo_art_config,                    ONLY: art_config,                   &
-                                          &   iCS137,iI131,iTE132,          &
-                                          &   iZR95,iXE133,iI131g,          &
-                                          &   iI131o,iBA140,iRU103,         &
-                                          &   iasha, iashb, iashc
+  USE mo_art_config,                    ONLY: art_config
   USE mo_art_integration,               ONLY: art_integrate_explicit
 ! Emission Routines
   USE mo_art_emission_volc_1mom,        ONLY: art_organize_emission_volc
@@ -215,8 +211,8 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           CASE(1)
             ! bulk emissions see below
           CASE(2)
-            CALL art_prepare_emission_volc(jb,nlev,p_nh_state%metrics%z_ifc(:,:,jb),
-              &                            p_art_data(jg)%ext%volc_data, p_art_data(jg)%dict_tracer)
+            CALL art_prepare_emission_volc(jb,nlev,p_nh_state%metrics%z_ifc(:,:,jb),  &
+              &                            p_art_data(jg)%dict_tracer, p_art_data(jg)%ext%volc_data)
           CASE default
             CALL finish('mo_art_emission_interface:art_emission_interface', &
                  &      'ART: Unknown volc emissions configuration')
@@ -291,15 +287,15 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                   CASE ('asha')
                     CALL art_calculate_emission_volc( jb, p_nh_state%metrics%ddqz_z_full(:,:,jb),      &
                       &             p_patch%cells%area(:,jb), nlev, p_art_data(jg)%ext%volc_data,      &
-                      &             iasha, emiss_rate(:,:) )
+                      &             fields%itr3(1), emiss_rate(:,:) ) !< itr3(1) assumes only 1 mass component of mode
                   CASE ('ashb')
                     CALL art_calculate_emission_volc( jb, p_nh_state%metrics%ddqz_z_full(:,:,jb),      &
                       &             p_patch%cells%area(:,jb), nlev, p_art_data(jg)%ext%volc_data,      &
-                      &             iashb, emiss_rate(:,:) )
+                      &             fields%itr3(1), emiss_rate(:,:) ) !< itr3(1) assumes only 1 mass component of mode
                   CASE ('ashc')
                     CALL art_calculate_emission_volc( jb, p_nh_state%metrics%ddqz_z_full(:,:,jb),      &
                       &             p_patch%cells%area(:,jb), nlev, p_art_data(jg)%ext%volc_data,      &
-                      &             iashc, emiss_rate(:,:) )
+                      &             fields%itr3(1), emiss_rate(:,:) ) !< itr3(1) assumes only 1 mass component of mode
                 END SELECT
                 
                 ! Update mass mixing ratios
@@ -352,7 +348,8 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
       ! ----------------------------------
     
       IF (art_config(jg)%iart_volcano == 1) THEN
-        CALL art_organize_emission_volc(p_patch,dtime,rho,p_art_data(jg)%ext%volc_data,tracer) 
+        CALL art_organize_emission_volc(p_patch,dtime,rho,p_art_data(jg)%dict_tracer, &
+          &                             p_art_data(jg)%ext%volc_data,tracer) 
       ENDIF
       ! END OLD BLOCK
     ENDIF !lart_aerosol
