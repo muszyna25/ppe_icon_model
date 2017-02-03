@@ -503,6 +503,10 @@ MODULE mo_echam_phy_memory
       &   va_vdf (:,:,:)  , & !< v-wind tendency due to vertical diffusion
       & qtrc_vdf (:,:,:,:), & !< tracer tendency due to vertical diffusion
       !
+      ! surface scheme
+      !
+      &   ta_sfc (:,:)  , & !< temperature tendency in lowermost layer due to surface processes
+      !
       ! Hines param. for atmospheric gravity waves
       !
       &   ua_gwh (:,:,:)  , & !< u-wind tendency due to non-orographic gravity waves
@@ -2401,7 +2405,8 @@ CONTAINS
 
 
       ! &       field% kedisp (nproma,nblks),                &
-      cf_desc    = t_cf_var('KE dissipation rate', '', '', datatype_flt)
+      cf_desc    = t_cf_var('vert_int_dissip_kin_energy', 'W/m2',          &
+         &                  'vert. integr. dissip. kin. energy', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( field_list, prefix//'kedisp', field%kedisp,            &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
@@ -3071,7 +3076,7 @@ CONTAINS
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: shape3d(3), shape_trc(4)
+    INTEGER :: shape2d(2), shape3d(3), shape_trc(4)
     INTEGER :: ibits, jtrc
     INTEGER :: datatype_flt
     !------------------------------
@@ -3084,6 +3089,7 @@ CONTAINS
       datatype_flt = DATATYPE_FLT32
     ENDIF
 
+    shape2d   = (/kproma, kblks/)
     shape3d   = (/kproma, klev, kblks/)
     shape_trc = (/kproma, klev, kblks, ktracer/)
 
@@ -3197,6 +3203,15 @@ CONTAINS
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
+
+    ! &       tend% ta_sfc  (nproma,nblks),               &
+    cf_desc    = t_cf_var('temperature_tendency_surface',   'K s-1',                     &
+                &         'temperature tendency due to surface porcesses',               &
+                &         datatype_flt)
+    grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( tend_list, prefix//'ta_sfc', tend%  ta_sfc,                            &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                    &
+                & cf_desc, grib2_desc, ldims=shape2d )
 
     ! &       tend% ta_gwh  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_Hines_gw', 'K s-1',                      &

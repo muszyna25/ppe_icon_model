@@ -721,97 +721,85 @@ CONTAINS
   !-------------
   !>
   !!
-  SUBROUTINE vdiff_tendencies( kproma, kbdim, itop, klev, klevm1, klevp1,  &! in
+  SUBROUTINE vdiff_tendencies( kproma, kbdim, itop, klev, klevm1,          &! in
                              & ktrac, ksfc_type, idx_wtr,                  &! in
                              & pdtime,                                     &! in
-                             & pum1, pvm1, ptm1, pqm1, pxlm1, pxim1,       &! in
-                             & pxtm1, pgeom1, pdelpm1, pcptgz,             &! in
-                             & ptkem1, pztkevn, pzthvvar, prhoh,           &! in
-                             & pqshear, ihpbl,                       &! in
-                             & pcfm_tile, pfrc, ptte_corr, bb,       &! in
-                             & pkedisp, pxvar, pz0m_tile,            &! inout
-                             & pute_vdf, pvte_vdf, ptte_vdf,         &! out
-!!$                             & pute_vdf, pvte_vdf, pq_vdf,           &! out
-                             & pqte_vdf, pxlte_vdf, pxite_vdf,       &! out
-                             & pxtte_vdf, pxvarprod, pz0m,           &! out
-                             & ptke, pthvvar, pthvsig, pvmixtau,     &
-                             & psh_vdiff,pqv_vdiff                   )! out
+                             & pum1, pvm1, ptm1,                           &! in
+                             & pmair, pmdry,                               &! in
+                             & pqm1, pxlm1, pxim1, pxtm1,                  &! in
+                             & pgeom1, pcptgz,                             &! in
+                             & pztkevn, pzthvvar,                          &! in
+                             & pcfm_tile, pfrc, bb,                        &! in
+                             & pkedisp,                                    &! out
+                             & pxvar, pz0m_tile,                           &! inout
+                             & pute_vdf, pvte_vdf, pq_vdf,                 &! out
+                             & pqte_vdf, pxlte_vdf, pxite_vdf, pxtte_vdf,  &! out
+                             & pz0m, ptke, pthvvar,                        &! out
+                             & psh_vdiff,pqv_vdiff                         )! out
 
-    INTEGER, INTENT(IN) :: kproma, kbdim, itop, klev, klevm1, klevp1, ktrac
+    INTEGER, INTENT(IN) :: kproma, kbdim, itop, klev, klevm1, ktrac !!$, klevp1
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr
     REAL(wp),INTENT(IN) :: pdtime
 
     REAL(wp),INTENT(IN)  :: pum1   (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pvm1   (kbdim,klev)
     REAL(wp),INTENT(IN)  :: ptm1   (kbdim,klev)
+    REAL(wp),INTENT(IN)  :: pmair  (kbdim,klev)  !< moist air mass [kg/m2]
+    REAL(wp),INTENT(IN)  :: pmdry  (kbdim,klev)  !< dry   air mass [kg/m2]
     REAL(wp),INTENT(IN)  :: pqm1   (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pxlm1  (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pxim1  (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pxtm1  (kbdim,klev,ktrac)
     REAL(wp),INTENT(IN)  :: pgeom1 (kbdim,klev)
-    REAL(wp),INTENT(IN)  :: pdelpm1(kbdim,klev)
     REAL(wp),INTENT(IN)  :: pcptgz (kbdim,klev)
-    REAL(wp),INTENT(IN)  :: ptkem1 (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pztkevn (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pzthvvar(kbdim,klev)
-    REAL(wp),INTENT(IN)  :: prhoh   (kbdim,klev)
-    REAL(wp),INTENT(IN)  :: pqshear (kbdim,klev)
-    INTEGER, INTENT(IN)  :: ihpbl   (kbdim)
     REAL(wp),INTENT(IN)  :: pcfm_tile     (kbdim,ksfc_type)
     REAL(wp),INTENT(IN)  :: pfrc          (kbdim,ksfc_type)
-    REAL(wp),INTENT(IN)  :: ptte_corr(kbdim)
     REAL(wp),INTENT(IN)  :: bb            (kbdim,klev,nvar_vdiff)
 
-    REAL(wp),INTENT(INOUT) :: pkedisp(kbdim) !< temporally and vertically
-                                             !< integrated dissipation of
-                                             !< kinetic energy
+    REAL(wp),INTENT(OUT) :: pkedisp(kbdim) !< vertically integrated dissipation
+                                           !  of kinetic energy [W/m2]
+
     REAL(wp),INTENT(INOUT) :: pxvar    (kbdim,klev)
     REAL(wp),INTENT(INOUT) :: pz0m_tile(kbdim,ksfc_type)
 
-    REAL(wp),INTENT(INOUT) :: pute_vdf (kbdim,klev)  ! OUT
-    REAL(wp),INTENT(INOUT) :: pvte_vdf (kbdim,klev)  ! OUT
-    REAL(wp),INTENT(INOUT) :: ptte_vdf (kbdim,klev)  ! OUT
-!!$    REAL(wp),INTENT(INOUT) :: pq_vdf   (kbdim,klev)  ! OUT
-    REAL(wp),INTENT(INOUT) :: pqte_vdf (kbdim,klev)  ! OUT
-    REAL(wp),INTENT(INOUT) :: pxlte_vdf(kbdim,klev)  ! OUT
-    REAL(wp),INTENT(INOUT) :: pxite_vdf(kbdim,klev)  ! OUT
-    REAL(wp),INTENT(INOUT) :: pxtte_vdf(kbdim,klev,ktrac)  ! OUT
-    REAL(wp),INTENT(INOUT) :: pxvarprod(kbdim,klev) !< "pvdiffp" in echam   OUT
+    REAL(wp),INTENT(OUT) :: pute_vdf (kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pvte_vdf (kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pq_vdf   (kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pqte_vdf (kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pxlte_vdf(kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pxite_vdf(kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pxtte_vdf(kbdim,klev,ktrac)
 
-    REAL(wp),INTENT(OUT)   :: pz0m    (kbdim)
-    REAL(wp),INTENT(INOUT) :: ptke    (kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pthvvar (kbdim,klev)  ! OUT
-    REAL(wp),INTENT(INOUT) :: pthvsig (kbdim)  ! OUT
-    REAL(wp),INTENT(INOUT) :: pvmixtau(kbdim,klev)  ! OUT
-    REAL(wp),INTENT(INOUT) :: psh_vdiff(kbdim)  !OUT
-    REAL(wp),INTENT(INOUT) :: pqv_vdiff(kbdim)  !OUT
+    REAL(wp),INTENT(OUT) :: pz0m     (kbdim)
+    REAL(wp),INTENT(OUT) :: ptke     (kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pthvvar  (kbdim,klev)
+    REAL(wp),INTENT(OUT) :: psh_vdiff(kbdim)
+    REAL(wp),INTENT(OUT) :: pqv_vdiff(kbdim)
 
     REAL(wp) :: ztest, zrdt, zconst
-    REAL(wp) :: zunew, zvnew, zqnew, zsnew, ztnew
-    REAL(wp) :: zrhodz, zhexp, zlam, zcons23, z2geomf, zz2geo, zmix, ztkesq
+    REAL(wp) :: zunew, zvnew, zqnew, zsnew, zhnew
     REAL(wp) :: zcp
-    REAL(wp) :: zvidis(kbdim)
     REAL(wp) :: zdis  (kbdim,klev)
-    REAL(wp) :: zqflux(kbdim,klevp1)
-    REAL(wp) :: zvarpr(kbdim,klevp1)
-    REAL(wp) :: zdqtdt(kbdim,klev)
-!    REAL(wp) :: zsh_vdiff(kbdim,klev)
+
     INTEGER  :: jk, jl, jt, irhs, jsfc
 
 
     zrdt   = 1._wp/pdtime
     zconst = 1._wp/grav
 
-    IF (itop>1) THEN
-      pute_vdf (1:kproma,1:itop-1)   = 0._wp
-      pvte_vdf (1:kproma,1:itop-1)   = 0._wp
-      ptte_vdf (1:kproma,1:itop-1)   = 0._wp
-!!$      pq_vdf   (1:kproma,1:itop-1)   = 0._wp
-      pqte_vdf (1:kproma,1:itop-1)   = 0._wp
-      pxlte_vdf(1:kproma,1:itop-1)   = 0._wp
-      pxite_vdf(1:kproma,1:itop-1)   = 0._wp
-      pxtte_vdf(1:kproma,1:itop-1,:) = 0._wp
-    END IF
+    pute_vdf (:,:)   = 0._wp
+    pvte_vdf (:,:)   = 0._wp
+    pq_vdf   (:,:)   = 0._wp
+    pqte_vdf (:,:)   = 0._wp
+    pxlte_vdf(:,:)   = 0._wp
+    pxite_vdf(:,:)   = 0._wp
+    pxtte_vdf(:,:,:) = 0._wp
+
+    ptke     (:,:)   = 0._wp
+    pthvvar  (:,:)   = 0._wp
+    pz0m     (:)     = 0._wp
 
     !-------------------------------------------------------------------
     ! Compute TKE at the new time step.
@@ -843,15 +831,10 @@ CONTAINS
       END DO
     END DO
 
-    ! STD DEV OF VIRTUAL POT TEMPERATURE AT STANDARD HALF LEVEL KLEV-1/2
-    ! (CORRESPONDING TO HALF LEVEL KLEV-1 FOR TKE AND PTHVVAR)
-
-!    pthvsig(1:kproma) = SQRT(pthvvar(1:kproma,klev-1))
-
     !-------------------------------------------------------------
     ! Tendency of velocity; kinetic energy dissipation
     !-------------------------------------------------------------
-    zvidis(1:kproma) = 0._wp   ! initilize the vertical integral
+    pkedisp(:) = 0._wp   ! initilize the vertical integral
 
     DO jk = itop,klev
       DO jl = 1,kproma
@@ -863,16 +846,8 @@ CONTAINS
 
         zdis(jl,jk) = 0.5_wp*( pum1(jl,jk)**2 - zunew**2 &
                     &         +pvm1(jl,jk)**2 - zvnew**2 )
-        zvidis(jl)  = zvidis(jl) + zdis(jl,jk)*pdelpm1(jl,jk)
+        pkedisp(jl)  = pkedisp(jl) + zdis(jl,jk)*pmair(jl,jk)*zrdt
       END DO
-    END DO
-
-    ! Save results
-
-    DO jl=1,kproma
-     !udif(jl,jrow) = bb(jl,klev,iu)  !for JSBACH, mo_surface
-     !vdif(jl,jrow) = bb(jl,klev,iv)  !for JSBACH, mo_surface
-      pkedisp(jl) = pkedisp(jl) + zconst*zvidis(jl) ! BLM dissipation
     END DO
 
     !-------------------------------------------------------------
@@ -880,48 +855,41 @@ CONTAINS
     !-------------------------------------------------------------
     DO jk=itop,klev
       DO jl=1,kproma
+
         zqnew = bb(jl,jk,iqv) + tpfac3*pqm1(jl,jk)
         pqte_vdf(jl,jk) = (zqnew-pqm1(jl,jk))*zrdt
 
-        zsnew = bb(jl,jk,ih) + tpfac3*pcptgz(jl,jk)
-
-        zcp = cpd+(cpv-cpd)*pqm1(jl,jk) ! cp of moist air
 
         ! The computation of the new temperature must be consistent with the computation of
         ! the static energy pcptgz in the subroutine mo_turbulence_diag:atm_exchange_coeff.
         ! The same specific heat must be used.
         !
-        ztnew = (zsnew + zdis(jl,jk) - pgeom1(jl,jk))/zcp
+        zsnew = bb(jl,jk,ih) + tpfac3*pcptgz(jl,jk)
+        zhnew = (zsnew + zdis(jl,jk) - pgeom1(jl,jk))
+        zcp   = cpd+(cpv-cpd)*pqm1(jl,jk) ! cp of moist air
         !
-        ! Now derive the temperature tendency for constant pressure
-        ! conditions as needed for provisional updating in the physics.
+        ! Now derive the heating for constant pressure conditions
+        ! as needed for provisional updating in the physics.
         ! 
-        ptte_vdf(jl,jk) = (ztnew - ptm1(jl,jk))*zrdt
-
-        ! When coupled with JSBACH: Correction of tte for snow melt
-        IF (phy_config%ljsbach) THEN
-          IF (jk == klev) ptte_vdf(jl,jk) = ptte_vdf(jl,jk)-ptte_corr(jl)
-        ENDIF
+        pq_vdf(jl,jk)   = (zhnew - ptm1(jl,jk)*zcp)*zrdt*pmair(jl,jk)
 
         pxlte_vdf(jl,jk) = (bb(jl,jk,ixl) - tpfac2*pxlm1(jl,jk))*zrdt
         pxite_vdf(jl,jk) = (bb(jl,jk,ixi) - tpfac2*pxim1(jl,jk))*zrdt
-        zdqtdt     (jl,jk) =   pqte_vdf (jl,jk) &
-                           & + pxlte_vdf(jl,jk) &
-                           & + pxite_vdf(jl,jk)
 
         pxvar(jl,jk) = bb(jl,jk,ixv) + tpfac3*pxvar(jl,jk)
       END DO
     END DO
+
     IF ( get_lebudget() ) THEN
-      psh_vdiff(1:kproma) = 0._wp
-      pqv_vdiff(1:kproma) = 0._wp
+      psh_vdiff(:) = 0._wp
+      pqv_vdiff(:) = 0._wp
       DO jk=itop,klev
         ! compute heat budget diagnostic
-        psh_vdiff(1:kproma) = psh_vdiff(1:kproma) + pdelpm1(1:kproma,jk)*rgrav* &
-        & (bb(1:kproma,jk,ih) + (tpfac3 - 1._wp)*pcptgz(1:kproma,jk)) * zrdt
+        psh_vdiff(1:kproma) = psh_vdiff(1:kproma) + pmdry(1:kproma,jk) * &
+        & (bb(1:kproma,jk,ih)  + (tpfac3 - 1._wp)*pcptgz(1:kproma,jk)) * zrdt
         ! compute moisture budget diagnostic
         ! ? zdis appears to be dissipation, probably we don't need this for qv??
-        pqv_vdiff(1:kproma) = pqv_vdiff(1:kproma) + pdelpm1(1:kproma,jk)*rgrav* &
+        pqv_vdiff(1:kproma) = pqv_vdiff(1:kproma) + pmdry(1:kproma,jk)* &
         & (bb(1:kproma,jk,iqv) + (tpfac3 - 1._wp)*pqm1(1:kproma,jk)) * zrdt
       END DO
     END IF
@@ -941,71 +909,6 @@ CONTAINS
         ENDDO
 !577  ENDDO
 !     END IF
-
-    !------------------------------------------------------------------------------
-    ! Derive the production rate of total water variance.
-    ! The production rate reads
-    !         -\overline{w'q_t'}\frac{\partial q_t}{\partial}
-    ! The first multiplicant is obtained by vertically integrate the equation
-    !         d(q_t)/dt = - d(\rho w'q_t')/(rho*dz)
-    ! The tendency of total water has already been computed above
-    ! and stored in variable "zdqtdt";
-    ! Air density and vertical shear of q_v have already been computed in
-    ! subroutines "atm_exchange_coeff" and "sfc_exchange_coeff";
-    !------------------------------------------------------------------------------
-    ! Upper boundary condition: no water flux, no variance production.
-
-    zqflux(1:kproma,itop) = 0._wp
-    zvarpr(1:kproma,itop) = 0._wp
-
-    ! Note: for zqflux and zvarpr, index jk corresponds to interface k-1/2;
-    ! for zdqtdt, jk corresponds to full level jk; for pqshear and prhoh,
-    ! index jk corresponds to interface k+1/2.
-    ! Note: The vertical loop should not be parallelized!
-
-    DO jk = itop+1,klev+1
-      DO jl=1,kproma
-        zrhodz = -pdelpm1(jl,jk-1)/grav
-        zqflux(jl,jk) = zrhodz*zdqtdt(jl,jk-1) + zqflux(jl,jk-1)
-        zvarpr(jl,jk) = pqshear(jl,jk-1)*zqflux(jl,jk)/prhoh(jl,jk-1)
-      ENDDO
-    ENDDO
-
-    ! Vertical average of variance production rate from half to full levels
-
-    DO jk=itop,klev
-     DO jl=1,kproma
-       pxvarprod(jl,jk) = 0.5_wp*(zvarpr(jl,jk)+zvarpr(jl,jk+1))
-     ENDDO
-    ENDDO
-
-    !---------------------------------------------------------------
-    ! Compute the vertical mixing time scale, to be used by "cloud".
-    ! Note: there is a similar computation in subroutine "atm_exchange_coeff",
-    ! but there the computation is done for half levels, while here
-    ! it is done at full levels.
-    !---------------------------------------------------------------
-    DO jk=itop,klev
-       DO jl=1,kproma
-          zhexp=EXP(1._wp-pgeom1(jl,jk)/pgeom1(jl,ihpbl(jl)))
-          zlam=1._wp+(clam-1._wp)*zhexp
-          IF(jk.GE.ihpbl(jl)) THEN
-             zcons23=cons25
-          ELSE
-             zcons23=cons2/zlam
-          END IF
-          z2geomf=2._wp*pgeom1(jl,jk)
-          zz2geo=cons2*z2geomf
-          zmix=zz2geo/(1._wp+zcons23*z2geomf)
-          IF(jk.EQ.1) THEN
-             ztkesq=SQRT(MAX(tke_min,ptkem1(jl,1)))
-          ELSE
-             ztkesq=SQRT(MAX(tke_min,0.5_wp*(ptkem1(jl,jk-1)  &
-                                           +ptkem1(jl,jk))))
-          END IF
-          pvmixtau(jl,jk) = ztkesq/(zmix*da1)
-       ENDDO
-    ENDDO
 
     !----------------------------------------------------------------------------
     ! Update roughness height over open water, then update the grid-box mean

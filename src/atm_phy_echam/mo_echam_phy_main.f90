@@ -103,10 +103,6 @@ CONTAINS
 
     REAL(wp) :: zlat_deg(nbdim)           !< latitude in deg N
 
-    REAL(wp) :: zvmixtau   (nbdim,nlev)   !< timescale of mixing for vertical turbulence
-    REAL(wp) :: zqtvar_prod(nbdim,nlev)   !< production rate of total water variance
-                                          !< due to turbulence. Computed in "vdiff",
-                                          !< used by "cloud"
     INTEGER  :: itype(nbdim)              !< type of convection
     INTEGER  :: ictop (nbdim)             !< from massflux
 
@@ -114,9 +110,6 @@ CONTAINS
     REAL(wp) :: zfrw (nbdim)              !< fraction of water (without ice) in the grid point
     REAL(wp) :: zfri (nbdim)              !< fraction of ice in the grid box
     REAL(wp) :: zri_tile(nbdim,nsfc_type) !< Richardson number
-
-!    REAL(wp) :: zcvcbot(nbdim)
-!    REAL(wp) :: zwcape (nbdim)
 
     REAL(wp) :: zta    (nbdim,nlev)         !< provisional temperature         [K]
     REAL(wp) :: zqtrc  (nbdim,nlev,ntracer) !< provisional mass mixing ratios  [kg/kg]
@@ -126,13 +119,12 @@ CONTAINS
     REAL(wp) :: zcpair (nbdim,nlev)       !< specific heat of moist air at const. pressure [J/K/kg]
     REAL(wp) :: zcvair (nbdim,nlev)       !< specific heat of moist air at const. volume   [J/K/kg]
     REAL(wp) :: zconv  (nbdim,nlev)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
-    REAL(wp) :: zdelp  (nbdim,nlev)       !< layer thickness in pressure coordinate  [Pa]
 
     REAL(wp) :: zq_phy (nbdim,nlev)       !< heating by whole ECHAM physics    [W/m2]
     REAL(wp) :: zq_rsw (nbdim,nlev)       !< heating by short wave radiation   [W/m2]
     REAL(wp) :: zq_rlw (nbdim,nlev)       !< heating by long  wave radiation   [W/m2]
     REAL(wp) :: zq_rlw_impl (nbdim)       !< additional heating by LW rad. due to impl. coupling in surface energy balance [W/m2]
-!!$    REAL(wp) :: zq_vdf (nbdim,nlev)       !< heating by vertical diffusion     [W/m2]
+    REAL(wp) :: zq_vdf (nbdim,nlev)       !< heating by vertical diffusion     [W/m2]
     REAL(wp) :: zq_sso (nbdim,nlev)       !< heating by subgrid scale orogr.   [W/m2]
     REAL(wp) :: zq_gwh (nbdim,nlev)       !< heating by atm. gravity waves     [W/m2]
     REAL(wp) :: zq_cnv (nbdim,nlev)       !< heating by convection             [W/m2]
@@ -175,7 +167,6 @@ CONTAINS
     REAL(wp) :: zbm_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
     REAL(wp) :: zbh_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
 
-    REAL(wp) :: ztte_corr(nbdim)      !< tte correction for snow melt over land (JSBACH)
     REAL(wp) :: zq_snocpymlt(nbdim)   !< heating by melting of snow on the canopy [W/m2]
                                       !  which warms the lowermost atmospheric layer (JSBACH)
 
@@ -701,78 +692,75 @@ CONTAINS
 
         IF (ltimer) CALL timer_stop(timer_surface)
 
+        IF (echam_phy_config%ljsbach) THEN
+           !
+           ! heating accumulated
+           ! zq_snocpymlt = heating for melting of snow on canopy
+           !              = cooling of atmosphere
+           ! --> negative sign
+           zq_phy(jcs:jce,nlev) = zq_phy(jcs:jce,nlev) - zq_snocpymlt(jcs:jce)
+           !
+           ! tendency
+           tend% ta_sfc(jcs:jce,jb) = -zq_snocpymlt(jcs:jce)*zconv(jcs:jce,nlev)
+           !
+           ! tendencies accumulated
+           tend% ta(jcs:jce,nlev,jb) = tend% ta(jcs:jce,nlev,jb) + tend% ta_sfc(jcs:jce,jb)
+           !
+        END IF
+
     ! 5.5 Turbulent mixing, part II:
     !     - Elimination for the lowest model level using boundary conditions
     !       provided by the surface model(s);
     !     - Back substitution to get solution of the tridiagonal system;
     !     - Compute tendencies and additional diagnostics.
 
-      ztte_corr(jcs:jce) = zq_snocpymlt(jcs:jce)*zconv(jcs:jce,nlev)
-
-      DO jk = 1,nlev
-        !
-        ! Thickness of model layer in pressure coordinate
-        ! to be replaced by mair or mdry, if used for tracers
-        !
-        zdelp   (:,jk) = field% presi_old (:,jk+1,jb) - field% presi_old (:,jk,jb)
-        !
-      END DO
-
       IF (ltimer) CALL timer_start(timer_vdiff_up)
 
-      CALL vdiff_up( jce, nbdim, nlev, nlevm1, nlevp1,&! in
+      CALL vdiff_up( jce, nbdim, nlev, nlevm1,        &! in
                    & ntrac, nsfc_type,                &! in
                    & iwtr,                            &! in, indices of different sfc types
                    & pdtime,                          &! in, time steps
                    & field%frac_tile(:,jb,:),         &! in, area fraction of each sfc type
                    & field% cfm_tile(:,jb,:),         &! in
                    & zaa,                             &! in, from "vdiff_down"
-                   &   ihpbl(:),                      &! in, from "vdiff_down"
                    &  zcptgz(:,:),                    &! in, from "vdiff_down"
-                   &   zrhoh(:,:),                    &! in, from "vdiff_down"
-                   & zqshear(:,:),                    &! in, from "vdiff_down"
                    & field%   ua(:,:,jb),             &! in, um1
                    & field%   va(:,:,jb),             &! in, vm1
                    & field%   ta(:,:,jb),             &! in, tm1
+                   & field% mair(:,:,jb),             &! in, moist air mass [kg/m2]
+                   & field% mdry(:,:,jb),             &! in, dry   air mass [kg/m2]
                    & field% qtrc(:,:,jb,iqv),         &! in, qm1
                    & field% qtrc(:,:,jb,iqc),         &! in, xlm1
                    & field% qtrc(:,:,jb,iqi),         &! in, xim1
                    & field% qtrc(:,:,jb,iqt:),        &! in, xtm1
-                   & zdelp(:,:),                      &! in, layer thickness [Pa]
                    & field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
                    &      ztkevn(:,:),                &! in, tke at intermediate time step
-                   & field%tkem1(:,:,jb),             &! in, TKE at step t-dt
-                   & ztte_corr(:),                    &! in
-                   & zbb,                             &! inout
+                   & zbb,                             &! in
                    & zthvvar(:,:),                    &! inout
                    & field%   xvar(:,:,jb),           &! inout
                    & field% z0m_tile(:,jb,:),         &! inout
-                   & field% kedisp(:,  jb),           &! inout, "vdis" in ECHAM
+                   & field% kedisp(:,  jb),           &! out, vert. integr. diss. kin. energy [W/m2]
                    &  tend%   ua_vdf(:,:,jb),         &! out
                    &  tend%   va_vdf(:,:,jb),         &! out
-                   &  tend%   ta_vdf(:,:,jb),         &! out
-!!$                   &          zq_vdf(:,:),            &! out   heating W/m2
+                   &          zq_vdf(:,:),            &! out   heating W/m2
                    &  tend% qtrc_vdf(:,:,jb,iqv),     &! out
                    &  tend% qtrc_vdf(:,:,jb,iqc),     &! out
                    &  tend% qtrc_vdf(:,:,jb,iqi),     &! out
                    &  tend% qtrc_vdf(:,:,jb,iqt:),    &! out
-                   &  zqtvar_prod,                    &! out, for "cloud" ("zvdiffp" in echam)
-                   &  zvmixtau,                       &! out, for "cloud"
                    & field%   z0m   (:,  jb),         &! out, for the next step
                    & field%   thvvar(:,:,jb),         &! out, for the next step
-                   & field%   thvsig(:,  jb),         &! out, for "cucall"
                    & field%      tke(:,:,jb),         &! out
                    & field%   sh_vdiff(:,  jb),       &! out, for energy diagnostic
                    & field%   qv_vdiff(:,  jb)        )! out, for energy diagnostic
 
       IF (ltimer) CALL timer_stop(timer_vdiff_up)
 
-!!$      ! heating accumulated
-!!$      zq_phy(jcs:jce,:) = zq_phy(jcs:jce,:) + zq_vdf(jcs:jce,:)
-!!$
-!!$      ! tendency
-!!$      tend% temp_vdf(jcs:jce,:,jb) = zq_vdf(jcs:jce,:)*zconv(jcs:jce,:)
-!!$
+      ! heating accumulated
+      zq_phy(jcs:jce,:) = zq_phy(jcs:jce,:) + zq_vdf(jcs:jce,:)
+
+      ! tendency
+      tend% ta_vdf(jcs:jce,:,jb) = zq_vdf(jcs:jce,:)*zconv(jcs:jce,:)
+
       ! tendencies accumulated
       tend%   ua(jcs:jce,:,jb)      = tend%   ua(jcs:jce,:,jb)      + tend%   ua_vdf(jcs:jce,:,jb)
       tend%   va(jcs:jce,:,jb)      = tend%   va(jcs:jce,:,jb)      + tend%   va_vdf(jcs:jce,:,jb)
@@ -836,10 +824,6 @@ CONTAINS
                    & field%   dew2_tile(:,jb,:),      &! out dew point temperature in 2m on tiles
                    & field%    uas_tile(:,jb,:),      &! out zonal wind in 10m on tiles
                    & field%    vas_tile(:,jb,:)       )! out meridional wind in 10m on tiles
-
-    ELSE
-      zvmixtau   (jcs:jce,:) = 0._wp
-      zqtvar_prod(jcs:jce,:) = 0._wp
 
     ENDIF !lvdiff
 
