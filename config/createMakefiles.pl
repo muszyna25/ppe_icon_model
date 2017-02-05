@@ -13,6 +13,7 @@ use Cwd;
 use File::Copy;
 use Getopt::Long;
 use File::Path;
+use File::Basename;
 #__________________________________________________________________________________________________________________________________
 # Option processing
 
@@ -180,7 +181,7 @@ foreach my $dir ( @directories ) {
 	if ($add_vpath_level == 2) {
 	    $key = "../../".$key;
 	}
-	push @vpath, $key unless $key =~ /^..\/..\/..\/src\/lnd_phy_jsbach.*/ ;
+	push @vpath, $key ;
     }
     print MAKEFILE @vpath;
     print MAKEFILE "\n\n";
@@ -200,6 +201,10 @@ foreach my $dir ( @directories ) {
 	print MAKEFILE "%.o: %.F90\n";
 	print MAKEFILE "\t\$(FC) \$(FlibFLAGS) -c \$<\n";
     } else {	
+	# Extra rule for JSBACH source files which need to be pre-processed by dsl4jsb.py
+	print MAKEFILE "%_dsl4jsb.f90: %.f90\n";
+	print MAKEFILE "\t@ ../../../externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -v -p _dsl4jsb -i \$<  -t .\n" ;
+	print MAKEFILE "\n";
 	print MAKEFILE "%.o: %.f90\n";
 	print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
 	print MAKEFILE "\n";
@@ -436,21 +441,27 @@ sub ScanDirectory {
         next if (($enable_testbed eq "no") and ($name eq "testbed") and ($workpath eq "src") );
 
         if (-d $name){
-            if ($name eq "lnd_phy_jsbach") {
-                &ScanDirectory($build_path, "src", $level);
-            } else {
-                my $nextpath="$workpath/$name";
-                &ScanDirectory($name, $nextpath, $level);
-            }
+            my $nextpath="$workpath/$name";
+            &ScanDirectory($name, $nextpath, $level);
             next;
         } else {
 	    if ($name =~ /\.[c|f|F]{1}(90|95|03)?$/) {
-		push @source_files, $name;
-
-		open F, '<', $name
-                    or die("Cannot open file $name", $!);
+                if ($workpath =~ "lnd_phy_jsbach") {
+                    # For JSBACH, use the pre-processed source file located in the build directory
+                    # These files need to be initially created by configure, with an additional "_dsl4jsb" before the suffix,
+                    # so that the Makefile dependencies can be generated here.
+                    my ($bname, $path, $suffix) = fileparse($name, '\.[^\.]*');  # parts of original source file
+                    $name = $bname . "_dsl4jsb" . $suffix ;                      # name of pre-processed JSBACH files
+                    open F, '<', $build_path . "/src/" . $name
+                        or die("Cannot open file $name", $!);
+                } else {
+		    open F, '<', $name
+                        or die("Cannot open file $name", $!);
+                }
 		my @lines = <F>;
 		close (F);
+
+		push @source_files, $name;
 
 		my @filteredLines;
 		simplifiedCPPFilter(\@lines, \@filteredLines);

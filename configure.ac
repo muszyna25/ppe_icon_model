@@ -1329,7 +1329,7 @@ sync_submit=${sync_submit:=$submit}
 AC_CONFIG_COMMANDS([Makefiles],[
 if test "x$enable_jsbach" = "xyes"; then :
   test -d build/${build_host}/src || mkdir -p build/${build_host}/src
-  externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -d externals/jsbach/src -t build/${build_host}/src
+  externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/src
 fi
 config/createMakefiles.pl --target="$build_host" \
   --srcdirs="${my_srcdirs}" \
