@@ -113,4 +113,4 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.ocean_internal/technical/exp.ocean_omip_ptest|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_icoles_nested|cpu_time=00:30:00
 machine|dwd_cray|compute
-builder|DWD_cray|--with-fortran=gcc|build_only
+builder|DWD_cray|--with-fortran=cray|build_only
