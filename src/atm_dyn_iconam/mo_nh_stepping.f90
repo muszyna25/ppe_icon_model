@@ -1258,6 +1258,9 @@ MODULE mo_nh_stepping
       !time_config%sim_time(:)    = timeshift%dt_shift
       mtime_current = mtime_current + timeshift%mtime_shift
       mtime_old = mtime_current
+      DO jg = 1, n_dom
+        datetime_current(jg)%ptr = mtime_current
+      END DO
       CALL reset_to_initial_state(mtime_current)
       iau_iter = 2
       jstep = jstep0+jstep_shift+1
