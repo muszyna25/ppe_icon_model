@@ -28,7 +28,7 @@ esac
 
 fi
 
-source .profile
+[[ -f $HOME/.profile ]] && source $HOME/.profile
 
 
 # PATH needs CR
