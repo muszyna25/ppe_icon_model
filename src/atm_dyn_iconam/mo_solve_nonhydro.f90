@@ -90,7 +90,7 @@ MODULE mo_solve_nonhydro
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
-  LOGICAL, PARAMETER ::  acc_validate = .TRUE.
+  LOGICAL, PARAMETER ::  acc_validate = .FALSE.    ! Only .TRUE. during unit testing
 #endif
 
   CONTAINS
@@ -263,7 +263,6 @@ MODULE mo_solve_nonhydro
     IF (ltimer) CALL timer_start(timer_solve_nh)
 
 #ifdef _OPENACC
-    i_am_accel_node = my_process_is_work()  ! Activate GPUs
 !
 ! OpenACC Implementation:  For testing in ACC_VALIDATE=.TRUE. mode, we would ultimately like to be able to run 
 !                          this routine entirely on the accelerator with input on the host, and moving
@@ -294,11 +293,12 @@ MODULE mo_solve_nonhydro
 !$ACC UPDATE DEVICE ( exner_old_tmp, vt_tmp, vn_ie_tmp, rho_ic_tmp, theta_v_ic_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
       w_concorr_c_tmp     => p_nh%diag%w_concorr_c
       mass_fl_e_tmp       => p_nh%diag%mass_fl_e
+!$ACC UPDATE DEVICE ( w_concorr_c_tmp, mass_fl_e_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
       ddt_exner_phy_tmp   => p_nh%diag%ddt_exner_phy
       ddt_vn_phy_tmp      => p_nh%diag%ddt_vn_phy
       ddt_vn_adv_tmp      => p_nh%diag%ddt_vn_adv
       ddt_w_adv_tmp       => p_nh%diag%ddt_w_adv
-!$ACC UPDATE DEVICE ( w_concorr_c_tmp, mass_fl_e_tmp,ddt_exner_phy_tmp,ddt_vn_phy_tmp,ddt_vn_adv_tmp,ddt_w_adv_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE ( ddt_exner_phy_tmp,ddt_vn_phy_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
       vn_traj_tmp       => prep_adv%vn_traj
       mass_flx_me_tmp   => prep_adv%mass_flx_me
       mass_flx_ic_tmp   => prep_adv%mass_flx_ic
@@ -2997,8 +2997,6 @@ MODULE mo_solve_nonhydro
       mass_flx_me_tmp     => prep_adv%mass_flx_me
       mass_flx_ic_tmp     => prep_adv%mass_flx_ic
 !$ACC UPDATE HOST ( vn_traj_tmp, mass_flx_me_tmp, mass_flx_ic_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. lprep_adv )
-
-      i_am_accel_node = .FALSE.               ! Deactivate GPUs
 #endif
 
     IF (ltimer) CALL timer_stop(timer_solve_nh)

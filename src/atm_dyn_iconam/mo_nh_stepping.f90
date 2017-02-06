@@ -728,7 +728,6 @@ MODULE mo_nh_stepping
   jstep = jstep0+jstep_shift+1
 
 #if defined( _OPENACC )
-!
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
 
   CALL save_convenience_pointers( )
@@ -736,8 +735,6 @@ MODULE mo_nh_stepping
 !$ACC DATA COPYIN( p_int_state, p_patch, p_nh_state, prep_adv, advection_config ), IF ( i_am_accel_node )
 
   CALL refresh_convenience_pointers( )
-  i_am_accel_node = .FALSE.                 ! Deactivate GPUs
-
 #endif
 
 #ifdef USE_MTIME_LOOP
@@ -1201,7 +1198,6 @@ MODULE mo_nh_stepping
   ENDDO TIME_LOOP
 
 #if defined( _OPENACC )
-  i_am_accel_node = my_process_is_work()    ! Activate GPUs
   CALL save_convenience_pointers( )
 !$ACC END DATA
   CALL refresh_convenience_pointers( )
@@ -1664,6 +1660,7 @@ MODULE mo_nh_stepping
             END IF
           END IF
 
+#if 0
           IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
 
             ! les physics
@@ -1740,6 +1737,7 @@ MODULE mo_nh_stepping
             END SELECT ! iforcing
 
           END IF ! is_les_phy
+#endif
 
           ! Boundary interpolation of land state variables entering into radiation computation
           ! if a reduced grid is used in the child domain(s)
