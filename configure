@@ -28,7 +28,7 @@ esac
 
 fi
 
-
+source .profile
 
 
 # PATH needs CR
