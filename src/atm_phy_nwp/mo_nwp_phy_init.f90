@@ -115,7 +115,7 @@ MODULE mo_nwp_phy_init
   USE mo_sso_cosmo,           ONLY: sso_cosmo_init_param
   USE mo_fortran_tools,       ONLY: init
   USE mtime,                  ONLY: datetime, MAX_DATETIME_STR_LEN, &
-    &                               datetimeToString
+    &                               datetimeToString, newDatetime, deallocateDatetime
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
     &                                  calculate_time_interpolation_weights
 
@@ -1502,6 +1502,8 @@ END SUBROUTINE init_nwp_phy
     
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
 
+    TYPE(datetime), POINTER :: mtime_hour
+    
     jg = p_patch%id
     nlev = p_patch%nlev
 
@@ -1509,7 +1511,12 @@ END SUBROUTINE init_nwp_phy
     IF (atm_phy_nwp_config(jg)%icpl_aero_gscp /= 1 .AND. icpl_aero_conv /= 1) RETURN
 
     
-    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_date)
+    mtime_hour => newDatetime(mtime_date)
+    mtime_hour%time%minute = 0
+    mtime_hour%time%second = 0
+    mtime_hour%time%ms     = 0          
+    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_hour)
+    call deallocateDatetime(mtime_hour)
     imo1 = current_time_interpolation_weights%month1
     imo2 = current_time_interpolation_weights%month2
     wgt = current_time_interpolation_weights%weight2

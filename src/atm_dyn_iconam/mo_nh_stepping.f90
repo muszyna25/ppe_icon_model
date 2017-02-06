@@ -782,9 +782,9 @@ MODULE mo_nh_stepping
   ! IMPORTANT NOTE: The MTIME implementation of the time loop does not
   ! take the IAU mode of the ICON model into account which starts with
   ! "negative" time steps, controlled by "jstep_shift".
-!  IF (jstep_shift /= 0) THEN
-!    CALL finish('perform_nh_timeloop', "Backward time shift of model not yet implemented!")
-!  END IF
+  IF (jstep_shift /= 0) THEN
+    CALL finish('perform_nh_timeloop', "Backward time shift of model not yet implemented!")
+  END IF
   
   CALL message('','')
   CALL datetimeToString(mtime_current, dstring)
@@ -2088,10 +2088,10 @@ MODULE mo_nh_stepping
                 & p_lnd_state(jgc)%prog_wtr(nnew_rcf(jgc)),&
                 & p_lnd_state(jgc)%diag_lnd               ,&
                 & ext_data(jgc)                           ,&
-                & phy_params(jgc), datetime_local(jg)%ptr ,&
+                & phy_params(jgc), datetime_local(jgc)%ptr,&
                 & lnest_start=.TRUE. )
 
-              CALL init_cloud_aero_cpl (datetime_local(jg)%ptr, p_patch(jgc), p_nh_state(jgc)%metrics, &
+              CALL init_cloud_aero_cpl (datetime_local(jgc)%ptr, p_patch(jgc), p_nh_state(jgc)%metrics, &
                 &                       ext_data(jgc), prm_diag(jgc))
 
               IF (iprog_aero == 1) CALL setup_aerosol_advection(p_patch(jgc))
@@ -2109,7 +2109,7 @@ MODULE mo_nh_stepping
               ENDIF
             ENDIF
 
-            CALL init_slowphysics (datetime_local(jg)%ptr, jgc, dt_sub)
+            CALL init_slowphysics (datetime_local(jgc)%ptr, jgc, dt_sub)
 
             WRITE(message_text,'(a,i2,a,f12.2)') 'domain ',jgc,' started at time ',sim_time
             CALL message('integrate_nh', TRIM(message_text))
