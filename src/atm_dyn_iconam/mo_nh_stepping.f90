@@ -1756,7 +1756,6 @@ MODULE mo_nh_stepping
             END IF
           END IF
 
-#if 0
           IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
 
             ! les physics
@@ -1833,7 +1832,6 @@ MODULE mo_nh_stepping
             END SELECT ! iforcing
 
           END IF ! is_les_phy
-#endif
 
           ! Boundary interpolation of land state variables entering into radiation computation
           ! if a reduced grid is used in the child domain(s)
