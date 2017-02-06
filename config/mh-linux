@@ -280,7 +280,8 @@ case "$ac_sitename" in
         ;;
 #===============================================
 
-    dwd.de)
+    *dwd.de)
+        echo "DWDWDWDWDWD"
         case "$(hostname)" in
             xc*)
                 XML2ROOT    = /opt/cray/xc-sysroot/default/usr
@@ -307,6 +308,7 @@ case "$ac_sitename" in
                              OTHER_LIBS = ${OTHER_LIBS} -L/e/uhome/jfoerstn/Software/lib -lTIXI -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
                              ;;
                       esac
+                      echo "CRAYCRAY"
                       STD_FLAGS       = -D__USE_RTTOV -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
                       FFLAGS          = ${FFLAGS} -I/usr/local/pkg/for0adm/include/radiance
                       GRIBAPIROOT     = ${GRIB_API}
