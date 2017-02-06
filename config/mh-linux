@@ -808,6 +808,7 @@ case "$ac_sitename" in
                       OTHER_LIBS      = -lirng $RTTOV_LIBS $OTHER_LIBS
                       ;;
                     cray)
+		      GRIBAPIROOT     = ${GRIB_API_PATH}
                       OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $RTTOV_LIBS $OTHER_LIBS
                       FFLAGS          = ${FFLAGS} -I/home/ms/de/dfj/include/radiance
                       ;;

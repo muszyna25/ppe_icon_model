@@ -4502,7 +4502,7 @@ esac
 
 
 if test -n "$GRIBAPIROOT"; then
-  if test -r "$GRIBAPIROOT/lib/libgrib_api.a" || test -r "$GRIBAPIROOT/lib/libgrib_api.dylib"; then
+  if test -r "$GRIBAPIROOT/lib/libgrib_api.a" || test -r "$GRIBAPIROOT/lib/libgrib_api.dylib" || test -r "$GRIBAPIROOT/lib/libgrib_api.so"; then
   GRIBAPI_LIB='-L$(GRIBAPIROOT)/lib -lgrib_api'
 else
   { { $as_echo "$as_me:$LINENO: error: cannot read $GRIBAPIROOT/lib/libgrib_api.a" >&5
