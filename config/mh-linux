@@ -300,7 +300,7 @@ case "$ac_sitename" in
                       OTHER_LIBS      = -lirng $OTHER_LIBS
                       ;;
                     cray)
-                      load_modules    = module load grib_api module load cray-netcdf/4.3.2 module load atp ${load_modules}
+                      load_modules    = PrgEnv=cray grib_api cray-netcdf/4.3.2 atp ${load_modules}
                       RTTOV_LIBS      = -L/usr/local/pkg/for0adm/lib -L/usr/local/pkg/for0adm/lib/unsupported -lradiance -lrttov10.2 -lhrit_tools
                       OTHER_LIBS      = $RTTOV_LIBS $OTHER_LIBS
                       case "$with_art" in
