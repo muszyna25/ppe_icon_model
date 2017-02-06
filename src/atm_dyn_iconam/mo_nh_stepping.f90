@@ -1293,7 +1293,9 @@ MODULE mo_nh_stepping
 
       n_save = nsav2(jg)
       n_now = nnow(jg)
+#ifndef _OPENACC
 !$OMP PARALLEL
+#endif
       CALL copy(p_nh_state(jg)%prog(n_now)%vn, &
            p_nh_state(jg)%prog(n_save)%vn)
       CALL copy(p_nh_state(jg)%prog(n_now)%w, &
@@ -1302,7 +1304,9 @@ MODULE mo_nh_stepping
            p_nh_state(jg)%prog(n_save)%rho)
       CALL copy(p_nh_state(jg)%prog(n_now)%theta_v, &
            p_nh_state(jg)%prog(n_save)%theta_v)
+#ifndef _OPENACC
 !$OMP END PARALLEL
+#endif
 
     ENDIF
 
@@ -1315,7 +1319,9 @@ MODULE mo_nh_stepping
         ! feedback increments (not needed in global domain)
         n_now = nnow(jg)
         n_save = nsav2(jg)
+#ifndef _OPENACC
 !$OMP PARALLEL
+#endif
         CALL copy(p_nh_state(jg)%prog(n_now)%vn, &
              p_nh_state(jg)%prog(n_save)%vn)
         CALL copy(p_nh_state(jg)%prog(n_now)%w, &
@@ -1324,7 +1330,9 @@ MODULE mo_nh_stepping
              p_nh_state(jg)%prog(n_save)%rho)
         CALL copy(p_nh_state(jg)%prog(n_now)%theta_v, &
              p_nh_state(jg)%prog(n_save)%theta_v)
+#ifndef _OPENACC
 !$OMP END PARALLEL
+#endif
       ENDIF
 
 
@@ -1353,12 +1361,16 @@ MODULE mo_nh_stepping
         n_now  = nnow(jg)
         n_save = nsav1(jg)
         IF (lbdy_nudging) THEN ! full copy needed
+#ifndef _OPENACC
 !$OMP PARALLEL
+#endif
           CALL copy(p_nh_state(jg)%prog(n_now)%vn,p_nh_state(jg)%prog(n_save)%vn)
           CALL copy(p_nh_state(jg)%prog(n_now)%w,p_nh_state(jg)%prog(n_save)%w)
           CALL copy(p_nh_state(jg)%prog(n_now)%rho,p_nh_state(jg)%prog(n_save)%rho)
           CALL copy(p_nh_state(jg)%prog(n_now)%theta_v,p_nh_state(jg)%prog(n_save)%theta_v)
+#ifndef _OPENACC
 !$OMP END PARALLEL
+#endif
         ELSE IF (lnest_active) THEN ! optimized copy restricted to nest boundary points
           CALL save_progvars(jg,p_nh_state(jg)%prog(n_now),p_nh_state(jg)%prog(n_save))
         ENDIF
@@ -2599,10 +2611,14 @@ MODULE mo_nh_stepping
     INTEGER, INTENT(IN) :: nnow ! time step indicator
 
 
+#ifndef _OPENACC
 !$OMP PARALLEL
+#endif
     CALL copy(p_nh_state(jg)%prog(nnow)%exner, &
          p_nh_state(jg)%diag%exner_old)
+#ifndef _OPENACC
 !$OMP END PARALLEL
+#endif
 
   END SUBROUTINE init_exner_old
 
