@@ -28,7 +28,7 @@ esac
 
 fi
 
-source $MODULESHOME/init/sh
+
 
 
 # PATH needs CR
