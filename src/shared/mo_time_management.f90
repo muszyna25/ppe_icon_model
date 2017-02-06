@@ -734,25 +734,39 @@ CONTAINS
       !
       ! but we need to check cases where one or two of these dates have
       ! not been specified by the user...
+      
+      IF (ASSOCIATED(mtime_nsteps_stop)) THEN
 
-      IF (.NOT. ASSOCIATED(mtime_exp_stop)     .AND. &
-           & .NOT. ASSOCIATED(mtime_restart_stop) .AND. &
-           & .NOT. ASSOCIATED(mtime_nsteps_stop)) THEN
-        CALL finish(routine, "Error in initialization of stop date")
-      ELSE IF (ASSOCIATED(mtime_exp_stop)      .AND. &
-           & ASSOCIATED(mtime_restart_stop)       .AND. &
-           & ASSOCIATED(mtime_nsteps_stop)) THEN
-        mtime_stop => newDatetime(MIN(MIN(mtime_exp_stop, mtime_restart_stop), mtime_nsteps_stop))
-      ELSE IF (ASSOCIATED(mtime_exp_stop)      .AND. &
-           & ASSOCIATED(mtime_restart_stop)) THEN
-        mtime_stop => newDatetime(MIN(mtime_exp_stop, mtime_restart_stop))
-      ELSE IF (ASSOCIATED(mtime_exp_stop)      .AND. &
-           & ASSOCIATED(mtime_nsteps_stop)) THEN
-        mtime_stop => newDatetime(MIN(mtime_exp_stop, mtime_nsteps_stop))
-      ELSE IF (ASSOCIATED(mtime_restart_stop)  .AND. &
-           & ASSOCIATED(mtime_nsteps_stop)) THEN
-        mtime_stop => newDatetime(MIN(mtime_restart_stop, mtime_nsteps_stop))
+        IF (ASSOCIATED(mtime_exp_stop)) THEN
+          IF (ASSOCIATED(mtime_restart_stop)) THEN
+            mtime_stop => newDatetime(MIN(MIN(mtime_exp_stop, mtime_restart_stop), mtime_nsteps_stop))
+          ELSE
+            mtime_stop => newDatetime(MIN(mtime_exp_stop, mtime_nsteps_stop))
+          END IF
+        ELSE
+          IF (ASSOCIATED(mtime_restart_stop)) THEN
+            mtime_stop => newDatetime(MIN(mtime_nsteps_stop, mtime_restart_stop))
+          ELSE
+            mtime_stop => newDatetime(mtime_nsteps_stop)
+          END IF
+        END IF
+
+      ELSE
+
+        IF (ASSOCIATED(mtime_exp_stop)) THEN
+          IF (ASSOCIATED(mtime_restart_stop)) THEN
+            mtime_stop => newDatetime(MIN(mtime_exp_stop, mtime_restart_stop))
+          ELSE
+            mtime_stop => newDatetime(mtime_exp_stop)
+          END IF
+        ELSE
+          ! if neither "exp_stop_date" nor "nsteps" are given: throw
+          ! an error regardless of the state of "restart_stop"
+          CALL finish(routine, "Error in initialization of stop date")
+        END IF
+
       END IF
+
     END IF
 
     CALL datetimeToString(mtime_stop, stop_datetime_string)
