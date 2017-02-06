@@ -12,8 +12,8 @@ import argparse, datetime, os, subprocess, traceback, sys
 # CONSTANTS
 
 DATEFMT    = '%Y%m%d%H%M%S'
-MODE_IAU   = 1
-MODE_NOIAU = 2
+MODE_IAU   = '1'
+MODE_NOIAU = '2'
 
 # ------------------------------------------------------------
 # Main program (wrapped by a subroutine)
