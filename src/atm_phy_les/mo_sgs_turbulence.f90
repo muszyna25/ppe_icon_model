@@ -32,8 +32,7 @@ MODULE mo_sgs_turbulence
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex, rbf_vec_interpol_edge
   USE mo_intp,                ONLY: verts2edges_scalar, edges2verts_scalar, &
                                     cells2verts_scalar, cells2edges_scalar, &
-                                    edges2cells_scalar, verts2cells_scalar, &
-                                    edges2cells_vector
+                                    edges2cells_scalar, verts2cells_scalar
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_run_config,          ONLY: iqv, iqc, msg_level

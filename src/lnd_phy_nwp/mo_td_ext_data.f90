@@ -33,7 +33,8 @@ MODULE mo_td_ext_data
   USE mo_read_interface,      ONLY: openInputFile, closeFile, on_cells, &
     &                               t_stream_id, read_2D_1time
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rlcell_int
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rlcell_int, SSTICE_CLIM, &
+    &                               SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY
   USE mo_grid_config,         ONLY: n_dom
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state
   USE mo_loopindices,         ONLY: get_indices_c
@@ -94,14 +95,14 @@ CONTAINS
 
     SELECT CASE (ext_data_mode)
 
-       CASE (2) !SST and sea ice fraction updated based
-                !  on the climatological monthly values
+       ! SST and sea ice fraction updated based on the climatological monthly values
+       !
+       CASE (SSTICE_CLIM)
          current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_date)
          month1 = current_time_interpolation_weights%month1
          month2 = current_time_interpolation_weights%month2
-         pw2 = current_time_interpolation_weights%weight2
-
-         pw1 = 1._wp - pw2
+         pw2    = current_time_interpolation_weights%weight2
+         pw1    = 1._wp - pw2
 
          DO jg = 1, n_dom
 
@@ -143,20 +144,20 @@ CONTAINS
         END DO ! jg
 
 
-       CASE (3) !SST and sea ice fraction updated based
-                !  on the actual monthly values
+       CASE (SSTICE_AVG_MONTHLY) ! SST and sea ice fraction updated based
+                                 ! on the actual monthly values
 
          old_time_interpolation_weights = calculate_time_interpolation_weights(mtime_date_old)
-         m1 = old_time_interpolation_weights%month1
-         m2 = old_time_interpolation_weights%month2
+         m1      = old_time_interpolation_weights%month1
+         m2      = old_time_interpolation_weights%month2
          pw2_old = old_time_interpolation_weights%weight2
 
          current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_date)
          month1 = current_time_interpolation_weights%month1
          month2 = current_time_interpolation_weights%month2
-         year1 = current_time_interpolation_weights%year1
-         year2 = current_time_interpolation_weights%year2
-         pw2 = current_time_interpolation_weights%weight2
+         year1  = current_time_interpolation_weights%year1
+         year2  = current_time_interpolation_weights%year2
+         pw2    = current_time_interpolation_weights%weight2
 
         WRITE( message_text,'(a,5i6,f10.5)') 'sst ci interp,',mtime_date%date%day,month1,month2,year1,year2,pw2
         CALL message  (routine, TRIM(message_text))
@@ -209,14 +210,15 @@ CONTAINS
 
         END DO ! jg
 
-       CASE (4) !SST and sea ice fraction updated based
+       CASE (SSTICE_AVG_DAILY) !SST and sea ice fraction updated based
                 !  on the actual daily values
         !Not implemented
         WRITE( message_text,'(a)') 'ext_data_mode == 4 not yet implemented '
         CALL finish  (routine, TRIM(message_text))
 
+       CASE DEFAULT
+         ! do nothing
       END SELECT
-
 
 
   END SUBROUTINE set_actual_td_ext_data

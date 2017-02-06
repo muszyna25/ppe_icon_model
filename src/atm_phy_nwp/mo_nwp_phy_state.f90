@@ -555,7 +555,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
        ! &      diag%graupel_gsp(nproma,nblks_c)
       cf_desc    = t_cf_var('graupel_gsp', 'kg m-2', 'gridscale graupel',      &
         &                   datatype_flt)
-      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      grib2_desc = grib2_var(0, 1, 75, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'graupel_gsp', diag%graupel_gsp,                &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
                   & ldims=shape2d, in_group=groups("precip_vars"),             &
@@ -681,6 +681,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'dyn_gust', diag%dyn_gust,                        &
                 & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,  &
                 & ldims=shape2d, lrestart=.FALSE., isteptype=TSTEP_INSTANT,    &
+                & hor_interp=create_hor_interp_metadata(                       &
+                &            hor_intp_type=HINTP_TYPE_LONLAT_BCTR,             &
+                &            fallback_type=HINTP_TYPE_LONLAT_RBF),             &
                 & loutput=.TRUE.                                               )
 
     ! &      diag%con_gust(nproma,nblks_c)

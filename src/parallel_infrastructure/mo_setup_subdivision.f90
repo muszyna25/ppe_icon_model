@@ -100,7 +100,8 @@ MODULE mo_setup_subdivision
     &                                   distrib_nf_close, distrib_read, nf, &
     &                                   delete_distrib_read, setup_distrib_read
   USE ppm_distributed_array,  ONLY: dist_mult_array, global_array_desc
-  USE mo_util_uuid, ONLY: uuid_string_length, uuid_unparse
+  USE mo_util_uuid_types,     ONLY: uuid_string_length
+  USE mo_util_uuid,           ONLY: uuid_unparse
   USE mo_read_netcdf_broadcast_2, ONLY: netcdf_open_input, netcdf_close, &
     &                                   netcdf_read_att_int
 

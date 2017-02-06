@@ -18,7 +18,7 @@
 MODULE mo_nwp_rg_interface
 
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_exception,            ONLY: message
+  USE mo_exception,            ONLY: message,  finish
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run
 
