@@ -298,10 +298,10 @@ CONTAINS
         END IF  ! isRestart
         
         ! always assume midnight
-        this_datetime%time%hour= 0   
-        this_datetime%time%minute= 0
-        this_datetime%time%second= 0
-        this_datetime%time%ms= 0
+        this_datetime%time%hour   = 0   
+        this_datetime%time%minute = 0
+        this_datetime%time%second = 0
+        this_datetime%time%ms     = 0
 
         DO jg = 1, n_dom
           CALL interpol_monthly_mean(p_patch(jg), this_datetime,         &! in

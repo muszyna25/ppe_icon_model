@@ -2177,6 +2177,9 @@ CONTAINS
         IF (ierr /= SUCCESS)  CALL finish (routine, 'Allocation of sst_cl_ini_day, sst_cl_cur_day  failed!')
 
         ! get climatological sst for initial and current day
+        !
+        ! Note: here we can assume that hour=minute=second=0, due to
+        ! the if-clause of the calling routine in mo_nh_stepping.
         CALL interpol_monthly_mean(p_patch(jg), ini_datetime,         &! in
           &                        ext_data(jg)%atm_td%sst_m,         &! in
           &                        sst_cl_ini_day                     )! out

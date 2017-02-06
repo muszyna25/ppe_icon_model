@@ -908,6 +908,8 @@ MODULE mo_nh_stepping
       IF (itopo == 1 .AND. iforcing == inwp .AND.                  &
         & ALL(atm_phy_nwp_config(1:n_dom)%inwp_surface >= 1)) THEN
         DO jg=1, n_dom
+          ! Note: here we can assume that hour=minute=second=0, due to
+          ! the surrounding if-clause.
           CALL interpol_monthly_mean(p_patch(jg), mtime_current,            &! in
             &                        ext_data(jg)%atm_td%ndvi_mrat,         &! in
             &                        ext_data(jg)%atm%ndviratio      )! out
@@ -936,6 +938,9 @@ MODULE mo_nh_stepping
       IF (iforcing == inwp .AND. albedo_type == MODIS) THEN
         ! Note that here only an update of the external parameter fields is
         ! performed. The actual update happens in mo_albedo.
+        !
+        ! Note: here we can assume that hour=minute=second=0, due to
+        ! the surrounding if-clause.
         DO jg = 1, n_dom
           CALL interpol_monthly_mean(p_patch(jg), mtime_current,            &! in
             &                        ext_data(jg)%atm_td%alb_dif,           &! in
