@@ -29,11 +29,6 @@ esac
 fi
 
 
-env | sort
-[[ -f /etc/profile ]] && source /etc/profile
-env | sort
-source $MODULESHOME/init/bash
-
 
 # PATH needs CR
 # Avoid depending upon Character Ranges.
