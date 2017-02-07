@@ -891,8 +891,6 @@ set_run_target_daint_cpu()
         add_free_var OMP_WAIT_POLICY "active"
       ;;
   esac
-  # create header
-  start_header
 
   if [[ "$is_serial_run" == "yes"  ]] ; then
     queue=${queue:="viz"}
@@ -939,6 +937,9 @@ set_run_target_daint_cpu()
 #$s_cpu_time
 #========================================
 EOF
+  # create header
+  start_header
+
 }
 
 #=============================================================================
@@ -981,8 +982,6 @@ set_run_target_daint_gpu()
         add_free_var OMP_WAIT_POLICY "active"
       ;;
   esac
-  # create header
-  start_header
 
   if [[ "$is_serial_run" == "yes"  ]] ; then
     queue=${queue:="viz"}
@@ -1030,6 +1029,8 @@ set_run_target_daint_gpu()
 #$s_cpu_time
 #========================================
 EOF
+  # create header
+  start_header
 }
 
 #=============================================================================
@@ -1056,9 +1057,6 @@ set_run_target_dom_gpu()
        is_serial_run="yes"
    fi
   fi
-
-  # create header
-  start_header
 
   if [[ "$is_serial_run" == "yes"  ]] ; then
     use_nodes=1
@@ -1101,6 +1099,8 @@ set_run_target_dom_gpu()
 #$s_cpu_time
 #========================================
 EOF
+  # create header
+  start_header
 }
 
 #=============================================================================
