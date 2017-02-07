@@ -2,8 +2,7 @@
 
   SUBROUTINE swr_absorption(start_idx,end_idx, klevs, pfswr, psicomo, dzw)
 
-    USE mo_carbch, ONLY : bgctra, swr_frac
-    USE mo_biomod, ONLY : strahl
+    USE mo_memory_bgc, ONLY : bgctra, swr_frac, meanswr, strahl
     USE mo_param1_bgc, ONLY : iphy, icya
     USE mo_hamocc_nml, ONLY : l_cyadyn
     USE mo_kind,    ONLY: wp                                               
@@ -16,8 +15,7 @@
     REAL(wp), INTENT(in):: pfswr(bgc_nproma)
     REAL(wp), INTENT(in):: psicomo(bgc_nproma)
     REAL(wp), INTENT(in):: dzw(bgc_nproma,bgc_zlevs)
-    
-    !> parameters for sw-radiation fraction
+
     !! Analogue to Zielinski et al., Deep-Sea Research II 49 (2002), 3529-3542
 
     REAL(wp), PARAMETER :: redfrac=0.4_wp !< red fraction of the spectral domain (> 580nm)
@@ -49,9 +47,11 @@
       strahl(j) = pfswr(j) * (1._wp - psicomo(j))
 
       swr_frac(j,1) = 1.0_wp
-
+      
       
       kpke = klevs(j)
+    
+      IF(kpke > 0) then
 
       swr_r = redfrac
       swr_b = (1._wp-redfrac)
@@ -64,7 +64,12 @@
            swr_frac(j,k) = swr_r + swr_b
 
       END DO
+      DO k=1,kpke-1
+           meanswr(j,k) = (swr_frac(j,k) + swr_frac(j,k+1))/2._wp
+      END DO
+      meanswr(j,kpke) = swr_frac(j,k) 
 
+      ENDIF
    ENDDO
 !HAMOCC_OMP_END_DO
 !HAMOCC_OMP_END_PARALLEL

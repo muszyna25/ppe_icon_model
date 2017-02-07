@@ -1,7 +1,7 @@
 MODULE mo_bgc_surface
 !! @file mo_bgc_surface.f90
 !! @brief module contains gas exchange, weathering fluxes,
-!!        dust deposition
+!!        dust & nitrogen deposition
 
   USE mo_kind, ONLY           : wp
   USE mo_control_bgc, ONLY    : dtbgc, bgc_nproma, bgc_zlevs
@@ -10,14 +10,15 @@ MODULE mo_bgc_surface
 
   PRIVATE
 
-  PUBLIC :: gasex, update_weathering, dust_deposition
+  PUBLIC :: gasex, update_weathering, dust_deposition, nitrogen_deposition
 
 
 contains
 
 SUBROUTINE update_weathering ( start_idx,end_idx, pddpo, za)
+! apply weathering rates
 
-  USE mo_carbch, ONLY         : bgctra, calcinp, orginp, silinp, bgcflux
+  USE mo_memory_bgc, ONLY     : bgctra, calcinp, orginp, silinp, bgcflux
   USE mo_param1_bgc, ONLY     : isco212, ialkali, idoc, isilica,  &
  &                              korginp, ksilinp, kcalinp
 
@@ -52,12 +53,48 @@ SUBROUTINE update_weathering ( start_idx,end_idx, pddpo, za)
 
 END SUBROUTINE
 
-SUBROUTINE dust_deposition ( start_idx,end_idx, pddpo,za,dustinp)
+SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinp)
+! apply nitrogen deposition
+  USE mo_memory_bgc, ONLY         : bgctra
+  USE mo_param1_bgc, ONLY     : iano3
+  USE mo_control_bgc, ONLY    : dtb
+  USE mo_bgc_constants, ONLY : rmnit
 
-  USE mo_carbch, ONLY         : bgctra
+
+  !Arguments
+
+  INTEGER, INTENT(in)            :: start_idx              !< start index for j loop (ICON cells, MPIOM lat dir)  
+  INTEGER, INTENT(in)            :: end_idx                !< end index  for j loop  (ICON cells, MPIOM lat dir) 
+
+  REAL(wp),INTENT(in) :: nitinp(bgc_nproma )                         !< nitrogen input
+  REAL(wp), INTENT(in), TARGET   :: pddpo(bgc_nproma,bgc_zlevs)      !< size of scalar grid cell (3rd dimension) [m]
+  REAL(wp), INTENT(in), TARGET   :: za(bgc_nproma)                   !< surface height
+  
+  ! Local variables
+
+  INTEGER :: jc
+  REAL(wp) :: ninp 
+
+  DO jc = start_idx, end_idx
+
+  if(pddpo(jc,1) > 0.5_wp) then
+
+      ! ndepo : CCMI wet+dry dep of NHx and NOy in kg (N) m-2 s-1
+       ninp = nitinp(jc) / rmnit* dtbgc/(pddpo(jc,1)+za(jc)) ! kmol N m-3 time_step-1
+
+       bgctra(jc,1,iano3) = bgctra(jc,1,iano3) + ninp
+
+  endif
+
+  ENDDO
+
+
+END SUBROUTINE
+SUBROUTINE dust_deposition ( start_idx,end_idx, pddpo,za,dustinp)
+! apply dust deposition
+  USE mo_memory_bgc, ONLY      : bgctra,perc_diron 
   USE mo_param1_bgc, ONLY     : iiron, idust
   USE mo_control_bgc, ONLY    : dtb
-  USE mo_biomod,     ONLY     : perc_diron 
 
   
   !Arguments
@@ -92,16 +129,16 @@ END SUBROUTINE
 SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
      &              pfu10, psicomo )
 !! @brief Computes sea-air gass exchange
-!!         for oxygen, O2, N2, and CO2.
+!!         for oxygen, O2, N2, N2O, DMS, and CO2.
 !!
 
 
-  USE mo_param1_bgc, ONLY     : igasnit, ian2o,  iatmco2,          &
-       &                        ioxygen, isco212,         &
+  USE mo_param1_bgc, ONLY     : igasnit, ian2o,  iatmco2, iphosph,         &
+       &                        ioxygen, isco212, isilica,       &
        &                        ialkali, kcflux, koflux, knflux,          &
        &                        kn2oflux, idms, kdmsflux 
 
-  USE mo_carbch, ONLY         : hi, &
+  USE mo_memory_bgc, ONLY         : hi, &
        &                        solco2,satoxy,satn2,aksurf,    &
        &                        satn2o,            &
        &                        bgctra, atm, bgcflux
@@ -131,8 +168,8 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
   INTEGER :: j, k
 
   REAL(wp) :: fluxd,fluxu
-  REAL(wp) :: kwco2,kwo2, kwdms
-  REAL(wp) :: scco2,sco2, scdms
+  REAL(wp) :: kwco2,kwo2, kwdms, kwn2o
+  REAL(wp) :: scco2,sco2, scdms, scn2o
   REAL(wp) :: oxflux,niflux,nlaughflux, dmsflux
   REAL(wp) :: ato2, atn2, atco2,pco2
   REAL(wp) :: thickness
@@ -154,22 +191,20 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
            !
            !  Compute the Schmidt number of CO2 in seawater and the transfer
            !  (piston) velocity using the formulation presented in
-           !  Groeger&Mikolajewicz, Ocean Modeling,39,2011.yy
-           !  Input is temperature in deg C.
-           !  O2 Schmidt number after Keeling et al. (1998, Global Biogeochem.
-           !                                                Cycles, 12, 141-163)
-           !
-           !  DMS Schmidt number after Saltzmann et al. (1993, J. Geophys. Res. 98,
-           !                                                      16,481-16,486)
-
+           !   Wanninkhof 2014 
            !*********************************************************************
 
-           scco2 = 142.653_wp + 1955.9_wp *  EXP(-0.0663147_wp*ptho(j,1))
+           scco2 = 2116.8_wp - 136.25_wp*ptho(j,1) + 4.7353_wp*ptho(j,1)**2 &
+                &   - 0.092307_wp*ptho(j,1)**3 + 0.0007555_wp*ptho(j,1)**4
 
-           sco2  = 1638.0_wp - 81.83_wp*ptho(j,1) + 1.483_wp*ptho(j,1)**2    &
-                &       - 0.008004_wp*ptho(j,1)**3
+           sco2 =  1920.4_wp - 135.6_wp*ptho(j,1)  + 5.2122_wp*ptho(j,1)**2 &
+               & - 0.10939_wp*ptho(j,1)**3 + 0.00093777_wp*ptho(j,1)**4
 
-           scdms = 186.560_wp + 2506.78_wp * EXP(-0.0618603_wp*ptho(j,1))
+           scn2o =  2356.2_wp - 166.38_wp*ptho(j,1)  + 6.3952_wp*ptho(j,1)**2 &
+               & - 0.13422_wp*ptho(j,1)**3 + 0.0011506_wp*ptho(j,1)**4
+
+           scdms =  2855.7_wp - 177.63_wp*ptho(j,1)  + 6.0438_wp*ptho(j,1)**2 &
+               & - 0.11645_wp*ptho(j,1)**3 + 0.00094743_wp*ptho(j,1)**4
      
            !
            !  Compute the transfer (piston) velocity in m/s
@@ -184,6 +219,10 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
 
            kwdms = (1._wp - psicomo(j)) * cmh2ms * pfu10( j)**2        &
                 &           * (660._wp / scdms)**0.5_wp
+
+       
+           kwn2o = (1._wp - psicomo(j)) * cmh2ms * pfu10( j)**2        &
+                &           * (660._wp / scn2o)**0.5_wp
 
            atco2 = atm_co2
            ato2  = atm_o2
@@ -251,7 +290,9 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
          ! Update hi
 
            hi(j,k) = update_hi(hi(j,k), bgctra(j,k,isco212), aksurf(j,1) , &
-    &          aksurf(j,2),  aksurf(j,4),psao(j,k) , aksurf(j,3), bgctra(j,k,ialkali) )
+    &          aksurf(j,2),  aksurf(j,4), aksurf(j,7), aksurf(j,6), aksurf(j,5),&
+    &          aksurf(j,8), aksurf(j,9),aksurf(j,10), psao(j,k) , aksurf(j,3), &
+    &          bgctra(j,k,isilica), bgctra(j,k,iphosph),bgctra(j,k,ialkali) )
 
 
          !

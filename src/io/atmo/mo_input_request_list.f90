@@ -42,7 +42,7 @@ MODULE mo_input_request_list
     USE mo_mpi, ONLY: my_process_is_mpi_workroot, get_my_mpi_work_id, p_bcast, process_mpi_root_id, p_comm_work, &
                     & my_process_is_stdio, p_pe, p_isEqual, p_mpi_wtime
     USE mo_run_config, ONLY: msg_level
-    USE mo_time_config, ONLY: getIniTime
+    USE mo_time_config, ONLY: time_config
     USE mo_util_cdi, ONLY: trivial_tileId
     USE mo_util_string, ONLY: real2string, int2string, toCharArray, toCharacter, charArray_equal, charArray_toLower, &
                             & charArray_dup, one_of
@@ -377,7 +377,7 @@ CONTAINS
 
             ALLOCATE(iniTime, STAT = error)
             IF(error /= SUCCESS) CALL fail("memory allocation failure")
-            iniTime = getIniTime()
+            iniTime = time_config%tc_startdate
             IF(lIsFg) THEN
                 ! add timeshift to INI-datetime to get true starting time
                 ALLOCATE(startTime, STAT = error)

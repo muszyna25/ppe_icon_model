@@ -25,64 +25,68 @@
 MODULE mo_hydro_ocean_run
   !-------------------------------------------------------------------------
   USE mo_kind,                   ONLY: wp
+  USE mtime,                     ONLY: datetime, datetimeToString, deallocateDatetime,              &
+       &                               timedelta, newTimedelta, deallocateTimedelta,                &
+       &                               MAX_DATETIME_STR_LEN, newDatetime,                           &
+       &                               MAX_MTIME_ERROR_STR_LEN, no_error, mtime_strerror,           &
+       &                               OPERATOR(-), OPERATOR(+), OPERATOR(>), OPERATOR(*),          &
+       &                               ASSIGNMENT(=), OPERATOR(==), OPERATOR(>=), OPERATOR(/=),     &
+       &                               event, eventGroup, newEvent,                                 &
+       &                               addEventToEventGroup, isCurrentEventActive
+  USE mo_event_manager,          ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup  
   USE mo_impl_constants,         ONLY: max_char_length
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d
   USE mo_grid_config,            ONLY: n_dom
-  USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, lhamocc,&
-    & i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation,   &
-    & cfl_write, surface_module
+  USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, lhamocc, &
+       &                               i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation,   &
+       &                               cfl_write, surface_module
   USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
   USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode, debug_check_level
   USE mo_exception,              ONLY: message, message_text, finish
   USE mo_ext_data_types,         ONLY: t_external_data
-  !USE mo_io_units,               ONLY: filename_max
-  USE mo_datetime,               ONLY: t_datetime, add_time, datetime_to_string
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab,  &
     & timer_tracer_ab, timer_vert_veloc, timer_normal_veloc,     &
-    & timer_upd_phys, timer_upd_flx, timer_extra20, timers_level, &
+    & timer_upd_flx, timer_extra20, timers_level, &
     & timer_scalar_prod_veloc, timer_extra21, timer_extra22, timer_bgc_ini, &
     & timer_bgc_inv, timer_bgc_tot
   USE mo_ocean_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
-    & calc_normal_velocity_ab,  &
-    & calc_vert_velocity,       &
-    & update_time_indices
+    &                                    calc_normal_velocity_ab,  &
+    &                                    calc_vert_velocity,       &
+    &                                    update_time_indices
   USE mo_ocean_types,              ONLY: t_hydro_ocean_state, &
     & t_operator_coeff, t_solvercoeff_singleprecision
   USE mo_ocean_math_operators,   ONLY: update_height_depdendent_variables, check_cfl_horizontal, check_cfl_vertical
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
-  USE mo_ocean_tracer,             ONLY: advect_ocean_tracers
+  USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
   USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
+  USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_ocean_bulk,             ONLY: update_surface_flux
   USE mo_ocean_surface,          ONLY: update_ocean_surface
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface
   USE mo_sea_ice,                ONLY: update_ice_statistic, reset_ice_statistics
-  USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
-    & t_sea_ice
-  USE mo_ocean_physics,            ONLY: t_ho_params, update_ho_params
-  USE mo_ocean_thermodyn,          ONLY: calc_potential_density, &
-    & calculate_density! , ocean_correct_ThermoExpansion
+  USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean,  t_sea_ice
+  USE mo_ocean_physics,          ONLY: update_ho_params
+  USE mo_ocean_physics_types,    ONLY: t_ho_params  
+  USE mo_ocean_thermodyn,        ONLY: calc_potential_density, calculate_density
   USE mo_name_list_output,       ONLY: write_name_list_output
-  USE mo_ocean_diagnostics,        ONLY: calc_fast_oce_diagnostics, calc_psi
+  USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
   USE mo_ocean_ab_timestepping_mimetic, ONLY: construct_ho_lhs_fields_mimetic, destruct_ho_lhs_fields_mimetic
-  USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_time_config,            ONLY: time_config
   USE mo_master_config,          ONLY: isRestart
-!  USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_util_dbg_prnt,          ONLY: dbg_print, debug_printValue
   USE mo_dbg_nml,                ONLY: idbg_mxmn
   USE mo_statistics
   USE mo_ocean_statistics
-  USE mo_hamocc_statistics,     ONLY: update_hamocc_statistics, reset_hamocc_statistics
-  USE mo_hamocc_types,          ONLY: t_hamocc_state
-  USE mo_derived_variable_handling, ONLY: perform_accumulation
+  USE mo_hamocc_statistics,      ONLY: update_hamocc_statistics, reset_hamocc_statistics
+  USE mo_hamocc_types,           ONLY: t_hamocc_state
+  USE mo_derived_variable_handling, ONLY: perform_accumulation, reset_accumulation
   USE mo_ocean_output
-  USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes
-  USE mo_bgc_bcond,          ONLY: ext_data_bgc, update_bgc_bcond
-  USE mo_hamocc_diagnostics,    ONLY: get_inventories
-  USE mo_hamocc_nml,         ONLY: io_stdo_bgc
-
+  USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes  
+  USE mo_bgc_bcond,              ONLY: ext_data_bgc, update_bgc_bcond
+  USE mo_hamocc_diagnostics,     ONLY: get_inventories
+  USE mo_hamocc_nml,             ONLY: io_stdo_bgc
 
   IMPLICIT NONE
 
@@ -91,11 +95,13 @@ MODULE mo_hydro_ocean_run
   PUBLIC  :: perform_ho_stepping
   PUBLIC  :: prepare_ho_stepping, end_ho_stepping
   PUBLIC  :: write_initial_ocean_timestep
+  PUBLIC  :: update_time_g_n, update_time_indices
   
   CHARACTER(LEN=12)  :: str_module = 'HYDRO-ocerun'  ! Output of module for 1 line debug
   INTEGER            :: idt_src    = 1               ! Level of detail for 1 line debug
   !-------------------------------------------------------------------------
 
+  
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -132,9 +138,17 @@ CONTAINS
 !     !      & operators_coefficients%matrix_vert_diff_e,&
 !     !      & operators_coefficients%matrix_vert_diff_c)
 ! 
-     CALL update_height_depdendent_variables( patch_3d, ocean_state, ext_data, operators_coefficients, solvercoeff_sp)
-     CALL construct_ho_lhs_fields_mimetic   ( patch_3d )
-! 
+    CALL update_height_depdendent_variables( patch_3d, ocean_state, ext_data, operators_coefficients, solvercoeff_sp)
+    CALL construct_ho_lhs_fields_mimetic   ( patch_3d )
+
+    ! this is needed as initial condition or restart 
+!     CALL calc_scalar_product_veloc_3d( patch_3d,  &
+!       & ocean_state(1)%p_prog(nold(1))%vn,         &
+!       & ocean_state(1)%p_diag,                     &
+!       & operators_coefficients)
+!     CALL update_ho_params(patch_3d, ocean_state(1), p_as%fu10, sea_ice%concsum, p_phys_param, operators_coefficients)
+
+ ! 
   END SUBROUTINE prepare_ho_stepping
   !-------------------------------------------------------------------------
 
@@ -142,7 +156,7 @@ CONTAINS
   !<Optimize:inUse>
   SUBROUTINE end_ho_stepping()
 
-     CALL destruct_ho_lhs_fields_mimetic()
+    CALL destruct_ho_lhs_fields_mimetic()
     
   END SUBROUTINE end_ho_stepping
   !-------------------------------------------------------------------------
@@ -158,16 +172,15 @@ CONTAINS
   !
 !<Optimize:inUse>
   SUBROUTINE perform_ho_stepping( patch_3d, ocean_state, p_ext_data,          &
-    & datetime,                                    &
+    & this_datetime,                                    &
     & surface_fluxes, p_sfc, p_phys_param,              &
     & p_as, p_atm_f, sea_ice, hamocc_state, operators_coefficients, &
     & solvercoeff_sp)
-   USE mo_hamocc_diagnostics,  ONLY: get_inventories
 
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(t_external_data), TARGET, INTENT(in)        :: p_ext_data(n_dom)
-    TYPE(t_datetime), INTENT(inout)                  :: datetime
+    TYPE(datetime), POINTER                          :: this_datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE(t_ocean_surface)                            :: p_sfc
     TYPE (t_ho_params)                               :: p_phys_param
@@ -191,6 +204,30 @@ CONTAINS
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
     CLASS(t_RestartDescriptor), POINTER :: restartDescriptor
     CHARACTER(LEN = *), PARAMETER :: routine = 'mo_hydro_ocean_run:perform_ho_stepping'
+
+    TYPE(eventGroup), POINTER           :: checkpointEventGroup => NULL()
+
+    TYPE(timedelta), POINTER            :: model_time_step => NULL()
+
+    TYPE(datetime), POINTER             :: mtime_current     => NULL()
+    TYPE(datetime), POINTER             :: eventRefDate      => NULL(), &
+         &                                 eventStartDate    => NULL(), &
+         &                                 eventEndDate      => NULL()
+    TYPE(datetime), POINTER             :: checkpointRefDate => NULL(), &
+         &                                 restartRefDate    => NULL()
+
+    TYPE(timedelta), POINTER            :: eventInterval   => NULL()
+    TYPE(event), POINTER                :: checkpointEvent => NULL()
+    TYPE(event), POINTER                :: restartEvent    => NULL()
+    
+    INTEGER                             :: checkpointEvents, ierr
+    LOGICAL                             :: lwrite_checkpoint, lret
+
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)    :: dstring
+    CHARACTER(len=MAX_MTIME_ERROR_STR_LEN) :: errstring
+
+    LOGICAL :: l_isStartdate, l_isExpStopdate, l_isRestart, l_isCheckpoint, l_doWriteRestart
+    
     !------------------------------------------------------------------
 
     patch_2d      => patch_3d%p_patch_2d(1)
@@ -205,14 +242,13 @@ CONTAINS
 
     patch_2d => patch_3d%p_patch_2d(jg)
 
-    ! CALL datetime_to_string(datestring, datetime)
-
-    time_config%sim_time(:) = 0.0_wp
+    ! CALL datetime_to_string(datestring, this_datetime)
 
     !------------------------------------------------------------------
     jstep0 = 0
+
     restartAttributes => getAttributesForRestarting()
-    IF (ASSOCIATED(restartAttributes) .AND. .NOT. time_config%is_relative_time) THEN
+    IF (ASSOCIATED(restartAttributes)) THEN
       ! get start counter for time loop from restart file:
       jstep0 = restartAttributes%getInteger("jstep")
     END IF
@@ -223,31 +259,90 @@ CONTAINS
 
     restartDescriptor => createRestartDescriptor("oce")
 
+    ! set events, group and the events
+
+    CALL message('','')
+
+    eventRefDate   => time_config%tc_exp_refdate
+    eventStartDate => time_config%tc_exp_startdate
+    eventEndDate   => time_config%tc_exp_stopdate
+
+    ! for debugging purposes the referenece (anchor) date for checkpoint
+    ! and restart may be switched to be relative to current jobs start
+    ! date instead of the experiments start date.
+    
+    IF (time_config%is_relative_time) THEN
+      checkpointRefDate => time_config%tc_startdate
+      restartRefDate    => time_config%tc_startdate
+    ELSE
+      checkpointRefDate => time_config%tc_exp_startdate
+      restartRefDate    => time_config%tc_exp_startdate
+    ENDIF
+    
+    ! create an event manager, ie. a collection of different events
+    CALL initEventManager(time_config%tc_exp_refdate)
+
+    ! --- create an event group for checkpointing and restart
+    checkpointEvents =  addEventGroup('checkpointEventGroup')
+    checkpointEventGroup => getEventGroup(checkpointEvents)
+    
+    ! --- --- create checkpointing event
+    eventInterval  => time_config%tc_dt_checkpoint
+    checkpointEvent => newEvent('checkpoint', checkpointRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
+    IF (ierr /= no_Error) THEN
+       CALL mtime_strerror(ierr, errstring)
+       CALL finish('perform_ho_timeloop', errstring)
+    ENDIF
+    lret = addEventToEventGroup(checkpointEvent, checkpointEventGroup)
+
+    ! --- --- create restart event, ie. checkpoint + model stop
+    eventInterval  => time_config%tc_dt_restart
+    restartEvent => newEvent('restart', restartRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
+    IF (ierr /= no_Error) THEN
+       CALL mtime_strerror(ierr, errstring)
+       CALL finish('perform_ho_timeloop', errstring)
+    ENDIF
+    lret = addEventToEventGroup(restartEvent, checkpointEventGroup)
+
+    CALL printEventGroup(checkpointEvents)
+
+    ! set time loop properties
+    model_time_step => time_config%tc_dt_model
+
+    mtime_current => this_datetime
+    
+    CALL message('','')
+    CALL datetimeToString(mtime_current, dstring)
+    WRITE(message_text,'(a,a)') 'Start date of this run: ', dstring
+    CALL message('',message_text)
+    CALL datetimeToString(time_config%tc_stopdate, dstring)
+    WRITE(message_text,'(a,a)') 'Stop date of this run:  ', dstring
+    CALL message('',message_text)
+    CALL message('','')
+
     !------------------------------------------------------------------
     ! call the dynamical core: start the time loop
     !------------------------------------------------------------------
     CALL timer_start(timer_total)
 
-    IF(lhamocc) THEN
-     if(ltimer)CALL timer_start(timer_bgc_inv)
-     CALL message ('start of time loop', 'HAMOCC inventories', io_stdo_bgc)
-     if(ltimer)CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
-    CALL timer_stop(timer_bgc_inv)
-    ENDIF
+    jstep = jstep0
+    TIME_LOOP: DO
+      
+      IF (lhamocc) THEN
+        IF (ltimer) CALL timer_start(timer_bgc_inv)
+        CALL message ('start of time loop', 'HAMOCC inventories', io_stdo_bgc)
+        IF (ltimer) CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
+        CALL timer_stop(timer_bgc_inv)
+      ENDIF
 
-    time_loop: DO jstep = (jstep0+1), (jstep0+nsteps)
-      ! write(0,*) "nold nnew=", nold(1), nnew(1)
+      jstep = jstep + 1
+      ! update model date and time mtime based
+      mtime_current = mtime_current + model_time_step
 
-      CALL datetime_to_string(datestring, datetime)
+      CALL datetimeToString(mtime_current, datestring)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
       CALL message (TRIM(routine), message_text)
-      
-      ! Set model time - now before doing the calculation:
-      !  - datetime refers to the currently calculating timestep
-      CALL add_time(dtime,0,0,0,datetime)
-      ! Not nice, but the name list output requires this - needed?
-      time_config%sim_time(1) = time_config%sim_time(1) + dtime
-      
+            
       start_detail_timer(timer_extra22,6)
       CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
       stop_detail_timer(timer_extra22,6)
@@ -264,16 +359,14 @@ CONTAINS
       start_timer(timer_upd_flx,3)
       IF (surface_module == 1) THEN
         CALL update_surface_flux( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, surface_fluxes, &
-          & jstep, datetime, operators_coefficients)
+          & jstep, mtime_current, operators_coefficients)
       ELSEIF (surface_module == 2) THEN
         CALL update_ocean_surface( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, surface_fluxes, p_sfc, &
-          & jstep, datetime, operators_coefficients)
+          & jstep, mtime_current, operators_coefficients)
       ENDIF
 
     
-
-
-      IF(lhamocc)CALL update_bgc_bcond( patch_3d, ext_data_bgc, jstep, datetime)
+      IF(lhamocc)CALL update_bgc_bcond( patch_3d, ext_data_bgc, jstep, this_datetime)
       stop_timer(timer_upd_flx,3)
 
       start_detail_timer(timer_extra22,4)
@@ -315,7 +408,7 @@ CONTAINS
        CALL output_ocean(              &
          & patch_3d=patch_3d,          &
          & ocean_state=ocean_state,    &
-         & datetime=datetime,          &
+         & this_datetime=mtime_current, &
          & surface_fluxes=surface_fluxes, &
          & sea_ice=sea_ice,            &
          & hamocc=hamocc_state,        &
@@ -359,7 +452,7 @@ CONTAINS
         ! check if vertical and horizontal fluxes add to 0
 !         ocean_state(jg)%p_diag%w
         CALL horizontal_mean(values=ocean_state(jg)%p_diag%w, weights=patch_2d%cells%area(:,:), &
-          & in_subset=patch_2d%cells%owned, mean=verticalMeanFlux, start_level=2, end_level=n_zlev-1)
+          & in_subset=patch_2d%cells%owned, mean=verticalMeanFlux, start_level=2, end_level=n_zlev)
         
         DO level=2, n_zlev-1
           CALL debug_printValue(description="Mean vertical flux at", value=REAL(level,wp),  &
@@ -386,12 +479,6 @@ CONTAINS
         stop_timer(timer_tracer_ab,1)
       ENDIF
 
-!       ! One integration cycle finished. Set model time.
-!       CALL add_time(dtime,0,0,0,datetime)
-! 
-!       ! Not nice, but the name list output requires this
-!       time_config%sim_time(1) = time_config%sim_time(1) + dtime
-
       ! perform accumulation for special variables
       start_detail_timer(timer_extra20,5)     
       IF (no_tracer>=1) THEN
@@ -402,7 +489,7 @@ CONTAINS
         ! calculate diagnostic barotropic stream function
         CALL calc_psi (patch_3d, ocean_state(jg)%p_diag%u(:,:,:),         &
           & patch_3D%p_patch_1d(1)%prism_thick_c(:,:,:),                  &
-          & ocean_state(jg)%p_diag%u_vint, datetime)
+          & ocean_state(jg)%p_diag%u_vint, mtime_current)
         CALL dbg_print('calc_psi: u_vint' ,ocean_state(jg)%p_diag%u_vint, str_module, 3, in_subset=patch_2d%cells%owned)
           
         ! calculate diagnostic barotropic stream function with vn
@@ -410,7 +497,7 @@ CONTAINS
     !   CALL calc_psi_vn (patch_3d, ocean_state(jg)%p_prog(nold(1))%vn,   &
     !     & patch_3D%p_patch_1d(1)%prism_thick_e(:,:,:),                  &
     !     & operators_coefficients,                                       &
-    !     & ocean_state(jg)%p_diag%u_vint, ocean_state(jg)%p_diag%v_vint, datetime)
+    !     & ocean_state(jg)%p_diag%u_vint, ocean_state(jg)%p_diag%v_vint, mtime_current)
     !   CALL dbg_print('calc_psi_vn: u_vint' ,ocean_state(jg)%p_diag%u_vint, str_module, 5, in_subset=patch_2d%cells%owned)
     !   CALL dbg_print('calc_psi_vn: v_vint' ,ocean_state(jg)%p_diag%v_vint, str_module, 5, in_subset=patch_2d%cells%owned)
       ENDIF
@@ -442,38 +529,71 @@ CONTAINS
       CALL perform_accumulation(nnew(1),0)
 
       CALL output_ocean( patch_3d, ocean_state, &
-        &                datetime,              &
+        &                mtime_current,              &
         &                surface_fluxes,             &
         &                sea_ice,                 &
         &                hamocc_state,            &
         &                jstep, jstep0)
       
+      CALL reset_accumulation
       ! send and receive coupling fluxes for ocean at the end of time stepping loop
       IF (iforc_oce == Coupled_FluxFromAtmo) &  !  14
-        &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as, datetime)
-!       &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as%fu10, datetime)
-!       &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, datetime)
+        &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as, mtime_current)
+!       &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as%fu10, mtime_current)
+!       &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, mtime_current)
 
-  
       start_detail_timer(timer_extra21,5)
+      
       ! Shift time indices for the next loop
       ! this HAS to ge into the restart files, because the start with the following loop
       CALL update_time_indices(jg)
-  
+
       ! update intermediate timestepping variables for the tracers
       CALL update_time_g_n(ocean_state(jg))
 
-      ! write a restart or checkpoint file
-      IF (MOD(jstep,n_checkpoints())==0) THEN
+      ! check whether time has come for writing restart file
+      ! default is to assume we do not write a checkpoint/restart file
+      lwrite_checkpoint = .FALSE.
+      ! if thwe model is not supposed to write output, do not write checkpoints
+      IF (.NOT. output_mode%l_none ) THEN
+        ! to clarify the decision tree we use shorter and more expressive names:
+        
+        l_isStartdate    = (time_config%tc_startdate == mtime_current)
+        l_isExpStopdate  = (time_config%tc_exp_stopdate == mtime_current)
+        l_isRestart      = isCurrentEventActive(restartEvent, mtime_current)
+        l_isCheckpoint   = isCurrentEventActive(checkpointEvent, mtime_current)
+        l_doWriteRestart = time_config%tc_write_restart
+        
+        IF ( &
+             !  if normal checkpoint or restart cycle has been reached, i.e. checkpoint+model stop
+             &         (l_isRestart .OR. l_isCheckpoint)                     &
+             &  .AND.                                                        &
+             !  and the current date differs from the start date
+             &        .NOT. l_isStartdate                                    &
+             &  .AND.                                                        &
+             !  and end of run has not been reached or restart writing has been disabled
+             &        (.NOT. l_isExpStopdate .OR. l_doWriteRestart)          &
+             & ) THEN
+          lwrite_checkpoint = .TRUE.
+        END IF
+      END IF
+
+      IF (lwrite_checkpoint) THEN
           CALL restartDescriptor%updatePatch(patch_2d, &
-                                            &opt_sim_time=time_config%sim_time(1), &
                                             &opt_nice_class=1, &
                                             &opt_ocean_zlevels=n_zlev, &
                                             &opt_ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:), &
                                             &opt_ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
-          CALL restartDescriptor%writeRestart(datetime, jstep)
+          CALL restartDescriptor%writeRestart(mtime_current, jstep)
       END IF
 
+      stop_detail_timer(timer_extra21,5)
+      
+      IF (mtime_current >= time_config%tc_stopdate) THEN
+        ! leave time loop
+        EXIT TIME_LOOP
+      END IF
+      
       ! check cfl criterion
       IF (cfl_check) THEN
         CALL check_cfl_horizontal(ocean_state(jg)%p_prog(nnew(1))%vn, &
@@ -493,32 +613,17 @@ CONTAINS
           & cfl_stop_on_violation,&
           & cfl_write)
       END IF
-      
-      stop_detail_timer(timer_extra21,5)
-
-    ENDDO time_loop
+            
+    ENDDO TIME_LOOP
     
-    IF(lhamocc) THEN
-     if(ltimer)CALL timer_start(timer_bgc_inv)
-     CALL message ('end of time loop', 'HAMOCC inventories', io_stdo_bgc)
-     CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
-     if(ltimer)CALL timer_stop(timer_bgc_inv)
+    IF (lhamocc) THEN
+      if(ltimer) CALL timer_start(timer_bgc_inv)
+      CALL message ('end of time loop', 'HAMOCC inventories', io_stdo_bgc)
+      CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
+      if(ltimer) CALL timer_stop(timer_bgc_inv)
     ENDIF
-
-    IF (write_last_restart) THEN
-        CALL restartDescriptor%updatePatch(patch_2d, &
-                                          &opt_sim_time=time_config%sim_time(1), &
-                                          &opt_nice_class=1, &
-                                          &opt_ocean_zlevels=n_zlev, &
-                                          &opt_ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:), &
-                                          &opt_ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
-        CALL restartDescriptor%writeRestart(datetime, jstep)
-    END IF
-
-    CALL deleteRestartDescriptor(restartDescriptor)
-
     CALL timer_stop(timer_total)
-
+  
   END SUBROUTINE perform_ho_stepping
   !-------------------------------------------------------------------------
 
@@ -563,14 +668,15 @@ CONTAINS
       ocean_state%p_diag%s = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
     ENDIF
     ocean_state%p_diag%h = ocean_state%p_prog(nold(1))%h
-    IF(no_tracer>=1)THEN
-      CALL calc_potential_density( patch_3d,                     &
-        & ocean_state%p_prog(nold(1))%tracer,&
-        & ocean_state%p_diag%rhopot )
-      CALL calculate_density( patch_3d,                        &
-        & ocean_state%p_prog(nold(1))%tracer, &
-        & ocean_state%p_diag%rho )
-    ENDIF
+!    IF(no_tracer>=1)THEN
+!      CALL calc_potential_density( patch_3d,                     &
+!        & ocean_state%p_prog(nold(1))%tracer,&
+!       & ocean_state%p_diag%rhopot )
+!        
+!      CALL calculate_density( patch_3d,                        &
+!        & ocean_state%p_prog(nold(1))%tracer, &
+!        & ocean_state%p_diag%rho )
+!    ENDIF
 
     CALL update_ocean_statistics( &
       & ocean_state,            &
@@ -587,10 +693,12 @@ CONTAINS
       & patch_2d%verts%owned,   &
       & n_zlev)
 
+    CALL perform_accumulation(nnew(1),0)
 
     CALL write_name_list_output(jstep=0)
 
     CALL reset_ocean_statistics(ocean_state%p_acc,ocean_state%p_diag,surface_fluxes)
+    CALL reset_accumulation
     IF (i_sea_ice >= 1) CALL reset_ice_statistics(sea_ice%acc)
     IF (lhamocc) CALL reset_hamocc_statistics(hamocc_state%p_acc)
 

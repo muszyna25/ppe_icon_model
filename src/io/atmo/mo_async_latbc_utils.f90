@@ -74,23 +74,20 @@
     USE mo_sync,                ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, SYNC_C
     USE mo_initicon_types,      ONLY: t_initicon_state
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-    USE mtime,                  ONLY: event, newEvent, datetime, newDatetime,      &
+    USE mtime,                  ONLY: timedelta, newTimedelta, deallocateTimedelta, &
+         &                            event, newEvent, datetime, newDatetime,      &
          &                            isCurrentEventActive, deallocateDatetime,    &
          &                            MAX_DATETIME_STR_LEN, MAX_EVENTNAME_STR_LEN, &
          &                            MAX_TIMEDELTA_STR_LEN, getPTStringFromMS,    &
          &                            OPERATOR(>=), OPERATOR(-), OPERATOR(>),      &
-         &                            OPERATOR(/=), datetimeToString
-    USE mo_mtime_extensions,    ONLY: get_datetime_string, get_duration_string_real
-    USE mo_datetime,            ONLY: t_datetime
+         &                            OPERATOR(/=), datetimeToString, deallocateEvent, &
+         &                            OPERATOR(+)
     USE mo_time_config,         ONLY: time_config
     USE mo_limarea_config,      ONLY: latbc_config, generate_filename_mtime, LATBC_TYPE_EXT
     USE mo_ext_data_types,      ONLY: t_external_data
     USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime, nsteps, msg_level
     USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
     USE mo_initicon_config,     ONLY: init_mode
-    USE mtime_events,           ONLY: deallocateEvent
-    USE mtime_timedelta,        ONLY: timedelta, newTimedelta, deallocateTimedelta, &
-         &                            operator(+)
     USE mo_cdi,                 ONLY: streamOpenRead, streamClose, streamInqVlist, vlistInqTaxis, &
       &                               taxisInqVDate, taxisInqVTime
     USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
@@ -300,9 +297,9 @@
       ENDIF
 
       ! compute sim_start, sim_end in a formate appropriate for mtime
-      CALL get_datetime_string(sim_start, time_config%ini_datetime)
-      CALL get_datetime_string(sim_end, time_config%end_datetime)
-      CALL get_datetime_string(sim_cur_read, time_config%cur_datetime)
+      CALL datetimeToString(time_config%tc_startdate, sim_start)
+      CALL datetimeToString(time_config%tc_stopdate,sim_end)
+      CALL datetimeToString(time_config%tc_current_date,sim_cur_read)
 
       event_name = 'Prefetch input'
 
@@ -318,8 +315,8 @@
       prefetchEvent => newEvent(TRIM(event_name), TRIM(sim_start), &
            TRIM(sim_cur_read), TRIM(sim_end), td_string)
 
-      tdiff = (0.5_wp*dtime)
-      CALL get_duration_string_real(tdiff, tdiff_string)
+      tdiff = 500*dtime
+      CALL getPTStringFromMS(NINT(tdiff,i8), tdiff_string)
       my_duration_slack => newTimedelta(tdiff_string)
 
       delta_dtime => newTimedelta(td_string)
@@ -372,9 +369,9 @@
       ELSE
         IF( my_process_is_work()) THEN  ! IF (PRESENT(p_patch)) THEN
           CALL pref_latbc_data( p_patch, p_nh_state, p_int_state, &
-              &                 time_config%cur_datetime, lopt_check_read=.FALSE., lopt_time_incr=.FALSE.)
+              &                 time_config%tc_current_date, lopt_check_read=.FALSE., lopt_time_incr=.FALSE.)
         ELSE IF( my_process_is_pref()) THEN
-          CALL pref_latbc_data( datetime=time_config%cur_datetime, &
+          CALL pref_latbc_data( current_datetime=time_config%tc_current_date, &
               &                 lopt_check_read=.FALSE., lopt_time_incr=.FALSE. )
           ! Inform compute PEs that we are done
           CALL async_pref_send_handshake()
@@ -385,9 +382,9 @@
 
       IF( my_process_is_work()) THEN  !IF (PRESENT(p_patch)) THEN
         CALL pref_latbc_data( p_patch, p_nh_state, p_int_state, &
-          &                   time_config%cur_datetime, lopt_check_read=.FALSE., lopt_time_incr=.TRUE.)
+          &                   time_config%tc_current_date, lopt_check_read=.FALSE., lopt_time_incr=.TRUE.)
       ELSE IF( my_process_is_pref()) THEN
-        CALL pref_latbc_data( datetime=time_config%cur_datetime, &
+        CALL pref_latbc_data( current_datetime=time_config%tc_current_date, &
           &                   lopt_check_read=.FALSE., lopt_time_incr=.TRUE.)
         ! Inform compute PEs that we are done
         CALL async_pref_send_handshake()
@@ -409,13 +406,13 @@
     !! Modified version by M. Pondkule, DWD (2014-02-11)
     !!
 
-    SUBROUTINE pref_latbc_data(p_patch, p_nh_state, p_int, datetime,&
+    SUBROUTINE pref_latbc_data(p_patch, p_nh_state, p_int, current_datetime,&
       &                        lopt_check_read, lopt_time_incr)
 
       TYPE(t_patch),          OPTIONAL,INTENT(IN)    :: p_patch
       TYPE(t_nh_state),       OPTIONAL,INTENT(INOUT) :: p_nh_state  !< nonhydrostatic state on the global domain
       TYPE(t_int_state),      OPTIONAL,INTENT(IN)    :: p_int
-      TYPE(t_datetime),       OPTIONAL,INTENT(INOUT) :: datetime       !< current time
+      TYPE(datetime),         OPTIONAL,INTENT(IN), POINTER :: current_datetime       !< current time
       LOGICAL,      INTENT(IN), OPTIONAL    :: lopt_check_read
       LOGICAL,      INTENT(IN), OPTIONAL    :: lopt_time_incr  !< increment latbc_datetime
 
@@ -425,15 +422,10 @@
       LOGICAL                               :: lcheck_read
       LOGICAL                               :: ltime_incr
       LOGICAL                               :: isactive
-      CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: sim_cur
 
       IF( my_process_is_work()) THEN
-         ! compute current datetime in a format appropriate for mtime
-         CALL get_datetime_string(sim_cur, datetime) ! time_config%cur_datetime)
-         mtime_date  => newDatetime(TRIM(sim_cur))
-
          ! check for event been active
-         isactive = isCurrentEventActive(prefetchEvent, mtime_date, my_duration_slack)
+         isactive = isCurrentEventActive(prefetchEvent, current_datetime, my_duration_slack)
       ENDIF
 
       ! flag to set wether compute processor need to read boundary
@@ -740,7 +732,7 @@
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
       CHARACTER(LEN=132)                    :: message_text
       CHARACTER(LEN=MAX_CHAR_LENGTH)        :: cdiErrorText
-      CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: dstringA, dstringB, sim_start
+      CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: dstringA, dstringB
       TYPE(datetime), POINTER               :: mtime_vdate, mtime_begin
 
       ! return if mtime_read is at least one full boundary data interval beyond the simulation end,
@@ -748,8 +740,7 @@
       IF(mtime_read >= mtime_end + delta_dtime) RETURN
 
       ! change simulation start date into mtime format:
-      CALL get_datetime_string(sim_start, time_config%ini_datetime)
-      mtime_begin  => newDatetime(TRIM(sim_start))
+      mtime_begin  => newDatetime(time_config%tc_exp_startdate)
 
       latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read, mtime_begin)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
@@ -1245,7 +1236,6 @@
       ! deallocating prefetch input event
       CALL deallocateEvent(prefetchEvent)
       ! deallocating Date and time
-      CALL deallocateDatetime(mtime_date)
       CALL deallocateDatetime(mtime_read)
       CALL deallocateDatetime(mtime_end)
       CALL deallocateTimedelta(my_duration_slack)
@@ -1555,19 +1545,14 @@
     !! Initial version by M. Pondkule, DWD (2014-08-15)
     !!
     SUBROUTINE update_lin_interpolation( step_datetime )
-      TYPE(t_datetime), INTENT(INOUT) :: step_datetime
-      TYPE(datetime), pointer :: mtime_step
+      TYPE(datetime), pointer  :: step_datetime
+      TYPE(datetime), pointer  :: mtime_step
       TYPE(timedelta), pointer :: delta_tstep
-      CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_step
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = modname//"::update_lin_interpolation"
 
 #ifndef NOMPI
-      ! compute current datetime in a format appropriate for mtime
-      CALL get_datetime_string(sim_step, step_datetime)
-      mtime_step  => newDatetime(TRIM(sim_step))
-
       delta_tstep => newTimedelta("PT0S")
-      delta_tstep = mtime_read - mtime_step
+      delta_tstep = mtime_read - step_datetime
 
       IF(delta_tstep%month /= 0) &
            CALL finish(routine, "time difference for reading boundary data cannot be more than a month.")
@@ -1580,7 +1565,6 @@
 
       ! deallocating mtime and deltatime
       CALL deallocateTimedelta(delta_tstep)
-      CALL deallocateDatetime(mtime_step)
 #endif
 
     END SUBROUTINE update_lin_interpolation

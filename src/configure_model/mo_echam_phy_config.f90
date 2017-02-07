@@ -39,6 +39,7 @@ MODULE mo_echam_phy_config
                             !   echam phyiscs package
                             !   1: dynamics and physics update sequentially
                             !   2: dynamics uses physics forcing for updating
+    LOGICAL  :: ldrymoist   !   .true.  physics assumes moist air dynamics
     LOGICAL  :: lrad        !<  .true. for radiation.
     REAL(wp) :: dt_rad      !<  [s] radiation time step
     LOGICAL  :: lvdiff      !<  .true. for vertical diffusion.
@@ -83,6 +84,7 @@ CONTAINS
     CALL message('','')
     CALL message(method_name,'dynamics physics coupling:')
     CALL print_value('    idcphycpl  ',echam_phy_config% idcphycpl)
+    CALL print_value('    ldrymoist  ',echam_phy_config% ldrymoist)
     CALL message('','')
     CALL message(method_name,'ECHAM6 physics configuration:')
     CALL print_value('    lrad       ',echam_phy_config% lrad     )
@@ -111,6 +113,11 @@ CONTAINS
   INTEGER FUNCTION get_idcphycpl()
     get_idcphycpl = echam_phy_config%idcphycpl
   END FUNCTION get_idcphycpl
+  !>
+  !!
+  LOGICAL FUNCTION get_ldrymoist()
+    get_ldrymoist = echam_phy_config%ldrymoist
+  END FUNCTION get_ldrymoist
   !>
   !!
   LOGICAL FUNCTION get_lrad()

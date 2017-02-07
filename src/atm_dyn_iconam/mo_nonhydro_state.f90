@@ -52,8 +52,9 @@ MODULE mo_nonhydro_state
   USE mo_nonhydrostatic_config,ONLY: itime_scheme, igradp_method, ndyn_substeps_max
   USE mo_dynamics_config,      ONLY: nsav1, nsav2
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: iforcing, ntracer, iqm_max,                &
+  USE mo_run_config,           ONLY: iforcing, ntracer, iqm_max, iqt,           &
     &                                iqv, iqc, iqi, iqr, iqs, iqtvar,           &
+    &                                ico2, ich4, in2o, io3,                     &
     &                                iqni, iqni_nuc, iqg, iqh, iqnr, iqns,      & 
     &                                iqng, iqnh, iqnc, inccn, ininpot, ininact, &
     &                                iqtke, nqtendphy, ltestcase, lart, msg_level
@@ -732,6 +733,86 @@ MODULE mo_nonhydro_state
             &                           "mode_iau_fg_in","mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
         END IF ! iqs
 
+        !CO2
+        IF ( iqt <= ico2 .AND. ico2 <= ntracer ) THEN
+          CALL add_ref( p_prog_list, 'tracer',                                         &
+            &           TRIM(vname_prefix)//'qco2'//suffix, p_prog%tracer_ptr(ico2)%p_3d, &
+            &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+            &           t_cf_var(TRIM(vname_prefix)//'qco2',                           &
+            &            'kg kg-1','co2_mass_mixing_ratio', datatype_flt),             &
+            &           grib2_var(0,14,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
+            &           ldims=shape3d_c,                                               &
+            &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
+            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name        = TRIM(vname_prefix)//'qco2'//suffix,  &
+            &                       ihadv_tracer=advconf%ihadv_tracer(ico2),           &
+            &                       ivadv_tracer=advconf%ivadv_tracer(ico2)),          & 
+            &           vert_interp=create_vert_interp_metadata(                       &
+            &                       vert_intp_type=vintp_types("P","Z","I"),           &
+            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
+            &                       lower_limit=0.0_wp )                               )
+        END IF ! ico2
+
+        !CH4
+        IF ( iqt <= ich4 .AND. ich4 <= ntracer ) THEN
+          CALL add_ref( p_prog_list, 'tracer',                                         &
+            &           TRIM(vname_prefix)//'qch4'//suffix, p_prog%tracer_ptr(ich4)%p_3d, &
+            &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+            &           t_cf_var(TRIM(vname_prefix)//'qch4',                           &
+            &            'kg kg-1','ch4_mass_mixing_ratio', datatype_flt),             &
+            &           grib2_var(0,14,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
+            &           ldims=shape3d_c,                                               &
+            &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
+            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name        = TRIM(vname_prefix)//'qch4'//suffix,  &
+            &                       ihadv_tracer=advconf%ihadv_tracer(ich4),           &
+            &                       ivadv_tracer=advconf%ivadv_tracer(ich4)),          & 
+            &           vert_interp=create_vert_interp_metadata(                       &
+            &                       vert_intp_type=vintp_types("P","Z","I"),           &
+            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
+            &                       lower_limit=0.0_wp )                               )
+        END IF ! ich4
+
+        !N2O
+        IF ( iqt <= in2o .AND. in2o <= ntracer ) THEN
+          CALL add_ref( p_prog_list, 'tracer',                                         &
+            &           TRIM(vname_prefix)//'qn2o'//suffix, p_prog%tracer_ptr(in2o)%p_3d, &
+            &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+            &           t_cf_var(TRIM(vname_prefix)//'qn2o',                           &
+            &            'kg kg-1','n2o_mass_mixing_ratio', datatype_flt),             &
+            &           grib2_var(0,14,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
+            &           ldims=shape3d_c,                                               &
+            &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
+            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name        = TRIM(vname_prefix)//'qn2o'//suffix,  &
+            &                       ihadv_tracer=advconf%ihadv_tracer(in2o),           &
+            &                       ivadv_tracer=advconf%ivadv_tracer(in2o)),          & 
+            &           vert_interp=create_vert_interp_metadata(                       &
+            &                       vert_intp_type=vintp_types("P","Z","I"),           &
+            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
+            &                       lower_limit=0.0_wp )                               )
+        END IF ! in2o
+
+        !O3
+        IF ( iqt <= io3 .AND. io3 <= ntracer ) THEN
+          CALL add_ref( p_prog_list, 'tracer',                                         &
+            &           TRIM(vname_prefix)//'qo3'//suffix, p_prog%tracer_ptr(io3)%p_3d, &
+            &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+            &           t_cf_var(TRIM(vname_prefix)//'qo3',                            &
+            &            'kg kg-1','o3_mass_mixing_ratio', datatype_flt),              &
+            &           grib2_var(0,14,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
+            &           ldims=shape3d_c,                                               &
+            &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
+            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name        = TRIM(vname_prefix)//'qo3'//suffix,   &
+            &                       ihadv_tracer=advconf%ihadv_tracer(io3),            &
+            &                       ivadv_tracer=advconf%ivadv_tracer(io3)),           & 
+            &           vert_interp=create_vert_interp_metadata(                       &
+            &                       vert_intp_type=vintp_types("P","Z","I"),           &
+            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
+            &                       lower_limit=0.0_wp )                               )
+        END IF ! io3
+
         !CK>
         IF (ANY(atm_phy_nwp_config(1:n_dom)%inwp_gscp==2)) THEN
           !QG
@@ -1130,7 +1211,10 @@ MODULE mo_nonhydro_state
             & grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL),          &
             & ldims=shape3d_c,                                                  &
             & tlev_source=TLEV_NNOW_RCF,                                        &              ! output from nnow_rcf slice
-            & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.),            &
+            & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,             &
+            &                       name        = TRIM(name)//suffix,           &
+            &                       ihadv_tracer=advconf%ihadv_tracer(jt),      &
+            &                       ivadv_tracer=advconf%ivadv_tracer(jt)),     &
             & vert_interp=create_vert_interp_metadata(                          &
             &             vert_intp_type=vintp_types("P","Z","I"),              & 
             &             vert_intp_method=VINTP_METHOD_LIN,                    &

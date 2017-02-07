@@ -21,7 +21,6 @@
 !! as well as an inquiry function for the declination (if it has been
 !! calculated).
 !!
-!! @author Bjorn Stevens, MPI-M, Hamburg (2009-09-19)
 !! @author Sebastian Rast, MPI-M, Hamburg (2015-02-17)
 !!
 !! $ID: n/a$
@@ -36,15 +35,16 @@
 !! 
 !! @par Code modified from original source written or modified by S.J. Lorenz,
 !!   Uni Bremen, (1996-07, 1998-07); U. Schlese, DKRZ, (1998-09)  L. Kornblueh,
-!!   MPI-M  (1998-12, 2003-02).
+!!   MPI-M  (1998-12, 2003-02), Bjorn Stevens, (2009-09-19).
 !!
 !
 MODULE mo_psrad_orbit
 
-  USE mo_kind,      ONLY : wp
+  USE mo_kind,      ONLY : wp, i8
   USE mo_math_constants, ONLY : pi
   USE mo_exception, ONLY : finish, message, message_text, em_param
-  USE mo_datetime,  ONLY : t_datetime
+  USE mtime, ONLY: julianday, newJulianday, deallocateJulianday, getJulianDayFromDatetime, &
+       &           datetime, no_of_ms_in_a_day
   USE mo_psrad_orbit_config, ONLY: psrad_orbit_config
 
   IMPLICIT NONE
@@ -823,25 +823,26 @@ CONTAINS
   !>
   !! @brief Returns orbit time
   !
-  SUBROUTINE get_orbit_times( datetime,  &
+  SUBROUTINE get_orbit_times( current_datetime,  &
 !!$    lrad_date,          lyr_perp,    &
 !!$  & nmonth,        yr_perp,          &
                            & time_of_day, orbit_date    )
 
-    TYPE(t_datetime), INTENT(IN) :: datetime
+    TYPE(datetime), POINTER, INTENT(IN) :: current_datetime
 !!$    LOGICAL, INTENT (IN)    :: lrad_date, lyr_perp
 !!$    INTEGER, INTENT (IN)    :: nmonth, yr_perp
     REAL (wp), INTENT (OUT) :: time_of_day, orbit_date
 
+    TYPE(julianday), POINTER :: jd 
 !!$    TYPE(julian_date) :: date_now, date_pal
 !!$    TYPE(ly360_date)  :: idate_format
-    TYPE(t_datetime)  :: valid_date
+!!$    TYPE(datetime), POINTER  :: valid_date
 !!$
 !!$    INTEGER  :: iyr, imo, idy, isec
 !!$    REAL(wp) :: rsec, daylen, zdy, zdy_mar0, zscr
 
 !!$    if (lrad_date) then
-      valid_date = datetime
+!!$      valid_date = datetime
 !!$    else
 !!$      valid_date = datetime
 !!$    end if
@@ -850,7 +851,7 @@ CONTAINS
 !!$    CALL get_date_components(valid_date, year=iyr, month=imo, day=idy)
 !!$    CALL TC_get(valid_date, second=jsec)
 !!$    time_of_day = (REAL(jsec, dp)/day_len())*2.0_dp*pi
-    time_of_day = (valid_date%caltime-0.5_wp)*2.0_wp*pi
+!!$    time_of_day = (valid_date%caltime-0.5_wp)*2.0_wp*pi
     !
     ! Calculate orbital model input for a real orbit, with the possibility
     ! of a perpetual year, as determined by (lyr_perp, yr_perp)
@@ -896,7 +897,12 @@ CONTAINS
 !!$      orbit_date = MOD(zscr/get_year_len(),1.0_wp)*2.0_wp*pi
 !!$    END IF
 
-    orbit_date = valid_date%calday + valid_date%caltime
+    jd => newJulianday(0_i8, 0_i8)
+    CALL getJulianDayFromDatetime(current_datetime, jd) 
+    orbit_date = REAL(jd%day,wp) + REAL(jd%ms,wp)/REAL(no_of_ms_in_a_day,wp)
+    time_of_day = (REAL(jd%ms,wp)/REAL(no_of_ms_in_a_day,wp)-0.5_wp)*2.0_wp*pi
+    CALL deallocateJulianday(jd)
+    
   END SUBROUTINE get_orbit_times
 
 END MODULE mo_psrad_orbit
