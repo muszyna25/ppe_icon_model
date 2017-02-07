@@ -55,23 +55,23 @@ CONTAINS
   !!  updated to echam-6.3.01 by Monika Esch (2014-11)
   !!
   SUBROUTINE atm_exchange_coeff( kproma, kbdim, klev, klevm1, klevp1,     &! in
-                               & pstep_len, pcoriol,                      &! in
+                               & pdtime, pcoriol,                         &! in
                                & pum1, pvm1, ptm1, ptvm1, pgeom1, pgeohm1,&! in
                                & pqm1, pxm1,                              &! in
                                & papm1, paphm1, paclc,                    &! in
                                & pustarm, pthvvar,                        &! in
                                & ptkem1,                                  &! in
                                & pcptgz, ihpbl, pghabl,                   &! out
-                               & pqshear, pzthvvar, ptkevn,               &! out
+                               & pzthvvar, ptkevn,                        &! out
                                & pcfm, pcfh, pcfv, pcftke, pcfthv, pprfac,&! out
-                               & prhoh, ptheta_b, pthetav_b, pthetal_b,   &! out
+                               & ptheta_b, pthetav_b, pthetal_b,          &! out
                                & pqsat_b, plh_b,                          &! out
                                & pri, pmixlen                             )
     ! Arguments
 
     INTEGER, INTENT(IN) :: kproma, kbdim
     INTEGER, INTENT(IN) :: klev, klevm1, klevp1
-    REAL(wp),INTENT(IN) :: pstep_len
+    REAL(wp),INTENT(IN) :: pdtime
     REAL(wp),INTENT(IN) :: pcoriol(kbdim)   !< Coriolis parameter: 2*omega*sin(lat)
     REAL(wp),INTENT(IN) :: pxm1(kbdim,klev)
     REAL(wp),INTENT(IN) :: ptvm1(kbdim,klev)
@@ -91,14 +91,12 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: ptkevn  (kbdim,klevm1) !< TKE at intermediate time step
     REAL(wp),INTENT(OUT) :: pcftke  (kbdim,klevm1) !< exchange coeff. for TKE
     REAL(wp),INTENT(OUT) :: pcfthv  (kbdim,klevm1) !< exchange coeff. for var. of theta_v
-    REAL(wp),INTENT(OUT) :: pqshear (kbdim,klevm1) !< vertical gradient of qv
     REAL(wp),INTENT(OUT) :: pcfm    (kbdim,klevm1) !< exchange coeff. for u, v
     REAL(wp),INTENT(OUT) :: pcfh    (kbdim,klevm1) !< exchange coeff. for cptgz and tracers
     REAL(wp),INTENT(OUT) :: pcfv    (kbdim,klevm1) !< exchange coeff. for variance of qx
     REAL(wp),INTENT(OUT) :: pzthvvar(kbdim,klevm1) !< variance of theta_v at interm. step
     REAL(wp),INTENT(OUT) :: pcptgz  (kbdim,klev)   !< dry static energy
     REAL(wp),INTENT(OUT) :: pprfac  (kbdim,klevm1) !< prefactor for the exchange coeff.
-    REAL(wp),INTENT(OUT) :: prhoh   (kbdim,klevm1) !< air density at half levels
 
     ! _b denotes the values at the bottom level (the klev-th full level)
     REAL(wp),INTENT(OUT) :: ptheta_b (kbdim)  !< potential temperature
@@ -298,7 +296,6 @@ CONTAINS
         zshear = (zdusq+zdvsq)*(grav/zdgh(jl,jk))**2
         zri    = zbuoy/MAX(zshear,eps_shear)
 
-        pqshear(jl,jk) = zqddif   ! store for variance production
         pri(jl,jk) = zri          ! save for output
 
         ! stability functions for heat and momentum (Mauritsen et al. 2007) 
@@ -388,8 +385,8 @@ CONTAINS
         ELSE 
            zzb=km(jl,jk)*zshear-2._wp*kh(jl,jk)*zbuoy
         END IF
-        zdisl=ldis/(c_e*pstep_len)
-        zktest=1._wp+(zzb*pstep_len+SQRT(ptkem1(jl,jk))*2._wp)/zdisl
+        zdisl=ldis/(c_e*pdtime)
+        zktest=1._wp+(zzb*pdtime+SQRT(ptkem1(jl,jk))*2._wp)/zdisl
         IF (zktest.LE.1._wp) THEN
            ptkevn(jl,jk)=tke_min
         ELSE
@@ -410,7 +407,7 @@ CONTAINS
 
         zthvprod = 2._wp*kh(jl,jk)*zthvirdif**2        ! production rate
         zthvdiss = pthvvar(jl,jk)*ztkesq/(da1*lmix)    ! dissipation rate
-        pzthvvar(jl,jk) = pthvvar(jl,jk)+(zthvprod-zthvdiss)*pstep_len
+        pzthvvar(jl,jk) = pthvvar(jl,jk)+(zthvprod-zthvdiss)*pdtime
         pzthvvar(jl,jk) = MAX(tke_min,pzthvvar(jl,jk))
 
         ! Exchange coefficients for
@@ -435,9 +432,8 @@ CONTAINS
         ! Air density at half levels, and the prefactor that will be multiplied
         ! later to the exchange coeffcients to build a linear algebraic equation set.
 
-        ztvm = (ptvm1(jl,jk)+ptvm1(jl,jk+1))*0.5_wp   ! Tv at half level k+1/2
-        prhoh (jl,jk) = paphm1(jl,jk+1)/(ztvm*rd)     ! air density
-        pprfac(jl,jk) = prhoh (jl,jk)/zdgh(jl,jk)     ! air density/dz/g
+        ztvm = (ptvm1(jl,jk)+ptvm1(jl,jk+1))*0.5_wp           ! Tv at half level k+1/2
+        pprfac(jl,jk) = paphm1(jl,jk+1)/(ztvm*rd*zdgh(jl,jk)) ! p/(Tv*R)/(dz*g) = air density/(dz*g)
 
 361   END DO
 372 END DO
@@ -467,9 +463,9 @@ CONTAINS
                                & pcfh_gbm, pcfh_tile,                    &! out
                                & pcfv_sfc,                               &! out
                                & pcftke_sfc, pcfthv_sfc,                 &! out
-                               & pprfac_sfc, prho_sfc,                   &! out
+                               & pprfac_sfc,                             &! out
                                & ptkevn_sfc, pthvvar_sfc,                &! out
-                               & pqshear_sfc, pustarm,                   &! out
+                               & pustarm,                                &! out
                                & pch_tile,                               &! out
                                & pbn_tile, pbhn_tile, pbm_tile, pbh_tile,&! out
                                & paz0lh,                                 &! in, optional
@@ -532,11 +528,9 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pcfthv_sfc  (kbdim)  !< exchange coeff. of the variance of 
                                                  !<  theta_v
     REAL(wp),INTENT(OUT) :: pprfac_sfc  (kbdim)  !< prefactor for exchange coefficients
-    REAL(wp),INTENT(OUT) :: prho_sfc    (kbdim)  !< air density
     REAL(wp),INTENT(INOUT) :: ptkevn_sfc (kbdim)  !< boundary condition (sfc value) of TKE
     REAL(wp),INTENT(OUT) :: pthvvar_sfc(kbdim)   !< boundary condition (sfc value)
                                                  !< of the variance of theta_v
-    REAL(wp),INTENT(OUT) :: pqshear_sfc(kbdim)   !< vertical shear of total water conc.
     REAL(wp),INTENT(OUT) :: pustarm    (kbdim)   !< friction velocity, grid-box mean
     REAL(wp),INTENT(OUT) :: pwstar     (kbdim)   !< convective velocity scale, grid-box mean
     REAL(wp),INTENT(INOUT) ::pwstar_tile(kbdim,ksfc_type)!< convective velocity scale, 
@@ -561,9 +555,7 @@ CONTAINS
 
     REAL(wp) :: zdu2   (kbdim,ksfc_type) !<
     REAL(wp) :: zcfnch (kbdim,ksfc_type) !<
-    REAL(wp) :: zcsat  (kbdim,ksfc_type) !<
     REAL(wp) :: zustar (kbdim,ksfc_type) !< friction velocity
-    REAL(wp) :: ztvsfc (kbdim)           !< virtual temperature at surface
     REAL(wp) :: zqts   (kbdim,ksfc_type)
     REAL(wp) :: zthetavmit (kbdim,ksfc_type) ! virtual potential temperature at half level
     REAL(wp) :: zdthetal (kbdim,ksfc_type) !
@@ -903,27 +895,6 @@ CONTAINS
     pcfv_sfc(:) = 0._wp
 
     !-------------------------------------------------------------------------
-    ! Compute vertical shear of total water
-    !-------------------------------------------------------------------------
-    zcsat(:,:) = 1._wp
-
-    IF (idx_lnd<=ksfc_type) zcsat(1:kproma,idx_lnd)     = pcsat(1:kproma)
-
-    pqshear_sfc(:) = 0._wp ! initialization for weighted q_total at surface
-
-    DO jsfc = 1,ksfc_type
-      DO jls = 1,is(jsfc)
-! set index
-      js=loidx(jls,jsfc)
-        pqshear_sfc(js) =  pqshear_sfc(js) +  pqsat_tile(js,jsfc)                        &
-                              &      * zcsat(js,jsfc) * pfrc(js,jsfc)
-      ENDDO
-    ENDDO
-
-    pqshear_sfc(1:kproma) = ( pqm1_b(1:kproma)+pqxm1_b(1:kproma)                         &
-                          &  -pqshear_sfc(1:kproma) )*grav/pgeom1_b(1:kproma)
-
-    !-------------------------------------------------------------------------
     ! Diagnose friction velocity. The values of each individual surface type
     ! are used immediately below for computing the surface value of TKE;
     ! The grid-box mean is used in the next time step in subroutine
@@ -1008,22 +979,6 @@ CONTAINS
     ! thvvar at the surface
     pthvvar_sfc(1:kproma) = pthvvar_b(1:kproma)
 
-    !------------------------------------------------------------------------------
-    ! Compute the surface air density using surface temperature and humidity,
-    ! to be used in subroutine "vdiff_tendencies" for diagnosing the
-    ! turbulence-induced production of total water variance.
-    !------------------------------------------------------------------------------
-
-    prho_sfc(:) = 0._wp  ! Initialize the area weighted average
-
-    DO jsfc = 1,ksfc_type
-      DO jls = 1,is(jsfc)
-        js=loidx(jls,jsfc) ! set index
-
-        ztvsfc(js) = ptsfc(js,jsfc)*(1._wp + vtmpc1*zqts(js,jsfc))
-        prho_sfc(js) = prho_sfc(js) + zrrd*ppsfc(js)/ztvsfc(js)
-      END DO
-    END DO
 ! extra variable for land points:
 !    IF (idx_lnd<=ksfc_type) THEN
 !     jsfc = idx_lnd  ! land

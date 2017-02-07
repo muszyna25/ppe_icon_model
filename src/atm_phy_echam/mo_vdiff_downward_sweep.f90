@@ -38,7 +38,7 @@ CONTAINS
   SUBROUTINE vdiff_down( lsfc_mom_flux, lsfc_heat_flux,                 &! in
                        & kproma, kbdim, klev, klevm1, klevp1, ktrac,    &! in
                        & ksfc_type, idx_wtr, idx_ice, idx_lnd,          &! in
-                       & pstep_len,  pcoriol,   pfrc,                   &! in
+                       & pdtime,  pcoriol,   pfrc,                      &! in
                        & ptsfc_tile, pocu,      pocv,       ppsfc,      &! in
                        & pum1,       pvm1,      ptm1,       pqm1,       &! in
                        & pxlm1,      pxim1,     pxm1,       pxtm1,      &! in
@@ -54,7 +54,7 @@ CONTAINS
                        & pcfv,       pcftke,    pcfthv,                 &! out
                        & aa,         aa_btm,    bb,         bb_btm,     &! out
                        & pfactor_sfc, pcpt_tile,                        &! out
-                       & pcptgz,     prhoh,     pqshear,                &! out
+                       & pcptgz,                                        &! out
                        & pzthvvar,   pthvsig,   pztkevn,                &! out
                        & pch_tile,                                      &! out, for "nsurf_diag"
                        & pbn_tile,   pbhn_tile,                         &! out, for "nsurf_diag"
@@ -67,7 +67,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: lsfc_mom_flux, lsfc_heat_flux
     INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1, klevp1, ktrac
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
-    REAL(wp),INTENT(IN) :: pstep_len
+    REAL(wp),INTENT(IN) :: pdtime
 
     REAL(wp),INTENT(IN) ::          &
       & pcoriol   (kbdim)          ,&!< Coriolis parameter: 2*omega*sin(lat)
@@ -149,8 +149,6 @@ CONTAINS
       & pfactor_sfc(kbdim)         ,&!< prefactor for the exchange coeff.
       & pcpt_tile (kbdim,ksfc_type),&!< dry static energy at surface
       & pcptgz    (kbdim,klev)     ,&!< dry static energy
-      & prhoh     (kbdim,klev)     ,&!< air density at half levels
-      & pqshear   (kbdim,klev)     ,&!<
       & pzthvvar  (kbdim,klev)     ,&!<
       & pthvsig   (kbdim)          ,&
       & pztkevn   (kbdim,klev)       !< intermediate value of TKE
@@ -196,20 +194,18 @@ CONTAINS
     !----------------------------------------------------------------------
 
     CALL atm_exchange_coeff( kproma, kbdim, klev, klevm1, klevp1,     &! in
-                           & pstep_len, pcoriol,                      &! in
+                           & pdtime, pcoriol,                         &! in
                            & pum1, pvm1, ptm1, ptvm1, pgeom1, pgeohm1,&! in
                            & pqm1, pxm1,                              &! in
                            & papm1, paphm1, paclc, pustar,            &! in
                            & pthvvar, ptkem1,                         &! in
-                           & pcptgz (:,1:klev),   ihpbl(:), pghpbl(:),&! out
-                           & pqshear(:,1:klevm1),                     &! out
+                           & pcptgz,   ihpbl, pghpbl,                 &! out
                            & pzthvvar(:,1:klevm1),pztkevn(:,1:klevm1),&! out
-                           & pcfm   (:,1:klevm1), pcfh  (:,1:klevm1), &! out
-                           & pcfv   (:,1:klevm1), pcftke(:,1:klevm1), &! out
-                           & pcfthv (:,1:klevm1), zfactor(:,1:klevm1),&! out
-                           & prhoh  (:,1:klevm1),                     &! out, for "vdiff_tendencies"
-                           & ztheta_b(:), zthetav_b(:), zthetal_b(:), &! out, for "sfc_exchange_coeff"
-                           & zqsat_b(:),  zlh_b(:),                   &! out, for "sfc_exchange_coeff"
+                           & pcfm    (:,1:klevm1), pcfh  (:,1:klevm1),&! out
+                           & pcfv    (:,1:klevm1), pcftke(:,1:klevm1),&! out
+                           & pcfthv  (:,1:klevm1),zfactor(:,1:klevm1),&! out
+                           & ztheta_b, zthetav_b, zthetal_b,          &! out, for "sfc_exchange_coeff"
+                           & zqsat_b,  zlh_b,                         &! out, for "sfc_exchange_coeff"
                            & pri(:,1:klevm1), pmixlen(:,1:klevm1)     )! out, for output
 
     !TODO: LK check - intent out problem only 1:klevm1 is getting set
@@ -243,9 +239,8 @@ CONTAINS
                            & pcfh   (:,klev), pcfh_tile(:,:),       &! out
                            & pcfv   (:,klev),                       &! out
                            & pcftke (:,klev), pcfthv  (:,klev),     &! out
-                           & zfactor(:,klev), prhoh   (:,klev),     &! out
+                           & zfactor(:,klev),                       &! out
                            & pztkevn(:,klev), pzthvvar(:,klev),     &! out
-                           & pqshear(:,klev),                       &! out, for "vdiff_tendencies"
                            & pustar(:),                             &! out, for "atm_exchange_coeff" at next time step
                            & pch_tile(:,:),                         &! out, for "nsurf_diag"
                            & pbn_tile(:,:),   pbhn_tile(:,:),       &! out, for "nsurf_diag"
@@ -267,10 +262,10 @@ CONTAINS
     !      quantity subject to turbulent mixing.
     !-----------------------------------------------------------------------
 
-    zconst = tpfac1*pstep_len*grav*grav
+    zconst = tpfac1*pdtime*grav*grav
     zfactor(1:kproma,1:klevm1) = zfactor(1:kproma,1:klevm1)*zconst
 
-    zconst = tpfac1*pstep_len*grav/rd
+    zconst = tpfac1*pdtime*grav/rd
     zfactor(1:kproma,  klev)   = zfactor(1:kproma,  klev)  *zconst
 
     CALL matrix_setup_elim( kproma, kbdim, klev, klevm1, ksfc_type, itop, &! in
@@ -292,7 +287,7 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     CALL rhs_setup( kproma, kbdim, itop, klev, klevm1,    &! in
-                  & ksfc_type, ktrac, tpfac2, pstep_len,  &! in
+                  & ksfc_type, ktrac, tpfac2, pdtime,     &! in
                   & pum1, pvm1, pcptgz, pqm1,             &! in
                   & pxlm1, pxim1, pxvar, pxtm1, pxt_emis, &! in
                   & zrdpm, pztkevn, pzthvvar, aa,         &! in

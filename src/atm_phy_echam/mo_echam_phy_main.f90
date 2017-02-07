@@ -154,8 +154,6 @@ CONTAINS
     REAL(wp) :: zcpt_sfc_tile(nbdim,nsfc_type)  !< dry static energy at surface
 
     REAL(wp) :: zcptgz   (nbdim,nlev) !< dry static energy
-    REAL(wp) :: zrhoh    (nbdim,nlev) !< air density at half levels
-    REAL(wp) :: zqshear  (nbdim,nlev) !<
     REAL(wp) :: zthvvar  (nbdim,nlev) !< intermediate value of thvvar
     REAL(wp) :: ztkevn   (nbdim,nlev) !< intermediate value of tke
     REAL(wp) :: zch_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
@@ -578,8 +576,7 @@ CONTAINS
                      & zaa, zaa_btm, zbb, zbb_btm,      &! out, for "vdiff_up"
                      & zfactor_sfc(:),                  &! out, for "vdiff_up"
                      & zcpt_sfc_tile(:,:),              &! out, for "vdiff_up"
-                     & zcptgz(:,:), zrhoh(:,:),         &! out, for "vdiff_up"
-                     & zqshear(:,:),                    &! out, for "vdiff_up"
+                     & zcptgz(:,:),                     &! out, for "vdiff_up"
                      & zthvvar(:,:),                    &! out, for "vdiff_up"
                      & field%   thvsig(:,  jb),         &! out, for "cucall"
                      & ztkevn (:,:),                    &! out, for "vdiff_up"
