@@ -340,7 +340,7 @@ MODULE mo_initicon
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":read_dwdana"
-#ifndef __GFORTRAN__
+#if __GNUC__ < 6
     CHARACTER(LEN = :), ALLOCATABLE :: incrementsList(:)
 #else
     CHARACTER(LEN = 9) :: incrementsList_IAU(8)
@@ -397,7 +397,7 @@ MODULE mo_initicon
         CALL requestList%printInventory()
         IF(lconsistency_checks) THEN
 ! Workaround for GNU compiler (<6.0), which still does not fully support deferred length character arrays
-#ifndef __GFORTRAN__
+#if __GNUC__ < 6
             SELECT CASE(init_mode)
                 CASE(MODE_IAU)
                     incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so', 'h_snow', 'freshsnow']

@@ -19,7 +19,7 @@
 !!
 MODULE mo_limarea_nml
 
-  USE mo_kind,                ONLY: wp
+  USE mo_kind,                ONLY: wp, i8
   USE mo_exception,           ONLY: finish
   USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
@@ -30,7 +30,11 @@ MODULE mo_limarea_nml
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_limarea_config,      ONLY: latbc_config
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
-  USE mtime,                  ONLY: MAX_DATETIME_STR_LEN
+  USE mtime,                  ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,            &
+    &                               newTimedelta, deallocateTimedelta, OPERATOR(==),        &
+    &                               getPTStringFromMS, timedelta,                           &
+    &                               getTotalMilliSecondsTimeDelta, datetime, newDatetime,   &
+    &                               deallocateDatetime
 
   IMPLICIT NONE
   PRIVATE
@@ -51,6 +55,9 @@ MODULE mo_limarea_nml
   ! GRIB2 shortnames or NetCDF var names used for lateral boundary nudging.
   CHARACTER(LEN=filename_max) :: latbc_varnames_map_file  
 
+  !> module name
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_limarea_nml'
+
   NAMELIST /limarea_nml/ itype_latbc, dtime_latbc, nlev_latbc, latbc_filename,     &
     &                    latbc_path, latbc_boundary_grid, latbc_varnames_map_file, &
     &                    init_latbc_from_fg
@@ -59,16 +66,23 @@ CONTAINS
   !>
   !!
   SUBROUTINE read_limarea_namelist( filename )
-
     CHARACTER(LEN=*), INTENT(IN) :: filename
-    INTEGER :: istat, funit
-    INTEGER :: iunit
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = modname//"::configure_latbc"
+
+    INTEGER                              :: istat, funit
+    INTEGER                              :: iunit, errno
+    REAL(wp)                             :: dtime_latbc_in_ms
+    TYPE(timedelta), POINTER             :: td
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: dt_latbc, dt_latbc_str
+    TYPE(datetime), POINTER              :: base_dt
 
     !------------------------------------------------------------
     ! Default settings
     !------------------------------------------------------------
     itype_latbc         = 0
-    dtime_latbc         = 10800._wp
+    dtime_latbc         = -1._wp
+    dt_latbc            = ''
     nlev_latbc          = 0
     latbc_filename      = "prepiconR<nroot>B<jlev>_<y><m><d><h>.nc"
     latbc_path          = "./"
@@ -108,6 +122,7 @@ CONTAINS
     !----------------------------------------------------
     ! Fill the configuration state
     !----------------------------------------------------
+
     latbc_config%itype_latbc         = itype_latbc
     latbc_config%dtime_latbc         = dtime_latbc
     latbc_config%nlev_in             = nlev_latbc
@@ -117,6 +132,40 @@ CONTAINS
     latbc_config%lsparse_latbc       = (LEN_TRIM(latbc_boundary_grid) > 0)
     latbc_config%latbc_varnames_map_file = latbc_varnames_map_file
     latbc_config%init_latbc_from_fg  = init_latbc_from_fg
+
+    ! There exist to alternative ways to set the update interval for
+    ! lateral bc data. If both parameters are used, we test for
+    ! inconsistency. Otherwise we translate the value of one setting
+    ! to the other one.
+
+    IF (LEN_TRIM(dt_latbc) == 0) THEN
+      dtime_latbc_in_ms = 1000._wp * dtime_latbc
+      CALL getPTStringFromMS(NINT(dtime_latbc_in_ms,i8), latbc_config%dt_latbc)
+      latbc_config%dtime_latbc_mtime => newTimedelta(latbc_config%dt_latbc, errno)
+      IF (errno /= 0)  CALL finish(routine, "Error in initialization of dtime_latbc time delta.")
+    ELSE
+      latbc_config%dtime_latbc_mtime => newTimedelta(latbc_config%dt_latbc, errno)
+      IF (errno /= 0)  CALL finish(routine, "Error in initialization of dtime_latbc time delta.")
+
+      IF (dtime_latbc > 0.) THEN
+        ! test for inconsistency
+        dtime_latbc_in_ms = 1000._wp * dtime_latbc
+        CALL getPTStringFromMS(NINT(dtime_latbc_in_ms,i8), dt_latbc_str)
+        td => newTimedelta(dt_latbc_str, errno)
+        IF (errno /= 0)  CALL finish(routine, "Error in initialization of dtime_latbc time delta.")
+        IF (.NOT. (td == latbc_config%dtime_latbc_mtime)) THEN
+          CALL finish(routine, "Inconsistent setting of dtime_latbc time delta.")
+        END IF
+        CALL deallocateTimedelta(td)        
+      ELSE
+        base_dt => newDatetime("2011-01-01T00:00:00Z", errno)
+        IF (errno /= 0)  CALL finish(routine, "Error in setup of reference datetime.")
+        dtime_latbc = getTotalMilliSecondsTimeDelta(latbc_config%dtime_latbc_mtime, base_dt)/1000._wp
+        CALL deallocateDatetime(base_dt)
+      END IF
+    END IF
+    latbc_config%dtime_latbc       = dtime_latbc
+    latbc_config%dt_latbc          = TRIM(dt_latbc)
 
     !-----------------------------------------------------
     ! Store the namelist for restart

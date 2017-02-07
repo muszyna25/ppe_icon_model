@@ -51,7 +51,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_grid_config,         ONLY: n_dom
   USE mo_dynamics_config,     ONLY: nnow_rcf, nnew_rcf
   USE mo_phyparam_soil,       ONLY: c_lnd, c_sea
-  USE mo_datetime,            ONLY: t_datetime
+  USE mtime,                  ONLY: datetime
 
   IMPLICIT NONE
 
@@ -2113,13 +2113,13 @@ CONTAINS
     &                       ini_datetime, cur_datetime )
 
 
-    TYPE(t_patch),         INTENT(IN)    :: p_patch(:)
-    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
-    TYPE(t_lnd_state),     INTENT(INOUT) :: p_lnd_state(:)
-    TYPE(t_nh_state),      INTENT(INOUT) :: p_nh_state(:)
-    INTEGER,               INTENT(IN)    :: sstice_mode
-    TYPE(t_datetime),      INTENT(IN)    :: ini_datetime
-    TYPE(t_datetime),      INTENT(IN)    :: cur_datetime
+    TYPE(t_patch),           INTENT(IN)    :: p_patch(:)
+    TYPE(t_external_data),   INTENT(INOUT) :: ext_data(:)
+    TYPE(t_lnd_state),       INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_nh_state),        INTENT(INOUT) :: p_nh_state(:)
+    INTEGER,                 INTENT(IN)    :: sstice_mode
+    TYPE(datetime), POINTER, INTENT(IN)    :: ini_datetime
+    TYPE(datetime), POINTER, INTENT(IN)    :: cur_datetime
 
     ! Local array bounds:
 
@@ -2177,6 +2177,9 @@ CONTAINS
         IF (ierr /= SUCCESS)  CALL finish (routine, 'Allocation of sst_cl_ini_day, sst_cl_cur_day  failed!')
 
         ! get climatological sst for initial and current day
+        !
+        ! Note: here we can assume that hour=minute=second=0, due to
+        ! the if-clause of the calling routine in mo_nh_stepping.
         CALL interpol_monthly_mean(p_patch(jg), ini_datetime,         &! in
           &                        ext_data(jg)%atm_td%sst_m,         &! in
           &                        sst_cl_ini_day                     )! out

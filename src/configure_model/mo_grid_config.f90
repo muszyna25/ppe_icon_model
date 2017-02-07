@@ -185,7 +185,8 @@ CONTAINS
     ! get here the nroot, eventually it should be moved into the patch info
     CALL nf(nf_open(dynamics_grid_filename(1), nf_nowrite, ncid))
     CALL get_gridfile_root_level(ncid, nroot, start_lev)
-    CALL get_gridfile_sphere_radius(ncid, grid_sphere_radius)
+!     CALL get_gridfile_sphere_radius(ncid, grid_sphere_radius)
+    grid_sphere_radius = earth_radius ! the grid-based radious is not used
     CALL nf(nf_close(ncid))
 
     ! domain geometric properties

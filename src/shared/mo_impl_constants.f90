@@ -42,6 +42,7 @@ MODULE mo_impl_constants
 !
 !
   USE mo_kind,               ONLY: wp
+  USE mtime,                 ONLY: MAX_TIMEDELTA_STR_LEN
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
 
   IMPLICIT NONE
@@ -614,6 +615,14 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: RTTOV_BT_CS  = 2
   INTEGER, PARAMETER, PUBLIC :: RTTOV_RAD_CL = 3
   INTEGER, PARAMETER, PUBLIC :: RTTOV_RAD_CS = 4
+
+  !------------------------!
+  !  CALENDAR TYPES        !
+  !------------------------!
+
+  INTEGER,  PARAMETER :: julian_gregorian    = 0 !< historic Julian / Gregorian
+  INTEGER,  PARAMETER :: proleptic_gregorian = 1 !< proleptic Gregorian
+  INTEGER,  PARAMETER :: cly360              = 2 !< constant 30 dy/mo and 360 dy/yr
 
   !------------------------------------------------!
   !  MISSING VALUE FOR BOUNDARY INTERPOLATION ZONE !

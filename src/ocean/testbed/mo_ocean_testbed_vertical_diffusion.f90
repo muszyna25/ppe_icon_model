@@ -28,16 +28,13 @@ MODULE mo_ocean_testbed_vertical_diffusion
   USE mo_grid_config,            ONLY: n_dom
   USE mo_grid_subset,            ONLY: get_index_range
   USE mo_sync,                   ONLY: sync_patch_array, sync_e, sync_c !, sync_v
-  USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
-    & diagnostics_level, k_veloc_v, &
-    & eos_type, i_sea_ice, gibraltar
+  USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints
   USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode, test_mode
   USE mo_exception,              ONLY: message, message_text, finish
   USE mo_ext_data_types,         ONLY: t_external_data
   !USE mo_io_units,               ONLY: filename_max
-  USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
   USE mo_ocean_ab_timestepping,  ONLY: solve_free_surface_eq_ab, &
     & calc_normal_velocity_ab,  &
     & calc_vert_velocity,       &
@@ -52,11 +49,10 @@ MODULE mo_ocean_testbed_vertical_diffusion
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
   USE mo_physical_constants,     ONLY: rhoi, rhos
-  USE mo_ocean_physics,          ONLY: t_ho_params
+  USE mo_ocean_physics_types,    ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_var_list,               ONLY: print_var_list
   USE mo_mpi,                    ONLY: my_process_is_stdio
-  USE mo_time_config,            ONLY: time_config
   USE mo_statistics
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_util_dbg_prnt,          ONLY: dbg_print
@@ -161,13 +157,13 @@ CONTAINS
     !---------------------------------------------------------------------
     vn_inout  => ocean_state(1)%p_diag%vn_pred
 
-!    ref = 1._wp / k_veloc_v
+!    ref = 1._wp / velocity_VerticalDiffusion_background
 !    power_2 = (LOG(ref) / LOG(2._wp))
 !    write(0,*) ref, LOG(ref), power_2, CEILING(power_2 + binary_significant_digits)
 !    power_2 = REAL(2**CEILING(power_2 + binary_significant_digits),wp)
 !    write(0,*) "mult=", power_2
-!    k_veloc_v = REAL(INT(k_veloc_v * power_2), wp) / power_2
-!    physics_parameters%a_veloc_v(:,:,:) = k_veloc_v
+!    velocity_VerticalDiffusion_background = REAL(INT(velocity_VerticalDiffusion_background * power_2), wp) / power_2
+!    physics_parameters%a_veloc_v(:,:,:) = velocity_VerticalDiffusion_background
 
 
     ! physics_parameters%a_veloc_v(:,:,:) = 1.0_wp

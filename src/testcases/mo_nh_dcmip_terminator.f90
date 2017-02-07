@@ -38,13 +38,11 @@ MODULE mo_nh_dcmip_terminator
   USE mo_nh_testcases_nml,    ONLY: toy_chem
   USE mo_action_types,        ONLY: t_var_action_element
   USE mo_var_metadata,        ONLY: new_action
-  USE mo_datetime,            ONLY: t_datetime
   USE mtime,                  ONLY: event, newEvent, isCurrentEventActive, &
     &                               newDatetime, newTimedelta, timedelta,  &
     &                               datetime, getPTStringFromMS,           &
     &                               getPTStringFromSeconds,                &
     &                               MAX_EVENTNAME_STR_LEN, MAX_DATETIME_STR_LEN
-  USE mo_mtime_extensions,    ONLY: get_datetime_string
 
   IMPLICIT NONE
 
@@ -256,7 +254,7 @@ CONTAINS
     TYPE(t_nh_diag),      INTENT(INOUT) :: &  !< diagnostic state vector
       &  p_nh_diag
 
-    TYPE(t_datetime),    INTENT(INOUT)  :: &  !< current datetime
+    TYPE(datetime), POINTER, INTENT(INOUT)  :: &  !< current datetime
       &  cur_datetime
 
     REAL(wp),             INTENT(IN)    :: &  !< physics time step [s]
@@ -283,8 +281,7 @@ CONTAINS
 
     ! check whether the chemistry and/or the coupling event is active
     !
-    CALL get_datetime_string(mtime_cur_datetime, cur_datetime)
-    mtime_date  => newDatetime(TRIM(mtime_cur_datetime))
+    mtime_date => newDatetime(cur_datetime)
     !
     ! compute allowed slack in PT-Format
     ! Use factor 999 instead of 1000, since no open interval is available
