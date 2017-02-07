@@ -882,12 +882,6 @@ set_run_target_daint_cpu()
    fi
   fi
 
-  case x$use_queue in
-    "xcscs_develop" )
-      queue="viz"
-      ;;
-  esac
-
   case _$use_compiler in
     "_intel" )
         use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
@@ -899,12 +893,10 @@ set_run_target_daint_cpu()
   esac
 
   if [[ "$is_serial_run" == "yes"  ]] ; then
-    queue=${queue:="viz"}
     use_nodes=1
     tasks_per_node=1
     SBATCH_ntasks_per_node=""
- else
-    queue=${queue:="viz"}
+  else
     job_type=parallel
     tasks_per_node=$use_mpi_procs_pernode
     SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=2"
@@ -936,7 +928,6 @@ set_run_target_daint_cpu()
 #SBATCH --job-name=$job_name
 #SBATCH --output=$job_log_name.o
 #SBATCH --error=$job_log_name.o
-#SBATCH --partition=$queue
 # #SBATCH --workdir=$output_folder
 #SBATCH --nodes=$use_nodes
 #$SBATCH_ntasks_per_node
@@ -973,12 +964,6 @@ set_run_target_daint_gpu()
    fi
   fi
 
-  case x$use_queue in
-    "xcscs_develop" )
-      queue="viz"
-      ;;
-  esac
-
   case _$use_compiler in
     "_intel" )
         use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
@@ -990,12 +975,10 @@ set_run_target_daint_gpu()
   esac
 
   if [[ "$is_serial_run" == "yes"  ]] ; then
-    queue=${queue:="viz"}
     use_nodes=1
     tasks_per_node=1
     SBATCH_ntasks_per_node=""
- else
-    queue=${queue:="viz"}
+  else
     job_type=parallel
     tasks_per_node=$use_mpi_procs_pernode
     SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=1"
@@ -1028,7 +1011,6 @@ set_run_target_daint_gpu()
 #SBATCH --job-name=$job_name
 #SBATCH --output=$job_log_name.o
 #SBATCH --error=$job_log_name.o
-#SBATCH --partition=$queue
 # #SBATCH --workdir=$output_folder
 #SBATCH --nodes=$use_nodes
 #$SBATCH_ntasks_per_node
@@ -1095,7 +1077,7 @@ set_run_target_dom_gpu()
 
   cat >> $output_script << EOF
 # =====================================
-# daint batch job parameters
+# dom batch job parameters
 #-----------------------------------------------------------------------------
 #SBATCH --job-name=$job_name
 #SBATCH --output=$job_log_name.o
