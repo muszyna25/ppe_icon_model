@@ -30,9 +30,9 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE surface_fluxes( lsfc_heat_flux, psteplen,             &! in
-                           & kproma, kbdim, ksfc_type,             &! in
+  SUBROUTINE surface_fluxes( kproma, kbdim, ksfc_type,             &! in
                            & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
+                           & psteplen,                             &! in
                            & pfrc, pcfh_tile, pfac_sfc,            &! in
                            & pcptv_tile, pqsat_tile,               &! in
                            & pca, pcs, bb_btm,                     &! in
@@ -42,7 +42,6 @@ CONTAINS
                            & pevap_tile,                           &! out
                            & evapotranspiration)
 
-    LOGICAL, INTENT(IN) :: lsfc_heat_flux
     REAL(wp),INTENT(IN) :: psteplen
     INTEGER, INTENT(IN) :: kproma, kbdim, ksfc_type
     INTEGER, INTENT(IN) :: idx_wtr, idx_ice, idx_lnd
@@ -82,10 +81,6 @@ CONTAINS
         pshflx_tile(1:kproma,jsfc) = 0._wp
       END IF
     END DO
-
-    IF (.NOT.lsfc_heat_flux) THEN
-      RETURN
-    END IF
 
     !===================================================================
     ! Otherwise compute diagnostics
@@ -206,14 +201,13 @@ CONTAINS
   !!
   !! Compute wind stress over each surface type
   !!
-  SUBROUTINE wind_stress( lsfc_mom_flux, psteplen,              &! in
-                        & kproma, kbdim, ksfc_type,             &! in
+  SUBROUTINE wind_stress( kproma, kbdim, ksfc_type,             &! in
+                        & psteplen,                             &! in
                         & pfrc, pcfm_tile, pfac_sfc,            &! in
                         & pu_rtpfac1, pv_rtpfac1,               &! in
                         & pu_stress_gbm,  pv_stress_gbm,        &! out
                         & pu_stress_tile, pv_stress_tile        )! out
 
-    LOGICAL, INTENT(IN)    :: lsfc_mom_flux
     REAL(wp),INTENT(IN)    :: psteplen
     INTEGER, INTENT(IN)    :: kproma, kbdim, ksfc_type
 
@@ -235,74 +229,52 @@ CONTAINS
     INTEGER  :: is     (ksfc_type)       !< counter for masks
     INTEGER  :: jls, jl, js
 
-    !===================================================================
-    ! If surface momentum fluxes is switched off (i.e., using free slip
-    ! boundary condition), set wind stress to zero and return to the
-    ! calling subroutine.
-    !===================================================================
-    IF (.NOT.lsfc_mom_flux) THEN
+    zconst = 1._wp/(grav*psteplen)
 
-      pu_stress_tile(:,:) = 0._wp
-      pv_stress_tile(:,:) = 0._wp
+    ! Compute wind stress over each surface type, then accumulate
+    ! grid box mean. Formula for wind stress:
+    !   (grav*psteplen)**(-1)
+    !  *[grav*psteplen*tpfac1*(air density)]
+    !  *(surface turbulent exchange coeff)
+    !  *[(u-/v-wind at lowest model level)/tpfac1]
 
-    !===================================================================
-    ! Otherwise do computation
-    !===================================================================
-    ELSE
-      zconst = 1._wp/(grav*psteplen)
+    pu_stress_tile(:,:) = cdimissval
+    pv_stress_tile(:,:) = cdimissval
 
-      ! Compute wind stress over each surface type, then accumulate
-      ! grid box mean. Formula for wind stress:
-      !   (grav*psteplen)**(-1)
-      !  *[grav*psteplen*tpfac1*(air density)]
-      !  *(surface turbulent exchange coeff)
-      !  *[(u-/v-wind at lowest model level)/tpfac1]
+    pu_stress_gbm(:) = 0.0_wp
+    pv_stress_gbm(:) = 0.0_wp
 
-      pu_stress_tile(:,:) = cdimissval
-      pv_stress_tile(:,:) = cdimissval
-
-      pu_stress_gbm(:) = 0.0_wp
-      pv_stress_gbm(:) = 0.0_wp
-
-      ! check for masks
-      !
-      DO jsfc = 1,ksfc_type
-        is(jsfc) = 0
-        DO jl = 1,kproma
+    ! check for masks
+    !
+    DO jsfc = 1,ksfc_type
+       is(jsfc) = 0
+       DO jl = 1,kproma
           IF(pfrc(jl,jsfc).GT.0.0_wp) THEN
-            is(jsfc) = is(jsfc) + 1
-            loidx(is(jsfc),jsfc) = jl
+             is(jsfc) = is(jsfc) + 1
+             loidx(is(jsfc),jsfc) = jl
           ENDIF
-        ENDDO
-      ENDDO
+       ENDDO
+    ENDDO
 
-      DO jsfc = 1,ksfc_type
-        DO jls = 1,is(jsfc)
+    DO jsfc = 1,ksfc_type
+       DO jls = 1,is(jsfc)
           ! set index
           js=loidx(jls,jsfc)
 
-          pu_stress_tile(js,jsfc) = zconst*pfac_sfc(js) *pcfm_tile(js,jsfc) &
-                                        & *pu_rtpfac1(js)
+          pu_stress_tile(js,jsfc) = zconst*pfac_sfc(js) *pcfm_tile(js,jsfc)*pu_rtpfac1(js)
+          pv_stress_tile(js,jsfc) = zconst*pfac_sfc(js) *pcfm_tile(js,jsfc)*pv_rtpfac1(js)
+       END DO
+    END DO
 
-          pv_stress_tile(js,jsfc) = zconst*pfac_sfc(js) *pcfm_tile(js,jsfc) &
-                                        & *pv_rtpfac1(js)
-        END DO
-      END DO
-
-      DO jsfc = 1,ksfc_type
-        DO jls = 1,is(jsfc)
+    DO jsfc = 1,ksfc_type
+       DO jls = 1,is(jsfc)
           ! set index
           js=loidx(jls,jsfc)
 
-          pu_stress_gbm(js)       = pu_stress_gbm(js) + pu_stress_tile(js,jsfc) &
-                                        &  *pfrc(js,jsfc)
-
-          pv_stress_gbm(js)       = pv_stress_gbm(js) + pv_stress_tile(js,jsfc) &
-                                        &  *pfrc(js,jsfc)
-        END DO
-      END DO
-
-    END IF ! lsfc_mom_flux
+          pu_stress_gbm(js)       = pu_stress_gbm(js) + pu_stress_tile(js,jsfc)*pfrc(js,jsfc)
+          pv_stress_gbm(js)       = pv_stress_gbm(js) + pv_stress_tile(js,jsfc)*pfrc(js,jsfc)
+       END DO
+    END DO
 
   END SUBROUTINE wind_stress
   !-------------

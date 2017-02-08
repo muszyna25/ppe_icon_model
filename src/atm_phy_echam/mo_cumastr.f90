@@ -66,6 +66,7 @@ MODULE mo_cumastr
   ! to simplify access to components of echam_conv_config
   LOGICAL , POINTER :: lmfdd, lmfdudv
   REAL(wp), POINTER :: entrpen, entrscv, cmfdeps, cmftau
+  REAL(wp), POINTER :: cevapcu(:)
 
 
 CONTAINS
@@ -83,7 +84,6 @@ CONTAINS
     &                  pgeo,     pgeoh,                                   &
     &                  pqte,                                              &
     &                  pthvsig,                                           &
-    &                  cevapcu,                                           &
     &                  ktype,    kctop,                                   &
     &                  prsfc,    pssfc,                                   &
     &                  pcon_dtrl,pcon_dtri,pcon_iqte,                     &
@@ -93,7 +93,6 @@ CONTAINS
     !
     INTEGER, INTENT(IN)   :: kproma, kbdim, klev, klevp1, ktrac, klevm1
     REAL(wp),INTENT(IN)   :: pdtime
-    REAL(wp),INTENT(IN)   :: cevapcu(:)
     REAL(wp),INTENT(IN)   :: pzf(kbdim,klev),         pzh(kbdim,klevp1)
     REAL(wp),INTENT(IN)   :: pmdry(kbdim,klev)
 
@@ -177,6 +176,7 @@ CONTAINS
     entrpen  => echam_conv_config% entrpen
     cmfdeps  => echam_conv_config% cmfdeps
     cmftau   => echam_conv_config% cmftau
+    cevapcu  => echam_conv_config% cevapcu
 
     !-----------------------------------------------------------------------
     !
