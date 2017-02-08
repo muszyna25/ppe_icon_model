@@ -62,7 +62,7 @@ MODULE mo_echam_vdiff_params
 
   REAL(wp),PARAMETER :: cons2  = 0.5_wp*ckap/grav
   REAL(wp),PARAMETER :: cons25 = cons2/clam
-  REAL(wp),PARAMETER :: cons5  = 3._wp*cb*cc*grav**2
+  REAL(wp),PARAMETER :: cons5  = 3._wp*cb*cc
 
   REAL(wp),PARAMETER :: pr0      =  0.85_wp  ! neutral limit Prandtl number, can be varied from about 0.6 to 1.0
   REAL(wp),PARAMETER :: f_tau0   =  0.17_wp  ! neutral non-dimensional stress factor

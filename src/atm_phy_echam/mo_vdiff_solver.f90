@@ -19,7 +19,7 @@ MODULE mo_vdiff_solver
   USE mo_impl_constants,    ONLY: SUCCESS
   USE mo_exception,         ONLY: message, message_text, finish
   USE mo_physical_constants,ONLY: grav, rgrav, cpd, cpv
-  USE mo_echam_vdiff_params,ONLY: clam, da1, tke_min, cons2, cons25, &
+  USE mo_echam_vdiff_params,ONLY: tke_min, &
     &                             tpfac1, tpfac2, tpfac3, cchar, z0m_min
   USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config, get_lebudget
   USE mo_echam_phy_memory,  ONLY: cdimissval
@@ -778,7 +778,7 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: psh_vdiff(kbdim)
     REAL(wp),INTENT(OUT) :: pqv_vdiff(kbdim)
 
-    REAL(wp) :: ztest, zrdt, zconst
+    REAL(wp) :: ztest, zrdt
     REAL(wp) :: zunew, zvnew, zqnew, zsnew, zhnew
     REAL(wp) :: zcp
     REAL(wp) :: zdis  (kbdim,klev)
@@ -787,7 +787,6 @@ CONTAINS
 
 
     zrdt   = 1._wp/pdtime
-    zconst = 1._wp/grav
 
     pute_vdf (:,:)   = 0._wp
     pvte_vdf (:,:)   = 0._wp
@@ -917,7 +916,7 @@ CONTAINS
       DO jl = 1,kproma
         IF(pfrc(jl,idx_wtr).GT.0._wp) THEN
           pz0m_tile(jl,idx_wtr) = tpfac1*SQRT( bb(jl,klev,iu)**2+bb(jl,klev,iv)**2 ) &
-                                & *pcfm_tile(jl,idx_wtr)*cchar/grav
+                                & *pcfm_tile(jl,idx_wtr)*cchar*rgrav
           pz0m_tile(jl,idx_wtr) = MAX(z0m_min,pz0m_tile(jl,idx_wtr))
         ELSE
           pz0m_tile(jl,idx_wtr) = cdimissval

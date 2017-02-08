@@ -46,7 +46,6 @@ MODULE mo_echam_phy_main
   USE mo_psrad_radiation,     ONLY: psrad_radiation
   USE mo_radheating,          ONLY: radheating
   !
-  USE mo_vdiff_config,        ONLY: vdiff_config
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
   USE mo_vdiff_solver,        ONLY: nvar_vdiff, nmatrix, imh, imqv,   &
@@ -63,7 +62,6 @@ MODULE mo_echam_phy_main
   USE mo_gw_hines,            ONLY: gw_hines
   USE mo_ssortns,             ONLY: ssodrag
   !
-  USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_cumastr,             ONLY: cumastr
   !
   USE mo_echam_cloud_config,  ONLY: echam_cloud_config
@@ -526,13 +524,13 @@ CONTAINS
 
       IF (ltimer) CALL timer_start(timer_vdiff_down)
 
-      CALL vdiff_down( vdiff_config%lsfc_mom_flux,      &! in
-                     & vdiff_config%lsfc_heat_flux,     &! in
-                     & jce, nbdim, nlev, nlevm1, nlevp1,&! in
+      CALL vdiff_down( jce, nbdim, nlev, nlevm1, nlevp1,&! in
                      & ntrac, nsfc_type,                &! in
                      & iwtr, iice, ilnd,                &! in, indices of different surface types
                      & pdtime,                          &! in, time step
                      & field%coriol(:,jb),              &! in, Coriolis parameter
+                     & field%   zf(:,:,jb),             &! in, geopot. height above sea level, full level
+                     & field%   zh(:,:,jb),             &! in, geopot. height above sea level, half level
                      & field%frac_tile(:,jb,:),         &! in, area fraction of each sfc type
                      & field% ts_tile(:,jb,:),          &! in, surface temperature
                      & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
@@ -548,8 +546,6 @@ CONTAINS
                      & field% qtrc(:,:,jb,iqt:),        &! in, xtm1
                      & field% presi_old(:,:,jb),        &! in, aphm1
                      & field% presm_old(:,:,jb),        &! in, apm1
-                     & field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
-                     & field% geoi(:,:,jb),             &! in, pgeohm1 = half-level geopotential
                      & field%   tv(:,:,jb),             &! in, virtual temperaturea
                      & field% aclc(:,:,jb),             &! in, cloud fraction
                      & zxt_emis,                        &! in, zxtems
@@ -590,7 +586,7 @@ CONTAINS
                      & zbh_tile(:,:),                   &! out, for "nsurf_diag"
                      & pcsat = field% csat(:,jb),       &! in, optional, area fraction with wet land surface
                      & pcair = field% cair(:,jb),       &! in, optional, area fraction with wet land surface (air)
-                     & paz0lh = field% z0h_lnd(:,jb))     ! in, optional, roughness length for heat over land
+                     & paz0lh = field% z0h_lnd(:,jb))    ! in, optional, roughness length for heat over land
 
       IF (ltimer) CALL timer_stop(timer_vdiff_down)
 
@@ -603,12 +599,11 @@ CONTAINS
 
         IF (ltimer) CALL timer_start(timer_surface)
 
-        CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
-          & vdiff_config%lsfc_mom_flux,   &! in
-          & pdtime,                       &! in, time step
+        CALL update_surface(              &!
           & jg, jce, nbdim, field%kice,   &! in
           & nlev, nsfc_type,              &! in
           & iwtr, iice, ilnd,             &! in, indices of surface types
+          & pdtime,                       &! in, time step
           & field%frac_tile(:,jb,:),      &! in, area fraction
           & field% cfh_tile(:,jb,:),      &! in, from "vdiff_down"
           & field% cfm_tile(:,jb,:),      &! in, from "vdiff_down"
@@ -1011,7 +1006,6 @@ CONTAINS
         &          field% geoi     (:,:,jb),     &! in
         &                ztend_qv  (:,:),        &! in
         &          field% thvsig   (:,  jb),     &! in
-        &          echam_conv_config%cevapcu,    &! in
         &          itype,                        &! out
         &          ictop,                        &! out
         &          field% rsfc     (:,  jb),     &! out

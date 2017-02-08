@@ -342,7 +342,7 @@ MODULE mo_echam_phy_memory
 
     REAL(wp),POINTER ::     &
       & coriol(:,:),        &!< Coriolis parameter
-      & ghpbl (:,:),        &!< geopotential of the top of the atmospheric boundary layer
+      & ghpbl (:,:),        &!< geopotential height of the top of the atmospheric boundary layer
       & z0m_tile(:,:,:),    &!< aerodynamic roughness length (over each surface type)
       & z0m   (:,:),        &!< aerodynamic roughness length (grid box mean)
       & z0h_lnd(:,:),       &!< roughness length for heat (over land)
@@ -2323,7 +2323,7 @@ CONTAINS
                 & lrestart = .FALSE., ldims=shape2d )
 
       ! &       field% ghpbl  (nproma,nblks),                &
-      cf_desc    = t_cf_var('geopot_pbl_top', '', 'geopotential of PBL top', datatype_flt)
+      cf_desc    = t_cf_var('geopot_height_pbl_top', 'm', 'geopotential height of PBL top', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( field_list, prefix//'ghpbl', field%ghpbl,              &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &

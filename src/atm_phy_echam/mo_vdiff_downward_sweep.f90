@@ -21,11 +21,11 @@
 MODULE mo_vdiff_downward_sweep
 
   USE mo_kind,               ONLY: wp
+  USE mo_physical_constants, ONLY: grav, rgrav, rd
+  USE mo_echam_vdiff_params, ONLY: tpfac1, tpfac2, itop
   USE mo_turbulence_diag,    ONLY: atm_exchange_coeff, sfc_exchange_coeff
   USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv, imh, imqv, &
                                  & matrix_setup_elim, rhs_setup, rhs_elim
-  USE mo_physical_constants, ONLY: grav, rd
-  USE mo_echam_vdiff_params, ONLY: tpfac1, tpfac2, itop
 
   IMPLICIT NONE
   PRIVATE
@@ -35,15 +35,15 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE vdiff_down( lsfc_mom_flux, lsfc_heat_flux,                 &! in
-                       & kproma, kbdim, klev, klevm1, klevp1, ktrac,    &! in
+  SUBROUTINE vdiff_down( kproma, kbdim, klev, klevm1, klevp1, ktrac,    &! in
                        & ksfc_type, idx_wtr, idx_ice, idx_lnd,          &! in
-                       & pdtime,  pcoriol,   pfrc,                      &! in
+                       & pdtime,  pcoriol,                              &! in
+                       & pzf, pzh,                                      &! in
+                       & pfrc,                                          &! in
                        & ptsfc_tile, pocu,      pocv,       ppsfc,      &! in
                        & pum1,       pvm1,      ptm1,       pqm1,       &! in
                        & pxlm1,      pxim1,     pxm1,       pxtm1,      &! in
-                       & paphm1,     papm1,     pgeom1,                 &! in
-                       & pgeohm1,                                       &! in
+                       & paphm1,     papm1,                             &! in
                        & ptvm1,      paclc,     pxt_emis,   pthvvar,    &! in
                        & pxvar,      pz0m_tile,                         &! in
                        & ptkem1,                                        &! in
@@ -64,13 +64,14 @@ CONTAINS
                        & paz0lh)
 
 
-    LOGICAL, INTENT(IN) :: lsfc_mom_flux, lsfc_heat_flux
     INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1, klevp1, ktrac
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
     REAL(wp),INTENT(IN) :: pdtime
 
     REAL(wp),INTENT(IN) ::          &
       & pcoriol   (kbdim)          ,&!< Coriolis parameter: 2*omega*sin(lat)
+      & pzf       (kbdim,klev)     ,&!< geopotential height above sea level, full level   
+      & pzh       (kbdim,klevp1)   ,&!< geopotential height above sea level, half level   
       & pfrc      (kbdim,ksfc_type),&!< area fraction of each surface type
       & ptsfc_tile(kbdim,ksfc_type),&!< surface temperature
       & pocu      (kbdim)          ,&!< eastward  velocity of ocean sfc current
@@ -90,8 +91,6 @@ CONTAINS
     REAL(wp),INTENT(IN) ::        &
       & paphm1  (kbdim,klevp1)   ,&!< half level pressure [Pa]
       & papm1   (kbdim,klev)     ,&!< full level pressure [Pa]
-      & pgeom1  (kbdim,klev)     ,&!< geopotential above ground
-      & pgeohm1 (kbdim,klevp1)   ,&!< half-level geopotential
       & ptvm1   (kbdim,klev)     ,&!< virtual temperature
       & paclc   (kbdim,klev)     ,&!< cloud fraction
       & pxt_emis(kbdim,ktrac)      !< tracer tendency due to surface emission
@@ -166,6 +165,9 @@ CONTAINS
 
     ! Local variables
 
+    REAL(wp) :: zghf   (kbdim,klev)   !< geopotential height above ground, full level
+    REAL(wp) :: zghh   (kbdim,klevp1) !< geopotential height above ground, full level
+
     REAL(wp) :: zfactor(kbdim,klev)   !< prefactor for the exchange coefficients
     REAL(wp) :: zrdpm  (kbdim,klev)
     REAL(wp) :: zrdph  (kbdim,klevm1)
@@ -181,8 +183,12 @@ CONTAINS
     REAL(wp) :: zconst
 
     !----------------------------------------------------------------------
-    ! 0. Reciprocal of layer thickness. It will be used repeatedly.
+    ! 0. Heights above ground and Reciprocal of layer pressure thickness.
     !----------------------------------------------------------------------
+
+    zghf (:,1:klev)        = pzf(:,1:klev)  -SPREAD(pzh(:,klevp1),2,klev  )
+    zghh (:,1:klevp1)      = pzh(:,1:klevp1)-SPREAD(pzh(:,klevp1),2,klevp1)
+    
 
     zrdpm(1:kproma,:) = 1._wp/(paphm1(1:kproma,2:klevp1)-paphm1(1:kproma,1:klev  ))
     zrdph(1:kproma,:) = 1._wp/(papm1 (1:kproma,2:klev  )-papm1 (1:kproma,1:klevm1))
@@ -195,7 +201,8 @@ CONTAINS
 
     CALL atm_exchange_coeff( kproma, kbdim, klev, klevm1, klevp1,     &! in
                            & pdtime, pcoriol,                         &! in
-                           & pum1, pvm1, ptm1, ptvm1, pgeom1, pgeohm1,&! in
+                           & zghf, zghh,                              &! in
+                           & pum1, pvm1, ptm1, ptvm1,                 &! in
                            & pqm1, pxm1,                              &! in
                            & papm1, paphm1, paclc, pustar,            &! in
                            & pthvvar, ptkem1,                         &! in
@@ -220,12 +227,12 @@ CONTAINS
 !
     CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,              &! in
                            & idx_wtr, idx_ice, idx_lnd,             &! in
-                           & lsfc_mom_flux, lsfc_heat_flux,         &! in
                            & pz0m_tile(:,:),  ptsfc_tile(:,:),      &! in
                            & pfrc(:,:),       pghpbl(:),            &! in
                            & pocu(:),         pocv(:),   ppsfc(:),  &! in
+                           & zghf(:,klev),                          &! in
                            & pum1(:,klev),    pvm1  (:,klev),       &! in
-                           & ptm1(:,klev),    pgeom1(:,klev),       &! in
+                           & ptm1(:,klev),                          &! in
                            & pqm1(:,klev),    pxm1  (:,klev),       &! in
                            & zqsat_b  (:),    zlh_b    (:),         &! in
                            & ztheta_b (:),    zthetav_b(:),         &! in
