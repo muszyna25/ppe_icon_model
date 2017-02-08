@@ -50,10 +50,11 @@
 #define mapEdgesToEdges_3D    REAL(wp), POINTER, DIMENSION(:,:,:,:)
 #define mapEdgesToEdges_2D    REAL(wp), POINTER, DIMENSION(:,:,:)
 
-!Note: the mapCellsToEdges should also have the connectivity, but we apply it as a coeffecient on the edge
-#define mapCellsToEdges_3D    REAL(wp), POINTER, DIMENSION(:,:,:) 
-#define mapCellsToEdges_3D_RealPrecision(pr)  REAL(pr), POINTER, DIMENSION(:,:,:)
-#define mapCellsToEdges_2D_RealPrecision(pr)  REAL(pr), POINTER, DIMENSION(:,:)
+#define mapCellsToEdges_3D    REAL(wp), POINTER, DIMENSION(:,:,:,:)
+#define mapCellsToEdges_3D_RealPrecision(pr)  REAL(pr), POINTER, DIMENSION(:,:,:,:)
+#define mapCellsToEdges_2D    REAL(wp), POINTER, DIMENSION(:,:,:)
+#define mapCellsToEdges_2D_RealPrecision(pr)  REAL(pr), POINTER, DIMENSION(:,:,:)
+#define mapCellsToCells_2D    REAL(wp), POINTER, DIMENSION(:,:,:)
 
 #define mapEdgesToCells_3D_RealPrecision(pr) REAL(pr), POINTER, DIMENSION(:,:,:,:)
 #define mapEdgesToCells_2D_RealPrecision(pr) REAL(pr), POINTER, DIMENSION(:,:,:)
@@ -119,6 +120,7 @@
 
 #define onGrid_1D onGrid_1D_Real
 #define onGrid_HalfLevels1D onGrid_HalfLevels1D_Real
+#define mapCellsToEdges mapCellsToEdges_3D
 
 !---------------------
 ! Upper-lower case
@@ -129,4 +131,3 @@
 #define OnVertices onVertices
 #define onCells_3D_Tracers onCells_3D_tracers
 #define onCells_Tracers onCells_3D_tracers
-

@@ -35,7 +35,7 @@ MODULE mo_atm_phy_nwp_config
   USE mo_exception,           ONLY: message, message_text
   USE mo_model_domain,        ONLY: t_patch
   USE mo_vertical_coord_table,ONLY: vct_a
-
+  USE mo_radiation_config,    ONLY: irad_o3
   USE mo_les_config,          ONLY: configure_les
   USE mo_limarea_config,      ONLY: configure_latbc
 
@@ -148,17 +148,14 @@ MODULE mo_atm_phy_nwp_config
   ! GZ, 2013-09-13: tuning to reduce drizzle (may be overridden by icpl_aero_conv=1)
   LOGICAL,  PARAMETER :: ltuning_kessler  = .TRUE.
 
-  ! ozone:
-  ! MK, 2014-01: increase ozone by maximum 50% at 15km decreasing linearly
-  !              towards 0% at 30km and 10km; goal: warmer lower stratosphere 0.5K
-  LOGICAL,  PARAMETER :: ltuning_ozone   = .TRUE.
-  REAL(wp), PARAMETER :: tune_ozone_ztop = 30000.0_wp    ! default=30000.0_wp
-  REAL(wp), PARAMETER :: tune_ozone_zmid = 15000.0_wp    ! default=15000.0_wp
-  REAL(wp), PARAMETER :: tune_ozone_zbot = 10000.0_wp    ! default=10000.0_wp
-  REAL(wp), PARAMETER :: tune_ozone_fac  = 0.5_wp        ! default=0.5_wp
-  REAL(wp), PARAMETER :: tune_ozone_lat  = 45._wp        ! default=-1.0_wp
-  REAL(wp), PARAMETER :: tune_ozone_maxinc = 2.e-6_wp    ! default=2.e-6_wp ; maximum absolute change of O3 mixing ratio
-                                                         ! this value is about 12% of the climatological maximum in the tropics
+  ! ozone tuning if GEMS climatology is used:
+  LOGICAL  :: ltuning_ozone 
+  REAL(wp) :: tune_ozone_ztop
+  REAL(wp) :: tune_ozone_zmid
+  REAL(wp) :: tune_ozone_zbot
+  REAL(wp) :: tune_ozone_fac
+  REAL(wp) :: tune_ozone_lat
+  REAL(wp) :: tune_ozone_maxinc
 
 CONTAINS
 
@@ -344,6 +341,37 @@ CONTAINS
     IF(l_limited_area) THEN
       CALL configure_latbc()
     END IF
+
+    ! Settings for ozone tuning, depending on option for ozone climatology
+    SELECT CASE (irad_o3)
+    CASE (7)  ! GEMS climatology
+      CALL message(TRIM(routine), 'Use GEMS ozone climatology with tuning')
+      ltuning_ozone     = .TRUE.
+      tune_ozone_ztop   = 30000.0_wp
+      tune_ozone_zmid   = 15000.0_wp
+      tune_ozone_zbot   = 10000.0_wp
+      tune_ozone_fac    = 0.5_wp
+      tune_ozone_lat    = 45._wp   ! tuning is applied at low latitudes only
+      tune_ozone_maxinc = 2.e-6_wp ! maximum absolute change of O3 mixing ratio
+                                   ! this value is about 12% of the climatological maximum in the tropics
+    CASE (79) ! Blending between GEMS and MACC climatologies
+      CALL message(TRIM(routine), 'Use blending between GEMS and MACC ozone climatologies with tuning')
+      ltuning_ozone     = .TRUE.
+      tune_ozone_ztop   = 27000.0_wp
+      tune_ozone_zmid   = 22000.0_wp
+      tune_ozone_zbot   = 19000.0_wp
+      tune_ozone_fac    = 0.15_wp
+      tune_ozone_lat    = -1._wp  ! tuning is applied globally
+      tune_ozone_maxinc = 1.e-6_wp
+    CASE DEFAULT
+      ltuning_ozone     = .FALSE.
+      tune_ozone_ztop   = 30000.0_wp
+      tune_ozone_zmid   = 15000.0_wp
+      tune_ozone_zbot   = 10000.0_wp
+      tune_ozone_fac    = 0._wp
+      tune_ozone_lat    = -1._wp
+      tune_ozone_maxinc = 0._wp
+    END SELECT
 
     ! Ozone tuning function, applied to the ozone climatology as 
     ! o3clim_tuned = o3clim*(1.+fac_ozone*shapefunc_ozone)

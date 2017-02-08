@@ -36,7 +36,7 @@ MODULE mo_velocity_advection
   USE mo_nonhydro_types,    ONLY: t_nh_metrics, t_nh_diag, t_nh_prog
   USE mo_math_divrot,       ONLY: rot_vertex_ri
   USE mo_vertical_grid,     ONLY: nrdmax
-  USE mo_nh_init_utils,     ONLY: nflatlev
+  USE mo_init_vgrid,        ONLY: nflatlev
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
@@ -198,10 +198,15 @@ MODULE mo_velocity_advection
 #endif
 
     ! Limit on vertical CFL number for applying extra diffusion
-    cfl_w_limit = 0.65_wp/dtime   ! this means 65% of the nominal CFL stability limit
+    IF (lextra_diffu) THEN
+      cfl_w_limit = 0.65_wp/dtime   ! this means 65% of the nominal CFL stability limit
 
-    ! Scaling factor for extra diffusion
-    scalfac_exdiff = 0.05_wp / ( dtime*(0.85_wp - cfl_w_limit*dtime) )
+      ! Scaling factor for extra diffusion
+      scalfac_exdiff = 0.05_wp / ( dtime*(0.85_wp - cfl_w_limit*dtime) )
+    ELSE
+      cfl_w_limit = 0.85_wp/dtime   ! this means 65% of the nominal CFL stability limit
+      scalfac_exdiff = 0._wp
+    ENDIF
 
     ! Compute w at vertices
     IF (.NOT. lvn_only) CALL cells2verts_scalar_ri(p_prog%w, p_patch, &
@@ -406,7 +411,7 @@ MODULE mo_velocity_advection
 !$ACC LOOP GANG
 #else
 !$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, i_startidx_2, i_endidx_2, z_w_con_c, &
-!$OMP            z_w_concorr_mc, ic, difcoef, vcfl, cfl_clipping) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            z_w_concorr_mc, ic, difcoef, vcfl, maxvcfl, cfl_clipping) ICON_OMP_DEFAULT_SCHEDULE
 #endif
     DO jb = i_startblk, i_endblk
 
@@ -709,7 +714,7 @@ MODULE mo_velocity_advection
     ! Save maximum vertical CFL number for substep number adaptation
     i_startblk = p_patch%cells%start_block(grf_bdywidth_c)
     i_endblk   = p_patch%cells%end_block(min_rlcell_int)
-    p_metrics%max_vcfl_dyn = MAX(p_metrics%max_vcfl_dyn,MAXVAL(vcflmax(i_startblk:i_endblk)))
+    p_diag%max_vcfl_dyn = MAX(p_diag%max_vcfl_dyn,MAXVAL(vcflmax(i_startblk:i_endblk)))
 
     IF (timers_level > 5) CALL timer_stop(timer_solve_nh_veltend)
 

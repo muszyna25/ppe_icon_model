@@ -3,10 +3,6 @@
 !!
 !! Definition of parameters
 !!
-!! @author N.N.
-!!
-!! See the LICENSE and the WARRANTY conditions.
-!!
 MODULE mo_param1_bgc
   USE mo_kind, ONLY : wp
 
@@ -16,7 +12,7 @@ MODULE mo_param1_bgc
 
 
   ! advected tracers
-  INTEGER, PARAMETER :: i_base_adv = 16,              &
+  INTEGER, PARAMETER :: i_base_adv = 15,              &
        &                isco212    = 1,               &
        &                ialkali    = 2,               &
        &                iphosph    = 3,               &
@@ -30,9 +26,8 @@ MODULE mo_param1_bgc
        &                idoc       = 11,              &
        &                ian2o      = 12,              &
        &                idet       = 13,              &         
-       &                idoccya    = 14,              &               
-       &                iiron      = 15,              &               
-       &                idms       = 16               
+       &                iiron      = 14,              &               
+       &                idms       = 15               
 
 
   ! total number of advected tracers

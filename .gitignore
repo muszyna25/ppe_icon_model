@@ -15,5 +15,6 @@ config/mh-config-use
 config/set-up.info
 src/lnd_phy_jsbach
 run/*.run
+src/art
 *.o
 *~
