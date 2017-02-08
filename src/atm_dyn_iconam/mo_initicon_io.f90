@@ -706,13 +706,14 @@ MODULE mo_initicon_io
 
 
         ! Check, if sea surface temperature field is provided as input
-        ! IF SST is missing, set l_sst_in=.FALSE.
-        IF (nf_inq_varid(ncid, 'SST', varid) /= nf_noerr) THEN
+        IF (nf_inq_varid(ncid, 'SST', varid) == nf_noerr) THEN
+          l_sst_in = .TRUE.
+        ELSE
           WRITE (message_text,'(a,a)')                            &
             &  'sea surface temperature not available. ', &
             &  'initialize with skin temperature, instead.'
           CALL message(TRIM(routine),TRIM(message_text))
-          l_sst_in = .FALSE.     !it has to be set to FALSE
+          l_sst_in = .FALSE.
         ENDIF
 
       ENDIF  ! p_io
@@ -1029,6 +1030,9 @@ MODULE mo_initicon_io
             END IF
 
             IF (lvert_remap_fg) THEN
+                ! the number of input and output levels must be the same for this mode
+                nlevatm_in(jg) = p_patch(jg)%nlev
+
                 CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
                 CALL fetchRequired3d(params, 'z_ifc', jg, initicon(jg)%atm_in%z3d_ifc)
             END IF

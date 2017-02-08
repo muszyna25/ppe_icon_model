@@ -9,21 +9,13 @@
 !!
 !! Upward shift is currently disabled.
 !!
-!! called by bgc
-!!
-!! @author Ernst Maier-Reimer, MPI-Met, HH
-!!
-!! @par Revision History
-!!
-!! First version by Ernst Maier-Reimer  (MPI-M) Apr 10, 2001
-!!
 #include "hamocc_omp_definitions.inc"
 SUBROUTINE sedshi(start_idx,end_idx)
 
   USE mo_kind, ONLY       : wp
   USE mo_sedmnt, ONLY     : sedlay, seddw, burial, orgfa, oplfa, &
        &                    calfa, clafa, porsol, solfu, ks
-  USE mo_biomod, ONLY     : bolay,  rcar
+  USE mo_memory_bgc, ONLY : bolay,  rcar
   USE mo_param1_bgc, ONLY : nsedtra, &
        &                    issso12, isssc12, issssil, issster
   USE mo_control_bgc, ONLY: bgc_nproma
@@ -135,7 +127,7 @@ SUBROUTINE sedshi(start_idx,end_idx)
   ! is less than porsol*seddw (integrated over the total sediment column)
   ! first, the deepest box is filled from below with total required volume;
   ! then, successively, the following layers are filled upwards.
-  ! if there is not enough solid matter to fill the column, add clay. (js: so implicite initial state is all clay)
+  ! if there is not enough solid matter to fill the column, add clay. 
 
   fulsed(:) = 0._wp
 

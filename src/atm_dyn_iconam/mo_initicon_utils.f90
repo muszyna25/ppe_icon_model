@@ -66,9 +66,9 @@ MODULE mo_initicon_utils
   USE mo_linked_list,         ONLY: t_list_element
   USE mo_var_list,            ONLY: get_var_name, nvar_lists, var_lists
   USE mo_var_list_element,    ONLY: level_type_ml
-  USE mo_util_uuid,           ONLY: OPERATOR(==)
   USE mo_flake,               ONLY: flake_coldinit
-  USE mtime,                  ONLY: OPERATOR(==), OPERATOR(+)
+  USE mtime,                  ONLY: datetime, newDatetime, deallocateDatetime, &
+    &                               OPERATOR(==), OPERATOR(+) 
   USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_statistics,          ONLY: time_avg
@@ -208,6 +208,8 @@ MODULE mo_initicon_utils
     TYPE(t_nwp_phy_diag),   INTENT(inout) :: prm_diag(:)
 
     TYPE(t_time_interpolation_weights)  :: current_time_interpolation_weights
+
+    TYPE(datetime), POINTER :: mtime_hour
     
     INTEGER  :: rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: jb, jc, jg
@@ -216,8 +218,12 @@ MODULE mo_initicon_utils
     REAL(wp) :: zw1, zw2
 
     !    CALL month2hour (time_config%cur_datetime, mo1, mo2, wgt)
-    current_time_interpolation_weights = calculate_time_interpolation_weights(time_config%tc_current_date)
-
+    mtime_hour => newDatetime(time_config%tc_current_date)
+    mtime_hour%time%minute = 0
+    mtime_hour%time%second = 0
+    mtime_hour%time%ms     = 0        
+    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_hour)
+    call deallocateDatetime(mtime_hour)
     mo1 = current_time_interpolation_weights%month1
     mo2 = current_time_interpolation_weights%month2
     zw1 = current_time_interpolation_weights%weight1
@@ -2191,9 +2197,9 @@ MODULE mo_initicon_utils
       IF(ASSOCIATED(p_nh_state(jg)%diag%tracer_vi_avg)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"tracer_vi_avg: ", &
         & p_nh_state(jg)%diag%tracer_vi_avg)
-      IF(ASSOCIATED(p_nh_state(jg)%diag%exner_old)) &
-        & CALL printChecksum(prefix(1:pfx_tlen)//"exner_old: ", &
-        & p_nh_state(jg)%diag%exner_old)
+      IF(ASSOCIATED(p_nh_state(jg)%diag%exner_pr)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"exner_pr: ", &
+        & p_nh_state(jg)%diag%exner_pr)
       IF(ASSOCIATED(p_nh_state(jg)%diag%exner_dyn_incr)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"exner_dyn_incr: ", &
         & p_nh_state(jg)%diag%exner_dyn_incr)

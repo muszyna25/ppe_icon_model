@@ -100,7 +100,11 @@ MODULE mo_interface_iconam_echam
     &                                 timer_dyn2phy, timer_d2p_prep, timer_d2p_sync, timer_d2p_couple, &
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
-  USE mo_bc_greenhouse_gases   ,ONLY: ghg_co2mmr
+  USE mo_linked_list,             ONLY: t_var_list
+  USE mo_ext_data_state,          ONLY: ext_data
+  USE mo_art_reaction_interface,  ONLY: art_reaction_interface
+  USE mo_run_config,              ONLY: lart
+
   IMPLICIT NONE
 
   PRIVATE
@@ -128,7 +132,8 @@ CONTAINS
     &                                p_metrics        ,& !in
     &                                pt_prog_new      ,& !inout
     &                                pt_prog_new_rcf  ,& !inout
-    &                                pt_diag          )  !inout
+    &                                pt_diag          ,& !inout
+    &                                p_prog_list)
 
     !
     !> Arguments:
@@ -143,6 +148,9 @@ CONTAINS
     TYPE(t_nh_diag)       , INTENT(inout), TARGET :: pt_diag         !< diagnostic variables
     TYPE(t_nh_prog)       , INTENT(inout), TARGET :: pt_prog_new     !< progn. vars after dynamics  for wind, temp. rho, ...
     TYPE(t_nh_prog)       , INTENT(inout), TARGET :: pt_prog_new_rcf !< progn. vars after advection for tracers
+
+!ICON_ART
+    TYPE(t_var_list), OPTIONAL, INTENT(in)        :: p_prog_list     !< current prognostic state list
 
     ! Local array bounds
 
@@ -533,7 +541,7 @@ CONTAINS
     ! (6) Convert physics tendencies to dynamics tendencies
     !
     IF (ltimer) CALL timer_start(timer_p2d_prep)
-    !
+
     !     (b) (du/dt|phy, dv/dt|phy) --> dvn/dt|phy
     !
     ALLOCATE(zdudt(nproma,nlev,patch%nblks_c), &
@@ -812,14 +820,14 @@ CONTAINS
             pt_prog_new%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                         &
               &                       * pt_prog_new%rho(jc,jk,jb) * pt_diag%tempv(jc,jk,jb)))
             !
-            ! Add exner change from fast phyiscs to exner_old (why?)
-            pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + pt_prog_new%exner(jc,jk,jb) - z_exner
+            ! Add exner change from fast phyiscs to exner_pr in order to avoid unphysical sound wave generation
+            pt_diag%exner_pr(jc,jk,jb) = pt_diag%exner_pr(jc,jk,jb) + pt_prog_new%exner(jc,jk,jb) - z_exner
             !
 !!$            ! (b) Update Exner, then compute Temp_v
 !!$            !
 !!$            pt_prog_new%exner(jc,jk,jb) = pt_prog_new%exner(jc,jk,jb)                 &
 !!$              &                         + pt_diag%ddt_exner_phy(jc,jk,jb) * dtadv_loc
-!!$            pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb)                 &
+!!$            pt_diag%exner_pr(jc,jk,jb) = pt_diag%exner_pr(jc,jk,jb)                 &
 !!$              &                         + pt_diag%ddt_exner_phy(jc,jk,jb) * dtadv_loc
 !!$            !
 !!$            pt_diag%tempv(jc,jk,jb) = EXP(LOG(pt_prog_new%exner(jc,jk,jb)/rd_o_cpd) &
@@ -872,7 +880,7 @@ CONTAINS
         &                         ntracer+5                    ,&
         &                         pt_prog_new%w                ,&
         &                         pt_prog_new%rho              ,&
-        &                         pt_diag%exner_old            ,&
+        &                         pt_diag%exner_pr             ,&
         &                         pt_prog_new%exner            ,&
         &                         pt_prog_new%theta_v          ,&
         &                         f4din=pt_prog_new_rcf%tracer )
@@ -881,7 +889,7 @@ CONTAINS
         &                         patch                        ,&
         &                         ntracer+4                    ,&
         &                         pt_prog_new%rho              ,&
-        &                         pt_diag%exner_old            ,&
+        &                         pt_diag%exner_pr             ,&
         &                         pt_prog_new%exner            ,&
         &                         pt_prog_new%theta_v          ,&
         &                         f4din=pt_prog_new_rcf%tracer )
@@ -909,6 +917,17 @@ CONTAINS
     !
     !=====================================================================================
 
+  IF (lart) THEN
+      CALL art_reaction_interface(ext_data(jg),                    & !> in
+                &          patch,                              & !> in
+                &          mtime_current,                      & !> in
+                &          dtadv_loc,                          & !> in
+                &          p_prog_list,                        & !> in
+                &          pt_prog_new,                        &
+                &          p_metrics,                          & !> in
+                &          pt_diag,                            & !> inout
+                &          pt_prog_new_rcf%tracer)
+  ENDIF
 
   END SUBROUTINE interface_iconam_echam
   !----------------------------------------------------------------------------

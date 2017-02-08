@@ -75,9 +75,9 @@ MODULE mo_ocean_model
   USE mo_ocean_check_tools,     ONLY: init_oce_index
   USE mo_util_dbg_prnt,       ONLY: init_dbg_index
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_ocean_physics,         ONLY: t_ho_params, construct_ho_params, init_ho_params, v_params, &
-    & destruct_ho_params
-
+  USE mo_ocean_physics_types,  ONLY: t_ho_params, construct_ho_params, v_params, &
+                                   & destruct_ho_params
+  USE mo_ocean_physics,          ONLY: init_ho_params                                 
   USE mo_operator_ocean_coeff_3d,ONLY: construct_operators_coefficients, &
     & destruct_operators_coefficients
 
@@ -128,7 +128,7 @@ MODULE mo_ocean_model
     TYPE(t_patch_3d), POINTER                       :: ocean_patch_3d
     TYPE(t_atmos_for_ocean)                         :: p_as
     TYPE(t_atmos_fluxes)                            :: atmos_fluxes
-    TYPE(t_operator_coeff)                          :: operators_coefficients
+    TYPE(t_operator_coeff), TARGET                  :: operators_coefficients
     TYPE(t_solverCoeff_singlePrecision)             :: solverCoefficients_sp
     TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET  :: ocean_state(:)
     
@@ -246,10 +246,10 @@ MODULE mo_ocean_model
 
       CASE (2000 : 3999) !
         CALL ocean_postprocess( oce_namelist_filename,shr_namelist_filename, &
-          & ocean_patch_3d, ocean_state,                                     &
-          & ext_data, time_config%tc_current_date,                           &
-          & v_sfc_flx,  v_params, p_as, atmos_fluxes,v_sea_ice,              &
-          & operators_coefficients,                                          &
+          & ocean_patch_3d, ocean_state,                    &
+          & ext_data,                                       &
+          & v_sfc_flx,  p_as, atmos_fluxes,v_sea_ice,       &
+          & operators_coefficients,                         &
           & solverCoefficients_sp)
 
       CASE DEFAULT

@@ -167,9 +167,11 @@ CONTAINS
       ! Nullify pointers in p_of%var_desc
       DO ivar=(p_of%max_vars+1),new_max_vars
         p_of%var_desc(ivar)%r_ptr => NULL()
+        p_of%var_desc(ivar)%s_ptr => NULL()
         p_of%var_desc(ivar)%i_ptr => NULL()
         DO i = 1, max_time_levels
           p_of%var_desc(ivar)%tlev_rptr(i)%p => NULL()
+          p_of%var_desc(ivar)%tlev_sptr(i)%p => NULL()
           p_of%var_desc(ivar)%tlev_iptr(i)%p => NULL()
         ENDDO
       END DO

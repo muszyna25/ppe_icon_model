@@ -29,7 +29,7 @@ MODULE mo_art_clouds_interface
   USE mo_run_config,                    ONLY: lart
 #ifdef __ICON_ART
   USE mo_art_config,                    ONLY: art_config
-  USE mo_art_2mom_driver,               ONLY: art_2mom_mcrph,      &
+  USE mo_art_2mom_driver,               ONLY: art_2mom_mcrph,               &
                                           &   art_2mom_mcrph_init
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &

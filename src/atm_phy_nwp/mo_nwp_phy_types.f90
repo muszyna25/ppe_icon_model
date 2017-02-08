@@ -41,7 +41,7 @@
 !!
 MODULE mo_nwp_phy_types
 
-  USE mo_kind,                ONLY: wp
+  USE mo_kind,                ONLY: wp, vp2
   USE mo_fortran_tools,       ONLY: t_ptr_2d3d,t_ptr_tracer
 
   IMPLICIT NONE
@@ -419,23 +419,30 @@ MODULE mo_nwp_phy_types
       ddt_temp_radsw  (:,:,:)  ,& !! Temp-tendency from shortwave radiation
       ddt_temp_radlw  (:,:,:)  ,& !! Temp-tendency from longwave radiation
       ddt_temp_turb   (:,:,:)  ,& !! Temp-tendency from turbulence
-      ddt_temp_drag   (:,:,:)  ,& !! Temp-tendency from sso + gravity-wave drag + Rayleigh friction
-      ddt_temp_pconv  (:,:,:)  ,& !! Temp-tendency from convective prec
       ddt_temp_gscp   (:,:,:)  ,& !! Temp-tendency from microphysics (only for LES)
       ddt_u_turb      (:,:,:)  ,& !! ZonalW-tendency from turbulence
-      ddt_u_gwd       (:,:,:)  ,& !! ZonalW-tendency from gravity wave drag
-      ddt_u_sso       (:,:,:)  ,& !! ZonalW-tendency from sso drag
       ddt_u_pconv     (:,:,:)  ,& !! ZonalW-tendency from convective prec
       ddt_v_turb      (:,:,:)  ,& !! MeridW-tendency from turbulence
       ddt_w_turb      (:,:,:)  ,& !! VertW-tendency from turbulence
-      ddt_v_gwd       (:,:,:)  ,& !! MeridW-tendency from gravity wave drag
-      ddt_v_sso       (:,:,:)  ,& !! MeridW-tendency from sso drag
       ddt_v_pconv     (:,:,:)  ,& !! MeridW-tendency from convective prec
       ddt_tracer_turb (:,:,:,:),& !! Hydromet-tendency from turbulence
       ddt_tracer_pconv(:,:,:,:),& !! Hydromet-tendency from convective prec
       ddt_tke_pconv   (:,:,:)  ,& !! TKE tendency from convective prec
       ddt_tke_hsh     (:,:,:)  ,& !! TKE tendency from horizontal shear
       ddt_tke         (:,:,:)     !! tendency for turbulent velocity scale [m/s^2]
+
+    REAL(vp2), POINTER           &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS              &
+#endif
+      ::                        &
+      ddt_temp_drag   (:,:,:)  ,& !! Temp-tendency from sso + gravity-wave drag + Rayleigh friction
+      ddt_temp_pconv  (:,:,:)  ,& !! Temp-tendency from convective prec
+      ddt_u_gwd       (:,:,:)  ,& !! ZonalW-tendency from gravity wave drag
+      ddt_u_sso       (:,:,:)  ,& !! ZonalW-tendency from sso drag
+      ddt_v_gwd       (:,:,:)  ,& !! MeridW-tendency from gravity wave drag
+      ddt_v_sso       (:,:,:)     !! MeridW-tendency from sso drag
+
 
     !Anurag Dipankar, MPIM (2013-May-31)
     !Large-scale tendencies for idealized testcases (nlev)

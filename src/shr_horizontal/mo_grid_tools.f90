@@ -307,7 +307,7 @@ CONTAINS
   SUBROUTINE calculate_edge_area(patch)
     TYPE(t_patch), TARGET, INTENT(inout) :: patch
 
-    INTEGER                       :: je, jb, istart_e, iend_e
+    INTEGER                       :: je, jb, start_edge_index, end_edge_index
     TYPE(t_subset_range), POINTER :: all_edges
     !-------------------------------------------------------------------------
     all_edges => patch%edges%all
@@ -317,10 +317,10 @@ CONTAINS
     !----------------------------------------------------------------------------
     ! loop over all blocks and edges
 
-!ICON_OMP_PARALLEL DO PRIVATE(jb,je) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL DO PRIVATE(start_edge_index, end_edge_index,je) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, istart_e, iend_e)
-      DO je = istart_e, iend_e
+      CALL get_index_range(all_edges, jb, start_edge_index, end_edge_index)
+      DO je = start_edge_index, end_edge_index
         patch%edges%area_edge(je,jb) =  &
             &    patch%edges%primal_edge_length(je,jb)  &
             &  * patch%edges%dual_edge_length(je,jb)

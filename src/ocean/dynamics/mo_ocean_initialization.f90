@@ -39,7 +39,8 @@ MODULE mo_ocean_initialization
     & f_plane_coriolis, zero_coriolis, halo_levels_ceiling, &
     & on_cells, on_edges, on_vertices
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, l_max_bottom, l_partial_cells, &
-    & coriolis_type, basin_center_lat, basin_height_deg, iswm_oce, coriolis_fplane_latitude
+    & coriolis_type, basin_center_lat, basin_height_deg, iswm_oce, coriolis_fplane_latitude,   &
+    & use_smooth_ocean_boundary
   USE mo_util_dbg_prnt,       ONLY: c_i, c_b, nc_i, nc_b
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch,t_patch_3d, t_grid_cells, t_grid_edges
@@ -82,6 +83,7 @@ MODULE mo_ocean_initialization
     & ocean_default_list, &
     & v_base, &
     & oce_config
+  USE mo_util_dbg_prnt,       ONLY: dbg_print, debug_print_MaxMinMean
   
   USE mo_ocean_check_tools, ONLY: ocean_check_level_sea_land_mask, check_ocean_subsets
   
@@ -143,7 +145,7 @@ CONTAINS
 !
 !    ! local variables
 !    INTEGER :: jb, je, jk
-!    INTEGER :: i_startidx_e, i_endidx_e
+!    INTEGER :: StartEdgeIndex, EndEdgeIndex
 !    INTEGER :: slev,elev
 !    TYPE(t_subset_range), POINTER :: all_edges
 !    TYPE(t_patch), POINTER :: patch_2d
@@ -156,9 +158,9 @@ CONTAINS
 !    elev         = n_zlev
 !
 !    DO jb = all_edges%start_block, all_edges%end_block
-!      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+!      CALL get_index_range(all_edges, jb, StartEdgeIndex, EndEdgeIndex)
 !      DO jk = slev, elev
-!        DO je= i_startidx_e, i_endidx_e
+!        DO je= StartEdgeIndex, EndEdgeIndex
 !          IF ( patch_3d%lsm_e(je,jk,jb) >= boundary ) THEN
 !            vn(je,jk,jb) = 0.0_wp
 !          ENDIF
@@ -423,94 +425,96 @@ CONTAINS
     ! Correction loop for cells in all levels, similar to surface done in grid generator
     !  - through all levels each wet cell has at most one dry cell as neighbour
     !  - otherwise it is set to dry grid cell
-    niter=30
-    zloop_cor: DO jk=1,n_zlev
-      
-      ctr_jk = 0
-      
-      ! working on 2D lsm_c inside the loop
-      lsm_c(:,:) = v_base%lsm_c(:,jk,:)
-      
-      ! LL: disable checks here, the changes in halos will differ from seq run
-      !     as the access patterns differ
-      CALL disable_sync_checks()
-      
-      DO jiter=1,niter
-        !
-        ctr = 0 ! no changes initially
-        
-        ! loop through owned patch cells
-        DO jb = owned_cells%start_block, owned_cells%end_block
-          CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
-          
-          DO jc =  i_startidx, i_endidx
-            
-            nowet_c = 0
-            
-            ! LL: here we probably want to check if the above cell is land
-            !     and change this into land accordingly
-            
-            IF (lsm_c(jc,jb) <= sea_boundary) THEN
-              DO ji = 1, 3
-                ! Get indices/blks of cells 1 to 3 adjacent to cell (jc,jb)
-                idxn = patch_2d%cells%neighbor_idx(jc,jb,ji)
-                ibln = patch_2d%cells%neighbor_blk(jc,jb,ji)
-                ! counts number of land-cells for all three neighbors
-                !  - only one land-point neighbor is allowed
-                IF (idxn <= 0) THEN
-                  nowet_c = nowet_c + 1
-                ELSE IF ( lsm_c(idxn,ibln) > sea_boundary ) THEN
-                  nowet_c = nowet_c + 1
-                ENDIF
-              END DO
-              
-              ! More than 1 wet neighbor-cell then set cell to land
-              !  - edges are set in the correction loop below
-              IF ( nowet_c >= 2 ) THEN
-                lsm_c(jc,jb)=land_boundary
-                ctr = ctr+1
-                
-                IF (jk<3) THEN
-                  WRITE(message_text,'(a,2i8)') &
-                    & 'WARNING: Found 2 land neighbors at jc, jk=',jc,jk
-                  CALL message(TRIM(routine), TRIM(message_text))
-                END IF
-                
-              END IF ! 2 land neighbors
-              
-            END IF ! lsm_c(jc,jb) <= SEA_BOUNDARY
-            
-          END DO  ! jc =  i_startidx, i_endidx
-        END DO ! jb = owned_cells%start_block, owned_cells%end_block
-        
-        ! see what is the sum of changes of all procs
-        ctr_glb = global_sum_array(ctr)
-        
-        WRITE(message_text,'(a,i2,a,i2,a,i8)') 'Level:', jk, &
-          & ' Corrected wet cells with 2 land neighbors - iter=', &
-          & jiter,' no of cor:',ctr_glb
-        CALL message(TRIM(routine), TRIM(message_text))
-        
-        ! if no changes have been done, we are done with this level. Exit
-        IF (ctr_glb == 0) EXIT
-        
-        ! we need to sync the halos here
-        z_sync_c(:,:) =  REAL(lsm_c(:,:),wp)
+    IF (use_smooth_ocean_boundary) THEN
+      niter=30
+      zloop_cor: DO jk=1,n_zlev
+
+        ctr_jk = 0
+
+        ! working on 2D lsm_c inside the loop
+        lsm_c(:,:) = v_base%lsm_c(:,jk,:)
+
+        ! LL: disable checks here, the changes in halos will differ from seq run
+        !     as the access patterns differ
+        CALL disable_sync_checks()
+
+        DO jiter=1,niter
+          !
+          ctr = 0 ! no changes initially
+
+          ! loop through owned patch cells
+          DO jb = owned_cells%start_block, owned_cells%end_block
+            CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
+
+            DO jc =  i_startidx, i_endidx
+
+              nowet_c = 0
+
+              ! LL: here we probably want to check if the above cell is land
+              !     and change this into land accordingly
+
+              IF (lsm_c(jc,jb) <= sea_boundary) THEN
+                DO ji = 1, 3
+                  ! Get indices/blks of cells 1 to 3 adjacent to cell (jc,jb)
+                  idxn = patch_2d%cells%neighbor_idx(jc,jb,ji)
+                  ibln = patch_2d%cells%neighbor_blk(jc,jb,ji)
+                  ! counts number of land-cells for all three neighbors
+                  !  - only one land-point neighbor is allowed
+                  IF (idxn <= 0) THEN
+                    nowet_c = nowet_c + 1
+                  ELSE IF ( lsm_c(idxn,ibln) > sea_boundary ) THEN
+                    nowet_c = nowet_c + 1
+                  ENDIF
+                END DO
+
+                ! More than 1 wet neighbor-cell then set cell to land
+                !  - edges are set in the correction loop below
+                IF ( nowet_c >= 2 ) THEN
+                  lsm_c(jc,jb)=land_boundary
+                  ctr = ctr+1
+
+                  IF (jk<3) THEN
+                    WRITE(message_text,'(a,2i8)') &
+                      & 'WARNING: Found 2 land neighbors at jc, jk=',jc,jk
+                    CALL message(TRIM(routine), TRIM(message_text))
+                  END IF
+
+                END IF ! 2 land neighbors
+
+              END IF ! lsm_c(jc,jb) <= SEA_BOUNDARY
+
+            END DO  ! jc =  i_startidx, i_endidx
+          END DO ! jb = owned_cells%start_block, owned_cells%end_block
+
+          ! see what is the sum of changes of all procs
+          ctr_glb = global_sum_array(ctr)
+
+          WRITE(message_text,'(a,i2,a,i2,a,i8)') 'Level:', jk, &
+            & ' Corrected wet cells with 2 land neighbors - iter=', &
+            & jiter,' no of cor:',ctr_glb
+          CALL message(TRIM(routine), TRIM(message_text))
+
+          ! if no changes have been done, we are done with this level. Exit
+          IF (ctr_glb == 0) EXIT
+
+          ! we need to sync the halos here
+          z_sync_c(:,:) =  REAL(lsm_c(:,:),wp)
+          CALL sync_patch_array(sync_c, patch_2d, z_sync_c(:,:))
+          lsm_c(:,:) = INT(z_sync_c(:,:))
+
+        END DO   ! jiter
+
+        CALL enable_sync_checks()
+
+        z_sync_c(:,:) = REAL(lsm_c(:,:),wp)
         CALL sync_patch_array(sync_c, patch_2d, z_sync_c(:,:))
         lsm_c(:,:) = INT(z_sync_c(:,:))
-        
-      END DO   ! jiter
-      
-      CALL enable_sync_checks()
-      
-      z_sync_c(:,:) = REAL(lsm_c(:,:),wp)
-      CALL sync_patch_array(sync_c, patch_2d, z_sync_c(:,:))
-      lsm_c(:,:) = INT(z_sync_c(:,:))
-      
-      ! get back into 3D the slm
-      v_base%lsm_c(:,jk,:) = lsm_c(:,:)
-      
-    END DO zloop_cor ! jk=1,n_zlev
+
+        ! get back into 3D the slm
+        v_base%lsm_c(:,jk,:) = lsm_c(:,:)
+
+      END DO zloop_cor ! jk=1,n_zlev
+    ENDIF !(use_smooth_ocean_boundary)
     
     ! restore p_test_run
     CALL enable_sync_checks()
@@ -1289,8 +1293,8 @@ CONTAINS
     TYPE(t_patch), TARGET, INTENT(inout) :: patch_2D
     !
     INTEGER :: jb, je, jv
-    INTEGER :: i_startidx_e, i_endidx_e
-    INTEGER :: i_startidx_v, i_endidx_v
+    INTEGER :: StartEdgeIndex, EndEdgeIndex
+    INTEGER :: StartVertexIndex, EndVertexIndex
     TYPE(t_geographical_coordinates) :: gc1,gc2
     TYPE(t_cartesian_coordinates) :: xx1, xx2
     REAL(wp) :: z_y, coriolis_lat
@@ -1315,8 +1319,8 @@ CONTAINS
       xx1=gc2cc(gc1)
       
       DO jb = all_verts%start_block, all_verts%end_block
-        CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
-        DO jv = i_startidx_v, i_endidx_v
+        CALL get_index_range(all_verts, jb, StartVertexIndex, EndVertexIndex)
+        DO jv = StartVertexIndex, EndVertexIndex
           !z_y = grid_sphere_radius*(patch_2D%verts%vertex(jv,jb)%lat - coriolis_lat)
           gc2%lat = patch_2D%verts%vertex(jv,jb)%lat!*deg2rad
           gc2%lon = 0.0_wp
@@ -1330,8 +1334,8 @@ CONTAINS
       END DO
       
       DO jb = all_edges%start_block, all_edges%end_block
-        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-        DO je = i_startidx_e, i_endidx_e
+        CALL get_index_range(all_edges, jb, StartEdgeIndex, EndEdgeIndex)
+        DO je = StartEdgeIndex, EndEdgeIndex
           ! depends on basin_center_lat only - not dependent on center_lon, basin_width or height
           gc2%lat = patch_2D%edges%center(je,jb)%lat!*deg2rad
           gc2%lon = 0.0_wp
@@ -1350,21 +1354,29 @@ CONTAINS
       
       coriolis_lat =  coriolis_fplane_latitude* deg2rad
       
+      patch_2D%cells%f_c  = 2.0_wp*grid_angular_velocity*SIN(coriolis_lat)
       patch_2D%edges%f_e  = 2.0_wp*grid_angular_velocity*SIN(coriolis_lat)
       patch_2D%verts%f_v  = 2.0_wp*grid_angular_velocity*SIN(coriolis_lat)
       
     CASE(zero_coriolis)
       
       CALL message (TRIM(routine), 'ZERO_CORIOLIS: set to zero')
+      patch_2D%cells%f_c = 0.0_wp
       patch_2D%verts%f_v = 0.0_wp
       patch_2D%edges%f_e = 0.0_wp
       
     CASE(full_coriolis)
       
       DO jb = all_verts%start_block, all_verts%end_block
-        CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
-        DO jv = i_startidx_v, i_endidx_v
+        CALL get_index_range(all_verts, jb, StartVertexIndex, EndVertexIndex)
+        DO jv = StartVertexIndex, EndVertexIndex
           patch_2D%verts%f_v(jv,jb) = 2.0_wp * grid_angular_velocity * SIN(patch_2D%verts%vertex(jv,jb)%lat)
+        END DO
+      END DO
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, StartEdgeIndex, EndEdgeIndex)
+        DO je = StartEdgeIndex, EndEdgeIndex
+          patch_2D%edges%f_e(je,jb) = 2.0_wp * grid_angular_velocity * SIN(patch_2D%edges%center(je,jb)%lat)
         END DO
       END DO
            
@@ -1397,7 +1409,7 @@ CONTAINS
     INTEGER :: ist
     !     INTEGER :: alloc_cell_blocks, nblks_e, nblks_v, n_zlvp, n_zlvm!, ie
     INTEGER :: je,jc,jb,jk
-    INTEGER :: i_startidx_c, i_endidx_c,i_startidx_e, i_endidx_e
+    INTEGER :: i_startidx_c, i_endidx_c,StartEdgeIndex, EndEdgeIndex
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_ocean_initialization:init_patch_3D'
     
@@ -1566,8 +1578,8 @@ CONTAINS
     patch_3d%p_patch_1d(1)%inv_prism_thick_e(:,:,:)       = 0.0_wp
     patch_3d%p_patch_1d(1)%inv_prism_center_dist_e(:,:,:) = 0.0_wp 
     DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
+      CALL get_index_range(all_edges, jb, StartEdgeIndex, EndEdgeIndex)
+      DO je = StartEdgeIndex, EndEdgeIndex
         
         DO jk=1, dolic_e(je,jb)
           patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,jk,jb) = v_base%del_zlev_m(jk)
@@ -1651,14 +1663,14 @@ CONTAINS
     END DO
     ! edges
     DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
+      CALL get_index_range(all_edges, jb, StartEdgeIndex, EndEdgeIndex)
+      DO je = StartEdgeIndex, EndEdgeIndex
         patch_3d%wet_halo_zero_e(je,:,jb) = 0.0_wp
       END DO
     END DO
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
+      CALL get_index_range(edges_in_domain, jb, StartEdgeIndex, EndEdgeIndex)
+      DO je = StartEdgeIndex, EndEdgeIndex
         patch_3d%wet_halo_zero_e(je,:,jb) = patch_3d%wet_e(je,:,jb)
       END DO
     END DO
@@ -1749,6 +1761,10 @@ CONTAINS
     CALL complete_ocean_subsets(patch_3d)
     
     CALL ocean_check_level_sea_land_mask(patch_3d)
+
+   CALL dbg_print('init_patch_3d:thick_e',patch_3D%p_patch_1d(1)%prism_thick_e,&
+      & "",4, in_subset=edges_in_domain)
+    
 
   END SUBROUTINE init_patch_3d
   !------------------------------------------------------------------------------------

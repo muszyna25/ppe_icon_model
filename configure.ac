@@ -141,6 +141,9 @@ AS_CASE([$ac_hostname],
         [ic2*],      
         [ac_sitename=kit.edu;
          fqdn=$ac_hostname.$ac_sitename],         
+        [fh2*],      
+        [ac_sitename=kit.edu;
+         fqdn=$ac_hostname.$ac_sitename],         
         [
          AS_IF([test "x$(hostname)" = "x$ac_hostname"],
                [fqdn=$(host -n $ac_hostname | $AWK '/has address/ {print $1}')],
@@ -683,7 +686,7 @@ AS_CASE([$with_grib_api],
          AC_CHECK_FILE($GRIBAPIROOT/include/grib_api.h,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h]))])
 
 AS_IF([test -n "$GRIBAPIROOT"],
-      [AS_IF([test -r "$GRIBAPIROOT/lib/libgrib_api.a" || test -r "$GRIBAPIROOT/lib/libgrib_api.dylib"],
+      [AS_IF([test -r "$GRIBAPIROOT/lib/libgrib_api.a" || test -r "$GRIBAPIROOT/lib/libgrib_api.dylib" || test -r "$GRIBAPIROOT/lib/libgrib_api.so"],
              [GRIBAPI_LIB='-L$(GRIBAPIROOT)/lib -lgrib_api'],
              [AC_MSG_ERROR([cannot read $GRIBAPIROOT/lib/libgrib_api.a])])
        AS_IF([test -d "$GRIBAPIROOT/include"],

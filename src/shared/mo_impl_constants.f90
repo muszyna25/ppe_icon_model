@@ -417,6 +417,15 @@ MODULE mo_impl_constants
 
   
 
+  ! NWP SST-ICE modes
+  INTEGER, PARAMETER :: SSTICE_ANA         = 1     ! SST and sea ice read from analysis and kept constant
+  INTEGER, PARAMETER :: SSTICE_ANA_CLINC   = 2     ! SST and sea ice read from analysis. SST is updated 
+                                                   ! by climatological increments on a daily basis
+  INTEGER, PARAMETER :: SSTICE_CLIM        = 3     ! SST and sea ice based on climatology (monthly fields)
+  INTEGER, PARAMETER :: SSTICE_AVG_MONTHLY = 4     ! SST and sea ice based on monthly averages
+  INTEGER, PARAMETER :: SSTICE_AVG_DAILY   = 5     ! SST and sea ice based on daily averages
+
+
   !---------------------!
   !        LAND         !
   !---------------------!
@@ -500,6 +509,14 @@ MODULE mo_impl_constants
   !----- MPI parallelization -----
   INTEGER, PARAMETER :: MAX_NUM_IO_PROCS = 100      !< max. number of output ranks
 
+  !----------------------!
+  !  VARIABLE DATA TYPES !
+  !----------------------!
+
+  INTEGER, PARAMETER :: REAL_T   = 1
+  INTEGER, PARAMETER :: SINGLE_T = 2
+  INTEGER, PARAMETER :: BOOL_T   = 3
+  INTEGER, PARAMETER :: INT_T    = 4
 
   !----------------!
   !  MODEL OUTPUT  !

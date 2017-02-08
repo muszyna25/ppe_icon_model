@@ -15,7 +15,6 @@
 MODULE mo_les_nml
 
   USE mo_les_config,          ONLY: les_config
-  USE mo_dynamics_config,     ONLY: iequations
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: my_process_is_stdio 
   USE mo_exception,           ONLY: message, finish, message_text
