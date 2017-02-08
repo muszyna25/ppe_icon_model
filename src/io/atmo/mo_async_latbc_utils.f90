@@ -334,7 +334,7 @@
 
       mtime_end => newDatetime(TRIM(sim_end))
 
-      ! if there is lrestart flag than prefetch processor needs to start reading
+      ! if there is lrestart flag then prefetch processor needs to start reading
       ! the data from the new date time of restart file. Below the time at which
       ! restart file starts is calculated and added to mtime_read which is the
       ! time step for reading the boundary data
@@ -493,6 +493,7 @@
         ELSE
           CALL compute_latbc_icon_data( p_patch, patch_data, p_int )
         END IF
+
         ! Compute tendencies for nest boundary update
         IF (ltime_incr) CALL compute_boundary_tendencies(p_patch, p_nh_state)
       ENDIF
@@ -559,6 +560,8 @@
 
 !$OMP PARALLEL PRIVATE(jm,jv,jc)
       jm = get_field_index('temp')
+      IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'temp'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
          DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
@@ -571,7 +574,10 @@
 !$OMP END DO  !NOWAIT
 
       jm = get_field_index('u')
+      IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'u'!")
       jv = get_field_index('v')
+      IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'v'!")
+
       !   WRITE(0,*)'pref_latbc_cdi_data name ', latbc_buffer%mapped_name(jm), ' jm ', jm
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
@@ -587,6 +593,8 @@
 !$OMP END DO
 
       jv = get_field_index('w')
+      IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'w'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jv)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -599,6 +607,8 @@
 
       ! Read parameter Pressure
       jv = get_field_index('pres')
+      IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'pres'!")
+
       !      WRITE(0,*)'pref_latbc_cdi_data jv ', latbc_buffer%mapped_name(jv), ' jv ', jv
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jv)
@@ -612,6 +622,8 @@
 
       ! Read parameter qv
       jv = get_field_index('qv')
+      IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qv'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jv)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -623,6 +635,8 @@
 !$OMP END DO
 
       jc = get_field_index('qc')
+      IF (jc <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qc'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jc)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -635,6 +649,8 @@
 
       ! Read parameter qi
       jm = get_field_index('qi')
+      IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qi'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -647,6 +663,8 @@
 
       ! Read parameter qr
       jm = get_field_index('qr')
+      IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qr'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -659,6 +677,8 @@
 
       ! Read parameter qs
       jv = get_field_index('qs')
+      IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qs'!")
+
       !    WRITE(0,*)'pref_latbc_cdi_data jv ', latbc_buffer%mapped_name(jv), ' jv ', jv
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jv)
@@ -911,6 +931,8 @@
 
       IF (latbc_buffer%lthd_progvars) THEN
         jm = get_field_index('theta_v')
+        IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'theta_v'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
         DO jk=1, latbc_buffer%nlev(jm)
           DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
@@ -920,7 +942,10 @@
           ENDDO
         ENDDO
 !$OMP END DO
+
         jm = get_field_index('rho')
+        IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'rho'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
         DO jk=1, latbc_buffer%nlev(jm)
           DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
@@ -930,8 +955,12 @@
           ENDDO
         ENDDO
 !$OMP END DO
+
       ELSE
+
         jm = get_field_index('temp')
+        IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'temp'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
         DO jk=1, latbc_buffer%nlev(jm)
           DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
@@ -946,6 +975,8 @@
       ! Read horizontal component of velocity (U and V)
       IF (latbc_buffer%lread_vn) THEN
          jm = get_field_index('vn')
+         IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'vn'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jm)
             DO j = 1, patch_data%edges%n_own !p_patch%n_patch_cells
@@ -957,7 +988,10 @@
 !$OMP END DO
       ELSE
          jm = get_field_index('u')
+         IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'u'!")
          jv = get_field_index('v')
+         IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'v'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jm)
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -976,6 +1010,8 @@
       IF (ioper_mode == 1) THEN
          lconvert_omega2w = .TRUE.
          jv = get_field_index('w')
+         IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'w'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jv)
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -988,6 +1024,8 @@
       ELSE
          lconvert_omega2w = .FALSE.
          jv = get_field_index('w')
+         IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'w'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jv)
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -1002,6 +1040,8 @@
       IF (ioper_mode >= 2) THEN
          ! Read parameter HHL
          jm = get_field_index('z_ifc')
+         IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'z_ifc'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jm)
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -1033,6 +1073,8 @@
 
       ! Read parameter QV, QC and QI
       jv = get_field_index('qv')
+      IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qv'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jv)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -1044,6 +1086,8 @@
 !$OMP END DO
 
       jc = get_field_index('qc')
+      IF (jc <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qc'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jc)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -1055,6 +1099,8 @@
 !$OMP END DO
 
       jm = get_field_index('qi')
+      IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qi'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -1068,6 +1114,8 @@
       IF (latbc_buffer%lread_qr) THEN
          ! Read parameter QR
          jm = get_field_index('qr')
+         IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qr'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jm)
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -1085,6 +1133,8 @@
       IF (latbc_buffer%lread_qs) THEN
          ! Read parameter QS
          jv = get_field_index('qs')
+         IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qs'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jv)
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -1102,6 +1152,8 @@
       IF (ioper_mode >= 2 .AND. .NOT. latbc_buffer%lthd_progvars) THEN
          ! Read parameter Pressure
          jv = get_field_index('pres')
+         IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'pres'!")
+
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jv)
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
@@ -1116,6 +1168,8 @@
       IF (ioper_mode /= 3) THEN
         ! Read parameter surface pressure (LNPS)
         jm = get_field_index(latbc_buffer%psvar,.TRUE.)
+        IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for "//TRIM(latbc_buffer%psvar)//"!")
+
 !$OMP DO PRIVATE (j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
            jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -1125,6 +1179,8 @@
 !$OMP END DO
         ! Read parameter  surface Geopotential (GEOSP)
         jm = get_field_index(latbc_buffer%geop_ml_var,.TRUE.)
+        IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for geop_ml_var!")
+
 !$OMP DO PRIVATE (j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
            jb = p_ri%own_blk(j) ! Block index in distributed patch
@@ -1178,6 +1234,7 @@
       !
       CALL vert_interp(p_patch, p_int, p_nh_state%metrics, nlev_in, latbc_data(tlev),              &
            &    opt_convert_omega2w=lconvert_omega2w, opt_use_vn=latbc_buffer%lread_vn)
+
 #endif
     END SUBROUTINE compute_latbc_intp_data
 
@@ -1521,6 +1578,8 @@
     FUNCTION get_field_index(name,opt_lmap) RESULT(result_varID)
       CHARACTER (LEN=*), INTENT(IN) :: name !< variable name
       LOGICAL, OPTIONAL, INTENT(IN) :: opt_lmap
+      ! local variables
+      LOGICAL, PARAMETER :: ldebug = .FALSE.
       INTEGER :: result_varID, varID
       LOGICAL :: lmap
 
@@ -1529,16 +1588,20 @@
         IF (opt_lmap) lmap = .TRUE.
       ENDIF
 
+      IF (ldebug)  WRITE (0,*) "name : ", TRIM(name)
+
       result_varID = -1
       ! looping over variable list in internal or mapped name
       IF (lmap) THEN
         DO varID=1, latbc_buffer%ngrp_vars
+          IF (ldebug)  WRITE (0,*) "mapped name : ", TRIM(latbc_buffer%mapped_name(varID))
           IF (TRIM(name) == TRIM(latbc_buffer%mapped_name(varID))) THEN
             result_varID = varID
           END IF
         END DO
       ELSE
         DO varID=1, latbc_buffer%ngrp_vars
+          IF (ldebug)  WRITE (0,*) "internal name : ", TRIM(latbc_buffer%internal_name(varID))
           IF (TRIM(name) == TRIM(latbc_buffer%internal_name(varID))) THEN
             result_varID = varID
           END IF

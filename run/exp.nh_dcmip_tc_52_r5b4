@@ -121,7 +121,6 @@ cat > ${atmo_namelist} << EOF
  hdiff_efdt_ratio = 10.0
 /
 &transport_nml
-  ctracer_list    = '12345'
 /
 &nwp_phy_nml
  inwp_gscp        = 1

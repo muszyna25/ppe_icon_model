@@ -108,7 +108,7 @@ cat > ${atmo_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
- ctracer_list     = 'vci'       ! water vapour, cloud water, cloud ice
+ tracer_names     = 'v','c','i'       ! water vapour, cloud water, cloud ice
 /
 EOF
 

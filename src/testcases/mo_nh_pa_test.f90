@@ -39,7 +39,6 @@ USE mo_kind,                ONLY: wp
 USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
 USE mo_physical_constants,  ONLY: rd, cpd, p0ref
 USE mo_math_constants,      ONLY: pi_2, pi
-USE mo_advection_config,    ONLY: advection_config
 USE mo_model_domain,        ONLY: t_patch
 USE mo_ext_data_types,      ONLY: t_external_data
 USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
@@ -81,7 +80,8 @@ CONTAINS
   !!
   SUBROUTINE init_nh_state_prog_patest( ptr_patch, ptr_int, ptr_nh_prog,      &
     &                                   ptr_nh_diag, ptr_ext_data, p_metrics, &
-    &                                   p_rotate_axis_deg, linit_tracer_fv )
+    &                                   p_rotate_axis_deg, linit_tracer_fv,   &
+    &                                   tracer_inidist_list )
 
     TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
       &  ptr_patch
@@ -104,6 +104,8 @@ CONTAINS
 
     LOGICAL, INTENT(IN)  :: linit_tracer_fv  !< tracer finite volume initialization
 
+    INTEGER, INTENT(IN) :: tracer_inidist_list(:) !< selected initial tracer distributions
+
     INTEGER  :: nblks_e, nblks_c, nblks_v, npromz_e, npromz_c, npromz_v, &
                 nlen, it4, it5, it6, it7, it8
     INTEGER  :: nlev                    !< number of full levels
@@ -114,22 +116,11 @@ CONTAINS
     REAL(wp) :: z_aleph, rovcp
 
 
-    CHARACTER(LEN=1) :: ctracer         !< char to control tracer init
-    CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
-    &  ctracer_list
-
     INTEGER :: ilc1, ibc1  !< line and block indices of cell1 adjacent 
                            !< to the current edge
-    INTEGER :: pid         !< patch ID
 !--------------------------------------------------------------------
 !
     CALL init_ncar_testcases_domain()
-    ! get patch ID
-    pid = ptr_patch%id
-
-    ! get ctracer_list
-    ctracer_list = advection_config(pid)%ctracer_list
-
 
     rovcp   = rd/cpd                            !< kappa
     z_aleph = p_rotate_axis_deg * pi/180.0_wp   !< deg2rad rotation angle
@@ -188,7 +179,6 @@ CONTAINS
     !
     ! initialize horizontal velocity field (time independent)
     !
-!DR!$OMP DO PRIVATE(jb,jk,je,nlen,zlon,zlat,zu,zv)
 !$OMP DO PRIVATE(jb,jk,je,nlen,zlon,zlat,zu,zv,ilc1,ibc1)
     DO jb = 1, nblks_e
       IF (jb /= nblks_e) THEN
@@ -251,17 +241,16 @@ CONTAINS
     it7 = 0
     it8 = 0
     DO jt = 1, ntracer
-      ctracer = ctracer_list(jt:jt)
-      SELECT CASE(ctracer)
-      CASE('4')
+      SELECT CASE(tracer_inidist_list(jt))
+      CASE(4)
         it4 = jt
-      CASE('5')
+      CASE(5)
         it5 = jt
-      CASE('6')
+      CASE(6)
         it6 = jt
-      CASE('7')
+      CASE(7)
         it7 = jt
-      CASE('8')
+      CASE(8)
         it8 = jt
       END SELECT
     ENDDO
@@ -295,7 +284,8 @@ CONTAINS
 
           zheight = p_metrics%z_mc(jc,jk,jb)
 
-          CALL init_pure_adv_tracers ( ctracer_list, zlon, zlat, zheight, &
+
+          CALL init_pure_adv_tracers ( tracer_inidist_list(1:5), zlon, zlat, zheight, &
             &                          p_rotate_axis_deg, zq4, zq5, zq6,  &
             &                          zq7, zq8 )
 

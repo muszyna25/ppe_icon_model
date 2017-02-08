@@ -328,4 +328,24 @@
   \end{itemize}
 \end{changeitem}
 
+\begin{changeitem}{initicon\_nml}{2017-01-27}{ae1be66f}
+  \begin{itemize}
+   \item The default value of the namelist parameter
+     \texttt{num\_prefetch\_proc} has been changed to 1,
+     i.e. asynchronous read-in of lateral boundary data is now
+     enabled.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{interpol\_nml}{2017-01-31}{e1c56104}
+  \begin{itemize}
+   \item With the introduction of the namelist parameter
+     \texttt{lreduced\_nestbdry\_stencil} in the namelist
+     \texttt{interpol\_nml} the nest boundary points are no longer
+     removed from lat-lon interpolation stencil by default.
+  \end{itemize}
+\end{changeitem}
+
+ 
+
 % --------------------------------------------------------------------------------------------

@@ -146,7 +146,6 @@ tkhmin  = 0.1
 tkmmin  = 0.1
 /
 &transport_nml
-  ctracer_list  = '12345'
 ! ivadv_tracer  = 3,3,3,3,3
 ! itype_hlimit = 3,4,4,4,4,0
 ! ihadv_tracer  = 3,2,2,2,2,0

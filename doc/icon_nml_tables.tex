@@ -2124,6 +2124,13 @@ Flag. If .FALSE. barycentric interpolation is replaced by a
 fallback interpolation.&
 \tabularnewline
 
+%\hline
+lreduced\_nestbdry\_stencil &
+L& .FALSE. & &
+Flag. If .TRUE. then the nest boundary points are taken out from
+the lat-lon interpolation stencil.&
+\tabularnewline
+
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_interpol_nml.f90+
@@ -4412,7 +4419,7 @@ Number of restart processors (running exclusively for doing restart)&
 
 %\hline
 \textbf{num\_prefetch\_proc} &
-I & 0& &
+I & 1& &
 Number of processors for prefetching of boundary data asynchronously for
 a limited area run (running exclusively for reading Input boundary
 data. Maximum no of processors used for it is limited to 1). &
@@ -5299,13 +5306,12 @@ L& .FALSE.& & Time splitting method & \tabularnewline
 & & & & FALSE: first order Godunov splitting & \tabularnewline
 
 %\hline
-ctracer\_list&
-C& ''& & Two purposes: & \tabularnewline
- & &   &  & 
- - used for selecting those tracers which should be initialized for idealized testcases. & [nh/ha]\_test\_name=\\'jabw','PA','DF'
-\tabularnewline
- & &   &  & 
- - used for tracer output names. In some idealized cases tracers are named 'Q\emph{x}', with \emph{x} being a 1-digit integer taken from \texttt{ctracer\_list}. & iforcing$\ne$ inwp, iecham
+tracer\_names&
+C(:)& 'Int2Str(i)'& & Tracer-specific name suffixes. When running idealized cases or the hydrostatic ICON, 
+this variable is used to specify tracer names. If nothing is specified, the tracer name is given as 
+\texttt{PREFIX+Int2String(i)}, where \texttt{i} is the tracer index. Note that this 
+namelist variable has no effect for nonhydrostatic real-case runs, if the NWP- or ECHAM physics 
+packages are switched on. & iforcing$\ne$ inwp, iecham'
 \tabularnewline
 
 %\hline
@@ -5813,6 +5819,17 @@ ntracer = 2
 lshallow\_water=.FALSE.
 \tabularnewline
 
+tracer\_inidist\_list & 
+I(:) & 1 &  &
+For a subset of testcases pre-defined initial tracer distributions are available. 
+This namelist parameter specifies the initial distribution for each tracer. 
+In the following the testcases and the pre-defined numbers are given:\\
+`PA': 4,5,6,7,8\\
+'JABW':1,2,3,4\\
+'DF': 5,6,7,8,9\\
+For more details on the initial distributions, please have a look into the code. & ha\_testcase\_nml='PA',\\'JABW','DF'
+\tabularnewline
+
 %\hline
 rotate\_axis\_deg&
 R& 0.0& deg&
@@ -6066,6 +6083,17 @@ is\_plane\_torus= .TRUE.
 is\_toy\_chem & 
 L & .FALSE. &  &
 Terminator toy chemistry activated when .TRUE. &
+\tabularnewline
+
+tracer\_inidist\_list & 
+I(:) & 1 &  &
+For a subset of testcases pre-defined initial tracer distributions are available. 
+This namelist parameter specifies the initial distribution for each tracer. 
+In the following the testcases and the pre-defined numbers are given:\\
+`PA': 4,5,6,7,8\\
+'JABW':1,2,3,4\\
+'DF': 5,6,7,8,9\\
+For more details on the initial distributions, please have a look into the code. & nh\_test\_name='PA',\\'JABW','DF'
 \tabularnewline
 
 \hline

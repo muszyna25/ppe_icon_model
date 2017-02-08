@@ -306,7 +306,6 @@ CONTAINS
 
     INTEGER :: jg
     INTEGER :: jt   ! tracer loop index
-    INTEGER :: i_listlen
     INTEGER :: z_go_tri(11)  ! for crosscheck
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:atm_crosscheck'
     TYPE(timedelta),  POINTER             :: mtime_td
@@ -820,8 +819,6 @@ CONTAINS
 
       DO jg = 1,n_dom
 
-        i_listlen = LEN_TRIM(advection_config(jg)%ctracer_list)
-
         SELECT CASE ( iforcing )
         CASE ( INWP )
         !...........................................................
@@ -854,27 +851,10 @@ CONTAINS
           ENDIF
 
 
-          IF ( i_listlen /= ntracer ) THEN
-            DO jt=1,ntracer
-              WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
-            ENDDO
-            WRITE(message_text,'(a,a)') &
-              & 'Attention: according to physics, ctracer_list is set to ',&
-              & advection_config(jg)%ctracer_list(1:ntracer)
-            CALL message(TRIM(method_name),message_text)
-          ENDIF
-
-
         CASE (inoforcing, iheldsuarez, iecham, ildf_dry, ildf_echam)
         !...........................................................
         ! Other types of adiabatic forcing
         !...........................................................
-
-          IF ( i_listlen < ntracer .AND. i_listlen /= 0 ) THEN
-            ntracer = i_listlen
-            CALL message(TRIM(method_name),'number of tracers is adjusted according to given list')
-          END IF
-
 
           IF (echam_phy_config%lrad) THEN
             IF ( izenith > 5)  &
@@ -1128,6 +1108,10 @@ CONTAINS
         CALL finish(TRIM(method_name),'iart_ari > 0 requires irad_aero=9')
       ENDIF
     ENDDO
+    
+    IF(art_config(jg)%lart_pntSrc .AND. .NOT. art_config(jg)%lart_passive) THEN
+      CALL finish(TRIM(method_name),'lart_pntSrc needs lart_passive to be .true.')
+    ENDIF
     
     ! XML specification checks
     

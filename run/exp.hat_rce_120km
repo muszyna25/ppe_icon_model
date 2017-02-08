@@ -186,7 +186,6 @@ cat >> ${atmo_namelist} << EOF
  lcoriolis      = .FALSE.
 /
 &transport_nml
-  ctracer_list  = '123'
 /
 &diffusion_nml
  hdiff_order      = 24 ! same as for icoham_ape

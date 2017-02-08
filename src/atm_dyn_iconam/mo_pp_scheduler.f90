@@ -162,7 +162,8 @@ MODULE mo_pp_scheduler
     &                                   TASK_INTP_VER_ILEV, TASK_INTP_EDGE2CELL,            &
     &                                   max_phys_dom, UNDEF_TIMELEVEL, ALL_TIMELEVELS,      &
     &                                   vname_len, TASK_COMPUTE_OMEGA,                      &
-    &                                   TLEV_NNOW, TLEV_NNOW_RCF, HINTP_TYPE_LONLAT_NNB
+    &                                   TLEV_NNOW, TLEV_NNOW_RCF, HINTP_TYPE_LONLAT_NNB,    &
+    &                                   STR_HINTP_TYPE
   USE mo_model_domain,            ONLY: p_patch, p_phys_patch
   USE mo_var_list,                ONLY: add_var, nvar_lists, var_lists, get_var_name,       &
     &                                   get_var_timelevel, find_list_element
@@ -242,7 +243,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: l_init_prm_diag
 
     ! local variables
-    CHARACTER(*), PARAMETER :: routine =  modname//"pp_scheduler_init"
+    CHARACTER(*), PARAMETER :: routine =  modname//"::pp_scheduler_init"
     INTEGER                          :: jg, i
     TYPE(t_list_element), POINTER    :: element, element_pres
 
@@ -330,7 +331,7 @@ CONTAINS
     INTEGER,          INTENT(IN)  :: ll_grid_id      !< lon-lat grid number
     INTEGER,          INTENT(IN)  :: lev_type        !< level type: p/z/i/m
     ! local variables
-    CHARACTER(*), PARAMETER :: routine =  modname//"init_vn_horizontal"
+    CHARACTER(*), PARAMETER :: routine =  modname//"::init_vn_horizontal"
     TYPE(t_list_element), POINTER :: element_u, element_v, element, new_element, new_element_2
     INTEGER                       :: i, shape3d_ll(3), nblks_lonlat, &
       &                              nlev, jg, tl
@@ -427,7 +428,9 @@ CONTAINS
           & GRID_REGULAR_LONLAT, info%vgrid, cf, grib2,                                   &
           & ldims=shape3d_ll, lrestart=.FALSE., in_group=element_u%field%info%in_group,   &
           & new_element=new_element, loutput=.TRUE., post_op=post_op,                     &
-          & var_class=element_u%field%info%var_class, tlev_source=info%tlev_source )
+          & var_class=element_u%field%info%var_class, tlev_source=info%tlev_source,       &
+          & hor_interp=element_u%field%info%hor_interp,                                   &
+          & vert_interp=element_u%field%info%vert_interp )
 
         name    = TRIM(get_var_name(element_v%field))//suffix
         cf      = element_v%field%info%cf
@@ -437,7 +440,9 @@ CONTAINS
           & GRID_REGULAR_LONLAT, info%vgrid, cf, grib2,                                   &
           & ldims=shape3d_ll, lrestart=.FALSE., in_group=element_v%field%info%in_group,   &
           & new_element=new_element_2, loutput=.TRUE., post_op=post_op,                   &
-          & var_class=element_v%field%info%var_class, tlev_source=info%tlev_source )
+          & var_class=element_v%field%info%var_class, tlev_source=info%tlev_source,       &
+          & hor_interp=element_v%field%info%hor_interp,                                   &
+          & vert_interp=element_v%field%info%vert_interp )
 
         ! link these new variables to the lon-lat grid:
         new_element%field%info%hor_interp%lonlat_id   = ll_grid_id
@@ -474,7 +479,7 @@ CONTAINS
   SUBROUTINE pp_scheduler_init_lonlat
 
     ! local variables
-    CHARACTER(*), PARAMETER :: routine =  modname//"pp_scheduler_init_lonlat"
+    CHARACTER(*), PARAMETER :: routine =  modname//"::pp_scheduler_init_lonlat"
     INTEGER                               :: &
       &  jg, ndom, ierrstat, ivar, i, j, nvars_ll, &
       &  nblks_lonlat, ilev_type, max_var, ilev, n_uv_hrz_intp
@@ -496,6 +501,7 @@ CONTAINS
     TYPE (t_lon_lat_intp),     POINTER    :: ptr_int_lonlat
     INTEGER                               :: uv_hrz_intp_grid(4*MAX_LONLAT_GRIDS), &
       &                                      uv_hrz_intp_levs(4*MAX_LONLAT_GRIDS)
+    CHARACTER(LEN=1)                      :: prefix
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
 
@@ -665,12 +671,16 @@ CONTAINS
           SELECT CASE(ll_varlevs(ivar))
           CASE (level_type_ml)
             p_opt_diag_list => p_nh_opt_diag(jg)%opt_diag_list         
+            prefix = "m"
           CASE (level_type_pl)
             p_opt_diag_list => p_nh_opt_diag(jg)%opt_diag_list_p
+            prefix = "p"
           CASE (level_type_hl)
             p_opt_diag_list => p_nh_opt_diag(jg)%opt_diag_list_z
+            prefix = "z"
           CASE (level_type_il)
             p_opt_diag_list => p_nh_opt_diag(jg)%opt_diag_list_i
+            prefix = "i"
           END SELECT
 
           ! set local values for "nblks" and "npromz"
@@ -708,6 +718,7 @@ CONTAINS
                 &           isteptype=info%isteptype,                             &
                 &           hor_interp=create_hor_interp_metadata(                &
                 &               hor_intp_type=HINTP_TYPE_NONE ),                  &
+                &           vert_interp=info%vert_interp,                         &
                 &           post_op=info%post_op,                                 &
                 &           lmiss=info%lmiss,                                     &
                 &           missval=info%missval%rval, var_class=info%var_class,  &
@@ -722,6 +733,7 @@ CONTAINS
                 &           isteptype=info%isteptype,                             &
                 &           hor_interp=create_hor_interp_metadata(                &
                 &               hor_intp_type=HINTP_TYPE_NONE ),                  &
+                &           vert_interp=info%vert_interp,                         &
                 &           post_op=info%post_op,                                 &
                 &           lmiss=info%lmiss,                                     &
                 &           missval=info%missval%ival, var_class=info%var_class,  &
@@ -766,7 +778,9 @@ CONTAINS
             
           !-- create and add post-processing task
           task => pp_task_insert(DEFAULT_PRIORITY4)
-          WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", DOM ",jg
+          WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", DOM ",jg, &
+            &                      " on ", prefix, "-levels, intp TYPE: ", &
+            &                      TRIM(STR_HINTP_TYPE(element%field%info%hor_interp%hor_intp_type))
           IF (dbg_level > 8) CALL message(routine, task%job_name)
           task%data_input%p_nh_state      => NULL()
           task%data_input%prm_diag        => NULL()
@@ -826,7 +840,7 @@ CONTAINS
     CHARACTER(LEN=vname_len), INTENT(INOUT) :: var_names(:)     !< list of variable names (strings)
     LOGICAL, INTENT(OUT)     :: l_uv_vertical_intp              !< Flag. .TRUE., if "u" or "v" contained
     ! local variables
-    CHARACTER(*), PARAMETER :: routine =  modname//"collect_output_variables"
+    CHARACTER(*), PARAMETER :: routine =  modname//"::collect_output_variables"
     TYPE (t_output_name_list), POINTER :: p_onl
     LOGICAL :: l_jg_active
     INTEGER :: ivar, iphys_dom
@@ -850,7 +864,7 @@ CONTAINS
         CALL finish(routine, "Internal error!")
       END SELECT
 
-      IF (dbg_level >= 15)  WRITE (0,*) nml_varlist 
+      IF (dbg_level >= 21)  WRITE (0,*) nml_varlist 
 
       ! If dom(:) was not specified in namelist input, it is set
       ! completely to -1.  In this case all domains are searched:
@@ -895,7 +909,7 @@ CONTAINS
     REAL(wp),         POINTER                :: ptr(:,:,:)  !< reference to field
     TYPE(t_var_list), POINTER                :: dst_varlist !< destination variable list
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//"copy_variable"
+    CHARACTER(*), PARAMETER :: routine = modname//"::copy_variable"
     TYPE(t_list_element), POINTER :: element
      
     ! find existing variable
@@ -907,7 +921,9 @@ CONTAINS
       &           tracer_info=element%field%info_dyn%tracer,                            &
       &           post_op=element%field%info%post_op, loutput=.TRUE., lrestart=.FALSE., &
       &           var_class=element%field%info%var_class,                               &
-      &           tlev_source=element%field%info%tlev_source )
+      &           tlev_source=element%field%info%tlev_source,                           &
+      &           hor_interp=element%field%info%hor_interp,                             & 
+      &           vert_interp=element%field%info%vert_interp )
   END SUBROUTINE copy_variable
 
 
@@ -925,7 +941,7 @@ CONTAINS
     INTEGER,          INTENT(IN)  :: dst_axis        !< destination axis
     TYPE(t_var_list), POINTER     :: dst_varlist     !< destination variable list
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//"init_vn_vertical"
+    CHARACTER(*), PARAMETER :: routine = modname//"::init_vn_vertical"
     TYPE(t_list_element), POINTER :: element_u, element_v, element, vn_element, new_element, new_element_2
     INTEGER                       :: i, shape3d_c(3), shape3d_e(3), nblks_c, nblks_e, tl
     TYPE(t_job_queue),    POINTER :: task
@@ -992,9 +1008,11 @@ CONTAINS
         !-- create a new z/p/i-variable "vn":
         CALL add_var( dst_varlist, TRIM(info%name), p_opt_field_r3d, element%field%info%hgrid,    &
           &           dst_axis, info%cf, info%grib2, ldims=shape3d_e,                             &
-          &           vert_interp=info%vert_interp, new_element=vn_element,                       &
+          &           new_element=vn_element,                                                     &
           &           post_op=info%post_op, lrestart=.FALSE., var_class=info%var_class,           &
-          &           tlev_source=element%field%info%tlev_source  )
+          &           tlev_source=element%field%info%tlev_source,                                 &
+          &           hor_interp=info%hor_interp,                                                 &
+          &           vert_interp=info%vert_interp )
          
         !-- create a post-processing task for vertical interpolation of "vn"
         task => pp_task_insert(DEFAULT_PRIORITY1)
@@ -1031,7 +1049,9 @@ CONTAINS
           & ldims=shape3d_c, lrestart=.FALSE., in_group=element_u%field%info%in_group,    &
           & new_element=new_element, post_op=post_op,                                     &
           & var_class=element_u%field%info%var_class,                                     &
-          & tlev_source=element_u%field%info%tlev_source )
+          & tlev_source=element_u%field%info%tlev_source,                                 &
+          & hor_interp=element_u%field%info%hor_interp,                                   &
+          & vert_interp=element_u%field%info%vert_interp )
 
         name    = TRIM(get_var_name(element_v%field))//suffix
         cf      = element_v%field%info%cf
@@ -1042,7 +1062,9 @@ CONTAINS
           & ldims=shape3d_c, lrestart=.FALSE., in_group=element_v%field%info%in_group,    &
           & new_element=new_element_2, post_op=post_op,                                   &
           & var_class=element_v%field%info%var_class,                                     &
-          & tlev_source=element_v%field%info%tlev_source )
+          & tlev_source=element_v%field%info%tlev_source,                                 &
+          & hor_interp=element_v%field%info%hor_interp,                                   &
+          & vert_interp=element_v%field%info%vert_interp  )
 
         !-- create a post-processing task for edge2cell interpolation "vn" -> "u","v"
         task => pp_task_insert(DEFAULT_PRIORITY2)
@@ -1083,7 +1105,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: l_init_prm_diag !< Flag. If .TRUE., then prm_diag data structure is available
 
     ! local variables
-    CHARACTER(*), PARAMETER :: routine =  modname//"pp_scheduler_init_ipz"
+    CHARACTER(*), PARAMETER :: routine =  modname//"::pp_scheduler_init_ipz"
     INTEGER,      PARAMETER :: init_tasks(3) = &
       &  (/ TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I /)
     CHARACTER,    PARAMETER :: init_names(3) = &
@@ -1398,14 +1420,17 @@ CONTAINS
                 &           tracer_info=info_dyn%tracer,                    &
                 &           loutput=.TRUE., new_element=new_element,        &
                 &           post_op=info%post_op, var_class=info%var_class, &
-                &           tlev_source=info%tlev_source )
+                &           tlev_source=info%tlev_source,                   &
+                &           hor_interp=info%hor_interp,                     &
+                &           vert_interp=info%vert_interp )
 
               !-- add post-processing task for interpolation
 
               task => pp_task_insert(DEFAULT_PRIORITY1)
               task%job_name        =  &
                 &  TRIM(prefix)//" interp. "//TRIM(info%name)  &
-                &  //", DOM "//TRIM(int2string(jg))
+                &  //", DOM "//TRIM(int2string(jg))            &
+                & //", vintp type: "//TRIM(int2string(element%field%info%vert_interp%vert_intp_method))
               IF (dbg_level > 8) CALL message(routine, task%job_name)
 
               task%job_type                    =  job_type
@@ -1506,7 +1531,7 @@ CONTAINS
   SUBROUTINE pp_scheduler_process(simulation_status)
     TYPE(t_simulation_status), INTENT(IN) :: simulation_status
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//"pp_scheduler_process"
+    CHARACTER(*), PARAMETER :: routine = modname//"::pp_scheduler_process"
     TYPE(t_job_queue), POINTER :: ptr_task
 
     IF (dbg_level >= 10) THEN
@@ -1517,7 +1542,7 @@ CONTAINS
     LOOP_JOB : DO
       IF (.NOT. ASSOCIATED(ptr_task)) EXIT
       IF (.NOT. pp_task_is_active(ptr_task, simulation_status)) THEN
-        IF (dbg_level > 5) THEN
+        IF (dbg_level > 20) THEN
           WRITE(message_text,*) "Skipping task '", TRIM(ptr_task%job_name), "'"
           CALL message(routine, TRIM(message_text))
         END IF
@@ -1576,7 +1601,7 @@ CONTAINS
   !
   SUBROUTINE pp_scheduler_finalize()
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//"pp_scheduler_finalize"
+    CHARACTER(*), PARAMETER :: routine = modname//"::pp_scheduler_finalize"
     INTEGER                    :: ierrstat
     TYPE(t_job_queue), POINTER :: tmp
     
@@ -1604,7 +1629,7 @@ CONTAINS
     LOGICAL :: pp_task_is_active
     TYPE(t_job_queue), POINTER :: ptr_task
     TYPE(t_simulation_status),  INTENT(IN) :: sim_status
-    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_is_active"
+    CHARACTER(*), PARAMETER :: routine = modname//"::pp_task_is_active"
     INTEGER :: jg, tlev_source, timelevel
 
     ! compare simulation status to post-processing tasks activity
@@ -1653,7 +1678,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: job_priority
     TYPE(t_job_queue), POINTER :: element
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_insert"
+    CHARACTER(*), PARAMETER :: routine = modname//"::pp_task_insert"
     TYPE(t_job_queue), POINTER :: tmp, nb_left
     INTEGER                    :: ierrstat
 

@@ -5,15 +5,15 @@
 #
 # 01/2017 : D. Reinert/F. Prill, DWD
 
-import argparse, datetime, os, subprocess
+import argparse, datetime, os, subprocess, traceback, sys
 
 
 # ------------------------------------------------------------
 # CONSTANTS
 
 DATEFMT    = '%Y%m%d%H%M%S'
-MODE_IAU   = 1
-MODE_NOIAU = 2
+MODE_IAU   = '1'
+MODE_NOIAU = '2'
 
 # ------------------------------------------------------------
 # Main program (wrapped by a subroutine)
@@ -87,7 +87,7 @@ def main():
             else:
                 gptype_str = "-1"
                 # if hour /= 0 and not ensemble then do not read w_so
-                if (not ensemble):
+                if (not args.ensemble):
                     read_w_so = False
 
             # ------------------------------------------------------------
@@ -133,7 +133,8 @@ def main():
         print "    * " + datetime.datetime.now().strftime("%b %d %Y %H:%M:%S") + " :: done."    
     
     except Exception as e:
-        print str(e)
+        print "Error: ", str(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 
