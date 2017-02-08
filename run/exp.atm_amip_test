@@ -599,7 +599,7 @@ if [[ "$output_lnd" == "yes" ]]; then
                     't_srf_unfilt', 't_srf_unfilt_old', 't_srf_old'
                     't_soil', 'wsn_srf', 'wsr_srf', 't_eff_srf', 'grnd_hflx'
                     'sfract_srf', 'wfract_srf', 'sfract_soil', 'sfract_can', 'wfract_can', 'wfract_soil'
-                    'tte_corr', 'rough_m_srf', 'rough_h_srf'
+                    'q_snocpymlt', 'rough_m_srf', 'rough_h_srf'
 /
 EOF
 fi
