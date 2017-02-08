@@ -17,12 +17,12 @@ USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish
 USE mo_fortran_tools,        ONLY: copy
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
-USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
+USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, timer_init_latbc, &
   &                                timer_model_init, timer_init_icon, timer_read_restart
 USE mo_master_config,        ONLY: isRestart
 USE mo_time_config,          ONLY: time_config      ! variable
-USE mo_io_restart,           ONLY: read_restart_files
-USE mo_io_restart_attributes,ONLY: get_restart_attribute
+USE mo_load_restart,         ONLY: read_restart_files
+USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting
 USE mo_io_config,            ONLY: configure_io
 USE mo_parallel_config,      ONLY: nproma, num_prefetch_proc
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
@@ -146,6 +146,7 @@ CONTAINS
     INTEGER :: jstep0
     INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
     REAL(wp) :: sim_time
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
@@ -170,7 +171,8 @@ CONTAINS
     ENDIF
 
     ! initialize ldom_active flag if this is not a restart run
-    IF (.NOT. isRestart()) THEN
+    restartAttributes => getAttributesForRestarting()
+    IF (.NOT. ASSOCIATED(restartAttributes)) THEN
       DO jg=1, n_dom
         IF (jg > 1 .AND. start_time(jg) - timeshift%dt_shift > 0._wp) THEN
           p_patch(jg)%ldom_active = .FALSE. ! domain not active from the beginning
@@ -179,7 +181,7 @@ CONTAINS
         ENDIF
       ENDDO
     ELSE
-      CALL get_restart_attribute("sim_time_DOM01", sim_time)
+      sim_time = restartAttributes%getReal("sim_time_DOM01")
       DO jg=1, n_dom
         IF (jg > 1 .AND. start_time(jg) > sim_time .OR. end_time(jg) <= sim_time) THEN
           p_patch(jg)%ldom_active = .FALSE. ! domain not active at restart time
@@ -393,8 +395,11 @@ CONTAINS
 
     ! If async prefetching is in effect, init_prefetch is a collective call
     ! with the prefetching processor and effectively starts async prefetching
-    IF ((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) &
-       CALL init_prefetch
+    IF ((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
+      IF (timers_level > 5) CALL timer_start(timer_init_latbc)
+      CALL init_prefetch
+      IF (timers_level > 5) CALL timer_stop(timer_init_latbc)
+    ENDIF
 
     !------------------------------------------------------------------
     ! Prepare output file
@@ -452,9 +457,9 @@ CONTAINS
 #endif
       sim_step_info%dtime      = dtime
       jstep0 = 0
-      IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
+      IF (ASSOCIATED(restartAttributes) .AND. .NOT. time_config%is_relative_time) THEN
         ! get start counter for time loop from restart file:
-        CALL get_restart_attribute("jstep", jstep0)
+        jstep0 = restartAttributes%getInteger("jstep")
       END IF
       sim_step_info%jstep0    = jstep0
       CALL init_mean_stream(p_patch(1))

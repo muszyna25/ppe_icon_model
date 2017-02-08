@@ -20,14 +20,13 @@
 !!
 MODULE mo_synsat_nml
 
-  USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_master_config,       ONLY: isRestart
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
+  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   USE mo_synsat_config,       ONLY: config_lsynsat    => lsynsat, &
@@ -89,8 +88,11 @@ CONTAINS
     lsynsat(:) = .FALSE.
 
     ! Number of RTTOV levels
+#ifdef RTTOV12
+    nlev_rttov = 54
+#else
     nlev_rttov = 51
-
+#endif
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -150,6 +152,16 @@ CONTAINS
     !--------------------------------------------------------
     IF(my_process_is_stdio()) WRITE(nnml_output,nml=synsat_nml)
 
+
+    !--------------------------------------------------------
+    ! 8. consistency check
+    !--------------------------------------------------------
+
+#ifndef __USE_RTTOV
+    IF (ANY(lsynsat)) THEN
+      CALL finish(routine, 'Switch "lsynsat": Model has not been configured for RTTOV library.')
+    END IF
+#endif
 
   END SUBROUTINE read_synsat_namelist
 

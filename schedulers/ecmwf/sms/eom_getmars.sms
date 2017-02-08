@@ -26,6 +26,7 @@ lgetecfs=0    # optionally get monthly means if previously calculated by eom_pre
 lgetmars=1    # read IFS data
 lmean=1       # monthly mean IFS data
 
+#module load cdo/1.7.0  # error: switches to Time=1200 from 0000!
 module load cdo/1.6.4
 
 
@@ -174,21 +175,25 @@ cd       ../obs_data
 
 cdo griddes ../ifs_data/ifs_oper_1x1_${YYYYMM}.sfc.grb > icon.grid
 
-for VAR in lh sh ta ts qa ws ; do
-  ecp ec:/deia/climplot.obs/whoi/${VAR}_oaflux/${VAR}_oaflux_${YYYY}.nc.gz .
-  gunzip -f                                    ${VAR}_oaflux_${YYYY}.nc.gz
-  cdo -seltimestep,${MM}                       ${VAR}_oaflux_${YYYY}.nc tmp.nc
-  case ${VAR} in
-    lh) cdo -selvar,lhtfl -mulc,-1     tmp.nc tmp_var.nc ; cdo -selvar,err tmp.nc tmp_err.nc ;;
-    sh) cdo -selvar,shtfl -mulc,-1     tmp.nc tmp_var.nc ; cdo -selvar,err tmp.nc tmp_err.nc ;;
-    ta) cdo -selvar,tmp2m -addc,273.16 tmp.nc tmp_var.nc ; cdo -selvar,err tmp.nc tmp_err.nc ;;
-    ts) cdo -selvar,tmpsf -addc,273.16 tmp.nc tmp_var.nc ; cdo -selvar,err tmp.nc tmp_err.nc ;;
-    qa) cdo -selvar,hum2m -mulc,0.001  tmp.nc tmp_var.nc ; cdo -selvar,err tmp.nc tmp_err.nc ;;
-    ws) cdo -selvar,wnd10              tmp.nc tmp_var.nc ; cdo -selvar,err tmp.nc tmp_err.nc ;;
-  esac
-  cdo -f grb2 remapcon,icon.grid tmp_var.nc ${VAR}_oaflux_${YYYYMM}.grb
-  cdo -f grb2 remapcon,icon.grid tmp_err.nc ${VAR}_err_oaflux_${YYYYMM}.grb
-done
+if [[ ${YYYYMM} -le "201509" ]] ; then
+
+  for VAR in lh sh ta ts qa ws ; do
+    ecp ec:/deia/climplot.obs/whoi/${VAR}_oaflux/${VAR}_oaflux_${YYYY}.nc.gz .
+    gunzip -f                                    ${VAR}_oaflux_${YYYY}.nc.gz
+    cdo -seltimestep,${MM}                       ${VAR}_oaflux_${YYYY}.nc tmp.nc
+    case ${VAR} in
+      lh) cdo -selvar,lhtfl -mulc,-1     tmp.nc tmp_var.nc ; cdo -selvar,err tmp.nc tmp_err.nc ;;
+      sh) cdo -selvar,shtfl -mulc,-1     tmp.nc tmp_var.nc ; cdo -selvar,err tmp.nc tmp_err.nc ;;
+      ta) cdo -selvar,tmp2m -addc,273.16 tmp.nc tmp_var.nc ; cdo -selvar,err tmp.nc tmp_err.nc ;;
+      ts) cdo -selvar,tmpsf -addc,273.16 tmp.nc tmp_var.nc ; cdo -selvar,err tmp.nc tmp_err.nc ;;
+      qa) cdo -selvar,hum2m -mulc,0.001  tmp.nc tmp_var.nc ; cdo -selvar,err tmp.nc tmp_err.nc ;;
+      ws) cdo -selvar,wnd10              tmp.nc tmp_var.nc ; cdo -selvar,err tmp.nc tmp_err.nc ;;
+    esac
+    cdo -f grb2 remapcon,icon.grid tmp_var.nc ${VAR}_oaflux_${YYYYMM}.grb
+    cdo -f grb2 remapcon,icon.grid tmp_err.nc ${VAR}_err_oaflux_${YYYYMM}.grb
+  done
+
+fi
 
 rm -rf tmp.nc tmp_var.nc tmp_err.nc
 

@@ -40,9 +40,10 @@ PUBLIC :: t_ScatterPattern, t_ScatterPatternPtr, constructScatterPattern, destru
         REAL(dp) :: distributionTime    !< statistic on how long we took to distribute the data
 
     CONTAINS
-        PROCEDURE(interface_distribute_dp), DEFERRED :: distribute_dp   !< distribute double precision data
-        PROCEDURE(interface_distribute_sp), DEFERRED :: distribute_sp   !< distribute single precision data
-        PROCEDURE(interface_distribute_int), DEFERRED :: distribute_int   !< distribute single precision data
+        PROCEDURE(interface_distribute_dp),   DEFERRED :: distribute_dp   !< distribute double precision data
+        PROCEDURE(interface_distribute_spdp), DEFERRED :: distribute_spdp   !< distribute single precision data
+        PROCEDURE(interface_distribute_sp),   DEFERRED :: distribute_sp   !< distribute single precision data
+        PROCEDURE(interface_distribute_int),  DEFERRED :: distribute_int   !< distribute single precision data
 
 
         PROCEDURE :: construct => constructScatterPattern   !< constructor
@@ -58,7 +59,7 @@ PUBLIC :: t_ScatterPattern, t_ScatterPatternPtr, constructScatterPattern, destru
 
         PROCEDURE :: destruct => destructScatterPattern !< destructor
 
-        GENERIC :: distribute => distribute_dp, distribute_sp, distribute_int
+        GENERIC :: distribute => distribute_dp, distribute_spdp, distribute_sp, distribute_int
     END TYPE t_ScatterPattern
 
     TYPE :: t_ScatterPatternPtr
@@ -82,13 +83,23 @@ PRIVATE
             LOGICAL, INTENT(IN) :: ladd_value
         END SUBROUTINE interface_distribute_dp
         !---------------------------------------------------------------------------------------------------------------------------
-        !> do the data distribution for a double precision array
+        !> do the data distribution for a single precision array
+        !---------------------------------------------------------------------------------------------------------------------------
+        SUBROUTINE interface_distribute_spdp(me, globalArray, localArray, ladd_value)
+            IMPORT t_ScatterPattern, sp, wp
+            CLASS(t_ScatterPattern), INTENT(INOUT) :: me
+            REAL(sp), INTENT(INOUT) :: globalArray(:)
+            REAL(wp), INTENT(INOUT) :: localArray(:,:)
+            LOGICAL, INTENT(IN) :: ladd_value
+        END SUBROUTINE interface_distribute_spdp
+        !---------------------------------------------------------------------------------------------------------------------------
+        !> do the data distribution for a single precision array
         !---------------------------------------------------------------------------------------------------------------------------
         SUBROUTINE interface_distribute_sp(me, globalArray, localArray, ladd_value)
             IMPORT t_ScatterPattern, sp, wp
             CLASS(t_ScatterPattern), INTENT(INOUT) :: me
             REAL(sp), INTENT(INOUT) :: globalArray(:)
-            REAL(wp), INTENT(INOUT) :: localArray(:,:)
+            REAL(sp), INTENT(INOUT) :: localArray(:,:)
             LOGICAL, INTENT(IN) :: ladd_value
         END SUBROUTINE interface_distribute_sp
         !---------------------------------------------------------------------------------------------------------------------------
@@ -117,9 +128,9 @@ CONTAINS
     !> This uses the fact that there are generally three different scatter patterns per domain for the edges, cells, and vertices,
     !> all of which have a different global size. Thus the pair (jg, globalSize) uniquely identifies a scatter pattern.
     !-------------------------------------------------------------------------------------------------------------------------------
-    FUNCTION ScatterPattern_lookupSize(jg, globalSize) RESULT(result)
+    FUNCTION ScatterPattern_lookupSize(jg, globalSize) RESULT(resultVar)
         INTEGER, VALUE :: jg, globalSize
-        CLASS(t_ScatterPattern), POINTER :: result
+        CLASS(t_ScatterPattern), POINTER :: resultVar
 
         CHARACTER(*), PARAMETER :: routine = modname//":ScatterPattern_lookupSize"
         INTEGER :: i
@@ -129,10 +140,10 @@ CONTAINS
 
         DO i = 1, existingPatternCount
             temp => existingPatterns(i)
-            result => temp%ptr
-            IF(result%globalSize() == globalSize .and. result%jg == jg) RETURN
+            resultVar => temp%ptr
+            IF(resultVar%globalSize() == globalSize .and. resultVar%jg == jg) RETURN
         END DO
-        result => NULL()
+        resultVar => NULL()
 
         IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
     END FUNCTION ScatterPattern_lookupSize
@@ -197,17 +208,17 @@ CONTAINS
     !-------------------------------------------------------------------------------------------------------------------------------
     !> accessor
     !-------------------------------------------------------------------------------------------------------------------------------
-    INTEGER FUNCTION ScatterPattern_globalSize(me) RESULT(RESULT)
+    INTEGER FUNCTION ScatterPattern_globalSize(me) RESULT(resultVar)
         CLASS(t_ScatterPattern), INTENT(INOUT) :: me
-        RESULT = me%totalPointCount
+        resultVar = me%totalPointCount
     END FUNCTION ScatterPattern_globalSize
 
     !-------------------------------------------------------------------------------------------------------------------------------
     !> accessor
     !-------------------------------------------------------------------------------------------------------------------------------
-    INTEGER FUNCTION ScatterPattern_localSize(me) RESULT(RESULT)
+    INTEGER FUNCTION ScatterPattern_localSize(me) RESULT(resultVar)
         CLASS(t_ScatterPattern), INTENT(INOUT) :: me
-        RESULT = me%myPointCount
+        resultVar = me%myPointCount
     END FUNCTION ScatterPattern_localSize
 
     !-------------------------------------------------------------------------------------------------------------------------------

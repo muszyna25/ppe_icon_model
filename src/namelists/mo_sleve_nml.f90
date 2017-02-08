@@ -20,12 +20,13 @@ MODULE mo_sleve_nml
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_master_config,       ONLY: isRestart
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
+  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
 
   USE mo_sleve_config       , ONLY: config_min_lay_thckn => min_lay_thckn, &
     &                               config_max_lay_thckn => max_lay_thckn, &
-    &                               config_htop_thcknlimit => htop_thcknlimit , &
+    &                               config_htop_thcknlimit => htop_thcknlimit, &
+    &                               config_itype_laydistr  => itype_laydistr,  &
     &                               config_top_height    => top_height   , &
     &                               config_decay_scale_1 => decay_scale_1, &
     &                               config_decay_scale_2 => decay_scale_2, &
@@ -44,6 +45,7 @@ MODULE mo_sleve_nml
   !---------------------------------------------------------------------------
   !
   ! a) Parameters specifying the distrubution of the coordinate surfaces
+  INTEGER :: itype_laydistr  ! Type of analytical function used for computing the coordinate surface distribution
   REAL(wp):: min_lay_thckn   ! Layer thickness of lowermost level
   REAL(wp):: max_lay_thckn   ! Maximum layer thickness below htop_thcknlimit
   REAL(wp):: htop_thcknlimit ! Height below which the layer thickness must not exceed max_lay_thckn
@@ -62,7 +64,7 @@ MODULE mo_sleve_nml
  
   NAMELIST /sleve_nml/ min_lay_thckn, max_lay_thckn, htop_thcknlimit, top_height,         &
                        decay_scale_1, decay_scale_2, decay_exp, flat_height, stretch_fac, &
-                       lread_smt
+                       lread_smt, itype_laydistr
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -95,6 +97,7 @@ CONTAINS
 
     ! a) Parameters determining the distribution of model layers
     !    (if not read in from a table)
+    itype_laydistr  = 1           ! stretched cosine function (2 = third-order polynomial)
     min_lay_thckn   = 50._wp      ! Layer thickness of lowermost layer
     max_lay_thckn   = 25000._wp   ! Maximum layer thickness below htop_thcknlimit
     htop_thcknlimit = 15000._wp   ! Height below which the layer thickness must not exceed max_lay_thckn
@@ -147,6 +150,7 @@ CONTAINS
     config_min_lay_thckn = min_lay_thckn
     config_max_lay_thckn = max_lay_thckn
     config_htop_thcknlimit = htop_thcknlimit
+    config_itype_laydistr  = itype_laydistr
     config_top_height    = top_height
     config_decay_scale_1 = decay_scale_1
     config_decay_scale_2 = decay_scale_2

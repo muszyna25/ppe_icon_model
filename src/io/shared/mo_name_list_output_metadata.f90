@@ -8,10 +8,7 @@
 !!
 MODULE mo_name_list_output_metadata
 
-#ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_f_pointer, c_intptr_t
-#endif
-
   USE mo_exception,                         ONLY: finish
   USE mo_kind,                              ONLY: i8
   USE mo_var_metadata_types,                ONLY: t_var_metadata
@@ -80,9 +77,6 @@ CONTAINS
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, mem_bytes
     TYPE(c_ptr)                     :: c_mem_ptr
 
-#ifdef USE_CRAY_POINTER
-    CALL finish(routine, "Cray pointers: not yet implemented!")
-#endif
 #ifdef __SX__
     CALL finish(routine, "SX no longer supported!")
 #endif

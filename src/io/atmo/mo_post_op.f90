@@ -24,7 +24,7 @@
 
 MODULE mo_post_op
 
-  USE mo_kind,                ONLY: wp
+  USE mo_kind,                ONLY: dp, sp
   USE mo_var_metadata_types,  ONLY: t_post_op_meta, POST_OP_NONE,    &
     &                               POST_OP_SCALE, POST_OP_LUC
   USE mo_lnd_nwp_config,      ONLY: convert_luc_ICON2GRIB
@@ -39,8 +39,10 @@ MODULE mo_post_op
 
   INTERFACE perform_post_op
     MODULE PROCEDURE perform_post_op_r2D
+    MODULE PROCEDURE perform_post_op_s2D
     MODULE PROCEDURE perform_post_op_i2D
     MODULE PROCEDURE perform_post_op_r3D
+    MODULE PROCEDURE perform_post_op_s3D
     MODULE PROCEDURE perform_post_op_i3D
   END INTERFACE perform_post_op
 
@@ -50,12 +52,12 @@ CONTAINS
   !  as post-processing tasks.
   SUBROUTINE perform_post_op_r2D(post_op, field2D, opt_inverse)
     TYPE (t_post_op_meta), INTENT(IN)    :: post_op
-    REAL(wp),              INTENT(INOUT) :: field2D(:,:)
+    REAL(dp),              INTENT(INOUT) :: field2D(:,:)
     LOGICAL , OPTIONAL   , INTENT(IN)    :: opt_inverse   ! .TRUE.: inverse operation
     !
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM(modname)//":perform_post_op_2D"
-    REAL(wp) :: scalfac           ! scale factor
+    CHARACTER(*), PARAMETER :: routine = TRIM(modname)//":perform_post_op_r2D"
+    REAL(dp) :: scalfac           ! scale factor
     INTEGER  :: idim(2), l1,l2
 
 
@@ -67,7 +69,7 @@ CONTAINS
     CASE(POST_OP_SCALE)
       IF (PRESENT(opt_inverse)) THEN
         IF (opt_inverse) THEN
-          scalfac = 1._wp/post_op%arg1%rval
+          scalfac = 1._dp/post_op%arg1%rval
         ELSE
           scalfac = post_op%arg1%rval
         ENDIF
@@ -90,6 +92,52 @@ CONTAINS
     END SELECT
 
   END SUBROUTINE perform_post_op_r2D
+
+
+  !> Performs small arithmetic operations ("post-ops") on 2D REAL field 
+  !  as post-processing tasks.
+  SUBROUTINE perform_post_op_s2D(post_op, field2D, opt_inverse)
+    TYPE (t_post_op_meta), INTENT(IN)    :: post_op
+    REAL(sp),              INTENT(INOUT) :: field2D(:,:)
+    LOGICAL , OPTIONAL   , INTENT(IN)    :: opt_inverse   ! .TRUE.: inverse operation
+    !
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = TRIM(modname)//":perform_post_op_s2D"
+    REAL(sp) :: scalfac           ! scale factor
+    INTEGER  :: idim(2), l1,l2
+
+
+    idim = SHAPE(field2D)
+
+    SELECT CASE(post_op%ipost_op_type)
+    CASE(POST_OP_NONE)
+      ! do nothing
+    CASE(POST_OP_SCALE)
+      IF (PRESENT(opt_inverse)) THEN
+        IF (opt_inverse) THEN
+          scalfac = 1._sp/post_op%arg1%rval
+        ELSE
+          scalfac = post_op%arg1%rval
+        ENDIF
+      ELSE
+        scalfac = post_op%arg1%rval
+      ENDIF
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(l1,l2), SCHEDULE(runtime)
+      DO l2=1,idim(2)
+        DO l1=1,idim(1)
+          field2D(l1,l2) = field2D(l1,l2) * scalfac
+        END DO
+      END DO
+!$OMP END DO
+!$OMP END PARALLEL
+      !
+    CASE DEFAULT
+      CALL finish(routine, "Internal error!")
+    END SELECT
+
+  END SUBROUTINE perform_post_op_s2D
 
 
   !> Performs small arithmetic operations ("post-ops") on 2D INTEGER field 
@@ -154,12 +202,12 @@ CONTAINS
   !  as post-processing tasks.
   SUBROUTINE perform_post_op_r3D(post_op, field3D, opt_inverse)
     TYPE (t_post_op_meta), INTENT(IN)    :: post_op
-    REAL(wp),              INTENT(INOUT) :: field3D(:,:,:)
+    REAL(dp),              INTENT(INOUT) :: field3D(:,:,:)
     LOGICAL , OPTIONAL   , INTENT(IN)    :: opt_inverse   ! .TRUE.: inverse operation
     !
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM(modname)//":perform_post_op_3D"
-    REAL(wp) :: scalfac           ! scale factor
+    CHARACTER(*), PARAMETER :: routine = TRIM(modname)//":perform_post_op_r3D"
+    REAL(dp) :: scalfac           ! scale factor
     INTEGER  :: idim(3), l1,l2,l3
 
 
@@ -171,7 +219,7 @@ CONTAINS
     CASE(POST_OP_SCALE)
       IF (PRESENT(opt_inverse)) THEN
         IF (opt_inverse) THEN
-          scalfac = 1._wp/post_op%arg1%rval
+          scalfac = 1._dp/post_op%arg1%rval
         ELSE
           scalfac = post_op%arg1%rval
         ENDIF
@@ -197,6 +245,55 @@ CONTAINS
 
   END SUBROUTINE perform_post_op_r3D
 
+
+  !> Performs small arithmetic operations ("post-ops") on 3D REAL field 
+  !  as post-processing tasks.
+  SUBROUTINE perform_post_op_s3D(post_op, field3D, opt_inverse)
+    TYPE (t_post_op_meta), INTENT(IN)    :: post_op
+    REAL(sp),              INTENT(INOUT) :: field3D(:,:,:)
+    LOGICAL , OPTIONAL   , INTENT(IN)    :: opt_inverse   ! .TRUE.: inverse operation
+    !
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = TRIM(modname)//":perform_post_op_s3D"
+    REAL(sp) :: scalfac           ! scale factor
+    INTEGER  :: idim(3), l1,l2,l3
+
+
+    idim = SHAPE(field3D)
+
+    SELECT CASE(post_op%ipost_op_type)
+    CASE(POST_OP_NONE)
+      ! do nothing
+    CASE(POST_OP_SCALE)
+      IF (PRESENT(opt_inverse)) THEN
+        IF (opt_inverse) THEN
+          scalfac = 1._sp/post_op%arg1%rval
+        ELSE
+          scalfac = post_op%arg1%rval
+        ENDIF
+      ELSE
+        scalfac = post_op%arg1%rval
+      ENDIF
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(l1,l2,l3), SCHEDULE(runtime)
+      DO l3=1,idim(3)
+        DO l2=1,idim(2)
+          DO l1=1,idim(1)
+            field3D(l1,l2,l3) = field3D(l1,l2,l3) * scalfac
+          END DO
+        END DO
+      END DO
+!$OMP END DO
+!$OMP END PARALLEL
+      !
+    CASE DEFAULT
+      CALL finish(routine, "Internal error!")
+    END SELECT
+
+  END SUBROUTINE perform_post_op_s3D
+
+
   !> Performs small arithmetic operations ("post-ops") on 3D INTEGER field 
   !  as post-processing tasks.
   SUBROUTINE perform_post_op_i3D(post_op, field3D, opt_inverse)
@@ -205,8 +302,8 @@ CONTAINS
     LOGICAL , OPTIONAL   , INTENT(IN)    :: opt_inverse   ! .TRUE.: inverse operation
     !
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM(modname)//":perform_post_op_3D"
-    REAL(wp) :: scalfac           ! scale factor
+    CHARACTER(*), PARAMETER :: routine = TRIM(modname)//":perform_post_op_i3D"
+    REAL(dp) :: scalfac           ! scale factor
     INTEGER  :: idim(3), l1,l2,l3
 
 

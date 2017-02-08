@@ -30,7 +30,7 @@ MODULE mo_sleve_config
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: min_lay_thckn, max_lay_thckn, htop_thcknlimit, stretch_fac, top_height
+  PUBLIC :: itype_laydistr, min_lay_thckn, max_lay_thckn, htop_thcknlimit, stretch_fac, top_height
   PUBLIC :: decay_scale_1, decay_scale_2, decay_exp, flat_height
   PUBLIC :: lread_smt
   !>
@@ -41,6 +41,7 @@ MODULE mo_sleve_config
 
     ! a) Parameters specifying the distrubution of the coordinate surfaces
 
+    INTEGER :: itype_laydistr ! Type of analytical function used for computing the coordinate surface distribution
     REAL(wp):: min_lay_thckn  ! Layer thickness of lowermost level
     REAL(wp):: max_lay_thckn  ! Maximum layer thickness below htop_thcknlimit
     REAL(wp):: htop_thcknlimit! Height below which the layer thickness must not exceed max_lay_thckn

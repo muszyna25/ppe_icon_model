@@ -63,6 +63,8 @@ MODULE mo_grid_levels
   !    modified for ICON project, DWD/MPI-M 2005
   !
   !-------------------------------------------------------------------------
+  USE ISO_C_BINDING,         ONLY: C_DOUBLE
+
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message_text, message, finish
 
@@ -84,8 +86,8 @@ MODULE mo_grid_levels
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell, &
        &                           min_rlvert, max_rlvert, &
        &                           min_rledge, max_rledge
-  USE mo_util_uuid,          ONLY: t_uuid, uuid_generate, &
-       &                           uuid_unparse, uuid_string_length
+  USE mo_util_uuid_types,    ONLY: t_uuid, uuid_string_length
+  USE mo_util_uuid,          ONLY: uuid_generate, uuid_unparse
 
   USE mo_math_utilities,     ONLY: check_orientation
 
@@ -112,7 +114,8 @@ MODULE mo_grid_levels
   ! = 2 : equal area subdivision
   ! = 3 : c-grid small circle constraint
   ! = 4 : spring dynamics
-  INTEGER :: maxlev_optim    ! For itype_optimize=1,4: highest level for which
+  ! = 5 : spring dynamics with convergence acceleration
+  INTEGER :: maxlev_optim    ! For itype_optimize=1,4,5: highest level for which
   ! optimization is executed
   REAL(wp):: tria_arc_km     ! grid distance (km) for the planar grid option
   ! on the finest chosen level
@@ -747,7 +750,9 @@ CONTAINS
 
     !-------------------------------------------------------------------------
     ! get unique grid file identifier for GRIB2 and updated CF-Convention
-    CALL uuid_generate(uuid)
+    !
+    ! the UUID is generated as fingerprint of "clon" field:
+    CALL uuid_generate(gg%cells%center(:)%lon, uuid)
     CALL uuid_unparse(uuid, uuid_string)
 
     ! distinguish between gridgeneration for optimization strategies
@@ -797,7 +802,7 @@ CONTAINS
       CASE (3)
         ! c-grid small circle constraint
         optfix = 'scc'
-      CASE (4)
+      CASE (4, 5)
         ! spring dynamics
         IF (l_c_grid) THEN
           optfix = 'spc'
@@ -1608,7 +1613,7 @@ CONTAINS
     CASE (3)
       ! c-grid small circle constraint
       optfix = 'scc'
-    CASE (4)
+    CASE (4, 5)
       ! spring dynamics
       IF (l_c_grid) THEN
         optfix = 'spc'

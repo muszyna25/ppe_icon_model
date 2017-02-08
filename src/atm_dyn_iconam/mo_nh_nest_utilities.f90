@@ -22,7 +22,7 @@
 MODULE mo_nh_nest_utilities
   !
   !
-  USE mo_kind,                ONLY: wp
+  USE mo_kind,                ONLY: wp, vp
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch, t_grid_cells, t_grid_edges, p_patch_local_parent, &
     p_patch
@@ -84,7 +84,8 @@ CONTAINS
     TYPE(t_patch),      POINTER     :: p_lp => NULL()
     TYPE(t_grid_cells), POINTER     :: p_gcp => NULL()
 
-    REAL(wp), ALLOCATABLE :: cell_volume(:,:,:), z_rho_ref(:,:,:)
+    REAL(wp), ALLOCATABLE :: cell_volume(:,:,:)
+    REAL(vp), ALLOCATABLE :: z_rho_ref(:,:,:)
 
     INTEGER :: jg, ji, jgc, jb, jc, jk, jks
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
@@ -173,8 +174,8 @@ CONTAINS
 
         ALLOCATE(p_nh_state(jgc)%metrics%rho_ref_corr(nproma, nlev_c, p_pp%nblks_c), &
           &      z_rho_ref(nproma, nlev, p_pp%nblks_c))
-        z_rho_ref(:,:,:) = 0._wp
-        p_nh_state(jgc)%metrics%rho_ref_corr(:,:,:) = 0._wp
+        z_rho_ref(:,:,:) = 0._vp
+        p_nh_state(jgc)%metrics%rho_ref_corr(:,:,:) = 0._vp
 
         CALL exchange_data(p_pp%comm_pat_glb_to_loc_c, RECV=z_rho_ref, &
           &                SEND=p_nh_state(jg)%metrics%rho_ref_mc)

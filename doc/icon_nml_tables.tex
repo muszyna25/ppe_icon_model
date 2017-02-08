@@ -194,7 +194,7 @@ Grid optimization type&
 &
 &
 &
-4: spring dynamics&
+4, 5: spring dynamics; 5 with optimization for faster convergence&
 \tabularnewline
 
 %\hline
@@ -1096,6 +1096,13 @@ filetype=2
 \tabularnewline
 
 %\hline
+tablesVersion&
+I& 15 & &
+Main switch for Table version &
+filetype=2
+\tabularnewline
+
+%\hline
 backgroundProcess&
 I& 0 & &
 Background process \\
@@ -1765,6 +1772,14 @@ Must be NEGATIVE, usually $- 0.5$ dt\_iau. &
 init\_mode=5,6
 \tabularnewline
 
+iterate\_iau&
+L & .FALSE. &  &
+If .TRUE., the IAU phase is calculated twice with halved dt\_shift in first cycle (allows
+writing a fully initialized analysis at the nominal initialization date while using
+a centered IAU window for the forecast). &
+init\_mode=5,6 and dt\_shift $<$ 0
+\tabularnewline
+
 start\_time\_avg\_fg&
 R & 0 & s &
 Start time for calculating temporally averaged first guess output for data assimilation. &
@@ -1784,6 +1799,18 @@ Corresponding averaging interval. Note that end\_time\_avg\_fg $-$ start\_time\_
 rho\_incr\_filter\_wgt &
 R & 0 &  &
 Vertical filtering weight on density increments &
+init\_mode=5,6
+\tabularnewline
+
+niter\_diffu &
+I & 10 &  &
+Number of diffusion iterations applied on wind increments &
+init\_mode=5,6
+\tabularnewline
+
+niter\_divdamp &
+I & 25 &  &
+Number of divergence damping iterations applied on wind increments &
 init\_mode=5,6
 \tabularnewline
 
@@ -1813,15 +1840,6 @@ bottom height (AGL) of layer used for gradient computation&
 zpbl2 &
 R & 1000.0& m&
 top height (AGL) of layer used for gradient computation&
-\tabularnewline
-
-%\hline
-l\_sst\_in&
-L & .TRUE.& &
-Logical switch. If true, the surface temperature of the water sea points is initialized
-with the SST provided in the ifs2icon file. If false, it is initialized with the skin
-temperature. If the SST is not provided in the ifs2icon file, l\_sst\_in is reset to false.  &
-init\_mode=2
 \tabularnewline
 
 %\hline
@@ -1959,19 +1977,6 @@ left column: ICON variable name, right column: GRIB2 short name.
 &
 \tabularnewline
 
-%\hline
-\textbf{latbc\_varnames\_map\_ file} &
-C& & &
-Dictionary file which maps internal variable names onto
-GRIB2 shortnames or NetCDF var names.
-This is a text file with two columns separated by whitespace, where
-left column: ICON variable name, right column: GRIB2 short name.
-This list contains variables that are to be read asynchronously for
-boundary data nudging in a HDCP2 simulation. All new boundary variables
-that in the future, would be read asynchronously. Need to be added to text 
-file dict.latbc in run folder.   
-& num\_prefetch\_proc=1
-\tabularnewline
 
 \end{longtab}
 
@@ -2054,7 +2059,7 @@ determined for lon-lat interpolation.\\
 1 : lookup table based on grid level\\
 2 : determine automatically.\\
 So far, this routine only estimates the smallest value for the shape parameter for which the Cholesky is likely to succeed in floating point arithmetic.
-3 : explicitly set shape parameter in each output namelist
+3 : explicitly set shape parameter in each output namelist (namelist parameter \texttt{output\_nml::rbf\_scale}, p.~\pageref{output_nml__rbf_scale}).
 &
 \tabularnewline
 
@@ -2183,7 +2188,9 @@ pressure levels below the surface). \\
 1: GME-type extrapolation, \\
 2: stepwise analytical integration, \\
 3: current IFS method, \\
-4: IFS method with consistency correction
+4: IFS method with consistency correction \\
+5: New DWD method constituting a mixture between IFS and old GME method
+(departure level for downward extrapolation between 10 m and 150 m AGL depending on elevation)
 &
 \tabularnewline
 
@@ -2195,6 +2202,13 @@ Specifies method for computation of relative humidity \\
 2: IFS-type: mixed phase (water and ice), \\
 3: IFS-type with clipping ($\mathrm{rh}\leq100$)
 &
+\tabularnewline
+
+%\hline
+gust\_interval&
+R& 3600. & s&
+Interval over which wind gusts are maximized &
+iforcing=3
 \tabularnewline
 
 %\hline
@@ -2398,10 +2412,17 @@ Defined and used in: \verb+src/namelists/mo_les_nml.f90+
 %\hline
 \textbf{itype\_latbc}&
 I & 0& &
-Type of lateral boundary nudging. Nudge from\\
-0: the initial data,\\
-1: IFS data analysis/forecast (if \texttt{initicon\_nml:init\_mode}=4, we take COSMO-DE data),\\
-2: ICON output data (with the identical 3d grid)&
+Type of lateral boundary nudging.\\
+%
+0: constant lateral boundary conditions derived from the initial
+conditions,\\
+%
+1: time-dependent lateral boundary conditions provided by an external
+source (IFS, COSMO-DE or a coarser-resolution ICON run), \\
+%
+2: Test mode using time-dependent lateral boundary conditions from a
+nested ICON run in which the present limited-area domain was operated
+as a nested grid with identical(!) model level configuration.
 \tabularnewline
 
 %\hline
@@ -2410,6 +2431,16 @@ R &
 10800.0& s
 &
 Time difference between two consecutive boundary data.
+&
+itype\_latbc $\ge$ 1
+\tabularnewline
+
+%\hline
+init\_latbc\_from\_fg&
+L &
+.FALSE. & 
+&
+If .TRUE., take lateral boundary conditions for initial time from first guess (or analysis) field
 &
 itype\_latbc $\ge$ 1
 \tabularnewline
@@ -2429,14 +2460,23 @@ itype\_latbc $\ge$ 1
 C &
 &
 &
-Filename of boundary data input file, default:\\
-''\texttt{prepiconR<nroot>B<jlev>\_<y><m><d><h>.nc}''.
-\texttt{<y>}, \texttt{<m>}, \texttt{<d>}, and \texttt{<h>} 
-will be automatically replaced during the run-time. In case
-the time span between two consecutive boundary data is less than 1 hour, 
-one can use \texttt{<min>} and \texttt{<sec>}.
-These files must be located in
+%
+Filename of boundary data input file, these files must be located in
 the \texttt{latbc\_path} directory.
+%
+Default:\\
+''\texttt{prepiconR<nroot>B<jlev>\_<y><m><d><h>.nc}''.
+%
+The keyword tokens \texttt{<y>}, \texttt{<m>}, \texttt{<d>}, and
+\texttt{<h>} will be automatically replaced during the run-time (year,
+month, day, hour).
+%
+In case the time span between two consecutive boundary data is less
+than 1 hour, one can use \texttt{<min>} and \texttt{<sec>}.
+%
+The keyword \texttt{<ddhhmmss>} is replaced by a \emph{relative}
+day-hour-minute-second string.
+%
 &
 itype\_latbc $\ge$ 1
 \tabularnewline
@@ -2449,6 +2489,38 @@ C &
 Absolute path to boundary data.
 &
 itype\_latbc $\ge$ 1
+\tabularnewline
+
+%\hline
+latbc\_boundary\_grid&
+C &
+'' ''
+&
+&
+Grid file defining the lateral boundary. Empty string means: whole
+domain is read for the lateral boundary. This NetCDF grid file must
+contain two integer index arrays: 
+\texttt{int global\_cell\_index(cell)}, 
+\texttt{int global\_edge\_index(edge)},
+both with attributes \texttt{nglobal} which contains the global size
+size of the non-sparse cells and edges.
+&
+itype\_latbc $\ge$ 1
+\tabularnewline
+
+
+%\hline
+\textbf{latbc\_varnames\_map\_ file} &
+C& & &
+Dictionary file which maps internal variable names onto
+GRIB2 shortnames or NetCDF var names.
+This is a text file with two columns separated by whitespace, where
+left column: ICON variable name, right column: GRIB2 short name.
+This list contains variables that are to be read asynchronously for
+boundary data nudging in a HDCP2 simulation. All new boundary variables
+that in the future, would be read asynchronously. Need to be added to text 
+file dict.latbc in run folder.   
+& num\_prefetch\_proc=1
 \tabularnewline
 
 
@@ -2626,6 +2698,18 @@ use 5.e-4 to activate interception storage & itype\_interception = 1
 \tabularnewline
 
 %\hline
+c\_soil &
+R & 1. &  & surface area density of the (evaporative) soil surface \\
+allowed range: 0 -- 2 &
+\tabularnewline
+
+%\hline
+c\_soil\_urb &
+R & 1. &  & surface area density of the (evaporative) soil surface, urban areas \\
+allowed range: 0 -- 2 &
+\tabularnewline
+
+%\hline
 itype\_hydbound &
 I & 1 &  & type of hydraulic lower boundary condition \\
 1 = none \\
@@ -2664,13 +2748,14 @@ sstice\_mode &
 I&
 1&
 &
-1: SST and sea ice fraction are read from the analysis and kept constant. The
-sea ice fraction can be modified by the seaice model.\\
-2: SST and sea ice fraction are updated daily, based on climatological monthly
+1: SST and sea ice fraction are read from the analysis. The SST is kept constant 
+whereas the sea ice fraction can be modified by the seaice model.\\
+2: SST and sea ice fraction are read from the analysis. The SST is updated by climatological 
+increments on a daily basis. The sea ice fraction can be modified by the seaice model.\\
+3: SST and sea ice fraction are updated daily, based on climatological monthly
 means\\
-3: SST and sea ice fraction are updated daily, based on actual monthly means\\
-4: SST and sea ice fraction are updated daily, based on actual daily means,
-\textcolor{red}{not yet implemented}&
+4: SST and sea ice fraction are updated daily, based on actual monthly means\\
+5: SST and sea ice fraction are updated daily, based on actual daily means (\textcolor{red}{not yet implemented})&
 iequations=3\\
 iforcing=3
 \tabularnewline
@@ -2925,14 +3010,14 @@ Type of Rayleigh damping\\
 
 %\hline
 \textbf{rayleigh\_coeff}&
-R(n\_dom)& 0.05 for i=1& &
+R(n\_dom)& 0.05 & &
 Rayleigh damping coefficient $1/\tau_{0}$ (Klemp, Dudhia, Hassiotis: MWR136, pp.3987-4004);
 higher values are recommended for R2B6 or finer resolution&
 \tabularnewline
 
 %\hline
 \textbf{damp\_height}&
-R(n\_dom)& 45000 for i=1& m&
+R(n\_dom)& 45000 & m&
 Height at which Rayleigh damping of vertical wind starts (needs to be adjusted to model top height; the damping
 layer should have a depth of at least 20 km when the model top is above the stratopause)&
 \tabularnewline
@@ -3212,6 +3297,15 @@ L (max\_ dom)&
 \tabularnewline
 
 %\hline
+ldetrain\_conv\_prec&
+L (max\_ dom)&
+.FALSE.&
+&
+.TRUE.: Activate detrainment of convective rain and snow\\
+& inwp\_convection = 1
+\tabularnewline
+
+%\hline
 icapdcycl&
 I & 0 &  & Type of CAPE correction to improve diurnal cycle for convection: \\
 0 = none (IFS default prior to autumn 2013) \\
@@ -3354,8 +3448,9 @@ inwp\_radiation $>$ 0
 %\hline
 itype\_z0&
 I & 2 &  & Type of roughness length data used for turbulence scheme: \\
-1 = land-cover-related roughness including contribution from sub-scale orography \\
-2 = land-cover-related roughness only &
+1 = land-cover-related roughness including contribution from sub-scale orography (does not account for tiles)\\
+2 = land-cover-related roughness based on tile-specific landuse class \\
+3 = land-cover-related roughness based on tile-specific landuse class including contribution from sub-scale orography &
 inwp\_turb $>$ 0
 \tabularnewline
 
@@ -3521,7 +3616,7 @@ run\_nml:iforcing = inwp
 \hline
 tune\_capdcfac\_et&
 R&
-0&
+0.125&
 &
 Fraction of CAPE diurnal cycle correction applied in the extratropics&
 icapdcycl = 3
@@ -4037,6 +4132,7 @@ See namelist parameter \texttt{stream\_partitions\_ml} for details.
 
 
 %\hline
+ \label{output_nml__rbf_scale}%
  rbf\_scale &
 R&-1.& &
 Explicit setting of RBF shape parameter for interpolated lon-lat output. 
@@ -4656,6 +4752,7 @@ irad\_o3 = 6: ozone climatology with T5 geographical distribution and Fourier se
 irad\_o3 = 7: GEMS ozone climatology (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
 irad\_o3 = 8: ozone climatology for AMIP \par
 irad\_o3 = 9: MACC ozone climatology (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
+irad\_o3 = 79: Blending between GEMS and MACC ozone climatologies (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
 irad\_o3 = 10: Linearized ozone chemistry (ART extension necessary) {\color{red}for run\_nml/iforcing = 3 (NWP)}
 &
 Note: until further notice, please use \par
@@ -4938,6 +5035,14 @@ htop\_thcknlimit&
 R& 15000& m&
 Height below which the layer thickness does not exceed max\_lay\_thckn &
 \tabularnewline
+
+%\hline
+itype\_laydistr&
+I& 1& &
+Type of analytical function used to specify the distribution of the vertical coordinate surfaces \\
+1: transformed cosine, 2: third-order polynomial &
+\tabularnewline
+
 
 %\hline
 \textbf{top\_height}&
@@ -5224,10 +5329,6 @@ I(ntracer)&
 & & & & 2: monotonous slope limiter& \tabularnewline
 & & & & 4: positive definite flux limiter& \tabularnewline
 
-%\hline
-niter\_fct&
-I& 1& & number of iterations  of monotone flux correction procedure (experimental!)& itype\_hlimit = 3
-\tabularnewline
 
 %\hline
 beta\_fct&
@@ -5928,6 +6029,8 @@ l\_limited\_area =.TRUE.
  itype\_atmos\_ana determines the atmospheric profile, itype\_anaprof\_uv
 determines the wind profile and itype\_topo\_ana determines the topography&
 \tabularnewline
+&&&&'\textbf{dcmip\_bw\_11}': Initializes (moist) baroclinic instability/wave (\textbf{DCMIP2016}) &
+\tabularnewline
 &&&&'\textbf{dcmip\_pa\_12}': Initializes Hadley-like meridional circulation pure advection test case.&
 \tabularnewline
 &&&&'\textbf{dcmip\_rest\_200}': atmosphere at rest test (Schaer-type mountain)&
@@ -5951,12 +6054,74 @@ lcoriolis = .TRUE.
 &&&&'\textbf{CBL}': convective boundary layer simulations for LES package on torus (doubly periodic) grid&
 is\_plane\_torus= .TRUE.
 \tabularnewline
+
+is\_toy\_chem & 
+L & .FALSE. &  &
+Terminator toy chemistry activated when .TRUE. &
+\tabularnewline
+
+\hline
+\hline
+\multicolumn{4}{|l|}{\textbf{dcmip\_bw\%}}& DCMIP2016 baroclinic wave test &  'dcmip\_bw\_11'
+\tabularnewline
+\hline
+
+deep&
+I& 0 &  &
+deep atmosphere\\
+(1 = yes or 0 = no)&
+\tabularnewline
+
+%\hline
+moist&
+I& 0 &  &
+include moisture, i.e.\ $qv\neq 0$\\
+(1 = yes or 0 = no)&
+\tabularnewline
+
+%\hline
+pertt&
+I& 0 &  &
+type of initial perturbation\\
+(0 = exponential, 1 = stream function)&
+\tabularnewline
+
+
+\hline
+\hline
+\multicolumn{4}{|l|}{\textbf{toy\_chem\%}}& terminator toy chemistry &  is\_toy\_chem=.TRUE.
+\tabularnewline
+\hline
+
+dt\_chem&
+R& 300&  s &
+chemistry tendency update interval&
+\tabularnewline
+
+dt\_cpl&
+R& 300&  s &
+chemistry-transport coupling interval&
+\tabularnewline
+
+id\_cl&
+I& 1&   &
+Tracer container slice index for species CL&
+\tabularnewline
+
+id\_cl2&
+I& 2&   &
+Tracer container slice index for species CL2&
+\tabularnewline
+\hline
+
+
 %\hline
 jw\_up&
 R& 1.0& m/s&
 amplitude of the u-perturbation in jabw test case&
 nh\_test\_name='jabw'
 \tabularnewline
+
 
 %\hline
 u0\_mrw&
@@ -6531,6 +6696,15 @@ R(n\_dom) &
 m &
 height difference between neighboring grid points above which additional local nabla2 diffusion is applied
 &
+\tabularnewline
+
+%\hline
+lrevert\_sea\_height&
+L &
+.FALSE.&
+ &
+If .TRUE., sea point heights will be reverted to original (raw data) heights after topography smoothing was applied.
+& n\_iter\_smooth\_topo > 0
 \tabularnewline
 
 %\hline

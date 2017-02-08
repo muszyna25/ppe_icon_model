@@ -28,7 +28,7 @@ MODULE mo_sync
 !-------------------------------------------------------------------------
 
 
-USE mo_kind,               ONLY: wp, dp, i8
+USE mo_kind,               ONLY: sp, wp, dp, i8
 USE mo_exception,          ONLY: finish, message, message_text
 USE mo_model_domain,       ONLY: t_patch
 USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, get_local_index, &
@@ -45,12 +45,15 @@ USE mo_mpi,                ONLY: p_pe, p_bcast, p_sum, p_max, p_min, p_send, p_r
   &                              my_process_is_mpi_parallel, p_work_pe0,p_pe_work,                 &
   &                              comm_lev, glob_comm, comm_proc0,   &
   &                              p_gather, p_gatherv
+#ifdef _OPENACC
+USE mo_mpi,                ONLY: i_am_accel_node
+#endif
 USE mo_parallel_config, ONLY:p_test_run,   &
   & n_ghost_rows, l_log_checks, l_fast_sum
 USE mo_communication,      ONLY: exchange_data, exchange_data_4de1,            &
                                  exchange_data_mult, t_comm_pattern,           &
                                  blk_no, idx_no, idx_1d, get_np_recv,          &
-                                 get_np_send, get_pelist_recv
+                                 get_np_send, get_pelist_recv, exchange_data_mult_mixprec
 
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   & timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
@@ -68,7 +71,8 @@ PUBLIC :: sync_patch_array, check_patch_array, sync_idx,              &
           sync_patch_array_mult, global_min, global_max,              &
           sync_patch_array_4de1, decomposition_statistics,            &
           enable_sync_checks, disable_sync_checks,                    &
-          cumulative_sync_patch_array, complete_cumulative_sync
+          cumulative_sync_patch_array, complete_cumulative_sync,      &
+          sync_patch_array_mult_mp
 
 !
 !variables
@@ -87,6 +91,7 @@ REAL(wp), PARAMETER :: MACH_TOL = 3.0D-14
 INTERFACE sync_patch_array
   MODULE PROCEDURE sync_patch_array_r2
   MODULE PROCEDURE sync_patch_array_r3
+  MODULE PROCEDURE sync_patch_array_s3
   MODULE PROCEDURE sync_patch_array_i2
   MODULE PROCEDURE sync_patch_array_i3
 END INTERFACE
@@ -144,6 +149,14 @@ INTEGER :: ncumul_sync(4,max_dom) = 0
 !> List of cumulative sync fields:
 TYPE(t_cumulative_sync) :: cumul_sync(4,max_dom,MAX_CUMULATIVE_SYNC)
 
+#if defined( _OPENACC )
+#define ACC_DEBUG NOACC
+#if defined(__SYNC_NOACC)
+  LOGICAL, PARAMETER ::  acc_on = .FALSE.
+#else
+  LOGICAL, PARAMETER ::  acc_on = .TRUE.
+#endif
+#endif
 
 CONTAINS
 
@@ -200,6 +213,45 @@ SUBROUTINE sync_patch_array_r3(typ, p_patch, arr, opt_varname)
       ENDIF
    ENDIF
 END SUBROUTINE sync_patch_array_r3
+
+
+!-------------------------------------------------------------------------
+!> Does boundary exchange for a 3-D single precision array.
+!
+!  @par Revision History
+!  Initial version by Rainer Johanni, Nov 2009
+!
+SUBROUTINE sync_patch_array_s3(typ, p_patch, arr, opt_varname)
+   INTEGER,       INTENT(IN)    :: typ
+   TYPE(t_patch), INTENT(IN)    :: p_patch
+   REAL(sp),      INTENT(INOUT) :: arr(:,:,:)
+   CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
+
+
+   ! If this is a verification run, check consistency before doing boundary exchange
+   IF (p_test_run .AND. do_sync_checks) THEN
+     IF(PRESENT(opt_varname)) THEN
+       CALL check_patch_array_sp(typ, p_patch, arr, opt_varname)
+     ELSE
+       CALL check_patch_array_sp(typ, p_patch, arr, 'sync')
+     ENDIF
+   ENDIF
+
+   ! Boundary exchange for work PEs
+   IF(my_process_is_mpi_parallel()) THEN
+      IF(typ == SYNC_C) THEN
+         CALL exchange_data(p_patch%comm_pat_c, arr)
+      ELSE IF(typ == SYNC_E) THEN
+         CALL exchange_data(p_patch%comm_pat_e, arr)
+      ELSE IF(typ == SYNC_V) THEN
+         CALL exchange_data(p_patch%comm_pat_v, arr)
+      ELSE IF(typ == SYNC_C1) THEN
+         CALL exchange_data(p_patch%comm_pat_c1, arr)
+      ELSE
+         CALL finish('sync_patch_array','Illegal type parameter')
+      ENDIF
+   ENDIF
+END SUBROUTINE sync_patch_array_s3
 
 
 !-------------------------------------------------------------------------
@@ -318,10 +370,14 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
    IF (p_test_run .AND. do_sync_checks) THEN
      IF (PRESENT(f4din)) THEN
        ALLOCATE(arr3(UBOUND(f4din,1), UBOUND(f4din,2), UBOUND(f4din,3)))
+!$ACC DATA CREATE( arr3 ), IF ( i_am_accel_node .AND. acc_on )
        DO i = 1, SIZE(f4din,4)
+!$ACC KERNELS PRESENT( f4din, arr3 ), IF ( i_am_accel_node .AND. acc_on )
          arr3(:,:,:) = f4din(:,:,:,i)
+!$ACC END KERNELS
          CALL check_patch_array_3(typ, p_patch, arr3, 'sync')
        ENDDO
+!$ACC END DATA
        DEALLOCATE(arr3)
      ENDIF
      IF (PRESENT(f3din1)) CALL check_patch_array_3(typ, p_patch, f3din1, 'sync')
@@ -349,6 +405,106 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
    ENDIF
 
 END SUBROUTINE sync_patch_array_mult
+
+!-------------------------------------------------------------------------
+!>
+!! Does boundary exchange for up to 5 3D cell-based fields and/or a 4D field,
+!! which can either be single precision or double precision
+!!
+!! @par Revision History
+!! Optimized version by Guenther Zaengl, Apr 2010, based on routines
+!! developed by Rainer Johanni
+!!
+SUBROUTINE sync_patch_array_mult_mp(typ, p_patch, nfields, nfields_sp, f3din1, f3din2, f3din3, &
+  f3din4, f3din5, f3din1_sp, f3din2_sp, f3din3_sp, f3din4_sp, f3din5_sp, f4din, f4din_sp)
+
+   INTEGER, INTENT(IN)               :: typ
+   TYPE(t_patch), INTENT(IN), TARGET :: p_patch
+   INTEGER,     INTENT(IN)           :: nfields, nfields_sp
+
+   REAL(dp), OPTIONAL, INTENT(INOUT) ::  f3din1(:,:,:), f3din2(:,:,:), f3din3(:,:,:), &
+      &                                  f3din4(:,:,:), f3din5(:,:,:), f4din(:,:,:,:)
+   REAL(sp), OPTIONAL, INTENT(INOUT) ::  f3din1_sp(:,:,:), f3din2_sp(:,:,:), f3din3_sp(:,:,:), &
+      &                                  f3din4_sp(:,:,:), f3din5_sp(:,:,:), f4din_sp(:,:,:,:)
+
+   REAL(wp), ALLOCATABLE :: arr3(:,:,:)
+   TYPE(t_comm_pattern), POINTER :: p_pat
+   INTEGER :: i
+   INTEGER :: ndim2tot, ndim2tot_sp ! Sum of second dimensions over all input fields
+
+!-----------------------------------------------------------------------
+
+    IF(typ == SYNC_C) THEN
+      p_pat => p_patch%comm_pat_c
+    ELSE IF(typ == SYNC_E) THEN
+      p_pat => p_patch%comm_pat_e
+    ELSE IF(typ == SYNC_V) THEN
+      p_pat => p_patch%comm_pat_v
+    ELSE IF(typ == SYNC_C1) THEN
+      p_pat => p_patch%comm_pat_c1
+    ENDIF
+
+   ! If this is a verification run, check consistency before doing boundary exchange
+   IF (p_test_run .AND. do_sync_checks) THEN
+     IF (PRESENT(f4din)) THEN
+       ALLOCATE(arr3(UBOUND(f4din,1), UBOUND(f4din,2), UBOUND(f4din,3)))
+       DO i = 1, SIZE(f4din,4)
+         arr3(:,:,:) = f4din(:,:,:,i)
+         CALL check_patch_array_3(typ, p_patch, arr3, 'sync')
+       ENDDO
+       DEALLOCATE(arr3)
+     ENDIF
+     IF (PRESENT(f4din_sp)) THEN
+       ALLOCATE(arr3(UBOUND(f4din_sp,1), UBOUND(f4din_sp,2), UBOUND(f4din_sp,3)))
+       DO i = 1, SIZE(f4din_sp,4)
+         arr3(:,:,:) = REAL(f4din_sp(:,:,:,i),wp)
+         CALL check_patch_array_3(typ, p_patch, arr3, 'sync')
+       ENDDO
+       DEALLOCATE(arr3)
+     ENDIF
+     IF (PRESENT(f3din1)) CALL check_patch_array_3(typ, p_patch, f3din1, 'sync')
+     IF (PRESENT(f3din2)) CALL check_patch_array_3(typ, p_patch, f3din2, 'sync')
+     IF (PRESENT(f3din3)) CALL check_patch_array_3(typ, p_patch, f3din3, 'sync')
+     IF (PRESENT(f3din4)) CALL check_patch_array_3(typ, p_patch, f3din4, 'sync')
+     IF (PRESENT(f3din5)) CALL check_patch_array_3(typ, p_patch, f3din5, 'sync')
+     IF (PRESENT(f3din1_sp)) CALL check_patch_array_sp(typ, p_patch, f3din1_sp, 'sync')
+     IF (PRESENT(f3din2_sp)) CALL check_patch_array_sp(typ, p_patch, f3din2_sp, 'sync')
+     IF (PRESENT(f3din3_sp)) CALL check_patch_array_sp(typ, p_patch, f3din3_sp, 'sync')
+     IF (PRESENT(f3din4_sp)) CALL check_patch_array_sp(typ, p_patch, f3din4_sp, 'sync')
+     IF (PRESENT(f3din5_sp)) CALL check_patch_array_sp(typ, p_patch, f3din5_sp, 'sync')
+   ENDIF
+
+   ! Boundary exchange for work PEs
+   IF(my_process_is_mpi_parallel()) THEN
+     IF (PRESENT(f4din)) THEN
+       ndim2tot = SIZE(f4din,4)*SIZE(f4din,2)
+     ELSE
+       ndim2tot = 0
+     ENDIF
+     IF (PRESENT(f3din1)) ndim2tot = ndim2tot+SIZE(f3din1,2)
+     IF (PRESENT(f3din2)) ndim2tot = ndim2tot+SIZE(f3din2,2)
+     IF (PRESENT(f3din3)) ndim2tot = ndim2tot+SIZE(f3din3,2)
+     IF (PRESENT(f3din4)) ndim2tot = ndim2tot+SIZE(f3din4,2)
+     IF (PRESENT(f3din5)) ndim2tot = ndim2tot+SIZE(f3din5,2)
+
+     IF (PRESENT(f4din_sp)) THEN
+       ndim2tot_sp = SIZE(f4din_sp,4)*SIZE(f4din_sp,2)
+     ELSE
+       ndim2tot_sp = 0
+     ENDIF
+     IF (PRESENT(f3din1_sp)) ndim2tot_sp = ndim2tot_sp+SIZE(f3din1_sp,2)
+     IF (PRESENT(f3din2_sp)) ndim2tot_sp = ndim2tot_sp+SIZE(f3din2_sp,2)
+     IF (PRESENT(f3din3_sp)) ndim2tot_sp = ndim2tot_sp+SIZE(f3din3_sp,2)
+     IF (PRESENT(f3din4_sp)) ndim2tot_sp = ndim2tot_sp+SIZE(f3din4_sp,2)
+     IF (PRESENT(f3din5_sp)) ndim2tot_sp = ndim2tot_sp+SIZE(f3din5_sp,2)
+
+     CALL exchange_data_mult_mixprec(p_pat, nfields, ndim2tot, nfields_sp, ndim2tot_sp,                    &
+       recv1_dp=f3din1,    recv2_dp=f3din2,    recv3_dp=f3din3,    recv4_dp=f3din4,    recv5_dp=f3din5,    &
+       recv1_sp=f3din1_sp, recv2_sp=f3din2_sp, recv3_sp=f3din3_sp, recv4_sp=f3din4_sp, recv5_sp=f3din5_sp, &
+       recv4d_dp=f4din,    recv4d_sp=f4din_sp                                                              )
+   ENDIF
+
+END SUBROUTINE sync_patch_array_mult_mp
 
 
 !>
@@ -386,10 +542,14 @@ SUBROUTINE sync_patch_array_4de1(typ, p_patch, nfields, f4din)
    ! If this is a verification run, check consistency before doing boundary exchange
    IF (p_test_run .AND. do_sync_checks) THEN
      ALLOCATE(arr3(UBOUND(f4din,2), UBOUND(f4din,3), UBOUND(f4din,4)))
+!$ACC DATA CREATE( arr3 ), IF ( i_am_accel_node .AND. acc_on )
      DO i = 1, nfields
+!$ACC KERNELS PRESENT( f4din, arr3 ), IF ( i_am_accel_node .AND. acc_on )
        arr3(:,:,:) = f4din(i,:,:,:)
+!$ACC END KERNELS
        CALL check_patch_array_3(typ, p_patch, arr3, 'sync')
      ENDDO
+!$ACC END DATA
      DEALLOCATE(arr3)
    ENDIF
 
@@ -408,6 +568,22 @@ END SUBROUTINE sync_patch_array_4de1
 !-------------------------------------------------------------------------
 !
 !
+
+!! Wrapper routine for checking single precision arrays
+SUBROUTINE check_patch_array_sp(typ, p_patch, arr, opt_varname)
+
+   INTEGER, INTENT(IN)     :: typ
+   TYPE(t_patch), INTENT(IN), TARGET :: p_patch
+   CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
+
+   REAL(sp), INTENT(IN) :: arr(:,:,:)
+   REAL(wp) :: arr_wp(SIZE(arr,1),SIZE(arr,2),SIZE(arr,3))
+
+   arr_wp(:,:,:) = REAL(arr(:,:,:),wp)
+   CALL check_patch_array_3(typ, p_patch, arr_wp, opt_varname)
+
+END SUBROUTINE check_patch_array_sp
+
 
 !>
 !! In a verification run, this routine checks the consistency of an array, i.
@@ -465,6 +641,9 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
 
    ndim2 = UBOUND(arr,2)
    ndim3 = UBOUND(arr,3)
+
+!$ACC DATA PRESENT( arr ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( arr ), IF ( i_am_accel_node .AND. acc_on )
 
    IF(typ == SYNC_C .OR. typ == SYNC_C1) THEN
       ndim   = p_patch%n_patch_cells
@@ -647,6 +826,8 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
 
    ENDIF
 
+!$ACC END DATA
+
 END SUBROUTINE check_patch_array_3
 !-------------------------------------------------------------------------
 !
@@ -674,14 +855,17 @@ SUBROUTINE check_patch_array_2(typ, p_patch, arr, opt_varname)
    IF(.NOT. p_test_run) RETURN ! This routine is only effective in a verification run
 
    ALLOCATE(arr3(UBOUND(arr,1), 1, UBOUND(arr,2)))
+!$ACC DATA CREATE( arr3 ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS PRESENT( arr ), IF ( i_am_accel_node .AND. acc_on )
    arr3(:,1,:) = arr(:,:)
+!$ACC END KERNELS
 
    IF(PRESENT(opt_varname)) THEN
       CALL check_patch_array_3(typ, p_patch, arr3, opt_varname)
    ELSE
       CALL check_patch_array_3(typ, p_patch, arr3)
    ENDIF
-
+!$ACC END DATA
    DEALLOCATE(arr3) ! NB: No back-copy here!
 
 END SUBROUTINE check_patch_array_2

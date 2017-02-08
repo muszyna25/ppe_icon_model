@@ -15,14 +15,14 @@ MODULE mo_derived_variable_handling
   USE mo_dynamics_config, ONLY: nnow, nnew, nold
   USE mo_statistics, ONLY: add_fields
   USE mo_var_metadata_types, ONLY: VARNAME_LEN
-  USE mo_impl_constants, ONLY: vname_len, SUCCESS, max_char_length, TLEV_NNOW, TLEV_NNEW, TLEV_NNOW_RCF, TLEV_NNEW_RCF
+  USE mo_impl_constants, ONLY: vname_len, SUCCESS, max_char_length, TLEV_NNOW, TLEV_NNEW, TLEV_NNOW_RCF, TLEV_NNEW_RCF, REAL_T
   USE mo_name_list_output_types, ONLY: t_output_name_list
   USE mo_mpi, ONLY: my_process_is_stdio
   USE mo_var_list_element, ONLY: level_type_ml, level_type_pl, level_type_hl, level_type_il
   USE mo_name_list_output_metadata, ONLY: metainfo_get_timelevel
   USE mo_var_list, ONLY: new_var_list,&
        total_number_of_variables, &
-       get_var_name, default_var_list_settings, add_var, REAL_T, find_element, find_list_element, &
+       get_var_name, default_var_list_settings, add_var, find_element, find_list_element, &
        & get_varname_with_timelevel, delete_var_list
   USE mo_linked_list, ONLY: t_var_list, t_list_element
   USE mo_exception, ONLY: finish, message, message_text

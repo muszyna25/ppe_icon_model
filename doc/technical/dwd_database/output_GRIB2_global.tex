@@ -68,11 +68,12 @@ fields is provided in Section \ref{sec_outfields}.
 \midrule
 \multicolumn{3}{c}{\textbf{Atmosphere}}\\
 \midrule
-\textbf{DEN}                            &  $\mathrm{kg\,m^{-3}}$      &  density of moist air (3D field) \\
+\textbf{DEN}                            &  $\mathrm{kg\,m^{-3}}$      &  Density of moist air (3D field) \\
 \textbf{TKE}                            &  $\mathrm{m^{2}\,s^{-2}}$   &  Turbulent kinetic energy (3D field) \\
 \textbf{DTKE\_CON}                      &  $\mathrm{m^{2}\,s^{-3}}$   &  Buoyancy-production of TKE due to sub grid scale convection (3D field) \\
-\textbf{W}                              &  $\mathrm{m\,s^{-1}}$       &  vertical velocity in height coordinates $w=\frac{\mathrm{d}z}{\mathrm{d}t}$ (3D field)\\
-\textbf{P}                              &  $\mathrm{Pa}$              &  pressure (3D field)\\
+\textbf{DTKE\_HSH}                      &  $\mathrm{m^{2}\,s^{-3}}$   &  Production of TKE due to horizontal shear (3D field) \\
+\textbf{W}                              &  $\mathrm{m\,s^{-1}}$       &  Vertical velocity in height coordinates $w=\frac{\mathrm{d}z}{\mathrm{d}t}$ (3D field)\\
+\textbf{P}                              &  $\mathrm{Pa}$              &  Pressure (3D field)\\
 \midrule
 \multicolumn{3}{c}{\textbf{Surface}}\\
 \midrule
@@ -105,15 +106,16 @@ fields is provided in Section \ref{sec_outfields}.
 \section{Available output fields}\label{sec_outfields}
 % --------------------------------------------------------------------------------
 
-ICON forecasts are performed multiple times a day with varying forecast times. An overview of the various forecasts, including its  
-forecast time and output intervals is provided in Figure \ref{fig:forecast_length_global}.
+ICON forecasts are performed multiple times a day with varying forecast periods. An overview of the forecast runs, including its  
+forecast period and output intervals is provided in Figure \ref{fig:forecast_length_global}.
 \begin{figure}[hbt]
  \centering
  \includegraphics[width=0.90\textwidth]{forecast_length_global.png}
- \caption{Time span covered by the various ICON forecasts. A forecast run is launched every three hours.
- Output fields are available hourly up to $VV=78\,\mathrm{h}$ and 3-hourly for larger forecast times. 
- The vertical rules (\protect\markRed) and (\protect\markBlue) indicate the time until when output is generally 
- available on the native grid (\protect\markRed) and/or on the lat-lon grid (\protect\markBlue).}\label{fig:forecast_length_global}
+ \caption{Time span covered by the various global ICON forecasts which are launched every three hours.
+          Output on the native (triangular) grid (\protect\markRed) and the regular grid (\protect\markBlue) 
+          is generally available until forecast end, as indicated by the lenght of the two bars shown for 
+          each forecast run. Output fields are available hourly up to $VV=78\,\mathrm{h}$ and 3-hourly for 
+          larger forecast times.}\label{fig:forecast_length_global}
 \end{figure}
 
 Main forecasts are performed $4$ times a day at $0,\, 6,\, 12,\, 18$ UTC, covering a forecast time span of $180\,\mathrm{h}$ for the 
@@ -158,14 +160,14 @@ are needed as input by the wave models.}
 
 
 % --------------------------------------------------------------------------------
-\subsection{Time-constant (external parameter) fields}
+\subsection{Time-constant (external parameter) fields}\label{sec_const_outfields}
 % --------------------------------------------------------------------------------
 
 Table \ref{table_constdb} provides an overview of the available time invariant fields. They are available from the database category 
 \texttt{CAT\_NAME=\$model\_\tblu{const}\_\tblu{an}\_\$suite}. As mentioned in Section \ref{section:extpar}, \texttt{DEPTH\_LK}, 
-\texttt{HSURF}, \texttt{FR\_LAND}, \texttt{FR\_LAKE} and \texttt{Z0} are modified by ICON. Thus, the latter should not be taken from 
-the \emph{const\_an} database category, unless you definitely know what you are doing. For convenience, the modified invariant fields 
-(and some more) are stored in the \emph{forecast} database categories for step $s[h]=0$ 
+\texttt{HSURF}, \texttt{FR\_LAND}, \texttt{FR\_LAKE} and \texttt{Z0} are modified by ICON. Thus, the latter should 
+not be taken from the \emph{const\_an} database category, unless you definitely know what you are doing. For convenience, the 
+modified invariant fields (and some more) are stored in the \emph{forecast} database categories for step $s[h]=0$ 
 (\texttt{CAT\_NAME=\$model\_\$run\_\tblu{fc}\_\$suite}). Table \ref{table_init_output} provides a list of all fields which are exclusively 
 written for $s[h]=0$.
 
@@ -309,7 +311,7 @@ See Section \ref{sec_skycat} for more details on the database categories and Sec
                                     $775$, $750$, $700$, $650$, $600$, $550$, 
                                     $500$, $450$, $400$, $350$, $300$, $275$, 
                                     $250$, $225$, $200$, $175$, $150$, $125$, 
-                                    $100$, $70$, $50$, \tblu{$30$}, \tblu{$10$}, \tblu{$5$}, \tblu{$2$}, 
+                                    $100$, $70$, $50$, $30$, $10$, $5$, \tblu{$2$}, 
                                     \tblu{$1$}, \tblu{$0.1$} $\mathrm{hPa}$}
 
 For regular grid output the following $36$ pressure levels are available: 
@@ -338,7 +340,7 @@ the levels highlighted in \tblu{blue}.
   \groups[][ll] & FI                         &  Geopotential                                                                              &               0/3/4                       &                 100/--                          &                      inst       &            &        $\mathrm{m^{2}\,s^{-2}}$   \\
   \groups[][ll] & OMEGA                      &  Vertical velocity in pressure coordinates ($\omega=\mathrm{d}p/\mathrm{d}t$)              &               0/2/8                       &                 100/--                          &                      inst       &            &        $\mathrm{Pa\,s^{-1}}$  \\
   \groups[][ll] & RELHUM                     &  Relative humidity (with respect to water)                                                 &               0/1/1                       &                 100/--                          &                      inst       &            &        $\mathrm{\%}$          \\
-  \groups[][ll] & T                          &  Temperature                                                                               &               0/0/0                       &                 100/--                          &                      inst       &            &        $\mathrm{K}$          \\
+  \groups[][ll] & T                          &  Temperature                                                                               &               0/0/0                       &                 100/--                          &                      inst       &    BCT     &        $\mathrm{K}$          \\
   \groups[][ll] & U                          &  Zonal wind                                                                                &               0/2/2                       &                 100/--                          &                      inst       &            &        $\mathrm{m\,s^{-1}}$   \\ 
   \groups[][ll] & V                          &  Meridional wind                                                                           &               0/2/3                       &                 100/--                          &                      inst       &            &        $\mathrm{m\,s^{-1}}$   \\
 \end{vartable}

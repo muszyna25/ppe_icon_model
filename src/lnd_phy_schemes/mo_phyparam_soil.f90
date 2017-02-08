@@ -74,7 +74,7 @@ IMPLICIT NONE
   REAL (ireals) ::          &
          c_lnd      = 2.0_ireals,     & ! surface area density of the roughness elements over land
          c_sea      = 1.5_ireals,     & ! surface area density of the waves over sea
-         c_soil     = 1.0_ireals,     & ! surface area density of the (evaporative) soil surface
+   !!!   c_soil     = 1.0_ireals,     & ! surface area density of the (evaporative) soil surface (changed into namelist parameter)
          e_surf     = 1.0_ireals,     & ! exponent to get the effective surface area
          red_fac                        ! reduction factor for effective area indeces multiplication
 

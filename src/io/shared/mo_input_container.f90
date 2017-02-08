@@ -16,11 +16,12 @@ MODULE mo_input_container
     USE mo_hash_table, ONLY: t_HashTable, hashTable_make
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_kind, ONLY: wp, dp
-    USE mo_mpi, ONLY: p_bcast, p_comm_work, my_process_is_stdio
+    USE mo_math_types, ONLY: t_Statistics
+    USE mo_mpi, ONLY: p_bcast, p_comm_work, my_process_is_stdio, p_mpi_wtime
     USE mo_parallel_config, ONLY: blk_no, nproma
     USE mo_scatter_pattern_base, ONLY: lookupScatterPattern
     USE mo_util_cdi, ONLY: trivial_tileId
-    USE mo_util_string, ONLY: int2string, REAL2string
+    USE mo_util_string, ONLY: int2string, real2string
 
     IMPLICIT NONE
 
@@ -92,7 +93,7 @@ PRIVATE
 
 CONTAINS
 
-    INTEGER(C_INT32_T) FUNCTION InputContainer_hashKey(key) RESULT(result)
+    INTEGER(C_INT32_T) FUNCTION InputContainer_hashKey(key) RESULT(resultVar)
         CLASS(t_Destructible), POINTER, INTENT(IN) :: key
 
         ! Just some large primes to produce some good pseudorandom bits in the hashes.
@@ -106,13 +107,13 @@ CONTAINS
             TYPE IS(t_LevelKey)
                 temp = prime1*INT(key%levelValue, C_INT64_T)
                 temp = temp + prime2*INT(key%tileId, C_INT64_T)
-                RESULT = INT(IAND(temp, mask), C_INT32_T)
+                resultVar = INT(IAND(temp, mask), C_INT32_T)
             CLASS DEFAULT
                 CALL finish(routine, "illegal argument type")
         END SELECT
     END FUNCTION InputContainer_hashKey
 
-    LOGICAL FUNCTION InputContainer_equalKeysFunction(keyA, keyB) RESULT(result)
+    LOGICAL FUNCTION InputContainer_equalKeysFunction(keyA, keyB) RESULT(resultVar)
         CLASS(t_Destructible), POINTER, INTENT(IN) :: keyA, keyB
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":InputContainer_equalKeysFunction"
@@ -121,9 +122,9 @@ CONTAINS
             TYPE IS(t_LevelKey)
                 SELECT TYPE(keyB)
                     TYPE IS(t_LevelKey)
-                        result = keyA%levelValue > keyB%levelValue - k_levelComparisonInterval .and. &
+                        resultVar = keyA%levelValue > keyB%levelValue - k_levelComparisonInterval .and. &
                                & keyA%levelValue < keyB%levelValue + k_levelComparisonInterval
-                        result = result .and. keyA%tileId == keyB%tileId
+                        resultVar = resultVar .and. keyA%tileId == keyB%tileId
                     CLASS DEFAULT
                         CALL finish(routine, "illegal argument type")
                 END SELECT
@@ -144,31 +145,31 @@ CONTAINS
         DEALLOCATE(me%ptr)
     END SUBROUTINE LevelPointer_destruct
 
-    FUNCTION InputContainer_make() RESULT(RESULT)
-        CLASS(t_InputContainer), POINTER :: RESULT
+    FUNCTION InputContainer_make() RESULT(resultVar)
+        CLASS(t_InputContainer), POINTER :: resultVar
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputContainer_make"
         INTEGER :: error
 
-        ALLOCATE(RESULT, STAT = error)
+        ALLOCATE(resultVar, STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-        RESULT%fields => hashTable_make(InputContainer_hashKey, InputContainer_equalKeysFunction)
-        RESULT%fieldCount = 0
-        CALL RESULT%tiles%init()
-        CALL RESULT%levels%init()
+        resultVar%fields => hashTable_make(InputContainer_hashKey, InputContainer_equalKeysFunction)
+        resultVar%fieldCount = 0
+        CALL resultVar%tiles%init()
+        CALL resultVar%levels%init()
     END FUNCTION InputContainer_make
 
-    FUNCTION InputContainer_getLevels(me) RESULT(RESULT)
+    FUNCTION InputContainer_getLevels(me) RESULT(resultVar)
         CLASS(t_InputContainer), INTENT(IN) :: me
-        REAL(dp), POINTER :: RESULT(:)
+        REAL(dp), POINTER :: resultVar(:)
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputContainer_getLevels"
         INTEGER :: i, error
 
-        ALLOCATE(RESULT(me%levels%valueCount), STAT = error)
+        ALLOCATE(resultVar(me%levels%valueCount), STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
         DO i = 1, me%levels%valueCount
-            RESULT(i) = me%levels%values(i)
+            resultVar(i) = me%levels%values(i)
         END DO
     END FUNCTION InputContainer_getLevels
 
@@ -185,7 +186,7 @@ CONTAINS
         IF(lHaveUntiledData) tileCount = tileCount - 1
     END SUBROUTINE InputContainer_getCounts
 
-    LOGICAL FUNCTION InputContainer_dataAvailable(me, opt_level, opt_tile, opt_jg) RESULT(RESULT)
+    LOGICAL FUNCTION InputContainer_dataAvailable(me, opt_level, opt_tile, opt_jg) RESULT(resultVar)
         CLASS(t_InputContainer), INTENT(IN) :: me
         REAL(dp), OPTIONAL, INTENT(IN) :: opt_level
         INTEGER, OPTIONAL, INTENT(IN) :: opt_tile, opt_jg
@@ -194,7 +195,7 @@ CONTAINS
         CLASS(t_Destructible), POINTER :: key, polymorphicKey, VALUE
         INTEGER :: levelCount, tileCount, levelIndex, tileIndex, error
 
-        RESULT = .FALSE.
+        resultVar = .FALSE.
         IF(me%levels%valueCount <= 0 .OR. me%tiles%valueCount <= 0) RETURN
 
         levelCount = me%levels%valueCount
@@ -208,7 +209,7 @@ CONTAINS
         SELECT TYPE(key)
             TYPE IS(t_LevelKey)
 
-                RESULT = .TRUE.
+                resultVar = .TRUE.
                 outerLoop: DO levelIndex = 1, levelCount
                     key%levelValue = me%levels%values(levelIndex)
                     IF(PRESENT(opt_level)) key%levelValue = opt_level
@@ -218,7 +219,7 @@ CONTAINS
 
                         VALUE => me%fields%getEntry(polymorphicKey)
                         IF(.NOT.ASSOCIATED(VALUE)) THEN
-                            RESULT = .FALSE.
+                            resultVar = .FALSE.
                             EXIT outerLoop
                         END IF
                     END DO
@@ -232,7 +233,7 @@ CONTAINS
         DEALLOCATE(key)
     END FUNCTION InputContainer_dataAvailable
 
-    LOGICAL FUNCTION InputContainer_fetch2D(me, level, tile, outData, opt_lDebug) RESULT(RESULT)
+    LOGICAL FUNCTION InputContainer_fetch2D(me, level, tile, outData, opt_lDebug) RESULT(resultVar)
         CLASS(t_InputContainer), INTENT(IN) :: me
         REAL(dp), VALUE :: level
         INTEGER, VALUE :: tile
@@ -247,8 +248,8 @@ CONTAINS
         debugInfo = .FALSE.
         IF(PRESENT(opt_lDebug)) debugInfo = opt_lDebug
         IF(debugInfo) CALL message(routine, "level = "//TRIM(real2string(level))//", tile = "//TRIM(int2string(tile)))
-        RESULT = me%dataAvailable(opt_level = level, opt_tile = tile)
-        IF(.NOT.RESULT) RETURN
+        resultVar = me%dataAvailable(opt_level = level, opt_tile = tile)
+        IF(.NOT.resultVar) RETURN
 
         ALLOCATE(t_LevelKey :: key, STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
@@ -276,7 +277,7 @@ CONTAINS
         DEALLOCATE(key)
     END FUNCTION InputContainer_fetch2D
 
-    LOGICAL FUNCTION InputContainer_fetch3D(me, tile, outData, optLevelDimension, opt_lDebug) RESULT(RESULT)
+    LOGICAL FUNCTION InputContainer_fetch3D(me, tile, outData, optLevelDimension, opt_lDebug) RESULT(resultVar)
         CLASS(t_InputContainer), INTENT(IN) :: me
         INTEGER, VALUE :: tile
         REAL(wp), INTENT(INOUT) :: outData(:,:,:)
@@ -293,28 +294,28 @@ CONTAINS
         levelDimension = 2
         CALL assign_if_present(levelDimension, optLevelDimension)
         IF(SIZE(outData, levelDimension) /= me%levels%valueCount) THEN
-            RESULT = .FALSE.
+            resultVar = .FALSE.
             IF(debugInfo) CALL message(routine, "wrong level count")
             RETURN
         END IF
 
-        RESULT = me%dataAvailable(opt_tile = tile)
-        IF(.NOT.RESULT) RETURN
+        resultVar = me%dataAvailable(opt_tile = tile)
+        IF(.NOT.resultVar) RETURN
 
         DO i = 1, me%levels%valueCount
             SELECT CASE(levelDimension)
                 CASE(2)
-                    RESULT = me%fetch2D(me%levels%values(i), tile, outData(:, i, :))
+                    resultVar = me%fetch2D(me%levels%values(i), tile, outData(:, i, :))
                 CASE(3)
-                    RESULT = me%fetch2D(me%levels%values(i), tile, outData(:, :, i))
+                    resultVar = me%fetch2D(me%levels%values(i), tile, outData(:, :, i))
                 CASE DEFAULT
                     CALL finish(routine, "illegal value in optleveldimension")
             END SELECT
-            IF(.NOT. RESULT) CALL finish(routine, "internal error: dataAvailable() returned TRUE, but a fetch2D() CALL failed")
+            IF(.NOT. resultVar) CALL finish(routine, "internal error: dataAvailable() returned TRUE, but a fetch2D() CALL failed")
         END DO
     END FUNCTION InputContainer_fetch3D
 
-    LOGICAL FUNCTION InputContainer_fetchTiled2D(me, level, outData, opt_lDebug) RESULT(RESULT)
+    LOGICAL FUNCTION InputContainer_fetchTiled2D(me, level, outData, opt_lDebug) RESULT(resultVar)
         CLASS(t_InputContainer), INTENT(IN) :: me
         REAL(dp), VALUE :: level
         REAL(wp), INTENT(INOUT) :: outData(:,:,:)
@@ -327,44 +328,44 @@ CONTAINS
         useUntiledData = .FALSE.
         debugInfo = .FALSE.
         IF(PRESENT(opt_lDebug)) debugInfo = opt_lDebug
-        RESULT = me%dataAvailable(opt_level = level)
-        IF(.NOT.RESULT) RETURN
+        resultVar = me%dataAvailable(opt_level = level)
+        IF(.NOT.resultVar) RETURN
 
         !check whether we have the right count of tiles, ignoring untiled fields of the same variable that may be PRESENT as well
         IF(me%tiles%haveValue(REAL(trivial_tileId, dp))) THEN
-            RESULT = SIZE(outData, 3) == me%tiles%valueCount - 1
-            IF(.NOT.RESULT.AND.SIZE(outData, 3) == 1) THEN
+            resultVar = SIZE(outData, 3) == me%tiles%valueCount - 1
+            IF(.NOT.resultVar.AND.SIZE(outData, 3) == 1) THEN
                 CALL message(routine, "Warning: No tiled input data is present. Reading single tile from untiled data instead.")
                 useUntiledData = .TRUE.
-                RESULT = .TRUE.
+                resultVar = .TRUE.
             END IF
-            IF(debugInfo .AND. .NOT. RESULT) THEN
+            IF(debugInfo .AND. .NOT. resultVar) THEN
                 CALL message(routine, "Wrong tile count. &
                                       &Tiles from file = "//TRIM(int2string(me%tiles%valueCount - 1))//" &
                                       &(+ one untiled field), &
                                       &expected tiles = "//TRIM(int2string(SIZE(outData, 3))))
             END IF
         ELSE
-            RESULT = SIZE(outData, 3) == me%tiles%valueCount
-            IF(debugInfo .AND. .NOT. RESULT) THEN
+            resultVar = SIZE(outData, 3) == me%tiles%valueCount
+            IF(debugInfo .AND. .NOT. resultVar) THEN
                 CALL message(routine, "Wrong tile count. &
                                       &Tiles from file = "//TRIM(int2string(me%tiles%valueCount))//" &
                                       &expected tiles = "//TRIM(int2string(SIZE(outData, 3))))
             END IF
         END IF
-        IF(.NOT. RESULT) RETURN
+        IF(.NOT. resultVar) RETURN
 
         DO tileId = 1, SIZE(outData, 3)
             IF(useUntiledData) THEN
-                RESULT = me%fetch2D(level, trivial_tileId, outData(:, :, tileId))
+                resultVar = me%fetch2D(level, trivial_tileId, outData(:, :, tileId))
             ELSE
-                RESULT = me%fetch2D(level, tileId, outData(:, :, tileId))
+                resultVar = me%fetch2D(level, tileId, outData(:, :, tileId))
             END IF
-            IF(.NOT. RESULT) CALL finish(routine, "internal error: dataAvailable() returned TRUE, but a fetch2D() CALL failed")
+            IF(.NOT. resultVar) CALL finish(routine, "internal error: dataAvailable() returned TRUE, but a fetch2D() CALL failed")
         END DO
     END FUNCTION InputContainer_fetchTiled2D
 
-    LOGICAL FUNCTION InputContainer_fetchTiled3D(me, outData, optLevelDimension, opt_lDebug) RESULT(RESULT)
+    LOGICAL FUNCTION InputContainer_fetchTiled3D(me, outData, optLevelDimension, opt_lDebug) RESULT(resultVar)
         CLASS(t_InputContainer), INTENT(IN) :: me
         REAL(wp), INTENT(INOUT) :: outData(:,:,:,:)
         INTEGER, INTENT(IN), OPTIONAL :: optLevelDimension
@@ -381,40 +382,40 @@ CONTAINS
         !XXX: This IS more strict than strictly necessary:
         !     It will check that untiled DATA that may also be PRESENT has the same amount of levels as the tiled DATA.
         !     I guess, this additional strictness shouldn't be a problem, but I may be wrong.
-        RESULT = me%dataAvailable()
-        IF(.NOT.RESULT) RETURN
+        resultVar = me%dataAvailable()
+        IF(.NOT.resultVar) RETURN
 
         !check whether we have the right count of tiles, ignoring untiled fields of the same variable that may be PRESENT as well
         IF(me%tiles%haveValue(REAL(trivial_tileId, dp))) THEN
-            RESULT = SIZE(outData, 4) == me%tiles%valueCount - 1
-            IF(.NOT.RESULT.AND.SIZE(outData, 4) == 1) THEN
+            resultVar = SIZE(outData, 4) == me%tiles%valueCount - 1
+            IF(.NOT.resultVar.AND.SIZE(outData, 4) == 1) THEN
                 CALL message(routine, "Warning: No tiled input data is present. Reading single tile from untiled data instead.")
                 useUntiledData = .TRUE.
-                RESULT = .TRUE.
+                resultVar = .TRUE.
             END IF
-            IF(debugInfo .AND. .NOT. RESULT) THEN
+            IF(debugInfo .AND. .NOT. resultVar) THEN
                 CALL message(routine, "Wrong tile count. &
                                       &Tiles from file = "//TRIM(int2string(me%tiles%valueCount - 1))//" &
                                       &(+ one untiled field), &
                                       &expected tiles = "//TRIM(int2string(SIZE(outData, 4))))
             END IF
         ELSE
-            RESULT = SIZE(outData, 4) == me%tiles%valueCount
-            IF(debugInfo .AND. .NOT. RESULT) THEN
+            resultVar = SIZE(outData, 4) == me%tiles%valueCount
+            IF(debugInfo .AND. .NOT. resultVar) THEN
                 CALL message(routine, "Wrong tile count. &
                                       &Tiles from file = "//TRIM(int2string(me%tiles%valueCount))//" &
                                       &expected tiles = "//TRIM(int2string(SIZE(outData, 4))))
             END IF
         END IF
-        IF(.NOT. RESULT) RETURN
+        IF(.NOT. resultVar) RETURN
 
         DO tileId = 1, SIZE(outData, 4)
             IF(useUntiledData) THEN
-                RESULT = me%fetch3D(trivial_tileId, outData(:, :, :, tileId), optLevelDimension)
+                resultVar = me%fetch3D(trivial_tileId, outData(:, :, :, tileId), optLevelDimension)
             ELSE
-                RESULT = me%fetch3D(tileId, outData(:, :, :, tileId), optLevelDimension)
+                resultVar = me%fetch3D(tileId, outData(:, :, :, tileId), optLevelDimension)
             END IF
-            IF(.NOT. RESULT) CALL finish(routine, "internal error: dataAvailable() returned TRUE, but a fetch3D() CALL failed")
+            IF(.NOT. resultVar) CALL finish(routine, "internal error: dataAvailable() returned TRUE, but a fetch3D() CALL failed")
         END DO
     END FUNCTION InputContainer_fetchTiled3D
 
@@ -429,11 +430,14 @@ CONTAINS
         CALL me%levels%destruct()
     END SUBROUTINE InputContainer_destruct
 
-    SUBROUTINE InputContainer_readField(me, level, tile, jg, iterator)
+    SUBROUTINE InputContainer_readField(me, variableName, level, tile, timer, jg, iterator, statistics)
         CLASS(t_InputContainer), INTENT(INOUT) :: me
+        CHARACTER(LEN = *), INTENT(IN) :: variableName
         REAL(dp), VALUE :: level
         INTEGER, VALUE :: tile, jg
+        REAL(dp), INTENT(INOUT) :: timer(:)
         TYPE(t_CdiIterator), VALUE :: iterator
+        TYPE(t_Statistics), INTENT(INOUT) :: statistics ! This gets the statistics of the READ field added, but ONLY on the master process.
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputContainer_readField"
         CLASS(t_Destructible), POINTER :: key, VALUE
@@ -441,6 +445,7 @@ CONTAINS
         REAL(C_FLOAT), POINTER :: bufferS(:)
         INTEGER :: gridSize, datatype, packedMessage(2), error    !packedMessage(1) == gridSize, packedMessage(2) == datatype
         CLASS(t_ScatterPattern), POINTER :: distribution
+        REAL(dp) :: savetime
 
         !sanity check: fail IF this field has already been READ
         ALLOCATE(t_LevelKey :: key, STAT = error)
@@ -452,7 +457,9 @@ CONTAINS
             CLASS DEFAULT
                 CALL finish(routine, "assertion failed")
         END SELECT
-        IF(ASSOCIATED(me%fields%getEntry(key))) CALL finish(routine, "double definition of a field in an input file")
+        IF(ASSOCIATED(me%fields%getEntry(key))) THEN
+            CALL finish(routine, "double definition of variable '"//variableName//"' in an input file")
+        END IF
 
         !Inquire buffer SIZE information AND broadcast it.
         IF(C_ASSOCIATED(iterator%ptr)) THEN
@@ -488,9 +495,17 @@ CONTAINS
                         IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
 
                         !READ the DATA
-                        IF(C_ASSOCIATED(iterator%ptr)) CALL cdiIterator_readField(iterator, bufferD)
+                        IF(C_ASSOCIATED(iterator%ptr)) THEN
+                            savetime = p_mpi_wtime()
+                            CALL cdiIterator_readField(iterator, bufferD)
+                            timer(3) = timer(3) + p_mpi_wtime() - savetime
+                            savetime = p_mpi_wtime()
+                            CALL statistics%add(bufferD)
+                            timer(4) = timer(4) + p_mpi_wtime() - savetime
+                        END IF
+                        savetime = p_mpi_wtime()
                         CALL distribution%distribute(bufferD, VALUE%ptr(:, :), .FALSE.)
-
+                        timer(5) = timer(5) + p_mpi_wtime() - savetime
                         DEALLOCATE(bufferD)
 
                     CASE DEFAULT
@@ -503,9 +518,17 @@ CONTAINS
                         IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
 
                         !READ the DATA
-                        IF(C_ASSOCIATED(iterator%ptr)) CALL cdiIterator_readFieldF(iterator, bufferS)
+                        IF(C_ASSOCIATED(iterator%ptr)) THEN
+                            savetime = p_mpi_wtime()
+                            CALL cdiIterator_readFieldF(iterator, bufferS)
+                            timer(3) = timer(3) + p_mpi_wtime() - savetime
+                            savetime = p_mpi_wtime()
+                            CALL statistics%add(bufferS)
+                            timer(4) = timer(4) + p_mpi_wtime() - savetime
+                        END IF
+                        savetime = p_mpi_wtime()
                         CALL distribution%distribute(bufferS, VALUE%ptr(:, :), .FALSE.)
-
+                        timer(5) = timer(5) + p_mpi_wtime() - savetime
                         DEALLOCATE(bufferS)
 
                 END SELECT
@@ -557,19 +580,19 @@ CONTAINS
         me%valueCount = me%valueCount + 1
     END SUBROUTINE ValueList_addValue
 
-    FUNCTION ValueList_haveValue(me, VALUE) RESULT(RESULT)
+    FUNCTION ValueList_haveValue(me, VALUE) RESULT(resultVar)
         CLASS(t_ValueList), INTENT(IN) :: me
         REAL(dp), VALUE :: VALUE
-        LOGICAL :: RESULT
+        LOGICAL :: resultVar
 
         CHARACTER(*), PARAMETER :: routine = modname//":ValueList_haveValue"
         INTEGER :: i
 
-        RESULT = .TRUE.
+        resultVar = .TRUE.
         DO i = 1, me%valueCount
             IF(me%values(i) == VALUE) RETURN    !found it, RETURN success
         END DO
-        RESULT = .FALSE.
+        resultVar = .FALSE.
     END FUNCTION ValueList_haveValue
 
     SUBROUTINE ValueList_ensureSpace(me)
