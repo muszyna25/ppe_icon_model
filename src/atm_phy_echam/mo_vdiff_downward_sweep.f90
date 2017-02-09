@@ -21,7 +21,7 @@
 MODULE mo_vdiff_downward_sweep
 
   USE mo_kind,               ONLY: wp
-  USE mo_physical_constants, ONLY: grav, rgrav, rd
+  USE mo_physical_constants, ONLY: grav, rd
   USE mo_echam_vdiff_params, ONLY: tpfac1, tpfac2, itop, eps_corio
   USE mo_turbulence_diag,    ONLY: atm_exchange_coeff, sfc_exchange_coeff
   USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv, imh, imqv, &

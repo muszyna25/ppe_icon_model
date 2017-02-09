@@ -579,7 +579,7 @@ CONTAINS
     REAL(wp) :: zmult1, zmult2, zmult3, zmult4, zmult5
     REAL(wp) :: zdus1, zdus2, zbuoy, ztkev
     REAL(wp) :: zucf, zucfh
-    REAL(wp) :: zust, zrrd
+    REAL(wp) :: zust
     REAL(wp) :: lmc
     INTEGER  :: jsfc, jl, jls, js
 
@@ -587,7 +587,6 @@ CONTAINS
     ! Some constants
     !-------------------
     zepsec     = 1.E-2_wp
-    zrrd       = 1._wp/rd
     zrvrd      = rv/rd
     zrdrv      = rd/rv
     z2b        = 2._wp*cb

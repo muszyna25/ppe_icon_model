@@ -194,12 +194,8 @@ CONTAINS
     REAL(wp) :: sgj(nc,nlev)
     REAL(wp) :: shj(nc,nlev)
     REAL(wp) :: shxkj(nc,nlev)
-    REAL(wp) :: dsgj(nc,nlev)
     REAL(wp) :: dttdsf(nc)
 
-    REAL(wp) :: utendgw(nc,nlev)         ! zonal tend, gravity wave spectrum (m/s^2)
-    REAL(wp) :: vtendgw(nc,nlev)         ! merid tend, gravity wave spectrum (m/s^2)
-    REAL(wp) :: heat_gw(nc,nlev)         ! heating, gravity wave spectrum (J/kg/s)
     REAL(wp) :: diffco(nc,nlev)          ! diffusion coefficient (m^2/s)
 
     REAL(wp) :: flux_u(nc,nlev)          ! zonal momentum flux (pascals)
@@ -274,10 +270,6 @@ CONTAINS
     !--  Initialize the ccc/mam hines gwd scheme
     !
 
-    utendgw(:,:) = 0.0_wp
-    vtendgw(:,:) = 0.0_wp
-    heat_gw(:,:) = 0.0_wp
-
     diffco(:,:) = 0.0_wp
 
     flux_u(:,:) = 0.0_wp
@@ -308,7 +300,6 @@ CONTAINS
         pressg_inv = 1._wp/pressg(jl+jcs-1)
         shj(jl,jk)=papm1(jl+jcs-1,jk)*pressg_inv
         sgj(jl,jk)=papm1(jl+jcs-1,jk)*pressg_inv
-        dsgj(jl,jk)=(paphm1(jl+jcs-1,jk+1)-paphm1(jl+jcs-1,jk))*pressg_inv
       END DO
       shxkj(1:nc,jk) = sgj(1:nc,jk)**rgocp
     END DO
@@ -1175,14 +1166,13 @@ CONTAINS
     !  internal variables.
     !
     REAL(wp) ::  ak_k_alpha(nlons,nazmth)
-    INTEGER  :: i, l, lev1p, lev2m, k
+    INTEGER  :: i, l, lev1p, k
 
     REAL(wp) ::  inv_slope
     REAL(wp) ::  densb_slope(nlons)
     !-----------------------------------------------------------------------
     !
     lev1p = lev1 + 1
-    lev2m = lev2 - 1
     lev2p = lev2 + 1
     DO k = 1, nazmth
       DO i = il1,il2
@@ -1390,7 +1380,7 @@ CONTAINS
     !
     ! internal variables.
     !
-    INTEGER  :: i, l, n, lev1p, lev2m
+    INTEGER  :: i, l, n, lev1p
     REAL(wp) :: m_sub_m_turb, m_sub_m_mol, m_sub_m, heatng
     REAL(wp) :: visc, visc_min
 
@@ -1400,7 +1390,6 @@ CONTAINS
     visc_min = 1.e-10_wp
 
     lev1p = lev1 + 1
-    lev2m = lev2 - 1
 
     DO l = lev1p,lev2
        DO i = il1,il2

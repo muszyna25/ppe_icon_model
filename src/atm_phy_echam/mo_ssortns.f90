@@ -12,7 +12,7 @@ MODULE mo_ssortns
 
   USE mo_kind,                  ONLY: wp
   USE mo_math_constants,        ONLY: pi
-  USE mo_physical_constants,    ONLY: grav, rd, cpd, earth_angular_velocity
+  USE mo_physical_constants,    ONLY: grav, rd, cpd
   USE mo_ssodrag,               ONLY: nktopg, ntop, gstd,                       &
     &                                 gkdrag, gklift, gkwake, gpicmea, grahilo, &
     &                                 gfrcrit, grcrit, gsigcr,                  &
