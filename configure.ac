@@ -30,6 +30,48 @@ AC_CANONICAL_SYSTEM
 
 AC_PROG_AWK
 
+dnl ######################################################################
+
+AS_CASE([$ac_hostname],
+        [wizard*],
+        [ac_sitename=dkrz.de
+         fqdn=$ac_hostname.$ac_sitename],  
+        [mlogin*|btc*],
+        [ac_sitename=dkrz.de
+         fqdn=$ac_hostname.$ac_sitename],
+        [daint*|dora*|santis*],
+        [ac_sitename=cscs.ch
+         fqdn=$ac_hostname.$ac_sitename],
+        [ic2*],      
+        [ac_sitename=kit.edu;
+         fqdn=$ac_hostname.$ac_sitename],         
+        [fh2*],      
+        [ac_sitename=kit.edu;
+         fqdn=$ac_hostname.$ac_sitename],         
+        [
+         AS_IF([test "x$(hostname)" = "x$ac_hostname"],
+               [fqdn=$(host -n $ac_hostname | $AWK '/has address/ {print $1}')],
+               [fqdn=$(hostname)])
+         AS_IF([test -n "$fqdn"],
+           [ac_sitename=$(echo $fqdn | $AWK -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')],
+           [ac_sitename=])])
+
+AS_IF([ test -n "$fqdn" ],
+      [AS_IF([test -z ac_sitename],
+             [ac_sitename=local.net],
+             [])],
+      [AS_IF([ test -n "$PE_ENV" ],
+             [fqdn=$(echo ${PE_ENV} | $AWK '{print tolower($0)}')
+              AC_MSG_CHECKING([for Cray environment])
+              AC_MSG_RESULT([$[fqdn]])],
+             [fqdn=${HOSTNAME}])
+       [ac_sitename=${fqdn}]])        
+
+AC_MSG_CHECKING([for hostname])
+AC_MSG_RESULT([$[ac_hostname]])
+AC_MSG_CHECKING([for site name])
+AC_MSG_RESULT([$[ac_sitename]])
+
 dnl Load pre-set configure options from config/config-options
 dnl ######################################################################
 
@@ -125,48 +167,6 @@ AS_CASE([$host],
                [gcc_lib="$(gcc -print-libgcc-file-name)"],
                [gcc_lib=""])],
         [gcc_lib=""])                               
-
-dnl ######################################################################
-
-AS_CASE([$ac_hostname],
-        [wizard*],
-        [ac_sitename=dkrz.de
-         fqdn=$ac_hostname.$ac_sitename],  
-        [mlogin*|btc*],
-        [ac_sitename=dkrz.de
-         fqdn=$ac_hostname.$ac_sitename],
-        [daint*|dora*|santis*],
-        [ac_sitename=cscs.ch
-         fqdn=$ac_hostname.$ac_sitename],
-        [ic2*],      
-        [ac_sitename=kit.edu;
-         fqdn=$ac_hostname.$ac_sitename],         
-        [fh2*],      
-        [ac_sitename=kit.edu;
-         fqdn=$ac_hostname.$ac_sitename],         
-        [
-         AS_IF([test "x$(hostname)" = "x$ac_hostname"],
-               [fqdn=$(host -n $ac_hostname | $AWK '/has address/ {print $1}')],
-               [fqdn=$(hostname)])
-         AS_IF([test -n "$fqdn"],
-           [ac_sitename=$(echo $fqdn | $AWK -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')],
-           [ac_sitename=])])
-
-AS_IF([ test -n "$fqdn" ],
-      [AS_IF([test -z ac_sitename],
-             [ac_sitename=local.net],
-             [])],
-      [AS_IF([ test -n "$PE_ENV" ],
-             [fqdn=$(echo ${PE_ENV} | $AWK '{print tolower($0)}')
-              AC_MSG_CHECKING([for Cray environment])
-              AC_MSG_RESULT([$[fqdn]])],
-             [fqdn=${HOSTNAME}])
-       [ac_sitename=${fqdn}]])        
-
-AC_MSG_CHECKING([for hostname])
-AC_MSG_RESULT([$[ac_hostname]])
-AC_MSG_CHECKING([for site name])
-AC_MSG_RESULT([$[ac_sitename]])
 
 dnl ######################################################################
 
@@ -1330,6 +1330,10 @@ fi
 sync_submit=${sync_submit:=$submit}
 
 AC_CONFIG_COMMANDS([Makefiles],[
+if test "x$enable_jsbach" = "xyes"; then :
+  test -d build/${build_host}/src || mkdir -p build/${build_host}/src
+  externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/src
+fi
 config/createMakefiles.pl --target="$build_host" \
   --srcdirs="${my_srcdirs}" \
   --enable_ocean="${enable_ocean}" \

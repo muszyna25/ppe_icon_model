@@ -83,7 +83,7 @@ CONTAINS
                            !! for JSBACH
                            & pcsat,                             &! inout
                            & pcair,                             &! inout
-                           & tte_corr,                          &! out
+                           & q_snocpymlt,                       &! out
                            !
                            & z0h_lnd, z0m_tile,                 &! out
                            & albvisdir, albnirdir, albvisdif, albnirdif, &! inout
@@ -164,7 +164,7 @@ CONTAINS
     !! JSBACH output
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcsat(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcair(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: tte_corr(kbdim)  ! OUT
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: q_snocpymlt(kbdim)  ! OUT
     REAL(wp),OPTIONAL,INTENT(INOUT) :: z0h_lnd(kbdim), z0m_tile(kbdim,ksfc_type)  ! OUT
     !
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir_tile(kbdim,ksfc_type)
@@ -291,7 +291,7 @@ CONTAINS
     !===========================================================================
     
     z0h_lnd(:)       = 0._wp
-    tte_corr(:)      = 0._wp
+    q_snocpymlt(:)   = 0._wp
 
     IF (idx_lnd <= ksfc_type) THEN
 
@@ -340,7 +340,7 @@ CONTAINS
         & grnd_hcap        = zgrnd_hcap(1:kproma, idx_lnd),                             & ! out
         & rough_h_srf      = z0h_lnd(1:kproma),                                         & ! out
         & rough_m_srf      = z0m_tile(1:kproma, idx_lnd),                               & ! out
-        & tte_corr         = tte_corr(1:kproma),                                        & ! out
+        & q_snocpymlt      = q_snocpymlt(1:kproma),                                     & ! out
         & alb_vis_dir      = albvisdir_tile(1:kproma, idx_lnd),                         & ! out
         & alb_nir_dir      = albnirdir_tile(1:kproma, idx_lnd),                         & ! out
         & alb_vis_dif      = albvisdif_tile(1:kproma, idx_lnd),                         & ! out
@@ -350,8 +350,6 @@ CONTAINS
       ptsfc_tile(1:kproma,idx_lnd) = ztsfc_lnd(1:kproma)
       pcpt_tile (1:kproma,idx_lnd) = dry_static_energy(1:kproma)
       pqsat_tile(1:kproma,idx_lnd) = sat_surface_specific_humidity(1:kproma)
-
-      tte_corr(1:kproma) = tte_corr(1:kproma) / (presi_old(1:kproma,klev+1) - presi_old(1:kproma,klev))
 
       ! Set the evapotranspiration coefficients, to be used later in
       ! blending and in diagnoising surface fluxes.
