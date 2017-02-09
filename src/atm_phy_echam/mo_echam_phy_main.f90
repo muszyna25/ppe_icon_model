@@ -128,7 +128,6 @@ CONTAINS
     REAL(wp) :: zq_cnv (nbdim,nlev)       !< heating by convection             [W/m2]
     REAL(wp) :: zq_cld (nbdim,nlev)       !< heating by stratiform clouds      [W/m2]
 
-    INTEGER  :: ihpbl  (nbdim)            !< location of PBL top given as vertical level index
     REAL(wp) :: zxt_emis(nbdim,ntracer-iqt+1)  !< tracer tendency due to surface emission
                                                !< and dry deposition. "zxtems" in ECHAM5
     INTEGER  :: jk
@@ -557,7 +556,6 @@ CONTAINS
                      & field%  wstar(:,  jb),           &! out, convective velocity scale
                      & field%  wstar_tile(:,jb,:),      &! inout, convective velocity scale (each sfc type)
                      & field% qs_sfc_tile(:,jb,:),      &! out, sfc specific humidity at saturation
-                     & ihpbl(:),                        &! out, for "vdiff_up"
                      & field%    ghpbl(:,jb),           &! out, for output
                      & field%      ri (:,:,jb),         &! out, for output
                      & zri_tile (:,:),                  &! out, for nsurf_diag

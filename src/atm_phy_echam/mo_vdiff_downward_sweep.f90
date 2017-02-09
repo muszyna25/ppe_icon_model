@@ -22,7 +22,7 @@ MODULE mo_vdiff_downward_sweep
 
   USE mo_kind,               ONLY: wp
   USE mo_physical_constants, ONLY: grav, rgrav, rd
-  USE mo_echam_vdiff_params, ONLY: tpfac1, tpfac2, itop
+  USE mo_echam_vdiff_params, ONLY: tpfac1, tpfac2, itop, eps_corio
   USE mo_turbulence_diag,    ONLY: atm_exchange_coeff, sfc_exchange_coeff
   USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv, imh, imqv, &
                                  & matrix_setup_elim, rhs_setup, rhs_elim
@@ -48,7 +48,7 @@ CONTAINS
                        & pxvar,      pz0m_tile,                         &! in
                        & ptkem1,                                        &! in
                        & pustar,     pwstar,    pwstar_tile,            &! inout
-                       & pqsat_tile, ihpbl,     pghpbl,                 &! out
+                       & pqsat_tile, pghpbl,                            &! out
                        & pri,        pri_tile,  pmixlen,                &! out
                        & pcfm,       pcfm_tile, pcfh,       pcfh_tile,  &! out
                        & pcfv,       pcftke,    pcfthv,                 &! out
@@ -118,7 +118,6 @@ CONTAINS
                                                           !< humidity at sfc.
                                                           !< (step t-dt)
 
-    INTEGER, INTENT(INOUT) :: ihpbl (kbdim)  !< PBL height given as level index    out
     REAL(wp),INTENT(INOUT) :: pghpbl(kbdim)  !< geopotential height of PBL top
 
     REAL(wp),INTENT(INOUT) ::      &   ! out
@@ -165,6 +164,7 @@ CONTAINS
 
     ! Local variables
 
+    REAL(wp) :: zfcor  (kbdim)        !< absolute value of Coriolis param., > epsilon
     REAL(wp) :: zghf   (kbdim,klev)   !< geopotential height above ground, full level
     REAL(wp) :: zghh   (kbdim,klevp1) !< geopotential height above ground, full level
 
@@ -186,6 +186,8 @@ CONTAINS
     ! 0. Heights above ground and Reciprocal of layer pressure thickness.
     !----------------------------------------------------------------------
 
+    zfcor(:)               = MAX(ABS(pcoriol(:)),eps_corio)
+    
     zghf (:,1:klev)        = pzf(:,1:klev)  -SPREAD(pzh(:,klevp1),2,klev  )
     zghh (:,1:klevp1)      = pzh(:,1:klevp1)-SPREAD(pzh(:,klevp1),2,klevp1)
     
@@ -200,13 +202,13 @@ CONTAINS
     !----------------------------------------------------------------------
 
     CALL atm_exchange_coeff( kproma, kbdim, klev, klevm1, klevp1,     &! in
-                           & pdtime, pcoriol,                         &! in
+                           & pdtime, zfcor,                           &! in
                            & zghf, zghh,                              &! in
                            & pum1, pvm1, ptm1, ptvm1,                 &! in
                            & pqm1, pxm1,                              &! in
                            & papm1, paphm1, paclc, pustar,            &! in
                            & pthvvar, ptkem1,                         &! in
-                           & pcptgz,   ihpbl, pghpbl,                 &! out
+                           & pcptgz, pghpbl,                          &! out
                            & pzthvvar(:,1:klevm1),pztkevn(:,1:klevm1),&! out
                            & pcfm    (:,1:klevm1), pcfh  (:,1:klevm1),&! out
                            & pcfv    (:,1:klevm1), pcftke(:,1:klevm1),&! out
@@ -223,21 +225,19 @@ CONTAINS
     !    Get boundary condition for TKE and variance of theta_v.
     !-----------------------------------------------------------------------
 
-    pztkevn(:,klev)=ptkem1(:,klev)
-!
     CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,              &! in
                            & idx_wtr, idx_ice, idx_lnd,             &! in
                            & pz0m_tile(:,:),  ptsfc_tile(:,:),      &! in
                            & pfrc(:,:),       pghpbl(:),            &! in
                            & pocu(:),         pocv(:),   ppsfc(:),  &! in
-                           & zghf(:,klev),                          &! in
+                           & zfcor,           zghf(:,klev),         &! in
                            & pum1(:,klev),    pvm1  (:,klev),       &! in
                            & ptm1(:,klev),                          &! in
                            & pqm1(:,klev),    pxm1  (:,klev),       &! in
                            & zqsat_b  (:),    zlh_b    (:),         &! in
                            & ztheta_b (:),    zthetav_b(:),         &! in
                            & zthetal_b(:),    paclc (:,klev),       &! in
-                           & pzthvvar(:,klevm1),                    &! in
+                           & ptkem1(:,klev),  pzthvvar(:,klevm1),   &! in
                            & pthvsig(:),                            &! inout
                            & pwstar(:),       pwstar_tile(:,:),     &! inout
                            & pqsat_tile(:,:), pcpt_tile(:,:),       &! out
