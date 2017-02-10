@@ -543,6 +543,8 @@ CONTAINS
                      & field% qtrc(:,:,jb,iqi),         &! in, xim1
                      & field%   qx(:,:,jb),             &! in, xlm1 + xim1
                      & field% qtrc(:,:,jb,iqt:),        &! in, xtm1
+                     & field% mair(:,:,jb),             &! in,     air mass
+                     & field% mdry(:,:,jb),             &! in, dry air mass
                      & field% presi_old(:,:,jb),        &! in, aphm1
                      & field% presm_old(:,:,jb),        &! in, apm1
                      & field%   tv(:,:,jb),             &! in, virtual temperaturea

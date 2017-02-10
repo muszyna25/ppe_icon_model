@@ -43,6 +43,7 @@ CONTAINS
                        & ptsfc_tile, pocu,      pocv,       ppsfc,      &! in
                        & pum1,       pvm1,      ptm1,       pqm1,       &! in
                        & pxlm1,      pxim1,     pxm1,       pxtm1,      &! in
+                       & pmair,      pmdry,                             &! in
                        & paphm1,     papm1,                             &! in
                        & ptvm1,      paclc,     pxt_emis,   pthvvar,    &! in
                        & pxvar,      pz0m_tile,                         &! in
@@ -89,6 +90,8 @@ CONTAINS
       & pxtm1   (kbdim,klev,ktrac) !< specific density of other tracers at t-dt
 
     REAL(wp),INTENT(IN) ::        &
+      & pmair   (kbdim,klev)     ,&!<     air mass [kg/m2]
+      & pmdry   (kbdim,klev)     ,&!< dra air mass [kg/m2]
       & paphm1  (kbdim,klevp1)   ,&!< half level pressure [Pa]
       & papm1   (kbdim,klev)     ,&!< full level pressure [Pa]
       & ptvm1   (kbdim,klev)     ,&!< virtual temperature
@@ -169,6 +172,9 @@ CONTAINS
     REAL(wp) :: zghh   (kbdim,klevp1) !< geopotential height above ground, full level
 
     REAL(wp) :: zfactor(kbdim,klev)   !< prefactor for the exchange coefficients
+    REAL(wp) :: zrmairm(kbdim,klev)
+    REAL(wp) :: zrmairh(kbdim,klevm1)
+    REAL(wp) :: zrmdrym(kbdim,klev)
     REAL(wp) :: zrdpm  (kbdim,klev)
     REAL(wp) :: zrdph  (kbdim,klevm1)
 
@@ -183,15 +189,22 @@ CONTAINS
     REAL(wp) :: zconst
 
     !----------------------------------------------------------------------
-    ! 0. Heights above ground and Reciprocal of layer pressure thickness.
+    ! 0. Compute useful local fields
     !----------------------------------------------------------------------
 
+    ! absolut coriolis parameter > epsilon
     zfcor(:)               = MAX(ABS(pcoriol(:)),eps_corio)
-    
+
+    ! geopotential height above ground
     zghf (:,1:klev)        = pzf(:,1:klev)  -SPREAD(pzh(:,klevp1),2,klev  )
     zghh (:,1:klevp1)      = pzh(:,1:klevp1)-SPREAD(pzh(:,klevp1),2,klevp1)
-    
 
+    ! reciprocal layer mass
+    zrmairm(1:kproma,:) = 1._wp/ pmair(1:kproma,:)
+    zrmairh(1:kproma,:) = 2._wp/(pmair(1:kproma,1:klevm1)+pmair(1:kproma,2:klev))
+    zrmdrym(1:kproma,:) = 1._wp/ pmdry(1:kproma,:)
+
+    ! reciprocal layer pressure thickness
     zrdpm(1:kproma,:) = 1._wp/(paphm1(1:kproma,2:klevp1)-paphm1(1:kproma,1:klev  ))
     zrdph(1:kproma,:) = 1._wp/(papm1 (1:kproma,2:klev  )-papm1 (1:kproma,1:klevm1))
 
@@ -217,8 +230,7 @@ CONTAINS
                            & zqsat_b,  zlh_b,                         &! out, for "sfc_exchange_coeff"
                            & pri(:,1:klevm1), pmixlen(:,1:klevm1)     )! out, for output
 
-    !TODO: LK check - intent out problem only 1:klevm1 is getting set
-    pmixlen(:,klev) = -999._wp
+    pmixlen(:,klev) = -999._wp ! dummy value, as not defined for jk=klev in atm_exchange_coeff
 
     !-----------------------------------------------------------------------
     ! 2. Compute exchange coefficients at the air-sea/ice/land interface.
@@ -269,10 +281,10 @@ CONTAINS
     !      quantity subject to turbulent mixing.
     !-----------------------------------------------------------------------
 
-    zconst = tpfac1*pdtime*grav*grav
+    zconst = tpfac1*pdtime*grav
     zfactor(1:kproma,1:klevm1) = zfactor(1:kproma,1:klevm1)*zconst
 
-    zconst = tpfac1*pdtime*grav/rd
+    zconst = tpfac1*pdtime/rd
     zfactor(1:kproma,  klev)   = zfactor(1:kproma,  klev)  *zconst
 
     CALL matrix_setup_elim( kproma, kbdim, klev, klevm1, ksfc_type, itop, &! in
@@ -280,6 +292,7 @@ CONTAINS
                           & pcfh_tile(:,:),   pcfv  (:,:),                &! in
                           & pcftke   (:,:),   pcfthv(:,:),                &! in
                           & zfactor  (:,:),   zrdpm, zrdph,               &! in
+                          & zrmairm, zrmairh, zrmdrym,                    &! in
                           & aa, aa_btm                                    )! out
 
     ! Save for output, to be used in "update_surface"
@@ -297,7 +310,7 @@ CONTAINS
                   & ksfc_type, ktrac, tpfac2, pdtime,     &! in
                   & pum1, pvm1, pcptgz, pqm1,             &! in
                   & pxlm1, pxim1, pxvar, pxtm1, pxt_emis, &! in
-                  & zrdpm, pztkevn, pzthvvar, aa,         &! in
+                  & zrdpm, zrmdrym, pztkevn, pzthvvar, aa,&! in
                   & bb, bb_btm                            )! out
 
     CALL rhs_elim ( kproma, kbdim, itop, klev, klevm1, &! in

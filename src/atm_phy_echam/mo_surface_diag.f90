@@ -85,7 +85,7 @@ CONTAINS
     !===================================================================
     ! Otherwise compute diagnostics
     !===================================================================
-    zconst = 1._wp/(grav*psteplen)
+    zconst = 1._wp/psteplen
 
     !-------------------------------------------------------------------
     ! Moisture fluxes (aka evaporation rates)
@@ -229,7 +229,7 @@ CONTAINS
     INTEGER  :: is     (ksfc_type)       !< counter for masks
     INTEGER  :: jls, jl, js
 
-    zconst = 1._wp/(grav*psteplen)
+    zconst = 1._wp/psteplen
 
     ! Compute wind stress over each surface type, then accumulate
     ! grid box mean. Formula for wind stress:

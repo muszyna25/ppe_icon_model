@@ -19,7 +19,7 @@ MODULE mo_surface
 #if defined(__NO_JSBACH__) || defined (__NO_ICON_OCEAN__)
   USE mo_exception,         ONLY: finish
 #endif
-  USE mo_physical_constants,ONLY: Tf, alf, albedoW, zemiss_def, stbo, tmelt, rhos!!$, rhoi
+  USE mo_physical_constants,ONLY: grav, Tf, alf, albedoW, zemiss_def, stbo, tmelt, rhos!!$, rhoi
   USE mo_echam_phy_config,  ONLY: echam_phy_config
   USE mo_echam_phy_memory,  ONLY: cdimissval
   USE mo_echam_vdiff_params,ONLY: tpfac2
@@ -340,7 +340,7 @@ CONTAINS
         & swnir_srf_down   = rnds(1:kproma),                                            & ! in
         & swpar_srf_down   = rpds(1:kproma),                                            & ! in
         & press_srf        = ps(1:kproma),                                              & ! in
-        & drag_srf         = pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_lnd),          & ! in
+        & drag_srf         = grav*pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_lnd),     & ! in
         & t_acoef          = zen_h(1:kproma, idx_lnd),                                  & ! in
         & t_bcoef          = zfn_h(1:kproma, idx_lnd),                                  & ! in
         & q_acoef          = zen_qv(1:kproma, idx_lnd),                                 & ! in

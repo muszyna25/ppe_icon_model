@@ -176,6 +176,7 @@ CONTAINS
                               & pcfm, pcfh, pcfh_tile, pcfv,  &! in
                               & pcftke, pcfthv,               &! in
                               & pprfac, prdpm, prdph,         &! in
+                              & prmairm, prmairh, prmdrym,    &! in
                               & aa, aa_btm                    )! out
     ! Arguments
 
@@ -191,6 +192,9 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pprfac   (kbdim,klev)      !< prefactor for the exchange coefficients
     REAL(wp),INTENT(IN) :: prdpm    (kbdim,klev)      !< reciprocal of layer thickness, full levels
     REAL(wp),INTENT(IN) :: prdph    (kbdim,klevm1)    !< reciprocal of layer thickness, half levels
+    REAL(wp),INTENT(IN) :: prmairm  (kbdim,klev)      !< reciprocal of layer air mass, full levels
+    REAL(wp),INTENT(IN) :: prmairh  (kbdim,klevm1)    !< reciprocal of layer dry aor mass, half levels
+    REAL(wp),INTENT(IN) :: prmdrym  (kbdim,klev)      !< reciprocal of layer dry air mass, full levels
 
     REAL(wp),INTENT(INOUT) :: aa    (kbdim,klev,3,nmatrix) !< exchange coeff. matrices    out
     REAL(wp),INTENT(INOUT) :: aa_btm(kbdim,3,ksfc_type,imh:imqv)   !  out
@@ -221,8 +225,8 @@ CONTAINS
 
     DO jk = itop,klev
       DO jc = 1,kproma
-        aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prdpm(jc,jk)  ! -K*_{k-1/2}/dp_k
-        aa(jc,jk,3,im) = -zkstar(jc,jk  )*prdpm(jc,jk)  ! -K*_{k+1/2}/dp_k
+        aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prmairm(jc,jk)  ! -K*_{k-1/2}/dm_k
+        aa(jc,jk,3,im) = -zkstar(jc,jk  )*prmairm(jc,jk)  ! -K*_{k+1/2}/dm_k
         aa(jc,jk,2,im) = 1._wp - aa(jc,jk,1,im) - aa(jc,jk,3,im)
       ENDDO
     ENDDO
@@ -236,8 +240,8 @@ CONTAINS
                                  &   *pcfh(1:kproma,itop:klevm1)
     DO jk = itop,klevm1
       DO jc = 1,kproma
-        aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prdpm(jc,jk)  ! -K*_{k-1/2}/dp_k
-        aa(jc,jk,3,im) = -zkstar(jc,jk  )*prdpm(jc,jk)  ! -K*_{k+1/2}/dp_k
+        aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prmairm(jc,jk)  ! -K*_{k-1/2}/dm_k
+        aa(jc,jk,3,im) = -zkstar(jc,jk  )*prmairm(jc,jk)  ! -K*_{k+1/2}/dm_k
         aa(jc,jk,2,im) = 1._wp - aa(jc,jk,1,im) - aa(jc,jk,3,im)
       ENDDO
     ENDDO
@@ -248,8 +252,8 @@ CONTAINS
     jk = klev
     DO jsfc = 1,ksfc_type
       DO jc = 1,kproma
-        aa_btm(jc,1,jsfc,im) = -zkstar(jc,jk-1)*prdpm(jc,jk)    ! -K*_{k-1/2}/dp_k
-        aa_btm(jc,3,jsfc,im) = -pcfh_tile(jc,jsfc)*pprfac(jc,jk)*prdpm(jc,jk)
+        aa_btm(jc,1,jsfc,im) = -zkstar(jc,jk-1)*prmairm(jc,jk)    ! -K*_{k-1/2}/dm_k
+        aa_btm(jc,3,jsfc,im) = -pcfh_tile(jc,jsfc)*pprfac(jc,jk)*prmairm(jc,jk)
         aa_btm(jc,2,jsfc,im) = 1._wp - aa_btm(jc,1,jsfc,im) - aa_btm(jc,3,jsfc,im)
       ENDDO
     ENDDO
@@ -262,8 +266,8 @@ CONTAINS
                                  &   *pcfh(1:kproma,itop:klevm1)
     DO jk = itop,klevm1
       DO jc = 1,kproma
-        aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prdpm(jc,jk)  ! -K*_{k-1/2}/dp_k
-        aa(jc,jk,3,im) = -zkstar(jc,jk  )*prdpm(jc,jk)  ! -K*_{k+1/2}/dp_k
+        aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prmdrym(jc,jk)  ! -K*_{k-1/2}/dm_k
+        aa(jc,jk,3,im) = -zkstar(jc,jk  )*prmdrym(jc,jk)  ! -K*_{k+1/2}/dm_k
         aa(jc,jk,2,im) = 1._wp - aa(jc,jk,1,im) - aa(jc,jk,3,im)
       ENDDO
     ENDDO
@@ -276,8 +280,8 @@ CONTAINS
     jk = klev
     DO jsfc = 1,ksfc_type
       DO jc = 1,kproma
-        aa_btm(jc,1,jsfc,im) = -zkstar(jc,jk-1)*prdpm(jc,jk)    ! -K*_{k-1/2}/dp_k
-        aa_btm(jc,3,jsfc,im) = -pcfh_tile(jc,jsfc)*pprfac(jc,jk)*prdpm(jc,jk)
+        aa_btm(jc,1,jsfc,im) = -zkstar(jc,jk-1)*prmdrym(jc,jk)    ! -K*_{k-1/2}/dm_k
+        aa_btm(jc,3,jsfc,im) = -pcfh_tile(jc,jsfc)*pprfac(jc,jk)*prmdrym(jc,jk)
         aa_btm(jc,2,jsfc,im) = 1._wp - aa_btm(jc,1,jsfc,im) - aa_btm(jc,3,jsfc,im)
       ENDDO
     ENDDO
@@ -291,8 +295,8 @@ CONTAINS
 
     DO jk = itop,klev
       DO jc = 1,kproma
-        aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prdpm(jc,jk)  ! -K*_{k-1/2}/dp_k
-        aa(jc,jk,3,im) = -zkstar(jc,jk  )*prdpm(jc,jk)  ! -K*_{k+1/2}/dp_k
+        aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prmdrym(jc,jk)  ! -K*_{k-1/2}/dm_k
+        aa(jc,jk,3,im) = -zkstar(jc,jk  )*prmdrym(jc,jk)  ! -K*_{k+1/2}/dm_k
         aa(jc,jk,2,im) = 1._wp - aa(jc,jk,1,im) - aa(jc,jk,3,im)
       ENDDO
     ENDDO
@@ -308,8 +312,8 @@ CONTAINS
                                &  *pcfv(1:kproma,itop:klev)
     DO jk = itop,klev
       DO jc = 1,kproma
-        aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prdpm(jc,jk)
-        aa(jc,jk,3,im) = -zkstar(jc,jk  )*prdpm(jc,jk)
+        aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prmdrym(jc,jk)
+        aa(jc,jk,3,im) = -zkstar(jc,jk  )*prmdrym(jc,jk)
         aa(jc,jk,2,im) = 1._wp - aa(jc,jk,1,im) - aa(jc,jk,3,im)
       ENDDO
     ENDDO
@@ -334,8 +338,8 @@ CONTAINS
 
     DO jk = itop,klevm1
       DO jc = 1,kproma
-        aa(jc,jk,1,im) = -zkh(jc,jk-1)*prdph(jc,jk)
-        aa(jc,jk,3,im) = -zkh(jc,jk  )*prdph(jc,jk)
+        aa(jc,jk,1,im) = -zkh(jc,jk-1)*prmairh(jc,jk)
+        aa(jc,jk,3,im) = -zkh(jc,jk  )*prmairh(jc,jk)
         aa(jc,jk,2,im) = 1._wp - aa(jc,jk,1,im) - aa(jc,jk,3,im)
       ENDDO
     ENDDO
@@ -352,8 +356,8 @@ CONTAINS
 
     DO jk = itop,klevm1
       DO jc = 1,kproma
-        aa(jc,jk,1,im) = -zkh(jc,jk-1)*prdph(jc,jk)
-        aa(jc,jk,3,im) = -zkh(jc,jk  )*prdph(jc,jk)
+        aa(jc,jk,1,im) = -zkh(jc,jk-1)*prmairh(jc,jk)
+        aa(jc,jk,3,im) = -zkh(jc,jk  )*prmairh(jc,jk)
         aa(jc,jk,2,im) = 1._wp - aa(jc,jk,1,im) - aa(jc,jk,3,im)
       ENDDO
     ENDDO
@@ -392,7 +396,7 @@ CONTAINS
                       & ksfc_type, ktrac, ptpfac2, pstep_len,&! in
                       & pum1, pvm1, pcptgz, pqm1,            &! in
                       & pxlm1, pxim1, pxvar, pxtm1, pxt_emis,&! in
-                      & prdpm, ptkevn, pzthvvar, aa,         &! in
+                      & prdpm, prmdrym, ptkevn, pzthvvar, aa,&! in
                       & bb, bb_btm                           )! out
 
     ! Arguments
@@ -414,6 +418,7 @@ CONTAINS
     REAL(wp),INTENT(IN) :: ptkevn   (kbdim,klev)
     REAL(wp),INTENT(IN) :: pzthvvar (kbdim,klev)
     REAL(wp),INTENT(IN) :: prdpm    (kbdim,klev)
+    REAL(wp),INTENT(IN) :: prmdrym  (kbdim,klev)
     REAL(wp),INTENT(IN) :: aa       (kbdim,klev,3,nmatrix)
 
     REAL(wp),INTENT(INOUT) :: bb    (kbdim,klev,nvar_vdiff)  ! OUT
@@ -494,7 +499,7 @@ CONTAINS
     ! Currently we follow ECHAM in which only the surface emission
     ! is treated in "vdiff".
 
-    ztmp(1:kproma,klev) = grav*prdpm(1:kproma,klev)*pstep_len
+    ztmp(1:kproma,klev) = prmdrym(1:kproma,klev)*pstep_len
 
     DO jt = 1,ktrac
        irhs = jt - 1 + itrc_start
@@ -506,7 +511,7 @@ CONTAINS
     ! Later we may consider treating emission on all vertical levels
     ! in the same way.
     !
-    !ztmp(1:kproma,itop:klev) = grav*prdpm(1:kproma,itop:klev)*pstep_len
+    !ztmp(1:kproma,itop:klev) = prmdrym(1:kproma,itop:klev)*pstep_len
     !
     !DO jt = 1,ktrac
     !   irhs = jt - 1 + itrc_start
