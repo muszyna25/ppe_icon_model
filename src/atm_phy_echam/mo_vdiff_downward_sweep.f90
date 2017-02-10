@@ -21,8 +21,7 @@
 MODULE mo_vdiff_downward_sweep
 
   USE mo_kind,               ONLY: wp
-  USE mo_physical_constants, ONLY: grav, rd
-  USE mo_echam_vdiff_params, ONLY: tpfac1, tpfac2, itop, eps_corio
+  USE mo_echam_vdiff_params, ONLY: tpfac1, itop, eps_corio
   USE mo_turbulence_diag,    ONLY: atm_exchange_coeff, sfc_exchange_coeff
   USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv, imh, imqv, &
                                  & matrix_setup_elim, rhs_setup, rhs_elim
@@ -175,8 +174,6 @@ CONTAINS
     REAL(wp) :: zrmairm(kbdim,klev)
     REAL(wp) :: zrmairh(kbdim,klevm1)
     REAL(wp) :: zrmdrym(kbdim,klev)
-    REAL(wp) :: zrdpm  (kbdim,klev)
-    REAL(wp) :: zrdph  (kbdim,klevm1)
 
     ! _b denotes value at the bottom level (the klev-th full level)
 
@@ -203,10 +200,6 @@ CONTAINS
     zrmairm(1:kproma,:) = 1._wp/ pmair(1:kproma,:)
     zrmairh(1:kproma,:) = 2._wp/(pmair(1:kproma,1:klevm1)+pmair(1:kproma,2:klev))
     zrmdrym(1:kproma,:) = 1._wp/ pmdry(1:kproma,:)
-
-    ! reciprocal layer pressure thickness
-    zrdpm(1:kproma,:) = 1._wp/(paphm1(1:kproma,2:klevp1)-paphm1(1:kproma,1:klev  ))
-    zrdph(1:kproma,:) = 1._wp/(papm1 (1:kproma,2:klev  )-papm1 (1:kproma,1:klevm1))
 
     !----------------------------------------------------------------------
     ! 1. Compute various thermodynamic variables; Diagnose PBL extension;
@@ -281,17 +274,15 @@ CONTAINS
     !      quantity subject to turbulent mixing.
     !-----------------------------------------------------------------------
 
-    zconst = tpfac1*pdtime*grav
+    zconst = tpfac1*pdtime
     zfactor(1:kproma,1:klevm1) = zfactor(1:kproma,1:klevm1)*zconst
-
-    zconst = tpfac1*pdtime/rd
     zfactor(1:kproma,  klev)   = zfactor(1:kproma,  klev)  *zconst
 
     CALL matrix_setup_elim( kproma, kbdim, klev, klevm1, ksfc_type, itop, &! in
                           & pcfm     (:,:),   pcfh  (:,1:klevm1),         &! in
                           & pcfh_tile(:,:),   pcfv  (:,:),                &! in
                           & pcftke   (:,:),   pcfthv(:,:),                &! in
-                          & zfactor  (:,:),   zrdpm, zrdph,               &! in
+                          & zfactor  (:,:),                               &! in
                           & zrmairm, zrmairh, zrmdrym,                    &! in
                           & aa, aa_btm                                    )! out
 
@@ -307,10 +298,10 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     CALL rhs_setup( kproma, kbdim, itop, klev, klevm1,    &! in
-                  & ksfc_type, ktrac, tpfac2, pdtime,     &! in
+                  & ksfc_type, ktrac, pdtime,             &! in
                   & pum1, pvm1, pcptgz, pqm1,             &! in
                   & pxlm1, pxim1, pxvar, pxtm1, pxt_emis, &! in
-                  & zrdpm, zrmdrym, pztkevn, pzthvvar, aa,&! in
+                  & zrmdrym, pztkevn, pzthvvar, aa,       &! in
                   & bb, bb_btm                            )! out
 
     CALL rhs_elim ( kproma, kbdim, itop, klev, klevm1, &! in

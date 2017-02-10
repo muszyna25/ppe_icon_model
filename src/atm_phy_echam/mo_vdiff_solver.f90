@@ -18,7 +18,7 @@ MODULE mo_vdiff_solver
   USE mo_kind,              ONLY: wp
   USE mo_impl_constants,    ONLY: SUCCESS
   USE mo_exception,         ONLY: message, message_text, finish
-  USE mo_physical_constants,ONLY: grav, rgrav, cpd, cpv
+  USE mo_physical_constants,ONLY: rgrav, cpd, cpv
   USE mo_echam_vdiff_params,ONLY: tke_min, &
     &                             tpfac1, tpfac2, tpfac3, cchar, z0m_min
   USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config, get_lebudget
@@ -175,7 +175,7 @@ CONTAINS
                               & ksfc_type, itop,              &! in
                               & pcfm, pcfh, pcfh_tile, pcfv,  &! in
                               & pcftke, pcfthv,               &! in
-                              & pprfac, prdpm, prdph,         &! in
+                              & pprfac,                       &! in
                               & prmairm, prmairh, prmdrym,    &! in
                               & aa, aa_btm                    )! out
     ! Arguments
@@ -190,8 +190,6 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pcftke   (kbdim,klev)      !< exchange coeff. for TKE
     REAL(wp),INTENT(IN) :: pcfthv   (kbdim,klev)      !< exchange coeff. for variance of theta_v
     REAL(wp),INTENT(IN) :: pprfac   (kbdim,klev)      !< prefactor for the exchange coefficients
-    REAL(wp),INTENT(IN) :: prdpm    (kbdim,klev)      !< reciprocal of layer thickness, full levels
-    REAL(wp),INTENT(IN) :: prdph    (kbdim,klevm1)    !< reciprocal of layer thickness, half levels
     REAL(wp),INTENT(IN) :: prmairm  (kbdim,klev)      !< reciprocal of layer air mass, full levels
     REAL(wp),INTENT(IN) :: prmairh  (kbdim,klevm1)    !< reciprocal of layer dry aor mass, half levels
     REAL(wp),INTENT(IN) :: prmdrym  (kbdim,klev)      !< reciprocal of layer dry air mass, full levels
@@ -393,17 +391,17 @@ CONTAINS
   !--------------------------------------------------------------------------------
   !>
   SUBROUTINE rhs_setup( kproma, kbdim, itop, klev, klevm1,   &! in
-                      & ksfc_type, ktrac, ptpfac2, pstep_len,&! in
+                      & ksfc_type, ktrac, pdtime,            &! in
                       & pum1, pvm1, pcptgz, pqm1,            &! in
                       & pxlm1, pxim1, pxvar, pxtm1, pxt_emis,&! in
-                      & prdpm, prmdrym, ptkevn, pzthvvar, aa,&! in
+                      & prmdrym, ptkevn, pzthvvar, aa,       &! in
                       & bb, bb_btm                           )! out
 
     ! Arguments
 
     INTEGER, INTENT(IN) :: kproma, kbdim, itop, klev, klevm1
     INTEGER, INTENT(IN) :: ksfc_type, ktrac
-    REAL(wp),INTENT(IN) :: ptpfac2, pstep_len
+    REAL(wp),INTENT(IN) :: pdtime
 
     REAL(wp),INTENT(IN) :: pum1     (kbdim,klev)
     REAL(wp),INTENT(IN) :: pvm1     (kbdim,klev)
@@ -417,7 +415,6 @@ CONTAINS
    !REAL(wp),INTENT(IN) :: pxt_emis (kbdim,klev,ktrac) ! backup for later use
     REAL(wp),INTENT(IN) :: ptkevn   (kbdim,klev)
     REAL(wp),INTENT(IN) :: pzthvvar (kbdim,klev)
-    REAL(wp),INTENT(IN) :: prdpm    (kbdim,klev)
     REAL(wp),INTENT(IN) :: prmdrym  (kbdim,klev)
     REAL(wp),INTENT(IN) :: aa       (kbdim,klev,3,nmatrix)
 
@@ -481,17 +478,17 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Apply the implicitness factor
     !--------------------------------------------------------------------
-    !bb     = ptpfac2*bb
-    !bb_btm = ptpfac2*bb_btm
+    !bb     = tpfac2*bb
+    !bb_btm = tpfac2*bb_btm
 
-     bb(1:kproma,1:klev,  1:itke-1) = ptpfac2*bb(1:kproma,1:klev,  1:itke-1)
-     bb(1:kproma,1:klevm1,itke:iqv) = ptpfac2*bb(1:kproma,1:klevm1,itke:iqv)
+     bb(1:kproma,1:klev,  1:itke-1) = tpfac2*bb(1:kproma,1:klev,  1:itke-1)
+     bb(1:kproma,1:klevm1,itke:iqv) = tpfac2*bb(1:kproma,1:klevm1,itke:iqv)
 
      IF (ktrac>0) THEN
-       bb(1:kproma,1:klev,itrc_start:) = ptpfac2*bb(1:kproma,1:klev,itrc_start:)
+       bb(1:kproma,1:klev,itrc_start:) = tpfac2*bb(1:kproma,1:klev,itrc_start:)
      ENDIF
 
-     bb_btm(1:kproma,:,:) = ptpfac2*bb_btm(1:kproma,:,:)
+     bb_btm(1:kproma,:,:) = tpfac2*bb_btm(1:kproma,:,:)
 
     !--------------------------------------------------------------------
     ! Add tracer emissions
@@ -499,7 +496,7 @@ CONTAINS
     ! Currently we follow ECHAM in which only the surface emission
     ! is treated in "vdiff".
 
-    ztmp(1:kproma,klev) = prmdrym(1:kproma,klev)*pstep_len
+    ztmp(1:kproma,klev) = prmdrym(1:kproma,klev)*pdtime
 
     DO jt = 1,ktrac
        irhs = jt - 1 + itrc_start
@@ -511,7 +508,7 @@ CONTAINS
     ! Later we may consider treating emission on all vertical levels
     ! in the same way.
     !
-    !ztmp(1:kproma,itop:klev) = prmdrym(1:kproma,itop:klev)*pstep_len
+    !ztmp(1:kproma,itop:klev) = prmdrym(1:kproma,itop:klev)*pdtime
     !
     !DO jt = 1,ktrac
     !   irhs = jt - 1 + itrc_start

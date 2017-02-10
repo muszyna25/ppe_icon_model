@@ -436,8 +436,8 @@ CONTAINS
         ! Air density at half levels, and the prefactor that will be multiplied
         ! later to the exchange coeffcients to build a linear algebraic equation set.
 
-        ztvm = (ptvm1(jl,jk)+ptvm1(jl,jk+1))*0.5_wp                ! Tv at half level k+1/2
-        pprfac(jl,jk) = paphm1(jl,jk+1)/(ztvm*rd*zdgh(jl,jk)*grav) ! p/(Tv*R)/(dz*g) = air density/(dz*g)
+        ztvm = (ptvm1(jl,jk)+ptvm1(jl,jk+1))*0.5_wp           ! Tv at half level k+1/2
+        pprfac(jl,jk) = paphm1(jl,jk+1)/(ztvm*rd*zdgh(jl,jk)) ! p/(Tv*R)/dz = air density/dz
 
 361   END DO
 372 END DO
@@ -598,12 +598,12 @@ CONTAINS
     ztwothirds = 2._wp/3._wp
 
     !------------------------------------------------------------------------------
-    ! The prefactor (= air density * Rd) that will be multiplied to the exchange
+    ! The prefactor (= air density) that will be multiplied to the exchange
     ! coefficients when building the linear algebraic equations. The density here is
     ! computed using air temperature of the lowest model level at time step n-1.
     !------------------------------------------------------------------------------
     pprfac_sfc(1:kproma) =  ppsfc(1:kproma)                                     &
-                         & /( ptm1_b(1:kproma)                                  &
+                         & /( rd*ptm1_b(1:kproma)                               &
                          &   *(1._wp+vtmpc1*pqm1_b(1:kproma)-pqxm1_b(1:kproma)) )
 
     !-------------------------------------------------------------
