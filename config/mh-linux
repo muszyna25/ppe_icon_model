@@ -237,7 +237,7 @@ case "$ac_sitename" in
                 CC = cc
                 FC = ftn
                 F77= ftn
-                load_modules="cray-netcdf"
+                load_modules="CDO"
 
                 case "$fortran_compiler" in
                     default|gcc)
