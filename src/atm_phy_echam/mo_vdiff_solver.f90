@@ -22,7 +22,6 @@ MODULE mo_vdiff_solver
   USE mo_echam_vdiff_params,ONLY: clam, da1, tke_min, cons2, cons25, &
     &                             tpfac1, tpfac2, tpfac3, cchar, z0m_min
   USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config, get_lebudget
-  USE mo_echam_phy_memory,  ONLY: cdimissval
 
   IMPLICIT NONE
   PRIVATE
@@ -1018,13 +1017,12 @@ CONTAINS
     ! Update roughness height over open water, then update the grid-box mean
     !----------------------------------------------------------------------------
     IF (idx_wtr<=ksfc_type) THEN  ! water surface exists in the simulation
+      pz0m_tile(:,idx_wtr) = 1.E-3_wp
       DO jl = 1,kproma
         IF(pfrc(jl,idx_wtr).GT.0._wp) THEN
           pz0m_tile(jl,idx_wtr) = tpfac1*SQRT( bb(jl,klev,iu)**2+bb(jl,klev,iv)**2 ) &
                                 & *pcfm_tile(jl,idx_wtr)*cchar/grav
           pz0m_tile(jl,idx_wtr) = MAX(z0m_min,pz0m_tile(jl,idx_wtr))
-        ELSE
-          pz0m_tile(jl,idx_wtr) = cdimissval
         ENDIF
       ENDDO
     ENDIF

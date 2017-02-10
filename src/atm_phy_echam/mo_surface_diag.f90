@@ -258,8 +258,8 @@ CONTAINS
       !  *(surface turbulent exchange coeff)
       !  *[(u-/v-wind at lowest model level)/tpfac1]
 
-      pu_stress_tile(:,:) = cdimissval
-      pv_stress_tile(:,:) = cdimissval
+      pu_stress_tile(:,:) = 0.0_wp
+      pv_stress_tile(:,:) = 0.0_wp
 
       pu_stress_gbm(:) = 0.0_wp
       pv_stress_gbm(:) = 0.0_wp

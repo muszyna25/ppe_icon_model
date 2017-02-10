@@ -713,11 +713,11 @@ CONTAINS
         albvisdif_tile (1:kproma,jsfc) = cdimissval
         albnirdir_tile (1:kproma,jsfc) = cdimissval
         albnirdif_tile (1:kproma,jsfc) = cdimissval
-        rsns_tile      (1:kproma,jsfc) = cdimissval
-        rlns_tile      (1:kproma,jsfc) = cdimissval
+      !  rsns_tile      (1:kproma,jsfc) = cdimissval
+      !  rlns_tile      (1:kproma,jsfc) = cdimissval
         pevap_tile     (1:kproma,jsfc) = cdimissval
-        pshflx_tile    (1:kproma,jsfc) = cdimissval
-        plhflx_tile    (1:kproma,jsfc) = cdimissval
+      !  pshflx_tile    (1:kproma,jsfc) = cdimissval
+      !  plhflx_tile    (1:kproma,jsfc) = cdimissval
         ptsfc_tile     (1:kproma,jsfc) = cdimissval
       END WHERE
       ! land only
@@ -725,6 +725,10 @@ CONTAINS
         WHERE (mask(1:kproma))
           z0h_lnd(1:kproma) = cdimissval
           z0m_tile      (1:kproma,jsfc) = cdimissval
+          rsns_tile      (1:kproma,jsfc) = cdimissval
+          rlns_tile      (1:kproma,jsfc) = cdimissval
+          pshflx_tile    (1:kproma,jsfc) = cdimissval
+          plhflx_tile    (1:kproma,jsfc) = cdimissval
         END WHERE
       END IF
     END DO
