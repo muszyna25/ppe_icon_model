@@ -24,11 +24,12 @@ MODULE mo_turbulence_diag
     &                             compute_qsat
   USE mo_vdiff_config,      ONLY: vdiff_config
   USE mo_echam_vdiff_params,ONLY: ckap, cb,cc, chneu, da1,                  &
-    &                             eps_shear, tke_min, cons5,                &
+    &                             eps_shear, eps_corio, tke_min, cons5,     &
     &                             f_tau0, f_theta0, c_f, c_n, c_e, pr0,     &
     &                             wmc,fsl,fbl 
   USE mo_physical_constants,ONLY: grav, rd, cpd, cpv, rd_o_cpd, rv,         &
-    &                             vtmpc1, tmelt, alv, als, p0ref
+    &                             vtmpc1, tmelt, alv, als, p0ref,           &
+    &                             earth_angular_velocity
 
   IMPLICIT NONE
   PRIVATE
@@ -55,7 +56,7 @@ CONTAINS
   !!  updated to echam-6.3.01 by Monika Esch (2014-11)
   !!
   SUBROUTINE atm_exchange_coeff( kproma, kbdim, klev, klevm1, klevp1,     &! in
-                               & pdtime, pfcor,                           &! in
+                               & pdtime, pcoriol,                         &! in
                                & pghf, pghh,                              &! in
                                & pum1, pvm1, ptm1, ptvm1,                 &! in
                                & pqm1, pxm1,                              &! in
@@ -73,7 +74,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: kproma, kbdim
     INTEGER, INTENT(IN) :: klev, klevm1, klevp1
     REAL(wp),INTENT(IN) :: pdtime
-    REAL(wp),INTENT(IN) :: pfcor(kbdim)
+    REAL(wp),INTENT(IN) :: pcoriol(kbdim)
     REAL(wp),INTENT(IN) :: pghf(kbdim,klev)
     REAL(wp),INTENT(IN) :: pghh(kbdim,klevp1)
     REAL(wp),INTENT(IN) :: pxm1(kbdim,klev)
@@ -139,7 +140,7 @@ CONTAINS
                ,zpapm1i(kbdim),         zua(kbdim)
     REAL(wp) :: hdt(kbdim)
     REAL(wp) :: f_tau, f_theta, e_kin, e_pot, lmix, ldis, lmc, kmc, khc
-    REAL(wp) :: zalh2, zbuoy, zdisl, zdusq, zdvsq
+    REAL(wp) :: zalh2, zbuoy, zcor, zdisl, zdusq, zdvsq
     REAL(wp) :: zdqtot, zds, zdus1, zdus2, zdz
     REAL(wp) :: zes, zfox, zfux, zktest
     REAL(wp) :: zmult1, zmult2, zmult3, zmult4
@@ -236,7 +237,8 @@ CONTAINS
     ! ECHAM: Initial value of ustar has been set in subroutine "physc".
 
     DO jl = 1,kproma
-      zhdyn(jl)=MIN(pghf(jl,1),chneu*pustarm(jl)/pfcor(jl))
+      zcor=MAX(ABS(pcoriol(jl)),eps_corio)
+      zhdyn(jl)=MIN(pghf(jl,1),chneu*pustarm(jl)/zcor)
       ihpblc(jl)=klev
       ihpbld(jl)=klev
     END DO
@@ -321,14 +323,14 @@ CONTAINS
         ! mixing length 
 
         IF(zri.GT.0._wp) THEN 
-           lmix =        1._wp/(ckap*pghh(jl,jk+1))                                       &
-                & +  pfcor(jl)/(c_f*SQRT(f_tau*e_kin))                                    &
-                & +SQRT(zbuoy)/(c_n*SQRT(f_tau*e_kin))                                    &
-                & +      1._wp/150._wp
+           lmix =   1._wp/(ckap*pghh(jl,jk+1))                                            &
+                & + 2._wp*earth_angular_velocity/(c_f*SQRT(f_tau*e_kin))                  &
+                & + SQRT(zbuoy)/(c_n*SQRT(f_tau*e_kin))                                   &
+                & + 1._wp/150._wp
         ELSE
-           lmix =        1._wp/(ckap*pghh(jl,jk+1))                                       &
-                & +  pfcor(jl)/(c_f*SQRT(f_tau*e_kin))                                    &
-                & +      1._wp/150._wp
+           lmix =   1._wp/(ckap*pghh(jl,jk+1))                                            &
+                & + 2._wp*earth_angular_velocity/(c_f*SQRT(f_tau*e_kin))                  &
+                & + 1._wp/150._wp
         END IF
         lmix=1._wp/lmix
         ldis=lmix
@@ -451,7 +453,7 @@ CONTAINS
                                & pz0m, ptsfc,                            &! in
                                & pfrc, pghpbl,                           &! in
                                & pocu, pocv, ppsfc,                      &! in
-                               & pfcor, pghf_b,                          &! in
+                               & pghf_b,                                 &! in
                                & pum1_b, pvm1_b,                         &! in
                                & ptm1_b,                                 &! in
                                & pqm1_b, pqxm1_b,                        &! in
@@ -487,7 +489,6 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pocu     (kbdim)  !< ocean surface velocity
     REAL(wp),INTENT(IN) :: pocv     (kbdim)  !< ocean surface velocity
     REAL(wp),INTENT(IN) :: ppsfc    (kbdim)  !< surface pressure
-    REAL(wp),INTENT(IN) :: pfcor    (kbdim)  !< MAX(ABS(Coriolis param.),epsilon)
 
     ! "_b" denotes value at the bottom level (the klev-th full level)
 
@@ -714,13 +715,15 @@ CONTAINS
  !  compute mixing length 
 
         IF(pri_tile(js,jsfc).GT.0._wp) THEN
-           lmix(js,jsfc) =        1._wp/(ckap*fsl*pghf_b(js))                             &
-                         & +  pfcor(js)/(c_f*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))         &
-                         & +  SQRT(grav*zbuoy/(zthetavmit(js,jsfc)*pghf_b(js)))           &
+           lmix(js,jsfc) =   1._wp/(ckap*fsl*pghf_b(js))                                  &
+                         & + 2._wp*earth_angular_velocity                                 &
+                         &   /(c_f*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))                   &
+                         & + SQRT(grav*zbuoy/(zthetavmit(js,jsfc)*pghf_b(js)))            &
                          &   /(c_n*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))
         ELSE
-           lmix(js,jsfc) =        1._wp/(ckap*fsl*pghf_b(js))                             &
-                         & +  pfcor(js)/(c_f*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))
+           lmix(js,jsfc) =   1._wp/(ckap*fsl*pghf_b(js))                                  &
+                         & + 2._wp*earth_angular_velocity                                 &
+                         &   /(c_f*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))
         END IF 
 
         lmix(js,jsfc) = 1._wp/lmix(js,jsfc)

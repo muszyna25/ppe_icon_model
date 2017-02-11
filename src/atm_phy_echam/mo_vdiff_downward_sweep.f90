@@ -166,7 +166,6 @@ CONTAINS
 
     ! Local variables
 
-    REAL(wp) :: zfcor  (kbdim)        !< absolute value of Coriolis param., > epsilon
     REAL(wp) :: zghf   (kbdim,klev)   !< geopotential height above ground, full level
     REAL(wp) :: zghh   (kbdim,klevp1) !< geopotential height above ground, full level
 
@@ -189,9 +188,6 @@ CONTAINS
     ! 0. Compute useful local fields
     !----------------------------------------------------------------------
 
-    ! absolut coriolis parameter > epsilon
-    zfcor(:)               = MAX(ABS(pcoriol(:)),eps_corio)
-
     ! geopotential height above ground
     zghf (:,1:klev)        = pzf(:,1:klev)  -SPREAD(pzh(:,klevp1),2,klev  )
     zghh (:,1:klevp1)      = pzh(:,1:klevp1)-SPREAD(pzh(:,klevp1),2,klevp1)
@@ -208,7 +204,7 @@ CONTAINS
     !----------------------------------------------------------------------
 
     CALL atm_exchange_coeff( kproma, kbdim, klev, klevm1, klevp1,     &! in
-                           & pdtime, zfcor,                           &! in
+                           & pdtime, pcoriol,                         &! in
                            & zghf, zghh,                              &! in
                            & pum1, pvm1, ptm1, ptvm1,                 &! in
                            & pqm1, pxm1,                              &! in
@@ -235,7 +231,7 @@ CONTAINS
                            & pz0m_tile(:,:),  ptsfc_tile(:,:),      &! in
                            & pfrc(:,:),       pghpbl(:),            &! in
                            & pocu(:),         pocv(:),   ppsfc(:),  &! in
-                           & zfcor,           zghf(:,klev),         &! in
+                           & zghf(:,klev),                          &! in
                            & pum1(:,klev),    pvm1  (:,klev),       &! in
                            & ptm1(:,klev),                          &! in
                            & pqm1(:,klev),    pxm1  (:,klev),       &! in
