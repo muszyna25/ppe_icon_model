@@ -267,14 +267,12 @@ case "$ac_sitename" in
                         load_modules = PrgEnv-cray cray-netcdf cray-mpich
                         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
-                        OTHER_LIBS      = $OTHER_LIBS -ljasper
                     ;;
                     cray_gpu)
                         config_target=daint_gpu
                         load_modules = PrgEnv-cray cray-netcdf cray-mpich
                         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
-                        OTHER_LIBS      = $OTHER_LIBS -ljasper
                     ;;
                 esac
                 mpi_startrun="srun" "-n" "\$mpi_total_procs" "--ntasks-per-node" "\$mpi_procs_pernode" "--threads-per-core=1" "--cpus-per-task" "\$OMP_NUM_THREADS"
