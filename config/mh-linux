@@ -242,13 +242,13 @@ case "$ac_sitename" in
                 case "$fortran_compiler" in
                     default|gcc)
                         config_target=daint_cpu
-                        load_modules =PrgEnv-gnu cray-netcdf cray-mpich CDO
+                        load_modules =PrgEnv-gnu cray-netcdf cray-mpich
                         CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
                     ;;
                     intel)
                         config_target=daint_cpu
-                        load_modules = PrgEnv-intel cray-netcdf cray-mpich CDO
+                        load_modules = PrgEnv-intel cray-netcdf cray-mpich 
                         CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
                         STD_FLAGS   = -O2 -mavx -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
                         FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE
@@ -258,19 +258,19 @@ case "$ac_sitename" in
                     ;;
                     pgi)
                         config_target=daint_cpu 
-                        load_modules = PrgEnv-pgi cray-netcdf cray-mpich CDO
+                        load_modules = PrgEnv-pgi cray-netcdf cray-mpich
                         CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
                     ;;
                     cray)
                         config_target=daint_cpu
-                        load_modules = PrgEnv-cray cray-netcdf cray-mpich CDO
+                        load_modules = PrgEnv-cray cray-netcdf cray-mpich
                         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
                     ;;
                     cray_gpu)
                         config_target=daint_gpu
-                        load_modules = PrgEnv-cray cray-netcdf cray-mpich CDO
+                        load_modules = PrgEnv-cray cray-netcdf cray-mpich
                         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
                     ;;
