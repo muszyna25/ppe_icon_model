@@ -160,6 +160,7 @@ contains
     REAL (wp), SAVE :: cosrad(nds), sinrad(nds)
     REAL (wp)       :: xsmpl(nds), xnmbr(nds)
     REAL (wp), ALLOCATABLE :: sinlon(:,:), sinlat(:,:), coslon(:,:), coslat(:,:)
+    REAL (wp), ALLOCATABLE :: zcosmu0(:,:)
 
     REAL (wp) :: dcosmu0
 
@@ -186,6 +187,7 @@ contains
     ALLOCATE(sinlat(nprom,nblks))
     ALLOCATE(coslon(nprom,nblks))
     ALLOCATE(coslat(nprom,nblks))
+    ALLOCATE(zcosmu0(nprom,nblks))
     sinlon(:,:)=0._wp
     sinlat(:,:)=0._wp
     coslon(:,:)=0._wp
@@ -230,7 +232,7 @@ contains
        END IF
     ELSE           ! normal radiation calculation
        IF (ldiur) THEN
-          cos_mu0(:,:)     =  zen1*sinlat(:,:)                &
+          zcosmu0(:,:)     =  zen1*sinlat(:,:)                &
                &             -zen2*coslat(:,:)*coslon(:,:)    &
                &             +zen3*coslat(:,:)*sinlon(:,:)
           !
@@ -240,13 +242,19 @@ contains
           dcosmu0 = SIN(dt_ext/86400._wp*pi)
           !
           ! add increment and rescale to a maximum value of 1
-          cos_mu0(:,:) = (cos_mu0(:,:) + dcosmu0)/(1._wp+dcosmu0)
+          cos_mu0(:,:) = (zcosmu0(:,:) + dcosmu0)/(1._wp+dcosmu0)
           !
           ! set day/night indicator to 1/0
           daylght_frc(:,:) = 1.0_wp
           WHERE (cos_mu0(:,:) < 0.0_wp)
              daylght_frc(:,:) = 0.0_wp
           END WHERE
+          !
+          ! now redefine cos_mu0 in the daylight area
+          WHERE (daylght_frc(:,:) == 1.0_wp)
+             cos_mu0(:,:) = MAX(0.1_wp,zcosmu0(:,:))
+          END WHERE
+          !
        ELSE
           DO j = 1, SIZE(cos_mu0,2)
              DO i = 1, SIZE(cos_mu0,1)
