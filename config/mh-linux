@@ -118,8 +118,8 @@ case "$fortran_compiler" in
         FDEBUG      =  -gline -g -C=all -mtrace=all
         FDEBUG      =  -gline -g -C=all
         GEN_FLAGS   = -colour -fpp
-        DEBUG_FLAGS = -O0 -float-store -nan $FDEBUG
-        STD_FLAGS   = -Wc,-O2 -Wc,-march=native -O0 -float-store -nan $FDEBUG
+        DEBUG_FLAGS = -O0 -Wc,-g -float-store -nan $FDEBUG
+        STD_FLAGS   = $DEBUG_FLAGS
         HIOPT_FLAGS = -Wc,-O3 -Wc,-march=native -float-store -nan $FDEBUG
         MISMATCHS   = -wmismatch=mpi_allgather,mpi_allgatherv,mpi_allreduce,mpi_alltoall,mpi_alltoallv,mpi_bcast,mpi_free_mem,mpi_gather,mpi_gatherv,mpi_get,mpi_get_address,mpi_isend,mpi_irecv,mpi_sendrecv,mpi_op_create,mpi_pack,mpi_recv,mpi_reduce,mpi_scatter,mpi_scatterv,mpi_send,mpi_type_commit,mpi_type_extent,mpi_type_struct,mpi_unpack,mpi_win_create,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double -w=uep
         FFLAGS      = $GEN_FLAGS -f2008 $MISMATCHS $INCLUDES
@@ -163,13 +163,13 @@ case "$fortran_compiler" in
         CC          = cc
         FC          = ftn
         F77         = $FC
-        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O cache0 -r am -Ktrap=divz,ovf,inv
+        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc  -O cache0 -r am -Ktrap=divz,ovf,inv
         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -O3
         F77FLAGS    = $FFLAGS
         FCLIBS      = 
         GEN_FLAGS   =
         FDEBUG      = -g -R abc
-        ART_FFLAGS  = -D__ICON_ART
+        ART_FFLAGS  = -D__ICON_ART -D__ART_TMP_IFDEF
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
@@ -182,7 +182,7 @@ case "$fortran_compiler" in
         FC          = ftn
         F77         = $FC
 #        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hacc_model=deep_copy -O cache0 -r am -Ktrap=divz,ovf,inv
-        FFLAGS      = -D__LOOP_EXCHANGE -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=intolerant -hfp0 -hadd_paren -hacc_model=deep_copy -O1,cache0 -r am -Ktrap=divz,ovf,inv
+        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=intolerant -hfp0 -hadd_paren -hacc_model=deep_copy -O1,cache0 -r am -Ktrap=divz,ovf,inv
         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -O3
         F77FLAGS    = $FFLAGS
         FCLIBS      = 
@@ -283,7 +283,7 @@ case "$ac_sitename" in
         ;;
 #===============================================
 
-    dwd.de)
+    *dwd.de)
         case "$(hostname)" in
             xc*)
                 XML2ROOT    = /opt/cray/xc-sysroot/default/usr
@@ -303,17 +303,28 @@ case "$ac_sitename" in
                       OTHER_LIBS      = -lirng $OTHER_LIBS
                       ;;
                     cray)
+                      load_modules    = PrgEnv-cray grib_api cray-netcdf/4.3.2 atp ${load_modules}
                       RTTOV_LIBS      = -L/usr/local/pkg/for0adm/lib -L/usr/local/pkg/for0adm/lib/unsupported -lradiance -lrttov10.2 -lhrit_tools
                       OTHER_LIBS      = $RTTOV_LIBS $OTHER_LIBS
+                      case "$with_art" in
+                           yes)
+                             OTHER_LIBS = ${OTHER_LIBS} -L/e/uhome/jfoerstn/Software/lib -lTIXI -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
+                             ;;
+                      esac
                       STD_FLAGS       = -D__USE_RTTOV -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
                       FFLAGS          = ${FFLAGS} -I/usr/local/pkg/for0adm/include/radiance
                       GRIBAPIROOT     = ${GRIB_API}
 ;;
                     default|gcc)
-                      load_modules    = PrgEnv-gnu netcdf grib_api cray-mpich ${load_modules}
+                      load_modules    = PrgEnv-gnu cray-netcdf grib_api cray-mpich ${load_modules}
                       FFLAGS          = ${FFLAGS}
                       GRIBAPIROOT     = ${GRIB_API}
                       OTHER_LIBS      = $OTHER_LIBS
+                      case "$with_art" in
+                           yes)
+                             OTHER_LIBS = ${OTHER_LIBS} -L/e/uhome/jfoerstn/Software/lib -lTIXI -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
+                             ;;
+                      esac
                       ;;
                 esac
                 ;;
@@ -380,6 +391,9 @@ case "$ac_sitename" in
                             ;;
                           intel14)
                             load_modules    = intel/14.0.3 ${load_modules}
+                            ;;
+                          intel17)
+                            load_modules = intel/17.0.0 ${load_modules}
                             ;;
                           intel16|intel*)
                             load_modules = intel/16.0 ${load_modules}
@@ -543,8 +557,23 @@ case "$ac_sitename" in
         esac
         ;;
 #===============================================
-    kfa-juelich.de)
+    kfa-juelich.de|*jureca*)
         case "$(hostname)" in
+            jrl*)
+                NETCDFROOT    = $EBROOTNETCDF
+                NETCDFLIBPATH = $NETCDFROOT/lib64
+                NETCDFFROOT   = $EBROOTNETCDFMINFORTRAN
+                HDF5ROOT      = $EBROOTHDF5
+                SZIPROOT      = $EBROOTSZIP
+                ZLIBROOT      = $EBROOTZLIB
+                MPIROOT       = $EBROOTPSMPI
+                MPI_LIB       = -L$MPIROOT/lib -lmpi -lmpifort
+                load_modules  = Intel ParaStationMPI netCDF-Fortran ${load_modules}
+                config_target = jureca
+                make_command  = make -j8
+                submit        = sbatch
+                mpi_startrun  = srun
+                ;;
             juqueen*)
                 #NETCDFROOT  = /bgsys/local/netcdf
                 NETCDFROOT = /homeb/slmet/slmet016/netcdf_xlc
@@ -569,13 +598,39 @@ case "$ac_sitename" in
     kit.edu)
         case $ac_hostname in
             ic2*)
-                NETCDFROOT  = /pfs/imk/ICON/LIBRARIES
-                NETCDFFROOT = /pfs/imk/ICON/LIBRARIES
-                HDF5ROOT    = /pfs/imk/ICON/LIBRARIES
-                SZIPROOT    = /pfs/imk/ICON/LIBRARIES
+               NETCDFROOT  = /pfs/imk/ICON/LIBRARIES_IFORT16
+               NETCDFFROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
+               HDF5ROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
+               SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
+               ZLIBROOT    = /usr
+               MPIROOT     = /pfs/imk/ICON/LIBRARIES_IFORT16
+               GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
+               MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+               case "$with_art" in
+                    yes)
+                      OTHER_LIBS = ${OTHER_LIBS} -lTIXI
+                      ;;
+               esac
+               CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
+               config_target=ic2
+               make_command=make -j8
+               submit=sbatch
+               mpi_startrun=runjob --ranks-per-node \\\$mpi_procs_pernode --envs OMP_NUM_THREADS=\\\$OMP_NUM_THREADS --exe
+;;
+            fh2*)
+                NETCDFROOT  = /pfs/imk/ICON/LIBRARIES_IFORT16
+                NETCDFFROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
+                HDF5ROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
+                SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
                 ZLIBROOT    = /usr
-                MPIROOT     = /pfs/imk/ICON/LIBRARIES
+                MPIROOT     = /pfs/imk/ICON/LIBRARIES_FH2/lib_omp_Inge
+                GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
                 MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+                case "$with_art" in
+                     yes)
+                       OTHER_LIBS = ${OTHER_LIBS} -lTIXI
+                       ;;
+                esac
                 CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
                 config_target=ic2
                 make_command=make -j8
@@ -586,7 +641,7 @@ case "$ac_sitename" in
 
         ;;              
 #===============================================
-    zmaw.de)
+    zmaw.de|mpg.de)
         dist_codename = $(lsb_release -c | awk '{print $2}')
         software_tree = /sw/${dist_codename}-x64
         case $ac_hostname in
@@ -722,7 +777,9 @@ case "$ac_sitename" in
                            NETCDFFROOT = $software_tree/netcdf_fortran-4.4.2-static-${compiler_version}
                            NETCDFROOT = $software_tree/netcdf-4.3.3.1-static-gccsys
                            HDF5ROOT = $software_tree/hdf5-1.8.16-static-gccsys
+                           GRIBAPIROOT = $software_tree/grib_api-1.14.3-static-${compiler_version}
                            SYS_LIBS = -L/usr/x86_64-linux-gnu/lib -lm -ldl -lrt -lutil -lpthread -lpciaccess
+                           SYS_LIBS = -ljasper -ljpeg $SYS_LIBS
                            XML2ROOT = /usr
                            case "$fortran_compiler" in
                                default|gcc)
@@ -791,6 +848,7 @@ case "$ac_sitename" in
                       OTHER_LIBS      = -lirng $RTTOV_LIBS $OTHER_LIBS
                       ;;
                     cray)
+		      GRIBAPIROOT     = ${GRIB_API_PATH}
                       OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $RTTOV_LIBS $OTHER_LIBS
                       FFLAGS          = ${FFLAGS} -I/home/ms/de/dfj/include/radiance
                       ;;

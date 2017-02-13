@@ -429,7 +429,6 @@ CONTAINS
     INTEGER  :: slev                   !< vertical start level
     INTEGER  :: nlev, nlevp1           !< number of full and half levels
     INTEGER  :: jc, jk, jb             !< index of cell, vertical level and block
-    INTEGER  :: jkm1                   !< jk - 1
     INTEGER  :: jg                     !< patch ID
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
@@ -495,7 +494,7 @@ CONTAINS
 !$ACC LOOP GANG
 #else
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jkm1,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 #endif
     DO jb = i_startblk, i_endblk
 

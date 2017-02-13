@@ -495,6 +495,7 @@ MODULE mo_mpi
   INTERFACE p_send
      MODULE PROCEDURE p_send_char
      MODULE PROCEDURE p_send_real
+     MODULE PROCEDURE p_send_sreal
      MODULE PROCEDURE p_send_int
      MODULE PROCEDURE p_send_bool
      MODULE PROCEDURE p_send_real_1d
@@ -516,12 +517,14 @@ MODULE mo_mpi
   INTERFACE p_isend
      MODULE PROCEDURE p_isend_char
      MODULE PROCEDURE p_isend_real
+     MODULE PROCEDURE p_isend_sreal
      MODULE PROCEDURE p_isend_int
      MODULE PROCEDURE p_isend_bool
      MODULE PROCEDURE p_isend_real_1d
      MODULE PROCEDURE p_isend_int_1d
      MODULE PROCEDURE p_isend_bool_1d
      MODULE PROCEDURE p_isend_real_2d
+     MODULE PROCEDURE p_isend_sreal_2d
      MODULE PROCEDURE p_isend_int_2d
      MODULE PROCEDURE p_isend_bool_2d
      MODULE PROCEDURE p_isend_real_3d
@@ -536,6 +539,7 @@ MODULE mo_mpi
   INTERFACE p_recv
      MODULE PROCEDURE p_recv_char
      MODULE PROCEDURE p_recv_real
+     MODULE PROCEDURE p_recv_sreal
      MODULE PROCEDURE p_recv_int
      MODULE PROCEDURE p_recv_bool
      MODULE PROCEDURE p_recv_real_1d
@@ -557,12 +561,14 @@ MODULE mo_mpi
   INTERFACE p_irecv
      MODULE PROCEDURE p_irecv_char
      MODULE PROCEDURE p_irecv_real
+     MODULE PROCEDURE p_irecv_sreal
      MODULE PROCEDURE p_irecv_int
      MODULE PROCEDURE p_irecv_bool
      MODULE PROCEDURE p_irecv_real_1d
      MODULE PROCEDURE p_irecv_int_1d
      MODULE PROCEDURE p_irecv_bool_1d
      MODULE PROCEDURE p_irecv_real_2d
+     MODULE PROCEDURE p_irecv_sreal_2d
      MODULE PROCEDURE p_irecv_int_2d
      MODULE PROCEDURE p_irecv_bool_2d
      MODULE PROCEDURE p_irecv_real_3d
@@ -648,6 +654,7 @@ MODULE mo_mpi
     MODULE PROCEDURE p_gatherv_real3D1D
     MODULE PROCEDURE p_gatherv_int2D1D
     MODULE PROCEDURE p_gatherv_real2D2D
+    MODULE PROCEDURE p_gatherv_sreal2D2D
     MODULE PROCEDURE p_gatherv_int2D2D
   END INTERFACE
 
@@ -698,6 +705,7 @@ MODULE mo_mpi
   INTERFACE p_alltoallv
     MODULE PROCEDURE p_alltoallv_int
     MODULE PROCEDURE p_alltoallv_real_2d
+    MODULE PROCEDURE p_alltoallv_sreal_2d
     MODULE PROCEDURE p_alltoallv_int_2d
   END INTERFACE
 
@@ -1707,9 +1715,9 @@ CONTAINS
   !------------------------------------------------------------------------------
   SUBROUTINE start_mpi(global_name)
 
-#ifdef _OPENMP
-    USE mo_util_string, ONLY: toupper
-#endif
+!#ifdef _OPENMP
+!    USE mo_util_string, ONLY: toupper
+!#endif
 
 #ifndef NOMPI
 #if defined (__prism) && defined (use_comm_MPI1)
@@ -2341,6 +2349,54 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_send_real
+
+
+  ! send implementation
+
+  SUBROUTINE p_send_sreal (t_buffer, p_destination, p_tag, p_count, comm)
+
+    REAL (sp), INTENT(in) :: t_buffer
+    INTEGER,   INTENT(in) :: p_destination, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+#ifdef __USE_G2G
+!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node )
+#endif
+
+    IF (PRESENT(p_count)) THEN
+       CALL MPI_SEND (t_buffer, p_count, p_real_sp, p_destination, p_tag, &
+            p_comm, p_error)
+    ELSE
+       CALL MPI_SEND (t_buffer, 1, p_real_sp, p_destination, p_tag, &
+            p_comm, p_error)
+    END IF
+
+#ifdef __USE_G2G
+!$ACC END HOST_DATA
+!$ACC END DATA
+#endif
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
+            ' to ', p_destination, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_send_sreal
+
 
   SUBROUTINE p_send_real_1d (t_buffer, p_destination, p_tag, p_count, comm)
 
@@ -3159,6 +3215,54 @@ CONTAINS
 
   END SUBROUTINE p_isend_real
 
+
+  SUBROUTINE p_isend_sreal (t_buffer, p_destination, p_tag, p_count, comm)
+
+    REAL (sp), INTENT(inout) :: t_buffer
+    INTEGER,   INTENT(in) :: p_destination, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+#ifdef __USE_G2G
+!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node )
+#endif
+
+    IF (PRESENT(p_count)) THEN
+       CALL p_inc_request
+       CALL MPI_ISEND (t_buffer, p_count, p_real_sp, p_destination, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    ELSE
+       CALL p_inc_request
+       CALL MPI_ISEND (t_buffer, 1, p_real_sp, p_destination, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    END IF
+
+#ifdef __USE_G2G
+!$ACC END HOST_DATA
+!$ACC END DATA
+#endif
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
+            ' to ', p_destination, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_isend_sreal
+
+
   SUBROUTINE p_isend_real_1d (t_buffer, p_destination, p_tag, p_count, comm, request)
 
     REAL (dp), INTENT(inout) :: t_buffer(:)
@@ -3255,6 +3359,55 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_isend_real_2d
+
+
+  SUBROUTINE p_isend_sreal_2d (t_buffer, p_destination, p_tag, p_count, comm)
+
+    REAL (sp), INTENT(inout) :: t_buffer(:,:)
+    INTEGER,   INTENT(in) :: p_destination, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+#ifdef __USE_G2G
+!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node )
+#endif
+
+    IF (PRESENT(p_count)) THEN
+       CALL p_inc_request
+       CALL MPI_ISEND (t_buffer, p_count, p_real_sp, p_destination, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    ELSE
+       CALL p_inc_request
+       CALL MPI_ISEND (t_buffer, SIZE(t_buffer), p_real_sp, p_destination, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    END IF
+
+#ifdef __USE_G2G
+!$ACC END HOST_DATA
+!$ACC END DATA
+#endif
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
+            ' to ', p_destination, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_isend_sreal_2d
+
 
   SUBROUTINE p_isend_real_3d (t_buffer, p_destination, p_tag, p_count, comm)
 
@@ -3959,6 +4112,52 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_recv_real
+
+  ! recv implementation
+
+  SUBROUTINE p_recv_sreal (t_buffer, p_source, p_tag, p_count, comm)
+
+    REAL (sp), INTENT(out) :: t_buffer
+    INTEGER,   INTENT(in)  :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+#ifdef __USE_G2G
+!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node )
+#endif
+
+    IF (PRESENT(p_count)) THEN
+       CALL MPI_RECV (t_buffer, p_count, p_real_sp, p_source, p_tag, &
+            p_comm, p_status, p_error)
+    ELSE
+       CALL MPI_RECV (t_buffer, 1, p_real_sp, p_source, p_tag, &
+            p_comm, p_status, p_error)
+    END IF
+
+#ifdef __USE_G2G
+!$ACC END HOST_DATA
+!$ACC END DATA
+#endif
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_recv_sreal
 
   SUBROUTINE p_recv_real_1d (t_buffer, p_source, p_tag, p_count, comm, displs)
 
@@ -4809,6 +5008,54 @@ CONTAINS
 
   END SUBROUTINE p_irecv_real
 
+
+  SUBROUTINE p_irecv_sreal (t_buffer, p_source, p_tag, p_count, comm)
+
+    REAL(sp),  INTENT(inout) :: t_buffer
+    INTEGER,   INTENT(in) :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+#ifdef __USE_G2G
+!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node )
+#endif
+
+    IF (PRESENT(p_count)) THEN
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, p_count, p_real_sp, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    ELSE
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, 1, p_real_sp, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    END IF
+
+#ifdef __USE_G2G
+!$ACC END HOST_DATA
+!$ACC END DATA
+#endif
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_irecv_sreal
+
+
   SUBROUTINE p_irecv_real_1d (t_buffer, p_source, p_tag, p_count, comm)
 
     REAL(dp),  INTENT(inout) :: t_buffer(:)
@@ -4901,6 +5148,55 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_irecv_real_2d
+
+
+  SUBROUTINE p_irecv_sreal_2d (t_buffer, p_source, p_tag, p_count, comm)
+
+    REAL(sp),  INTENT(inout) :: t_buffer(:,:)
+    INTEGER,   INTENT(in) :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+#ifdef __USE_G2G
+!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node )
+#endif
+
+    IF (PRESENT(p_count)) THEN
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, p_count, p_real_sp, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    ELSE
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, SIZE(t_buffer), p_real_sp, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    END IF
+
+#ifdef __USE_G2G
+!$ACC END HOST_DATA
+!$ACC END DATA
+#endif
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_irecv_sreal_2d
+
 
   SUBROUTINE p_irecv_real_3d (t_buffer, p_source, p_tag, p_count, comm)
 
@@ -8791,9 +9087,9 @@ CONTAINS
 
    SUBROUTINE p_gatherv_real2D2D (sendbuf, sendcount, recvbuf, recvcounts, &
      &                            displs, p_dest, comm)
-     REAL(WP), INTENT(IN) :: sendbuf(:,:)
+     REAL(DP), INTENT(IN) :: sendbuf(:,:)
      INTEGER, INTENT(IN)  :: sendcount
-     REAL(WP), INTENT(OUT) :: recvbuf(:,:)
+     REAL(DP), INTENT(OUT) :: recvbuf(:,:)
      INTEGER, INTENT(IN)  :: recvcounts(:)
      INTEGER, INTENT(IN)  :: displs(:)
      INTEGER, INTENT(IN)  :: p_dest
@@ -8815,6 +9111,34 @@ CONTAINS
      recvbuf(:, (displs(1)+1):(displs(1)+sendcount)) = sendbuf(:, 1:sendcount)
 #endif
    END SUBROUTINE p_gatherv_real2D2D
+
+
+   SUBROUTINE p_gatherv_sreal2D2D (sendbuf, sendcount, recvbuf, recvcounts, &
+     &                            displs, p_dest, comm)
+     REAL(SP), INTENT(IN) :: sendbuf(:,:)
+     INTEGER, INTENT(IN)  :: sendcount
+     REAL(SP), INTENT(OUT) :: recvbuf(:,:)
+     INTEGER, INTENT(IN)  :: recvcounts(:)
+     INTEGER, INTENT(IN)  :: displs(:)
+     INTEGER, INTENT(IN)  :: p_dest
+     INTEGER, INTENT(IN)  :: comm
+
+#ifndef NOMPI
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_sreal2D2D")
+
+     INTEGER :: dim1_size
+
+     dim1_size = SIZE(sendbuf, 1)
+
+     CALL MPI_GATHERV(sendbuf, sendcount*dim1_size,  p_real_sp, &
+       &              recvbuf, recvcounts(:)*dim1_size, displs*dim1_size, &
+       &              p_real_sp, p_dest, comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) &
+       CALL finish (routine, 'Error in MPI_GATHERV operation!')
+#else
+     recvbuf(:, (displs(1)+1):(displs(1)+sendcount)) = sendbuf(:, 1:sendcount)
+#endif
+   END SUBROUTINE p_gatherv_sreal2D2D
 
 
    SUBROUTINE p_gatherv_int2D2D (sendbuf, sendcount, recvbuf, recvcounts, &
@@ -9165,9 +9489,9 @@ CONTAINS
 
    SUBROUTINE p_alltoallv_real_2d (sendbuf, sendcounts, sdispls, &
      &                             recvbuf, recvcounts, rdispls, comm)
-     REAL(wp),          INTENT(in) :: sendbuf(:,:)
+     REAL(dp),          INTENT(in) :: sendbuf(:,:)
      INTEGER,           INTENT(in) :: sendcounts(:), sdispls(:)
-     REAL(wp),          INTENT(inout) :: recvbuf(:,:)
+     REAL(dp),          INTENT(inout) :: recvbuf(:,:)
      INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
      INTEGER,           INTENT(in) :: comm
 #if !defined(NOMPI)
@@ -9188,6 +9512,33 @@ CONTAINS
        sendbuf(:,sdispls(1)+1:sdispls(1)+sendcounts(1))
 #endif
    END SUBROUTINE p_alltoallv_real_2d
+
+
+   SUBROUTINE p_alltoallv_sreal_2d (sendbuf, sendcounts, sdispls, &
+     &                              recvbuf, recvcounts, rdispls, comm)
+     REAL(sp),          INTENT(in) :: sendbuf(:,:)
+     INTEGER,           INTENT(in) :: sendcounts(:), sdispls(:)
+     REAL(sp),          INTENT(inout) :: recvbuf(:,:)
+     INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
+     INTEGER,           INTENT(in) :: comm
+#if !defined(NOMPI)
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_alltoallv_real_2d")
+     INTEGER :: p_comm, p_error, dim1_size
+
+     p_comm = comm
+     dim1_size = SIZE(sendbuf, 1)
+     CALL MPI_ALLTOALLV(sendbuf, sendcounts(:)*dim1_size, &
+       &                sdispls(:)*dim1_size, p_real_sp, recvbuf, &
+       &                recvcounts(:)*dim1_size, rdispls(:)*dim1_size, &
+       &                p_real_sp, p_comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) &
+       CALL finish (routine, 'Error in MPI_ALLTOALLV operation!')
+#else
+     ! displs are zero based -> have to add 1
+     recvbuf(:,rdispls(1)+1:rdispls(1)+recvcounts(1)) = &
+       sendbuf(:,sdispls(1)+1:sdispls(1)+sendcounts(1))
+#endif
+   END SUBROUTINE p_alltoallv_sreal_2d
 
 
    SUBROUTINE p_alltoallv_int_2d (sendbuf, sendcounts, sdispls, &

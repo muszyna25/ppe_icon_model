@@ -28,32 +28,27 @@ MODULE mo_nh_torus_exp
 !
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, finish, message_text
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rledge, min_rlcell, SUCCESS
+  USE mo_exception,           ONLY: message, finish
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS
   USE mo_io_units,            ONLY: find_next_free_unit
-  USE mo_physical_constants,  ONLY: rd, rv, cpd, p0ref, cvd_o_rd, rd_o_cpd, &
-     &                              tmelt,grav, alv, vtmpc1, rdv
-  USE mo_nh_testcases_nml,    ONLY: ape_sst_val, u_cbl, v_cbl, th_cbl, psfc_cbl, &
+  USE mo_physical_constants,  ONLY: rd, cpd, p0ref, cvd_o_rd, rd_o_cpd, &
+     &                              grav, alv, vtmpc1
+  USE mo_nh_testcases_nml,    ONLY: u_cbl, v_cbl, th_cbl, psfc_cbl, &
                                     bubctr_x, bubctr_y, nh_test_name
   USE mo_nh_wk_exp,           ONLY: bub_amp, bub_ver_width, bub_hor_width, bubctr_z
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_math_constants,      ONLY: pi, pi2, rad2deg, pi_2
-  USE mo_math_utilities,      ONLY: gnomonic_proj, t_geographical_coordinates, &
-     &                              t_cartesian_coordinates, gc2cc, az_eqdist_proj
-  USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
+  USE mo_math_constants,      ONLY: pi, rad2deg, pi_2
+  USE mo_loopindices,         ONLY: get_indices_e
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics, t_nh_ref
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_math_utilities,      ONLY: plane_torus_distance, arc_length
-  USE mo_grid_config,         ONLY: grid_sphere_radius, is_plane_torus
-  USE mo_sync,                ONLY: sync_patch_array, SYNC_C, SYNC_E
+  USE mo_math_utilities,      ONLY: plane_torus_distance
+  USE mo_sync,                ONLY: sync_patch_array, SYNC_C
   USE mo_nh_init_utils,       ONLY: init_w
   USE mo_run_config,          ONLY: iqv, iqc
-  USE mo_impl_constants_grf,  ONLY: grf_bdywidth_e, grf_bdywidth_c
+  USE mo_impl_constants_grf,  ONLY: grf_bdywidth_e
   USE mo_satad,               ONLY: spec_humi, sat_pres_water
   USE mo_les_config,          ONLY: les_config
-  USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_les_utilities,       ONLY: vert_intp_linear_1d
 

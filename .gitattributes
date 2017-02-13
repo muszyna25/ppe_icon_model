@@ -154,32 +154,10 @@ doc/science/dynamics/vortex_bracket_ICONAM.tex -text
 doc/science/physics/ICON_COSMO_micro_scheme_changes.tex -text
 doc/science/physics/IFS_gw_param.pdf -text
 doc/science/physics/Microphys.tar -text
-doc/science/physics/albnirdif_20120601_tuned-untuned.png -text svneol=unset#image/png
-doc/science/physics/albnirdif_20120601_tuned.png -text svneol=unset#image/png
-doc/science/physics/albnirdif_20120601_untuned.png -text svneol=unset#image/png
-doc/science/physics/albnirdir_20120601_blacksky_ritter.png -text svneol=unset#image/png
-doc/science/physics/albvisdif_20120601_tuned-untuned.png -text svneol=unset#image/png
-doc/science/physics/albvisdif_20120601_tuned.png -text svneol=unset#image/png
-doc/science/physics/albvisdif_20120601_untuned.png -text svneol=unset#image/png
-doc/science/physics/albvisdir_20120601_blacksky_ritter.png -text svneol=unset#image/png
-doc/science/physics/cloud_cover_docu.tex -text
-doc/science/physics/detrainment_anvil.pdf -text
-doc/science/physics/detrainment_anvil.ppt -text
-doc/science/physics/direct_albedo_Briegleb.png -text svneol=unset#image/png
-doc/science/physics/direct_albedo_Ritter.png -text svneol=unset#image/png
-doc/science/physics/direct_albedo_Zaengl.png -text svneol=unset#image/png
 doc/science/physics/graupelscheme.eps -text
-doc/science/physics/icon-docu-cloud.pdf -text
-doc/science/physics/icon-docu-cloud.tex -text
 doc/science/physics/icon_nwp_physics.tex -text
-doc/science/physics/liquidPDF.pdf -text
-doc/science/physics/liquidPDF.pptx -text
 doc/science/physics/lmclouds2010.pdf -text
 doc/science/physics/microphysics.tex -text
-doc/science/physics/surface_albedo.pdf -text svneol=unset#unset
-doc/science/physics/surface_albedo.tex -text
-doc/science/physics/wind_gust.pdf -text
-doc/science/physics/wind_gust.tex -text
 doc/science/references-icon-science.bib -text
 doc/science/transport/transport_main.pdf -text
 doc/science/wileyqj.bst -text
@@ -212,6 +190,7 @@ doc/technical/dwd_database/grid_geometry.tex -text
 doc/technical/dwd_database/icon_in_sky.tex -text
 doc/technical/dwd_database/iglo_namelst_output.pl -text
 doc/technical/dwd_database/input.tex -text
+doc/technical/dwd_database/jas99.bst -text
 doc/technical/dwd_database/level_tables/vertical_full_levels_i.txt -text
 doc/technical/dwd_database/level_tables/vertical_full_levels_maxheight_i.txt -text
 doc/technical/dwd_database/level_tables/vertical_half_levels_maxheight_i.txt -text
@@ -762,6 +741,7 @@ run/checksuite.infrastructure/meanStream/exp.atmo_meanStream -text
 run/checksuite.infrastructure/meanStream/exp.ocean_meanStream -text
 run/checksuite.nwp/run_ICON_R02B06N07_gribinit -text
 run/checksuite.nwp/run_ICON_R02B06N07_ifsinit -text
+run/checksuite.ocean_internal/LonLat/exp.omip_LeithBiha_PrimeVort_LonLatTria_Oct_0024km_NPoleOnGreenland_64levels.run -text
 run/checksuite.nwp/run_ICON_R03B07N08_gribinit -text
 run/checksuite.ocean_internal/eddies/exp.Channel_10km -text
 run/checksuite.ocean_internal/eddies/exp.SDACC_box_fplane65S -text
@@ -771,8 +751,11 @@ run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_edge -text
 run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0010km_cell -text
 run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0080km_cell -text
 run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0080km_cell_02 -text
+run/checksuite.ocean_internal/omip/exp.GM_test -text
+run/checksuite.ocean_internal/omip/exp.ocean_long_mtime -text
 run/checksuite.ocean_internal/omip/exp.ocean_omip_long -text
 run/checksuite.ocean_internal/omip/exp.ocean_omip_ptest -text
+run/checksuite.ocean_internal/omip/exp.ocean_omip_short -text
 run/checksuite.ocean_internal/omip/exp.ocean_omip_testSurface -text
 run/checksuite.ocean_internal/omip/exp.ocean_omip_testbed -text
 run/checksuite.ocean_internal/omip/exp.test_ocean_omip_10days -text
@@ -812,6 +795,7 @@ run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp7_BaroclinicInstabilityC
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp8_OMIP -text
 run/checksuite.ocean_internal/paper_dycore/make_runs_GeostrophicBalance_TestCase2 -text
 run/checksuite.ocean_internal/paper_dycore/post.ocean_exp1_GeostrophicBalance -text
+run/checksuite.ocean_internal/quads/exp.quads_torus -text
 run/checksuite.ocean_internal/quads/exp.testbed_quads -text
 run/checksuite.ocean_internal/sea-ice/exp.ice_melting -text
 run/checksuite.ocean_internal/sea-ice/exp.ice_testbed -text
@@ -829,6 +813,8 @@ run/checksuite.ocean_internal/technical/post.oce_omip_performance -text
 run/checksuite.ocean_internal/technical/post.ocean_accumulation -text
 run/checksuite.ocean_internal/technical/post.ocean_monitoring -text
 run/checksuite.ocean_internal/technical/post.test_compare_restarts -text
+run/checksuite.ocean_internal/testbed/exp.oce_testbed_EOS -text
+run/checksuite.ocean_internal/testbed/exp.oce_testbed_createMatrix -text
 run/checksuite.ocean_internal/tracers/exp.oce_testbed_vertical_diffusion -text
 run/checksuite.ocean_internal/tracers/exp.oce_tracer_bubble -text
 run/checksuite.ocean_internal/tracers/exp.oce_tracer_bubble_0010km -text
@@ -844,18 +830,17 @@ run/checksuite.xce.dwd.de/run_ICON_R02B06N07_ifsinit_ref -text
 run/checksuite.xce.dwd.de/run_ICON_R02B06N07_ifsinit_restarttest -text
 run/component.xsd -text
 run/coupling.xsd -text
-run/dict.echam.mpim_mean -text
 run/dict.extpar -text
 run/dict.icoham.mpim -text
 run/dict.icon.hdcp2 -text
-run/dict.iconam.mpim_inst -text
-run/dict.iconam.mpim_mean -text
+run/dict.iconam.mpim -text
 run/dict.latbc -text
 run/dict.output.dwd -text
 run/exec.iconrun -text
 run/exp.ICOLES_nestgrid -text
 run/exp.ICON_limarea -text
 run/exp.aloy.mixRes -text
+run/exp.aloy.mixRes_hamocc -text
 run/exp.aloy.uni160km -text
 run/exp.atm_amip -text
 run/exp.atm_amip_hs -text
@@ -959,6 +944,7 @@ run/run_ICONAM_ECMWF -text
 run/run_ICONAM_R2B4_APE -text
 run/run_ICONAM_R2B4_NWP -text
 run/run_grflocal_R2B7N13.txt -text
+run/test_nwp_R02B04_R02B05_nest -text
 schedulers/ecmwf/def/climplot.def -text
 schedulers/ecmwf/def/fc.def -text
 schedulers/ecmwf/def/icon.def -text
@@ -1361,6 +1347,7 @@ scripts/postprocessing/tools/xsec.py -text
 scripts/preprocessing/README_MARS4ICON.TXT -text
 scripts/preprocessing/WARM_BUBBLE_INIT/findzero.m -text
 scripts/preprocessing/WARM_BUBBLE_INIT/init.m -text
+scripts/preprocessing/calculateOceanLevels.py -text
 scripts/preprocessing/estimate.py -text
 scripts/preprocessing/gauss_to_icon.ksh -text
 scripts/preprocessing/icon_pre_lnd_atm.ksh -text
@@ -1383,6 +1370,7 @@ scripts/prototypes/statistics/mo_statistics.rb -text
 scripts/prototypes/statistics/test/mo_statistics.rb -text
 scripts/run_scripts/experiments.rb -text
 scripts/run_scripts/luis.iconrun -text
+scripts/run_scripts/luis/lkmpy.run -text
 scripts/run_scripts/make_my_runscript -text
 scripts/run_scripts/make_nat-ape-dec_runs -text
 scripts/run_scripts/make_ocean_reference_data -text
@@ -1401,6 +1389,7 @@ src/advection/mo_advection_traj.f90 -text
 src/advection/mo_advection_utils.f90 -text
 src/advection/mo_advection_vflux.f90 -text
 src/advection/mo_integrate_density_pa.f90 -text
+src/art_interface/mo_add_tracer_ref.f90 -text
 src/art_interface/mo_art_clouds_interface.f90 -text
 src/art_interface/mo_art_diagnostics_interface.f90 -text
 src/art_interface/mo_art_emission_interface.f90 -text
@@ -1723,25 +1712,21 @@ src/grid_generator/mo_optimize.f90 -text
 src/grid_generator/mo_small_circle_c.f90 -text
 src/grid_generator/mo_spring_dynamics.f90 -text
 src/grid_generator/mo_topology.f90 -text
-src/hamocc/common/carchm.f90 -text
 src/hamocc/common/chemcon.f90 -text
-src/hamocc/common/dipowa.f90 -text
 src/hamocc/common/mo_bgc_constants.f90 -text
 src/hamocc/common/mo_bgc_surface.f90 -text
-src/hamocc/common/mo_biomod.f90 -text
-src/hamocc/common/mo_carbch.f90 -text
 src/hamocc/common/mo_carchm.f90 -text
 src/hamocc/common/mo_control_bgc.f90 -text
 src/hamocc/common/mo_cyano.f90 -text
 src/hamocc/common/mo_ini_bgc.f90 -text
+src/hamocc/common/mo_memory_bgc.f90 -text
 src/hamocc/common/mo_param1_bgc.f90 -text
+src/hamocc/common/mo_powach.f90 -text
 src/hamocc/common/mo_sedmnt.f90 -text
+src/hamocc/common/mo_sedmnt_diffusion.f90 -text
+src/hamocc/common/mo_settling.f90 -text
 src/hamocc/common/ocprod.f90 -text
-src/hamocc/common/powach.f90 -text
-src/hamocc/common/powach_impl.f90 -text
-src/hamocc/common/powadi.f90 -text
 src/hamocc/common/sedshi.f90 -text
-src/hamocc/common/settling.f90 -text
 src/hamocc/common/swr_absorption.f90 -text
 src/hamocc/icon_specific/bgc_icon.f90 -text
 src/hamocc/icon_specific/ini_bgc_icon.f90 -text
@@ -1766,6 +1751,8 @@ src/include/phillips_nucleation_2010.incf -text
 src/io/atmo/mo_async_latbc.f90 -text
 src/io/atmo/mo_async_latbc_types.f90 -text
 src/io/atmo/mo_async_latbc_utils.f90 -text
+src/io/atmo/mo_input_request_list.f90 -text
+src/io/atmo/mo_io_restart_async.f90 -text
 src/io/atmo/mo_latbc_read_recv.f90 -text
 src/io/atmo/mo_mtgrm_output.f90 -text
 src/io/atmo/mo_post_op.f90 -text
@@ -1790,7 +1777,9 @@ src/io/shared/mo_grib1.f90 -text
 src/io/shared/mo_grib2.f90 -text
 src/io/shared/mo_grib2_util.f90 -text
 src/io/shared/mo_input_container.f90 -text
-src/io/shared/mo_input_request_list.f90 -text
+src/io/shared/mo_io_restart.f90 -text
+src/io/shared/mo_io_restart_attributes.f90 -text
+src/io/shared/mo_io_restart_namelist.f90 -text
 src/io/shared/mo_io_units.f90 -text
 src/io/shared/mo_io_util.f90 -text
 src/io/shared/mo_name_list_output.f90 -text
@@ -1912,13 +1901,17 @@ src/ocean/math/mo_operator_ocean_coeff_3d.f90 -text
 src/ocean/math/mo_scalar_product.f90 -text
 src/ocean/physics/mo_ocean_GM_Redi.f90 -text
 src/ocean/physics/mo_ocean_physics.f90 -text
+src/ocean/physics/mo_ocean_physics_types.f90 -text
+src/ocean/physics/mo_ocean_pp_scheme.f90 -text
 src/ocean/physics/mo_ocean_thermodyn.f90 -text
 src/ocean/testbed/mo_ocean_testbed.f90 -text
+src/ocean/testbed/mo_ocean_testbed_EOS.f90 -text
 src/ocean/testbed/mo_ocean_testbed_modules.f90 -text
 src/ocean/testbed/mo_ocean_testbed_operators.f90 -text
 src/ocean/testbed/mo_ocean_testbed_performance.f90 -text
 src/ocean/testbed/mo_ocean_testbed_quads.f90 -text
 src/ocean/testbed/mo_ocean_testbed_read.f90 -text
+src/ocean/testbed/mo_ocean_testbed_solverMatrix.f90 -text
 src/ocean/testbed/mo_ocean_testbed_vertical_diffusion.f90 -text
 src/parallel_infrastructure/mo_build_decomposition.f90 -text
 src/parallel_infrastructure/mo_communication.f90 -text
@@ -1960,10 +1953,8 @@ src/sea_ice/thermodyn/mo_sea_ice_winton.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice_zerolayer.f90 -text
 src/shared/mo_action.f90 -text
 src/shared/mo_action_types.f90 -text
-src/shared/mo_add_tracer_ref.f90 -text
 src/shared/mo_cdi_constants.f90 -text
 src/shared/mo_checksum.f90 -text
-src/shared/mo_datetime.f90 -text
 src/shared/mo_derived_variable_handling.f90 -text
 src/shared/mo_dictionary.f90 -text
 src/shared/mo_event_manager.f90 -text
@@ -1971,7 +1962,6 @@ src/shared/mo_exception.f90 -text
 src/shared/mo_expression.f90 -text
 src/shared/mo_fast_math_lib.f90 svneol=native#text/plain
 src/shared/mo_fortran_tools.f90 -text
-src/shared/mo_get_utc_date_tr.f90 -text
 src/shared/mo_gnat_gridsearch.f90 -text
 src/shared/mo_grid_subset.f90 -text
 src/shared/mo_hash_table.f90 -text
@@ -1986,7 +1976,6 @@ src/shared/mo_math_constants.f90 -text
 src/shared/mo_math_types.f90 -text
 src/shared/mo_math_utilities.f90 -text
 src/shared/mo_math_utility_solvers.f90 -text
-src/shared/mo_mtime_extensions.f90 -text
 src/shared/mo_namelist.f90 -text
 src/shared/mo_octree.f90 -text
 src/shared/mo_orbit.f90 -text
@@ -1996,8 +1985,7 @@ src/shared/mo_random_util.f90 -text
 src/shared/mo_real_timer.f90 -text
 src/shared/mo_statistics.f90 -text
 src/shared/mo_time_base.f90 -text
-src/shared/mo_time_interpolation.f90 -text
-src/shared/mo_time_interpolation_weights.f90 -text
+src/shared/mo_time_management.f90 -text
 src/shared/mo_timer.f90 -text
 src/shared/mo_tracer_metadata.f90 -text
 src/shared/mo_tracer_metadata_types.f90 -text
@@ -2014,6 +2002,7 @@ src/shared/mo_util_sysinfo.f90 -text
 src/shared/mo_util_system.f90_off -text
 src/shared/mo_util_table.f90 -text
 src/shared/mo_util_uuid.f90 -text
+src/shared/mo_util_uuid_types.f90 -text
 src/shared/mo_util_vcs.f90 -text
 src/shared/mo_var_list.f90 -text
 src/shared/mo_var_list_element.f90 -text
@@ -2128,6 +2117,7 @@ support/util_sysinfo.c -text
 support/util_system.c -text
 support/util_timer.c -text
 support/util_uuid.c -text
+support/util_uuid.h -text
 /target_confmake.ksh -text
 /target_database.ksh -text
 vertical_coord_tables/README -text

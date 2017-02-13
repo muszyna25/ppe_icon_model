@@ -22,18 +22,15 @@
 MODULE mo_echam_phy_init
 
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: finish, message, warning, message_text
-  USE mo_datetime,             ONLY: t_datetime
-
-  USE mo_sync,                 ONLY: sync_c, sync_patch_array
-
+  USE mo_exception,            ONLY: finish, message, message_text
+  USE mtime,                   ONLY: datetime
+  
   USE mo_io_config,            ONLY: default_read_method
   USE mo_read_interface,       ONLY: openInputFile, closeFile, read_2D, &
     &                                t_stream_id, on_cells
 
   ! model configuration
-  USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: nlev, iqv, iqt, ntracer, ltestcase
+  USE mo_run_config,           ONLY: nlev, iqv, iqt, ico2, ntracer, ltestcase
   USE mo_vertical_coord_table, ONLY: vct
   USE mo_dynamics_config,      ONLY: iequations
   USE mo_impl_constants,       ONLY: inh_atmosphere, max_char_length
@@ -91,11 +88,12 @@ MODULE mo_echam_phy_init
     &                                timer_prep_echam_phy
 
   ! for AMIP boundary conditions
-  USE mo_time_interpolation         ,ONLY: time_weights_limm
-  USE mo_time_interpolation_weights ,ONLY: wi_limm
-  USE mo_bc_sst_sic,           ONLY: read_bc_sst_sic, bc_sst_sic_time_interpolation
-  USE mo_bc_greenhouse_gases,  ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
-    &                                bc_greenhouse_gases_file_read
+!  USE mo_time_interpolation         ,ONLY: time_weights_limm
+!  USE mo_time_interpolation_weights ,ONLY: wi_limm
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, calculate_time_interpolation_weights
+  USE mo_bc_sst_sic,             ONLY: read_bc_sst_sic, bc_sst_sic_time_interpolation
+  USE mo_bc_greenhouse_gases,    ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
+    &                                bc_greenhouse_gases_file_read, ghg_co2mmr
   ! for aeorosols in simple plumes
   USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
 
@@ -120,13 +118,13 @@ CONTAINS
   !! name change to init_echam_phy by Levi Silvers
   !!
   SUBROUTINE init_echam_phy( p_patch, ctest_name, &
-                                nlev, vct_a, vct_b, current_date)
+                                nlev, vct_a, vct_b, mtime_current)
 
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch(:)
     CHARACTER(LEN=*),INTENT(in) :: ctest_name
     INTEGER,         INTENT(in) :: nlev
     REAL(wp),        INTENT(in) :: vct_a(:), vct_b(:)
-    TYPE(t_datetime),INTENT(in) :: current_date
+    TYPE(datetime),  POINTER    :: mtime_current !< Date and time information
 
     INTEGER :: khydromet, ktrac
     INTEGER :: jg, ndomain
@@ -136,6 +134,8 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: land_phys_fn = 'bc_land_phys.nc'
     CHARACTER(len=*), PARAMETER :: land_sso_fn  = 'bc_land_sso.nc'
 
+    TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
+    
     IF (timers_level > 1) CALL timer_start(timer_prep_echam_phy)
 
     !-------------------------------------------------------------------
@@ -331,12 +331,22 @@ CONTAINS
       ! interpolate to the current date and time, placing the annual means at
       ! the mid points of the current and preceding or following year, if the
       ! current date is in the 1st or 2nd half of the year, respectively.
-      CALL bc_greenhouse_gases_time_interpolation(current_date)
+      CALL bc_greenhouse_gases_time_interpolation(mtime_current)
+      !
+      ! IF a CO2 tracer exists, then copy the time interpolated scalar ghg_co2mmr
+      ! to the 3-dimensional tracer field.
+      IF ( iqt <= ico2 .AND. ico2 <= ntracer ) THEN
+        DO jg = 1,ndomain
+          prm_field(jg)%qtrc(:,:,:,ico2) = ghg_co2mmr
+        END DO
+      END IF
+      !
     ENDIF
 
     ! interpolation weights for linear interpolation
     ! of monthly means onto the actual integration time step
-    CALL time_weights_limm(current_date, wi_limm)
+    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_current)
+!    CALL time_weights_limm(datetime_current, wi_limm)
 
 !    IF (.NOT. ctest_name(1:3) == 'TPE') THEN
 
@@ -364,9 +374,9 @@ CONTAINS
           (is_coupled_run() .AND. .NOT. ltestcase) ) THEN
         !
         ! sea surface temperature, sea ice concentration and depth
-        CALL read_bc_sst_sic(current_date%year, p_patch(1))
+        CALL read_bc_sst_sic(mtime_current%date%year, p_patch(1))
         !
-        CALL bc_sst_sic_time_interpolation(wi_limm                           , &
+        CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights, &
              &                             prm_field(jg)%lsmask(:,:)         , &
              &                             prm_field(jg)%tsfc_tile(:,:,iwtr) , &
              &                             prm_field(jg)%seaice(:,:)         , &
@@ -441,7 +451,8 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP WORKSHARE
-      field% q    (:,:,:,iqv) = qv(:,:,:)
+      field% qtrc (:,:,:,:)   = 0._wp
+      field% qtrc (:,:,:,iqv) = qv(:,:,:)
       field% xvar (:,:,:)     = qv(:,:,:)*0.1_wp
       field% xskew(:,:,:)     = 2._wp
 
@@ -518,25 +529,25 @@ CONTAINS
       tend% temp_rlw(:,:,:)   = 0._wp
       tend%temp_rlw_impl(:,:) = 0._wp
       tend% temp_cld(:,:,:)   = 0._wp
-      tend%    q_cld(:,:,:,:) = 0._wp
+      tend% qtrc_cld(:,:,:,:) = 0._wp
 
       tend% temp_dyn(:,:,:)   = 0._wp
-      tend%    q_dyn(:,:,:,:) = 0._wp
+      tend% qtrc_dyn(:,:,:,:) = 0._wp
       tend%    u_dyn(:,:,:)   = 0._wp
       tend%    v_dyn(:,:,:)   = 0._wp
 
       tend% temp_phy(:,:,:)   = 0._wp
-      tend%    q_phy(:,:,:,:) = 0._wp
+      tend% qtrc_phy(:,:,:,:) = 0._wp
       tend%    u_phy(:,:,:)   = 0._wp
       tend%    v_phy(:,:,:)   = 0._wp
 
       tend% temp_cnv(:,:,:)   = 0._wp
-      tend%    q_cnv(:,:,:,:) = 0._wp
+      tend% qtrc_cnv(:,:,:,:) = 0._wp
       tend%    u_cnv(:,:,:)   = 0._wp
       tend%    v_cnv(:,:,:)   = 0._wp
 
       tend% temp_vdf(:,:,:)   = 0._wp
-      tend%    q_vdf(:,:,:,:) = 0._wp
+      tend% qtrc_vdf(:,:,:,:) = 0._wp
       tend%    u_vdf(:,:,:)   = 0._wp
       tend%    v_vdf(:,:,:)   = 0._wp
 

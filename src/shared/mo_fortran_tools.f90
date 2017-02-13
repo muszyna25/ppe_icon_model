@@ -20,9 +20,9 @@
 !!
 MODULE mo_fortran_tools
 
+  USE mo_kind,                    ONLY: wp, sp, vp, dp, ik4 => i4
   USE mo_exception,               ONLY: finish
   USE mo_impl_constants,          ONLY: SUCCESS
-  USE mo_kind,                    ONLY: wp, sp, dp, ik4 => i4
   USE mo_impl_constants,          ONLY: VARNAME_LEN
 #ifdef _OPENACC
   USE mo_mpi,                     ONLY: i_am_accel_node
@@ -32,14 +32,15 @@ MODULE mo_fortran_tools
 
   PUBLIC :: t_Destructible
   PUBLIC :: assign_if_present
+  PUBLIC :: t_ptr_2d3d, t_ptr_2d3d_vp
   PUBLIC :: assign_if_present_allocatable
   PUBLIC :: ensureSize
-  PUBLIC :: t_ptr_2d
-  PUBLIC :: t_ptr_3d
-  PUBLIC :: t_ptr_2d3d
+  PUBLIC :: t_ptr_2d, t_ptr_2d_sp
+  PUBLIC :: t_ptr_3d, t_ptr_3d_sp
   PUBLIC :: t_ptr_i2d3d
   PUBLIC :: t_ptr_tracer
-  PUBLIC :: copy, init, swap, var_scale, negative2zero
+  PUBLIC :: copy, init, swap, negative2zero
+  PUBLIC :: var_scale, var_add
   PUBLIC :: init_zero_contiguous_dp, init_zero_contiguous_sp
   PUBLIC :: resize_arr_c1d
 
@@ -53,17 +54,31 @@ MODULE mo_fortran_tools
   END TYPE t_Destructible
 
   TYPE t_ptr_2d
-    REAL(wp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
+    REAL(dp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
   END TYPE t_ptr_2d
 
+  TYPE t_ptr_2d_sp
+    REAL(sp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
+  END TYPE t_ptr_2d_sp
+
   TYPE t_ptr_3d
-    REAL(wp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
+    REAL(dp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
   END TYPE t_ptr_3d
+
+  TYPE t_ptr_3d_sp
+    REAL(sp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
+  END TYPE t_ptr_3d_sp
 
   TYPE t_ptr_2d3d
     REAL(wp),POINTER :: p_3d(:,:,:)  ! REAL pointer to 3D (spatial) array
     REAL(wp),POINTER :: p_2d(:,:)    ! REAL pointer to 2D (spatial) array
   END TYPE t_ptr_2d3d
+
+  TYPE t_ptr_2d3d_vp
+    REAL(vp),POINTER :: p_3d(:,:,:)  ! REAL pointer to 3D (spatial) array
+    REAL(vp),POINTER :: p_2d(:,:)    ! REAL pointer to 2D (spatial) array
+  END TYPE t_ptr_2d3d_vp
+
 
   TYPE t_ptr_i2d3d
     INTEGER,POINTER :: p_3d(:,:,:)  ! INTEGER pointer to 3D (spatial) array
@@ -83,6 +98,7 @@ MODULE mo_fortran_tools
     MODULE PROCEDURE assign_if_present_integer
     MODULE PROCEDURE assign_if_present_integers
     MODULE PROCEDURE assign_if_present_real
+    MODULE PROCEDURE assign_if_present_real_sp
   END INTERFACE assign_if_present
 
   INTERFACE assign_if_present_allocatable
@@ -138,6 +154,10 @@ MODULE mo_fortran_tools
   INTERFACE var_scale
     MODULE PROCEDURE var_scale_3d_dp
   END INTERFACE var_scale
+
+  INTERFACE var_add
+    MODULE PROCEDURE var_addc_3d_dp
+  END INTERFACE var_add
 
   INTERFACE swap
     MODULE PROCEDURE swap_int
@@ -217,6 +237,13 @@ CONTAINS
     y = x
   END SUBROUTINE assign_if_present_real
 
+  SUBROUTINE assign_if_present_real_sp (y,x)
+    REAL(sp), INTENT(inout)        :: y
+    REAL(sp), INTENT(in) ,OPTIONAL :: x
+    IF (.NOT.PRESENT(x)) RETURN
+    IF ( x == -HUGE(x) ) RETURN
+    y = x
+  END SUBROUTINE assign_if_present_real_sp
 
   SUBROUTINE assign_if_present_logical_allocatable_1d(y, x)
     LOGICAL, ALLOCATABLE, INTENT(INOUT) :: y(:)
@@ -1177,6 +1204,29 @@ CONTAINS
 !$omp end do nowait
 #endif
   END SUBROUTINE var_scale_3d_dp
+
+
+  ! add a constant value to a 3D field
+  SUBROUTINE var_addc_3d_dp(var, add_val)
+    REAL(dp), INTENT(inout) :: var(:, :, :)
+    REAL(dp), INTENT(in) :: add_val
+
+    INTEGER :: i1, i2, i3, m1, m2, m3
+
+    m1 = SIZE(var, 1)
+    m2 = SIZE(var, 2)
+    m3 = SIZE(var, 3)
+!$omp do collapse(3)
+    DO i3 = 1, m3
+      DO i2 = 1, m2
+        DO i1 = 1, m1
+          var(i1, i2, i3) = var(i1, i2, i3) + add_val
+        END DO
+      END DO
+    END DO
+!$omp end do nowait
+  END SUBROUTINE var_addc_3d_dp
+
 
   SUBROUTINE negative2zero_4d_dp(var)
     REAL(dp), INTENT(inout) :: var(:, :, :, :)

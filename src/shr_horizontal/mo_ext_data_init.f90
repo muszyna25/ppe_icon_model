@@ -39,20 +39,20 @@ MODULE mo_ext_data_init
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape,                     &
     &                              ihs_atm_temp, ihs_atm_theta, inh_atmosphere,                     &
     &                              max_char_length, min_rlcell_int, min_rlcell,                     &
-    &                              MODIS, GLOBCOVER2009, GLC2000, SUCCESS
+    &                              MODIS, GLOBCOVER2009, GLC2000, SUCCESS, SSTICE_ANA_CLINC,        &
+    &                              SSTICE_CLIM
   USE mo_math_constants,     ONLY: dbl_eps, rad2deg
-  USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
+  USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def, tmelt
   USE mo_run_config,         ONLY: msg_level, iforcing, check_uuid_gracefully
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
                                    isub_seaice, isub_lake, sstice_mode, sst_td_filename,            &
-                                   ci_td_filename, itype_lndtbl
+                                   ci_td_filename, itype_lndtbl, c_soil, c_soil_urb
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, &
     &                              generate_td_filename, extpar_varnames_map_file, &
     &                              n_iter_smooth_topo, i_lctype, nclass_lu, nmonths_ext
-  USE mo_time_config,        ONLY: time_config
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
   USE mo_echam_phy_config,   ONLY: echam_phy_config
@@ -70,18 +70,18 @@ MODULE mo_ext_data_init
   USE mo_ext_data_state,     ONLY: construct_ext_data, levelname, cellname, o3name, o3unit, &
     &                              nlev_o3, nmonths
   USE mo_master_config,      ONLY: getModelBaseDir
+  USE mo_time_config,        ONLY: time_config
   USE mo_io_config,          ONLY: default_read_method
   USE mo_read_interface,     ONLY: nf, openInputFile, closeFile, on_cells, &
     &                              t_stream_id, read_2D, read_2D_int, &
-    &                              read_3D_extdim
-  USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, c_sea
-  USE mo_datetime,           ONLY: t_datetime, month2hour, add_time
+    &                              read_3D_extdim, read_2D_extdim
+  USE mo_phyparam_soil,      ONLY: c_lnd, c_sea
   USE mo_util_cdi,           ONLY: get_cdi_varID, test_cdi_varID, read_cdi_2d,     &
     &                              read_cdi_3d, t_inputParameters,                 &
     &                              makeInputParameters, deleteInputParameters,     &
     &                              has_filetype_netcdf
-  USE mo_util_uuid,          ONLY: t_uuid, OPERATOR(==), uuid_unparse,  &
-    &                              uuid_string_length
+  USE mo_util_uuid_types,    ONLY: t_uuid, uuid_string_length
+  USE mo_util_uuid,          ONLY: OPERATOR(==), uuid_unparse
   USE mo_dictionary,         ONLY: t_dictionary, dict_init, dict_finalize,         &
     &                              dict_loadfile
   USE mo_initicon_config,    ONLY: timeshift
@@ -93,7 +93,13 @@ MODULE mo_ext_data_init
     &                              vlistInqVarIntKey, CDI_GLOBAL, gridInqUUID, &
     &                              streamClose, cdiStringError
   USE mo_math_gradients,     ONLY: grad_fe_cell
-  USE mo_fortran_tools,      ONLY: var_scale
+  USE mo_fortran_tools,      ONLY: var_scale, var_add
+  USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime,        &
+    &                              MAX_DATETIME_STR_LEN, datetimetostring,           &
+    &                              OPERATOR(+)
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
+    &                                  calculate_time_interpolation_weights
+
 
   IMPLICIT NONE
 
@@ -110,6 +116,7 @@ MODULE mo_ext_data_init
   INTEGER, PARAMETER :: num_lcc = 23, n_param_lcc = 7
 
   LOGICAL, ALLOCATABLE :: is_frglac_in(:) !< checks whether the extpar file contains fr_glac
+  LOGICAL :: read_netcdf_data             !< control variable if extpar data are in GRIB2 for NetCDF format
 
 
   PUBLIC :: init_ext_data
@@ -148,7 +155,7 @@ CONTAINS
     ! GRIB2 shortnames or NetCDF var names.
     TYPE (t_dictionary) :: extpar_varnames_dict
 
-    TYPE(t_datetime) :: datetime
+    TYPE(datetime), POINTER :: this_datetime
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':init_ext_data'
 
@@ -175,6 +182,9 @@ CONTAINS
       IF(extpar_varnames_map_file /= ' ') THEN
         CALL dict_loadfile(extpar_varnames_dict, TRIM(extpar_varnames_map_file))
       END IF
+      read_netcdf_data = .FALSE.
+    ELSE
+      read_netcdf_data = .TRUE.
     END IF
 
     !------------------------------------------------------------------
@@ -227,7 +237,7 @@ CONTAINS
       ! call read_ext_data_atm to read O3
       ! topography is used from analytical functions, except for ljsbach=.TRUE. in which case
       ! elevation of cell centers is read in and the topography is "grown" gradually to this elevation
-      IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape .OR. sstice_mode == 2 .OR. &
+      IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape .OR. sstice_mode == SSTICE_CLIM .OR. &
          & echam_phy_config%ljsbach) THEN
         IF ( echam_phy_config%ljsbach .AND. (iequations /= inh_atmosphere) ) THEN
           CALL message( TRIM(routine),'topography is grown to elevation' )
@@ -279,35 +289,44 @@ CONTAINS
         ! midnight.
         !
         IF (.NOT. isRestart()) THEN
-          datetime     = time_config%ini_datetime
-          IF (timeshift%dt_shift < 0._wp) CALL add_time(timeshift%dt_shift,0,0,0,datetime)
+          this_datetime => newDatetime(time_config%tc_startdate)
+          IF (timeshift%dt_shift < 0._wp) THEN
+            this_datetime = this_datetime + timeshift%mtime_shift
+          END IF
         ELSE
-          datetime     = time_config%cur_datetime
+          this_datetime => newDatetime(time_config%tc_current_date)
         END IF  ! isRestart
-        !
-        datetime%hour= 0   ! always assume midnight
+        
+        ! always assume midnight
+        this_datetime%time%hour   = 0   
+        this_datetime%time%minute = 0
+        this_datetime%time%second = 0
+        this_datetime%time%ms     = 0
 
         DO jg = 1, n_dom
-          CALL interpol_monthly_mean(p_patch(jg), datetime,              &! in
+          CALL interpol_monthly_mean(p_patch(jg), this_datetime,         &! in
             &                        ext_data(jg)%atm_td%ndvi_mrat,      &! in
             &                        ext_data(jg)%atm%ndviratio          )! out
         ENDDO
 
         IF ( albedo_type == MODIS) THEN
           DO jg = 1, n_dom
-            CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+            CALL interpol_monthly_mean(p_patch(jg), this_datetime,       &! in
               &                        ext_data(jg)%atm_td%alb_dif,      &! in
               &                        ext_data(jg)%atm%alb_dif          )! out
 
-            CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+            CALL interpol_monthly_mean(p_patch(jg), this_datetime,       &! in
               &                        ext_data(jg)%atm_td%albuv_dif,    &! in
               &                        ext_data(jg)%atm%albuv_dif        )! out
 
-            CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+            CALL interpol_monthly_mean(p_patch(jg), this_datetime,       &! in
               &                        ext_data(jg)%atm_td%albni_dif,    &! in
               &                        ext_data(jg)%atm%albni_dif        )! out
           ENDDO
         ENDIF  ! albedo_type
+
+        ! clean up
+        CALL deallocateDatetime(this_datetime)
 
       END IF
 
@@ -329,8 +348,6 @@ CONTAINS
     CALL dict_finalize(extpar_varnames_dict)
 
   END SUBROUTINE init_ext_data
-
-
 
 
   !-------------------------------------------------------------------------
@@ -487,7 +504,12 @@ CONTAINS
         ENDIF
       ENDIF
 
-
+      ! Check whether external parameter file contains SST climatology
+      IF ( sstice_mode == SSTICE_ANA_CLINC ) THEN
+        IF ( test_cdi_varID(cdi_extpar_id, 'T_SEA')  == -1 ) THEN
+          CALL finish(routine,'SST climatology missing in '//TRIM(extpar_filename))
+        ENDIF
+      ENDIF
 
       ! Search for glacier fraction in Extpar file
       !
@@ -709,6 +731,7 @@ CONTAINS
     REAL(wp), POINTER :: lu_gcv(:)
 
     LOGICAL :: l_exist
+    CHARACTER(filename_max) :: extpar_file
 
     TYPE(t_inputParameters) :: parameters
 
@@ -817,7 +840,7 @@ CONTAINS
                    &   0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 140.0_wp,  0.72_wp, 1._wp, & ! rainfed croplands
                    &   0.25_wp,  0.8_wp,  3.0_wp, 0.8_wp, 130.0_wp,  0.55_wp, 1._wp, & ! mosaic cropland (50-70%) - vegetation (20-50%)
                    &   0.07_wp,  0.9_wp,  3.5_wp, 1.0_wp, 120.0_wp,  0.72_wp, 1._wp, & ! mosaic vegetation (50-70%) - cropland (20-50%)
-                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 280.0_wp,  0.38_wp, 1._wp, & ! closed broadleaved evergreen forest
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 250.0_wp,  0.38_wp, 1._wp, & ! closed broadleaved evergreen forest
                    &   1.00_wp,  0.9_wp,  5.0_wp, 1.0_wp, 300.0_wp,  0.31_wp, 1._wp, & ! closed broadleaved deciduous forest
                    &   0.50_wp,  0.8_wp,  4.0_wp, 1.5_wp, 225.0_wp,  0.31_wp, 1._wp, & ! open broadleaved deciduous forest
                    &   1.00_wp,  0.8_wp,  5.0_wp, 0.6_wp, 300.0_wp,  0.27_wp, 1._wp, & ! closed needleleaved evergreen forest
@@ -972,54 +995,60 @@ CONTAINS
           ENDIF
         ENDDO
 
+        ! Start reading external parameter data
+        ! The cdi-based read routines are used for GRIB2 input data only due to performance problems
+        IF (read_netcdf_data) THEN
+          extpar_file = generate_filename(extpar_filename, getModelBaseDir(),TRIM(p_patch(jg)%grid_filename))
+          stream_id   = openInputFile(extpar_file, p_patch(jg), default_read_method)
+        ELSE
+          parameters = makeInputParameters(cdi_extpar_id(jg), p_patch(jg)%n_patch_cells_g, p_patch(jg)%comm_pat_scatter_c, &
+          &                                opt_dict=extpar_varnames_dict)
+        ENDIF
+
         !--------------------------------------------------------------------
         !
         ! Read topography for triangle centers (triangular grid)
         !
         !--------------------------------------------------------------------
-        parameters = makeInputParameters(cdi_extpar_id(jg), p_patch(jg)%n_patch_cells_g, p_patch(jg)%comm_pat_scatter_c, &
-        &                                opt_dict=extpar_varnames_dict)
-
-        ! triangle center
-        CALL read_cdi_2d(parameters, 'topography_c', ext_data(jg)%atm%topography_c)
+        CALL read_extdata('topography_c', ext_data(jg)%atm%topography_c)
 
         !
         ! other external parameters on triangular grid
         !
-        CALL read_cdi_2d(parameters, 'FR_LAND', ext_data(jg)%atm%fr_land)
-
+        CALL read_extdata('FR_LAND', ext_data(jg)%atm%fr_land)
 
         SELECT CASE ( iforcing )
         CASE ( inwp )
-          CALL read_cdi_2d(parameters, 'NDVI_MAX', ext_data(jg)%atm%ndvi_max)
-          CALL read_cdi_2d(parameters, 'SOILTYP', ext_data(jg)%atm%soiltyp)
-          CALL read_cdi_3d(parameters, 'LU_CLASS_FRACTION', nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction, opt_lev_dim=3 )
-          CALL read_cdi_2d(parameters, 'T_CL', ext_data(jg)%atm%t_cl)
-          CALL read_cdi_2d(parameters, 'SSO_STDH', ext_data(jg)%atm%sso_stdh)
-          CALL read_cdi_2d(parameters, 'SSO_THETA', ext_data(jg)%atm%sso_theta)
-          CALL read_cdi_2d(parameters, 'SSO_GAMMA', ext_data(jg)%atm%sso_gamma)
-          CALL read_cdi_2d(parameters, 'SSO_SIGMA', ext_data(jg)%atm%sso_sigma)
-          CALL read_cdi_2d(parameters, 'FR_LAKE', ext_data(jg)%atm%fr_lake)
-          CALL read_cdi_2d(parameters, 'DEPTH_LK', ext_data(jg)%atm%depth_lk)
+        CALL read_extdata('NDVI_MAX',  ext_data(jg)%atm%ndvi_max)
+        CALL read_extdata('SOILTYP',   arr2di=ext_data(jg)%atm%soiltyp)
+        CALL read_extdata('T_CL',      ext_data(jg)%atm%t_cl)
+        CALL read_extdata('SSO_STDH',  ext_data(jg)%atm%sso_stdh)
+        CALL read_extdata('SSO_THETA', ext_data(jg)%atm%sso_theta)
+        CALL read_extdata('SSO_GAMMA', ext_data(jg)%atm%sso_gamma)
+        CALL read_extdata('SSO_SIGMA', ext_data(jg)%atm%sso_sigma)
+        CALL read_extdata('FR_LAKE',   ext_data(jg)%atm%fr_lake)
+        CALL read_extdata('DEPTH_LK',  ext_data(jg)%atm%depth_lk)
+
+        CALL read_extdata('LU_CLASS_FRACTION', arr3d=ext_data(jg)%atm%lu_class_fraction,ltime=.FALSE.) 
 
           ! The following fields are only required without surface tiles
           IF (ntiles_lnd == 1) THEN
-            CALL read_cdi_2d(parameters, 'PLCOV_MX', ext_data(jg)%atm%plcov_mx)
-            CALL read_cdi_2d(parameters, 'LAI_MX', ext_data(jg)%atm%lai_mx)
-            CALL read_cdi_2d(parameters, 'ROOTDP', ext_data(jg)%atm%rootdp)
-            CALL read_cdi_2d(parameters, 'RSMIN', ext_data(jg)%atm%rsmin)
-            CALL read_cdi_2d(parameters, 'FOR_D', ext_data(jg)%atm%for_d)
-            CALL read_cdi_2d(parameters, 'FOR_E', ext_data(jg)%atm%for_e)
+            CALL read_extdata('PLCOV_MX', ext_data(jg)%atm%plcov_mx)
+            CALL read_extdata('LAI_MX',   ext_data(jg)%atm%lai_mx)
+            CALL read_extdata('ROOTDP',   ext_data(jg)%atm%rootdp)
+            CALL read_extdata('RSMIN',    ext_data(jg)%atm%rsmin)
+            CALL read_extdata('FOR_D',    ext_data(jg)%atm%for_d)
+            CALL read_extdata('FOR_E',    ext_data(jg)%atm%for_e)
           ENDIF
 
           IF (atm_phy_nwp_config(jg)%itype_z0 == 1) THEN
             ! only read, if contribution from sub-scale orography should be included in z0
-            CALL read_cdi_2d(parameters, 'Z0', ext_data(jg)%atm%z0)
+            CALL read_extdata('Z0', ext_data(jg)%atm%z0)
           ENDIF
 
           IF (is_frglac_in(jg)) THEN
             ! for backward compatibility with extpar files generated prior to 2014-01-31
-            CALL read_cdi_2d(parameters, 'ICE', ext_data(jg)%atm%fr_glac)
+             CALL read_extdata('ICE', ext_data(jg)%atm%fr_glac)
           ELSE
             ! for new extpar files (generated after 2014-01-31)
             ! take it from lu_class_fraction
@@ -1027,7 +1056,7 @@ CONTAINS
           ENDIF
 
           IF ( l_emiss ) THEN
-            CALL read_cdi_2d(parameters, 'EMIS_RAD', ext_data(jg)%atm%emis_rad)
+            CALL read_extdata('EMIS_RAD', ext_data(jg)%atm%emis_rad)
           ELSE
             ext_data(jg)%atm%emis_rad(:,:)= zemiss_def
           ENDIF
@@ -1038,23 +1067,25 @@ CONTAINS
 
           ! Read time dependent data
           IF ( irad_aero == 6 .OR. irad_aero == 9) THEN
-            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_SS', ext_data(jg)%atm_td%aer_ss)
-            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_DUST', ext_data(jg)%atm_td%aer_dust)
-            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_ORG', ext_data(jg)%atm_td%aer_org)
-            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_SO4', ext_data(jg)%atm_td%aer_so4)
-            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_BC', ext_data(jg)%atm_td%aer_bc)
+            CALL read_extdata('AER_SS',   arr3d=ext_data(jg)%atm_td%aer_ss)
+            CALL read_extdata('AER_DUST', arr3d=ext_data(jg)%atm_td%aer_dust)
+            CALL read_extdata('AER_ORG',  arr3d=ext_data(jg)%atm_td%aer_org)
+            CALL read_extdata('AER_SO4',  arr3d=ext_data(jg)%atm_td%aer_so4)
+            CALL read_extdata('AER_BC',   arr3d=ext_data(jg)%atm_td%aer_bc)
           ENDIF  ! irad_aero
+          CALL read_extdata('NDVI_MRAT', arr3d=ext_data(jg)%atm_td%ndvi_mrat)
 
-          CALL read_cdi_2d(parameters, nmonths_ext(jg), 'NDVI_MRAT', ext_data(jg)%atm_td%ndvi_mrat)
+          IF (sstice_mode == SSTICE_ANA_CLINC) THEN
+            CALL read_extdata('T_SEA', arr3d=ext_data(jg)%atm_td%sst_m)
+          ENDIF
 
           !--------------------------------
           ! If MODIS albedo is used
           !--------------------------------
           IF ( albedo_type == MODIS) THEN
-            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'ALB', ext_data(jg)%atm_td%alb_dif)
-            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'ALUVD', ext_data(jg)%atm_td%albuv_dif)
-            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'ALNID', ext_data(jg)%atm_td%albni_dif)
-
+            CALL read_extdata('ALB',   arr3d=ext_data(jg)%atm_td%alb_dif)
+            CALL read_extdata('ALUVD', arr3d=ext_data(jg)%atm_td%albuv_dif)
+            CALL read_extdata('ALNID', arr3d=ext_data(jg)%atm_td%albni_dif)
 
             rl_start = 1
             rl_end   = min_rlcell
@@ -1121,8 +1152,12 @@ CONTAINS
           END IF  !  albedo_type
 
         END SELECT ! iforcing
-        CALL deleteInputParameters(parameters)
 
+        IF (read_netcdf_data) THEN
+          CALL closeFile(stream_id)
+        ELSE
+          CALL deleteInputParameters(parameters)
+        ENDIF
 
         !
         ! derived external parameter fields
@@ -1253,7 +1288,7 @@ CONTAINS
     !------------------------------------------
     ! Read time dependent SST and ICE Fraction
     !------------------------------------------
-    IF (sstice_mode == 2 .AND. iforcing == inwp) THEN
+    IF (sstice_mode == SSTICE_CLIM .AND. iforcing == inwp) THEN
 
       DO jg = 1,n_dom
        !Read the climatological values for SST and ice cover
@@ -1309,6 +1344,47 @@ CONTAINS
 
    END IF ! sstice_mode
 
+   CONTAINS
+
+     ! Wrapper routine for reading input data via cdilib for GRIB2 or via optimized netcdf routines
+     !
+     SUBROUTINE read_extdata(varname,arr2d,arr2di,arr3d,ltime)
+       CHARACTER(LEN=*), INTENT(IN) :: varname  ! name of input variable
+       REAL(wp), OPTIONAL, INTENT(INOUT) :: arr2d(:,:), arr3d(:,:,:) ! alternative I/O arrays
+       INTEGER, OPTIONAL, INTENT(INOUT) :: arr2di(:,:)
+       LOGICAL, OPTIONAL, INTENT(IN) :: ltime ! .true. if third dimension is time
+
+       LOGICAL :: dim3_is_time
+
+       IF (PRESENT(arr3d) .AND. PRESENT(ltime)) THEN
+         dim3_is_time = ltime
+       ELSE
+         dim3_is_time = .TRUE.
+       ENDIF
+
+       IF (PRESENT(arr2d)) THEN
+         IF (read_netcdf_data) THEN
+           CALL read_2D(stream_id, on_cells, TRIM(varname), arr2d)
+         ELSE
+           CALL read_cdi_2d(parameters, TRIM(varname), arr2d)
+         ENDIF
+       ELSE IF (PRESENT(arr2di)) THEN
+         IF (read_netcdf_data) THEN
+           CALL read_2D_int(stream_id, on_cells, TRIM(varname), arr2di)
+         ELSE
+           CALL read_cdi_2d(parameters, TRIM(varname), arr2di)
+         ENDIF
+       ELSE IF (PRESENT(arr3d)) THEN
+         IF (read_netcdf_data) THEN
+           CALL read_2D_extdim(stream_id, on_cells, TRIM(varname), arr3d)
+         ELSE IF (dim3_is_time) THEN
+           CALL read_cdi_2d(parameters, SIZE(arr3d,3), TRIM(varname), arr3d)
+         ELSE
+           CALL read_cdi_3d(parameters, TRIM(varname), SIZE(arr3d,3), arr3d, opt_lev_dim=3 )
+         ENDIF
+       ENDIF
+
+     END SUBROUTINE read_extdata
 
   END SUBROUTINE read_ext_data_atm
   !-------------------------------------------------------------------------
@@ -1426,7 +1502,8 @@ CONTAINS
                ! surface area index
                ext_data(jg)%atm%sai_t    (jc,jb,1)  = c_lnd+ext_data(jg)%atm%tai_t(jc,jb,1)
                ! evaporative soil area index
-               ext_data(jg)%atm%eai_t (jc,jb,1)  = c_soil
+               ext_data(jg)%atm%eai_t(jc,jb,1) = &
+                 MERGE(c_soil_urb,c_soil,ext_data(jg)%atm%lc_class_t(jc,jb,1) == ext_data(jg)%atm%i_lc_urban)
                ! minimal stomata resistance
                ext_data(jg)%atm%rsmin2d_t(jc,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
                ! soil type
@@ -1568,7 +1645,7 @@ CONTAINS
                  ext_data(jg)%atm%sai_t    (jc,jb,i_lu)  = c_lnd+ ext_data(jg)%atm%tai_t (jc,jb,i_lu)
 
                  ! evaporative soil area index
-                 ext_data(jg)%atm%eai_t (jc,jb,i_lu)  = c_soil
+                 ext_data(jg)%atm%eai_t (jc,jb,i_lu)  = MERGE(c_soil_urb,c_soil,lu_subs == ext_data(jg)%atm%i_lc_urban)
 
                  ! minimal stomata resistance
                  ext_data(jg)%atm%rsmin2d_t(jc,jb,i_lu)  = ext_data(jg)%atm%stomresmin_lcc(lu_subs)
@@ -1999,42 +2076,68 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2013-05-03)
   !! Generalization to arbitrary monthly mean climatologies
   !!
-  SUBROUTINE interpol_monthly_mean(p_patch, datetime, monthly_means, out_field)
+  SUBROUTINE interpol_monthly_mean(p_patch, mtime_date, monthly_means, out_field)
 
+    TYPE(datetime),   POINTER      :: mtime_date
     TYPE(t_patch),     INTENT(IN)  :: p_patch
-    TYPE(t_datetime),  INTENT(IN)  :: datetime              ! actual date
     REAL(wp),          INTENT(IN)  :: monthly_means(:,:,:)  ! monthly mean climatology
     REAL(wp),          INTENT(OUT) :: out_field(:,:)        ! interpolated output field
 
+    INTEGER                             :: jc, jb               !< loop index
+    INTEGER                             :: i_startblk, i_endblk
+    INTEGER                             :: rl_start, rl_end
+    INTEGER                             :: i_startidx, i_endidx
+    INTEGER                             :: mo1, mo2             !< nearest months
+    REAL(wp)                            :: zw1, zw2
+    TYPE(datetime), POINTER             :: mtime_hour
 
-    INTEGER :: jc, jb               !< loop index
-    INTEGER :: i_startblk, i_endblk, i_nchdom
-    INTEGER :: rl_start, rl_end
-    INTEGER :: i_startidx, i_endidx
-    INTEGER :: mo1, mo2             !< nearest months
-    REAL(wp):: zw1, zw2
-
-!!$    CHARACTER(len=max_char_length), PARAMETER :: &
-!!$      routine = modname//': interpol_monthly_mean'
+    TYPE(t_time_interpolation_weights)  :: current_time_interpolation_weights
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
+    
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = modname//': interpol_monthly_mean'
 
     !---------------------------------------------------------------
-
     ! Find the 2 nearest months mo1, mo2 and the weights zw1, zw2
     ! to the actual date and time
-    CALL month2hour( datetime, mo1, mo2, zw2 )
 
-    zw1 = 1._wp - zw2
+    mtime_hour => newDatetime(mtime_date)
+    mtime_hour%time%minute = 0
+    mtime_hour%time%second = 0
+    mtime_hour%time%ms     = 0     
+    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_hour)
+    call deallocateDatetime(mtime_hour)    
+    mo1 = current_time_interpolation_weights%month1
+    mo2 = current_time_interpolation_weights%month2
+    zw1 = current_time_interpolation_weights%weight1
+    zw2 = current_time_interpolation_weights%weight2
 
-    ! Get interpolated field
-    i_nchdom  = MAX(1,p_patch%n_childdom)
+    ! consistency check
+    IF ((MIN(mo1,mo2) < 1) .OR. (MAX(mo1,mo2) > SIZE(monthly_means,3))) THEN
+      CALL datetimeToString(mtime_date, dtime_string)
+      CALL message('','Result of call to calculate_time_interpolation_weights:')
+      WRITE (message_text,'(a,a)')      '   mtime_date = ', TRIM(dtime_string)
+      CALL message('', message_text)
+      WRITE (message_text,'(a,i2.2)')   '   mo1        = ', mo1
+      CALL message('', message_text)
+      WRITE (message_text,'(a,i2.2)')   '   mo2        = ', mo2
+      CALL message('', message_text)
+      WRITE (message_text,'(a,f25.15)') '   weight1    = ', zw1
+      CALL message('', message_text)
+      WRITE (message_text,'(a,f25.15)') '   weight2    = ', zw2
+      CALL message('', message_text)      
+      CALL finish(routine, "Error!")
+    END IF
 
     ! exclude the boundary interpolation zone of nested domains
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
+    ! Get interpolated field
+    !
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
     DO jb=i_startblk, i_endblk
@@ -2050,9 +2153,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-
   END SUBROUTINE interpol_monthly_mean
-
 
 END MODULE mo_ext_data_init
 

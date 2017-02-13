@@ -28,9 +28,8 @@
 
 MODULE mo_o3_util
 
-  USE mo_datetime,             ONLY: t_datetime
+  USE mo_kind,                 ONLY: i8
   USE mo_exception,            ONLY: finish
-  USE mo_get_utc_date_tr,      ONLY: get_utc_date_tr
   USE mo_parallel_config,      ONLY: nproma
   USE mo_impl_constants,       ONLY: min_rlcell_int, max_dom
   USE mo_kind,                 ONLY: wp
@@ -45,9 +44,17 @@ MODULE mo_o3_util
   USE mo_o3_macc_data,         ONLY: rghg7_macc
   USE mo_radiation_config,     ONLY: irad_o3
   USE mo_physical_constants,   ONLY: amd,amo3,rd,grav
-  USE mo_time_interpolation_weights,   ONLY: wi=>wi_limm
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, ltuning_ozone, icpl_o3_tp
+  USE mo_time_config,          ONLY: time_config
   USE mo_impl_constants,       ONLY: io3_art
+  USE mtime,                   ONLY: datetime, newDatetime, timedelta, newTimedelta, &
+       &                             getPTStringFromMS, OPERATOR(+),                 &
+       &                             NO_OF_MS_IN_A_MINUTE, NO_OF_MS_IN_A_HOUR,       &
+       &                             NO_OF_MS_IN_A_SECOND,                           &       
+       &                             getDayOfYearFromDatetime, MAX_TIMEDELTA_STR_LEN,&
+       &                             deallocateTimedelta, deallocateDatetime
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
+       &                               calculate_time_interpolation_weights
   
   IMPLICIT NONE
 
@@ -61,7 +68,7 @@ CONTAINS
   !=======================================================================
 
   SUBROUTINE o3_timeint( kproma,kbdim,nlev_pres,         & ! IN
-                       & ext_o3 ,                        & ! IN kproma,nlev_p,jb,nmonth
+                       & ext_o3, current_date,           & ! IN kproma,nlev_p,jb,nmonth
                        & o3_time_int                      )! OUT kproma,nlev_p
 
  ! In prior version, just a certain month was selected. This is not used anymore
@@ -72,11 +79,15 @@ CONTAINS
     INTEGER, INTENT(in)         :: kproma ! 
     INTEGER, INTENT(in)         :: kbdim  ! 
     INTEGER, INTENT(in)         :: nlev_pres   ! number of o3 data levels
+    TYPE(datetime), POINTER, INTENT(in) :: current_date
     REAL(wp), INTENT(in) , DIMENSION(kbdim,nlev_pres,0:13) :: ext_o3
     REAL(wp), INTENT(out), DIMENSION(kbdim,nlev_pres)      :: o3_time_int
-
-    o3_time_int(1:kproma,:)=wi%wgt1*ext_o3(1:kproma,:,wi%inm1)+ &
-                            wi%wgt2*ext_o3(1:kproma,:,wi%inm2)
+    TYPE(t_time_interpolation_weights) :: tiw
+    
+    tiw = calculate_time_interpolation_weights(current_date)
+    
+    o3_time_int(1:kproma,:)=tiw%weight1*ext_o3(1:kproma,:,tiw%month1_index)+ &
+                            tiw%weight2*ext_o3(1:kproma,:,tiw%month2_index)
 
   END SUBROUTINE o3_timeint
 
@@ -316,7 +327,7 @@ CONTAINS
 
     REAL(wp) ::                     &
       & z_sim_time_rad,  &
-      & zstunde,                   & ! output from routine get_utc_date_tr
+      & zstunde,                   &
       & ztwo  , ztho
 
     ! output from o3_par_t5:
@@ -343,22 +354,32 @@ CONTAINS
 !!$    INTEGER :: jk
     
     INTEGER :: &
-      & jj, itaja, jb !& ! output from routine get_utc_date_tr
+      & jj, itaja, jb
 
     INTEGER , SAVE :: itaja_o3_previous(max_dom) = 0
     
     INTEGER :: jmm,mmm,mnc,mns,jnn,jc
 
+    TYPE(datetime), POINTER :: current => NULL()
+    TYPE(timedelta), POINTER :: td => NULL()
+    CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: td_string 
+    
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     
     z_sim_time_rad = z_sim_time + 0.5_wp*p_inc_rad
 
-    CALL get_utc_date_tr (                 &
-      &   p_sim_time     = z_sim_time_rad, &
-      &   itype_calendar = 0,              &
-      &   iyear          = jj,             &
-      &   nactday        = itaja,          &
-      &   acthour        = zstunde )
+    current => newDatetime(time_config%tc_exp_startdate)
+    CALL getPTStringFromMS(INT(1000.0_wp*z_sim_time_rad,i8), td_string)
+    td => newTimedelta(td_string)
+    current = time_config%tc_exp_startdate + td
+    jj = INT(current%date%year)
+    itaja = getDayOfYearFromDateTime(current)
+    zstunde = current%time%hour+( &
+         &    REAL(current%time%minute*NO_OF_MS_IN_A_MINUTE &
+         &        +current%time%second*NO_OF_MS_IN_A_SECOND &
+         &        +current%time%ms,wp)/REAL(NO_OF_MS_IN_A_HOUR,wp))
+    CALL deallocateDatetime(current)
+    CALL deallocateTimedelta(td)
 
     !decide whether new ozone calculation is necessary
     IF ( itaja == itaja_o3_previous(jg) ) RETURN
@@ -870,7 +891,14 @@ CONTAINS
   !! @par Revision History
   !! Initial Release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-10-18)
   !!
-  SUBROUTINE calc_o3_gems(pt_patch,datetime,p_diag,prm_diag,ext_data)
+  SUBROUTINE calc_o3_gems(pt_patch,mtime_datetime,p_diag,prm_diag,ext_data)
+
+    TYPE(t_patch),           INTENT(in) :: pt_patch    ! Patch
+    TYPE(datetime), POINTER, INTENT(in) :: mtime_datetime
+    TYPE(t_nh_diag),         INTENT(in) :: p_diag  !!the diagostic variables
+    TYPE(t_nwp_phy_diag),    INTENT(in):: prm_diag
+
+    TYPE(t_external_data),   INTENT(inout) :: ext_data  !!the external data state
 
     CHARACTER(len=*), PARAMETER :: routine =  'calc_o3_gems'
 
@@ -912,13 +940,6 @@ CONTAINS
       &  22320._wp,  64980._wp, 107640._wp, 151560._wp, 195480._wp, 239400._wp, &
       & 283320._wp, 327960._wp, 371880._wp, 415800._wp, 459720._wp, 503640._wp /)    
 
-    TYPE(t_patch),      INTENT(in) :: pt_patch    ! Patch
-    TYPE(t_datetime),   INTENT(in) :: datetime
-    TYPE(t_nh_diag),    INTENT(in) :: p_diag  !!the diagostic variables
-    TYPE(t_nwp_phy_diag),INTENT(in):: prm_diag
-
-    TYPE(t_external_data), INTENT(inout) :: ext_data  !!the external data state
-
     ! local fields
     INTEGER  :: idx0(nproma,0:pt_patch%nlev,pt_patch%nblks_c)
     REAL(wp) :: zlat(0:ilat+1)
@@ -935,23 +956,24 @@ CONTAINS
     INTEGER  :: jk,jkk,jk1,jl,jc,jb !loop indices
     INTEGER  :: idy,im,imn,im1,im2,jk_start,i_startidx,i_endidx,i_nchdom,i_startblk,i_endblk
     INTEGER  :: rl_start,rl_end,k375,k100,ktp
-    REAL(wp) :: ztimi,zxtime,zjl,zlatint,zint,zadd_o3
-    REAL(wp) :: dzsum,dtdzavg,tpshp,wfac
+    REAL(wp) :: ztimi,zxtime,zjl,zlatint,zint,zadd_o3,tuneo3_1(nlev_gems),tuneo3_2(nlev_gems),&
+                o3_macc1,o3_macc2,o3_gems1,o3_gems2
+    REAL(wp) :: dzsum,dtdzavg,tpshp,wfac,wfac_lat(ilat),wfac_p(nlev_gems),wfac_tr(ilat),wfac_p_tr(nlev_gems)
     LOGICAL  :: lfound_all
 
 
     !Time index. Taken from su_ghgclim.F90 of ECMWF's IFS (37r2).
 
-    IDY = datetime%day - 1 !NDD(KINDAT)-1
-    IMN = datetime%month ! NMM(KINDAT)
+    IDY = mtime_datetime%date%day - 1 !NDD(KINDAT)-1
+    IMN = mtime_datetime%date%month ! NMM(KINDAT)
     IF (IMN == 1) THEN
-      ZXTIME=REAL(IDY,wp)*1440._wp + datetime%minute !KMINUT
+      ZXTIME=REAL(IDY*1440 + mtime_datetime%time%hour*60 + mtime_datetime%time%minute, wp) !KMINUT      
     ELSEIF (IMN == 2) THEN
       IF(IDY == 28) IDY=IDY-1
       ! A DAY IN FEB. IS 28.25*24*60/28=1452.8571min LONG.
-      ZXTIME=44640._wp+REAL(IDY,wp)*1452.8571_wp + datetime%minute !KMINUT
+      ZXTIME=44640._wp+REAL(IDY,wp)*1452.8571_wp + REAL(mtime_datetime%time%hour*60 + mtime_datetime%time%minute, wp) !KMINUT
     ELSE
-      ZXTIME=(ZMDAY(IMN-1)+REAL(IDY,KIND(ZXTIME)))*1440._wp + datetime%minute !KMINUT
+      ZXTIME=(ZMDAY(IMN-1)+REAL(IDY,KIND(ZXTIME)))*1440._wp + REAL(mtime_datetime%time%hour*60 + mtime_datetime%time%minute, wp) !KMINUT
     ENDIF
     ! 525960=MINUTES IN A SIDERAL YEAR (365.25d)
     ZXTIME=MOD(ZXTIME,525960._wp)
@@ -991,6 +1013,14 @@ CONTAINS
     ZPRESH(NLEV_GEMS)=110000._wp
     RCLPR(nlev_gems) =ZPRESH(nlev_gems)
 
+    ! Preparations for latitude interpolations
+
+    zlatint=180._wp/REAL(ilat,wp)
+
+    DO jl=0,ilat+1
+      zlat(jl)=(-90._wp+0.5_wp*zlatint+(jl-1)*zlatint)*deg2rad
+    ENDDO
+
     ! volume mixing ratio to ozone pressure thickness
 
     SELECT CASE (irad_o3)
@@ -1010,6 +1040,95 @@ CONTAINS
           zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
         ENDDO
       ENDDO
+    CASE (79) ! blending between GEMS and MACC
+
+      ! Latitude-dependent weight for using MACC in the Antarctic region
+      DO jl = 1, ilat
+        IF (zlat(jl)*rad2deg > -45._wp) THEN
+          wfac_lat(jl) = 0._wp
+        ELSE IF (zlat(jl)*rad2deg > -60._wp) THEN
+          wfac_lat(jl) = -(45._wp+zlat(jl)*rad2deg)/15._wp
+        ELSE
+          wfac_lat(jl) = 1._wp
+        ENDIF
+      ENDDO
+
+      ! Pressure-dependent weight for using MACC in the upper stratosphere and mesosphere
+      DO jk = 1, nlev_gems
+        IF (zrefp(jk) > 500._wp) THEN
+          wfac_p(jk) = 0._wp
+        ELSE IF (zrefp(jk) > 100._wp) THEN
+          wfac_p(jk) = 1._wp - (zrefp(jk)-100._wp)/400._wp
+        ELSE
+          wfac_p(jk) = 1._wp
+        ENDIF
+      ENDDO
+
+      ! Latitude mask field for tropics (used for ozone enhancement in January and February)
+      DO jl = 1, ilat
+        IF (ABS(zlat(jl))*rad2deg > 30._wp) THEN
+          wfac_tr(jl) = 0._wp
+        ELSE IF (ABS(zlat(jl))*rad2deg > 20._wp) THEN
+          wfac_tr(jl) = (30._wp-ABS(zlat(jl))*rad2deg)/10._wp
+        ELSE
+          wfac_tr(jl) = 1._wp
+        ENDIF
+      ENDDO
+
+      ! Pressure mask field for tropics (used for ozone enhancement in January and February)
+      DO jk = 1, nlev_gems
+        IF (zrefp(jk) >= 7000._wp .AND. zrefp(jk) <= 10000._wp) THEN
+          wfac_p_tr(jk) = 1._wp
+        ELSE IF (zrefp(jk) < 7000._wp .AND. zrefp(jk) >= 5000._wp) THEN
+          wfac_p_tr(jk) = (zrefp(jk)-5000._wp)/2000._wp
+        ELSE IF (zrefp(jk) > 10000._wp .AND. zrefp(jk) < 15000._wp) THEN
+          wfac_p_tr(jk) = (15000._wp-zrefp(jk))/5000._wp
+        ELSE
+          wfac_p_tr(jk) = 0._wp
+        ENDIF
+      ENDDO
+
+      ! Profile functions for accelerated ozone hole filling in November
+      ! (Accomplished by taking a weighted average between November and December climatologies)
+      DO jk = 1, nlev_gems
+        IF (zrefp(jk) >= 2000._wp .AND. zrefp(jk) <= 10000._wp) THEN
+          tuneo3_1(jk) = 1._wp
+        ELSE IF (zrefp(jk) < 2000._wp .AND. zrefp(jk) >= 1000._wp) THEN
+          tuneo3_1(jk) = (zrefp(jk)-1000._wp)/1000._wp
+        ELSE IF (zrefp(jk) > 10000._wp .AND. zrefp(jk) < 15000._wp) THEN
+          tuneo3_1(jk) = (15000._wp-zrefp(jk))/5000._wp
+        ELSE
+          tuneo3_1(jk) = 0._wp
+        ENDIF
+      ENDDO
+      DO jk = 1, nlev_gems
+        IF (zrefp(jk) <= 2500._wp) THEN
+          tuneo3_2(jk) = 1._wp
+        ELSE IF (zrefp(jk) <= 12500._wp) THEN
+          tuneo3_2(jk) = (12500._wp-zrefp(jk))/10000._wp
+        ELSE
+          tuneo3_2(jk) = 0._wp
+        ENDIF
+      ENDDO
+
+      DO jk=1,nlev_gems
+        DO jl=1,ilat
+          wfac = MAX(wfac_lat(jl),wfac_p(jk))
+          o3_macc1 = RGHG7_MACC(JL,JK,IM1) + MERGE(wfac_lat(jl)*tuneo3_1(jk)*tuneo3_2(jk)*&
+                     MAX(0._wp,RGHG7_MACC(JL,JK,12)-RGHG7_MACC(JL,JK,IM1)), 0._wp, im1==11)
+          o3_macc2 = RGHG7_MACC(JL,JK,IM2) + MERGE(wfac_lat(jl)*tuneo3_1(jk)*tuneo3_2(jk)*&
+                     MAX(0._wp,RGHG7_MACC(JL,JK,12)-RGHG7_MACC(JL,JK,IM2)), 0._wp, im2==11)
+
+          o3_gems1 = RGHG7(JL,JK,IM1) + MERGE(wfac_tr(jl)*wfac_p_tr(jk)*&
+                     MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM1)), 0._wp, im1==1 .OR. im1==2)
+          o3_gems2 = RGHG7(JL,JK,IM2) + MERGE(wfac_tr(jl)*wfac_p_tr(jk)*&
+                     MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM2)), 0._wp, im1==1 .OR. im1==2)
+
+          zozn(JL,JK) = amo3/amd * ( wfac * (o3_macc2+ZTIMI*(o3_macc1-o3_macc2)) + &
+                              (1._wp-wfac)* (o3_gems2+ZTIMI*(o3_gems1-o3_gems2)) )
+          zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
+        ENDDO
+      ENDDO
 
     CASE (io3_art)
       DO jk=1,nlev_gems
@@ -1024,14 +1143,6 @@ CONTAINS
     DO jk=1,nlev_gems
       zozn(0,JK)      = zozn(1,jk)
       zozn(ilat+1,jk) = zozn(ilat,jk)
-    ENDDO
-
-    ! Preparations for latitude interpolations
-
-    zlatint=180._wp/REAL(ilat,wp)
-
-    DO jl=0,ilat+1
-      zlat(jl)=(-90._wp+0.5_wp*zlatint+(jl-1)*zlatint)*deg2rad
     ENDDO
     
     ! nest boudaries have to be included for reduced-grid option

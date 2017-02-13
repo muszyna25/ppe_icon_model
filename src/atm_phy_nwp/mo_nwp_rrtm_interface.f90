@@ -25,14 +25,14 @@
 MODULE mo_nwp_rrtm_interface
 
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, iprog_aero, icpl_aero_conv
+  USE mo_nwp_tuning_config,    ONLY: tune_dust_abs
   USE mo_grid_config,          ONLY: l_limited_area
-  USE mo_datetime,             ONLY: t_datetime,  month2hour
   USE mo_exception,            ONLY: message,  finish, message_text
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run, test_parallel_radiation
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
   USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape, nexlevs_rrg_vnest, &
-                                     iss, iorg, ibc, iso4, idu
+                                     iss, iorg, ibc, iso4, idu, MAX_CHAR_LENGTH
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
@@ -45,18 +45,24 @@ MODULE mo_nwp_rrtm_interface
   USE mo_radiation,            ONLY: radiation, radiation_nwp
   USE mo_radiation_config,     ONLY: irad_o3, irad_aero
   USE mo_radiation_rg_par,     ONLY: aerdis
+  USE mo_aerosol_util,         ONLY: tune_dust
+  USE mo_lrtm_par,             ONLY: nbndlw
   USE mo_sync,                 ONLY: global_max, global_min
 
   USE mo_rrtm_data_interface,  ONLY: t_rrtm_data, recv_rrtm_input, send_rrtm_output
-  USE mo_timer,                ONLY: timer_start, timer_stop, timers_level, &
-    & timer_radiaton_recv, timer_radiaton_comp, timer_radiaton_send, &
-    & timer_preradiaton
+  USE mo_timer,                ONLY: timer_start, timer_stop, timers_level,    &
+    &                                timer_radiaton_recv, timer_radiaton_comp, &
+    &                                timer_radiaton_send, timer_preradiaton
+  USE mtime,                     ONLY: datetime, newDatetime, deallocateDatetime
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
+    &                                  calculate_time_interpolation_weights
 
   IMPLICIT NONE
 
   PRIVATE
 
-
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_nwp_rrtm_interface'
 
 
   PUBLIC :: nwp_ozon_aerosol
@@ -84,7 +90,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
+  SUBROUTINE nwp_ozon_aerosol ( p_sim_time, mtime_datetime, pt_patch, ext_data, &
     & pt_diag,prm_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,zduo3 )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
@@ -92,11 +98,11 @@ CONTAINS
 
     REAL(wp),INTENT(in)         :: p_sim_time
 
-    TYPE(t_datetime),            INTENT(in) :: datetime
-    TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
-    TYPE(t_external_data),       INTENT(inout) :: ext_data
-    TYPE(t_nh_diag), TARGET, INTENT(in)  :: pt_diag     !<the diagnostic variables
-    TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
+    TYPE(datetime), POINTER, INTENT(in)    :: mtime_datetime
+    TYPE(t_patch), TARGET,   INTENT(in)    :: pt_patch     !<grid/patch info.
+    TYPE(t_external_data),   INTENT(inout) :: ext_data
+    TYPE(t_nh_diag), TARGET, INTENT(in)    :: pt_diag     !<the diagnostic variables
+    TYPE(t_nwp_phy_diag),    INTENT(inout) :: prm_diag
 
     REAL(wp), INTENT(out) :: &
       & zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c), &
@@ -142,7 +148,10 @@ CONTAINS
     INTEGER:: imo1,imo2 !for Tegen aerosol time interpolation
 
     REAL(wp) :: wfac, ncn_bg
-
+    
+    TYPE(datetime), POINTER :: current_time_hours
+    TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
+    
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
 
@@ -170,16 +179,24 @@ CONTAINS
         & pt_patch   = pt_patch,                     & ! in
         & zvio3      = prm_diag%vio3,                & !inout
         & zhmo3      = prm_diag%hmo3  )                !inout
-    CASE (7)
-      CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
-    CASE (9)
-      CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
+    CASE (7,9,79)
+      CALL calc_o3_gems(pt_patch,mtime_datetime,pt_diag,prm_diag,ext_data)
     CASE(10)
       !CALL message('mo_nwp_rg_interface:irad_o3=10', &  
       !  &          'Ozone used for radiation is calculated by ART')
     END SELECT
 
-    IF ( irad_aero == 6 .OR. irad_aero == 9) CALL month2hour (datetime, imo1, imo2, zw )
+    IF ( irad_aero == 6  .OR. irad_aero == 9) THEN
+      current_time_hours => newDatetime(mtime_datetime)
+      current_time_hours%time%minute = 0
+      current_time_hours%time%second = 0
+      current_time_hours%time%ms = 0      
+      current_time_interpolation_weights = calculate_time_interpolation_weights(current_time_hours)
+      imo1 = current_time_interpolation_weights%month1
+      imo2 = current_time_interpolation_weights%month2
+      zw = current_time_interpolation_weights%weight2
+      CALL deallocateDatetime(current_time_hours)
+    ENDIF
 
     rl_start = 1
     rl_end   = min_rlcell_int
@@ -413,12 +430,14 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rrtm_radiation ( pt_patch, ext_data,                       &
+  SUBROUTINE nwp_rrtm_radiation ( current_date, pt_patch, ext_data,                      &
     &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, lnd_prog, irad )
 
-!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
-!      &  routine = 'mo_nwp_rad_interface:'
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
+      &  routine = modname//'::nwp_rrtm_radiation'
 
+    TYPE(datetime), POINTER, INTENT(in) :: current_date
+    
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_external_data),INTENT(in):: ext_data
 
@@ -435,7 +454,7 @@ CONTAINS
 
     INTEGER, INTENT(IN) :: irad ! To distinguish between RRTM (1) and PSRAD (3)
 
-    REAL(wp):: aclcov(nproma,pt_patch%nblks_c)
+    REAL(wp):: aclcov(nproma,pt_patch%nblks_c), dust_tunefac(nproma,nbndlw)
 
 
     ! Local scalars:
@@ -468,7 +487,7 @@ CONTAINS
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
     IF (msg_level >= 12) &
-      &           CALL message('mo_nwp_rad_interface', 'RRTM radiation on full grid')
+      &           CALL message(routine, 'RRTM radiation on full grid')
 
     IF (p_test_run) THEN
       CALL get_indices_c(pt_patch, i_startblk, i_startblk, i_endblk, &
@@ -484,7 +503,7 @@ CONTAINS
       prm_diag%trsolclr_sfc(1:i_startidx-1,i_startblk) = 0
     END IF
 
-!$OMP PARALLEL PRIVATE(jb,i_startidx,i_endidx)
+!$OMP PARALLEL PRIVATE(jb,i_startidx,i_endidx,dust_tunefac)
 !$OMP DO ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
@@ -500,12 +519,19 @@ CONTAINS
 
       prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
 
+      IF (tune_dust_abs > 0._wp) THEN
+!DIR$ NOINLINE
+        CALL tune_dust(pt_patch%cells%center(:,jb)%lat,pt_patch%cells%center(:,jb)%lon,i_endidx,dust_tunefac)
+      ELSE
+        dust_tunefac(:,:) = 1._wp
+      ENDIF
 
       CALL radiation_nwp(               &
                               !
                               ! input
                               ! -----
                               !
+        & current_date                     ,&!< in current date
                               ! indices and dimensions
         & jg         =jg                   ,&!< in domain index
         & jb         =jb                   ,&!< in block index
@@ -544,6 +570,7 @@ CONTAINS
         & zaeq3      = zaeq3(:,:,jb)                 ,&!< in aerosol urban
         & zaeq4      = zaeq4(:,:,jb)                 ,&!< in aerosol volcano ashes
         & zaeq5      = zaeq5(:,:,jb)                 ,&!< in aerosol stratospheric background
+        & dust_tunefac = dust_tunefac (:,:)          ,&!< in LW tuning factor for dust aerosol
         & dt_rad     = atm_phy_nwp_config(jg)%dt_rad ,&
                               ! output
                               ! ------
@@ -573,13 +600,14 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rrtm_radiation_reduced ( pt_patch, pt_par_patch, ext_data, &
+  SUBROUTINE nwp_rrtm_radiation_reduced ( current_date, pt_patch, pt_par_patch, ext_data, &
     &                                     zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,    &
     &                                     pt_diag,prm_diag,lnd_prog,irad    )
 
-!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
-!      &  routine = 'mo_nwp_rad_interface:'
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
+      &  routine = modname//'::nwp_rrtm_radiation_reduced'
 
+    TYPE(datetime), POINTER, INTENT(in) :: current_date
 
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_par_patch !<grid/patch info (parent grid)
@@ -598,7 +626,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: irad ! To distinguish between RRTM (1) and PSRAD (3)
 
 
-    REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
+    REAL(wp):: aclcov(nproma,pt_patch%nblks_c), dust_tunefac(nproma,nbndlw)
     ! For radiation on reduced grid
     ! These fields need to be allocatable because they have different dimensions for
     ! the global grid and nested grids, and for runs with/without MPI parallelization
@@ -686,7 +714,7 @@ CONTAINS
 
 
       IF (msg_level >= 12) &
-        &       CALL message('mo_nwp_rad_interface', 'RRTM radiation on reduced grid')
+        &       CALL message(routine, 'RRTM radiation on reduced grid')
 
       i_chidx     =  pt_patch%parent_child_index
 
@@ -914,28 +942,28 @@ CONTAINS
 
         WRITE(message_text,'(a,4f12.8)') 'max/min alb = ', max_albvisdir, min_albvisdir, &
           max_albvisdif, min_albvisdif
-        CALL message('nwp_nh_interface: ', TRIM(message_text))
+        CALL message(routine, TRIM(message_text))
 
         WRITE(message_text,'(a,2f10.3,2f10.2)') 'max/min sfc temp/pres = ', max_tsfc, min_tsfc, &
           max_psfc, min_psfc
-        CALL message('nwp_nh_interface: ', TRIM(message_text))
+        CALL message(routine, TRIM(message_text))
 
         WRITE(message_text,'(a)') 'max/min pres_ifc, pres, temp, acdnc'
-        CALL message('nwp_nh_interface: ', TRIM(message_text))
+        CALL message(routine, TRIM(message_text))
 
         DO jk = 1, nlev_rg
           WRITE(message_text,'(i4,4f10.2,2f10.3,2f12.1)') jk,max_pres_ifc(jk), min_pres_ifc(jk), &
             max_pres(jk), min_pres(jk), max_temp(jk), min_temp(jk), max_acdnc(jk), min_acdnc(jk)
-          CALL message('nwp_nh_interface: ', TRIM(message_text))
+          CALL message(routine, TRIM(message_text))
         ENDDO
 
         WRITE(message_text,'(a)') 'max/min QV, QC, QI, CC'
-        CALL message('nwp_nh_interface: ', TRIM(message_text))
+        CALL message(routine, TRIM(message_text))
 
         DO jk = 1, nlev_rg
           WRITE(message_text,'(i4,8e13.5)') jk,max_qv(jk), min_qv(jk), max_qc(jk), min_qc(jk), &
              max_qi(jk), min_qi(jk), max_cc(jk), min_cc(jk)
-          CALL message('nwp_nh_interface: ', TRIM(message_text))
+          CALL message(routine, TRIM(message_text))
         ENDDO
 
         DEALLOCATE(max_pres_ifc, max_pres, max_temp, max_acdnc, max_qv, max_qc, max_qi, max_cc, &
@@ -944,7 +972,7 @@ CONTAINS
       ENDIF ! msg_level >= 16
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,dust_tunefac) ICON_OMP_GUIDED_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
@@ -989,6 +1017,12 @@ CONTAINS
           ENDDO
         ENDIF
 
+        IF (tune_dust_abs > 0._wp) THEN
+!DIR$ NOINLINE
+          CALL tune_dust(ptr_pp%cells%center(:,jb)%lat,ptr_pp%cells%center(:,jb)%lon,i_endidx,dust_tunefac)
+        ELSE
+          dust_tunefac(:,:) = 1._wp
+        ENDIF
 
         ! Type of convection is required as INTEGER field
         zrg_ktype(1:i_endidx,jb) = NINT(zrg_rtype(1:i_endidx,jb))
@@ -998,6 +1032,7 @@ CONTAINS
                                 ! input
                                 ! -----
                                 !
+          & current_date                     ,&!< in current date
                                 ! indices and dimensions
           & jg          =jg                  ,&!< in domain index
           & jb          =jb                  ,&!< in block index
@@ -1035,6 +1070,7 @@ CONTAINS
           & zaeq3      = zrg_aeq3(:,:,jb)       ,&!< in aerosol urban
           & zaeq4      = zrg_aeq4(:,:,jb)       ,&!< in aerosol volcano ashes
           & zaeq5      = zrg_aeq5(:,:,jb)       ,&!< in aerosol stratospheric background
+          & dust_tunefac = dust_tunefac (:,:)   ,&!< in LW tuning factor for dust aerosol
           & dt_rad     = atm_phy_nwp_config(jg)%dt_rad ,&
                                 !
                                 ! output
@@ -1098,12 +1134,12 @@ CONTAINS
 
 
         WRITE(message_text,'(a)') 'max/min LW flux, SW transmissivity'
-        CALL message('nwp_nh_interface: ', TRIM(message_text))
+        CALL message(routine, TRIM(message_text))
 
         DO jk = 1, nlevp1
           WRITE(message_text,'(i4,2f10.3,2f10.7)') jk,max_lwflx(jk), min_lwflx(jk), &
             max_swtrans(jk), min_swtrans(jk)
-          CALL message('nwp_nh_interface: ', TRIM(message_text))
+          CALL message(routine, TRIM(message_text))
         ENDDO
 
       ENDIF ! msg_level >= 16
@@ -1123,12 +1159,13 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rrtm_radiation_repartition ( pt_patch, ext_data, &
+  SUBROUTINE nwp_rrtm_radiation_repartition (current_date, pt_patch, ext_data, &
     &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, lnd_prog )
 
-!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
-!      &  routine = 'mo_nwp_rad_interface:'
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
+      &  routine = modname//'::nwp_rrtm_radiation_repartition'
 
+    TYPE(datetime), POINTER, INTENT(in) :: current_date
 
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_external_data),INTENT(in)        :: ext_data
@@ -1169,8 +1206,7 @@ CONTAINS
     IF (timers_level > 3) CALL timer_start(timer_preradiaton)
     !-------------------------------------------------------------------------
     IF (msg_level >= 12) &
-      &  CALL message('mo_nwp_rad_interface',   &
-      &  'RRTM radiation on redistributed grid')
+      &  CALL message(routine, 'RRTM radiation on redistributed grid')
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
@@ -1224,6 +1260,7 @@ CONTAINS
                                 ! input
                                 ! -----
                                 !
+          & current_date                     ,&!< in current date
                                 ! indices and dimensions
           & jg         =jg                   ,&!< in domain index
           & jb         =jb                   ,&!< in block index
@@ -1348,7 +1385,8 @@ CONTAINS
                               ! input
                               ! -----
                               !
-                              ! indices and dimensions
+        & current_date                       ,&!< in current date
+                              ! indices and dimensions 
         & jg         =jg                     ,&!< in domain index
         & jb         =jb                     ,&!< in block index
         & jce        = i_endidx              ,&!< in  end   index for loop over block

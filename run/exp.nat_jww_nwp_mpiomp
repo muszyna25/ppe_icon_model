@@ -49,14 +49,13 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-09-01T00:00:00Z"
-ndays_restart=10
-dt_restart=`expr ${ndays_restart} \* 86400`
+end_date="2008-09-01T00:01:20Z"
+dt_restart=864000.0
 #
 #-----------------------------------------------------------------------------
 # model timing
 dtime=480
-nsteps=10
-dt_data=`expr ${dtime} \* ${nsteps}`   # data output at the end of the integration
+dt_data=4800
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -140,7 +139,6 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev        = ${nlev},        ! number of full levels of vertical grid
- nsteps         = ${nsteps}    ! 50 ! 1200 ! 7200 !
  dtime          = ${dtime}     ! timestep in seconds !! MUST BE EQUAL TO "modelTimeStep" !!
  modelTimeStep  = "PT8M"       ! preliminary fix
  ldynamics      = .TRUE.       ! dynamics

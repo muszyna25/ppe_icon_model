@@ -331,19 +331,9 @@ CONTAINS
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
         nmlbuf(1:nmllen) = ''
 
-#ifdef __SX__
-        ! requires in runscript (ksh/bash): export F_NORCW=65535
-        ! (this SX environment variable specifies that a control record is
-        ! not added/expected, s.t. the file content can be treated like a
-        ! stream of characters)
-        OPEN(UNIT=65535, FILE=TRIM(filename), ACTION='read', FORM='unformatted')
-        READ(65535) nmlbuf(1:nmllen)
-        CLOSE(65535)
-#else
         OPEN(UNIT=funit, FILE=TRIM(filename), ACTION='read', ACCESS='stream', FORM='unformatted')
         READ(funit) nmlbuf(1:nmllen)
         CLOSE(funit)
-#endif
 
         CALL tocompact(nmlbuf)
         archive => namelistArchive()
@@ -366,19 +356,9 @@ CONTAINS
 
         funit = find_next_free_unit(10,100)
         flen = util_tmpnam(filename, filename_max)
-#ifdef __SX__
-        ! requires in runscript (ksh/bash): export F_NORCW=65535
-        ! (this SX environment variable specifies that a control record is
-        ! not added/expected, s.t. the file content can be treated like a
-        ! stream of characters)
-        OPEN(UNIT=65535, FILE=filename(1:flen), ACTION='write', FORM='unformatted')
-        WRITE(65535) TRIM(nmlbuf)
-        CLOSE(65535)
-#else
         OPEN(UNIT=funit, FILE=filename(1:flen), ACTION='write', ACCESS='stream', FORM='unformatted')
         WRITE(funit) TRIM(nmlbuf)
         CLOSE(funit)
-#endif
 
         OPEN(UNIT=funit, FILE=filename(1:flen), &
              ACTION='read', &
