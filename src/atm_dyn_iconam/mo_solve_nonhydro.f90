@@ -430,6 +430,7 @@ MODULE mo_solve_nonhydro
     wgt_nnew_rth = 0.5_wp + rhotheta_offctr ! default value for rhotheta_offctr is -0.1
     wgt_nnow_rth = 1._wp - wgt_nnew_rth
 
+<<<<<<< HEAD
 #if 0
 ! TODO: activate subsequently in _OPENACC mode
 !
@@ -2850,8 +2851,6 @@ MODULE mo_solve_nonhydro
     ENDDO ! istep-loop
 
 
-    IF ( .NOT. my_process_is_mpi_all_seq() ) THEN
-
     ! The remaining computations are needed for MPI-parallelized applications only
 
 ! OpenMP directives are commented for the NEC because the overhead is too large
@@ -2988,8 +2987,6 @@ MODULE mo_solve_nonhydro
 !$OMP END PARALLEL
 #endif
 #endif
-
-    ENDIF
 
 !$ACC END DATA
 

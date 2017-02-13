@@ -275,11 +275,14 @@ CONTAINS
     CALL btraj%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)
 
 #ifdef _OPENACC
-!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_distv_bary, p_cell_idx, p_cell_blk ),  IF( i_am_accel_node .AND. acc_on )
+! TODO: the following statement will fail in _OPENACC mode.   Need to create a pointer to cell_idx/blk
+!
+!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( btraj%distv_bary, btraj%cell_idx, btraj%cell_blk ),  IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC PARALLEL &
-!$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, p_distv_bary, p_cell_idx, p_cell_blk ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, btraj%distv_bary, btraj%cell_idx, btraj%cell_blk ), &
+!$ACC PRIVATE( z_ntdistv_bary ), &
+!!$ACC IF( i_am_accel_node .AND. acc_on )
 
 !$ACC LOOP GANG
 #else
@@ -335,14 +338,14 @@ CONTAINS
           ! North.
 
           ! component in longitudinal direction
-          p_distv_bary(je,jk,jb,1) =                                                        &
+          btraj%distv_bary(je,jk,jb,1) =                                                       &
                &   z_ntdistv_bary_1*MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v1,         &
                &                           ptr_p%edges%primal_normal_cell(je,jb,2)%v1,lvn_pos) &
                & + z_ntdistv_bary_2*MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v1,           &
                &                           ptr_p%edges%dual_normal_cell(je,jb,2)%v1,lvn_pos)
 
           ! component in latitudinal direction
-          p_distv_bary(je,jk,jb,2) =                                                        &
+          btraj%distv_bary(je,jk,jb,2) =                                                       &
                &   z_ntdistv_bary_1*MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v2,         &
                &                           ptr_p%edges%primal_normal_cell(je,jb,2)%v2,lvn_pos) &
                & + z_ntdistv_bary_2*MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v2,           &
@@ -353,7 +356,8 @@ CONTAINS
     END DO    ! loop over blocks
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( p_cell_idx, p_cell_blk, p_distv_bary ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+! TODO: the following will fail in _OPENACC mode
+!$ACC UPDATE HOST( btraj%cell_idx, btraj%cell_blk, btraj%distv_bary ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 #else
 !$OMP END DO NOWAIT
@@ -873,9 +877,10 @@ CONTAINS
     iblk => ptr_p%edges%quad_blk
 
 #ifdef _OPENACC
-!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_distv_bary, p_cell_idx, p_cell_blk ), &
-!$ACC CREATE( z_vn_plane, z_vt_plane ),   IF( i_am_accel_node .AND. acc_on )
-!$ACC  UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+! TODO: the following will fail in OpenACC mode
+!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( btraj%distv_bary, btraj%cell_idx, btraj%cell_blk ), &
+!$ACC CREATE( z_vn_plane, pos_barycenter, z_ntdistv_bary ),   IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC PARALLEL &
 !$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, z_vn_plane ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
@@ -950,7 +955,7 @@ CONTAINS
 !$ACC END PARALLEL
 
 !$ACC PARALLEL &
-!$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, p_distv_bary, p_cell_idx, p_cell_blk ), &
+!$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, btraj%distv_bary, btraj%cell_idx, btraj%cell_blk ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
 !$ACC LOOP GANG
@@ -1075,15 +1080,13 @@ CONTAINS
                    &    z_ntdistv_bary_1 * ptr_p%edges%primal_normal_cell(je,jb,zcell)%v2  &
                    &  + z_ntdistv_bary_2 * ptr_p%edges%dual_normal_cell(je,jb,zcell)%v2
 
-
-
             ENDDO ! loop over edges
           ENDDO   ! loop over vertical levels
         END DO    ! loop over blocks
 
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( p_cell_idx, p_cell_blk, p_distv_bary ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( btraj%cell_idx, btraj%cell_blk, btraj%distv_bary ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 #else
 !$OMP END DO NOWAIT

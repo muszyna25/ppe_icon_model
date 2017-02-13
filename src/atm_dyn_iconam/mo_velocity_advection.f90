@@ -715,7 +715,7 @@ MODULE mo_velocity_advection
     i_endblk   = p_patch%cells%end_block(min_rlcell_int)
 
 !$ACC UPDATE HOST( vcflmax ), IF( i_am_accel_node .AND. acc_on )   ! MAXVAL not properly implemented in OpenACC; perform on host
-    max_vcfl_dyn = MAX(p_metrics%max_vcfl_dyn,MAXVAL(vcflmax(i_startblk:i_endblk)))
+    max_vcfl_dyn = MAX(p_diag%max_vcfl_dyn,MAXVAL(vcflmax(i_startblk:i_endblk)))
 !$ACC KERNELS PRESENT(p_metrics), IF( i_am_accel_node .AND. acc_on )
     p_metrics%max_vcfl_dyn = max_vcfl_dyn
 !$ACC END KERNELS

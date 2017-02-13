@@ -1174,19 +1174,6 @@ CONTAINS
         &                   slev, elev, opt_rlend=i_rlend            ) !in
     ENDIF
 
-
-    IF ( ld_cleanup ) THEN
-      ! deallocate temporary arrays for velocity, Gauss-points and barycenters
-!$ACC EXIT DATA DELETE( z_distv_bary, z_cell_idx, z_cell_blk ), IF (i_am_accel_node .AND. acc_on)
-      DEALLOCATE( z_distv_bary, z_cell_idx, z_cell_blk, STAT=ist )
-
-      IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                    &
-          &  'deallocation for z_distv_bary, z_cell_idx, z_cell_blk '// &
-          &  'failed' )
-      ENDIF
-    END IF
-
 !$ACC UPDATE HOST( p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 

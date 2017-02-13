@@ -606,8 +606,6 @@ CONTAINS
 !$OMP END PARALLEL
 #endif
 
-    ENDDO  ! nit
-
 !$ACC UPDATE HOST( p_mflx_tracer_h ), IF (acc_validate .AND. i_am_accel_node .AND. acc_on)
 !$ACC END DATA
 
