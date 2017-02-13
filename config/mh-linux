@@ -264,13 +264,13 @@ case "$ac_sitename" in
                     ;;
                     cray)
                         config_target=daint_cpu
-                        load_modules = PrgEnv-cray cray-netcdf cray-mpich
+                        load_modules = PrgEnv-cray cray-netcdf cray-mpich craype-accel-nvidia60
                         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
                     ;;
                     cray_gpu)
                         config_target=daint_gpu
-                        load_modules = PrgEnv-cray cray-netcdf cray-mpich
+                        load_modules = PrgEnv-cray cray-netcdf cray-mpich craype-accel-nvidia60
                         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
                     ;;
