@@ -2712,15 +2712,10 @@ MODULE mo_nh_stepping
 
 #ifndef _OPENACC
 !$OMP PARALLEL
-<<<<<<< HEAD
 #endif
-    CALL copy(p_nh_state(jg)%prog(nnow)%exner, &
-         p_nh_state(jg)%diag%exner_old)
-#ifndef _OPENACC
-=======
     CALL copy(p_nh_state(jg)%prog(nnow)%exner-REAL(p_nh_state(jg)%metrics%exner_ref_mc,wp), &
          p_nh_state(jg)%diag%exner_pr)
->>>>>>> reference/master
+#ifndef _OPENACC
 !$OMP END PARALLEL
 #endif
 

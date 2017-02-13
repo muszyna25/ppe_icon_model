@@ -922,13 +922,8 @@ CONTAINS
 
    !-------------------------------------------------------------------------
 
-<<<<<<< HEAD
 !$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e, p_vn, p_vt ), PCOPY( p_out_e ), CREATE( z_grad, z_lsq_coeff ), IF( i_am_accel_node .AND. acc_on)
 !$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, p_vn, p_vt, p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-=======
-!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e ), PCOPY( p_out_e ), CREATE( z_grad, z_lsq_coeff ), IF( i_am_accel_node .AND. acc_on)
-!ACC_DEBUG UPDATE DEVICE( p_cc, p_mass_flx_e, p_out_e ), IF( i_am_accel_node .AND. acc_on )
->>>>>>> reference/master
 
     ! number of vertical levels
     nlev = p_patch%nlev
@@ -1179,24 +1174,7 @@ CONTAINS
         &                   slev, elev, opt_rlend=i_rlend            ) !in
     ENDIF
 
-
-<<<<<<< HEAD
-    IF ( ld_cleanup ) THEN
-      ! deallocate temporary arrays for velocity, Gauss-points and barycenters
-!$ACC EXIT DATA DELETE( z_distv_bary, z_cell_idx, z_cell_blk ), IF (i_am_accel_node .AND. acc_on)
-      DEALLOCATE( z_distv_bary, z_cell_idx, z_cell_blk, STAT=ist )
-
-      IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                    &
-          &  'deallocation for z_distv_bary, z_cell_idx, z_cell_blk '// &
-          &  'failed' )
-      ENDIF
-    END IF
-
 !$ACC UPDATE HOST( p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-=======
-!ACC_DEBUG UPDATE HOST( p_out_e ), IF( i_am_accel_node .AND. acc_on )
->>>>>>> reference/master
 !$ACC END DATA
 
   END SUBROUTINE upwind_hflux_miura

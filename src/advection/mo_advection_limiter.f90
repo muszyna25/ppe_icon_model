@@ -606,13 +606,7 @@ CONTAINS
 !$OMP END PARALLEL
 #endif
 
-<<<<<<< HEAD
-    ENDDO  ! nit
-
 !$ACC UPDATE HOST( p_mflx_tracer_h ), IF (acc_validate .AND. i_am_accel_node .AND. acc_on)
-=======
-!ACC_DEBUG UPDATE HOST( p_mflx_tracer_h ), IF (i_am_accel_node .AND. acc_on)
->>>>>>> reference/master
 !$ACC END DATA
 
   END SUBROUTINE hflx_limiter_mo

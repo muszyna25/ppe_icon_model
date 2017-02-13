@@ -430,49 +430,6 @@ MODULE mo_solve_nonhydro
     wgt_nnew_rth = 0.5_wp + rhotheta_offctr ! default value for rhotheta_offctr is -0.1
     wgt_nnow_rth = 1._wp - wgt_nnew_rth
 
-<<<<<<< HEAD
-=======
-#ifdef _OPENACC
-!
-! OpenACC Implementation:  For testing in ACC_DEBUG mode, we would ultimately like to be able to run 
-!                          this routine entirely on the accelerator with input on the host, and moving
-!                          output back to the host.  I order to do this, an additional, far larger, number of fields
-!                          must be updated here on the device:
-!
-! p_nh%prog(nnow)          All present (above)
-! p_nh%diag:               ddt_exner_phy, ddt_vn_adv, ddt_vn_phy, ddt_w_adv
-!                          vn_ref, dtheta_v_ic_ubc, dw_ubc, dvn_ie_ubc, mflx_ic_ubc
-!                          rho_incr, exner_incr, vn_incr,
-!                          grf_tend_vn, grf_tend_mflx, grf_tend_rho, grf_tend_thv, grf_tend_w
-!
-! p_nh%metrics:            Entire structure (read-only)
-!
-! p_patch:                 Entire structure (read-only)
-!
-      exner_tmp           => p_nh%prog(nnow)%exner
-      rho_tmp             => p_nh%prog(nnow)%rho
-      theta_v_tmp         => p_nh%prog(nnow)%theta_v
-      vn_tmp              => p_nh%prog(nnow)%vn
-      w_tmp               => p_nh%prog(nnow)%w
-!ACC_DEBUG UPDATE DEVICE ( exner_tmp, rho_tmp, theta_v_tmp, vn_tmp, w_tmp ) IF( i_am_accel_node .AND. acc_on )
-      exner_pr_tmp        => p_nh%diag%exner_pr
-      vt_tmp              => p_nh%diag%vt
-      vn_ie_tmp           => p_nh%diag%vn_ie
-      rho_ic_tmp          => p_nh%diag%rho_ic
-      theta_v_ic_tmp      => p_nh%diag%theta_v_ic
-      w_concorr_c_tmp     => p_nh%diag%w_concorr_c
-      mass_fl_e_tmp       => p_nh%diag%mass_fl_e
-!ACC_DEBUG UPDATE DEVICE ( exner_pr_tmp, vt_tmp, vn_ie_tmp, rho_ic_tmp, theta_v_ic_tmp ) IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE ( w_concorr_c_tmp, mass_fl_e_tmp ) IF( i_am_accel_node .AND. acc_on )
-      vn_traj_tmp       => prep_adv%vn_traj
-      mass_flx_me_tmp   => prep_adv%mass_flx_me
-      mass_flx_ic_tmp   => prep_adv%mass_flx_ic
-!ACC_DEBUG UPDATE DEVICE ( vn_traj_tmp, mass_flx_me_tmp, mass_flx_ic_tmp ) IF( i_am_accel_node .AND. acc_on .AND. lprep_adv )
-      exner_dyn_incr_tmp  => p_nh%diag%exner_dyn_incr
-!ACC_DEBUG UPDATE DEVICE ( exner_dyn_incr_tmp ) IF( i_am_accel_node .AND. acc_on )
-#endif
-
->>>>>>> reference/master
     DO istep = 1, 2
 
       IF (istep == 1) THEN ! predictor step
@@ -556,10 +513,7 @@ MODULE mo_solve_nonhydro
 
         IF (istep == 1) THEN ! to be executed in predictor step only
 
-<<<<<<< HEAD
 !!! !$ACC LOOP VECTOR COLLAPSE(2)
-=======
->>>>>>> reference/master
 !$ACC LOOP WORKER
           DO jk = 1, nlev
 !DIR$ IVDEP
@@ -608,12 +562,8 @@ MODULE mo_solve_nonhydro
                 p_nh%metrics%wgtfacq_c(jc,3,jb)*z_exner_ex_pr(jc,nlev-2,jb)
             ENDDO
 
-<<<<<<< HEAD
 !!! !$ACC LOOP VECTOR COLLAPSE(2)
 !$ACC LOOP SEQ
-=======
-!$ACC LOOP WORKER
->>>>>>> reference/master
             DO jk = nlev, MAX(2,nflatlev(jg)), -1
 !DIR$ IVDEP
 !$ACC LOOP VECTOR
@@ -2859,44 +2809,6 @@ MODULE mo_solve_nonhydro
     ENDDO ! istep-loop
 
 
-<<<<<<< HEAD
-    IF ( .NOT. my_process_is_mpi_all_seq() ) THEN
-=======
-! The following code is necessary if the Dycore is to be run in isolation on the GPU
-! Update all device output on host
-      exner_tmp           => p_nh%prog(nnew)%exner
-      rho_tmp             => p_nh%prog(nnew)%rho
-      theta_v_tmp         => p_nh%prog(nnew)%theta_v
-      vn_tmp              => p_nh%prog(nnew)%vn
-      w_tmp               => p_nh%prog(nnew)%w
-!ACC_DEBUG UPDATE HOST ( exner_tmp, rho_tmp, theta_v_tmp, vn_tmp, w_tmp ) IF( i_am_accel_node .AND. acc_on )
-      exner_pr_tmp        => p_nh%diag%exner_pr
-      vt_tmp              => p_nh%diag%vt
-      vn_ie_tmp           => p_nh%diag%vn_ie
-      rho_ic_tmp          => p_nh%diag%rho_ic
-      theta_v_ic_tmp      => p_nh%diag%theta_v_ic
-      w_concorr_c_tmp     => p_nh%diag%w_concorr_c
-      mass_fl_e_tmp       => p_nh%diag%mass_fl_e
-      exner_dyn_incr_tmp  => p_nh%diag%exner_dyn_incr
-!ACC_DEBUG UPDATE HOST ( exner_pr_tmp, vt_tmp, vn_ie_tmp, rho_ic_tmp, theta_v_ic_tmp, exner_dyn_incr_tmp ) IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE HOST ( w_concorr_c_tmp, mass_fl_e_tmp ) IF( i_am_accel_node .AND. acc_on )
-      mass_fl_e_sv_tmp    => p_nh%diag%mass_fl_e_sv
-!ACC_DEBUG UPDATE HOST ( mass_fl_e_sv_tmp ) IF( i_am_accel_node .AND. acc_on .AND. lsave_mflx )
-      dw_int_tmp          => p_nh%diag%dw_int
-      mflx_ic_int_tmp     => p_nh%diag%mflx_ic_int
-      dtheta_v_ic_int_tmp => p_nh%diag%dtheta_v_ic_int
-!ACC_DEBUG UPDATE HOST ( dw_int_tmp, mflx_ic_int_tmp, dtheta_v_ic_int_tmp ) IF( i_am_accel_node .AND. acc_on .AND. l_child_vertnest )
-      dvn_ie_int_tmp   => p_nh%diag%dvn_ie_int
-!ACC_DEBUG UPDATE HOST( dvn_ie_int_tmp ) IF( i_am_accel_node .AND. acc_on .AND. idyn_timestep == 1 .AND. l_child_vertnest)
-       grf_bdy_mflx_tmp   => p_nh%diag%grf_bdy_mflx
-!ACC_DEBUG UPDATE HOST( grf_bdy_mflx_tmp ) IF( i_am_accel_node .AND. acc_on .AND. (jg > 1) .AND. (grf_intmethod_e >= 5) .AND. (idiv_method == 1) .AND. (jstep == 0) )
-      vn_traj_tmp         => prep_adv%vn_traj
-      mass_flx_me_tmp     => prep_adv%mass_flx_me
-      mass_flx_ic_tmp     => prep_adv%mass_flx_ic
-!ACC_DEBUG UPDATE HOST ( vn_traj_tmp, mass_flx_me_tmp, mass_flx_ic_tmp ) IF( i_am_accel_node .AND. acc_on .AND. lprep_adv )
-#endif
->>>>>>> reference/master
-
     ! The remaining computations are needed for MPI-parallelized applications only
 
 ! OpenMP directives are commented for the NEC because the overhead is too large
@@ -3034,9 +2946,6 @@ MODULE mo_solve_nonhydro
 #endif
 #endif
 
-<<<<<<< HEAD
-    ENDIF
-
 !$ACC END DATA
 
 #ifdef _OPENACC
@@ -3073,8 +2982,6 @@ MODULE mo_solve_nonhydro
       mass_flx_ic_tmp     => prep_adv%mass_flx_ic
 !$ACC UPDATE HOST ( vn_traj_tmp, mass_flx_me_tmp, mass_flx_ic_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. lprep_adv )
 #endif
-=======
->>>>>>> reference/master
 
     IF (ltimer) CALL timer_stop(timer_solve_nh)
 
