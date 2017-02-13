@@ -233,6 +233,8 @@ CONTAINS
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i_rlstart, i_rlend
     INTEGER :: slev, elev        !< vertical start and end level
+    INTEGER, POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
+    REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
     LOGICAL :: lvn_pos
 
     !-------------------------------------------------------------------------
@@ -275,14 +277,15 @@ CONTAINS
     CALL btraj%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)
 
 #ifdef _OPENACC
-! TODO: the following statement will fail in _OPENACC mode.   Need to create a pointer to cell_idx/blk
-!
-!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( btraj%distv_bary, btraj%cell_idx, btraj%cell_blk ),  IF( i_am_accel_node .AND. acc_on )
+    p_cell_idx   => btraj%cell_idx
+    p_cell_blk   => btraj%cell_blk
+    p_distv_bary => btraj%distv_bary
+!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_distv_bary, p_cell_idx, p_cell_blk ),  IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC PARALLEL &
 !$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, btraj%distv_bary, btraj%cell_idx, btraj%cell_blk ), &
 !$ACC PRIVATE( z_ntdistv_bary ), &
-!!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
 !$ACC LOOP GANG
 #else
@@ -356,8 +359,7 @@ CONTAINS
     END DO    ! loop over blocks
 #ifdef _OPENACC
 !$ACC END PARALLEL
-! TODO: the following will fail in _OPENACC mode
-!$ACC UPDATE HOST( btraj%cell_idx, btraj%cell_blk, btraj%distv_bary ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_cell_idx, p_cell_blk, p_distv_bary ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 #else
 !$OMP END DO NOWAIT
@@ -821,6 +823,8 @@ CONTAINS
     !< in cell 1 or 2
     INTEGER, POINTER ::    &     !< pointer for line and block indices of edge
          & iidx(:,:,:), iblk(:,:,:) !< midpoints for quadrilateral cell
+    INTEGER, POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
+    REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
 
     !DR    REAL(wp) :: z_vabs_orig, z_vabs_new
 
@@ -877,8 +881,10 @@ CONTAINS
     iblk => ptr_p%edges%quad_blk
 
 #ifdef _OPENACC
-! TODO: the following will fail in OpenACC mode
-!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( btraj%distv_bary, btraj%cell_idx, btraj%cell_blk ), &
+    p_cell_idx   => btraj%cell_idx
+    p_cell_blk   => btraj%cell_blk
+    p_distv_bary => btraj%distv_bary
+!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_distv_bary, p_cell_idx, p_cell_blk ), &
 !$ACC CREATE( z_vn_plane, pos_barycenter, z_ntdistv_bary ),   IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC PARALLEL &
@@ -1071,12 +1077,12 @@ CONTAINS
               ! North.
 
               ! component in longitudinal direction
-              p_distv_bary(je,jk,jb,1) =                                                 &
+              btraj%distv_bary(je,jk,jb,1) =                                                 &
                    &    z_ntdistv_bary_1 * ptr_p%edges%primal_normal_cell(je,jb,zcell)%v1  &
                    &  + z_ntdistv_bary_2 * ptr_p%edges%dual_normal_cell(je,jb,zcell)%v1
 
               ! component in latitudinal direction
-              p_distv_bary(je,jk,jb,2) =                                                 &
+              btraj%distv_bary(je,jk,jb,2) =                                                 &
                    &    z_ntdistv_bary_1 * ptr_p%edges%primal_normal_cell(je,jb,zcell)%v2  &
                    &  + z_ntdistv_bary_2 * ptr_p%edges%dual_normal_cell(je,jb,zcell)%v2
 
@@ -1086,7 +1092,7 @@ CONTAINS
 
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( btraj%cell_idx, btraj%cell_blk, btraj%distv_bary ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_cell_idx, p_cell_blk, p_distv_bary ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 #else
 !$OMP END DO NOWAIT
