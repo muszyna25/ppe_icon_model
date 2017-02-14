@@ -251,9 +251,12 @@ contains
           END WHERE
           !
           ! now redefine cos_mu0 in the daylight area
-          WHERE (daylght_frc(:,:) == 1.0_wp)
-             cos_mu0(:,:) = MAX(0.1_wp,zcosmu0(:,:))
-          END WHERE
+          ! if it is enlarged
+          IF (dt_ext /= 0.0_wp) THEN
+             WHERE (daylght_frc(:,:) == 1.0_wp)
+                cos_mu0(:,:) = MAX(0.1_wp,zcosmu0(:,:))
+             END WHERE
+          END IF
           !
        ELSE
           DO j = 1, SIZE(cos_mu0,2)
