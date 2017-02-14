@@ -37,11 +37,9 @@ MODULE mo_interface_echam_ocean
   USE mo_sync                ,ONLY: SYNC_C, sync_patch_array
   USE mo_impl_constants      ,ONLY: MAX_CHAR_LENGTH
 
-  USE mo_time_config         ,ONLY: time_config
-
   USE mo_ext_data_state      ,ONLY: ext_data
 
-#ifndef __NO_JSBACH__
+#if !defined(__NO_JSBACH__) && !defined(__NO_JSBACH_HD__)
   USE mo_interface_hd_ocean  ,ONLY: jsb_fdef_hd_fields
 #endif
 
@@ -52,11 +50,12 @@ MODULE mo_interface_echam_ocean
   USE mo_parallel_config     ,ONLY: nproma
 
   USE mo_coupling_config     ,ONLY: is_coupled_run
+  USE mo_time_config         ,ONLY: time_config
+  
   USE mo_model_domain        ,ONLY: t_patch
 
   USE mo_exception           ,ONLY: warning
   USE mo_output_event_types  ,ONLY: t_sim_step_info
-  USE mo_mtime_extensions    ,ONLY: get_datetime_string
 
   USE mo_yac_finterface      ,ONLY: yac_fput, yac_fget,                          &
     &                               yac_fget_nbr_fields, yac_fget_field_ids,     &
@@ -67,6 +66,8 @@ MODULE mo_interface_echam_ocean
     &                               yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
     &                               yac_ffinalize
 
+  USE mtime                  ,ONLY: datetimeToString, MAX_DATETIME_STR_LEN
+  
   USE mo_util_dbg_prnt       ,ONLY: dbg_print
 
   IMPLICIT NONE
@@ -143,7 +144,8 @@ CONTAINS
     INTEGER,  ALLOCATABLE :: ibuffer(:)
     INTEGER,  ALLOCATABLE :: field_ids_total(:)
 
-    TYPE(t_sim_step_info)   :: sim_step_info  
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: startdatestring
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: stopdatestring
 
     IF ( .NOT. is_coupled_run() ) RETURN
 
@@ -164,13 +166,12 @@ CONTAINS
     comp_ids(1) = comp_id
 
     ! Overwrite job start and end date with component data
-    CALL get_datetime_string(sim_step_info%run_start,    time_config%cur_datetime)
-    CALL get_datetime_string(sim_step_info%restart_time, time_config%cur_datetime, &
-      & INT(time_config%dt_restart))
+    CALL datetimeToString(time_config%tc_startdate, startdatestring)
+    CALL datetimeToString(time_config%tc_stopdate, stopdatestring)
 
-    CALL yac_fdef_datetime ( start_datetime = TRIM(sim_step_info%run_start),  &
-      &                      end_datetime   = TRIM(sim_step_info%restart_time)   )
-
+    CALL yac_fdef_datetime ( start_datetime = TRIM(startdatestring), &
+         &                   end_datetime   = TRIM(stopdatestring)   )
+ 
     ! Announce one subdomain (patch) to the coupler
     grid_name = "grid1"
     CALL yac_fdef_subdomain ( comp_id, TRIM(grid_name), subdomain_id )
@@ -361,7 +362,7 @@ CONTAINS
         & field_id(idx) )
     ENDDO
 
-#ifndef __NO_JSBACH__
+#if !defined(__NO_JSBACH__) && !defined(__NO_JSBACH_HD__)
     IF ( mask_checksum > 0 ) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
        DO BLOCK = 1, patch_horz%nblks_c

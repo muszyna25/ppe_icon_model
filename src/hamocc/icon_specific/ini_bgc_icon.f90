@@ -13,12 +13,12 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
 !#endif
 
 
-  USE mo_biomod, ONLY         : alloc_mem_biomod, n90depth,n1000depth,n2000depth
+  USE mo_memory_bgc, ONLY      : alloc_mem_biomod, n90depth,n1000depth,n2000depth,&
+  &                              alloc_mem_carbch,totalarea
   USE mo_bgc_icon_comm, ONLY  : ini_bgc_regions, initial_update_icon, hamocc_state, &
       &                         print_bgc_parameters,print_wpoc, update_bgc
 
   USE mo_sedmnt, ONLY         : alloc_mem_sedmnt, ini_bottom, sediment_bottom
-  USE mo_carbch, ONLY         : alloc_mem_carbch,totalarea
   USE mo_ini_bgc, ONLY        : ini_aquatic_tracers,            &
        &                        ini_pore_water_tracers,         &
        &                        ini_atmospheric_concentrations, &

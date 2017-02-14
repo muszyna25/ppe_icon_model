@@ -17,7 +17,7 @@ args = parser.parse_args()
 paths = model_paths()
 if not paths.thisListExists(args.list_name):
   print("This list does not exist.")
-  quit()
+  quit(1)
   
 thisList  = buildbot_experiments_list(args.list_name)
 thisList.set_configure_flags(args.builder_names, args.flags)

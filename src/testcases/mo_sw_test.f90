@@ -35,11 +35,10 @@ MODULE mo_sw_test
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog
-  USE mo_physical_constants,  ONLY: rgrav
+  USE mo_physical_constants,  ONLY: rgrav, rdaylen
   USE mo_math_constants,      ONLY: pi, pi_2
   USE mo_dynamics_config,     ONLY: sw_ref_height
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_datetime,            ONLY: rdaylen
   USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
 
   IMPLICIT NONE

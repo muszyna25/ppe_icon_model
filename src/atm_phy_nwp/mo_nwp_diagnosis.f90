@@ -56,13 +56,15 @@ MODULE mo_nwp_diagnosis
   USE mo_satad,              ONLY: sat_pres_water, spec_humi
   USE mo_util_phys,          ONLY: calsnowlmt, cal_cape_cin
   USE mo_nwp_ww,             ONLY: ww_diagnostics, ww_datetime
-  USE mo_datetime,           ONLY: date_to_time
-  USE mo_time_config,        ONLY: time_config
+  USE mtime,                 ONLY: datetime, timeDelta, getTimeDeltaFromDateTime,  &
+    &                              deallocateTimedelta, newTimeDelta, newDatetime, &
+    &                              deallocateDatetime
   USE mo_exception,          ONLY: finish
   USE mo_math_constants,     ONLY: pi
   USE mo_statistics,         ONLY: time_avg
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_nwp_parameters,     ONLY: t_phy_params
+  USE mo_time_config,        ONLY: time_config
 
   IMPLICIT NONE
 
@@ -885,7 +887,8 @@ CONTAINS
   !!   times and moved them into a separate routine.
   !!
   !!
-  SUBROUTINE nwp_diag_for_output(kstart_moist,            & !in
+  SUBROUTINE nwp_diag_for_output(mtime_current,           & !in
+                            & kstart_moist,               & !in
                             & ih_clch, ih_clcm,           & !in
                             & phy_params,                 & !in
                             & pt_patch, p_metrics,        & !in
@@ -897,6 +900,7 @@ CONTAINS
                             & ext_data,                   & !in
                             & prm_diag                    ) !inout    
               
+    TYPE(datetime),   POINTER     :: mtime_current     ! current datetime (mtime)
     INTEGER,         INTENT(IN)   :: kstart_moist
     INTEGER,         INTENT(IN)   :: ih_clch, ih_clcm
 
@@ -931,7 +935,7 @@ CONTAINS
 
     REAL(wp), PARAMETER :: zundef = -999._wp   ! undefined value for 0 deg C level
 
-    REAL(wp):: dhour_ww                        ! calling intervall of ww_diagnostics in hours
+    TYPE(timeDelta), POINTER :: time_diff
 
   !-----------------------------------------------------------------
 
@@ -955,12 +959,6 @@ CONTAINS
 
     ! minimum top index for dry convection
     mtop_min = (ih_clch+ih_clcm)/2    
-
-    ! time difference since last call of ww_diagnostics
-    CALL date_to_time(time_config%cur_datetime)
-    CALL date_to_time(ww_datetime(jg))
-    dhour_ww = (time_config%cur_datetime%calday  - ww_datetime(jg)%calday + &
-                time_config%cur_datetime%caltime - ww_datetime(jg)%caltime)*24._wp
 
     CALL calc_moist_integrals(pt_patch, p_metrics,        & !in
                             & pt_prog, pt_prog_rcf,       & !in
@@ -1117,6 +1115,9 @@ CONTAINS
          prm_diag%drag_v_grid(jc,jb) = pt_diag%pres_ifc(jc,nlevp1,jb) * ext_data%atm%grad_topo(2,jc,jb)
       ENDDO
 
+      ! time difference since last call of ww_diagnostics
+      time_diff => newTimedelta("PT0S")
+      time_diff =  getTimeDeltaFromDateTime(mtime_current, ww_datetime(jg)%ptr)
 
       IF (atm_phy_nwp_config(jg)%inwp_gscp > 0 ) THEN
 
@@ -1134,7 +1135,7 @@ CONTAINS
             &                prm_diag%snow_gsp0(:,jb), prm_diag%snow_gsp(:,jb),          &
             &                prm_diag%snow_con0(:,jb), prm_diag%snow_con(:,jb),          &
             &                prm_diag%mbas_con (:,jb), prm_diag%mtop_con(:,jb),          &
-            &                dhour_ww, 'ICON',         prm_diag%iww     (:,jb) )
+            &                time_diff, 'ICON',         prm_diag%iww     (:,jb) )
 !       Save precipitation and time until next call of ww_diagnostics
         DO jc = i_startidx, i_endidx
           prm_diag%rain_gsp0(jc,jb) = prm_diag%rain_gsp(jc,jb)
@@ -1163,12 +1164,16 @@ CONTAINS
 !$OMP END DO
 
 !$OMP END PARALLEL  
-    ww_datetime(jg) = time_config%cur_datetime
+    IF (ASSOCIATED(ww_datetime(jg)%ptr)) THEN 
+      CALL deallocateDatetime(ww_datetime(jg)%ptr)
+    END IF
+    ww_datetime(jg)%ptr => newDateTime(time_config%tc_current_date)
 
     ! compute modified cloud parameters for TV presentation
     CALL calcmod( pt_patch, pt_diag, prm_diag )
 
     IF (ltimer) CALL timer_stop(timer_nh_diagnostics)
+    CALL deallocateTimedelta(time_diff)
 
   END SUBROUTINE nwp_diag_for_output
 

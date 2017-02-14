@@ -10,10 +10,10 @@
 !! headers of the routines.
 
 MODULE mo_restart_file
+
     USE mo_cdi,                       ONLY: CDI_UNDEFID, FILETYPE_NC2, FILETYPE_NC4, streamWriteVarSlice, &
       &                                     streamWriteVarSliceF
     USE mo_cdi_ids,                   ONLY: t_CdiIds
-    USE mo_datetime,                  ONLY: iso8601
     USE mo_exception,                 ONLY: finish
     USE mo_io_units,                  ONLY: filename_max
     USE mo_kind,                      ONLY: dp, sp
@@ -22,6 +22,7 @@ MODULE mo_restart_file
     USE mo_restart_patch_description, ONLY: t_restart_patch_description
     USE mo_restart_util,              ONLY: getRestartFilename, t_restart_args
     USE mo_restart_var_data,          ONLY: t_RestartVarData, has_valid_time_level
+    USE mtime,                        ONLY: datetimeToString, MAX_DATETIME_STR_LEN
 
     IMPLICIT NONE
 
@@ -53,7 +54,7 @@ CONTAINS
         TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
         INTEGER, VALUE :: restartType
 
-        CHARACTER(:), ALLOCATABLE :: datetimeString
+        CHARACTER(len=MAX_DATETIME_STR_LEN) :: datetimeString
         INTEGER :: i
         TYPE(t_NamelistArchive), POINTER :: namelists
         CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartFile_open'
@@ -64,17 +65,17 @@ CONTAINS
         CALL me%cdiIds%init()
 
         ! assume all restart variables uses the same file format
-        datetimeString = TRIM(iso8601(restart_args%datetime))
+        CALL datetimeToString(restart_args%restart_datetime, datetimeString)
         SELECT CASE(restartType)
             CASE(FILETYPE_NC2)
-                WRITE(0,*) "Write netCDF2 restart for: "//datetimeString
+                WRITE(0,*) "Write netCDF2 restart for: "//TRIM(datetimeString)
             CASE(FILETYPE_NC4)
-                WRITE(0,*) "Write netCDF4 restart for: "//datetimeString
+                WRITE(0,*) "Write netCDF4 restart for: "//TRIM(datetimeString)
             CASE default
                 CALL finish(routine, "file format for restart variables must be NetCDF")
         END SELECT
 
-        me%filename = getRestartFilename(description%base_filename, description%id, restart_args%datetime, &
+        me%filename = getRestartFilename(description%base_filename, description%id, restart_args%restart_datetime, &
                                         &TRIM(restart_args%modelType))
 
         IF(ALLOCATED(description%opt_pvct)) THEN
@@ -104,7 +105,7 @@ CONTAINS
             END IF
         ENDDO
 
-        CALL me%cdiIds%finalizeVlist(restart_args%datetime)
+        CALL me%cdiIds%finalizeVlist(restart_args%restart_datetime)
     END SUBROUTINE restartFile_open
 
     SUBROUTINE restartFile_writeLevel_r(me, varId, levelId, data)

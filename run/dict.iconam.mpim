@@ -25,37 +25,16 @@
 # use name          "add_var" name
 # --------------------------------
 #
-##  ua                 u
-##  va                 v
-##  wa                 w
-### rho                rho          <-- no translation needed
-##  wap                omega
-##  ta                 temp
-##  ps                 pres_sfc
-##  psl                pres_msl
-##  hus                qv
-##  clw                qc
-##  cli                qi
-##  pfull              pres
-##  phalf              pres_ifc
-#
-# Available translations for time averaged output of variable fields
-# ------------------------------------------------------------------
-#
-# use name          "add_var" name
-# --------------------------------
-#
-  ua                 ua_m
-  va                 va_m
-  wa                 wa_m
-  rho                rho_m
-  wap                wap_m
-  ta                 ta_m
-  ps                 ps_m
-  psl                psl_m
-  hus                hus_m
-  clw                clw_m
-  cli                cli_m
-  pfull              pfull_m
-  phalf              phalf_m
-#
+  ua                 u
+  va                 v
+  wa                 w
+# rho                rho          <-- no translation needed
+  wap                omega
+  ta                 temp
+  ps                 pres_sfc
+  psl                pres_msl
+  hus                qv
+  clw                qc
+  cli                qi
+  pfull              pres
+  phalf              pres_ifc

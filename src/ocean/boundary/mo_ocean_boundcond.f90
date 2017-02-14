@@ -39,7 +39,7 @@ MODULE mo_ocean_boundcond
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_scalar_product,     ONLY: map_cell2edges_3D
   USE mo_sea_ice_types,      ONLY: t_sfc_flx
-  USE mo_ocean_physics,        ONLY: t_ho_params, v_params
+  USE mo_ocean_physics_types,ONLY: t_ho_params, v_params
 !   USE mo_ocean_math_operators, ONLY: grad_fd_norm_oce_2d_3d, div_oce_3D
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
@@ -172,7 +172,6 @@ CONTAINS
 
     END SELECT
 !ICON_OMP_END_PARALLEL
-
 !     CALL map_cell2edges_3D( patch_3D, ocean_state%p_aux%bc_top_veloc_cc,ocean_state%p_aux%bc_top_vn,p_op_coeff,level=1)
     ! CALL sync_patch_array(SYNC_E, patch_3D%p_patch_2D(1), ocean_state%p_aux%bc_top_vn)
 

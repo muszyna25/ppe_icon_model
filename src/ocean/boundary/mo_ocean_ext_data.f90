@@ -68,7 +68,6 @@ MODULE mo_ocean_ext_data
     &                              read_3D, on_edges
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword, with_keywords
-  USE mo_datetime,           ONLY: t_datetime, month2hour
   USE mo_cdi,                ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, TSTEP_CONSTANT, &
     &                              TSTEP_MAX, TSTEP_AVG, GRID_UNSTRUCTURED
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
