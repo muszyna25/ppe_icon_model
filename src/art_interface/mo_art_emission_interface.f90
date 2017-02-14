@@ -373,6 +373,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                       ext_data%atm%llsm_atm_c,        &
               &                       ext_data%atm%fr_land,           &
               &                       p_patch,                        &
+              &                       p_art_data(jg)%dict_tracer,     &
               &                       jb,istart,iend,nlev,nproma)
           ENDDO
         CASE(1)
@@ -388,6 +389,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                       ext_data%atm%llsm_atm_c,        &
               &                       ext_data%atm%fr_land,           &
               &                       p_patch,                        &
+              &                       p_art_data(jg)%dict_tracer,     &
               &                       jb,istart,iend,nlev,nproma)
           ENDDO
         CASE(2)
