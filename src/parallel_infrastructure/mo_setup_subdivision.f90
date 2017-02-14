@@ -2904,7 +2904,7 @@ CONTAINS
 #endif
 
         ! Just in case that no grid point is found (may happen for ilev=1)
-        IF (.NOT. l_cell_correction .AND. start_index(irlev)==-9999) THEN
+        IF (start_index(irlev)==-9999) THEN
           start_index(irlev) = end_index(irlev+1)+1
           start_block(irlev) = end_block(irlev+1)
           end_index(irlev)   = end_index(irlev+1)

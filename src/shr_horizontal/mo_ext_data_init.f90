@@ -529,6 +529,8 @@ CONTAINS
     CALL p_bcast(is_frglac_in, p_io, mpi_comm)
     ! broadcast i_lctype from I-Pe to WORK Pes
     CALL p_bcast(i_lctype(jg), p_io, mpi_comm)
+    ! broadcast cdi filetype
+    CALL p_bcast(cdi_filetype, p_io, mpi_comm)
 
   END SUBROUTINE inquire_extpar_file
 
