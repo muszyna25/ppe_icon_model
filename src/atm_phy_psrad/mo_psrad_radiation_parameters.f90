@@ -31,7 +31,7 @@ MODULE mo_psrad_radiation_parameters
   USE mo_kind,            ONLY: wp
   USE mo_model_domain,    ONLY: t_patch
   USE mo_parallel_config, ONLY: nproma
-  USE mo_math_constants,  ONLY: pi
+  USE mo_math_constants,  ONLY: pi, pi2, pi_2 ! pi, pi*2, pi/2
 
 IMPLICIT NONE
 
@@ -44,7 +44,7 @@ IMPLICIT NONE
   PUBLIC :: ih2o, ico2, ich4, io3, io2, in2o, icfc, ighg, iaero, fco2
   PUBLIC :: co2vmr, ch4vmr, o2vmr, n2ovmr, cfcvmr
   PUBLIC :: co2mmr, ch4mmr, o2mmr, n2ommr            
-  PUBLIC :: twopi, deg2rad, ch4_v, n2o_v
+  PUBLIC :: ch4_v, n2o_v
   PUBLIC :: cemiss, diff, rad_undef
   PUBLIC :: psctm, ssi_factor, flx_ratio_cur, flx_ratio_rad, decl_sun_cur 
   
@@ -91,9 +91,7 @@ IMPLICIT NONE
   !
   ! 2.0 Non NAMELIST global variables and parameters
   ! --------------------------------
-  REAL(wp), PARAMETER :: twopi    = 2.0_wp*pi
-  REAL(wp), PARAMETER :: deg2rad  = pi/180.0_wp
-  REAL(wp), PARAMETER :: ch4_v(3) = (/1.25e-01_wp,  683.0_wp, -1.43_wp  /)
+  REAL(wp), PARAMETER :: ch4_v(3) = (/1.25e-01_wp,  683.0_wp, -1.43_wp/)
   REAL(wp), PARAMETER :: n2o_v(3) = (/1.20e-02_wp, 1395.0_wp, -1.43_wp/)
   !
   ! --- radiative transfer parameters
@@ -160,15 +158,15 @@ contains
     REAL (wp), SAVE :: cosrad(nds), sinrad(nds)
     REAL (wp)       :: xsmpl(nds), xnmbr(nds)
     REAL (wp), ALLOCATABLE :: sinlon(:,:), sinlat(:,:), coslon(:,:), coslat(:,:)
-    REAL (wp), ALLOCATABLE :: zcosmu0(:,:)
+    REAL (wp), ALLOCATABLE :: mu0(:,:)
 
-    REAL (wp) :: dcosmu0
+    REAL (wp) :: dcosmu0, dmu0
 
     INTEGER :: nprom, npromz, nblks
 
     IF (.NOT.initialized) THEN
        DO i = 1, nds
-          xx = twopi*(i-1.0_wp)/nds
+          xx = pi2*(i-1.0_wp)/nds
           sinrad(i) = SIN(xx)
           cosrad(i) = COS(xx)
        END DO
@@ -187,7 +185,7 @@ contains
     ALLOCATE(sinlat(nprom,nblks))
     ALLOCATE(coslon(nprom,nblks))
     ALLOCATE(coslat(nprom,nblks))
-    ALLOCATE(zcosmu0(nprom,nblks))
+    ALLOCATE(mu0(nprom,nblks))
     sinlon(:,:)=0._wp
     sinlat(:,:)=0._wp
     coslon(:,:)=0._wp
@@ -232,31 +230,38 @@ contains
        END IF
     ELSE           ! normal radiation calculation
        IF (ldiur) THEN
-          zcosmu0(:,:)     =  zen1*sinlat(:,:)                &
+          !
+          ! cos(zenith angle), positive for sunlit hemisphere
+          cos_mu0(:,:)     =  zen1*sinlat(:,:)                &
                &             -zen2*coslat(:,:)*coslon(:,:)    &
                &             +zen3*coslat(:,:)*sinlon(:,:)
           !
-          ! increment of mu0 to include a rim of width (dt_ext/2)*2pi/1day around the sunlit hemisphere
-          ! at the radiation time so that the extended area includes the sunlit areas of all time step
-          ! within the radiation interval of length dt_ext centered at the radiation time
-          dcosmu0 = SIN(dt_ext/86400._wp*pi)
+          ! zenith angle
+          mu0(:,:) = ACOS(cos_mu0(:,:))
           !
-          ! add increment and rescale to a maximum value of 1
-          cos_mu0(:,:) = (zcosmu0(:,:) + dcosmu0)/(1._wp+dcosmu0)
+          ! increment of mu0 to include a rim of width dmu0= (dt_ext/2)*2pi/1day around
+          ! the sunlit hemisphere at the radiation time so that the extended area includes
+          ! the sunlit areas of all time step within the radiation interval of length dt_ext
+          ! centered at the radiation time
+          dmu0    = dt_ext/86400._wp*pi
+          dcosmu0 = SIN(dmu0)
           !
+          ! add increment for the definition of the extended daylight area
           ! set day/night indicator to 1/0
           daylght_frc(:,:) = 1.0_wp
-          WHERE (cos_mu0(:,:) < 0.0_wp)
+          WHERE (cos_mu0(:,:)+dcosmu0 < 0.0_wp)
              daylght_frc(:,:) = 0.0_wp
           END WHERE
           !
-          ! now redefine cos_mu0 in the daylight area
-          ! if it is enlarged
-          IF (dt_ext /= 0.0_wp) THEN
-             WHERE (daylght_frc(:,:) == 1.0_wp)
-                cos_mu0(:,:) = MAX(0.1_wp,zcosmu0(:,:))
-             END WHERE
-          END IF
+          ! now redefine cos_mu0 in a band of width +/-dmu0 around the original terminator
+          ! using a linear function of mu0 such that:
+          !   inner edge                       : mu0=pi/2-dmu0 --> cos_mu0 = cos(pi/2-dmu0)
+          !   center = original terminator     : mu0=pi/2      --> cos_mu0 = cos(pi/2-dmu0)/2
+          !   outer edge = extended terminator : mu0=pi/2+dmu0 --> cos_mu0 = 0
+          !
+          WHERE (ABS(mu0(:,:)-pi_2)<dmu0)
+             cos_mu0(:,:) = 0.5_wp*SIN(dmu0)*(1._wp-(mu0(:,:)-pi_2)/dmu0)
+          END WHERE
           !
        ELSE
           DO j = 1, SIZE(cos_mu0,2)
