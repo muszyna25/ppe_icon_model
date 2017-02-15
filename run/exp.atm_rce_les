@@ -54,7 +54,7 @@ iforcing=3        # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
-grids_folder="/pool/data/ICON/buildbot_data/aes/rce_les/"
+grids_folder="${icon_data_buildbotFolder_aes}/rce_les/"
 atmo_dyn_grids='torus_grid_r4km_s50.nc'
 #
 #-----------------------------------------------------------------------------
