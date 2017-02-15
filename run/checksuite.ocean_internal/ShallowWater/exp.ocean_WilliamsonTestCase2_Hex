@@ -19,7 +19,7 @@ output_interval="PT30M"
 (( dt_restart     = years_restart * year ))
 steps_per_file=6480   # output intervals per file interval (5days)
 autoPostProcessing=false
-grids_folder="/mnt/lustre01/pool/data/ICON/oes/grids/AquaPlanets"
+grids_folder="${icon_data_poolFolder}/grids/AquaPlanets"
 ocean_grids="AquaPlanet_IcosDual_0158km_springOpt.nc"
 dtime=600
 #-----------------------------------------------------------------------------
