@@ -112,9 +112,10 @@ MODULE mo_nwp_phy_init
   USE mo_initicon_config,     ONLY: init_mode
 
   USE mo_nwp_ww,              ONLY: configure_ww
-  USE mo_nwp_tuning_config,   ONLY: tune_gkwake, tune_gkdrag, tune_zceff_min, &
+  USE mo_nwp_tuning_config,   ONLY: tune_gkwake, tune_gkdrag, tune_gfrcrit, tune_zceff_min, &
     &                               tune_v0snow, tune_zvz0i
   USE mo_sso_cosmo,           ONLY: sso_cosmo_init_param
+  USE mo_cuparameters,        ONLY: sugwd
   USE mo_fortran_tools,       ONLY: init
 
   IMPLICIT NONE
@@ -1472,12 +1473,16 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
 
   END IF
 
-  ! COSMO SSO scheme
+  ! SSO scheme
   !
-  IF ( atm_phy_nwp_config(jg)%inwp_sso == 1 ) THEN
-    IF (jg == 1) CALL sso_cosmo_init_param(tune_gkwake=tune_gkwake, tune_gkdrag=tune_gkdrag)
+  SELECT CASE ( atm_phy_nwp_config(jg)%inwp_sso )
+  CASE ( 1 )                                ! COSMO SSO scheme
+    IF (jg == 1) CALL sso_cosmo_init_param(tune_gkwake=tune_gkwake, tune_gkdrag=tune_gkdrag, tune_gfrcrit=tune_gfrcrit)
     prm_diag%ktop_envel(:,:) = nlev
-  ENDIF
+  CASE ( 2 )                                ! IFS SSO scheme
+    CALL sugwd(nlev, pref, phy_params )
+    prm_diag%ktop_envel(:,:) = nlev
+  END SELECT
 
   !  WW diagnostics
   !

@@ -50,6 +50,10 @@ MODULE mo_nwp_parameters
     ! launch level for GWD scheme
     INTEGER  :: klaunch
     !
+    ! Parameters which are only computed if Sub-grid Scale Orography (SSO) scheme is switched on
+    !
+    INTEGER  :: ngwdlim, ngwdtop, nktopg
+    !
     ! Parameters which are always computed
     !
     ! characteristic horizontal length scale (grid-scale) for 

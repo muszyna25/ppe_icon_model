@@ -277,7 +277,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ENDDO
     ENDIF
 
-    IF (atm_phy_nwp_config(jg)%inwp_sso == 1) THEN
+    IF (atm_phy_nwp_config(jg)%inwp_sso > 0) THEN
       DO jc = i_startidx, i_endidx
         IF (prm_diag%ktop_envel(jc,jb) < nlev) THEN
           jk_gust(jc) = prm_diag%ktop_envel(jc,jb) - 1
