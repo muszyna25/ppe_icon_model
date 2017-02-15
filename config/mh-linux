@@ -274,7 +274,7 @@ case "$ac_sitename" in
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
                     ;;
                 esac
-                mpi_startrun="srun" "-n" "\\\$mpi_total_procs" "--ntasks-per-node" "\\\$mpi_procs_pernode" "--threads-per-core=1" "--cpus-per-task" "\\\$OMP_NUM_THREADS"
+                mpi_startrun="srun" "-n" "\$mpi_total_procs" "--ntasks-per-node" "\$mpi_procs_pernode" "--threads-per-core=1" "--cpus-per-task" "\$OMP_NUM_THREADS"
                 ;;
         esac
         ;;
