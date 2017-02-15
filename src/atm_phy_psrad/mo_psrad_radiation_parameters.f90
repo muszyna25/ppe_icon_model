@@ -133,7 +133,7 @@ contains
        &                      time_of_day, dt_ext,                            &
        &                      ldiur,       l_sph_symm_irr,                    &
        &                      p_patch,                                        &
-       &                      flx_ratio,   cos_mu0,         daylght_frc       )   
+       &                      flx_ratio,   cos_mu0,         daylight_frc      )
 
     REAL(wp), INTENT(in)  :: &
          decl_sun,           & !< delination of the sun
@@ -148,7 +148,7 @@ contains
     REAL(wp), INTENT(out) :: &
          flx_ratio,          & !< ratio of actual to average solar constant
          cos_mu0(:,:),       & !< cos_mu_0, cosine of the solar zenith angle
-         daylght_frc(:,:)      !< daylight fraction (0 or 1) with diurnal cycle
+         daylight_frc(:,:)     !< daylight fraction (0 or 1) with diurnal cycle
 
     INTEGER     :: i, j
     REAL(wp)    :: zen1, zen2, zen3, z1, z2, z3, xx
@@ -203,9 +203,10 @@ contains
        IF (ldiur) THEN              ! all grid points have diurnal cycle as if they
                                     ! were on the equator of a Kepler orbit
           cos_mu0(:,:)     = -zen2
-          daylght_frc(:,:) = 1.0_wp
           WHERE (cos_mu0(:,:) < 0.0_wp)
-             daylght_frc(:,:) = 0.0_wp
+             daylight_frc(:,:) = 0.0_wp
+          ELSEWHERE
+             daylight_frc(:,:) = 1.0_wp
           END WHERE
        ELSE
           DO j = 1, SIZE(cos_mu0,2)
@@ -218,14 +219,14 @@ contains
                    xnmbr(:) = 0.0_wp
                 END WHERE
 
-                cos_mu0(i,j)     = SUM(xsmpl(:))
-                daylght_frc(i,j) = SUM(xnmbr(:))
+                cos_mu0(i,j)      = SUM(xsmpl(:))
+                daylight_frc(i,j) = SUM(xnmbr(:))
              END DO
           END DO
 
-          WHERE (daylght_frc(:,:) > EPSILON(1.0_wp))
-             cos_mu0(:,:)     = cos_mu0(:,:)/daylght_frc(:,:)
-             daylght_frc(:,:) = daylght_frc(:,:)/nds
+          WHERE (daylight_frc(:,:) > EPSILON(1.0_wp))
+             cos_mu0(:,:)      = cos_mu0(:,:)/daylight_frc(:,:)
+             daylight_frc(:,:) = daylight_frc(:,:)/nds
           END WHERE
        END IF
     ELSE           ! normal radiation calculation
@@ -248,15 +249,16 @@ contains
           !
           ! add increment for the definition of the extended daylight area
           ! set day/night indicator to 1/0
-          daylght_frc(:,:) = 1.0_wp
           WHERE (cos_mu0(:,:)+dcosmu0 < 0.0_wp)
-             daylght_frc(:,:) = 0.0_wp
+             daylight_frc(:,:) = 0.0_wp
+          ELSEWHERE
+             daylight_frc(:,:) = 1.0_wp
           END WHERE
           !
           ! now redefine cos_mu0 in a band of width +/-dmu0 around the original terminator
           ! using a linear function of mu0 such that:
           !   inner edge                       : mu0=pi/2-dmu0 --> cos_mu0 = cos(pi/2-dmu0)
-          !   center = original terminator     : mu0=pi/2      --> cos_mu0 = cos(pi/2-dmu0)/2
+          !   center     = original terminator : mu0=pi/2      --> cos_mu0 = cos(pi/2-dmu0)/2
           !   outer edge = extended terminator : mu0=pi/2+dmu0 --> cos_mu0 = 0
           !
           WHERE (ABS(mu0(:,:)-pi_2)<dmu0)
@@ -278,14 +280,14 @@ contains
                    xnmbr(:) = 0.0_wp
                 END WHERE
 
-                cos_mu0(i,j)     = SUM(xsmpl(:))
-                daylght_frc(i,j) = SUM(xnmbr(:))
+                cos_mu0(i,j)      = SUM(xsmpl(:))
+                daylight_frc(i,j) = SUM(xnmbr(:))
              END DO
           END DO
 
-          WHERE (daylght_frc(:,:) > EPSILON(1.0_wp))
-             cos_mu0(:,:)     = cos_mu0(:,:)/daylght_frc(:,:)
-             daylght_frc(:,:) = daylght_frc(:,:)/nds
+          WHERE (daylight_frc(:,:) > EPSILON(1.0_wp))
+             cos_mu0(:,:)      = cos_mu0(:,:)/daylight_frc(:,:)
+             daylight_frc(:,:) = daylight_frc(:,:)/nds
           END WHERE
        END IF
     END IF
