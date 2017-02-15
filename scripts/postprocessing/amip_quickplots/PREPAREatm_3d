@@ -6,30 +6,33 @@ echo $TYP
 #
 NAME=$2
 #
-RES=$3
+DIR=$3
+#
+RES=$4
 #
 #
 echo $RES
 #
-eraRES=$4
+eraRES=$5
 #
 #
 echo $eraRES
 #
-TO=$5
+TO=$6
 #
 echo $TO
 #
-WORKDIR=$6
-# 
+#
+
 echo QUELLE path $QUELLE
 
 #
 
 
 
-##
-inDat="${WORKDIR}/atm_3d_${NAME}"
+#
+inDat="${DIR}/${NAME}_atm_3d_ml.nc"
+
 ATMera="ERAin_T63_atm_3d_zon_${ERAystrt}_${ERAylast}_${TYP}.nc"
 ATMeralola="ERAin_${RES}_atm_2d_${ERAystrt}_${ERAylast}_${TYP}.nc"
 ls -la $ATMeralola
