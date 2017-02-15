@@ -329,11 +329,7 @@ CONTAINS
       DO jk = 1,nlev
         DO jc = jcs, jce
 
-          ! Fill the physics state variables, which are used by echam:
-          !
-          prm_field(jg)%        zf(jc,jk,jb)     = p_metrics%        z_mc(jc,jk,jb)
-          prm_field(jg)%        dz(jc,jk,jb)     = p_metrics% ddqz_z_full(jc,jk,jb)
-          prm_field(jg)%      geom(jc,jk,jb)     = p_metrics%  geopot_agl(jc,jk,jb)
+          ! Fill the time dependent physics state variables, which are used by echam:
           !
           prm_field(jg)%        ua(jc,jk,jb)     = pt_diag%    u(jc,jk,jb)
           prm_field(jg)%        va(jc,jk,jb)     = pt_diag%    v(jc,jk,jb)
@@ -345,8 +341,11 @@ CONTAINS
           prm_field(jg)% presm_old(jc,jk,jb)     = pt_diag%  pres(jc,jk,jb)
           prm_field(jg)% presm_new(jc,jk,jb)     = pt_diag%  pres(jc,jk,jb)
           !
-          ! Air mass
-          prm_field(jg)%       mair(jc,jk,jb)    = pt_prog_new %         rho(jc,jk,jb) &
+          ! density
+          prm_field(jg)%       rho(jc,jk,jb)     = pt_prog_new %         rho(jc,jk,jb)
+              !
+          ! air mass
+          prm_field(jg)%      mair(jc,jk,jb)     = pt_prog_new %         rho(jc,jk,jb) &
             &                                     *prm_field(jg)%         dz(jc,jk,jb)
           !
           ! H2O mass (vap+liq+ice)
@@ -355,7 +354,7 @@ CONTAINS
             &                                       +pt_prog_new_rcf% tracer(jc,jk,jb,iqi)) &
             &                                      *prm_field(jg)%      mair(jc,jk,jb)
           !
-          ! Dry air mass
+          ! dry air mass
           prm_field(jg)%      mdry(jc,jk,jb)     = prm_field(jg)%       mair(jc,jk,jb) &
             &                                     -prm_field(jg)%       mh2o(jc,jk,jb)
           !
@@ -390,9 +389,6 @@ CONTAINS
       DO jk = 1,nlev+1
         DO jc = jcs, jce
 
-          prm_field(jg)%            zh(jc,jk,jb) = p_metrics%          z_ifc(jc,jk,jb)
-          prm_field(jg)%          geoi(jc,jk,jb) = p_metrics% geopot_agl_ifc(jc,jk,jb)
-          !
           prm_field(jg)%     presi_old(jc,jk,jb) = pt_diag% pres_ifc(jc,jk,jb)
           prm_field(jg)%     presi_new(jc,jk,jb) = pt_diag% pres_ifc(jc,jk,jb)
 
@@ -417,7 +413,7 @@ CONTAINS
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
           avi%pres(jcs:jce,:)=prm_field(jg)%presm_old(jcs:jce,:,jb)
-          avi%cell_center_lat(jcs:jce)=patch%cells%center(jcs:jce,jb)%lat
+          avi%cell_center_lat(jcs:jce)=prm_field(jg)%clat(jcs:jce,jb)
           CALL lcariolle_init_o3(                                              &
            & jcs,                   jce,                nproma,                &
            & nlev,                  time_interpolation, lcariolle_lat_intp_li, &
@@ -763,9 +759,10 @@ CONTAINS
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
         DO jc = jcs, jce
-          prm_field(jg)% mh2ovi(jc,jb) = 0.0_wp ! initialize air path after physics
-          prm_field(jg)% mairvi(jc,jb) = 0.0_wp ! initialize air path after physics
-          prm_field(jg)% mdryvi(jc,jb) = 0.0_wp ! initialize air path after physics
+          ! initialize vertical integrals
+          prm_field(jg)% mh2ovi(jc,jb) = 0.0_wp
+          prm_field(jg)% mairvi(jc,jb) = 0.0_wp
+          prm_field(jg)% mdryvi(jc,jb) = 0.0_wp
         END DO
         DO jk = 1,nlev
           DO jc = jcs, jce
@@ -784,6 +781,10 @@ CONTAINS
               ! new air mass
               prm_field(jg)% mair  (jc,jk,jb) = prm_field(jg)%      mdry (jc,jk,jb) &
                 &                              +prm_field(jg)%      mh2o (jc,jk,jb)
+              !
+              ! new density
+              prm_field(jg)%    rho(jc,jk,jb) = prm_field(jg)%      mair  (jc,jk,jb) &
+                &                              /prm_field(jg)%      dz    (jc,jk,jb)
               !
               ! new density
               pt_prog_new %     rho(jc,jk,jb) = prm_field(jg)%      mair  (jc,jk,jb) &

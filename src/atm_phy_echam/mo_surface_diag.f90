@@ -30,9 +30,9 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE surface_fluxes( lsfc_heat_flux, psteplen,             &! in
-                           & kproma, kbdim, ksfc_type,             &! in
+  SUBROUTINE surface_fluxes( kproma, kbdim, ksfc_type,             &! in
                            & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
+                           & psteplen,                             &! in
                            & pfrc, pcfh_tile, pfac_sfc,            &! in
                            & pcptv_tile, pqsat_tile,               &! in
                            & pca, pcs, bb_btm,                     &! in
@@ -42,7 +42,6 @@ CONTAINS
                            & pevap_tile,                           &! out
                            & evapotranspiration)
 
-    LOGICAL, INTENT(IN) :: lsfc_heat_flux
     REAL(wp),INTENT(IN) :: psteplen
     INTEGER, INTENT(IN) :: kproma, kbdim, ksfc_type
     INTEGER, INTENT(IN) :: idx_wtr, idx_ice, idx_lnd
@@ -83,14 +82,10 @@ CONTAINS
       END IF
     END DO
 
-    IF (.NOT.lsfc_heat_flux) THEN
-      RETURN
-    END IF
-
     !===================================================================
     ! Otherwise compute diagnostics
     !===================================================================
-    zconst = 1._wp/(grav*psteplen)
+    zconst = 1._wp/psteplen
 
     !-------------------------------------------------------------------
     ! Moisture fluxes (aka evaporation rates)
@@ -206,14 +201,13 @@ CONTAINS
   !!
   !! Compute wind stress over each surface type
   !!
-  SUBROUTINE wind_stress( lsfc_mom_flux, psteplen,              &! in
-                        & kproma, kbdim, ksfc_type,             &! in
+  SUBROUTINE wind_stress( kproma, kbdim, ksfc_type,             &! in
+                        & psteplen,                             &! in
                         & pfrc, pcfm_tile, pfac_sfc,            &! in
                         & pu_rtpfac1, pv_rtpfac1,               &! in
                         & pu_stress_gbm,  pv_stress_gbm,        &! out
                         & pu_stress_tile, pv_stress_tile        )! out
 
-    LOGICAL, INTENT(IN)    :: lsfc_mom_flux
     REAL(wp),INTENT(IN)    :: psteplen
     INTEGER, INTENT(IN)    :: kproma, kbdim, ksfc_type
 
@@ -235,74 +229,52 @@ CONTAINS
     INTEGER  :: is     (ksfc_type)       !< counter for masks
     INTEGER  :: jls, jl, js
 
-    !===================================================================
-    ! If surface momentum fluxes is switched off (i.e., using free slip
-    ! boundary condition), set wind stress to zero and return to the
-    ! calling subroutine.
-    !===================================================================
-    IF (.NOT.lsfc_mom_flux) THEN
+    zconst = 1._wp/psteplen
 
-      pu_stress_tile(:,:) = 0._wp
-      pv_stress_tile(:,:) = 0._wp
+    ! Compute wind stress over each surface type, then accumulate
+    ! grid box mean. Formula for wind stress:
+    !   (grav*psteplen)**(-1)
+    !  *[grav*psteplen*tpfac1*(air density)]
+    !  *(surface turbulent exchange coeff)
+    !  *[(u-/v-wind at lowest model level)/tpfac1]
 
-    !===================================================================
-    ! Otherwise do computation
-    !===================================================================
-    ELSE
-      zconst = 1._wp/(grav*psteplen)
+    pu_stress_tile(:,:) = 0.0_wp
+    pv_stress_tile(:,:) = 0.0_wp
 
-      ! Compute wind stress over each surface type, then accumulate
-      ! grid box mean. Formula for wind stress:
-      !   (grav*psteplen)**(-1)
-      !  *[grav*psteplen*tpfac1*(air density)]
-      !  *(surface turbulent exchange coeff)
-      !  *[(u-/v-wind at lowest model level)/tpfac1]
+    pu_stress_gbm (:)   = 0.0_wp
+    pv_stress_gbm (:)   = 0.0_wp
 
-      pu_stress_tile(:,:) = 0.0_wp
-      pv_stress_tile(:,:) = 0.0_wp
-
-      pu_stress_gbm(:) = 0.0_wp
-      pv_stress_gbm(:) = 0.0_wp
-
-      ! check for masks
-      !
-      DO jsfc = 1,ksfc_type
-        is(jsfc) = 0
-        DO jl = 1,kproma
+    ! check for masks
+    !
+    DO jsfc = 1,ksfc_type
+       is(jsfc) = 0
+       DO jl = 1,kproma
           IF(pfrc(jl,jsfc).GT.0.0_wp) THEN
-            is(jsfc) = is(jsfc) + 1
-            loidx(is(jsfc),jsfc) = jl
+             is(jsfc) = is(jsfc) + 1
+             loidx(is(jsfc),jsfc) = jl
           ENDIF
-        ENDDO
-      ENDDO
+       ENDDO
+    ENDDO
 
-      DO jsfc = 1,ksfc_type
-        DO jls = 1,is(jsfc)
+    DO jsfc = 1,ksfc_type
+       DO jls = 1,is(jsfc)
           ! set index
           js=loidx(jls,jsfc)
 
-          pu_stress_tile(js,jsfc) = zconst*pfac_sfc(js) *pcfm_tile(js,jsfc) &
-                                        & *pu_rtpfac1(js)
+          pu_stress_tile(js,jsfc) = zconst*pfac_sfc(js) *pcfm_tile(js,jsfc)*pu_rtpfac1(js)
+          pv_stress_tile(js,jsfc) = zconst*pfac_sfc(js) *pcfm_tile(js,jsfc)*pv_rtpfac1(js)
+       END DO
+    END DO
 
-          pv_stress_tile(js,jsfc) = zconst*pfac_sfc(js) *pcfm_tile(js,jsfc) &
-                                        & *pv_rtpfac1(js)
-        END DO
-      END DO
-
-      DO jsfc = 1,ksfc_type
-        DO jls = 1,is(jsfc)
+    DO jsfc = 1,ksfc_type
+       DO jls = 1,is(jsfc)
           ! set index
           js=loidx(jls,jsfc)
 
-          pu_stress_gbm(js)       = pu_stress_gbm(js) + pu_stress_tile(js,jsfc) &
-                                        &  *pfrc(js,jsfc)
-
-          pv_stress_gbm(js)       = pv_stress_gbm(js) + pv_stress_tile(js,jsfc) &
-                                        &  *pfrc(js,jsfc)
-        END DO
-      END DO
-
-    END IF ! lsfc_mom_flux
+          pu_stress_gbm(js)       = pu_stress_gbm(js) + pu_stress_tile(js,jsfc)*pfrc(js,jsfc)
+          pv_stress_gbm(js)       = pv_stress_gbm(js) + pv_stress_tile(js,jsfc)*pfrc(js,jsfc)
+       END DO
+    END DO
 
   END SUBROUTINE wind_stress
   !-------------
@@ -319,7 +291,8 @@ CONTAINS
                        & pxm1,                            &
                        & pum1,      pvm1,                 &
                        & pocu,      pocv,                 & 
-                       & pgeom1,                          &! in geopotential above surface
+                       & pzf,                             &! in height of lowermost full level (m)
+                       & pzs,                             &! in height of surface (m)
                        & pcptgz,                          &! in dry static energy
                        & pcpt_tile,                       &! in dry static energy 
                        & pbn_tile,                        &! in for diagnostic
@@ -345,7 +318,8 @@ CONTAINS
 
     REAL(wp),INTENT(IN) :: pfrc     (kbdim,ksfc_type) !< fraction of the grid box occupied by
                                                       !< each surface type
-    REAL(wp), INTENT(in)     :: pqm1(kbdim), pgeom1(kbdim) 
+    REAL(wp), INTENT(in)     :: pqm1(kbdim)
+    REAL(wp), INTENT(in)     :: pzf(kbdim), pzs(kbdim)
     REAL(wp), INTENT(in)     :: pcptgz(kbdim)         !< dry static energy at surface level
     REAL(wp), INTENT(in)     :: pcpt_tile(kbdim,ksfc_type) !< dry static energy on tiles
     REAL(wp), TARGET, INTENT(in) :: pbn_tile(kbdim,ksfc_type)   !< for diagnostics
@@ -378,9 +352,9 @@ CONTAINS
     CONTIGUOUS :: pbtile
 #endif
     !CONSTANTS
-    zhuv          = 10._wp * grav
-    zhtq          = 2._wp * grav
-    zephum        = 5.e-2_wp
+    zhuv          =  10._wp ! 10m
+    zhtq          =   2._wp !  2m
+    zephum        = 0.05_wp ! epsilon for rel. humidity
 
     zc2es         = 610.78_wp * rdv
     zc3les        = 17.269_wp
@@ -421,14 +395,14 @@ CONTAINS
       END IF
       DO jls=1,is(jsfc)
        jl = loidx(jls,jsfc)
-       zrat   = zhtq / pgeom1(jl)
+       zrat   = zhtq / (pzf(jl)-pzs(jl))
        zcbn   = LOG(1._wp + (EXP(pbtile(jl,jsfc)) - 1._wp) * zrat )
        zcbs   = -(pbtile(jl,jsfc) - pbh_tile(jl,jsfc)) * zrat
        zcbu   = -LOG(1._wp + (EXP(pbtile(jl,jsfc) - pbh_tile(jl,jsfc)) - 1._wp) * zrat)
        zmerge = MERGE(zcbs,zcbu,pri_tile(jl,jsfc) .GT. 0._wp)
        zred   = (zcbn + zmerge) / pbh_tile(jl,jsfc)
        zh2m(jl)   = pcpt_tile(jl,jsfc) + zred * (pcptgz(jl) - pcpt_tile(jl,jsfc))
-       ptas_tile(jl,jsfc) = (zh2m(jl) - zhtq ) / (cpd * (1._wp + vtmpc2 * pqm1(jl)))
+       ptas_tile(jl,jsfc) = (zh2m(jl) - zhtq*grav ) / (cpd * (1._wp + vtmpc2 * pqm1(jl)))
      ENDDO
     ENDDO
     !
@@ -446,7 +420,7 @@ CONTAINS
       zrh2m(jl)     = MAX(zephum, pqm1(jl) / zqs1(jl))
  
       zaph2m(jl)     = paphm1(jl) * &  ! = paphm1(1:kproma, klevp1)
-          (1._wp - zhtq / ( rd * ptas_tile(jl,jsfc) * (1._wp + vtmpc1 * pqm1(jl) - pxm1(jl))))
+          (1._wp - zhtq*grav / ( rd * ptas_tile(jl,jsfc) * (1._wp + vtmpc1 * pqm1(jl) - pxm1(jl))))
      ENDDO
 
      WHERE(ptas_tile(1:kproma,jsfc) .GT. tmelt)
@@ -475,7 +449,7 @@ CONTAINS
     DO jsfc = 1,ksfc_type
        DO jls=1,is(jsfc)
          jl = loidx(jls,jsfc)
-           zrat   = zhuv / pgeom1(jl)
+           zrat   = zhuv / (pzf(jl)-pzs(jl))
            zcbn   = LOG(1._wp + (EXP (pbn_tile(jl,jsfc)) - 1._wp) * zrat )
            zcbs   = -(pbn_tile(jl,jsfc) - pbm_tile(jl,jsfc)) * zrat
            zcbu   = -LOG(1._wp + (EXP (pbn_tile(jl,jsfc) - pbm_tile(jl,jsfc)) - 1._wp) * zrat)

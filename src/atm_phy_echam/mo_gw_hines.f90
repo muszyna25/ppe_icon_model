@@ -123,16 +123,19 @@ CONTAINS
     &                   jce        ,&! in,  end   index ...
     &                   nc         ,&! in,  number of cells/columns in loop (jce-jcs+1)
     &                   nlev       ,&! in,  number of levels
-    &                   paphm1     ,&! in,  p at half levels
-    &                   papm1      ,&! in,  p at full levels
-    &                   ptm1       ,&! in,  T
-    &                   pum1       ,&! in,  u
-    &                   pvm1       ,&! in,  v
-    &                   lat_deg    ,&! in,  latitude in deg N
+    &                   paphm1     ,&! in,  p at half levels       [Pa]
+    &                   papm1      ,&! in,  p at full levels       [Pa]
+    &                   pzh        ,&! in,  half level height asl. [m]
+    &                   prho       ,&! in,  full level density     [kg/m3]
+    &                   pmair      ,&! in,  air mass in layer      [kg/m2]
+    &                   ptm1       ,&! in,  T                      [K]
+    &                   pum1       ,&! in,  u                      [m/s]
+    &                   pvm1       ,&! in,  v                      [m/s]
+    &                   lat_deg    ,&! in,  latitude               [degN]
 !!$    &                   paprflux   ,&! in, precipitation flux at surface
-    &                   dissip_gwh ,&! out,     Q|Hines
-    &                   tend_u_gwh ,&! out, du/dt|Hines
-    &                   tend_v_gwh ) ! out, dv/dt|Hines
+    &                   dissip_gwh ,&! out,     Q|Hines            [W/kg]
+    &                   tend_u_gwh ,&! out, du/dt|Hines            [m/s2]
+    &                   tend_v_gwh ) ! out, dv/dt|Hines            [m/s2]
 
 
     !
@@ -166,15 +169,18 @@ CONTAINS
     ! Input 2D
     REAL(wp) ,INTENT(in)  :: paphm1(nbdim,nlev+1)    ! half level pressure (t-dt)
     REAL(wp) ,INTENT(in)  :: papm1(nbdim,nlev)       ! full level pressure (t-dt)
+    REAL(wp) ,INTENT(in)  :: pzh(nbdim,nlev+1)       ! half level height asl. (m)
+    REAL(wp) ,INTENT(in)  :: prho(nbdim,nlev)        ! full level density (kg/m3)
+    REAL(wp) ,INTENT(in)  :: pmair(nbdim,nlev)       ! full level air mass (kg/m2)
     REAL(wp) ,INTENT(in)  :: ptm1(nbdim,nlev)        ! temperature (t-dt)
     REAL(wp) ,INTENT(in)  :: pum1(nbdim,nlev)        ! zonal wind (t-dt)
     REAL(wp) ,INTENT(in)  :: pvm1(nbdim,nlev)        ! meridional wind (t-dt)
 
     !  Array arguments with intent(OUT):
     ! - input/output 2d
-    REAL(wp) ,INTENT(inout) :: dissip_gwh(nbdim,nlev)  ! gw energy dissipation   ! out
-    REAL(wp) ,INTENT(inout) :: tend_u_gwh(nbdim,nlev)  ! tendency of zonal wind    ! out
-    REAL(wp) ,INTENT(inout) :: tend_v_gwh(nbdim,nlev)  ! tendency of meridional wind ! out
+    REAL(wp) ,INTENT(out) :: dissip_gwh(nbdim,nlev)  ! gw energy dissipation
+    REAL(wp) ,INTENT(out) :: tend_u_gwh(nbdim,nlev)  ! tendency of zonal wind
+    REAL(wp) ,INTENT(out) :: tend_v_gwh(nbdim,nlev)  ! tendency of meridional wind
 
     !  Local arrays for ccc/mam hines gwd scheme:
 
@@ -188,12 +194,8 @@ CONTAINS
     REAL(wp) :: sgj(nc,nlev)
     REAL(wp) :: shj(nc,nlev)
     REAL(wp) :: shxkj(nc,nlev)
-    REAL(wp) :: dsgj(nc,nlev)
     REAL(wp) :: dttdsf(nc)
 
-    REAL(wp) :: utendgw(nc,nlev)         ! zonal tend, gravity wave spectrum (m/s^2)
-    REAL(wp) :: vtendgw(nc,nlev)         ! merid tend, gravity wave spectrum (m/s^2)
-    REAL(wp) :: heat_gw(nc,nlev)         ! heating, gravity wave spectrum (J/kg/s)
     REAL(wp) :: diffco(nc,nlev)          ! diffusion coefficient (m^2/s)
 
     REAL(wp) :: flux_u(nc,nlev)          ! zonal momentum flux (pascals)
@@ -203,8 +205,9 @@ CONTAINS
     REAL(wp) :: vhs(nc,nlev)             ! merid wind (m/s), input for hines param
     REAL(wp) :: bvfreq(nc,nlev)          ! background brunt vassala frequency (rad/s)
     REAL(wp) :: density(nc,nlev)         ! background density (kg/m^3)
+    REAL(wp) :: mair(nc,nlev)            ! background airmass (kg/m^2)
     REAL(wp) :: visc_mol(nc,nlev)        ! molecular viscosity (m^2/s)
-    REAL(wp) :: alt(nc,nlev)             ! background altitude (m)
+    REAL(wp) :: alt(nc,nlev)             ! background altitude above ground of lower half level of a layer (m)
 
     REAL(wp) :: rmswind(nc)              ! rms gravity wave  wind, lowest level (m/s)
     REAL(wp) :: anis(nc,nazmth)          ! anisotropy factor (sum over azimuths = 1)
@@ -223,7 +226,7 @@ CONTAINS
     ! Local scalars:
     INTEGER  :: jk, jl
     INTEGER  :: levbot     ! gravity wave spectrum lowest level
-    REAL(wp) :: rgocp, hscal, ratio, paphm1_inv
+    REAL(wp) :: rgocp, ratio, pressg_inv
 !!$    REAL(wp) :: zpcons
 
     CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines:gw_hines'
@@ -267,10 +270,6 @@ CONTAINS
     !--  Initialize the ccc/mam hines gwd scheme
     !
 
-    utendgw(:,:) = 0.0_wp
-    vtendgw(:,:) = 0.0_wp
-    heat_gw(:,:) = 0.0_wp
-
     diffco(:,:) = 0.0_wp
 
     flux_u(:,:) = 0.0_wp
@@ -291,22 +290,21 @@ CONTAINS
 
     rgocp=rd/cpd
 
+    ! Surface pressure:
+    pressg(1:nc)=paphm1(jcs:jce,nlev+1)
+
     ! Vertical positioning arrays:
     DO jk=1,nlev
 !IBM* novector
       DO jl=1,nc
-        paphm1_inv = 1._wp/paphm1(jl+jcs-1,nlev+1)
-        shj(jl,jk)=papm1(jl+jcs-1,jk)*paphm1_inv
-        sgj(jl,jk)=papm1(jl+jcs-1,jk)*paphm1_inv
-        dsgj(jl,jk)=(paphm1(jl+jcs-1,jk+1)-paphm1(jl+jcs-1,jk))*paphm1_inv
+        pressg_inv = 1._wp/pressg(jl+jcs-1)
+        shj(jl,jk)=papm1(jl+jcs-1,jk)*pressg_inv
+        sgj(jl,jk)=papm1(jl+jcs-1,jk)*pressg_inv
       END DO
       shxkj(1:nc,jk) = sgj(1:nc,jk)**rgocp
     END DO
 
 !     sgj(1:nc,1:nlev)=shj(1:nc,1:nlev)
-
-    ! Surface pressure:
-    pressg(1:nc)=paphm1(jcs:jce,nlev+1)
 
     !
     !     * calculate b v frequency at all points
@@ -337,24 +335,12 @@ CONTAINS
       END DO
     END DO
 
-    !     * altitude and density at bottom.
+    !     * altitude above ground, density and air mass.
 
-    alt(:,nlev) = 0.0_wp
-!IBM* novector
-    DO jl=1,nc
-      hscal = rd * ptm1(jl+jcs-1,nlev) / grav
-      density(jl,nlev) = sgj(jl,nlev) * pressg(jl) / (grav*hscal)
-    END DO
-
-    !     * altitude and density at remaining levels.
-
-    DO jk=nlev-1,1,-1
-!IBM* novector
-      DO jl=1,nc
-        hscal = rd * ptm1(jl+jcs-1,jk) / grav
-        alt(jl,jk) = alt(jl,jk+1) + hscal * dsgj(jl,jk) / sgj(jl,jk)
-        density(jl,jk) = sgj(jl,jk) * pressg(jl) / (grav*hscal)
-      END DO
+    DO jk=1,nlev
+       alt    (1:nc,jk) = pzh  (jcs:jce,jk+1) - pzh(jcs:jce,nlev+1)
+       density(1:nc,jk) = prho (jcs:jce,jk)
+       mair   (1:nc,jk) = pmair(jcs:jce,jk)
     END DO
 
     !
@@ -395,8 +381,8 @@ CONTAINS
       ! - poleward of lat_rmscon               : rmscon
       ! - equatorward of lat_rmscon_eq         : rmscon_eq
       ! - between lat_rmscon_eq and lat_rmscon : linear interpolation between rmscon and rmscon_eq
-      rmswind(1:nc) = ( MAX(MIN((ABS(lat_deg(1:nc))-lat_rmscon_eq),1.0_wp),0.0_wp) * rmscon      &
-        &              +MAX(MIN((lat_rmscon-ABS(lat_Deg(1:nc)))   ,1.0_wp),0.0_wp) * rmscon_eq ) &
+      rmswind(1:nc) = ( MAX(MIN((ABS(lat_deg(1:nc))-lat_rmscon_eq),lat_rmscon-lat_rmscon_eq),0.0_wp) * rmscon      &
+        &              +MAX(MIN((lat_rmscon-ABS(lat_deg(1:nc)))   ,lat_rmscon-lat_rmscon_eq),0.0_wp) * rmscon_eq ) &
         &            /(lat_rmscon-lat_rmscon_eq)
     ELSE
       rmswind(1:nc) = rmscon
@@ -427,22 +413,21 @@ CONTAINS
     !     * heating rate only calculated if lheatcal = .TRUE.).
     !
     CALL hines_extro ( nc, nlev, nazmth,                          &
-      &                utendgw, vtendgw, heat_gw, diffco,         &
-      &                flux_u, flux_v,                            &
-      &                uhs, vhs, bvfreq, density, visc_mol, alt,  &
+      &                tend_u_gwh(jcs:jce,:),                     &
+      &                tend_v_gwh(jcs:jce,:),                     &
+      &                dissip_gwh(jcs:jce,:),                     &
+      &                diffco,                                    &
+      &                flux_u,                                    &
+      &                flux_v,                                    &
+      &                uhs, vhs,                                  &
+      &                bvfreq,                                    &
+      &                density,                                   &
+      &                mair,                                      &
+      &                visc_mol,                                  &
+      &                alt,                                       &
       &                rmswind, anis, k_alpha, sigsqmcw,          &
       &                m_alpha,  mmin_alpha ,sigma_t, sigmatm,    &
       &                levbot, lorms)
-
-
-    !   update tendencies:
-    !
-    DO jk=1, nlev
-      dissip_gwh(jcs:jce,jk) = heat_gw(1:nc,jk)
-      tend_u_gwh(jcs:jce,jk) = utendgw(1:nc,jk)
-      tend_v_gwh(jcs:jce,jk) = vtendgw(1:nc,jk)
-    END DO
-    !
 
 #ifdef __PROFILE
   CALL trace_stop ('gw_hines', 20)
@@ -452,11 +437,22 @@ CONTAINS
   !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
-  SUBROUTINE hines_extro ( nlons, nlevs, nazmth,                          &
-    &                      drag_u, drag_v, heat, diffco, flux_u, flux_v,  &
-    &                      vel_u, vel_v, bvfreq, density, visc_mol, alt,  &
-    &                      rmswind, anis, k_alpha, sigsqmcw,              &
-    &                      m_alpha,  mmin_alpha, sigma_t, sigmatm,        &
+  SUBROUTINE hines_extro ( nlons, nlevs, nazmth,                      &
+    &                      drag_u,                                    &
+    &                      drag_v,                                    &
+    &                      heat,                                      &
+    &                      diffco,                                    &
+    &                      flux_u,                                    &
+    &                      flux_v,                                    &
+    &                      vel_u,                                     &
+    &                      vel_v,                                     &
+    &                      bvfreq,                                    &
+    &                      density,                                   &
+    &                      mair,                                      &
+    &                      visc_mol,                                  &
+    &                      alt,                                       &
+    &                      rmswind, anis, k_alpha, sigsqmcw,          &
+    &                      m_alpha,  mmin_alpha, sigma_t, sigmatm,    &
     &                      lev2,  lorms)
     !
     !  main routine for hines' "extrowave" gravity wave parameterization based
@@ -486,6 +482,7 @@ CONTAINS
     !     * vel_v      = background meridional wind component (m/s).
     !     * bvfreq     = background brunt vassala frequency (radians/sec).
     !     * density    = background density (kg/m^3)
+    !     * mair       = background airmass (kg/m^2)
     !     * visc_mol   = molecular viscosity (m^2/s)
     !     * alt        = altitude of momentum, density, buoyancy levels (m)
     !     *              (note: levels ordered so that alt(i,1) > alt(i,2), etc.)
@@ -524,7 +521,7 @@ CONTAINS
     REAL(wp) :: flux_u(nlons,nlevs),   flux_v(nlons,nlevs)
     REAL(wp) :: flux(nlons,nlevs,nazmth)
     REAL(wp) :: vel_u(nlons,nlevs),    vel_v(nlons,nlevs)
-    REAL(wp) :: bvfreq(nlons,nlevs),   density(nlons,nlevs)
+    REAL(wp) :: bvfreq(nlons,nlevs),   density(nlons,nlevs), mair(nlons,nlevs)
     REAL(wp) :: visc_mol(nlons,nlevs), alt(nlons,nlevs)
     REAL(wp) :: rmswind(nlons),      bvfb(nlons),   densb(nlons)
     REAL(wp) :: anis(nlons,nazmth)
@@ -614,7 +611,7 @@ CONTAINS
     !  momentum flux and drag.
     !
     CALL hines_flux ( flux_u, flux_v, flux, drag_u, drag_v,       &
-      &               alt, density, densb,                        &
+      &               densb, mair,                                &
       &               m_alpha,  ak_alpha, k_alpha,                &
       &               m_min, naz,                                 &
       &               il1, il2, lev1, lev2, nlons, nlevs, nazmth, &
@@ -646,7 +643,8 @@ CONTAINS
        !
        !
        CALL hines_heat ( heat, diffco,                    &
-         &  alt, bvfreq, density, sigma_t, sigma_alpha,   &
+         &  bvfreq, mair,                                 &
+         &  sigma_t, sigma_alpha,                         &
          &  flux, visc_mol, kstar, f1, f2, f3, f5, f6,    &
          &  naz, il1, il2, lev1, lev2, nlons, nlevs,      &
          &  nazmth, losigma_t )
@@ -1106,7 +1104,7 @@ CONTAINS
   END SUBROUTINE hines_wind
 
   SUBROUTINE hines_flux ( flux_u, flux_v, flux, drag_u, drag_v,        &
-    &                     alt, density, densb,                         &
+    &                     densb, mair,                                 &
     &                     m_alpha, ak_alpha, k_alpha,                  &
     &                     m_min, naz,                           &
     &                     il1, il2, lev1, lev2, nlons, nlevs, nazmth,  &
@@ -1131,8 +1129,8 @@ CONTAINS
     !  input arguements:
     !
     !     * alt       = altitudes (m).
-    !     * density   = background density (kg/m^3).
     !     * densb     = background density at bottom level (kg/m^3).
+    !     * mair      = background airmass (kg/m^2).
     !     * m_alpha   = cutoff vertical wavenumber (1/m).
     !     * ak_alpha  = spectral amplitude factor (i.e., {ajkj} in m^4/s^2).
     !     * k_alpha   = horizontal wavenumber (1/m).
@@ -1159,7 +1157,7 @@ CONTAINS
     REAL(wp) ::  flux_u(nlons,nlevs), flux_v(nlons,nlevs)
     REAL(wp) ::  flux(nlons,nlevs,nazmth)
     REAL(wp) ::  drag_u(nlons,nlevs), drag_v(nlons,nlevs)
-    REAL(wp) ::  alt(nlons,nlevs),    density(nlons,nlevs), densb(nlons)
+    REAL(wp) ::  densb(nlons), mair(nlons,nlevs)
     REAL(wp) ::  m_alpha(nlons,nlevs,nazmth)
     REAL(wp) ::  ak_alpha(nlons,nazmth), k_alpha(nlons,nazmth)
 
@@ -1168,15 +1166,13 @@ CONTAINS
     !  internal variables.
     !
     REAL(wp) ::  ak_k_alpha(nlons,nazmth)
-    INTEGER  :: i, l, lev1p, lev2m, k
-    REAL(wp) ::  dendz, dendz2
+    INTEGER  :: i, l, lev1p, k
 
     REAL(wp) ::  inv_slope
     REAL(wp) ::  densb_slope(nlons)
     !-----------------------------------------------------------------------
     !
     lev1p = lev1 + 1
-    lev2m = lev2 - 1
     lev2p = lev2 + 1
     DO k = 1, nazmth
       DO i = il1,il2
@@ -1294,48 +1290,31 @@ CONTAINS
     !
     !  calculate drag at intermediate levels
     !
-    DO l = lev1p,lev2m
+    DO l = lev1p,lev2
 !IBM* NOVECTOR
        DO i = il1,il2
           IF (lorms(i)) THEN
-             dendz2 = density(i,l) * ( alt(i,l-1) - alt(i,l) )
-             drag_u(i,l) = - ( flux_u(i,l-1) - flux_u(i,l) ) / dendz2
-             drag_v(i,l) = - ( flux_v(i,l-1) - flux_v(i,l) ) / dendz2
+             drag_u(i,l) = - ( flux_u(i,l-1) - flux_u(i,l) ) / mair(i,l)
+             drag_v(i,l) = - ( flux_v(i,l-1) - flux_v(i,l) ) / mair(i,l)
           ENDIF
        END DO
     END DO
     !
-    !  calculate drag at intermediate levels using centered differences (not used)
-    !ccc       dendz2 = density(i,l) * ( alt(i,l+1) - alt(i,l-1) )
-    !ccc       drag_u(i,l) = - ( flux_u(i,l+1) - flux_u(i,l-1) ) / dendz2
-    !ccc       drag_v(i,l) = - ( flux_v(i,l+1) - flux_v(i,l-1) ) / dendz2
-
-
     !  drag at first and last levels using one-side differences.
     !
 !IBM* NOVECTOR
     DO i = il1,il2
        IF (lorms(i)) THEN
-          dendz = density(i,lev1) * ( alt(i,lev1) - alt(i,lev1p) )
-          drag_u(i,lev1) =  flux_u(i,lev1)  / dendz
-          drag_v(i,lev1) =  flux_v(i,lev1)  / dendz
-       ENDIF
-    END DO
-!IBM* NOVECTOR
-    DO i = il1,il2
-       IF (lorms(i)) THEN
-          dendz = density(i,lev2) * ( alt(i,lev2m) - alt(i,lev2) )
-          drag_u(i,lev2) = - ( flux_u(i,lev2m) - flux_u(i,lev2) ) / dendz
-          drag_v(i,lev2) = - ( flux_v(i,lev2m) - flux_v(i,lev2) ) / dendz
+          drag_u(i,lev1) =  flux_u(i,lev1)  / mair(i,lev1)
+          drag_v(i,lev1) =  flux_v(i,lev1)  / mair(i,lev1)
        ENDIF
     END DO
     IF (nlevs > lev2) THEN
 !IBM* NOVECTOR
        DO i = il1,il2
           IF (lorms(i)) THEN
-             dendz = density(i,lev2p) * ( alt(i,lev2) - alt(i,lev2p) )
-             drag_u(i,lev2p) = -  flux_u(i,lev2)  / dendz
-             drag_v(i,lev2p) = - flux_v(i,lev2)  / dendz
+             drag_u(i,lev2p) = - flux_u(i,lev2)  / mair(i,lev2p)
+             drag_v(i,lev2p) = - flux_v(i,lev2)  / mair(i,lev2p)
           ENDIF
        END DO
     ENDIF
@@ -1344,7 +1323,8 @@ CONTAINS
   END SUBROUTINE hines_flux
 
   SUBROUTINE hines_heat ( heat, diffco,                                 &
-    &                     alt, bvfreq, density, sigma_t, sigma_alpha,   &
+    &                     bvfreq, mair,                                 &
+    &                     sigma_t, sigma_alpha,                         &
     &                     flux, visc_mol, kstar, f1, f2, f3, f5, f6,    &
     &                     naz, il1, il2, lev1, lev2, nlons, nlevs,      &
     &                     nazmth, losigma_t )
@@ -1369,7 +1349,7 @@ CONTAINS
     !
     !
     !     * bvfreq      = background brunt vassala frequency (rad/sec).
-    !     * density     = background density (kg/m^3).
+    !     * mair        = background airmass (kg/m^2).
     !
     !     * sigma_t     = total rms horizontal wind (m/s).
     !
@@ -1393,15 +1373,15 @@ CONTAINS
     INTEGER  ::  naz, il1, il2, lev1, lev2, nlons, nlevs, nazmth
     REAL(wp) ::  kstar, f1, f2, f3, f5, f6
     REAL(wp) ::  heat(nlons,nlevs), diffco(nlons,nlevs)
-    REAL(wp) ::  alt(nlons,nlevs), bvfreq(nlons,nlevs), density(nlons,nlevs)
+    REAL(wp) ::  bvfreq(nlons,nlevs), mair(nlons,nlevs)
     REAL(wp) ::  sigma_t(nlons,nlevs),  sigma_alpha(nlons,nlevs,nazmth)
     REAL(wp) ::  flux(nlons,nlevs,nazmth), visc_mol(nlons,nlevs)
     LOGICAL  ::  losigma_t(nlons,nlevs)
     !
     ! internal variables.
     !
-    INTEGER  :: i, l, n, lev1p, lev2m
-    REAL(wp) :: m_sub_m_turb, m_sub_m_mol, m_sub_m, heatng, dendz2
+    INTEGER  :: i, l, n, lev1p
+    REAL(wp) :: m_sub_m_turb, m_sub_m_mol, m_sub_m, heatng
     REAL(wp) :: visc, visc_min
 
     REAL(wp) :: dfdz(nlons,nlevs,nazmth)
@@ -1410,18 +1390,16 @@ CONTAINS
     visc_min = 1.e-10_wp
 
     lev1p = lev1 + 1
-    lev2m = lev2 - 1
 
-    DO l = lev1p,lev2m
+    DO l = lev1p,lev2
        DO i = il1,il2
           IF (losigma_t(i,l)) THEN
-             dendz2 = density(i,l) * ( alt(i,l-1) - alt(i,l) )
              visc    = MAX ( visc_mol(i,l), visc_min )
              m_sub_m_turb = bvfreq(i,l) / ( f2 * sigma_t(i,l) )
              m_sub_m_mol  = (bvfreq(i,l)*kstar/visc)**0.33333333_wp/f3
              m_sub_m      = MIN ( m_sub_m_turb, m_sub_m_mol )
 !CDIR UNROLL=8
-             dfdz(i,l,:) = ( flux(i,l-1,:) - flux(i,l,:) ) / dendz2 &
+             dfdz(i,l,:) = ( flux(i,l-1,:) - flux(i,l,:) ) / mair(i,l) &
                &         * ( f1*sigma_alpha(i,l,:) + bvfreq(i,l)/m_sub_m )
           ENDIF
        END DO
@@ -1429,29 +1407,16 @@ CONTAINS
 
     DO i = il1,il2
        IF (losigma_t(i,lev1)) THEN
-          dendz2 = density(i,lev1) * ( alt(i,lev1) - alt(i,lev1p) )
           visc    = MAX ( visc_mol(i,lev1), visc_min )
           m_sub_m_turb = bvfreq(i,lev1) / ( f2 * sigma_t(i,lev1) )
           m_sub_m_mol  = (bvfreq(i,lev1)*kstar/visc)**0.33333333_wp/f3
           m_sub_m      = MIN ( m_sub_m_turb, m_sub_m_mol )
 !CDIR UNROLL=8
-          dfdz(i,lev1,:) = -flux(i,lev1,:) / dendz2 &
+          dfdz(i,lev1,:) = -flux(i,lev1,:) / mair(i,l) &
             &             * ( f1*sigma_alpha(i,lev1,:) + bvfreq(i,lev1)/m_sub_m )
        ENDIF
     END DO
 
-    DO i = il1,il2
-       IF (losigma_t(i,lev2)) THEN
-          dendz2 = density(i,lev2) * ( alt(i,lev2m) - alt(i,lev2) )
-          visc    = MAX ( visc_mol(i,lev2), visc_min )
-          m_sub_m_turb = bvfreq(i,lev2) / ( f2 * sigma_t(i,lev2) )
-          m_sub_m_mol  = (bvfreq(i,lev2)*kstar/visc)**0.33333333_wp/f3
-          m_sub_m      = MIN ( m_sub_m_turb, m_sub_m_mol )
-!CDIR UNROLL=8
-          dfdz(i,lev2,:) = ( flux(i,lev2m,:) - flux(i,lev2,:) ) / dendz2         &
-            &            * ( f1*sigma_alpha(i,lev2,:) + bvfreq(i,lev2)/m_sub_m )
-       ENDIF
-    END DO
     !
     !  heating and diffusion.
 

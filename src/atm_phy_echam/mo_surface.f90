@@ -19,22 +19,23 @@ MODULE mo_surface
 #if defined(__NO_JSBACH__) || defined (__NO_ICON_OCEAN__)
   USE mo_exception,         ONLY: finish
 #endif
-  USE mo_surface_diag,      ONLY: wind_stress, surface_fluxes
+  USE mo_physical_constants,ONLY: grav, Tf, alf, albedoW, zemiss_def, stbo, tmelt, rhos!!$, rhoi
+  USE mo_echam_phy_config,  ONLY: echam_phy_config
+  USE mo_echam_phy_memory,  ONLY: cdimissval
   USE mo_echam_vdiff_params,ONLY: tpfac2
-  USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config
+  USE mo_vdiff_config,      ONLY: vdiff_config
   USE mo_vdiff_solver,      ONLY: ih, iqv, iu, iv, imh, imqv, imuv, &
                                 & nmatrix, nvar_vdiff,              &
                                 & matrix_to_richtmyer_coeff
+  USE mo_surface_diag,      ONLY: wind_stress, surface_fluxes
 #ifndef __NO_JSBACH__
   USE mo_jsb_interface,     ONLY: jsbach_interface
 #endif
   USE mo_echam_sfc_indices, ONLY: nsfc_type
-  USE mo_echam_phy_memory,  ONLY: cdimissval
 #ifndef __NO_ICON_OCEAN__
   USE mo_sea_ice,           ONLY: ice_fast
-  USE mo_ml_ocean,            ONLY: ml_ocean
+  USE mo_ml_ocean,          ONLY: ml_ocean
 #endif
-  USE mo_physical_constants,ONLY: Tf, alf, albedoW, zemiss_def, stbo, tmelt, rhos!!$, rhoi
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: update_surface
@@ -43,13 +44,12 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE update_surface( lsfc_heat_flux, lsfc_mom_flux,     &! in
-                           & pdtime,                            &! in
-                           & jg,                                &! in
+  SUBROUTINE update_surface( jg,                                &! in
                            & kproma, kbdim,                     &! in
                            & kice,                              &! in
                            & klev, ksfc_type,                   &! in
                            & idx_wtr, idx_ice, idx_lnd,         &! in
+                           & pdtime,                            &! in
                            & pfrc,                              &! in
                            & pcfh_tile, pcfm_tile,              &! in
                            & pfac_sfc, pocu, pocv,              &! in
@@ -85,13 +85,13 @@ CONTAINS
                            & rpds_dif,                          &! in
                            & rnds_dif,                          &! in
                            !
-                           & presi_old,                         &! in
+                           & ps,                                &! in
                            & pcosmu0,                           &! in
                            & pch_tile,                          &! in
                            !! for JSBACH
                            & pcsat,                             &! inout
                            & pcair,                             &! inout
-                           & tte_corr,                          &! out
+                           & q_snocpymlt,                       &! out
                            !
                            & z0m_tile, z0h_lnd,                 &! out
                            & albvisdir, albnirdir, albvisdif, albnirdif, &! inout
@@ -115,7 +115,6 @@ CONTAINS
                            & albvisdir_ice, albvisdif_ice,      &! inout
                            & albnirdir_ice, albnirdif_ice)       ! inout
 
-    LOGICAL, INTENT(IN) :: lsfc_heat_flux, lsfc_mom_flux
     REAL(wp),INTENT(IN) :: pdtime
     INTEGER, INTENT(IN) :: jg
     INTEGER, INTENT(IN) :: kproma, kbdim
@@ -168,13 +167,13 @@ CONTAINS
     REAL(wp),INTENT(IN) :: rpds_dif(kbdim)        ! all-sky   par  dif. downward flux at current   time [W/m2]
     REAL(wp),INTENT(IN) :: rnds_dif(kbdim)        ! all-sky   nir  dif. downward flux at current   time [W/m2]
 
-    REAL(wp),OPTIONAL,INTENT(IN) :: presi_old (kbdim,klev+1)       ! half level pressure
+    REAL(wp),OPTIONAL,INTENT(IN) :: ps        (kbdim)              ! surface pressure
     REAL(wp),OPTIONAL,INTENT(IN) :: pcosmu0   (kbdim)              ! cos of zenith angle
     REAL(wp),OPTIONAL,INTENT(IN) :: pch_tile  (kbdim,ksfc_type)
     !! JSBACH output
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcsat(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcair(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: tte_corr(kbdim)  ! OUT
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: q_snocpymlt(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: z0h_lnd(kbdim), z0m_tile(kbdim,ksfc_type)  ! OUT
     !
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir_tile(kbdim,ksfc_type)
@@ -268,12 +267,19 @@ CONTAINS
     ! At this point bb(:,klev,iu) = u_klev(t)/tpfac1 (= udif in echam)
     !               bb(:,klev,iv) = v_klev(t)/tpfac1 (= vdif in echam)
 
-    CALL wind_stress( lsfc_mom_flux, pdtime,               &! in
-                    & kproma, kbdim, ksfc_type,            &! in
-                    & pfrc, pcfm_tile, pfac_sfc,           &! in
-                    & bb(:,klev,iu), bb(:,klev,iv),        &! in
-                    & pu_stress_gbm,  pv_stress_gbm,       &! out
-                    & pu_stress_tile, pv_stress_tile       )! out
+    IF (vdiff_config%lsfc_mom_flux) THEN
+       CALL wind_stress( kproma, kbdim, ksfc_type,            &! in
+            &            pdtime,                              &! in
+            &            pfrc, pcfm_tile, pfac_sfc,           &! in
+            &            bb(:,klev,iu), bb(:,klev,iv),        &! in
+            &            pu_stress_gbm,  pv_stress_gbm,       &! out
+            &            pu_stress_tile, pv_stress_tile       )! out
+    ELSE
+       pu_stress_tile(:,:) = 0._wp
+       pv_stress_tile(:,:) = 0._wp
+       pu_stress_gbm (:)   = 0._wp
+       pv_stress_gbm (:)   = 0._wp
+    END IF
 
     ! Compute downward shortwave surface fluxes
     rvds(1:kproma)      = rvds_dif(1:kproma) + rvds_dir(1:kproma)
@@ -307,7 +313,7 @@ CONTAINS
     !===========================================================================
     
     z0h_lnd(:)       = 0._wp
-    tte_corr(:)      = 0._wp
+    q_snocpymlt(:)   = 0._wp
 
     IF (idx_lnd <= ksfc_type) THEN
 
@@ -333,8 +339,8 @@ CONTAINS
         & swvis_srf_down   = rvds(1:kproma),                                            & ! in
         & swnir_srf_down   = rnds(1:kproma),                                            & ! in
         & swpar_srf_down   = rpds(1:kproma),                                            & ! in
-        & press_srf        = presi_old(1:kproma,klev+1),                                & ! in
-        & drag_srf         = pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_lnd),          & ! in
+        & press_srf        = ps(1:kproma),                                              & ! in
+        & drag_srf         = grav*pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_lnd),     & ! in
         & t_acoef          = zen_h(1:kproma, idx_lnd),                                  & ! in
         & t_bcoef          = zfn_h(1:kproma, idx_lnd),                                  & ! in
         & q_acoef          = zen_qv(1:kproma, idx_lnd),                                 & ! in
@@ -356,7 +362,7 @@ CONTAINS
         & grnd_hcap        = zgrnd_hcap(1:kproma, idx_lnd),                             & ! out
         & rough_h_srf      = z0h_lnd(1:kproma),                                         & ! out
         & rough_m_srf      = z0m_tile(1:kproma, idx_lnd),                               & ! out
-        & tte_corr         = tte_corr(1:kproma),                                        & ! out
+        & q_snocpymlt      = q_snocpymlt(1:kproma),                                     & ! out
         & alb_vis_dir      = albvisdir_tile(1:kproma, idx_lnd),                         & ! out
         & alb_nir_dir      = albnirdir_tile(1:kproma, idx_lnd),                         & ! out
         & alb_vis_dif      = albvisdif_tile(1:kproma, idx_lnd),                         & ! out
@@ -366,8 +372,6 @@ CONTAINS
       ptsfc_tile(1:kproma,idx_lnd) = ztsfc_lnd(1:kproma)
       pcpt_tile (1:kproma,idx_lnd) = dry_static_energy(1:kproma)
       pqsat_tile(1:kproma,idx_lnd) = sat_surface_specific_humidity(1:kproma)
-
-      tte_corr(1:kproma) = tte_corr(1:kproma) / (presi_old(1:kproma,klev+1) - presi_old(1:kproma,klev))
 
       ! Set the evapotranspiration coefficients, to be used later in
       ! blending and in diagnoising surface fluxes.
@@ -390,7 +394,7 @@ CONTAINS
       rsns(1:kproma)      = rsds(1:kproma) - rsus(1:kproma)
       rlns(1:kproma)      = rlds(1:kproma) - rlus(1:kproma)
 
-      IF (phy_config%lmlo) THEN
+      IF (echam_phy_config%lmlo) THEN
         CALL ml_ocean ( kbdim, 1, kproma, pdtime, &
           & pahflw=plhflx_tile(:,idx_wtr),        & ! dependency on kproma has to be checked
           & pahfsw=pshflx_tile(:,idx_wtr),        & ! dependency on kproma has to be checked
@@ -412,7 +416,7 @@ CONTAINS
     ! Sea-ice model (thermodynamic)
     !===========================================================================
 
-    IF (idx_ice <= ksfc_type .AND. phy_config%lice) THEN
+    IF (idx_ice <= ksfc_type .AND. echam_phy_config%lice) THEN
 
 #ifndef __NO_ICON_OCEAN__
       ! LL This is a temporary solution,
@@ -472,7 +476,7 @@ CONTAINS
       !      ENDDO
       !      hi(:,:) = max( hi(:,:), 0._wp )
       ! Let it snow in AMIP
-      IF ( phy_config%lamip ) THEN
+      IF ( echam_phy_config%lamip ) THEN
         DO k=1,kice
           ! Snowfall on ice - no ice => no snow
           WHERE ( hi(1:kproma,k) > 0._wp )
@@ -551,7 +555,7 @@ CONTAINS
         qv_sum(1:kproma) = qv_sum(1:kproma) + bb_btm(1:kproma,jsfc,iqv) * wgt(1:kproma)
     ENDDO
 
-    IF (lsfc_heat_flux) THEN
+    IF (vdiff_config%lsfc_heat_flux) THEN
       bb(1:kproma,klev,ih ) = se_sum(1:kproma)/wgt_sum(1:kproma)
       bb(1:kproma,klev,iqv) = qv_sum(1:kproma)/wgt_sum(1:kproma)
     ELSE
@@ -604,18 +608,26 @@ CONTAINS
    ! Various diagnostics
    !-------------------------------------------------------------------
 
-   CALL surface_fluxes( lsfc_heat_flux, pdtime,               &! in
-                      & kproma, kbdim, ksfc_type,             &! in
-                      & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
-                      & pfrc, pcfh_tile, pfac_sfc,            &! in
-                      & pcpt_tile, pqsat_tile,                &! in
-                      & zca, zcs, bb_btm(:,:,ih:iqv),         &! in
-                      & plhflx_gbm, pshflx_gbm,               &! out
-                      & pevap_gbm,                            &! out
-                      & plhflx_tile, pshflx_tile,             &! inout
-                      & pevap_tile,                           &! out
-                      & evapotranspiration)                    ! in (optional)
-
+    IF (vdiff_config%lsfc_heat_flux) THEN
+       CALL surface_fluxes( kproma, kbdim, ksfc_type,             &! in
+            &               idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
+            &               pdtime,                               &! in
+            &               pfrc, pcfh_tile, pfac_sfc,            &! in
+            &               pcpt_tile, pqsat_tile,                &! in
+            &               zca, zcs, bb_btm(:,:,ih:iqv),         &! in
+            &               plhflx_gbm, pshflx_gbm,               &! out
+            &               pevap_gbm,                            &! out
+            &               plhflx_tile, pshflx_tile,             &! inout
+            &               pevap_tile,                           &! out
+            &               evapotranspiration)                    ! in (optional)
+    ELSE
+       plhflx_tile(:,:) = 0._wp
+       pshflx_tile(:,:) = 0._wp
+       pevap_tile (:,:) = 0._wp
+       plhflx_gbm (:)   = 0._wp
+       pshflx_gbm (:)   = 0._wp
+       pevap_gbm  (:)   = 0._wp
+    END IF
 
     DO jsfc=1,ksfc_type
       zalbvis(:) = 0._wp

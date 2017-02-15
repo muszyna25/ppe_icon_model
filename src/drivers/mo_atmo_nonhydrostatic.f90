@@ -284,11 +284,16 @@ CONTAINS
       !!       It is the case for some testcases, but not e.g. for coupled or AMIP runs if the atmosphere
       !!       is initialized with IFS analyses.
       DO jg = 1,n_dom
-        CALL initcond_echam_phy( jg                                               ,&
-          &                      p_patch(jg)                                      ,&
-          &                      p_nh_state(jg)%diag          % temp  (:,:,:)     ,&
-          &                      p_nh_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqv) ,&
-          &                      nh_test_name                                     )
+        CALL initcond_echam_phy( jg                                                 ,&
+          &                      p_patch(jg)                                        ,&
+          &                      p_nh_state(jg)% metrics% z_ifc         (:,:,:)     ,&
+          &                      p_nh_state(jg)% metrics% z_mc          (:,:,:)     ,&
+          &                      p_nh_state(jg)% metrics% ddqz_z_full   (:,:,:)     ,&
+          &                      p_nh_state(jg)% metrics% geopot_agl_ifc(:,:,:)     ,&
+          &                      p_nh_state(jg)% metrics% geopot_agl    (:,:,:)     ,&
+          &                      p_nh_state(jg)% diag% temp             (:,:,:)     ,&
+          &                      p_nh_state(jg)% prog(nnow(jg))% tracer (:,:,:,iqv) ,&
+          &                      nh_test_name                                        )
       END DO
     END IF
 !---

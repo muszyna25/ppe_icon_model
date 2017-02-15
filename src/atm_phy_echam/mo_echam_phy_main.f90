@@ -26,49 +26,52 @@
 MODULE mo_echam_phy_main
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
-  USE mo_mpi,                 ONLY: my_process_is_stdio
+  USE mtime,                  ONLY: datetime
+  !
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv, amd, amo3, Tf, tmelt
-  USE mo_impl_constants,      ONLY: inh_atmosphere
+  !
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
     &                               iqv, iqc, iqi, iqt, io3
-  USE mo_dynamics_config,     ONLY: iequations
-  USE mo_ext_data_state,      ONLY: ext_data
-  USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
-  USE mo_echam_conv_config,   ONLY: echam_conv_config
-  USE mo_echam_cloud_config,  ONLY: echam_cloud_config
-  USE mo_cumastr,             ONLY: cucall
+  !
+  USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
     &                               t_echam_phy_tend,  prm_tend,      &
     &                               cdimissval
-  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,                &
-    &                               timer_cover, timer_radiation, timer_radheat,    &
-    &                               timer_vdiff_down, timer_surface,timer_vdiff_up, &
-    &                               timer_gw_hines, timer_ssodrag,                  &
-    &                               timer_cucall, timer_cloud
-  USE mtime,                  ONLY: datetime
-  USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
-  USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
-  USE mo_surface,             ONLY: update_surface
-  USE mo_surface_diag,        ONLY: nsurf_diag
-  USE mo_cloud,               ONLY: cloud
+  !
   USE mo_cover,               ONLY: cover
-  USE mo_radheating,          ONLY: radheating
-  USE mo_psrad_radiation,     ONLY: psrad_radiation
+  !
+  USE mo_ext_data_state,      ONLY: ext_data
   USE mo_psrad_radiation_parameters, ONLY: psctm
-  USE mo_vdiff_config,        ONLY: vdiff_config
+  USE mo_psrad_radiation,     ONLY: psrad_radiation
+  USE mo_radheating,          ONLY: radheating
+  !
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
   USE mo_vdiff_solver,        ONLY: nvar_vdiff, nmatrix, imh, imqv,   &
     &                               ih_vdiff=>ih, iqv_vdiff=>iqv
-  USE mo_gw_hines,            ONLY: gw_hines
-  USE mo_ssortns,             ONLY: ssodrag
-  ! provisional to get coordinates
-  USE mo_model_domain,        ONLY: p_patch
-  USE mo_lcariolle_types,     ONLY: avi, t_time_interpolation
+  !
+  USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
+  USE mo_surface,             ONLY: update_surface
+  USE mo_surface_diag,        ONLY: nsurf_diag
+  !
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
     &                                  calculate_time_interpolation_weights
+  USE mo_lcariolle_types,     ONLY: avi, t_time_interpolation
+  !
+  USE mo_gw_hines,            ONLY: gw_hines
+  USE mo_ssortns,             ONLY: ssodrag
+  !
+  USE mo_cumastr,             ONLY: cumastr
+  !
+  USE mo_echam_cloud_config,  ONLY: echam_cloud_config
+  USE mo_cloud,               ONLY: cloud
+  !
+  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,                &
+    &                               timer_cover, timer_radiation, timer_radheat,    &
+    &                               timer_vdiff_down, timer_surface,timer_vdiff_up, &
+    &                               timer_gw_hines, timer_ssodrag,                  &
+    &                               timer_convection, timer_cloud
 
   IMPLICIT NONE
   PRIVATE
@@ -98,10 +101,6 @@ CONTAINS
 
     REAL(wp) :: zlat_deg(nbdim)           !< latitude in deg N
 
-    REAL(wp) :: zvmixtau   (nbdim,nlev)   !< timescale of mixing for vertical turbulence
-    REAL(wp) :: zqtvar_prod(nbdim,nlev)   !< production rate of total water variance
-                                          !< due to turbulence. Computed in "vdiff",
-                                          !< used by "cloud"
     INTEGER  :: itype(nbdim)              !< type of convection
     INTEGER  :: ictop (nbdim)             !< from massflux
 
@@ -110,31 +109,25 @@ CONTAINS
     REAL(wp) :: zfri (nbdim)              !< fraction of ice in the grid box
     REAL(wp) :: zri_tile(nbdim,nsfc_type) !< Richardson number
 
-    INTEGER  :: ilab   (nbdim,nlev)
-!    REAL(wp) :: zcvcbot(nbdim)
-!    REAL(wp) :: zwcape (nbdim)
+    REAL(wp) :: zta    (nbdim,nlev)         !< provisional temperature         [K]
+    REAL(wp) :: zqtrc  (nbdim,nlev,ntracer) !< provisional mass mixing ratios  [kg/kg]
+    REAL(wp) :: zua    (nbdim,nlev)         !< provisional zonal      wind     [m/s]
+    REAL(wp) :: zva    (nbdim,nlev)         !< provisional meridional wind     [m/s]
 
-    REAL(wp) :: zqtec  (nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
-
-    REAL(wp) :: zcd                       !< specific heat of dry air          [J/K/kg]
-    REAL(wp) :: zcv                       !< specific heat of water vapor      [J/K/kg]
-    REAL(wp) :: zcair  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
     REAL(wp) :: zcpair (nbdim,nlev)       !< specific heat of moist air at const. pressure [J/K/kg]
     REAL(wp) :: zcvair (nbdim,nlev)       !< specific heat of moist air at const. volume   [J/K/kg]
     REAL(wp) :: zconv  (nbdim,nlev)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
-    REAL(wp) :: zdelp  (nbdim,nlev)       !< layer thickness in pressure coordinate  [Pa]
 
     REAL(wp) :: zq_phy (nbdim,nlev)       !< heating by whole ECHAM physics    [W/m2]
     REAL(wp) :: zq_rsw (nbdim,nlev)       !< heating by short wave radiation   [W/m2]
     REAL(wp) :: zq_rlw (nbdim,nlev)       !< heating by long  wave radiation   [W/m2]
     REAL(wp) :: zq_rlw_impl (nbdim)       !< additional heating by LW rad. due to impl. coupling in surface energy balance [W/m2]
-!!$    REAL(wp) :: zq_vdf (nbdim,nlev)       !< heating by vertical diffusion     [W/m2]
+    REAL(wp) :: zq_vdf (nbdim,nlev)       !< heating by vertical diffusion     [W/m2]
     REAL(wp) :: zq_sso (nbdim,nlev)       !< heating by subgrid scale orogr.   [W/m2]
     REAL(wp) :: zq_gwh (nbdim,nlev)       !< heating by atm. gravity waves     [W/m2]
-!!$    REAL(wp) :: zq_cnv (nbdim,nlev)       !< heating by convection             [W/m2]
-!!$    REAL(wp) :: zq_cld (nbdim,nlev)       !< heating by stratiform clouds      [W/m2]
+    REAL(wp) :: zq_cnv (nbdim,nlev)       !< heating by convection             [W/m2]
+    REAL(wp) :: zq_cld (nbdim,nlev)       !< heating by stratiform clouds      [W/m2]
 
-    INTEGER  :: ihpbl  (nbdim)            !< location of PBL top given as vertical level index
     REAL(wp) :: zxt_emis(nbdim,ntracer-iqt+1)  !< tracer tendency due to surface emission
                                                !< and dry deposition. "zxtems" in ECHAM5
     INTEGER  :: jk
@@ -158,8 +151,6 @@ CONTAINS
     REAL(wp) :: zcpt_sfc_tile(nbdim,nsfc_type)  !< dry static energy at surface
 
     REAL(wp) :: zcptgz   (nbdim,nlev) !< dry static energy
-    REAL(wp) :: zrhoh    (nbdim,nlev) !< air density at half levels
-    REAL(wp) :: zqshear  (nbdim,nlev) !<
     REAL(wp) :: zthvvar  (nbdim,nlev) !< intermediate value of thvvar
     REAL(wp) :: ztkevn   (nbdim,nlev) !< intermediate value of tke
     REAL(wp) :: zch_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
@@ -171,7 +162,8 @@ CONTAINS
     REAL(wp) :: zbm_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
     REAL(wp) :: zbh_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
 
-    REAL(wp) :: ztte_corr(nbdim)      !< tte correction for snow melt over land (JSBACH)
+    REAL(wp) :: zq_snocpymlt(nbdim)   !< heating by melting of snow on the canopy [W/m2]
+                                      !  which warms the lowermost atmospheric layer (JSBACH)
 
     ! Temporary variables for Cariolle scheme (ozone)
     REAL(wp)    :: do3dt(nbdim,nlev)
@@ -188,6 +180,12 @@ CONTAINS
 
     REAL(wp) :: zdis_sso(nbdim,nlev)  !<  out, energy dissipation rate [J/s/kg]
 
+
+    ! Temporary array used by convection
+
+    REAL(wp) :: zqtrc_cnd(nbdim,nlev) !<  cloud condensate mixing ratio [kg/kg]
+    REAL(wp) :: ztend_qv(nbdim,nlev)  !<  moisture tendency from dynamics and physics before convection
+    REAL(wp) :: ztop(nbdim)           !<  convective cloud top pressure [Pa]
 
     ! Temporary variables used for cloud droplet number concentration
 
@@ -223,33 +221,12 @@ CONTAINS
     ! 3. COMPUTE SOME FIELDS NEEDED BY THE PHYSICAL ROUTINES.
     !------------------------------------------------------------
 
-    ! Use constant volume or constant pressure specific heats for dry air and vapor
-    ! for the computation of temperature tendencies.
-!!$    IF ( iequations == inh_atmosphere ) THEN
-!!$      zcd = cvd
-!!$      zcv = cvv
-!!$    ELSE
-      zcd = cpd
-      zcv = cpv
-!!$    END IF
-
-    DO jk = 1,nlev
-      DO jc = jcs,jce
-        !
-        ! 3.2 Thickness of model layer in pressure coordinate
-        !
-        zdelp   (jc,jk) = field% presi_old (jc,jk+1,jb) - field% presi_old (jc,jk,jb)
-        !
-        ! 3.2b Specific heat of moist air
-        !
-        zcair   (jc,jk) = zcd+(zcv-zcd)*field%qtrc(jc,jk,jb,iqv)
-        zconv   (jc,jk) = 1._wp/(field%mair(jc,jk,jb)*zcair(jc,jk))
-        !
-        zcpair  (jc,jk) = cpd+(cpv-cpd)*field%qtrc(jc,jk,jb,iqv)
-        zcvair  (jc,jk) = cvd+(cvv-cvd)*field%qtrc(jc,jk,jb,iqv)
-        !
-      END DO
-    END DO
+    ! 3.2b Specific heat of moist air
+    !
+    zcpair  (:,:) = cpd+(cpv-cpd)*field%qtrc(:,:,jb,iqv)
+    zcvair  (:,:) = cvd+(cvv-cvd)*field%qtrc(:,:,jb,iqv)
+    !
+    zconv   (:,:) = 1._wp/(field%mair(:,:,jb)*zcpair(:,:))
 
     ! 3.3 Weighting factors for fractional surface coverage
     !     Accumulate ice portion for diagnostics
@@ -335,7 +312,7 @@ CONTAINS
 
     itype(jcs:jce) = NINT(field%rtype(jcs:jce,jb))
 
-    IF (phy_config%lcond) THEN
+    IF (echam_phy_config%lcond) THEN
       IF (ltimer) CALL timer_start(timer_cover)
 
       CALL cover( jce, nbdim, jks,          &! in
@@ -356,7 +333,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 4. RADIATION PARAMETERISATION
     !-------------------------------------------------------------------
-    IF (phy_config%lrad) THEN
+    IF (echam_phy_config%lrad) THEN
 
        ! 4.1 RADIATIVE TRANSFER
        !-----------------------
@@ -518,13 +495,6 @@ CONTAINS
         &                    + tend% ta_rsw (jcs:jce,:,jb) &
         &                    + tend% ta_rlw (jcs:jce,:,jb)
 
-    ELSE   ! If computation of radiative heating is by-passed
-
-      tend%ta_rsw(jcs:jce,:,jb) = 0.0_wp
-      tend%ta_rlw(jcs:jce,:,jb) = 0.0_wp
-
-      field%rsdt(jcs:jce,jb)= 0.0_wp
-
     END IF ! lrad
 
     !-------------------------------------------------------------------
@@ -549,17 +519,17 @@ CONTAINS
     !     build up the tridiagonal linear algebraic system;
     !     downward sweep (Gaussian elimination from top till level nlev-1)
 
-    IF (phy_config%lvdiff) THEN
+    IF (echam_phy_config%lvdiff) THEN
+
       IF (ltimer) CALL timer_start(timer_vdiff_down)
 
-
-      CALL vdiff_down( vdiff_config%lsfc_mom_flux,      &! in
-                     & vdiff_config%lsfc_heat_flux,     &! in
-                     & jce, nbdim, nlev, nlevm1, nlevp1,&! in
+      CALL vdiff_down( jce, nbdim, nlev, nlevm1, nlevp1,&! in
                      & ntrac, nsfc_type,                &! in
                      & iwtr, iice, ilnd,                &! in, indices of different surface types
                      & pdtime,                          &! in, time step
                      & field%coriol(:,jb),              &! in, Coriolis parameter
+                     & field%   zf(:,:,jb),             &! in, geopot. height above sea level, full level
+                     & field%   zh(:,:,jb),             &! in, geopot. height above sea level, half level
                      & field%frac_tile(:,jb,:),         &! in, area fraction of each sfc type
                      & field% ts_tile(:,jb,:),          &! in, surface temperature
                      & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
@@ -573,11 +543,10 @@ CONTAINS
                      & field% qtrc(:,:,jb,iqi),         &! in, xim1
                      & field%   qx(:,:,jb),             &! in, xlm1 + xim1
                      & field% qtrc(:,:,jb,iqt:),        &! in, xtm1
+                     & field% mair(:,:,jb),             &! in,     air mass
+                     & field% mdry(:,:,jb),             &! in, dry air mass
                      & field% presi_old(:,:,jb),        &! in, aphm1
                      & field% presm_old(:,:,jb),        &! in, apm1
-                     & zdelp(:,:),                      &! in, layer thickness [Pa]
-                     & field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
-                     & field% geoi(:,:,jb),             &! in, pgeohm1 = half-level geopotential
                      & field%   tv(:,:,jb),             &! in, virtual temperaturea
                      & field% aclc(:,:,jb),             &! in, cloud fraction
                      & zxt_emis,                        &! in, zxtems
@@ -589,7 +558,6 @@ CONTAINS
                      & field%  wstar(:,  jb),           &! out, convective velocity scale
                      & field%  wstar_tile(:,jb,:),      &! inout, convective velocity scale (each sfc type)
                      & field% qs_sfc_tile(:,jb,:),      &! out, sfc specific humidity at saturation
-                     & ihpbl(:),                        &! out, for "vdiff_up"
                      & field%    ghpbl(:,jb),           &! out, for output
                      & field%      ri (:,:,jb),         &! out, for output
                      & zri_tile (:,:),                  &! out, for nsurf_diag
@@ -604,8 +572,7 @@ CONTAINS
                      & zaa, zaa_btm, zbb, zbb_btm,      &! out, for "vdiff_up"
                      & zfactor_sfc(:),                  &! out, for "vdiff_up"
                      & zcpt_sfc_tile(:,:),              &! out, for "vdiff_up"
-                     & zcptgz(:,:), zrhoh(:,:),         &! out, for "vdiff_up"
-                     & zqshear(:,:),                    &! out, for "vdiff_up"
+                     & zcptgz(:,:),                     &! out, for "vdiff_up"
                      & zthvvar(:,:),                    &! out, for "vdiff_up"
                      & field%   thvsig(:,  jb),         &! out, for "cucall"
                      & ztkevn (:,:),                    &! out, for "vdiff_up"
@@ -619,7 +586,7 @@ CONTAINS
                      & zbh_tile(:,:),                   &! out, for "nsurf_diag"
                      & pcsat = field% csat(:,jb),       &! in, optional, area fraction with wet land surface
                      & pcair = field% cair(:,jb),       &! in, optional, area fraction with wet land surface (air)
-                     & paz0lh = field% z0h_lnd(:,jb))     ! in, optional, roughness length for heat over land
+                     & paz0lh = field% z0h_lnd(:,jb))    ! in, optional, roughness length for heat over land
 
       IF (ltimer) CALL timer_stop(timer_vdiff_down)
 
@@ -632,12 +599,11 @@ CONTAINS
 
         IF (ltimer) CALL timer_start(timer_surface)
 
-        CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
-          & vdiff_config%lsfc_mom_flux,   &! in
-          & pdtime,                       &! in, time step
+        CALL update_surface(              &!
           & jg, jce, nbdim, field%kice,   &! in
           & nlev, nsfc_type,              &! in
           & iwtr, iice, ilnd,             &! in, indices of surface types
+          & pdtime,                       &! in, time step
           & field%frac_tile(:,jb,:),      &! in, area fraction
           & field% cfh_tile(:,jb,:),      &! in, from "vdiff_down"
           & field% cfm_tile(:,jb,:),      &! in, from "vdiff_down"
@@ -681,12 +647,12 @@ CONTAINS
           & rpds_dif   = field%rpds_dif   (:,jb), &! in, all-sky downward diffuse PAR     radiation at surface
           & rnds_dif   = field%rnds_dif   (:,jb), &! in, all-sky downward diffuse near-IR radiation at surface
           !
-          & presi_old = field% presi_old(:,:,jb),&! in, paphm1, half level pressure
+          & ps = field% presi_old(:,nlevp1,jb),&! in, paphm1, half level pressure
           & pcosmu0 = field% cosmu0(:,jb),&! in, amu0_x, cos of zenith angle
           & pch_tile = zch_tile(:,:),     &! in, from "vdiff_down" for JSBACH
           & pcsat = field%csat(:,jb),      &! inout, area fraction with wet land surface
           & pcair = field%cair(:,jb),      &! inout, area fraction with wet land surface (air)
-          & tte_corr = ztte_corr(:),       &! out, tte correction for snow melt over land
+          & q_snocpymlt = zq_snocpymlt(:), &! out, heating  by melting snow on the canopy [W/m2]
           & z0m_tile = field% z0m_tile(:,jb,:), &! inout, roughness length for momentum over tiles
           & z0h_lnd  = field% z0h_lnd (:,jb),   &! out, roughness length for heat over land
           & albvisdir      = field% albvisdir     (:,jb)  ,                    &! inout
@@ -718,6 +684,22 @@ CONTAINS
 
         IF (ltimer) CALL timer_stop(timer_surface)
 
+        IF (echam_phy_config%ljsbach) THEN
+           !
+           ! heating accumulated
+           ! zq_snocpymlt = heating for melting of snow on canopy
+           !              = cooling of atmosphere
+           ! --> negative sign
+           zq_phy(jcs:jce,nlev) = zq_phy(jcs:jce,nlev) - zq_snocpymlt(jcs:jce)
+           !
+           ! tendency
+           tend% ta_sfc(jcs:jce,jb) = -zq_snocpymlt(jcs:jce)*zconv(jcs:jce,nlev)
+           !
+           ! tendencies accumulated
+           tend% ta(jcs:jce,nlev,jb) = tend% ta(jcs:jce,nlev,jb) + tend% ta_sfc(jcs:jce,jb)
+           !
+        END IF
+
     ! 5.5 Turbulent mixing, part II:
     !     - Elimination for the lowest model level using boundary conditions
     !       provided by the surface model(s);
@@ -726,61 +708,51 @@ CONTAINS
 
       IF (ltimer) CALL timer_start(timer_vdiff_up)
 
-      CALL vdiff_up( jce, nbdim, nlev, nlevm1, nlevp1,&! in
+      CALL vdiff_up( jce, nbdim, nlev, nlevm1,        &! in
                    & ntrac, nsfc_type,                &! in
                    & iwtr,                            &! in, indices of different sfc types
                    & pdtime,                          &! in, time steps
                    & field%frac_tile(:,jb,:),         &! in, area fraction of each sfc type
                    & field% cfm_tile(:,jb,:),         &! in
                    & zaa,                             &! in, from "vdiff_down"
-                   &   ihpbl(:),                      &! in, from "vdiff_down"
                    &  zcptgz(:,:),                    &! in, from "vdiff_down"
-                   &   zrhoh(:,:),                    &! in, from "vdiff_down"
-                   & zqshear(:,:),                    &! in, from "vdiff_down"
                    & field%   ua(:,:,jb),             &! in, um1
                    & field%   va(:,:,jb),             &! in, vm1
                    & field%   ta(:,:,jb),             &! in, tm1
+                   & field% mair(:,:,jb),             &! in, moist air mass [kg/m2]
+                   & field% mdry(:,:,jb),             &! in, dry   air mass [kg/m2]
                    & field% qtrc(:,:,jb,iqv),         &! in, qm1
                    & field% qtrc(:,:,jb,iqc),         &! in, xlm1
                    & field% qtrc(:,:,jb,iqi),         &! in, xim1
                    & field% qtrc(:,:,jb,iqt:),        &! in, xtm1
-                   & zcd,                             &! in, specific heat of dry air
-                   & zcv,                             &! in, specific heat of water vapor
-                   & zdelp(:,:),                      &! in, layer thickness [Pa]
                    & field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
                    &      ztkevn(:,:),                &! in, tke at intermediate time step
-                   & field%tkem1(:,:,jb),             &! in, TKE at step t-dt
-                   & ztte_corr(:),                    &! in
-                   & zbb,                             &! inout
+                   & zbb,                             &! in
                    & zthvvar(:,:),                    &! inout
                    & field%   xvar(:,:,jb),           &! inout
                    & field% z0m_tile(:,jb,:),         &! inout
-                   & field% kedisp(:,  jb),           &! inout, "vdis" in ECHAM
+                   & field% kedisp(:,  jb),           &! out, vert. integr. diss. kin. energy [W/m2]
                    &  tend%   ua_vdf(:,:,jb),         &! out
                    &  tend%   va_vdf(:,:,jb),         &! out
-                   &  tend%   ta_vdf(:,:,jb),         &! out
-!!$                   &          zq_vdf(:,:),            &! out   heating W/m2
+                   &          zq_vdf(:,:),            &! out   heating W/m2
                    &  tend% qtrc_vdf(:,:,jb,iqv),     &! out
                    &  tend% qtrc_vdf(:,:,jb,iqc),     &! out
                    &  tend% qtrc_vdf(:,:,jb,iqi),     &! out
                    &  tend% qtrc_vdf(:,:,jb,iqt:),    &! out
-                   &  zqtvar_prod,                    &! out, for "cloud" ("zvdiffp" in echam)
-                   &  zvmixtau,                       &! out, for "cloud"
                    & field%   z0m   (:,  jb),         &! out, for the next step
                    & field%   thvvar(:,:,jb),         &! out, for the next step
-                   & field%   thvsig(:,  jb),         &! out, for "cucall"
                    & field%      tke(:,:,jb),         &! out
                    & field%   sh_vdiff(:,  jb),       &! out, for energy diagnostic
                    & field%   qv_vdiff(:,  jb)        )! out, for energy diagnostic
 
       IF (ltimer) CALL timer_stop(timer_vdiff_up)
 
-!!$      ! heating accumulated
-!!$      zq_phy(jcs:jce,:) = zq_phy(jcs:jce,:) + zq_vdf(jcs:jce,:)
-!!$
-!!$      ! tendency
-!!$      tend% temp_vdf(jcs:jce,:,jb) = zq_vdf(jcs:jce,:)*zconv(jcs:jce,:)
-!!$
+      ! heating accumulated
+      zq_phy(jcs:jce,:) = zq_phy(jcs:jce,:) + zq_vdf(jcs:jce,:)
+
+      ! tendency
+      tend% ta_vdf(jcs:jce,:,jb) = zq_vdf(jcs:jce,:)*zconv(jcs:jce,:)
+
       ! tendencies accumulated
       tend%   ua(jcs:jce,:,jb)      = tend%   ua(jcs:jce,:,jb)      + tend%   ua_vdf(jcs:jce,:,jb)
       tend%   va(jcs:jce,:,jb)      = tend%   va(jcs:jce,:,jb)      + tend%   va_vdf(jcs:jce,:,jb)
@@ -823,7 +795,8 @@ CONTAINS
                    & field%   va(:,nlev,jb),          &! in, vm1
                    & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
                    & field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
-                   & field%  geom(:,nlev,jb),         &! in geopotential above surface
+                   & field% zf  (:,nlev  ,jb),        &! in, height of lowermost full level (m)
+                   & field% zh  (:,nlev+1,jb),        &! in, surface height    (m)
                    & zcptgz(:,nlev),                  &! in dry static energy
                    & zcpt_sfc_tile(:,:),              &! in dry static energy
                    & zbn_tile(:,:),                   &! in for diagnostic
@@ -844,22 +817,9 @@ CONTAINS
                    & field%    uas_tile(:,jb,:),      &! out zonal wind in 10m on tiles
                    & field%    vas_tile(:,jb,:)       )! out meridional wind in 10m on tiles
 
-    ELSE
-      zvmixtau   (jcs:jce,:) = 0._wp
-      field% evap(jcs:jce,jb)= 0._wp
-      zqtvar_prod(jcs:jce,:) = 0._wp
-
-      tend%   ua_vdf(jcs:jce,:,jb)      = 0._wp
-      tend%   va_vdf(jcs:jce,:,jb)      = 0._wp
-      tend%   ta_vdf(jcs:jce,:,jb)      = 0._wp
-      tend% qtrc_vdf(jcs:jce,:,jb,iqv)  = 0._wp
-      tend% qtrc_vdf(jcs:jce,:,jb,iqc)  = 0._wp
-      tend% qtrc_vdf(jcs:jce,:,jb,iqi)  = 0._wp
-      tend% qtrc_vdf(jcs:jce,:,jb,iqt:) = 0._wp
-
     ENDIF !lvdiff
 
-    IF (phy_config%lrad) THEN
+    IF (echam_phy_config%lrad) THEN
 
       ! Heating due to the fact that surface model only used part of longwave radiation to compute new surface temperature
       zq_rlw_impl(jcs:jce) =                                                  &
@@ -876,17 +836,13 @@ CONTAINS
       ! Tendencies accumulated
       tend%ta(jcs:jce,nlev,jb) = tend%ta(jcs:jce,nlev,jb) + tend%ta_rlw_impl(jcs:jce,jb)
 
-    ELSE
-
-      tend%ta_rlw_impl(jcs:jce,jb) = 0._wp
-
     END IF
 
-    IF (phy_config%lcariolle) THEN
+    IF (echam_phy_config%lcariolle) THEN
       avi%tmprt(jcs:jce,:)=field%ta(jcs:jce,:,jb)
       avi%vmr2molm2(jcs:jce,:)=field%mdry(jcs:jce,:,jb)/amd*1.e3_wp
       avi%pres(jcs:jce,:)=field%presm_old(jcs:jce,:,jb)
-      avi%cell_center_lat(jcs:jce)=p_patch(jg)%cells%center(jcs:jce,jb)%lat
+      avi%cell_center_lat(jcs:jce)=field%clat(jcs:jce,jb)
       avi%lday(jcs:jce)=field%cosmu0(jcs:jce,jb)>1.e-3_wp
       avi%ldown=.TRUE.
       current_time_interpolation_weights = calculate_time_interpolation_weights(this_datetime)
@@ -908,9 +864,9 @@ CONTAINS
 
     ! 6.1   CALL SUBROUTINE GW_HINES
 
-    IF (phy_config%lgw_hines) THEN
+    IF (echam_phy_config%lgw_hines) THEN
 
-      zlat_deg(jcs:jce) = p_patch(jg)%cells%center(jcs:jce,jb)%lat * 180._wp/pi
+      zlat_deg(jcs:jce) = field% clat(jcs:jce,jb) * 180._wp/pi
 
       IF (ltimer) call timer_start(timer_gw_hines)
 
@@ -922,6 +878,9 @@ CONTAINS
         &             nlev                     ,&
         &             field% presi_old(:,:,jb) ,&
         &             field% presm_old(:,:,jb) ,&
+        &             field%   zh(:,:,jb)      ,&
+        &             field%  rho(:,:,jb)      ,&
+        &             field% mair(:,:,jb)      ,&
         &             field%   ta(:,:,jb)      ,&
         &             field%   ua(:,:,jb)      ,&
         &             field%   va(:,:,jb)      ,&
@@ -947,18 +906,12 @@ CONTAINS
       tend%   ua(jcs:jce,:,jb) = tend%   ua(jcs:jce,:,jb) + tend%   ua_gwh(jcs:jce,:,jb)
       tend%   va(jcs:jce,:,jb) = tend%   va(jcs:jce,:,jb) + tend%   va_gwh(jcs:jce,:,jb)
 
-    ELSE ! NECESSARY COMPUTATIONS IF GW_HINES IS BY-PASSED
-
-      tend%   ta_gwh(jcs:jce,:,jb) = 0._wp
-      tend%   ua_gwh(jcs:jce,:,jb) = 0._wp
-      tend%   va_gwh(jcs:jce,:,jb) = 0._wp
-
     END IF !lgw_hines
 
 
     ! 6.2   CALL SUBROUTINE SSODRAG
 
-    IF (phy_config%lssodrag) THEN
+    IF (echam_phy_config%lssodrag) THEN
 
       IF (ltimer) call timer_start(timer_ssodrag)
 
@@ -966,12 +919,14 @@ CONTAINS
                      nbdim                                     ,& ! in,  dimension of block of cells/columns
                      nlev                                      ,& ! in,  number of levels
                      !
-                     p_patch(jg)%cells%center(:,jb)%lat        ,& ! in,  Latitude in radians
                      pdtime                                    ,& ! in,  time step length
+                     field% coriol(:,jb)                       ,& ! in,  Coriolis parameter (1/s)
+                     field% zf  (:,:,jb)                       ,& ! in,  full level height (m)
+                     field% zh  (:,nlev+1,jb)                  ,& ! in,  surface height    (m)
                      !
                      field% presi_old(:,:,jb)                  ,& ! in,  p at half levels
                      field% presm_old(:,:,jb)                  ,& ! in,  p at full levels
-                     field% geom(:,:,jb)                       ,& ! in,  geopotential above surface (t-dt)
+                     field% mair(:,:,jb)                       ,& ! in,  air mass
                      field%   ta(:,:,jb)                       ,& ! in,  T
                      field%   ua(:,:,jb)                       ,& ! in,  u
                      field%   va(:,:,jb)                       ,& ! in,  v
@@ -1008,211 +963,178 @@ CONTAINS
       tend%   ua(jcs:jce,:,jb) = tend%   ua(jcs:jce,:,jb) + tend%   ua_sso(jcs:jce,:,jb)
       tend%   va(jcs:jce,:,jb) = tend%   va(jcs:jce,:,jb) + tend%   va_sso(jcs:jce,:,jb)
 
-    ELSE ! NECESSARY COMPUTATIONS IF SSODRAG IS BY-PASSED
-
-      tend%   ta_sso(jcs:jce,:,jb) = 0._wp
-      tend%   ua_sso(jcs:jce,:,jb) = 0._wp
-      tend%   va_sso(jcs:jce,:,jb) = 0._wp
-
     END IF ! SSODRAG
+
+    !-------------------------------------------------------------------
+
+    ! Update physics state for input to next parameterization
+    zta  (:,:)   =     field% ta  (:,:,jb)   + pdtime*tend% ta  (:,:,jb)
+    zqtrc(:,:,:) = MAX(field% qtrc(:,:,jb,:) + pdtime*tend% qtrc(:,:,jb,:), 0.0_wp)
+    zua  (:,:)   =     field% ua  (:,:,jb)   + pdtime*tend% ua  (:,:,jb)
+    zva  (:,:)   =     field% va  (:,:,jb)   + pdtime*tend% va  (:,:,jb)
 
     !-------------------------------------------------------------------
     ! 7. CONVECTION PARAMETERISATION
     !-------------------------------------------------------------------
-    itype(jcs:jce) = 0
 
-    ! 7.1   INITIALIZE ARRAYS FOR CONVECTIVE PRECIPITATION
-    !       AND COPY ARRAYS FOR CONVECTIVE CLOUD PARAMETERS
+    zqtrc_cnd(:,:) = zqtrc(:,:,iqc) + zqtrc(:,:,iqi)
+    ztend_qv(:,:)  = tend%qtrc_dyn(:,:,jb,iqv) + tend%qtrc_phy(:,:,jb,iqv)
 
-    tend% xl_dtr(jcs:jce,:,jb) = 0._wp
-    tend% xi_dtr(jcs:jce,:,jb) = 0._wp
-    zqtec  (jcs:jce,:) = 0._wp
+    IF (echam_phy_config%lconv) THEN
 
-    field% rsfc(:,jb) = 0._wp
-    field% ssfc(:,jb) = 0._wp
+      IF (ltimer) CALL timer_start(timer_convection)
 
-    ! 7.2   CALL SUBROUTINE CUCALL FOR CUMULUS PARAMETERIZATION
+      CALL cumastr(jce, nbdim,                   &! in
+        &          nlev, nlevp1, nlevm1,         &! in
+        &          pdtime,                       &! in
+        &          field% zf       (:,:,jb),     &! in
+        &          field% zh       (:,:,jb),     &! in
+        &          field% mdry     (:,:,jb),     &! in
+        &                zta       (:,:),        &! in
+        &                zqtrc     (:,:,   iqv), &! in
+        &                zqtrc_cnd (:,:),        &! in
+        &                zua       (:,:),        &! in
+        &                zva       (:,:),        &! in
+        &          ntrac,                        &! in
+        &          field% lfland   (:,  jb),     &! in
+        &                zqtrc     (:,:,   iqt:),&! in
+        &          field% omega    (:,:,jb),     &! in
+        &          field% evap     (:,  jb),     &! in
+        &          field% presm_new(:,:,jb),     &! in
+        &          field% presi_new(:,:,jb),     &! in
+        &          field% geom     (:,:,jb),     &! in
+        &          field% geoi     (:,:,jb),     &! in
+        &                ztend_qv  (:,:),        &! in
+        &          field% thvsig   (:,  jb),     &! in
+        &          itype,                        &! out
+        &          ictop,                        &! out
+        &          field% rsfc     (:,  jb),     &! out
+        &          field% ssfc     (:,  jb),     &! out
+        &          field% con_dtrl (:,jb),       &! out
+        &          field% con_dtri (:,jb),       &! out
+        &          field% con_iteqv(:,jb),       &! out
+        &                   zq_cnv (:,:),        &! out
+        &           tend%   ua_cnv (:,:,jb),     &! out
+        &           tend%   va_cnv (:,:,jb),     &! out
+        &           tend% qtrc_cnv (:,:,jb,iqv), &! out
+        &           tend% qtrc_cnv (:,:,jb,iqt:),&! out
+        &           tend% qtrc_cnv (:,:,jb,iqc), &! out
+        &           tend% qtrc_cnv (:,:,jb,iqi), &! out
+        &                ztop      (:)           )! out
 
-    IF (phy_config%lconv) THEN
+      IF (ltimer) CALL timer_stop(timer_convection)
 
-      IF (ltimer) call timer_start(timer_cucall)
+      ! store convection type as real value
+      field% rtype(:,jb) = REAL(itype(:),wp)
 
-      CALL cucall( jce, nbdim, nlev,          &! in
-        &          nlevp1, nlevm1,            &! in
-        &          ntrac,                     &! in     tracers
-!        &          jb,                        &! in     row index
-        &          pdtime,                    &! in
-        &          field% lfland(:,jb),       &! in     loland
-        &          field% ta(:,:,jb),         &! in     tm1
-        &          field% ua(:,:,jb),         &! in     um1
-        &          field% va(:,:,jb),         &! in     vm1
-        &          field% qtrc(:,:,jb,iqv),   &! in     qm1
-        &          field% qtrc(:,:,jb,iqc),   &! in     xlm1
-        &          field% qtrc(:,:,jb,iqi),   &! in     xim1
-        &          field% qtrc(:,:,jb,iqt:),  &! in     xtm1
-        &          tend% qtrc(:,:,jb,iqv),    &! in     qte  for internal updating
-        &          tend% qtrc(:,:,jb,iqc),    &! in     xlte
-        &          tend% qtrc(:,:,jb,iqi),    &! in     xite
-        &          field% omega(:,:,jb),      &! in     vervel
-        &          field% evap(:,jb),         &! in     qhfla (from "vdiff")
-        &          field% geom(:,:,jb),       &! in     geom1
-        &          field% presm_new(:,:,jb),  &! in     app1
-        &          field% presi_new(:,:,jb),  &! in     aphp1
-        &          field% thvsig(:,jb),       &! in           (from "vdiff")
-        &          tend% ta(:,:,jb),          &! in     tte  for internal updating
-        &          tend% ua(:,:,jb),          &! in     vom  for internal updating
-        &          tend% va(:,:,jb),          &! in     vol  for internal updating
-        &          tend% qtrc(:,:,jb,iqt:),   &! in     xtte for internal updating
-        &          zqtec,                     &! inout
-        &          field% ch_concloud(:,jb),  &! inout condensational heat
-        &          field% cw_concloud(:,jb),  &! inout condensational heat
-        &          field% rsfc(:,jb),         &! out
-        &          field% ssfc(:,jb),         &! out
-        &          tend% xl_dtr(:,:,jb),      &! inout  xtecl
-        &          tend% xi_dtr(:,:,jb),      &! inout  xteci
-        &          itype,                     &! inout
-        &          ictop,                     &! out
-        &          ilab,                      &! out
-        &          field% topmax(:,jb),       &! inout
-        &          echam_conv_config%cevapcu, &! in
-        &          zcd, zcv,                  &! in
-        &          tend% qtrc_dyn(:,:,jb,iqv),&! in     qte by transport
-        &          tend% qtrc_phy(:,:,jb,iqv),&! in     qte by physics
-        &          field% con_dtrl(:,jb),     &! inout detrained liquid
-        &          field% con_dtri(:,jb),     &! inout detrained ice
-        &          field% con_iteqv(:,jb),    &! inout v. int. tend of water vapor within conv
-        &          tend%  ta_cnv(:,:,jb),     &! out
-        &          tend%  ua_cnv(:,:,jb),     &! out
-        &          tend%  va_cnv(:,:,jb),     &! out
-        &          tend%qtrc_cnv(:,:,jb,iqv), &! out
-        &          tend%qtrc_cnv(:,:,jb,iqt:) )! out
+      ! keep minimum conv. cloud top pressure (= max. conv. cloud top height) of this output interval
+      field% topmax(:,jb) = MIN(field% topmax(:,jb),ztop(:))
 
-      IF (ltimer) CALL timer_stop(timer_cucall)
+      ! heating accumulated
+      zq_phy(:,:) = zq_phy(:,:) + zq_cnv(:,:)
 
-      field% rtype(jcs:jce,jb) = REAL(itype(jcs:jce),wp)
+      ! tendency
+      tend% ta_cnv(:,:,jb) = zq_cnv(:,:)*zconv(:,:)
 
-!!$      ! heating accumulated
-!!$      zq_phy(jcs:jce,:) = zq_phy(jcs:jce,:) + zq_cnv(jcs:jce,:)
-!!$
-!!$      ! tendency
-!!$      tend% temp_cnv(jcs:jce,:,jb) = zq_cnv(jcs:jce,:)*zconv(jcs:jce,:)
-!!$
       ! tendencies accumulated
-      tend%   ua(jcs:jce,:,jb)      = tend%   ua(jcs:jce,:,jb)      + tend%   ua_cnv(jcs:jce,:,jb)
-      tend%   va(jcs:jce,:,jb)      = tend%   va(jcs:jce,:,jb)      + tend%   va_cnv(jcs:jce,:,jb)
-      tend%   ta(jcs:jce,:,jb)      = tend%   ta(jcs:jce,:,jb)      + tend%   ta_cnv(jcs:jce,:,jb)
-      tend% qtrc(jcs:jce,:,jb,iqv)  = tend% qtrc(jcs:jce,:,jb,iqv)  + tend% qtrc_cnv(jcs:jce,:,jb,iqv)
-      tend% qtrc(jcs:jce,:,jb,iqt:) = tend% qtrc(jcs:jce,:,jb,iqt:) + tend% qtrc_cnv(jcs:jce,:,jb,iqt:)
-
+      tend%   ua(:,:,jb)      = tend%   ua(:,:,jb)      + tend%   ua_cnv(:,:,jb)
+      tend%   va(:,:,jb)      = tend%   va(:,:,jb)      + tend%   va_cnv(:,:,jb)
+      tend%   ta(:,:,jb)      = tend%   ta(:,:,jb)      + tend%   ta_cnv(:,:,jb)
+      tend% qtrc(:,:,jb,iqv)  = tend% qtrc(:,:,jb,iqv)  + tend% qtrc_cnv(:,:,jb,iqv)
+      tend% qtrc(:,:,jb,iqc)  = tend% qtrc(:,:,jb,iqc)  + tend% qtrc_cnv(:,:,jb,iqc)
+      tend% qtrc(:,:,jb,iqi)  = tend% qtrc(:,:,jb,iqi)  + tend% qtrc_cnv(:,:,jb,iqi)
+      tend% qtrc(:,:,jb,iqt:) = tend% qtrc(:,:,jb,iqt:) + tend% qtrc_cnv(:,:,jb,iqt:)
 
     ELSE ! NECESSARY COMPUTATIONS IF MASSFLUX IS BY-PASSED
 
-      ilab(jcs:jce,1:nlev) = 0
-      ictop(jcs:jce)       = nlev-1
-
-      tend%   ua_cnv(jcs:jce,:,jb)      = 0._wp
-      tend%   va_cnv(jcs:jce,:,jb)      = 0._wp
-      tend%   ta_cnv(jcs:jce,:,jb)      = 0._wp
-      tend% qtrc_cnv(jcs:jce,:,jb,iqv)  = 0._wp
-      tend% qtrc_cnv(jcs:jce,:,jb,iqt:) = 0._wp
+      ictop(:)   = nlev-1
+      itype(:)   = 0
 
     ENDIF !lconv
 
     !-------------------------------------------------------------
+    ! Update provisional physics state
+    !
+!!$    field% ta  (:,:,jb)     = field% ta  (:,:,jb)     + tend% ta  (:,:,jb)    *pdtime
+!!$    field% qtrc(:,:,jb,iqv) = field% qtrc(:,:,jb,iqv) + tend% qtrc(:,:,jb,iqv)*pdtime
+    field% qtrc(:,:,jb,iqc) = field% qtrc(:,:,jb,iqc) + tend% qtrc(:,:,jb,iqc)*pdtime
+    field% qtrc(:,:,jb,iqi) = field% qtrc(:,:,jb,iqi) + tend% qtrc(:,:,jb,iqi)*pdtime
+    !
+    !-------------------------------------------------------------
+
+
+    !-------------------------------------------------------------
     ! 7. LARGE SCALE CONDENSATION.
     !-------------------------------------------------------------
-    IF(phy_config%lcond) THEN
+    IF(echam_phy_config%lcond) THEN
 
       !IF (lcotra) CALL get_col_pol( tend%ta(:,:,jb),tend%qtrc(:,:,jb,iqv),jb )
 
-      IF (ncdnc==0 .AND. nicnc==0) THEN
+      IF (ltimer) CALL timer_start(timer_cloud)
 
-        field% rsfl(:,jb) = 0._wp
-        field% ssfl(:,jb) = 0._wp
+      CALL cloud(jce, nbdim, jks, nlev,        &! in
+        &        pdtime,                       &! in
+        &        ictop,                        &! in (from "cucall")
+        &        field% presm_old(:,:,jb),     &! in
+        &        field% dz       (:,:,jb),     &! in
+        &        field% mdry     (:,:,jb),     &! in
+        &        field% rho      (:,:,jb),     &! in
+        &               zcpair   (:,:),        &! in
+        &        field% acdnc    (:,:,jb),     &! in  acdnc
+        &        field% ta       (:,:,jb),     &! in  tm1
+        &        field% qtrc     (:,:,jb,iqv), &! in  qm1
+        &        field% qtrc     (:,:,jb,iqc), &! in  xlm1
+        &        field% qtrc     (:,:,jb,iqi), &! in  xim1
+        &         tend% ta       (:,:,jb),     &! in  tte
+        &         tend% qtrc     (:,:,jb,iqv), &! in  qte
+        !
+        &        itype,                        &! inout
+        &        field% aclc     (:,:,jb),     &! inout
+        !
+        &        field% aclcov   (:,  jb),     &! out
+        &        field% rsfl     (:,  jb),     &! out
+        &        field% ssfl     (:,  jb),     &! out
+        &        field% relhum   (:,:,jb),     &! out
+        &               zq_cld   (:,:),        &! out
+        &         tend% qtrc_cld (:,:,jb,iqv), &! out
+        &         tend% qtrc_cld (:,:,jb,iqc), &! out
+        &         tend% qtrc_cld (:,:,jb,iqi)  )! out
 
-        IF (ltimer) CALL timer_start(timer_cloud)
+      IF (ltimer) CALL timer_stop(timer_cloud)
 
-        CALL cloud(jce, nbdim, jks, nlev, nlevp1, &! in
-          &        pdtime,                    &! in
-          &        ictop,                     &! in (from "cucall")
-          &        field% presi_old(:,:,jb),  &! in
-          &        field% presm_old(:,:,jb),  &! in
-!          &        field% presm_new(:,:,jb), &! in
-          &        field% acdnc (:,:,jb),     &! in. acdnc
-          &        field%   ta  (:,:,jb),     &! in. tm1
-          &        field%   tv  (:,:,jb),     &! in. ztvm1
-          &        field% qtrc  (:,:,jb,iqv), &! in. qm1
-          &        field% qtrc  (:,:,jb,iqc), &! in. xlm1
-          &        field% qtrc  (:,:,jb,iqi), &! in. xim1
-          &        zcair(:,:),                &! in
-          &        field% geom  (:,:,jb),     &! in. geom1
-          &        field% aclcov(:,  jb),     &! out
-          &        field%  qvi  (:,  jb),     &! out
-          &        field% xlvi  (:,  jb),     &! out
-          &        field% xivi  (:,  jb),     &! out
-          &        itype,                     &!
-          &        field% ch_concloud(:,jb),  &! inout condens. heat
-          &        field% cw_concloud(:,jb),  &! inout condens. heat
-          &         tend% xl_dtr(:,:,jb),     &! inout  xtecl
-          &         tend% xi_dtr(:,:,jb),     &! inout  xteci
-          &        zqtec,                     &! inout (there is a clip inside)
-          &         tend% ta  (:,:,jb),     &! inout.  tte
-          &         tend% qtrc  (:,:,jb,iqv), &! inout.  qte
-          &         tend% qtrc  (:,:,jb,iqc), &! inout. xlte
-          &         tend% qtrc  (:,:,jb,iqi), &! inout. xite
-          &        field% cld_dtrl(:,jb),     &! inout detrained liquid
-          &        field% cld_dtri(:,jb),     &! inout detrained ice
-          &        field% cld_iteq(:,jb),     &! inout v. int. tend of qv,qc, and qi within cloud
-!          &         tend% x_dtr(:,:,jb),      &! inout (there is a clip inside)
-          &        field% aclc  (:,:,jb),     &! inout
-          &        field% ssfl  (:,  jb),     &! out
-          &        field% rsfl  (:,  jb),     &! out
-          &        field% relhum(:,:,jb),     &! out
-          &        tend%  ta_cld(:,:,jb),     &! out
-          &        tend%qtrc_cld(:,:,jb,iqv), &! out
-          &        tend%qtrc_cld(:,:,jb,iqc), &! out
-          &        tend%qtrc_cld(:,:,jb,iqi)  )! out
+      field% rtype(:,jb) = REAL(itype(:),wp)
 
-        IF (ltimer) CALL timer_stop(timer_cloud)
+      ! heating accumulated
+      zq_phy(:,:) = zq_phy(:,:) + zq_cld(:,:)
 
-      ELSE IF (ncdnc>0 .AND. nicnc>0) THEN
-!0      CALL cloud_cdnc_icnc(...) !!skipped in ICON
-      ELSE
-        IF (my_process_is_stdio()) CALL finish('echam_phy_main', ' check setting of ncdnc and nicnc.')
-      END IF
+      ! tendency
+      tend% ta_cld(:,:,jb) = zq_cld(:,:)*zconv(:,:)
 
-    ELSE ! NECESSARY COMPUTATIONS IF *CLOUD* IS BY-PASSED.
-
-      field% rsfl (jcs:jce,  jb) = 0._wp
-      field% ssfl (jcs:jce,  jb) = 0._wp
-      field% aclc (jcs:jce,:,jb) = 0._wp
-
-      tend%   ta_cld(jcs:jce,:,jb)      = 0._wp
-      tend% qtrc_cld(jcs:jce,:,jb,iqv)  = 0._wp
-      tend% qtrc_cld(jcs:jce,:,jb,iqc)  = 0._wp
-      tend% qtrc_cld(jcs:jce,:,jb,iqi)  = 0._wp
-      tend% qtrc_cld(jcs:jce,:,jb,iqt:) = 0._wp
+      ! tendencies accumulated
+      tend%   ta(:,:,jb)      = tend%   ta(:,:,jb)      + tend%   ta_cld(:,:,jb)
+      tend% qtrc(:,:,jb,iqv)  = tend% qtrc(:,:,jb,iqv)  + tend% qtrc_cld(:,:,jb,iqv)
+      tend% qtrc(:,:,jb,iqc)  = tend% qtrc(:,:,jb,iqc)  + tend% qtrc_cld(:,:,jb,iqc)
+      tend% qtrc(:,:,jb,iqi)  = tend% qtrc(:,:,jb,iqi)  + tend% qtrc_cld(:,:,jb,iqi)
 
     ENDIF !lcond
 
     ! KF accumulate fields for diagnostics
 
     !  total precipitation flux
-       field% totprec (jcs:jce,jb)     =  field% rsfl (jcs:jce,jb) & ! rain large scale
-            &                            +field% ssfl (jcs:jce,jb) & ! snow large scale
-            &                            +field% rsfc (jcs:jce,jb) & ! rain convection
-            &                            +field% ssfc (jcs:jce,jb)   ! snow convection
+       field% totprec (:,jb)     =  field% rsfl (:,jb) & ! rain large scale
+            &                      +field% ssfl (:,jb) & ! snow large scale
+            &                      +field% rsfc (:,jb) & ! rain convection
+            &                      +field% ssfc (:,jb)   ! snow convection
 
     ! Now compute tendencies from physics alone
 
-    tend%   ta_phy (jcs:jce,:,jb)   = tend%   ta (jcs:jce,:,jb)   - tend%   ta_phy (jcs:jce,:,jb)
-    tend%   ua_phy (jcs:jce,:,jb)   = tend%   ua (jcs:jce,:,jb)   - tend%   ua_phy (jcs:jce,:,jb)
-    tend%   va_phy (jcs:jce,:,jb)   = tend%   va (jcs:jce,:,jb)   - tend%   va_phy (jcs:jce,:,jb)
-    tend% qtrc_phy (jcs:jce,:,jb,:) = tend% qtrc (jcs:jce,:,jb,:) - tend% qtrc_phy (jcs:jce,:,jb,:)
+    tend%   ta_phy (:,:,jb)   = tend%   ta (:,:,jb)   - tend%   ta_phy (:,:,jb)
+    tend%   ua_phy (:,:,jb)   = tend%   ua (:,:,jb)   - tend%   ua_phy (:,:,jb)
+    tend%   va_phy (:,:,jb)   = tend%   va (:,:,jb)   - tend%   va_phy (:,:,jb)
+    tend% qtrc_phy (:,:,jb,:) = tend% qtrc (:,:,jb,:) - tend% qtrc_phy (:,:,jb,:)
 
-    IF ( iequations == inh_atmosphere ) THEN
-      tend% ta_phy (jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb)*zcpair(jcs:jce,:)/zcvair(jcs:jce,:)
-    END IF
+    ! And convert constant pressure temperture tendency to constant volume temperature tendency
+    tend% ta_phy (:,:,jb) = tend% ta_phy(:,:,jb)*zcpair(:,:)/zcvair(:,:)
 
     ! Done. Disassociate pointers.
     NULLIFY(field,tend)
