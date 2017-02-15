@@ -522,7 +522,7 @@ set_run_target_thunder()
 #SBATCH --output=$job_log_name.o
 #SBATCH --error=$job_log_name.o
 #SBATCH --partition=$queue
-# #SBATCH --workdir=$output_folder
+ #SBATCH --workdir=$output_folder
 #SBATCH --nodes=$use_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
@@ -947,8 +947,8 @@ set_run_target_daint_gpu()
   set_default use_nproma 256
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,1"
-  icon_data_rootFolder=${icon_data_rootFolder:=/scratch/snx3000/icontest}
-  icon_data_poolFolder=${icon_data_poolFolder:=/scratch/snx3000/icontest}
+  icon_data_rootFolder=${icon_data_rootFolder:=/scratch/snx3000/icontest/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/scratch/snx3000/icontest/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -1012,9 +1012,9 @@ set_run_target_daint_gpu()
 #-----------------------------------------------------------------------------
 #SBATCH --constraint=gpu
 #SBATCH --job-name=$job_name
-#SBATCH --output=$job_log_name.o
-#SBATCH --error=$job_log_name.o
-# #SBATCH --workdir=$output_folder
+#SBATCH --output=$output_folder/$job_log_name.o
+#SBATCH --error=$output_folder/$job_log_name.o
+#SBATCH --workdir=$output_folder
 #SBATCH --nodes=$use_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
