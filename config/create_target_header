@@ -927,8 +927,8 @@ set_run_target_daint_cpu()
 #-----------------------------------------------------------------------------
 #SBATCH --constraint=gpu
 #SBATCH --job-name=$job_name
-#SBATCH --output=$job_log_name.o
-#SBATCH --error=$job_log_name.o
+#SBATCH --output=$output_folder/$job_log_name.o
+#SBATCH --error=$output_folder/$job_log_name.o
 # #SBATCH --workdir=$output_folder
 #SBATCH --nodes=$use_nodes
 #$SBATCH_ntasks_per_node
