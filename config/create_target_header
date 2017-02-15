@@ -920,6 +920,7 @@ set_run_target_daint_cpu()
     s_cpu_time="SBATCH --time=00:45:00"
   fi
 
+  icon_data_poolFolder=/scratch/snx3000/icontest/pool/data/ICON
   # ------------------------------------
 
   cat >> $output_script << EOF
