@@ -905,7 +905,7 @@ run\_nml:iforcing = inwp
 \hline
 range\_gkwake&
 R&
-0.333&
+0.5&
 &
 Variability range for low level wake drag constant&
 \tabularnewline
@@ -918,6 +918,13 @@ R&
 Variability range for orographic gravity wave drag constant&
 \tabularnewline
 
+\hline
+range\_gfrcrit&
+R&
+0.1&
+&
+Variability range for critical Froude number in SSO scheme&
+\tabularnewline
 
 \hline
 range\_gfluxlaun&
@@ -1037,6 +1044,22 @@ R&
 &
 Variability range for minimum value to which snow cover fraction is artificially reduced in case of melting snow & 
 idiag\_snowfrac = 20/30/40
+\tabularnewline
+
+\hline
+range\_c\_soil&
+R&
+0.25&
+&
+Variability range for evaporating fraction of soil & 
+\tabularnewline
+
+\hline
+range\_cwimax\_ml&
+R&
+2.0&
+&
+Variability range for capacity of interception storage (multiplicative) & 
 \tabularnewline
 
 \hline
@@ -3562,6 +3585,15 @@ R&
 0.075&
 &
 gravity wave drag constant&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
+tune\_gfrcrit&
+R&
+0.4&
+&
+critical Froude number (controls depth of blocking layer)&
 run\_nml:iforcing = inwp
 \tabularnewline
 
