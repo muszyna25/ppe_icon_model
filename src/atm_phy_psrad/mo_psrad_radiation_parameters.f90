@@ -153,26 +153,62 @@ contains
     INTEGER     :: i, j
     REAL(wp)    :: zen1, zen2, zen3, z1, z2, z3, xx
 
-    LOGICAL, SAVE      :: initialized = .FALSE.
     INTEGER, PARAMETER :: nds = 128 !< number of diurnal samples
+
+    LOGICAL  , SAVE :: initialized_sincos = .FALSE.
     REAL (wp), SAVE :: cosrad(nds), sinrad(nds)
     REAL (wp)       :: xsmpl(nds), xnmbr(nds)
     REAL (wp), ALLOCATABLE :: sinlon(:,:), sinlat(:,:), coslon(:,:), coslat(:,:)
     REAL (wp), ALLOCATABLE :: mu0(:,:)
 
-    REAL (wp) :: dcosmu0, dmu0
+    REAL (wp), PARAMETER   :: eps=1.e-9_wp ! to converge in ca. 30 iterations
+    LOGICAL  , SAVE        :: initialized_mu0s = .FALSE.
+    REAL (wp), SAVE        :: mu0s, sin_mu0s
+    REAL (wp)              :: dmu0, dcos_mu0, mu0min, mu0max
+    INTEGER  , SAVE        :: nmu0
 
     INTEGER :: nprom, npromz, nblks
 
-    IF (.NOT.initialized) THEN
+    IF (.NOT.initialized_sincos) THEN
+       !
+       ! sin and cos arrays for zonal mean radiation
        DO i = 1, nds
           xx = pi2*(i-1.0_wp)/nds
           sinrad(i) = SIN(xx)
           cosrad(i) = COS(xx)
        END DO
-       initialized = .TRUE.
+       !
+       initialized_sincos = .TRUE.
     END IF
-
+    !
+    IF ((.NOT.initialized_mu0s).AND.(dt_ext/=0.0_wp)) THEN
+       !
+       ! find mu0s for radiation with diurnal cycle
+       dmu0   = dt_ext/86400._wp*pi
+       mu0min = 0.0_wp
+       mu0max = pi_2
+       mu0s   = mu0max
+       nmu0   = 0
+       DO
+          xx = (pi_2+dmu0-mu0s)*SIN(mu0s) - COS(mu0s)
+          IF      (xx >  eps ) THEN
+             mu0max = mu0s
+          ELSE IF (xx < -eps ) THEN
+             mu0min = mu0s
+          ELSE
+             EXIT  ! ABS(xx)<=eps, mu0s is found
+          END IF
+          mu0s = 0.5_wp*(mu0min+mu0max)
+          nmu0 = nmu0+1
+          !
+       END DO
+       !
+       ! slope of the linear section of cos_mu0, see below, where used
+       sin_mu0s = SIN(mu0s)
+       !
+       initialized_mu0s = .TRUE.
+    END IF
+    !
     flx_ratio = 1.0_wp/dist_sun**2
     zen1 = SIN(decl_sun)
     zen2 = COS(decl_sun)*COS(time_of_day)
@@ -244,26 +280,31 @@ contains
           ! the sunlit hemisphere at the radiation time so that the extended area includes
           ! the sunlit areas of all time step within the radiation interval of length dt_ext
           ! centered at the radiation time
-          dmu0    = dt_ext/86400._wp*pi
-          dcosmu0 = SIN(dmu0)
+          dmu0     = dt_ext/86400._wp*pi
+          dcos_mu0 = SIN(dmu0)
           !
-          ! add increment for the definition of the extended daylight area
+          ! add increment dcos_mu0 for the definition of the extended daylight area
           ! set day/night indicator to 1/0
-          WHERE (cos_mu0(:,:)+dcosmu0 < 0.0_wp)
+          WHERE (cos_mu0(:,:)+dcos_mu0 < 0.0_wp)
              daylight_frc(:,:) = 0.0_wp
           ELSEWHERE
              daylight_frc(:,:) = 1.0_wp
           END WHERE
           !
-          ! now redefine cos_mu0 in a band of width +/-dmu0 around the original terminator
-          ! using a linear function of mu0 such that:
-          !   inner edge                       : mu0=pi/2-dmu0 --> cos_mu0 = cos(pi/2-dmu0)
-          !   center     = original terminator : mu0=pi/2      --> cos_mu0 = cos(pi/2-dmu0)/2
+          ! If cos_mu0 is needed for an extended daylight area for the radiative transfer, then
+          ! redefine cos_mu0 in a band  mu0s<mu0<pi/2+dmu0 using a linear function of mu0 such that:
+          !   inner edge                       : mu0=mu0s      --> cos_mu0 = cos(mu0s)
+          !   in between                       : mu0           --> cos_mu0 = sin(mu0s)*(pi/2+dmu0-mu0)
           !   outer edge = extended terminator : mu0=pi/2+dmu0 --> cos_mu0 = 0
           !
-          WHERE (ABS(mu0(:,:)-pi_2)<dmu0)
-             cos_mu0(:,:) = 0.5_wp*SIN(dmu0)*(1._wp-(mu0(:,:)-pi_2)/dmu0)
-          END WHERE
+          ! mu0s is the solution of : cos(mu0s) = sin(mu0s)*(pi/2+dmu0-mu0s)
+          ! so that cos_mu0 is a C1 function in [0,pi/2+dmu0]
+          !
+          IF (dt_ext/=0.0_wp) THEN
+             WHERE ((mu0s<mu0(:,:)).AND.(mu0(:,:)<(pi_2+dmu0)))
+                cos_mu0(:,:) = sin_mu0s*(pi_2+dmu0-mu0(:,:))
+             END WHERE
+          END IF
           !
        ELSE
           DO j = 1, SIZE(cos_mu0,2)
