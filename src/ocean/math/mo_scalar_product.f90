@@ -2210,8 +2210,8 @@ CONTAINS
     & blockNo, start_cell_index, end_cell_index)
     TYPE(t_patch_3d ),TARGET, INTENT(in)            :: patch_3d
     TYPE(t_cartesian_coordinates), INTENT(in)       :: vec_top(:,:) ! (nproma, n_zlev+1)
-    INTEGER, INTENT(in)                               :: blockNo, start_cell_index, end_cell_index
     TYPE(t_cartesian_coordinates), INTENT(inout)    :: vec_center(:,:) ! (nproma, n_zlev) ! out
+    INTEGER, INTENT(in)                             :: blockNo, start_cell_index, end_cell_index
     
     !Local variables
     INTEGER :: level, jc!,jb
@@ -2396,13 +2396,13 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2014).
   !!
-  SUBROUTINE map_vec_prismtop2center_on_block_GM(patch_3d, vec_top, p_op_coeff, vec_center, &
+  SUBROUTINE map_vec_prismtop2center_on_block_GM(patch_3d, vec_top, vec_center, &
     & blockNo, start_cell_index, end_cell_index)
     TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     TYPE(t_cartesian_coordinates), INTENT(in)        :: vec_top(nproma, n_zlev)
-    TYPE(t_operator_coeff), INTENT(in)               :: p_op_coeff
+    TYPE(t_cartesian_coordinates), INTENT(inout)     :: vec_center(nproma, n_zlev) ! out
+!     TYPE(t_operator_coeff), INTENT(in)               :: p_op_coeff
     INTEGER, INTENT(in)                              :: blockNo, start_cell_index, end_cell_index
-    TYPE(t_cartesian_coordinates), INTENT(inout)     :: vec_center(nproma, n_zlev,blockNo) ! out
     
     !Local variables
     INTEGER :: level, jc!,jb
@@ -2422,7 +2422,7 @@ CONTAINS
       end_level  = patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
 
         DO level = start_level, end_level-1
-          vec_center(jc,level,blockNo)%x &
+          vec_center(jc,level)%x &
           & = 0.5_wp*( vec_top(jc,level)%x + vec_top(jc,level+1)%x) 
         END DO          
 
@@ -2440,7 +2440,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2014).
   !!
-  SUBROUTINE map_scalar_prismtop2center_GM(patch_3d, scalar_top, p_op_coeff,scalar_center)
+  SUBROUTINE map_scalar_prismtop2center_GM(patch_3d, scalar_top, p_op_coeff, scalar_center)
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     REAL(wp)                                         :: scalar_top(nproma, n_zlev+1,patch_3D%p_patch_2d(1)%nblks_c)   
     TYPE(t_operator_coeff),INTENT(in)                :: p_op_coeff
@@ -2497,9 +2497,9 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2014).
   !!
-  SUBROUTINE map_scalar_center2prismtop_GM(patch_3d, scalar_center, p_op_coeff,scalar_top)
+  SUBROUTINE map_scalar_center2prismtop_GM(patch_3d, scalar_center, p_op_coeff, scalar_top)
     TYPE(t_patch_3d ),TARGET, INTENT(in   )          :: patch_3d
-    REAL(wp), INTENT(inout)                             :: scalar_center(:,:,:)   
+    REAL(wp), INTENT(inout)                          :: scalar_center(:,:,:)   
     TYPE(t_operator_coeff),INTENT(in)                :: p_op_coeff
     REAL(wp), INTENT(out)                            :: scalar_top(:,:,:)       
     

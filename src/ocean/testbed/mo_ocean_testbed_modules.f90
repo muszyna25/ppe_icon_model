@@ -1566,7 +1566,7 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, surf
     t = 10.0_wp
     s = 40.0_wp
     p = 4000.0_wp    !  4000 dbar = 400 bar
-    co = calc_neutralslope_coeff_onColumn(t,s,p,n_zlev)
+    co = calc_neutralslope_coeff_func_onColumn(t,s,p,n_zlev)
     aob = co(1,1)/co(1,2)
 
     WRITE(message_text,'(3(a,1pg18.8))') '  Parameter: alpha = ',co(1,1), ' beta = ',co(1,2), ' alpha/beta = ',aob

@@ -217,10 +217,10 @@ CONTAINS
 ! !ICON_OMP_PARALLEL
 
 !     IF (ltimer) CALL timer_stop(timer_extra11)
-DO jk=1,10
-CALL dbg_print('calc_rho4GMRedi: rho_GM',rho_GM(:,jk,:),&
-          & str_module, idt_src, in_subset=all_cells) 
-END DO          
+    DO jk=1,10
+      CALL dbg_print('calc_rho4GMRedi: rho_GM',rho_GM(:,jk,:),&
+        & module_name, idt_src, in_subset=all_cells) 
+    END DO          
 
   END SUBROUTINE calculate_rho4GMRedi
   !-------------------------------------------------------------------------

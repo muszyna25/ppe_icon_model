@@ -2189,7 +2189,7 @@ ocean_state%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration=ocean_stat
  
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
-       
+        
       CALL verticalDeriv_vec_midlevel_on_block( patch_3d,                      &
                                               & kappa_times_slope(:,:,blockNo),&
                                               & grad_slope_vec(:,:,blockNo),   &
@@ -2197,19 +2197,17 @@ ocean_state%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration=ocean_stat
                                               & blockNo,                       &
                                               & start_cell_index,              &
                                               & end_cell_index)
-       IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN                                       
-       CALL map_vec_prismtop2center_on_block( patch_3d,                   &
-                                            & grad_slope_vec(:,:,blockNo),&
-                                            & op_coeff,                   &
-                                            & slope_deriv_atcenter,       &
-                                            & blockNo, start_cell_index, end_cell_index) 
-       ELSE
-       CALL map_vec_prismtop2center_on_block_GM( patch_3d,                   &
-                                            & grad_slope_vec(:,:,blockNo),&
-                                            & op_coeff,                   &
-                                            & slope_deriv_atcenter,       &
-                                            & blockNo, start_cell_index, end_cell_index) 
-              
+        IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN                                       
+          CALL map_vec_prismtop2center_on_block( patch_3d,                   &
+            & grad_slope_vec(:,:,blockNo),       &
+            & slope_deriv_atcenter(:,:,blockNo), & 
+            & blockNo, start_cell_index, end_cell_index)
+        ELSE
+          CALL map_vec_prismtop2center_on_block_GM( patch_3d,                &
+            & grad_slope_vec(:,:,blockNo),              &
+            & slope_deriv_atcenter(:,:,blockNo),        & 
+            & blockNo, start_cell_index, end_cell_index)
+               
        
        ENDIF                                                                           
                                               
