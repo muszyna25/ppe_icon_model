@@ -131,7 +131,7 @@
 MODULE mo_icon_interpolation_vector
   !-------------------------------------------------------------------------
   !
-  USE mo_kind,                ONLY: wp
+  USE mo_kind,                ONLY: wp, vp
   USE mo_impl_constants,      ONLY: min_rlcell_int
   USE mo_model_domain,        ONLY: t_patch
   USE mo_run_config,          ONLY: ltimer
@@ -173,7 +173,7 @@ TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
 REAL(wp), INTENT(in) ::  p_vn_in(:,:,:)  ! dim: (nproma,nlev,nblks_e)
 
 ! (reconstructed) tangential velocity component at edges
-REAL(wp), INTENT(in) ::  p_vt_in(:,:,:)  ! dim: (nproma,nlev,nblks_e)
+REAL(vp), INTENT(in) ::  p_vt_in(:,:,:)  ! dim: (nproma,nlev,nblks_e)
 
 ! Interpolation state
 TYPE(t_int_state), INTENT(IN) :: p_int

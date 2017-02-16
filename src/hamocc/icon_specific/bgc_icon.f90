@@ -100,7 +100,7 @@ ENDIF
         levels(start_index:end_index) = p_patch_3D%p_patch_1d(1)%dolic_c(start_index:end_index,jb)
 
         start_detail_timer(timer_bgc_up_bgc,5)
-         CALL update_bgc(start_index,end_index,levels,&
+        CALL update_bgc(start_index,end_index,levels,&
              & p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
              &jb, p_os%p_prog(nold(1))%tracer(:,:,jb,:)&
              & ,hamocc_state%p_diag,hamocc_state%p_sed, hamocc_state%p_tend)

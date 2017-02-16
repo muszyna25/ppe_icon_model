@@ -29,7 +29,8 @@ MODULE mo_ocean_tracer_transport_horz
     & upwind, central,lax_friedrichs, horz_flux_twisted_vec_recon, miura_order1, flux_calculation_horz,      &
     & fct_high_order_flux,  fct_low_order_flux,FCT_Limiter_horz, fct_limiter_horz_zalesak,&
     & fct_limiter_horz_minmod, fct_limiter_horz_posdef, l_with_horz_tracer_diffusion, l_with_horz_tracer_advection,&
-    &l_LAX_FRIEDRICHS, l_GRADIENT_RECONSTRUCTION, k_pot_temp_h
+    &l_LAX_FRIEDRICHS, l_GRADIENT_RECONSTRUCTION, Tracer_HorizontalDiffusion_PTP_coeff, tracer_HorizontalAdvection_type, &
+    & edge_based, cell_based
   USE mo_util_dbg_prnt,             ONLY: dbg_print
   USE mo_parallel_config,           ONLY: nproma, p_test_run
   USE mo_dynamics_config,           ONLY: nold, nnew
@@ -122,8 +123,9 @@ CONTAINS
     !
     !-------------------------------------------------------------------------------    
     start_timer(timer_adv_horz,2)
-    
-    IF(l_edge_based)THEN
+
+    SELECT CASE(tracer_HorizontalAdvection_type)
+    CASE(edge_based)
       CALL advect_edge_based( patch_3d, &
       & trac_old,              &
       & p_os,                  &
@@ -135,7 +137,7 @@ CONTAINS
       & div_flux_vert,         &
       & tracer_index)
     
-    ELSE
+    CASE(cell_based)
 
       CALL advect_cell_based( patch_3d, &
       & trac_old,              &
@@ -147,7 +149,9 @@ CONTAINS
       & div_flux_horz,         &
       & div_flux_vert,         &
       & tracer_index) 
-    ENDIF
+    CASE default
+      CALL finish("advect_horz","uknown tracer_HorizontalAdvection_type")
+    END SELECT
 
     stop_timer(timer_adv_horz,2)
      
@@ -465,7 +469,7 @@ CONTAINS
 
         
        DO jk = 1, patch_3D%p_patch_1D(1)%dolic_c(jc,blockNo)
-         flux_vec_horz_center(jc,jk,blockNo)%x=k_pot_temp_h*grad_T_vec_horz(jc,jk,blockNo)%x
+         flux_vec_horz_center(jc,jk,blockNo)%x=Tracer_HorizontalDiffusion_PTP_coeff*grad_T_vec_horz(jc,jk,blockNo)%x
        END DO
      END DO
    END DO
@@ -1166,9 +1170,6 @@ CONTAINS
     edge_of_cell_idx  => patch_2D%cells%edge_idx
     edge_of_cell_blk  => patch_2D%cells%edge_blk
     
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, i_startidx_c, i_endidx_c)
       DO level = 1, n_zlev

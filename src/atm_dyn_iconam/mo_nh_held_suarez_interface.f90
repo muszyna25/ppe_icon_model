@@ -24,7 +24,7 @@
 
 MODULE mo_nh_held_suarez_interface
 
-  USE mo_kind,                  ONLY: wp
+  USE mo_kind,                  ONLY: wp, vp
   USE mo_parallel_config,       ONLY: nproma
   USE mo_model_domain,          ONLY: t_patch
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
@@ -88,8 +88,10 @@ CONTAINS
     REAL(wp) ::   & !< kinetic energy @ cells
       &  z_ekin(nproma,p_patch%nlev)
 
-    REAL(wp), DIMENSION(:,:,:), POINTER :: ptr_ddt_vn
-    REAL(wp), DIMENSION(:,:,:), POINTER :: ptr_ddt_exner
+    REAL(wp) ::   & !< forcing on vn
+      &  zddt_vn(nproma,p_patch%nlev)
+
+    REAL(vp), DIMENSION(:,:,:), POINTER :: ptr_ddt_exner
 
 !!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine =  &
 !!$                                   '(mo_nh_held_suarez_interface) held_suarez_nh_interface:'
@@ -117,7 +119,6 @@ CONTAINS
 
     !-------------------------------------------------------------------------
 
-    ptr_ddt_vn    => p_nh_diag%ddt_vn_phy
     ptr_ddt_exner => p_nh_diag%ddt_exner_phy
 
     !-------------------------------------------------------------------------
@@ -175,14 +176,15 @@ CONTAINS
 
     jbs = p_patch%edges%start_blk( grf_bdywidth_e+1,1 )
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie,jk) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,is,ie,jk,zddt_vn) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_e
        CALL get_indices_e( p_patch, jb,jbs,nblks_e, is,ie, grf_bdywidth_e+1 )
 
        CALL held_suarez_forcing_vn( p_nh_prog%vn(:,:,jb),  &! in
                                   & zsigma_me(:,:,jb),     &! in
                                   & nlev, nproma, is, ie,  &! in
-                                  & ptr_ddt_vn(:,:,jb)  )   ! inout
+                                  & zddt_vn )               ! inout
+       p_nh_diag%ddt_vn_phy(is:ie,:,jb) = zddt_vn(is:ie,:)
     ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL

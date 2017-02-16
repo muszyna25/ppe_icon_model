@@ -106,7 +106,7 @@ CONTAINS
     
     IF (no_tracer < 1) THEN
       CALL warning("ocean_crosscheck", "no_tracer < 1, use_constant_mixing")
-      physics_parameters_type = physics_parameters_Constant_type
+      PPscheme_type = PPscheme_Constant_type
     ENDIF
 
     CALL check_thicknesses
@@ -129,6 +129,8 @@ CONTAINS
       write_initial_state = .false.
     ENDIF
 
+    IF ((VelocityDiffusion_order == 21 .or. VelocityDiffusion_order == 213) .and. .not. laplacian_form == 1) &
+      CALL finish(method_name,"harmonic+biharmonic velocity diffusion requires curl-curl form")
 
   END SUBROUTINE ocean_crosscheck
 

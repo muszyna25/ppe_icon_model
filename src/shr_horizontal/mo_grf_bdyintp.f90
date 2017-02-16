@@ -702,26 +702,16 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
                              grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(4,2,jc),  &
                              1.e-80_wp )
 
-            limfac1 = 1._wp
-            limfac2 = 1._wp
             ! Allow a limited amount of over-/undershooting in the downscaled fields
-            IF (minval_neighb(jk,jc) > 0._wp) THEN
-              relaxed_minval = r_ovsht_fac*minval_neighb(jk,jc)
-            ELSE
-              relaxed_minval = ovsht_fac*minval_neighb(jk,jc)
-            ENDIF
-            IF (maxval_neighb(jk,jc) > 0._wp) THEN
-              relaxed_maxval = ovsht_fac*maxval_neighb(jk,jc)
-            ELSE
-              relaxed_maxval = r_ovsht_fac*maxval_neighb(jk,jc)
-            ENDIF
+            relaxed_minval = MERGE(r_ovsht_fac, ovsht_fac, &
+              minval_neighb(jk,jc) > 0._wp) * minval_neighb(jk,jc)
+            relaxed_maxval = MERGE(ovsht_fac, r_ovsht_fac, &
+              maxval_neighb(jk,jc) > 0._wp) * maxval_neighb(jk,jc)
 
-            IF (val_ctr(jk,jc) + min_expval < relaxed_minval-epsi) THEN
-              limfac1 = ABS((relaxed_minval-val_ctr(jk,jc))/min_expval)
-            ENDIF
-            IF (val_ctr(jk,jc) + max_expval > relaxed_maxval+epsi) THEN
-              limfac2 = ABS((relaxed_maxval-val_ctr(jk,jc))/max_expval)
-            ENDIF
+            limfac1 = MERGE(1._wp, ABS((relaxed_minval-val_ctr(jk,jc))/min_expval), &
+              val_ctr(jk,jc) + min_expval >= relaxed_minval-epsi)
+            limfac2 = MERGE(1._wp, ABS((relaxed_maxval-val_ctr(jk,jc))/max_expval), &
+              val_ctr(jk,jc) + max_expval <= relaxed_maxval+epsi)
             limfac = MIN(limfac1,limfac2)
 
             grad_x(jk,jc) = grad_x(jk,jc)*limfac

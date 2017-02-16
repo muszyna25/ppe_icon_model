@@ -36,10 +36,17 @@ MODULE mo_restart_descriptor
         INTEGER :: restartType
     CONTAINS
         PROCEDURE :: construct => restartPatchData_construct
-        PROCEDURE :: writeData => restartPatchData_writeDataDummy    ! >>> Must be overriden by derived class. I would have made this deferred, had it not been for a bug in the NAG compiler that makes calling of an inherited function from an abstract base impossible.
+        
+        ! >>> Must be overriden by derived class. I would have made
+        ! >>> this deferred, had it not been for a bug in the NAG
+        ! >>> compiler that makes calling of an inherited function
+        ! >>> from an abstract base impossible.
+        PROCEDURE :: writeData => restartPatchData_writeDataDummy
+
         PROCEDURE :: writeFile => restartPatchData_writeFile
         PROCEDURE :: destruct => restartPatchData_destruct
     END TYPE t_RestartPatchData
+
 
     ! This IS the actual INTERFACE to the restart writing code (apart from the restart_main_proc PROCEDURE). Its USE IS as follows:
     !

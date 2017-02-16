@@ -34,7 +34,6 @@ MODULE mo_initicon_nml
     & config_nlevsoil_in         => nlevsoil_in,         &
     & config_zpbl1               => zpbl1,               &
     & config_zpbl2               => zpbl2,               &
-    & config_l_sst_in            => l_sst_in,            &
     & config_lread_ana           => lread_ana,           &
     & config_lconsistency_checks => lconsistency_checks, &
     & config_ifs2icon_filename   => ifs2icon_filename,   &
@@ -189,7 +188,6 @@ CONTAINS
   nlevsoil_in = 4              ! number of soil levels of input data
   zpbl1       = 500._wp        ! AGL heights used for computing vertical 
   zpbl2       = 1000._wp       ! gradients
-  l_sst_in    = .TRUE.         ! true: sea surface temperature field provided as input
   lread_ana   = .TRUE.         ! true: read analysis fields from file dwdana_filename
                                ! false: start ICON from first guess file (no analysis)
   lconsistency_checks = .TRUE. ! check validity of input fields  
@@ -314,6 +312,10 @@ CONTAINS
     CALL finish(TRIM(routine),message_text)
   ENDIF
 
+  ! 
+  WRITE(message_text,'(a)') &
+    &  'Namelist switch l_sst_in is obsolete and will soon be removed!'
+  CALL message("WARNING",message_text)
 
   !------------------------------------------------------------
   ! 5.0 Fill the configuration state
@@ -323,7 +325,6 @@ CONTAINS
   config_nlevsoil_in         = nlevsoil_in
   config_zpbl1               = zpbl1
   config_zpbl2               = zpbl2
-  config_l_sst_in            = l_sst_in
   config_lread_ana           = lread_ana
   config_lconsistency_checks = lconsistency_checks
   config_ifs2icon_filename   = ifs2icon_filename

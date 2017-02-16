@@ -114,9 +114,6 @@ MODULE mo_ocean_patch_setup
   PRIVATE
 
   PUBLIC :: complete_ocean_patch
-
-
-
   !-------------------------------------------------------------------------
 
 CONTAINS
