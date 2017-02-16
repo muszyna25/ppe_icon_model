@@ -1063,11 +1063,11 @@ CONTAINS
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
     
     ! divergence component
-    CALL add_var(ocean_default_list, 'div', ocean_state_diag%div, grid_unstructured_cell, &
-      & za_depth_below_sea, &
-      & t_cf_var('div','','divergence', datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),lrestart_cont=.FALSE.)
+!     CALL add_var(ocean_default_list, 'div', ocean_state_diag%div, grid_unstructured_cell, &
+!       & za_depth_below_sea, &
+!       & t_cf_var('div','','divergence', datatype_flt),&
+!       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+!       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),lrestart_cont=.FALSE.)
     
     ! pressures
     CALL add_var(ocean_restart_list, 'press_hyd', ocean_state_diag%press_hyd, grid_unstructured_cell,&
@@ -1730,7 +1730,7 @@ CONTAINS
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_essentials"))
     CALL add_var(ocean_default_list, 'h_sqr', ocean_state_acc%h_sqr , &
       & grid_unstructured_cell, za_surface, &
-      & t_cf_var('h_acc', 'm', 'surface elevation squared at cell center', datatype_flt),&
+      & t_cf_var('h_sqr', 'm', 'surface elevation squared at cell center', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(ocean_default_list, 'u_acc', ocean_state_acc%u, grid_unstructured_cell, &
@@ -1867,11 +1867,11 @@ CONTAINS
     ENDIF ! no_tracer > 0
 
     ! Accumulates physics
-    CALL add_var(ocean_default_list, 'K_veloc_h_acc', ocean_state_acc%k_veloc_h , grid_unstructured_edge,&
-      & za_depth_below_sea, &
-      & t_cf_var('K_veloc_h_acc', 'kg/kg', 'horizontal velocity diffusion', datatype_flt),&
-      & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
+!     CALL add_var(ocean_default_list, 'K_veloc_h_acc', ocean_state_acc%k_veloc_h , grid_unstructured_edge,&
+!       & za_depth_below_sea, &
+!       & t_cf_var('K_veloc_h_acc', 'kg/kg', 'horizontal velocity diffusion', datatype_flt),&
+!       & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
+!       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
  
     CALL add_var(ocean_default_list, 'A_veloc_v_acc', ocean_state_acc%a_veloc_v , grid_unstructured_edge,&
       & za_depth_below_sea_half, &
@@ -1882,12 +1882,6 @@ CONTAINS
 !
 !   !! Tracers
     IF ( no_tracer > 0 ) THEN
-      CALL add_var(ocean_default_list, 'K_tracer_h'//TRIM(var_suffix), ocean_state_acc%k_tracer_h , &
-        & grid_unstructured_edge, za_depth_below_sea, &
-        & t_cf_var('K_tracer_h'//TRIM(var_suffix), '', '1:temperature 2:salinity', datatype_flt),&
-        & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
-        & ldims=(/nproma,n_zlev,nblks_e,no_tracer/), &
-        & lcontainer=.TRUE., loutput=.FALSE., lrestart=.FALSE.)
       CALL add_var(ocean_default_list, 'A_tracer_v'//TRIM(var_suffix), ocean_state_acc%a_tracer_v , &
         & grid_unstructured_cell, za_depth_below_sea_half, &
         & t_cf_var('A_tracer_v'//TRIM(var_suffix), '', '1:temperature 2:salinity', datatype_flt),&
@@ -1900,16 +1894,16 @@ CONTAINS
       ALLOCATE(ocean_state_acc%tracer_horz_physics_ptr(no_tracer))
       ALLOCATE(ocean_state_acc%tracer_vert_physics_ptr(no_tracer))
       DO jtrc = 1,no_tracer
-        CALL add_ref( ocean_default_list, 'K_tracer_h'//TRIM(var_suffix),&
-          & 'K_tracer_h_'//TRIM(oce_config%tracer_names(jtrc))//TRIM(var_suffix),     &
-          & ocean_state_acc%tracer_horz_physics_ptr(jtrc)%p,                             &
-          & grid_unstructured_edge, za_depth_below_sea,               &
-          & t_cf_var('K_tracer_h_'//TRIM(oce_config%tracer_names(jtrc))//TRIM(var_suffix), &
-          & 'kg/kg', &
-          & TRIM(oce_config%tracer_longnames(jtrc))//'(K_tracer_h'//TRIM(var_suffix)//')', &
-          & datatype_flt), &
-          & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
-          & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
+!         CALL add_ref( ocean_default_list, 'K_tracer_h'//TRIM(var_suffix),&
+!           & 'K_tracer_h_'//TRIM(oce_config%tracer_names(jtrc))//TRIM(var_suffix),     &
+!           & ocean_state_acc%tracer_horz_physics_ptr(jtrc)%p,                             &
+!           & grid_unstructured_edge, za_depth_below_sea,               &
+!           & t_cf_var('K_tracer_h_'//TRIM(oce_config%tracer_names(jtrc))//TRIM(var_suffix), &
+!           & 'kg/kg', &
+!           & TRIM(oce_config%tracer_longnames(jtrc))//'(K_tracer_h'//TRIM(var_suffix)//')', &
+!           & datatype_flt), &
+!           & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
+!           & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
         CALL add_ref( ocean_default_list, 'A_tracer_v'//TRIM(var_suffix),&
           & 'A_tracer_v_'//TRIM(oce_config%tracer_names(jtrc))//TRIM(var_suffix),     &
           & ocean_state_acc%tracer_vert_physics_ptr(jtrc)%p,                             &

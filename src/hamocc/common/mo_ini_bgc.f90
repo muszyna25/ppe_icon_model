@@ -22,7 +22,7 @@ MODULE mo_ini_bgc
        &                     dustd1, dustd2, dustsink, wdust, thresh_o2,   &
        &                     cycdec, pi_alpha_cya,cya_growth_max,          &
        &                     Topt_cya,T1_cya,T2_cya,bkcya_N, bkcya_P, bkcya_fe, &
-       &                     remido_cya, dremdoc_cya, buoyancyspeed_cya, &
+       &                     buoyancyspeed_cya, &
        &                     doccya_fac, thresh_aerob, thresh_sred, &
        &                     wopal, wcal, wcya, p2gtc, ro2bal, dmsp, prodn2o
 
@@ -240,7 +240,6 @@ CONTAINS
     sulfate_reduction = sulfate_reduction * dtb
     drempoc  = drempoc  *dtb    ! 1/d      
     dremopal = dremopal * dtb  ! 1/d      
-    remido_cya  = remido_cya * dtb
     dremn2o  = dremn2o * dtb      ! 1/d
     dremcalc = dremcalc *dtb    ! 
     denit_sed = denit_sed *dtb    ! sediment denitrification rate

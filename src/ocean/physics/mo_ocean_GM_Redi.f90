@@ -449,7 +449,7 @@ CONTAINS
 !    & str_module, idt_src, in_subset=cells_in_domain)
 !    END DO    
     Do level=1,n_zlev
-    idt_src=1  ! output print level (1-5, fix)
+    idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('InGMRedi: GMRedi_vert',GMredi_flux_vert(:,level,:),&
     & str_module, idt_src, in_subset=cells_in_domain)
     END DO
@@ -918,7 +918,7 @@ CONTAINS
 
   !---------------------------------------------------------------------
   !---------DEBUG DIAGNOSTICS-------------------------------------------
-  idt_src=1  ! output print level (1-5, fix)
+  idt_src=3  ! output print level (1-5, fix)
   CALL dbg_print('calc_slopes: squared',(ocean_state%p_aux%slopes_squared(:,:,:)),&
     & str_module,idt_src, in_subset=cells_in_domain)
    DO level=1,n_zlev

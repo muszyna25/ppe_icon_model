@@ -33,7 +33,7 @@ MODULE mo_testbed_ocean_performance
     &                                     type_3dimRelax_Salt, para_3dimRelax_Salt,                           &
     &                                     iswm_oce, l_edge_based,                                             &
     &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT,                       &
-    &                                     forcing_enable_freshwater, l_skip_tracer
+    &                                     forcing_enable_freshwater
   USE mo_dynamics_config,           ONLY: nold, nnew
   USE mo_run_config,                ONLY: dtime, ltimer, test_mode
   USE mo_ocean_types,               ONLY: t_hydro_ocean_state

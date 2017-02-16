@@ -172,7 +172,6 @@ CONTAINS
 
     END SELECT
 !ICON_OMP_END_PARALLEL
-
 !     CALL map_cell2edges_3D( patch_3D, ocean_state%p_aux%bc_top_veloc_cc,ocean_state%p_aux%bc_top_vn,p_op_coeff,level=1)
     ! CALL sync_patch_array(SYNC_E, patch_3D%p_patch_2D(1), ocean_state%p_aux%bc_top_vn)
 

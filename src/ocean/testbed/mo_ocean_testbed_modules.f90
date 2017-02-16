@@ -26,7 +26,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d,t_subset_range
   USE mo_grid_config,            ONLY: n_dom
   USE mo_ocean_nml,              ONLY: n_zlev, GMRedi_configuration, GMRedi_combined, Cartesian_Mixing, &
-    & atmos_flux_analytical_type, no_tracer, surface_module, OceanReferenceDensity,k_pot_temp_v
+    & atmos_flux_analytical_type, no_tracer, surface_module, OceanReferenceDensity,Temperature_VerticalDiffusion_background 
   USE mo_sea_ice_nml,            ONLY: init_analytic_conc_param, t_heat_base
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_run_config,             ONLY: nsteps, dtime, output_mode, test_mode !, test_param
@@ -53,8 +53,8 @@ MODULE mo_ocean_testbed_modules
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
   USE mo_physical_constants,     ONLY: rhoi, rhos, clw, alf, Tf
-  USE mo_master_config,          ONLY: isRestart
   USE mo_ocean_physics_types,    ONLY: t_ho_params
+  USE mo_master_config,          ONLY: isRestart
   USE mo_ocean_GM_Redi,          ONLY: prepare_ocean_physics,calc_ocean_physics
   USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
   USE mo_ocean_thermodyn,        ONLY: calc_potential_density, calculate_density,&
@@ -1566,7 +1566,7 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, surf
     t = 10.0_wp
     s = 40.0_wp
     p = 4000.0_wp    !  4000 dbar = 400 bar
-    co = calc_neutralslope_coeff_func_onColumn(t,s,p,n_zlev)
+    co = calc_neutralslope_coeff_onColumn(t,s,p,n_zlev)
     aob = co(1,1)/co(1,2)
 
     WRITE(message_text,'(3(a,1pg18.8))') '  Parameter: alpha = ',co(1,1), ' beta = ',co(1,2), ' alpha/beta = ',aob

@@ -16,7 +16,6 @@ MODULE mo_restart_var_data
     USE mo_exception, ONLY: finish
     USE mo_fortran_tools, ONLY: t_ptr_2d
     USE mo_grid_config, ONLY: l_limited_area
-    USE mo_ha_dyn_config, ONLY: ha_dyn_config
     USE mo_impl_constants, ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, INH_ATMOSPHERE, TLEV_NNOW, TLEV_NNOW_RCF, SUCCESS, &
                                & LEAPFROG_EXPL, LEAPFROG_SI
 #ifdef DEBUG
@@ -28,6 +27,9 @@ MODULE mo_restart_var_data
     USE mo_util_string, ONLY: int2string
     USE mo_var_list, ONLY: nvar_lists, var_lists, get_var_timelevel
     USE mo_var_metadata_types, ONLY: t_var_metadata
+#ifndef __NO_ICON_ATMO__
+    USE mo_ha_dyn_config, ONLY: ha_dyn_config
+#endif
 
     IMPLICIT NONE
 
@@ -245,8 +247,9 @@ CONTAINS
             CASE default
                 IF ( lskip_timelev ) RETURN
         END SELECT
-        resultVar = .TRUE.
 #endif
+
+        resultVar = .TRUE.
     END FUNCTION has_valid_time_level
 
 END MODULE mo_restart_var_data

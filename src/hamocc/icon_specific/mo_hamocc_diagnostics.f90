@@ -63,6 +63,8 @@ DO jb = all_cells%start_block, all_cells%end_block
       
        max_lev = p_patch_3D%p_patch_1d(1)%dolic_c(jc,jb)  
 
+      if (max_lev > 0)then
+
       !o2min = o2(jc,calc_omz_depth_index(max_levels,o2),jb) in mol m-3
        hamocc_state%p_tend%o2min(jc,jb)=kilo*ocean_state%p_prog(i_time_stat)%tracer(jc,&
 &calc_omz_depth_index(max_lev,ocean_state%p_prog(i_time_stat)%tracer(jc,:,jb,ioxygen+no_tracer)),jb,ioxygen+no_tracer)
@@ -71,6 +73,8 @@ DO jb = all_cells%start_block, all_cells%end_block
        hamocc_state%p_tend%zo2min(jc,jb)=SUM(p_patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(jc,&
 &1:calc_omz_depth_index(max_lev,ocean_state%p_prog(i_time_stat)%tracer(jc,:,jb,ioxygen+no_tracer)),jb))&
 &+ocean_state%p_prog(i_time_stat)%h(jc,jb)
+
+       endif
 
     ENDDO
 

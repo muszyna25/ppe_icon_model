@@ -1,0 +1,23 @@
+machine|daint_cpu|default
+builder|DAINT_CPU_cce||Ocean
+experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00
+machine|breeze|default
+builder|BREEZE_nag|--with-fortran=nag|Ocean
+builder|BREEZE_gcc_openmp|--with-fortran=gcc --with-openmp|Ocean
+builder|BREEZE_gcc|--with-fortran=gcc|Ocean
+builder|BREEZE_intel|--with-fortran=intel|Ocean
+builder|BREEZE_intel_openmp|--with-fortran=intel --with-openmp|Ocean
+machine|mistral|compute
+builder|MISTRAL_intel|--with-fortran=intel|Ocean
+experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00
+builder|MISTRAL_intel_hybrid|--with-fortran=intel --with-openmp|Ocean
+experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00
+builder|MISTRAL_intel_openmp|--with-fortran=intel --without-mpi --with-openmp --without-yac|Ocean
+experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00
+builder|MISTRAL_nag_serial|--with-fortran=nag --without-mpi --without-yac|Inactive
+builder|MISTRAL_ocean|--with-fortran=intel --with-openmp --with-flags=ocean|Ocean
+experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00
+builder|MISTRAL_gcc|--with-fortran=gcc|Ocean
+experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00
+builder|MISTRAL_nag|--with-fortran=nag|Ocean
+experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00

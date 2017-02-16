@@ -34,8 +34,8 @@ grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip/r0002
 atmo_dyn_grids='r2b4_amip.nc'
 
 # start and end date+time
-start_date="1979-01-01T00:00:00Z"
-  end_date="2009-01-01T00:00:00Z"
+start_date=${start_date:="1979-01-01T00:00:00Z"}
+    end_date=${end_date:="2009-01-01T00:00:00Z"}
 
 # restart intervals
 checkpoint_interval="P1Y"

@@ -47,16 +47,16 @@ MODULE mo_hydro_ocean_run
   USE mo_exception,              ONLY: message, message_text, finish
   USE mo_ext_data_types,         ONLY: t_external_data
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab,  &
-       &                               timer_tracer_ab, timer_vert_veloc, timer_normal_veloc,     &
-       &                               timer_upd_phys, timer_upd_flx, timer_extra20, timers_level, &
-       &                               timer_scalar_prod_veloc, timer_extra21, timer_extra22, timer_bgc_ini, &
-       &                               timer_bgc_inv, timer_bgc_tot
-  USE mo_ocean_ab_timestepping,  ONLY: solve_free_surface_eq_ab, &
-       &                               calc_normal_velocity_ab,  &
-       &                               calc_vert_velocity,       &
-       &                               update_time_indices
-  USE mo_ocean_types,            ONLY: t_hydro_ocean_state, &
-       &                               t_operator_coeff, t_solvercoeff_singleprecision
+    & timer_tracer_ab, timer_vert_veloc, timer_normal_veloc,     &
+    & timer_upd_flx, timer_extra20, timers_level, &
+    & timer_scalar_prod_veloc, timer_extra21, timer_extra22, timer_bgc_ini, &
+    & timer_bgc_inv, timer_bgc_tot
+  USE mo_ocean_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
+    &                                    calc_normal_velocity_ab,  &
+    &                                    calc_vert_velocity,       &
+    &                                    update_time_indices
+  USE mo_ocean_types,              ONLY: t_hydro_ocean_state, &
+    & t_operator_coeff, t_solvercoeff_singleprecision
   USE mo_ocean_math_operators,   ONLY: update_height_depdendent_variables, check_cfl_horizontal, check_cfl_vertical
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
@@ -66,11 +66,10 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_surface,          ONLY: update_ocean_surface
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface
   USE mo_sea_ice,                ONLY: update_ice_statistic, reset_ice_statistics
-  USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, t_sea_ice
+  USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean,  t_sea_ice
   USE mo_ocean_physics,          ONLY: update_ho_params
-  USE mo_ocean_physics_types,      ONLY: t_ho_params
-  USE mo_ocean_thermodyn,        ONLY: calc_potential_density, &
-       &                               calculate_density ! , ocean_correct_ThermoExpansion
+  USE mo_ocean_physics_types,    ONLY: t_ho_params  
+  USE mo_ocean_thermodyn,        ONLY: calc_potential_density, calculate_density
   USE mo_name_list_output,       ONLY: write_name_list_output
   USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
   USE mo_ocean_ab_timestepping_mimetic, ONLY: construct_ho_lhs_fields_mimetic, destruct_ho_lhs_fields_mimetic
@@ -139,9 +138,17 @@ CONTAINS
 !     !      & operators_coefficients%matrix_vert_diff_e,&
 !     !      & operators_coefficients%matrix_vert_diff_c)
 ! 
-     CALL update_height_depdendent_variables( patch_3d, ocean_state, ext_data, operators_coefficients, solvercoeff_sp)
-     CALL construct_ho_lhs_fields_mimetic   ( patch_3d )
-! 
+    CALL update_height_depdendent_variables( patch_3d, ocean_state, ext_data, operators_coefficients, solvercoeff_sp)
+    CALL construct_ho_lhs_fields_mimetic   ( patch_3d )
+
+    ! this is needed as initial condition or restart 
+!     CALL calc_scalar_product_veloc_3d( patch_3d,  &
+!       & ocean_state(1)%p_prog(nold(1))%vn,         &
+!       & ocean_state(1)%p_diag,                     &
+!       & operators_coefficients)
+!     CALL update_ho_params(patch_3d, ocean_state(1), p_as%fu10, sea_ice%concsum, p_phys_param, operators_coefficients)
+
+ ! 
   END SUBROUTINE prepare_ho_stepping
   !-------------------------------------------------------------------------
 
@@ -149,7 +156,7 @@ CONTAINS
   !<Optimize:inUse>
   SUBROUTINE end_ho_stepping()
 
-     CALL destruct_ho_lhs_fields_mimetic()
+    CALL destruct_ho_lhs_fields_mimetic()
     
   END SUBROUTINE end_ho_stepping
   !-------------------------------------------------------------------------
@@ -445,7 +452,7 @@ CONTAINS
         ! check if vertical and horizontal fluxes add to 0
 !         ocean_state(jg)%p_diag%w
         CALL horizontal_mean(values=ocean_state(jg)%p_diag%w, weights=patch_2d%cells%area(:,:), &
-          & in_subset=patch_2d%cells%owned, mean=verticalMeanFlux, start_level=2, end_level=n_zlev-1)
+          & in_subset=patch_2d%cells%owned, mean=verticalMeanFlux, start_level=2, end_level=n_zlev)
         
         DO level=2, n_zlev-1
           CALL debug_printValue(description="Mean vertical flux at", value=REAL(level,wp),  &

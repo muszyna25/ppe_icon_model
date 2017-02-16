@@ -55,21 +55,21 @@ MODULE mo_ocean_initial_conditions
     & land_boundary,                                             &
     & oce_testcase_zero, oce_testcase_init, oce_testcase_file! , MIN_DOLIC
   USE mo_dynamics_config,    ONLY: nold,nnew
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, t_geographical_coordinates, cc2gc
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, t_geographical_coordinates, cc2gc, gvec2cvec
   USE mo_exception,          ONLY: finish, message, message_text, warning
   USE mo_util_dbg_prnt,      ONLY: dbg_print
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_sea_ice_types,      ONLY: t_sfc_flx
   USE mo_ocean_types,          ONLY: t_hydro_ocean_state
-  USE mo_scalar_product,     ONLY: calc_scalar_product_veloc_3d
+  USE mo_scalar_product,     ONLY: map_cell2edges_3D
   USE mo_ocean_math_operators,ONLY: grad_fd_norm_oce_3d, smooth_onCells
   USE mo_ocean_ab_timestepping,ONLY: update_time_indices
   USE mo_ape_params,         ONLY: ape_sst
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   
-  USE mo_sync,              ONLY: sync_c, sync_patch_array
+  USE mo_sync,              ONLY: sync_c, sync_e, sync_patch_array
   USE mo_fortran_tools,     ONLY: assign_if_present
   
   USE mo_read_interface,    ONLY: read_2D_1Time, read_3D_1Time, on_cells, t_stream_id, &
@@ -89,6 +89,8 @@ MODULE mo_ocean_initial_conditions
   REAL(wp), PARAMETER :: aleph = 0.0_wp
   
   CHARACTER(LEN=12), PARAMETER :: module_name = 'oceInitCond'
+
+  TYPE(t_operator_coeff), POINTER :: this_operators_coeff
 
   ! Should be replaced by reading a file
   REAL(wp), PARAMETER :: tprof(20)=&
@@ -116,11 +118,12 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
     TYPE(t_external_data)                   :: external_data
-    TYPE(t_operator_coeff)                  :: operators_coeff
+    TYPE(t_operator_coeff), TARGET          :: operators_coeff
 
     TYPE(t_patch),POINTER                   :: patch_2d
 !     REAL(wp), ALLOCATABLE                   :: check_temp(:,:,:), check_salinity(:,:,:)
 
+    this_operators_coeff => operators_coeff
     patch_2d => patch_3d%p_patch_2d(1)
     sphere_radius = grid_sphere_radius
     u0 = (2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
@@ -338,7 +341,6 @@ CONTAINS
       CALL increaseTracerVerticallyLinearly(patch_3d=patch_3d, ocean_tracer=ocean_salinity,&
         & bottom_value=initial_salinity_bottom)
 
-
     !------------------------------
     CASE (201)
       CALL salinity_Uniform_SpecialArea(patch_3d, ocean_salinity)
@@ -419,7 +421,6 @@ CONTAINS
           & in_value=old_salinity, out_value=ocean_salinity, &
           & smooth_weights=smooth_initial_salinity_weights, &
           & has_missValue=has_missValue, missValue=missValue)
-        CALL sync_patch_array(sync_c, patch_3d%p_patch_2d(1), ocean_salinity)
       ENDDO
       DEALLOCATE(old_salinity)
     ENDIF
@@ -575,7 +576,7 @@ CONTAINS
         & waveNumber=initial_perturbation_waveNumber, max_ratio=initial_perturbation_max_ratio)
       CALL perturbeTracer_LatCosinus(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
         & waveNumber=1.0_wp * initial_perturbation_waveNumber, &
-        &  max_ratio=0.5_wp * initial_perturbation_max_ratio)
+        &  max_ratio=0.1_wp * initial_perturbation_max_ratio)
 
     CASE (218)
       CALL SST_LinearMeridional(patch_3d, ocean_temperature)
@@ -585,7 +586,7 @@ CONTAINS
         & waveNumber=initial_perturbation_waveNumber, max_ratio=initial_perturbation_max_ratio)
       CALL perturbeTracer_LatCosinus(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
         & waveNumber=1.0_wp * initial_perturbation_waveNumber, &
-        &  max_ratio=0.5_wp * initial_perturbation_max_ratio)
+        &  max_ratio=0.1_wp * initial_perturbation_max_ratio)
 
     !CASE (220)
     
@@ -705,7 +706,6 @@ CONTAINS
           & in_value=old_temperature, out_value=ocean_temperature,  &
           & smooth_weights=smooth_initial_temperature_weights,      &
           & has_missValue=has_missValue, missValue=missValue)
-        CALL sync_patch_array(sync_c, patch_3d%p_patch_2d(1), ocean_temperature)
       ENDDO
       DEALLOCATE(old_temperature)
     ENDIF
@@ -831,11 +831,14 @@ CONTAINS
     CASE (205)
       CALL height_WilliamsonTest5(patch_3d, ocean_height)
       
-     CASE (206)
+    CASE (206)
       CALL height_WilliamsonTest6(patch_3d, ocean_height)
 
-     CASE (207)
+    CASE (207)
       CALL height_GalewskyTest(patch_3d, ocean_height)
+
+    CASE (221)
+      CALL height_quads_checkerboard(patch_3d=patch_3d, ocean_height=ocean_height, base_value=1.0_wp, variation=1.0_wp)
 
     CASE default
       CALL finish(method_name, "unknown sea_surface_height_type")
@@ -851,7 +854,6 @@ CONTAINS
           & in_value=old_height, out_value=ocean_height,  &
           & smooth_weights=smooth_initial_height_weights, &
           & has_missValue=has_missValue, missValue=missValue)
-        CALL sync_patch_array(sync_c, patch_2D, ocean_height)
       ENDDO
       DEALLOCATE(old_height)
     ENDIF
@@ -1098,7 +1100,7 @@ CONTAINS
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
     REAL(wp):: perturbation_lat, perturbation_lon
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_WilliamsonTest5'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_WilliamsonTest6'
     !-------------------------------------------------------------------------
     ! CASE (205)
     patch_2d => patch_3d%p_patch_2d(1)
@@ -1132,7 +1134,7 @@ write(0,*)'Williamson-Test6:h', maxval(ocean_height),minval(ocean_height)
     REAL(wp):: perturbation_lat, perturbation_lon
     REAL(wp) :: h_perturb, phi_2, alpha,beta
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_WilliamsonTest5'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_GalewskyTest'
     !-------------------------------------------------------------------------
     ! CASE (205)
     patch_2d    => patch_3d%p_patch_2d(1)
@@ -1239,11 +1241,15 @@ write(0,*)'Galewsky-Test:h', maxval(ocean_height),minval(ocean_height)
     REAL(wp), INTENT(in) :: velocity_amplitude
 
     TYPE(t_patch),POINTER   :: patch_2d
-    TYPE(t_subset_range), POINTER :: all_edges
+    TYPE(t_subset_range), POINTER :: all_edges, all_cells
+    TYPE(t_cartesian_coordinates), POINTER ::cellVelocity_cc(:,:,:)
 
     INTEGER :: edge_block, edge_index, level
     INTEGER :: start_edges_index, end_edges_index
+    INTEGER :: cell_block, cell_index
+    INTEGER :: start_cells_index, end_cells_index
     REAL(wp) :: point_lon, point_lat     ! latitude of point
+    REAL(wp) :: x1, x2, x3
     REAL(wp) :: t       ! point of time
     REAL(wp) :: uu, vv      ! zonal,  meridional velocity
     REAL(wp) :: angle1, angle2, edge_vn, COS_angle1, SIN_angle1
@@ -1255,12 +1261,15 @@ write(0,*)'Galewsky-Test:h', maxval(ocean_height),minval(ocean_height)
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_edges => patch_2d%edges%ALL
+    all_cells => patch_2d%cells%ALL
 
-    DO edge_block = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
-      DO edge_index = start_edges_index, end_edges_index
-        point_lon = patch_2d%edges%center(edge_index,edge_block)%lon
-        point_lat = patch_2d%edges%center(edge_index,edge_block)%lat
+    ! fisrt calculate th velocyt at cell centers
+    ALLOCATE(cellVelocity_cc(nproma,n_zlev, patch_2d%alloc_cell_blocks))
+    DO cell_block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, cell_block, start_cells_index, end_cells_index)
+      DO cell_index = start_cells_index, end_cells_index
+        point_lon = patch_2d%cells%center(cell_index,cell_block)%lon
+        point_lat = patch_2d%cells%center(cell_index,cell_block)%lat
 
         uu = COS(point_lat) * COS(aleph)
         uu = uu + COS(point_lon) * SIN(point_lat) * SIN(aleph)
@@ -1269,15 +1278,46 @@ write(0,*)'Galewsky-Test:h', maxval(ocean_height),minval(ocean_height)
         vv = SIN(point_lon) * SIN(aleph)
         vv = -1._wp * velocity_amplitude * vv
 
-        edge_vn = uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
-              & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2
-
-        DO level = 1, patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)
-          vn(edge_index, level, edge_block) = edge_vn
+        CALL gvec2cvec(  uu, vv, point_lon, point_lat, x1, x2, x3)
+        DO level = 1, n_zlev
+          cellVelocity_cc(cell_index, level, cell_block)%x(1) = x1 
+          cellVelocity_cc(cell_index, level, cell_block)%x(2) = x2
+          cellVelocity_cc(cell_index, level, cell_block)%x(3) = x3
         ENDDO
 
       ENDDO
     ENDDO
+
+    ! map velocity to edge centers
+    CALL map_cell2edges_3D( patch_3D, cellVelocity_cc, vn, this_operators_coeff)
+    CALL sync_patch_array(sync_e, patch_2D, vn)
+    
+    DEALLOCATE(cellVelocity_cc)
+
+
+    ! calculate the velocity directly on edges
+!     DO edge_block = all_edges%start_block, all_edges%end_block
+!       CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
+!       DO edge_index = start_edges_index, end_edges_index
+!         point_lon = patch_2d%edges%center(edge_index,edge_block)%lon
+!         point_lat = patch_2d%edges%center(edge_index,edge_block)%lat
+! 
+!         uu = COS(point_lat) * COS(aleph)
+!         uu = uu + COS(point_lon) * SIN(point_lat) * SIN(aleph)
+!         uu = velocity_amplitude * uu
+! 
+!         vv = SIN(point_lon) * SIN(aleph)
+!         vv = -1._wp * velocity_amplitude * vv
+! 
+!         edge_vn = uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
+!               & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2
+! 
+!         DO level = 1, patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)
+!           vn(edge_index, level, edge_block) = edge_vn
+!         ENDDO
+! 
+!       ENDDO
+!     ENDDO
 
   END SUBROUTINE  velocity_WilliamsonTest_2_5
   !-----------------------------------------------------------------------------------
@@ -1298,7 +1338,7 @@ write(0,*)'Galewsky-Test:h', maxval(ocean_height),minval(ocean_height)
     REAL(wp) :: uu, vv      ! zonal,  meridional velocity
     REAL(wp) :: angle1, angle2, edge_vn, COS_angle1, SIN_angle1
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':velocity_WilliamsonTest_2_5'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':velocity_WilliamsonTest_2_6'
     !-------------------------------------------------------------------------
 
     ! CALL message(TRIM(method_name), ' ')
@@ -1426,7 +1466,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 !            !uu=tanh((0.75_wp-point_lat)*300.0_wp) 
 !            uu=tanh((shear_depth-point_lat)*300.0_wp) 
 !          ENDIF
-          IF(point_lat>=basin_center_lat)THEN	 
+          IF(point_lat>=basin_center_lat)THEN
             !uu=tanh((point_lat-0.025)*300.0_wp) 
             uu=tanh((point_lat+shear_depth)*300.0_wp) 
           ELSEIF(point_lat<basin_center_lat)THEN
@@ -3248,6 +3288,74 @@ stop
 !
 !  END SUBROUTINE tracer_ConstantSurface_IncludeLand
   !-------------------------------------------------------------------------------
+  SUBROUTINE tracer_quads_checkerboard(patch_3d, ocean_tracer, base_value, variation)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: ocean_tracer(:,:,:)
+    REAL(wp), INTENT(in) :: base_value, variation
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+    INTEGER  :: block, idx, level, start_cell_index, end_cell_index
+    INTEGER  :: checkerboard_top_mod
+    REAL(wp) :: checkerboard_mod
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_quads_checkerboard'
+
+    !-------------------------------------------------------------------------
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    DO block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
+      DO idx = start_cell_index, end_cell_index
+        checkerboard_top_mod = MODULO((block - all_cells%start_block) * nproma + idx, 2)
+        DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(idx,block)
+          checkerboard_mod = (REAL(MODULO(checkerboard_top_mod + level, 2),wp) - 0.5_wp) * 2.0_wp ! this is -1,+1
+          ocean_tracer(idx,level,block) = base_value + checkerboard_mod * variation
+        ENDDO
+      END DO
+    END DO
+
+  END SUBROUTINE tracer_quads_checkerboard
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE height_quads_checkerboard(patch_3d, ocean_height, base_value, variation)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: ocean_height(:,:)
+    REAL(wp), INTENT(in) :: base_value, variation
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+    INTEGER  :: block, idx, level, start_cell_index, end_cell_index
+    INTEGER  :: checkerboard_top_mod
+    REAL(wp) :: checkerboard_mod, column_sign
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_quads_checkerboard'
+
+    !-------------------------------------------------------------------------
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    column_sign = -1
+    DO block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
+      DO idx = start_cell_index, end_cell_index
+        IF (MODULO((block - all_cells%start_block) * nproma + idx - 1, 4) == 0) THEN
+          column_sign = -column_sign
+        ENDIF
+        checkerboard_top_mod = MODULO((block - all_cells%start_block) * nproma + idx, 2)
+        checkerboard_mod = column_sign * (REAL(checkerboard_top_mod,wp) - 0.5_wp) * 2.0_wp ! this is -1,+1
+        
+        write(0,*) block, idx, " checkerboard_mod=", checkerboard_mod
+        DO level = 1, MIN(patch_3d%p_patch_1d(1)%dolic_c(idx,block),1)
+          ocean_height(idx,block) = base_value + checkerboard_mod * variation
+        ENDDO
+      END DO
+    END DO
+
+  END SUBROUTINE height_quads_checkerboard
+  !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
   SUBROUTINE tracer_ConstantSurface(patch_3d, ocean_tracer, top_value)
@@ -3257,9 +3365,7 @@ stop
 
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
-
-    INTEGER :: block, idx, level
-    INTEGER :: start_cell_index, end_cell_index
+    INTEGER :: block, idx, level, start_cell_index, end_cell_index
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_ConstantSurface'
     !-------------------------------------------------------------------------
@@ -6115,7 +6221,7 @@ stop
     radius_bubble = 15.0_wp
     layers_above_bubble = 35 !15 !35
     layers_bubble = 40 !20 !40 
-    dist_layer=layers_bubble/2.0_wp	 !radius in z direction
+    dist_layer=layers_bubble/2.0_wp  !radius in z direction
     layers_perturbation = 1
     amplitude_perturbation = 0.10_wp
     CALL assign_if_present(lat_bubble,lat_bubble_opt)
@@ -6228,7 +6334,7 @@ stop
     layers_bubble = 35 
     lat_small_bubble= 20.0_wp
 
-    dist_layer=layers_bubble/2.0_wp	 !radius in z direction
+    dist_layer=layers_bubble/2.0_wp  !radius in z direction
     small_bubble_inside = 2.0_wp * ( bubble_outside - bubble_inside ) + bubble_inside
     CALL assign_if_present(lat_bubble,lat_bubble_opt)
     CALL assign_if_present(lon_bubble,lon_bubble_opt)

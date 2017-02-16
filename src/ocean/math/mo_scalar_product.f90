@@ -35,18 +35,16 @@ MODULE mo_scalar_product
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d
   USE mo_ocean_types,        ONLY: t_hydro_ocean_diag, t_solvercoeff_singleprecision
   USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, fast_performance_level,l_ANTICIPATED_VORTICITY,&
-                                  & NONLINEAR_CORIOLIS, NONLINEAR_CORIOLIS_PRIMAL_GRID,NONLINEAR_CORIOLIS_DUAL_GRID
+    & KineticEnergy_type, KineticEnergy_onPrimalGrid, KineticEnergy_onDualGrid, NoKineticEnergy
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff, no_primal_edges, no_dual_edges, &
     & Get3DVectorTo2DLocal_array3D
-  USE mo_ocean_math_operators,ONLY: grad_fd_norm_oce_3D, rot_vertex_ocean_3d, map_edges2vert_3d
+  USE mo_ocean_math_operators,ONLY: rot_vertex_ocean_3d, map_edges2vert_3d
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_e, sync_v,sync_patch_array,sync_c, sync_patch_array_mult!,  & sync_idx, global_max
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_timer,               ONLY: timers_level, timer_start, timer_stop, timer_extra25, timer_extra26, timer_extra27, &
     & timer_extra28, timer_extra29
-
-
   
   IMPLICIT NONE
   
@@ -66,6 +64,9 @@ MODULE mo_scalar_product
   PUBLIC :: map_scalar_center2prismtop
   PUBLIC :: map_edges2edges_viacell_2D_per_level
   PUBLIC :: map_edges2cell_with_height_3d
+  PUBLIC :: map_scalar_prismtop2center_onBlock
+  PUBLIC :: map_vector_center2prismtop_onBlock
+
   
   PUBLIC :: map_scalar_center2prismtop_GM
   PUBLIC :: map_scalar_prismtop2center_GM
@@ -114,9 +115,12 @@ CONTAINS
     INTEGER :: startLevel, endLevel
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: cell_index, blockNo, level
+    INTEGER :: edge_idx, edge_blk, n
     INTEGER, DIMENSION(:,:,:), POINTER :: edge_of_cell_idx, edge_of_cell_blk
+    REAL(wp) :: w1, w2, w3, w4, w
     TYPE(t_subset_range), POINTER :: all_cells ! , cells_in_domain
     TYPE(t_patch), POINTER :: patch_2d
+    CHARACTER(*), PARAMETER :: method_name="calc_scalar_product_veloc_3d"
     !-----------------------------------------------------------------------
     patch_2d        => patch_3d%p_patch_2d(1)
     all_cells       => patch_2d%cells%all
@@ -144,13 +148,29 @@ CONTAINS
                                     & operators_coefficients,&
                                     & p_diag%ptp_vn)    
     stop_detail_timer(timer_extra27,5)
-    ! CALL sync_patch_array(sync_e, patch_2d, p_diag%ptp_vn)
+    CALL sync_patch_array(sync_e, patch_2d, p_diag%ptp_vn)
    
     start_detail_timer(timer_extra28,5)
     !--------------------------------------------------------------
     !calculate kinetic energy
     ! First option is our default configuration
-    IF(NONLINEAR_CORIOLIS==NONLINEAR_CORIOLIS_DUAL_GRID)THEN
+    SELECT CASE(KineticEnergy_type)
+    CASE (NoKineticEnergy)
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
+
+        DO cell_index =  start_cell_index, end_cell_index
+          DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+
+            p_diag%kin(cell_index,level,blockNo) = 0.0_wp
+
+          ENDDO
+        ENDDO
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
+
+    CASE (KineticEnergy_onDualGrid)
 !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
@@ -167,52 +187,86 @@ CONTAINS
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
-    ELSEIF(NONLINEAR_CORIOLIS==NONLINEAR_CORIOLIS_PRIMAL_GRID)THEN
+    CASE (KineticEnergy_onPrimalGrid)
       IF (no_primal_edges /= 3) THEN
-        CALL finish("calc_scalar_product_veloc_3d", "NONLINEAR_CORIOLIS_PRIMAL_GRID works only for triangles")
-      ENDIF
-!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
-      DO blockNo = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level, n, &
+!ICON_OMP edge_idx, edge_blk, w1, w2, w3, w4, w) ICON_OMP_DEFAULT_SCHEDULE
+        DO blockNo = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
 
-!         p_diag%kin(:,:,blockNo)=0.0_wp
-        
-        DO cell_index =  start_cell_index, end_cell_index
-          DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)      
-        
-            p_diag%kin(cell_index,level,blockNo)=&!p_diag%kin(cell_index,level,blockNo)&
-            & vn_e       (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))&
-            & *vn_e      (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))&
-            !*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))&
-            &*patch_2D%edges%primal_edge_length      &
-              & (edge_of_cell_idx(cell_index,blockNo,1),edge_of_cell_blk(cell_index,blockNo,1))&
-            &*0.5_wp*patch_2D%edges%dual_edge_length &
-              & (edge_of_cell_idx(cell_index,blockNo,1),edge_of_cell_blk(cell_index,blockNo,1))&
-            &+&
-            &vn_e       (edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))&
-            &*vn_e      (edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))&
-            !&*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))&
-            & * patch_2D%edges%primal_edge_length      &
-              & (edge_of_cell_idx(cell_index,blockNo,2),edge_of_cell_blk(cell_index,blockNo,2))&
-            &*0.5_wp * patch_2D%edges%dual_edge_length &
-              & (edge_of_cell_idx(cell_index,blockNo,2),edge_of_cell_blk(cell_index,blockNo,2))&
-            &+&
-            &    vn_e   (edge_of_cell_idx(cell_index,blockNo,3),level,edge_of_cell_blk(cell_index,blockNo,3))&
-            &*   vn_e   (edge_of_cell_idx(cell_index,blockNo,3),level,edge_of_cell_blk(cell_index,blockNo,3))&
-            ! &*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,3),level,edge_of_cell_blk(cell_index,blockNo,3))&
-            &*patch_2D%edges%primal_edge_length      &
-              & (edge_of_cell_idx(cell_index,blockNo,3),edge_of_cell_blk(cell_index,blockNo,3))&
-            &*0.5_wp*patch_2D%edges%dual_edge_length &
-              & (edge_of_cell_idx(cell_index,blockNo,3),edge_of_cell_blk(cell_index,blockNo,3))
-        
-            p_diag%kin(cell_index,level,blockNo) = 0.5_wp * p_diag%kin(cell_index,level,blockNo) / &
-            & patch_2d%cells%area(cell_index,blockNo)
+          p_diag%kin(:,:,blockNo)=0.0_wp
+          DO cell_index =  start_cell_index, end_cell_index
+            w = 0.0_wp
+            DO n=1,patch_2d%cells%max_connectivity
+              edge_idx = edge_of_cell_idx(cell_index,blockNo,n)
+              edge_blk = edge_of_cell_blk(cell_index,blockNo,n)
+              IF (edge_idx > 0) THEN
+                w1 = patch_2d%edges%area_edge(edge_idx, edge_blk)
+                w  = w + w1
+                DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+                  p_diag%kin(cell_index,level,blockNo) = p_diag%kin(cell_index,level,blockNo) + &
+                    & vn_e(edge_idx, level, edge_blk)**2 * w1
+                ENDDO
+              ENDIF
+            ENDDO
+
+            DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+              p_diag%kin(cell_index,level,blockNo) = & ! this is doubled for some metaphysocal reason 0.5_wp * &
+                (p_diag%kin(cell_index,level,blockNo) / w)! -   &
+               ! ((p_diag%w(cell_index,level,blockNo)+p_diag%w(cell_index,level+1,blockNo))*0.5_wp)**2)
+            END DO
+
           END DO
-        END DO
-      END DO ! block
+        END DO ! block
 !ICON_OMP_END_PARALLEL_DO
-      
-    ENDIF            
+!         CALL finish("calc_scalar_product_veloc_3d", "NONLINEAR_CORIOLIS_PRIMAL_GRID works only for triangles")
+      ELSE
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level, w1, w2, w3, w4, w) ICON_OMP_DEFAULT_SCHEDULE
+        DO blockNo = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
+
+  !         p_diag%kin(:,:,blockNo)=0.0_wp
+
+          DO cell_index =  start_cell_index, end_cell_index
+            w1 =  patch_2d%edges%area_edge      &
+              &      (edge_of_cell_idx(cell_index,blockNo,1),edge_of_cell_blk(cell_index,blockNo,1))
+            w2 =  patch_2d%edges%area_edge      &
+              &      (edge_of_cell_idx(cell_index,blockNo,2),edge_of_cell_blk(cell_index,blockNo,2))
+            w3 =  patch_2d%edges%area_edge      &
+              &      (edge_of_cell_idx(cell_index,blockNo,3),edge_of_cell_blk(cell_index,blockNo,3))
+  !           w4 = 2.0_wp * patch_2d%cells%area(cell_index,blockNo)
+            w = w1 + w2 + w3
+            DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+
+              p_diag%kin(cell_index,level,blockNo)= (&!p_diag%kin(cell_index,level,blockNo)&
+                & vn_e(edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))**2 &
+                !*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))&
+                & *  w1 &
+                &+&
+                & vn_e(edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))**2 &
+                !&*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))&
+                & * w2 &
+                &+&
+                & vn_e(edge_of_cell_idx(cell_index,blockNo,3),level,edge_of_cell_blk(cell_index,blockNo,3))**2 &
+                ! &*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,3),level,edge_of_cell_blk(cell_index,blockNo,3))&
+                & * w3 &
+                & ) / w
+
+!               p_diag%kin(cell_index,level,blockNo) = & ! this is doubled for some metaphysocal reason 0.5_wp * &
+!                 & (p_diag%kin(cell_index,level,blockNo) - &
+!                 & ((p_diag%w(cell_index,level,blockNo)+p_diag%w(cell_index,level+1,blockNo))*0.5_wp)**2)
+
+            END DO
+          END DO
+        END DO ! block
+!ICON_OMP_END_PARALLEL_DO
+      ENDIF
+
+    CASE default
+      CALL finish(method_name,"unknown KineticEnergy_type")
+
+    END SELECT
+          
     stop_detail_timer(timer_extra28,5)
 !       CALL sync_patch_array(sync_c, patch_2d,p_diag%kin)
       
@@ -241,9 +295,12 @@ CONTAINS
           patch_2D%edges%owned )
     CALL dbg_print('veloc_3d: kin energy',             p_diag%kin,module_name,3, &
           patch_2D%cells%owned )
+!     CALL dbg_print('veloc_3d: w', p_diag%w,module_name,1, &
+!           patch_2D%cells%owned )
+ 
    CALL dbg_print('veloc_3d: East-West  :u',p_diag%u,  module_name,1, &
          patch_2D%cells%owned )
-    CALL dbg_print('veloc_3d: North-South :v',p_diag%v, module_name,1, &
+   CALL dbg_print('veloc_3d: North-South :v',p_diag%v, module_name,1, &
          patch_2D%cells%owned )
 
           
@@ -280,6 +337,7 @@ CONTAINS
     REAL(wp):: this_vort_flux(n_zlev, 2) ! for each of the two vertices
     REAL(wp):: thick_edge(n_zlev,2), thick_vert(n_zlev,2)
     REAL(wp):: numOfEdges(n_zlev,2)
+!     REAL(wp):: this_edge_length
     
     TYPE(t_subset_range), POINTER :: edges_in_domain
     TYPE(t_patch), POINTER :: patch_2d
@@ -292,8 +350,8 @@ CONTAINS
     ! endLevel    = n_zlev
     
     CALL rot_vertex_ocean_3d( patch_3d, vn, p_vn_dual, operators_coefficients, vort_v)
-    ! this is not needed, since vort_v is on vertices in domain
-    ! CALL sync_patch_array(SYNC_V, patch_2D, vort_v)
+    ! sync not needed here, but used for example for the Leith
+    CALL sync_patch_array(SYNC_V, patch_2D, vort_v)
 
     IF(.NOT.l_ANTICIPATED_VORTICITY)THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(blockNo,level,je,start_edge_index,end_edge_index, this_vort_flux, &
@@ -314,11 +372,12 @@ CONTAINS
         vertex2_idx = patch_2d%edges%vertex_idx(je,blockNo,2)
         vertex2_blk = patch_2d%edges%vertex_blk(je,blockNo,2)
 
+!         this_edge_length  = patch_2d%edges%dual_edge_length(je,blockNo)
         ! vertex 1
         ictr = 0
         
-        thick_vert(1:n_zlev,1)=0.0_wp
-        thick_vert(1:n_zlev,2)=0.0_wp
+!         thick_vert(1:n_zlev,1)=0.0_wp
+!         thick_vert(1:n_zlev,2)=0.0_wp
         numOfEdges(1:n_zlev,1)=0.0_wp
         numOfEdges(1:n_zlev,2)=0.0_wp
         
@@ -332,16 +391,18 @@ CONTAINS
             &                        patch_3d%p_patch_1d(1)%dolic_e(edgeOfVertex_index, edgeOfVertex_block))
 
             numOfEdges(level,1) = numOfEdges(level,1) + 1.0_wp
-            thick_edge(level,1) = patch_3D%p_patch_1d(1)%prism_thick_e(                  &
-              & edgeOfVertex_index, level, edgeOfVertex_block)
+!             thick_edge(level,1) = patch_3D%p_patch_1d(1)%prism_thick_e(                  &
+!               & edgeOfVertex_index, level, edgeOfVertex_block)
 
             ! This should be calculated in the calculate_thickness routine
-            thick_vert(level,1) = thick_vert(level,1)+thick_edge(level,1)
+!             thick_vert(level,1) = thick_vert(level,1)+thick_edge(level,1)
             
             this_vort_flux(level, 1) =  this_vort_flux(level, 1) +                        &
               & vn( edgeOfVertex_index, level, edgeOfVertex_block)                        &
-              & * operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr)   &
-              & * thick_edge(level,1)
+              & * operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr) !  &
+!               & * thick_edge(level,1) !* &
+!               & patch_2d%edges%inv_dual_edge_length(edgeOfVertex_index, edgeOfVertex_block) &
+!               & * this_edge_length
 
           ENDDO
 
@@ -359,17 +420,19 @@ CONTAINS
             &                        patch_3d%p_patch_1d(1)%dolic_e(edgeOfVertex_index, edgeOfVertex_block))
 
             numOfEdges(level,2) = numOfEdges(level,2) + 1.0_wp
-            thick_edge(level,2) = patch_3D%p_patch_1d(1)%prism_thick_e(                  &
-              & edgeOfVertex_index, level, edgeOfVertex_block)
+!             thick_edge(level,2) = patch_3D%p_patch_1d(1)%prism_thick_e(                  &
+!               & edgeOfVertex_index, level, edgeOfVertex_block)
             
               
             ! This should be calculated in the calculate_thickness routine
-            thick_vert(level,2) = thick_vert(level,2)+thick_edge(level,2)
+!             thick_vert(level,2) = thick_vert(level,2)+thick_edge(level,2)
           
             this_vort_flux(level, 2) =  this_vort_flux(level, 2) +                        &
               & vn( edgeOfVertex_index, level, edgeOfVertex_block)                        &
-              & * operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr)   &
-              & * thick_edge(level,2)
+              & * operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr) !  &
+!               & * thick_edge(level,2) !* &
+!               & patch_2d%edges%inv_dual_edge_length(edgeOfVertex_index, edgeOfVertex_block) &
+!               & * this_edge_length
 
           ENDDO
         END DO ! edges of this vertex
@@ -379,11 +442,11 @@ CONTAINS
           vort_flux(je,level,blockNo) =  &
             & this_vort_flux(level,1) &
             ! divide by the vertex thickness
-            &  * numOfEdges(level,1) / thick_vert(level,1)  &
+!             &  * numOfEdges(level,1) / thick_vert(level,1)  &
             &  * (vort_v(vertex1_idx, level, vertex1_blk) + patch_2d%verts%f_v(vertex1_idx, vertex1_blk))  &
             & + this_vort_flux(level,2)  &
             ! divide by the vertex thickness
-            &  * numOfEdges(level,2) / thick_vert(level,2)  &
+!             &  * numOfEdges(level,2) / thick_vert(level,2)  &
             &  * (vort_v(vertex2_idx, level, vertex2_blk) + patch_2d%verts%f_v(vertex2_idx, vertex2_blk))
 
         ENDDO
@@ -397,7 +460,7 @@ CONTAINS
 
     !This is only for debugging needed
     vort_flux_old(:,:,:)=0.0_wp
-	
+
 !ICON_OMP_PARALLEL_DO PRIVATE(blockNo,level,je,start_edge_index,end_edge_index, this_vort_flux, &
 !ICON_OMP  vertex1_idx, vertex1_blk, vertex2_idx, vertex2_blk,  &
 !ICON_OMP vertex_edge, ictr, thick_vert, numOfEdges, edgeOfVertex_index, edgeOfVertex_block, &
@@ -564,8 +627,8 @@ CONTAINS
     !vn(3,1:n_zlev,5)=1.0E14
     
     CALL rot_vertex_ocean_3d( patch_3d, vn, p_vn_dual, operators_coefficients, vort_v)
-    ! this is not needed
-    ! CALL sync_patch_array(SYNC_V, patch_2D, vort_v)
+    ! sync not needed here, but used for example for the Leith
+    CALL sync_patch_array(SYNC_V, patch_2D, vort_v)
     
 
     ! !$OMP PARALLEL
@@ -843,7 +906,6 @@ CONTAINS
         edge_3_index = patch_2d%cells%edge_idx(cell_index,blockNo,3)
         edge_3_block = patch_2d%cells%edge_blk(cell_index,blockNo,3)
 
-
         DO level = startLevel, MIN(patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo), endLevel)
           p_vn_c(cell_index,level,blockNo)%x =                                            &
             & (  operators_coefficients%edge2cell_coeff_cc(cell_index,level,blockNo,1)%x  &
@@ -856,7 +918,7 @@ CONTAINS
             &       * vn_e(edge_3_index,level,edge_3_block)                               &
             &*patch_3d%p_patch_1d(1)%prism_thick_e(edge_3_index,level,edge_3_block))      &
             & / (operators_coefficients%fixed_vol_norm(cell_index,level,blockNo)          &
-            & *patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo))
+            &    * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo))
         END DO
           
       END DO
@@ -2144,13 +2206,12 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2014).
   !!
-  SUBROUTINE map_vec_prismtop2center_on_block(patch_3d, vec_top, p_op_coeff, vec_center, &
+  SUBROUTINE map_vec_prismtop2center_on_block(patch_3d, vec_top, vec_center, &
     & blockNo, start_cell_index, end_cell_index)
-    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
-    TYPE(t_cartesian_coordinates), INTENT(in)        :: vec_top(nproma, n_zlev)
-    TYPE(t_operator_coeff), INTENT(in)               :: p_op_coeff
-    INTEGER, INTENT(in)                              :: blockNo, start_cell_index, end_cell_index
-    TYPE(t_cartesian_coordinates), INTENT(inout)     :: vec_center(nproma, n_zlev,blockNo) ! out
+    TYPE(t_patch_3d ),TARGET, INTENT(in)            :: patch_3d
+    TYPE(t_cartesian_coordinates), INTENT(in)       :: vec_top(:,:) ! (nproma, n_zlev+1)
+    INTEGER, INTENT(in)                               :: blockNo, start_cell_index, end_cell_index
+    TYPE(t_cartesian_coordinates), INTENT(inout)    :: vec_center(:,:) ! (nproma, n_zlev) ! out
     
     !Local variables
     INTEGER :: level, jc!,jb
@@ -2168,9 +2229,9 @@ CONTAINS
 
     DO jc = start_cell_index, end_cell_index
       end_level  = patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
-
-        DO level = start_level, end_level-1
-          vec_center(jc,level,blockNo)%x &
+!       IF ( end_level >=min_dolic ) THEN
+        DO level = start_level, end_level
+          vec_center(jc,level)%x &
           & = (prism_center_distance(jc,level)   * vec_top(jc,level)%x    &
           & +  prism_center_distance(jc,level+1) * vec_top(jc,level+1)%x) &
           & / (2.0_wp*prism_thick(jc,level))
@@ -2244,7 +2305,39 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  !
+  !>
+  SUBROUTINE map_scalar_prismtop2center_onBlock(patch_3d, scalar_top, scalar_center, &
+    & blockNo, start_cell_index, end_cell_index)
+    TYPE(t_patch_3d ),TARGET                         :: patch_3d
+    REAL(wp)                                         :: scalar_top(:,:) ! (nproma, n_zlev+1)
+    REAL(wp)                                         :: scalar_center(:,:) !nproma, n_zlev)
+    INTEGER, INTENT(in) :: blockNo, start_cell_index, end_cell_index
+
+    !Local variables
+    INTEGER :: level, jc!,jb
+    REAL(wp), POINTER ::  prism_center_distance(:,:),prism_thick(:,:)
+
+    !-------------------------------------------------------------------------------
+
+    ! these do not include the height
+    ! if they are used for the GM-Redi then we should re-consider if height is needed
+    prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_Zdistance  (:,:,blockNo)
+    prism_thick => patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,:,blockNo)
+
+    DO jc = start_cell_index, end_cell_index
+      DO level = 1, patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
+        scalar_center(jc,level) &
+          & = (prism_center_distance(jc,level)   * scalar_top(jc,level)    &
+          & +  prism_center_distance(jc,level+1) * scalar_top(jc,level+1)) &
+          & / (2.0_wp*prism_thick(jc,level))
+
+      END DO
+    END DO
+
+  END SUBROUTINE map_scalar_prismtop2center_onBlock
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
   !>
   !! !  SUBROUTINE maps within a fluid column a scalar value from the the central level of the prism to top/bottom of a 3D prism.
   !!
@@ -2457,8 +2550,44 @@ CONTAINS
   END SUBROUTINE map_scalar_center2prismtop_GM
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE map_vector_center2prismtop_onBlock(patch_3d, vector_center, vector_top, &
+    & blockNo, start_cell_index, end_cell_index)
+    TYPE(t_patch_3d ),TARGET          :: patch_3d
+    TYPE(t_cartesian_coordinates)     :: vector_center(:,:) ! (nproma, n_zlev,blockNo) ! out
+    TYPE(t_cartesian_coordinates)     :: vector_top(:,:)
+    INTEGER, INTENT(in) :: blockNo, start_cell_index, end_cell_index
+    
+    !Local variables
+    INTEGER :: cell_index, level
+    REAL(wp), POINTER ::  inv_prism_center_distance(:,:),prism_thick(:,:)
 
-! !   !-----------------------------------------------------------------------------
+    !-------------------------------------------------------------------------------
+    inv_prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_invZdistance  (:,:,blockNo)
+    prism_thick => patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,:,blockNo)
+    !-------------------------------------------------------------------------------
+    vector_top(:,:)%x(1) = 0.0_wp
+    vector_top(:,:)%x(2) = 0.0_wp
+    vector_top(:,:)%x(3) = 0.0_wp
+    DO cell_index = start_cell_index, end_cell_index
+      ! the top moves only up-down
+!       vector_top(cell_index,1)%x = vector_center(cell_index,1)%x !* 0.5_wp
+      vector_top(cell_index,1)%x = 0.0_wp 
+
+      DO level = 2, patch_3D%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+        vector_top(cell_index,level)%x = &
+        & (  vector_center(cell_index,level-1)%x * prism_thick(cell_index,level-1)  &
+        &  + vector_center(cell_index,level)%x   * prism_thick(cell_index,level))   &
+        &  * 2.0_wp * inv_prism_center_distance(cell_index,level)
+      END DO
+    END DO
+
+  END SUBROUTINE map_vector_center2prismtop_onBlock
+  !-------------------------------------------------------------------------
+
+
+  ! !   !-----------------------------------------------------------------------------
 !   !-----------------------------------------------------------------------------
 !   SUBROUTINE map_edges2edges_viacell_3d_mlev( patch_3d, vn_e, operators_coefficients, out_vn_e,scalar, &
 !     & opt_startLevel, opt_endLevel, subset_range)

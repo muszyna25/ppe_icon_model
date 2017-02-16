@@ -637,23 +637,43 @@ cat > ${ocean_namelist} << EOF
   FLUX_CALCULATION_HORZ         = 1       ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura, 5=FCT with Zalesak limiter
   FLUX_CALCULATION_VERT         = 1       ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura, 7=upwind biased ppm
 /
-&ocean_diffusion_nml
-  k_pot_temp_h         = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for temperature - r2b4
-  k_pot_temp_v         = 3.0E-5    ! [m/s]  vertical background diffusion coefficient for temperature - 20m
-  k_sal_h              = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for salinity - r2b4
-  k_sal_v              = 3.0E-5    ! [m/s]  vertical background diffusion coefficient for salinity - 20m
-  k_veloc_h            = 1.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
-  k_veloc_v            = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
-  MAX_VERT_DIFF_TRAC   = 0.1       ! max vertical tracer diffusion for convection used in case of instability
-  HorizontalViscosity_type = 1         ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
-  MAX_VERT_DIFF_VELOC  = 1.0E-5    ! max vertical viscosity coefficient
+&ocean_horizontal_diffusion_nml
+  laplacian_form = 1                   ! 1=curlcurl-graddiv
+  VelocityDiffusion_order = 1          ! 1=harmonic, 21=biharmonic+laplacian (for the laplacian leith)
+
+  HarmonicViscosity_scaling     =  1
+  HarmonicViscosity_reference   =  1.0E+5  !  [m2/s] constant horizontal viscosity coefficient for velocity
+  HarmonicViscosity_background  =  0.0  
+
+  TracerHorizontalDiffusion_scaling          = 1
+  Temperature_HorizontalDiffusion_Background = 0.0
+  Temperature_HorizontalDiffusion_Reference  = 1.0E+3  ! [m2/s] constant horizontal diffusion coefficient for temperature - r2b4
+  Salinity_HorizontalDiffusion_Background    = 0.0
+  Salinity_HorizontalDiffusion_Reference     = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for salinity - r2b4
+/
+&ocean_vertical_diffusion_nml
+!  PPscheme_type                            = 4
+  velocity_VerticalDiffusion_background    =   5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
+  Temperature_VerticalDiffusion_background =   3.0E-5    ! [m/s]  vertical background diffusion coefficient for temperature - 20m
+  Salinity_VerticalDiffusion_background    =   3.0E-5    ! [m/s]  vertical background diffusion coefficient for salinity - 20m
+  tracer_convection_MixingCoefficient =   0.1 ! max vertical tracer diffusion for convection used in case of instability
+! convection_InstabilityThreshold =  -1.0E-6  ! used in update_ho_params - default=-5e-8
+!  RichardsonDiffusion_threshold   =   0.0     ! 
+  tracer_RichardsonCoeff          =   2.0E-3  ! factor for vertical diffusion coefficient in PP scheme
+  velocity_RichardsonCoeff        =   2.0E-3  ! factor for vertical viscosity coefficient in PP scheme
+  bottom_drag_coeff               =   2.5E-3  ! bottom drag coefficient default= 2.5E-3
+!  use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
+!  lambda_wind                     = 0.03
+!  tracer_TopWindMixing            = 4.0E-6
+!  velocity_TopWindMixing          = 4.0E-6
+/
+&ocean_GentMcWilliamsRedi_nml
+  GMRedi_configuration           =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
+  GMREDI_COMBINED_DIAGNOSTIC    = .false.
 /
 &ocean_physics_nml
  !i_sea_ice            = 1         ! 0 = no sea ice; 1 = Winton; 2 = Semtner
  !no_tracer            = 2         ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
-  richardson_veloc     = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
-  richardson_tracer    = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
-  bottom_drag_coeff    = 2.5E-3  ! bottom drag coefficient default= 2.5E-3
 /
 &sea_ice_nml
   i_ice_therm   = 1

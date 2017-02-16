@@ -327,10 +327,17 @@ class buildbot_machines_list(object):
     mistral_intel_openmp  = mistral.add_builder('MISTRAL_intel_openmp', '--with-fortran=intel --without-mpi --with-openmp --without-yac', 'Active')
     mistral_nag           = mistral.add_builder('MISTRAL_nag', '--with-fortran=nag', 'Active')
     mistral_nag_serial    = mistral.add_builder('MISTRAL_nag_serial', '--with-fortran=nag --without-mpi --without-yac', 'build_only')
-    mistral_ocean         = mistral.add_builder('MISTRAL_ocean', '--with-fortran=intel --with-openmp', 'Ocean')
+    mistral_ocean         = mistral.add_builder('MISTRAL_ocean', '--with-fortran=intel --with-openmp --with-flags=ocean', 'Ocean')
 # CSCS builders
     daint_cpu             = self.add_machine('daint_cpu', 'default')
     daint_cpu_cce         = daint_cpu.add_builder('DAINT_CPU_cce', '', 'Active')
+# breeze builders
+    breeze                = self.add_machine('breeze', 'default')
+    breeze_gcc            = breeze.add_builder('BREEZE_gcc', '--with-fortran=gcc', 'build_only')
+    breeze_gcc_openmp     = breeze.add_builder('BREEZE_gcc_openmp', '--with-fortran=gcc --with-openmp', 'build_only')
+    breeze_intel          = breeze.add_builder('BREEZE_intel', '--with-fortran=intel', 'build_only')
+    breeze_intel_openmp   = breeze.add_builder('BREEZE_intel_openmp', '--with-fortran=intel --with-openmp', 'build_only')
+    breeze_nag            = breeze.add_builder('BREEZE_nag', '--with-fortran=nag', 'build_only')
 
 #-----------------------------------------------------------------------
 
