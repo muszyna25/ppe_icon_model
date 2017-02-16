@@ -180,6 +180,8 @@ CONTAINS
     REAL(wp) :: zbh_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
 
     REAL(wp) :: ztte_corr(nbdim)      !< tte correction for snow melt over land (JSBACH)
+    REAL(wp) :: zq_snocpymlt(nbdim)   !< heating by melting of snow on the canopy [W/m2]
+                                      !  which warms the lowermost atmospheric layer (JSBACH)
 
     ! Temporary array used by GW_HINES
 
@@ -801,7 +803,7 @@ CONTAINS
           & pch_tile = zch_tile(:,:),     &! in, from "vdiff_down" for JSBACH
           & pcsat = field%csat(:,jb),      &! inout, area fraction with wet land surface
           & pcair = field%cair(:,jb),      &! inout, area fraction with wet land surface (air)
-          & tte_corr = ztte_corr(:),       &! out, tte correction for snow melt over land
+          & q_snocpymlt = zq_snocpymlt(:), &! out, heating  by melting snow on the canopy [W/m2]
           & z0m_tile = field% z0m_tile(:,jb,:), &! inout, roughness length for momentum over tiles
           & z0h_lnd  = field% z0h_lnd (:,jb),   &! out, roughness length for heat over land
           & albvisdir      = field% albvisdir     (:,jb)  ,                    &! inout
@@ -832,6 +834,8 @@ CONTAINS
           & albnirdif_ice = field% albnirdif_ice(:,:,jb))  ! inout
 
         IF (ltimer) CALL timer_stop(timer_surface)
+
+        ztte_corr(jcs:jce) = zq_snocpymlt(jcs:jce) * zconv(jcs:jce,nlev)
 
     ! 5.5 Turbulent mixing, part II:
     !     - Elimination for the lowest model level using boundary conditions

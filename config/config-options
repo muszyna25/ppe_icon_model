@@ -1,7 +1,24 @@
 # Set configure options by omitting the "--" from the option name and replacing the remaining dashes with underscores.
 # This should work for all "--enable-*" and "--with-*" options.
+#
+# It is possible to use korn shell syntax for conditional settings, cf. example below.
+#
 #enable_atmo=no
-#enable_jsbach=no
+case "$ac_sitename" in
+  dkrz.de|bullx)
+    case "$ac_hostname" in
+      btc*|mlogin*)
+        enable_jsbach=yes
+        ;;
+    esac
+    ;;
+  zmaw.de|mpg.de)
+    enable_jsbach=yes
+    ;;
+  *)
+    enable_jsbach=no
+    ;;
+esac
 #enable_ocean=no
 #enable_testbed=no
 
