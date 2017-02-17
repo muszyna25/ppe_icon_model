@@ -671,7 +671,7 @@ CONTAINS
     NULLIFY(mtime_nsteps_stop)
     
     ! dtime is always available, maybe the default only
-    CALL getPTStringFromMS(INT(dtime,i8)*1000, td_string)
+    CALL getPTStringFromMS(INT(dtime*1000,i8), td_string)
     mtime_dtime => newTimeDelta(td_string)
     IF (.NOT. ASSOCIATED(mtime_dtime))  CALL finish(routine, "Error in conversion of dtime to mtime!")
 
