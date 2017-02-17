@@ -227,7 +227,6 @@ DATADIR=${ICON_BASE_PATH}/data
 add_link_file ${DATADIR}/rrtmg_lw.nc                 rrtmg_lw.nc 
 add_link_file ${DATADIR}/ECHAM6_CldOptProps.nc       ECHAM6_CldOptProps.nc
 add_link_file ${DATADIR}/dmin_wetgrowth_lookup.dat   dmin_wetgrowth_lookup.dat  #for inwp_gscp==4
-pooldir=/pool/data/ICON/buildbot_data/aes/rce_les
-add_link_file ${pooldir}/torus_grid_r4km_s50_o3_CMIP5_ape_1870_march.nc  o3_icon_DOM01.nc
-add_link_file ${pooldir}/sound_in              sound_in
+add_link_file ${icon_data_buildbotFolder_aes}/rce_les/torus_grid_r4km_s50_o3_CMIP5_ape_1870_march.nc  o3_icon_DOM01.nc
+add_link_file ${icon_data_buildbotFolder_aes}/rce_les/sound_in sound_in
 #----------------------------------------------------------------------------------
