@@ -115,7 +115,7 @@ MODULE mo_nwp_phy_init
   USE mo_sso_cosmo,           ONLY: sso_cosmo_init_param
   USE mo_fortran_tools,       ONLY: init
   USE mtime,                  ONLY: datetime, MAX_DATETIME_STR_LEN, &
-    &                               datetimeToString
+    &                               datetimeToString, newDatetime, deallocateDatetime
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
     &                                  calculate_time_interpolation_weights
 
@@ -174,7 +174,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
   REAL(wp) :: ttropo, ptropo, temp, zfull
 
-  REAL(wp) :: dz1, dz2, dz3
+  REAL(wp) :: dz1, dz2, dz3, fact_z0rough
   REAL(wp), ALLOCATABLE :: zrefpres(:,:,:)   ! ref press computed from ref exner
   REAL(wp), ALLOCATABLE :: zreftemp(:,:,:)   ! ref temp computed from ref exner
   REAL(wp), ALLOCATABLE :: zpres_sfc(:,:)    ! ref sfc press
@@ -1166,13 +1166,17 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
         ! default
         prm_diag%gz0(:,:) = grav * ext_data%atm%z0(:,:)
 
-      ELSE IF (atm_phy_nwp_config(jg)%itype_z0 == 2) THEN
+      ELSE IF (atm_phy_nwp_config(jg)%itype_z0 >= 2) THEN
 
         rl_start = grf_bdywidth_c + 1 ! land-cover classes are not set for nest-boundary points
         rl_end   = min_rlcell_int
 
         i_startblk = p_patch%cells%start_blk(rl_start,1)
         i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+
+        ! Scaling factor for SSO contribution to roughness length ("Erdmann Heise formula")
+        fact_z0rough = 1.e-5_wp*ATAN(phy_params%mean_charlen/2250._wp)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,ic,jt,i_startidx,i_endidx,lc_class,gz0) ICON_OMP_DEFAULT_SCHEDULE
@@ -1195,6 +1199,12 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
                 p_diag_lnd%snowfrac_t(jc,jb,jt)*0.5_wp*ext_data%atm%z0_lcc(i_lc_si) ) ! i_lc_si = snow/ice class
             ENDDO
           ENDDO
+          IF (atm_phy_nwp_config(jg)%itype_z0 == 3) THEN
+            DO ic = 1, ext_data%atm%lp_count(jb)
+              jc = ext_data%atm%idx_lst_lp(ic,jb)
+              gz0(jc) = gz0(jc) + grav*MIN(fact_z0rough*ext_data%atm%sso_stdh_raw(jc,jb)**2,7.5_wp)
+            ENDDO
+          ENDIF
           DO jt = ntiles_total+1, ntiles_total+ntiles_water ! required if there are mixed land-water points
 !CDIR NODEP,VOVERTAKE,VOB
             DO ic = 1, ext_data%atm%lp_count(jb)
@@ -1365,7 +1375,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
         &  u_tens=prm_nwp_tend%ddt_u_turb(:,:,jb), &
         &  v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb), &
         &  tketens=prm_nwp_tend%ddt_tke(:,:,jb), &
-        &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb), vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb), &
+        &  ut_sso=REAL(prm_nwp_tend%ddt_u_sso(:,:,jb),wp), vt_sso=REAL(prm_nwp_tend%ddt_v_sso(:,:,jb),wp), &
         &  shfl_s=prm_diag%shfl_s(:,jb), qvfl_s=prm_diag%qhfl_s(:,jb), &
         &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
@@ -1502,6 +1512,8 @@ END SUBROUTINE init_nwp_phy
     
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
 
+    TYPE(datetime), POINTER :: mtime_hour
+    
     jg = p_patch%id
     nlev = p_patch%nlev
 
@@ -1509,7 +1521,12 @@ END SUBROUTINE init_nwp_phy
     IF (atm_phy_nwp_config(jg)%icpl_aero_gscp /= 1 .AND. icpl_aero_conv /= 1) RETURN
 
     
-    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_date)
+    mtime_hour => newDatetime(mtime_date)
+    mtime_hour%time%minute = 0
+    mtime_hour%time%second = 0
+    mtime_hour%time%ms     = 0          
+    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_hour)
+    call deallocateDatetime(mtime_hour)
     imo1 = current_time_interpolation_weights%month1
     imo2 = current_time_interpolation_weights%month2
     wgt = current_time_interpolation_weights%weight2

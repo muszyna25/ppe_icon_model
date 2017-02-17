@@ -17,7 +17,7 @@ MODULE mo_input_container
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_kind, ONLY: wp, dp
     USE mo_math_types, ONLY: t_Statistics
-    USE mo_mpi, ONLY: p_bcast, p_comm_work, my_process_is_stdio
+    USE mo_mpi, ONLY: p_bcast, p_comm_work, my_process_is_stdio, p_mpi_wtime
     USE mo_parallel_config, ONLY: blk_no, nproma
     USE mo_scatter_pattern_base, ONLY: lookupScatterPattern
     USE mo_util_cdi, ONLY: trivial_tileId
@@ -430,11 +430,12 @@ CONTAINS
         CALL me%levels%destruct()
     END SUBROUTINE InputContainer_destruct
 
-    SUBROUTINE InputContainer_readField(me, variableName, level, tile, jg, iterator, statistics)
+    SUBROUTINE InputContainer_readField(me, variableName, level, tile, timer, jg, iterator, statistics)
         CLASS(t_InputContainer), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: variableName
         REAL(dp), VALUE :: level
         INTEGER, VALUE :: tile, jg
+        REAL(dp), INTENT(INOUT) :: timer(:)
         TYPE(t_CdiIterator), VALUE :: iterator
         TYPE(t_Statistics), INTENT(INOUT) :: statistics ! This gets the statistics of the READ field added, but ONLY on the master process.
 
@@ -444,6 +445,7 @@ CONTAINS
         REAL(C_FLOAT), POINTER :: bufferS(:)
         INTEGER :: gridSize, datatype, packedMessage(2), error    !packedMessage(1) == gridSize, packedMessage(2) == datatype
         CLASS(t_ScatterPattern), POINTER :: distribution
+        REAL(dp) :: savetime
 
         !sanity check: fail IF this field has already been READ
         ALLOCATE(t_LevelKey :: key, STAT = error)
@@ -494,11 +496,16 @@ CONTAINS
 
                         !READ the DATA
                         IF(C_ASSOCIATED(iterator%ptr)) THEN
+                            savetime = p_mpi_wtime()
                             CALL cdiIterator_readField(iterator, bufferD)
+                            timer(3) = timer(3) + p_mpi_wtime() - savetime
+                            savetime = p_mpi_wtime()
                             CALL statistics%add(bufferD)
+                            timer(4) = timer(4) + p_mpi_wtime() - savetime
                         END IF
+                        savetime = p_mpi_wtime()
                         CALL distribution%distribute(bufferD, VALUE%ptr(:, :), .FALSE.)
-
+                        timer(5) = timer(5) + p_mpi_wtime() - savetime
                         DEALLOCATE(bufferD)
 
                     CASE DEFAULT
@@ -512,11 +519,16 @@ CONTAINS
 
                         !READ the DATA
                         IF(C_ASSOCIATED(iterator%ptr)) THEN
+                            savetime = p_mpi_wtime()
                             CALL cdiIterator_readFieldF(iterator, bufferS)
+                            timer(3) = timer(3) + p_mpi_wtime() - savetime
+                            savetime = p_mpi_wtime()
                             CALL statistics%add(bufferS)
+                            timer(4) = timer(4) + p_mpi_wtime() - savetime
                         END IF
+                        savetime = p_mpi_wtime()
                         CALL distribution%distribute(bufferS, VALUE%ptr(:, :), .FALSE.)
-
+                        timer(5) = timer(5) + p_mpi_wtime() - savetime
                         DEALLOCATE(bufferS)
 
                 END SELECT

@@ -25,7 +25,6 @@ MODULE mo_time_management
   USE mo_master_config,            ONLY: lrestart_write_last
   USE mo_parallel_config,          ONLY: num_restart_procs
   USE mo_util_string,              ONLY: tolower, int2string
-  USE mo_nonhydrostatic_config,    ONLY: divdamp_order
   USE mtime,                       ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,      &
     &                                    MAX_CALENDAR_STR_LEN,                             &
     &                                    OPERATOR(>),OPERATOR(/=), OPERATOR(-),            &
@@ -59,8 +58,6 @@ MODULE mo_time_management
   USE mo_grid_config,              ONLY: patch_weight, grid_rescale_factor, n_dom,         &
     &                                    start_time
   USE mo_io_config,                ONLY: dt_checkpoint
-  USE mo_echam_phy_config,         ONLY: echam_phy_config
-  USE mo_atm_phy_nwp_config,       ONLY: atm_phy_nwp_config
   USE mo_master_config,            ONLY: experimentReferenceDate,                          &
     &                                    experimentStartDate,                              &
     &                                    checkpointTimeIntval, restartTimeIntval,          &
@@ -74,6 +71,11 @@ MODULE mo_time_management
     &                                    end_datetime_string
   USE mo_restart_attributes,       ONLY: t_RestartAttributeList, getAttributesForRestarting
 
+#ifndef __NO_ICON_ATMO__
+  USE mo_nonhydrostatic_config,    ONLY: divdamp_order
+  USE mo_echam_phy_config,         ONLY: echam_phy_config
+  USE mo_atm_phy_nwp_config,       ONLY: atm_phy_nwp_config
+#endif
 
 
   IMPLICIT NONE
@@ -150,6 +152,7 @@ CONTAINS
       CALL timedeltaToString(dtime1, dtime_string)
       IF (dtime_real > 0._wp)  dtime_real = dtime_real * grid_rescale_factor
 
+#ifndef __NO_ICON_ATMO__
       IF (get_my_process_type() == atmo_process) THEN
         echam_phy_config%dt_rad = &
           & echam_phy_config%dt_rad * grid_rescale_factor
@@ -165,6 +168,8 @@ CONTAINS
             atm_phy_nwp_config(jg)%dt_gwd  * grid_rescale_factor
         END DO
       END IF
+#endif
+
     ELSE
       CALL timedeltaToString(dtime1, dtime_string)
     END IF
@@ -359,6 +364,8 @@ CONTAINS
     ! into the integration because the results would not be
     ! bit-identical in this case
     !
+
+#ifndef __NO_ICON_ATMO__
     mtime_0h => newTimedelta("PT0S")
     IF (mtime_dt_checkpoint /= mtime_0h) THEN
       mtime_2_5h => newTimedelta("PT02H30M")
@@ -372,6 +379,7 @@ CONTAINS
       CALL deallocateTimedelta(mtime_2_5h)
     ENDIF
     CALL deallocateTimedelta(mtime_0h)    
+#endif
 
     ! Writing a checkpoint file exactly at the start time of a nest is
     ! not allowed:
@@ -663,7 +671,7 @@ CONTAINS
     NULLIFY(mtime_nsteps_stop)
     
     ! dtime is always available, maybe the default only
-    CALL getPTStringFromMS(INT(dtime,i8)*1000, td_string)
+    CALL getPTStringFromMS(INT(dtime*1000,i8), td_string)
     mtime_dtime => newTimeDelta(td_string)
     IF (.NOT. ASSOCIATED(mtime_dtime))  CALL finish(routine, "Error in conversion of dtime to mtime!")
 
@@ -726,25 +734,39 @@ CONTAINS
       !
       ! but we need to check cases where one or two of these dates have
       ! not been specified by the user...
+      
+      IF (ASSOCIATED(mtime_nsteps_stop)) THEN
 
-      IF (.NOT. ASSOCIATED(mtime_exp_stop)     .AND. &
-           & .NOT. ASSOCIATED(mtime_restart_stop) .AND. &
-           & .NOT. ASSOCIATED(mtime_nsteps_stop)) THEN
-        CALL finish(routine, "Error in initialization of stop date")
-      ELSE IF (ASSOCIATED(mtime_exp_stop)      .AND. &
-           & ASSOCIATED(mtime_restart_stop)       .AND. &
-           & ASSOCIATED(mtime_nsteps_stop)) THEN
-        mtime_stop => newDatetime(MIN(MIN(mtime_exp_stop, mtime_restart_stop), mtime_nsteps_stop))
-      ELSE IF (ASSOCIATED(mtime_exp_stop)      .AND. &
-           & ASSOCIATED(mtime_restart_stop)) THEN
-        mtime_stop => newDatetime(MIN(mtime_exp_stop, mtime_restart_stop))
-      ELSE IF (ASSOCIATED(mtime_exp_stop)      .AND. &
-           & ASSOCIATED(mtime_nsteps_stop)) THEN
-        mtime_stop => newDatetime(MIN(mtime_exp_stop, mtime_nsteps_stop))
-      ELSE IF (ASSOCIATED(mtime_restart_stop)  .AND. &
-           & ASSOCIATED(mtime_nsteps_stop)) THEN
-        mtime_stop => newDatetime(MIN(mtime_restart_stop, mtime_nsteps_stop))
+        IF (ASSOCIATED(mtime_exp_stop)) THEN
+          IF (ASSOCIATED(mtime_restart_stop)) THEN
+            mtime_stop => newDatetime(MIN(MIN(mtime_exp_stop, mtime_restart_stop), mtime_nsteps_stop))
+          ELSE
+            mtime_stop => newDatetime(MIN(mtime_exp_stop, mtime_nsteps_stop))
+          END IF
+        ELSE
+          IF (ASSOCIATED(mtime_restart_stop)) THEN
+            mtime_stop => newDatetime(MIN(mtime_nsteps_stop, mtime_restart_stop))
+          ELSE
+            mtime_stop => newDatetime(mtime_nsteps_stop)
+          END IF
+        END IF
+
+      ELSE
+
+        IF (ASSOCIATED(mtime_exp_stop)) THEN
+          IF (ASSOCIATED(mtime_restart_stop)) THEN
+            mtime_stop => newDatetime(MIN(mtime_exp_stop, mtime_restart_stop))
+          ELSE
+            mtime_stop => newDatetime(mtime_exp_stop)
+          END IF
+        ELSE
+          ! if neither "exp_stop_date" nor "nsteps" are given: throw
+          ! an error regardless of the state of "restart_stop"
+          CALL finish(routine, "Error in initialization of stop date")
+        END IF
+
       END IF
+
     END IF
 
     CALL datetimeToString(mtime_stop, stop_datetime_string)

@@ -7,10 +7,14 @@
   #  ocean_location="" means user defined path in ocean_data_MainFolder, or if undefined the standard buildbot oes path: ${icon_data_rootFolder}/oes}
   #  in other cases where 
   #    ocean_location/="" then ocean_data_MainFolder=/pool/data/ICON/oes/${ocean_location}
-  
-  ocean_location=${ocean_location:="fluent"}
+  if [[ x$BB_SYSTEM != "x" ]] ; then
+    ocean_location=${ocean_location:="buildbot"}
+  else
+    ocean_location=${ocean_location:="fluent"}
+  fi
   #ocean_location= ${ocean_location:="buildbot"}
   #ocean_location="local" #${ocean_location:="local"}
+  builbot_ocean_reference_path=/pool/data/ICON/buildbot_data/oes/reference.17030
 
   get_file=${get_file:='add_link_file'} # or 'add_required_file' for copying
 

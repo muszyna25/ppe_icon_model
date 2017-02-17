@@ -100,7 +100,8 @@ MODULE mo_setup_subdivision
     &                                   distrib_nf_close, distrib_read, nf, &
     &                                   delete_distrib_read, setup_distrib_read
   USE ppm_distributed_array,  ONLY: dist_mult_array, global_array_desc
-  USE mo_util_uuid, ONLY: uuid_string_length, uuid_unparse
+  USE mo_util_uuid_types,     ONLY: uuid_string_length
+  USE mo_util_uuid,           ONLY: uuid_unparse
   USE mo_read_netcdf_broadcast_2, ONLY: netcdf_open_input, netcdf_close, &
     &                                   netcdf_read_att_int
 
@@ -988,7 +989,7 @@ CONTAINS
          patch_id = wrk_p_patch_pre%id, &
          nblks = wrk_p_patch%nblks_c, &
          npromz = wrk_p_patch%npromz_c, &
-         cell_type = wrk_p_patch%geometry_info%cell_type, &
+         max_cell_connectivity = wrk_p_patch%cells%max_connectivity, &
          min_rlcve = min_rlcell, &
          min_rlcve_int = min_rlcell_int, &
          max_rlcve = max_rlcell, &
@@ -1014,7 +1015,7 @@ CONTAINS
          patch_id = wrk_p_patch_pre%id, &
          nblks = wrk_p_patch%nblks_e, &
          npromz = wrk_p_patch%npromz_e, &
-         cell_type = wrk_p_patch%geometry_info%cell_type, &
+         max_cell_connectivity = wrk_p_patch%cells%max_connectivity, &
          min_rlcve = min_rledge, &
          min_rlcve_int = min_rledge_int, &
          max_rlcve = max_rledge, &
@@ -1040,7 +1041,7 @@ CONTAINS
          patch_id = wrk_p_patch_pre%id, &
          nblks = wrk_p_patch%nblks_v, &
          npromz = wrk_p_patch%npromz_v, &
-         cell_type = wrk_p_patch%geometry_info%cell_type, &
+         max_cell_connectivity = wrk_p_patch%cells%max_connectivity, &
          min_rlcve = min_rlvert, &
          min_rlcve_int = min_rlvert_int, &
          max_rlcve = max_rlvert, &
@@ -2675,14 +2676,14 @@ CONTAINS
   END FUNCTION refine_verts
 
   SUBROUTINE build_patch_start_end(n_patch_cve, n_patch_cve_g, &
-       patch_id, nblks, npromz, cell_type, &
+       patch_id, nblks, npromz, max_cell_connectivity, &
        min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve, &
        flag2_list, n2_ilev, decomp_info, &
        start_index, start_block, end_index, end_block, &
        start_g, end_g, order_type_of_halos, l_cell_correction, refin_ctrl, &
        refin_ctrl_aidx, refinement_predicate)
     INTEGER, INTENT(in) :: n_patch_cve, n_patch_cve_g, &
-         patch_id, nblks, npromz, cell_type, &
+         patch_id, nblks, npromz, max_cell_connectivity, &
          min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve
     INTEGER, INTENT(in) :: order_type_of_halos, refin_ctrl_aidx
     LOGICAL, INTENT(in) :: l_cell_correction
@@ -2716,7 +2717,7 @@ CONTAINS
     IF ((n2_ilev(0) == n_patch_cve) .AND. (n2_ilev(0) == n_patch_cve_g)) THEN
 
       CALL build_patch_start_end_short(n_patch_cve, n_patch_cve_g, &
-        patch_id, nblks, npromz, cell_type, &
+        patch_id, nblks, npromz, max_cell_connectivity, &
         min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve, &
         flag2_list, n2_ilev, decomp_info, &
         start_index, start_block, end_index, end_block, start_g, end_g, &
@@ -2920,7 +2921,7 @@ CONTAINS
         ilev1 = MAX(min_rlcve, min_rlcve_int - max_ilev)
         ilev_st = max_ilev + 1
       ENDIF
-      IF (l_cell_correction .AND. cell_type==6) THEN ! for hexagons, there are no even-order halo cells
+      IF (l_cell_correction .AND. max_cell_connectivity==6) THEN ! for hexagons, there are no even-order halo cells
         DO ilev = 2, max_hw_cve, 2
           irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
           start_index(irlev) = end_index(irlev+1) + 1
@@ -3003,13 +3004,13 @@ CONTAINS
   END SUBROUTINE build_patch_start_end
 
   SUBROUTINE build_patch_start_end_short(n_patch_cve, n_patch_cve_g, &
-       patch_id, nblks, npromz, cell_type, &
+       patch_id, nblks, npromz, max_cell_connectivity, &
        min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve, &
        flag2_list, n2_ilev, decomp_info, &
        start_index, start_block, end_index, end_block, start_g, end_g, &
        order_type_of_halos, l_cell_correction)
     INTEGER, INTENT(in) :: n_patch_cve, n_patch_cve_g, &
-         patch_id, nblks, npromz, cell_type, &
+         patch_id, nblks, npromz, max_cell_connectivity, &
          min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve
     INTEGER, INTENT(in) :: order_type_of_halos
     LOGICAL, INTENT(in) :: l_cell_correction
@@ -3100,7 +3101,7 @@ CONTAINS
         ilev1 = MAX(min_rlcve, min_rlcve_int - max_ilev)
         ilev_st = max_ilev + 1
       ENDIF
-      IF (l_cell_correction .AND. cell_type==6) THEN ! for hexagons, there are no even-order halo cells
+      IF (l_cell_correction .AND. max_cell_connectivity==6) THEN ! for hexagons, there are no even-order halo cells
         DO ilev = 2, max_hw_cve, 2
           irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
           start_index(irlev) = end_index(irlev+1) + 1
@@ -3638,7 +3639,7 @@ CONTAINS
       ncell_offset(0) = 0
       ncell_offset(1) = nc
 
-    ELSE IF (wrk_p_patch_pre%cell_type == 6) THEN
+    ELSE IF (wrk_p_patch_pre%cells%max_connectivity == 6) THEN
 
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
       DO j = range_start, range_end

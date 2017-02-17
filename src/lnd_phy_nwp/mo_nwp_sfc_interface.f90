@@ -886,6 +886,12 @@ CONTAINS
                  IF (jk == 1) THEN
                    lnd_prog_new%t_s_t(jc,jb,isubs)      = lnd_prog_new%t_so_t(jc,jk,jb,isubs)
                    lnd_prog_new%t_s_t(jc,jb,isubs_snow) = lnd_prog_new%t_so_t(jc,jk,jb,isubs_snow)
+
+                   tmp1 = lnd_prog_new%w_i_t(jc,jb,isubs) 
+                   lnd_prog_new%w_i_t(jc,jb,isubs) = tmp1*fact1(jc)           &
+                     + lnd_prog_new%w_i_t(jc,jb,isubs_snow)*(1._wp - fact1(jc))
+                   lnd_prog_new%w_i_t(jc,jb,isubs_snow) = tmp1*(1._wp - fact2(jc)) &
+                     + lnd_prog_new%w_i_t(jc,jb,isubs_snow)*fact2(jc)
                  ENDIF
                ENDIF
 

@@ -18,7 +18,7 @@
 MODULE mo_nwp_rg_interface
 
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_exception,            ONLY: message
+  USE mo_exception,            ONLY: message,  finish
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run
 
@@ -38,9 +38,7 @@ MODULE mo_nwp_rg_interface
   USE mo_radiation_rg_par,     ONLY: aerdis
   USE mo_nwp_rrtm_interface,   ONLY: nwp_ozon_aerosol
   USE mo_satad,                ONLY: qsat_rho
-  USE mtime,                     ONLY: datetime
-  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
-    &                                  calculate_time_interpolation_weights
+  USE mtime,                   ONLY: datetime
 
   IMPLICIT NONE
 

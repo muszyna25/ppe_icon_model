@@ -108,6 +108,11 @@ MODULE mo_interface_iconam_echam
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
 
   USE mo_lcariolle_types       ,ONLY: avi, t_time_interpolation
+  USE mo_linked_list,             ONLY: t_var_list
+  USE mo_ext_data_state,          ONLY: ext_data
+  USE mo_art_reaction_interface,  ONLY: art_reaction_interface
+  USE mo_run_config,              ONLY: lart
+
   IMPLICIT NONE
 
   PRIVATE
@@ -132,7 +137,8 @@ CONTAINS
     &                                p_metrics       ,& !in
     &                                pt_prog_new     ,& !inout
     &                                pt_prog_new_rcf ,& !inout
-    &                                pt_diag         )  !inout
+    &                                pt_diag          ,& !inout
+    &                                p_prog_list)
 
     !
     !> Arguments:
@@ -147,6 +153,9 @@ CONTAINS
     TYPE(t_nh_diag)       , INTENT(inout), TARGET :: pt_diag         !< diagnostic variables
     TYPE(t_nh_prog)       , INTENT(inout), TARGET :: pt_prog_new     !< progn. vars after dynamics  for wind, temp. rho, ...
     TYPE(t_nh_prog)       , INTENT(inout), TARGET :: pt_prog_new_rcf !< progn. vars after advection for tracers
+
+!ICON_ART
+    TYPE(t_var_list), OPTIONAL, INTENT(in)        :: p_prog_list     !< current prognostic state list
 
     ! Local array bounds
 
@@ -568,34 +577,6 @@ CONTAINS
     ! (6) Convert physics tendencies to dynamics tendencies
     !
     IF (ltimer) CALL timer_start(timer_p2d_prep)
-    !
-!!$    !     (a) (dT/dt|phy, dqv/dt|phy, dqc/dt|phy, dqi/dt|phy) --> dexner/dt|phy
-!!$    !
-!!$    ! Loop over cells
-!!$!$OMP PARALLEL
-!!$!$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_ddt_qsum) ICON_OMP_DEFAULT_SCHEDULE
-!!$    DO jb = i_startblk,i_endblk
-!!$      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$      DO jk = 1,nlev
-!!$        DO jc = jcs, jce
-!!$          z_qsum     = pt_prog_new_rcf%tracer(jc,jk,jb,iqc) + pt_prog_new_rcf%tracer(jc,jk,jb,iqi)
-!!$          z_ddt_qsum = prm_tend(jg)% qtrc_phy(jc,jk,jb,iqc) + prm_tend(jg)% qtrc_phy(jc,jk,jb,iqi)
-!!$          !
-!!$          pt_diag%ddt_exner_phy(jc,jk,jb) =                                               &
-!!$            &  rd_o_cpd / pt_prog_new%theta_v(jc,jk,jb)                                   &
-!!$            &  * (  prm_tend(jg)%temp_phy(jc,jk,jb)                                       &
-!!$            &     * (1._wp + vtmpc1*pt_prog_new_rcf%tracer(jc,jk,jb,iqv) - z_qsum )       &
-!!$            &     + pt_diag%temp(jc,jk,jb)                                                &
-!!$            &     * (        vtmpc1*prm_tend(jg)% qtrc_phy(jc,jk,jb,iqv) - z_ddt_qsum ) )
-!!$          !
-!!$          ! Additionally use this loop also to set the dynamical exner increment to zero.
-!!$          ! (It is accumulated over one advective time step in solve_nh)
-!!$          pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
-!!$        END DO
-!!$      END DO
-!!$    END DO !jb
-!!$!$OMP END DO
-!!$!$OMP END PARALLEL
 
     !     (b) (du/dt|phy, dv/dt|phy) --> dvn/dt|phy
     !
@@ -866,8 +847,8 @@ CONTAINS
             ! Compute final new exner
             pt_prog_new%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd/p0ref * pt_prog_new%rho(jc,jk,jb) * pt_diag%tempv(jc,jk,jb)))
             !
-            ! Add exner change from fast phyiscs to exner_old (why?)
-            pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + pt_prog_new%exner(jc,jk,jb) - z_exner
+            ! Add exner change from fast phyiscs to exner_pr in order to avoid unphysical sound wave generation
+            pt_diag%exner_pr(jc,jk,jb) = pt_diag%exner_pr(jc,jk,jb) + pt_prog_new%exner(jc,jk,jb) - z_exner
             !
 !!$            ! (b) Update Exner, then compute Temp_v
 !!$            !
@@ -926,7 +907,7 @@ CONTAINS
         &                         ntracer+5                    ,&
         &                         pt_prog_new%w                ,&
         &                         pt_prog_new%rho              ,&
-        &                         pt_diag%exner_old            ,&
+        &                         pt_diag%exner_pr             ,&
         &                         pt_prog_new%exner            ,&
         &                         pt_prog_new%theta_v          ,&
         &                         f4din=pt_prog_new_rcf%tracer )
@@ -935,7 +916,7 @@ CONTAINS
         &                         patch                        ,&
         &                         ntracer+4                    ,&
         &                         pt_prog_new%rho              ,&
-        &                         pt_diag%exner_old            ,&
+        &                         pt_diag%exner_pr             ,&
         &                         pt_prog_new%exner            ,&
         &                         pt_prog_new%theta_v          ,&
         &                         f4din=pt_prog_new_rcf%tracer )
@@ -963,6 +944,17 @@ CONTAINS
     !
     !=====================================================================================
 
+  IF (lart) THEN
+      CALL art_reaction_interface(ext_data(jg),                    & !> in
+                &          patch,                              & !> in
+                &          datetime_new,                       & !> in
+                &          dt_loc,                             & !> in
+                &          p_prog_list,                        & !> in
+                &          pt_prog_new,                        &
+                &          p_metrics,                          & !> in
+                &          pt_diag,                            & !> inout
+                &          pt_prog_new_rcf%tracer)
+  ENDIF
 
   END SUBROUTINE interface_iconam_echam
   !----------------------------------------------------------------------------
