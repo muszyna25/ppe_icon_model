@@ -11,28 +11,8 @@ import glob
 
 create_folders=["run", "config"]
 
-link_files_alevel=["blas", "data", "doc", "grids", "vertical_coord_tables",
-"include", "lapack", "scripts", "src", "support", "externals", 
-"aclocal.m4", "configure.ac","configure", "make_runscripts", "make_my_runscript", "Makefile.in"]
-link_files_blevel=[
-"config/config.guess",
-"config/config.h.SX",
-"config/config.h.in",
-"config/config.sub",
-"config/createMakefiles.pl",
-"config/create_target_header",
-"config/install-sh",
-"config/make_target_runscript",
-"config/mh-aix",
-"config/mh-cygwin",
-"config/mh-darwin",
-"config/mh-linux",
-"config/mh-nec",
-"config/mh-override",
-"config/local_flags",
-"config/pvcs.pl",
-"config/missing"]
-
+all_files = os.listdir(".")
+#print all_files
 
 def warning(where,message):
   print '********************'
@@ -46,6 +26,43 @@ def error(where,message):
   print '********************'
   sys.exit(1)
 
+
+def create_build_folder(build_folder):
+  if (len(build_folder) < 1):
+    error(build_folder," invalid folder name")
+  
+  #---------------------------
+  # build the ...build  
+  #---------------------------
+  #create subfolders
+  if (os.access(build_folder, os.F_OK)):
+    warning(build_folder, "exists, skipping it.")
+    return
+  else:
+    os.mkdir(build_folder)    
+
+  # if the grid folder does not exist, create it
+  if (not os.access("grids", os.F_OK)):
+    os.mkdir("grids")
+  # make the links  
+  for file in all_files:
+    os.symlink("../"+file, build_folder+"/"+file)
+
+  for folder in create_folders:
+    os.remove(build_folder+"/"+folder)
+    os.mkdir(build_folder+"/"+folder)
+    folder_files = os.listdir(folder)
+    for file in folder_files:
+      link_file = folder+"/"+file
+      os.symlink("../../"+link_file, build_folder+"/"+link_file)
+  
+def create_build_local(build_folder, configure_options):
+  build_local_file=build_folder+"/build_local"
+  build_local  = open(build_local_file, 'w')
+  build_local.write("./configure "+configure_options+"\n")
+  # build_local.write("./build_command\n")
+  build_local.close()
+  os.chmod(build_local_file, stat.S_IRWXU | stat.S_IRGRP)
 
 builds_file="./config/multiple_builds"
 noOfTabSpaces=1
@@ -119,45 +136,9 @@ for line in infile:
   configure_options=line[sep_idx+1:]
  
   print "Creating "+build_folder+" with configure_options:"+configure_options
-  if (len(build_folder) < 1):
-    error(build_folder," invalid folder name")
-
-  #---------------------------
-  # build the ...build  
-  #---------------------------
-  #create subfolders
-  if (os.access(build_folder, os.F_OK)):
-    warning(build_folder, "exists, skipping it.")
-    continue
-  else:
-    os.mkdir(build_folder)    
-  for file in create_folders:
-    os.mkdir(build_folder+"/"+file)
-
-  # if the grid folder does not exist, create it
-  if (not os.access("grids", os.F_OK)):
-    os.mkdir("grids")
-  # make the links  
-  for file in link_files_alevel:
-    os.symlink("../"+file, build_folder+"/"+file)
-  for file in link_files_blevel:
-    os.symlink("../../"+file, build_folder+"/"+file)
-  
-  # link the run scripts
-  os.chdir("run")
-  for file in run_scripts:
-    runscripts=glob.glob(file)
-    for script in runscripts:
-      os.symlink("../../run/"+script, "../"+build_folder+"/run/"+script)
-  os.chdir("..")
-  
+  create_build_folder(build_folder)  
   # create the build_local
-  build_local_file=build_folder+"/build_local"
-  build_local  = open(build_local_file, 'w')
-  build_local.write("./configure "+configure_options+"\n")
-  build_local.write("./build_command\n")
-  build_local.close()
-  os.chmod(build_local_file, stat.S_IRWXU | stat.S_IRGRP)
-
+  create_build_local(build_folder, configure_options)
+ 
 sys.exit(0)
 

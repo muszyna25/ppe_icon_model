@@ -13,7 +13,6 @@
 MODULE mo_restart_util
     USE mo_cdi, ONLY: CDI_UNDEFID
     USE mo_cf_convention, ONLY: cf_global_info
-    USE mo_datetime, ONLY: t_datetime, iso8601, iso8601extended
     USE mo_exception, ONLY: get_filename_noext, finish, message
     USE mo_fortran_tools, ONLY: assign_if_present, assign_if_present_allocatable
     USE mo_impl_constants, ONLY: SUCCESS
@@ -23,7 +22,8 @@ MODULE mo_restart_util
     USE mo_run_config, ONLY: restart_filename
     USE mo_util_file, ONLY: util_symlink, util_islink, util_unlink
     USE mo_util_string, ONLY: int2string, real2string, associate_keyword, with_keywords, t_keyword_list
-
+    USE mtime, ONLY: datetime, newDatetime, deallocateDatetime, datetimeToString, MAX_DATETIME_STR_LEN
+    
     IMPLICIT NONE
 
     PRIVATE
@@ -38,14 +38,13 @@ MODULE mo_restart_util
 
     ! patch independent restart arguments
     TYPE t_restart_args
-        TYPE(t_datetime) :: datetime
+        TYPE(datetime), POINTER :: restart_datetime => NULL()
         INTEGER :: jstep
         CHARACTER(LEN = 32) :: modelType
         INTEGER, ALLOCATABLE :: output_jfile(:)
     CONTAINS
         PROCEDURE :: construct => restartArgs_construct
         PROCEDURE :: packer => restartArgs_packer   ! unpacking IS considered construction
-        PROCEDURE :: print => restartArgs_print
         PROCEDURE :: destruct => restartArgs_destruct
     END TYPE t_restart_args
 
@@ -53,17 +52,21 @@ MODULE mo_restart_util
 
 CONTAINS
 
-    FUNCTION getRestartFilename(baseName, domain, datetime, modelTypeName) RESULT(resultVar)
+    FUNCTION getRestartFilename(baseName, domain, this_datetime, modelTypeName) RESULT(resultVar)
         CHARACTER(LEN = *), INTENT(IN) :: baseName, modelTypeName
         INTEGER, VALUE :: domain
-        TYPE(t_datetime), INTENT(IN) :: datetime
+        TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
         CHARACTER(LEN = :), ALLOCATABLE :: resultVar
 
         CHARACTER(LEN=32) :: datetimeString
         TYPE(t_keyword_list), POINTER :: keywords => NULL()
 
-        datetimeString = iso8601(datetime)
-
+        WRITE (datetimeString,'(i4.4,2(i2.2),a,3(i2.2),a)')  &
+             & this_datetime%date%year, this_datetime%date%month, this_datetime%date%day , &
+             & 'T', &
+             & this_datetime%time%hour, this_datetime%time%minute, this_datetime%time%second, &
+             & 'Z'
+        
         ! build the keyword list
         CALL associate_keyword("<gridfile>", TRIM(get_filename_noext(baseName)), keywords)
         CALL associate_keyword("<idom>", TRIM(int2string(domain, "(i2.2)")), keywords)
@@ -74,14 +77,15 @@ CONTAINS
         resultVar = TRIM(with_keywords(keywords, TRIM(restart_filename)))
     END FUNCTION getRestartFilename
 
-    SUBROUTINE setGeneralRestartAttributes(restartAttributes, datetime, n_dom, jstep, opt_output_jfile)
+    SUBROUTINE setGeneralRestartAttributes(restartAttributes, this_datetime, n_dom, jstep, opt_output_jfile)
         TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
-        TYPE(t_datetime), INTENT(IN) :: datetime
+        TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
         INTEGER, VALUE :: n_dom, jstep
         INTEGER, OPTIONAL, INTENT(IN) :: opt_output_jfile(:)
 
+        CHARACTER(len=MAX_DATETIME_STR_LEN) :: dstring
         INTEGER :: i
-
+        
         ! set CF-Convention required restart attributes
         CALL restartAttributes%setText('title',       TRIM(cf_global_info%title))
         CALL restartAttributes%setText('institution', TRIM(cf_global_info%institution))
@@ -89,11 +93,8 @@ CONTAINS
         CALL restartAttributes%setText('history',     TRIM(cf_global_info%history))
         CALL restartAttributes%setText('references',  TRIM(cf_global_info%references))
         CALL restartAttributes%setText('comment',     TRIM(cf_global_info%comment))
-
-        CALL restartAttributes%setReal( 'current_caltime', datetime%caltime )
-        CALL restartAttributes%setInteger( 'current_calday' , INT(datetime%calday) )   !FIXME: Either it IS a bug that calday IS a 64bit INTEGER, OR it IS a bug that ONLY 32 bit of it are stored IN the restart file. Either way this needs to be fixed.
-        CALL restartAttributes%setReal( 'current_daysec' , datetime%daysec )
-        CALL restartAttributes%setText('tc_startdate', iso8601extended(datetime))   ! in preparation for move to mtime
+        CALL datetimeToString(this_datetime, dstring)
+        CALL restartAttributes%setText('tc_startdate', TRIM(dstring))   ! in preparation for move to mtime
 
         ! no. of domains AND simulation step
         CALL restartAttributes%setInteger( 'n_dom', n_dom)
@@ -175,14 +176,18 @@ CONTAINS
         IF(iret /= SUCCESS) WRITE(0, *) routine//': cannot create symbolic link "'//TRIM(linkname)//'" for "'//filename//'"'
     END SUBROUTINE create_restart_file_link
 
-    SUBROUTINE restartArgs_construct(me, datetime, jstep, modelType, opt_output_jfile)
+    SUBROUTINE restartArgs_construct(me, this_datetime, jstep, modelType, opt_output_jfile)
         CLASS(t_restart_args), INTENT(INOUT) :: me
-        TYPE(t_datetime), INTENT(IN) :: datetime
+        TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
         INTEGER, VALUE :: jstep
         CHARACTER(LEN = *), INTENT(IN) :: modelType
         INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
 
-        me%datetime = datetime
+        integer :: ierr
+
+        me%restart_datetime => newDatetime(this_datetime%date%year, this_datetime%date%month, this_datetime%date%day, &
+             &                             this_datetime%time%hour, this_datetime%time%minute, this_datetime%time%second, &
+             &                             this_datetime%time%ms, ierr)
         me%jstep = jstep
         me%modelType = modelType
         CALL assign_if_present_allocatable(me%output_jfile, opt_output_jfile)
@@ -192,37 +197,30 @@ CONTAINS
         CLASS(t_restart_args), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
         TYPE(t_PackedMessage), INTENT(INOUT) :: packedMessage
-
-        INTEGER :: calday
-
-        CALL packedMessage%packer(operation, me%datetime%year)
-        CALL packedMessage%packer(operation, me%datetime%month)
-        CALL packedMessage%packer(operation, me%datetime%day)
-        CALL packedMessage%packer(operation, me%datetime%hour)
-        CALL packedMessage%packer(operation, me%datetime%minute)
-        CALL packedMessage%packer(operation, me%datetime%second)
-        CALL packedMessage%packer(operation, me%datetime%caltime)
-        IF(operation == kPackOp) calday = INT(me%datetime%calday)   !The IF IS needed to avoid overflow when me%datetime%calday IS uninitialized.
-        CALL packedMessage%packer(operation, calday)
-        IF(operation == kUnpackOp) me%datetime%calday = INT(calday,i8)
-        CALL packedMessage%packer(operation, me%datetime%daysec)
+        CHARACTER(len=*), PARAMETER ::  routine = modname//':restartArgs_packer'
+        
+        IF (operation == kPackOp .AND. .NOT. ASSOCIATED(me%restart_datetime)) THEN
+          CALL finish(routine, 'Assertion failed: cannot pack unconstructed object.')
+        ENDIF
+        IF (.NOT. ASSOCIATED(me%restart_datetime)) THEN
+          me%restart_datetime => newDatetime(1878_i8,1,1,0,0,0,0)
+        ENDIF
+        
+        CALL packedMessage%packer(operation, me%restart_datetime%date%year)
+        CALL packedMessage%packer(operation, me%restart_datetime%date%month)
+        CALL packedMessage%packer(operation, me%restart_datetime%date%day)
+        CALL packedMessage%packer(operation, me%restart_datetime%time%hour)
+        CALL packedMessage%packer(operation, me%restart_datetime%time%minute)
+        CALL packedMessage%packer(operation, me%restart_datetime%time%second)
         CALL packedMessage%packer(operation, me%jstep)
         CALL packedMessage%packer(operation, me%modelType)
         CALL packedMessage%packer(operation, me%output_jfile)
     END SUBROUTINE restartArgs_packer
 
-    SUBROUTINE restartArgs_print(me, prefix)
-        CLASS(t_restart_args), INTENT(IN) :: me
-        CHARACTER(LEN = *), INTENT(IN) :: prefix
-
-        PRINT*, prefix//'current_calday='//TRIM(int2string(INT(me%datetime%calday)))
-        PRINT*, prefix//'current_caltime='//TRIM(real2string(me%datetime%caltime))
-        PRINT*, prefix//'current_daysec='//TRIM(real2string(me%datetime%daysec))
-    END SUBROUTINE restartArgs_print
-
     SUBROUTINE restartArgs_destruct(me)
         CLASS(t_restart_args), INTENT(INOUT) :: me
 
+        IF(ASSOCIATED(me%restart_datetime)) CALL deallocateDatetime(me%restart_datetime)
         IF(ALLOCATED(me%output_jfile)) DEALLOCATE(me%output_jfile)
     END SUBROUTINE restartArgs_destruct
 

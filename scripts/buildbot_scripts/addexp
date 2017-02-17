@@ -28,14 +28,14 @@ args = parser.parse_args()
 
 if args.builder_names and (args.machine_names or args.withConfigureFlags or args.withoutConfigureFlags):
   print("You cannot specify a builder with additional options.")
-  quit()
+  quit(1)
 
 paths = model_paths()
 experiment_names = paths.get_experimentsNames_inPaths(args.experiment_names)
 #print(experiment_names)
 if not paths.thisListExists(args.list_name):
   print("The list "+args.list_name+" does not exist.")
-  quit()
+  quit(1)
 
 if not args.runFlags: args.runFlags = ""
 

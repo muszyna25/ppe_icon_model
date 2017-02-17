@@ -136,17 +136,21 @@ CONTAINS
 
      LOGICAL              :: l_checkpoint
 
-     IF (PRESENT(n_steps)) THEN
-       IF ( MOD(current_step,n_checkpoints)==0 .AND. current_step/=n_steps ) THEN
-         l_checkpoint = .TRUE.
-       ELSE
-         l_checkpoint = .FALSE.
-       END IF
+     IF (n_checkpoints == 0) THEN
+       l_checkpoint = .FALSE.
      ELSE
-       IF ( MOD(current_step,n_checkpoints)==0 ) THEN
-         l_checkpoint = .TRUE.
+       IF (PRESENT(n_steps)) THEN
+         IF ( MOD(current_step,n_checkpoints)==0 .AND. current_step/=n_steps ) THEN
+           l_checkpoint = .TRUE.
+         ELSE
+           l_checkpoint = .FALSE.
+         END IF
        ELSE
-         l_checkpoint = .FALSE.
+         IF ( MOD(current_step,n_checkpoints)==0 ) THEN
+           l_checkpoint = .TRUE.
+         ELSE
+           l_checkpoint = .FALSE.
+         END IF
        END IF
      END IF
    END FUNCTION is_checkpoint_time
