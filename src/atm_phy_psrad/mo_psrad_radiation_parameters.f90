@@ -31,8 +31,7 @@ MODULE mo_psrad_radiation_parameters
   USE mo_kind,            ONLY: wp
   USE mo_model_domain,    ONLY: t_patch
   USE mo_parallel_config, ONLY: nproma
-  USE mo_math_constants,  ONLY: pi
-!!$  USE mo_control,         ONLY: lrce
+  USE mo_math_constants,  ONLY: pi, pi2, pi_2 ! pi, pi*2, pi/2
 
 IMPLICIT NONE
 
@@ -45,10 +44,9 @@ IMPLICIT NONE
   PUBLIC :: ih2o, ico2, ich4, io3, io2, in2o, icfc, ighg, iaero, fco2
   PUBLIC :: co2vmr, ch4vmr, o2vmr, n2ovmr, cfcvmr
   PUBLIC :: co2mmr, ch4mmr, o2mmr, n2ommr            
-  PUBLIC :: twopi, deg2rad, ch4_v, n2o_v
-  PUBLIC :: cemiss, diff, rad_undef, solc
-  PUBLIC :: psct, psctm, ssi_factor, flx_ratio_cur, flx_ratio_rad, decl_sun_cur 
-  PUBLIC :: l_interp_rad_in_time, zepzen
+  PUBLIC :: ch4_v, n2o_v
+  PUBLIC :: cemiss, diff, rad_undef
+  PUBLIC :: psctm, ssi_factor, flx_ratio_cur, flx_ratio_rad, decl_sun_cur 
   
   ! 1.0 NAMELIST global variables and parameters
   ! --------------------------------
@@ -69,7 +67,6 @@ IMPLICIT NONE
   ! Radiation driver
   LOGICAL :: l_do_sep_clear_sky = .TRUE. ! Compute clear-sky fluxes by removing clouds
   INTEGER :: i_overlap = 1               ! 1 = max-ran, 2 = max, 3 = ran
-  LOGICAL :: l_interp_rad_in_time = .TRUE. 
   !
   ! --- Switches for radiative agents
   !
@@ -94,9 +91,7 @@ IMPLICIT NONE
   !
   ! 2.0 Non NAMELIST global variables and parameters
   ! --------------------------------
-  REAL(wp), PARAMETER :: twopi    = 2.0_wp*pi
-  REAL(wp), PARAMETER :: deg2rad  = pi/180.0_wp
-  REAL(wp), PARAMETER :: ch4_v(3) = (/1.25e-01_wp,  683.0_wp, -1.43_wp  /)
+  REAL(wp), PARAMETER :: ch4_v(3) = (/1.25e-01_wp,  683.0_wp, -1.43_wp/)
   REAL(wp), PARAMETER :: n2o_v(3) = (/1.20e-02_wp, 1395.0_wp, -1.43_wp/)
   !
   ! --- radiative transfer parameters
@@ -104,14 +99,8 @@ IMPLICIT NONE
   REAL(wp), PARAMETER :: cemiss = 0.996_wp  !< LW Emissivity Factor
   REAL(wp), PARAMETER :: diff   = 1.66_wp   !< LW Diffusivity Factor
   REAL(wp), PARAMETER :: rad_undef = -999._wp
-  REAL(wp), PARAMETER :: zepzen = 1.e-10_wp 
   !
-  !
-  REAL(wp) :: solc = 1361.371_wp            !< default solar constant [W/m2] for
-                                            !  AMIP-type CMIP5 simulation
   !++hs
-  REAL(wp) :: psct                          !< local (orbit relative and possibly
-  !                                            time dependent) solar constant
   REAL(wp) :: psctm                         !< orbit and time dependent solar constant for radiation time step
   REAL(wp) :: ssi_factor(14)                !< fraction of TSI in the 14 RRTM SW bands
   !--hs
@@ -140,28 +129,26 @@ contains
   !! is set to 1 or 0 depending on whether the zenith angle is greater or 
   !! less than 1. 
   !
-  SUBROUTINE solar_parameters(decl_sun, dist_sun,        time_of_day,         &
-       &                      ldiur,    l_sph_symm_irr,  p_patch,             &
-!!$   &                     ,sinlon, sinlat, coslon, coslat                   &
-       &                      flx_ratio,cos_mu0,         daylght_frc          )   
+  SUBROUTINE solar_parameters(decl_sun,    dist_sun,                          &
+       &                      time_of_day, dt_ext,                            &
+       &                      ldiur,       l_sph_symm_irr,                    &
+       &                      p_patch,                                        &
+       &                      flx_ratio,   cos_mu0,         daylight_frc      )
 
     REAL(wp), INTENT(in)  :: &
          decl_sun,           & !< delination of the sun
          dist_sun,           & !< distance from the sun in astronomical units
-         time_of_day           !< time_of_day (in radians)
+         time_of_day,        & !< time_of_day (in radians)
+         dt_ext                !< time interval overfor which the insolated area is extended
     LOGICAL               :: &
          ldiur,              & !< diurnal cycle ON (ldiur=.TRUE.) or OFF (ldiur=.FALSE.)
          l_sph_symm_irr        !< spherical symmetric irradiation ON (l_sph_symm_irr=.TRUE.)
                                !< or OFF (l_sph_symm_irr=.FALSE.)
     TYPE(t_patch), INTENT(in) ::      p_patch
-!!$         sinlon(:,:),        & !< sines of longitudes
-!!$         sinlat(:,:),        & !< and latitudes
-!!$         coslon(:,:),        & !< cosines of longitudes
-!!$         coslat(:,:)           !< and latitudes
     REAL(wp), INTENT(out) :: &
          flx_ratio,          & !< ratio of actual to average solar constant
          cos_mu0(:,:),       & !< cos_mu_0, cosine of the solar zenith angle
-         daylght_frc(:,:)      !< daylight fraction (0 or 1) with diurnal cycle
+         daylight_frc(:,:)     !< daylight fraction (0 or 1) with diurnal cycle
 
     INTEGER     :: i, j
     REAL(wp)    :: zen1, zen2, zen3, z1, z2, z3, xx
@@ -171,16 +158,19 @@ contains
     REAL (wp), SAVE :: cosrad(nds), sinrad(nds)
     REAL (wp)       :: xsmpl(nds), xnmbr(nds)
     REAL (wp), ALLOCATABLE :: sinlon(:,:), sinlat(:,:), coslon(:,:), coslat(:,:)
+    REAL (wp), ALLOCATABLE :: mu0(:,:)
+
+    REAL (wp) :: dcosmu0, dmu0
 
     INTEGER :: nprom, npromz, nblks
 
     IF (.NOT.initialized) THEN
-      DO i = 1, nds
-        xx = twopi*(i-1.0_wp)/nds
-        sinrad(i) = SIN(xx)
-        cosrad(i) = COS(xx)
-      END DO
-      initialized = .TRUE.
+       DO i = 1, nds
+          xx = pi2*(i-1.0_wp)/nds
+          sinrad(i) = SIN(xx)
+          cosrad(i) = COS(xx)
+       END DO
+       initialized = .TRUE.
     END IF
 
     flx_ratio = 1.0_wp/dist_sun**2
@@ -195,6 +185,7 @@ contains
     ALLOCATE(sinlat(nprom,nblks))
     ALLOCATE(coslon(nprom,nblks))
     ALLOCATE(coslat(nprom,nblks))
+    ALLOCATE(mu0(nprom,nblks))
     sinlon(:,:)=0._wp
     sinlat(:,:)=0._wp
     coslon(:,:)=0._wp
@@ -212,10 +203,10 @@ contains
        IF (ldiur) THEN              ! all grid points have diurnal cycle as if they
                                     ! were on the equator of a Kepler orbit
           cos_mu0(:,:)     = -zen2
-          daylght_frc(:,:) = 1.0_wp
           WHERE (cos_mu0(:,:) < 0.0_wp)
-             cos_mu0(:,:)     = 0.0_wp
-             daylght_frc(:,:) = 0.0_wp
+             daylight_frc(:,:) = 0.0_wp
+          ELSEWHERE
+             daylight_frc(:,:) = 1.0_wp
           END WHERE
        ELSE
           DO j = 1, SIZE(cos_mu0,2)
@@ -228,52 +219,78 @@ contains
                    xnmbr(:) = 0.0_wp
                 END WHERE
 
-                cos_mu0(i,j)     = SUM(xsmpl(:))
-                daylght_frc(i,j) = SUM(xnmbr(:))
+                cos_mu0(i,j)      = SUM(xsmpl(:))
+                daylight_frc(i,j) = SUM(xnmbr(:))
              END DO
           END DO
 
-          WHERE (daylght_frc(:,:) > EPSILON(1.0_wp))
-             cos_mu0(:,:)     = cos_mu0(:,:)/daylght_frc(:,:)
-             daylght_frc(:,:) = daylght_frc(:,:)/nds
+          WHERE (daylight_frc(:,:) > EPSILON(1.0_wp))
+             cos_mu0(:,:)      = cos_mu0(:,:)/daylight_frc(:,:)
+             daylight_frc(:,:) = daylight_frc(:,:)/nds
           END WHERE
        END IF
-     ELSE           ! normal radiation calculation
-     IF (ldiur) THEN
-       cos_mu0(:,:)     =  zen1*sinlat(:,:)                &
-            &             -zen2*coslat(:,:)*coslon(:,:)    &
-            &             +zen3*coslat(:,:)*sinlon(:,:) 
-       daylght_frc(:,:) = 1.0_wp
-       WHERE (cos_mu0(:,:) < 0.0_wp)
-         cos_mu0(:,:)     = 0.0_wp
-         daylght_frc(:,:) = 0.0_wp
-       END WHERE
-     ELSE
-       DO j = 1, SIZE(cos_mu0,2)
-         DO i = 1, SIZE(cos_mu0,1)
- 
-           z1 =  zen1*sinlat(i,j)
-           z2 = -zen2*coslat(i,j)
-           z3 =  zen3*coslat(i,j)
+    ELSE           ! normal radiation calculation
+       IF (ldiur) THEN
+          !
+          ! cos(zenith angle), positive for sunlit hemisphere
+          cos_mu0(:,:)     =  zen1*sinlat(:,:)                &
+               &             -zen2*coslat(:,:)*coslon(:,:)    &
+               &             +zen3*coslat(:,:)*sinlon(:,:)
+          !
+          ! zenith angle
+          mu0(:,:) = ACOS(cos_mu0(:,:))
+          !
+          ! increment of mu0 to include a rim of width dmu0= (dt_ext/2)*2pi/1day around
+          ! the sunlit hemisphere at the radiation time so that the extended area includes
+          ! the sunlit areas of all time step within the radiation interval of length dt_ext
+          ! centered at the radiation time
+          dmu0    = dt_ext/86400._wp*pi
+          dcosmu0 = SIN(dmu0)
+          !
+          ! add increment for the definition of the extended daylight area
+          ! set day/night indicator to 1/0
+          WHERE (cos_mu0(:,:)+dcosmu0 < 0.0_wp)
+             daylight_frc(:,:) = 0.0_wp
+          ELSEWHERE
+             daylight_frc(:,:) = 1.0_wp
+          END WHERE
+          !
+          ! now redefine cos_mu0 in a band of width +/-dmu0 around the original terminator
+          ! using a linear function of mu0 such that:
+          !   inner edge                       : mu0=pi/2-dmu0 --> cos_mu0 = cos(pi/2-dmu0)
+          !   center     = original terminator : mu0=pi/2      --> cos_mu0 = cos(pi/2-dmu0)/2
+          !   outer edge = extended terminator : mu0=pi/2+dmu0 --> cos_mu0 = 0
+          !
+          WHERE (ABS(mu0(:,:)-pi_2)<dmu0)
+             cos_mu0(:,:) = 0.5_wp*SIN(dmu0)*(1._wp-(mu0(:,:)-pi_2)/dmu0)
+          END WHERE
+          !
+       ELSE
+          DO j = 1, SIZE(cos_mu0,2)
+             DO i = 1, SIZE(cos_mu0,1)
 
-           xsmpl(:) = z1 + z2*cosrad(:) + z3*sinrad(:)
-           xnmbr(:) = 1.0_wp
-           WHERE (xsmpl(:) < EPSILON(1.0_wp))
-             xsmpl(:) = 0.0_wp
-             xnmbr(:) = 0.0_wp
-           END WHERE
+                z1 =  zen1*sinlat(i,j)
+                z2 = -zen2*coslat(i,j)
+                z3 =  zen3*coslat(i,j)
 
-           cos_mu0(i,j)     = SUM(xsmpl(:))
-           daylght_frc(i,j) = SUM(xnmbr(:))
-         END DO
-       END DO
- 
-       WHERE (daylght_frc(:,:) > EPSILON(1.0_wp))
-         cos_mu0(:,:)     = cos_mu0(:,:)/daylght_frc(:,:)
-         daylght_frc(:,:) = daylght_frc(:,:)/nds
-       END WHERE
-     END IF
-   END IF
+                xsmpl(:) = z1 + z2*cosrad(:) + z3*sinrad(:)
+                xnmbr(:) = 1.0_wp
+                WHERE (xsmpl(:) < EPSILON(1.0_wp))
+                   xsmpl(:) = 0.0_wp
+                   xnmbr(:) = 0.0_wp
+                END WHERE
+
+                cos_mu0(i,j)      = SUM(xsmpl(:))
+                daylight_frc(i,j) = SUM(xnmbr(:))
+             END DO
+          END DO
+
+          WHERE (daylight_frc(:,:) > EPSILON(1.0_wp))
+             cos_mu0(:,:)      = cos_mu0(:,:)/daylight_frc(:,:)
+             daylight_frc(:,:) = daylight_frc(:,:)/nds
+          END WHERE
+       END IF
+    END IF
 
   END SUBROUTINE solar_parameters
 
