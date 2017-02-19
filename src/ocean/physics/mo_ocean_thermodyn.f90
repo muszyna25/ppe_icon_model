@@ -478,7 +478,7 @@ CONTAINS
     CASE(1)
       CALL calculate_density_linear(patch_3d, tracer, rho)
     CASE(2)
-      CALL calculate_density_linear(patch_3d, tracer, rho)      
+      CALL calculate_density_mpiom(patch_3d, tracer, rho)
     CASE(3)
       CALL calculate_density_jmdwfg06(patch_3d, tracer, rho)
       !CALL calculate_density_JM_EOS(patch_2D, tracer, rho)
