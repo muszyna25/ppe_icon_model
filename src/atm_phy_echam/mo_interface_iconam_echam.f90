@@ -418,7 +418,7 @@ CONTAINS
         time_interpolation%weight2=current_time_interpolation_weights%weight2
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-          avi%pres                     => prm_field(jg)%presm_old(jcs:jce,:,jb)
+          avi%pres                     => prm_field(jg)%presm_old(:,:,jb)
           avi%cell_center_lat(jcs:jce) =  patch%cells%center(jcs:jce,jb)%lat
           CALL lcariolle_init_o3(                                              &
            & jcs,                   jce,                nproma,                &
