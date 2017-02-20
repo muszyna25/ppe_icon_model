@@ -41,9 +41,11 @@ MODULE mo_art_reaction_interface
   USE mtime,                            ONLY: datetime
 #ifdef __ICON_ART
   USE mo_art_decay_radioact,            ONLY: art_decay_radioact
+#if 0
   USE mo_art_chemtracer,                ONLY: art_loss_chemtracer
   USE mo_art_gasphase,                  ONLY: art_loss_gasphase
   USE mo_art_photolysis,                ONLY: art_photolysis
+#endif
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_radio
   USE mo_art_config,                    ONLY: art_config
@@ -149,7 +151,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,mtime_datetime,p_dtime,p_pro
     ! ----------------------------------
 
     IF (art_config(jg)%lart_chem) THEN
-    
+#if 0
       SELECT CASE(art_config(jg)%iart_chem_mechanism)
         CASE(0)
           CALL art_loss_chemtracer(ext_data, p_patch, &
@@ -237,6 +239,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,mtime_datetime,p_dtime,p_pro
           CALL finish('mo_art_reaction_interface:art_reaction_interface', &
                &      'ART: Unknown iart_chem_mechanism')
       END SELECT
+#endif
     ENDIF !lart_chem
 
   ENDIF ! lart
