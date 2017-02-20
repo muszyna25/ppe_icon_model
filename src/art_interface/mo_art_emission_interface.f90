@@ -48,7 +48,6 @@ MODULE mo_art_emission_interface
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nwp_lnd_types,                 ONLY: t_lnd_diag
   USE mo_run_config,                    ONLY: lart,ntracer,iforcing 
-  USE mo_datetime,                      ONLY: t_datetime
   USE mo_time_config,                   ONLY: time_config
   USE mo_impl_constants,                ONLY: iecham, inwp
   USE mtime,                            ONLY: datetime
@@ -90,7 +89,7 @@ CONTAINS
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_diag_lnd,rho,datetime,tracer)
+SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_diag_lnd,rho,mtime_current,tracer)
   !! Interface for ART: Emissions
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2012-01-27)
@@ -110,8 +109,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     &  p_diag_lnd              !< List of diagnostic fields (land)
   REAL(wp), INTENT(inout) :: &
     &  rho(:,:,:)              !< Density of air [kg/m3]
-  TYPE(datetime), POINTER :: &
-    &  datetime                !< Date and time information
+  TYPE(datetime), POINTER :: mtime_current !< Date and time information
   REAL(wp), INTENT(inout) :: &
     &  tracer(:,:,:,:)         !< Tracer mixing ratios [kg kg-1]
   ! Local variables
@@ -128,6 +126,15 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: &
     &  this_mode               !< pointer to current aerosol mode
+
+  REAL(wp)                :: p_sim_time     !< elapsed simulation time on this grid level
+  
+  ! calculate elapsed simulation time in seconds (local time for
+  ! this domain!)
+  time_diff  => newTimedelta("PT0S")
+  time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_exp_startdate)
+  p_sim_time =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
+  CALL deallocateTimedelta(time_diff)
 
   ! --- Get the loop indizes
   i_nchdom   = MAX(1,p_patch%n_childdom)
@@ -149,29 +156,17 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     ALLOCATE(emiss_rate(nproma,nlev))
     ALLOCATE(dz(nproma,nlev))
 
-   ! IF (art_config(jg)%lart_aerosol .OR. art_config(jg)%lart_chem &
-   !     .OR. art_config(jg)%lart_passive) THEN
-   !   DO jb = i_startblk, i_endblk
-   !     CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-   !       &                istart, iend, i_rlstart, i_rlend)
-   !     
-   !     CALL art_add_emission_to_tracers(tracer,p_patch,p_nh_state%metrics,                &
-   !                                   &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,  &
-   !                                   &  jb,istart,iend,datetime,prm_diag%swflx_par_sfc)
-   !   END DO
-   ! END IF
-
     IF (art_config(jg)%lart_aerosol .OR. art_config(jg)%lart_chem &
         .OR. art_config(jg)%lart_passive) THEN
       IF(p_art_data(jg)%emiss%is_init) THEN
         IF (iforcing == inwp) THEN
           CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
                                       &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &
-                                      &  datetime,prm_diag%swflx_par_sfc)
+                                      &  mtime_current,prm_diag%swflx_par_sfc)
         ELSE IF (iforcing == iecham) THEN
           CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
                                       &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &
-                                      &  datetime)
+                                      &  mtime_current)
         ENDIF
       ENDIF
     ENDIF
@@ -332,7 +327,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             ! Nothing to do here
           CLASS is (t_fields_radio)
             CALL art_emiss_radioact(dtime,rho,p_patch%cells%area,p_nh_state%metrics%ddqz_z_full,  &
-              &                     fields%imis,time_config%sim_time(jg),tracer(:,:,:,fields%itr),&
+              &                     fields%imis,p_sim_time,tracer(:,:,:,fields%itr),&
               &                     p_art_data(jg)%ext%radioact_data)
 
           CLASS is (t_fields_volc)
@@ -366,7 +361,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
             
-            CALL art_emiss_chemtracer(datetime,                       &
+            CALL art_emiss_chemtracer(mtime_current,                  &
               &                       dtime,                          &
               &                       tracer,                         &
               &                       p_nh_state%diag%pres,           &
@@ -382,7 +377,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
             
-            CALL art_emiss_chemtracer(datetime,                       &
+            CALL art_emiss_chemtracer(mtime_current,                  &
               &                       dtime,                          &
               &                       tracer,                         &
               &                       p_nh_state%diag%pres,           &
@@ -398,7 +393,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
             
-            CALL art_emiss_gasphase(datetime,                       &
+            CALL art_emiss_gasphase(mtime_current,                  &
               &                     dtime,                          &
               &                     tracer,                         &
               &                     p_nh_state%diag%pres,           &

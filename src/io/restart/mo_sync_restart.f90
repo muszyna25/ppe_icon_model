@@ -52,8 +52,9 @@
 !!
 !OPTION! -pvctl conflict
 MODULE mo_sync_restart
+
   USE mo_communication,             ONLY: t_comm_gather_pattern, exchange_data
-  USE mo_datetime,                  ONLY: t_datetime
+  USE mtime,                        ONLY: datetime
   USE mo_dynamics_config,           ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf
   USE mo_exception,                 ONLY: finish, message
   USE mo_fortran_tools,             ONLY: t_ptr_2d, t_ptr_2d_sp
@@ -120,10 +121,10 @@ CONTAINS
     END DO
   END SUBROUTINE syncRestartDescriptor_construct
 
-  SUBROUTINE syncRestartDescriptor_defineRestartAttributes(me, restartAttributes, datetime, jstep, opt_output_jfile)
+  SUBROUTINE syncRestartDescriptor_defineRestartAttributes(me, restartAttributes, this_datetime, jstep, opt_output_jfile)
     CLASS(t_SyncRestartDescriptor), TARGET, INTENT(IN) :: me
     TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
-    TYPE(t_datetime), INTENT(IN) :: datetime
+    TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
     INTEGER, VALUE :: jstep
     INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
 
@@ -135,7 +136,7 @@ CONTAINS
     ! first the attributes that are independent of the domain
     effectiveDomainCount = 1
     IF(ALLOCATED(me%patchData(1)%description%opt_ndom)) effectiveDomainCount = me%patchData(1)%description%opt_ndom
-    CALL setGeneralRestartAttributes(restartAttributes, datetime, effectiveDomainCount, jstep, opt_output_jfile)
+    CALL setGeneralRestartAttributes(restartAttributes, this_datetime, effectiveDomainCount, jstep, opt_output_jfile)
 
     ! now the stuff that depends on the domain
     DO jg = 1, n_dom
@@ -144,9 +145,9 @@ CONTAINS
         CALL setDynamicPatchRestartAttributes(restartAttributes, jg, nold(jg), nnow(jg), nnew(jg), nnow_rcf(jg), nnew_rcf(jg))
 
         !----------------
-        ! additional restart-output for nonhydrostatic model
-        IF(ALLOCATED(curDescription%opt_sim_time)) CALL restartAttributes%setReal('sim_time_DOM'//jgString, &
-                                                                                 &curDescription%opt_sim_time )
+        ! additional restart-output for nonhydrostatic model, not available anymore LK
+        !IF(ALLOCATED(curDescription%opt_sim_time)) CALL restartAttributes%setReal('sim_time_DOM'//jgString, &
+        !                                                                         &curDescription%opt_sim_time )
 
         !-------------------------------------------------------------
         ! DR
@@ -169,9 +170,9 @@ CONTAINS
     END DO
   END SUBROUTINE syncRestartDescriptor_defineRestartAttributes
 
-  SUBROUTINE syncRestartDescriptor_writeRestart(me, datetime, jstep, opt_output_jfile)
+  SUBROUTINE syncRestartDescriptor_writeRestart(me, this_datetime, jstep, opt_output_jfile)
     CLASS(t_SyncRestartDescriptor), INTENT(INOUT) :: me
-    TYPE(t_datetime), INTENT(IN) :: datetime
+    TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
     INTEGER, INTENT(IN) :: jstep
     INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
 
@@ -183,8 +184,8 @@ CONTAINS
     IF(ltimer) CALL timer_start(timer_write_restart_file)
 
     restartAttributes => RestartAttributeList_make()
-    CALL me%defineRestartAttributes(restartAttributes, datetime, jstep, opt_output_jfile)
-    CALL restartArgs%construct(datetime, jstep, me%modelType, opt_output_jfile)
+    CALL me%defineRestartAttributes(restartAttributes, this_datetime, jstep, opt_output_jfile)
+    CALL restartArgs%construct(this_datetime, jstep, me%modelType, opt_output_jfile)
 
     DO jg = 1, n_dom
         CALL me%patchData(jg)%description%setTimeLevels() !update the time levels
@@ -204,10 +205,10 @@ CONTAINS
     DEALLOCATE(me%patchData)
   END SUBROUTINE syncRestartDescriptor_destruct
 
-  SUBROUTINE defineRestartAttributes(restartAttributes, datetime, jstep, opt_ndom, opt_ndyn_substeps, &
+  SUBROUTINE defineRestartAttributes(restartAttributes, this_datetime, jstep, opt_ndom, opt_ndyn_substeps, &
                                     &opt_jstep_adv_marchuk_order, opt_output_jfile, opt_sim_time, opt_t_elapsed_phy, opt_lcall_phy)
     TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
-    TYPE(t_datetime), INTENT(IN) :: datetime
+    TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
     INTEGER, VALUE :: jstep
     INTEGER, INTENT(IN), OPTIONAL :: opt_ndom, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_output_jfile(:)
     REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_t_elapsed_phy(:,:)
@@ -220,7 +221,7 @@ CONTAINS
     ! first the attributes that are independent of the domain
     effectiveDomainCount = 1
     IF(PRESENT(opt_ndom)) effectiveDomainCount = opt_ndom
-    CALL setGeneralRestartAttributes(restartAttributes, datetime, effectiveDomainCount, jstep, opt_output_jfile)
+    CALL setGeneralRestartAttributes(restartAttributes, this_datetime, effectiveDomainCount, jstep, opt_output_jfile)
 
     ! now the stuff that depends on the domain
     DO jg = 1, n_dom

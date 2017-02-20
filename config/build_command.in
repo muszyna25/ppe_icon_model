@@ -94,9 +94,9 @@ then
             then
                 module_swap $current_prgenv $mod
             fi
+            module unload $mod
+            module load $mod        
         done
-        module unload $mod
-        module load $mod        
     else
         # module update on other systems, non-Cray
         for mod in $module_list
