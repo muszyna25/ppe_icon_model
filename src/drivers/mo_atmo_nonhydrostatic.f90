@@ -284,11 +284,16 @@ CONTAINS
       !!       It is the case for some testcases, but not e.g. for coupled or AMIP runs if the atmosphere
       !!       is initialized with IFS analyses.
       DO jg = 1,n_dom
-        CALL initcond_echam_phy( jg                                               ,&
-          &                      p_patch(jg)                                      ,&
-          &                      p_nh_state(jg)%diag          % temp  (:,:,:)     ,&
-          &                      p_nh_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqv) ,&
-          &                      nh_test_name                                     )
+        CALL initcond_echam_phy( jg                                                 ,&
+          &                      p_patch(jg)                                        ,&
+          &                      p_nh_state(jg)% metrics% z_ifc         (:,:,:)     ,&
+          &                      p_nh_state(jg)% metrics% z_mc          (:,:,:)     ,&
+          &                      p_nh_state(jg)% metrics% ddqz_z_full   (:,:,:)     ,&
+          &                      p_nh_state(jg)% metrics% geopot_agl_ifc(:,:,:)     ,&
+          &                      p_nh_state(jg)% metrics% geopot_agl    (:,:,:)     ,&
+          &                      p_nh_state(jg)% diag% temp             (:,:,:)     ,&
+          &                      p_nh_state(jg)% prog(nnow(jg))% tracer (:,:,:,iqv) ,&
+          &                      nh_test_name                                        )
       END DO
     END IF
 !---
@@ -357,12 +362,12 @@ CONTAINS
           &             ext_data(1:)    )
 
         ! initialize tracers fields jt=iqt to jt=ntracer, which are not available
-        ! in the analysis file, to a non-zero value
+        ! in the analysis file
         DO jg = 1,n_dom
            IF (.NOT. p_patch(jg)%ldom_active) CYCLE
            DO jt = iqt,ntracer
 !$OMP PARALLEL
-             CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,jt),100.e-6_wp)
+             CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,jt),0.0_wp)
 !$OMP END PARALLEL
           END DO
         END DO

@@ -51,13 +51,7 @@
 MODULE mo_cuascent
   USE mo_kind,                 ONLY : wp
   USE mo_physical_constants,   ONLY : grav, tmelt, vtmpc1, rv, rd, alv, als
-#ifndef __ICON__
-  USE mo_echam_conv_constants, ONLY : lmfdudv, lmfmid, nmctop, cmfcmin, cmfcmax,     &
-    &                                 cprcon, entrmid, cmfctop, centrmax, cbfac,     &
-    &                                 cminbuoy, cmaxbuoy
-#else
   USE mo_echam_conv_config,    ONLY : echam_conv_config
-#endif
   USE mo_cuadjust,             ONLY : cuadjtq
 
 #ifdef _PROFILE
@@ -68,22 +62,21 @@ MODULE mo_cuascent
   PRIVATE
   PUBLIC :: cuasc, cubasmc, cuentr
 
-#ifdef __ICON__
   ! to simplify access to components of echam_conv_config
   LOGICAL , POINTER :: lmfmid, lmfdudv
   INTEGER , POINTER :: nmctop
   REAL(wp), POINTER :: entrmid, cprcon, cmfctop, cmfcmin, cmfcmax, cminbuoy, cmaxbuoy, cbfac, centrmax
   REAL(wp), POINTER :: dlev_land, dlev_ocean
-#endif
 
 
 CONTAINS
   !>
   !!
   SUBROUTINE cuasc(    kproma, kbdim, klev, klevp1, klevm1,                          &
+    &        pzf,      pzh,      pmdry,                                              &
     &        ptenh,    pqenh,    puen,     pven,                                     &
     &        ktrac,                                                                  &
-    &        ptime_step_len,                                                         &
+    &        pdtime,                                                                 &
     &        pxtenh,   pxten,    pxtu,     pmfuxt,                                   &
     &        pten,     pqen,     pqsen,                                              &
     &        pgeo,     pgeoh,    paphp1,   pthvsig,                                  &
@@ -96,14 +89,14 @@ CONTAINS
     &        khmin,    phhatt,   phcbase,  pqsenh,                                   &
     &        pcpen,    pcpcu,                                                        &
     &        kcbot,    kctop,    kctop0                                              &
-#ifndef __ICON__
-    &      , pmwc,     pmrateprecip                                                  )
-#endif
     &        )
 
     INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1, ktrac
     INTEGER :: jl, jk, jt, ik, icall, ikb, ikt, n, locnt
-    REAL(wp),INTENT (IN) :: ptime_step_len
+    REAL(wp),INTENT (IN) :: pdtime
+    REAL(wp),INTENT (IN) :: pzf(kbdim,klev),  pzh(kbdim,klevp1)
+    REAL(wp),INTENT (IN) :: pmdry(kbdim,klev)
+    
     REAL(wp) :: ptenh(kbdim,klev),       pqenh(kbdim,klev),                          &
       &         puen(kbdim,klev),        pven(kbdim,klev),                           &
       &         pten(kbdim,klev),        pqen(kbdim,klev),                           &
@@ -139,15 +132,12 @@ CONTAINS
     REAL(wp) :: zbuoy(kbdim)
     REAL(wp) :: pxtenh(kbdim,klev,ktrac),pxten(kbdim,klev,ktrac),                    &
       &         pxtu(kbdim,klev,ktrac),  pmfuxt(kbdim,klev,ktrac)
-    REAL(wp) :: zcons2, zmfmax, zfac, zmftest, zqeen, zseen                          &
+    REAL(wp) :: zcons, zmfmax, zfac, zmftest, zqeen, zseen                           &
       &       , zqude, zmfusk, zmfuqk, zmfulk, zxteen, zxtude, zmfuxtk               &
       &       , zbuo, zdnoprc, zprcon, zlnew, zz, zdmfeu, zdmfdu, zzdmf              &
       &       , zdz, zdrodz, zdprho, zalvs, zmse, znevn, zodmax, zga, zdt            &
       &       , zscod, zqcod, zbuoyz, zscde, zlift
     !
-#ifndef __ICON__
-    REAL(wp) :: pmwc(kbdim,klev),        pmrateprecip(kbdim,klev)
-#endif
     !
     !      Intrinsic functions
     INTRINSIC MAX, MIN, LOG
@@ -157,12 +147,7 @@ CONTAINS
 #endif
 
     !
-#ifndef __ICON__
-    pmwc(1:kproma,:)=0._wp
-    pmrateprecip(1:kproma,:)=0._wp
-#endif
 
-#ifdef __ICON__
     ! to simplify access to components of echam_conv_config
     lmfmid   => echam_conv_config% lmfmid
     lmfdudv  => echam_conv_config% lmfdudv
@@ -176,14 +161,13 @@ CONTAINS
     centrmax => echam_conv_config% centrmax
     dlev_land => echam_conv_config% dlev_land
     dlev_ocean=> echam_conv_config% dlev_ocean
-#endif
 
     !---------------------------------------------------------------------------------
     !
     !*    1.           Specify parameters
     !                  ------------------
     !
-    zcons2=1._wp/(grav*ptime_step_len)
+    zcons=1._wp/pdtime
     zqold(1:kproma) = 0.0_wp
     !
     !---------------------------------------------------------------------------------
@@ -207,7 +191,7 @@ CONTAINS
         pqude(jl,jk)=0._wp
         pdmfup(jl,jk)=0._wp
         IF(.NOT.ldcum(jl).OR.ktype(jl).EQ.3) klab(jl,jk)=0
-        IF(.NOT.ldcum(jl).AND.paphp1(jl,jk).LT.4.e4_wp) kctop0(jl)=jk
+        IF(.NOT.ldcum(jl).AND.paphp1(jl,jk).LT.4.e4_wp) kctop0(jl)=jk  ! <-- not deep conv. limited to 400 hPa
         IF(jk.LT.kcbot(jl)) klab(jl,jk)=0
       END DO
       DO jt=1,ktrac
@@ -269,7 +253,7 @@ CONTAINS
         zbuoy(jl)=grav*(ptu(jl,ikb)-ptenh(jl,ikb))/ptenh(jl,ikb) +                   &
           &               grav*vtmpc1*(pqu(jl,ikb)-pqenh(jl,ikb))
         IF(zbuoy(jl).GT.0._wp) THEN
-          zdz=(pgeo(jl,ikb-1)-pgeo(jl,ikb))/grav
+          zdz=pzf(jl,ikb-1)-pzf(jl,ikb)
           zdrodz=-LOG(pten(jl,ikb-1)/pten(jl,ikb))/zdz                               &
             &       -grav/(rd*ptenh(jl,ikb)*(1._wp+vtmpc1*pqenh(jl,ikb)))
           ! nb zoentr is here a fractional value
@@ -317,7 +301,7 @@ CONTAINS
         END IF
         zph(jl)=paphp1(jl,jk)
         IF(ktype(jl).EQ.3.AND.jk.EQ.kcbot(jl)) THEN
-          zmfmax=(paphp1(jl,jk)-paphp1(jl,jk-1))*zcons2
+          zmfmax=pmdry(jl,jk-1)*zcons
           IF(pmfub(jl).GT.zmfmax) THEN
             zfac=zmfmax/pmfub(jl)
             pmfu(jl,jk+1)=pmfu(jl,jk+1)*zfac
@@ -331,7 +315,7 @@ CONTAINS
       DO jt=1,ktrac
         DO jl=1,kproma
           IF(ktype(jl).EQ.3.AND.jk.EQ.kcbot(jl)) THEN
-            zmfmax=(paphp1(jl,jk)-paphp1(jl,jk-1))*zcons2
+            zmfmax=pmdry(jl,jk-1)*zcons
             IF(pmfub(jl).GT.zmfmax) THEN
               zfac=zmfmax/pmfub(jl)
               pmfuxt(jl,jk+1,jt)=pmfuxt(jl,jk+1,jt)*zfac
@@ -344,7 +328,7 @@ CONTAINS
       !
       DO jl=1,kproma
         IF(ktype(jl).EQ.3.AND.jk.EQ.kcbot(jl)) THEN
-          zmfmax=(paphp1(jl,jk)-paphp1(jl,jk-1))*zcons2
+          zmfmax=pmdry(jl,jk-1)*zcons
           pmfub(jl)=MIN(pmfub(jl),zmfmax)
         END IF
       END DO
@@ -355,10 +339,11 @@ CONTAINS
       !
       ik=jk
       CALL cuentr(    kproma, kbdim, klev, klevp1, ik,                                &
+        &   pzh,      pmdry,                                                          &
         &   ptenh,    pqenh,    pqte,     paphp1,                                     &
         &   klwmin,   ldcum,    ktype,    kcbot,    kctop0,                           &
         &   zpbase,   pmfu,     pentr,    zodetr,                                     &
-        &   khmin,    pgeoh,                                                          &
+        &   khmin,                                                                    &
         &   zdmfen,   zdmfde)
       !
       !     Do adiabatic ascent for entraining/detraining plume
@@ -373,16 +358,16 @@ CONTAINS
 
         IF(jk.LT.kcbot(jl)) THEN
           zmftest=pmfu(jl,jk+1)+zdmfen(jl)-zdmfde(jl)
-          zmfmax=MIN(zmftest,(paphp1(jl,jk)-paphp1(jl,jk-1))*zcons2)
+          zmfmax=MIN(zmftest,pmdry(jl,jk-1)*zcons)
           zdmfen(jl)=MAX(zdmfen(jl)-MAX(zmftest-zmfmax,0._wp),0._wp)
         END IF
         zdmfde(jl)=MIN(zdmfde(jl),0.75_wp*pmfu(jl,jk+1))
         pmfu(jl,jk)=pmfu(jl,jk+1)+zdmfen(jl)-zdmfde(jl)
         IF (ktype(jl).EQ.1 .AND. jk.LT.kcbot(jl)) THEN
-          zdprho=(pgeoh(jl,jk)-pgeoh(jl,jk+1))/grav
+          zdprho=pzh(jl,jk)-pzh(jl,jk+1)
           zoentr(jl,jk)=zoentr(jl,jk)*zdprho*pmfu(jl,jk+1)
           zmftest=pmfu(jl,jk)+zoentr(jl,jk)-zodetr(jl,jk)
-          zmfmax=MIN(zmftest,(paphp1(jl,jk)-paphp1(jl,jk-1))*zcons2)
+          zmfmax=MIN(zmftest,pmdry(jl,jk-1)*zcons)
           zoentr(jl,jk)=MAX(zoentr(jl,jk)-MAX(zmftest-zmfmax,0._wp),0._wp)
         ELSE
           zoentr(jl,jk)=0._wp
@@ -393,9 +378,9 @@ CONTAINS
           zalvs=MERGE(alv,als,ptu(jl,jk+1)>tmelt)
           zmse=pcpcu(jl,jk+1)*ptu(jl,jk+1)+zalvs*pqu(jl,jk+1)+pgeoh(jl,jk+1)
           ikt=kctop0(jl)
-          znevn=(pgeoh(jl,ikt)-pgeoh(jl,jk+1))*(zmse-phhatt(jl,jk+1))/grav
+          znevn=(pzh(jl,ikt)-pzh(jl,jk+1))*(zmse-phhatt(jl,jk+1))
           IF(znevn.LE.0._wp) znevn=1._wp
-          zdprho=(pgeoh(jl,jk)-pgeoh(jl,jk+1))/grav
+          zdprho=pzh(jl,jk)-pzh(jl,jk+1)
           zodmax=((phcbase(jl)-zmse)/znevn)*zdprho*pmfu(jl,jk+1)
           zodmax=MAX(zodmax,0._wp)
           zodetr(jl,jk)=MIN(zodetr(jl,jk),zodmax)
@@ -474,10 +459,6 @@ CONTAINS
             zprcon=MERGE(0._wp,cprcon,zpbase(jl)-paphp1(jl,jk).LT.zdnoprc)
             zlnew=plu(jl,jk)/(1._wp+zprcon*(pgeoh(jl,jk)-pgeoh(jl,jk+1)))
             pdmfup(jl,jk)=MAX(0._wp,(plu(jl,jk)-zlnew)*pmfu(jl,jk))
-#ifndef __ICON__
-            pmrateprecip(jl,jk)=plu(jl,jk)-zlnew
-            pmwc(jl,jk)=plu(jl,jk)
-#endif
             plu(jl,jk)=zlnew
           ELSE
             klab(jl,jk)=0
@@ -536,7 +517,7 @@ CONTAINS
           zbuoyz=grav*(ptu(jl,jk)-ptenh(jl,jk))/ptenh(jl,jk) +                       &
             &   grav*vtmpc1*(pqu(jl,jk)-pqenh(jl,jk))-grav*plu(jl,jk)
           zbuoyz=MAX(zbuoyz,0.0_wp)
-          zdz=(pgeo(jl,jk-1)-pgeo(jl,jk))/grav
+          zdz=pzf(jl,jk-1)-pzf(jl,jk)
           zdrodz=-LOG(pten(jl,jk-1)/pten(jl,jk))/zdz                                 &
             &          -grav/(rd*ptenh(jl,jk)*(1._wp+vtmpc1*pqenh(jl,jk)))
           zbuoy(jl)=zbuoy(jl)+zbuoyz*zdz
@@ -644,13 +625,11 @@ CONTAINS
     INTEGER  :: jl, jt
     REAL(wp) :: zzzmb
 
-#ifdef __ICON__
     ! to simplify access to components of echam_conv_config
     lmfdudv  => echam_conv_config% lmfdudv
     entrmid  => echam_conv_config% entrmid
     cmfcmin  => echam_conv_config% cmfcmin
     cmfcmax  => echam_conv_config% cmfcmax
-#endif
 
     !---------------------------------------------------------------------------------
     !
@@ -705,20 +684,22 @@ CONTAINS
   !!
   !!
   SUBROUTINE cuentr(   kproma, kbdim, klev, klevp1, kk,                              &
+    &        pzh,      pmdry,                                                        &
     &        ptenh,    pqenh,    pqte,     paphp1,                                   &
     &        klwmin,   ldcum,    ktype,    kcbot,    kctop0,                         &
     &        ppbase,   pmfu,     pentr,    podetr,                                   &
-    &        khmin,    pgeoh,                                                        &
+    &        khmin,                                                                  &
     &        pdmfen,   pdmfde)
     !
     INTEGER, INTENT (IN) :: kbdim, klev, klevp1, kproma, kk
     !
+    REAL(wp),INTENT (IN) :: pzh(kbdim,klevp1), pmdry(kbdim,klev)
+
     REAL(wp) :: ptenh(kbdim,klev),       pqenh(kbdim,klev),                          &
       &         paphp1(kbdim,klevp1),                                                &
       &         pmfu(kbdim,klev),        pqte(kbdim,klev),                           &
       &         pentr(kbdim),            ppbase(kbdim)
     REAL(wp) :: podetr(kbdim,klev)
-    REAL(wp) :: pgeoh (kbdim,klev)
     INTEGER  :: khmin (kbdim)
     INTEGER  :: klwmin(kbdim),           ktype(kbdim),                               &
       &         kcbot(kbdim),            kctop0(kbdim)
@@ -729,15 +710,13 @@ CONTAINS
     LOGICAL  :: llo1,llo2
     !
     INTEGER  :: jl, ikt, ikh, iklwmin, n, ncnt
-    REAL(wp) :: zrg, zpmid, zentr, zentest, zzmzk, ztmzk, zorgde, zarg
+    REAL(wp) :: zpmid, zentr, zentest, zzmzk, ztmzk, zorgde, zarg
     REAL(wp) :: zrrho(kbdim),zdprho(kbdim)
     INTEGER  :: icond1(kbdim),icond2(kbdim),icond3(kbdim),idx(kbdim)
 
-#ifdef __ICON__
     ! to simplify access to components of echam_conv_config
     cmfcmin  => echam_conv_config% cmfcmin
     centrmax => echam_conv_config% centrmax
-#endif
 
     !
     !---------------------------------------------------------------------------------
@@ -751,12 +730,11 @@ CONTAINS
     CALL trace_start ('cuentr', 41)
 #endif
     !
-    zrg=1._wp/grav
 !IBM* NOVECTOR
     DO jl=1,kproma
       ppbase(jl) = paphp1(jl,kcbot(jl))
       zrrho(jl)  = (rd*ptenh(jl,kk+1)*(1._wp+vtmpc1*pqenh(jl,kk+1)))/paphp1(jl,kk+1)
-      zdprho(jl) = (paphp1(jl,kk+1)-paphp1(jl,kk))*zrg
+      zdprho(jl) = pmdry(jl,kk)
       zpmid      = 0.5_wp*(ppbase(jl)+paphp1(jl,kctop0(jl)))
       icond1(jl) = FSEL(zpmid-paphp1(jl,kk),0._wp,1._wp)
       icond2(jl) = FSEL(0.2e5_wp - (ppbase(jl)-paphp1(jl,kk)),0._wp,1._wp)
@@ -811,11 +789,11 @@ CONTAINS
           ikt=kctop0(jl)
           ikh=khmin(jl)
           IF(ikh.GT.ikt) THEN
-            zzmzk  =-(pgeoh(jl,ikh)-pgeoh(jl,kk))*zrg
-            ztmzk  =-(pgeoh(jl,ikh)-pgeoh(jl,ikt))*zrg
+            zzmzk  =-(pzh(jl,ikh)-pzh(jl,kk))
+            ztmzk  =-(pzh(jl,ikh)-pzh(jl,ikt))
             zarg  =3.1415_wp*(zzmzk/ztmzk)*0.5_wp
             zorgde=TAN(zarg)*3.1415_wp*0.5_wp/ztmzk
-            zdprho(jl)=(paphp1(jl,kk+1)-paphp1(jl,kk))*(zrg*zrrho(jl))
+            zdprho(jl)=pmdry(jl,kk)*zrrho(jl)
             podetr(jl,kk)=MIN(zorgde,centrmax)*pmfu(jl,kk+1)*zdprho(jl)
           ENDIF
         ENDIF

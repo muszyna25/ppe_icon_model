@@ -36,11 +36,7 @@
 MODULE mo_cudescent
   USE mo_kind,                 ONLY : wp
   USE mo_physical_constants,   ONLY : grav, rd, vtmpc1
-#ifndef __ICON__
-  USE mo_echam_conv_constants, ONLY : lmfdudv, lmfdd, cmfdeps, cmfcmin, entrdd
-#else
   USE mo_echam_conv_config,    ONLY : echam_conv_config
-#endif
   USE mo_cuadjust,             ONLY : cuadjtq
   !
  
@@ -48,11 +44,9 @@ MODULE mo_cudescent
   PRIVATE
   PUBLIC :: cudlfs, cuddraf
 
-#ifdef __ICON__
   ! to simplify access to components of echam_conv_config
   LOGICAL , POINTER :: lmfdd, lmfdudv
   REAL(wp), POINTER :: cmfdeps, cmfcmin, entrdd
-#endif
 
 
 CONTAINS
@@ -99,12 +93,10 @@ CONTAINS
     INTEGER  :: jl, jk, ke, is, ik, icall, jt
     REAL(wp) :: zttest, zqtest, zbuo, zmftop
 
-#ifdef __ICON__
     ! to simplify access to components of echam_conv_config
     lmfdudv  => echam_conv_config% lmfdudv
     lmfdd    => echam_conv_config% lmfdd
     cmfdeps  => echam_conv_config% cmfdeps
-#endif
 
     !
     !---------------------------------------------------------------------------------
@@ -212,6 +204,7 @@ CONTAINS
   !>
   !!
   SUBROUTINE cuddraf(  kproma, kbdim, klev, klevp1,                                  &
+    &        pmdry,                                                                  &
     &        ptenh,    pqenh,    puen,     pven,                                     &
     &        ktrac,                                                                  &
     &        pxtenh,   pxtd,     pmfdxt,                                             &
@@ -223,6 +216,8 @@ CONTAINS
     !
     INTEGER, INTENT (IN) :: kbdim, klev, ktrac, kproma, klevp1
     !
+    REAL(wp),INTENT (IN) :: pmdry(kbdim,klev)
+    
     REAL(wp) :: ptenh(kbdim,klev),       pqenh(kbdim,klev),                          &
       &         puen(kbdim,klev),        pven(kbdim,klev),                           &
       &         pgeoh(kbdim,klev),       paphp1(kbdim,klevp1)
@@ -247,12 +242,10 @@ CONTAINS
     REAL(wp) :: zentr, zseen, zqeen, zsdde, zqdde, zmfdsk, zmfdqk, zxteen            &
       &       , zxtdde, zmfdxtk, zbuo, zdmfdp, zmfduk, zmfdvk
 
-#ifdef __ICON__
     ! to simplify access to components of echam_conv_config
     lmfdudv  => echam_conv_config% lmfdudv
     cmfcmin  => echam_conv_config% cmfcmin
     entrdd   => echam_conv_config% entrdd
-#endif
 
     !
     !----------------------------------------------------------------------
@@ -280,8 +273,7 @@ CONTAINS
       END DO
       DO jl=1,kproma
         IF(llo2(jl)) THEN
-          zentr=entrdd*pmfd(jl,jk-1)*rd*ptenh(jl,jk-1)/                              &
-            &                 (grav*paphp1(jl,jk-1))*(paphp1(jl,jk)-paphp1(jl,jk-1))
+          zentr=entrdd*pmfd(jl,jk-1)*rd*ptenh(jl,jk-1)/paphp1(jl,jk-1)*pmdry(jl,jk-1)
           zdmfen(jl)=zentr
           zdmfde(jl)=zentr
         END IF
@@ -291,7 +283,7 @@ CONTAINS
         DO jl=1,kproma
           IF(llo2(jl)) THEN
             zdmfen(jl)=0._wp
-            zdmfde(jl)=pmfd(jl,itopde)* (paphp1(jl,jk)-paphp1(jl,jk-1))/             &
+            zdmfde(jl)=pmfd(jl,itopde)* pmdry(jl,jk-1)*grav/             &
               &                         (paphp1(jl,klevp1)-paphp1(jl,itopde))
           END IF
         END DO
