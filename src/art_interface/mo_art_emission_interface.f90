@@ -51,6 +51,7 @@ MODULE mo_art_emission_interface
   USE mo_datetime,                      ONLY: t_datetime
   USE mo_time_config,                   ONLY: time_config
   USE mo_impl_constants,                ONLY: iecham, inwp
+  USE mtime,                            ONLY: datetime
 #ifdef __ICON_ART
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
@@ -109,7 +110,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     &  p_diag_lnd              !< List of diagnostic fields (land)
   REAL(wp), INTENT(inout) :: &
     &  rho(:,:,:)              !< Density of air [kg/m3]
-  TYPE(t_datetime), INTENT(IN) :: &
+  TYPE(datetime), POINTER :: &
     &  datetime                !< Date and time information
   REAL(wp), INTENT(inout) :: &
     &  tracer(:,:,:,:)         !< Tracer mixing ratios [kg kg-1]
