@@ -1843,15 +1843,6 @@ top height (AGL) of layer used for gradient computation&
 \tabularnewline
 
 %\hline
-l\_sst\_in&
-L & .TRUE.& &
-Logical switch. If true, the surface temperature of the water sea points is initialized
-with the SST provided in the ifs2icon file. If false, it is initialized with the skin
-temperature. If the SST is not provided in the ifs2icon file, l\_sst\_in is reset to false.  &
-init\_mode=2
-\tabularnewline
-
-%\hline
 lread\_ana&
 L & .TRUE.& &
 If .FALSE., ICON is started from first guess only. Analysis field is not required, and skipped if provided. &
@@ -2421,10 +2412,17 @@ Defined and used in: \verb+src/namelists/mo_les_nml.f90+
 %\hline
 \textbf{itype\_latbc}&
 I & 0& &
-Type of lateral boundary nudging. Nudge from\\
-0: the initial data,\\
-1: IFS data analysis/forecast (if \texttt{initicon\_nml:init\_mode}=4, we take COSMO-DE data),\\
-2: ICON output data (with the identical 3d grid)&
+Type of lateral boundary nudging.\\
+%
+0: constant lateral boundary conditions derived from the initial
+conditions,\\
+%
+1: time-dependent lateral boundary conditions provided by an external
+source (IFS, COSMO-DE or a coarser-resolution ICON run), \\
+%
+2: Test mode using time-dependent lateral boundary conditions from a
+nested ICON run in which the present limited-area domain was operated
+as a nested grid with identical(!) model level configuration.
 \tabularnewline
 
 %\hline
@@ -2433,6 +2431,16 @@ R &
 10800.0& s
 &
 Time difference between two consecutive boundary data.
+&
+itype\_latbc $\ge$ 1
+\tabularnewline
+
+%\hline
+init\_latbc\_from\_fg&
+L &
+.FALSE. & 
+&
+If .TRUE., take lateral boundary conditions for initial time from first guess (or analysis) field
 &
 itype\_latbc $\ge$ 1
 \tabularnewline
@@ -2452,14 +2460,23 @@ itype\_latbc $\ge$ 1
 C &
 &
 &
-Filename of boundary data input file, default:\\
-''\texttt{prepiconR<nroot>B<jlev>\_<y><m><d><h>.nc}''.
-\texttt{<y>}, \texttt{<m>}, \texttt{<d>}, and \texttt{<h>} 
-will be automatically replaced during the run-time. In case
-the time span between two consecutive boundary data is less than 1 hour, 
-one can use \texttt{<min>} and \texttt{<sec>}.
-These files must be located in
+%
+Filename of boundary data input file, these files must be located in
 the \texttt{latbc\_path} directory.
+%
+Default:\\
+''\texttt{prepiconR<nroot>B<jlev>\_<y><m><d><h>.nc}''.
+%
+The keyword tokens \texttt{<y>}, \texttt{<m>}, \texttt{<d>}, and
+\texttt{<h>} will be automatically replaced during the run-time (year,
+month, day, hour).
+%
+In case the time span between two consecutive boundary data is less
+than 1 hour, one can use \texttt{<min>} and \texttt{<sec>}.
+%
+The keyword \texttt{<ddhhmmss>} is replaced by a \emph{relative}
+day-hour-minute-second string.
+%
 &
 itype\_latbc $\ge$ 1
 \tabularnewline
@@ -2681,6 +2698,18 @@ use 5.e-4 to activate interception storage & itype\_interception = 1
 \tabularnewline
 
 %\hline
+c\_soil &
+R & 1. &  & surface area density of the (evaporative) soil surface \\
+allowed range: 0 -- 2 &
+\tabularnewline
+
+%\hline
+c\_soil\_urb &
+R & 1. &  & surface area density of the (evaporative) soil surface, urban areas \\
+allowed range: 0 -- 2 &
+\tabularnewline
+
+%\hline
 itype\_hydbound &
 I & 1 &  & type of hydraulic lower boundary condition \\
 1 = none \\
@@ -2719,13 +2748,14 @@ sstice\_mode &
 I&
 1&
 &
-1: SST and sea ice fraction are read from the analysis and kept constant. The
-sea ice fraction can be modified by the seaice model.\\
-2: SST and sea ice fraction are updated daily, based on climatological monthly
+1: SST and sea ice fraction are read from the analysis. The SST is kept constant 
+whereas the sea ice fraction can be modified by the seaice model.\\
+2: SST and sea ice fraction are read from the analysis. The SST is updated by climatological 
+increments on a daily basis. The sea ice fraction can be modified by the seaice model.\\
+3: SST and sea ice fraction are updated daily, based on climatological monthly
 means\\
-3: SST and sea ice fraction are updated daily, based on actual monthly means\\
-4: SST and sea ice fraction are updated daily, based on actual daily means,
-\textcolor{red}{not yet implemented}&
+4: SST and sea ice fraction are updated daily, based on actual monthly means\\
+5: SST and sea ice fraction are updated daily, based on actual daily means (\textcolor{red}{not yet implemented})&
 iequations=3\\
 iforcing=3
 \tabularnewline
@@ -2861,6 +2891,13 @@ Stride of MPI ranks.&
 \textbf{lrestart}&
 L & .FALSE. & &
 If .TRUE.: Current experiment is started from a restart.&
+\tabularnewline
+
+%\hline
+\textbf{lrestart\_write\_last}&
+L & .FALSE. & &
+If .TRUE.: model run should create restart at experiment end.  This is
+independent from the settings of the restart interval.&
 \tabularnewline
 
 %\hline
@@ -3418,8 +3455,9 @@ inwp\_radiation $>$ 0
 %\hline
 itype\_z0&
 I & 2 &  & Type of roughness length data used for turbulence scheme: \\
-1 = land-cover-related roughness including contribution from sub-scale orography \\
-2 = land-cover-related roughness only &
+1 = land-cover-related roughness including contribution from sub-scale orography (does not account for tiles)\\
+2 = land-cover-related roughness based on tile-specific landuse class \\
+3 = land-cover-related roughness based on tile-specific landuse class including contribution from sub-scale orography &
 inwp\_turb $>$ 0
 \tabularnewline
 
@@ -3941,6 +3979,16 @@ C(:)&\'' \''& &
 &
 \tabularnewline
 
+\textbf{operation }&
+C&None& &
+ Choose \texttt{"mean"} for generating time averaged output for the
+ given list of variables or groups. The corresponding interval is
+ the \texttt{output\_interval}. Supported are 2D and 3D fields on 
+ model levels of the atmosphere and land model. Any other value than 
+ \texttt{mean} will be ignored.
+&
+\tabularnewline
+
 %\hline
  pe\_placement\_il &
 I(:)& -1 & &
@@ -4447,14 +4495,6 @@ Defined and used in: \verb+src/namelists/mo_parallel_nml.f90+
 \begin{longtab}
 
 %\hline
-fco2 & 
-R &
-1.\_wp&
-&
-factor by which the CO2 concentration of either a scenario
-(irad\_co2=4) or a constant value (irad\_co2=2) is multiplied.
-\tabularnewline
-
 lradforcing &
 L(2)&
 .FALSE.&
@@ -4711,22 +4751,22 @@ I&
 &
 &
 Switches for the concentration of radiative agents\par
-0: 0.\par
-1: prognostic variable\par
-2: global constant\par
-3: externally specified\par
+irad\_xyz = 0: set to zero\par
+irad\_h2o = 1: vapor, cloud water and cloud ice from tracer variables\par
+irad\_co2 = 1: CO_2 from tracer variable\par
+irad\_co2/ch4/n2o/o2/cfc11/cfc12 = 2: concentration given by vmr\_co2/ch4/n2o/o2/cfc11/cfc12\par
+irad\_ch4/n2o = 3: tanh-profile with surface concentration given by vmr\_ch4/n2o\par
+irad\_co2/cfc11/cfc12 = 4: time dependent concentration from greenhouse gas file
+irad\_ch4/n2o = 4: time dependent tanh-profile with surface concentration from greenhouse gas file
 irad\_o3 = 2: ozone climatology from MPI \par
 irad\_o3 = 4: ozone clim for Aqua Planet Exp \par
 irad\_o3 = 6: ozone climatology with T5 geographical distribution and Fourier series for seasonal cycle {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
 irad\_o3 = 7: GEMS ozone climatology (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
 irad\_o3 = 8: ozone climatology for AMIP \par
 irad\_o3 = 9: MACC ozone climatology (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
+irad\_o3 = 79: Blending between GEMS and MACC ozone climatologies (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
 irad\_o3 = 10: Linearized ozone chemistry (ART extension necessary) {\color{red}for run\_nml/iforcing = 3 (NWP)}
 &
-Note: until further notice, please use \par
-irad\_h2o = 1\par
-irad\_co2 = 2\par
-and 0 for all the other agents for run\_nml/iforcing = 2 (ECHAM).\par
 \tabularnewline
 %\hline
 vmr\_co2\par
@@ -4746,6 +4786,29 @@ R&
 &
 &
 Volume mixing ratio of the radiative agents&
+\tabularnewline
+
+%\hline
+fh2o\par
+fco2\par
+fch4\par
+fn2o\par
+fo3\par
+fo2\par
+fcfc\par
+&
+R&
+1.\par
+1.\par
+1.\par
+1.\par
+1.\par
+1.\par
+1.\par
+&
+&
+Scaling factors for concentrations used in radiation&
+run\_nml/iforcing=2 (ECHAM)
 \tabularnewline
 
 %\hline
@@ -5003,6 +5066,14 @@ htop\_thcknlimit&
 R& 15000& m&
 Height below which the layer thickness does not exceed max\_lay\_thckn &
 \tabularnewline
+
+%\hline
+itype\_laydistr&
+I& 1& &
+Type of analytical function used to specify the distribution of the vertical coordinate surfaces \\
+1: transformed cosine, 2: third-order polynomial &
+\tabularnewline
+
 
 %\hline
 \textbf{top\_height}&
@@ -5289,10 +5360,6 @@ I(ntracer)&
 & & & & 2: monotonous slope limiter& \tabularnewline
 & & & & 4: positive definite flux limiter& \tabularnewline
 
-%\hline
-niter\_fct&
-I& 1& & number of iterations  of monotone flux correction procedure (experimental!)& itype\_hlimit = 3
-\tabularnewline
 
 %\hline
 beta\_fct&

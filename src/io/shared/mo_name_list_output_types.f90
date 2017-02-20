@@ -30,7 +30,7 @@ MODULE mo_name_list_output_types
     &                                 MAX_NZLEVS, MAX_NILEVS
   USE mo_io_units,              ONLY: filename_max
   USE mo_var_metadata_types,    ONLY: t_var_metadata
-  USE mo_util_uuid,             ONLY: t_uuid
+  USE mo_util_uuid_types,       ONLY: t_uuid
   USE mo_util_string,           ONLY: tolower
   USE mo_communication,         ONLY: t_comm_gather_pattern
   USE mtime,                    ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN
@@ -240,15 +240,9 @@ MODULE mo_name_list_output_types
 
     !> Output event steps happen at regular intervals. These are given
     !  by an interval size and the time stamps for begin and end.
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: output_start(MAX_TIME_INTERVALS),     &
-      &                                      output_end(MAX_TIME_INTERVALS),       &
-      &                                      output_interval(MAX_TIME_INTERVALS)
-
-    !> Additional days to be added to the output interval. This
-    !  namelist parameter is required when the output interval has
-    !  been provided as a number of seconds, e.g. which is so large
-    !  that it cannot be converted into a valid ISO duration string.
-    INTEGER :: additional_days(MAX_TIME_INTERVALS)
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN+1) :: output_start(MAX_TIME_INTERVALS),     &
+      &                                      output_end(MAX_TIME_INTERVALS)
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: output_interval(MAX_TIME_INTERVALS)
 
     !> ready filename prefix (=output event name)
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN) :: ready_file
@@ -312,6 +306,9 @@ MODULE mo_name_list_output_types
     REAL(wp), POINTER :: p(:,:,:,:,:)
   END TYPE t_rptr_5d
 
+  TYPE t_sptr_5d
+    REAL(sp), POINTER :: p(:,:,:,:,:)
+  END TYPE t_sptr_5d
 
   TYPE t_iptr_5d
     INTEGER,  POINTER :: p(:,:,:,:,:)
@@ -320,8 +317,10 @@ MODULE mo_name_list_output_types
 
   TYPE t_var_desc
     REAL(wp), POINTER                     :: r_ptr(:,:,:,:,:)                 !< Pointer to time level independent REAL data (or NULL)
+    REAL(sp), POINTER                     :: s_ptr(:,:,:,:,:)                 !< Pointer to time level independent REAL(sp) data (or NULL)
     INTEGER,  POINTER                     :: i_ptr(:,:,:,:,:)                 !< Pointer to time level independent INTEGER data (or NULL)
     TYPE(t_rptr_5d)                       :: tlev_rptr(MAX_TIME_LEVELS)       !< Pointers to time level dependent REAL data
+    TYPE(t_sptr_5d)                       :: tlev_sptr(MAX_TIME_LEVELS)       !< Pointers to time level dependent REAL(sp) data
     TYPE(t_iptr_5d)                       :: tlev_iptr(MAX_TIME_LEVELS)       !< Pointers to time level dependent INTEGER data
     TYPE(t_var_metadata), POINTER         :: info_ptr                         !< Pointer to the info structure of the variable
 

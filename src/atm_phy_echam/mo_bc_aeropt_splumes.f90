@@ -22,17 +22,17 @@ MODULE mo_bc_aeropt_splumes
   USE mo_read_interface,       ONLY: openInputFile, read_1D, &
                                    & read_bcast_real_2D, read_bcast_real_3D, &
                                    & closeFile
-  USE mo_datetime,             ONLY: t_datetime
-  USE mo_physical_constants,   ONLY: rgrav
   USE mo_model_domain,         ONLY: p_patch
   USE mo_psrad_srtm_setup,     ONLY: &
       &  sw_wv1 => wavenum1     ,&     !< smallest wave number in each of the sw bands
       &  sw_wv2 => wavenum2            !< largest wave number in each of the sw bands
   USE mo_rrtm_params,          ONLY: &
-      & jpb1                    ,&     !< index for lower sw band
-      & jpb2                           !< index for upper sw band
+      &  jpb1                          !< index for lower sw band
   USE mo_math_constants,       ONLY: rad2deg
-
+  USE mtime,                   ONLY: datetime, getDayOfYearFromDateTime, &
+       &                             getNoOfSecondsElapsedInDayDateTime, &
+       &                             getNoOfDaysInYearDateTime
+  
 !!$, on_cells, &
 !!$    &                                t_stream_id, read_0D_real, read_3D_time
 
@@ -199,11 +199,9 @@ MODULE mo_bc_aeropt_splumes
          year_fr           !< Fractional Year (1850.0 - 2100.99)
 
     INTEGER          ::  &
-         idate(8)       ,& !< integer array of system clock date yyyy, mm, dd
          iyear          ,& !< Integer year values between 1 and 156 (1850-2100) 
          iweek          ,& !< Integer index (between 1 and ntimes); for ntimes=52 this corresponds to weeks (roughly)
          iplume            ! plume number
-    CHARACTER(LEN=1024) :: message
     !
     ! ---------- 
     !
@@ -402,11 +400,11 @@ MODULE mo_bc_aeropt_splumes
   ! ------------------------------------------------------------------------------------------------------------------------
   ! ADD_BC_AEROPT_SPLUMES:  This subroutine provides the interface to simple plume (sp) fit to the MPI Aerosol Climatology (Version 2).
   ! It does so by collecting or deriving spatio-temporal information and calling the simple plume aerosol subroutine and
-  ! incrementing the background aerosol properties (and effective radisu) with the anthropogenic plumes.
+  ! incrementing the background aerosol properties (and effective radius) with the anthropogenic plumes.
   !
   SUBROUTINE add_bc_aeropt_splumes                                                ( &
      & jg             ,kproma         ,kbdim          ,klev           ,krow        ,&
-     & nb_sw          ,datetime       ,geoi           ,geom           ,oromea      ,&
+     & nb_sw          ,this_datetime  ,zf             ,dz             ,z_sfc       ,&
      & aod_sw_vr      ,ssa_sw_vr      ,asy_sw_vr      ,x_cdnc                      )
     !
     ! --- 0.1 Variables passed through argument list
@@ -418,12 +416,12 @@ MODULE mo_bc_aeropt_splumes
          krow                        ,& !< index for current block
          nb_sw                          !< number of bands in short wave
 
-    TYPE(t_datetime), INTENT(IN) :: datetime
+    TYPE(datetime), POINTER      :: this_datetime
 
     REAL(wp), INTENT (IN)        :: &
-         geoi(kbdim,klev+1),        & !< geopotential wrt surface at layer interfaces
-         geom(kbdim,klev),          & !< geopotential wrt surface at layer centres
-         oromea(kbdim)                !< orography in metres
+         zf(kbdim,klev),            & !< geometric height at full level [m]
+         dz(kbdim,klev),            & !< geometric height thickness     [m]
+         z_sfc(kbdim)                 !< geometric height of surface    [m]
 
     REAL(wp), INTENT (INOUT) ::       &
          aod_sw_vr(kbdim,klev,nb_sw) ,& !< Aerosol shortwave optical depth
@@ -444,7 +442,6 @@ MODULE mo_bc_aeropt_splumes
     REAL(wp) ::                       &
          year_fr                     ,& !< time in year fraction (1989.0 is 0Z on Jan 1 1989)
          lambda                      ,& !< wavelength at central band wavenumber [nm]
-         z_sfc(kproma)               ,& !< surface height [m]
          lon_sp(kproma)              ,& !< longitude passed to sp
          lat_sp(kproma)              ,& !< latitude passed to sp
          z_fl_vr(kbdim,klev)         ,& !< level height [m], vertically reversed indexing (1=lowest level)
@@ -454,19 +451,21 @@ MODULE mo_bc_aeropt_splumes
          sp_asy_vr(kbdim,klev)       ,& !< simple plume asymmetry factor, vertically reversed indexing
          sp_xcdnc(kproma)               !< drop number scale factor
 
-    year_fr=datetime%yeafrc+REAL(datetime%year)
-    IF (datetime%year > 1850) THEN
+    year_fr = REAL(this_datetime%date%year,wp) &
+         +((REAL(getDayOfYearFromDateTime(this_datetime),wp) &
+         +REAL(getNoOfSecondsElapsedInDayDateTime(this_datetime),wp)/86400.0_wp) &
+         /REAL(getNoOfDaysInYearDateTime(this_datetime),wp))
+    IF (this_datetime%date%year > 1850) THEN
       ! 
       ! --- 1.1 geographic information
       !
       DO jk=1,klev
         jki=klev-jk+1
         DO jl=1,kproma
-          dz_vr  (jl,jk) = rgrav*(geoi(jl,jki+1)-geoi(jl,jki))
-          z_fl_vr(jl,jk) = rgrav*geom(jl,jki)+oromea(jl)
+          dz_vr  (jl,jk) = dz(jl,jki)
+          z_fl_vr(jl,jk) = zf(jl,jki)
         END DO
       END DO
-      z_sfc(1:kproma)  = oromea(1:kproma)
       lon_sp(1:kproma) = p_patch(jg)%cells%center(1:kproma,krow)%lon*rad2deg
       lat_sp(1:kproma) = p_patch(jg)%cells%center(1:kproma,krow)%lat*rad2deg
       ! 

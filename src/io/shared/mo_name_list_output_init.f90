@@ -21,28 +21,30 @@ MODULE mo_name_list_output_init
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer, c_int64_t
 
   ! constants and global settings
-  USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate, cdiEncodeDate, &
-                                                & cdiEncodeTime, institutInq, vlistCreate, cdiEncodeParam, vlistDefVar, &
-                                                & TUNIT_MINUTE, CDI_UNDEFID, TAXIS_RELATIVE, taxisCreate, TAXIS_ABSOLUTE, &
-                                                & GRID_UNSTRUCTURED, GRID_LONLAT, vlistDefVarDatatype, vlistDefVarName, &
+  USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate, cdiEncodeDate,          &
+                                                & cdiEncodeTime, institutInq, vlistCreate, cdiEncodeParam, vlistDefVar,          &
+                                                & TUNIT_MINUTE, CDI_UNDEFID, TAXIS_RELATIVE, taxisCreate, TAXIS_ABSOLUTE,        &
+                                                & GRID_UNSTRUCTURED, GRID_LONLAT, vlistDefVarDatatype, vlistDefVarName,          &
                                                 & gridDefPosition, vlistDefVarIntKey, gridDefXsize, gridDefXname, gridDefXunits, &
-                                                & gridDefYsize, gridDefYname, gridDefYunits, gridDefNumber, gridDefUUID, &
-                                                & gridDefNvertex, vlistDefInstitut, vlistDefVarParam, vlistDefVarLongname, &
-                                                & vlistDefVarStdname, vlistDefVarUnits, vlistDefVarMissval, gridDefXvals, &
-                                                & gridDefYvals, gridDefXlongname, gridDefYlongname, taxisDefTunit, &
-                                                & taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,   &
+                                                & gridDefYsize, gridDefYname, gridDefYunits, gridDefNumber, gridDefUUID,         &
+                                                & gridDefNvertex, vlistDefInstitut, vlistDefVarParam, vlistDefVarLongname,       &
+                                                & vlistDefVarStdname, vlistDefVarUnits, vlistDefVarMissval, gridDefXvals,        &
+                                                & gridDefYvals, gridDefXlongname, gridDefYlongname, taxisDefTunit,               &
+                                                & taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,                 &
                                                 & vlistDefAttTxt, CDI_GLOBAL, gridDefXpole, gridDefYpole
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
                                                 & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_EDGE, GRID_CELL, &
                                                 & ZA_reference_half_hhl, ZA_reference_half, ZA_reference, ZA_hybrid_half_hhl, &
                                                 & ZA_hybrid_half, ZA_hybrid
   USE mo_kind,                              ONLY: wp, i8, dp, sp
-  USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS,                 &
-    &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il, &
-    &                                             MAX_TIME_LEVELS, vname_len,                     &
-    &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS,              &
-    &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,      &
-    &                                             MAX_NZLEVS, MAX_NILEVS, BOUNDARY_MISSVAL
+  USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS,                   &
+    &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il,   &
+    &                                             MAX_TIME_LEVELS, vname_len,                       &
+    &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS,                &
+    &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,        &
+    &                                             MAX_NZLEVS, MAX_NILEVS, BOUNDARY_MISSVAL,         &
+    &                                             dtime_proleptic_gregorian => proleptic_gregorian, &
+    &                                             dtime_cly360              => cly360
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
   USE mo_master_config,                     ONLY: getModelBaseDir, isRestart
   USE mo_master_control,                    ONLY: my_process_is_ocean
@@ -59,13 +61,10 @@ MODULE mo_name_list_output_init
   USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference,                &
-    &                                             sort_and_compress_list
-  USE mo_datetime,                          ONLY: t_datetime
+    &                                             sort_and_compress_list, real2string
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
   USE mo_restart_attributes,                ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
-  USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string, &
-                                                  get_duration_string_real
   USE mo_math_utilities,                    ONLY: merge_values_into_set
   ! config modules
   USE mo_parallel_config,                   ONLY: nproma, p_test_run, use_dp_mpi2io
@@ -100,7 +99,8 @@ MODULE mo_name_list_output_init
     &                                             my_process_is_mpi_ioroot,                       &
     &                                             process_mpi_stdio_id, process_work_io0,         &
     &                                             process_mpi_io_size, num_work_procs, p_n_work,  &
-    &                                             p_pe_work, p_io_pe0, p_pe
+    &                                             p_pe_work, p_io_pe0, p_pe, my_process_is_restart, &
+    &                                             my_process_is_work
   USE mo_communication,                     ONLY: idx_no, blk_no
   ! namelist handling
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
@@ -126,8 +126,11 @@ MODULE mo_name_list_output_init
     &                                             timedelta, newTimedelta, deallocateTimedelta,   &
     &                                             OPERATOR(<), newDatetime, deallocateDatetime,   &
     &                                             getTotalMilliSecondsTimeDelta, datetime,        &
-    &                                             OPERATOR(+), datetimeToString, OPERATOR(>)
-  USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string
+    &                                             OPERATOR(+), datetimeToString, OPERATOR(>),     &
+    &                                             timedeltaToString, calendarType,                &
+    &                                             getPTStringFromSeconds,                         &
+    &                                             mtime_proleptic_gregorian => proleptic_gregorian, &
+    &                                             mtime_year_of_360_days => year_of_360_days
   USE mo_output_event_types,                ONLY: t_sim_step_info, MAX_EVENT_NAME_STR_LEN,        &
     &                                             DEFAULT_EVENT_NAME, t_par_output_event
   USE mo_output_event_control,              ONLY: compute_matching_sim_steps,                     &
@@ -135,7 +138,7 @@ MODULE mo_name_list_output_init
   USE mo_output_event_handler,              ONLY: new_parallel_output_event,                      &
     &                                             complete_event_setup, union_of_all_events,      &
     &                                             print_output_event, trigger_output_step_irecv,  &
-    &                                             set_event_to_simstep
+    &                                             set_event_to_simstep, strip_from_modifiers
   ! name list output
   USE mo_name_list_output_types,            ONLY: l_output_phys_patch, t_output_name_list,        &
     &                                             t_output_file, t_var_desc,                      &
@@ -258,9 +261,9 @@ CONTAINS
 
     REAL(wp)                              :: output_bounds(3*MAX_TIME_INTERVALS)
     INTEGER                               :: output_time_unit
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: output_start(MAX_TIME_INTERVALS), &
-      &                                      output_end(MAX_TIME_INTERVALS),   &
-      &                                      output_interval(MAX_TIME_INTERVALS)
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN+1) :: output_start(MAX_TIME_INTERVALS), &
+      &                                      output_end(MAX_TIME_INTERVALS)
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: output_interval(MAX_TIME_INTERVALS)
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN) :: ready_file  !< ready filename prefix (=output event name)
 
     TYPE(t_lon_lat_data),  POINTER        :: lonlat
@@ -302,11 +305,6 @@ CONTAINS
       pe_placement_ml, pe_placement_pl,                      &
       pe_placement_hl, pe_placement_il,                      &
       filename_extn, rbf_scale, operation
-
-    ! -- preliminary checks:
-    !
-    ! We need dtime
-    IF(dtime<=0._wp) CALL finish(routine, 'dtime must be set before reading output namelists')
 
     ! Before we start: prepare the levels set objects for the vertical
     ! interpolation.
@@ -561,7 +559,6 @@ CONTAINS
       p_onl%output_start(:)          = output_start(:)
       p_onl%output_end(:)            = output_end
       p_onl%output_interval(:)       = output_interval
-      p_onl%additional_days(:)       = 0
       p_onl%output_bounds(:)         = output_bounds(:)
       p_onl%ready_file               = ready_file
       p_onl%lonlat_id                = lonlat_id
@@ -987,21 +984,22 @@ CONTAINS
     TYPE(t_par_output_event),  POINTER   :: ev
     TYPE (t_sim_step_info)               :: dom_sim_step_info
     TYPE(t_cf_var),            POINTER   :: this_cf
-    TYPE(timedelta),           POINTER   :: mtime_output_interval, mtime_lower_bound,          &
-      &                                     mtime_interval
+    TYPE(timedelta),           POINTER   :: mtime_output_interval,                             &
+      &                                     mtime_interval, mtime_td1, mtime_td2, mtime_td3,   &
+      &                                     mtime_td, mtime_day
     TYPE(datetime),            POINTER   :: mtime_datetime, mtime_datetime_start,              &
-      &                                     mtime_datetime_end
-    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: lower_bound_str
+      &                                     mtime_datetime_end, mtime_date1, mtime_date2,      &
+      &                                     mtime_date
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: lower_bound_str, time_offset_str
     CHARACTER(len=MAX_CHAR_LENGTH)       :: attname                        !< attribute name
     CHARACTER(len=MAX_CHAR_LENGTH)       :: proc_list_str                  !< string (unoccupied I/O ranks)
     LOGICAL                              :: occupied_pes(MAX_NUM_IO_PROCS) !< explicitly placed I/O ranks
     INTEGER                              :: nremaining_io_procs            !< no. of non-placed I/O ranks
     INTEGER                              :: remaining_io_procs(MAX_NUM_IO_PROCS) !< non-placed I/O ranks
 
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: output_start(MAX_TIME_INTERVALS),     &
-      &                                     output_interval(MAX_TIME_INTERVALS)
-    INTEGER                              :: idx, istart, iintvl,  nintvls,        &
-      &                                     additional_days(MAX_TIME_INTERVALS)
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN+1):: output_start(MAX_TIME_INTERVALS)    !< time stamps + modifier
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: output_interval(MAX_TIME_INTERVALS) !< time stamps + modifier
+    INTEGER                              :: idx, istart, iintvl,  nintvls
     INTEGER(c_int64_t)                   :: total_ms
     LOGICAL                              :: include_last
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
@@ -1010,6 +1008,11 @@ CONTAINS
 #endif
     l_print_list = .FALSE.
     CALL assign_if_present(l_print_list, opt_lprintlist)
+
+    ! -- preliminary checks:
+    !
+    ! We need dtime
+    IF(dtime<=0._wp) CALL finish(routine, 'dtime must be set before reading output namelists')
 
     ! ---------------------------------------------------------------------------
 
@@ -1239,58 +1242,59 @@ CONTAINS
         istart = (idx-1)*3
         IF (p_onl%output_bounds(istart+1) == -1._wp) CYCLE
 
-        CALL get_datetime_string(p_onl%output_start(idx), &
-          &                      sim_step_info%sim_start, INT(p_onl%output_bounds(istart+1)))
-        CALL get_datetime_string(p_onl%output_end(idx),   &
-          &                      sim_step_info%sim_start, INT(p_onl%output_bounds(istart+2)))
-        CALL get_duration_string(INT(p_onl%output_bounds(istart+3)), p_onl%output_interval(idx), &
-          &                      p_onl%additional_days(idx))
+        mtime_td1 => newTimeDelta("PT"//TRIM(int2string(INT(p_onl%output_bounds(istart+1)),'(i0)'))//"S")
+        mtime_td2 => newTimeDelta("PT"//TRIM(int2string(INT(p_onl%output_bounds(istart+2)),'(i0)'))//"S")
+        mtime_td3 => newTimeDelta("PT"//TRIM(int2string(INT(p_onl%output_bounds(istart+3)),'(i0)'))//"S")
+        CALL timedeltaToString(mtime_td3, p_onl%output_interval(idx))
+
+        mtime_date1 => newDatetime(sim_step_info%sim_start)
+        mtime_date1 = mtime_date1 + mtime_td1
+        CALL datetimeToString(mtime_date1, p_onl%output_start(idx))
+        mtime_date2 => newDatetime(sim_step_info%sim_start)
+        mtime_date2 = mtime_date2 + mtime_td2
+        CALL datetimeToString(mtime_date2, p_onl%output_end(idx))
+
         IF (my_process_is_stdio()) THEN
-          IF (p_onl%additional_days(idx) == 0) THEN
-            WRITE (0,*) "setting output bounds as ", TRIM(p_onl%output_start(idx)), " / ", &
-              &                                      TRIM(p_onl%output_end(idx)),   " / ", &
-              &                                      TRIM(p_onl%output_interval(idx))
-          ELSE
-            WRITE (0,*) "setting output bounds as ", TRIM(p_onl%output_start(idx)), " / ", &
-              &                                      TRIM(p_onl%output_end(idx)),   " / ", &
-              &                                      TRIM(p_onl%output_interval(idx)), " + ", &
-              &                                      p_onl%additional_days(idx), " days"
-          END IF
+          WRITE (0,*) "setting output bounds as ", TRIM(p_onl%output_start(idx)), " / ", &
+            &                                      TRIM(p_onl%output_end(idx)),   " / ", &
+            &                                      TRIM(p_onl%output_interval(idx))
         END IF
+        
+        CALL deallocateTimedelta(mtime_td1)
+        CALL deallocateTimedelta(mtime_td2)
+        CALL deallocateTimedelta(mtime_td3)
+        CALL deallocateDatetime(mtime_date1)
+        CALL deallocateDatetime(mtime_date2)
       END DO
 
       !--- consistency check: do not allow output intervals < dtime:
 
       ! there may be multiple "output_bounds" intervals, consider all:
       INTVL_LOOP : DO idx=1,MAX_TIME_INTERVALS
-        IF (p_onl%additional_days(idx) == 0) THEN
-          IF (TRIM(p_onl%output_start(idx)) == '') CYCLE INTVL_LOOP
+        IF (TRIM(p_onl%output_start(idx)) == '') CYCLE INTVL_LOOP
+        
+        ! compare start date and end date: if these are equal, then
+        ! the interval does not matter and must not be checked.
+        !
+        mtime_datetime_start => newDatetime(TRIM(strip_from_modifiers(p_onl%output_start(idx))))
+        mtime_datetime_end   => newDatetime(TRIM(strip_from_modifiers(p_onl%output_end(idx))))
 
-          ! compare start date and end date: if these are equal, then
-          ! the interval does not matter and must not be checked.
-          mtime_datetime_start => newDatetime(p_onl%output_start(idx))
-          mtime_datetime_end   => newDatetime(p_onl%output_end(idx))
-          IF (mtime_datetime_end > mtime_datetime_start) THEN
-            mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval(idx)))
-
-            !Special case for very small time steps
-            IF(sim_step_info%dtime .LT. 1._wp)THEN
-              CALL get_duration_string_real(sim_step_info%dtime, &
-                &                           lower_bound_str)
-              idummy = 0
-            ELSE
-              CALL get_duration_string(INT(sim_step_info%dtime), &
-                &                      lower_bound_str, idummy)
-            END IF
-
-            IF (idummy > 0)  CALL finish(routine, "Internal error: get_duration_string")
-            mtime_lower_bound     => newTimedelta(TRIM(lower_bound_str))
-            IF (mtime_output_interval < mtime_lower_bound) THEN
-              CALL finish(routine, "Output interval "//TRIM(p_onl%output_interval(idx))//" < dtime !")
-            END IF
-            CALL deallocateTimedelta(mtime_output_interval)
-            CALL deallocateTimedelta(mtime_lower_bound)
+        IF (mtime_datetime_end > mtime_datetime_start) THEN
+          mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval(idx)))
+          
+          mtime_td => newTimedelta("PT"//TRIM(real2string(sim_step_info%dtime, '(f20.3)'))//"S")
+          CALL timedeltaToString(mtime_td, lower_bound_str)
+          mtime_day => newTimedelta("P1D")
+          IF (mtime_td > mtime_day)  THEN
+            CALL finish(routine, "Internal error: dtime > 1 day!")
           END IF
+          IF (mtime_output_interval < mtime_td) THEN
+            CALL finish(routine, "Output interval "//TRIM(p_onl%output_interval(idx))//" < dtime !")
+          END IF
+          CALL deallocateTimedelta(mtime_output_interval)
+          CALL deallocateTimeDelta(mtime_td)
+          CALL deallocateTimeDelta(mtime_day)
+
           CALL deallocateDatetime(mtime_datetime_start)
           CALL deallocateDatetime(mtime_datetime_end)
         END IF
@@ -1318,10 +1322,10 @@ CONTAINS
           SELECT CASE(i_typ)
           CASE (level_type_ml)
             IF (p_onl%ml_varlist(1) == ' ') CYCLE
-          nfiles = nfiles + p_onl%stream_partitions_ml
+            nfiles = nfiles + p_onl%stream_partitions_ml
           CASE (level_type_pl)
             IF (p_onl%pl_varlist(1) == ' ') CYCLE
-          nfiles = nfiles + p_onl%stream_partitions_pl
+            nfiles = nfiles + p_onl%stream_partitions_pl
           CASE (level_type_hl)
             IF (p_onl%hl_varlist(1) == ' ') CYCLE
             nfiles = nfiles + p_onl%stream_partitions_hl
@@ -1446,11 +1450,11 @@ CONTAINS
 
               ENDDO
 
-#ifdef USE_MTIME_LOOP
-              CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch( patch_info(1)%log_patch_id ) ) ! works for amip and test_nat_rce
-              !CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch( 0 )) ! this is how it works for _nwp_R02B04N06multi2
-              !CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch( 1 )) ! initial setup
-#endif
+              IF ( my_process_is_work() ) THEN ! avoid addidional io or restart processes
+                IF ( 1 == i ) THEN             ! use global domain, only
+                  CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch(i))
+                ENDIF
+              ENDIF
 
               SELECT CASE(i_typ)
               CASE(level_type_ml)
@@ -1631,7 +1635,7 @@ CONTAINS
       END IF
 
       restartAttributes => getAttributesForRestarting()
-      IF (ASSOCIATED(restartAttributes) .AND. .NOT. time_config%is_relative_time) THEN
+      IF (ASSOCIATED(restartAttributes)) THEN
         ! Restart case: Get starting index of ouput from restart file
         !               (if there is such an attribute available).
         WRITE(attname,'(a,i2.2)') 'output_jfile_',i
@@ -1642,32 +1646,33 @@ CONTAINS
 
       ! set model domain start/end time
       dom_sim_step_info = sim_step_info
-      CALL get_datetime_string(dom_sim_step_info%dom_start_time, time_config%ini_datetime, NINT(start_time(p_of%log_patch_id)))
+      mtime_date => newDatetime(time_config%tc_startdate)
+      CALL getPTStringFromSeconds(NINT(start_time(p_of%log_patch_id),i8), time_offset_str)
+      mtime_td   => newTimedelta(time_offset_str)
+      mtime_date = mtime_date + mtime_td
+      CALL datetimeToString(mtime_date, dom_sim_step_info%dom_start_time)
+      CALL deallocateDatetime(mtime_date)
+      CALL deallocateTimedelta(mtime_td)
+
       IF (end_time(p_of%log_patch_id) < DEFAULT_ENDTIME) THEN
-        CALL get_datetime_string(dom_sim_step_info%dom_end_time,   time_config%ini_datetime, NINT(end_time(p_of%log_patch_id)))
+        mtime_date => newDatetime(time_config%tc_startdate)
+        CALL getPTStringFromSeconds(NINT(end_time(p_of%log_patch_id),i8), time_offset_str)        
+        mtime_td   => newTimedelta(time_offset_str)
+        mtime_date = mtime_date + mtime_td
+        CALL datetimeToString(mtime_date, dom_sim_step_info%dom_end_time)
+        CALL deallocateDatetime(mtime_date)
+        CALL deallocateTimedelta(mtime_td)
       ELSE
         dom_sim_step_info%dom_end_time = dom_sim_step_info%sim_end
       END IF
       local_i = local_i + 1
 
-      ! special treatment of ocean model: model_date/run_start is the time at
-      ! the beginning of the timestep. Output is written at the end of the
-      ! timestep
-      IF (isRestart() .AND. my_process_is_ocean()) THEN
-        IF (TRIM(p_onl%output_start(2)) /= '') &
-          CALL finish(routine, "Not implemented for ocean model with restart!")
-        CALL get_datetime_string(p_onl%output_start(1), &
-          &                      time_config%cur_datetime,                &
-          &                      opt_td_string=p_onl%output_interval(1))
-      ENDIF
-
       include_last    = p_onl%include_last
       output_interval = p_onl%output_interval
-      additional_days = p_onl%additional_days
       output_start    = p_onl%output_start
 
       ! Handle the case that one namelist has been split into
-      ! concurrent, alternating files:
+      ! concurrent, alternating files ("streams"):
       !
       IF (p_of%npartitions > 1) THEN
         ! count the number of different time intervals for this event (usually 1)
@@ -1680,7 +1685,7 @@ CONTAINS
 
         DO iintvl=1,nintvls
           mtime_interval => newTimedelta(output_interval(iintvl))
-          mtime_datetime => newDatetime(output_start(iintvl))
+          mtime_datetime => newDatetime(TRIM(strip_from_modifiers(output_start(iintvl))))
           !
           ! - The start_date gets an offset of
           !         "(ifile_partition - 1) * output_interval"
@@ -1691,9 +1696,12 @@ CONTAINS
           ! - The output_interval is replaced by "
           !         "npartitions * output_interval"
           total_ms = getTotalMilliSecondsTimeDelta(mtime_interval, mtime_datetime)
-          total_ms = total_ms + additional_days(iintvl)*86400000
           total_ms = total_ms * p_of%npartitions
-          CALL get_duration_string(INT(total_ms/1000), output_interval(iintvl), additional_days(iintvl))
+
+          mtime_td => newTimedelta("PT"//TRIM(int2string(INT(total_ms/1000), '(i0)'))//"S")
+          CALL timedeltaToString(mtime_td, output_interval(iintvl))
+          CALL deallocateTimedelta(mtime_td)
+
           IF (p_of%ifile_partition == 1) THEN
             WRITE(message_text,'(a,a)') "File stream partitioning: total output interval = ", &
               &                         output_interval(iintvl)
@@ -1715,8 +1723,7 @@ CONTAINS
       ! --- I/O PEs communicate their event data, the other PEs create
       ! --- the event data only locally for their own event control:
       p_of%out_event => new_parallel_output_event(p_onl%ready_file,                              &
-        &                  output_start, p_onl%output_end, output_interval,                      &
-        &                  additional_days, include_last,                                        &
+        &                  output_start, p_onl%output_end, output_interval, include_last,        &
         &                  dom_sim_step_info, fname_metadata, compute_matching_sim_steps,        &
         &                  generate_output_filenames, local_i, p_comm_io)
       ! ------------------------------------------------------------------------------------------
@@ -1750,14 +1757,17 @@ CONTAINS
                comp_name = TRIM(get_my_process_name())
                CALL print_output_event(all_events, &
                  ! ASCII file output:
-      & opt_filename="output_schedule_"//TRIM(comp_name)//"_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt")
+                 & opt_filename="output_schedule_"//TRIM(comp_name)//&
+                 &"_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt")
              ELSE
                CALL print_output_event(all_events, &
-      & opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") ! ASCII file output
+                 & opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//&
+                 &"+.txt") ! ASCII file output
              ENDIF
 #else
              CALL print_output_event(all_events, &
-      &        opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") ! ASCII file output
+               & opt_filename="output_schedule_steps_"//&
+               &TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") ! ASCII file output
 #endif
           ELSE
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
@@ -1830,9 +1840,11 @@ CONTAINS
     DO ivar = 1,nvars
       ! Nullify pointers in p_of%var_desc
       p_of%var_desc(ivar)%r_ptr => NULL()
+      p_of%var_desc(ivar)%s_ptr => NULL()
       p_of%var_desc(ivar)%i_ptr => NULL()
       DO i = 1, max_time_levels
         p_of%var_desc(ivar)%tlev_rptr(i)%p => NULL()
+        p_of%var_desc(ivar)%tlev_sptr(i)%p => NULL()
         p_of%var_desc(ivar)%tlev_iptr(i)%p => NULL()
       ENDDO
     END DO ! ivar
@@ -1844,9 +1856,11 @@ CONTAINS
       found = .FALSE.
       ! Nullify pointers
       var_desc%r_ptr => NULL()
+      var_desc%s_ptr => NULL()
       var_desc%i_ptr => NULL()
       DO i = 1, max_time_levels
         var_desc%tlev_rptr(i)%p => NULL()
+        var_desc%tlev_sptr(i)%p => NULL()
         var_desc%tlev_iptr(i)%p => NULL()
       ENDDO
 
@@ -1902,6 +1916,7 @@ CONTAINS
             ! Not time level dependent
             IF(found) CALL finish(routine,'Duplicate var name: '//TRIM(varlist(ivar)))
             p_var_desc%r_ptr    => element%field%r_ptr
+            p_var_desc%s_ptr    => element%field%s_ptr
             p_var_desc%i_ptr    => element%field%i_ptr
             p_var_desc%info     =  element%field%info
             p_var_desc%info_ptr => element%field%info
@@ -1914,7 +1929,7 @@ CONTAINS
                 CALL finish(routine,'Dimension mismatch TL variable: '//TRIM(varlist(ivar)))
               END IF
               ! There must not be a TL independent variable with the same name
-              IF (ASSOCIATED(p_var_desc%r_ptr) .OR. ASSOCIATED(p_var_desc%i_ptr)) &
+              IF (ASSOCIATED(p_var_desc%r_ptr) .OR. ASSOCIATED(p_var_desc%s_ptr) .OR. ASSOCIATED(p_var_desc%i_ptr)) &
                 CALL finish(routine,'Duplicate var name: '//TRIM(varlist(ivar)))
               ! Maybe some more members of info should be tested ...
             ELSE
@@ -1924,9 +1939,11 @@ CONTAINS
               p_var_desc%info%name = TRIM(get_var_name(element%field))
             ENDIF
 
-            IF (ASSOCIATED(p_var_desc%tlev_rptr(tl)%p) .OR. ASSOCIATED(p_var_desc%tlev_iptr(tl)%p)) &
+            IF (ASSOCIATED(p_var_desc%tlev_rptr(tl)%p) .OR. ASSOCIATED(p_var_desc%tlev_sptr(tl)%p) &
+                .OR. ASSOCIATED(p_var_desc%tlev_iptr(tl)%p)) &
               CALL finish(routine, 'Duplicate time level for '//TRIM(element%field%info%name))
             p_var_desc%tlev_rptr(tl)%p => element%field%r_ptr
+            p_var_desc%tlev_sptr(tl)%p => element%field%s_ptr
             p_var_desc%tlev_iptr(tl)%p => element%field%i_ptr
             p_var_desc%info_ptr        => element%field%info
           ENDIF
@@ -2306,7 +2323,6 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER     :: routine = modname//"::setup_output_vlist"
     INTEGER                         :: k, i_dom, ll_dim(2), gridtype, idate, itime, iret
     TYPE(t_lon_lat_data), POINTER   :: lonlat
-    TYPE(t_datetime)                :: ini_datetime
     REAL(wp)                        :: pi_180
     INTEGER                         :: max_cell_connectivity, max_vertex_connectivity
     REAL(wp), ALLOCATABLE           :: p_lonlat(:)
@@ -2547,13 +2563,21 @@ CONTAINS
        CALL message('','invalid taxis_tunit, reset to TUNIT_MINUTE')
      END IF
      CALL taxisDefTunit (of%cdiTaxisID, of%name_list%taxis_tunit)
-     ini_datetime = time_config%ini_datetime
-     CALL taxisDefCalendar (of%cdiTaxisID, time_config%calendar)
-     idate = cdiEncodeDate(ini_datetime%year, ini_datetime%month, ini_datetime%day)
-     itime = cdiEncodeTime(ini_datetime%hour, ini_datetime%minute, &
-                           NINT(ini_datetime%second))
-     !WRITE(6,'(a,i,a)')'calendar ', time_config%calendar, &
-     !                & 'julian_gregorian 0 -  proleptic_gregorian 1 -  cly360 2'
+
+     SELECT CASE(calendarType())
+     CASE (mtime_proleptic_gregorian)
+       CALL taxisDefCalendar (of%cdiTaxisID, dtime_proleptic_gregorian)
+     CASE (mtime_year_of_360_days)
+       CALL taxisDefCalendar (of%cdiTaxisID, dtime_cly360)
+     CASE default
+       CALL finish(routine, "Unsupported calendar!")
+     END SELECT
+     idate = cdiEncodeDate(INT(time_config%tc_exp_startdate%date%year),  &
+       &                   INT(time_config%tc_exp_startdate%date%month), &
+       &                   INT(time_config%tc_exp_startdate%date%day))
+     itime = cdiEncodeTime(time_config%tc_exp_startdate%time%hour, time_config%tc_exp_startdate%time%minute, &
+                           INT(time_config%tc_exp_startdate%time%second))
+
      CALL taxisDefRdate (of%cdiTaxisID, idate )
      CALL taxisDefRtime (of%cdiTaxisID, itime )
 
@@ -2950,6 +2974,7 @@ CONTAINS
           ! Nullify all pointers in element%field, they don't make sense on the I/O PEs
 
           element%field%r_ptr => NULL()
+          element%field%s_ptr => NULL()
           element%field%i_ptr => NULL()
           element%field%l_ptr => NULL()
           element%field%var_base_size = 0 ! Unknown here

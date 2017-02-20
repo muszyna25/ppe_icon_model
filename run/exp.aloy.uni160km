@@ -301,8 +301,7 @@ add_required_file ${basedir}/run/${lnd_namelist}                        ./
 # ------------------------------------------------
 
 dict_file="dict.${EXPNAME}"
-cat dict.iconam.mpim_inst  > ${dict_file}
-cat dict.echam.mpim_mean  >> ${dict_file}
+cat dict.iconam.mpim  > ${dict_file}
 add_required_file ${basedir}/run/${dict_file}                           ./
 
 # II.2.4 Initial conditions
@@ -442,6 +441,7 @@ if [[ "$output_atm_min" == "yes" ]]; then
  output_filename  = "${EXPNAME}_atm_min"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
+ operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
@@ -485,6 +485,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_filename  = "${EXPNAME}_atm_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
+ operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
@@ -505,6 +506,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_filename  = "${EXPNAME}_atm_2d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
+ operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
@@ -534,6 +536,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_filename  = "${EXPNAME}_phy_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
+ operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
@@ -564,6 +567,7 @@ if [[ "$output_aer_3d" == "yes" ]]; then
  output_filename  = "${EXPNAME}_aer_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
+ operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"

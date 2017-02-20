@@ -26,10 +26,13 @@
 
 MODULE mo_interface_les
 
-  USE mo_datetime,           ONLY: t_datetime
+  USE mtime,                 ONLY: datetime, timeDelta, newTimedelta,     &
+    &                              deallocateTimedelta, getTimedeltaFromDatetime, &
+    &                              getTotalMillisecondsTimedelta
+  USE mo_time_config,        ONLY: time_config
   USE mo_kind,               ONLY: wp
   USE mo_timer
-  USE mo_exception,          ONLY: message, message_text, finish
+  USE mo_exception,          ONLY: message, message_text
   USE mo_impl_constants,     ONLY: itccov, itrad, itgscp,         &
     &                              itsatad, itturb, itsfc, itradheat, &
     &                              itfastphy, max_char_length,    &
@@ -40,7 +43,7 @@ MODULE mo_interface_les
   USE mo_model_domain,       ONLY: t_patch
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nonhydrostatic_config, ONLY: kstart_moist, l_open_ubc, lhdiff_rcf, ih_clch, ih_clcm
+  USE mo_nonhydrostatic_config, ONLY: kstart_moist, lhdiff_rcf, ih_clch, ih_clcm
   USE mo_nwp_lnd_types,      ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
@@ -49,7 +52,7 @@ MODULE mo_interface_les
   USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqm_max,   &
     &                              msg_level, ltimer, timers_level, nqtendphy,  &
     &                              ltransport, lart, iqni, iqnc
-  USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cpd, cvd, cvv
+  USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd, cvv
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 
@@ -64,13 +67,12 @@ MODULE mo_interface_les
   USE mo_nwp_sfc_interface,  ONLY: nwp_surface
   USE mo_nwp_rad_interface,  ONLY: nwp_radiation
   USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, &
-                                   SYNC_C, SYNC_C1, global_max, global_min, global_sum_array
+                                   SYNC_C, SYNC_C1, global_sum_array
   USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier
   USE mo_nwp_diagnosis,      ONLY: nwp_statistics, nwp_diag_output_1, nwp_diag_output_2
-  USE mo_icon_comm_lib,      ONLY: new_icon_comm_variable, delete_icon_comm_variable, &
-     & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
+  USE mo_icon_comm_lib,      ONLY: new_icon_comm_variable, &
+     & icon_comm_sync_all, is_ready, until_sync
   USE mo_art_washout_interface,  ONLY:art_washout_interface
-  USE mo_art_reaction_interface, ONLY:art_reaction_interface
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
   USE mo_ls_forcing,          ONLY: apply_ls_forcing
@@ -82,7 +84,7 @@ MODULE mo_interface_les
                                      is_sampling_time, is_writing_time
   USE mo_les_utilities,       ONLY: init_vertical_grid_for_les
   USE mo_fortran_tools,       ONLY: copy
-  USE mo_util_dbg_prnt,      ONLY: dbg_print
+
   IMPLICIT NONE
 
   PRIVATE
@@ -95,7 +97,6 @@ MODULE mo_interface_les
   PUBLIC :: les_phy_interface, init_les_phy_interface
 
   CHARACTER(len=12)  :: str_module = 'les_interface'  ! Output of module for 1 line debug
-  INTEGER            :: idt_src    = 1           ! Determines level of detail for 1 line debug
 
 CONTAINS
   !
@@ -117,7 +118,7 @@ CONTAINS
   !
   SUBROUTINE les_phy_interface(lcall_phy_jg, linit, lredgrid,      & !input
                             & dt_loc, dt_phy_jg,                   & !input
-                            & p_sim_time, nstep, datetime,         & !input
+                            & nstep, mtime_current,                & !input
                             & pt_patch, pt_int_state, p_metrics,   & !input
                             & pt_par_patch,                        & !input
                             & ext_data,                            & !input
@@ -139,9 +140,8 @@ CONTAINS
     LOGICAL, INTENT(IN)          :: lredgrid        !< use reduced grid for radiation
     REAL(wp),INTENT(in)          :: dt_loc          !< (advective) time step applicable to local grid level
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics on jg
-    REAL(wp),INTENT(in)          :: p_sim_time
     INTEGER, INTENT(in)          :: nstep           !time step counter
-    TYPE(t_datetime),            INTENT(in):: datetime
+    TYPE(datetime), POINTER      :: mtime_current
     TYPE(t_patch),        TARGET,INTENT(in):: pt_patch         !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in):: pt_par_patch     !<grid/patch info (parent grid)
     TYPE(t_int_state),    TARGET,INTENT(in)   :: pt_int_state  !< interpolation state
@@ -203,13 +203,23 @@ CONTAINS
 
     ! communication ids, these do not need to be different variables,
     ! since they are not treated individualy
-    INTEGER :: ddt_u_tot_comm, ddt_v_tot_comm, tracers_comm, tempv_comm, exner_old_comm
+    INTEGER :: ddt_u_tot_comm, ddt_v_tot_comm, tracers_comm, tempv_comm, exner_pr_comm
 
     CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_interface_les:les_phy_interface:'
 
     ! Pointer to IDs of tracers which contain prognostic condensate.
     ! Required for computing the water loading term 
     INTEGER, POINTER :: condensate_list(:)
+
+    TYPE(timeDelta), POINTER            :: time_diff
+    REAL(wp)                            :: p_sim_time     !< elapsed simulation time on this grid level
+
+    ! calculate elapsed simulation time in seconds (local time for
+    ! this domain!)
+    time_diff  => newTimedelta("PT0S")
+    time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_exp_startdate)
+    p_sim_time =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
+    CALL deallocateTimedelta(time_diff)
 
     IF (ltimer) CALL timer_start(timer_physics)
 
@@ -228,7 +238,6 @@ CONTAINS
 
     ! inverse of fast physics time step
     inv_dt_fastphy = 1._wp / dt_phy_jg(itfastphy)
-
 
     IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. &
         lcall_phy_jg(itturb)  .OR. lcall_phy_jg(itsfc)) THEN
@@ -559,12 +568,11 @@ CONTAINS
 
     IF (lart) THEN
 
-!      CALL art_reaction_interface(pt_patch,dt_phy_jg(itfastphy),p_prog_list,pt_prog_rcf%tracer)
-
       CALL art_washout_interface(pt_prog, pt_diag ,             & !>in
                  &          dt_phy_jg(itfastphy),               & !>in
                  &          pt_patch,                           & !>in
                  &          prm_diag,                           & !>in
+                 &          p_metrics,                          & !>in
                  &          pt_prog_rcf%tracer)                   !>inout
     ENDIF !lart
 
@@ -627,7 +635,7 @@ CONTAINS
             pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                   &
               &                     * pt_prog%rho(jc,jk,jb)*pt_diag%tempv(jc,jk,jb)))
 
-            pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + &
+            pt_diag%exner_pr(jc,jk,jb) = pt_diag%exner_pr(jc,jk,jb) + &
               pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb)
 
             pt_prog%theta_v(jc,jk,  jb) = pt_diag%tempv(jc,jk,jb) &
@@ -636,17 +644,6 @@ CONTAINS
           ENDDO
         ENDDO
 
-        !This loop computes ddt_temp_dyn for convection in nwp_interface
-        !which is not required for LES. However, exner_dyn_incr needs
-        !to be set = 0 OR we skip the part in mo_solve_nonhydro where
-        !exner_dyn_incr is stored for nwp_interface
-        DO jk = kstart_moist(jg), nlev
-          DO jc =  i_startidx, i_endidx
-            ! reset dynamical exner increment to zero
-            ! (it is accumulated over one advective time step in solve_nh)
-            pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
-          ENDDO
-        ENDDO
 
       ENDDO
 !$OMP END DO NOWAIT
@@ -820,7 +817,7 @@ CONTAINS
       IF (ltimer) CALL timer_start(timer_nwp_radiation)
       CALL nwp_radiation (lredgrid,              & ! in
            &              p_sim_time,            & ! in
-           &              datetime,              & ! in
+           &              mtime_current,         & ! in
            &              pt_patch,              & ! in
            &              pt_par_patch,          & ! in
            &              ext_data,              & ! in
@@ -1140,7 +1137,7 @@ CONTAINS
     !--------------------------------------------------------
 
     ! Synchronize tracers if any of the updating (fast-physics) processes was active.
-    ! In addition, tempv needs to be synchronized, and in case of lhdiff_rcf, also exner_old
+    ! In addition, tempv needs to be synchronized, and in case of lhdiff_rcf, also exner_pr
     IF (l_any_fastphys) THEN
 
       IF (timers_level > 3) CALL timer_start(timer_phys_sync_tracers)
@@ -1153,15 +1150,15 @@ CONTAINS
           & status=is_ready, scope=until_sync, name="pt_diag%tempv")
 
         IF (lhdiff_rcf) THEN
-          exner_old_comm = new_icon_comm_variable(pt_diag%exner_old, &
+          exner_pr_comm = new_icon_comm_variable(pt_diag%exner_pr, &
             & pt_patch%sync_cells_not_in_domain, &
-            & status=is_ready, scope=until_sync, name="pt_diag%exner_old")
+            & status=is_ready, scope=until_sync, name="pt_diag%exner_pr")
         ENDIF
 
       ELSE
         IF (lhdiff_rcf) THEN
           CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer+2, pt_diag%tempv, &
-                                     pt_diag%exner_old, f4din=pt_prog_rcf%tracer)
+                                     pt_diag%exner_pr, f4din=pt_prog_rcf%tracer)
         ELSE
           CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer+1, pt_diag%tempv, f4din=pt_prog_rcf%tracer)
         ENDIF
@@ -1251,7 +1248,7 @@ CONTAINS
                   pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                   &
                     &                     * pt_prog%rho(jc,jk,jb)*pt_diag%tempv(jc,jk,jb)))
 
-                  pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + &
+                  pt_diag%exner_pr(jc,jk,jb) = pt_diag%exner_pr(jc,jk,jb) + &
                     pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb)
 
                   pt_prog%theta_v(jc,jk,  jb) = pt_diag%tempv(jc,jk,jb) &
@@ -1449,11 +1446,11 @@ CONTAINS
                               & prm_diag                )     !inout
 
       !write out time series
-      CALL write_time_series(prm_diag%turb_diag_0dvar, p_sim_time)
+      CALL write_time_series(prm_diag%turb_diag_0dvar, mtime_current)
     END IF
 
     IF( is_writing_time )THEN
-      CALL write_vertical_profiles(prm_diag%turb_diag_1dvar, p_sim_time, ncount)
+      CALL write_vertical_profiles(prm_diag%turb_diag_1dvar, mtime_current, ncount)
       ncount = 0
       prm_diag%turb_diag_1dvar = 0._wp
     END IF

@@ -25,8 +25,6 @@ MODULE mo_ocean_coupling
   USE mo_impl_constants,      ONLY: max_char_length
   USE mo_physical_constants,  ONLY: tmelt, rhoh2o
   USE mo_mpi,                 ONLY: p_pe_work
-  USE mo_datetime,            ONLY: t_datetime
-  USE mo_time_config,         ONLY: time_config
   USE mo_run_config,          ONLY: ltimer
   USE mo_dynamics_config,     ONLY: nold
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling, &
@@ -37,7 +35,10 @@ MODULE mo_ocean_coupling
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
 
   USE mo_ocean_types
-  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes, t_atmos_for_ocean
+  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes,t_atmos_for_ocean
+  USE mo_time_config,         ONLY: set_tc_current_date
+  USE mtime,                  ONLY: datetime, datetimeToString, &
+    &                               MAX_DATETIME_STR_LEN
 
   !-------------------------------------------------------------
   ! For the coupling
@@ -51,8 +52,7 @@ MODULE mo_ocean_coupling
     &                               yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
     &                               yac_ffinalize, yac_fput, yac_fget
   USE mo_coupling_config,     ONLY: is_coupled_run
-  USE mo_mtime_extensions,    ONLY: get_datetime_string
-  USE mo_output_event_types,  ONLY: t_sim_step_info
+  USE mo_time_config,         ONLY: time_config 
 
   !-------------------------------------------------------------
 
@@ -120,7 +120,8 @@ CONTAINS
     INTEGER, ALLOCATABLE  :: buffer_c(:,:)
     INTEGER, ALLOCATABLE  :: ibuffer(:)
 
-    TYPE(t_sim_step_info) :: sim_step_info
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: startdatestring
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: stopdatestring
 
     IF (.NOT. is_coupled_run()) RETURN
 
@@ -141,12 +142,11 @@ CONTAINS
     comp_ids(1) = comp_id
 
     ! Overwrite job start and end date with component data
-    CALL get_datetime_string(sim_step_info%run_start,    time_config%cur_datetime)
-    CALL get_datetime_string(sim_step_info%restart_time, time_config%cur_datetime, &
-      & INT(time_config%dt_restart))
+    CALL datetimeToString(time_config%tc_startdate, startdatestring)
+    CALL datetimeToString(time_config%tc_stopdate, stopdatestring)
 
-    CALL yac_fdef_datetime ( start_datetime = TRIM(sim_step_info%run_start), &
-      &                      end_datetime   = TRIM(sim_step_info%restart_time)   )
+    CALL yac_fdef_datetime ( start_datetime = TRIM(startdatestring), &
+         &                   end_datetime   = TRIM(stopdatestring)   )
 
     ! Announce one subdomain (patch) to the coupler
     grid_name = "grid1"
@@ -270,13 +270,15 @@ CONTAINS
     ! e.g. to mask out halo points. We do we get the info about what is local and what
     ! is remote.
     !
-    ! The land-sea mask for the ocean is available in patch_3D%surface_cell_sea_land_mask(:,:)
-    !
+    ! The integer land-sea mask:
     !          -2: inner ocean
     !          -1: boundary ocean
     !           1: boundary land
     !           2: inner land
     !
+    ! This integer mask for the ocean is available in patch_3D%surface_cell_sea_land_mask(:,:)
+    ! The logical mask for the coupler is set to .FALSE. for land points to exclude them from mapping by yac.
+    ! These points are not touched by yac.
 
     mask_checksum = 0
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK,idx) REDUCTION(+:mask_checksum) ICON_OMP_DEFAULT_SCHEDULE
@@ -293,10 +295,10 @@ CONTAINS
       DO BLOCK = 1, patch_horz%nblks_c
         DO idx = 1, nproma
           IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) < 0 ) THEN
-            ! water (-2, -1)
+            ! ocean and ocean-coast is valid (-2, -1)
             ibuffer((BLOCK-1)*nproma+idx) = 0
           ELSE
-            ! land or boundary
+            ! land is undef (1, 2)
             ibuffer((BLOCK-1)*nproma+idx) = 1
           ENDIF
         ENDDO
@@ -331,7 +333,7 @@ CONTAINS
     field_name(10) = "10m_wind_speed"
     field_name(11) = "river_runoff"
 
-    ! Define all fields but the runoff
+    ! Define the mask for all fields but the runoff (idx=1 to 10)
 
     DO idx = 1, no_of_fields-1 
       CALL yac_fdef_field (      &
@@ -344,7 +346,7 @@ CONTAINS
         & field_id(idx) )
     ENDDO
 
-    ! Set mask for runnoff
+    ! Define cell_mask_ids(2) for runoff: ocean coastal points only are valid.
 
     IF ( mask_checksum > 0 ) THEN
 
@@ -352,10 +354,10 @@ CONTAINS
       DO BLOCK = 1, patch_horz%nblks_c
         DO idx = 1, nproma
           IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) == -1 ) THEN
-            ! water (-2, -1)
+            ! ocean coast (-1) is valid
             ibuffer((BLOCK-1)*nproma+idx) = 0
           ELSE
-            ! land or boundary
+            ! elsewhere (land or open ocean 1, 2, -2) is undef
             ibuffer((BLOCK-1)*nproma+idx) = 1
           ENDIF
         ENDDO
@@ -372,14 +374,18 @@ CONTAINS
 
     DEALLOCATE(ibuffer)
 
-    ! Define the runoff
+    ! Define the mask for runoff
+
+    ! Utilize mask field for runoff
+    !  - cell_mask_ids(1) is whole ocean for nearest neighbor interpolation (pre03)
+    !  - cell_mask_ids(2) is ocean coast points only for source point mapping (pre04, source_to_target_map)
 
     CALL yac_fdef_field (               &
       & TRIM(field_name(no_of_fields)), &
       & comp_id,                        &
       & domain_id,                      &
       & cell_point_ids,                 &
-      & cell_mask_ids(1),               & ! still uses (1) for nn-interpolation; change for spmapping to (2)
+      & cell_mask_ids(2),               &
       & 1,                              &
       & field_id(no_of_fields) )
 
@@ -419,14 +425,14 @@ CONTAINS
 
   !--------------------------------------------------------------------------
 
-  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, atmos_forcing, datetime)
+  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, atmos_forcing, this_datetime)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in)        :: patch_3d
     TYPE(t_hydro_ocean_state)                   :: ocean_state
     TYPE(t_sea_ice)                             :: ice
     TYPE(t_atmos_fluxes)                        :: atmos_fluxes
     TYPE(t_atmos_for_ocean)                     :: atmos_forcing
-    TYPE(t_datetime), INTENT(inout)             :: datetime
+    TYPE(datetime), POINTER                     :: this_datetime
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = 'couple_ocean_toatmo_fluxes'
@@ -441,17 +447,19 @@ CONTAINS
     INTEGER :: no_arr         !  no of arrays in bundle for put/get calls
     TYPE(t_patch), POINTER:: patch_horz
 
-    INTEGER :: info, ierror   !< return values from cpl_put/get calls
-
+    INTEGER                             :: info, ierror   !< return values from cpl_put/get calls
+    REAL(wp), PARAMETER                 :: dummy = 0.0_wp
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datestring
     REAL(wp) :: total_rain
-    REAL(wp), PARAMETER :: dummy = 0.0_wp
 
     IF (.NOT. is_coupled_run() ) RETURN
 
     IF (ltimer) CALL timer_start(timer_coupling)
 
     patch_horz   => patch_3D%p_patch_2D(1)
-    time_config%cur_datetime = datetime
+
+!    CALL datetimeToString(this_datetime, datestring)
+!    CALL set_tc_current_date(TRIM(datestring))
 
     nbr_hor_cells = patch_horz%n_patch_cells
 
@@ -473,6 +481,8 @@ CONTAINS
     !   field_id(8) represents "northward_sea_water_velocity"             - meridional velocity, v component of ocean surface current
     !   field_id(9) represents "ocean_sea_ice_bundle"                     - ice thickness, snow thickness, ice concentration
     !
+
+    !  add another comment here
 
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
@@ -897,7 +907,7 @@ CONTAINS
     !  Receive river runoff
     !   field_id(11) represents "river_runoff" - river discharge into the ocean
     !
-    ! Note: freshwater fluxes are received in kg/m^2/s and are converted to m/s by division by rhoh2o below.
+    ! Note: river runoff fluxes are received in m^3/s and are converted to m/s by division by whole grid area
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
@@ -922,7 +932,10 @@ CONTAINS
           IF ( nn+n > nbr_inner_cells ) THEN
             atmos_fluxes%FrshFlux_Runoff(n,i_blk) = dummy
           ELSE
-            atmos_fluxes%FrshFlux_Runoff(n,i_blk) = buffer(nn+n,1) / rhoh2o
+    ! !!! Note: freshwater fluxes are received in kg/m^2/s and are converted to m/s by division by rhoh2o below.
+    ! !!!   atmos_fluxes%FrshFlux_Runoff(n,i_blk) = buffer(nn+n,1) / rhoh2o
+    ! discharge_ocean is in m3/s
+            atmos_fluxes%FrshFlux_Runoff(n,i_blk) = buffer(nn+n,1) / patch_horz%cells%area(n,i_blk)
           ENDIF
         ENDDO
       ENDDO
@@ -962,9 +975,9 @@ MODULE mo_ocean_coupling
   USE mo_model_domain,        ONLY: t_patch_3d
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes, t_atmos_for_ocean
-  USE mo_datetime,            ONLY: t_datetime
   USE mo_coupling_config,     ONLY: is_coupled_run
   USE mo_exception,           ONLY: finish
+  USE mtime,                  ONLY: datetime
 
   PUBLIC :: construct_ocean_coupling, destruct_ocean_coupling
   PUBLIC :: couple_ocean_toatmo_fluxes
@@ -983,14 +996,14 @@ CONTAINS
 
   END SUBROUTINE construct_ocean_coupling
 
-  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, atmos_forcing, datetime)
+  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, atmos_forcing, this_datetime)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in)        :: patch_3d
     TYPE(t_hydro_ocean_state)                   :: ocean_state
     TYPE(t_sea_ice)                             :: ice
     TYPE(t_atmos_fluxes)                        :: atmos_fluxes
     TYPE(t_atmos_for_ocean)                     :: atmos_forcing
-    TYPE(t_datetime), INTENT(inout)             :: datetime
+    TYPE(datetime), POINTER                     :: this_datetime
 
     IF ( is_coupled_run() ) THEN
        CALL finish('couple_ocean_toatmo_fluxes: unintentionally called. Check your source code and configure.')

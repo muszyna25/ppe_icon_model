@@ -34,8 +34,9 @@ author_list="Marco Giorgetta, Sebastian Mueller, Sebastian Rast, MPIM"
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
-grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip/r0002
-atmo_dyn_grids='r2b4_amip.nc'
+grid_name=r2b4_amip
+grids_folder=${icon_data_poolFolder}/grids/private/${grid_name}/r0002
+atmo_dyn_grids=${grid_name}.nc
 
 # start and end date+time
 start_date="1979-01-01T00:00:00Z"
@@ -203,7 +204,7 @@ add_required_file ${basedir}/run/${atmo_namelist}                       ./
 # dictionary file for output variable names
 #
 dict_file="dict.${EXPNAME}"
-cat dict.iconam.mpim_inst  > ${dict_file}
+cat dict.iconam.mpim  > ${dict_file}
 add_required_file ${basedir}/run/${dict_file}                           ./
 
 INDATA=${icon_data_poolFolder}/input/r0004
@@ -283,8 +284,11 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
-                    'cosmu0'  , 'rsdt'    ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+                    'cosmu0'  ,
+                    'rsdt'    ,
+                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'
+                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'
+                    'rsus'    , 'rsuscs'  , 'rlus'    ,
                     'ts'      ,
                     'sic'     , 'sit'     ,
                     'albedo'  ,
@@ -293,7 +297,8 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
                     'tauu'    , 'tauv'    ,
-                    'tauu_sso', 'tauv_sso', 'diss_sso', 
+                    'sfcwind' , 'uas'     , 'vas'     ,
+                    'tas'     , 'dew2'
 /
 EOF
 fi
@@ -316,19 +321,20 @@ if [[ "$output_atm_2d_rmb" == "yes" ]]; then
 ! steps_per_file   = ${output_steps_per_file}
  include_last     = .FALSE.
  ml_varlist       = 'ps','psl'
-                    'cosmu0'  , 'rsdt'    ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
-                    'ts'      , 'ts_rad'  ,
+                    'cosmu0'  ,
+                    'rsdt'    ,
+                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'
+                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'
+                    'rsus'    , 'rsuscs'  , 'rlus'    ,
+                    'ts'      ,
                     'albedo'  ,
                     'clt'     ,
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
                     'tauu'    , 'tauv'    ,
-                    'sh_vdiff', 'qv_vdiff',
-                    'ch_concloud',
-                    'con_dtrl', 'con_dtri', 'con_iteqv',
-                    'cld_dtrl', 'cld_dtri', 'cld_iteq'
+                    'sfcwind' , 'uas'     , 'vas'     ,
+                    'tas'     , 'dew2'
 /
 EOF
 fi

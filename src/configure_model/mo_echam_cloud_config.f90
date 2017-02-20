@@ -42,7 +42,6 @@ MODULE mo_echam_cloud_config
      REAL(wp) :: clmax
      REAL(wp) :: clmin
      REAL(wp) :: ceffmax    ! max eff.radius for ice cloud
-     LOGICAL  :: lonacc
 
      REAL(wp) :: ccsacl
      REAL(wp) :: ccracl
@@ -119,7 +118,6 @@ CONTAINS
     CALL print_value(' clmax   ', echam_cloud_config% clmax   )
     CALL print_value(' clmin   ', echam_cloud_config% clmin   )
     CALL print_value(' ceffmax ', echam_cloud_config% ceffmax )
-    CALL print_value(' lonacc  ', echam_cloud_config% lonacc  )
     CALL message('','')
     CALL print_value(' ccsacl  ', echam_cloud_config% ccsacl  )
     CALL print_value(' ccracl  ', echam_cloud_config% ccracl  )

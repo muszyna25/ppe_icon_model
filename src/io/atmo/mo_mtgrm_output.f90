@@ -100,7 +100,8 @@
 MODULE mo_meteogram_output
 
   USE mo_kind,                  ONLY: wp
-  USE mo_datetime,              ONLY: t_datetime, iso8601
+  USE mtime,                    ONLY: datetime, datetimeToPosixString,    &
+       &                              MAX_DATETIME_STR_LEN  
   USE mo_exception,             ONLY: message, message_text, finish
   USE mo_mpi,                   ONLY: p_n_work, p_max,                    &
     &                                 get_my_mpi_all_id, p_wait,          &
@@ -133,7 +134,8 @@ MODULE mo_meteogram_output
   USE mo_nwp_lnd_types,         ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag
   USE mo_cf_convention,         ONLY: t_cf_var, t_cf_global, cf_global_info
   USE mo_util_string,           ONLY: int2string, one_of
-  USE mo_util_uuid,             ONLY: t_uuid, uuid_unparse, uuid_string_length
+  USE mo_util_uuid_types,       ONLY: t_uuid, uuid_string_length
+  USE mo_util_uuid,             ONLY: uuid_unparse
   USE mo_read_interface,        ONLY: nf
   ! TODO[FP] : When using an already built GNAT, not all of the
   ! following USEs will be necessary:
@@ -143,8 +145,8 @@ MODULE mo_meteogram_output
   USE mo_dynamics_config,       ONLY: nnow
   USE mo_io_config,             ONLY: inextra_2d, inextra_3d
   USE mo_lnd_nwp_config,        ONLY: tiles
-  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, ltestcase, &
-    &                                 number_of_grid_used, iqm_max, iqni, &
+  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, ltestcase,    &
+    &                                 iqm_max, iqni,                         &
     &                                 iqns, iqng, iqnh, iqnr, iqnc, ininact, &
                                       iqg, iqh  
   USE mo_meteogram_config,      ONLY: t_meteogram_output_config, t_station_list, &
@@ -801,7 +803,6 @@ CONTAINS
     TYPE(t_meteogram_station), POINTER :: p_station
     TYPE(t_cf_global)        , POINTER :: cf  !< meta info
     TYPE(t_gnat_tree)                  :: gnat
-
     INTEGER                            :: io_collector_rank
 
     !-- define the different roles in the MPI communication inside
@@ -1331,12 +1332,13 @@ CONTAINS
   SUBROUTINE meteogram_sample_vars(jg, cur_step, cur_datetime, ierr)
     INTEGER,          INTENT(IN)  :: jg           !< patch index
     INTEGER,          INTENT(IN)  :: cur_step     !< current model iteration step
-    TYPE(t_datetime), INTENT(IN)  :: cur_datetime !< date and time of point sample
+    TYPE(datetime),   POINTER     :: cur_datetime !< date and time of point sample
     INTEGER,          INTENT(OUT) :: ierr         !< error code (e.g. buffer overflow)
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":meteogram_sample_vars"
     INTEGER :: jb, jc, i_startidx, i_endidx, ilev, ivar,  &
-      &        i_tstep, iidx, iblk
+         &        i_tstep, iidx, iblk
+    CHARACTER(len=MAX_DATETIME_STR_LEN) :: zdate
     TYPE(t_meteogram_data), POINTER :: meteogram_data
 
     meteogram_data => mtgrm(jg)%meteogram_local_data
@@ -1357,8 +1359,9 @@ CONTAINS
     END IF
 
     meteogram_data%time_stamp(i_tstep)%istep = cur_step
-    meteogram_data%time_stamp(i_tstep)%zdate = iso8601(cur_datetime)
-
+    CALL datetimeToPosixString(cur_datetime, zdate, "%Y%m%dT%H%M%SZ")
+    meteogram_data%time_stamp(i_tstep)%zdate = TRIM(zdate)
+    
     ! fill time step with values
     DO jb=1,meteogram_data%nblks
       i_startidx = 1

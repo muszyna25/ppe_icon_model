@@ -4530,9 +4530,9 @@ CONTAINS
     CLASS(particle), INTENT(in)             :: rain
     TYPE(particle_rain_coeffs), INTENT(in)  :: rain_coeffs
     INTEGER,  INTENT(IN)                    :: its,ite,kts,kte
-    REAL(wp), DIMENSION(:,:), INTENT(INOUT ):: qp,np
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: qp,np
     REAL(wp), DIMENSION(:,:), INTENT(IN)    :: adz,qc,rhocorr
-    REAL(wp), DIMENSION(:),   INTENT(OUT)   :: precrate
+    REAL(wp), DIMENSION(:),   INTENT(INOUT) :: precrate
     REAL(wp), INTENT(IN)                    :: dt
     REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
 
@@ -4585,7 +4585,7 @@ CONTAINS
     INTEGER, INTENT(IN)                     :: its,ite,kts,kte
     REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: qp,np
     REAL(wp), DIMENSION(:,:), INTENT(IN)    :: adz,rhocorr
-    REAL(wp), DIMENSION(:),   INTENT(OUT)   :: precrate
+    REAL(wp), DIMENSION(:),   INTENT(INOUT) :: precrate
     REAL(wp), INTENT(IN)                    :: dt
     REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
 
@@ -4642,7 +4642,7 @@ CONTAINS
     INTEGER, INTENT(IN)                     :: its,ite,kts,kte
     REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: qp,np,ql
     REAL(wp), DIMENSION(:,:), INTENT(IN)    :: adz,rhocorr
-    REAL(wp), DIMENSION(:),   INTENT(OUT)   :: precrate
+    REAL(wp), DIMENSION(:),   INTENT(INOUT) :: precrate
     REAL(wp), INTENT(IN)                    :: dt
     REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
 
@@ -4735,8 +4735,8 @@ CONTAINS
     INTEGER, INTENT(IN) :: its,ite,kts,kte
     REAL(wp), DIMENSION(its:,kts-1:), INTENT(in) :: v_n_sedi,v_q_sedi
     REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
-    REAL(wp), DIMENSION(:), INTENT(OUT)   :: precrate
-    REAL(wp), DIMENSION(:,:), INTENT(INOUT):: np,qp
+    REAL(wp), DIMENSION(:), INTENT(INOUT)   :: precrate
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: np,qp
 
     REAL(wp), DIMENSION(its:ite, 0:1) :: q_fluss, n_fluss
     REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
@@ -4845,8 +4845,8 @@ CONTAINS
     INTEGER, INTENT(IN) :: its,ite,kts,kte
     REAL(wp), DIMENSION(its:,kts-1:), INTENT(in) :: v_n_sedi,v_q_sedi,v_ql_sedi
     REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
-    REAL(wp), DIMENSION(:), INTENT(OUT)   :: precrate
-    REAL(wp), DIMENSION(:,:), INTENT(INOUT):: np,qp,ql
+    REAL(wp), DIMENSION(:), INTENT(INOUT)   :: precrate
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: np,qp,ql
 
     REAL(wp), DIMENSION(its:ite, 0:1) :: q_fluss, n_fluss, ql_fluss
     REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, v_ql, s_nv, s_qv, s_ql, c_nv, c_qv, c_ql
