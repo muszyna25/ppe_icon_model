@@ -26,8 +26,7 @@ MODULE mo_output_event_control
   USE mo_kind,               ONLY: wp, i4, i8
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mtime,                 ONLY: MAX_DATETIME_STR_LEN, MAX_DATETIME_STR_LEN,          &
-    &                              MAX_TIMEDELTA_STR_LEN, PROLEPTIC_GREGORIAN,          &
-    &                              datetime, setCalendar, resetCalendar,                &
+    &                              MAX_TIMEDELTA_STR_LEN, datetime,                     &
     &                              deallocateDatetime, datetimeToString,                &
     &                              newDatetime, OPERATOR(>=), OPERATOR(*),              &
     &                              OPERATOR(+), OPERATOR(-), timedelta, newTimedelta,   &
@@ -93,8 +92,6 @@ CONTAINS
     TYPE(timedelta), POINTER :: delta
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
 
-    CALL setCalendar(PROLEPTIC_GREGORIAN)
-
     ! debugging output
     IF (ldebug)  WRITE (0,*) "date_string: ", date_string(1:nstrings)
 
@@ -138,7 +135,7 @@ CONTAINS
     CALL deallocateDatetime(mtime_begin)
     CALL deallocateDatetime(mtime_end)
     CALL deallocateTimedelta(delta)
-    !rr CALL resetCalendar()
+
   END SUBROUTINE compute_matching_sim_steps
 
 
@@ -221,7 +218,6 @@ CONTAINS
     TYPE(timedelta), POINTER            :: delta, forecast_delta
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string, forecast_delta_str
 
-    CALL setCalendar(PROLEPTIC_GREGORIAN)
     mtime_begin  => newDatetime(TRIM(sim_step_info%run_start))
 
     ! ---------------------------------------------------

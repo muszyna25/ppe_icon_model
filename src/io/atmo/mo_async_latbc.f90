@@ -66,7 +66,6 @@ MODULE mo_async_latbc
     ! Processor numbers
     USE mo_mpi,                       ONLY: p_pe_work, p_work_pe0, p_comm_work_pref_compute_pe0
     USE mo_time_config,               ONLY: time_config
-    USE mo_datetime,                  ONLY: t_datetime
     USE mo_async_latbc_types,         ONLY: t_patch_data, t_reorder_data, latbc_buffer
     USE mo_grid_config,               ONLY: nroot
     USE mo_async_latbc_utils,         ONLY: pref_latbc_data, prepare_pref_latbc_data, patch_data, &
@@ -98,7 +97,8 @@ MODULE mo_async_latbc
     USE mo_io_util,                   ONLY: read_netcdf_int_1d
     USE mo_util_file,                 ONLY: util_filesize
     USE mo_util_cdi,                  ONLY: test_cdi_varID, cdiGetStringError
-
+    USE mtime,                        ONLY: datetime
+    
     IMPLICIT NONE
 
     PRIVATE
@@ -168,7 +168,6 @@ MODULE mo_async_latbc
       ! NOMPI
 
     END SUBROUTINE close_prefetch
-
 
     !------------------------------------------------------------------------------------------------
     !------------------------------------------------------------------------------------------------
@@ -450,7 +449,7 @@ MODULE mo_async_latbc
       IF(my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
          jlev = patch_data%level
          ! generate file name
-         latbc_filename = generate_filename(nroot, jlev, time_config%ini_datetime)
+         latbc_filename = generate_filename(nroot, jlev, time_config%tc_startdate)
          latbc_file = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
          INQUIRE (FILE=latbc_file, EXIST=l_exist)
          IF (.NOT.l_exist) THEN
@@ -589,7 +588,7 @@ MODULE mo_async_latbc
       IF( my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
          jlev = patch_data%level
          ! generate file name
-         latbc_filename = generate_filename(nroot, jlev, time_config%ini_datetime)
+         latbc_filename = generate_filename(nroot, jlev, time_config%tc_startdate)
          latbc_file = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
          INQUIRE (FILE=latbc_file, EXIST=l_exist)
          IF (.NOT.l_exist) THEN

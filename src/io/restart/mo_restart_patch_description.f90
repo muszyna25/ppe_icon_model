@@ -83,7 +83,6 @@ MODULE mo_restart_patch_description
         ! dynamic patch arguments (optionally)
         INTEGER, ALLOCATABLE :: opt_depth_lnd, opt_nlev_snow, opt_nice_class, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
                               & opt_ndom, opt_ocean_zlevels
-        REAL(wp), ALLOCATABLE :: opt_sim_time
 
         REAL(wp), ALLOCATABLE :: opt_pvct(:)
         LOGICAL, ALLOCATABLE :: opt_lcall_phy(:)
@@ -148,7 +147,7 @@ CONTAINS
         END IF
     END SUBROUTINE restartPatchDescription_init
 
-    SUBROUTINE restartPatchDescription_update(me, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
+    SUBROUTINE restartPatchDescription_update(me, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, &
                                              &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
                                              &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
                                              &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
@@ -156,8 +155,8 @@ CONTAINS
         TYPE(t_patch), INTENT(IN) :: patch
         INTEGER, INTENT(IN), OPTIONAL :: opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
                                        & opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels
-        REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_pvct(:), opt_t_elapsed_phy(:), opt_ocean_zheight_cellMiddle(:), &
-                                        & opt_ocean_zheight_cellInterfaces(:)
+        REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:), opt_t_elapsed_phy(:), opt_ocean_zheight_cellMiddle(:), &
+             & opt_ocean_zheight_cellInterfaces(:)
         LOGICAL, INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartPatchDescription_update"
@@ -180,7 +179,6 @@ CONTAINS
             CALL assign_if_present_allocatable(me%opt_depth_lnd, opt_depth_lnd)
             CALL assign_if_present_allocatable(me%opt_nlev_snow, opt_nlev_snow)
             CALL assign_if_present_allocatable(me%opt_nice_class, opt_nice_class)
-            CALL assign_if_present_allocatable(me%opt_sim_time, opt_sim_time)
             CALL assign_if_present_allocatable(me%opt_ndom, opt_ndom)
             CALL assign_if_present_allocatable(me%opt_ocean_zlevels, opt_ocean_zlevels)
 
@@ -233,7 +231,6 @@ CONTAINS
         CALL packedMessage%packerAllocatable(operation, me%opt_nice_class)
         CALL packedMessage%packerAllocatable(operation, me%opt_ndyn_substeps)
         CALL packedMessage%packerAllocatable(operation, me%opt_jstep_adv_marchuk_order)
-        CALL packedMessage%packerAllocatable(operation, me%opt_sim_time)
         CALL packedMessage%packerAllocatable(operation, me%opt_ndom)
         CALL packedMessage%packerAllocatable(operation, me%opt_ocean_zlevels)
 
@@ -263,6 +260,9 @@ CONTAINS
         IF(ALLOCATED(me%opt_nlev_snow)) nlev_snow = me%opt_nlev_snow
         IF(ALLOCATED(me%opt_ocean_zlevels)) nlev_ocean = me%opt_ocean_zlevels
         IF(ALLOCATED(me%opt_nice_class)) nice_class = me%opt_nice_class
+
+        ! reset internal counter
+        me%v_grid_count = 0
 
         ! set vertical grid definitions
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_SURFACE, 0._wp)
@@ -314,9 +314,6 @@ CONTAINS
 
         ! set time levels
         CALL setDynamicPatchRestartAttributes(restartAttributes, me%id, me%nold, me%nnow, me%nnew, me%nnow_rcf, me%nnew_rcf)
-
-        ! additional restart-output for nonhydrostatic model
-        IF(ALLOCATED(me%opt_sim_time)) CALL restartAttributes%setReal ('sim_time_DOM'//domainString, me%opt_sim_time)
 
         !-------------------------------------------------------------
         ! DR

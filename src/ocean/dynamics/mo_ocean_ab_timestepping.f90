@@ -26,7 +26,7 @@ MODULE mo_ocean_ab_timestepping
   USE mo_ocean_ab_timestepping_mimetic,  ONLY: solve_free_sfc_ab_mimetic, &
     &  calc_normal_velocity_ab_mimetic, &
     &  calc_vert_velocity_mim_bottomup
-  USE mo_ocean_physics,                  ONLY: t_ho_params
+  USE mo_ocean_physics_types,            ONLY: t_ho_params
   USE mo_ocean_types,                    ONLY: t_hydro_ocean_state, t_operator_coeff, t_solverCoeff_singlePrecision
   USE mo_exception,                      ONLY: finish!, message_text
   

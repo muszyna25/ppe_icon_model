@@ -102,15 +102,25 @@ MODULE mo_radiation_config
     !
     INTEGER :: ighg
     !
-    ! --- Default gas volume mixing ratios - 1990 values (CMIP5)
+    ! --- Default gas mixing ratios - 1990 values (CMIP5)
     !
-    REAL(wp) :: vmr_co2     !< CO2
-    REAL(wp) :: vmr_n2o     !< N20
-    REAL(wp) :: vmr_o2      !< O2
-    REAL(wp) :: vmr_ch4     !< CH4
-    REAL(wp) :: vmr_cfc11   !< CFC 11
-    REAL(wp) :: vmr_cfc12   !< CFC 12
+    REAL(wp) :: vmr_co2  , mmr_co2   !< CO2
+    REAL(wp) :: vmr_n2o  , mmr_n2o   !< N20
+    REAL(wp) :: vmr_o2   , mmr_o2    !< O2
+    REAL(wp) :: vmr_ch4  , mmr_ch4   !< CH4
+    REAL(wp) :: vmr_cfc11, mmr_cfc11 !< CFC 11
+    REAL(wp) :: vmr_cfc12, mmr_cfc12 !< CFC 12
+
     !
+    ! --- Scaling factor for mixing ratios
+    !
+    REAL(wp) :: fh2o
+    REAL(wp) :: fco2
+    REAL(wp) :: fn2o
+    REAL(wp) :: fo3
+    REAL(wp) :: fo2
+    REAL(wp) :: fch4
+    REAL(wp) :: fcfc
     !
     ! --- Different specifications of the zenith angle
     INTEGER  :: izenith     ! circular orbit, no seasonal cycle but with diurnal cycle 
@@ -149,11 +159,6 @@ MODULE mo_radiation_config
     !  REAL(wp) :: flx_ratio_rad
     !  REAL(wp) :: decl_sun_cur                  !< solar declination at current time step
     !
-    !
-    ! 3.0 Variables computed by routines in mo_radiation (export to submodels)
-    ! --------------------------------
-    !
-    REAL(wp) :: mmr_co2, mmr_ch4, mmr_n2o, mmr_o2                ! setup_radiation
   
   !END TYPE t_radiation_config
   !>

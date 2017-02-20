@@ -28,7 +28,6 @@ MODULE mo_ha_stepping
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm
   USE mo_icoham_dyn_memory,   ONLY: construct_icoham_dyn_state
   USE mo_intp_data_strc,      ONLY: t_int_state
-  USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time
   USE mo_exception,           ONLY: message, message_text
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_state,      ONLY: ext_data
@@ -37,7 +36,7 @@ MODULE mo_ha_stepping
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config, configure_ha_dyn
   USE mo_io_config,           ONLY: l_diagtime, l_outputtime, is_checkpoint_time, &
     &                               n_chkpt, n_diag
-  USE mo_run_config,          ONLY: nsteps, dtime, ntracer,  &
+  USE mo_run_config,          ONLY: nsteps, dtime, ntracer,             &
                                   & ldynamics, ltransport, msg_level,   &
                                   & ltestcase, output_mode
   USE mo_master_config,       ONLY: isRestart
@@ -63,6 +62,8 @@ MODULE mo_ha_stepping
   USE mo_restart,             ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
   USE mo_restart_attributes,  ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_time_config,         ONLY: time_config
+  USE mtime,                  ONLY: datetime, datetimeToString, MAX_DATETIME_STR_LEN,    &
+    &                               OPERATOR(+), OPERATOR(>=) 
 
   IMPLICIT NONE
 
@@ -199,7 +200,8 @@ CONTAINS
   !!
   SUBROUTINE perform_ha_stepping( p_patch, p_int_state,               &
                                 & p_grf_state,                        &
-                                & p_hydro_state, datetime             )
+                                & p_hydro_state,                      &
+                                & mtime_current )
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_ha_stepping:perform_ha_stepping'
@@ -208,15 +210,16 @@ CONTAINS
   TYPE(t_int_state),     TARGET, INTENT(IN)    :: p_int_state(n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom)
 
-  TYPE(t_datetime), INTENT(INOUT)              :: datetime
+  TYPE(datetime),   POINTER                    :: mtime_current     ! current datetime (mtime)
   TYPE(t_hydro_atm), TARGET, INTENT(INOUT)     :: p_hydro_state(n_dom)
 
   REAL(wp), DIMENSION(:,:,:), POINTER          :: p_vn  => NULL()
-  REAL(wp)                                     :: sim_time(n_dom)
+
   INTEGER                                      :: jg, jn, jgc, jstep
   LOGICAL                                      :: l_nml_output
   LOGICAL                                      :: l_3tl_init(n_dom)
   INTEGER                                      :: jstep0 ! start counter for time loop
+  CHARACTER(LEN=MAX_DATETIME_STR_LEN)          :: dstring
   TYPE(t_RestartAttributeList), POINTER        :: restartAttributes
   CLASS(t_RestartDescriptor), POINTER          :: restartDescriptor
 
@@ -229,20 +232,21 @@ CONTAINS
 
 
 !-----------------------------------------------------------------------
-  sim_time(:) = 0._wp
 
   IF (ltimer) CALL timer_start(timer_total)
 
   restartDescriptor => createRestartDescriptor("atm")
 
   jstep0 = 0
+
   restartAttributes => getAttributesForRestarting()
-  IF (ASSOCIATED(restartAttributes) .AND. .NOT. time_config%is_relative_time) THEN
+  IF (ASSOCIATED(restartAttributes)) THEN
     ! get start counter for time loop from restart file:
     jstep0 = restartAttributes%getInteger("jstep")
   END IF
 
-  TIME_LOOP: DO jstep = (jstep0+1), (jstep0+nsteps)
+  jstep = jstep0+1  
+  TIME_LOOP: DO 
 
     !--------------------------------------------------------------------------
     ! Send to stdout information about the current integration cycle
@@ -281,18 +285,17 @@ CONTAINS
     ! one timestep for the global domain and calls itself in the presence
     ! of nested domains with recursively halved time steps
 
-    CALL process_grid( p_patch, p_hydro_state, p_int_state, p_grf_state,    &
-      &                ext_data, 1, jstep, l_3tl_init, dtime, sim_time,     &
-      &                1, datetime )
+    CALL process_grid( p_patch, p_hydro_state, p_int_state, p_grf_state,       &
+      &                ext_data, 1, jstep, l_3tl_init, dtime,                  &
+      &                time_config%tc_dt_model, 1, mtime_current )
 
     !--------------------------------------------------------------------------
     ! One integration cycle finished on the lowest grid level (coarsest
     ! resolution). Set model time.
     !--------------------------------------------------------------------------
-    CALL add_time(dtime,0,0,0,datetime)
-!!$    ! Not nice, but the name list output requires this
-!!$    sim_time(1) = MODULO(sim_time(1) + dtime, 86400.0_wp)
-    sim_time(1) = sim_time(1) + dtime   ! RS: is this correct? process_grid already advances sim_time by dtime !
+
+    ! update model date and time (mtime)
+    mtime_current = mtime_current + time_config%tc_dt_model
 
     !--------------------------------------------------------------------------
     ! Set output flags
@@ -355,8 +358,8 @@ CONTAINS
       ENDIF
 
       IF (l_nml_output) THEN
-        CALL message(TRIM(routine),'Output (name_list) at:')
-        CALL print_datetime(datetime)
+        CALL datetimeToString(mtime_current, dstring)
+        CALL message(TRIM(routine),'Output (name_list) at: '//dstring)
         CALL write_name_list_output(jstep)
       ENDIF
 
@@ -378,9 +381,15 @@ CONTAINS
         DO jg = 1, n_dom
             CALL restartDescriptor%updatePatch(p_patch(jg), opt_pvct = vct)
         ENDDO
-        CALL restartDescriptor%writeRestart(datetime, jstep)
+
+        CALL restartDescriptor%writeRestart(mtime_current, jstep)
     END IF
 
+    IF (mtime_current >= time_config%tc_stopdate) then
+       ! leave time loop
+       EXIT TIME_LOOP
+    END IF
+    jstep = jstep + 1    
   ENDDO TIME_LOOP
 
   CALL deleteRestartDescriptor(restartDescriptor)

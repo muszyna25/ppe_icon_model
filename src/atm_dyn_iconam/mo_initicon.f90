@@ -22,7 +22,7 @@
 
 MODULE mo_initicon
 
-  USE mo_kind,                ONLY: wp, vp
+  USE mo_kind,                ONLY: dp, wp, vp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqm_max, iforcing, check_uuid_gracefully
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
@@ -89,8 +89,6 @@ MODULE mo_initicon
   TYPE(t_initicon_state), ALLOCATABLE, TARGET :: initicon(:)
 
   PUBLIC :: init_icon
-
-  DOUBLE PRECISION, PARAMETER :: kMissval = -9.E+15
 
 
   CONTAINS
@@ -340,7 +338,7 @@ MODULE mo_initicon
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":read_dwdana"
-#ifndef __GFORTRAN__
+#if __GNUC__ < 6
     CHARACTER(LEN = :), ALLOCATABLE :: incrementsList(:)
 #else
     CHARACTER(LEN = 9) :: incrementsList_IAU(8)
@@ -397,7 +395,7 @@ MODULE mo_initicon
         CALL requestList%printInventory()
         IF(lconsistency_checks) THEN
 ! Workaround for GNU compiler (<6.0), which still does not fully support deferred length character arrays
-#ifndef __GFORTRAN__
+#if __GNUC__ < 6
             SELECT CASE(init_mode)
                 CASE(MODE_IAU)
                     incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so', 'h_snow', 'freshsnow']
@@ -1748,7 +1746,7 @@ MODULE mo_initicon
     INTEGER :: jg, ic, jc, jk, jb, jt, jgch, ist          ! loop indices
     INTEGER :: ntlr
     INTEGER :: nblks_c
-    REAL(wp):: missval
+    REAL(dp):: missval
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startidx, i_endidx, i_endblk
     LOGICAL :: lanaread_tso                    ! .TRUE. T_SO(0) was read from analysis

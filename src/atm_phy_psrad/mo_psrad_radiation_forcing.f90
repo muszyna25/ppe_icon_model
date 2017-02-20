@@ -24,9 +24,9 @@
 MODULE mo_psrad_radiation_forcing
   USE mo_kind,                ONLY: wp
   USE mo_psrad_memory,        ONLY: psf=>prm_psrad_forcing
-  USE mo_datetime,            ONLY: rdaylen
   USE mo_physical_constants,  ONLY: stbo
   USE mo_radiation_config,    ONLY: lradforcing
+  USE mtime,                  ONLY: no_of_sec_in_a_day
 !!$  USE mo_psrad_radiation_parameters,ONLY: cemiss
 
   IMPLICIT NONE
@@ -123,7 +123,7 @@ MODULE mo_psrad_radiation_forcing
         DO jl = jcs, jce
           zdtdt_sw=pconvfact(jl,jk)*(pflxs(jl,jk+1)-pflxs(jl,jk))
           zdtdt_all_for_sw=pconvfact(jl,jk)*(zflxs_all_for(jl,jk+1)-zflxs_all_for(jl,jk))
-          psf(jg)%netht_sw(jl,jk,krow) = rdaylen*(zdtdt_sw-zdtdt_all_for_sw)
+          psf(jg)%netht_sw(jl,jk,krow) = REAL(no_of_sec_in_a_day,wp)*(zdtdt_sw-zdtdt_all_for_sw)
         ENDDO
       END DO
       DO jk = 1, klevp1
@@ -162,7 +162,7 @@ MODULE mo_psrad_radiation_forcing
         DO jl = jcs, jce
           zdtdt_lw=pconvfact(jl,jk)*(pflxt(jl,jk+1)-pflxt(jl,jk))
           zdtdt_all_for_lw=pconvfact(jl,jk)*(zflxt_all_for(jl,jk+1)-zflxt_all_for(jl,jk))
-          psf(jg)%netht_lw(jl,jk,krow) = rdaylen*(zdtdt_lw-zdtdt_all_for_lw)
+          psf(jg)%netht_lw(jl,jk,krow) = REAL(no_of_sec_in_a_day,wp)*(zdtdt_lw-zdtdt_all_for_lw)
         END DO
       END DO
       DO jk = 1, klevp1

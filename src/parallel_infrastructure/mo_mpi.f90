@@ -1711,9 +1711,9 @@ CONTAINS
   !------------------------------------------------------------------------------
   SUBROUTINE start_mpi(global_name)
 
-#ifdef _OPENMP
-    USE mo_util_string, ONLY: toupper
-#endif
+!#ifdef _OPENMP
+!    USE mo_util_string, ONLY: toupper
+!#endif
 
 #ifndef NOMPI
 #if defined (__prism) && defined (use_comm_MPI1)
