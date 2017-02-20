@@ -70,10 +70,14 @@ MODULE mo_art_emission_interface
                                           &   art_seas_emiss_smith
   USE mo_art_emission_dust,             ONLY: art_emission_dust,art_prepare_emission_dust
   USE mo_art_emission_dust_simple,      ONLY: art_prepare_emission_dust_simple
+#if 0
   USE mo_art_emission_chemtracer,       ONLY: art_emiss_chemtracer
   USE mo_art_emission_gasphase,         ONLY: art_emiss_gasphase
+#endif
   USE mo_art_emission_pntSrc,           ONLY: art_emission_pntSrc
+#if 0
   USE mo_art_read_emissions,            ONLY: art_add_emission_to_tracers
+#endif
   USE omp_lib 
   USE mo_sync,                          ONLY: sync_patch_array_mult, SYNC_C
 
@@ -131,11 +135,12 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
   
   ! calculate elapsed simulation time in seconds (local time for
   ! this domain!)
+#if 0
   time_diff  => newTimedelta("PT0S")
   time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_exp_startdate)
   p_sim_time =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
   CALL deallocateTimedelta(time_diff)
-
+#endif
   ! --- Get the loop indizes
   i_nchdom   = MAX(1,p_patch%n_childdom)
   jg         = p_patch%id
@@ -156,6 +161,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     ALLOCATE(emiss_rate(nproma,nlev))
     ALLOCATE(dz(nproma,nlev))
 
+#if 0
     IF (art_config(jg)%lart_aerosol .OR. art_config(jg)%lart_chem &
         .OR. art_config(jg)%lart_passive) THEN
       IF(p_art_data(jg)%emiss%is_init) THEN
@@ -170,7 +176,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
         ENDIF
       ENDIF
     ENDIF
-
+#endif
     IF (art_config(jg)%lart_aerosol) THEN
 !$omp parallel do default (shared) private(jb, istart, iend, dz)
       DO jb = i_startblk, i_endblk
@@ -360,7 +366,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           DO jb = i_startblk, i_endblk
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
-            
+#if 0
             CALL art_emiss_chemtracer(mtime_current,                  &
               &                       dtime,                          &
               &                       tracer,                         &
@@ -371,12 +377,14 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                       p_patch,                        &
               &                       p_art_data(jg)%dict_tracer,     &
               &                       jb,istart,iend,nlev,nproma)
+#endif
           ENDDO
         CASE(1)
           DO jb = i_startblk, i_endblk
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
             
+#if 0
             CALL art_emiss_chemtracer(mtime_current,                  &
               &                       dtime,                          &
               &                       tracer,                         &
@@ -387,12 +395,14 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                       p_patch,                        &
               &                       p_art_data(jg)%dict_tracer,     &
               &                       jb,istart,iend,nlev,nproma)
+#endif
           ENDDO
         CASE(2)
           DO jb = i_startblk, i_endblk
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
             
+#if 0
             CALL art_emiss_gasphase(mtime_current,                  &
               &                     dtime,                          &
               &                     tracer,                         &
@@ -401,6 +411,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                     ext_data%atm%llsm_atm_c,        &
               &                     p_patch,                        &
               &                     jb,istart,iend,nlev,nproma)
+#endif
           ENDDO
         CASE DEFAULT
           CALL finish('mo_art_emission_interface:art_emission_interface', &
