@@ -12,7 +12,6 @@
 !!   - adapted to structures discussed in 2010-01.
 !!  Modified by Stephan Lorenz,     MPI-M, 2010-10
 !!   - structured input/output parameters
-!!  mpi parallelized LL (no sync required)
 !!
 !! @par Copyright and License
 !!

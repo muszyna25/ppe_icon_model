@@ -553,6 +553,8 @@ CONTAINS
       grad_rho_GM_vert_center=> ocean_state%p_aux%DerivDensity_vert_center
     
     ENDIF
+
+!     CALL sync_patch_array(sync_c, patch_2D, rho_GM)
     
     !grad_T_vec(:,:,:)%x(1)=0.0_wp
     !grad_T_vec(:,:,:)%x(2)=0.0_wp
@@ -644,6 +646,8 @@ CONTAINS
     END DO ! blocks
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
+
+!     CALL sync_patch_array(sync_e, patch_2D, grad_rho_GM_horz)
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
@@ -1353,9 +1357,9 @@ CONTAINS
 
     CASE(tapering_DanaMcWilliams)
       IF(SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION)THEN
+
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
-
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
@@ -1403,7 +1407,6 @@ CONTAINS
 
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
-
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
@@ -1443,6 +1446,7 @@ CONTAINS
       END DO
 !ICON_OMP_END_DO
 !ICON_OMP_END_PARALLEL      
+!       CALL sync_patch_array(sync_c, patch_2D, taper_diagonal_vert_impl)
       ENDIF
       IF(switch_off_diagonal_vert_expl)THEN
 !ICON_OMP_PARALLEL      
@@ -1747,7 +1751,7 @@ END DO
 
 
     ELSEIF(tracer_index>2)THEN
-write(0,*)'-----------------------------BALANCE-DIAG-TRACER==3-----------------------------------------'    
+! write(0,*)'-----------------------------BALANCE-DIAG-TRACER==3-----------------------------------------'    
 ocean_state%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration=ocean_state%p_diag%rho_GM
 !&=ocean_state%p_prog(nold(1))%ocean_tracers(tracer_index-1)%concentration 
         tracer                          => ocean_state%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration
