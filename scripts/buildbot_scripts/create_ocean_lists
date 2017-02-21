@@ -68,7 +68,7 @@ $addexp checksuite.ocean_internal/other/exp.test_amip_reference --builders MISTR
 
 #############################################################################
 ## create oes-dev list
-listname=oes_dev
+listname=oes-dev
 cp experiment_lists/icon-dev experiment_lists/${listname}
 
 $addexp checksuite.ocean_internal/other/exp.test_amip_reference --builders MISTRAL_intel_hybrid --runflags "cpu_time=00:30:00" --list $listname
