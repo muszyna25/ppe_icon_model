@@ -170,6 +170,10 @@ CONTAINS
           this_list%p%memory_used = this_list%p%memory_used &
                &                   -INT(this%field%var_base_size*SIZE(this%field%r_ptr),i8)
           DEALLOCATE (this%field%r_ptr)
+        ELSE IF (ASSOCIATED(this%field%s_ptr)) THEN
+          this_list%p%memory_used = this_list%p%memory_used &
+               &                   -INT(this%field%var_base_size*SIZE(this%field%s_ptr),i8)
+          DEALLOCATE (this%field%s_ptr)
         ELSE IF (ASSOCIATED(this%field%i_ptr)) THEN
           this_list%p%memory_used = this_list%p%memory_used &
                &                   -INT(this%field%var_base_size*SIZE(this%field%i_ptr),i8)
@@ -202,6 +206,7 @@ CONTAINS
     !
     current_list_element%next_list_element => NULL()
     current_list_element%field%r_ptr       => NULL()
+    current_list_element%field%s_ptr       => NULL()
     current_list_element%field%i_ptr       => NULL()
     current_list_element%field%l_ptr       => NULL()
     !
@@ -271,6 +276,11 @@ CONTAINS
              &                   -INT(delete_this_list_element%field%var_base_size &
              &                   *SIZE(delete_this_list_element%field%r_ptr),i8)
         DEALLOCATE (delete_this_list_element%field%r_ptr)
+      ELSE IF (ASSOCIATED(delete_this_list_element%field%s_ptr)) THEN
+        this_list%p%memory_used = this_list%p%memory_used                          &
+             &                   -INT(delete_this_list_element%field%var_base_size &
+             &                   *SIZE(delete_this_list_element%field%s_ptr),i8)
+        DEALLOCATE (delete_this_list_element%field%s_ptr)
       ELSE IF (ASSOCIATED(delete_this_list_element%field%i_ptr)) THEN
         this_list%p%memory_used = this_list%p%memory_used                          &
              &                   -INT(delete_this_list_element%field%var_base_size &

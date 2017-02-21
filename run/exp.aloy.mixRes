@@ -23,9 +23,7 @@ author_list="Marco Giorgetta, Rene Redler, Reiner Schnur, Stephan Lorenz"
 #
 # The land ... JSBACH_lite ...
 #
-# The ocean ... 
-#
-# The icon executable has to be configured and compiled with "configure --with-yac ..." !
+# The ocean is initialized with temperature and salinity from PHC3.0 
 #
 #--------------------------------------------------------------------------------------------------
 # I. General setup
@@ -41,9 +39,6 @@ author_list="Marco Giorgetta, Rene Redler, Reiner Schnur, Stephan Lorenz"
 #
 # modelname_list[0]="atmo"  : needs to correspond with yac_fdef_comp and xml cmomponent name
 # modelname_list[1]="ocean" : needs to correspond with yac_fdef_comp and xml cmomponent name
-#
-# Variables atmo_dyn_grids and ocean_grids are used elsewhere in the scripting mechanim. Thus
-# the names of theses variables must not be changed. 
 #
 #--------------------------------------------------------------------------------------------------
 
@@ -63,78 +58,89 @@ if [ $mpi_total_procs -lt `expr $mpi_oce_procs + 1` ] ; then
    exit
 fi
 
-#if [ $OMP_NUM_THREADS -gt 1 ] ; then
-#   echo "The coupled runs will not run in OpenMP mode . Exiting."
-#   check_error 0
-#   exit
-#fi
-
 # horizontal grid(s)
 # ------------------
 
+# Variables atmo_dyn_grids and ocean_grids are used in namelist and linked to model directory
 grids_folder=${icon_data_poolFolder}/coupled_input_temp/aloy_mixed-40-160km
 atmo_dyn_grids='r2b4_amip.nc'
-#ocean_grids='Earth_Icos_0039km_from160km-amip.nc'
 ocean_grids='Earth_Icos_0039km_from160km-amip-cor.nc'
 
 # start and end date+time
 # -----------------------
 
 start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
-  end_date="1979-01-02T00:00:00Z"        # ISO-format date+time
+  end_date="1979-01-03T00:00:00Z"        # ISO-format date+time
 
 # time step length
 # ----------------
 
+# in ISO-format for ICON-model
+#  - increasing dtime_oce during a run (up to 30 minutes tested)
+mts_atm="PT10M"
+mts_oce="PT10M"
+
+# in seconds for YAC - must match those of the model
 dtime_atm=${dtime_atm:=600}
+dtime_oce=${dtime_oce:=600}
+
+# change timestep of ocean/coupled to multiple of atm. timestep
 # dtime_oce must be multiple of dtime_atm
-#  - increasing dtime_oce during a run (possible is 1 to 3 times 600s) may lead to unintended restart writing
-(( dtime_oce=dtime_atm * 1 ))
-dtime_cpl=$dtime_oce
+#(( dtime_oce=dtime_atm * 1 ))
 
 # restart interval
 # ----------------
 
-#checkpoint_interval="P1Y" #   not active
-#restart_interval="P1Y"    #   not active
+checkpoint_interval="P200Y" #  mtime ISO-format
 
-# NEEDED TO KEEP THIS EXPERIMENT WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
-# TO BE DELETED AFTER THE "mtime time loop" IS COMPLETELY IMPLEMENTED.
-
-# high frequency output and restart test intervals
-(( dt_restart    =   1 * day))
-(( dt_checkpoint =   1 * day))
+# high frequency output and restart intervals
+restart_interval="P1D"
 atm_output_interval="PT6H"
 lnd_output_interval="PT6H"
 oce_output_interval="PT6H"
 
-## long-term low frequency output and restart intervals - must be multiple of atm/oce output_interval
-#(( dt_restart    = 1440 * day))  #  4y
-#(( dt_checkpoint = 1440 * day))
-#atm_output_interval="P5D"
-#lnd_output_interval="P5D"
-#oce_output_interval="P30D"
+# mid-frequency output and restart intervals
+##  P6M ?
+#restart_interval="P1Y"   
+#atm_output_interval="P1D"
+#lnd_output_interval="P1D"
+#oce_output_interval="P1D"
+
+## long-term low frequency output and restart intervals
+#restart_interval="P2Y"   
+#atm_output_interval="P1M"
+#lnd_output_interval="P1M"
+#oce_output_interval="P1M"
+
+# ocean timestep increased to 30 minutes - icon and yac
+#mts_oce="PT30M"
+# change timestep of ocean/coupled to multiple of atm. timestep
+# dtime_oce must be multiple of dtime_atm
+#(( dtime_oce=dtime_atm * 3 ))
 
 # standard long-term output switches - _min=yes only:
 output_atm_min=yes
 output_oce_min=yes
 output_lnd_min=yes
 
-atm_file_interval="P6Y"
-lnd_file_interval="P6Y"
-oce_file_interval="P6Y"
+atm_file_interval="P20Y"
+lnd_file_interval="P20Y"
+oce_file_interval="P20Y"
 
-# full output switches - daily atmospheric output:
-atm_output_interval_3d="P1D"
-atm_output_interval_2d="P1D"
+# full output switches - monthly atmospheric output:
+atm_output_interval_3d="P1M"
+atm_output_interval_2d="P1M"
 
 # full output switches - set to "yes" if needed
-output_atm_3d=no
-output_atm_2d=no
+output_atm_3d=yes
+output_atm_2d=yes
 output_phy_3d=no
 output_aer_3d=no # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
 output_oce_full=no
 output_lnd_full=no
+
+# coupling timestep for YAC (equals ocean timestep)
+dtime_cpl=$dtime_oce
 
 # namelist files
 # --------------
@@ -166,8 +172,7 @@ cat > ${atm_namelist} << EOF
 /
 &run_nml
  num_lev          = 47           ! number of full levels
- dtime            = ${dtime_atm} ! [s] time step
- modelTimeStep    = "PT10M"
+ modelTimeStep    = "$mts_atm"   ! model time step in ISO-format
  ltestcase        = .FALSE.      ! run testcase
  ldynamics        = .TRUE.       ! dynamics
  ltransport       = .TRUE.       ! transport
@@ -179,9 +184,6 @@ cat > ${atm_namelist} << EOF
  activate_sync_timers = .TRUE.
  profiling_output     = 2
 
-/
-&time_nml
- dt_restart   = ${dt_restart}
 /
 &extpar_nml
  itopo            = 1           ! 1: read topography from the grid file
@@ -243,7 +245,7 @@ cat > ${atm_namelist} << EOF
  irad_o2          = 2           ! 2: horizontally and vertically constant
  irad_cfc11       = 4           ! 4: from greenhouse gas scenario
  irad_cfc12       = 4           ! 4: from greenhouse gas scenario
- irad_aero        = 15          ! 0: no aerosol
+ irad_aero        = 0           ! 0: no aerosol
                                 !15: Kinne aerosol optics for troposphere
                                 !   +Stenchikov aerosol optics for stratosphere
  lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
@@ -293,6 +295,7 @@ cat > ${lnd_namelist} <<EOF
   routing_scheme  = 'full'
   bc_filename     = 'bc_land_hd.nc'
   diag_water_budget = .TRUE.
+  !debug_hd        = .TRUE.
 /
 EOF
 
@@ -318,7 +321,7 @@ add_required_file ${basedir}/run/${lnd_namelist}                        ./
 # ------------------------------------------------
 
 dict_file="dict.${EXPNAME}"
-cat dict.iconam.mpim  > ${dict_file}
+cat dict.iconam.mpim > ${dict_file}
 add_required_file ${basedir}/run/${dict_file}                           ./
 
 # II.2.4 Initial conditions
@@ -343,70 +346,21 @@ start_year=$(( ${start_date%%-*} - 1 ))
 end_year=$(( ${end_date%%-*} + 1 ))
 #
 # - well mixed greenhouse gases
+# mbe/slo - attention: do not use, set to constant 1850 via namelist
 datadir=$INDATA/global/atm
 add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_greenhouse_gases.nc
 
 # - ozone
-
+# mbe/slo - attention: do not use, set to constant 1850 via namelist
 datadir=/pool/data/ICON/coupled_input_temp/aloy_r2b4
 add_link_file $datadir/bc_ozone_cmip5_clim1979-2009.nc                  ./bc_ozone.nc
-#datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
-#year=$start_year
-#while [[ $year -le $end_year ]]
-#do
-#  add_link_file $datadir/bc_ozone_cmip5_${year}.nc                      ./bc_ozone_${year}.nc
-#  (( year = year+1 ))
-#done
-
-# - tropospheric aerosol
-
-datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
-add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                    ./bc_aeropt_kinne_lw_b16_coa.nc
-add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                    ./bc_aeropt_kinne_sw_b14_coa.nc
-datadir=/pool/data/ICON/coupled_input_temp/aloy_r2b4
-add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_clim1979-2009.nc      ./bc_aeropt_kinne_sw_b14_fin.nc
-
-#datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
-#year=$start_year
-#while [[ $year -le $end_year ]]
-#do
-#  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
-#  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
-#  if [[ $year -le 2000 ]]
-#  then
-#    add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_${year}.nc        ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
-#  else
-#    add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_rcp45_${year}.nc  ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
-#  fi
-#  (( year = year+1 ))
-#done
-
-# - stratospheric aerosol
-
-datadir=/pool/data/ICON/coupled_input_temp/aloy_r2b4
-add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_clim1979-1999.nc  ./bc_aeropt_stenchikov_lw_b16_sw_b14.nc
-
-#datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
-#year=$start_year
-#while [[ $year -le $end_year ]]
-#do
-#  if [[ $year -le 1999 ]]
-#  then
-#    add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc  ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
-#  else
-#    add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_1999.nc     ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
-#  fi
-#  (( year = year+1 ))
-#done
 
 # - sst and sic
-
 datadir=$INDATA/r2b4_amip/oce
 add_link_file $datadir/bc_sic_pcmdi_1870-2010.nc                        ./bc_sic.nc
 add_link_file $datadir/bc_sst_pcmdi_1870-2010.nc                        ./bc_sst.nc
 
 # - ssi and tsi
-
 datadir=$INDATA/global/sun
 add_link_file $datadir/bc_solar_irradiance_14band_1849-2399.nc          ./bc_solar_irradiance_sw_b14.nc
 
@@ -419,6 +373,10 @@ add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_lan
 add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
 add_link_file $datadir/bc_land_hd.nc                                    ./bc_land_hd.nc
 
+
+# read -2to2 cell_sea_land_mask, name hardcoded as r2b4_amip.nc for HD model
+add_link_file $grids_folder/r2b4_amip.nc                                ./hd_mask.nc
+
 #--------------------------------------------------------------------------------------------------
 
 # II.3 Define the output
@@ -429,7 +387,6 @@ add_link_file $datadir/bc_land_hd.nc                                    ./bc_lan
 
 cat >> ${atm_namelist} << EOF
 &io_nml
- dt_checkpoint    = ${dt_checkpoint}  !  NEEDED TO KEEP THIS TEST WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
  itype_pres_msl   = 4
@@ -456,17 +413,26 @@ if [[ "$output_atm_min" == "yes" ]]; then
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'orog'    , 'ps'      ,
-                    'sic'     , 'sit'     ,
+                    'frac_wtr', 'frac_ice', 'frac_lnd',
+                    'sic'     , 'sit'     , 'qtop_icecl', 'qbot_icecl',
                     'hfls'    , 'hfss'    , 'evspsbl' ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
-                    'rsdt'    ,
+                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    , 'rsdt'    ,
                     'clt'     , 'psl'     , 'tas'     , 'ts'      ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
+                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
                     'tauu'    , 'tauv'    , 'albedo'  ,
+                    'hfls_wtr', 'hfls_ice', 'hfls_lnd',
+                    'hfss_wtr', 'hfss_ice', 'hfss_lnd',
+                    'rsns_wtr', 'rsns_ice', 'rsns_lnd',
+                    'rlns_wtr', 'rlns_ice', 'rlns_lnd', 
+                    'evspsbl_wtr', 'evspsbl_ice', 'evspsbl_lnd',
+                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  ,
+                    'tauu_wtr', 'tauu_ice', 'tauu_lnd',
+                    'tauv_wtr', 'tauv_ice', 'tauv_lnd',
                     'sfcwind' , 'uas'     , 'vas'
 /
 &dbg_index_nml
-  idbg_mxmn        = 1                        ! initialize MIN/MAX  debug output
+  idbg_mxmn        = 2                        ! initialize MIN/MAX  debug output
   idbg_val         = 0                        ! initialize one cell debug output
   idbg_slev        = 1                        ! initialize start level for debug output
   idbg_elev        = 2                        ! initialize end level for debug output
@@ -672,12 +638,11 @@ cat > ${oce_namelist} << EOF
  use_duplicated_connectivity = .false.
 /
 &dynamics_nml
- iequations  = -1                                     ! -1: hydrost. ocean model
+ iequations  = -1                             ! -1: hydrost. ocean model
 /
 &run_nml
- dtime       = ${dtime_oce}                           ! model timestep in seconds
- !modelTimeStep    = "PT10M"                          ! not yet used
- output      = 'nml'                                  ! output mechanism via namelist
+ modelTimeStep    = "$mts_oce"                ! model time step in ISO-format
+ output      = 'nml'                          ! output mechanism via namelist
  activate_sync_timers = .TRUE.
  profiling_output     = 2
  timers_level         = 10
@@ -694,13 +659,13 @@ cat > ${oce_namelist} << EOF
   ml_varlist       =  'group:ocean_monitor'
 /
 &dbg_index_nml
-  idbg_mxmn        = 1                        ! initialize MIN/MAX  debug output
+  idbg_mxmn        = 2                        ! initialize MIN/MAX  debug output
   idbg_val         = 0                        ! initialize one cell debug output
   idbg_slev        = 1                        ! initialize start level for debug output
   idbg_elev        = 2                        ! initialize end level for debug output
   dbg_lat_in       =  30.0                    ! latitude location of one cell debug output
   dbg_lon_in       = -30.0                    ! longitude location of one cell debug output
-  str_mod_tst      ='all'                     ! define modules to print out in debug mode
+  str_mod_tst      ='oceanCouplng'            ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
 ! 64 unevenly spaced levels used by MPIOM
@@ -797,7 +762,6 @@ cat > ${oce_namelist} << EOF
    diagnostics_level              =   1
 /
 &io_nml
-  dt_checkpoint    = ${dt_checkpoint}  !  NEEDED TO KEEP THIS TEST WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
   lkeep_in_sync = .TRUE.          ! sync after each timestep
 /
 EOF
@@ -820,9 +784,13 @@ if [[ "$output_oce_min" == "yes" ]]; then
   m_levels         = "1...3,10,21,32,44,51,56"        ! reduced output out of 64 levels
                                                       ! (0-27m, 100m, 305.5, 829, 1986, 3092, 4147m) 
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'wet_c','basin_c','regio_c','mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc',
+  ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c',
+                      'mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc',
                       't_acc','s_acc','u_acc','topBoundCond_windStress_u_acc',
-                      'HeatFlux_Total_acc','FrshFlux_Runoff_acc','FrshFlux_Precipitation_acc',
+                      'HeatFlux_Total_acc','atmos_fluxes_HeatFlux_ShortWave','atmos_fluxes_HeatFlux_LongWave',
+                      'HeatFlux_ShortWave_acc',
+                      'atmos_fluxes_HeatFlux_Latent','atmos_fluxes_HeatFlux_Sensible'
+                      'FrshFlux_Runoff_acc','FrshFlux_Precipitation_acc','FrshFlux_Evaporation_acc','FrshFlux_SnowFall_acc',
                       'FrshFlux_TotalOcean_acc', 'oceWind_Speed_10m'
 /
 EOF
@@ -857,7 +825,7 @@ fi
 # III.2 Add standard ocean input files 
 # ------------------------------------
 
-# r2b6:
+# PHC3.0, r2b6 resolution:
 datadir=/pool/data/ICON/coupled_input_temp/aloy_mixed-40-160km
 add_required_file ${datadir}/ts_phc3.0_annual_icon_r2b6_amip_L64.nc initial_state.nc
 

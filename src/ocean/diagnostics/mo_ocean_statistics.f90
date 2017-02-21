@@ -45,7 +45,7 @@ MODULE mo_ocean_statistics
   USE mo_sea_ice,                ONLY: compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
-  USE mo_ocean_physics,          ONLY: t_ho_params
+  USE mo_ocean_physics_types,    ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_linked_list,            ONLY: t_list_element
   USE mo_var_list,               ONLY: print_var_list, find_list_element
@@ -89,6 +89,7 @@ CONTAINS
     CALL add_fields(ocean_state%p_acc%v_vint        , ocean_state%p_diag%v_vint        , cells)
     CALL add_fields(ocean_state%p_acc%w             , ocean_state%p_diag%w             , cells,levels=max_zlev+1)
     CALL add_fields(ocean_state%p_acc%div_mass_flx_c, ocean_state%p_diag%div_mass_flx_c, cells)
+    CALL add_fields(ocean_state%p_acc%div_of_GMRedi_flux, ocean_state%p_diag%div_of_GMRedi_flux, cells)
     CALL add_fields(ocean_state%p_acc%rho           , ocean_state%p_diag%rho           , cells)
     CALL add_fields(ocean_state%p_acc%mass_flx_e    , ocean_state%p_diag%mass_flx_e    , edges)
     CALL add_fields(ocean_state%p_acc%vort          , ocean_state%p_diag%vort          , verts,levels=max_zlev)
@@ -101,10 +102,10 @@ CONTAINS
     IF (PRESENT(p_phys_param)) THEN
       ! physics
       DO jtrc=1,no_tracer
-        CALL add_fields(ocean_state%p_acc%k_tracer_h(:,:,:,jtrc),p_phys_param%k_tracer_h(:,:,:,jtrc),edges)
+!         CALL add_fields(ocean_state%p_acc%TracerDiffusion_coeff(:,:,:,jtrc),p_phys_param%TracerDiffusion_coeff(:,:,:,jtrc),edges)
         CALL add_fields(ocean_state%p_acc%a_tracer_v(:,:,:,jtrc),p_phys_param%a_tracer_v(:,:,:,jtrc),cells)
       END DO
-      CALL add_fields(ocean_state%p_acc%k_veloc_h(:,:,:),p_phys_param%k_veloc_h(:,:,:),edges)
+!       CALL add_fields(ocean_state%p_acc%k_veloc_h(:,:,:),p_phys_param%k_veloc_h(:,:,:),edges)
       CALL add_fields(ocean_state%p_acc%a_veloc_v(:,:,:),p_phys_param%a_veloc_v(:,:,:),edges)
     END IF
 
@@ -180,18 +181,19 @@ CONTAINS
     p_acc%edgeFlux_total                   = p_acc%edgeFlux_total                  /REAL(nsteps_since_last_output,wp)
     p_acc%w                         = p_acc%w                        /REAL(nsteps_since_last_output,wp)
     p_acc%div_mass_flx_c            = p_acc%div_mass_flx_c           /REAL(nsteps_since_last_output,wp)
+    p_acc%div_of_GMRedi_flux        = p_acc%div_of_GMRedi_flux       /REAL(nsteps_since_last_output,wp)
     p_acc%rho                       = p_acc%rho                      /REAL(nsteps_since_last_output,wp)
     p_acc%mass_flx_e                = p_acc%mass_flx_e               /REAL(nsteps_since_last_output,wp)
     p_acc%vort                      = p_acc%vort                     /REAL(nsteps_since_last_output,wp)
     p_acc%kin                       = p_acc%kin                      /REAL(nsteps_since_last_output,wp)
-    p_acc%k_veloc_h                 = p_acc%k_veloc_h                /REAL(nsteps_since_last_output)
+!     p_acc%k_veloc_h                 = p_acc%k_veloc_h                /REAL(nsteps_since_last_output)
     p_acc%a_veloc_v                 = p_acc%a_veloc_v                /REAL(nsteps_since_last_output)
 !ICON_OMP_END_WORKSHARE
     
     IF(no_tracer>0)THEN
 !ICON_OMP_WORKSHARE
       p_acc%tracer                    = p_acc%tracer                   /REAL(nsteps_since_last_output,wp)
-      p_acc%k_tracer_h                = p_acc%k_tracer_h               /REAL(nsteps_since_last_output)
+!       p_acc%TracerDiffusion_coeff                = p_acc%TracerDiffusion_coeff               /REAL(nsteps_since_last_output)
       p_acc%a_tracer_v                = p_acc%a_tracer_v               /REAL(nsteps_since_last_output)
 !ICON_OMP_END_WORKSHARE
     ENDIF
@@ -255,18 +257,19 @@ CONTAINS
     p_acc%edgeFlux_total                   = 0.0_wp
     p_acc%w                         = 0.0_wp
     p_acc%div_mass_flx_c            = 0.0_wp
+    p_acc%div_of_GMRedi_flux        = 0.0_wp
     p_acc%rho                       = 0.0_wp
     p_acc%mass_flx_e                = 0.0_wp
     p_acc%vort                      = 0.0_wp
     p_acc%kin                       = 0.0_wp
-    p_acc%k_veloc_h                 = 0.0_wp
+!     p_acc%k_veloc_h                 = 0.0_wp
     p_acc%a_veloc_v                 = 0.0_wp
     p_sfc_flx%topBoundCond_windStress_u_acc = 0.0_wp
     p_sfc_flx%topBoundCond_windStress_v_acc = 0.0_wp
     
     IF (no_tracer>0) THEN
       p_acc%tracer                    = 0.0_wp
-      p_acc%k_tracer_h                = 0.0_wp
+!       p_acc%TracerDiffusion_coeff                = 0.0_wp
       p_acc%a_tracer_v                = 0.0_wp
       
       p_sfc_flx%HeatFlux_ShortWave_acc          = 0.0_wp

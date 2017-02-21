@@ -103,9 +103,10 @@ cat > ${atmo_namelist} << EOF
 /
 &transport_nml
  ctracer_list     = 'vci4'      ! water vapour, cloud water, cloud ice, tracer 4
- ivadv_tracer     = 3,3,3,0
- itype_hlimit     = 3,4,4,3
- ihadv_tracer     = 52,2,2,0
+!                     v   c   i   4
+ ivadv_tracer     =   3,  3,  3,  0
+ itype_hlimit     =   3,  4,  4,  3
+ ihadv_tracer     =  52,  2,  2,  0
 /
 EOF
 
@@ -149,6 +150,9 @@ EOF
 # -------------------
 #
 # output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
+#
+# 3-dimensional files include 'ps' and 'pfull' to allow the vertical
+# interpolation to pressure levels by cdo ap2pl.
 
 output_atm_3d=yes
 #
@@ -165,8 +169,10 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho',
-                    'zg','pfull','ps'
+ ml_varlist       = 'ps'      , 'pfull'   , 'zg'      ,
+                    'rho'     , 'ta'      ,
+                    'ua'      , 'va'      , 'wap'     ,
+                    'hus'     , 'clw'     , 'cli'     ,
 /
 EOF
 fi
@@ -186,8 +192,8 @@ if [[ "$output_trc_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'q4',
-                    'zg','pfull','ps'
+ ml_varlist       = 'ps'        , 'pfull'     ,
+                    'q4'        ,
 /
 EOF
 fi

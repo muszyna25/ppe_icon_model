@@ -13,6 +13,7 @@ use Cwd;
 use File::Copy;
 use Getopt::Long;
 use File::Path;
+use File::Basename;
 #__________________________________________________________________________________________________________________________________
 # Option processing
 
@@ -92,17 +93,11 @@ if ( -d "externals/yac/include" ) {
     }
 }
 
+# if ( -d ".git" and ($enable_jsbach eq "yes") and ! -d "src/lnd_phy_jsbach" ) {
+#     symlink "../externals/jsbach/src", "src/lnd_phy_jsbach"; 
+# }
 if ( ($enable_jsbach eq "yes") and ! -d "src/lnd_phy_jsbach" ) {
     symlink "../externals/jsbach/src", "src/lnd_phy_jsbach"; 
-}
-
-if ( ($enable_jsbach eq "yes") and -d "src/lnd_phy_jsbach/include" ) {
-    opendir(DIR, "src/lnd_phy_jsbach/include");
-    @incs = grep /\.(inc|h)/, readdir(DIR);
-    closedir(DIR);
-    foreach my $inc ( @incs ) {
-	copy ( "src/lnd_phy_jsbach/include/${inc}", "${build_path}/include/${inc}" );
-    }
 }
 
 if ( ($enable_ocean eq "yes") and -d "src/ocean/include" ) {
@@ -131,16 +126,6 @@ my %ifdefs             = ();
     
 my @source_files       = ();
 
-my @external_libs      = ();
-
-
-foreach my $dir ( @directories ) {
-    if ( $dir =~ m/^externals/) {
-	my @extlib = split '/', $dir;
-	push (@external_libs, "../lib/lib$extlib[1].a");
-    }
-}
-
 foreach my $dir ( @directories ) {
 
 # global variables
@@ -158,7 +143,7 @@ foreach my $dir ( @directories ) {
     %ifdefs             = ();
     
     @source_files       = ();
-    
+
     &ScanDirectory ($dir, $dir, 0);
 
     my $print_path = $build_path;
@@ -194,17 +179,12 @@ foreach my $dir ( @directories ) {
     push @vpath, "VPATH = ";
     while ( my ($key, $value) = each(%vpath_directories) ) {
 	if ( $dir ne "src" ) { $value++; }
-#	for my $i ( 0 .. $value ) {
-#	    #$key = "../".$key;
-#            # RS Hack to work with JSBACH sub-directories in src/lnd_phy_jsbach
-#            $key = "../".$key unless $key =~ /^..\/..\/..\/src\/lnd_phy_jsbach\/.*/ ;
-#	}
         # Use a constant upward path, this allows arbitary source folder tree depth 
         $key = "../../../".$key.":";
 	if ($add_vpath_level == 2) {
 	    $key = "../../".$key;
 	}
-	push @vpath, $key;
+	push @vpath, $key ;
     }
     print MAKEFILE @vpath;
     print MAKEFILE "\n\n";
@@ -224,6 +204,10 @@ foreach my $dir ( @directories ) {
 	print MAKEFILE "%.o: %.F90\n";
 	print MAKEFILE "\t\$(FC) \$(FlibFLAGS) -c \$<\n";
     } else {	
+	# Extra rule for JSBACH source files which need to be pre-processed by dsl4jsb.py
+	print MAKEFILE "%_dsl4jsb.f90: %.f90\n";
+	print MAKEFILE "\t@ ../../../externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -v -p _dsl4jsb -i \$<  -t .\n" ;
+	print MAKEFILE "\n";
 	print MAKEFILE "%.o: %.f90\n";
 	print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
 	print MAKEFILE "\n";
@@ -350,11 +334,7 @@ __EOF__
 	    my $okey = $key;
 	    $okey =~ s/ *$/.o/;	
 	    print MAKEFILE "$okey: $value
-../bin/$key: $okey libicon.a ";
-            foreach my $lib (@external_libs) {
-                print MAKEFILE "$lib ";
-            }
-            print MAKEFILE " version.o
+../bin/$key: $okey libicon.a version.o
 \t\$(FC) \$(LDFLAGS) -o \$@ \$< libicon.a version.o \$(LIBS)
 
 ";
@@ -459,22 +439,32 @@ sub ScanDirectory {
         next if ($name eq "nh");
         next if ($name eq "phys");
         next if ($name eq "sw_options");
-        next if (($enable_ocean eq "no") and (($name eq "ocean") or ($name eq "sea_ice")) );
+        next if (($enable_ocean eq "no") and (($name eq "ocean") or ($name eq "sea_ice") or ($name eq "hamocc")) );
         next if (($enable_jsbach eq "no") and ($name eq "lnd_phy_jsbach") );
         next if (($enable_testbed eq "no") and ($name eq "testbed") and ($workpath eq "src") );
 
         if (-d $name){
-	    my $nextpath="$workpath/$name";
+            my $nextpath="$workpath/$name";
             &ScanDirectory($name, $nextpath, $level);
             next;
         } else {
 	    if ($name =~ /\.[c|f|F]{1}(90|95|03)?$/) {
-		push @source_files, $name;
-
-		open F, '<', $name
-                    or die("Cannot open file $name", $!);
+                if ($workpath =~ "lnd_phy_jsbach") {
+                    # For JSBACH, use the pre-processed source file located in the build directory
+                    # These files need to be initially created by configure, with an additional "_dsl4jsb" before the suffix,
+                    # so that the Makefile dependencies can be generated here.
+                    my ($bname, $path, $suffix) = fileparse($name, '\.[^\.]*');  # parts of original source file
+                    $name = $bname . "_dsl4jsb" . $suffix ;                      # name of pre-processed JSBACH files
+                    open F, '<', $build_path . "/src/" . $name
+                        or die("Cannot open file $name", $!);
+                } else {
+		    open F, '<', $name
+                        or die("Cannot open file $name", $!);
+                }
 		my @lines = <F>;
 		close (F);
+
+		push @source_files, $name;
 
 		my @filteredLines;
 		simplifiedCPPFilter(\@lines, \@filteredLines);

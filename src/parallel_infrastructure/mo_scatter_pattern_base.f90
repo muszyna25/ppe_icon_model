@@ -40,9 +40,10 @@ PUBLIC :: t_ScatterPattern, t_ScatterPatternPtr, constructScatterPattern, destru
         REAL(dp) :: distributionTime    !< statistic on how long we took to distribute the data
 
     CONTAINS
-        PROCEDURE(interface_distribute_dp), DEFERRED :: distribute_dp   !< distribute double precision data
-        PROCEDURE(interface_distribute_sp), DEFERRED :: distribute_sp   !< distribute single precision data
-        PROCEDURE(interface_distribute_int), DEFERRED :: distribute_int   !< distribute single precision data
+        PROCEDURE(interface_distribute_dp),   DEFERRED :: distribute_dp   !< distribute double precision data
+        PROCEDURE(interface_distribute_spdp), DEFERRED :: distribute_spdp   !< distribute single precision data
+        PROCEDURE(interface_distribute_sp),   DEFERRED :: distribute_sp   !< distribute single precision data
+        PROCEDURE(interface_distribute_int),  DEFERRED :: distribute_int   !< distribute single precision data
 
 
         PROCEDURE :: construct => constructScatterPattern   !< constructor
@@ -58,7 +59,7 @@ PUBLIC :: t_ScatterPattern, t_ScatterPatternPtr, constructScatterPattern, destru
 
         PROCEDURE :: destruct => destructScatterPattern !< destructor
 
-        GENERIC :: distribute => distribute_dp, distribute_sp, distribute_int
+        GENERIC :: distribute => distribute_dp, distribute_spdp, distribute_sp, distribute_int
     END TYPE t_ScatterPattern
 
     TYPE :: t_ScatterPatternPtr
@@ -82,13 +83,23 @@ PRIVATE
             LOGICAL, INTENT(IN) :: ladd_value
         END SUBROUTINE interface_distribute_dp
         !---------------------------------------------------------------------------------------------------------------------------
-        !> do the data distribution for a double precision array
+        !> do the data distribution for a single precision array
+        !---------------------------------------------------------------------------------------------------------------------------
+        SUBROUTINE interface_distribute_spdp(me, globalArray, localArray, ladd_value)
+            IMPORT t_ScatterPattern, sp, wp
+            CLASS(t_ScatterPattern), INTENT(INOUT) :: me
+            REAL(sp), INTENT(INOUT) :: globalArray(:)
+            REAL(wp), INTENT(INOUT) :: localArray(:,:)
+            LOGICAL, INTENT(IN) :: ladd_value
+        END SUBROUTINE interface_distribute_spdp
+        !---------------------------------------------------------------------------------------------------------------------------
+        !> do the data distribution for a single precision array
         !---------------------------------------------------------------------------------------------------------------------------
         SUBROUTINE interface_distribute_sp(me, globalArray, localArray, ladd_value)
             IMPORT t_ScatterPattern, sp, wp
             CLASS(t_ScatterPattern), INTENT(INOUT) :: me
             REAL(sp), INTENT(INOUT) :: globalArray(:)
-            REAL(wp), INTENT(INOUT) :: localArray(:,:)
+            REAL(sp), INTENT(INOUT) :: localArray(:,:)
             LOGICAL, INTENT(IN) :: ladd_value
         END SUBROUTINE interface_distribute_sp
         !---------------------------------------------------------------------------------------------------------------------------

@@ -18,7 +18,6 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics|
 experiment|checksuite.icon-dev/check.atm_amip|
-builder|MISTRAL_nag_mtime|--with-fortran=nag --enable-mtime-loop --without-yac|Inactive
 builder|MISTRAL_intel_openmp|--with-fortran=intel --without-mpi --with-openmp --without-yac|AES
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|

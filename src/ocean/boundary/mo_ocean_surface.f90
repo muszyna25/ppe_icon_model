@@ -28,6 +28,7 @@ MODULE mo_ocean_surface
 !
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
+  USE mo_coupling_config,     ONLY: is_coupled_run
   USE mo_run_config,          ONLY: dtime
   USE mo_sync,                ONLY: global_sum_array
   USE mo_io_units,            ONLY: filename_max
@@ -36,7 +37,7 @@ MODULE mo_ocean_surface
   USE mo_read_interface,      ONLY: openInputFile, closeFile, t_stream_id, &
     &                               on_cells, read_2D_time  !, read_3D
   USE mo_var_list,            ONLY: add_var
-  USE mo_ocean_state,         ONLY: ocean_default_list
+  USE mo_ocean_state,         ONLY: ocean_restart_list, ocean_default_list
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi_constants
@@ -66,7 +67,7 @@ MODULE mo_ocean_surface
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
-  USE mo_physical_constants,  ONLY: rho_ref, alv, tmelt, tf, clw, albedoW_sim, stbo, zemiss_def
+  USE mo_physical_constants,  ONLY: alv, tmelt, tf, clw, albedoW_sim, stbo, zemiss_def
   USE mo_physical_constants,  ONLY: rd, cpd, fr_fac, alf  ! cd_ia, used for omip bulk formula
   USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
   USE mo_math_utilities,      ONLY: gvec2cvec
@@ -145,6 +146,25 @@ CONTAINS
     p_patch           => p_patch_3D%p_patch_2D(1)
     alloc_cell_blocks =  p_patch%alloc_cell_blocks
   ! nblks_e           =  p_patch%nblks_e
+      
+    ! Coupling fluxes must go into restart file:
+    IF (is_coupled_run()) THEN
+
+      CALL add_var(ocean_restart_list, 'oceWind_Speed_10m', p_oce_sfc%Wind_Speed_10m, &
+        &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &        t_cf_var('Wind_Speed_10m', 'm/s', 'Wind Speed at 10m height', datatype_flt),&
+        &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+        &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE.)
+
+    ELSE
+     
+      CALL add_var(ocean_default_list, 'oceWind_Speed_10m', p_oce_sfc%Wind_Speed_10m, &
+        &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &        t_cf_var('Wind_Speed_10m', 'm/s', 'Wind Speed at 10m height', datatype_flt),&
+        &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+        &        ldims=(/nproma,alloc_cell_blocks/))
+
+    ENDIF
 
     CALL add_var(ocean_default_list, 'oceTopBC_WindStress_u', p_oce_sfc%TopBC_WindStress_u, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
@@ -156,12 +176,6 @@ CONTAINS
       &        t_cf_var('TopBC_WindStress_v', 'Pa', 'Meridional Wind Stress', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
       &        ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(ocean_default_list, 'oceWind_Speed_10m', p_oce_sfc%Wind_Speed_10m, &
-      &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &        t_cf_var('Wind_Speed_10m', 'm/s', 'Wind Speed at 10m height', datatype_flt),&
-      &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/))
-
     CALL add_var(ocean_default_list, 'oceHeatFlux_Total', p_oce_sfc%HeatFlux_Total, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('HeatFlux_Total', 'W/m2', 'Total Heat Flux', datatype_flt),&
@@ -391,12 +405,19 @@ CONTAINS
 
       ! wind stress over water (stress_xw, stress_yw) is the same and read from OMIP, see calc_omip_budgets_oce
 
+      ! copy atmospheric wind speed from p_as%fu10 into new forcing variable for output purpose - not accumulated yet
+      p_oce_sfc%Wind_Speed_10m(:,:) = p_as%fu10(:,:)
+
     CASE (Coupled_FluxFromAtmo)                                       !  14
 
       !  Driving the ocean in a coupled mode:
       !  nothing to be done, atmospheric fluxes are provided at the end of time stepping
       !  atmospheric fluxes drive the ocean; fluxes are calculated by atmospheric model
       !  use atmospheric fluxes directly, i.e. no bulk formula as for OMIP is applied
+       
+       ! HAMOCC uses p_as to get SW radiation and wind, so we need to copy
+       ! the SW radiation onto it in the coupled case 
+       if(lhamocc) p_as%fswr(:,:) = atmos_fluxes%HeatFlux_ShortWave(:,:)
       CONTINUE
 
     CASE DEFAULT
@@ -405,9 +426,6 @@ CONTAINS
       CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION DOES NOT EXIST - TERMINATE')
 
     END SELECT
-
-    ! copy atmospheric wind speed from p_as%fu10 into new forcing variable for output purpose - not accumulated yet
-    p_oce_sfc%Wind_Speed_10m(:,:) = p_as%fu10(:,:)
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
@@ -495,7 +513,7 @@ CONTAINS
 
       ! provide evaporation from latent heat flux for OMIP case
       ! under sea ice evaporation is neglected, atmos_fluxes%latw is flux in the absence of sea ice
-      atmos_fluxes%FrshFlux_Evaporation(:,:) = atmos_fluxes%latw(:,:) / (alv*rho_ref)
+      atmos_fluxes%FrshFlux_Evaporation(:,:) = atmos_fluxes%latw(:,:) / (alv*OceanReferenceDensity)
 
       !  copy variables into atmos_fluxes
       atmos_fluxes%FrshFlux_Runoff(:,:)      = p_as%FrshFlux_Runoff(:,:)
@@ -758,7 +776,7 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
           IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
             p_oce_sfc%sst(jc,jb) = p_oce_sfc%sst(jc,jb) + &
-              &                    p_oce_sfc%HeatFlux_Total(jc,jb)*dtime/(clw*rho_ref*zUnderIceIni(jc,jb))
+              &                    p_oce_sfc%HeatFlux_Total(jc,jb)*dtime/(clw*OceanReferenceDensity*zUnderIceIni(jc,jb))
           ENDIF
         ENDDO
       ENDDO
@@ -840,16 +858,22 @@ CONTAINS
       
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('UpdSfc: oce_sfc%HFTot ', p_oce_sfc%HeatFlux_Total,       str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: oce_sfc%VolTot', p_oce_sfc%FrshFlux_VolumeTotal, str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: oce_sfc%TotIce', p_oce_sfc%FrshFlux_TotalIce,    str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: zUnderIceIni',   zUnderIceIni,                   str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: zUnderIceArt',   zUnderIceArt,                   str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: zUnderIceOld',   zUnderIceOld,                   str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: zUnderIce   ',   p_ice%zUnderIce,                str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: oce_sfc%TotIce',   p_oce_sfc%FrshFlux_TotalIce,  str_module, 2, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: sss_inter   ',   sss_inter,                      str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfcEND: oce_sfc%SST ',p_oce_sfc%SST,                  str_module, 2, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfcEND: oce_sfc%SSS ',p_oce_sfc%SSS,                  str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfcEnd: h-old+fwfVol',p_os%p_prog(nold(1))%h,         str_module, 2, in_subset=p_patch%cells%owned)
+
+    CALL dbg_print('UpdSfc: FrshFlux_Runoff', atmos_fluxes%FrshFlux_Runoff, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: FrshFlux_VolumeIce', atmos_fluxes%FrshFlux_VolumeIce, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: FrshFlux_TotalOcean', atmos_fluxes%FrshFlux_TotalOcean, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: FrshFlux_Relax', atmos_fluxes%FrshFlux_Relax, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: oce_sfc%VolTot', p_oce_sfc%FrshFlux_VolumeTotal, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: totalsnowfall   ', p_ice%totalsnowfall ,         str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfcEnd: h-old+fwfVol',  p_os%p_prog(nold(1))%h,       str_module, 2, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
     ! copy fluxes to bulk-type variables for output and average statistic purposes only:
@@ -1242,9 +1266,10 @@ CONTAINS
       END DO
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdSfcRlx:FrshFlxRelax[m/s]',atmos_fluxes%FrshFlux_Relax     ,str_module,2, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcRlx:s_top ',s_top  ,str_module,4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcRlx:FrshFlxRelax[m/s]',atmos_fluxes%FrshFlux_Relax     ,str_module,4, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdSfcRlx: S* to relax to'  ,atmos_fluxes%data_surfRelax_Salt,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfcRlx: 1/tau*(S*-S)'    ,atmos_fluxes%SaltFlux_Relax     ,str_module,3, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcRlx: 1/tau*(S*-S)'    ,atmos_fluxes%SaltFlux_Relax     ,str_module,4, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
     END IF  ! tracer_no
@@ -1849,6 +1874,9 @@ CONTAINS
 
     ! subset range pointer
     all_cells => p_patch%cells%all
+
+    ! CALL dbg_print('omipBudOce:p_as%pao', p_as%pao,str_module, 1, in_subset=p_patch%cells%owned)
+    ! CALL dbg_print('omipBudOce:Tsurf', Tsurf,str_module, 1,in_subset=p_patch%cells%owned)
 
     !-----------------------------------------------------------------------
     ! Compute water vapor pressure and specific humididty in 2m height (esta)

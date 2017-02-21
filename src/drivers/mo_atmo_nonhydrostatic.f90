@@ -17,7 +17,7 @@ USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish
 USE mo_fortran_tools,        ONLY: copy, init
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
-USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
+USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, timer_init_latbc, &
   &                                timer_model_init, timer_init_icon, timer_read_restart
 USE mo_master_config,        ONLY: isRestart
 USE mo_time_config,          ONLY: time_config
@@ -284,11 +284,16 @@ CONTAINS
       !!       It is the case for some testcases, but not e.g. for coupled or AMIP runs if the atmosphere
       !!       is initialized with IFS analyses.
       DO jg = 1,n_dom
-        CALL initcond_echam_phy( jg                                               ,&
-          &                      p_patch(jg)                                      ,&
-          &                      p_nh_state(jg)%diag          % temp  (:,:,:)     ,&
-          &                      p_nh_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqv) ,&
-          &                      nh_test_name                                     )
+        CALL initcond_echam_phy( jg                                                 ,&
+          &                      p_patch(jg)                                        ,&
+          &                      p_nh_state(jg)% metrics% z_ifc         (:,:,:)     ,&
+          &                      p_nh_state(jg)% metrics% z_mc          (:,:,:)     ,&
+          &                      p_nh_state(jg)% metrics% ddqz_z_full   (:,:,:)     ,&
+          &                      p_nh_state(jg)% metrics% geopot_agl_ifc(:,:,:)     ,&
+          &                      p_nh_state(jg)% metrics% geopot_agl    (:,:,:)     ,&
+          &                      p_nh_state(jg)% diag% temp             (:,:,:)     ,&
+          &                      p_nh_state(jg)% prog(nnow(jg))% tracer (:,:,:,iqv) ,&
+          &                      nh_test_name                                        )
       END DO
     END IF
 !---
@@ -407,8 +412,11 @@ CONTAINS
 
     ! If async prefetching is in effect, init_prefetch is a collective call
     ! with the prefetching processor and effectively starts async prefetching
-    IF ((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) &
-       CALL init_prefetch()
+    IF ((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
+      IF (timers_level > 5) CALL timer_start(timer_init_latbc)
+      CALL init_prefetch
+      IF (timers_level > 5) CALL timer_stop(timer_init_latbc)
+    ENDIF
 
     !------------------------------------------------------------------
     ! Prepare output file

@@ -2390,6 +2390,63 @@ done
 
 
 
+case $ac_hostname in
+  wizard*) ac_sitename=dkrz.de
+         fqdn=$ac_hostname.$ac_sitename ;;
+  mlogin*|btc*) ac_sitename=dkrz.de
+         fqdn=$ac_hostname.$ac_sitename ;;
+  daint*|dora*|santis*) ac_sitename=cscs.ch
+         fqdn=$ac_hostname.$ac_sitename ;;
+  ic2*) ac_sitename=kit.edu;
+         fqdn=$ac_hostname.$ac_sitename ;;
+  fh2*) ac_sitename=kit.edu;
+         fqdn=$ac_hostname.$ac_sitename ;;
+  *)
+         if test "x$(hostname)" = "x$ac_hostname"; then
+  fqdn=$(host -n $ac_hostname | $AWK '/has address/ {print $1}')
+else
+  fqdn=$(hostname)
+fi
+
+         if test -n "$fqdn"; then
+  ac_sitename=$(echo $fqdn | $AWK -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')
+else
+  ac_sitename=
+fi
+ ;;
+esac
+
+
+if  test -n "$fqdn" ; then
+  if test -z ac_sitename; then
+  ac_sitename=local.net
+fi
+
+else
+  if  test -n "$PE_ENV" ; then
+  fqdn=$(echo ${PE_ENV} | $AWK '{print tolower($0)}')
+              { $as_echo "$as_me:$LINENO: checking for Cray environment" >&5
+$as_echo_n "checking for Cray environment... " >&6; }
+              { $as_echo "$as_me:$LINENO: result: $fqdn" >&5
+$as_echo "$fqdn" >&6; }
+else
+  fqdn=${HOSTNAME}
+fi
+
+       ac_sitename=${fqdn}
+fi
+
+
+{ $as_echo "$as_me:$LINENO: checking for hostname" >&5
+$as_echo_n "checking for hostname... " >&6; }
+{ $as_echo "$as_me:$LINENO: result: $ac_hostname" >&5
+$as_echo "$ac_hostname" >&6; }
+{ $as_echo "$as_me:$LINENO: checking for site name" >&5
+$as_echo_n "checking for site name... " >&6; }
+{ $as_echo "$as_me:$LINENO: result: $ac_sitename" >&5
+$as_echo "$ac_sitename" >&6; }
+
+
 if test -f "config/config-options" ; then
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for machine dependent configuration" >&5
 $as_echo_n "checking for machine dependent configuration... " >&6; }
@@ -2574,60 +2631,6 @@ fi ;; #(
   *) :
     gcc_lib="" ;;
 esac
-
-
-case $ac_hostname in #(
-  wizard*) :
-    ac_sitename=dkrz.de
-         fqdn=$ac_hostname.$ac_sitename ;; #(
-  mlogin*|btc*) :
-    ac_sitename=dkrz.de
-         fqdn=$ac_hostname.$ac_sitename ;; #(
-  daint*|dora*|santis*) :
-    ac_sitename=cscs.ch
-         fqdn=$ac_hostname.$ac_sitename ;; #(
-  ic2*) :
-    ac_sitename=kit.edu;
-         fqdn=$ac_hostname.$ac_sitename ;; #(
-  *) :
-
-         if test "x$(hostname)" = "x$ac_hostname"; then :
-  fqdn=$(host -n $ac_hostname | $AWK '/has address/ {print $1}')
-else
-  fqdn=$(hostname)
-fi
-         if test -n "$fqdn"; then :
-  ac_sitename=$(echo $fqdn | $AWK -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')
-else
-  ac_sitename=
-fi ;;
-esac
-
-if  test -n "$fqdn" ; then :
-  if test -z ac_sitename; then :
-  ac_sitename=local.net
-fi
-else
-  if  test -n "$PE_ENV" ; then :
-  fqdn=$(echo ${PE_ENV} | $AWK '{print tolower($0)}')
-              { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Cray environment" >&5
-$as_echo_n "checking for Cray environment... " >&6; }
-              { $as_echo "$as_me:${as_lineno-$LINENO}: result: $fqdn" >&5
-$as_echo "$fqdn" >&6; }
-else
-  fqdn=${HOSTNAME}
-fi
-       ac_sitename=${fqdn}
-fi
-
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for hostname" >&5
-$as_echo_n "checking for hostname... " >&6; }
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_hostname" >&5
-$as_echo "$ac_hostname" >&6; }
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for site name" >&5
-$as_echo_n "checking for site name... " >&6; }
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_sitename" >&5
-$as_echo "$ac_sitename" >&6; }
 
 
 host_frag=""
@@ -4317,6 +4320,9 @@ if test -n "$NETCDFROOT" ; then
        fi
      fi
   fi
+  if [ "x$use_yac" = xyes ] ; then
+    CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_C_NETCDF"
+  fi
 else
   echo "error: the variable NETCDFROOT is not set in $host_frag"
   echo "       set NETCDFROOT to the netCDF root directory"
@@ -4496,8 +4502,8 @@ fi
  ;;
 esac
 
-if test -n "$GRIBAPIROOT"; then :
-  if test -r "$GRIBAPIROOT/lib/libgrib_api.a" || test -r "$GRIBAPIROOT/lib/libgrib_api.dylib"; then :
+if test -n "$GRIBAPIROOT"; then
+  if test -r "$GRIBAPIROOT/lib/libgrib_api.a" || test -r "$GRIBAPIROOT/lib/libgrib_api.dylib" || test -r "$GRIBAPIROOT/lib/libgrib_api.so"; then
   GRIBAPI_LIB='-L$(GRIBAPIROOT)/lib -lgrib_api'
 else
   as_fn_error $? "cannot read $GRIBAPIROOT/lib/libgrib_api.a" "$LINENO" 5
@@ -8145,6 +8151,10 @@ $as_echo "$as_me: executing $ac_file commands" >&6;}
 
   case $ac_file$ac_mode in
     "Makefiles":C)
+if test "x$enable_jsbach" = "xyes"; then :
+  test -d build/${build_host}/src || mkdir -p build/${build_host}/src
+  externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/src
+fi
 config/createMakefiles.pl --target="$build_host" \
   --srcdirs="${my_srcdirs}" \
   --enable_ocean="${enable_ocean}" \

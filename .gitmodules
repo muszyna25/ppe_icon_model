@@ -1,15 +1,16 @@
 [submodule "externals/mtime"]
 	path = externals/mtime
-	branch = develop
 	url = git@git.mpimet.mpg.de:libmtime.git
+	branch = develop
 [submodule "externals/jsbach"]
-	branch = jsbach4icon-dev
 	path = externals/jsbach
 	url = git@git.mpimet.mpg.de:jsbach.git
-[submodule "externals/self"]
-	branch = libself-icon_derived_variables
-	path = externals/self
-	url = git@git.mpimet.mpg.de:libself.git
+	branch = jsbach4icon-dev
 [submodule "externals/yac"]
 	path = externals/yac
 	url = git@git.mpimet.mpg.de:YAC.git
+[submodule "externals/self"]
+	path = externals/self
+	url = git@git.mpimet.mpg.de:libself.git
+	branch = libself-icon_derived_variables
+
