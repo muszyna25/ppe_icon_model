@@ -73,10 +73,8 @@ MODULE mo_art_emission_interface
                                           &   art_seas_emiss_smith
   USE mo_art_emission_dust,             ONLY: art_emission_dust,art_prepare_emission_dust
   USE mo_art_emission_dust_simple,      ONLY: art_prepare_emission_dust_simple
-#if 0
   USE mo_art_emission_chemtracer,       ONLY: art_emiss_chemtracer
   USE mo_art_emission_gasphase,         ONLY: art_emiss_gasphase
-#endif
   USE mo_art_emission_pntSrc,           ONLY: art_emission_pntSrc
 #if 0
   USE mo_art_read_emissions,            ONLY: art_add_emission_to_tracers
@@ -372,7 +370,6 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           DO jb = i_startblk, i_endblk
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
-#if 0
             CALL art_emiss_chemtracer(current_date,                   &
               &                       dtime,                          &
               &                       tracer,                         &
@@ -383,14 +380,11 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                       p_patch,                        &
               &                       p_art_data(jg)%dict_tracer,     &
               &                       jb,istart,iend,nlev,nproma)
-#endif
           ENDDO
         CASE(1)
           DO jb = i_startblk, i_endblk
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
-            
-#if 0
             CALL art_emiss_chemtracer(current_date,                   &
               &                       dtime,                          &
               &                       tracer,                         &
@@ -401,14 +395,11 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                       p_patch,                        &
               &                       p_art_data(jg)%dict_tracer,     &
               &                       jb,istart,iend,nlev,nproma)
-#endif
           ENDDO
         CASE(2)
           DO jb = i_startblk, i_endblk
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
-            
-#if 0
             CALL art_emiss_gasphase(current_date,                   &
               &                     dtime,                          &
               &                     tracer,                         &
@@ -417,7 +408,6 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                     ext_data%atm%llsm_atm_c,        &
               &                     p_patch,                        &
               &                     jb,istart,iend,nlev,nproma)
-#endif
           ENDDO
         CASE DEFAULT
           CALL finish('mo_art_emission_interface:art_emission_interface', &
