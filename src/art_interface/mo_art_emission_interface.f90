@@ -214,7 +214,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           CASE(1)
             ! bulk emissions see below
           CASE(2)
-            CALL art_prepare_emission_volc(jb,nlev,p_nh_state%metrics%z_ifc(:,:,jb),  &
+            CALL art_prepare_emission_volc(current_date,jb,nlev,p_nh_state%metrics%z_ifc(:,:,jb),  &
               &                            p_art_data(jg)%dict_tracer, p_art_data(jg)%ext%volc_data)
           CASE default
             CALL finish('mo_art_emission_interface:art_emission_interface', &
@@ -351,7 +351,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
       ! ----------------------------------
     
       IF (art_config(jg)%iart_volcano == 1) THEN
-        CALL art_organize_emission_volc(p_patch,dtime,rho,p_art_data(jg)%dict_tracer, &
+        CALL art_organize_emission_volc(p_patch, current_date, dtime,rho,p_art_data(jg)%dict_tracer, &
           &                             p_art_data(jg)%ext%volc_data,tracer) 
       ENDIF
       ! END OLD BLOCK
