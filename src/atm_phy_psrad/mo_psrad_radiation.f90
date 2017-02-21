@@ -188,8 +188,8 @@ MODULE mo_psrad_radiation
       CALL orbit_kepler (orbit_date_rt, rasc_sun, decl_sun, dist_sun)
     END IF
 
-    ! Compute cos(zenith angle) "amu0_x" for the time "time_of_day" of this time step
-    ! and for the orbit parameters "decl_sun" and "dist_sun" valid for "orbit_date_rt".
+    ! Compute cos(zenith angle) "amu0_x" for the radiation time "time_of_day_rt"
+    ! and the orbit parameters "decl_sun" and "dist_sun" valid for "orbit_date_rt".
     !
     ! "amu0_x" is needed for the incoming SW flux field at the top of the atmosphere.
     !
@@ -197,7 +197,7 @@ MODULE mo_psrad_radiation
     dt_ext = 0.0_wp
     !
     CALL solar_parameters(decl_sun,       dist_sun,                            &
-         &                time_of_day,    dt_ext,                              &
+         &                time_of_day_rt, dt_ext,                              &
          &                ldiur,          l_sph_symm_irr,                      &
          &                p_patch,                                             &
          &                flx_ratio_cur,  amu0_x,           rdayl_x            )
@@ -213,9 +213,7 @@ MODULE mo_psrad_radiation
       ! "amu0m_x" is needed for the incoming SW flux field at the top of the atmosphere
       ! and for the optical paths.
       !
-      ! Extend the sunlit area for the radiative transfer calculations over an extended area
-      ! including a rim of width dt_rad/2/86400*2pi (in radian) around the sunlit hemisphere.
-      dt_ext = echam_phy_config%dt_rad
+      dt_ext = 0.0_wp
       !
       CALL solar_parameters(decl_sun,        dist_sun,                              &
            &                time_of_day_rt,  dt_ext,                                &
