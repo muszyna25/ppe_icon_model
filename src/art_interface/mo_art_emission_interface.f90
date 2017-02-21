@@ -50,7 +50,10 @@ MODULE mo_art_emission_interface
   USE mo_run_config,                    ONLY: lart,ntracer,iforcing 
   USE mo_time_config,                   ONLY: time_config
   USE mo_impl_constants,                ONLY: iecham, inwp
-  USE mtime,                            ONLY: datetime
+  USE mtime,                            ONLY: datetime, timedelta, newTimedelta, &
+                                          &   getTimeDeltaFromDateTime,          &
+                                          &   getTotalMillisecondsTimedelta,     &
+                                          &   deallocateTimedelta
 #ifdef __ICON_ART
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
@@ -131,17 +134,19 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: &
     &  this_mode               !< pointer to current aerosol mode
-
-  REAL(wp)                :: p_sim_time     !< elapsed simulation time on this grid level
+  TYPE(timedelta),POINTER :: &
+    &  time_diff               !< mtime object: Elapsed time since experiment start
+  REAL(wp)                :: &
+    &  p_sim_time              !< elapsed simulation time on this grid level
   
   ! calculate elapsed simulation time in seconds (local time for
   ! this domain!)
-#if 0
+
   time_diff  => newTimedelta("PT0S")
   time_diff  =  getTimeDeltaFromDateTime(current_date, time_config%tc_exp_startdate)
   p_sim_time =  getTotalMillisecondsTimedelta(time_diff, current_date)*1.e-3_wp
   CALL deallocateTimedelta(time_diff)
-#endif
+
   ! --- Get the loop indizes
   i_nchdom   = MAX(1,p_patch%n_childdom)
   jg         = p_patch%id
