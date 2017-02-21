@@ -465,7 +465,11 @@ CONTAINS
 !     flux_horz(1:nproma,1:n_zlev,1: 1:patch_3d%p_patch_2d(1)%nblks_e)=0.0_wp
     !---------------------------------------------------------------------
  
-
+    ! these are probably not necessary
+    div_diff_flx_vert = 0.0_wp
+    div_adv_flux_vert = 0.0_wp
+    div_adv_flux_horz = 0.0_wp
+    div_diff_flux_horz = 0.0_wp
     !---------------------------------------------------------------------
     IF ( l_with_vert_tracer_advection ) THEN
 
@@ -481,8 +485,6 @@ CONTAINS
       CALL dbg_print('aft. AdvFluxVert:divfluxvert',div_adv_flux_vert          ,str_module,idt_src, in_subset=cells_in_domain)
       !---------------------------------------------------------------------
 
-    ELSE
-      div_adv_flux_vert(1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks) = 0.0_wp
     ENDIF  ! l_with_vert_tracer_advection
 
     !---------------------------------------------------------------------
@@ -509,7 +511,7 @@ CONTAINS
       & p_os%p_prog(nnew(1))%h,         &
       & div_diff_flux_horz)
 
-      div_diff_flx_vert = 0.0_wp
+!       div_diff_flx_vert = 0.0_wp
 
     ELSEIF(GMRedi_configuration/=Cartesian_Mixing)THEN
     
@@ -528,10 +530,11 @@ CONTAINS
         & div_diff_flx_vert)
                    
                    
-       IF(GMREDI_COMBINED_DIAGNOSTIC)THEN
+      IF(GMREDI_COMBINED_DIAGNOSTIC)THEN
+        IF(tracer_index == 1) THEN
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, &
-!ICON_OMP level) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP level, delta_z, delta_z_new) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = cells_in_domain%start_block, cells_in_domain%end_block
           CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
           DO jc = start_cell_index, end_cell_index
@@ -585,7 +588,7 @@ CONTAINS
         
       ELSEIF(tracer_index == 2) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, &
-!ICON_OMP level) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP level, delta_z, delta_z_new) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = cells_in_domain%start_block, cells_in_domain%end_block
           CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
           DO jc = start_cell_index, end_cell_index
@@ -639,6 +642,7 @@ CONTAINS
 
       ENDIF!(tracer_index == 1)
     ENDIF!(GMREDI_COMBINED_DIAGNOSTIC)THEN  
+    ENDIF!GMREDI
       
       
     !Case: Implicit Vertical diffusion
