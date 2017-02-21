@@ -93,7 +93,7 @@ CONTAINS
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_diag_lnd,rho,mtime_current,tracer)
+SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_diag_lnd,rho,current_date,tracer)
   !! Interface for ART: Emissions
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2012-01-27)
@@ -113,7 +113,8 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     &  p_diag_lnd              !< List of diagnostic fields (land)
   REAL(wp), INTENT(inout) :: &
     &  rho(:,:,:)              !< Density of air [kg/m3]
-  TYPE(datetime), POINTER :: mtime_current !< Date and time information
+  TYPE(datetime), INTENT(in), POINTER :: &
+    &  current_date            !< Date and time information
   REAL(wp), INTENT(inout) :: &
     &  tracer(:,:,:,:)         !< Tracer mixing ratios [kg kg-1]
   ! Local variables
@@ -137,8 +138,8 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
   ! this domain!)
 #if 0
   time_diff  => newTimedelta("PT0S")
-  time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_exp_startdate)
-  p_sim_time =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
+  time_diff  =  getTimeDeltaFromDateTime(current_date, time_config%tc_exp_startdate)
+  p_sim_time =  getTotalMillisecondsTimedelta(time_diff, current_date)*1.e-3_wp
   CALL deallocateTimedelta(time_diff)
 #endif
   ! --- Get the loop indizes
@@ -154,8 +155,8 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
 
     IF (art_config(jg)%lart_pntSrc) THEN
       ! Point sources
-      CALL art_emission_pntSrc(jg, p_art_data(jg)%pntSrc, dtime, rho, p_patch%cells%area, &
-        &                      p_nh_state%metrics%ddqz_z_full, tracer)
+      CALL art_emission_pntSrc(jg, p_art_data(jg)%pntSrc, current_date, dtime, rho,        &
+        &                      p_patch%cells%area, p_nh_state%metrics%ddqz_z_full, tracer)
     ENDIF
 
     ALLOCATE(emiss_rate(nproma,nlev))
@@ -179,11 +180,19 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
         IF (iforcing == inwp) THEN
           CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
                                       &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &
+<<<<<<< d7ecf9533fb05408c6e1843468eba1dca7dafa35
                                       &  datetime,prm_diag%swflx_par_sfc)
         ELSE IF (iforcing == iecham) THEN
           CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
                                       &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &
                                       &  datetime)
+=======
+                                      &  current_date,prm_diag%swflx_par_sfc)
+        ELSE IF (iforcing == iecham) THEN
+          CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
+                                      &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &
+                                      &  current_date)
+>>>>>>> [icon-kit/icon-kit-mtime] Adapted call to pntSrc emissions in interface to mtime
         ENDIF
       ENDIF
     ENDIF
@@ -378,7 +387,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
 #if 0
-            CALL art_emiss_chemtracer(mtime_current,                  &
+            CALL art_emiss_chemtracer(current_date,                   &
               &                       dtime,                          &
               &                       tracer,                         &
               &                       p_nh_state%diag%pres,           &
@@ -395,7 +404,11 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
 #if 0
+<<<<<<< d7ecf9533fb05408c6e1843468eba1dca7dafa35
             CALL art_emiss_chemtracer(datetime,                       &
+=======
+            CALL art_emiss_chemtracer(current_date,                   &
+>>>>>>> [icon-kit/icon-kit-mtime] Adapted call to pntSrc emissions in interface to mtime
               &                       dtime,                          &
               &                       tracer,                         &
               &                       p_nh_state%diag%pres,           &
@@ -412,7 +425,11 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
 #if 0
+<<<<<<< d7ecf9533fb05408c6e1843468eba1dca7dafa35
             CALL art_emiss_gasphase(datetime,                       &
+=======
+            CALL art_emiss_gasphase(current_date,                   &
+>>>>>>> [icon-kit/icon-kit-mtime] Adapted call to pntSrc emissions in interface to mtime
               &                     dtime,                          &
               &                     tracer,                         &
               &                     p_nh_state%diag%pres,           &
