@@ -76,9 +76,7 @@ MODULE mo_art_emission_interface
   USE mo_art_emission_chemtracer,       ONLY: art_emiss_chemtracer
   USE mo_art_emission_gasphase,         ONLY: art_emiss_gasphase
   USE mo_art_emission_pntSrc,           ONLY: art_emission_pntSrc
-#if 0
   USE mo_art_read_emissions,            ONLY: art_add_emission_to_tracers
-#endif
   USE omp_lib 
   USE mo_sync,                          ONLY: sync_patch_array_mult, SYNC_C
 
@@ -165,7 +163,6 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     ALLOCATE(emiss_rate(nproma,nlev))
     ALLOCATE(dz(nproma,nlev))
 
-#if 0
     IF (art_config(jg)%lart_aerosol .OR. art_config(jg)%lart_chem &
         .OR. art_config(jg)%lart_passive) THEN
       IF(p_art_data(jg)%emiss%is_init) THEN
@@ -180,7 +177,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
         ENDIF
       ENDIF
     ENDIF
-#endif
+
     IF (art_config(jg)%lart_aerosol) THEN
 !$omp parallel do default (shared) private(jb, istart, iend, dz)
       DO jb = i_startblk, i_endblk
