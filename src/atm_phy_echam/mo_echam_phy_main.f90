@@ -34,7 +34,6 @@ MODULE mo_echam_phy_main
   USE mo_impl_constants      ,ONLY: inh_atmosphere
   USE mo_run_config,          ONLY: ntracer, nlev, nlevp1,    &
     &                               iqv, iqi, iqt
-  USE mo_dynamics_config,     ONLY: iequations
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_echam_cloud_config,  ONLY: echam_cloud_config
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
@@ -51,6 +50,7 @@ MODULE mo_echam_phy_main
   USE mo_interface_echam_o3_cariolle,  ONLY: interface_echam_o3_cariolle
   USE mo_interface_echam_gravity_waves,ONLY: interface_echam_gravity_waves
   USE mo_interface_echam_convection,   ONLY: interface_echam_convection
+  USE mo_interface_echam_condensation, ONLY: interface_echam_condensation
 
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_loopindices         ,ONLY: get_indices_c
@@ -94,14 +94,15 @@ CONTAINS
 
     REAL(wp) :: zfrc (nproma,nsfc_type,patch%nblks_c)    !< zfrl, zfrw, zfrc combined
 
-    REAL(wp) :: zcair  (nproma,nlev,patch%nblks_c)       !< specific heat of moist air        [J/K/kg]
     REAL(wp) :: zconv  (nproma,nlev,patch%nblks_c)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
-    REAL(wp) :: zcpair (nproma,nlev)       !< specific heat of moist air at const. pressure [J/K/kg]
+    REAL(wp) :: zcpair (nproma,nlev,patch%nblks_c)       !< specific heat of moist air at const. pressure [J/K/kg]
     REAL(wp) :: zcvair (nproma,nlev)       !< specific heat of moist air at const. volume   [J/K/kg]
 
     REAL(wp) :: zq_phy (nproma,nlev,patch%nblks_c)       !< heating by whole ECHAM physics    [W/m2]
     REAL(wp) :: zq_rlw (nproma,nlev,patch%nblks_c)       !< heating by long  wave radiation   [W/m2]
     REAL(wp) :: zq_rlw_impl (nproma)       !< additional heating by LW rad. due to impl. coupling in surface energy balance [W/m2]
+
+    INTEGER  :: ictop (nbdim,patch%nblks_c)             !< from massflux
 
     INTEGER  :: jg             !< grid level/domain index
     INTEGER  :: i_nchdom
@@ -134,15 +135,8 @@ CONTAINS
     ENDDO
 !$OMP END PARALLEL DO 
 
-    ! Use constant volume or constant pressure specific heats for dry air and vapor
-    ! for the computation of temperature tendencies.
-!!$    IF ( iequations == inh_atmosphere ) THEN
-!!$      zcd = cvd
-!!$      zcv = cvv
-!!$    ELSE
       zcd = cpd
       zcv = cpv
-!!$    END IF
 
     !-------------------------------------------------------------------
     ! 3.13 DIAGNOSE CURRENT CLOUD COVER
@@ -202,7 +196,7 @@ CONTAINS
 !$OMP PARALLEL DO PRIVATE(jcs,jce)
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-      CALL calculate_zcair_zconv( jb,jcs,jce, nproma, field, zcair(:,:,jb), zconv(:,:,jb))
+      CALL calculate_zcpair_zconv( jb,jcs,jce, nproma, field, zcpair(:,:,jb), zconv(:,:,jb))
     ENDDO
 !$OMP END PARALLEL DO 
 
@@ -269,11 +263,16 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 7. CONVECTION PARAMETERISATION
     !-------------------------------------------------------------------
-    CALL interface_echam_convection(patch, rl_start, rl_end, jks, field, tend, zcair, ntrac, zcd, zcv, pdtime)
+    CALL interface_echam_convection(patch, rl_start, rl_end, start_level, field, tend, &
+      & ictop, zconv, ntrac, in_pdtime)
     !-------------------------------------------------------------------
 
+    !-------------------------------------------------------------------
+    CALL interface_echam_condensation(patch, rl_start, rl_end, start_level, field, tend, &
+      & zcpair, zq_phy, ictop, pdtime)
+    !-------------------------------------------------------------------
 
-!$OMP PARALLEL DO PRIVATE(jcs,jce, zcpair, zcvair)
+!$OMP PARALLEL DO PRIVATE(jcs,jce, zcvair)
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
@@ -292,13 +291,10 @@ CONTAINS
       tend%   va_phy (jcs:jce,:,jb)   = tend%   va (jcs:jce,:,jb)   - tend%   va_phy (jcs:jce,:,jb)
       tend% qtrc_phy (jcs:jce,:,jb,:) = tend% qtrc (jcs:jce,:,jb,:) - tend% qtrc_phy (jcs:jce,:,jb,:)
 
-      IF ( iequations == inh_atmosphere ) THEN
-        !
-        zcpair  (jcs:jce,:) = cpd+(cpv-cpd)*field%qtrc(jcs:jce,:,jb,iqv)
-        zcvair  (jcs:jce,:) = cvd+(cvv-cvd)*field%qtrc(jcs:jce,:,jb,iqv)
-        !
-        tend% ta_phy (jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb)*zcpair(jcs:jce,:)/zcvair(jcs:jce,:)
-      END IF
+      !
+      zcvair  (jcs:jce,:) = cvd+(cvv-cvd)*field%qtrc(jcs:jce,:,jb,iqv)
+      !
+      tend% ta_phy (jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb)*zcpair(jcs:jce,:,jb)/zcvair(jcs:jce,:)
     ENDDO
 !$OMP END PARALLEL DO 
 
@@ -424,12 +420,12 @@ CONTAINS
 
  
   !---------------------------------------------------------------------
-  SUBROUTINE calculate_zcair_zconv( jb,jcs,jce, nbdim, field, zcair, zconv)
+  SUBROUTINE calculate_zcpair_zconv( jb,jcs,jce, nbdim, field, zcpair, zconv)
     INTEGER         ,INTENT(IN) :: jb             !< block index
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
     INTEGER         ,INTENT(IN) :: nbdim          !< size of this block
     TYPE(t_echam_phy_field),   POINTER :: field    ! in
-    REAL(wp)         ,INTENT(INOUT) :: zcair  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
+    REAL(wp)         ,INTENT(INOUT) :: zcpair  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
     REAL(wp)         ,INTENT(INOUT) :: zconv  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
 
     INTEGER  :: jc, jk
@@ -439,11 +435,12 @@ CONTAINS
         !
         ! 3.2b Specific heat of moist air
         !
-        zcair   (jc,jk) = zcd+(zcv-zcd)*field%qtrc(jc,jk,jb,iqv)
-        zconv   (jc,jk) = 1._wp/(field%mair(jc,jk,jb)*zcair(jc,jk))
-      END DO
+        zcpair  (jc,jk) = cpd+(cpv-cpd)*field%qtrc(jc,jk,jb,iqv)
+        !
+        zconv   (jc,jk) = 1._wp/(field%mair(:,:,jb)*zcpair(:,:))
+     END DO
     END DO
-  END SUBROUTINE calculate_zcair_zconv
+  END SUBROUTINE calculate_zcpair_zconv
   !---------------------------------------------------------------------
 
 
