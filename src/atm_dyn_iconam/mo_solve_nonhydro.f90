@@ -212,15 +212,17 @@ MODULE mo_solve_nonhydro
     REAL(wp), DIMENSION(p_patch%nlev) :: scal_divdamp, bdy_divdamp, enh_divdamp_fac
 
 #ifdef _OPENACC
-    REAL(wp), DIMENSION(:,:),     POINTER  :: dvn_ie_int_tmp, dw_ubc_tmp, dtheta_v_ic_ubc_tmp, dvn_ie_ubc_tmp
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: rho_tmp, theta_v_tmp, rho_nvar_tmp, theta_v_nvar_tmp
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: exner_tmp, exner_pr_tmp, ddt_exner_phy_tmp, w_concorr_c_tmp
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: theta_v_ic_tmp, rho_ic_tmp, vn_tmp, w_tmp, vt_tmp, vn_ie_tmp
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: mass_fl_e_tmp, mass_fl_e_sv_tmp, vn_traj_tmp, mass_flx_me_tmp
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: ddt_vn_phy_tmp, vn_ref_tmp, vn_nnew_tmp, grf_bdy_mflx_tmp
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: w_nnew_tmp, mflx_ic_ubc_tmp, mass_flx_ic_tmp, rho_incr_tmp, exner_incr_tmp
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: exner_dyn_incr_tmp, dw_int_tmp, mflx_ic_int_tmp, dtheta_v_ic_int_tmp
-    REAL(wp), DIMENSION(:,:,:,:), POINTER  :: ddt_vn_adv_tmp, ddt_w_adv_tmp
+    REAL(wp), DIMENSION(:,:,:),   POINTER  :: exner_tmp, rho_tmp, theta_v_tmp, vn_tmp, w_tmp                 ! p_prog  WP
+    REAL(wp), DIMENSION(:,:),     POINTER  :: dvn_ie_int_tmp, dvn_ie_ubc_tmp                                 ! p_diag  WP 2D
+    REAL(wp), DIMENSION(:,:,:),   POINTER  :: theta_v_ic_tmp, rho_ic_tmp, dw_int_tmp, dw_ubc_tmp             ! p_diag  WP
+    REAL(wp), DIMENSION(:,:,:),   POINTER  :: dtheta_v_ic_int_tmp, dtheta_v_ic_ubc_tmp, grf_bdy_mflx_tmp     ! p_diag  WP
+    REAL(wp), DIMENSION(:,:,:),   POINTER  :: mass_fl_e_tmp,  mflx_ic_int_tmp, mflx_ic_ubc_tmp, exner_pr_tmp ! p_diag  WP
+    REAL(vp), DIMENSION(:,:,:),   POINTER  :: mass_fl_e_sv_tmp, rho_incr_tmp, exner_incr_tmp                 ! p_diag  VP
+    REAL(vp), DIMENSION(:,:,:),   POINTER  :: vt_tmp, vn_ie_tmp, w_concorr_c_tmp, ddt_exner_phy_tmp          ! p_diag  VP
+    REAL(vp), DIMENSION(:,:,:),   POINTER  :: exner_dyn_incr_tmp, ddt_vn_phy_tmp                             ! p_diag  VP
+    REAL(vp), DIMENSION(:,:,:,:), POINTER  :: ddt_vn_adv_tmp, ddt_w_adv_tmp                                  ! p_diag  VP 4D
+    REAL(wp), DIMENSION(:,:,:),   POINTER  :: vn_traj_tmp, mass_flx_me_tmp, mass_flx_ic_tmp                  ! prep_adv WP
+    REAL(wp), DIMENSION(:,:,:),   POINTER  :: vn_ref_tmp, w_ref_tmp                                          ! p_ref   WP
 #endif
 
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp, jk_start
@@ -269,7 +271,7 @@ MODULE mo_solve_nonhydro
 ! p_nh%prog(nnow)          All present (above)
 ! p_nh%diag:               ddt_exner_phy, ddt_vn_adv, ddt_vn_phy, ddt_w_adv
 !                          vn_ref, dtheta_v_ic_ubc, dw_ubc, dvn_ie_ubc, mflx_ic_ubc
-!                          rho_incr, exner_incr, vn_incr,
+!                          rho_incr, exner_incr, vn_incr, exner_pr
 !                          grf_tend_vn, grf_tend_mflx, grf_tend_rho, grf_tend_thv, grf_tend_w
 !
 ! p_nh%metrics:            Entire structure (read-only)
@@ -282,15 +284,19 @@ MODULE mo_solve_nonhydro
       vn_tmp              => p_nh%prog(nnow)%vn
       w_tmp               => p_nh%prog(nnow)%w
 !$ACC UPDATE DEVICE ( exner_tmp, rho_tmp, theta_v_tmp, vn_tmp, w_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-      exner_old_tmp       => p_nh%diag%exner_old
       vt_tmp              => p_nh%diag%vt
       vn_ie_tmp           => p_nh%diag%vn_ie
       rho_ic_tmp          => p_nh%diag%rho_ic
       theta_v_ic_tmp      => p_nh%diag%theta_v_ic
-!$ACC UPDATE DEVICE ( exner_old_tmp, vt_tmp, vn_ie_tmp, rho_ic_tmp, theta_v_ic_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE ( vt_tmp, vn_ie_tmp, rho_ic_tmp, theta_v_ic_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
       w_concorr_c_tmp     => p_nh%diag%w_concorr_c
       mass_fl_e_tmp       => p_nh%diag%mass_fl_e
-!$ACC UPDATE DEVICE ( w_concorr_c_tmp, mass_fl_e_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+      exner_pr_tmp        => p_nh%diag%exner_pr
+      exner_dyn_incr_tmp  => p_nh%diag%exner_dyn_incr
+!$ACC UPDATE DEVICE ( w_concorr_c_tmp, mass_fl_e_tmp, exner_pr_tmp, exner_dyn_incr_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+      mflx_ic_ubc_tmp     => p_nh%diag%mflx_ic_ubc
+      dvn_ie_ubc_tmp      => p_nh%diag%dvn_ie_ubc
+!$ACC UPDATE DEVICE ( mflx_ic_ubc_tmp, dvn_ie_ubc_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. l_vert_nested )
       ddt_exner_phy_tmp   => p_nh%diag%ddt_exner_phy
       ddt_vn_phy_tmp      => p_nh%diag%ddt_vn_phy
       ddt_vn_adv_tmp      => p_nh%diag%ddt_vn_adv
@@ -300,8 +306,16 @@ MODULE mo_solve_nonhydro
       mass_flx_me_tmp   => prep_adv%mass_flx_me
       mass_flx_ic_tmp   => prep_adv%mass_flx_ic
 !$ACC UPDATE DEVICE ( vn_traj_tmp, mass_flx_me_tmp, mass_flx_ic_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. lprep_adv )
-      exner_dyn_incr_tmp  => p_nh%diag%exner_dyn_incr
-!$ACC UPDATE DEVICE ( exner_dyn_incr_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+      vn_ref_tmp          => p_nh%ref%vn_ref
+      w_ref_tmp           => p_nh%ref%w_ref
+!$ACC UPDATE DEVICE ( vn_ref_tmp, w_ref_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+      grf_bdy_mflx_tmp   => p_nh%diag%grf_bdy_mflx
+!$ACC UPDATE DEVICE( grf_bdy_mflx_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. (jg > 1) .AND. (grf_intmethod_e >= 5) .AND. (idiv_method == 1) .AND. (jstep == 0) )
+      mass_fl_e_sv_tmp    => p_nh%diag%mass_fl_e_sv          ! Output only
+      dw_int_tmp          => p_nh%diag%dw_int                ! Output only
+      mflx_ic_int_tmp     => p_nh%diag%mflx_ic_int           ! Output only
+      dtheta_v_ic_int_tmp => p_nh%diag%dtheta_v_ic_int       ! Output only
+      dvn_ie_int_tmp   => p_nh%diag%dvn_ie_int               ! Output only
 #endif
 
     jg = p_patch%id
@@ -355,7 +369,7 @@ MODULE mo_solve_nonhydro
     ENDDO
 
 !$ACC DATA CREATE( z_kin_hor_e, z_vt_ie, z_w_concorr_me, z_mass_fl_div, z_theta_v_fl_e, z_theta_v_fl_div, &
-!$ACC              z_dexner_dz_c, z_exner_ex_pr, z_gradh_exner, z_rth_pr, z_grad_rth, z_exner_pr, &
+!$ACC              z_dexner_dz_c, z_exner_ex_pr, z_gradh_exner, z_rth_pr, z_grad_rth, &
 !$ACC              z_theta_v_pr_ic, z_th_ddz_exner_c, z_w_concorr_mc, &
 !$ACC              z_vn_avg, z_rho_e, z_theta_v_e, z_dwdz_dd, z_thermal_exp, &
 !$ACC              z_mflx_top, &
@@ -538,7 +552,7 @@ MODULE mo_solve_nonhydro
       ENDIF
 
 #ifdef _OPENACC
-!$ACC PARALLEL PRESENT( p_patch, p_nh, z_exner_ex_pr, z_exner_pr, z_thermal_exp, nflat_gradp, nflatlev, &
+!$ACC PARALLEL PRESENT( p_patch, p_nh, z_exner_ex_pr, z_thermal_exp, nflat_gradp, nflatlev, &
 !$ACC                   z_dexner_dz_c, z_rth_pr, z_th_ddz_exner_c ), &
 !$ACC          PRIVATE( z_theta_v_pr_ic, z_exner_ic ), &
 !$ACC          IF( i_am_accel_node .AND. acc_on )
@@ -826,11 +840,6 @@ MODULE mo_solve_nonhydro
       CALL check_patch_array(SYNC_C,p_patch, p_nh%diag%rho_ic,     "dycore: rho_ic")
       write(6,*) "FINISHED CHECKING rho_ic"
       flush(6)
-      IF ( istep == 1 ) THEN
-        CALL check_patch_array(SYNC_C,p_patch, p_nh%diag%exner_old,  "dycore: exner_old")
-        write(6,*) "FINISHED CHECKING exner_old"
-        flush(6)
-      ENDIF
 #endif
 
       IF (istep == 1) THEN
@@ -1687,14 +1696,6 @@ MODULE mo_solve_nonhydro
       CALL check_patch_array(SYNC_E, p_patch, p_nh%prog(nnew)%vn,  "dycore: vn")
       write(6,*) "FINISHED CHECKING vn after communication istep ==", istep
       flush(6)
-
-      IF ( istep == 1 ) THEN
-
-        CALL check_patch_array(SYNC_E, p_patch, p_nh%diag%vt,  "dycore: vt")
-        write(6,*) "FINISHED CHECKING vt before calculation istep ==", istep
-        flush(6)
-
-      ENDIF
 #endif
 
 #ifndef _OPENACC
@@ -1953,18 +1954,7 @@ MODULE mo_solve_nonhydro
 #endif
 
 #ifdef _OPENACC
-      IF ( (istep == 1) .OR. (itime_scheme >= 5) ) THEN
-        CALL check_patch_array(SYNC_E, p_patch, p_nh%diag%vt, "dycore: vt")
-        write(6,*) "FINISHED CHECKING vt istep ==", istep
-        flush(6)
-      ENDIF
       print *, "idiv_method == ", idiv_method, "itime_scheme ", itime_scheme
-
-      IF ( istep == 1 ) THEN
-        CALL check_patch_array(SYNC_E, p_patch, p_nh%diag%vn_ie,  "dycore: vn_ie")
-        write(6,*) "FINISHED CHECKING vn_ie istep ==", istep
-        flush(6)
-      ENDIF
 #endif
 
       ! Apply mass fluxes across lateral nest boundary interpolated from parent domain
@@ -2085,10 +2075,6 @@ MODULE mo_solve_nonhydro
 
         ENDDO
 !$ACC END PARALLEL
-        CALL check_patch_array(SYNC_C, p_patch, p_nh%diag%w_concorr_c,  "dycore: w_concorr_c")
-        write(6,*) "FINISHED CHECKING w_concorr_c istep ==", istep
-        flush(6)
-
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_w_concorr_mc) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
@@ -2224,7 +2210,7 @@ MODULE mo_solve_nonhydro
 !$ACC PARALLEL &
 !$ACC PRESENT( p_patch, p_nh, p_int, prep_adv), &
 !$ACC PRESENT( z_mass_fl_div, z_theta_v_fl_div, z_theta_v_fl_e, z_dwdz_dd, z_thermal_exp ), &
-!$ACC PRESENT( z_exner_pr, z_raylfac, z_mflx_top, z_th_ddz_exner_c, ieidx, ieblk ), &
+!$ACC PRESENT( z_raylfac, z_mflx_top, z_th_ddz_exner_c, ieidx, ieblk ), &
 !$ACC PRESENT(  nrdmax, kstart_dd3d, kstart_moist), &
 !$ACC PRIVATE( z_w_expl,z_contr_w_fl_l, z_rho_expl, z_exner_expl, z_q ),    &
 !$ACC PRIVATE( z_alpha,z_beta,z_flxdiv_mass,z_flxdiv_theta ), &
@@ -2992,36 +2978,19 @@ MODULE mo_solve_nonhydro
 
 #ifdef _OPENACC
 ! The following code is necessary if the Dycore is to be run in isolation on the GPU
-! Update all device output on host
+! Update all device output on host: the prognostic variables have shifted from nnow to nnew; diagnostics pointers set above
       exner_tmp           => p_nh%prog(nnew)%exner
       rho_tmp             => p_nh%prog(nnew)%rho
       theta_v_tmp         => p_nh%prog(nnew)%theta_v
       vn_tmp              => p_nh%prog(nnew)%vn
       w_tmp               => p_nh%prog(nnew)%w
 !$ACC UPDATE HOST ( exner_tmp, rho_tmp, theta_v_tmp, vn_tmp, w_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-      exner_old_tmp       => p_nh%diag%exner_old
-      vt_tmp              => p_nh%diag%vt
-      vn_ie_tmp           => p_nh%diag%vn_ie
-      rho_ic_tmp          => p_nh%diag%rho_ic
-      theta_v_ic_tmp      => p_nh%diag%theta_v_ic
-      w_concorr_c_tmp     => p_nh%diag%w_concorr_c
-      mass_fl_e_tmp       => p_nh%diag%mass_fl_e
-      exner_dyn_incr_tmp  => p_nh%diag%exner_dyn_incr
-!$ACC UPDATE HOST ( exner_old_tmp, vt_tmp, vn_ie_tmp, rho_ic_tmp, theta_v_ic_tmp, exner_dyn_incr_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-!$ACC UPDATE HOST ( w_concorr_c_tmp, mass_fl_e_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-      mass_fl_e_sv_tmp    => p_nh%diag%mass_fl_e_sv
+!$ACC UPDATE HOST ( vt_tmp, vn_ie_tmp, rho_ic_tmp, theta_v_ic_tmp, exner_pr_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST ( w_concorr_c_tmp, mass_fl_e_tmp, exner_dyn_incr_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC UPDATE HOST ( mass_fl_e_sv_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. lsave_mflx )
-      dw_int_tmp          => p_nh%diag%dw_int
-      mflx_ic_int_tmp     => p_nh%diag%mflx_ic_int
-      dtheta_v_ic_int_tmp => p_nh%diag%dtheta_v_ic_int
 !$ACC UPDATE HOST ( dw_int_tmp, mflx_ic_int_tmp, dtheta_v_ic_int_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. l_child_vertnest )
-      dvn_ie_int_tmp   => p_nh%diag%dvn_ie_int
 !$ACC UPDATE HOST( dvn_ie_int_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. idyn_timestep == 1 .AND. l_child_vertnest)
-       grf_bdy_mflx_tmp   => p_nh%diag%grf_bdy_mflx
 !$ACC UPDATE HOST( grf_bdy_mflx_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. (jg > 1) .AND. (grf_intmethod_e >= 5) .AND. (idiv_method == 1) .AND. (jstep == 0) )
-      vn_traj_tmp         => prep_adv%vn_traj
-      mass_flx_me_tmp     => prep_adv%mass_flx_me
-      mass_flx_ic_tmp     => prep_adv%mass_flx_ic
 !$ACC UPDATE HOST ( vn_traj_tmp, mass_flx_me_tmp, mass_flx_ic_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. lprep_adv )
 #endif
 

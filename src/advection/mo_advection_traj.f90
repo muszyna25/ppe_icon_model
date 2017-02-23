@@ -82,15 +82,15 @@ MODULE mo_advection_traj
   TYPE t_back_traj
     ! line indices of cell centers in which the calculated barycenters are located
     ! dim: (nproma,nlev,p_patch%nblks_e)
-    INTEGER , ALLOCATABLE :: cell_idx(:,:,:)
+    INTEGER , POINTER :: cell_idx(:,:,:)
     !
     ! block indices of cell centers in which the calculated barycenters are located
     ! dim: (nproma,nlev,p_patch%nblks_e)
-    INTEGER , ALLOCATABLE :: cell_blk(:,:,:)
+    INTEGER , POINTER :: cell_blk(:,:,:)
     !
     ! distance vectors cell center --> barycenter of advected area (geographical coordinates)
     ! dim: (nproma,nlev,p_patch%nblks_e,2)
-    REAL(vp), ALLOCATABLE :: distv_bary(:,:,:,:)
+    REAL(vp), POINTER :: distv_bary(:,:,:,:)
 
   CONTAINS
     !
@@ -120,6 +120,9 @@ CONTAINS
     !
     ! local
     INTEGER :: ist
+    INTEGER, POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
+    REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
+
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_traj: construct'
 
@@ -134,7 +137,12 @@ CONTAINS
       CALL finish ( TRIM(routine), 'allocation for distv_bary failed' )
     ENDIF
 
-!$ACC ENTER DATA CREATE( obj%cell_idx, obj%cell_blk, obj%distv_bary ), IF (i_am_accel_node .AND. acc_on)
+#if _OPENACC
+    p_cell_idx =>  obj%cell_idx
+    p_cell_blk =>  obj%cell_blk
+    p_distv_bary => obj%distv_bary
+!$ACC ENTER DATA CREATE( p_cell_idx, p_cell_blk, p_distv_bary ), IF (i_am_accel_node .AND. acc_on)
+#endif
 
   END SUBROUTINE construct
 
@@ -154,12 +162,20 @@ CONTAINS
     !
     ! local
     INTEGER :: ist
+    INTEGER, POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
+    REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
+
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_traj: destruct'
 
-!$ACC EXIT DATA DELETE( obj%cell_idx, obj%cell_blk, obj%distv_bary ), IF (i_am_accel_node .AND. acc_on)
+#if _OPENACC
+    p_cell_idx =>  obj%cell_idx
+    p_cell_blk =>  obj%cell_blk
+    p_distv_bary => obj%distv_bary
+!$ACC EXIT DATA DELETE( p_cell_idx, p_cell_blk, p_distv_bary ), IF (i_am_accel_node .AND. acc_on)
+#endif
 
-    IF (ALLOCATED(obj%cell_idx)) THEN
+    IF (ASSOCIATED(obj%cell_idx)) THEN
       DEALLOCATE(obj%cell_idx, obj%cell_blk, STAT=ist)
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'deallocation for cell_idx and cell_blk failed' )
@@ -284,7 +300,6 @@ CONTAINS
 !$ACC UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC PARALLEL &
 !$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, btraj%distv_bary, btraj%cell_idx, btraj%cell_blk ), &
-!$ACC PRIVATE( z_ntdistv_bary ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
 !$ACC LOOP GANG
@@ -885,7 +900,7 @@ CONTAINS
     p_cell_blk   => btraj%cell_blk
     p_distv_bary => btraj%distv_bary
 !$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_distv_bary, p_cell_idx, p_cell_blk ), &
-!$ACC CREATE( z_vn_plane, pos_barycenter, z_ntdistv_bary ),   IF( i_am_accel_node .AND. acc_on )
+!$ACC CREATE( z_vn_plane ),   IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC PARALLEL &
 !$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, z_vn_plane ), &

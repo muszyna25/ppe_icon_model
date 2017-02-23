@@ -141,10 +141,11 @@ MODULE mo_velocity_advection
     LOGICAL  :: levmask(p_patch%nblks_c,p_patch%nlev),levelmask(p_patch%nlev)
     LOGICAL  :: cfl_clipping(nproma,p_patch%nlevp1)   ! CFL > 0.85
 #ifdef _OPENACC
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: vn_tmp, vt_tmp, vn_ie_tmp, rbf_vec_coeff_e_tmp, w_tmp
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: w_concorr_c_tmp
-    REAL(wp), DIMENSION(:,:,:,:), POINTER  :: ddt_vn_adv_tmp
-    REAL(wp), DIMENSION(:,:,:,:), POINTER  :: ddt_w_adv_tmp
+    REAL(wp), DIMENSION(:,:,:),   POINTER  :: vn_tmp, w_tmp
+    REAL(vp), DIMENSION(:,:,:),   POINTER  :: vt_tmp, vn_ie_tmp
+    REAL(vp), DIMENSION(:,:,:),   POINTER  :: w_concorr_c_tmp
+    REAL(vp), DIMENSION(:,:,:,:), POINTER  :: ddt_vn_adv_tmp
+    REAL(vp), DIMENSION(:,:,:,:), POINTER  :: ddt_w_adv_tmp
 #endif
     !--------------------------------------------------------------------------
 
