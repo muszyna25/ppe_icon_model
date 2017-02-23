@@ -1317,7 +1317,8 @@ CONTAINS
          re_drop   (kbdim,klev),       & !< effective radius of liquid
          re_cryst  (kbdim,klev),       & !< effective radius of ice
          aux_out   (kbdim,9),          &
-         zmu0      (kbdim)
+         zmu0      (kbdim),            &
+         zdayfrc   (kbdim)
 
     INTEGER, PARAMETER    :: rng_seed_size = 4
     INTEGER :: rnseeds(kbdim,rng_seed_size)
@@ -1632,12 +1633,18 @@ CONTAINS
       rnseeds(1:jce,1:rng_seed_size) = (pm_fl_vr(1:jce,rng_seed_size:1:-1) - &
          int(pm_fl_vr(1:jce,rng_seed_size:1:-1)))* 1E9
       n_gpts_ts = get_num_gpoints(sw_strat)
+      WHERE (pmu0(1:jce) > 0.0_wp)
+         zdayfrc(1:jce) = 1.0_wp
+      ELSEWHERE
+         zdayfrc(1:jce) = 0.0_wp
+      END WHERE
       zmu0(1:jce) = MAX(pmu0(1:jce),0.05_wp)
+      
       !
       CALL psrad_srtm(jce                                                      , & 
          &  kbdim           ,klev            ,pm_fl_vr        ,tk_fl_vr        , &
          &  wkl_vr          ,col_dry_vr      ,alb_vis_dir     ,alb_vis_dif     , &
-         &  alb_nir_dir     ,alb_nir_dif     ,zmu0            ,ssi_radt/psctm  , &
+         &  alb_nir_dir     ,alb_nir_dif     ,zmu0, zdayfrc   ,ssi_radt/psctm  , &
          &  psctm           ,cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    , &
          &  cld_piz_sw_vr   ,aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr   , & 
          &  rnseeds         ,sw_strat        ,n_gpts_ts       ,flx_dnsw        , &

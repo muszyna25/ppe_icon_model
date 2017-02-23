@@ -357,6 +357,7 @@ CONTAINS
         & loglac         = lglac                   ,&!< in  glacier mask (logical)
         & this_datetime  = this_datetime           ,&!< in  actual time step
         & pcos_mu0       = field%cosmu0_rt(:,jb)   ,&!< in  solar zenith angle
+        & daylght_frc    = field%daylght_frc_rt(:,jb),&!in daylight fraction
         & alb_vis_dir    = field%albvisdir(:,jb)   ,&!< in  surface albedo for visible range, direct
         & alb_nir_dir    = field%albnirdir(:,jb)   ,&!< in  surface albedo for near IR range, direct
         & alb_vis_dif    = field%albvisdif(:,jb)   ,&!< in  surface albedo for visible range, diffuse
@@ -421,7 +422,8 @@ CONTAINS
         & klevp1     = nlevp1                         ,&! vertical dimension size
         !
         & rsdt0      = psctm                          ,&! toa incident shortwave radiation for sun in zenith
-        & cosmu0     = field%cosmu0    (:,jb)         ,&! solar zenith angle at current time
+        & cosmu0     = field%cosmu0     (:,jb)        ,&! solar zenith angle at current time
+        & daylght_frc= field%daylght_frc(:,jb)        ,&! daylight fraction
         !
         & emiss      = ext_data(jg)%atm%emis_rad(:,jb),&! lw sfc emissivity
         & tsr        = field%ts_rad (:,jb)            ,&! radiative surface temperature at current   time [K]

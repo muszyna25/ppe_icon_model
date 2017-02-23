@@ -96,7 +96,8 @@ CONTAINS
        & iaero           ,kproma          ,kbdim           ,klev            ,&
 !!$       & ktrac           ,ktype           ,nb_sw                         ,&
        &                  ktype           ,nb_sw                            ,&
-       & laland          ,laglac          ,this_datetime   ,pmu0            ,&
+       & laland          ,laglac          ,this_datetime                    ,&
+       & pmu0            ,daylght_frc                                       ,&
        & cemiss                                                             ,&
        & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
        & zf              ,zh              ,dz                               ,&
@@ -132,6 +133,7 @@ CONTAINS
 
     REAL(WP),INTENT(IN)  ::            &
          pmu0(kbdim),                  & !< mu0 for solar zenith angle
+         daylght_frc(kbdim),           & !< daylight fraction; with diurnal cycle 0 or 1, with zonal mean in [0,1]
          cemiss,                       & !< surface emissivity
          alb_vis_dir(kbdim),           & !< surface albedo for vis range and dir light
          alb_nir_dir(kbdim),           & !< surface albedo for NIR range and dir light
@@ -455,9 +457,10 @@ CONTAINS
     !
     CALL srtm(kproma                                                           , & 
          &  kbdim           ,klev            ,pm_fl_vr        ,tk_fl_vr        , &
-         &  wkl_vr          ,col_dry_vr      ,alb_vis_dir     ,alb_vis_dif     , &
-         &  alb_nir_dir     ,alb_nir_dif     ,pmu0            ,ssi_factor      , &
-         &  psctm           ,cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    , &
+         &  wkl_vr          ,col_dry_vr                                        , &
+         &  alb_vis_dir     ,alb_vis_dif     ,alb_nir_dir     ,alb_nir_dif     , &
+         &  pmu0            ,daylght_frc     ,ssi_factor      ,psctm           , &
+         &  cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr                     , &
          &  cld_piz_sw_vr   ,aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr   , & 
          &  rnseeds         ,sw_strat        ,n_gpts_ts       ,flx_dnsw        , &
          &  flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr                     , &

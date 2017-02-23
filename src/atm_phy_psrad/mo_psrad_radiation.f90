@@ -161,10 +161,9 @@ MODULE mo_psrad_radiation
     REAL(wp) :: time_of_day_rt, orbit_date_rt
     REAL(wp) :: dt_ext
     REAL(wp) :: tsi
-    LOGICAL  :: l_orbvsop87, l_sph_symm_irr
+    LOGICAL  :: l_orbvsop87
 
     l_orbvsop87 = psrad_orbit_config%l_orbvsop87
-    l_sph_symm_irr = psrad_orbit_config%l_sph_symm_irr
 
     !
     ! 1.0 Compute orbital parameters for current time step
@@ -198,7 +197,7 @@ MODULE mo_psrad_radiation
     !
     CALL solar_parameters(decl_sun,       dist_sun,                            &
          &                time_of_day_rt, dt_ext,                              &
-         &                ldiur,          l_sph_symm_irr,                      &
+         &                ldiur,          psrad_orbit_config%l_sph_symm_irr,   &
          &                p_patch,                                             &
          &                flx_ratio_cur,  amu0_x,           rdayl_x            )
 
@@ -217,7 +216,7 @@ MODULE mo_psrad_radiation
       !
       CALL solar_parameters(decl_sun,        dist_sun,                              &
            &                time_of_day_rt,  dt_ext,                                &
-           &                ldiur,           l_sph_symm_irr,                        &
+           &                ldiur,           psrad_orbit_config%l_sph_symm_irr,     &
            &                p_patch,                                                &
            &                flx_ratio_rad,   amu0m_x,           rdaylm_x            )
       !
@@ -655,6 +654,7 @@ MODULE mo_psrad_radiation
     & loglac         ,&!< in  fraction of land covered by glaciers
     & this_datetime  ,&!< in  actual time step
     & pcos_mu0       ,&!< in  cosine of solar zenith angle
+    & daylght_frc    ,&!< in  daylight fraction; with diurnal cycle 0 or 1, with zonal mean in [0,1]
     & alb_vis_dir    ,&!< in  surface albedo for visible range, direct
     & alb_nir_dir    ,&!< in  surface albedo for near IR range, direct
     & alb_vis_dif    ,&!< in  surface albedo for visible range, diffuse
@@ -711,6 +711,7 @@ MODULE mo_psrad_radiation
 
     REAL(wp), INTENT(IN)    :: &
     & pcos_mu0(kbdim),         & !< cosine of solar zenith angle
+    & daylght_frc(kbdim),      & !< daylight fraction; with diurnal cycle 0 or 1, with zonal mean in [0,1]
     & alb_vis_dir(kbdim),      & !< surface albedo for visible range and direct light
     & alb_nir_dir(kbdim),      & !< surface albedo for NIR range and direct light
     & alb_vis_dif(kbdim),      & !< surface albedo for visible range and diffuse light
@@ -930,7 +931,8 @@ MODULE mo_psrad_radiation
            & irad_aero       ,kproma          ,kbdim           ,klev            ,& 
 !!$           & knwtrc          ,ktype           ,nb_sw                            ,&
            &                  ktype           ,nb_sw                            ,&
-           & loland          ,loglac          ,this_datetime   ,pcos_mu0        ,&
+           & loland          ,loglac          ,this_datetime                    ,&
+           & pcos_mu0        ,daylght_frc                                       ,&
            & cemiss                                                             ,&
            & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
            & zf              ,zh              ,dz                               ,&

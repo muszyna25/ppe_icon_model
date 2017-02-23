@@ -31,7 +31,7 @@ MODULE mo_psrad_radiation_parameters
   USE mo_kind,            ONLY: wp
   USE mo_model_domain,    ONLY: t_patch
   USE mo_parallel_config, ONLY: nproma
-  USE mo_math_constants,  ONLY: pi, pi2, pi_2 ! pi, pi*2, pi/2
+  USE mo_math_constants,  ONLY: pi, pi2, pi_2, pi_4 ! pi, pi*2, pi/2, pi/4
 
 IMPLICIT NONE
 
@@ -151,13 +151,13 @@ contains
          daylight_frc(:,:)     !< daylight fraction (0 or 1) with diurnal cycle
 
     INTEGER     :: i, j
-    REAL(wp)    :: zen1, zen2, zen3, z1, z2, z3, xx
+    REAL(wp)    :: zen1, zen2, zen3, xx
 
     INTEGER, PARAMETER :: nds = 128 !< number of diurnal samples
 
     LOGICAL  , SAVE :: initialized_sincos = .FALSE.
     REAL (wp), SAVE :: cosrad(nds), sinrad(nds)
-    REAL (wp)       :: xsmpl(nds), xnmbr(nds)
+    REAL (wp)       :: xsmpl(nds), xsmpl_day(nds), xnmbr_day(nds)
     REAL (wp), ALLOCATABLE :: sinlon(:,:), sinlat(:,:), coslon(:,:), coslat(:,:)
     REAL (wp), ALLOCATABLE :: mu0(:,:)
 
@@ -169,7 +169,11 @@ contains
 
     INTEGER :: nprom, npromz, nblks
 
-    IF (.NOT.initialized_sincos) THEN
+    nprom=nproma
+    npromz=p_patch%npromz_c
+    nblks=p_patch%nblks_c
+
+    IF (.NOT.ldiur.AND..NOT.initialized_sincos) THEN
        !
        ! sin and cos arrays for zonal mean radiation
        DO i = 1, nds
@@ -181,7 +185,7 @@ contains
        initialized_sincos = .TRUE.
     END IF
     !
-    IF ((.NOT.initialized_mu0s).AND.(dt_ext/=0.0_wp)) THEN
+    IF (ldiur.AND.(.NOT.initialized_mu0s).AND.(dt_ext/=0.0_wp)) THEN
        !
        ! find mu0s for radiation with diurnal cycle
        dmu0   = dt_ext/86400._wp*pi
@@ -214,59 +218,27 @@ contains
     zen2 = COS(decl_sun)*COS(time_of_day)
     zen3 = COS(decl_sun)*SIN(time_of_day)
 
-    nprom=nproma
-    npromz=p_patch%npromz_c
-    nblks=p_patch%nblks_c
-    ALLOCATE(sinlon(nprom,nblks))
-    ALLOCATE(sinlat(nprom,nblks))
-    ALLOCATE(coslon(nprom,nblks))
-    ALLOCATE(coslat(nprom,nblks))
-    ALLOCATE(mu0(nprom,nblks))
-    sinlon(:,:)=0._wp
-    sinlat(:,:)=0._wp
-    coslon(:,:)=0._wp
-    coslat(:,:)=0._wp
-    sinlon(1:nprom,1:nblks-1)=SIN(p_patch%cells%center(1:nprom,1:nblks-1)%lon)
-    sinlat(1:nprom,1:nblks-1)=SIN(p_patch%cells%center(1:nprom,1:nblks-1)%lat)
-    coslon(1:nprom,1:nblks-1)=COS(p_patch%cells%center(1:nprom,1:nblks-1)%lon)
-    coslat(1:nprom,1:nblks-1)=COS(p_patch%cells%center(1:nprom,1:nblks-1)%lat)
-    sinlon(1:npromz,nblks)=SIN(p_patch%cells%center(1:npromz,nblks)%lon)
-    sinlat(1:npromz,nblks)=SIN(p_patch%cells%center(1:npromz,nblks)%lat)
-    coslon(1:npromz,nblks)=COS(p_patch%cells%center(1:npromz,nblks)%lon)
-    coslat(1:npromz,nblks)=COS(p_patch%cells%center(1:npromz,nblks)%lat)
-
-    IF (l_sph_symm_irr) THEN        ! spherically symmetric irradiation (for RCE)
-       IF (ldiur) THEN              ! all grid points have diurnal cycle as if they
-                                    ! were on the equator of a Kepler orbit
-          cos_mu0(:,:)     = -zen2
-          WHERE (cos_mu0(:,:) < 0.0_wp)
-             daylight_frc(:,:) = 0.0_wp
-          ELSEWHERE
-             daylight_frc(:,:) = 1.0_wp
-          END WHERE
-       ELSE
-          DO j = 1, SIZE(cos_mu0,2)
-             DO i = 1, SIZE(cos_mu0,1)
-
-                xsmpl(:) = 0.7854_wp    ! solar weighted zenith angle of equator
-                xnmbr(:) = 1.0_wp
-                WHERE (xsmpl(:) < EPSILON(1.0_wp))
-                   xsmpl(:) = 0.0_wp
-                   xnmbr(:) = 0.0_wp
-                END WHERE
-
-                cos_mu0(i,j)      = SUM(xsmpl(:))
-                daylight_frc(i,j) = SUM(xnmbr(:))
-             END DO
-          END DO
-
-          WHERE (daylight_frc(:,:) > EPSILON(1.0_wp))
-             cos_mu0(:,:)      = cos_mu0(:,:)/daylight_frc(:,:)
-             daylight_frc(:,:) = daylight_frc(:,:)/nds
-          END WHERE
-       END IF
-    ELSE           ! normal radiation calculation
-       IF (ldiur) THEN
+    IF (.NOT.l_sph_symm_irr) THEN       ! - spherically variable irradiation
+       !
+       ALLOCATE(sinlon(nprom,nblks))
+       ALLOCATE(sinlat(nprom,nblks))
+       ALLOCATE(coslon(nprom,nblks))
+       ALLOCATE(coslat(nprom,nblks))
+       ALLOCATE(mu0(nprom,nblks))
+       sinlon(:,:)=0._wp
+       sinlat(:,:)=0._wp
+       coslon(:,:)=0._wp
+       coslat(:,:)=0._wp
+       sinlon(1:nprom,1:nblks-1)=SIN(p_patch%cells%center(1:nprom,1:nblks-1)%lon)
+       sinlat(1:nprom,1:nblks-1)=SIN(p_patch%cells%center(1:nprom,1:nblks-1)%lat)
+       coslon(1:nprom,1:nblks-1)=COS(p_patch%cells%center(1:nprom,1:nblks-1)%lon)
+       coslat(1:nprom,1:nblks-1)=COS(p_patch%cells%center(1:nprom,1:nblks-1)%lat)
+       sinlon(1:npromz,nblks)=SIN(p_patch%cells%center(1:npromz,nblks)%lon)
+       sinlat(1:npromz,nblks)=SIN(p_patch%cells%center(1:npromz,nblks)%lat)
+       coslon(1:npromz,nblks)=COS(p_patch%cells%center(1:npromz,nblks)%lon)
+       coslat(1:npromz,nblks)=COS(p_patch%cells%center(1:npromz,nblks)%lat)
+       !
+       IF (ldiur) THEN                  ! - with local diurnal cycle
           !
           ! cos(zenith angle), positive for sunlit hemisphere
           cos_mu0(:,:)     =  zen1*sinlat(:,:)                &
@@ -306,31 +278,76 @@ contains
              END WHERE
           END IF
           !
-       ELSE
+       ELSE                             ! - with zonally symmetric irradiation
+          !
+          ! For each cell (i,j), compute first cos(mu0) for nds regularly spaced longitudes on the
+          ! latitude circle of the cell. Then compute the zonal mean of cos(mu0) for the latitude
+          ! of this cell as the average over all longitudes, where cos(mu0)>=epsilon.
+          !
           DO j = 1, SIZE(cos_mu0,2)
              DO i = 1, SIZE(cos_mu0,1)
-
-                z1 =  zen1*sinlat(i,j)
-                z2 = -zen2*coslat(i,j)
-                z3 =  zen3*coslat(i,j)
-
-                xsmpl(:) = z1 + z2*cosrad(:) + z3*sinrad(:)
-                xnmbr(:) = 1.0_wp
-                WHERE (xsmpl(:) < EPSILON(1.0_wp))
-                   xsmpl(:) = 0.0_wp
-                   xnmbr(:) = 0.0_wp
+                !
+                ! cos(zenith angle) for nds longitudes on the latitude circle of cell (i,j)
+                xsmpl(:) =  zen1*sinlat(i,j)              &
+                     &     -zen2*coslat(i,j)*cosrad(:)    &
+                     &     +zen3*coslat(i,j)*sinrad(:)
+                !
+                ! set day/night indicator of sampled longitudes to 1/0
+                ! and mask out cosmu0 values in day-only and night-only cells
+                !
+                WHERE (xsmpl(:) < EPSILON(1.0_wp))     ! night side
+                   xsmpl_day(:) = 0.0_wp
+                   xnmbr_day(:) = 0.0_wp
+                ELSEWHERE                              ! day side
+                   xsmpl_day(:) = xsmpl(:)
+                   xnmbr_day(:) = 1.0_wp
                 END WHERE
-
-                cos_mu0(i,j)      = SUM(xsmpl(:))
-                daylight_frc(i,j) = SUM(xnmbr(:))
+                !
+                cos_mu0(i,j)      = SUM(xsmpl_day(:))
+                daylight_frc(i,j) = SUM(xnmbr_day(:))
+                !
+                IF (daylight_frc(i,j) > EPSILON(1.0_wp)) THEN         ! at least one point on the latitude
+                   cos_mu0(i,j)      = cos_mu0(i,j)/daylight_frc(i,j) ! circle of the cell has daylight
+                   daylight_frc(i,j) = daylight_frc(i,j)/REAL(nds,wp) ! and a zonal mean can be defined
+                ELSE
+                   cos_mu0(i,j)      = 0.0_wp                         ! set cos(mu0) = 0 on polar night
+                   daylight_frc(i,j) = 0.0_wp                         ! latitude circle
+                END IF
+                !
              END DO
           END DO
-
-          WHERE (daylight_frc(:,:) > EPSILON(1.0_wp))
-             cos_mu0(:,:)      = cos_mu0(:,:)/daylight_frc(:,:)
-             daylight_frc(:,:) = daylight_frc(:,:)/nds
-          END WHERE
+          !
        END IF
+       !
+       DEALLOCATE(sinlon)
+       DEALLOCATE(sinlat)
+       DEALLOCATE(coslon)
+       DEALLOCATE(coslat)
+       DEALLOCATE(mu0)
+       !
+    ELSE                                ! - spherically symmetric irradiation (for RCE),
+       !                                    all grid points have the same solar incoming
+       !                                    flux at TOA
+       !
+       IF (ldiur) THEN                  ! - with diurnal cycle of (0degE,0degN), i.e.
+          !                                 local noon is at 12:00 UTC in all points
+          !
+          cos_mu0(:,:) = -zen2          !   = cos_mu0 at (0degE,0degN)
+          IF (-zen2 < 0.0_wp) THEN
+             daylight_frc(:,:) = 0.0_wp
+          ELSE
+             daylight_frc(:,:) = 1.0_wp
+          END IF
+          !
+       ELSE                             ! - without diurnal cycle
+          !                                 all grid points have the same constant cos_mu0
+          !
+          cos_mu0(:,:) = pi_4           !  = pi/4 (why this choice?)
+          daylight_frc(:,:) = 1.0_wp
+          !
+       END IF
+       !
+       !
     END IF
 
   END SUBROUTINE solar_parameters
