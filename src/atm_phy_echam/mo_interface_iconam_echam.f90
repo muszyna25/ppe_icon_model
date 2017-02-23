@@ -424,7 +424,7 @@ CONTAINS
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
           avi%pres                     => prm_field(jg)%presm_old(:,:,jb)
-          avi%cell_center_lat(jcs:jce) =  patch%cells%center(jcs:jce,jb)%lat
+          avi%cell_center_lat(jcs:jce) =  prm_field(jg)%clat(jcs:jce,jb)
           CALL lcariolle_init_o3(                                              &
            & jcs,                   jce,                nproma,                &
            & nlev,                  time_interpolation, lcariolle_lat_intp_li, &

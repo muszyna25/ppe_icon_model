@@ -203,7 +203,7 @@ CONTAINS
     ELSE ! NECESSARY COMPUTATIONS IF MASSFLUX IS BY-PASSED
 
       ictop(:)   = nlev-1
-      itype(:)   = 0
+      field% rtype(:,jb) = 0.0_wp
 
     ENDIF !lconv
 

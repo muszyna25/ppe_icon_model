@@ -81,18 +81,18 @@ CONTAINS
 
       IF (ltimer) call timer_stop(timer_gw_hines)
       
-    ELSE ! NECESSARY COMPUTATIONS IF GW_HINES IS BY-PASSED
-      ! this should not be necessary
-!$OMP PARALLEL DO PRIVATE(jcs,jce)
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-        ! this should not be necessary, if are initialize to zero
-        tend%   ta_gwh(jcs:jce,:,jb) = 0._wp
-        tend%   ua_gwh(jcs:jce,:,jb) = 0._wp
-        tend%   va_gwh(jcs:jce,:,jb) = 0._wp
-      ENDDO
-!$OMP END PARALLEL DO 
-
+!     ELSE ! NECESSARY COMPUTATIONS IF GW_HINES IS BY-PASSED
+!       ! this should not be necessary
+! !$OMP PARALLEL DO PRIVATE(jcs,jce)
+!       DO jb = i_startblk,i_endblk
+!         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+!         ! this should not be necessary, if are initialize to zero
+!         tend%   ta_gwh(jcs:jce,:,jb) = 0._wp
+!         tend%   ua_gwh(jcs:jce,:,jb) = 0._wp
+!         tend%   va_gwh(jcs:jce,:,jb) = 0._wp
+!       ENDDO
+! !$OMP END PARALLEL DO 
+! 
     END IF !lgw_hines
  
    ! 6.2   CALL SUBROUTINE SSODRAG
@@ -110,17 +110,17 @@ CONTAINS
 
       IF (ltimer) call timer_stop(timer_ssodrag)
 
-    ELSE ! NECESSARY COMPUTATIONS IF SSODRAG IS BY-PASSED
-
-      ! not necessary, if initialized with zeroes
-!$OMP PARALLEL DO PRIVATE(jcs,jce)
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-        tend%   ta_sso(jcs:jce,:,jb) = 0._wp
-        tend%   ua_sso(jcs:jce,:,jb) = 0._wp
-        tend%   va_sso(jcs:jce,:,jb) = 0._wp
-      ENDDO
-!$OMP END PARALLEL DO 
+!     ELSE ! NECESSARY COMPUTATIONS IF SSODRAG IS BY-PASSED
+! 
+!       ! not necessary, if initialized with zeroes
+! !$OMP PARALLEL DO PRIVATE(jcs,jce)
+!       DO jb = i_startblk,i_endblk
+!         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+!         tend%   ta_sso(jcs:jce,:,jb) = 0._wp
+!         tend%   ua_sso(jcs:jce,:,jb) = 0._wp
+!         tend%   va_sso(jcs:jce,:,jb) = 0._wp
+!       ENDDO
+! !$OMP END PARALLEL DO 
 
     END IF ! SSODRAG
 
@@ -210,37 +210,37 @@ CONTAINS
     ! number of cells/columns from index jcs to jce
     nc = jce-jcs+1
 
-       CALL ssodrag( nc                                        ,& ! in,  number of cells/columns in loop (jce-jcs+1)
-                     nbdim                                     ,& ! in,  dimension of block of cells/columns
-                     nlev                                      ,& ! in,  number of levels
-                     !
-                     pdtime                                    ,& ! in,  time step length
-                     field% coriol(:,jb)                       ,& ! in,  Coriolis parameter (1/s)
-                     field% zf  (:,:,jb)                       ,& ! in,  full level height (m)
-                     field% zh  (:,nlev+1,jb)                  ,& ! in,  surface height    (m)
-                     !
-                     field% presi_old(:,:,jb)                  ,& ! in,  p at half levels
-                     field% presm_old(:,:,jb)                  ,& ! in,  p at full levels
-                     field% mair(:,:,jb)                       ,& ! in,  air mass
-                     field%   ta(:,:,jb)                       ,& ! in,  T
-                     field%   ua(:,:,jb)                       ,& ! in,  u
-                     field%   va(:,:,jb)                       ,& ! in,  v
-                     !
-                     field% oromea(:,jb)                       ,& ! in,  Mean Orography (m)
-                     field% orostd(:,jb)                       ,& ! in,  SSO standard deviation (m)
-                     field% orosig(:,jb)                       ,& ! in,  SSO slope
-                     field% orogam(:,jb)                       ,& ! in,  SSO Anisotropy
-                     field% orothe(:,jb)                       ,& ! in,  SSO Angle
-                     field% oropic(:,jb)                       ,& ! in,  SSO Peaks elevation (m)
-                     field% oroval(:,jb)                       ,& ! in,  SSO Valleys elevation (m)
-                     !
-                     field% u_stress_sso(:,jb)                 ,& ! out, u-gravity wave stress
-                     field% v_stress_sso(:,jb)                 ,& ! out, v-gravity wave stress
-                     field% dissipation_sso(:,jb)              ,& ! out, dissipation by gravity wave drag
-                     !
-                     zdis_sso(:,:)                             ,& ! out, energy dissipation rate
-                     tend%   ua_sso(:,:,jb)                    ,& ! out, tendency of zonal wind
-                     tend%   va_sso(:,:,jb)                     ) ! out, tendency of meridional wind
+    CALL ssodrag( nc                                        ,& ! in,  number of cells/columns in loop (jce-jcs+1)
+                  nbdim                                     ,& ! in,  dimension of block of cells/columns
+                  nlev                                      ,& ! in,  number of levels
+                  !
+                  pdtime                                    ,& ! in,  time step length
+                  field% coriol(:,jb)                       ,& ! in,  Coriolis parameter (1/s)
+                  field% zf  (:,:,jb)                       ,& ! in,  full level height (m)
+                  field% zh  (:,nlev+1,jb)                  ,& ! in,  surface height    (m)
+                  !
+                  field% presi_old(:,:,jb)                  ,& ! in,  p at half levels
+                  field% presm_old(:,:,jb)                  ,& ! in,  p at full levels
+                  field% mair(:,:,jb)                       ,& ! in,  air mass
+                  field%   ta(:,:,jb)                       ,& ! in,  T
+                  field%   ua(:,:,jb)                       ,& ! in,  u
+                  field%   va(:,:,jb)                       ,& ! in,  v
+                  !
+                  field% oromea(:,jb)                       ,& ! in,  Mean Orography (m)
+                  field% orostd(:,jb)                       ,& ! in,  SSO standard deviation (m)
+                  field% orosig(:,jb)                       ,& ! in,  SSO slope
+                  field% orogam(:,jb)                       ,& ! in,  SSO Anisotropy
+                  field% orothe(:,jb)                       ,& ! in,  SSO Angle
+                  field% oropic(:,jb)                       ,& ! in,  SSO Peaks elevation (m)
+                  field% oroval(:,jb)                       ,& ! in,  SSO Valleys elevation (m)
+                  !
+                  field% u_stress_sso(:,jb)                 ,& ! out, u-gravity wave stress
+                  field% v_stress_sso(:,jb)                 ,& ! out, v-gravity wave stress
+                  field% dissipation_sso(:,jb)              ,& ! out, dissipation by gravity wave drag
+                  !
+                  zdis_sso(:,:)                             ,& ! out, energy dissipation rate
+                  tend%   ua_sso(:,:,jb)                    ,& ! out, tendency of zonal wind
+                  tend%   va_sso(:,:,jb)                     ) ! out, tendency of meridional wind
 
 
       ! heating

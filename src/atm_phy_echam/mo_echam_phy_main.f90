@@ -93,7 +93,7 @@ CONTAINS
 
     REAL(wp) :: zconv  (nproma,nlev,patch%nblks_c)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
     REAL(wp) :: zcpair (nproma,nlev,patch%nblks_c)       !< specific heat of moist air at const. pressure [J/K/kg]
-    REAL(wp) :: zcvair (nproma,nlev)       !< specific heat of moist air at const. volume   [J/K/kg]
+    REAL(wp) :: zcvair (nproma,nlev,patch%nblks_c)       !< specific heat of moist air at const. volume   [J/K/kg]
 
     REAL(wp) :: zq_phy (nproma,nlev,patch%nblks_c)       !< heating by whole ECHAM physics    [W/m2]
     REAL(wp) :: zq_rlw (nproma,nlev,patch%nblks_c)       !< heating by long  wave radiation   [W/m2]
@@ -144,7 +144,7 @@ CONTAINS
 !$OMP PARALLEL DO PRIVATE(jcs,jce)
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-      CALL calculate_zcpair_zconv( jb,jcs,jce, nproma, field, zcpair(:,:,jb), zconv(:,:,jb))
+      CALL calculate_zcpair_zconv( jb,jcs,jce, nproma, field, zcpair(:,:,jb), zcvair(:,:,jb), zconv(:,:,jb))
     ENDDO
 !$OMP END PARALLEL DO 
 
@@ -242,10 +242,6 @@ CONTAINS
       ENDDO
 !$OMP END PARALLEL DO 
 
-    ELSE
-
-      tend%ta_rlw_impl(:,:) = 0._wp
-
     END IF
     !---------------------
 
@@ -272,7 +268,7 @@ CONTAINS
       & zcpair, zconv, zq_phy, ictop, pdtime)
     !-------------------------------------------------------------------
 
-!$OMP PARALLEL DO PRIVATE(jcs,jce, zcvair)
+!$OMP PARALLEL DO PRIVATE(jcs,jce)
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
@@ -291,10 +287,7 @@ CONTAINS
       tend%   va_phy (jcs:jce,:,jb)   = tend%   va (jcs:jce,:,jb)   - tend%   va_phy (jcs:jce,:,jb)
       tend% qtrc_phy (jcs:jce,:,jb,:) = tend% qtrc (jcs:jce,:,jb,:) - tend% qtrc_phy (jcs:jce,:,jb,:)
 
-      !
-      zcvair  (jcs:jce,:) = cvd+(cvv-cvd)*field%qtrc(jcs:jce,:,jb,iqv)
-      !
-      tend% ta_phy (jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb)*zcpair(jcs:jce,:,jb)/zcvair(jcs:jce,:)
+      tend% ta_phy (jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb)*zcpair(jcs:jce,:,jb)/zcvair(jcs:jce,:,jb)
     ENDDO
 !$OMP END PARALLEL DO 
 
@@ -427,17 +420,19 @@ CONTAINS
 
  
   !---------------------------------------------------------------------
-  SUBROUTINE calculate_zcpair_zconv( jb,jcs,jce, nbdim, field, zcpair, zconv)
+  SUBROUTINE calculate_zcpair_zconv( jb,jcs,jce, nbdim, field, zcpair, zcvair, zconv)
     INTEGER         ,INTENT(IN) :: jb             !< block index
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
     INTEGER         ,INTENT(IN) :: nbdim          !< size of this block
     TYPE(t_echam_phy_field),   POINTER :: field    ! in
     REAL(wp)         ,INTENT(INOUT) :: zcpair  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
-    REAL(wp)         ,INTENT(INOUT) :: zconv  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
+    REAL(wp)         ,INTENT(INOUT) :: zcvair  (nbdim,nlev)     
+    REAL(wp)         ,INTENT(INOUT) :: zconv   (nbdim,nlev)      
 
     INTEGER  :: jc, jk
 
     zcpair(:,:) = 0.0_wp
+    zcvair(:,:) = 0.0_wp
     zconv(:,:) = 0.0_wp
 
     DO jk = 1,nlev
@@ -446,6 +441,7 @@ CONTAINS
         ! 3.2b Specific heat of moist air
         !
         zcpair  (jc,jk) = cpd+(cpv-cpd)*field%qtrc(jc,jk,jb,iqv)
+        zcvair  (jc,jk) = cvd+(cvv-cvd)*field%qtrc(jc,jk,jb,iqv)
         !
         zconv   (jc,jk) = 1._wp/(field%mair(jc,jk,jb)*zcpair(jc,jk))
      END DO

@@ -104,22 +104,22 @@ CONTAINS
       ENDDO
 !$OMP END PARALLEL DO 
 
-    ELSE
-
-!$OMP PARALLEL DO PRIVATE(jcs,jce)
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-        field% evap(jcs:jce,jb)= 0._wp
-
-        tend%   ua_vdf(jcs:jce,:,jb)      = 0._wp
-        tend%   va_vdf(jcs:jce,:,jb)      = 0._wp
-        tend%   ta_vdf(jcs:jce,:,jb)      = 0._wp
-        tend% qtrc_vdf(jcs:jce,:,jb,iqv)  = 0._wp
-        tend% qtrc_vdf(jcs:jce,:,jb,iqc)  = 0._wp
-        tend% qtrc_vdf(jcs:jce,:,jb,iqi)  = 0._wp
-        tend% qtrc_vdf(jcs:jce,:,jb,iqt:) = 0._wp
-      ENDDO
-!$OMP END PARALLEL DO 
+!     ELSE
+! 
+! !$OMP PARALLEL DO PRIVATE(jcs,jce)
+!       DO jb = i_startblk,i_endblk
+!         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+!         field% evap(jcs:jce,jb)= 0._wp
+! 
+!         tend%   ua_vdf(jcs:jce,:,jb)      = 0._wp
+!         tend%   va_vdf(jcs:jce,:,jb)      = 0._wp
+!         tend%   ta_vdf(jcs:jce,:,jb)      = 0._wp
+!         tend% qtrc_vdf(jcs:jce,:,jb,iqv)  = 0._wp
+!         tend% qtrc_vdf(jcs:jce,:,jb,iqc)  = 0._wp
+!         tend% qtrc_vdf(jcs:jce,:,jb,iqi)  = 0._wp
+!         tend% qtrc_vdf(jcs:jce,:,jb,iqt:) = 0._wp
+!       ENDDO
+! !$OMP END PARALLEL DO 
 
     ENDIF !lvdiff
 

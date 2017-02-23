@@ -119,6 +119,7 @@ CONTAINS
     IF(phy_config%lcond) THEN
 
       !IF (lcotra) CALL get_col_pol( tend%ta(:,:,jb),tend%qtrc(:,:,jb,iqv),jb )
+      itype(:) = NINT(field%rtype(:,jb))
 
       CALL cloud(jce, nbdim, jks, nlev,        &! in
         &        pdtime,                       &! in
