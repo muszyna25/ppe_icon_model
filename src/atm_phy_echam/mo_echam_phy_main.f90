@@ -437,6 +437,9 @@ CONTAINS
 
     INTEGER  :: jc, jk
 
+    zcpair(:,:) = 0.0_wp
+    zconv(:,:) = 0.0_wp
+
     DO jk = 1,nlev
       DO jc = jcs,jce
         !
