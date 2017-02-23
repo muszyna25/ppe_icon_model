@@ -273,7 +273,7 @@ case "$ac_sitename" in
                     cray_gpu)
                         config_target=daint_gpu
                         load_modules = PrgEnv-cray cray-netcdf cray-mpich craype-accel-nvidia60
-        		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=intolerant -hfp0 -hadd_paren -hacc_model=deep_copy -O1,cache0 -r am -Ktrap=divz,ovf,inv
+        		FFLAGS      = -D__LOOP_EXCHANGE -Df2cFortran -e Z -em -hflex_mp=intolerant -hfp0 -hadd_paren -hacc_model=deep_copy -O1,cache0 -r am -Ktrap=divz,ovf,inv
                         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}" -DUSE_XML2
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -L/apps/daint/UES/jenkins/sandbox/easybuild/software/libxml2/2.9.3-CrayGNU-2016.03/lib -lxml2

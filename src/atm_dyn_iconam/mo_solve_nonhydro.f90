@@ -90,7 +90,7 @@ MODULE mo_solve_nonhydro
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.    ! Only .TRUE. during unit testing
+  LOGICAL, PARAMETER ::  acc_validate = .TRUE.    ! Only .TRUE. during unit testing
 #endif
 
   CONTAINS
