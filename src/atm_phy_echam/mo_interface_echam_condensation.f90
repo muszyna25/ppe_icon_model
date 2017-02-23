@@ -48,13 +48,14 @@ CONTAINS
 
   !----------------------------------------------------------------
   SUBROUTINE interface_echam_condensation(patch, rl_start, rl_end, start_level, field, tend, &
-    & zcpair, zq_phy, ictop, in_pdtime)
+    & zcpair, zconv, zq_phy, ictop, in_pdtime)
     TYPE(t_patch)   ,INTENT(in), TARGET :: patch           !< grid/patch info
     INTEGER         ,INTENT(IN)  :: rl_start, rl_end
     INTEGER         ,INTENT(IN)  :: start_level            !< start vertical level
     TYPE(t_echam_phy_field),   POINTER :: field    
     TYPE(t_echam_phy_tend) ,   POINTER :: tend
     REAL(wp) :: zcpair (:,:,:)       !< specific heat of moist air at const. pressure [J/K/kg]
+    REAL(wp) :: zconv  (:,:,:)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
     REAL(wp) :: zq_phy (:,:,:)       !< heating by whole ECHAM physics    [W/m2]
     INTEGER  :: ictop (:,:)             !< from massflux
     REAL(wp)        ,INTENT(IN)  :: in_pdtime         !< time step
@@ -83,7 +84,7 @@ CONTAINS
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
-      CALL echam_cumulus_condensation(jb,jcs,jce, nproma, field, tend, zcpair(:,:,jb), zq_phy(:,:,jb), ictop(:,jb))
+      CALL echam_cumulus_condensation(jb,jcs,jce, nproma, field, tend, zcpair(:,:,jb), zconv(:,:,jb), zq_phy(:,:,jb), ictop(:,jb))
 
     ENDDO
 !$OMP END PARALLEL DO 
@@ -94,13 +95,14 @@ CONTAINS
   !-------------------------------------------------------------------
 
   !---------------------------------------------------------------------
-  SUBROUTINE echam_cumulus_condensation(jb,jcs,jce, nbdim, field, tend, zcpair, zq_phy, ictop)
+  SUBROUTINE echam_cumulus_condensation(jb,jcs,jce, nbdim, field, tend, zcpair, zconv, zq_phy, ictop)
     INTEGER         ,INTENT(IN) :: jb             !< block index
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
     INTEGER         ,INTENT(IN) :: nbdim          !< size of this block 
     TYPE(t_echam_phy_field),   POINTER :: field
     TYPE(t_echam_phy_tend) ,   POINTER :: tend
     REAL(wp)        ,INTENT(IN) :: zcpair  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
+    REAL(wp) :: zconv  (nbdim,nlev)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
     REAL(wp) :: zq_phy (nbdim,nlev)       !< heating by whole ECHAM physics    [W/m2]
     INTEGER  :: ictop (nbdim)             !< from massflux
 

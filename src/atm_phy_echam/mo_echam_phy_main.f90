@@ -30,14 +30,15 @@
 MODULE mo_echam_phy_main
 
   USE mo_kind,                ONLY: wp
-  USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv
+  USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv, Tf, tmelt
   USE mo_impl_constants      ,ONLY: inh_atmosphere
   USE mo_run_config,          ONLY: ntracer, nlev, nlevp1,    &
     &                               iqv, iqi, iqt
-  USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
+  USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_echam_cloud_config,  ONLY: echam_cloud_config
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
-    &                               t_echam_phy_tend,  prm_tend
+    &                               t_echam_phy_tend,  prm_tend,      &
+    &                               cdimissval
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,                &
     &                               timer_cover
   USE mtime,                  ONLY: datetime
@@ -65,8 +66,6 @@ MODULE mo_echam_phy_main
   !    these can be shared through physcics parameters
   INTEGER  :: ntrac !< # of tracers excluding water vapour and hydrometeors
                       !< (handled by sub-models, e.g., chemical species)
-  REAL(wp) :: zcd                       !< specific heat of dry air          [J/K/kg]
-  REAL(wp) :: zcv                       !< specific heat of water vapor      [J/K/kg]
 
   INTEGER  :: jks   !< start index for vertical loops
 
@@ -92,8 +91,6 @@ CONTAINS
     TYPE(t_echam_phy_field),   POINTER :: field
     TYPE(t_echam_phy_tend) ,   POINTER :: tend
 
-    REAL(wp) :: zfrc (nproma,nsfc_type,patch%nblks_c)    !< zfrl, zfrw, zfrc combined
-
     REAL(wp) :: zconv  (nproma,nlev,patch%nblks_c)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
     REAL(wp) :: zcpair (nproma,nlev,patch%nblks_c)       !< specific heat of moist air at const. pressure [J/K/kg]
     REAL(wp) :: zcvair (nproma,nlev)       !< specific heat of moist air at const. volume   [J/K/kg]
@@ -102,7 +99,7 @@ CONTAINS
     REAL(wp) :: zq_rlw (nproma,nlev,patch%nblks_c)       !< heating by long  wave radiation   [W/m2]
     REAL(wp) :: zq_rlw_impl (nproma)       !< additional heating by LW rad. due to impl. coupling in surface energy balance [W/m2]
 
-    INTEGER  :: ictop (nbdim,patch%nblks_c)             !< from massflux
+    INTEGER  :: ictop (nproma,patch%nblks_c)             !< from massflux
 
     INTEGER  :: jg             !< grid level/domain index
     INTEGER  :: i_nchdom
@@ -135,19 +132,32 @@ CONTAINS
     ENDDO
 !$OMP END PARALLEL DO 
 
-      zcd = cpd
-      zcv = cpv
+    ! initialize physics accumulated heating
+    zq_phy(:,:,:) = 0._wp
+
+    !------------------------------------------------------------
+    ! 3. COMPUTE SOME FIELDS NEEDED BY THE PHYSICAL ROUTINES.
+    !------------------------------------------------------------
+
+    ! 3.2b Specific heat of moist air
+    !
+!$OMP PARALLEL DO PRIVATE(jcs,jce)
+    DO jb = i_startblk,i_endblk
+      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+      CALL calculate_zcpair_zconv( jb,jcs,jce, nproma, field, zcpair(:,:,jb), zconv(:,:,jb))
+    ENDDO
+!$OMP END PARALLEL DO 
 
     !-------------------------------------------------------------------
     ! 3.13 DIAGNOSE CURRENT CLOUD COVER
     !
-    !  and land fraction zfrc used in vdiff. (combined here for convinience)
+    !  and land fraction (combined here for convenience)
     !-------------------------------------------------------------------
  
 !$OMP PARALLEL DO PRIVATE(jcs,jce)
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-      CALL landFraction_cloudCover( jb,jcs,jce, nproma, field, zfrc(:,:,jb))
+      CALL landFraction_cloudCover( jb,jcs,jce, nproma, field)
     ENDDO
 !$OMP END PARALLEL DO 
 
@@ -181,7 +191,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 4. RADIATION PARAMETERISATION
     !-------------------------------------------------------------------
-    IF (phy_config%lrad .AND. ltrig_rad) THEN
+    IF (echam_phy_config%lrad .AND. ltrig_rad) THEN
 
       ! 4.1 RADIATIVE TRANSFER
       !----------------------- 
@@ -192,16 +202,6 @@ CONTAINS
       CALL interface_echam_radiation( patch, field, this_datetime)
 
     END IF 
-
-!$OMP PARALLEL DO PRIVATE(jcs,jce)
-    DO jb = i_startblk,i_endblk
-      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-      CALL calculate_zcpair_zconv( jb,jcs,jce, nproma, field, zcpair(:,:,jb), zconv(:,:,jb))
-    ENDDO
-!$OMP END PARALLEL DO 
-
-    ! initialize physics accumulated heating
-    zq_phy(:,:,:) = 0._wp
 
     !-------------------------------------------------------------------
     ! 4.2 RADIATIVE HEATING
@@ -214,13 +214,13 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Note: In ECHAM this part is located between "CALL radiation" and
     !       "CALL radheat".
-    CALL interface_echam_vdiff_surface(patch, rl_start, rl_end, field, tend, zfrc, pdtime, zcd, zcd)
+    CALL interface_echam_vdiff_surface(patch, rl_start, rl_end, field, tend, zconv, zq_phy, pdtime)
     !-----------------------
 
 
     !-----------------------
     ! This can probably be moved to the radheating 
-    IF (phy_config%lrad) THEN
+    IF (echam_phy_config%lrad) THEN
 
 !$OMP PARALLEL DO PRIVATE(jcs,jce, zq_rlw_impl)
       DO jb = i_startblk,i_endblk
@@ -250,7 +250,7 @@ CONTAINS
     !---------------------
 
     !---------------------
-    IF (phy_config%lcariolle) THEN
+    IF (echam_phy_config%lcariolle) THEN
       CALL  interface_echam_o3_cariolle(patch, rl_start, rl_end, field, tend, this_datetime) 
     END IF
     !---------------------
@@ -263,13 +263,13 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 7. CONVECTION PARAMETERISATION
     !-------------------------------------------------------------------
-    CALL interface_echam_convection(patch, rl_start, rl_end, start_level, field, tend, &
-      & ictop, zconv, ntrac, in_pdtime)
+    CALL interface_echam_convection(patch, rl_start, rl_end, field, tend, &
+      & ictop, zconv, zq_phy, ntrac, pdtime)
     !-------------------------------------------------------------------
 
     !-------------------------------------------------------------------
-    CALL interface_echam_condensation(patch, rl_start, rl_end, start_level, field, tend, &
-      & zcpair, zq_phy, ictop, pdtime)
+    CALL interface_echam_condensation(patch, rl_start, rl_end, jks, field, tend, &
+      & zcpair, zconv, zq_phy, ictop, pdtime)
     !-------------------------------------------------------------------
 
 !$OMP PARALLEL DO PRIVATE(jcs,jce, zcvair)
@@ -305,14 +305,12 @@ CONTAINS
   !----------------------------------------------------------------
 
   !----------------------------------------------------------------
-  SUBROUTINE landFraction_cloudCover( jb,jcs,jce, nbdim, field, zfrc)
+  SUBROUTINE landFraction_cloudCover( jb,jcs,jce, nbdim, field)
 
     INTEGER         ,INTENT(IN) :: jb             !< block index
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
     INTEGER         ,INTENT(IN) :: nbdim          !< size of this block
     TYPE(t_echam_phy_field),   POINTER :: field
-
-    REAL(wp),        INTENT(inout) :: zfrc (nbdim,nsfc_type)    !< zfrl, zfrw, zfrc combined, output
 
     REAL(wp) :: zfrl (nbdim)              !< fraction of land in the grid box
     REAL(wp) :: zfrw (nbdim)              !< fraction of water (without ice) in the grid point
@@ -322,13 +320,17 @@ CONTAINS
     INTEGER  :: jc
  
  
-    ! 3.3 Weighting factors for fractional surface coverage
+     ! 3.3 Weighting factors for fractional surface coverage
     !     Accumulate ice portion for diagnostics
+
     DO jc=jcs,jce
 
-      ! fraction of land in the grid box. lsmask: land-sea mask, 1.= land
+      ! fraction of land in the grid box.
+      ! lsmask: land-sea mask, depends on input data, either:
+      ! fractional, including or excluding lakes in the land part or
+      ! non-fractional, each grid cell is either land, sea, or sea-ice.
+      ! See mo_echam_phy_init or input data set for details.
 
-      ! TBD: use fractional mask here
       zfrl(jc) = field% lsmask(jc,jb)
 
       ! fraction of sea/lake in the grid box
@@ -339,12 +341,17 @@ CONTAINS
 
       ! fraction of sea ice in the grid box
       zfri(jc) = 1._wp-zfrl(jc)-zfrw(jc)
+      ! security for ice temperature with changing ice mask
+      !
+      IF(zfri(jc) > 0._wp .AND. field%ts_tile(jc,jb,iice) == cdimissval ) THEN
+         field% ts_tile(jc,jb,iice)  = tmelt + Tf    ! = 271.35 K
+      ENDIF
     END DO
 
     ! 3.4 Merge three pieces of information into one array for vdiff
-    IF (ilnd.LE.nsfc_type) zfrc(jcs:jce,ilnd) = zfrl(jcs:jce)
-    IF (iwtr.LE.nsfc_type) zfrc(jcs:jce,iwtr) = zfrw(jcs:jce)
-    IF (iice.LE.nsfc_type) zfrc(jcs:jce,iice) = zfri(jcs:jce)
+    IF (ilnd.LE.nsfc_type) field%frac_tile(jcs:jce,jb,ilnd) = zfrl(jcs:jce)
+    IF (iwtr.LE.nsfc_type) field%frac_tile(jcs:jce,jb,iwtr) = zfrw(jcs:jce)
+    IF (iice.LE.nsfc_type) field%frac_tile(jcs:jce,jb,iice) = zfri(jcs:jce)
 
 
     !-------------------------------------------------------------------
@@ -352,7 +359,7 @@ CONTAINS
     !-------------------------------------------------------------------
 
     itype(jcs:jce) = NINT(field%rtype(jcs:jce,jb))
-    IF (phy_config%lcond) THEN
+    IF (echam_phy_config%lcond) THEN
       IF (ltimer) CALL timer_start(timer_cover)
 
       CALL cover( jce, nbdim, jks,          &! in
@@ -437,7 +444,7 @@ CONTAINS
         !
         zcpair  (jc,jk) = cpd+(cpv-cpd)*field%qtrc(jc,jk,jb,iqv)
         !
-        zconv   (jc,jk) = 1._wp/(field%mair(:,:,jb)*zcpair(:,:))
+        zconv   (jc,jk) = 1._wp/(field%mair(jc,jk,jb)*zcpair(jc,jk))
      END DO
     END DO
   END SUBROUTINE calculate_zcpair_zconv

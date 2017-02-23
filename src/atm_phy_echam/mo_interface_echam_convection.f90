@@ -50,21 +50,17 @@ MODULE mo_interface_echam_convection
   PRIVATE
   PUBLIC :: interface_echam_convection
 
-  INTEGER  :: jks     !< start index for vertical loops
   INTEGER  :: ntrac   !< # of tracers excluding water vapour and hydrometeors
                       !< (handled by sub-models, e.g., chemical species)
   REAL(wp) :: pdtime  !< time step
-  REAL(wp) :: zcd     !< specific heat of dry air          [J/K/kg]
-  REAL(wp) :: zcv     !< specific heat of water vapor      [J/K/kg]
 
 CONTAINS
 
   !----------------------------------------------------------------
-  SUBROUTINE interface_echam_convection(patch, rl_start, rl_end, start_level, field, tend, &
+  SUBROUTINE interface_echam_convection(patch, rl_start, rl_end, field, tend, &
     & ictop, zconv, zq_phy, ntracer_wout_vapour, in_pdtime)
     TYPE(t_patch)   ,INTENT(in), TARGET :: patch           !< grid/patch info
     INTEGER         ,INTENT(IN)  :: rl_start, rl_end
-    INTEGER         ,INTENT(IN)  :: start_level            !< start vertical level
     TYPE(t_echam_phy_field),   POINTER :: field    
     TYPE(t_echam_phy_tend) ,   POINTER :: tend
     INTEGER  :: ictop (:,:)             !< from massflux
@@ -81,7 +77,6 @@ CONTAINS
     
     
     pdtime = in_pdtime           ! the module timestep length
-    jks   = start_level          ! start level
     ntrac = ntracer_wout_vapour  !# of tracers excluding water vapour and hydrometeors
 
 !     jg         = patch%id

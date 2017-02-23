@@ -89,7 +89,7 @@ CONTAINS
       avi%tmprt                    => field%ta(:,:,jb)
       avi%vmr2molm2(jcs:jce,:)     = field%mdry(jcs:jce,:,jb) / amd * 1.e3_wp
       avi%pres                     => field%presm_old(:,:,jb)
-      avi%cell_center_lat(jcs:jce) = patch%cells%center(jcs:jce,jb)%lat
+      avi%cell_center_lat(jcs:jce) = field%clat(jcs:jce,jb)
       avi%lday(jcs:jce)            = field%cosmu0(jcs:jce,jb) > 1.e-3_wp
 
       CALL lcariolle_do3dt(                                                    &
