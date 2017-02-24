@@ -25,6 +25,7 @@ MODULE mo_interface_echam_ocean
   USE mo_kind                ,ONLY: wp
   USE mo_model_domain        ,ONLY: t_patch
   USE mo_echam_phy_memory    ,ONLY: prm_field
+  USE mo_echam_phy_config    ,ONLY: echam_phy_config
                                 
   USE mo_parallel_config     ,ONLY: nproma
   
@@ -32,15 +33,16 @@ MODULE mo_interface_echam_ocean
   USE mo_timer,               ONLY: timer_start, timer_stop,                &
        &                            timer_coupling_put, timer_coupling_get, &
        &                            timer_coupling_1stget, timer_coupling_init
-  USE mo_echam_sfc_indices   ,ONLY: iwtr, iice
+  USE mo_echam_sfc_indices   ,ONLY: iwtr, iice, ilnd, nsfc_type
 
   USE mo_sync                ,ONLY: SYNC_C, sync_patch_array
   USE mo_impl_constants      ,ONLY: MAX_CHAR_LENGTH
 
   USE mo_ext_data_state      ,ONLY: ext_data
 
-#ifndef __NO_JSBACH__
+#if !defined(__NO_JSBACH__) && !defined(__NO_JSBACH_HD__)
   USE mo_interface_hd_ocean  ,ONLY: jsb_fdef_hd_fields
+! USE mo_srf_init            ,ONLY: ocean_coast
 #endif
 
   USE mo_master_control      ,ONLY: get_my_process_name
@@ -54,7 +56,7 @@ MODULE mo_interface_echam_ocean
   
   USE mo_model_domain        ,ONLY: t_patch
 
-  USE mo_exception           ,ONLY: warning
+  USE mo_exception           ,ONLY: warning, finish
   USE mo_output_event_types  ,ONLY: t_sim_step_info
 
   USE mo_yac_finterface      ,ONLY: yac_fput, yac_fget,                          &
@@ -247,7 +249,7 @@ CONTAINS
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
-    ! center points in cells (needed e.g. for patch recovery and nearest neighbour)
+    ! center points in cells (needed e.g. for patch recovery and nearest neighbour interpolation)
     CALL yac_fdef_points (        &
       & subdomain_id,             &
       & patch_horz%n_patch_cells, &
@@ -288,19 +290,19 @@ CONTAINS
       & domain_id )
 
     !
-    ! The land-sea mask for the ocean is available in patch_3D%surface_cell_sea_land_mask(:,:)
-    !
+    ! The integer land-sea mask:
     !          -2: inner ocean
     !          -1: boundary ocean
     !           1: boundary land
     !           2: inner land
     !
-    ! The mask which is used in the ECHAM physics is prm_field(1)%lsmask(:,:).
-    ! This locial mask is set to .TRUE. for land points.
-    ! We can get access to via "USE mo_echam_phy_memory,ONLY: prm_field"
+    ! This integer mask for the atmosphere is available in ext_data(1)%atm%lsm_ctr_c(:,:).
+    ! The (fractional) mask which is used in the ECHAM physics is prm_field(1)%lsmask(:,:).
     !
-    ! Here we use a mask which is hopefully identical to the one used by the
-    ! ocean, and which works independent of the physics chosen. 
+    ! The logical mask for the coupler must be generated from the fractional mask by setting
+    !   only those gridpoints to land that have no ocean part at all (lsf<1 is ocean).
+    ! The logical mask is then set to .FALSE. for land points to exclude them from mapping by yac.
+    ! These points are not touched by yac.
     !
 
     mask_checksum = 0
@@ -312,15 +314,19 @@ CONTAINS
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
+    !
+    ! Define cell_mask_ids(1): all ocean and coastal points are valid
+    !   This is the standard for the coupling fields listed below
+    !
     IF ( mask_checksum > 0 ) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
        DO BLOCK = 1, patch_horz%nblks_c
           DO idx = 1, nproma
              IF ( ext_data(1)%atm%lsm_ctr_c(idx, BLOCK) < 0 ) THEN
-               ! Ocean point (lsm_ctr_c = -1 or -2)
+               ! Ocean point (lsm_ctr_c = -1 or -2) is valid
                ibuffer((BLOCK-1)*nproma+idx) = 0
              ELSE
-               ! Land point (lsm_ctr_c = 1 or 2)
+               ! Land point (lsm_ctr_c = 1 or 2) is undef
                ibuffer((BLOCK-1)*nproma+idx) = 1
              ENDIF
           ENDDO
@@ -362,34 +368,46 @@ CONTAINS
         & field_id(idx) )
     ENDDO
 
-#ifndef __NO_JSBACH__
+#if !defined(__NO_JSBACH__) && !defined(__NO_JSBACH_HD__)
+    !
+    ! Define cell_mask_ids(2) for runoff:
+    !   Ocean coastal points with respect to HDmodel mask only are valid.
+    !   The integer mask for the HDmodel is ext_data(1)%atm%lsm_hd_c(:,:).
+    !   Caution: jg=1 is only valid for coupling to ocean
+    !
     IF ( mask_checksum > 0 ) THEN
+
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
-       DO BLOCK = 1, patch_horz%nblks_c
+        DO BLOCK = 1, patch_horz%nblks_c
           DO idx = 1, nproma
-             IF ( ext_data(1)%atm%lsm_ctr_c(idx, BLOCK) == -1 ) THEN
-                ! Ocean point at coast
+             IF ( ext_data(1)%atm%lsm_hd_c(idx, BLOCK) == -1 ) THEN
+!            write(0,'(a,3i10)') 'BLOCK,IDX,SLM:', block,idx,ocean_coast(idx,block)
+!            ibuffer((BLOCK-1)*nproma+idx) = ocean_coast(idx,BLOCK)
+!            IF ( prm_field(1)%hdmask(idx, BLOCK) < -0.9_wp .AND. &
+!              &  prm_field(1)%hdmask(idx, BLOCK) > -1.1_wp) THEN
+                ! Ocean point at coast is valid
                 ibuffer((BLOCK-1)*nproma+idx) = 0
              ELSE
-                ! Land point or ocean point without coast
+                ! Land point or ocean point without coast is undef
                 ibuffer((BLOCK-1)*nproma+idx) = 1
              ENDIF
           ENDDO
-       ENDDO
+        ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
-       CALL yac_fdef_mask (           &
-         & patch_horz%n_patch_cells,  &
-         & ibuffer,                   &
-         & cell_point_ids(1),         &
-         & cell_mask_ids(2) )
+        CALL yac_fdef_mask (           &
+          & patch_horz%n_patch_cells,  &
+          & ibuffer,                   &
+          & cell_point_ids(1),         &
+          & cell_mask_ids(2) )
 
-    ENDIF
+      ENDIF
 
-    ! Define additional coupling field(s) for JSBACH/HD
-    !  - still uses (1) for nearest neighbor interpolation
-    !  - change to (2) for spmapping
-    CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids(1:1))
+      ! Define additional coupling field(s) for JSBACH/HD
+      ! Utilize mask field for runoff
+      !  - cell_mask_ids(2:2) is ocean coast points only for source point mapping (source_to_target_map)
+      CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids(2:2))
+
 #endif
 
     DEALLOCATE (ibuffer)
@@ -460,36 +478,37 @@ CONTAINS
 
     REAL(wp), PARAMETER   :: dummy = 0.0_wp
     REAL(wp)              :: scr(nproma,p_patch%alloc_cell_blocks)
+    REAL(wp)              :: frac_oce
 
     IF ( .NOT. is_coupled_run() ) RETURN
 
-    
     !-------------------------------------------------------------------------
     ! If running in atm-oce coupled mode, exchange information 
     !-------------------------------------------------------------------------
 
     ! Possible fields that contain information to be sent to the ocean include
     !
-    ! 1. prm_field(jg)% u_stress_tile(:,:,iwtr)  and 
-    !    prm_field(jg)% v_stress_tile(:,:,iwtr)  which are the wind stress components;
+    ! 1. prm_field(jg)% u_stress_tile(:,:,iwtr/iice)  and 
+    !    prm_field(jg)% v_stress_tile(:,:,iwtr/iice)  which are the wind stress components over water and ice respectively
     !
-    ! 2. prm_field(jg)% evap(:,:)  evaporation rate over whole grid-cell,
-    !    which is ice-covered, open ocean, no land;
+    ! 2. prm_field(jg)% evap_tile(:,:,iwtr/iice)  evaporation rate over ice-covered and open ocean, no land;
     !
     ! 3. prm_field(jg)%rsfl + prm_field(jg)%rsfc + prm_field(jg)%ssfl + prm_field(jg)%ssfc
     !    which gives the precipitation rate;
     !
-    ! 4. prm_field(jg)% temp(:,nlev,:)  temperature at the lowest model level, or
-    !    prm_field(jg)% temp_2m(:,:)    2-m temperature, not available yet, or
+    ! 4. prm_field(jg)% ta(:,nlev,:)  temperature at the lowest model level, or
+    !    prm_field(jg)% tas(:,:)      2-m temperature, not available yet, or
     !    prm_field(jg)% shflx_tile(:,:,iwtr) sensible heat flux
+    !    ... tbc
     !
     ! 5  prm_field(jg)% lhflx_tile(:,:,iwtr) latent heat flux
     ! 6. shortwave radiation flux at the surface
     !
     ! Possible fields to receive from the ocean include
     !
-    ! 1. prm_field(jg)% tsfc_tile(:,:,iwtr)   SST
+    ! 1. prm_field(jg)% ts_tile(:,:,iwtr)   SST
     ! 2. prm_field(jg)% ocu(:,:) and ocv(:,:) ocean surface current
+    ! 3. ... tbc
     ! 
 
     nbr_hor_cells = p_patch%n_patch_cells
@@ -568,6 +587,7 @@ CONTAINS
       ENDDO
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
+
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
@@ -584,25 +604,65 @@ CONTAINS
     !   field_id(3) represents "surface_fresh_water_flux" bundle - liquid rain, snowfall, evaporation
     !
     !   Note: the evap_tile should be properly updated and added;
-    !         as long as the tiles are not passed correctly, the evaporation over the
-    !         whole grid-cell is passed to the ocean
+    !         as long as evaporation over sea-ice is not used in ocean thermodynamics, the evaporation over the
+    !         whole ocean part of grid-cell is passed to the ocean
+    !         for pre04 a preliminary solution for evaporation in ocean model is to exclude the land fraction
+    !         evap.oce = (evap.wtr*frac.wtr + evap.ice*frac.ice)/(1-frac.lnd)
     !
     buffer(:,:) = 0.0_wp  ! temporarily
+
+    ! Aquaplanet coupling: surface types ocean and ice only
+    IF (nsfc_type == 2) THEN
+
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
-    DO i_blk = 1, p_patch%nblks_c
-      nn = (i_blk-1)*nproma
-      IF (i_blk /= p_patch%nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = p_patch%npromz_c
-      END IF
-      DO n = 1, nlen
-        buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk) ! total rain
-        buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk) ! total snow
-        buffer(nn+n,3) = prm_field(jg)%evap(n,i_blk)                               ! total evaporation
+      DO i_blk = 1, p_patch%nblks_c
+        nn = (i_blk-1)*nproma
+        IF (i_blk /= p_patch%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = p_patch%npromz_c
+        END IF
+        DO n = 1, nlen
+     
+          ! total rates of rain and snow over whole cell
+          buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk)
+          buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk)
+     
+          ! evaporation over ice-free and ice-covered water fraction - of whole ocean part
+          frac_oce = prm_field(jg)%frac_tile(n,i_blk,iwtr) + prm_field(jg)%frac_tile(n,i_blk,iice) ! 1.0?
+          buffer(nn+n,3) = prm_field(jg)%evap_tile(n,i_blk,iwtr)*prm_field(jg)%frac_tile(n,i_blk,iwtr) + &
+            &              prm_field(jg)%evap_tile(n,i_blk,iice)*prm_field(jg)%frac_tile(n,i_blk,iice)
+        ENDDO
       ENDDO
-    ENDDO
 !ICON_OMP_END_PARALLEL_DO
+
+    ! Full coupling including jsbach: surface types ocean, ice, land
+    ELSE IF (nsfc_type == 3) THEN
+
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
+      DO i_blk = 1, p_patch%nblks_c
+        nn = (i_blk-1)*nproma
+        IF (i_blk /= p_patch%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = p_patch%npromz_c
+        END IF
+        DO n = 1, nlen
+    
+          ! total rates of rain and snow over whole cell
+          buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk)
+          buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk)
+    
+          ! evaporation over ice-free and ice-covered water fraction, of whole ocean part, without land part
+          frac_oce=1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)
+          buffer(nn+n,3) = (prm_field(jg)%evap_tile(n,i_blk,iwtr)*prm_field(jg)%frac_tile(n,i_blk,iwtr) + &
+            &               prm_field(jg)%evap_tile(n,i_blk,iice)*prm_field(jg)%frac_tile(n,i_blk,iice))/frac_oce
+        ENDDO
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
+    ELSE
+      CALL finish('interface_echam_ocean: coupling only for nsfc_type equals 2 or 3. Check your code/configuration!')
+    ENDIF  !  nsfc_type
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
@@ -694,8 +754,6 @@ CONTAINS
         nlen = p_patch%npromz_c
       END IF
       DO n = 1, nlen
-        ! as far as no 10m wind speed is available, the lowest level (nlev) wind field is used for wind speed;
-        !buffer(nn+n,1) = SQRT(prm_field(jg)%u(n,nlev,i_blk)**2+prm_field(jg)%v(n,nlev,i_blk)**2)
         ! as far as no tiles (pre04) are correctly implemented, use the grid-point mean of 10m wind for coupling
         buffer(nn+n,1) = prm_field(jg)%sfcWind(n,i_blk)
       ENDDO
@@ -733,7 +791,10 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_1stget)
 
-    buffer(:,:) = 0.0_wp
+    !buffer(:,:) = 0.0_wp
+    ! buffer for tsfc in Kelvin
+    buffer(:,:) = 199.99_wp
+
     CALL yac_fget ( field_id(6), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
     if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
@@ -752,15 +813,15 @@ CONTAINS
         END IF
         DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
-            prm_field(jg)%tsfc_tile(n,i_blk,iwtr) = dummy
+            prm_field(jg)%ts_tile(n,i_blk,iwtr) = dummy
           ELSE
-            prm_field(jg)%tsfc_tile(n,i_blk,iwtr) = buffer(nn+n,1)
+            prm_field(jg)%ts_tile(n,i_blk,iwtr) = buffer(nn+n,1)
           ENDIF
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
       !
-      CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%tsfc_tile(:,:,iwtr))
+      CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ts_tile(:,:,iwtr))
     END IF
     !
     ! ------------------------------
@@ -933,13 +994,23 @@ CONTAINS
     CALL dbg_print('EchOce: sfcWind     ',prm_field(jg)%sfcWind,str_module,3,in_subset=p_patch%cells%owned)
 
     ! SST, sea ice, ocean velocity received
-    scr(:,:) = prm_field(jg)%tsfc_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: tsfc_til.wtr',scr                  ,str_module,2,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%ts_tile(:,:,iwtr)
+    CALL dbg_print('EchOce: ts_tile.iwtr',scr                  ,str_module,2,in_subset=p_patch%cells%owned)
     CALL dbg_print('EchOce: siced       ',prm_field(jg)%siced  ,str_module,3,in_subset=p_patch%cells%owned)
     CALL dbg_print('EchOce: seaice      ',prm_field(jg)%seaice ,str_module,4,in_subset=p_patch%cells%owned)
     scr(:,:) = prm_field(jg)%ocu(:,:)
     CALL dbg_print('EchOce: ocu         ',prm_field(jg)%ocu    ,str_module,4,in_subset=p_patch%cells%owned)
     CALL dbg_print('EchOce: ocv         ',prm_field(jg)%ocv    ,str_module,4,in_subset=p_patch%cells%owned)
+
+    ! Fraction of tiles:
+    scr(:,:) = prm_field(jg)%frac_tile(:,:,iwtr)
+    CALL dbg_print('EchOce: frac_tile.wtr',scr,str_module,2,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%frac_tile(:,:,iice)
+    CALL dbg_print('EchOce: frac_tile.ice',scr,str_module,3,in_subset=p_patch%cells%owned)
+    if (nsfc_type == 3) THEN
+      scr(:,:) = prm_field(jg)%frac_tile(:,:,ilnd)
+      CALL dbg_print('EchOce: frac_tile.lnd',scr,str_module,4,in_subset=p_patch%cells%owned)
+    ENDIF
 
     !---------------------------------------------------------------------
 

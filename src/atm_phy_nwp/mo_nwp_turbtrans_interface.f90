@@ -119,7 +119,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   ! SQRT(2*TKE)
   REAL(wp) :: tvs_t(nproma,3,1,ntiles_total+ntiles_water)
 
-  REAL(wp) :: fr_land_t(nproma),depth_lk_t(nproma),h_ice_t(nproma),area_frac,z0_mod
+  REAL(wp) :: fr_land_t(nproma),depth_lk_t(nproma),h_ice_t(nproma),area_frac,z0_mod,fact_z0rough
 
   ! Local fields needed to reorder turbtran input/output fields for tile approach
 
@@ -170,6 +170,9 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
      CALL get_turbdiff_param(jg)
   ENDIF
+
+  ! Scaling factor for SSO contribution to roughness length ("Erdmann Heise formula")
+  fact_z0rough = 1.e-5_wp*ATAN(phy_params(jg)%mean_charlen/2250._wp)
 
 
 !$OMP PARALLEL
@@ -226,7 +229,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
          ENDDO
         END IF
       ENDIF
-    ELSE IF (atm_phy_nwp_config(jg)%itype_z0 == 2) THEN
+    ELSE IF (atm_phy_nwp_config(jg)%itype_z0 >= 2) THEN
       ! specify land-cover-related roughness length over land points
       ! NOTE:  open water, lake and sea-ice points are set in turbtran
       DO jt = 1, ntiles_total
@@ -251,6 +254,13 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           prm_diag%gz0_t(jc,jb,jt) = grav *( (1._wp-lnd_diag%snowfrac_t(jc,jb,jt)**2)*z0_mod + &
             lnd_diag%snowfrac_t(jc,jb,jt)**2*ext_data%atm%z0_lcc_min(lc_class) )
         ENDDO
+        IF (atm_phy_nwp_config(jg)%itype_z0 == 3) THEN ! Add SSO contribution to tile-specific roughness length
+          DO ic = 1, ext_data%atm%gp_count_t(jb,jt)
+            jc = ext_data%atm%idx_lst_t(ic,jb,jt)
+            prm_diag%gz0_t(jc,jb,jt) = prm_diag%gz0_t(jc,jb,jt) + grav * &
+              MIN(fact_z0rough*ext_data%atm%sso_stdh_raw(jc,jb)**2,7.5_wp)
+          ENDDO
+        ENDIF
       ENDDO
       IF (ntiles_total == 1) THEN
 !CDIR NODEP,VOVERTAKE,VOB
@@ -608,7 +618,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           &                                       p_diag%u      (jc,nlev,jb), &
           &                                       p_diag%v      (jc,nlev,jb), &
           &                                       p_diag%u(jc,jk_gust(jc),jb),&
-          &                                       p_diag%v(jc,jk_gust(jc),jb))
+          &                                       p_diag%v(jc,jk_gust(jc),jb),&
+          &                                  p_metrics%mask_mtnpoints_g(jc,jb))
       ENDDO
 
       ! transform updated turbulent velocity scale back to TKE
@@ -672,7 +683,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       DO jc = i_startidx, i_endidx
         prm_diag%dyn_gust(jc,jb) = nwp_dyn_gust(prm_diag%u_10m(jc,jb), prm_diag%v_10m(jc,jb), &
           &  prm_diag%tcm(jc,jb), p_diag%u(jc,nlev,jb), p_diag%v(jc,nlev,jb),                 &
-          &  p_diag%u(jc,jk_gust(jc),jb), p_diag%v(jc,jk_gust(jc),jb) )
+          &  p_diag%u(jc,jk_gust(jc),jb), p_diag%v(jc,jk_gust(jc),jb),p_metrics%mask_mtnpoints_g(jc,jb) )
       ENDDO
 
       prm_diag%tmax_2m(i_startidx:i_endidx,jb) = MAX(prm_diag%t_2m(i_startidx:i_endidx,jb), &

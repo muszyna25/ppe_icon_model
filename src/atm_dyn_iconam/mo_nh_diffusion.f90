@@ -48,8 +48,8 @@ MODULE mo_nh_diffusion
   USE mo_gridref_config,      ONLY: denom_diffu_v
   USE mo_parallel_config,     ONLY: p_test_run, itype_comm
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
-                                    sync_patch_array_mult
-  USE mo_physical_constants,  ONLY: cvd_o_rd, grav
+                                    sync_patch_array_mult, sync_patch_array_mult_mp
+  USE mo_physical_constants,  ONLY: cvd_o_rd, rd, grav
   USE mo_timer,               ONLY: timer_nh_hdiffusion, timer_start, timer_stop
   USE mo_vertical_grid,       ONLY: nrdmax
 #ifdef _OPENACC
@@ -111,16 +111,16 @@ MODULE mo_nh_diffusion
     REAL(wp):: fac_bdydiff_v
 
     ! For Smagorinsky diffusion - vp means variable precision depending on the __MIXED_PRECISION cpp flag
-    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: kh_smag_e
+    REAL(vp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: kh_smag_e
     REAL(vp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: kh_smag_ec
-    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: u_vert
-    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: v_vert
+    REAL(vp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: u_vert
+    REAL(vp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: v_vert
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: u_cell
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: v_cell
-    REAL(wp), DIMENSION(nproma,p_patch%nlev) :: kh_c, div, vn_vert1, vn_vert2, vn_vert3, vn_vert4, &
+    REAL(vp), DIMENSION(nproma,p_patch%nlev) :: kh_c, div, vn_vert1, vn_vert2, vn_vert3, vn_vert4, &
                                                 dvt_norm, dvt_tang, vn_cell1, vn_cell2
-    REAL(wp) :: smag_offset, nabv_tang, nabv_norm, rd_o_cvd, nudgezone_diff, bdy_diff
-    REAL(wp), DIMENSION(p_patch%nlev) :: smag_limit, diff_multfac_smag, enh_smag_fac
+    REAL(vp) :: smag_offset, nabv_tang, nabv_norm, rd_o_cvd, nudgezone_diff, bdy_diff, enh_diffu
+    REAL(vp), DIMENSION(p_patch%nlev) :: smag_limit, diff_multfac_smag, enh_smag_fac
     INTEGER  :: nblks_zdiffu, nproma_zdiffu, npromz_zdiffu, nlen_zdiffu
 
     ! Additional variables for 3D Smagorinsky coefficient
@@ -130,7 +130,7 @@ MODULE mo_nh_diffusion
 
     ! Variables for provisional fix against runaway cooling in local topography depressions
     INTEGER  :: icount(p_patch%nblks_c), iclist(2*nproma,p_patch%nblks_c), iklist(2*nproma,p_patch%nblks_c)
-    REAL(wp) :: tdlist(2*nproma,p_patch%nblks_c), tdiff, trefdiff, enh_diffu, thresh_tdiff, z_theta, fac2d
+    REAL(wp) :: tdlist(2*nproma,p_patch%nblks_c), tdiff, trefdiff, thresh_tdiff, z_theta, fac2d
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: icidx, icblk, ieidx, ieblk, ividx, ivblk, &
                                            iecidx, iecblk
@@ -258,24 +258,24 @@ MODULE mo_nh_diffusion
         ! linear increase starting at 25 km, reaching a value of 0.1 at 75 km
         enh_smag_fac(jk) = MIN(0.1_wp,MAX(0._wp,(0.5_wp*(vct_a(jk1)+vct_a(jk1+1))-25000._wp)/500000._wp))
         ! ... combined with quadratic increase starting at 50 km, reaching a value of 1 at 90 km
-        enh_smag_fac(jk) = MIN(1._wp,MAX(enh_smag_fac(jk),                                       &
+        enh_smag_fac(jk) = MIN(1._wp,MAX(REAL(enh_smag_fac(jk),wp),                              &
                            MAX(0._wp,(0.5_wp*(vct_a(jk1)+vct_a(jk1+1))-50000._wp)/40000._wp)**2) )
       ENDDO
 
       ! Smagorinsky coefficient is also enhanced in the six model levels beneath a vertical nest interface
       IF ((lvert_nest) .AND. (p_patch%nshift > 0)) THEN
-        enh_smag_fac(1) = MAX(0.333_wp, enh_smag_fac(1))
-        enh_smag_fac(2) = MAX(0.25_wp, enh_smag_fac(2))
-        enh_smag_fac(3) = MAX(0.20_wp, enh_smag_fac(3))
-        enh_smag_fac(4) = MAX(0.16_wp, enh_smag_fac(4))
-        enh_smag_fac(5) = MAX(0.12_wp, enh_smag_fac(5))
-        enh_smag_fac(6) = MAX(0.08_wp, enh_smag_fac(6))
+        enh_smag_fac(1) = MAX(0.333_vp, enh_smag_fac(1))
+        enh_smag_fac(2) = MAX(0.25_vp, enh_smag_fac(2))
+        enh_smag_fac(3) = MAX(0.20_vp, enh_smag_fac(3))
+        enh_smag_fac(4) = MAX(0.16_vp, enh_smag_fac(4))
+        enh_smag_fac(5) = MAX(0.12_vp, enh_smag_fac(5))
+        enh_smag_fac(6) = MAX(0.08_vp, enh_smag_fac(6))
       ENDIF
 
       ! empirically determined scaling factor
-      diff_multfac_smag(:) = MAX(diffusion_config(jg)%hdiff_smag_fac,enh_smag_fac(:))*dtime
+      diff_multfac_smag(:) = MAX(diffusion_config(jg)%hdiff_smag_fac,REAL(enh_smag_fac(:),wp))*dtime
 
-      IF (lhdiff_rcf) diff_multfac_smag(:) = diff_multfac_smag(:)*REAL(ndyn_substeps,wp)
+      IF (lhdiff_rcf) diff_multfac_smag(:) = diff_multfac_smag(:)*REAL(ndyn_substeps,vp)
 
     ELSE
       ltemp_diffu = .FALSE.
@@ -323,7 +323,11 @@ MODULE mo_nh_diffusion
       rl_end   = min_rledge_int - 2
 
       IF (itype_comm == 1 .OR. itype_comm == 3) THEN
+#ifdef __MIXED_PRECISION
+        CALL sync_patch_array_mult_mp(SYNC_V,p_patch,0,2,f3din1_sp=u_vert,f3din2_sp=v_vert)
+#else
         CALL sync_patch_array_mult(SYNC_V,p_patch,2,u_vert,v_vert)
+#endif
       ENDIF
 
 #ifndef _OPENACC
@@ -423,7 +427,7 @@ MODULE mo_nh_diffusion
           DO je = i_startidx, i_endidx
             kh_smag_ec(je,jk,jb) = kh_smag_e(je,jk,jb)
             ! Subtract part of the fourth-order background diffusion coefficient
-            kh_smag_e(je,jk,jb) = MAX(0._wp,kh_smag_e(je,jk,jb) - smag_offset)
+            kh_smag_e(je,jk,jb) = MAX(0._vp,kh_smag_e(je,jk,jb) - smag_offset)
             ! Limit diffusion coefficient to the theoretical CFL stability threshold
             kh_smag_e(je,jk,jb) = MIN(kh_smag_e(je,jk,jb),smag_limit(jk))
           ENDDO
@@ -455,7 +459,11 @@ MODULE mo_nh_diffusion
       rl_end   = min_rledge_int - 2
 
       IF (itype_comm == 1 .OR. itype_comm == 3) THEN
+#ifdef __MIXED_PRECISION
+        CALL sync_patch_array_mult_mp(SYNC_V,p_patch,0,2,f3din1_sp=u_vert,f3din2_sp=v_vert)
+#else
         CALL sync_patch_array_mult(SYNC_V,p_patch,2,u_vert,v_vert)
+#endif
       ENDIF
       CALL cells2verts_scalar(p_nh_prog%w, p_patch, p_int%cells_aw_verts, z_w_v, opt_rlend=min_rlvert_int)
       CALL sync_patch_array(SYNC_V,p_patch,z_w_v)
@@ -625,7 +633,7 @@ MODULE mo_nh_diffusion
 
             kh_smag_ec(je,jk,jb) = kh_smag_e(je,jk,jb)
             ! Subtract part of the fourth-order background diffusion coefficient
-            kh_smag_e(je,jk,jb) = MAX(0._wp,kh_smag_e(je,jk,jb) - smag_offset)
+            kh_smag_e(je,jk,jb) = MAX(0._vp,kh_smag_e(je,jk,jb) - smag_offset)
             ! Limit diffusion coefficient to the theoretical CFL stability threshold
             kh_smag_e(je,jk,jb) = MIN(kh_smag_e(je,jk,jb),smag_limit(jk))
           ENDDO
@@ -759,7 +767,7 @@ MODULE mo_nh_diffusion
           DO je = i_startidx, i_endidx
             kh_smag_ec(je,jk,jb) = kh_smag_e(je,jk,jb)
             ! Subtract part of the fourth-order background diffusion coefficient
-            kh_smag_e(je,jk,jb) = MAX(0._wp,kh_smag_e(je,jk,jb) - smag_offset)
+            kh_smag_e(je,jk,jb) = MAX(0._vp,kh_smag_e(je,jk,jb) - smag_offset)
             ! Limit diffusion coefficient to the theoretical CFL stability threshold
             kh_smag_e(je,jk,jb) = MIN(kh_smag_e(je,jk,jb),smag_limit(jk))
           ENDDO
@@ -865,7 +873,11 @@ MODULE mo_nh_diffusion
       rl_end   = min_rledge_int
 
       IF (itype_comm == 1 .OR. itype_comm == 3) THEN
+#ifdef __MIXED_PRECISION
+        CALL sync_patch_array_mult_mp(SYNC_V,p_patch,0,2,f3din1_sp=u_vert,f3din2_sp=v_vert)
+#else
         CALL sync_patch_array_mult(SYNC_V,p_patch,2,u_vert,v_vert)
+#endif
       ENDIF
 
 #ifndef _OPENACC
@@ -933,10 +945,10 @@ MODULE mo_nh_diffusion
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
-              p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                    &
-                p_patch%edges%area_edge(je,jb) *                                    &
-                (MAX(nudgezone_diff*p_int%nudgecoeff_e(je,jb),kh_smag_e(je,jk,jb))* &
-                z_nabla2_e(je,jk,jb) - diff_multfac_vn(jk) * z_nabla4_e2(je,jk)   * &
+              p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                             &
+                p_patch%edges%area_edge(je,jb) *                                             &
+                (MAX(nudgezone_diff*p_int%nudgecoeff_e(je,jb),REAL(kh_smag_e(je,jk,jb),wp))* &
+                z_nabla2_e(je,jk,jb) - diff_multfac_vn(jk) * z_nabla4_e2(je,jk)   *          &
                 p_patch%edges%area_edge(je,jb))
             ENDDO
           ENDDO
@@ -1001,11 +1013,11 @@ MODULE mo_nh_diffusion
 
 !$ACC LOOP VECTOR COLLAPSE(2)
           DO jk = 1, nlev
-            DO je = i_startidx, i_endidx
 !DIR$ IVDEP
-              p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                &
-                p_patch%edges%area_edge(je,jb) * z_nabla2_e(je,jk,jb) *         &
-                MAX(nudgezone_diff*p_int%nudgecoeff_e(je,jb),kh_smag_e(je,jk,jb))
+            DO je = i_startidx, i_endidx
+              p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                         &
+                p_patch%edges%area_edge(je,jb) * z_nabla2_e(je,jk,jb) *                  &
+                MAX(nudgezone_diff*p_int%nudgecoeff_e(je,jb),REAL(kh_smag_e(je,jk,jb),wp))
             ENDDO
           ENDDO
         ENDDO
@@ -1132,6 +1144,7 @@ MODULE mo_nh_diffusion
 !$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx, i_endidx
+!DIR$ IVDEP, PREFERVECTOR
           DO jk = 1, nlev
 #else
         DO jk = 1, nlev
@@ -1338,7 +1351,7 @@ MODULE mo_nh_diffusion
           DO ic = 1, icount(jb)
             jc = iclist(ic,jb)
             jk = iklist(ic,jb)
-            enh_diffu = tdlist(ic,jb)*5.e-4_wp
+            enh_diffu = tdlist(ic,jb)*5.e-4_vp
             kh_smag_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) = MAX(enh_diffu,kh_smag_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)))
             kh_smag_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) = MAX(enh_diffu,kh_smag_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)))
             kh_smag_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)) = MAX(enh_diffu,kh_smag_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)))
@@ -1378,6 +1391,7 @@ MODULE mo_nh_diffusion
 !$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
+!DIR$ IVDEP, PREFERVECTOR
             DO jk = 1, nlev
 #else
           DO jk = 1, nlev
@@ -1425,7 +1439,7 @@ MODULE mo_nh_diffusion
 !$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
           DO je = i_startidx, i_endidx
-!DIR$ IVDEP
+!DIR$ IVDEP, PREFERVECTOR
             DO jk = 1, nlev
 #else
           DO jk = 1, nlev

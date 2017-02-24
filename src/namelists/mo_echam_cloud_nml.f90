@@ -40,7 +40,6 @@ MODULE mo_echam_cloud_nml
   REAL(wp) :: clmax
   REAL(wp) :: clmin
   REAL(wp) :: ceffmax    ! max eff.radius for ice cloud
-  LOGICAL  :: lonacc
 
   REAL(wp) :: ccsacl
   REAL(wp) :: ccracl
@@ -80,7 +79,7 @@ MODULE mo_echam_cloud_nml
   !
   NAMELIST /echam_cloud_nml/                                &
        & cthomi  , cn0s    , crhoi   , crhosno , ccsaut   , &
-       & clmax   , clmin   , ceffmax , lonacc  ,            &
+       & clmax   , clmin   , ceffmax ,                      &
        & ccsacl  , ccracl  , ccraut  , ceffmin , ccwmin   , &
        & cinv    , cauloc  , cqtmin  ,                      &
        & cn1lnd  , cn2lnd  , cn1sea  , cn2sea  ,            &
@@ -112,7 +111,6 @@ CONTAINS
     clmax   = 0.5_wp
     clmin   = 0.0_wp
     ceffmax = 150.0_wp   ! max eff.radius for ice cloud
-    lonacc  = .TRUE.
 
     ccsacl  = 0.10_wp
     ccracl  = 12.0_wp
@@ -203,7 +201,6 @@ CONTAINS
     echam_cloud_config% clmax   = clmax
     echam_cloud_config% clmin   = clmin
     echam_cloud_config% ceffmax = ceffmax
-    echam_cloud_config% lonacc  = lonacc
     !
     echam_cloud_config% ccsacl  = ccsacl
     echam_cloud_config% ccracl  = ccracl

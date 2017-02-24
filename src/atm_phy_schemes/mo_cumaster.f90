@@ -123,14 +123,12 @@ SUBROUTINE cumastrn &
  & ptent,    ptenu,    ptenv,                    &
  & ptenq,    ptenl,    pteni,    ptenr,  ptens,  &
  & ldcum,      ktype , kcbot,    kctop,          &
-!& KBOTSC,   LDSC                                &
  & LDSHCV,                                       &
  & pmfu,     pmfd,                               &
  & pmfude_rate,        pmfdde_rate,              &
  & ptu,      pqu,      plu,                      &
  & pmflxr,   pmflxs,   prain, pdtke_con,         &
- & pcape,                                        &
-!DR    & pcape ,pvddraf,                               &
+ & pcape,    pvddraf,                            &
  & ktrac, pcen, ptenc) 
 
 !
@@ -225,7 +223,7 @@ SUBROUTINE cumastrn &
 !    *PMFDDE_RATE*  DOWNDRAFT DETRAINMENT RATE                    KG/(M3*S)
 !    *PCAPE*        CONVECTVE AVAILABLE POTENTIAL ENERGY           J/KG
 !    *PWMEAN*       VERTICALLY AVERAGED UPDRAUGHT VELOCITY         M/S
-!DR    !    *pvddraf*      convective gust at surface                     M/S
+!    *pvddraf*      convective gust at surface                     M/S
 
 !     EXTERNALS.
 !     ----------
@@ -380,7 +378,7 @@ REAL(KIND=jprb)   ,INTENT(inout) :: pmfdde_rate(klon,klev)
 REAL(KIND=jprb)   ,INTENT(out)   :: pcape(klon) 
 !REAL(KIND=JPRB)   ,INTENT(OUT)   :: PWMEAN(KLON)
 
-!DR    REAL(KIND=jprb)   ,INTENT(out)   :: pvddraf(klon)
+REAL(KIND=jprb)   ,INTENT(out)   :: pvddraf(klon)
 
 !*UPG change to operations
 REAL(KIND=jprb) :: pwmean(klon)
@@ -434,9 +432,7 @@ REAL(KIND=jprb) :: zmfs(klon),  zmfuus(klon,klev), zmfdus(klon,klev) ,&
   & zmf_shal(klon)
     
 !   parameters to calculate near-surface gusts produced by convection
-REAL(KIND=jprb), PARAMETER :: conv_gust_buoy = 0.2_jprb
-REAL(KIND=jprb), PARAMETER :: conv_gust_v    = 0.0_jprb
-REAL(KIND=jprb), PARAMETER :: conv_gust_max  = 50.0_jprb ! max. speed of conv. gusts
+REAL(KIND=jprb), PARAMETER :: conv_gust_max  = 30.0_jprb ! max. speed of conv. gusts
 
 REAL(KIND=jprb) :: zhook_handle
 REAL(KIND=jprb) :: rtice2, rtmix
@@ -471,7 +467,7 @@ REAL(KIND=jprb), PARAMETER :: zcapethresh = 7000._jprb
 
 !     0.           Compute Saturation specific humidity
 !                  ------------------------------------
-!DR    pvddraf(:) = 0.0_jprb ! in case that it is not actually calculated !
+pvddraf(:) = 0.0_jprb ! in case that it is not actually calculated !
 ldcum(:)=.FALSE.
 pqsen(:,:)=pqen(:,:)
 
@@ -1446,8 +1442,6 @@ IF(lmfdudv) THEN
           zud(jl,jk)=puen(jl,ik)+zud(jl,ikb)-puen(jl,ikb-1)
           zvd(jl,jk)=pven(jl,ik)+zvd(jl,ikb)-pven(jl,ikb-1)
 
-!DR              ! calculate downdraft wind speed
-!DR              pvddraf(jl) = zud(jl,jk)**2 + zvd(jl,jk)**2
         ENDIF
     ! add UV perturb to correct wind bias
         IF ( ldcum(jl).AND.jk>=kctop(jl) ) THEN
@@ -1459,14 +1453,12 @@ IF(lmfdudv) THEN
 
   ENDIF
 
-!DR We currently make use of an alternative parameterization of 
-!DR convective gusts. Thus, the computation of pvddraf is deactivated
-!DR!     Maximum possible convective gust
-!DR      DO jl = kidia, kfdia
-!DR        pvddraf(jl) = SQRT( conv_gust_buoy*MAX( zvbuo(jl),0._jprb)   &
-!DR          &                + conv_gust_v*pvddraf(jl) )
-!DR        pvddraf(jl) = MIN( pvddraf(jl), conv_gust_max)
-!DR      ENDDO
+
+!     Maximum possible convective gust
+      DO jl = kidia, kfdia
+        pvddraf(jl) = SQRT( 2._jprb*MAXVAL(zkined(jl,klev-2:klev)) )
+        pvddraf(jl) = MIN( pvddraf(jl), conv_gust_max)
+      ENDDO
 
 !-------------------------------------------------------------------
 ! End

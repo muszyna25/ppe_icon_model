@@ -563,8 +563,8 @@ MODULE mo_nh_init_nest_utils
           p_child_prog%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd/p0ref* &
             p_child_prog%rho(jc,jk,jb) * p_child_prog%theta_v(jc,jk,jb)))
 
-          ! exner_old also needs to be initialized here
-          p_child_diag%exner_old(jc,jk,jb) = p_child_prog%exner(jc,jk,jb)
+          ! exner_pr also needs to be initialized here
+          p_child_diag%exner_pr(jc,jk,jb) = p_child_prog%exner(jc,jk,jb)
         ENDDO
       ENDDO
 

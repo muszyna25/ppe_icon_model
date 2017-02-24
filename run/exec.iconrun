@@ -97,6 +97,7 @@ run_atmo=${run_atmo="false"}
 if [ x$atmo_namelist != x ]; then
   run_atmo="true"
 fi
+run_jsbach=${run_jsbach="false"}
 run_ocean=${run_ocean="false"}
 if [ x$ocean_namelist != x ]; then
   run_ocean="true"
@@ -234,7 +235,7 @@ done
 #-----------------------------------------------------------------------------
 # Add JSBACH part to master_namelist
 
-if [ x$lnd_namelist != x ]; then
+if [[ $run_jsbach == @(yes|true) ]]; then
   cat >> $master_namelist <<EOF
 &jsb_control_nml
  is_standalone      = .false.
@@ -247,6 +248,13 @@ if [ x$lnd_namelist != x ]; then
  model_namelist_filename = "${lnd_namelist}"
 /
 EOF
+  if [[ -f ${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd && -f ${EXPDIR}/NAMELIST_${EXPNAME}_lnd ]] ; then
+    # namelist file has already been copied to expdir by copy_required_files above
+    rm ${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd
+    check_error $? "rm ${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd"
+  else
+    check_error 1 "${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd does not exist"
+  fi
 fi
 #-----------------------------------------------------------------------------
 
