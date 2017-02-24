@@ -120,8 +120,3 @@ experiment|checksuite.ocean_internal/technical/exp.ocean_omip_ptest|cpu_time=00:
 experiment|checksuite.icon-dev/check.atm_icoles_nested|cpu_time=00:30:00
 machine|dwd_cray|compute
 builder|DWD_cray|--with-fortran=cray|build_only
-builder|BREEZE_nag|--with-fortran=nag|build_only
-builder|BREEZE_gcc|--with-fortran=gcc|build_only
-builder|BREEZE_gcc_openmp|--with-fortran=gcc --with-openmp|build_only
-builder|BREEZE_intel|--with-fortran=intel|build_only
-builder|BREEZE_intel_openmp|--with-fortran=intel --with-openmp|build_only
