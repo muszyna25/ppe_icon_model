@@ -86,7 +86,7 @@ MODULE mo_timer
   PUBLIC :: timer_vdiff_down, timer_vdiff_up
   PUBLIC :: timer_surface, timer_jsbach
   PUBLIC :: timer_gw_hines, timer_ssodrag
-  PUBLIC :: timer_cucall, timer_cloud
+  PUBLIC :: timer_convection, timer_cloud
   !
   ! echam radiation
   PUBLIC :: timer_rrtm_prep, timer_rrtm_post
@@ -121,7 +121,7 @@ MODULE mo_timer
   PUBLIC :: timer_lonlat_setup
   PUBLIC :: timer_write_restart_file
   PUBLIC :: timer_write_output
-  PUBLIC :: timer_model_init
+  PUBLIC :: timer_model_init, timer_init_latbc
   PUBLIC :: timer_domain_decomp, timer_compute_coeffs, timer_ext_data, timer_init_icon, timer_read_restart
   PUBLIC :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc
   PUBLIC :: timer_upd_phys, timer_upd_flx
@@ -263,7 +263,7 @@ MODULE mo_timer
   INTEGER :: timer_vdiff_down, timer_vdiff_up
   INTEGER :: timer_surface, timer_jsbach
   INTEGER :: timer_gw_hines, timer_ssodrag
-  INTEGER :: timer_cucall, timer_cloud
+  INTEGER :: timer_convection, timer_cloud
   !
   ! echam radiation
   INTEGER :: timer_rrtm_prep, timer_rrtm_post
@@ -272,7 +272,7 @@ MODULE mo_timer
   INTEGER :: timer_omp_radiation
   INTEGER :: timer_write_restart_file
   INTEGER :: timer_write_output
-  INTEGER :: timer_model_init
+  INTEGER :: timer_model_init, timer_init_latbc
   INTEGER :: timer_domain_decomp, timer_compute_coeffs, timer_ext_data, timer_init_icon, timer_read_restart
   INTEGER :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc
   INTEGER :: timer_upd_phys, timer_upd_flx
@@ -429,7 +429,7 @@ CONTAINS
     timer_jsbach    = new_timer("jsbach")
     timer_gw_hines  = new_timer("gw_hines")
     timer_ssodrag   = new_timer("ssodrag")
-    timer_cucall    = new_timer("cucall")
+    timer_convection= new_timer("convection")
     timer_cloud     = new_timer("cloud")
     !
     ! echam radiation
@@ -479,6 +479,7 @@ CONTAINS
     timer_compute_coeffs = new_timer("compute_intp_coeffs")
     timer_ext_data      = new_timer("init_ext_data")
     timer_init_icon     = new_timer("init_icon") 
+    timer_init_latbc    = new_timer("init_latbc") 
     timer_read_restart  = new_timer("read_restart_files")
     timer_solve_ab      = new_timer("solve_ab")
     timer_upd_phys      = new_timer("upd_phys_param")

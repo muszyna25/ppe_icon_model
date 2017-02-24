@@ -49,7 +49,7 @@ MODULE mo_delaunay_types
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_delaunay_types'
 
   ! quadruple precision, needed for some determinant computations
-#ifndef NAGFOR
+#if ( ! defined NAGFOR && ! defined __SX__ )
   INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (32)
 #else
   INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (2*precision(1.0_wp))
@@ -1304,6 +1304,9 @@ CONTAINS
         DO i=1,(nranks-1)
           recv_displs(i) = recv_displs(i-1) + recv_count(i-1)
         END DO
+      ELSE
+        ALLOCATE(recv_tmp(0:1), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
       END IF
         
       CALL MPI_GATHERV(tmp, local_nentries, mpi_t_triangle, recv_tmp, recv_count, recv_displs, &
@@ -1329,6 +1332,9 @@ CONTAINS
         this%a(0:(this%nentries-1))%p(2) = kway_merge_array_out(0:(this%nentries-1))%p%p(2)
         
         DEALLOCATE(kway_merge_array_out, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+      ELSE
+        DEALLOCATE(recv_tmp, STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
       END IF
     END IF

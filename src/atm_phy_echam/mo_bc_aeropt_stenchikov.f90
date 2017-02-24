@@ -33,11 +33,9 @@ MODULE mo_bc_aeropt_stenchikov
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
        &                               calculate_time_interpolation_weights
 
-
   IMPLICIT NONE
 
   PRIVATE
-
   PUBLIC                           :: read_bc_aeropt_stenchikov, add_bc_aeropt_stenchikov
 
   INTERFACE reorder_stenchikov
@@ -105,9 +103,8 @@ END SUBROUTINE shift_months_bc_aeropt_stenchikov
   !> SUBROUTINE read_bc_aeropt_stenchikov -- read the aerosol optical properties 
   !! of the volcanic (Stratospheric) Stenchikov aerosols
 
-SUBROUTINE read_bc_aeropt_stenchikov(current_date, kyear)
+SUBROUTINE read_bc_aeropt_stenchikov(current_date)
   TYPE(datetime), POINTER, INTENT(in) :: current_date
-  INTEGER(i8), INTENT(in)       :: kyear
 
   !LOCAL VARIABLES
   INTEGER(i8) :: iyear(2)
@@ -121,7 +118,7 @@ SUBROUTINE read_bc_aeropt_stenchikov(current_date, kyear)
   IF (ALLOCATED(aod_v_s)) THEN
     CALL shift_months_bc_aeropt_stenchikov
     imonth(1)=tiw%month2_index
-    iyear(1)=kyear
+    iyear(1)=current_date%date%year
     IF (imonth(1) == 13 ) THEN
       imonth(1)=1
       iyear(1)=iyear(1)+1
@@ -133,8 +130,8 @@ SUBROUTINE read_bc_aeropt_stenchikov(current_date, kyear)
     CALL su_bc_aeropt_stenchikov
     imonth(1)=tiw%month1_index
     imonth(2)=tiw%month2_index
-    iyear(1)=kyear
-    iyear(2)=kyear
+    iyear(1)=current_date%date%year
+    iyear(2)=current_date%date%year
     IF (imonth(1) == 0) THEN
       imonth(1)=12
       iyear(1)=iyear(1)-1
@@ -164,10 +161,10 @@ END SUBROUTINE read_bc_aeropt_stenchikov
 !! adapted to icon by J.S. Rast (2013-09-18)
 SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
           & kproma,                 kbdim,              klev,             &
-          & krow,                   nb_lw,              nb_sw,            &
-          & paer_tau_lw_vr,         paer_tau_sw_vr,     paer_piz_sw_vr,   &
-          & paer_cg_sw_vr,          ppd_hl,             pp_fl,            &
-          & tk_fl                                                         )
+          & krow,                   nb_sw,              nb_lw,            &
+          & dz,                     pp_fl,                                &
+          & paer_tau_sw_vr,         paer_piz_sw_vr,     paer_cg_sw_vr,    &
+          & paer_tau_lw_vr                                                )
 
   ! !INPUT PARAMETERS
   TYPE(datetime), POINTER, INTENT(in) :: current_date
@@ -178,9 +175,8 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
                          klev,   &! number of vertical levels
                          nb_lw,  &! number of wave length bands (far IR)
                          nb_sw    ! number of wave length bands (solar)
-  REAL(wp),INTENT(in) :: ppd_hl(kbdim,klev)  ,& ! layer pressure thickness 
-                         pp_fl(kbdim,klev)   ,& ! pressure at "full levels"
-                         tk_fl(kbdim,klev)      ! temperature at "full lev."
+  REAL(wp),INTENT(in) :: dz(kbdim,klev),      & ! geometric height thickness [m]
+                         pp_fl(kbdim,klev)      ! pressure at "full levels"
 ! !OUTPUT PARAMETERS
   REAL(wp),INTENT(inout),DIMENSION(kbdim,klev,nb_lw):: &
    paer_tau_lw_vr      !aerosol optical depth (far IR)
@@ -199,7 +195,6 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
   INTEGER                               :: jl,jk,jki,jwl
   INTEGER                               :: idx_lat_1, idx_lat_2, idx_lev
   REAL(wp)                              :: w1_lat, w2_lat
-  REAL(wp), DIMENSION(kbdim,klev)       :: zdeltag    ! layer thickness [m]
   INTEGER,  DIMENSION(kbdim,klev)       :: kindex ! index field for pressure interpolation
   REAL(wp), DIMENSION(kbdim)            :: wgt1_lat,wgt2_lat
   INTEGER,  DIMENSION(kbdim)            :: inmw1_lat, inmw2_lat 
@@ -224,9 +219,6 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
   CALL pressure_index(kproma,        kbdim,         klev,              &
                       pp_fl,         lev_clim,      p_lim_clim,        &
                       kindex)
-  zdeltag(1:kproma,1:klev)= &
-       & ppd_hl(1:kproma,1:klev)* &
-       & tk_fl(1:kproma,1:klev)/pp_fl(1:kproma,1:klev)*rdog
   p_lat_shift=r_lat_shift
   p_rdeltalat=r_rdeltalat
   CALL latitude_weights_li(jg                                                   &
@@ -281,7 +273,7 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
   DO jwl=1,nb_sw
      DO jk=1,klev
         zext_s_int(1:kproma,jwl)=zext_s_int(1:kproma,jwl) + &
-          zext_s(1:kproma,jk,jwl)*zdeltag(1:kproma,jk)
+          zext_s(1:kproma,jk,jwl)*dz(1:kproma,jk)
      END DO
   END DO
   WHERE (zext_s_int(1:kproma,1:nb_sw) > 0._wp) 
@@ -293,7 +285,7 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
   DO jwl=1,nb_sw
      DO jk=1,klev
         zext_s(1:kproma,jk,jwl)=zext_s(1:kproma,jk,jwl)* &
-             zdeltag(1:kproma,jk)*zfact_s(1:kproma,jwl)
+             dz(1:kproma,jk)*zfact_s(1:kproma,jwl)
      END DO
   END DO
 ! 2.3 add optical parameters to the optical parameters of aerosols
@@ -359,7 +351,7 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
   DO jwl=1,nb_lw
      DO jk=1,klev
         zext_t_int(1:kproma,jwl)=zext_t_int(1:kproma,jwl) + &
-          zext_t(1:kproma,jk,jwl)*zdeltag(1:kproma,jk)
+          zext_t(1:kproma,jk,jwl)*dz(1:kproma,jk)
      END DO
   END DO
   WHERE (zext_t_int(1:kproma,1:nb_lw) > 0._wp) 
@@ -371,7 +363,7 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
   DO jwl=1,nb_lw
      DO jk=1,klev
         zext_t(1:kproma,jk,jwl)=zext_t(1:kproma,jk,jwl)* &
-             zdeltag(1:kproma,jk)*zfact_t(1:kproma,jwl)
+             dz(1:kproma,jk)*zfact_t(1:kproma,jwl)
      END DO
   END DO
 ! 2.3 add optical parameters to the optical parameters of aerosols

@@ -58,11 +58,7 @@ MODULE mo_cover
   USE mo_kind,                 ONLY : wp
   USE mo_physical_constants,   ONLY : vtmpc1, cpd, grav
   USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline,lookup_ua_eor_uaw_spline
-#ifndef __ICON__
-  USE mo_echam_cloud_params,   ONLY : jbmin, jbmax, csatsc, crt, crs, nex, nadd, cinv
-#else
   USE mo_echam_cloud_config,   ONLY: echam_cloud_config
-#endif
 #ifdef _PROFILE
   USE mo_profile,              ONLY : trace_start, trace_stop
 #endif
@@ -71,11 +67,9 @@ MODULE mo_cover
   PRIVATE
   PUBLIC :: cover
 
-#ifdef __ICON__
   ! to simplify access to components of echam_cloud_config
   INTEGER , POINTER :: jbmin, jbmax, nex, nadd
   REAL(wp), POINTER :: csatsc, crt, crs, cinv
-#endif
 
 
 CONTAINS
@@ -83,7 +77,8 @@ CONTAINS
   !!
   SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1                  & !in
     &                      , ktype,    pfrw,     pfri                              & !in
-    &                      , paphm1,   papm1,    pgeo                              & !in
+    &                      , zf                                                    & !in
+    &                      , paphm1,   papm1                                       & !in
     &                      , ptm1,     pqm1,     pxim1                             & !in
     &                      , paclc                                                 & !inout
     &                      , printop                                               & !out
@@ -97,9 +92,9 @@ CONTAINS
       & pfrw(kbdim)         ,&!< water mask
       & pfri(kbdim)           !< ice mask
     REAL(wp),INTENT(IN)    ::  &
+      & zf(kbdim,klev)      ,&!< geometric height thickness [m]
       & paphm1(kbdim,klevp1),&!< pressure at half levels                   (n-1)
       & papm1(kbdim,klev)   ,&!< pressure at full levels                   (n-1)
-      & pgeo(kbdim,klev)    ,&!<
       & pqm1(kbdim,klev)    ,&!< specific humidity                         (n-1)
       & ptm1(kbdim,klev)    ,&!< temperature                               (n-1)
       & pxim1(kbdim,klev)     !< cloud ice                                 (n-1)
@@ -136,7 +131,6 @@ CONTAINS
 
     INTEGER :: knvb(kbdim), loidx(kproma*klev)
 
-#ifdef __ICON__
     ! to simplify access to components of echam_cloud_config
     jbmin  => echam_cloud_config% jbmin
     jbmax  => echam_cloud_config% jbmax
@@ -146,7 +140,6 @@ CONTAINS
     nex    => echam_cloud_config% nex
     nadd   => echam_cloud_config% nadd
     cinv   => echam_cloud_config% cinv
-#endif
 
 #ifdef _PROFILE
     CALL trace_start ('cover', 9)
@@ -184,7 +177,7 @@ CONTAINS
 !IBM* novector
         DO nl = 1,locnt
           jl = loidx(nl)
-          ztmp(nl) = (ptm1(jl,jk-1)-ptm1(jl,jk))*grav/(pgeo(jl,jk-1)-pgeo(jl,jk))
+          ztmp(nl) = (ptm1(jl,jk-1)-ptm1(jl,jk))/(zf(jl,jk-1)-zf(jl,jk))
         END DO
 
         zjk = REAL(jk,wp)
@@ -234,7 +227,7 @@ CONTAINS
           !  ilev=klevp1-jb
             ilev=100
             printop(jl)=REAL(ilev,wp)
-            zdtdz = (ptm1(jl,jb-1)-ptm1(jl,jb))*grav/(pgeo(jl,jb-1)-pgeo(jl,jb))
+            zdtdz = (ptm1(jl,jb-1)-ptm1(jl,jb))/(zf(jl,jk-1)-zf(jl,jk))
             zgam  = MAX(0.0_wp,-zdtdz*cpd/grav)
             zsat  = MIN(1.0_wp,csatsc+zgam)
           END IF

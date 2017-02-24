@@ -77,7 +77,7 @@ MODULE mo_atmo_model
     &                                   destruct_icon_communication
   ! Vertical grid
   USE mo_vertical_coord_table,    ONLY: apzero, vct_a, vct_b, vct, allocate_vct_atmo
-  USE mo_nh_init_utils,           ONLY: nflatlev
+  USE mo_init_vgrid,              ONLY: nflatlev
   USE mo_util_vgrid,              ONLY: construct_vertical_grid
 
   ! external data, physics

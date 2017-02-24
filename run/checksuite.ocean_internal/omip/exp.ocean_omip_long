@@ -30,7 +30,7 @@ init_relax=1
 ocean_vertical_levels=40
 ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-points
 #-----------------------------------------------------------------------------
-icon_data_rootFolder=/pool/data/ICON
+#icon_data_rootFolder=/pool/data/ICON
 #
 # write namelist parameters
 # -------------------------

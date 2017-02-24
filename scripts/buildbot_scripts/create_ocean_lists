@@ -52,7 +52,6 @@ $addexp checksuite.ocean_internal/omip/exp.test_ocean_omip_10days --runflags "cp
 ./lslist $listname
 #-----------------------------------------------------------
 
-
 #############################################################################
 ## create amip rererence list
 listname=oes_amip
