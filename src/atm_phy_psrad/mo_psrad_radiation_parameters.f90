@@ -129,8 +129,8 @@ contains
   !! is set to 1 or 0 depending on whether the zenith angle is greater or 
   !! less than 1. 
   !
-  SUBROUTINE solar_parameters(decl_sun,    dist_sun,                          &
-       &                      time_of_day, dt_ext,                            &
+  SUBROUTINE solar_parameters(decl_sun,    dist_sun,        time_of_day,      &
+       &                      icosmu0,     dt_ext,                            &
        &                      ldiur,       l_sph_symm_irr,                    &
        &                      p_patch,                                        &
        &                      flx_ratio,   cos_mu0,         daylight_frc      )
@@ -140,6 +140,8 @@ contains
          dist_sun,           & !< distance from the sun in astronomical units
          time_of_day,        & !< time_of_day (in radians)
          dt_ext                !< time interval overfor which the insolated area is extended
+    INTEGER , INTENT(in)  :: &
+         icosmu0               !< defines if and how cosmu0 is defined for extended sunlit areas
     LOGICAL               :: &
          ldiur,              & !< diurnal cycle ON (ldiur=.TRUE.) or OFF (ldiur=.FALSE.)
          l_sph_symm_irr        !< spherical symmetric irradiation ON (l_sph_symm_irr=.TRUE.)
@@ -185,7 +187,7 @@ contains
        initialized_sincos = .TRUE.
     END IF
     !
-    IF (ldiur.AND.(.NOT.initialized_mu0s).AND.(dt_ext/=0.0_wp)) THEN
+    IF (ldiur.AND.(icosmu0==4).AND.(.NOT.initialized_mu0s).AND.(dt_ext/=0.0_wp)) THEN
        !
        ! find mu0s for radiation with diurnal cycle
        dmu0   = dt_ext/86400._wp*pi
@@ -263,19 +265,60 @@ contains
              daylight_frc(:,:) = 1.0_wp
           END WHERE
           !
-          ! If cos_mu0 is needed for an extended daylight area for the radiative transfer, then
-          ! redefine cos_mu0 in a band  mu0s<mu0<pi/2+dmu0 using a linear function of mu0 such that:
-          !   inner edge                       : mu0=mu0s      --> cos_mu0 = cos(mu0s)
-          !   in between                       : mu0           --> cos_mu0 = sin(mu0s)*(pi/2+dmu0-mu0)
-          !   outer edge = extended terminator : mu0=pi/2+dmu0 --> cos_mu0 = 0
-          !
-          ! mu0s is the solution of : cos(mu0s) = sin(mu0s)*(pi/2+dmu0-mu0s)
-          ! so that cos_mu0 is a C1 function in [0,pi/2+dmu0]
-          !
           IF (dt_ext/=0.0_wp) THEN
-             WHERE ((mu0s<mu0(:,:)).AND.(mu0(:,:)<(pi_2+dmu0)))
-                cos_mu0(:,:) = sin_mu0s*(pi_2+dmu0-mu0(:,:))
-             END WHERE
+             !
+             
+             SELECT CASE (icosmu0)
+             CASE (0)
+                !
+                ! no modification -> nothing to do
+                !
+             CASE (1)
+                !
+                ! minimum value
+                !
+                WHERE (daylight_frc(:,:) == 1.0_wp)
+                   cos_mu0(:,:) = MAX(0.1_wp,cos_mu0(:,:))
+                END WHERE
+                !
+             CASE (2)
+                !
+                ! shift and rescale
+                !
+                WHERE (daylight_frc(:,:) == 1.0_wp)
+                   cos_mu0(:,:) = (cos_mu0(:,:)+dcos_mu0)/(1._wp+dcos_mu0)
+                END WHERE
+                !
+             CASE (3)
+                !
+                ! slope in band [pi/2-dmu0,pi/2+dmu0]
+                !
+                ! redefine cos_mu0 in [pi/2-dmu0,pi/2+dmu0] using a linear function of mu0 such that:
+                !   inner edge                       : mu0=pi/2-dmu0 --> cos_mu0 = cos(pi/2-dmu0)
+                !   center     = original terminator : mu0=pi/2      --> cos_mu0 = cos(pi/2-dmu0)/2
+                !   outer edge = extended terminator : mu0=pi/2+dmu0 --> cos_mu0 = 0
+                !
+                WHERE (ABS(mu0(:,:)-pi_2)<dmu0)
+                   cos_mu0(:,:) = 0.5_wp*SIN(dmu0)*(1._wp-(mu0(:,:)-pi_2)/dmu0)
+                END WHERE
+                !
+             CASE (4)
+                !
+                ! tangent slope in [mu0s,pi/2+dmu0]
+                !
+                ! redefine cos_mu0 in [mu0s,pi/2+dmu0] using a linear function of mu0 such that:
+                !   inner edge                       : mu0=mu0s      --> cos_mu0 = cos(mu0s)
+                !   in between                       : mu0           --> cos_mu0 = sin(mu0s)*(pi/2+dmu0-mu0)
+                !   outer edge = extended terminator : mu0=pi/2+dmu0 --> cos_mu0 = 0
+                !
+                ! mu0s is the solution of : cos(mu0s) = sin(mu0s)*(pi/2+dmu0-mu0s)
+                ! so that cos_mu0 is a C1 function in [0,pi/2+dmu0]
+                !
+                WHERE ((mu0s<mu0(:,:)).AND.(mu0(:,:)<(pi_2+dmu0)))
+                   cos_mu0(:,:) = sin_mu0s*(pi_2+dmu0-mu0(:,:))
+                END WHERE
+                !
+             END SELECT
           END IF
           !
        ELSE                             ! - with zonally symmetric irradiation

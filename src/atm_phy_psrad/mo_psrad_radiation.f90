@@ -98,6 +98,7 @@ MODULE mo_psrad_radiation
                                     nmonth,               &
                                     isolrad,              &
                                     ldiur,                &
+                                    icosmu0,              &
                                     lyr_perp,             &
                                     yr_perp,              &
                                     lradforcing,          &
@@ -187,20 +188,35 @@ MODULE mo_psrad_radiation
       CALL orbit_kepler (orbit_date_rt, rasc_sun, decl_sun, dist_sun)
     END IF
 
-    ! Compute cos(zenith angle) "amu0_x" for the radiation time "time_of_day_rt"
-    ! and the orbit parameters "decl_sun" and "dist_sun" valid for "orbit_date_rt".
+    ! Compute cos(zenith angle) "amu0_x" for the current time "time_of_day" if the
+    ! SW fluxes should be adjusted to the current sun (icosmu0=1:4) or the radiation
+    ! time "time_of_day_rt" if the heating shall be computed for the sun position
+    ! used for the radiative transfer (icosmu0=0).
+    ! In both cases use the orbit parameters "decl_sun" and "dist_sun" valid for
+    ! the "orbit_date_rt".
     !
     ! "amu0_x" is needed for the incoming SW flux field at the top of the atmosphere.
     !
     ! Do not extend the sun-lit area. Exactly half of the globe is sun-lit
     dt_ext = 0.0_wp
     !
-    CALL solar_parameters(decl_sun,       dist_sun,                            &
-         &                time_of_day_rt, dt_ext,                              &
-         &                ldiur,          psrad_orbit_config%l_sph_symm_irr,   &
-         &                p_patch,                                             &
-         &                flx_ratio_cur,  amu0_x,           rdayl_x            )
-
+    SELECT CASE (icosmu0)
+    CASE (0)
+       CALL solar_parameters(decl_sun,        dist_sun,        time_of_day_rt,    &
+            &                icosmu0,         dt_ext,                             &
+            &                ldiur,           psrad_orbit_config%l_sph_symm_irr,  &
+            &                p_patch,                                             &
+            &                flx_ratio_cur,   amu0_x,          rdayl_x            )
+    CASE (1:4)
+       CALL solar_parameters(decl_sun,        dist_sun,        time_of_day,       &
+            &                icosmu0,         dt_ext,                             &
+            &                ldiur,           psrad_orbit_config%l_sph_symm_irr,  &
+            &                p_patch,                                             &
+            &                flx_ratio_cur,   amu0_x,          rdayl_x            )
+    CASE DEFAULT
+       CALL finish('mo_psrad_radiation/pre_psrad_radiation','invalid icosmu0, must be in 0:4')
+    END SELECT
+    !
     !
     ! 2.0 Prepare time dependent quantities for rad (on radiation timestep)
     ! --------------------------------
@@ -212,13 +228,20 @@ MODULE mo_psrad_radiation
       ! "amu0m_x" is needed for the incoming SW flux field at the top of the atmosphere
       ! and for the optical paths.
       !
-      dt_ext = 0.0_wp
+      SELECT CASE (icosmu0)
+      CASE (0)
+         dt_ext = 0.0_wp
+      CASE (1:4)
+         ! Extend the sunlit area for the radiative transfer calculations over an extended area
+         ! including a rim of width dt_rad/2/86400*2pi (in radian) around the sunlit hemisphere.
+         dt_ext = echam_phy_config%dt_rad
+      END SELECT
       !
-      CALL solar_parameters(decl_sun,        dist_sun,                              &
-           &                time_of_day_rt,  dt_ext,                                &
-           &                ldiur,           psrad_orbit_config%l_sph_symm_irr,     &
-           &                p_patch,                                                &
-           &                flx_ratio_rad,   amu0m_x,           rdaylm_x            )
+      CALL solar_parameters(decl_sun,        dist_sun,        time_of_day_rt,     &
+           &                icosmu0,         dt_ext,                              &
+           &                ldiur,           psrad_orbit_config%l_sph_symm_irr,   &
+           &                p_patch,                                              &
+           &                flx_ratio_rad,   amu0m_x,         rdaylm_x            )
       !
       ! Consider curvature of the atmosphere for high zenith angles:
       ! The atmospheric path for a zenith angle mu0 through a spherical shell of
