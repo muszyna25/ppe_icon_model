@@ -38,79 +38,36 @@ IMPLICIT NONE
   PRIVATE
 
   PUBLIC :: irad_aero_forcing
-  PUBLIC :: lyr_perp, yr_perp, nmonth, isolrad, nb_sw
+  PUBLIC :: nb_sw
   PUBLIC :: lw_spec_samp, sw_spec_samp, lw_gpts_ts, sw_gpts_ts, rad_perm
   PUBLIC :: i_overlap, l_do_sep_clear_sky
-  PUBLIC :: ih2o, ico2, ich4, io3, io2, in2o, icfc, ighg, iaero, fco2
-  PUBLIC :: co2vmr, ch4vmr, o2vmr, n2ovmr, cfcvmr
-  PUBLIC :: co2mmr, ch4mmr, o2mmr, n2ommr            
-  PUBLIC :: ch4_v, n2o_v
-  PUBLIC :: cemiss, diff, rad_undef
-  PUBLIC :: psctm, ssi_factor, flx_ratio_cur, flx_ratio_rad, decl_sun_cur 
+  PUBLIC :: cemiss, rad_undef
+  PUBLIC :: psctm, ssi_factor
   
   ! 1.0 NAMELIST global variables and parameters
   ! --------------------------------
   INTEGER :: irad_aero_forcing = 0 !< reference aerosols for instantaneous 
                                    !< radiative forcing
-  LOGICAL :: lyr_perp    = .FALSE. !< switch to specify perpetual vsop87 year
-  INTEGER :: yr_perp     = -99999  !< year if (lyr_perp == .TRUE.)
-  INTEGER :: nmonth      =  0      !< 0=annual cycle; 1-12 for perpetual month
-  ! nmonth currently works for zonal mean ozone and the orbit (year 1987) only
-  INTEGER :: isolrad     =  3      !< mode of solar constant calculation
-                                   !< default is rrtm solar constant
   INTEGER :: nb_sw      !< number of shortwave bands, set in setup
   
   ! Spectral sampling
   INTEGER :: lw_spec_samp = 1, sw_spec_samp = 1 ! 1 is broadband, 2 is MCSI, 3 and up are teams
-  INTEGER :: lw_gpts_ts = 1, sw_gpts_ts = 1     ! Number of g-points per time step using MCSI
+  INTEGER :: lw_gpts_ts   = 1, sw_gpts_ts   = 1 ! Number of g-points per time step using MCSI
   INTEGER :: rad_perm = 0                       ! Integer for perturbing random number seeds
+
   ! Radiation driver
   LOGICAL :: l_do_sep_clear_sky = .TRUE. ! Compute clear-sky fluxes by removing clouds
   INTEGER :: i_overlap = 1               ! 1 = max-ran, 2 = max, 3 = ran
   !
-  ! --- Switches for radiative agents
-  !
-  INTEGER :: ih2o  = 1  !< water vapor, clouds and ice for radiation
-  INTEGER :: ico2  = 2  !< carbon dioxide
-  INTEGER :: ich4  = 3  !< methane
-  INTEGER :: io3   = 3  !< ozone
-  INTEGER :: io2   = 2  !< molecular oxygen
-  INTEGER :: in2o  = 3  !< nitrous oxide
-  INTEGER :: icfc  = 2  !< cfc11 and cfc12
-  INTEGER :: ighg  = 0  !< greenhouse gase scenario
-  INTEGER :: iaero = 2  !< aerosol model
-  REAL(wp) :: fco2  = 1._wp !< factor for external co2 scenario (ico2=4)
-  !
-  ! --- Default gas volume mixing ratios - 1990 values (CMIP5)
-  !
-  REAL(wp) :: co2vmr    =  353.9e-06_wp !< CO2
-  REAL(wp) :: ch4vmr    = 1693.6e-09_wp !< CH4
-  REAL(wp) :: o2vmr     =    0.20946_wp !< O2
-  REAL(wp) :: n2ovmr    =  309.5e-09_wp !< N20
-  REAL(wp) :: cfcvmr(2) = (/252.8e-12_wp,466.2e-12_wp/)  !< CFC 11 and CFC 12
-  !
-  ! 2.0 Non NAMELIST global variables and parameters
-  ! --------------------------------
-  REAL(wp), PARAMETER :: ch4_v(3) = (/1.25e-01_wp,  683.0_wp, -1.43_wp/)
-  REAL(wp), PARAMETER :: n2o_v(3) = (/1.20e-02_wp, 1395.0_wp, -1.43_wp/)
-  !
   ! --- radiative transfer parameters
   !
   REAL(wp), PARAMETER :: cemiss = 0.996_wp  !< LW Emissivity Factor
-  REAL(wp), PARAMETER :: diff   = 1.66_wp   !< LW Diffusivity Factor
   REAL(wp), PARAMETER :: rad_undef = -999._wp
   !
   !++hs
   REAL(wp) :: psctm                         !< orbit and time dependent solar constant for radiation time step
   REAL(wp) :: ssi_factor(14)                !< fraction of TSI in the 14 RRTM SW bands
   !--hs
-  REAL(wp) :: flx_ratio_cur, flx_ratio_rad
-  REAL(wp) :: decl_sun_cur                  !< solar declination at current time step
-  !
-  ! 3.0 Variables computed by routines in mo_radiation (export to submodels)
-  ! --------------------------------
-  !
-  REAL(wp) :: co2mmr, ch4mmr, o2mmr, n2ommr                ! setup_radiation
 
   public solar_parameters
 
@@ -121,7 +78,7 @@ contains
   !! @brief Scans a block and fills with solar parameters
   !! 
   !! @remarks: This routine calculates the solar zenith angle for each
-  !! point in a block of data.  For simulations with no dirunal cycle 
+  !! point in a block of data.  For simulations with no diurnal cycle 
   !! the cosine of the zenith angle is set to its average value (assuming 
   !! negatives to be zero and for a day divided into nds intervals).  
   !! Additionally a field is set indicating the fraction of the day over 
@@ -129,15 +86,14 @@ contains
   !! is set to 1 or 0 depending on whether the zenith angle is greater or 
   !! less than 1. 
   !
-  SUBROUTINE solar_parameters(decl_sun,    dist_sun,        time_of_day,      &
-       &                      icosmu0,     dt_ext,                            &
-       &                      ldiur,       l_sph_symm_irr,                    &
-       &                      p_patch,                                        &
-       &                      flx_ratio,   cos_mu0,         daylight_frc      )
+  SUBROUTINE solar_parameters(decl_sun,    time_of_day,     &
+       &                      icosmu0,     dt_ext,          &
+       &                      ldiur,       l_sph_symm_irr,  &
+       &                      p_patch,                      &
+       &                      cos_mu0,     daylight_frc     )
 
     REAL(wp), INTENT(in)  :: &
          decl_sun,           & !< delination of the sun
-         dist_sun,           & !< distance from the sun in astronomical units
          time_of_day,        & !< time_of_day (in radians)
          dt_ext                !< time interval overfor which the insolated area is extended
     INTEGER , INTENT(in)  :: &
@@ -148,7 +104,6 @@ contains
                                !< or OFF (l_sph_symm_irr=.FALSE.)
     TYPE(t_patch), INTENT(in) ::      p_patch
     REAL(wp), INTENT(out) :: &
-         flx_ratio,          & !< ratio of actual to average solar constant
          cos_mu0(:,:),       & !< cos_mu_0, cosine of the solar zenith angle
          daylight_frc(:,:)     !< daylight fraction (0 or 1) with diurnal cycle
 
@@ -215,7 +170,6 @@ contains
        initialized_mu0s = .TRUE.
     END IF
     !
-    flx_ratio = 1.0_wp/dist_sun**2
     zen1 = SIN(decl_sun)
     zen2 = COS(decl_sun)*COS(time_of_day)
     zen3 = COS(decl_sun)*SIN(time_of_day)

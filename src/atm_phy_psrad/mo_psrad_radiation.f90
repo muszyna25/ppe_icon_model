@@ -114,8 +114,6 @@ MODULE mo_psrad_radiation
                                      cemiss,                   &
                                      psctm,                    &
                                      ssi_factor,               &
-                                     flx_ratio_cur,            &
-                                     flx_ratio_rad,            &
                                      solar_parameters
 
   USE mo_rrtm_params,   ONLY : nbndsw
@@ -202,17 +200,17 @@ MODULE mo_psrad_radiation
     !
     SELECT CASE (icosmu0)
     CASE (0)
-       CALL solar_parameters(decl_sun,        dist_sun,        time_of_day_rt,    &
+       CALL solar_parameters(decl_sun,        time_of_day_rt,                     &
             &                icosmu0,         dt_ext,                             &
             &                ldiur,           psrad_orbit_config%l_sph_symm_irr,  &
             &                p_patch,                                             &
-            &                flx_ratio_cur,   amu0_x,          rdayl_x            )
+            &                amu0_x,          rdayl_x                             )
     CASE (1:4)
-       CALL solar_parameters(decl_sun,        dist_sun,        time_of_day,       &
+       CALL solar_parameters(decl_sun,        time_of_day,                        &
             &                icosmu0,         dt_ext,                             &
             &                ldiur,           psrad_orbit_config%l_sph_symm_irr,  &
             &                p_patch,                                             &
-            &                flx_ratio_cur,   amu0_x,          rdayl_x            )
+            &                amu0_x,          rdayl_x                             )
     CASE DEFAULT
        CALL finish('mo_psrad_radiation/pre_psrad_radiation','invalid icosmu0, must be in 0:4')
     END SELECT
@@ -237,11 +235,11 @@ MODULE mo_psrad_radiation
          dt_ext = echam_phy_config%dt_rad
       END SELECT
       !
-      CALL solar_parameters(decl_sun,        dist_sun,        time_of_day_rt,     &
+      CALL solar_parameters(decl_sun,        time_of_day_rt,                      &
            &                icosmu0,         dt_ext,                              &
            &                ldiur,           psrad_orbit_config%l_sph_symm_irr,   &
            &                p_patch,                                              &
-           &                flx_ratio_rad,   amu0m_x,         rdaylm_x            )
+           &                amu0m_x,         rdaylm_x                             )
       !
       ! Consider curvature of the atmosphere for high zenith angles:
       ! The atmospheric path for a zenith angle mu0 through a spherical shell of
@@ -294,7 +292,7 @@ MODULE mo_psrad_radiation
              'isolrad = ', isolrad, ' in radctl namelist is not supported'
         CALL message('pre_radiation', message_text)
       END SELECT
-      psctm = flx_ratio_rad*tsi
+      psctm = tsi/dist_sun**2
       ssi_factor(:) = ssi_factor(:)/tsi
 
       ! output of solar constant every month

@@ -168,12 +168,6 @@ MODULE mo_radiation_config
     !
     REAL(wp) :: tsi
     !
-    ! --- other parameters
-    !
-    !  REAL(wp) :: flx_ratio_cur
-    !  REAL(wp) :: flx_ratio_rad
-    !  REAL(wp) :: decl_sun_cur                  !< solar declination at current time step
-    !
   
   !END TYPE t_radiation_config
   !>
