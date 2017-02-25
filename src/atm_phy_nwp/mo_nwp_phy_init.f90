@@ -65,8 +65,6 @@ MODULE mo_nwp_phy_init
   USE mo_psrad_spec_sampling, ONLY: set_spec_sampling_lw, set_spec_sampling_sw
   USE mo_psrad_cloud_optics,  ONLY: setup_cloud_optics  
   USE mo_psrad_interface,     ONLY: setup_psrad, lw_strat, sw_strat
-  USE mo_rrtm_params,         ONLY: nbndsw
-  USE mo_psrad_radiation_parameters, ONLY: nb_sw 
 
   ! microphysics
   USE gscp_data,              ONLY: gscp_set_coefficients
@@ -727,7 +725,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       CALL setup_newcld_optics(cldopt_filename)
     ELSE   ! PSRAD init
       CALL setup_psrad
-      nb_sw = nbndsw
       lw_strat = set_spec_sampling_lw(1, 1) 
       sw_strat = set_spec_sampling_sw(1, 1)
       CALL setup_cloud_optics

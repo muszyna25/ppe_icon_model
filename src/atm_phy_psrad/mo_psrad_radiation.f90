@@ -104,7 +104,7 @@ MODULE mo_psrad_radiation
                                     lradforcing,          &
                                     tsi_radt,             &
                                     ssi_radt
-  USE mo_psrad_radiation_parameters, ONLY: nb_sw,              & 
+  USE mo_psrad_radiation_parameters, ONLY:                     & 
                                      irad_aero_forcing,        &
                                      lw_spec_samp,             &
                                      sw_spec_samp,             &
@@ -309,7 +309,7 @@ MODULE mo_psrad_radiation
              icurrentmonth, ' = ', tsi
         CALL message('',message_text)
         CALL message('','')
-        DO i = 1, nb_sw
+        DO i = 1, nbndsw
           WRITE (message_text,'(a,i2,a,f7.5)') &
                '   solar constant fraction: band ', i, &
                ' = ', ssi_factor(i)
@@ -376,7 +376,6 @@ MODULE mo_psrad_radiation
       CALL message('','')
       !
       CALL setup_psrad
-      nb_sw = nbndsw
       !
       ! --- Spectral sampling strategy
       !
@@ -557,20 +556,20 @@ MODULE mo_psrad_radiation
 !!$        CALL message('','irad_aero= 1 --> prognostic aerosol (sub model)')
 !!$      CASE(3)
 !!$        CALL message('','irad_aero= 3 --> Kinne climatology')
-!!$        CALL su_aero_kinne(nb_sw)
+!!$        CALL su_aero_kinne(nbndsw)
 !!$      CASE(5)
 !!$        CALL message('','irad_aero= 5 --> Kinne climatology + Stenchikov volcanic aerosol')
-!!$        CALL su_aero_kinne(nb_sw)
-!!$        CALL su_aero_volc(nb_sw)
+!!$        CALL su_aero_kinne(nbndsw)
+!!$        CALL su_aero_volc(nbndsw)
 !!$      CASE(6)
 !!$        CALL message('','irad_aero= 6 --> Kinne climatology + Stenchikov volcanic aerosols + HAM volcanic aerosol')
-!!$        CALL su_aero_kinne(nb_sw)
-!!$        CALL su_aero_volc(nb_sw)
+!!$        CALL su_aero_kinne(nbndsw)
+!!$        CALL su_aero_volc(nbndsw)
 !!$        CALL su_aero_prop_ham
 !!$        CALL read_aero_volc_tables
 !!$      CASE(7)
 !!$        CALL message('','irad_aero= 7 --> Kinne climatology + Crowley volcanic aerosol')
-!!$        CALL su_aero_kinne(nb_sw)
+!!$        CALL su_aero_kinne(nbndsw)
 !!$        CALL su_aero_prop_crow
 !!$        CALL read_aero_volc_tables
 !!$      CASE default
@@ -950,8 +949,8 @@ MODULE mo_psrad_radiation
     !
       CALL psrad_interface(                    jg              ,jb              ,&
            & irad_aero       ,kproma          ,kbdim           ,klev            ,& 
-!!$           & knwtrc          ,ktype           ,nb_sw                            ,&
-           &                  ktype           ,nb_sw                            ,&
+!!$           & knwtrc                                                             ,&
+           & ktype                                                              ,&
            & loland          ,loglac          ,this_datetime                    ,&
            & pcos_mu0        ,daylght_frc                                       ,&
            & cemiss                                                             ,&

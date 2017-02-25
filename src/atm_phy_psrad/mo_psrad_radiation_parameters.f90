@@ -38,7 +38,6 @@ IMPLICIT NONE
   PRIVATE
 
   PUBLIC :: irad_aero_forcing
-  PUBLIC :: nb_sw
   PUBLIC :: lw_spec_samp, sw_spec_samp, lw_gpts_ts, sw_gpts_ts, rad_perm
   PUBLIC :: i_overlap, l_do_sep_clear_sky
   PUBLIC :: cemiss, rad_undef
@@ -48,7 +47,6 @@ IMPLICIT NONE
   ! --------------------------------
   INTEGER :: irad_aero_forcing = 0 !< reference aerosols for instantaneous 
                                    !< radiative forcing
-  INTEGER :: nb_sw      !< number of shortwave bands, set in setup
   
   ! Spectral sampling
   INTEGER :: lw_spec_samp = 1, sw_spec_samp = 1 ! 1 is broadband, 2 is MCSI, 3 and up are teams
