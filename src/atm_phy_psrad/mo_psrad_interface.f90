@@ -9,7 +9,7 @@ MODULE mo_psrad_interface
   USE mo_kind,                       ONLY: wp
   USE mo_physical_constants,         ONLY: avo, amd, amw, amco2, amch4, amn2o, amo3, amo2, amc11, amc12
   USE mo_exception,                  ONLY: finish
-  USE mo_psrad_radiation_parameters, ONLY: rad_perm, psctm, ssi_factor
+  USE mo_psrad_radiation_parameters, ONLY: rad_perm, psctm, ssi_factor, cemiss
   USE mo_rrtm_params,                ONLY: maxxsec, maxinpx, nbndsw, nbndlw
   USE mo_psrad_cloud_optics,         ONLY: cloud_optics
   USE mo_bc_aeropt_kinne,            ONLY: set_bc_aeropt_kinne  
@@ -98,7 +98,6 @@ CONTAINS
        & ktype                                                              ,&
        & laland          ,laglac          ,this_datetime                    ,&
        & pmu0            ,daylght_frc                                       ,&
-       & cemiss                                                             ,&
        & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
        & zf              ,zh              ,dz                               ,&
        & pp_sfc          ,pp_fl                                             ,&
@@ -133,7 +132,6 @@ CONTAINS
     REAL(WP),INTENT(IN)  ::            &
          pmu0(kbdim),                  & !< mu0 for solar zenith angle
          daylght_frc(kbdim),           & !< daylight fraction; with diurnal cycle 0 or 1, with zonal mean in [0,1]
-         cemiss,                       & !< surface emissivity
          alb_vis_dir(kbdim),           & !< surface albedo for vis range and dir light
          alb_nir_dir(kbdim),           & !< surface albedo for NIR range and dir light
          alb_vis_dif(kbdim),           & !< surface albedo for vis range and dif light

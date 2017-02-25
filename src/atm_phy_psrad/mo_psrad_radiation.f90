@@ -111,7 +111,6 @@ MODULE mo_psrad_radiation
                                      lw_gpts_ts,               &
                                      sw_gpts_ts,               &
                                      rad_perm,                 &
-                                     cemiss,                   &
                                      psctm,                    &
                                      ssi_factor,               &
                                      solar_parameters
@@ -953,7 +952,6 @@ MODULE mo_psrad_radiation
            & ktype                                                              ,&
            & loland          ,loglac          ,this_datetime                    ,&
            & pcos_mu0        ,daylght_frc                                       ,&
-           & cemiss                                                             ,&
            & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
            & zf              ,zh              ,dz                               ,&
            & pp_sfc          ,pp_fl                                             ,&
