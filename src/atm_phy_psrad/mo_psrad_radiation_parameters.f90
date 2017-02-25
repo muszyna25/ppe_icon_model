@@ -32,6 +32,7 @@ MODULE mo_psrad_radiation_parameters
   USE mo_model_domain,    ONLY: t_patch
   USE mo_parallel_config, ONLY: nproma
   USE mo_math_constants,  ONLY: pi, pi2, pi_2, pi_4 ! pi, pi*2, pi/2, pi/4
+  USE mo_rrtm_params,     ONLY: nbndsw
 
 IMPLICIT NONE
 
@@ -40,7 +41,7 @@ IMPLICIT NONE
   PUBLIC :: irad_aero_forcing
   PUBLIC :: lw_spec_samp, sw_spec_samp, lw_gpts_ts, sw_gpts_ts, rad_perm
   PUBLIC :: i_overlap, l_do_sep_clear_sky
-  PUBLIC :: cemiss, rad_undef
+  PUBLIC :: rad_undef
   PUBLIC :: psctm, ssi_factor
   
   ! 1.0 NAMELIST global variables and parameters
@@ -59,12 +60,11 @@ IMPLICIT NONE
   !
   ! --- radiative transfer parameters
   !
-  REAL(wp), PARAMETER :: cemiss = 0.996_wp  !< LW Emissivity Factor
   REAL(wp), PARAMETER :: rad_undef = -999._wp
   !
   !++hs
   REAL(wp) :: psctm                         !< orbit and time dependent solar constant for radiation time step
-  REAL(wp) :: ssi_factor(14)                !< fraction of TSI in the 14 RRTM SW bands
+  REAL(wp) :: ssi_factor(nbndsw)            !< fraction of TSI in the 14 RRTM SW bands
   !--hs
 
   public solar_parameters
