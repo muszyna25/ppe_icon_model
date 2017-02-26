@@ -8,7 +8,7 @@
 MODULE mo_psrad_srtm_setup
 
   USE mo_kind,                 ONLY : wp
-  USE mo_rrtm_params,          ONLY : nbndsw, mg, ngptsw, jpb1, jpb2
+  USE mo_psrad_params,         ONLY : nbndsw, mg, ngptsw, jpb1, jpb2
   USE mo_psrad_srtm_netcdf,    ONLY : srtm_read
   USE mo_psrad_fastmath,       ONLY : setup_psrad_fastmath
 

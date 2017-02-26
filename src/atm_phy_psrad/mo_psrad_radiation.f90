@@ -115,12 +115,12 @@ MODULE mo_psrad_radiation
                                      ssi_factor,               &
                                      solar_parameters
 
-  USE mo_rrtm_params,   ONLY : nbndsw
+  USE mo_psrad_params,        ONLY : nbndsw
 ! new to icon
-  USE mo_psrad_srtm_setup,ONLY : ssi_default, ssi_preind, ssi_amip,           &
-                             & ssi_RCEdiurnOn, ssi_RCEdiurnOff, ssi_cmip6_picontrol
-  USE mo_psrad_interface,ONLY : setup_psrad, psrad_interface, &
-                                lw_strat, sw_strat
+  USE mo_psrad_srtm_setup,    ONLY : ssi_default, ssi_preind, ssi_amip,           &
+                                     ssi_RCEdiurnOn, ssi_RCEdiurnOff, ssi_cmip6_picontrol
+  USE mo_psrad_interface,     ONLY : setup_psrad, psrad_interface, &
+                                     lw_strat, sw_strat
   USE mo_psrad_spec_sampling, ONLY : set_spec_sampling_lw, set_spec_sampling_sw, get_num_gpoints
   USE mo_psrad_orbit_config,  ONLY : psrad_orbit_config
 

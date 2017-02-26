@@ -26,7 +26,7 @@ MODULE mo_bc_aeropt_splumes
   USE mo_psrad_srtm_setup,     ONLY: &
       &  sw_wv1 => wavenum1     ,&     !< smallest wave number in each of the sw bands
       &  sw_wv2 => wavenum2            !< largest wave number in each of the sw bands
-  USE mo_rrtm_params,          ONLY: &
+  USE mo_psrad_params,         ONLY: &
       &  jpb1                          !< index for lower sw band
   USE mo_math_constants,       ONLY: rad2deg
   USE mtime,                   ONLY: datetime, getDayOfYearFromDateTime, &
