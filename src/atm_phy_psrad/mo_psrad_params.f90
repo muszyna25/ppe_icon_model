@@ -34,7 +34,7 @@
 !!   express or implied warranties. (http://www.rtweb.aer.com/)               
 !! 
 !
-MODULE mo_rrtm_params
+MODULE mo_psrad_params
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
@@ -45,6 +45,8 @@ MODULE mo_rrtm_params
 !! 
 !!  Shared parameters 
 !!
+  REAL(wp), PARAMETER :: rad_undef = -999._wp  !< default undef. value
+  !
   INTEGER,  PARAMETER :: mg     = 16  !< number of original g-intervals per spectral band
   INTEGER,  PARAMETER :: maxxsec= 4   !< maximum number of cross-section molecules (cfcs)
   INTEGER,  PARAMETER :: mxmol  = 38
@@ -109,5 +111,5 @@ MODULE mo_rrtm_params
        2.0887e+02_wp, 2.0340e+02_wp, 1.9792e+02_wp, 1.9290e+02_wp, 1.8809e+02_wp, &
        1.8329e+02_wp, 1.7849e+02_wp, 1.7394e+02_wp, 1.7212e+02_wp /)
 
-END MODULE mo_rrtm_params
+END MODULE mo_psrad_params
 

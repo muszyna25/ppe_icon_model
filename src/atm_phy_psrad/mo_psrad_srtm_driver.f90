@@ -38,9 +38,9 @@
 MODULE mo_psrad_srtm_driver
 
   USE mo_kind,               ONLY : wp
-  USE mo_rrtm_params,        ONLY : nbndsw, ngptsw, jpband, jpb1, jpb2
+  USE mo_psrad_params,       ONLY : nbndsw, ngptsw, jpband, jpb1, jpb2, rad_undef
   USE mo_psrad_radiation_parameters, &
-                             ONLY : i_overlap, l_do_sep_clear_sky, rad_undef
+                             ONLY : i_overlap, l_do_sep_clear_sky
   USE mo_psrad_srtm_setup,   ONLY : ngb, wavenum2, ssi_default, delwave
   USE mo_psrad_srtm_gas_optics, ONLY : gpt_taumol, ih2o, ich4, ico2, io2, io3
   USE mo_psrad_rrtm_coeffs,  ONLY : srtm_coeffs
@@ -68,9 +68,10 @@ CONTAINS
 
   SUBROUTINE srtm( kproma                                                    , &
        &  kbdim           ,klev            ,play            ,tlay            , &
-       &  wkl             ,coldry          ,asdir           ,asdif           , &
-       &  aldir           ,aldif           ,prmu0           ,ssi_factor      , &
-       &  psctm           ,cld_frc         ,cld_tau_sw      ,cld_cg_sw       , &
+       &  wkl             ,coldry                                            , &
+       &  asdir           ,asdif           ,aldir           ,aldif           , &
+       &  prmu0           ,daylght_frc     ,ssi_factor      ,psctm           , &
+       &  cld_frc         ,cld_tau_sw      ,cld_cg_sw                        , &
        &  cld_piz_sw      ,aer_tau_sw      ,aer_cg_sw       ,aer_piz_sw      , &
        &  rnseeds         ,strategy        ,n_gpts_ts       ,flxd_sw         , &
        &  flxu_sw         ,flxd_sw_clr     ,flxu_sw_clr                      , &
@@ -93,6 +94,7 @@ CONTAINS
          & play(kbdim,klev), & !< Layer pressures [hPa, mb]
          & tlay(kbdim,klev), & !< Layer temperatures [K]
          & prmu0(kbdim),     & !< Solar zenith angle
+         & daylght_frc(kbdim),&!< daylight fraction; with diurnal cycle 0 or 1, with zonal mean in [0,1]
          & wkl(:,:,:),       & !< Gas volume mixing ratios [mol/frac]
          & coldry(kbdim,klev)  !< Column dry amount
 
@@ -401,7 +403,8 @@ CONTAINS
     ! --- 3.2 Compute fluxes for each set of samples in turn
     ! 
     DO ig = 1, n_gpts_ts
-      zincflx(1:kproma) =  adjflux(ibs(1:kproma,ig)+15) * zsflxzen(1:kproma,ig) * cossza(1:kproma)
+       zincflx(1:kproma) =   adjflux(ibs(1:kproma,ig)+15) * zsflxzen(1:kproma,ig) &
+            &              * cossza(1:kproma) * daylght_frc(1:kproma)
       !
       ! All (or full) sky calculation 
       !

@@ -6,14 +6,13 @@ echo $TYP
 #
 NAME=$2
 #
-RES=$3
+DIR=$3
+#
+RES=$4
 #
 echo $RES
 #
 #
-#
-WORKDIR=$4
-# 
 
 echo QUELLE path $QUELLE
 
@@ -22,7 +21,7 @@ echo QUELLE path $QUELLE
    cdo=/client/bin/cdo
 
 #
-inDat="${WORKDIR}/atm_2d_${NAME}"
+inDat="${DIR}/${NAME}_atm_2d_ml.nc"
 
 ERAinDat="ERAin_${RES}_atm_2d_${ERAystrt}_${ERAylast}_${TYP}.nc"
 

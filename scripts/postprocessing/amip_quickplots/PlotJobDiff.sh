@@ -14,38 +14,40 @@ set -e
 # "module avail cdo" and "module avail ncl"
 #
 
-ATM_3d=1
 ATM_2d=1
+ATM_3d=1
 
-
-SINGLE=0
+SINGLE=1
 PAGE=1
 
 TYP=ANN
 
 #---   (AEXP-BEXP)  ---#
 
-AEXP=mag0148
+EXPDIR=/work/.../experiments
+
+AEXP=atm_amip
 AYY1=1979
-AYY2=1988
-ANAME=ml_${AEXP}_${AYY1}-${AYY2}_${TYP}
+AYY2=2008
+ADIR=${EXPDIR}/${AEXP}_post
+ANAME=timmean_monmean_${AEXP}
 
 
-BEXP=mag0143
+BEXP=atm_amip_ref
 BYY1=1979
-BYY2=1989
-BNAME=ml_${BEXP}_${BYY1}-${BYY2}_${TYP}
+BYY2=2008
+BDIR=${EXPDIR}/${BEXP}_post
+BNAME=timmean_monmean_${BEXP}
 
 
 # atm_RES= ICON-grid resolution r2b4 or r2b6
 atm_RES=r2b4
 
-COMMENT='amip 160 km '
+COMMENT='160km amip'
 
-WORKDIR=/mnt/lustre01/work/mh0081/m214091/mag0148/
+WORKDIR=${EXPDIR}/amip_quickplots
 
-MODELDIR=/pool/data/ICON/post/
-MODELDIR=~/icon-aes/
+MODELDIR=~/git/icon-aes
 #######################################################
 #
 # cell=filled triangles cont=filled contour 
@@ -138,7 +140,7 @@ eof00
 #
 
 
-${QUELLE}/PREPAREatm_2d_diff $TYP $ANAME $BNAME $atm_RES $WORKDIR
+${QUELLE}/PREPAREatm_2d_diff $ANAME $ADIR $BNAME $BDIR
 
 if [ "$PAGE" = "1" ]
 then
@@ -179,7 +181,7 @@ cp ${QUELLE}/partab .
 cp ${FIXCODE}/F${era_RES}${oce_RES}_LAND  F_LAND
 
 #---
-${QUELLE}/PREPAREatm_3d_diff $TYP $ANAME $BNAME $WORKDIR
+${QUELLE}/PREPAREatm_3d_diff $ANAME $ADIR $BNAME $BDIR
 
 if [ "$PAGE" = "1" ]
 then
@@ -205,7 +207,7 @@ $PLTDIR
 eof00
 
 #---
-${QUELLE}/PREPAREatm_3d_logp_diff $TYP $ANAME  $BNAME $WORKDIR
+${QUELLE}/PREPAREatm_3d_logp_diff  $ANAME $ADIR $BNAME $BDIR
 if [ "$PAGE" = "1" ]
 then
   ncl   ${QUELLE}/atm_3d_logp_diff_page.ncl

@@ -7,10 +7,10 @@
 !!
 MODULE mo_psrad_lrtm_setup
 
-  USE mo_kind, ONLY : wp
-  USE mo_rrtm_params, ONLY : mg, nbndlw, ngptlw, maxinpx
+  USE mo_kind,              ONLY : wp
+  USE mo_psrad_params,      ONLY : mg, nbndlw, ngptlw, maxinpx
   USE mo_psrad_lrtm_netcdf, ONLY : lrtm_read
-  USE mo_psrad_fastmath,ONLY : setup_psrad_fastmath
+  USE mo_psrad_fastmath,    ONLY : setup_psrad_fastmath
 
   IMPLICIT NONE
 

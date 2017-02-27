@@ -3,15 +3,15 @@ set -ex
 #
 TYP=$1
 #
-NAME=$2
+DIR=$2
 #
-EXP=$3
+NAME=$3
 #
-YY1=$4
+EXP=$4
 #
-YY2=$5
+YY1=$5
 #
-WORKDIR=$6
+YY2=$6
 #
 #
 
@@ -25,7 +25,7 @@ case `hostname` in
 esac
 
 atm_phy=busy_atm_phy
-cdo copy ${WORKDIR}/atm_2d_${NAME} $atm_phy
+cdo copy ${DIR}/${NAME}_atm_2d_ml.nc $atm_phy
 
 #
 #----rlnt   longwave, net, top (net=down-up) code179

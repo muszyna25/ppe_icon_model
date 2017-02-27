@@ -37,7 +37,7 @@
 MODULE mo_psrad_lrtm_solver
   USE mo_kind,             ONLY : wp
   USE mo_math_constants,   ONLY : pi
-  USE mo_rrtm_params,      ONLY : nbndlw
+  USE mo_psrad_params,     ONLY : nbndlw
   USE mo_psrad_fastmath,   ONLY : transmit, tautrans 
 
   IMPLICIT NONE

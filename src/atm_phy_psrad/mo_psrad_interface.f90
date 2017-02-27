@@ -7,10 +7,11 @@
 !!
 MODULE mo_psrad_interface
   USE mo_kind,                       ONLY: wp
-  USE mo_physical_constants,         ONLY: avo, amd, amw, amco2, amch4, amn2o, amo3, amo2, amc11, amc12
+  USE mo_physical_constants,         ONLY: avo, amd, amw, amco2, amch4, amn2o, amo3, amo2, amc11, amc12, zemiss_def
   USE mo_exception,                  ONLY: finish
-  USE mo_psrad_radiation_parameters, ONLY: rad_perm, psctm, ssi_factor
-  USE mo_rrtm_params,                ONLY: maxxsec, maxinpx, nbndsw, nbndlw
+  USE mo_psrad_radiation_parameters, ONLY: rad_perm
+  USE mo_psrad_solar_parameters,     ONLY: psctm, ssi_factor
+  USE mo_psrad_params,               ONLY: maxxsec, maxinpx, nbndsw, nbndlw
   USE mo_psrad_cloud_optics,         ONLY: cloud_optics
   USE mo_bc_aeropt_kinne,            ONLY: set_bc_aeropt_kinne  
   USE mo_bc_aeropt_stenchikov,       ONLY: add_bc_aeropt_stenchikov 
@@ -94,10 +95,10 @@ CONTAINS
 
   SUBROUTINE psrad_interface(              jg              ,krow            ,&
        & iaero           ,kproma          ,kbdim           ,klev            ,&
-!!$       & ktrac           ,ktype           ,nb_sw                         ,&
-       &                  ktype           ,nb_sw                            ,&
-       & laland          ,laglac          ,this_datetime   ,pmu0            ,&
-       & cemiss                                                             ,&
+!!$       & ktrac                                                              ,&
+       & ktype                                                              ,&
+       & laland          ,laglac          ,this_datetime                    ,&
+       & pmu0            ,daylght_frc                                       ,&
        & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
        & zf              ,zh              ,dz                               ,&
        & pp_sfc          ,pp_fl                                             ,&
@@ -121,8 +122,7 @@ CONTAINS
          kbdim,                        & !< first dimension of 2-d arrays
          klev,                         & !< number of levels
 !!$         ktrac,                        & !< number of tracers
-         ktype(kbdim),                 & !< type of convection
-         nb_sw                           !< number of shortwave bands
+         ktype(kbdim)                    !< type of convection
 
     LOGICAL,INTENT(IN) ::              &
          laland(kbdim),                & !< land sea mask, land=.true.
@@ -132,7 +132,7 @@ CONTAINS
 
     REAL(WP),INTENT(IN)  ::            &
          pmu0(kbdim),                  & !< mu0 for solar zenith angle
-         cemiss,                       & !< surface emissivity
+         daylght_frc(kbdim),           & !< daylight fraction; with diurnal cycle 0 or 1, with zonal mean in [0,1]
          alb_vis_dir(kbdim),           & !< surface albedo for vis range and dir light
          alb_nir_dir(kbdim),           & !< surface albedo for NIR range and dir light
          alb_vis_dif(kbdim),           & !< surface albedo for vis range and dif light
@@ -206,13 +206,13 @@ CONTAINS
          wkl_vr       (kbdim,maxinpx,klev),& !< number of molecules/cm2 of
          wx_vr        (kbdim,maxxsec,klev),& !< number of molecules/cm2 of
          cld_tau_lw_vr(kbdim,klev,nbndlw), & !< LW optical thickness of clouds
-         cld_tau_sw_vr(kbdim,klev,nb_sw),  & !< extincion
-         cld_cg_sw_vr (kbdim,klev,nb_sw),  & !< asymmetry factor
-         cld_piz_sw_vr(kbdim,klev,nb_sw),  & !< single scattering albedo
+         cld_tau_sw_vr(kbdim,klev,nbndsw), & !< extincion
+         cld_cg_sw_vr (kbdim,klev,nbndsw), & !< asymmetry factor
+         cld_piz_sw_vr(kbdim,klev,nbndsw), & !< single scattering albedo
          aer_tau_lw_vr(kbdim,klev,nbndlw), & !< LW optical thickness of aerosols
-         aer_tau_sw_vr(kbdim,klev,nb_sw),  & !< aerosol optical thickness
-         aer_cg_sw_vr (kbdim,klev,nb_sw),  & !< aerosol asymmetry factor
-         aer_piz_sw_vr(kbdim,klev,nb_sw),  & !< aerosol single scattering albedo
+         aer_tau_sw_vr(kbdim,klev,nbndsw), & !< aerosol optical thickness
+         aer_cg_sw_vr (kbdim,klev,nbndsw), & !< aerosol asymmetry factor
+         aer_piz_sw_vr(kbdim,klev,nbndsw), & !< aerosol single scattering albedo
          x_cdnc       (kbdim)                !< Scale factor for Cloud Droplet Number Concentration
     REAL(wp) ::                            &
          flx_uplw_vr(kbdim,klev+1),        & !< upward flux, total sky
@@ -310,7 +310,7 @@ CONTAINS
     !
     ! 2.0 Surface Properties
     ! --------------------------------
-    zsemiss(1:kproma,:) = cemiss 
+    zsemiss(1:kproma,:) = zemiss_def 
     !
     ! 3.0 Particulate Optical Properties
     ! --------------------------------
@@ -331,7 +331,7 @@ CONTAINS
 ! iaero=18: Kinne background aerosols (of natural origin, 1850) are set
       CALL set_bc_aeropt_kinne( this_datetime                          ,&
            & kproma           ,kbdim                 ,klev             ,&
-           & krow             ,nb_sw                 ,nbndlw           ,&
+           & krow             ,nbndsw                ,nbndlw           ,&
            & zf               ,dz                                      ,&
            & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
            & aer_tau_lw_vr                                              )
@@ -343,7 +343,7 @@ CONTAINS
 !           aerosols (of natural origin, 1850) 
       CALL add_bc_aeropt_stenchikov( this_datetime   ,jg               ,&
            & kproma           ,kbdim                 ,klev             ,&
-           & krow             ,nb_sw                 ,nbndlw           ,&
+           & krow             ,nbndsw                ,nbndlw           ,&
            & dz               ,pp_fl                                   ,&
            & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
            & aer_tau_lw_vr                                              )
@@ -351,14 +351,14 @@ CONTAINS
 !!$    IF (iaero==16) THEN
 !!$      CALL add_aop_volc_ham( &
 !!$           & kproma           ,kbdim                 ,klev             ,&
-!!$           & krow             ,nbndlw                ,nb_sw            ,&
+!!$           & krow             ,nbndlw                ,nbndsw           ,&
 !!$           & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
 !!$           & aer_cg_sw_vr                                               )
 !!$    END IF
 !!$    IF (iaero==17) THEN
 !!$      CALL add_aop_volc_crow( &
 !!$           & kproma           ,kbdim                 ,klev             ,&
-!!$           & krow             ,nbndlw                ,nb_sw            ,&
+!!$           & krow             ,nbndlw                ,nbndsw           ,&
 !!$           & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
 !!$           & aer_cg_sw_vr                                               )
 !!$    END IF
@@ -367,7 +367,7 @@ CONTAINS
 !           and Kinne background aerosols (of natural origin, 1850) 
      CALL add_bc_aeropt_splumes(jg                                     ,&
            & kproma           ,kbdim                 ,klev             ,&
-           & krow             ,nb_sw                 ,this_datetime    ,&
+           & krow             ,nbndsw                ,this_datetime    ,&
            & zf               ,dz                    ,zh(:,klev+1)     ,&
            & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
            & x_cdnc                                                     )
@@ -376,7 +376,7 @@ CONTAINS
       CALL rad_aero_diag (                                  &
       & jg              ,krow            ,kproma          , &
       & kbdim           ,klev            ,nbndlw          , &
-      & nb_sw           ,aer_tau_lw_vr   ,aer_tau_sw_vr   , &
+      & nbndsw          ,aer_tau_lw_vr   ,aer_tau_sw_vr   , &
       & aer_piz_sw_vr   ,aer_cg_sw_vr                       )
 
     CALL cloud_optics(                                                  &
@@ -424,7 +424,7 @@ CONTAINS
 !!$    ! -----------------------------------------------------------------------------------
 !!$    IF (lanysubmodel)  CALL radiation_subm_1(                     &
 !!$         kproma           ,kbdim            ,klev         ,krow  ,&
-!!$         ktrac            ,iaero            ,nbndlw       ,nb_sw ,&
+!!$         ktrac            ,iaero            ,nbndlw       ,nbndsw,&
 !!$         aer_tau_sw_vr    ,aer_piz_sw_vr    ,aer_cg_sw_vr        ,&
 !!$         aer_tau_lw_vr    ,......           ,xm_trc               )
     !
@@ -455,9 +455,10 @@ CONTAINS
     !
     CALL srtm(kproma                                                           , & 
          &  kbdim           ,klev            ,pm_fl_vr        ,tk_fl_vr        , &
-         &  wkl_vr          ,col_dry_vr      ,alb_vis_dir     ,alb_vis_dif     , &
-         &  alb_nir_dir     ,alb_nir_dif     ,pmu0            ,ssi_factor      , &
-         &  psctm           ,cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    , &
+         &  wkl_vr          ,col_dry_vr                                        , &
+         &  alb_vis_dir     ,alb_vis_dif     ,alb_nir_dir     ,alb_nir_dif     , &
+         &  pmu0            ,daylght_frc     ,ssi_factor      ,psctm           , &
+         &  cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr                     , &
          &  cld_piz_sw_vr   ,aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr   , & 
          &  rnseeds         ,sw_strat        ,n_gpts_ts       ,flx_dnsw        , &
          &  flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr                     , &

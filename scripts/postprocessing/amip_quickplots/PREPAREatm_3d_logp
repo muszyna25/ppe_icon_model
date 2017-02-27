@@ -6,33 +6,33 @@ echo $TYP
 #
 NAME=$2
 #
-RES=$3
+DIR=$3
+#
+RES=$4
 #
 echo $RES
 #
-eraRES=$4
+eraRES=$5
 #
 #
 echo $eraRES
 #
-TO=$5
+TO=$6
 #
-LEV=$6
+LEV=$7
 #
 echo $LEV
 #
-WORKDIR=$7
-echo $WORKDIR
 #
-#
+
 echo QUELLE path $QUELLE 
 
 #
 
 
 #
-###############LOGmod="${WORKDIR}/atm_dyn_${NAME}"
-inDat="${WORKDIR}/atm_3d_${NAME}"
+inDat="${DIR}/${NAME}_atm_3d_ml.nc"
+
 ATMera="ERAin_T63L47_atm_3d_zon_${ERAystrt}_${ERAylast}_${TYP}.nc"
 #
 ###########################################################################
