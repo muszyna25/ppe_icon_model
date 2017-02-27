@@ -45,6 +45,8 @@ MODULE mo_psrad_params
 !! 
 !!  Shared parameters 
 !!
+  REAL(wp), PARAMETER :: rad_undef = -999._wp  !< default undef. value
+  !
   INTEGER,  PARAMETER :: mg     = 16  !< number of original g-intervals per spectral band
   INTEGER,  PARAMETER :: maxxsec= 4   !< maximum number of cross-section molecules (cfcs)
   INTEGER,  PARAMETER :: mxmol  = 38

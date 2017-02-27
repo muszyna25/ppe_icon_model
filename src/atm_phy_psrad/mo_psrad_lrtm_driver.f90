@@ -39,9 +39,9 @@ MODULE mo_psrad_lrtm_driver
 
   USE mo_kind,               ONLY: wp
   USE mo_physical_constants, ONLY: grav, amd, amw
-  USE mo_psrad_params,       ONLY: nbndlw, ngptlw
+  USE mo_psrad_params,       ONLY: nbndlw, ngptlw, rad_undef
   USE mo_psrad_radiation_parameters, &
-                             ONLY: i_overlap, l_do_sep_clear_sky, rad_undef
+                             ONLY: i_overlap, l_do_sep_clear_sky
   USE mo_psrad_lrtm_setup,   ONLY: ngb, delwave
   USE rrlw_planck,           ONLY: totplanck
   USE mo_psrad_rrtm_coeffs,  ONLY: lrtm_coeffs

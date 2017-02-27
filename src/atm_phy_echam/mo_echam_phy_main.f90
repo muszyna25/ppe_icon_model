@@ -42,7 +42,7 @@ MODULE mo_echam_phy_main
   USE mo_cover,               ONLY: cover
   !
   USE mo_ext_data_state,      ONLY: ext_data
-  USE mo_psrad_radiation_parameters, ONLY: psctm
+  USE mo_psrad_solar_parameters, ONLY: psctm
   USE mo_psrad_radiation,     ONLY: psrad_radiation
   USE mo_radheating,          ONLY: radheating
   !

@@ -9,7 +9,8 @@ MODULE mo_psrad_interface
   USE mo_kind,                       ONLY: wp
   USE mo_physical_constants,         ONLY: avo, amd, amw, amco2, amch4, amn2o, amo3, amo2, amc11, amc12, zemiss_def
   USE mo_exception,                  ONLY: finish
-  USE mo_psrad_radiation_parameters, ONLY: rad_perm, psctm, ssi_factor
+  USE mo_psrad_radiation_parameters, ONLY: rad_perm
+  USE mo_psrad_solar_parameters,     ONLY: psctm, ssi_factor
   USE mo_psrad_params,               ONLY: maxxsec, maxinpx, nbndsw, nbndlw
   USE mo_psrad_cloud_optics,         ONLY: cloud_optics
   USE mo_bc_aeropt_kinne,            ONLY: set_bc_aeropt_kinne  

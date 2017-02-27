@@ -101,16 +101,15 @@ MODULE mo_psrad_radiation
                                     icosmu0,              &
                                     lyr_perp,             &
                                     yr_perp,              &
-                                    lradforcing,          &
                                     tsi_radt,             &
                                     ssi_radt
   USE mo_psrad_radiation_parameters, ONLY:                     & 
-                                     irad_aero_forcing,        &
                                      lw_spec_samp,             &
                                      sw_spec_samp,             &
                                      lw_gpts_ts,               &
                                      sw_gpts_ts,               &
-                                     rad_perm,                 &
+                                     rad_perm
+  USE mo_psrad_solar_parameters, ONLY:                         &
                                      psctm,                    &
                                      ssi_factor,               &
                                      solar_parameters
@@ -325,13 +324,7 @@ MODULE mo_psrad_radiation
     INTEGER :: istat, funit
     CHARACTER(len=2)                  :: cio3
 
-    NAMELIST /psrad_nml/ lradforcing,       & ! switch for short and longwave
-     ! radiative forcing calculation by double call to radiation (default:
-     ! (/.FALSE.,.FALSE./)) 
-                       & irad_aero_forcing, & ! key number of aerosols 
-     ! in reference radiation computation for radiative forcing calculation
-     ! by double call to radiation
-                       & lw_gpts_ts,        &
+    NAMELIST /psrad_nml/ lw_gpts_ts,        &
                        & lw_spec_samp,      &
                        & rad_perm,          &
                        & sw_gpts_ts,        &

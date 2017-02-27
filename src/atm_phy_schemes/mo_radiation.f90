@@ -78,7 +78,7 @@ MODULE mo_radiation
   USE mo_psrad_srtm_driver,    ONLY: psrad_srtm => srtm
   USE mo_psrad_spec_sampling,  ONLY: get_num_gpoints
   USE mo_psrad_interface,      ONLY: lw_strat, sw_strat
-  USE mo_psrad_radiation_parameters, ONLY: psctm
+  USE mo_psrad_solar_parameters, ONLY: psctm
   USE mo_timer,                ONLY: ltimer, timer_start, timer_stop,  &
     &                                timer_radiation,                  &
     &                                timer_rrtm_prep, timer_rrtm_post, &
