@@ -80,47 +80,26 @@ CONTAINS
     i_startblk = patch%cells%start_blk(rl_start,1)
     i_endblk   = patch%cells%end_blk(rl_end,i_nchdom)
 
-    IF (echam_phy_config%lvdiff) THEN
-
 !$OMP PARALLEL DO PRIVATE(jcs,jce, zxt_emis)
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+    DO jb = i_startblk,i_endblk
+      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
-        ! 5.1 Emission of aerosols or other tracers. Not implemented yet.
-    ! 
-    !       IF (ntrac>0) THEN
-    !         !CALL tracer_emission()
-            zxt_emis(jcs:jce,:) = 0._wp
-    !       ENDIF
-        !
-        ! 5.2 Dry deposition of aerosols or other tracers. Not implemented yet.
-        ! CALL dry_deposition()
-        !
+      ! 5.1 Emission of aerosols or other tracers. Not implemented yet.
+  ! 
+  !       IF (ntrac>0) THEN
+  !         !CALL tracer_emission()
+          zxt_emis(jcs:jce,:) = 0._wp
+  !       ENDIF
+      !
+      ! 5.2 Dry deposition of aerosols or other tracers. Not implemented yet.
+      ! CALL dry_deposition()
+      !
 
-        CALL echam_vdiffDownUp_surf( jg, jb,jcs,jce, nproma, field,  tend, zxt_emis, &
-          & zconv(:,:,jb), zq_phy(:,:,jb), pdtime)
+      CALL echam_vdiffDownUp_surf( jg, jb,jcs,jce, nproma, field,  tend, zxt_emis, &
+        & zconv(:,:,jb), zq_phy(:,:,jb), pdtime)
 
-      ENDDO
+    ENDDO
 !$OMP END PARALLEL DO 
-
-!     ELSE
-! 
-! !$OMP PARALLEL DO PRIVATE(jcs,jce)
-!       DO jb = i_startblk,i_endblk
-!         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!         field% evap(jcs:jce,jb)= 0._wp
-! 
-!         tend%   ua_vdf(jcs:jce,:,jb)      = 0._wp
-!         tend%   va_vdf(jcs:jce,:,jb)      = 0._wp
-!         tend%   ta_vdf(jcs:jce,:,jb)      = 0._wp
-!         tend% qtrc_vdf(jcs:jce,:,jb,iqv)  = 0._wp
-!         tend% qtrc_vdf(jcs:jce,:,jb,iqc)  = 0._wp
-!         tend% qtrc_vdf(jcs:jce,:,jb,iqi)  = 0._wp
-!         tend% qtrc_vdf(jcs:jce,:,jb,iqt:) = 0._wp
-!       ENDDO
-! !$OMP END PARALLEL DO 
-
-    ENDIF !lvdiff
 
   END SUBROUTINE interface_echam_vdiff_surface
   !-------------------------------------------------------------------

@@ -31,7 +31,6 @@ MODULE mo_interface_echam_radheating
 
   USE mo_kind,                ONLY: wp
   USE mo_run_config,          ONLY: nlev, nlevp1
-  USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field,     &
     &                               t_echam_phy_tend
   USE mo_ext_data_state,      ONLY: ext_data
@@ -72,53 +71,36 @@ CONTAINS
     i_startblk = patch%cells%start_blk(rl_start,1)
     i_endblk   = patch%cells%end_blk(rl_end,i_nchdom)
 
-    IF (phy_config%lrad) THEN
       
-      IF (ltimer) CALL timer_start(timer_radheat)
-      ! 4.2 RADIATIVE HEATING
-      !----------------------
-      ! radheat first computes the shortwave and longwave radiation for the current time step from transmissivity and
-      ! the longwave flux at the radiation time step and, from there, the radiative heating due to sw and lw radiation.
-      ! If radiation is called every time step, the longwave flux is not changed.
+    IF (ltimer) CALL timer_start(timer_radheat)
+    ! 4.2 RADIATIVE HEATING
+    !----------------------
+    ! radheat first computes the shortwave and longwave radiation for the current time step from transmissivity and
+    ! the longwave flux at the radiation time step and, from there, the radiative heating due to sw and lw radiation.
+    ! If radiation is called every time step, the longwave flux is not changed.
 
 !$OMP PARALLEL DO PRIVATE(jcs,jce, zq_rsw)
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+    DO jb = i_startblk,i_endblk
+      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
-        CALL echam_radheating( jg, jb,jcs,jce, nproma, field, zq_rsw, zq_rlw(:,:,jb))
+      CALL echam_radheating( jg, jb,jcs,jce, nproma, field, zq_rsw, zq_rlw(:,:,jb))
 
-        ! heating accumulated
-        zq_phy(jcs:jce,:,jb) = zq_phy(jcs:jce,:,jb) + zq_rsw(jcs:jce,:) + zq_rlw(jcs:jce,:,jb)
-        
-        ! tendencies
-        tend%ta_rsw(jcs:jce,:,jb) = zq_rsw(jcs:jce,:)    * zconv(jcs:jce,:,jb)
-        tend%ta_rlw(jcs:jce,:,jb) = zq_rlw(jcs:jce,:,jb) * zconv(jcs:jce,:,jb)
+      ! heating accumulated
+      zq_phy(jcs:jce,:,jb) = zq_phy(jcs:jce,:,jb) + zq_rsw(jcs:jce,:) + zq_rlw(jcs:jce,:,jb)
+      
+      ! tendencies
+      tend%ta_rsw(jcs:jce,:,jb) = zq_rsw(jcs:jce,:)    * zconv(jcs:jce,:,jb)
+      tend%ta_rlw(jcs:jce,:,jb) = zq_rlw(jcs:jce,:,jb) * zconv(jcs:jce,:,jb)
 
-        ! tendencies accumulated
-        tend% ta(jcs:jce,:,jb) = tend% ta     (jcs:jce,:,jb) &
-          &                    + tend% ta_rsw (jcs:jce,:,jb) &
-          &                    + tend% ta_rlw (jcs:jce,:,jb)
+      ! tendencies accumulated
+      tend% ta(jcs:jce,:,jb) = tend% ta     (jcs:jce,:,jb) &
+        &                    + tend% ta_rsw (jcs:jce,:,jb) &
+        &                    + tend% ta_rlw (jcs:jce,:,jb)
 
 
-      ENDDO
+    ENDDO
 !$OMP END PARALLEL DO 
-      IF (ltimer) CALL timer_stop(timer_radheat)
-
-    ELSE   
-      ! If computation of radiative heating is by-passed
-      ! this shound not be needed, as these field are zeroed in the initialization
-!$OMP PARALLEL DO PRIVATE(jcs,jce)
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-
-        tend%ta_rsw(jcs:jce,:,jb) = 0.0_wp
-        tend%ta_rlw(jcs:jce,:,jb) = 0.0_wp
-
-        field%rsdt(jcs:jce,jb)= 0.0_wp
-      ENDDO
-!$OMP END PARALLEL DO 
-
-    END IF ! lrad
+    IF (ltimer) CALL timer_stop(timer_radheat)
  
   END SUBROUTINE interface_echam_radheating
    !-------------------------------------------------------------------

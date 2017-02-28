@@ -81,7 +81,7 @@ CONTAINS
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
-      CALL echam_cumulus_condensation(jb,jcs,jce, nproma, field, tend, zcpair(:,:,jb), zconv(:,:,jb), zq_phy(:,:,jb), ictop(:,jb))
+      CALL echam_condensation(jb,jcs,jce, nproma, field, tend, zcpair(:,:,jb), zconv(:,:,jb), zq_phy(:,:,jb), ictop(:,jb))
 
     ENDDO
 !$OMP END PARALLEL DO 
@@ -92,7 +92,7 @@ CONTAINS
   !-------------------------------------------------------------------
 
   !---------------------------------------------------------------------
-  SUBROUTINE echam_cumulus_condensation(jb,jcs,jce, nbdim, field, tend, zcpair, zconv, zq_phy, ictop)
+  SUBROUTINE echam_condensation(jb,jcs,jce, nbdim, field, tend, zcpair, zconv, zq_phy, ictop)
     INTEGER         ,INTENT(IN) :: jb             !< block index
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
     INTEGER         ,INTENT(IN) :: nbdim          !< size of this block 
@@ -112,57 +112,53 @@ CONTAINS
     !-------------------------------------------------------------
     ! 7. LARGE SCALE CONDENSATION.
     !-------------------------------------------------------------
-    IF(phy_config%lcond) THEN
+    !IF (lcotra) CALL get_col_pol( tend%ta(:,:,jb),tend%qtrc(:,:,jb,iqv),jb )
+    itype(:) = NINT(field%rtype(:,jb))
 
-      !IF (lcotra) CALL get_col_pol( tend%ta(:,:,jb),tend%qtrc(:,:,jb,iqv),jb )
-      itype(:) = NINT(field%rtype(:,jb))
-
-      CALL cloud(jce, nbdim, jks, nlev,        &! in
-        &        pdtime,                       &! in
-        &        ictop,                        &! in (from "cucall")
-        &        field% presm_old(:,:,jb),     &! in
-        &        field% dz       (:,:,jb),     &! in
-        &        field% mdry     (:,:,jb),     &! in
-        &        field% rho      (:,:,jb),     &! in
-        &               zcpair   (:,:),        &! in
-        &        field% acdnc    (:,:,jb),     &! in  acdnc
-        &        field% ta       (:,:,jb),     &! in  tm1
-        &        field% qtrc     (:,:,jb,iqv), &! in  qm1
-        &        field% qtrc     (:,:,jb,iqc), &! in  xlm1
-        &        field% qtrc     (:,:,jb,iqi), &! in  xim1
-        &         tend% ta       (:,:,jb),     &! in  tte
-        &         tend% qtrc     (:,:,jb,iqv), &! in  qte
-        !
-        &        itype,                        &! inout
-        &        field% aclc     (:,:,jb),     &! inout
-        !
-        &        field% aclcov   (:,  jb),     &! out
-        &        field% rsfl     (:,  jb),     &! out
-        &        field% ssfl     (:,  jb),     &! out
-        &        field% relhum   (:,:,jb),     &! out
-        &               zq_cld   (:,:),        &! out
-        &         tend% qtrc_cld (:,:,jb,iqv), &! out
-        &         tend% qtrc_cld (:,:,jb,iqc), &! out
-        &         tend% qtrc_cld (:,:,jb,iqi)  )! out
+    CALL cloud(jce, nbdim, jks, nlev,        &! in
+      &        pdtime,                       &! in
+      &        ictop,                        &! in (from "cucall")
+      &        field% presm_old(:,:,jb),     &! in
+      &        field% dz       (:,:,jb),     &! in
+      &        field% mdry     (:,:,jb),     &! in
+      &        field% rho      (:,:,jb),     &! in
+      &               zcpair   (:,:),        &! in
+      &        field% acdnc    (:,:,jb),     &! in  acdnc
+      &        field% ta       (:,:,jb),     &! in  tm1
+      &        field% qtrc     (:,:,jb,iqv), &! in  qm1
+      &        field% qtrc     (:,:,jb,iqc), &! in  xlm1
+      &        field% qtrc     (:,:,jb,iqi), &! in  xim1
+      &         tend% ta       (:,:,jb),     &! in  tte
+      &         tend% qtrc     (:,:,jb,iqv), &! in  qte
+      !
+      &        itype,                        &! inout
+      &        field% aclc     (:,:,jb),     &! inout
+      !
+      &        field% aclcov   (:,  jb),     &! out
+      &        field% rsfl     (:,  jb),     &! out
+      &        field% ssfl     (:,  jb),     &! out
+      &        field% relhum   (:,:,jb),     &! out
+      &               zq_cld   (:,:),        &! out
+      &         tend% qtrc_cld (:,:,jb,iqv), &! out
+      &         tend% qtrc_cld (:,:,jb,iqc), &! out
+      &         tend% qtrc_cld (:,:,jb,iqi)  )! out
 
 
-      field% rtype(:,jb) = REAL(itype(:),wp)
+    field% rtype(:,jb) = REAL(itype(:),wp)
 
-      ! heating accumulated
-      zq_phy(:,:) = zq_phy(:,:) + zq_cld(:,:)
+    ! heating accumulated
+    zq_phy(:,:) = zq_phy(:,:) + zq_cld(:,:)
 
-      ! tendency
-      tend% ta_cld(:,:,jb) = zq_cld(:,:)*zconv(:,:)
+    ! tendency
+    tend% ta_cld(:,:,jb) = zq_cld(:,:)*zconv(:,:)
 
-      ! tendencies accumulated
-      tend%   ta(:,:,jb)      = tend%   ta(:,:,jb)      + tend%   ta_cld(:,:,jb)
-      tend% qtrc(:,:,jb,iqv)  = tend% qtrc(:,:,jb,iqv)  + tend% qtrc_cld(:,:,jb,iqv)
-      tend% qtrc(:,:,jb,iqc)  = tend% qtrc(:,:,jb,iqc)  + tend% qtrc_cld(:,:,jb,iqc)
-      tend% qtrc(:,:,jb,iqi)  = tend% qtrc(:,:,jb,iqi)  + tend% qtrc_cld(:,:,jb,iqi)
+    ! tendencies accumulated
+    tend%   ta(:,:,jb)      = tend%   ta(:,:,jb)      + tend%   ta_cld(:,:,jb)
+    tend% qtrc(:,:,jb,iqv)  = tend% qtrc(:,:,jb,iqv)  + tend% qtrc_cld(:,:,jb,iqv)
+    tend% qtrc(:,:,jb,iqc)  = tend% qtrc(:,:,jb,iqc)  + tend% qtrc_cld(:,:,jb,iqc)
+    tend% qtrc(:,:,jb,iqi)  = tend% qtrc(:,:,jb,iqi)  + tend% qtrc_cld(:,:,jb,iqi)
 
-    ENDIF !lcond
-
-  END SUBROUTINE echam_cumulus_condensation
+  END SUBROUTINE echam_condensation
   !---------------------------------------------------------------------
 
 

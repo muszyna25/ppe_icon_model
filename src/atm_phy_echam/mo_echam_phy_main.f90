@@ -32,13 +32,13 @@ MODULE mo_echam_phy_main
   USE mo_kind,                ONLY: wp
   USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv, Tf, tmelt
   USE mo_run_config,          ONLY: ntracer, nlev, nlevp1,    &
-    &                               iqv, iqi, iqt
+    &                               iqv, iqc, iqi, iqt
   USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_echam_cloud_config,  ONLY: echam_cloud_config
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
     &                               t_echam_phy_tend,  prm_tend,      &
     &                               cdimissval
-  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,                &
+  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,  &
     &                               timer_cover
   USE mtime,                  ONLY: datetime
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
@@ -76,7 +76,7 @@ CONTAINS
   !!
   SUBROUTINE echam_phy_main( patch,                         &
     &                        rl_start, rl_end,              &
-    &                        this_datetime,pdtime,        &
+    &                        this_datetime,pdtime,          &
     &                        ltrig_rad                      )
 
     TYPE(t_patch)   ,INTENT(in), TARGET :: patch           !< grid/patch info
@@ -124,6 +124,7 @@ CONTAINS
     field  => prm_field(jg)
     tend   => prm_tend (jg)
 
+    ictop(:,:)   = nlev-1
     ! provisionally copy the incoming tedencies
 !$OMP PARALLEL DO PRIVATE(jcs,jce)
     DO jb = i_startblk,i_endblk
@@ -210,7 +211,9 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 4.2 RADIATIVE HEATING
     !----------------------
-    CALL  interface_echam_radheating(patch, rl_start, rl_end, field, tend, zconv, zq_rlw, zq_phy)
+    IF (echam_phy_config%lrad) THEN
+      CALL  interface_echam_radheating(patch, rl_start, rl_end, field, tend, zconv, zq_rlw, zq_phy)
+    ENDIF
 
 
     !-------------------------------------------------------------------
@@ -218,9 +221,10 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Note: In ECHAM this part is located between "CALL radiation" and
     !       "CALL radheat".
-    CALL interface_echam_vdiff_surface(patch, rl_start, rl_end, field, tend, zconv, zq_phy, pdtime)
+    IF (echam_phy_config%lvdiff) THEN
+      CALL interface_echam_vdiff_surface(patch, rl_start, rl_end, field, tend, zconv, zq_phy, pdtime)
+    ENDIF
     !-----------------------
-
 
     !-----------------------
     IF (echam_phy_config%lrad) THEN
@@ -256,20 +260,35 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 6. ATMOSPHERIC GRAVITY WAVES
     !-------------------------------------------------------------------
-    CALL  interface_echam_gwhines(patch, rl_start, rl_end, field, tend, zconv, zq_phy)
+    IF (echam_phy_config%lgw_hines) THEN
+      CALL  interface_echam_gwhines(patch, rl_start, rl_end, field, tend, zconv, zq_phy)
+    ENDIF
 
-    CALL  interface_echam_sso(patch, rl_start, rl_end, field, tend, zconv, zq_phy, pdtime)
+    IF (echam_phy_config%lssodrag) THEN
+      CALL  interface_echam_sso(patch, rl_start, rl_end, field, tend, zconv, zq_phy, pdtime)
+    ENDIF
 
     !-------------------------------------------------------------------
     ! 7. CONVECTION PARAMETERISATION
     !-------------------------------------------------------------------
-    CALL interface_echam_convection(patch, rl_start, rl_end, field, tend, &
-      & ictop, zconv, zq_phy, ntrac, pdtime)
+    IF (echam_phy_config%lconv) THEN
+      CALL interface_echam_convection(patch, rl_start, rl_end, field, tend, &
+        & ictop, zconv, zq_phy, ntrac, pdtime)
+    ELSE
+      field% rtype(:,:) = 0.0_wp ! this probably is needed as is io in the echam_condensation
+    ENDIF
     !-------------------------------------------------------------------
 
+    !-------------------------------------------------------------
+    ! Update provisional physics state
+    field% qtrc(:,:,:,iqc) = field% qtrc(:,:,:,iqc) + tend% qtrc(:,:,:,iqc)*pdtime
+    field% qtrc(:,:,:,iqi) = field% qtrc(:,:,:,iqi) + tend% qtrc(:,:,:,iqi)*pdtime
+
     !-------------------------------------------------------------------
-    CALL interface_echam_condensation(patch, rl_start, rl_end, jks, field, tend, &
-      & zcpair, zconv, zq_phy, ictop, pdtime)
+    IF(echam_phy_config%lcond) THEN
+      CALL interface_echam_condensation(patch, rl_start, rl_end, jks, field, tend, &
+        & zcpair, zconv, zq_phy, ictop, pdtime)
+    ENDIF
     !-------------------------------------------------------------------
 
 !$OMP PARALLEL DO PRIVATE(jcs,jce)

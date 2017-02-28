@@ -32,7 +32,6 @@ MODULE mo_interface_echam_convection
   USE mo_kind,                ONLY: wp
   USE mo_run_config,          ONLY: nlev, nlevm1, nlevp1,    &
     &                               iqv, iqc, iqi, iqt, ntracer
-  USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field,     &
     &                               t_echam_phy_tend
   USE mo_cumastr,             ONLY: cumastr
@@ -135,82 +134,64 @@ CONTAINS
     zqtrc_cnd(:,:) = zqtrc(:,:,iqc) + zqtrc(:,:,iqi)
     ztend_qv(:,:)  = tend%qtrc_dyn(:,:,jb,iqv) + tend%qtrc_phy(:,:,jb,iqv)
 
-    IF (echam_phy_config%lconv) THEN
+    CALL cumastr(jce, nbdim,                   &! in
+      &          nlev, nlevp1, nlevm1,         &! in
+      &          pdtime,                       &! in
+      &          field% zf       (:,:,jb),     &! in
+      &          field% zh       (:,:,jb),     &! in
+      &          field% mdry     (:,:,jb),     &! in
+      &                zta       (:,:),        &! in
+      &                zqtrc     (:,:,   iqv), &! in
+      &                zqtrc_cnd (:,:),        &! in
+      &                zua       (:,:),        &! in
+      &                zva       (:,:),        &! in
+      &          ntrac,                        &! in
+      &          field% lfland   (:,  jb),     &! in
+      &                zqtrc     (:,:,   iqt:),&! in
+      &          field% omega    (:,:,jb),     &! in
+      &          field% evap     (:,  jb),     &! in
+      &          field% presm_new(:,:,jb),     &! in
+      &          field% presi_new(:,:,jb),     &! in
+      &          field% geom     (:,:,jb),     &! in
+      &          field% geoi     (:,:,jb),     &! in
+      &                ztend_qv  (:,:),        &! in
+      &          field% thvsig   (:,  jb),     &! in
+      &          itype,                        &! out
+      &          ictop,                        &! out
+      &          field% rsfc     (:,  jb),     &! out
+      &          field% ssfc     (:,  jb),     &! out
+      &          field% con_dtrl (:,jb),       &! out
+      &          field% con_dtri (:,jb),       &! out
+      &          field% con_iteqv(:,jb),       &! out
+      &                   zq_cnv (:,:),        &! out
+      &           tend%   ua_cnv (:,:,jb),     &! out
+      &           tend%   va_cnv (:,:,jb),     &! out
+      &           tend% qtrc_cnv (:,:,jb,iqv), &! out
+      &           tend% qtrc_cnv (:,:,jb,iqt:),&! out
+      &           tend% qtrc_cnv (:,:,jb,iqc), &! out
+      &           tend% qtrc_cnv (:,:,jb,iqi), &! out
+      &                ztop      (:)           )! out
 
-      CALL cumastr(jce, nbdim,                   &! in
-        &          nlev, nlevp1, nlevm1,         &! in
-        &          pdtime,                       &! in
-        &          field% zf       (:,:,jb),     &! in
-        &          field% zh       (:,:,jb),     &! in
-        &          field% mdry     (:,:,jb),     &! in
-        &                zta       (:,:),        &! in
-        &                zqtrc     (:,:,   iqv), &! in
-        &                zqtrc_cnd (:,:),        &! in
-        &                zua       (:,:),        &! in
-        &                zva       (:,:),        &! in
-        &          ntrac,                        &! in
-        &          field% lfland   (:,  jb),     &! in
-        &                zqtrc     (:,:,   iqt:),&! in
-        &          field% omega    (:,:,jb),     &! in
-        &          field% evap     (:,  jb),     &! in
-        &          field% presm_new(:,:,jb),     &! in
-        &          field% presi_new(:,:,jb),     &! in
-        &          field% geom     (:,:,jb),     &! in
-        &          field% geoi     (:,:,jb),     &! in
-        &                ztend_qv  (:,:),        &! in
-        &          field% thvsig   (:,  jb),     &! in
-        &          itype,                        &! out
-        &          ictop,                        &! out
-        &          field% rsfc     (:,  jb),     &! out
-        &          field% ssfc     (:,  jb),     &! out
-        &          field% con_dtrl (:,jb),       &! out
-        &          field% con_dtri (:,jb),       &! out
-        &          field% con_iteqv(:,jb),       &! out
-        &                   zq_cnv (:,:),        &! out
-        &           tend%   ua_cnv (:,:,jb),     &! out
-        &           tend%   va_cnv (:,:,jb),     &! out
-        &           tend% qtrc_cnv (:,:,jb,iqv), &! out
-        &           tend% qtrc_cnv (:,:,jb,iqt:),&! out
-        &           tend% qtrc_cnv (:,:,jb,iqc), &! out
-        &           tend% qtrc_cnv (:,:,jb,iqi), &! out
-        &                ztop      (:)           )! out
+    ! store convection type as real value
+    field% rtype(:,jb) = REAL(itype(:),wp)
 
-      ! store convection type as real value
-      field% rtype(:,jb) = REAL(itype(:),wp)
+    ! keep minimum conv. cloud top pressure (= max. conv. cloud top height) of this output interval
+    field% topmax(:,jb) = MIN(field% topmax(:,jb),ztop(:))
 
-      ! keep minimum conv. cloud top pressure (= max. conv. cloud top height) of this output interval
-      field% topmax(:,jb) = MIN(field% topmax(:,jb),ztop(:))
+    ! heating accumulated
+    zq_phy(:,:) = zq_phy(:,:) + zq_cnv(:,:)
 
-      ! heating accumulated
-      zq_phy(:,:) = zq_phy(:,:) + zq_cnv(:,:)
+    ! tendency
+    tend% ta_cnv(:,:,jb) = zq_cnv(:,:)*zconv(:,:)
 
-      ! tendency
-      tend% ta_cnv(:,:,jb) = zq_cnv(:,:)*zconv(:,:)
-
-      ! tendencies accumulated
-      tend%   ua(:,:,jb)      = tend%   ua(:,:,jb)      + tend%   ua_cnv(:,:,jb)
-      tend%   va(:,:,jb)      = tend%   va(:,:,jb)      + tend%   va_cnv(:,:,jb)
-      tend%   ta(:,:,jb)      = tend%   ta(:,:,jb)      + tend%   ta_cnv(:,:,jb)
-      tend% qtrc(:,:,jb,iqv)  = tend% qtrc(:,:,jb,iqv)  + tend% qtrc_cnv(:,:,jb,iqv)
-      tend% qtrc(:,:,jb,iqc)  = tend% qtrc(:,:,jb,iqc)  + tend% qtrc_cnv(:,:,jb,iqc)
-      tend% qtrc(:,:,jb,iqi)  = tend% qtrc(:,:,jb,iqi)  + tend% qtrc_cnv(:,:,jb,iqi)
-      tend% qtrc(:,:,jb,iqt:) = tend% qtrc(:,:,jb,iqt:) + tend% qtrc_cnv(:,:,jb,iqt:)
-
-    ELSE ! NECESSARY COMPUTATIONS IF MASSFLUX IS BY-PASSED
-
-      ictop(:)   = nlev-1
-      field% rtype(:,jb) = 0.0_wp
-
-    ENDIF !lconv
-
-    !-------------------------------------------------------------
-    ! Update provisional physics state
-    !
-!!$    field% ta  (:,:,jb)     = field% ta  (:,:,jb)     + tend% ta  (:,:,jb)    *pdtime
-!!$    field% qtrc(:,:,jb,iqv) = field% qtrc(:,:,jb,iqv) + tend% qtrc(:,:,jb,iqv)*pdtime
-    field% qtrc(:,:,jb,iqc) = field% qtrc(:,:,jb,iqc) + tend% qtrc(:,:,jb,iqc)*pdtime
-    field% qtrc(:,:,jb,iqi) = field% qtrc(:,:,jb,iqi) + tend% qtrc(:,:,jb,iqi)*pdtime
-    !
+    ! tendencies accumulated
+    tend%   ua(:,:,jb)      = tend%   ua(:,:,jb)      + tend%   ua_cnv(:,:,jb)
+    tend%   va(:,:,jb)      = tend%   va(:,:,jb)      + tend%   va_cnv(:,:,jb)
+    tend%   ta(:,:,jb)      = tend%   ta(:,:,jb)      + tend%   ta_cnv(:,:,jb)
+    tend% qtrc(:,:,jb,iqv)  = tend% qtrc(:,:,jb,iqv)  + tend% qtrc_cnv(:,:,jb,iqv)
+    tend% qtrc(:,:,jb,iqc)  = tend% qtrc(:,:,jb,iqc)  + tend% qtrc_cnv(:,:,jb,iqc)
+    tend% qtrc(:,:,jb,iqi)  = tend% qtrc(:,:,jb,iqi)  + tend% qtrc_cnv(:,:,jb,iqi)
+    tend% qtrc(:,:,jb,iqt:) = tend% qtrc(:,:,jb,iqt:) + tend% qtrc_cnv(:,:,jb,iqt:)
     !-------------------------------------------------------------
 
   END SUBROUTINE echam_convection

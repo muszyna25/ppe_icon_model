@@ -27,11 +27,9 @@ MODULE mo_interface_echam_sso
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi
   USE mo_run_config,          ONLY: nlev
-  USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field,     &
     &                               t_echam_phy_tend
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_ssodrag
-  USE mo_gw_hines,            ONLY: gw_hines
   USE mo_ssortns,             ONLY: ssodrag
 
   USE mo_parallel_config     ,ONLY: nproma
@@ -67,21 +65,17 @@ CONTAINS
     i_endblk   = patch%cells%end_blk(rl_end,i_nchdom)
  
    ! 6.2   CALL SUBROUTINE SSODRAG
-    IF (phy_config%lssodrag) THEN
-
-      IF (ltimer) call timer_start(timer_ssodrag)
+    IF (ltimer) call timer_start(timer_ssodrag)
 
 !$OMP PARALLEL DO PRIVATE(jcs,jce)
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+    DO jb = i_startblk,i_endblk
+      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
-        CALL echam_ssodrag(patch, jb,jcs,jce, nproma, field, tend, zconv(:,:,jb), zq_phy(:,:,jb), pdtime)
-      ENDDO
+      CALL echam_ssodrag(patch, jb,jcs,jce, nproma, field, tend, zconv(:,:,jb), zq_phy(:,:,jb), pdtime)
+    ENDDO
 !$OMP END PARALLEL DO 
 
-      IF (ltimer) call timer_stop(timer_ssodrag)
-
-    END IF ! SSODRAG
+    IF (ltimer) call timer_stop(timer_ssodrag)
 
   END SUBROUTINE interface_echam_sso
    !-------------------------------------------------------------------

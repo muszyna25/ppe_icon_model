@@ -27,12 +27,10 @@ MODULE mo_interface_echam_gwhines
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi
   USE mo_run_config,          ONLY: nlev
-  USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field,     &
     &                               t_echam_phy_tend
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_gw_hines
   USE mo_gw_hines,            ONLY: gw_hines
-  USE mo_ssortns,             ONLY: ssodrag
 
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_loopindices         ,ONLY: get_indices_c
@@ -59,27 +57,22 @@ CONTAINS
     INTEGER  :: jb             !< block index
     INTEGER  :: jcs, jce       !< start/end column index within this block
     
-
     jg         = patch%id
     i_nchdom   = MAX(1,patch%n_childdom)
     i_startblk = patch%cells%start_blk(rl_start,1)
     i_endblk   = patch%cells%end_blk(rl_end,i_nchdom)
 
-    ! 6.1   CALL SUBROUTINE GW_HINES
-    IF (phy_config%lgw_hines) THEN
-
-      IF (ltimer) call timer_start(timer_gw_hines)
+  ! 6.1   CALL SUBROUTINE GW_HINES
+    IF (ltimer) call timer_start(timer_gw_hines)
 !$OMP PARALLEL DO PRIVATE(jcs,jce)
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+    DO jb = i_startblk,i_endblk
+      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
-        CALL echam_gw_hines(patch, jg, jb,jcs,jce, nproma, field, tend, zconv(:,:,jb), zq_phy(:,:,jb))
-      ENDDO
+      CALL echam_gw_hines(patch, jg, jb,jcs,jce, nproma, field, tend, zconv(:,:,jb), zq_phy(:,:,jb))
+    ENDDO
 !$OMP END PARALLEL DO 
 
-      IF (ltimer) call timer_stop(timer_gw_hines)
-
-    ENDIF
+    IF (ltimer) call timer_stop(timer_gw_hines)
 
   END SUBROUTINE interface_echam_gwhines
    !-------------------------------------------------------------------
