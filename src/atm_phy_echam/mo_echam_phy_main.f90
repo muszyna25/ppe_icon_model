@@ -48,8 +48,9 @@ MODULE mo_echam_phy_main
   USE mo_interface_echam_radheating,   ONLY: interface_echam_radheating
   USE mo_interface_echam_vdiff_surface,ONLY: interface_echam_vdiff_surface
   USE mo_interface_echam_o3_cariolle,  ONLY: interface_echam_o3_cariolle
-  USE mo_interface_echam_gravity_waves,ONLY: interface_echam_gravity_waves
   USE mo_interface_echam_convection,   ONLY: interface_echam_convection
+  USE mo_interface_echam_gwhines,      ONLY: interface_echam_gwhines
+  USE mo_interface_echam_sso,          ONLY: interface_echam_sso
   USE mo_interface_echam_condensation, ONLY: interface_echam_condensation
 
   USE mo_parallel_config     ,ONLY: nproma
@@ -255,7 +256,9 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 6. ATMOSPHERIC GRAVITY WAVES
     !-------------------------------------------------------------------
-    CALL  interface_echam_gravity_waves(patch, rl_start, rl_end, field, tend, zconv, zq_phy, pdtime)
+    CALL  interface_echam_gwhines(patch, rl_start, rl_end, field, tend, zconv, zq_phy)
+
+    CALL  interface_echam_sso(patch, rl_start, rl_end, field, tend, zconv, zq_phy, pdtime)
 
     !-------------------------------------------------------------------
     ! 7. CONVECTION PARAMETERISATION

@@ -160,18 +160,6 @@ CONTAINS
       tend% qtrc(:,:,jb,iqc)  = tend% qtrc(:,:,jb,iqc)  + tend% qtrc_cld(:,:,jb,iqc)
       tend% qtrc(:,:,jb,iqi)  = tend% qtrc(:,:,jb,iqi)  + tend% qtrc_cld(:,:,jb,iqi)
 
-!     ELSE ! NECESSARY COMPUTATIONS IF *CLOUD* IS BY-PASSED.
-! 
-!       field% rsfl (jcs:jce,  jb) = 0._wp
-!       field% ssfl (jcs:jce,  jb) = 0._wp
-!       field% aclc (jcs:jce,:,jb) = 0._wp
-! 
-!       tend%   ta_cld(jcs:jce,:,jb)      = 0._wp
-!       tend% qtrc_cld(jcs:jce,:,jb,iqv)  = 0._wp
-!       tend% qtrc_cld(jcs:jce,:,jb,iqc)  = 0._wp
-!       tend% qtrc_cld(jcs:jce,:,jb,iqi)  = 0._wp
-!       tend% qtrc_cld(jcs:jce,:,jb,iqt:) = 0._wp
-
     ENDIF !lcond
 
   END SUBROUTINE echam_cumulus_condensation
