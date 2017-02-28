@@ -14,35 +14,33 @@ set -e
 # "module avail cdo" and "module avail ncl"
 #
 
+TAB=1
 
-TYP=ANN
-
-
-EXP=mbe0780
-
-# atm_RES= ICON-grid resolution r2b4 or r2b6
-atm_RES=r2b4
-
-YY1=1979
-YY2=2008
-
-NAME=ml_${EXP}_${YY1}-${YY2}_${TYP}  
-
-COMMENT='amip 160 km '      #   only for Single-Plots
+ATM_2d=1
+ATM_3d=1
 
 SINGLE=1
 PAGE=1
 
-ATM_3d=1
-ATM_2d=1
-TAB=1
+TYP=ANN
+
+EXPDIR=/work/.../experiments
+
+EXP=atm_amip
+YY1=1979
+YY2=2008
+DIR=${EXPDIR}/${EXP}_post
+NAME=timmean_monmean_${EXP}
 
 
+# atm_RES= ICON-grid resolution r2b4 or r2b6
+atm_RES=r2b4
 
-WORKDIR=/mnt/lustre01/work/mh0081/m214091/${EXP}/
+COMMENT='amip 160 km '      #   only for Single-Plots
 
-#####MODELDIR=/pool/data/ICON/post/
-MODELDIR=~/icon-aes/
+WORKDIR=${EXPDIR}/amip_quickplots
+
+MODELDIR=~/git/icon-aes/
 #######################################################
 #
 # cell=filled triangles cont=filled contour 
@@ -58,8 +56,8 @@ fi
 
 #
 # ERAinterim (time frame: 1979-2008)
-ERAystrt=1979
-ERAylast=2008
+ERAystrt=$YY1
+ERAylast=$YY2
 export ERAystrt
 echo ERAystrt path $ERAystrt
 export ERAylast
@@ -133,7 +131,7 @@ then
 
 
 
-  ${QUELLE}/TABLE.job $TYP $NAME $EXP $YY1 $YY2  $WORKDIR
+  ${QUELLE}/TABLE.job $TYP $DIR $NAME $EXP $YY1 $YY2
 
 
 fi
@@ -166,7 +164,7 @@ then
 fi
 
 
-${QUELLE}/PREPAREatm_2d $TYP $NAME $atm_RES $WORKDIR
+${QUELLE}/PREPAREatm_2d $TYP $NAME $DIR $atm_RES
 
 if [ "$PAGE" = "1" ]
 then
@@ -223,7 +221,7 @@ then
 fi
 
 #---
-${QUELLE}/PREPAREatm_3d_logp $TYP $NAME $atm_RES $era_RES $ERAylast $LEV $WORKDIR
+${QUELLE}/PREPAREatm_3d_logp $TYP $NAME $DIR $atm_RES $era_RES $ERAylast $LEV
 if [ "$PAGE" = "1" ]
 then
   ncl   ${QUELLE}/atm_3d_logp_page.ncl
@@ -237,7 +235,7 @@ rm -f Ubusy_*.nc  Uatm_dyn_pl_log Uatm_dyn_pl
 
 
 #---
-${QUELLE}/PREPAREatm_3d $TYP $NAME $atm_RES $era_RES $ERAylast $WORKDIR
+${QUELLE}/PREPAREatm_3d $TYP $NAME $DIR $atm_RES $era_RES $ERAylast
 
 if [ "$PAGE" = "1" ]
 then

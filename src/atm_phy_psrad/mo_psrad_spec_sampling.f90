@@ -23,11 +23,10 @@
 !!
 
 MODULE mo_psrad_spec_sampling 
-  USE mo_exception,   ONLY : em_warn, message_text, message
-  USE mo_rrtm_params, ONLY : ngptsw, ngptlw
-  USE mo_random_numbers, & 
-                      ONLY: get_random
-  USE mo_kind,        ONLY: wp
+  USE mo_exception,      ONLY: em_warn, message_text, message
+  USE mo_psrad_params,   ONLY: ngptsw, ngptlw
+  USE mo_random_numbers, ONLY: get_random
+  USE mo_kind,           ONLY: wp
   IMPLICIT NONE
   PRIVATE 
 

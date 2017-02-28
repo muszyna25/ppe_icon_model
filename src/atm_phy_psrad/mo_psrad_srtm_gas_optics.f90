@@ -8,7 +8,7 @@
 MODULE mo_psrad_srtm_gas_optics
 
   USE mo_kind,              ONLY: wp
-  USE mo_rrtm_params,       ONLY: nbndsw, ngptsw
+  USE mo_psrad_params,      ONLY: nbndsw, ngptsw
   USE mo_psrad_srtm_setup,  ONLY: ngb, ngc, ngs
 
   IMPLICIT NONE

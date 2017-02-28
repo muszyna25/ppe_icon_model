@@ -1,26 +1,18 @@
 #!/bin/sh 
 set -ex
 #
-TYP=$1
-echo $TYP
-#
-ANAME=$2
+ANAME=$1
+ADIR=$2
 #
 BNAME=$3
+BDIR=$4
 #
-#
-WORKDIR=$4
-# 
+
 echo QUELLE path $QUELLE
-echo WORKDIR path $WORKDIR
+
 #
-
-
-
-##
-AinDat="${WORKDIR}/atm_3d_${ANAME}"
-
-BinDat="${WORKDIR}/atm_3d_${BNAME}"
+AinDat="${ADIR}/${ANAME}_atm_3d_ml.nc"
+BinDat="${BDIR}/${BNAME}_atm_3d_ml.nc"
 #
 ###########################################################################
 # var.txt input for atm_3d.ncl

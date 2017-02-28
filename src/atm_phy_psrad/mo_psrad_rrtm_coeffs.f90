@@ -37,9 +37,9 @@
 !
 MODULE mo_psrad_rrtm_coeffs
 
-  USE mo_kind, ONLY : wp
-  USE mo_rrtm_params, ONLY : preflog, tref
-  USE rrlw_planck,    ONLY : chi_mls
+  USE mo_kind,         ONLY : wp
+  USE mo_psrad_params, ONLY : preflog, tref
+  USE rrlw_planck,     ONLY : chi_mls
   IMPLICIT NONE
 
   PRIVATE

@@ -6,8 +6,8 @@
 !! Where software is supplied by third parties, it is indicated in the headers of the routines.
 !!
 MODULE rrlw_planck
-  USE mo_kind,        ONLY : wp 
-  USE mo_rrtm_params, ONLY : nbndlw
+  USE mo_kind,         ONLY : wp 
+  USE mo_psrad_params, ONLY : nbndlw
 
   PUBLIC
   

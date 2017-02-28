@@ -37,7 +37,7 @@ MODULE mo_interface_echam_radheating
   USE mo_ext_data_state,      ONLY: ext_data
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_radheat
   USE mo_radheating,          ONLY: radheating
-  USE mo_psrad_radiation_parameters, ONLY: psctm
+  USE mo_psrad_solar_parameters, ONLY: psctm
 
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_loopindices         ,ONLY: get_indices_c
@@ -147,6 +147,7 @@ CONTAINS
       !
       & rsdt0      = psctm                          ,&! toa incident shortwave radiation for sun in zenith
       & cosmu0     = field%cosmu0    (:,jb)         ,&! solar zenith angle at current time
+      & daylght_frc= field%daylght_frc(:,jb)        ,&! daylight fraction
       !
       & emiss      = ext_data(jg)%atm%emis_rad(:,jb),&! lw sfc emissivity
       & tsr        = field%ts_rad (:,jb)            ,&! radiative surface temperature at current   time [K]
