@@ -22,11 +22,8 @@
 MODULE mo_interface_echam_condensation
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
-  USE mo_run_config,          ONLY: nlev, nlevm1, nlevp1,    &
-    &                               iqv, iqc, iqi, iqt
+  USE mo_run_config,          ONLY: nlev, iqv, iqc, iqi
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
-  USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field,     &
     &                               t_echam_phy_tend
   USE mo_cloud,               ONLY: cloud
@@ -108,7 +105,6 @@ CONTAINS
 
     ! local 
     INTEGER  :: itype(nbdim)              !< type of convection
-    INTEGER  :: ilab   (nproma,nlev)
 
     REAL(wp) :: zq_cld (nbdim,nlev)       !< heating by stratiform clouds      [W/m2]
 

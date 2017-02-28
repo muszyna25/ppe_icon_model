@@ -31,7 +31,6 @@ MODULE mo_echam_phy_main
 
   USE mo_kind,                ONLY: wp
   USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv, Tf, tmelt
-  USE mo_impl_constants      ,ONLY: inh_atmosphere
   USE mo_run_config,          ONLY: ntracer, nlev, nlevp1,    &
     &                               iqv, iqi, iqt
   USE mo_echam_phy_config,    ONLY: echam_phy_config

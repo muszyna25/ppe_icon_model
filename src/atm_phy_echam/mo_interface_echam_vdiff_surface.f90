@@ -39,7 +39,6 @@ MODULE mo_interface_echam_vdiff_surface
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, &
     &                               timer_vdiff_down, timer_surface,timer_vdiff_up
 
-  USE mo_vdiff_config,        ONLY: vdiff_config
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
   USE mo_vdiff_solver,        ONLY: nvar_vdiff, nmatrix, imh, imqv,   &
@@ -158,8 +157,6 @@ CONTAINS
     REAL(wp) :: zfactor_sfc(nbdim)
 
     REAL(wp) :: zcptgz   (nbdim,nlev) !< dry static energy
-    REAL(wp) :: zrhoh    (nbdim,nlev) !< air density at half levels
-    REAL(wp) :: zqshear  (nbdim,nlev) !<
     REAL(wp) :: zthvvar  (nbdim,nlev) !< intermediate value of thvvar
     REAL(wp) :: ztkevn   (nbdim,nlev) !< intermediate value of tke
     REAL(wp) :: zch_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
@@ -173,17 +170,9 @@ CONTAINS
 
     REAL(wp) :: zq_snocpymlt(nbdim)   !< heating by melting of snow on the canopy [W/m2]
                                       !  which warms the lowermost atmospheric layer (JSBACH)
-
     REAL(wp) :: zq_vdf (nbdim,nlev)       !< heating by vertical diffusion     [W/m2]
 
-    REAL(wp) :: ztte_corr(nbdim)      !< tte correction for snow melt over land (JSBACH)
-
-    REAL(wp) :: zvmixtau   (nproma,nlev)   !< timescale of mixing for vertical turbulence
-    REAL(wp) :: zqtvar_prod(nproma,nlev)   !< production rate of total water variance
-                                          !< due to turbulence. Computed in "vdiff",
-                                          !< used by "cloud"
     INTEGER  :: ntrac
-    INTEGER  :: jc, jk
 
 
     ntrac = ntracer-iqt+1  !# of tracers excluding water vapour and hydrometeors

@@ -30,16 +30,12 @@
 MODULE mo_interface_echam_convection
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
   USE mo_run_config,          ONLY: nlev, nlevm1, nlevp1,    &
     &                               iqv, iqc, iqi, iqt, ntracer
   USE mo_echam_phy_config,    ONLY: echam_phy_config
-  USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field,     &
     &                               t_echam_phy_tend
-  USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
   USE mo_cumastr,             ONLY: cumastr
-  USE mo_cloud,               ONLY: cloud
 
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_convection
   USE mo_parallel_config     ,ONLY: nproma
