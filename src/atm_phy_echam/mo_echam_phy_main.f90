@@ -222,9 +222,7 @@ CONTAINS
 
 
     !-----------------------
-    ! This can probably be moved to the radheating 
     IF (echam_phy_config%lrad) THEN
-
 !$OMP PARALLEL DO PRIVATE(jcs,jce, zq_rlw_impl)
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
