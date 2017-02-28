@@ -100,6 +100,9 @@ CONTAINS
 
     INTEGER  :: ictop (nproma,patch%nblks_c)             !< from massflux
 
+    REAL(wp) :: zfrw (nproma)              !< fraction of water (without ice) in the grid point
+    REAL(wp) :: zfri (nproma)              !< fraction of ice in the grid box
+
     INTEGER  :: jg             !< grid level/domain index
     INTEGER  :: i_nchdom
     INTEGER  :: i_startblk,i_endblk
@@ -153,10 +156,11 @@ CONTAINS
     !  and land fraction (combined here for convenience)
     !-------------------------------------------------------------------
  
-!$OMP PARALLEL DO PRIVATE(jcs,jce)
+!$OMP PARALLEL DO PRIVATE(jcs,jce, zfrw, zfri)
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-      CALL landFraction_cloudCover( jb,jcs,jce, nproma, field)
+      CALL landFraction( jb,jcs,jce, nproma, field, zfrw, zfri)
+      CALL cloudCover( jb,jcs,jce, nproma, field, zfrw, zfri)
     ENDDO
 !$OMP END PARALLEL DO 
 
@@ -297,17 +301,16 @@ CONTAINS
   !----------------------------------------------------------------
 
   !----------------------------------------------------------------
-  SUBROUTINE landFraction_cloudCover( jb,jcs,jce, nbdim, field)
+  SUBROUTINE landFraction( jb,jcs,jce, nbdim, field, zfrw, zfri)
 
     INTEGER         ,INTENT(IN) :: jb             !< block index
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
     INTEGER         ,INTENT(IN) :: nbdim          !< size of this block
     TYPE(t_echam_phy_field),   POINTER :: field
-
-    REAL(wp) :: zfrl (nbdim)              !< fraction of land in the grid box
     REAL(wp) :: zfrw (nbdim)              !< fraction of water (without ice) in the grid point
     REAL(wp) :: zfri (nbdim)              !< fraction of ice in the grid box
-    INTEGER  :: itype(nbdim)              !< type of convection
+
+    REAL(wp) :: zfrl (nbdim)              !< fraction of land in the grid box
 
     INTEGER  :: jc
  
@@ -345,6 +348,20 @@ CONTAINS
     IF (iwtr.LE.nsfc_type) field%frac_tile(jcs:jce,jb,iwtr) = zfrw(jcs:jce)
     IF (iice.LE.nsfc_type) field%frac_tile(jcs:jce,jb,iice) = zfri(jcs:jce)
 
+  END SUBROUTINE landFraction
+  !----------------------------------------------------------------
+
+  !----------------------------------------------------------------
+  SUBROUTINE cloudCover( jb,jcs,jce, nbdim, field, zfrw, zfri)
+
+    INTEGER         ,INTENT(IN) :: jb             !< block index
+    INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
+    INTEGER         ,INTENT(IN) :: nbdim          !< size of this block
+    TYPE(t_echam_phy_field),   POINTER :: field
+    REAL(wp) :: zfrw (nbdim)              !< fraction of water (without ice) in the grid point
+    REAL(wp) :: zfri (nbdim)              !< fraction of ice in the grid box
+
+    INTEGER  :: itype(nbdim)              !< type of convection
 
     !-------------------------------------------------------------------
     ! 3.13 DIAGNOSE CURRENT CLOUD COVER
@@ -369,7 +386,7 @@ CONTAINS
       IF (ltimer) CALL timer_stop(timer_cover)
     ENDIF ! lcond
 
-  END SUBROUTINE landFraction_cloudCover
+  END SUBROUTINE cloudCover
   !----------------------------------------------------------------
 
   !---------------------------------------------------------------------
