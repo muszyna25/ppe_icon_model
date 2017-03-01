@@ -44,6 +44,7 @@ MODULE mo_art_config
   PUBLIC :: iCS137,iI131,iTE132,iZR95,iXE133,iI131g,iI131o,iBA140,iRU103 !radioactive nuclides
   PUBLIC :: iseasa,iseasb,iseasc,iseasa0,iseasb0,iseasc0                 !sea salt 
   PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0                 !mineral dust
+  PUBLIC :: ipollbetu                                                    !pollen
   PUBLIC :: iTRCHBR3,iTRCH2BR2                                           !chemical tracer - VSLS
   PUBLIC :: iTRCH4,iTRC2H6,iTRC3H8,iTRC5H8,iTRCH3COCH3,iTRCO,iTRCO2      !chemical tracer - CH4-C2H6-C3H5-C5H8-CH3COCH3-CO-CO2
   PUBLIC :: iTRH2O,iTRO3,iTRN2O,iTRNH3,iTRSO2,iTRH2SO4,iTRHNO3,iTRAGE    !chemical tracer - others
@@ -71,6 +72,8 @@ MODULE mo_art_config
     &  iseasa, iseasb, iseasc, iseasa0, iseasb0, iseasc0
   INTEGER :: & !< mineral dust aerosol tracer indicies (modal scheme)
     &  idusta, idustb, idustc, idusta0, idustb0, idustc0
+  INTEGER :: & !< pollen particles (bulk scheme)
+    &  ipollbetu
   INTEGER :: & !< Chemical tracers
     &  iTRCHBR3,iTRCH2BR2,                                        &
     &  iTRCH4,iTRC2H6,iTRC3H8,iTRC5H8,iTRCH3COCH3,iTRCO,iTRCO2,   &

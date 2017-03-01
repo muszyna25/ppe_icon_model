@@ -1574,6 +1574,7 @@ MODULE mo_nh_stepping
               &      p_lnd_state(jg)%diag_lnd,                 &!in
               &      p_nh_state(jg)%prog(nnew(jg))%rho,        &!in
               &      datetime_current,                         &!in
+              &      nnow(jg),                                 &!in
               &      p_nh_state(jg)%prog(n_now_rcf)%tracer)     !inout
           ENDIF
 
