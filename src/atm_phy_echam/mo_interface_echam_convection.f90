@@ -58,9 +58,9 @@ CONTAINS
     INTEGER         ,INTENT(IN)  :: rl_start, rl_end
     TYPE(t_echam_phy_field),   POINTER :: field    
     TYPE(t_echam_phy_tend) ,   POINTER :: tend
-    INTEGER  :: ictop (:,:)             !< from massflux
-    REAL(wp) :: zconv  (:,:,:)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
-    REAL(wp) :: zq_phy (:,:,:)       !< heating by whole ECHAM physics    [W/m2]
+    INTEGER         ,INTENT(INOUT) :: ictop (:,:)             !< from massflux
+    REAL(wp)        ,INTENT(IN)    :: zconv  (nproma,nlev,patch%nblks_c)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
+    REAL(wp)        ,INTENT(INOUT) :: zq_phy (nproma,nlev,patch%nblks_c)       !< heating by whole ECHAM physics    [W/m2]
     INTEGER         ,INTENT(IN)  :: ntracer_wout_vapour   !< # of tracers excluding water vapour and hydrometeors
     REAL(wp)        ,INTENT(IN)  :: in_pdtime         !< time step
 
@@ -104,9 +104,9 @@ CONTAINS
     INTEGER         ,INTENT(IN) :: nbdim          !< size of this block 
     TYPE(t_echam_phy_field),   POINTER :: field
     TYPE(t_echam_phy_tend) ,   POINTER :: tend
-    INTEGER  :: ictop (nbdim)             !< from massflux
-    REAL(wp) :: zconv  (nbdim,nlev)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
-    REAL(wp) :: zq_phy (nbdim,nlev)       !< heating by whole ECHAM physics    [W/m2]
+    INTEGER         ,INTENT(INOUT) :: ictop (nbdim)             !< from massflux
+    REAL(wp)         ,INTENT(IN) :: zconv  (nbdim,nlev)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
+    REAL(wp)         ,INTENT(INOUT) :: zq_phy (nbdim,nlev)       !< heating by whole ECHAM physics    [W/m2]
 
     ! local 
     INTEGER  :: itype(nbdim)              !< type of convection

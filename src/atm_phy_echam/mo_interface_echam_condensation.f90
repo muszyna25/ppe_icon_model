@@ -51,10 +51,10 @@ CONTAINS
     INTEGER         ,INTENT(IN)  :: start_level            !< start vertical level
     TYPE(t_echam_phy_field),   POINTER :: field    
     TYPE(t_echam_phy_tend) ,   POINTER :: tend
-    REAL(wp) :: zcpair (:,:,:)       !< specific heat of moist air at const. pressure [J/K/kg]
-    REAL(wp) :: zconv  (:,:,:)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
-    REAL(wp) :: zq_phy (:,:,:)       !< heating by whole ECHAM physics    [W/m2]
-    INTEGER  :: ictop (:,:)             !< from massflux
+    REAL(wp)        ,INTENT(IN) :: zcpair (:,:,:)       !< specific heat of moist air at const. pressure [J/K/kg]
+    REAL(wp)        ,INTENT(IN)    :: zconv  (nproma,nlev,patch%nblks_c)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
+    REAL(wp)        ,INTENT(INOUT) :: zq_phy (nproma,nlev,patch%nblks_c)       !< heating by whole ECHAM physics    [W/m2]
+    INTEGER         ,INTENT(IN) :: ictop (:,:)             !< from massflux
     REAL(wp)        ,INTENT(IN)  :: in_pdtime         !< time step
 
 !     INTEGER  :: jg             
@@ -99,9 +99,9 @@ CONTAINS
     TYPE(t_echam_phy_field),   POINTER :: field
     TYPE(t_echam_phy_tend) ,   POINTER :: tend
     REAL(wp)        ,INTENT(IN) :: zcpair  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
-    REAL(wp) :: zconv  (nbdim,nlev)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
-    REAL(wp) :: zq_phy (nbdim,nlev)       !< heating by whole ECHAM physics    [W/m2]
-    INTEGER  :: ictop (nbdim)             !< from massflux
+    REAL(wp)        ,INTENT(IN) :: zconv  (nbdim,nlev)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
+    REAL(wp)        ,INTENT(INOUT) :: zq_phy (nbdim,nlev)       !< heating by whole ECHAM physics    [W/m2]
+    INTEGER         ,INTENT(IN) :: ictop (nbdim)             !< from massflux
 
     ! local 
     INTEGER  :: itype(nbdim)              !< type of convection
