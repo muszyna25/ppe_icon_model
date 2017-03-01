@@ -59,8 +59,7 @@ MODULE mo_art_emission_interface
                                           &   t_fields_volc,t_fields_1mom
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_aerosol_utilities,         ONLY: art_air_properties
-  USE mo_art_config,                    ONLY: art_config,                   &
-                                          &   ipollbetu
+  USE mo_art_config,                    ONLY: art_config
   USE mo_art_integration,               ONLY: art_integrate_explicit
 ! Emission Routines
   USE mo_art_emission_volc_1mom,        ONLY: art_organize_emission_volc
@@ -369,25 +368,24 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             &                istart, iend, i_rlstart, i_rlend)
             
           ! Get model layer heights
-          DO jk = 1, nlev
-            DO jc = istart, iend
-              dz(jc,jk) = p_nh_state%metrics%ddqz_z_full(jc,jk,jb)
-            ENDDO
-          ENDDO  
+          DO jc = istart, iend
+            dz(jc,nlev) = p_nh_state%metrics%ddqz_z_full(jc,nlev,jb)
+          ENDDO
 
           !Betula --> birch
           CALL art_emiss_pollen(p_patch,dtime,datetime,                         &
-            &                   rho(:,nlev,jb),                                 &                                 
+            &                   rho(:,nlev,jb),                                 &
             &                   p_art_data(jg)%ext%pollen_prop%pollen_type(1),  &  !<- betu specific
-            &                   tracer(:,nlev,jb,ipollbetu),                    &
+            &                   tracer(:,nlev,jb,:),                            &
+            &                   p_art_data(jg)%dict_tracer,                     &
             &                   p_nh_state%diag%temp(:,nlev,jb),                &
             &                   p_nh_state%diag%pres_sfc(:,jb),                 &
             &                   p_nh_state%prog(nnow)%tke(:,nlev,jb),           &
             &                   prm_diag%rain_gsp_rate(:,jb),                   &
             &                   prm_diag%rain_con_rate(:,jb),                   &
             &                   prm_diag%rh_2m(:,jb),                           &
-            &                   dz(:,nlev),                                     & 
-            &                   ext_data%atm%llsm_atm_c(:,jb),                  &           
+            &                   dz(:,nlev),                                     &
+            &                   ext_data%atm%llsm_atm_c(:,jb),                  &
             &                   jb, istart, iend )                              
              
         ENDDO

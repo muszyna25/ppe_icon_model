@@ -38,12 +38,8 @@ MODULE mo_art_config
   PUBLIC :: art_config
   PUBLIC :: configure_art
   PUBLIC :: IART_PATH_LEN
-  PUBLIC :: ipollbetu                                                    !pollen
 
   PUBLIC :: ctracer_art                                                  !generic tracer list, contains name of tracer
-
-  INTEGER :: & !< pollen particles (bulk scheme)
-    &  ipollbetu
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ICON-ART
