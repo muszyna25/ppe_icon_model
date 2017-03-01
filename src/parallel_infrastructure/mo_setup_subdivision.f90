@@ -40,6 +40,7 @@ MODULE mo_setup_subdivision
   !-------------------------------------------------------------------------
   !
   USE mo_kind,               ONLY: wp
+  USE mo_util_string,        ONLY: int2string
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell,  &
     & min_rledge, max_rledge, min_rlvert, max_rlvert, max_phys_dom,  &
     & min_rlcell_int, min_rledge_int, min_rlvert_int, max_hw
@@ -49,8 +50,8 @@ MODULE mo_setup_subdivision
   USE mo_run_config,         ONLY: msg_level
   USE mo_io_units,           ONLY: filename_max
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch, &
-       c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
-       c_vertex, c_center, c_refin_ctrl, e_parent, e_child, e_cell, &
+       c_num_edges, c_parent, c_phys_id, c_neighbor, c_edge, &
+       c_vertex, c_center, c_refin_ctrl, e_parent, e_cell, &
        e_refin_ctrl, v_cell, v_num_edges, v_vertex, v_refin_ctrl
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
@@ -69,14 +70,13 @@ MODULE mo_setup_subdivision
     & div_geometric, ext_div_from_file, write_div_to_file, use_div_from_file
 
   USE mo_communication,      ONLY: blk_no, idx_no, idx_1d
-  USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight
+  USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight, l_limited_area
   USE mo_alloc_patches,ONLY: allocate_basic_patch, allocate_remaining_patch, &
                              deallocate_pre_patch
   USE mo_decomposition_tools, ONLY: divide_cells_by_location, t_cell_info, &
     & sort_cell_info_by_cell_number, partidx_of_elem_uniform_deco
   USE mo_math_utilities,      ONLY: fxp_lat, fxp_lon
-  USE mo_master_control,      ONLY: get_my_process_type, ocean_process, &
-                                    testbed_process
+  USE mo_master_control,      ONLY: get_my_process_type, ocean_process
 #ifndef NOMPI
   USE mo_divide_cells_by_location_mpi, ONLY: divide_cells_by_location_mpi, &
        init_divide_cells_by_location_mpi
@@ -100,7 +100,8 @@ MODULE mo_setup_subdivision
     &                                   distrib_nf_close, distrib_read, nf, &
     &                                   delete_distrib_read, setup_distrib_read
   USE ppm_distributed_array,  ONLY: dist_mult_array, global_array_desc
-  USE mo_util_uuid, ONLY: uuid_string_length, uuid_unparse
+  USE mo_util_uuid_types,     ONLY: uuid_string_length
+  USE mo_util_uuid,           ONLY: uuid_unparse
   USE mo_read_netcdf_broadcast_2, ONLY: netcdf_open_input, netcdf_close, &
     &                                   netcdf_read_att_int
 
@@ -119,6 +120,9 @@ MODULE mo_setup_subdivision
     INTEGER, ALLOCATABLE :: idx(:)
     INTEGER, ALLOCATABLE :: owner(:)
   END TYPE nb_flag_list_elem
+
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_setup_subdivision'
 
 CONTAINS
 
@@ -303,9 +307,12 @@ CONTAINS
 
       IF (my_process_is_mpi_parallel()) THEN
         ! Set division method, divide_for_radiation is only used for patch 0
-        CALL divide_patch_cells(p_patch_pre(jg), jg, p_patch(jg)%n_proc, &
-             p_patch(jg)%proc0, dist_cell_owner, dist_cell_owner_p, &
-             wrk_p_parent_patch_pre, divide_for_radiation = (jg == 0))
+        ! (...  but not in limited area mode because the load balancing for radiation grids
+        !       does not make sense there.)
+        CALL divide_patch_cells(p_patch_pre(jg), jg, p_patch(jg)%n_proc,               &
+          &                     p_patch(jg)%proc0, dist_cell_owner, dist_cell_owner_p, &
+          &                     wrk_p_parent_patch_pre,                                &
+          &                     divide_for_radiation = ((jg == 0) .AND. .NOT. l_limited_area))
       ELSE
         ! trivial "decomposition"
         CALL create_dist_cell_owner(dist_cell_owner, &
@@ -347,13 +354,6 @@ CONTAINS
           &               dist_cell_owner_p, 1, order_type_of_halos,  p_pe_work)
 
         CALL dist_mult_array_delete(dist_cell_owner_p)
-
-        CALL set_pc_idx(p_patch(jg), p_patch_pre(jgp))
-        IF (jgp > n_dom_start) THEN
-
-          CALL set_pc_idx(p_patch_local_parent(jg), &
-            &             p_patch_pre(p_patch_local_parent(jg)%parent_id))
-        END IF
       ENDIF
 
       CALL dist_mult_array_delete(dist_cell_owner)
@@ -364,116 +364,6 @@ CONTAINS
     DO jg = n_dom_start, n_dom
       CALL deallocate_pre_patch( p_patch_pre(jg) )
     ENDDO
-
-  CONTAINS
-!-------------------------------------------------------------------------
-  !>
-  !! This method_name sets the parent-child-index for cells and edges
-  !!
-  !! @par Revision History
-  !! Developed  by Rainer Johanni, Dec 2011
-  !!
-    SUBROUTINE set_pc_idx(patch, parent_patch_pre)
-
-      TYPE(t_patch), TARGET, INTENT(inout) :: patch
-      TYPE(t_pre_patch), TARGET, INTENT(inout) :: parent_patch_pre
-
-    ! local variables
-
-    INTEGER :: jg, jb, jl, ip, i, j
-#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
-    INTEGER, ALLOCATABLE :: cell_child_idx(:,:), edge_child_idx(:,:)
-    !-----------------------------------------------------------------------
-
-    ALLOCATE(cell_child_idx(patch%n_patch_cells,4), &
-      &      edge_child_idx(patch%n_patch_edges,4))
-#else
-    INTEGER :: cell_child_idx, edge_child_idx
-#endif
-
-    patch%cells%pc_idx(:,:) = 0
-    patch%edges%pc_idx(:,:) = 0
-
-
-#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
-    DO j = 1, patch%n_patch_cells
-        jl = idx_no(j)
-        jb = blk_no(j)
-        ip = idx_1d(patch%cells%parent_glb_idx(jl,jb), &
-                    patch%cells%parent_glb_blk(jl,jb))
-        DO i = 1, 4
-          CALL dist_mult_array_get(parent_patch_pre%cells%dist, c_child, &
-            &                      (/ip, i/), cell_child_idx(j,i))
-        END DO
-    END DO
-
-    DO j = 1, patch%n_patch_edges
-        jl = idx_no(j)
-        jb = blk_no(j)
-        ip = idx_1d(patch%edges%parent_glb_idx(jl,jb), &
-                    patch%edges%parent_glb_blk(jl,jb))
-        DO i = 1, 4
-          CALL dist_mult_array_get(parent_patch_pre%edges%dist, e_child, &
-            &                      (/ip, i/), edge_child_idx(j,i))
-        END DO
-    END DO
-
-    CALL dist_mult_array_rma_sync(parent_patch_pre%cells%dist)
-    CALL dist_mult_array_rma_sync(parent_patch_pre%edges%dist)
-
-    DO j = 1, patch%n_patch_cells
-      jl = idx_no(j)
-      jb = blk_no(j)
-      jg = patch%cells%decomp_info%glb_index(j)
-      DO i = 1, 4
-        IF (cell_child_idx(j,i) == jg) patch%cells%pc_idx(jl,jb) = i
-      END DO
-      !          IF(patch%cells%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','cells%pc_idx')
-    END DO
-
-    DO j = 1, patch%n_patch_edges
-      jl = idx_no(j)
-      jb = blk_no(j)
-      jg = patch%edges%decomp_info%glb_index(j)
-      DO i = 1, 4
-        IF (edge_child_idx(j,i) == jg) patch%edges%pc_idx(jl,jb) = i
-      END DO
-      !          IF(patch%edge%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','edge%pc_idx')
-    END DO
-
-    DEALLOCATE(cell_child_idx, edge_child_idx)
-
-#else
-    DO j = 1, patch%n_patch_cells
-      jl = idx_no(j)
-      jb = blk_no(j)
-      ip = idx_1d(patch%cells%parent_glb_idx(jl,jb), &
-           patch%cells%parent_glb_blk(jl,jb))
-      jg = patch%cells%decomp_info%glb_index(j)
-      DO i = 1, 4
-        CALL dist_mult_array_get(parent_patch_pre%cells%dist, c_child, &
-             &                      (/ip, i/), cell_child_idx)
-        IF (cell_child_idx == jg) patch%cells%pc_idx(jl,jb) = i
-      END DO
-      !          IF(patch%cells%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','cells%pc_idx')
-    END DO
-    DO j = 1, patch%n_patch_edges
-      jl = idx_no(j)
-      jb = blk_no(j)
-
-      ip = idx_1d(patch%edges%parent_glb_idx(jl,jb), &
-           patch%edges%parent_glb_blk(jl,jb))
-      jg = patch%edges%decomp_info%glb_index(j)
-      DO i = 1, 4
-        CALL dist_mult_array_get(parent_patch_pre%edges%dist, e_child, &
-             &                      (/ip, i/), edge_child_idx)
-        IF (edge_child_idx == jg) patch%edges%pc_idx(jl,jb) = i
-      END DO
-      !          IF(patch%edge%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','edge%pc_idx')
-
-    END DO
-#endif
-  END SUBROUTINE set_pc_idx
 
   END SUBROUTINE decompose_domain
 
@@ -1023,7 +913,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: my_proc
 
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_setup_subdivision::divide_patch'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::divide_patch'
     INTEGER :: i, j, jl, jb, je, jv, jg, jc
 
 #ifdef __PGIC__
@@ -1039,14 +929,10 @@ CONTAINS
     INTEGER, ALLOCATABLE :: owned_cells(:), owned_edges(:), owned_verts(:)
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
     INTEGER, ALLOCATABLE :: glb_cell_neighbor(:,:), glb_cell_edge(:,:), &
-      &                     glb_cell_vertex(:,:), cell_parent_idx(:), &
-      &                     cell_child_idx(:,:), edge_parent_idx(:), &
-      &                     edge_child_idx(:,:)
+      &                     glb_cell_vertex(:,:), cell_parent_idx(:), edge_parent_idx(:)
 #else
     INTEGER :: glb_cell_neighbor, glb_cell_edge, &
-      &        glb_cell_vertex, cell_parent_idx, &
-      &        cell_child_idx, edge_parent_idx, &
-      &        edge_child_idx
+      &        glb_cell_vertex, cell_parent_idx, edge_parent_idx
 #endif
 
     IF (msg_level >= 10)  CALL message(routine, 'dividing patch')
@@ -1279,7 +1165,6 @@ CONTAINS
 
 !CDIR IEXPAND
         CALL get_local_idx(wrk_p_patch%edges%decomp_info, glb_cell_edge(j,i), je)
-
         wrk_p_patch%cells%edge_idx(jl,jb,i) = idx_no(je)
         wrk_p_patch%cells%edge_blk(jl,jb,i) = blk_no(je)
 
@@ -1338,8 +1223,7 @@ CONTAINS
 
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
 
-    ALLOCATE(cell_parent_idx(wrk_p_patch%n_patch_cells), &
-      &      cell_child_idx(wrk_p_patch%n_patch_cells, 4))
+    ALLOCATE(cell_parent_idx(wrk_p_patch%n_patch_cells))
 
     DO j = 1, wrk_p_patch%n_patch_cells
 
@@ -1353,10 +1237,6 @@ CONTAINS
 
       CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_parent, (/jg/), &
         &                      cell_parent_idx(j))
-      DO i = 1, 4
-        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_child, &
-          &                      (/jg, i/), cell_child_idx(j,i))
-      END DO
 
       CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_num_edges, (/jg/), &
         &                      wrk_p_patch%cells%num_edges(jl,jb))
@@ -1375,13 +1255,9 @@ CONTAINS
       jl = idx_no(j) ! Line  index in distributed patch
       wrk_p_patch%cells%parent_glb_idx(jl,jb)  = idx_no(cell_parent_idx(j))
       wrk_p_patch%cells%parent_glb_blk(jl,jb)  = blk_no(cell_parent_idx(j))
-      DO i = 1, 4
-        wrk_p_patch%cells%child_idx(jl,jb,i) = idx_no(cell_child_idx(j,i))
-        wrk_p_patch%cells%child_blk(jl,jb,i) = blk_no(cell_child_idx(j,i))
-      END DO
     END DO
 
-    DEALLOCATE(cell_parent_idx, cell_child_idx)
+    DEALLOCATE(cell_parent_idx)
 
 #else
 
@@ -1399,13 +1275,6 @@ CONTAINS
         &                      cell_parent_idx)
       wrk_p_patch%cells%parent_glb_idx(jl,jb)  = idx_no(cell_parent_idx)
       wrk_p_patch%cells%parent_glb_blk(jl,jb)  = blk_no(cell_parent_idx)
-
-      DO i = 1, 4
-        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_child, &
-          &                      (/jg, i/), cell_child_idx)
-        wrk_p_patch%cells%child_idx(jl,jb,i) = idx_no(cell_child_idx)
-        wrk_p_patch%cells%child_blk(jl,jb,i) = blk_no(cell_child_idx)
-      END DO
 
       CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_num_edges, (/jg/), &
         &                      wrk_p_patch%cells%num_edges(jl,jb))
@@ -1433,8 +1302,7 @@ CONTAINS
 
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
 
-    ALLOCATE(edge_parent_idx(wrk_p_patch%n_patch_edges), &
-      &      edge_child_idx(wrk_p_patch%n_patch_edges,4))
+    ALLOCATE(edge_parent_idx(wrk_p_patch%n_patch_edges))
 
     DO j = 1,wrk_p_patch%n_patch_edges
 
@@ -1445,10 +1313,6 @@ CONTAINS
 
       CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_parent, &
         &                      (/jg/), edge_parent_idx(j))
-      DO i = 1, 4
-        CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_child, &
-             (/jg, i/), edge_child_idx(j,i))
-      END DO
 
       CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_refin_ctrl, &
            (/jg/), wrk_p_patch%edges%refin_ctrl(jl,jb))
@@ -1466,11 +1330,9 @@ CONTAINS
 
       wrk_p_patch%edges%parent_glb_idx(jl,jb)    = idx_no(edge_parent_idx(j))
       wrk_p_patch%edges%parent_glb_blk(jl,jb)    = blk_no(edge_parent_idx(j))
-      wrk_p_patch%edges%child_idx(jl,jb,1:4) = idx_no(edge_child_idx(j,:))
-      wrk_p_patch%edges%child_blk(jl,jb,1:4) = blk_no(edge_child_idx(j,:))
     ENDDO
 
-    DEALLOCATE(edge_parent_idx, edge_child_idx)
+    DEALLOCATE(edge_parent_idx)
 
 #else
 
@@ -1485,12 +1347,6 @@ CONTAINS
         &                      (/jg/), edge_parent_idx)
       wrk_p_patch%edges%parent_glb_idx(jl,jb)    = idx_no(edge_parent_idx)
       wrk_p_patch%edges%parent_glb_blk(jl,jb)    = blk_no(edge_parent_idx)
-      DO i = 1, 4
-        CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_child, &
-             (/jg, i/), edge_child_idx)
-        wrk_p_patch%edges%child_idx(jl,jb,i) = idx_no(edge_child_idx)
-        wrk_p_patch%edges%child_blk(jl,jb,i) = blk_no(edge_child_idx)
-      END DO
 
       ! parent and child_idx/child_blk still point to the global values.
       ! This will be changed in set_parent_child_relations.
@@ -1540,6 +1396,31 @@ CONTAINS
         wrk_p_patch%verts%decomp_info%decomp_domain(jl,jb) = j
       END DO
     END DO
+
+    ! ------------------------------------------------------------
+    ! > The following block masks negative refin_ctrl flags. This
+    ! > happens just to test the correctness of the algorithm which
+    ! > sets the parent-side of the refin_ctrl flags automatically.
+
+    IF (msg_level >= 10) THEN
+      CALL message(modname//': divide_patch', "erase negative refin_ctrl flags in patch "//&
+        &TRIM(int2string(wrk_p_patch%id)))
+    END IF
+
+    DO j=1,wrk_p_patch%n_patch_cells
+      jc = idx_no(j) ; jb = blk_no(j)
+      IF (wrk_p_patch%cells%refin_ctrl(jc,jb) < 0)  wrk_p_patch%cells%refin_ctrl(jc,jb) = 0
+    END DO
+    DO j=1,wrk_p_patch%n_patch_edges
+      jc = idx_no(j) ; jb = blk_no(j)
+      IF (wrk_p_patch%edges%refin_ctrl(jc,jb) < 0)  wrk_p_patch%edges%refin_ctrl(jc,jb) = 0
+    END DO
+    DO j=1,wrk_p_patch%n_patch_verts
+      jc = idx_no(j) ; jb = blk_no(j)
+      IF (wrk_p_patch%verts%refin_ctrl(jc,jb) < 0)  wrk_p_patch%verts%refin_ctrl(jc,jb) = 0
+    END DO
+
+    ! ------------------------------------------------------------
 
     DEALLOCATE(owned_cells)
 
@@ -2820,7 +2701,7 @@ CONTAINS
       END FUNCTION refinement_predicate
     END INTERFACE
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_setup_subdivision::build_patch_start_end'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::build_patch_start_end'
 
     INTEGER :: i, ilev, ilev1, ilev_st, irlev, j, jb, jf, jl, &
          exec_sequence, ref_flag, k, k_start, n_inner, temp

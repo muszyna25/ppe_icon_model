@@ -50,7 +50,7 @@ MODULE mo_run_nml
   USE mo_util_string,    ONLY: one_of
   USE mo_nml_annotate,   ONLY: temp_defaults, temp_settings
 
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,   &
+  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,   &
        &                            open_and_restore_namelist, close_tmpfile
   USE mtime,                  ONLY: max_timedelta_str_len, timedeltaToString, &
        &                            getPTStringFromMS

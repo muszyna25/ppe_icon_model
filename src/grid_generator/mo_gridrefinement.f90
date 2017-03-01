@@ -69,7 +69,7 @@ MODULE mo_gridref
        &                           max_rlvert, min_rledge, max_rledge,    &
        &                           min_rlcell_int, min_rlvert_int,        &
        &                           min_rledge_int, max_dom, max_phys_dom
-  USE mo_util_uuid,          ONLY: uuid_string_length
+  USE mo_util_uuid_types,    ONLY: uuid_string_length
 
   IMPLICIT NONE
 
@@ -2188,12 +2188,7 @@ CONTAINS
 
     INTEGER :: ifs2icon_cell, ifs2icon_edge, ifs2icon_vertex
 
-#ifdef __SX__
-    INTEGER :: iargc
-    CHARACTER(LEN= 32) :: arg_str
-#else
     INTEGER :: istat
-#endif
     CHARACTER(LEN=256) :: command_line
 
     INTEGER :: command_line_len
@@ -3048,10 +3043,6 @@ CONTAINS
     !---local variables
     CHARACTER(LEN=filename_max) :: filename
 
-#ifdef __SX__
-    INTEGER :: i
-#endif
-
     INTEGER :: i_lev
 
 !!$    INTEGER, PARAMETER :: patch_unit = 89
@@ -3069,12 +3060,7 @@ CONTAINS
 
     INTEGER :: varid1, varid2, varid3, varid4, varid5, varid6, varid7, varid8, varid9
 
-#ifdef __SX__
-    INTEGER :: iargc
-    CHARACTER(LEN= 32) :: arg_str
-#else
     INTEGER :: istat
-#endif
     CHARACTER(LEN=256) :: command_line
 
     INTEGER :: command_line_len
@@ -3095,16 +3081,7 @@ CONTAINS
     WRITE(message_text,'(a,a)') 'Write gridmap file: ', TRIM(filename)
     CALL message ('', message_text)
 
-#ifdef __SX__
-    command_line = ''
-    DO i = 0, iargc()
-      CALL getarg(i, arg_str)
-      command_line = TRIM(command_line)//TRIM(arg_str)
-    ENDDO
-    command_line_len = LEN_TRIM(command_line)
-#else
     CALL GET_COMMAND(command_line, command_line_len, istat)
-#endif
     CALL nf(nf_set_default_format(nf_format_64bit, old_mode))
     CALL nf(nf_create(TRIM(filename), nf_clobber, ncid))
     CALL nf(nf_set_fill(ncid, nf_nofill, old_mode))

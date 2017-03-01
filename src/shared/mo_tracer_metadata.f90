@@ -71,7 +71,7 @@ CONTAINS
   TYPE(t_aero_meta) FUNCTION create_tracer_metadata_aero(lis_tracer, name, ihadv_tracer, ivadv_tracer,          &
                       &                                  lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer,  &
                       &                                  iwash_tracer,                                          &
-                      &                                  moment, mode, solubility, rho, mol_weight)
+                      &                                  moment, mode, rho, mol_weight)
     ! Base type (t_tracer_meta) content
     LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer      ! this is a tracer field (TRUE/FALSE)
     CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name      ! Name of tracer
@@ -86,7 +86,6 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL  :: moment          ! moment of distribution (e.g. 0=number, 3=proportional to mass)
     CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: &
       &                               mode             ! Name of mode the tracer is contained in
-    REAL(wp), INTENT(IN), OPTIONAL :: solubility       ! Solubility, between 0 (insoluble) and 1 (soluble)
     REAL(wp), INTENT(IN), OPTIONAL :: rho              ! Density [kg m-3]
     REAL(wp), INTENT(IN), OPTIONAL :: mol_weight       ! Molar mass [g mol-1]
 
@@ -109,13 +108,6 @@ CONTAINS
       create_tracer_metadata_aero%mode = 'no_mode'
     ENDIF
 
-    
-    IF(PRESENT(solubility)) THEN
-      create_tracer_metadata_aero%solubility = solubility
-    ELSE
-      create_tracer_metadata_aero%solubility = -1._wp
-    ENDIF
-
     IF(PRESENT(rho)) THEN
       create_tracer_metadata_aero%rho = rho
     ELSE
@@ -134,8 +126,7 @@ CONTAINS
 
   TYPE(t_chem_meta) FUNCTION create_tracer_metadata_chem(lis_tracer, name, ihadv_tracer, ivadv_tracer,          &
                       &                                  lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer,  &
-                      &                                  iwash_tracer,                                          &
-                      &                                  lifetime_tracer, mol_weight,init_mode,init_number,number)
+                      &                                  iwash_tracer,  mol_weight)
     ! Base type (t_tracer_meta) content
     LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer       ! this is a tracer field (TRUE/FALSE)
     CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name       ! Name of tracer
@@ -147,11 +138,7 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL  :: ldep_tracer      ! Switch for dry deposition
     INTEGER, INTENT(IN), OPTIONAL  :: iwash_tracer     ! Method for washout
     ! Extended type (t_chem_meta) content
-    REAL(wp), INTENT(IN), OPTIONAL :: lifetime_tracer  ! Lifetime of tracer [s]
     REAL(wp), INTENT(IN), OPTIONAL :: mol_weight       ! Molar mass [g mol-1]
-    INTEGER, INTENT(IN), OPTIONAL  :: init_mode        ! Chemical tracer initialization mode
-    INTEGER, INTENT(IN), OPTIONAL  :: init_number      ! Chemical tracer initialization number
-    INTEGER, INTENT(IN), OPTIONAL  :: number           ! Index of species in KPP-generated routines
 
     ! Fill the metadata of the base type
     CALL create_tracer_metadata_chem%construct_base(lis_tracer, name, ihadv_tracer, ivadv_tracer,  &
@@ -159,34 +146,10 @@ CONTAINS
       &                                             ldep_tracer, iwash_tracer)
 
     ! Fill the meta of the extended type (t_chem_meta)
-    IF(PRESENT(lifetime_tracer)) THEN
-      create_tracer_metadata_chem%lifetime_tracer = lifetime_tracer
-    ELSE
-      create_tracer_metadata_chem%lifetime_tracer = -1._wp
-    ENDIF
-
     IF(PRESENT(mol_weight)) THEN
       create_tracer_metadata_chem%mol_weight = mol_weight
     ELSE
       create_tracer_metadata_chem%mol_weight = -1._wp
-    ENDIF
-
-    IF(PRESENT(init_mode)) THEN
-      create_tracer_metadata_chem%init_mode = init_mode
-    ELSE
-      create_tracer_metadata_chem%init_mode = -1
-    ENDIF
-
-    IF(PRESENT(init_number)) THEN
-      create_tracer_metadata_chem%init_number = init_number
-    ELSE
-      create_tracer_metadata_chem%init_number = -1
-    ENDIF
-
-    IF(PRESENT(number)) THEN
-      create_tracer_metadata_chem%number = number
-    ELSE
-      create_tracer_metadata_chem%number = -1
     ENDIF
 
   END FUNCTION create_tracer_metadata_chem

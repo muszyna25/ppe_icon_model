@@ -24,8 +24,8 @@
 !!
 MODULE mo_nonhydro_types
 
-  USE mo_kind,                 ONLY: wp, vp
-  USE mo_fortran_tools,        ONLY: t_ptr_2d3d,t_ptr_tracer
+  USE mo_kind,                 ONLY: wp, vp, vp2
+  USE mo_fortran_tools,        ONLY: t_ptr_2d3d, t_ptr_2d3d_vp, t_ptr_tracer
   USE mo_linked_list,          ONLY: t_var_list
 
 
@@ -77,21 +77,14 @@ MODULE mo_nonhydro_types
     ! a) variables needed for intermediate storage and physics-dynamics coupling
     &  u(:,:,:),            & ! zonal wind (nproma,nlev,nblks_c)               [m/s]
     &  v(:,:,:),            & ! meridional wind (nproma,nlev,nblks_c)          [m/s]
-    &  vt(:,:,:),           & ! tangential wind (nproma,nlev,nblks_e)          [m/s]
     &  omega_z(:,:,:),      & ! relative vertical vorticity at dual grid
                               ! (nproma,nlev,nblks_v)                          [1/s]
     &  vor(:,:,:),          & ! relative vertical vorticity interpolated to cells
                               ! (nproma,nlev,nblks_c)                          [1/s]
-    &  ddt_vn_phy(:,:,:),   & ! normal wind tendency from forcing
-                              ! (nproma,nlev,nblks_e)                          [m/s^2]
-    &  ddt_exner_phy(:,:,:),& ! exner pressure tendency from physical forcing 
-                              ! (nproma,nlev,nblks_c)                     [1/s]
-    &  ddt_temp_dyn(:,:,:), & ! rediagnosed temperature tendency from dynamics [K/s]
     &  ddt_tracer_adv(:,:,:,:), &! advective tendency of tracers          [kg/kg/s]
     &  tracer_vi(:,:,:),    & ! vertically integrated tracers( mass related ones only) [kg/m**2]
     &  tracer_vi_avg(:,:,:),& ! average since last output of tracer_vi [kg/m**2]
-    &  exner_old(:,:,:),    & ! exner pres from previous step (nproma,nlev,nblks_c)
-    &  exner_dyn_incr(:,:,:), & ! exner pres dynamics increment (nproma,nlev,nblks_c)
+    &  exner_pr(:,:,:),     & ! exner pressure perturbation, saved from previous step (nproma,nlev,nblks_c)
     &  temp(:,:,:),         & ! temperature (nproma,nlev,nblks_c)                 [K]
     &  tempv(:,:,:),        & ! virtual temperature (nproma,nlev,nblks_c)         [K]
     &  temp_ifc(:,:,:),     & ! temperature at half levels (nproma,nlevp1,nblks_c)[K]
@@ -99,6 +92,7 @@ MODULE mo_nonhydro_types
     &  pres_ifc(:,:,:),     & ! pressure at interfaces (nproma,nlevp1,nblks_c)  [Pa]
     &  pres_sfc(:,:),       & ! diagnosed surface pressure (nproma,nblks_c)     [Pa]
     &  pres_sfc_old(:,:),   & ! diagnosed surface pressure at previous timestep (nproma,nblks_c) [Pa]
+    &  ddt_pres_sfc(:,:),   & ! current time tendency of diagnosed surface pressure (nproma,nblks_c) [Pa/s]
     &  pres_msl(:,:),       & ! diagnosed mean sea level pressure (nproma,nblks_c)  [Pa]
     &  dpres_mc(:,:,:),     & ! pressure thickness at masspoints(nproma,nlevp,nblks_c)  [Pa]
     &  omega(:,:,:),        & ! vertical velocity ( omega=dp/dt )           [Pa/s]
@@ -112,15 +106,8 @@ MODULE mo_nonhydro_types
     &  dwdx(:,:,:),         & ! zonal gradient of vertical wind speed (nproma,nlevp1,nblks_c)     [1/s]
     &  dwdy(:,:,:),         & ! meridional gradient of vertical wind speed (nproma,nlevp1,nblks_c)     [1/s]
     &  mass_fl_e(:,:,:),    & ! horizontal mass flux at edges (nproma,nlev,nblks_e) [kg/m/s]
-    &  mass_fl_e_sv(:,:,:), & ! storage field for horizontal mass flux at edges (nproma,nlev,nblks_e) [kg/m/s]
     &  rho_ic(:,:,:),       & ! density at half levels (nproma,nlevp1,nblks_c)     [kg/m^3]
     &  theta_v_ic(:,:,:),   & ! theta_v at half levels (nproma,nlevp1,nblks_c)         [K]
-    &  w_concorr_c(:,:,:),  & ! contravariant vert correction (nproma,nlevp1,nblks_c)[m/s]
-    &  vn_ie(:,:,:),        & ! normal wind at half levels (nproma,nlevp1,nblks_e)   [m/s]
-    &  ddt_vn_adv(:,:,:,:), & ! normal wind tendency from advection
-                              ! (nproma,nlev,nblks_e,1:3)                    [m/s^2]
-    &  ddt_w_adv(:,:,:,:),  & ! vert. wind tendency from advection
-                              ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
     &  airmass_now(:,:,:),  & ! mass of air in layer at physics time step now [kg/m^2]
     &  airmass_new(:,:,:),  & ! mass of air in layer at physics time step new [kg/m^2]
 
@@ -152,16 +139,47 @@ MODULE mo_nonhydro_types
     &  q_ubc(:,:,:),       & ! Storage field for vertical nesting: q at child upper boundary
 
     !
-    ! c) analysis increments (necessary for incremental analysis update)
-    &  vn_incr   (:,:,:),   & ! normal velocity increment        [m/s]
-    &  exner_incr(:,:,:),   & ! exner inrement                   [-]
-    &  rho_incr  (:,:,:),   & ! moist density increment          [kg/m^3]
-    &  qv_incr   (:,:,:),   & ! specific humidity increment      [kg/kg]
+    ! c) storage variables for time-averaged first-guess output
     &  u_avg    (:,:,:),    & ! normal velocity average          [m/s]
     &  v_avg    (:,:,:),    & ! normal velocity average          [m/s]
     &  pres_avg (:,:,:),    & ! exner average                    [-]
     &  temp_avg   (:,:,:),  & ! moist density average            [kg/m^3]
     &  qv_avg    (:,:,:)      ! specific humidity average        [kg/kg]
+
+
+    ! d) variables that are in single precision when "__MIXED_PRECISION" is defined
+    REAL(vp), POINTER       &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    , CONTIGUOUS            &
+#endif
+    &  ::                   &
+    ! analysis increments
+    &  vn_incr   (:,:,:),   & ! normal velocity increment        [m/s]
+    &  exner_incr(:,:,:),   & ! exner inrement                   [-]
+    &  rho_incr  (:,:,:),   & ! moist density increment          [kg/m^3]
+    &  qv_incr   (:,:,:),   & ! specific humidity increment      [kg/kg]
+    ! tendencies, physics increments and derived velocity fields
+    &  vt(:,:,:),           & ! tangential wind (nproma,nlev,nblks_e)          [m/s]
+    &  ddt_exner_phy(:,:,:),& ! exner pressure tendency from physical forcing 
+                              ! (nproma,nlev,nblks_c)                     [1/s]
+    &  ddt_vn_phy(:,:,:),   & ! normal wind tendency from forcing
+                              ! (nproma,nlev,nblks_e)                          [m/s^2]
+    &  exner_dyn_incr(:,:,:), & ! exner pres dynamics increment (nproma,nlev,nblks_c)
+    &  vn_ie(:,:,:),        & ! normal wind at half levels (nproma,nlevp1,nblks_e)   [m/s]
+    &  w_concorr_c(:,:,:),  & ! contravariant vert correction (nproma,nlevp1,nblks_c)[m/s]
+    &  mass_fl_e_sv(:,:,:), & ! storage field for horizontal mass flux at edges (nproma,nlev,nblks_e) [kg/m/s]
+    &  ddt_vn_adv(:,:,:,:), & ! normal wind tendency from advection
+                              ! (nproma,nlev,nblks_e,1:3)                    [m/s^2]
+    &  ddt_w_adv(:,:,:,:)     ! vert. wind tendency from advection
+                              ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
+
+    REAL(vp2), POINTER      &   ! single precision if "__MIXED_PRECISION_2" is defined
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    , CONTIGUOUS            &
+#endif
+    &  ::                   &
+    &  ddt_temp_dyn(:,:,:)    ! rediagnosed temperature tendency from dynamics [K/s]
+
 
     INTEGER, POINTER ::     &
     &  nsteps_avg(:)          ! number of time steps summed up for averaging
@@ -171,20 +189,23 @@ MODULE mo_nonhydro_types
      &  extra_2d(:,:,:)  ,  & !> extra debug output in 2d and
      &  extra_3d(:,:,:,:)     !!                       3d
 
+    REAL(vp) :: max_vcfl_dyn=0._vp  ! maximum vertical CFL number in dynamical core
 
     TYPE(t_ptr_2d3d),ALLOCATABLE ::   &
       &  ddt_grf_trc_ptr(:),   &  !< pointer array: one pointer for each tracer
       &  hfl_trc_ptr    (:),   &  !< pointer array: one pointer for each tracer
       &  vfl_trc_ptr    (:),   &  !< pointer array: one pointer for each tracer
       &  ddt_trc_adv_ptr(:),   &  !< pointer array: one pointer for each tracer
-      &  ddt_vn_adv_ptr (:),   &  !< pointer array: one pointer for each tracer
-      &  ddt_w_adv_ptr  (:),   &  !< pointer array: one pointer for each tracer
       &  q_int_ptr      (:),   &  
       &  q_ubc_ptr      (:),   &
       &  tracer_vi_ptr  (:),   &  !< pointer array: one pointer for each tracer
       &  tracer_vi_avg_ptr(:), &  !< pointer array: one pointer for each tracer
       &  extra_2d_ptr   (:),   &
       &  extra_3d_ptr   (:)
+
+    TYPE(t_ptr_2d3d_vp),ALLOCATABLE ::   &
+      &  ddt_vn_adv_ptr (:),   &  !< pointer array: one pointer for each tracer
+      &  ddt_w_adv_ptr  (:)       !< pointer array: one pointer for each tracer
 
   END TYPE t_nh_diag
 
@@ -224,24 +245,14 @@ MODULE mo_nonhydro_types
      vwind_expl_wgt(:,:)  , & ! explicit weight in vertical wind solver (nproma,nblks_c)
      vwind_impl_wgt(:,:)  , & ! implicit weight in vertical wind solver (nproma,nblks_c)
      !
-     ! c) Fields for the reference atmosphere
-     !
-     theta_ref_mc(:,:,:) , & 
-     theta_ref_me(:,:,:) , & 
-     theta_ref_ic(:,:,:) , & 
-     tsfc_ref(:,:)       , & 
-     exner_ref_mc(:,:,:) , & 
-     rho_ref_mc  (:,:,:) , &  
-     rho_ref_me  (:,:,:) , & 
-     !
-     ! d) Fields for truly horizontal temperature diffusion
+     ! c) Fields for truly horizontal temperature diffusion
      !
      zd_intcoef(:,:) , & 
      zd_geofac(:,:)  , & 
      zd_e2cell(:,:)  , & 
      zd_diffcoef(:)  , & 
      !
-     ! e) Fields for LES Model : Anurag Dipankar, MPIM (2013-04)
+     ! d) Fields for LES Model : Anurag Dipankar, MPIM (2013-04)
      !
      ! Vertical grid related
      inv_ddqz_z_full_e(:,:,:)  , & 
@@ -253,13 +264,11 @@ MODULE mo_nonhydro_types
      ! Mixing length for Smagorinsky model
      mixing_length_sq(:,:,:)   , & 
      !
-     ! f) Other stuff
+     ! e) Other stuff
      !
-     ! Correction term needed to use perturbation density for lateral boundary nudging
-     ! (note: this field is defined on the local parent grid in case of MPI parallelization)
-     rho_ref_corr(:,:,:) , &
      ! Mask field for mountain or upper slope points
      mask_mtnpoints(:,:) , & ! 
+     mask_mtnpoints_g(:,:) , & ! 
      ! Area of subdomain for which feedback is performed; dim: (nlev)
      fbk_dom_volume(:)
 
@@ -304,9 +313,20 @@ MODULE mo_nonhydro_types
      !
      ! c) Fields for reference atmosphere
      !
+     theta_ref_mc(:,:,:) , & 
+     theta_ref_me(:,:,:) , & 
+     theta_ref_ic(:,:,:) , & 
+     tsfc_ref(:,:)       , & 
+     exner_ref_mc(:,:,:) , & 
+     rho_ref_mc  (:,:,:) , &  
+     rho_ref_me  (:,:,:) , & 
      d_exner_dz_ref_ic(:,:,:), & 
      d2dexdz2_fac1_mc(:,:,:) , & 
      d2dexdz2_fac2_mc(:,:,:) , &
+     !
+     ! Correction term needed to use perturbation density for lateral boundary nudging
+     ! (note: this field is defined on the local parent grid in case of MPI parallelization)
+     rho_ref_corr(:,:,:) , &
      !
      ! d) other stuff
      !
@@ -360,8 +380,6 @@ MODULE mo_nonhydro_types
    INTEGER  :: nudge_c_dim, nudge_e_dim ! for grid points on which lateral boundary nudging is applied
    INTEGER  :: bdy_halo_c_dim ! for halo points belonging to the nest boundary region
    INTEGER  :: bdy_mflx_e_dim ! for mass fluxes at lateral nest boundary
-
-   REAL(vp) :: max_vcfl_dyn=0._vp  ! maximum vertical CFL number in dynamical core
 
 
    ! Finally, a mask field that excludes boundary halo points

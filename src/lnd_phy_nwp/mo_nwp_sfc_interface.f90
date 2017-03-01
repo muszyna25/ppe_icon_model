@@ -816,6 +816,7 @@ CONTAINS
              prm_diag%shfl_s_t      (jc,jb,is1) = prm_diag%shfl_s_t      (jc,jb,is2)
              prm_diag%lhfl_s_t      (jc,jb,is1) = prm_diag%lhfl_s_t      (jc,jb,is2)
              prm_diag%qhfl_s_t      (jc,jb,is1) = prm_diag%qhfl_s_t      (jc,jb,is2)
+             prm_diag%albdif_t      (jc,jb,is1) = prm_diag%albdif_t      (jc,jb,is2)
 
              lnd_prog_new%t_so_t    (jc,:,jb,is1) = lnd_prog_new%t_so_t    (jc,:,jb,is2)          
              lnd_prog_new%w_so_t    (jc,:,jb,is1) = lnd_prog_new%w_so_t    (jc,:,jb,is2)        
@@ -885,6 +886,12 @@ CONTAINS
                  IF (jk == 1) THEN
                    lnd_prog_new%t_s_t(jc,jb,isubs)      = lnd_prog_new%t_so_t(jc,jk,jb,isubs)
                    lnd_prog_new%t_s_t(jc,jb,isubs_snow) = lnd_prog_new%t_so_t(jc,jk,jb,isubs_snow)
+
+                   tmp1 = lnd_prog_new%w_i_t(jc,jb,isubs) 
+                   lnd_prog_new%w_i_t(jc,jb,isubs) = tmp1*fact1(jc)           &
+                     + lnd_prog_new%w_i_t(jc,jb,isubs_snow)*(1._wp - fact1(jc))
+                   lnd_prog_new%w_i_t(jc,jb,isubs_snow) = tmp1*(1._wp - fact2(jc)) &
+                     + lnd_prog_new%w_i_t(jc,jb,isubs_snow)*fact2(jc)
                  ENDIF
                ENDIF
 
@@ -1162,9 +1169,8 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-
     IF (msg_level >= 15) THEN
-      CALL message('mo_nwp_sfc_interface: ', 'call nwp_seaice scheme')
+      CALL message(routine, 'call nwp_seaice scheme')
     ENDIF
 
 !$OMP PARALLEL
@@ -1248,6 +1254,7 @@ CONTAINS
         &              fr_seaice     = p_lnd_diag%fr_seaice(:,jb),              &!inout
         &              hice_old      = p_prog_wtr_now%h_ice(:,jb),              &!inout
         &              tice_old      = p_prog_wtr_now%t_ice(:,jb),              &!inout
+        &              t_g_t_now     = lnd_prog_now%t_g_t(:,jb,isub_water),     &!inout
         &              t_g_t_new     = lnd_prog_new%t_g_t(:,jb,isub_water),     &!inout
         &              t_s_t_now     = lnd_prog_now%t_s_t(:,jb,isub_water),     &!inout
         &              t_s_t_new     = lnd_prog_new%t_s_t(:,jb,isub_water),     &!inout
@@ -1340,9 +1347,8 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-
     IF (msg_level >= 15) THEN
-      CALL message('mo_nwp_sfc_interface: ', 'call nwp_lake scheme')
+      CALL message(routine, 'call nwp_lake scheme')
     ENDIF
 
 !$OMP PARALLEL
@@ -1399,9 +1405,7 @@ CONTAINS
                                                                       ! (optional arg of flake_interface) 
       ENDDO
 
-!GZ: this directive is needed to suppress inlining for cce8.2.0 and higher, which induces an OpenMP error
-!DIR$ NOINLINE
-    CALL flake_interface (                                    & !in
+      CALL flake_interface (                                  & !in
                      &  dtime       = dtime           ,       & !in
                      &  nflkgb      = icount_flk      ,       & !in
                      &  coriolispar = f_c          (:),       & !in
@@ -1440,7 +1444,6 @@ CONTAINS
                      &  h_b1_lk_n   = h_b1_lk_new  (:),       & !out
                      &  t_scf_lk_n  = t_scf_lk_new (:)        ) !out
 ! optional arguments (tendencies) are omitted
-!DIR$ RESETINLINE
 
 
       !  Recover fields from index list

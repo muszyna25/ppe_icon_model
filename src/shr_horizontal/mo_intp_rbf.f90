@@ -140,7 +140,7 @@ MODULE mo_intp_rbf
 !
 !
 !
-USE mo_kind,                ONLY: wp
+USE mo_kind,                ONLY: wp, sp
 USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int
 USE mo_model_domain,        ONLY: t_patch
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
@@ -159,13 +159,18 @@ PUBLIC :: rbf_vec_interpol_cell, rbf_interpol_c2grad,     &
         & rbf_vec_interpol_vertex, rbf_vec_interpol_edge
 
 #if defined( _OPENACC )
-#define ACC_DEBUG $ACC
+#define ACC_DEBUG NOACC
 #if defined(__INTP_RBF_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
 #endif
+
+INTERFACE rbf_vec_interpol_vertex
+  MODULE PROCEDURE rbf_vec_interpol_vertex_wp
+  MODULE PROCEDURE rbf_vec_interpol_vertex_vp
+END INTERFACE
 
 
 CONTAINS
@@ -535,9 +540,9 @@ END SUBROUTINE rbf_interpol_c2grad
 !! Modification by Almut Gassmann, MPI-M (2009-11-06)
 !! - include switch which distinguishes normal or tangential components as input
 !!
-SUBROUTINE rbf_vec_interpol_vertex( p_e_in, ptr_patch, ptr_int, &
-                                    p_u_out, p_v_out,           &
-                                    opt_slev, opt_elev, opt_rlstart, opt_rlend )
+SUBROUTINE rbf_vec_interpol_vertex_wp( p_e_in, ptr_patch, ptr_int, &
+                                       p_u_out, p_v_out,           &
+                                       opt_slev, opt_elev, opt_rlstart, opt_rlend )
 !
 TYPE(t_patch), TARGET, INTENT(in) ::  &
   &  ptr_patch
@@ -671,7 +676,146 @@ ENDDO
 !$OMP END PARALLEL
 #endif
 
-END SUBROUTINE rbf_vec_interpol_vertex
+END SUBROUTINE rbf_vec_interpol_vertex_wp
+
+! Variant for mixed precision mode (output fields in single precision)
+SUBROUTINE rbf_vec_interpol_vertex_vp( p_e_in, ptr_patch, ptr_int, &
+                                       p_u_out, p_v_out,           &
+                                       opt_slev, opt_elev, opt_rlstart, opt_rlend )
+!
+TYPE(t_patch), TARGET, INTENT(in) ::  &
+  &  ptr_patch
+
+! input components of velocity or horizontal vorticity vectors at edge midpoints
+REAL(wp), INTENT(IN) ::  &
+  &  p_e_in(:,:,:) ! dim: (nproma,nlev,nblks_e)
+
+! Indices of source points and interpolation coefficients
+TYPE(t_int_state), TARGET, INTENT(IN)  ::  ptr_int
+
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_slev    ! optional vertical start level
+
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_elev    ! optional vertical end level
+
+! start and end values of refin_ctrl flag
+INTEGER, INTENT(in), OPTIONAL :: opt_rlstart, opt_rlend
+
+! reconstructed x-component (u) of velocity vector
+REAL(sp),INTENT(INOUT) ::  &
+  &  p_u_out(:,:,:) ! dim: (nproma,nlev,nblks_v)
+
+! reconstructed y-component (v) of velocity vector
+REAL(sp),INTENT(INOUT) ::  &
+  &  p_v_out(:,:,:) ! dim: (nproma,nlev,nblks_v)
+
+! !LOCAL VARIABLES
+
+INTEGER :: slev, elev                ! vertical start and end level
+INTEGER :: jv, jk, jb                ! integer over vertices, levels, and blocks,
+
+INTEGER :: i_startblk      ! start block
+INTEGER :: i_endblk        ! end block
+INTEGER :: i_startidx      ! start index
+INTEGER :: i_endidx        ! end index
+INTEGER :: rl_start, rl_end, i_nchdom
+
+INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff
+
+!-----------------------------------------------------------------------
+
+! check optional arguments
+IF ( PRESENT(opt_slev) ) THEN
+  slev = opt_slev
+ELSE
+  slev = 1
+END IF
+IF ( PRESENT(opt_elev) ) THEN
+  elev = opt_elev
+ELSE
+  elev = UBOUND(p_e_in,2)
+END IF
+
+IF ( PRESENT(opt_rlstart) ) THEN
+  rl_start = opt_rlstart
+ELSE
+  rl_start = 2
+END IF
+IF ( PRESENT(opt_rlend) ) THEN
+  rl_end = opt_rlend
+ELSE
+  rl_end = min_rlvert_int-1
+END IF
+
+iidx => ptr_int%rbf_vec_idx_v
+iblk => ptr_int%rbf_vec_blk_v
+
+ptr_coeff => ptr_int%rbf_vec_coeff_v
+
+! values for the blocking
+i_nchdom   = MAX(1,ptr_patch%n_childdom)
+i_startblk = ptr_patch%verts%start_blk(rl_start,1)
+i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
+
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( p_e_in ), PCOPY( p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( p_e_in, p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, p_e_in, p_u_out, p_v_out ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jv), ICON_OMP_RUNTIME_SCHEDULE
+#endif
+DO jb = i_startblk, i_endblk
+
+  CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
+                     i_startidx, i_endidx, rl_start, rl_end)
+
+!$ACC LOOP VECTOR COLLAPSE(2)
+#ifdef __LOOP_EXCHANGE
+  DO jv = i_startidx, i_endidx
+    DO jk = slev, elev
+#else
+!CDIR UNROLL=6
+  DO jk = slev, elev
+    DO jv = i_startidx, i_endidx
+#endif
+
+      p_u_out(jv,jk,jb) =  &
+        ptr_coeff(1,1,jv,jb)*p_e_in(iidx(1,jv,jb),jk,iblk(1,jv,jb)) + &
+        ptr_coeff(2,1,jv,jb)*p_e_in(iidx(2,jv,jb),jk,iblk(2,jv,jb)) + &
+        ptr_coeff(3,1,jv,jb)*p_e_in(iidx(3,jv,jb),jk,iblk(3,jv,jb)) + &
+        ptr_coeff(4,1,jv,jb)*p_e_in(iidx(4,jv,jb),jk,iblk(4,jv,jb)) + &
+        ptr_coeff(5,1,jv,jb)*p_e_in(iidx(5,jv,jb),jk,iblk(5,jv,jb)) + &
+        ptr_coeff(6,1,jv,jb)*p_e_in(iidx(6,jv,jb),jk,iblk(6,jv,jb))
+      p_v_out(jv,jk,jb) =  &
+        ptr_coeff(1,2,jv,jb)*p_e_in(iidx(1,jv,jb),jk,iblk(1,jv,jb)) + &
+        ptr_coeff(2,2,jv,jb)*p_e_in(iidx(2,jv,jb),jk,iblk(2,jv,jb)) + &
+        ptr_coeff(3,2,jv,jb)*p_e_in(iidx(3,jv,jb),jk,iblk(3,jv,jb)) + &
+        ptr_coeff(4,2,jv,jb)*p_e_in(iidx(4,jv,jb),jk,iblk(4,jv,jb)) + &
+        ptr_coeff(5,2,jv,jb)*p_e_in(iidx(5,jv,jb),jk,iblk(5,jv,jb)) + &
+        ptr_coeff(6,2,jv,jb)*p_e_in(iidx(6,jv,jb),jk,iblk(6,jv,jb))
+
+      ENDDO
+    ENDDO
+
+ENDDO
+
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+#endif
+
+END SUBROUTINE rbf_vec_interpol_vertex_vp
 
 !-------------------------------------------------------------------------
 !

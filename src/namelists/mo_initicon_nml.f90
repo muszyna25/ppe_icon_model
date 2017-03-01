@@ -34,7 +34,6 @@ MODULE mo_initicon_nml
     & config_nlevsoil_in         => nlevsoil_in,         &
     & config_zpbl1               => zpbl1,               &
     & config_zpbl2               => zpbl2,               &
-    & config_l_sst_in            => l_sst_in,            &
     & config_lread_ana           => lread_ana,           &
     & config_lconsistency_checks => lconsistency_checks, &
     & config_ifs2icon_filename   => ifs2icon_filename,   &
@@ -51,11 +50,13 @@ MODULE mo_initicon_nml
     & config_interval_avg_fg     => interval_avg_fg,     &
     & config_filetype            => filetype,            &
     & config_dt_iau              => dt_iau,              &
+    & config_iterate_iau         => iterate_iau,         &
     & config_timeshift           => timeshift,           &
     & config_type_iau_wgt        => type_iau_wgt,        &
     & config_rho_incr_filter_wgt => rho_incr_filter_wgt, &
-    & config_ana_varnames_map_file => ana_varnames_map_file, &
-    & config_latbc_varnames_map_file => latbc_varnames_map_file
+    & config_niter_divdamp       => niter_divdamp,       &
+    & config_niter_diffu         => niter_diffu,         &
+    & config_ana_varnames_map_file => ana_varnames_map_file
 
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
 
@@ -109,8 +110,12 @@ MODULE mo_initicon_nml
                             ! 1: Top-hat
                             ! 2: SIN2
                             ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD
+  LOGICAL  :: iterate_iau   ! if .TRUE., iterate IAU phase with halved dt_iau in first iteration
   REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
                                    ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD
+
+  INTEGER  :: niter_divdamp ! number of divergence damping iterations on wind increment from DA
+  INTEGER  :: niter_diffu   ! number of diffusion iterations on wind increment from DA
 
   CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
                                                       ! This list can include a subset or the 
@@ -134,11 +139,7 @@ MODULE mo_initicon_nml
 
   ! analysis file: dictionary which maps internal variable names onto
   ! GRIB2 shortnames or NetCDF var names.
-  CHARACTER(LEN=filename_max) :: ana_varnames_map_file      
-
-  ! analysis file: dictionary which maps internal variable names onto
-  ! GRIB2 shortnames or NetCDF var names used for lateral boundary nudging.
-  CHARACTER(LEN=filename_max) :: latbc_varnames_map_file  
+  CHARACTER(LEN=filename_max) :: ana_varnames_map_file
 
   NAMELIST /initicon_nml/ init_mode, zpbl1, zpbl2, l_coarse2fine_mode,      &
                           nlevsoil_in, l_sst_in, lread_ana,                 &
@@ -147,10 +148,11 @@ MODULE mo_initicon_nml
                           dwdana_filename, filetype, dt_iau, dt_shift,      &
                           type_iau_wgt, ana_varlist, ana_varlist_n2,        &
                           ana_varnames_map_file, lp2cintp_incr,             &
-                          lp2cintp_sfcana, latbc_varnames_map_file,         &
+                          lp2cintp_sfcana,                                  &
                           start_time_avg_fg, end_time_avg_fg,               &
                           interval_avg_fg, ltile_coldstart, ltile_init,     &
-                          lvert_remap_fg
+                          lvert_remap_fg, iterate_iau, niter_divdamp,       &
+                          niter_diffu
                           
 CONTAINS
 
@@ -172,6 +174,7 @@ CONTAINS
   INTEGER :: i_status
   INTEGER :: z_go_init(7)   ! for consistency check
   INTEGER :: iunit
+  INTEGER :: jg
 
   CHARACTER(len=*), PARAMETER ::  &
     &  routine = 'mo_initicon_nml: read_initicon_namelist'
@@ -185,14 +188,16 @@ CONTAINS
   nlevsoil_in = 4              ! number of soil levels of input data
   zpbl1       = 500._wp        ! AGL heights used for computing vertical 
   zpbl2       = 1000._wp       ! gradients
-  l_sst_in    = .TRUE.         ! true: sea surface temperature field provided as input
   lread_ana   = .TRUE.         ! true: read analysis fields from file dwdana_filename
                                ! false: start ICON from first guess file (no analysis)
   lconsistency_checks = .TRUE. ! check validity of input fields  
   filetype    = -1             ! "-1": undefined
   dt_iau      = 10800._wp      ! 3-hour interval for IAU
+  iterate_iau = .FALSE.        ! no iteration of IAU
   dt_shift    = 0._wp          ! do not shift actual simulation start backward
   rho_incr_filter_wgt = 0._wp  ! density increment filtering turned off
+  niter_diffu = 10             ! number of diffusion iterations on wind increment from DA
+  niter_divdamp = 25           ! number of divergence damping iterations on wind increment from DA
   type_iau_wgt= 1              ! Top-hat weighting function
   ana_varlist = ''             ! list of mandatory analysis fields. This list can include a subset 
                                ! or the entire set of default analysis fields. If any of these fields
@@ -202,7 +207,7 @@ CONTAINS
                                ! taken from the first guess.
   ana_varlist_n2 = ''          ! Same for patch nr. 2 (nest 1) 
   ana_varnames_map_file = " "
-  latbc_varnames_map_file = " "
+
   ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
   dwdfg_filename    = "<path>dwdFG_R<nroot>B<jlev>_DOM<idom>.nc"
   dwdana_filename   = "<path>dwdana_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -307,6 +312,10 @@ CONTAINS
     CALL finish(TRIM(routine),message_text)
   ENDIF
 
+  ! 
+  WRITE(message_text,'(a)') &
+    &  'Namelist switch l_sst_in is obsolete and will soon be removed!'
+  CALL message("WARNING",message_text)
 
   !------------------------------------------------------------
   ! 5.0 Fill the configuration state
@@ -316,7 +325,6 @@ CONTAINS
   config_nlevsoil_in         = nlevsoil_in
   config_zpbl1               = zpbl1
   config_zpbl2               = zpbl2
-  config_l_sst_in            = l_sst_in
   config_lread_ana           = lread_ana
   config_lconsistency_checks = lconsistency_checks
   config_ifs2icon_filename   = ifs2icon_filename
@@ -333,14 +341,20 @@ CONTAINS
   config_interval_avg_fg     = interval_avg_fg
   config_filetype            = filetype
   config_dt_iau              = dt_iau
+  config_iterate_iau         = iterate_iau
   config_timeshift%dt_shift  = dt_shift
   config_type_iau_wgt        = type_iau_wgt
   config_ana_varnames_map_file = ana_varnames_map_file
   config_rho_incr_filter_wgt   = rho_incr_filter_wgt
-  config_latbc_varnames_map_file = latbc_varnames_map_file
+  config_niter_divdamp       = niter_divdamp
+  config_niter_diffu         = niter_diffu
 
-  initicon_config(1)%ana_varlist = ana_varlist
-  initicon_config(2)%ana_varlist = ana_varlist_n2
+  initicon_config(1)%ana_varlist  = ana_varlist
+  initicon_config(2)%ana_varlist  = ana_varlist_n2
+  ! Well defined state for all other domains
+  DO jg=3,max_dom
+    initicon_config(jg)%ana_varlist = ' '
+  ENDDO
 
   ! write the contents of the namelist to an ASCII file
 
