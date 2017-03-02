@@ -25,7 +25,6 @@
 MODULE mo_interface_echam_sso
 
   USE mo_kind,                ONLY: wp
-  USE mo_math_constants,      ONLY: pi
   USE mo_run_config,          ONLY: nlev
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field,     &
     &                               t_echam_phy_tend
@@ -71,7 +70,7 @@ CONTAINS
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
-      CALL echam_ssodrag(patch, jb,jcs,jce, nproma, field, tend, zconv(:,:,jb), zq_phy(:,:,jb), pdtime)
+      CALL echam_ssodrag(jb,jcs,jce, nproma, field, tend, zconv(:,:,jb), zq_phy(:,:,jb), pdtime)
     ENDDO
 !$OMP END PARALLEL DO 
 
@@ -81,8 +80,7 @@ CONTAINS
    !-------------------------------------------------------------------
 
    !---------------------------------------------------------------------
-  SUBROUTINE echam_ssodrag(patch, jb,jcs,jce, nbdim, field, tend, zconv, zq_phy, pdtime)
-    TYPE(t_patch)   ,INTENT(in), TARGET :: patch           !< grid/patch info
+  SUBROUTINE echam_ssodrag(jb,jcs,jce, nbdim, field, tend, zconv, zq_phy, pdtime)
     INTEGER         ,INTENT(IN) :: jb             !< block index
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
     INTEGER         ,INTENT(IN) :: nbdim          !< size of this block 

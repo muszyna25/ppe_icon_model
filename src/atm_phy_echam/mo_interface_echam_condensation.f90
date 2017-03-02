@@ -23,7 +23,6 @@ MODULE mo_interface_echam_condensation
 
   USE mo_kind,                ONLY: wp
   USE mo_run_config,          ONLY: nlev, iqv, iqc, iqi
-  USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field,     &
     &                               t_echam_phy_tend
   USE mo_cloud,               ONLY: cloud

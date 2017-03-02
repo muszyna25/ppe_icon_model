@@ -68,7 +68,7 @@ CONTAINS
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
-      CALL echam_gw_hines(patch, jg, jb,jcs,jce, nproma, field, tend, zconv(:,:,jb), zq_phy(:,:,jb))
+      CALL echam_gw_hines(jg, jb,jcs,jce, nproma, field, tend, zconv(:,:,jb), zq_phy(:,:,jb))
     ENDDO
 !$OMP END PARALLEL DO 
 
@@ -79,8 +79,7 @@ CONTAINS
 
  
   !---------------------------------------------------------------------
-  SUBROUTINE echam_gw_hines(patch, jg, jb,jcs,jce, nbdim, field, tend, zconv, zq_phy)
-    TYPE(t_patch)   ,INTENT(in), TARGET :: patch           !< grid/patch info
+  SUBROUTINE echam_gw_hines(jg, jb,jcs,jce, nbdim, field, tend, zconv, zq_phy)
     INTEGER         ,INTENT(IN) :: jg
     INTEGER         ,INTENT(IN) :: jb             !< block index
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
