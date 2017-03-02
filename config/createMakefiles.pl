@@ -332,7 +332,11 @@ __EOF__
 ;
 	while ( my ($key, $value) = each(%target_programs) ) {
 	    my $okey = $key;
-	    $okey =~ s/ *$/.o/;	
+	    if ( "$okey" eq "jsb4_driver" ) {
+	        $okey = "jsb4_driver_dsl4jsb.o" ;
+	    } else {
+	        $okey =~ s/ *$/.o/;
+	    }
 	    print MAKEFILE "$okey: $value
 ../bin/$key: $okey libicon.a version.o
 \t\$(FC) \$(LDFLAGS) -o \$@ \$< libicon.a version.o \$(LIBS)
