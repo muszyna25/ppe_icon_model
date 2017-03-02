@@ -101,9 +101,6 @@ CONTAINS
 
     INTEGER  :: ictop (nproma,patch%nblks_c)             !< from massflux
 
-    REAL(wp) :: zfrw (nproma)              !< fraction of water (without ice) in the grid point
-    REAL(wp) :: zfri (nproma)              !< fraction of ice in the grid box
-
     INTEGER  :: jg             !< grid level/domain index
     INTEGER  :: i_nchdom
     INTEGER  :: i_startblk,i_endblk
@@ -153,16 +150,22 @@ CONTAINS
 !$OMP END PARALLEL DO 
 
     !-------------------------------------------------------------------
-    ! 3.13 DIAGNOSE CURRENT CLOUD COVER
-    !
-    !  and land fraction (combined here for convenience)
-    !-------------------------------------------------------------------
- 
-!$OMP PARALLEL DO PRIVATE(jcs,jce, zfrw, zfri)
+    ! Calculate surface fraction 
+    !------------------------------------------------------------------- 
+!$OMP PARALLEL DO PRIVATE(jcs,jce)
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-      CALL landFraction( jb,jcs,jce, nproma, field, zfrw, zfri)
-      CALL cloudCover( jb,jcs,jce, nproma, field, zfrw, zfri)
+      CALL surface_fractions( jb,jcs,jce, nproma, field)
+    ENDDO
+!$OMP END PARALLEL DO 
+ 
+    !-------------------------------------------------------------------
+    ! 3.13 DIAGNOSE CURRENT CLOUD COVER
+    !------------------------------------------------------------------- 
+!$OMP PARALLEL DO PRIVATE(jcs,jce)
+    DO jb = i_startblk,i_endblk
+      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+      CALL cloud_cover( jb,jcs,jce, nproma, field)
     ENDDO
 !$OMP END PARALLEL DO 
 
@@ -321,15 +324,15 @@ CONTAINS
   !----------------------------------------------------------------
 
   !----------------------------------------------------------------
-  SUBROUTINE landFraction( jb,jcs,jce, nbdim, field, zfrw, zfri)
+  SUBROUTINE surface_fractions( jb,jcs,jce, nbdim, field)
 
     INTEGER         ,INTENT(IN) :: jb             !< block index
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
     INTEGER         ,INTENT(IN) :: nbdim          !< size of this block
     TYPE(t_echam_phy_field),   POINTER :: field
+
     REAL(wp) :: zfrw (nbdim)              !< fraction of water (without ice) in the grid point
     REAL(wp) :: zfri (nbdim)              !< fraction of ice in the grid box
-
     REAL(wp) :: zfrl (nbdim)              !< fraction of land in the grid box
 
     INTEGER  :: jc
@@ -368,18 +371,16 @@ CONTAINS
     IF (iwtr.LE.nsfc_type) field%frac_tile(jcs:jce,jb,iwtr) = zfrw(jcs:jce)
     IF (iice.LE.nsfc_type) field%frac_tile(jcs:jce,jb,iice) = zfri(jcs:jce)
 
-  END SUBROUTINE landFraction
+  END SUBROUTINE surface_fractions
   !----------------------------------------------------------------
 
   !----------------------------------------------------------------
-  SUBROUTINE cloudCover( jb,jcs,jce, nbdim, field, zfrw, zfri)
+  SUBROUTINE cloud_cover( jb,jcs,jce, nbdim, field)
 
     INTEGER         ,INTENT(IN) :: jb             !< block index
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
     INTEGER         ,INTENT(IN) :: nbdim          !< size of this block
     TYPE(t_echam_phy_field),   POINTER :: field
-    REAL(wp) :: zfrw (nbdim)              !< fraction of water (without ice) in the grid point
-    REAL(wp) :: zfri (nbdim)              !< fraction of ice in the grid box
 
     INTEGER  :: itype(nbdim)              !< type of convection
 
@@ -393,7 +394,9 @@ CONTAINS
 
       CALL cover( jce, nbdim, jks,          &! in
         &         nlev, nlevp1,             &! in
-        &         itype,  zfrw, zfri,       &! in
+        &         itype,                    & ! zfrw, zfri,       &! in
+        &         field%frac_tile(:,jb,iwtr),&
+        &         field%frac_tile(:,jb,iice),&
         &         field% zf(:,:,jb),        &! in
         &         field% presi_old(:,:,jb), &! in
         &         field% presm_old(:,:,jb), &! in
@@ -406,7 +409,7 @@ CONTAINS
       IF (ltimer) CALL timer_stop(timer_cover)
     ENDIF ! lcond
 
-  END SUBROUTINE cloudCover
+  END SUBROUTINE cloud_cover
   !----------------------------------------------------------------
 
   !---------------------------------------------------------------------
