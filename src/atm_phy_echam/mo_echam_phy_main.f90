@@ -68,7 +68,8 @@ MODULE mo_echam_phy_main
   USE mo_ssortns,             ONLY: ssodrag
   ! provisional to get coordinates
   USE mo_model_domain,        ONLY: p_patch
-  USE mo_util_dbg_prnt,      ONLY: dbg_print
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
+  USE mo_exception,           ONLY: message
 
   IMPLICIT NONE
   PRIVATE
@@ -529,6 +530,10 @@ CONTAINS
                           & pph=field%presi_new(:,:,jb),                      &
                           & o3_time_int=zo3_timint,                           &
                           & o3_clim=field%o3(:,:,jb)                          )
+
+            CASE(10)
+                CALL message('mo_echam_phy_main ', 'using ART ozone for radiation')
+
             END SELECT
 
         IF (ltimer) CALL timer_start(timer_radiation)

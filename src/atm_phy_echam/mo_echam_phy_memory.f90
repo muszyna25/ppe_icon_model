@@ -63,7 +63,9 @@ MODULE mo_echam_phy_memory
     &                               ZA_HYBRID, ZA_HYBRID_HALF,         &
     &                               ZA_SURFACE, ZA_GENERIC_ICE
   USE mo_sea_ice_nml,         ONLY: kice
-
+    !ART
+  USE mo_art_config,          ONLY: ctracer_art
+  USE mo_run_config,          ONLY: lart
 
   IMPLICIT NONE
   PRIVATE
@@ -528,11 +530,16 @@ CONTAINS
 
     CALL message(TRIM(thismodule),'Construction of ECHAM physics state started.')
 
-    ! Stop if ntracer/=3 (to be generalized later)
-    IF (ntracer /= 3) CALL finish( TRIM(thismodule)//'construct_echam_phy_state', &
-      &                            'Currently does not work for ntracer /= 3'     )
 
-    ctracer(1:3) = (/'hus','clw','cli'/)
+    IF (lart == .TRUE.) THEN
+        ctracer = ctracer_art
+    ELSE
+        ! Stop if ntracer/=3 (to be generalized later)
+        IF (ntracer /= 3) CALL finish( TRIM(thismodule)//'construct_echam_phy_state', &
+          &                            'Currently does not work for ntracer /= 3'     )
+
+        ctracer(1:3) = (/'hus','clw','cli'/)
+    ENDIF
 
     CALL cdiDefMissval(cdimissval)
 
