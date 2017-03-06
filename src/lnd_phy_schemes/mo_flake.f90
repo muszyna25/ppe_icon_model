@@ -602,7 +602,12 @@ CONTAINS
           ! Set the mixed-layer temperature to the fresh-water freezing point
           t_wml_lk_p(iflk)  = tpl_T_f
           ! Adjust the temperature profile 
-          ! h_ML and C_T remain unchanged, limit the bottom temperature
+          ! Reset h_ML and C_T as needed
+          IF(h_ml_lk_p(iflk) >= (depth_lk(iflk)-h_ML_min_flk)) THEN ! h_ML=D when ice is created 
+            h_ml_lk_p(iflk) = 0._ireals        ! Set h_ML to zero 
+            c_t_lk_p(iflk)  = C_T_min          ! Set C_T to its minimum value 
+          END IF                               ! h_ML<D when ice is created 
+          ! Limit the bottom temperature
           t_bot_lk_p(iflk) = MAX(tpl_T_f, MIN(t_bot_lk_p(iflk), tpl_T_r))
           ! Compute the mean temperature of the water column
           t_mnw_lk_p(iflk) = t_wml_lk_p(iflk) - c_t_lk_p(iflk)                             &
@@ -1400,7 +1405,7 @@ CONTAINS
       !---------------------------------------------------------------------------------------------
       !  Advance FLake variables one time step forward 
       !---------------------------------------------------------------------------------------------
-!CDIR NEXPAND      
+!CDIR NEXPAND
       CALL flake_driver (  depth_w, depth_bs, T_bs, par_Coriolis,  &
                         &  opticpar_water%extincoef_optic(1),      &
                         &  del_time, T_sfc_p, T_sfc_n, izdebug     )
@@ -1791,11 +1796,11 @@ TYPE (opticpar_medium), INTENT(IN) :: &
     ! Integral-mean radiation flux over the thermocline
     I_intm_h_D_flk =                                                           &
     opticpar_water%frac_optic(1)/opticpar_water%extincoef_optic(1)*            &
-    ( EXP(-MAX(opticpar_water%extincoef_optic(1)*h_ML_p_flk, c_maxearg_flk))   &
-    - EXP(-MAX(opticpar_water%extincoef_optic(1)*depth_w, c_maxearg_flk)) ) +  &
+    ( EXP(-MIN(opticpar_water%extincoef_optic(1)*h_ML_p_flk, c_maxearg_flk))   &
+    - EXP(-MIN(opticpar_water%extincoef_optic(1)*depth_w, c_maxearg_flk)) ) +  &
     opticpar_water%frac_optic(2)/opticpar_water%extincoef_optic(2)*            &
-    ( EXP(-MAX(opticpar_water%extincoef_optic(2)*h_ML_p_flk, c_maxearg_flk))   &
-    - EXP(-MAX(opticpar_water%extincoef_optic(2)*depth_w, c_maxearg_flk)) )
+    ( EXP(-MIN(opticpar_water%extincoef_optic(2)*h_ML_p_flk, c_maxearg_flk))   &
+    - EXP(-MIN(opticpar_water%extincoef_optic(2)*depth_w, c_maxearg_flk)) )
     I_intm_h_D_flk = I_w_flk*I_intm_h_D_flk/(depth_w-h_ML_p_flk)
   ELSE
     I_intm_h_D_flk = I_h_flk

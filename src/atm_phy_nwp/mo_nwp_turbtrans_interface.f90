@@ -521,6 +521,10 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         prm_diag%u_10m (i_startidx:i_endidx,jb) = 0._wp
         prm_diag%v_10m (i_startidx:i_endidx,jb) = 0._wp
 
+        prm_diag%t_2m_land (i_startidx:i_endidx,jb) = 0._wp
+        prm_diag%td_2m_land(i_startidx:i_endidx,jb) = 0._wp
+        prm_diag%rh_2m_land(i_startidx:i_endidx,jb) = 0._wp
+
         z_tvs        (i_startidx:i_endidx,nlevp1, 1) = 0._wp
         prm_diag%tkvm(i_startidx:i_endidx,nlevp1,jb) = 0._wp
         prm_diag%tkvh(i_startidx:i_endidx,nlevp1,jb) = 0._wp
@@ -604,6 +608,27 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             prm_diag%tkvh_s_t(jc,jb,jt) = tkvh_t(ic,3,jt) ! needed as input for turbtran
 
           ENDDO
+
+          ! averages over land fraction of mixed land-water points
+          IF (jt <= ntiles_total) THEN
+            DO ic = 1, i_count
+              jc = ilist(ic)
+              area_frac = ext_data%atm%frac_t(jc,jb,jt)/ext_data%atm%fr_land(jc,jb)
+              prm_diag%t_2m_land  (jc,jb) = prm_diag%t_2m_land(jc,jb)  + t_2m_t(ic,jt)  * area_frac
+              prm_diag%td_2m_land (jc,jb) = prm_diag%td_2m_land(jc,jb) + td_2m_t(ic,jt) * area_frac
+              prm_diag%rh_2m_land (jc,jb) = prm_diag%rh_2m_land(jc,jb) + rh_2m_t(ic,jt) * area_frac
+            ENDDO
+          ELSE
+            DO ic = 1, i_count
+              jc = ilist(ic)
+              IF (ext_data%atm%fr_land(jc,jb) == 0._wp) THEN
+                area_frac = ext_data%atm%frac_t(jc,jb,jt)
+                prm_diag%t_2m_land  (jc,jb) = prm_diag%t_2m_land(jc,jb)  + t_2m_t(ic,jt)  * area_frac
+                prm_diag%td_2m_land (jc,jb) = prm_diag%td_2m_land(jc,jb) + td_2m_t(ic,jt) * area_frac
+                prm_diag%rh_2m_land (jc,jb) = prm_diag%rh_2m_land(jc,jb) + rh_2m_t(ic,jt) * area_frac
+              ENDIF
+            ENDDO
+          ENDIF
 
         ENDDO  ! jt
 
