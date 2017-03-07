@@ -30,6 +30,7 @@ fi
 
 
 
+
 # PATH needs CR
 # Avoid depending upon Character Ranges.
 as_cr_letters='abcdefghijklmnopqrstuvwxyz'
@@ -2149,6 +2150,7 @@ fi
 done
 
 
+
 case $ac_hostname in
   wizard*) ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename ;;
@@ -2394,6 +2396,7 @@ fi
  ;;
   *) gcc_lib="" ;;
 esac
+
 
 
 host_frag=""
@@ -4240,6 +4243,9 @@ if test -n "$NETCDFROOT" ; then
          exit 1
        fi
      fi
+  fi
+  if [ "x$use_yac" = xyes ] ; then
+    CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_C_NETCDF"
   fi
 else
   echo "error: the variable NETCDFROOT is not set in $host_frag"
@@ -7722,9 +7728,9 @@ fi
 # general command for running a progmam
 if test "x$mpi_startrun" = "x" ; then
   if  test "x$MPIROOT" = "x" ; then
-    mpi_startrun="mpiexec -n \\\$mpi_total_procs"
+    mpi_startrun="mpiexec -n \$mpi_total_procs"
   else
-    mpi_startrun="$MPIROOT/bin/mpiexec -n \\\$mpi_total_procs"
+    mpi_startrun="$MPIROOT/bin/mpiexec -n \$mpi_total_procs"
   fi
 fi
 
@@ -8442,8 +8448,7 @@ $debug ||
 if test -n "$CONFIG_FILES"; then
 
 
-ac_cr='
-'
+ac_cr=''
 ac_cs_awk_cr=`$AWK 'BEGIN { print "a\rb" }' </dev/null 2>/dev/null`
 if test "$ac_cs_awk_cr" = "a${ac_cr}b"; then
   ac_cs_awk_cr='\\r'

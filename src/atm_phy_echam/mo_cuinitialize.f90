@@ -35,23 +35,18 @@
 !!
 MODULE mo_cuinitialize
   USE mo_kind,                 ONLY: wp
-  USE mo_physical_constants,   ONLY: rd, vtmpc1, alv, als, tmelt
-#ifndef __ICON__
-  USE mo_echam_conv_constants, ONLY: lmfdudv, cbfac, cminbuoy, cmaxbuoy
-#else
+  USE mo_physical_constants,   ONLY: cpd, cpv, vtmpc1, alv, als, tmelt
   USE mo_echam_conv_config,    ONLY: echam_conv_config
-#endif
+  USE mo_echam_convect_tables, ONLY: prepare_ua_index_spline,lookup_ua_spline
   USE mo_cuadjust,             ONLY: cuadjtq
 
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: cuini, cubase
 
-#ifdef __ICON__
   ! to simplify access to components of echam_conv_config
   LOGICAL , POINTER :: lmfdudv
   REAL(wp), POINTER :: cbfac, cminbuoy, cmaxbuoy
-#endif
 
 
 CONTAINS 
@@ -59,9 +54,9 @@ CONTAINS
   !!
   SUBROUTINE cuini(kproma, kbdim, klev, klevp1, klevm1,                              &
     &        pten,     pqen,     pqsen,    pxen,     puen,     pven,                 &
-    &        ptven,    ktrac,                                                        &
+    &        ktrac,                                                                  &
     &        pxten,    pxtenh,   pxtu,     pxtd,     pmfuxt,   pmfdxt,               &
-    &        pverv,    pgeo,     paphp1,   pgeoh,                                    &
+    &        pverv,    papp1,    pgeo,     paphp1,   pgeoh,                          &
     &        ptenh,    pqenh,    pqsenh,   pxenh,    klwmin,                         &
     &        ptu,      pqu,      ptd,      pqd,                                      &
     &        puu,      pvu,      pud,      pvd,                                      &
@@ -74,9 +69,10 @@ CONTAINS
       &        puen(kbdim,klev),          pven(kbdim,klev),                          &
       &        pqsen(kbdim,klev),         pverv(kbdim,klev),                         &
       &        pgeo(kbdim,klev),          pgeoh(kbdim,klev),                         &
-      &        paphp1(kbdim,klevp1),      ptenh(kbdim,klev),                         &
+      &        papp1(kbdim,klev),         paphp1(kbdim,klevp1),                      &
+      &        ptenh(kbdim,klev),                                                    &
       &        pxenh(kbdim,klev),         pxen(kbdim,klev),                          &
-      &        ptven(kbdim,klev),         palvsh(kbdim,klev),                        &
+      &        palvsh(kbdim,klev),                                                   &
       &        pqenh(kbdim,klev),         pqsenh(kbdim,klev)
     REAL(wp):: pcpen(kbdim,klev),         pcpcu(kbdim,klev)
     REAL(wp):: ptu(kbdim,klev),           pqu(kbdim,klev),                           &
@@ -97,8 +93,10 @@ CONTAINS
     REAL(wp):: pxten(kbdim,klev,ktrac),   pxtenh(kbdim,klev,ktrac),                  &
       &        pxtu(kbdim,klev,ktrac),    pxtd(kbdim,klev,ktrac),                    &
       &        pmfuxt(kbdim,klev,ktrac),  pmfdxt(kbdim,klev,ktrac)
+    REAL(wp):: za(kbdim),                 ua(kbdim)
+    INTEGER :: idx(kbdim)
     INTEGER :: jk, jl, jt, ik, icall
-    REAL(wp):: zarg, zcpm, zzs
+    REAL(wp):: zcpm, zzs
     LOGICAL :: llo1
     !
     !  INTRINSIC FUNCTIONS
@@ -110,16 +108,23 @@ CONTAINS
     !*        fields if staticly unstable, find level of maximum vert. velocity
     !         -----------------------------------------------------------------
     !
-    DO jl=1,kproma
-      zarg=paphp1(jl,klevp1)/paphp1(jl,klev)
-      pgeoh(jl,klev)=rd*ptven(jl,klev)*LOG(zarg)
-    END DO
-    DO jk=klevm1,2,-1
+    DO jk=1,klev
+
+      CALL prepare_ua_index_spline('cuini',kproma,pten(1,jk),idx(1),za(1))
+      CALL lookup_ua_spline(kproma,idx(1),za(1),ua(1))
+
+
+!IBM* NOVECTOR
       DO jl=1,kproma
-        zarg=paphp1(jl,jk+1)/paphp1(jl,jk)
-        pgeoh(jl,jk)=pgeoh(jl,jk+1)+rd*ptven(jl,jk)*LOG(zarg)
+
+        pqsen(jl,jk)=ua(jl)/papp1(jl,jk)
+        pqsen(jl,jk)=MIN(0.5_wp,pqsen(jl,jk))
+        pqsen(jl,jk)=pqsen(jl,jk)/(1._wp-vtmpc1*pqsen(jl,jk))
+
+        pcpen(jl,jk)=cpd+(cpv-cpd)*pqen(jl,jk) ! cp of moist air for comp. of fluxes
       END DO
     END DO
+    !
     DO jk=2,klev
 !IBM* NOVECTOR
       DO jl=1,kproma
@@ -267,13 +272,11 @@ CONTAINS
     INTEGER :: jl, jk, nl, is, ik, ikb, icall
     REAL(wp):: zbuo, zz, zlift
 
-#ifdef __ICON__
     ! to simplify access to components of echam_conv_config
     lmfdudv  => echam_conv_config% lmfdudv
     cbfac    => echam_conv_config% cbfac
     cminbuoy => echam_conv_config% cminbuoy
     cmaxbuoy => echam_conv_config% cmaxbuoy
-#endif
 
     !
     !---------------------------------------------------------------------------------

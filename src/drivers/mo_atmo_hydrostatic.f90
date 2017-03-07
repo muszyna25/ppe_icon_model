@@ -14,28 +14,23 @@
 MODULE mo_atmo_hydrostatic
 
   USE mo_exception,         ONLY: message
-  USE mo_impl_constants,    ONLY: iecham, ildf_echam
 
   USE mo_master_config,     ONLY: isRestart
   USE mo_time_config,       ONLY: time_config
-  USE mo_run_config,        ONLY: dtime, iforcing, nlev, &
-    &                             msg_level, output_mode, ntracer, iqv, iqc, iqt
-  USE mo_dynamics_config,   ONLY: iequations, nnow, idiv_method
+  USE mo_run_config,        ONLY: dtime, iforcing, &
+    &                             msg_level, output_mode, ntracer, iqc, iqt
+  USE mo_dynamics_config,   ONLY: iequations, idiv_method
   USE mo_advection_config,  ONLY: configure_advection
-  USE mo_ha_testcases,      ONLY: ctest_name
   USE mo_io_config,         ONLY: configure_io
   USE mo_grid_config,       ONLY: n_dom
   USE mo_model_domain,        ONLY: p_patch
   USE mo_intp_data_strc,      ONLY: p_int_state
   USE mo_grf_intp_data_strc,  ONLY: p_grf_state
 
-  USE mo_vertical_coord_table,ONLY: vct_a, vct_b
   USE mo_icoham_dyn_memory,   ONLY: p_hydro_state, destruct_icoham_dyn_state
   USE mo_ha_stepping,         ONLY: prepare_ha_dyn, initcond_ha_dyn, &
                                     perform_ha_stepping
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
-  USE mo_echam_phy_init,      ONLY: init_echam_phy, initcond_echam_phy !, additional_restart_init
-  USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
 
   USE mo_load_restart,          ONLY: read_restart_files
   USE mo_restart_attributes,    ONLY: t_RestartAttributeList, getAttributesForRestarting
@@ -119,11 +114,6 @@ CONTAINS
         &                      idiv_method, ha_dyn_config%itime_scheme ) 
     ENDDO
 
-    IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
-      CALL init_echam_phy( p_patch(1:), ctest_name, &
-                            & nlev, vct_a, vct_b, time_config%tc_current_date )
-    END IF
-
     !------------------------------------------------------------------
     ! Set initial conditions for time integration.
     !------------------------------------------------------------------
@@ -132,16 +122,6 @@ CONTAINS
     ! It should be called even in restart mode
     CALL initcond_ha_dyn( p_patch(1:), p_int_state(1:),  &
                         & p_grf_state(1:), p_hydro_state )
-
-    IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
-      DO jg = 1,n_dom
-        CALL initcond_echam_phy( jg                                                  ,&
-          &                      p_patch(jg)                                         ,&
-          &                      p_hydro_state(jg)%prog(nnow(jg))% temp  (:,:,:)     ,&
-          &                      p_hydro_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqv) ,&
-          &                      ctest_name                                          )
-      END DO
-    END IF
 
     !------------------------------------------------------------------
     ! The most primitive event handling algorithm:
@@ -205,16 +185,6 @@ CONTAINS
 #endif
       CALL message(TRIM(method_name),'normal exit from read_restart_files')
 
-      ! Re-initialize SST, sea ice and glacier for certain experiments; 
-      ! Initialize logical variables in echam physics state.
-      ! The latter is necessary for now because logical arrays can not yet be
-      ! written into restart files.
-
-      ! LL: initialization has already been done
-      ! IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
-      !  CALL additional_restart_init( p_patch(1:), ctest_name )
-      ! END IF
-
     END IF ! isRestart()
   END SUBROUTINE construct_atmo_hydrostatic
   !-------------------------------------------------------------------------------
@@ -233,10 +203,6 @@ CONTAINS
 
     CALL destruct_icoham_dyn_state
     
-    IF (iforcing==IECHAM .OR. iforcing==ILDF_ECHAM) THEN
-      CALL cleanup_echam_phy
-    ENDIF
-
     IF (msg_level > 5) CALL message(TRIM(method_name),'echam_phy clean up is done')
     
     IF (output_mode%l_nml) THEN    

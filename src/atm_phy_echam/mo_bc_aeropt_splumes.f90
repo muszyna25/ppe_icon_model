@@ -22,14 +22,12 @@ MODULE mo_bc_aeropt_splumes
   USE mo_read_interface,       ONLY: openInputFile, read_1D, &
                                    & read_bcast_real_2D, read_bcast_real_3D, &
                                    & closeFile
-  USE mo_physical_constants,   ONLY: rgrav
   USE mo_model_domain,         ONLY: p_patch
   USE mo_psrad_srtm_setup,     ONLY: &
       &  sw_wv1 => wavenum1     ,&     !< smallest wave number in each of the sw bands
       &  sw_wv2 => wavenum2            !< largest wave number in each of the sw bands
   USE mo_rrtm_params,          ONLY: &
-      & jpb1                    ,&     !< index for lower sw band
-      & jpb2                           !< index for upper sw band
+      &  jpb1                          !< index for lower sw band
   USE mo_math_constants,       ONLY: rad2deg
   USE mtime,                   ONLY: datetime, getDayOfYearFromDateTime, &
        &                             getNoOfSecondsElapsedInDayDateTime, &
@@ -406,7 +404,7 @@ MODULE mo_bc_aeropt_splumes
   !
   SUBROUTINE add_bc_aeropt_splumes                                                ( &
      & jg             ,kproma         ,kbdim          ,klev           ,krow        ,&
-     & nb_sw          ,this_datetime  ,geoi           ,geom           ,oromea      ,&
+     & nb_sw          ,this_datetime  ,zf             ,dz             ,z_sfc       ,&
      & aod_sw_vr      ,ssa_sw_vr      ,asy_sw_vr      ,x_cdnc                      )
     !
     ! --- 0.1 Variables passed through argument list
@@ -421,9 +419,9 @@ MODULE mo_bc_aeropt_splumes
     TYPE(datetime), POINTER      :: this_datetime
 
     REAL(wp), INTENT (IN)        :: &
-         geoi(kbdim,klev+1),        & !< geopotential wrt surface at layer interfaces
-         geom(kbdim,klev),          & !< geopotential wrt surface at layer centres
-         oromea(kbdim)                !< orography in metres
+         zf(kbdim,klev),            & !< geometric height at full level [m]
+         dz(kbdim,klev),            & !< geometric height thickness     [m]
+         z_sfc(kbdim)                 !< geometric height of surface    [m]
 
     REAL(wp), INTENT (INOUT) ::       &
          aod_sw_vr(kbdim,klev,nb_sw) ,& !< Aerosol shortwave optical depth
@@ -444,7 +442,6 @@ MODULE mo_bc_aeropt_splumes
     REAL(wp) ::                       &
          year_fr                     ,& !< time in year fraction (1989.0 is 0Z on Jan 1 1989)
          lambda                      ,& !< wavelength at central band wavenumber [nm]
-         z_sfc(kproma)               ,& !< surface height [m]
          lon_sp(kproma)              ,& !< longitude passed to sp
          lat_sp(kproma)              ,& !< latitude passed to sp
          z_fl_vr(kbdim,klev)         ,& !< level height [m], vertically reversed indexing (1=lowest level)
@@ -465,11 +462,10 @@ MODULE mo_bc_aeropt_splumes
       DO jk=1,klev
         jki=klev-jk+1
         DO jl=1,kproma
-          dz_vr  (jl,jk) = rgrav*(geoi(jl,jki+1)-geoi(jl,jki))
-          z_fl_vr(jl,jk) = rgrav*geom(jl,jki)+oromea(jl)
+          dz_vr  (jl,jk) = dz(jl,jki)
+          z_fl_vr(jl,jk) = zf(jl,jki)
         END DO
       END DO
-      z_sfc(1:kproma)  = oromea(1:kproma)
       lon_sp(1:kproma) = p_patch(jg)%cells%center(1:kproma,krow)%lon*rad2deg
       lat_sp(1:kproma) = p_patch(jg)%cells%center(1:kproma,krow)%lat*rad2deg
       ! 

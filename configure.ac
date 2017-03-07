@@ -617,6 +617,9 @@ if test -n "$NETCDFROOT" ; then
        fi
      fi      
   fi
+  if [[ "x$use_yac" = xyes ]] ; then
+    CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_C_NETCDF"
+  fi
 else
   echo "error: the variable NETCDFROOT is not set in $host_frag"
   echo "       set NETCDFROOT to the netCDF root directory"
@@ -1321,9 +1324,9 @@ fi
 # general command for running a progmam
 if test "x$mpi_startrun" = "x" ; then
   if  test "x$MPIROOT" = "x" ; then
-    mpi_startrun="mpiexec -n \\\$mpi_total_procs"
+    mpi_startrun="mpiexec -n \$mpi_total_procs"
   else
-    mpi_startrun="$MPIROOT/bin/mpiexec -n \\\$mpi_total_procs"
+    mpi_startrun="$MPIROOT/bin/mpiexec -n \$mpi_total_procs"
   fi
 fi
 
