@@ -531,7 +531,7 @@ CONTAINS
     CALL message(TRIM(thismodule),'Construction of ECHAM physics state started.')
 
 
-    IF (lart == .TRUE.) THEN
+    IF (lart) THEN
         ctracer = ctracer_art
     ELSE
         ! Stop if ntracer/=3 (to be generalized later)
