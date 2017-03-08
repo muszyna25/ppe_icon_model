@@ -18,12 +18,12 @@
 !!
 MODULE mo_bc_solar_irradiance
 
-  USE mo_kind,            ONLY: dp
+  USE mo_kind,            ONLY: dp, i8
   USE mo_exception,       ONLY: finish, message
   USE mo_netcdf_parallel, ONLY: p_nf_open, p_nf_inq_dimid, p_nf_inq_dimlen, &
        &                        p_nf_inq_varid, p_nf_get_vara_double, p_nf_close, &
        &                        nf_read, nf_noerr, nf_strerror, p_nf_get_var_int
-  USE mo_time_interpolation_weights,ONLY: t_wi_limm
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights
 
   IMPLICIT NONE
 
@@ -38,12 +38,12 @@ MODULE mo_bc_solar_irradiance
   PUBLIC :: read_bc_solar_irradiance, ssi_time_interpolation
 
   LOGICAL, SAVE :: lread_solar = .TRUE., lread_solar_radt = .TRUE.
-  INTEGER, SAVE :: last_year = -999999, last_year_radt = -999999
+  INTEGER(i8), SAVE :: last_year = -999999, last_year_radt = -999999
 
 CONTAINS
 
   SUBROUTINE read_bc_solar_irradiance(year, lradt)
-    INTEGER, INTENT(in) :: year
+    INTEGER(i8), INTENT(in) :: year
     LOGICAL, INTENT(in) :: lradt ! lradt=.true.: read data for radiation time step
                                  ! the radiation time step may be in the future
                                  ! lradt=.false.: read data for heating rates only
@@ -54,7 +54,7 @@ CONTAINS
     INTEGER :: ssi_numwl
     INTEGER :: start(2), cnt(2)
 
-    INTEGER :: idx, first_year, first_month
+    INTEGER :: idx, first_year
 
     IF (lradt) THEN
        IF (last_year_radt /= year ) lread_solar_radt=.TRUE.
@@ -90,10 +90,9 @@ CONTAINS
     CALL nf_check(p_nf_get_var_int (ncid, nvarid, ssi_months))
 
     first_year = ssi_years(1)
-    first_month = ssi_months(1)
 
     ! not adding 1 in calculating the offset leads to an index to December of year-1
-    idx = 12*(year - first_year)
+    idx = 12*INT(year - INT(first_year,i8))
     IF (idx < 1) THEN
       CALL finish('','No solar irradiance data available for the requested year')
     END IF
@@ -120,8 +119,8 @@ CONTAINS
 
   END SUBROUTINE read_bc_solar_irradiance
 
-  SUBROUTINE ssi_time_interpolation(wi, lradt, tsi, ssi)
-    TYPE(t_wi_limm), INTENT(in)     :: wi
+  SUBROUTINE ssi_time_interpolation(tiw, lradt, tsi, ssi)
+    TYPE( t_time_interpolation_weights), INTENT(in) :: tiw
     LOGICAL, INTENT(in)             :: lradt
     REAL(dp), INTENT(out)           :: tsi
     REAL(dp), INTENT(out), OPTIONAL :: ssi(:)
@@ -132,8 +131,8 @@ CONTAINS
         CALL finish ('ssi_time_interplation of mo_bc_solar_irradiance', &
                      'Interpolation to radiation time step needs ssi',exit_no=1)
       ELSE
-        tsi    = wi%wgt1 * tsi_radt_m(wi%inm1) + wi%wgt2 * tsi_radt_m(wi%inm2)
-        ssi(:) = wi%wgt1*ssi_radt_m(:,wi%inm1) + wi%wgt2*ssi_radt_m(:,wi%inm2)
+        tsi    = tiw%weight1 * tsi_radt_m(tiw%month1_index) + tiw%weight2 * tsi_radt_m(tiw%month2_index)
+        ssi(:) = tiw%weight1*ssi_radt_m(:,tiw%month1_index) + tiw%weight2*ssi_radt_m(:,tiw%month2_index)
         WRITE(ctsi,'(F14.8)') tsi
         CALL message('','Interpolated total solar irradiance and spectral ' &
           &          //'bands for radiation transfer, tsi= '//ctsi)
@@ -143,14 +142,9 @@ CONTAINS
         CALL message ('ssi_time_interplation of mo_bc_solar_irradiance', &
                      'Interpolation of ssi not necessary')
       END IF
-      tsi    = wi%wgt1 * tsi_m(wi%inm1) + wi%wgt2 * tsi_m(wi%inm2)
+      tsi    = tiw%weight1 * tsi_m(tiw%month1_index) + tiw%weight2 * tsi_m(tiw%month2_index)
     END IF
        
-!    WRITE(0,*) 'interpolation weights (time,wgt1,wgt2,inm1,inm2):', &
-!    wi%time%year, wi%time%month, wi%time%day, wi%time%hour, wi%time%minute, wi%time%second
-!    WRITE(0,*) wi%wgt1, wi%wgt2, wi%inm1, wi%inm2
-!    WRITE(0,*) 'lradt=',lradt,'tsi=',tsi
-!    IF (lradt) WRITE(*,*) 'ssi=',ssi
   END SUBROUTINE ssi_time_interpolation
 
 

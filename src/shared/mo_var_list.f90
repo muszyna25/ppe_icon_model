@@ -1012,9 +1012,9 @@ CONTAINS
     CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)
 
+    new_list_element%field%info%ndims                    = ndims
+    new_list_element%field%info%used_dimensions(1:ndims) = ldims(1:ndims)
     IF (.NOT. referenced) THEN
-      new_list_element%field%info%ndims                    = ndims
-      new_list_element%field%info%used_dimensions(1:ndims) = ldims(1:ndims)
       idims(1:ndims)    = new_list_element%field%info%used_dimensions(1:ndims)
       idims((ndims+1):) = 1
       NULLIFY(new_list_element%field%r_ptr)
@@ -4030,20 +4030,28 @@ CONTAINS
   ! In the proposed structure for the linked list, in the example only
   ! A character string is used so it is straight forward only one find
   !
-  FUNCTION find_list_element (this_list, name) RESULT(this_list_element)
+  FUNCTION find_list_element (this_list, name, opt_hgrid) RESULT(this_list_element)
     !
     TYPE(t_var_list),   INTENT(in) :: this_list
     CHARACTER(len=*),   INTENT(in) :: name
+    INTEGER, OPTIONAL              :: opt_hgrid
     !
     TYPE(t_list_element), POINTER :: this_list_element
-    INTEGER :: key
+    INTEGER :: key,hgrid
+
+    hgrid = -1
+    CALL assign_if_present(hgrid,opt_hgrid)
     !
     key = util_hashword(name, LEN_TRIM(name), 0)
     !
     this_list_element => this_list%p%first_list_element
     DO WHILE (ASSOCIATED(this_list_element))
       IF (key == this_list_element%field%info%key) THEN
-        RETURN
+        IF (-1 == hgrid) THEN
+          RETURN
+        ELSE
+          IF (hgrid == this_list_element%field%info%hgrid) RETURN
+        ENDIF
       ENDIF
       this_list_element => this_list_element%next_list_element
     ENDDO
@@ -4056,14 +4064,15 @@ CONTAINS
   !
   ! Find named list element accross all knows variable lists
   !
-  FUNCTION find_element_from_all (name) RESULT(this_list_element)
+  FUNCTION find_element_from_all (name, opt_hgrid) RESULT(this_list_element)
     CHARACTER(len=*),   INTENT(in) :: name
+    INTEGER, OPTIONAL              :: opt_hgrid
 
     TYPE(t_list_element), POINTER :: this_list_element
     INTEGER :: i
 
     DO i=1,nvar_lists
-      this_list_element => find_list_element(var_lists(i),name)
+      this_list_element => find_list_element(var_lists(i),name,opt_hgrid)
       IF (ASSOCIATED (this_list_element)) RETURN
     END DO
   END FUNCTION! find_element_from_all_lists

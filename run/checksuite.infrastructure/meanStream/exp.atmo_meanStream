@@ -28,12 +28,40 @@ author_list="Marco Giorgetta, MPIM"
 # second, minute, hour, day     = length of these intervals in [s]
 
 #--------------------------------------------------------------------------------------------------
+#--------------------------------------
+# Define grids for horizontal remapping
+# -------------------------------------
+#
+# The ICON RmBn grid has 3*m*2**n rows of triangles between the vertices at the N and S pole.
+# The number of triangles in a row around this axis increases linearly from 5 to 5*(1+2*(i-1))
+# at the base of the "polar" icosahedral triangles. In the "tropical" icosahedral triangles
+# all rows have a  5*(2*(m*2**n)) triangles. The triangles are either northward or southward
+# pointing. Thus the smallest periodic element in a tropical row is a rhombus formed by two
+# adjacent triangles. A tropical row has 5*(m*n**2) rhombi.
+#
+# The R2B4 grid has a total of 20480 triangular cells in 96 rows.
+# The tropical rows have 320 triangles or 160 rhombi.
+#
+# Therefore the following regular lon-lat grids are of interest for remapping:
+#
+# regular  grid: nlat=96, nlon=192, npts=18432, dlat=1.875 deg, dlon=1.875 deg
+reg_lat_def_reg=-89.0625,1.875,89.0625
+reg_lon_def_reg=0.,1.875,358.125
+#
+# rhombus  grid: nlat=96, nlon=160, npts=15360, dlat=1.875 deg, dlon=2.250 deg
+reg_lat_def_rmb=$reg_lat_def_reg
+reg_lon_def_rmb=0.,2.25,357.75
+#
+# triangle grid: nlat=96, nlon=320, npts=30720, dlat=1.875 deg, dlon=1.125 deg
+reg_lat_def_tri=$reg_lat_def_reg
+reg_lon_def_tri=0.,1.125,358.875
+#--------------------------------------------------------------------------------------------------
 
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
 icon_data_poolFolder=/pool/data/ICON
-grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip
+grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip/r0002
 atmo_dyn_grids='r2b4_amip.nc'
 
 # start and end date+time
@@ -63,7 +91,6 @@ cat > ${atmo_namelist} << EOF
 !
 &parallel_nml
  nproma           = ${nproma}
- use_dp_mpi2io = .TRUE.
 /
 &grid_nml
  dynamics_grid_filename = "${atmo_dyn_grids}",
@@ -79,7 +106,6 @@ cat > ${atmo_namelist} << EOF
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
- irad_type        = 2
  activate_sync_timers = .TRUE.
 /
 &extpar_nml
@@ -88,9 +114,6 @@ cat > ${atmo_namelist} << EOF
 /
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
-/
-&dynamics_nml
- iequations       = 3           ! 3: ICONAM dynamics
 /
 &nonhydrostatic_nml
  ndyn_substeps    = 5           ! dtime/dt_dyn
@@ -206,15 +229,16 @@ add_required_file ${basedir}/run/${lnd_namelist}                        ./
 # dictionary file for output variable names
 #
 dict_file="dict.${EXPNAME}"
+#do not use old mean values
 cat dict.iconam.mpim_inst  > ${dict_file}
 add_required_file ${basedir}/run/${dict_file}                           ./
 
 # initial conditions
 #
-INDATA=${icon_data_poolFolder}/input/r0003
+INDATA=${icon_data_poolFolder}/input/r0004
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
-datadir=/pool/data/ICON/setup/ifs_iconremap_amip
+datadir=${icon_data_poolFolder}/setup/ifs_iconremap_amip
 add_link_file $datadir/ifs_remap_R2B4_00XX_AMIP_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
 #
 # - land: source?, date+time?
@@ -396,30 +420,17 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
-                    'cosmu0'  , 'daylght_frc', 'rsdt'    ,
+                    'cosmu0'  , 'rsdt'    ,
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
-                    'rsns_wtr', 'rsns_ice', 'rsns_lnd',
-                    'rlns_wtr', 'rlns_ice', 'rlns_lnd', 'tend_ta_rlw_impl',
-                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      , 'ts_rad'  ,
+                    'ts'      ,
                     'sic'     , 'sit'     ,
-                    'visdffsfc','nirdffsfc','vissfc'  , 'nirsfc'  ,
-                    'albedo'  , 'albedo_wtr', 'albedo_ice', 'albedo_lnd',
-                    'albvisdir','albvisdif' , 'albnirdir' , 'albnirdif',
-                    'albvisdir_ice', 'albvisdir_wtr', 'albvisdir_lnd',
+                    'albedo'  ,
                     'clt'     ,
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
-                    'hfls_wtr', 'hfls_ice', 'hfls_lnd',
-                    'hfss_wtr', 'hfss_ice', 'hfss_lnd',
                     'tauu'    , 'tauv'    ,
-                    'tauu_wtr', 'tauu_ice', 'tauu_lnd',
-                    'tauv_wtr', 'tauv_ice', 'tauv_lnd',
-                    'tauu_sso', 'tauv_sso', 'diss_sso', 
-                    'sh_vdiff', 'qv_vdiff',
-                    'ch_concloud',
-                    'con_dtrl', 'con_dtri', 'con_iteqv',
-                    'cld_dtrl', 'cld_dtri', 'cld_iteq'
+                    'tauu_sso', 'tauv_sso', 'diss_sso'
 /
 &output_nml
  output_filename  = "${EXPNAME}_atm_2d_mean_PT10M"
@@ -625,10 +636,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_ua_cnv'  , 
                     'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
                     'tend_va_vdf'  , 'tend_va_gwh'  , 'tend_va_sso'  ,
-                    'tend_va_cnv'  ,
-                    'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
-                    'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf' ,
-                    'pfull','ps'
+                    'tend_va_cnv'  ,'pfull','ps'
 /
 &output_nml
  output_filename  = "${EXPNAME}_phy_3d_mean_PT20M"

@@ -20,9 +20,10 @@
 
 MODULE mo_echam_phy_bcs
 
-  USE mo_kind                       ,ONLY: wp
-!!$  USE mo_datetime                   ,ONLY: t_datetime, add_time , OPERATOR(==) ! for t_datetime typed variables
-  USE mo_datetime                   ,ONLY: t_datetime, add_time
+  USE mo_kind                       ,ONLY: wp, i8
+  USE mtime,                         ONLY: datetime, newDatetime, operator(+), &
+       &                                   newTimedelta, timedelta, max_timedelta_str_len, &
+       &                                   getPTStringFromSeconds, getNoOfSecondsElapsedInDayDateTime
   USE mo_model_domain               ,ONLY: t_patch
 
   USE mo_master_config              ,ONLY: isRestart
@@ -33,9 +34,9 @@ MODULE mo_echam_phy_bcs
 
   USE mo_impl_constants             ,ONLY: io3_amip
 
-  USE mo_time_interpolation         ,ONLY: time_weights_limm
-  USE mo_time_interpolation_weights ,ONLY: wi_limm, wi_limm_radt
-
+  USE mo_bcs_time_interpolation,     ONLY: t_time_interpolation_weights,         &
+       &                                   calculate_time_interpolation_weights
+  
   USE mo_bc_greenhouse_gases        ,ONLY: bc_greenhouse_gases_time_interpolation
   USE mo_bc_sst_sic                 ,ONLY: get_current_bc_sst_sic_year, read_bc_sst_sic, &
     &                                      bc_sst_sic_time_interpolation
@@ -67,30 +68,32 @@ CONTAINS
   !! Note that each call of this subroutine deals with a single grid
   !! with index jg rather than the entire grid tree.
 
-  SUBROUTINE echam_phy_bcs_global( datetime     ,&! in
+  SUBROUTINE echam_phy_bcs_global( mtime_old,    &
     &                              jg           ,&! in
     &                              patch        ,&! in
     &                              dtadv_loc    ,&! in
-    &                              ltrig_rad    ,&! out
-    &                              datetime_radtran) ! out
+    &                              ltrig_rad    ) ! out
 
     ! Arguments
 
-    TYPE(t_datetime)         ,INTENT(in)    :: datetime      !< date and time fo this timestep
-    INTEGER                  ,INTENT(in)    :: jg            !< grid index
-    TYPE(t_patch)    ,TARGET ,INTENT(in)    :: patch         !< description of grid jg
-    REAL(wp)                 ,INTENT(in)    :: dtadv_loc     !< timestep of advection and physics on grid jg
-    LOGICAL                  ,INTENT(out)   :: ltrig_rad     !< trigger for radiation transfer computation
-    TYPE(t_datetime)         ,INTENT(out)   :: datetime_radtran !< full date and time variable for radiative transfer calculation
+    TYPE(datetime) , POINTER  ,INTENT(in)    :: mtime_old
+    INTEGER                   ,INTENT(in)    :: jg             !< grid index
+    TYPE(t_patch)  , TARGET   ,INTENT(in)    :: patch          !< description of grid jg
+    REAL(wp)                  ,INTENT(in)    :: dtadv_loc      !< timestep of advection and physics on grid jg
+    LOGICAL                   ,INTENT(out)   :: ltrig_rad      !< trigger for radiation transfer computation
 
     ! Local variables
 
-!!$    TYPE(t_datetime) :: datetime_radtran  !< date and time of zenith angle for radiative transfer comp.
-    REAL(wp)         :: dsec              !< [s] time increment of datetime_radtran wrt. datetime
+    TYPE(datetime) , POINTER, SAVE           :: radiation_time !< date and time for radiative transfer
+    TYPE(timedelta), POINTER                 :: td_radiation_offset
+    CHARACTER(len=max_timedelta_str_len)     :: dstring
 
-!!$    LOGICAL          :: is_initial_datetime
-!!$    LOGICAL          :: is_radtran_datetime
-    LOGICAL          :: is_1st_call = .TRUE.
+    REAL(wp)                                 :: dsec           !< [s] time increment of datetime_radtran wrt. datetime
+
+    LOGICAL                                  :: is_1st_call = .TRUE.
+
+    TYPE(t_time_interpolation_weights), SAVE :: current_time_interpolation_weights
+    TYPE(t_time_interpolation_weights), SAVE :: radiation_time_interpolation_weights 
 
     ! Local parameters
 
@@ -100,49 +103,24 @@ CONTAINS
     ! Prepare some global parameters or parameter arrays
     !-------------------------------------------------------------------------
 
-    ! Check whether the radiative transfer needs to be calculated in this
-    ! timestep. Then boundary conditions must be prepared for this purpose.
-    !
-    IF (echam_phy_config%lrad) THEN
-
-!!$      is_initial_datetime = (datetime == time_config%ini_datetime) ! here the overloaded == from mo_datetime is used
-!!$      is_radtran_datetime = (MOD(NINT(datetime%daysec),NINT(echam_phy_config%dt_rad)) == 0)
-!!$      ltrig_rad = ( is_initial_datetime .OR. is_radtran_datetime )
-      ltrig_rad   = ( is_1st_call .AND. (.NOT.isRestart())                          ) .OR. &
-        &           ( MOD(NINT(datetime%daysec),NINT(echam_phy_config%dt_rad)) == 0 )
-
-    ELSE
-      ltrig_rad = .FALSE.
-    END IF
-
-    ! Set the time instance datetime_radtran for the zenith angle to be used
-    ! in the radiative transfer. All other input for the radiative transfer
-    ! is for datatime, i.e. the current timestep.
-    !
-    datetime_radtran = datetime                         ! copy current date and time
-    IF (ltrig_rad) THEN
-      dsec = 0.5_wp*(echam_phy_config%dt_rad - dtadv_loc) ! [s] time increment for zenith angle
-      CALL add_time(dsec,0,0,0,datetime_radtran)          ! datetime_radtran = datetime_radtran + dsec
-    END IF
-
     ! interpolation weights for linear interpolation
     ! of monthly means onto the actual integration time step
-    CALL time_weights_limm(datetime, wi_limm)
+    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_old)
 
     ! Read and interpolate in time monthly mean SST for AMIP simulations
     ! SST is needed for turbulent vertical fluxes and for radiation.
     !
     IF (echam_phy_config%lamip) THEN
       IF (iwtr <= nsfc_type .OR. iice <= nsfc_type) THEN
-        IF (datetime%year /= get_current_bc_sst_sic_year()) THEN
-          CALL read_bc_sst_sic(datetime%year, patch)
+        IF (mtime_old%date%year /= get_current_bc_sst_sic_year()) THEN
+          CALL read_bc_sst_sic(mtime_old%date%year, patch)
         END IF
-        CALL bc_sst_sic_time_interpolation( wi_limm                           ,&
-          &                                 prm_field(jg)%lsmask(:,:)         ,&
-          &                                 prm_field(jg)%tsfc_tile(:,:,iwtr) ,&
-          &                                 prm_field(jg)%seaice(:,:)         ,&
-          &                                 prm_field(jg)%siced(:,:)          ,&
-          &                                 patch                              )
+        CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights, &
+          &                                prm_field(jg)%lsmask(:,:)         , &
+          &                                prm_field(jg)%ts_tile(:,:,iwtr)   , &
+          &                                prm_field(jg)%seaice(:,:)         , &
+          &                                prm_field(jg)%siced(:,:)          , &
+          &                                patch                              )
 
         ! The ice model should be able to handle different thickness classes, 
         ! but for AMIP we ONLY USE one ice class.
@@ -153,68 +131,91 @@ CONTAINS
       END IF
     END IF
 
-    ! total solar irradiation at the mean sun earth distance
-    IF (isolrad==1) THEN
-      CALL read_bc_solar_irradiance(datetime%year,.FALSE.)
-      CALL ssi_time_interpolation(wi_limm,.FALSE.,tsi)
-    END IF
+    IF (echam_phy_config%lrad) THEN
 
-    ! quantities needed for the radiative transfer only
-    !
+      ! total solar irradiation at the mean sun earth distance
+      IF (isolrad==1) THEN
+        CALL read_bc_solar_irradiance(mtime_old%date%year, .FALSE.)
+        CALL ssi_time_interpolation(current_time_interpolation_weights, .FALSE., tsi)
+      END IF
+
+      ! Check whether the radiative transfer needs to be calculated in this
+      ! timestep. Then boundary conditions must be prepared for this purpose.
+      !
+      ltrig_rad   = ( is_1st_call .AND. (.NOT.isRestart()) ) .OR. &
+        &           ( MOD(getNoOfSecondsElapsedInDayDateTime(mtime_old),NINT(echam_phy_config%dt_rad)) == 0 )
+      !
+      ! quantities needed for the radiative transfer only
+      !
     IF (ltrig_rad) THEN
       !
+      ! Set the time instance datetime_radtran for the zenith angle to be used
+      ! in the radiative transfer. All other input for the radiative transfer
+      ! is for datetime, i.e. the start date and time of the current timestep.
+      !
+      radiation_time => newDatetime(mtime_old)
+      dsec = 0.5_wp*(echam_phy_config%dt_rad - dtadv_loc) ! [s] time increment for zenith angle
+      CALL getPTStringFromSeconds(dsec, dstring)
+      td_radiation_offset => newTimedelta(dstring)
+      radiation_time = radiation_time + td_radiation_offset
+
       ! interpolation weights for linear interpolation
       ! of monthly means onto the radiation time step
-      CALL time_weights_limm(datetime_radtran, wi_limm_radt)
+      radiation_time_interpolation_weights = calculate_time_interpolation_weights(radiation_time)
       !
       ! total and spectral solar irradiation at the mean sun earth distance
       IF (isolrad==1) THEN
-        CALL read_bc_solar_irradiance(datetime%year,.TRUE.)
-        CALL ssi_time_interpolation(wi_limm_radt,.TRUE.,tsi_radt,ssi_radt)
+        CALL read_bc_solar_irradiance(mtime_old%date%year,.TRUE.)
+        CALL ssi_time_interpolation(radiation_time_interpolation_weights,.TRUE.,tsi_radt,ssi_radt)
       END IF
       !
       ! greenhouse gas concentrations, assumed constant in horizontal dimensions
       IF (ighg > 0) THEN
-        CALL bc_greenhouse_gases_time_interpolation(datetime)
+        CALL bc_greenhouse_gases_time_interpolation(mtime_old)
       END IF
       !
       ! ozone concentration
       IF (irad_o3 == io3_amip) THEN
-        CALL read_bc_ozone(datetime%year, patch)
+        CALL read_bc_ozone(mtime_old%date%year, patch)
       END IF
       !
       ! tropospheric aerosol optical properties
       IF (irad_aero == 13) THEN
-        CALL read_bc_aeropt_kinne(datetime%year, patch)
+        CALL read_bc_aeropt_kinne(mtime_old%date%year, patch)
       END IF
       !
       ! stratospheric aerosol optical properties
       IF (irad_aero == 14) THEN
-        CALL read_bc_aeropt_stenchikov(datetime%year)
+        CALL read_bc_aeropt_stenchikov(mtime_old)
       END IF
       !
       ! tropospheric and stratospheric aerosol optical properties
       IF (irad_aero == 15) THEN
-        CALL read_bc_aeropt_kinne     (datetime%year, patch)
-        CALL read_bc_aeropt_stenchikov(datetime%year)
+        CALL read_bc_aeropt_kinne     (mtime_old%date%year, patch)
+        CALL read_bc_aeropt_stenchikov(mtime_old)
       END IF
       ! tropospheric background aerosols (Kinne) and stratospheric
       ! aerosols (Stenchikov) + simple plumes (analytical, nothing to be read
       ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
       IF (irad_aero == 18) THEN
-        CALL read_bc_aeropt_kinne     (year=1850, p_patch=patch)
-        CALL read_bc_aeropt_stenchikov(datetime%year)
+        CALL read_bc_aeropt_kinne     (1850_i8, patch)
+        CALL read_bc_aeropt_stenchikov(mtime_old)
       END IF
       !
+
+      is_1st_call = .FALSE.
+
     END IF ! ltrig_rad
 
     CALL pre_psrad_radiation( &
-            & patch,                           datetime_radtran,             &
-            & datetime,                        ltrig_rad,                    &
+            & patch,                           radiation_time,               &
+            & mtime_old,                       ltrig_rad,                    &
             & prm_field(jg)%cosmu0,            prm_field(jg)%daylght_frc,    &
-            & prm_field(jg)%cosmu0_rad,        prm_field(jg)%daylght_frc_rad )
+            & prm_field(jg)%cosmu0_rt,         prm_field(jg)%daylght_frc_rt )
 
-    is_1st_call = .FALSE.
+    ELSE
+      ltrig_rad = .FALSE.
+    END IF ! lrad
 
   END SUBROUTINE echam_phy_bcs_global
 

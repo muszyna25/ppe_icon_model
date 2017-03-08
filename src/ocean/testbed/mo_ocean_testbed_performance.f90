@@ -33,15 +33,15 @@ MODULE mo_testbed_ocean_performance
     &                                     type_3dimRelax_Salt, para_3dimRelax_Salt,                           &
     &                                     iswm_oce, l_edge_based,                                             &
     &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT,                       &
-    &                                     forcing_enable_freshwater, l_skip_tracer
+    &                                     forcing_enable_freshwater
   USE mo_dynamics_config,           ONLY: nold, nnew
   USE mo_run_config,                ONLY: dtime, ltimer, test_mode
-  USE mo_ocean_types,                 ONLY: t_hydro_ocean_state
+  USE mo_ocean_types,               ONLY: t_hydro_ocean_state
   USE mo_model_domain,              ONLY: t_patch, t_patch_3D
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_ext_data_types,            ONLY: t_external_data
-  USE mo_ocean_types,                 ONLY: t_hydro_ocean_state
-  USE mo_ocean_physics,               ONLY: t_ho_params
+  USE mo_ocean_types,               ONLY: t_hydro_ocean_state
+  USE mo_ocean_physics_types,       ONLY: t_ho_params
   USE mo_sea_ice_types,             ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, t_sea_ice
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
 
