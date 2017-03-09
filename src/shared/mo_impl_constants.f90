@@ -621,6 +621,12 @@ MODULE mo_impl_constants
 
   REAL(WP), PARAMETER, PUBLIC :: BOUNDARY_MISSVAL = -999.e-10
 
+  !------------------------------------------------!
+  !  MISSING VALUE FOR NWP SEAICE ALBEDO           !
+  !------------------------------------------------!
+
+  REAL(wp), PARAMETER, PUBLIC :: ALB_SI_MISSVAL = -1._wp
+
   ! The lon-lat parameterization of the torus is 
   !    (lon,lat) = [0, 2*pi] x [-max_lat, max_lat]
   ! where max_lat := pi/180 = 10 degrees 

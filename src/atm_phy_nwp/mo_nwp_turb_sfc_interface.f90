@@ -15,6 +15,10 @@
 !! @par Revision History
 !! Initial Kristina Froehlich, DWD, Offenbach (2010-01-25)
 !!
+! Modifications by Dmitrii Mironov, DWD (2016-08-08)
+!! - Call to "vdfouter" is modified with due regard for 
+!!   the prognostic treatment of the sea-ice albedo.
+!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -405,6 +409,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         p_prog_wtr_new%h_ice    (jc,jb) = p_prog_wtr_now%h_ice    (jc,jb)
         p_prog_wtr_new%t_snow_si(jc,jb) = p_prog_wtr_now%t_snow_si(jc,jb)
         p_prog_wtr_new%h_snow_si(jc,jb) = p_prog_wtr_now%h_snow_si(jc,jb)
+        p_prog_wtr_new%alb_si   (jc,jb) = p_prog_wtr_now%alb_si   (jc,jb)
       ENDDO
 
 !     Various variables for VDFOUTER
@@ -719,6 +724,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & , h_ice           = p_prog_wtr_new%h_ice     (:,jb)     & ! -
         & , t_snow_si       = p_prog_wtr_new%t_snow_si (:,jb)     & ! -
         & , h_snow_si       = p_prog_wtr_new%h_snow_si (:,jb)     & ! -
+        & , alb_si          = p_prog_wtr_new%alb_si    (:,jb)     & ! -
         & , fr_seaice       = lnd_diag%fr_seaice       (:,jb)     ) !in
 
 

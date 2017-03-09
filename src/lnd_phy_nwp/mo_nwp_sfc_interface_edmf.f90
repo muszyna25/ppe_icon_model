@@ -9,6 +9,9 @@
 !! @par Revision History
 !! Initial Martin Koehler, DWD, Offenbach (2012-05-04)
 !!
+!! Modifications by Dmitrii Mironov, DWD (2016-08-08)
+!! - Changes related to the use of prognostic the sea-ice albedo.
+!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -133,6 +136,7 @@ CONTAINS
                   h_ice            , & ! sea ice height                                (  m  )
                   t_snow_si        , & ! sea ice snow temperature                      (  K  )
                   h_snow_si        , & ! sea ice snow height                           (  m  )
+                  alb_si           , & ! sea-ice albedo                                (  -  )
                   fr_seaice        , & ! sea ice fraction                              (  1  )
 
                   shfl_soil_ex     , & ! sensible heat flux soil/air interface         (W/m2)
@@ -220,7 +224,8 @@ CONTAINS
                   t_ice            , & ! sea ice temperature                           (  K  )
                   h_ice            , & ! sea ice height                                (  m  )
                   t_snow_si        , & ! sea ice snow temperature                      (  K  )
-                  h_snow_si            ! sea ice snow height                           (  m  )
+                  h_snow_si        , & ! sea ice snow height                           (  m  )
+                  alb_si               ! sea-ice albedo                                (  -  )
   REAL(wp), DIMENSION(nproma), INTENT(INOUT) :: &
                   fr_seaice            ! sea ice fraction                              (  1  )
   REAL(wp), DIMENSION(nproma,ntiles_total+ntiles_water), INTENT(INOUT) :: &
@@ -1046,7 +1051,9 @@ endif
                    &  t_g_ex      , t_s_ex      , qv_s_ex     , ps_ex    , sobs_ex,  &
                    &  thbs_ex,                                                       &
                    &  shfl_soil_ex, lhfl_soil_ex,                                    &
+                   &  prr_con_ex  , prs_con_ex  ,  prr_gsp_ex , prs_gsp_ex  ,        &
                    &  t_ice       , h_ice       , t_snow_si   , h_snow_si,           &
+                   &  alb_si      ,                                                  &
                    &  fr_seaice                                                      )
     ENDIF
 
@@ -1110,7 +1117,9 @@ endif
                       &  t_g_ex      , t_s_ex      , qv_s_ex     , ps_ex       , sobs_ex,  &
                       &  thbs_ex,                                                          &
                       &  shfl_soil_ex, lhfl_soil_ex,                                       &
+                      &  prr_con_ex  , prs_con_ex  ,  prr_gsp_ex , prs_gsp_ex  ,           &
                       &  t_ice_ex    , h_ice_ex    , t_snow_si_ex, h_snow_si_ex,           &
+                      &  alb_si_ex   ,                                                     &
                       &  fr_seaice                                                         )
 
     INTEGER,                                               INTENT(IN)    :: &
@@ -1131,11 +1140,18 @@ endif
     REAL(wp), DIMENSION(nproma,ntiles_total+ntiles_water), INTENT(IN)    :: &
                   shfl_soil_ex     , & ! sensible heat flux soil/air interface         ( W/m2)
                   lhfl_soil_ex         ! latent   heat flux soil/air interface         ( W/m2)
+    REAL(wp), DIMENSION(nproma),                           INTENT(IN)    :: &
+                  prr_con_ex       , & ! precipitation rate of rain, convective        (kg/m2*s)
+                  prs_con_ex       , & ! precipitation rate of snow, convective        (kg/m2*s)
+                  prr_gsp_ex       , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
+                  prs_gsp_ex           ! precipitation rate of snow, grid-scale        (kg/m2*s)
+
     REAL(wp), DIMENSION(nproma),                           INTENT(INOUT) :: &
                   t_ice_ex         , & ! sea ice temperature                           (  K  )
                   h_ice_ex         , & ! sea ice height                                (  m  )
                   t_snow_si_ex     , & ! sea ice snow temperature                      (  K  )
-                  h_snow_si_ex         ! sea ice snow height                           (  m  )
+                  h_snow_si_ex     , & ! sea ice snow height                           (  m  )
+                  alb_si_ex            ! sea-ice albedo                                (  -  )
     REAL(wp), DIMENSION(nproma),                           INTENT(INOUT) :: &
                   fr_seaice            ! sea ice fraction                              (  1  )
 
@@ -1145,14 +1161,18 @@ endif
     REAL(wp) :: lhfl_s   (nproma)   ! latent heat flux at the surface                  [W/m^2]
     REAL(wp) :: lwflxsfc (nproma)   ! net long-wave radiation flux at the surface      [W/m^2]
     REAL(wp) :: swflxsfc (nproma)   ! net solar radiation flux at the surface          [W/m^2]
+    REAL(wp) :: snow_rate(nproma)   ! snow rate (convecive + grid-scale)               [kg/(m^2 s)]
+    REAL(wp) :: rain_rate(nproma)   ! rain rate (convecive + grid-scale)               [kg/(m^2 s)]
     REAL(wp) :: tice_now (nproma)   ! temperature of ice upper surface at previous time  [K]
     REAL(wp) :: hice_now (nproma)   ! ice thickness at previous time level               [m]
     REAL(wp) :: tsnow_now(nproma)   ! temperature of snow upper surface at previous time [K]
     REAL(wp) :: hsnow_now(nproma)   ! snow thickness at previous time level              [m]
+    REAL(wp) :: albsi_now(nproma)   ! sea-ice albedo at previous time level              [-]
     REAL(wp) :: tice_new (nproma)   ! temperature of ice upper surface at new time       [K]
     REAL(wp) :: hice_new (nproma)   ! ice thickness at new time level                    [m]
     REAL(wp) :: tsnow_new(nproma)   ! temperature of snow upper surface at new time      [K]
     REAL(wp) :: hsnow_new(nproma)   ! snow thickness at new time level                   [m]
+    REAL(wp) :: albsi_new(nproma)   ! sea-ice albedo at new time level                   [-]
 
     REAL(wp) :: t_s_dummy(nproma)   ! dummy for surface temperature
     REAL(wp) :: t_seasfc_dummy(nproma) ! dummy for sea surface temperature
@@ -1178,14 +1198,17 @@ endif
       DO ic = 1, i_count
         jc = ext_data%atm%idx_lst_spi(ic,jb)
 
-        shfl_s   (ic) = shfl_soil_ex(jc,isub_seaice)  ! sensible heat flux at sfc       [W/m^2]
-        lhfl_s   (ic) = lhfl_soil_ex(jc,isub_seaice)  ! latent heat flux at sfc         [W/m^2]
-        lwflxsfc (ic) = thbs_ex     (jc,isub_seaice)  ! net lw radiation flux at sfc    [W/m^2]
-        swflxsfc (ic) = sobs_ex     (jc,isub_seaice)  ! net solar radiation flux at sfc [W/m^2]
+        shfl_s   (ic) = shfl_soil_ex(jc,isub_seaice)     ! sensible heat flux at sfc          [W/m^2]
+        lhfl_s   (ic) = lhfl_soil_ex(jc,isub_seaice)     ! latent heat flux at sfc            [W/m^2]
+        lwflxsfc (ic) = thbs_ex     (jc,isub_seaice)     ! net lw radiation flux at sfc       [W/m^2]
+        swflxsfc (ic) = sobs_ex     (jc,isub_seaice)     ! net solar radiation flux at sfc    [W/m^2]
+        snow_rate(ic) = prs_gsp_ex(jc) + prs_con_ex(jc)  ! snow rate (convecive + grid-scale) [kg/(m^2 s)]
+        rain_rate(ic) = prr_gsp_ex(jc) + prr_con_ex(jc)  ! rain rate (convecive + grid-scale) [kg/(m^2 s)]
         tice_now (ic) = t_ice_ex    (jc)
         hice_now (ic) = h_ice_ex    (jc)
         tsnow_now(ic) = t_snow_si_ex(jc)
         hsnow_now(ic) = h_snow_si_ex(jc)
+        albsi_now(ic) = alb_si_ex   (jc)              ! sea-ice albedo at previous time level [-]
       ENDDO  ! ic
 
       ! call seaice time integration scheme
@@ -1197,14 +1220,18 @@ endif
         &   qlat    = lhfl_s   (:),    & !in
         &   qlwrnet = lwflxsfc (:),    & !in
         &   qsolnet = swflxsfc (:),    & !in
+        &   snow_rate = snow_rate(:),  & !in
+        &   rain_rate = rain_rate(:),  & !in
         &   tice_p  = tice_now (:),    & !in
         &   hice_p  = hice_now (:),    & !in
         &   tsnow_p = tsnow_now(:),    & !in    ! DUMMY: not used yet
         &   hsnow_p = hsnow_now(:),    & !in    ! DUMMY: not used yet
+        &   albsi_p = albsi_now(:),    & !in   
         &   tice_n  = tice_new (:),    & !out
         &   hice_n  = hice_new (:),    & !out
         &   tsnow_n = tsnow_new(:),    & !out   ! DUMMY: not used yet
-        &   hsnow_n = hsnow_new(:)     ) !out   ! DUMMY: not used yet
+        &   hsnow_n = hsnow_new(:),    & !out   ! DUMMY: not used yet
+        &   albsi_n = albsi_new(:)     ) !out  
       ! optional arguments dticedt, dhicedt, dtsnowdt, dhsnowdt (tendencies) are neglected
 
 
@@ -1224,6 +1251,7 @@ endif
         h_ice_ex    (jc) = hice_new (ic)
         t_snow_si_ex(jc) = tsnow_new(ic)
         h_snow_si_ex(jc) = hsnow_new(ic)
+        alb_si_ex   (jc) = albsi_new(ic)              ! sea-ice albedo at new time level [-]
 
         t_g_ex(jc,isub_seaice)  = tice_new(ic)
         ! surface saturation specific humidity (uses saturation water vapor pressure
@@ -1246,6 +1274,8 @@ endif
         &   fr_seaice     = fr_seaice(:),                            &!inout
         &   hice_old      = h_ice_ex(:),                             &!inout
         &   tice_old      = t_ice_ex(:),                             &!inout
+        &   albsi_now     = alb_si_ex(:),                            &!inout
+        &   albsi_new     = alb_si_ex(:),                            &!inout  !DR quick hack (2nd time level miss)
         &   t_g_t_now     = t_g_ex(:,isub_water),                    &!inout  !DR quick hack
         &   t_g_t_new     = t_g_ex(:,isub_water),                    &!inout
         &   t_s_t_now     = t_s_ex(:,isub_water),                    &!inout  !DR quick hack

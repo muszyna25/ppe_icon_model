@@ -51,7 +51,7 @@ MODULE mo_initicon_utils
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake, lmulti_snow,         &
     &                               isub_lake, frlnd_thrhld,             &
     &                               frlake_thrhld, frsea_thrhld, nlev_snow, ntiles_lnd,           &
-    &                               l2lay_rho_snow
+    &                               l2lay_rho_snow, lprog_albsi
   USE mo_nwp_sfc_utils,       ONLY: init_snowtile_lists
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
@@ -437,6 +437,7 @@ MODULE mo_initicon_utils
               CALL ngb_search(lnd_diag%fr_seaice, iidx, iblk, spmask, spcount, jc, jb)
               CALL ngb_search(lnd_diag%t_seasfc, iidx, iblk, spmask, spcount, jc, jb)
             ENDIF
+
           ENDDO  ! jc
 
         ELSE   ! .NOT. process_ana_vars
@@ -446,6 +447,9 @@ MODULE mo_initicon_utils
             IF (spmask(jc,1) == 1._wp) THEN
               CALL ngb_search(wtr_prog%t_ice, iidx, iblk, spmask, spcount, jc, jb)
               CALL ngb_search(wtr_prog%h_ice, iidx, iblk, spmask, spcount, jc, jb)
+              IF ( lprog_albsi ) THEN
+                CALL ngb_search(wtr_prog%alb_si, iidx, iblk, spmask, spcount, jc, jb)
+              ENDIF
             ENDIF
 
             ! b) lake points
@@ -866,6 +870,9 @@ MODULE mo_initicon_utils
   !! Modification by Daniel Reinert, DWD (2014-12-17)
   !! - make use of time_avg function, which makes finalize-option obsolete
   !!
+  !! Modifications by Dmitrii Mironov, DWD (2016-08-09)
+  !! - Call to "seaice_coldinit_nwp" is modified with due regard for
+  !!   prognostic treatment of the sea-ice albedo.
   !!
   SUBROUTINE average_first_guess(p_patch, p_int, p_diag, p_prog_dyn, p_prog)
 
@@ -1018,9 +1025,13 @@ MODULE mo_initicon_utils
   !! - encapsulated surface specific part
   !! Modification by Daniel Reinert, DWD (2013-07-09)
   !! - moved sea-ice coldstart into separate subroutine
+  !! Modification by Dmitrii Mironov, DWD (2016-08-11)
+  !! - Cold start initialization of sea ice is modified to exclude lake points.
   !!
   !!
   SUBROUTINE copy_initicon2prog_sfc(p_patch, initicon, p_lnd_state, ext_data)
+
+    ! Procedure arguments
 
     TYPE(t_patch),          INTENT(IN) :: p_patch(:)
     TYPE(t_initicon_state), INTENT(IN) :: initicon(:)
@@ -1028,9 +1039,28 @@ MODULE mo_initicon_utils
     TYPE(t_lnd_state),     INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data), INTENT(   IN) :: ext_data(:)
 
+    ! Local variables
+
     INTEGER  :: jg, jb, jc, jt, js, jp, ic, ilu
     INTEGER  :: nblks_c, npromz_c, nlen
     REAL(wp) :: zfrice_thrhld, zminsnow_alb, zmaxsnow_alb, zsnowalb_lu, t_fac
+
+    ! Local arrays
+
+    REAL(wp), DIMENSION(nproma) ::             &
+                                &  frsi_in   , &  !< sea-ice fraction [-]                                                         
+                                &  temp_in   , &  !< meaningfull guess of sea-ice surface temperature [K] 
+                                                  !< (e.g. tskin from IFS)                                                          
+                                &  tice_now  , &  !< sea-ice temperature at previous time level [K] 
+                                &  hice_now  , &  !< sea-ice thickness at previous time level [m]
+                                &  tsnow_now , &  !< snow temperature at previous time level [K]
+                                &  hsnow_now , &  !< snow thickness at previous time level [m]
+                                &  albsi_now , &  !< sea-ice albedo at previous time level [-]
+                                &  tice_new  , &  !< sea-ice temperature at new time level [K] 
+                                &  hice_new  , &  !< sea-ice thickness at new time level [m]
+                                &  tsnow_new , &  !< snow temperature at new time level [K]
+                                &  hsnow_new , &  !< snow thickness at new time level [m]
+                                &  albsi_new      !< sea-ice albedo at new time level [-]
 
 
     ! set frice_thrhld depending on tile usage
@@ -1050,7 +1080,9 @@ MODULE mo_initicon_utils
       npromz_c  = p_patch(jg)%npromz_c
 
 
-!$OMP DO PRIVATE(jb,jc,nlen,jt,js,jp,ic,zminsnow_alb,zmaxsnow_alb,zsnowalb_lu,t_fac,ilu) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,nlen,jt,js,jp,ic,zminsnow_alb,zmaxsnow_alb,zsnowalb_lu,    &
+!$OMP            t_fac,ilu,frsi_in,temp_in,tice_now,hice_now,tsnow_now,hsnow_now, &
+!$OMP            albsi_now,tice_new,hice_new,tsnow_new,hsnow_new,albsi_new) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -1212,19 +1244,52 @@ MODULE mo_initicon_utils
           !        now initialized during warmstart initialization 
           !        in mo_nwp_sfc_utils:nwp_surface_init
           !
+
           IF (lseaice) THEN
 
-            CALL seaice_coldinit_nwp(nproma, zfrice_thrhld,                               &
-              &         frsi    = p_lnd_state(jg)%diag_lnd%fr_seaice(:,jb),               &
-              &         temp_in = initicon(jg)%sfc%tskin(:,jb),                           &
-              &         tice_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice    (:,jb), &
-              &         hice_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice    (:,jb), &
-              &         tsnow_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_si(:,jb), &
-              &         hsnow_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_snow_si(:,jb), &
-              &         tice_n  = p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%t_ice    (:,jb), &
-              &         hice_n  = p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%h_ice    (:,jb), &
-              &         tsnow_n = p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%t_snow_si(:,jb), &
-              &         hsnow_n = p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%h_snow_si(:,jb)  )
+            DO ic = 1, ext_data(jg)%atm%sp_count(jb)
+              jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+              frsi_in(ic)   = p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb)             
+              temp_in(ic)   = initicon(jg)%sfc%tskin(jc,jb)                        
+              tice_now(ic)  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice    (jc,jb)
+              hice_now(ic)  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice    (jc,jb)
+              tsnow_now(ic) = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_si(jc,jb)
+              hsnow_now(ic) = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_snow_si(jc,jb)
+              albsi_now(ic) = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%alb_si   (jc,jb)
+              tice_new(ic)  = p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%t_ice    (jc,jb)
+              hice_new(ic)  = p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%h_ice    (jc,jb)
+              tsnow_new(ic) = p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%t_snow_si(jc,jb)
+              hsnow_new(ic) = p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%h_snow_si(jc,jb)
+              albsi_new(ic) = p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%alb_si   (jc,jb)
+            ENDDO  ! ic
+
+            CALL seaice_coldinit_nwp(ext_data(jg)%atm%sp_count(jb), zfrice_thrhld,  &
+              &         frsi    = frsi_in(:),                                       &
+              &         temp_in = temp_in(:),                                       &
+              &         tice_p  = tice_now(:),                                      &
+              &         hice_p  = hice_now(:),                                      &
+              &         tsnow_p = tsnow_now(:),                                     &
+              &         hsnow_p = hsnow_now(:),                                     &
+              &         albsi_p = albsi_now(:),                                     &
+              &         tice_n  = tice_new(:),                                      &
+              &         hice_n  = hice_new(:),                                      &
+              &         tsnow_n = tsnow_new(:),                                     &
+              &         hsnow_n = hsnow_new(:),                                     &
+              &         albsi_n = albsi_new(:)                                      )
+
+            DO ic = 1, ext_data(jg)%atm%sp_count(jb)
+              jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice    (jc,jb) = tice_now(ic)
+              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice    (jc,jb) = hice_now(ic)
+              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_si(jc,jb) = tsnow_now(ic)
+              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_snow_si(jc,jb) = hsnow_now(ic)
+              p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%alb_si   (jc,jb) = albsi_now(ic)
+              p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%t_ice    (jc,jb) = tice_new(ic)
+              p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%h_ice    (jc,jb) = hice_new(ic)
+              p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%t_snow_si(jc,jb) = tsnow_new(ic)
+              p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%h_snow_si(jc,jb) = hsnow_new(ic)
+              p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%alb_si   (jc,jb) = albsi_new(ic)
+            ENDDO  ! ic
 
           ENDIF  ! lseaice
 

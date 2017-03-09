@@ -1982,21 +1982,24 @@ If this parameter has not been set, we try to determine the file type by its ext
 
 
 %\hline
-ana\_varlist &
+check\_fg(jg)\%list &
 C(:)& & &
-List of mandatory analysis fields for the \textbf{global domain} that must be present in the analysis file. If these fields are not found, 
-the model aborts. For all other analysis fields, the FG-fields will serve as fallback position.
+In ICON a small subset of first guess input fields is declared 'optional', meaning that they are read in 
+if present, but they are not mandatory to start the model. By adding optional fields to this list, 
+they become mandatory for domain \texttt{jg}, such that the model aborts if any of them is missing. 
+This list may include a subset of the optional first guess fields, or even the entire set of first 
+guess fields. On default this list is empty, such that optional fields experience a cold-start 
+initialization if they are missing and the model does not abort.
 & init\_mode=1,5,6
 \tabularnewline
 
 %\hline
-ana\_varlist\_n2 &
+check\_ana(jg)\%list &
 C(:)& & &
-List of mandatory analysis fields for \textbf{domain 2} that must be present in the analysis file. If these fields are not found, 
+List of mandatory analysis fields for domain \texttt{jg} that must be present in the analysis file. If these fields are not found, 
 the model aborts. For all other analysis fields, the FG-fields will serve as fallback position.
-& init\_mode=5,6
+& init\_mode=1,5,6
 \tabularnewline
-
 
 %\hline
 \textbf{ana\_varnames\_map\_ file} &
@@ -2774,6 +2777,17 @@ L&
 &
 .TRUE. for use of sea-ice model&
 \tabularnewline
+
+
+%\hline
+lprog\_albsi &
+L&
+.FALSE.&
+&
+If .TRUE., sea-ice albedo is computed prognostically & lseaice=.TRUE.
+\tabularnewline
+
+
 %\hline
 \textbf{llake} &
 L&

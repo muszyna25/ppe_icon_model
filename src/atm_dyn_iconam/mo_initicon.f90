@@ -52,7 +52,8 @@ MODULE mo_initicon
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_satad,               ONLY: sat_pres_ice, spec_humi
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, ntiles_lnd, llake, &
-    &                               isub_lake, isub_water, lsnowtile, frlnd_thrhld, frlake_thrhld
+    &                               isub_lake, isub_water, lsnowtile, frlnd_thrhld, &
+    &                               frlake_thrhld, lprog_albsi
   USE mo_seaice_nwp,          ONLY: frsi_min
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
   USE mo_phyparam_soil,       ONLY: cporv, cadp, crhosmaxf, crhosmin_ml, crhosmax_ml
@@ -76,8 +77,9 @@ MODULE mo_initicon
   USE mo_input_request_list,  ONLY: t_InputRequestList, InputRequestList_create
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_input_instructions,  ONLY: t_readInstructionListPtr, readInstructionList_make, kInputSourceAna, &
-                                    kInputSourceBoth
+                                    kInputSourceBoth, kInputSourceCold
   USE mo_util_uuid_types,     ONLY: t_uuid
+  USE mo_nwp_sfc_utils,       ONLY: seaice_albedo_coldstart
 
   IMPLICIT NONE
 
@@ -561,6 +563,21 @@ MODULE mo_initicon
                 ENDDO
             ENDIF
     END SELECT
+
+    !
+    ! coldstart for prognostic sea-ice albedo in case that alb_si was 
+    ! not found in the FG 
+    !
+    DO jg = 1, n_dom
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      IF ( lprog_albsi .AND. inputInstructions(jg)%ptr%sourceOfVar('alb_si') == kInputSourceCold) THEN
+
+        CALL seaice_albedo_coldstart(p_patch(jg), p_lnd_state(jg), ext_data(jg))
+
+      ENDIF
+    ENDDO  !jg
+
   END SUBROUTINE process_dwdana
 
   ! Reads the data from the first-guess and analysis files, and does any required processing of that input data.

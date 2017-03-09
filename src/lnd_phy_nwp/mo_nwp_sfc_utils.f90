@@ -1,6 +1,18 @@
 !>
 !! Utility routines related to the TERRA surface model
 !!
+!! @author <NAME>, <AFFILIATION>
+!!
+!!
+!! @par Revision History
+!!
+!! Initial release by <NAME>, <AFFILIATION>  (YYYY-MM-DD)
+!!
+!! Modifications by Dmitrii Mironov, DWD (2016-08-02)
+!! - Changes related to the use of a rate equation 
+!!   for the sea-ice albedo.
+!!
+!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -25,7 +37,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_physical_constants,  ONLY: tmelt, tf_salt
   USE mo_math_constants,      ONLY: dbl_eps, rad2deg
   USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, zml_soil, min_rlcell, dzsoil, &
-    &                               MODE_IAU, SSTICE_ANA_CLINC 
+    &                               MODE_IAU, SSTICE_ANA_CLINC, ALB_SI_MISSVAL
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_data_flake,          ONLY: tpl_T_r, C_T_min, rflk_depth_bs_ref
   USE mo_loopindices,         ONLY: get_indices_c
@@ -37,13 +49,14 @@ MODULE mo_nwp_sfc_utils
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile, isub_water, isub_seaice, isub_lake,    &
-    &                               itype_interception, l2lay_rho_snow
+    &                               itype_interception, l2lay_rho_snow, lprog_albsi
   USE mo_nwp_tuning_config,   ONLY: tune_minsnowfrac
   USE mo_initicon_config,     ONLY: init_mode_soil, ltile_coldstart, init_mode, lanaread_tseasfc, use_lakeiceana
   USE mo_run_config,          ONLY: msg_level
   USE mo_nwp_soil_init,       ONLY: terra_multlay_init
   USE mo_flake,               ONLY: flake_init
-  USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min, frsi_min, hice_ini_min, hice_ini_max
+  USE mo_seaice_nwp,          ONLY: seaice_init_nwp, alb_seaice_equil, hice_min, frsi_min, &
+    &                               hice_ini_min, hice_ini_max, seaice_coldinit_albsi_nwp
   USE mo_phyparam_soil,       ONLY: cadp, cf_snow     ! soil and vegetation parameters for TILES
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi
   USE mo_sync,                ONLY: global_sum_array, global_max, global_min
@@ -76,6 +89,7 @@ INTEGER, PARAMETER :: nlsnow= 2
   PUBLIC :: init_sea_lists
   PUBLIC :: aggregate_tg_qvs
   PUBLIC :: copy_lnd_prog_now2new
+  PUBLIC :: seaice_albedo_coldstart
 
 CONTAINS
 
@@ -92,6 +106,9 @@ CONTAINS
   !! - initialize climatological layer t_so(nlev_soil+1)
   !! Modification by Daniel Reinert, DWD (2012-08-31)
   !! - initialize sea-ice model
+  !! Modifications by Dmitrii Mironov, DWD (2016-08-04)
+  !! - Call to "seaice_init_nwp" is modified with due regard for
+  !!   prognostic treatment of the sea-ice albedo.
   !!
   SUBROUTINE nwp_surface_init( p_patch, ext_data, p_prog_lnd_now, &
     &                          p_prog_lnd_new, p_prog_wtr_now,    &
@@ -105,6 +122,7 @@ CONTAINS
     TYPE(t_wtr_prog)     , INTENT(INOUT) :: p_prog_wtr_now, p_prog_wtr_new
     TYPE(t_lnd_diag)     , INTENT(INOUT) :: p_lnd_diag
     TYPE(t_nh_diag), TARGET,INTENT(inout):: p_diag        !< diag vars
+
 
     ! Local array bounds:
 
@@ -183,10 +201,12 @@ CONTAINS
     REAL(wp) :: hice_now (nproma)   ! ice thickness at previous time level
     REAL(wp) :: tsnow_now(nproma)   ! temperature of snow upper surface at previous time
     REAL(wp) :: hsnow_now(nproma)   ! snow thickness at previous time level
+    REAL(wp) :: albsi_now(nproma)   ! sea-ice albedo at previous time level
     REAL(wp) :: tice_new (nproma)   ! temperature of ice upper surface at new time
     REAL(wp) :: hice_new (nproma)   ! ice thickness at new time level
     REAL(wp) :: tsnow_new(nproma)   ! temperature of snow upper surface at new time
     REAL(wp) :: hsnow_new(nproma)   ! snow thickness at new time level
+    REAL(wp) :: albsi_new(nproma)   ! sea-ice albedo at new time level
 
     INTEGER  :: icount_flk          ! total number of lake points per block
     !
@@ -222,7 +242,8 @@ CONTAINS
 !$OMP            depth_lk,fetch_lk,dp_bs_lk,t_bs_lk,gamso_lk,t_snow_lk_now,          &
 !$OMP            h_snow_lk_now,t_ice_now,h_ice_now,t_mnw_lk_now,t_wml_lk_now,        &
 !$OMP            t_bot_lk_now,c_t_lk_now,h_ml_lk_now,t_b1_lk_now,h_b1_lk_now,        &
-!$OMP            t_scf_lk_now,zfrice_thrhld,lake_mask,iceana_mask,deglat,deglon), SCHEDULE(guided)
+!$OMP            t_scf_lk_now,zfrice_thrhld,lake_mask,albsi_now,albsi_new,           &
+!$OMP            iceana_mask,deglat,deglon), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -757,12 +778,13 @@ CONTAINS
           hice_now (ic) = p_prog_wtr_now%h_ice(jc,jb)
           tsnow_now(ic) = p_prog_wtr_now%t_snow_si(jc,jb)
           hsnow_now(ic) = p_prog_wtr_now%h_snow_si(jc,jb)
+          albsi_now(ic) = p_prog_wtr_now%alb_si(jc,jb)
         ENDDO  ! jc
 
 
-        CALL seaice_init_nwp ( icount_ice, frsi,                         & ! in
-          &                    tice_now, hice_now, tsnow_now, hsnow_now, & ! inout
-          &                    tice_new, hice_new, tsnow_new, hsnow_new  ) ! inout
+        CALL seaice_init_nwp ( icount_ice, frsi,                                    & ! in
+          &                    tice_now, hice_now, tsnow_now, hsnow_now, albsi_now, & ! inout
+          &                    tice_new, hice_new, tsnow_new, hsnow_new, albsi_new  ) ! inout
 
 
         !  Recover fields from index list
@@ -775,11 +797,15 @@ CONTAINS
           p_prog_wtr_now%h_ice(jc,jb)    = hice_now(ic)
           p_prog_wtr_now%t_snow_si(jc,jb)= tsnow_now(ic)
           p_prog_wtr_now%h_snow_si(jc,jb)= hsnow_now(ic)
+          p_prog_wtr_now%alb_si(jc,jb)   = albsi_now(ic)
 
           p_prog_wtr_new%t_ice(jc,jb)    = tice_new(ic)
           p_prog_wtr_new%h_ice(jc,jb)    = hice_new(ic)
           p_prog_wtr_new%t_snow_si(jc,jb)= tsnow_new(ic)
           p_prog_wtr_new%h_snow_si(jc,jb)= hsnow_new(ic)
+          IF (lprog_albsi) THEN
+            p_prog_wtr_new%alb_si(jc,jb)   = albsi_new(ic)
+          ENDIF
 
           p_prog_lnd_now%t_g_t(jc,jb,isub_seaice) =  tice_now(ic)
           p_prog_lnd_new%t_g_t(jc,jb,isub_seaice) =  tice_now(ic)
@@ -846,6 +872,11 @@ CONTAINS
             ! new
             p_prog_wtr_new%h_ice    (jc,jb) = 0._wp
             p_prog_wtr_new%t_ice    (jc,jb) = tmelt   ! fresh water freezing point
+            !
+            IF (lprog_albsi) THEN
+              p_prog_wtr_new%alb_si (jc,jb) = ALB_SI_MISSVAL
+              p_prog_wtr_now%alb_si (jc,jb) = ALB_SI_MISSVAL
+            ENDIF
           ENDIF
         ENDDO
 
@@ -883,6 +914,11 @@ CONTAINS
             ! new
             p_prog_wtr_new%h_ice    (jc,jb) = 0._wp
             p_prog_wtr_new%t_ice    (jc,jb) = tmelt   ! fresh water freezing point
+            !
+            IF (lprog_albsi) THEN
+              p_prog_wtr_new%alb_si (jc,jb) = ALB_SI_MISSVAL
+              p_prog_wtr_now%alb_si (jc,jb) = ALB_SI_MISSVAL
+            ENDIF
           ENDIF
         ENDDO
       ENDIF
@@ -1543,7 +1579,7 @@ CONTAINS
         IF (p_lnd_diag%fr_seaice(jc,jb) < frsi_min ) THEN
            p_lnd_diag%fr_seaice(jc,jb) = 0._wp
         ENDIF
-        IF (p_lnd_diag%fr_seaice(jc,jb) > (1._wp-frsi_min) ) THEN
+        IF (p_lnd_diag%fr_seaice(jc,jb) >= (1._wp-frsi_min) ) THEN
            p_lnd_diag%fr_seaice(jc,jb) = 1._wp
         ENDIF
       ENDDO  ! ic
@@ -1944,6 +1980,7 @@ CONTAINS
   SUBROUTINE update_idx_lists_sea (hice_n, pres_sfc, idx_lst_spw, spw_count,    &
     &                              idx_lst_spi, spi_count, frac_t_ice,          &
     &                              frac_t_water, fr_seaice, hice_old, tice_old, &
+    &                              albsi_now, albsi_new,                        &
     &                              t_g_t_now, t_g_t_new, t_s_t_now, t_s_t_new,  &
     &                              qv_s_t, t_seasfc )
 
@@ -1972,6 +2009,12 @@ CONTAINS
 
     REAL(wp),    INTENT(INOUT) ::  &   !< sea-ice temperature at old time level  [K]
       &  tice_old(:)                   !< dim: (nproma)
+
+    REAL(wp),    INTENT(INOUT) ::  &   !< prognostic sea ice albedo at old time level  [1]
+      &  albsi_now(:)                  !< dim: (nproma)
+
+    REAL(wp),    INTENT(INOUT) ::  &   !< prognostic sea ice albedo at new time level  [1]
+      &  albsi_new(:)                  !< dim: (nproma)
 
     REAL(wp),    INTENT(INOUT) ::  &   !< temperature of water tile (now)  [K]
       &  t_g_t_now(:)
@@ -2013,10 +2056,10 @@ CONTAINS
     !
     ! update index list for sea-ice and open water
     !
-    ! Since the current sea-ice model does not allow for new sea-ice points to be
-    ! created during model integration, the number of sea-ice points can only
-    ! decrease with time. I.e. sea-ice points may be converted into water points,
-    ! but not vice versa.
+    ! The current sea-ice model does not allow for new sea-ice points to be
+    ! created during model integration. However, the number of sea-ice points 
+    ! is allowed to decrease with time, i.e. sea-ice points may be converted 
+    ! into water points, but not vice versa.
     !
     ! Loop over old sea-ice points, only
 
@@ -2056,6 +2099,12 @@ CONTAINS
           ! other schemes from using them incorrectly
           tice_old(jc) = tmelt
           hice_old(jc) = 0._wp
+          !
+          ! Reset prognostic sea ice albedo for consistency
+          IF (lprog_albsi) THEN
+            albsi_now(jc) = ALB_SI_MISSVAL
+            albsi_new(jc) = ALB_SI_MISSVAL
+          ENDIF
 
         ENDIF
 
@@ -2105,7 +2154,17 @@ CONTAINS
           ! since sea-ice melted away, the sea-ice fraction is re-set to 0
           fr_seaice(jc)  = 0._wp
           frac_t_ice(jc) = 0._wp
-
+          !
+          ! reset sea-ice temperature and depth at old time level in order to prevent
+          ! other schemes from using them incorrectly
+          tice_old(jc) = tmelt
+          hice_old(jc) = 0._wp
+          !
+          ! Reset prognostic sea ice albedo for consistency
+          IF (lprog_albsi) THEN
+            albsi_now(jc) = ALB_SI_MISSVAL
+            albsi_new(jc) = ALB_SI_MISSVAL
+          ENDIF
         ENDIF
 
       ENDDO  ! ic
@@ -2287,7 +2346,7 @@ CONTAINS
         CALL message('', TRIM(message_text))
 
 
-        !renitialized to cero
+        ! re-initialized to zero
         ext_data(jg)%atm%spi_count(i_startblk:i_endblk)=0
         ext_data(jg)%atm%spw_count(i_startblk:i_endblk)=0
 
@@ -2343,6 +2402,12 @@ CONTAINS
                     p_lnd_state(jg)%prog_wtr(n_now)%h_ice(jc,jb) = hice_ini_min +           &
                          p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) * (hice_ini_max-hice_ini_min)
 
+                    IF (lprog_albsi) THEN
+                      ! initialize prognostic seaice albedo with equilibrium value
+                      p_lnd_state(jg)%prog_wtr(n_now)%alb_si(jc,jb) = &
+                        &                             alb_seaice_equil( p_lnd_state(jg)%prog_wtr(n_now)%t_ice(jc,jb) )
+                      p_lnd_state(jg)%prog_wtr(n_new)%alb_si(jc,jb) = p_lnd_state(jg)%prog_wtr(n_now)%alb_si(jc,jb)
+                    ENDIF
                   ELSE
                     ! before was also ice.
                   END IF
@@ -2369,6 +2434,12 @@ CONTAINS
 
                   ! set sai_t
                   ext_data(jg)%atm%sai_t    (jc,jb,isub_water)  = c_sea
+
+                  IF (lprog_albsi) THEN
+                    ! re-initialize prognostic seaice albedo with ALB_SI_MISSVAL
+                    p_lnd_state(jg)%prog_wtr(n_now)%alb_si(jc,jb) = ALB_SI_MISSVAL
+                    p_lnd_state(jg)%prog_wtr(n_new)%alb_si(jc,jb) = ALB_SI_MISSVAL
+                  ENDIF
 
                 ENDIF
 
@@ -2403,12 +2474,20 @@ CONTAINS
                     p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_seaice)= tf_salt
                     p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_seaice)= tf_salt
 
+
                     p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_seaice)    =                    &
                          &                                     spec_humi( sat_pres_ice(tf_salt ),  &
                          &                                  p_nh_state(jg)%diag%pres_sfc(jc,jb) )
                     p_lnd_state(jg)%prog_wtr(n_now)%t_ice(jc,jb) = tf_salt
                     p_lnd_state(jg)%prog_wtr(n_now)%h_ice(jc,jb) = hice_ini_min +           &
-                         p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) * (hice_ini_max-hice_ini_min)
+                      &  p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) * (hice_ini_max-hice_ini_min)
+
+                    IF (lprog_albsi) THEN
+                      ! initialize prognostic seaice albedo with equilibrium value
+                      p_lnd_state(jg)%prog_wtr(n_now)%alb_si(jc,jb) = &
+                        &                             alb_seaice_equil( p_lnd_state(jg)%prog_wtr(n_now)%t_ice(jc,jb) )
+                      p_lnd_state(jg)%prog_wtr(n_new)%alb_si(jc,jb) = p_lnd_state(jg)%prog_wtr(n_now)%alb_si(jc,jb)
+                    ENDIF
 
                   END IF
                   ! set sai_t
@@ -2440,6 +2519,15 @@ CONTAINS
 
                   fracwater_old = ext_data(jg)%atm%frac_t(jc,jb,isub_water)              &
                        & / ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water)
+
+                  IF ( p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) < frsi_min ) THEN
+                    ! pure water grid point, no seaice tile
+                    IF (lprog_albsi) THEN
+                      ! re-initialize prognostic seaice albedo with ALB_SI_MISSVAL
+                      p_lnd_state(jg)%prog_wtr(n_now)%alb_si(jc,jb) = ALB_SI_MISSVAL
+                      p_lnd_state(jg)%prog_wtr(n_new)%alb_si(jc,jb) = ALB_SI_MISSVAL
+                    ENDIF
+                  ENDIF
 
                   ! set sai_t
                   ext_data(jg)%atm%sai_t    (jc,jb,isub_water)  = c_sea
@@ -2717,6 +2805,93 @@ CONTAINS
 
   END SUBROUTINE copy_lnd_prog_now2new
 
+
+  !>
+  !! Coldstart initialization of prognostic seaice albedo alb_si
+  !!
+  !! Coldstart initialization of prognostic seaice albedo alb_si
+  !! 
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2016-08-18)
+  !!
+  SUBROUTINE seaice_albedo_coldstart(p_patch, p_lnd_state, ext_data)
+
+    TYPE(t_patch),             INTENT(IN)    :: p_patch
+    TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state
+    TYPE(t_external_data),     INTENT(INOUT) :: ext_data
+
+    ! local
+    INTEGER :: jb, jc, ic          ! loop counter
+    INTEGER :: jg
+    INTEGER :: i_rlstart, i_rlend
+    INTEGER :: i_startblk, i_endblk
+    !
+    REAL(wp):: zfrice_thrhld
+    REAL(wp):: frsi(nproma)
+    REAL(wp):: t_ice_now(nproma)
+    REAL(wp):: alb_si_now(nproma), alb_si_new(nproma)
+    !
+    TYPE(t_lnd_diag),  POINTER :: lnd_diag
+    TYPE(t_wtr_prog),  POINTER :: wtr_prog_now, wtr_prog_new
+  !------------------------------------------------------------
+
+    jg = p_patch%id
+
+    WRITE(message_text,'(a,i3)') 'Coldstart initialization of prognostic seaice albedo in domain ',jg
+    CALL message('', TRIM(message_text))
+
+    ! set frice_thrhld depending on tile usage
+    IF ( ntiles_total == 1 ) THEN  ! no tile approach
+      zfrice_thrhld = 0.5_wp
+    ELSE
+      zfrice_thrhld = frsi_min
+    ENDIF
+
+    lnd_diag     => p_lnd_state%diag_lnd
+    wtr_prog_now => p_lnd_state%prog_wtr(nnow_rcf(jg))
+    wtr_prog_new => p_lnd_state%prog_wtr(nnew_rcf(jg))
+
+    i_rlstart  = 1
+    i_rlend    = min_rlcell
+    i_startblk = p_patch%cells%start_block(i_rlstart)
+    i_endblk   = p_patch%cells%end_block(i_rlend)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,ic,frsi,t_ice_now,alb_si_now,alb_si_new)
+    DO jb = i_startblk, i_endblk
+ 
+      DO ic = 1, ext_data%atm%sp_count(jb)
+        jc = ext_data%atm%idx_lst_sp(ic,jb)
+        !
+        frsi(ic)      = lnd_diag%fr_seaice(jc,jb)
+        t_ice_now(ic) = wtr_prog_now%t_ice(jc,jb)
+        ! the following 2 lines are required, because 
+        ! only a subset of points in alb_si_now(1:sp_count) 
+        ! are filled by the following initialization routine 
+        ! (i.e. sea-ice points only).
+        alb_si_now(ic)= wtr_prog_now%alb_si(jc,jb)
+        alb_si_new(ic)= wtr_prog_new%alb_si(jc,jb)
+      ENDDO
+
+      CALL  seaice_coldinit_albsi_nwp (                                 & 
+        &                    nswgb        = ext_data%atm%sp_count(jb),  & !in
+        &                    frice_thrhld = zfrice_thrhld,              & !in
+        &                    frsi         = frsi(:),                    & !in
+        &                    tice_p       = t_ice_now(:),               & !in
+        &                    albsi_p      = alb_si_now(:),              & !inout
+        &                    albsi_n      = alb_si_new(:)               & !inout
+        &  )
+
+      DO ic = 1, ext_data%atm%sp_count(jb)
+        jc = ext_data%atm%idx_lst_sp(ic,jb)
+        wtr_prog_now%alb_si(jc,jb) = alb_si_now(ic)
+        wtr_prog_new%alb_si(jc,jb) = alb_si_new(ic)
+      ENDDO
+    ENDDO  !jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+  END SUBROUTINE seaice_albedo_coldstart
 
 END MODULE mo_nwp_sfc_utils
 

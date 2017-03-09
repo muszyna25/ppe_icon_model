@@ -7,6 +7,9 @@
 !! Imported from IFS by Martin Koehler  (starting 2011-9-30)
 !!   (IFS cycle CY36R1_DUALM_M8b)
 !!
+!! Modifications by Dmitrii Mironov, DWD (2016-08-08)
+!! - Changes related to the use of prognostic the sea-ice albedo.
+!!
 !!-----------------------------------------------------------------------------
 !!
 !! @par Copyright and License
@@ -76,7 +79,7 @@ SUBROUTINE VDFMAIN ( CDCONF , &
  & , sobs_ex, thbs_ex, pabs_ex                                          & !in
  & , runoff_s_ex, runoff_g_ex                                           & !inout
  & , t_g, qv_s                                                          & ! -
- & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
+ & , t_ice, h_ice, t_snow_si, h_snow_si, alb_si                         & ! -
  & , fr_seaice                                                          ) ! -
 !***
 
@@ -581,7 +584,7 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   t_g            ,qv_s
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
-  t_ice          ,h_ice          ,t_snow_si      ,h_snow_si
+  t_ice          ,h_ice          ,t_snow_si      ,h_snow_si       ,alb_si 
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   fr_seaice
 TYPE(t_external_data), INTENT(INOUT)                                       :: &
@@ -893,7 +896,7 @@ CALL SURFEXCDRIVER( &
    & , sobs_ex, thbs_ex, pabs_ex                                          & !in
    & , runoff_s_ex, runoff_g_ex                                           & !inout
    & , t_g, qv_s                                                          & ! -
-   & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
+   & , t_ice, h_ice, t_snow_si, h_snow_si, alb_si                         & ! -
    & , fr_seaice                                                          & !in
    & , shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t                 & !out
    & , shfl_s_t   , lhfl_s_t   , qhfl_s_t                                 &

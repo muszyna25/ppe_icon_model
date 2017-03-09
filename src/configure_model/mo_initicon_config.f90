@@ -97,9 +97,12 @@ MODULE mo_initicon_config
   ! ----------------------------------------------------------------------------
   !
   TYPE :: t_initicon_config
-    CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
+    CHARACTER(LEN=vname_len) :: ana_checklist(max_var_ml) ! list of mandatory analysis fields. 
                                                         ! This list can include a subset or the 
                                                         ! entire set of default analysis fields.
+    CHARACTER(LEN=vname_len) :: fg_checklist(max_var_ml) ! list of mandatory first guess fields. 
+                                                        ! This list can include a subset or the 
+                                                        ! entire set of default first guess fields.
   END TYPE t_initicon_config
   !
   ! probably those which are domain-dependent could be included into aboves type lateron
@@ -127,6 +130,7 @@ MODULE mo_initicon_config
   LOGICAL  :: use_lakeiceana   ! If true, use ice fraction analysis data also over lakes (otherwise sea points only)
 
   LOGICAL  :: lvert_remap_fg   ! If true, vertical remappting of first guess input is performed
+
 
   ! Variables controlling computation of temporally averaged first guess fields for DA
   ! The calculation is switched on by setting end_time > start_time
