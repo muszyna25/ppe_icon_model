@@ -2332,8 +2332,8 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::setup_output_vlist"
     REAL(wp),         PARAMETER       :: ZERO_TOL = 1.e-15_wp
     ! local variables
-    INTEGER                           :: k, i_dom, ll_dim(2), gridtype, idate, &
-      &                                  itime, iret, tlen
+    INTEGER                           :: k, i_dom, gridtype, idate, &
+      &                                  itime, iret, tlen, ll_dim1, ll_dim2
     TYPE(t_lon_lat_data), POINTER     :: lonlat
     REAL(wp)                          :: pi_180
     INTEGER                           :: max_cell_connectivity, max_vertex_connectivity, &
@@ -2401,10 +2401,10 @@ CONTAINS
       of%cdiVertGridID = CDI_UNDEFID
 
       lonlat => lonlat_grids%list(of%name_list%lonlat_id)
-      ll_dim(1) = lonlat%grid%lon_dim
-      ll_dim(2) = lonlat%grid%lat_dim
+      ll_dim1 = lonlat%grid%lon_dim
+      ll_dim2 = lonlat%grid%lat_dim
 
-      of%cdiLonLatGridID = gridCreate(GRID_LONLAT, ll_dim(1)*ll_dim(2))
+      of%cdiLonLatGridID = gridCreate(GRID_LONLAT, ll_dim1*ll_dim2)
 
       IF ( ABS(90._wp - lonlat%grid%north_pole(2)) > ZERO_TOL .OR.  &
       &    ABS( 0._wp - lonlat%grid%north_pole(1)) > ZERO_TOL ) THEN
@@ -2412,34 +2412,34 @@ CONTAINS
         CALL gridDefYpole( of%cdiLonLatGridID, lonlat%grid%north_pole(2))
       END IF
 
-      CALL gridDefXsize(of%cdiLonLatGridID, ll_dim(1))
+      CALL gridDefXsize(of%cdiLonLatGridID, ll_dim1)
       CALL gridDefXname(of%cdiLonLatGridID, 'lon')
       CALL gridDefXunits(of%cdiLonLatGridID, 'degrees_east')
 
-      CALL gridDefYsize(of%cdiLonLatGridID, ll_dim(2))
+      CALL gridDefYsize(of%cdiLonLatGridID, ll_dim2)
       CALL gridDefYname(of%cdiLonLatGridID, 'lat')
       CALL gridDefYunits(of%cdiLonLatGridID, 'degrees_north')
 
-      ALLOCATE(p_lonlat(ll_dim(1)))
+      ALLOCATE(p_lonlat(ll_dim1))
       IF (lonlat%grid%reg_lon_def(2) <= threshold_delta_or_intvls) THEN
-        DO k=1,ll_dim(1)
+        DO k=1,ll_dim1
           p_lonlat(k) = lonlat%grid%reg_lon_def(1) + REAL(k-1,wp)*lonlat%grid%reg_lon_def(2)
         END DO
       ELSE
-        DO k=1,ll_dim(1)
+        DO k=1,ll_dim1
           p_lonlat(k) = (lonlat%grid%start_corner(1) + REAL(k-1,wp)*lonlat%grid%delta(1)) / pi_180
         END DO
       END IF
       CALL gridDefXvals(of%cdiLonLatGridID, p_lonlat)
       DEALLOCATE(p_lonlat)
 
-      ALLOCATE(p_lonlat(ll_dim(2)))
+      ALLOCATE(p_lonlat(ll_dim2))
       IF (lonlat%grid%reg_lat_def(2) <= threshold_delta_or_intvls) THEN
-        DO k=1,ll_dim(2)
+        DO k=1,ll_dim2
           p_lonlat(k) = lonlat%grid%reg_lat_def(1) + REAL(k-1,wp)*lonlat%grid%reg_lat_def(2)
         END DO
       ELSE
-        DO k=1,ll_dim(2)
+        DO k=1,ll_dim2
           p_lonlat(k) = (lonlat%grid%start_corner(2) + REAL(k-1,wp)*lonlat%grid%delta(2)) / pi_180
         END DO
       END IF
