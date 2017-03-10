@@ -337,7 +337,7 @@ MODULE mo_nh_stepping
   END IF
 
   ! Save initial state if IAU iteration mode is chosen
-  IF (iterate_iau) THEN
+  IF (iterate_iau .AND. .NOT. isRestart()) THEN
     CALL save_initial_state(p_patch(1:), p_nh_state, prm_diag, p_lnd_state, ext_data)
     WRITE(message_text,'(a)') 'IAU iteration is activated: Start of first cycle with halved IAU window'
     CALL message('',message_text)
@@ -598,7 +598,7 @@ MODULE mo_nh_stepping
 
   IF (ltimer) CALL timer_start(timer_total)
 
-  IF (iterate_iau) THEN
+  IF (iterate_iau .AND. .NOT. isRestart()) THEN
     iau_iter = 1
   ELSE
     iau_iter = 0
@@ -612,7 +612,7 @@ MODULE mo_nh_stepping
   ! MPI communication from now on.
   IF (test_mode > 0) iorder_sendrecv = 0
 
-  IF (timeshift%dt_shift < 0._wp) THEN
+  IF (timeshift%dt_shift < 0._wp  .AND. .NOT. isRestart()) THEN
     jstep_shift = NINT(timeshift%dt_shift/dtime)
     WRITE(message_text,'(a,i6,a)') 'Model start shifted backwards by ', ABS(jstep_shift),' time steps'
     CALL message(TRIM(routine),message_text)
@@ -2171,7 +2171,7 @@ MODULE mo_nh_stepping
       ENDIF
 
       IF ( ANY((/MODE_IAU,MODE_IAU_OLD/)==init_mode) ) THEN ! incremental analysis mode
-        cur_time = time_config%sim_time(jg)-timeshift%dt_shift+ &
+        cur_time = time_config%sim_time(jg)-MERGE(0._wp,timeshift%dt_shift,isRestart()) + &
          (REAL(nstep-ndyn_substeps_var(jg),wp)-0.5_wp)*dt_dyn
         IF (iau_iter == 1) THEN
           CALL compute_iau_wgt(cur_time, dt_dyn, 0.5_wp*dt_iau, lclean_mflx)

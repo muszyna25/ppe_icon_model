@@ -82,7 +82,7 @@ MODULE mo_nml_crosscheck
   USE mo_gw_hines_config,    ONLY: gw_hines_config
   USE mo_vdiff_config,       ONLY: vdiff_config
   USE mo_turbdiff_config,    ONLY: turbdiff_config
-  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart
+  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift
   USE mo_nh_testcases_nml,   ONLY: linit_tracer_fv,nh_test_name
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
@@ -1010,6 +1010,10 @@ CONTAINS
         CALL finish('initicon_nml:', TRIM(message_text))
       ENDIF 
 
+      IF (MIN(dt_checkpoint,time_config%dt_restart) <= dt_iau+timeshift%dt_shift) THEN
+        WRITE (message_text,'(a)') "Restarting is not allowed within the IAU phase"
+        CALL finish('atm_crosscheck:', TRIM(message_text))
+      ENDIF
 
       ! IAU modes MODE_IAU_OLD cannot be combined with snowtiles
       ! when performing snowtile warmstart.
