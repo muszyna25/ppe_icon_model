@@ -281,7 +281,7 @@ EOF
 
 cat > ${lnd_namelist} <<EOF
 &jsb_model_nml
-  usecase         = 'jsbach_lite_with_hd'
+  usecase         = "${jsbach_usecase}"
 /
 &jsb_srf_nml
   bc_filename     = 'bc_land_phys.nc'
@@ -300,14 +300,18 @@ cat > ${lnd_namelist} <<EOF
   bc_filename     = 'bc_land_phys.nc'
   ic_filename     = 'ic_land_soil.nc'
 /
+EOF
+if [[ ${jsbach_with_hd} = yes ]]; then
+cat >> ${lnd_namelist} <<EOF
 &jsb_hd_nml
   active          = .TRUE.
   routing_scheme  = 'full'
   bc_filename     = 'bc_land_hd.nc'
   diag_water_budget = .TRUE.
-  !debug_hd        = .TRUE.
+  debug_hd        = .FALSE.
 /
 EOF
+fi
 
 #--------------------------------------------------------------------------------------------------
 
