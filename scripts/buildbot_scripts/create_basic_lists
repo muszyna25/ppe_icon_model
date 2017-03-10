@@ -43,7 +43,7 @@ $addexp exp.test_nwp_R02B04N06multi2 --machines mistral daint_cpu --without-conf
 # test aquaplanet run, only with mpi
 $addexp exp.couple_atmo-ocean --without-configureflags without-mpi --runflags "cpu_time=00:30:00" --list $listname
 # test coupled run
-$addexp exp.aloy.pre03.bb --runflags "cpu_time=00:30:00 no_of_nodes=2" --list $listname
+$addexp exp.aloy.pre03.bb --without-configureflags without-mpi --runflags "cpu_time=00:30:00 no_of_nodes=2" --list $listname
 
 
 #-----------------------------------------------------------
