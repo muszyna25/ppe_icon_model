@@ -258,6 +258,9 @@ CONTAINS
         nlev_ocean = 0
         nice_class = 1
 
+        ! Reset counter for vertical axes (needed for writing checkpoint files at multiple times)
+        me%v_grid_count = 0
+
         ! replace DEFAULT values by the overrides provided IN the me
         IF(ALLOCATED(me%opt_depth_lnd)) nlev_soil = me%opt_depth_lnd
         IF(ALLOCATED(me%opt_nlev_snow)) nlev_snow = me%opt_nlev_snow
