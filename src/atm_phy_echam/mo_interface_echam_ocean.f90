@@ -653,10 +653,15 @@ CONTAINS
           buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk)
           buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk)
     
-          ! evaporation over ice-free and ice-covered water fraction, of whole ocean part, without land part
-          frac_oce=1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)
-          buffer(nn+n,3) = (prm_field(jg)%evap_tile(n,i_blk,iwtr)*prm_field(jg)%frac_tile(n,i_blk,iwtr) + &
-            &               prm_field(jg)%evap_tile(n,i_blk,iice)*prm_field(jg)%frac_tile(n,i_blk,iice))/frac_oce
+          IF (frac_oce <= 0.0_wp) THEN
+            ! land part is zero
+            buffer(nn+n,3) = 0.0_wp
+          ELSE
+            ! evaporation over ice-free and ice-covered water fraction, of whole ocean part, without land part
+            frac_oce=1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)
+            buffer(nn+n,3) = (prm_field(jg)%evap_tile(n,i_blk,iwtr)*prm_field(jg)%frac_tile(n,i_blk,iwtr) + &
+              &               prm_field(jg)%evap_tile(n,i_blk,iice)*prm_field(jg)%frac_tile(n,i_blk,iice))/frac_oce
+          ENDIF
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
