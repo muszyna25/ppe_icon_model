@@ -49,6 +49,9 @@ author_list="Marco Giorgetta, Rene Redler, Reiner Schnur, Stephan Lorenz"
 # -------------------------
 mpi_oce_nodes=${mpi_oce_nodes:=((no_of_nodes/2))}   # default: half of requested nodes
 ((mpi_oce_procs=mpi_oce_nodes * mpi_procs_pernode))
+if [ $mpi_oce_procs -lt 1 ] ; then
+   mpi_oce_procs=1                                  # minimum: 1 process
+fi
 
 #-----------------------------------------------------------------------------
 
@@ -75,12 +78,11 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
 # time step length
 # ----------------
 
-# in ISO-format for ICON-model
-#  - increasing dtime_oce during a run (up to 30 minutes tested)
+# in ISO-format for atmosphere and ocean submodels:
 mts_atm="PT10M"
 mts_oce="PT10M"
 
-# in seconds for YAC - must match those of the model
+# in seconds for YAC - must match those of the submodels:
 dtime_atm=${dtime_atm:=600}
 dtime_oce=${dtime_oce:=600}
 
@@ -113,10 +115,11 @@ oce_output_interval="PT6H"
 #lnd_output_interval="P1M"
 #oce_output_interval="P1M"
 
-# ocean timestep increased to 30 minutes - icon and yac
+# ocean timestep:
+#  - mts_oce can be increased during a run (up to 30 minutes tested after 1 year spinup)
+#  - change timestep for coupler accordingly: dtime_oce
+#  - dtime_oce must be multiple of dtime_atm
 #mts_oce="PT30M"
-# change timestep of ocean/coupled to multiple of atm. timestep
-# dtime_oce must be multiple of dtime_atm
 #(( dtime_oce=dtime_atm * 3 ))
 
 # standard long-term output switches - _min=yes only:
