@@ -240,15 +240,9 @@ MODULE mo_name_list_output_types
 
     !> Output event steps happen at regular intervals. These are given
     !  by an interval size and the time stamps for begin and end.
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: output_start(MAX_TIME_INTERVALS),     &
-      &                                      output_end(MAX_TIME_INTERVALS),       &
-      &                                      output_interval(MAX_TIME_INTERVALS)
-
-    !> Additional days to be added to the output interval. This
-    !  namelist parameter is required when the output interval has
-    !  been provided as a number of seconds, e.g. which is so large
-    !  that it cannot be converted into a valid ISO duration string.
-    INTEGER :: additional_days(MAX_TIME_INTERVALS)
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN+1) :: output_start(MAX_TIME_INTERVALS),     &
+      &                                      output_end(MAX_TIME_INTERVALS)
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: output_interval(MAX_TIME_INTERVALS)
 
     !> ready filename prefix (=output event name)
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN) :: ready_file

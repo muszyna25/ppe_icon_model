@@ -29,7 +29,7 @@ MODULE mo_async_restart
   USE mo_exception,                 ONLY: finish
   USE mo_fortran_tools,             ONLY: t_ptr_2d, t_ptr_2d_sp
   USE mo_kind,                      ONLY: wp, i8, dp, sp
-  USE mo_datetime,                  ONLY: t_datetime
+  USE mtime,                        ONLY: datetime
   USE mo_io_units,                  ONLY: nerr
   USE mo_var_list,                  ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
   USE mo_linked_list,               ONLY: t_list_element, t_var_list
@@ -235,9 +235,9 @@ CONTAINS
   !
   !> Writes all restart data into one or more files (one file per patch, collective across work processes).
   !
-  SUBROUTINE asyncRestartDescriptor_writeRestart(me, datetime, jstep, opt_output_jfile)
+  SUBROUTINE asyncRestartDescriptor_writeRestart(me, this_datetime, jstep, opt_output_jfile)
     CLASS(t_AsyncRestartDescriptor), INTENT(INOUT) :: me
-    TYPE(t_datetime), INTENT(IN) :: datetime
+    TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
     INTEGER, INTENT(IN) :: jstep
     INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
 
@@ -253,7 +253,7 @@ CONTAINS
     IF(.NOT. my_process_is_work()) RETURN
 
     CALL compute_wait_for_restart()
-    CALL restart_args%construct(datetime, jstep, me%modelType, opt_output_jfile)
+    CALL restart_args%construct(this_datetime, jstep, me%modelType, opt_output_jfile)
     CALL compute_start_restart(restart_args, me%patchData)
     CALL restart_args%destruct()
 
@@ -675,7 +675,7 @@ CONTAINS
 
     WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
 
-    CALL restart_args%print(routine//": ")
+    !LK removed because arguments do not exist anymore:    CALL restart_args%print(routine//": ")
 
     ! patch informations
     PRINT *,routine, ' SIZE(patchData%description%opt_pvct) = ', SIZE(patchData%description%opt_pvct)
@@ -830,10 +830,11 @@ CONTAINS
     effectiveDomainCount = 1
     IF(ALLOCATED(patchData(1)%description%opt_ndom)) effectiveDomainCount = patchData(1)%description%opt_ndom
     IF(ALLOCATED(restart_args%output_jfile)) THEN
-        CALL setGeneralRestartAttributes(restartAttributes, restart_args%datetime, effectiveDomainCount, restart_args%jstep, &
-                                        &restart_args%output_jfile)
+      CALL setGeneralRestartAttributes(restartAttributes, restart_args%restart_datetime, effectiveDomainCount, &
+           &                           restart_args%jstep, restart_args%output_jfile)
     ELSE
-        CALL setGeneralRestartAttributes(restartAttributes, restart_args%datetime, effectiveDomainCount, restart_args%jstep)
+      CALL setGeneralRestartAttributes(restartAttributes, restart_args%restart_datetime, effectiveDomainCount, &
+           &                           restart_args%jstep)
     END IF
 
     ! set the domain dependent attributes

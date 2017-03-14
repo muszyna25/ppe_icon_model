@@ -15,25 +15,25 @@ set -e
 #
 
 ATM_3d=1
-ATM_2d=0
+ATM_2d=1
 
 
-SINGLE=1
+SINGLE=0
 PAGE=1
 
 TYP=ANN
 
 #---   (AEXP-BEXP)  ---#
 
-AEXP=mbe0765
+AEXP=mag0148
 AYY1=1979
 AYY2=1988
 ANAME=ml_${AEXP}_${AYY1}-${AYY2}_${TYP}
 
 
-BEXP=mag0142
+BEXP=mag0143
 BYY1=1979
-BYY2=1988
+BYY2=1989
 BNAME=ml_${BEXP}_${BYY1}-${BYY2}_${TYP}
 
 
@@ -42,10 +42,10 @@ atm_RES=r2b4
 
 COMMENT='amip 160 km '
 
-WORKDIR=/mnt/lustre01/work/mh0081/m214091/test
+WORKDIR=/mnt/lustre01/work/mh0081/m214091/mag0148/
 
 MODELDIR=/pool/data/ICON/post/
-
+MODELDIR=~/icon-aes/
 #######################################################
 #
 # cell=filled triangles cont=filled contour 

@@ -16,7 +16,7 @@ name=args.name
 paths = model_paths()
 if not paths.thisListExists(name):
   print("This list does not exist.")
-  quit()
+  quit(1)
   
 thisList  = buildbot_experiments_list(name)
 thisList.print_list()

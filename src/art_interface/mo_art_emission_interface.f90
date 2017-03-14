@@ -48,9 +48,12 @@ MODULE mo_art_emission_interface
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nwp_lnd_types,                 ONLY: t_lnd_diag
   USE mo_run_config,                    ONLY: lart,ntracer,iforcing 
-  USE mo_datetime,                      ONLY: t_datetime
   USE mo_time_config,                   ONLY: time_config
   USE mo_impl_constants,                ONLY: iecham, inwp
+  USE mtime,                            ONLY: datetime, timedelta, newTimedelta, &
+                                          &   getTimeDeltaFromDateTime,          &
+                                          &   getTotalMillisecondsTimedelta,     &
+                                          &   deallocateTimedelta
 #ifdef __ICON_ART
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
@@ -89,7 +92,7 @@ CONTAINS
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_diag_lnd,rho,datetime,tracer)
+SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_diag_lnd,rho,current_date,tracer)
   !! Interface for ART: Emissions
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2012-01-27)
@@ -109,8 +112,8 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     &  p_diag_lnd              !< List of diagnostic fields (land)
   REAL(wp), INTENT(inout) :: &
     &  rho(:,:,:)              !< Density of air [kg/m3]
-  TYPE(t_datetime), INTENT(IN) :: &
-    &  datetime                !< Date and time information
+  TYPE(datetime), INTENT(in), POINTER :: &
+    &  current_date            !< Date and time information
   REAL(wp), INTENT(inout) :: &
     &  tracer(:,:,:,:)         !< Tracer mixing ratios [kg kg-1]
   ! Local variables
@@ -127,6 +130,18 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: &
     &  this_mode               !< pointer to current aerosol mode
+  TYPE(timedelta),POINTER :: &
+    &  time_diff               !< mtime object: Elapsed time since experiment start
+  REAL(wp)                :: &
+    &  p_sim_time              !< elapsed simulation time on this grid level
+  
+  ! calculate elapsed simulation time in seconds (local time for
+  ! this domain!)
+
+  time_diff  => newTimedelta("PT0S")
+  time_diff  =  getTimeDeltaFromDateTime(current_date, time_config%tc_exp_startdate)
+  p_sim_time =  getTotalMillisecondsTimedelta(time_diff, current_date)*1.e-3_wp
+  CALL deallocateTimedelta(time_diff)
 
   ! --- Get the loop indizes
   i_nchdom   = MAX(1,p_patch%n_childdom)
@@ -141,24 +156,12 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
 
     IF (art_config(jg)%lart_pntSrc) THEN
       ! Point sources
-      CALL art_emission_pntSrc(jg, p_art_data(jg)%pntSrc, dtime, rho, p_patch%cells%area, &
-        &                      p_nh_state%metrics%ddqz_z_full, tracer)
+      CALL art_emission_pntSrc(jg, p_art_data(jg)%pntSrc, current_date, dtime, rho,        &
+        &                      p_patch%cells%area, p_nh_state%metrics%ddqz_z_full, tracer)
     ENDIF
 
     ALLOCATE(emiss_rate(nproma,nlev))
     ALLOCATE(dz(nproma,nlev))
-
-   ! IF (art_config(jg)%lart_aerosol .OR. art_config(jg)%lart_chem &
-   !     .OR. art_config(jg)%lart_passive) THEN
-   !   DO jb = i_startblk, i_endblk
-   !     CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-   !       &                istart, iend, i_rlstart, i_rlend)
-   !     
-   !     CALL art_add_emission_to_tracers(tracer,p_patch,p_nh_state%metrics,                &
-   !                                   &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,  &
-   !                                   &  jb,istart,iend,datetime,prm_diag%swflx_par_sfc)
-   !   END DO
-   ! END IF
 
     IF (art_config(jg)%lart_aerosol .OR. art_config(jg)%lart_chem &
         .OR. art_config(jg)%lart_passive) THEN
@@ -166,11 +169,11 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
         IF (iforcing == inwp) THEN
           CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
                                       &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &
-                                      &  datetime,prm_diag%swflx_par_sfc)
+                                      &  current_date,prm_diag%swflx_par_sfc)
         ELSE IF (iforcing == iecham) THEN
           CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
                                       &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &
-                                      &  datetime)
+                                      &  current_date)
         ENDIF
       ENDIF
     ENDIF
@@ -211,7 +214,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           CASE(1)
             ! bulk emissions see below
           CASE(2)
-            CALL art_prepare_emission_volc(jb,nlev,p_nh_state%metrics%z_ifc(:,:,jb),  &
+            CALL art_prepare_emission_volc(current_date,jb,nlev,p_nh_state%metrics%z_ifc(:,:,jb),  &
               &                            p_art_data(jg)%dict_tracer, p_art_data(jg)%ext%volc_data)
           CASE default
             CALL finish('mo_art_emission_interface:art_emission_interface', &
@@ -331,7 +334,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             ! Nothing to do here
           CLASS is (t_fields_radio)
             CALL art_emiss_radioact(dtime,rho,p_patch%cells%area,p_nh_state%metrics%ddqz_z_full,  &
-              &                     fields%imis,time_config%sim_time(jg),tracer(:,:,:,fields%itr),&
+              &                     fields%imis,p_sim_time,tracer(:,:,:,fields%itr),&
               &                     p_art_data(jg)%ext%radioact_data)
 
           CLASS is (t_fields_volc)
@@ -348,7 +351,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
       ! ----------------------------------
     
       IF (art_config(jg)%iart_volcano == 1) THEN
-        CALL art_organize_emission_volc(p_patch,dtime,rho,p_art_data(jg)%dict_tracer, &
+        CALL art_organize_emission_volc(p_patch, current_date, dtime,rho,p_art_data(jg)%dict_tracer, &
           &                             p_art_data(jg)%ext%volc_data,tracer) 
       ENDIF
       ! END OLD BLOCK
@@ -364,8 +367,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           DO jb = i_startblk, i_endblk
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
-            
-            CALL art_emiss_chemtracer(datetime,                       &
+            CALL art_emiss_chemtracer(current_date,                   &
               &                       dtime,                          &
               &                       tracer,                         &
               &                       p_nh_state%diag%pres,           &
@@ -380,8 +382,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           DO jb = i_startblk, i_endblk
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
-            
-            CALL art_emiss_chemtracer(datetime,                       &
+            CALL art_emiss_chemtracer(current_date,                   &
               &                       dtime,                          &
               &                       tracer,                         &
               &                       p_nh_state%diag%pres,           &
@@ -396,8 +397,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           DO jb = i_startblk, i_endblk
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
-            
-            CALL art_emiss_gasphase(datetime,                       &
+            CALL art_emiss_gasphase(current_date,                   &
               &                     dtime,                          &
               &                     tracer,                         &
               &                     p_nh_state%diag%pres,           &

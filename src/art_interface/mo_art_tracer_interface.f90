@@ -30,6 +30,7 @@ MODULE mo_art_tracer_interface
   USE mo_nonhydro_types,                ONLY: t_nh_prog
   USE mo_run_config,                    ONLY: lart
   USE mo_art_config,                    ONLY: art_config
+  USE mo_time_config,                   ONLY: time_config
 #ifdef __ICON_ART
   USE mo_art_tracer,                    ONLY: art_tracer
   USE mo_art_init,                      ONLY: art_init
@@ -110,7 +111,8 @@ SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix,&
       ENDIF
         
       IF (TRIM(defcase) .EQ. 'prog' .AND. timelev .EQ. 1) THEN 
-        CALL art_init(jg,this_list,tracer=p_prog%tracer)
+        CALL art_init(jg, time_config%tc_dt_model, time_config%tc_exp_refdate, &
+          &           this_list,tracer=p_prog%tracer)
       ENDIF
     ELSE !defcase is diag
       CALL art_create_diagnostics(jg, p_art_data(jg)%dict_tracer, this_list)

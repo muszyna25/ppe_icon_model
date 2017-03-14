@@ -14,7 +14,7 @@ MODULE mo_packed_message
     USE mo_exception, ONLY: finish
     USE mo_fortran_tools, ONLY: t_Destructible
     USE mo_impl_constants, ONLY: SUCCESS
-    USE mo_kind, ONLY: sp, dp
+    USE mo_kind, ONLY: sp, dp, i8
     USE mo_util_string, ONLY: int2string
 
 #ifndef NOMPI
@@ -28,14 +28,20 @@ MODULE mo_packed_message
     PUBLIC :: t_PackedMessage
     INTEGER, PARAMETER, PUBLIC :: kPackOp = 0, kUnpackOp = 1
 
-    ! A t_PackedMessage IS used to bundle a number of different values together into a single message, that can be communicated via a single CALL.
-    ! It IS possible to have ANY number of communication steps between the packing AND unpacking, including zero (a PE unpacks its own DATA),
-    ! AND two (a PE recieves a packed message AND passes it on, possibly via a different communicator).
+    ! A t_PackedMessage IS used to bundle a number of different values
+    ! together into a single message, that can be communicated via a
+    ! single CALL.  It IS possible to have ANY number of communication
+    ! steps between the packing AND unpacking, including zero (a PE
+    ! unpacks its own DATA), AND two (a PE recieves a packed message
+    ! AND passes it on, possibly via a different communicator).
     !
-    ! If NOMPI IS defined, the communication routines are simply noops, the packing/unpacking still works as expected.
+    ! If NOMPI IS defined, the communication routines are simply
+    ! noops, the packing/unpacking still works as expected.
     !
-    ! As an added bonus, this provides packerXXX() routines IN addition to the packXXX() AND unpackXXX() routines, which allow folding the packing AND unpacking
-    ! into the same code. Ie., instead of writing a routine containing
+    ! As an added bonus, this provides packerXXX() routines IN
+    ! addition to the packXXX() AND unpackXXX() routines, which allow
+    ! folding the packing AND unpacking into the same code. Ie.,
+    ! instead of writing a routine containing
     !
     !   message%pack(foo)
     !   message%pack(bar)
@@ -53,27 +59,34 @@ MODULE mo_packed_message
     !   message%packer(operation, baz)
     !   message%packer(operation, bar)
     !
-    ! knowing that it will be simply impossible to mix up the sequence when setting operation to kUnpackOp to unpack the message.
+    ! knowing that it will be simply impossible to mix up the sequence
+    ! when setting operation to kUnpackOp to unpack the message.
     !
-    !
-    !
-    ! XXX: This originated as a wrapper around MPI_Pack() AND friends that IS able to manage the buffer that's used to hold the packed message.
-    ! However, it turned OUT to be more sensible to DO the packing ourselves: We need to be able to pack/unpack even when NOMPI IS defined.
+    ! XXX: This originated as a wrapper around MPI_Pack() AND friends
+    ! that IS able to manage the buffer that's used to hold the packed
+    ! message.  However, it turned OUT to be more sensible to DO the
+    ! packing ourselves: We need to be able to pack/unpack even when
+    ! NOMPI IS defined.
+
     TYPE, EXTENDS(t_Destructible) :: t_PackedMessage
         INTEGER messageSize, readPosition
         CHARACTER, POINTER :: messageBuffer(:)
-    CONTAINS
+      CONTAINS
+        ! functionally equivalent to CALL message%destruct(); CALL
+        ! message%construct(), but more efficient (buffer IS reused)
         PROCEDURE :: construct => PackedMessage_construct
-        PROCEDURE :: reset => PackedMessage_reset   ! functionally equivalent to `CALL message%destruct(); CALL message%construct()`, but more efficient (buffer IS reused)
+        PROCEDURE :: reset => PackedMessage_reset   
 
         ! pack routines
         PROCEDURE :: packInt => PackedMessage_packInt
+        PROCEDURE :: packLong => PackedMessage_packLong        
         PROCEDURE :: packSingle => PackedMessage_packSingle
         PROCEDURE :: packDouble => PackedMessage_packDouble
         PROCEDURE :: packLogical => PackedMessage_packLogical
         PROCEDURE :: packCharacter => PackedMessage_packCharacter
 
         PROCEDURE :: packAllocatableInt => PackedMessage_packAllocatableInt
+        PROCEDURE :: packAllocatableLong => PackedMessage_packAllocatableLong        
         PROCEDURE :: packAllocatableSingle => PackedMessage_packAllocatableSingle
         PROCEDURE :: packAllocatableDouble => PackedMessage_packAllocatableDouble
         PROCEDURE :: packAllocatableLogical => PackedMessage_packAllocatableLogical
@@ -81,22 +94,31 @@ MODULE mo_packed_message
         ! PROCEDURE :: packAllocatableCharacter => PackedMessage_packAllocatableCharacter
 
         PROCEDURE :: packIntArray => PackedMessage_packIntArray
+        PROCEDURE :: packLongArray => PackedMessage_packLongArray        
         PROCEDURE :: packSingleArray => PackedMessage_packSingleArray
         PROCEDURE :: packDoubleArray => PackedMessage_packDoubleArray
         PROCEDURE :: packLogicalArray => PackedMessage_packLogicalArray
 
-        GENERIC :: pack => packInt, packSingle, packDouble, packLogical, packCharacter, packIntArray, packSingleArray, &
-                         & packDoubleArray, packLogicalArray
-        GENERIC :: packAllocatable => packAllocatableInt, packAllocatableSingle, packAllocatableDouble, packAllocatableLogical
+        GENERIC :: pack => packInt, packLong, &
+             &             packSingle, packDouble, &
+             &             packLogical, packCharacter, &
+             &             packIntArray, packLongArray, &
+             &             packSingleArray, packDoubleArray, &
+             &             packLogicalArray
+        GENERIC :: packAllocatable => packAllocatableInt, packAllocatableLong, &
+             &                        packAllocatableSingle, packAllocatableDouble, &
+             &                        packAllocatableLogical
 
         ! unpack routines
         PROCEDURE :: unpackInt => PackedMessage_unpackInt
+        PROCEDURE :: unpackLong => PackedMessage_unpackLong        
         PROCEDURE :: unpackSingle => PackedMessage_unpackSingle
         PROCEDURE :: unpackDouble => PackedMessage_unpackDouble
         PROCEDURE :: unpackLogical => PackedMessage_unpackLogical
         PROCEDURE :: unpackCharacter => PackedMessage_unpackCharacter
 
         PROCEDURE :: unpackAllocatableInt => PackedMessage_unpackAllocatableInt
+        PROCEDURE :: unpackAllocatableLong => PackedMessage_unpackAllocatableLong        
         PROCEDURE :: unpackAllocatableSingle => PackedMessage_unpackAllocatableSingle
         PROCEDURE :: unpackAllocatableDouble => PackedMessage_unpackAllocatableDouble
         PROCEDURE :: unpackAllocatableLogical => PackedMessage_unpackAllocatableLogical
@@ -104,24 +126,32 @@ MODULE mo_packed_message
         ! PROCEDURE :: unpackAllocatableCharacter => PackedMessage_unpackAllocatableCharacter
 
         PROCEDURE :: unpackIntArray => PackedMessage_unpackIntArray
+        PROCEDURE :: unpackLongArray => PackedMessage_unpackLongArray        
         PROCEDURE :: unpackSingleArray => PackedMessage_unpackSingleArray
         PROCEDURE :: unpackDoubleArray => PackedMessage_unpackDoubleArray
         PROCEDURE :: unpackLogicalArray => PackedMessage_unpackLogicalArray
 
-        GENERIC :: unpack => unpackInt, unpackSingle, unpackDouble, unpackLogical, unpackCharacter, unpackIntArray, &
-                           & unpackSingleArray, unpackDoubleArray, unpackLogicalArray
-        GENERIC :: unpackAllocatable => unpackAllocatableInt, unpackAllocatableSingle, unpackAllocatableDouble, &
-                                      & unpackAllocatableLogical
+        GENERIC :: unpack => unpackInt, unpackLong, &
+             &               unpackSingle, unpackDouble, &
+             &               unpackLogical, unpackCharacter, &
+             &               unpackIntArray, unpackLongArray, &
+             &               unpackSingleArray, unpackDoubleArray, &
+             &               unpackLogicalArray
+        GENERIC :: unpackAllocatable => unpackAllocatableInt, unpackAllocatableLong, &
+             &                          unpackAllocatableSingle, unpackAllocatableDouble, &
+             &                          unpackAllocatableLogical
 
         ! routines to facilitate packing AND unpacking with the same code
         ! USE of these routine prohibits ANY errors by mismatches between packing AND unpacking code
         PROCEDURE :: packerInt => PackedMessage_packerInt
+        PROCEDURE :: packerLong => PackedMessage_packerLong        
         PROCEDURE :: packerSingle => PackedMessage_packerSingle
         PROCEDURE :: packerDouble => PackedMessage_packerDouble
         PROCEDURE :: packerLogical => PackedMessage_packerLogical
         PROCEDURE :: packerCharacter => PackedMessage_packerCharacter
 
         PROCEDURE :: packerAllocatableInt => PackedMessage_packerAllocatableInt
+        PROCEDURE :: packerAllocatableLong => PackedMessage_packerAllocatableLong        
         PROCEDURE :: packerAllocatableSingle => PackedMessage_packerAllocatableSingle
         PROCEDURE :: packerAllocatableDouble => PackedMessage_packerAllocatableDouble
         PROCEDURE :: packerAllocatableLogical => PackedMessage_packerAllocatableLogical
@@ -129,14 +159,20 @@ MODULE mo_packed_message
         ! PROCEDURE :: packerAllocatableCharacter => PackedMessage_packerAllocatableCharacter
 
         PROCEDURE :: packerIntArray => PackedMessage_packerIntArray
+        PROCEDURE :: packerLongArray => PackedMessage_packerLongArray        
         PROCEDURE :: packerSingleArray => PackedMessage_packerSingleArray
         PROCEDURE :: packerDoubleArray => PackedMessage_packerDoubleArray
         PROCEDURE :: packerLogicalArray => PackedMessage_packerLogicalArray
 
-        GENERIC :: packer => packerInt, packerSingle, packerDouble, packerLogical, packerCharacter, packerIntArray, &
-                            & packerSingleArray, packerDoubleArray, packerLogicalArray
-        GENERIC :: packerAllocatable => packerAllocatableInt, packerAllocatableSingle, packerAllocatableDouble, &
-                                      & packerAllocatableLogical
+        GENERIC :: packer => packerInt, packerLong, &
+             &               packerSingle, packerDouble, &
+             &               packerLogical, packerCharacter, &
+             &               packerIntArray, packerLongArray, &
+             &               packerSingleArray, packerDoubleArray, &
+             &               packerLogicalArray
+        GENERIC :: packerAllocatable => packerAllocatableInt, packerAllocatableLong, &
+             &                          packerAllocatableSingle, packerAllocatableDouble, &
+             &                          packerAllocatableLogical
 
         ! communication routines
         ! All of these will flush ANY contents of the reciever(s), replacing it with a copy of the sender's packet.
@@ -152,9 +188,14 @@ MODULE mo_packed_message
 
         ! these two methods are ONLY ever invoked via the two preprocessor macros below
         PROCEDURE, PRIVATE :: packBytes => PackedMessage_packBytes
-        PROCEDURE, PRIVATE :: unpackBytes => PackedMessage_unpackBytes  ! returns a POINTER to a subarray of the internal storage, so that POINTER IS invalidated by ANY (IN)direct CALL to ensureSpace()!
+        ! returns a POINTER to a subarray of the internal storage, so
+        ! that POINTER IS invalidated by ANY (IN)direct CALL to
+        ! ensureSpace()!
+        PROCEDURE, PRIVATE :: unpackBytes => PackedMessage_unpackBytes  
+
 #define doPacking(me, VALUE) CALL me%packBytes(TRANSFER(VALUE, characterArrayMold))
 #define doUnpacking(me, VALUE) VALUE = TRANSFER(me%unpackBytes(TRANSFER(VALUE, characterArrayMold)), VALUE)
+
     END TYPE t_PackedMessage
 
     CHARACTER :: characterMold, characterArrayMold(1)
@@ -163,7 +204,7 @@ MODULE mo_packed_message
     REAL(dp) :: doubleMold
     LOGICAL :: logicalMold
 
-    CHARACTER(*), PARAMETER :: modname = "mo_packed_message"
+    CHARACTER(len=*), PARAMETER :: modname = "mo_packed_message"
 
 CONTAINS
 
@@ -171,7 +212,7 @@ CONTAINS
         CLASS(t_PackedMessage), INTENT(OUT) :: me
 
         INTEGER :: error
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_construct"
+        CHARACTER(len=*), PARAMETER :: routine = modname//":PackedMessage_construct"
 
         me%messageSize = 0
         me%readPosition = 0
@@ -271,6 +312,13 @@ CONTAINS
         doPacking(me, VALUE)
     END SUBROUTINE PackedMessage_packInt
 
+    SUBROUTINE PackedMessage_packLong(me, VALUE)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        INTEGER(i8), VALUE :: VALUE
+
+        doPacking(me, VALUE)
+    END SUBROUTINE PackedMessage_packLong
+
     SUBROUTINE PackedMessage_packSingle(me, VALUE)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         REAL(sp), VALUE :: VALUE
@@ -299,7 +347,7 @@ CONTAINS
         doPacking(me, VALUE)
     END SUBROUTINE PackedMessage_packCharacter
 
-    ! pack routines for ALLOCATABLE scalars !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! pack routines for ALLOCATABLE scalars !
 
     SUBROUTINE PackedMessage_packAllocatableInt(me, VALUE)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
@@ -308,6 +356,14 @@ CONTAINS
         CALL me%pack(ALLOCATED(VALUE))
         IF(ALLOCATED(VALUE)) CALL me%pack(VALUE)
     END SUBROUTINE PackedMessage_packAllocatableInt
+
+    SUBROUTINE PackedMessage_packAllocatableLong(me, VALUE)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        INTEGER(i8), ALLOCATABLE, INTENT(IN) :: VALUE
+
+        CALL me%pack(ALLOCATED(VALUE))
+        IF(ALLOCATED(VALUE)) CALL me%pack(VALUE)
+    END SUBROUTINE PackedMessage_packAllocatableLong
 
     SUBROUTINE PackedMessage_packAllocatableSingle(me, VALUE)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
@@ -361,6 +417,20 @@ CONTAINS
         END DO
     END SUBROUTINE PackedMessage_packIntArray
 
+    SUBROUTINE PackedMessage_packLongArray(me, array)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        INTEGER(i8), ALLOCATABLE :: array(:)
+
+        INTEGER :: arraySize, i
+
+        arraySize = 0
+        IF(ALLOCATED(array)) arraySize = SIZE(array)
+        CALL me%packInt(arraySize)
+        DO i = 1, arraySize
+            CALL me%packLong(array(i))
+        END DO
+      END SUBROUTINE PackedMessage_packLongArray
+
     SUBROUTINE PackedMessage_packSingleArray(me, array)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         REAL(sp), ALLOCATABLE :: array(:)
@@ -412,6 +482,13 @@ CONTAINS
         doUnpacking(me, VALUE)
     END SUBROUTINE PackedMessage_unpackInt
 
+    SUBROUTINE PackedMessage_unpackLong(me, VALUE)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        INTEGER(i8), INTENT(OUT) :: VALUE
+
+        doUnpacking(me, VALUE)
+    END SUBROUTINE PackedMessage_unpackLong
+
     SUBROUTINE PackedMessage_unpackSingle(me, VALUE)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         REAL(sp), INTENT(OUT) :: VALUE
@@ -440,7 +517,7 @@ CONTAINS
         doUnpacking(me, VALUE)
     END SUBROUTINE PackedMessage_unpackCharacter
 
-    ! unpack routines for ALLOCATABLE scalars !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! unpack routines for ALLOCATABLE scalars !
 
     SUBROUTINE PackedMessage_unpackAllocatableInt(me, VALUE)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
@@ -461,6 +538,26 @@ CONTAINS
             IF(ALLOCATED(VALUE)) DEALLOCATE(VALUE)
         END IF
     END SUBROUTINE PackedMessage_unpackAllocatableInt
+
+    SUBROUTINE PackedMessage_unpackAllocatableLong(me, VALUE)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        INTEGER(i8), ALLOCATABLE, INTENT(INOUT) :: VALUE
+
+        LOGICAL :: isAllocated
+        INTEGER :: error
+        CHARACTER(*), PARAMETER :: routine = modname//":PackedMessage_unpackAllocatableLong"
+
+        CALL me%unpack(isAllocated)
+        IF(isAllocated) THEN
+            IF(.NOT.ALLOCATED(VALUE)) THEN
+                ALLOCATE(VALUE, STAT = error)
+                IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+            END IF
+            CALL me%unpack(VALUE)
+        ELSE
+            IF(ALLOCATED(VALUE)) DEALLOCATE(VALUE)
+        END IF
+    END SUBROUTINE PackedMessage_unpackAllocatableLong
 
     SUBROUTINE PackedMessage_unpackAllocatableSingle(me, VALUE)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
@@ -566,6 +663,26 @@ CONTAINS
         END DO
     END SUBROUTINE PackedMessage_unpackIntArray
 
+    SUBROUTINE PackedMessage_unpackLongArray(me, array)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        INTEGER(i8), ALLOCATABLE, INTENT(INOUT) :: array(:)
+
+        INTEGER :: arraySize, i, error
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_unpackLongArray"
+
+        CALL me%unpackInt(arraySize)
+        IF(ALLOCATED(array)) THEN
+            IF(arraySize == 0 .OR. arraySize /= SIZE(array)) DEALLOCATE(array)
+        END IF
+        IF(.NOT.ALLOCATED(array) .AND. arraySize /= 0) THEN
+            ALLOCATE(array(arraySize), STAT = error)
+            IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+        END IF
+        DO i = 1, arraySize
+            CALL me%unpackLong(array(i))
+        END DO
+    END SUBROUTINE PackedMessage_unpackLongArray
+
     SUBROUTINE PackedMessage_unpackSingleArray(me, array)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         REAL(sp), ALLOCATABLE, INTENT(INOUT) :: array(:)
@@ -643,6 +760,22 @@ CONTAINS
                 CALL finish(routine, "illegal operation")
         END SELECT
     END SUBROUTINE PackedMessage_packerInt
+
+    SUBROUTINE PackedMessage_packerLong(me, operation, value)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        INTEGER, VALUE :: operation
+        INTEGER(i8), INTENT(INOUT) :: value
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerInt"
+
+        SELECT CASE(operation)
+            CASE(kPackOp)
+                CALL me%pack(value)
+            CASE(kUnpackOp)
+                CALL me%unpack(value)
+            CASE DEFAULT
+                CALL finish(routine, "illegal operation")
+        END SELECT
+    END SUBROUTINE PackedMessage_packerLong
 
     SUBROUTINE PackedMessage_packerSingle(me, operation, value)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
@@ -724,6 +857,23 @@ CONTAINS
                 CALL finish(routine, "illegal operation")
         END SELECT
     END SUBROUTINE PackedMessage_packerAllocatableInt
+
+    SUBROUTINE PackedMessage_packerAllocatableLong(me, operation, VALUE)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        INTEGER, VALUE :: operation
+        INTEGER(i8), ALLOCATABLE, INTENT(INOUT) :: VALUE
+
+        CHARACTER(*), PARAMETER :: routine = modname//":PackedMessage_packerAllocatableLong"
+
+        SELECT CASE(operation)
+            CASE(kPackOp)
+                CALL me%packAllocatable(VALUE)
+            CASE(kUnpackOp)
+                CALL me%unpackAllocatable(VALUE)
+            CASE DEFAULT
+                CALL finish(routine, "illegal operation")
+        END SELECT
+    END SUBROUTINE PackedMessage_packerAllocatableLong
 
     SUBROUTINE PackedMessage_packerAllocatableSingle(me, operation, VALUE)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
@@ -809,6 +959,22 @@ CONTAINS
                 CALL finish(routine, "illegal operation")
         END SELECT
     END SUBROUTINE PackedMessage_packerIntArray
+    
+    SUBROUTINE PackedMessage_packerLongArray(me, operation, value)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        INTEGER, VALUE :: operation
+        INTEGER(i8), ALLOCATABLE, INTENT(INOUT) :: value(:)
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerLongArray"
+
+        SELECT CASE(operation)
+            CASE(kPackOp)
+                CALL me%pack(value)
+            CASE(kUnpackOp)
+                CALL me%unpack(value)
+            CASE DEFAULT
+                CALL finish(routine, "illegal operation")
+        END SELECT
+    END SUBROUTINE PackedMessage_packerLongArray
 
     SUBROUTINE PackedMessage_packerSingleArray(me, operation, value)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
