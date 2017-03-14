@@ -591,13 +591,13 @@ set_run_target_bullx()
   esac
   case $use_mpi_root in
     *bullxmpi*)
-      use_mpi_startrun+=" --mpi=openmpi"
+      # use_mpi_startrun+=" --mpi=openmpi"
       add_free_var OMPI_MCA_pml cm
       add_free_var OMPI_MCA_mtl mxm
       add_free_var OMPI_MCA_coll '^ghc'
       add_free_var MXM_RDMA_PORTS 'mlx5_0:1'
-      add_free_var OMPI_MCA_coll_fca_enable 1
-      add_free_var OMPI_MCA_coll_fca_priority 95
+      add_free_var #OMPI_MCA_coll_fca_enable 1
+      add_free_var #OMPI_MCA_coll_fca_priority 95
       ;;
     *intel*mpi*)
       add_free_var I_MPI_FABRICS shm:dapl
