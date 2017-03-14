@@ -391,8 +391,7 @@ add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_lan
 add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
 add_link_file $datadir/hd_para_icon_r2b4_pre04_vs1_5.nc                 ./bc_land_hd.nc
 
-# slo.2016/09 read -2to2 cell_sea_land_mask, name hardcoded as r2b4_amip.nc - use same as for HD-model (lsf>0:=land)
-add_link_file $datadir/slm-2to2_forHDmodel_158km.nc                     ./r2b4_amip.nc
+# read -2to2 cell_sea_land_mask for HD-model (lsf>0:=land)
 add_link_file $datadir/slm-2to2_forHDmodel_158km.nc                     ./hd_mask.nc
 add_link_file $datadir/runoff_a2o.r110.3.HD.corGibr.nc                  ./runoff_a2o.weights.nc
 #add_link_file $datadir/runoff_a2o.r110.2.HD.nc                          ./runoff_a2o.weights.nc
