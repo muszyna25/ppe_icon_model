@@ -444,7 +444,6 @@ MODULE mo_solve_nonhydro
     wgt_nnew_rth = 0.5_wp + rhotheta_offctr ! default value for rhotheta_offctr is -0.1
     wgt_nnow_rth = 1._wp - wgt_nnew_rth
 
-<<<<<<< HEAD
 #if 0
 ! TODO: activate subsequently in _OPENACC mode
 !
