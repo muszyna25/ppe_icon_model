@@ -395,7 +395,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             IF (llake) THEN
               DO ic= 1, i_count
                 jc = ilist(ic)
-                h_ice_t(ic) = MERGE(1._wp, 0._wp, wtr_prog_new%h_ice(jc,jb)>h_Ice_min_flk)
+                h_ice_t(ic) = MERGE(1._wp, 0._wp, wtr_prog_new%h_ice(jc,jb)>=h_Ice_min_flk)
               ENDDO
             ELSE
               DO ic= 1, i_count
@@ -404,6 +404,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
               ENDDO
             ENDIF
           ELSE IF (jt == ntiles_total + 3) THEN ! seaice points
+            ! Note that if the sea-ice scheme is not used (lseaice=.FALSE.), spi_count=0.
             i_count =  ext_data%atm%spi_count(jb)
             ilist   => ext_data%atm%idx_lst_spi(:,jb)
             fr_land_t (:) = 0._wp
@@ -485,15 +486,13 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             &  umfl_s=umfl_s_t(:,jt), vmfl_s=vmfl_s_t(:,jt),                & !out
             &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine      ) !inout
 
-          lhfl_s_t(1:i_count,jt) = qhfl_s_t(1:i_count,jt) * lh_v
+          ! Decision as to "ice" vs. "no ice" is made on the basis of h_ice_t(:).
+          DO ic= 1, i_count
+            lhfl_s_t(ic,jt) = MERGE(qhfl_s_t(ic,jt)*lh_v, qhfl_s_t(ic,jt)*lh_s,  &
+              &                     h_ice_t(ic)<h_Ice_min_flk)
+          ENDDO
 
         ENDDO ! loop over tiles
-
-
-        ! fix latent heat flux over seaice
-        DO ic = 1,ext_data%atm%spi_count(jb)
-          lhfl_s_t(ic,isub_seaice) = (lh_s/lh_v) * lhfl_s_t(ic,isub_seaice)
-        ENDDO
 
 
         ! Aggregate tile-based output fields of turbtran over tiles
