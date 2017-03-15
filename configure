@@ -6433,7 +6433,11 @@ fi
 
 
 if test -n $OCEAN_FLAGS; then :
+
+else
+  if test -n $HIOPT_FLAGS; then :
   OCEAN_FLAGS="$HIOPT_FLAGS"
+fi
 fi
 
 if eval test x\$\{`echo ${use_flags_group} | tr a-z A-Z`_FLAGS+set\} = xset; then :
