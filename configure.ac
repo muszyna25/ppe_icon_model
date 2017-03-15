@@ -1017,8 +1017,10 @@ fi
 dnl if the OCEAN_FLAGS are not defined use the HIOPT_FLAGS
 
 AS_IF([test -n $OCEAN_FLAGS],
-      [OCEAN_FLAGS="$HIOPT_FLAGS"],
-      [])
+      [],
+      [AS_IF([test -n $HIOPT_FLAGS],
+             [OCEAN_FLAGS="$HIOPT_FLAGS"],
+             [])])
 
 dnl the following prepends VARIANT_FLAGS to FFLAGS
 dnl when given --with-flags=variant argument to configure
