@@ -10,10 +10,12 @@ shell_in_use=ksh
 
 set -eux
 
-# this script is out of our control: undefined variables 
-set +u
+# this script is out of our control:
+# contains undefined variables and silent errors
+
+set +eu
 @load_profile@
-set -u
+set -eu
 
 #________________________________________________________________
 #
