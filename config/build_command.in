@@ -10,7 +10,10 @@ shell_in_use=ksh
 
 set -eu
 
+# this script is out of our control: undefined variables 
+set +u
 @load_profile@
+set -u
 
 #________________________________________________________________
 #
