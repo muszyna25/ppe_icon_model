@@ -59,7 +59,7 @@ CONTAINS
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE art_reaction_interface(ext_data, p_patch,mtime_datetime,p_dtime,p_prog_list,p_prog, &
+SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_list,p_prog, &
   &                               p_metrics,p_diag,tracer, prm_diag)
 
   !>
@@ -78,7 +78,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,mtime_datetime,p_dtime,p_pro
   TYPE(t_patch), TARGET, INTENT(IN)   :: & 
     &  p_patch                           !< patch on which computation is performed
   TYPE(datetime), POINTER, INTENT(IN) :: &
-    &  mtime_datetime                    !< Actual time and date
+    &  current_date                      !< Actual time and date
   REAL(wp), INTENT(IN)                :: &
     &  p_dtime                           !< time step
   TYPE(t_var_list), INTENT(IN)        :: &
@@ -149,11 +149,10 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,mtime_datetime,p_dtime,p_pro
     ! ----------------------------------
 
     IF (art_config(jg)%lart_chem) THEN
-    
       SELECT CASE(art_config(jg)%iart_chem_mechanism)
         CASE(0)
           CALL art_loss_chemtracer(ext_data, p_patch, &
-                 & mtime_datetime,                    &
+                 & current_date,                      &
                  & p_dtime,                           &
                  & p_prog,                            &
                  & p_prog_list,                       &
@@ -164,7 +163,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,mtime_datetime,p_dtime,p_pro
             IF (iforcing == inwp) THEN
           CALL art_photolysis(ext_data,               &
                  & p_patch,                           &
-                 & mtime_datetime,                    &
+                 & current_date,                      &
                  & p_dtime,                           &
                  & p_prog_list,                       &
                  & p_prog,                            &
@@ -176,7 +175,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,mtime_datetime,p_dtime,p_pro
          ELSEIF (iforcing == iecham) THEN
           CALL art_photolysis(ext_data,               &
                  & p_patch,                           &
-                 & datetime,                          &
+                 & current_date,                      &
                  & p_dtime,                           &
                  & p_prog_list,                       &
                  & p_prog,                            &
@@ -186,7 +185,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,mtime_datetime,p_dtime,p_pro
                  & tracer                             )
           ENDIF
           CALL art_loss_chemtracer(ext_data, p_patch, &
-                 & datetime,                          &
+                 & current_date,                      &
                  & p_dtime,                           &
                  & p_prog,                            &
                  & p_prog_list,                       &
@@ -197,7 +196,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,mtime_datetime,p_dtime,p_pro
           IF (iforcing == inwp) THEN
             CALL art_photolysis(ext_data,               &
                    & p_patch,                           &
-                   & datetime,                          &
+                   & current_date,                      &
                    & p_dtime,                           &
                    & p_prog_list,                       &
                    & p_prog,                            &
@@ -206,7 +205,8 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,mtime_datetime,p_dtime,p_pro
                    & p_metrics,                         &
                    & tracer,                            &
                    & prm_diag = prm_diag)
-            CALL art_loss_gasphase(ext_data,            &
+            CALL art_loss_gasphase(current_date,        &
+                   & ext_data,                          &
                    & p_patch,                           &
                    & p_dtime,                           &
                    & p_prog_list,                       &
@@ -216,7 +216,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,mtime_datetime,p_dtime,p_pro
           ELSEIF (iforcing == iecham) THEN
             CALL art_photolysis(ext_data,               &
                    & p_patch,                           &
-                   & datetime,                          &
+                   & current_date,                      &
                    & p_dtime,                           &
                    & p_prog_list,                       &
                    & p_prog,                            &
@@ -224,7 +224,8 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,mtime_datetime,p_dtime,p_pro
                    & p_prog%rho,                        &
                    & p_metrics,                         &
                    & tracer)
-            CALL art_loss_gasphase(ext_data,            &
+            CALL art_loss_gasphase(current_date,        &
+                   & ext_data,                          &
                    & p_patch,                           &
                    & p_dtime,                           &
                    & p_prog_list,                       &

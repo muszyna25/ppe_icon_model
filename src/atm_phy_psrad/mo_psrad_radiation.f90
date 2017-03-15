@@ -516,6 +516,8 @@ MODULE mo_psrad_radiation
         CALL message('','irad_o3    = 4 --> O3    constant-in-time 3-dim. volume mixing ratio from file')
       CASE(8)
         CALL message('','irad_o3    = 8 --> O3    transient 3-dim. volume mixing ratio from file')
+      CASE(10)
+        CALL message('', 'irad_o3    = 10 --> O3   from ART')
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'irad_o3    =', irad_o3, ' in radiation_nml namelist is not supported'

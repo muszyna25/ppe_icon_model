@@ -620,7 +620,7 @@ case "$ac_sitename" in
                 HDF5ROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
                 SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
                 ZLIBROOT    = /usr
-                MPIROOT     = /pfs/imk/ICON/LIBRARIES_FH2/lib_omp_Inge
+                MPIROOT     = /software/all/mpi/openmpi/1.10_intel
                 GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
                 MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
                 case "$with_art" in
