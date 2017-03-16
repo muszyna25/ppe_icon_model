@@ -73,7 +73,7 @@ ocean_grids='OCEANGridNoLake_pre04_slo_0039km_bathy.edit2016.nc'
 # -----------------------
 
 start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
-  end_date="1979-01-01T02:00:00Z"        # ISO-format date+time
+  end_date="1979-01-01T04:00:00Z"        # ISO-format date+time
 
 # time step length
 # ----------------
@@ -96,10 +96,11 @@ dtime_oce=${dtime_oce:=600}
 checkpoint_interval="P200Y" #  mtime ISO-format
 
 # high frequency output and restart intervals
-restart_interval="PT1H"
-atm_output_interval="PT30M"
-lnd_output_interval="PT30M"
-oce_output_interval="PT30M"
+#  - Warning: restart_interval must be multiple of radiation time step (see below)
+restart_interval="PT2H"
+atm_output_interval="PT1H"
+lnd_output_interval="PT1H"
+oce_output_interval="PT1H"
 
 # mid-frequency output and restart intervals
 ##  P6M ?

@@ -96,6 +96,7 @@ dtime_oce=${dtime_oce:=600}
 checkpoint_interval="P200Y" #  mtime ISO-format
 
 # high frequency output and restart intervals
+#  - Warning: restart_interval must be multiple of radiation time step (see below)
 restart_interval="P1D"
 atm_output_interval="PT6H"
 lnd_output_interval="PT6H"
