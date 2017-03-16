@@ -134,9 +134,9 @@ cat > ${ocean_namelist} << EOF
 
   TracerHorizontalDiffusion_scaling          = 1
   Temperature_HorizontalDiffusion_Background = 0.0
-  Temperature_HorizontalDiffusion_Reference  = 600 !  40
+  Temperature_HorizontalDiffusion_Reference  = 0 !  40
   Salinity_HorizontalDiffusion_Background    = 0.0
-  Salinity_HorizontalDiffusion_Reference     = 600 !  40
+  Salinity_HorizontalDiffusion_Reference     = 0 !  40
 /
 &ocean_vertical_diffusion_nml
   PPscheme_type                            = 4
@@ -155,8 +155,21 @@ cat > ${ocean_namelist} << EOF
   velocity_TopWindMixing          = 1.0E-5
 /
 &ocean_GentMcWilliamsRedi_nml
-  GMRedi_configuration           =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
-  GMREDI_COMBINED_DIAGNOSTIC    = .false.
+  GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
+  tapering_scheme=1
+  GMRedi_usesRelativeMaxSlopes = .false.
+  S_max=1.0e-4                                   !1e-3 to 1e-5
+  S_d=0.00005                                 ! 5e-3 to 5e-5
+  k_tracer_GM_kappa_parameter     = 600.0     !
+  k_tracer_isoneutral_parameter   = 600.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
+  k_tracer_dianeutral_parameter   = 0.0       !1.0E-5  !
+  SWITCH_OFF_DIAGONAL_VERT_EXPL          =.TRUE.
+  GMREDI_COMBINED_DIAGNOSTIC             =.TRUE.
+  SWITCH_ON_REDI_BALANCE_DIAGONSTIC      =.FALSE.
+  REVERT_VERTICAL_RECON_AND_TRANSPOSED   =.TRUE.
+  SLOPE_CALC_VIA_TEMPERTURE_SALINITY = .true.
+  INCLUDE_SLOPE_SQUARED_IMPLICIT         =.TRUE. !think of l_with_vert_tracer_diffusion
+  SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION=.TRUE.
 /
 &ocean_physics_nml
   i_sea_ice                       =   1       ! 0 = no sea ice; 1 = sea ice model on; default=1
