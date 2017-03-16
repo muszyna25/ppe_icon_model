@@ -1670,7 +1670,7 @@ MODULE mo_solve_nonhydro
             DO je = i_startidx, i_endidx
 #endif
 
-#if _OPENACC
+#ifdef _OPENACC
 
 ! WS: This divergent code is trying to work around compiler limitation in collapsing loops
               vn_1 = p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1))
