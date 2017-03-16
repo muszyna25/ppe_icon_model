@@ -444,6 +444,47 @@ MODULE mo_solve_nonhydro
     wgt_nnew_rth = 0.5_wp + rhotheta_offctr ! default value for rhotheta_offctr is -0.1
     wgt_nnow_rth = 1._wp - wgt_nnew_rth
 
+#if 0
+! TODO: activate subsequently in _OPENACC mode
+!
+! OpenACC Implementation:  For testing in ACC_DEBUG mode, we would ultimately like to be able to run 
+!                          this routine entirely on the accelerator with input on the host, and moving
+!                          output back to the host.  I order to do this, an additional, far larger, number of fields
+!                          must be updated here on the device:
+!
+! p_nh%prog(nnow)          All present (above)
+! p_nh%diag:               ddt_exner_phy, ddt_vn_adv, ddt_vn_phy, ddt_w_adv
+!                          vn_ref, dtheta_v_ic_ubc, dw_ubc, dvn_ie_ubc, mflx_ic_ubc
+!                          rho_incr, exner_incr, vn_incr,
+!                          grf_tend_vn, grf_tend_mflx, grf_tend_rho, grf_tend_thv, grf_tend_w
+!
+! p_nh%metrics:            Entire structure (read-only)
+!
+! p_patch:                 Entire structure (read-only)
+!
+      exner_tmp           => p_nh%prog(nnow)%exner
+      rho_tmp             => p_nh%prog(nnow)%rho
+      theta_v_tmp         => p_nh%prog(nnow)%theta_v
+      vn_tmp              => p_nh%prog(nnow)%vn
+      w_tmp               => p_nh%prog(nnow)%w
+!ACC_DEBUG UPDATE DEVICE ( exner_tmp, rho_tmp, theta_v_tmp, vn_tmp, w_tmp ) IF( i_am_accel_node .AND. acc_on )
+      exner_pr_tmp        => p_nh%diag%exner_pr
+      vt_tmp              => p_nh%diag%vt
+      vn_ie_tmp           => p_nh%diag%vn_ie
+      rho_ic_tmp          => p_nh%diag%rho_ic
+      theta_v_ic_tmp      => p_nh%diag%theta_v_ic
+      w_concorr_c_tmp     => p_nh%diag%w_concorr_c
+      mass_fl_e_tmp       => p_nh%diag%mass_fl_e
+!ACC_DEBUG UPDATE DEVICE ( exner_pr_tmp, vt_tmp, vn_ie_tmp, rho_ic_tmp, theta_v_ic_tmp ) IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( w_concorr_c_tmp, mass_fl_e_tmp ) IF( i_am_accel_node .AND. acc_on )
+      vn_traj_tmp       => prep_adv%vn_traj
+      mass_flx_me_tmp   => prep_adv%mass_flx_me
+      mass_flx_ic_tmp   => prep_adv%mass_flx_ic
+!ACC_DEBUG UPDATE DEVICE ( vn_traj_tmp, mass_flx_me_tmp, mass_flx_ic_tmp ) IF( i_am_accel_node .AND. acc_on .AND. lprep_adv )
+      exner_dyn_incr_tmp  => p_nh%diag%exner_dyn_incr
+!ACC_DEBUG UPDATE DEVICE ( exner_dyn_incr_tmp ) IF( i_am_accel_node .AND. acc_on )
+#endif
+
     DO istep = 1, 2
 
       IF (istep == 1) THEN ! predictor step

@@ -19,7 +19,6 @@ author_list="Marco Giorgetta, MPIM"
 
 # EXPNAME                       = name of exp. in 'exp.<name>'
 # basedir                       = base directory, where src/, run/ etc exist
-# icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 
 #--------------------------------------------------------------------------------------------------
