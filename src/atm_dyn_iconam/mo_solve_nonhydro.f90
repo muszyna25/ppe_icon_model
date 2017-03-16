@@ -69,7 +69,6 @@ MODULE mo_solve_nonhydro
   USE mo_fortran_tools,     ONLY: init_zero_contiguous_dp, init_zero_contiguous_sp ! Import both for mixed prec.
 #ifdef _OPENACC
   USE mo_mpi,               ONLY: i_am_accel_node, my_process_is_work
-  USE mo_sync,              ONLY: SYNC_V, check_patch_array
 #endif
 
   IMPLICIT NONE
@@ -444,47 +443,6 @@ MODULE mo_solve_nonhydro
     wgt_nnew_rth = 0.5_wp + rhotheta_offctr ! default value for rhotheta_offctr is -0.1
     wgt_nnow_rth = 1._wp - wgt_nnew_rth
 
-#if 0
-! TODO: activate subsequently in _OPENACC mode
-!
-! OpenACC Implementation:  For testing in ACC_DEBUG mode, we would ultimately like to be able to run 
-!                          this routine entirely on the accelerator with input on the host, and moving
-!                          output back to the host.  I order to do this, an additional, far larger, number of fields
-!                          must be updated here on the device:
-!
-! p_nh%prog(nnow)          All present (above)
-! p_nh%diag:               ddt_exner_phy, ddt_vn_adv, ddt_vn_phy, ddt_w_adv
-!                          vn_ref, dtheta_v_ic_ubc, dw_ubc, dvn_ie_ubc, mflx_ic_ubc
-!                          rho_incr, exner_incr, vn_incr,
-!                          grf_tend_vn, grf_tend_mflx, grf_tend_rho, grf_tend_thv, grf_tend_w
-!
-! p_nh%metrics:            Entire structure (read-only)
-!
-! p_patch:                 Entire structure (read-only)
-!
-      exner_tmp           => p_nh%prog(nnow)%exner
-      rho_tmp             => p_nh%prog(nnow)%rho
-      theta_v_tmp         => p_nh%prog(nnow)%theta_v
-      vn_tmp              => p_nh%prog(nnow)%vn
-      w_tmp               => p_nh%prog(nnow)%w
-!ACC_DEBUG UPDATE DEVICE ( exner_tmp, rho_tmp, theta_v_tmp, vn_tmp, w_tmp ) IF( i_am_accel_node .AND. acc_on )
-      exner_pr_tmp        => p_nh%diag%exner_pr
-      vt_tmp              => p_nh%diag%vt
-      vn_ie_tmp           => p_nh%diag%vn_ie
-      rho_ic_tmp          => p_nh%diag%rho_ic
-      theta_v_ic_tmp      => p_nh%diag%theta_v_ic
-      w_concorr_c_tmp     => p_nh%diag%w_concorr_c
-      mass_fl_e_tmp       => p_nh%diag%mass_fl_e
-!ACC_DEBUG UPDATE DEVICE ( exner_pr_tmp, vt_tmp, vn_ie_tmp, rho_ic_tmp, theta_v_ic_tmp ) IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE ( w_concorr_c_tmp, mass_fl_e_tmp ) IF( i_am_accel_node .AND. acc_on )
-      vn_traj_tmp       => prep_adv%vn_traj
-      mass_flx_me_tmp   => prep_adv%mass_flx_me
-      mass_flx_ic_tmp   => prep_adv%mass_flx_ic
-!ACC_DEBUG UPDATE DEVICE ( vn_traj_tmp, mass_flx_me_tmp, mass_flx_ic_tmp ) IF( i_am_accel_node .AND. acc_on .AND. lprep_adv )
-      exner_dyn_incr_tmp  => p_nh%diag%exner_dyn_incr
-!ACC_DEBUG UPDATE DEVICE ( exner_dyn_incr_tmp ) IF( i_am_accel_node .AND. acc_on )
-#endif
-
     DO istep = 1, 2
 
       IF (istep == 1) THEN ! predictor step
@@ -830,15 +788,6 @@ MODULE mo_solve_nonhydro
 !$ACC END PARALLEL
 #else
 !$OMP END DO NOWAIT
-#endif
-
-#ifdef _OPENACC
-      CALL check_patch_array(SYNC_C,p_patch, p_nh%diag%theta_v_ic, "dycore: theta_v_ic")
-      write(6,*) "FINISHED CHECKING theta_v_ic"
-      flush(6)
-      CALL check_patch_array(SYNC_C,p_patch, p_nh%diag%rho_ic,     "dycore: rho_ic")
-      write(6,*) "FINISHED CHECKING rho_ic"
-      flush(6)
 #endif
 
       IF (istep == 1) THEN
@@ -1562,12 +1511,6 @@ MODULE mo_solve_nonhydro
 !$OMP END DO
 #endif
 
-#ifdef _OPENACC
-      CALL check_patch_array(SYNC_E, p_patch, p_nh%prog(nnew)%vn,  "dycore: vn")
-      write(6,*) "FINISHED CHECKING vn istep ==", istep
-      flush(6)
-#endif
-
       IF (istep == 2 .AND. l_bdy_nudge) THEN ! apply boundary nudging if requested
 
 #ifdef _OPENACC
@@ -1691,12 +1634,6 @@ MODULE mo_solve_nonhydro
       ! end communication phase
       !-------------------------
 
-#ifdef _OPENACC
-      CALL check_patch_array(SYNC_E, p_patch, p_nh%prog(nnew)%vn,  "dycore: vn")
-      write(6,*) "FINISHED CHECKING vn after communication istep ==", istep
-      flush(6)
-#endif
-
 #ifndef _OPENACC
 !$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
 #endif
@@ -1733,6 +1670,9 @@ MODULE mo_solve_nonhydro
             DO je = i_startidx, i_endidx
 #endif
 
+#if _OPENACC
+
+! WS: This divergent code is trying to work around compiler limitation in collapsing loops
               vn_1 = p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1))
               vn_2 = p_nh%prog(nnew)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2))
               vn_3 = p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3))
@@ -1754,7 +1694,7 @@ MODULE mo_solve_nonhydro
                 p_int%rbf_vec_coeff_e(1,je,jb)*vn_1 + p_int%rbf_vec_coeff_e(2,je,jb)*vn_2          &
               + p_int%rbf_vec_coeff_e(3,je,jb)*vn_3 + p_int%rbf_vec_coeff_e(4,je,jb)*vn_4
 
-#if 0
+#else
               ! Average normal wind components in order to get nearly second-order accurate divergence
               z_vn_avg(je,jk) = p_int%e_flx_avg(je,1,jb)*p_nh%prog(nnew)%vn(je,jk,jb)           &
                 + p_int%e_flx_avg(je,2,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
@@ -1950,10 +1890,6 @@ MODULE mo_solve_nonhydro
 !$ACC END PARALLEL
 #else
 !$OMP END DO
-#endif
-
-#ifdef _OPENACC
-      print *, "idiv_method == ", idiv_method, "itime_scheme ", itime_scheme
 #endif
 
       ! Apply mass fluxes across lateral nest boundary interpolated from parent domain
@@ -2162,9 +2098,6 @@ MODULE mo_solve_nonhydro
         ENDDO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-        CALL check_patch_array(SYNC_E, p_patch, p_nh%diag%mass_fl_e,  "dycore: mass_fl_e")
-        write(6,*) "FINISHED CHECKING mass_fl_e istep ==", istep
-        flush(6)
 #else
 !$OMP END DO
 #endif
@@ -2636,18 +2569,6 @@ MODULE mo_solve_nonhydro
       ENDDO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-        CALL check_patch_array(SYNC_C, p_patch, p_nh%prog(nnew)%w,  "dycore: w")
-        write(6,*) "FINISHED CHECKING w istep ==", istep
-        flush(6)
-        CALL check_patch_array(SYNC_C, p_patch, p_nh%prog(nnew)%rho,  "dycore: rho")
-        write(6,*) "FINISHED CHECKING rho istep ==", istep
-        flush(6)
-        CALL check_patch_array(SYNC_C, p_patch, p_nh%prog(nnew)%theta_v,  "dycore: theta_v")
-        write(6,*) "FINISHED CHECKING theta_v istep ==", istep
-        flush(6)
-        CALL check_patch_array(SYNC_C, p_patch, p_nh%prog(nnew)%exner,  "dycore: exner")
-        write(6,*) "FINISHED CHECKING w istep ==", istep
-        flush(6)
 #else
 !$OMP END DO
 #endif
