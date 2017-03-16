@@ -8,6 +8,13 @@ shell_in_use=ksh
 #________________________________________________________________
 #
 
+set -eux
+
+# this script is out of our control:
+# contains undefined variables and silent errors
+
+set +eu
+@load_profile@
 set -eu
 
 #________________________________________________________________
