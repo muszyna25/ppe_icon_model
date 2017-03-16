@@ -859,7 +859,7 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
    REAL(dp), ALLOCATABLE :: send_(:,:,:)
    TYPE(xt_redist) :: redist
 
-   INTEGER :: i, j, nlev(1, 2)
+   INTEGER :: i, j, k, dst_nlev(1), src_nlev(1), m, n, o
 
    IF(SIZE(recv,1) /= nproma) THEN
      CALL finish('exchange_data_r3d','Illegal first dimension of data array')
@@ -873,7 +873,11 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
 
    start_sync_timer(timer_exch_data)
 
-   nlev(1, 1) = SIZE(recv,2)
+   m = SIZE(recv, 1)
+   n = SIZE(recv, 2)
+   o = SIZE(recv, 3)
+
+   dst_nlev(1) = n
    IF (PRESENT(send)) THEN
      nlev(1, 2) = SIZE(send,2)
    ELSE
@@ -888,7 +892,7 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
        CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
      ELSE
        ! make copy of recv
-       ALLOCATE(send_(SIZE(recv, 1), SIZE(recv, 2), SIZE(recv, 3)))
+       ALLOCATE(send_(m, n, o))
        send_ = recv
        CALL xt_redist_s_exchange1_contiguous(redist, send_, recv)
        DEALLOCATE(send_)
@@ -902,17 +906,25 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
    ENDIF
 
    IF (PRESENT(add)) THEN
-     DO j = 1, SIZE(recv,3)
-       DO i = 1, SIZE(recv,1)
-         IF (ALLOCATED(p_pat%dst_mask)) THEN
-            IF (p_pat%dst_mask(idx_1d(i,j))) THEN
-              recv(i,:,j) = recv(i,:,j) + add(i,:,j)
-            END IF
-         ELSE
-            recv(i,:,j) = recv(i,:,j) + add(i,:,j)
-         END IF
+     IF (ALLOCATED(p_pat%dst_mask)) THEN
+       DO k = 1, o
+         DO j = 1, n
+           DO i = 1, m
+             IF (p_pat%dst_mask(idx_1d(i,j))) THEN
+               recv(i,j,k) = recv(i,j,k) + add(i,j,k)
+             END IF
+           END DO
+         END DO
        END DO
-     END DO
+     ELSE
+       DO k = 1, o
+         DO j = 1, n
+           DO i = 1, m
+             recv(i,j,k) = recv(i,j,k) + add(i,j,k)
+           END DO
+         END DO
+       END DO
+     END IF
    END IF
 
    stop_sync_timer(timer_exch_data)
@@ -953,7 +965,7 @@ SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
    REAL(sp), ALLOCATABLE :: send_(:,:,:)
    TYPE(xt_redist) :: redist
 
-   INTEGER :: i, j, nlev(1, 2)
+   INTEGER :: i, j, k, dst_nlev(1), src_nlev(1), m, n, o
 
    IF(SIZE(recv,1) /= nproma) THEN
      CALL finish('exchange_data_s3d','Illegal first dimension of data array')
@@ -967,11 +979,15 @@ SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
 
    start_sync_timer(timer_exch_data)
 
-   nlev(1, 1) = SIZE(recv,2)
+   m = SIZE(recv, 1)
+   n = SIZE(recv, 2)
+   o = SIZE(recv, 3)
+
+   dst_nlev(1) = n
    IF (PRESENT(send)) THEN
      nlev(1, 2) = SIZE(send,2)
    ELSE
-     nlev(1, 2) = nlev(1, 1)
+     src_nlev(1) = n
    END IF
    redist = comm_pattern_get_redist(p_pat, 1, nlev, p_real_sp)
 
@@ -996,17 +1012,25 @@ SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
    ENDIF
 
    IF (PRESENT(add)) THEN
-     DO j = 1, SIZE(recv,3)
-       DO i = 1, SIZE(recv,1)
-         IF (ALLOCATED(p_pat%dst_mask)) THEN
-            IF (p_pat%dst_mask(idx_1d(i,j))) THEN
-              recv(i,:,j) = recv(i,:,j) + add(i,:,j)
-            END IF
-         ELSE
-            recv(i,:,j) = recv(i,:,j) + add(i,:,j)
-         END IF
+     IF (ALLOCATED(p_pat%dst_mask)) THEN
+       DO k = 1, o
+         DO j = 1, n
+           DO i = 1, m
+             IF (p_pat%dst_mask(idx_1d(i,j))) THEN
+               recv(i,j,k) = recv(i,j,k) + add(i,j,k)
+             END IF
+           END DO
+         END DO
        END DO
-     END DO
+     ELSE
+       DO k = 1, o
+         DO j = 1, n
+           DO i = 1, m
+             recv(i,j,k) = recv(i,j,k) + add(i,j,k)
+           END DO
+         END DO
+       END DO
+     END IF
    END IF
 
    stop_sync_timer(timer_exch_data)
@@ -1050,7 +1074,7 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
    INTEGER, ALLOCATABLE :: send_(:,:,:)
    TYPE(xt_redist) :: redist
 
-   INTEGER :: i, j, nlev(1, 2)
+   INTEGER :: i, j, k, dst_nlev(1), src_nlev(1), m, n, o
 
    IF(SIZE(recv,1) /= nproma) THEN
      CALL finish('exchange_data_i3d','Illegal first dimension of data array')
@@ -1064,11 +1088,15 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
 
    start_sync_timer(timer_exch_data)
 
-   nlev(1, 1) = SIZE(recv,2)
+   m = SIZE(recv, 1)
+   n = SIZE(recv, 2)
+   o = SIZE(recv, 3)
+
+   dst_nlev(1) = n
    IF (PRESENT(send)) THEN
      nlev(1, 2) = SIZE(send,2)
    ELSE
-     nlev(1, 2) = nlev(1, 1)
+     src_nlev(1) = n
    END IF
    redist = comm_pattern_get_redist(p_pat, 1, nlev, p_int)
 
@@ -1093,17 +1121,25 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
    ENDIF
 
    IF (PRESENT(add)) THEN
-     DO j = 1, SIZE(recv,3)
-       DO i = 1, SIZE(recv,1)
-         IF (ALLOCATED(p_pat%dst_mask)) THEN
-           IF (p_pat%dst_mask(idx_1d(i,j))) THEN
-             recv(i,:,j) = recv(i,:,j) + add(i,:,j)
-           END IF
-         ELSE
-            recv(i,:,j) = recv(i,:,j) + add(i,:,j)
-         END IF
+     IF (ALLOCATED(p_pat%dst_mask)) THEN
+       DO k = 1, o
+         DO j = 1, n
+           DO i = 1, m
+             IF (p_pat%dst_mask(idx_1d(i,j))) THEN
+               recv(i,j,k) = recv(i,j,k) + add(i,j,k)
+             END IF
+           END DO
+         END DO
        END DO
-     END DO
+     ELSE
+       DO k = 1, o
+         DO j = 1, n
+           DO i = 1, m
+             recv(i,j,k) = recv(i,j,k) + add(i,j,k)
+           END DO
+         END DO
+       END DO
+     END IF
    END IF
 
    stop_sync_timer(timer_exch_data)
