@@ -97,7 +97,7 @@ checkpoint_interval="P200Y" #  mtime ISO-format
 
 # high frequency output and restart intervals
 #  - Warning: restart_interval must be multiple of radiation time step (see below)
-restart_interval="PT2H"
+restart_interval="PT4H"
 atm_output_interval="PT1H"
 lnd_output_interval="PT1H"
 oce_output_interval="PT1H"
