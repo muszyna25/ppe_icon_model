@@ -126,8 +126,7 @@ MODULE mo_name_list_output
     &                                     num_work_procs, p_pe, p_pe_work, p_work_pe0, p_io_pe0,    &
     &                                     p_max
   ! calendar operations
-  USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime,                &
-    &                                     PROLEPTIC_GREGORIAN, setCalendar, OPERATOR(-),            &
+  USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime, OPERATOR(-),   &
     &                                     timedelta, newTimedelta, deallocateTimedelta
   ! output scheduling
   USE mo_output_event_handler,      ONLY: is_output_step, check_open_file, check_close_file,        &
@@ -153,7 +152,6 @@ MODULE mo_name_list_output
 
 #ifndef __NO_ICON_ATMO__
   USE mo_post_op,                   ONLY: perform_post_op
-  USE mo_dynamics_config,           ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_meteogram_output,          ONLY: meteogram_init, meteogram_finalize
   USE mo_meteogram_config,          ONLY: meteogram_output_config
   USE mo_intp_data_strc,            ONLY: lonlat_grid_list
@@ -194,17 +192,18 @@ CONTAINS
 
     TYPE(t_output_file), INTENT(INOUT) :: of
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::open_output_file"
-    CHARACTER(LEN=filename_max)       :: filename, filename_for_append
-    CHARACTER(LEN=MAX_CHAR_LENGTH)    :: cdiErrorText
-    INTEGER :: tsID
-    LOGICAL :: lexist, lappend
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::open_output_file"
+    CHARACTER(LEN=filename_max)    :: filename, filename_for_append
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
+    INTEGER                        :: tsID
+    LOGICAL                        :: lexist, lappend
  
     ! open/append file: as this is a preliminary solution only, I do not try to
     ! streamline the conditionals
-    filename = TRIM(get_current_filename(of%out_event))
+    filename            = TRIM(get_current_filename(of%out_event))
     filename_for_append = ''
-    lappend = .FALSE.
+    lappend             = .FALSE.
+
     ! check and reset filename, if data should be appended
     IF (split_output_filename(filename, filename_for_append, '_part_') > 0) THEN
       ! does the file to append to exist
@@ -213,37 +212,43 @@ CONTAINS
         ! store the orginal allocated vlist (the handlers different) for later use with new files
         of%cdiVlistID_orig = of%cdiVlistID
         of%cdiTaxisID_orig = of%cdiTaxisID
+
         ! open for append
-        of%cdiFileID = streamOpenAppend(TRIM(filename_for_append))
+        of%cdiFileID       = streamOpenAppend(TRIM(filename_for_append))
+
         ! inquire the opened file for its associated vlist
-        of%cdiVlistID = streamInqVlist(of%cdiFileID)
+        of%cdiVlistID      = streamInqVlist(of%cdiFileID)
+
         ! and time axis, the only components different to the previous model prepared vlist
-        of%cdiTaxisID = vlistInqTaxis(of%cdiVlistID)
+        of%cdiTaxisID      = vlistInqTaxis(of%cdiVlistID)
+
         ! get the already stored number of time steps
-        of%cdiTimeIndex = vlistNtsteps(of%cdiVlistID)
-        lappend = .TRUE.
-        of%appending = .TRUE.
+        of%cdiTimeIndex    = vlistNtsteps(of%cdiVlistID)
+        lappend            = .TRUE.
+        of%appending       = .TRUE.
       ELSE
         IF (of%appending) THEN
           ! restore model internal vlist and time axis handler association
-          of%cdiVlistID = of%cdiVlistID_orig
+          of%cdiVlistID      = of%cdiVlistID_orig
           of%cdiVlistID_orig = CDI_UNDEFID
-          of%cdiTaxisID = of%cdiTaxisID_orig
+          of%cdiTaxisID      = of%cdiTaxisID_orig
           of%cdiTaxisID_orig = CDI_UNDEFID
         ENDIF
-        of%cdiFileID = streamOpenWrite(TRIM(filename), of%output_type)
-        of%appending = .FALSE.
+        ! file to append to does not exist that means we can use the name without part trailer
+        filename = filename_for_append
+        of%cdiFileID       = streamOpenWrite(TRIM(filename), of%output_type)
+        of%appending       = .FALSE.
       ENDIF
     ELSE
-      if (of%appending) THEN
+      IF (of%appending) THEN
         ! restore model internal vlist and time axis handler association
-        of%cdiVlistID = of%cdiVlistID_orig
+        of%cdiVlistID      = of%cdiVlistID_orig
         of%cdiVlistID_orig = CDI_UNDEFID
-        of%cdiTaxisID = of%cdiTaxisID_orig
+        of%cdiTaxisID      = of%cdiTaxisID_orig
         of%cdiTaxisID_orig = CDI_UNDEFID
       ENDIF
-      of%cdiFileID = streamOpenWrite(TRIM(filename), of%output_type)
-      of%appending = .FALSE.
+        of%cdiFileID       = streamOpenWrite(TRIM(filename), of%output_type)
+        of%appending       = .FALSE.
     ENDIF
 
     IF (of%cdiFileID < 0) THEN
@@ -482,7 +487,6 @@ CONTAINS
       END IF
 
       IF (output_file(i)%io_proc_id == p_pe) THEN
-        CALL setCalendar(PROLEPTIC_GREGORIAN)
         ! convert time stamp string into
         ! year/month/day/hour/minute/second values using the mtime
         ! library:
@@ -607,8 +611,6 @@ CONTAINS
     INTEGER                             :: iunit
     TYPE (t_keyword_list), POINTER      :: keywords     => NULL()
 
-    CALL setCalendar(PROLEPTIC_GREGORIAN)
-
     ! compute current forecast time (delta):
     mtime_date     => newDatetime(TRIM(get_current_date(ev)))
     mtime_begin    => newDatetime(TRIM(ev%output_event%event_data%sim_start))
@@ -660,6 +662,7 @@ CONTAINS
     INTEGER,          PARAMETER                 :: iUNKNOWN = 0
     INTEGER,          PARAMETER                 :: iINTEGER = 1
     INTEGER,          PARAMETER                 :: iREAL    = 2
+    INTEGER,          PARAMETER                 :: iREAL_sp = 3
 
     INTEGER                                     :: tl, i_dom, i_log_dom, i, iv, jk, n_points, &
       &                                            nlevs, nindex, mpierr, lonlat_id,          &
@@ -668,15 +671,15 @@ CONTAINS
     TYPE (t_var_metadata), POINTER              :: info
     TYPE(t_reorder_info),  POINTER              :: p_ri
     REAL(wp),          ALLOCATABLE              :: r_ptr(:,:,:)
+    REAL(sp),          ALLOCATABLE              :: s_ptr(:,:,:)
     INTEGER,           ALLOCATABLE              :: i_ptr(:,:,:)
     REAL(wp),          ALLOCATABLE              :: r_out_recv(:)
-    REAL(wp),              POINTER              :: r_out_wp(:)
     INTEGER,           ALLOCATABLE              :: r_out_int(:)
     REAL(sp),          ALLOCATABLE, TARGET      :: r_out_sp(:)
     REAL(dp),          ALLOCATABLE, TARGET      :: r_out_dp(:)
     TYPE(t_comm_gather_pattern), POINTER        :: p_pat
     LOGICAL                                     :: l_error
-    LOGICAL                                     :: have_GRIB
+    LOGICAL                                     :: have_GRIB, lwrite_single_precision
     LOGICAL                                     :: var_ignore_level_selection
     INTEGER                                     :: nmiss    ! missing value indicator
     INTEGER                                     :: var_ref_pos, last_bdry_index
@@ -728,7 +731,25 @@ CONTAINS
     END IF
 #endif
 
-    ! only for synchronous output mode: communicate the largest global
+    ! "lmask_boundary": Some of the output fields are not updated with
+    ! meaningful values in the vicinity of the lateral domain
+    ! boundary. To avoid spurious data on these triangle cells (which
+    ! could also spoil the GRIB range compression), the user may
+    ! choose to set them to a "missing value". Implementation details:
+    ! In the "synchronous" output mode, the implementation exploits
+    ! the fact that all (global) indices for the lateral boundary
+    ! region are ordered to the start of the data array. Therefore,
+    ! only the computation of a limit index "last_bdry_index" is
+    ! required to mask out the lateral points. In the asynchronous
+    ! output mode, on the other hand, the compute processes possess
+    ! only a portion of the output field and therefore need to loop
+    ! over the lateral triangles block- and line-wise. This feature
+    ! can be (de-)activated for specific variables through the
+    ! "info%lmask_boundary" metadata flag. It also depends on a global
+    ! namelist switch "io_nml/lmask_boundary" (LOGICAL, default:
+    ! false).
+    !
+    ! Only for synchronous output mode: communicate the largest global
     ! index of the lateral boundary cells, if required:
 
     last_bdry_index = 0
@@ -759,7 +780,6 @@ CONTAINS
     DO iv = 1, of%num_vars
 
       info => of%var_desc(iv)%info
-      ! WRITE(0,*)'>>>>>>>>>>>>>>>>>>>>>>>>> VARNAME: ',info%name
 
       ! inspect time-constant variables only if we are writing the
       ! first step in this file:
@@ -778,13 +798,15 @@ CONTAINS
         ! be a valid array subscript):
       tl = 1
 #ifndef __NO_ICON_ATMO__
-      IF (.NOT. ASSOCIATED(of%var_desc(iv)%r_ptr)  .AND.    &
+      IF (.NOT. ASSOCIATED(of%var_desc(iv)%r_ptr)  .AND. &
+        & .NOT. ASSOCIATED(of%var_desc(iv)%s_ptr)  .AND. &
         & .NOT. ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
         tl = metainfo_get_timelevel(info,i_log_dom)
         IF(tl<=0 .OR. tl>max_time_levels) &
           CALL finish(routine, 'Illegal time level in nnow()/nnow_rcf()')
         ! Check if present
         IF (.NOT. ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)   .AND.   &
+          & .NOT. ASSOCIATED(of%var_desc(iv)%tlev_sptr(tl)%p)   .AND.   &
           & .NOT. ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
           CALL finish(routine,'Actual timelevel not in '//TRIM(info%name))
         END IF
@@ -801,6 +823,9 @@ CONTAINS
       IF (ASSOCIATED(of%var_desc(iv)%r_ptr) .OR.  &
         & ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
         idata_type = iREAL
+      ELSE IF (ASSOCIATED(of%var_desc(iv)%s_ptr) .OR.  &
+        & ASSOCIATED(of%var_desc(iv)%tlev_sptr(tl)%p)) THEN
+        idata_type = iREAL_sp
       ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr) .OR.  &
         & ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
         idata_type = iINTEGER
@@ -809,12 +834,15 @@ CONTAINS
       SELECT CASE (info%ndims)
       CASE (1)
         IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1),1,1))
+        IF (idata_type == iREAL_sp) ALLOCATE(s_ptr(info%used_dimensions(1),1,1))
         IF (idata_type == iINTEGER) ALLOCATE(i_ptr(info%used_dimensions(1),1,1))
 
         IF (info%lcontained .AND. (info%var_ref_pos /= -1))  &
           & CALL finish(routine, "internal error")
         IF (ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
           r_ptr(:,1,1) = of%var_desc(iv)%r_ptr(:,1,1,1,1)
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%s_ptr)) THEN
+          s_ptr(:,1,1) = of%var_desc(iv)%s_ptr(:,1,1,1,1)
         ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
           i_ptr(:,1,1) = of%var_desc(iv)%i_ptr(:,1,1,1,1)
         ELSE
@@ -824,6 +852,7 @@ CONTAINS
       CASE (2)
         ! 2D fields: Make a 3D copy of the array
         IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
+        IF (idata_type == iREAL_sp) ALLOCATE(s_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
         IF (idata_type == iINTEGER) ALLOCATE(i_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
 
         var_ref_pos = 3
@@ -837,6 +866,17 @@ CONTAINS
             r_ptr(:,1,:) = of%var_desc(iv)%r_ptr(:,nindex,:,1,1)
           CASE (3)
             r_ptr(:,1,:) = of%var_desc(iv)%r_ptr(:,:,nindex,1,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%s_ptr)) THEN
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            s_ptr(:,1,:) = of%var_desc(iv)%s_ptr(nindex,:,:,1,1)
+          CASE (2)
+            s_ptr(:,1,:) = of%var_desc(iv)%s_ptr(:,nindex,:,1,1)
+          CASE (3)
+            s_ptr(:,1,:) = of%var_desc(iv)%s_ptr(:,:,nindex,1,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
@@ -859,6 +899,17 @@ CONTAINS
             r_ptr(:,1,:) = of%var_desc(iv)%tlev_rptr(tl)%p(:,nindex,:,1,1)
           CASE (3)
             r_ptr(:,1,:) = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,nindex,1,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_sptr(tl)%p)) THEN
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            s_ptr(:,1,:) = of%var_desc(iv)%tlev_sptr(tl)%p(nindex,:,:,1,1)
+          CASE (2)
+            s_ptr(:,1,:) = of%var_desc(iv)%tlev_sptr(tl)%p(:,nindex,:,1,1)
+          CASE (3)
+            s_ptr(:,1,:) = of%var_desc(iv)%tlev_sptr(tl)%p(:,:,nindex,1,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
@@ -886,6 +937,9 @@ CONTAINS
         IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1), &
           &                                        info%used_dimensions(2), &
           &                                        info%used_dimensions(3)))
+        IF (idata_type == iREAL_sp) ALLOCATE(s_ptr(info%used_dimensions(1), &
+          &                                        info%used_dimensions(2), &
+          &                                        info%used_dimensions(3)))
         IF (idata_type == iINTEGER) ALLOCATE(i_ptr(info%used_dimensions(1), &
           &                                        info%used_dimensions(2), &
           &                                        info%used_dimensions(3)))
@@ -900,6 +954,19 @@ CONTAINS
             r_ptr = of%var_desc(iv)%r_ptr(:,:,nindex,:,1)
           CASE (4)
             r_ptr = of%var_desc(iv)%r_ptr(:,:,:,nindex,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%s_ptr)) THEN
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            s_ptr = of%var_desc(iv)%s_ptr(nindex,:,:,:,1)
+          CASE (2)
+            s_ptr = of%var_desc(iv)%s_ptr(:,nindex,:,:,1)
+          CASE (3)
+            s_ptr = of%var_desc(iv)%s_ptr(:,:,nindex,:,1)
+          CASE (4)
+            s_ptr = of%var_desc(iv)%s_ptr(:,:,:,nindex,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
@@ -926,6 +993,19 @@ CONTAINS
             r_ptr = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,nindex,:,1)
           CASE (4)
             r_ptr = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,:,nindex,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            s_ptr = of%var_desc(iv)%tlev_sptr(tl)%p(nindex,:,:,:,1)
+          CASE (2)
+            s_ptr = of%var_desc(iv)%tlev_sptr(tl)%p(:,nindex,:,:,1)
+          CASE (3)
+            s_ptr = of%var_desc(iv)%tlev_sptr(tl)%p(:,:,nindex,:,1)
+          CASE (4)
+            s_ptr = of%var_desc(iv)%tlev_sptr(tl)%p(:,:,:,nindex,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
@@ -964,6 +1044,8 @@ CONTAINS
       IF ( ANY((/POST_OP_SCALE, POST_OP_LUC/) == of%var_desc(iv)%info%post_op%ipost_op_type) ) THEN
         IF (idata_type == iREAL) THEN
           CALL perform_post_op(of%var_desc(iv)%info%post_op, r_ptr)
+        ELSE IF (idata_type == iREAL_sp) THEN
+          CALL perform_post_op(of%var_desc(iv)%info%post_op, s_ptr)
         ELSE IF (idata_type == iINTEGER) THEN
           CALL perform_post_op(of%var_desc(iv)%info%post_op, i_ptr)
         ENDIF
@@ -1037,22 +1119,20 @@ CONTAINS
           n_points = p_ri%n_glb
         END IF
 
+        have_GRIB = (of%output_type == FILETYPE_GRB) .OR. (of%output_type == FILETYPE_GRB2)
+        lwrite_single_precision = (.NOT. use_dp_mpi2io) .AND. (.NOT. have_GRIB)
+
         IF (idata_type == iREAL) THEN
           ALLOCATE(r_out_dp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
-          r_out_wp => r_out_dp
-        ELSE IF (idata_type == iINTEGER) THEN
+        END IF
+        IF ((idata_type == iREAL_sp) .OR. lwrite_single_precision) THEN
+          ALLOCATE(r_out_sp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
+        END IF
+        IF (idata_type == iINTEGER) THEN
           ALLOCATE(r_out_int(MERGE(n_points, 0, my_process_is_mpi_workroot())))
         END IF
 
-        have_GRIB = of%output_type == FILETYPE_GRB .OR. of%output_type == FILETYPE_GRB2
-
         IF(my_process_is_mpi_workroot()) THEN
-
-          IF (use_dp_mpi2io .OR. have_GRIB) THEN
-            IF (.NOT. ALLOCATED(r_out_dp)) ALLOCATE(r_out_dp(n_points))
-          ELSE
-            ALLOCATE(r_out_sp(n_points))
-          END IF
 
           IF (my_process_is_mpi_test()) THEN
 
@@ -1100,13 +1180,15 @@ CONTAINS
               !write(0,*)'#--- n_points:',n_points,'idata_type:',idata_type,'iREAL:',iREAL,'iINTEGER:',iINTEGER
               IF      (idata_type == iREAL ) THEN
                 r_out_dp(:)  = r_ptr(:,1,1)
+              ELSE IF (idata_type == iREAL_sp ) THEN
+                r_out_sp(:)  = s_ptr(:,1,1)
               ELSE IF (idata_type == iINTEGER) THEN
                 r_out_int(:) = i_ptr(:,1,1)
               END IF
             END IF
           ELSE ! n_points
             IF (idata_type == iREAL) THEN
-              r_out_wp(:)  = 0._wp
+              r_out_dp(:)  = 0._wp
 
               lev_idx = lev
               ! handle the case that a few levels have been selected out of
@@ -1117,7 +1199,21 @@ CONTAINS
                 lev_idx = of%level_selection%global_idx(lev_idx)
               END IF
               CALL exchange_data(in_array=r_ptr(:,lev_idx,:),                 &
-                &                out_array=r_out_wp(:), gather_pattern=p_pat)
+                &                out_array=r_out_dp(:), gather_pattern=p_pat)
+
+            ELSE IF (idata_type == iREAL_sp) THEN
+              r_out_sp(:)  = 0._wp
+
+              lev_idx = lev
+              ! handle the case that a few levels have been selected out of
+              ! the total number of levels:
+              IF (      ASSOCIATED(of%level_selection)   .AND. &
+                & (.NOT. var_ignore_level_selection)     .AND. &
+                & (info%ndims > 2)) THEN
+                lev_idx = of%level_selection%global_idx(lev_idx)
+              END IF
+              CALL exchange_data(in_array=s_ptr(:,lev_idx,:),                 &
+                &                out_array=r_out_sp(:), gather_pattern=p_pat)
 
             ELSE IF (idata_type == iINTEGER) THEN
               r_out_int(:) = 0
@@ -1141,15 +1237,21 @@ CONTAINS
             SELECT CASE(idata_type)
             CASE(iREAL)
               !
-              ! "r_out_wp" points to double precision. If single precision
-              ! output is desired, we need to perform a type conversion:
-              IF ( (.NOT. use_dp_mpi2io) .AND. (.NOT. have_GRIB) ) THEN
-                r_out_sp(:) = REAL(r_out_wp(:), sp)
+              ! If single precision output is desired, we need to
+              ! perform a type conversion:
+              IF ( lwrite_single_precision ) THEN
+                r_out_sp(:) = REAL(r_out_dp(:), sp)
+              ENDIF
+
+            CASE(iREAL_sp)
+              !
+              IF ( .NOT. lwrite_single_precision ) THEN
+                r_out_dp(:) = REAL(r_out_sp(:), dp)
               ENDIF
 
             CASE(iINTEGER)
               !
-              IF ( (.NOT. use_dp_mpi2io) .AND. (.NOT. have_GRIB) ) THEN
+              IF ( lwrite_single_precision ) THEN
                 r_out_sp(:) = REAL(r_out_int(:), sp)
               ELSE
                 r_out_dp(:) = REAL(r_out_int(:), dp)
@@ -1164,7 +1266,7 @@ CONTAINS
               missval = BOUNDARY_MISSVAL
               IF (info%lmiss)  missval = info%missval%rval
               
-              IF ( (.NOT. use_dp_mpi2io) .AND. (.NOT. have_GRIB) ) THEN
+              IF ( lwrite_single_precision ) THEN
                 r_out_sp(1:last_bdry_index) = missval
               ELSE
                 r_out_dp(1:last_bdry_index) = missval
@@ -1210,7 +1312,7 @@ CONTAINS
           ! ----------
 
           IF (my_process_is_mpi_workroot() .AND. .NOT. my_process_is_mpi_test()) THEN
-            IF (use_dp_mpi2io .OR. have_GRIB) THEN
+            IF (.NOT. lwrite_single_precision) THEN
               CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), nmiss)
             ELSE
               CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, lev-1, r_out_sp(:), nmiss)
@@ -1251,6 +1353,12 @@ CONTAINS
               DO i = 1, p_ri%n_own
                 of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = &
                   & REAL(r_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),dp)
+              ENDDO
+            END IF
+            IF (idata_type == iREAL_sp) THEN
+              DO i = 1, p_ri%n_own
+                of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = &
+                  & REAL(s_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),dp)
               ENDDO
             END IF
             IF (idata_type == iINTEGER) THEN
@@ -1295,6 +1403,12 @@ CONTAINS
               DO i = 1, p_ri%n_own
                 of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
                   & REAL(r_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),sp)
+              ENDDO
+            END IF
+            IF (idata_type == iREAL_sp) THEN
+              DO i = 1, p_ri%n_own
+                of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
+                  & s_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i))
               ENDDO
             END IF
             IF (idata_type == iINTEGER) THEN
@@ -1342,6 +1456,7 @@ CONTAINS
 
       ! clean up
       IF (ALLOCATED(r_ptr)) DEALLOCATE(r_ptr)
+      IF (ALLOCATED(s_ptr)) DEALLOCATE(s_ptr)
       IF (ALLOCATED(i_ptr)) DEALLOCATE(i_ptr)
 
     ENDDO

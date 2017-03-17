@@ -16,12 +16,20 @@ args = parser.parse_args()
 paths = model_paths()
 if not paths.thisListExists(args.list_name):
   print("This list does not exist.")
-  quit()
+  quit(1)
   
 thisList       = buildbot_experiments_list(args.list_name)
 status         = thisList.make_binaries(args.builder_name)
 if not status == 0: quit(1)
 runscriptsList = thisList.make_runscripts(args.builder_name)
+
+
+#write runscripts
+listfile = open(paths.get_runpath()+"/runscripts_list", 'w')
+for runscript in runscriptsList:
+  listfile.write(runscript+" ")
+listfile.close()
+
 
 #print(runscriptsList)
 

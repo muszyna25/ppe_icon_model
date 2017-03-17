@@ -37,9 +37,11 @@
 MODULE mo_ext_data_state
 
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: inwp, iecham, MODIS, ildf_echam, &
+  USE mo_impl_constants,     ONLY: inwp, iecham, MODIS, ildf_echam,                &
     &                              ihs_atm_temp, ihs_atm_theta, io3_clim, io3_ape, &
-    &                              HINTP_TYPE_LONLAT_NNB, MAX_CHAR_LENGTH
+    &                              HINTP_TYPE_LONLAT_NNB, MAX_CHAR_LENGTH,         &
+    &                              SSTICE_ANA, SSTICE_ANA_CLINC, SSTICE_CLIM,      &
+    &                              SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY
   USE mo_exception,          ONLY: message, finish
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos_td, &
@@ -226,6 +228,75 @@ CONTAINS
     shape3d_sfc= (/ nproma, nblks_c, nclass_lu(jg) /)
     shape3d_nt = (/ nproma, nblks_c, ntiles_total     /)
     shape3d_ntw = (/ nproma, nblks_c, ntiles_total + ntiles_water /)
+
+
+    !------------------------------
+    ! Ensure that all pointers have a defined association status.
+    !------------------------------
+    NULLIFY(p_ext_atm%topography_c,    &
+      &     p_ext_atm%grad_topo,       &
+      &     p_ext_atm%fis,             &
+      &     p_ext_atm%o3,              &
+      &     p_ext_atm%llsm_atm_c,      &
+      &     p_ext_atm%llake_c,         &
+      &     p_ext_atm%fr_land,         &
+      &     p_ext_atm%fr_glac,         &
+      &     p_ext_atm%fr_land_smt,     &
+      &     p_ext_atm%fr_glac_smt,     &
+      &     p_ext_atm%z0,              &
+      &     p_ext_atm%fr_lake,         &
+      &     p_ext_atm%depth_lk,        &
+      &     p_ext_atm%fetch_lk,        &
+      &     p_ext_atm%dp_bs_lk,        &
+      &     p_ext_atm%t_bs_lk,         &
+      &     p_ext_atm%gamso_lk,        &
+      &     p_ext_atm%sso_stdh,        &
+      &     p_ext_atm%sso_stdh_raw,    &
+      &     p_ext_atm%sso_gamma,       &
+      &     p_ext_atm%sso_theta,       &
+      &     p_ext_atm%sso_sigma,       &
+      &     p_ext_atm%plcov_mx,        &
+      &     p_ext_atm%plcov,           &
+      &     p_ext_atm%plcov_t,         &
+      &     p_ext_atm%lai_mx,          &
+      &     p_ext_atm%lai,             &
+      &     p_ext_atm%sai,             &
+      &     p_ext_atm%sai_t,           &
+      &     p_ext_atm%tai,             &
+      &     p_ext_atm%tai_t,           &
+      &     p_ext_atm%eai,             &
+      &     p_ext_atm%eai_t,           &
+      &     p_ext_atm%rootdp,          &
+      &     p_ext_atm%rootdp_t,        &
+      &     p_ext_atm%for_e,           &
+      &     p_ext_atm%for_d,           &
+      &     p_ext_atm%rsmin,           &
+      &     p_ext_atm%rsmin2d_t,       &
+      &     p_ext_atm%ndvi_max,        &
+      &     p_ext_atm%ndviratio,       &
+      &     p_ext_atm%idx_lst_lp,      &
+      &     p_ext_atm%idx_lst_sp,      &
+      &     p_ext_atm%idx_lst_fp,      &
+      &     p_ext_atm%idx_lst_lp_t,    &
+      &     p_ext_atm%idx_lst_t,       &
+      &     p_ext_atm%idx_lst_spw,     &
+      &     p_ext_atm%idx_lst_spi,     &
+      &     p_ext_atm%snowtile_flag_t, &
+      &     p_ext_atm%lc_class_t,      &
+      &     p_ext_atm%lc_frac_t,       &
+      &     p_ext_atm%frac_t,          &
+      &     p_ext_atm%inv_frland_from_tiles, &
+      &     p_ext_atm%soiltyp,         &
+      &     p_ext_atm%soiltyp_t,       &
+      &     p_ext_atm%t_cl,            &
+      &     p_ext_atm%emis_rad,        &
+      &     p_ext_atm%lu_class_fraction, &
+      &     p_ext_atm%alb_dif,         &
+      &     p_ext_atm%albuv_dif,       &
+      &     p_ext_atm%albni_dif,       &
+      &     p_ext_atm%lsm_ctr_c,       &
+      &     p_ext_atm%elevation_c,     &
+      &     p_ext_atm%emis_rad         )
 
 
     !
@@ -1010,6 +1081,15 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
+      ! HDmodel land-sea-mask at surface on cell centers
+      ! lsm_hd_c   p_ext_atm%lsm_hd_c(nproma,nblks_c)
+      cf_desc    = t_cf_var('HD model land-sea-mask at cell center', '-2/-1/1/2', &
+        &                   'HD model land-sea-mask', datatype_flt)
+      grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'lsm_hd_c', p_ext_atm%lsm_hd_c,          &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
+        grib2_desc, ldims=shape2d_c )
+
     END IF
 
   END SUBROUTINE new_ext_data_atm_list
@@ -1078,18 +1158,19 @@ CONTAINS
     shape3d_c   = (/ nproma, nblks_c, nmonths_ext(jg)  /)
     shape4d_c   = (/ nproma, nlev_o3, nblks_c, nmonths /)
 
-    IF ( sstice_mode > 1 ) THEN
-     SELECT CASE (sstice_mode)
-     CASE(2)
-      shape3d_sstice = (/ nproma, nblks_c, 12 /)
-     CASE(3)
-      shape3d_sstice = (/ nproma, nblks_c,  2 /)
-     CASE(4)
-      CALL finish (TRIM(routine), 'sstice_mode=4  not implemented!')
-     CASE DEFAULT
-      CALL finish (TRIM(routine), 'sstice_mode not valid!')
-     END SELECT
-    END IF
+    SELECT CASE (sstice_mode)
+      CASE(SSTICE_ANA)
+        ! nothing to do
+      CASE(SSTICE_ANA_CLINC, SSTICE_CLIM)
+        shape3d_sstice = (/ nproma, nblks_c, 12 /)
+      CASE(SSTICE_AVG_MONTHLY)
+        shape3d_sstice = (/ nproma, nblks_c,  2 /)
+      CASE(SSTICE_AVG_DAILY)
+        CALL finish (TRIM(routine), 'sstice_mode=4  not implemented!')
+      CASE DEFAULT
+        CALL finish (TRIM(routine), 'sstice_mode not valid!')
+    END SELECT
+ 
 
     !
     ! Register a field list and apply default settings
@@ -1276,26 +1357,42 @@ CONTAINS
     !--------------------------------
     !SST and sea ice fraction
     !--------------------------------
-    IF ( sstice_mode > 1 ) THEN
-      ! sst_m     p_ext_atm_td%sst_m(nproma,nblks_c,ntimes)
-      cf_desc    = t_cf_var('sst_m', 'K', &
-        &                   '(monthly) sea surface temperature '  &
-        &                   , datatype_flt)
-      grib2_desc = grib2_var(192 ,128 , 34, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_td_list, 'sst_m', p_ext_atm_td%sst_m, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
-        &           ldims=shape3d_sstice, loutput=.FALSE. )
-
-      ! fr_ice_m     p_ext_atm_td%fr_ice_m(nproma,nblks_c,ntimes)
-      cf_desc    = t_cf_var('fr_ice_m', '(0-1)', &
-        &                   '(monthly) sea ice fraction '  &
-        &                   , datatype_flt)
-      grib2_desc = grib2_var( 192,128 ,31 , ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_td_list, 'fr_ice_m', p_ext_atm_td%fr_ice_m, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
-        &           ldims=shape3d_sstice, loutput=.FALSE. )
-
-    ENDIF ! sstice_mode
+    SELECT CASE (sstice_mode)
+      CASE (SSTICE_ANA_CLINC)  ! SST is read from analysis and is updated by climatological increments 
+                               ! on a daily basis. Therefore, sst_m is required to store the monthly fields
+        ! sst_m     p_ext_atm_td%sst_m(nproma,nblks_c,ntimes)
+        cf_desc    = t_cf_var('sst_m', 'K', &
+          &                   '(monthly) sea surface temperature '  &
+          &                   , datatype_flt)
+        grib2_desc = grib2_var(10 ,3 ,0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        CALL add_var( p_ext_atm_td_list, 'sst_m', p_ext_atm_td%sst_m, &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
+          &           ldims=shape3d_sstice, loutput=.FALSE. )
+        !
+      CASE (SSTICE_CLIM,SSTICE_AVG_MONTHLY,SSTICE_AVG_DAILY)
+        !
+        ! sst_m     p_ext_atm_td%sst_m(nproma,nblks_c,ntimes)
+        cf_desc    = t_cf_var('sst_m', 'K', &
+          &                   '(monthly) sea surface temperature '  &
+          &                   , datatype_flt)
+        grib2_desc = grib2_var(10 ,3 ,0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        CALL add_var( p_ext_atm_td_list, 'sst_m', p_ext_atm_td%sst_m, &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
+          &           ldims=shape3d_sstice, loutput=.FALSE. )
+        !
+        ! fr_ice_m     p_ext_atm_td%fr_ice_m(nproma,nblks_c,ntimes)
+        cf_desc    = t_cf_var('fr_ice_m', '(0-1)', &
+          &                   '(monthly) sea ice fraction '  &
+          &                   , datatype_flt)
+        grib2_desc = grib2_var( 192,128 ,31 , ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        CALL add_var( p_ext_atm_td_list, 'fr_ice_m', p_ext_atm_td%fr_ice_m, &
+          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
+          &           ldims=shape3d_sstice, loutput=.FALSE. )
+        !
+      CASE default
+        ! do nothing
+        !
+    END SELECT
 
     ENDIF ! inwp
 

@@ -28,7 +28,6 @@ MODULE mo_convect_tables
 
   USE mo_kind,               ONLY: wp
   USE mo_physical_constants, ONLY: alv, als, cpd, rd, rv, tmelt, vtmpc1
-  USE mo_echam_cloud_params, ONLY: csecfrl, cthomi
 
   IMPLICIT NONE
 
@@ -78,6 +77,11 @@ MODULE mo_convect_tables
 
   PUBLIC :: lookup_ubc
   PUBLIC :: lookup_ubc_list
+
+  
+  REAL (wp), PARAMETER :: cthomi  = tmelt-35.0_wp
+  REAL (wp), PARAMETER :: csecfrl = 5.e-6_wp
+
 
   ! Constants used for the computation of lookup tables of the saturation
   ! mixing ratio over liquid water (*c_les*) or ice(*c_ies*)

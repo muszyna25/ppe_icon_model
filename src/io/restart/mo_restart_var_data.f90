@@ -12,22 +12,25 @@
 !! The restart writing code only ever sees the bunch of 2D pointers returned by getLevelPointers().
 
 MODULE mo_restart_var_data
-    USE mo_dynamics_config, ONLY: iequations
-    USE mo_exception, ONLY: finish
-    USE mo_fortran_tools, ONLY: t_ptr_2d
-    USE mo_grid_config, ONLY: l_limited_area
-    USE mo_ha_dyn_config, ONLY: ha_dyn_config
-    USE mo_impl_constants, ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, INH_ATMOSPHERE, TLEV_NNOW, TLEV_NNOW_RCF, SUCCESS, &
-                               & LEAPFROG_EXPL, LEAPFROG_SI
+
+    USE mo_dynamics_config,    ONLY: iequations
+    USE mo_exception,          ONLY: finish
+    USE mo_fortran_tools,      ONLY: t_ptr_2d, t_ptr_2d_sp
+    USE mo_grid_config,        ONLY: l_limited_area
+    USE mo_impl_constants,     ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, INH_ATMOSPHERE, &
+      &                              TLEV_NNOW, TLEV_NNOW_RCF, SUCCESS, LEAPFROG_EXPL, LEAPFROG_SI
 #ifdef DEBUG
-    USE mo_io_units, ONLY: nerr
+    USE mo_io_units,           ONLY: nerr
 #endif
-    USE mo_kind, ONLY: wp
-    USE mo_linked_list, ONLY: t_list_element, t_var_list
-    USE mo_parallel_config, ONLY: nproma
-    USE mo_util_string, ONLY: int2string
-    USE mo_var_list, ONLY: nvar_lists, var_lists, get_var_timelevel
+    USE mo_kind,               ONLY: dp, sp
+    USE mo_linked_list,        ONLY: t_list_element, t_var_list
+    USE mo_parallel_config,    ONLY: nproma
+    USE mo_util_string,        ONLY: int2string
+    USE mo_var_list,           ONLY: nvar_lists, var_lists, get_var_timelevel
     USE mo_var_metadata_types, ONLY: t_var_metadata
+#ifndef __NO_ICON_ATMO__
+    USE mo_ha_dyn_config, ONLY: ha_dyn_config
+#endif
 
     IMPLICIT NONE
 
@@ -36,11 +39,17 @@ MODULE mo_restart_var_data
     PUBLIC :: getLevelPointers
     PUBLIC :: has_valid_time_level
 
+    INTERFACE getLevelPointers
+      MODULE PROCEDURE getLevelPointers_dp
+      MODULE PROCEDURE getLevelPointers_sp
+    END INTERFACE
+    
     PRIVATE
 
     ! All the info that's required about a variable for restart purposes.
     TYPE t_RestartVarData
-        REAL(wp), POINTER :: r_ptr(:,:,:,:,:)
+        REAL(dp), POINTER :: r_ptr(:,:,:,:,:)
+        REAL(sp), POINTER :: s_ptr(:,:,:,:,:)
         TYPE(t_var_metadata) :: info
     END TYPE t_RestartVarData
 
@@ -126,6 +135,7 @@ CONTAINS
                 IF(element%field%info%lrestart) THEN
                     resultVar(varIndex)%info = element%field%info
                     resultVar(varIndex)%r_ptr => element%field%r_ptr
+                    resultVar(varIndex)%s_ptr => element%field%s_ptr
                     varIndex = varIndex + 1
                 END IF
                 element => element%next_list_element
@@ -134,9 +144,9 @@ CONTAINS
         IF(varIndex /= varCount + 1) CALL finish(routine, "assertion failed: wrong restart variable count")
     END FUNCTION createRestartVarData
 
-    SUBROUTINE getLevelPointers(varMetadata, varData, levelPointers)
+    SUBROUTINE getLevelPointers_dp(varMetadata, varData, levelPointers)
         TYPE(t_var_metadata), INTENT(IN) :: varMetadata
-        REAL(wp), TARGET :: varData(:,:,:,:,:)
+        REAL(dp), TARGET :: varData(:,:,:,:,:)
         TYPE(t_ptr_2d), ALLOCATABLE, INTENT(INOUT) :: levelPointers(:)
 
         INTEGER :: nindex, nlevs, var_ref_pos, error, jk
@@ -202,7 +212,77 @@ CONTAINS
               CALL finish(routine, "'"//TRIM(varMetadata%NAME)//"': "//&
                                  & TRIM(int2string(varMetadata%ndims))//"d arrays not handled yet")
         END SELECT
-    END SUBROUTINE getLevelPointers
+      END SUBROUTINE getLevelPointers_dp
+
+    SUBROUTINE getLevelPointers_sp(varMetadata, varData, levelPointers)
+        TYPE(t_var_metadata), INTENT(IN) :: varMetadata
+        REAL(sp), TARGET :: varData(:,:,:,:,:)
+        TYPE(t_ptr_2d_sp), ALLOCATABLE, INTENT(INOUT) :: levelPointers(:)
+
+        INTEGER :: nindex, nlevs, var_ref_pos, error, jk
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":getLevelPointers"
+
+        ! Check if first dimension of array is nproma.
+        ! Otherwise we got an array which is not suitable for this output scheme.
+        IF (varMetadata%used_dimensions(1) /= nproma) CALL finish(routine,'1st dim is not nproma: '//TRIM(varMetadata%name))
+
+        ! get data index
+        nindex = 1
+        IF(varMetadata%lcontained) nindex = varMetadata%ncontained
+
+        ! get number of data levels
+        nlevs = 1
+        IF(varMetadata%ndims /= 2) nlevs = varMetadata%used_dimensions(2)
+
+        var_ref_pos = varMetadata%ndims + 1
+        IF(varMetadata%lcontained) var_ref_pos = varMetadata%var_ref_pos
+
+        ! ALLOCATE the POINTER array
+        IF(ALLOCATED(levelPointers)) THEN
+            ! can we reuse the old allocation?
+            IF(SIZE(levelPointers) /= nlevs) DEALLOCATE(levelPointers)
+        END IF
+        IF(.NOT.ALLOCATED(levelPointers)) THEN
+            ! no suitable old allocation that can be reused
+            ALLOCATE(levelPointers(nlevs), STAT = error)
+            IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+        END IF
+
+        ! get data pointers
+        SELECT CASE (varMetadata%ndims)
+            CASE (2)
+                ! make a 3D copy of the array
+                SELECT CASE(var_ref_pos)
+                    CASE (1)
+                        levelPointers(1)%p => varData(nindex,:,:,1,1)
+                    CASE (2)
+                        levelPointers(1)%p => varData(:,nindex,:,1,1)
+                    CASE (3)
+                        levelPointers(1)%p => varData(:,:,nindex,1,1)
+                    CASE default
+                        CALL finish(routine, "internal error!")
+                END SELECT
+            CASE (3)
+                ! copy the pointer
+                DO jk = 1, nlevs
+                    SELECT CASE(var_ref_pos)
+                        CASE (1)
+                            levelPointers(jk)%p => varData(nindex,:,jk,:,1)
+                        CASE (2)
+                            levelPointers(jk)%p => varData(:,nindex,jk,:,1)
+                        CASE (3)
+                            levelPointers(jk)%p => varData(:,jk,nindex,:,1)
+                        CASE (4)
+                            levelPointers(jk)%p => varData(:,jk,:,nindex,1)
+                        CASE default
+                            CALL finish(routine, "internal error!")
+                    END SELECT
+                END DO
+            CASE DEFAULT
+              CALL finish(routine, "'"//TRIM(varMetadata%NAME)//"': "//&
+                                 & TRIM(int2string(varMetadata%ndims))//"d arrays not handled yet")
+        END SELECT
+      END SUBROUTINE getLevelPointers_sp
 
     ! Returns true, if the time level of the given field is valid, else false.
     LOGICAL FUNCTION has_valid_time_level(p_info, domain, nnew, nnew_rcf) RESULT(resultVar)
@@ -245,8 +325,9 @@ CONTAINS
             CASE default
                 IF ( lskip_timelev ) RETURN
         END SELECT
-        resultVar = .TRUE.
 #endif
+
+        resultVar = .TRUE.
     END FUNCTION has_valid_time_level
 
 END MODULE mo_restart_var_data

@@ -24,14 +24,11 @@ MODULE mo_initicon_config
     &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP
   USE mo_grid_config,        ONLY: l_limited_area
   USE mo_time_config,        ONLY: time_config
-  USE mo_datetime,           ONLY: t_datetime
   USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta,     &
-    &                              max_timedelta_str_len, datetime, newDatetime,     &
-    &                              deallocateDatetime, OPERATOR(+),                  &
+    &                              max_timedelta_str_len, datetime, OPERATOR(+),     &
     &                              MAX_DATETIME_STR_LEN, OPERATOR(<=), OPERATOR(>=), &
     &                              getPTStringFromSeconds
-  USE mo_mtime_extensions,   ONLY: get_datetime_string
-  USE mo_exception,          ONLY: finish, message_text, message
+  USE mo_exception,          ONLY: message_text, message
 
   IMPLICIT NONE
 
@@ -87,7 +84,7 @@ MODULE mo_initicon_config
 
   TYPE t_timeshift
     REAL(wp)                 :: dt_shift
-    TYPE(timedelta)          :: mtime_shift
+    TYPE(timedelta), POINTER :: mtime_shift
   END TYPE t_timeshift
 
   ! ----------------------------------------------------------------------------
@@ -106,7 +103,6 @@ MODULE mo_initicon_config
   INTEGER  :: nlevsoil_in   ! number of soil levels of input data
 
   REAL(wp) :: zpbl1, zpbl2  ! AGL heights used for vertical gradient computation
-  LOGICAL  :: l_sst_in      ! logical switch, if sea surface temperature is provided as input
   LOGICAL  :: lread_ana     ! If .TRUE., read analysis fields are read from analysis file
                             ! dwdana_filename. If .FALSE., ICON is soleyly started 
                             ! from first guess fields.   
@@ -178,6 +174,7 @@ MODULE mo_initicon_config
 
   INTEGER :: nlevatm_in(max_dom) = 0  !< number of atmospheric model levels of input data
   LOGICAL :: lread_vn  = .FALSE. !< control variable that specifies if u/v or vn are read as wind field input
+  LOGICAL :: l_sst_in  = .TRUE.  !< logical switch, if sea surface temperature is provided as input
 
   INTEGER :: init_mode_soil     !< initialization mode of soil model (coldstart, warmstart, warmstart+IAU)
 
@@ -212,11 +209,9 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: routine = 'mo_initicon_config:configure_initicon'
     !
     CHARACTER(len=max_timedelta_str_len) :: PTshift
-    TYPE(timedelta), POINTER             :: mtime_shift_local, td_start_time_avg_fg, td_end_time_avg_fg
+    TYPE(timedelta), POINTER             :: td_start_time_avg_fg, td_end_time_avg_fg
     CHARACTER(len=max_timedelta_str_len) :: str_start_time_avg_fg, str_end_time_avg_fg
     !
-    TYPE(datetime), POINTER              :: inidatetime          ! in mtime format
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: iso8601_ini_datetime ! ISO_8601
 
     REAL(wp)                             :: zdt_shift            ! rounded dt_shift
     !
@@ -256,22 +251,19 @@ CONTAINS
     ! transform timeshift to mtime-format
     !
     CALL getPTStringFromSeconds(timeshift%dt_shift, PTshift)
-
+    timeshift%mtime_shift => newTimedelta(TRIM(PTshift))
+    WRITE(message_text,'(a,a)') 'IAU time shift: ', TRIM(PTshift)
+    CALL message('',message_text)
+        
     !*******************************************************
     ! can be removed, once the new libmtime is available (timedeltaToString)
-    IF (TRIM(PTshift)=="-P00.000S") THEN
-      PTshift = "-PT00.000S"
-    ELSE IF (TRIM(PTshift)=="+P00.000S") THEN
-      PTshift = "+PT00.000S"
-    ENDIF 
+    ! IF (TRIM(PTshift)=="-P00.000S") THEN
+    !   PTshift = "-PT00.000S"
+    ! ELSE IF (TRIM(PTshift)=="+P00.000S") THEN
+    !   PTshift = "+PT00.000S"
+    ! ENDIF 
     !********************************************************
-
-    mtime_shift_local => newTimedelta(TRIM(PTshift))
-    timeshift%mtime_shift = mtime_shift_local
-
-    ! cleanup
-    CALL deallocateTimedelta(mtime_shift_local)
-
+    
     ! Preparations for first guess averaging
     !
     IF (end_time_avg_fg > start_time_avg_fg) THEN
@@ -282,22 +274,16 @@ CONTAINS
     !
     ! transform end_time_avg_fg, start_time_avg_fg to mtime format
     !
-    ! create model ini_datetime in ISO_8601 format
-    CALL get_datetime_string(iso8601_ini_datetime, time_config%ini_datetime)
-    !
-    ! convert model ini datetime from ISO_8601 format to type datetime
-    inidatetime => newDatetime(TRIM(iso8601_ini_datetime))
-    !
     ! get start and end datetime in mtime-format
     CALL getPTStringFromSeconds(start_time_avg_fg, str_start_time_avg_fg)
     td_start_time_avg_fg => newTimedelta(str_start_time_avg_fg)
     CALL getPTStringFromSeconds(end_time_avg_fg, str_end_time_avg_fg)
     td_end_time_avg_fg   => newTimedelta(str_end_time_avg_fg)
     !
-    startdatetime_avgFG = inidatetime + td_start_time_avg_fg
-    enddatetime_avgFG   = inidatetime + td_end_time_avg_fg
+    startdatetime_avgFG = time_config%tc_startdate + td_start_time_avg_fg
+    enddatetime_avgFG   = time_config%tc_startdate + td_end_time_avg_fg
     !
-    ! get start and end datetime in ISO_8601 format relative to inidatetime
+    ! get start and end datetime in ISO_8601 format relative to "tc_startdate"
     ! start time
     CALL getPTStringFromSeconds(start_time_avg_fg, iso8601_start_timedelta_avg_fg)
     ! end time
@@ -322,9 +308,6 @@ CONTAINS
     ! transform averaging interval to ISO_8601 format
     !
     CALL getPTStringFromSeconds(interval_avg_fg, iso8601_interval_avg_fg)
-
-    ! cleanup
-    CALL deallocateDatetime(inidatetime)
 
   END SUBROUTINE configure_initicon
 
@@ -363,30 +346,13 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-12-17)
   !!
-  FUNCTION is_avgFG_time(cur_datetime)
-    TYPE(t_datetime), INTENT(INOUT)  :: cur_datetime
-
-    ! local variables
-    TYPE(datetime), POINTER :: curdatetime     ! current datetime in mtime format
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: iso8601_cur_datetime ! ISO_8601
-
-    LOGICAL :: is_avgFG_time
-    !---------------------------------------------------------------------
-
-    ! create model cur_datetime in ISO_8601 format
-    CALL get_datetime_string(iso8601_cur_datetime, cur_datetime)
-
-    !
-    ! convert model cur_datetime from ISO_8601 format to type datetime
-    curdatetime  => newDatetime(TRIM(iso8601_cur_datetime))
+  LOGICAL FUNCTION is_avgFG_time(curdatetime)
+    TYPE(datetime), POINTER :: curdatetime     !< current datetime in mtime format
 
     ! check whether startdatetime_avgFG <= curdatetime <= enddatetime_avgFG
     !
     is_avgFG_time = (curdatetime >= startdatetime_avgFG) .AND.              &
                     (curdatetime <= enddatetime_avgFG    .AND. lcalc_avg_fg )
-
-    ! cleanup
-    CALL deallocateDatetime(curdatetime)
 
   END FUNCTION is_avgFG_time
 

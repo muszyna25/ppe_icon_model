@@ -43,6 +43,7 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_qexc
   PUBLIC :: tune_minsnowfrac
   PUBLIC :: tune_box_liq
+  PUBLIC :: tune_dust_abs
   PUBLIC :: itune_albedo
   PUBLIC :: max_freshsnow_inc
 
@@ -107,6 +108,9 @@ MODULE mo_nwp_tuning_config
 
   REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
     &  tune_box_liq                ! (in case of inwp_cldcover = 1)
+
+  REAL(wp) :: &                    !< Tuning factor for enhanced LW absorption of mineral dust in the Saharan region
+    &  tune_dust_abs               !
 
   INTEGER :: &                     !< (MODIS) albedo tuning
     &  itune_albedo                ! 1: dimmed Sahara

@@ -34,11 +34,12 @@ PUBLIC :: t_scatterPatternScatter
         INTEGER, POINTER :: pointIndices(:)    !For each point requested by a process, this lists the global index of the point.
         INTEGER :: pointCount !size of pointIndices
     CONTAINS
-        PROCEDURE :: construct => constructScatterPatternScatter    !< override
-        PROCEDURE :: distribute_dp => distributeDataScatter_dp  !< override
-        PROCEDURE :: distribute_sp => distributeDataScatter_sp  !< override
-        PROCEDURE :: distribute_int => distributeDataScatter_int  !< override
-        PROCEDURE :: destruct => destructScatterPatternScatter  !< override
+        PROCEDURE :: construct       => constructScatterPatternScatter !< override
+        PROCEDURE :: distribute_dp   => distributeDataScatter_dp       !< override
+        PROCEDURE :: distribute_spdp => distributeDataScatter_spdp     !< override
+        PROCEDURE :: distribute_sp   => distributeDataScatter_sp       !< override
+        PROCEDURE :: distribute_int  => distributeDataScatter_int      !< override
+        PROCEDURE :: destruct        => destructScatterPatternScatter  !< override
     END TYPE
 
 PRIVATE
@@ -128,18 +129,65 @@ CONTAINS
     END SUBROUTINE distributeDataScatter_dp
 
     !-------------------------------------------------------------------------------------------------------------------------------
-    !> implementation of t_scatterPattern::distribute_sp
+    !> implementation of t_scatterPattern::distribute_spdp
     !-------------------------------------------------------------------------------------------------------------------------------
-    SUBROUTINE distributeDataScatter_sp(me, globalArray, localArray, ladd_value)
+    SUBROUTINE distributeDataScatter_spdp(me, globalArray, localArray, ladd_value)
         CLASS(t_scatterPatternScatter), INTENT(INOUT) :: me
         REAL(sp), INTENT(INOUT) :: globalArray(:)
         REAL(wp), INTENT(INOUT) :: localArray(:,:)
         LOGICAL, INTENT(IN) :: ladd_value
 
-        CHARACTER(*), PARAMETER :: routine = modname//":distributeDataScatter_sp"
+        CHARACTER(*), PARAMETER :: routine = modname//":distributeDataScatter_spdp"
         REAL(sp), ALLOCATABLE :: sendArray(:), recvArray(:)
         INTEGER :: i, blk, idx, ierr
 
+
+        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
+        CALL me%startDistribution()
+
+        IF(my_process_is_stdio()) THEN
+            ALLOCATE(sendArray(me%pointCount), stat = ierr)
+            IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
+            DO i = 1, me%pointCount
+                sendArray(i) = globalArray(me%pointIndices(i))
+            END DO
+        ELSE
+            ALLOCATE(sendArray(1), stat = ierr) !dummy
+            IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
+        END IF
+        ALLOCATE(recvArray(me%slapSize), stat = ierr)
+        IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
+        CALL p_scatter(sendArray, recvArray, p_io, me%communicator)
+        IF(ladd_value) THEN
+            DO i = 1, me%myPointCount
+                blk = blk_no(i)
+                idx = idx_no(i)
+                localArray(idx, blk) = localArray(idx, blk) + recvArray(i)
+            END DO
+        ELSE
+            DO i = 1, me%myPointCount
+                localArray(idx_no(i), blk_no(i)) = recvArray(i)
+            END DO
+        END IF
+
+        DEALLOCATE(recvArray)
+        DEALLOCATE(sendArray)
+        CALL me%endDistribution(INT(me%pointCount, i8) * 4_i8)
+        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
+    END SUBROUTINE distributeDataScatter_spdp
+
+    !-------------------------------------------------------------------------------------------------------------------------------
+    !> implementation of t_scatterPattern::distribute_sp
+    !-------------------------------------------------------------------------------------------------------------------------------
+    SUBROUTINE distributeDataScatter_sp(me, globalArray, localArray, ladd_value)
+        CLASS(t_scatterPatternScatter), INTENT(INOUT) :: me
+        REAL(sp), INTENT(INOUT) :: globalArray(:)
+        REAL(sp), INTENT(INOUT) :: localArray(:,:)
+        LOGICAL, INTENT(IN) :: ladd_value
+
+        CHARACTER(*), PARAMETER :: routine = modname//":distributeDataScatter_sp"
+        REAL(sp), ALLOCATABLE :: sendArray(:), recvArray(:)
+        INTEGER :: i, blk, idx, ierr
 
         IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
         CALL me%startDistribution()

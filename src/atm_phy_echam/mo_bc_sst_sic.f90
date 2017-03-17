@@ -20,7 +20,7 @@
 !
 MODULE mo_bc_sst_sic
   
-  USE mo_kind,               ONLY: dp
+  USE mo_kind,               ONLY: dp, i8
   USE mo_exception,          ONLY: finish, message, message_text
   USE mo_mpi,                ONLY: my_process_is_mpi_workroot
   USE mo_scatter,            ONLY: scatter_time_array
@@ -30,10 +30,9 @@ MODULE mo_bc_sst_sic
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_cdi,                ONLY: streamOpenRead, streamInqVlist, gridInqSize,      &
     &                              vlistInqTaxis, streamInqTimestep, taxisInqVdate,  &
-    &                              vlistInqVarGrid, streamClose, streamReadVarslice, vlistPrint
+    &                              vlistInqVarGrid, streamClose, streamReadVarslice
   USE mo_util_cdi,           ONLY: cdiGetStringError
-
-  USE mo_time_interpolation_weights,ONLY: t_wi_limm
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights
 
   IMPLICIT NONE
 
@@ -49,13 +48,13 @@ MODULE mo_bc_sst_sic
   PUBLIC :: bc_sst_sic_time_interpolation
   PUBLIC :: get_current_bc_sst_sic_year
 
-  INTEGER, SAVE :: current_year = -1
+  INTEGER(i8), SAVE :: current_year = -1
 
 CONTAINS
   
   SUBROUTINE read_bc_sst_sic(year, p_patch)
 
-    INTEGER,       INTENT(in) :: year
+    INTEGER(i8),   INTENT(in) :: year
     TYPE(t_patch), INTENT(in) :: p_patch
    
     REAL(dp), POINTER :: zin(:,:) => NULL()
@@ -116,11 +115,11 @@ CONTAINS
   SUBROUTINE read_sst_sic_data(fn, y, zin)
     
     CHARACTER(len=*), INTENT(in) :: fn
-    INTEGER, INTENT(in) :: y
+    INTEGER(i8), INTENT(in) :: y
     REAL(dp), POINTER :: zin(:,:)
     
     INTEGER :: ngridsize
-    INTEGER :: ym1, yp1
+    INTEGER(i8) :: ym1, yp1
     
     INTEGER :: taxisID
     INTEGER :: vlistID, varID, streamID, tsID
@@ -155,13 +154,13 @@ CONTAINS
       vdate = taxisInqVdate(taxisID)
       vyear = vdate/10000
       vmonth = (vdate/100)-vyear*100
-      IF (vyear == ym1 .AND. vmonth == 12) THEN
+      IF (INT(vyear,i8) == ym1 .AND. vmonth == 12) THEN
         CALL streamReadVarslice(streamID, varID, 0, buffer, nmiss)
         zin(:,0) = buffer(:)
-      ELSE IF (vyear == y) THEN
+      ELSE IF (INT(vyear,i8) == y) THEN
         CALL streamReadVarslice(streamID, varID, 0, buffer, nmiss)
         zin(:,vmonth) = buffer(:)
-      ELSE IF (vyear == yp1 .AND. vmonth == 1) THEN
+      ELSE IF (INT(vyear,i8) == yp1 .AND. vmonth == 1) THEN
         CALL streamReadVarslice(streamID, varID, 0, buffer, nmiss)
         zin(:,13) = buffer(:)
         EXIT
@@ -175,9 +174,8 @@ CONTAINS
 
   END SUBROUTINE read_sst_sic_data
 
-  SUBROUTINE bc_sst_sic_time_interpolation(wi, slf, tsw, seaice, siced, p_patch)
-    
-    TYPE(t_wi_limm), INTENT(in)  :: wi
+  SUBROUTINE bc_sst_sic_time_interpolation(tiw, slf, tsw, seaice, siced, p_patch)
+    TYPE( t_time_interpolation_weights), INTENT(in) :: tiw
     REAL(dp)       , INTENT(in)  :: slf(:,:) 
     REAL(dp)       , INTENT(out) :: tsw(:,:) 
     REAL(dp)       , INTENT(out) :: seaice(:,:) 
@@ -187,8 +185,8 @@ CONTAINS
     REAL(dp) :: zts(SIZE(tsw,1),SIZE(tsw,2))
     REAL(dp) :: zic(SIZE(tsw,1),SIZE(tsw,2))
 
-    zts(:,:) = wi%wgt1 * sst(:,:,wi%inm1) + wi%wgt2 * sst(:,:,wi%inm2)
-    zic(:,:) = wi%wgt1 * sic(:,:,wi%inm1) + wi%wgt2 * sic(:,:,wi%inm2)
+    zts(:,:) = tiw%weight1 * sst(:,:,tiw%month1_index) + tiw%weight2 * sst(:,:,tiw%month2_index)
+    zic(:,:) = tiw%weight1 * sic(:,:,tiw%month1_index) + tiw%weight2 * sic(:,:,tiw%month2_index)
 
     !TODO: missing siced needs to be added
 
@@ -221,9 +219,8 @@ CONTAINS
   END SUBROUTINE bc_sst_sic_time_interpolation
 
   FUNCTION get_current_bc_sst_sic_year() RESULT(this_year)
-    INTEGER :: this_year
+    INTEGER(i8) :: this_year
     this_year = current_year
-    RETURN
   END FUNCTION get_current_bc_sst_sic_year
 
 END MODULE mo_bc_sst_sic

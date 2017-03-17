@@ -41,7 +41,8 @@ MODULE mo_nonhydro_state
     &                                TASK_INTP_MSL, HINTP_TYPE_NONE,       &
     &                                iedmf, MODE_IAU, MODE_IAU_OLD,        &
     &                                TASK_COMPUTE_OMEGA, TLEV_NNOW_RCF,    &
-    &                                MODE_ICONVREMAP
+    &                                MODE_ICONVREMAP,HINTP_TYPE_LONLAT_RBF,&
+    &                                HINTP_TYPE_LONLAT_BCTR
   USE mo_exception,            ONLY: message, finish
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_state_lists,       &
@@ -51,8 +52,9 @@ MODULE mo_nonhydro_state
   USE mo_nonhydrostatic_config,ONLY: itime_scheme, igradp_method, ndyn_substeps_max
   USE mo_dynamics_config,      ONLY: nsav1, nsav2
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: iforcing, ntracer, iqm_max,                &
+  USE mo_run_config,           ONLY: iforcing, ntracer, iqm_max, iqt,           &
     &                                iqv, iqc, iqi, iqr, iqs, iqtvar,           &
+    &                                ico2, ich4, in2o, io3,                     &
     &                                iqni, iqni_nuc, iqg, iqh, iqnr, iqns,      & 
     &                                iqng, iqnh, iqnc, inccn, ininpot, ininact, &
     &                                iqtke, nqtendphy, ltestcase, lart, msg_level
@@ -614,7 +616,10 @@ MODULE mo_nonhydro_state
             &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
             &                       name        = TRIM(vname_prefix)//'qv'//suffix,    &
             &                       ihadv_tracer=advconf%ihadv_tracer(iqv),            &
-            &                       ivadv_tracer=advconf%ivadv_tracer(iqv)),           & 
+            &                       ivadv_tracer=advconf%ivadv_tracer(iqv)),           &
+            &           hor_interp=create_hor_interp_metadata(                         &
+            &                       hor_intp_type=HINTP_TYPE_LONLAT_BCTR,              &
+            &                       fallback_type=HINTP_TYPE_LONLAT_RBF),              &
             &           vert_interp=create_vert_interp_metadata(                       &
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_QV,                  &
@@ -727,6 +732,86 @@ MODULE mo_nonhydro_state
             &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
             &                           "mode_iau_fg_in","mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
         END IF ! iqs
+
+        !CO2
+        IF ( iqt <= ico2 .AND. ico2 <= ntracer ) THEN
+          CALL add_ref( p_prog_list, 'tracer',                                         &
+            &           TRIM(vname_prefix)//'qco2'//suffix, p_prog%tracer_ptr(ico2)%p_3d, &
+            &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+            &           t_cf_var(TRIM(vname_prefix)//'qco2',                           &
+            &            'kg kg-1','co2_mass_mixing_ratio', datatype_flt),             &
+            &           grib2_var(0,14,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
+            &           ldims=shape3d_c,                                               &
+            &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
+            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name        = TRIM(vname_prefix)//'qco2'//suffix,  &
+            &                       ihadv_tracer=advconf%ihadv_tracer(ico2),           &
+            &                       ivadv_tracer=advconf%ivadv_tracer(ico2)),          & 
+            &           vert_interp=create_vert_interp_metadata(                       &
+            &                       vert_intp_type=vintp_types("P","Z","I"),           &
+            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
+            &                       lower_limit=0.0_wp )                               )
+        END IF ! ico2
+
+        !CH4
+        IF ( iqt <= ich4 .AND. ich4 <= ntracer ) THEN
+          CALL add_ref( p_prog_list, 'tracer',                                         &
+            &           TRIM(vname_prefix)//'qch4'//suffix, p_prog%tracer_ptr(ich4)%p_3d, &
+            &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+            &           t_cf_var(TRIM(vname_prefix)//'qch4',                           &
+            &            'kg kg-1','ch4_mass_mixing_ratio', datatype_flt),             &
+            &           grib2_var(0,14,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
+            &           ldims=shape3d_c,                                               &
+            &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
+            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name        = TRIM(vname_prefix)//'qch4'//suffix,  &
+            &                       ihadv_tracer=advconf%ihadv_tracer(ich4),           &
+            &                       ivadv_tracer=advconf%ivadv_tracer(ich4)),          & 
+            &           vert_interp=create_vert_interp_metadata(                       &
+            &                       vert_intp_type=vintp_types("P","Z","I"),           &
+            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
+            &                       lower_limit=0.0_wp )                               )
+        END IF ! ich4
+
+        !N2O
+        IF ( iqt <= in2o .AND. in2o <= ntracer ) THEN
+          CALL add_ref( p_prog_list, 'tracer',                                         &
+            &           TRIM(vname_prefix)//'qn2o'//suffix, p_prog%tracer_ptr(in2o)%p_3d, &
+            &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+            &           t_cf_var(TRIM(vname_prefix)//'qn2o',                           &
+            &            'kg kg-1','n2o_mass_mixing_ratio', datatype_flt),             &
+            &           grib2_var(0,14,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
+            &           ldims=shape3d_c,                                               &
+            &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
+            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name        = TRIM(vname_prefix)//'qn2o'//suffix,  &
+            &                       ihadv_tracer=advconf%ihadv_tracer(in2o),           &
+            &                       ivadv_tracer=advconf%ivadv_tracer(in2o)),          & 
+            &           vert_interp=create_vert_interp_metadata(                       &
+            &                       vert_intp_type=vintp_types("P","Z","I"),           &
+            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
+            &                       lower_limit=0.0_wp )                               )
+        END IF ! in2o
+
+        !O3
+        IF ( iqt <= io3 .AND. io3 <= ntracer ) THEN
+          CALL add_ref( p_prog_list, 'tracer',                                         &
+            &           TRIM(vname_prefix)//'qo3'//suffix, p_prog%tracer_ptr(io3)%p_3d, &
+            &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+            &           t_cf_var(TRIM(vname_prefix)//'qo3',                            &
+            &            'kg kg-1','o3_mass_mixing_ratio', datatype_flt),              &
+            &           grib2_var(0,14,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
+            &           ldims=shape3d_c,                                               &
+            &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
+            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name        = TRIM(vname_prefix)//'qo3'//suffix,   &
+            &                       ihadv_tracer=advconf%ihadv_tracer(io3),            &
+            &                       ivadv_tracer=advconf%ivadv_tracer(io3)),           & 
+            &           vert_interp=create_vert_interp_metadata(                       &
+            &                       vert_intp_type=vintp_types("P","Z","I"),           &
+            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
+            &                       lower_limit=0.0_wp )                               )
+        END IF ! io3
 
         !CK>
         IF (ANY(atm_phy_nwp_config(1:n_dom)%inwp_gscp==2)) THEN
@@ -1126,7 +1211,10 @@ MODULE mo_nonhydro_state
             & grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL),          &
             & ldims=shape3d_c,                                                  &
             & tlev_source=TLEV_NNOW_RCF,                                        &              ! output from nnow_rcf slice
-            & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.),            &
+            & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,             &
+            &                       name        = TRIM(name)//suffix,           &
+            &                       ihadv_tracer=advconf%ihadv_tracer(jt),      &
+            &                       ivadv_tracer=advconf%ivadv_tracer(jt)),     &
             & vert_interp=create_vert_interp_metadata(                          &
             &             vert_intp_type=vintp_types("P","Z","I"),              & 
             &             vert_intp_method=VINTP_METHOD_LIN,                    &
@@ -1367,7 +1455,7 @@ MODULE mo_nonhydro_state
     &       p_diag%ddt_tracer_adv, &
     &       p_diag%tracer_vi, &
     &       p_diag%tracer_vi_avg, &
-    &       p_diag%exner_old, &
+    &       p_diag%exner_pr, &
     &       p_diag%exner_dyn_incr, &
     &       p_diag%temp, &
     &       p_diag%tempv, &
@@ -1525,11 +1613,11 @@ MODULE mo_nonhydro_state
                 &             vert_intp_type=vintp_types("P","Z","I"),          &
                 &             vert_intp_method=VINTP_METHOD_LIN ) )
 
-    ! exner_old    p_diag%exner_old(nproma,nlev,nblks_c)
+    ! exner_pr    p_diag%exner_pr(nproma,nlev,nblks_c)
     ! *** needs to be saved for restart ***
-    cf_desc    = t_cf_var('old_exner_pressure', '-', 'old exner pressure', datatype_flt)
+    cf_desc    = t_cf_var('exner_perturbation_pressure', '-', 'exner perturbation pressure', datatype_flt)
     grib2_desc = grib2_var(0, 3, 26, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( p_diag_list, 'exner_old', p_diag%exner_old,                   &
+    CALL add_var( p_diag_list, 'exner_pr', p_diag%exner_pr,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c )
 
@@ -1591,6 +1679,9 @@ MODULE mo_nonhydro_state
     CALL add_var( p_diag_list, 'temp', p_diag%temp,                             &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, lrestart=.FALSE.,                            &
+                & hor_interp=create_hor_interp_metadata(                        &
+                &            hor_intp_type=HINTP_TYPE_LONLAT_BCTR,              &
+                &            fallback_type=HINTP_TYPE_LONLAT_RBF),              &
                 & vert_interp=create_vert_interp_metadata(                      &
                 &             vert_intp_type=vintp_types("P","Z","I"),          &
                 &             vert_intp_method=VINTP_METHOD_LIN ),              &
@@ -2801,7 +2892,6 @@ MODULE mo_nonhydro_state
                 &    vert_intp_method=VINTP_METHOD_LIN ),                       &
                 & isteptype=TSTEP_CONSTANT )
 
-#ifndef __MIXED_PRECISION
     ! slope of the terrain in normal direction (full level)
     ! ddxn_z_full  p_metrics%ddxn_z_full(nproma,nlev,nblks_e)
     !
@@ -2958,37 +3048,6 @@ MODULE mo_nonhydro_state
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
                 & ldims=shape3d_chalf, loutput=.FALSE.,                         &
                 & isteptype=TSTEP_CONSTANT )
-#else
-    ALLOCATE(p_metrics%ddxn_z_full(nproma,nlev,nblks_e),  &
-             p_metrics%ddxt_z_full(nproma,nlev,nblks_e),  & 
-             p_metrics%ddqz_z_full_e(nproma,nlev,nblks_e),& 
-             p_metrics%ddqz_z_half(nproma,nlevp1,nblks_c) )
-    p_metrics%ddxn_z_full   = 0._vp
-    p_metrics%ddxt_z_full   = 0._vp
-    p_metrics%ddqz_z_full_e = 0._vp
-    p_metrics%ddqz_z_half   = 0._vp
-
-    IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
-      ALLOCATE(p_metrics%ddxn_z_half_e(nproma,nlevp1,nblks_e),  &
-               p_metrics%ddxn_z_half_c(nproma,nlevp1,nblks_c),  &
-               p_metrics%ddxn_z_full_c(nproma,nlev,nblks_c),  &
-               p_metrics%ddxn_z_full_v(nproma,nlev,nblks_v),  &
-               p_metrics%ddxt_z_half_e(nproma,nlevp1,nblks_e),  &
-               p_metrics%ddxt_z_half_c(nproma,nlevp1,nblks_c),  &
-               p_metrics%ddxt_z_half_v(nproma,nlevp1,nblks_v),  &
-               p_metrics%ddxt_z_full_c(nproma,nlev,nblks_c),  & 
-               p_metrics%ddxt_z_full_v(nproma,nlev,nblks_v) )
-      p_metrics%ddxn_z_half_e = 0._vp
-      p_metrics%ddxn_z_half_c = 0._vp
-      p_metrics%ddxn_z_full_c = 0._vp
-      p_metrics%ddxn_z_full_v = 0._vp
-      p_metrics%ddxt_z_half_e = 0._vp
-      p_metrics%ddxt_z_half_c = 0._vp
-      p_metrics%ddxt_z_half_v = 0._vp
-      p_metrics%ddxt_z_full_c = 0._vp
-      p_metrics%ddxt_z_full_v = 0._vp
-    ENDIF
-#endif
 
 
     ! functional determinant of the metrics [sqrt(gamma)]
@@ -3116,8 +3175,6 @@ MODULE mo_nonhydro_state
                 & ldims=shape2d_c )
 
 
-      ! If the __MIXED_PRECISION flag is set, the single precision fields use a direct ALLOCATE
-#ifndef __MIXED_PRECISION
       ! weighting factor for interpolation from full to half levels
       ! wgtfac_c     p_metrics%wgtfac_c(nproma,nlevp1,nblks_c)
       !
@@ -3239,28 +3296,6 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,         &
                   & ldims=shape3d_c, loutput=.FALSE.,                               &
                   & isteptype=TSTEP_CONSTANT )
-#else
-      ALLOCATE(p_metrics%inv_ddqz_z_full(nproma,nlev,nblks_c), & 
-               p_metrics%wgtfac_c(nproma,nlevp1,nblks_c),      &
-               p_metrics%wgtfac_e(nproma,nlevp1,nblks_e),      &
-               p_metrics%wgtfacq_c(nproma,3,nblks_c),          &
-               p_metrics%wgtfacq_e(nproma,3,nblks_e),          &
-               p_metrics%wgtfacq1_c(nproma,3,nblks_c),         &
-               p_metrics%wgtfacq1_e(nproma,3,nblks_e),         &
-               p_metrics%coeff_gradekin(nproma,2,nblks_e),     &
-               p_metrics%coeff1_dwdz(nproma,nlev,nblks_c),     & 
-               p_metrics%coeff2_dwdz(nproma,nlev,nblks_c)      )
-      p_metrics%inv_ddqz_z_full = 0._vp
-      p_metrics%wgtfac_c        = 0._vp
-      p_metrics%wgtfac_e        = 0._vp
-      p_metrics%wgtfacq_c       = 0._vp
-      p_metrics%wgtfacq_e       = 0._vp
-      p_metrics%wgtfacq1_c      = 0._vp
-      p_metrics%wgtfacq1_e      = 0._vp
-      p_metrics%coeff_gradekin  = 0._vp
-      p_metrics%coeff1_dwdz     = 0._vp
-      p_metrics%coeff2_dwdz     = 0._vp
-#endif
 
       ! Reference atmosphere field exner
       ! exner_ref_mc  p_metrics%exner_ref_mc(nproma,nlev,nblks_c)
@@ -3290,7 +3325,6 @@ MODULE mo_nonhydro_state
         ! pressure gradient computation
         ! zdiff_gradp  p_metrics%zdiff_gradp(2,nproma,nlev,nblks_e)
         !
-#ifndef __MIXED_PRECISION
         cf_desc    = t_cf_var('Height_differences', 'm',                          &
         &                     'Height differences', datatype_flt)
         grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
@@ -3298,15 +3332,10 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,     &
                     & ldims=shape3d_esquared, loutput=.FALSE.,                    &
                     & isteptype=TSTEP_CONSTANT  )
-#else
-        ALLOCATE(p_metrics%zdiff_gradp(2,nproma,nlev,nblks_e))
-        p_metrics%zdiff_gradp = 0._vp
-#endif
       ELSE
         ! Coefficients for cubic interpolation of Exner pressure
         ! coeff_gradp  p_metrics%coeff_gradp(8,nproma,nlev,nblks_e)
         !
-#ifndef __MIXED_PRECISION
         cf_desc    = t_cf_var('Interpolation_coefficients', '-',                  &
         &                     'Interpolation coefficients', datatype_flt)
         grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
@@ -3314,17 +3343,12 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,     &
                     & ldims=shape3d_e8, loutput=.FALSE.,                          &
                     & isteptype=TSTEP_CONSTANT  )
-#else
-        ALLOCATE(p_metrics%coeff_gradp(8,nproma,nlev,nblks_e))
-        p_metrics%coeff_gradp = 0._vp
-#endif
       ENDIF
 
 
       ! Extrapolation factor for Exner pressure
       ! exner_exfac  p_metrics%exner_exfac(nproma,nlev,nblks_c)
       !
-#ifndef __MIXED_PRECISION
       cf_desc    = t_cf_var('Extrapolation_factor_for_Exner_pressure', '-',     &
       &                     'Extrapolation factor for Exner pressure', datatype_flt)
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -3332,10 +3356,6 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,     &
                   & ldims=shape3d_c, loutput=.FALSE.,                           &
                   & isteptype=TSTEP_CONSTANT )
-#else
-      ALLOCATE(p_metrics%exner_exfac(nproma,nlev,nblks_c))
-      p_metrics%exner_exfac = 0._vp
-#endif
 
       ! Reference atmosphere field theta
       ! theta_ref_mc  p_metrics%theta_ref_mc(nproma,nlev,nblks_c)
@@ -3409,7 +3429,6 @@ MODULE mo_nonhydro_state
                   & isteptype=TSTEP_CONSTANT )
 
 
-#ifndef __MIXED_PRECISION
       ! Reference atmosphere field exner
       ! d_exner_dz_ref_ic  p_metrics%d_exner_dz_ref_ic(nproma,nlevp1,nblks_c)
       !
@@ -3446,16 +3465,6 @@ MODULE mo_nonhydro_state
                     & ldims=shape3d_c,  loutput=.FALSE.,                          &
                     & isteptype=TSTEP_CONSTANT )
       ENDIF
-#else
-      ALLOCATE(p_metrics%d_exner_dz_ref_ic(nproma,nlevp1,nblks_c))
-      p_metrics%d_exner_dz_ref_ic = 0._vp
-      IF (igradp_method <= 3) THEN
-        ALLOCATE(p_metrics%d2dexdz2_fac1_mc(nproma,nlev,nblks_c), &
-                 p_metrics%d2dexdz2_fac2_mc(nproma,nlev,nblks_c)  )
-        p_metrics%d2dexdz2_fac1_mc = 0._vp
-        p_metrics%d2dexdz2_fac2_mc = 0._vp
-      ENDIF
-#endif
 
       ! mask field that excludes boundary halo points
       ! mask_prog_halo_c  p_metrics%mask_prog_halo_c(nproma,nblks_c)
@@ -3478,6 +3487,17 @@ MODULE mo_nonhydro_state
       &                     'Mask field for mountain points', datatype_flt)
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_metrics_list, 'mask_mtnpoints', p_metrics%mask_mtnpoints, &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape2d_c,                                            &
+                  & isteptype=TSTEP_CONSTANT )
+
+      ! Mask field for mountain or upper slope points (used for gust parameterization)
+      ! p_metrics%mask_mtnpoints_g(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('Mask field for mountain points', '-',               &
+      &                     'Mask field for mountain points', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_metrics_list, 'mask_mtnpoints_g', p_metrics%mask_mtnpoints_g, &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                   & ldims=shape2d_c,                                            &
                   & isteptype=TSTEP_CONSTANT )

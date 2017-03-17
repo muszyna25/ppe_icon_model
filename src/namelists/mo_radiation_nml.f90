@@ -52,13 +52,22 @@ MODULE mo_radiation_nml
                                  & config_mmr_co2    => mmr_co2,     &
                                  & config_mmr_ch4    => mmr_ch4,     &
                                  & config_mmr_n2o    => mmr_n2o,     &
-                                 & config_mmr_o2     => mmr_o2
+                                 & config_mmr_o2     => mmr_o2,      &
+                                 & config_mmr_cfc11  => mmr_cfc11,   &
+                                 & config_mmr_cfc12  => mmr_cfc12,   &
+                                 & config_fh2o       => fh2o,        &
+                                 & config_fco2       => fco2,        &
+                                 & config_fch4       => fch4,        &
+                                 & config_fn2o       => fn2o,        &
+                                 & config_fo3        => fo3,         &
+                                 & config_fo2        => fo2,         &
+                                 & config_fcfc       => fcfc
 
   USE mo_kind,               ONLY: wp
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
-  USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amo2
+  USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amo2, amc11, amc12
   USE mo_master_config,      ONLY: isRestart
   USE mo_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
@@ -133,7 +142,8 @@ MODULE mo_radiation_nml
   !     ighg = 0 : select default gas volume mixing ratios - 1990 values (CMIP5)
   !     ighg = 1 : transient CMIP5 scenario from file
   !
-   INTEGER :: ighg
+  INTEGER  :: ighg
+  !
   ! --- Default gas volume mixing ratios - 1990 values (CMIP5)
   !
 !DR preliminary restart fix
@@ -153,7 +163,16 @@ MODULE mo_radiation_nml
   REAL(wp) :: vmr_cfc11
   REAL(wp) :: vmr_cfc12
 #endif
-
+  !
+  ! --- Scaling factor for mixing ratios
+  !
+  REAL(wp) :: fh2o
+  REAL(wp) :: fco2
+  REAL(wp) :: fch4
+  REAL(wp) :: fn2o
+  REAL(wp) :: fo3
+  REAL(wp) :: fo2
+  REAL(wp) :: fcfc
   !
   ! --- Time control
   !
@@ -177,6 +196,8 @@ MODULE mo_radiation_nml
     &                      irad_aero,             &
     &                      lrad_aero_diag,        &
     &                      ighg,                  &
+    &                      fh2o, fco2, fch4, fn2o,&
+    &                      fo3, fo2, fcfc,        &
     &                      izenith, icld_overlap
 
 CONTAINS
@@ -237,6 +258,14 @@ CONTAINS
     vmr_o2      =    0.20946_wp
     vmr_cfc11   =  214.5e-12_wp
     vmr_cfc12   =  371.1e-12_wp
+
+    fh2o = 1.0_wp
+    fco2 = 1.0_wp
+    fch4 = 1.0_wp
+    fn2o = 1.0_wp
+    fo3  = 1.0_wp
+    fo2  = 1.0_wp
+    fcfc = 1.0_wp
 
 
     izenith     = 4  ! Default: seasonal orbit and diurnal cycle
@@ -301,10 +330,20 @@ CONTAINS
     config_vmr_o2     = vmr_o2
     config_vmr_cfc11  = vmr_cfc11
     config_vmr_cfc12  = vmr_cfc12
-    config_mmr_co2    = vmr_co2 * amco2/amd
-    config_mmr_ch4    = vmr_ch4 * amch4/amd
-    config_mmr_n2o    = vmr_n2o * amn2o/amd
-    config_mmr_o2     = vmr_o2  * amo2 /amd
+    config_mmr_co2    = vmr_co2   * amco2/amd
+    config_mmr_ch4    = vmr_ch4   * amch4/amd
+    config_mmr_n2o    = vmr_n2o   * amn2o/amd
+    config_mmr_o2     = vmr_o2    * amo2 /amd
+    config_mmr_cfc11  = vmr_cfc11 * amc11/amd
+    config_mmr_cfc12  = vmr_cfc12 * amc12/amd
+    config_fh2o       = fh2o
+    config_fco2       = fco2
+    config_fch4       = fch4
+    config_fn2o       = fn2o
+    config_fo3        = fo3
+    config_fo2        = fo2
+    config_fcfc       = fcfc
+
     config_izenith    = izenith
 
     !-----------------------------------------------------

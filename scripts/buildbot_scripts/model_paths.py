@@ -9,9 +9,9 @@ import shutil
 import sys
 #-----------------------------------------------------------------------
 class model_paths(object):
-  
+
   def __init__(self):
-    callPath=os.path.dirname(sys.argv[0])   
+    callPath=os.path.dirname(sys.argv[0])
     if not (callPath == "." or callPath == ""):
       self.thisPath   = os.getcwd()+'/'+os.path.dirname(sys.argv[0])
     else:
@@ -21,8 +21,8 @@ class model_paths(object):
     splitPath       = os.path.split(splitPath[0])
     self.basePath   = splitPath[0]
     self.runPath    = self.basePath+"/run"
-    self.experimentsListPath = self.thisPath+"/experiment_lists"    
-    
+    self.experimentsListPath = self.thisPath+"/experiment_lists"
+
   def get_experimentsNames_inPaths(self, pathsInRun):
     os.chdir(self.runPath)
     experimentsNames = []
@@ -30,37 +30,40 @@ class model_paths(object):
       experiment = glob.glob(path)
       if not experiment:
         print("No experiment "+path+" found. Stop")
-        quit()
+        quit(1)
       experimentsNames.extend(experiment)
     os.chdir(self.thisPath)
     return experimentsNames
 
+  def get_runpath(self):
+    return self.runPath
+
   def thisExperimentExists(self, experimentName):
     return os.path.isfile(self.runPath+"/"+experimentName)
-    
+
   def get_thisListPath(self, listName):
     return self.experimentsListPath+"/"+listName
-    
+
   def thisListExists(self, listName):
     return os.path.isfile(self.get_thisListPath(listName))
-    
+
   def deleteThisList(self, listName):
     if not self.thisListExists(listName):
       print("The list "+listName+" does not exist.")
-      quit()
+      quit(1)
     os.remove(self.get_thisListPath(listName))
     
   def copyList(self, fromlist, tolist):
     if not self.thisListExists(fromlist):
       print("The list "+fromlist+" does not exist.")
-      quit()      
+      quit(1)
     if self.thisListExists(tolist):
       print("The list "+tolist+" exists. Please remove it first.")
-      quit()
+      quit(1)
     shutil.copy(self.get_thisListPath(fromlist), self.get_thisListPath(tolist))
     if not self.thisListExists(tolist):
       print("Copy failed")
-      quit()
+      quit(1)
     
 
   def print_paths(self):

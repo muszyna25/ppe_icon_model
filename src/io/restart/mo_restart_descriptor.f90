@@ -10,7 +10,7 @@
 !! headers of the routines.
 
 MODULE mo_restart_descriptor
-    USE mo_datetime, ONLY: t_datetime
+    USE mtime, ONLY: datetime
     USE mo_exception, ONLY: finish
     USE mo_fortran_tools, ONLY: t_Destructible
     USE mo_kind, ONLY: wp
@@ -36,10 +36,17 @@ MODULE mo_restart_descriptor
         INTEGER :: restartType
     CONTAINS
         PROCEDURE :: construct => restartPatchData_construct
-        PROCEDURE :: writeData => restartPatchData_writeDataDummy    ! >>> Must be overriden by derived class. I would have made this deferred, had it not been for a bug in the NAG compiler that makes calling of an inherited function from an abstract base impossible.
+        
+        ! >>> Must be overriden by derived class. I would have made
+        ! >>> this deferred, had it not been for a bug in the NAG
+        ! >>> compiler that makes calling of an inherited function
+        ! >>> from an abstract base impossible.
+        PROCEDURE :: writeData => restartPatchData_writeDataDummy
+
         PROCEDURE :: writeFile => restartPatchData_writeFile
         PROCEDURE :: destruct => restartPatchData_destruct
     END TYPE t_RestartPatchData
+
 
     ! This IS the actual INTERFACE to the restart writing code (apart from the restart_main_proc PROCEDURE). Its USE IS as follows:
     !
@@ -71,10 +78,10 @@ MODULE mo_restart_descriptor
         END SUBROUTINE restartDescriptor_construct
 
         ! Actually WRITE a restart.
-        SUBROUTINE restartDescriptor_writeRestart(me, datetime, jstep, opt_output_jfile)
-            IMPORT t_RestartDescriptor, t_datetime
+        SUBROUTINE restartDescriptor_writeRestart(me, this_datetime, jstep, opt_output_jfile)
+            IMPORT t_RestartDescriptor, datetime
             CLASS(t_RestartDescriptor), INTENT(INOUT) :: me
-            TYPE(t_datetime), INTENT(IN) :: datetime
+            TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
             INTEGER, INTENT(IN) :: jstep
             INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
         END SUBROUTINE restartDescriptor_writeRestart
@@ -86,7 +93,7 @@ MODULE mo_restart_descriptor
 CONTAINS
 
     ! Update the internal description of the given patch. This should be called once for every patch before every CALL to writeRestart().
-    SUBROUTINE restartDescriptor_updatePatch(me, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
+    SUBROUTINE restartDescriptor_updatePatch(me, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, &
                                             &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
                                             &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
                                             &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
@@ -94,8 +101,8 @@ CONTAINS
         TYPE(t_patch), INTENT(IN) :: patch
         INTEGER, INTENT(IN), OPTIONAL :: opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
                                        & opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels
-        REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_pvct(:), opt_t_elapsed_phy(:), opt_ocean_zheight_cellMiddle(:), &
-                                       & opt_ocean_zheight_cellInterfaces(:)
+        REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:), opt_t_elapsed_phy(:), opt_ocean_zheight_cellMiddle(:), &
+             & opt_ocean_zheight_cellInterfaces(:)
         LOGICAL, INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
 
         INTEGER :: jg
@@ -105,7 +112,7 @@ CONTAINS
         jg = patch%id
         IF(jg < 1 .OR. jg > SIZE(me%patchData)) CALL finish(routine, "assertion failed: patch id IS OUT of range")
         IF(me%patchData(jg)%description%id /= jg) CALL finish(routine, "assertion failed: patch id doesn't match its array index")
-        CALL me%patchData(jg)%description%update(patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
+        CALL me%patchData(jg)%description%update(patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, &
                                                  &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
                                                  &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
                                                  &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)

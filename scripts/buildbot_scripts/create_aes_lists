@@ -3,7 +3,7 @@
 addexp="./addexp"
 #############################################################################
 ##
-## create icon-dev list
+## create amip list
 ##
 #############################################################################
 listname=amip
@@ -17,7 +17,7 @@ listname=amip
 # ./addbuilder aes_nag   --configureflags="--with-fortran=nag"                 --builderflags Active --machine aes --list $listname
 #-----------------------------------------------------------
 # deactivate special builders
-./set_builder_flags Inactive --builders MISTRAL_ocean MISTRAL_nag_mtime MISTRAL_nag_serial --list $listname
+./set_builder_flags Inactive --builders MISTRAL_ocean MISTRAL_nag_serial --list $listname
 # add amip tests to all builders
 $addexp "checksuite.icon-dev/check.atm_amip*" --list $listname
 # set all builders to AES, but the amip needs the fast ice, which needs the ocean...We should change this

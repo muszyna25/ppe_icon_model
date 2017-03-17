@@ -36,7 +36,7 @@
 # For more details see the parameters in the ./config/make_target_runscript
 #==============================================================================
 echo "-----------------------------------------------------------"
-# set -x
+#set -x
 
 base_folder=$(pwd)
 input_folder=run

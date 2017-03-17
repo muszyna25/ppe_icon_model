@@ -57,8 +57,7 @@ MODULE mo_nwp_ww
   USE mo_vertical_coord_table,  ONLY: vct_a
 
   USE mo_exception,             ONLY: message, message_text
-  USE mo_datetime,              ONLY: t_datetime
-  USE mo_time_config,           ONLY: time_config
+  USE mtime,                    ONLY: datetime, newDatetime, timeDelta
 
 #endif
 
@@ -72,7 +71,11 @@ MODULE mo_nwp_ww
 #else
   PUBLIC :: ww_datetime
 
-  TYPE(t_datetime) :: ww_datetime(max_dom)
+  TYPE t_datetime_ptr
+    TYPE(datetime), POINTER :: ptr 
+  END TYPE t_datetime_ptr
+
+  TYPE(t_datetime_ptr) :: ww_datetime(max_dom)
 #endif
 
 !  The following indices are used in the diagnostics of WW
@@ -92,12 +95,13 @@ MODULE mo_nwp_ww
 
 CONTAINS
 
-  SUBROUTINE configure_ww( jg, nlev, nshift_total)
+  SUBROUTINE configure_ww( ini_datetime, jg, nlev, nshift_total)
 !
 !   Set some constants for the calculation of WW
 !
     CHARACTER(LEN=24), PARAMETER :: routine = 'atm_phy_nwp:configure_ww'
 
+    TYPE(datetime),   POINTER     :: ini_datetime  ! init datetime (mtime)
     INTEGER,  INTENT(IN) :: jg           !< patch 
     INTEGER,  INTENT(IN) :: nlev         !< number of full vertical levels 
     INTEGER,  INTENT(IN) :: nshift_total 
@@ -115,7 +119,7 @@ CONTAINS
     INTEGER             :: jk, jk1
 
 #ifndef ONLYWW
-    ww_datetime(jg) = time_config%ini_datetime
+    ww_datetime(jg)%ptr => newDatetime(ini_datetime)
 #endif
 
 !   Find next layer below height of 500 hPa, and next layer to height of 500 hPa
@@ -231,7 +235,7 @@ CONTAINS
                              t_2m, td_2m, t_g, clct, clcm, u_10m, v_10m,  &
                              rain_gsp0, rain_gsp, rain_con0, rain_con,    &
                              snow_gsp0, snow_gsp, snow_con0, snow_con,    &
-                             bas_con, top_con, dhour, ymodel, iww)
+                             bas_con, top_con, time_diff, ymodel, iww)
 !
 ! Description:
 ! The subroutime evaluates for each grid point of the model a "ww-number";
@@ -272,7 +276,7 @@ CONTAINS
   INTEGER,  INTENT(IN) :: bas_con(ie),   & ! base index of main convective cloud
                           top_con(ie)      ! top index of main convective cloud
 
-  REAL(wp), INTENT(IN) :: dhour            ! time since previous call in hours
+  TYPE(timeDelta),        POINTER :: time_diff ! time since previous call
   CHARACTER(LEN=4), INTENT(IN) :: ymodel   ! Use scalings factors for this NWP model
 
   INTEGER, INTENT(OUT) :: iww(ie)          ! significant weather code
@@ -299,12 +303,15 @@ CONTAINS
     REAL(wp) :: sf2            ! time scaling factor
     REAL(wp) :: dp             ! pressure difference
     INTEGER  :: igfb, irrb, isprb
+    REAL(wp) :: dhour
 
     REAL(wp), PARAMETER :: rkogrenz = 1._wp          ! limit for rko
     REAL(wp), PARAMETER :: ms_kn = 1._wp/0.51444_wp  ! factor to convert numbers in m/s to knots
 
 ! preset some constants for calculation of TD and for conversi
     sf1 = 1._wp
+
+    dhour = time_diff%day*24. + time_diff%hour + REAL(time_diff%minute,wp)/60.
     sf2 = dhour/3._wp
 
     SELECT CASE (ymodel)

@@ -92,12 +92,12 @@ MODULE mo_advection_vflux
   PUBLIC :: upwind_vflux_ppm_cfl
 
 #if defined( _OPENACC )
-#define ACC_DEBUG NOACC
 #if defined(__ADVECTION_VFLUX_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
+  LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 #endif
 
   !-------------------------------------------------------------------------
@@ -429,7 +429,6 @@ CONTAINS
     INTEGER  :: slev                   !< vertical start level
     INTEGER  :: nlev, nlevp1           !< number of full and half levels
     INTEGER  :: jc, jk, jb             !< index of cell, vertical level and block
-    INTEGER  :: jkm1                   !< jk - 1
     INTEGER  :: jg                     !< patch ID
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
@@ -437,7 +436,7 @@ CONTAINS
 
 #ifdef _OPENACC
 !$ACC DATA CREATE( zparent_topflx ), PCOPYIN( p_cc, p_mflx_contra_v ), PCOPYOUT( p_upflux ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_cc, p_mflx_contra_v ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_mflx_contra_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 #endif
 
     ! check optional arguments
@@ -495,7 +494,7 @@ CONTAINS
 !$ACC LOOP GANG
 #else
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jkm1,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 #endif
     DO jb = i_startblk, i_endblk
 
@@ -532,7 +531,7 @@ CONTAINS
     ENDDO ! end loop over blocks
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( p_upflux ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_upflux ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 #else
 !$OMP END DO NOWAIT
@@ -674,7 +673,7 @@ CONTAINS
 !$ACC DATA CREATE( z_face, z_face_up, z_face_low, z_cfl_m, z_cfl_p, z_slope ), &
 !$ACC      PCOPYIN( p_cc, p_mflx_contra_v, p_w_contra, p_cellhgt_mc_now ), &
 !$ACC      PCOPYOUT( p_upflux ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_cc, p_mflx_contra_v, p_w_contra, p_cellhgt_mc_now ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_mflx_contra_v, p_w_contra, p_cellhgt_mc_now ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 #endif
 
     ! check optional arguments
@@ -1148,7 +1147,7 @@ CONTAINS
     ENDIF
 
 #ifdef _OPENACC
-!ACC_DEBUG UPDATE HOST(p_upflux), IF (i_am_accel_node .AND. acc_on)
+!$ACC UPDATE HOST(p_upflux), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 #endif
 
@@ -1466,7 +1465,7 @@ CONTAINS
     END IF
 
 #ifdef _OPENACC
-    PRINT *, "Sorry, you are out of luck: the OpenACC version is not yet available"
+    PRINT *, "Sorry: upwind_vflux_ppm_cfl not yet available for OpenACC"
     IF ( .FALSE. ) THEN
 #else
 !$OMP PARALLEL

@@ -36,13 +36,14 @@ MODULE mo_velocity_advection
   USE mo_nonhydro_types,    ONLY: t_nh_metrics, t_nh_diag, t_nh_prog
   USE mo_math_divrot,       ONLY: rot_vertex_ri
   USE mo_vertical_grid,     ONLY: nrdmax
-  USE mo_nh_init_utils,     ONLY: nflatlev
+  USE mo_init_vgrid,        ONLY: nflatlev
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_timer,             ONLY: timer_solve_nh_veltend, timer_start, timer_stop
 #ifdef _OPENACC
-  USE mo_mpi,                 ONLY: i_am_accel_node
+  USE mo_mpi,               ONLY: i_am_accel_node, my_process_is_work
+  USE mo_sync,              ONLY: SYNC_C, SYNC_E, check_patch_array
 #endif
 
   IMPLICIT NONE
@@ -54,12 +55,12 @@ MODULE mo_velocity_advection
   PUBLIC :: velocity_tendencies
 
 #if defined( _OPENACC )
-#define ACC_DEBUG NOACC
 #if defined(__VELOCITY_ADVECTION_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
+  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
   CONTAINS
@@ -134,17 +135,17 @@ MODULE mo_velocity_advection
 
     ! Variables for conditional additional diffusion for vertical advection
     REAL(vp) :: cfl_w_limit, vcfl, maxvcfl, vcflmax(p_patch%nblks_c)
-    REAL(wp) :: w_con_e, scalfac_exdiff, difcoef
+    REAL(wp) :: w_con_e, scalfac_exdiff, difcoef, max_vcfl_dyn
                 
     INTEGER  :: ic, ie, nrdmax_jg, nflatlev_jg
     LOGICAL  :: levmask(p_patch%nblks_c,p_patch%nlev),levelmask(p_patch%nlev)
     LOGICAL  :: cfl_clipping(nproma,p_patch%nlevp1)   ! CFL > 0.85
 #ifdef _OPENACC
-    REAL(wp), DIMENSION(:,:),     POINTER  :: dvn_ie_ubc_tmp
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: vn_tmp, vt_tmp, vn_ie_tmp, rbf_vec_coeff_e_tmp, w_tmp
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: w_concorr_c_tmp
-    REAL(wp), DIMENSION(:,:,:,:), POINTER  :: ddt_vn_adv_tmp
-    REAL(wp), DIMENSION(:,:,:,:), POINTER  :: ddt_w_adv_tmp
+    REAL(wp), DIMENSION(:,:,:),   POINTER  :: vn_tmp, w_tmp
+    REAL(vp), DIMENSION(:,:,:),   POINTER  :: vt_tmp, vn_ie_tmp
+    REAL(vp), DIMENSION(:,:,:),   POINTER  :: w_concorr_c_tmp
+    REAL(vp), DIMENSION(:,:,:,:), POINTER  :: ddt_vn_adv_tmp
+    REAL(vp), DIMENSION(:,:,:,:), POINTER  :: ddt_w_adv_tmp
 #endif
     !--------------------------------------------------------------------------
 
@@ -181,27 +182,32 @@ MODULE mo_velocity_advection
     iqidx => p_patch%edges%quad_idx
     iqblk => p_patch%edges%quad_blk
 
-#ifdef _OPENACC
 !$ACC DATA PCOPY( p_prog, p_diag, z_w_concorr_me, z_kin_hor_e, z_vt_ie ), &
 !$ACC CREATE( z_w_concorr_mc, z_w_con_c, cfl_clipping, vcflmax, z_w_con_c_full, z_v_grad_w, z_w_v, zeta, z_ekinh, levmask, levelmask ), &
 !$ACC IF ( i_am_accel_node .AND. acc_on )
+#ifdef _OPENACC
     vn_tmp              => p_prog%vn
     w_tmp               => p_prog%w
     vt_tmp              => p_diag%vt
     vn_ie_tmp           => p_diag%vn_ie
-    dvn_ie_ubc_tmp      => p_diag%dvn_ie_ubc
     w_concorr_c_tmp     => p_diag%w_concorr_c
     ddt_vn_adv_tmp      => p_diag%ddt_vn_adv
     ddt_w_adv_tmp       => p_diag%ddt_w_adv
-!ACC_DEBUG UPDATE DEVICE ( vn_tmp, w_tmp, vt_tmp, vn_ie_tmp, dvn_ie_ubc_tmp, w_concorr_c_tmp, ddt_vn_adv_tmp, ddt_w_adv_tmp ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE ( z_w_concorr_me, z_kin_hor_e, z_vt_ie ), IF( i_am_accel_node .AND. acc_on )
+
+!$ACC UPDATE DEVICE ( vn_tmp, w_tmp, vt_tmp, vn_ie_tmp, w_concorr_c_tmp, ddt_vn_adv_tmp, ddt_w_adv_tmp ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE DEVICE ( z_w_concorr_me, z_kin_hor_e, z_vt_ie ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 #endif
 
     ! Limit on vertical CFL number for applying extra diffusion
-    cfl_w_limit = 0.65_wp/dtime   ! this means 65% of the nominal CFL stability limit
+    IF (lextra_diffu) THEN
+      cfl_w_limit = 0.65_wp/dtime   ! this means 65% of the nominal CFL stability limit
 
-    ! Scaling factor for extra diffusion
-    scalfac_exdiff = 0.05_wp / ( dtime*(0.85_wp - cfl_w_limit*dtime) )
+      ! Scaling factor for extra diffusion
+      scalfac_exdiff = 0.05_wp / ( dtime*(0.85_wp - cfl_w_limit*dtime) )
+    ELSE
+      cfl_w_limit = 0.85_wp/dtime   ! this means 65% of the nominal CFL stability limit
+      scalfac_exdiff = 0._wp
+    ENDIF
 
     ! Compute w at vertices
     IF (.NOT. lvn_only) CALL cells2verts_scalar_ri(p_prog%w, p_patch, &
@@ -224,7 +230,7 @@ MODULE mo_velocity_advection
 
 #ifdef _OPENACC
 !$ACC PARALLEL &
-!$ACC PRESENT( p_patch, p_int, p_metrics, p_prog, p_diag ), &
+!$ACC PRESENT( p_patch, p_int, p_metrics, p_prog, p_diag, z_vt_ie, z_w_concorr_me, z_kin_hor_e ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
 !$ACC LOOP GANG
@@ -280,6 +286,7 @@ MODULE mo_velocity_advection
 
         ! Compute contravariant correction for vertical velocity at interface levels
         ! (will be interpolated to cell centers below)
+
 !$ACC LOOP VECTOR COLLAPSE(2)
         DO jk = nflatlev_jg, nlev
 !DIR$ IVDEP
@@ -330,8 +337,8 @@ MODULE mo_velocity_advection
 #else
 !$OMP END DO
 #endif
-    ENDIF ! istep = 1
 
+    ENDIF ! istep = 1
 
     rl_start = 7
     rl_end = min_rledge_int - 1
@@ -383,6 +390,7 @@ MODULE mo_velocity_advection
 #else
 !$OMP END DO
 #endif
+
     ENDIF
 
     rl_start = 4
@@ -406,7 +414,7 @@ MODULE mo_velocity_advection
 !$ACC LOOP GANG
 #else
 !$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, i_startidx_2, i_endidx_2, z_w_con_c, &
-!$OMP            z_w_concorr_mc, ic, difcoef, vcfl, cfl_clipping) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            z_w_concorr_mc, ic, difcoef, vcfl, maxvcfl, cfl_clipping) ICON_OMP_DEFAULT_SCHEDULE
 #endif
     DO jb = i_startblk, i_endblk
 
@@ -639,6 +647,8 @@ MODULE mo_velocity_advection
            (p_int%c_lin_e(je,1,jb)*z_w_con_c_full(icidx(je,jb,1),jk,icblk(je,jb,1)) +           &
             p_int%c_lin_e(je,2,jb)*z_w_con_c_full(icidx(je,jb,2),jk,icblk(je,jb,2)))*           &
            (p_diag%vn_ie(je,jk,jb) - p_diag%vn_ie(je,jk+1,jb))/p_metrics%ddqz_z_full_e(je,jk,jb))
+        ENDDO
+      ENDDO
 #else
       DO jk = 1, nlev
         DO je = i_startidx, i_endidx
@@ -651,11 +661,9 @@ MODULE mo_velocity_advection
            (p_int%c_lin_e(je,1,jb)*z_w_con_c_full(icidx(je,jb,1),jk,icblk(je,jb,1)) +           &
             p_int%c_lin_e(je,2,jb)*z_w_con_c_full(icidx(je,jb,2),jk,icblk(je,jb,2)))*           &
            (p_diag%vn_ie(je,jk,jb) - p_diag%vn_ie(je,jk+1,jb))/p_metrics%ddqz_z_full_e(je,jk,jb))
-#endif
-
         ENDDO
       ENDDO
-
+#endif
 
       IF (lextra_diffu) THEN
         ! Search for grid points for which w_con is close to or above the CFL stability limit
@@ -700,16 +708,20 @@ MODULE mo_velocity_advection
 !$OMP END PARALLEL
 #endif
 
-#ifdef _OPENACC
-!ACC_DEBUG UPDATE HOST( vt_tmp, vn_ie_tmp, w_concorr_c_tmp, ddt_vn_adv_tmp, ddt_w_adv_tmp ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE HOST( z_w_concorr_me, z_kin_hor_e, z_vt_ie ), IF( i_am_accel_node .AND. acc_on )
-!$ACC END DATA
-#endif
+!$ACC UPDATE HOST( z_kin_hor_e, z_vt_ie, z_w_concorr_me, vt_tmp, vn_ie_tmp, w_concorr_c_tmp ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. (istep==1) )
+!$ACC UPDATE HOST( ddt_vn_adv_tmp, ddt_w_adv_tmp(:,:,:,ntnd) ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! Save maximum vertical CFL number for substep number adaptation
     i_startblk = p_patch%cells%start_block(grf_bdywidth_c)
     i_endblk   = p_patch%cells%end_block(min_rlcell_int)
-    p_metrics%max_vcfl_dyn = MAX(p_metrics%max_vcfl_dyn,MAXVAL(vcflmax(i_startblk:i_endblk)))
+
+!$ACC UPDATE HOST( vcflmax ), IF( i_am_accel_node .AND. acc_on )   ! MAXVAL not properly implemented in OpenACC; perform on host
+    max_vcfl_dyn = MAX(p_diag%max_vcfl_dyn,MAXVAL(vcflmax(i_startblk:i_endblk)))
+!$ACC KERNELS PRESENT(p_metrics), IF( i_am_accel_node .AND. acc_on )
+    p_diag%max_vcfl_dyn = max_vcfl_dyn
+!$ACC END KERNELS
+
+!$ACC END DATA
 
     IF (timers_level > 5) CALL timer_stop(timer_solve_nh_veltend)
 
