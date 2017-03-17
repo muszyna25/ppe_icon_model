@@ -80,6 +80,8 @@ MODULE mo_advection_traj
 
 
   TYPE t_back_traj
+    ! WS: unfortunately the OpenACC requires POINTERs, since UPDATEs cannot be performed on members
+    LOGICAL :: allocated = .FALSE.        ! WS: clean solution for pointers from stackoverflow
     ! line indices of cell centers in which the calculated barycenters are located
     ! dim: (nproma,nlev,p_patch%nblks_e)
     INTEGER , POINTER :: cell_idx(:,:,:)
@@ -139,6 +141,8 @@ CONTAINS
       CALL finish ( TRIM(routine), 'allocation for distv_bary failed' )
     ENDIF
 
+    obj%allocated = .TRUE.
+
 #ifdef _OPENACC
     p_cell_idx =>  obj%cell_idx
     p_cell_blk =>  obj%cell_blk
@@ -179,7 +183,7 @@ CONTAINS
 !$ACC EXIT DATA DELETE( p_cell_idx, p_cell_blk, p_distv_bary ), IF (i_am_accel_node .AND. acc_on)
 #endif
 
-    IF (ASSOCIATED(obj%cell_idx)) THEN
+    IF ( obj%allocated ) THEN
       DEALLOCATE(obj%cell_idx, obj%cell_blk, STAT=ist)
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'deallocation for cell_idx and cell_blk failed' )
@@ -189,6 +193,7 @@ CONTAINS
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'allocation for distv_bary failed' )
       ENDIF
+      obj%allocated = .FALSE.
     ENDIF
 
   END SUBROUTINE destruct
