@@ -1649,7 +1649,7 @@ MODULE mo_solve_nonhydro
 !$ACC IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
 #else
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_vn_avg,vn_1,vn_2,vn_3,vn_4) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_vn_avg) ICON_OMP_DEFAULT_SCHEDULE
 #endif
       DO jb = i_startblk, i_endblk
 
