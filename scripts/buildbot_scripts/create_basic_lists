@@ -39,11 +39,9 @@ $addexp exp.test_nwp_R02B04N06multi  exp.test_nwp_R02B04_R02B05_nest  --without-
 $addexp exp.test_nwp_R02B04N06multi2 --machines mistral daint_cpu --without-configureflags without-mpi with-openmp --runflags "cpu_time=00:45:00 no_of_nodes=2" --list $listname
 
 #-----------------------------------------------------------
-# ESM2 coupled tests, only with mpi
-# test aquaplanet run
+# ESM2
+# test coupled run, only with mpi
 $addexp exp.couple_atmo-ocean --without-configureflags without-mpi --runflags "cpu_time=00:30:00" --list $listname
-# test fully coupled run - gcc excluded due to error
-$addexp exp.aloy_pre03_bb --without-configureflags without-mpi with-fortran=gcc --runflags "cpu_time=00:30:00 no_of_nodes=2" --list $listname
 
 
 #-----------------------------------------------------------

@@ -83,7 +83,7 @@ USE mo_ocean_diffusion,             ONLY: tracer_diffusion_vertical_implicit
   PRIVATE :: calc_tapering_function
   PRIVATE :: calc_entries_mixing_tensor
   PUBLIC  :: diagnose_Redi_flux_balance
-  PRIVATE :: calc_bolus_velocity
+!  PRIVATE :: calc_bolus_velocity
   
 CONTAINS
 
@@ -949,8 +949,10 @@ CONTAINS
  !  !& minval(grad_S_vert_center(:,level,:))
  !  END DO
   !--------------------------------------------------------------------- 
+
   IF(BOLUS_VELOCITY_DIAGNOSTIC)THEN
-    CALL calc_bolus_velocity(patch_3d, ocean_state, param, op_coeff)
+    write(0,*)'calc_bolus_velocity is enabled in the namelist but deactivated in the code'
+!    CALL calc_bolus_velocity(patch_3d, ocean_state, param, op_coeff)
   ENDIF
   !---------------------------------------------------------------------  
   
@@ -2112,173 +2114,172 @@ ocean_state%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration=ocean_stat
   END SUBROUTINE diagnose_Redi_flux_balance
   !-------------------------------------------------------------------------
 
- !-------------------------------------------------------------------------
-  !>
-  !! !  SUBROUTINE calculates the bolus velocity from the isopycnal slopes.
-  !! !  This is currently used for diagnostic purposes, the GM-Redi paramerization
-  !! !  uses the skew-flux approach.
-  !!
-  !! @par Revision History
-  !! Developed  by  Peter Korn, MPI-M (2016).
-  !!
-!<Optimize:inUse>
-  SUBROUTINE calc_bolus_velocity(patch_3d, ocean_state, param, op_coeff)
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
-    TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
-    TYPE(t_ho_params),                 INTENT(inout) :: param
-    TYPE(t_operator_coeff),            INTENT(inout) :: op_coeff
-    
-    !Local variables
-    REAL(wp) :: div_bolus_vn(nproma, n_zlev+1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp) :: cell_max_slope, inv_cell_characteristic_length,slope_abs
-    
-    TYPE(t_cartesian_coordinates) :: grad_slope_vec(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)    
-    TYPE(t_cartesian_coordinates) :: kappa_times_slope(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    TYPE(t_cartesian_coordinates) :: slope_deriv_atcenter(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-           
-    INTEGER :: level, blockNo, start_level, end_level
-    INTEGER :: start_cell_index, end_cell_index, cell_index
-    TYPE(t_subset_range), POINTER :: cells_in_domain, all_cells!, edges_in_domain
-    TYPE(t_patch), POINTER :: patch_2D
-    !-----------------------------------------------------------------------
-    patch_2D        => patch_3D%p_patch_2D(1)
-    all_cells       => patch_2D%cells%all
-    cells_in_domain => patch_2D%cells%in_domain
-    !edges_in_domain => patch_2D%edges%in_domain
-    !-------------------------------------------------------------------------
-
-    start_level = 1
-    
-    
-    !Step 1: Calculate kappa times slopes
-    !-------------------------------------------------------------------------------
-!ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level, &
-!ICON_OMP  level) ICON_OMP_DEFAULT_SCHEDULE
-          DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
-            CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
-
-            DO cell_index = start_cell_index, end_cell_index
-            
-              inv_cell_characteristic_length = 1.0_wp / SQRT(patch_2D%cells%area(cell_index,blockNo))
-              end_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
-              IF(end_level <= min_dolic) CYCLE
-                              
-              DO level = start_level+1, end_level-1
-
-                cell_max_slope      = S_max  &
-                & * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) &
-                & * inv_cell_characteristic_length
-              
-                slope_abs = sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))
-
-                IF(slope_abs <= cell_max_slope)THEN
-                  kappa_times_slope(cell_index,level,blockNo)%x=        &
-                  &-param%k_tracer_GM_kappa(cell_index,level,blockNo)   &
-                  &+ocean_state%p_aux%slopes(cell_index,level,blockNo)%x
-                ELSE
-                  kappa_times_slope(cell_index,level,blockNo)%x=0.0_wp                      
-                ENDIF
-              END DO                         
-            END DO ! cell_index = start_cell_index, end_cell_index
-          END DO  ! blockNo = all_cells%start_block, all_cells%end_block
-!ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_PARALLEL
-    !-------------------------------------------------------------------------------
-
-    !Step 2: Calculate vertical derivative of kappa times slopes and map it back to prism center(midlevel)
-    !-------------------------------------------------------------------------------           
-!ICON_OMP_PARALLEL   
-!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index) ICON_OMP_DEFAULT_SCHEDULE
- 
-    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
-        
-      CALL verticalDeriv_vec_midlevel_on_block( patch_3d,                      &
-                                              & kappa_times_slope(:,:,blockNo),&
-                                              & grad_slope_vec(:,:,blockNo),   &
-                                              & start_level+1,                 &
-                                              & blockNo,                       &
-                                              & start_cell_index,              &
-                                              & end_cell_index)
-        IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN                                       
-          CALL map_vec_prismtop2center_on_block( patch_3d,                   &
-            & grad_slope_vec(:,:,blockNo),       &
-            & slope_deriv_atcenter(:,:,blockNo), & 
-            & blockNo, start_cell_index, end_cell_index)
-        ELSE
-          CALL map_vec_prismtop2center_on_block_GM( patch_3d,                &
-            & grad_slope_vec(:,:,blockNo),              &
-            & slope_deriv_atcenter(:,:,blockNo),        & 
-            & blockNo, start_cell_index, end_cell_index)
-               
-       
-       ENDIF                                                                           
-                                              
-    END DO ! blocks
-!ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_PARALLEL        
-    !------------------------------------------------------------------------------
-
-    !Step 3: Map result back to edges to obtain the horizontal bolus velocity 
-    !------------------------------------------------------------------------------
-    CALL  map_cell2edges_3d( patch_3d,                   &
-                           & slope_deriv_atcenter,       &
-                           & ocean_state%p_diag%vn_bolus,&
-                           & op_coeff,                   &
-                           & start_level+1)
-    !------------------------------------------------------------------------------
-
-
-    !Step 4: Calculate vertical bolus as horizontal divergence of horizontal bolus velocity
-    !------------------------------------------------------------------------------
-!ICON_OMP_PARALLEL    
-!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index) ICON_OMP_DEFAULT_SCHEDULE
-          DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
-            CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
-        
-            CALL div_oce_3D_onTriangles_onBlock( &
-              & ocean_state%p_diag%vn_bolus,     &
-              & patch_3D,op_coeff%div_coeff,     &
-              & div_bolus_vn(:,:,blockNo),       &
-              & blockNo,start_cell_index, end_cell_index,start_level+1,n_zlev)!,      &
-              !& start_level=1, end_level=n_zlev)
-        
-            DO cell_index = start_cell_index, end_cell_index          
-              !use bottom boundary condition for vertical velocity at bottom of prism
-              DO level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo), 1, -1
-                ocean_state%p_diag%w_bolus(cell_index,level,blockNo) &
-                  &= ocean_state%p_diag%w_bolus(cell_index,level+1,blockNo)&
-                  & - div_bolus_vn(cell_index,level,blockNo)
-              END DO
-            END DO
-        
-          END DO ! blockNo
-!ICON_OMP_END_PARALLEL_DO 
-!ICON_OMP_END_PARALLEL
-    !------------------------------------------------------------------------------
-!    CALL map_edges2cell_3d(patch_3d, ocean_state%p_diag%vn_bolus, op_coeff,ocean_state%p_diag%p_vn)
-!    CALL Get3DVectorTo2DLocal_array3D(vector=ocean_state%p_diag%p_vn, &
-!      & position_local=patch_2d%cells%center, &
-!      & levels=patch_3d%p_patch_1d(1)%dolic_c, &
-!      & subset=all_cells,                      &
-!      & geometry_info=patch_2d%geometry_info, &
-!      & x=ocean_state%p_diag%u, y=ocean_state%p_diag%v)
-
-  !---------DEBUG DIAGNOSTICS-------------------------------------------
-  idt_src=1  ! output print level (1-5, fix)
-  CALL dbg_print('calc_bolus:',(ocean_state%p_diag%w_bolus(:,:,:)),&
-    & str_module,idt_src, in_subset=cells_in_domain)
-   DO level=1,n_zlev
-     CALL dbg_print('calc_bolus:',ocean_state%p_diag%w_bolus(:,level,:),&
-       & str_module,idt_src, in_subset=cells_in_domain)
-  END DO
-!stop
-  !---------------------------------------------------------------------
-
-  END SUBROUTINE calc_bolus_velocity
-  !-------------------------------------------------------------------------
-
+!!$!-------------------------------------------------------------------------
+!!$  !>
+!!$  !! !  SUBROUTINE calculates the bolus velocity from the isopycnal slopes.
+!!$  !! !  This is currently used for diagnostic purposes, the GM-Redi paramerization
+!!$  !! !  uses the skew-flux approach.
+!!$  !!
+!!$  !! @par Revision History
+!!$  !! Developed  by  Peter Korn, MPI-M (2016).
+!!$  !!
+!!$!<Optimize:inUse>
+!!$  SUBROUTINE calc_bolus_velocity(patch_3d, ocean_state, param, op_coeff)
+!!$    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+!!$    TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
+!!$    TYPE(t_ho_params),                 INTENT(inout) :: param
+!!$    TYPE(t_operator_coeff),            INTENT(inout) :: op_coeff
+!!$    
+!!$    !Local variables
+!!$    REAL(wp) :: div_bolus_vn(nproma, n_zlev+1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+!!$    REAL(wp) :: cell_max_slope, inv_cell_characteristic_length,slope_abs
+!!$    
+!!$    TYPE(t_cartesian_coordinates) :: grad_slope_vec(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)    
+!!$    TYPE(t_cartesian_coordinates) :: kappa_times_slope(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+!!$    TYPE(t_cartesian_coordinates) :: slope_deriv_atcenter(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+!!$           
+!!$    INTEGER :: level, blockNo, start_level, end_level
+!!$    INTEGER :: start_cell_index, end_cell_index, cell_index
+!!$    TYPE(t_subset_range), POINTER :: cells_in_domain, all_cells!, edges_in_domain
+!!$    TYPE(t_patch), POINTER :: patch_2D
+!!$    !-----------------------------------------------------------------------
+!!$    patch_2D        => patch_3D%p_patch_2D(1)
+!!$    all_cells       => patch_2D%cells%all
+!!$    cells_in_domain => patch_2D%cells%in_domain
+!!$    !edges_in_domain => patch_2D%edges%in_domain
+!!$    !-------------------------------------------------------------------------
+!!$
+!!$    start_level = 1
+!!$    
+!!$    
+!!$    !Step 1: Calculate kappa times slopes
+!!$    !-------------------------------------------------------------------------------
+!!$!ICON_OMP_PARALLEL
+!!$!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level, &
+!!$!ICON_OMP  level) ICON_OMP_DEFAULT_SCHEDULE
+!!$          DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+!!$            CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+!!$
+!!$            DO cell_index = start_cell_index, end_cell_index
+!!$            
+!!$              inv_cell_characteristic_length = 1.0_wp / SQRT(patch_2D%cells%area(cell_index,blockNo))
+!!$              end_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+!!$              IF(end_level <= min_dolic) CYCLE
+!!$                              
+!!$              DO level = start_level+1, end_level-1
+!!$
+!!$                cell_max_slope      = S_max  &
+!!$                & * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) &
+!!$                & * inv_cell_characteristic_length
+!!$              
+!!$                slope_abs = sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))
+!!$
+!!$                IF(slope_abs <= cell_max_slope)THEN
+!!$                  kappa_times_slope(cell_index,level,blockNo)%x=        &
+!!$                  &-param%k_tracer_GM_kappa(cell_index,level,blockNo)   &
+!!$                  &+ocean_state%p_aux%slopes(cell_index,level,blockNo)%x
+!!$                ELSE
+!!$                  kappa_times_slope(cell_index,level,blockNo)%x=0.0_wp                      
+!!$                ENDIF
+!!$              END DO                         
+!!$            END DO ! cell_index = start_cell_index, end_cell_index
+!!$          END DO  ! blockNo = all_cells%start_block, all_cells%end_block
+!!$!ICON_OMP_END_DO_NOWAIT
+!!$!ICON_OMP_END_PARALLEL
+!!$    !-------------------------------------------------------------------------------
+!!$
+!!$    !Step 2: Calculate vertical derivative of kappa times slopes and map it back to prism center(midlevel)
+!!$    !-------------------------------------------------------------------------------           
+!!$!ICON_OMP_PARALLEL   
+!!$!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index) ICON_OMP_DEFAULT_SCHEDULE
+!!$ 
+!!$    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+!!$      CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+!!$        
+!!$      CALL verticalDeriv_vec_midlevel_on_block( patch_3d,                      &
+!!$                                              & kappa_times_slope(:,:,blockNo),&
+!!$                                              & grad_slope_vec(:,:,blockNo),   &
+!!$                                              & start_level+1,                 &
+!!$                                              & blockNo,                       &
+!!$                                              & start_cell_index,              &
+!!$                                              & end_cell_index)
+!!$        IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN                                       
+!!$          CALL map_vec_prismtop2center_on_block( patch_3d,                   &
+!!$            & grad_slope_vec(:,:,blockNo),       &
+!!$            & slope_deriv_atcenter(:,:,blockNo), & 
+!!$            & blockNo, start_cell_index, end_cell_index)
+!!$        ELSE
+!!$          CALL map_vec_prismtop2center_on_block_GM( patch_3d,                &
+!!$            & grad_slope_vec(:,:,blockNo),              &
+!!$            & slope_deriv_atcenter(:,:,blockNo),        & 
+!!$            & blockNo, start_cell_index, end_cell_index)
+!!$               
+!!$       
+!!$       ENDIF                                                                           
+!!$                                              
+!!$    END DO ! blocks
+!!$!ICON_OMP_END_DO_NOWAIT
+!!$!ICON_OMP_END_PARALLEL        
+!!$    !------------------------------------------------------------------------------
+!!$
+!!$    !Step 3: Map result back to edges to obtain the horizontal bolus velocity 
+!!$    !------------------------------------------------------------------------------
+!!$    CALL  map_cell2edges_3d( patch_3d,                   &
+!!$                           & slope_deriv_atcenter,       &
+!!$                           & ocean_state%p_diag%vn_bolus,&
+!!$                           & op_coeff,                   &
+!!$                           & start_level+1)
+!!$    !------------------------------------------------------------------------------
+!!$
+!!$
+!!$    !Step 4: Calculate vertical bolus as horizontal divergence of horizontal bolus velocity
+!!$    !------------------------------------------------------------------------------
+!!$!ICON_OMP_PARALLEL    
+!!$!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index) ICON_OMP_DEFAULT_SCHEDULE
+!!$          DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+!!$            CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+!!$        
+!!$            CALL div_oce_3D_onTriangles_onBlock( &
+!!$              & ocean_state%p_diag%vn_bolus,     &
+!!$              & patch_3D,op_coeff%div_coeff,     &
+!!$              & div_bolus_vn(:,:,blockNo),       &
+!!$              & blockNo,start_cell_index, end_cell_index,start_level+1,n_zlev)!,      &
+!!$              !& start_level=1, end_level=n_zlev)
+!!$        
+!!$            DO cell_index = start_cell_index, end_cell_index          
+!!$              !use bottom boundary condition for vertical velocity at bottom of prism
+!!$              DO level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo), 1, -1
+!!$                ocean_state%p_diag%w_bolus(cell_index,level,blockNo) &
+!!$                  &= ocean_state%p_diag%w_bolus(cell_index,level+1,blockNo)&
+!!$                  & - div_bolus_vn(cell_index,level,blockNo)
+!!$              END DO
+!!$            END DO
+!!$        
+!!$          END DO ! blockNo
+!!$!ICON_OMP_END_PARALLEL_DO 
+!!$!ICON_OMP_END_PARALLEL
+!!$    !------------------------------------------------------------------------------
+!!$!    CALL map_edges2cell_3d(patch_3d, ocean_state%p_diag%vn_bolus, op_coeff,ocean_state%p_diag%p_vn)
+!!$!    CALL Get3DVectorTo2DLocal_array3D(vector=ocean_state%p_diag%p_vn, &
+!!$!      & position_local=patch_2d%cells%center, &
+!!$!      & levels=patch_3d%p_patch_1d(1)%dolic_c, &
+!!$!      & subset=all_cells,                      &
+!!$!      & geometry_info=patch_2d%geometry_info, &
+!!$!      & x=ocean_state%p_diag%u, y=ocean_state%p_diag%v)
+!!$
+!!$  !---------DEBUG DIAGNOSTICS-------------------------------------------
+!!$  idt_src=1  ! output print level (1-5, fix)
+!!$  CALL dbg_print('calc_bolus:',(ocean_state%p_diag%w_bolus(:,:,:)),&
+!!$    & str_module,idt_src, in_subset=cells_in_domain)
+!!$   DO level=1,n_zlev
+!!$     CALL dbg_print('calc_bolus:',ocean_state%p_diag%w_bolus(:,level,:),&
+!!$       & str_module,idt_src, in_subset=cells_in_domain)
+!!$  END DO
+!!$!stop
+!!$  !---------------------------------------------------------------------
+!!$
+!!$  END SUBROUTINE calc_bolus_velocity
+!!$  !-------------------------------------------------------------------------
 
 !---------------------------------------------------------------------------
 
