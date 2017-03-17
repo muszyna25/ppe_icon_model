@@ -160,6 +160,8 @@ CONTAINS
 !$ACC EXIT DATA DELETE( obj%cell_idx, obj%cell_blk, obj%distv_bary ), IF (i_am_accel_node .AND. acc_on)
 
     IF (ALLOCATED(obj%cell_idx)) THEN
+      print *, "Deallocating TRAJ object"
+#if 0
       DEALLOCATE(obj%cell_idx, obj%cell_blk, STAT=ist)
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'deallocation for cell_idx and cell_blk failed' )
@@ -169,6 +171,7 @@ CONTAINS
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'allocation for distv_bary failed' )
       ENDIF
+#endif
     ENDIF
 
   END SUBROUTINE destruct

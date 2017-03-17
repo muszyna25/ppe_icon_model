@@ -206,11 +206,11 @@ MODULE mo_solve_nonhydro
                z_ntdistv_bary(2), distv_bary(2), r_nsubsteps, scal_divdamp_o2
     REAL(wp) :: z_raylfac(nrdmax(p_patch%id))
     REAL(wp) :: z_ntdistv_bary_1, distv_bary_1, z_ntdistv_bary_2, distv_bary_2
-    REAL(wp) :: vn_1, vn_2, vn_3, vn_4
 
     REAL(wp), DIMENSION(p_patch%nlev) :: scal_divdamp, bdy_divdamp, enh_divdamp_fac
 
 #ifdef _OPENACC
+    REAL(wp) :: vn_1, vn_2, vn_3, vn_4
     REAL(wp), DIMENSION(:,:,:),   POINTER  :: exner_tmp, rho_tmp, theta_v_tmp, vn_tmp, w_tmp                 ! p_prog  WP
     REAL(wp), DIMENSION(:,:),     POINTER  :: dvn_ie_int_tmp, dvn_ie_ubc_tmp                                 ! p_diag  WP 2D
     REAL(wp), DIMENSION(:,:,:),   POINTER  :: theta_v_ic_tmp, rho_ic_tmp, dw_int_tmp, dw_ubc_tmp             ! p_diag  WP
@@ -631,6 +631,7 @@ MODULE mo_solve_nonhydro
               z_rth_pr(1,jc,jk,jb) =  p_nh%prog(nnow)%rho(jc,jk,jb)     - p_nh%metrics%rho_ref_mc(jc,jk,jb)
               z_rth_pr(2,jc,jk,jb) =  p_nh%prog(nnow)%theta_v(jc,jk,jb) - p_nh%metrics%theta_ref_mc(jc,jk,jb)
 
+#ifdef _OPENACC
             ENDDO
           ENDDO
 
@@ -640,6 +641,7 @@ MODULE mo_solve_nonhydro
 !DIR$ IVDEP
 !$ACC LOOP VECTOR
             DO jc = i_startidx, i_endidx
+#endif
 
               ! perturbation virtual potential temperature at interface levels
               z_theta_v_pr_ic(jc,jk) =                                           &
@@ -826,12 +828,10 @@ MODULE mo_solve_nonhydro
 #else
 !$OMP END DO NOWAIT
 #endif
-
       ENDIF
 #ifndef _OPENACC
 !$OMP END PARALLEL
 #endif
-
 
       IF (timers_level > 5) THEN
         CALL timer_stop(timer_solve_nh_cellcomp)
@@ -875,7 +875,7 @@ MODULE mo_solve_nonhydro
 #ifdef _OPENACC
           print *, "WARNING:  upwind_hflux_miura3 is not yet ported to OpenACC"
 #endif
-!$ACC UPDATE HOST( z_rho_e, z_theta_v_e ) IF( i_am_accel_node .AND. acc_on )    !!!!  CHECK THIS!!!
+!$ACC UPDATE HOST( z_rho_e, z_theta_v_e ) IF( i_am_accel_node .AND. acc_on )    !!!!  WS: CHECK THIS!!!
           CALL upwind_hflux_miura3(p_patch, p_nh%prog(nnow)%rho, p_nh%prog(nnow)%vn, &
             p_nh%prog(nnow)%vn, REAL(p_nh%diag%vt,wp), dtime, p_int,    &
             lcompute, lcleanup, 0, z_rho_e,                    &
@@ -891,7 +891,6 @@ MODULE mo_solve_nonhydro
 !$ACC UPDATE DEVICE( z_rho_e, z_theta_v_e ) IF( i_am_accel_node .AND. acc_on )
 
         ENDIF
-
       ENDIF ! istep = 1
 
 #ifndef _OPENACC
@@ -1360,7 +1359,6 @@ MODULE mo_solve_nonhydro
 
       ENDIF
 
-
       ! Update horizontal velocity field: advection (including Coriolis force) and pressure-gradient term
 #ifdef _OPENACC
 !$ACC PARALLEL &
@@ -1753,6 +1751,7 @@ MODULE mo_solve_nonhydro
                 * p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
                 + p_int%rbf_vec_coeff_e(4,je,jb)                       &
                 * p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
+
             ENDDO
           ENDDO
 
@@ -1937,7 +1936,6 @@ MODULE mo_solve_nonhydro
 #else
 !$OMP END DO
 #endif
-
       ENDIF
 
 
@@ -2055,7 +2053,6 @@ MODULE mo_solve_nonhydro
         ENDDO
 !$OMP END DO
 #endif
-
       ENDIF
 
       IF (idiv_method == 2) THEN ! Compute fluxes at edges from original velocities
@@ -2119,7 +2116,6 @@ MODULE mo_solve_nonhydro
         CALL div_avg(p_nh%diag%mass_fl_e, p_patch, p_int, p_int%c_bln_avg, z_mass_fl_div, &
                      opt_in2=z_theta_v_fl_e, opt_out2=z_theta_v_fl_div, opt_rlstart=4,    &
                      opt_rlend=min_rlcell_int)
-
       ENDIF
 
 #ifndef _OPENACC
@@ -2758,6 +2754,7 @@ MODULE mo_solve_nonhydro
 
 
     ! The remaining computations are needed for MPI-parallelized applications only
+    IF ( .NOT. my_process_is_mpi_all_seq() ) THEN
 
 ! OpenMP directives are commented for the NEC because the overhead is too large
 #if !defined( __SX__ ) && !defined( _OPENACC )
@@ -2893,6 +2890,8 @@ MODULE mo_solve_nonhydro
 !$OMP END PARALLEL
 #endif
 #endif
+
+    ENDIF  ! .NOT. my_process_is_mpi_all_seq()
 
 !$ACC END DATA
 
