@@ -756,9 +756,7 @@ FUNCTION comm_pattern_get_redist(p_pat, nfields, nlev, mpi_type, &
     p_pat%redists%p(n)%redist = &
       xt_redist_collection_new(redists, nfields, -1, p_pat%comm)
 
-    DO i = 1, nfields
-      CALL xt_redist_delete(redists(i))
-    END DO
+    CALL xt_redist_delete(redists)
   END IF
 
   comm_pattern_get_redist = p_pat%redists%p(n)%redist
@@ -871,9 +869,7 @@ FUNCTION comm_pattern_collection_get_redist(p_pat_coll, nfields, dst_nlev, &
   p_pat_coll%redists%p(n)%redist = &
     xt_redist_collection_new(redists, -1, p_pat_coll%patterns(1)%p%comm)
 
-  DO i = 1, nfields * SIZE(p_pat_coll%patterns)
-    CALL xt_redist_delete(redists(i))
-  END DO
+  CALL xt_redist_delete(redists)
 
   comm_pattern_collection_get_redist = p_pat_coll%redists%p(n)%redist
 
