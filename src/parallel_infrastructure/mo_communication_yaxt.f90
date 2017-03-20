@@ -895,8 +895,7 @@ SUBROUTINE setup_comm_pattern_collection(pattern_collection, patterns)
       TYPE IS (t_comm_pattern_yaxt)
         pattern_collection%patterns(i)%p => pattern_yaxt
       CLASS DEFAULT
-        CALL finish("setup_comm_pattern_collection", &
-                    "wrong t_comm_pattern type")
+        CALL finish(routine, "wrong t_comm_pattern type")
     END SELECT
   END DO
 
