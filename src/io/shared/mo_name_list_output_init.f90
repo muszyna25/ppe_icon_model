@@ -21,19 +21,19 @@ MODULE mo_name_list_output_init
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer, c_int64_t, c_char
 
   ! constants and global settings
-  USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate,     &
-    &                                             cdiEncodeDate, cdiEncodeTime, institutInq, vlistCreate,    &
-    &                                             cdiEncodeParam, TUNIT_MINUTE, CDI_UNDEFID,                 &
-    &                                             TAXIS_RELATIVE, taxisCreate, TAXIS_ABSOLUTE,               &
-    &                                             GRID_UNSTRUCTURED, GRID_LONLAT, gridDefPosition,           &
-    &                                             gridDefXsize, gridDefXname, gridDefXunits, gridDefYsize,   &
-    &                                             gridDefYname, gridDefYunits, gridDefNumber, gridDefUUID,   &
-    &                                             gridDefNvertex, vlistDefInstitut, gridDefXvals,            &
-    &                                             gridDefYvals,                                              &
-    &                                             gridDefXlongname, gridDefYlongname, taxisDefTunit,         &
-    &                                             taxisDefCalendar, taxisDefRdate, taxisDefRtime,            &
-    &                                             vlistDefTaxis, vlistDefAttTxt, CDI_GLOBAL, gridDefXpole,   &
-    &                                             gridDefYpole, GRID_ZONAL
+  USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate, cdiEncodeDate,          &
+                                                & cdiEncodeTime, institutInq, vlistCreate, cdiEncodeParam, vlistDefVar,          &
+                                                & TUNIT_MINUTE, CDI_UNDEFID, TAXIS_RELATIVE, taxisCreate, TAXIS_ABSOLUTE,        &
+                                                & GRID_UNSTRUCTURED, GRID_LONLAT, vlistDefVarDatatype, vlistDefVarName,          &
+                                                & gridDefPosition, vlistDefVarIntKey, gridDefXsize, gridDefXname, gridDefXunits, &
+                                                & gridDefYsize, gridDefYname, gridDefYunits, gridDefNumber, gridDefUUID, &
+                                                & gridDefNvertex, vlistDefInstitut, vlistDefVarParam, vlistDefVarLongname, &
+                                                & vlistDefVarStdname, vlistDefVarUnits, vlistDefVarMissval, gridDefXvals, &
+                                                & gridDefYvals, gridDefXlongname, gridDefYlongname, taxisDefTunit, &
+                                                & taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,   &
+                                                & cdiDefAttTxt, CDI_GLOBAL, gridDefParamRLL, GRID_ZONAL, vlistDefVarDblKey
+  USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
+                                                & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_EDGE, GRID_CELL
   USE mo_kind,                              ONLY: wp, i8, dp, sp
   USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS,                   &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il,   &
@@ -2371,22 +2371,22 @@ CONTAINS
     CALL vlistDefInstitut(of%cdiVlistID,cdiInstID)
 
     tlen = LEN_TRIM(cf_global_info%title)
-    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'title',       &
+    iret = cdiDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'title',       &
          &                tlen, cf_global_info%title(1:tlen))
     tlen = LEN_TRIM(cf_global_info%institution)
-    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'institution', &
+    iret = cdiDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'institution', &
          &                tlen, cf_global_info%institution(1:tlen))
     tlen = LEN_TRIM(cf_global_info%source)
-    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'source',      &
+    iret = cdiDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'source',      &
          &                tlen, cf_global_info%source(1:tlen))
     tlen = LEN_TRIM(cf_global_info%history)
-    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'history',     &
+    iret = cdiDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'history',     &
          &                tlen, cf_global_info%history(1:tlen))
     tlen = LEN_TRIM(cf_global_info%references)
-    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'references',  &
+    iret = cdiDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'references',  &
          &                tlen, cf_global_info%references(1:tlen))
     tlen = LEN_TRIM(cf_global_info%comment)
-    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'comment',     &
+    iret = cdiDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'comment',     &
          &                tlen, cf_global_info%comment(1:tlen))
 
     ! 3. add horizontal grid descriptions
@@ -2408,8 +2408,8 @@ CONTAINS
 
       IF ( ABS(90._wp - lonlat%grid%north_pole(2)) > ZERO_TOL .OR.  &
       &    ABS( 0._wp - lonlat%grid%north_pole(1)) > ZERO_TOL ) THEN
-        CALL gridDefXpole( of%cdiLonLatGridID, lonlat%grid%north_pole(1))
-        CALL gridDefYpole( of%cdiLonLatGridID, lonlat%grid%north_pole(2))
+        CALL gridDefParamRLL(of%cdiLonLatGridID, lonlat%grid%north_pole(1), &
+          &                  lonlat%grid%north_pole(2), 0.0_dp)
       END IF
 
       CALL gridDefXsize(of%cdiLonLatGridID, ll_dim1)

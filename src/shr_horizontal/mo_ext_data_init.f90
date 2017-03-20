@@ -89,7 +89,7 @@ MODULE mo_ext_data_init
   USE mo_nwp_tuning_config,  ONLY: itune_albedo
   USE mo_cdi,                ONLY: FILETYPE_GRB2, streamOpenRead, streamInqFileType, &
     &                              streamInqVlist, vlistInqVarZaxis, zaxisInqSize,   &
-    &                              vlistNtsteps, vlistInqVarGrid, vlistInqAttTxt,    &
+    &                              vlistNtsteps, vlistInqVarGrid, cdiInqAttTxt,    &
     &                              vlistInqVarIntKey, CDI_GLOBAL, gridInqUUID, &
     &                              streamClose, cdiStringError
   USE mo_math_gradients,     ONLY: grad_fe_cell
@@ -477,7 +477,7 @@ CONTAINS
       ! global attribute "rawdata". For GRIB2 format we check the
       ! key "localInformationNumber".
       IF (has_filetype_netcdf(cdi_filetype)) THEN
-        ret      = vlistInqAttTxt(vlist_id, CDI_GLOBAL, 'rawdata', max_char_length, rawdata_attr)
+        ret      = cdiInqAttTxt(vlist_id, CDI_GLOBAL, 'rawdata', max_char_length, rawdata_attr)
         IF (INDEX(rawdata_attr,'GLC2000') /= 0) THEN
           i_lctype(jg) = GLC2000
         ELSE IF (INDEX(rawdata_attr,'GLOBCOVER2009') /= 0) THEN

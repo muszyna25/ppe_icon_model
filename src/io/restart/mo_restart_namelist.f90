@@ -11,7 +11,7 @@
 !! This module contains utility functions for storing the namelist parameters in the restart files.
 
 MODULE mo_restart_namelist
-    USE mo_cdi, ONLY: CDI_GLOBAL, CDI_UNDEFID, CDI_MAX_NAME, vlistInqNatts, vlistInqAtt, vlistInqAttTxt, vlistDefAttTxt
+    USE mo_cdi, ONLY: CDI_GLOBAL, CDI_UNDEFID, CDI_MAX_NAME, cdiInqNatts, cdiInqAtt, cdiInqAttTxt, cdiDefAttTxt
     USE mo_exception, ONLY: message, finish
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_io_units, ONLY: nerr, find_next_free_unit, filename_max
@@ -185,7 +185,7 @@ CONTAINS
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":namelistArchive_writeToCdiVlist"
 
         DO i = 1, me%namelistCount
-            error = vlistDefAttTxt(cdiVlistId, CDI_GLOBAL, me%namelists(i)%name, LEN(me%namelists(i)%text), &
+            error = cdiDefAttTxt(cdiVlistId, CDI_GLOBAL, me%namelists(i)%name, LEN(me%namelists(i)%text), &
                                   &me%namelists(i)%text)
             IF(error /= SUCCESS) CALL finish(routine, "error WHILE writing a namelist to a restart file")
         END DO
@@ -206,22 +206,22 @@ CONTAINS
         CALL me%reset()
 
         ! get the number of attributes so we can loop over them
-        status = vlistInqNatts(vlistID, CDI_GLOBAL, natts)
-        IF(status /= SUCCESS) CALL finish(routine, "vlistInqNatts() returned an error")
+        status = cdiInqNatts(vlistID, CDI_GLOBAL, natts)
+        IF(status /= SUCCESS) CALL finish(routine, "cdiInqNatts() returned an error")
 
         DO i = 0, natts-1
             ! inquire the attribute NAME AND check whether it IS a namelist attribute
             att_name = ''
             att_len = 0
-            status = vlistInqAtt(vlistID, CDI_GLOBAL, i, att_name, att_type, att_len)
-            IF(status /= SUCCESS) CALL finish(routine, "vlistInqAtt() returned an error")
+            status = cdiInqAtt(vlistID, CDI_GLOBAL, i, att_name, att_type, att_len)
+            IF(status /= SUCCESS) CALL finish(routine, "cdiInqAtt() returned an error")
 
             IF(att_name(1:4) /= 'nml_') CYCLE ! skip this, it is not a namelist
 
             ! it IS a namelist attribute, so we add it to the list
             ALLOCATE(CHARACTER(len=att_len) :: tempText)
-            status = vlistInqAttTxt(vlistID, CDI_GLOBAL, TRIM(att_name), att_len, tempText)
-            IF(status /= SUCCESS) CALL finish(routine, "vlistInqAttTxt() returned an error")
+            status = cdiInqAttTxt(vlistID, CDI_GLOBAL, TRIM(att_name), att_len, tempText)
+            IF(status /= SUCCESS) CALL finish(routine, "cdiInqAttTxt() returned an error")
             CALL me%setNamelist(att_name(5:), tempText)
             DEALLOCATE(tempText)
         END DO
