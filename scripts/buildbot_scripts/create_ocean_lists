@@ -39,18 +39,37 @@ checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.ocean_inter
 #-----------------------------------------------------------
 
 #############################################################################
-##
 ## create omip_10days list
-##
-#############################################################################
 listname=omip_10days
 ./rmlist $listname
 ./mklist $listname
 
 ./set_builder_flags Active            --builders MISTRAL_ocean  --list $listname
 $addexp checksuite.ocean_internal/omip/exp.test_ocean_omip_10days --runflags "cpu_time=00:30:00" --list $listname
-./set_builder_flags Ocean             --builders MISTRAL_ocean  --list $listname
+./set_builder_flags Ocean --builders "*" --list $listname
 ./set_builder_flags Inactive          --builders MISTRAL_nag_serial  --list $listname
 
+./lslist $listname
+#-----------------------------------------------------------
+
+#############################################################################
+## create amip rererence list
+listname=oes_amip
+./rmlist $listname
+./mklist $listname
+
+$addexp checksuite.ocean_internal/other/exp.test_amip_reference --builders MISTRAL_intel_hybrid --runflags "cpu_time=00:30:00" --list $listname
+# activate only intel_hybrid
+./set_builder_flags Inactive --builders "*"  --list $listname
+./set_builder_flags Active --builders "MISTRAL_intel_hybrid"  --list $listname
+./lslist $listname
+#-----------------------------------------------------------
+
+#############################################################################
+## create oes-dev list
+listname=oes-dev
+cp experiment_lists/icon-dev experiment_lists/${listname}
+
+$addexp checksuite.ocean_internal/other/exp.test_amip_reference --builders MISTRAL_intel_hybrid --runflags "cpu_time=00:30:00" --list $listname
 ./lslist $listname
 #-----------------------------------------------------------

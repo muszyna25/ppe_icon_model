@@ -121,8 +121,110 @@ MODULE mo_ocean_pp_scheme
 
   REAL(wp), POINTER :: WindAmplitude_at10m(:,:)  
   REAL(wp), POINTER :: SeaIceConcentration(:,:)
+  PUBLIC :: calculate_rho4GMRedi
+  
 
 CONTAINS
+
+ !-------------------------------------------------------------------------
+  !>
+  !! 
+  !!
+  !! @par Revision History
+  !! Initial release by Peter Korn, MPI-M (2016-12)
+  !<Optimize:inUse:done>
+  SUBROUTINE calculate_rho4GMRedi(patch_3d, temperature, salinity, rho_GM) 
+
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    !TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
+    REAL(wp), INTENT(IN)                 :: temperature(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(IN)                 :: salinity(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(INOUT)              :: rho_GM(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    !TYPE(t_ho_params), INTENT(inout)     :: params_oce
+
+    ! Local variables
+    INTEGER :: jc, blockNo, je,jk, tracer_index
+    !INTEGER  :: ile1, ibe1,ile2, ibe2,ile3, ibe3
+    INTEGER :: cell_1_idx, cell_1_block, cell_2_idx,cell_2_block
+    INTEGER :: start_index, end_index
+    INTEGER :: levels
+
+    REAL(wp) :: z_rho_up(n_zlev), z_rho_down(n_zlev), density(n_zlev)
+    REAL(wp) :: pressure(n_zlev), sal(n_zlev)
+    !REAL(wp), POINTER :: z_vert_density_grad_c(:,:,:)
+    !-------------------------------------------------------------------------
+    TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells!, cells_in_domain
+    TYPE(t_patch), POINTER :: patch_2D
+
+    !-------------------------------------------------------------------------
+    patch_2D         => patch_3d%p_patch_2d(1)
+    !edges_in_domain => patch_2D%edges%in_domain
+    !cells_in_domain => patch_2D%cells%in_domain
+    all_cells       => patch_2D%cells%ALL
+    !z_vert_density_grad_c => ocean_state%p_diag%zgrad_rho
+    levels = n_zlev
+
+
+!     IF (ltimer) CALL timer_start(timer_extra10)
+
+!ICON_OMP_PARALLEL PRIVATE(salinity,z_rho_up, z_rho_down)
+    !sal(1:levels) = sal_ref
+
+    z_rho_up(:)=0.0_wp
+    z_rho_down(:)=0.0_wp
+    rho_GM(:,:,:)=0.0_wp
+
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, levels, jk, pressure, &
+!ICON_OMP  tracer_index) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, blockNo, start_index, end_index)
+      DO jc = start_index, end_index
+
+        levels = patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)
+        IF (levels < 2) CYCLE
+
+        !--------------------------------------------------------
+        sal(1:levels)      = salinity(jc,1:levels,blockNo)
+
+        pressure(2:levels) = patch_3d%p_patch_1d(1)%depth_CellInterface(jc, 2:levels, blockNo) * OceanReferenceDensity * sitodbar
+
+        z_rho_up(1:levels-1)  &
+        &= calculate_density_onColumn(temperature(jc,1:levels-1,blockNo),&
+                                    & salinity   (jc,1:levels-1,blockNo), pressure(2:levels), levels-1)
+        z_rho_down(2:levels)  &
+        &= calculate_density_onColumn(temperature(jc, 2:levels, blockNo),&
+                                    & salinity   (jc, 2:levels, blockNo), pressure(2:levels), levels-1)
+
+
+        DO jk = 2, levels
+          rho_GM(jc,jk,blockNo)=0.5_wp*(z_rho_up(jk)+z_rho_down(jk))
+        
+          !z_vert_density_grad_c(jc,jk,blockNo) = (z_rho_down(jk) - z_rho_up(jk-1)) *  &
+          !  & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,blockNo)
+        END DO ! levels
+        !ocean_state%p_diag%grad_rho_PP_vert(jc,2:levels,blockNo)=z_vert_density_grad_c(jc,2:levels,blockNo)
+        rho_GM(jc,1,blockNo)=rho_GM(jc,2,blockNo)
+ 
+      END DO ! index
+
+
+    END DO ! blocks
+!ICON_OMP_END_DO
+
+!ICON_OMP_END_PARALLEL
+!     IF (ltimer) CALL timer_stop(timer_extra10)
+!     IF (ltimer) CALL timer_start(timer_extra11)
+! !ICON_OMP_PARALLEL
+
+!     IF (ltimer) CALL timer_stop(timer_extra11)
+    DO jk=1,10
+      CALL dbg_print('calc_rho4GMRedi: rho_GM',rho_GM(:,jk,:),&
+        & module_name, idt_src, in_subset=all_cells) 
+    END DO          
+
+  END SUBROUTINE calculate_rho4GMRedi
+  !-------------------------------------------------------------------------
+
 
 !<Optimize:inUse:done>
   SUBROUTINE update_PP_scheme(patch_3d, ocean_state, fu10, concsum, params_oce,op_coeffs) !, calculate_density_func)
@@ -234,9 +336,13 @@ CONTAINS
     !-------------------------------------------------------------------------
 !     IF (ltimer) CALL timer_start(timer_extra10)
 
-!ICON_OMP_PARALLEL PRIVATE(salinity)
+!ICON_OMP_PARALLEL PRIVATE(salinity,z_rho_up, z_rho_down)
     salinity(1:levels) = sal_ref
-!ICON_OMP_DO PRIVATE(start_index, end_index, jc, levels, jk, pressure, z_rho_up, z_rho_down, &
+
+    z_rho_up(:)=0.0_wp
+    z_rho_down(:)=0.0_wp
+
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, levels, jk, pressure, &
 !ICON_OMP z_shear_cell, tracer_index, diffusion_weight) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, blockNo, start_index, end_index)
@@ -259,7 +365,10 @@ CONTAINS
         z_rho_down(2:levels)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,2:levels,blockNo,1), &
           & salinity(2:levels), pressure(2:levels), levels-1)
 
+
         DO jk = 2, levels
+        ocean_state%p_diag%rho_GM(jc,jk,blockNo)=0.5_wp*(z_rho_up(jk)+z_rho_down(jk))
+        
           z_shear_cell = dbl_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,blockNo)%x - ocean_state%p_diag%p_vn(jc,jk,blockNo)%x)**2)
           z_vert_density_grad_c(jc,jk,blockNo) = (z_rho_down(jk) - z_rho_up(jk-1)) *  &
@@ -268,7 +377,9 @@ CONTAINS
             & (z_rho_down(jk) - z_rho_up(jk-1)) / z_shear_cell, 0.0_wp) ! do not use z_vert_density_grad_c,
                                                                      ! this is canceled out in this formula
         END DO ! levels
-
+        ocean_state%p_diag%grad_rho_PP_vert(jc,2:levels,blockNo)=z_vert_density_grad_c(jc,2:levels,blockNo)
+        ocean_state%p_diag%rho_GM(jc,1,blockNo)=ocean_state%p_diag%rho_GM(jc,2,blockNo)
+ 
       END DO ! index
 
       DO tracer_index = 1, no_tracer
@@ -417,9 +528,12 @@ CONTAINS
     !-------------------------------------------------------------------------
 !     IF (ltimer) CALL timer_start(timer_extra10)
 
-!ICON_OMP_PARALLEL PRIVATE(salinity)
+!ICON_OMP_PARALLEL PRIVATE(salinity, z_rho_up, z_rho_down)
     salinity(1:levels) = sal_ref
-!ICON_OMP_DO PRIVATE(start_index, end_index, jc, levels, jk, pressure, z_rho_up, z_rho_down, &
+    z_rho_up(:)=0.0_wp
+    z_rho_down(:)=0.0_wp
+    
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, levels, jk, pressure, &
 !ICON_OMP z_shear_cell, z_ri_cell, tracer_index, diffusion_weight, instabilitySign, tracer_windMixing) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, blockNo, start_index, end_index)
@@ -443,6 +557,8 @@ CONTAINS
           & salinity(2:levels), pressure(2:levels), levels-1)
 
         DO jk = 2, levels
+          ocean_state%p_diag%rho_GM(jc,jk,blockNo)=0.5_wp*(z_rho_up(jk)+z_rho_down(jk))
+                    
           z_shear_cell = dbl_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,blockNo)%x - ocean_state%p_diag%p_vn(jc,jk,blockNo)%x)**2)
           z_vert_density_grad_c(jc,jk,blockNo) = (z_rho_down(jk) - z_rho_up(jk-1)) *  &
@@ -451,7 +567,8 @@ CONTAINS
             & (z_rho_down(jk) - z_rho_up(jk-1)) / z_shear_cell, 0.0_wp) ! do not use z_vert_density_grad_c,
                                                                      ! this is canceled out in this formula
         END DO ! levels
-
+        ocean_state%p_diag%grad_rho_PP_vert(jc,2:levels,blockNo)=z_vert_density_grad_c(jc,2:levels,blockNo)
+        ocean_state%p_diag%rho_GM(jc,1,blockNo)=ocean_state%p_diag%rho_GM(jc,2,blockNo)
       END DO ! index
       !-----------------------------------------------------------
       tracer_windMixing => params_oce%tracer_windMixing(:,:,blockNo)
@@ -940,8 +1057,11 @@ CONTAINS
 
     loc_eps = dbl_eps
 
-!ICON_OMP_PARALLEL PRIVATE(salinity)
+!ICON_OMP_PARALLEL PRIVATE(salinity, rho_up, rho_down)
     salinity(1:levels) = sal_ref
+    rho_up(:)=0.0_wp    
+    rho_down(:)=0.0_wp
+    
 !ICON_OMP_DO PRIVATE(start_index, end_index, jc, levels, jk, pressure, rho_up, rho_down, &
 !ICON_OMP vert_velocity_shear, tracer_index, diffusion_weight, decay_wind_depth, wind_param, &
 !ICON_OMP jk_max, vdgfac_bot, vdensgrad_inter, dv_old, dv_back) ICON_OMP_DEFAULT_SCHEDULE
@@ -971,18 +1091,31 @@ CONTAINS
         rho_down(2:levels)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,2:levels,blockNo,1), &
           & salinity(2:levels), pressure(2:levels), levels-1)
 
+
         DO jk = 2, levels
+        
+          ocean_state%p_diag%rho_GM(jc,jk,blockNo)=0.5_wp*(rho_up(jk)+rho_down(jk))
+        
           ! division by dz**2 is omitted in this calculation of velocity shear: shear = (d_vn)**2
           vert_velocity_shear = loc_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,blockNo)%x - ocean_state%p_diag%p_vn(jc,jk,blockNo)%x)**2)
           ! d_rho/dz - full density gradient necessary for wind mixing, stability formula, mixed layer depth calculation
           vert_density_grad(jc,jk,blockNo) = (rho_down(jk) - rho_up(jk-1)) *  &
             & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,blockNo)
+
+          ocean_state%p_diag%grad_rho_PP_vert(jc,jk,blockNo)=vert_density_grad(jc,jk,blockNo)
+
+
           ! Ri = g/OceanReferenceDensity * dz * d_rho/(d_vn)**2
           richardson_no(jc,jk,blockNo) = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,blockNo) * grav_rho * &
             &                           (rho_down(jk) - rho_up(jk-1)) / vert_velocity_shear, 0.0_wp)
         END DO ! levels
-
+!        ocean_state%p_diag%grad_rho_PP_vert(jc,1,blockNo)=0.0_wp
+!        ocean_state%p_diag%grad_rho_PP_vert(jc,levels+1:n_zlev,blockNo)=0.0_wp
+        ocean_state%p_diag%rho_GM(jc,1,blockNo)=ocean_state%p_diag%rho_GM(jc,2,blockNo)
+!FIXME : this is not done in the other pp schemes
+        ocean_state%p_diag%rho_GM(jc,levels+1:n_zlev,blockNo)=ocean_state%p_diag%rho_GM(jc,levels,blockNo)
+        
         IF (use_wind_mixing) THEN
 
           ! wind-mixing at surface, eq. (15) of Marsland et al., 2003

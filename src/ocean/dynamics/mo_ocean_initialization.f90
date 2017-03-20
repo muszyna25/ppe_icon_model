@@ -1429,7 +1429,7 @@ CONTAINS
     REAL(wp) :: z_prism_center_dist_e
     INTEGER, POINTER :: dolic_c(:,:), dolic_e(:,:)
     INTEGER :: max_edge_level
-    
+    INTEGER :: cell1_idx, cell1_blk, cell2_idx, cell2_blk    
     CHARACTER(*), PARAMETER :: method_name = "mo_ocean_initialization:init_patch_3D"
     
     !-----------------------------------------------------------------------------
@@ -1580,6 +1580,13 @@ CONTAINS
     DO jb = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, jb, StartEdgeIndex, EndEdgeIndex)
       DO je = StartEdgeIndex, EndEdgeIndex
+      
+      
+        cell1_idx = patch_2d%edges%cell_idx(je, jb, 1)
+        cell1_blk = patch_2d%edges%cell_blk(je, jb, 1)
+        cell2_idx = patch_2d%edges%cell_idx(je, jb, 2)
+        cell2_blk = patch_2d%edges%cell_blk(je, jb, 2)
+      
         
         DO jk=1, dolic_e(je,jb)
           patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,jk,jb) = v_base%del_zlev_m(jk)
@@ -1615,13 +1622,15 @@ CONTAINS
               patch_3d%p_patch_1d(1)%prism_thick_e(je,jk,jb) =             &
                 & MIN(-p_ext_data%oce%bathymetry_e(je,jb)-v_base%zlev_i(jk), &
                 & v_base%del_zlev_m(jk)+z_fac_limitthick*v_base%del_zlev_m(jk+1))
-            ELSE
-              ! maximum thickness limited to a similar factor of the thickness of the current cell
-              patch_3d%p_patch_1d(1)%prism_thick_e(je,jk,jb) =             &
-                & MIN(-p_ext_data%oce%bathymetry_e(je,jb)-v_base%zlev_i(jk), &
-                & (1.0_wp+z_fac_limitthick)*v_base%del_zlev_m(jk))
+            ELSEIF(jk >= n_zlev) THEN
+!              ! maximum thickness limited to a similar factor of the thickness of the current cell
+!              patch_3d%p_patch_1d(1)%prism_thick_e(je,jk,jb) =             &
+!                & MIN(-p_ext_data%oce%bathymetry_e(je,jb)-v_base%zlev_i(jk), &
+!                & (1.0_wp+z_fac_limitthick)*v_base%del_zlev_m(jk))
+              patch_3D%p_patch_1D(1)%prism_thick_e(je, jk, jb) = &
+              MIN(patch_3D%p_patch_1D(1)%prism_thick_c(cell1_idx, jk, cell1_blk), &
+                patch_3D%p_patch_1D(1)%prism_thick_c(cell2_idx, jk, cell2_blk))            
             ENDIF
-            
             !  this is necessary update for flat surface array but leads to abort in height equation
             patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,jk,jb) =      &
               & patch_3d%p_patch_1d(1)%prism_thick_e(je,jk,jb)
