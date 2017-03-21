@@ -193,9 +193,7 @@ else
    CROSS=""
 fi
 
-if test -z "$CROSS" ; then
 AC_CONFIG_HEADER(config/config.h)
-fi
 
 # Makefile is common and does not allow multiple builds
 # Disable the the build_host folder
@@ -543,9 +541,9 @@ AC_ARG_WITH([netcdf],
 AS_CASE([$with_netcdf],
         [no],[AC_MSG_CHECKING([for netcdf library])
               AC_MSG_RESULT([suppressed])],
-        [yes],[AC_CHECK_FILE($NETCDFROOT/include/netcdf.h,[],AC_MSG_ERROR([NETCDFROOT (currently: $NETCDFROOT) not properly defined]))],
+        [yes],[AS_IF([test -f "$NETCDFROOT/include/netcdf.h"],[],AC_MSG_ERROR([NETCDFROOT (currently: $NETCDFROOT) not properly defined]))],
         [*],[NETCDFROOT=$with_netcdf
-             AC_CHECK_FILE($NETCDFROOT/include/netcdf.h,[],AC_MSG_ERROR([NETCDFROOT (currently: $NETCDFROOT) not properly defined]))]
+             AS_IF([test -f "$NETCDFROOT/include/netcdf.h"],[],AC_MSG_ERROR([NETCDFROOT (currently: $NETCDFROOT) not properly defined]))]
         )
 
 if test -n "$NETCDFROOT" ; then
@@ -639,11 +637,11 @@ AC_ARG_WITH([cdi],
                             [with_cdi= ])
 AS_CASE([$with_cdi],
         [no],[CDIROOT= ],
-        [yes],[AC_CHECK_FILE($CDIROOT/include/cdi.inc,[],AC_MSG_ERROR([CDIROOT (currently: $CDIROOT) not properly defined. Either set CDIROOT explicitly or use the --with-cdi=DIR option format.]))],
+        [yes],[AS_IF([test -f "$CDIROOT/include/cdi.inc"],[],AC_MSG_ERROR([CDIROOT (currently: $CDIROOT) not properly defined. Either set CDIROOT explicitly or use the --with-cdi=DIR option format.]))],
         [*],[
             CDIROOT=$with_cdi
             AS_IF([test "x$CDIROOT" != x],
-                AC_CHECK_FILE($CDIROOT/include/cdi.inc,[],AC_MSG_ERROR([CDIROOT (currently set to $CDIROOT by the --with-cdi=DIR option) not properly defined]))
+                AS_IF([test -f "$CDIROOT/include/cdi.inc"],[],AC_MSG_ERROR([CDIROOT (currently set to $CDIROOT by the --with-cdi=DIR option) not properly defined]))
             )
         ])
 
@@ -682,11 +680,11 @@ AS_CASE([$with_grib_api],
         [AC_MSG_CHECKING([for grib_api library])
          AC_MSG_RESULT([suppressed])],
         [yes],
-        [#AC_CHECK_FILE($GRIBAPIROOT/lib/libgrib_api.a,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
-         AC_CHECK_FILE($GRIBAPIROOT/include/grib_api.h,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h]))],
+        [#AS_IF([test -f "$GRIBAPIROOT/lib/libgrib_api.a"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
+         AS_IF([test -f "$GRIBAPIROOT/include/grib_api.h"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h]))],
         [GRIBAPIROOT=$with_grib_api
-         #AC_CHECK_FILE($GRIBAPIROOT/lib/libgrib_api.a,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
-         AC_CHECK_FILE($GRIBAPIROOT/include/grib_api.h,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h]))])
+         #AS_IF([test -f "$GRIBAPIROOT/lib/libgrib_api.a"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
+         AS_IF([test -f "$GRIBAPIROOT/include/grib_api.h"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h]))])
 
 AS_IF([test -n "$GRIBAPIROOT"],
       [AS_IF([test -r "$GRIBAPIROOT/lib/libgrib_api.a" || test -r "$GRIBAPIROOT/lib/libgrib_api.dylib" || test -r "$GRIBAPIROOT/lib/libgrib_api.so"],
@@ -722,11 +720,11 @@ AC_ARG_WITH([sct],
 AS_CASE([$with_sct],
       [no],[AC_MSG_CHECKING([for sct library])
             AC_MSG_RESULT([suppressed])],
-      [yes],[AC_CHECK_FILE($SCTROOT/include/sct.mod,[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find sct.mod]))
-             AC_CHECK_FILE($SCTROOT/lib/libsct.a,[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find libsct.a]))],
+      [yes],[AS_IF([test -f "$SCTROOT/include/sct.mod"],[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find sct.mod]))
+             AS_IF([test -f "$SCTROOT/lib/libsct.a"],[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find libsct.a]))],
       [*],[SCTROOT=$with_sct
-           AC_CHECK_FILE($SCTROOT/include/sct.mod,[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find sct.mod]))
-           AC_CHECK_FILE($SCTROOT/lib/libsct.a,[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find libsct.a]))]
+           AS_IF([test -f "$SCTROOT/include/sct.mod"],[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find sct.mod]))
+           AS_IF([test -f "$SCTROOT/lib/libsct.a"],[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find libsct.a]))]
       )
 
 if test -n "$SCTROOT" ; then
@@ -820,7 +818,7 @@ AS_IF([test x"$with_mpi" = xno],
   [AS_IF([test "x$with_mpi" != x -a x"$with_mpi" != xyes -a x"$with_mpi" != xno],
     [MPIROOT=${MPIROOT:-$with_mpi}])
    AS_IF([test x"$MPIROOT" != x],
-    [AC_CHECK_FILE([$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h],,[AC_MSG_ERROR([MPIROOT not properly defined])])
+    [AS_IF([test -f "$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h"],,[AC_MSG_ERROR([MPIROOT not properly defined])])
     case $host in
     *-*-darwin*)
       MPI_LIB="$(mpif90 -show | $AWK '{for(i=1;i<=NF;i++){if($i~/lib/){printf $i " "}}}') "$MPI_LIB
@@ -1146,19 +1144,6 @@ AC_SUBST(OBJDIRS,$ac_objdirs)
 
 AC_CONFIG_FILES([Makefile])
 
-if test -n "$CROSS" ; then
-   case "${host}" in	
-       sx*-*-*)             ARCH=SX ;;
-   esac
-   cross_config=config/config.h.${ARCH}
-   echo "config.status: creating config/config.h from $cross_config"
-   if test ! -f $cross_config ; then
-      echo "cross configuration file $cross_config does not exist!"
-      exit 1
-   fi   
-   cp $cross_config config/config.h
-fi
-
 #-----------------------------------------------------------------------------
 case $host in
   xt?-cray-*)
@@ -1379,6 +1364,19 @@ AC_CONFIG_FILES([config/set-up.info])
 #  ./make_runscripts
 #fi
 AC_OUTPUT
+
+if test -n "$CROSS" ; then
+   case "${host}" in	
+       sx*-*-*)             ARCH=SX ;;
+   esac
+   cross_config=config/config.h.${ARCH}
+   echo "config.status: creating config/config.h from $cross_config"
+   if test ! -f $cross_config ; then
+      echo "cross configuration file $cross_config does not exist!"
+   else
+     cp $cross_config config/config.h
+   fi
+fi
 
 echo ""
 cat config/set-up.info

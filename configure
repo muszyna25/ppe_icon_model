@@ -2656,10 +2656,8 @@ else
    CROSS=""
 fi
 
-if test -z "$CROSS" ; then
 ac_config_headers="$ac_config_headers config/config.h"
 
-fi
 
 # Makefile is common and does not allow multiple builds
 # Disable the the build_host folder
@@ -4198,54 +4196,18 @@ $as_echo_n "checking for netcdf library... " >&6; }
               { $as_echo "$as_me:${as_lineno-$LINENO}: result: suppressed" >&5
 $as_echo "suppressed" >&6; } ;; #(
   yes) :
-    as_ac_File=`$as_echo "ac_cv_file_$NETCDFROOT/include/netcdf.h" | $as_tr_sh`
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $NETCDFROOT/include/netcdf.h" >&5
-$as_echo_n "checking for $NETCDFROOT/include/netcdf.h... " >&6; }
-if eval \${$as_ac_File+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  test "$cross_compiling" = yes &&
-  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
-if test -r "$NETCDFROOT/include/netcdf.h"; then
-  eval "$as_ac_File=yes"
-else
-  eval "$as_ac_File=no"
-fi
-fi
-eval ac_res=\$$as_ac_File
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+    if test -f "$NETCDFROOT/include/netcdf.h"; then :
 
 else
   as_fn_error $? "NETCDFROOT (currently: $NETCDFROOT) not properly defined" "$LINENO" 5
-fi
- ;; #(
+fi ;; #(
   *) :
     NETCDFROOT=$with_netcdf
-             as_ac_File=`$as_echo "ac_cv_file_$NETCDFROOT/include/netcdf.h" | $as_tr_sh`
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $NETCDFROOT/include/netcdf.h" >&5
-$as_echo_n "checking for $NETCDFROOT/include/netcdf.h... " >&6; }
-if eval \${$as_ac_File+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  test "$cross_compiling" = yes &&
-  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
-if test -r "$NETCDFROOT/include/netcdf.h"; then
-  eval "$as_ac_File=yes"
-else
-  eval "$as_ac_File=no"
-fi
-fi
-eval ac_res=\$$as_ac_File
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+             if test -f "$NETCDFROOT/include/netcdf.h"; then :
 
 else
   as_fn_error $? "NETCDFROOT (currently: $NETCDFROOT) not properly defined" "$LINENO" 5
 fi
-
          ;; #(
   *) :
      ;;
@@ -4345,56 +4307,20 @@ case $with_cdi in #(
   no) :
     CDIROOT=  ;; #(
   yes) :
-    as_ac_File=`$as_echo "ac_cv_file_$CDIROOT/include/cdi.inc" | $as_tr_sh`
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $CDIROOT/include/cdi.inc" >&5
-$as_echo_n "checking for $CDIROOT/include/cdi.inc... " >&6; }
-if eval \${$as_ac_File+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  test "$cross_compiling" = yes &&
-  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
-if test -r "$CDIROOT/include/cdi.inc"; then
-  eval "$as_ac_File=yes"
-else
-  eval "$as_ac_File=no"
-fi
-fi
-eval ac_res=\$$as_ac_File
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+    if test -f "$CDIROOT/include/cdi.inc"; then :
 
 else
   as_fn_error $? "CDIROOT (currently: $CDIROOT) not properly defined. Either set CDIROOT explicitly or use the --with-cdi=DIR option format." "$LINENO" 5
-fi
- ;; #(
+fi ;; #(
   *) :
 
             CDIROOT=$with_cdi
             if test "x$CDIROOT" != x; then :
-  as_ac_File=`$as_echo "ac_cv_file_$CDIROOT/include/cdi.inc" | $as_tr_sh`
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $CDIROOT/include/cdi.inc" >&5
-$as_echo_n "checking for $CDIROOT/include/cdi.inc... " >&6; }
-if eval \${$as_ac_File+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  test "$cross_compiling" = yes &&
-  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
-if test -r "$CDIROOT/include/cdi.inc"; then
-  eval "$as_ac_File=yes"
-else
-  eval "$as_ac_File=no"
-fi
-fi
-eval ac_res=\$$as_ac_File
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+  if test -f "$CDIROOT/include/cdi.inc"; then :
 
 else
   as_fn_error $? "CDIROOT (currently set to $CDIROOT by the --with-cdi=DIR option) not properly defined" "$LINENO" 5
 fi
-
 
 fi
          ;; #(
@@ -4450,56 +4376,20 @@ $as_echo_n "checking for grib_api library... " >&6; }
          { $as_echo "$as_me:${as_lineno-$LINENO}: result: suppressed" >&5
 $as_echo "suppressed" >&6; } ;; #(
   yes) :
-    #AC_CHECK_FILE($GRIBAPIROOT/lib/libgrib_api.a,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
-         as_ac_File=`$as_echo "ac_cv_file_$GRIBAPIROOT/include/grib_api.h" | $as_tr_sh`
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $GRIBAPIROOT/include/grib_api.h" >&5
-$as_echo_n "checking for $GRIBAPIROOT/include/grib_api.h... " >&6; }
-if eval \${$as_ac_File+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  test "$cross_compiling" = yes &&
-  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
-if test -r "$GRIBAPIROOT/include/grib_api.h"; then
-  eval "$as_ac_File=yes"
-else
-  eval "$as_ac_File=no"
-fi
-fi
-eval ac_res=\$$as_ac_File
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+    #AS_IF([test -f "$GRIBAPIROOT/lib/libgrib_api.a"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
+         if test -f "$GRIBAPIROOT/include/grib_api.h"; then :
 
 else
   as_fn_error $? "GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h" "$LINENO" 5
-fi
- ;; #(
+fi ;; #(
   *) :
     GRIBAPIROOT=$with_grib_api
-         #AC_CHECK_FILE($GRIBAPIROOT/lib/libgrib_api.a,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
-         as_ac_File=`$as_echo "ac_cv_file_$GRIBAPIROOT/include/grib_api.h" | $as_tr_sh`
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $GRIBAPIROOT/include/grib_api.h" >&5
-$as_echo_n "checking for $GRIBAPIROOT/include/grib_api.h... " >&6; }
-if eval \${$as_ac_File+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  test "$cross_compiling" = yes &&
-  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
-if test -r "$GRIBAPIROOT/include/grib_api.h"; then
-  eval "$as_ac_File=yes"
-else
-  eval "$as_ac_File=no"
-fi
-fi
-eval ac_res=\$$as_ac_File
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+         #AS_IF([test -f "$GRIBAPIROOT/lib/libgrib_api.a"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
+         if test -f "$GRIBAPIROOT/include/grib_api.h"; then :
 
 else
   as_fn_error $? "GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h" "$LINENO" 5
-fi
- ;;
+fi ;;
 esac
 
 if test -n "$GRIBAPIROOT"; then :
@@ -4549,100 +4439,28 @@ $as_echo_n "checking for sct library... " >&6; }
             { $as_echo "$as_me:${as_lineno-$LINENO}: result: suppressed" >&5
 $as_echo "suppressed" >&6; } ;; #(
   yes) :
-    as_ac_File=`$as_echo "ac_cv_file_$SCTROOT/include/sct.mod" | $as_tr_sh`
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $SCTROOT/include/sct.mod" >&5
-$as_echo_n "checking for $SCTROOT/include/sct.mod... " >&6; }
-if eval \${$as_ac_File+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  test "$cross_compiling" = yes &&
-  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
-if test -r "$SCTROOT/include/sct.mod"; then
-  eval "$as_ac_File=yes"
-else
-  eval "$as_ac_File=no"
-fi
-fi
-eval ac_res=\$$as_ac_File
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+    if test -f "$SCTROOT/include/sct.mod"; then :
 
 else
   as_fn_error $? "SCTROOT (currently: $SCTROOT) not properly defined to find sct.mod" "$LINENO" 5
 fi
-
-             as_ac_File=`$as_echo "ac_cv_file_$SCTROOT/lib/libsct.a" | $as_tr_sh`
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $SCTROOT/lib/libsct.a" >&5
-$as_echo_n "checking for $SCTROOT/lib/libsct.a... " >&6; }
-if eval \${$as_ac_File+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  test "$cross_compiling" = yes &&
-  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
-if test -r "$SCTROOT/lib/libsct.a"; then
-  eval "$as_ac_File=yes"
-else
-  eval "$as_ac_File=no"
-fi
-fi
-eval ac_res=\$$as_ac_File
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+             if test -f "$SCTROOT/lib/libsct.a"; then :
 
 else
   as_fn_error $? "SCTROOT (currently: $SCTROOT) not properly defined to find libsct.a" "$LINENO" 5
-fi
- ;; #(
+fi ;; #(
   *) :
     SCTROOT=$with_sct
-           as_ac_File=`$as_echo "ac_cv_file_$SCTROOT/include/sct.mod" | $as_tr_sh`
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $SCTROOT/include/sct.mod" >&5
-$as_echo_n "checking for $SCTROOT/include/sct.mod... " >&6; }
-if eval \${$as_ac_File+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  test "$cross_compiling" = yes &&
-  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
-if test -r "$SCTROOT/include/sct.mod"; then
-  eval "$as_ac_File=yes"
-else
-  eval "$as_ac_File=no"
-fi
-fi
-eval ac_res=\$$as_ac_File
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+           if test -f "$SCTROOT/include/sct.mod"; then :
 
 else
   as_fn_error $? "SCTROOT (currently: $SCTROOT) not properly defined to find sct.mod" "$LINENO" 5
 fi
-
-           as_ac_File=`$as_echo "ac_cv_file_$SCTROOT/lib/libsct.a" | $as_tr_sh`
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $SCTROOT/lib/libsct.a" >&5
-$as_echo_n "checking for $SCTROOT/lib/libsct.a... " >&6; }
-if eval \${$as_ac_File+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  test "$cross_compiling" = yes &&
-  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
-if test -r "$SCTROOT/lib/libsct.a"; then
-  eval "$as_ac_File=yes"
-else
-  eval "$as_ac_File=no"
-fi
-fi
-eval ac_res=\$$as_ac_File
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+           if test -f "$SCTROOT/lib/libsct.a"; then :
 
 else
   as_fn_error $? "SCTROOT (currently: $SCTROOT) not properly defined to find libsct.a" "$LINENO" 5
 fi
-
        ;; #(
   *) :
      ;;
@@ -4742,29 +4560,11 @@ else
   MPIROOT=${MPIROOT:-$with_mpi}
 fi
    if test x"$MPIROOT" != x; then :
-  as_ac_File=`$as_echo "ac_cv_file_$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h" | $as_tr_sh`
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h" >&5
-$as_echo_n "checking for $MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h... " >&6; }
-if eval \${$as_ac_File+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  test "$cross_compiling" = yes &&
-  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
-if test -r "$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h"; then
-  eval "$as_ac_File=yes"
-else
-  eval "$as_ac_File=no"
-fi
-fi
-eval ac_res=\$$as_ac_File
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+  if test -f "$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h"; then :
 
 else
   as_fn_error $? "MPIROOT not properly defined" "$LINENO" 5
 fi
-
     case $host in
     *-*-darwin*)
       MPI_LIB="$(mpif90 -show | $AWK '{for(i=1;i<=NF;i++){if($i~/lib/){printf $i " "}}}') "$MPI_LIB
@@ -6661,19 +6461,6 @@ OBJDIRS=$ac_objdirs
 ac_config_files="$ac_config_files Makefile"
 
 
-if test -n "$CROSS" ; then
-   case "${host}" in
-       sx*-*-*)             ARCH=SX ;;
-   esac
-   cross_config=config/config.h.${ARCH}
-   echo "config.status: creating config/config.h from $cross_config"
-   if test ! -f $cross_config ; then
-      echo "cross configuration file $cross_config does not exist!"
-      exit 1
-   fi
-   cp $cross_config config/config.h
-fi
-
 #-----------------------------------------------------------------------------
 case $host in
   xt?-cray-*)
@@ -8206,6 +7993,19 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
 $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
 
+
+if test -n "$CROSS" ; then
+   case "${host}" in
+       sx*-*-*)             ARCH=SX ;;
+   esac
+   cross_config=config/config.h.${ARCH}
+   echo "config.status: creating config/config.h from $cross_config"
+   if test ! -f $cross_config ; then
+      echo "cross configuration file $cross_config does not exist!"
+   else
+     cp $cross_config config/config.h
+   fi
+fi
 
 echo ""
 cat config/set-up.info
