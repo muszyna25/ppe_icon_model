@@ -72,13 +72,6 @@ AC_MSG_RESULT([$[ac_hostname]])
 AC_MSG_CHECKING([for site name])
 AC_MSG_RESULT([$[ac_sitename]])
 
-dnl Load pre-set configure options from config/config-options
-dnl ######################################################################
-
-if test -f "config/config-options" ; then
-  AC_GET_MH(config/config-options)
-fi
-
 dnl ######################################################################
 
 AC_ARG_ENABLE([atmo],
@@ -207,20 +200,6 @@ fi
 #build_host=""
 
 #------------------------------------
-cat $host_frag > config/mh-config-use
-mh_local_name=config/mh-${ac_sitename}-${ac_hostname}
-# echo "mh_local_name=$mh_local_name"
-if test -f $mh_local_name ; then
-  cat $mh_local_name >> config/mh-config-use
-# else
-#   echo "not found!"
-fi
-if test -f config/mh-override ; then
-  cat config/mh-override >> config/mh-config-use
-fi
-host_frag=config/mh-config-use
-#------------------------------------
-
 # set default
 make_command="make"
 
@@ -236,23 +215,23 @@ if test "$CC" = mpcc_r ;  then
   use_mpcc_r=yes
 fi
 
-if test "x$load_modules" != x ;  then
-  if test "$0" != "./conf__.tmp" ; then
-    echo "$load_profile" > conf_load_module.tmp
-    echo module purge >> conf_load_module.tmp
-    echo module load "$load_modules" >> conf_load_module.tmp
-    echo module list >> conf_load_module.tmp
-    cp configure conf__.tmp 
-    echo "chmod +x conf__.tmp" >>  conf_load_module.tmp
-    echo "./conf__.tmp $ac_configure_args ; "'rc=$?' >> conf_load_module.tmp
-    echo "rm conf__.tmp" >> conf_load_module.tmp
-    echo 'exit $rc' >>conf_load_module.tmp
-    chmod +x conf_load_module.tmp
-    ./conf_load_module.tmp ; rc=$?
-    rm conf_load_module.tmp
-    exit $rc
-  fi  
-fi
+dnl if test "x$load_modules" != x ;  then
+dnl   if test "$0" != "./conf__.tmp" ; then
+dnl     echo "$load_profile" > conf_load_module.tmp
+dnl     echo module purge >> conf_load_module.tmp
+dnl     echo module load "$load_modules" >> conf_load_module.tmp
+dnl     echo module list >> conf_load_module.tmp
+dnl     cp configure conf__.tmp 
+dnl     echo "chmod +x conf__.tmp" >>  conf_load_module.tmp
+dnl     echo "./conf__.tmp $ac_configure_args ; "'rc=$?' >> conf_load_module.tmp
+dnl     echo "rm conf__.tmp" >> conf_load_module.tmp
+dnl     echo 'exit $rc' >>conf_load_module.tmp
+dnl     chmod +x conf_load_module.tmp
+dnl     ./conf_load_module.tmp ; rc=$?
+dnl     rm conf_load_module.tmp
+dnl     exit $rc
+dnl   fi  
+dnl fi
   
 dnl ######################################################################
 dnl define the package
