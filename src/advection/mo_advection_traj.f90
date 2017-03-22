@@ -95,7 +95,7 @@ MODULE mo_advection_traj
   CONTAINS
     !
     PROCEDURE :: construct
-    FINAL     :: destruct
+    PROCEDURE :: destruct
     
   END TYPE t_back_traj
 
@@ -158,7 +158,7 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2016-11-23)
   !!
   SUBROUTINE destruct(obj)
-    TYPE(t_back_traj) :: obj
+    CLASS(t_back_traj) :: obj
     !
     ! local
     INTEGER :: ist
