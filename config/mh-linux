@@ -233,7 +233,7 @@ case "$ac_sitename" in
                 make_command="make" "-j" "8"
                 load_profile="." "/opt/modules/default/etc/modules.sh"
                 submit="sbatch"
-                sync_submit="sbatch"
+                sync_submit="sbatch_synced"
                 CC = cc
                 FC = ftn
                 F77= ftn
