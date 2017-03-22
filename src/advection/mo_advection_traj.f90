@@ -95,7 +95,7 @@ MODULE mo_advection_traj
   CONTAINS
     !
     PROCEDURE :: construct
-    PROCEDURE :: destruct
+    FINAL     :: destruct
     
   END TYPE t_back_traj
 
@@ -158,7 +158,7 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2016-11-23)
   !!
   SUBROUTINE destruct(obj)
-    CLASS(t_back_traj) :: obj
+    TYPE(t_back_traj) :: obj
     !
     ! local
     INTEGER :: ist
@@ -290,7 +290,7 @@ CONTAINS
     ENDIF
 
     ! allocate output arrays
-!!!    CALL btraj%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)   ! Moved to hflux
+    CALL btraj%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)
 
 #ifdef _OPENACC
     p_cell_idx   => btraj%cell_idx
@@ -846,7 +846,7 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     ! allocate output arrays
-!!!    CALL btraj%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)  ! => moved to hflux
+    CALL btraj%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)
 
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
