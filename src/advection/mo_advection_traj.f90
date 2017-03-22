@@ -70,27 +70,27 @@ MODULE mo_advection_traj
   PUBLIC :: btraj_compute_o2
 
 #if defined( _OPENACC )
-#define ACC_DEBUG $ACC
 #if defined(__ADVECTION_TRAJ_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
+  LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 #endif
 
 
   TYPE t_back_traj
     ! line indices of cell centers in which the calculated barycenters are located
     ! dim: (nproma,nlev,p_patch%nblks_e)
-    INTEGER , ALLOCATABLE :: cell_idx(:,:,:)
+    INTEGER , POINTER :: cell_idx(:,:,:)
     !
     ! block indices of cell centers in which the calculated barycenters are located
     ! dim: (nproma,nlev,p_patch%nblks_e)
-    INTEGER , ALLOCATABLE :: cell_blk(:,:,:)
+    INTEGER , POINTER :: cell_blk(:,:,:)
     !
     ! distance vectors cell center --> barycenter of advected area (geographical coordinates)
     ! dim: (nproma,nlev,p_patch%nblks_e,2)
-    REAL(vp), ALLOCATABLE :: distv_bary(:,:,:,:)
+    REAL(vp), POINTER :: distv_bary(:,:,:,:)
 
   CONTAINS
     !
@@ -120,6 +120,9 @@ CONTAINS
     !
     ! local
     INTEGER :: ist
+    INTEGER, POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
+    REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
+
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_traj: construct'
 
@@ -134,7 +137,12 @@ CONTAINS
       CALL finish ( TRIM(routine), 'allocation for distv_bary failed' )
     ENDIF
 
-!$ACC ENTER DATA CREATE( obj%cell_idx, obj%cell_blk, obj%distv_bary ), IF (i_am_accel_node .AND. acc_on)
+#if _OPENACC
+    p_cell_idx =>  obj%cell_idx
+    p_cell_blk =>  obj%cell_blk
+    p_distv_bary => obj%distv_bary
+!$ACC ENTER DATA CREATE( p_cell_idx, p_cell_blk, p_distv_bary ), IF (i_am_accel_node .AND. acc_on)
+#endif
 
   END SUBROUTINE construct
 
@@ -154,14 +162,20 @@ CONTAINS
     !
     ! local
     INTEGER :: ist
+    INTEGER, POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
+    REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
+
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_traj: destruct'
 
-!$ACC EXIT DATA DELETE( obj%cell_idx, obj%cell_blk, obj%distv_bary ), IF (i_am_accel_node .AND. acc_on)
+#if _OPENACC
+    p_cell_idx =>  obj%cell_idx
+    p_cell_blk =>  obj%cell_blk
+    p_distv_bary => obj%distv_bary
+!$ACC EXIT DATA DELETE( p_cell_idx, p_cell_blk, p_distv_bary ), IF (i_am_accel_node .AND. acc_on)
+#endif
 
-    IF (ALLOCATED(obj%cell_idx)) THEN
-      print *, "Deallocating TRAJ object"
-#if 0
+    IF (ASSOCIATED(obj%cell_idx)) THEN
       DEALLOCATE(obj%cell_idx, obj%cell_blk, STAT=ist)
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'deallocation for cell_idx and cell_blk failed' )
@@ -171,7 +185,6 @@ CONTAINS
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'allocation for distv_bary failed' )
       ENDIF
-#endif
     ENDIF
 
   END SUBROUTINE destruct
@@ -229,13 +242,15 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
          &  opt_elev
 
-    REAL(wp) :: z_ntdistv_bary(2)      !< cell center --> barycenter in 'normal' and
-                                       !< 'tangential' coordinates.
+    REAL(wp) :: z_ntdistv_bary_1, z_ntdistv_bary_2      !< cell center --> barycenter in 'normal' and
+                                                        !< 'tangential' coordinates.
 
     INTEGER :: je, jk, jb        !< index of edge, vert level, block
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i_rlstart, i_rlend
     INTEGER :: slev, elev        !< vertical start and end level
+    INTEGER, POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
+    REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
     LOGICAL :: lvn_pos
 
     !-------------------------------------------------------------------------
@@ -278,17 +293,19 @@ CONTAINS
     CALL btraj%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)
 
 #ifdef _OPENACC
-!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( btraj%distv_bary, btraj%cell_idx, btraj%cell_blk ),  IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG  UPDATE DEVICE ( p_vn, p_vt ) IF( i_am_accel_node .AND. acc_on )
+    p_cell_idx   => btraj%cell_idx
+    p_cell_blk   => btraj%cell_blk
+    p_distv_bary => btraj%distv_bary
+!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_distv_bary, p_cell_idx, p_cell_blk ),  IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC PARALLEL &
 !$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, btraj%distv_bary, btraj%cell_idx, btraj%cell_blk ), &
-!$ACC PRIVATE( z_ntdistv_bary ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
 !$ACC LOOP GANG
 #else
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_ntdistv_bary,lvn_pos) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_ntdistv_bary_1,z_ntdistv_bary_2,lvn_pos) ICON_OMP_DEFAULT_SCHEDULE
 #endif
     DO jb = i_startblk, i_endblk
 
@@ -304,10 +321,10 @@ CONTAINS
           !
 
           ! position of barycenter in normal direction
-          ! pos_barycenter(1) = - p_vn(je,jk,jb) * p_dthalf
+          ! pos_barycenter_1 = - p_vn(je,jk,jb) * p_dthalf
 
           ! position of barycenter in tangential direction
-          ! pos_barycenter(2) = - p_vt(je,jk,jb) * p_dthalf
+          ! pos_barycenter_2 = - p_vt(je,jk,jb) * p_dthalf
 
           ! logical auxiliary for MERGE operations: .TRUE. for vn >= 0
           lvn_pos = p_vn(je,jk,jb) >= 0._wp
@@ -325,11 +342,11 @@ CONTAINS
           ! Calculate the distance cell center --> barycenter for the cell,
           ! in which the barycenter is located. The distance vector points
           ! from the cell center to the barycenter.
-          z_ntdistv_bary(1) =  - ( p_vn(je,jk,jb) * p_dthalf     &
+          z_ntdistv_bary_1 =  - ( p_vn(je,jk,jb) * p_dthalf     &
                & + MERGE(ptr_int%pos_on_tplane_e(je,jb,1,1),        &
                &         ptr_int%pos_on_tplane_e(je,jb,2,1),lvn_pos))
 
-          z_ntdistv_bary(2) =  - ( p_vt(je,jk,jb) * p_dthalf     &
+          z_ntdistv_bary_2 =  - ( p_vt(je,jk,jb) * p_dthalf     &
                & + MERGE(ptr_int%pos_on_tplane_e(je,jb,1,2),        &
                &         ptr_int%pos_on_tplane_e(je,jb,2,2),lvn_pos))
 
@@ -340,16 +357,16 @@ CONTAINS
 
           ! component in longitudinal direction
           btraj%distv_bary(je,jk,jb,1) =                                                       &
-               &   z_ntdistv_bary(1)*MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v1,         &
+               &   z_ntdistv_bary_1*MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v1,         &
                &                           ptr_p%edges%primal_normal_cell(je,jb,2)%v1,lvn_pos) &
-               & + z_ntdistv_bary(2)*MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v1,           &
+               & + z_ntdistv_bary_2*MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v1,           &
                &                           ptr_p%edges%dual_normal_cell(je,jb,2)%v1,lvn_pos)
 
           ! component in latitudinal direction
           btraj%distv_bary(je,jk,jb,2) =                                                       &
-               &   z_ntdistv_bary(1)*MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v2,         &
+               &   z_ntdistv_bary_1*MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v2,         &
                &                           ptr_p%edges%primal_normal_cell(je,jb,2)%v2,lvn_pos) &
-               & + z_ntdistv_bary(2)*MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v2,           &
+               & + z_ntdistv_bary_2*MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v2,           &
                &                           ptr_p%edges%dual_normal_cell(je,jb,2)%v2,lvn_pos)
 
         ENDDO ! loop over edges
@@ -357,7 +374,7 @@ CONTAINS
     END DO    ! loop over blocks
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( btraj%cell_idx, btraj%cell_blk, btraj%distv_bary ) IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_cell_idx, p_cell_blk, p_distv_bary ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 #else
 !$OMP END DO NOWAIT
@@ -532,7 +549,7 @@ CONTAINS
 #ifdef _OPENACC
 !$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_coords_dreg_v, p_cell_idx, p_cell_blk ),  &
 !$ACC      CREATE(  edge_verts,lvn_sys_pos,depart_pts,pos_dreg_vert_c,pos_on_tplane_e,pn_cell,dn_cell ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG  UPDATE DEVICE ( p_vn, p_vt ) IF( i_am_accel_node .AND. acc_on )
+!$ACC  UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC PARALLEL &
 !$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, p_coords_dreg_v, p_cell_idx, p_cell_blk ), &
 !$ACC PRIVATE( edge_verts, lvn_sys_pos, depart_pts,pos_dreg_vert_c,pos_on_tplane_e,pn_cell,dn_cell ), &
@@ -731,7 +748,7 @@ CONTAINS
 
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( p_cell_idx, p_cell_blk, p_coords_dreg_v ) IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_cell_idx, p_cell_blk, p_coords_dreg_v ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 #else
 !$OMP END DO NOWAIT
@@ -796,8 +813,8 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
          &  opt_elev
 
-    REAL(wp) :: pos_barycenter(2),  &   !< position of barycenter and distance vector
-         &         z_ntdistv_bary(2)       !< cell center --> barycenter in 'normal' and
+    REAL(wp) :: pos_barycenter_1, pos_barycenter_2,  &   !< position of barycenter and distance vector
+         &         z_ntdistv_bary_1, z_ntdistv_bary_2    !< cell center --> barycenter in 'normal' and
     !< 'tangential' coordinates.
 
     REAL(wp), POINTER  ::  &     !< pointer to positions of quadrilateral edge midpoints
@@ -821,6 +838,8 @@ CONTAINS
     !< in cell 1 or 2
     INTEGER, POINTER ::    &     !< pointer for line and block indices of edge
          & iidx(:,:,:), iblk(:,:,:) !< midpoints for quadrilateral cell
+    INTEGER, POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
+    REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
 
     !DR    REAL(wp) :: z_vabs_orig, z_vabs_new
 
@@ -877,9 +896,12 @@ CONTAINS
     iblk => ptr_p%edges%quad_blk
 
 #ifdef _OPENACC
-!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( btraj%distv_bary, btraj%cell_idx, btraj%cell_blk ), &
-!$ACC CREATE( z_vn_plane, pos_barycenter, z_ntdistv_bary ),   IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG  UPDATE DEVICE ( p_vn, p_vt ) IF( i_am_accel_node .AND. acc_on )
+    p_cell_idx   => btraj%cell_idx
+    p_cell_blk   => btraj%cell_blk
+    p_distv_bary => btraj%distv_bary
+!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_distv_bary, p_cell_idx, p_cell_blk ), &
+!$ACC CREATE( z_vn_plane ),   IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC PARALLEL &
 !$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, z_vn_plane ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
@@ -955,15 +977,14 @@ CONTAINS
 
 !$ACC PARALLEL &
 !$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, btraj%distv_bary, btraj%cell_idx, btraj%cell_blk ), &
-!$ACC PRIVATE( pos_barycenter, z_ntdistv_bary ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
 !$ACC LOOP GANG
 #else
 !$OMP END DO
 
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,pos_barycenter,zcell,w1,w2,w3, &
-!$OMP            vn_new,vt_new,z_ntdistv_bary) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,pos_barycenter_1, pos_barycenter_2,zcell,w1,w2,w3, &
+!$OMP            vn_new,vt_new,z_ntdistv_bary_1,z_ntdistv_bary_2) ICON_OMP_DEFAULT_SCHEDULE
 #endif
         DO jb = i_startblk, i_endblk
 
@@ -980,10 +1001,10 @@ CONTAINS
 
               ! First guess
               ! position of barycenter in normal direction
-              pos_barycenter(1) = - p_vn(je,jk,jb) * p_dthalf
+              pos_barycenter_1 = - p_vn(je,jk,jb) * p_dthalf
 
               ! position of barycenter in tangential direction
-              pos_barycenter(2) = - p_vt(je,jk,jb) * p_dthalf
+              pos_barycenter_2 = - p_vt(je,jk,jb) * p_dthalf
 
 
 
@@ -999,12 +1020,12 @@ CONTAINS
 
                 ! calculate weights for bilinear interpolation of velocities onto the
                 ! barycenter
-                w3 = ( pos_barycenter(2)                                          &
-                     &   - pos_barycenter(1) * ptr_em(je,jb,1,2)/ptr_em(je,jb,1,1) ) &
+                w3 = ( pos_barycenter_2                                          &
+                     &   - pos_barycenter_1 * ptr_em(je,jb,1,2)/ptr_em(je,jb,1,1) ) &
                      &   / ( ptr_em(je,jb,2,2)                                       &
                      &   - ptr_em(je,jb,2,1) * ptr_em(je,jb,1,2)/ptr_em(je,jb,1,1) )
 
-                w2 = (pos_barycenter(1) - w3 * ptr_em(je,jb,2,1))       &
+                w2 = (pos_barycenter_1 - w3 * ptr_em(je,jb,2,1))       &
                      &  / ptr_em(je,jb,1,1)
 
                 w1 = 1._wp - w2 - w3
@@ -1030,12 +1051,12 @@ CONTAINS
 
                 ! calculate weights for bilinear interpolation of velocities onto the
                 ! barycenter
-                w3 = ( pos_barycenter(2)                                          &
-                     &   - pos_barycenter(1) * ptr_em(je,jb,3,2)/ptr_em(je,jb,3,1) ) &
+                w3 = ( pos_barycenter_2                                          &
+                     &   - pos_barycenter_1 * ptr_em(je,jb,3,2)/ptr_em(je,jb,3,1) ) &
                      &   / ( ptr_em(je,jb,4,2)                                       &
                      &   - ptr_em(je,jb,4,1) * ptr_em(je,jb,3,2)/ptr_em(je,jb,3,1) )
 
-                w2 = (pos_barycenter(1) - w3 * ptr_em(je,jb,4,1))       &
+                w2 = (pos_barycenter_1 - w3 * ptr_em(je,jb,4,1))       &
                      &  / ptr_em(je,jb,3,1)
 
                 w1 = 1._wp - w2 - w3
@@ -1053,18 +1074,17 @@ CONTAINS
 
               ! Improved guess
               ! position of barycenter in normal direction
-              pos_barycenter(1) = - vn_new * p_dthalf
+              pos_barycenter_1 = - vn_new * p_dthalf
 
               ! position of barycenter in tangential direction
-              pos_barycenter(2) = - vt_new * p_dthalf
+              pos_barycenter_2 = - vt_new * p_dthalf
 
 
               ! Calculate the distance cell center --> barycenter for the cell,
               ! in which the barycenter is located. The distance vector points
               ! from the cell center to the barycenter.
-              z_ntdistv_bary(1:2) = pos_barycenter(1:2)                      &
-                   &                 - ptr_int%pos_on_tplane_e(je,jb,zcell,1:2)
-
+              z_ntdistv_bary_1 = pos_barycenter_1 - ptr_int%pos_on_tplane_e(je,jb,zcell,1)
+              z_ntdistv_bary_2 = pos_barycenter_2 - ptr_int%pos_on_tplane_e(je,jb,zcell,2)
 
               ! In a last step, transform this distance vector into a rotated
               ! geographical coordinate system with its origin at the circumcenter
@@ -1072,16 +1092,14 @@ CONTAINS
               ! North.
 
               ! component in longitudinal direction
-              btraj%distv_bary(je,jk,jb,1) =                                                &
-                   &    z_ntdistv_bary(1) * ptr_p%edges%primal_normal_cell(je,jb,zcell)%v1  &
-                   &  + z_ntdistv_bary(2) * ptr_p%edges%dual_normal_cell(je,jb,zcell)%v1
+              btraj%distv_bary(je,jk,jb,1) =                                                 &
+                   &    z_ntdistv_bary_1 * ptr_p%edges%primal_normal_cell(je,jb,zcell)%v1  &
+                   &  + z_ntdistv_bary_2 * ptr_p%edges%dual_normal_cell(je,jb,zcell)%v1
 
               ! component in latitudinal direction
-              btraj%distv_bary(je,jk,jb,2) =                                                &
-                   &    z_ntdistv_bary(1) * ptr_p%edges%primal_normal_cell(je,jb,zcell)%v2  &
-                   &  + z_ntdistv_bary(2) * ptr_p%edges%dual_normal_cell(je,jb,zcell)%v2
-
-
+              btraj%distv_bary(je,jk,jb,2) =                                                 &
+                   &    z_ntdistv_bary_1 * ptr_p%edges%primal_normal_cell(je,jb,zcell)%v2  &
+                   &  + z_ntdistv_bary_2 * ptr_p%edges%dual_normal_cell(je,jb,zcell)%v2
 
             ENDDO ! loop over edges
           ENDDO   ! loop over vertical levels
@@ -1089,7 +1107,7 @@ CONTAINS
 
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( btraj%cell_idx, btraj%cell_blk, btraj%distv_bary ) IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_cell_idx, p_cell_blk, p_distv_bary ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 #else
 !$OMP END DO NOWAIT
