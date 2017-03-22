@@ -253,6 +253,9 @@ CONTAINS
     ENDIF
 
     IF (timers_level > 2) CALL timer_start(timer_adv_horz)
+    CALL btraj%construct(nproma,p_patch%nlev,p_patch%nblks_e,2)
+    CALL btraj_cycl%construct(nproma,p_patch%nlev,p_patch%nblks_e,2)
+
 
     !*******************************************************************
     !
@@ -654,6 +657,9 @@ CONTAINS
       END SELECT
 
     END DO  ! Tracer loop
+
+    CALL btraj%destruct()
+    CALL btraj_cycl%destruct()
 
     IF (timers_level > 2) CALL timer_stop(timer_adv_horz)
 
