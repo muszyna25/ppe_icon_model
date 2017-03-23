@@ -259,6 +259,9 @@ MODULE mo_solve_nonhydro
     !-------------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_solve_nh)
+#ifndef __LOOP_EXCHANGE
+    CALL btraj%construct(nproma,p_patch%nlev,p_patch%nblks_e,2)
+#endif
 
 #ifdef _OPENACC
 !
@@ -851,6 +854,7 @@ MODULE mo_solve_nonhydro
         ELSE IF (iadv_rhotheta == 2) THEN ! Miura second-order upwind scheme
 
 #ifndef __LOOP_EXCHANGE
+          CALL btraj%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)
           ! Compute backward trajectory - code is inlined for cache-based machines (see below)
           CALL btraj_compute_o1( btraj      = btraj,                 & !inout
             &                   ptr_p       = p_patch,               & !in
@@ -2913,6 +2917,9 @@ MODULE mo_solve_nonhydro
 !$ACC UPDATE HOST ( vn_traj_tmp, mass_flx_me_tmp, mass_flx_ic_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. lprep_adv )
 #endif
 
+#ifndef __LOOP_EXCHANGE
+    CALL btraj%destruct()
+#endif
     IF (ltimer) CALL timer_stop(timer_solve_nh)
 
   END SUBROUTINE solve_nh

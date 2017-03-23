@@ -95,7 +95,7 @@ MODULE mo_advection_traj
   CONTAINS
     !
     PROCEDURE :: construct
-    FINAL     :: destruct
+    PROCEDURE :: destruct
     
   END TYPE t_back_traj
 
@@ -290,7 +290,7 @@ CONTAINS
     ENDIF
 
     ! allocate output arrays
-    CALL btraj%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)
+!!!    CALL btraj%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)   ! Moved to hflux
 
 #ifdef _OPENACC
     p_cell_idx   => btraj%cell_idx
@@ -846,7 +846,7 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     ! allocate output arrays
-    CALL btraj%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)
+!!!    CALL btraj%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)  ! => moved to hflux
 
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
