@@ -95,7 +95,7 @@ MODULE mo_advection_traj
   CONTAINS
     !
     PROCEDURE :: construct
-    PROCEDURE :: destruct
+    FINAL     :: destruct
     
   END TYPE t_back_traj
 
