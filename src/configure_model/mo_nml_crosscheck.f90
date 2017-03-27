@@ -283,7 +283,7 @@ CONTAINS
     ! When increased sound-wave and gravity-wave damping is chosen during the spinup phase
     ! (i.e. divdamp_order = 24), checkpointing/restarting is not allowed earlier than three
     ! hours into the integration because the results would not be bit-identical in this case
-    IF (iequations == inh_atmosphere .AND. divdamp_order == 24 .AND. dt_checkpoint < 9000._wp) THEN
+    IF (.NOT. isRestart() .AND. iequations == inh_atmosphere .AND. divdamp_order == 24 .AND. dt_checkpoint < 9000._wp) THEN
         WRITE(message_text,'(a)') &
           &  'dt_checkpoint < 2.5 hours not allowed in combination with divdamp_order = 24'
         CALL finish(method_name, message_text)
