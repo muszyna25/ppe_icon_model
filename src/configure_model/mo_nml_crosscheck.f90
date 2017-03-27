@@ -36,7 +36,7 @@ MODULE mo_nml_crosscheck
     &                              FFSL_MCYCL, FFSL_HYB_MCYCL, ifluxl_sm,     &
     &                              ifluxl_m, ihs_ocean, RAYLEIGH_CLASSIC,     &
     &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD 
-  USE mo_master_config,      ONLY: tc_exp_stopdate, tc_stopdate
+  USE mo_master_config,      ONLY: tc_exp_stopdate, tc_stopdate, isRestart
   USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta, &
        &                           MAX_TIMEDELTA_STR_LEN, getPTStringFromMS,     &
        &                           OPERATOR(>), OPERATOR(/=), OPERATOR(*),       &
@@ -1010,7 +1010,7 @@ CONTAINS
         CALL finish('initicon_nml:', TRIM(message_text))
       ENDIF 
 
-      IF (MIN(dt_checkpoint,time_config%dt_restart) <= dt_iau+timeshift%dt_shift) THEN
+      IF (.NOT. isRestart() .AND. MIN(dt_checkpoint,time_config%dt_restart) <= dt_iau+timeshift%dt_shift) THEN
         WRITE (message_text,'(a)') "Restarting is not allowed within the IAU phase"
         CALL finish('atm_crosscheck:', TRIM(message_text))
       ENDIF

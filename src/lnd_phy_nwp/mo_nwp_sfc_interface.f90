@@ -1272,6 +1272,7 @@ CONTAINS
         &              spi_count     = ext_data%atm%spi_count(jb),              &!inout
         &              frac_t_ice    = ext_data%atm%frac_t(:,jb,isub_seaice),   &!inout
         &              frac_t_water  = ext_data%atm%frac_t(:,jb,isub_water),    &!inout
+        &              lc_frac_t_water = ext_data%atm%lc_frac_t(:,jb,isub_water), &!inout
         &              fr_seaice     = p_lnd_diag%fr_seaice(:,jb),              &!inout
         &              hice_old      = p_prog_wtr_now%h_ice(:,jb),              &!inout
         &              tice_old      = p_prog_wtr_now%t_ice(:,jb),              &!inout
