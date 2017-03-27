@@ -82,15 +82,15 @@ MODULE mo_advection_traj
   TYPE t_back_traj
     ! line indices of cell centers in which the calculated barycenters are located
     ! dim: (nproma,nlev,p_patch%nblks_e)
-    INTEGER , POINTER :: cell_idx(:,:,:)
+    INTEGER , POINTER :: cell_idx(:,:,:) => NULL()
     !
     ! block indices of cell centers in which the calculated barycenters are located
     ! dim: (nproma,nlev,p_patch%nblks_e)
-    INTEGER , POINTER :: cell_blk(:,:,:)
+    INTEGER , POINTER :: cell_blk(:,:,:) => NULL()
     !
     ! distance vectors cell center --> barycenter of advected area (geographical coordinates)
     ! dim: (nproma,nlev,p_patch%nblks_e,2)
-    REAL(vp), POINTER :: distv_bary(:,:,:,:)
+    REAL(vp), POINTER :: distv_bary(:,:,:,:) => NULL()
 
   CONTAINS
     !
