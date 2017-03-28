@@ -481,13 +481,11 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
       DO jc = i_startidx, i_endidx
         p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb)
       ENDDO
-      IF (atm_phy_nwp_config(jg)%inwp_surface == 1) THEN ! the t_g_t does not exist for inwp_surface=0
-        DO jt = 1, ntiles_total+ntiles_water
-          DO jc = i_startidx, i_endidx
-            p_prog_lnd_new%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g_t(jc,jb,jt)
-          ENDDO
+      DO jt = 1, ntiles_total+ntiles_water
+        DO jc = i_startidx, i_endidx
+          p_prog_lnd_new%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g_t(jc,jb,jt)
         ENDDO
-      ENDIF
+      ENDDO
     ENDDO
 
     IF (ltestcase .AND. nh_test_name == 'RCE' .AND. atm_phy_nwp_config(jg)%inwp_turb/=ismag) THEN !

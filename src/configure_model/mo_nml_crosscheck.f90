@@ -48,6 +48,7 @@ MODULE mo_nml_crosscheck
   USE mo_parallel_config,    ONLY: check_parallel_configuration,                &
     &                              num_io_procs, itype_comm, num_restart_procs, &
     &                              num_prefetch_proc, use_dp_mpi2io
+  USE mo_limarea_config,     ONLY: latbc_config
   USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                   &
     &                              ltransport, ntracer, nlev, ltestcase,      &
     &                              nqtendphy, iqtke, iqv, iqc, iqi,           &
@@ -351,7 +352,8 @@ CONTAINS
       'Currently a plane version is not available')
 
     ! Reset num_prefetch_proc to zero if the model does not run in limited-area mode
-    IF (.NOT. l_limited_area) num_prefetch_proc = 0
+    ! or if there are no lateral boundary data to be read
+    IF (.NOT. l_limited_area .OR. latbc_config%itype_latbc == 0) num_prefetch_proc = 0
 
     SELECT CASE (iequations)
     CASE(IHS_ATM_TEMP,IHS_ATM_THETA)         ! hydrostatic atm model
