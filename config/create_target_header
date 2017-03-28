@@ -1101,22 +1101,21 @@ set_run_target_tave_knl()
 
   set_default use_nproma 16
   set_default use_nodes 1
-  # use_OMP_SCHEDULE="static,1"
-  use_OMP_SCHEDULE="static,12"
+  use_OMP_SCHEDULE="static,2"
   icon_data_rootFolder=${icon_data_rootFolder:=/scratch/snx3000/icontest/pool/data/ICON}
   icon_data_poolFolder=${icon_data_poolFolder:=/scratch/snx3000/icontest/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_mpi_procs_pernode 32
+      set_default use_mpi_procs_pernode 60
       set_default use_openmp_threads 2
     else
-      set_default use_mpi_procs_pernode 32
+      set_default use_mpi_procs_pernode 60
     fi
   else
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 64
+      set_default use_openmp_threads 60
       set_default use_mpi_procs_pernode 1
      else
        is_serial_run="yes"
@@ -1164,7 +1163,6 @@ set_run_target_tave_knl()
 # =====================================
 # daint batch job parameters
 #-----------------------------------------------------------------------------
-#SBATCH --constraint=gpu
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
