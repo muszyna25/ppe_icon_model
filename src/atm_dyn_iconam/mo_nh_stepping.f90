@@ -1150,6 +1150,15 @@ MODULE mo_nh_stepping
 #endif
 
     IF (lwrite_checkpoint) THEN
+
+      ! apply nest boundary filling; this has no impact on the correctness (in the sense of reproducibility)
+      ! of the restart but facilitates debugging
+      CALL diag_for_output_dyn ()
+      IF (iforcing == inwp) THEN
+        CALL aggr_landvars
+        CALL fill_nestlatbc_phys
+      END IF
+
         DO jg = 1, n_dom
             CALL restartDescriptor%updatePatch(p_patch(jg), &
               & opt_t_elapsed_phy          = t_elapsed_phy(jg,:),        &
@@ -2171,7 +2180,7 @@ MODULE mo_nh_stepping
       ENDIF
 
       IF ( ANY((/MODE_IAU,MODE_IAU_OLD/)==init_mode) ) THEN ! incremental analysis mode
-        cur_time = time_config%sim_time(jg)-MERGE(0._wp,timeshift%dt_shift,isRestart()) + &
+        cur_time = time_config%sim_time(jg)-timeshift%dt_shift + &
          (REAL(nstep-ndyn_substeps_var(jg),wp)-0.5_wp)*dt_dyn
         IF (iau_iter == 1) THEN
           CALL compute_iau_wgt(cur_time, dt_dyn, 0.5_wp*dt_iau, lclean_mflx)

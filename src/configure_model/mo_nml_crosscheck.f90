@@ -36,7 +36,7 @@ MODULE mo_nml_crosscheck
     &                              FFSL_MCYCL, FFSL_HYB_MCYCL, ifluxl_sm,     &
     &                              ifluxl_m, ihs_ocean, RAYLEIGH_CLASSIC,     &
     &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD 
-  USE mo_master_config,      ONLY: tc_exp_stopdate, tc_stopdate
+  USE mo_master_config,      ONLY: tc_exp_stopdate, tc_stopdate, isRestart
   USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta, &
        &                           MAX_TIMEDELTA_STR_LEN, getPTStringFromMS,     &
        &                           OPERATOR(>), OPERATOR(/=), OPERATOR(*),       &
@@ -48,6 +48,7 @@ MODULE mo_nml_crosscheck
   USE mo_parallel_config,    ONLY: check_parallel_configuration,                &
     &                              num_io_procs, itype_comm, num_restart_procs, &
     &                              num_prefetch_proc, use_dp_mpi2io
+  USE mo_limarea_config,     ONLY: latbc_config
   USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                   &
     &                              ltransport, ntracer, nlev, ltestcase,      &
     &                              nqtendphy, iqtke, iqv, iqc, iqi,           &
@@ -283,7 +284,7 @@ CONTAINS
     ! When increased sound-wave and gravity-wave damping is chosen during the spinup phase
     ! (i.e. divdamp_order = 24), checkpointing/restarting is not allowed earlier than three
     ! hours into the integration because the results would not be bit-identical in this case
-    IF (iequations == inh_atmosphere .AND. divdamp_order == 24 .AND. dt_checkpoint < 9000._wp) THEN
+    IF (.NOT. isRestart() .AND. iequations == inh_atmosphere .AND. divdamp_order == 24 .AND. dt_checkpoint < 9000._wp) THEN
         WRITE(message_text,'(a)') &
           &  'dt_checkpoint < 2.5 hours not allowed in combination with divdamp_order = 24'
         CALL finish(method_name, message_text)
@@ -351,7 +352,8 @@ CONTAINS
       'Currently a plane version is not available')
 
     ! Reset num_prefetch_proc to zero if the model does not run in limited-area mode
-    IF (.NOT. l_limited_area) num_prefetch_proc = 0
+    ! or if there are no lateral boundary data to be read
+    IF (.NOT. l_limited_area .OR. latbc_config%itype_latbc == 0) num_prefetch_proc = 0
 
     SELECT CASE (iequations)
     CASE(IHS_ATM_TEMP,IHS_ATM_THETA)         ! hydrostatic atm model
@@ -1010,7 +1012,7 @@ CONTAINS
         CALL finish('initicon_nml:', TRIM(message_text))
       ENDIF 
 
-      IF (MIN(dt_checkpoint,time_config%dt_restart) <= dt_iau+timeshift%dt_shift) THEN
+      IF (.NOT. isRestart() .AND. MIN(dt_checkpoint,time_config%dt_restart) <= dt_iau+timeshift%dt_shift) THEN
         WRITE (message_text,'(a)') "Restarting is not allowed within the IAU phase"
         CALL finish('atm_crosscheck:', TRIM(message_text))
       ENDIF

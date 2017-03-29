@@ -1979,8 +1979,8 @@ CONTAINS
   !!
   SUBROUTINE update_idx_lists_sea (hice_n, pres_sfc, idx_lst_spw, spw_count,    &
     &                              idx_lst_spi, spi_count, frac_t_ice,          &
-    &                              frac_t_water, fr_seaice, hice_old, tice_old, &
-    &                              albsi_now, albsi_new,                        &
+    &                              frac_t_water, lc_frac_t_water, fr_seaice,    &
+    &                              hice_old, tice_old, albsi_now, albsi_new,    &
     &                              t_g_t_now, t_g_t_new, t_s_t_now, t_s_t_new,  &
     &                              qv_s_t, t_seasfc )
 
@@ -2000,6 +2000,9 @@ CONTAINS
 
     REAL(wp),    INTENT(INOUT) ::  &   !< ice-covered and ice-free ocean area fraction
       &  frac_t_ice(:), frac_t_water(:)
+
+    REAL(wp), INTENT(IN) ::        &   !< total ocean area fraction
+      &  lc_frac_t_water(:)
 
     REAL(wp),    INTENT(INOUT) ::  &   !< sea-ice fraction
       &  fr_seaice(:)
@@ -2150,7 +2153,8 @@ CONTAINS
           ! re-set dynamic fractions of water and sea-ice
           !
           ! new sea area fraction is the sum of the current water and sea-ice area fractions
-          frac_t_water(jc)= frac_t_water(jc) + frac_t_ice(jc)
+          ! to ensure bit-reproducibility with restart, we use lc_frac_t instead of frac_t_water+frac_t_ice
+          frac_t_water(jc) = lc_frac_t_water(jc)
           ! since sea-ice melted away, the sea-ice fraction is re-set to 0
           fr_seaice(jc)  = 0._wp
           frac_t_ice(jc) = 0._wp

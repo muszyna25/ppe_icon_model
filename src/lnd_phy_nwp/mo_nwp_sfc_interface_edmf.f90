@@ -1271,6 +1271,7 @@ endif
         &   spi_count     = ext_data%atm%spi_count(jb),              &!inout
         &   frac_t_ice    = ext_data%atm%frac_t(:,jb,isub_seaice),   &!inout
         &   frac_t_water  = ext_data%atm%frac_t(:,jb,isub_water),    &!inout
+        &   lc_frac_t_water=ext_data%atm%lc_frac_t(:,jb,isub_water), &!in
         &   fr_seaice     = fr_seaice(:),                            &!inout
         &   hice_old      = h_ice_ex(:),                             &!inout
         &   tice_old      = t_ice_ex(:),                             &!inout
