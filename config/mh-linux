@@ -430,7 +430,7 @@ case "$ac_sitename" in
                 sync_submit   = srunjob
                 queue         = compute
                 case "$fortran_compiler" in
-                    intel*)
+                    default|intel*)
                         case "$fortran_compiler" in
                           intel15|intel15.*)
                             load_modules    = intel/15.0.1 ${load_modules}

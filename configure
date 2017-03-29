@@ -2723,7 +2723,7 @@ esac
           cat > confsed <<EOF
 s/ *= */="/
 /="/s/$/"/
-/^#/{
+/^ *#/{
     d
 }
 /[^LIBS].*=/{
@@ -2781,7 +2781,7 @@ fi
           cat > confsed <<EOF
 s/ *= */="/
 /="/s/$/"/
-/^#/{
+/^ *#/{
     d
 }
 /[^LIBS].*=/{
@@ -2905,7 +2905,7 @@ $as_echo_n "checking for machine dependent configuration... " >&6; }
           cat > confsed <<EOF
 s/ *= */="/
 /="/s/$/"/
-/^#/{
+/^ *#/{
     d
 }
 /[^LIBS].*=/{
@@ -6323,10 +6323,8 @@ if [ "x$use_yac" = xyes ] ; then
 fi
 
 
-if test -n $OCEAN_FLAGS; then :
-
-else
-  if test -n $HIOPT_FLAGS; then :
+if test -z "$OCEAN_FLAGS"; then :
+  if test -n "$HIOPT_FLAGS"; then :
   OCEAN_FLAGS="$HIOPT_FLAGS"
 fi
 fi

@@ -43,7 +43,7 @@ AC_DEFUN([ACX_GET_MH],
           cat > confsed <<EOF
 s/ *= */="/
 /="/s/$/"/
-/^#/{
+/^ *#/{
     d
 }
 /[^LIBS].*=/{
@@ -100,7 +100,7 @@ AC_DEFUN([ACX_GET_MODULES_TO_LOAD],
           cat > confsed <<EOF
 s/ *= */="/
 /="/s/$/"/
-/^#/{
+/^ *#/{
     d
 }
 /[^LIBS].*=/{
@@ -160,7 +160,7 @@ AC_DEFUN([ACX_GET_PROFILE_TO_LOAD],
           cat > confsed <<EOF
 s/ *= */="/
 /="/s/$/"/
-/^#/{
+/^ *#/{
     d
 }
 /[^LIBS].*=/{
