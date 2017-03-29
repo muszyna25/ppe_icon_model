@@ -35,15 +35,15 @@ MODULE mo_ha_diag_util
   USE mo_parallel_config,    ONLY: nproma, p_test_run, use_icon_comm
   USE mo_run_config,         ONLY: nlev, nlevp1, iqv, iqc, iqi, iqr, iqs, &
   &                                iforcing, output_mode
-  USE mo_datetime,           ONLY: t_datetime
   USE mo_time_config,        ONLY: time_config
+  USE mtime,                 ONLY: divideDatetimeDifferenceInSeconds, deallocateTimedelta, &
+    &                              divisionquotienttimespan, timedelta, newTimedelta
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_intp_data_strc,     ONLY: t_int_state, sick_a, sick_o
   USE mo_intp,               ONLY: cells2verts_scalar,        &
                                    cells2edges_scalar, edges2cells_scalar, &
-                                   verts2edges_scalar, edges2verts_scalar, &
-                                   cell_avg
+                                   verts2edges_scalar, cell_avg
   USE mo_interpol_config,    ONLY: i_cori_method                                   
   USE mo_intp_rbf,           ONLY: rbf_vec_interpol_cell
   USE mo_eta_coord_diag,     ONLY: half_level_pressure, full_level_pressure, &
@@ -526,21 +526,22 @@ CONTAINS
                                   p_diag,                      &! inout
                                   opt_lgeop_wrt_sfc          )  ! optional input
 
-    TYPE(t_hydro_atm_prog),INTENT(in)    :: p_prog
+    TYPE(t_hydro_atm_prog),INTENT(in)      :: p_prog
     TYPE(t_patch),           INTENT(in)    :: p_patch
-    TYPE(t_external_data),   INTENT(INOUT)    :: p_ext_data !< external data
-    TYPE(t_hydro_atm_diag),INTENT(inout) :: p_diag
+    TYPE(t_external_data),   INTENT(INOUT) :: p_ext_data !< external data
+    TYPE(t_hydro_atm_diag),INTENT(inout)   :: p_diag
 
-    LOGICAL,INTENT(IN),OPTIONAL :: opt_lgeop_wrt_sfc
+    LOGICAL,INTENT(IN),OPTIONAL            :: opt_lgeop_wrt_sfc
 
     ! Local variables
 
-    TYPE(t_datetime)                   :: ini_datetime, cur_datetime
-    REAL(wp) :: factor_topo
-    REAL(wp) :: z_gzs(nproma)      !< surface geopotential
-    INTEGER  :: jb, jbs, is, ie
-    INTEGER  :: nblks_c
-    LOGICAL  :: lgeop_wrt_sfc
+    REAL(wp)                               :: factor_topo
+    REAL(wp)                               :: z_gzs(nproma)      !< surface geopotential
+    INTEGER                                :: jb, jbs, is, ie
+    INTEGER                                :: nblks_c
+    LOGICAL                                :: lgeop_wrt_sfc
+    TYPE(divisionquotienttimespan)         :: tq     
+    TYPE(timedelta), POINTER               :: intvl_1day
 
     ! check optional input: by default this subroutine diagnoses geopotential
     ! at full and half levels; If opt_lgeop_wrt_sfc is set to .TRUE.,
@@ -632,10 +633,18 @@ CONTAINS
           z_gzs(is:ie) = 0._wp
         ELSE
           IF (phy_config%lamip) THEN
-            cur_datetime = time_config%cur_datetime
-            ini_datetime = time_config%ini_datetime
-            factor_topo = MIN(1._wp,(cur_datetime%calday + cur_datetime%caltime &
-              - ini_datetime%calday - ini_datetime%caltime) / 1._wp)
+            ! The following code snippet replaces the previous,
+            ! "non-mtime" formulation
+            !
+            !  factor_topo = MIN(1._wp,(cur_datetime%calday + cur_datetime%caltime &
+            !    - ini_datetime%calday - ini_datetime%caltime) / 1._wp)
+
+            intvl_1day => newTimedelta("P1D")
+            CALL divideDatetimeDifferenceInSeconds(time_config%tc_current_date, time_config%tc_startdate, &
+              &                                    intvl_1day, tq)
+            factor_topo = MIN(1._wp, REAL(tq%remainder_in_ms,wp)/(24._wp * 3600._wp * 1000._wp))
+            CALL deallocateTimedelta(intvl_1day)
+
             !IF (jb==jbs) WRITE(*,*) 'Growing topography by factor ', factor_topo
             p_ext_data%atm%topography_c(is:ie,jb) = &
               p_ext_data%atm%elevation_c(is:ie,jb) * factor_topo

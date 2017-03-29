@@ -14,13 +14,11 @@
 MODULE mo_advection_aerosols
 
   USE mo_kind,                ONLY: wp, vp
-  USE mo_timer,               ONLY: timer_start, timer_stop, timer_extra1
   USE mo_model_domain,        ONLY: t_patch
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: ltimer
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
-  USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, min_rlcell, nclass_aero
+  USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, nclass_aero
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_advection_config,    ONLY: advection_config
   ! USE mo_advection_limiter,   ONLY: hflx_limiter_sm

@@ -18,13 +18,12 @@
 MODULE mo_nwp_rg_interface
 
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_datetime,             ONLY: t_datetime
-  USE mo_exception,            ONLY: message,  finish !message_tex
+  USE mo_exception,            ONLY: message,  finish
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run
 
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
-  USE mo_impl_constants,       ONLY: max_char_length, min_rlcell_int  ! io3_ape 
+  USE mo_impl_constants,       ONLY: min_rlcell_int  ! io3_ape 
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
@@ -39,7 +38,7 @@ MODULE mo_nwp_rg_interface
   USE mo_radiation_rg_par,     ONLY: aerdis
   USE mo_nwp_rrtm_interface,   ONLY: nwp_ozon_aerosol
   USE mo_satad,                ONLY: qsat_rho
-!  USE mo_sync,                 ONLY: SYNC_C, sync_patch_array
+  USE mtime,                   ONLY: datetime
 
   IMPLICIT NONE
 
@@ -59,7 +58,7 @@ MODULE mo_nwp_rg_interface
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rg_radiation ( p_sim_time, datetime, pt_patch, &
+  SUBROUTINE nwp_rg_radiation ( p_sim_time, mtime_datetime, pt_patch, &
     & ext_data,pt_prog,pt_diag,prm_diag,lnd_prog,zsct )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
@@ -68,16 +67,16 @@ MODULE mo_nwp_rg_interface
 !    REAL(wp), PARAMETER::  &
 !      & zqco2 = 0.5014E-03_wp*353.9_wp/330._wp ! CO2 (mixing ratio 353.9 ppm (like vmr_co2))
 
-    REAL(wp),INTENT(in)         :: p_sim_time
+    REAL(wp),                INTENT(in)    :: p_sim_time
     
-    TYPE(t_datetime),            INTENT(in) :: datetime
-    TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
-    TYPE(t_external_data)  , INTENT(inout)  :: ext_data
-    TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog     !<the prognostic variables
-    TYPE(t_nh_diag), TARGET, INTENT(inout)  :: pt_diag     !<the diagnostic variables
-    TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
-    TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
-    REAL(wp),                   INTENT(in)  :: zsct        ! solar constant (at time of year)
+    TYPE(datetime), POINTER, INTENT(in)    :: mtime_datetime
+    TYPE(t_patch), TARGET,   INTENT(in)    :: pt_patch     !<grid/patch info.
+    TYPE(t_external_data),   INTENT(inout) :: ext_data
+    TYPE(t_nh_prog), TARGET, INTENT(inout) :: pt_prog     !<the prognostic variables
+    TYPE(t_nh_diag), TARGET, INTENT(inout) :: pt_diag     !<the diagnostic variables
+    TYPE(t_nwp_phy_diag),    INTENT(inout) :: prm_diag
+    TYPE(t_lnd_prog),        INTENT(inout) :: lnd_prog
+    REAL(wp),                INTENT(in)    :: zsct        ! solar constant (at time of year)
 
     REAL(wp):: zi0        (nproma)  !< solar incoming radiation at TOA   [W/m2]
     ! for Ritter-Geleyn radiation:
@@ -97,7 +96,6 @@ MODULE mo_nwp_rg_interface
 
     ! Local scalars:
     INTEGER:: jc,jk,jb
-    INTEGER:: jg                !domain id
     INTEGER:: nlev, nlevp1      !< number of full and half levels
 
     INTEGER:: rl_start, rl_end
@@ -106,7 +104,6 @@ MODULE mo_nwp_rg_interface
     INTEGER:: i_nchdom                !< domain index
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
-    jg        = pt_patch%id
 
     ! number of vertical levels
     nlev   = pt_patch%nlev
@@ -119,7 +116,7 @@ MODULE mo_nwp_rg_interface
     ! CO2 help variable for Ritter-Geleyn scheme
     zqco2 = 0.5014E-03_wp*vmr_co2/330.e-6_wp
 
-    CALL nwp_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
+    CALL nwp_ozon_aerosol ( p_sim_time, mtime_datetime, pt_patch, ext_data, &
       & pt_diag, prm_diag, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, zduo3 )
     
 
@@ -230,7 +227,7 @@ MODULE mo_nwp_rg_interface
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rg_radiation_reduced ( p_sim_time, datetime, pt_patch,pt_par_patch, &
+  SUBROUTINE nwp_rg_radiation_reduced ( p_sim_time, mtime_datetime, pt_patch,pt_par_patch, &
     &                                   ext_data,pt_prog,pt_diag,prm_diag, &
     &                                   lnd_prog,zsct )
 
@@ -241,17 +238,17 @@ MODULE mo_nwp_rg_interface
 !      & zqco2 = 0.5014E-03_wp*353.9_wp/330._wp ! CO2 (mixing ratio 353.9 ppm (like vmr_co2))
 
     
-    REAL(wp),INTENT(in)         :: p_sim_time
+    REAL(wp),                INTENT(in) :: p_sim_time
 
-    TYPE(t_datetime),            INTENT(in) :: datetime 
-    TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
-    TYPE(t_patch),        TARGET,INTENT(in) :: pt_par_patch !<grid/patch info (parent grid)
-    TYPE(t_external_data)       ,INTENT(inout):: ext_data
+    TYPE(datetime), POINTER, INTENT(in) :: mtime_datetime 
+    TYPE(t_patch), TARGET,   INTENT(in) :: pt_patch     !<grid/patch info.
+    TYPE(t_patch), TARGET,   INTENT(in) :: pt_par_patch !<grid/patch info (parent grid)
+    TYPE(t_external_data),   INTENT(inout):: ext_data
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog     !<the prognostic variables
     TYPE(t_nh_diag), TARGET, INTENT(inout)  :: pt_diag     !<the diagnostic variables
-    TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
-    TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
-    REAL(wp),                   INTENT(in)  :: zsct        ! solar constant (at time of year)
+    TYPE(t_nwp_phy_diag),    INTENT(inout):: prm_diag
+    TYPE(t_lnd_prog),        INTENT(inout):: lnd_prog
+    REAL(wp),                INTENT(in)  :: zsct        ! solar constant (at time of year)
 
     ! For radiation on reduced grid
     ! These fields need to be allocatable because they have different dimensions for
@@ -332,7 +329,7 @@ MODULE mo_nwp_rg_interface
     zqco2 = 0.5014E-03_wp*vmr_co2/330.e-6_wp
 
 
-    CALL nwp_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
+    CALL nwp_ozon_aerosol ( p_sim_time, mtime_datetime, pt_patch, ext_data, &
       & pt_diag, prm_diag, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, zduo3 )
 
 
@@ -591,5 +588,6 @@ MODULE mo_nwp_rg_interface
 
   END SUBROUTINE nwp_rg_radiation_reduced
   
+
 END MODULE mo_nwp_rg_interface
 

@@ -184,15 +184,10 @@
     	minOccurs="1" maxOccurs="1" />
     <xs:element name="interpolation_requirements" type="interpolation_type" 
     	minOccurs="1" maxOccurs="1" />
-    <xs:element name="mask_value" minOccurs="0" maxOccurs="1">
-      <xs:simpleType>
-        <xs:union memberTypes="xs:double xs:integer" />
-      </xs:simpleType>
-    </xs:element>
     <xs:element name="debug_mode" type="debug_mode_type"
-    	minOccurs="1" maxOccurs="1" />
+    	minOccurs="0" maxOccurs="1" />
     <xs:element name="enforce_write_restart" type="xs:boolean"
-    	minOccurs="1" maxOccurs="1" />
+    	minOccurs="0" maxOccurs="1" />
     <xs:element name="enforce_write_weight_file" type="write_weight_file_type"
     	minOccurs="1" maxOccurs="1" />
   </xs:sequence>
@@ -220,11 +215,11 @@
 
 <xs:complexType name="timestep_type">
   <xs:sequence>
-    <xs:element name="source" type="xs:positiveInteger" minOccurs="1" maxOccurs="1" />
-    <xs:element name="target" type="xs:positiveInteger" minOccurs="1" maxOccurs="1" />
+    <xs:element name="source" type="xs:string" minOccurs="1" maxOccurs="1" />
+    <xs:element name="target" type="xs:string" minOccurs="1" maxOccurs="1" />
     <xs:element name="coupling_period" type="time_type" minOccurs="1" maxOccurs="1" />
-    <xs:element name="source_timelag" type="xs:nonNegativeInteger" minOccurs="1" maxOccurs="1" />
-    <xs:element name="target_timelag" type="xs:nonNegativeInteger" minOccurs="1" maxOccurs="1" />
+    <xs:element name="source_timelag" type="xs:string" minOccurs="1" maxOccurs="1" />
+    <xs:element name="target_timelag" type="xs:string" minOccurs="1" maxOccurs="1" />
   </xs:sequence>
 </xs:complexType>
 
@@ -240,6 +235,8 @@
               <xs:enumeration value="n-nearest_neighbor"/>
               <xs:enumeration value="conservative"/>
               <xs:enumeration value="patch_recovery"/>
+              <xs:enumeration value="source_to_target_map"/>
+              <xs:enumeration value="smooth_patch_recovery"/>
               <xs:enumeration value="fixed_value"/>
               <xs:enumeration value="user_file"/>
               <xs:enumeration value="check"/>
@@ -275,6 +272,7 @@
         </xs:attribute>
         <xs:attribute name="polynomial_order" type="xs:nonNegativeInteger" use="optional" />
         <xs:attribute name="gauss_order" type="xs:positiveInteger" use="optional" />
+        <xs:attribute name="corner_weight" type="xs:double" use="optional" />
         <xs:attribute name="extend_source_patch" type="xs:boolean" use="optional" />
         <xs:attribute name="allow_extrapolation" type="xs:boolean" use="optional" />
         <xs:attribute name="user_value" type="xs:double" use="optional" />
@@ -305,16 +303,16 @@
 </xs:simpleType>
 
 <xs:complexType name="debug_mode_type">
-  <xs:attribute name="at_source_before_interpolation" type="xs:boolean" use="required" />
-  <xs:attribute name="at_source_after_interpolation" type="xs:boolean" use="required" />
-  <xs:attribute name="at_target" type="xs:boolean" use="required" />
+  <xs:attribute name="at_source_before_interpolation" type="xs:boolean" use="optional" />
+  <xs:attribute name="at_source_after_interpolation" type="xs:boolean" use="optional" />
+  <xs:attribute name="at_target" type="xs:boolean" use="optional" />
 </xs:complexType>
 
 <!-- global -->
 
 <xs:complexType name="time_type">
   <xs:simpleContent>
-    <xs:extension base="xs:positiveInteger">
+    <xs:extension base="xs:string">
       <xs:attribute name="operation" type="operation_type" use="required" />
     </xs:extension>
   </xs:simpleContent>
@@ -330,13 +328,15 @@
 
 <xs:simpleType name="timestep_unit_type">
   <xs:restriction base="xs:string">
+    <xs:enumeration value="millisecond"/>
     <xs:enumeration value="second"/>
     <xs:enumeration value="minute"/>
     <xs:enumeration value="hour"/>
     <xs:enumeration value="day"/>
     <xs:enumeration value="month"/>
     <xs:enumeration value="year"/>
-    <xs:enumeration value="millisecond"/>
+    <xs:enumeration value="ISO_format"/>
+    <xs:enumeration value="string"/>
   </xs:restriction>
 </xs:simpleType>
   

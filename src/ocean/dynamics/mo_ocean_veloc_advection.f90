@@ -26,18 +26,22 @@ MODULE mo_ocean_veloc_advection
   !
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
+  USE mo_exception,           ONLY: finish
   USE mo_sync,                ONLY: sync_e, sync_c, sync_v, sync_patch_array
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_impl_constants,      ONLY: boundary, min_dolic
-  USE mo_ocean_nml,           ONLY: n_zlev,NONLINEAR_CORIOLIS,&
-    &                               NONLINEAR_CORIOLIS_PRIMAL_GRID,NONLINEAR_CORIOLIS_DUAL_GRID !, iswm_oce, l_inverse_flip_flop, ab_beta, ab_gam
+  USE mo_ocean_nml,           ONLY: n_zlev,NonlinearCoriolis_type,&
+    & nonlinear_coriolis_primal_grid,nonlinear_coriolis_dual_grid, no_coriolis, &
+    & VerticalAdvection_None, VerticalAdvection_RotationalForm, VerticalAdvection_MimeticRotationalForm, &
+    & VerticalAdvection_DivergenceForm, HorizonatlVelocity_VerticalAdvection_form
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_ocean_types,         ONLY: t_hydro_ocean_diag
   USE mo_ocean_math_operators,ONLY: grad_fd_norm_oce_3d_onBlock, &
-    &                               rot_vertex_ocean_3d,         &
-    &                               verticalDeriv_vec_midlevel_on_block
+    & rot_vertex_ocean_3d, verticalDeriv_vec_midlevel_on_block,  &
+    & verticalDiv_vector_onFullLevels_on_block
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, vector_product
-  USE mo_scalar_product,      ONLY: map_cell2edges_3D, nonlinear_coriolis_3D,map_vec_prismtop2center_on_block
+  USE mo_scalar_product,      ONLY: map_cell2edges_3D, nonlinear_coriolis_3D,map_vec_prismtop2center_on_block, &
+    & map_scalar_prismtop2center_onBlock, map_vector_center2prismtop_onBlock
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
@@ -73,7 +77,7 @@ CONTAINS
     & vn_new,          &
     & p_diag,          &
     & veloc_adv_horz_e,&
-    & p_op_coeff)
+    & ocean_coefficients)
     !
     !
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
@@ -81,27 +85,35 @@ CONTAINS
     REAL(wp), POINTER, INTENT(inout)     :: vn_new(:,:,:)
     TYPE(t_hydro_ocean_diag)             :: p_diag
     REAL(wp), POINTER, INTENT(inout)     :: veloc_adv_horz_e(:,:,:) ! out
-    TYPE(t_operator_coeff), INTENT(in)   :: p_op_coeff
+    TYPE(t_operator_coeff), INTENT(in)   :: ocean_coefficients
     !-----------------------------------------------------------------------
 
     IF (velocity_advection_form == rotational_form) THEN
 
 
-      IF(NONLINEAR_CORIOLIS==NONLINEAR_CORIOLIS_DUAL_GRID)THEN
+      IF(NonlinearCoriolis_type==nonlinear_coriolis_dual_grid)THEN
         ! inUse
         CALL veloc_adv_horz_mimetic_rot( patch_3D,        &
           & vn_old,          &
           & p_diag,          &
           & veloc_adv_horz_e,&
-          & p_op_coeff)
+          & ocean_coefficients)
 
-      ELSEIF(NONLINEAR_CORIOLIS==NONLINEAR_CORIOLIS_PRIMAL_GRID)THEN
+      ELSEIF(NonlinearCoriolis_type==nonlinear_coriolis_primal_grid)THEN
 
         CALL veloc_adv_horz_mimetic_classicCgrid( patch_3D, &
           & vn_old,          &
           & p_diag,          &
           & veloc_adv_horz_e,&
-          & p_op_coeff)
+          & ocean_coefficients)
+
+      ELSEIF(NonlinearCoriolis_type==no_coriolis)THEN
+
+        CALL calculate_only_kineticGrad( patch_3D, &
+          & vn_old,          &
+          & p_diag,          &
+          & veloc_adv_horz_e,&
+          & ocean_coefficients)
       ENDIF
 
 
@@ -110,7 +122,7 @@ CONTAINS
       CALL veloc_adv_horz_mimetic_div( patch_3D,      &
         & vn_old,        &
         & p_diag,        &
-        & p_op_coeff,    &
+        & ocean_coefficients,    &
         & veloc_adv_horz_e)
     ENDIF
 
@@ -126,23 +138,30 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2011).
   !!
 !<Optimize:inUse>
-  SUBROUTINE veloc_adv_vert_mimetic( patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
+  SUBROUTINE veloc_adv_vert_mimetic( patch_3D, p_diag,ocean_coefficients, veloc_adv_vert_e)
     !
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
     TYPE(t_hydro_ocean_diag)          :: p_diag
-    TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
-    REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e)
+    TYPE(t_operator_coeff), INTENT(in):: ocean_coefficients
+    REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(:,:,:) ! (1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e)
     !-----------------------------------------------------------------------
 
-    IF (velocity_advection_form == rotational_form) THEN
+    SELECT CASE(HorizonatlVelocity_VerticalAdvection_form)
+    CASE(VerticalAdvection_MimeticRotationalForm)
+      CALL veloc_adv_vert_mimetic_rot( patch_3D, p_diag,ocean_coefficients, veloc_adv_vert_e)
 
-      CALL veloc_adv_vert_mimetic_rot( patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
+    CASE(VerticalAdvection_DivergenceForm)
+      CALL veloc_adv_vert_mimetic_div( patch_3D, p_diag,ocean_coefficients, veloc_adv_vert_e)
 
-    ELSEIF (velocity_advection_form == divergence_form) THEN
+    CASE(VerticalAdvection_RotationalForm)
+      CALL veloc_adv_vert_rot( patch_3D, p_diag,ocean_coefficients, veloc_adv_vert_e)
 
-      CALL veloc_adv_vert_mimetic_div( patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
+    CASE(VerticalAdvection_None)
+      veloc_adv_vert_e(:,:,:) = 0.0_wp
 
-    ENDIF
+    CASE default
+      CALL finish("veloc_adv_vert_mimetic","unknown HorizonatlVelocity_VerticalAdvection_form")
+    END SELECT
 
   END SUBROUTINE veloc_adv_vert_mimetic
   !-------------------------------------------------------------------------
@@ -172,15 +191,15 @@ CONTAINS
     & vn,              &
     & p_diag,          &
     & veloc_adv_horz_e,&
-    & p_op_coeff)
+    & ocean_coefficients)
     
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
     REAL(wp), POINTER, INTENT(inout)  :: vn(:,:,:)
     TYPE(t_hydro_ocean_diag) :: p_diag
     REAL(wp), POINTER, INTENT(inout)  :: veloc_adv_horz_e(:,:,:) ! out
-    
-    TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
-    INTEGER :: jk, blockNo, je,cell_index,start_cell_index, end_cell_index, level,startLevel
+    TYPE(t_operator_coeff), INTENT(in):: ocean_coefficients
+
+    INTEGER :: jk, blockNo, cell_index,start_cell_index, end_cell_index, level,startLevel
     INTEGER :: start_edge_index, end_edge_index
     INTEGER, DIMENSION(:,:,:), POINTER :: edge_of_cell_idx, edge_of_cell_blk
     !REAL(wp) :: z_vort_flx(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
@@ -202,7 +221,7 @@ CONTAINS
       & vn,              &
       & p_diag%p_vn_dual,&
       & p_diag%vort,     &
-      & p_op_coeff,      &
+      & ocean_coefficients,      &
       & veloc_adv_horz_e)
 
       ! this is calculated in mo_diagnostics, only used for output
@@ -232,7 +251,7 @@ CONTAINS
     ! ENDIF
     !-------------------------------------------------------------------------------
 
-!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
 
@@ -240,7 +259,7 @@ CONTAINS
       CALL grad_fd_norm_oce_3d_onBlock ( &
         & p_diag%kin,                    &
         & patch_3D,                    &
-        & p_op_coeff%grad_coeff(:,:,blockNo), &
+        & ocean_coefficients%grad_coeff(:,:,blockNo), &
         & p_diag%grad(:,:,blockNo),           &
         & start_edge_index, end_edge_index, blockNo)
       ! the result is on edges_in_domain
@@ -266,6 +285,55 @@ CONTAINS
   END SUBROUTINE veloc_adv_horz_mimetic_rot
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  SUBROUTINE calculate_only_kineticGrad( patch_3D,     &
+    & vn,              &
+    & p_diag,          &
+    & veloc_adv_horz_e,&
+    & ocean_coefficients)
+
+    TYPE(t_patch_3D ),TARGET   :: patch_3D
+    REAL(wp), POINTER, INTENT(inout)  :: vn(:,:,:)
+    TYPE(t_hydro_ocean_diag) :: p_diag
+    REAL(wp), POINTER, INTENT(inout)  :: veloc_adv_horz_e(:,:,:) ! out
+    TYPE(t_operator_coeff), INTENT(in):: ocean_coefficients
+
+    INTEGER :: blockNo, start_edge_index, end_edge_index
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+    TYPE(t_patch), POINTER         :: patch_2D
+    !-----------------------------------------------------------------------
+    patch_2D        => patch_3D%p_patch_2D(1)
+    edges_in_domain => patch_2D%edges%in_domain
+    !-----------------------------------------------------------------------
+
+    veloc_adv_horz_e = 0.0_wp
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+
+      !calculate gradient of kinetic energy
+      CALL grad_fd_norm_oce_3d_onBlock ( &
+        & p_diag%kin,                    &
+        & patch_3D,                    &
+        & ocean_coefficients%grad_coeff(:,:,blockNo), &
+        & p_diag%grad(:,:,blockNo),           &
+        & start_edge_index, end_edge_index, blockNo)
+      ! the result is on edges_in_domain
+
+
+    END DO ! blocks
+!ICON_OMP_END_PARALLEL_DO
+
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('HorzMimRot: kin energy'        ,p_diag%kin              ,str_module,idt_src, &
+          patch_2D%cells%owned )
+    CALL dbg_print('HorzMimRot: grad kin en'       ,p_diag%grad             ,str_module,idt_src, &
+          patch_2D%edges%owned )
+
+  END SUBROUTINE calculate_only_kineticGrad
+  !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------
@@ -293,7 +361,7 @@ CONTAINS
     & vn,              &
     & p_diag,          &
     & veloc_adv_horz_e,&
-    & p_op_coeff)
+    & ocean_coefficients)
     !
     !
     !  patch on which computation is performed
@@ -303,13 +371,14 @@ CONTAINS
     TYPE(t_hydro_ocean_diag) :: p_diag
     REAL(wp), INTENT(inout)  :: veloc_adv_horz_e(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e) ! out
     !
-    TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
+    TYPE(t_operator_coeff), INTENT(in):: ocean_coefficients
     INTEGER :: jk, blockNo, je, jc
     INTEGER :: start_edge_index, end_edge_index
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-    INTEGER :: il_v1, ib_v1, il_v2, ib_v2
+    INTEGER :: c1_idx, c1_blk, c2_idx, c2_blk
+    INTEGER :: v1_idx, v1_blk, v2_idx, v2_blk
     REAL(wp) :: veloc_tangential
+    INTEGER, POINTER :: edge_levels(:,:)
     !REAL(wp) :: z_vort_flx(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_subset_range), POINTER :: edges_in_domain, all_edges, all_cells
     TYPE(t_patch), POINTER         :: patch_2D
@@ -317,33 +386,39 @@ CONTAINS
     patch_2D   => patch_3D%p_patch_2D(1)
     edges_in_domain => patch_2D%edges%in_domain
     all_cells => patch_2D%cells%all
+    edge_levels => patch_3D%p_patch_1D(1)%dolic_e
     !-----------------------------------------------------------------------
-     CALL rot_vertex_ocean_3d( patch_3d, vn, p_diag%p_vn_dual, p_op_coeff, p_diag%vort)
+    CALL rot_vertex_ocean_3d( patch_3d, vn, p_diag%p_vn_dual, ocean_coefficients, p_diag%vort)
+    ! sync not needed here, but used for example for the Leith
+    CALL sync_patch_array(SYNC_V, patch_2D, p_diag%vort)
     !--------------------------------------------------------------
     !calculate nonlinear coriolis term by
     !1) projection cell reconstructed velocity vector in tangential direction
     !2) averaging the result from 1) from two adjecent cells to an edge
     !3) multiplying the result by the averaged vorticity
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_edge_index,end_edge_index, je, jk, c1_idx, c1_blk, c2_idx, c2_blk, &
+!ICON_OMP  v1_idx, v1_blk, v2_idx, v2_blk, veloc_tangential) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
-      DO jk = 1, n_zlev
-        DO je = start_edge_index, end_edge_index
+      DO je = start_edge_index, end_edge_index
+        !Neighbouring cells
+        c1_idx = patch_2D%edges%cell_idx(je,blockNo,1)
+        c1_blk = patch_2D%edges%cell_blk(je,blockNo,1)
+        c2_idx = patch_2D%edges%cell_idx(je,blockNo,2)
+        c2_blk = patch_2D%edges%cell_blk(je,blockNo,2)
+        !Neighbouring verts
+        v1_idx = patch_2D%edges%vertex_idx(je,blockNo,1)
+        v1_blk = patch_2D%edges%vertex_blk(je,blockNo,1)
+        v2_idx = patch_2D%edges%vertex_idx(je,blockNo,2)
+        v2_blk = patch_2D%edges%vertex_blk(je,blockNo,2)
 
-          IF(patch_3D%lsm_e(je,jk,blockNo)< boundary)THEN
-            !Neighbouring cells
-            il_c1 = patch_2D%edges%cell_idx(je,blockNo,1)
-            ib_c1 = patch_2D%edges%cell_blk(je,blockNo,1)
-            il_c2 = patch_2D%edges%cell_idx(je,blockNo,2)
-            ib_c2 = patch_2D%edges%cell_blk(je,blockNo,2)
-            !Neighbouring verts
-            il_v1 = patch_2D%edges%vertex_idx(je,blockNo,1)
-            ib_v1 = patch_2D%edges%vertex_blk(je,blockNo,1)
-            il_v2 = patch_2D%edges%vertex_idx(je,blockNo,2)
-            ib_v2 = patch_2D%edges%vertex_blk(je,blockNo,2)
-
-            !calculation of tangential velocity
-            veloc_tangential=0.5_wp*&
-            dot_product(p_diag%p_vn(il_c1,jk,ib_c1)%x+p_diag%p_vn(il_c2,jk,ib_c2)%x,patch_2D%edges%dual_cart_normal(je,blockNo)%x)
+        DO jk = 1, edge_levels(je,blockNo)
+          !calculation of tangential velocity
+          veloc_tangential= dot_product( & 
+            &   p_diag%p_vn(c1_idx,jk,c1_blk)%x * ocean_coefficients%averageCellsToEdges(je,blockNo,1)  &
+            &  +p_diag%p_vn(c2_idx,jk,c2_blk)%x * ocean_coefficients%averageCellsToEdges(je,blockNo,2), &
+            &   patch_2D%edges%dual_cart_normal(je,blockNo)%x)
 
 !           !This is an upwind version of the nonlinear coriolis.
 !           !Not recommended just for testing purposes
@@ -369,15 +444,14 @@ CONTAINS
 !           ENDIF
 
             !calculation of nonlinear Coriolis
-            veloc_adv_horz_e(je,jk,blockNo)=veloc_tangential&
-            &*(patch_2d%edges%f_e(je,blockNo)&
-            &+0.5_wp*(p_diag%vort(il_v1,jk,ib_v1)+p_diag%vort(il_v2,jk,ib_v2)))
+          veloc_adv_horz_e(je,jk,blockNo) = veloc_tangential &
+            & * (patch_2d%edges%f_e(je,blockNo)  &
+            & + 0.5_wp * (p_diag%vort(v1_idx,jk,v1_blk)+p_diag%vort(v2_idx,jk,v2_blk)))
 
-          ENDIF
         END DO
       END DO
     END DO
-
+!ICON_OMP_END_DO
 
  !   DO blockNo = all_cells%start_block, all_cells%end_block
  !     CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
@@ -393,7 +467,7 @@ CONTAINS
 
 
 
-!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(start_edge_index,end_edge_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
 
@@ -401,21 +475,27 @@ CONTAINS
       CALL grad_fd_norm_oce_3d_onBlock ( &
         & p_diag%kin,                    &
         & patch_3D,                    &
-        & p_op_coeff%grad_coeff(:,:,blockNo), &
+        & ocean_coefficients%grad_coeff(:,:,blockNo), &
         & p_diag%grad(:,:,blockNo),           &
         & start_edge_index, end_edge_index, blockNo)
     ! the result is on edges_in_domain
 
     END DO ! blocks
-!ICON_OMP_END_PARALLEL_DO
+!ICON_OMP_END_DO_NOWAIT
+!ICON_OMP_END_PARALLEL
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('HorzMimRot: kin energy'        ,p_diag%kin              ,str_module,idt_src, &
+!     idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('advHorCgrid: kin energy'        ,p_diag%kin              ,str_module,idt_src, &
           patch_2D%cells%owned )
-    CALL dbg_print('HorzMimRot: vorticity'         ,p_diag%vort             ,str_module,idt_src, &
+    CALL dbg_print('advHorCgrid: vorticity'         ,p_diag%vort             ,str_module,idt_src, &
           patch_2D%verts%owned )
-    CALL dbg_print('HorzMimRot: grad kin en'       ,p_diag%grad             ,str_module,idt_src, &
+    CALL dbg_print('advHorCgrid: f_e'  ,        patch_2d%edges%f_e        ,str_module,idt_src, &
+          patch_2D%edges%owned )
+    CALL dbg_print('advHorCgrid: grad kin en'       ,p_diag%grad             ,str_module,idt_src, &
+          patch_2D%edges%owned )
+    CALL dbg_print('advHorCgrid: veloc_adv_horz_e'  ,veloc_adv_horz_e        ,str_module,idt_src, &
           patch_2D%edges%owned )
     !---------------------------------------------------------------------
     !idt_src=2  ! output print level (1-5, fix)
@@ -427,22 +507,18 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
-
-
-
-
   !-------------------------------------------------------------------------
   SUBROUTINE veloc_adv_horz_mimetic_div( patch_3D,   &
     & vn,             &
     & p_diag,         &
-    & p_op_coeff,     &
+    & ocean_coefficients,     &
     & veloc_adv_horz_e)
     !
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
     REAL(wp), INTENT(inout)          :: vn(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e) ! dim: (nproma,n_zlev,nblks_e)
     TYPE(t_hydro_ocean_diag)         :: p_diag
-    TYPE(t_operator_coeff),INTENT(in):: p_op_coeff
+    TYPE(t_operator_coeff),INTENT(in):: ocean_coefficients
     REAL(wp), INTENT(inout)          :: veloc_adv_horz_e(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e) ! out
     !
     !Local variables
@@ -524,21 +600,21 @@ CONTAINS
          ib_e3 = patch_2D%cells%edge_blk(jc,blockNo,3)
 
          div_veloc(jc,jk,blockNo)=  &
-              & (z_e(il_e1,jk,ib_e1)* p_op_coeff%div_coeff(jc,jk,blockNo,1)&
+              & (z_e(il_e1,jk,ib_e1)* ocean_coefficients%div_coeff(jc,jk,blockNo,1)&
                           &*patch_3D%p_patch_1d(1)%prism_thick_e(il_e1,jk,ib_e1) + &
-              & z_e(il_e2,jk,ib_e2) * p_op_coeff%div_coeff(jc,jk,blockNo,2)&
+              & z_e(il_e2,jk,ib_e2) * ocean_coefficients%div_coeff(jc,jk,blockNo,2)&
                           &*patch_3D%p_patch_1d(1)%prism_thick_e(il_e2,jk,ib_e2) + &
-              & z_e(il_e3,jk,ib_e3) * p_op_coeff%div_coeff(jc,jk,blockNo,3)&
+              & z_e(il_e3,jk,ib_e3) * ocean_coefficients%div_coeff(jc,jk,blockNo,3)&
                           &*patch_3D%p_patch_1d(1)%prism_thick_e(il_e3,jk,ib_e3))&
                           &/patch_3D%p_patch_1d(1)%prism_thick_c(jc,jk,blockNo)
 
 
  !         z_div_vec_c(jc,jk,blockNo)%x =  &
-!               & (u_v_cc_e(il_e1,jk,ib_e1)%x* p_op_coeff%div_coeff(jc,jk,blockNo,1)&
+!               & (u_v_cc_e(il_e1,jk,ib_e1)%x* ocean_coefficients%div_coeff(jc,jk,blockNo,1)&
 !                         &*patch_3D%p_patch_1d(1)%prism_thick_e(il_e1,jk,ib_e1) + &
-!               & u_v_cc_e(il_e2,jk,ib_e2)%x * p_op_coeff%div_coeff(jc,jk,blockNo,2)&
+!               & u_v_cc_e(il_e2,jk,ib_e2)%x * ocean_coefficients%div_coeff(jc,jk,blockNo,2)&
 !                         &*patch_3D%p_patch_1d(1)%prism_thick_e(il_e2,jk,ib_e2) + &
-!               & u_v_cc_e(il_e3,jk,ib_e3)%x * p_op_coeff%div_coeff(jc,jk,blockNo,3)&
+!               & u_v_cc_e(il_e3,jk,ib_e3)%x * ocean_coefficients%div_coeff(jc,jk,blockNo,3)&
 !                         &*patch_3D%p_patch_1d(1)%prism_thick_e(il_e3,jk,ib_e3))&
 !                         & / patch_3D%p_patch_1d(1)%prism_thick_c(jc,jk,blockNo)
 
@@ -548,10 +624,9 @@ CONTAINS
 
 
 
-
 !     CALL map_cell2edges( patch_2D, z_div_vec_c, veloc_adv_horz_e, &
 !       & opt_start_level=start_level, opt_elev=elev )
-!    CALL map_cell2edges_3D( patch_3D, z_div_vec_c, veloc_adv_horz_e,p_op_coeff)
+!    CALL map_cell2edges_3D( patch_3D, z_div_vec_c, veloc_adv_horz_e,ocean_coefficients)
 
 
 
@@ -594,7 +669,7 @@ ENDDO
     CALL rot_vertex_ocean_3D( patch_3D,              &
                               & p_diag%vn_time_weighted,&!vn,                  &
                               & p_diag%p_vn_dual,    &
-                              & p_op_coeff,          &
+                              & ocean_coefficients,          &
                               & p_diag%vort)
     CALL sync_patch_array(SYNC_V, patch_2D, p_diag%vort)
 
@@ -608,6 +683,115 @@ ENDDO
     !---------------------------------------------------------------------
 
   END SUBROUTINE veloc_adv_horz_mimetic_div
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Computes vertical advection of a (edge based) horizontal vector field that
+  !! suits to rotational form of velocity equation.
+  !!
+  !! IMPORTANT: It is assumed that the velocity vector reconstruction from
+  !! edges to cells has been done before.
+  !!
+  !! input:  lives on cells (velocity points)
+  !! output: lives on edges (velocity points)
+  !!
+!<Optimize:inUse>
+  SUBROUTINE veloc_adv_vert_rot( patch_3D, p_diag,ocean_coefficients, veloc_adv_vert_e)
+
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
+    TYPE(t_hydro_ocean_diag)          :: p_diag
+    TYPE(t_operator_coeff),INTENT(in) :: ocean_coefficients
+    REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e)
+
+    !local variables
+!     INTEGER :: start_level     ! vertical start and end level
+    INTEGER :: jc, jk, blockNo
+    INTEGER :: start_index, end_index
+    INTEGER :: fin_level
+    REAL(wp), POINTER :: inv_prism_center_distance(:,:)! ,prism_thick(:,:)
+    TYPE(t_cartesian_coordinates) :: z_adv_u_fullLevels(nproma,n_zlev)
+    TYPE(t_cartesian_coordinates) :: vn_halfLevels(nproma,n_zlev+1) !, z_adv_u_fullLevel(nproma,n_zlev)
+    TYPE(t_cartesian_coordinates) :: z_adv_u_m(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: center_vertical_velocity(nproma,n_zlev) !, z_adv_u_fullLevel(nproma,n_zlev)
+!     TYPE(t_cartesian_coordinates) :: vertDeriv_vec(nproma, n_zlev)
+    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_patch), POINTER        :: patch_2D
+    REAL(wp), POINTER             :: vertical_velocity(:,:,:)! , prism_center_distance(:,:,:)
+    !-----------------------------------------------------------------------
+    patch_2D   => patch_3D%p_patch_2D(1)
+    all_cells => patch_2D%cells%all
+!     prism_center_distance => patch_3D%p_patch_1D(1)%prism_center_dist_c(:,:,:)
+   !-----------------------------------------------------------------------
+!     start_level = 1
+
+    vertical_velocity => p_diag%w
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index,jc, jk, center_vertical_velocity, &
+!ICON_OMP vn_halfLevels, z_adv_u_fullLevels) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, blockNo, start_index, end_index)
+
+      ! map w on full levels
+      CALL map_scalar_prismtop2center_onBlock(patch_3d, vertical_velocity(:,:,blockNo), center_vertical_velocity, &
+        & blockNo, start_index, end_index)
+
+      ! map p_vn on half levels
+      CALL map_vector_center2prismtop_onBlock(patch_3d, p_diag%p_vn(:,:,blockNo), vn_halfLevels, &
+        & blockNo, start_index, end_index)
+
+      !vertical derivative at ocean interior Surface is handled below
+      ! this does not include h
+      CALL verticalDiv_vector_onFullLevels_on_block( patch_3d, vn_halfLevels, z_adv_u_fullLevels, &
+        & 1, blockNo, start_index, end_index)
+
+      ! multiply vertical velocity with vertical derivative of horizontal velocity
+      DO jc = start_index, end_index
+        DO jk = 1, patch_3D%p_patch_1D(1)%dolic_c(jc,blockNo)
+          z_adv_u_m(jc,jk,blockNo)%x =  &
+            center_vertical_velocity(jc,jk) * z_adv_u_fullLevels(jc,jk)%x
+        END DO
+        DO jk = patch_3D%p_patch_1D(1)%dolic_c(jc,blockNo)+1, n_zlev
+          z_adv_u_m(jc,jk,blockNo)%x = 0.0_wp
+        END DO
+      END DO
+
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('vn 1%x(1)'    ,p_diag%p_vn(:,1,:)%x(1)        ,str_module,idt_src, &
+          patch_2D%cells%owned )
+    CALL dbg_print('vn 1%x(2)'    ,p_diag%p_vn(:,1,:)%x(2)        ,str_module,idt_src, &
+          patch_2D%cells%owned )
+    CALL dbg_print('vn 1%x(3)'    ,p_diag%p_vn(:,1,:)%x(3)        ,str_module,idt_src, &
+          patch_2D%cells%owned )
+    CALL dbg_print('vn 2%x(1)'    ,p_diag%p_vn(:,2,:)%x(1)        ,str_module,idt_src, &
+          patch_2D%cells%owned )
+    CALL dbg_print('vn 2%x(2)'    ,p_diag%p_vn(:,2,:)%x(2)        ,str_module,idt_src, &
+          patch_2D%cells%owned )
+    CALL dbg_print('vn 2%x(3)'    ,p_diag%p_vn(:,2,:)%x(3)        ,str_module,idt_src, &
+          patch_2D%cells%owned )
+
+    CALL dbg_print('VertAdvect x(1)'    ,z_adv_u_m(:,:,:)%x(1)        ,str_module,idt_src, &
+          patch_2D%cells%owned )
+    CALL dbg_print('VertAdvect x(2)'    ,z_adv_u_m(:,:,:)%x(2)        ,str_module,idt_src, &
+          patch_2D%cells%owned )
+    CALL dbg_print('VertAdvect x(3)'    ,z_adv_u_m(:,:,:)%x(3)        ,str_module,idt_src, &
+          patch_2D%cells%owned )
+
+
+    ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
+    CALL map_cell2edges_3D( patch_3D, z_adv_u_m, veloc_adv_vert_e,ocean_coefficients)
+
+!     CALL sync_patch_array(SYNC_E, patch_2D, veloc_adv_vert_e)
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('VertMimRot: V.Adv. Final'    ,veloc_adv_vert_e         ,str_module,idt_src, &
+          patch_2D%edges%owned )
+    !---------------------------------------------------------------------
+
+  END SUBROUTINE veloc_adv_vert_rot
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -691,17 +875,18 @@ ENDDO
              & * patch_3D%p_patch_1D(1)%constantPrismCenters_invZdistance(jc,start_level,blockNo)
 
           ! 1b) ocean interior
-          DO jk = start_level+1, fin_level-1
+          DO jk = start_level+1, fin_level
             z_adv_u_i(jc,jk)%x =  vertical_velocity(jc,jk,blockNo) * z_adv_u_i(jc,jk)%x
           END DO
 
-          z_adv_u_i(jc,fin_level)%x = 0.0_wp
+!           z_adv_u_i(jc,fin_level)%x   = 0.0_wp
+          z_adv_u_i(jc,fin_level+1)%x = 0.0_wp
 
         ENDIF
       END DO
 
       ! Step 2: Map product of vertical velocity & vertical derivative from top of prism to mid position.
-      CALL map_vec_prismtop2center_on_block(patch_3d, z_adv_u_i, p_op_coeff, z_adv_u_m, &
+      CALL map_vec_prismtop2center_on_block(patch_3d, z_adv_u_i, z_adv_u_m(:,:,blockNo), &
         & blockNo, start_index, end_index)
 
     END DO
@@ -718,6 +903,7 @@ ENDDO
 
   END SUBROUTINE veloc_adv_vert_mimetic_rot
   !-------------------------------------------------------------------------
+
 
   !-------------------------------------------------------------------------
   !>
@@ -738,11 +924,11 @@ ENDDO
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-!   SUBROUTINE veloc_adv_vert_mimetic_rot_old( patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
+!   SUBROUTINE veloc_adv_vert_mimetic_rot_old( patch_3D, p_diag,ocean_coefficients, veloc_adv_vert_e)
 ! 
 !     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
 !     TYPE(t_hydro_ocean_diag)          :: p_diag    
-!     TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
+!     TYPE(t_operator_coeff),INTENT(in) :: ocean_coefficients
 !     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e)
 ! 
 !     !local variables
@@ -822,7 +1008,7 @@ ENDDO
 !     END DO
 ! !ICON_OMP_END_PARALLEL_DO
 !     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-!     CALL map_cell2edges_3D( patch_3D, z_adv_u_m, veloc_adv_vert_e,p_op_coeff)    
+!     CALL map_cell2edges_3D( patch_3D, z_adv_u_m, veloc_adv_vert_e,ocean_coefficients)
 ! 
 !     !---------Debug Diagnostics-------------------------------------------
 !     idt_src=3  ! output print level (1-5, fix)
@@ -857,11 +1043,11 @@ ENDDO
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  SUBROUTINE veloc_adv_vert_mim_rot_flux2( patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
+  SUBROUTINE veloc_adv_vert_mim_rot_flux2( patch_3D, p_diag,ocean_coefficients, veloc_adv_vert_e)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
     TYPE(t_hydro_ocean_diag)          :: p_diag
-    TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
+    TYPE(t_operator_coeff),INTENT(in) :: ocean_coefficients
     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
 
     !local variables
@@ -974,7 +1160,7 @@ ENDDO
     END DO
 
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-    CALL map_cell2edges_3D( patch_3D, z_adv_u_m, veloc_adv_vert_e,p_op_coeff)
+    CALL map_cell2edges_3D( patch_3D, z_adv_u_m, veloc_adv_vert_e,ocean_coefficients)
 
 
     CALL sync_patch_array(SYNC_E, patch_2D, veloc_adv_vert_e)
@@ -1013,11 +1199,11 @@ ENDDO
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  SUBROUTINE veloc_adv_vert_mimetic_rot_flux( patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
+  SUBROUTINE veloc_adv_vert_mimetic_rot_flux( patch_3D, p_diag,ocean_coefficients, veloc_adv_vert_e)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
     TYPE(t_hydro_ocean_diag)          :: p_diag
-    TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
+    TYPE(t_operator_coeff),INTENT(in) :: ocean_coefficients
     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
 
     !local variables
@@ -1074,7 +1260,7 @@ ENDDO
       END DO
     END DO
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-    CALL map_cell2edges_3D( patch_3D, z_adv_u_i, veloc_adv_vert_e, p_op_coeff)
+    CALL map_cell2edges_3D( patch_3D, z_adv_u_i, veloc_adv_vert_e, ocean_coefficients)
 
     CALL sync_patch_array(SYNC_E, patch_2D, veloc_adv_vert_e)
 
@@ -1111,11 +1297,11 @@ ENDDO
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  SUBROUTINE veloc_adv_vert_mimetic_div( patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
+  SUBROUTINE veloc_adv_vert_mimetic_div( patch_3D, p_diag,ocean_coefficients, veloc_adv_vert_e)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
     TYPE(t_hydro_ocean_diag)          :: p_diag
-    TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
+    TYPE(t_operator_coeff),INTENT(in) :: ocean_coefficients
     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
 
     !local variables
@@ -1170,7 +1356,7 @@ ENDDO
       END DO
     END DO
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-    CALL map_cell2edges_3D( patch_3D, z_adv_u_i, veloc_adv_vert_e, p_op_coeff)
+    CALL map_cell2edges_3D( patch_3D, z_adv_u_i, veloc_adv_vert_e, ocean_coefficients)
 
     CALL sync_patch_array(SYNC_E, patch_2D, veloc_adv_vert_e)
 
@@ -1204,11 +1390,11 @@ ENDDO
 !   !! Developed  by  Peter Korn, MPI-M (2010).
 !   !!  mpi parallelized LL
 !   !!
-!   SUBROUTINE veloc_adv_vert_mimetic_div( patch_2D, p_diag,p_op_coeff, veloc_adv_vert_e)
+!   SUBROUTINE veloc_adv_vert_mimetic_div( patch_2D, p_diag,ocean_coefficients, veloc_adv_vert_e)
 !
 !     TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
 !     TYPE(t_hydro_ocean_diag)          :: p_diag
-!     TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
+!     TYPE(t_operator_coeff),INTENT(in) :: ocean_coefficients
 !     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,patch_2D%nblks_e)
 !
 !     !local variables
@@ -1268,7 +1454,7 @@ ENDDO
 !     END DO
 !
 !     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-!     CALL map_cell2edges_3D( patch_2D, z_adv_u_m, veloc_adv_vert_e,p_op_coeff)
+!     CALL map_cell2edges_3D( patch_2D, z_adv_u_m, veloc_adv_vert_e,ocean_coefficients)
 !
 !     CALL sync_patch_array(SYNC_E, patch_2D, veloc_adv_vert_e)
 !

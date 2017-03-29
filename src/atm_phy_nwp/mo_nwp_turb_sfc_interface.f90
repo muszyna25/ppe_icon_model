@@ -35,7 +35,7 @@
 MODULE mo_nwp_turb_sfc_interface
 
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: message, message_text, finish
+  USE mo_exception,            ONLY: message
   USE mo_model_domain,         ONLY: t_patch
   USE mo_impl_constants,       ONLY: min_rlcell_int, icosmo, iedmf
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
@@ -44,21 +44,17 @@ MODULE mo_nwp_turb_sfc_interface
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE mo_nwp_phy_state,        ONLY: phy_params
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqtvar, nqtendphy
+  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqtvar
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_data_turbdiff,        ONLY: t0_melt, zt_ice
   USE mo_satad,                ONLY: sat_pres_water, spec_humi
   USE mo_vdfouter,             ONLY: vdfouter
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases_nml,     ONLY: nh_test_name
-  USE mo_nh_wk_exp,            ONLY: qv_max_wk
   USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
                                    & lmulti_snow, isub_water, isub_lake, isub_seaice,  &
                                    & itype_interception
-  USE mo_run_config,           ONLY: ntracer
   USE mo_edmf_param,           ONLY: ntiles_edmf
 
   IMPLICIT NONE
