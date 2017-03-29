@@ -147,6 +147,7 @@ EOF
           export hostname
           export with_mpi
           export host
+          AS_IF([test -z "$CONFIG_SHELL"],[CONFIG_SHELL=$SHELL]) 
           load_modules=$($CONFIG_SHELL -c '. ./conftest; echo "$load_modules"')
           /bin/rm -f confsed conftest
 ])
@@ -206,6 +207,7 @@ EOF
           export hostname
           export with_mpi
           export host
+          AS_IF([test -z "$CONFIG_SHELL"],[CONFIG_SHELL=$SHELL]) 
           load_profile=$($CONFIG_SHELL -c '. ./conftest; echo "$load_profile"')
           /bin/rm -f confsed conftest
 ])
