@@ -353,7 +353,7 @@ MODULE mo_async_latbc
     SUBROUTINE read_init_file(latbc, StrLowCasegrp)
       TYPE (t_latbc_data),        INTENT(INOUT) :: latbc
       CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: StrLowCasegrp(:) !< grp name in lower case letter
-
+      CHARACTER(*), PARAMETER                   :: routine = "mo_async_latbc::read_init_files"
 #ifndef NOMPI
       ! local variables
       CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: grp_vars(:)
@@ -361,7 +361,6 @@ MODULE mo_async_latbc
       ! GRIB2 shortnames or NetCDF var names.
       TYPE (t_dictionary)                     :: latbc_varnames_dict
       CHARACTER(LEN=filename_max)             :: latbc_file
-      CHARACTER(*), PARAMETER                 :: routine = "mo_async_latbc::read_init_files"
       CHARACTER (len=MAX_CHAR_LENGTH)         :: name
       CHARACTER(len=132)                      :: message_text
       INTEGER                                 :: jlev, ierrstat, vlistID, nvars, varID, zaxisID, gridID,  &
@@ -547,11 +546,11 @@ MODULE mo_async_latbc
         CALL p_bcast(max_nlev, 0, p_comm_work)
         CALL allocate_pref_latbc_data(latbc, max_nlev, p_nh_state(1), ext_data(1), p_patch(1))
       END IF
-#endif
 
       ! clean up
       DEALLOCATE(grp_vars, STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+#endif
     END SUBROUTINE read_init_file
 
 
