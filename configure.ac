@@ -29,6 +29,8 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_SYSTEM
 
 AC_PROG_AWK
+AC_PROG_GREP
+AC_PROG_SED
 
 dnl ######################################################################
 
@@ -75,9 +77,9 @@ AC_MSG_RESULT([$[ac_sitename]])
 dnl Load pre-set configure options from config/config-options
 dnl ######################################################################
 
-if test -f "config/config-options" ; then
-  AC_GET_MH(config/config-options)
-fi
+dnl if test -f "config/config-options" ; then
+dnl   AC_GET_MH(config/config-options)
+dnl fi
 
 dnl ######################################################################
 
@@ -121,9 +123,9 @@ AC_ARG_WITH([setup],
     [],
     [])
 
-AS_IF([test x$with_setup != x],
-      [mh_setup=$with_setup],
-      [mh_setup=""])
+dnl AS_IF([test x$with_setup != x],
+dnl       [mh_setup=$with_setup],
+dnl       [mh_setup=""])
 
 AC_ARG_WITH([yac],
   [AS_HELP_STRING([--with-yac],
@@ -170,22 +172,35 @@ AS_CASE([$host],
 
 dnl ######################################################################
 
-host_frag=""
-case $host in
-    sx*-*-*)             host_frag=config/mh-nec ;;
-    *-ibm-aix*)          host_frag=config/mh-aix ;;
-    *-*-linux-*)         host_frag=config/mh-linux ;;
-    *-*-darwin*)         host_frag=config/mh-darwin ;;
-    *-cray-*)            host_frag=config/mh-cray ;;
-    *) echo This configuration is not supported.
-       echo Please set a valid config/mh-* file up.
-       ;;	 	
-esac
+AS_CASE([$host],
+        [sx*-*-*],
+        [host_frag=config/mh-nec],
+        [*-ibm-aix*],
+        [host_frag=config/mh-aix],
+        [*-*-linux-*],
+        [host_frag=config/mh-linux],
+        [*-*-darwin*],
+        [host_frag=config/mh-darwin],
+        [*-cray-*],
+        [host_frag=config/mh-cray],
+        [m4_define([line1], [This configuration is not supported.])
+         m4_define([line2], [Please set a valid config/mh-* file up.])
+         AC_MSG_ERROR([line1 line2], [1])])
 
-if test ! -f $host_frag ; then
-   echo "machine dependent configuration file $host_frag does not exist!"
-   exit 1
-fi
+ACX_GET_MODULES_TO_LOAD([$host_frag])
+ACX_GET_PROFILE_TO_LOAD([$host_frag])
+
+AS_IF([test ! -z "$load_profile" ],
+      [. "$load_profile"])
+
+AS_IF([test ! -z "$load_modules" ],
+      [ACX_SWAP_MODULES(["$load_modules"])])
+
+ACX_GET_MH($host_frag)
+
+dnl ######################################################################
+
+make_command=m4_default(["$make_command"],["make"])
 
 if test "$build" != "$host" ; then
    CROSS=yes
@@ -195,34 +210,31 @@ fi
 
 AC_CONFIG_HEADER(config/config.h)
 
+build_host=$host
+
 # Makefile is common and does not allow multiple builds
 # Disable the the build_host folder
-if test x$mh_setup != x ; then
-  build_host=${host}-${mh_setup}
-else
-  build_host=$host
-fi
+dnl if test x$mh_setup != x ; then
+dnl   build_host=${host}-${mh_setup}
+dnl else
+dnl   build_host=$host
+dnl fi
 #build_host=""
 
 #------------------------------------
-cat $host_frag > config/mh-config-use
-mh_local_name=config/mh-${ac_sitename}-${ac_hostname}
-# echo "mh_local_name=$mh_local_name"
-if test -f $mh_local_name ; then
-  cat $mh_local_name >> config/mh-config-use
-# else
-#   echo "not found!"
-fi
-if test -f config/mh-override ; then
-  cat config/mh-override >> config/mh-config-use
-fi
-host_frag=config/mh-config-use
+dnl cat $host_frag > config/mh-config-use
+dnl mh_local_name=config/mh-${ac_sitename}-${ac_hostname}
+dnl # echo "mh_local_name=$mh_local_name"
+dnl if test -f $mh_local_name ; then
+dnl   cat $mh_local_name >> config/mh-config-use
+dnl # else
+dnl #   echo "not found!"
+dnl fi
+dnl if test -f config/mh-override ; then
+dnl   cat config/mh-override >> config/mh-config-use
+dnl fi
+dnl host_frag=config/mh-config-use
 #------------------------------------
-
-# set default
-make_command="make"
-
-AC_GET_MH($host_frag)
 
 ac_libs=$LIBS
 LIBS=""
@@ -232,24 +244,6 @@ if test "$CC" = mpcc_r ;  then
   FC=xlf2003_r
   F77=xlf_r
   use_mpcc_r=yes
-fi
-
-if test "x$load_modules" != x ;  then
-  if test "$0" != "./conf__.tmp" ; then
-    echo "$load_profile" > conf_load_module.tmp
-    echo module purge >> conf_load_module.tmp
-    echo module load "$load_modules" >> conf_load_module.tmp
-    echo module list >> conf_load_module.tmp
-    cp configure conf__.tmp 
-    echo "chmod +x conf__.tmp" >>  conf_load_module.tmp
-    echo "./conf__.tmp $ac_configure_args ; "'rc=$?' >> conf_load_module.tmp
-    echo "rm conf__.tmp" >> conf_load_module.tmp
-    echo 'exit $rc' >>conf_load_module.tmp
-    chmod +x conf_load_module.tmp
-    ./conf_load_module.tmp ; rc=$?
-    rm conf_load_module.tmp
-    exit $rc
-  fi  
 fi
   
 dnl ######################################################################
@@ -276,11 +270,10 @@ AS_IF([test "x$enable_testbed" = "xno"],
 dnl #####################################################################
 dnl add local flags
 
-use_local_flags_file=config/local_flags
-if test -f $use_local_flags_file ; then
-  AC_GET_MH($use_local_flags_file)
-fi
-
+dnl use_local_flags_file=config/local_flags
+dnl if test -f $use_local_flags_file ; then
+dnl   AC_GET_MH($use_local_flags_file)
+dnl fi
 
 for other_flags in $icon_flags ; do
   FFLAGS="${FFLAGS} ${DEFOPT}__${other_flags}__"
@@ -1320,23 +1313,25 @@ fi
 
 sync_submit=${sync_submit:=$submit}
 
-AC_CONFIG_COMMANDS([Makefiles],[
-if test "x$enable_jsbach" = "xyes"; then :
-  test -d build/${build_host}/src || mkdir -p build/${build_host}/src
-  externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/src
-fi
-config/createMakefiles.pl --target="$build_host" \
-  --srcdirs="${my_srcdirs}" \
-  --enable_ocean="${enable_ocean}" \
-  --enable_atmo="${enable_atmo}" \
-  --enable_jsbach="${enable_jsbach}" \
-  --enable_testbed="${enable_testbed}"
-],[build_host="${build_host}"
-my_srcdirs="$my_srcdirs"
-enable_ocean="${enable_ocean}"
-enable_atmo="${enable_atmo}"
-enable_jsbach="${enable_jsbach}"
-enable_testbed="${enable_testbed}"])
+AC_CONFIG_COMMANDS([Makefiles],
+                   [AS_IF([test "x$enable_jsbach" = "xyes"],
+                          [AS_IF([test -d build/${build_host}/src],
+                                 [],
+                                 [mkdir -p build/${build_host}/src])
+                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/src])
+                    config/createMakefiles.pl \
+                                              --target="${build_host}" \
+                                              --srcdirs="${my_srcdirs}" \
+                                              --enable_ocean="${enable_ocean}" \
+                                              --enable_atmo="${enable_atmo}" \
+                                              --enable_jsbach="${enable_jsbach}" \
+                                              --enable_testbed="${enable_testbed}"],
+                   [build_host="${build_host}"
+                    my_srcdirs="$my_srcdirs"
+                    enable_ocean="${enable_ocean}"
+                    enable_atmo="${enable_atmo}"
+                    enable_jsbach="${enable_jsbach}"
+                    enable_testbed="${enable_testbed}"])
 
 AC_SUBST(config_target,$config_target)
 AC_SUBST(config_compiler,$config_compiler)
@@ -1378,9 +1373,9 @@ if test -n "$CROSS" ; then
    fi
 fi
 
-echo ""
-cat config/set-up.info
-echo ""
+dnl echo ""
+dnl cat config/set-up.info
+dnl echo ""
 
 echo ""
 echo "Configuration done. Run GNU make to build ICON."
@@ -1388,6 +1383,5 @@ echo ""
 echo "build directory: build/${build_host}"
 echo ""
 AS_IF([test "x$enable_atmo" = "xyes" && test "x$enable_ocean" = "xno"],
-[AC_MSG_WARN([In order to use ECHAM physics, you need to enable ocean!])])
-
+      [AC_MSG_WARN([In order to use ECHAM physics, you need to enable ocean!])])
 echo ""

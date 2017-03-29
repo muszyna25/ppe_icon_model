@@ -694,7 +694,6 @@ OS
 ARCH
 FCLIBS
 EGREP
-GREP
 CPP
 ac_ct_CC
 CPPFLAGS
@@ -707,6 +706,8 @@ LDFLAGS
 FCFLAGS
 FC
 RANLIB
+SED
+GREP
 AWK
 target_os
 target_vendor
@@ -2388,6 +2389,138 @@ fi
   test -n "$AWK" && break
 done
 
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for grep that handles long lines and -e" >&5
+$as_echo_n "checking for grep that handles long lines and -e... " >&6; }
+if ${ac_cv_path_GREP+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -z "$GREP"; then
+  ac_path_GREP_found=false
+  # Loop through the user's path and test for each of PROGNAME-LIST
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH$PATH_SEPARATOR/usr/xpg4/bin
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_prog in grep ggrep; do
+    for ac_exec_ext in '' $ac_executable_extensions; do
+      ac_path_GREP="$as_dir/$ac_prog$ac_exec_ext"
+      as_fn_executable_p "$ac_path_GREP" || continue
+# Check for GNU ac_path_GREP and select it if it is found.
+  # Check for GNU $ac_path_GREP
+case `"$ac_path_GREP" --version 2>&1` in
+*GNU*)
+  ac_cv_path_GREP="$ac_path_GREP" ac_path_GREP_found=:;;
+*)
+  ac_count=0
+  $as_echo_n 0123456789 >"conftest.in"
+  while :
+  do
+    cat "conftest.in" "conftest.in" >"conftest.tmp"
+    mv "conftest.tmp" "conftest.in"
+    cp "conftest.in" "conftest.nl"
+    $as_echo 'GREP' >> "conftest.nl"
+    "$ac_path_GREP" -e 'GREP$' -e '-(cannot match)-' < "conftest.nl" >"conftest.out" 2>/dev/null || break
+    diff "conftest.out" "conftest.nl" >/dev/null 2>&1 || break
+    as_fn_arith $ac_count + 1 && ac_count=$as_val
+    if test $ac_count -gt ${ac_path_GREP_max-0}; then
+      # Best one so far, save it but keep looking for a better one
+      ac_cv_path_GREP="$ac_path_GREP"
+      ac_path_GREP_max=$ac_count
+    fi
+    # 10*(2^10) chars as input seems more than enough
+    test $ac_count -gt 10 && break
+  done
+  rm -f conftest.in conftest.tmp conftest.nl conftest.out;;
+esac
+
+      $ac_path_GREP_found && break 3
+    done
+  done
+  done
+IFS=$as_save_IFS
+  if test -z "$ac_cv_path_GREP"; then
+    as_fn_error $? "no acceptable grep could be found in $PATH$PATH_SEPARATOR/usr/xpg4/bin" "$LINENO" 5
+  fi
+else
+  ac_cv_path_GREP=$GREP
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_path_GREP" >&5
+$as_echo "$ac_cv_path_GREP" >&6; }
+ GREP="$ac_cv_path_GREP"
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for a sed that does not truncate output" >&5
+$as_echo_n "checking for a sed that does not truncate output... " >&6; }
+if ${ac_cv_path_SED+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+            ac_script=s/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/
+     for ac_i in 1 2 3 4 5 6 7; do
+       ac_script="$ac_script$as_nl$ac_script"
+     done
+     echo "$ac_script" 2>/dev/null | sed 99q >conftest.sed
+     { ac_script=; unset ac_script;}
+     if test -z "$SED"; then
+  ac_path_SED_found=false
+  # Loop through the user's path and test for each of PROGNAME-LIST
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_prog in sed gsed; do
+    for ac_exec_ext in '' $ac_executable_extensions; do
+      ac_path_SED="$as_dir/$ac_prog$ac_exec_ext"
+      as_fn_executable_p "$ac_path_SED" || continue
+# Check for GNU ac_path_SED and select it if it is found.
+  # Check for GNU $ac_path_SED
+case `"$ac_path_SED" --version 2>&1` in
+*GNU*)
+  ac_cv_path_SED="$ac_path_SED" ac_path_SED_found=:;;
+*)
+  ac_count=0
+  $as_echo_n 0123456789 >"conftest.in"
+  while :
+  do
+    cat "conftest.in" "conftest.in" >"conftest.tmp"
+    mv "conftest.tmp" "conftest.in"
+    cp "conftest.in" "conftest.nl"
+    $as_echo '' >> "conftest.nl"
+    "$ac_path_SED" -f conftest.sed < "conftest.nl" >"conftest.out" 2>/dev/null || break
+    diff "conftest.out" "conftest.nl" >/dev/null 2>&1 || break
+    as_fn_arith $ac_count + 1 && ac_count=$as_val
+    if test $ac_count -gt ${ac_path_SED_max-0}; then
+      # Best one so far, save it but keep looking for a better one
+      ac_cv_path_SED="$ac_path_SED"
+      ac_path_SED_max=$ac_count
+    fi
+    # 10*(2^10) chars as input seems more than enough
+    test $ac_count -gt 10 && break
+  done
+  rm -f conftest.in conftest.tmp conftest.nl conftest.out;;
+esac
+
+      $ac_path_SED_found && break 3
+    done
+  done
+  done
+IFS=$as_save_IFS
+  if test -z "$ac_cv_path_SED"; then
+    as_fn_error $? "no acceptable sed could be found in \$PATH" "$LINENO" 5
+  fi
+else
+  ac_cv_path_SED=$SED
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_path_SED" >&5
+$as_echo "$ac_cv_path_SED" >&6; }
+ SED="$ac_cv_path_SED"
+  rm -f conftest.sed
+
 
 
 case $ac_hostname in #(
@@ -2397,7 +2530,7 @@ case $ac_hostname in #(
   mlogin*|btc*) :
     ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename ;; #(
-  daint*|dora*|santis*) :
+  daint*|tave*|santis*) :
     ac_sitename=cscs.ch
          fqdn=$ac_hostname.$ac_sitename ;; #(
   ic2*) :
@@ -2447,66 +2580,6 @@ $as_echo_n "checking for site name... " >&6; }
 $as_echo "$ac_sitename" >&6; }
 
 
-if test -f "config/config-options" ; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for machine dependent configuration" >&5
-$as_echo_n "checking for machine dependent configuration... " >&6; }
-
-cat > confsed <<EOF
-s/ *= */="/
-/="/s/$/"/
-/^#/{
-    d
-}
-/[^LIBS].*=/{
-    p
-    s/=.*$//
-    s/^/export /
-    p
-    d
-}
-/LIBS.*\\\/ {
-    s/\\\/ /g
-    s/"$//
-    h
-    D
-    bnext
-}
-/^ *\-L.*\\\/{
-    s/\\\/ /g
-    s/^ *//g
-    s/"$//
-    H
-    D
-    bnext
-}
-/^ *\-L/{
-    s/^ *//g
-    s/"$//
-    H
-    x
-    s/\n//g
-    s/$/"/
-    p
-    a\\
-export LIBS
-    d
-}
-
-:next
-EOF
-
-sed -f confsed config/config-options > conftest
-. ./conftest
-/bin/rm -f confsed conftest
-if test "config/config-options" != 0 ; then
-    { $as_echo "$as_me:${as_lineno-$LINENO}: result: config/config-options" >&5
-$as_echo "config/config-options" >&6; }
-else
-    { $as_echo "$as_me:${as_lineno-$LINENO}: result: unavailable" >&5
-$as_echo "unavailable" >&6; }
-fi
-
-fi
 
 
 # Check whether --enable-atmo was given.
@@ -2569,11 +2642,6 @@ if test "${with_setup+set}" = set; then :
 fi
 
 
-if test x$with_setup != x; then :
-  mh_setup=$with_setup
-else
-  mh_setup=""
-fi
 
 
 # Check whether --with-yac was given.
@@ -2633,63 +2701,26 @@ fi ;; #(
 esac
 
 
-host_frag=""
-case $host in
-    sx*-*-*)             host_frag=config/mh-nec ;;
-    *-ibm-aix*)          host_frag=config/mh-aix ;;
-    *-*-linux-*)         host_frag=config/mh-linux ;;
-    *-*-darwin*)         host_frag=config/mh-darwin ;;
-    *-cray-*)            host_frag=config/mh-cray ;;
-    *) echo This configuration is not supported.
-       echo Please set a valid config/mh-* file up.
-       ;;
+case $host in #(
+  sx*-*-*) :
+    host_frag=config/mh-nec ;; #(
+  *-ibm-aix*) :
+    host_frag=config/mh-aix ;; #(
+  *-*-linux-*) :
+    host_frag=config/mh-linux ;; #(
+  *-*-darwin*) :
+    host_frag=config/mh-darwin ;; #(
+  *-cray-*) :
+    host_frag=config/mh-cray ;; #(
+  *) :
+
+
+         as_fn_error 1 "This configuration is not supported. Please set a valid config/mh-* file up." "$LINENO" 5 ;;
 esac
 
-if test ! -f $host_frag ; then
-   echo "machine dependent configuration file $host_frag does not exist!"
-   exit 1
-fi
-
-if test "$build" != "$host" ; then
-   CROSS=yes
-else
-   CROSS=""
-fi
-
-ac_config_headers="$ac_config_headers config/config.h"
 
 
-# Makefile is common and does not allow multiple builds
-# Disable the the build_host folder
-if test x$mh_setup != x ; then
-  build_host=${host}-${mh_setup}
-else
-  build_host=$host
-fi
-#build_host=""
-
-#------------------------------------
-cat $host_frag > config/mh-config-use
-mh_local_name=config/mh-${ac_sitename}-${ac_hostname}
-# echo "mh_local_name=$mh_local_name"
-if test -f $mh_local_name ; then
-  cat $mh_local_name >> config/mh-config-use
-# else
-#   echo "not found!"
-fi
-if test -f config/mh-override ; then
-  cat config/mh-override >> config/mh-config-use
-fi
-host_frag=config/mh-config-use
-#------------------------------------
-
-# set default
-make_command="make"
-
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for machine dependent configuration" >&5
-$as_echo_n "checking for machine dependent configuration... " >&6; }
-
-cat > confsed <<EOF
+          cat > confsed <<EOF
 s/ *= */="/
 /="/s/$/"/
 /^#/{
@@ -2733,17 +2764,214 @@ export LIBS
 :next
 EOF
 
-sed -f confsed $host_frag > conftest
-. ./conftest
-/bin/rm -f confsed conftest
-if test "$host_frag" != 0 ; then
-    { $as_echo "$as_me:${as_lineno-$LINENO}: result: $host_frag" >&5
+          $SED -f confsed $host_frag > conftest
+          export fortran_compiler
+          export ac_sitename
+          export hostname
+          export with_mpi
+          export host
+          load_modules=$($CONFIG_SHELL -c '. ./conftest; echo "$load_modules"')
+          /bin/rm -f confsed conftest
+
+
+
+          cat > confsed <<EOF
+s/ *= */="/
+/="/s/$/"/
+/^#/{
+    d
+}
+/[^LIBS].*=/{
+    p
+    s/=.*$//
+    s/^/export /
+    p
+    d
+}
+/LIBS.*\\\/ {
+    s/\\\/ /g
+    s/"$//
+    h
+    D
+    bnext
+}
+/^ *\-L.*\\\/{
+    s/\\\/ /g
+    s/^ *//g
+    s/"$//
+    H
+    D
+    bnext
+}
+/^ *\-L/{
+    s/^ *//g
+    s/"$//
+    H
+    x
+    s/\n//g
+    s/$/"/
+    p
+    a\\
+export LIBS
+    d
+}
+
+:next
+EOF
+
+          $SED -f confsed $host_frag > conftest
+          export fortran_compiler
+          export ac_sitename
+          export hostname
+          export with_mpi
+          export host
+          load_profile=$($CONFIG_SHELL -c '. ./conftest; echo "$load_profile"')
+          /bin/rm -f confsed conftest
+
+
+if test ! -z "$load_profile" ; then :
+  . "$load_profile"
+fi
+
+if test ! -z "$load_modules" ; then :
+
+
+
+
+          moduleshome_in_use="${MODULESHOME-}"
+          load_modules_in_use="$load_modules"
+          shell_in_use="${SHELL##*/}"
+
+          # in case specific modules are required do replace those only
+
+          if test "x$load_modules_in_use" != "x"; then :
+  if test ! -z $moduleshome_in_use; then :
+  $GREP TCLSH $moduleshome_in_use/init/$shell_in_use > /dev/null && { export TCLSH=$(which tclsh); }
+                        # load functions for module (C/tcl versions supported)
+                        . $moduleshome_in_use/init/$shell_in_use
+else
+  as_fn_error 1 "modules required, but module command not available!" "$LINENO" 5
+fi
+
+                 # list of modules loaded
+                 loaded_module_list=$(module list 2>&1 | $GREP -v Currently)
+                 { $as_echo "$as_me:${as_lineno-$LINENO}: Modules loaded from environment" >&5
+$as_echo "$as_me: Modules loaded from environment" >&6;}
+                 $as_echo "$loaded_module_list"
+fi
+
+		 # swap PrgEnv if on a Cray
+                 prgenv_loaded=$(module list -t 2>&1 | $AWK '/PrgEnv/{print}')
+		 prgenv_to_be_loaded=$(echo $load_modules_in_use | $GREP -o '\bPrgEnv-\w*')
+                 if test ! -z "$prgenv_to_be_loaded"; then :
+  module swap $prgenv_loaded $prgenv_to_be_loaded
+fi
+
+		 modules_loaded=$(module list -t 2>&1 | $AWK '!/PrgEnv/{print}')
+                 modules_to_be_loaded=$(echo $load_modules_in_use | $SED 's/\bPrgEnv\S*//')
+
+		 for replacement in $modules_to_be_loaded
+                 do
+                     is_loaded=false
+                     for mod in $modules_loaded
+                     do
+		         if test ${mod%%/*} = ${replacement%%/*}; then :
+  module swap $mod $replacement
+                                is_loaded=true
+fi
+		     done
+                     if test $is_loaded = false; then :
+  module load $replacement
+fi
+                 done
+
+                 # list of modules loaded finally for compiling
+                 loaded_module_list=$(module list 2>&1 | $GREP -v Currently)
+                 { $as_echo "$as_me:${as_lineno-$LINENO}: Modules loaded for compiling" >&5
+$as_echo "$as_me: Modules loaded for compiling" >&6;}
+                 $as_echo "$loaded_module_list"
+fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for machine dependent configuration" >&5
+$as_echo_n "checking for machine dependent configuration... " >&6; }
+
+
+          cat > confsed <<EOF
+s/ *= */="/
+/="/s/$/"/
+/^#/{
+    d
+}
+/[^LIBS].*=/{
+    p
+    s/=.*$//
+    s/^/export /
+    p
+    d
+}
+/LIBS.*\\\/ {
+    s/\\\/ /g
+    s/"$//
+    h
+    D
+    bnext
+}
+/^ *\-L.*\\\/{
+    s/\\\/ /g
+    s/^ *//g
+    s/"$//
+    H
+    D
+    bnext
+}
+/^ *\-L/{
+    s/^ *//g
+    s/"$//
+    H
+    x
+    s/\n//g
+    s/$/"/
+    p
+    a\\
+export LIBS
+    d
+}
+
+:next
+EOF
+
+          $SED -f confsed $host_frag > conftest
+          . ./conftest
+          /bin/rm -f confsed conftest
+          if test "$host_frag" != 0; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $host_frag" >&5
 $as_echo "$host_frag" >&6; }
 else
-    { $as_echo "$as_me:${as_lineno-$LINENO}: result: unavailable" >&5
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: unavailable" >&5
 $as_echo "unavailable" >&6; }
 fi
 
+
+
+make_command="$make_command"
+
+if test "$build" != "$host" ; then
+   CROSS=yes
+else
+   CROSS=""
+fi
+
+ac_config_headers="$ac_config_headers config/config.h"
+
+
+build_host=$host
+
+# Makefile is common and does not allow multiple builds
+# Disable the the build_host folder
+#build_host=""
+
+#------------------------------------
+#------------------------------------
 
 ac_libs=$LIBS
 LIBS=""
@@ -2753,24 +2981,6 @@ if test "$CC" = mpcc_r ;  then
   FC=xlf2003_r
   F77=xlf_r
   use_mpcc_r=yes
-fi
-
-if test "x$load_modules" != x ;  then
-  if test "$0" != "./conf__.tmp" ; then
-    echo "$load_profile" > conf_load_module.tmp
-    echo module purge >> conf_load_module.tmp
-    echo module load "$load_modules" >> conf_load_module.tmp
-    echo module list >> conf_load_module.tmp
-    cp configure conf__.tmp
-    echo "chmod +x conf__.tmp" >>  conf_load_module.tmp
-    echo "./conf__.tmp $ac_configure_args ; "'rc=$?' >> conf_load_module.tmp
-    echo "rm conf__.tmp" >> conf_load_module.tmp
-    echo 'exit $rc' >>conf_load_module.tmp
-    chmod +x conf_load_module.tmp
-    ./conf_load_module.tmp ; rc=$?
-    rm conf_load_module.tmp
-    exit $rc
-  fi
 fi
 
 
@@ -2794,68 +3004,6 @@ if test "x$enable_testbed" = "xno"; then :
   FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_TESTBED__"
 fi
 
-
-use_local_flags_file=config/local_flags
-if test -f $use_local_flags_file ; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for machine dependent configuration" >&5
-$as_echo_n "checking for machine dependent configuration... " >&6; }
-
-cat > confsed <<EOF
-s/ *= */="/
-/="/s/$/"/
-/^#/{
-    d
-}
-/[^LIBS].*=/{
-    p
-    s/=.*$//
-    s/^/export /
-    p
-    d
-}
-/LIBS.*\\\/ {
-    s/\\\/ /g
-    s/"$//
-    h
-    D
-    bnext
-}
-/^ *\-L.*\\\/{
-    s/\\\/ /g
-    s/^ *//g
-    s/"$//
-    H
-    D
-    bnext
-}
-/^ *\-L/{
-    s/^ *//g
-    s/"$//
-    H
-    x
-    s/\n//g
-    s/$/"/
-    p
-    a\\
-export LIBS
-    d
-}
-
-:next
-EOF
-
-sed -f confsed $use_local_flags_file > conftest
-. ./conftest
-/bin/rm -f confsed conftest
-if test "$use_local_flags_file" != 0 ; then
-    { $as_echo "$as_me:${as_lineno-$LINENO}: result: $use_local_flags_file" >&5
-$as_echo "$use_local_flags_file" >&6; }
-else
-    { $as_echo "$as_me:${as_lineno-$LINENO}: result: unavailable" >&5
-$as_echo "unavailable" >&6; }
-fi
-
-fi
 
 
 for other_flags in $icon_flags ; do
@@ -4790,69 +4938,6 @@ ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
-
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for grep that handles long lines and -e" >&5
-$as_echo_n "checking for grep that handles long lines and -e... " >&6; }
-if ${ac_cv_path_GREP+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  if test -z "$GREP"; then
-  ac_path_GREP_found=false
-  # Loop through the user's path and test for each of PROGNAME-LIST
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH$PATH_SEPARATOR/usr/xpg4/bin
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_prog in grep ggrep; do
-    for ac_exec_ext in '' $ac_executable_extensions; do
-      ac_path_GREP="$as_dir/$ac_prog$ac_exec_ext"
-      as_fn_executable_p "$ac_path_GREP" || continue
-# Check for GNU ac_path_GREP and select it if it is found.
-  # Check for GNU $ac_path_GREP
-case `"$ac_path_GREP" --version 2>&1` in
-*GNU*)
-  ac_cv_path_GREP="$ac_path_GREP" ac_path_GREP_found=:;;
-*)
-  ac_count=0
-  $as_echo_n 0123456789 >"conftest.in"
-  while :
-  do
-    cat "conftest.in" "conftest.in" >"conftest.tmp"
-    mv "conftest.tmp" "conftest.in"
-    cp "conftest.in" "conftest.nl"
-    $as_echo 'GREP' >> "conftest.nl"
-    "$ac_path_GREP" -e 'GREP$' -e '-(cannot match)-' < "conftest.nl" >"conftest.out" 2>/dev/null || break
-    diff "conftest.out" "conftest.nl" >/dev/null 2>&1 || break
-    as_fn_arith $ac_count + 1 && ac_count=$as_val
-    if test $ac_count -gt ${ac_path_GREP_max-0}; then
-      # Best one so far, save it but keep looking for a better one
-      ac_cv_path_GREP="$ac_path_GREP"
-      ac_path_GREP_max=$ac_count
-    fi
-    # 10*(2^10) chars as input seems more than enough
-    test $ac_count -gt 10 && break
-  done
-  rm -f conftest.in conftest.tmp conftest.nl conftest.out;;
-esac
-
-      $ac_path_GREP_found && break 3
-    done
-  done
-  done
-IFS=$as_save_IFS
-  if test -z "$ac_cv_path_GREP"; then
-    as_fn_error $? "no acceptable grep could be found in $PATH$PATH_SEPARATOR/usr/xpg4/bin" "$LINENO" 5
-  fi
-else
-  ac_cv_path_GREP=$GREP
-fi
-
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_path_GREP" >&5
-$as_echo "$ac_cv_path_GREP" >&6; }
- GREP="$ac_cv_path_GREP"
 
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for egrep" >&5
@@ -7373,11 +7458,11 @@ cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
 # INIT-COMMANDS
 #
 build_host="${build_host}"
-my_srcdirs="$my_srcdirs"
-enable_ocean="${enable_ocean}"
-enable_atmo="${enable_atmo}"
-enable_jsbach="${enable_jsbach}"
-enable_testbed="${enable_testbed}"
+                    my_srcdirs="$my_srcdirs"
+                    enable_ocean="${enable_ocean}"
+                    enable_atmo="${enable_atmo}"
+                    enable_jsbach="${enable_jsbach}"
+                    enable_testbed="${enable_testbed}"
 
 _ACEOF
 
@@ -7942,18 +8027,21 @@ $as_echo "$as_me: executing $ac_file commands" >&6;}
 
 
   case $ac_file$ac_mode in
-    "Makefiles":C)
-if test "x$enable_jsbach" = "xyes"; then :
-  test -d build/${build_host}/src || mkdir -p build/${build_host}/src
-  externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/src
+    "Makefiles":C) if test "x$enable_jsbach" = "xyes"; then :
+  if test -d build/${build_host}/src; then :
+
+else
+  mkdir -p build/${build_host}/src
 fi
-config/createMakefiles.pl --target="$build_host" \
-  --srcdirs="${my_srcdirs}" \
-  --enable_ocean="${enable_ocean}" \
-  --enable_atmo="${enable_atmo}" \
-  --enable_jsbach="${enable_jsbach}" \
-  --enable_testbed="${enable_testbed}"
- ;;
+                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/src
+fi
+                    config/createMakefiles.pl \
+                                              --target="${build_host}" \
+                                              --srcdirs="${my_srcdirs}" \
+                                              --enable_ocean="${enable_ocean}" \
+                                              --enable_atmo="${enable_atmo}" \
+                                              --enable_jsbach="${enable_jsbach}" \
+                                              --enable_testbed="${enable_testbed}" ;;
     "build_command":F) chmod +x build_command ;;
 
   esac
@@ -8007,9 +8095,6 @@ if test -n "$CROSS" ; then
    fi
 fi
 
-echo ""
-cat config/set-up.info
-echo ""
 
 echo ""
 echo "Configuration done. Run GNU make to build ICON."
@@ -8020,5 +8105,4 @@ if test "x$enable_atmo" = "xyes" && test "x$enable_ocean" = "xno"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: In order to use ECHAM physics, you need to enable ocean!" >&5
 $as_echo "$as_me: WARNING: In order to use ECHAM physics, you need to enable ocean!" >&2;}
 fi
-
 echo ""
