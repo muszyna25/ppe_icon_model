@@ -94,6 +94,7 @@ USE mo_output_event_types,  ONLY: t_sim_step_info
 USE mo_action,              ONLY: ACTION_RESET, reset_act
 USE mo_turbulent_diagnostic,ONLY: init_les_turbulent_output, close_les_turbulent_output
 USE mo_limarea_config,      ONLY: latbc_config
+USE mo_async_latbc_types,   ONLY: t_latbc_data
 USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
 
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
@@ -113,10 +114,11 @@ CONTAINS
 
   !---------------------------------------------------------------------
   SUBROUTINE atmo_nonhydrostatic
+    TYPE(t_latbc_data) :: latbc !< data structure for async latbc prefetching
 
 !!$    CHARACTER(*), PARAMETER :: routine = "mo_atmo_nonhydrostatic"
 
-    CALL construct_atmo_nonhydrostatic()
+    CALL construct_atmo_nonhydrostatic(latbc)
 
     !------------------------------------------------------------------
     ! Now start the time stepping:
@@ -124,18 +126,19 @@ CONTAINS
     ! is executed within process_grid_level
     !------------------------------------------------------------------
 
-    CALL perform_nh_stepping( time_config%tc_current_date )
+    CALL perform_nh_stepping( time_config%tc_current_date, latbc )
 
     !---------------------------------------------------------------------
     ! 6. Integration finished. Clean up.
     !---------------------------------------------------------------------
-    CALL destruct_atmo_nonhydrostatic()
+    CALL destruct_atmo_nonhydrostatic(latbc)
 
   END SUBROUTINE atmo_nonhydrostatic
   !---------------------------------------------------------------------
 
   !---------------------------------------------------------------------
-  SUBROUTINE construct_atmo_nonhydrostatic
+  SUBROUTINE construct_atmo_nonhydrostatic(latbc)
+    TYPE(t_latbc_data), INTENT(INOUT) :: latbc !< data structure for async latbc prefetching
 
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
 
@@ -414,7 +417,7 @@ CONTAINS
     ! with the prefetching processor and effectively starts async prefetching
     IF ((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
       IF (timers_level > 5) CALL timer_start(timer_init_latbc)
-      CALL init_prefetch
+      CALL init_prefetch(latbc)
       IF (timers_level > 5) CALL timer_stop(timer_init_latbc)
     ENDIF
 
@@ -562,7 +565,8 @@ CONTAINS
   END SUBROUTINE construct_atmo_nonhydrostatic
 
   !---------------------------------------------------------------------
-  SUBROUTINE destruct_atmo_nonhydrostatic
+  SUBROUTINE destruct_atmo_nonhydrostatic(latbc)
+    TYPE(t_latbc_data), INTENT(INOUT) :: latbc !< data structure for async latbc prefetching
 
     CHARACTER(*), PARAMETER :: routine = "destruct_atmo_nonhydrostatic"
 
@@ -610,9 +614,11 @@ CONTAINS
     ENDIF
 
     ! call close name list prefetch
-    IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) &
-       CALL close_prefetch
-
+    IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
+      CALL close_prefetch()
+      CALL latbc%finalize()
+    END IF
+    
     ! Delete output variable lists
     IF (output_mode%l_nml) THEN
       CALL close_name_list_output

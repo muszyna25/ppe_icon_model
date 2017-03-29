@@ -26,8 +26,10 @@
 MODULE mo_initicon_types
 
   USE mo_kind,                 ONLY: wp
+  USE mo_impl_constants,       ONLY: SUCCESS
   USE mo_var_metadata_types,   ONLY: VARNAME_LEN
   USE mo_dictionary,           ONLY: t_dictionary
+  USE mo_exception,            ONLY: finish
 
   IMPLICIT NONE
   PRIVATE
@@ -45,6 +47,17 @@ MODULE mo_initicon_types
   PUBLIC :: geop_ml_var, alb_snow_var
   PUBLIC :: ana_varnames_dict
 
+  ! auxiliary routines
+  INTERFACE DO_DEALLOCATE
+    MODULE PROCEDURE DO_DEALLOCATE_r4D
+    MODULE PROCEDURE DO_DEALLOCATE_r3D
+    MODULE PROCEDURE DO_DEALLOCATE_r2D
+    MODULE PROCEDURE DO_DEALLOCATE_i3D
+    MODULE PROCEDURE DO_DEALLOCATE_i2D
+    MODULE PROCEDURE DO_PTR_DEALLOCATE_r3D
+    MODULE PROCEDURE DO_PTR_DEALLOCATE_r2D
+  END INTERFACE
+
   ! atmospheric input variables
   TYPE :: t_pi_atm_in ! surface geopotential is regarded as
                       ! atmospheric variable here because the atmospheric fields cannot be processed without it
@@ -52,10 +65,30 @@ MODULE mo_initicon_types
     ! Flag. True, if this data structure has been allocated
     LOGICAL :: linitialized
 
-    REAL(wp), POINTER, DIMENSION(:,:)   :: psfc, phi_sfc
-    REAL(wp), POINTER, DIMENSION(:,:,:) :: temp, pres, z3d_ifc, w_ifc, z3d, u, v, omega, &
-      &                                         w, vn, qv, qc, qi, qr, qs, rho, theta_v, tke, tke_ifc
+    REAL(wp), POINTER, DIMENSION(:,:)   :: psfc    => NULL(), &
+      &                                    phi_sfc => NULL()
+    REAL(wp), POINTER, DIMENSION(:,:,:) :: temp    => NULL(), &
+      &                                    pres    => NULL(), &
+      &                                    z3d_ifc => NULL(), &
+      &                                    w_ifc   => NULL(), &
+      &                                    z3d     => NULL(), &
+      &                                    u       => NULL(), &
+      &                                    v       => NULL(), &
+      &                                    omega   => NULL(), &
+      &                                    w       => NULL(), &
+      &                                    vn      => NULL(), &
+      &                                    qv      => NULL(), &
+      &                                    qc      => NULL(), &
+      &                                    qi      => NULL(), &
+      &                                    qr      => NULL(), &
+      &                                    qs      => NULL(), &
+      &                                    rho     => NULL(), &
+      &                                    theta_v => NULL(), &
+      &                                    tke     => NULL(), &
+      &                                    tke_ifc => NULL()
 
+  CONTAINS
+    PROCEDURE :: finalize => t_pi_atm_in_finalize   !< destructor
   END TYPE t_pi_atm_in
 
 
@@ -69,10 +102,12 @@ MODULE mo_initicon_types
                                               skinres, ls_mask, seaice, phi
     REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: tsoil, wsoil
 
+  CONTAINS
+    PROCEDURE :: finalize => t_pi_sfc_in_finalize !< destructor
   END TYPE t_pi_sfc_in
 
 
-  ! 
+  !
   TYPE :: t_pi_atm
 
     ! Flag. True, if this data structure has been allocated
@@ -80,7 +115,8 @@ MODULE mo_initicon_types
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: vn, u, v, w, temp, theta_v, exner, rho, &
                                                pres, qv, qc, qi, qr, qs, tke
-
+  CONTAINS
+    PROCEDURE :: finalize => t_pi_atm_finalize   !< destructor
   END TYPE t_pi_atm
 
 
@@ -96,6 +132,8 @@ MODULE mo_initicon_types
 
     REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: w_so
 
+  CONTAINS
+    PROCEDURE :: finalize => t_pi_sfc_finalize   !< destructor
   END TYPE t_pi_sfc
 
 
@@ -109,13 +147,15 @@ MODULE mo_initicon_types
     REAL(wp), ALLOCATABLE, DIMENSION (:,:)   :: h_snow
     REAL(wp), ALLOCATABLE, DIMENSION (:,:)   :: freshsnow
 
+  CONTAINS
+    PROCEDURE :: finalize => t_sfc_inc_finalize   !< destructor
   END TYPE t_sfc_inc
 
 
   ! complete state vector type
   !
   TYPE :: t_initicon_state
-    
+
     REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: topography_c
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: z_ifc, z_mc
@@ -127,7 +167,10 @@ MODULE mo_initicon_types
     TYPE (t_pi_sfc)        :: sfc
     TYPE (t_sfc_inc)       :: sfc_inc
 
+  CONTAINS
+    PROCEDURE :: finalize => t_initicon_state_finalize !< destructor
   END TYPE t_initicon_state
+
 
   ! state for saving initial state
   TYPE :: t_saveinit_state
@@ -146,6 +189,8 @@ MODULE mo_initicon_types
     INTEGER, ALLOCATABLE, DIMENSION(:,:,:) :: snowtile_flag_t, idx_lst_t
     INTEGER, ALLOCATABLE, DIMENSION(:,:)   :: gp_count_t
 
+  CONTAINS
+    PROCEDURE :: finalize => t_saveinit_state_finalize !< destructor
   END TYPE t_saveinit_state
 
 
@@ -156,5 +201,237 @@ MODULE mo_initicon_types
   ! dictionary which maps internal variable names onto
   ! GRIB2 shortnames or NetCDF var names.
   TYPE (t_dictionary) :: ana_varnames_dict
+
+
+CONTAINS
+
+  ! AUXILIARY ROUTINES
+
+  SUBROUTINE DO_DEALLOCATE_r4D(object)
+    REAL(wp), ALLOCATABLE, INTENT(INOUT) :: object(:,:,:,:)
+    INTEGER :: ierrstat
+    IF (ALLOCATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_r4D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_DEALLOCATE_R4D
+
+  SUBROUTINE DO_DEALLOCATE_r3D(object)
+    REAL(wp), ALLOCATABLE, INTENT(INOUT) :: object(:,:,:)
+    INTEGER :: ierrstat
+    IF (ALLOCATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_r3D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_DEALLOCATE_R3D
+
+  SUBROUTINE DO_DEALLOCATE_r2D(object)
+    REAL(wp), ALLOCATABLE, INTENT(INOUT) :: object(:,:)
+    INTEGER :: ierrstat
+    IF (ALLOCATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_r2D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_DEALLOCATE_R2D
+
+  SUBROUTINE DO_DEALLOCATE_i3D(object)
+    INTEGER, ALLOCATABLE, INTENT(INOUT) :: object(:,:,:)
+    INTEGER :: ierrstat
+    IF (ALLOCATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_i3D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_DEALLOCATE_i3D
+
+  SUBROUTINE DO_DEALLOCATE_i2D(object)
+    INTEGER, ALLOCATABLE, INTENT(INOUT) :: object(:,:)
+    INTEGER :: ierrstat
+    IF (ALLOCATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_i2D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_DEALLOCATE_i2D
+
+  SUBROUTINE DO_PTR_DEALLOCATE_r3D(object)
+    REAL(wp), POINTER, INTENT(INOUT) :: object(:,:,:)
+    INTEGER :: ierrstat
+    IF (ASSOCIATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_PTR_DEALLOCATE_r3D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_PTR_DEALLOCATE_R3D
+
+  SUBROUTINE DO_PTR_DEALLOCATE_r2D(object)
+    REAL(wp), POINTER, INTENT(INOUT) :: object(:,:)
+    INTEGER :: ierrstat
+    IF (ASSOCIATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_PTR_DEALLOCATE_r2D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_PTR_DEALLOCATE_R2D
+
+
+
+  ! FINALIZE ROUTINES
+
+  SUBROUTINE t_pi_atm_in_finalize(atm_in)
+    CLASS(t_pi_atm_in), INTENT(INOUT) :: atm_in
+
+    atm_in%linitialized = .FALSE.
+    CALL DO_DEALLOCATE(atm_in%psfc)
+    CALL DO_DEALLOCATE(atm_in%phi_sfc)
+    CALL DO_DEALLOCATE(atm_in%temp)
+    CALL DO_DEALLOCATE(atm_in%pres)
+    CALL DO_DEALLOCATE(atm_in%z3d_ifc)
+    CALL DO_DEALLOCATE(atm_in%w_ifc)
+    CALL DO_DEALLOCATE(atm_in%z3d)
+    CALL DO_DEALLOCATE(atm_in%u)
+    CALL DO_DEALLOCATE(atm_in%v)
+    CALL DO_DEALLOCATE(atm_in%omega)
+    CALL DO_DEALLOCATE(atm_in%w)
+    CALL DO_DEALLOCATE(atm_in%vn)
+    CALL DO_DEALLOCATE(atm_in%qv)
+    CALL DO_DEALLOCATE(atm_in%qc)
+    CALL DO_DEALLOCATE(atm_in%qi)
+    CALL DO_DEALLOCATE(atm_in%qr)
+    CALL DO_DEALLOCATE(atm_in%qs)
+    CALL DO_DEALLOCATE(atm_in%rho)
+    CALL DO_DEALLOCATE(atm_in%theta_v)
+    CALL DO_DEALLOCATE(atm_in%tke)
+    CALL DO_DEALLOCATE(atm_in%tke_ifc)
+  END SUBROUTINE t_pi_atm_in_finalize
+
+
+  SUBROUTINE t_pi_sfc_in_finalize(sfc_in)
+    CLASS(t_pi_sfc_in), INTENT(INOUT) :: sfc_in
+
+    sfc_in%linitialized = .FALSE.
+    CALL DO_DEALLOCATE(sfc_in%tsnow)
+    CALL DO_DEALLOCATE(sfc_in%tskin)
+    CALL DO_DEALLOCATE(sfc_in%sst)
+    CALL DO_DEALLOCATE(sfc_in%snowalb)
+    CALL DO_DEALLOCATE(sfc_in%snowweq)
+    CALL DO_DEALLOCATE(sfc_in%snowdens)
+    CALL DO_DEALLOCATE(sfc_in%skinres)
+    CALL DO_DEALLOCATE(sfc_in%ls_mask)
+    CALL DO_DEALLOCATE(sfc_in%seaice)
+    CALL DO_DEALLOCATE(sfc_in%phi)
+    CALL DO_DEALLOCATE(sfc_in%tsoil)
+    CALL DO_DEALLOCATE(sfc_in%wsoil)
+  END SUBROUTINE t_pi_sfc_in_finalize
+
+
+  SUBROUTINE t_pi_atm_finalize(atm)
+    CLASS(t_pi_atm), INTENT(INOUT) :: atm
+
+    atm%linitialized = .FALSE.
+    CALL DO_DEALLOCATE(atm%vn)
+    CALL DO_DEALLOCATE(atm%u)
+    CALL DO_DEALLOCATE(atm%v)
+    CALL DO_DEALLOCATE(atm%w)
+    CALL DO_DEALLOCATE(atm%temp)
+    CALL DO_DEALLOCATE(atm%theta_v)
+    CALL DO_DEALLOCATE(atm%exner)
+    CALL DO_DEALLOCATE(atm%rho)
+    CALL DO_DEALLOCATE(atm%pres)
+    CALL DO_DEALLOCATE(atm%qv)
+    CALL DO_DEALLOCATE(atm%qc)
+    CALL DO_DEALLOCATE(atm%qi)
+    CALL DO_DEALLOCATE(atm%qr)
+    CALL DO_DEALLOCATE(atm%qs)
+    CALL DO_DEALLOCATE(atm%tke)
+  END SUBROUTINE t_pi_atm_finalize
+
+
+  SUBROUTINE t_pi_sfc_finalize(sfc)
+    CLASS(t_pi_sfc), INTENT(INOUT) :: sfc
+
+    sfc%linitialized = .FALSE.
+    CALL DO_DEALLOCATE(sfc%tsnow)
+    CALL DO_DEALLOCATE(sfc%tskin)
+    CALL DO_DEALLOCATE(sfc%sst)
+    CALL DO_DEALLOCATE(sfc%snowalb)
+    CALL DO_DEALLOCATE(sfc%snowweq)
+    CALL DO_DEALLOCATE(sfc%snowdens)
+    CALL DO_DEALLOCATE(sfc%skinres)
+    CALL DO_DEALLOCATE(sfc%ls_mask)
+    CALL DO_DEALLOCATE(sfc%seaice)
+    CALL DO_DEALLOCATE(sfc%tsoil)
+    CALL DO_DEALLOCATE(sfc%wsoil)
+    CALL DO_DEALLOCATE(sfc%w_so)
+  END SUBROUTINE t_pi_sfc_finalize
+
+
+  SUBROUTINE t_sfc_inc_finalize(sfc_inc)
+    CLASS(t_sfc_inc), INTENT(INOUT) :: sfc_inc
+
+    sfc_inc%linitialized = .FALSE.
+    CALL DO_DEALLOCATE(sfc_inc%w_so)
+    CALL DO_DEALLOCATE(sfc_inc%h_snow)
+    CALL DO_DEALLOCATE(sfc_inc%freshsnow)
+  END SUBROUTINE t_sfc_inc_finalize
+
+
+  SUBROUTINE t_initicon_state_finalize(initicon_data)
+    CLASS(t_initicon_state), INTENT(INOUT) :: initicon_data
+
+    CALL DO_DEALLOCATE(initicon_data%topography_c)
+    CALL DO_DEALLOCATE(initicon_data%z_ifc)
+    CALL DO_DEALLOCATE(initicon_data%z_mc)
+
+    CALL initicon_data%atm_in%finalize()
+    CALL initicon_data%sfc_in%finalize()
+    CALL initicon_data%atm%finalize()
+    CALL initicon_data%atm_inc%finalize()
+    CALL initicon_data%sfc%finalize()
+    CALL initicon_data%sfc_inc%finalize()
+  END SUBROUTINE t_initicon_state_finalize
+
+
+  SUBROUTINE t_saveinit_state_finalize(saveinit_data)
+    CLASS(t_saveinit_state), INTENT(INOUT) :: saveinit_data
+
+    CALL DO_DEALLOCATE(saveinit_data%fr_seaice)
+    CALL DO_DEALLOCATE(saveinit_data%t_ice)
+    CALL DO_DEALLOCATE(saveinit_data%h_ice)
+    CALL DO_DEALLOCATE(saveinit_data%gz0)
+    CALL DO_DEALLOCATE(saveinit_data%t_mnw_lk)
+    CALL DO_DEALLOCATE(saveinit_data%t_wml_lk)
+    CALL DO_DEALLOCATE(saveinit_data%h_ml_lk)
+    CALL DO_DEALLOCATE(saveinit_data%t_bot_lk)
+    CALL DO_DEALLOCATE(saveinit_data%c_t_lk)
+    CALL DO_DEALLOCATE(saveinit_data%t_b1_lk)
+    CALL DO_DEALLOCATE(saveinit_data%h_b1_lk)
+    CALL DO_DEALLOCATE(saveinit_data%theta_v)
+    CALL DO_DEALLOCATE(saveinit_data%rho)
+    CALL DO_DEALLOCATE(saveinit_data%exner)
+    CALL DO_DEALLOCATE(saveinit_data%w)
+    CALL DO_DEALLOCATE(saveinit_data%tke)
+    CALL DO_DEALLOCATE(saveinit_data%vn)
+    CALL DO_DEALLOCATE(saveinit_data%t_g_t)
+    CALL DO_DEALLOCATE(saveinit_data%qv_s_t)
+    CALL DO_DEALLOCATE(saveinit_data%freshsnow_t)
+    CALL DO_DEALLOCATE(saveinit_data%snowfrac_t)
+    CALL DO_DEALLOCATE(saveinit_data%snowfrac_lc_t)
+    CALL DO_DEALLOCATE(saveinit_data%w_snow_t)
+    CALL DO_DEALLOCATE(saveinit_data%w_i_t)
+    CALL DO_DEALLOCATE(saveinit_data%h_snow_t)
+    CALL DO_DEALLOCATE(saveinit_data%t_snow_t)
+    CALL DO_DEALLOCATE(saveinit_data%rho_snow_t)
+    CALL DO_DEALLOCATE(saveinit_data%aerosol)
+    CALL DO_DEALLOCATE(saveinit_data%frac_t)
+    CALL DO_DEALLOCATE(saveinit_data%tracer)
+    CALL DO_DEALLOCATE(saveinit_data%w_so_t)
+    CALL DO_DEALLOCATE(saveinit_data%w_so_ice_t)
+    CALL DO_DEALLOCATE(saveinit_data%t_so_t)
+    CALL DO_DEALLOCATE(saveinit_data%t_snow_mult_t)
+    CALL DO_DEALLOCATE(saveinit_data%rho_snow_mult_t)
+    CALL DO_DEALLOCATE(saveinit_data%wtot_snow_t)
+    CALL DO_DEALLOCATE(saveinit_data%wliq_snow_t)
+    CALL DO_DEALLOCATE(saveinit_data%dzh_snow_t)
+    CALL DO_DEALLOCATE(saveinit_data%snowtile_flag_t)
+    CALL DO_DEALLOCATE(saveinit_data%idx_lst_t)
+    CALL DO_DEALLOCATE(saveinit_data%gp_count_t)
+  END SUBROUTINE t_saveinit_state_finalize
 
 END MODULE mo_initicon_types

@@ -20,7 +20,7 @@ MODULE mo_limarea_config
 
   USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: max_dom, MAX_CHAR_LENGTH, SUCCESS
+  USE mo_impl_constants,     ONLY: max_dom, MAX_CHAR_LENGTH
   USE mo_io_units,           ONLY: filename_max
   USE mo_util_string,        ONLY: t_keyword_list,                   &
                                    associate_keyword, with_keywords, &
@@ -39,7 +39,6 @@ MODULE mo_limarea_config
 
   PUBLIC :: t_latbc_config, latbc_config, configure_latbc, generate_filename, &
     &       generate_filename_mtime 
-  PUBLIC :: t_glb_indices
   PUBLIC :: LATBC_TYPE_CONST, LATBC_TYPE_EXT, LATBC_TYPE_TEST
 
   !> module name string
@@ -64,23 +63,6 @@ MODULE mo_limarea_config
 
 
 
-  !------------------------------------------------------------------------------------------------
-  ! Sparse latbc mode: index data for boundary rows
-  !------------------------------------------------------------------------------------------------
-
-  !> Derived type specifying a local-to-global index mapping for
-  !  extracted subgrids.
-  !
-  TYPE t_glb_indices
-    INTEGER, ALLOCATABLE :: cells(:), edges(:)      !< (1...local) global indices for cells and edges
-    INTEGER              :: n_patch_cells_g         !< total no. of global cells
-    INTEGER              :: n_patch_edges_g         !< total no. of global edges
-  CONTAINS
-    PROCEDURE :: finalize => t_glb_indices_finalize
-  END TYPE t_glb_indices  
-
-
-
   !>
   !!----------------------------------------------------------------------------
   !! Derived type containing control variables specific to the nonhydrostatic 
@@ -93,7 +75,6 @@ MODULE mo_limarea_config
     INTEGER                         :: itype_latbc         ! type of limited area boundary nudging
     REAL(wp)                        :: dtime_latbc         ! dt between two consequtive external latbc files
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: dt_latbc
-    INTEGER                         :: nlev_in
     CHARACTER(LEN=filename_max)     :: latbc_filename      ! prefix of latbc files
     CHARACTER(LEN=MAX_CHAR_LENGTH)  :: latbc_path          ! directory containing external latbc files
     REAL(wp)                        :: lc1, lc2            ! linear interpolation coefficients
@@ -104,9 +85,6 @@ MODULE mo_limarea_config
 
     ! settings derived from the namelist parameters above:
     LOGICAL                         :: lsparse_latbc       ! Flag: TRUE if only boundary rows are read.
-
-    ! for sparse latbc mode: index data for boundary rows:
-    TYPE(t_glb_indices)             :: global_index
 
     ! dictionary which maps internal variable names onto GRIB2
     ! shortnames or NetCDF var names used in lateral boundary nudging.
@@ -256,19 +234,6 @@ CONTAINS
   END FUNCTION generate_filename_mtime
   !--------------------------------------------------------------------------------------
 
-
-  !> Destructor for "t_glb_indices" class.
-  !
-  SUBROUTINE t_glb_indices_finalize(this)
-    CLASS(t_glb_indices) :: this
-    ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::t_glb_indices_finalize'
-    INTEGER :: ierrstat=0
-    IF (ALLOCATED(this%cells))  DEALLOCATE(this%cells, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-    IF (ALLOCATED(this%edges))  DEALLOCATE(this%edges, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-  END SUBROUTINE t_glb_indices_finalize
 
 !-----------------------------------------------------------------------
 END MODULE mo_limarea_config
