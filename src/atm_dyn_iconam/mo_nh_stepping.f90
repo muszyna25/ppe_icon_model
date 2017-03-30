@@ -1202,8 +1202,7 @@ MODULE mo_nh_stepping
         lwrite_checkpoint = .TRUE.
       END IF
     END IF
-    
-    CALL message('','')
+
 
     IF (lwrite_checkpoint) THEN
 
