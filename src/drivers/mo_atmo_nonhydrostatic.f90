@@ -63,7 +63,6 @@ USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
 USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
 ! Initialization with real data
 USE mo_initicon,            ONLY: init_icon
-USE mo_initicon_config,     ONLY: timeshift
 USE mo_ext_data_state,      ONLY: ext_data
 USE mo_ext_data_init,       ONLY: init_index_lists
 ! meteogram output

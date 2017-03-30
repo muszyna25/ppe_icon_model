@@ -68,7 +68,7 @@ MODULE mo_nh_stepping
     &                                    ndyn_substeps, ndyn_substeps_var, ndyn_substeps_max
   USE mo_diffusion_config,         ONLY: diffusion_config
   USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method
-  USE mo_io_config,                ONLY: is_checkpoint_time, is_totint_time, n_chkpt, n_diag
+  USE mo_io_config,                ONLY: is_totint_time, n_diag
   USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output, &
                                          num_prefetch_proc
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
@@ -130,7 +130,7 @@ MODULE mo_nh_stepping
   USE mo_integrate_density_pa,     ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
-  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, p_bcast, p_comm_work, my_process_is_stdio
+  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, p_bcast, p_comm_work
 
 #ifdef NOMPI
   USE mo_mpi,                      ONLY: my_process_is_mpi_all_seq
@@ -320,8 +320,8 @@ MODULE mo_nh_stepping
   !!
   SUBROUTINE perform_nh_stepping (mtime_current, latbc)
     !
-    TYPE(datetime),   INTENT(IN), POINTER            :: mtime_current     ! current datetime (mtime)
-    TYPE(t_latbc_data),  INTENT(INOUT)      :: latbc             !< data structure for async latbc prefetching
+    TYPE(datetime),     POINTER       :: mtime_current     !< current datetime (mtime)
+    TYPE(t_latbc_data), INTENT(INOUT) :: latbc             !< data structure for async latbc prefetching
 
   TYPE(t_simulation_status)            :: simulation_status
 
