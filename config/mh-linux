@@ -224,7 +224,7 @@ esac
 # Define site dependent library paths
 #
 case "$ac_sitename" in
-   cscs.ch)
+    cscs.ch)
         case "$HOST" in
             *daint*|*dom*)
                 make_command="make" "-j" "8"
@@ -235,48 +235,55 @@ case "$ac_sitename" in
                 FC = ftn
                 F77= ftn
                 GRIBAPIROOT = /apps/daint/UES/6.0.UP02/sandbox-ws/grib_api
-
+		
                 case "$fortran_compiler" in
-                    default|gcc)
+                    gcc)
                         config_target=daint_cpu
                         load_modules =PrgEnv-gnu cray-netcdf cray-mpich
-                        CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
+                        CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
-                    ;;
+			;;
                     intel)
                         config_target=daint_cpu
                         load_modules = PrgEnv-intel cray-netcdf cray-mpich 
-                        CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
+                        CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF
                         STD_FLAGS   = -O2 -mavx -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
                         FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/INTEL/15.0
                         F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
                         MODDIR      = -I
-                    ;;
+			;;
                     pgi)
                         config_target=daint_cpu 
                         load_modules = PrgEnv-pgi cray-netcdf cray-mpich
-                        CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
+                        CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
-                    ;;
+			;;
                     cray)
                         config_target=daint_cpu
-                        load_modules = modules craype PrgEnv-cray cray-mpich cray-netcdf
-        		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv
-                        CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}" -DUSE_XML2
+                        load_modules = craype PrgEnv-cray cray-mpich cray-netcdf-hdf5parallel
+        		FFLAGS      = -D__LOOP_EXCHANGE -DHAVE_PARALLEL_NETCDF -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv
+                        CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -O3 -DUSE_XML2
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
 			HDF5ROOT    = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -L/apps/daint/UES/jenkins/sandbox/easybuild/software/libxml2/2.9.3-CrayGNU-2016.03/lib -lxml2
-                    ;;
+			;;
                     cray_gpu)
                         config_target=daint_gpu
                         load_modules = modules craype daint-gpu PrgEnv-cray cray-mpich cray-netcdf-hdf5parallel craype-accel-nvidia60
         		FFLAGS      = -DHAVE_PARALLEL_NETCDF -D__LOOP_EXCHANGE -Df2cFortran -e Z -em -hflex_mp=intolerant -hfp0 -hadd_paren -hacc_model=deep_copy -O1,cache0 -r am -Ktrap=divz,ovf,inv
-                        CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}" -DUSE_XML2
+                        CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3 -DUSE_XML2
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
 			HDF5ROOT    = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -L/apps/daint/UES/jenkins/sandbox/easybuild/software/libxml2/2.9.3-CrayGNU-2016.03/lib -lxml2
-                    ;;
+			;;
+                    *)
+                        echo
+                        echo
+                        echo "No supported Fortran compiler selected."
+                        echo
+                        exit 1
+                        ;;
                 esac
                 mpi_startrun="srun" "-n" "\$mpi_total_procs" "--ntasks-per-node" "\$mpi_procs_pernode" "--threads-per-core=1" "--cpus-per-task" "\$OMP_NUM_THREADS"
                 ;;
@@ -289,46 +296,54 @@ case "$ac_sitename" in
                 FC = ftn
                 F77= ftn
                 #  GRIBAPIROOT = /apps/daint/UES/6.0.UP02/sandbox-ws/grib_api   # needs to be installed
-
+		
                 case "$fortran_compiler" in
-                    default|gcc)
+                    gcc)
                         config_target=tave_knl
                         load_modules =PrgEnv-gnu cray-netcdf cray-mpich craype-mic-knl
-                        CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
-                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
-                    ;;
+                        CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF
+                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
+			;;
                     intel)
                         config_target=tave_knl
                         load_modules = PrgEnv-intel cray-netcdf cray-mpich craype-mic-knl
-                        CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
+                        CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF
                         STD_FLAGS   = -O2 -mavx -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
                         FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/INTEL/15.0
                         F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
                         MODDIR      = -I
-                    ;;
+			;;
                     pgi)
                         config_target=tave_knl
                         load_modules = PrgEnv-pgi cray-netcdf cray-mpich craype-mic-knl
-                        CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
+                        CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
-                    ;;
+			;;
                     cray)
                         config_target=tave_knl
                         load_modules = PrgEnv-cray cray-netcdf cray-mpich craype-mic-knl
                         FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv
-                        CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}" -DUSE_XML2
+                        CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3 -DUSE_XML2
                         NETCDFROOT  = /opt/cray/pe/netcdf/default/CRAY/8.3
 			HDF5ROOT    = /opt/cray/pe/hdf5/default/CRAY/8.3
                         OTHER_LIBS  =
-                    ;;
+			;;
+                    *)
+                        echo
+                        echo
+                        echo "No supported Fortran compiler selected."
+                        echo
+                        exit 1
+                        ;;
                 esac
                 mpi_startrun="srun" "-n" "\$mpi_total_procs" "--ntasks-per-node" "\$mpi_procs_pernode" "--threads-per-core=1" "--cpus-per-task" "\$OMP_NUM_THREADS"
                 ;;
         esac
         ;;
-#===============================================
 
+#===============================================
+    
     *dwd.de)
         case "$(hostname)" in
             xc*)
@@ -417,7 +432,9 @@ case "$ac_sitename" in
                 ;;
         esac
         ;;
+
 #===============================================
+
     dkrz.de|bullx)
         case "$(hostname)" in
             btc*|mlogin*)
@@ -430,7 +447,7 @@ case "$ac_sitename" in
                 sync_submit   = srunjob
                 queue         = compute
                 case "$fortran_compiler" in
-                    default|intel*)
+                    intel*)
                         case "$fortran_compiler" in
                           intel15|intel15.*)
                             load_modules    = intel/15.0.1 ${load_modules}
