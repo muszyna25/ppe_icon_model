@@ -1370,6 +1370,11 @@ AC_SUBST(use_openmp,$use_openmp)
 AC_SUBST(build_host,$build_host)               
 AC_SUBST(use_mpi_procs_pernode,$use_mpi_procs_pernode)    
 AC_SUBST(mpi_startrun,$mpi_startrun)             
+
+AS_IF([test ! -z "$load_profile" ],
+      [load_profile=". $load_profile"],
+      [load_Profile=""])
+
 AC_SUBST(load_profile,$load_profile)             
 AC_SUBST(submit,$submit)                   
 AC_SUBST(sync_submit,$sync_submit)              

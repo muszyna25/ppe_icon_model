@@ -14,7 +14,7 @@ set -eu
 # contains undefined variables and silent errors
 
 set +eu
-. @load_profile@
+@load_profile@
 set -eu
 
 #________________________________________________________________
