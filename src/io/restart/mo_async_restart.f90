@@ -27,14 +27,14 @@ MODULE mo_async_restart
   USE mo_async_restart_comm_data,   ONLY: t_AsyncRestartCommData
   USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
   USE mo_exception,                 ONLY: finish
-  USE mo_fortran_tools,             ONLY: t_ptr_2d, t_ptr_2d_sp
+  USE mo_fortran_tools,             ONLY: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int
   USE mo_kind,                      ONLY: wp, i8, dp, sp
   USE mtime,                        ONLY: datetime
   USE mo_io_units,                  ONLY: nerr
   USE mo_var_list,                  ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
   USE mo_linked_list,               ONLY: t_list_element, t_var_list
   USE mo_restart_attributes,        ONLY: t_RestartAttributeList, RestartAttributeList_make
-  USE mo_impl_constants,            ONLY: SUCCESS, SINGLE_T, REAL_T
+  USE mo_impl_constants,            ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
   USE mo_var_metadata_types,        ONLY: t_var_metadata
   USE mo_restart_file,              ONLY: t_RestartFile
   USE mo_restart_namelist,          ONLY: t_NamelistArchive, namelistArchive
@@ -919,13 +919,15 @@ CONTAINS
       IF(me%varData(iv)%info%hgrid == GRID_UNSTRUCTURED_EDGE) pointCount = me%description%n_patch_edges_g
 
       ! check if this is single or double precision:
-      IF (me%varData(iv)%info%data_type == REAL_T) THEN
+      SELECT CASE(me%varData(iv)%info%data_type)
+      CASE(REAL_T, INT_T)
+        ! INTEGER fields: we write them as REAL-valued arrays
         flag_dp = .TRUE.
-      ELSE IF (me%varData(iv)%info%data_type == SINGLE_T) THEN
+      CASE(SINGLE_T)
         flag_dp = .FALSE.
-      ELSE 
+      CASE DEFAULT
         CALL finish(routine, "Internal error! Variable "//TRIM(me%varData(iv)%info%name))
-      END IF
+      END SELECT
 
       ! no. of chunks of levels (each of size "restart_chunk_size"):
       nchunks = (nlevs-1)/restart_chunk_size + 1
@@ -949,9 +951,10 @@ CONTAINS
             bytesWrite = bytesWrite + pointCount*BYTES_DP
           END DO
         ELSE
+          ! single precision data
           DO ilev=chunk_start, chunk_end
             CALL file%writeLevel(me%varData(iv)%info%cdiVarID, (ilev-1), buffer_sp(:, ilev - chunk_start + 1))
-            bytesWrite = bytesWrite + pointCount*BYTES_DP
+            bytesWrite = bytesWrite + pointCount*BYTES_SP
           END DO
         END IF
         t_write = t_write + p_mpi_wtime()
@@ -990,12 +993,12 @@ CONTAINS
 
     TYPE(t_AsyncPatchData), POINTER :: asyncPatchData
     TYPE(t_RestartVarData), POINTER :: p_vars(:)
-    TYPE(t_ptr_2d),    ALLOCATABLE  :: dataPointers_dp(:)
-    TYPE(t_ptr_2d_sp), ALLOCATABLE  :: dataPointers_sp(:)
+    TYPE(t_ptr_2d),     ALLOCATABLE :: dataPointers_dp(:)
+    TYPE(t_ptr_2d_sp) , ALLOCATABLE :: dataPointers_sp(:)
+    TYPE(t_ptr_2d_int), ALLOCATABLE :: dataPointers_int(:)
     INTEGER                         :: iv
     INTEGER(i8)                     :: offset
     CHARACTER(LEN=*), PARAMETER     :: routine = modname//':compute_write_var_list'
-    LOGICAL                         :: flag_dp
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
@@ -1021,27 +1024,25 @@ CONTAINS
         WRITE (nerr,FORMAT_VALS5I)routine,' p_pe=',p_pe,' compute pe processes field=',TRIM(p_vars(iv)%info%name)
 #endif
 
-        ! check if this is single or double precision:
-        IF (ASSOCIATED(p_vars(iv)%r_ptr)) THEN
-          flag_dp = .TRUE.
-        ELSE IF (ASSOCIATED(p_vars(iv)%s_ptr)) THEN
-          flag_dp = .FALSE.
-        ELSE 
-          CALL finish(routine, "Internal error!")
-        END IF
-
         ! check time level of the field
         IF (has_valid_time_level(p_vars(iv)%info, asyncPatchData%description%id, &
           &                      asyncPatchData%description%nnew,                &
           &                      asyncPatchData%description%nnew_rcf)) THEN
 
-          IF (flag_dp) THEN
+          SELECT CASE(p_vars(iv)%info%data_type)
+          CASE(REAL_T)
             CALL getLevelPointers(p_vars(iv)%info, p_vars(iv)%r_ptr, dataPointers_dp)
             CALL asyncPatchData%commData%postData(p_vars(iv)%info%hgrid, dataPointers_dp, offset)
-          ELSE
+          CASE(SINGLE_T)
             CALL getLevelPointers(p_vars(iv)%info, p_vars(iv)%s_ptr, dataPointers_sp)
             CALL asyncPatchData%commData%postData(p_vars(iv)%info%hgrid, dataPointers_sp, offset)
-          END IF
+          CASE(INT_T)
+            CALL getLevelPointers(p_vars(iv)%info, p_vars(iv)%i_ptr, dataPointers_int)
+            CALL asyncPatchData%commData%postData(p_vars(iv)%info%hgrid, dataPointers_int, offset)
+          CASE DEFAULT
+            CALL finish(routine, "Internal error! Variable "//TRIM(p_vars(iv)%info%name))
+          END SELECT
+
           ! no deallocation of dataPointers, so that the next
           ! invocation of getLevelPointers() may reuse the last
           ! allocation

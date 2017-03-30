@@ -17,7 +17,7 @@
 MODULE mo_cdi_ids
     USE mo_cdi, ONLY: zaxisCreate, zaxisDefLevels, streamOpenWrite, vlistCreate, taxisCreate, vlistDefTaxis, TAXIS_ABSOLUTE, &
                     & vlistDefVar, vlistDefVarDatatype, vlistDefVarName, vlistDefVarLongname, vlistDefVarUnits, &
-                    & vlistDefVarMissval, TIME_VARIABLE, DATATYPE_FLT64, taxisDefVdate, taxisDefVtime, cdiEncodeDate, &
+                    & vlistDefVarMissval, TIME_VARIABLE, DATATYPE_FLT64, DATATYPE_FLT32, taxisDefVdate, taxisDefVtime, cdiEncodeDate, &
                     & cdiEncodeTime, streamDefTimestep, FILETYPE_NC2, FILETYPE_NC4, CDI_UNDEFID, gridCreate, gridDefNvertex, &
                     & gridDefXname, gridDefXlongname, gridDefXunits, gridDefYname, gridDefYlongname, gridDefYunits, &
                     & GRID_UNSTRUCTURED
@@ -26,7 +26,7 @@ MODULE mo_cdi_ids
                               & ZA_SEDIMENT_BOTTOM_TW_HALF, cdi_zaxis_types
     USE mtime, ONLY: datetime
     USE mo_exception, ONLY: finish, message
-    USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH, SUCCESS
+    USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH, SUCCESS, SINGLE_T, REAL_T, INT_T
     USE mo_kind, ONLY: wp
     USE mo_util_cdi, ONLY: cdiGetStringError
     USE mo_var_metadata_types, ONLY: t_var_metadata
@@ -253,7 +253,16 @@ CONTAINS
         varId = vlistDefVar(me%vlist, gridId, zaxisId, TIME_VARIABLE)
         IF(varID == CDI_UNDEFID) CALL finish(routine, 'error WHILE defining CDI variable "'//TRIM(info%name)//'"')
         info%cdiVarID = varId
-        CALL vlistDefVarDatatype(me%vlist, varId, DATATYPE_FLT64)
+        ! based on data type "info%data_type" set DATATYPE_FLT64 or
+        ! DATATYPE_FLT32:
+        SELECT CASE(info%data_type)
+        CASE(REAL_T, INT_T)
+          CALL vlistDefVarDatatype(me%vlist, varId, DATATYPE_FLT64)
+        CASE(SINGLE_T)
+          CALL vlistDefVarDatatype(me%vlist, varId, DATATYPE_FLT32)
+        CASE DEFAULT
+          CALL finish(routine, "Unsupported data type!")
+        END SELECT
         CALL vlistDefVarName(me%vlist, varId, TRIM(info%name))
 
         ! then add the three optional fields

@@ -1482,10 +1482,10 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   SELECT CASE ( atm_phy_nwp_config(jg)%inwp_sso )
   CASE ( 1 )                                ! COSMO SSO scheme
     IF (jg == 1) CALL sso_cosmo_init_param(tune_gkwake=tune_gkwake, tune_gkdrag=tune_gkdrag, tune_gfrcrit=tune_gfrcrit)
-    prm_diag%ktop_envel(:,:) = nlev
+    IF (linit_mode) prm_diag%ktop_envel(:,:) = nlev
   CASE ( 2 )                                ! IFS SSO scheme
     CALL sugwd(nlev, pref, phy_params )
-    prm_diag%ktop_envel(:,:) = nlev
+    IF (linit_mode) prm_diag%ktop_envel(:,:) = nlev
   END SELECT
 
   !  WW diagnostics

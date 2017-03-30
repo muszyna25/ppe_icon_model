@@ -959,8 +959,7 @@ MODULE mo_nh_stepping
     ! Set output flags
     !--------------------------------------------------------------------------
 
-    l_nml_output   = output_mode%l_nml .AND. jstep >= 0 .AND.                 &
-      &              (jstep==(nsteps+jstep0) .OR. istime4name_list_output(jstep) )
+    l_nml_output = output_mode%l_nml .AND. jstep >= 0 .AND. istime4name_list_output(jstep)
 
     ! In IAU iteration mode, output at the nominal initial date is written only at the
     ! end of the first cycle, providing an initialized analysis to which the analysis 

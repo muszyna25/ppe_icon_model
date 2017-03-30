@@ -797,7 +797,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'ktop_envel', diag%ktop_envel,                    &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,                 &
-                & grib2_desc,ldims=shape2d, lrestart=.FALSE., loutput=.FALSE.  )
+                & grib2_desc,ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.  )
 
     !        diag%snowlmt(nproma,nblks_c)
     cf_desc    = t_cf_var('snowlmt', 'm', 'Height of snow fall limit above MSL', &
