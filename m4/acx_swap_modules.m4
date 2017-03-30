@@ -74,8 +74,10 @@ AC_DEFUN([ACX_SWAP_MODULES],
                      for mod in $modules_loaded
                      do
 		         AS_IF([test ${mod%%/*} = ${replacement%%/*}],
- 		               [module swap $mod $replacement
-                                is_loaded=true])
+ 		               [AS_IF([test "$mod" != "$replacement"],
+                                      [module swap $mod $replacement],
+                                      [is_loaded=true])])
+
 		     done
                      AS_IF([test $is_loaded = false],
                            [module load $replacement])

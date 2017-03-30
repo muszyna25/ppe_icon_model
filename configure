@@ -2879,9 +2879,13 @@ fi
                      for mod in $modules_loaded
                      do
 		         if test ${mod%%/*} = ${replacement%%/*}; then :
+  if test "$mod" != "$replacement"; then :
   module swap $mod $replacement
-                                is_loaded=true
+else
+  is_loaded=true
 fi
+fi
+
 		     done
                      if test $is_loaded = false; then :
   module load $replacement
