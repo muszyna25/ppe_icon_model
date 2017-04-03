@@ -1745,17 +1745,17 @@ CONTAINS
 #ifndef NOMPI
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::is_output_step_complete"
     INTEGER              :: ierrstat
-    INTEGER, ALLOCATABLE :: irecv_status(:,:)
+    ! INTEGER, ALLOCATABLE :: irecv_status(:,:)
 
     ret = .TRUE.
     IF (event%irecv_nreq == 0)  RETURN
-    ALLOCATE(irecv_status(MPI_STATUS_SIZE,event%irecv_nreq), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+    ! ALLOCATE(irecv_status(MPI_STATUS_SIZE,event%irecv_nreq), STAT=ierrstat)
+    ! IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     CALL MPI_TESTALL(event%irecv_nreq, event%irecv_req, ret, &
-      &              irecv_status, ierrstat)
+      &              mpi_statuses_ignore, ierrstat)
     IF (ierrstat /= mpi_success) CALL finish (routine, 'Error in MPI_TESTALL.')
-    DEALLOCATE(irecv_status, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+    ! DEALLOCATE(irecv_status, STAT=ierrstat)
+    ! IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 #else
     ret = .TRUE.
 #endif
