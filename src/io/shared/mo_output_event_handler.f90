@@ -1754,7 +1754,7 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     CALL MPI_TESTALL(event%irecv_nreq, event%irecv_req, ret, &
       &              irecv_status, ierrstat)
-    IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_TESTALL.')
+    IF (ierrstat /= mpi_success) CALL finish (routine, 'Error in MPI_TESTALL.')
     DEALLOCATE(irecv_status, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 #else
@@ -2351,7 +2351,7 @@ CONTAINS
       ! wait for the last ISEND to be processed:
       IF (ldebug) WRITE (0,*) p_pe, ": waiting for request handle."
       CALL MPI_WAIT(event%isend_req, impi_status, ierrstat)
-      IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_WAIT.')
+      IF (ierrstat /= mpi_success) CALL finish (routine, 'Error in MPI_WAIT.')
       IF (ldebug) WRITE (0,*) p_pe, ": waiting for request handle done."
       ! launch a new non-blocking send:
       istep = event%output_event%i_event_step
@@ -2363,7 +2363,7 @@ CONTAINS
       END IF
       CALL MPI_IBSEND(event%isend_buf, 1, p_int, event%iroot, i_tag, &
         &            event%icomm, event%isend_req, ierrstat)
-      IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_ISEND.')
+      IF (ierrstat /= mpi_success) CALL finish (routine, 'Error in MPI_ISEND.')
       IF (ldebug) THEN
         WRITE (0,*) "pass ", event%output_event%i_event_step, &
           &         " (",  event%output_event%event_step(istep)%event_step_data(1)%jfile, &
@@ -2428,7 +2428,7 @@ CONTAINS
         END IF
         CALL MPI_IRECV(event%irecv_buf(i), 1, p_int, i_pe, &
           &            i_tag, event%icomm, event%irecv_req(i), ierrstat)
-        IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_IRECV.')
+        IF (ierrstat /= mpi_success) CALL finish (routine, 'Error in MPI_IRECV.')
       END DO
     END IF
   END SUBROUTINE trigger_output_step_irecv
@@ -2453,7 +2453,7 @@ CONTAINS
       ALLOCATE(irecv_status(MPI_STATUS_SIZE,event%irecv_nreq), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
       CALL MPI_WAITALL(event%irecv_nreq, event%irecv_req, irecv_status, ierrstat)
-      IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_WAITALL.')
+      IF (ierrstat /= mpi_success) CALL finish(routine, 'Error in MPI_WAITALL.')
       DEALLOCATE(irecv_status, STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
       ! increment event step counter:
@@ -2506,7 +2506,7 @@ CONTAINS
 
     ! wait for the last IRECVs to be processed:
     CALL MPI_WAITALL(nreq, irecv_req, irecv_status, ierrstat)
-    IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_WAITALL.')
+    IF (ierrstat /= mpi_success) CALL finish (routine, 'Error in MPI_WAITALL.')
     DEALLOCATE(irecv_status, irecv_req, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
