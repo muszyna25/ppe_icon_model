@@ -2473,7 +2473,7 @@ CONTAINS
 #ifndef NOMPI
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::blocking_wait_for_irecvs"
     INTEGER                           :: ierrstat, nreq, ireq
-    INTEGER, ALLOCATABLE              :: irecv_status(:,:), irecv_req(:)
+    INTEGER, ALLOCATABLE              :: irecv_req(:)
     TYPE(t_par_output_event), POINTER :: ev
 
     ! count the number of request handles
@@ -2490,8 +2490,7 @@ CONTAINS
     IF (nreq == 0) RETURN
 
     ! collect the request handles
-    ALLOCATE(irecv_status(MPI_STATUS_SIZE,nreq), &
-      &      irecv_req(nreq), STAT=ierrstat)
+    ALLOCATE(irecv_req(nreq), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     ev   =>  event
     ireq = 1
@@ -2504,9 +2503,9 @@ CONTAINS
     END DO
 
     ! wait for the last IRECVs to be processed:
-    CALL MPI_WAITALL(nreq, irecv_req, irecv_status, ierrstat)
+    CALL MPI_WAITALL(nreq, irecv_req, mpi_statuses_ignore, ierrstat)
     IF (ierrstat /= mpi_success) CALL finish (routine, 'Error in MPI_WAITALL.')
-    DEALLOCATE(irecv_status, irecv_req, STAT=ierrstat)
+    DEALLOCATE(irecv_req, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
     ! clear the request handles
