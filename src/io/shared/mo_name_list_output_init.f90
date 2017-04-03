@@ -1348,7 +1348,7 @@ CONTAINS
     DO i = 1, nfiles
       IF (.NOT. is_io .OR. output_file(i)%io_proc_id == p_pe_work) THEN
         local_i = local_i + 1
-        CALL add_out_event(output_file(i)%name_list, output_file(i), &
+        CALL add_out_event(output_file(i), &
              i, local_i, sim_step_info, dom_sim_step_info)
       ELSE
         NULLIFY(output_file(i)%out_event)
@@ -1656,9 +1656,8 @@ CONTAINS
 
   END SUBROUTINE assign_output_task
 
-  SUBROUTINE add_out_event(p_onl, p_of, i, local_i, &
+  SUBROUTINE add_out_event(p_of, i, local_i, &
        sim_step_info, dom_sim_step_info)
-    TYPE (t_output_name_list), INTENT(inout) :: p_onl
     TYPE (t_output_file), INTENT(inout) :: p_of
     INTEGER, INTENT(in) :: i, local_i
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
@@ -1684,22 +1683,22 @@ CONTAINS
 
     ! pack file-name meta-data into a derived type to pass them
     ! to "new_parallel_output_event":
-    fname_metadata%steps_per_file             = p_onl%steps_per_file
-    fname_metadata%steps_per_file_inclfirst   = p_onl%steps_per_file_inclfirst
-    fname_metadata%file_interval              = p_onl%file_interval
+    fname_metadata%steps_per_file             = p_of%name_list%steps_per_file
+    fname_metadata%steps_per_file_inclfirst   = p_of%name_list%steps_per_file_inclfirst
+    fname_metadata%file_interval              = p_of%name_list%file_interval
     fname_metadata%phys_patch_id              = p_of%phys_patch_id
     fname_metadata%ilev_type                  = p_of%ilev_type
-    fname_metadata%filename_format            = TRIM(p_onl%filename_format)
+    fname_metadata%filename_format            = TRIM(p_of%name_list%filename_format)
     fname_metadata%filename_pref              = TRIM(p_of%filename_pref)
     fname_metadata%npartitions                = p_of%npartitions
     fname_metadata%ifile_partition            = p_of%ifile_partition
     ! set user-specified filename extension or use the default
     ! extension:
-    tlen = LEN_TRIM(p_onl%filename_extn)
-    IF (p_onl%filename_extn(1:tlen) == "default") THEN
-      fname_metadata%extn = TRIM(get_file_extension(p_onl%filetype))
+    tlen = LEN_TRIM(p_of%name_list%filename_extn)
+    IF (p_of%name_list%filename_extn(1:tlen) == "default") THEN
+      fname_metadata%extn = TRIM(get_file_extension(p_of%name_list%filetype))
     ELSE
-      fname_metadata%extn = p_onl%filename_extn(1:tlen)
+      fname_metadata%extn = p_of%name_list%filename_extn(1:tlen)
     END IF
 
     restartAttributes => getAttributesForRestarting()
@@ -1734,9 +1733,9 @@ CONTAINS
       dom_sim_step_info%dom_end_time = dom_sim_step_info%sim_end
     END IF
 
-    include_last    = p_onl%include_last
-    output_interval = p_onl%output_interval
-    output_start    = p_onl%output_start
+    include_last    = p_of%name_list%include_last
+    output_interval = p_of%name_list%output_interval
+    output_start    = p_of%name_list%output_start
 
     ! Handle the case that one namelist has been split into
     ! concurrent, alternating files ("streams"):
@@ -1788,10 +1787,10 @@ CONTAINS
     ! ------------------------------------------------------------------------------------------
     ! --- I/O PEs communicate their event data, the other PEs create
     ! --- the event data only locally for their own event control:
-    p_of%out_event => new_parallel_output_event(p_onl%ready_file,            &
-         &                  output_start, p_onl%output_end, output_interval, &
-         &                  include_last, dom_sim_step_info, fname_metadata, &
-         &                  compute_matching_sim_steps,                      &
+    p_of%out_event => new_parallel_output_event(p_of%name_list%ready_file,    &
+         &                  output_start, p_of%name_list%output_end,          &
+         &                  output_interval, include_last, dom_sim_step_info, &
+         &                  fname_metadata, compute_matching_sim_steps,       &
          &                  generate_output_filenames, local_i, p_comm_io)
     ! ------------------------------------------------------------------------------------------
     IF (dom_sim_step_info%jstep0 > 0) &
