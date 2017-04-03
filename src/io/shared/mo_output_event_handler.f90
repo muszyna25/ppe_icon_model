@@ -2446,16 +2446,16 @@ CONTAINS
 #ifndef NOMPI
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::wait_for_pending_irecs"
     INTEGER                     :: ierrstat
-    INTEGER, ALLOCATABLE        :: irecv_status(:,:)
+    ! INTEGER, ALLOCATABLE        :: irecv_status(:,:)
 
     ! wait for the last IRECVs to be processed:
     IF (ALLOCATED(event%irecv_req)) THEN
-      ALLOCATE(irecv_status(MPI_STATUS_SIZE,event%irecv_nreq), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-      CALL MPI_WAITALL(event%irecv_nreq, event%irecv_req, irecv_status, ierrstat)
+      ! ALLOCATE(irecv_status(MPI_STATUS_SIZE,event%irecv_nreq), STAT=ierrstat)
+      ! IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+      CALL MPI_WAITALL(event%irecv_nreq, event%irecv_req, mpi_statuses_ignore, ierrstat)
       IF (ierrstat /= mpi_success) CALL finish(routine, 'Error in MPI_WAITALL.')
-      DEALLOCATE(irecv_status, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+      ! DEALLOCATE(irecv_status, STAT=ierrstat)
+      ! IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
       ! increment event step counter:
       event%output_event%i_event_step = event%output_event%i_event_step + 1
     END IF
