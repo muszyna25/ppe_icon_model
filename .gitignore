@@ -24,3 +24,5 @@ experiments*
 run/*.status
 run/*.run
 run/NAMELIST_*_lnd
+*#
+autom4te.cache

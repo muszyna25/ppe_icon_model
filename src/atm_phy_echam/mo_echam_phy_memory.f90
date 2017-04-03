@@ -66,6 +66,9 @@ MODULE mo_echam_phy_memory
     &                               ZA_HYBRID, ZA_HYBRID_HALF,         &
     &                               ZA_SURFACE, ZA_GENERIC_ICE
   USE mo_sea_ice_nml,         ONLY: kice
+    !ART
+  USE mo_art_config,          ONLY: ctracer_art
+  USE mo_run_config,          ONLY: lart
 
   IMPLICIT NONE
   PRIVATE
@@ -575,23 +578,30 @@ CONTAINS
 
     CALL message(TRIM(thismodule),'Construction of ECHAM physics state started.')
 
+
+    IF (lart) THEN
+        ctracer = ctracer_art
+    ELSE
+
     ! Define tracer names to be used in the construction of tracer related variables
     !
     DO jtrc = 1,ntracer
        !
        ! default name
-       WRITE(ctracer(jtrc),'(a1,i0)') 't',jtrc
-       !
-       ! specific names
-       IF (jtrc == 1 ) ctracer(jtrc) = 'hus'
-       IF (jtrc == 2 ) ctracer(jtrc) = 'clw'
-       IF (jtrc == 3 ) ctracer(jtrc) = 'cli'
-       IF (jtrc == 4 ) ctracer(jtrc) = 'o3'
-       IF (jtrc == 5 ) ctracer(jtrc) = 'co2'
-       IF (jtrc == 6 ) ctracer(jtrc) = 'ch4'
-       IF (jtrc == 7 ) ctracer(jtrc) = 'n2o'
-       !
-    END DO
+            WRITE(ctracer(jtrc),'(a1,i0)') 't',jtrc
+            !
+            ! specific names
+            IF (jtrc == 1 ) ctracer(jtrc) = 'hus'
+            IF (jtrc == 2 ) ctracer(jtrc) = 'clw'
+            IF (jtrc == 3 ) ctracer(jtrc) = 'cli'
+            IF (jtrc == 4 ) ctracer(jtrc) = 'o3'
+            IF (jtrc == 5 ) ctracer(jtrc) = 'co2'
+            IF (jtrc == 6 ) ctracer(jtrc) = 'ch4'
+            IF (jtrc == 7 ) ctracer(jtrc) = 'n2o'
+            !
+        END DO
+
+    ENDIF
 
     cdimissval = cdiInqMissval()
 
