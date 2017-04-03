@@ -162,7 +162,6 @@ MODULE mo_output_event_handler
   PUBLIC :: complete_event_setup
   PUBLIC :: union_of_all_events
   PUBLIC :: deallocate_output_event
-  PUBLIC :: wait_for_pending_irecvs
   PUBLIC :: blocking_wait_for_irecvs
   ! inquiry functions
   PUBLIC :: get_current_date
@@ -2435,6 +2434,7 @@ CONTAINS
 #endif
 
 
+#ifndef NOMPI
   !> Utility routine: blocking wait for pending "output completed"
   !> messages.
   !
@@ -2443,7 +2443,6 @@ CONTAINS
   SUBROUTINE wait_for_pending_irecvs(event)
     TYPE(t_par_output_event), POINTER :: event
     ! local variables
-#ifndef NOMPI
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::wait_for_pending_irecs"
     INTEGER                     :: ierrstat
     ! INTEGER, ALLOCATABLE        :: irecv_status(:,:)
@@ -2459,8 +2458,8 @@ CONTAINS
       ! increment event step counter:
       event%output_event%i_event_step = event%output_event%i_event_step + 1
     END IF
-#endif
   END SUBROUTINE wait_for_pending_irecvs
+#endif
 
 
   !> Utility routine: blocking wait for pending "output completed"
