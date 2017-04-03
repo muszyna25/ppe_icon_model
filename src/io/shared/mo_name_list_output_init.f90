@@ -1347,6 +1347,7 @@ CONTAINS
     local_i = 0
     DO i = 1, nfiles
       IF (.NOT. is_io .OR. output_file(i)%io_proc_id == p_pe_work) THEN
+        local_i = local_i + 1
         CALL add_out_event(output_file(i)%name_list, output_file(i), &
              i, local_i, sim_step_info, dom_sim_step_info)
       ELSE
@@ -1659,8 +1660,7 @@ CONTAINS
        sim_step_info, dom_sim_step_info)
     TYPE (t_output_name_list), INTENT(inout) :: p_onl
     TYPE (t_output_file), INTENT(inout) :: p_of
-    INTEGER, INTENT(in) :: i
-    INTEGER, INTENT(inout) :: local_i
+    INTEGER, INTENT(in) :: i, local_i
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
     TYPE (t_sim_step_info), INTENT(inout) :: dom_sim_step_info
 
@@ -1733,7 +1733,6 @@ CONTAINS
     ELSE
       dom_sim_step_info%dom_end_time = dom_sim_step_info%sim_end
     END IF
-    local_i = local_i + 1
 
     include_last    = p_onl%include_last
     output_interval = p_onl%output_interval
