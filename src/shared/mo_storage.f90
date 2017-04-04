@@ -262,6 +262,8 @@ SUBROUTINE get_real(this_storage, key, value, ierror)
     IF (PRESENT(ierror)) ierror = 1
   ENDIF
 
+  DEALLOCATE(p_key)
+
 END SUBROUTINE get_real
 !!
 !!-------------------------------------------------------------------------
@@ -297,6 +299,8 @@ SUBROUTINE get_int(this_storage, key, value, ierror)
   ELSE
     IF (PRESENT(ierror)) ierror = 1
   ENDIF
+
+  DEALLOCATE(p_key)
 
 END SUBROUTINE get_int
 !!
@@ -334,6 +338,8 @@ SUBROUTINE get_string(this_storage, key, value, ierror)
     IF (PRESENT(ierror)) ierror = 1
   ENDIF
 
+  DEALLOCATE(p_key)
+
 END SUBROUTINE get_string
 !!
 !!-------------------------------------------------------------------------
@@ -369,6 +375,8 @@ SUBROUTINE get_logical(this_storage, key, value, ierror)
   ELSE
     IF (PRESENT(ierror)) ierror = 1
   ENDIF
+
+  DEALLOCATE(p_key)
 
 END SUBROUTINE get_logical
 !!
