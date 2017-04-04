@@ -458,6 +458,25 @@ case "$ac_sitename" in
                                 NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-parallel-impi-intel14
                                 HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-parallel-impi-intel14
                                 ;;
+                            "$software_tree/intel/impi/2017.2.174")
+                                load_modules = ${load_modules} intelmpi/2017.2.174
+                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DHAVE_PARALLEL_NETCDF
+                                MPIROOT      = /sw/rhel6-x64/intel/impi/2017.2.174/compilers_and_libraries/linux/mpi/intel64
+                                MPI_LIB      = $WLFLAG,--disable-new-dtags -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread
+                                NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-impi-intel14
+                                NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-parallel-impi-intel14
+                                HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-parallel-impi-intel14
+                                ;;
+                            "${software_tree}/mpi/openmpi-1.10.1_mlx-intel16")
+                                load_modules = ${load_modules} openmpi/1.10.1_mlx-intel16
+                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DHAVE_PARALLEL_NETCDF
+                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DHAVE_PARALLEL_NETCDF
+                                MPIROOT      = ${software_tree}/mpi/openmpi-1.10.1_mlx-intel16
+                                MPI_LIB      = -L${MPIROOT}/lib     -Wl,-rpath -Wl,${MPIROOT}/lib -Wl,--enable-new-dtags -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lm -lnuma -ldl -losmcomp -libverbs -lutil
+                                NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-impi-intel14
+                                NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-parallel-impi-intel14
+                                HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-parallel-impi-intel14
+                                ;;
                             no)
                                 ;;
                             /opt/mpi/bullxmpi_mlx/1.2.9.2|*)
@@ -474,7 +493,7 @@ case "$ac_sitename" in
                         mpi_startrun = srun
                         ;;
                     gcc*)
-                        load_modules    = gcc/6.2.0 intelmpi/2017.0.098  ${load_modules}
+                        load_modules    = gcc/6.2.0 ${load_modules}
                         config_compiler = gcc
                         c_compiler_version = $(gcc --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
                         CC     = gcc
@@ -492,7 +511,13 @@ case "$ac_sitename" in
                         GRIBAPIROOT = $software_tree/grib_api/grib_api-1.15.0-gcc48
 
                         case "$with_mpi" in
-                            "$software_tree/intel/impi/2017.0.098"|*)
+                            "${software_tree}/mpi/openmpi-1.8.4-gcc62")
+                                load_modules = ${load_modules} openmpi/1.8.4-gcc62
+                                MPIROOT      = $software_tree/mpi/openmpi-1.8.4-gcc62
+                                MPI_LIB=-L$(MPIROOT)/lib/openmpi -Wl,-rpath -Wl,$(MPIROOT)/lib/openmpi -Wl,--enable-new-dtags -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+                                MPI_INCLUDE=-I$(MPIROOT)/include
+                                ;;
+                            "${software_tree}/intel/impi/2017.0.098"|*)
                                 load_modules = ${load_modules} intelmpi/2017.0.098
                                 FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
                                 MPIROOT      = $software_tree/intel/impi/2017.0.098/compilers_and_libraries_2017.0.098/linux/mpi/intel64
