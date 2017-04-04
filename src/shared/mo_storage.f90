@@ -145,9 +145,6 @@ SUBROUTINE put_real(this_storage, key, value)
 
   CALL this_storage%container%setEntry(p_key, p_value)
 
-  DEALLOCATE(p_key)
-  DEALLOCATE(p_value)
-
 END SUBROUTINE put_real
 !!
 !!-------------------------------------------------------------------------
@@ -174,9 +171,6 @@ SUBROUTINE put_int(this_storage, key, value)
   END SELECT
 
   CALL this_storage%container%setEntry(p_key, p_value)
-
-  DEALLOCATE(p_key)
-  DEALLOCATE(p_value)
 
 END SUBROUTINE put_int
 !!
@@ -205,9 +199,6 @@ SUBROUTINE put_string(this_storage, key, value)
 
   CALL this_storage%container%setEntry(p_key, p_value)
 
-  DEALLOCATE(p_key)
-  DEALLOCATE(p_value)
-
 END SUBROUTINE put_string
 !!
 !!-------------------------------------------------------------------------
@@ -234,9 +225,6 @@ SUBROUTINE put_logical(this_storage, key, value)
   END SELECT
 
   CALL this_storage%container%setEntry(p_key, p_value)
-
-  DEALLOCATE(p_key)
-  DEALLOCATE(p_value)
 
 END SUBROUTINE put_logical
 !!
