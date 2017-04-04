@@ -1341,7 +1341,6 @@ CONTAINS
     CALL dbg_print('RHS final'                 ,ocean_state%p_aux%p_rhs_sfc_eq  ,str_module,idt_src, &
       in_subset=patch_3d%p_patch_2d(1)%cells%owned)
     !---------------------------------------------------------------------
-    
   END SUBROUTINE fill_rhs4surface_eq_ab
   !-------------------------------------------------------------------------------------
   
@@ -1972,7 +1971,6 @@ CONTAINS
     !------------------------------------------------------------------
     ! Step 1) Calculate divergence of horizontal velocity at all levels
     !------------------------------------------------------------------
-    
     !-------------------------------------------------------------------------------
     IF( l_edge_based )THEN
       DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block

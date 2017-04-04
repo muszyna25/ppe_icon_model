@@ -30,6 +30,10 @@ function directoryDiff {
   expDir=$2
   nDiff=0
 
+  if [[ ! -d $refDir ]]; then
+    return 99
+  fi
+
   refList=`ls ${refDir}/*`
   for refFile in ${refList}; do 
     if [[ -f $refFile ]]; then

@@ -151,8 +151,9 @@ cat > ${ocean_namelist} << EOF
   Salinity_ConvectionRestrict     = 0.0
 /                                           
 &ocean_GentMcWilliamsRedi_nml
-  GMRedi_configuration           =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
-  GMREDI_COMBINED_DIAGNOSTIC    = .false.
+  GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
+  GMREDI_COMBINED_DIAGNOSTIC     = .false.
+  SLOPE_CALC_VIA_TEMPERTURE_SALINITY = .true.  
 /                                           
 &sea_ice_nml
   i_ice_therm                     =   1       ! 0: not allowed, 1=zero-layer, 2=Winton
