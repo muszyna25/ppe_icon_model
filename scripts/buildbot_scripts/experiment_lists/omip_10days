@@ -1,0 +1,17 @@
+machine|daint_cpu|default
+builder|DAINT_CPU_cce||Active
+experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00
+machine|mistral|compute
+builder|MISTRAL_intel|--with-fortran=intel|Active
+experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00
+builder|MISTRAL_intel_hybrid|--with-fortran=intel --with-openmp|Active
+experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00
+builder|MISTRAL_intel_openmp|--with-fortran=intel --without-mpi --with-openmp --without-yac|Active
+experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00
+builder|MISTRAL_nag_serial|--with-fortran=nag --without-mpi --without-yac|Inactive
+builder|MISTRAL_ocean|--with-fortran=intel --with-openmp|Ocean
+experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00
+builder|MISTRAL_gcc|--with-fortran=gcc|Active
+experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00
+builder|MISTRAL_nag|--with-fortran=nag|Active
+experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00

@@ -81,17 +81,15 @@ MODULE mo_global_grid_generator
   !            Almut Gassmann
   !
   !-------------------------------------------------------------------------
-  USE ISO_C_BINDING,         ONLY: C_DOUBLE
-
-  USE mo_exception, ONLY: message, message_text, open_log, finish
-  USE mo_topology,  ONLY: init_topology_graph,  init_topology_grid, &
-    & generate_tree,          &
-    & generate_graph,         &
-    & write_graph,            &
-    & destruct_topology_graph, destruct_topology_grid, read_graph
-  USE mo_io_graph,  ONLY: init_graphgen
-  USE mo_geometry,  ONLY: generate_geometry
-  USE mo_io_units,  ONLY: filename_max
+  USE mo_exception,       ONLY: message, message_text, open_log
+  USE mo_topology,        ONLY: init_topology_graph,  init_topology_grid, &
+    &                           generate_tree,          &
+    &                           generate_graph,         &
+    &                           write_graph,            &
+    &                           destruct_topology_graph, destruct_topology_grid, read_graph
+  USE mo_io_graph,        ONLY: init_graphgen
+  USE mo_geometry,        ONLY: generate_geometry
+  USE mo_io_units,        ONLY: filename_max
   USE mo_grid
   USE mo_grid_levels
   USE mo_io_grid

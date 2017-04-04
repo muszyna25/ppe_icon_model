@@ -26,11 +26,7 @@ MODULE mo_echam_convect_tables
   USE mo_kind,      ONLY: wp
   USE mo_exception, ONLY: message_text, message, finish
   USE mo_physical_constants, ONLY: alv, als, rd, rv, tmelt, cpd
-#ifndef __ICON__
-  USE mo_echam_cloud_params, ONLY: csecfrl, cthomi
-#else
   USE mo_echam_cloud_config, ONLY: echam_cloud_config
-#endif
 
   IMPLICIT NONE
 
@@ -196,10 +192,8 @@ MODULE mo_echam_convect_tables
   REAL(wp) :: tlucu(1:2,lucupmin-2:lucupmax+1)     ! fused table
   REAL(wp) :: tlucuw(1:2,lucupmin-2:lucupmax+1)    ! fused table
 
-#ifdef __ICON__
   ! to simplify access to components of echam_cloud_config
   REAL(wp), POINTER :: csecfrl, cthomi
-#endif
 
   !----------------------------------------------------------------------------
 CONTAINS
@@ -676,11 +670,9 @@ CONTAINS
     REAL(wp) :: ztt, ztshft, zinbounds, ztmin,ztmax,znphase,ztest
     INTEGER :: jl
 
-#ifdef __ICON__
     ! to simplify access to components of echam_cloud_config
     csecfrl  => echam_cloud_config% csecfrl
     cthomi   => echam_cloud_config% cthomi
-#endif
 
     zinbounds = 1._wp
     ztmin = flucupmin
@@ -733,11 +725,9 @@ CONTAINS
     REAL(wp) :: ztt, zinbounds, ztmin,ztmax,znphase,ztest
     INTEGER :: jl
 
-#ifdef __ICON__
     ! to simplify access to components of echam_cloud_config
     csecfrl  => echam_cloud_config% csecfrl
     cthomi   => echam_cloud_config% cthomi
-#endif
 
     ! first compute all lookup indices and check if they are all within allowed bounds
 
