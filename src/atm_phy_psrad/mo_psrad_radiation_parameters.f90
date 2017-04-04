@@ -28,20 +28,20 @@
 !
 MODULE mo_psrad_radiation_parameters
 
+  USE mo_psrad_general, ONLY : wp
+
 IMPLICIT NONE
 
   PRIVATE
 
-  PUBLIC :: lw_spec_samp, sw_spec_samp, lw_gpts_ts, sw_gpts_ts, rad_perm
+  PUBLIC :: rad_perm, rad_undef
   PUBLIC :: i_overlap, l_do_sep_clear_sky
   
-  ! Spectral sampling
-  INTEGER :: lw_spec_samp = 1, sw_spec_samp = 1 ! 1 is broadband, 2 is MCSI, 3 and up are teams
-  INTEGER :: lw_gpts_ts   = 1, sw_gpts_ts   = 1 ! Number of g-points per time step using MCSI
   INTEGER :: rad_perm = 0                       ! Integer for perturbing random number seeds
 
   ! Radiation driver
   LOGICAL :: l_do_sep_clear_sky = .TRUE. ! Compute clear-sky fluxes by removing clouds
   INTEGER :: i_overlap = 1               ! 1 = max-ran, 2 = max, 3 = ran
+  REAL, PARAMETER :: rad_undef = -999._wp
 
 END MODULE mo_psrad_radiation_parameters

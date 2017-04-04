@@ -29,11 +29,10 @@
 !
 MODULE mo_psrad_solar_parameters
 
-  USE mo_kind,            ONLY: wp
+  USE mo_psrad_general,   ONLY: wp, nbndsw
   USE mo_model_domain,    ONLY: t_patch
   USE mo_parallel_config, ONLY: nproma
   USE mo_math_constants,  ONLY: pi, pi2, pi_2, pi_4 ! pi, pi*2, pi/2, pi/4
-  USE mo_psrad_params,    ONLY: nbndsw
 
 IMPLICIT NONE
 

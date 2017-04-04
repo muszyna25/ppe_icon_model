@@ -35,9 +35,7 @@
 !! 
 !
 MODULE mo_psrad_lrtm_solver
-  USE mo_kind,             ONLY : wp
-  USE mo_math_constants,   ONLY : pi
-  USE mo_psrad_params,     ONLY : nbndlw
+  USE mo_psrad_general,             ONLY : wp, pi, nbndlw
   USE mo_psrad_fastmath,   ONLY : transmit, tautrans 
 
   IMPLICIT NONE
@@ -46,152 +44,123 @@ MODULE mo_psrad_lrtm_solver
 
   PUBLIC :: lrtm_solver, find_secdiff
 
-  REAL(wp), PARAMETER :: fluxfac = 2.0e+04_wp * pi
-  
 CONTAINS
-  ! -------------------------------------------------------------------------------
-   SUBROUTINE lrtm_solver(kproma, kbdim,   klev      , &
-     & tau       , layPlnk, levPlnk, weights, secdiff, &
-     & surfPlanck, surfEmis   ,                        & 
-     & fluxUp    , fluxDn)
-    !
+  SUBROUTINE lrtm_solver(kbdim, klev, tau, layer_f, level_f, &
+    weights, secant, surface_f, surface_eps, flux_up, flux_down)
+
     ! Compute IR (no scattering) radiative transfer for a set of columns 
-    !   Based on AER code RRTMG_LW_RTNMC, including approximations used there
+    ! Based on AER code RRTMG_LW_RTNMC, including approximations used there
     ! Layers are ordered from botton to top (i.e. tau(1) is tau in lowest layer)
     ! Computes all-sky RT given a total optical thickness in each layer
     !
-    INTEGER,  INTENT(in) :: &
-      & kproma,             & !< Number of columns 
-      & kbdim,              & !< Maximum number of columns as declared in calling (sub)program
-      & klev                  !< number of layers (one fewer than levels) 
+    INTEGER,  INTENT(in) :: kbdim, klev
       
-    REAL(wp), INTENT(in) :: & !< dimension (kbdim, klev) 
-      & tau(kbdim,klev),           & !< Longwave optical thickness
-      & layPlnk(kbdim,klev),       & !< Planck function at layer centers
-      & weights(kbdim,klev)          !< Fraction of total Planck function for this g-point 
-      
+    REAL(wp), DIMENSION(KBDIM, klev), INTENT(in) :: &
+      tau, & ! Longwave optical thickness
+      layer_f, & ! Planck function at layer centers
+      weights ! Fraction of total Planck function for this g-point 
     REAL(wp), INTENT(in) :: &
-      & levPlnk(kbdim, 0:klev)        !< Planck function at layer edges, level i is the top of layer i
-      
-    REAL(wp), INTENT(in) :: & !< dimension (kbdim)
-      & surfPlanck(kbdim),      & !< Planck function at surface
-      & surfEmis(kbdim),        & !< Surface emissivity
-      & secdiff(kbdim)            !< secant of integration angle - depends on band, column water vapor
-      
-    REAL(wp), INTENT(out) :: & !< dimension (kbdim, 0:klev)
-      & fluxUp(kbdim, 0:klev),       & !< Fluxes at the interfaces 
-      & fluxDn(kbdim, 0:klev) 
+      ! Planck function at layer edges, level i is the top of layer i
+      level_f(KBDIM,klev+1)
+    REAL(wp), DIMENSION(KBDIM), INTENT(in) :: &
+      surface_f, & ! Planck function at surface
+      surface_eps, & ! Surface emissivity
+      secant ! secant of integration angle - 
+      !...depends on band, column water vapor
+    REAL(wp), DIMENSION(KBDIM,klev+1), INTENT(out) :: &
+      flux_up, & ! Fluxes at the interfaces 
+      flux_down
                                          
-    ! -----------
-    INTEGER  :: &
-      & jk     !< Loop index for layers
+    INTEGER  :: jk
       
-    REAL(wp) ::               &
-      & trans(kbdim,klev),   & !< Layer transmissivity
-      & tfn(kbdim),          & !< TFN_TBL 
-		!< Tau transition function; i.e. the transition of the Planck
-		!< function from that for the mean layer temperature to that for
-		!< the layer boundary temperature as a function of optical depth.
-		!< The "linear in tau" method is used to make the table.
-      & dPlnkup(kbdim,klev), & !< Upward derivative of Planck function 
-      & dPlnkdn(kbdim,klev), & !< Downward derivative of Planck function 
-      & bbdn(kbdim,klev),    & !< Interpolated downward emission 
-      & bbup(kbdim,klev),    & !< Interpolated upward emission 
-      & odepth(kbdim,klev)   !< Effective IR optical depth of layer
-
-    REAL(wp) ::                &
-      & rad_dn(kbdim,0:klev), & !< Radiance down at propagation angle
-      & rad_up(kbdim,0:klev)    !< Radiance down at propagation angle
+    REAL(wp) :: &
+      layer_transmissivity(KBDIM,klev), & ! Layer transmissivity
+      tfn(KBDIM,klev), & ! TFN_TBL 
+		! Tau transition function; i.e. the transition of the Planck
+		! function from that for the mean layer temperature to that for
+		! the layer boundary temperature as a function of optical depth.
+		! The "linear in tau" method is used to make the table.
+      tmp(KBDIM) 
 
     ! This secant and weight corresponds to the standard diffusivity 
     ! angle.  The angle is redefined for some bands.
-    REAL(wp), PARAMETER :: wtdiff = 0.5_wp, rec_6 = 0.166667_wp
-    ! -----------
-    
-    !    
-    ! 1.0 Initial preparations 
-    ! Weight optical depth by 1/cos(diffusivity angle), which depends on band 
-    ! This will be used to compute layer transmittance
-    ! -----
-    
-!IBM* ASSERT(NODEPS)
-    DO jk = 1, klev
-      odepth(1:kproma,jk) = max(1.e-9_wp, secdiff(1:kproma) * tau(1:kproma,jk))
-    END DO 
-    !
-    ! 2.0 Radiative transfer
-    !
-    ! -----
-    !
-    ! Plank function derivatives and total emission for linear-in-tau approximation
-    !
-!IBM* ASSERT(NODEPS)
-    DO jk = 1, klev
-      tfn(1:kproma) = tautrans(odepth(:,jk), kproma)
-      dPlnkup(1:kproma,jk) = levPlnk(1:kproma,jk  ) - layPlnk(1:kproma,jk)
-      dPlnkdn(1:kproma,jk) = levPlnk(1:kproma,jk-1) - layPlnk(1:kproma,jk)
+    REAL(wp), PARAMETER :: wtdiff = 0.5_wp!, rec_6 = 0.166667_wp
+    REAL(wp) :: fudge
+    fudge = 2.0e+04_wp * pi
 
-      bbup(1:kproma,jk) = weights(1:kproma,jk) * (layPlnk(1:kproma,jk) + dPlnkup(1:kproma,jk) * tfn(1:kproma))
-      bbdn(1:kproma,jk) = weights(1:kproma,jk) * (layPlnk(1:kproma,jk) + dPlnkdn(1:kproma,jk) * tfn(1:kproma))
+    ! Plank function derivatives and total emission for linear-in-tau 
+    !approximation
+    DO jk = 1, klev
+      ! Weight optical depth by 1/cos(diffusivity angle), which depends on band 
+      ! This will be used to compute layer transmittance
+      !BUG? Bjorn: you set this to 0!
+      !layer_effective_ir_optical_depth(:,jk) = max(1.e-9_wp,...
+      !tmp == layer_effective_ir_optical_depth      
+      tmp(:) = max(0.0_wp, secant(:) * tau(:,jk))
+      tfn(:,jk) = tautrans(tmp, kbdim)
+      layer_transmissivity(:,jk) = transmit(tmp(:), kbdim)
     END DO         
-    ! -----
-    ! 2.1 Downward radiative transfer
-    !
-    ! Level 0 is closest to the ground
-    ! 
-    rad_dn(:, klev) = 0. ! Upper boundary condition - no downwelling IR
 
+    ! Downward radiative transfer
+    ! Radiance down at propagation angle
+    flux_down(:, klev+1) = 0. ! Upper boundary condition - no downwelling IR
     DO jk = klev, 1, -1
-      trans(1:kproma,jk) = transmit(odepth(:,jk), kproma)
-      ! RHS is a rearrangment of rad_dn(:,jk) * (1._wp - trans(:,jk)) + trans(:,jk) * bbdn(:)
-      rad_dn(1:kproma,jk-1) = rad_dn(1:kproma,jk) + (bbdn(1:kproma,jk) - rad_dn(1:kproma,jk)) * trans(1:kproma,jk)
+      ! Interpolated downward emission 
+      tmp(:) = weights(:,jk) * &
+        (layer_f(:,jk) + (level_f(:,jk) - layer_f(:,jk)) * tfn(:,jk))
+      flux_down(:,jk) = flux_down(:,jk+1) + layer_transmissivity(:,jk) * &
+        (tmp(:) - flux_down(:,jk+1)) 
     END DO 
-    !
-    ! 2.2 Surface contribution, including reflection
-    !
-    rad_up(1:kproma, 0) = weights(1:kproma, 1) * surfEmis(1:kproma) * surfPlanck(1:kproma) &
-                 + (1._wp - surfEmis(1:kproma)) * rad_dn(1:kproma, 0)
+
+    ! Surface contribution, including reflection
+    flux_up(:, 1) = weights(:, 1) * surface_eps(:) * surface_f(:) + &
+      (1._wp - surface_eps(:)) * flux_down(:, 1)
     
-    !
-    ! 2.3 Upward radiative transfer
-    !
+    ! Upward radiative transfer
+    ! Radiance up at propagation angle
     DO jk = 1, klev
-      rad_up(1:kproma,jk) = rad_up(1:kproma,jk-1) * (1._wp - trans(1:kproma,jk)) + trans(1:kproma,jk) * bbup(1:kproma,jk)
+      ! Interpolated upward emission 
+      tmp(:) = weights(:,jk) * &
+        (layer_f(:,jk) + (level_f(:,jk+1) - layer_f(:,jk)) * tfn(:,jk))
+      flux_up(:,jk+1) = flux_up(:,jk) * &
+        (1._wp - layer_transmissivity(:,jk)) + &
+        layer_transmissivity(:,jk) * tmp(:)
     END DO 
     
-    !
-    ! 3.0 Covert intensities at diffusivity angles to fluxes
-    !
-    ! -----
-    fluxUp(1:kproma, 0:klev) = rad_up(1:kproma,:) * wtdiff * fluxfac
-    fluxDn(1:kproma, 0:klev) = rad_dn(1:kproma,:) * wtdiff * fluxfac
+    ! Covert intensities at diffusivity angles (radiance) to fluxes
+    flux_up(:,:) = flux_up(:,:) * wtdiff * fudge
+    flux_down(:,:) = flux_down(:,:) * wtdiff * fudge
     
   END SUBROUTINE lrtm_solver
-  ! -------------------------------------------------------------------------------
+
   ELEMENTAL FUNCTION find_secdiff(iband, pwvcm) 
-    INTEGER,  INTENT(in) :: &
-      & iband !< RRTMG LW band number
-    REAL(wp), INTENT(in) :: &
-      & pwvcm !< Precipitable water vapor (cm) 
-    REAL(wp)             :: &
-      & find_secdiff
+    INTEGER,  INTENT(in) :: iband ! RRTMG LW band number
+    REAL(wp),  INTENT(in) :: pwvcm ! Precipitable water vapor (cm) 
+    REAL(wp) :: find_secdiff
 
     ! Compute diffusivity angle for Bands 2-3 and 5-9 to vary (between 1.50
     ! and 1.80) as a function of total column water vapor.  The function
     ! has been defined to minimize flux and cooling rate errors in these bands
     ! over a wide range of precipitable water values.
     REAL(wp), DIMENSION(nbndlw), PARAMETER :: &
-      a0 = (/ 1.66_wp,  1.55_wp,  1.58_wp,  1.66_wp, 1.54_wp, 1.454_wp,  1.89_wp,  1.33_wp,     &
-              1.668_wp, 1.66_wp,  1.66_wp,  1.66_wp, 1.66_wp,  1.66_wp,  1.66_wp,  1.66_wp /),  &
-      a1 = (/ 0.00_wp,  0.25_wp,  0.22_wp,  0.00_wp,  0.13_wp, 0.446_wp, -0.10_wp,  0.40_wp,    &
-             -0.006_wp, 0.00_wp,  0.00_wp,  0.00_wp,  0.00_wp,  0.00_wp,  0.00_wp,  0.00_wp /), &
-      a2 = (/ 0.00_wp, -12.0_wp, -11.7_wp,  0.00_wp, -0.72_wp,-0.243_wp,  0.19_wp,-0.062_wp,    &
-              0.414_wp, 0.00_wp,  0.00_wp,  0.00_wp,  0.00_wp,  0.00_wp,  0.00_wp, 0.00_wp /)
+      a0 = (/ 1.66_wp,  1.55_wp,  1.58_wp,  1.66_wp, &
+        1.54_wp, 1.454_wp,  1.89_wp,  1.33_wp, &
+        1.668_wp, 1.66_wp,  1.66_wp,  1.66_wp, &
+        1.66_wp,  1.66_wp,  1.66_wp,  1.66_wp /), &
+      a1 = (/ 0.00_wp,  0.25_wp,  0.22_wp,  0.00_wp, &
+        0.13_wp, 0.446_wp, -0.10_wp,  0.40_wp, &
+        -0.006_wp, 0.00_wp,  0.00_wp,  0.00_wp, &
+        0.00_wp,  0.00_wp,  0.00_wp,  0.00_wp /), &
+      a2 = (/ 0.00_wp, -12.0_wp, -11.7_wp,  0.00_wp, &
+        -0.72_wp,-0.243_wp,  0.19_wp,-0.062_wp, &
+        0.414_wp, 0.00_wp,  0.00_wp,  0.00_wp, &
+        0.00_wp,  0.00_wp,  0.00_wp, 0.00_wp /)
 
     if (iband == 1 .or. iband == 4 .or. iband >= 10) then
       find_secdiff = 1.66_wp
     else
-      find_secdiff = MAX(MIN(a0(iband) + a1(iband) * exp(a2(iband)*pwvcm), 1.8_wp), 1.5_wp) 
+      find_secdiff = MAX(1.5_wp, &
+        MIN(a0(iband) + a1(iband) * exp(a2(iband)*pwvcm), 1.8_wp))
     endif
 
   END FUNCTION find_secdiff

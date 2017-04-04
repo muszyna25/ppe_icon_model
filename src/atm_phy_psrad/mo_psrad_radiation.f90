@@ -57,7 +57,7 @@ MODULE mo_psrad_radiation
   USE mo_kind,                ONLY: wp, i8
   USE mo_model_domain,        ONLY: t_patch
   USE mo_physical_constants,  ONLY: rae
-  USE mo_exception,           ONLY: finish, message, message_text, print_value
+  USE mo_exception,           ONLY: finish, message, warning, message_text, print_value
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_namelist,            ONLY: open_nml, position_nml, close_nml, POSITIONED
   USE mo_io_units,            ONLY: nnml, nnml_output
@@ -103,24 +103,17 @@ MODULE mo_psrad_radiation
                                     yr_perp,              &
                                     tsi_radt,             &
                                     ssi_radt
-  USE mo_psrad_radiation_parameters, ONLY:                     & 
-                                     lw_spec_samp,             &
-                                     sw_spec_samp,             &
-                                     lw_gpts_ts,               &
-                                     sw_gpts_ts,               &
-                                     rad_perm
+  USE mo_psrad_general,       ONLY: nbndsw, ngptsw, ngptlw, finish_cb, message_cb, warning_cb
   USE mo_psrad_solar_parameters, ONLY:                         &
                                      psctm,                    &
                                      ssi_factor,               &
                                      solar_parameters
+  USE mo_psrad_radiation_parameters, ONLY : rad_perm
 
-  USE mo_psrad_params,        ONLY : nbndsw
 ! new to icon
   USE mo_psrad_srtm_setup,    ONLY : ssi_default, ssi_preind, ssi_amip,           &
                                      ssi_RCEdiurnOn, ssi_RCEdiurnOff, ssi_cmip6_picontrol
-  USE mo_psrad_interface,     ONLY : setup_psrad, psrad_interface, &
-                                     lw_strat, sw_strat
-  USE mo_psrad_spec_sampling, ONLY : set_spec_sampling_lw, set_spec_sampling_sw, get_num_gpoints
+  USE mo_psrad_interface,     ONLY : setup_psrad, psrad_interface
   USE mo_psrad_orbit_config,  ONLY : psrad_orbit_config
 
   USE mtime, ONLY: datetime
@@ -184,18 +177,13 @@ MODULE mo_psrad_radiation
       CALL orbit_kepler (orbit_date_rt, rasc_sun, decl_sun, dist_sun)
     END IF
 
-    ! Compute cos(zenith angle) "amu0_x" for the current time "time_of_day" if the
-    ! SW fluxes should be adjusted to the current sun (icosmu0=1:4) or the radiation
-    ! time "time_of_day_rt" if the heating shall be computed for the sun position
+    dt_ext = 0.0_wp
+    ! Compute cos(zenith angle) "amu0_x" for the current time "time_of_day", if the
+    ! SW fluxes should be adjusted to the current sun (icosmu0=1:4), or the radiation
+    ! time "time_of_day_rt", if the heating shall be computed for the sun position
     ! used for the radiative transfer (icosmu0=0).
     ! In both cases use the orbit parameters "decl_sun" and "dist_sun" valid for
     ! the "orbit_date_rt".
-    !
-    ! "amu0_x" is needed for the incoming SW flux field at the top of the atmosphere.
-    !
-    ! Do not extend the sun-lit area. Exactly half of the globe is sun-lit
-    dt_ext = 0.0_wp
-    !
     SELECT CASE (icosmu0)
     CASE (0)
        CALL solar_parameters(decl_sun,        time_of_day_rt,                     &
@@ -228,9 +216,9 @@ MODULE mo_psrad_radiation
       CASE (0)
          dt_ext = 0.0_wp
       CASE (1:4)
-         ! Extend the sunlit area for the radiative transfer calculations over an extended area
-         ! including a rim of width dt_rad/2/86400*2pi (in radian) around the sunlit hemisphere.
-         dt_ext = echam_phy_config%dt_rad
+      ! Extend the sunlit area for the radiative transfer calculations over an extended area
+      ! including a rim of width dt_rad/2/86400*2pi (in radian) around the sunlit hemisphere.
+        dt_ext = echam_phy_config%dt_rad
       END SELECT
       !
       CALL solar_parameters(decl_sun,        time_of_day_rt,                      &
@@ -324,11 +312,7 @@ MODULE mo_psrad_radiation
     INTEGER :: istat, funit
     CHARACTER(len=2)                  :: cio3
 
-    NAMELIST /psrad_nml/ lw_gpts_ts,        &
-                       & lw_spec_samp,      &
-                       & rad_perm,          &
-                       & sw_gpts_ts,        &
-                       & sw_spec_samp
+    NAMELIST /psrad_nml/ rad_perm
 
     ! 0.9 Read psrad_orbit namelist
     CALL read_psrad_orbit_namelist(file_name)
@@ -368,18 +352,6 @@ MODULE mo_psrad_radiation
       CALL message('','')
       !
       CALL setup_psrad
-      !
-      ! --- Spectral sampling strategy
-      !
-      lw_strat = set_spec_sampling_lw(lw_spec_samp, num_gpts_ts=lw_gpts_ts) 
-      sw_strat = set_spec_sampling_sw(sw_spec_samp, num_gpts_ts=sw_gpts_ts) 
-      WRITE (message_text, '("LW sampling strategy", i2, ", using ", i3, " g-points per rad. time step")') &
-                 lw_spec_samp, get_num_gpoints(lw_strat)
-      CALL message('',message_text)
-      WRITE (message_text, '("SW sampling strategy", i2, ", using ", i3, " g-points per rad. time step")') &
-                 sw_spec_samp, get_num_gpoints(sw_strat)
-      CALL message('',message_text)
-
 
       CALL message('','')
       CALL message('','Sources of volume/mass mixing ratios used in radiation')
@@ -654,6 +626,9 @@ MODULE mo_psrad_radiation
       CALL setup_cloud_optics
       !
     ENDIF
+    finish_cb => finish
+    message_cb => warning
+    warning_cb => warning
   END SUBROUTINE setup_psrad_radiation
 
   SUBROUTINE psrad_radiation ( &
@@ -961,7 +936,6 @@ MODULE mo_psrad_radiation
            & vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   ,&
            & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
            & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )
-
 
   END SUBROUTINE psrad_radiation
 

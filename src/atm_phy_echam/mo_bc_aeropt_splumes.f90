@@ -26,8 +26,6 @@ MODULE mo_bc_aeropt_splumes
   USE mo_psrad_srtm_setup,     ONLY: &
       &  sw_wv1 => wavenum1     ,&     !< smallest wave number in each of the sw bands
       &  sw_wv2 => wavenum2            !< largest wave number in each of the sw bands
-  USE mo_psrad_params,         ONLY: &
-      &  jpb1                          !< index for lower sw band
   USE mo_math_constants,       ONLY: rad2deg
   USE mtime,                   ONLY: datetime, getDayOfYearFromDateTime, &
        &                             getNoOfSecondsElapsedInDayDateTime, &
@@ -436,8 +434,7 @@ MODULE mo_bc_aeropt_splumes
          jk                          ,& !< index for looping over vertical dimension
          jki                         ,& !< index for looping over vertical dimension for reversing
          jl                          ,& !< index for looping over block
-         jwl                         ,& !< index for looping over wavelengths
-         j_sw                           !< index for looping over wavelengths
+         jwl                            !< index for looping over wavelengths
     
     REAL(wp) ::                       &
          year_fr                     ,& !< time in year fraction (1989.0 is 0Z on Jan 1 1989)
@@ -474,8 +471,7 @@ MODULE mo_bc_aeropt_splumes
       ! get aerosol optical properties in each band, and adjust effective radius
       !
       DO jwl = 1,nb_sw
-        j_sw   = jpb1 + jwl - 1
-        lambda = 1.e7_wp/ (0.5_wp * (sw_wv1(j_sw) + sw_wv2(j_sw)))
+        lambda = 1.e7_wp/ (0.5_wp * (sw_wv1(jwl) + sw_wv2(jwl)))
         CALL sp_aop_profile                                                                   ( &
            & klev               ,kproma             ,kbdim               ,lambda              , &
            & z_sfc(:)           ,lon_sp(:)          ,lat_sp(:)           ,year_fr             , &

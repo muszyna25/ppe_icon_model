@@ -11,7 +11,7 @@ MODULE mo_psrad_interface
   USE mo_exception,                  ONLY: finish
   USE mo_psrad_radiation_parameters, ONLY: rad_perm
   USE mo_psrad_solar_parameters,     ONLY: psctm, ssi_factor
-  USE mo_psrad_params,               ONLY: maxxsec, maxinpx, nbndsw, nbndlw
+  USE mo_psrad_general,              ONLY: ncfc, ngas, nbndsw, nbndlw
   USE mo_psrad_cloud_optics,         ONLY: cloud_optics
   USE mo_bc_aeropt_kinne,            ONLY: set_bc_aeropt_kinne  
   USE mo_bc_aeropt_stenchikov,       ONLY: add_bc_aeropt_stenchikov 
@@ -29,20 +29,18 @@ MODULE mo_psrad_interface
 !!$  USE mo_cosp_simulator,             ONLY: cosp_reffl, cosp_reffi,      &
 !!$                                           locosp, cosp_f3d, Lisccp_sim,&
 !!$                                           cisccp_cldtau3d, cisccp_cldemi3d
-  USE mo_psrad_spec_sampling,        ONLY: spec_sampling_strategy, get_num_gpoints
-  USE mo_random_numbers,             ONLY: seed_size_random
+  USE mo_psrad_random,               ONLY: seed_size_random
   USE mo_rad_diag,                   ONLY: rad_aero_diag
   USE mtime,                         ONLY: datetime
+  USE mo_timer,                      ONLY: ltimer, timer_start, timer_stop, &
+    timer_lrtm, timer_srtm
 
   IMPLICIT NONE
 
   PRIVATE
 
-  PUBLIC :: setup_psrad, psrad_interface, & 
-            lw_strat, sw_strat
+  PUBLIC :: setup_psrad, psrad_interface
   
-  TYPE(spec_sampling_strategy), SAVE &
-    &                   :: lw_strat, sw_strat !< Spectral sampling strategies for longwave, shortwave
   INTEGER, PARAMETER    :: rng_seed_size = 4
 CONTAINS
   !---------------------------------------------------------------------------
@@ -81,7 +79,7 @@ CONTAINS
   !!   required to derive cloud optical properties
   !!
   !! @par The gases are passed into RRTM via two multi-constituent arrays: 
-  !!   zwkl and wx_r. zwkl has maxinpx species and  wx_r has maxxsec species  
+  !!   zwkl and wx_r. zwkl has ngas and  wx_r has ncfc species  
   !!   The species are identifed as follows.  
   !!     ZWKL [#/cm2]          WX_R [#/cm2]
   !!    index = 1 => H20     index = 1 => n/a
@@ -91,7 +89,9 @@ CONTAINS
   !!    index = 5 => n/a
   !!    index = 6 => CH4
   !!    index = 7 => O2
-  !
+  ! TODO/BUG?
+  ! NOTE: The above are not identical to the current ones in 
+  ! psrad_general
 
   SUBROUTINE psrad_interface(              jg              ,krow            ,&
        & iaero           ,kproma          ,kbdim           ,klev            ,&
@@ -197,14 +197,14 @@ CONTAINS
          tk_hl_vr  (kbdim,klev+1),         & !< half level temperature [K]
          cdnc_vr   (kbdim,klev),           & !< cloud nuclei concentration
          cld_frc_vr(kbdim,klev),           & !< secure cloud fraction
-         ziwp_vr   (kbdim,klev),           & !< in cloud ice    water content        [g/m2]
-         ziwc_vr   (kbdim,klev),           & !< in cloud ice    water concentration  [g/m3]
+         ziwp_vr   (kbdim,klev),           & !< in cloud ice water content        [g/m2]
+         ziwc_vr   (kbdim,klev),           & !< in cloud ice water concentration  [g/m3]
          zlwp_vr   (kbdim,klev),           & !< in cloud liquid water content        [g/m2]
          zlwc_vr   (kbdim,klev),           & !< in cloud liquid water concentration  [g/m3]
          re_drop   (kbdim,klev),           & !< effective radius of liquid
          re_cryst  (kbdim,klev),           & !< effective radius of ice
-         wkl_vr       (kbdim,maxinpx,klev),& !< number of molecules/cm2 of
-         wx_vr        (kbdim,maxxsec,klev),& !< number of molecules/cm2 of
+         wkl_vr    (kbdim,klev,ngas),      & !< number of molecules/cm2 of
+         wx_vr     (kbdim,ncfc,klev),      & !< number of molecules/cm2 of
          cld_tau_lw_vr(kbdim,klev,nbndlw), & !< LW optical thickness of clouds
          cld_tau_sw_vr(kbdim,klev,nbndsw), & !< extincion
          cld_cg_sw_vr (kbdim,klev,nbndsw), & !< asymmetry factor
@@ -224,12 +224,6 @@ CONTAINS
     ! Random seeds for sampling. Needs to get somewhere upstream 
     !
     INTEGER :: rnseeds(kbdim,rng_seed_size)
-
-    !
-    ! Number of g-points per time step. Determine here to allow automatic array allocation in 
-    !   lrtm, srtm subroutines. 
-    !
-    INTEGER :: n_gpts_ts
 
     ! 1.0 Constituent properties 
     !--------------------------------
@@ -265,6 +259,8 @@ CONTAINS
     END DO
 
 !IBM* ASSERT(NODEPS)
+    wkl_vr = 0
+    wx_vr = 0
     DO jk = 1, klev
       jkb = klev+1-jk
       DO jl = 1, kproma
@@ -290,17 +286,15 @@ CONTAINS
         !
         ! --- H2O, CO2, O3, N2O, CH4, O2: [kg/m2] --> [molecules/cm2]
         !
-        wkl_vr(jl,:,jk)   = 0.0_wp
-        wkl_vr(jl,1,jk)   = 0.1_wp * avo * xm_vap(jl,jkb)/amw
-        wkl_vr(jl,2,jk)   = 0.1_wp * avo * xm_co2(jl,jkb)/amco2
-        wkl_vr(jl,3,jk)   = 0.1_wp * avo * xm_o3 (jl,jkb)/amo3
-        wkl_vr(jl,4,jk)   = 0.1_wp * avo * xm_n2o(jl,jkb)/amn2o
-        wkl_vr(jl,6,jk)   = 0.1_wp * avo * xm_ch4(jl,jkb)/amch4
-        wkl_vr(jl,7,jk)   = 0.1_wp * avo * xm_o2 (jl,jkb)/amo2
+        wkl_vr(jl,jk,1)   = 0.1_wp * avo * xm_vap(jl,jkb)/amw
+        wkl_vr(jl,jk,2)   = 0.1_wp * avo * xm_co2(jl,jkb)/amco2
+        wkl_vr(jl,jk,3)   = 0.1_wp * avo * xm_ch4(jl,jkb)/amch4
+        wkl_vr(jl,jk,4)   = 0.1_wp * avo * xm_o2 (jl,jkb)/amo2
+        wkl_vr(jl,jk,5)   = 0.1_wp * avo * xm_o3 (jl,jkb)/amo3
+        wkl_vr(jl,jk,6)   = 0.1_wp * avo * xm_n2o(jl,jkb)/amn2o
         !
         ! --- CFC11, CFC12: [kg/m2] --> [molecules/cm2]
         !
-        wx_vr(jl,:,jk)    = 0.0_wp
         wx_vr(jl,2,jk)    = 0.1_wp * avo * xm_cfc(jl,jkb,1)/amc11
         wx_vr(jl,3,jk)    = 0.1_wp * avo * xm_cfc(jl,jkb,2)/amc12
         !
@@ -311,6 +305,7 @@ CONTAINS
     ! 2.0 Surface Properties
     ! --------------------------------
     zsemiss(1:kproma,:) = zemiss_def 
+
     !
     ! 3.0 Particulate Optical Properties
     ! --------------------------------
@@ -381,7 +376,7 @@ CONTAINS
 
     CALL cloud_optics(                                                  &
          & laglac        ,laland        ,kproma        ,kbdim          ,& 
-         & klev          , ktype        ,nbndlw        ,nbndsw         ,&
+         & klev          , ktype,&       
          & icldlyr       ,zlwp_vr       ,ziwp_vr       ,zlwc_vr        ,&
          & ziwc_vr       ,cdnc_vr       ,cld_tau_lw_vr ,cld_tau_sw_vr  ,&
          & cld_piz_sw_vr ,cld_cg_sw_vr  ,re_drop       ,re_cryst    )  
@@ -433,26 +428,45 @@ CONTAINS
     !
     ! Seeds for random numbers come from least significant digits of pressure field 
     !
-    rnseeds(1:kproma,1:rng_seed_size) = (pm_fl_vr(1:kproma,1:rng_seed_size) -  &
-         int(pm_fl_vr(1:kproma,1:rng_seed_size)))* 1E9 + rad_perm
+    rnseeds(1:kproma,1:rng_seed_size) = int((pm_fl_vr(1:kproma,1:rng_seed_size) -  &
+         int(pm_fl_vr(1:kproma,1:rng_seed_size)))* 1E9 + rad_perm)
 
-    n_gpts_ts = get_num_gpoints(lw_strat)
+    !n_gpts_ts = get_num_gpts_lw()
+    IF (kproma /= kbdim) THEN
+      pm_fl_vr(kproma+1:kbdim,:) = 1.0_wp
+      tk_hl_vr(kproma+1:kbdim,:) = 1.0_wp
+      tk_fl_vr(kproma+1:kbdim,:) = 1.0_wp
+      cld_frc_vr(kproma+1:kbdim,:) = 0.0_wp
+      ziwp_vr(kproma+1:kbdim,:) = 0.0_wp
+      zlwp_vr(kproma+1:kbdim,:) = 0.0_wp
+      ziwc_vr(kproma+1:kbdim,:) = 0.0_wp
+      zlwc_vr(kproma+1:kbdim,:) = 0.0_wp
+      cdnc_vr(kproma+1:kbdim,:) = 0.0_wp
+      col_dry_vr(kproma+1:kbdim,:) = 1.0_wp
+      zsemiss(kproma+1:kbdim,:) = 0.0_wp
+      pm_sfc(kproma+1:kbdim) = 1.0_wp
+      aer_tau_lw_vr(kproma+1:kbdim,:,:) = 0.0_wp
+      cld_tau_lw_vr(kproma+1:kbdim,:,:) = 0.0_wp
+    ENDIF
+    IF (ltimer) CALL timer_start(timer_lrtm)
     CALL lrtm(kproma                                                          ,&
          & kbdim           ,klev            ,pm_fl_vr        ,pm_sfc          ,&
          & tk_fl_vr        ,tk_hl_vr        ,tk_sfc          ,wkl_vr          ,&
          & wx_vr           ,col_dry_vr      ,zsemiss         ,cld_frc_vr      ,&
-         & cld_tau_lw_vr   ,aer_tau_lw_vr   ,rnseeds         ,lw_strat        ,&
-         & n_gpts_ts       ,flx_uplw_vr     ,flx_dnlw_vr     ,flx_uplw_clr_vr ,&
-         & flx_dnlw_clr_vr )
+         & cld_tau_lw_vr   ,aer_tau_lw_vr   , &
+         & rnseeds         ,&
+         & flx_uplw_vr     ,flx_dnlw_vr     ,flx_uplw_clr_vr ,flx_dnlw_clr_vr )
+    IF (ltimer) CALL timer_stop(timer_lrtm)
     !
     ! Reset random seeds so SW doesn't depend on what's happened in LW but is also independent
     !
-    rnseeds(1:kproma,1:rng_seed_size) = (pm_fl_vr(1:kproma,rng_seed_size:1:-1) - &
-         int(pm_fl_vr(1:kproma,rng_seed_size:1:-1)))* 1E9 + rad_perm
-    n_gpts_ts = get_num_gpoints(sw_strat)
+    rnseeds(1:kproma,1:rng_seed_size) = int((pm_fl_vr(1:kproma,rng_seed_size:1:-1) - &
+         int(pm_fl_vr(1:kproma,rng_seed_size:1:-1)))* 1E9 + rad_perm)
+
     ! 
     ! Potential pitfall - we're passing every argument but some may not be present
     !
+    IF (ltimer) CALL timer_start(timer_srtm)
     CALL srtm(kproma                                                           , & 
          &  kbdim           ,klev            ,pm_fl_vr        ,tk_fl_vr        , &
          &  wkl_vr          ,col_dry_vr                                        , &
@@ -460,11 +474,12 @@ CONTAINS
          &  pmu0            ,daylght_frc     ,ssi_factor      ,psctm           , &
          &  cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr                     , &
          &  cld_piz_sw_vr   ,aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr   , & 
-         &  rnseeds         ,sw_strat        ,n_gpts_ts       ,flx_dnsw        , &
-         &  flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr                     , &
+         &  rnseeds         ,&
+         &  flx_dnsw        , flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr   , &
          &  vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   , &
          &  vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   , &
          &  vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )
+    IF (ltimer) CALL timer_stop(timer_srtm)
     !
     ! 5.0 Post Processing
     ! --------------------------------
