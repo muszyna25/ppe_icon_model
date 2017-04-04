@@ -1015,9 +1015,12 @@ if [[ "x$use_yac" = xyes ]] ; then
 fi
 
 dnl if the OCEAN_FLAGS are not defined use the HIOPT_FLAGS
-if [[ x"$OCEAN_FLAGS" == x ]]; then
-  OCEAN_FLAGS=$HIOPT_FLAGS
-fi
+
+AS_IF([test -n $OCEAN_FLAGS],
+      [],
+      [AS_IF([test -n $HIOPT_FLAGS],
+             [OCEAN_FLAGS="$HIOPT_FLAGS"],
+             [])])
 
 dnl the following prepends VARIANT_FLAGS to FFLAGS
 dnl when given --with-flags=variant argument to configure
