@@ -6,7 +6,6 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
-experiment|checksuite.icon-dev/check.atm_amip|
 experiment|exp.test_nwp_R02B04_R02B05_nest|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/other/exp.oce_testbed_read|cpu_time=00:30:00
 experiment|exp.test_nwp_R02B04N06multi|cpu_time=00:30:00
