@@ -376,7 +376,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           ENDDO
 
           !Betula --> birch
-          CALL art_emiss_pollen(p_patch,dtime,datetime,                         &
+          CALL art_emiss_pollen(p_patch,dtime,current_date,                     &
             &                   rho(:,nlev,jb),                                 &
             &                   p_art_data(jg)%ext%pollen_prop%pollen_type(1),  &  !<- betu specific
             &                   tracer(:,nlev,jb,:),                            &
