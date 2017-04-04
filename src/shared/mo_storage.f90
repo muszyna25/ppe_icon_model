@@ -145,6 +145,9 @@ SUBROUTINE put_real(this_storage, key, value)
 
   CALL this_storage%container%setEntry(p_key, p_value)
 
+  DEALLOCATE(p_key)
+  DEALLOCATE(p_value)
+
 END SUBROUTINE put_real
 !!
 !!-------------------------------------------------------------------------
@@ -171,6 +174,9 @@ SUBROUTINE put_int(this_storage, key, value)
   END SELECT
 
   CALL this_storage%container%setEntry(p_key, p_value)
+
+  DEALLOCATE(p_key)
+  DEALLOCATE(p_value)
 
 END SUBROUTINE put_int
 !!
@@ -199,6 +205,9 @@ SUBROUTINE put_string(this_storage, key, value)
 
   CALL this_storage%container%setEntry(p_key, p_value)
 
+  DEALLOCATE(p_key)
+  DEALLOCATE(p_value)
+
 END SUBROUTINE put_string
 !!
 !!-------------------------------------------------------------------------
@@ -225,6 +234,9 @@ SUBROUTINE put_logical(this_storage, key, value)
   END SELECT
 
   CALL this_storage%container%setEntry(p_key, p_value)
+
+  DEALLOCATE(p_key)
+  DEALLOCATE(p_value)
 
 END SUBROUTINE put_logical
 !!
@@ -262,6 +274,8 @@ SUBROUTINE get_real(this_storage, key, value, ierror)
     IF (PRESENT(ierror)) ierror = 1
   ENDIF
 
+  DEALLOCATE(p_key)
+
 END SUBROUTINE get_real
 !!
 !!-------------------------------------------------------------------------
@@ -297,6 +311,8 @@ SUBROUTINE get_int(this_storage, key, value, ierror)
   ELSE
     IF (PRESENT(ierror)) ierror = 1
   ENDIF
+
+  DEALLOCATE(p_key)
 
 END SUBROUTINE get_int
 !!
@@ -334,6 +350,8 @@ SUBROUTINE get_string(this_storage, key, value, ierror)
     IF (PRESENT(ierror)) ierror = 1
   ENDIF
 
+  DEALLOCATE(p_key)
+
 END SUBROUTINE get_string
 !!
 !!-------------------------------------------------------------------------
@@ -369,6 +387,8 @@ SUBROUTINE get_logical(this_storage, key, value, ierror)
   ELSE
     IF (PRESENT(ierror)) ierror = 1
   ENDIF
+
+  DEALLOCATE(p_key)
 
 END SUBROUTINE get_logical
 !!
