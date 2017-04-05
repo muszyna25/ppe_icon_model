@@ -23,8 +23,11 @@ MODULE mo_surface
   USE mo_vdiff_solver,      ONLY: ih, iqv, iu, iv, imh, imqv, imuv, &
                                 & nmatrix, nvar_vdiff,              &
                                 & matrix_to_richtmyer_coeff
+  USE mo_coupling_config,   ONLY: is_coupled_run
+
 #ifndef __NO_JSBACH__
   USE mo_jsb_interface,     ONLY: jsbach_interface
+  USE mo_radiation_config,  ONLY: mmr_co2      ! This should be here only temporarily
 #endif
   USE mo_echam_sfc_indices, ONLY: nsfc_type
   USE mo_echam_phy_memory,  ONLY: cdimissval
@@ -64,6 +67,7 @@ CONTAINS
                            !! optional
                            & nblock,                            &! in
                            & lsm,                               &! in
+                           & alake,                             &! in
                            & pu,                                &! in
                            & pv,                                &! in
                            & ptemp,                             &! in
@@ -95,6 +99,7 @@ CONTAINS
                            & ptsfc,                             &! out
                            & ptsfc_rad,                         &! out
                            & pswflx_tile, plwflx_tile,          &! out
+                           & lake_ice_frc,                      &! out
                            !! Sea ice
                            & Tsurf,                             &! inout
                            & T1,                                &! inout
@@ -143,6 +148,7 @@ CONTAINS
     !! JSBACH input
     INTEGER, OPTIONAL,INTENT(IN) :: nblock
     REAL(wp),OPTIONAL,INTENT(IN) :: lsm(kbdim)
+    REAL(wp),OPTIONAL,INTENT(IN) :: alake(kbdim)
     REAL(wp),OPTIONAL,INTENT(IN) :: pu        (kbdim)              ! zonal wind lowest level
     REAL(wp),OPTIONAL,INTENT(IN) :: pv        (kbdim)              ! meridional wind lowest level
     REAL(wp),OPTIONAL,INTENT(IN) :: ptemp     (kbdim)              ! temperature of lowest atmospheric level
@@ -181,6 +187,7 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: psw       (kbdim)            ! IOUT net surface shortwave flux [W/m2]
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pswflx_tile(kbdim,ksfc_type) ! OUT
     REAL(wp),OPTIONAL,INTENT(INOUT) :: plwflx_tile(kbdim,ksfc_type) ! OUT
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: lake_ice_frc(kbdim)          ! OUT
     !! Sea ice
     INTEGER,          INTENT(IN)    :: kice ! Number of ice thickness classes
     REAL(wp),OPTIONAL,INTENT(INOUT) :: Tsurf(kbdim,kice)
@@ -209,14 +216,15 @@ CONTAINS
     REAL(wp) :: zfn_qv(kbdim,ksfc_type)
 
     REAL(wp) :: &
-      & evapotranspiration(kbdim),                                                                  &
       & sat_surface_specific_humidity(kbdim), dry_static_energy(kbdim),                             &
-      & ztsfc_lnd(kbdim), ztsfc_lnd_eff(kbdim),                                                     &
+      & ztsfc_lnd(kbdim), ztsfc_lnd_eff(kbdim), ztsfc_wtr(kbdim), ztsfc_ice(kbdim),                 &
       & zswvis_down(kbdim), zswnir_down(kbdim), zsw_down(kbdim),                                    &
       & zswvisdif_down(kbdim), zswvisdir_down(kbdim), zswnirdif_down(kbdim), zswnirdir_down(kbdim), &
       & zalbvis(kbdim), zalbnir(kbdim)
 
-    REAL(wp) :: zgrnd_hflx(kbdim,ksfc_type), zgrnd_hcap(kbdim,ksfc_type), ztsfc(kbdim)
+    REAL(wp) :: zgrnd_hflx(kbdim,ksfc_type), zgrnd_hcap(kbdim,ksfc_type), ztsfc(kbdim), &
+      & zevap_wtr(kbdim), zevap_ice(kbdim), zlhflx_wtr(kbdim), zlhflx_ice(kbdim),       &
+      & zshflx_wtr(kbdim), zshflx_ice(kbdim), zalbvisdir_ice(kbdim)
 
     !REAL(wp) :: zt2s_conv(kbdim,ksfc_type)
 
@@ -289,7 +297,7 @@ CONTAINS
     !===========================================================================
     ! Land surface
     !===========================================================================
-    
+
     z0h_lnd(:)       = 0._wp
     q_snocpymlt(:)   = 0._wp
 
@@ -300,59 +308,141 @@ CONTAINS
 
       sat_surface_specific_humidity(:) = 0._wp
       dry_static_energy(:) = 0._wp
-      evapotranspiration(:) = 0._wp
 
-      ztsfc_lnd(:)        = 0._wp
-      ztsfc_lnd_eff(:)    = 0._wp
+      ztsfc_lnd(:)        = 280._wp
+      ztsfc_lnd_eff(:)    = 280._wp
       z0m_tile(:,idx_lnd) = 0._wp
 
-      CALL jsbach_interface ( jg, nblock, 1, kproma, pdtime, psteplen,                  & ! in
-        & t_air            = ptemp(1:kproma),                                           & ! in
-        & q_air            = pq(1:kproma),                                              & ! in
-        & rain             = prsfl(1:kproma) + prsfc(1:kproma),                         & ! in
-        & snow             = pssfl(1:kproma) + pssfc(1:kproma),                         & ! in
-        & wind_air         = SQRT(pu(1:kproma)**2 + pv(1:kproma)**2),                   & ! in
-        & wind_10m         = SQRT(pu(1:kproma)**2 + pv(1:kproma)**2),                   & ! in, temporary
-        & lw_srf_down      = plw_down(1:kproma),                                        & ! in
-        & swvis_srf_down   = zswvis_down(1:kproma),                                     & ! in
-        & swnir_srf_down   = zswnir_down(1:kproma),                                     & ! in
-        & swpar_srf_down   = pswpar_down(1:kproma),                                     & ! in
-        & press_srf        = presi_old(1:kproma,klev+1),                                & ! in
-        & drag_srf         = pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_lnd),          & ! in
-        & t_acoef          = zen_h(1:kproma, idx_lnd),                                  & ! in
-        & t_bcoef          = zfn_h(1:kproma, idx_lnd),                                  & ! in
-        & q_acoef          = zen_qv(1:kproma, idx_lnd),                                 & ! in
-        & q_bcoef          = zfn_qv(1:kproma, idx_lnd),                                 & ! in
-        & pch              = MERGE(pch_tile(1:kproma,idx_lnd),1._wp,lsm(1:kproma)>0.5_wp),  & ! in
-        & cos_zenith_angle = pcosmu0(1:kproma),                                         & ! in
-        & t_srf            = ztsfc_lnd(1:kproma),                                       & ! out (T_s^(n+1)) surface temp 
-                                                                                          ! (filtered, if Asselin)
-        & t_eff_srf        = ztsfc_lnd_eff(1:kproma),                                   & ! out (T_s^eff) surface temp 
-                                                                                          ! (effective, for longwave rad)
-        & qsat_srf         = sat_surface_specific_humidity(1:kproma),                   & ! out
-        & s_srf            = dry_static_energy(1:kproma),                               & ! out (s_s^star, for vertical diffusion scheme)
-        & fact_q_air       = pcair(1:kproma),                                           & ! out
-        & fact_qsat_srf    = pcsat(1:kproma),                                           & ! out
-        & evapotrans       = evapotranspiration(1:kproma),                              & ! out
-        & latent_hflx      = plhflx_tile(1:kproma, idx_lnd),                            & ! out
-        & sensible_hflx    = pshflx_tile(1:kproma, idx_lnd),                            & ! out
-        & grnd_hflx        = zgrnd_hflx(1:kproma, idx_lnd),                             & ! out
-        & grnd_hcap        = zgrnd_hcap(1:kproma, idx_lnd),                             & ! out
-        & rough_h_srf      = z0h_lnd(1:kproma),                                         & ! out
-        & rough_m_srf      = z0m_tile(1:kproma, idx_lnd),                               & ! out
-        & q_snocpymlt      = q_snocpymlt(1:kproma),                                     & ! out
-        & alb_vis_dir      = albvisdir_tile(1:kproma, idx_lnd),                         & ! out
-        & alb_nir_dir      = albnirdir_tile(1:kproma, idx_lnd),                         & ! out
-        & alb_vis_dif      = albvisdif_tile(1:kproma, idx_lnd),                         & ! out
-        & alb_nir_dif      = albnirdif_tile(1:kproma, idx_lnd)                          & ! out
-        )
+      IF (phy_config%llake) THEN
+        CALL jsbach_interface ( jg, nblock, 1, kproma, pdtime, psteplen,                   & ! in
+          & t_air             = ptemp(1:kproma),                                           & ! in
+          & q_air             = pq(1:kproma),                                              & ! in
+          & rain              = prsfl(1:kproma) + prsfc(1:kproma),                         & ! in
+          & snow              = pssfl(1:kproma) + pssfc(1:kproma),                         & ! in
+          & wind_air          = SQRT(pu(1:kproma)**2 + pv(1:kproma)**2),                   & ! in
+          & wind_10m          = SQRT(pu(1:kproma)**2 + pv(1:kproma)**2),                   & ! in, temporary
+          & lw_srf_down       = plw_down(1:kproma),                                        & ! in
+          & swvis_srf_down    = zswvis_down(1:kproma),                                     & ! in
+          & swnir_srf_down    = zswnir_down(1:kproma),                                     & ! in
+          & swpar_srf_down    = pswpar_down(1:kproma),                                     & ! in
+          & frac_par_diffuse  = ppardff(1:kproma),                                         & ! in
+          & press_srf         = presi_old(1:kproma,klev+1),                                & ! in
+          & drag_srf          = pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_lnd),          & ! in
+          & t_acoef           = zen_h(1:kproma, idx_lnd),                                  & ! in
+          & t_bcoef           = zfn_h(1:kproma, idx_lnd),                                  & ! in
+          & q_acoef           = zen_qv(1:kproma, idx_lnd),                                 & ! in
+          & q_bcoef           = zfn_qv(1:kproma, idx_lnd),                                 & ! in
+          & pch               = MERGE(pch_tile(1:kproma,idx_lnd),1._wp,lsm(1:kproma)>0._wp),  & ! in
+          & cos_zenith_angle  = pcosmu0(1:kproma),                                         & ! in
+          & CO2_air           = SPREAD(mmr_co2, DIM=1, NCOPIES=kproma),                    & ! in
+          & t_srf             = ztsfc_lnd(1:kproma),                                       & ! out (T_s^(n+1)) surface temp (filtered, if Asselin)
+          & t_eff_srf         = ztsfc_lnd_eff(1:kproma),                                   & ! out (T_s^eff) surface temp (effective, for longwave rad)
+          & qsat_srf          = sat_surface_specific_humidity(1:kproma),                   & ! out
+          & s_srf             = dry_static_energy(1:kproma),                               & ! out (s_s^star, for vertical diffusion scheme)
+          & fact_q_air        = pcair(1:kproma),                                           & ! out
+          & fact_qsat_srf     = pcsat(1:kproma),                                           & ! out
+          & evapotrans        = pevap_tile(1:kproma, idx_lnd),                             & ! out
+          & latent_hflx       = plhflx_tile(1:kproma, idx_lnd),                            & ! out
+          & sensible_hflx     = pshflx_tile(1:kproma, idx_lnd),                            & ! out
+          & grnd_hflx         = zgrnd_hflx(1:kproma, idx_lnd),                             & ! out
+          & grnd_hcap         = zgrnd_hcap(1:kproma, idx_lnd),                             & ! out
+          & rough_h_srf       = z0h_lnd(1:kproma),                                         & ! out
+          & rough_m_srf       = z0m_tile(1:kproma, idx_lnd),                               & ! out
+          & q_snocpymlt       = q_snocpymlt(1:kproma),                                     & ! out
+          & alb_vis_dir       = albvisdir_tile(1:kproma, idx_lnd),                         & ! out
+          & alb_nir_dir       = albnirdir_tile(1:kproma, idx_lnd),                         & ! out
+          & alb_vis_dif       = albvisdif_tile(1:kproma, idx_lnd),                         & ! out
+          & alb_nir_dif       = albnirdif_tile(1:kproma, idx_lnd),                         & ! out
+          !
+          & drag_wtr          = pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_wtr),          & ! in
+          & drag_ice          = pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_ice),          & ! in
+          & t_acoef_wtr       = zen_h(1:kproma, idx_wtr),                                  & ! in
+          & t_bcoef_wtr       = zfn_h(1:kproma, idx_wtr),                                  & ! in
+          & q_acoef_wtr       = zen_qv(1:kproma, idx_wtr),                                 & ! in
+          & q_bcoef_wtr       = zfn_qv(1:kproma, idx_wtr),                                 & ! in
+          & t_acoef_ice       = zen_h(1:kproma, idx_ice),                                  & ! in
+          & t_bcoef_ice       = zfn_h(1:kproma, idx_ice),                                  & ! in
+          & q_acoef_ice       = zen_qv(1:kproma, idx_ice),                                 & ! in
+          & q_bcoef_ice       = zfn_qv(1:kproma, idx_ice),                                 & ! in
+          & albedo_lwtr       = albedo_tile(1:kproma, idx_wtr),                            & ! in
+          & t_lwtr            = ztsfc_wtr(1:kproma),                                       & ! out
+          & evapo_wtr         = zevap_wtr(1:kproma),                                       & ! out
+          & latent_hflx_wtr   = zlhflx_wtr(1:kproma),                                      & ! out
+          & sensible_hflx_wtr = zshflx_wtr(1:kproma),                                      & ! out
+          & t_lice            = ztsfc_ice(1:kproma),                                       & ! out
+          & evapo_ice         = zevap_ice(1:kproma),                                       & ! out
+          & latent_hflx_ice   = zlhflx_ice(1:kproma),                                      & ! out
+          & sensible_hflx_ice = zshflx_ice(1:kproma),                                      & ! out
+          & albedo_lice       = zalbvisdir_ice(1:kproma),                                  & ! out
+          & ice_fract_lake    = lake_ice_frc(1:kproma)                                     & ! out
+          )
+      ELSE
+        CALL jsbach_interface ( jg, nblock, 1, kproma, pdtime, psteplen,                   & ! in
+          & t_air             = ptemp(1:kproma),                                           & ! in
+          & q_air             = pq(1:kproma),                                              & ! in
+          & rain              = prsfl(1:kproma) + prsfc(1:kproma),                         & ! in
+          & snow              = pssfl(1:kproma) + pssfc(1:kproma),                         & ! in
+          & wind_air          = SQRT(pu(1:kproma)**2 + pv(1:kproma)**2),                   & ! in
+          & wind_10m          = SQRT(pu(1:kproma)**2 + pv(1:kproma)**2),                   & ! in, temporary
+          & lw_srf_down       = plw_down(1:kproma),                                        & ! in
+          & swvis_srf_down    = zswvis_down(1:kproma),                                     & ! in
+          & swnir_srf_down    = zswnir_down(1:kproma),                                     & ! in
+          & swpar_srf_down    = pswpar_down(1:kproma),                                     & ! in
+          & frac_par_diffuse  = ppardff(1:kproma),                                         & ! in
+          & press_srf         = presi_old(1:kproma,klev+1),                                & ! in
+          & drag_srf          = pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_lnd),          & ! in
+          & t_acoef           = zen_h(1:kproma, idx_lnd),                                  & ! in
+          & t_bcoef           = zfn_h(1:kproma, idx_lnd),                                  & ! in
+          & q_acoef           = zen_qv(1:kproma, idx_lnd),                                 & ! in
+          & q_bcoef           = zfn_qv(1:kproma, idx_lnd),                                 & ! in
+          & pch               = MERGE(pch_tile(1:kproma,idx_lnd),1._wp,lsm(1:kproma)>0._wp),  & ! in
+          & cos_zenith_angle  = pcosmu0(1:kproma),                                         & ! in
+          & CO2_air           = SPREAD(mmr_co2, DIM=1, NCOPIES=kproma),                    & ! in
+          & t_srf             = ztsfc_lnd(1:kproma),                                       & ! out (T_s^(n+1)) surface temp (filtered, if Asselin)
+          & t_eff_srf         = ztsfc_lnd_eff(1:kproma),                                   & ! out (T_s^eff) surface temp (effective, for longwave rad)
+          & qsat_srf          = sat_surface_specific_humidity(1:kproma),                   & ! out
+          & s_srf             = dry_static_energy(1:kproma),                               & ! out (s_s^star, for vertical diffusion scheme)
+          & fact_q_air        = pcair(1:kproma),                                           & ! out
+          & fact_qsat_srf     = pcsat(1:kproma),                                           & ! out
+          & evapotrans        = pevap_tile(1:kproma, idx_lnd),                             & ! out
+          & latent_hflx       = plhflx_tile(1:kproma, idx_lnd),                            & ! out
+          & sensible_hflx     = pshflx_tile(1:kproma, idx_lnd),                            & ! out
+          & grnd_hflx         = zgrnd_hflx(1:kproma, idx_lnd),                             & ! out
+          & grnd_hcap         = zgrnd_hcap(1:kproma, idx_lnd),                             & ! out
+          & rough_h_srf       = z0h_lnd(1:kproma),                                         & ! out
+          & rough_m_srf       = z0m_tile(1:kproma, idx_lnd),                               & ! out
+          & q_snocpymlt       = q_snocpymlt(1:kproma),                                     & ! out
+          & alb_vis_dir       = albvisdir_tile(1:kproma, idx_lnd),                         & ! out
+          & alb_nir_dir       = albnirdir_tile(1:kproma, idx_lnd),                         & ! out
+          & alb_vis_dif       = albvisdif_tile(1:kproma, idx_lnd),                         & ! out
+          & alb_nir_dif       = albnirdif_tile(1:kproma, idx_lnd)                          & ! out
+          )
+      END IF
 
       ptsfc_tile(1:kproma,idx_lnd) = ztsfc_lnd(1:kproma)
+      IF (phy_config%llake) THEN
+        WHERE (alake(1:kproma) > 0._wp)
+          ptsfc_tile    (1:kproma, idx_wtr) = ztsfc_wtr     (1:kproma)
+          ptsfc_tile    (1:kproma, idx_ice) = ztsfc_ice     (1:kproma)
+          pevap_tile    (1:kproma, idx_wtr) = zevap_wtr     (1:kproma)
+          plhflx_tile   (1:kproma, idx_wtr) = zlhflx_wtr    (1:kproma)
+          pshflx_tile   (1:kproma, idx_wtr) = zshflx_wtr    (1:kproma)
+          pevap_tile    (1:kproma, idx_ice) = zevap_ice     (1:kproma)
+          plhflx_tile   (1:kproma, idx_ice) = zlhflx_ice    (1:kproma)
+          pshflx_tile   (1:kproma, idx_ice) = zshflx_ice    (1:kproma)
+          albvisdir_tile(1:kproma, idx_ice) = zalbvisdir_ice(1:kproma)
+          albvisdif_tile(1:kproma, idx_ice) = zalbvisdir_ice(1:kproma)
+          albnirdir_tile(1:kproma, idx_ice) = zalbvisdir_ice(1:kproma)
+          albnirdif_tile(1:kproma, idx_ice) = zalbvisdir_ice(1:kproma)
+        ELSEWHERE
+          lake_ice_frc(1:kproma) = 0._wp
+        ENDWHERE
+      END IF
       pcpt_tile (1:kproma,idx_lnd) = dry_static_energy(1:kproma)
       pqsat_tile(1:kproma,idx_lnd) = sat_surface_specific_humidity(1:kproma)
 
       ! Set the evapotranspiration coefficients, to be used later in
-      ! blending and in diagnoising surface fluxes.
+      ! blending and in diagnosing surface fluxes.
       !
       zca(1:kproma,idx_lnd) = pcair(1:kproma)
       zcs(1:kproma,idx_lnd) = pcsat(1:kproma)
@@ -362,7 +452,6 @@ CONTAINS
 #endif
     END IF
 
-    
     !===========================================================================
     ! Ocean model
     !===========================================================================
@@ -370,23 +459,28 @@ CONTAINS
 
 #ifndef __NO_ICON_OCEAN__
       IF (phy_config%lmlo) THEN
-        CALL ml_ocean ( kbdim, 1, kproma, pdtime, &
-          & pahflw=plhflx_tile(:,idx_wtr),        &
-          & pahfsw=pshflx_tile(:,idx_wtr),        &
-          & ptrflw=plw(:),                        &
-          & psoflw=pswvis(:) + pswnir(:),         &
-          & ptsw=ptsfc_tile(:,idx_wtr) )           ! out
+        ztsfc_wtr(:) = ptsfc_tile(:,idx_wtr)
+        CALL ml_ocean ( kbdim, 1, kproma, pdtime, & !< in
+          & pahflw=plhflx_tile(:,idx_wtr),        & !< in
+          & pahfsw=pshflx_tile(:,idx_wtr),        & !< in
+          & ptrflw=plw(:),                        & !< in
+          & psoflw=pswvis(:) + pswnir(:),         & !< in
+          & ptsw=ztsfc_wtr(:) )                     ! inout
+        WHERE (alake(1:kproma) < EPSILON(1._wp))
+          ptsfc_tile(1:kproma, idx_wtr) = ztsfc_wtr(1:kproma)
+        END WHERE
       END IF
 #endif
 
-      ! Albedo model for the ocean
+      ! Albedo model for the ocean (including open water of lakes)
+      ! TBD: This should be replaced by routine mo_surface_ocean:update_albedo_ocean from ECHAM6.2
       albvisdir_tile(1:kproma,idx_wtr) = albedoW
       albvisdif_tile(1:kproma,idx_wtr) = albedoW
       albnirdir_tile(1:kproma,idx_wtr) = albedoW
       albnirdif_tile(1:kproma,idx_wtr) = albedoW
 
     END IF
-    
+
     !===========================================================================
     ! Sea-ice model (thermodynamic)
     !===========================================================================
@@ -403,7 +497,7 @@ CONTAINS
       Tfw = Tf
 
       ! ECHAM has no tiles for SW & LW and this is how it's solved there
-      ! Net shortwave on all bands. 
+      ! Net shortwave on all bands.
       ! Net longwave - we don't have tiles yet
       ! First all ice classes
       DO k=1,kice
@@ -420,7 +514,7 @@ CONTAINS
         dnonsolardT(1:kproma,k) = -4._wp * zemiss_def * stbo * (Tsurf(1:kproma,k)+tmelt)**3
 
       ENDDO
-   
+
       CALL ice_fast(1, kproma, kbdim, kice, pdtime, &
         &   Tsurf,              &
         &   T1,                 &
@@ -457,7 +551,7 @@ CONTAINS
           WHERE ( hi(1:kproma,k) > 0._wp )
             ! Snow only falls when it's below freezing
             WHERE ( Tsurf(1:kproma,k) < 0._wp )
-              hs(1:kproma,k) = hs(1:kproma,k) + (pssfl(1:kproma) + pssfc(1:kproma))*pdtime/rhos 
+              hs(1:kproma,k) = hs(1:kproma,k) + (pssfl(1:kproma) + pssfc(1:kproma))*pdtime/rhos
             ENDWHERE
             ! Snow melt
             hs(1:kproma,k) = hs(1:kproma,k) - MIN( Qtop(1:kproma,k)*pdtime/( alf*rhos ), hs(1:kproma,k) )
@@ -467,21 +561,23 @@ CONTAINS
         ENDDO
       ENDIF
 
-      ! Average the albedo.
       conc_sum(1:kproma) = SUM(conc(1:kproma,:),2)
-      albvisdir_tile(1:kproma,idx_ice) = 0._wp
-      albvisdif_tile(1:kproma,idx_ice) = 0._wp
-      albnirdir_tile(1:kproma,idx_ice) = 0._wp
-      albnirdif_tile(1:kproma,idx_ice) = 0._wp
-      WHERE (conc_sum(1:kproma) > 1.e-6_wp)
-        albvisdir_tile(1:kproma,idx_ice) = SUM( conc(1:kproma,:) * albvisdir_ice(1:kproma,:), 2 ) / conc_sum(1:kproma)
-        albvisdif_tile(1:kproma,idx_ice) = SUM( conc(1:kproma,:) * albvisdif_ice(1:kproma,:), 2 ) / conc_sum(1:kproma)
-        albnirdir_tile(1:kproma,idx_ice) = SUM( conc(1:kproma,:) * albnirdir_ice(1:kproma,:), 2 ) / conc_sum(1:kproma)
-        albnirdif_tile(1:kproma,idx_ice) = SUM( conc(1:kproma,:) * albnirdif_ice(1:kproma,:), 2 ) / conc_sum(1:kproma)
-      END WHERE
+      WHERE (alake(1:kproma) < EPSILON(1._wp))
+        ! Average the albedo.
+!        albvisdir_tile(1:kproma,idx_ice) = 0._wp
+!        albvisdif_tile(1:kproma,idx_ice) = 0._wp
+!        albnirdir_tile(1:kproma,idx_ice) = 0._wp
+!        albnirdif_tile(1:kproma,idx_ice) = 0._wp
+        WHERE (conc_sum(1:kproma) > 1.e-6_wp)
+          albvisdir_tile(1:kproma,idx_ice) = SUM( conc(1:kproma,:) * albvisdir_ice(1:kproma,:), 2 ) / conc_sum(1:kproma)
+          albvisdif_tile(1:kproma,idx_ice) = SUM( conc(1:kproma,:) * albvisdif_ice(1:kproma,:), 2 ) / conc_sum(1:kproma)
+          albnirdir_tile(1:kproma,idx_ice) = SUM( conc(1:kproma,:) * albnirdir_ice(1:kproma,:), 2 ) / conc_sum(1:kproma)
+          albnirdif_tile(1:kproma,idx_ice) = SUM( conc(1:kproma,:) * albnirdif_ice(1:kproma,:), 2 ) / conc_sum(1:kproma)
 
-      ! Set the tile temperature
-      ptsfc_tile(1:kproma,idx_ice) = Tsurf(1:kproma,1) + tmelt
+          ! Set the tile temperature
+          ptsfc_tile(1:kproma,idx_ice) = Tsurf(1:kproma,1) + tmelt
+        END WHERE
+      END WHERE
 
       ! Compute new dry static energy
       ! (Switched off for now, should be used for implicit coupling)
@@ -586,15 +682,16 @@ CONTAINS
    CALL surface_fluxes( lsfc_heat_flux, psteplen,             &! in
                       & kproma, kbdim, ksfc_type,             &! in
                       & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
-                      & pfrc, pcfh_tile, pfac_sfc,            &! in
+                      & pfrc, alake,                          &! in
+                      & pcfh_tile, pfac_sfc,                  &! in
                       & pcpt_tile, pqsat_tile,                &! in
                       & zca, zcs, bb_btm(:,:,ih:iqv),         &! in
                       & plhflx_gbm, pshflx_gbm,               &! out
                       & pevap_gbm,                            &! out
                       & plhflx_tile, pshflx_tile,             &! inout
                       & dshflx_dT_tile,                       &! out
-                      & pevap_tile,                           &! out
-                      & evapotranspiration)                    ! in (optional)
+                      & pevap_tile                            &! inout
+                      & )
 
 
     DO jsfc=1,ksfc_type
@@ -610,7 +707,6 @@ CONTAINS
           & (albnirdir_tile(1:kproma,jsfc) * zswnirdir_down(1:kproma) + albnirdif_tile(1:kproma,jsfc) * zswnirdif_down(1:kproma)) &
           & / zswnir_down(1:kproma)
       END WHERE
-      albedo_tile(:,jsfc) = 0._wp
       WHERE(zsw_down(1:kproma) > 0._wp)
         albedo_tile(1:kproma,jsfc) = &
           & (zalbvis(1:kproma) * zswvis_down(1:kproma) + zalbnir(1:kproma) * zswnir_down(1:kproma)) &
@@ -673,25 +769,29 @@ CONTAINS
     END DO
 
     ! Mask out tiled variables
-    ! For now, only the land tile ... coupled atmo/ocean runs yield different results if wtr/ice is
+    ! wtr and ice tiles only for uncoupled case ... coupled atmo/ocean runs yield different results if wtr/ice is
     ! masked out over land.
     DO jsfc=1,ksfc_type
       mask(:) = .FALSE.
       IF (jsfc == idx_lnd) mask(1:kproma) = pfrc(1:kproma,jsfc) == 0._wp
-      !IF (jsfc == idx_wtr .OR. jsfc == idx_ice) mask(1:kproma) = pfrc(1:kproma,idx_wtr) == 0._wp .AND. prfc(1:kproma,idx_ice) == 0._wp
+      IF (.NOT. is_coupled_run()) THEN
+        IF (jsfc == idx_wtr .OR. jsfc == idx_ice) &
+          & mask(1:kproma) = pfrc(1:kproma,idx_wtr) == 0._wp .AND. pfrc(1:kproma,idx_ice) == 0._wp &
+            &          .AND. alake(1:kproma) < EPSILON(1._wp)
+      END IF
       WHERE (mask(1:kproma))
-        ptsfc_tile     (1:kproma,jsfc) = cdimissval
-        pqsat_tile     (1:kproma,jsfc) = cdimissval
-        pswflx_tile    (1:kproma,jsfc) = cdimissval
-        plwflx_tile    (1:kproma,jsfc) = cdimissval
-        pevap_tile     (1:kproma,jsfc) = cdimissval
-        pshflx_tile    (1:kproma,jsfc) = cdimissval
-        plhflx_tile    (1:kproma,jsfc) = cdimissval
-        albedo_tile    (1:kproma,jsfc) = cdimissval
-        albvisdir_tile (1:kproma,jsfc) = cdimissval
-        albvisdif_tile (1:kproma,jsfc) = cdimissval
-        albnirdir_tile (1:kproma,jsfc) = cdimissval
-        albnirdif_tile (1:kproma,jsfc) = cdimissval
+!        ptsfc_tile     (1:kproma,jsfc) = cdimissval
+!        pqsat_tile     (1:kproma,jsfc) = cdimissval
+!        pswflx_tile    (1:kproma,jsfc) = cdimissval
+!        plwflx_tile    (1:kproma,jsfc) = cdimissval
+!        pevap_tile     (1:kproma,jsfc) = cdimissval
+!        pshflx_tile    (1:kproma,jsfc) = cdimissval
+!        plhflx_tile    (1:kproma,jsfc) = cdimissval
+!        albedo_tile    (1:kproma,jsfc) = cdimissval
+!        albvisdir_tile (1:kproma,jsfc) = cdimissval
+!        albvisdif_tile (1:kproma,jsfc) = cdimissval
+!        albnirdir_tile (1:kproma,jsfc) = cdimissval
+!        albnirdif_tile (1:kproma,jsfc) = cdimissval
         pu_stress_tile (1:kproma,jsfc) = cdimissval
         pv_stress_tile (1:kproma,jsfc) = cdimissval
         dshflx_dT_tile (1:kproma,jsfc) = cdimissval
@@ -704,9 +804,6 @@ CONTAINS
       END IF
     END DO
 
-  !---------------------------------------------------------------------------
-  !
-  !---------------------------------------------------------------------------
 
     END SUBROUTINE update_surface
   !-------------

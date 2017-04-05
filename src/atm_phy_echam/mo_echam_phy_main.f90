@@ -204,7 +204,7 @@ CONTAINS
     ! Temporary variables used for cloud droplet number concentration
 
     REAL(wp) :: zprat, zn1, zn2, zcdnc
-    LOGICAL  :: lland(nbdim), lglac(nbdim)
+    LOGICAL  :: lland(nbdim), llake(nbdim), lglac(nbdim)
 
     CHARACTER(len=12)  :: str_module = 'e_phy_main'        ! Output of module for 1 line debug
     INTEGER            :: idt_src               ! Determines level of detail for 1 line debug
@@ -277,16 +277,15 @@ CONTAINS
 
     DO jc=jcs,jce
 
-      ! fraction of land in the grid box. lsmask: land-sea mask, 1.= land
+      ! fraction of land in the grid box (excluding lakes).
 
-      ! TBD: use fractional mask here
       zfrl(jc) = field% lsmask(jc,jb)
 
       ! fraction of sea/lake in the grid box
-      ! * (1. - fraction of sea ice in the sea/lake part of the grid box)
+      ! * (1. - fraction of ice in the sea/lake part of the grid box)
       ! => fraction of open water in the grid box
 
-      zfrw(jc) = (1._wp-zfrl(jc))*(1._wp-field%seaice(jc,jb))
+      zfrw(jc) = (1._wp-zfrl(jc))*(1._wp-field%seaice(jc,jb)-field%lake_ice_frc(jc,jb))
 
       ! fraction of sea ice in the grid box
       zfri(jc) = 1._wp-zfrl(jc)-zfrw(jc)
@@ -315,9 +314,13 @@ CONTAINS
     !      (1/M**3) USED IN RADLSW AND CLOUD
     !---------------------------------------------------------------------
 
+    lland(:) = .FALSE.
+    llake(:) = .FALSE.
+    lglac(:) = .FALSE.
     DO jc=jcs,jce
       lland(jc) = field%lfland(jc,jb)
-      lglac(jc) = lland(jc).AND.field%glac(jc,jb).GT.0._wp
+      llake(jc) = field%alake(jc,jb) > 0._wp
+      lglac(jc) = lland(jc) .AND. field%glac(jc,jb) > 0._wp
     END DO
 
     DO jk = 1,nlev
@@ -325,7 +328,7 @@ CONTAINS
         !
         zprat=(MIN(8._wp,80000._wp/field%presm_old(jc,jk,jb)))**2
 
-        IF (lland(jc).AND.(.NOT.lglac(jc))) THEN
+        IF ((lland(jc) .AND. .NOT.lglac(jc)) .OR. llake(jc)) THEN
           zn1= echam_cloud_config% cn1lnd
           zn2= echam_cloud_config% cn2lnd
         ELSE
@@ -510,7 +513,7 @@ CONTAINS
         & klev       = nlev       ,&!< in  number of full levels = number of layers
         & klevp1     = nlevp1     ,&!< in  number of half levels = number of layer interfaces
         & ktype      = itype(:)   ,&!< in  type of convection
-        & loland     = lland      ,&!< in  land-sea mask. (logical)
+        & loland     = lland(:).OR.llake(:)    ,&!< in  land-or-lake mask. (logical)
         & loglac     = lglac      ,&!< in  glacier mask (logical)
         & this_datetime = this_datetime   ,&!< in  actual time step
         & pcos_mu0   = field%cosmu0_rad(:,jb)  ,&!< in  solar zenith angle
@@ -780,7 +783,8 @@ CONTAINS
           & field%  evap_tile    (:,jb,:),   &! out
                                 !! optional
           & nblock = jb,                  &! in
-          & lsm = field%lsmask(:,jb), &!< in, land-sea mask
+          & lsm = field%lsmask(:,jb),     &! in, land fraction
+          & alake = field%alake(:,jb),    &! in, lake fraction
           & pu = field% u(:,nlev,jb),     &! in, um1
           & pv = field% v(:,nlev,jb),     &! in, vm1
           & ptemp = field% temp(:,nlev,jb), &! in, tm1
@@ -820,6 +824,7 @@ CONTAINS
           & ptsfc_rad = field%tsfc_rad(:,jb),                      &! out
           & plwflx_tile = field%lwflxsfc_tile(:,jb,:),             &! out (for coupling)
           & pswflx_tile = field%swflxsfc_tile(:,jb,:),             &! out (for coupling)
+          & lake_ice_frc = field%lake_ice_frc(:,jb),               &! out
           & Tsurf = field% Tsurf(:,:,jb),  &! inout, for sea ice
           & T1    = field% T1   (:,:,jb),  &! inout, for sea ice
           & T2    = field% T2   (:,:,jb),  &! inout, for sea ice

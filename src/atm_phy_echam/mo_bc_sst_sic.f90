@@ -174,10 +174,12 @@ CONTAINS
 
   END SUBROUTINE read_sst_sic_data
 
-  SUBROUTINE bc_sst_sic_time_interpolation(tiw, slf, tsw, seaice, siced, p_patch)
+  SUBROUTINE bc_sst_sic_time_interpolation(tiw, frc_lnd, frc_lake, tsw, seaice, siced, p_patch)
+    
     TYPE( t_time_interpolation_weights), INTENT(in) :: tiw
-    REAL(dp)       , INTENT(in)  :: slf(:,:) 
-    REAL(dp)       , INTENT(out) :: tsw(:,:) 
+    REAL(dp)       , INTENT(in)  :: frc_lnd(:,:) 
+    REAL(dp)       , INTENT(in)  :: frc_lake(:,:) 
+    REAL(dp)       , INTENT(out) :: tsw(:,:)
     REAL(dp)       , INTENT(out) :: seaice(:,:) 
     REAL(dp)       , INTENT(out) :: siced(:,:) 
     TYPE(t_patch)  , INTENT(in)  :: p_patch
@@ -188,30 +190,22 @@ CONTAINS
     zts(:,:) = tiw%weight1 * sst(:,:,tiw%month1_index) + tiw%weight2 * sst(:,:,tiw%month2_index)
     zic(:,:) = tiw%weight1 * sic(:,:,tiw%month1_index) + tiw%weight2 * sic(:,:,tiw%month2_index)
 
-    !TODO: missing siced needs to be added
-
-    WHERE (slf(:,:) < 0.5_dp)
+    ! There can be no sea ice and lake in the same cell, i.e. if a cell has a positive
+    ! lake fraction, then there's no sea ice.
+    WHERE (frc_lake(:,:) == 0._dp .AND. frc_lnd(:,:) < 1._dp)
       seaice(:,:) = zic(:,:)*0.01_dp               ! assuming input data is in percent
-      ! seaice(:,:) = MAX(0.0_dp, MIN(0.99_dp, zic(:,:)))
       seaice(:,:) = MERGE(0.99_dp, seaice(:,:), seaice(:,:) > 0.99_dp)
-      ! IF (seaice(:,:) <= 0.01_dp) seaice(:,:) = 0.0_dp
       seaice(:,:) = MERGE(0.0_dp, seaice(:,:), seaice(:,:) <= 0.01_dp)
-      ! IF (seaice(:,:) > 0.0_dp) THEN           ! ice
-      !   tsw(:,:)=tf_salt              
-      ! ELSE                                     ! water
-      !   tsw(:,:)=MAX(zts(:,:), tf_salt)
-      ! END IF
-      tsw(:,:) = MERGE(tf_salt, MAX(zts(:,:), tf_salt), seaice(:,:) > 0.0_dp) 
-      WHERE (p_patch%cells%center(:,:)%lat > 0.0_dp)
-         siced(:,:) = MERGE(2.0_dp, 0.0_dp, seaice(:,:) > 0.0_dp) 
-      ELSEWHERE
-         siced(:,:) = MERGE(1.0_dp, 0.0_dp, seaice(:,:) > 0.0_dp)
-      ENDWHERE
-    ELSEWHERE                                  ! land
-      seaice(:,:) = 0.0_dp
-      siced(:,:)  = 0.0_dp
-      !TODO: check tsw/i/l sequence,dummy setting to some reasonable value for land and ice
-      tsw(:,:) = zts(:,:)
+    ELSEWHERE
+      seaice(:,:) = 0._dp
+    END WHERE
+
+    tsw(:,:) = MAX(zts(:,:), tf_salt)
+
+    WHERE (seaice(:,:) > 0.0_dp)
+      siced(:,:) = MERGE(2._dp, 1._dp, p_patch%cells%center(:,:)%lat > 0.0_dp)
+    ELSEWHERE
+      siced(:,:) = 0._dp
     ENDWHERE
 
     !CALL message('','Interpolated sea surface temperature and sea ice cover.')

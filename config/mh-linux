@@ -680,7 +680,7 @@ case "$ac_sitename" in
                       HDF5_LIB    = -L/sw/squeeze-x64/szip-2.1-static/lib /sw/squeeze-x64/hdf5-1.8.12-static/lib/libhdf5.la /sw/squeeze-x64/szip-2.1-static/lib/libsz.la -lz -lrt -ldl -lm
                       # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
                       HIOPT_FLAGS = -O3 -fltconsistency -fpp -mkl -static -xHost -xAVX -g -traceback -D__LOOP_EXCHANGE -D__OMP_FIRSTTOUCH__
-                      STD_FLAGS   = -O1 -fltconsistency -fpp -static -xHost -xAVX -traceback -g -D__LOOP_EXCHANGE
+                      STD_FLAGS   = -O1 -fltconsistency -fpp -static -xHost -xAVX -traceback -g -assume realloc_lhs -D__LOOP_EXCHANGE
                       load_modules=gcc/4.8.2 intel/15.0.2 ${load_modules}
                       ;;
                     intel16)
@@ -690,7 +690,7 @@ case "$ac_sitename" in
                       HDF5_LIB    = -L/sw/squeeze-x64/szip-2.1-static/lib /sw/squeeze-x64/hdf5-1.8.12-static/lib/libhdf5.la /sw/squeeze-x64/szip-2.1-static/lib/libsz.la -lz -lrt -ldl -lm
                       # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
                       HIOPT_FLAGS = -O3 -fltconsistency -fpp -mkl -static -xHost -xAVX -g -traceback -D__LOOP_EXCHANGE -D__OMP_FIRSTTOUCH__
-                      STD_FLAGS   = -O1 -fltconsistency -fpp -static -xHost -xAVX -traceback -g -D__LOOP_EXCHANGE
+                      STD_FLAGS   = -O1 -fltconsistency -fpp -static -xHost -xAVX -traceback -g -assume realloc_lhs -D__LOOP_EXCHANGE
                       load_modules=gcc/4.8.2 intel/16.0.0 ${load_modules}
                       ;;
                     nag)
@@ -732,8 +732,8 @@ case "$ac_sitename" in
                                    load_modules= gcc/4.8.2 pgi/14.7 ${load_modules}
                                    ;;
                                intel)
-                                   MPIROOT     = $software_tree/mpilib/openmpi-1.6.5-static-${compiler_version}
-                                   MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
+                                   MPIROOT     = $software_tree/mpilib/openmpi-1.8.4-static-${compiler_version}
+                                   MPI_LIB     = -I$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib $WLFLAG,--disable-new-dtags -L$MPIROOT/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -libverbs -lrdmacm -lutil
                                    HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
                                    load_modules=gcc/4.8.2 intel/16.0.0 ${load_modules}
                                    ;;

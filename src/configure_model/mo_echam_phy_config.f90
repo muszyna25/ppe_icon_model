@@ -28,7 +28,7 @@ MODULE mo_echam_phy_config
     &       get_lconv, get_lcond,                & !<   of single parameters of the
     &       get_lgw_hines, get_lssodrag,         & !<   whole echam6 configuration
     &       get_lmlo, get_lice, get_ljsbach,     & !<   state without USEing the
-    &       get_lamip, get_lebudget                !<   whole state.
+    &       get_llake, get_lamip, get_lebudget     !<   whole state.
 
   !>
   !! Derived type containing main switches for configuring the echam physics package
@@ -51,6 +51,7 @@ MODULE mo_echam_phy_config
     LOGICAL  :: lmlo        !<  .true. for mixed layer ocean
     LOGICAL  :: lice        !<  .true. for sea-ice temperature calculation
     LOGICAL  :: ljsbach     !<  .true. for calculating the JSBACH land surface
+    LOGICAL  :: llake       !<  .true. for using lakes in JSBACH
 
     LOGICAL  :: lamip       !<  .true. for AMIP simulations with monthly transient boundary conditions   
     LOGICAL  :: lebudget    !<  .true. for echam physics energy budget calculation
@@ -97,6 +98,7 @@ CONTAINS
     CALL print_value('    lmlo       ',echam_phy_config% lmlo     )
     CALL print_value('    lice       ',echam_phy_config% lice     )
     CALL print_value('    ljsbach    ',echam_phy_config% ljsbach  )
+    CALL print_value('    llae       ',echam_phy_config% llake    )
     CALL message('','')
     CALL message(method_name,'ECHAM6 physics boundary conditions:')
     CALL print_value('    lamip      ',echam_phy_config% lamip    )
@@ -168,6 +170,11 @@ CONTAINS
   LOGICAL FUNCTION get_ljsbach()
     get_ljsbach = echam_phy_config%ljsbach
   END FUNCTION get_ljsbach
+  !>
+  !!
+  LOGICAL FUNCTION get_llake()
+    get_llake = echam_phy_config%llake
+  END FUNCTION get_llake
   !>
   !!
   LOGICAL FUNCTION get_lamip()

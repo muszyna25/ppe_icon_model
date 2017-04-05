@@ -220,8 +220,6 @@ MODULE mo_echam_phy_memory
 
     REAL(wp),POINTER :: &
       & siced  (:,  :),     &!< ice depth
-      & alake  (:,  :),     &!< lake mask
-      & alb    (:,  :),     &!< surface background albedo
       & seaice (:,  :)       !< sea ice as read in from amip input
 
     ! Energy and moisture budget related diagnostic variables
@@ -255,7 +253,7 @@ MODULE mo_echam_phy_memory
       & cair      (:,  :)    !<
 
     ! Sea ice.
-    ! See also atm_oce_lnd_interface/mo_sea_ice_types.f90
+    ! See also sea_ice/thermodyn/mo_sea_ice_types.f90
     INTEGER              :: kice  ! Number of ice-thickness classes
     REAL(wp),POINTER     ::     &
       & Tsurf   (:,:,:),        & ! Ice surface temperature [degC]
@@ -347,7 +345,8 @@ MODULE mo_echam_phy_memory
     REAL(wp),POINTER :: &
       & lsmask(:,:),        &!< land-sea mask. (1. = land, 0. = sea/lakes) (slm in memory_g3b)
       & glac  (:,:),        &!< fraction of land covered by glaciers (glac in memory_g3b)
-      & icefrc(:,:),        &!< ice cover given as the fraction of grid box (friac  in memory_g3b)
+      & alake  (:,  :),     &!< lake fraction
+      & lake_ice_frc(:,:),  &!< fraction of ice on lakes
       & tsfc_tile (:,:,:),  &!< surface temperature over land/water/ice (tsw/l/i in memory_g3b)
       & tsfc      (:,  :),  &!< surface temperature, grid box mean
       & qs_sfc_tile(:,:,:)   !< saturation specific humidity at surface 
@@ -366,7 +365,8 @@ MODULE mo_echam_phy_memory
       & albvisdif      (:,:  ),  &!< [ ] surface albedo for visible range, diffuse, grid-box mean
       & albnirdir      (:,:  ),  &!< [ ] surface albedo for near-IR range, direct, grid-box mean
       & albnirdif      (:,:  ),  &!< [ ] surface albedo for near-IR range, diffuse, grid-box mean
-      & albedo         (:,:  )    !< [ ] surface albedo, grid-box mean
+      & albedo         (:,:  ),  &!< [ ] surface albedo, grid-box mean
+      & alb            (:,  :)    !< surface background albedo
 
     TYPE(t_ptr_2d),ALLOCATABLE :: albvisdir_tile_ptr(:), albvisdif_tile_ptr(:), &
       & albnirdir_tile_ptr(:), albnirdif_tile_ptr(:), albedo_tile_ptr(:)
@@ -1202,11 +1202,6 @@ CONTAINS
     CALL add_var( field_list, prefix//'sit', field%siced,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
-    cf_desc    = t_cf_var('alb', '', 'surface albedo from external file', datatype_flt)
-    grib2_desc = grib2_var(0,19,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'alb', field%alb,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
     cf_desc    = t_cf_var('surface_height_above_sea_level', 'm',   &
                 &         'Mean height above sea level of orography', datatype_flt)
     grib2_desc = grib2_var(0,3,6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -1931,11 +1926,11 @@ CONTAINS
     CALL add_var( field_list, prefix//'alake', field%alake,                 &
               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
-    ! &       field% icefrc (nproma, nblks),                 &
-    cf_desc    = t_cf_var('ice_cover', '', 'ice cover given as fraction of grid box', & 
+    ! &       field% lake_ice_frc (nproma, nblks),                 &
+    cf_desc    = t_cf_var('lake_ice_frc', '', 'fraction of ice on lakes', & 
          &                datatype_flt)
     grib2_desc = grib2_var(10,2,0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'icefrc', field%icefrc,                 &
+    CALL add_var( field_list, prefix//'lake_ice_frc', field%lake_ice_frc,         &
               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     !-----------------------------------
@@ -1984,6 +1979,11 @@ CONTAINS
     END DO
 
     !-----------------------------------
+    cf_desc    = t_cf_var('alb', '', 'surface albedo from external file', datatype_flt)
+    grib2_desc = grib2_var(0,19,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'alb', field%alb,      &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
     ! &       field% albedo (nproma,nblks),          &
     cf_desc    = t_cf_var('albedo', '', 'surface albedo', datatype_flt)
     grib2_desc = grib2_var(0,19,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)

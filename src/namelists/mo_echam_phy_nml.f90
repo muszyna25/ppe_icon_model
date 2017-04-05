@@ -56,6 +56,7 @@ MODULE mo_echam_phy_nml
   LOGICAL  :: lmlo       !< .true. for mixed layer ocean
   LOGICAL  :: lice       !< .true. for sea-ice temperature calculation
   LOGICAL  :: ljsbach    !< .true. for calculating the JSBACH land surface
+  LOGICAL  :: llake      !<  .true. for using lakes in JSBACH
   LOGICAL  :: lamip      !< .true. for AMIP simulations
   LOGICAL  :: lebudget   !< .true. for echam physcics energy budget calculation
 
@@ -65,7 +66,7 @@ MODULE mo_echam_phy_nml
     &                      lconv, lcond,            &
     &                      lssodrag, lgw_hines,     &
     &                      lmlo, lice, ljsbach,     &
-    &                      lamip, lebudget
+    &                      llake, lamip, lebudget
 
 CONTAINS
   !>
@@ -93,6 +94,7 @@ CONTAINS
     lmlo      = .FALSE.
     lice      = .FALSE.
     ljsbach   = .FALSE.
+    llake     = .TRUE.
     lamip     = .FALSE.
     lebudget  = .FALSE.
 
@@ -159,6 +161,7 @@ CONTAINS
     echam_phy_config% lmlo      = lmlo                                                
     echam_phy_config% lice      = lice                                                
     echam_phy_config% ljsbach   = ljsbach
+    echam_phy_config% llake     = llake
     echam_phy_config% lamip     = lamip                                                
     echam_phy_config% lebudget  = lebudget
 
