@@ -63,6 +63,18 @@ output_lnd=min                # amount of output: min/full
 ljsbach=$([ "${run_jsbach:=no}" == yes ] && echo .TRUE. || echo .FALSE. )
 llake=$([ "${jsbach_with_lakes:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
 [[ $jsbach_usecase == *pfts* ]] && nproma=64
+
+lnd_datadir=$INDATA/${grid_name}/lnd
+# Temporary fix until data are in pool
+case "$target" in
+  bullx) lnd_datadir=/work/mj0060/m212005/data/icon/${jsbach_usecase}
+         ;;
+  mpipc) lnd_datadir=/scratch/local1/m212005/data/icon/${jsbach_usecase}
+         ;;
+  *)     echo "Please specify location of land input data"
+         exit
+         ;;
+esac
 #--------------------------------------------------------------------------------------------------
 
 # (3) Define the model configuration
@@ -259,9 +271,7 @@ datadir=${icon_data_poolFolder}/setup/ifs_iconremap_amip
 add_link_file $datadir/ifs_remap_${grid_name}_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
 #
 # - land: source?, date+time?
-#datadir=$INDATA/${grid_name}/lnd
-#datadir=/scratch/local1/m212005/data/icon/${jsbach_usecase}
-datadir=/work/mj0060/m212005/data/icon/${jsbach_usecase}
+datadir=${lnd_datadir}
 add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
 
 # boundary conditions
@@ -342,9 +352,7 @@ datadir=$INDATA/global/sun
 add_link_file $datadir/bc_solar_irradiance_14band_1849-2399.nc          ./bc_solar_irradiance_sw_b14.nc
 #
 # - land parameters
-#datadir=$INDATA/${grid_name}/lnd
-#datadir=/scratch/local1/m212005/data/icon/${jsbach_usecase}
-datadir=/work/mj0060/m212005/data/icon/${jsbach_usecase}
+datadir=${lnd_datadir}
 add_link_file $datadir/bc_land_frac_1976.nc                             ./bc_land_frac.nc
 add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
 add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
