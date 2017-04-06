@@ -966,6 +966,10 @@ CONTAINS
                             & ih_clch, ih_clcm,           & !in
                             & pt_diag, prm_diag           ) !inout
 
+    ! time difference since last call of ww_diagnostics
+    time_diff => newTimedelta("PT0S")
+    time_diff =  getTimeDeltaFromDateTime(mtime_current, ww_datetime(jg)%ptr)
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,mlab,ztp,zqp,zbuoy,zqsat,zcond) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
@@ -1115,9 +1119,6 @@ CONTAINS
          prm_diag%drag_v_grid(jc,jb) = pt_diag%pres_ifc(jc,nlevp1,jb) * ext_data%atm%grad_topo(2,jc,jb)
       ENDDO
 
-      ! time difference since last call of ww_diagnostics
-      time_diff => newTimedelta("PT0S")
-      time_diff =  getTimeDeltaFromDateTime(mtime_current, ww_datetime(jg)%ptr)
 
       IF (atm_phy_nwp_config(jg)%inwp_gscp > 0 ) THEN
 
