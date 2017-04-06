@@ -305,8 +305,7 @@ case "$ac_sitename" in
                       OTHER_LIBS      = $RTTOV_LIBS $OTHER_LIBS
                       case "$with_art" in
                            yes)
-                             #OTHER_LIBS = ${OTHER_LIBS} -L/e/uhome/jfoerstn/Software/lib -lTIXI -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
-                             OTHER_LIBS = ${OTHER_LIBS} -L/e/uhome/jfoerstn/Software/lib -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
+                             OTHER_LIBS = ${OTHER_LIBS} -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
                              ;;
                       esac
                       STD_FLAGS       = -D__USE_RTTOV -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
@@ -320,8 +319,7 @@ case "$ac_sitename" in
                       OTHER_LIBS      = $OTHER_LIBS
                       case "$with_art" in
                            yes)
-                             #OTHER_LIBS = ${OTHER_LIBS} -L/e/uhome/jfoerstn/Software/lib -lTIXI -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
-                             OTHER_LIBS = ${OTHER_LIBS} -L/e/uhome/jfoerstn/Software/lib -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
+                             OTHER_LIBS = ${OTHER_LIBS} -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
                              ;;
                       esac
                       ;;
@@ -607,7 +605,6 @@ case "$ac_sitename" in
                MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
                case "$with_art" in
                     yes)
-                      #OTHER_LIBS = ${OTHER_LIBS} -lTIXI
                       OTHER_LIBS = ${OTHER_LIBS} -lxml2
                       ;;
                esac
@@ -628,7 +625,6 @@ case "$ac_sitename" in
                 MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
                 case "$with_art" in
                      yes)
-                       #OTHER_LIBS = ${OTHER_LIBS} -lTIXI
                        OTHER_LIBS = ${OTHER_LIBS} -lxml2
                        ;;
                 esac
