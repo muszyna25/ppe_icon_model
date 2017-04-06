@@ -25,7 +25,8 @@
 !! - Emission of chemical tracer
 !! Modification by Jonas Straub, Daniel Rieger KIT (2015-09-15)
 !! - Included OpenMP statements
-!!
+!! Modification by Jonas Straub, KIT (2017-02-08)
+!! - Emission of pollen
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -75,6 +76,7 @@ MODULE mo_art_emission_interface
   USE mo_art_emission_dust_simple,      ONLY: art_prepare_emission_dust_simple
   USE mo_art_emission_chemtracer,       ONLY: art_emiss_chemtracer
   USE mo_art_emission_gasphase,         ONLY: art_emiss_gasphase
+  USE mo_art_emission_pollen,           ONLY: art_emiss_pollen
   USE mo_art_emission_pntSrc,           ONLY: art_emission_pntSrc
   USE mo_art_read_emissions,            ONLY: art_add_emission_to_tracers
   USE omp_lib 
@@ -92,7 +94,7 @@ CONTAINS
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_diag_lnd,rho,current_date,tracer)
+SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_diag_lnd,rho,current_date,nnow,tracer)
   !! Interface for ART: Emissions
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2012-01-27)
@@ -114,6 +116,8 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     &  rho(:,:,:)              !< Density of air [kg/m3]
   TYPE(datetime), INTENT(in), POINTER :: &
     &  current_date            !< Date and time information
+  INTEGER, INTENT(in)               :: &
+    &  nnow                    !< Time level
   REAL(wp), INTENT(inout) :: &
     &  tracer(:,:,:,:)         !< Tracer mixing ratios [kg kg-1]
   ! Local variables
@@ -354,6 +358,44 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
         CALL art_organize_emission_volc(p_patch, current_date, dtime,rho,p_art_data(jg)%dict_tracer, &
           &                             p_art_data(jg)%ext%volc_data,tracer) 
       ENDIF
+
+      ! ----------------------------------
+      ! --- pollen emissions
+      ! ----------------------------------
+
+      IF (art_config(jg)%iart_pollen == 1) THEN
+        ALLOCATE(dz(nproma,nlev))
+        
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+            &                istart, iend, i_rlstart, i_rlend)
+            
+          ! Get model layer heights
+          DO jc = istart, iend
+            dz(jc,nlev) = p_nh_state%metrics%ddqz_z_full(jc,nlev,jb)
+          ENDDO
+
+          !Betula --> birch
+          CALL art_emiss_pollen(p_patch,dtime,current_date,                     &
+            &                   rho(:,nlev,jb),                                 &
+            &                   p_art_data(jg)%ext%pollen_prop%pollen_type(1),  &  !<- betu specific
+            &                   tracer(:,nlev,jb,:),                            &
+            &                   p_art_data(jg)%dict_tracer,                     &
+            &                   p_nh_state%diag%temp(:,nlev,jb),                &
+            &                   p_nh_state%diag%pres_sfc(:,jb),                 &
+            &                   p_nh_state%prog(nnow)%tke(:,nlev,jb),           &
+            &                   prm_diag%rain_gsp_rate(:,jb),                   &
+            &                   prm_diag%rain_con_rate(:,jb),                   &
+            &                   prm_diag%rh_2m(:,jb),                           &
+            &                   dz(:,nlev),                                     &
+            &                   ext_data%atm%llsm_atm_c(:,jb),                  &
+            &                   jb, istart, iend )                              
+             
+        ENDDO
+       
+        DEALLOCATE(dz)    
+      ENDIF !iart_pollen
+    
       ! END OLD BLOCK
     ENDIF !lart_aerosol
     
