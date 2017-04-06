@@ -25,7 +25,7 @@
 MODULE mo_hydro_ocean_run
   !-------------------------------------------------------------------------
   USE mo_kind,                   ONLY: wp
-  USE mtime,                     ONLY: datetime, datetimeToString, deallocateDatetime,              &
+   USE mtime,                     ONLY: datetime, datetimeToString, deallocateDatetime,              &
        &                               timedelta, newTimedelta, deallocateTimedelta,                &
        &                               MAX_DATETIME_STR_LEN, newDatetime,                           &
        &                               MAX_MTIME_ERROR_STR_LEN, no_error, mtime_strerror,           &
@@ -541,6 +541,9 @@ CONTAINS
         &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as, mtime_current)
 !       &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as%fu10, mtime_current)
 !       &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, mtime_current)
+
+      ! copy atmospheric wind speed of coupling from p_as%fu10 into forcing to be written by restart
+      p_sfc%Wind_Speed_10m(:,:) = p_as%fu10(:,:)
 
       start_detail_timer(timer_extra21,5)
       

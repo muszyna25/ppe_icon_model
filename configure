@@ -30,6 +30,7 @@ fi
 
 
 
+
 # PATH needs CR
 # Avoid depending upon Character Ranges.
 as_cr_letters='abcdefghijklmnopqrstuvwxyz'
@@ -2149,6 +2150,7 @@ fi
 done
 
 
+
 case $ac_hostname in
   wizard*) ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename ;;
@@ -2394,6 +2396,7 @@ fi
  ;;
   *) gcc_lib="" ;;
 esac
+
 
 
 host_frag=""
@@ -4288,6 +4291,9 @@ if test -n "$NETCDFROOT" ; then
          exit 1
        fi
      fi
+  fi
+  if [ "x$use_yac" = xyes ] ; then
+    CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_C_NETCDF"
   fi
 else
   echo "error: the variable NETCDFROOT is not set in $host_frag"
@@ -7356,9 +7362,16 @@ if [ "x$use_yac" = xyes ] ; then
    ac_libs="$ac_libs -lyac"
 fi
 
-if [ x"$OCEAN_FLAGS" == x ]; then
-  OCEAN_FLAGS=$HIOPT_FLAGS
+
+if test -n $OCEAN_FLAGS; then
+  :
+else
+  if test -n $HIOPT_FLAGS; then
+  OCEAN_FLAGS="$HIOPT_FLAGS"
 fi
+
+fi
+
 
 if eval test x\$\{`echo ${use_flags_group} | tr a-z A-Z`_FLAGS+set\} = xset; then
   eval FFLAGS=\"\${FFLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"
@@ -7789,9 +7802,9 @@ fi
 # general command for running a progmam
 if test "x$mpi_startrun" = "x" ; then
   if  test "x$MPIROOT" = "x" ; then
-    mpi_startrun="mpiexec -n \\\$mpi_total_procs"
+    mpi_startrun="mpiexec -n \$mpi_total_procs"
   else
-    mpi_startrun="$MPIROOT/bin/mpiexec -n \\\$mpi_total_procs"
+    mpi_startrun="$MPIROOT/bin/mpiexec -n \$mpi_total_procs"
   fi
 fi
 

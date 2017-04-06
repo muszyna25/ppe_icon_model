@@ -18,3 +18,10 @@ run/*.run
 src/art
 *.o
 *~
+.status.file
+cdo_diffn*.out
+experiments*
+run/*.status
+run/*.run
+*#
+autom4te.cache

@@ -270,13 +270,15 @@ CONTAINS
     ! e.g. to mask out halo points. We do we get the info about what is local and what
     ! is remote.
     !
-    ! The land-sea mask for the ocean is available in patch_3D%surface_cell_sea_land_mask(:,:)
-    !
+    ! The integer land-sea mask:
     !          -2: inner ocean
     !          -1: boundary ocean
     !           1: boundary land
     !           2: inner land
     !
+    ! This integer mask for the ocean is available in patch_3D%surface_cell_sea_land_mask(:,:)
+    ! The logical mask for the coupler is set to .FALSE. for land points to exclude them from mapping by yac.
+    ! These points are not touched by yac.
 
     mask_checksum = 0
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK,idx) REDUCTION(+:mask_checksum) ICON_OMP_DEFAULT_SCHEDULE
@@ -293,10 +295,10 @@ CONTAINS
       DO BLOCK = 1, patch_horz%nblks_c
         DO idx = 1, nproma
           IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) < 0 ) THEN
-            ! water (-2, -1)
+            ! ocean and ocean-coast is valid (-2, -1)
             ibuffer((BLOCK-1)*nproma+idx) = 0
           ELSE
-            ! land or boundary
+            ! land is undef (1, 2)
             ibuffer((BLOCK-1)*nproma+idx) = 1
           ENDIF
         ENDDO
@@ -331,7 +333,7 @@ CONTAINS
     field_name(10) = "10m_wind_speed"
     field_name(11) = "river_runoff"
 
-    ! Define all fields but the runoff
+    ! Define the mask for all fields but the runoff (idx=1 to 10)
 
     DO idx = 1, no_of_fields-1 
       CALL yac_fdef_field (      &
@@ -344,7 +346,7 @@ CONTAINS
         & field_id(idx) )
     ENDDO
 
-    ! Set mask for runnoff
+    ! Define cell_mask_ids(2) for runoff: ocean coastal points only are valid.
 
     IF ( mask_checksum > 0 ) THEN
 
@@ -352,10 +354,10 @@ CONTAINS
       DO BLOCK = 1, patch_horz%nblks_c
         DO idx = 1, nproma
           IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) == -1 ) THEN
-            ! water (-2, -1)
+            ! ocean coast (-1) is valid
             ibuffer((BLOCK-1)*nproma+idx) = 0
           ELSE
-            ! land or boundary
+            ! elsewhere (land or open ocean 1, 2, -2) is undef
             ibuffer((BLOCK-1)*nproma+idx) = 1
           ENDIF
         ENDDO
@@ -372,14 +374,18 @@ CONTAINS
 
     DEALLOCATE(ibuffer)
 
-    ! Define the runoff
+    ! Define the mask for runoff
+
+    ! Utilize mask field for runoff
+    !  - cell_mask_ids(1) is whole ocean for nearest neighbor interpolation (pre03)
+    !  - cell_mask_ids(2) is ocean coast points only for source point mapping (pre04, source_to_target_map)
 
     CALL yac_fdef_field (               &
       & TRIM(field_name(no_of_fields)), &
       & comp_id,                        &
       & domain_id,                      &
       & cell_point_ids,                 &
-      & cell_mask_ids(1),               & ! still uses (1) for nn-interpolation; change for spmapping to (2)
+      & cell_mask_ids(2),               &
       & 1,                              &
       & field_id(no_of_fields) )
 
@@ -475,6 +481,8 @@ CONTAINS
     !   field_id(8) represents "northward_sea_water_velocity"             - meridional velocity, v component of ocean surface current
     !   field_id(9) represents "ocean_sea_ice_bundle"                     - ice thickness, snow thickness, ice concentration
     !
+
+    !  add another comment here
 
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
@@ -899,7 +907,7 @@ CONTAINS
     !  Receive river runoff
     !   field_id(11) represents "river_runoff" - river discharge into the ocean
     !
-    ! Note: freshwater fluxes are received in kg/m^2/s and are converted to m/s by division by rhoh2o below.
+    ! Note: river runoff fluxes are received in m^3/s and are converted to m/s by division by whole grid area
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
@@ -924,7 +932,10 @@ CONTAINS
           IF ( nn+n > nbr_inner_cells ) THEN
             atmos_fluxes%FrshFlux_Runoff(n,i_blk) = dummy
           ELSE
-            atmos_fluxes%FrshFlux_Runoff(n,i_blk) = buffer(nn+n,1) / rhoh2o
+    ! !!! Note: freshwater fluxes are received in kg/m^2/s and are converted to m/s by division by rhoh2o below.
+    ! !!!   atmos_fluxes%FrshFlux_Runoff(n,i_blk) = buffer(nn+n,1) / rhoh2o
+    ! discharge_ocean is in m3/s
+            atmos_fluxes%FrshFlux_Runoff(n,i_blk) = buffer(nn+n,1) / patch_horz%cells%area(n,i_blk)
           ENDIF
         ENDDO
       ENDDO

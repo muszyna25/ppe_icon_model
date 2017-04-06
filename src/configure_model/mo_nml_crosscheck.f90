@@ -130,6 +130,8 @@ CONTAINS
       SELECT CASE(iforcing)
       CASE(INOFORCING,IHELDSUAREZ,ILDF_DRY)  ! without moist processes
         ha_dyn_config%ldry_dycore = .TRUE.
+      CASE(IECHAM,ILDF_ECHAM)                ! with ECHAM physics
+        CALL finish(method_name, 'Hydrostatic dynamics cannot be used with ECHAM physics')
       END SELECT
 
     END SELECT
@@ -367,10 +369,10 @@ CONTAINS
       iqs    = 0     !! snow
       iqm_max= 3     !! end index of water species mixing ratios
       iqt    = 4     !! starting index of non-water species
-      ico2   = 4     !! CO2
+      io3    = 4     !! O3
       ich4   = 5     !! CH4
       in2o   = 6     !! N2O
-      io3    = 7     !! O3
+      ico2   = 7     !! CO2
       nqtendphy = 0  !! number of water species for which convective and turbulent
                      !! tendencies are stored
 
@@ -860,8 +862,10 @@ CONTAINS
   
     CHARACTER(len=*), PARAMETER :: &
       &  method_name =  'mo_nml_crosscheck:art_crosscheck'
+#ifdef __ICON_ART
     INTEGER  :: &
       &  jg
+#endif
     
 #ifndef __ICON_ART
     IF (lart) THEN

@@ -512,17 +512,24 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: tapering_Large=2
   INTEGER, PARAMETER :: tapering_Griffies=3
   INTEGER            :: tapering_scheme=tapering_DanaMcWilliams
-  LOGICAL            :: switch_off_diagonal_vert_expl=.false.
+  LOGICAL            :: switch_off_diagonal_vert_expl=.TRUE.
   LOGICAL            :: GMREDI_COMBINED_DIAGNOSTIC=.TRUE.
   LOGICAL            :: GM_INDIVIDUAL_DIAGNOSTIC=.TRUE.  
   LOGICAL            :: REDI_INDIVIDUAL_DIAGNOSTIC=.TRUE.    
   LOGICAL            :: TEST_MODE_GM_ONLY=.FALSE.
   LOGICAL            :: TEST_MODE_REDI_ONLY=.FALSE.
+  LOGICAL            :: SWITCH_OFF_TAPERING=.FALSE.
+  LOGICAL            :: SWITCH_ON_REDI_BALANCE_DIAGONSTIC=.FALSE.
+  LOGICAL            :: SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION=.FALSE.
+  LOGICAL            :: SLOPE_CALC_VIA_TEMPERTURE_SALINITY=.FALSE.
+  LOGICAL            :: BOLUS_VELOCITY_DIAGNOSTIC=.FALSE.
+  LOGICAL            :: REVERT_VERTICAL_RECON_AND_TRANSPOSED=.FALSE.  
+  LOGICAL            :: INCLUDE_SLOPE_SQUARED_IMPLICIT=.TRUE.
   !Parameters for tapering schemes
   LOGICAL  :: GMRedi_usesRelativeMaxSlopes = .true. ! the slopes are defined relatively the the grid slopes: dz/dx
-  REAL(wp) :: S_max      = 8.0_wp                   !maximally allowed slope
-  REAL(wp) :: S_critical = 2.5_wp                   !critical value at which tapering reduces slope by 50%
-  REAL(wp) :: S_d        = 0.2_wp                   !width of transition zone from untapered to tapered
+  REAL(wp) :: S_max      = 1.0_wp                   !maximally allowed slope
+  REAL(wp) :: S_critical = 0.25_wp                   !critical value at which tapering reduces slope by 50%
+  REAL(wp) :: S_d        = 0.01_wp                   !width of transition zone from untapered to tapered
   REAL(wp) :: c_speed    = 2.0_wp                   !aproximation to first baroclinic wave speed. Used in tapering scheme "Large"
   REAL(wp) :: RossbyRadius_min = 15000.0_wp
   REAL(wp) :: RossbyRadius_max =100000.0_wp
@@ -544,7 +551,14 @@ MODULE mo_ocean_nml
     &  switch_off_diagonal_vert_expl, &
     &  GMREDI_COMBINED_DIAGNOSTIC,    &
     & TEST_MODE_GM_ONLY,              &
-    & TEST_MODE_REDI_ONLY 
+    & TEST_MODE_REDI_ONLY,            &
+    & SWITCH_OFF_TAPERING,            &
+    & SWITCH_ON_REDI_BALANCE_DIAGONSTIC,&
+    & SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION,&
+    & SLOPE_CALC_VIA_TEMPERTURE_SALINITY,&
+    & BOLUS_VELOCITY_DIAGNOSTIC,         &
+    & REVERT_VERTICAL_RECON_AND_TRANSPOSED,&
+    & INCLUDE_SLOPE_SQUARED_IMPLICIT 
   
   INTEGER  :: EOS_TYPE              = 2          ! 1=linear EOS,2=(nonlinear, from MPIOM)
                                                  ! 3=nonlinear Jacket-McDoudgall-formulation (not yet recommended)

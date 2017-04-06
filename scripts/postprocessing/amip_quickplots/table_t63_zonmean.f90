@@ -48,40 +48,40 @@ write(6,*) "kmax",kmax
     string( 88) = 'SRAFL         W/m2   net LW radiation 200mb (clear sky)     ';  factor( 88) =       1.00; offset( 88) =    0.00;
     string( 89) = 'AMLCORAC      W/m2   mixed layer correction               WA';  factor( 89) =       1.00; offset( 89) =    0.00;
     string( 90) = 'AMLHEATAC     J/m2   mixed layer heat content             WA';  factor( 90) = 1.7889E-11; offset( 90) =    0.00;
-    string( 91) = 'rlns_ice      W/m2   net LW radiation over ice              ';  factor( 91) =       1.00; offset( 91) =    0.00;
-    string( 92) = 'rlns_wrt      W/m2   net LW radiation over water            ';  factor( 92) =       1.00; offset( 92) =    0.00;
-    string( 93) = 'rlns_lnd      W/m2   net LW radiation over land             ';  factor( 93) =       1.00; offset( 93) =    0.00;
-    string( 94) = 'rsns_ice      W/m2   net SW radiation over ice              ';  factor( 94) =       1.00; offset( 94) =    0.00;
-    string( 95) = 'rsns_wrt      W/m2   net SW radiation over water            ';  factor( 95) =       1.00; offset( 95) =    0.00;
-    string( 96) = 'rsns_lnd      W/m2   net SW radiation over land             ';  factor( 96) =       1.00; offset( 96) =    0.00;
+    string( 91) = 'rlns_ice      W/m2   net LW radiation over ice            I ';  factor( 91) =       1.00; offset( 91) =    0.00;
+    string( 92) = 'rlns_wrt      W/m2   net LW radiation over water          W ';  factor( 92) =       1.00; offset( 92) =    0.00;
+    string( 93) = 'rlns_lnd      W/m2   net LW radiation over land           L ';  factor( 93) =       1.00; offset( 93) =    0.00;
+    string( 94) = 'rsns_ice      W/m2   net SW radiation over ice            I ';  factor( 94) =       1.00; offset( 94) =    0.00;
+    string( 95) = 'rsns_wrt      W/m2   net SW radiation over water          W ';  factor( 95) =       1.00; offset( 95) =    0.00;
+    string( 96) = 'rsns_lnd      W/m2   net SW radiation over land           L ';  factor( 96) =       1.00; offset( 96) =    0.00;
     string( 97) = 'sic           %      ice cover (fraction of grid box)       ';  factor( 97) =     100.00; offset( 97) =    0.00;
     string( 98) = '              -----                              -----      ';  factor( 98) =       1.00; offset( 98) =    0.00;
     string( 99) = '              -----                              -----      ';  factor( 99) =       1.00; offset( 99) =    0.00;
     string(100) = 'ALBEDO_VIS    %      surface albedo visible range           ';  factor(100) =       1.00; offset(100) =    0.00;
     string(101) = 'ALBEDO_NIR    %      surface albedo NIR range               ';  factor(101) =       1.00; offset(101) =    0.00;
-    string(102) = 'ts_ice        C      surface temperature of ice             ';  factor(102) =       1.00; offset(102) = -273.15;
-    string(103) = 'ts_wtr        C      surface temperature of water           ';  factor(103) =       1.00; offset(103) = -273.15;
-    string(104) = 'tauu_ice      mN/m2  zonal wind stress over ice             ';  factor(104) =    1000.00; offset(104) =    0.00;
-    string(105) = 'tauv_ice      mN/m2  meridional wind stress over ice        ';  factor(105) =    1000.00; offset(105) =    0.00;
-    string(106) = 'tauu_wrt      mN/m2  zonal wind stress over water           ';  factor(106) =    1000.00; offset(106) =    0.00;
-    string(107) = 'tauv_wrt      mN/m2  meridional wind stress over water      ';  factor(107) =    1000.00; offset(107) =    0.00;
-    string(108) = 'tauu_lnd      mN/m2  zonal wind stress over land            ';  factor(108) =    1000.00; offset(108) =    0.00;
-    string(109) = 'tauv_lnd      mN/m2  meridional wind stress over land       ';  factor(109) =    1000.00; offset(109) =    0.00;
-    string(110) = 'hfls_ice      W/m2   latent heat flux over ice              ';  factor(110) =       1.00; offset(110) =    0.00;
-    string(111) = 'hfls_wrt      W/m2   latent heat flux over water            ';  factor(111) =       1.00; offset(111) =    0.00;
-    string(112) = 'hfls_ice      W/m2   latent heat flux over land             ';  factor(112) =       1.00; offset(112) =    0.00;
-    string(113) = 'EVAPIAC       mm/d   evaporation over ice                 IA';  factor(113) =   86400.00; offset(113) =    0.00;
-    string(114) = 'EVAPWAC       mm/d   evaporation over water               WA';  factor(114) =   86400.00; offset(114) =    0.00;
-    string(115) = 'EVAPLAC       mm/d   evaporation over land                LA';  factor(115) =   86400.00; offset(115) =    0.00;
-    string(116) = 'AZ0I          cm     roughness length over ice            I ';  factor(116) =     100.00; offset(116) =    0.00;
-    string(117) = 'AZ0W          cm     roughness length over water          W ';  factor(117) =     100.00; offset(117) =    0.00;
-    string(118) = 'AZ0L          cm     roughness length over land           L ';  factor(118) =     100.00; offset(118) =    0.00;
-    string(119) = 'hfss_ice      W/m2   sensible heat flux over ice            ';  factor(119) =       1.00; offset(119) =    0.00;
-    string(120) = 'hfss_wrt      W/m2   sensible heat flux over water          ';  factor(120) =       1.00; offset(120) =    0.00;
-    string(121) = 'hfss_lnd      W/m2   sensible heat flux over land           ';  factor(121) =       1.00; offset(121) =    0.00;
-    string(122) = 'ALSOI         %      albedo of ice                        I ';  factor(122) =     100.00; offset(122) =    0.00;
-    string(123) = 'ALSOW         %      albedo of water                      W ';  factor(123) =     100.00; offset(123) =    0.00;
-    string(124) = 'ALSOL         %      albedo of land                       L ';  factor(124) =     100.00; offset(124) =    0.00;
+    string(102) = 'ts_ice        C      surface temperature of ice           I ';  factor(102) =       1.00; offset(102) = -273.15;
+    string(103) = 'ts_wtr        C      surface temperature of water         W ';  factor(103) =       1.00; offset(103) = -273.15;
+    string(104) = 'tauu_ice      mN/m2  zonal wind stress over ice           I ';  factor(104) =    1000.00; offset(104) =    0.00;
+    string(105) = 'tauv_ice      mN/m2  meridional wind stress over ice      I ';  factor(105) =    1000.00; offset(105) =    0.00;
+    string(106) = 'tauu_wrt      mN/m2  zonal wind stress over water         W ';  factor(106) =    1000.00; offset(106) =    0.00;
+    string(107) = 'tauv_wrt      mN/m2  meridional wind stress over water    W ';  factor(107) =    1000.00; offset(107) =    0.00;
+    string(108) = 'tauu_lnd      mN/m2  zonal wind stress over land          L ';  factor(108) =    1000.00; offset(108) =    0.00;
+    string(109) = 'tauv_lnd      mN/m2  meridional wind stress over land     L ';  factor(109) =    1000.00; offset(109) =    0.00;
+    string(110) = 'hfls_ice      W/m2   latent heat flux over ice            I ';  factor(110) =       1.00; offset(110) =    0.00;
+    string(111) = 'hfls_wrt      W/m2   latent heat flux over water          W ';  factor(111) =       1.00; offset(111) =    0.00;
+    string(112) = 'hfls_ice      W/m2   latent heat flux over land           L ';  factor(112) =       1.00; offset(112) =    0.00;
+    string(113) = 'evspsbl_ice   mm/d   evaporation over ice                 I ';  factor(113) =   86400.00; offset(113) =    0.00;
+    string(114) = 'evspsbl_wtr   mm/d   evaporation over water               W ';  factor(114) =   86400.00; offset(114) =    0.00;
+    string(115) = 'evspsbl_lnd   mm/d   evaporation over land                L ';  factor(115) =   86400.00; offset(115) =    0.00;
+    string(116) = 'z0m_ice       cm     roughness length over ice            I ';  factor(116) =     100.00; offset(116) =    0.00;
+    string(117) = 'z0m_wtr       cm     roughness length over water          W ';  factor(117) =     100.00; offset(117) =    0.00;
+    string(118) = 'z0m_lnd       cm     roughness length over land           L ';  factor(118) =     100.00; offset(118) =    0.00;
+    string(119) = 'hfss_ice      W/m2   sensible heat flux over ice          I ';  factor(119) =       1.00; offset(119) =    0.00;
+    string(120) = 'hfss_wrt      W/m2   sensible heat flux over water        W ';  factor(120) =       1.00; offset(120) =    0.00;
+    string(121) = 'hfss_lnd      W/m2   sensible heat flux over land         L ';  factor(121) =       1.00; offset(121) =    0.00;
+    string(122) = 'albedo_ice    %      albedo of ice                        I ';  factor(122) =     100.00; offset(122) =    0.00;
+    string(123) = 'albedo_wtr    %      albedo of water                      W ';  factor(123) =     100.00; offset(123) =    0.00;
+    string(124) = 'albedo_lnd    %      albedo of land                       L ';  factor(124) =     100.00; offset(124) =    0.00;
     string(125) = 'AHFICE        W/m2   conductive heat flux through ice     I ';  factor(125) =       1.00; offset(125) =    0.00;
     string(126) = 'QRES          W/m2   residual heat flux for melt. sea ice I ';  factor(126) =       1.00; offset(126) =    0.00;
     string(127) = 'ALAKE         %      lake fraction                          ';  factor(127) =     100.00; offset(127) =    0.00;
@@ -96,7 +96,7 @@ write(6,*) "kmax",kmax
     string(136) = 'ACDNC         1/m3   cloud droplet number concentration     ';  factor(136) =       1.00; offset(136) =    0.00;
     string(137) = 'APMEB         mm/d   (P-E) error                            ';  factor(137) =   86400.00; offset(137) =    0.00;
     string(138) = 'SVO           1/s    vorticity                              ';  factor(138) =       1.00; offset(138) =    0.00;
-    string(139) = 'ts_lnd        C      surface temperature of land            ';  factor(139) =       1.00; offset(139) = -273.15;
+    string(139) = 'ts_lnd        C      surface temperature of land          L ';  factor(139) =       1.00; offset(139) = -273.15;
     string(140) = 'WS            cm     soil wetness                         L ';  factor(140) =     100.00; offset(140) =    0.00;
     string(141) = 'SN            cm     water equivalent of snow depth       L ';  factor(141) =     100.00; offset(141) =    0.00;
     string(142) = 'APRL          mm/d   large scale precipitation              ';  factor(142) =   86400.00; offset(142) =    0.00;
@@ -116,7 +116,7 @@ write(6,*) "kmax",kmax
     string(156) = 'GEOPOTH       m      geopotential height                    ';  factor(156) =       1.00; offset(156) =    0.00;
     string(157) = 'RHUMIDITY     %      relative humidity                      ';  factor(157) =     100.00; offset(157) =    0.00;
     string(158) = '              -----                                 -----   ';  factor(158) =       1.00; offset(158) =    0.00;
-    string(159) = 'WIND10W       m/s    windspeed over water                   ';  factor(159) =       1.00; offset(159) =    0.00;
+    string(159) = 'sfcwind_wtr   m/s    windspeed over water                 W ';  factor(159) =       1.00; offset(159) =    0.00;
     string(160) = 'RUNOFF        mm/d   surface runoff and drainage          LA';  factor(160) =   86400.00; offset(160) =    0.00;
     string(161) = 'DRAIN         mm/d   drainage                             LA';  factor(161) =   86400.00; offset(161) =    0.00;
     string(163) = 'ACLCV         %      total cloud cover                      ';  factor(163) =     100.00; offset(163) =    0.00;
@@ -668,23 +668,12 @@ average_periode: SELECT CASE (cmean)
 
 
 
-  IF (.NOT. lland) THEN
-    WRITE (0,*) 'land-sea-mask missing, you need code ',landcode
-    STOP 'abort ...'
-  ENDIF
-  IF (.NOT. lice) THEN
-    WRITE (0,*) 'ice-mask missing, you need code 97'
-    STOP 'abort ...'
-  ENDIF
-  IF (.NOT. lglac) THEN
-    WRITE (0,*) 'glacier-mask missing, you need code 232'
-    STOP 'abort ...'
-  ENDIF
+
 
 !--------------------------------------------------------
 !***  ADDED CODES begin
 
-!    added codes : code191 and code192
+!    added codes : code191 and code192 and if not exits code142 and code143
 
     IF (iLONG.NE.0) THEN
 
@@ -733,161 +722,6 @@ average_periode: SELECT CASE (cmean)
       dat(:,:,k) = fcode179(:,:)-fcode188(:,:)
      ENDIF
 
-  ! ***  added codes 1-14  ***
-
-  IF (lprec.AND.lcode182) THEN
-    k = k+1
-    kend = k
-    dat(:,:,k) = fprec(:,:)+fcode182(:,:)
-    icode  (k) =  1        ! total freshwater flux
-    faktor (k) = factor(266)
-    addi   (k) = offset(266)
-    stringo(k) = string(266)
-  ELSE
-    write(6,*) 'no total freshwater flux you need code 4, 182'
-  ENDIF
-
-  k = k+1
-  kend = k
-  dat(:,:,k) = fwater(:,:)
-  icode  (k) =  2        ! water (fraction of grid box)
-  faktor (k) = factor(267)
-  addi   (k) = offset(267)
-  stringo(k) = string(267)
-
-  IF (lprec.AND.lcode113) THEN
-    k = k+1
-    kend = k
-    dat(:,:,k) = fprec(:,:)*fice(:,:)+fcode113(:,:)
-    icode  (k) =  3        ! freshwater flux - ICE
-    faktor (k) = factor(268)
-    addi   (k) = offset(268)
-    stringo(k) = string(268)
-  ELSE
-    write(6,*) 'no freshwater flux - ICE you need code 4 and 113'
-  ENDIF
-
-  IF (lprec.AND.lcode114) THEN
-    k = k+1
-    kend = k
-    dat(:,:,k) = fprec(:,:)*fwater(:,:)+fcode114(:,:)
-    icode  (k) = 4          ! freshwater flux - WATER
-    faktor (k) = factor(269)
-    addi   (k) = offset(269)
-    stringo(k) = string(269)
-  ELSE
-    write(6,*) 'no freshwater flux - WATER you need code 4,114,'
-  ENDIF
-
-  IF (lprec.AND.lcode115.AND.lcode160.AND.lcode221.AND.lcode222) THEN
-    k = k+1
-    kend = k
-    dat(:,:,k) = fprec(:,:)*fland(:,:)+fcode115(:,:)-fcode160(:,:)-fcode221(:,:)-fcode222(:,:)
-    icode  (k) = 5          ! water budget - LAND 
-    faktor (k) = factor(270)
-    addi   (k) = offset(270)
-    stringo(k) = string(270)
-  ELSE
-    write(6,*) 'no water budget - LAND you need code 4,115,160,221,222'
-  ENDIF
-
-  IF (lcode178.AND.lcode179) THEN
-    k = k+1
-    kend = k
-    dat(:,:,k) = fcode178(:,:)+fcode179(:,:)
-    icode  (k) = 6            ! total top radiation
-    faktor (k) = factor(261)
-    addi   (k) = offset(261)
-    stringo(k) = string(261)
-  ELSE
-    write(6,*) 'no total top radiation, you need code 178,179'
-  ENDIF
- 
-  IF (lcode146.AND.lcode147.AND.lcode176.AND.lcode177) THEN
-    k = k+1
-    kend = k
-    dat(:,:,k) = fcode146(:,:)+fcode147(:,:)+fcode176(:,:)+fcode177(:,:)
-    icode  (k) = 7  !  total surface heat flux
-    faktor (k) = factor(263)
-    addi   (k) = offset(263)
-    stringo(k) = string(263)
-  ELSE
-    write(6,*) 'no total surface heat flux, you need code 146,147,176,177'
-  ENDIF
-
-  IF (lcode140.AND.lcode229) THEN
-    k = k+1
-    kend = k
-    dat(:,:,k) = fcode140(:,:)/(fcode229(:,:)+0.001)*(1.-fglac(:,:))
-    icode  (k) = 8  !  WS/WSMX
-    faktor (k) = factor(265)
-    addi   (k) = offset(265)
-    stringo(k) = string(265)
-  ELSE
-    write(6,*) 'no  heat budget - ICE you need code 140,229'
-  ENDIF
-
-  IF (lcode93.AND.lcode96.AND.lcode112.AND.lcode121.AND.lcode218.AND.lcode228) THEN
-    k = k+1
-    kend = k
-    dat(:,:,k) = fcode121(:,:)+fcode112(:,:)+fcode96(:,:)+fcode93(:,:)-(fcode218(:,:)+fcode228(:,:))*3.337E05
-    icode  (k) = 9   ! heat budget - LAND
-    faktor (k) = factor(271)
-    addi   (k) = offset(271)
-    stringo(k) = string(271)
-  ELSE
-    write(6,*) 'no heat budget - LAND, you need code 93,96,112,121,218'
-  ENDIF
-
-  IF (lcode92.AND.lcode95.AND.lcode111.AND.lcode120.AND.lcode144) THEN
-    k = k+1
-    kend = k
-    dat(:,:,k) = fcode120(:,:)+fcode111(:,:)+fcode95(:,:)+fcode92(:,:)-fcode144(:,:)*fwater(:,:)*3.337E05
-    icode  (k) = 10   ! heat budget - WATER
-    faktor (k) = factor(272)
-    addi   (k) = offset(272)
-    stringo(k) = string(272)
-  ELSE
-    write(6,*) 'no heat budget - WATER, you need code 92,95,111,120,144,'
-  ENDIF
-
-  IF (lcode91.AND.lcode94.AND.lcode110.AND.lcode119) THEN
-    k = k+1
-    kend = k
-    dat(:,:,k) = fcode119(:,:)+fcode110(:,:)+fcode94(:,:)+fcode91(:,:) 
-    icode  (k) = 11 !! heat budget - ICE
-    faktor (k) = factor(273)
-    addi   (k) = offset(273)
-    stringo(k) = string(273)
-  ELSE
-    write(6,*) 'no ! heat budget - ICE, you need code 91,94,110,119'
-  ENDIF
-
-  IF (lprec) THEN
-    k = k+1
-    kend = k
-    dat(:,:,k) = fprec(:,:)
-    icode  (k) = 12     ! precipitation ICE
-    faktor (k) = factor(274)
-    addi   (k) = offset(274)
-    stringo(k) = string(274)
-    k = k+1
-    kend = k
-    dat(:,:,k) = fprec(:,:)
-    icode  (k) = 13     ! precipitation WATER
-    faktor (k) = factor(275)
-    addi   (k) = offset(275)
-    stringo(k) = string(275)
-    k = k+1
-    kend = k  
-    dat(:,:,k) = fprec(:,:)
-    icode  (k) = 14     ! precipitation LAND
-    faktor (k) = factor(276)
-    addi   (k) = offset(276)
-    stringo(k) = string(276)
-  ELSE
-    write(6,*) 'no precipitation, you need code 4'
-  ENDIF
 
  ENDIF
 
@@ -900,12 +734,12 @@ average_periode: SELECT CASE (cmean)
   ! calculate fractional coverages
 
   IF (.NOT. lland) THEN
-    WRITE (0,*) 'land-sea-mask missing'
-    STOP 'abort ...'
+    WRITE (0,*) 'no land-sea-mask'
+!*     STOP 'abort ...'
   ENDIF
   IF (.NOT. lice) THEN
-    WRITE (0,*) 'ice-mask missing'
-    STOP 'abort ...'
+    WRITE (0,*) 'no ice-mask '
+!*    STOP 'abort ...'
   ENDIF
 
   !      Zonal and global mean calculation

@@ -53,6 +53,8 @@ MODULE mo_echam_phy_nml
   LOGICAL  :: lssodrag   !< .true. for subgrid scale orographic drag,
                          !< by blocking and gravity waves (lgwdrag in ECHAM6)
   LOGICAL  :: lgw_hines  !< .true. for atmospheric gravity wave drag
+  LOGICAL  :: lcariolle  !< .true. for Cariolle ozone scheme (you need a
+                         !< transported ozone tracer then!)
   LOGICAL  :: lmlo       !< .true. for mixed layer ocean
   LOGICAL  :: lice       !< .true. for sea-ice temperature calculation
   LOGICAL  :: ljsbach    !< .true. for calculating the JSBACH land surface
@@ -65,6 +67,7 @@ MODULE mo_echam_phy_nml
     &                      lrad, dt_rad, lvdiff,    &
     &                      lconv, lcond,            &
     &                      lssodrag, lgw_hines,     &
+    &                      lcariolle,               &
     &                      lmlo, lice, ljsbach,     &
     &                      llake, lamip, lebudget
 
@@ -91,6 +94,7 @@ CONTAINS
     lcond     = .TRUE.
     lssodrag  = .TRUE.
     lgw_hines = .TRUE.
+    lcariolle = .FALSE.
     lmlo      = .FALSE.
     lice      = .FALSE.
     ljsbach   = .FALSE.
@@ -158,6 +162,7 @@ CONTAINS
     echam_phy_config% lcond     = lcond                                               
     echam_phy_config% lssodrag  = lssodrag                                            
     echam_phy_config% lgw_hines = lgw_hines                                           
+    echam_phy_config% lcariolle = lcariolle
     echam_phy_config% lmlo      = lmlo                                                
     echam_phy_config% lice      = lice                                                
     echam_phy_config% ljsbach   = ljsbach

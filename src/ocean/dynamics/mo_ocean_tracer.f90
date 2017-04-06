@@ -57,6 +57,9 @@ MODULE mo_ocean_tracer
   USE mo_ocean_GM_Redi,             ONLY: calc_ocean_physics, prepare_ocean_physics
   USE mo_ocean_math_operators,      ONLY: div_oce_3d, verticalDiv_scalar_onFullLevels! !verticalDiv_scalar_midlevel
   USE mo_scalar_product,            ONLY: map_edges2edges_viacell_3d_const_z
+  USE mo_physical_constants,        ONLY: clw, rho_ref,sitodbar
+  USE  mo_ocean_thermodyn,          ONLY: calculate_density, calc_potential_density
+  USE mo_ocean_pp_scheme,           ONLY: calculate_rho4GMRedi
   IMPLICIT NONE
 
   PRIVATE
@@ -462,7 +465,11 @@ CONTAINS
 !     flux_horz(1:nproma,1:n_zlev,1: 1:patch_3d%p_patch_2d(1)%nblks_e)=0.0_wp
     !---------------------------------------------------------------------
  
-
+    ! these are probably not necessary
+    div_diff_flx_vert = 0.0_wp
+    div_adv_flux_vert = 0.0_wp
+    div_adv_flux_horz = 0.0_wp
+    div_diff_flux_horz = 0.0_wp
     !---------------------------------------------------------------------
     IF ( l_with_vert_tracer_advection ) THEN
 
@@ -478,8 +485,6 @@ CONTAINS
       CALL dbg_print('aft. AdvFluxVert:divfluxvert',div_adv_flux_vert          ,str_module,idt_src, in_subset=cells_in_domain)
       !---------------------------------------------------------------------
 
-    ELSE
-      div_adv_flux_vert(1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks) = 0.0_wp
     ENDIF  ! l_with_vert_tracer_advection
 
     !---------------------------------------------------------------------
@@ -506,7 +511,7 @@ CONTAINS
       & p_os%p_prog(nnew(1))%h,         &
       & div_diff_flux_horz)
 
-      div_diff_flx_vert = 0.0_wp
+!       div_diff_flx_vert = 0.0_wp
 
     ELSEIF(GMRedi_configuration/=Cartesian_Mixing)THEN
     
@@ -525,48 +530,121 @@ CONTAINS
         & div_diff_flx_vert)
                    
                    
-       IF(GMREDI_COMBINED_DIAGNOSTIC)THEN
+      IF(GMREDI_COMBINED_DIAGNOSTIC)THEN
+        IF(tracer_index == 1) THEN
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, &
-!ICON_OMP level) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
-      DO jc = start_cell_index, end_cell_index
-        DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-        
-        p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
-        &=div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb)
-        
-        ENDDO
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-       
-      CALL dbg_print('AftGMRedi: divofGMRediflux1',p_os%p_diag%div_of_GMRedi_flux(:,:,:),&
-      & str_module, idt_src, in_subset=cells_in_domain)      
-       
-       ENDIF            
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=3  ! output print level (1-5, fix)
-      !CALL dbg_print('AftGMRedi: GMRediflux_h',p_os%p_diag%GMRedi_flux_horz(:,:,:,tracer_index),&
-      !&str_module,idt_src, in_subset=edges_in_domain)
-      Do level=1,n_zlev
-      CALL dbg_print('AftGMRedi: divGMRediflux_h',div_diff_flux_horz(:,level,:),&
-      &str_module,idt_src, in_subset=cells_in_domain)
-      !!CALL dbg_print('AftGMRedi: divGMRediflux_v',div_diff_flx_vert(:,level,:),&
-      !& str_module, idt_src, in_subset=cells_in_domain)      
-      END DO
-      Do level=1,n_zlev
-      !CALL dbg_print('AftGMRedi: divGMRediflux_h',div_diff_flux_horz(:,level,:),&
-      !&str_module,idt_src, in_subset=cells_in_domain)
-      CALL dbg_print('AftGMRedi: divGMRediflux_v',div_diff_flx_vert(:,level,:),&
-      & str_module, idt_src, in_subset=cells_in_domain)      
-      END DO
+!ICON_OMP level, delta_z, delta_z_new) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+          DO jc = start_cell_index, end_cell_index
       
-      !---------------------------------------------------------------------
+            !top level
+            level=1
+            delta_z     = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nold(1))%h(jc,jb)
+            delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nnew(1))%h(jc,jb)
 
-    END IF
+            !This contains the divergence of the diffusive temperature fluxes,
+            !either due to the GMRedi-scheme or due to the cartesian mixing  
+            !The implicit contribution is not included.               
+            p_os%p_diag%opottempGMRedi(jc,level,jb)&
+            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z_new
+            !& * clw *rho_ref
 
+            !This contains sum of advective and diffusive fluxes, i.e the whole tendency,
+            !except for the implicit contribution.
+            !This is overwritten each time a new tracer is calculated
+            p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
+            &=-(div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
+            & - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))/delta_z_new
+            
+            DO level = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+
+              !This contains the divergence of the diffusive temperature fluxes,
+              !either due to the GMRedi-scheme or due to the cartesian mixing  
+              !The implicit contribution is not included.   
+              p_os%p_diag%opottempGMRedi(jc,level,jb)&
+              &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z_new
+              !& * clw *rho_ref
+        
+             !This contains sum of advective and diffusive fluxes, i.e the whole tendency,
+             !except for the implicit contribution.
+             !This is overwritten each time a new tracer is calculated
+              p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
+              &=-(div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
+              & - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))/delta_z
+
+            ENDDO
+          END DO
+        END DO
+!ICON_OMP_END_PARALLEL_DO
+        
+        DO level=1,n_zlev
+          !CALL dbg_print('AftGMRedi: divGMRediflux',p_os%p_diag%div_of_GMRedi_flux(:,level,:),&
+          !&str_module,idt_src, in_subset=cells_in_domain)
+          CALL dbg_print('AftGMRedi: opottempGMRedi',p_os%p_diag%opottempGMRedi(:,level,:),&
+          & str_module, idt_src, in_subset=cells_in_domain)      
+        END DO
+        
+      ELSEIF(tracer_index == 2) THEN
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, &
+!ICON_OMP level, delta_z, delta_z_new) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+          DO jc = start_cell_index, end_cell_index
+      
+            !top level
+            level=1
+            delta_z     = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nold(1))%h(jc,jb)
+            delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nnew(1))%h(jc,jb)
+              
+            !This contains the divergence of the diffusive temperature fluxes,
+            !either due to the GMRedi-scheme or due to the cartesian mixing   
+            !The implicit contribution is not included.                         
+            p_os%p_diag%osaltGMRedi(jc,level,jb)&
+            &=-(div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
+            &  - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))/delta_z_new
+                     
+            !This contains sum of advective and diffusive fluxes, i.e the whole tendency,
+            !except for the implicit contribution.
+            !This is overwritten each time a new tracer is calculated
+            p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
+            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z_new
+
+        
+            DO level = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+        
+              !This contains the divergence of the diffusive temperature fluxes,
+              !either due to the GMRedi-scheme or due to the cartesian mixing.
+              !The implicit contribution is not included.   
+              p_os%p_diag%osaltGMRedi(jc,level,jb)&
+              &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z
+
+             !This contains sum of advective and diffusive fluxes, i.e the whole tendency,
+             !except for the implicit contribution.
+             !This is overwritten each time a new tracer is calculated
+              p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
+              &=-(div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
+              & - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))/delta_z
+
+            ENDDO
+          END DO
+        END DO
+        
+!ICON_OMP_END_PARALLEL_DO
+        
+        DO level=1,n_zlev
+          !CALL dbg_print('AftGMRedi: divGMRediflux_h',div_diff_flux_horz(:,level,:),&
+          !&str_module,idt_src, in_subset=cells_in_domain)
+          CALL dbg_print('AftGMRedi: opotsaltGMRedi',p_os%p_diag%osaltGMRedi(:,level,:),&
+          & str_module, idt_src, in_subset=cells_in_domain)      
+        END DO
+
+      ENDIF!(tracer_index == 1)
+    ENDIF!(GMREDI_COMBINED_DIAGNOSTIC)THEN  
+    ENDIF!GMREDI
+      
+      
     !Case: Implicit Vertical diffusion
     start_timer(timer_dif_vert,4)
 
@@ -584,9 +662,6 @@ CONTAINS
         !TODO check algorithm: inv_prism_thick_c vs. del_zlev_m | * vs. /
         DO level = 1, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb),1)  ! this at most should be 1
 
-          !delta_z     = patch_3d%p_patch_1d(1)%del_zlev_m(level) + p_os%p_prog(nold(1))%h(jc,jb)
-          !delta_z_new = patch_3d%p_patch_1d(1)%del_zlev_m(level) + p_os%p_prog(nnew(1))%h(jc,jb)
-          !  not yet changed
           delta_z     = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nold(1))%h(jc,jb)
           delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nnew(1))%h(jc,jb)
 
@@ -604,10 +679,6 @@ CONTAINS
         ENDDO
 
         DO level = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-
-          ! delta_z = patch_3d%p_patch_1d(1)%del_zlev_m(level)
-          ! delta_z = patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb)
-
 
           new_ocean_tracer%concentration(jc,level,jb) =                          &
             &  old_ocean_tracer%concentration(jc,level,jb) -                     &
@@ -643,6 +714,8 @@ CONTAINS
         ALLOCATE(temp_tracer_after%concentration(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks))
 !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, &
 !ICON_OMP level) ICON_OMP_DEFAULT_SCHEDULE
+ 
+        !Store new tracer concentration in two arrays
         DO jb = cells_in_domain%start_block, cells_in_domain%end_block
           CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
           DO jc = start_cell_index, end_cell_index
@@ -653,7 +726,10 @@ CONTAINS
           END DO
         ENDDO 
 !ICON_OMP_END_PARALLEL_DO         
-      ENDIF
+      ENDIF!IF(GMREDI_COMBINED_DIAGNOSTIC)
+      
+      !Vertical mixing: implicit and with coefficient a_v
+      !that is the sum of PP-coeff and implicit part of Redi-scheme
       
       CALL tracer_diffusion_vertical_implicit( &
           & patch_3d,                      &
@@ -683,14 +759,60 @@ CONTAINS
             END DO
           END DO
         ENDDO 
-!ICON_OMP_END_PARALLEL_DO         
-        CALL dbg_print('AftGMRedi: divofGMRediflux2',p_os%p_diag%div_of_GMRedi_flux(:,:,:),&
-        & str_module, idt_src, in_subset=cells_in_domain)      
+!ICON_OMP_END_PARALLEL_DO    
+
+        IF(tracer_index == 1) THEN     
+          CALL dbg_print('AftGMRedi: temp. complete divofGMRediflux',p_os%p_diag%div_of_GMRedi_flux(:,:,:),&
+          & str_module, idt_src, in_subset=cells_in_domain) 
+        ELSEIF(tracer_index == 2) THEN
+          CALL dbg_print('AftGMRedi: sal complete divofGMRediflux',p_os%p_diag%div_of_GMRedi_flux(:,:,:),&
+          & str_module, idt_src, in_subset=cells_in_domain)        
+        ENDIF     
         DEALLOCATE(temp_tracer_before%concentration)
-        DEALLOCATE(temp_tracer_after%concentration)
-      ENDIF
+        DEALLOCATE(temp_tracer_after%concentration) 
+        
+      ENDIF!IF(GMREDI_COMBINED_DIAGNOSTIC)THEN          
+      
+
+      IF(tracer_index == 1) THEN           
+      !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, &
+!ICON_OMP level ) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+          DO jc = start_cell_index, end_cell_index
+
+            DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)       
+
+              p_os%p_diag%opottemptend(jc,level,jb)&
+              &=(new_ocean_tracer%concentration(jc,level,jb)&
+              &- old_ocean_tracer%concentration(jc,level,jb))/dtime            
+            END DO
+          END DO
+        ENDDO 
+!ICON_OMP_END_PARALLEL_DO 
+
+      ELSEIF(tracer_index == 2) THEN 
+     !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, &
+!ICON_OMP level ) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+          DO jc = start_cell_index, end_cell_index
+
+            DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)       
+
+              p_os%p_diag%osalttend(jc,level,jb)&
+              &=(new_ocean_tracer%concentration(jc,level,jb)&
+              &- old_ocean_tracer%concentration(jc,level,jb))/dtime            
+            END DO
+          END DO
+        ENDDO 
+!ICON_OMP_END_PARALLEL_DO 
+
+      ENDIF!IF(tracer_index == 1)   
+           
           
-    ENDIF ! l_with_vert_tracer_diffusion
+    ENDIF!IF ( l_with_vert_tracer_diffusion )
+
 
     CALL sync_patch_array(sync_c, patch_2D, new_ocean_tracer%concentration)
 
@@ -709,6 +831,24 @@ CONTAINS
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('aft. AdvIndivTrac: trac_old', trac_old, str_module, 3, in_subset=cells_in_domain)
     CALL dbg_print('aft. AdvIndivTrac: trac_new', trac_new, str_module, 3, in_subset=cells_in_domain)
+    IF(tracer_index == 1) THEN
+      DO level=1,n_zlev
+        CALL dbg_print('temp tend:', p_os%p_diag%opottemptend(:,level,:), str_module, 3, in_subset=cells_in_domain)
+      END DO
+     ELSEIF(tracer_index == 2) THEN
+      DO level=1,n_zlev
+        CALL dbg_print('temp tend:', p_os%p_diag%opottemptend(:,level,:), str_module, 3, in_subset=cells_in_domain)
+      END DO
+      DO level=1,n_zlev
+        CALL dbg_print('salt tend:', p_os%p_diag%osalttend(:,level,:), str_module, 3, in_subset=cells_in_domain)
+      END DO
+     ELSEIF(tracer_index >= 3) THEN 
+      DO level=1,n_zlev
+        CALL dbg_print('tracer tend:', (new_ocean_tracer%concentration(:,level,:)&
+              &- old_ocean_tracer%concentration(:,level,:))/dtime, str_module, 3, in_subset=cells_in_domain)
+      END DO           
+    ENDIF  
+      
     !---------------------------------------------------------------------
   
 

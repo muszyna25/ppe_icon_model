@@ -642,8 +642,6 @@ CONTAINS
     CASE(3)
       atmos_fluxes%data_surfRelax_Temp(:,:) = ocean_state%p_prog(nold(1))%tracer(:,1,:,1)
 
-
-
     CASE(4)
       ! smooth ape relaxation, as in temperature_smoothAPE in mo_cean_initial_conditions
       temperature_difference = relax_temperature_max - relax_temperature_min

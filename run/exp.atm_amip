@@ -30,12 +30,13 @@ author_list="Marco Giorgetta, MPIM"
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
-grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip/r0002
-atmo_dyn_grids='r2b4_amip.nc'
+grid_name=r2b4_amip
+grids_folder=${icon_data_poolFolder}/grids/private/${grid_name}/r0002
+atmo_dyn_grids=${grid_name}.nc
 
 # start and end date+time
-start_date="1979-01-01T00:00:00Z"
-  end_date="2009-01-01T00:00:00Z"
+start_date=${start_date:="1979-01-01T00:00:00Z"}
+    end_date=${end_date:="2009-01-01T00:00:00Z"}
 
 # restart intervals
 checkpoint_interval="P1Y"
@@ -82,7 +83,7 @@ cat > ${atmo_namelist} << EOF
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
- ntracer          = 3           ! number of tracers
+ ntracer          = 3           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
@@ -118,9 +119,10 @@ cat > ${atmo_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
- ivadv_tracer     = 3,3,3
- itype_hlimit     = 3,4,4
- ihadv_tracer     = 52,2,2
+!                   hus,clw,cli, o3
+ ivadv_tracer     =   3,  3,  3,  3
+ itype_hlimit     =   3,  4,  4,  4
+ ihadv_tracer     =  52,  2,  2, 52
 /
 &echam_phy_nml
  dt_rad           =  7200.      ! [s] radiation time step
@@ -130,6 +132,7 @@ cat > ${atmo_namelist} << EOF
  lcond            = .TRUE.
  lgw_hines        = .TRUE.
  lssodrag         = .TRUE.
+ lcariolle        = .FALSE.
  lice             = .TRUE.
  ljsbach          = ${ljsbach}
  llake            = ${llake}
@@ -142,7 +145,7 @@ cat > ${atmo_namelist} << EOF
  irad_co2         = 4           ! 4: from greenhouse gas scenario
  irad_ch4         = 4           ! 4: from greenhouse gas scenario
  irad_n2o         = 4           ! 4: from greenhouse gas scenario
- irad_o3          = 8           ! 8: horizontally and vertically variable
+ irad_o3          = 8           ! 1: prognostic ozone; 8: prescribed transient monthly mean ozone
  irad_o2          = 2           ! 2: horizontally and vertically constant
  irad_cfc11       = 4           ! 4: from greenhouse gas scenario
  irad_cfc12       = 4           ! 4: from greenhouse gas scenario
@@ -154,12 +157,13 @@ cat > ${atmo_namelist} << EOF
                                 !18: Kinne background aerosols of 1850 (natural
                                 !    background + Stenchikov\'s volc. aerosols
                                 !    + simple plumes (anthropogenic)
- lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
  ighg             = 1           ! 1: transient well mixed greenhouse gas concentrations
  isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
 /
 &psrad_nml
-rad_perm          = 1           ! Integer for perturbing random number seeds
+ rad_perm         = 1           ! Integer for perturbing random number seeds
+/
+&psrad_orbit_nml
 /
 &echam_conv_nml
 /
@@ -252,10 +256,10 @@ INDATA=${icon_data_poolFolder}/input/r0004
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=${icon_data_poolFolder}/setup/ifs_iconremap_amip
-add_link_file $datadir/ifs_remap_R2B4_00XX_AMIP_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
+add_link_file $datadir/ifs_remap_${grid_name}_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
 #
 # - land: source?, date+time?
-#datadir=$INDATA/r2b4_amip/lnd
+#datadir=$INDATA/${grid_name}/lnd
 #datadir=/scratch/local1/m212005/data/icon/${jsbach_usecase}
 datadir=/work/mj0060/m212005/data/icon/${jsbach_usecase}
 add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
@@ -272,16 +276,20 @@ datadir=$INDATA/global/atm
 add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_greenhouse_gases.nc
 #
 # - ozone
-datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
+# -- for irad_o3=8
+datadir=$INDATA/${grid_name}/atm/bc_ozone_cmip5
 year=$start_year
 while [[ $year -le $end_year ]]
 do
   add_link_file $datadir/bc_ozone_cmip5_${year}.nc                      ./bc_ozone_${year}.nc
   (( year = year+1 ))
 done
+# -- for irad_o3=1 with Cariolle ozone chemistry
+datadir=$INDATA/global/atm
+add_link_file $datadir/bc_ozone_cariolle.nc                             ./cariolle_coeff.nc
 #
 # - tropospheric aerosol
-datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
+datadir=$INDATA/${grid_name}/atm/bc_aeropt_kinne
 year=$start_year
 while [[ $year -le $end_year ]]
 do
@@ -300,7 +308,7 @@ done
   add_link_file ${basedir}/data/MACv2.0-SP_v1.nc ./MACv2.0-SP_v1.nc
 #   Kinne background aerosols are needed for the years 1849, 1850, 1851 
 !   accessing all the same data of 1850:
-datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
+datadir=$INDATA/${grid_name}/atm/bc_aeropt_kinne
 year=1849
 while [[ $year -le 1851 ]]
 do
@@ -309,8 +317,9 @@ do
   add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
   (( year = year+1 ))
 done
+#
 # - stratospheric aerosol
-datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
+datadir=$INDATA/${grid_name}/atm/bc_aeropt_stenchikov
 year=$start_year
 while [[ $year -le $end_year ]]
 do
@@ -324,7 +333,7 @@ do
 done
 #
 # - sst and sic
-datadir=$INDATA/r2b4_amip/oce
+datadir=$INDATA/${grid_name}/oce
 add_link_file $datadir/bc_sic_pcmdi_1870-2010.nc                        ./bc_sic.nc
 add_link_file $datadir/bc_sst_pcmdi_1870-2010.nc                        ./bc_sst.nc
 #
@@ -333,7 +342,7 @@ datadir=$INDATA/global/sun
 add_link_file $datadir/bc_solar_irradiance_14band_1849-2399.nc          ./bc_solar_irradiance_sw_b14.nc
 #
 # - land parameters
-#datadir=$INDATA/r2b4_amip/lnd
+#datadir=$INDATA/${grid_name}/lnd
 #datadir=/scratch/local1/m212005/data/icon/${jsbach_usecase}
 datadir=/work/mj0060/m212005/data/icon/${jsbach_usecase}
 add_link_file $datadir/bc_land_frac_1976.nc                             ./bc_land_frac.nc
@@ -341,6 +350,7 @@ add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_lan
 add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
 add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
 if [[ ${jsbach_with_hd} = yes ]]; then
+  #add_link_file $datadir/bc_land_hd.nc                                  ./bc_land_hd.nc
   add_link_file $datadir/hd_para_icon_r2b4_pre04_vs1_5.nc               ./bc_land_hd.nc
 fi
 #
@@ -364,6 +374,29 @@ EOF
 # -------------------
 #
 # output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
+#
+# 3-dimensional files include 'ps' and 'pfull' to allow the vertical
+# interpolation to pressure levels by cdo ap2pl.
+
+output_atm_cgrid=yes
+#
+if [[ "$output_atm_cgrid" == "yes" ]]; then
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_atm_cgrid"
+ filename_format  = "<output_filename>_<levtype_l>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"       ! output_start = output_end
+ output_end       = "${start_date}"       ! --> write once only irrespective of
+ output_interval  = "${output_interval}"  !     the output interval and
+ file_interval    = "${file_interval}"    !     the file interval
+ ml_varlist       = 'clon', 'clat', 'areacella', 'zghalf', 'zg'
+/
+EOF
+fi
+
 
 output_atm_3d=yes
 #
@@ -381,8 +414,13 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
-                    'zg','pfull','ps'
+ ml_varlist       = 'zg'      ,
+                    'ps'      , 'pfull'   ,
+                    'rho'     , 'ta'      ,
+                    'ua'      , 'va'      , 'wap'     ,
+                    'hus'     , 'clw'     , 'cli'     ,
+                    'hur'     , 'cl'      ,
+!                    'qo3_phy' ,
 /
 EOF
 fi
@@ -404,9 +442,13 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
-                    'cosmu0'  , 'rsdt'    ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+ ml_varlist       = 'orog'    ,
+                    'ps'      , 'psl'     ,
+                    'cosmu0'  ,
+                    'rsdt'    ,
+                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'  ,
+                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'  ,
+                    'rsus'    , 'rsuscs'  , 'rlus'    ,
                     'ts'      ,
                     'sic'     , 'sit'     ,
                     'albedo'  ,
@@ -415,9 +457,9 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
                     'tauu'    , 'tauv'    ,
-                    'tauu_sso', 'tauv_sso', 'diss_sso', 
+                    'tauu_sso', 'tauv_sso', 'diss_sso',
                     'sfcwind' , 'uas'     , 'vas'     ,
-                    'tas'     , 'dew2'
+                    'tas'     , 'dew2'    ,
 /
 EOF
 fi
@@ -439,7 +481,8 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
+ ml_varlist       = 'ps'           , 'pfull'        ,
+                    'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
                     'tend_ta_vdf'  , 'tend_ta_gwh'  , 'tend_ta_sso'  ,
                     'tend_ta_cnv'  , 'tend_ta_cld'  , 
@@ -449,7 +492,8 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
                     'tend_va_vdf'  , 'tend_va_gwh'  , 'tend_va_sso'  ,
                     'tend_va_cnv'  ,
-                    'pfull','ps'
+                    'tend_qhus'    , 'tend_qhus_dyn', 'tend_qhus_phy',
+                    'tend_qhus_cld', 'tend_qhus_cnv', 'tend_qhus_vdf',
 /
 EOF
 fi

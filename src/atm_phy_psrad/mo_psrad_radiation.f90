@@ -54,99 +54,73 @@
 !
 MODULE mo_psrad_radiation
 
-  USE mo_kind,            ONLY: wp, i8
-  USE mo_model_domain,    ONLY: t_patch
-  USE mo_physical_constants,       ONLY: rae
-  USE mo_exception,       ONLY: finish, message, message_text, print_value
-  USE mo_mpi,             ONLY: my_process_is_stdio
-  USE mo_namelist,        ONLY: open_nml, position_nml, close_nml, POSITIONED
-  USE mo_io_units,        ONLY: nnml, nnml_output
+  USE mo_kind,                ONLY: wp, i8
+  USE mo_model_domain,        ONLY: t_patch
+  USE mo_physical_constants,  ONLY: rae
+  USE mo_exception,           ONLY: finish, message, message_text, print_value
+  USE mo_mpi,                 ONLY: my_process_is_stdio
+  USE mo_namelist,            ONLY: open_nml, position_nml, close_nml, POSITIONED
+  USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist
-  USE mo_impl_constants,      ONLY: io3_clim, io3_ape, io3_amip
+  USE mo_impl_constants,      ONLY: io3_interact, io3_clim, io3_ape, io3_amip
   USE mo_ext_data_types,      ONLY: t_external_atmos_td
   USE mo_ext_data_state,      ONLY: ext_data, nlev_o3
   USE mo_bc_ozone,            ONLY: o3_plev, nplev_o3, plev_full_o3, plev_half_o3
   USE mo_o3_util,             ONLY: o3_pl2ml, o3_timeint
-  USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
-!  USE mo_time_control,    ONLY: l_orbvsop87, get_orbit_times,                 &
-!       &                        p_bcast_event, current_date, next_date,       &
-!       &                        previous_date, radiation_date,                &
-!       &                        prev_radiation_date,get_date_components,      &
-!       &                        lresume, lstart, get_month_len
-  USE mo_psrad_orbit,     ONLY: orbit_kepler, orbit_vsop87, &
-                              & get_orbit_times
-  USE mo_psrad_orbit_nml, ONLY: read_psrad_orbit_namelist
-  USE mo_psrad_radiation_parameters, ONLY: solar_parameters, &
-                              & l_interp_rad_in_time,        &
-                              & zepzen
-! the present mo_bc_solar_irradiance is "old" and not the one used in echam-6.3.
-!  USE mo_solar_irradiance,ONLY: get_solar_irradiance, set_solar_irradiance, &
-!                                get_solar_irradiance_m, set_solar_irradiance_m
-! cloud optics does not exist in icon
-  USE mo_psrad_cloud_optics,    ONLY: setup_cloud_optics  
-  USE mo_bc_greenhouse_gases,   ONLY: ghg_co2mmr, ghg_ch4mmr, ghg_n2ommr, ghg_cfcvmr
-  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqt, ico2, ntracer
-! ozone: read by mo_bc_ozone in icon, does not contain full functionality like here.
-!  USE mo_o3clim,          ONLY: pre_o3clim_4, pre_o3clim_3, o3clim,            &
-!       &                        read_o3clim_3
-!  USE mo_o3_lwb,          ONLY: o3_lwb
-! used for interactive CO2, can be switched off for the moment.
-  USE mo_radiation_config,           ONLY: irad_h2o,           &
-                                           irad_co2,           &
-                                           irad_ch4,           &
-                                           irad_o3,            &
-                                           irad_o2,            &
-                                           irad_n2o,           &
-                                           irad_cfc11,         &
-                                           irad_cfc12,         &
-                                           irad_aero,          &
-                                           ighg,               &
-                                           vmr_co2, mmr_co2,   &
-                                           vmr_ch4, mmr_ch4,   &
-                                           vmr_n2o, mmr_n2o,   &
-                                           vmr_o2,  mmr_o2,    &
-                                           vmr_cfc11,          &
-                                           vmr_cfc12,          &
-                                           fh2o, fco2, fch4,   &
-                                           fn2o, fo3, fo2,     &
-                                           fcfc,               &
-                                           ch4_v=>vpp_ch4,     &
-                                           n2o_v=>vpp_n2o,     &
-                                           vmr_o2,             &
-                                           nmonth,             &
-                                           isolrad,            &
-                                           ldiur,              &
-                                           lyr_perp,           &
-                                           yr_perp,            &
-                                           lradforcing,        &
-                                           tsi,                &
-                                           tsi_radt,           &
-                                           ssi_radt
+  USE mo_echam_phy_config,    ONLY: echam_phy_config
+  USE mo_psrad_orbit,         ONLY: orbit_kepler, orbit_vsop87, &
+                                  & get_orbit_times
+  USE mo_psrad_orbit_nml,     ONLY: read_psrad_orbit_namelist
+  USE mo_psrad_cloud_optics,  ONLY: setup_cloud_optics  
+  USE mo_bc_greenhouse_gases, ONLY: ghg_co2mmr, ghg_ch4mmr, ghg_n2ommr, ghg_cfcmmr
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqt, ico2, io3, ntracer
+  USE mo_radiation_config,    ONLY: irad_h2o,             &
+                                    irad_co2,             &
+                                    irad_ch4,             &
+                                    irad_o3,              &
+                                    irad_o2,              &
+                                    irad_n2o,             &
+                                    irad_cfc11,           &
+                                    irad_cfc12,           &
+                                    irad_aero,            &
+                                    vmr_co2,   mmr_co2,   &
+                                    vmr_ch4,   mmr_ch4,   &
+                                    vmr_n2o,   mmr_n2o,   &
+                                    vmr_o2,    mmr_o2,    &
+                                    vmr_cfc11, mmr_cfc11, &
+                                    vmr_cfc12, mmr_cfc12, &
+                                    fh2o, fco2, fch4,     &
+                                    fn2o, fo3, fo2,       &
+                                    fcfc,                 &
+                                    ch4_v=>vpp_ch4,       &
+                                    n2o_v=>vpp_n2o,       &
+                                    vmr_o2,               &
+                                    nmonth,               &
+                                    isolrad,              &
+                                    ldiur,                &
+                                    lyr_perp,             &
+                                    yr_perp,              &
+                                    lradforcing,          &
+                                    tsi_radt,             &
+                                    ssi_radt
   USE mo_psrad_radiation_parameters, ONLY: nb_sw,              & 
                                      irad_aero_forcing,        &
-                                     l_interp_rad_in_time,     &
-                                     zepzen,                   &
                                      lw_spec_samp,             &
                                      sw_spec_samp,             &
                                      lw_gpts_ts,               &
                                      sw_gpts_ts,               &
                                      rad_perm,                 &
                                      cemiss,                   &
-                                     solc,                     &
-                                     psct,                     &
                                      psctm,                    &
                                      ssi_factor,               &
                                      flx_ratio_cur,            &
                                      flx_ratio_rad,            &
                                      solar_parameters
 
-! following module for diagnostic of radiative forcing only
-  USE mo_psrad_radiation_forcing,ONLY: prepare_psrad_radiation_forcing
-
   USE mo_rrtm_params,   ONLY : nbndsw
 ! new to icon
   USE mo_psrad_srtm_setup,ONLY : ssi_default, ssi_preind, ssi_amip,           &
-                             & ssi_RCEdiurnOn, ssi_RCEdiurnOff
+                             & ssi_RCEdiurnOn, ssi_RCEdiurnOff, ssi_cmip6_picontrol
   USE mo_psrad_interface,ONLY : setup_psrad, psrad_interface, &
                                 lw_strat, sw_strat
   USE mo_psrad_spec_sampling, ONLY : set_spec_sampling_lw, set_spec_sampling_sw, get_num_gpoints
@@ -182,9 +156,11 @@ MODULE mo_psrad_radiation
     INTEGER(i8) :: icurrentyear
     INTEGER  :: icurrentmonth, i
     INTEGER, SAVE :: iprevmonth=-9999
-    REAL(wp) :: rasc_sun, decl_sun, dist_sun, time_of_day, zrae
-    REAL(wp) :: orbit_date
-    REAL(wp) :: solcm
+    REAL(wp) :: rasc_sun, decl_sun, dist_sun
+    REAL(wp) :: time_of_day, orbit_date
+    REAL(wp) :: time_of_day_rt, orbit_date_rt
+    REAL(wp) :: dt_ext
+    REAL(wp) :: tsi
     LOGICAL  :: l_orbvsop87, l_sph_symm_irr
 
     l_orbvsop87 = psrad_orbit_config%l_orbvsop87
@@ -193,87 +169,69 @@ MODULE mo_psrad_radiation
     !
     ! 1.0 Compute orbital parameters for current time step
     ! --------------------------------
+    !
+    ! "time_of_day"  defines the local noon longitude for the time of this time step.
+    ! "orbit_date" is not used. Instead always "orbit_date_rt" is used.
     CALL get_orbit_times(current_datetime, time_of_day, orbit_date)
+    !
+    ! "time_of_day_rt" defines the local noon longitude for the time of the
+    ! radiative transfer calculation.
+    ! "orbit_date_rt" defines the orbit position at the radiation time.
+    ! This orbit position is kept constant through the radiation interval.
+    CALL get_orbit_times(datetime_radiation, time_of_day_rt, orbit_date_rt)
 
+
+    ! Compute the orbital parameters of Earth for "orbit_date_rt".
     IF (l_orbvsop87) THEN 
-      CALL orbit_vsop87 (orbit_date, rasc_sun, decl_sun, dist_sun)
+      CALL orbit_vsop87 (orbit_date_rt, rasc_sun, decl_sun, dist_sun)
     ELSE
-      CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
+      CALL orbit_kepler (orbit_date_rt, rasc_sun, decl_sun, dist_sun)
     END IF
 
-!!$    decl_sun_cur = decl_sun       ! save for aerosol and chemistry submodels
-    CALL solar_parameters(decl_sun,       dist_sun,         time_of_day,       &
-         &                ldiur,          l_sph_symm_irr,   p_patch,           &
+    ! Compute cos(zenith angle) "amu0_x" for the time "time_of_day" of this time step
+    ! and for the orbit parameters "decl_sun" and "dist_sun" valid for "orbit_date_rt".
+    !
+    ! "amu0_x" is needed for the incoming SW flux field at the top of the atmosphere.
+    !
+    ! Do not extend the sun-lit area. Exactly half of the globe is sun-lit
+    dt_ext = 0.0_wp
+    !
+    CALL solar_parameters(decl_sun,       dist_sun,                            &
+         &                time_of_day,    dt_ext,                              &
+         &                ldiur,          l_sph_symm_irr,                      &
+         &                p_patch,                                             &
          &                flx_ratio_cur,  amu0_x,           rdayl_x            )
-
-    IF (phy_config%lrad) THEN
-!!$
-      SELECT CASE (isolrad)
-      CASE (0)
-        solc = SUM(ssi_default)
-      CASE (1)
-!!$        CALL get_solar_irradiance(current_date, next_date)
-!!$        CALL set_solar_irradiance(solc)
-        solc = tsi
-        continue ! solar irradiance was read in echam_phy_bcs_global
-      CASE (2)
-        solc = SUM(ssi_preind)
-      CASE (3)
-        solc = SUM(ssi_amip)
-      CASE (4)
-        solc = SUM(ssi_RCEdiurnOn)
-      CASE (5)
-        solc = SUM(ssi_RCEdiurnOff)
-      CASE default
-        WRITE (message_text, '(a,i2,a)') &
-             'isolrad = ',isolrad, ' in radiation_nml namelist is not supported'
-        CALL finish('pre_psrad_radiation', message_text)
-      END SELECT
-      psct = flx_ratio_cur*solc
-
-    END IF ! lrad
 
     !
     ! 2.0 Prepare time dependent quantities for rad (on radiation timestep)
     ! --------------------------------
-    IF (phy_config%lrad .AND. ltrig_rad) THEN
+    IF (ltrig_rad) THEN
 
-      CALL get_orbit_times(datetime_radiation, time_of_day, orbit_date)
-
-      IF ( l_orbvsop87 ) THEN 
-        CALL orbit_vsop87 (orbit_date, rasc_sun, decl_sun, dist_sun)
-      ELSE
-        CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
-      END IF
-      CALL solar_parameters(decl_sun,        dist_sun,          time_of_day,        &
-           &                ldiur,           l_sph_symm_irr,    p_patch,            &
+      ! Compute cos(zenith angle) "amu0m_x" for the radiation time "time_of_day_rt"
+      ! and the orbit parameters "decl_sun" and "dist_sun" valid for "orbit_date_rt".
+      !
+      ! "amu0m_x" is needed for the incoming SW flux field at the top of the atmosphere
+      ! and for the optical paths.
+      !
+      ! Extend the sunlit area for the radiative transfer calculations over an extended area
+      ! including a rim of width dt_rad/2/86400*2pi (in radian) around the sunlit hemisphere.
+      dt_ext = echam_phy_config%dt_rad
+      !
+      CALL solar_parameters(decl_sun,        dist_sun,                              &
+           &                time_of_day_rt,  dt_ext,                                &
+           &                ldiur,           l_sph_symm_irr,                        &
+           &                p_patch,                                                &
            &                flx_ratio_rad,   amu0m_x,           rdaylm_x            )
       !
-      ! consider curvature of the atmosphere for high zenith angles
+      ! Consider curvature of the atmosphere for high zenith angles:
+      ! The atmospheric path for a zenith angle mu0 through a spherical shell of
+      ! thickness H and an inner radius R (and ratio rae=H/R) is shorter than
+      ! a path at equal zenith angle through a plane parallel layer of thickness H.
       !
-      zrae = rae*(rae+2.0_wp)
-      amu0m_x(:,:)  = rae/(SQRT(amu0m_x(:,:)**2+zrae)-amu0m_x(:,:))
-      !
-      ! For the calculation of radiative transfer, a maximum zenith angle
-      ! of about 84 degrees is applied in order to avoid to much overshooting
-      ! when the extrapolation of the radiative fluxes from night time
-      ! regions to daytime regions is done for time steps at which no
-      ! radiation calculation is performed. This translates into cosines
-      ! of the zenith angle > 0.1.  This approach limits the calculation of the 
-      ! curvature effect above, and should be reconsidered in the future
-      ! 
-      amu0m_x(:,:) = MAX(amu0m_x(:,:),0.1_wp)
-!!$      !
-!!$      ! --- Prepare Ozone climatology
-!!$      !
-!!$      SELECT CASE (irad_o3)
-!!$      CASE (3) 
-!!$        CALL pre_o3clim_3(nmonth)
-!!$      CASE (4) 
-!!$        CALL pre_o3clim_4
-!!$      END SELECT
-!!$      !
-!!$
+      WHERE (rdaylm_x == 1.0_wp) 
+         amu0m_x(:,:)  = rae/(SQRT(amu0m_x(:,:)**2+rae*(rae+2.0_wp))-amu0m_x(:,:))
+      END WHERE
+
       !++jsr&hs
       ! 3.0 Prepare possibly time dependent total solar and spectral irradiance
       ! --------------------------------
@@ -290,39 +248,36 @@ MODULE mo_psrad_radiation
 
       SELECT CASE (isolrad)
       CASE (0)
-        solcm = SUM(ssi_default)
+        tsi = SUM(ssi_default)
         ssi_factor = ssi_default
       CASE (1)
-!!$        CALL get_solar_irradiance_m(prev_radiation_date, radiation_date, nb_sw)
-!!$        CALL set_solar_irradiance_m(solcm, ssi_factor, nb_sw)
-        solcm=tsi_radt
+        tsi=tsi_radt
         ssi_factor=ssi_radt
         continue ! solar irradiance was read in echam_phy_bcs_global
       CASE (2)
-        solcm = SUM(ssi_preind)
+        tsi = SUM(ssi_preind)
         ssi_factor = ssi_preind
       CASE (3)
-        solcm = SUM(ssi_amip)
+        tsi = SUM(ssi_amip)
         ssi_factor = ssi_amip
       CASE (4)
-        solcm = SUM(ssi_RCEdiurnOn)
+        tsi = SUM(ssi_RCEdiurnOn)
         ssi_factor = ssi_RCEdiurnOn
       CASE (5)
-        solcm = SUM(ssi_RCEdiurnOff)
+        tsi = SUM(ssi_RCEdiurnOff)
         ssi_factor = ssi_RCEdiurnOff
+      CASE (6)
+        tsi = SUM(ssi_cmip6_picontrol)
+        ssi_factor = ssi_cmip6_picontrol
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'isolrad = ', isolrad, ' in radctl namelist is not supported'
         CALL message('pre_radiation', message_text)
       END SELECT
-      psctm = flx_ratio_rad*solcm
-      ssi_factor(:) = ssi_factor(:)/solcm
+      psctm = flx_ratio_rad*tsi
+      ssi_factor(:) = ssi_factor(:)/tsi
 
       ! output of solar constant every month
-
-!!$      CALL get_date_components(current_date, month=icurrentmonth, &
-!!$           year=icurrentyear)
-!!$      CALL get_date_components(previous_date, month=iprevmonth)
 
       icurrentmonth = datetime_radiation%date%month
       icurrentyear = datetime_radiation%date%year
@@ -333,7 +288,7 @@ MODULE mo_psrad_radiation
         WRITE (message_text,'(a,i0,a,i2.2,a,f6.1)') &
              'Total solar constant [W/m^2] for ',      &
              icurrentyear, '-',                        &
-             icurrentmonth, ' = ', solcm
+             icurrentmonth, ' = ', tsi
         CALL message('',message_text)
         CALL message('','')
         DO i = 1, nb_sw
@@ -343,23 +298,15 @@ MODULE mo_psrad_radiation
           CALL message('',message_text)
         END DO
       END IF
-      !--jsr&hs
-    ELSE
-      amu0m_x(:,:) = 0.0_wp
-      rdaylm_x(:,:) = 0.0_wp
-    END IF ! lrad .AND. l_trigrad
+    END IF ! l_trigrad
 
   END SUBROUTINE pre_psrad_radiation
 
   SUBROUTINE setup_psrad_radiation(file_name)
-!!$    USE mo_aero_kinne,       ONLY: su_aero_kinne
-!!$    USE mo_aero_volc,        ONLY: su_aero_volc
-!!$    USE mo_aero_volc_tab,    ONLY: su_aero_prop_ham, su_aero_prop_crow, &
-!!$                                   read_aero_volc_tables
-!!$    USE mo_solar_irradiance, ONLY: init_solar_irradiance
 
     CHARACTER(len=*), INTENT(IN)      :: file_name
     INTEGER :: istat, funit
+    CHARACTER(len=2)                  :: cio3
 
     NAMELIST /psrad_nml/ lradforcing,       & ! switch for short and longwave
      ! radiative forcing calculation by double call to radiation (default:
@@ -399,7 +346,7 @@ MODULE mo_psrad_radiation
     !
     ! 3.0 If radiation is active check NAMELIST variable conformance
     ! --------------------------------
-    IF (phy_config%lrad) THEN
+    IF (echam_phy_config%lrad) THEN
 
       CALL message('','')
       CALL message('','PSrad setup')
@@ -407,7 +354,7 @@ MODULE mo_psrad_radiation
       CALL message('','- New (V4) LRTM Model')
       CALL message('','- AER RRTM Shortwave Model')
       CALL message('','')
-      CALL print_value('radiation time step in [s]',phy_config%dt_rad)
+      CALL print_value('radiation time step in [s]',echam_phy_config%dt_rad)
       CALL message('','')
       !
       CALL setup_psrad
@@ -551,12 +498,17 @@ MODULE mo_psrad_radiation
       SELECT CASE (irad_o3)
       CASE(0)
         CALL message('','irad_o3    = 0 --> no O3 in radiation')
+        CASE(io3_interact)
+          WRITE(cio3,'(I2)') irad_o3
+          CALL message('','irad_o3  ='//cio3//' --> O3    volume mixing ratio from 3d--tracer field (interactive ozone)')
 !!$      CASE(2)
 !!$        CALL message('','irad_o3    = 2 --> O3    periodic-in-time 3-dim. volume mixing ratio from file')
       CASE(4)
         CALL message('','irad_o3    = 4 --> O3    constant-in-time 3-dim. volume mixing ratio from file')
       CASE(8)
         CALL message('','irad_o3    = 8 --> O3    transient 3-dim. volume mixing ratio from file')
+      CASE(10)
+        CALL message('', 'irad_o3    = 10 --> O3   from ART')
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'irad_o3    =', irad_o3, ' in radiation_nml namelist is not supported'
@@ -650,15 +602,16 @@ MODULE mo_psrad_radiation
         CALL message('','isolrad = 0 --> standard rrtm solar constant')
       CASE (1) 
         CALL message('','isolrad = 1 --> time dependent spectrally resolved solar constant read from file')
-!!$        CALL init_solar_irradiance(nb_sw)
       CASE (2) 
-        CALL message('','isolrad = 2 --> preindustrial solar constant')
+        CALL message('','isolrad = 2 --> CMIP5 preindustrial solar constant')
       CASE (3) 
         CALL message('','isolrad = 3 --> solar constant for amip runs')
       CASE (4)
         CALL message('','isolrad = 4 --> solar constant for rad.-convective eq. runs with diurnal cycle ON')
       CASE (5)
         CALL message('','isolrad = 5 --> solar constant for rad.-convective eq. runs with diurnal cycle OFF')
+      CASE (6)
+        CALL message('','isolrad = 6 --> CMIP6 preindustrial solar constant')
       CASE default 
         WRITE (message_text, '(a,i3,a)') &
              'Run terminated isolrad = ', isolrad, ' not supported'
@@ -674,32 +627,14 @@ MODULE mo_psrad_radiation
         CALL message('','ldiur =.FALSE. --> diurnal cycle off')
       ENDIF
       !
-      ! --- Check for diagnosis of instantaneous aerosol radiative forcing
-      ! 
-      CALL message('','instantaneous forcing diagnostic:')
-      WRITE (message_text,'(a18,L3,a20,L3,a39,I3)')       &
-           ' solar radiation: ',   lradforcing(1), &
-           ' thermal radiation: ', lradforcing(2), &
-           ' irad_aero_forcing for reference aerosols: ', irad_aero_forcing
-      CALL message('',message_text)
-      !
       ! --- Check perpetual orbit
       ! 
       IF (yr_perp.NE.-99999)  lyr_perp = .TRUE.
-!!$      CALL p_bcast (lyr_perp, p_io)
-!!$
+
       IF (lyr_perp) THEN
-!!$        IF (l_orbvsop87) THEN
           WRITE (message_text, '(a,i0,a)') &
                'yr_perp=', yr_perp, ' --> perpetual year for orbit'
           CALL message('',message_text)
-!!$        ELSE
-!!$          WRITE (message_text, '(a,i0,a,l1,a)') &
-!!$               'yr_perp = ', yr_perp, ' l_orbvsop87 = ',l_orbvsop87,' not allowed!'
-!!$          CALL message('',message_text)
-!!$          CALL finish('setup_psrad_radiation', &
-!!$               ' yr_perp.ne.-99999 cannot run  PCMDI-orbit (l_orbvsop87=.F.).')
-!!$        END IF
       END IF
       !
       ! 4.0 Initialization for radiation
@@ -709,158 +644,146 @@ MODULE mo_psrad_radiation
       !
       CALL setup_cloud_optics
       !
-!!$      ! --- Ozone climatology
-!!$      ! 
-!!$      IF (irad_o3==3) CALL read_o3clim_3
-!!$      !
     ENDIF
   END SUBROUTINE setup_psrad_radiation
 
   SUBROUTINE psrad_radiation ( &
-    & current_date, &!< in current date
-    & jg         ,&!< in  domain index
-    & jb         ,&!< in  block index
-    & kproma     ,&!< in  end index for loop over block
-    & kbdim      ,&!< in  dimension of block over cells
-    & klev       ,&!< in  number of full levels = number of layers
-    & klevp1     ,&!< in  number of half levels = number of layer interfaces
-    & ktype      ,&!< in  type of convection
-    & loland     ,&!< in  land-sea mask. (1. = land, 0. = sea/lakes)
-    & loglac     ,&!< in  fraction of land covered by glaciers
-    & this_datetime,&!< in  actual time step
-    & pcos_mu0   ,&!< in  cosine of solar zenith angle
-    & geoi       ,&!< in  geopotential wrt surface at layer interfaces
-    & geom       ,&!< in  geopotential wrt surface at layer centres
-    & oromea     ,&!< in  orography in m
-    & alb_vis_dir,&!< in  surface albedo for visible range, direct
-    & alb_nir_dir,&!< in  surface albedo for near IR range, direct
-    & alb_vis_dif,&!< in  surface albedo for visible range, diffuse
-    & alb_nir_dif,&!< in  surface albedo for near IR range, diffuse
-    & tk_sfc     ,&!< in  grid box mean surface temperature
-    & pp_hl      ,&!< in  pressure at half levels at t-dt [Pa]
-    & pp_fl      ,&!< in  pressure at full levels at t-dt [Pa]
-    & tk_fl      ,&!< in  tk_fl  = temperature at full level at t-dt
-    & xm_trc     ,&!< in  tracer mass mixing ratio
-    & xm_ozn     ,&!< inout  ozone mixing ratio
-    & cdnc       ,&!< in  cloud droplet number concentration
-    & cld_frc    ,&!< in  cloud fraction
-    & cld_cvr    ,&!< cloud cover in a column
-    & vis_frc_sfc,&!< visible (250-680) fraction of net surface radiation
-    & par_dn_sfc ,&!< downward Photosynth. Active Radiation (PAR) at surface
-    & nir_dff_frc,&!< diffuse fraction of downw. surf. near-infrared radiation
-    & vis_dff_frc,&!< diffuse fraction of downward surface visible radiation
-    & par_dff_frc,&!< iffuse fraction of downward surface PAR
-    & lw_flx_up_sfc,&!< longwave upward surface radiation
-    & lw_net_clr_bnd,&!< clear-sky net longwave  at TOA (:,1) and surface (:,2)
-    & sw_net_clr_bnd,&!< clear-sky net shortwave at TOA (:,1) and surface (:,2)
-    & lw_net_clr ,&!< clear-sky net longwave  at all levels
-    & sw_net_clr ,&!< clear-sky net shortwave at all levels
-    & lw_net     ,&!< all-sky net longwave  at all levels
-    & sw_net      &!< all-sky net shortwave at all levels
-    &              )
+    & jg             ,&!< in  domain index
+    & jb             ,&!< in  block index
+    & kproma         ,&!< in  end index for loop over block
+    & kbdim          ,&!< in  dimension of block over cells
+    & klev           ,&!< in  number of full levels = number of layers
+    & klevp1         ,&!< in  number of half levels = number of layer interfaces
+    & ktype          ,&!< in  type of convection
+    & loland         ,&!< in  land-sea mask. (1. = land, 0. = sea/lakes)
+    & loglac         ,&!< in  fraction of land covered by glaciers
+    & this_datetime  ,&!< in  actual time step
+    & pcos_mu0       ,&!< in  cosine of solar zenith angle
+    & alb_vis_dir    ,&!< in  surface albedo for visible range, direct
+    & alb_nir_dir    ,&!< in  surface albedo for near IR range, direct
+    & alb_vis_dif    ,&!< in  surface albedo for visible range, diffuse
+    & alb_nir_dif    ,&!< in  surface albedo for near IR range, diffuse
+    & tk_sfc         ,&!< in  grid box mean surface temperature
+    & zf             ,&!< in  geometric height at full level      [m]
+    & zh             ,&!< in  geometric height at half level      [m]
+    & dz             ,&!< in  geometric height thickness of layer [m]
+    & pp_hl          ,&!< in  pressure at half levels at t-dt [Pa]
+    & pp_fl          ,&!< in  pressure at full levels at t-dt [Pa]
+    & tk_fl          ,&!< in  tk_fl  = temperature at full level at t-dt
+    & xm_dry         ,&!< in  dry air mass in layer [kg/m2]
+    & xm_trc         ,&!< in  tracer  mass in layer [kg/m2]
+    & xm_ozn         ,&!< inout ozone mass mixing ratio [kg/kg]
+    !
+    & cdnc           ,&!< in  cloud droplet number concentration
+    & cld_frc        ,&!< in  cloud fraction
+    & cld_cvr        ,&!< out cloud cover in a column
+    !
+    & lw_dnw_clr     ,&!< out clear-sky downward longwave  at all levels
+    & lw_upw_clr     ,&!< out clear-sky upward   longwave  at all levels
+    & sw_dnw_clr     ,&!< out clear-sky downward shortwave at all levels
+    & sw_upw_clr     ,&!< out clear-sky upward   shortwave at all levels
+    & lw_dnw         ,&!< out all-sky   downward longwave  at all levels
+    & lw_upw         ,&!< out all-sky   upward   longwave  at all levels
+    & sw_dnw         ,&!< out all-sky   downward shortwave at all levels
+    & sw_upw         ,&!< out all-sky   upward   shortwave at all levels
+    !
+    & vis_dn_dir_sfc ,&!< out all-sky downward direct visible radiation at surface
+    & par_dn_dir_sfc ,&!< out all-sky downward direct PAR     radiation at surface
+    & nir_dn_dir_sfc ,&!< out all-sky downward direct near-IR radiation at surface
+    & vis_dn_dff_sfc ,&!< out all-sky downward diffuse visible radiation at surface
+    & par_dn_dff_sfc ,&!< out all-sky downward diffuse PAR     radiation at surface
+    & nir_dn_dff_sfc ,&!< out all-sky downward diffuse near-IR radiation at surface
+    & vis_up_sfc     ,&!< out all-sky upward visible radiation at surface
+    & par_up_sfc     ,&!< out all-sky upward PAR     radiation at surfac
+    & nir_up_sfc     ) !< out all-sky upward near-IR radiation at surface
 
-    TYPE(datetime), POINTER, INTENT(in) :: current_date
-    
-    INTEGER, INTENT(in)  :: &
-    & jg,             & !< domain index
-    & jb,             & !< block index
-    & kproma,         & !< end   index for loop over block
-    & kbdim,          & !< dimension of block over cells
-    & klev,           & !< number of full levels = number of layers
-    & klevp1,         & !< number of half levels = number of layer interfaces
-    & ktype(kbdim)      !< convection type
 
-    LOGICAL, INTENT(IN)  :: &
-    & loland(kbdim),     & !< land mask
-    & loglac(kbdim)        !< glacier mask
+    INTEGER, INTENT(in)     :: &
+    & jg,                      & !< domain index
+    & jb,                      & !< block index
+    & kproma,                  & !< end   index for loop over block
+    & kbdim,                   & !< dimension of block over cells
+    & klev,                    & !< number of full levels = number of layers
+    & klevp1,                  & !< number of half levels = number of layer interfaces
+    & ktype(kbdim)               !< convection type
+
+    LOGICAL, INTENT(IN)     :: &
+    & loland(kbdim),           & !< land mask
+    & loglac(kbdim)              !< glacier mask
 
     TYPE(datetime), POINTER :: this_datetime !< actual time step
 
-    REAL(wp), INTENT(IN) :: &
-    & pcos_mu0(kbdim),   & !< cosine of solar zenith angle
-    & geoi(kbdim,klevp1),& !< geopotential wrt surface at layer interfaces
-    & geom(kbdim,klev),  & !< geopotential wrt surface at layer centres
-    & oromea(kbdim),     & !< orography in m
-    & alb_vis_dir(kbdim),& !< surface albedo for visible range and direct light
-    & alb_nir_dir(kbdim),& !< surface albedo for NIR range and direct light
-    & alb_vis_dif(kbdim),& !< surface albedo for visible range and diffuse light
-    & alb_nir_dif(kbdim),& !< surface albedo for NIR range and diffuse light
-    & tk_sfc(kbdim),     & !< Surface temperature
-    & pp_hl(kbdim,klevp1),& !< pressure at half levels [Pa]
-    & pp_fl(kbdim,klev),  & !< Pressure at full levels [Pa]
-    & tk_fl(kbdim,klev),  & !< Temperature on full levels [K]
-    & xm_trc(kbdim,klev,ntracer), & !< tracer mixing ratio
-    & cdnc(kbdim,klev),   & !< Cloud drop number concentration
-    & cld_frc(kbdim,klev)   !< Cloud fraction
+    REAL(wp), INTENT(IN)    :: &
+    & pcos_mu0(kbdim),         & !< cosine of solar zenith angle
+    & alb_vis_dir(kbdim),      & !< surface albedo for visible range and direct light
+    & alb_nir_dir(kbdim),      & !< surface albedo for NIR range and direct light
+    & alb_vis_dif(kbdim),      & !< surface albedo for visible range and diffuse light
+    & alb_nir_dif(kbdim),      & !< surface albedo for NIR range and diffuse light
+    & tk_sfc(kbdim),           & !< Surface temperature
+    & zf(kbdim,klev),          & !< geometric height at full level      [m]
+    & zh(kbdim,klev+1),        & !< geometric height at half level      [m]
+    & dz(kbdim,klev),          & !< geometric height thickness of layer [m]
+    & xm_dry(kbdim,klev),      & !< dry air mass in layer [kg/m2]
+    & pp_hl(kbdim,klevp1),     & !< pressure at half levels [Pa]
+    & pp_fl(kbdim,klev),       & !< Pressure at full levels [Pa]
+    & tk_fl(kbdim,klev),       & !< Temperature on full levels [K]
+    & xm_trc(kbdim,klev,ntracer), & !< tracer mass in layer [kg/m2]
+    & cdnc(kbdim,klev),        & !< Cloud drop number concentration
+    & cld_frc(kbdim,klev)        !< Cloud fraction
     REAL(wp), INTENT(INOUT) :: &
-    & xm_ozn(kbdim,klev)    !< ozone
-    REAL(wp), INTENT(OUT) ::      &
+    & xm_ozn(kbdim,klev)         !< ozone mixing ratio  [kg/kg]
+    REAL(wp), INTENT(OUT)   :: &
     & cld_cvr(:),              & !< Cloud cover in a column
-    & vis_frc_sfc(kbdim),      & !< Visible (250-680) fraction of net surface radiation
-    & par_dn_sfc(kbdim),       & !< Downward Photosynthetically Active Radiation (PAR) at surface
-    & nir_dff_frc(kbdim),      & !< Diffuse fraction of downward surface near-infrared radiation
-    & vis_dff_frc(kbdim),      & !< Diffuse fraction of downward surface visible radiation
-    & par_dff_frc(kbdim),      & !< Diffuse fraction of downward surface PAR
-    & lw_flx_up_sfc(kbdim),    & !< longwave upward surface radiation
-    & lw_net_clr_bnd(kbdim,2), & !< Clear-sky net longwave  at TOA (:,1) and surface (:,2) 
-    & sw_net_clr_bnd(kbdim,2), & !< Clear-sky net shortwave at TOA (:,1) and surface (:,2) 
-    & lw_net_clr(kbdim,klevp1),& !< Clear-sky net longwave  at all levels
-    & sw_net_clr(kbdim,klevp1),& !< Clear-sky net shortwave at all levels
-    & lw_net(kbdim,klevp1),    & !< All-sky net longwave  at all levels
-    & sw_net(kbdim,klevp1)       !< All-sky net shortwave at all levels
+    & lw_dnw_clr(kbdim,klevp1),& !< Clear-sky downward longwave  at all levels
+    & lw_upw_clr(kbdim,klevp1),& !< Clear-sky upward   longwave  at all levels
+    & sw_dnw_clr(kbdim,klevp1),& !< Clear-sky downward shortwave at all levels
+    & sw_upw_clr(kbdim,klevp1),& !< Clear-sky upward   shortwave at all levels
+    & lw_dnw(kbdim,klevp1),    & !< All-sky   downward longwave  at all levels
+    & lw_upw(kbdim,klevp1),    & !< All-sky   upward   longwave  at all levels
+    & sw_dnw(kbdim,klevp1),    & !< All-sky   downward shortwave at all levels
+    & sw_upw(kbdim,klevp1)       !< All-sky   upward   shortwave at all levels
 
-    INTEGER              :: jk, jl, idx(kbdim), iaero_call, number_rad_call, i_rad_call
-    INTEGER              :: knwtrc  !< number of non-water tracers
+    REAL (wp), INTENT (OUT) :: &
+    & vis_dn_dir_sfc(kbdim)  , & !< Diffuse downward flux surface visible radiation 
+    & par_dn_dir_sfc(kbdim)  , & !< Diffuse downward flux surface PAR
+    & nir_dn_dir_sfc(kbdim)  , & !< Diffuse downward flux surface near-infrared radiation
+    & vis_dn_dff_sfc(kbdim)  , & !< Direct  downward flux surface visible radiation 
+    & par_dn_dff_sfc(kbdim)  , & !< Direct  downward flux surface PAR
+    & nir_dn_dff_sfc(kbdim)  , & !< Direct  downward flux surface near-infrared radiation
+    & vis_up_sfc    (kbdim)  , & !< Upward  flux surface visible radiation 
+    & par_up_sfc    (kbdim)  , & !< Upward  flux surface PAR
+    & nir_up_sfc    (kbdim)      !< Upward  flux surface near-infrared radiation
+
+    INTEGER              :: jk, jl
+!!$    INTEGER              :: knwtrc  !< number of non-water tracers
     INTEGER              :: selmon  !< index to select a calendar month
 
     REAL(wp)             ::         &
-    & cos_mu0(kbdim),               &
     & pp_sfc(kbdim),                &
-!!$    & ppd_hl(kbdim,klev),           &
     & tk_hl(kbdim,klevp1),          &
-    & xm_vap(kbdim,klev),           &
-    & za(kbdim),                    & !< Spline interpolation arrays for qsat
-    & ua(kbdim),                    &
-    & xm_liq(kbdim,klev),           & !< cloud water
-    & xm_ice(kbdim,klev),           & !< cloud ice
+    & xm_vap(kbdim,klev),           & !< water vapor mass in layer [kg/m2]
+    & xm_liq(kbdim,klev),           & !< cloud water mass in layer [kg/m2]
+    & xm_ice(kbdim,klev),           & !< cloud ice   mass in layer [kg/m2]
     & xc_frc(kbdim,klev),           & !< cloud fraction
-    & xm_co2(kbdim,klev),           & !< CO2 mixing ratio
+    & xm_co2(kbdim,klev),           & !< CO2 mass in layer [kg/m2]
     & zo3_timint(kbdim,nplev_o3),   & !< intermediate value of ozon
-    & xm_o3(kbdim,klev),            & !< O3 mixing ratio
-    & xm_o2(kbdim,klev),            & !< O2 mixing ratio
-    & xm_ch4(kbdim,klev),           & !< Methane mixing ratio
-    & xm_n2o(kbdim,klev),           & !< Nitrous Oxide mixing ratio
-    & xm_cfc(kbdim,klev,2),         & !< CFC mixing ratio
-    & flux_factor(kbdim),           & !< 1D Scratch Array for diagnostics
-    & flx_uplw    (kbdim,klevp1),   & !<   All-sky   upward longwave  flux [Wm2]
-    & flx_uplw_clr(kbdim,klevp1),   & !< Clear-sky   upward longwave  flux [Wm2]
-    & flx_dnlw    (kbdim,klevp1),   & !<   All-sky downward longwave  flux [Wm2]
-    & flx_dnlw_clr(kbdim,klevp1),   & !< Clear-sky downward longwave  flux [Wm2]
-    & flx_upsw    (kbdim,klevp1),   & !<   All-sky   upward shortwave flux [Wm2]
-    & flx_upsw_clr(kbdim,klevp1),   & !< Clear-sky   upward shortwave flux [Wm2]
-    & flx_dnsw    (kbdim,klevp1),   & !<   All-sky downward shortwave flux [Wm2]
-    & flx_dnsw_clr(kbdim,klevp1)      !< Clear-sky downward shortwave flux [Wm2]
+    & xm_o3(kbdim,klev),            & !< O3  mass in layer [kg/m2]
+    & xm_o2(kbdim,klev),            & !< O2  mass in layer [kg/m2]
+    & xm_ch4(kbdim,klev),           & !< CH4 mass in layer [kg/m2]
+    & xm_n2o(kbdim,klev),           & !< N2O mass in layer [kg/m2]
+    & xm_cfc(kbdim,klev,2)!!$,         & !< CFC mass in layer [kg/m2]
 
     TYPE(t_external_atmos_td) ,POINTER :: atm_td
 
-    knwtrc = ntracer-iqt+1 ! tracers iqt:ntracer are non-water tracers
+!!$    knwtrc = ntracer-iqt+1 ! tracers iqt:ntracer are non-water tracers
     
     !
     ! 1.0 calculate variable input parameters (location and state variables)
     ! --------------------------------
     ! 
-    ! --- solar zenith angle
-    !
-    ! Get the local cosine of the solar zenith angle, setting a minimum positive definite 
-    ! value for smooth interpretation in time (if desired(
-    !
-    cos_mu0(1:kproma) = pcos_mu0(1:kproma)
-    IF (l_interp_rad_in_time) cos_mu0(1:kproma) = MAX(cos_mu0(1:kproma), zepzen) 
-    !
     ! --- Pressure (surface and distance between half levels)
     !
     pp_sfc(1:kproma)   = pp_hl(1:kproma,klevp1)
-!!$    ppd_hl(1:kproma,:) = pp_hl(1:kproma,2:klev+1)-pp_hl(1:kproma,1:klev)
     !
     ! --- temperature at half levels
     !
@@ -880,16 +803,16 @@ MODULE mo_psrad_radiation
     ! --- phases of water substance
     !
     !     vapor
-    xm_vap(1:kproma,:) = gas_profile(kproma, klev, irad_h2o,                 &
+    xm_vap(1:kproma,:) = gas_profile(kproma, klev, irad_h2o, xm_dry,         &
          &                           gas_val      = xm_trc(1:kproma,:,iqv),  &
          &                           gas_factor   = fh2o)
     !     cloud water
-    xm_liq(1:kproma,:) = gas_profile(kproma, klev, irad_h2o,                 &
+    xm_liq(1:kproma,:) = gas_profile(kproma, klev, irad_h2o, xm_dry,         &
          &                           gas_val      = xm_trc(1:kproma,:,iqc),  &
          &                           gas_epsilon  = 0.0_wp,                  &
          &                           gas_factor   = fh2o)
     !     cloud ice
-    xm_ice(1:kproma,:) = gas_profile(kproma, klev, irad_h2o,                 &
+    xm_ice(1:kproma,:) = gas_profile(kproma, klev, irad_h2o, xm_dry,         &
          &                           gas_val      = xm_trc(1:kproma,:,iqi),  &
          &                           gas_epsilon  = 0.0_wp,                  &
          &                           gas_factor   = fh2o)
@@ -911,38 +834,38 @@ MODULE mo_psrad_radiation
     !
     ! CO2: use CO2 tracer only if the CO2 index is in the correct range
     IF ( iqt <= ico2 .AND. ico2 <= ntracer ) THEN
-      xm_co2(1:kproma,:) = gas_profile(kproma, klev, irad_co2,                 &
-           &                           gas_mmr      = mmr_co2,                 &
-           &                           gas_scenario = ghg_co2mmr,              &
-           &                           gas_val      = xm_trc(1:kproma,:,ico2), &
+      xm_co2(1:kproma,:) = gas_profile(kproma, klev, irad_co2, xm_dry,           &
+           &                           gas_mmr      = mmr_co2,                   &
+           &                           gas_scenario = ghg_co2mmr,                &
+           &                           gas_val      = xm_trc(1:kproma,:,ico2),   &
            &                           gas_factor   = fco2)
     ELSE
-      xm_co2(1:kproma,:) = gas_profile(kproma, klev, irad_co2,       &
-           &                           gas_mmr      = mmr_co2,       &
-           &                           gas_scenario = ghg_co2mmr,    &
+      xm_co2(1:kproma,:) = gas_profile(kproma, klev, irad_co2, xm_dry,   &
+           &                           gas_mmr      = mmr_co2,           &
+           &                           gas_scenario = ghg_co2mmr,        &
            &                           gas_factor   = fco2)
     END IF
 
-    xm_ch4(1:kproma,:)   = gas_profile(kproma, klev, irad_ch4,       &
-         &                             gas_mmr      = mmr_ch4,       &
-         &                             gas_scenario = ghg_ch4mmr,    &
-         &                             pressure = pp_fl, xp = ch4_v, &
+    xm_ch4(1:kproma,:)   = gas_profile(kproma, klev, irad_ch4, xm_dry,   &
+         &                             gas_mmr      = mmr_ch4,           &
+         &                             gas_scenario = ghg_ch4mmr,        &
+         &                             pressure = pp_fl, xp = ch4_v,     &
          &                             gas_factor   = fch4)
 
-    xm_n2o(1:kproma,:)   = gas_profile(kproma, klev, irad_n2o,       &
-         &                             gas_mmr      = mmr_n2o,       &
-         &                             gas_scenario = ghg_n2ommr,    &
-         &                             pressure = pp_fl, xp = n2o_v, &
+    xm_n2o(1:kproma,:)   = gas_profile(kproma, klev, irad_n2o, xm_dry,   &
+         &                             gas_mmr      = mmr_n2o,           &
+         &                             gas_scenario = ghg_n2ommr,        &
+         &                             pressure = pp_fl, xp = n2o_v,     &
          &                             gas_factor   = fn2o)
 
-    xm_cfc(1:kproma,:,1) = gas_profile(kproma, klev, irad_cfc11,     &
-         &                             gas_mmr      = vmr_cfc11,     &
-         &                             gas_scenario = ghg_cfcvmr(1), &
+    xm_cfc(1:kproma,:,1) = gas_profile(kproma, klev, irad_cfc11, xm_dry, &
+         &                             gas_mmr      = mmr_cfc11,         &
+         &                             gas_scenario = ghg_cfcmmr(1),     &
          &                             gas_factor   = fcfc)
 
-    xm_cfc(1:kproma,:,2) = gas_profile(kproma, klev, irad_cfc12,     &
-         &                             gas_mmr      = vmr_cfc12,     &
-         &                             gas_scenario = ghg_cfcvmr(2), &
+    xm_cfc(1:kproma,:,2) = gas_profile(kproma, klev, irad_cfc12, xm_dry, &
+         &                             gas_mmr      = mmr_cfc12,         &
+         &                             gas_scenario = ghg_cfcmmr(2),     &
          &                             gas_factor   = fcfc)
 
     ! O3: provisionally construct here the ozone profiles
@@ -952,6 +875,16 @@ MODULE mo_psrad_radiation
       CALL finish('radiation','o3: this "irad_o3" is not supported')
     CASE(0)
       xm_ozn(:,:) = 0.0_wp
+      xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3, xm_dry,       &
+           &                             gas_scenario_v = xm_ozn(1:kproma,:), &
+           &                             gas_factor     = fo3)
+
+    CASE(io3_interact)
+      xm_ozn(1:kproma,:) = xm_trc(1:kproma,:,io3)
+      xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3, xm_dry,     &
+           &                             gas_val = xm_ozn(1:kproma,:),      &
+           &                             gas_factor     = fo3)
+
     CASE(io3_clim, io3_ape)
 
       IF(irad_o3 == io3_ape) THEN
@@ -968,100 +901,70 @@ MODULE mo_psrad_radiation
            &          pph  = pp_hl(:,:),                     &! in  aphp1
            &          o3_time_int = atm_td%o3(:,:,jb,selmon),&! in
            &          o3_clim     = xm_ozn(:,:)              )! OUT
+      xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3, xm_dry,       &
+           &                             gas_scenario_v = xm_ozn(1:kproma,:), &
+           &                             gas_factor     = fo3)
 
     CASE(io3_amip)
       CALL o3_timeint(kproma = kproma, kbdim = kbdim,        &
            &          nlev_pres=nplev_o3,                    &
            &          ext_o3=o3_plev(:,:,jb,:),              &
-           &          current_date=current_date,             &
+           &          current_date=this_datetime,            &
            &          o3_time_int=zo3_timint                 )
-      CALL o3_pl2ml ( kproma = kproma, kbdim = kbdim,         &
-           &          nlev_pres = nplev_o3, klev = klev,      &
+      CALL o3_pl2ml ( kproma = kproma, kbdim = kbdim,        &
+           &          nlev_pres = nplev_o3, klev = klev,     &
            &          pfoz = plev_full_o3,                   &
            &          phoz = plev_half_o3,                   &
            &          ppf  = pp_fl(:,:),                     &
            &          pph  = pp_hl(:,:),                     &
            &          o3_time_int = zo3_timint,              &
            &          o3_clim     = xm_ozn(:,:)              )
+      xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3, xm_dry,       &
+           &                             gas_scenario_v = xm_ozn(1:kproma,:), &
+           &                             gas_factor     = fo3)
     END SELECT
 
-    xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3,             &
-         &                             gas_scenario_v = xm_ozn(1:kproma,:), &
-         &                             gas_factor     = fo3)
-
-    xm_o2(1:kproma,:)    = gas_profile(kproma, klev, irad_o2,        &
-         &                             gas_mmr      = mmr_o2,        &
+    xm_o2(1:kproma,:)    = gas_profile(kproma, klev, irad_o2, xm_dry,       &
+         &                             gas_mmr      = mmr_o2,               &
          &                             gas_factor   = fo2)
 
     ! 2.0 Radiation used to advance model, provide standard diagnostics, and radiative forcing if desired
     !
-    ! --------------------------------
-    ! 2.1 Radiation call (number of calls depends on whether forcing is desired)
-    ! --------------------------------
-    number_rad_call = 1
-    IF (lradforcing(1).OR.lradforcing(2)) number_rad_call = 2 
-
-    DO i_rad_call = 1,number_rad_call
-      iaero_call = irad_aero
-      IF (i_rad_call < number_rad_call) iaero_call = irad_aero_forcing
-
-      CALL psrad_interface(   current_date    ,jg                               ,&
-           & iaero_call      ,kproma          ,kbdim           ,klev            ,& 
-!!$           & jb              ,knwtrc          ,ktype           ,nb_sw           ,&
-           & jb                               ,ktype           ,nb_sw           ,&
-           & loland          ,loglac          ,cemiss          ,this_datetime   ,&
-           & cos_mu0         ,geoi            ,geom            ,oromea          ,&
+      CALL psrad_interface(                    jg              ,jb              ,&
+           & irad_aero       ,kproma          ,kbdim           ,klev            ,& 
+!!$           & knwtrc          ,ktype           ,nb_sw                            ,&
+           &                  ktype           ,nb_sw                            ,&
+           & loland          ,loglac          ,this_datetime   ,pcos_mu0        ,&
+           & cemiss                                                             ,&
            & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
-           & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
-           & tk_hl           ,tk_sfc          ,xm_vap          ,xm_liq          ,&
-           & xm_ice          ,cdnc            ,xc_frc          ,xm_o3           ,&
+           & zf              ,zh              ,dz                               ,&
+           & pp_sfc          ,pp_fl                                             ,&
+           & tk_sfc          ,tk_fl           ,tk_hl                            ,&
+           & xm_dry          ,xm_vap          ,xm_liq          ,xm_ice          ,&
+           & cdnc            ,xc_frc                                            ,&
            & xm_co2          ,xm_ch4          ,xm_n2o          ,xm_cfc          ,&
-!!$           & xm_o2           ,xm_trc(:,:,iqt:ntracer)                           ,&
-           & xm_o2                                                              ,&
-           & flx_uplw        ,flx_uplw_clr    ,flx_dnlw        ,flx_dnlw_clr    ,&
-           & flx_upsw        ,flx_upsw_clr    ,flx_dnsw        ,flx_dnsw_clr    ,&
-           & vis_frc_sfc     ,par_dn_sfc      ,nir_dff_frc     ,vis_dff_frc     ,&
-           & par_dff_frc                                                         )
-      !
-      ! Compute net fluxes from up/down fluxes, and normalize solar fluxes by current value of solar constant
-      ! and zenith angle as they are renormalized when heating rates are calculated.
-      !
-      flux_factor(1:kproma) = 1._wp / (psctm*cos_mu0(1:kproma))
-      lw_net    (1:kproma,1:klevp1) =  flx_dnlw    (1:kproma, 1:klevp1) - flx_uplw    (1:kproma, 1:klevp1)       
-      lw_flx_up_sfc (1:kproma)      =  flx_uplw(1:kproma,klevp1)
-      sw_net    (1:kproma,1:klevp1) = (flx_dnsw    (1:kproma, 1:klevp1) - flx_upsw    (1:kproma, 1:klevp1)) * &
-           &                      SPREAD(flux_factor(1:kproma),2,klevp1)       
-      lw_net_clr(1:kproma,1:klevp1) =  flx_dnlw_clr(1:kproma, 1:klevp1) - flx_uplw_clr(1:kproma, 1:klevp1)       
-      sw_net_clr(1:kproma,1:klevp1) = (flx_dnsw_clr(1:kproma, 1:klevp1) - flx_upsw_clr(1:kproma, 1:klevp1)) * &
-           &                      SPREAD(flux_factor(1:kproma),2,klevp1)
-      par_dn_sfc(1:kproma) = par_dn_sfc(1:kproma) * flux_factor(1:kproma)
+           & xm_o3           ,xm_o2                                             ,&
+!!$           & xm_trc(:,:,iqt:ntracer)                                            ,&
+           & lw_upw          ,lw_upw_clr      ,lw_dnw          ,lw_dnw_clr      ,&
+           & sw_upw          ,sw_upw_clr      ,sw_dnw          ,sw_dnw_clr      ,&
+           & vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   ,&
+           & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
+           & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )
 
-      IF (i_rad_call < number_rad_call) CALL prepare_psrad_radiation_forcing(jg, & 
-           & kproma          ,kbdim           ,klevp1          ,jb          ,&
-           & lw_net          ,sw_net          ,lw_net_clr      ,sw_net_clr   )
-    END DO
-    !
-    ! 2.1 Fluxes to advance to the model, compute cloud radiative effect 
-    ! --------------------------------
-    !
-    ! --- Total (net) fluxes, used to advance the model 
-    !
-    !
-    ! --- Clear sky fluxes
-    lw_net_clr_bnd(1:kproma,1)    = lw_net_clr(1:kproma,1)
-    lw_net_clr_bnd(1:kproma,2)    = lw_net_clr(1:kproma,klevp1)
-    sw_net_clr_bnd(1:kproma,1)    = sw_net_clr(1:kproma,1)        
-    sw_net_clr_bnd(1:kproma,2)    = sw_net_clr(1:kproma,klevp1) 
 
   END SUBROUTINE psrad_radiation
 
   !---------------------------------------------------------------------------
   !>
   !! GAS_PROFILE:  Determines Gas distributions based on case specification
+  !!
+  !!               Input  units: mass mixing ratio with respect to dry air [kg/kg]
+  !!               Output units: mass content in layer [kg/m2]
   !! 
   !! @par Revsision History 
-  !! B. Stevens (2009-08). 
-  !! H. Schmidt (2010-08): profile calculation added for scenario case.
+  !! B. Stevens   (2009-08). 
+  !! H. Schmidt   (2010-08): profile calculation added for scenario case.
+  !! M. Giorgetta (2016-09): change output units from kg/kg to kg/m2
   !!
   !! Description: This routine calculates the gas distributions for one of
   !! five cases:  (0) no gas present; (1) prognostic gas; (2) specified 
@@ -1069,17 +972,20 @@ MODULE mo_psrad_radiation
   !! (4) scenario run with different mixing ratio, if profile parameters are
   !! given a vertical profile is calculated as in (3).
   !
-  FUNCTION gas_profile (kproma, klev, igas, gas_mmr, gas_scenario, gas_mmr_v, &
-       &                gas_scenario_v, gas_val, xp, pressure,                &
+  FUNCTION gas_profile (kproma, klev, igas, xm_dry,             &
+       &                gas_mmr, gas_scenario, gas_mmr_v,       &
+       &                gas_scenario_v, gas_val, xp, pressure,  &
        &                gas_epsilon, gas_factor)
 
-    INTEGER, INTENT (IN) :: kproma, klev, igas
-    REAL (wp), OPTIONAL, INTENT (IN) :: gas_mmr              ! for igas = 2 and 3
-    REAL (wp), OPTIONAL, INTENT (IN) :: gas_scenario         ! for igas = 4
-    REAL (wp), OPTIONAL, INTENT (IN) :: pressure(:,:), xp(3) ! for igas = 3 and 4
-    REAL (wp), OPTIONAL, INTENT (IN) :: gas_mmr_v(:,:)       ! for igas = 2
-    REAL (wp), OPTIONAL, INTENT (IN) :: gas_scenario_v(:,:)  ! for igas = 4
-    REAL (wp), OPTIONAL, INTENT (IN) :: gas_val(:,:)         ! for igas = 1
+    INTEGER,             INTENT (IN) :: kproma, klev         ! dimensions
+    INTEGER,             INTENT (IN) :: igas                 ! gas case
+    REAL (wp),           INTENT (IN) :: xm_dry(:,:)          ! dry air content    [kg/m2]
+    REAL (wp), OPTIONAL, INTENT (IN) :: gas_mmr              ! for igas = 2 and 3 [kg/kg]
+    REAL (wp), OPTIONAL, INTENT (IN) :: gas_scenario         ! for igas = 4       [kg/kg]
+    REAL (wp), OPTIONAL, INTENT (IN) :: pressure(:,:), xp(3) ! for igas = 3 and 4 [kg/kg]
+    REAL (wp), OPTIONAL, INTENT (IN) :: gas_mmr_v(:,:)       ! for igas = 2       [kg/kg]
+    REAL (wp), OPTIONAL, INTENT (IN) :: gas_scenario_v(:,:)  ! for igas = 4       [kg/kg]
+    REAL (wp), OPTIONAL, INTENT (IN) :: gas_val(:,:)         ! for igas = 1       [kg/m2]
     REAL (wp), OPTIONAL, INTENT (IN) :: gas_epsilon
     REAL (wp), OPTIONAL, INTENT (IN) :: gas_factor
 
@@ -1103,21 +1009,21 @@ MODULE mo_psrad_radiation
     SELECT CASE (igas)
 
     CASE (0)                             ! 0: set concentration to zero
-      gas_profile(1:kproma,:) = eps
+      gas_profile(1:kproma,:) = 0.0_wp
       gas_initialized = .TRUE.
 
     CASE (1)                             ! 1: horizontally and vertically variable
       IF (PRESENT(gas_val)) THEN
-        gas_profile(1:kproma,:) = MAX(gas_val(1:kproma,:)*fgas, eps)
+        gas_profile(1:kproma,:) = gas_val(1:kproma,:)
         gas_initialized = .TRUE.
       END IF
 
     CASE (2)
       IF (PRESENT(gas_mmr)) THEN         ! 2a: horizontally and vertically constant
-        gas_profile(1:kproma,:) = MAX(gas_mmr*fgas, eps)
+        gas_profile(1:kproma,:) = gas_mmr  * xm_dry(1:kproma,:)
         gas_initialized = .TRUE.
       ELSE IF (PRESENT(gas_mmr_v)) THEN  ! 2b: = (1)
-        gas_profile(1:kproma,:) = MAX(gas_mmr_v(1:kproma,:)*fgas, eps)
+        gas_profile(1:kproma,:) = gas_mmr_v(1:kproma,:)  * xm_dry(1:kproma,:)
         gas_initialized = .TRUE.
       END IF
 
@@ -1125,8 +1031,8 @@ MODULE mo_psrad_radiation
       IF (PRESENT(gas_mmr) .AND. PRESENT(xp) .AND. PRESENT(pressure)) THEN
         zx_m = (gas_mmr+xp(1)*gas_mmr)*0.5_wp
         zx_d = (gas_mmr-xp(1)*gas_mmr)*0.5_wp
-        gas_profile(1:kproma,:)=MAX((1-(zx_d/zx_m)*TANH(LOG(pressure(1:kproma,:)   &
-             &                      /xp(2)) /xp(3))) * zx_m * fgas, eps)
+        gas_profile(1:kproma,:)=(1-(zx_d/zx_m)*TANH(LOG(pressure(1:kproma,:)   &
+             &                  /xp(2)) /xp(3))) * zx_m * xm_dry(1:kproma,:)
         gas_initialized = .TRUE.
       END IF
 
@@ -1142,14 +1048,14 @@ MODULE mo_psrad_radiation
           ! complete handling of radiation switches (including ighg), later.
           zx_m = (gas_scenario+xp(1)*gas_scenario)*0.5_wp
           zx_d = (gas_scenario-xp(1)*gas_scenario)*0.5_wp
-          gas_profile(1:kproma,:)=MAX((1-(zx_d/zx_m)*TANH(LOG(pressure(1:kproma,:)   &
-             &                        /xp(2)) /xp(3))) * zx_m * fgas, eps)
+          gas_profile(1:kproma,:)=(1-(zx_d/zx_m)*TANH(LOG(pressure(1:kproma,:)   &
+             &                    /xp(2)) /xp(3))) * zx_m * xm_dry(1:kproma,:)
         ELSE                                          ! 4b: = (2a)
-          gas_profile(1:kproma,:)=MAX(gas_scenario*fgas, eps)
+          gas_profile(1:kproma,:)=gas_scenario * xm_dry(1:kproma,:)
         ENDIF
         gas_initialized = .TRUE.
       ELSE IF (PRESENT(gas_scenario_v)) THEN          ! 4c: = (1)
-        gas_profile(1:kproma,:) = MAX(gas_scenario_v(1:kproma,:)*fgas, eps)
+        gas_profile(1:kproma,:) = gas_scenario_v(1:kproma,:) * xm_dry(1:kproma,:)
         gas_initialized = .TRUE.
       END IF
 
@@ -1158,6 +1064,8 @@ MODULE mo_psrad_radiation
     IF (.NOT. gas_initialized) &
          CALL finish('radiation','gas_profile options not supported')
 
+    gas_profile(1:kproma,:) = MAX(fgas * gas_profile(1:kproma,:),eps)
+    
   END FUNCTION gas_profile
   !---------------------------------------------------------------------------
 

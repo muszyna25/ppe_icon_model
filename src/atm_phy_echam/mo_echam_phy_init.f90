@@ -22,20 +22,22 @@
 MODULE mo_echam_phy_init
 
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: finish, message, message_text
+  USE mo_exception,            ONLY: finish, message_text
   USE mtime,                   ONLY: datetime
-  
+
   USE mo_io_config,            ONLY: default_read_method
   USE mo_read_interface,       ONLY: openInputFile, closeFile, read_2D, &
     &                                t_stream_id, on_cells
 
   ! model configuration
-  USE mo_run_config,           ONLY: nlev, iqv, iqt, ico2, ntracer, ltestcase
+  USE mo_run_config,           ONLY: nlev, iqv, iqt, ico2, io3, &
+    &                                ntracer, ltestcase
+  USE mo_parallel_config,      ONLY: nproma
   USE mo_vertical_coord_table, ONLY: vct
   USE mo_dynamics_config,      ONLY: iequations
   USE mo_impl_constants,       ONLY: inh_atmosphere, max_char_length
   USE mo_echam_phy_config,     ONLY: phy_config => echam_phy_config, &
-                                   & configure_echam_phy
+    &                                configure_echam_phy
   USE mo_echam_conv_config,    ONLY: configure_echam_convection
   USE mo_echam_cloud_config,   ONLY: configure_echam_cloud
 
@@ -53,9 +55,10 @@ MODULE mo_echam_phy_init
 
   ! radiation
   USE mo_radiation_config,     ONLY: ssi_radt, tsi_radt, tsi, &
-                                   & ighg, isolrad, irad_aero
+    &                                ighg, isolrad, irad_aero
   USE mo_psrad_srtm_setup,     ONLY: setup_srtm, ssi_amip, ssi_default, &
-                                   & ssi_preind, ssi_RCEdiurnOn, ssi_RCEdiurnOFF
+    &                                ssi_preind, ssi_RCEdiurnOn, ssi_RCEdiurnOFF, &
+    &                                ssi_cmip6_picontrol
   USE mo_lrtm_setup,           ONLY: lrtm_setup
   USE mo_newcld_optics,        ONLY: setup_newcld_optics
 
@@ -79,8 +82,8 @@ MODULE mo_echam_phy_init
 
   ! atmospheric state
   USE mo_echam_phy_memory,     ONLY: construct_echam_phy_state,    &
-                                   & prm_field, t_echam_phy_field, &
-                                   & prm_tend,  t_echam_phy_tend
+    &                                prm_field, t_echam_phy_field, &
+    &                                prm_tend,  t_echam_phy_tend
   ! for coupling
   USE mo_coupling_config,      ONLY: is_coupled_run
 
@@ -88,12 +91,14 @@ MODULE mo_echam_phy_init
     &                                timer_prep_echam_phy
 
   ! for AMIP boundary conditions
-!  USE mo_time_interpolation         ,ONLY: time_weights_limm
-!  USE mo_time_interpolation_weights ,ONLY: wi_limm
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, calculate_time_interpolation_weights
   USE mo_bc_sst_sic,             ONLY: read_bc_sst_sic, bc_sst_sic_time_interpolation
   USE mo_bc_greenhouse_gases,    ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
     &                                bc_greenhouse_gases_file_read, ghg_co2mmr
+  USE mo_lcariolle_externals,  ONLY: read_bcast_real_3d_wrap, &
+    &                                read_bcast_real_1d_wrap, &
+    &                                closeFile_wrap, openInputFile_wrap, &
+    &                                get_constants
   ! for aeorosols in simple plumes
   USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
 
@@ -135,7 +140,7 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: land_sso_fn  = 'bc_land_sso.nc'
 
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
-    
+
     IF (timers_level > 1) CALL timer_start(timer_prep_echam_phy)
 
     !-------------------------------------------------------------------
@@ -172,6 +177,10 @@ CONTAINS
       CASE (5)
         ssi_radt(:) = ssi_RCEdiurnOFF(:)
         tsi_radt = SUM(ssi_RCEdiurnOFF)
+        tsi      = tsi_radt
+      CASE (6)
+        ssi_radt(:) = ssi_cmip6_picontrol(:)
+        tsi_radt = SUM(ssi_cmip6_picontrol)
         tsi      = tsi_radt
       CASE default
         WRITE (message_text, '(a,i2,a)') &
@@ -349,7 +358,6 @@ CONTAINS
     ! interpolation weights for linear interpolation
     ! of monthly means onto the actual integration time step
     current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_current)
-!    CALL time_weights_limm(datetime_current, wi_limm)
 
 !    IF (.NOT. ctest_name(1:3) == 'TPE') THEN
 
@@ -382,7 +390,7 @@ CONTAINS
         CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights, &
              &                             prm_field(jg)%lsmask(:,:)         , &
              &                             prm_field(jg)%alake(:,:)          , &
-             &                             prm_field(jg)%tsfc_tile(:,:,iwtr) , &
+             &                             prm_field(jg)%ts_tile(:,:,iwtr)   , &
              &                             prm_field(jg)%seaice(:,:)         , &
              &                             prm_field(jg)%siced(:,:)          , &
              &                             p_patch(1)                        )
@@ -395,6 +403,18 @@ CONTAINS
       END IF
 
     END DO
+
+    IF (phy_config%lcariolle) THEN
+      IF(io3 > ntracer) THEN
+        CALL finish('init_echam_phy: mo_echam_phy_init.f90', &
+                   &'cannot find an ozone tracer - abort')
+      END IF
+      CALL lcariolle_init(                                     &
+         & openInputFile_wrap,       closeFile_wrap,           &
+         & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap,  &
+         & get_constants,            nproma,                   &
+         & nlev                                                )
+    END IF
 
 #ifndef __NO_JSBACH__
     IF (ilnd <= nsfc_type .AND. phy_config%ljsbach) THEN
@@ -425,12 +445,26 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Hui Wan, MPI-M (2010-07)
   !!
-  SUBROUTINE initcond_echam_phy( jg, p_patch, temp, qv, ctest_name )
+  SUBROUTINE initcond_echam_phy( jg             ,&
+    &                            p_patch        ,&
+    &                            z_ifc          ,&
+    &                            z_mc           ,&
+    &                            ddqz_z_full    ,&
+    &                            geopot_agl_ifc ,&
+    &                            geopot_agl     ,&
+    &                            temp           ,&
+    &                            qv             ,&
+    &                            ctest_name      )
 
     INTEGER          ,INTENT(in) :: jg
     TYPE(t_patch)    ,INTENT(in) :: p_patch
-    REAL(wp)         ,INTENT(in) :: temp(:,:,:)
-    REAL(wp)         ,INTENT(in) :: qv(:,:,:)
+    REAL(wp)         ,INTENT(in) :: z_ifc         (:,:,:)
+    REAL(wp)         ,INTENT(in) :: z_mc          (:,:,:)
+    REAL(wp)         ,INTENT(in) :: ddqz_z_full   (:,:,:)
+    REAL(wp)         ,INTENT(in) :: geopot_agl_ifc(:,:,:)
+    REAL(wp)         ,INTENT(in) :: geopot_agl    (:,:,:)
+    REAL(wp)         ,INTENT(in) :: temp          (:,:,:)
+    REAL(wp)         ,INTENT(in) :: qv            (:,:,:)
     CHARACTER(LEN=*), INTENT(in) :: ctest_name
 
     ! local variables and pointers
@@ -455,150 +489,27 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP WORKSHARE
-      field% qtrc (:,:,:,:)   = 0._wp
+      !
+      ! constant-in-time fields
+      field%      clon(:,  :) = p_patch% cells% center(:,:)% lon
+      field%      clat(:,  :) = p_patch% cells% center(:,:)% lat
+      field% areacella(:,  :) = p_patch% cells%   area(:,:)
+      field%    coriol(:,  :) = p_patch% cells%    f_c(:,:)
+      !
+      field%        zh(:,:,:) =          z_ifc(:,:,:)
+      field%        zf(:,:,:) =           z_mc(:,:,:)
+      field%        dz(:,:,:) =    ddqz_z_full(:,:,:)
+      !
+      field%      geoi(:,:,:) = geopot_agl_ifc(:,:,:)
+      field%      geom(:,:,:) =     geopot_agl(:,:,:)
+      !
+      ! initial conditions
       field% qtrc (:,:,:,iqv) = qv(:,:,:)
       field% xvar (:,:,:)     = qv(:,:,:)*0.1_wp
-      field% xskew(:,:,:)     = 2._wp
-
-      ! Other variabels (cf. subroutine init_g3 in ECHAM6)
-
-      field% topmax(:,  :) = 99999._wp
-      field% thvsig(:,  :) = 1.e-2_wp
-      field% tke   (:,:,:) = 1.e-4_wp
-
-      field% cosmu0    (:,  :) = 0._wp
-      field% flxdwswtoa(:,  :) = 0._wp
-      field% vissfc    (:,  :) = 0._wp
-      field% nirsfc    (:,  :) = 0._wp
-      field% parsfcdn  (:,  :) = 0._wp
-      field% visfrcsfc (:,  :) = 0._wp
-      field% visdffsfc (:,  :) = 0._wp
-      field% nirdffsfc (:,  :) = 0._wp
-      field% pardffsfc (:,  :) = 0._wp
-      field% lwflxupsfc(:,  :) = 0._wp
-      field% swflxsfc    (:,:) = 0._wp
-      field% lwflxsfc    (:,:) = 0._wp
-      field% swflxsfc_tile(:,:,:) = 0._wp
-      field% lwflxsfc_tile(:,:,:) = 0._wp
-      field% lwupflxsfc  (:,:) = 0._wp
-      field% dlwflxsfc_dT(:,:) = 0._wp
-      field% swflxtoa    (:,:) = 0._wp
-      field% lwflxtoa    (:,:) = 0._wp
-      field% aclc  (:,:,:) = 0._wp
-      field% aclcov(:,  :) = 0._wp
-      field% qvi   (:,  :) = 0._wp
-      field% xlvi  (:,  :) = 0._wp
-      field% xivi  (:,  :) = 0._wp
-      field% rsfl  (:,  :) = 0._wp
-      field% ssfl  (:,  :) = 0._wp
-      field% rsfc  (:,  :) = 0._wp
-      field% ssfc  (:,  :) = 0._wp
-      field% omega (:,:,:) = 0._wp
-
-      field%totprec_avg(:,:) = 0._wp
-      field%  evap (:,  :) = 0._wp
-      field% lhflx (:,  :) = 0._wp
-      field% shflx (:,  :) = 0._wp
-      field% lhflx_tile (:,:,:) = 0._wp
-      field% shflx_tile (:,:,:) = 0._wp
-      field%dshflx_dT_tile    (:,:,:)= 0._wp
-
-      field% u_stress(:,  :) = 0._wp
-      field% v_stress(:,  :) = 0._wp
-      field% u_stress_tile(:,:,:) = 0._wp
-      field% v_stress_tile(:,:,:) = 0._wp
-
-      field% sfcWind(:,  :) =   0._wp
-      field% uas    (:,  :) =   0._wp
-      field% vas    (:,  :) =   0._wp
-      field% tas    (:,  :) =   0._wp
-      field% dew2   (:,  :) =   0._wp
-      field% tasmax (:,  :) = -99._wp
-      field% tasmin (:,  :) = 999._wp
-      field% sfcWind_tile(:,:,:) = 0._wp
-      field% uas_tile    (:,:,:) = 0._wp
-      field% vas_tile    (:,:,:) = 0._wp
-      field% tas_tile    (:,:,:) = 0._wp
-      field% dew2_tile   (:,:,:) = 0._wp
-
-      field% u_stress_sso(:,:) = 0._wp
-      field% v_stress_sso(:,:) = 0._wp
-      field% dissipation_sso(:,:) = 0._wp
-
-      field% rtype (:,  :) = 0._wp
-      field% rintop(:,  :) = 0._wp
-
-      ! Initialization of tendencies is necessary for doing I/O with the NAG compiler
-      tend% temp_rsw(:,:,:)   = 0._wp
-      tend% temp_rlw(:,:,:)   = 0._wp
-      tend%temp_rlw_impl(:,:) = 0._wp
-      tend% temp_cld(:,:,:)   = 0._wp
-      tend% qtrc_cld(:,:,:,:) = 0._wp
-
-      tend% temp_dyn(:,:,:)   = 0._wp
-      tend% qtrc_dyn(:,:,:,:) = 0._wp
-      tend%    u_dyn(:,:,:)   = 0._wp
-      tend%    v_dyn(:,:,:)   = 0._wp
-
-      tend% temp_phy(:,:,:)   = 0._wp
-      tend% qtrc_phy(:,:,:,:) = 0._wp
-      tend%    u_phy(:,:,:)   = 0._wp
-      tend%    v_phy(:,:,:)   = 0._wp
-
-      tend% temp_cnv(:,:,:)   = 0._wp
-      tend% qtrc_cnv(:,:,:,:) = 0._wp
-      tend%    u_cnv(:,:,:)   = 0._wp
-      tend%    v_cnv(:,:,:)   = 0._wp
-
-      tend% temp_vdf(:,:,:)   = 0._wp
-      tend% qtrc_vdf(:,:,:,:) = 0._wp
-      tend%    u_vdf(:,:,:)   = 0._wp
-      tend%    v_vdf(:,:,:)   = 0._wp
-
-      tend% temp_gwh(:,:,:)   = 0._wp
-      tend%    u_gwh(:,:,:)   = 0._wp
-      tend%    v_gwh(:,:,:)   = 0._wp
-
-      tend% temp_sso(:,:,:)   = 0._wp
-      tend%    u_sso(:,:,:)   = 0._wp
-      tend%    v_sso(:,:,:)   = 0._wp
-
-      tend% xl_dtr  (:,:,:)   = 0._wp  !"xtecl" in ECHAM
-      tend% xi_dtr  (:,:,:)   = 0._wp  !"xteci" in ECHAM
 !$OMP END WORKSHARE
-
-      IF (phy_config%ljsbach) THEN
-
-!$OMP WORKSHARE
-        field% csat    (:,  :) = 1.0_wp
-        field% cair    (:,  :) = 1.0_wp
-!$OMP END WORKSHARE
-
-      END IF ! ljsbach
-
 !$OMP END PARALLEL
 
       IF (phy_config%lvdiff) THEN
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = jbs,nblks_c
-          CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
-          field% coriol(jcs:jce,jb) = p_patch%cells%f_c(jcs:jce,jb)
-        ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-!$OMP PARALLEL WORKSHARE
-        field% ustar (:,:)   = 1._wp
-        field% wstar_tile (:,:,:) = 0._wp 
-        field% kedisp(:,:)   = 0._wp
-        field% tkem0 (:,:,:) = 1.e-4_wp
-        field% tkem1 (:,:,:) = 1.e-4_wp
-        field% thvvar(:,:,:) = 1.e-4_wp
-        field% ocu   (:,:)   = 0._wp
-        field% ocv   (:,:)   = 0._wp
-        field% mixlen(:,:,:) = -999._wp
-!$OMP END PARALLEL WORKSHARE
         IF (iwtr<=nsfc_type) field% z0m_tile(:,:,iwtr) = 1e-3_wp !see init_surf in echam (or z0m_oce?)
         IF (iice<=nsfc_type) field% z0m_tile(:,:,iice) = 1e-3_wp !see init_surf in echam (or z0m_ice?)
         IF (ilnd<=nsfc_type) THEN
@@ -621,7 +532,7 @@ CONTAINS
       IF (ilnd <= nsfc_type) THEN
 
         IF (phy_config%lamip .OR. (is_coupled_run() .AND. .NOT. ltestcase)) THEN
-          field%tsfc_tile(:,:,ilnd) = field%tsfc_tile(:,:,iwtr)
+          field%ts_tile(:,:,ilnd) = field%ts_tile(:,:,iwtr)
         END IF
 
         field% albvisdir_tile(:,:,ilnd) = field%alb(:,:)    ! albedo in the visible range for direct radiation
@@ -634,7 +545,8 @@ CONTAINS
 
       IF (iice <= nsfc_type) THEN
 
-        field%tsfc_tile(:,:,iice) = Tf + tmelt
+        field%ts_tile(:,:,iice) = field%ts_tile(:,:,iwtr)
+        ! field%ts_tile(:,:,iice) = Tf + tmelt  ! ?
         !
         field% albvisdir_tile(:,:,iice) = albi    ! albedo in the visible range for direct radiation
         field% albnirdir_tile(:,:,iice) = albi    ! albedo in the NIR range for direct radiation
@@ -679,9 +591,10 @@ CONTAINS
           CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
           DO jc = jcs,jce
             zlat = p_patch%cells%center(jc,jb)%lat
-            field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
+            field% ts_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
           END DO
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
         END DO
@@ -696,9 +609,10 @@ CONTAINS
           CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
           DO jc = jcs,jce
             zlat = p_patch%cells%center(jc,jb)%lat
-            field% tsfc_tile(jc,jb,iwtr) = th_cbl(1)
+            field% ts_tile(jc,jb,iwtr) = th_cbl(1)
           END DO
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
         END DO
@@ -714,15 +628,15 @@ CONTAINS
           DO jc = jcs,jce
             zlat = p_patch%cells%center(jc,jb)%lat
             ! SST must reach Tf where there's ice. It may be better to modify ape_sst it self.
-            field% tsfc_tile  (jc,jb,iwtr) = ape_sst(ape_sst_case,zlat) + Tf
+            field% ts_tile    (jc,jb,iwtr) = ape_sst(ape_sst_case,zlat) + Tf
             ! Initialise the ice - Tsurf, T1 & T2 must be in degC
-            field% tsfc_tile  (jc,jb,iice) = Tf + tmelt
+            field% ts_tile    (jc,jb,iice) = Tf + tmelt
             field% Tsurf      (jc,1, jb  ) = Tf
             field% T1         (jc,1, jb  ) = Tf
             field% T2         (jc,1, jb  ) = Tf
             field% hs         (jc,1, jb  ) = 0._wp
-            IF ( field%tsfc_tile(jc,jb,iwtr) <= Tf + tmelt ) THEN
-              field%Tsurf (jc,1,jb) = field% tsfc_tile(jc,jb,iice) - tmelt
+            IF ( field%ts_tile(jc,jb,iwtr) <= Tf + tmelt ) THEN
+              field%Tsurf (jc,1,jb) = field% ts_tile(jc,jb,iice) - tmelt
               field%conc  (jc,1,jb) = 0.9_wp
               field%hi    (jc,1,jb) = 1.0_wp
               field%seaice(jc,  jb) = field%conc(jc,1,jb)
@@ -733,6 +647,7 @@ CONTAINS
             ENDIF
           END DO
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
         END DO
 !$OMP END PARALLEL DO
@@ -750,9 +665,9 @@ CONTAINS
           CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
           DO jc = jcs,jce
             zlat = p_patch%cells%center(jc,jb)%lat
-            field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
+            field% ts_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
             ! Initialise the ice - Tsurf, T1 & T2 must be in degC
-            field% tsfc_tile  (jc,jb,iice) = Tf + tmelt
+            field% ts_tile    (jc,jb,iice) = Tf + tmelt
             field% Tsurf      (jc,1, jb  ) = Tf
             field% T1         (jc,1, jb  ) = Tf
             field% T2         (jc,1, jb  ) = Tf
@@ -762,6 +677,7 @@ CONTAINS
             field%seaice(jc,  jb) = field%conc(jc,1,jb)
           END DO
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
         END DO
 !$OMP END PARALLEL DO
@@ -776,10 +692,11 @@ CONTAINS
         DO jb = jbs,nblks_c
           CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
           field% lsmask(jcs:jce,jb) = 1._wp   ! land fraction = 1
+          field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
 
-          field% tsfc_tile(jcs:jce,jb,ilnd) = tpe_temp
+          field% ts_tile(jcs:jce,jb,ilnd) = tpe_temp
         END DO
 !$OMP END PARALLEL DO
 
@@ -794,9 +711,10 @@ CONTAINS
           ! level above surface. For this test case, currently we assume
           ! there is no land or sea ice.
 
-          field% tsfc_tile(jcs:jce,jb,iwtr) = temp(jcs:jce,nlev,jb)
+          field% ts_tile(jcs:jce,jb,iwtr) = temp(jcs:jce,nlev,jb)
 
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
         END DO
@@ -826,14 +744,14 @@ CONTAINS
       ! (after tile masks and variables potentially have been overwritten by testcases above)
 
       IF (iwtr <= nsfc_type) THEN
-        field%tsfc     (:,:) = field%tsfc_tile(:,:,iwtr)
+        field%ts       (:,:) = field%ts_tile(:,:,iwtr)
         field%albvisdir(:,:) = albedoW
         field%albvisdif(:,:) = albedoW
         field%albnirdir(:,:) = albedoW
         field%albnirdif(:,:) = albedoW
         field%albedo   (:,:) = albedoW
       ELSE
-        field%tsfc     (:,:) = field%tsfc_tile(:,:,ilnd)
+        field%ts       (:,:) = field%ts_tile(:,:,ilnd)
         field%albvisdir(:,:) = field%alb(:,:)
         field%albvisdif(:,:) = field%alb(:,:)
         field%albnirdir(:,:) = field%alb(:,:)
@@ -841,8 +759,8 @@ CONTAINS
         field%albedo   (:,:) = field%alb(:,:)
       END IF
 
-      field%tsfc_rad (:,:) = field%tsfc(:,:)
-      field%tsfc_radt(:,:) = field%tsfc(:,:)
+      field%ts_rad    (:,:) = field%ts(:,:)
+      field%ts_rad_rt (:,:) = field%ts(:,:)
 
       field%lake_ice_frc(:,:) = 0._wp
 
@@ -907,10 +825,11 @@ CONTAINS
 
             DO jc = jcs,jce
               zlat = p_patch(jg)%cells%center(jc,jb)%lat
-              field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)   ! SST
-              field% tsfc     (jc,     jb) = field% tsfc_tile(jc,jb,iwtr)
+              field% ts_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)   ! SST
+              field% ts     (jc,     jb) = field% ts_tile(jc,jb,iwtr)
             END DO
             field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+            field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
             field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
             field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
 
@@ -932,12 +851,6 @@ CONTAINS
       ENDDO   !jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
-      !----------------------------------------
-      ! Reset accumulated variables
-      !----------------------------------------
-
-      field%totprec_avg(:,:)   = 0._wp
 
       NULLIFY( field )
     ENDDO !jg

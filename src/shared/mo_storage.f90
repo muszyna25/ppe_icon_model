@@ -103,13 +103,13 @@ SUBROUTINE init_storage(this_storage,lcase_sensitivity)
 
   IF (PRESENT(lcase_sensitivity))THEN
     IF (lcase_sensitivity) THEN
-      this_storage%container = hashTable_make(storage_hashKey_DJB, storage_equalKeysFunction_cs)
+      this_storage%container = hashTable_make(storage_hashKey_DJB_cs, storage_equalKeysFunction_cs)
     ELSE
-      this_storage%container = hashTable_make(storage_hashKey_DJB, storage_equalKeysFunction_ci)
+      this_storage%container = hashTable_make(storage_hashKey_DJB_ci, storage_equalKeysFunction_ci)
     ENDIF
   ELSE
     ! Not present: case insensitive by default
-    this_storage%container = hashTable_make(storage_hashKey_DJB, storage_equalKeysFunction_ci)
+    this_storage%container = hashTable_make(storage_hashKey_DJB_ci, storage_equalKeysFunction_ci)
   ENDIF
 
 END SUBROUTINE init_storage
@@ -262,6 +262,8 @@ SUBROUTINE get_real(this_storage, key, value, ierror)
     IF (PRESENT(ierror)) ierror = 1
   ENDIF
 
+  DEALLOCATE(p_key)
+
 END SUBROUTINE get_real
 !!
 !!-------------------------------------------------------------------------
@@ -297,6 +299,8 @@ SUBROUTINE get_int(this_storage, key, value, ierror)
   ELSE
     IF (PRESENT(ierror)) ierror = 1
   ENDIF
+
+  DEALLOCATE(p_key)
 
 END SUBROUTINE get_int
 !!
@@ -334,6 +338,8 @@ SUBROUTINE get_string(this_storage, key, value, ierror)
     IF (PRESENT(ierror)) ierror = 1
   ENDIF
 
+  DEALLOCATE(p_key)
+
 END SUBROUTINE get_string
 !!
 !!-------------------------------------------------------------------------
@@ -370,11 +376,13 @@ SUBROUTINE get_logical(this_storage, key, value, ierror)
     IF (PRESENT(ierror)) ierror = 1
   ENDIF
 
+  DEALLOCATE(p_key)
+
 END SUBROUTINE get_logical
 !!
 !!-------------------------------------------------------------------------
 !!
-INTEGER(C_INT32_T) FUNCTION storage_hashKey_DJB(key) RESULT(result)
+INTEGER(C_INT32_T) FUNCTION storage_hashKey_DJB_cs(key) RESULT(result)
 ! Create hash key as proposed by Daniel J. Bernstein
   CLASS(t_Destructible), POINTER, INTENT(in) :: key
 ! Local
@@ -391,7 +399,28 @@ INTEGER(C_INT32_T) FUNCTION storage_hashKey_DJB(key) RESULT(result)
     CLASS DEFAULT
       CALL finish(routine, "Unknown type for key.")
   END SELECT
-END FUNCTION storage_hashKey_DJB
+END FUNCTION storage_hashKey_DJB_cs
+!!
+!!-------------------------------------------------------------------------
+!!
+INTEGER(C_INT32_T) FUNCTION storage_hashKey_DJB_ci(key) RESULT(result)
+! Create hash key as proposed by Daniel J. Bernstein
+  CLASS(t_Destructible), POINTER, INTENT(in) :: key
+! Local
+  integer :: i
+  CHARACTER(LEN=*), PARAMETER    :: routine = modname//":storage_hashKey_DJB"
+
+  result = 5381
+
+  SELECT TYPE(key)
+    TYPE IS(t_stringVal)
+      do i=1,len(TRIM(key%stringVal))
+        result = (ishft(result,5) + result) + ichar(tolower(key%stringVal(i:i)))
+      end do
+    CLASS DEFAULT
+      CALL finish(routine, "Unknown type for key.")
+  END SELECT
+END FUNCTION storage_hashKey_DJB_ci
 !!
 !!-------------------------------------------------------------------------
 !!

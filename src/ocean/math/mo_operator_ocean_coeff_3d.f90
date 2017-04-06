@@ -367,6 +367,7 @@ CONTAINS
 
     CASE ( planar_geometry )
       d_vector%x = y%x - x%x
+
     CASE DEFAULT
       CALL finish(method_name, "Undefined geometry type")
     END SELECT
@@ -1408,6 +1409,8 @@ CONTAINS
             fixed_vol_norm(cell_index,cell_block) = &
               & fixed_vol_norm(cell_index,cell_block) + &
               & 0.5_wp * norm * prime_edge_length(edge_index,edge_block)
+
+
 
 !             variable_vol_norm(cell_index, cell_block, neigbor) = &
 !               & 0.5_wp * norm * prime_edge_length(edge_index,edge_block)

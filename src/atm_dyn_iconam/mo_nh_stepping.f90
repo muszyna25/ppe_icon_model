@@ -645,7 +645,6 @@ MODULE mo_nh_stepping
   time_diff  => newTimedelta("PT0S")
   time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_exp_startdate)
   sim_time   =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
-  CALL deallocateTimedelta(time_diff)
 
   IF (iterate_iau) THEN
     iau_iter = 1
@@ -1267,7 +1266,10 @@ MODULE mo_nh_stepping
     ELSE
      jstep = jstep + 1
     ENDIF
-    
+
+    time_diff  = getTimeDeltaFromDateTime(mtime_current, time_config%tc_exp_startdate)
+    sim_time   = getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
+     
   ENDDO TIME_LOOP
 
 #if defined( _OPENACC )
@@ -1291,6 +1293,7 @@ MODULE mo_nh_stepping
     IF (ierr /= SUCCESS)  CALL finish (routine, 'DEALLOCATE failed!')
   ENDIF
 
+  CALL deallocateTimedelta(time_diff)  
   CALL deallocateDatetime(mtime_old)
   DO jg=1,n_dom
     IF (ASSOCIATED(datetime_current(jg)%ptr)) &
