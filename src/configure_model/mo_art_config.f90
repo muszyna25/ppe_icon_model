@@ -38,9 +38,9 @@ MODULE mo_art_config
   PUBLIC :: art_config
   PUBLIC :: configure_art
   PUBLIC :: IART_PATH_LEN
-  
+
   PUBLIC :: ctracer_art                                                  !generic tracer list, contains name of tracer
-  
+
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ICON-ART
   !!--------------------------------------------------------------------------
