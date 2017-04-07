@@ -1332,7 +1332,7 @@ CONTAINS
   SUBROUTINE meteogram_sample_vars(jg, cur_step, cur_datetime, ierr)
     INTEGER,          INTENT(IN)  :: jg           !< patch index
     INTEGER,          INTENT(IN)  :: cur_step     !< current model iteration step
-    TYPE(datetime),   POINTER     :: cur_datetime !< date and time of point sample
+    TYPE(datetime),   INTENT(IN), POINTER :: cur_datetime !< date and time of point sample
     INTEGER,          INTENT(OUT) :: ierr         !< error code (e.g. buffer overflow)
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":meteogram_sample_vars"

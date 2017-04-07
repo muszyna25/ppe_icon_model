@@ -40,7 +40,6 @@ MODULE mo_jw_test
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, inwp, iecham
   USE mo_physical_constants,  ONLY: rgrav, rd,tmelt, vtmpc1
   USE mo_math_constants,      ONLY: pi_2, pi
-  USE mo_advection_config,    ONLY: advection_config
   USE mo_vertical_coord_table,ONLY: ceta
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -100,6 +99,7 @@ MODULE mo_jw_test
  SUBROUTINE init_hydro_state_prog_jwtest(pt_patch, pt_hydro_prog,    &
    &                                     pt_hydro_diag, pt_ext_data, &
    &                                     p_rotate_axis_deg,          &
+   &                                     tracer_inidist_list,        &
    &                                     opt_lrh_linear_pres,        &
    &                                     opt_rh_at_1000hpa          )
 
@@ -112,14 +112,12 @@ MODULE mo_jw_test
 
   REAL(wp),INTENT(IN) :: p_rotate_axis_deg
 
+  INTEGER             :: tracer_inidist_list(:) !< tracer initial distributions
+
   LOGICAL, INTENT(IN),OPTIONAL :: opt_lrh_linear_pres
   REAL(wp),INTENT(IN),OPTIONAL :: opt_rh_at_1000hpa
 
   !local variables
-
-  CHARACTER(LEN=1) :: ctracer
-  CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
-    &  ctracer_list
 
   REAL(wp) :: lon,lat,tmp0,tmp1,tmp2,tmp3, rot_lon, rot_lat
   REAL(wp) :: zeta,zcos12z,zcos32z,zsinz,zsin2ysq,zsiny,zcosy,ztemp
@@ -138,7 +136,6 @@ MODULE mo_jw_test
   INTEGER :: nblks_c, nblks_e, nblks_v, npromz_e, npromz_c, npromz_v, &
              nlen, jt, jb, je, jc, jk, jv
   INTEGER :: nlev, icount
-  INTEGER :: pid         !< patch ID
 
   LOGICAL  :: lrh_linear_pres, lgetbalance
   REAL(wp) :: rh_at_1000hpa
@@ -162,12 +159,6 @@ MODULE mo_jw_test
   ENDIF
 
 !-----------------------
-
-  ! get patch ID
-  pid = pt_patch%id
-
-  ! get ctracer_list
-  ctracer_list = advection_config(pid)%ctracer_list
 
   ! number of vertical levels
   nlev = pt_patch%nlev
@@ -379,7 +370,7 @@ MODULE mo_jw_test
         niter       = 0
         ztemp_cor   = 0._wp
 
-!$OMP DO PRIVATE(jb,jk,jt,jc,nlen,zeta,ctracer,lon,lat,zrhf,zsqv, &
+!$OMP DO PRIVATE(jb,jk,jt,jc,nlen,zeta,lon,lat,zrhf,zsqv, &
 !$OMP            zpres,ztempv,ztemp0,ztemp,ztol)
         DO jb = 1, nblks_c
            IF (jb /= nblks_c) THEN
@@ -402,11 +393,9 @@ MODULE mo_jw_test
 
               DO jt = 1, ntracer
 
-                 ctracer = ctracer_list(jt:jt)
+                 SELECT CASE(tracer_inidist_list(jt))
 
-                 SELECT CASE(ctracer)
-
-                 CASE('1')
+                 CASE(1)
 
                     DO jc = 1, nlen
                        lat = pt_patch%cells%center(jc,jb)%lat
@@ -415,7 +404,7 @@ MODULE mo_jw_test
                          tracer_q1_q2(lon, lat, zeta, p_rotate_axis_deg, 0.6_wp)
                     ENDDO ! cell loop
 
-                 CASE('2')
+                 CASE(2)
 
                     DO jc =1, nlen
                        lat = pt_patch%cells%center(jc,jb)%lat
@@ -424,7 +413,7 @@ MODULE mo_jw_test
                          tracer_q1_q2(lon, lat, zeta, p_rotate_axis_deg, 1.0_wp)
                     ENDDO ! cell loop
 
-                 CASE('3')
+                 CASE(3)
 
                     DO jc =1, nlen
                        lat = pt_patch%cells%center(jc,jb)%lat
@@ -433,7 +422,7 @@ MODULE mo_jw_test
                          tracer_q3(lon, lat, p_rotate_axis_deg)
                     ENDDO ! cell loop
 
-                 CASE('4')
+                 CASE(4)
                     pt_hydro_prog%tracer(:,jk,jb,jt) = 1._wp
 
                  END SELECT

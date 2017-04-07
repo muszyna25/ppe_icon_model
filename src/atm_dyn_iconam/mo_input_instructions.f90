@@ -22,7 +22,7 @@ MODULE mo_input_instructions
     USE mo_input_request_list, ONLY: t_InputRequestList
     USE mo_lnd_nwp_config, ONLY: lsnowtile
     USE mo_model_domain, ONLY: t_patch
-    USE mo_util_string, ONLY: difference, add_to_list, int2string
+    USE mo_util_string, ONLY: difference, add_to_list, int2string, one_of
     USE mo_util_table, ONLY: t_table, initialize_table, add_table_column, set_table_entry, print_table, finalize_table
     USE mo_var_list, ONLY: collect_group
     USE mo_var_metadata_types,  ONLY: VARNAME_LEN
@@ -30,14 +30,14 @@ MODULE mo_input_instructions
     IMPLICIT NONE
 
 PUBLIC :: t_readInstructionList, readInstructionList_make, t_readInstructionListPtr
-PUBLIC :: kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth
+PUBLIC :: kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth, kInputSourceCold
 PUBLIC :: kStateNoFetch, kStateFailedFetch, kStateRead
     ! The possible RETURN values of readInstructionList_sourceOfVar().
     INTEGER, PARAMETER :: kInputSourceUnset = -1, kInputSourceNone = 0, kInputSourceFg = 1, kInputSourceAna = 2, &
-                        & kInputSourceBoth = 3
+                        & kInputSourceBoth = 3, kInputSourceCold = 4
 
     ! The possible values for statusFg AND statusAna:
-    INTEGER(KIND = C_CHAR), PARAMETER :: kStateNoFetch = 0, kStateFailedFetch = 1, kStateRead = 2
+    INTEGER(KIND = C_CHAR), PARAMETER :: kStateNoFetch = 0, kStateFailedFetch = 1, kStateRead = 2, kStateFailedOptFetch = 3
 
     ! The readInstructionList is used to tell the fetch_dwd*() routines which fields may be read from first guess and/or analysis,
     ! and to signal whether we have found data in the first guess file, so that we can fail correctly.
@@ -49,9 +49,9 @@ PUBLIC :: kStateNoFetch, kStateFailedFetch, kStateRead
     ! The wantVarXXX() CALL tells the caller whether they should try to READ the variable,
     ! the handleErrorXXX() CALL tells the ReadInstructionList whether that READ was successfull,
     ! possibly panicking with a `finish()` CALL IN CASE there are no options left to READ the DATA.
-    !
-    ! If reading of the variable itself is not required, optionalReadResultXXX() has to be used
-    ! instead of handleErrorXXX(), this won't panick if no data is available.
+    ! If a variable is declared as optional, handleErrorXXX() won't panick if no data is available. 
+    ! Instead sourceOfVar will be set to kInputSourceCold, indicating that the variable should 
+    ! experience some sort of coldstart initialization.
     TYPE :: t_readInstructionList
         TYPE(t_readInstruction), POINTER :: list(:)
         INTEGER :: nInstructions
@@ -69,17 +69,12 @@ PUBLIC :: kStateNoFetch, kStateFailedFetch, kStateRead
         PROCEDURE :: handleErrorFg => readInstructionList_handleErrorFg
         PROCEDURE :: handleErrorAna => readInstructionList_handleErrorAna
 
-        ! inform the ReadInstructionList about the result of a read (nofail variant)
-        PROCEDURE :: optionalReadResult => readInstructionList_optionalReadResult
-        PROCEDURE :: optionalReadResultFg => readInstructionList_optionalReadResultFg
-        PROCEDURE :: optionalReadResultAna => readInstructionList_optionalReadResultAna
-
         PROCEDURE :: sourceOfVar => readInstructionList_sourceOfVar ! returns kInputSourceNone, kInputSourceFg, kInputSourceAna, OR kInputSourceBoth
         PROCEDURE :: setSource => readInstructionList_setSource ! overrides the automatic calculation of the input source, argument must be 'kInputSource\(None\|Fg\|Ana\|Both\)'
 
         PROCEDURE :: fetchStatus => readInstructionList_fetchStatus  ! returns the result of a read attempt for a particular field
 
-        PROCEDURE :: printSummary => readInstructionList_printSummary   ! print a table with the information obtained via `handleErrorXXX()`, `optionalReadResult()`, and `setSource()`; THIS DEPENDS ON THE ACTUAL READ ATTEMPTS AND THEIR RESULTS, NOT ON `lReadFg` or `lReadAna`.
+        PROCEDURE :: printSummary => readInstructionList_printSummary   ! print a table with the information obtained via `handleErrorXXX()`, and `setSource()`; THIS DEPENDS ON THE ACTUAL READ ATTEMPTS AND THEIR RESULTS, NOT ON `lReadFg` or `lReadAna`.
 
         PROCEDURE :: destruct => readInstructionList_destruct
 
@@ -97,7 +92,9 @@ PRIVATE
     TYPE :: t_readInstruction
         CHARACTER(LEN = VARNAME_LEN) :: varName
         LOGICAL :: lReadFg, lReadAna    ! These reflect the result of interpreting the variable groups, they are not used in the table output.
-        LOGICAL :: lRequireAna  ! Panick if reading from analysis fails (set according to the `ana_varlist` namelist parameter)
+        LOGICAL :: lOptionalFg          ! TRUE: variable is read if it is present in the file, but it is not necessary to start the run
+                                        ! (re-set to .FALSE. according to the `fg_checklist` namelist parameter)
+        LOGICAL :: lRequireAna  ! Panick if reading from analysis fails (set according to the `ana_checklist` namelist parameter)
         INTEGER(KIND = C_CHAR) :: statusFg, statusAna   ! These reflect what read attempts really have been made, and what their results were. This is the basis for the table output.
         INTEGER :: sourceOverride   ! IF this IS NOT kInputSourceUnset, it overrides the automatic calculation of the input source.
     CONTAINS
@@ -128,6 +125,22 @@ CONTAINS
                 outGroupSize = 0
         END SELECT
     END SUBROUTINE collectGroupFg
+
+    ! Sub-list of optional first guess fields
+    ! Fields in this list are read from the first guess field if they are present, 
+    ! but they are not needed to start the model.
+    !
+    ! ToDo: 
+    ! So far, this list has to be created manually. In the future this 
+    ! should be done automatically via (add_var) metadata flags. 
+    SUBROUTINE collectGroupFgOpt(outGroup, outGroupSize)
+        CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: outGroup(:)
+        INTEGER, INTENT(OUT) :: outGroupSize
+
+        outGroup(1:7) = (/'alb_si       ','rho_snow_mult','aer_ss       ','aer_or       ', &
+          &               'aer_bc       ','aer_su       ','aer_du       '/)
+        outGroupSize  = 7
+    END SUBROUTINE collectGroupFgOpt
 
     SUBROUTINE collectGroupAna(outGroup, outGroupSize, init_mode)
         CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: outGroup(:)
@@ -183,11 +196,12 @@ CONTAINS
         anaGroupSize = 0
     END SUBROUTINE mergeAnaIntoFg
 
-    SUBROUTINE collectGroups(p_patch, init_mode, fgGroup, fgGroupSize, anaGroup, anaGroupSize)
+    SUBROUTINE collectGroups(p_patch, init_mode, fgGroup, fgGroupSize, &
+      &                      fgOptGroup, fgOptGroupSize, anaGroup, anaGroupSize)
         TYPE(t_patch), INTENT(IN) :: p_patch
         INTEGER, VALUE :: init_mode
-        CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: anaGroup(:), fgGroup(:)
-        INTEGER, INTENT(OUT) :: anaGroupSize, fgGroupSize
+        CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: anaGroup(:), fgGroup(:), fgOptGroup(:)
+        INTEGER, INTENT(OUT) :: anaGroupSize, fgGroupSize, fgOptGroupSize
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//':collectGroups'
         CHARACTER(LEN=VARNAME_LEN), DIMENSION(200) :: anaAtmGroup
@@ -197,6 +211,7 @@ CONTAINS
 
         ! get the raw DATA
         CALL collectGroupFg(fgGroup, fgGroupSize, init_mode)
+        CALL collectGroupFgOpt(fgOptGroup, fgOptGroupSize)
         CALL collectGroupAna(anaGroup, anaGroupSize, init_mode)
         CALL collectGroupAnaAtm(anaAtmGroup, anaAtmGroupSize, init_mode)
         jg = p_patch%id
@@ -260,6 +275,7 @@ CONTAINS
 
         END SELECT
 
+
     END SUBROUTINE collectGroups
 
 
@@ -271,8 +287,11 @@ CONTAINS
     !!
     !! This IS based on:
     !!  1. the group specifications IN the add_var() calls
-    !!  2. user input via initicon_config(:)%ana_varlist,
+    !!  2. user input via initicon_config(:)%ana_checklist,
     !!     ANY of these variables must be READ from the analysis file
+    !!  3. user input via initicon_config(:)%fg_checklist,
+    !!     ANY of these first guess fields must be read from the first guess file.
+    !!     I.e. optional first guess fields are turned into mandatory ones
     !!  3. some other interesting rules, like the substitution of 'smi' for 'w_so'
     !!     IN the CASE of MODE_COSMODE AND MODE_COMBINED.
     !!
@@ -301,22 +320,31 @@ CONTAINS
         TYPE(t_readInstruction), pointer :: curInstruction
 
         ! lists of variable names
-        CHARACTER(LEN=VARNAME_LEN), DIMENSION(200) :: grp_vars_fg, grp_vars_ana
+        CHARACTER(LEN=VARNAME_LEN), DIMENSION(200) :: grp_vars_fg, grp_vars_optfg, grp_vars_ana
 
         ! the corresponding sizes of the lists above
-        INTEGER :: ngrp_vars_fg, ngrp_vars_ana
-
+        INTEGER :: ngrp_vars_fg, ngrp_vars_optfg, ngrp_vars_ana
+        CHARACTER(LEN = 256) :: message_text
+        !
         !-------------------------------------------------------------------------
 
-
         ! create a list of instructions according to the current init_mode AND configuration flags
-        CALL collectGroups(p_patch, init_mode, grp_vars_fg, ngrp_vars_fg, grp_vars_ana, ngrp_vars_ana)
+        CALL collectGroups(p_patch, init_mode, grp_vars_fg   , ngrp_vars_fg   , &
+          &                                    grp_vars_optfg, ngrp_vars_optfg, &
+          &                                    grp_vars_ana  , ngrp_vars_ana    )
         ALLOCATE(resultVar, STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure");
         CALL resultVar%construct()
         DO ivar = 1, ngrp_vars_fg
             curInstruction => resultVar%findInstruction(grp_vars_fg(ivar))
             curInstruction%lReadFg = .TRUE.
+            !
+            ! mark optional first guess fields in the instruction list. 
+            IF (one_of(TRIM(grp_vars_fg(ivar)), grp_vars_optfg)/=-1) THEN
+                WRITE(message_text,'(a,a,a,i2)') 'Declare ',TRIM(grp_vars_fg(ivar)),' as OPTIONAL for DOM ', p_patch%id
+                CALL message(routine, TRIM(message_text))                
+                curInstruction%lOptionalFg=.TRUE.
+            ENDIF
         END DO
         DO ivar = 1, ngrp_vars_ana
             curInstruction => resultVar%findInstruction(grp_vars_ana(ivar))
@@ -324,17 +352,41 @@ CONTAINS
             curInstruction%lReadAna = .TRUE.
         END DO
 
+        ! Allow the user to override the DEFAULT settings for optional fields via fg_checklist
+        ! I.e. the user can change an optional field into a mandatory one and force a model abort, 
+        ! if the field is not available as input.
+        ! 
+        ! translate GRIB2 varname to internal netcdf varname
+        ! If requested GRIB2 varname is not found in the dictionary
+        ! (i.e. due to typos) -> Model abort
+        DO ivar=1,SIZE(initicon_config(p_patch%id)%fg_checklist)
+            IF (initicon_config(p_patch%id)%fg_checklist(ivar) == ' ') EXIT
+  
+            curInstruction => resultVar%findInstruction(TRIM(dict_get(ana_varnames_dict, &
+                 &                                                  initicon_config(p_patch%id)%fg_checklist(ivar), &
+                 &                                                  linverse=.TRUE.)), opt_expand=.FALSE.)
+            ! Note that depending on the Namelist settings, not every field listed in 
+            ! fg_checklist is part of the instruction list. Therefore, curInstruction 
+            ! may be non-associated. 
+            IF (ASSOCIATED(curInstruction) .AND. curInstruction%lOptionalFg) THEN
+                curInstruction%lOptionalFg = .FALSE.
 
-        ! Allow the user to override the DEFAULT settings via ana_varlist. These variables must be READ from analysis.
+                WRITE(message_text,'(a,a,a,i2)') 'Transform ',TRIM(initicon_config(p_patch%id)%fg_checklist(ivar)), &
+                   &                       ' into a mandatory first guess field for DOM', p_patch%id
+                CALL message(routine, TRIM(message_text))
+            ENDIF
+        ENDDO
+
+        ! Allow the user to override the DEFAULT settings via ana_checklist. These variables must be READ from analysis.
         IF( lread_ana ) THEN
             ! translate GRIB2 varname to internal netcdf varname
             ! If requested GRIB2 varname is not found in the dictionary
             ! (i.e. due to typos) -> Model abort
-            DO ivar=1,SIZE(initicon_config(p_patch%id)%ana_varlist)
-                IF (initicon_config(p_patch%id)%ana_varlist(ivar) == ' ') EXIT
+            DO ivar=1,SIZE(initicon_config(p_patch%id)%ana_checklist)
+                IF (initicon_config(p_patch%id)%ana_checklist(ivar) == ' ') EXIT
 
                 curInstruction => resultVar%findInstruction(TRIM(dict_get(ana_varnames_dict, &
-                &                                                      initicon_config(p_patch%id)%ana_varlist(ivar), &
+                &                                                      initicon_config(p_patch%id)%ana_checklist(ivar), &
                 &                                                      linverse=.TRUE.)))
                 curInstruction%lReadAna = .TRUE.
                 curInstruction%lRequireAna = .TRUE.
@@ -353,13 +405,23 @@ CONTAINS
         me%nInstructions = 0
     END SUBROUTINE readInstructionList_construct
 
-    FUNCTION readInstructionList_findInstruction(me, varName) RESULT(resultVar)
+    FUNCTION readInstructionList_findInstruction(me, varName, opt_expand) RESULT(resultVar)
         CLASS(t_readInstructionList), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: varName
+        LOGICAL, INTENT(IN), OPTIONAL  :: opt_expand  ! TRUE: expand list, if variable is not found 
         TYPE(t_readInstruction), POINTER :: resultVar
 
-        INTEGER :: i, error
+        INTEGER :: i
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":readInstructionList_findInstruction"
+        LOGICAL :: expand   ! TRUE/FALSE: expand/do not expand list, if variable is not found  
+
+        IF (PRESENT(opt_expand)) THEN
+            expand = opt_expand
+        ELSE
+            expand = .TRUE. 
+        ENDIF
+        ! initialize
+        resultVar => NULL() 
 
         ! try to find it IN the current list
         DO i = 1, me%nInstructions
@@ -367,19 +429,22 @@ CONTAINS
             IF(resultVar%varName == varName) RETURN
         END DO
 
-        ! the variable IS NOT found IN the list, expand the list
-        ! first increase the allocation IF necessary
-        IF(me%nInstructions == SIZE(me%list, 1)) CALL me%resize(2*me%nInstructions)
-        ! THEN add a new entry at the END
-        me%nInstructions = me%nInstructions + 1
-        resultVar => me%list(me%nInstructions)
-        resultVar%varName = varName
-        resultVar%lReadFg = .FALSE.
-        resultVar%lReadAna = .FALSE.
-        resultVar%lRequireAna = .FALSE.
-        resultVar%statusFg = kStateNoFetch
-        resultVar%statusAna = kStateNoFetch
-        resultVar%sourceOverride = kInputSourceUnset
+        IF (expand) THEN
+            ! the variable IS NOT found IN the list, expand the list
+            ! first increase the allocation IF necessary
+            IF(me%nInstructions == SIZE(me%list, 1)) CALL me%resize(2*me%nInstructions)
+            ! THEN add a new entry at the END
+            me%nInstructions = me%nInstructions + 1
+            resultVar => me%list(me%nInstructions)
+            resultVar%varName = varName
+            resultVar%lReadFg = .FALSE.
+            resultVar%lOptionalFg = .FALSE.
+            resultVar%lReadAna = .FALSE.
+            resultVar%lRequireAna = .FALSE.
+            resultVar%statusFg = kStateNoFetch
+            resultVar%statusAna = kStateNoFetch
+            resultVar%sourceOverride = kInputSourceUnset
+        ENDIF
     END FUNCTION readInstructionList_findInstruction
 
     SUBROUTINE readInstructionList_resize(me, newSize)
@@ -401,6 +466,7 @@ CONTAINS
         DO i = 1, me%nInstructions
             tempList(i)%varName = me%list(i)%varName
             tempList(i)%lReadFg = me%list(i)%lReadFg
+            tempList(i)%lOptionalFg = me%list(i)%lOptionalFg
             tempList(i)%lReadAna = me%list(i)%lReadAna
             tempList(i)%lRequireAna = me%list(i)%lRequireAna
             tempList(i)%statusFg = me%list(i)%statusFg
@@ -501,16 +567,23 @@ CONTAINS
         IF(lSuccess) THEN
             instruction%statusFg = kStateRead
         ELSE
-            instruction%statusFg = kStateFailedFetch
-
-            ! check whether we can READ this variable from the analysis file as well
-            IF(instruction%lReadAna) THEN
-                ! now this variable must be READ from the analysis file
-                instruction%lReadFg = .FALSE.
+            IF (instruction%lOptionalFg) THEN
+                ! field is not necessary for starting the model
+                ! Therefore we set the status to kStateFailedOptFetch 
+                ! instead of kStateFailedFetch
+                instruction%statusFg = kStateFailedOptFetch
             ELSE
-                CALL finish(caller, "failed to read variable '"//varName//"' from the first guess file, &
-                &and reading from analysis file is not allowed")
-            END IF
+                instruction%statusFg = kStateFailedFetch
+
+                ! check whether we can READ this variable from the analysis file as well
+                IF(instruction%lReadAna) THEN
+                    ! now this variable must be READ from the analysis file
+                    instruction%lReadFg = .FALSE.
+                ELSE
+                    CALL finish(caller, "failed to read variable '"//varName//"' from the first guess file, &
+                    &and reading from analysis file is not allowed")
+                END IF
+            ENDIF 
         END IF
     END SUBROUTINE readInstructionList_handleErrorFg
 
@@ -539,77 +612,13 @@ CONTAINS
                     &and reading from first guess is not allowed or failed")
             END IF
 
-            ! check whether we are forced by the user to READ analysis DATA for this variable (ana_varlist)
+            ! check whether we are forced by the user to READ analysis DATA for this variable (ana_checklist)
             IF(instruction%lRequireAna) THEN
-                CALL finish(caller, "failed to read variable '"//varName//"' from the analysis file (required by ana_varlist)")
+                CALL finish(caller, "failed to read variable '"//varName//"' from the analysis file (required by ana_checklist)")
             END IF
         END IF
     END SUBROUTINE readInstructionList_handleErrorAna
 
-    SUBROUTINE readInstructionList_optionalReadResult(me, lSuccess, varName, caller, lIsFg)
-        LOGICAL, VALUE :: lSuccess, lIsFg
-        CLASS(t_readInstructionList), INTENT(INOUT) :: me
-        CHARACTER(LEN = *), INTENT(IN) :: varName, caller
-
-        IF(lIsFg) THEN
-            CALL me%optionalReadResultFg(lSuccess, varName, caller)
-        ELSE
-            CALL me%optionalReadResultAna(lSuccess, varName, caller)
-        END IF
-    END SUBROUTINE readInstructionList_optionalReadResult
-
-    SUBROUTINE readInstructionList_optionalReadResultFg(me, lSuccess, varName, caller)
-        LOGICAL, VALUE :: lSuccess
-        CLASS(t_readInstructionList), INTENT(INOUT) :: me
-        CHARACTER(LEN = *), INTENT(IN) :: varName, caller
-
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//"readInstructionList_optionalReadResultFg"
-        TYPE(t_readInstruction), POINTER :: instruction
-
-        instruction => me%findInstruction(varName)
-
-        ! sanity check
-        IF(.NOT.instruction%lReadFg) CALL finish(routine, "internal error: variable '"//varName//"' was read even though there &
-            &are no read instructions for it")
-
-        IF(lSuccess) THEN
-            instruction%statusFg = kStateRead
-        ELSE
-            instruction%statusFg = kStateFailedFetch
-
-            ! check whether we can READ this variable from the analysis file as well
-            IF(instruction%lReadAna) THEN
-                ! now this variable must be READ from the analysis file
-                instruction%lReadFg = .FALSE.
-            END IF
-        END IF
-    END SUBROUTINE readInstructionList_optionalReadResultFg
-
-    SUBROUTINE readInstructionList_optionalReadResultAna(me, lSuccess, varName, caller)
-        LOGICAL, VALUE :: lSuccess
-        CLASS(t_readInstructionList), INTENT(INOUT) :: me
-        CHARACTER(LEN = *), INTENT(IN) :: varName, caller
-
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//"readInstructionList_optionalReadResultAna"
-        TYPE(t_readInstruction), POINTER :: instruction
-
-        instruction => me%findInstruction(varName)
-
-        ! sanity check
-        IF(.NOT.instruction%lReadAna) CALL finish(routine, "internal error: variable '"//varName//"' was read even though there &
-            &are no read instructions for it")
-
-        IF(lSuccess) THEN
-            instruction%statusAna = kStateRead
-        ELSE
-            instruction%statusAna = kStateFailedFetch
-
-            ! check whether we are forced by the user to READ analysis DATA for this variable (ana_varlist)
-            IF(instruction%lRequireAna) THEN
-                CALL finish(caller, "failed to read variable '"//varName//"' from the analysis file (required by ana_varlist)")
-            END IF
-        END IF
-    END SUBROUTINE readInstructionList_optionalReadResultAna
 
     INTEGER FUNCTION readInstruction_source(me) RESULT(resultVar)
         CLASS(t_readInstruction), INTENT(IN) :: me
@@ -621,6 +630,8 @@ CONTAINS
                 resultVar = kInputSourceAna
             ELSE IF(me%statusFg == kStateRead) THEN
                 resultVar = kInputSourceFg
+            ELSE IF(me%statusFg == kStateFailedOptFetch) THEN
+                resultVar = kInputSourceCold
             ELSE
                 resultVar = kInputSourceNone
             END IF
@@ -646,7 +657,8 @@ CONTAINS
         TYPE(t_readInstruction), POINTER :: instruction
 
         SELECT CASE(source)
-            CASE(kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth)
+            CASE(kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth, kInputSourceCold)
+
                 instruction => me%findInstruction(varName)
                 instruction%sourceOverride = source
             CASE DEFAULT
@@ -682,7 +694,6 @@ CONTAINS
         INTEGER, VALUE :: domain
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":readInstructionList_printSummary"
-        CHARACTER(LEN = 12) :: fgString, anaString
         INTEGER :: i
         TYPE(t_readInstruction), POINTER :: curInstruction
         TYPE(t_table) :: table
@@ -691,7 +702,7 @@ CONTAINS
                                        & fgSuccessCol = "FG data found", &
                                        & anaAttemptCol = "ANA read attempt", &
                                        & anaSuccessCol = "ANA data found", &
-                                       & anaRequiredCol = "ANA DATA required (ana_varlist)", &
+                                       & anaRequiredCol = "ANA DATA required (ana_checklist)", &
                                        & useCol = "data used from"
 
         IF(me%nInstructions == 0) THEN
@@ -723,7 +734,7 @@ CONTAINS
             SELECT CASE(curInstruction%statusFg)
                 CASE(kStateNoFetch)
                     CALL set_table_entry(table, i, fgAttemptCol, "no")
-                CASE(kStateFailedFetch)
+                CASE(kStateFailedFetch, kStateFailedOptFetch)
                     CALL set_table_entry(table, i, fgAttemptCol, "yes")
                     CALL set_table_entry(table, i, fgSuccessCol, "no")
                 CASE(kStateRead)
@@ -737,7 +748,7 @@ CONTAINS
             SELECT CASE(curInstruction%statusAna)
                 CASE(kStateNoFetch)
                     CALL set_table_entry(table, i, anaAttemptCol, "no")
-                CASE(kStateFailedFetch)
+                CASE(kStateFailedFetch, kStateFailedOptFetch)
                     CALL set_table_entry(table, i, anaAttemptCol, "yes")
                     CALL set_table_entry(table, i, anaSuccessCol, "no")
                 CASE(kStateRead)
@@ -756,6 +767,8 @@ CONTAINS
             SELECT CASE(curInstruction%source())
                 CASE(kInputSourceNone)
                     CALL set_table_entry(table, i, useCol, "none")
+                CASE(kInputSourceCold)
+                    CALL set_table_entry(table, i, useCol, "cold!")
                 CASE(kInputSourceFg)
                     CALL set_table_entry(table, i, useCol, "fg")
                 CASE(kInputSourceAna)

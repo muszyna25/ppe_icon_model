@@ -49,7 +49,6 @@ MODULE mo_nh_testcases
   USE mo_intp_data_strc,       ONLY: t_int_state
   USE mo_nwp_lnd_types,        ONLY: t_lnd_state
   USE mo_lnd_nwp_config,       ONLY: isub_seaice
-  USE mo_advection_config,     ONLY: advection_config
   USE mo_nh_pa_test,           ONLY: init_nh_state_prog_patest
   USE mo_nh_df_test,           ONLY: init_nh_state_prog_dftest
   USE mo_nh_hs_test,           ONLY: init_nh_state_prog_held_suarez
@@ -470,9 +469,7 @@ MODULE mo_nh_testcases
   
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine =  &
                                    '(mo_nh_testcases) init_nh_testcase:' 
-! Tracer related variables
-  CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
-    &  ctracer_list
+
 !-----------------------------------------------------------------------
 
   SELECT CASE (nh_test_name)
@@ -500,11 +497,9 @@ MODULE mo_nh_testcases
 
 
     IF ( ltransport .AND. iforcing /= inwp ) THEN   ! passive tracers
-       ! get ctracer_list
-       ctracer_list = advection_config(jg)%ctracer_list
 
        CALL init_passive_tracers_nh_jabw (p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-                                         & rotate_axis_deg, ctracer_list, p_sfc_jabw) 
+                                         & rotate_axis_deg, tracer_inidist_list, p_sfc_jabw) 
 
     END IF
 
@@ -754,13 +749,13 @@ MODULE mo_nh_testcases
         &                       p_nh_state(jg)%prog(nnow(jg)),          &
         &                       p_nh_state(jg)%diag,ext_data(jg),       &
         &                       p_nh_state(jg)%metrics,rotate_axis_deg, &
-        &                       linit_tracer_fv )
+        &                       linit_tracer_fv, tracer_inidist_list )
 
       CALL init_nh_state_prog_patest(p_patch(jg),p_int(jg),             &
         &                       p_nh_state(jg)%prog(nnew(jg)),          &
         &                       p_nh_state(jg)%diag,ext_data(jg),       &
         &                       p_nh_state(jg)%metrics,rotate_axis_deg, &
-        &                       linit_tracer_fv )
+        &                       linit_tracer_fv, tracer_inidist_list )
 
     ENDDO !jg
 
@@ -769,19 +764,19 @@ MODULE mo_nh_testcases
 
     DO jg = 1, n_dom
 
-      CALL init_nh_state_prog_dftest(p_patch(jg),                    &
-           &                         p_nh_state(jg)%prog(nnow(jg)),  &
-           &                         p_nh_state(jg)%diag,            &
-           &                         p_int(jg), ext_data(jg),        &
-           &                         rotate_axis_deg, nh_test_name,  &
-           &                         linit_tracer_fv )
+      CALL init_nh_state_prog_dftest(p_patch(jg),                         &
+           &                         p_nh_state(jg)%prog(nnow(jg)),       &
+           &                         p_nh_state(jg)%diag,                 &
+           &                         p_int(jg), ext_data(jg),             &
+           &                         rotate_axis_deg, nh_test_name,       &
+           &                         linit_tracer_fv, tracer_inidist_list )
 
-      CALL init_nh_state_prog_dftest(p_patch(jg),                    &
-           &                         p_nh_state(jg)%prog(nnew(jg)),  &
-           &                         p_nh_state(jg)%diag,            &
-           &                         p_int(jg), ext_data(jg),        &
-           &                         rotate_axis_deg, nh_test_name,  &
-           &                         linit_tracer_fv )
+      CALL init_nh_state_prog_dftest(p_patch(jg),                         &
+           &                         p_nh_state(jg)%prog(nnew(jg)),       &
+           &                         p_nh_state(jg)%diag,                 &
+           &                         p_int(jg), ext_data(jg),             &
+           &                         rotate_axis_deg, nh_test_name,       &
+           &                         linit_tracer_fv, tracer_inidist_list )
 
     ENDDO !jg
 

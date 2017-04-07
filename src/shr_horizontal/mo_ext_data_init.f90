@@ -59,7 +59,7 @@ MODULE mo_ext_data_init
   USE mo_smooth_topo,        ONLY: smooth_topo_real_data
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_grid_config,        ONLY: n_dom
+  USE mo_grid_config,        ONLY: n_dom, nroot
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_mpi,                ONLY: my_process_is_stdio, p_io, p_bcast, &
@@ -396,7 +396,9 @@ CONTAINS
       ! generate file name
       extpar_file = generate_filename(extpar_filename,                   &
         &                             getModelBaseDir(),                 &
-        &                             TRIM(p_patch(jg)%grid_filename))
+        &                             TRIM(p_patch(jg)%grid_filename),   &
+        &                             nroot,                             &
+        &                             p_patch(jg)%level, p_patch(jg)%id)
       extpar_file_namelen = LEN_TRIM(extpar_file)
       CALL message(routine, "extpar_file = "//extpar_file(1:extpar_file_namelen))
 
@@ -541,6 +543,8 @@ CONTAINS
     CALL p_bcast(is_frglac_in, p_io, mpi_comm)
     ! broadcast i_lctype from I-Pe to WORK Pes
     CALL p_bcast(i_lctype(jg), p_io, mpi_comm)
+    ! broadcast cdi filetype
+    CALL p_bcast(cdi_filetype, p_io, mpi_comm)
 
   END SUBROUTINE inquire_extpar_file
 
@@ -1020,7 +1024,10 @@ CONTAINS
         ! Start reading external parameter data
         ! The cdi-based read routines are used for GRIB2 input data only due to performance problems
         IF (read_netcdf_data) THEN
-          extpar_file = generate_filename(extpar_filename, getModelBaseDir(),TRIM(p_patch(jg)%grid_filename))
+          extpar_file = generate_filename(extpar_filename, getModelBaseDir(), &
+            &                             TRIM(p_patch(jg)%grid_filename),    &
+            &                              nroot,                             &
+            &                             p_patch(jg)%level, p_patch(jg)%id)
           stream_id   = openInputFile(extpar_file, p_patch(jg), default_read_method)
         ELSE
           parameters = makeInputParameters(cdi_extpar_id(jg), p_patch(jg)%n_patch_cells_g, p_patch(jg)%comm_pat_scatter_c, &

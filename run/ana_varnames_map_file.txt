@@ -54,6 +54,7 @@ h_b1_lk             H_B1_LK
 rh                  RELHUM
 rh_2m               RELHUM_2M
 albdif              ALB_RAD
+alb_si              ALB_SEAICE
 asodifd_s           ASWDIFD_S
 asodifu_s           ASWDIFU_S
 asodird_s           ASWDIR_S
@@ -64,3 +65,4 @@ aer_or              AER_ORG
 aer_bc              AER_BC
 aer_su              AER_SO4
 aer_du              AER_DUST
+alb_si              ALB_SEAICE

@@ -284,7 +284,7 @@ cat > ${atmo_namelist} << EOF
  inwp_surface            = 1
 /
 &transport_nml
- ctracer_list            = '12345'
+ tracer_names            = '1','2','3','4','5'
  ivadv_tracer            = 3,3,3,3,3
  itype_hlimit            = 3,4,4,4,4,0
  ihadv_tracer            = 32,2,2,2,2,0

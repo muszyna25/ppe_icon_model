@@ -161,7 +161,6 @@ efdt_min_raylfric            = 7200.
  l_mono_c2l                   = .TRUE.
 /
 &transport_nml
- ctracer_list  = '12345'
  ivadv_tracer  = 3,3,3,3,3
  itype_hlimit  = 3,4,4,4,4,0
  ihadv_tracer  = 32,2,2,2,2,0

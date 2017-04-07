@@ -2626,14 +2626,18 @@ CONTAINS
         IF (SIZE(recv_sp(n)%fld,2) == 1) kshift_sp(n) = 0
       ENDDO
 
-      noffset_dp(1) = 0
-      ndim2_dp(1)   = SIZE(recv_dp(1)%fld,2) - kshift_dp(1)
+      IF (nfields_dp > 0) THEN
+        noffset_dp(1) = 0
+        ndim2_dp(1)   = SIZE(recv_dp(1)%fld,2) - kshift_dp(1)
+      ENDIF
       DO n = 2, nfields_dp
         noffset_dp(n) = noffset_dp(n-1)+ndim2_dp(n-1)
         ndim2_dp(n)   = SIZE(recv_dp(n)%fld,2) - kshift_dp(n)
       ENDDO
-      noffset_sp(1) = 0
-      ndim2_sp(1)   = SIZE(recv_sp(1)%fld,2) - kshift_sp(1)
+      IF (nfields_sp > 0) THEN
+        noffset_sp(1) = 0
+        ndim2_sp(1)   = SIZE(recv_sp(1)%fld,2) - kshift_sp(1)
+      ENDIF
       DO n = 2, nfields_sp
         noffset_sp(n) = noffset_sp(n-1)+ndim2_sp(n-1)
         ndim2_sp(n)   = SIZE(recv_sp(n)%fld,2) - kshift_sp(n)
