@@ -31,9 +31,6 @@ MODULE mo_art_clouds_interface
   USE mo_art_config,                    ONLY: art_config
   USE mo_art_2mom_driver,               ONLY: art_2mom_mcrph,               &
                                           &   art_2mom_mcrph_init
-  USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
-  USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
-                                          &   t_fields_volc
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_prepare_aerosol,           ONLY: art_prepare_dust_KL06
 #endif
