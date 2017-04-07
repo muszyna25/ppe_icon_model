@@ -318,7 +318,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                 CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                   &                istart, iend, i_rlstart, i_rlend)
                 SELECT CASE(TRIM(fields%name))
-                  CASE(pollbetu) ! Betula --> birch
+                  CASE('pollbetu') ! Betula --> birch
                     CALL art_emiss_pollen(dtime,current_date,                             &
                       &                   rho(:,nlev,jb),                                 &
                       &                   p_art_data(jg)%ext%pollen_prop%pollen_type(1),  & !< 1=pollbetu

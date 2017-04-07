@@ -32,16 +32,14 @@ MODULE mo_art_sedi_interface
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
   USE mo_run_config,                    ONLY: lart,iqr,iqc,iqv
   USE mo_exception,                     ONLY: finish
-  USE mo_linked_list,                   ONLY: t_var_list
   USE mo_advection_vflux,               ONLY: upwind_vflux_ppm_cfl
   USE mo_loopindices,                   ONLY: get_indices_c
 #ifdef __ICON_ART
 ! infrastructure routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
-                                          &   t_fields_volc
+                                          &   t_fields_pollen
   USE mo_art_data,                      ONLY: p_art_data
-  USE mo_art_impl_constants,            ONLY: UNDEF_INT_ART
   USE mo_art_clipping,                  ONLY: art_clip_lt
   USE mo_art_config,                    ONLY: art_config
 ! sedimentation and deposition routines
