@@ -57,9 +57,9 @@ MODULE mo_sync_restart
   USE mtime,                        ONLY: datetime
   USE mo_dynamics_config,           ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf
   USE mo_exception,                 ONLY: finish, message
-  USE mo_fortran_tools,             ONLY: t_ptr_2d, t_ptr_2d_sp
+  USE mo_fortran_tools,             ONLY: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int
   USE mo_grid_config,               ONLY: n_dom
-  USE mo_impl_constants,            ONLY: SUCCESS
+  USE mo_impl_constants,            ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
   USE mo_kind,                      ONLY: wp, dp, sp
   USE mo_mpi,                       ONLY: my_process_is_mpi_workroot, my_process_is_mpi_test
   USE mo_restart_attributes,        ONLY: t_RestartAttributeList, RestartAttributeList_make
@@ -259,8 +259,10 @@ CONTAINS
     TYPE(t_comm_gather_pattern), POINTER :: gatherPattern
     REAL(dp), ALLOCATABLE                :: gatherBuffer_dp(:)
     REAL(sp), ALLOCATABLE                :: gatherBuffer_sp(:)
+    INTEGER, ALLOCATABLE                 :: gatherBuffer_int(:)
     TYPE(t_ptr_2d), ALLOCATABLE          :: levelPointers_dp(:)
     TYPE(t_ptr_2d_sp), ALLOCATABLE       :: levelPointers_sp(:)
+    TYPE(t_ptr_2d_int), ALLOCATABLE      :: levelPointers_int(:)
     CHARACTER(*), PARAMETER              :: routine = modname//":syncPatchData_writeData"
 
     IF(my_process_is_mpi_test()) RETURN
@@ -278,7 +280,9 @@ CONTAINS
         gatherPattern => me%description%getGatherPattern(info%hgrid)
 
         ! get pointers to the local DATA
-        IF (ASSOCIATED(me%varData(i)%r_ptr)) THEN
+        SELECT CASE(info%data_type)
+        CASE(REAL_T)
+          !
           ALLOCATE(gatherBuffer_dp(MERGE(gridSize, 0, my_process_is_mpi_workroot())), STAT = error)
           IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
 
@@ -294,7 +298,9 @@ CONTAINS
           END DO
           ! deallocate temporary global arrays
           DEALLOCATE(gatherBuffer_dp)
-        ELSE IF (ASSOCIATED(me%varData(i)%s_ptr)) THEN
+          !
+        CASE(SINGLE_T)
+          !
           ALLOCATE(gatherBuffer_sp(MERGE(gridSize, 0, my_process_is_mpi_workroot())), STAT = error)
           IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
 
@@ -310,9 +316,31 @@ CONTAINS
           END DO
           ! deallocate temporary global arrays
           DEALLOCATE(gatherBuffer_sp)
-        ELSE
-          CALL finish(routine, "internal error")
-        END IF
+          !
+        CASE(INT_T)
+          !
+          ALLOCATE(gatherBuffer_dp(MERGE(gridSize, 0, my_process_is_mpi_workroot())), STAT = error)
+          IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+          ALLOCATE(gatherBuffer_int(SIZE(gatherBuffer_dp)), STAT = error)
+          IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+
+          CALL getLevelPointers(info, me%varData(i)%i_ptr, levelPointers_int)
+
+          ! gather the data in the master process and write it to disk
+          DO level = 1, SIZE(levelPointers_int)
+            CALL exchange_data(in_array = levelPointers_int(level)%p, out_array = gatherBuffer_int, &
+              &                gather_pattern = gatherPattern)
+            IF(my_process_is_mpi_workroot()) THEN
+              gatherBuffer_dp(:) = REAL(gatherBuffer_int(:), dp)
+              CALL file%writeLevel(info%cdiVarID, level - 1, gatherBuffer_dp)
+            END IF
+          END DO
+          ! deallocate temporary global arrays
+          DEALLOCATE(gatherBuffer_int, gatherBuffer_dp)
+          !
+        CASE DEFAULT
+          CALL finish(routine, "Internal error! Variable "//TRIM(info%name))
+        END SELECT
 
         ! no deallocation of levelPointers so that the next invocation
         ! of getLevelPointers() may reuse the allocation

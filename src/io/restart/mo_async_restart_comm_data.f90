@@ -18,7 +18,7 @@ MODULE mo_async_restart_comm_data
     USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL
     USE mo_decomposition_tools,  ONLY: t_grid_domain_decomp_info
     USE mo_exception,            ONLY: finish, message, em_warn
-    USE mo_fortran_tools,        ONLY: t_ptr_2d, t_ptr_2d_sp, ensureSize
+    USE mo_fortran_tools,        ONLY: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int, ensureSize
     USE mo_kind,                 ONLY: dp, i8, sp
     USE mo_model_domain,         ONLY: p_patch
     USE mo_mpi,                  ONLY: p_real_dp, p_comm_work_restart, p_pe_work, num_work_procs, &
@@ -27,6 +27,7 @@ MODULE mo_async_restart_comm_data
     USE mo_util_string,          ONLY: int2string
     USE mpi,                     ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL, MPI_LOCK_SHARED, MPI_MODE_NOCHECK, &
       &                                MPI_WIN_NULL, MPI_LOCK_EXCLUSIVE, MPI_SUCCESS
+    USE mo_impl_constants,       ONLY: SUCCESS
 #ifdef DEBUG
     USE mo_mpi,                  ONLY: p_pe
 #endif
@@ -57,7 +58,8 @@ MODULE mo_async_restart_comm_data
         ! called by the compute processes to write their data to their memory window:
         PROCEDURE :: postData_dp  => asyncRestartCommData_postData_dp  
         PROCEDURE :: postData_sp  => asyncRestartCommData_postData_sp  
-        GENERIC, PUBLIC :: postData => postData_dp, postData_sp
+        PROCEDURE :: postData_int => asyncRestartCommData_postData_int
+        GENERIC, PUBLIC :: postData => postData_dp, postData_sp, postData_int
 
         ! called by the restart processes to fetch the DATA from the
         ! compute processes:
@@ -303,6 +305,34 @@ CONTAINS
         CALL MPI_Win_unlock(p_pe_work, me%mpiWindow, mpi_error)
         IF(mpi_error /= MPI_SUCCESS) CALL finish(routine, 'MPI_Win_unlock returned error '//TRIM(int2string(mpi_error)))
       END SUBROUTINE asyncRestartCommData_postData_sp
+
+    SUBROUTINE asyncRestartCommData_postData_int(me, hgridType, dataPointers, offset)
+        CLASS(t_AsyncRestartCommData), TARGET, INTENT(INOUT) :: me
+        INTEGER, VALUE :: hgridType
+        TYPE(t_ptr_2d_int), ALLOCATABLE, INTENT(IN) :: dataPointers(:)
+        !TODO[NH]: Replace this by an index within the t_AsyncRestartCommData structure.
+        INTEGER(i8), INTENT(INOUT) :: offset
+
+        TYPE(t_AsyncRestartPacker), POINTER :: reorderData
+        INTEGER :: mpi_error, i
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":asyncRestartCommData_postData_int"
+
+        ! get pointer to reorder data
+        reorderData => me%getPacker(hgridType, routine)
+
+        ! lock own window before writing to it
+        CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, me%mpiWindow, mpi_error)
+        IF(mpi_error /= MPI_SUCCESS) CALL finish(routine, 'MPI_Win_lock returned error '//TRIM(int2string(mpi_error)))
+
+        ! just copy the OWN data points to the memory window
+        DO i = 1, SIZE(dataPointers)
+            CALL reorderData%packLevel(dataPointers(i)%p, me%windowPtr, offset)
+        END DO
+
+        ! unlock RMA window
+        CALL MPI_Win_unlock(p_pe_work, me%mpiWindow, mpi_error)
+        IF(mpi_error /= MPI_SUCCESS) CALL finish(routine, 'MPI_Win_unlock returned error '//TRIM(int2string(mpi_error)))
+      END SUBROUTINE asyncRestartCommData_postData_int
 
     SUBROUTINE asyncRestartCommData_collectData_dp(me, hgridType, levelCount, dest, offsets, &
       &                                            elapsedTime, bytesFetched)

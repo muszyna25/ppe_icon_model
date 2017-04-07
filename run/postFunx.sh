@@ -34,6 +34,7 @@ function directoryDiff {
     return 99
   fi
 
+
   refList=`ls ${refDir}/*`
   for refFile in ${refList}; do 
     if [[ -f $refFile ]]; then

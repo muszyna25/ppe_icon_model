@@ -958,9 +958,9 @@ CONTAINS
                            & 'but restart of '//TRIM(name)//' requested.')
       ENDIF
     ENDIF
-    IF (is_restart_var .AND. (data_type /= REAL_T) .AND. (data_type /= SINGLE_T)) THEN
+    IF (is_restart_var .AND. (.NOT. ANY(data_type == (/REAL_T, SINGLE_T, INT_T/)))) THEN
       CALL finish(routine, 'unsupported data_type for "'//TRIM(NAME)//'": '// &
-        & 'data_type of restart variables must be floating-point type.')
+        & 'data_type of restart variables must be floating-point or integer type.')
     END IF
 
     ! add list entry

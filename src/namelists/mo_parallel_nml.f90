@@ -265,7 +265,7 @@ MODULE mo_parallel_nml
     num_restart_procs = 0
 
     ! The number of PEs used for async prefetching of input (0 means, the worker PE0 prefetches input)
-    num_prefetch_proc = 0
+    num_prefetch_proc = 1
 
     ! Type of (halo) communication:
     ! 1 = synchronous communication with local memory for exchange buffers

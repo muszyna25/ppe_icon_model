@@ -49,7 +49,8 @@ MODULE mo_async_restart_packer
 
         PROCEDURE                    :: packLevel_dp => asyncRestartPacker_packLevel_dp           ! pack the contents of a single level/variable into our memory window
         PROCEDURE                    :: packLevel_sp => asyncRestartPacker_packLevel_sp           ! pack the contents of a single level/variable into our memory window
-        GENERIC, PUBLIC              :: packLevel => packLevel_dp, packLevel_sp
+        PROCEDURE                    :: packLevel_int => asyncRestartPacker_packLevel_int         ! pack the contents of a single level/variable into our memory window
+        GENERIC, PUBLIC              :: packLevel => packLevel_dp, packLevel_sp, packLevel_int
 
         ! sort the DATA of a single level from a single PE into a
         ! global array:
@@ -278,6 +279,21 @@ CONTAINS
             dest(offset) = REAL(source(me%own_idx(i), me%own_blk(i)), dp)
         END DO
     END SUBROUTINE asyncRestartPacker_packLevel_sp
+
+    SUBROUTINE asyncRestartPacker_packLevel_int(me, source, dest, offset)
+        CLASS(t_asyncRestartPacker), INTENT(IN) :: me
+        INTEGER, INTENT(IN) :: source(:,:)
+        REAL(dp), INTENT(INOUT) :: dest(:)
+        !TODO[NH]: Replace this by an INTENT(IN) level count
+        INTEGER(i8), INTENT(INOUT) :: offset
+
+        INTEGER :: i
+
+        DO i = 1, me%n_own
+            offset = offset + 1
+            dest(offset) = REAL(source(me%own_idx(i), me%own_blk(i)), dp)
+        END DO
+      END SUBROUTINE asyncRestartPacker_packLevel_int
 
     SUBROUTINE asyncRestartPacker_unpackLevelFromPe_dp(me, level, pe, dataIn, globalArray)
         CLASS(t_asyncRestartPacker), INTENT(IN) :: me
