@@ -45,7 +45,7 @@ MODULE mo_art_sedi_interface
   USE mo_art_clipping,                  ONLY: art_clip_lt
   USE mo_art_config,                    ONLY: art_config
 ! sedimentation and deposition routines
-  USE mo_art_sedi_volc,                 ONLY: art_sedi_volc
+  USE mo_art_sedi_1mom,                 ONLY: art_sedi_1mom
   USE mo_art_sedi_2mom,                 ONLY: art_calc_v_sed, art_calc_sed_flx
   USE mo_art_depo_2mom,                 ONLY: art_calc_v_dep, art_store_v_dep
   USE mo_art_drydepo_radioact,          ONLY: art_drydepo_radioact
@@ -253,18 +253,18 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                 ENDDO !jb
               ENDDO !i
 
-            CLASS IS (t_fields_volc)
+            CLASS IS (t_fields_pollen)
               DO jb = i_startblk, i_endblk
                 CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
                   &                istart, iend, i_rlstart, i_rlend)
-                CALL art_sedi_volc(p_diag%temp(:,:,jb), p_diag%pres(:,:,jb), rho(:,:,jb),    &
+                CALL art_sedi_1mom(p_diag%temp(:,:,jb), p_diag%pres(:,:,jb), rho(:,:,jb),    &
                   &                p_diag%rho_ic(:,:,jb), p_metrics%wgtfac_c(:,:,jb),        &
                   &                p_metrics%wgtfacq_c(:,:,jb), fields%diam, fields%rho,     &
                   &                p_prog%turb_tracer(jb,:), istart, iend, nlev, jb,         &
                   &                fields%itr, art_config(jg), p_art_data(jg),               &
-                  &                fields%flx_contra_vsed3(:,:,jb))
+                  &                fields%flx_contra_vsed(:,:,jb))
               ENDDO
-              flx_contra_vsed => fields%flx_contra_vsed3
+              flx_contra_vsed => fields%flx_contra_vsed
               jsp = fields%itr
               
               ! upwind_vflux_ppm_cfl is internally OpenMP parallelized
@@ -299,7 +299,7 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
 
             CLASS IS (t_fields_radio)
               ! Sedimentation velocity is zero for radioact. tracers
-              fields%flx_contra_vsed3(:,:,:) = 0.0_wp
+              fields%flx_contra_vsed(:,:,:) = 0.0_wp
               ! However, a deposition velocity is required
               DO jb = i_startblk, i_endblk
                 CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
