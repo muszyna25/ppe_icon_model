@@ -90,7 +90,7 @@ MODULE mo_name_list_output_init
   USE mo_nwp_sfc_tiles,                     ONLY: setup_tile_list
 #endif
   ! MPI Communication routines
-  USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
+  USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id,                    &
     &                                             get_my_mpi_work_communicator,                   &
     &                                             p_comm_work, p_comm_work_2_io,                  &
     &                                             p_comm_io, p_comm_work_io,                      &
