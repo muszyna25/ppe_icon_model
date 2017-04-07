@@ -29,13 +29,11 @@ function directoryDiff {
   refDir=$1
   expDir=$2
   nDiff=0
-<<<<<<< HEAD
-=======
 
   if [[ ! -d $refDir ]]; then
     return 99
   fi
->>>>>>> reference/master
+
 
   refList=`ls ${refDir}/*`
   for refFile in ${refList}; do 
