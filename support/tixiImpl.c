@@ -24,7 +24,7 @@
  */
 
 /*
-* Altered by Sven Werchner in order to create a minimal version for ICON-ART
+* Altered by Sven Werchner (KIT) in order to create a minimal version for ICON-ART
 * Note: When XML-functionality for ICON-ART is expanding, 
 *       this TIXI-Version probably needs to be (re-)expanded as well
 */
