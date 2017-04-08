@@ -57,7 +57,7 @@ lnd_namelist=NAMELIST_${EXPNAME}_lnd
 run_jsbach=yes
 jsbach_with_hd=no
 jsbach_with_lakes=yes
-jsbach_usecase=jsbach_lite    # jsbach_lite or jsbach_pfts
+jsbach_usecase=jsbach_pfts    # jsbach_lite or jsbach_pfts
 jsbach_check_wbal=no          # check water balance
 output_lnd=min                # amount of output: min/full
 #
@@ -201,7 +201,7 @@ cat > ${lnd_namelist} << EOF
   ic_filename     = 'ic_land_soil.nc'
 /
 &jsb_rad_nml
-  use_alb_veg_simple = .TRUE.          ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
+  use_alb_veg_simple = .FALSE.         ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
   bc_filename     = 'bc_land_phys.nc'
   ic_filename     = 'ic_land_soil.nc'
 /
@@ -222,10 +222,10 @@ cat > ${lnd_namelist} << EOF
   bc_sso_filename = 'bc_land_sso.nc'
 /
 &jsb_assimi_nml
-  active          = .FALSE.             ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
+  active          = .TRUE.              ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
 /
 &jsb_pheno_nml
-  scheme          = 'climatology'       ! scheme = logrop / climatology; use climatology for jsbach_lite
+  scheme          = 'logrop'            ! scheme = logrop / climatology; use climatology for jsbach_lite
   bc_filename     = 'bc_land_phys.nc'
   ic_filename     = 'ic_land_soil.nc'
 /
@@ -600,14 +600,22 @@ if [[ "$output_lnd" == "min" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'fract_box'             ,
-                    'seb_t_box'             , 'seb_t_eff_box'               , 'seb_qsat_star_box'      ,
+ ml_varlist       = 'fract_box'             , 'seb_t_box'                   , 
                     'a2l_swvis_srf_down_box', 'a2l_swnir_srf_down_box'      , 'a2l_lw_srf_down_box'    ,
                     'rad_alb_vis_box'       , 'rad_alb_nir_box'             ,
                     'rad_rad_srf_net_box'   , 'rad_lw_srf_net_box'          , 'rad_sw_srf_net_box'     ,
-                    'seb_latent_hflx_box'   , 'seb_sensible_hflx_box'       , 'pheno_lai_box'          ,
-                    'hydro_q_snocpymlt_box' , 'hydro_w_skin_box'            , 'hydro_w_snow_box'       ,
-                    'hydro_snowmelt_box'    , 'hydro_evapotranspiration_box', 'hydro_w_soil_column_box'
+                    'pheno_lai_box'         , 'hydro_w_skin_box'            , 'hydro_w_snow_box'       ,
+                    'hydro_snowmelt_box'    , 'hydro_evapotranspiration_box', 'hydro_w_soil_column_box',
+                    ! Variables given back to atmosphere:
+                    'seb_t_filt_box'     , 'seb_t_eff_box'                , 'seb_qsat_star_box'  , 'seb_qsat_star_box'    ,
+                    'seb_latent_hflx_box', 'seb_sensible_hflx_box'        , 'seb_forc_hflx_box'  , 'seb_heat_cap_old_box' ,
+                    'turb_fact_q_air_box', 'turb_fact_qsat_srf_box'       , 'turb_rough_h_box'   , 'turb_rough_m_box'     ,
+                    'rad_alb_vis_lnd_box', 'rad_alb_nir_lnd_box'          , 'hydro_evapo_lnd_box', 'hydro_q_snocpymlt_box',
+                    ! with lakes:
+                    'seb_t_lwtr_box'         , 'seb_t_lice_box'           , 'hydro_evapo_wtr_box', 'hydro_evapo_ice_box'  ,
+                    'seb_latent_hflx_wtr_box', 'seb_sensible_hflx_wtr_box',
+                    'seb_latent_hflx_ice_box', 'seb_sensible_hflx_ice_box',
+                    'seb_fract_lice_box'     , 'rad_albedo_lwtr_box'      , 'rad_albedo_lice_box'
 /
 EOF
 fi
@@ -631,6 +639,27 @@ if [[ "$output_lnd" == "full" ]]; then
                     'a2l_swvis_srf_down_box', 'a2l_swnir_srf_down_box' , 'a2l_swpar_srf_down_box',
                     'a2l_lw_srf_down_box'   , 
                     'turb_rough_m_box'      , 'turb_rough_h_box'       , 
+/
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_lnd_l2a"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'seb_t_filt_box'     , 'seb_t_eff_box'         , 'seb_qsat_star_box'  , 'seb_qsat_star_box'    ,
+                    'seb_latent_hflx_box', 'seb_sensible_hflx_box' , 'seb_forc_hflx_box'  , 'seb_heat_cap_old_box' ,
+                    'turb_fact_q_air_box', 'turb_fact_qsat_srf_box', 'turb_rough_h_box'   , 'turb_rough_m_box'     ,
+                    'rad_alb_vis_lnd_box', 'rad_alb_nir_lnd_box'   , 'hydro_evapo_lnd_box', 'hydro_q_snocpymlt_box',
+                    ! with lakes:
+                    'seb_t_lwtr_box'     , 'seb_t_lice_box'        , 'hydro_evapo_wtr_box', 'hydro_evapo_ice_box'  ,
+                    'seb_latent_hflx_wtr_box', 'seb_sensible_hflx_wtr_box',
+                    'seb_latent_hflx_ice_box', 'seb_sensible_hflx_ice_box',
+                    'seb_fract_lice_box'     , 'rad_albedo_lwtr_box'      , 'rad_albedo_lice_box'
 /
 &output_nml
  output_filename  = "${EXPNAME}_lnd_rad"
