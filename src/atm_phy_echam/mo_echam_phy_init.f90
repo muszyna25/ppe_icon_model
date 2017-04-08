@@ -388,8 +388,7 @@ CONTAINS
         CALL read_bc_sst_sic(mtime_current%date%year, p_patch(1))
         !
         CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights, &
-             &                             prm_field(jg)%lsmask(:,:)         , &
-             &                             prm_field(jg)%alake(:,:)          , &
+             &                             prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:) > 1._wp - 10._wp*EPSILON(1._wp), &
              &                             prm_field(jg)%ts_tile(:,:,iwtr)   , &
              &                             prm_field(jg)%seaice(:,:)         , &
              &                             prm_field(jg)%siced(:,:)          , &
@@ -469,7 +468,7 @@ CONTAINS
 
     ! local variables and pointers
 
-    INTEGER  :: nblks_c, jb, jbs, jc, jcs, jce
+    INTEGER  :: nblks_c, jb, jbs, jc, jcs, jce, jsfc
     REAL(wp) :: zlat
 
     CHARACTER(len=max_char_length)  :: ape_sst_case
@@ -743,21 +742,43 @@ CONTAINS
       ! Settings for total surface
       ! (after tile masks and variables potentially have been overwritten by testcases above)
 
-      IF (iwtr <= nsfc_type) THEN
-        field%ts       (:,:) = field%ts_tile(:,:,iwtr)
-        field%albvisdir(:,:) = albedoW
-        field%albvisdif(:,:) = albedoW
-        field%albnirdir(:,:) = albedoW
-        field%albnirdif(:,:) = albedoW
-        field%albedo   (:,:) = albedoW
+      WHERE (field%lsmask(:,:) + field%alake(:,:) > 1._wp - EPSILON(1._wp))
+        field%seaice(:,:) = 0._wp
+        field%siced (:,:) = 0._wp
+      END WHERE
+
+      ! Initialize tile fractions, see echam_phy_main for documentation
+      IF (ilnd <= nsfc_type) THEN
+        field%frac_tile(:,:,ilnd) = field%lsmask(:,:)
       ELSE
-        field%ts       (:,:) = field%ts_tile(:,:,ilnd)
-        field%albvisdir(:,:) = field%alb(:,:)
-        field%albvisdif(:,:) = field%alb(:,:)
-        field%albnirdir(:,:) = field%alb(:,:)
-        field%albnirdif(:,:) = field%alb(:,:)
-        field%albedo   (:,:) = field%alb(:,:)
+        field%frac_tile(:,:,ilnd) = 0._wp
       END IF
+      IF (iwtr <= nsfc_type) THEN
+        field%frac_tile(:,:,iwtr) = (1._wp - field%lsmask(:,:)) &
+          &                                 * (1._wp - field%seaice(:,:) - field%lake_ice_frc(:,:))
+      ELSE
+        field%frac_tile(:,:,iwtr) = 0._wp
+      END IF
+      IF (iice <= nsfc_type) THEN
+        field%frac_tile(:,:,iice) = 1._wp - field%frac_tile(:,:,ilnd) - field%frac_tile(:,:,iwtr)
+      ELSE
+        field%frac_tile(:,:,iice) = 0._wp
+      END IF
+
+      field%ts       (:,:) = 0._wp
+      field%albvisdir(:,:) = 0._wp
+      field%albvisdif(:,:) = 0._wp
+      field%albnirdir(:,:) = 0._wp
+      field%albnirdif(:,:) = 0._wp
+      field%albedo   (:,:) = 0._wp
+      DO jsfc=1,nsfc_type
+        field%ts       (:,:) = field%ts       (:,:) + field%frac_tile(:,:,jsfc) * field%ts_tile       (:,:,jsfc)
+        field%albvisdir(:,:) = field%albvisdir(:,:) + field%frac_tile(:,:,jsfc) * field%albvisdir_tile(:,:,jsfc)
+        field%albvisdif(:,:) = field%albvisdif(:,:) + field%frac_tile(:,:,jsfc) * field%albvisdif_tile(:,:,jsfc)
+        field%albnirdir(:,:) = field%albnirdir(:,:) + field%frac_tile(:,:,jsfc) * field%albnirdir_tile(:,:,jsfc)
+        field%albnirdif(:,:) = field%albnirdif(:,:) + field%frac_tile(:,:,jsfc) * field%albnirdif_tile(:,:,jsfc)
+        field%albedo   (:,:) = field%albedo   (:,:) + field%frac_tile(:,:,jsfc) * field%albedo_tile   (:,:,jsfc)
+      END DO
 
       field%ts_rad    (:,:) = field%ts(:,:)
       field%ts_rad_rt (:,:) = field%ts(:,:)

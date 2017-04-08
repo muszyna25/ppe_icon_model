@@ -345,9 +345,16 @@ CONTAINS
        !-----------------------
        IF (ltrig_rad) THEN
 
-          ! store ts_rad of this radiatiative transfer timestep in ts_rad_rt,
-          ! so that it can be reused in radheat in the other timesteps
-          field%ts_rad_rt(jcs:jce,jb) = field%ts_rad(jcs:jce,jb)
+        ! store ts_rad of this radiatiative transfer timestep in ts_rad_rt,
+        ! so that it can be reused in radheat in the other timesteps
+        field%ts_rad_rt(jcs:jce,jb) = field%ts_rad(jcs:jce,jb)
+
+        ! Compute grid box averages of albedo components
+        ! Note: only the tile-based variables are in restart file
+        field%albvisdir(jcs:jce,jb) = SUM(field%frac_tile(jcs:jce,jb,:) * field%albvisdir_tile(jcs:jce,jb,:), DIM=2)
+        field%albvisdif(jcs:jce,jb) = SUM(field%frac_tile(jcs:jce,jb,:) * field%albvisdif_tile(jcs:jce,jb,:), DIM=2)
+        field%albnirdir(jcs:jce,jb) = SUM(field%frac_tile(jcs:jce,jb,:) * field%albnirdir_tile(jcs:jce,jb,:), DIM=2)
+        field%albnirdif(jcs:jce,jb) = SUM(field%frac_tile(jcs:jce,jb,:) * field%albnirdif_tile(jcs:jce,jb,:), DIM=2)
 
         IF (ltimer) CALL timer_start(timer_radiation)
 
@@ -644,8 +651,8 @@ CONTAINS
           & pssfc = field% ssfc(:,jb),    &! in, snow surface concective (from cucall)
           & rlds        = field% rlds (:,jb), &! in,  downward surface  longwave flux [W/m2]
           & rlus        = field% rlus (:,jb), &! inout, upward surface  longwave flux [W/m2]
-          & rsds        = field% rsds (:,jb), &! in,  downward surface shortwave flux [W/m2]
-          & rsus        = field% rsus (:,jb), &! inout, upward surface shortwave flux [W/m2]
+          & rsds        = field% rsds (:,jb), &! in, downward surface shortwave flux [W/m2]
+          & rsus        = field% rsus (:,jb), &! in, upward surface shortwave flux [W/m2]
           !
           & rvds_dir   = field%rvds_dir   (:,jb), &! in, all-sky downward direct visible radiation at surface
           & rpds_dir   = field%rpds_dir   (:,jb), &! in, all-sky downward direct PAR     radiation at surface

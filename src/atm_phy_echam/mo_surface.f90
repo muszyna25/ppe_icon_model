@@ -16,9 +16,7 @@
 MODULE mo_surface
 
   USE mo_kind,              ONLY: wp
-#if defined(__NO_JSBACH__) || defined (__NO_ICON_OCEAN__)
   USE mo_exception,         ONLY: finish
-#endif
   USE mo_physical_constants,ONLY: grav, Tf, alf, albedoW, zemiss_def, stbo, tmelt, rhos!!$, rhoi
   USE mo_echam_phy_config,  ONLY: echam_phy_config
   USE mo_echam_phy_memory,  ONLY: cdimissval
@@ -78,7 +76,7 @@ CONTAINS
                            & rlds,                              &! in
                            & rlus,                              &! inout
                            & rsds,                              &! in
-                           & rsus,                              &! inout
+                           & rsus,                              &! in
                            !
                            & rvds_dir,                          &! in
                            & rpds_dir,                          &! in
@@ -184,14 +182,14 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdir_tile(kbdim,ksfc_type)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdif_tile(kbdim,ksfc_type)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdif_tile(kbdim,ksfc_type)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albedo(kbdim)
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: albedo(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir(kbdim), albvisdif(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdir(kbdim), albnirdif(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albedo_tile(kbdim,ksfc_type)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc    (kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc_rad(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: rlus     (kbdim)           ! INOUT upward surface  longwave flux [W/m2]
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: rsus     (kbdim)           ! INOUT upward surface shortwave flux [W/m2]
+    REAL(wp),OPTIONAL,INTENT(IN)    :: rsus     (kbdim)           ! INOUT upward surface shortwave flux [W/m2]
     REAL(wp),OPTIONAL,INTENT(INOUT) :: rsns_tile(kbdim,ksfc_type) ! shortwave net flux at surface on tiles
     REAL(wp),OPTIONAL,INTENT(INOUT) :: rlns_tile(kbdim,ksfc_type) ! longwave net flux at surface on tiles
     REAL(wp),OPTIONAL,INTENT(OUT)   :: lake_ice_frc(kbdim)
@@ -236,19 +234,18 @@ CONTAINS
 
     REAL(wp) :: zgrnd_hflx(kbdim,ksfc_type), zgrnd_hcap(kbdim,ksfc_type), &
       & zevap_wtr(kbdim), zevap_ice(kbdim), zlhflx_wtr(kbdim), zlhflx_ice(kbdim),       &
-      & zshflx_wtr(kbdim), zshflx_ice(kbdim), zalbvisdir_ice(kbdim)
+      & zshflx_wtr(kbdim), zshflx_ice(kbdim), zalbedo_lake_wtr(kbdim), zalbedo_lake_ice(kbdim)
 
     !REAL(wp) :: zt2s_conv(kbdim,ksfc_type)
 
     ! Sea ice
     REAL(wp) :: Tfw(kbdim)
-    REAL(wp) :: swflx_ice(kbdim,kice), nonsolar_ice(kbdim,kice), dnonsolardT(kbdim,kice), conc_sum(kbdim)
+    REAL(wp) :: swflx_ice(kbdim,kice), nonsolar_ice(kbdim,kice), dnonsolardT(kbdim,kice), conc_sum(kbdim), &
+      &         zalbvisdir_ice(kbdim,kice), zalbvisdif_ice(kbdim,kice), zalbnirdir_ice(kbdim,kice), zalbnirdif_ice(kbdim,kice)
 
     LOGICAL :: mask(kbdim)
 
-#if defined(__NO_JSBACH__) || defined (__NO_ICON_OCEAN__)
    CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
-#endif
 
         ! check for masks
     !
@@ -292,7 +289,7 @@ CONTAINS
     rvds(1:kproma)      = rvds_dif(1:kproma) + rvds_dir(1:kproma)
     rnds(1:kproma)      = rnds_dif(1:kproma) + rnds_dir(1:kproma)
     rpds(1:kproma)      = rpds_dif(1:kproma) + rpds_dir(1:kproma)
-    
+
     ! Turbulent transport of moisture:
     ! - finish matrix set up;
     ! - perform bottom level elimination;
@@ -389,16 +386,16 @@ CONTAINS
           & t_bcoef_ice       = zfn_h(1:kproma, idx_ice),                                  & ! in
           & q_acoef_ice       = zen_qv(1:kproma, idx_ice),                                 & ! in
           & q_bcoef_ice       = zfn_qv(1:kproma, idx_ice),                                 & ! in
-          & albedo_lwtr       = albedo_tile(1:kproma, idx_wtr),                            & ! in
           & t_lwtr            = ztsfc_wtr(1:kproma),                                       & ! out
           & evapo_wtr         = zevap_wtr(1:kproma),                                       & ! out
           & latent_hflx_wtr   = zlhflx_wtr(1:kproma),                                      & ! out
           & sensible_hflx_wtr = zshflx_wtr(1:kproma),                                      & ! out
+          & albedo_lwtr       = zalbedo_lake_wtr(1:kproma),                                & ! out
           & t_lice            = ztsfc_ice(1:kproma),                                       & ! out
           & evapo_ice         = zevap_ice(1:kproma),                                       & ! out
           & latent_hflx_ice   = zlhflx_ice(1:kproma),                                      & ! out
           & sensible_hflx_ice = zshflx_ice(1:kproma),                                      & ! out
-          & albedo_lice       = zalbvisdir_ice(1:kproma),                                  & ! out
+          & albedo_lice       = zalbedo_lake_ice(1:kproma),                                & ! out
           & ice_fract_lake    = lake_ice_frc(1:kproma)                                     & ! out
           )
       ELSE
@@ -450,18 +447,22 @@ CONTAINS
       ptsfc_tile(1:kproma,idx_lnd) = ztsfc_lnd(1:kproma)
       IF (echam_phy_config%llake) THEN
         WHERE (alake(1:kproma) > 0._wp)
-          ptsfc_tile    (1:kproma, idx_wtr) = ztsfc_wtr     (1:kproma)
-          ptsfc_tile    (1:kproma, idx_ice) = ztsfc_ice     (1:kproma)
-          pevap_tile    (1:kproma, idx_wtr) = zevap_wtr     (1:kproma)
-          plhflx_tile   (1:kproma, idx_wtr) = zlhflx_wtr    (1:kproma)
-          pshflx_tile   (1:kproma, idx_wtr) = zshflx_wtr    (1:kproma)
-          pevap_tile    (1:kproma, idx_ice) = zevap_ice     (1:kproma)
-          plhflx_tile   (1:kproma, idx_ice) = zlhflx_ice    (1:kproma)
-          pshflx_tile   (1:kproma, idx_ice) = zshflx_ice    (1:kproma)
-          albvisdir_tile(1:kproma, idx_ice) = zalbvisdir_ice(1:kproma)
-          albvisdif_tile(1:kproma, idx_ice) = zalbvisdir_ice(1:kproma)
-          albnirdir_tile(1:kproma, idx_ice) = zalbvisdir_ice(1:kproma)
-          albnirdif_tile(1:kproma, idx_ice) = zalbvisdir_ice(1:kproma)
+          ptsfc_tile    (1:kproma, idx_wtr) = ztsfc_wtr       (1:kproma)
+          ptsfc_tile    (1:kproma, idx_ice) = ztsfc_ice       (1:kproma)
+          pevap_tile    (1:kproma, idx_wtr) = zevap_wtr       (1:kproma)
+          plhflx_tile   (1:kproma, idx_wtr) = zlhflx_wtr      (1:kproma)
+          pshflx_tile   (1:kproma, idx_wtr) = zshflx_wtr      (1:kproma)
+          albvisdir_tile(1:kproma, idx_wtr) = zalbedo_lake_wtr(1:kproma)
+          albvisdif_tile(1:kproma, idx_wtr) = zalbedo_lake_wtr(1:kproma)
+          albnirdir_tile(1:kproma, idx_wtr) = zalbedo_lake_wtr(1:kproma)
+          albnirdif_tile(1:kproma, idx_wtr) = zalbedo_lake_wtr(1:kproma)
+          pevap_tile    (1:kproma, idx_ice) = zevap_ice       (1:kproma)
+          plhflx_tile   (1:kproma, idx_ice) = zlhflx_ice      (1:kproma)
+          pshflx_tile   (1:kproma, idx_ice) = zshflx_ice      (1:kproma)
+          albvisdir_tile(1:kproma, idx_ice) = zalbedo_lake_ice(1:kproma)
+          albvisdif_tile(1:kproma, idx_ice) = zalbedo_lake_ice(1:kproma)
+          albnirdir_tile(1:kproma, idx_ice) = zalbedo_lake_ice(1:kproma)
+          albnirdif_tile(1:kproma, idx_ice) = zalbedo_lake_ice(1:kproma)
         ELSEWHERE
           lake_ice_frc(1:kproma) = 0._wp
         ENDWHERE
@@ -504,12 +505,14 @@ CONTAINS
       END IF
 #endif
 
-      ! Albedo model for the ocean (including open water of lakes)
+      ! Albedo model for the ocean
       ! TBD: This should be replaced by routine mo_surface_ocean:update_albedo_ocean from ECHAM6.2
-      albvisdir_tile(1:kproma,idx_wtr) = albedoW
-      albvisdif_tile(1:kproma,idx_wtr) = albedoW
-      albnirdir_tile(1:kproma,idx_wtr) = albedoW
-      albnirdif_tile(1:kproma,idx_wtr) = albedoW
+      WHERE (alake(1:kproma) < EPSILON(1._wp))
+        albvisdir_tile(1:kproma,idx_wtr) = albedoW
+        albvisdif_tile(1:kproma,idx_wtr) = albedoW
+        albnirdir_tile(1:kproma,idx_wtr) = albedoW
+        albnirdif_tile(1:kproma,idx_wtr) = albedoW
+      END WHERE
 
     END IF
 
@@ -559,10 +562,19 @@ CONTAINS
         &   nonsolar_ice,       &
         &   dnonsolardT,        &
         &   Tfw,                &
-        &   albvisdir_ice,      &
-        &   albvisdif_ice,      &
-        &   albnirdir_ice,      &
-        &   albnirdif_ice )
+        &   zalbvisdir_ice,     &
+        &   zalbvisdif_ice,     &
+        &   zalbnirdir_ice,     &
+        &   zalbnirdif_ice )
+
+      DO k=1,kice
+        WHERE (swflx_ice(1:kproma,k) > 0._wp .AND. pfrc(1:kproma,idx_ice) > 0._wp)
+          albvisdir_ice(1:kproma,k) = zalbvisdir_ice(1:kproma,k)
+          albvisdif_ice(1:kproma,k) = zalbvisdif_ice(1:kproma,k)
+          albnirdir_ice(1:kproma,k) = zalbnirdir_ice(1:kproma,k)
+          albnirdif_ice(1:kproma,k) = zalbnirdif_ice(1:kproma,k)
+        END WHERE
+      END DO
 
       ! Let it snow and melt and grow
       !      DO k=1,kice
@@ -732,22 +744,22 @@ CONTAINS
        pevap_gbm  (:)   = 0._wp
     END IF
 
+    ! Update albedo on tiles (diagnostic)
+    ! albedo_tile should only be updated where there is incoming radiation and
+    ! left unchanged elsewhere. Otherwise, temporal averages of albedo will be wrong!
     DO jsfc=1,ksfc_type
-      zalbvis(:) = 0._wp
+      zalbvis(:) = albedo_tile(:,jsfc)
       WHERE(rvds(1:kproma) > 0._wp)
         zalbvis(1:kproma) = &
           & (albvisdir_tile(1:kproma,jsfc) * rvds_dir(1:kproma) + albvisdif_tile(1:kproma,jsfc) * rvds_dif(1:kproma)) &
           & / rvds(1:kproma)
       END WHERE
-      zalbnir(:) = 0._wp
+      zalbnir(:) = albedo_tile(:,jsfc)
       WHERE(rnds(1:kproma) > 0._wp)
         zalbnir(1:kproma) = &
           & (albnirdir_tile(1:kproma,jsfc) * rnds_dir(1:kproma) + albnirdif_tile(1:kproma,jsfc) * rnds_dif(1:kproma)) &
           & / rnds(1:kproma)
       END WHERE
-      ! albedo_tile should only be updated where there is incoming radiation
-      ! and left unchanged elsewhere. Otherwise, temporal averages of albedo
-      ! in the output will be wrong!
       WHERE(rsds(1:kproma) > 0._wp)
         albedo_tile(1:kproma,jsfc) = &
           & (zalbvis(1:kproma) * rvds(1:kproma) + zalbnir(1:kproma) * rnds(1:kproma)) &
@@ -827,10 +839,10 @@ CONTAINS
         ptsfc_tile     (1:kproma,jsfc) = cdimissval
         pqsat_tile     (1:kproma,jsfc) = cdimissval
         ! albedo_tile    (1:kproma,jsfc) = cdimissval
-        albvisdir_tile (1:kproma,jsfc) = cdimissval
-        albvisdif_tile (1:kproma,jsfc) = cdimissval
-        albnirdir_tile (1:kproma,jsfc) = cdimissval
-        albnirdif_tile (1:kproma,jsfc) = cdimissval
+        ! albvisdir_tile (1:kproma,jsfc) = cdimissval
+        ! albvisdif_tile (1:kproma,jsfc) = cdimissval
+        ! albnirdir_tile (1:kproma,jsfc) = cdimissval
+        ! albnirdif_tile (1:kproma,jsfc) = cdimissval
         ! rsns_tile      (1:kproma,jsfc) = cdimissval
         ! rlns_tile      (1:kproma,jsfc) = cdimissval
         pevap_tile     (1:kproma,jsfc) = cdimissval

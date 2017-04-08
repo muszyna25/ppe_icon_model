@@ -174,11 +174,10 @@ CONTAINS
 
   END SUBROUTINE read_sst_sic_data
 
-  SUBROUTINE bc_sst_sic_time_interpolation(tiw, frc_lnd, frc_lake, tsw, seaice, siced, p_patch)
+  SUBROUTINE bc_sst_sic_time_interpolation(tiw, mask_lnd, tsw, seaice, siced, p_patch)
     
     TYPE( t_time_interpolation_weights), INTENT(in) :: tiw
-    REAL(dp)       , INTENT(in)  :: frc_lnd(:,:) 
-    REAL(dp)       , INTENT(in)  :: frc_lake(:,:) 
+    LOGICAL        , INTENT(in)  :: mask_lnd(:,:) 
     REAL(dp)       , INTENT(out) :: tsw(:,:)
     REAL(dp)       , INTENT(out) :: seaice(:,:) 
     REAL(dp)       , INTENT(out) :: siced(:,:) 
@@ -192,12 +191,12 @@ CONTAINS
 
     ! There can be no sea ice and lake in the same cell, i.e. if a cell has a positive
     ! lake fraction, then there's no sea ice.
-    WHERE (frc_lake(:,:) == 0._dp .AND. frc_lnd(:,:) < 1._dp)
+    WHERE (mask_lnd(:,:))
+      seaice(:,:) = 0._dp
+    ELSE WHERE
       seaice(:,:) = zic(:,:)*0.01_dp               ! assuming input data is in percent
       seaice(:,:) = MERGE(0.99_dp, seaice(:,:), seaice(:,:) > 0.99_dp)
       seaice(:,:) = MERGE(0.0_dp, seaice(:,:), seaice(:,:) <= 0.01_dp)
-    ELSEWHERE
-      seaice(:,:) = 0._dp
     END WHERE
 
     tsw(:,:) = MAX(zts(:,:), tf_salt)
