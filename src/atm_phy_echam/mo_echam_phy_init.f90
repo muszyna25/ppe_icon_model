@@ -752,19 +752,17 @@ CONTAINS
 
           IF (ilnd <= nsfc_type) THEN
             field%frac_tile(jcs:jce,jb,ilnd) = field%lsmask(jcs:jce,jb)
-          ELSE
-            field%frac_tile(jcs:jce,jb,ilnd) = 0._wp
           END IF
           IF (iwtr <= nsfc_type) THEN
             field%frac_tile(jcs:jce,jb,iwtr) = (1._wp - field%lsmask(jcs:jce,jb)) &
               &                                 * (1._wp - field%seaice(jcs:jce,jb) - field%lake_ice_frc(jcs:jce,jb))
-          ELSE
-            field%frac_tile(jcs:jce,jb,iwtr) = 0._wp
           END IF
           IF (iice <= nsfc_type) THEN
-            field%frac_tile(jcs:jce,jb,iice) = 1._wp - field%frac_tile(jcs:jce,jb,ilnd) - field%frac_tile(jcs:jce,jb,iwtr)
-          ELSE
-            field%frac_tile(jcs:jce,jb,iice) = 0._wp
+            IF (ilnd <= nsfc_type) THEN
+              field%frac_tile(jcs:jce,jb,iice) = 1._wp - field%frac_tile(jcs:jce,jb,ilnd) - field%frac_tile(jcs:jce,jb,iwtr)
+            ELSE
+              field%frac_tile(jcs:jce,jb,iice) = 1._wp                                    - field%frac_tile(jcs:jce,jb,iwtr)
+            END IF
           END IF
 
           field%ts       (jcs:jce,jb) = 0._wp
