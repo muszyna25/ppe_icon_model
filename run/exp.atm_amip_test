@@ -606,12 +606,10 @@ if [[ "$output_lnd" == "min" ]]; then
                     'rad_rad_srf_net_box'   , 'rad_lw_srf_net_box'          , 'rad_sw_srf_net_box'     ,
                     'pheno_lai_box'         , 'hydro_w_skin_box'            , 'hydro_w_snow_box'       ,
                     'hydro_snowmelt_box'    , 'hydro_evapotranspiration_box', 'hydro_w_soil_column_box',
-                    ! Variables given back to atmosphere:
-                    'seb_t_filt_box'     , 'seb_t_eff_box'                , 'seb_qsat_star_box'  , 'seb_qsat_star_box'    ,
+                    'seb_t_filt_box'     , 'seb_t_eff_box'                , 'seb_qsat_star_box'  ,
                     'seb_latent_hflx_box', 'seb_sensible_hflx_box'        , 'seb_forc_hflx_box'  , 'seb_heat_cap_old_box' ,
                     'turb_fact_q_air_box', 'turb_fact_qsat_srf_box'       , 'turb_rough_h_box'   , 'turb_rough_m_box'     ,
                     'rad_alb_vis_lnd_box', 'rad_alb_nir_lnd_box'          , 'hydro_evapo_lnd_box', 'hydro_q_snocpymlt_box',
-                    ! with lakes:
                     'seb_t_lwtr_box'         , 'seb_t_lice_box'           , 'hydro_evapo_wtr_box', 'hydro_evapo_ice_box'  ,
                     'seb_latent_hflx_wtr_box', 'seb_sensible_hflx_wtr_box',
                     'seb_latent_hflx_ice_box', 'seb_sensible_hflx_ice_box',
@@ -651,11 +649,10 @@ if [[ "$output_lnd" == "full" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'seb_t_filt_box'     , 'seb_t_eff_box'         , 'seb_qsat_star_box'  , 'seb_qsat_star_box'    ,
+ ml_varlist       = 'seb_t_filt_box'     , 'seb_t_eff_box'         , 'seb_qsat_star_box'  ,
                     'seb_latent_hflx_box', 'seb_sensible_hflx_box' , 'seb_forc_hflx_box'  , 'seb_heat_cap_old_box' ,
                     'turb_fact_q_air_box', 'turb_fact_qsat_srf_box', 'turb_rough_h_box'   , 'turb_rough_m_box'     ,
                     'rad_alb_vis_lnd_box', 'rad_alb_nir_lnd_box'   , 'hydro_evapo_lnd_box', 'hydro_q_snocpymlt_box',
-                    ! with lakes:
                     'seb_t_lwtr_box'     , 'seb_t_lice_box'        , 'hydro_evapo_wtr_box', 'hydro_evapo_ice_box'  ,
                     'seb_latent_hflx_wtr_box', 'seb_sensible_hflx_wtr_box',
                     'seb_latent_hflx_ice_box', 'seb_sensible_hflx_ice_box',
@@ -689,8 +686,7 @@ if [[ "$output_lnd" == "full" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'seb_t_box'             , 'seb_t_eff_box'          , 'seb_qsat_star_box'     ,
-                    'seb_latent_hflx_box'   , 'seb_sensible_hflx_box'  , 'seb_forc_hflx_box'
+ ml_varlist       = 'seb_t_box'             ,
 /
 &output_nml
  output_filename  = "${EXPNAME}_lnd_sse"

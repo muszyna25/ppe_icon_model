@@ -223,13 +223,13 @@ CONTAINS
     REAL(wp) :: zen_qv(kbdim,ksfc_type)
     REAL(wp) :: zfn_qv(kbdim,ksfc_type)
 
-    REAL(wp) ::                                 &
-      & sat_surface_specific_humidity(kbdim),   &
-      & dry_static_energy(kbdim),               &
-      & ztsfc_lnd(kbdim), ztsfc_lnd_eff(kbdim), &
-      & ztsfc_wtr(kbdim), ztsfc_ice(kbdim),     &
-      & rvds(kbdim), rnds(kbdim), rpds(kbdim),  &
-      & rsns(kbdim), rlns(kbdim),               &
+    REAL(wp) ::                                            &
+      & sat_surface_specific_humidity(kbdim),              &
+      & dry_static_energy(kbdim),                          &
+      & ztsfc_lnd(kbdim), ztsfc_lnd_eff(kbdim),            &
+      & ztsfc_wtr(kbdim), ztsfc_ice(kbdim),                &
+      & rvds(kbdim), rnds(kbdim), rpds(kbdim),             &
+      & rsns(kbdim), rlns(kbdim), frac_par_diffuse(kbdim), &
       & zalbvis(kbdim), zalbnir(kbdim)
 
     REAL(wp) :: zgrnd_hflx(kbdim,ksfc_type), zgrnd_hcap(kbdim,ksfc_type), &
@@ -332,6 +332,12 @@ CONTAINS
       ztsfc_lnd_eff(:)    = 280._wp
       z0m_tile(:,idx_lnd) = 0._wp
 
+      WHERE (rpds(1:kproma) > 0._wp)
+        frac_par_diffuse(1:kproma) = rpds_dif(1:kproma) / rpds(1:kproma)
+      ELSE WHERE
+        frac_par_diffuse(1:kproma) = 0._wp
+      END WHERE
+
       IF (echam_phy_config%llake) THEN
         CALL jsbach_interface ( jg, nblock, 1, kproma, pdtime, pdtime,                     & ! in
           & t_air             = ptemp(1:kproma),                                           & ! in
@@ -345,7 +351,7 @@ CONTAINS
           & swvis_srf_down    = rvds(1:kproma),                                            & ! in
           & swnir_srf_down    = rnds(1:kproma),                                            & ! in
           & swpar_srf_down    = rpds(1:kproma),                                            & ! in
-          & frac_par_diffuse  = rpds_dif(1:kproma) / rpds(1:kproma),                       & ! in
+          & frac_par_diffuse  = frac_par_diffuse(1:kproma),                                & ! in
           & press_srf         = ps(1:kproma),                                              & ! in
           & drag_srf          = grav*pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_lnd),     & ! in
           & t_acoef           = zen_h(1:kproma, idx_lnd),                                  & ! in

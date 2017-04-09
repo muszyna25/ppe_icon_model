@@ -742,48 +742,41 @@ CONTAINS
       ! Settings for total surface
       ! (after tile masks and variables potentially have been overwritten by testcases above)
 
-      WHERE (field%lsmask(:,:) + field%alake(:,:) > 1._wp - EPSILON(1._wp))
-        field%seaice(:,:) = 0._wp
-        field%siced (:,:) = 0._wp
-      END WHERE
-
       ! Initialize tile fractions, see echam_phy_main for documentation
-      IF (ilnd <= nsfc_type) THEN
-        field%frac_tile(:,:,ilnd) = field%lsmask(:,:)
-      ELSE
-        field%frac_tile(:,:,ilnd) = 0._wp
-      END IF
-      IF (iwtr <= nsfc_type) THEN
-        field%frac_tile(:,:,iwtr) = (1._wp - field%lsmask(:,:)) &
-          &                                 * (1._wp - field%seaice(:,:) - field%lake_ice_frc(:,:))
-      ELSE
-        field%frac_tile(:,:,iwtr) = 0._wp
-      END IF
-      IF (iice <= nsfc_type) THEN
-        field%frac_tile(:,:,iice) = 1._wp - field%frac_tile(:,:,ilnd) - field%frac_tile(:,:,iwtr)
-      ELSE
-        field%frac_tile(:,:,iice) = 0._wp
-      END IF
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jcs,jce,jsfc) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = jbs,nblks_c
+          CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
 
-      field%ts       (:,:) = 0._wp
-      field%albvisdir(:,:) = 0._wp
-      field%albvisdif(:,:) = 0._wp
-      field%albnirdir(:,:) = 0._wp
-      field%albnirdif(:,:) = 0._wp
-      field%albedo   (:,:) = 0._wp
-      DO jsfc=1,nsfc_type
-        field%ts       (:,:) = field%ts       (:,:) + field%frac_tile(:,:,jsfc) * field%ts_tile       (:,:,jsfc)
-        field%albvisdir(:,:) = field%albvisdir(:,:) + field%frac_tile(:,:,jsfc) * field%albvisdir_tile(:,:,jsfc)
-        field%albvisdif(:,:) = field%albvisdif(:,:) + field%frac_tile(:,:,jsfc) * field%albvisdif_tile(:,:,jsfc)
-        field%albnirdir(:,:) = field%albnirdir(:,:) + field%frac_tile(:,:,jsfc) * field%albnirdir_tile(:,:,jsfc)
-        field%albnirdif(:,:) = field%albnirdif(:,:) + field%frac_tile(:,:,jsfc) * field%albnirdif_tile(:,:,jsfc)
-        field%albedo   (:,:) = field%albedo   (:,:) + field%frac_tile(:,:,jsfc) * field%albedo_tile   (:,:,jsfc)
-      END DO
+          field%lake_ice_frc(jcs:jce,jb) = 0._wp
 
-      field%ts_rad    (:,:) = field%ts(:,:)
-      field%ts_rad_rt (:,:) = field%ts(:,:)
+          IF (ilnd <= nsfc_type) THEN
+            field%frac_tile(jcs:jce,jb,ilnd) = field%lsmask(jcs:jce,jb)
+          ELSE
+            field%frac_tile(jcs:jce,jb,ilnd) = 0._wp
+          END IF
+          IF (iwtr <= nsfc_type) THEN
+            field%frac_tile(jcs:jce,jb,iwtr) = (1._wp - field%lsmask(jcs:jce,jb)) &
+              &                                 * (1._wp - field%seaice(jcs:jce,jb) - field%lake_ice_frc(jcs:jce,jb))
+          ELSE
+            field%frac_tile(jcs:jce,jb,iwtr) = 0._wp
+          END IF
+          IF (iice <= nsfc_type) THEN
+            field%frac_tile(jcs:jce,jb,iice) = 1._wp - field%frac_tile(jcs:jce,jb,ilnd) - field%frac_tile(jcs:jce,jb,iwtr)
+          ELSE
+            field%frac_tile(jcs:jce,jb,iice) = 0._wp
+          END IF
 
-      field%lake_ice_frc(:,:) = 0._wp
+          field%ts       (jcs:jce,jb) = 0._wp
+          DO jsfc=1,nsfc_type
+            field%ts(jcs:jce,jb) = field%ts(jcs:jce,jb) + field%frac_tile(jcs:jce,jb,jsfc) * field%ts_tile(jcs:jce,jb,jsfc)
+          END DO
+
+          field%ts_rad    (jcs:jce,jb) = field%ts(jcs:jce,jb)
+          field%ts_rad_rt (jcs:jce,jb) = field%ts(jcs:jce,jb)
+        END DO
+!$OMP END DO  NOWAIT
+!$OMP END PARALLEL
 
       NULLIFY( field,tend )
 
