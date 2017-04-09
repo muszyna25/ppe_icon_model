@@ -247,7 +247,9 @@ CONTAINS
 
    CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
 
-        ! check for masks
+   pevap_tile(:,:) = 0._wp
+
+    ! check for masks
     !
     DO jsfc = 1,ksfc_type
       is(jsfc) = 0
@@ -740,7 +742,7 @@ CONTAINS
             &               plhflx_gbm, pshflx_gbm,               &! out
             &               pevap_gbm,                            &! out
             &               plhflx_tile, pshflx_tile,             &! inout
-            &               pevap_tile)                            ! out
+            &               pevap_tile)                            ! inout
     ELSE
        plhflx_tile(:,:) = 0._wp
        pshflx_tile(:,:) = 0._wp

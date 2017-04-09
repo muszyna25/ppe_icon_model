@@ -40,7 +40,7 @@ CONTAINS
                            & plhflx_gbm, pshflx_gbm,               &! out
                            & pevap_gbm,                            &! out
                            & plhflx_tile, pshflx_tile,             &! inout for JSBACH land
-                           & pevap_tile)                            ! out
+                           & pevap_tile)                            ! inout for JSBACH land
 
     REAL(wp),INTENT(IN) :: psteplen
     INTEGER, INTENT(IN) :: kproma, kbdim, ksfc_type
