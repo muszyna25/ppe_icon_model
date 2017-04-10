@@ -317,6 +317,11 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               DO jb = i_startblk, i_endblk
                 CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                   &                istart, iend, i_rlstart, i_rlend)
+
+                DO jc = istart, iend
+                  dz(jc,nlev) = p_nh_state%metrics%ddqz_z_full(jc,nlev,jb)
+                ENDDO
+
                 SELECT CASE(TRIM(fields%name))
                   CASE('pollbetu') ! Betula --> birch
                     CALL art_emiss_pollen(dtime,current_date,                             &
