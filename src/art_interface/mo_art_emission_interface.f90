@@ -344,10 +344,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                 END SELECT
               ENDDO
             CLASS is (t_fields_radio)
-              ! should be handled via pntSrc structure in the future
-              CALL art_emiss_radioact(dtime,rho,p_patch%cells%area,p_nh_state%metrics%ddqz_z_full,  &
-                &                     fields%imis,p_sim_time,tracer(:,:,:,fields%itr),&
-                &                     p_art_data(jg)%ext%radioact_data)
+              ! handled via pntSrc structure
             CLASS default
               CALL finish('mo_art_emission_interface:art_emission_interface', &
                 &         'ART: Unknown mode field type')
