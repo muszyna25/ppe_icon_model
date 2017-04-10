@@ -50,17 +50,7 @@ atmo_namelist=NAMELIST_${EXPNAME}_atm
 run_jsbach=no
 
 lnd_datadir=$INDATA/${grid_name}/lnd
-# Temporary fix until data are in pool
-case "$target" in
-  bullx) lnd_datadir=/work/mj0060/m212005/data/icon/jsbach_lite
-         ;;
-  mpipc) lnd_datadir=/scratch/local1/m212005/data/icon/jsbach_lite
-         ;;
-  *)     echo "Please specify location of land input data"
-         exit
-         ;;
-esac
-
+lnd_datadir=/pool/data/ICON/grids/private/jsbach/R2B4/land
 #--------------------------------------------------------------------------------------------------
 
 # (3) Define the model configuration
