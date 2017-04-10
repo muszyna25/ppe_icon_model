@@ -366,7 +366,7 @@ case "$ac_sitename" in
 #                      OTHER_LIBS      = -lirng $OTHER_LIBS
 #                      ;;
                     cray)
-#                      load_modules    = grib_api
+                      load_modules    = cray-netcdf cray-hdf5 grib_api
                       RTTOV_LIBS      = -L/usr/local/pkg/for0adm/lib -L/usr/local/pkg/for0adm/lib/unsupported -lradiance -lrttov10.2 -lhrit_tools
                       OTHER_LIBS      = $RTTOV_LIBS $OTHER_LIBS
                       case "$with_art" in
