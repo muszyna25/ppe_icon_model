@@ -35,7 +35,7 @@ MODULE mo_fortran_tools
   PUBLIC :: t_ptr_2d3d, t_ptr_2d3d_vp
   PUBLIC :: assign_if_present_allocatable
   PUBLIC :: ensureSize
-  PUBLIC :: t_ptr_2d, t_ptr_2d_sp
+  PUBLIC :: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int
   PUBLIC :: t_ptr_3d, t_ptr_3d_sp
   PUBLIC :: t_ptr_i2d3d
   PUBLIC :: t_ptr_tracer
@@ -60,6 +60,10 @@ MODULE mo_fortran_tools
   TYPE t_ptr_2d_sp
     REAL(sp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
   END TYPE t_ptr_2d_sp
+
+  TYPE t_ptr_2d_int
+    INTEGER,POINTER :: p(:,:)  ! pointer to 2D (spatial) array
+  END TYPE t_ptr_2d_int
 
   TYPE t_ptr_3d
     REAL(dp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array

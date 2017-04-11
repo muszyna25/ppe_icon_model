@@ -129,7 +129,7 @@ CONTAINS
     CHARACTER(LEN=*),INTENT(in) :: ctest_name
     INTEGER,         INTENT(in) :: nlev
     REAL(wp),        INTENT(in) :: vct_a(:), vct_b(:)
-    TYPE(datetime),  POINTER    :: mtime_current !< Date and time information
+    TYPE(datetime),  INTENT(in), POINTER    :: mtime_current !< Date and time information
 
     INTEGER :: khydromet, ktrac
     INTEGER :: jg, ndomain

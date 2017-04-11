@@ -68,7 +68,7 @@ MODULE mo_nh_stepping
     &                                    ndyn_substeps, ndyn_substeps_var, ndyn_substeps_max
   USE mo_diffusion_config,         ONLY: diffusion_config
   USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method
-  USE mo_io_config,                ONLY: is_checkpoint_time, is_totint_time, n_chkpt, n_diag
+  USE mo_io_config,                ONLY: is_totint_time, n_diag
   USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output, &
                                          num_prefetch_proc
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
@@ -130,7 +130,7 @@ MODULE mo_nh_stepping
   USE mo_integrate_density_pa,     ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
-  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, p_bcast, p_comm_work, my_process_is_stdio
+  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, p_bcast, p_comm_work
 
 #ifdef NOMPI
   USE mo_mpi,                      ONLY: my_process_is_mpi_all_seq
@@ -169,7 +169,8 @@ MODULE mo_nh_stepping
   USE mo_rttov_interface,          ONLY: rttov_driver, copy_rttov_ubc
   USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_ls_forcing,               ONLY: init_ls_forcing
-  USE mo_sync_latbc,               ONLY: prepare_latbc_data , read_latbc_data,  &
+  USE mo_sync_latbc,               ONLY: prepare_latbc_data,                    &
+    &                                    read_latbc_data_sync=>read_latbc_data, &
     &                                    deallocate_latbc_data, p_latbc_data,   &
     &                                    read_latbc_tlev, last_latbc_tlev,      &
     &                                    update_lin_interc
@@ -185,8 +186,8 @@ MODULE mo_nh_stepping
   USE mo_opt_diagnostics,          ONLY: update_opt_acc, reset_opt_acc, &
     &                                    calc_mean_opt_acc, p_nh_opt_diag
   USE mo_var_list,                 ONLY: nvar_lists, var_lists, print_var_list
-  USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, new_latbc_tlev, pref_latbc_data, &
-    &                                    prev_latbc_tlev, latbc_data, update_lin_interpolation
+  USE mo_async_latbc_utils,        ONLY: recv_latbc_data, update_lin_interpolation
+  USE mo_async_latbc_types,        ONLY: t_latbc_data
   USE mo_nonhydro_types,           ONLY: t_nh_state
   USE mo_interface_les,            ONLY: init_les_phy_interface
   USE mo_fortran_tools,            ONLY: swap, copy, init
@@ -317,9 +318,11 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_stepping (mtime_current)
-!
-  TYPE(datetime),   POINTER            :: mtime_current     ! current datetime (mtime)
+  SUBROUTINE perform_nh_stepping (mtime_current, latbc)
+    !
+    TYPE(datetime),     POINTER       :: mtime_current     !< current datetime (mtime)
+    TYPE(t_latbc_data), INTENT(INOUT) :: latbc             !< data structure for async latbc prefetching
+
   TYPE(t_simulation_status)            :: simulation_status
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -371,7 +374,7 @@ MODULE mo_nh_stepping
   END IF
 
   ! Save initial state if IAU iteration mode is chosen
-  IF (iterate_iau) THEN
+  IF (iterate_iau .AND. .NOT. isRestart()) THEN
     CALL save_initial_state(p_patch(1:), p_nh_state, prm_diag, p_lnd_state, ext_data)
     WRITE(message_text,'(a)') 'IAU iteration is activated: Start of first cycle with halved IAU window'
     CALL message('',message_text)
@@ -565,10 +568,10 @@ MODULE mo_nh_stepping
 !   ELSE
     !---------------------------------------
 
-    CALL perform_nh_timeloop (mtime_current)
+    CALL perform_nh_timeloop (mtime_current, latbc)
 !   ENDIF
 
-  CALL deallocate_nh_stepping ()
+  CALL deallocate_nh_stepping (latbc)
 
 
   END SUBROUTINE perform_nh_stepping
@@ -582,12 +585,11 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_timeloop (mtime_current)
-!
-  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':perform_nh_timeloop'
-
-  TYPE(datetime),   POINTER            :: mtime_current     ! current datetime (mtime)
+  SUBROUTINE perform_nh_timeloop (mtime_current, latbc)
+    !
+    CHARACTER(len=*), PARAMETER :: routine = modname//':perform_nh_timeloop'
+    TYPE(t_latbc_data),     INTENT(INOUT)  :: latbc !< data structure for async latbc prefetching
+    TYPE(datetime),         POINTER        :: mtime_current     ! current datetime (mtime)
 
   INTEGER                              :: jg, jn, jgc
   INTEGER                              :: ierr
@@ -646,7 +648,7 @@ MODULE mo_nh_stepping
   time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_exp_startdate)
   sim_time   =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
 
-  IF (iterate_iau) THEN
+  IF (iterate_iau .AND. .NOT. isRestart()) THEN
     iau_iter = 1
   ELSE
     iau_iter = 0
@@ -662,7 +664,7 @@ MODULE mo_nh_stepping
   ! MPI communication from now on.
   IF (test_mode > 0) iorder_sendrecv = 0
 
-  IF (timeshift%dt_shift < 0._wp) THEN
+  IF (timeshift%dt_shift < 0._wp  .AND. .NOT. isRestart()) THEN
     jstep_shift = NINT(timeshift%dt_shift/dtime)
     WRITE(message_text,'(a,i6,a)') 'Model start shifted backwards by ', ABS(jstep_shift),' time steps'
     CALL message(TRIM(routine),message_text)
@@ -777,13 +779,6 @@ MODULE mo_nh_stepping
 
   ! set time loop properties
   model_time_step => time_config%tc_dt_model
-
-  ! IMPORTANT NOTE: The MTIME implementation of the time loop does not
-  ! take the IAU mode of the ICON model into account which starts with
-  ! "negative" time steps, controlled by "jstep_shift".
-  IF (jstep_shift /= 0) THEN
-    CALL finish('perform_nh_timeloop', "Backward time shift of model not yet implemented!")
-  END IF
   
   CALL message('','')
   CALL datetimeToString(mtime_current, dstring)
@@ -832,7 +827,7 @@ MODULE mo_nh_stepping
 
     ! read boundary data if necessary
     IF (l_limited_area .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) &
-      CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), mtime_current)
+      CALL read_latbc_data_sync(p_patch(1), p_nh_state(1), ext_data(1), p_int_state(1), mtime_current)
 
     IF (msg_level > 2) THEN
       lprint_timestep = .TRUE.
@@ -961,8 +956,7 @@ MODULE mo_nh_stepping
     ! Set output flags
     !--------------------------------------------------------------------------
 
-    l_nml_output   = output_mode%l_nml .AND. jstep >= 0 .AND.                 &
-      &              (jstep==(nsteps+jstep0) .OR. istime4name_list_output(jstep) )
+    l_nml_output = output_mode%l_nml .AND. jstep >= 0 .AND. istime4name_list_output(jstep)
 
     ! In IAU iteration mode, output at the nominal initial date is written only at the
     ! end of the first cycle, providing an initialized analysis to which the analysis 
@@ -999,7 +993,7 @@ MODULE mo_nh_stepping
     !
     ! dynamics stepping
     !
-    CALL integrate_nh(datetime_current, 1, jstep-jstep_shift, iau_iter, dtime, model_time_step, 1)
+    CALL integrate_nh(datetime_current, 1, jstep-jstep_shift, iau_iter, dtime, model_time_step, 1, latbc)
 
     ! Compute diagnostics for output if necessary
     IF (l_compute_diagnostic_quants .OR. iforcing==iecham .OR. iforcing==inoforcing) THEN
@@ -1205,10 +1199,18 @@ MODULE mo_nh_stepping
         lwrite_checkpoint = .TRUE.
       END IF
     END IF
-    
-    CALL message('','')
+
 
     IF (lwrite_checkpoint) THEN
+
+      ! apply nest boundary filling; this has no impact on the correctness (in the sense of reproducibility)
+      ! of the restart but facilitates debugging
+      CALL diag_for_output_dyn ()
+      IF (iforcing == inwp) THEN
+        CALL aggr_landvars
+        CALL fill_nestlatbc_phys
+      END IF
+
         DO jg = 1, n_dom
             CALL restartDescriptor%updatePatch(p_patch(jg), &
               & opt_t_elapsed_phy          = t_elapsed_phy(jg,:),        &
@@ -1237,7 +1239,9 @@ MODULE mo_nh_stepping
 
     ! prefetch boundary data if necessary
     IF(num_prefetch_proc >= 1 .AND. latbc_config%itype_latbc > 0) THEN
-      CALL pref_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), mtime_current)
+      CALL recv_latbc_data(latbc, p_patch(1), p_nh_state(1), p_int_state(1), &
+        &                  cur_datetime=mtime_current, lcheck_read=.TRUE., ltime_incr=.TRUE.,     &
+        &                  tlev=latbc%new_latbc_tlev)
     ENDIF
 
     IF (mtime_current >= time_config%tc_stopdate) THEN
@@ -1318,7 +1322,7 @@ MODULE mo_nh_stepping
   !!  - optional reduced calling frequency for transport and physics
   !!
   RECURSIVE SUBROUTINE integrate_nh (datetime_local, jg, nstep_global,   &
-    &                                iau_iter, dt_loc, mtime_dt_loc, num_steps )
+    &                                iau_iter, dt_loc, mtime_dt_loc, num_steps, latbc )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':integrate_nh'
 
@@ -1330,6 +1334,7 @@ MODULE mo_nh_stepping
     INTEGER , INTENT(IN)    :: iau_iter     !< counter for IAU iteration
     REAL(wp), INTENT(IN)    :: dt_loc       !< time step applicable to local grid level
     TYPE(timedelta), POINTER :: mtime_dt_loc !< time step applicable to local grid level (mtime format)
+    TYPE(t_latbc_data), INTENT(INOUT) :: latbc
 
     ! Local variables
 
@@ -1906,18 +1911,24 @@ MODULE mo_nh_stepping
 
             IF (num_prefetch_proc >= 1) THEN
 
-               ! update the coefficients for the linear interpolation
-               CALL update_lin_interpolation(datetime_local(jg)%ptr)
-               CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
-                    p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_old=latbc_data(prev_latbc_tlev)%atm,           &
-                    p_latbc_new=latbc_data(new_latbc_tlev)%atm)
+              ! Asynchronous LatBC read-in:
+              ! update the coefficients for the linear interpolation
+              CALL update_lin_interpolation(latbc, datetime_local(jg)%ptr)
+              CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),  &
+                &  p_nh_state(jg)%prog(n_new_rcf),                                    &
+                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,                        &
+                &  p_latbc_old=latbc%latbc_data(latbc%prev_latbc_tlev())%atm,         &
+                &  p_latbc_new=latbc%latbc_data(latbc%new_latbc_tlev)%atm)
             ELSE
+              
+              ! update the coefficients for the linear interpolation
+              CALL update_lin_interc(datetime_local(jg)%ptr)
+              CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
+                &                         p_nh_state(jg)%prog(n_new_rcf),                &  
+                &                         p_nh_state(jg)%metrics,p_nh_state(jg)%diag,    &
+                &                         p_latbc_old=p_latbc_data(last_latbc_tlev)%atm, &
+                &                         p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
 
-               ! update the coefficients for the linear interpolation
-               CALL update_lin_interc(datetime_local(jg)%ptr)
-               CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
-                    p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,        &
-                    p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
             ENDIF
 
          ELSE ! constant lateral boundary data
@@ -2010,8 +2021,8 @@ MODULE mo_nh_stepping
           IF(p_patch(jgc)%n_patch_cells > 0) THEN
             IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
             ! Recursive call to process_grid_level for child grid level
-            CALL integrate_nh( datetime_local, jgc, nstep_global, iau_iter, dt_sub, mtime_dt_sub, nsteps_nest )
-
+            CALL integrate_nh( datetime_local, jgc, nstep_global, iau_iter, &
+              &                dt_sub, mtime_dt_sub, nsteps_nest, latbc )
             IF(proc_split) CALL pop_glob_comm()
           ENDIF
 
@@ -2996,8 +3007,9 @@ MODULE mo_nh_stepping
   !>
   !! @par Revision History
   !!
-  SUBROUTINE deallocate_nh_stepping
+  SUBROUTINE deallocate_nh_stepping(latbc)
 
+    TYPE (t_latbc_data), INTENT(INOUT) :: latbc
   INTEGER                              ::  jg, ist
 
   !-----------------------------------------------------------------------
@@ -3039,7 +3051,7 @@ MODULE mo_nh_stepping
 
   IF (l_limited_area .AND. latbc_config%itype_latbc > 0) THEN
     IF (num_prefetch_proc >= 1) THEN
-      CALL deallocate_pref_latbc_data()
+      CALL latbc%finalize()
     ELSE
       CALL deallocate_latbc_data()
     ENDIF

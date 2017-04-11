@@ -22,7 +22,7 @@ MODULE mo_load_restart
       &                              GRID_UNSTRUCTURED_EDGE
     USE mo_communication,      ONLY: t_ScatterPattern
     USE mo_exception,          ONLY: message, finish
-    USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
+    USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SINGLE_T, REAL_T, INT_T
     USE mo_kind,               ONLY: dp, sp
     USE mo_linked_list,        ONLY: t_list_element
     USE mo_model_domain,       ONLY: t_patch
@@ -142,6 +142,7 @@ CONTAINS
     CHARACTER(len=8)                 :: model_type
     REAL(dp), POINTER                :: r1d_d(:), rptr2d_d(:,:), rptr3d_d(:,:,:)
     REAL(sp), POINTER                :: r1d_s(:), rptr2d_s(:,:), rptr3d_s(:,:,:)
+    INTEGER, POINTER                 :: iptr2d(:,:), iptr3d(:,:,:)
     CLASS(t_scatterPattern), POINTER :: scatter_pattern
     LOGICAL                          :: flag_dp
 
@@ -234,16 +235,21 @@ CONTAINS
               NULLIFY(rptr3d_d)
               NULLIFY(rptr2d_s)
               NULLIFY(rptr3d_s)
+              NULLIFY(iptr2d)
+              NULLIFY(iptr3d)
 
-              ! set a flag which indicates if the current variable has
-              ! double precision:
-              IF (ASSOCIATED(element%field%r_ptr)) THEN
+              ! set a flag which indicates if the current variable
+              ! uses a double precision buffer:
+              SELECT CASE(info%data_type)
+              CASE(REAL_T, INT_T)
+                ! Read-in of INTEGER fields: we read them as
+                ! REAL-valued arrays and transform them using NINT.
                 flag_dp = .TRUE.
-              ELSE IF (ASSOCIATED(element%field%s_ptr)) THEN
+              CASE(SINGLE_T)
                 flag_dp = .FALSE.
-              ELSE
-                CALL finish(routine, "internal error!")
-              END IF
+              CASE DEFAULT
+                CALL finish(routine, "Internal error! Variable "//TRIM(info%name))
+              END SELECT
 
               IF (my_process_is_mpi_workroot()) THEN
                 gridID  = vlistInqVarGrid(vlistID, varID)
@@ -284,7 +290,8 @@ CONTAINS
               CASE (2)
                 var_ref_pos = 3
                 IF (info%lcontained)  var_ref_pos = info%var_ref_pos
-                IF (flag_dp) THEN
+                SELECT CASE(info%data_type)
+                CASE(REAL_T)
                   SELECT CASE(var_ref_pos)
                   CASE (1)
                     rptr2d_d => element%field%r_ptr(nindex,:,:,1,1)
@@ -295,7 +302,8 @@ CONTAINS
                   CASE default
                     CALL finish(routine, "internal error!")
                   END SELECT
-                ELSE
+                  !
+                CASE(SINGLE_T)
                   SELECT CASE(var_ref_pos)
                   CASE (1)
                     rptr2d_s => element%field%s_ptr(nindex,:,:,1,1)
@@ -306,11 +314,32 @@ CONTAINS
                   CASE default
                     CALL finish(routine, "internal error!")
                   END SELECT
-                END IF
+                  !
+                CASE(INT_T)
+                  !
+                  SELECT CASE(var_ref_pos)
+                  CASE (1)
+                    iptr2d => element%field%i_ptr(nindex,:,:,1,1)
+                  CASE (2)
+                    iptr2d => element%field%i_ptr(:,nindex,:,1,1)
+                  CASE (3)
+                    iptr2d => element%field%i_ptr(:,:,nindex,1,1)
+                  CASE default
+                    CALL finish(routine, "internal error!")
+                  END SELECT
+                  ! We use a REAL-valued buffer for read-in of INTEGER
+                  ! fields; allocate it here:
+                  !
+                  ALLOCATE(rptr2d_d(SIZE(iptr2d,1),SIZE(iptr2d,2)))
+                  rptr2d_d(:,:) = 0._dp
+                  !
+                END SELECT
+                !
               CASE (3)
                 var_ref_pos = 4
                 IF (info%lcontained)  var_ref_pos = info%var_ref_pos
-                IF (flag_dp) THEN
+                SELECT CASE(info%data_type)
+                CASE(REAL_T)
                   SELECT CASE(var_ref_pos)
                   CASE (1)
                     rptr3d_d => element%field%r_ptr(nindex,:,:,:,1)
@@ -323,7 +352,8 @@ CONTAINS
                   CASE default
                     CALL finish(routine, "internal error!")
                   END SELECT
-                ELSE
+                  !
+                CASE(SINGLE_T)
                   SELECT CASE(var_ref_pos)
                   CASE (1)
                     rptr3d_s => element%field%s_ptr(nindex,:,:,:,1)
@@ -336,7 +366,28 @@ CONTAINS
                   CASE default
                     CALL finish(routine, "internal error!")
                   END SELECT
-                END IF
+                  !
+                CASE(INT_T)
+                  ! 
+                  SELECT CASE(var_ref_pos)
+                  CASE (1)
+                    iptr3d => element%field%i_ptr(nindex,:,:,:,1)
+                  CASE (2)
+                    iptr3d => element%field%i_ptr(:,nindex,:,:,1)
+                  CASE (3)
+                    iptr3d => element%field%i_ptr(:,:,nindex,:,1)
+                  CASE (4)
+                    iptr3d => element%field%i_ptr(:,:,:,nindex,1)
+                  CASE default
+                    CALL finish(routine, "internal error!")
+                  END SELECT
+                  ! We use a REAL-valued buffer for read-in of INTEGER
+                  ! fields; allocate it here:
+                  !
+                  ALLOCATE(rptr3d_d(SIZE(iptr3d,1),SIZE(iptr3d,2),SIZE(iptr3d,3)))
+                  rptr3d_d(:,:,:) = 0._dp
+                  !
+                END SELECT
               CASE DEFAULT
                 CALL finish(routine, "internal error!")
               END SELECT
@@ -375,15 +426,36 @@ CONTAINS
                     CALL scatter_pattern%distribute(r1d_s, rptr3d_s(:,lev,:), .FALSE.)
                   END IF
                 ENDIF
+
               END DO
+
+              ! Read-in of INTEGER fields: we read them as REAL-valued
+              ! arrays and transform them using NINT.
+              SELECT CASE(info%data_type)
+              CASE(INT_T)
+                IF (info%ndims == 2) THEN
+                  iptr2d(:,:)   = NINT(rptr2d_d(:,:))
+                ELSE
+                  iptr3d(:,:,:) = NINT(rptr3d_d(:,:,:))
+                END IF
+              END SELECT
 
               ! deallocate temporary global arrays
               IF (my_process_is_mpi_workroot()) THEN
-                WRITE (0,*) ' ... read ',TRIM(element%field%info%name)
+                WRITE (0,*) ' ... read ',TRIM(info%name)
               ENDIF
               CYCLE for_all_vars
+
+              ! clean up temporary buffer:
+              SELECT CASE(info%data_type)
+              CASE(INT_T)
+                IF (ASSOCIATED(rptr2d_d))  DEALLOCATE(rptr2d_d)
+                IF (ASSOCIATED(rptr3d_d))  DEALLOCATE(rptr3d_d)
+              END SELECT
+
             ENDIF
           ENDIF
+
         ENDDO for_all_lists
         CALL message('reading_restart_file','Variable '//TRIM(name)//' not defined.')
       ENDDO for_all_vars

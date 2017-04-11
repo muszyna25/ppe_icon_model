@@ -179,9 +179,8 @@ case "$fortran_compiler" in
         CC          = cc
         FC          = ftn
         F77         = $FC
-#        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hacc_model=deep_copy -O cache0 -r am -Ktrap=divz,ovf,inv
-        FFLAGS      = -D__LOOP_EXCHANGE -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=intolerant -hfp0 -hadd_paren -hacc_model=deep_copy -O1,cache0 -r am -Ktrap=divz,ovf,inv
-        CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -O3
+        FFLAGS      = -v -D__OPENACC_BUG_TYPES_1 -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf -hacc_model=deep_copy
+        CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3
         F77FLAGS    = $FFLAGS
         FCLIBS      = 
         GEN_FLAGS   =
@@ -788,7 +787,7 @@ case "$ac_sitename" in
                     cray)
 		      GRIBAPIROOT     = ${GRIB_API_PATH}
                       OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $RTTOV_LIBS $OTHER_LIBS
-                      FFLAGS          = ${FFLAGS} -I/home/ms/de/dfj/include/radiance
+                      FFLAGS          = -D__USE_RTTOV ${FFLAGS} -I/home/ms/de/dfj/include/radiance
                       ;;
                     default|gcc)
                      #load_modules    = PrgEnv-gnu/5.1.29 netcdf grib_api cray-mpich/6.2.0 ${load_modules}

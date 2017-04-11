@@ -98,6 +98,7 @@ cat > ${atmo_namelist} << EOF
  l_test_openmp  = .false.
  l_log_checks   = .false.
  num_io_procs   = 0
+ num_prefetch_proc = 0
 /
 &grid_nml
  ! cell_type is not used = 3            ! triangular cells

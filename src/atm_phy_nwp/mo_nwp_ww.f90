@@ -101,7 +101,7 @@ CONTAINS
 !
     CHARACTER(LEN=24), PARAMETER :: routine = 'atm_phy_nwp:configure_ww'
 
-    TYPE(datetime),   POINTER     :: ini_datetime  ! init datetime (mtime)
+    TYPE(datetime),   INTENT(IN), POINTER     :: ini_datetime  ! init datetime (mtime)
     INTEGER,  INTENT(IN) :: jg           !< patch 
     INTEGER,  INTENT(IN) :: nlev         !< number of full vertical levels 
     INTEGER,  INTENT(IN) :: nshift_total 
