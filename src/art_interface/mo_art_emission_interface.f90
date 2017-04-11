@@ -67,7 +67,6 @@ MODULE mo_art_emission_interface
 ! Emission Routines
   USE mo_art_emission_volc_2mom,        ONLY: art_prepare_emission_volc,    &
                                           &   art_calculate_emission_volc
-  USE mo_art_emission_radioact,         ONLY: art_emiss_radioact
   USE mo_art_emission_seas,             ONLY: art_seas_emiss_martensson,    &
                                           &   art_seas_emiss_monahan,       &
                                           &   art_seas_emiss_smith
