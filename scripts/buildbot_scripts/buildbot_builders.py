@@ -132,7 +132,7 @@ class buildbot_experiments_list(object):
     experiment = self.experimentList.get(name)
     if not experiment:
       print("Error: experiment "+name+" not found in "+self.name+" list. Stop")
-      quit()
+      quit(1)
     return experiment
 
   def get_experiment_value(self, name):
@@ -234,7 +234,7 @@ class buildbot_experiments_list(object):
       listfile.close()     
     except IOError as e:
       print("I/O error({0}): {1}".format(e.errno, e.strerror)+" in reading list "+self.name+". Stop.")
-      quit()
+      quit(1)
       
     verbal = verbal_oldStatus
 #-----------------------------------------------------------------------
@@ -257,7 +257,7 @@ class buildbot_machines_list(object):
   def add_builder(self, builder):
     if self.builders.get(builder.name):
       print("Error: trying to add existing builder "+builder.name+". Stop")
-      quit()
+      quit(1)
     self.builders[builder.name] = builder
     
   def print_builders(self):
@@ -293,7 +293,7 @@ class buildbot_machines_list(object):
       builder = self.builders.get(builderName)
       if not builder:
         print("Error: builder "+builderName+" not found in "+self.name+".")
-        quit()
+        quit(1)
       else:
         buildersList.append(builder)
     return buildersList
@@ -302,13 +302,13 @@ class buildbot_machines_list(object):
     machine = self.machines.get(machineName)
     if not machine:
       print("Error: machine "+machineName+" not found in "+self.name+".")
-      quit()
+      quit(1)
     return machine
 
   def get_BuilderExperimentNames(self, builder_name):
     if not self.builders.get(builder_name):
       print("Error: get_BuilderExperimentNames: not existing builder "+builder_name+". Stop")
-      quit()
+      quit(1)
     return self.builders[builder_name].getExperimentNames()
 
   # updates the configure flags based on the builder flags
@@ -327,10 +327,17 @@ class buildbot_machines_list(object):
     mistral_intel_openmp  = mistral.add_builder('MISTRAL_intel_openmp', '--with-fortran=intel --without-mpi --with-openmp --without-yac', 'Active')
     mistral_nag           = mistral.add_builder('MISTRAL_nag', '--with-fortran=nag', 'Active')
     mistral_nag_serial    = mistral.add_builder('MISTRAL_nag_serial', '--with-fortran=nag --without-mpi --without-yac', 'build_only')
-    mistral_ocean         = mistral.add_builder('MISTRAL_ocean', '--with-fortran=intel --with-openmp', 'Ocean')
+    mistral_ocean         = mistral.add_builder('MISTRAL_ocean', '--with-fortran=intel --with-openmp --with-flags=ocean', 'Ocean')
 # CSCS builders
     daint_cpu             = self.add_machine('daint_cpu', 'default')
     daint_cpu_cce         = daint_cpu.add_builder('DAINT_CPU_cce', '', 'Active')
+# breeze builders
+    breeze                = self.add_machine('breeze', 'default')
+    breeze_gcc            = breeze.add_builder('BREEZE_gcc', '--with-fortran=gcc', 'build_only')
+    breeze_gcc_openmp     = breeze.add_builder('BREEZE_gcc_openmp', '--with-fortran=gcc --with-openmp', 'build_only')
+    breeze_intel          = breeze.add_builder('BREEZE_intel', '--with-fortran=intel', 'build_only')
+    breeze_intel_openmp   = breeze.add_builder('BREEZE_intel_openmp', '--with-fortran=intel --with-openmp', 'build_only')
+    breeze_nag            = breeze.add_builder('BREEZE_nag', '--with-fortran=nag', 'build_only')
 
 #-----------------------------------------------------------------------
 

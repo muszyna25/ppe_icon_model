@@ -7,7 +7,7 @@
 !! headers of the routines.
 MODULE mo_var_list_element
 
-  USE mo_kind,               ONLY: dp
+  USE mo_kind,               ONLY: dp, sp
   USE mo_var_metadata_types, ONLY: t_var_metadata, t_var_metadata_dynamic
 
   IMPLICIT NONE
@@ -27,6 +27,7 @@ MODULE mo_var_list_element
 
   TYPE t_var_list_element
     REAL(dp), POINTER            :: r_ptr(:,:,:,:,:)   ! pointer to 4D-field
+    REAL(sp), POINTER            :: s_ptr(:,:,:,:,:)   ! pointer to 4D-field
     INTEGER,  POINTER            :: i_ptr(:,:,:,:,:)   ! pointer to 4D-field
     LOGICAL,  POINTER            :: l_ptr(:,:,:,:,:)   ! pointer to 4D-field
     INTEGER                      :: var_base_size      ! generic size in bytes of variable used

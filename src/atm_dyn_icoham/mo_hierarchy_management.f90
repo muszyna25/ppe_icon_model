@@ -44,7 +44,6 @@ MODULE mo_hierarchy_management
 
   USE mo_kind,                ONLY: wp, dp
   USE mo_exception,           ONLY: message_text, message, finish
-  USE mo_datetime,            ONLY: t_datetime, add_time, print_datetime
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grid_config,         ONLY: n_dom, lfeedback, l_limited_area
@@ -78,7 +77,7 @@ MODULE mo_hierarchy_management
   USE mo_ha_testcases,        ONLY: ctest_name,rotate_axis_deg
   USE mo_impl_constants,      ONLY: success, MAX_CHAR_LENGTH
   USE mo_expensive_functions, ONLY: convert_t2theta_lin, convert_theta2t_lin
-  USE mo_interface_icoham_echam, ONLY: interface_icoham_echam
+!!$  USE mo_interface_icoham_echam, ONLY: interface_icoham_echam
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_impl_constants,      ONLY: tracer_only, two_tl_si,         &
@@ -88,11 +87,18 @@ MODULE mo_hierarchy_management
     &                               iheldsuarez, iecham, ildf_echam,& 
     &                               ildf_dry
   USE mo_ha_dtp_interface,    ONLY: prepare_tracer, prepare_tracer_rk, &
-    &                               prepare_tracer_leapfrog, prepare_echam_phy
+    &                               prepare_tracer_leapfrog!!$, prepare_echam_phy
   USE mo_held_suarez_interface, ONLY: held_suarez_interface
   USE mo_hierarchy_management_intp
   USE mo_mpi,                 ONLY: push_glob_comm, pop_glob_comm, proc_split
   USE mo_ldf_test,            ONLY: ldf_temp
+  USE mtime,                  ONLY: datetime, timeDelta, MAX_DATETIME_STR_LEN, &
+    &                               newTimeDelta, newDatetime, OPERATOR(*),    &
+    &                               OPERATOR(+), deallocateDatetime,           &
+    &                               deallocateTimedelta, datetimeToString,     &
+    &                               getTimedeltaFromDatetime,                  &
+    &                               getTotalMillisecondsTimedelta
+  USE mo_time_config,         ONLY: time_config
 
   IMPLICIT NONE
   PRIVATE
@@ -129,11 +135,12 @@ CONTAINS
   !! Revised 2008-10-24 for use in hydrostatic model by ??
   !! Revised for physics-dynamics coupling by Hui Wan, MPI-M (2009-02-15)
   !!
-  RECURSIVE SUBROUTINE process_grid( p_patch, p_hydro_state,       &
-                                   & p_int_state, p_grf_state,     &
-                                   & ext_data, jg, nstep_global,   &
-                                   & l_3tl_init, dt_loc, sim_time, &
-                                   & nsteps, datetime )
+  RECURSIVE SUBROUTINE process_grid( p_patch, p_hydro_state,         &
+                                   & p_int_state, p_grf_state,       &
+                                   & ext_data, jg, nstep_global,     &
+                                   & l_3tl_init, dt_loc, mtime_step, &
+                                   & nsteps,                         &
+                                   & mtime_current )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_hierarchy_management:process_grid'
@@ -148,18 +155,21 @@ CONTAINS
     INTEGER, INTENT(IN)    :: nstep_global ! number of global time step
     INTEGER, INTENT(IN)    :: nsteps       ! number of time steps to be executed
 
-    REAL(wp),INTENT(IN)    :: dt_loc           ! time step applicable to local grid level
-    REAL(wp),INTENT(INOUT) :: sim_time(n_dom)  ! elapsed simulation time on each grid level
+    REAL(wp),        INTENT(IN) :: dt_loc          ! time step applicable to local grid level
+    TYPE(timeDelta), POINTER    :: mtime_step      ! time step (mtime object)
+
     LOGICAL, INTENT(INOUT) :: l_3tl_init(n_dom)
 
-    TYPE(t_datetime),INTENT(IN) :: datetime
+    TYPE(datetime),   POINTER    :: mtime_current     ! current datetime (mtime)
 
-    TYPE(t_datetime) :: grid_datetime
+    TYPE(datetime),   POINTER    :: grid_datetime
 
     INTEGER  :: ns, jb, jstep, jn, jgc
     INTEGER  :: n_old, n_now, n_new, n_sav1, n_sav2, n_temp
     INTEGER  :: nlen
     REAL(wp) :: dt_sub, zdtime, rdt_loc
+
+    TYPE(timeDelta), POINTER :: mtime_step_sub
 
     REAL(wp),DIMENSION ( nproma, nlev, p_patch(jg)%nblks_c ) :: temp_save
     REAL(wp), ALLOCATABLE :: z_pres_sfc(:,:,:)
@@ -181,13 +191,23 @@ CONTAINS
     INTEGER :: nblks_e, nblks_c
     INTEGER :: ist
     INTEGER, EXTERNAL :: util_cputime
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dstring
+    TYPE(timeDelta), POINTER            :: time_diff
+    REAL(wp)                            :: sim_time     !< elapsed simulation time on this grid level
+
+    ! calculate elapsed simulation time in seconds
+    time_diff  => newTimedelta("PT0S")
+    time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_startdate)
+    sim_time   =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
+    CALL deallocateTimedelta(time_diff)
+
     !---------------
 
     nblks_c = p_patch(jg)%nblks_c
     nblks_e = p_patch(jg)%nblks_e
 
     ! set up datetime variable valid within process_grid.
-    grid_datetime = datetime
+    grid_datetime => newDatetime(mtime_current)
 
     DO ns = 1, nsteps
 
@@ -195,7 +215,8 @@ CONTAINS
       WRITE (message_text,'(a,i6,a,i2,a,i2)')                  &
         & '.        step :',nstep_global,'  grid :',jg,' substep :',ns
       CALL message(TRIM(routine),message_text)
-      CALL print_datetime(datetime)
+      CALL datetimeToString(mtime_current, dstring)
+      CALL message(TRIM(routine),TRIM(dstring))
 
       iret = util_cputime(tu, ts)
       t_0 = tu+ts
@@ -368,7 +389,7 @@ CONTAINS
             IF (.NOT.lshallow_water) THEN
               ! set time-variant vertical velocity
               CALL set_vertical_velocity( p_patch(jg), p_hydro_state(jg)%diag,  &
-                &                         jstep, sim_time(jg) )
+                &                         jstep, sim_time )
             ENDIF
 
           CASE ('SV') ! static vortex
@@ -383,12 +404,12 @@ CONTAINS
 
             ! get velocity field
             CALL get_df_velocity( p_patch(jg), p_hydro_state(jg)%prog(n_new),      &
-              &                   ctest_name, rotate_axis_deg, sim_time(jg)+zdtime )
+              &                   ctest_name, rotate_axis_deg, sim_time+zdtime )
 
             ! compute barycenter of departure region
             CALL get_departure_points( p_patch(jg), p_hydro_state(jg)%prog(n_new), &
               &                        ctest_name, rotate_axis_deg, zdtime,        &
-              &                        sim_time(jg)+zdtime )
+              &                        sim_time+zdtime )
           END SELECT
 
           ! Diagnose some pressure- and velocity-related quantities for
@@ -428,7 +449,7 @@ CONTAINS
             ! save analytic solution (tracer field) for error assessment
             CALL get_sv_tracer( p_patch(jg),                                   &
               &                 p_hydro_state(jg)%prog(n_new)%tracer(:,:,:,2), &
-              &                 sim_time(jg) )
+              &                 sim_time )
 
           CASE ('DF1', 'DF2', 'DF3', 'DF4') ! deformational flow
 
@@ -438,9 +459,6 @@ CONTAINS
               &                      p_hydro_state(jg)%prog(n_new)%tracer(:,:,:,ntracer) )
 
           END SELECT
-
-          ! counter for simulation time in seconds
-          sim_time(jg) = sim_time(jg) + dt_loc
 
           !---------------------------------------
           ! Semi-implicit two time level scheme
@@ -516,48 +534,48 @@ CONTAINS
              !Note: the argument * is used only in case of grid refinement.
           ENDIF
 
-          ! ECHAM physics. Meteorological fields of time step n are provided to the 
-          ! the physics package, which also takes over the dynamics/transport-induced 
-          ! tendencies (diagnosed in subroutine "diag_tend" and stored in the 
-          ! the variable %tend_phy), use them in the parameterization schemes, 
-          ! and add new contributions to them.
-
-          IF (iforcing==iecham) THEN
-
-            CALL diag_tend( p_patch(jg),                           &! in
-              &             ha_dyn_config%ltheta_dyn,              &! in
-              &             ltransport, zdtime,                    &! in
-              &             p_hydro_state(jg)%prog(n_now),         &! in
-              &             p_hydro_state(jg)%prog(n_new),         &! in
-              &             p_hydro_state(jg)%tend_phy           )  ! inout
-
-            CALL prepare_echam_phy( ha_dyn_config%ltheta_dyn,      &! in
-              &                     p_patch(jg), p_int_state(jg),  &! in
-              &                     ext_data(jg),                  &! in
-              &                     p_hydro_state(jg)%prog(n_now), &! in
-              &                     p_hydro_state(jg)%diag       )  ! inout
-
-            CALL interface_icoham_echam( zdtime, zdtime,                &! in
-              &                          grid_datetime,                 &! in
-              &                          p_patch(jg),                   &! in
-              &                          p_int_state(jg),               &! in
-              &                          p_hydro_state(jg)%prog(n_now), &! inout
-              &                          p_hydro_state(jg)%diag,        &! in
-              &                          p_hydro_state(jg)%prog(n_new), &! in
-              &                          p_hydro_state(jg)%tend_phy )    ! inout
-
-
-            ! At this point the %tend_phy state contains the accumulated tendencies.
-            ! Get the prognostic state at time step n+1 ("n_new").
-
-            CALL update_prog_state( zdtime, p_patch(jg),             &! in
-              &                     p_hydro_state(jg)%tend_phy,      &! in
-              &                     .FALSE.,ha_dyn_config%ltheta_dyn,&! in
-              &                     ltransport,                      &! in
-              &                     p_hydro_state(jg)%prog(n_now),   &! in
-              &                     p_hydro_state(jg)%prog(n_new)    )! inout
-
-          ENDIF ! iforcing==iecham
+!!$          ! ECHAM physics. Meteorological fields of time step n are provided to the 
+!!$          ! the physics package, which also takes over the dynamics/transport-induced 
+!!$          ! tendencies (diagnosed in subroutine "diag_tend" and stored in the 
+!!$          ! the variable %tend_phy), use them in the parameterization schemes, 
+!!$          ! and add new contributions to them.
+!!$
+!!$          IF (iforcing==iecham) THEN
+!!$
+!!$            CALL diag_tend( p_patch(jg),                           &! in
+!!$              &             ha_dyn_config%ltheta_dyn,              &! in
+!!$              &             ltransport, zdtime,                    &! in
+!!$              &             p_hydro_state(jg)%prog(n_now),         &! in
+!!$              &             p_hydro_state(jg)%prog(n_new),         &! in
+!!$              &             p_hydro_state(jg)%tend_phy           )  ! inout
+!!$
+!!$            CALL prepare_echam_phy( ha_dyn_config%ltheta_dyn,      &! in
+!!$              &                     p_patch(jg), p_int_state(jg),  &! in
+!!$              &                     ext_data(jg),                  &! in
+!!$              &                     p_hydro_state(jg)%prog(n_now), &! in
+!!$              &                     p_hydro_state(jg)%diag       )  ! inout
+!!$
+!!$            CALL interface_icoham_echam( zdtime, zdtime,                &! in
+!!$              &                          grid_datetime,                 &! in
+!!$              &                          p_patch(jg),                   &! in
+!!$              &                          p_int_state(jg),               &! in
+!!$              &                          p_hydro_state(jg)%prog(n_now), &! inout
+!!$              &                          p_hydro_state(jg)%diag,        &! in
+!!$              &                          p_hydro_state(jg)%prog(n_new), &! in
+!!$              &                          p_hydro_state(jg)%tend_phy )    ! inout
+!!$
+!!$
+!!$            ! At this point the %tend_phy state contains the accumulated tendencies.
+!!$            ! Get the prognostic state at time step n+1 ("n_new").
+!!$
+!!$            CALL update_prog_state( zdtime, p_patch(jg),             &! in
+!!$              &                     p_hydro_state(jg)%tend_phy,      &! in
+!!$              &                     .FALSE.,ha_dyn_config%ltheta_dyn,&! in
+!!$              &                     ltransport,                      &! in
+!!$              &                     p_hydro_state(jg)%prog(n_now),   &! in
+!!$              &                     p_hydro_state(jg)%prog(n_new)    )! inout
+!!$
+!!$          ENDIF ! iforcing==iecham
 
           ! Horizontal diffusion is called later in this subroutine.
 
@@ -633,80 +651,80 @@ CONTAINS
           ! and used therein. The purpose of this implementation is to get 
           ! a ICOHAM version similar to ECHAM.
 
-          IF ( iforcing==iecham .OR. iforcing==ildf_echam ) THEN
-
-            ! Tracer transport.
-            ! Like in ECHAM, the transport scheme computes the tracer specific
-            ! density at time step n+1 by using tracer and air density of n-1,
-            ! as well as wind fields (vn, weta) at step n. Note that at this 
-            ! point the surface pressure at step n+1 has not yet been 
-            ! corrected by the semi-implicit scheme, thus this implementation
-            ! guarantees neither mass conservation nor consistency with continuity.
-
-            IF (ltransport) THEN
-              CALL prepare_tracer_leapfrog( p_patch(jg),                     &! in
-                &                           p_hydro_state(jg)%prog(n_old),   &! in
-                &                           p_hydro_state(jg)%prog(n_now),   &! in
-                &                           p_hydro_state(jg)%prog(n_new),   &! in
-                &                           p_hydro_state(jg)%diag,          &! inout
-                &                           z_vn_traj,                       &! out ("now")
-                &                           z_delp_mc_now,                   &! out (in fact "old")
-                &                           z_pres_mc_now, z_pres_ic_now     )! out (in fact "old")
-
-
-              CALL step_advection( p_patch(jg), p_int_state(jg),               &!in
-                &                  2._wp*zdtime, jstep,                        &!in
-                &                  p_hydro_state(jg)%prog(n_old)%tracer,       &!in
-                &                  p_hydro_state(jg)%diag%mass_flux_e,         &!in ("now")
-                &                  z_vn_traj,                                  &!in ("now")
-                &                  p_hydro_state(jg)%diag%weta,                &!in ("now")
-                &                  p_hydro_state(jg)%diag%weta,                &!in ("now")
-                &                  z_delp_mc_now,                              &!in (in fact"old")
-                &                  p_hydro_state(jg)%diag%delp_c,              &!in ("new")
-                &                  z_delp_mc_now,                              &!in (in fact "old")
-                &                  p_hydro_state(jg)%tend_dyn%tracer,          &!in (ONLY for ref.)
-                &                  p_hydro_state(jg)%prog(n_new)%tracer,       &!inout
-                &                  p_hydro_state(jg)%diag%hfl_tracer,          &!out
-                &                  p_hydro_state(jg)%diag%vfl_tracer,          &!out
-                &                  opt_ddt_tracer_adv =                        &!optional dummy
-                &                  p_hydro_state(jg)%tend_dyn%tracer   )        !out
-            ELSE
-              p_hydro_state(jg)%tend_dyn%tracer = 0._wp   ! Q&D. Not appropriate for refinement
-            ENDIF
-
-            ! ECHAM physics. The meteorological fields of step n-1 are (Asselin) filtered values.
-            ! The physics package takes over the dynamics/transport-induced tendencies,
-            ! use them in the parameterization schemes, and add new contributions to them.
-
-            CALL prepare_echam_phy( ha_dyn_config%ltheta_dyn,      &! in
-              &                     p_patch(jg), p_int_state(jg),  &! in
-              &                     ext_data(jg),                  &! in
-              &                     p_hydro_state(jg)%prog(n_old), &! in
-              &                     p_hydro_state(jg)%diag         )! inout
-
-            CALL interface_icoham_echam( zdtime, 2._wp*zdtime,          &! in
-              &                          grid_datetime,                 &! in
-              &                          p_patch(jg),                   &! in
-              &                          p_int_state(jg),               &! in
-              &                          p_hydro_state(jg)%prog(n_old), &! inout
-              &                          p_hydro_state(jg)%diag,        &! in
-              &                          p_hydro_state(jg)%prog(n_new), &! in
-              &                          p_hydro_state(jg)%tend_dyn     )! inout
-
-            ! Explicit dynamics, tracer transport and physics computation have all
-            ! been finished. The %tend_dyn state contains the accumulated tendencies.
-            ! Now get the prognostic variables of time step n+1 using the leapfrog formula.
-            ! The n+1 values will later be corrected by the semi-implicit scheme.
-
-            CALL leapfrog_update_prog( p_hydro_state(jg)%prog(n_new),    &! inout
-              &                        p_hydro_state(jg)%prog(n_now),    &! in, for refinement
-              &                        p_hydro_state(jg)%prog(n_old),    &! in
-              &                        p_hydro_state(jg)%tend_dyn,       &! in
-              &                        2._wp*zdtime, zdtime, ltransport, &! in
-              &                        ha_dyn_config%ltheta_dyn,         &! in
-              &                        p_patch(jg)                       )! in
-
-          ENDIF ! (iforcing==iecham)
+!!$          IF ( iforcing==iecham .OR. iforcing==ildf_echam ) THEN
+!!$
+!!$            ! Tracer transport.
+!!$            ! Like in ECHAM, the transport scheme computes the tracer specific
+!!$            ! density at time step n+1 by using tracer and air density of n-1,
+!!$            ! as well as wind fields (vn, weta) at step n. Note that at this 
+!!$            ! point the surface pressure at step n+1 has not yet been 
+!!$            ! corrected by the semi-implicit scheme, thus this implementation
+!!$            ! guarantees neither mass conservation nor consistency with continuity.
+!!$
+!!$            IF (ltransport) THEN
+!!$              CALL prepare_tracer_leapfrog( p_patch(jg),                     &! in
+!!$                &                           p_hydro_state(jg)%prog(n_old),   &! in
+!!$                &                           p_hydro_state(jg)%prog(n_now),   &! in
+!!$                &                           p_hydro_state(jg)%prog(n_new),   &! in
+!!$                &                           p_hydro_state(jg)%diag,          &! inout
+!!$                &                           z_vn_traj,                       &! out ("now")
+!!$                &                           z_delp_mc_now,                   &! out (in fact "old")
+!!$                &                           z_pres_mc_now, z_pres_ic_now     )! out (in fact "old")
+!!$
+!!$
+!!$              CALL step_advection( p_patch(jg), p_int_state(jg),               &!in
+!!$                &                  2._wp*zdtime, jstep,                        &!in
+!!$                &                  p_hydro_state(jg)%prog(n_old)%tracer,       &!in
+!!$                &                  p_hydro_state(jg)%diag%mass_flux_e,         &!in ("now")
+!!$                &                  z_vn_traj,                                  &!in ("now")
+!!$                &                  p_hydro_state(jg)%diag%weta,                &!in ("now")
+!!$                &                  p_hydro_state(jg)%diag%weta,                &!in ("now")
+!!$                &                  z_delp_mc_now,                              &!in (in fact"old")
+!!$                &                  p_hydro_state(jg)%diag%delp_c,              &!in ("new")
+!!$                &                  z_delp_mc_now,                              &!in (in fact "old")
+!!$                &                  p_hydro_state(jg)%tend_dyn%tracer,          &!in (ONLY for ref.)
+!!$                &                  p_hydro_state(jg)%prog(n_new)%tracer,       &!inout
+!!$                &                  p_hydro_state(jg)%diag%hfl_tracer,          &!out
+!!$                &                  p_hydro_state(jg)%diag%vfl_tracer,          &!out
+!!$                &                  opt_ddt_tracer_adv =                        &!optional dummy
+!!$                &                  p_hydro_state(jg)%tend_dyn%tracer   )        !out
+!!$            ELSE
+!!$              p_hydro_state(jg)%tend_dyn%tracer = 0._wp   ! Q&D. Not appropriate for refinement
+!!$            ENDIF
+!!$
+!!$            ! ECHAM physics. The meteorological fields of step n-1 are (Asselin) filtered values.
+!!$            ! The physics package takes over the dynamics/transport-induced tendencies,
+!!$            ! use them in the parameterization schemes, and add new contributions to them.
+!!$
+!!$            CALL prepare_echam_phy( ha_dyn_config%ltheta_dyn,      &! in
+!!$              &                     p_patch(jg), p_int_state(jg),  &! in
+!!$              &                     ext_data(jg),                  &! in
+!!$              &                     p_hydro_state(jg)%prog(n_old), &! in
+!!$              &                     p_hydro_state(jg)%diag         )! inout
+!!$
+!!$            CALL interface_icoham_echam( zdtime, 2._wp*zdtime,          &! in
+!!$              &                          grid_datetime,                 &! in
+!!$              &                          p_patch(jg),                   &! in
+!!$              &                          p_int_state(jg),               &! in
+!!$              &                          p_hydro_state(jg)%prog(n_old), &! inout
+!!$              &                          p_hydro_state(jg)%diag,        &! in
+!!$              &                          p_hydro_state(jg)%prog(n_new), &! in
+!!$              &                          p_hydro_state(jg)%tend_dyn     )! inout
+!!$
+!!$            ! Explicit dynamics, tracer transport and physics computation have all
+!!$            ! been finished. The %tend_dyn state contains the accumulated tendencies.
+!!$            ! Now get the prognostic variables of time step n+1 using the leapfrog formula.
+!!$            ! The n+1 values will later be corrected by the semi-implicit scheme.
+!!$
+!!$            CALL leapfrog_update_prog( p_hydro_state(jg)%prog(n_new),    &! inout
+!!$              &                        p_hydro_state(jg)%prog(n_now),    &! in, for refinement
+!!$              &                        p_hydro_state(jg)%prog(n_old),    &! in
+!!$              &                        p_hydro_state(jg)%tend_dyn,       &! in
+!!$              &                        2._wp*zdtime, zdtime, ltransport, &! in
+!!$              &                        ha_dyn_config%ltheta_dyn,         &! in
+!!$              &                        p_patch(jg)                       )! in
+!!$
+!!$          ENDIF ! (iforcing==iecham)
 
           ! Second part of the dynamical core: semi-implicit correction
 
@@ -859,43 +877,43 @@ CONTAINS
 
           ENDIF
 
-          ! ECHAM physics. The physics package not only uses meteorological 
-          ! fields of step n, but also takes over the dynamics/transport-
-          ! induced tendencies (diagnosed in subroutine "diag_tend" and stored 
-          ! in the variable %tend_phy), use them in the parameterization schemes,
-          ! and add new contributions to them.
-          IF ( iforcing==iecham ) THEN
-
-            CALL diag_tend( p_patch(jg),                           &! in
-              &             ha_dyn_config%ltheta_dyn,              &! in
-              &             ltransport, zdtime,                    &! in
-              &             p_hydro_state(jg)%prog(n_now),         &! in
-              &             p_hydro_state(jg)%prog(n_new),         &! in
-              &             p_hydro_state(jg)%tend_phy           )  ! inout
- 
-            CALL prepare_echam_phy( ha_dyn_config%ltheta_dyn,      &! in
-              &                     p_patch(jg), p_int_state(jg),  &! in
-              &                     ext_data(jg),                  &! in
-              &                     p_hydro_state(jg)%prog(n_now), &! in
-              &                     p_hydro_state(jg)%diag       )  ! inout
-
-            CALL interface_icoham_echam( zdtime, zdtime,                &! in
-              &                          grid_datetime,                 &! in
-              &                          p_patch(jg),                   &! in
-              &                          p_int_state(jg),               &! in
-              &                          p_hydro_state(jg)%prog(n_now), &! inout
-              &                          p_hydro_state(jg)%diag,        &! in
-              &                          p_hydro_state(jg)%prog(n_new), &! in
-              &                          p_hydro_state(jg)%tend_phy )    ! inout
-
-            CALL update_prog_state( zdtime, p_patch(jg),             &! in
-              &                     p_hydro_state(jg)%tend_phy,      &! in
-              &                     .FALSE.,ha_dyn_config%ltheta_dyn,&! in
-              &                     ltransport,                      &! in
-              &                     p_hydro_state(jg)%prog(n_now),   &! in
-              &                     p_hydro_state(jg)%prog(n_new)   ) ! inout
-
-          ENDIF ! iforcing==iecham
+!!$          ! ECHAM physics. The physics package not only uses meteorological 
+!!$          ! fields of step n, but also takes over the dynamics/transport-
+!!$          ! induced tendencies (diagnosed in subroutine "diag_tend" and stored 
+!!$          ! in the variable %tend_phy), use them in the parameterization schemes,
+!!$          ! and add new contributions to them.
+!!$          IF ( iforcing==iecham ) THEN
+!!$
+!!$            CALL diag_tend( p_patch(jg),                           &! in
+!!$              &             ha_dyn_config%ltheta_dyn,              &! in
+!!$              &             ltransport, zdtime,                    &! in
+!!$              &             p_hydro_state(jg)%prog(n_now),         &! in
+!!$              &             p_hydro_state(jg)%prog(n_new),         &! in
+!!$              &             p_hydro_state(jg)%tend_phy           )  ! inout
+!!$ 
+!!$            CALL prepare_echam_phy( ha_dyn_config%ltheta_dyn,      &! in
+!!$              &                     p_patch(jg), p_int_state(jg),  &! in
+!!$              &                     ext_data(jg),                  &! in
+!!$              &                     p_hydro_state(jg)%prog(n_now), &! in
+!!$              &                     p_hydro_state(jg)%diag       )  ! inout
+!!$
+!!$            CALL interface_icoham_echam( zdtime, zdtime,                &! in
+!!$              &                          grid_datetime,                 &! in
+!!$              &                          p_patch(jg),                   &! in
+!!$              &                          p_int_state(jg),               &! in
+!!$              &                          p_hydro_state(jg)%prog(n_now), &! inout
+!!$              &                          p_hydro_state(jg)%diag,        &! in
+!!$              &                          p_hydro_state(jg)%prog(n_new), &! in
+!!$              &                          p_hydro_state(jg)%tend_phy )    ! inout
+!!$
+!!$            CALL update_prog_state( zdtime, p_patch(jg),             &! in
+!!$              &                     p_hydro_state(jg)%tend_phy,      &! in
+!!$              &                     .FALSE.,ha_dyn_config%ltheta_dyn,&! in
+!!$              &                     ltransport,                      &! in
+!!$              &                     p_hydro_state(jg)%prog(n_now),   &! in
+!!$              &                     p_hydro_state(jg)%prog(n_new)   ) ! inout
+!!$
+!!$          ENDIF ! iforcing==iecham
 
           ! Horizontal diffusion is called later in this subroutine 
           ! before entering finer grid.
@@ -973,8 +991,10 @@ CONTAINS
       !==========================================================================
       IF (p_patch(jg)%n_childdom > 0) THEN
 
-        dt_sub = dt_loc/2._wp
-        rdt_loc = 1._wp/dt_loc
+        dt_sub         =  dt_loc/2._wp
+        rdt_loc        =  1._wp/dt_loc
+        mtime_step_sub => newTimedelta(mtime_step)
+        mtime_step_sub =  mtime_step_sub * 0.5_wp
 
         ! Compute time tendencies for interpolation to refined mesh boundaries
         CALL compute_tendencies( ha_dyn_config%ltheta_dyn, p_patch(jg), &
@@ -1031,10 +1051,10 @@ CONTAINS
             IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
 
             ! Recursive call to process_grid_level for child grid level
-            CALL process_grid( p_patch, p_hydro_state,        &
-              &                p_int_state, p_grf_state,      &
-              &                ext_data, jgc, nstep_global,   &
-              &                l_3tl_init, dt_sub, sim_time,  &
+            CALL process_grid( p_patch, p_hydro_state,             &
+              &                p_int_state, p_grf_state,           &
+              &                ext_data, jgc, nstep_global,        &
+              &                l_3tl_init, dt_sub, mtime_step_sub, &
               &                2, grid_datetime)
             IF(proc_split) CALL pop_glob_comm()
           ENDIF
@@ -1057,8 +1077,10 @@ CONTAINS
 
         ENDDO
 
-      ENDIF
+        CALL deallocateTimedelta(mtime_step_sub)
 
+      ENDIF
+      
       !==========================================================================
       ! Interaction with parent and child domains done. Finish this time step
       ! and prepare for the next
@@ -1130,9 +1152,12 @@ CONTAINS
       CALL message(TRIM(routine),message_text)
 
       ! update here "grid_datetime" for next time step in this loop
-      CALL add_time(zdtime,0,0,0,grid_datetime)
+      grid_datetime = grid_datetime + mtime_step
 
     ENDDO !Loop over all substeps on the current grid level
+
+    CALL deallocateDatetime(grid_datetime)
+    
     !---------------
   END SUBROUTINE process_grid
 

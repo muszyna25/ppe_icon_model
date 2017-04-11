@@ -199,7 +199,7 @@ add_required_file ${basedir}/run/${lnd_namelist}                        ./
 # dictionary file for output variable names
 #
 dict_file="dict.${EXPNAME}"
-cat dict.iconam.mpim_inst  > ${dict_file}
+cat dict.iconam.mpim      > ${dict_file}
 cat dict.echam_tpe.mpim  >> ${dict_file}
 add_required_file ${basedir}/run/${dict_file}                           ./
 
@@ -481,7 +481,7 @@ if [[ "$output_lnd" == "yes" ]]; then
                     't_srf_unfilt', 't_srf_unfilt_old', 't_srf_old'
                     't_soil', 'wsn_srf', 'wsr_srf', 't_eff_srf', 'grnd_hflx'
                     'sfract_srf', 'wfract_srf', 'sfract_soil', 'sfract_can', 'wfract_can', 'wfract_soil'
-                    'tte_corr', 'rough_m_srf', 'rough_h_srf'
+                    'q_snocpymlt', 'rough_m_srf', 'rough_h_srf'
 /
 EOF
 fi

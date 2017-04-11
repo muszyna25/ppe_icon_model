@@ -42,11 +42,7 @@ MODULE mo_ocean_forcing
     & relax_temperature_min, relax_temperature_max, initial_temperature_type, &
     & initial_temperature_bottom,initial_temperature_north,initial_temperature_south,&
     & relax_width, &
-#ifdef __SX__
-    & forcing_windstress_zonalWavePhas,                                       &
-#else
     & forcing_windstress_zonalWavePhase,                                      &
-#endif
     & forcing_temperature_poleLat
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
   USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -645,8 +641,6 @@ CONTAINS
     SELECT CASE(type_surfRelax_Temp)
     CASE(3)
       atmos_fluxes%data_surfRelax_Temp(:,:) = ocean_state%p_prog(nold(1))%tracer(:,1,:,1)
-
-
 
     CASE(4)
       ! smooth ape relaxation, as in temperature_smoothAPE in mo_cean_initial_conditions

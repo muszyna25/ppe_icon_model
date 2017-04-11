@@ -348,7 +348,6 @@ USE mo_kind,               ONLY: ireals=>wp,    &
 USE mo_math_constants    , ONLY: pi
 !
 USE mo_physical_constants, ONLY: t0_melt => tmelt,& ! absolute zero for temperature
-                                 r_v   => rv    , & ! gas constant for water vapour
                                  r_d   => rd    , & ! gas constant for dry air
                                  rvd_m_o=>vtmpc1, & ! r_v/r_d - 1
                                  o_m_rdv        , & ! 1 - r_d/r_v
@@ -357,7 +356,6 @@ USE mo_physical_constants, ONLY: t0_melt => tmelt,& ! absolute zero for temperat
                                  lh_s  => als   , & ! latent heat of sublimation
                                  lh_f  => alf   , & ! latent heat of fusion
                                  cp_d  => cpd   , & ! specific heat of dry air at constant press
-                                 cpdr  => rcpd  , & ! (specific heat of dry air at constant press)^-1
                                  g     => grav  , & ! acceleration due to gravity
                                  sigma => stbo  , & ! Boltzmann-constant
                                  rho_w => rhoh2o, & ! density of liquid water (kg/m^3)
@@ -376,12 +374,12 @@ USE mo_phyparam_soil
 USE mo_lnd_nwp_config,     ONLY: lmulti_snow, l2lay_rho_snow,     &
   &                              itype_trvg, itype_evsl,          &
   &                              itype_root, itype_heatcond,      &
-  &                              itype_hydbound, lstomata, l2tls, &
+  &                              itype_hydbound, lstomata,        &
   &                              max_toplaydepth, itype_interception, &
   &                              cwimax_ml
 !
 !
-USE mo_exception,          ONLY: message, finish, message_text
+USE mo_exception,          ONLY: message, message_text
 USE mo_run_config,         ONLY: msg_level
 USE mo_impl_constants,     ONLY: iedmf
 #endif
@@ -1088,9 +1086,8 @@ END SUBROUTINE message
 !
 !   Freezing/melting of soil water/ice:
 !
-    zenergy        , & ! available melting/freezing energy per time step
     zdelwice       , & ! amount of melted soil ice/frozen soil water
-    zdwi_max       , & ! maximum amount of freezing/melting soil water
+    zdwi_scal      , & ! time scale parameter for freezing/melting soil water
     ztx                ! water content dependent freezing/melting temperature
 
 ! Local (automatic) arrays:
@@ -1250,6 +1247,7 @@ END SUBROUTINE message
                               !    with respect to t_snow
     zrho_snow(ie)      , & ! snow density used for computing heat capacity and conductivity
     zts_pm   (ie)      , & ! indicator zts > < T_melt
+    ztfunc   (ie)      , & ! smoothed transition function between T_melt and T_melt+2K
     ztsnow_pm(ie)          ! indicator ztsnow > < T_melt
 
 
@@ -1352,6 +1350,8 @@ END SUBROUTINE message
 
   zrhwddt = rho_w/zdt     ! density of liquid water/timestep
   zdtdrhw = zdt/rho_w     ! timestep/density of liquid water
+
+  zdwi_scal = zdt/1800._ireals ! time scale parameter for freezing/melting soil water
 
 ! time constant for infiltration of water from interception store
   ctau_i        = MAX(ctau_i,zdt)
@@ -1633,8 +1633,8 @@ END SUBROUTINE message
   ! thermal conductivity
 
         ! tuning factor to indirectly account for the impact of vegetation, which does not depend on soil moisture
-        IF(itype_heatcond == 3 .AND. zmls(kso) < 0.05_ireals) THEN
-          zaa = 15._ireals*(0.05_ireals-zmls(kso))*zzz
+        IF(itype_heatcond == 3 .AND. zmls(kso) < 0.075_ireals) THEN
+          zaa = 12.5_ireals*(0.075_ireals-zmls(kso))*zzz
         ELSE
           zaa = 0._ireals
         ENDIF
@@ -1737,8 +1737,8 @@ END SUBROUTINE message
 
 !   energy required to melt existing snow
         ze_melt(i)=w_snow_now(i)*rho_w*lh_f     ! (J/m**2)
-!   heat capacity of snow layer
-        zch_snow(i)=w_snow_now(i)*rho_w*chc_i   ! (J/(m**2 K))
+!   heat capacity of snow layer, limited to a snow depth of 1.5 m for consistency with subsequent calculations
+        zch_snow(i)=MIN(w_snow_now(i),1.5_ireals*rho_snow_now(i)/rho_w)*rho_w*chc_i   ! (J/(m**2 K))
 
 !   constrain transfer coefficient, if energy budget  of topmost soil layer is:
 !   a) negative & surface layer is unstable (i.e   upward directed turbulent heat flux)
@@ -1918,8 +1918,10 @@ END SUBROUTINE message
         IF (w_snow_now(i) > 0.0_ireals) THEN
           ! existence of snow
           ! --> no water in interception store and t_snow < t0_melt
-          w_snow_now(i) = w_snow_now(i) + w_i_now(i)
-          w_i_now(i) = 0.0_ireals
+          ! GZ: this effectively suppresses rime formation because deposition rates per time
+          ! step are usually less than 1e-6 m (zepsi)
+      !!!    w_snow_now(i) = w_snow_now(i) + w_i_now(i)
+      !!!    w_i_now(i) = 0.0_ireals
           t_snow_now(i) = MIN (t0_melt - zepsi, t_snow_now(i) )
         ELSE IF (t_snow_now(i) >= t0_melt) THEN
           ! no snow and t_snow >= t0_melt --> t_s > t0_melt and t_snow = t_s
@@ -1930,7 +1932,7 @@ END SUBROUTINE message
           ! --> t_snow = t_s and no water w_i in interception store
           t_s_now   (i) = MIN (t0_melt - zepsi, t_s_now(i) )
           t_snow_now(i) = t_s_now(i)
-          w_i_now(i) = 0.0_ireals
+     !!!     w_i_now(i) = 0.0_ireals
         END IF
 !      END IF
     ENDDO
@@ -1996,6 +1998,7 @@ END SUBROUTINE message
     ! ztsnow   (i) = t_snow(i,nx)
     zts      (i) = t_s_now   (i)
     zts_pm   (i) = zsf_heav(zts   (i) - t0_melt)
+    ztfunc   (i) = MAX(0._ireals,1._ireals - MAX(0._ireals,0.5_ireals*(zts(i)-t0_melt)))
     ztsnow_pm(i) = zsf_heav(ztsnow(i) - t0_melt)
    IF (itype_interception == 1) THEN
     zwin     (i) = w_i_now(i)
@@ -2024,14 +2027,14 @@ END SUBROUTINE message
     z234iw      = z2iw*(b3 - z4iw)
     zqs         = zsf_qsat( zsf_psat_iw(zts(i), z2iw,z4iw), ps(i) )
     zdqs        = zqvlow - zqs
-    IF (ABS(zdqs).LT.zepsi) zdqs = 0._ireals
+    IF (ABS(zdqs).LT.0.01_ireals*zepsi) zdqs = 0._ireals
     z2iw        = ztsnow_pm(i)*b2w + (1._ireals - ztsnow_pm(i))*b2i
     z4iw        = ztsnow_pm(i)*b4w + (1._ireals - ztsnow_pm(i))*b4i
     z234iw      = z2iw*(b3 - z4iw)
     zqsnow      = zsf_qsat(zsf_psat_iw(ztsnow(i),z2iw,z4iw), ps(i))
     zdqvtsnow(i)= zsf_dqvdt_iw(ztsnow(i), zqsnow, z4iw,z234iw)
     zdqsnow     = zqvlow - zqsnow
-    IF (ABS(zdqsnow).LT.zepsi) zdqsnow = 0._ireals
+    IF (ABS(zdqsnow).LT.0.01_ireals*zepsi) zdqsnow = 0._ireals
 
     ! potential evaporation at T_snow and Ts
     zep_snow(i) = (1._ireals-ztsnow_pm(i))* tfv(i)*zrhoch(i)*zdqsnow
@@ -2056,7 +2059,7 @@ END SUBROUTINE message
                                  EXP(MAX( -5.0_ireals, - zwin(i)/zzz) ) )
 !em        zf_snow(i) = zrss*zsf_heav(zwsnow(i) - zepsi)
   IF (itype_interception == 1) THEN
-        zf_wi  (i) = zrww*zsf_heav(zwin  (i) - zepsi)
+        zf_wi  (i) = zrww*zsf_heav(zwin  (i) - 1.e-4_ireals*zepsi)
   ELSE IF (itype_interception == 2) THEN
         zf_wi  (i) = plcov (i) !Fraction of interception store on grid box area scales with plcov
   END IF
@@ -2105,8 +2108,9 @@ END SUBROUTINE message
         ! Evaporation from interception store if it contains water (wi>0) and
         ! if zep_s<0 indicates potential evaporation for temperature Ts
         ! amount of water evaporated is limited to total content of store
-        zdwidt(i) = zsf_heav(-zep_s(i)) * MAX(-zrhwddt*zwin(i),                       &
-          0.333_ireals*zf_wi(i)*zep_s(i), -MAX(300._ireals,0.75_ireals*zradfl(i))/lh_v)
+        zzz = (1._ireals + 0.5_ireals*ztfunc(i))/3._ireals
+        zdwidt(i) = zsf_heav(-zep_s(i)) * MAX(-zrhwddt*zwin(i),              &
+          zzz*zf_wi(i)*zep_s(i), -MAX(300._ireals,0.75_ireals*zradfl(i))/lh_v)
         ! Evaporation of snow, if snow exists (wsnow>0) and if zep_snow<0
         ! indicates potential evaporation for temperature t_snow
         zdwsndt(i) = zsf_heav(-zep_snow(i))  &
@@ -2714,14 +2718,14 @@ ELSE          IF (itype_interception == 2) THEN
         ! to avoid infiltration at snow covered parts of soil surface
         zinfmx(i) = zinfmx(i)*(1._ireals - zf_snow(i))
 
-        zwimax(i) = cwimax_ml*MAX(2._ireals*(1._ireals-zts_pm(i)), zepsi, tai(i))
+        zwimax(i) = cwimax_ml*(1._ireals+ztfunc(i))*MAX(ztfunc(i), zepsi, tai(i))
         zalf   = SQRT(MAX(0.0_ireals,1.0_ireals - zwinstr(i)/zwimax(i)))
 
         ! water supply from interception store (if Ts above freezing)
         zuv    = SQRT ( u_10m(i)**2 + v_10m(i)**2 )
         zzz    = MAX(0.1_ireals, 0.4_ireals - 0.05_ireals*zuv)
-        zinf   = MAX(0._ireals,zwinstr(i)-zzz*zwimax(i))*rho_w/ctau_i*        &
-                 (1._ireals+0.75_ireals*MAX(0._ireals,zuv-1._ireals))*zts_pm(i)
+        zinf   = MAX(0._ireals,zwinstr(i)-zzz*zwimax(i))*rho_w/ctau_i*                       &
+                 (1._ireals+0.75_ireals*MAX(0._ireals,zuv-1._ireals))*(1._ireals-ztfunc(i))**2
 
         ! possible contribution of rain to infiltration
     !    IF (zrr(i)-zepsi > 0.0_ireals) THEN
@@ -2743,7 +2747,7 @@ ELSE          IF (itype_interception == 2) THEN
         zwinstr(i)  = zwin(i) + zdwidtt*zdtdrhw
         zwinstr(i)  = MAX(0.0_ireals, zwinstr(i)) !avoid negative values (security)
         zdwieps  = 0.0_ireals
-        IF (zwinstr(i) > 0.0_ireals .AND. zwinstr(i) < 0.01_ireals*zepsi) THEN
+        IF (zwinstr(i) > 0.0_ireals .AND. zwinstr(i) < 1.e-4_ireals*zepsi) THEN
           zdwieps    = zwinstr(i)*zrhwddt
           runoff_s(i)= runoff_s(i) + zdwieps*zroffdt
           zdwidtt    = zdwidtt - zdwieps
@@ -2754,6 +2758,11 @@ ELSE          IF (itype_interception == 2) THEN
         zdwidtt      = zdwidtt - zro_wi
         zdwidt(i)    = zdwidtt
         zinf         = zinf + zro_wi
+        IF (zts(i) <= t0_melt) THEN
+          ! add excess rime to snow
+          zrs(i) = zrs(i) + zinf
+          zinf = 0._ireals
+        ENDIF
 
         ! add rain contribution to water supply for infiltration
         zvers(i) = zinf + (1._ireals - zalf)*zrr(i) + (1._ireals-conv_frac(i))*zalf*prr_con(i)
@@ -2776,11 +2785,13 @@ ELSE          IF (itype_interception == 2) THEN
         zwsnstr  = zwsnow(i) + zdwsndtt*zdtdrhw
         zwsnstr  = MAX(0.0_ireals, zwsnstr) ! avoid negative values (security)
         zdwseps  = 0.0_ireals
-        IF (zwsnstr > 0.0_ireals .AND. zwsnstr < zepsi) THEN
+        IF (zwsnstr > 0.0_ireals .AND. zwsnstr < zepsi) THEN ! shift marginal snow amounts to interception storage
 !         IF (ztsnow_pm(i) > 0.0_ireals) THEN
+            zwinstr(i) = zwinstr(i) + zwsnstr
             zdwseps    = zwsnstr*zrhwddt
-            runoff_s(i) = runoff_s(i) + zdwseps*zroffdt
+!            runoff_s(i) = runoff_s(i) + zdwseps*zroffdt ! previous implementation
             zdwsndtt   = zdwsndtt - zdwseps
+            zdwidt(i)  = zdwidt(i) + zdwseps
 !         END IF
         END IF
         zdwsndt(i) = zdwsndtt
@@ -3366,8 +3377,9 @@ ELSE   IF (itype_interception == 2) THEN
         ! freezing of rain falling on soil with Ts < T0  (black-ice !!!)
         ELSEIF ((1._ireals-zts_pm(i))*zrr(i) > 0.0_ireals) THEN
           zsprs  (i) = lh_f*zrr(i)
-          zdwidt (i) = zdwidt (i) - zrr(i)
-          zdwsndt(i) = zdwsndt(i) + zrr(i)
+          ! keep freezing rain in interception storage rather than shifting it to snow
+         ! zdwidt (i) = zdwidt (i) - zrr(i)
+         ! zdwsndt(i) = zdwsndt(i) + zrr(i)
         ELSE
           zsprs  (i) = 0.0_ireals
         END IF
@@ -3650,7 +3662,6 @@ ELSE   IF (itype_interception == 2) THEN
 
           ! avoid overflow of interception store, add possible excess to
           ! surface run-off
-          zwimax(i)  = cwimax_ml*MAX(2._ireals*(1._ireals-zts_pm(i)), zepsi, tai(i))
           zwinstr(i) = zwin(i) + zdwidt(i)*zdtdrhw
           IF (zwinstr(i) > zwimax(i)) THEN  ! overflow of interception store
             zro         = (zwinstr(i) - zwimax(i))*zrhwddt
@@ -3662,8 +3673,9 @@ ELSE   IF (itype_interception == 2) THEN
         ELSEIF (zwsnow(i) == 0.0_ireals .AND.                            &
                (1._ireals-ztsnow_pm(i))*zrr(i) > 0.0_ireals) THEN
           zsprs  (i) = MIN(lh_f*zrr(i),(t0_melt-t_s_now(i))*zroc(i,1)*zdzhs(1)/zdt)
-          zdwidt (i) = zdwidt (i) - zrr(i)
-          zdwsndt(i) = zdwsndt(i) + zrr(i)
+          ! keep freezing rain in interception storage rather than shifting it to snow
+         ! zdwidt (i) = zdwidt (i) - zrr(i)
+         ! zdwsndt(i) = zdwsndt(i) + zrr(i)
         END IF
 
 !       Influence of heatflux through snow on total forcing:
@@ -4062,35 +4074,25 @@ ENDIF
                   ztx    = t0_melt/znen
                 ENDIF
                 ztx      = MIN(t0_melt,ztx)
-                zenergy  = zroc(i,kso)*zdzhs(kso)*(t_so_new(i,kso)-ztx)
-                zdwi_max = - zenergy/(lh_f*rho_w)
-                zdelwice = zdwi_max
+                zfak     = zroc(i,kso)*zdzhs(kso)/(lh_f*rho_w)
+                zdelwice = - zfak*(t_so_new(i,kso)-ztx)
                 zwso_new  = w_so_now(i,kso) + zdt*zdwgdt(i,kso)/rho_w
                 zargu = zwso_new - zw_m(i) - w_so_ice_now(i,kso)
-                IF (zdelwice.LT.0.0_ireals) zdelwice =                           &
-                        - MIN( - zdelwice,MIN(-zargu,w_so_ice_now(i,kso)))
-                IF (zdelwice.GT.0.0_ireals) zdelwice =                           &
-                          MIN(   zdelwice,MAX( zargu,0.0_ireals))
-                w_so_ice_new(i,kso) = w_so_ice_now(i,kso) + zdelwice
-  !             At this point we have 0.0 LE w_so_ice(i,kso,nnew) LE zwso_new
-  !             If we have 0.0 LT w_so_ice(i,kso,nnew) LT zwso_new
-  !             the resulting new temperature has to be equal to ztx.
-  !             If not all energy available can be used to melt/freeze soil water,
-  !             the following line corrects the temperature. It also applies
-  !             to cases without any freezing/melting, in these cases the
-  !             original temperature is reproduced.
-
-                t_so_new(i,kso) = ztx + (zdelwice - zdwi_max)*       &
-                                     (lh_f*rho_w)/(zroc(i,kso)*zdzhs(kso))
-                ! Fix for numerical instabilites across melting point (G. Zaengl)
-                ! When the latent heat release due to ice formation is so large that the
-                ! temperature rises from below freezing to above freezing, then the
-                ! temperature is set to the freezing point and the ice amount is reset to zero
-                IF (t_so_new(i,kso) > t0_melt+zepsi .AND. t_so_now(i,kso) < t0_melt-zepsi &
-                  .AND. w_so_ice_new(i,kso) > zepsi) THEN
-                  t_so_new(i,kso) = t0_melt
-                  w_so_ice_new(i,kso) = 0._ireals
+                IF (t_so_new(i,kso) > t0_melt .AND. w_so_ice_now(i,kso) > 0._ireals) THEN
+                  ! melting point adjustment (time scale 30 min)
+                  zdelwice = - MIN(w_so_ice_now(i,kso), zdwi_scal*(t_so_new(i,kso)-t0_melt)*zfak)
+                ELSE IF (zdelwice < 0.0_ireals) THEN
+                  zdelwice = - MIN( - zdelwice,MIN(-zargu,w_so_ice_now(i,kso)))
+                  ! limit latent heat consumption due to melting to half the temperature increase since last time step
+                  ! or 2.5 K within 30 min
+                  zdelwice = - MIN( - zdelwice,MAX(2.5_ireals*zdwi_scal,0.5_ireals*(t_so_new(i,kso)-t_so_now(i,kso)))*zfak)
+                ELSE
+                  zdelwice = MIN(zdelwice,MAX(zargu,0.0_ireals))
+                  ! limit latent heat release due to freezing to half the differene from the melting point
+                  zdelwice = MIN(zdelwice,0.5_ireals*(t0_melt-t_so_new(i,kso))*zfak)
                 ENDIF
+                w_so_ice_new(i,kso) = w_so_ice_now(i,kso) + zdelwice
+                t_so_new(i,kso) = t_so_new(i,kso) + zdelwice/zfak
           END DO
       ENDDO
 !  END IF ! lmelt
@@ -4742,26 +4744,25 @@ ENDIF
                   ztx    = t0_melt/znen
                 ENDIF
                 ztx      = MIN(t0_melt,ztx)
-                zenergy  = zroc(i,kso)*zdzhs(kso)*(t_so_new(i,kso)-ztx)
-                zdwi_max = - zenergy/(lh_f*rho_w)
-                zdelwice = zdwi_max
-                zwso_new  = w_so_new(i,kso) + zdt*zdwgdt(i,kso)/rho_w
-                zargu = zwso_new - zw_m(i) - w_so_ice_new(i,kso)
-                IF (zdelwice.LT.0.0_ireals) zdelwice =                           &
-                        - MIN( - zdelwice,MIN(-zargu,w_so_ice_new(i,kso)))
-                IF (zdelwice.GT.0.0_ireals) zdelwice =                           &
-                          MIN(   zdelwice,MAX( zargu,0.0_ireals))
-                w_so_ice_new(i,kso) = w_so_ice_new(i,kso) + zdelwice
-  !             At this point we have 0.0 LE w_so_ice(i,kso,nnew) LE zwso_new
-  !             If we have 0.0 LT w_so_ice(i,kso,nnew) LT zwso_new
-  !             the resulting new temperature has to be equal to ztx.
-  !             If not all energy available can be used to melt/freeze soil water,
-  !             the following line corrects the temperature. It also applies
-  !             to cases without any freezing/melting, in these cases the
-  !             original temperature is reproduced.
-
-                t_so_new(i,kso) = ztx + (zdelwice - zdwi_max)*       &
-                                     (lh_f*rho_w)/(zroc(i,kso)*zdzhs(kso))
+                zfak     = zroc(i,kso)*zdzhs(kso)/(lh_f*rho_w)
+                zdelwice = - zfak*(t_so_new(i,kso)-ztx)
+                zwso_new  = w_so_now(i,kso) + zdt*zdwgdt(i,kso)/rho_w
+                zargu = zwso_new - zw_m(i) - w_so_ice_now(i,kso)
+                IF (t_so_new(i,kso) > t0_melt .AND. w_so_ice_now(i,kso) > 0._ireals) THEN
+                  ! melting point adjustment (time scale 30 min)
+                  zdelwice = - MIN(w_so_ice_now(i,kso), zdwi_scal*(t_so_new(i,kso)-t0_melt)*zfak)
+                ELSE IF (zdelwice < 0.0_ireals) THEN
+                  zdelwice = - MIN( - zdelwice,MIN(-zargu,w_so_ice_now(i,kso)))
+                  ! limit latent heat consumption due to melting to half the temperature increase since last time step
+                  ! or 2.5 K within 30 min
+                  zdelwice = - MIN( - zdelwice,MAX(2.5_ireals*zdwi_scal,0.5_ireals*(t_so_new(i,kso)-t_so_now(i,kso)))*zfak)
+                ELSE
+                  zdelwice = MIN(zdelwice,MAX(zargu,0.0_ireals))
+                  ! limit latent heat release due to freezing to half the differene from the melting point
+                  zdelwice = MIN(zdelwice,0.5_ireals*(t0_melt-t_so_new(i,kso))*zfak)
+                ENDIF
+                w_so_ice_new(i,kso) = w_so_ice_now(i,kso) + zdelwice
+                t_so_new(i,kso) = t_so_new(i,kso) + zdelwice/zfak
 
              END IF                   ! m_stpy > 2
 !            END IF                    ! land-points only
@@ -4822,10 +4823,11 @@ ENDIF
 
         ! *** original code *** !
          IF (w_snow_new(i) <= zepsi) THEN
+           w_i_new(i)    = w_i_new(i) + w_snow_new(i)
            w_snow_new(i) = 0.0_ireals
            t_snow_new(i) = t_so_new(i,0)
          ENDIF
-        IF (w_i_new(i) <= zepsi) w_i_new(i) = 0.0_ireals
+        IF (w_i_new(i) <= 1.e-4_ireals*zepsi) w_i_new(i) = 0.0_ireals
      end DO
 !<JH
 
@@ -4884,9 +4886,16 @@ ENDIF
            ! part of the new snow that accumulates on the ground
            zaa = MAX(0._ireals, zzz*(t0_melt + 1._ireals - zth_low(i))*2._ireals)
            !
-           ! the rest is transferred into soil moisture or runoff:
-           zdwgme        = (zzz-zaa)*zrock(i)                    ! contribution to w_so
-           zro           = (1._ireals - zrock(i))*(zzz-zaa)      ! surface runoff
+           ! the rest is transferred to the interception storage, soil moisture or runoff:
+           w_i_new(i) = w_i_new(i) + zzz-zaa
+           IF (w_i_new(i) > zwimax(i)) THEN  ! overflow of interception store
+             zinf = w_i_new(i) - zwimax(i)
+             w_i_new(i) = zwimax(i)
+           ELSE
+             zinf = 0._ireals
+           ENDIF 
+           zdwgme        = zinf*zrock(i)                    ! contribution to w_so
+           zro           = (1._ireals - zrock(i))*zinf      ! surface runoff
            zredfu        = MAX( 0.0_ireals,  MIN( 1.0_ireals, (zw_fr(i,1) -  &
                            zfcap(i,1))/MAX(zporv(i,1)-zfcap(i,1), zepsi)))
            zdwgdt(i,1) = zdwgdt(i,1) + zdwgme*(1._ireals - zredfu)

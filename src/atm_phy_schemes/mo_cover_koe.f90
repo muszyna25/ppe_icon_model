@@ -175,7 +175,7 @@ REAL(KIND=wp) :: &
   & fgew   , fgee   , fgqs   , & !fgqv   , & ! name of statement functions
   & ztt    , zzpv   , zzpa   , zzps   , &
   & zf_ice , deltaq , qisat_grid, &
-  & vap_pres, zaux, zqisat_m60, zqisat_m25, qi_mod
+  & vap_pres, zaux, zqisat_m60, zqisat_m25, qi_mod, box_liq_ass, par1, par2
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   zqlsat , zqisat, zagl_lim
@@ -214,6 +214,11 @@ zqisat_m60 = fgqs ( fgee(213.15_wp), 0._wp, 20000._wp )
 
 ! saturation mixing ratio at -25 C and 700 hPa
 zqisat_m25 = fgqs ( fgee(248.15_wp), 0._wp, 70000._wp )
+
+! asymmetry factor for water clouds and derived parameters
+box_liq_ass = 2.5_wp
+par1        = box_liq_ass+1._wp
+par2        = par1**4
 
 ! Set cloud fields for stratospheric levels to zero
 DO jk = 1,kstart-1
@@ -277,10 +282,10 @@ CASE( 1 )
         cc_turb_liq(jl,jk) = 1.0_wp
         qc_turb  (jl,jk)   = qv(jl,jk) + qc(jl,jk) - zqlsat(jl,jk)
       ELSE
-        zaux = qv(jl,jk) + qc(jl,jk) + 2.5_wp*deltaq - zqlsat(jl,jk)
-        cc_turb_liq(jl,jk) = SIGN((zaux/(3.5_wp*deltaq))**2,zaux)
+        zaux = qv(jl,jk) + qc(jl,jk) + box_liq_ass*deltaq - zqlsat(jl,jk)
+        cc_turb_liq(jl,jk) = SIGN((zaux/(par1*deltaq))**2,zaux)
         IF ( cc_turb_liq(jl,jk) > 0.0_wp ) THEN
-          qc_turb  (jl,jk) = zaux**4 / (150.0625_wp*deltaq**3)
+          qc_turb  (jl,jk) = zaux**4 / (par2*deltaq**3)
         ELSE
           qc_turb  (jl,jk) = 0.0_wp
         ENDIF

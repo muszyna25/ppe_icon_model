@@ -24,7 +24,7 @@ MODULE mo_cdi_ids
     USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT
     USE mo_cdi_constants, ONLY: ZA_COUNT, ZA_HYBRID, ZA_HYBRID_HALF, ZA_LAKE_BOTTOM, ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, &
                               & ZA_SEDIMENT_BOTTOM_TW_HALF, cdi_zaxis_types
-    USE mo_datetime, ONLY: t_datetime
+    USE mtime, ONLY: datetime
     USE mo_exception, ONLY: finish, message
     USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH, SUCCESS
     USE mo_kind, ONLY: wp
@@ -211,9 +211,9 @@ CONTAINS
     END SUBROUTINE restartCdiIds_openRestartAndCreateIds
 
     ! CDI reqires the vlist of a stream to be set before the timestep can be defined, which IS why we combine these two operations into one SUBROUTINE.
-    SUBROUTINE restartCdiIds_finalizeVlist(me, datetime)
+    SUBROUTINE restartCdiIds_finalizeVlist(me, this_datetime)
         CLASS(t_CdiIds), INTENT(INOUT) :: me
-        TYPE(t_datetime), INTENT(IN) :: datetime
+        TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
 
         INTEGER :: trash
 
@@ -221,8 +221,10 @@ CONTAINS
         CALL streamDefVlist(me%file, me%vlist)
 
         ! define the timestep
-        CALL taxisDefVdate(me%taxis, cdiEncodeDate(datetime%year, datetime%month, datetime%day))
-        CALL taxisDefVtime(me%taxis, cdiEncodeTime(datetime%hour, datetime%minute, NINT(datetime%second)))
+        CALL taxisDefVdate(me%taxis, &
+             &             cdiEncodeDate(INT(this_datetime%date%year), this_datetime%date%month, this_datetime%date%day))
+        CALL taxisDefVtime(me%taxis, &
+             &             cdiEncodeTime(this_datetime%time%hour, this_datetime%time%minute, this_datetime%time%second))
         trash = streamDefTimestep(me%file, 0)
     END SUBROUTINE restartCdiIds_finalizeVlist
 

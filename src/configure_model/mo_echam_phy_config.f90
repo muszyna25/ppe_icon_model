@@ -27,8 +27,9 @@ MODULE mo_echam_phy_config
   PUBLIC :: get_lrad, get_dt_rad, get_lvdiff,    & !< functions to retrieve values
     &       get_lconv, get_lcond,                & !<   of single parameters of the
     &       get_lgw_hines, get_lssodrag,         & !<   whole echam6 configuration
-    &       get_lmlo, get_lice, get_ljsbach,     & !<   state without USEing the
-    &       get_lamip, get_lebudget                !<   whole state.
+    &       get_lcariolle,                       & !<   state without 
+    &       get_lmlo, get_lice, get_ljsbach,     & !<   USEing the
+    &       get_llake, get_lamip, get_lebudget     !<   whole state.
 
   !>
   !! Derived type containing main switches for configuring the echam physics package
@@ -39,6 +40,7 @@ MODULE mo_echam_phy_config
                             !   echam phyiscs package
                             !   1: dynamics and physics update sequentially
                             !   2: dynamics uses physics forcing for updating
+    LOGICAL  :: ldrymoist   !   .true.  physics assumes moist air dynamics
     LOGICAL  :: lrad        !<  .true. for radiation.
     REAL(wp) :: dt_rad      !<  [s] radiation time step
     LOGICAL  :: lvdiff      !<  .true. for vertical diffusion.
@@ -47,9 +49,11 @@ MODULE mo_echam_phy_config
     LOGICAL  :: lgw_hines   !<  .true. for atmospheric gravity wave drag
     LOGICAL  :: lssodrag    !<  .true. for subgrid scale orographic drag,
                             !<         by blocking and gravity waves (lgwdrag in ECHAM6)
+    LOGICAL  :: lcariolle   !<  .true. for Cariolle interactive ozone scheme
     LOGICAL  :: lmlo        !<  .true. for mixed layer ocean
     LOGICAL  :: lice        !<  .true. for sea-ice temperature calculation
     LOGICAL  :: ljsbach     !<  .true. for calculating the JSBACH land surface
+    LOGICAL  :: llake       !<  .true. for using lakes in JSBACH
 
     LOGICAL  :: lamip       !<  .true. for AMIP simulations with monthly transient boundary conditions   
     LOGICAL  :: lebudget    !<  .true. for echam physics energy budget calculation
@@ -83,6 +87,7 @@ CONTAINS
     CALL message('','')
     CALL message(method_name,'dynamics physics coupling:')
     CALL print_value('    idcphycpl  ',echam_phy_config% idcphycpl)
+    CALL print_value('    ldrymoist  ',echam_phy_config% ldrymoist)
     CALL message('','')
     CALL message(method_name,'ECHAM6 physics configuration:')
     CALL print_value('    lrad       ',echam_phy_config% lrad     )
@@ -92,9 +97,11 @@ CONTAINS
     CALL print_value('    lcond      ',echam_phy_config% lcond    )
     CALL print_value('    lgw_hines  ',echam_phy_config% lgw_hines)
     CALL print_value('    lssodrag   ',echam_phy_config% lssodrag )
+    CALL print_value('    lcariolle  ',echam_phy_config% lcariolle)
     CALL print_value('    lmlo       ',echam_phy_config% lmlo     )
     CALL print_value('    lice       ',echam_phy_config% lice     )
     CALL print_value('    ljsbach    ',echam_phy_config% ljsbach  )
+    CALL print_value('    llake      ',echam_phy_config% llake    )
     CALL message('','')
     CALL message(method_name,'ECHAM6 physics boundary conditions:')
     CALL print_value('    lamip      ',echam_phy_config% lamip    )
@@ -111,6 +118,11 @@ CONTAINS
   INTEGER FUNCTION get_idcphycpl()
     get_idcphycpl = echam_phy_config%idcphycpl
   END FUNCTION get_idcphycpl
+  !>
+  !!
+  LOGICAL FUNCTION get_ldrymoist()
+    get_ldrymoist = echam_phy_config%ldrymoist
+  END FUNCTION get_ldrymoist
   !>
   !!
   LOGICAL FUNCTION get_lrad()
@@ -148,6 +160,11 @@ CONTAINS
   END FUNCTION get_lssodrag
   !>
   !!
+  LOGICAL FUNCTION get_lcariolle()
+    get_lcariolle = echam_phy_config%lcariolle
+  END FUNCTION get_lcariolle
+  !>
+  !!
   LOGICAL FUNCTION get_lmlo()
     get_lmlo = echam_phy_config%lmlo
   END FUNCTION get_lmlo
@@ -161,6 +178,11 @@ CONTAINS
   LOGICAL FUNCTION get_ljsbach()
     get_ljsbach = echam_phy_config%ljsbach
   END FUNCTION get_ljsbach
+  !>
+  !!
+  LOGICAL FUNCTION get_llake()
+    get_llake = echam_phy_config%llake
+  END FUNCTION get_llake
   !>
   !!
   LOGICAL FUNCTION get_lamip()

@@ -188,13 +188,15 @@ MODULE mo_physical_constants
 
   REAL(wp), PARAMETER :: p0sl_bg         = 101325._wp  ! [Pa]     sea level pressure
 
-!----------below are parameters for sea-ice model---------------
+!----------below are parameters for sea-ice and lake model---------------
   REAL(wp), PARAMETER ::            &
     ks           = 0.31_wp,         & ! heat conductivity snow     [J  / (m s K)]
     ki           = 2.1656_wp,       & ! heat conductivity ice      [J  / (m s K)]   
     rhoi         = 917.0_wp,        & ! density of sea ice         [kg / m**3]
     rhos         = 300.0_wp,        & ! density of snow            [kg / m**3]
     ci           = 2106.0_wp,       & ! Heat capacity of ice       [J / (kg K)]
+    cs           = 2090._wp,        &!  Heat capacity of snow      [J / (kg K)]
+
     Tf           = -1.80_wp,        & ! Temperature ice bottom     [C]
     Sice         = 5.0_wp,          & ! Sea-ice bulk salinity      [ppt]
     mu           = 0.054_wp,        & ! Constant in linear freezing-
@@ -240,5 +242,9 @@ MODULE mo_physical_constants
     &  tf_salt      = 271.45_wp     !< salt-water freezing point [K]
                                     !< (note that it differs from Tf) 
 
+  ! Length of day in seconds, as integer and real
+  !
+  INTEGER,  PARAMETER :: idaylen=86400     ! [s]
+  REAL(wp), PARAMETER :: rdaylen=86400._wp ! [s]
 
 END MODULE mo_physical_constants

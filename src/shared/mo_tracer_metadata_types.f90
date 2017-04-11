@@ -21,6 +21,7 @@
 MODULE mo_tracer_metadata_types
 
   USE mo_kind,           ONLY: wp
+  USE mo_storage,        ONLY: t_storage
 
   IMPLICIT NONE
 
@@ -54,29 +55,26 @@ MODULE mo_tracer_metadata_types
                                   !   0 = No washout
                                   !   1 = Monodisperse aerosol
                                   !   2 = As part of an according aerosol mode
-    !
+    TYPE(t_storage) :: opt_meta   ! Storage container for optional metadata
+    
     CONTAINS
       procedure :: construct_base => construct_t_tracer_meta
   END TYPE t_tracer_meta
 
   ! Aerosol-specific metadata
   TYPE, extends(t_tracer_meta) :: t_aero_meta
-    !
-    REAL(wp) :: solubility        ! Solubility, between 0 (insoluble) and 1 (soluble)
+    ! Non-optional metadata
+    INTEGER  :: moment            ! moment of distribution (e.g. 0=number, 3=proportional to mass)
+    CHARACTER(LEN=VARNAME_LEN) :: &
+      &         mode              ! name of mode the tracer is contained in
     REAL(wp) :: rho               ! Density [kg m-3]
     REAL(wp) :: mol_weight        ! Molar mass [g mol-1]
-    !
   END TYPE
 
   ! Chemical tracer metadata
   TYPE, extends(t_tracer_meta) :: t_chem_meta
-    !
-    REAL(wp)    ::  lifetime_tracer ! Lifetime of tracer [s]
-    REAL(wp)    ::  mol_weight      ! Molar mass [g mol-1]
-    INTEGER     :: init_mode        ! Chemical tracer initialization mode
-    INTEGER     :: init_number      ! Chemical tracer initialization number
-    INTEGER     :: number           ! Index of species in KPP-generated routines
-    !
+    ! Non-optional metadata
+    REAL(wp)        :: mol_weight       ! Molar mass [g mol-1]
   END TYPE
 
   ! Hydrometeor metadata
