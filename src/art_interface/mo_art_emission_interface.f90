@@ -214,6 +214,8 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
         SELECT CASE(art_config(jg)%iart_volcano)
           CASE(0)
             ! Nothing to do, no volcano emissions
+          CASE(1)
+            ! No preparations necessary
           CASE(2)
             CALL art_prepare_emission_volc(current_date,jb,nlev,p_nh_state%metrics%z_ifc(:,:,jb),  &
               &                            p_art_data(jg)%dict_tracer, p_art_data(jg)%ext%volc_data)
@@ -345,6 +347,8 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               ENDDO
             CLASS is (t_fields_radio)
               ! handled via pntSrc structure
+            CLASS is (t_fields_volc)
+              ! handled below
             CLASS default
               CALL finish('mo_art_emission_interface:art_emission_interface', &
                 &         'ART: Unknown mode field type')
