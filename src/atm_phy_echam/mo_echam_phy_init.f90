@@ -491,8 +491,17 @@ CONTAINS
       ! initial conditions
       field% qtrc (:,:,:,iqv) = qv(:,:,:)
       field% xvar (:,:,:)     = qv(:,:,:)*0.1_wp
+ 
+      field% swflxsfc_tile(:,:,:) = 0._wp
+      field% lwflxsfc_tile(:,:,:) = 0._wp
+
 !$OMP END WORKSHARE
 !$OMP END PARALLEL
+
+!$OMP PARALLEL WORKSHARE
+        field% ocu   (:,:)   = 0._wp
+        field% ocv   (:,:)   = 0._wp
+!$OMP END PARALLEL WORKSHARE
 
       IF (phy_config%lvdiff) THEN
         IF (iwtr<=nsfc_type) field% z0m_tile(:,:,iwtr) = 1e-3_wp !see init_surf in echam (or z0m_oce?)
