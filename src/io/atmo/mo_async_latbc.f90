@@ -365,7 +365,7 @@ MODULE mo_async_latbc
       CHARACTER(len=132)                      :: message_text
       INTEGER                                 :: jlev, ierrstat, vlistID, nvars, varID, zaxisID, gridID,  &
         &                                        jp, fileID_latbc, counter, filetype, ngrp_prefetch_vars, &
-        &                                        max_nlev
+        &                                        nlev_in
       INTEGER(KIND=i8)                        :: flen_latbc
       LOGICAL                                 :: l_exist
       CHARACTER(LEN=filename_max)             :: latbc_filename
@@ -533,20 +533,14 @@ MODULE mo_async_latbc
       ! allocate latbc buffer, use the maximum no. of vertical levels
       ! for any variable:
       IF (my_process_is_work()) THEN
-        max_nlev = 0
+        nlev_in = 0
         IF (p_pe_work == p_work_pe0) THEN
-          IF (latbc_config%init_latbc_from_fg) THEN
-            ! initial (first-guess) data may be interpolated or not, so we need the maximum level number of 
-            ! the boundary data and the prognostic fields
-            max_nlev = MAX(p_patch(1)%nlev,MAXVAL(latbc%buffer%nlev(1:latbc%buffer%ngrp_vars))-1)
-          ELSE
-            ! set the maximum no. of levels to the size of the half
-            ! level height field (HHL/z_ifc) minus 1.
-            max_nlev = MAXVAL(latbc%buffer%nlev(1:latbc%buffer%ngrp_vars))-1
-          END IF
+          ! set the maximum no. of levels to the size of the half
+          ! level height field (HHL/z_ifc) minus 1.
+          nlev_in = MAXVAL(latbc%buffer%nlev(1:latbc%buffer%ngrp_vars))-1
         END IF
-        CALL p_bcast(max_nlev, 0, p_comm_work)
-        CALL allocate_pref_latbc_data(latbc, max_nlev, p_nh_state(1), ext_data(1), p_patch(1))
+        CALL p_bcast(nlev_in, 0, p_comm_work)
+        CALL allocate_pref_latbc_data(latbc, nlev_in, p_nh_state(1), ext_data(1), p_patch(1))
       END IF
 
       ! clean up
