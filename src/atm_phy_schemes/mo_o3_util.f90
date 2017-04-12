@@ -1075,7 +1075,7 @@ CONTAINS
         ENDIF
       ENDDO
 
-      ! Pressure mask field for tropics (used for ozone enhancement in January and February)
+      ! Pressure mask field for tropics (used for ozone enhancement from January to May)
       DO jk = 1, nlev_gems
         IF (zrefp(jk) >= 5000._wp .AND. zrefp(jk) <= 10000._wp) THEN
           wfac_p_tr(jk) = 1._wp
@@ -1120,9 +1120,9 @@ CONTAINS
                      MAX(0._wp,RGHG7_MACC(JL,JK,12)-RGHG7_MACC(JL,JK,IM2)), 0._wp, im2==11)
 
           o3_gems1 = RGHG7(JL,JK,IM1) + MERGE(wfac_tr(jl)*wfac_p_tr(jk)*&
-                     MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM1)), 0._wp, im1==1 .OR. im1==2)
+                     MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM1)), 0._wp, im1>=1 .AND. im1<=5)
           o3_gems2 = RGHG7(JL,JK,IM2) + MERGE(wfac_tr(jl)*wfac_p_tr(jk)*&
-                     MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM2)), 0._wp, im2==1 .OR. im2==2)
+                     MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM2)), 0._wp, im2>=1 .AND. im2<=5)
 
           zozn(JL,JK) = amo3/amd * ( wfac * (o3_macc2+ZTIMI*(o3_macc1-o3_macc2)) + &
                               (1._wp-wfac)* (o3_gems2+ZTIMI*(o3_gems1-o3_gems2)) )
