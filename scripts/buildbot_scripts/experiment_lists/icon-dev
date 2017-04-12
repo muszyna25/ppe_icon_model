@@ -31,6 +31,7 @@ experiment|checksuite.ocean_internal/other/exp.oce_testbed_read|cpu_time=00:30:0
 experiment|checksuite.icon-dev/check.atm_amip|
 experiment|exp.test_nwp_R02B04N06multi|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
+experiment|exp.test_nwp_R02B04N06multi2|cpu_time=00:45:00 no_of_nodes=2
 experiment|exp.aloy_pre03_bb|cpu_time=00:30:00 no_of_nodes=2
 experiment|checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_Hex|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
@@ -87,6 +88,7 @@ experiment|checksuite.ocean_internal/other/exp.oce_testbed_read|cpu_time=00:30:0
 experiment|checksuite.icon-dev/check.atm_amip|
 experiment|exp.test_nwp_R02B04N06multi|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
+experiment|exp.test_nwp_R02B04N06multi2|cpu_time=00:45:00 no_of_nodes=2
 experiment|checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_Hex|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.ocean_internal/technical/exp.ocean_omip_ptest|cpu_time=00:30:00
@@ -105,8 +107,11 @@ experiment|checksuite.ocean_internal/other/exp.oce_testbed_read|cpu_time=00:30:0
 experiment|checksuite.icon-dev/check.atm_amip|
 experiment|exp.test_nwp_R02B04N06multi|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
+experiment|exp.test_nwp_R02B04N06multi2|cpu_time=00:45:00 no_of_nodes=2
 experiment|exp.aloy_pre03_bb|cpu_time=00:30:00 no_of_nodes=2
 experiment|checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_Hex|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.ocean_internal/technical/exp.ocean_omip_ptest|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_icoles_nested|cpu_time=00:30:00
+machine|dwd_cray|compute
+builder|DWD_cray|--with-fortran=cray|build_only

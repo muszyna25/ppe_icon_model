@@ -1,15 +1,11 @@
+machine|daint_cpu|default
+builder|DAINT_CPU_cce|--with-fortran=cray|build_only
 machine|breeze|default
 builder|BREEZE_intel|--with-fortran=intel|build_only
 builder|BREEZE_gcc_openmp|--with-fortran=gcc --with-openmp|build_only
 builder|BREEZE_gcc|--with-fortran=gcc|build_only
 builder|BREEZE_nag|--with-fortran=nag|build_only
 builder|BREEZE_intel_openmp|--with-fortran=intel --with-openmp|build_only
-machine|daint|default
-builder|DAINT_CPU_cce||build_only
-builder|DAINT_GPU_cce||build_only
-machine|dwd|default
-builder|DWD_cray|--with-fortran=cray|build_only
-builder|DWD_cray_production|--with-fortran=cray|build_only
 machine|mistral|compute
 builder|MISTRAL_intel|--with-fortran=intel|build_only
 builder|MISTRAL_intel_hybrid|--with-fortran=intel --with-openmp|build_only
