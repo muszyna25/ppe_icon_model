@@ -536,7 +536,9 @@ MODULE mo_async_latbc
         max_nlev = 0
         IF (p_pe_work == p_work_pe0) THEN
           IF (latbc_config%init_latbc_from_fg) THEN
-            max_nlev = p_patch(1)%nlev
+            ! initial (first-guess) data may be interpolated or not, so we need the maximum level number of 
+            ! the boundary data and the prognostic fields
+            max_nlev = MAX(p_patch(1)%nlev,MAXVAL(latbc%buffer%nlev(1:latbc%buffer%ngrp_vars))-1)
           ELSE
             ! set the maximum no. of levels to the size of the half
             ! level height field (HHL/z_ifc) minus 1.
