@@ -59,12 +59,13 @@ MODULE mo_art_emission_interface
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
-                                          &   t_fields_pollen
+                                          &   t_fields_pollen, t_fields_volc
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_aerosol_utilities,         ONLY: art_air_properties
   USE mo_art_config,                    ONLY: art_config
   USE mo_art_integration,               ONLY: art_integrate_explicit
 ! Emission Routines
+  USE mo_art_emission_volc_1mom,        ONLY: art_organize_emission_volc
   USE mo_art_emission_volc_2mom,        ONLY: art_prepare_emission_volc,    &
                                           &   art_calculate_emission_volc
   USE mo_art_emission_seas,             ONLY: art_seas_emiss_martensson,    &
@@ -353,6 +354,13 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
 
       DEALLOCATE(emiss_rate)
       DEALLOCATE(dz)
+
+      ! volcano emissions
+      IF (art_config(jg)%iart_volcano == 1) THEN
+        CALL art_organize_emission_volc(p_patch, current_date, dtime,rho,p_art_data(jg)%dict_tracer, &
+          &                             p_art_data(jg)%ext%volc_data,tracer)
+      ENDIF
+
 
     ENDIF !lart_aerosol
     

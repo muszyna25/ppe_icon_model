@@ -38,7 +38,7 @@ MODULE mo_art_washout_interface
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
-                                          &   t_fields_pollen
+                                          &   t_fields_pollen, t_fields_volc
   USE mo_art_config,                    ONLY: art_config
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_aerosol_utilities,         ONLY: art_air_properties
@@ -173,6 +173,14 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
               ! CAREFUL: For the time being we are using this washout routine designed for 1-moment volcanic ash
               !          in order to calculate pollen washout. We need to replace this routine by the proper
               !          pollen washout routine from COSMO-ART (see issue #18 in ICON-ART redmine)
+              CALL art_washout_volc(dtime,istart, iend, nlev, tracer(:,:,jb,iqr), prm_diag%rain_gsp_rate(:,jb), &
+                &                   prm_diag%rain_con_rate(:,jb), prm_diag%rain_con_rate_3d(:,:,jb),            &
+                &                   tracer(:,:,jb,fields%itr))
+            ENDDO
+          CLASS IS (t_fields_volc)
+            DO jb = i_startblk, i_endblk
+              CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                &                istart, iend, i_rlstart, i_rlend)
               CALL art_washout_volc(dtime,istart, iend, nlev, tracer(:,:,jb,iqr), prm_diag%rain_gsp_rate(:,jb), &
                 &                   prm_diag%rain_con_rate(:,jb), prm_diag%rain_con_rate_3d(:,:,jb),            &
                 &                   tracer(:,:,jb,fields%itr))
