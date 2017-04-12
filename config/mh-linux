@@ -240,7 +240,7 @@ case "$ac_sitename" in
                 case "$fortran_compiler" in
                     gcc)
                         config_target=daint_cpu
-                        load_modules =PrgEnv-gnu cray-netcdf cray-mpich
+                        load_modules =modules craype daint-gpu PrgEnv-gnu cray-netcdf cray-mpich
                         CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
 			;;
