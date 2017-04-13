@@ -1495,7 +1495,7 @@ MODULE mo_initicon_utils
 !$OMP END PARALLEL
 
             IF(lvert_remap_fg .OR. init_mode == MODE_ICONVREMAP) THEN
-                ALLOCATE(initicon%atm%tke(nproma,nlevp1,nblks_c))
+                ALLOCATE(atm%tke(nproma,nlevp1,nblks_c))
 !$OMP PARALLEL 
                 CALL init(atm%tke(:,:,:))
 !$OMP END PARALLEL
