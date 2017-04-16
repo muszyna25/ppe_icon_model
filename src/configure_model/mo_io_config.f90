@@ -117,6 +117,7 @@ CONTAINS
      INTEGER :: n_checkpoints
 
      n_checkpoints = NINT(dt_checkpoint/dtime)  ! write restart files
+     IF (n_checkpoints == 0) n_checkpoints = HUGE(1)
    END FUNCTION n_checkpoints
   !----------------------------------------------------------------------------------
 
