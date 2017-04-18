@@ -267,7 +267,7 @@ if test "$CC" = mpcc_r ;  then
   F77=xlf_r
   use_mpcc_r=yes
 fi
- 
+  
 dnl ######################################################################
 dnl define the package
 
