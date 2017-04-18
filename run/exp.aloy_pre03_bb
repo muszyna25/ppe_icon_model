@@ -47,8 +47,11 @@ author_list="Marco Giorgetta, Rene Redler, Reiner Schnur, Stephan Lorenz"
 
 # Number of ocean processes
 # -------------------------
-
-mpi_oce_procs=${mpi_oce_procs:=1}
+mpi_oce_nodes=${mpi_oce_nodes:=((no_of_nodes/2))}   # default: half of requested nodes
+((mpi_oce_procs=mpi_oce_nodes * mpi_procs_pernode))
+if [ $mpi_oce_procs -lt 1 ] ; then
+   mpi_oce_procs=1                                  # minimum: 1 process
+fi
 
 #-----------------------------------------------------------------------------
 
@@ -62,7 +65,7 @@ fi
 # ------------------
 
 # Variables atmo_dyn_grids and ocean_grids are used in namelist and linked to model directory
-grids_folder=${icon_data_poolFolder}/coupled_input_temp/aloy_pre04
+grids_folder=${icon_data_poolFolder}/coupled_input_temp/aloy_pre03
 atmo_dyn_grids='ATMOOceGridWithCoast_158km.nc'
 ocean_grids='OCEANGridNoLake_pre04_slo_0039km_bathy.edit2016.nc'
 
@@ -70,17 +73,16 @@ ocean_grids='OCEANGridNoLake_pre04_slo_0039km_bathy.edit2016.nc'
 # -----------------------
 
 start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
-  end_date="1979-01-03T00:00:00Z"        # ISO-format date+time
+  end_date="1979-01-01T04:00:00Z"        # ISO-format date+time
 
 # time step length
 # ----------------
 
-# in ISO-format for ICON-model
-#  - increasing dtime_oce during a run (up to 30 minutes tested)
+# in ISO-format for atmosphere and ocean submodels:
 mts_atm="PT10M"
 mts_oce="PT10M"
 
-# in seconds for YAC - must match those of the model
+# in seconds for YAC - must match those of the submodels:
 dtime_atm=${dtime_atm:=600}
 dtime_oce=${dtime_oce:=600}
 
@@ -94,10 +96,11 @@ dtime_oce=${dtime_oce:=600}
 checkpoint_interval="P200Y" #  mtime ISO-format
 
 # high frequency output and restart intervals
-restart_interval="P1D"
-atm_output_interval="PT6H"
-lnd_output_interval="PT6H"
-oce_output_interval="PT6H"
+#  - Warning: restart_interval must be multiple of radiation time step (see below)
+restart_interval="PT4H"
+atm_output_interval="PT1H"
+lnd_output_interval="PT1H"
+oce_output_interval="PT1H"
 
 # mid-frequency output and restart intervals
 ##  P6M ?
@@ -113,10 +116,11 @@ oce_output_interval="PT6H"
 #lnd_output_interval="P1M"
 #oce_output_interval="P1M"
 
-# ocean timestep increased to 30 minutes - icon and yac
+# ocean timestep:
+#  - mts_oce can be increased during a run (up to 30 minutes tested after 1 year spinup)
+#  - change timestep for coupler accordingly: dtime_oce
+#  - dtime_oce must be multiple of dtime_atm
 #mts_oce="PT30M"
-# change timestep of ocean/coupled to multiple of atm. timestep
-# dtime_oce must be multiple of dtime_atm
 #(( dtime_oce=dtime_atm * 3 ))
 
 # standard long-term output switches - _min=yes only:
@@ -133,8 +137,8 @@ atm_output_interval_3d="P1M"
 atm_output_interval_2d="P1M"
 
 # full output switches - set to "yes" if needed
-output_atm_3d=yes
-output_atm_2d=yes
+output_atm_3d=no
+output_atm_2d=no
 output_phy_3d=no
 output_aer_3d=no # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
 output_oce_full=no
@@ -150,6 +154,14 @@ atm_namelist=NAMELIST_${EXPNAME}_atm
 lnd_namelist=NAMELIST_${EXPNAME}_lnd
 oce_namelist=NAMELIST_${EXPNAME}_oce
 cpl_xmlctrfn=XMLCTRFN_${EXPNAME}_cpl
+
+# JSBACH settings
+run_jsbach=yes
+jsbach_with_hd=yes
+jsbach_usecase=jsbach_lite
+#
+[[ $jsbach_with_hd == yes ]] && jsbach_usecase=${jsbach_usecase}_with_hd
+ljsbach=$([ "${run_jsbach:=no}" == yes ] && echo .TRUE. || echo .FALSE. )
 
 #--------------------------------------------------------------------------------------------------
 # II. Atmosphere & land section
@@ -273,7 +285,7 @@ EOF
 
 cat > ${lnd_namelist} <<EOF
 &jsb_model_nml
-  usecase         = 'jsbach_lite_with_hd'
+  usecase         = "${jsbach_usecase}"
 /
 &jsb_srf_nml
   bc_filename     = 'bc_land_phys.nc'
@@ -292,14 +304,18 @@ cat > ${lnd_namelist} <<EOF
   bc_filename     = 'bc_land_phys.nc'
   ic_filename     = 'ic_land_soil.nc'
 /
+EOF
+if [[ ${jsbach_with_hd} = yes ]]; then
+cat >> ${lnd_namelist} <<EOF
 &jsb_hd_nml
   active          = .TRUE.
   routing_scheme  = 'full'
   bc_filename     = 'bc_land_hd.nc'
   diag_water_budget = .TRUE.
-  !debug_hd        = .TRUE.
+  debug_hd        = .FALSE.
 /
 EOF
+fi
 
 #--------------------------------------------------------------------------------------------------
 
@@ -376,8 +392,7 @@ add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_lan
 add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
 add_link_file $datadir/hd_para_icon_r2b4_pre04_vs1_5.nc                 ./bc_land_hd.nc
 
-# slo.2016/09 read -2to2 cell_sea_land_mask, name hardcoded as r2b4_amip.nc - use same as for HD-model (lsf>0:=land)
-add_link_file $datadir/slm-2to2_forHDmodel_158km.nc                     ./r2b4_amip.nc
+# read -2to2 cell_sea_land_mask for HD-model (lsf>0:=land)
 add_link_file $datadir/slm-2to2_forHDmodel_158km.nc                     ./hd_mask.nc
 add_link_file $datadir/runoff_a2o.r110.3.HD.corGibr.nc                  ./runoff_a2o.weights.nc
 #add_link_file $datadir/runoff_a2o.r110.2.HD.nc                          ./runoff_a2o.weights.nc
@@ -437,7 +452,7 @@ if [[ "$output_atm_min" == "yes" ]]; then
                     'sfcwind' , 'uas'     , 'vas'
 /
 &dbg_index_nml
-  idbg_mxmn        = 2                        ! initialize MIN/MAX  debug output
+  idbg_mxmn        = 4                        ! initialize MIN/MAX  debug output
   idbg_val         = 0                        ! initialize one cell debug output
   idbg_slev        = 1                        ! initialize start level for debug output
   idbg_elev        = 2                        ! initialize end level for debug output
@@ -666,7 +681,7 @@ cat > ${oce_namelist} << EOF
   ml_varlist       =  'group:ocean_monitor'
 /
 &dbg_index_nml
-  idbg_mxmn        = 2                        ! initialize MIN/MAX  debug output
+  idbg_mxmn        = 4                        ! initialize MIN/MAX  debug output
   idbg_val         = 0                        ! initialize one cell debug output
   idbg_slev        = 1                        ! initialize start level for debug output
   idbg_elev        = 2                        ! initialize end level for debug output
@@ -699,9 +714,6 @@ cat > ${oce_namelist} << EOF
   use_continuity_correction       = .TRUE.    ! height adjustment according to vertical velocity in dynamics
   cfl_check                       = .FALSE.
   cfl_write                       = .FALSE.
-                                              ! horizontal viscosity parametrization:
-  veloc_diffusion_form            =   1       ! 1: curlcurl 2: divgrad
-  veloc_diffusion_order           =   2       ! 1: laplace; 2: biharmonic
   i_bc_veloc_top                  =   4
   i_bc_veloc_bot                  =   1
 /
@@ -718,35 +730,45 @@ cat > ${oce_namelist} << EOF
   fct_limiter_horz                = 100 
   threshold_min_T                 =  -4.0     ! to avoid abort
 /
-&ocean_diffusion_nml
-  HorizontalViscosity_type        =   5       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
-  HorizontalViscosity_ScaleWeight = 1.0
-  HorizontalViscosity_SmoothIterations = 0
-  HorizontalViscosity_SpatialSmoothFactor = 0.1
-  HorizontalViscosityBackground_Biharmonic = 1.5E12
-  VerticalViscosity_TimeWeight = 0.005
-! k_veloc_h                       =   3.0E+4  ! [m2/s] constant horizontal viscosity coefficient for velocity
-  k_veloc_v                       =   5.0E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
-  MAX_VERT_DIFF_VELOC             =   0.0     ! max vertical viscosity for convection used in case of instability
-  k_pot_temp_h                    = 120.0     ! [m2/s] constant horizontal diffusion coefficient for temperature
-  k_pot_temp_v                    =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
-  k_sal_h                         = 120.0     ! [m2/s] constant horizontal diffusion coefficient for salinity
-  k_sal_v                         =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
-  MAX_VERT_DIFF_TRAC              =   0.1     ! max vertical tracer diffusion for convection used in case of instability
-  k_tracer_GM_kappa_parameter     = 600.0     !
-  k_tracer_isoneutral_parameter   = 600.0     ! 600: value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
-  k_tracer_dianeutral_parameter   =   1.0E-5  !
+&ocean_horizontal_diffusion_nml
+  laplacian_form = 1                   ! 1=curlcurl-graddiv
+  VelocityDiffusion_order = 2          ! 21=biharmonic+laplacian (for the laplacian leith)
+
+  BiharmonicViscosity_scaling     =  1
+  BiharmonicViscosity_reference   =  1.5E12  !  [m2/s] constant horizontal viscosity coefficient for velocity
+  BiharmonicViscosity_background  =  0.0  ! [m2/s] constant horizontal viscosity coefficient for velocity
+
+  TracerHorizontalDiffusion_scaling          = 1
+  Temperature_HorizontalDiffusion_Background = 0.0
+  Temperature_HorizontalDiffusion_Reference  = 120 !  40
+  Salinity_HorizontalDiffusion_Background    = 0.0
+  Salinity_HorizontalDiffusion_Reference     = 120 !  40
+/
+&ocean_vertical_diffusion_nml
+  ! PPscheme_type: type of pp-scheme, 4 is recommended:
+  ! 1=ICON-optimized; 2=MPIOM-type; 4=ICON-edge-based - factor e-3 for wind mixing needed
+  PPscheme_type                            = 2
+  VerticalViscosity_TimeWeight             = 0.005
+  velocity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
+  Temperature_VerticalDiffusion_background =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
+  Salinity_VerticalDiffusion_background    =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
+  tracer_convection_MixingCoefficient      =   0.1 ! max vertical tracer diffusion for convection used in case of instability
+!  convection_InstabilityThreshold         =  -1.0E-6  ! used in update_ho_params - default=-5e-8
+!  RichardsonDiffusion_threshold           =   0.0     ! used in update_ho_params - default=+5e-8
+  tracer_RichardsonCoeff                   =   2.0E-3  ! factor for vertical diffusion coefficient in PP scheme
+  velocity_RichardsonCoeff                 =   2.0E-3  ! factor for vertical viscosity coefficient in PP scheme
+  bottom_drag_coeff                        =   3.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
+
+  use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
+  ! lambda_wind                     = 0.03
+  tracer_TopWindMixing            = 5.0E-4 ! 4.0E-6 The used values maybe are too high 
+  velocity_TopWindMixing          = 5.0E-4 ! 4.0E-6
+/
+&ocean_GentMcWilliamsRedi_nml
+  GMRedi_configuration           =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
+  GMREDI_COMBINED_DIAGNOSTIC    = .false.
 /
 &ocean_physics_nml
-  richardson_tracer               =   2.0E-3  ! factor for vertical diffusion coefficient in PP scheme
-  richardson_veloc                =   2.0E-3  ! factor for vertical viscosity coefficient in PP scheme
-  bottom_drag_coeff               =   3.0E-3  ! default=2.5E-3
-  physics_parameters_type         =   2       ! type of pp-scheme: 1=ICON-optimized; 2=MPIOM-type;
-  !                                                                4=ICON-edge-based - factor e-3 for wind mixing needed
-  use_wind_mixing                 = .TRUE.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
-  tracer_TopWindMixing            =   0.5E-3  ! HH: changed in 2016 to MPIOM values
-  velocity_TopWindMixing          =   0.5E-3
-  GMRedi_configuration            =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
 /                                           
 &sea_ice_nml
   i_ice_therm                     =   1       ! 1=zero-layer (default), 2=Winton, 0/2: not allowed

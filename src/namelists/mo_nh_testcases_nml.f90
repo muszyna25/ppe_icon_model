@@ -29,7 +29,7 @@ MODULE mo_nh_testcases_nml
 !
   USE mo_kind,                 ONLY: wp
   USE mo_namelist,             ONLY: position_nml, POSITIONED, open_nml, close_nml
-  USE mo_impl_constants,       ONLY: MAX_CHAR_LENGTH 
+  USE mo_impl_constants,       ONLY: MAX_CHAR_LENGTH, MAX_NTRACER 
   USE mo_io_units,             ONLY: nnml
   USE mo_nh_wk_exp,            ONLY: qv_max_wk, u_infty_wk,                          &
                                    & bubctr_lat, bubctr_lon, bubctr_z,               &
@@ -46,7 +46,6 @@ MODULE mo_nh_testcases_nml
                                    & nlayers_poly,                                   &
                                    & p_base_poly, h_poly, t_poly,                    &
                                    & tgr_poly, rh_poly, rhgr_poly
-!!$  USE mo_init_vgrid,           ONLY: n_flat_level, layer_thickness
   USE mo_nh_mrw_exp,           ONLY: mount_lonctr_mrw_deg, mount_latctr_mrw_deg,     &
                                    &  u0_mrw,  mount_height_mrw, mount_half_width,   &
                                    &  temp_i_mwbr_const, p_int_mwbr_const,           &
@@ -66,7 +65,8 @@ MODULE mo_nh_testcases_nml
     &       tpe_moist, tpe_psfc, tpe_temp,                                   &
     &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,              & 
     &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho, u_cbl, v_cbl,      &
-    &       th_cbl, psfc_cbl, sol_const, zenithang, bubctr_x, bubctr_y
+    &       th_cbl, psfc_cbl, sol_const, zenithang, bubctr_x, bubctr_y,      &
+    &       tracer_inidist_list
 
   PUBLIC :: dcmip_bw
   PUBLIC :: is_toy_chem, toy_chem
@@ -117,6 +117,10 @@ MODULE mo_nh_testcases_nml
                                      ! from file.                                    
   INTEGER  :: n_flat_level           ! Number of flat levels, i.e. where B=0.
 
+  INTEGER :: tracer_inidist_list(MAX_NTRACER) ! Initial distribution of nth tracer
+                                              ! Applicable to test cases
+                                              ! nh_df_test, nh_pa_test, nh_jabw_exp
+
   ! terminator toy chemistry namelist switches 
   TYPE t_toy_chem
     REAL(wp) :: dt_chem       ! chemistry tendency update interval
@@ -164,7 +168,8 @@ MODULE mo_nh_testcases_nml
                             lcoupled_rho, gw_clat, gw_u0, gw_delta_temp,     & 
                             u_cbl, v_cbl, th_cbl, w_perturb, th_perturb,     &
                             psfc_cbl, sol_const, zenithang, bubctr_x,        &
-                            bubctr_y, is_toy_chem, toy_chem, dcmip_bw
+                            bubctr_y, is_toy_chem, toy_chem, dcmip_bw,       &
+                            tracer_inidist_list
                       
 
   CONTAINS
@@ -330,6 +335,10 @@ MODULE mo_nh_testcases_nml
     toy_chem%dt_cpl        = 300._wp
     toy_chem%id_cl         = 1
     toy_chem%id_cl2        = 2
+
+    ! initial tracer distributions for test cases
+    ! nh_df_test, nh_pa_test, nh_jabw_exp
+    tracer_inidist_list(:) = 1
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)

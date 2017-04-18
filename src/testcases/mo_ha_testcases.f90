@@ -49,7 +49,7 @@ MODULE mo_ha_testcases
 
   USE mo_kind,            ONLY: wp
   USE mo_exception,       ONLY: message_text, message, finish
-  USE mo_impl_constants,  ONLY: SUCCESS, MAX_CHAR_LENGTH, TRACER_ONLY
+  USE mo_impl_constants,  ONLY: SUCCESS, MAX_CHAR_LENGTH, TRACER_ONLY, MAX_NTRACER
   USE mo_io_units,        ONLY: nnml, nnml_output
   USE mo_namelist,        ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_master_config,   ONLY: isRestart
@@ -118,6 +118,10 @@ MODULE mo_ha_testcases
                                       ! about the equator. if .FALSE. the forcing 
                                       ! is placed at 30 N. 
 
+  INTEGER, PUBLIC :: tracer_inidist_list(MAX_NTRACER) ! Initial distribution of nth tracer
+                                                      ! Applicable to test cases
+                                                      ! df_test, pa_test, jw_test
+
   NAMELIST/ha_testcase_nml/ ctest_name, rotate_axis_deg, ape_sst_case,  &
     &                    gw_brunt_vais, gw_u0, gw_lon_deg, gw_lat_deg,  &
     &                    rh_wavenum, rh_init_shift_deg,                 &
@@ -126,7 +130,7 @@ MODULE mo_ha_testcases
     &                    jw_uptb, mount_u0, ihs_init_type, lhs_vn_ptb,  &
     &                    hs_vn_ptb_scale, lrh_linear_pres,              &
     &                    rh_at_1000hpa, linit_tracer_fv, ldf_symm,      &
-    &                    ildf_init_type
+    &                    ildf_init_type, tracer_inidist_list
 
 
 
@@ -190,6 +194,10 @@ MODULE mo_ha_testcases
 
     ildf_init_type    = 0      ! isothermal atmosphere at rest
     ldf_symm          = .TRUE. ! forcing symmetric about the equator
+
+    ! initial tracer distributions for test cases
+    ! df_test, pa_test, jw_test
+    tracer_inidist_list(:) = 1
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
@@ -277,13 +285,15 @@ DO jg = 1,n_dom
            &           pt_hydro_state(jg)%prog(nnow(jg)),   &
            &           pt_hydro_state(jg)%diag,             &
            &           pt_int_state(jg), ext_data(jg),      &
-           &           rotate_axis_deg, linit_tracer_fv)
+           &           rotate_axis_deg, linit_tracer_fv,    &
+           &           tracer_inidist_list)
 
       CALL init_hydro_state_prog_patest(pt_patch(jg),       &
            &           pt_hydro_state(jg)%prog(nnew(jg)),   &
            &           pt_hydro_state(jg)%diag,             &
            &           pt_int_state(jg), ext_data(jg),      &
-           &           rotate_axis_deg, linit_tracer_fv)
+           &           rotate_axis_deg, linit_tracer_fv,    &
+           &           tracer_inidist_list)
     ENDIF
 
   ENDIF
@@ -332,11 +342,11 @@ DO jg = 1,n_dom
              & CALL init_hydro_state_prog_jwtest(pt_patch(jg),&
              & pt_hydro_state(jg)%prog(nold(jg)),             &
              & pt_hydro_state(jg)%diag, ext_data(jg),         &
-             & rotate_axis_deg)
+             & rotate_axis_deg, tracer_inidist_list)
         CALL init_hydro_state_prog_jwtest(pt_patch(jg), &
              & pt_hydro_state(jg)%prog(nnow(jg)),       &
              & pt_hydro_state(jg)%diag, ext_data(jg),   &
-             & rotate_axis_deg)
+             & rotate_axis_deg, tracer_inidist_list)
 
      CASE ('JWw')
 
@@ -344,24 +354,26 @@ DO jg = 1,n_dom
              & CALL init_hydro_state_prog_jwtest(pt_patch(jg),&
              & pt_hydro_state(jg)%prog(nold(jg)),             &
              & pt_hydro_state(jg)%diag, ext_data(jg),         &
-             & rotate_axis_deg)
+             & rotate_axis_deg, tracer_inidist_list)
         CALL init_hydro_state_prog_jwtest(pt_patch(jg), &
              & pt_hydro_state(jg)%prog(nnow(jg)),       &
              & pt_hydro_state(jg)%diag,  ext_data(jg),  &
-             & rotate_axis_deg)
+             & rotate_axis_deg, tracer_inidist_list)
 
      CASE ('PA')
         CALL init_hydro_state_prog_patest(pt_patch(jg),       &
              &           pt_hydro_state(jg)%prog(nnow(jg)),   &
              &           pt_hydro_state(jg)%diag,             &
              &           pt_int_state(jg), ext_data(jg),      &
-             &           rotate_axis_deg, linit_tracer_fv)
+             &           rotate_axis_deg, linit_tracer_fv,    &
+             &           tracer_inidist_list)
 
         CALL init_hydro_state_prog_patest(pt_patch(jg),       &
              &           pt_hydro_state(jg)%prog(nnew(jg)),   &
              &           pt_hydro_state(jg)%diag,             &
              &           pt_int_state(jg), ext_data(jg),      &
-             &           rotate_axis_deg, linit_tracer_fv)
+             &           rotate_axis_deg, linit_tracer_fv,    &
+             &           tracer_inidist_list)
 
 
      CASE ('SV')
@@ -395,14 +407,14 @@ DO jg = 1,n_dom
              &           pt_hydro_state(jg)%diag,             &
              &           pt_int_state(jg), ext_data(jg),      &
              &           rotate_axis_deg, ctest_name,         &
-             &           linit_tracer_fv )
+             &           linit_tracer_fv, tracer_inidist_list )
 
         CALL init_hydro_state_prog_dftest(pt_patch(jg),       &
              &           pt_hydro_state(jg)%prog(nnew(jg)),   &
              &           pt_hydro_state(jg)%diag,             &
              &           pt_int_state(jg), ext_data(jg),      &
              &           rotate_axis_deg, ctest_name,         &
-             &           linit_tracer_fv )
+             &           linit_tracer_fv, tracer_inidist_list )
         !
 
      CASE ('HS')
@@ -416,7 +428,7 @@ DO jg = 1,n_dom
            CALL init_hydro_state_prog_jwtest( pt_patch(jg), &
                 & pt_hydro_state(jg)%prog(nnow(jg)),        &
                 & pt_hydro_state(jg)%diag, ext_data(jg),    &
-                & rotate_axis_deg)
+                & rotate_axis_deg, tracer_inidist_list)
            !
            CALL message(TRIM(routine),'Initial state used in &
                 & the Held-Suarez test: JW steady')
@@ -534,7 +546,7 @@ DO jg = 1,n_dom
         CALL init_hydro_state_prog_jwtest(pt_patch(jg), &
              & pt_hydro_state(jg)%prog(nnow(jg)),       &
              & pt_hydro_state(jg)%diag,  ext_data(jg),  &
-             & rotate_axis_deg,                         &
+             & rotate_axis_deg, tracer_inidist_list,    &
              & lrh_linear_pres, rh_at_1000hpa )
 
         IF (.NOT.ltwotime) CALL copy_prog_state(  &
@@ -560,7 +572,7 @@ DO jg = 1,n_dom
           CALL init_hydro_state_prog_jwtest(pt_patch(jg), &
               & pt_hydro_state(jg)%prog(nnow(jg)),       &
               & pt_hydro_state(jg)%diag,  ext_data(jg),  &
-              & rotate_axis_deg,                         &
+              & rotate_axis_deg, tracer_inidist_list,    &
               & lrh_linear_pres, rh_at_1000hpa )
            !
            CALL message(TRIM(routine),'Initial state used in &
@@ -587,7 +599,7 @@ DO jg = 1,n_dom
           CALL init_hydro_state_prog_jwtest(pt_patch(jg), &
               & pt_hydro_state(jg)%prog(nnow(jg)),       &
               & pt_hydro_state(jg)%diag,  ext_data(jg),  &
-              & rotate_axis_deg,                         &
+              & rotate_axis_deg, tracer_inidist_list,    &
               & lrh_linear_pres, rh_at_1000hpa )
         !
            CALL message(TRIM(routine),'Initial state used in &

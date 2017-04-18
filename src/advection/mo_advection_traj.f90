@@ -82,20 +82,20 @@ MODULE mo_advection_traj
   TYPE t_back_traj
     ! line indices of cell centers in which the calculated barycenters are located
     ! dim: (nproma,nlev,p_patch%nblks_e)
-    INTEGER , POINTER :: cell_idx(:,:,:)
+    INTEGER , POINTER :: cell_idx(:,:,:) => NULL()
     !
     ! block indices of cell centers in which the calculated barycenters are located
     ! dim: (nproma,nlev,p_patch%nblks_e)
-    INTEGER , POINTER :: cell_blk(:,:,:)
+    INTEGER , POINTER :: cell_blk(:,:,:) => NULL()
     !
     ! distance vectors cell center --> barycenter of advected area (geographical coordinates)
     ! dim: (nproma,nlev,p_patch%nblks_e,2)
-    REAL(vp), POINTER :: distv_bary(:,:,:,:)
+    REAL(vp), POINTER :: distv_bary(:,:,:,:) => NULL()
 
   CONTAINS
     !
     PROCEDURE :: construct
-    FINAL     :: destruct
+    PROCEDURE :: destruct
     
   END TYPE t_back_traj
 
@@ -120,10 +120,8 @@ CONTAINS
     !
     ! local
     INTEGER :: ist
-#ifdef _OPENACC
     INTEGER, POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
     REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
-#endif
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_traj: construct'
@@ -139,7 +137,7 @@ CONTAINS
       CALL finish ( TRIM(routine), 'allocation for distv_bary failed' )
     ENDIF
 
-#ifdef _OPENACC
+#if _OPENACC
     p_cell_idx =>  obj%cell_idx
     p_cell_blk =>  obj%cell_blk
     p_distv_bary => obj%distv_bary
@@ -160,19 +158,17 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2016-11-23)
   !!
   SUBROUTINE destruct(obj)
-    TYPE(t_back_traj) :: obj
+    CLASS(t_back_traj) :: obj
     !
     ! local
     INTEGER :: ist
-#ifdef _OPENACC
     INTEGER, POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
     REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
-#endif
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_traj: destruct'
 
-#ifdef _OPENACC
+#if _OPENACC
     p_cell_idx =>  obj%cell_idx
     p_cell_blk =>  obj%cell_blk
     p_distv_bary => obj%distv_bary
@@ -253,10 +249,8 @@ CONTAINS
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i_rlstart, i_rlend
     INTEGER :: slev, elev        !< vertical start and end level
-#ifdef _OPENACC
     INTEGER, POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
     REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
-#endif
     LOGICAL :: lvn_pos
 
     !-------------------------------------------------------------------------
@@ -296,7 +290,7 @@ CONTAINS
     ENDIF
 
     ! allocate output arrays
-    CALL btraj%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)
+!!!    CALL btraj%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)   ! Moved to hflux
 
 #ifdef _OPENACC
     p_cell_idx   => btraj%cell_idx
@@ -844,16 +838,15 @@ CONTAINS
     !< in cell 1 or 2
     INTEGER, POINTER ::    &     !< pointer for line and block indices of edge
          & iidx(:,:,:), iblk(:,:,:) !< midpoints for quadrilateral cell
-#ifdef _OPENACC
     INTEGER, POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
     REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
-#endif
+
     !DR    REAL(wp) :: z_vabs_orig, z_vabs_new
 
     !-------------------------------------------------------------------------
 
     ! allocate output arrays
-    CALL btraj%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)
+!!!    CALL btraj%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)  ! => moved to hflux
 
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
