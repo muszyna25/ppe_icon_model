@@ -1348,8 +1348,8 @@ CONTAINS
     DO i = 1, nfiles
       IF (.NOT. is_io .OR. output_file(i)%io_proc_id == p_pe_work) THEN
         local_i = local_i + 1
-        CALL add_out_event(output_file(i), &
-             i, local_i, sim_step_info, dom_sim_step_info)
+        output_file(i)%out_event => add_out_event(output_file(i), i, local_i, &
+          &                           sim_step_info, dom_sim_step_info)
       ELSE
         NULLIFY(output_file(i)%out_event)
       END IF
@@ -1656,12 +1656,13 @@ CONTAINS
 
   END SUBROUTINE assign_output_task
 
-  SUBROUTINE add_out_event(p_of, i, local_i, &
-       sim_step_info, dom_sim_step_info)
-    TYPE (t_output_file), INTENT(inout) :: p_of
+  FUNCTION add_out_event(p_of, i, local_i, sim_step_info, dom_sim_step_info) &
+       RESULT(out_event)
+    TYPE(t_par_output_event), POINTER :: out_event
+    TYPE (t_output_file), INTENT(in) :: p_of
     INTEGER, INTENT(in) :: i, local_i
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
-    TYPE (t_sim_step_info), INTENT(inout) :: dom_sim_step_info
+    TYPE (t_sim_step_info), INTENT(OUT) :: dom_sim_step_info
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_out_event"
 
@@ -1707,8 +1708,6 @@ CONTAINS
       !               (if there is such an attribute available).
       WRITE(attname,'(a,i2.2)') 'output_jfile_',i
       fname_metadata%jfile_offset = restartAttributes%getInteger(TRIM(attname), opt_default=0)
-    ELSE
-      NULLIFY(p_of%out_event)
     END IF
 
     ! set model domain start/end time
@@ -1787,17 +1786,17 @@ CONTAINS
     ! ------------------------------------------------------------------------------------------
     ! --- I/O PEs communicate their event data, the other PEs create
     ! --- the event data only locally for their own event control:
-    p_of%out_event => new_parallel_output_event(p_of%name_list%ready_file,    &
+    out_event => new_parallel_output_event(p_of%name_list%ready_file,         &
          &                  output_start, p_of%name_list%output_end,          &
          &                  output_interval, include_last, dom_sim_step_info, &
          &                  fname_metadata, compute_matching_sim_steps,       &
          &                  generate_output_filenames, local_i, p_comm_io)
     ! ------------------------------------------------------------------------------------------
     IF (dom_sim_step_info%jstep0 > 0) &
-         &  CALL set_event_to_simstep(p_of%out_event, dom_sim_step_info%jstep0 + 1, &
+         &  CALL set_event_to_simstep(out_event, dom_sim_step_info%jstep0 + 1, &
          &                            isRestart(), lrecover_open_file=.TRUE.)
 
-  END SUBROUTINE add_out_event
+  END FUNCTION add_out_event
 
   !------------------------------------------------------------------------------------------------
   !> Create meta-data for vertical axes.
