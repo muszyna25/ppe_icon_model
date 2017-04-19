@@ -143,7 +143,8 @@ MODULE mo_nh_diffusion
 #ifdef _OPENACC
 ! Workaround limitations in OpenACC of updating derived types
     REAL(wp), DIMENSION(:,:,:),   POINTER  :: vn_tmp, w_tmp, exner_tmp, theta_v_tmp
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: vt_tmp, theta_v_ic_tmp, div_ic_tmp, hdef_ic_tmp, dwdx_tmp, dwdy_tmp
+    REAL(wp), DIMENSION(:,:,:),   POINTER  :: theta_v_ic_tmp, div_ic_tmp, hdef_ic_tmp, dwdx_tmp, dwdy_tmp
+    REAL(vp), DIMENSION(:,:,:),   POINTER  :: vt_tmp
 #endif
 
     !--------------------------------------------------------------------------

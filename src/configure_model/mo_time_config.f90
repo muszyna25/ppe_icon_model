@@ -120,7 +120,7 @@ MODULE mo_time_config
   !! 
   !! The actual variable
   !!
-  TYPE(t_time_config), PROTECTED, SAVE :: time_config
+  TYPE(t_time_config), SAVE :: time_config
 
   CHARACTER(LEN = *), PARAMETER :: modname = "mo_time_config"
 
