@@ -1656,10 +1656,10 @@ CONTAINS
 
   END SUBROUTINE assign_output_task
 
-  FUNCTION add_out_event(p_of, i, local_i, sim_step_info, dom_sim_step_info) &
+  FUNCTION add_out_event(of, i, local_i, sim_step_info, dom_sim_step_info) &
        RESULT(out_event)
     TYPE(t_par_output_event), POINTER :: out_event
-    TYPE (t_output_file), INTENT(in) :: p_of
+    TYPE (t_output_file), INTENT(in) :: of
     INTEGER, INTENT(in) :: i, local_i
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
     TYPE (t_sim_step_info), INTENT(OUT) :: dom_sim_step_info
@@ -1684,22 +1684,22 @@ CONTAINS
 
     ! pack file-name meta-data into a derived type to pass them
     ! to "new_parallel_output_event":
-    fname_metadata%steps_per_file             = p_of%name_list%steps_per_file
-    fname_metadata%steps_per_file_inclfirst   = p_of%name_list%steps_per_file_inclfirst
-    fname_metadata%file_interval              = p_of%name_list%file_interval
-    fname_metadata%phys_patch_id              = p_of%phys_patch_id
-    fname_metadata%ilev_type                  = p_of%ilev_type
-    fname_metadata%filename_format            = TRIM(p_of%name_list%filename_format)
-    fname_metadata%filename_pref              = TRIM(p_of%filename_pref)
-    fname_metadata%npartitions                = p_of%npartitions
-    fname_metadata%ifile_partition            = p_of%ifile_partition
+    fname_metadata%steps_per_file             = of%name_list%steps_per_file
+    fname_metadata%steps_per_file_inclfirst   = of%name_list%steps_per_file_inclfirst
+    fname_metadata%file_interval              = of%name_list%file_interval
+    fname_metadata%phys_patch_id              = of%phys_patch_id
+    fname_metadata%ilev_type                  = of%ilev_type
+    fname_metadata%filename_format            = TRIM(of%name_list%filename_format)
+    fname_metadata%filename_pref              = TRIM(of%filename_pref)
+    fname_metadata%npartitions                = of%npartitions
+    fname_metadata%ifile_partition            = of%ifile_partition
     ! set user-specified filename extension or use the default
     ! extension:
-    tlen = LEN_TRIM(p_of%name_list%filename_extn)
-    IF (p_of%name_list%filename_extn(1:tlen) == "default") THEN
-      fname_metadata%extn = TRIM(get_file_extension(p_of%name_list%filetype))
+    tlen = LEN_TRIM(of%name_list%filename_extn)
+    IF (of%name_list%filename_extn(1:tlen) == "default") THEN
+      fname_metadata%extn = TRIM(get_file_extension(of%name_list%filetype))
     ELSE
-      fname_metadata%extn = p_of%name_list%filename_extn(1:tlen)
+      fname_metadata%extn = of%name_list%filename_extn(1:tlen)
     END IF
 
     restartAttributes => getAttributesForRestarting()
@@ -1713,16 +1713,16 @@ CONTAINS
     ! set model domain start/end time
     dom_sim_step_info = sim_step_info
     mtime_date => newDatetime(time_config%tc_startdate)
-    CALL getPTStringFromSeconds(NINT(start_time(p_of%log_patch_id),i8), time_offset_str)
+    CALL getPTStringFromSeconds(NINT(start_time(of%log_patch_id),i8), time_offset_str)
     mtime_td   => newTimedelta(time_offset_str)
     mtime_date = mtime_date + mtime_td
     CALL datetimeToString(mtime_date, dom_sim_step_info%dom_start_time)
     CALL deallocateDatetime(mtime_date)
     CALL deallocateTimedelta(mtime_td)
 
-    IF (end_time(p_of%log_patch_id) < DEFAULT_ENDTIME) THEN
+    IF (end_time(of%log_patch_id) < DEFAULT_ENDTIME) THEN
       mtime_date => newDatetime(time_config%tc_startdate)
-      CALL getPTStringFromSeconds(NINT(end_time(p_of%log_patch_id),i8), time_offset_str)
+      CALL getPTStringFromSeconds(NINT(end_time(of%log_patch_id),i8), time_offset_str)
       mtime_td   => newTimedelta(time_offset_str)
       mtime_date = mtime_date + mtime_td
       CALL datetimeToString(mtime_date, dom_sim_step_info%dom_end_time)
@@ -1732,14 +1732,14 @@ CONTAINS
       dom_sim_step_info%dom_end_time = dom_sim_step_info%sim_end
     END IF
 
-    include_last    = p_of%name_list%include_last
-    output_interval = p_of%name_list%output_interval
-    output_start    = p_of%name_list%output_start
+    include_last    = of%name_list%include_last
+    output_interval = of%name_list%output_interval
+    output_start    = of%name_list%output_start
 
     ! Handle the case that one namelist has been split into
     ! concurrent, alternating files ("streams"):
     !
-    IF (p_of%npartitions > 1) THEN
+    IF (of%npartitions > 1) THEN
       ! count the number of different time intervals for this event (usually 1)
       nintvls = 0
       DO WHILE (LEN_TRIM(output_start(nintvls+1)) > 0)
@@ -1754,19 +1754,19 @@ CONTAINS
         !
         ! - The start_date gets an offset of
         !         "(ifile_partition - 1) * output_interval"
-        DO ifile=1,(p_of%ifile_partition-1)
+        DO ifile=1,(of%ifile_partition-1)
           mtime_datetime = mtime_datetime + mtime_interval
         END DO
         CALL datetimeToString(mtime_datetime, output_start(iintvl))
         ! - The output_interval is replaced by "
         !         "npartitions * output_interval"
         total_ms = getTotalMilliSecondsTimeDelta(mtime_interval, mtime_datetime)
-        total_ms = total_ms * p_of%npartitions
+        total_ms = total_ms * of%npartitions
 
         mtime_td => newTimedelta("PT"//TRIM(int2string(INT(total_ms/1000), '(i0)'))//"S")
         CALL timedeltaToString(mtime_td, output_interval(iintvl))
         CALL deallocateTimedelta(mtime_td)
-        IF (p_of%ifile_partition == 1) THEN
+        IF (of%ifile_partition == 1) THEN
           WRITE(message_text,'(a,a)') "File stream partitioning: total output interval = ", &
                &                         output_interval(iintvl)
           CALL message(routine, message_text)
@@ -1786,8 +1786,8 @@ CONTAINS
     ! ------------------------------------------------------------------------------------------
     ! --- I/O PEs communicate their event data, the other PEs create
     ! --- the event data only locally for their own event control:
-    out_event => new_parallel_output_event(p_of%name_list%ready_file,         &
-         &                  output_start, p_of%name_list%output_end,          &
+    out_event => new_parallel_output_event(of%name_list%ready_file,         &
+         &                  output_start, of%name_list%output_end,          &
          &                  output_interval, include_last, dom_sim_step_info, &
          &                  fname_metadata, compute_matching_sim_steps,       &
          &                  generate_output_filenames, local_i, p_comm_io)
@@ -1844,9 +1844,9 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE add_varlist_to_output_file(p_of, vl_list, varlist)
+  SUBROUTINE add_varlist_to_output_file(of, vl_list, varlist)
 
-    TYPE (t_output_file), INTENT(INOUT) :: p_of
+    TYPE (t_output_file), INTENT(INOUT) :: of
     INTEGER,              INTENT(IN)    :: vl_list(:)
     CHARACTER(LEN=*),     INTENT(IN)    :: varlist(:)
     ! local variables:
@@ -1866,11 +1866,11 @@ CONTAINS
     ENDDO
 
     ! Allocate a list of variable descriptors:
-    p_of%max_vars = nvars
-    p_of%num_vars = 0
-    ALLOCATE(p_of%var_desc(p_of%max_vars))
+    of%max_vars = nvars
+    of%num_vars = 0
+    ALLOCATE(of%var_desc(of%max_vars))
     DO ivar = 1,nvars
-      CALL nullify_var_desc_ptr(p_of%var_desc(ivar))
+      CALL nullify_var_desc_ptr(of%var_desc(ivar))
     END DO ! ivar
 
     ! Allocate array of variable descriptions
@@ -1894,11 +1894,11 @@ CONTAINS
           ! Do not inspect element if output is disabled
           inspect = element%field%info%loutput
           IF (inspect) THEN
-            IF (p_of%name_list%remap==REMAP_REGULAR_LATLON) THEN
+            IF (of%name_list%remap==REMAP_REGULAR_LATLON) THEN
               ! If lon-lat variable is requested, skip variable if it
               ! does not correspond to the same lon-lat grid:
               inspect =       (element%field%info%hgrid == GRID_REGULAR_LONLAT) &
-                &       .AND. (p_of%name_list%lonlat_id == element%field%info%hor_interp%lonlat_id)
+                &       .AND. (of%name_list%lonlat_id == element%field%info%hor_interp%lonlat_id)
             ELSE
               ! On the other hand: If no lon-lat interpolation is
               ! requested for this output file, skip all variables of
@@ -1998,11 +1998,11 @@ CONTAINS
         ENDDO
 
         CALL finish(routine,'Output name list variable not found: '//TRIM(varlist(ivar))//&
-          &", patch "//int2string(p_of%log_patch_id,'(i0)'))
+          &", patch "//int2string(of%log_patch_id,'(i0)'))
       ENDIF
 
       ! append variable descriptor to list
-      CALL add_var_desc(p_of, var_desc)
+      CALL add_var_desc(of, var_desc)
 
     ENDDO ! ivar = 1,nvars
 
