@@ -1012,7 +1012,7 @@ CONTAINS
     TYPE (t_output_name_list), POINTER   :: p_onl
     TYPE(t_list_element),      POINTER   :: element
     TYPE(t_par_output_event),  POINTER   :: ev
-    TYPE (t_sim_step_info)               :: dom_sim_step_info
+    INTEGER                              :: dom_sim_step_info_jstep0
     TYPE(timedelta),           POINTER   :: mtime_output_interval,                             &
       &                                     mtime_td1, mtime_td2, mtime_td3,   &
       &                                     mtime_td, mtime_day
@@ -1349,7 +1349,7 @@ CONTAINS
       IF (.NOT. is_io .OR. output_file(i)%io_proc_id == p_pe_work) THEN
         local_i = local_i + 1
         output_file(i)%out_event => add_out_event(output_file(i), i, local_i, &
-          &                           sim_step_info, dom_sim_step_info)
+          &                           sim_step_info, dom_sim_step_info_jstep0)
       ELSE
         NULLIFY(output_file(i)%out_event)
       END IF
@@ -1366,31 +1366,31 @@ CONTAINS
     all_events => union_of_all_events(compute_matching_sim_steps, generate_output_filenames, p_comm_io, &
          &                               p_comm_work_io, process_work_io0)
 
-    IF (dom_sim_step_info%jstep0 > 0) &
-      &  CALL set_event_to_simstep(all_events, dom_sim_step_info%jstep0 + 1, &
+    IF (dom_sim_step_info_jstep0 > 0) &
+      &  CALL set_event_to_simstep(all_events, dom_sim_step_info_jstep0 + 1, &
       &                            isRestart(), lrecover_open_file=.TRUE.)
     ! print a table with all output events
     IF (.NOT. is_mpi_test) THEN
        IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
             & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
           CALL print_output_event(all_events)                                       ! screen output
-          IF (dom_sim_step_info%jstep0 > 0) THEN
+          IF (dom_sim_step_info_jstep0 > 0) THEN
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
              IF ( is_coupled_run() ) THEN
                comp_name = get_my_process_name()
                CALL print_output_event(all_events, &
                  ! ASCII file output:
                  & opt_filename="output_schedule_"//TRIM(comp_name)//&
-                 &"_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt")
+                 &"_steps_"//TRIM(int2string(dom_sim_step_info_jstep0))//"+.txt")
              ELSE
                CALL print_output_event(all_events, &
-                 & opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//&
+                 & opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info_jstep0))//&
                  &"+.txt") ! ASCII file output
              ENDIF
 #else
              CALL print_output_event(all_events, &
                & opt_filename="output_schedule_steps_"//&
-               &TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") ! ASCII file output
+               &TRIM(int2string(dom_sim_step_info_jstep0))//"+.txt") ! ASCII file output
 #endif
           ELSE
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
@@ -1656,16 +1656,17 @@ CONTAINS
 
   END SUBROUTINE assign_output_task
 
-  FUNCTION add_out_event(of, i, local_i, sim_step_info, dom_sim_step_info) &
+  FUNCTION add_out_event(of, i, local_i, sim_step_info, dom_sim_step_info_jstep0) &
        RESULT(out_event)
     TYPE(t_par_output_event), POINTER :: out_event
     TYPE (t_output_file), INTENT(in) :: of
     INTEGER, INTENT(in) :: i, local_i
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
-    TYPE (t_sim_step_info), INTENT(OUT) :: dom_sim_step_info
+    INTEGER, INTENT(out) :: dom_sim_step_info_jstep0
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_out_event"
 
+    TYPE(t_sim_step_info) :: dom_sim_step_info
     TYPE(t_fname_metadata) :: fname_metadata
     TYPE(timedelta), POINTER :: mtime_interval, mtime_td
     TYPE(datetime), POINTER :: mtime_datetime, mtime_date
@@ -1794,6 +1795,7 @@ CONTAINS
          &  CALL set_event_to_simstep(out_event, dom_sim_step_info%jstep0 + 1, &
          &                            isRestart(), lrecover_open_file=.TRUE.)
 
+    dom_sim_step_info_jstep0 = dom_sim_step_info%jstep0
   END FUNCTION add_out_event
 
   !------------------------------------------------------------------------------------------------
