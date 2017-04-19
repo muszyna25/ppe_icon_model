@@ -48,7 +48,6 @@ end_date="2011-01-04T00:00:00Z"
 
 #-----------------------------------------------------------------------------
 # the grid files
-icon_data_poolFolder=/pool/data/ICON
 grids_folder="${icon_data_poolFolder}/buildbot_data/nwp/grids/multinest"
 atmo_dyn_grids="iconR2B04_DOM01.nc iconR2B05_DOM02.nc iconR2B06_DOM03.nc iconR2B05_DOM04.nc iconR2B06_DOM05.nc"
 atmo_rad_grids="iconR2B03_DOM00.nc"

@@ -1411,12 +1411,15 @@ MODULE mo_initicon_utils
     initicon%z_mc(:,:,:) = metrics%z_mc(:,:,:)
 !$OMP END PARALLEL WORKSHARE
 
+!WS 2017-04-12:  ORDERED was added here to work around a CCE 8.5.5 bug
+!$OMP ORDERED
     CALL construct_atm_in(initicon%atm_in)
     CALL construct_sfc_in(initicon%sfc_in)
     CALL construct_atm(initicon%atm)
     CALL construct_atm_inc(initicon%atm_inc)
     CALL construct_sfc(initicon%sfc)
     CALL construct_sfc_inc(initicon%sfc_inc)
+!$OMP END ORDERED
 
 !-------------------------------------------------------------------------
 
@@ -1492,7 +1495,7 @@ MODULE mo_initicon_utils
 !$OMP END PARALLEL
 
             IF(lvert_remap_fg .OR. init_mode == MODE_ICONVREMAP) THEN
-                ALLOCATE(initicon%atm%tke(nproma,nlevp1,nblks_c))
+                ALLOCATE(atm%tke(nproma,nlevp1,nblks_c))
 !$OMP PARALLEL 
                 CALL init(atm%tke(:,:,:))
 !$OMP END PARALLEL

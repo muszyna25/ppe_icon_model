@@ -1,0 +1,47 @@
+Luis Kornblueh, MPI-M, 2017-04-10 supported by Günther Zängl
+
+The CRAY environment on xce is somehow broken. To be able to compile ICON do
+the following:
+
+1) compile with CRAY compiler
+
+Add to your .bahrc the following lines:
+
+source /cm/local/apps/environment-modules/current/init/bash
+
+to make the module command available and for the environment
+
+module use -a /usr/local/pkg/modulefiles
+module use -a /opt/cray/craype/default/modulefiles
+module use -a /opt/cray/ari/modulefiles
+module load cray-netcdf
+module load cray-hdf5
+module load grib_api
+module load craype-hugepages2M
+
+This sequence assures at the time of writing proper compilation and running.
+
+2) compile with GCC compiler
+
+Execute the following lines:
+
+module swap PrgEnv-cray PrgEnv-gnu
+module swap gcc gcc/5.3.0
+module swap cray-mpich cray-mpich/7.3.1
+module swap cray-netcdf cray-netcdf/4.3.3.1
+module swap cray-hdf5 cray-hdf5/1.8.14
+module swap cray-libsci cray-libsci/13.2.0
+
+These are changing the environment so that one can compile and run with the
+GNU compiler Collection.
+
+NOTE: There is no proper way back from the environment loaded in the second
+item. ONe has to logout and login again or run
+
+module purge 
+
+and execute the lines for the environment of step 1.
+
+From our point of view is the environmet broken and needs to be fixed. It is
+unfortunately a bit cumbersome to make a small example out of the ICON
+configuration.

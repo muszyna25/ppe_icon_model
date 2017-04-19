@@ -792,7 +792,6 @@ MODULE mo_nh_stepping
   jstep = jstep0+jstep_shift+1
 
 #if defined( _OPENACC )
-!
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
 
   CALL save_convenience_pointers( )
@@ -800,8 +799,6 @@ MODULE mo_nh_stepping
 !$ACC DATA COPYIN( p_int_state, p_patch, p_nh_state, prep_adv, advection_config ), IF ( i_am_accel_node )
 
   CALL refresh_convenience_pointers( )
-  i_am_accel_node = .FALSE.                 ! Deactivate GPUs
-
 #endif
 
   TIME_LOOP: DO
@@ -1277,7 +1274,6 @@ MODULE mo_nh_stepping
   ENDDO TIME_LOOP
 
 #if defined( _OPENACC )
-  i_am_accel_node = my_process_is_work()    ! Activate GPUs
   CALL save_convenience_pointers( )
 !$ACC END DATA
   CALL refresh_convenience_pointers( )
@@ -1390,7 +1386,9 @@ MODULE mo_nh_stepping
 
       n_save = nsav2(jg)
       n_now = nnow(jg)
+#ifndef _OPENACC
 !$OMP PARALLEL
+#endif
       CALL copy(p_nh_state(jg)%prog(n_now)%vn, &
            p_nh_state(jg)%prog(n_save)%vn)
       CALL copy(p_nh_state(jg)%prog(n_now)%w, &
@@ -1399,7 +1397,9 @@ MODULE mo_nh_stepping
            p_nh_state(jg)%prog(n_save)%rho)
       CALL copy(p_nh_state(jg)%prog(n_now)%theta_v, &
            p_nh_state(jg)%prog(n_save)%theta_v)
+#ifndef _OPENACC
 !$OMP END PARALLEL
+#endif
 
     ENDIF
 
@@ -1412,7 +1412,9 @@ MODULE mo_nh_stepping
         ! feedback increments (not needed in global domain)
         n_now = nnow(jg)
         n_save = nsav2(jg)
+#ifndef _OPENACC
 !$OMP PARALLEL
+#endif
         CALL copy(p_nh_state(jg)%prog(n_now)%vn, &
              p_nh_state(jg)%prog(n_save)%vn)
         CALL copy(p_nh_state(jg)%prog(n_now)%w, &
@@ -1421,7 +1423,9 @@ MODULE mo_nh_stepping
              p_nh_state(jg)%prog(n_save)%rho)
         CALL copy(p_nh_state(jg)%prog(n_now)%theta_v, &
              p_nh_state(jg)%prog(n_save)%theta_v)
+#ifndef _OPENACC
 !$OMP END PARALLEL
+#endif
       ENDIF
 
 
@@ -1450,12 +1454,16 @@ MODULE mo_nh_stepping
         n_now  = nnow(jg)
         n_save = nsav1(jg)
         IF (lbdy_nudging) THEN ! full copy needed
+#ifndef _OPENACC
 !$OMP PARALLEL
+#endif
           CALL copy(p_nh_state(jg)%prog(n_now)%vn,p_nh_state(jg)%prog(n_save)%vn)
           CALL copy(p_nh_state(jg)%prog(n_now)%w,p_nh_state(jg)%prog(n_save)%w)
           CALL copy(p_nh_state(jg)%prog(n_now)%rho,p_nh_state(jg)%prog(n_save)%rho)
           CALL copy(p_nh_state(jg)%prog(n_now)%theta_v,p_nh_state(jg)%prog(n_save)%theta_v)
+#ifndef _OPENACC
 !$OMP END PARALLEL
+#endif
         ELSE IF (lnest_active) THEN ! optimized copy restricted to nest boundary points
           CALL save_progvars(jg,p_nh_state(jg)%prog(n_now),p_nh_state(jg)%prog(n_save))
         ENDIF
@@ -2294,16 +2302,10 @@ MODULE mo_nh_stepping
       ENDIF
 
       ! integrate dynamical core
-#ifdef _OPENACC
-      i_am_accel_node = my_process_is_work()    ! Activate GPUs
-#endif
       CALL solve_nh(p_nh_state, p_patch, p_int_state, prep_adv,     &
         &           nnow(jg), nnew(jg), linit_dyn(jg), l_recompute, &
         &           lsave_mflx, lprep_adv, lclean_mflx,             &
         &           nstep, ndyn_substeps_tot-1, l_bdy_nudge, dt_dyn)
-#ifdef _OPENACC
-      i_am_accel_node = .FALSE.
-#endif
 
       ! now reset linit_dyn to .FALSE.
       linit_dyn(jg) = .FALSE.
@@ -2722,10 +2724,14 @@ MODULE mo_nh_stepping
     INTEGER, INTENT(IN) :: nnow ! time step indicator
 
 
+#ifndef _OPENACC
 !$OMP PARALLEL
+#endif
     CALL copy(p_nh_state(jg)%prog(nnow)%exner-REAL(p_nh_state(jg)%metrics%exner_ref_mc,wp), &
          p_nh_state(jg)%diag%exner_pr)
+#ifndef _OPENACC
 !$OMP END PARALLEL
+#endif
 
   END SUBROUTINE init_exner_pr
 
