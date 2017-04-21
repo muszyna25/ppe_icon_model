@@ -14,6 +14,10 @@
 !! @par Revision History
 !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
 !!
+!! Modifications by Dmitrii Mironov, DWD (2016-08-04)
+!! - Logical switch is introduced to allow the use of 
+!!   a rate equation for the sea-ice albedo.
+!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -52,7 +56,7 @@ MODULE mo_lnd_nwp_config
   ! VARIABLES
   PUBLIC :: nlev_soil, nlev_snow, ibot_w_so, ntiles_total, ntiles_lnd, ntiles_water
   PUBLIC :: frlnd_thrhld, frlndtile_thrhld, frlake_thrhld, frsea_thrhld
-  PUBLIC :: lseaice,  llake, lmelt, lmelt_var, lmulti_snow, lsnowtile, max_toplaydepth
+  PUBLIC :: lseaice, lprog_albsi, llake, lmelt, lmelt_var, lmulti_snow, lsnowtile, max_toplaydepth
   PUBLIC :: itype_trvg, itype_evsl, itype_lndtbl, l2lay_rho_snow
   PUBLIC :: itype_root, itype_heatcond, itype_interception, &
              itype_hydbound, idiag_snowfrac, cwimax_ml, c_soil, c_soil_urb
@@ -89,6 +93,7 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  idiag_snowfrac     !< method for diagnosis of snow-cover fraction
 
   LOGICAL ::  lseaice     !> forecast with sea-ice model
+  LOGICAL ::  lprog_albsi !> sea-ice albedo is computed prognostically from a rate equation
   LOGICAL ::  llake       !! forecast with lake model FLake
   LOGICAL ::  lmelt       !! soil model with melting process
   LOGICAL ::  lmelt_var   !! freezing temperature dependent on water content

@@ -370,7 +370,7 @@ CONTAINS
     IF (mtime_dt_checkpoint /= mtime_0h) THEN
       mtime_2_5h => newTimedelta("PT02H30M")
       IF ((iequations == inh_atmosphere) .AND. &
-        & (divdamp_order == 24)          .AND. &
+        & (divdamp_order == 24) .AND. .NOT. isRestart() .AND. &
         & (mtime_dt_checkpoint < mtime_2_5h)) THEN
         WRITE(message_text,'(a)') &
              &  'dt_checkpoint < 2.5 hours not allowed in combination with divdamp_order = 24'

@@ -27,10 +27,10 @@ MODULE mo_ensemble_pert_config
     &                        tune_entrorg, tune_capdcfac_et, tune_box_liq, tune_rhebc_land, &
     &                        tune_rhebc_ocean, tune_rcucov, tune_texc, tune_qexc,           &
     &                        tune_minsnowfrac, tune_rhebc_land_trop, tune_rhebc_ocean_trop, &
-    &                        tune_rcucov_trop
+    &                        tune_rcucov_trop, tune_gfrcrit
   USE mo_turbdiff_config,    ONLY: turbdiff_config
   USE mo_gribout_config,     ONLY: gribout_config
-  USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water
+  USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, c_soil, cwimax_ml
   USE mo_grid_config,        ONLY: n_dom
   USE mo_model_domain,       ONLY: t_patch
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag
@@ -46,7 +46,7 @@ MODULE mo_ensemble_pert_config
   PUBLIC :: range_gkwake, range_gkdrag, range_gfluxlaun, range_zvz0i, range_entrorg, range_capdcfac_et, &
             range_box_liq, range_tkhmin, range_tkmmin, range_rlam_heat, range_rhebc, range_texc,        &
             range_minsnowfrac, range_z0_lcc, range_rootdp, range_rsmin, range_laimax, range_charnock,   &
-            range_tkred_sfc
+            range_tkred_sfc, range_gfrcrit, range_c_soil, range_cwimax_ml
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ensemble perturbations
@@ -59,6 +59,9 @@ MODULE mo_ensemble_pert_config
 
   REAL(wp) :: &                    !< gravity wave drag constant
     &  range_gkdrag
+
+  REAL(wp) :: &                    !< critical Froude number used for computing blocking layer depth
+    &  range_gfrcrit
 
   REAL(wp) :: &                    !< gravity wave flux emission
     &  range_gfluxlaun
@@ -80,6 +83,12 @@ MODULE mo_ensemble_pert_config
 
   REAL(wp) :: &                    !< Minimum value to which the snow cover fraction is artificially reduced
     &  range_minsnowfrac           !  in case of melting show (in case of idiag_snowfrac = 20/30/40)
+
+  REAL(wp) :: &                    !< Fraction of surface area available for bare soil evaporation
+    &  range_c_soil
+
+  REAL(wp) :: &                    !< Capacity of interception storage (multiplicative perturbation)
+    &  range_cwimax_ml
 
   REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
     &  range_box_liq               ! (in case of inwp_cldcover = 1)
@@ -154,9 +163,13 @@ MODULE mo_ensemble_pert_config
       ! Apply perturbations to physics tuning parameters
 
       CALL RANDOM_NUMBER(rnd_num)
-      ! perturbations for gkwake and gkdrag must be anticorrelated
-      tune_gkwake = tune_gkwake + 2._wp*(rnd_num-0.5_wp)*range_gkwake
-      tune_gkdrag = tune_gkdrag - 2._wp*(rnd_num-0.5_wp)*range_gkdrag
+      ! perturbations for gkwake and gfrcrit must be correlated
+      ! (for gfrcrit, a higher value means a thinner blocking layer)
+      tune_gkwake  = tune_gkwake  + 2._wp*(rnd_num-0.5_wp)*range_gkwake
+      tune_gfrcrit = tune_gfrcrit + 2._wp*(rnd_num-0.5_wp)*range_gfrcrit
+
+      CALL RANDOM_NUMBER(rnd_num)
+      tune_gkdrag = tune_gkdrag + 2._wp*(rnd_num-0.5_wp)*range_gkdrag
 
       CALL RANDOM_NUMBER(rnd_num)
       ! perturbations for zvz0i and entrorg must be anticorrelated
@@ -207,6 +220,14 @@ MODULE mo_ensemble_pert_config
       tune_minsnowfrac = tune_minsnowfrac + 2._wp*(rnd_num-0.5_wp)*range_minsnowfrac
 
       CALL RANDOM_NUMBER(rnd_num)
+      c_soil = c_soil + 2._wp*(rnd_num-0.5_wp)*range_c_soil
+      c_soil = MAX(0._wp,MIN(2._wp,c_soil))
+
+      CALL RANDOM_NUMBER(rnd_num)
+      rnd_fac = range_cwimax_ml**(2._wp*(rnd_num-0.5_wp))
+      cwimax_ml = cwimax_ml * rnd_fac
+
+      CALL RANDOM_NUMBER(rnd_num)
       rnd_fac   = range_charnock**(2._wp*(rnd_num-0.5_wp))
       alpha0_sv = turbdiff_config(1)%alpha0
       !
@@ -220,8 +241,8 @@ MODULE mo_ensemble_pert_config
       turbdiff_config(1:max_dom)%alpha0_pert = (rnd_num-0.5_wp)*alpha0_sv*(range_charnock-1._wp)
 
       ! control output
-      WRITE(message_text,'(2f8.4,e11.4)') tune_gkwake, tune_gkdrag, tune_gfluxlaun
-      CALL message('Perturbed values, gkwake, gkdrag, gfluxlaun', TRIM(message_text))
+      WRITE(message_text,'(3f8.4,e11.4,f8.4,e11.4)') tune_gkwake, tune_gkdrag, tune_gfrcrit, tune_gfluxlaun, c_soil, cwimax_ml
+      CALL message('Perturbed values, gkwake, gkdrag, gfrcrit, gfluxlaun, c_soil, cwimax_ml', TRIM(message_text))
 
       WRITE(message_text,'(4f8.4,e11.4)') tune_box_liq, tune_minsnowfrac, tune_capdcfac_et, tune_zvz0i, tune_entrorg
       CALL message('Perturbed values, box_liq, minsnowfrac, capdcfac_et, zvz0i, entrorg', TRIM(message_text))

@@ -40,6 +40,7 @@ MODULE mo_nwp_gw_interface
   USE mo_parallel_config,      ONLY: nproma
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_sso_cosmo,            ONLY: sso
+  USE mo_sso_ifs,              ONLY: gwdrag
   USE mo_gwd_wms,              ONLY: gwdrag_wms
   USE mo_vertical_coord_table, ONLY: vct_a
 
@@ -172,6 +173,59 @@ CONTAINS
  ! SSO, GWD and Rayleigh friction together
  !         & pdt_sso   =prm_nwp_tend%ddt_temp_sso(:,:,jb)   ) !< out: temperature tendency
                                                              ! due to SSO
+
+        ! Reduce tendencies in uppermost layer by a factor of 8 because they tend to larger than the tendencies
+        ! in the second layer by about this factor. This is also true at vertical nest interfaces
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+          prm_nwp_tend%ddt_u_sso(jc,1,jb) = 0.125_vp*prm_nwp_tend%ddt_u_sso(jc,1,jb)
+          prm_nwp_tend%ddt_v_sso(jc,1,jb) = 0.125_vp*prm_nwp_tend%ddt_v_sso(jc,1,jb)
+        ENDDO
+
+        ! Limit SSO wind tendencies. They can become numerically unstable in the upper stratosphere and mesosphere.
+        ! Moreover, they tend to be much too strong in northern hemispheric winter, leading to a huge warm
+        ! bias in the north polar middle stratosphere
+        DO jk = 1, nlev
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+            prm_nwp_tend%ddt_u_sso(jc,jk,jb) = &
+              SIGN(MIN(ssolim(jk),ABS(prm_nwp_tend%ddt_u_sso(jc,jk,jb))),prm_nwp_tend%ddt_u_sso(jc,jk,jb))
+            prm_nwp_tend%ddt_v_sso(jc,jk,jb) = &
+              SIGN(MIN(ssolim(jk),ABS(prm_nwp_tend%ddt_v_sso(jc,jk,jb))),prm_nwp_tend%ddt_v_sso(jc,jk,jb))
+          ENDDO
+        ENDDO
+
+      ELSE IF (lcall_sso_jg .AND. atm_phy_nwp_config(jg)%inwp_sso == 2) THEN
+
+        ! SSO from IFS code 41r2
+ 
+        CALL gwdrag(                                       &
+          & klon      =nproma                           ,  & !> in:  actual array size
+          & klev      =nlev                             ,  & !< in:  actual array size
+          & kidia     =i_startidx                       ,  & !< in:  start index of calculation
+          & kfdia     =i_endidx                         ,  & !< in:  end index of calculation
+          & ngwdlim   =phy_params(jg)%ngwdlim           ,  & !< in:  SSO parameter: level for limit of tendencies
+          & ngwdtop   =phy_params(jg)%ngwdtop           ,  & !< in:  SSO parameter: Rayleigh friction level
+          & nktopg    =phy_params(jg)%nktopg            ,  & !< in:  SSO parameter: level to define low-level flow
+          & papm1     =p_diag%pres              (:,:,jb),  & !< in:  full level pressure
+          & paphm1    =p_diag%pres_ifc          (:,:,jb),  & !< in:  half level pressure
+          & pgeom1    =p_metrics%geopot_agl     (:,:,jb),  & !< in:  full level geopotential height
+          & ptm1      =p_diag%temp              (:,:,jb),  & !< in:  temperature
+          & pum1      =p_diag%u                 (:,:,jb),  & !< in:  zonal wind component
+          & pvm1      =p_diag%v                 (:,:,jb),  & !< in:  meridional wind component
+          & phstd     =ext_data%atm%sso_stdh    (:,jb)  ,  & !< in:  standard deviation
+          & pgamma    =ext_data%atm%sso_gamma   (:,jb)  ,  & !< in:  anisotropy
+          & ptheta    =ext_data%atm%sso_theta   (:,jb)  ,  & !< in:  angle
+          & psig      =ext_data%atm%sso_sigma   (:,jb)  ,  & !< in:  slope
+          & pdt       =tcall_sso_jg                     ,  & !< in:  time step
+          & ikenvh    =prm_diag%ktop_envel      (:,jb)  ,  & !< out: top of envelope layer
+          & psoteu    =prm_nwp_tend%ddt_u_sso   (:,:,jb),  & !< out: u-tendency due to SSO
+          & psotev    =prm_nwp_tend%ddt_v_sso   (:,:,jb),  & !< out: v-tendency due to SSO
+          & pustr_sso =prm_diag%str_u_sso       (:,jb),    & !< out: u surface stress due to SSO
+          & pvstr_sso =prm_diag%str_v_sso       (:,jb)     ) !< out: v surface stress due to SSO
+
+ ! GZ: The computation of the frictional heating rate is done in interface_nwp for
+ ! SSO, GWD and Rayleigh friction together
 
         ! Reduce tendencies in uppermost layer by a factor of 8 because they tend to larger than the tendencies
         ! in the second layer by about this factor. This is also true at vertical nest interfaces

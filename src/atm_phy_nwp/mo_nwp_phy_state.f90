@@ -797,7 +797,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'ktop_envel', diag%ktop_envel,                    &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,                 &
-                & grib2_desc,ldims=shape2d, lrestart=.FALSE., loutput=.FALSE.  )
+                & grib2_desc,ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.  )
 
     !        diag%snowlmt(nproma,nblks_c)
     cf_desc    = t_cf_var('snowlmt', 'm', 'Height of snow fall limit above MSL', &
@@ -1902,7 +1902,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'tkr', diag%tkr,                             &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-      & ldims=shape2d,                                                    &
+      & ldims=shape2d, lrestart=.FALSE.,                                  &
       & in_group=groups("pbl_vars") )
 
     ! &      diag%tkred_sfc(nproma,nblks_c)
@@ -1911,7 +1911,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'tkred_sfc', diag%tkred_sfc,                 &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-      & ldims=shape2d )
+      & ldims=shape2d, lrestart=.FALSE. )
 
     ! &      diag%gz0(nproma,nblks_c)
     cf_desc     = t_cf_var('gz0', 'm2 s-2 ','roughness length times gravity', datatype_flt)
@@ -1931,7 +1931,17 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 't_2m', diag%t_2m,                           &
       & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
-      & ldims=shape2d, lrestart=.FALSE., in_group=groups("pbl_vars","dwd_fg_atm_vars") )
+      & ldims=shape2d, lrestart=.FALSE.,                                  &
+      & in_group=groups("pbl_vars","dwd_fg_atm_vars"),                    &
+      & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
+      &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) )
+
+    ! &      diag%t_2m_land(nproma,nblks_c)
+    cf_desc    = t_cf_var('t_2m_land', 'K ','temperature in 2m', datatype_flt)
+    grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 't_2m_land', diag%t_2m_land,                 &
+      & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
+      & ldims=shape2d, lrestart=.FALSE., in_group=groups("pbl_vars") )
 
     ! &      diag%tmax_2m(nproma,nblks_c)
     cf_desc    = t_cf_var('tmax_2m', 'K ','Max 2m temperature', datatype_flt)
@@ -1970,12 +1980,26 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
       & ldims=shape2d, lrestart=.FALSE. )
 
+    ! &      diag%rh_2m_land(nproma,nblks_c)
+    cf_desc    = t_cf_var('rh_2m', '%','relative humidity in 2m', datatype_flt)
+    grib2_desc = grib2_var(0, 1, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'rh_2m_land', diag%rh_2m_land,               &
+      & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
+      & ldims=shape2d, lrestart=.FALSE. )
+
     ! &      diag%td_2m(nproma,nblks_c)
     cf_desc    = t_cf_var('td_2m', 'K ','dew-point in 2m', datatype_flt)
     grib2_desc = grib2_var(0, 0, 6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'td_2m', diag%td_2m,                         &
       & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
       & ldims=shape2d, lrestart=.FALSE., in_group=groups("pbl_vars","dwd_fg_atm_vars") )
+
+    ! &      diag%td_2m_land(nproma,nblks_c)
+    cf_desc    = t_cf_var('td_2m_land', 'K ','dew-point in 2m', datatype_flt)
+    grib2_desc = grib2_var(0, 0, 6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'td_2m_land', diag%td_2m_land,               &
+      & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
+      & ldims=shape2d, lrestart=.FALSE., in_group=groups("pbl_vars") )
 
     ! &      diag%u_10m(nproma,nblks_c)
     cf_desc    = t_cf_var('u_10m', 'm s-1 ','zonal wind in 10m', datatype_flt)

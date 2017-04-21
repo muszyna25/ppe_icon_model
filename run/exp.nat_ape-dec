@@ -192,7 +192,7 @@ cat >> ${atmo_namelist} << EOF
  !hbot_qvsubstep  = 86000.
 /
 &transport_nml
- ctracer_list='vwi456'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
+ tracer_names='v','w','i','4','5','6'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
  ihadv_tracer  = 32,2,2,2,2,0
  ivadv_tracer  = 3,3,3,3,3,0
  ! igrad_c_miura = 1

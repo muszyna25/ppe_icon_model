@@ -79,6 +79,7 @@ CONTAINS
                   czmls            , & ! processing soil level structure 
                   soiltyp_subs     , & ! type of the soil (keys 0-9)                     --
                   rootdp           , & ! depth of the roots                            ( m  )
+                  plcov            , & ! fraction of surface covered by plants         ( -  )
                   t_snow_now       , & ! temperature of the snow-surface               (  K  )
                   t_snow_mult_now  , & ! temperature of the snow-surface               (  K  )
                   t_s_now          , & ! temperature of the ground surface             (  K  )
@@ -123,7 +124,8 @@ CONTAINS
                   soiltyp_subs      ! type of the soil (keys 0-9)                     --
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: & 
                   rootdp           ! depth of the roots                            ( m  )
-
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: & 
+                  plcov           ! plant coverage                            ( -  )
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
                   t_snow_now              ! temperature of the snow-surface (K)
   REAL    (KIND = ireals), DIMENSION(ie,0:ke_snow), INTENT(INOUT) :: &
@@ -171,6 +173,14 @@ CONTAINS
   REAL    (KIND=ireals   ), PARAMETER ::  &
     zepsi  = 1.0E-6_ireals ! security constant
 
+  REAL    (KIND=ireals   ), PARAMETER ::  &
+    T_ref_ice = 0.1_ireals , & !degC Soil ice parameterization
+    T_star_ice= 0.01_ireals, & !degC according to K. Schaefer and Jafarov, E.,2016, doi:10.5194/bg-13-1991-2016
+    b_clay= -0.3_ireals , & 
+    b_silt= -0.5_ireals , &
+    b_sand= -0.9_ireals , &
+    b_org = -1.0_ireals 
+
 ! Local scalars:
 ! -------------
 
@@ -195,7 +205,7 @@ CONTAINS
 
 
   REAL    (KIND=ireals   ) ::  &
-    zaa, zh_snow                ! utility variable
+    zaa, zh_snow, zzz, zd, zd1, zd2, zd3, zd4        ! utility variables
 
   REAL    (KIND = ireals) :: &
 !
@@ -210,8 +220,17 @@ CONTAINS
     zbwt     (ie)      , & ! root depth (with artificial minimum value)
     zsandf   (ie)      , & ! mean fraction of sand (weight percent)
     zclayf   (ie)      , & ! mean fraction of clay (weight percent)
+    zsiltf   (ie)      , & ! mean fraction of silt (weight percent)
     zb_por   (ie)      , & ! pore size distribution index
     zpsis    (ie)      , & ! air entry potential (m)
+    zw_m_org           , &  ! maximum of  liquid water content   organic
+    zw_m_soil          , &  ! maximum of  liquid water content   mineral soil
+    zw_m_up            , &  ! maximum of  liquid water content   at temp -3 degC
+    zw_m_low           , &  ! maximum of  liquid water content   at temp -40 degC
+    zw_m_org_low       , &  ! maximum of  liquid water content   organic at temp -40 degC
+    zw_m_soil_low      , &  ! maximum of  liquid water content   mineral soil at temp -40 degC
+    t_zw_up            , &  ! temp -3 degC
+    t_zw_low           , &  ! temp -40 degC
     zw_m     (ie)          ! maximum of liquid water content  (m)
 
   INTEGER  (KIND=iintegers ) ::  &
@@ -310,6 +329,7 @@ CONTAINS
     ! Arrays for soil water freezing/melting
     zsandf(i)   = csandf(mstyp)
     zclayf(i)   = cclayf(mstyp)
+    zsiltf(i)   = 100._ireals -csandf(mstyp)-cclayf(mstyp) ! Residuum of sand and clay
     zpsis(i)    = -zpsi0 * 10._ireals**(1.88_ireals-0.013_ireals*zsandf(i))
     zb_por(i)   = 2.91_ireals + .159_ireals*zclayf(i)
     zedb(i)     = 1._ireals/zb_por(i)
@@ -318,6 +338,15 @@ CONTAINS
 
   ENDDO
  
+  ! Further parameters for soil water freezing/melting
+  t_zw_up  = 270.15_ireals ! temp -3 degC
+  t_zw_low = 233.15_ireals ! temp -40 degC
+  zd = LOG((T_ref_ice-(t_zw_low-t0_melt))/T_star_ice)
+  zd1 = EXP(b_sand*zd)
+  zd2 = EXP(b_clay*zd)
+  zd3 = EXP(b_silt*zd)
+  zd4 = EXP(b_org*zd)
+
   ! Tolerances for the allowed deviation of w_so_ice from its equilibrium value
   wso_ice_tolerance  = 1.05_ireals ! 5% deviation allowed
   rwso_ice_tolerance = 1._ireals/wso_ice_tolerance
@@ -549,10 +578,35 @@ CONTAINS
       DO kso   = 1,ke_soil+1
         DO i = istarts, iends
           IF (t_so_now(i,kso) < (t0_melt-zepsi)) THEN 
+
             zaa    = g*zpsis(i)/lh_f
-            zw_m(i)     = zporv(i)*zdzhs(kso)
-            zw_m(i)   = zw_m(i)*                                          &
-               ((t_so_now(i,kso) - t0_melt)/(t_so_now(i,kso)*zaa))**(-zedb(i))
+
+            ! J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016,
+            !                                                    doi:10.5194/bg-13-1991-2016
+
+            ! Liq. water content at -3 degC
+            zw_m_up =  zporv(i)*zdzhs(kso)*EXP(-zedb(i)*LOG((t_zw_up - t0_melt)/(t_zw_up*zaa)) )
+
+            ! Determine liq. water content at -40 degC
+            zw_m_soil = 0.01_ireals*(zsandf(i)*zd1 + zclayf(i)*zd2 + zsiltf(i)*zd3)
+
+            ! Scale soil ice content with organic soil horizon.
+            ! should decrease the root zone liquid water content of frozen soil for low temperatures significantly!
+            IF(zmls(kso) < rootdp(i)) THEN
+              zzz = plcov(i)*(rootdp(i)-zmls(kso))/rootdp(i)
+              zw_m_low = zporv(i)*zdzhs(kso)*(zzz*zd4 + (1._ireals-zzz)*zw_m_soil)
+            ELSE
+              zw_m_low = zporv(i)*zdzhs(kso)*zw_m_soil
+            END IF
+   
+            IF (t_so_now(i,kso) < t_zw_low) THEN
+              zw_m(i) = zw_m_low
+            ELSE IF (t_so_now(i,kso) < t_zw_up) THEN ! Logarithmic Interpolation between -3 degC and -40 degC 
+              zw_m(i) = zw_m_low*EXP((t_so_now(i,kso) - t_zw_low)*(LOG(zw_m_up) - LOG(zw_m_low))/(t_zw_up-t_zw_low))
+            ELSE
+              zw_m(i) = zporv(i)*zdzhs(kso)*EXP(-zedb(i)*LOG((t_so_now(i,kso)-t0_melt)/(t_so_now(i,kso)*zaa)) )
+            END IF
+
             w_so_ice_now(i,kso) = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
             w_so_ice_new(i,kso) = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
           ELSE ! ensure that w_so_ice is zero
@@ -642,13 +696,39 @@ CONTAINS
 
     ! Ensure that w_so_ice stays within 5% of its equilibrium value
     ! In addition, it must not exceed w_so
-    IF(lmelt .AND. lmelt_var) THEN
+    IF(lmelt .AND. lmelt_var) THEN 
       DO kso   = 1,ke_soil+1
         DO i = istarts, iends
           IF (t_so_now(i,kso) < (t0_melt-zepsi)) THEN 
-            zaa     = g*zpsis(i)/lh_f
-            zw_m(i) = zporv(i)*zdzhs(kso)
-            zw_m(i) = zw_m(i) * ((t_so_now(i,kso)-t0_melt)/(t_so_now(i,kso)*zaa))**(-zedb(i))
+
+            zaa    = g*zpsis(i)/lh_f
+
+            ! J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016,
+            !                                                    doi:10.5194/bg-13-1991-2016
+
+            ! Liq. water content at -3 degC
+            zw_m_up =  zporv(i)*zdzhs(kso)*EXP(-zedb(i)*LOG((t_zw_up - t0_melt)/(t_zw_up*zaa)) )
+
+            ! Determine liq. water content at -40 degC
+            zw_m_soil = 0.01_ireals*(zsandf(i)*zd1 + zclayf(i)*zd2 + zsiltf(i)*zd3)
+
+            ! Scale soil ice content with organic soil horizon.
+            ! should decrease the root zone liquid water content of frozen soil for low temperatures significantly!
+            IF(zmls(kso) < rootdp(i)) THEN
+              zzz = plcov(i)*(rootdp(i)-zmls(kso))/rootdp(i)
+              zw_m_low = zporv(i)*zdzhs(kso)*(zzz*zd4 + (1._ireals-zzz)*zw_m_soil)
+            ELSE
+              zw_m_low = zporv(i)*zdzhs(kso)*zw_m_soil
+            END IF
+   
+            IF (t_so_now(i,kso) < t_zw_low) THEN
+              zw_m(i) = zw_m_low
+            ELSE IF (t_so_now(i,kso) < t_zw_up) THEN ! Logarithmic Interpolation between -3 degC and -40 degC 
+              zw_m(i) = zw_m_low*EXP((t_so_now(i,kso) - t_zw_low)*(LOG(zw_m_up) - LOG(zw_m_low))/(t_zw_up-t_zw_low))
+            ELSE
+              zw_m(i) = zporv(i)*zdzhs(kso)*EXP(-zedb(i)*LOG((t_so_now(i,kso)-t0_melt)/(t_so_now(i,kso)*zaa)) )
+            END IF
+
             wso_ice_equil = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
             w_so_ice_now(i,kso) = MIN(w_so_ice_now(i,kso),  wso_ice_tolerance*wso_ice_equil, w_so_now(i,kso))
             w_so_ice_now(i,kso) = MAX(w_so_ice_now(i,kso), rwso_ice_tolerance*wso_ice_equil)

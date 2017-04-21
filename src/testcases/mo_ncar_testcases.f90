@@ -636,7 +636,8 @@ CONTAINS
   !-----------------------------------------------------------------------
   !     input parameters
   !-----------------------------------------------------------------------
-  CHARACTER*5, INTENT(in) :: tracer_variant    ! identifies test variant 'yy', here tracers
+!!$  CHARACTER*5, INTENT(in) :: tracer_variant    ! identifies test variant 'yy', here tracers
+  INTEGER, INTENT(in) :: tracer_variant(:)    ! identifies test variant 'yy', here tracers
   ! e.g. 0 : no tracer, set to zero
   !      5 : tracer q5 only
   !     56 : both tracers q5 and q6
@@ -684,10 +685,11 @@ CONTAINS
   !-----------------------------------------------------------------------
   !     tracer q4 (2D field after Williamson et. al. (1992))
   !-----------------------------------------------------------------------
-  IF (tracer_variant(1:1) == '4' .OR. tracer_variant(2:2) == '4'  &
-    &                            .OR. tracer_variant(3:3) == '4'  &
-    &                            .OR. tracer_variant(4:4) == '4'  &
-    &                            .OR. tracer_variant(5:5) == '4')    THEN
+!!$  IF (tracer_variant(1:1) == '4' .OR. tracer_variant(2:2) == '4'  &
+!!$    &                            .OR. tracer_variant(3:3) == '4'  &
+!!$    &                            .OR. tracer_variant(4:4) == '4'  &
+!!$    &                            .OR. tracer_variant(5:5) == '4')    THEN
+  IF (ANY(tracer_variant == 4)) THEN
     sin_tmp = SIN(lat) * SIN(phi0)
     cos_tmp = COS(lat) * COS(phi0)
     r  = ACOS (sin_tmp + cos_tmp*COS(lon-lambda0))       ! great circle distance without 'a'
@@ -698,10 +700,11 @@ CONTAINS
   !-----------------------------------------------------------------------
   !     tracer q5 (3D-field after Jablonowski et al (2008))
   !-----------------------------------------------------------------------
-  IF (tracer_variant(1:1) == '5' .OR. tracer_variant(2:2) == '5'  &
-    &                            .OR. tracer_variant(3:3) == '5'  &
-    &                            .OR. tracer_variant(4:4) == '5'  &
-    &                            .OR. tracer_variant(5:5) == '5') THEN
+!!$  IF (tracer_variant(1:1) == '5' .OR. tracer_variant(2:2) == '5'  &
+!!$    &                            .OR. tracer_variant(3:3) == '5'  &
+!!$    &                            .OR. tracer_variant(4:4) == '5'  &
+!!$    &                            .OR. tracer_variant(5:5) == '5') THEN
+  IF (ANY(tracer_variant == 5)) THEN
     sin_tmp = SIN(lat) * SIN(phi0)
     cos_tmp = COS(lat) * COS(phi0)
     r  = ACOS (sin_tmp + cos_tmp*COS(lon-lambda0))       ! great circle distance without 'a'
@@ -711,10 +714,11 @@ CONTAINS
   !-----------------------------------------------------------------------
   !     tracer q6 (3D slotted cylinder after Jablonowski et al (2008))
   !-----------------------------------------------------------------------
-  IF (tracer_variant(1:1) == '6' .OR. tracer_variant(2:2) == '6'  &
-    &                            .OR. tracer_variant(3:3) == '6'  &
-    &                            .OR. tracer_variant(4:4) == '6'  &
-    &                            .OR. tracer_variant(5:5) == '6') THEN
+!!$  IF (tracer_variant(1:1) == '6' .OR. tracer_variant(2:2) == '6'  &
+!!$    &                            .OR. tracer_variant(3:3) == '6'  &
+!!$    &                            .OR. tracer_variant(4:4) == '6'  &
+!!$    &                            .OR. tracer_variant(5:5) == '6') THEN
+  IF (ANY(tracer_variant == 6)) THEN
     sin_tmp = SIN(lat) * SIN(phi0)
     cos_tmp = COS(lat) * COS(phi0)
     r  = ACOS (sin_tmp + cos_tmp*COS(lon-lambda0))       ! great circle distance without 'a'
@@ -740,11 +744,11 @@ CONTAINS
   ! slot length* : (5/3)*RR
   ! *divided by earth radius
   !-----------------------------------------------------------------------
-  IF (tracer_variant(1:1) == '7' .OR. tracer_variant(2:2) == '7'  &
-    &                            .OR. tracer_variant(3:3) == '7'  &
-    &                            .OR. tracer_variant(4:4) == '7'  &
-    &                            .OR. tracer_variant(5:5) == '7') THEN
-
+!!$  IF (tracer_variant(1:1) == '7' .OR. tracer_variant(2:2) == '7'  &
+!!$    &                            .OR. tracer_variant(3:3) == '7'  &
+!!$    &                            .OR. tracer_variant(4:4) == '7'  &
+!!$    &                            .OR. tracer_variant(5:5) == '7') THEN
+  IF (ANY(tracer_variant == 7)) THEN
     sin_tmp = SIN(lat) * SIN(phi0)
     cos_tmp = COS(lat) * COS(phi0)
     r  = ACOS (sin_tmp + cos_tmp*COS(lon+pi-lambda0_q7)) ! great circle distance without 'a'
@@ -766,10 +770,11 @@ CONTAINS
   ! This initial condition has continuous second and third derivatives.
   ! It is thus can be used to check for third order convergence
   !-----------------------------------------------------------------------
-  IF (tracer_variant(1:1) == '8' .OR. tracer_variant(2:2) == '8'  &
-    &                            .OR. tracer_variant(3:3) == '8'  &
-    &                            .OR. tracer_variant(4:4) == '8'  &
-    &                            .OR. tracer_variant(5:5) == '8') THEN
+!!$  IF (tracer_variant(1:1) == '8' .OR. tracer_variant(2:2) == '8'  &
+!!$    &                            .OR. tracer_variant(3:3) == '8'  &
+!!$    &                            .OR. tracer_variant(4:4) == '8'  &
+!!$    &                            .OR. tracer_variant(5:5) == '8') THEN
+  IF (ANY(tracer_variant == 8)) THEN
     sin_tmp = SIN(lat) * SIN(phi0)
     cos_tmp = COS(lat) * COS(phi0)
     r  = ACOS (sin_tmp + cos_tmp*COS(lon-lambda0))       ! great circle distance without 'a'
