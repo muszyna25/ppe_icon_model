@@ -343,9 +343,9 @@ CONTAINS
       !
       ! "YYYYMMDDThhmmssZ"     for the basic format of ISO8601 without the
       !                        separators "-" and ":" of the extended date-time format
-      WRITE (dtime_string,'(i4.4,2(i2.2),a,3(i2.2),a)')                                                 &
-        &                      mtime_date%date%year, mtime_date%date%month, mtime_date%date%day, 'T',   &
-        &                      mtime_date%time%hour, mtime_date%time%minute, mtime_date%time%second, 'Z'
+      WRITE (dtime_string,'(i4.4,2(i2.2),a,3(i2.2),a)')                            &
+        & mtime_date%date%year, mtime_date%date%month, mtime_date%date%day, 'T',   &
+        & mtime_date%time%hour, mtime_date%time%minute, mtime_date%time%second, 'Z'
       CALL associate_keyword("<datetime2>",       TRIM(dtime_string),                                       keywords)
 
       ! "YYYYMMDDThhmmss.sssZ" for the basic format of ISO8601 with 3-digit 
