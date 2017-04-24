@@ -1768,7 +1768,7 @@ CONTAINS
   !
   FUNCTION get_current_date(event)
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: get_current_date
-    TYPE(t_output_event), POINTER :: event
+    TYPE(t_output_event), INTENT(in) :: event
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::get_current_date"
     INTEGER :: istep
