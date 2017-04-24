@@ -134,7 +134,8 @@ MODULE mo_output_event_handler
   USE mtime,                     ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,         &
     &                                  datetime, timedelta,  newTimedelta,                  &
     &                                  deallocateDatetime, datetimeToString,                &
-    &                                  newDatetime, OPERATOR(>=), OPERATOR(==), OPERATOR(<),&
+    &                                  newDatetime, OPERATOR(>=), OPERATOR(==),&
+    &                                  OPERATOR(<), OPERATOR(<=), &
     &                                  OPERATOR(>), OPERATOR(+), OPERATOR(/=),              &
     &                                  deallocateTimedelta, newJulianDay, JulianDay,        &
     &                                  getJulianDayFromDatetime, getDatetimeFromJulianDay
@@ -806,9 +807,9 @@ CONTAINS
           IF (ldebug)  WRITE (0,*) get_my_global_mpi_id(), ": adding time delta."
           mtime_date = mtime_date + delta
 
-          l_active = .NOT. (mtime_date > mtime_end) .AND.   &
-            &        .NOT. (mtime_date > sim_end)   .AND.   &
-            &        .NOT. (mtime_date > mtime_restart)
+          l_active = mtime_date <= mtime_end .AND.   &
+            &        mtime_date <= sim_end   .AND.   &
+            &        mtime_date <= mtime_restart
           IF (.NOT. l_active) EXIT EVENT_LOOP
         END DO EVENT_LOOP
       END IF
