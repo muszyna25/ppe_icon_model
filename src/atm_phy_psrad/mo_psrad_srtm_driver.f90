@@ -37,7 +37,7 @@
 !
 MODULE mo_psrad_srtm_driver
 
-  USE mo_psrad_general, ONLY : wp, nbndsw
+  USE mo_psrad_general, ONLY : wp, nbndsw, ngptsw, ngas
   USE mo_psrad_radiation_parameters, ONLY : i_overlap, l_do_sep_clear_sky, &
     rad_undef
   USE mo_psrad_srtm_setup, ONLY : ngb, wavenum2, ssi_default, delwave
@@ -73,7 +73,6 @@ CONTAINS
     vis_dn_dir_sfc, par_dn_dir_sfc, nir_dn_dir_sfc, vis_dn_dff_sfc, &
     par_dn_dff_sfc, nir_dn_dff_sfc, vis_up_sfc, par_up_sfc, nir_up_sfc)
 
-    use mo_psrad_general, only: ngptsw, ngas
     INTEGER, INTENT(in) :: kproma, & ! Number of horizontal columns 
     kbdim, & ! Maximum number of columns as declared in calling (sub)prog.
     klev ! Number of model layers
@@ -277,13 +276,13 @@ CONTAINS
     zomgt(1:kproma,:,:) = zomgt(1:kproma,:,:) / ztaut(1:kproma,:,:)
 
     ! Compute radiative transfer.
-    flxu_sw(1:kproma,1:klev+1) = 0.0
-    flxd_sw(1:kproma,1:klev+1) = 0.0
-    flxu_sw_clr(1:kproma,1:klev+1) = 0.0
-    flxd_sw_clr(1:kproma,1:klev+1) = 0.0
-    zbbfu(:,:) = 0.0
-    zbbfd(:,:) = 0.0
-    zbbfddir(:,:) = 0.0
+    flxu_sw(1:kproma,1:klev+1) = 0.0_wp
+    flxd_sw(1:kproma,1:klev+1) = 0.0_wp
+    flxu_sw_clr(1:kproma,1:klev+1) = 0.0_wp
+    flxd_sw_clr(1:kproma,1:klev+1) = 0.0_wp
+    zbbfu(:,:) = 0.0_wp
+    zbbfd(:,:) = 0.0_wp
+    zbbfddir(:,:) = 0.0_wp
 
     ! Solar illumination
     cossza(1:kproma) = MAX(0.01_wp, prmu0(1:kproma))

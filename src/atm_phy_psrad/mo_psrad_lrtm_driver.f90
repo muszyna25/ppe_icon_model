@@ -37,9 +37,10 @@
 !
 MODULE mo_psrad_lrtm_driver
 
-  USE mo_psrad_general
+  USE mo_psrad_general,      ONLY: wp, grav, amd, amw, nbndlw, ngptlw, &
+       & ngas, ih2o, ico2, nreact, ncfc, io3, in2o, ich4, io2
   USE mo_psrad_radiation_parameters, &
-                             ONLY : i_overlap, l_do_sep_clear_sky, rad_undef
+                             ONLY: i_overlap, l_do_sep_clear_sky, rad_undef
   USE mo_psrad_lrtm_setup,   ONLY: ngb, delwave
   USE mo_psrad_lrtm_kgs, ONLY: totplanck
   USE mo_psrad_rrtm_coeffs,  ONLY: lrtm_coeffs
