@@ -624,7 +624,8 @@ CONTAINS
       &                         sim_end, mtime_dom_start, mtime_dom_end, run_start
     TYPE(timedelta), POINTER :: delta
     INTEGER                  :: ierrstat, i, n_event_steps, &
-      &                         nintvls, iintvl, skipped_dates
+      &                         nintvls, iintvl, skipped_dates, &
+      &                         old_size, new_size
     LOGICAL                  :: l_active, l_append_step
     CHARACTER(len=MAX_DATETIME_STR_LEN), ALLOCATABLE :: mtime_date_string(:), tmp_string(:)
     INTEGER,                             ALLOCATABLE :: mtime_sim_steps(:)
@@ -780,10 +781,11 @@ CONTAINS
 
               n_event_steps = n_event_steps + 1
 
-              IF (n_event_steps > SIZE(mtime_date_container)) THEN
-                ALLOCATE(tmp(2*SIZE(mtime_date_container)), stat=ierrstat)
+              old_size = SIZE(mtime_date_container)
+              IF (n_event_steps > old_size) THEN
+                ALLOCATE(tmp(2*old_size), stat=ierrstat)
                 IF (ierrstat /= 0) STOP 'allocate failed'
-                tmp(1:SIZE(mtime_date_container)) = mtime_date_container(:)
+                tmp(1:old_size) = mtime_date_container(:)
                 IF (ASSOCIATED(mtime_date_container, mtime_date_container_a)) THEN
                   CALL MOVE_ALLOC(tmp, mtime_date_container_a)
                   mtime_date_container => mtime_date_container_a
@@ -876,18 +878,14 @@ CONTAINS
       END IF
       IF (l_append_step) THEN 
         n_event_steps = n_event_steps + 1
-        IF (n_event_steps > SIZE(mtime_date_string)) THEN
+        old_size = SIZE(mtime_date_string)
+        IF (n_event_steps > old_size) THEN
           ! resize buffer
-          ALLOCATE(tmp_string(SIZE(mtime_date_string)), STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
-          tmp_string(:) = mtime_date_string(:)
-          DEALLOCATE(mtime_date_string, STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
-          ALLOCATE(mtime_date_string(SIZE(tmp) + INITIAL_NEVENT_STEPS), STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
-          mtime_date_string(1:SIZE(tmp)) = tmp_string(:)
-          DEALLOCATE(tmp_string, STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
+          new_size = old_size + INITIAL_NEVENT_STEPS
+          ALLOCATE(tmp_string(new_size), STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+          tmp_string(1:old_size) = mtime_date_string
+          CALL MOVE_ALLOC(tmp_string, mtime_date_string)
         END IF
         CALL datetimeToString(sim_end, mtime_date_string(n_event_steps))
         IF (ldebug) THEN
