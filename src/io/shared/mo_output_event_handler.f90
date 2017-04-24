@@ -918,7 +918,7 @@ CONTAINS
     ! from this list of time stamp strings: generate the event steps
     ! for this event
     p_event%n_event_steps = n_event_steps
-    ALLOCATE(p_event%event_step(p_event%n_event_steps), STAT=ierrstat)
+    ALLOCATE(p_event%event_step(n_event_steps), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     DO i=1,p_event%n_event_steps
       p_event%event_step(i)%exact_date_string  = TRIM(mtime_exactdate(i))
