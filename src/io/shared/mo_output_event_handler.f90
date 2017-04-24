@@ -920,7 +920,7 @@ CONTAINS
     p_event%n_event_steps = n_event_steps
     ALLOCATE(p_event%event_step(n_event_steps), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-    DO i=1,p_event%n_event_steps
+    DO i=1,n_event_steps
       p_event%event_step(i)%exact_date_string  = mtime_exactdate(i)
       p_event%event_step(i)%i_sim_step         = mtime_sim_steps(i)
       p_event%event_step(i)%n_pes              = 1
