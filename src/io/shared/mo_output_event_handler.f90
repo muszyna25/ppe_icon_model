@@ -583,9 +583,9 @@ CONTAINS
     TYPE(t_sim_step_info),                 INTENT(IN)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
     TYPE(t_fname_metadata),                INTENT(IN)  :: fname_metadata       !< additional meta-data for generating output filename
 
-    !> As an argument of this function, the user must provide a
-    !  conversion "time stamp -> simulation step"
     INTERFACE
+      !> As an argument of this function, the user must provide a
+      !!  conversion "time stamp -> simulation step"
       SUBROUTINE fct_time2simstep(nstrings, date_string, sim_step_info, &
         &                         result_steps, result_exactdate)
         USE mo_output_event_types, ONLY: t_sim_step_info
@@ -595,13 +595,12 @@ CONTAINS
         INTEGER,               INTENT(INOUT) :: result_steps(:)      !< resulting step indices
         CHARACTER(LEN=*),      INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings
       END SUBROUTINE fct_time2simstep
-    END INTERFACE
 
-    !> As an argument of this function, the user must provide a
-    !  function for generating output file names
-    INTERFACE
-      FUNCTION fct_generate_filenames(nstrings, date_string, sim_steps, &
-        &                             sim_step_info, fname_metadata, skipped_dates)  RESULT(result_fnames)
+      !> As an argument of this function, the user must provide a
+      !! function for generating output file names
+      SUBROUTINE fct_generate_filenames(nstrings, date_string, sim_steps, &
+        &                             sim_step_info, fname_metadata, &
+        &                             skipped_dates, result_fnames)
         USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_step_data
         USE mo_name_list_output_types, ONLY: t_fname_metadata
 
@@ -611,8 +610,8 @@ CONTAINS
         TYPE(t_sim_step_info),   INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
         TYPE(t_fname_metadata),  INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
         INTEGER,                 INTENT(IN)    :: skipped_dates
-        TYPE(t_event_step_data) :: result_fnames(SIZE(date_string))
-      END FUNCTION fct_generate_filenames
+        TYPE(t_event_step_data), INTENT(out)   :: result_fnames(SIZE(date_string))
+      END SUBROUTINE fct_generate_filenames
     END INTERFACE
 
     ! local variables
@@ -911,8 +910,9 @@ CONTAINS
     n_event_steps = (i-1)
     
     IF (n_event_steps > 0) THEN
-      filename_metadata = fct_generate_filenames(n_event_steps, mtime_date_string,       &
-           &              mtime_sim_steps, sim_step_info, fname_metadata, skipped_dates)
+      CALL fct_generate_filenames(n_event_steps, mtime_date_string,       &
+        &                   mtime_sim_steps, sim_step_info, fname_metadata, &
+        &                   skipped_dates, filename_metadata)
     END IF
     
     ! from this list of time stamp strings: generate the event steps
@@ -1129,9 +1129,9 @@ CONTAINS
     INTEGER,                               INTENT(IN)  :: icomm                !< MPI communicator
 
 
-    !> As an argument of this function, the user must provide a
-    !  conversion "time stamp -> simulation step"
     INTERFACE
+      !> As an argument of this function, the user must provide a
+      !! conversion "time stamp -> simulation step"
       SUBROUTINE fct_time2simstep(nstrings, date_string, sim_step_info, &
         &                         result_steps, result_exactdate)
         USE mo_output_event_types, ONLY: t_sim_step_info
@@ -1141,13 +1141,12 @@ CONTAINS
         INTEGER,                   INTENT(INOUT) :: result_steps(:)      !< resulting step indices
         CHARACTER(LEN=*),          INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings
       END SUBROUTINE fct_time2simstep
-    END INTERFACE
 
-    !> As an argument of this function, the user must provide a
-    !  function for generating output file names
-    INTERFACE
-      FUNCTION fct_generate_filenames(nstrings, date_string, sim_steps, &
-        &                             sim_step_info, fname_metadata, skipped_dates)  RESULT(result_fnames)
+      !> As an argument of this function, the user must provide a
+      !! function for generating output file names
+      SUBROUTINE fct_generate_filenames(nstrings, date_string, sim_steps, &
+        &                               sim_step_info, fname_metadata, &
+        &                               skipped_dates, result_fnames)
         USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_step_data
         USE mo_name_list_output_types, ONLY: t_fname_metadata
 
@@ -1157,8 +1156,8 @@ CONTAINS
         TYPE(t_sim_step_info),     INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
         TYPE(t_fname_metadata),    INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
         INTEGER,                   INTENT(IN)    :: skipped_dates
-        TYPE(t_event_step_data) :: result_fnames(SIZE(date_string))
-      END FUNCTION fct_generate_filenames
+        TYPE(t_event_step_data),   INTENT(OUT)   :: result_fnames(SIZE(date_string))
+      END SUBROUTINE fct_generate_filenames
     END INTERFACE
 
     ! local variables
@@ -1265,9 +1264,9 @@ CONTAINS
     INTEGER, OPTIONAL,      INTENT(IN)  :: opt_broadcast_comm          !< MPI communicator for broadcast IO->workers
     INTEGER, OPTIONAL,      INTENT(IN)  :: opt_broadcast_root          !< MPI rank (broadcast source)
 
-    !> As an argument of this function, the user must provide a
-    !  conversion "time stamp -> simulation step"
     INTERFACE
+      !> As an argument of this function, the user must provide a
+      !! conversion "time stamp -> simulation step"
       SUBROUTINE fct_time2simstep(nstrings, date_string, sim_step_info, &
         &                         result_steps, result_exactdate)
         USE mo_output_event_types, ONLY: t_sim_step_info
@@ -1277,13 +1276,12 @@ CONTAINS
         INTEGER,                  INTENT(INOUT) :: result_steps(:)      !< resulting step indices
         CHARACTER(LEN=*),         INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings
       END SUBROUTINE fct_time2simstep
-    END INTERFACE
 
-    !> As an argument of this function, the user must provide a
-    !  function for generating output file names
-    INTERFACE
-      FUNCTION fct_generate_filenames(nstrings, date_string, sim_steps, &
-        &                             sim_step_info, fname_metadata, skipped_dates)  RESULT(result_fnames)
+      !> As an argument of this function, the user must provide a
+      !! function for generating output file names
+      SUBROUTINE fct_generate_filenames(nstrings, date_string, sim_steps, &
+        &                               sim_step_info, fname_metadata, &
+        &                               skipped_dates, result_fnames)
         USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_step_data
         USE mo_name_list_output_types, ONLY: t_fname_metadata
 
@@ -1293,8 +1291,8 @@ CONTAINS
         TYPE(t_sim_step_info),     INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
         TYPE(t_fname_metadata),    INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
         INTEGER,                   INTENT(IN)    :: skipped_dates
-        TYPE(t_event_step_data) :: result_fnames(SIZE(date_string))
-      END FUNCTION fct_generate_filenames
+        TYPE(t_event_step_data),  INTENT(OUT)    :: result_fnames(SIZE(date_string))
+      END SUBROUTINE fct_generate_filenames
     END INTERFACE
 
     ! local variables

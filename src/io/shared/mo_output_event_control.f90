@@ -198,15 +198,16 @@ CONTAINS
   !  @author F. Prill, DWD
   !
   ! --------------------------------------------------------------------------------------------------
-  FUNCTION generate_output_filenames(nstrings, date_string, sim_steps, &
-    &                                sim_step_info, fname_metadata, skipped_dates)  RESULT(result_fnames)
+  SUBROUTINE generate_output_filenames(nstrings, date_string, sim_steps, &
+    &                                  sim_step_info, fname_metadata, &
+    &                                  skipped_dates, result_fnames)
     INTEGER,                INTENT(IN)    :: nstrings           !< no. of string to convert
     CHARACTER(len=*),       INTENT(IN)    :: date_string(:)     !< array of ISO 8601 time stamp strings
     INTEGER,                INTENT(IN)    :: sim_steps(:)       !< array of corresponding simulation steps
     TYPE(t_sim_step_info),  INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
     TYPE(t_fname_metadata), INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
     INTEGER,                INTENT(IN)    :: skipped_dates
-    TYPE(t_event_step_data) :: result_fnames(SIZE(date_string))
+    TYPE(t_event_step_data), INTENT(out)  :: result_fnames(SIZE(date_string))
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::generate_output_filenames"
     INTEGER                             :: i, j, ifile, ipart, total_index, this_jfile, errno
@@ -399,6 +400,6 @@ CONTAINS
     CALL deallocateDatetime(run_start)
     CALL deallocateDatetime(sim_start)
 
-  END FUNCTION generate_output_filenames
+  END SUBROUTINE generate_output_filenames
 
 END MODULE mo_output_event_control
