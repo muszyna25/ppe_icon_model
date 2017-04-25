@@ -64,7 +64,7 @@ MODULE mo_advection_stepping
     &                               inwp
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult
-  USE mo_advection_config,    ONLY: advection_config
+  USE mo_advection_config,    ONLY: advection_config, t_trList
   USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_fortran_tools,       ONLY: negative2zero
@@ -256,13 +256,16 @@ CONTAINS
                                   !< (multiplied by cSTR * coeff_grid)
 
     INTEGER  :: nlev, nlevp1      !< number of full and half levels
-    INTEGER  :: jb, jk, jt, jc, jg                !< loop indices
+    INTEGER  :: jb, jk, jt, jc, jg, nt            !< loop indices
     INTEGER  :: ikp1                              !< vertical level + 1
     INTEGER  :: i_startblk, i_startidx, i_endblk, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
 
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
       &  iidx, iblk                          !< of edges
+
+    TYPE(t_trList), POINTER :: trAdvect      !< Pointer to tracer sublist
+    TYPE(t_trList), POINTER :: trNotAdvect   !< Pointer to tracer sublist
 
     LOGICAL  :: is_present_opt_ddt_tracer_adv
 
@@ -289,6 +292,12 @@ CONTAINS
     ! line and block indices of edges as seen from cells
     iidx => p_patch%cells%edge_idx
     iblk => p_patch%cells%edge_blk
+
+    ! tracer fields which are advected
+    trAdvect => advection_config(jg)%trAdvect
+    !
+    ! tracer fields which are not advected
+    trNotAdvect => advection_config(jg)%trNotAdvect
 
     !---------------------------------------------------!
     !                                                   !
@@ -413,7 +422,7 @@ CONTAINS
 !$ACC LOOP GANG
 #else
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jt,jc,ikp1,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jt,jc,nt,ikp1,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 #endif
         DO jb = i_startblk, i_endblk
 
@@ -422,7 +431,9 @@ CONTAINS
 
 
           ! computation of vertical flux divergences
-          DO jt = 1, ntracer ! Tracer loop
+          DO nt = 1, trAdvect%len ! Tracer loop
+
+            jt = trAdvect%list(nt)
 
             DO jk = advection_config(jg)%iadv_slev(jt), nlev
 
@@ -616,7 +627,7 @@ CONTAINS
 !$ACC IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
 #else
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jt,jc,z_fluxdiv_c) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jt,jc,nt,z_fluxdiv_c) ICON_OMP_DEFAULT_SCHEDULE
 #endif
     DO jb = i_startblk, i_endblk
 
@@ -624,8 +635,9 @@ CONTAINS
                     i_startidx, i_endidx, i_rlstart, i_rlend)
 
 !$ACC LOOP WORKER
-      DO jt = 1, ntracer ! Tracer loop
+      DO nt = 1, trAdvect%len ! Tracer loop
 
+        jt = trAdvect%list(nt)
 
         IF ( advection_config(jg)%ihadv_tracer(jt) /= 0 ) THEN
 
@@ -744,7 +756,7 @@ CONTAINS
 !$ACC IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
 #else
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jt,jc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jt,jc,nt) ICON_OMP_DEFAULT_SCHEDULE
 #endif
       DO jb = i_startblk, i_endblk
 
@@ -757,7 +769,10 @@ CONTAINS
           ! For mass conservation, a correction has to be applied in the
           ! feedback routine anyway
 !$ACC LOOP VECTOR COLLAPSE(2)
-          DO jt = 1, ntracer ! Tracer loop
+          DO nt = 1, trAdvect%len ! Tracer loop
+
+            jt = trAdvect%list(nt)
+
             DO jc = i_startidx, i_endidx
               p_tracer_new(jc,jk,jb,jt) =                            &
                 &     MAX(0._wp, p_tracer_now(jc,jk,jb,jt)           &
@@ -836,7 +851,7 @@ CONTAINS
 !$ACC LOOP GANG
 #else
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikp1) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,jt,nt,i_startidx,i_endidx,ikp1) ICON_OMP_DEFAULT_SCHEDULE
 #endif
       DO jb = i_startblk, i_endblk
 
@@ -844,7 +859,9 @@ CONTAINS
                        i_startidx, i_endidx, i_rlstart, i_rlend)
 
 !$ACC LOOP WORKER
-        DO jt = 1, ntracer ! Tracer loop
+        DO nt = 1, trAdvect%len ! Tracer loop
+
+          jt = trAdvect%list(nt)
 
 !$ACC LOOP VECTOR, COLLAPSE(2)
           DO jk = advection_config(jg)%iadv_slev(jt), nlev
@@ -904,6 +921,43 @@ CONTAINS
 
     END IF
 
+
+    ! For tracer fields which are not advected, we just 
+    ! perform a copy from time level now to new.
+    !
+    IF ( trNotAdvect%len > 0 ) THEN
+
+      i_rlstart  = grf_bdywidth_c+1
+      i_rlend    = min_rlcell_int
+      i_startblk = p_patch%cells%start_block(i_rlstart)
+      i_endblk   = p_patch%cells%end_block(i_rlend)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,jt,nt,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
+                       i_startidx, i_endidx, i_rlstart, i_rlend)
+
+        DO nt = 1, trNotAdvect%len ! Tracer loop
+
+          jt = trNotAdvect%list(nt)
+
+          DO jk = 1, nlev
+
+            DO jc = i_startidx, i_endidx
+              p_tracer_new(jc,jk,jb,jt) = p_tracer_now(jc,jk,jb,jt)
+            ENDDO  !jc
+          ENDDO  !jk
+ 
+        ENDDO  !nt
+       
+      ENDDO  ! jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+    ENDIF  ! trNotAdvect%len > 0
+
+
     ! Synchronize tracer array after update. This is only necessary, if 
     ! NWP physics has NOT been selected. Otherwise, the SYNC-operation will 
     ! follow AFTER the call of NWP physics.
@@ -933,14 +987,17 @@ CONTAINS
 !$ACC IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
 #else
-!$OMP DO PRIVATE(jb,jk,jt,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jt,jc,nt,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 #endif
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,     &
                           i_startidx, i_endidx, i_rlstart, i_rlend)
 
-        DO jt = 1, ntracer
+        DO nt = 1, trAdvect%len
+
+          jt = trAdvect%list(nt)
+
           DO jk = advection_config(jg)%iadv_slev(jt), nlev
             DO jc = i_startidx, i_endidx
               opt_ddt_tracer_adv(jc,jk,jb,jt) =               &

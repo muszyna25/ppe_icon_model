@@ -202,7 +202,7 @@ CONTAINS
     REAL(wp) :: qtvar(nproma,pt_patch%nlev)
 
     ! communication ids, these do not need to be different variables,
-    ! since they are not treated individualy
+    ! since they are not treated individually
     INTEGER :: ddt_u_tot_comm, ddt_v_tot_comm, tracers_comm, tempv_comm, exner_pr_comm
 
     CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_interface_les:les_phy_interface:'
@@ -254,7 +254,7 @@ CONTAINS
     ENDIF
 
     ! condensate tracer IDs
-    condensate_list => advection_config(jg)%ilist_hydroMass
+    condensate_list => advection_config(jg)%trHydroMass%list
 
     !Check if time to sample data
     IF(sampl_freq_step > 0)THEN

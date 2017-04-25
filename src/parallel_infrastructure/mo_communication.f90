@@ -54,6 +54,7 @@ USE mo_decomposition_tools,  ONLY: t_glb2loc_index_lookup, get_local_index
 USE mo_util_sort,            ONLY: quicksort
 USE mo_util_string,          ONLY: int2string
 USE mo_parallel_config,      ONLY: blk_no, idx_no, idx_1d
+USE mo_fortran_tools,        ONLY: t_ptr_3d
 #ifdef _OPENACC
 USE mo_mpi,                  ONLY: i_am_accel_node
 #endif
@@ -2123,7 +2124,7 @@ CONTAINS
   !!
   SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, recv2, send2,   &
     recv3, send3, recv4, send4,  recv5, send5, recv6, send6, recv7, send7,              &
-    recv4d, send4d, nshift)
+    recv4d, send4d, nshift, recv3d_arr, send3d_arr)
 
     TYPE(t_comm_pattern), INTENT(IN) :: p_pat
 
@@ -2135,6 +2136,8 @@ CONTAINS
       send7(:,:,:), send4d(:,:,:,:)
 
     INTEGER, INTENT(IN)           :: nfields, ndim2tot
+    TYPE(t_ptr_3d), INTENT(   IN), TARGET, OPTIONAL :: recv3d_arr(:)
+    TYPE(t_ptr_3d), INTENT(INOUT), TARGET, OPTIONAL :: send3d_arr(:)
     INTEGER, OPTIONAL, INTENT(IN) :: nshift
 
     TYPE t_fieldptr
@@ -2199,6 +2202,23 @@ CONTAINS
     ELSE
       nf4d = 0
     ENDIF
+
+
+    ! Set pointers to input fields
+    IF (PRESENT(recv3d_arr)) THEN
+      DO i = 1, SIZE(recv3d_arr)
+        recv(i+nf4d)%fld => recv3d_arr(i)%p
+      ENDDO
+      IF (PRESENT(send3d_arr)) THEN ! all 4D fields must have the same dimensions
+        DO i = 1, SIZE(recv3d_arr)
+          send(i+nf4d)%fld => send3d_arr(i)%p
+        ENDDO
+        lsend = .TRUE.
+      ENDIF
+      nf4d = nf4d + SIZE(recv3d_arr)
+    ENDIF
+
+
     IF (PRESENT(recv1)) THEN
       recv(nf4d+1)%fld => recv1
       IF (PRESENT(send1)) THEN
@@ -2433,6 +2453,8 @@ CONTAINS
     stop_sync_timer(timer_exch_data)
 
   END SUBROUTINE exchange_data_mult
+
+
 
   !>
   !! Does data exchange according to a communication pattern (in p_pat).

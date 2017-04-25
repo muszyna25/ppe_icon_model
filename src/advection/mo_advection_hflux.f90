@@ -72,7 +72,7 @@ MODULE mo_advection_hflux
   USE mo_kind,                ONLY: wp, vp
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS,                   &
-    &                               min_rledge_int, min_rledge, min_rlcell_int, &
+    &                               min_rledge_int, min_rlcell_int,             &
     &                               UP, MIURA, MIURA3, FFSL, FFSL_HYB, MCYCL,   &
     &                               MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL,      &
     &                               FFSL_HYB_MCYCL, UP3, ifluxl_m, ifluxl_sm
@@ -89,12 +89,12 @@ MODULE mo_advection_hflux
   USE mo_intp_data_strc,      ONLY: t_int_state, t_lsq
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_edge
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: ntracer, timers_level
+  USE mo_run_config,          ONLY: timers_level
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
   USE mo_sync,                ONLY: SYNC_C, SYNC_C1, sync_patch_array,          &
     &                               sync_patch_array_4de1
   USE mo_parallel_config,     ONLY: p_test_run
-  USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup
+  USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup, t_trList
   USE mo_advection_utils,     ONLY: laxfr_upflux, t_list2D
   USE mo_advection_quadrature,ONLY: prep_gauss_quadrature_l,                    &
     &                               prep_gauss_quadrature_l_list,               &
@@ -222,7 +222,7 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
      &  opt_rlend                      !< (to avoid calculation of halo points)
 
-    INTEGER :: jt                   !< tracer loop index
+    INTEGER :: jt, nt               !< tracer index and loop index
     INTEGER :: jg                   !< patch ID
     INTEGER :: i_rlend, i_rlend_vt, i_rlend_tr
     INTEGER :: i_rlstart
@@ -236,16 +236,24 @@ CONTAINS
     REAL(wp)::   &                  !< unweighted tangential velocity
       &  z_real_vt(nproma,p_patch%nlev,p_patch%nblks_e)!< component at edges
 
-    TYPE(t_back_traj) :: btraj       ! backward trajectories for MIURA, MIURA_MCYCL
-    TYPE(t_back_traj) :: btraj_cycl  ! backward trajectories for subcycling
+    TYPE(t_back_traj) :: btraj      !< backward trajectories for MIURA, MIURA_MCYCL
+    TYPE(t_back_traj) :: btraj_cycl !< backward trajectories for subcycling
+
+    TYPE(t_trList), POINTER :: &    !< pointer to tracer sublist
+      &  trAdvect
 
     REAL(wp) :: z_dthalf            !< 0.5 * pdtime
     REAL(wp) :: z_dthalf_cycl       !< z_dthalf/nsubsteps
+
     !-----------------------------------------------------------------------
 
     ! get patch ID
     jg = p_patch%id
 
+    ! tracer fields which are advected
+    trAdvect => advection_config(jg)%trAdvect
+
+    ! 
     IF ( PRESENT(opt_rlend) ) THEN
       i_rlend = opt_rlend
     ELSE
@@ -380,7 +388,9 @@ CONTAINS
     !
     !*******************************************************************
 
-    DO jt = 1, ntracer ! Tracer loop
+    DO nt = 1, trAdvect%len ! Tracer loop
+
+      jt = trAdvect%list(nt)
 
       ! Select desired flux calculation method
       SELECT CASE( p_ihadv_tracer(jt) )

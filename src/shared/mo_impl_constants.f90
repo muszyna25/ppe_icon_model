@@ -372,7 +372,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: FFSL_HYB_MCYCL = 52
 
   ! identifier for vertical transport scheme
-  INTEGER, PARAMETER :: ino_vadv    = 0
+  INTEGER, PARAMETER :: NO_VADV     = 0
   INTEGER, PARAMETER :: iup_v       = 1
   INTEGER, PARAMETER :: ippm_vcfl   = 3
   INTEGER, PARAMETER :: ippm_v      = 30
@@ -630,6 +630,12 @@ MODULE mo_impl_constants
   !------------------------------------------------!
 
   REAL(WP), PARAMETER, PUBLIC :: BOUNDARY_MISSVAL = -999.e-10
+
+  !------------------------------------------------!
+  !  MISSING VALUE FOR NWP SEAICE ALBEDO           !
+  !------------------------------------------------!
+
+  REAL(wp), PARAMETER, PUBLIC :: ALB_SI_MISSVAL = -1._wp
 
   ! The lon-lat parameterization of the torus is 
   !    (lon,lat) = [0, 2*pi] x [-max_lat, max_lat]
