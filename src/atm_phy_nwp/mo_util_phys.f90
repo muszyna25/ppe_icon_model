@@ -962,7 +962,7 @@ CONTAINS
     IF (is_iau_active) THEN
 
       ! Diagnose pressure and temperature for subsequent calculations
-      CALL diag_temp (pt_prog, pt_prog_rcf, advection_config(jg)%ilist_hydroMass, pt_diag, &
+      CALL diag_temp (pt_prog, pt_prog_rcf, advection_config(jg)%trHydroMass%list, pt_diag, &
                       jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
       CALL diag_pres (pt_prog, pt_diag, p_metrics, jb, i_startidx, i_endidx, 1, nlev)
 

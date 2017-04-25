@@ -3765,6 +3765,12 @@ CONTAINS
         IF (this_list_element%field%info_dyn%tracer%lis_tracer) THEN
           CALL message('', 'Tracer field                                : yes.')
 
+          IF (this_list_element%field%info_dyn%tracer%lfeedback) THEN
+            CALL message('', 'Child-to-parent feedback                  : yes.')
+          ELSE
+            CALL message('', 'Child-to-parent feedback                  : no.')
+          ENDIF
+
           WRITE (message_text,'(a,3i3)') &
              'Horizontal transport method                 : ', &
              this_list_element%field%info_dyn%tracer%ihadv_tracer

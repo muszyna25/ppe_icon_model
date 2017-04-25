@@ -254,8 +254,7 @@ CONTAINS
     ENDIF
 
     ! condensate tracer IDs
-    condensate_list => advection_config(jg)%ilist_hydroMass
-
+    condensate_list => advection_config(jg)%trHydroMass%list
 
 
     IF ( lcall_phy_jg(itturb) .OR. lcall_phy_jg(itconv) .OR.           &
