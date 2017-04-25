@@ -35,7 +35,8 @@ MODULE mo_util_phys
   USE mo_model_domain,          ONLY: t_patch
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, nqtendphy, lart
+  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, iqni, ininact, &
+       &                              iqm_max, nqtendphy, lart
   USE mo_nh_diagnose_pres_temp, ONLY: diag_pres, diag_temp
   USE mo_ls_forcing_nml,        ONLY: is_ls_forcing
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
@@ -1033,15 +1034,26 @@ CONTAINS
       ENDDO
     ENDIF !lart
 
-    ! additional clipping for qr, qs 
+    ! additional clipping for qr, qs, ... up to iqm_max
     ! (very small negative values may occur during the transport process (order 10E-15)) 
-    DO jt=iqr, iqs  ! qr,qs
+    DO jt=iqr, iqm_max  ! qr,qs,etc. 
       DO jk = kstart_moist(jg), nlev
         DO jc = i_startidx, i_endidx
-          pt_prog_rcf%tracer(jc,jk,jb,jt) =MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt))
+          pt_prog_rcf%tracer(jc,jk,jb,jt) = MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt))
         ENDDO
       ENDDO
     ENDDO
+    
+    ! clipping for number concentrations
+    IF(ANY((/4,5,6/) == atm_phy_nwp_config(jg)%inwp_gscp))THEN
+      DO jt=iqni, ininact  ! qni,qnr,qns,qng,qnh,qnc and ninact (but not yet ninpot)
+        DO jk = kstart_moist(jg), nlev
+          DO jc = i_startidx, i_endidx
+            pt_prog_rcf%tracer(jc,jk,jb,jt) = MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt))
+          ENDDO          
+        ENDDO
+      ENDDO
+    END IF
 
     IF (atm_phy_nwp_config(jg)%lcalc_acc_avg) THEN
 
