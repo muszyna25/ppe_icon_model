@@ -379,7 +379,7 @@ CONTAINS
 !        ! (b) use standard filename
 !        WRITE(result_fnames(i)%filename_string,'(a,a)')         TRIM(cfilename),TRIM(fname_metadata%extn)
       ELSE
-        WRITE(result_fnames(i)%filename_string,'(a,a)')         TRIM(cfilename),TRIM(fname_metadata%extn)
+        WRITE(result_fnames(i)%filename_string,'(2a)') TRIM(cfilename),TRIM(fname_metadata%extn)
       ENDIF
 
       ! consistency check: test if the user has accidentally chosen a
