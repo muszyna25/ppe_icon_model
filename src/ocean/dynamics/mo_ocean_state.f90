@@ -46,7 +46,8 @@ MODULE mo_ocean_state
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
     &                               success, max_char_length, MIN_DOLIC,               &
     &                               full_coriolis, beta_plane_coriolis,                &
-    &                               f_plane_coriolis, zero_coriolis, halo_levels_ceiling
+    &                               f_plane_coriolis, zero_coriolis, halo_levels_ceiling, &
+    &                               TLEV_NNEW
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch,t_patch_3d, t_grid_cells, t_grid_edges
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, grid_sphere_radius, grid_angular_velocity, &
@@ -58,6 +59,7 @@ MODULE mo_ocean_state
   USE mo_var_list,            ONLY: add_var,                  &
     &                               new_var_list,             &
     &                               delete_var_list,          &
+    &                               get_timelevel_string,     &
     &                               default_var_list_settings,&
     &                               add_ref
   USE mo_var_metadata,        ONLY: groups 
@@ -388,7 +390,7 @@ CONTAINS
     ENDIF
 
     !-------------------------------------------------------------------------
-    WRITE(var_suffix,'(a,i2.2)') '_TL',timelevel
+    var_suffix = get_timelevel_string(timelevel)
     
     !-------------------------------------------------------------------------
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
@@ -396,10 +398,10 @@ CONTAINS
     
     ! height
     CALL add_var(ocean_restart_list, 'h'//TRIM(var_suffix), ocean_state_prog%h , &
-      & grid_unstructured_cell, za_surface,    &
+      & grid_unstructured_cell, za_surface,   &
       & t_cf_var('h'//TRIM(var_suffix), 'm', 'surface elevation at cell center', DATATYPE_FLT64),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/))
+      & ldims=(/nproma,alloc_cell_blocks/))!TODO, tlev_source=TLEV_NNEW)
     
     !! normal velocity component
     CALL add_var(ocean_restart_list,'vn'//TRIM(var_suffix),ocean_state_prog%vn,grid_unstructured_edge, &
@@ -1244,7 +1246,7 @@ CONTAINS
 
    CALL add_var(ocean_default_list,'vertical_mixing_coeff_GMRedi_implicit',&
    &ocean_state_diag%vertical_mixing_coeff_GMRedi_implicit,grid_unstructured_cell,&
-      & za_depth_below_sea, &
+      & za_depth_below_sea_half, &
       & t_cf_var('temp_insitu', 'm', 'vertical_mixing_coeff_GMRedi_implicit', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
