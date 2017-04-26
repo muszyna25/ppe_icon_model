@@ -973,7 +973,9 @@ dnl Check for byte ordering
 
 dnl Check for Fortran naming convention
 
+   m4_pushdef([lSystem],[[lSystem] | -ltcmalloc_minimal])dnl
    AC_FC_WRAPPERS
+   m4_popdef([lSystem])dnl
 
 fi # ! CROSS
 

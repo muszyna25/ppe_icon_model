@@ -5858,7 +5858,7 @@ fi
 fi
 	  ;;
 	  # Ignore these flags.
-	-lang* | -lcrt*.o | -lc | -lgcc* | -lSystem | -libmil | -little \
+	-lang* | -lcrt*.o | -lc | -lgcc* | -lSystem | -ltcmalloc_minimal | -libmil | -little \
 	  |-LANG:=* | -LIST:* | -LNO:* | -link)
 	  ;;
 	-lkernel32)
