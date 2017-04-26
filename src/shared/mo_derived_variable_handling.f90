@@ -29,6 +29,8 @@ MODULE mo_derived_variable_handling
   USE mtime, ONLY: MAX_DATETIME_STR_LEN, newEvent, event, isCurrentEventActive,&
     & newDatetime, datetime, eventToString, divideDatetimeDifferenceInSeconds, &
     & divisionquotientTimespan
+  USE mo_util_string, ONLY: int2string
+  USE mtime_datetime, ONLY: datetimeToString
   USE mo_output_event_types,  ONLY: t_sim_step_info
   USE mo_time_config,         ONLY: time_config
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64
@@ -175,7 +177,7 @@ CONTAINS
   !!
   SUBROUTINE finish_mean_stream()
 
-#ifdef DEBUG
+#ifdef DEBUG_MVSTREAM
     IF (my_process_is_stdio()) CALL print_summary('destruct mean stream variables')
 #endif
 
@@ -214,12 +216,15 @@ CONTAINS
     LOGICAL :: foundPrognostic
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::process_mean_stream"
 
-#ifdef DEBUG
+#ifdef DEBUG_MVSTREAM
     if (my_process_is_stdio()) call print_routine(routine,'start')
 #endif
 
     IF ("mean" .EQ. TRIM(p_onl%operation)) THEN
 
+#ifdef DEBUG_MVSTREAM
+      if (my_process_is_stdio()) call print_routine(routine,'found "mean" operation')
+#endif
       call meanStreamCrossCheck(p_onl)
 
       ntotal_vars = total_number_of_variables()
@@ -245,7 +250,7 @@ CONTAINS
 
       eventKey = get_event_key(p_onl)
 
-#ifdef DEBUG
+#ifdef DEBUG_MVSTREAM
       if (my_process_is_stdio()) call print_summary('eventKey:'//trim(eventKey))
 #endif
 
@@ -279,21 +284,26 @@ CONTAINS
         ! check for already create meanStream variable (maybe from another output_nml with the same output_interval)
         dest_element_name = get_accumulation_varname(varlist(i),p_onl)
 
-#ifdef DEBUG
-        if (my_process_is_stdio()) call print_summary('destination variable NAME:'//TRIM(dest_element_name))
+#ifdef DEBUG_MVSTREAM
+        if (my_process_is_stdio()) call print_summary('destination variable NAME:'//TRIM(dest_element_name),stderr=.true.)
 #endif
 
         dest_element => find_list_element(mean_stream_list, trim(dest_element_name))
         IF (.not. ASSOCIATED(dest_element) ) THEN !not found -->> create a new on
-          ! find existing source variable
-          src_element => find_element ( TRIM(varlist(i)),opt_hgrid=GRID_UNSTRUCTURED_CELL)
+          ! find existing source variable on all possible ICON grids
+          src_element => find_element ( TRIM(varlist(i)),opt_hgrid=GRID_UNSTRUCTURED_CELL,opt_caseInsensitive=.true.)
+          IF (.not. ASSOCIATED(src_element) ) &
+              & src_element => find_element ( TRIM(varlist(i)),opt_hgrid=GRID_UNSTRUCTURED_EDGE,opt_caseInsensitive=.true.)
+          IF (.not. ASSOCIATED(src_element) ) &
+              & src_element => find_element ( TRIM(varlist(i)),opt_hgrid=GRID_UNSTRUCTURED_VERT,opt_caseInsensitive=.true.)
+
           IF (.not. ASSOCIATED (src_element)) THEN
             ! try to find timelevel variables 
             foundPrognostic = .false.
             timelevels = (/nold(1),nnow(1),nnew(1)/)
             do timelevel=1,3
 
-#ifdef DEBUG
+#ifdef DEBUG_MVSTREAM
               if (my_process_is_stdio()) call print_error(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
 #endif
               src_element => find_element(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
@@ -310,21 +320,25 @@ CONTAINS
             call finish(routine,'Could not find source variable:'//TRIM(varlist(i)))
           END IF
 
-#ifdef DEBUG
-          if (my_process_is_stdio()) CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|')
-          if (my_process_is_stdio()) CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|')
-          if (my_process_is_stdio()) CALL print_summary('new name      :|'//trim(dest_element_name)//'|')
-#endif
-
           ! add new variable, copy the meta-data from the existing variable
           ! 1. copy the source variable to destination pointer
           dest_element => copy_var_to_list(mean_stream_list,dest_element_name,src_element, patch_2d)
 
+#ifdef DEBUG_MVSTREAM
+          if (my_process_is_stdio()) CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|',stderr=.true.)
+          if (my_process_is_stdio()) CALL print_summary('src(grid)     :|'//int2string(src_element%field%info%hgrid)//'|', &
+              & stderr=.true.)
+          if (my_process_is_stdio()) CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|',stderr=.true.)
+          if (my_process_is_stdio()) CALL print_summary('new name      :|'//trim(dest_element_name)//'|',stderr=.true.)
+          if (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(dest_element%field%info%hgrid)//'|',&
+              & stderr=.true.)
+#endif
+
           ! set output to double precission if necessary
           dest_element%field%info%cf%datatype = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
 
-#ifdef DEBUG
-          if ( my_process_is_stdio()) print *,'copy_varr_to_list successfully CALLED'
+#ifdef DEBUG_MVSTREAM
+          if ( my_process_is_stdio()) write (0,*) 'copy_varr_to_list successfully CALLED'
 #endif
           ! 2. update the nc-shortname to internal name of the source variable
           dest_element%field%info%cf%short_name = get_var_name(src_element%field)
@@ -335,9 +349,11 @@ CONTAINS
           CALL meanVarCounter%add(dest_element%field%info%name,0)
 
         ! replace existince varname in output_nml with the meanStream Variable
-#ifdef DEBUG
-          if ( my_process_is_stdio()) CALL print_summary('dst(name)     :|'//trim(dest_element%field%info%name)//'|')
-          if ( my_process_is_stdio()) CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_name)//'|')
+#ifdef DEBUG_MVSTREAM
+          if ( my_process_is_stdio()) CALL print_summary('dst(name)     :|'//trim(dest_element%field%info%name)//'|',&
+              & stderr=.true.)
+          if ( my_process_is_stdio()) CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_name)//'|',&
+              & stderr=.true.)
 #endif
         END IF
         in_varlist(i) = trim(dest_element%field%info%name)
@@ -345,11 +361,13 @@ CONTAINS
 
       call meanMap%add(eventKey,meanVariables)
     ELSE
-      RETURN
+#ifdef DEBUG_MVSTREAM
+      if (my_process_is_stdio()) call print_routine(routine,'NO "mean" operation found',stderr=.true.)
+#endif
     END IF
 
-#ifdef DEBUG
-    if (my_process_is_stdio()) call print_routine(routine,'end')
+#ifdef DEBUG_MVSTREAM
+    if (my_process_is_stdio()) call print_routine(routine,'end',stderr=.true.)
 #endif
 
   END SUBROUTINE process_mean_stream
@@ -370,8 +388,8 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::copy_var_to_list"
 
     dataType = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
-#ifdef DEBUG
-call print_summary("COPY variable:"//TRIM(name))
+#ifdef DEBUG_MVSTREAM
+    call print_summary("COPY variable:"//TRIM(name),stderr=.true.)
 #endif
     CALL add_var(source_element%field%info%ndims, &
       & REAL_T, &
@@ -498,13 +516,14 @@ call print_summary("COPY variable:"//TRIM(name))
     logical :: isactive
     integer :: varcounter
     integer :: timelevel
-
-    TYPE(divisionquotienttimespan) :: quot
+#ifdef DEBUG_MVSTREAM
+    character(len=max_datetime_str_len) :: datetimestring
+#endif
 
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::perform_accumulation"
 
-#ifdef DEBUG
-    if (my_process_is_stdio()) call print_routine(routine,'start')
+#ifdef DEBUG_MVSTREAM
+    if (my_process_is_stdio()) call print_routine(routine,'start',stderr=.true.)
 #endif
 
     meanMapIterator   = meanMap%iter()
@@ -515,8 +534,9 @@ call print_summary("COPY variable:"//TRIM(name))
     isactive   = .false.
     mtime_date => newDatetime(time_config%tc_current_date)
 
-#ifdef DEBUG
-    if (my_process_is_stdio()) call print_summary('Current mtime timestamp:'//trim(mtime_cur_datetime))
+#ifdef DEBUG_MVSTREAM
+    CALL datetimeToString(mtime_date, datetimestring)
+    if (my_process_is_stdio()) call print_summary('Current mtime timestamp:'//trim(datetimestring),stderr=.true.)
 #endif
 
     ! Save results for (not so much) later
@@ -533,8 +553,8 @@ call print_summary("COPY variable:"//TRIM(name))
       end select
     end do
 
-#ifdef DEBUG
-    if (my_process_is_stdio()) call print_error(meanEventsActivity%to_string())
+#ifdef DEBUG_MVSTREAM
+    if (my_process_is_stdio()) call print_error(meanEventsActivity%to_string(),stderr=.true.)
 #endif
     ! }}}
 
@@ -546,17 +566,16 @@ call print_summary("COPY variable:"//TRIM(name))
         meanEventKey        => myItem%key
         varListForMeanEvent => myItem%value
 
-#ifdef DEBUG
-        if (my_process_is_stdio()) call print_summary(object_pointer_string(meanEventKey)//"PERFORM ACCU") !TODO
+#ifdef DEBUG_MVSTREAM
+        if (my_process_is_stdio()) call print_summary(object_pointer_string(meanEventKey)//"PERFORM ACCU",stderr=.true.) !TODO
 #endif
 
         select type(varListForMeanEvent)
         class is (vector_ref)
-      !IF ( my_process_is_stdio() ) write(0,*)'type: vector' !TODO
           do element_counter=1,varListForMeanEvent%length(),2
 
-#ifdef DEBUG
-          if (my_process_is_stdio()) call print_routine("perform_accumulation",object_string(element_counter))
+#ifdef DEBUG_MVSTREAM
+          if (my_process_is_stdio()) call print_routine("perform_accumulation",object_string(element_counter),stderr=.true.)
 #endif
 
             sourceVariable      => varListForMeanEvent%at(element_counter)
@@ -574,9 +593,9 @@ call print_summary("COPY variable:"//TRIM(name))
                     ! output? if true, theses variables should be used for
                     ! accumulation, too
 
-#ifdef DEBUG
+#ifdef DEBUG_MVSTREAM
                     if (my_process_is_stdio()) &
-                      & call print_error("show meanPrognostic:"//TRIM(destinationVariable%field%info%name))
+                      & call print_error("show meanPrognostic:"//TRIM(destinationVariable%field%info%name),stderr=.true.)
 #endif
 
                     timelevel =  metainfo_get_timelevel(destinationVariable%field%info, 1)
@@ -591,10 +610,13 @@ call print_summary("COPY variable:"//TRIM(name))
                   select type (counter)
                   type is (integer)
 
-#ifdef DEBUG
-                    IF ( my_process_is_stdio() ) call print_summary('sourceName : '//trim(source%field%info%name))
-                    IF ( my_process_is_stdio() ) call print_summary('destName   : '//trim(destination%field%info%name))
-                    IF ( my_process_is_stdio() ) call print_summary('destNameOut: '//trim(destination%field%info%cf%short_name))
+#ifdef DEBUG_MVSTREAM
+                    IF ( my_process_is_stdio() ) call print_summary('sourceName : '//trim(source%field%info%name),&
+                        &stderr=.true.)
+                    IF ( my_process_is_stdio() ) call print_summary('destName   : '//trim(destination%field%info%name),&
+                        & stderr=.true.)
+                    IF ( my_process_is_stdio() ) call print_summary('destNameOut: '//trim(destination%field%info%cf%short_name),&
+                        &stderr=.true.)
                     IF ( my_process_is_stdio() ) write (0,*)'old counter: ',counter
 #endif
 
@@ -603,7 +625,7 @@ call print_summary("COPY variable:"//TRIM(name))
                     CALL accumulation_add(source, destination, varcounter)
                     counter = varcounter
                     ! }}}
-#ifdef DEBUG
+#ifdef DEBUG_MVSTREAM
                     IF ( my_process_is_stdio() )  write (0,*)'new counter: ',counter
 #endif
 
@@ -617,8 +639,8 @@ call print_summary("COPY variable:"//TRIM(name))
                     isactive = eventActive
                     if ( isactive ) then
 
-#ifdef DEBUG
-                    if (my_process_is_stdio()) CALL print_summary(" --> PERFORM MEAN VALUE COMP!!!!")
+#ifdef DEBUG_MVSTREAM
+                    if (my_process_is_stdio()) CALL print_summary(" --> PERFORM MEAN VALUE COMP!!!!",stderr=.true.)
 #endif
 
                       counter => meanVarCounter%get(destination%field%info%name)
@@ -643,7 +665,7 @@ call print_summary("COPY variable:"//TRIM(name))
       end select 
     end do
 
-#ifdef DEBUG
+#ifdef DEBUG_MVSTREAM
     if (my_process_is_stdio()) call print_routine(routine,'finish')
 #endif
 
@@ -663,7 +685,7 @@ call print_summary("COPY variable:"//TRIM(name))
 
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::reset_accumulation"
 
-#ifdef DEBUG
+#ifdef DEBUG_MVSTREAM
     if (my_process_is_stdio()) call print_routine(routine,'start')
 #endif
 
@@ -671,8 +693,8 @@ call print_summary("COPY variable:"//TRIM(name))
 
     do while (meanMapIterator%next(myItem))
 
-#ifdef DEBUG
-      if (my_process_is_stdio()) call print_error("started event loop")
+#ifdef DEBUG_MVSTREAM
+      if (my_process_is_stdio()) call print_error("started event loop",stderr=.true.)
 #endif
       select type (myItem)
       type is (map_item)
@@ -687,68 +709,69 @@ call print_summary("COPY variable:"//TRIM(name))
 
             destinationVariable => varListForMeanEvent%at(element_counter+1)
 
-#ifdef DEBUG
-            if (my_process_is_stdio()) call print_error("got destinationVariable")
+#ifdef DEBUG_MVSTREAM
+            if (my_process_is_stdio()) call print_error("got destinationVariable",stderr=.true.)
 #endif
 
             if (associated(destinationVariable)) then
 
-#ifdef DEBUG
-            if (my_process_is_stdio()) call print_error("    destinationVariable is associated")
+#ifdef DEBUG_MVSTREAM
+            if (my_process_is_stdio()) call print_error("    destinationVariable is associated",stderr=.true.)
 #endif
 
               select type (destinationVariable)
               type is (t_list_element)
                   destination => destinationVariable
 
-#ifdef DEBUG
-                  if (my_process_is_stdio()) call print_error("    destinationVariable is t_list_element")
+#ifdef DEBUG_MVSTREAM
+                  if (my_process_is_stdio()) call print_error("    destinationVariable is t_list_element",stderr=.true.)
 #endif
 
                   eventActive => meanEventsActivity%get(meanEventKey)
 
-#ifdef DEBUG
+#ifdef DEBUG_MVSTREAM
                   if (.not.associated(eventActive)) then
-                    if (my_process_is_stdio()) call print_error("       eventActive not associated")
+                    if (my_process_is_stdio()) call print_error("       eventActive not associated",stderr=.true.)
                   end if
 #endif
 
                   select type (eventActive)
                   type is (logical)
 
-#ifdef DEBUG
-                    if (my_process_is_stdio()) call print_error("       eventActive is logical")
+#ifdef DEBUG_MVSTREAM
+                    if (my_process_is_stdio()) call print_error("       eventActive is logical",stderr=.true.)
 #endif
 
                     if ( LOGICAL(eventActive) ) then
 
-#ifdef DEBUG
-                      if (my_process_is_stdio()) call print_error("       eventActive is true")
-                      if (my_process_is_stdio()) call print_error(object_string(meanEventKey)//' : --> PERFORM RESET')
+#ifdef DEBUG_MVSTREAM
+                      if (my_process_is_stdio()) call print_error("       eventActive is true",stderr=.true.)
+                      if (my_process_is_stdio()) call print_error(object_string(meanEventKey)//' : --> PERFORM RESET',&
+                          & stderr=.true.)
 #endif
 
                       destination%field%r_ptr = 0.0_wp
-#ifdef DEBUG
+#ifdef DEBUG_MVSTREAM
                     else
-                      if (my_process_is_stdio()) call print_error("       eventActive is false")
+                      if (my_process_is_stdio()) call print_error("       eventActive is false",stderr=.true.)
 #endif
                     end if
                   class default
-                      if (my_process_is_stdio()) call print_error("       eventActive has wrong type")
+                      if (my_process_is_stdio()) call print_error("       eventActive has wrong type",stderr=.true.)
                   end select
               class default
-                  if (my_process_is_stdio()) call print_error("     destinationVariable is not t_list_element")
+                  if (my_process_is_stdio()) call print_error("     destinationVariable is not t_list_element",stderr=.true.)
               end select
             else
-              if (my_process_is_stdio()) call print_error(routine//TRIM(": cannot find destination variable!"))
+              if (my_process_is_stdio()) call print_error(routine//TRIM(": cannot find destination variable!"),stderr=.true.)
             end if
           end do
         end select 
       end select 
     end do
 
-#ifdef DEBUG
-    if (my_process_is_stdio()) call print_routine(routine,'finish')
+#ifdef DEBUG_MVSTREAM
+    if (my_process_is_stdio()) call print_routine(routine,'finish',stderr=.true.)
 #endif
 
   END SUBROUTINE reset_accumulation
