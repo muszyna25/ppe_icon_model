@@ -52,7 +52,7 @@ case "$fortran_compiler" in
         FOPTIONS    = $FCPP $FLANG $FWARN $FDEBUG $FCHECK
         FOTPTIM     = -march=native -O3 -ffast-math -D__LOOP_EXCHANGE
 
-        DEBUG_FLAGS = -g -fbacktrace -fbounds-check -fstack-protector-all $FCHECK
+        DEBUG_FLAGS = -g -fbacktrace -fbounds-check -fstack-protector-all $FCHECK -DDEBUG_MVSTREAM
         STD_FLAGS   = -march=native -O2 -mpc64 $DEBUG_FLAGS -D__LOOP_EXCHANGE 
         HIOPT_FLAGS = -march=native -O3 -ffast-math -mpc64 -D__LOOP_EXCHANGE -g
 
