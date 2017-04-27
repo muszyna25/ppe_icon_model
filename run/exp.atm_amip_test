@@ -386,6 +386,7 @@ if [[ "$output_atm_cgrid" == "yes" ]]; then
  output_filename  = "${EXPNAME}_atm_cgrid"
  filename_format  = "<output_filename>_<levtype_l>"
  remap            = 0
+ operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"       ! output_start = output_end
  output_end       = "${start_date}"       ! --> write once only irrespective of
@@ -406,6 +407,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_filename  = "${EXPNAME}_atm_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
+ operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
@@ -432,6 +434,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_filename  = "${EXPNAME}_atm_2d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
+ operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
@@ -470,6 +473,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_filename  = "${EXPNAME}_phy_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
+ operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
@@ -503,6 +507,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
  output_filename  = "${EXPNAME}_trc_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
+ operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
@@ -558,6 +563,7 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_filename  = "${EXPNAME}_lnd"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
+ operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
