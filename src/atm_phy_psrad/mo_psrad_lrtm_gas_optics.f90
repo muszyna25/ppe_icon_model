@@ -140,14 +140,14 @@ MODULE mo_psrad_lrtm_gas_optics
 
 CONTAINS
 
-  SUBROUTINE gas_optics_lw(kbdim, klev, play, &
+  SUBROUTINE gas_optics_lw(kproma, kbdim, klev, play, &
     wx, coldry, laytrop, jp1, iabs, gases, colbrd, &
     fac, reaction_ratio, &
     h2o_factor, h2o_fraction, h2o_index, &
-    minorfrac, scaleminor, scaleminorn2, indminor, fracs, tau)
+    minorfrac, scaleminor, scaleminorn2, indminor, fracs_ret, tau_ret)
 
-    INTEGER, INTENT(in) :: kbdim, klev 
-    INTEGER, INTENT(in) :: laytrop(KBDIM), & ! tropopause layer index
+    INTEGER, INTENT(in) :: kproma, kbdim, klev 
+    INTEGER, INTENT(in) :: laytrop(kproma), & ! tropopause layer index
       iabs(KBDIM,2,2,klev)
     REAL(wp), DIMENSION(KBDIM,klev,2), INTENT(IN) :: h2o_factor,h2o_fraction
     INTEGER, DIMENSION(KBDIM,klev,2), INTENT(IN) :: h2o_index
@@ -167,14 +167,13 @@ CONTAINS
 
     ! Output arrays have size (klev)
     REAL(wp), DIMENSION(KBDIM,klev,ngptlw), INTENT(OUT) :: &
-      fracs, & ! planck fractions
-      tau ! gaseous optical depth 
+      fracs_ret, & ! planck fractions
+      tau_ret ! gaseous optical depth 
 
     INTEGER :: gpt, lay
     INTEGER :: atm_range(2,2), merge_range(2)
     LOGICAL :: must_merge
 
-    fracs = 0
     merge_range = (/minval(laytrop), maxval(laytrop)/)
     must_merge = merge_range(1) < merge_range(2)
     IF (must_merge) THEN
@@ -188,20 +187,16 @@ CONTAINS
         merge_range(1)+1, klev/), SHAPE=(/2,2/))
     END IF
 
-    CALL do_atmosphere(1, atm_range(:,1), tau, fracs)
-    CALL do_atmosphere(2, atm_range(:,2), tau, fracs)
+    CALL do_atmosphere(1, atm_range(:,1), tau_ret, fracs_ret)
+    CALL do_atmosphere(2, atm_range(:,2), tau_ret, fracs_ret)
     IF (must_merge) THEN
       CALL do_atmosphere(2, merge_range, tau_upper, fracs_upper)
       DO gpt = 1,ngptlw
       DO lay = merge_range(1),merge_range(2)
-        tau(:,lay,gpt) = MERGE(&
-          tau_upper(:,lay,gpt), &
-          tau(:,lay,gpt), &
-          laytrop(:) < lay)
-        fracs(:,lay,gpt) = MERGE( &
-          fracs_upper(:,lay,gpt), &
-          fracs(:,lay,gpt), &
-          laytrop(:) < lay)
+        WHERE (laytrop(:) < lay)
+          tau_ret(:,lay,gpt) = tau_upper(:,lay,gpt)
+          fracs_ret(:,lay,gpt) = fracs_upper(:,lay,gpt)
+        END WHERE
       END DO
       END DO
     END IF

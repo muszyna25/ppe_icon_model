@@ -210,7 +210,7 @@ CONTAINS
       !  Loop over g-points calculating gas optical properties. 
 !IBM* ASSERT(NODEPS)
     wx_loc(:,:,:) = 1.e-20_wp * wx(:,:,:)
-    CALL gas_optics_lw(KBDIM, klev, play, wx_loc, &
+    CALL gas_optics_lw(kproma, KBDIM, klev, play, wx_loc, &
       coldry, laytrop, jp1, iabs, gases, colbrd, fac, ratio, &
       h2o_factor, h2o_fraction, h2o_index, &
       minorfrac, scaleminor, scaleminorn2, indminor,fracs,taug)

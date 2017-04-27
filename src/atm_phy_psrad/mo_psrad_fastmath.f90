@@ -37,8 +37,12 @@ CONTAINS
     ! Default calculation is unstable (NaN) for the very lowest value 
     ! of tau (3.6e-4) 
     INV_EXPON(x(1:n),y(1:n))
-    tautrans(1:n)= MERGE(1._wp - 2._wp*(1._wp/x(1:n) - y(1:n)/(1._WP-y(:))), & 
-      x * rec_6, x > 1.E-3_wp)
+    WHERE (x > 1.E-3_wp)
+      tautrans = 1._wp - 2._wp*(1._wp/x - y/(1._wp-y))
+    ELSEWHERE
+      tautrans = x * rec_6
+    END WHERE
+  
   END FUNCTION tautrans
 
 END MODULE mo_psrad_fastmath
