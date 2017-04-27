@@ -240,7 +240,7 @@ CONTAINS
     IF (iforcing == inwp) THEN
       CALL construct_nwp_phy_state( p_patch(1:), l_rh, l_pv )
       CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
-      CALL compute_ensemble_pert  ( p_patch(1:), ext_data, prm_diag)
+      CALL compute_ensemble_pert  ( p_patch(1:), ext_data, prm_diag, time_config%tc_current_date)
     END IF
 
 #ifdef MESSY

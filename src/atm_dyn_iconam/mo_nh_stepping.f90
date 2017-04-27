@@ -83,6 +83,7 @@ MODULE mo_nh_stepping
     &                                    timer_integrate_nh, timer_nh_diagnostics,        &
     &                                    timer_iconam_echam
   USE mo_atm_phy_nwp_config,       ONLY: dt_phy, atm_phy_nwp_config, iprog_aero
+  USE mo_ensemble_pert_config,     ONLY: compute_ensemble_pert, use_ensemble_pert
   USE mo_nwp_phy_init,             ONLY: init_nwp_phy, init_cloud_aero_cpl
   USE mo_nwp_phy_state,            ONLY: prm_diag, prm_nwp_tend, phy_params
   USE mo_lnd_nwp_config,           ONLY: nlev_soil, nlev_snow, sstice_mode
@@ -814,6 +815,11 @@ MODULE mo_nh_stepping
         CALL message('perform_nh_timeloop', TRIM(message_text))
       ENDIF
     ENDDO
+
+    ! Update time-dependent ensemble perturbations if necessary
+    IF (use_ensemble_pert) THEN
+      CALL compute_ensemble_pert(p_patch(1:), ext_data, prm_diag, mtime_current)
+    ENDIF
 
     ! update model date and time mtime based
     mtime_current = mtime_current + model_time_step
