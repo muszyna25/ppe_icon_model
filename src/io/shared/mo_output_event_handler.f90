@@ -2486,8 +2486,7 @@ CONTAINS
     ! count the number of request handles
     ev   =>  event
     nreq = 0
-    DO
-      IF (.NOT. ASSOCIATED(ev)) EXIT
+    DO WHILE (ASSOCIATED(ev))
       IF (ALLOCATED(ev%irecv_req)) nreq = nreq + ev%irecv_nreq
       ev => ev%next
     END DO
@@ -2501,8 +2500,7 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     ev   =>  event
     ireq = 1
-    DO
-      IF (.NOT. ASSOCIATED(ev)) EXIT
+    DO WHILE (ASSOCIATED(ev))
       IF (ALLOCATED(ev%irecv_req)) &
         irecv_req(ireq:(ireq+ev%irecv_nreq-1)) = ev%irecv_req(1:ev%irecv_nreq)
       ireq = ireq + ev%irecv_nreq
@@ -2517,8 +2515,7 @@ CONTAINS
 
     ! clear the request handles
     ev => event
-    DO
-      IF (.NOT. ASSOCIATED(ev)) EXIT
+    DO WHILE (ASSOCIATED(ev))
       IF (ALLOCATED(ev%irecv_req)) &
         ev%irecv_req(:) = MPI_REQUEST_NULL
       ev => ev%next
