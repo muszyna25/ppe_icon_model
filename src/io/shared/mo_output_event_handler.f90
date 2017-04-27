@@ -661,8 +661,8 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     n_event_steps                    = 0
     p_event%i_event_step             = 1
-    p_event%event_data%name          = TRIM(name)
-    p_event%event_data%sim_start     = TRIM(sim_step_info%sim_start)
+    p_event%event_data%name          = name
+    p_event%event_data%sim_start     = sim_step_info%sim_start
 
     ! count the number of different time intervals for this event (usually 1)
     nintvls = 0
