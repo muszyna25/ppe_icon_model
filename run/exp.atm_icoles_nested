@@ -297,6 +297,22 @@ lsq_high_ord      = 2
  output_interval  = "PT30S"
  file_interval    = "PT30S"
  include_last     = .TRUE.
+ output_filename  = '${EXPNAME}_prog_vars_remap'
+ remap 						= 1
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qni','qnr','qns','qng','qnh','u','v','w','temp','pres'
+ !ml_varlist       = 'qv','qc','qi','qr','qs','u','v','w','temp','pres'
+ output_grid      = .TRUE.
+ reg_lon_def      = 7,0.25,12
+ reg_lat_def      = 49,0.2,53
+
+/
+&output_nml
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT30S"
+ file_interval    = "PT30S"
+ include_last     = .TRUE.
  output_filename  = '${EXPNAME}_pbl_vars'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
  ml_varlist       = 'group:pbl_vars','umfl_s','vmfl_s'
