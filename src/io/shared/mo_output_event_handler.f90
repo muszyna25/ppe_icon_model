@@ -375,9 +375,9 @@ CONTAINS
     END IF
 
     IF (check_write_readyfile(event)) THEN
-      WRITE (dst,'(a,a,a)') 'output "', TRIM(event%event_data%name), '", writes ready files:'
+      WRITE (dst,'(3a)') 'output "', TRIM(event%event_data%name), '", writes ready files:'
     ELSE
-      WRITE (dst,'(a,a,a)') 'output "', TRIM(event%event_data%name), '", does not write ready files:'
+      WRITE (dst,'(3a)') 'output "', TRIM(event%event_data%name), '", does not write ready files:'
     END IF
 #ifdef __SX__
     IF (dst == 0) THEN
