@@ -1187,11 +1187,8 @@ CONTAINS
     NULLIFY(p_event%next)
 
     ! count the number of different time intervals for this event (usually 1)
-    nintvls = 0
-    DO
-      IF (TRIM(begin_str(nintvls+1)) == '') EXIT
-      nintvls = nintvls + 1
-      IF (nintvls == MAX_TIME_INTERVALS) EXIT
+    DO nintvls = 0, MAX_TIME_INTERVALS-1
+      IF (LEN_TRIM(begin_str(nintvls+1)) == 0) EXIT
     END DO
 
     ! create the local (non-parallel) output event data structure:
