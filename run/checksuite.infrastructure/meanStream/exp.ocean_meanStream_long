@@ -50,6 +50,9 @@ cat > ${ocean_namelist} << EOF
 &dynamics_nml
  iequations           = -1           ! -1: hydrost. ocean model
 /
+&io_nml
+  lnetcdf_flt64_output = .TRUE.
+/
 &run_nml
  modelTimeStep        = "${modelTimeStep}"       ! model timestep in seconds
  output               = 'nml'        ! namelist controlled output scheme
