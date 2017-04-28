@@ -354,7 +354,7 @@ CONTAINS
       tune_ozone_lat    = 45._wp   ! tuning is applied at low latitudes only
       tune_ozone_maxinc = 2.e-6_wp ! maximum absolute change of O3 mixing ratio
                                    ! this value is about 12% of the climatological maximum in the tropics
-    CASE (79) ! Blending between GEMS and MACC climatologies
+    CASE (79,97) ! Blending between GEMS and MACC climatologies
       CALL message(TRIM(routine), 'Use blending between GEMS and MACC ozone climatologies with tuning')
       ltuning_ozone     = .TRUE.
       tune_ozone_ztop   = 27000.0_wp

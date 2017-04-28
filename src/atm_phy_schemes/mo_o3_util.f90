@@ -1040,7 +1040,7 @@ CONTAINS
           zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
         ENDDO
       ENDDO
-    CASE (79) ! blending between GEMS and MACC
+    CASE (79,97) ! blending between GEMS and MACC
 
       ! Latitude-dependent weight for using MACC in the Antarctic region
       DO jl = 1, ilat
@@ -1053,16 +1053,20 @@ CONTAINS
         ENDIF
       ENDDO
 
-      ! Pressure-dependent weight for using MACC in the upper stratosphere and mesosphere
-      DO jk = 1, nlev_gems
-        IF (zrefp(jk) > 500._wp) THEN
-          wfac_p(jk) = 0._wp
-        ELSE IF (zrefp(jk) > 100._wp) THEN
-          wfac_p(jk) = 1._wp - (zrefp(jk)-100._wp)/400._wp
-        ELSE
-          wfac_p(jk) = 1._wp
-        ENDIF
-      ENDDO
+      IF (irad_o3 == 97) THEN
+        ! Pressure-dependent weight for using MACC in the upper stratosphere and mesosphere
+        DO jk = 1, nlev_gems
+          IF (zrefp(jk) > 500._wp) THEN
+            wfac_p(jk) = 0._wp
+          ELSE IF (zrefp(jk) > 100._wp) THEN
+            wfac_p(jk) = 1._wp - (zrefp(jk)-100._wp)/400._wp
+          ELSE
+            wfac_p(jk) = 1._wp
+          ENDIF
+        ENDDO
+      ELSE
+        wfac_p(:) = 0._wp
+      ENDIF
 
       ! Latitude mask field for tropics (used for ozone enhancement in January and February)
       DO jl = 1, ilat
