@@ -844,56 +844,78 @@ end
 #
 #end# }}}
 
-class MeanAnalyzer
+class DataAnalyzer
+  TIMES2COMPARE = {
+    'meanEachTimeStep' => [{:ref => 'all', :mean => 'all'}],
+    'meanEachSecondTimeStep' => [
+      { :ref => '2,3', :mean => '2'},
+      { :ref => '4,5', :mean => '3'},
+      { :ref => '6,7', :mean => '4'},
+    ],
+    'meanEachThirdTimeStep' => [
+      { :ref => '2,3,4', :mean => '2'},
+      { :ref => '5,6,7', :mean => '3'},
+    ],
+    'meanEachForthTimeStep' => [
+      { :ref => '2,3,4,5', :mean => '2'},
+    ]
+  }
   def initialize(spotFile,meanFile,meanPeriod,varname=nil)
-    @spotFile = spotFile
-    @meanFile = meanFile
+    @spotFile   = spotFile
+    @meanFile   = meanFile
     @meanPeriod = meanPeriod
-    @varname = varname
+    @varname    = varname
+    @cdo        = Cdo.new
 
     # ensure that only valid perids are given
-    unless @times2Compare.keys.include?(@meanPeriod) then
-      warn "unknown time mean period given"
-      warn "Use one of #{@times2Compare.keys.join(' ')} if possible!"
+    unless TIMES2COMPARE.keys.include?(@meanPeriod) then
+      warn "Unknown time mean period given:#@meanPeriod!"
+      warn "Use one of #{TIMES2COMPARE.keys.join(' ')} if possible!"
       exit(1)
     end
   end
+end
+class MeanAnalyzer < DataAnalyzer
   def run
     puts "Compare mean file #@meanFile with spot file #@spotFile".colorize(:color => :blue, :background => :white)
     puts "\t #{@meanPeriod}".colorize(:color => :blue, :background => :white)
 
     # loop over all input variables
     if @varname.nil? then
-      varlist = @cdo.showname(:input => @spotFile, :autoSplit => true)
+      varlist = @cdo.showname(:input => @spotFile, :autoSplit => ' ')
     else
       varlist = [@varname]
     end
 
-    Parallel.each(varlist) {|varname|
-      @times2Compare[@meanPeriod].each {|timeStepPairs|# list of timestep relations
-        timeStepPairs.each {|timeStepPair|
+    pp varlist
+
+    #Parallel.each(varlist) {|varname|
+    varlist.each {|varname|
+      TIMES2COMPARE[@meanPeriod].each {|timeStepPair|# list of timestep relations
+        pp timeStepPair
           s = "\t\tref tstep:#{timeStepPair[:ref]} | mean tstep:#{timeStepPair[:mean]}".colorize(:color => :blue, :background => :white)
-          #@cdo.debug = true
+
+          timeSelectionRef  = "-seltimestep,#{timeStepPair[:ref]}"
+          timeSelectionMean = "-seltimestep,#{timeStepPair[:mean]}"
+
           diff = @cdo.diffv(input: [
-            "-timmean -seltimestep,#{timeStepPair[:ref]}  -selname,#{varname} #{@spotFile}",
-            "         -seltimestep,#{timeStepPair[:mean]} -selname,#{varname} #{@meanFile}"
+            "-timmean #{timeSelectionRef}  -selname,#{varname} #{@spotFile}",
+            "         #{timeSelectionMean} -selname,#{varname} #{@meanFile}"
           ].join(' '),:options => '-s')
           diffFile = @cdo.sub(input: [
-            "-timmean -seltimestep,#{timeStepPair[:ref]}  -selname,#{varname} #{@spotFile}",
-            "         -seltimestep,#{timeStepPair[:mean]} -selname,#{varname} #{@meanFile}"
+            "-timmean #{timeSelectionRef}  -selname,#{varname} #{@spotFile}",
+            "         #{timeSelectionMean} -selname,#{varname} #{@meanFile}"
           ].join(' '),:returnArray => varname,
           :options => '-s',
-          :output => [period, varname, File.basename(regularFile)].map(&:to_s).join('_'))
+          :output => [@meanPeriod, varname, File.basename(@spotFile)].map(&:to_s).join('_'))
 
           unless diff.empty? then
-            puts ["\n",s,varname.colorize(:red),
-                  "\t#{diff[1..-2].join("\n\t")}".colorize(:yellow),
-                  "\t"].join("\n")
+            puts ["\n",s,varname.colorize(:red), "\t#{diff[1..-2].join("\n\t")}".colorize(:yellow), "\t"].join("\n")
           else
             print "#{varname} ".colorize(:green)
           end
         }
-      }
+#     }
     }
   end
 end
@@ -904,10 +926,11 @@ def getMeanAndSpotFiles(dir,periods=@defaultPeriodsIDs)
   spotIDs = @defaultPeriodsIDs.values_at(*@defaultPeriodsIDs.keys.grep(/spot/))
   meanIDs = @defaultPeriodsIDs.values_at(*@defaultPeriodsIDs.keys.grep(/mean/))
 
+  reversePeriodIDs = Hash[@defaultPeriodsIDs.to_a.map(&:reverse)]
   dbg([meanIDs,spotIDs])
 
   experimentName = File.expand_path(dir).split(File::SEPARATOR).last
-  allFiles = Dir.glob("#{dir}/#{experimentName}*nc")
+  allFiles       = Dir.glob("#{dir}/#{experimentName}*nc")
   dbg(allFiles)
 
   spotFiles = allFiles.find_all {|f| spotIDs.map {|spotID| f.match(spotID).nil?}.include?(false) or f.include?('_restart_')}
@@ -923,8 +946,8 @@ def getMeanAndSpotFiles(dir,periods=@defaultPeriodsIDs)
       spotFile = fileTags.reduce(spotFiles) {|memo,item|
         md = memo.grep(/#{item}/)
         md.nil? ? memo : md
-      }
-      (result[meanID] ||= [] ) << {mean: meanFile, spot: spotFile}
+      }.first
+      (result[reversePeriodIDs[meanID]] ||= [] ) << {mean: meanFile, spot: spotFile}
     }
   }
   result
@@ -933,7 +956,14 @@ desc "check general mean value: compare online and offline time avg"
 task :checkMeanStream, :dir, :what, :variable do |t,args|
 
   # collect all output files
-  ap getMeanAndSpotFiles(args.dir)
+  getMeanAndSpotFiles(args.dir).each {|period,filelist|
+    filelist.each {|files|
+      unless 'meanEachTimeStep' == period then
+        analyzer = MeanAnalyzer.new(files[:spot],files[:mean],period)
+        analyzer.run
+      end
+    }
+  }
   #
   # compare spot values with timemean over a single model timestep:
   # -> should be identical
