@@ -16,9 +16,11 @@ checkpoint_interval="P10Y"
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
 daily="P1D"
-output_interval="PT01H"
 file_interval="P1Y"
 modelTimeStep="PT1H"
+modelTimeStepX2="PT2H"
+modelTimeStepX3="PT3H"
+modelTimeStepX4="PT4H"
 autoPostProcessing="false"                         # submit postprocessing job
 #steps_per_file=610                               # assigned output intervals per file interval
 #-----------------------------------------------------------------------------
@@ -60,40 +62,68 @@ cat > ${ocean_namelist} << EOF
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}"
+  output_filename  = "${EXPNAME}_spot1TS"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${output_interval}"
+  output_interval  = "${modelTimeStep}"
   file_interval="P1Y"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'group:oce_essentials', 'group:ice_default'
+  ml_varlist       = 'group:oce_diag'
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_mean1H"
+  output_filename  = "${EXPNAME}_mean1TS"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${output_interval}"
+  output_interval  = "${modelTimeStep}"
   file_interval="P1Y"
   operation = "mean"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'group:oce_diag','u','v','rho','vort'
+  ml_varlist       = 'group:oce_diag'
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_mean2H"
+  output_filename  = "${EXPNAME}_mean2TS"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "PT2H"
+  output_interval  = "${modelTimeStepX2}"
+  file_interval="P1Y"
+  operation = "mean"
+  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  include_last     = .false.
+  output_grid      = .TRUE.
+  ml_varlist       = 'group:oce_diag'
+/
+&output_nml
+  filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_mean3TS"
+  filename_format  = "<output_filename>_<datetime2>"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${modelTimeStepX3}"
+  file_interval="P1Y"
+  operation = "mean"
+  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  include_last     = .false.
+  output_grid      = .TRUE.
+  ml_varlist       = 'group:oce_diag'
+/
+&output_nml
+  filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_mean4TS"
+  filename_format  = "<output_filename>_<datetime2>"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${modelTimeStepX4}"
   file_interval="P1Y"
   operation = "mean"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)

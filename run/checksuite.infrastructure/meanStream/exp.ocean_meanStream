@@ -59,7 +59,7 @@ cat > ${ocean_namelist} << EOF
   output_interval  = "${output_interval}"
   file_interval    = "${file_interval}"
   output_grid      = .TRUE.
-  ml_varlist       =  'u','v','h'
+  ml_varlist       =  'u','v','h','s','t'
 /
 &output_nml
   output_filename  = "${EXPNAME}_mean_1h"
@@ -71,7 +71,7 @@ cat > ${ocean_namelist} << EOF
   operation        = "mean"
   include_last     = .true.
   output_grid      = .TRUE.
-  ml_varlist       =  'u','v','h'
+  ml_varlist       =  'u','v','h','s','t'
 /
 &output_nml
   output_filename  = "${EXPNAME}_mean_2h"
@@ -83,7 +83,7 @@ cat > ${ocean_namelist} << EOF
   file_interval    = "${file_interval}"
   operation        = "mean"
   output_grid      = .TRUE.
-  ml_varlist       =  'u','v','h'
+  ml_varlist       =  'u','v','h','s','t'
 /
 &output_nml
   output_filename  = "${EXPNAME}_mean_4h"
@@ -95,10 +95,10 @@ cat > ${ocean_namelist} << EOF
   file_interval    = "${file_interval}"
   operation        = "mean"
   output_grid      = .TRUE.
-  ml_varlist       =  'u','v','h'
+  ml_varlist       =  'u','v','h','s','t'
 /
 &dbg_index_nml
-  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=3                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output

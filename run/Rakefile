@@ -1,6 +1,7 @@
 require 'rake/clean'
 require 'logger'
 require 'pp'
+require 'ap'
 require 'cdo'
 require 'parallel'
 require 'colorize'
@@ -390,7 +391,6 @@ STATE_COLUMNS_WIDTH = 12
 NAME_COLUMN_WIDTH   = 65
 DATE_COLUMN_WIDTH   = 20
 #@log                = Logger.new("#{ENV['HOME']}/rllq.log")
-@periods = %w[10M 20M 30M 40M 01H].map {|t| "PT#{t}".to_sym}
 #==============================================================================
 def getAdditionalInfo(logfile,tag)# {{{
   info =[]
@@ -514,7 +514,7 @@ def checkAll
 #   }
 end # }}}
 # }}}
-# RUNNING|CHECKING TESTS {{{ ===========================================================
+# RUNNING TESTS {{{ ===========================================================
 # config first
 @hostname = (`hostname -d`.chomp[0] =='(') ? \
              `hostname`.chomp.to_sym       : \
@@ -578,6 +578,31 @@ task :check,:name do |t,args|
     test
   }
 end
+
+# CHECKING TESTS  ===========================================================
+# some standard setup
+@defaultPeriodsIDs = {
+  'spotEachTimeStep'      => 'spot1TS',
+  'meanEachTimeStep'      => 'mean1TS',
+  'meanEachSecondTimeStep'=> 'mean2TS',
+  'meanEachThirdTimeStep' => 'mean3TS',
+  'meanEachForthTimeStep' => 'mean4TS'
+}
+@times2Compare = {
+  'meanEachSecondTimeStep' => [
+    { :ref => '2,3', :mean => '2'},
+    { :ref => '4,5', :mean => '3'},
+    { :ref => '6,7', :mean => '4'},
+  ],
+  'meanEachThirdTimeStep' => [
+    { :ref => '2,3,4', :mean => '2'},
+    { :ref => '5,6,7', :mean => '3'},
+  ],
+  'meanEachForthTimeStep' => [
+    { :ref => '2,3,4,5', :mean => '2'},
+  ]
+}
+#==============================================================================
 task :checkMelting => "../experiments/oce_omip_testSurface/finish.status" do |t|
   sh "cat #{t.prerequisites.join(' ')}"
 end
@@ -739,7 +764,7 @@ task :checkTimeMean, :pattern, :referenceExp do |t,args|
   }
 end
 
-desc "check single precission output of dtime output"# {{{
+desc "check single precission output of dtime output"
 task :checkTimeMeanSP, :pattern do |t,args|
   require 'parallel'
   require 'jobqueue'
@@ -785,22 +810,24 @@ task :checkTimeMeanSP, :pattern do |t,args|
     }#}
   }
   q.run
-end# }}}
+end
 
-def getResultFiles(dir)
+def getResultFiles(dir, periods = %w[10M 20M 30M 40M 01H].map {|t| "PT#{t}".to_sym})# {{{
   dir = '.' if dir.nil? 
   meanFiles = {}
-  # check for all regular output files# {{{
+  # check for all regular output files
   experimentName = File.expand_path(dir).split(File::SEPARATOR).last
   pp experimentName
-  regularFiles = Dir.glob("#{dir}/#{experimentName}*nc").delete_if {|fname| fname.include?('_mean_') or fname.include?('_restart_')}
+  regularFiles = Dir.glob("#{dir}/#{experimentName}*nc").delete_if {|fname|
+    fname.include?('_mean_') or fname.include?('_restart_')
+  }
   regularFiles.each {|f| meanFiles[f] = {}}
   # collect the mean value versions of the spot value files
   meanFiles.each_key {|regularFile|
     meanFiles[regularFile][:base] = regularFile
     # check for meanValue versions of these files
     tag = File.basename(regularFile).split('_ml_').first
-    @periods.each {|p| 
+    periods.each {|p| 
       possibleMeanFiles = Dir.glob("#{dir}/#{tag}*_mean_#{p.to_s}_*nc")
       meanFiles[regularFile][p] = possibleMeanFiles.first unless possibleMeanFiles.empty?
     }
@@ -815,7 +842,103 @@ end
 #  h.fill(inputs[:y])         
 #  GSL::graph(h)
 #
-#end
+#end# }}}
+
+class MeanAnalyzer
+  def initialize(spotFile,meanFile,meanPeriod,varname=nil)
+    @spotFile = spotFile
+    @meanFile = meanFile
+    @meanPeriod = meanPeriod
+    @varname = varname
+
+    # ensure that only valid perids are given
+    unless @times2Compare.keys.include?(@meanPeriod) then
+      warn "unknown time mean period given"
+      warn "Use one of #{@times2Compare.keys.join(' ')} if possible!"
+      exit(1)
+    end
+  end
+  def run
+    puts "Compare mean file #@meanFile with spot file #@spotFile".colorize(:color => :blue, :background => :white)
+    puts "\t #{@meanPeriod}".colorize(:color => :blue, :background => :white)
+
+    # loop over all input variables
+    if @varname.nil? then
+      varlist = @cdo.showname(:input => @spotFile, :autoSplit => true)
+    else
+      varlist = [@varname]
+    end
+
+    Parallel.each(varlist) {|varname|
+      @times2Compare[@meanPeriod].each {|timeStepPairs|# list of timestep relations
+        timeStepPairs.each {|timeStepPair|
+          s = "\t\tref tstep:#{timeStepPair[:ref]} | mean tstep:#{timeStepPair[:mean]}".colorize(:color => :blue, :background => :white)
+          #@cdo.debug = true
+          diff = @cdo.diffv(input: [
+            "-timmean -seltimestep,#{timeStepPair[:ref]}  -selname,#{varname} #{@spotFile}",
+            "         -seltimestep,#{timeStepPair[:mean]} -selname,#{varname} #{@meanFile}"
+          ].join(' '),:options => '-s')
+          diffFile = @cdo.sub(input: [
+            "-timmean -seltimestep,#{timeStepPair[:ref]}  -selname,#{varname} #{@spotFile}",
+            "         -seltimestep,#{timeStepPair[:mean]} -selname,#{varname} #{@meanFile}"
+          ].join(' '),:returnArray => varname,
+          :options => '-s',
+          :output => [period, varname, File.basename(regularFile)].map(&:to_s).join('_'))
+
+          unless diff.empty? then
+            puts ["\n",s,varname.colorize(:red),
+                  "\t#{diff[1..-2].join("\n\t")}".colorize(:yellow),
+                  "\t"].join("\n")
+          else
+            print "#{varname} ".colorize(:green)
+          end
+        }
+      }
+    }
+  end
+end
+
+def getMeanAndSpotFiles(dir,periods=@defaultPeriodsIDs)
+  dir = '.' if dir.nil?
+ 
+  spotIDs = @defaultPeriodsIDs.values_at(*@defaultPeriodsIDs.keys.grep(/spot/))
+  meanIDs = @defaultPeriodsIDs.values_at(*@defaultPeriodsIDs.keys.grep(/mean/))
+
+  dbg([meanIDs,spotIDs])
+
+  experimentName = File.expand_path(dir).split(File::SEPARATOR).last
+  allFiles = Dir.glob("#{dir}/#{experimentName}*nc")
+  dbg(allFiles)
+
+  spotFiles = allFiles.find_all {|f| spotIDs.map {|spotID| f.match(spotID).nil?}.include?(false) or f.include?('_restart_')}
+  meanFiles = allFiles.find_all {|f| meanIDs.map {|meanID| f.match(meanID).nil?}.include?(false) or f.include?('_restart_')}
+
+  result = {}
+
+  meanIDs.each {|meanID|
+    # iterate ov all meanFiles with that periodID
+    meanFiles.grep(/#{meanID}/).each {|meanFile|
+      # find the corr. spot file
+      fileTags = meanFile.split(meanID)
+      spotFile = fileTags.reduce(spotFiles) {|memo,item|
+        md = memo.grep(/#{item}/)
+        md.nil? ? memo : md
+      }
+      (result[meanID] ||= [] ) << {mean: meanFile, spot: spotFile}
+    }
+  }
+  result
+end
+desc "check general mean value: compare online and offline time avg"
+task :checkMeanStream, :dir, :what, :variable do |t,args|
+
+  # collect all output files
+  ap getMeanAndSpotFiles(args.dir)
+  #
+  # compare spot values with timemean over a single model timestep:
+  # -> should be identical
+
+end
 desc "check general mena value solution based on amip expriment"
 task :checkAtmoMeanStream, :dir, :what, :variable do |t,args|
 
@@ -832,24 +955,24 @@ task :checkAtmoMeanStream, :dir, :what, :variable do |t,args|
         puts @cdo.diffv(:input => [regularFile,@meanFiles[regularFile][:PT10M]].join(' '))
         puts @cdo.infov(:input => " -selname,#{args.variable} #{@meanFiles[regularFile][:PT10M]}") unless args.variable.nil?
       end
-    }# }}}
+    }
 
     pp @regularFiles.map {|f| @meanFiles[f].has_key?(:PT10M)}
     pp @meanFiles
   end
 
-  if %w[all mean].include?(what) then# {{{
+  if %w[all mean].include?(what) then
     # compare mean values
-    { #{{{ setup for 10M shifted 20M-mean fields
+    { # setup for 10M shifted 20M-mean fields
    # :PT20M => [
    #   { :ref => '3,4', :mean => '2'},
    #   { :ref => '5,6', :mean => '3'},
-   # ], #}}}
-   # #   10M shift 30M mean {{{
+   # ], #
+   # #   10M shift 30M mean 
    #  :PT30M => [
    #    { :ref => '3,4,5', :mean => '2'},
    #  ],
-   #  # }}}
+   #  
       :PT20M => [
         { :ref => '2,3', :mean => '2'},
         { :ref => '4,5', :mean => '3'},
@@ -912,7 +1035,7 @@ task :checkAtmoMeanStream, :dir, :what, :variable do |t,args|
 
       }
     }
-  end# }}}
+  end
 
   exit
 
@@ -967,8 +1090,8 @@ desc "Show runscript generator keys"
 task :showRunscriptKeys do
   puts RUNSCRIPT_KEYS.join(' ')
 end
-# }}}
-# HELP {{{ ====================================================================
+
+# HELP  ====================================================================
 desc "Show detailed help"
 task :help do
   puts "F1!"
@@ -1035,5 +1158,5 @@ task :openBuilders do
   puts url
   sh "firefox #{url}"
 end
-# }}}
+
 # vim:fdm=marker
