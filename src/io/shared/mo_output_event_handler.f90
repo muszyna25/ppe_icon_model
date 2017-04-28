@@ -474,13 +474,14 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  RECURSIVE SUBROUTINE print_par_output_event(event, opt_filename, opt_dstfile)
-    TYPE(t_par_output_event), POINTER             :: event
+  SUBROUTINE print_par_output_event(event, opt_filename, opt_dstfile)
+    TYPE(t_par_output_event), TARGET              :: event
     CHARACTER(LEN=*), OPTIONAL,        INTENT(IN) :: opt_filename    !< name of ASCII file (optional)
     INTEGER,          OPTIONAL,        INTENT(IN) :: opt_dstfile     !< optional destination ASCII file unit
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::print_par_output_event"
     INTEGER :: dst, ierrstat
+    TYPE(t_par_output_event), POINTER :: ev
 
     ! consistency check:
     IF (PRESENT(opt_dstfile) .AND. PRESENT(opt_filename)) THEN
@@ -505,11 +506,12 @@ CONTAINS
       END IF
     END IF
 
-    WRITE (dst,*) " " ! newline
-    CALL print_output_event(event%output_event, opt_dstfile=dst)
-    IF (ASSOCIATED(event%next)) THEN
-      CALL print_par_output_event(event%next, opt_dstfile=dst)
-    END IF
+    ev => event
+    DO WHILE (ASSOCIATED(ev))
+      WRITE (dst,*) " " ! newline
+      CALL print_output_event(ev%output_event, opt_dstfile=dst)
+      ev => ev%next
+    END DO
     WRITE (dst,*) " " ! newline
 
     ! close ASCII output file (if necessary):
