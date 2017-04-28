@@ -498,12 +498,10 @@ CONTAINS
     ! open ASCII output file (if necessary):
     IF (PRESENT(opt_dstfile)) THEN
       dst = opt_dstfile
-    ELSE
-      IF (PRESENT(opt_filename)) THEN
-        dst = find_next_free_unit(10,100)
-        OPEN (dst, file=TRIM(opt_filename), status='REPLACE', iostat=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish (routine, 'OPEN failed.')
-      END IF
+    ELSE IF (PRESENT(opt_filename)) THEN
+      dst = find_next_free_unit(10,100)
+      OPEN (dst, file=TRIM(opt_filename), status='REPLACE', iostat=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'OPEN failed.')
     END IF
 
     ev => event
