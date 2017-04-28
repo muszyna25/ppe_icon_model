@@ -1199,7 +1199,8 @@ CONTAINS
                 lev_idx = of%level_selection%global_idx(lev_idx)
               END IF
               CALL exchange_data(in_array=r_ptr(:,lev_idx,:),                 &
-                &                out_array=r_out_dp(:), gather_pattern=p_pat)
+                &                out_array=r_out_dp(:), gather_pattern=p_pat, &
+                &                fill_value = BOUNDARY_MISSVAL)
 
             ELSE IF (idata_type == iREAL_sp) THEN
               r_out_sp(:)  = 0._wp
@@ -1214,6 +1215,7 @@ CONTAINS
               END IF
               CALL exchange_data(in_array=s_ptr(:,lev_idx,:),                 &
                 &                out_array=r_out_sp(:), gather_pattern=p_pat)
+              ! FIXME: Implement and use fill_value!
 
             ELSE IF (idata_type == iINTEGER) THEN
               r_out_int(:) = 0
@@ -1228,6 +1230,7 @@ CONTAINS
               END IF
               CALL exchange_data(in_array=i_ptr(:,lev_idx,:),                  &
                 &                out_array=r_out_int(:), gather_pattern=p_pat)
+              ! FIXME: Implement and use fill_value!
 
             END IF
           END IF ! n_points
