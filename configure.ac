@@ -102,6 +102,15 @@ AC_ARG_ENABLE([testbed],
               [],[enable_testbed=no])
 
 dnl ######################################################################
+dnl usage of mh-file
+
+AC_ARG_ENABLE([mh-file],
+              [AS_HELP_STRING([--disable-mh-file],
+                              [disable machine file usage])],
+              [use_mh_file=no],
+              [use_mh_file=yes])
+
+dnl ######################################################################
 dnl features
 
 dnl Fortran
@@ -206,15 +215,16 @@ AS_CASE([$host],
          m4_define([line2], [Please set a valid config/mh-* file up.])
          AC_MSG_ERROR([line1 line2], [1])])
 
-ACX_GET_MODULES_TO_LOAD([$host_frag])
-AS_IF([test ! -z "$load_profile" ],
-      [. "$load_profile"])
+AS_IF([test $use_mh_file = yes],
+      [ACX_GET_MODULES_TO_LOAD([$host_frag])
+       AS_IF([test ! -z "$load_profile" ],
+             [. "$load_profile"])
 
-ACX_GET_PROFILE_TO_LOAD([$host_frag])
-AS_IF([test ! -z "$load_modules" ],
-      [ACX_SWAP_MODULES(["$load_modules"])])
+       ACX_GET_PROFILE_TO_LOAD([$host_frag])
+       AS_IF([test ! -z "$load_modules" ],
+             [ACX_SWAP_MODULES(["$load_modules"])])
 
-ACX_GET_MH($host_frag)
+       ACX_GET_MH($host_frag)])
 
 dnl ######################################################################
 dnl if not set, select make for making (cannot use anything else anyway)
@@ -756,6 +766,14 @@ if test -n "$SCTROOT" ; then
 
   FFLAGS="${FFLAGS} ${DEFOPT}__SCT__"
   CFLAGS="${CFLAGS} ${DEFCOPT}__SCT__"
+
+  AS_CASE([$ac_hostname],
+          [mlogin*|btc*],
+          [AS_CASE([$FC],
+                   [nagfor],
+                   [SCT_LIB=$(echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
+                   [SCT_LIB=$(echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])],
+          [])                   
 
 dnl checks for additional libs needed for sct, eg. papi
 
