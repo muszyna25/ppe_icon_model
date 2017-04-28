@@ -506,11 +506,11 @@ CONTAINS
 
     ev => event
     DO WHILE (ASSOCIATED(ev))
-      WRITE (dst,*) " " ! newline
+      WRITE (dst,'(a)') "" ! newline
       CALL print_output_event(ev%output_event, opt_dstfile=dst)
       ev => ev%next
     END DO
-    WRITE (dst,*) " " ! newline
+    WRITE (dst,'(a)') "" ! newline
 
     ! close ASCII output file (if necessary):
     IF (PRESENT(opt_filename)) THEN
