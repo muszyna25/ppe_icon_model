@@ -419,7 +419,7 @@ CONTAINS
           & swvis_srf_down   = rvds(1:kproma),                                            & ! in
           & swnir_srf_down   = rnds(1:kproma),                                            & ! in
           & swpar_srf_down   = rpds(1:kproma),                                            & ! in
-          & frac_par_diffuse = rpds_dif(1:kproma) / rpds(1:kproma),                       & ! in
+          & frac_par_diffuse = frac_par_diffuse(1:kproma),                                & ! in
           & press_srf        = ps(1:kproma),                                              & ! in
           & drag_srf         = grav*pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_lnd),     & ! in
           & t_acoef          = zen_h(1:kproma, idx_lnd),                                  & ! in
