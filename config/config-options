@@ -15,6 +15,9 @@ case "$ac_sitename" in
   zmaw.de|mpg.de)
     enable_jsbach=yes
     ;;
+  cscs.ch)
+    enable_jsbach=no
+    ;;
   *)
     enable_jsbach=no
     ;;

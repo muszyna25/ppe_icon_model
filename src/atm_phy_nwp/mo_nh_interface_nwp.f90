@@ -61,7 +61,7 @@ MODULE mo_nh_interface_nwp
   USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqs, iqtvar, iqtke,  &
     &                                   msg_level, ltimer, timers_level, lart
   USE mo_grid_config,             ONLY: l_limited_area
-  USE mo_physical_constants,      ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cvd, cvv
+  USE mo_physical_constants,      ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cvd, cvv, tmelt
 
   USE mo_nh_diagnose_pres_temp,   ONLY: diagnose_pres_temp, diag_pres, diag_temp
 
@@ -181,7 +181,7 @@ CONTAINS
       & z_ddt_temp  (nproma,pt_patch%nlev)   !< Temperature tendency
 
     REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c), z_tempv, &
-      zddt_u_raylfric(nproma,pt_patch%nlev), zddt_v_raylfric(nproma,pt_patch%nlev)
+      zddt_u_raylfric(nproma,pt_patch%nlev), zddt_v_raylfric(nproma,pt_patch%nlev), convfac
 
     !< vertical interfaces
 
@@ -1156,7 +1156,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_qsum,z_ddt_temp,z_ddt_qsum,vabs, &
-!$OMP  rfric_fac,zddt_u_raylfric,zddt_v_raylfric) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP  rfric_fac,zddt_u_raylfric,zddt_v_raylfric,convfac) ICON_OMP_DEFAULT_SCHEDULE
 !
       DO jb = i_startblk, i_endblk
 !
@@ -1307,11 +1307,14 @@ CONTAINS
             & + prm_diag%snow_edmf_rate_3d(i_startidx:i_endidx,nlevp1,jb)
         ELSE IF (lcall_phy_jg(itconv)) THEN
 !DIR$ IVDEP
-          prm_diag%rain_con_rate          (i_startidx:i_endidx,       jb) = &
-            &   prm_diag%rain_con_rate_3d (i_startidx:i_endidx,nlevp1,jb)
-!DIR$ IVDEP
-          prm_diag%snow_con_rate          (i_startidx:i_endidx,       jb) = &
-            &   prm_diag%snow_con_rate_3d (i_startidx:i_endidx,nlevp1,jb)
+          DO jc = i_startidx, i_endidx
+            ! rain-snow conversion factor to avoid 'snow showers' at temperatures when they don't occur in practice
+            convfac = MIN(1._wp,MAX(0._wp,pt_diag%temp(jc,prm_diag%k950(jc,jb),jb)-tmelt)* &
+              MAX(0._wp,prm_diag%t_2m(jc,jb)-(tmelt+1.5_wp)) )
+            prm_diag%rain_con_rate(jc,jb) = prm_diag%rain_con_rate_3d(jc,nlevp1,jb) + &
+              convfac*prm_diag%snow_con_rate_3d(jc,nlevp1,jb)
+            prm_diag%snow_con_rate(jc,jb) = (1._wp-convfac)*prm_diag%snow_con_rate_3d(jc,nlevp1,jb)
+          ENDDO
         ENDIF
 
       ENDDO  ! jb

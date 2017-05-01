@@ -127,6 +127,17 @@ lnd_namelist=NAMELIST_${EXPNAME}_lnd
 oce_namelist=NAMELIST_${EXPNAME}_oce
 cpl_xmlctrfn=XMLCTRFN_${EXPNAME}_cpl
 
+# JSBACH settings
+run_jsbach=yes
+jsbach_with_hd=yes
+jsbach_with_lakes=no
+jsbach_usecase=jsbach_lite
+#
+#[[ $jsbach_with_lakes == yes ]] || jsbach_usecase=${jsbach_usecase}_nolake
+[[ $jsbach_with_hd == yes ]] && jsbach_usecase=${jsbach_usecase}_with_hd
+ljsbach=$([ "${run_jsbach:=no}" == yes ] && echo .TRUE. || echo .FALSE. )
+llake=$([ "${jsbach_with_lakes:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
+
 #--------------------------------------------------------------------------------------------------
 # II. Atmosphere & land section
 #--------------------------------------------------------------------------------------------------
@@ -198,7 +209,7 @@ cat > ${atm_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
- ctracer_list     = 'vwi'       ! water vapour, cloud water, cloud ice
+ tracer_names     = 'v','w','i'       ! water vapour, cloud water, cloud ice
  ivadv_tracer     = 3,3,3
  itype_hlimit     = 3,4,4
  ihadv_tracer     = 52,2,2
@@ -212,7 +223,8 @@ cat > ${atm_namelist} << EOF
  lgw_hines        = .TRUE.
  lssodrag         = .TRUE.
  lice             = .TRUE.
- ljsbach          = .TRUE.
+ ljsbach          = ${ljsbach}
+ llake            = ${llake}
  lebudget         = .TRUE.
  lmlo             = .FALSE.
  lamip            = .FALSE.
@@ -252,7 +264,7 @@ EOF
 
 cat > ${lnd_namelist} <<EOF
 &jsb_model_nml
-  usecase         = 'jsbach_lite_with_hd'
+  usecase         = "${jsbach_usecase}"
 /
 &jsb_srf_nml
   bc_filename     = 'bc_land_phys.nc'

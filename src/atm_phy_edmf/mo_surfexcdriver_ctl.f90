@@ -7,6 +7,9 @@
 !! Imported from IFS by Martin Koehler  (starting 2012-4-30)
 !!   (IFS cycle CY36R1)
 !!
+!! Modifications by Dmitrii Mironov, DWD (2016-08-08)
+!! - Changes related to the use of prognostic the sea-ice albedo.
+!!
 !!-----------------------------------------------------------------------------
 !!
 !! @par Copyright and License
@@ -64,7 +67,7 @@ SUBROUTINE SURFEXCDRIVER_CTL(CDCONF &
  & , sobs_ex, thbs_ex, pabs_ex                                          & !in
  & , runoff_s_ex, runoff_g_ex                                           & !inout
  & , t_g, qv_s                                                          & ! -
- & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
+ & , t_ice, h_ice, t_snow_si, h_snow_si, alb_si                         & ! -
  & , fr_seaice                                                          & !in
  & , shfl_soil_ex, lhfl_soil_ex, shfl_snow_ex, lhfl_snow_ex             & !out
  & , shfl_s_ex   , lhfl_s_ex   , qhfl_s_ex                              &
@@ -399,7 +402,7 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   t_g            ,qv_s
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
-  t_ice          ,h_ice          ,t_snow_si      ,h_snow_si
+  t_ice          ,h_ice          ,t_snow_si      ,h_snow_si          ,alb_si    
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   fr_seaice
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
@@ -851,6 +854,7 @@ IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
     h_ice            = h_ice           , & ! sea ice height                                (  m  )
     t_snow_si        = t_snow_si       , & ! sea ice snow temperature                      (  K  )
     h_snow_si        = h_snow_si       , & ! sea ice snow height                           (  m  )
+    alb_si           = alb_si          , & ! sea-ice albedo                                (  -  )
     fr_seaice        = fr_seaice       , & ! sea ice fraction                              (  1  )
 !
     shfl_soil_ex     = shfl_soil_ex    , & ! sensible heat flux soil/air interface         (W/m2)

@@ -67,6 +67,7 @@ IMPLICIT NONE
   PUBLIC           ! All constants and variables in this module are public
 
 
+
 !==============================================================================
 ! 1. Data arrays for properties of different soil types (array index)     
 ! -------------------------------------------------------------------
@@ -170,6 +171,13 @@ IMPLICIT NONE
   DATA  cclayf / 0.00_ireals   , 0.00_ireals   , 5.0_ireals    , 10.0_ireals   , 20.0_ireals   , &
                & 35.0_ireals   , 70.0_ireals   , 5.0_ireals    , 0.00_ireals   , 0.00_ireals     /
  
+
+!==============================================================================
+! Soiltype IDs
+!------------------------------------------------------------------------------
+  INTEGER, PARAMETER :: ist_seawtr = 9     ! ID of soiltype 'sea water'
+  INTEGER, PARAMETER :: ist_seaice = 10    ! ID of soiltype 'sea ice'
+
 
 !==============================================================================
 

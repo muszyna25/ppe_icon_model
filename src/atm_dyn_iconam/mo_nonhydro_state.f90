@@ -32,7 +32,7 @@
 MODULE mo_nonhydro_state
 
   USE mo_kind,                 ONLY: wp, vp
-  USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH,             &
+  USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, VNAME_LEN,  &
     &                                INWP, IECHAM,                         &
     &                                VINTP_METHOD_VN,                      &
     &                                VINTP_METHOD_QV, VINTP_METHOD_PRES,   &
@@ -452,8 +452,7 @@ MODULE mo_nonhydro_state
     INTEGER           :: ipassive        ! loop counter
     INTEGER           :: dummy_idx
 
-    CHARACTER(LEN=1)  :: ctracer
-    CHARACTER(len=21) :: name
+    CHARACTER(len=VNAME_LEN) :: tracer_name
 
     !**
     !--------------------------------------------------------------
@@ -1201,18 +1200,17 @@ MODULE mo_nonhydro_state
         ALLOCATE( p_prog%tracer_ptr(ntracer) )
 
         DO jt = 1, ntracer - advection_config(p_patch%id)%npassive_tracer
-          ctracer = advconf%ctracer_list(jt:jt)
-          WRITE(name,'(A1,A1)') "q", ctracer
+          tracer_name = 'q'//TRIM(advconf%tracer_names(jt))
           CALL add_ref( p_prog_list, 'tracer',                                  &
-            & TRIM(name)//suffix, p_prog%tracer_ptr(jt)%p_3d,                   &
+            & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(jt)%p_3d,            &
             & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                                &
-            & t_cf_var(TRIM(name), 'kg/kg','Tracer mixing ratio '//TRIM(name),  &
+            & t_cf_var(TRIM(tracer_name), 'kg/kg','Tracer mixing ratio '//TRIM(tracer_name), &
             & datatype_flt),                                                    &
             & grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL),          &
             & ldims=shape3d_c,                                                  &
             & tlev_source=TLEV_NNOW_RCF,                                        &              ! output from nnow_rcf slice
             & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,             &
-            &                       name        = TRIM(name)//suffix,           &
+            &                       name        = TRIM(tracer_name)//suffix,    &
             &                       ihadv_tracer=advconf%ihadv_tracer(jt),      &
             &                       ivadv_tracer=advconf%ivadv_tracer(jt)),     &
             & vert_interp=create_vert_interp_metadata(                          &

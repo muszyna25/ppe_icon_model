@@ -18,16 +18,15 @@ MODULE mo_timer
   USE sct, ONLY: new_timer     => sct_new_timer,             &
        &         timer_start   => sct_start,                 &
        &         timer_stop    => sct_stop,                  &
-       &         print_timer   => sct_report,                &
        &         cleanup_timer => sct_reset_timer,           &
        &         delete_timer  => sct_del_timer,             &
-       &         sct_init
+       &         sct_init, sct_report, sct_add_report_attribute
 #else
   USE mo_real_timer, ONLY: new_timer,                        &
        &                   timer_start,                      &
        &                   timer_stop,                       &
-       &                   print_timer   => timer_report,    &
-       &                   cleanup_timer => timer_reset, &
+       &                   timer_report,                     &
+       &                   cleanup_timer => timer_reset,     &
        &                   delete_timer => del_timer
 
 #endif
@@ -330,11 +329,94 @@ MODULE mo_timer
   INTEGER :: timer_ls_forcing
 CONTAINS
 
+  SUBROUTINE print_timer
+#ifdef __SCT__
+
+    USE mo_util_sysinfo, ONLY: util_user_name, util_os_system, util_node_name
+    USE mo_util_vcs,     ONLY: util_repository_url, util_branch_name, util_revision_key
+    USE mo_time_config,  ONLY: time_config 
+    USE mtime,           ONLY: timedelta, newTimedelta, deallocateTimedelta, &
+         &                     OPERATOR(-), timedeltaToString, max_timedelta_str_len
+    
+    INTEGER :: istat
+    
+    CHARACTER(len=256) :: repository  = ''
+    CHARACTER(len=256) :: branch      = ''
+    CHARACTER(len=256) :: revision    = ''
+    CHARACTER(len=256) :: executable  = ''
+    CHARACTER(len=256) :: user_name   = ''
+    CHARACTER(len=256) :: os_name     = ''
+    CHARACTER(len=256) :: host_name   = ''
+    CHARACTER(len=256) :: expname     = ''
+    CHARACTER(len=256) :: jobid       = ''
+    CHARACTER(len=256) :: jobname     = ''
+    CHARACTER(len=256) :: submit_date = ''        
+    CHARACTER(len=256) :: tmp_string  = ''
+    
+    INTEGER :: nlen, nlena, nlenb, nlenc, nlend
+
+    CHARACTER(len=max_timedelta_str_len) :: tdstring
+    TYPE(timedelta), POINTER :: length_of_run
+    
+    nlen = 256
+    call util_repository_url(repository, nlen)
+    nlen = 256
+    call util_branch_name(branch, nlen)
+    nlen = 256
+    call util_revision_key(revision, nlen)
+    
+    tmp_string = ''
+    CALL util_os_system (tmp_string, nlena)
+    os_name = tmp_string(1:nlena)
+    
+    tmp_string = ''
+    CALL util_user_name (tmp_string, nlenb)
+    user_name = tmp_string(1:nlenb)
+    
+    tmp_string = ''
+    CALL util_node_name (tmp_string, nlenc)
+    host_name = tmp_string(1:nlenc)
+
+    CALL get_command_argument(0, executable, nlend)
+    
+    CALL get_environment_variable('EXPNAME', expname, status=istat) 
+    CALL get_environment_variable('SCT_JOB_ID', jobid, status=istat)
+    CALL get_environment_variable('SCT_JOB_NAME', jobname, status=istat)
+    CALL get_environment_variable('SCT_SUBMIT_DATE', submit_date, status=istat)         
+    
+    ! sct end date             missing, to be done in sct
+    ! model simulation time    tc_stopdate-tc_startdate
+
+    length_of_run => newTimedelta("PT0S")
+    length_of_run = time_config%tc_stopdate-time_config%tc_startdate
+    CALL timedeltaToString(length_of_run, tdstring)
+    
+    CALL sct_add_report_attribute('executable',            executable)
+    CALL sct_add_report_attribute('repository',            repository)
+    CALL sct_add_report_attribute('branch',                branch)
+    CALL sct_add_report_attribute('revision',              revision)
+    CALL sct_add_report_attribute('user name',             user_name)
+    CALL sct_add_report_attribute('operating system name', os_name)
+    CALL sct_add_report_attribute('experiment name',       expname)
+    CALL sct_add_report_attribute('job id',                jobid)
+    CALL sct_add_report_attribute('job name',              jobname)
+    CALL sct_add_report_attribute('submit date',           submit_date)    
+    CALL sct_add_report_attribute('run length',            tdstring)
+    
+    CALL sct_report()
+
+    CALL deallocateTimedelta(length_of_run)
+#else
+    CALL timer_report()
+#endif
+  END SUBROUTINE print_timer
+    
   SUBROUTINE init_timer
 
 #ifdef __SCT__
     CALL sct_init(timer_max=512)
 #endif
+
     ! major timers
     timer_total        = new_timer("total")
 

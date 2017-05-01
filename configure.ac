@@ -10,15 +10,15 @@ dnl  - added support for IBM AIX
 
 dnl
 
-AC_INIT(icon,1.2.1,luis.kornblueh@mpimet.mpg.de,icon-1.2.1)
+AC_INIT(icon,2.1.0,luis.kornblueh@mpimet.mpg.de,icon-2.1.0)
 AC_PREREQ(2.59)
 
 dnl ######################################################################
 dnl basic package definitions (by default ICON)
 package="ICON"
 
-dnl Checks for package options.
 dnl ######################################################################
+dnl Checks for package options.
 
 AC_PREFIX_DEFAULT(.)
 
@@ -29,8 +29,11 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_SYSTEM
 
 AC_PROG_AWK
+AC_PROG_GREP
+AC_PROG_SED
 
 dnl ######################################################################
+dnl find site and hostname
 
 AS_CASE([$ac_hostname],
         [wizard*],
@@ -39,7 +42,7 @@ AS_CASE([$ac_hostname],
         [mlogin*|btc*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],
-        [daint*|dora*|santis*],
+        [daint*|tave*|santis*],
         [ac_sitename=cscs.ch
          fqdn=$ac_hostname.$ac_sitename],
         [ic2*],      
@@ -72,14 +75,15 @@ AC_MSG_RESULT([$[ac_hostname]])
 AC_MSG_CHECKING([for site name])
 AC_MSG_RESULT([$[ac_sitename]])
 
+dnl ######################################################################
 dnl Load pre-set configure options from config/config-options
-dnl ######################################################################
 
-if test -f "config/config-options" ; then
-  AC_GET_MH(config/config-options)
-fi
+dnl if test -f "config/config-options" ; then
+dnl   AC_GET_MH(config/config-options)
+dnl fi
 
 dnl ######################################################################
+dnl select component models
 
 AC_ARG_ENABLE([atmo],
               AS_HELP_STRING([--enable-atmo],[Use atmosphere model component.]),
@@ -98,6 +102,18 @@ AC_ARG_ENABLE([testbed],
               [],[enable_testbed=no])
 
 dnl ######################################################################
+dnl usage of mh-file
+
+AC_ARG_ENABLE([mh-file],
+              [AS_HELP_STRING([--disable-mh-file],
+                              [disable machine file usage])],
+              [use_mh_file=no],
+              [use_mh_file=yes])
+
+dnl ######################################################################
+dnl features
+
+dnl Fortran
 
 AC_ARG_WITH([fortran],
   [AS_HELP_STRING([--with-fortran=COMPILER],
@@ -109,21 +125,25 @@ AS_IF([test -n "$with_fortran"],
       [fortran_compiler=$with_fortran],
       [fortran_compiler="default"])
 
+dnl OpenMP
+
 AC_ARG_WITH([openmp],
   [AS_HELP_STRING([--with-openmp],
     [enable OpenMP, if available for selected compiler])],
   [],
   [])
 
-AC_ARG_WITH([setup],
-  [AS_HELP_STRING([--with-setup=<name>],
-    [use user specific setup (mh_setup)])],
-    [],
-    [])
+dnl AC_ARG_WITH([setup],
+dnl   [AS_HELP_STRING([--with-setup=<name>],
+dnl     [use user specific setup (mh_setup)])],
+dnl     [],
+dnl     [])
+dnl
+dnl AS_IF([test x$with_setup != x],
+dnl       [mh_setup=$with_setup],
+dnl       [mh_setup=""])
 
-AS_IF([test x$with_setup != x],
-      [mh_setup=$with_setup],
-      [mh_setup=""])
+dnl YAC (coupler)
 
 AC_ARG_WITH([yac],
   [AS_HELP_STRING([--with-yac],
@@ -135,6 +155,8 @@ AS_IF([test "x$with_yac" = "xno"],
       [use_yac="no"],
       [use_yac="yes"])
 
+dnl selects DLR's MESSy
+
 AC_ARG_WITH([messy],
   [AS_HELP_STRING([--with-messy],
     [enable Modular Earth Submodel System (MESSy) interface])],
@@ -145,11 +167,15 @@ AS_IF([test "x$with_messy" = "xyes"],
       [use_messy="yes"],
       [use_messy="no"])
 
+dnl selecting compiler option sets
+
 AC_ARG_WITH([flags],
   [AS_HELP_STRING([--with-flags=<name>],
     [use specified group of flags (std, hiopt, noopt, etc])],
     [],
     [])
+
+dnl selects KIT'S ART
 
 AC_ARG_WITH([art],
   [AS_HELP_STRING([--with-art],
@@ -161,6 +187,9 @@ AS_IF([test "x$with_art" = "xyes"],
       [use_art="yes"],
       [use_art="no"])
 
+dnl ######################################################################
+dnl work around for linking problems with GCC
+
 AS_CASE([$host],
         [i*86-*-linux-*],
         [AS_IF([test x$fortran_compiler != xintel],
@@ -169,23 +198,41 @@ AS_CASE([$host],
         [gcc_lib=""])                               
 
 dnl ######################################################################
+dnl handling of machine description files (config/mh-<system>)
 
-host_frag=""
-case $host in
-    sx*-*-*)             host_frag=config/mh-nec ;;
-    *-ibm-aix*)          host_frag=config/mh-aix ;;
-    *-*-linux-*)         host_frag=config/mh-linux ;;
-    *-*-darwin*)         host_frag=config/mh-darwin ;;
-    *-cray-*)            host_frag=config/mh-cray ;;
-    *) echo This configuration is not supported.
-       echo Please set a valid config/mh-* file up.
-       ;;	 	
-esac
+AS_CASE([$host],
+        [sx*-*-*],
+        [host_frag=config/mh-nec],
+        [*-ibm-aix*],
+        [host_frag=config/mh-aix],
+        [*-*-linux-*],
+        [host_frag=config/mh-linux],
+        [*-*-darwin*],
+        [host_frag=config/mh-darwin],
+        [*-cray-*],
+        [host_frag=config/mh-cray],
+        [m4_define([line1], [This configuration is not supported.])
+         m4_define([line2], [Please set a valid config/mh-* file up.])
+         AC_MSG_ERROR([line1 line2], [1])])
 
-if test ! -f $host_frag ; then
-   echo "machine dependent configuration file $host_frag does not exist!"
-   exit 1
-fi
+AS_IF([test $use_mh_file = yes],
+      [ACX_GET_MODULES_TO_LOAD([$host_frag])
+       AS_IF([test ! -z "$load_profile" ],
+             [. "$load_profile"])
+
+       ACX_GET_PROFILE_TO_LOAD([$host_frag])
+       AS_IF([test ! -z "$load_modules" ],
+             [ACX_SWAP_MODULES(["$load_modules"])])
+
+       ACX_GET_MH($host_frag)])
+
+dnl ######################################################################
+dnl if not set, select make for making (cannot use anything else anyway)
+
+make_command=m4_default(["$make_command"],["make"])
+
+dnl ######################################################################
+dnl are we cross compiling?
 
 if test "$build" != "$host" ; then
    CROSS=yes
@@ -193,38 +240,33 @@ else
    CROSS=""
 fi
 
-if test -z "$CROSS" ; then
 AC_CONFIG_HEADER(config/config.h)
-fi
 
-# Makefile is common and does not allow multiple builds
-# Disable the the build_host folder
-if test x$mh_setup != x ; then
-  build_host=${host}-${mh_setup}
-else
-  build_host=$host
-fi
-#build_host=""
+build_host=$host
 
-#------------------------------------
-cat $host_frag > config/mh-config-use
-mh_local_name=config/mh-${ac_sitename}-${ac_hostname}
-# echo "mh_local_name=$mh_local_name"
-if test -f $mh_local_name ; then
-  cat $mh_local_name >> config/mh-config-use
-# else
-#   echo "not found!"
-fi
-if test -f config/mh-override ; then
-  cat config/mh-override >> config/mh-config-use
-fi
-host_frag=config/mh-config-use
-#------------------------------------
+dnl # Makefile is common and does not allow multiple builds
+dnl # Disable the the build_host folder
+dnl if test x$mh_setup != x ; then
+dnl   build_host=${host}-${mh_setup}
+dnl else
+dnl   build_host=$host
+dnl fi
+dnl #build_host=""
 
-# set default
-make_command="make"
-
-AC_GET_MH($host_frag)
+dnl #------------------------------------
+dnl cat $host_frag > config/mh-config-use
+dnl mh_local_name=config/mh-${ac_sitename}-${ac_hostname}
+dnl # echo "mh_local_name=$mh_local_name"
+dnl if test -f $mh_local_name ; then
+dnl   cat $mh_local_name >> config/mh-config-use
+dnl # else
+dnl #   echo "not found!"
+dnl fi
+dnl if test -f config/mh-override ; then
+dnl   cat config/mh-override >> config/mh-config-use
+dnl fi
+dnl host_frag=config/mh-config-use
+dnl #------------------------------------
 
 ac_libs=$LIBS
 LIBS=""
@@ -235,24 +277,6 @@ if test "$CC" = mpcc_r ;  then
   F77=xlf_r
   use_mpcc_r=yes
 fi
-
-if test "x$load_modules" != x ;  then
-  if test "$0" != "./conf__.tmp" ; then
-    echo "$load_profile" > conf_load_module.tmp
-    echo module purge >> conf_load_module.tmp
-    echo module load "$load_modules" >> conf_load_module.tmp
-    echo module list >> conf_load_module.tmp
-    cp configure conf__.tmp 
-    echo "chmod +x conf__.tmp" >>  conf_load_module.tmp
-    echo "./conf__.tmp $ac_configure_args ; "'rc=$?' >> conf_load_module.tmp
-    echo "rm conf__.tmp" >> conf_load_module.tmp
-    echo 'exit $rc' >>conf_load_module.tmp
-    chmod +x conf_load_module.tmp
-    ./conf_load_module.tmp ; rc=$?
-    rm conf_load_module.tmp
-    exit $rc
-  fi  
-fi
   
 dnl ######################################################################
 dnl define the package
@@ -261,7 +285,7 @@ FFLAGS="${FFLAGS} ${DEFOPT}__${package}__"
 CFLAGS="${CFLAGS} ${DEFCOPT}__${package}__"
 
 dnl #####################################################################
-dnl add defines for model components
+dnl add defines for component models
 
 AS_IF([test "x$enable_atmo" = "xno"],
       [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_ATMO__"])
@@ -278,11 +302,10 @@ AS_IF([test "x$enable_testbed" = "xno"],
 dnl #####################################################################
 dnl add local flags
 
-use_local_flags_file=config/local_flags
-if test -f $use_local_flags_file ; then
-  AC_GET_MH($use_local_flags_file)
-fi
-
+dnl use_local_flags_file=config/local_flags
+dnl if test -f $use_local_flags_file ; then
+dnl   AC_GET_MH($use_local_flags_file)
+dnl fi
 
 for other_flags in $icon_flags ; do
   FFLAGS="${FFLAGS} ${DEFOPT}__${other_flags}__"
@@ -292,20 +315,18 @@ done
 
 dnl ######################################################################
 dnl Checks for programs.
-dnl ######################################################################
 
 AC_PROG_RANLIB
-
-dnl ######################################################################
 AC_PROG_FC
-
 if test -z "$CROSS" ; then
   AC_PROG_CC
 fi
 
 dnl ######################################################################
-dnl Checks for program properties
 dnl ######################################################################
+dnl
+dnl Checks for program properties
+
 dnl ######################################################################
 dnl Checks for XML2.
 
@@ -543,9 +564,9 @@ AC_ARG_WITH([netcdf],
 AS_CASE([$with_netcdf],
         [no],[AC_MSG_CHECKING([for netcdf library])
               AC_MSG_RESULT([suppressed])],
-        [yes],[AC_CHECK_FILE($NETCDFROOT/include/netcdf.h,[],AC_MSG_ERROR([NETCDFROOT (currently: $NETCDFROOT) not properly defined]))],
+        [yes],[AS_IF([test -f "$NETCDFROOT/include/netcdf.h"],[],AC_MSG_ERROR([NETCDFROOT (currently: $NETCDFROOT) not properly defined]))],
         [*],[NETCDFROOT=$with_netcdf
-             AC_CHECK_FILE($NETCDFROOT/include/netcdf.h,[],AC_MSG_ERROR([NETCDFROOT (currently: $NETCDFROOT) not properly defined]))]
+             AS_IF([test -f "$NETCDFROOT/include/netcdf.h"],[],AC_MSG_ERROR([NETCDFROOT (currently: $NETCDFROOT) not properly defined]))]
         )
 
 if test -n "$NETCDFROOT" ; then
@@ -639,11 +660,11 @@ AC_ARG_WITH([cdi],
                             [with_cdi= ])
 AS_CASE([$with_cdi],
         [no],[CDIROOT= ],
-        [yes],[AC_CHECK_FILE($CDIROOT/include/cdi.inc,[],AC_MSG_ERROR([CDIROOT (currently: $CDIROOT) not properly defined. Either set CDIROOT explicitly or use the --with-cdi=DIR option format.]))],
+        [yes],[AS_IF([test -f "$CDIROOT/include/cdi.inc"],[],AC_MSG_ERROR([CDIROOT (currently: $CDIROOT) not properly defined. Either set CDIROOT explicitly or use the --with-cdi=DIR option format.]))],
         [*],[
             CDIROOT=$with_cdi
             AS_IF([test "x$CDIROOT" != x],
-                AC_CHECK_FILE($CDIROOT/include/cdi.inc,[],AC_MSG_ERROR([CDIROOT (currently set to $CDIROOT by the --with-cdi=DIR option) not properly defined]))
+                AS_IF([test -f "$CDIROOT/include/cdi.inc"],[],AC_MSG_ERROR([CDIROOT (currently set to $CDIROOT by the --with-cdi=DIR option) not properly defined]))
             )
         ])
 
@@ -682,11 +703,11 @@ AS_CASE([$with_grib_api],
         [AC_MSG_CHECKING([for grib_api library])
          AC_MSG_RESULT([suppressed])],
         [yes],
-        [#AC_CHECK_FILE($GRIBAPIROOT/lib/libgrib_api.a,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
-         AC_CHECK_FILE($GRIBAPIROOT/include/grib_api.h,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h]))],
+        [#AS_IF([test -f "$GRIBAPIROOT/lib/libgrib_api.a"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
+         AS_IF([test -f "$GRIBAPIROOT/include/grib_api.h"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h]))],
         [GRIBAPIROOT=$with_grib_api
-         #AC_CHECK_FILE($GRIBAPIROOT/lib/libgrib_api.a,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
-         AC_CHECK_FILE($GRIBAPIROOT/include/grib_api.h,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h]))])
+         #AS_IF([test -f "$GRIBAPIROOT/lib/libgrib_api.a"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
+         AS_IF([test -f "$GRIBAPIROOT/include/grib_api.h"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h]))])
 
 AS_IF([test -n "$GRIBAPIROOT"],
       [AS_IF([test -r "$GRIBAPIROOT/lib/libgrib_api.a" || test -r "$GRIBAPIROOT/lib/libgrib_api.dylib" || test -r "$GRIBAPIROOT/lib/libgrib_api.so"],
@@ -722,11 +743,11 @@ AC_ARG_WITH([sct],
 AS_CASE([$with_sct],
       [no],[AC_MSG_CHECKING([for sct library])
             AC_MSG_RESULT([suppressed])],
-      [yes],[AC_CHECK_FILE($SCTROOT/include/sct.mod,[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find sct.mod]))
-             AC_CHECK_FILE($SCTROOT/lib/libsct.a,[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find libsct.a]))],
+      [yes],[AS_IF([test -f "$SCTROOT/include/sct.mod"],[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find sct.mod]))
+             AS_IF([test -f "$SCTROOT/lib/libsct.a"],[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find libsct.a]))],
       [*],[SCTROOT=$with_sct
-           AC_CHECK_FILE($SCTROOT/include/sct.mod,[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find sct.mod]))
-           AC_CHECK_FILE($SCTROOT/lib/libsct.a,[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find libsct.a]))]
+           AS_IF([test -f "$SCTROOT/include/sct.mod"],[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find sct.mod]))
+           AS_IF([test -f "$SCTROOT/lib/libsct.a"],[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find libsct.a]))]
       )
 
 if test -n "$SCTROOT" ; then
@@ -745,6 +766,14 @@ if test -n "$SCTROOT" ; then
 
   FFLAGS="${FFLAGS} ${DEFOPT}__SCT__"
   CFLAGS="${CFLAGS} ${DEFCOPT}__SCT__"
+
+  AS_CASE([$ac_hostname],
+          [mlogin*|btc*],
+          [AS_CASE([$FC],
+                   [nagfor],
+                   [SCT_LIB=$(echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
+                   [SCT_LIB=$(echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])],
+          [])                   
 
 dnl checks for additional libs needed for sct, eg. papi
 
@@ -820,7 +849,7 @@ AS_IF([test x"$with_mpi" = xno],
   [AS_IF([test "x$with_mpi" != x -a x"$with_mpi" != xyes -a x"$with_mpi" != xno],
     [MPIROOT=${MPIROOT:-$with_mpi}])
    AS_IF([test x"$MPIROOT" != x],
-    [AC_CHECK_FILE([$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h],,[AC_MSG_ERROR([MPIROOT not properly defined])])
+    [AS_IF([test -f "$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h"],,[AC_MSG_ERROR([MPIROOT not properly defined])])
     case $host in
     *-*-darwin*)
       MPI_LIB="$(mpif90 -show | $AWK '{for(i=1;i<=NF;i++){if($i~/lib/){printf $i " "}}}') "$MPI_LIB
@@ -882,7 +911,8 @@ AS_IF([test x"$with_mpi" = xno],
 
 
 dnl ######################################################################
-dnl Checks for other flags 
+dnl Checks for IBM'S hpm
+
 PROFILE_LIB=""
 PROFILE_INCLUDE=""
 
@@ -983,6 +1013,14 @@ else
     use_openmp="no"
 fi
 
+if [[ "x$use_openmp" = xyes ]] ; then
+   FFLAGS="${FFLAGS} ${OMPFLAG}"
+   F77FLAGS="${F77FLAGS} ${OMPFLAG}"
+   LDFLAGS="${LDFLAGS} ${OMPFLAG}"
+   CFLAGS="${CFLAGS} ${CC_OMPFLAG}"
+fi
+
+#------------------------
 if [[ "x$target_os" = xsuperux ]] ; then  
     MODDIR=""	    
 else
@@ -995,14 +1033,6 @@ else
 fi
 FFLAGS="${MODOPT}../src ${MODOPT}../support ${FFLAGS}"
 
-
-if [[ "x$use_openmp" = xyes ]] ; then
-   FFLAGS="${FFLAGS} ${OMPFLAG}"
-   F77FLAGS="${F77FLAGS} ${OMPFLAG}"
-   LDFLAGS="${LDFLAGS} ${OMPFLAG}"
-   CFLAGS="${CFLAGS} ${CC_OMPFLAG}"
-fi
-
 #------------------------
 if test x$with_flags = x; then
     use_flags_group="std"
@@ -1014,39 +1044,37 @@ if [[ "x$use_yac" = xyes ]] ; then
    ac_libs="$ac_libs -lyac"
 fi
 
+#------------------------
 dnl if the OCEAN_FLAGS are not defined use the HIOPT_FLAGS
-
-AS_IF([test -n $OCEAN_FLAGS],
-      [],
-      [AS_IF([test -n $HIOPT_FLAGS],
-             [OCEAN_FLAGS="$HIOPT_FLAGS"],
-             [])])
+dnl 
+dnl AS_IF([test -z "$OCEAN_FLAGS"],
+dnl       [AS_IF([test -n "$HIOPT_FLAGS"],
+dnl              [OCEAN_FLAGS="$HIOPT_FLAGS"],
+dnl              [])],
+dnl              [])
 
 dnl the following prepends VARIANT_FLAGS to FFLAGS
 dnl when given --with-flags=variant argument to configure
 AS_IF([eval test x\$\{`echo ${use_flags_group} | tr a-z A-Z`_FLAGS+set\} = xset],
-  [eval FFLAGS=\"\${FFLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"
-   eval F77FLAGS=\"\${F77FLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"],
-  [AS_IF([test x"$use_flags_group" != xstd],
-     [AC_MSG_FAILURE([unknown with_flags parameter: $with_flags])])])
+      [eval FFLAGS=\"\${FFLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"
+       eval F77FLAGS=\"\${F77FLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"],
+      [AS_IF([test x"$use_flags_group" != xstd],
+             [AC_MSG_FAILURE([unknown with_flags parameter: $with_flags])])])
 
-if [[ "x$LDFLAGS" = "x" ]] ; then
-  if [[ $(echo $FC | $AWK '{print index($0, "gfortran")}') -ne 0 ]] ; then
-    LDFLAGS=${FFLAGS//-xf95-cpp-input/}
-  else
-    LDFLAGS=$FFLAGS
-  fi
-fi
+dnl if [[ "x$LDFLAGS" = "x" ]] ; then
+dnl   if [[ $(echo $FC | $AWK '{print index($0, "gfortran")}') -ne 0 ]] ; then
+dnl     LDFLAGS=${FFLAGS//-xf95-cpp-input/}
+dnl   else
+dnl     LDFLAGS=$FFLAGS
+dnl   fi
+dnl fi
 
 dnl this check should be far above, but has a dependency on the adding
 dnl of VARIANT_FFLAGS to FFLAGS above, which should also be moved.
 FCFLAGS=$FFLAGS
-ACX_FC_ATTRIBUTE_CONTIGUOUS(
-  [FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_FC_ATTRIBUTE_CONTIGUOUS"])
-
+ACX_FC_ATTRIBUTE_CONTIGUOUS([FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_FC_ATTRIBUTE_CONTIGUOUS"])
 
 #------------------------
-
 if test -z "$AR" ; then
   AR="ar"
 fi  
@@ -1057,12 +1085,15 @@ if test -z "$ARFLAGS" ; then
   ARFLAGS="crv"
 fi
 
-
+#------------------------
 if [[ "x$target_os" = xsuperux ]] ; then  
     arch=$(echo ${target_cpu:0:2} | tr "[:lower:]" "[:upper:]")
 else
     arch=$target_cpu
 fi
+
+dnl ######################################################################
+dnl substitutions
 
 AC_SUBST(ARCH,$arch)
 AC_SUBST(OS,$target_os)
@@ -1146,20 +1177,9 @@ AC_SUBST(OBJDIRS,$ac_objdirs)
 
 AC_CONFIG_FILES([Makefile])
 
-if test -n "$CROSS" ; then
-   case "${host}" in	
-       sx*-*-*)             ARCH=SX ;;
-   esac
-   cross_config=config/config.h.${ARCH}
-   echo "config.status: creating config/config.h from $cross_config"
-   if test ! -f $cross_config ; then
-      echo "cross configuration file $cross_config does not exist!"
-      exit 1
-   fi   
-   cp $cross_config config/config.h
-fi
+dnl ######################################################################
+dnl compiler versions
 
-#-----------------------------------------------------------------------------
 case $host in
   xt?-cray-*)
     f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==2')
@@ -1303,8 +1323,8 @@ sct_version=$(grep "define SCT_VERSION" ${SCTROOT}/include/sct.h)
 echo "    SCT    : installation  ${SCTROOT}"
 fi
 fi
-#############################
 echo ""
+dnl #############################
 
 if test "x$config_target" = "x"; then
   config_target="default"
@@ -1335,23 +1355,25 @@ fi
 
 sync_submit=${sync_submit:=$submit}
 
-AC_CONFIG_COMMANDS([Makefiles],[
-if test "x$enable_jsbach" = "xyes"; then :
-  test -d build/${build_host}/src || mkdir -p build/${build_host}/src
-  externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/src
-fi
-config/createMakefiles.pl --target="$build_host" \
-  --srcdirs="${my_srcdirs}" \
-  --enable_ocean="${enable_ocean}" \
-  --enable_atmo="${enable_atmo}" \
-  --enable_jsbach="${enable_jsbach}" \
-  --enable_testbed="${enable_testbed}"
-],[build_host="${build_host}"
-my_srcdirs="$my_srcdirs"
-enable_ocean="${enable_ocean}"
-enable_atmo="${enable_atmo}"
-enable_jsbach="${enable_jsbach}"
-enable_testbed="${enable_testbed}"])
+AC_CONFIG_COMMANDS([Makefiles],
+                   [AS_IF([test "x$enable_jsbach" = "xyes"],
+                          [AS_IF([test -d build/${build_host}/src],
+                                 [],
+                                 [mkdir -p build/${build_host}/src])
+                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/src])
+                    config/createMakefiles.pl \
+                                              --target="${build_host}" \
+                                              --srcdirs="${my_srcdirs}" \
+                                              --enable_ocean="${enable_ocean}" \
+                                              --enable_atmo="${enable_atmo}" \
+                                              --enable_jsbach="${enable_jsbach}" \
+                                              --enable_testbed="${enable_testbed}"],
+                   [build_host="${build_host}"
+                    my_srcdirs="$my_srcdirs"
+                    enable_ocean="${enable_ocean}"
+                    enable_atmo="${enable_atmo}"
+                    enable_jsbach="${enable_jsbach}"
+                    enable_testbed="${enable_testbed}"])
 
 AC_SUBST(config_target,$config_target)
 AC_SUBST(config_compiler,$config_compiler)
@@ -1366,6 +1388,11 @@ AC_SUBST(use_openmp,$use_openmp)
 AC_SUBST(build_host,$build_host)               
 AC_SUBST(use_mpi_procs_pernode,$use_mpi_procs_pernode)    
 AC_SUBST(mpi_startrun,$mpi_startrun)             
+
+AS_IF([test ! -z "$load_profile" ],
+      [load_profile=". $load_profile"],
+      [load_Profile=""])
+
 AC_SUBST(load_profile,$load_profile)             
 AC_SUBST(submit,$submit)                   
 AC_SUBST(sync_submit,$sync_submit)              
@@ -1380,16 +1407,29 @@ AC_CONFIG_FILES([config/set-up.info])
 #fi
 AC_OUTPUT
 
-echo ""
-cat config/set-up.info
-echo ""
+if test -n "$CROSS" ; then
+   case "${host}" in	
+       sx*-*-*)             ARCH=SX ;;
+   esac
+   cross_config=config/config.h.${ARCH}
+   echo "config.status: creating config/config.h from $cross_config"
+   if test ! -f $cross_config ; then
+      echo "cross configuration file $cross_config does not exist!"
+   else
+     cp $cross_config config/config.h
+   fi
+fi
+
+dnl echo ""
+dnl cat config/set-up.info
+dnl echo ""
 
 echo ""
 echo "Configuration done. Run GNU make to build ICON."
 echo ""
-echo "build directory: build/${build_host}"
+echo "Build directory: build/${build_host}"
 echo ""
 AS_IF([test "x$enable_atmo" = "xyes" && test "x$enable_ocean" = "xno"],
-[AC_MSG_WARN([In order to use ECHAM physics, you need to enable ocean!])])
+      [AC_MSG_WARN([In order to use ECHAM physics, you need to enable ocean!])
+       echo ""])
 
-echo ""

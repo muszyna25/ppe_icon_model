@@ -19,7 +19,6 @@ author_list="Marco Giorgetta, MPIM"
 
 # EXPNAME                       = name of exp. in 'exp.<name>'
 # basedir                       = base directory, where src/, run/ etc exist
-# icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 
 #--------------------------------------------------------------------------------------------------
@@ -90,7 +89,7 @@ cat > ${atmo_namelist} << EOF
  flat_height      = 16000.      ! [m]
 /
 &transport_nml
- ctracer_list     = 'vci4'      ! water vapour, cloud water, cloud ice, tracer 4
+ tracer_names     = 'v','c','i','4'  ! water vapour, cloud water, cloud ice, tracer 4
 /
 EOF
 

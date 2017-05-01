@@ -70,8 +70,7 @@ else
   pft_file_tag=""
 fi
 
-lnd_datadir=$INDATA/${grid_name}/lnd
-lnd_datadir=/pool/data/ICON/grids/private/jsbach/R2B4/land
+lnd_datadir=${icon_data_poolFolder}/grids/private/mpim/icon_preprocessing/source/preliminary_land/${grid_name}/land
 #--------------------------------------------------------------------------------------------------
 
 # (3) Define the model configuration
@@ -269,7 +268,7 @@ add_link_file $datadir/ifs_remap_${grid_name}_2012010100_setyear1979.nc ./ifs2ic
 #
 # - land: source?, date+time?
 datadir=${lnd_datadir}
-add_link_file ${datadir}/ic_land_soil_${pft_file_tag}1976.nc                           ./ic_land_soil.nc
+add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
 
 # boundary conditions
 #
@@ -351,8 +350,8 @@ add_link_file $datadir/bc_solar_irradiance_14band_1849-2399.nc          ./bc_sol
 # - land parameters
 datadir=${lnd_datadir}
 add_link_file $datadir/bc_land_frac_${pft_file_tag}1976.nc              ./bc_land_frac.nc
-add_link_file $datadir/bc_land_phys_${pft_file_tag}1976.nc              ./bc_land_phys.nc
-add_link_file $datadir/bc_land_soil_${pft_file_tag}1976.nc              ./bc_land_soil.nc
+add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
+add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
 add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
 if [[ ${jsbach_with_hd} = yes ]]; then
   #add_link_file $datadir/bc_land_hd.nc                                  ./bc_land_hd.nc

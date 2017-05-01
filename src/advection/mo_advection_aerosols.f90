@@ -153,6 +153,8 @@ CONTAINS
 
    !-----------------------------------------------------------------------
 
+    CALL btraj%construct(nproma,p_patch%nlev,p_patch%nblks_e,2)
+
     jg  = p_patch%id
 
     dthalf = 0.5_wp*dtime
@@ -344,6 +346,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
+    CALL btraj%destruct()
 
   END SUBROUTINE aerosol_2D_advection
 

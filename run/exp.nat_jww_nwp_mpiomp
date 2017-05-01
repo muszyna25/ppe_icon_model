@@ -188,7 +188,6 @@ inwp_surface    = 0
  lcoriolis      = .TRUE.
 /
 &transport_nml
-  ctracer_list  = '12345'
 /
 &diffusion_nml
  hdiff_order      = 5
