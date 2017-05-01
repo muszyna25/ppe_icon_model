@@ -73,7 +73,7 @@ else
   pft_file_tag=""
 fi
 
-lnd_datadir=/pool/data/ICON/grids/private/jsbach/R2B4/land
+lnd_datadir=${icon_data_poolFolder}/grids/private/mpim/icon_preprocessing/source/preliminary_land/${grid_name}/land
 #--------------------------------------------------------------------------------------------------
 
 # (3) Define the model configuration
