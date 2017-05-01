@@ -116,7 +116,7 @@ CONTAINS
           CALL read_bc_sst_sic(mtime_old%date%year, patch)
         END IF
         CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights, &
-          &                                prm_field(jg)%lsmask(:,:)         , &
+          &                                prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:) > 1._wp - 10._wp*EPSILON(1._wp), &
           &                                prm_field(jg)%ts_tile(:,:,iwtr)   , &
           &                                prm_field(jg)%seaice(:,:)         , &
           &                                prm_field(jg)%siced(:,:)          , &
