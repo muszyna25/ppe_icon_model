@@ -25,3 +25,8 @@ run/*.status
 run/*.run
 *#
 autom4te.cache
+externals/bin/
+externals/lib/
+externals/include/
+externals/sct/
+externals/cdi/

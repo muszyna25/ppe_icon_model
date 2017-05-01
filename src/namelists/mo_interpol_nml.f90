@@ -42,7 +42,8 @@ MODULE mo_interpol_nml
                                   & config_rbf_dim_c2l          => rbf_dim_c2l          , &
                                   & config_l_mono_c2l           => l_mono_c2l           , &
                                   & config_rbf_scale_mode_ll    => rbf_scale_mode_ll    , &
-                                  & config_support_baryctr_intp => support_baryctr_intp
+                                  & config_support_baryctr_intp => support_baryctr_intp , &
+                                  & config_lreduced_nestbdry_stencil => lreduced_nestbdry_stencil
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
@@ -121,6 +122,10 @@ MODULE mo_interpol_nml
   ! fallback interpolation.
   LOGICAL :: support_baryctr_intp
 
+  ! Flag. If .TRUE. then the nest boundary points are taken out from
+  ! the lat-lon interpolation stencil.
+  LOGICAL :: lreduced_nestbdry_stencil
+
   NAMELIST/interpol_nml/ llsq_lin_consv,    llsq_high_consv,     &
                        & lsq_high_ord,      rbf_vec_kern_c,      &
                        & rbf_vec_scale_c,   rbf_vec_kern_v,      &
@@ -130,7 +135,8 @@ MODULE mo_interpol_nml
                        & nudge_zone_width,  l_corner_vort,       &
                        & l_intp_c2l, rbf_dim_c2l, l_mono_c2l,    &
                        & rbf_vec_kern_ll,   rbf_scale_mode_ll,   &
-                       & support_baryctr_intp
+                       & support_baryctr_intp,                   &
+                       & lreduced_nestbdry_stencil
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -204,6 +210,10 @@ CONTAINS
 
     ! no barycentric interpolation available by default:
     support_baryctr_intp = .FALSE.
+
+    ! nest boundary points are not removed from lat-lon interpolation
+    ! stencil by default:
+    lreduced_nestbdry_stencil = .FALSE.
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -289,6 +299,7 @@ CONTAINS
     config_l_mono_c2l          = l_mono_c2l
 
     config_support_baryctr_intp = support_baryctr_intp
+    config_lreduced_nestbdry_stencil = lreduced_nestbdry_stencil
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

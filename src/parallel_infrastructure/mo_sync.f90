@@ -83,8 +83,8 @@ INTEGER, PARAMETER, PUBLIC :: SYNC_V = 3
 INTEGER, PARAMETER, PUBLIC :: SYNC_C1 = 4
 
 #if defined( __ROUNDOFF_CHECK )
-REAL(wp), PARAMETER :: ABS_TOL  = 1.0D-09
-REAL(wp), PARAMETER :: REL_TOL  = 1.0D-09
+REAL(wp), PARAMETER :: ABS_TOL  = 1.0D-13
+REAL(wp), PARAMETER :: REL_TOL  = 1.0D-13
 REAL(wp), PARAMETER :: MACH_TOL = 3.0D-14
 #endif
 
@@ -630,7 +630,7 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
    IF(PRESENT(opt_varname)) THEN
       varname = opt_varname
    ELSE
-      varname = ''
+      varname = ' no VARNAME supplied'
    ENDIF
 
    ! Check dimensions of arr, determine if this is an cell/edge/vert array
@@ -765,17 +765,18 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
 #if defined( __ROUNDOFF_CHECK )
                   relmax = MAX(relmax,(ABS(arr(jl,n,jb) - arr_g(jl_g,n,jb_g))) / (ABS(arr(jl,n,jb))+MACH_TOL) )
 #endif
-                  IF (l_log_checks) &
+                  IF (l_log_checks) THEN
 #if defined( __ROUNDOFF_CHECK )
-                     PRINT *, TRIM(varname), ' sync error location:',&
-                        jb,jl,jb_g,jl_g,n,arr(jl,n,jb),arr_g(jl_g,n,jb_g),    &
-                       ABS(arr(jl,n,jb)-arr_g(jl_g,n,jb_g)),  &
-                       ( ABS(arr(jl,n,jb)- arr_g(jl_g,n,jb_g) ) ) / (ABS(arr(jl,n,jb))+MACH_TOL)
+!!!                     PRINT *, TRIM(varname), ' sync error location:',&
+!!!                        jb,jl,jb_g,jl_g,n,arr(jl,n,jb),arr_g(jl_g,n,jb_g),    &
+!!!                       ABS(arr(jl,n,jb)-arr_g(jl_g,n,jb_g)),  &
+!!!                       ( ABS(arr(jl,n,jb)- arr_g(jl_g,n,jb_g) ) ) / (ABS(arr(jl,n,jb))+MACH_TOL)
 #else
                      WRITE(log_unit,'(a,5i7,3e18.10)') 'sync error location:',&
                        jb,jl,jb_g,jl_g,n,arr(jl,n,jb),arr_g(jl_g,n,jb_g),    &
                        ABS(arr(jl,n,jb)-arr_g(jl_g,n,jb_g))
 #endif
+                  ENDIF
                ENDIF
             ENDIF
          ENDDO

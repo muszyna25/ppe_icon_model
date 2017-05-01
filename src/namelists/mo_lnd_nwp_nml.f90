@@ -10,6 +10,10 @@
 !! @par Revision History
 !! First implementation by Kristina Froehlich, DWD (2010-06-20>)
 !!
+!! Modifications by Dmitrii Mironov, DWD (2016-08-04)
+!! - Namelist variable (logical switch) is introduced to allow the use 
+!!   of a rate equation for the sea-ice albedo.
+!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -38,6 +42,7 @@ MODULE mo_lnd_nwp_nml
     &                             config_frlake_thrhld => frlake_thrhld , &
     &                               config_frsea_thrhld => frsea_thrhld , &
     &                               config_lseaice     => lseaice       , &
+    &                               config_lprog_albsi => lprog_albsi   , &
     &                               config_llake       => llake         , &
     &                               config_lmelt       => lmelt         , &
     &                               config_lmelt_var   => lmelt_var     , &
@@ -93,38 +98,39 @@ MODULE mo_lnd_nwp_nml
   CHARACTER(LEN=filename_max) :: sst_td_filename, ci_td_filename
 
 
-  LOGICAL ::       &
-       lseaice,    & !> forecast with sea ice model
-       llake,      & !! forecast with lake model FLake
-       lmelt     , & !! soil model with melting process
-       lmelt_var , & !! freezing temperature dependent on water content
-       lmulti_snow,& !! run the multi-layer snow model
-       l2lay_rho_snow, & ! use two-layer snow density for single-layer snow scheme
-       lstomata   , & ! map of minimum stomata resistance
-       l2tls      , & ! forecast with 2-TL integration scheme
-       lana_rho_snow, &  ! if .TRUE., take rho_snow-values from analysis file 
-       lsnowtile      ! if .TRUE., snow is considered as a separate tile
+  LOGICAL ::           &
+       lseaice,        & !> forecast with sea ice model
+       lprog_albsi,    & !> sea-ice albedo is computed prognostically 
+       llake,          & !> forecast with lake model FLake
+       lmelt     ,     & !> soil model with melting process
+       lmelt_var ,     & !> freezing temperature dependent on water content
+       lmulti_snow,    & !> run the multi-layer snow model
+       l2lay_rho_snow, & !> use two-layer snow density for single-layer snow scheme
+       lstomata   ,    & !> map of minimum stomata resistance
+       l2tls      ,    & !> forecast with 2-TL integration scheme
+       lana_rho_snow,  & !> if .TRUE., take rho_snow-values from analysis file 
+       lsnowtile         !> if .TRUE., snow is considered as a separate tile
 !--------------------------------------------------------------------
 ! nwp forcing (right hand side)
 !--------------------------------------------------------------------
 
-  NAMELIST/lnd_nml/ nlev_snow, ntiles                         , &
-    &               frlnd_thrhld, lseaice, llake, lmelt       , &
-    &               frlndtile_thrhld, frlake_thrhld           , &
-    &               frsea_thrhld, lmelt_var, lmulti_snow      , & 
-    &               itype_trvg, idiag_snowfrac, max_toplaydepth, & 
-    &               itype_evsl                                , & 
-    &               itype_lndtbl                              , & 
-    &               itype_root                                , & 
-    &               itype_heatcond                            , & 
-    &               itype_interception                        , & 
-    &               itype_hydbound                            , & 
-    &               lstomata                                  , & 
-    &               l2tls                                     , & 
-    &               lana_rho_snow, l2lay_rho_snow             , & 
-    &               lsnowtile                                 , &
-    &               sstice_mode                               , &
-    &               sst_td_filename                           , &
+  NAMELIST/lnd_nml/ nlev_snow, ntiles                               , &
+    &               frlnd_thrhld, lseaice, lprog_albsi, llake, lmelt, &
+    &               frlndtile_thrhld, frlake_thrhld                 , &
+    &               frsea_thrhld, lmelt_var, lmulti_snow            , & 
+    &               itype_trvg, idiag_snowfrac, max_toplaydepth     , & 
+    &               itype_evsl                                      , & 
+    &               itype_lndtbl                                    , & 
+    &               itype_root                                      , & 
+    &               itype_heatcond                                  , & 
+    &               itype_interception                              , & 
+    &               itype_hydbound                                  , & 
+    &               lstomata                                        , & 
+    &               l2tls                                           , & 
+    &               lana_rho_snow, l2lay_rho_snow                   , & 
+    &               lsnowtile                                       , &
+    &               sstice_mode                                     , &
+    &               sst_td_filename                                 , &
     &               ci_td_filename, cwimax_ml, c_soil, c_soil_urb
    
   PUBLIC :: read_nwp_lnd_namelist
@@ -210,10 +216,11 @@ MODULE mo_lnd_nwp_nml
     lana_rho_snow  =.TRUE.   ! if .TRUE., take rho_snow-values from analysis file 
 
 
-    lseaice    = .TRUE.      ! .TRUE.: sea-ice model is used
-    llake      = .TRUE.      ! .TRUE.: lake model is used
+    lseaice     = .TRUE.     ! .TRUE.: sea-ice model is used
+    lprog_albsi = .FALSE.    ! .TRUE.: sea-ice albedo is computed prognostically 
+                             ! (only takes effect if "lseaice=.TRUE.")
+    llake       = .TRUE.     ! .TRUE.: lake model is used
     
-
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -263,6 +270,11 @@ MODULE mo_lnd_nwp_nml
     ! For simplicity, in order to avoid further case discriminations
     IF (l2lay_rho_snow) nlev_snow = 2
 
+    ! Reset prognostic sea-ice albedo switch if the sea-ice scheme is not used
+    IF ( .NOT.lseaice ) THEN
+      lprog_albsi = .FALSE.  
+    ENDIF
+
     !----------------------------------------------------
     ! 5. Fill the configuration state
     !----------------------------------------------------
@@ -275,6 +287,7 @@ MODULE mo_lnd_nwp_nml
       config_frlake_thrhld = frlake_thrhld
       config_frsea_thrhld = frsea_thrhld
       config_lseaice     = lseaice
+      config_lprog_albsi = lprog_albsi 
       config_llake       = llake
       config_lmelt       = lmelt
       config_lmelt_var   = lmelt_var

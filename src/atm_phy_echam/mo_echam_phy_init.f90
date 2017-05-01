@@ -129,7 +129,7 @@ CONTAINS
     CHARACTER(LEN=*),INTENT(in) :: ctest_name
     INTEGER,         INTENT(in) :: nlev
     REAL(wp),        INTENT(in) :: vct_a(:), vct_b(:)
-    TYPE(datetime),  POINTER    :: mtime_current !< Date and time information
+    TYPE(datetime),  INTENT(in), POINTER    :: mtime_current !< Date and time information
 
     INTEGER :: khydromet, ktrac
     INTEGER :: jg, ndomain
@@ -264,22 +264,23 @@ CONTAINS
         ! land, glacier and lake masks
         stream_id = openInputFile(land_frac_fn, p_patch(jg), default_read_method)
         CALL read_2D(stream_id=stream_id, location=on_cells,&
-             &          variable_name='notsea',              &
+             &          variable_name='land',               &
              &          fill_array=prm_field(jg)%lsmask(:,:))
         CALL read_2D(stream_id=stream_id, location=on_cells, &
-             &          variable_name='fract_glac',          &
+             &          variable_name='glac',               &
              &          fill_array=prm_field(jg)% glac(:,:))
         CALL read_2D(stream_id=stream_id, location=on_cells, &
-             &          variable_name='fract_lake',          &
+             &          variable_name='lake',               &
              &          fill_array=prm_field(jg)% alake(:,:))
         CALL closeFile(stream_id)
-        IF (phy_config%llake) THEN
-          ! %lsmask is the fractional land-sea mask, >0 means land excluding lakes but including glaciers
-          prm_field(jg)%lsmask(:,:) = prm_field(jg)%lsmask(:,:) - prm_field(jg)%alake(:,:)
-        ELSE
-          prm_field(jg)%alake(:,:) = 0._wp
-        END IF
         !
+        ! At this point, %lsmask is the fraction of land (incl. glacier, but not lakes) in the grid box.
+        ! If running without lakes, add lake mask to %lsmask to remove lakes and set %alake to zero.
+        IF (.NOT. phy_config%llake) THEN
+          prm_field(jg)%lsmask(:,:) = prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:)
+          prm_field(jg)%alake (:,:) = 0._wp
+        END IF
+
         ! roughness length and background albedo
         stream_id = openInputFile(land_phys_fn, p_patch(jg), default_read_method)
 
@@ -468,7 +469,7 @@ CONTAINS
 
     ! local variables and pointers
 
-    INTEGER  :: nblks_c, jb, jbs, jc, jcs, jce, jsfc
+    INTEGER  :: nblks_c, jb, jbs, jc, jcs, jce
     REAL(wp) :: zlat
 
     CHARACTER(len=max_char_length)  :: ape_sst_case
@@ -505,8 +506,17 @@ CONTAINS
       ! initial conditions
       field% qtrc (:,:,:,iqv) = qv(:,:,:)
       field% xvar (:,:,:)     = qv(:,:,:)*0.1_wp
+ 
+      field% swflxsfc_tile(:,:,:) = 0._wp
+      field% lwflxsfc_tile(:,:,:) = 0._wp
+
 !$OMP END WORKSHARE
 !$OMP END PARALLEL
+
+!$OMP PARALLEL WORKSHARE
+        field% ocu   (:,:)   = 0._wp
+        field% ocv   (:,:)   = 0._wp
+!$OMP END PARALLEL WORKSHARE
 
       IF (phy_config%lvdiff) THEN
         IF (iwtr<=nsfc_type) field% z0m_tile(:,:,iwtr) = 1e-3_wp !see init_surf in echam (or z0m_oce?)
@@ -521,54 +531,54 @@ CONTAINS
       ! This can be overridden by the testcases below
 
       IF (iwtr <= nsfc_type) THEN
-        field% albvisdir_tile(:,:,iwtr) = albedoW ! albedo in the visible range for direct radiation
-        field% albnirdir_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for direct radiation
-        field% albvisdif_tile(:,:,iwtr) = albedoW ! albedo in the visible range for diffuse radiation
-        field% albnirdif_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for diffuse radiation
-        field% albedo_tile   (:,:,iwtr) = albedoW
+        prm_field(jg)% albvisdir_tile(:,:,iwtr) = albedoW ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for direct radiation
+        prm_field(jg)% albvisdif_tile(:,:,iwtr) = albedoW ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% albedo_tile   (:,:,iwtr) = albedoW
       END IF
 
       IF (ilnd <= nsfc_type) THEN
 
         IF (phy_config%lamip .OR. (is_coupled_run() .AND. .NOT. ltestcase)) THEN
-          field%ts_tile(:,:,ilnd) = field%ts_tile(:,:,iwtr)
+          prm_field(jg)%ts_tile(:,:,ilnd) = prm_field(jg)%ts_tile(:,:,iwtr)
         END IF
 
-        field% albvisdir_tile(:,:,ilnd) = field%alb(:,:)    ! albedo in the visible range for direct radiation
-        field% albnirdir_tile(:,:,ilnd) = field%alb(:,:)    ! albedo in the NIR range for direct radiation
-        field% albvisdif_tile(:,:,ilnd) = field%alb(:,:)    ! albedo in the visible range for diffuse radiation
-        field% albnirdif_tile(:,:,ilnd) = field%alb(:,:)    ! albedo in the NIR range for diffuse radiation
-        field% albedo_tile   (:,:,ilnd) = field%alb(:,:)
+        prm_field(jg)% albvisdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for direct radiation
+        prm_field(jg)% albvisdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% albedo_tile   (:,:,ilnd) = prm_field(jg)%alb(:,:)
 
       END IF
 
       IF (iice <= nsfc_type) THEN
 
-        field%ts_tile(:,:,iice) = field%ts_tile(:,:,iwtr)
+        prm_field(jg)%ts_tile(:,:,iice) = prm_field(jg)%ts_tile(:,:,iwtr)
         ! field%ts_tile(:,:,iice) = Tf + tmelt  ! ?
         !
-        field% albvisdir_tile(:,:,iice) = albi    ! albedo in the visible range for direct radiation
-        field% albnirdir_tile(:,:,iice) = albi    ! albedo in the NIR range for direct radiation
-        field% albvisdif_tile(:,:,iice) = albi    ! albedo in the visible range for diffuse radiation
-        field% albnirdif_tile(:,:,iice) = albi    ! albedo in the NIR range for diffuse radiation
-        field% albedo_tile   (:,:,iice) = albi
+        prm_field(jg)% albvisdir_tile(:,:,iice) = albi    ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_tile(:,:,iice) = albi    ! albedo in the NIR range for direct radiation
+        prm_field(jg)% albvisdif_tile(:,:,iice) = albi    ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_tile(:,:,iice) = albi    ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% albedo_tile   (:,:,iice) = albi
         !
         ! The ice model should be able to handle different thickness classes,
         ! but for AMIP we ONLY USE one ice class.
-        field% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
-        field% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation
-        field% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
-        field% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
-        field% Tsurf(:,:,:) = Tf
-        field% T1   (:,:,:) = Tf
-        field% T2   (:,:,:) = Tf
-        WHERE (field%seaice(:,:) > 0.0_wp)
-           field% hs   (:,1,:) = 0.1_wp       ! set initial snow depth on sea ice
+        prm_field(jg)% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation
+        prm_field(jg)% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% Tsurf(:,:,:) = Tf
+        prm_field(jg)% T1   (:,:,:) = Tf
+        prm_field(jg)% T2   (:,:,:) = Tf
+        WHERE (prm_field(jg)%seaice(:,:) > 0.0_wp)
+           prm_field(jg)% hs   (:,1,:) = 0.1_wp       ! set initial snow depth on sea ice
         ELSEWHERE
-           field% hs   (:,1,:) = 0.0_wp
+           prm_field(jg)% hs   (:,1,:) = 0.0_wp
         ENDWHERE
-        field% hi   (:,1,:) = field%siced(:,:)
-        field% conc (:,1,:) = field%seaice(:,:)
+        prm_field(jg)% hi   (:,1,:) = prm_field(jg)%siced(:,:)
+        prm_field(jg)% conc (:,1,:) = prm_field(jg)%seaice(:,:)
 
       END IF
 
@@ -727,12 +737,12 @@ CONTAINS
       DO jb = jbs,nblks_c
         CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
 
-        ! Initialize the flag lfland (.TRUE. if the fraction of land in
+        ! Initialize the flag lfland (.TRUE. if the fraction of land+lake in
         ! a grid box is larger than zero). In ECHAM a local array
         ! is initialized in each call of the subroutine "physc"
         DO jc = jcs,jce
-          field%lfland(jc,jb) = field%lsmask(jc,jb).GT.0._wp
-          field%lfglac(jc,jb) = field%glac  (jc,jb).GT.0._wp
+          field%lfland(jc,jb) = (field%lsmask(jc,jb) + field%alake(jc,jb)) > 0._wp
+          field%lfglac(jc,jb) = field%glac  (jc,jb) > 0._wp
         END DO
 
       END DO      !jb
@@ -742,39 +752,24 @@ CONTAINS
       ! Settings for total surface
       ! (after tile masks and variables potentially have been overwritten by testcases above)
 
-      ! Initialize tile fractions, see echam_phy_main for documentation
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jcs,jce,jsfc) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = jbs,nblks_c
-          CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
+      IF (iwtr <= nsfc_type) THEN
+        prm_field(jg)%ts       (:,:) = prm_field(jg)%ts_tile(:,:,iwtr)
+        prm_field(jg)%albvisdir(:,:) = albedoW
+        prm_field(jg)%albvisdif(:,:) = albedoW
+        prm_field(jg)%albnirdir(:,:) = albedoW
+        prm_field(jg)%albnirdif(:,:) = albedoW
+        prm_field(jg)%albedo   (:,:) = albedoW
+      ELSE
+        prm_field(jg)%ts       (:,:) = prm_field(jg)%ts_tile(:,:,ilnd)
+        prm_field(jg)%albvisdir(:,:) = prm_field(jg)%alb(:,:)
+        prm_field(jg)%albvisdif(:,:) = prm_field(jg)%alb(:,:)
+        prm_field(jg)%albnirdir(:,:) = prm_field(jg)%alb(:,:)
+        prm_field(jg)%albnirdif(:,:) = prm_field(jg)%alb(:,:)
+        prm_field(jg)%albedo   (:,:) = prm_field(jg)%alb(:,:)
+      END IF
 
-          field%lake_ice_frc(jcs:jce,jb) = 0._wp
-
-          IF (ilnd <= nsfc_type) THEN
-            field%frac_tile(jcs:jce,jb,ilnd) = field%lsmask(jcs:jce,jb)
-          END IF
-          IF (iwtr <= nsfc_type) THEN
-            field%frac_tile(jcs:jce,jb,iwtr) = (1._wp - field%lsmask(jcs:jce,jb)) &
-              &                                 * (1._wp - field%seaice(jcs:jce,jb) - field%lake_ice_frc(jcs:jce,jb))
-          END IF
-          IF (iice <= nsfc_type) THEN
-            IF (ilnd <= nsfc_type) THEN
-              field%frac_tile(jcs:jce,jb,iice) = 1._wp - field%frac_tile(jcs:jce,jb,ilnd) - field%frac_tile(jcs:jce,jb,iwtr)
-            ELSE
-              field%frac_tile(jcs:jce,jb,iice) = 1._wp                                    - field%frac_tile(jcs:jce,jb,iwtr)
-            END IF
-          END IF
-
-          field%ts       (jcs:jce,jb) = 0._wp
-          DO jsfc=1,nsfc_type
-            field%ts(jcs:jce,jb) = field%ts(jcs:jce,jb) + field%frac_tile(jcs:jce,jb,jsfc) * field%ts_tile(jcs:jce,jb,jsfc)
-          END DO
-
-          field%ts_rad    (jcs:jce,jb) = field%ts(jcs:jce,jb)
-          field%ts_rad_rt (jcs:jce,jb) = field%ts(jcs:jce,jb)
-        END DO
-!$OMP END DO  NOWAIT
-!$OMP END PARALLEL
+      prm_field(jg)%ts_rad     (:,:) = prm_field(jg)%ts(:,:)
+      prm_field(jg)%ts_rad_rt  (:,:) = prm_field(jg)%ts(:,:)
 
       NULLIFY( field,tend )
 
@@ -848,7 +843,7 @@ CONTAINS
           END SELECT
 
         !--------------------------------------------------------------------
-        ! Initialize the flag lfland (.TRUE. if the fraction of land in
+        ! Initialize the flag lfland (.TRUE. if the fraction of land+lake in
         ! a grid box is larger than zero). In ECHAM a local array
         ! is initialized in each call of the subroutine "physc".
         ! Note that this initialization is needed for all resumed integrations
@@ -857,8 +852,8 @@ CONTAINS
         !--------------------------------------------------------------------
 
         DO jc = jcs,jce
-          field%lfland(jc,jb) = field%lsmask(jc,jb).GT.0._wp
-          field%lfglac(jc,jb) = field%glac  (jc,jb).GT.0._wp
+          field%lfland(jc,jb) = (field%lsmask(jc,jb) + field%alake(jc,jb)) > 0._wp
+          field%lfglac(jc,jb) = field%glac  (jc,jb) > 0._wp
         ENDDO !jc
       ENDDO   !jb
 !$OMP END DO NOWAIT

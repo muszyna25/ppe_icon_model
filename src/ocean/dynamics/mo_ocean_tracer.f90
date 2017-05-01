@@ -832,21 +832,13 @@ CONTAINS
     CALL dbg_print('aft. AdvIndivTrac: trac_old', trac_old, str_module, 3, in_subset=cells_in_domain)
     CALL dbg_print('aft. AdvIndivTrac: trac_new', trac_new, str_module, 3, in_subset=cells_in_domain)
     IF(tracer_index == 1) THEN
-      DO level=1,n_zlev
-        CALL dbg_print('temp tend:', p_os%p_diag%opottemptend(:,level,:), str_module, 3, in_subset=cells_in_domain)
-      END DO
-     ELSEIF(tracer_index == 2) THEN
-      DO level=1,n_zlev
-        CALL dbg_print('temp tend:', p_os%p_diag%opottemptend(:,level,:), str_module, 3, in_subset=cells_in_domain)
-      END DO
-      DO level=1,n_zlev
-        CALL dbg_print('salt tend:', p_os%p_diag%osalttend(:,level,:), str_module, 3, in_subset=cells_in_domain)
-      END DO
-     ELSEIF(tracer_index >= 3) THEN 
-      DO level=1,n_zlev
-        CALL dbg_print('tracer tend:', (new_ocean_tracer%concentration(:,level,:)&
-              &- old_ocean_tracer%concentration(:,level,:))/dtime, str_module, 3, in_subset=cells_in_domain)
-      END DO           
+      CALL dbg_print('temp tend trc1:', p_os%p_diag%opottemptend, str_module, 4, in_subset=cells_in_domain)
+    ELSEIF(tracer_index == 2) THEN
+      CALL dbg_print('temp tend trc2:', p_os%p_diag%opottemptend, str_module, 4, in_subset=cells_in_domain)
+      CALL dbg_print('salt tend trc2:', p_os%p_diag%osalttend,    str_module, 4, in_subset=cells_in_domain)
+    ELSEIF(tracer_index >= 3) THEN 
+      CALL dbg_print('tracer tend >3:', (new_ocean_tracer%concentration(:,:,:)&
+            &- old_ocean_tracer%concentration(:,:,:))/dtime, str_module, 4, in_subset=cells_in_domain)
     ENDIF  
       
     !---------------------------------------------------------------------

@@ -110,9 +110,10 @@ MODULE mo_nwp_phy_init
   USE mo_initicon_config,     ONLY: init_mode
 
   USE mo_nwp_ww,              ONLY: configure_ww
-  USE mo_nwp_tuning_config,   ONLY: tune_gkwake, tune_gkdrag, tune_zceff_min, &
+  USE mo_nwp_tuning_config,   ONLY: tune_gkwake, tune_gkdrag, tune_gfrcrit, tune_zceff_min, &
     &                               tune_v0snow, tune_zvz0i
   USE mo_sso_cosmo,           ONLY: sso_cosmo_init_param
+  USE mo_cuparameters,        ONLY: sugwd
   USE mo_fortran_tools,       ONLY: init
   USE mtime,                  ONLY: datetime, MAX_DATETIME_STR_LEN, &
     &                               datetimeToString, newDatetime, deallocateDatetime
@@ -485,13 +486,11 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       DO jc = i_startidx, i_endidx
         p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb)
       ENDDO
-      IF (atm_phy_nwp_config(jg)%inwp_surface == 1) THEN ! the t_g_t does not exist for inwp_surface=0
-        DO jt = 1, ntiles_total+ntiles_water
-          DO jc = i_startidx, i_endidx
-            p_prog_lnd_new%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g_t(jc,jb,jt)
-          ENDDO
+      DO jt = 1, ntiles_total+ntiles_water
+        DO jc = i_startidx, i_endidx
+          p_prog_lnd_new%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g_t(jc,jb,jt)
         ENDDO
-      ENDIF
+      ENDDO
     ENDDO
 
     IF (ltestcase .AND. nh_test_name == 'RCE' .AND. atm_phy_nwp_config(jg)%inwp_turb/=ismag) THEN !
@@ -1478,12 +1477,16 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
   END IF
 
-  ! COSMO SSO scheme
+  ! SSO scheme
   !
-  IF ( atm_phy_nwp_config(jg)%inwp_sso == 1 ) THEN
-    IF (jg == 1) CALL sso_cosmo_init_param(tune_gkwake=tune_gkwake, tune_gkdrag=tune_gkdrag)
-    prm_diag%ktop_envel(:,:) = nlev
-  ENDIF
+  SELECT CASE ( atm_phy_nwp_config(jg)%inwp_sso )
+  CASE ( 1 )                                ! COSMO SSO scheme
+    IF (jg == 1) CALL sso_cosmo_init_param(tune_gkwake=tune_gkwake, tune_gkdrag=tune_gkdrag, tune_gfrcrit=tune_gfrcrit)
+    IF (linit_mode) prm_diag%ktop_envel(:,:) = nlev
+  CASE ( 2 )                                ! IFS SSO scheme
+    CALL sugwd(nlev, pref, phy_params )
+    IF (linit_mode) prm_diag%ktop_envel(:,:) = nlev
+  END SELECT
 
   !  WW diagnostics
   !

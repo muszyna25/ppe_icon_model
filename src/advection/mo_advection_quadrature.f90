@@ -74,12 +74,12 @@ MODULE mo_advection_quadrature
   PUBLIC :: prep_gauss_quadrature_cpoor
 
 #if defined( _OPENACC )
-#define ACC_DEBUG $ACC
 #if defined(__ADVECTION_QUADRATURE_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
+  LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 #endif
 
   
@@ -152,7 +152,7 @@ CONTAINS
 
 !$ACC DATA PCOPYIN( p_coords_dreg_v), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), &
 !$ACC      CREATE( z_x, z_y ),  IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -248,7 +248,7 @@ CONTAINS
 !$OMP END PARALLEL
 #endif
 
-!ACC_DEBUG UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF (i_am_accel_node .AND. acc_on)
+!$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE prep_gauss_quadrature_l
@@ -328,7 +328,7 @@ CONTAINS
 !$ACC DATA PCOPYIN( p_coords_dreg_v, falist), PCOPY( p_dreg_area ),   &
 !$ACC      PCOPYOUT( p_quad_vector_sum ), CREATE( z_x, z_y ),         &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -419,7 +419,7 @@ CONTAINS
 !$OMP END PARALLEL
 #endif
 
-!ACC_DEBUG UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF (i_am_accel_node .AND. acc_on)
+!$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE prep_gauss_quadrature_l_list
@@ -497,7 +497,7 @@ CONTAINS
 
 !$ACC DATA PCOPYIN( p_coords_dreg_v ), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), &
 !$ACC      CREATE( z_x, z_y, z_wgt, z_eta ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -625,7 +625,7 @@ CONTAINS
 !$OMP END PARALLEL
 #endif
 
-!ACC_DEBUG UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF (i_am_accel_node .AND. acc_on)
+!$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE prep_gauss_quadrature_q
@@ -710,7 +710,7 @@ CONTAINS
 
 !$ACC DATA PCOPYIN( p_coords_dreg_v, falist ), PCOPY( p_dreg_area), PCOPYOUT( p_quad_vector_sum ), &
 !$ACC      CREATE( z_x, z_y, z_wgt, z_eta ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
    ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -841,7 +841,7 @@ CONTAINS
 !$OMP END PARALLEL
 #endif
 
-!ACC_DEBUG UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF (i_am_accel_node .AND. acc_on)
+!$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE prep_gauss_quadrature_q_list
@@ -922,7 +922,7 @@ CONTAINS
 !$ACC DATA PCOPYIN( p_coords_dreg_v ), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), &
 !$ACC      CREATE( z_gauss_pts, wgt_t_detjac, z_quad_vector, z_x, z_y, z_wgt, z_eta ), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -1055,7 +1055,7 @@ CONTAINS
 !$OMP END PARALLEL
 #endif
 
-!ACC_DEBUG UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF (i_am_accel_node .AND. acc_on)
+!$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF (acc_validate .AND.  i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE prep_gauss_quadrature_cpoor
@@ -1135,7 +1135,7 @@ CONTAINS
 !$ACC DATA PCOPYIN( p_coords_dreg_v ), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), &
 !$ACC      CREATE( z_gauss_pts, wgt_t_detjac, z_quad_vector, z_x, z_y, z_wgt, z_eta ), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_coords_dreg_v ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_coords_dreg_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -1278,7 +1278,7 @@ CONTAINS
 !$OMP END PARALLEL
 #endif
 
-!ACC_DEBUG UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF (i_am_accel_node .AND. acc_on)
+!$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE prep_gauss_quadrature_c
@@ -1364,7 +1364,7 @@ CONTAINS
 
 !$ACC DATA PCOPYIN( p_coords_dreg_v, falist ), PCOPY( p_dreg_area ), PCOPYOUT( p_quad_vector_sum ), &
 !$ACC      CREATE( z_gauss_pts, wgt_t_detjac, z_quad_vector, z_x, z_y, z_wgt, z_eta ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -1502,7 +1502,7 @@ CONTAINS
 !$OMP END PARALLEL
 #endif
 
-!ACC_DEBUG UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF (i_am_accel_node .AND. acc_on)
+!$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE prep_gauss_quadrature_c_list

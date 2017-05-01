@@ -24,14 +24,14 @@
 MODULE mo_advection_nml
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
+  USE mo_exception,           ONLY: finish, message_text, message
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_run_config,          ONLY: ntracer
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,      &
     &                               MIURA, FFSL_HYB_MCYCL, ippm_vcfl, ippm_v,   &
     &                               inol, ifluxl_sm, inol_v,                    &
-    &                               islopel_vsm, ifluxl_vpd
+    &                               islopel_vsm, ifluxl_vpd, VNAME_LEN
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,     &
@@ -50,6 +50,10 @@ MODULE mo_advection_nml
   !----------------------------------!
   ! transport_nml namelist variables !
   !----------------------------------!
+
+  CHARACTER(len=VNAME_LEN) ::  &   !< tracer-specific name suffixes  
+    &  tracer_names(MAX_NTRACER)   !< these are only required for 
+                                   !< idealized runs without NWP or ECHAM forcing.
 
   CHARACTER(len=MAX_CHAR_LENGTH) :: &!< list of tracers to initialize
     &  ctracer_list
@@ -122,7 +126,7 @@ MODULE mo_advection_nml
   NAMELIST/transport_nml/ ihadv_tracer, ivadv_tracer, lvadv_tracer,       &
     &                     itype_vlimit, ivcfl_max, itype_hlimit,          &
     &                     iadv_tke, beta_fct, iord_backtraj,              &
-    &                     lclip_tracer, ctracer_list, igrad_c_miura,      &
+    &                     lclip_tracer, tracer_names, ctracer_list, igrad_c_miura,      &
     &                     lstrang, llsq_svd, npassive_tracer,             &
     &                     init_formula
 
@@ -154,6 +158,8 @@ CONTAINS
     INTEGER :: istat, funit
     INTEGER :: jg          !< patch loop index
     INTEGER :: iunit
+    INTEGER :: it          !< loop counter
+    CHARACTER(len=VNAME_LEN) :: tname
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_advection_nml: read_transport_nml'
@@ -180,6 +186,10 @@ CONTAINS
     npassive_tracer = 0         ! no additional passive tracers
     init_formula    = ''        ! no explizit initialization of passive tracers
 
+    DO it=1,max_ntracer         ! use tracer index as name suffix
+      WRITE(tname,'(I3)') it
+      tracer_names(it) = TRIM(ADJUSTL(tname)) 
+    ENDDO
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -261,12 +271,19 @@ CONTAINS
         &  'incorrect settings for iadv_tke. Must be 0, 1 or 2')
     ENDIF
 
+    IF (ctracer_list /= '') THEN
+      WRITE(message_text,'(a,a)') &
+        &  'ctracer_list is obsolescent and inactive. ', &
+        &  'Please use variables tracer_names and/or tracer_inidist_list, instead'
+      CALL message('WARNING (transport_nml):', message_text)
+    ENDIF
+
     !----------------------------------------------------
     ! 5. Fill the configuration state
     !----------------------------------------------------
 
     DO jg= 0,max_dom
-      advection_config(jg)%ctracer_list   = ctracer_list
+      advection_config(jg)%tracer_names(:)= ADJUSTL(tracer_names(:))
       advection_config(jg)%ihadv_tracer(:)= ihadv_tracer(:)
       advection_config(jg)%ivadv_tracer(:)= ivadv_tracer(:)
       advection_config(jg)%lvadv_tracer   = lvadv_tracer
