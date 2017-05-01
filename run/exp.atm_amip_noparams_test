@@ -49,7 +49,6 @@ atmo_namelist=NAMELIST_${EXPNAME}_atm
 # JSBACH settings
 run_jsbach=no
 
-lnd_datadir=$INDATA/${grid_name}/lnd
 lnd_datadir=/pool/data/ICON/grids/private/jsbach/R2B4/land
 #--------------------------------------------------------------------------------------------------
 
@@ -176,7 +175,6 @@ add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 # namelist files
 #
 add_required_file ${basedir}/run/${atmo_namelist}                       ./
-add_required_file ${basedir}/run/${lnd_namelist}                        ./
 
 # dictionary file for output variable names
 #

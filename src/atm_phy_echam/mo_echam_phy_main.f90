@@ -67,10 +67,10 @@ MODULE mo_echam_phy_main
   USE mo_echam_cloud_config,  ONLY: echam_cloud_config
   USE mo_cloud,               ONLY: cloud
   !
-  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,                 &
-    &                               timer_cover, timer_radiation, timer_radheat,     &
-    &                               timer_vdiff_down, timer_surface, timer_vdiff_up, &
-    &                               timer_gw_hines, timer_ssodrag,                   &
+  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,                &
+    &                               timer_cover, timer_radiation, timer_radheat,    &
+    &                               timer_vdiff_down, timer_surface,timer_vdiff_up, &
+    &                               timer_gw_hines, timer_ssodrag,                  &
     &                               timer_convection, timer_cloud
 
   IMPLICIT NONE
@@ -190,7 +190,7 @@ CONTAINS
     ! Temporary variables used for cloud droplet number concentration
 
     REAL(wp) :: zprat, zn1, zn2, zcdnc
-    LOGICAL  :: lland(nbdim), llake(nbdim), lglac(nbdim)
+    LOGICAL  :: lland(nbdim), lglac(nbdim)
 
     ! number of cells/columns from index jcs to jce
     nc = jce-jcs+1
@@ -233,21 +233,19 @@ CONTAINS
 
     DO jc=jcs,jce
 
-      ! fraction of land in the grid box, excluding lakes.
+      ! fraction of land in the grid box.
       ! lsmask: land-sea mask, depends on input data, either:
-      ! fractional or non-fractional, each grid cell is either
-      ! land, sea, sea-ice or lake. The open water part of the lake fraction
-      ! is part of the sea fraction, the ice-covered part of the lake
-      ! fraction is part of the sea ice fraction.
+      ! fractional, including or excluding lakes in the land part or
+      ! non-fractional, each grid cell is either land, sea, or sea-ice.
       ! See mo_echam_phy_init or input data set for details.
 
       zfrl(jc) = field% lsmask(jc,jb)
 
       ! fraction of sea/lake in the grid box
-      ! * (1. - fraction of ice in the sea/lake part of the grid box)
+      ! * (1. - fraction of sea ice in the sea/lake part of the grid box)
       ! => fraction of open water in the grid box
 
-      zfrw(jc) = (1._wp-zfrl(jc))*(1._wp-field%seaice(jc,jb)-field%lake_ice_frc(jc,jb))
+      zfrw(jc) = (1._wp-zfrl(jc))*(1._wp-(field%seaice(jc,jb)+field%lake_ice_frc(jc,jb)))
 
       ! fraction of sea ice in the grid box
       zfri(jc) = 1._wp-zfrl(jc)-zfrw(jc)
@@ -281,13 +279,9 @@ CONTAINS
     !      (1/M**3) USED IN RADLSW AND CLOUD
     !---------------------------------------------------------------------
 
-    lland(:) = .FALSE.
-    llake(:) = .FALSE.
-    lglac(:) = .FALSE.
     DO jc=jcs,jce
       lland(jc) = field%lfland(jc,jb)
-      llake(jc) = field%alake(jc,jb) > 0._wp
-      lglac(jc) = lland(jc) .AND. field%glac(jc,jb) > 0._wp
+      lglac(jc) = lland(jc).AND.field%glac(jc,jb).GT.0._wp
     END DO
 
     DO jk = 1,nlev
@@ -295,7 +289,7 @@ CONTAINS
         !
         zprat=(MIN(8._wp,80000._wp/field%presm_old(jc,jk,jb)))**2
 
-        IF ((lland(jc) .AND. .NOT.lglac(jc)) .OR. llake(jc)) THEN
+        IF (lland(jc).AND.(.NOT.lglac(jc))) THEN
           zn1= echam_cloud_config% cn1lnd
           zn2= echam_cloud_config% cn2lnd
         ELSE
@@ -349,13 +343,6 @@ CONTAINS
         ! so that it can be reused in radheat in the other timesteps
         field%ts_rad_rt(jcs:jce,jb) = field%ts_rad(jcs:jce,jb)
 
-        ! Compute grid box averages of albedo components
-        ! Note: only the tile-based variables are in restart file
-        field%albvisdir(jcs:jce,jb) = SUM(field%frac_tile(jcs:jce,jb,:) * field%albvisdir_tile(jcs:jce,jb,:), DIM=2)
-        field%albvisdif(jcs:jce,jb) = SUM(field%frac_tile(jcs:jce,jb,:) * field%albvisdif_tile(jcs:jce,jb,:), DIM=2)
-        field%albnirdir(jcs:jce,jb) = SUM(field%frac_tile(jcs:jce,jb,:) * field%albnirdir_tile(jcs:jce,jb,:), DIM=2)
-        field%albnirdif(jcs:jce,jb) = SUM(field%frac_tile(jcs:jce,jb,:) * field%albnirdif_tile(jcs:jce,jb,:), DIM=2)
-
         IF (ltimer) CALL timer_start(timer_radiation)
 
         CALL psrad_radiation(                       &
@@ -366,8 +353,8 @@ CONTAINS
         & klev           = nlev                    ,&!< in  number of full levels = number of layers
         & klevp1         = nlevp1                  ,&!< in  number of half levels = number of layer interfaces
         & ktype          = itype(:)                ,&!< in  type of convection
-        & loland         = lland(:) .OR. llake(:)  ,&!< in  land-sea mask. (logical)
-        & loglac         = lglac(:)                ,&!< in  glacier mask (logical)
+        & loland         = lland                   ,&!< in  land-sea mask. (logical)
+        & loglac         = lglac                   ,&!< in  glacier mask (logical)
         & this_datetime  = this_datetime           ,&!< in  actual time step
         & pcos_mu0       = field%cosmu0_rt(:,jb)   ,&!< in  solar zenith angle
         & alb_vis_dir    = field%albvisdir(:,jb)   ,&!< in  surface albedo for visible range, direct
@@ -639,7 +626,7 @@ CONTAINS
           & field%  evap_tile    (:,jb,:),   &! out
                                 !! optional
           & nblock = jb,                  &! in
-          & lsm = field%lsmask(:,jb),     &! in, land fraction
+          & lsm = field%lsmask(:,jb),     &!< in, land-sea mask
           & alake = field%alake(:,jb),    &! in, lake fraction
           & pu    = field% ua(:,nlev,jb), &! in, um1
           & pv    = field% va(:,nlev,jb), &! in, vm1

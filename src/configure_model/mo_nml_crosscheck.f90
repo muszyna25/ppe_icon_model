@@ -845,6 +845,7 @@ CONTAINS
       END IF
     ELSE IF (echam_phy_config%llake) THEN
       CALL message(TRIM(method_name), 'Setting llake = .FALSE. since ljsbach = .FALSE.')
+      echam_phy_config%llake = .FALSE.
     END IF
 #endif
 
