@@ -192,7 +192,6 @@ inwp_satad      = 1
  lcoriolis      = .TRUE.
 /
 &transport_nml
-  ctracer_list  = '12345'
 /
 &diffusion_nml
  hdiff_order      = 5

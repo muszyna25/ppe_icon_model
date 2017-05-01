@@ -5,15 +5,15 @@
 #
 # 01/2017 : D. Reinert/F. Prill, DWD
 
-import argparse, datetime, os, subprocess
+import argparse, datetime, os, subprocess, traceback, sys
 
 
 # ------------------------------------------------------------
 # CONSTANTS
 
 DATEFMT    = '%Y%m%d%H%M%S'
-MODE_IAU   = 1
-MODE_NOIAU = 2
+MODE_IAU   = '1'
+MODE_NOIAU = '2'
 
 # ------------------------------------------------------------
 # Main program (wrapped by a subroutine)
@@ -59,10 +59,12 @@ def main():
             # special settings
             if (not args.ensemble):
                 # non-ensemble mode
-                cat       = "icogl130l90_main_an_rout"
-                cat_eu    = "icoeu_main_an_rout" 
-                cat_fg    = "icogl130l90_pre_fc_rout"
-                cat_fg_eu = "icoeu_pre_fc_rout" 
+                cat        = "icogl130l90_main_an_rout"
+                cat_eu     = "icoeu_main_an_rout" 
+                cat_vv0    = "icogl130l90_main_fc_rout" # category for VV=0
+                cat_vv0_eu = "icoeu_main_fc_rout" 
+                cat_fg     = "icogl130l90_pre_fc_rout"
+                cat_fg_eu  = "icoeu_pre_fc_rout" 
                 # lin=20 (localInformationNumber) is related to the
                 # W_SO analysis including SMA.
                 lin       = "lin=20"
@@ -87,7 +89,7 @@ def main():
             else:
                 gptype_str = "-1"
                 # if hour /= 0 and not ensemble then do not read w_so
-                if (not ensemble):
+                if (not args.ensemble):
                     read_w_so = False
 
             # ------------------------------------------------------------
@@ -112,15 +114,21 @@ def main():
                 f.write((prefix + "cat="+cat_eu+"    d={0} gptype=201   f=ieaf{0}R.grb  p=freshsnw,h_snow                           \n").format(datestr))
                 f.write((prefix + "cat="+cat_fg_eu+" d={0} s[s]=5400    f=iefff{0}-0130R.grb  lvt1=!100                             \n").format(datestr_3))
             elif (args.mode == MODE_NOIAU):
-                f.write((prefix + "cat="+cat+"       d={0} gptype=!201  f=igaf{0}R.grb p=u,v,t,p,qv,hhl                             \n").format(datestr))
+                # Note: In non-IAU mode we also append the "HHL" field
+                #       to each file (which is required when
+                #       pre-processing lateral boundary conditions for
+                #       ICON limited area runs).
+                f.write((prefix + "cat="+cat+"       d={0} gptype=!201  f=igaf{0}R.grb p=u,v,t,p,qv                             \n").format(datestr))
                 f.write((prefix + "cat="+cat+"       d={0} gptype={1}   f=igaf{0}R.grb p=t_so,t_sea,fr_ice,h_ice,t_ice              \n").format(datestr, gptype_str))
                 if (read_w_so):
                     f.write((prefix + "cat="+cat+"   d={0} gptype=0     f=igaf{0}R.grb p=w_so "+lin+"                               \n").format(datestr))
                 f.write((prefix + "cat="+cat+"       d={0} gptype=0     f=igaf{0}R.grb p=w_snow,t_snow,w_i,rho_snow,freshsnw,h_snow \n").format(datestr))
+                f.write((prefix + "cat="+cat_vv0+"       d={0} s[s]=0  f=igfff{0}-0300R.grb p=hhl                             \n").format(datestr))
                 f.write((prefix + "cat="+cat_fg+"    d={0} s[s]=10800   f=igfff{0}-0300R.grb lvt1=!100                              \n").format(datestr_3))
-                f.write((prefix + "cat="+cat_eu+"    d={0} gptype=0     f=ieaf{0}R.grb p=t_so,t_sea,fr_ice,h_ice,t_ice,hhl          \n").format(datestr))
+                f.write((prefix + "cat="+cat_vv0_eu+"    d={0} gptype=0     f=ieaf{0}R.grb p=t_so,t_sea,fr_ice,h_ice,t_ice          \n").format(datestr))
                 f.write((prefix + "cat="+cat_eu+"    d={0} gptype=0     f=ieaf{0}R.grb p=w_so "+lin+"                               \n").format(datestr))
                 f.write((prefix + "cat="+cat_eu+"    d={0} gptype=0     f=ieaf{0}R.grb p=w_snow,t_snow,w_i,rho_snow,freshsnw,h_snow \n").format(datestr))
+                f.write((prefix + "cat="+cat_vv0_eu+"    d={0} s[s]=0     f=iefff{0}-0300R.grb p=hhl          \n").format(datestr))
                 f.write((prefix + "cat="+cat_fg_eu+" d={0} s[s]=10800   f=iefff{0}-0300R.grb lvt1=!100                              \n").format(datestr_3))
             else:
                 raise Exception("Unknown mode!")
@@ -133,7 +141,8 @@ def main():
         print "    * " + datetime.datetime.now().strftime("%b %d %Y %H:%M:%S") + " :: done."    
     
     except Exception as e:
-        print str(e)
+        print "Error: ", str(e)
+        traceback.print_exc(file=sys.stdout)
 
 
 

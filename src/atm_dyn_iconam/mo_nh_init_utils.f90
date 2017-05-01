@@ -49,7 +49,7 @@ MODULE mo_nh_init_utils
     &                                 iau_wgt_dyn, iau_wgt_adv, ltile_coldstart
   USE mo_atm_phy_nwp_config,    ONLY: iprog_aero
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, l2lay_rho_snow, ntiles_water, lmulti_snow, &
-                                      nlev_soil, nlev_snow, lsnowtile
+                                      nlev_soil, nlev_snow, lsnowtile, lprog_albsi
   USE mo_fortran_tools,         ONLY: init, copy
 
   IMPLICIT NONE
@@ -819,6 +819,7 @@ CONTAINS
       ENDIF
 
       IF (iprog_aero == 1) ALLOCATE (saveinit(jg)%aerosol(nproma,nclass_aero,nblks_c))
+      IF (lprog_albsi)     ALLOCATE (saveinit(jg)%alb_si(nproma,nblks_c))
 
 !$OMP PARALLEL
       CALL copy(lnd_diag%fr_seaice, saveinit(jg)%fr_seaice)
@@ -873,6 +874,7 @@ CONTAINS
       ENDIF
 
       IF (iprog_aero == 1)  CALL copy(prm_diag(jg)%aerosol, saveinit(jg)%aerosol)
+      IF (lprog_albsi)      CALL copy(wtr_prog%alb_si, saveinit(jg)%alb_si)
 !$OMP END PARALLEL
 
     ENDDO
@@ -964,6 +966,7 @@ CONTAINS
       ENDIF
 
       IF (iprog_aero == 1)  CALL copy(saveinit(jg)%aerosol, prm_diag(jg)%aerosol)
+      IF (lprog_albsi)      CALL copy(saveinit(jg)%alb_si, wtr_prog%alb_si)
 
       ! Fields that need to be reset to zero in order to obtain identical results
       CALL init (p_nh(jg)%diag%ddt_vn_phy)
@@ -1005,6 +1008,7 @@ CONTAINS
       ENDIF
 
       IF (iprog_aero == 1) DEALLOCATE (saveinit(jg)%aerosol)
+      IF (lprog_albsi)     DEALLOCATE (saveinit(jg)%alb_si)
     ENDDO
 
     DEALLOCATE(saveinit)

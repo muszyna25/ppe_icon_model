@@ -495,9 +495,9 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
   LOGICAL :: l4d                       ! 4D field is provided as input
 
   ! Auxiliary fields
-  REAL(wp), DIMENSION(MAX(62,p_pc%nlevp1),p_grf%npoints_bdyintp_c) :: &
+  REAL(wp), DIMENSION(MAX(90,p_pc%nlevp1),p_grf%npoints_bdyintp_c) :: &
     grad_x, grad_y, maxval_neighb, minval_neighb, val_ctr
-  REAL(wp) :: h_aux(MAX(62,p_pc%nlevp1),p_grf%npoints_bdyintp_c,4,nfields)
+  REAL(wp) :: h_aux(MAX(90,p_pc%nlevp1),p_grf%npoints_bdyintp_c,4,nfields)
   REAL(wp) :: limfac1, limfac2, limfac, min_expval, max_expval, epsi, ovsht_fac, r_ovsht_fac, &
               relaxed_minval, relaxed_maxval
 

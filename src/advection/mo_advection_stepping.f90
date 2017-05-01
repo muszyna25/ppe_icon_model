@@ -80,12 +80,12 @@ MODULE mo_advection_stepping
   PUBLIC :: step_advection
 
 #if defined( _OPENACC )
-#define ACC_DEBUG $ACC
 #if defined(__ADVECTION_STEPPING_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
+  LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 #endif
 
 CONTAINS
@@ -316,10 +316,10 @@ CONTAINS
 !$ACC       PCOPYOUT( p_tracer_new, p_mflx_tracer_h, p_mflx_tracer_v ), &
 !$ACC       CREATE( z_delp_mc1, z_delp_mc2, z_fluxdiv_c ),              &
 !$ACC       IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_tracer_now, p_mflx_contra_h, p_mflx_contra_v,     & 
-!ACC_DEBUG                p_vn_contra_traj, p_w_contra_traj,                  &
-!ACC_DEBUG                p_cellhgt_mc_now, p_delp_mc_now, p_delp_mc_new),    &
-!ACC_DEBUG        IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_tracer_now, p_mflx_contra_h, p_mflx_contra_v,     & 
+!$ACC                p_vn_contra_traj, p_w_contra_traj,                  &
+!$ACC                p_cellhgt_mc_now, p_delp_mc_now, p_delp_mc_new),    &
+!$ACC        IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 #endif
 
     !*********************************!
@@ -377,7 +377,7 @@ CONTAINS
         ENDDO  ! jb
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( ptr_delp_mc_new ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( ptr_delp_mc_new ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -444,7 +444,7 @@ CONTAINS
         END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( p_tracer_new ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_tracer_new ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -498,7 +498,7 @@ CONTAINS
           ENDDO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( ptr_delp_mc_new ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( ptr_delp_mc_new ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -560,7 +560,7 @@ CONTAINS
         ENDDO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( ptr_delp_mc_new ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( ptr_delp_mc_new ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -775,7 +775,7 @@ CONTAINS
     ENDIF
 
 #ifdef _OPENACC
-!ACC_DEBUG UPDATE HOST( p_tracer_new ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_tracer_new ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 #else
 !$OMP END PARALLEL
 #endif
@@ -893,9 +893,9 @@ CONTAINS
 
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( p_tracer_new ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_tracer_new ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
       IF ( is_present_opt_ddt_tracer_adv .AND. (MOD( k_step, 2 ) == 0) ) THEN
-!ACC_DEBUG UPDATE HOST( opt_ddt_tracer_adv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( opt_ddt_tracer_adv ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
       ENDIF
 #else
 !$OMP END DO NOWAIT
@@ -953,7 +953,7 @@ CONTAINS
       ENDDO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( opt_ddt_tracer_adv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( opt_ddt_tracer_adv ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 #else
 !$OMP END DO
 #endif
