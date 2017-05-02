@@ -133,7 +133,7 @@ MODULE mo_output_event_handler
   USE mtime,                     ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,         &
     &                                  datetime, timedelta,  newTimedelta,                  &
     &                                  deallocateDatetime, datetimeToString,                &
-    &                                  newDatetime, OPERATOR(>=),                           &
+    &                                  newDatetime, OPERATOR(>=), OPERATOR(==), OPERATOR(<),&
     &                                  OPERATOR(>), OPERATOR(+), OPERATOR(/=),              &
     &                                  deallocateTimedelta, newJulianDay, JulianDay,        &
     &                                  getJulianDayFromDatetime, getDatetimeFromJulianDay
@@ -849,15 +849,14 @@ CONTAINS
       CALL getDatetimeFromJulianDay(tmp_jd, mtime_date)
       CALL datetimeToString(mtime_date, mtime_date_string(i))
     END DO
-    
+
     ! Optional: Append the last event time step
-    IF (l_output_last .AND. (mtime_date > sim_end)) THEN
+    IF (l_output_last .AND. (mtime_date < sim_end) .AND. mtime_end >= sim_end) THEN
       ! check, that we do not duplicate the last time step:
-      l_append_step = .FALSE.
+      l_append_step = .TRUE.
       IF (n_event_steps > 0) THEN
         mtime_date => newDatetime(TRIM(mtime_date_string(n_event_steps)))
-        IF (mtime_date /= sim_end)  l_append_step = .TRUE.
-        CALL deallocateDatetime(mtime_date)
+        IF (mtime_date == sim_end)  l_append_step = .FALSE.
       END IF
       IF (l_append_step) THEN 
         n_event_steps = n_event_steps + 1

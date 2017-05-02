@@ -174,9 +174,10 @@ CONTAINS
 
   END SUBROUTINE read_sst_sic_data
 
-  SUBROUTINE bc_sst_sic_time_interpolation(tiw, slf, tsw, seaice, siced, p_patch)
+  SUBROUTINE bc_sst_sic_time_interpolation(tiw, mask_lnd, tsw, seaice, siced, p_patch)
+    
     TYPE( t_time_interpolation_weights), INTENT(in) :: tiw
-    REAL(dp)       , INTENT(in)  :: slf(:,:) 
+    LOGICAL        , INTENT(in)  :: mask_lnd(:,:)  !< logical land-sea mask, .TRUE. means there is no fraction of ocean/sea-ice 
     REAL(dp)       , INTENT(out) :: tsw(:,:) 
     REAL(dp)       , INTENT(out) :: seaice(:,:) 
     REAL(dp)       , INTENT(out) :: siced(:,:) 
@@ -190,7 +191,13 @@ CONTAINS
 
     !TODO: missing siced needs to be added
 
-    WHERE (slf(:,:) < 0.5_dp)
+    ! mask_lnd = .TRUE. means grid box is completely covered by land or lake.
+    ! Note that lakes and ocean/sea ice are mutually exclusive, i.e. a cell cannot contain both lake and ocean/sea ice.
+    WHERE (mask_lnd(:,:))
+      seaice(:,:) = 0._dp
+      !TODO: check tsw/i/l sequence,dummy setting to some reasonable value for land and ice
+      tsw(:,:) = zts(:,:)
+    ELSE WHERE
       seaice(:,:) = zic(:,:)*0.01_dp               ! assuming input data is in percent
       ! seaice(:,:) = MAX(0.0_dp, MIN(0.99_dp, zic(:,:)))
       seaice(:,:) = MERGE(0.99_dp, seaice(:,:), seaice(:,:) > 0.99_dp)
@@ -202,16 +209,12 @@ CONTAINS
       !   tsw(:,:)=MAX(zts(:,:), tf_salt)
       ! END IF
       tsw(:,:) = MERGE(tf_salt, MAX(zts(:,:), tf_salt), seaice(:,:) > 0.0_dp) 
-      WHERE (p_patch%cells%center(:,:)%lat > 0.0_dp)
-         siced(:,:) = MERGE(2.0_dp, 0.0_dp, seaice(:,:) > 0.0_dp) 
-      ELSEWHERE
-         siced(:,:) = MERGE(1.0_dp, 0.0_dp, seaice(:,:) > 0.0_dp)
-      ENDWHERE
-    ELSEWHERE                                  ! land
-      seaice(:,:) = 0.0_dp
-      siced(:,:)  = 0.0_dp
-      !TODO: check tsw/i/l sequence,dummy setting to some reasonable value for land and ice
-      tsw(:,:) = zts(:,:)
+    END WHERE
+    
+    WHERE (seaice(:,:) > 0.0_dp)
+      siced(:,:) = MERGE(2._dp, 1._dp, p_patch%cells%center(:,:)%lat > 0.0_dp)
+    ELSEWHERE
+      siced(:,:) = 0._dp
     ENDWHERE
 
     !CALL message('','Interpolated sea surface temperature and sea ice cover.')

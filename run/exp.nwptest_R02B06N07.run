@@ -329,7 +329,6 @@ cat > NAMELIST_NWP << EOF
 
 ! transport_nml: tracer transport ---------------------------------------------
 &transport_nml
- ctracer_list                =                     '12345'        ! list of tracer names
  ivadv_tracer                =              3, 3, 3, 3, 3         ! tracer specific method to compute vertical advection
  itype_hlimit                =           3, 4, 4, 4, 4, 0         ! type of limiter for horizontal transport
  ihadv_tracer                =          52, 2, 2, 2, 2, 0         ! tracer specific method to compute horizontal advection

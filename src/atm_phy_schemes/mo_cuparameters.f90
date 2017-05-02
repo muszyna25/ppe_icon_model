@@ -35,7 +35,8 @@ MODULE mo_cuparameters
   USE mo_physical_constants, ONLY: rday => rdaylen
   USE mo_nwp_parameters,  ONLY: t_phy_params
   USE mo_nwp_tuning_config, ONLY: tune_entrorg, tune_rhebc_land, tune_rhebc_ocean, tune_rcucov, &
-    tune_texc, tune_qexc, tune_rhebc_land_trop, tune_rhebc_ocean_trop, tune_rcucov_trop
+    tune_texc, tune_qexc, tune_rhebc_land_trop, tune_rhebc_ocean_trop, tune_rcucov_trop, tune_gkdrag, &
+    tune_gkwake, tune_gfrcrit
 #endif
 
 #ifdef __GME__
@@ -414,6 +415,58 @@ MODULE mo_cuparameters
   REAL(KIND=jprb) :: rasmice
   REAL(KIND=jprb) :: rbsmice
 
+
+  !     -----------------------------------------------------------------
+  !*    ** *YOEGWD* - PARAMETERS FOR GRAVITY WAVE DRAG CALCULATIONS
+  !     -----------------------------------------------------------------
+  
+  !        * E.C.M.W.F. PHYSICS PACKAGE *
+  
+  !     M. J. MILLER          E.C.M.W.F.      89/12/14
+  
+  !  NAME     TYPE     PURPOSE
+  !  ----  :  ----   : ---------------------------------------------------
+  
+  ! GFRCRIT: CRITICAL FROUDE NUMBER
+  ! GRCRIT : CRITICAL RICHARDSON NUMBER FOR ONSET OF WAVE TURBULENCE.
+  ! GKDRAG : DRAG CONSTANT (PROPORTIONAL TO WAVENUMBER)
+  ! GKWAKE : DRAG COEFFICIENT FOR LOWLEVEL WAKE DRAG
+  ! NKTOPG : NUMBER OF TOPMOST LAYER USED TO DEFINE LOW-LEVEL FLOW
+  ! NGWDLIM: VERTICAL LEVEL ABOVE WHICH THE WIND TENDENCIES WILL BE LIMITED 
+  !          TO GTENLIM
+  ! GTENLIM: LIMITER FOR WIND TENDENCIES IN THE STRATOSPHERE AND MESOSPHERE
+  ! GRFPLM : PRESUURE LIMIT FOR RAYLEIGH FRICTION
+  ! NGWDTOP: INDEX FOR GRFPLM
+  ! LRDIFF_STRATO: IF TRUE REDUCED VERTICAL DIFFUSION IN STRATOSPHERE
+  ! NDIFF_STRATO: TYPE OF REDUCED VERTICAL DIFFUSION IN STRATOSPHERE
+  ! LDIAG_STRATO:  IF TRUE STORE GRAVITY-WAVE MOMENTUM FLUXES
+  
+  
+  !*    SECURITY PARAMETERS.
+  !     --------------------
+  
+  ! GSSEC  : TO SECURE STABILITY.
+  ! GTSEC  : TO SECURE THE STRESS CALCULATION.
+  ! GVSEC  : TO SECURE THE PROJECTION CALCULATION.
+  !     -----------------------------------------------------------------
+
+! INTEGER(KIND=JPIM) :: NKTOPG  -> moved into phy_params because it is resolution-dependent
+! INTEGER(KIND=JPIM) :: NGWDLIM -> moved into phy_params because it is resolution-dependent
+! INTEGER(KIND=JPIM) :: NGWDTOP -> moved into phy_params because it is resolution-dependent
+  INTEGER(KIND=JPIM) :: NDIFF_STRATO
+  REAL(KIND=JPRB) :: GFRCRIT
+  REAL(KIND=JPRB) :: GRCRIT
+  REAL(KIND=JPRB) :: GKDRAG
+  REAL(KIND=JPRB) :: GKWAKE
+  REAL(KIND=JPRB) :: GSSEC
+  REAL(KIND=JPRB) :: GTSEC
+  REAL(KIND=JPRB) :: GVSEC
+  REAL(KIND=JPRB) :: GTENLIM
+  REAL(KIND=JPRB) :: GRFPLM
+  LOGICAL         :: LRDIFF_STRATO
+  LOGICAL         :: LDIAG_STRATO
+  
+
   ! yomhook
   LOGICAL:: LHOOK=.FALSE.  
   !
@@ -438,7 +491,7 @@ MODULE mo_cuparameters
           & rcpecons ,rtaumel  ,& ! rcucov, rhebc  ,&
           & rmfdeps, icapdcycl, lmfglac, lmfwetb
   !yoephli
-  PUBLIC :: lphylin  ,rlptrc   ,rlpal1   ,rlpal2
+  PUBLIC :: lphylin  ,rlptrc   ,rlpal1   ,rlpal2   ,rlpdrag
   !yoephy
   PUBLIC :: lepcld
   !yoevdf
@@ -458,6 +511,10 @@ MODULE mo_cuparameters
       
   PUBLIC :: phihu    ,phimu    ,phims    ,phihs
 
+  !yoegwd
+  PUBLIC :: gfrcrit, grcrit, gssec, gtsec, gvsec, grfplm, gkdrag, gkwake, gtenlim
+! PUBLIC :: nktopg, ngwdtop, ngwdlim
+
   PUBLIC :: sucst
   PUBLIC :: sucumf
   PUBLIC :: su_yoethf
@@ -465,6 +522,7 @@ MODULE mo_cuparameters
   PUBLIC :: suphli
   PUBLIC :: suvdf
   PUBLIC :: suvdfs
+  PUBLIC :: sugwd
   PUBLIC :: dr_hook
   PUBLIC :: lhook
   PUBLIC :: vdiv, vexp, vrec, vlog
@@ -1871,6 +1929,189 @@ IF (lhook) CALL dr_hook('SUCUMF',1,zhook_handle)
     !RETURN
   END SUBROUTINE suvdfs
 
+
+!------------------------------------------------------------------------------
+
+
+  SUBROUTINE SUGWD(KLEV,pmean,phy_params)
+  
+  !**** *SUGWD* INITIALIZE COMMON YOEGWD CONTROLLING GRAVITY WAVE DRAG
+  
+  !     PURPOSE.
+  !     --------
+  !           INITIALIZE YOEGWD, THE COMMON THAT CONTROLS THE
+  !           GRAVITY WAVE DRAG PARAMETRIZATION.
+  
+  !**   INTERFACE.
+  !     ----------
+  !        CALL *SUGWD* FROM *SUPHEC*
+  !              -----        ------
+  
+  !        EXPLICIT ARGUMENTS :
+  !        --------------------
+  !        KULOUT      : LOGICAL UNIT FOR THE OUTPUT
+  !        PVAH,PVBH   : VERTICAL COORDINATE TABLE
+  !        KLEV        : NUMBER OF MODEL LEVELS
+  
+  !        IMPLICIT ARGUMENTS :
+  !        --------------------
+  !        COMMON YOEGWD
+  
+  !     METHOD.
+  !     -------
+  !        SEE DOCUMENTATION
+  
+  !     EXTERNALS.
+  !     ----------
+  !        NONE
+  
+  !     REFERENCE.
+  !     ----------
+  !        ECMWF Research Department documentation of the IFS
+  
+  !     AUTHOR.
+  !     -------
+  !        MARTIN MILLER             *ECMWF*
+  
+  !     MODIFICATIONS.
+  !     --------------
+  !        ORIGINAL : 90-01-01       ALSO : 95-01-20
+  !        M.Hamrud      01-Oct-2003 CY28 Cleaning
+  !        P.Bechtold    14-Jan-2009 precompute levels for RF
+  !        P.Bechtold    04-Oct-2010 simplify precomp of NGWDLIM
+  !        N.Semane+P.Bechtold    04-10-2010 replace 3600s by RHOUR for small planet
+  !        I. Sandu      15-03-2013  adjustment of GKWAKE parameter
+  !        R. El Khatib  10-Aug-2011 More proper abort check when EC physics is inactive
+  !        T. Wilhelmsson (Sept 2013) Geometry and setup refactoring.
+  !     ------------------------------------------------------------------
+  
+  
+  IMPLICIT NONE
+  
+  INTEGER(KIND=JPIM),INTENT(IN)    :: KLEV 
+
+  TYPE(t_phy_params), INTENT(inout) :: phy_params
+  REAL(KIND=jprb)   , INTENT(in)    :: pmean(klev)
+
+  !      ----------------------------------------------------------------
+  
+  INTEGER(KIND=JPIM) :: JK
+  
+  REAL(KIND=JPRB) :: ZPM1R(KLEV), ZSIGT, ZPLIM
+  REAL(KIND=JPRB) :: ZHOOK_HANDLE
+
+  
+  REAL(KIND=JPRB) :: RHOUR=3600.0
+  
+  
+  
+  !*       1.    SET THE VALUES OF THE PARAMETERS
+  !              --------------------------------
+  
+  IF (LHOOK) CALL DR_HOOK('SUGWD',0,ZHOOK_HANDLE)
+  
+  !dmk ZSIGT=0.94_JPRB
+  !xxx ZPR  =80000._JPRB
+  
+  zsigt =  75000._jprb ! (750 hPa in International Standard Atmosphere)
+  !xxx
+  
+  !  As a security measure when running with few levels,
+  !  we force NKTOPG=KLEV to make sure it is defined
+  
+  phy_params%NKTOPG=KLEV
+  
+  !dmk DO JK=KLEV,1,-1
+  !      ZPM1R(JK)=0.5_JPRB*(PVAH(JK)+PVAH(JK+1)+ZPR*(PVBH(JK)+PVBH(JK+1)))
+  !      IF((ZPM1R(JK)/ZPR) >= ZSIGT)THEN
+  !        NKTOPG=JK
+  !      ENDIF
+  !xxx ENDDO
+  
+
+  DO jk=klev,1,-1
+    ! Find highest full level with zf(jk) <= zsigt 
+    IF (pmean(jk) >= zsigt) THEN
+      phy_params%nktopg=jk
+    END IF
+  END DO
+  
+
+  
+  GRFPLM=9.9_JPRB
+  phy_params%NGWDTOP=1
+  DO JK=1,KLEV
+  !xmk  IF(ZPM1R(JK)<GRFPLM)THEN
+    IF(pmean(JK)<GRFPLM)THEN
+      phy_params%NGWDTOP=JK
+    ENDIF
+  ENDDO
+  
+  !GKDRAG =0.3_JPRB
+  !GKWAKE =1._JPRB
+  !  Revised gwd parameter values
+  GKDRAG = tune_gkdrag
+  GKWAKE = tune_gkwake
+
+  !38r2
+  !GKWAKE =1.3_JPRB
+  
+  GRCRIT =0.25_JPRB
+  GFRCRIT = tune_gfrcrit
+  
+  !      ----------------------------------------------------------------
+  
+  !*       2.    SET VALUES OF SECURITY PARAMETERS
+  !              ---------------------------------
+  
+  GVSEC=0.10_JPRB
+  GSSEC=1.E-12_JPRB
+  
+  GTSEC=1.E-07_JPRB
+  
+  !      ----------------------------------------------------------------
+  
+  !*       3.    SET VALUES OF PARAMETERS FOR LIMITING
+  !*             THE WIND TENDENCIES IN STRATOSPHERE AND MESOSPHERE
+  
+  ! WIND TENDENCIES LIMITED ABOVE 50hPa
+  IF(KLEV > 19)THEN
+    ZPLIM=5000._JPRB
+  ELSE
+    ZPLIM=1000._JPRB
+  ENDIF
+  
+  phy_params%NGWDLIM=0
+  !xmk DO JK=KLEV,1,-1
+  !      IF(STPRE(JK) >= ZPLIM) THEN
+  DO JK=KLEV,1,-1
+    IF(pmean(JK) >= ZPLIM) THEN   ! 20km ~ 50hPa
+      phy_params%NGWDLIM=JK
+    ENDIF
+  ENDDO
+  
+
+  
+  CALL message('mo_cuparameters, sugwd', 'nktopg, ngwdlim, ngwdtop')
+  WRITE(message_text,'(3i6)') phy_params%NKTOPG,phy_params%NGWDLIM,phy_params%NGWDTOP
+  CALL message('mo_cuparameters, sugwd', TRIM(message_text))
+
+  
+  ! WIND TENDENCIES LIMITED TO LESS OR EQUAL TO 20.m/s per hour
+  !  Recommend a value of at least 80.m/s per hour
+  ! GTENLIM=20.0_JPRB/RHOUR
+  GTENLIM=80.0_JPRB/RHOUR
+  
+  ! Reduced vertical diffusion in stratosphere
+  LRDIFF_STRATO=.FALSE.
+  NDIFF_STRATO=5
+  ! Diagnostics: stratosphere wave fluxes
+  LDIAG_STRATO=.FALSE.
+  
+
+  IF (LHOOK) CALL DR_HOOK('SUGWD',1,ZHOOK_HANDLE)
+  END SUBROUTINE SUGWD
+  
 
 !------------------------------------------------------------------------------
 

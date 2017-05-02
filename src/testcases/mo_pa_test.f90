@@ -32,7 +32,6 @@ USE mo_kind,                ONLY: wp
 USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
 USE mo_physical_constants,  ONLY: rgrav, rd
 USE mo_math_constants,      ONLY: pi_2, pi
-USE mo_advection_config,    ONLY: advection_config
 USE mo_vertical_coord_table,ONLY: vct_a, vct_b, ceta, cetah
 USE mo_eta_coord_diag,      ONLY: half_level_pressure, full_level_pressure
 USE mo_model_domain,        ONLY: t_patch
@@ -77,9 +76,10 @@ CONTAINS
   !!  Original version by Jochen Foerstner, DWD (2008-05)
   !!  Code restructuring by Almut Gassmann, MPI-M (2008-10)
   !!
-  SUBROUTINE init_hydro_state_prog_patest( ptr_patch, ptr_prog, ptr_diag,     &
-    &                                      ptr_int, ptr_ext_data,             &
-    &                                      p_rotate_axis_deg, linit_tracer_fv )
+  SUBROUTINE init_hydro_state_prog_patest( ptr_patch, ptr_prog, ptr_diag,      &
+    &                                      ptr_int, ptr_ext_data,              &
+    &                                      p_rotate_axis_deg, linit_tracer_fv, &
+    &                                      tracer_inidist_list)
 
     TYPE(t_patch),TARGET,INTENT(INOUT):: ptr_patch
     TYPE(t_int_state), INTENT(INOUT)  :: ptr_int
@@ -87,31 +87,22 @@ CONTAINS
     TYPE(t_hydro_atm_diag), INTENT(INOUT) :: ptr_diag
     TYPE(t_external_data), INTENT(INOUT) :: ptr_ext_data !< external data
     REAL(wp), INTENT(IN)            :: p_rotate_axis_deg
-    LOGICAL, INTENT(IN)  :: linit_tracer_fv  !< tracer finite volume initialization
+    LOGICAL, INTENT(IN) :: linit_tracer_fv  !< tracer finite volume initialization
+    INTEGER, INTENT(IN) :: tracer_inidist_list(:) !< selected initial tracer distributions
 
     INTEGER  :: ikp1, nblks_e, nblks_c, nblks_v, npromz_e, npromz_c, npromz_v, &
                 nlen, je, jk, jc, jt, jb, jv, ist, it4, it5, it6, it7, it8
     INTEGER  :: nlev, nlevp1              !< number of full and half levels
-    INTEGER  :: pid         !< patch ID
 
     REAL(wp) :: zlon, zlat, zpk, zpkp1, zpres, zheight ! location
     REAL(wp) :: zu, zv, zq4, zq5, zq6, zq7, zq8    ! initialized variables
     REAL(wp) :: z_aleph
-
-    CHARACTER(LEN=1) :: ctracer    ! char to control tracer init
-    CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
-    &  ctracer_list
 
     REAL(wp), ALLOCATABLE :: zhelp_c (:,:,:)
 
 !--------------------------------------------------------------------
 !
     CALL init_ncar_testcases_domain()
-    ! get patch ID
-    pid = ptr_patch%id
-
-    ! get ctracer_list
-    ctracer_list = advection_config(pid)%ctracer_list
 
     z_aleph = p_rotate_axis_deg * pi/180.0_wp
 
@@ -152,17 +143,16 @@ CONTAINS
     it7 = 0
     it8 = 0
     DO jt = 1, ntracer
-      ctracer = ctracer_list(jt:jt)
-      SELECT CASE(ctracer)
-      CASE('4')
+      SELECT CASE(tracer_inidist_list(jt))
+      CASE(4)
         it4 = jt
-      CASE('5')
+      CASE(5)
         it5 = jt
-      CASE('6')
+      CASE(6)
         it6 = jt
-      CASE('7')
+      CASE(7)
         it7 = jt
-      CASE('8')
+      CASE(8)
         it8 = jt
       END SELECT
     ENDDO
@@ -272,8 +262,8 @@ CONTAINS
           ENDIF
 
 
-          CALL init_pure_adv_tracers ( ctracer_list, zlon, zlat, zheight, &
-            &                          p_rotate_axis_deg, zq4, zq5, zq6,  &
+          CALL init_pure_adv_tracers ( tracer_inidist_list(1:5), zlon, zlat, zheight, &
+            &                          p_rotate_axis_deg, zq4, zq5, zq6,              &
             &                          zq7, zq8 )
 
           IF (it4 /= 0) ptr_prog%tracer(jc,jk,jb,it4) = zq4

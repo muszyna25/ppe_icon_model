@@ -290,7 +290,7 @@ cat > $atmo_namelist << EOF
  k2_klev_max = 3        ! the 3 highest model levels use 2nd order diffusion
 /
 &transport_nml
- ctracer_list = 'vwi45' ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
+ tracer_names = 'v','w','i','4','5' ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
 /
 &echam_phy_nml
  lrad       = .TRUE.

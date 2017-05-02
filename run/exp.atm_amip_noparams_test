@@ -45,8 +45,9 @@ file_interval="PT4M"
 
 # namelist files
 atmo_namelist=NAMELIST_${EXPNAME}_atm
-lnd_namelist=NAMELIST_${EXPNAME}_lnd
 
+# JSBACH settings
+run_jsbach=no
 #--------------------------------------------------------------------------------------------------
 
 # (3) Define the model configuration
@@ -158,31 +159,6 @@ cat > ${atmo_namelist} << EOF
 /
 EOF
 
-# land surface and soil
-# ---------------------
-cat > ${lnd_namelist} <<EOF
-&jsb_model_nml
-  usecase         = 'jsbach_lite'
-/
-&jsb_srf_nml
-  bc_filename     = 'bc_land_phys.nc'
-  bc_sso_filename = 'bc_land_sso.nc'
-  ic_filename     = 'ic_land_soil.nc'
-/
-&jsb_soil_nml
-  active          = .TRUE.
-  nsoil_energy    = 5
-  nsoil_water     = 5
-  bc_filename     = 'bc_land_soil.nc'
-  ic_filename     = 'ic_land_soil.nc'
-/
-&jsb_veg_nml
-  active          = .TRUE.
-  bc_filename     = 'bc_land_phys.nc'
-  ic_filename     = 'ic_land_soil.nc'
-/
-EOF
-
 #--------------------------------------------------------------------------------------------------
 
 # (4) Define the input
@@ -196,7 +172,6 @@ add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 # namelist files
 #
 add_required_file ${basedir}/run/${atmo_namelist}                       ./
-add_required_file ${basedir}/run/${lnd_namelist}                        ./
 
 # dictionary file for output variable names
 #
