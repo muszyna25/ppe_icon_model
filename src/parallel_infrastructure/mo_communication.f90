@@ -299,14 +299,14 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  SUBROUTINE setup_comm_pattern(n_points, owner, opt_global_index, &
+  SUBROUTINE setup_comm_pattern(n_points, owner, global_index, &
     &                           send_glb2loc_index, p_pat)
 
     !
 
-    INTEGER, INTENT(IN)           :: n_points             ! Total number of points
-    INTEGER, INTENT(IN)           :: owner(:)             ! Owner of every point
-    INTEGER, INTENT(IN), OPTIONAL :: opt_global_index(:)  ! Global index of every point
+    INTEGER, INTENT(IN) :: n_points             ! Total number of points
+    INTEGER, INTENT(IN) :: owner(:)             ! Owner of every point
+    INTEGER, INTENT(IN) :: global_index(:)      ! Global index of every point
     TYPE(t_glb2loc_index_lookup), INTENT(IN) :: send_glb2loc_index
     ! global to local index
     ! lookup information
@@ -316,16 +316,9 @@ CONTAINS
 
 
     INTEGER, ALLOCATABLE :: icnt(:), flag(:), global_recv_index(:), send_src(:), num_rcv(:)
-    INTEGER              :: global_index(n_points)
     INTEGER :: i, n, np, nr, num_recv, irs, ire, num_send, iss, ise, max_glb
 
     !-----------------------------------------------------------------------
-
-    IF (PRESENT(opt_global_index)) THEN
-      global_index(:) = opt_global_index(1:n_points)
-    ELSE
-      global_index(:) = (/ (i, i=1,n_points) /)
-    END IF
 
     ALLOCATE(icnt(0:p_n_work-1), num_rcv(0:p_n_work-1))
     max_glb = MAX(MAXVAL(ABS(global_index(1:n_points)),mask=(owner(1:n_points)>=0)),1)
@@ -1015,27 +1008,26 @@ CONTAINS
   !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
-  SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
+  SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
 
     TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
     REAL(dp), INTENT(INOUT), TARGET        :: recv(:,:,:)
     REAL(dp), INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
     REAL(dp), INTENT(IN), OPTIONAL, TARGET :: add (:,:,:)
-    INTEGER, OPTIONAL :: send_lbound3
 
     REAL(dp) :: send_buf(SIZE(recv,2),p_pat%n_send), &
       recv_buf(SIZE(recv,2),p_pat%n_recv)
 
     REAL(dp), POINTER :: send_ptr(:,:,:)
 
-    INTEGER :: i, k, np, irs, iss, pid, icount, ndim2, lbound3
+    INTEGER :: i, k, np, irs, iss, pid, icount, ndim2
 
     !-----------------------------------------------------------------------
 
     ! special treatment for trivial communication patterns of
     ! sequential runs
     IF(my_process_is_mpi_seq()) THEN
-      CALL exchange_data_r3d_seq(p_pat, recv, send, add, send_lbound3)
+      CALL exchange_data_r3d_seq(p_pat, recv, send, add)
       RETURN
     END IF
 
@@ -1067,12 +1059,6 @@ CONTAINS
       ENDDO
     ENDIF
 
-    IF(PRESENT(send) .AND. PRESENT(send_lbound3)) THEN
-      lbound3 = send_lbound3
-    ELSE
-      lbound3 = 1
-    ENDIF
-
     ! Set up send buffer
 
     IF(PRESENT(send)) THEN
@@ -1085,7 +1071,7 @@ CONTAINS
 !$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
       DO i = 1, p_pat%n_send
-        send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i)-lbound3+1)
+        send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i))
       ENDDO
 !$ACC END PARALLEL
     ELSE
@@ -1096,7 +1082,7 @@ CONTAINS
       DO k = 1, ndim2
 !$ACC LOOP VECTOR
         DO i = 1, p_pat%n_send
-          send_buf(k,i) = send_ptr(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i)-lbound3+1)
+          send_buf(k,i) = send_ptr(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i))
         ENDDO
       ENDDO
 !$ACC END PARALLEL
@@ -1106,7 +1092,7 @@ CONTAINS
 #endif
       DO i = 1, p_pat%n_send
         send_buf(1:ndim2,i) = send_ptr(p_pat%send_src_idx(i),1:ndim2,   &
-          &                            p_pat%send_src_blk(i)-lbound3+1)
+          &                            p_pat%send_src_blk(i))
       ENDDO
 #ifdef __OMPPAR_COPY__
 !$OMP END PARALLEL DO
@@ -1289,27 +1275,26 @@ CONTAINS
   !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
-  SUBROUTINE exchange_data_s3d(p_pat, recv, send, add, send_lbound3)
+  SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
 
     TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
     REAL(sp), INTENT(INOUT), TARGET        :: recv(:,:,:)
     REAL(sp), INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
     REAL(sp), INTENT(IN), OPTIONAL, TARGET :: add (:,:,:)
-    INTEGER, OPTIONAL :: send_lbound3
 
     REAL(sp) :: send_buf(SIZE(recv,2),p_pat%n_send), &
       recv_buf(SIZE(recv,2),p_pat%n_recv)
 
     REAL(sp), POINTER :: send_ptr(:,:,:)
 
-    INTEGER :: i, k, np, irs, iss, pid, icount, ndim2, lbound3
+    INTEGER :: i, k, np, irs, iss, pid, icount, ndim2
 
     !-----------------------------------------------------------------------
 
     ! special treatment for trivial communication patterns of
     ! sequential runs
     IF(my_process_is_mpi_seq()) THEN
-      CALL exchange_data_s3d_seq(p_pat, recv, send, add, send_lbound3)
+      CALL exchange_data_s3d_seq(p_pat, recv, send, add)
       RETURN
     END IF
 
@@ -1341,12 +1326,6 @@ CONTAINS
       ENDDO
     ENDIF
 
-    IF(PRESENT(send) .AND. PRESENT(send_lbound3)) THEN
-      lbound3 = send_lbound3
-    ELSE
-      lbound3 = 1
-    ENDIF
-
     ! Set up send buffer
 
     IF(PRESENT(send)) THEN
@@ -1359,7 +1338,7 @@ CONTAINS
 !$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
       DO i = 1, p_pat%n_send
-        send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i)-lbound3+1)
+        send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i))
       ENDDO
 !$ACC END PARALLEL
     ELSE
@@ -1370,7 +1349,7 @@ CONTAINS
       DO k = 1, ndim2
 !$ACC LOOP VECTOR
         DO i = 1, p_pat%n_send
-          send_buf(k,i) = send_ptr(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i)-lbound3+1)
+          send_buf(k,i) = send_ptr(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i))
         ENDDO
       ENDDO
 !$ACC END PARALLEL
@@ -1380,7 +1359,7 @@ CONTAINS
 #endif
       DO i = 1, p_pat%n_send
         send_buf(1:ndim2,i) = send_ptr(p_pat%send_src_idx(i),1:ndim2,   &
-          &                            p_pat%send_src_blk(i)-lbound3+1)
+          &                            p_pat%send_src_blk(i))
       ENDDO
 #ifdef __OMPPAR_COPY__
 !$OMP END PARALLEL DO
@@ -1551,16 +1530,15 @@ CONTAINS
 
   ! SEQUENTIAL version of subroutine "exchange_data_r3d"
   !
-  SUBROUTINE exchange_data_r3d_seq(p_pat, recv, send, add, send_lbound3)
+  SUBROUTINE exchange_data_r3d_seq(p_pat, recv, send, add)
 
     TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
     REAL(dp), INTENT(INOUT), TARGET        :: recv(:,:,:)
     REAL(dp), INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
     REAL(dp), INTENT(IN), OPTIONAL, TARGET :: add (:,:,:)
-    INTEGER, OPTIONAL :: send_lbound3
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":exchange_data_r3d_seq"
-    INTEGER :: i, lbound3, ndim2
+    INTEGER :: i, ndim2
 
     ! consistency checks
     ! ------------------
@@ -1587,11 +1565,6 @@ CONTAINS
     ! -----------------------------
 
     ndim2 = SIZE(recv,2)
-    IF(PRESENT(send) .AND. PRESENT(send_lbound3)) THEN
-      lbound3 = send_lbound3 - 1
-    ELSE
-      lbound3 = 0
-    ENDIF
 
     ! The next piece of code is a condensed version of the following
     ! (under the assumptions asserted above):
@@ -1615,7 +1588,7 @@ CONTAINS
           &  add( p_pat%recv_dst_idx(i), 1:ndim2, p_pat%recv_dst_blk(i) )                +  &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
           &       1:ndim2,                                                                  &
-          &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound3)
+          &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
 !$ACC END KERNELS
     ELSE
@@ -1624,7 +1597,7 @@ CONTAINS
         recv( p_pat%recv_dst_idx(i), 1:ndim2, p_pat%recv_dst_blk(i) )  =                    &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
           &       1:ndim2,                                                                  &
-          &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound3)
+          &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
 !$ACC END KERNELS
     END IF
@@ -1634,16 +1607,15 @@ CONTAINS
 
   ! SEQUENTIAL version of subroutine "exchange_data_s3d"
   !
-  SUBROUTINE exchange_data_s3d_seq(p_pat, recv, send, add, send_lbound3)
+  SUBROUTINE exchange_data_s3d_seq(p_pat, recv, send, add)
 
     TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
     REAL(sp), INTENT(INOUT), TARGET        :: recv(:,:,:)
     REAL(sp), INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
     REAL(sp), INTENT(IN), OPTIONAL, TARGET :: add (:,:,:)
-    INTEGER, OPTIONAL :: send_lbound3
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":exchange_data_s3d_seq"
-    INTEGER :: i, lbound3, ndim2
+    INTEGER :: i, ndim2
 
     ! consistency checks
     ! ------------------
@@ -1669,13 +1641,6 @@ CONTAINS
     ! "communication" (direct copy)
     ! -----------------------------
 
-    ndim2 = SIZE(recv,2)
-    IF(PRESENT(send) .AND. PRESENT(send_lbound3)) THEN
-      lbound3 = send_lbound3 - 1
-    ELSE
-      lbound3 = 0
-    ENDIF
-
     ! The next piece of code is a condensed version of the following
     ! (under the assumptions asserted above):
     !
@@ -1698,7 +1663,7 @@ CONTAINS
           &  add( p_pat%recv_dst_idx(i), 1:ndim2, p_pat%recv_dst_blk(i) )                +  &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
           &       1:ndim2,                                                                  &
-          &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound3)
+          &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
 !$ACC END KERNELS
     ELSE
@@ -1707,7 +1672,7 @@ CONTAINS
         recv( p_pat%recv_dst_idx(i), 1:ndim2, p_pat%recv_dst_blk(i) )  =                    &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
           &       1:ndim2,                                                                  &
-          &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound3)
+          &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
 !$ACC END KERNELS
     END IF
@@ -1718,13 +1683,12 @@ CONTAINS
   !================================================================================================
   ! INTEGER SECTION -------------------------------------------------------------------------------
   !
-  SUBROUTINE exchange_data_i3d(p_pat, recv, send, add, send_lbound3)
+  SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
 
     TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
     INTEGER, INTENT(INOUT), TARGET        :: recv(:,:,:)
     INTEGER, INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
     INTEGER, INTENT(IN), OPTIONAL, TARGET :: add (:,:,:)
-    INTEGER, OPTIONAL :: send_lbound3
 
     CHARACTER(len=*), PARAMETER :: routine = modname//"::exchange_data_i3d"
     INTEGER :: send_buf(SIZE(recv,2),p_pat%n_send), &
@@ -1732,7 +1696,7 @@ CONTAINS
 
     INTEGER, POINTER :: send_ptr(:,:,:)
 
-    INTEGER :: i, k, np, irs, iss, pid, icount, ndim2, lbound3
+    INTEGER :: i, k, np, irs, iss, pid, icount, ndim2
 
     IF(my_process_is_mpi_seq()) THEN
       CALL finish(routine, "Not yet implemented!")
@@ -1764,12 +1728,6 @@ CONTAINS
       ENDDO
     ENDIF
 
-    IF(PRESENT(send) .AND. PRESENT(send_lbound3)) THEN
-      lbound3 = send_lbound3
-    ELSE
-      lbound3 = 1
-    ENDIF
-
     ! Set up send buffer
 
     IF(PRESENT(send)) THEN
@@ -1782,7 +1740,7 @@ CONTAINS
 !$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
       DO i = 1, p_pat%n_send
-        send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i)-lbound3+1)
+        send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i))
       ENDDO
 !$ACC END PARALLEL
     ELSE
@@ -1793,14 +1751,14 @@ CONTAINS
       DO k = 1, ndim2
 !$ACC LOOP VECTOR
         DO i = 1, p_pat%n_send
-          send_buf(k,i) = send_ptr(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i)-lbound3+1)
+          send_buf(k,i) = send_ptr(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i))
         ENDDO
       ENDDO
 !$ACC END PARALLEL
 #else
       DO i = 1, p_pat%n_send
         send_buf(1:ndim2,i) = send_ptr(p_pat%send_src_idx(i),1:ndim2,   &
-          &                            p_pat%send_src_blk(i)-lbound3+1)
+          &                            p_pat%send_src_blk(i))
       ENDDO
 #endif
     ENDIF
@@ -1932,12 +1890,11 @@ CONTAINS
   !================================================================================================
   ! LOGICAL SECTION -------------------------------------------------------------------------------
   !
-  SUBROUTINE exchange_data_l3d(p_pat, recv, send, send_lbound3)
+  SUBROUTINE exchange_data_l3d(p_pat, recv, send)
 
     TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
     LOGICAL, INTENT(INOUT), TARGET        :: recv(:,:,:)
     LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
-    INTEGER, OPTIONAL :: send_lbound3
 
     CHARACTER(len=*), PARAMETER :: routine = modname//"::exchange_data_l3d"
     LOGICAL :: send_buf(SIZE(recv,2),p_pat%n_send), &
@@ -1945,7 +1902,7 @@ CONTAINS
 
     LOGICAL, POINTER :: send_ptr(:,:,:)
 
-    INTEGER :: i, k, np, irs, ire, iss, ise, ndim2, lbound3
+    INTEGER :: i, k, np, irs, ire, iss, ise, ndim2
 
     !-----------------------------------------------------------------------
     start_sync_timer(timer_exch_data)
@@ -1973,12 +1930,6 @@ CONTAINS
       ENDDO
     ENDIF
 
-    IF(PRESENT(send) .AND. PRESENT(send_lbound3)) THEN
-      lbound3 = send_lbound3
-    ELSE
-      lbound3 = 1
-    ENDIF
-
     ! Set up send buffer
 
     IF(PRESENT(send)) THEN
@@ -1991,7 +1942,7 @@ CONTAINS
 !$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
       DO i = 1, p_pat%n_send
-        send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i)-lbound3+1)
+        send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i))
       ENDDO
 !$ACC END PARALLEL
     ELSE
@@ -2002,14 +1953,14 @@ CONTAINS
       DO k = 1, ndim2
 !$ACC LOOP VECTOR
         DO i = 1, p_pat%n_send
-          send_buf(k,i) = send_ptr(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i)-lbound3+1)
+          send_buf(k,i) = send_ptr(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i))
         ENDDO
       ENDDO
 !$ACC END PARALLEL
 #else
       DO i = 1, p_pat%n_send
         send_buf(1:ndim2,i) = send_ptr(p_pat%send_src_idx(i),1:ndim2,   &
-          &                            p_pat%send_src_blk(i)-lbound3+1)
+          &                            p_pat%send_src_blk(i))
       ENDDO
 #endif
     ENDIF
@@ -3914,13 +3865,12 @@ CONTAINS
   !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
-  SUBROUTINE exchange_data_r2d(p_pat, recv, send, add, send_lbound2, l_recv_exists)
+  SUBROUTINE exchange_data_r2d(p_pat, recv, send, add, l_recv_exists)
     !
     TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
     REAL(dp), INTENT(INOUT), TARGET        :: recv(:,:)
     REAL(dp), INTENT(IN), OPTIONAL, TARGET :: send(:,:)
     REAL(dp), INTENT(IN), OPTIONAL, TARGET :: add (:,:)
-    INTEGER, OPTIONAL :: send_lbound2
     LOGICAL, OPTIONAL :: l_recv_exists
 
     CHARACTER(len=*), PARAMETER :: routine = modname//"::exchange_data_r2d"
@@ -3931,7 +3881,7 @@ CONTAINS
     ! special treatment for trivial communication patterns of
     ! sequential runs
     IF(my_process_is_mpi_seq()) THEN
-      CALL exchange_data_r2d_seq(p_pat, recv, send, add, send_lbound2,l_recv_exists)
+      CALL exchange_data_r2d_seq(p_pat, recv, send, add, l_recv_exists)
       RETURN
     END IF
 
@@ -3946,18 +3896,7 @@ CONTAINS
 !$ACC END KERNELS
     ENDIF
 
-    IF (PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
-      IF (PRESENT(add)) THEN
-        CALL exchange_data(p_pat, tmp_recv, &
-          send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
-          add =RESHAPE(add, (/SIZE(add ,1),1,SIZE(add ,2)/)), &
-          send_lbound3=send_lbound2 )
-      ELSE
-        CALL exchange_data(p_pat, tmp_recv, &
-          send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
-          send_lbound3=send_lbound2)
-      ENDIF
-    ELSEIF (PRESENT(send)) THEN
+    IF (PRESENT(send)) THEN
       IF (PRESENT(add)) THEN
         CALL exchange_data(p_pat, tmp_recv, &
           send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
@@ -3998,13 +3937,12 @@ CONTAINS
   !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
-  SUBROUTINE exchange_data_s2d(p_pat, recv, send, add, send_lbound2, l_recv_exists)
+  SUBROUTINE exchange_data_s2d(p_pat, recv, send, add, l_recv_exists)
     !
     TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
     REAL(sp), INTENT(INOUT), TARGET        :: recv(:,:)
     REAL(sp), INTENT(IN), OPTIONAL, TARGET :: send(:,:)
     REAL(sp), INTENT(IN), OPTIONAL, TARGET :: add (:,:)
-    INTEGER, OPTIONAL :: send_lbound2
     LOGICAL, OPTIONAL :: l_recv_exists
 
     CHARACTER(len=*), PARAMETER :: routine = modname//"::exchange_data_s2d"
@@ -4015,7 +3953,7 @@ CONTAINS
     ! special treatment for trivial communication patterns of
     ! sequential runs
     IF(my_process_is_mpi_seq()) THEN
-      CALL exchange_data_s2d_seq(p_pat, recv, send, add, send_lbound2,l_recv_exists)
+      CALL exchange_data_s2d_seq(p_pat, recv, send, add, l_recv_exists)
       RETURN
     END IF
 
@@ -4030,18 +3968,7 @@ CONTAINS
 !$ACC END KERNELS
     ENDIF
 
-    IF (PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
-      IF (PRESENT(add)) THEN
-        CALL exchange_data(p_pat, tmp_recv, &
-          send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
-          add =RESHAPE(add, (/SIZE(add ,1),1,SIZE(add ,2)/)), &
-          send_lbound3=send_lbound2 )
-      ELSE
-        CALL exchange_data(p_pat, tmp_recv, &
-          send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
-          send_lbound3=send_lbound2)
-      ENDIF
-    ELSEIF (PRESENT(send)) THEN
+    IF (PRESENT(send)) THEN
       IF (PRESENT(add)) THEN
         CALL exchange_data(p_pat, tmp_recv, &
           send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
@@ -4070,17 +3997,16 @@ CONTAINS
 
   ! SEQUENTIAL version of subroutine "exchange_data_r3d"
   !
-  SUBROUTINE exchange_data_r2d_seq(p_pat, recv, send, add, send_lbound2, l_recv_exists)
+  SUBROUTINE exchange_data_r2d_seq(p_pat, recv, send, add, l_recv_exists)
 
     TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
     REAL(dp), INTENT(INOUT), TARGET        :: recv(:,:)
     REAL(dp), INTENT(IN), OPTIONAL, TARGET :: send(:,:)
     REAL(dp), INTENT(IN), OPTIONAL, TARGET :: add (:,:)
-    INTEGER, OPTIONAL :: send_lbound2
     LOGICAL, OPTIONAL :: l_recv_exists
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":exchange_data_r2d_seq"
-    INTEGER :: i, lbound2
+    INTEGER :: i
 
     ! consistency checks
     ! ------------------
@@ -4106,12 +4032,6 @@ CONTAINS
     ! "communication" (direct copy)
     ! -----------------------------
 
-    IF(PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
-      lbound2 = send_lbound2 - 1
-    ELSE
-      lbound2 = 0
-    ENDIF
-
     IF(PRESENT(add)) THEN
 !$ACC PARALLEL PRESENT( p_pat, send, add, recv ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
@@ -4119,7 +4039,7 @@ CONTAINS
         recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
           &  add( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )                +  &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
-          &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound2)
+          &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
 !$ACC END PARALLEL
     ELSE
@@ -4128,7 +4048,7 @@ CONTAINS
       DO i=1,p_pat%n_pnts
         recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
-          &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound2)
+          &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
 !$ACC END PARALLEL
     END IF
@@ -4138,17 +4058,16 @@ CONTAINS
 
   ! SEQUENTIAL version of subroutine "exchange_data_r3d"
   !
-  SUBROUTINE exchange_data_s2d_seq(p_pat, recv, send, add, send_lbound2, l_recv_exists)
+  SUBROUTINE exchange_data_s2d_seq(p_pat, recv, send, add, l_recv_exists)
 
     TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
     REAL(sp), INTENT(INOUT), TARGET        :: recv(:,:)
     REAL(sp), INTENT(IN), OPTIONAL, TARGET :: send(:,:)
     REAL(sp), INTENT(IN), OPTIONAL, TARGET :: add (:,:)
-    INTEGER, OPTIONAL :: send_lbound2
     LOGICAL, OPTIONAL :: l_recv_exists
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":exchange_data_s2d_seq"
-    INTEGER :: i, lbound2
+    INTEGER :: i
 
     ! consistency checks
     ! ------------------
@@ -4174,12 +4093,6 @@ CONTAINS
     ! "communication" (direct copy)
     ! -----------------------------
 
-    IF(PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
-      lbound2 = send_lbound2 - 1
-    ELSE
-      lbound2 = 0
-    ENDIF
-
     IF(PRESENT(add)) THEN
 !$ACC PARALLEL PRESENT( p_pat, send, add, recv ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
@@ -4187,7 +4100,7 @@ CONTAINS
         recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
           &  add( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )                +  &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
-          &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound2)
+          &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
 !$ACC END PARALLEL
     ELSE
@@ -4196,7 +4109,7 @@ CONTAINS
       DO i=1,p_pat%n_pnts
         recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
-          &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound2)
+          &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
 !$ACC END PARALLEL
     END IF
@@ -4207,13 +4120,12 @@ CONTAINS
   !================================================================================================
   ! INTEGER SECTION -------------------------------------------------------------------------------
   !
-  SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, send_lbound2, l_recv_exists)
+  SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, l_recv_exists)
     !
     TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
     INTEGER, INTENT(INOUT), TARGET        :: recv(:,:)
     INTEGER, INTENT(IN), OPTIONAL, TARGET :: send(:,:)
     INTEGER, INTENT(IN), OPTIONAL, TARGET :: add (:,:)
-    INTEGER, OPTIONAL :: send_lbound2
     LOGICAL, OPTIONAL :: l_recv_exists
 
     CHARACTER(len=*), PARAMETER :: routine = modname//"::exchange_data_i2d"
@@ -4224,7 +4136,7 @@ CONTAINS
     ! special treatment for trivial communication patterns of
     ! sequential runs
     IF(my_process_is_mpi_seq()) THEN
-      CALL exchange_data_i2d_seq(p_pat, recv, send, add, send_lbound2)
+      CALL exchange_data_i2d_seq(p_pat, recv, send, add)
       RETURN
     END IF
 
@@ -4240,18 +4152,7 @@ CONTAINS
 !$ACC END KERNELS
     ENDIF
 
-    IF (PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
-      IF (PRESENT(add)) THEN
-        CALL exchange_data(p_pat, tmp_recv, &
-          send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
-          add =RESHAPE(add, (/SIZE(add ,1),1,SIZE(add ,2)/)), &
-          send_lbound3=send_lbound2 )
-      ELSE
-        CALL exchange_data(p_pat, tmp_recv, &
-          send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
-          send_lbound3=send_lbound2)
-      ENDIF
-    ELSEIF (PRESENT(send)) THEN
+    IF (PRESENT(send)) THEN
       IF (PRESENT(add)) THEN
         CALL exchange_data(p_pat, tmp_recv, &
           send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
@@ -4280,16 +4181,15 @@ CONTAINS
 
   ! SEQUENTIAL version of subroutine "exchange_data_r3d"
   !
-  SUBROUTINE exchange_data_i2d_seq(p_pat, recv, send, add, send_lbound2)
+  SUBROUTINE exchange_data_i2d_seq(p_pat, recv, send, add)
 
     TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
     INTEGER, INTENT(INOUT), TARGET        :: recv(:,:)
     INTEGER, INTENT(IN), OPTIONAL, TARGET :: send(:,:)
     INTEGER, INTENT(IN), OPTIONAL, TARGET :: add (:,:)
-    INTEGER, OPTIONAL :: send_lbound2
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":exchange_data_i2d_seq"
-    INTEGER :: i, lbound2
+    INTEGER :: i
 
     ! consistency checks
     ! ------------------
@@ -4315,12 +4215,6 @@ CONTAINS
     ! "communication" (direct copy)
     ! -----------------------------
 
-    IF(PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
-      lbound2 = send_lbound2 - 1
-    ELSE
-      lbound2 = 0
-    ENDIF
-
     IF(PRESENT(add)) THEN
 !$ACC PARALLEL PRESENT( p_pat, send, add, recv ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
@@ -4328,7 +4222,7 @@ CONTAINS
         recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
           &  add( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )                +  &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
-          &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound2)
+          &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
 !$ACC END PARALLEL
     ELSE
@@ -4337,7 +4231,7 @@ CONTAINS
       DO i=1,p_pat%n_pnts
         recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
-          &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound2)
+          &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
 !$ACC END PARALLEL
     END IF
@@ -4348,12 +4242,11 @@ CONTAINS
   !================================================================================================
   ! LOGICAL SECTION -------------------------------------------------------------------------------
   !
-  SUBROUTINE exchange_data_l2d(p_pat, recv, send, send_lbound2, l_recv_exists)
+  SUBROUTINE exchange_data_l2d(p_pat, recv, send, l_recv_exists)
     !
     TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
     LOGICAL, INTENT(INOUT), TARGET        :: recv(:,:)
     LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:)
-    INTEGER, OPTIONAL :: send_lbound2
     LOGICAL, OPTIONAL :: l_recv_exists
 
     CHARACTER(len=*), PARAMETER :: routine = modname//"::exchange_data_l2d"
@@ -4377,11 +4270,7 @@ CONTAINS
 !$ACC END KERNELS
     ENDIF
 
-    IF (PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
-      CALL exchange_data(p_pat, tmp_recv, &
-        &             send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
-        &             send_lbound3=send_lbound2)
-    ELSEIF (PRESENT(send)) THEN
+    IF (PRESENT(send)) THEN
       CALL exchange_data(p_pat, tmp_recv, &
         &             send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)))
     ELSE
