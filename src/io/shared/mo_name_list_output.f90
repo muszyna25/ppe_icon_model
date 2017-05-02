@@ -1310,20 +1310,9 @@ CONTAINS
 
       ELSE
 
-        ! Set some GRIB2 keys that may have changed during simulation.
-        ! Note that (for synchronous output mode) we provide the
-        ! pointer "info_ptr" to the variable's info data object and
-        ! not the modified copy "info".
-        IF  (of%output_type == FILETYPE_GRB2) THEN
-          CALL set_GRIB2_timedep_keys( &
-               & of%cdiFileID, info%cdiVarID, of%var_desc(iv)%info_ptr, &
-               & of%out_event%output_event%event_data%sim_start,        &
-               & get_current_date(of%out_event))
-          CALL set_GRIB2_timedep_local_keys(of%cdiFileID, info%cdiVarID, &
-               & gribout_config(of%phys_patch_id) )
-        END IF
-      END IF ! my_process_is_mpi_test()
-    END IF ! my_process_is_mpi_workroot()
+        CALL set_time_varying_metadata(of, info, of%var_desc(iv)%info_ptr)
+      END IF ! is_mpi_test
+    END IF ! is_mpi_workroot
 
 
     ! set missval flag, if applicable
@@ -1500,6 +1489,24 @@ CONTAINS
        & .NOT. my_process_is_mpi_test()) CALL streamSync(of%cdiFileID)
 
   END SUBROUTINE gather_on_workroot_and_write
+
+  ! Set some GRIB2 keys that may have changed during simulation.
+  ! Note that (for synchronous output mode) we provide the
+  ! pointer "info_ptr" to the variable's info data object and
+  ! not the modified copy "info".
+  SUBROUTINE set_time_varying_metadata(of, info, updated_info)
+    TYPE (t_output_file), INTENT(IN) :: of
+    TYPE(t_var_metadata), INTENT(in) :: info, updated_info
+
+    IF  (of%output_type == FILETYPE_GRB2) THEN
+      CALL set_GRIB2_timedep_keys( &
+           & of%cdiFileID, info%cdiVarID, updated_info, &
+           & of%out_event%output_event%event_data%sim_start,        &
+           & get_current_date(of%out_event))
+      CALL set_GRIB2_timedep_local_keys(of%cdiFileID, info%cdiVarID, &
+           & gribout_config(of%phys_patch_id) )
+    END IF
+  END SUBROUTINE set_time_varying_metadata
 
   SUBROUTINE data_write_to_memwin(of, idata_type, r_ptr, s_ptr, i_ptr, ioff, &
        nlevs, var_ignore_level_selection, ri, info, i_log_dom)
@@ -2001,13 +2008,7 @@ CONTAINS
       ! get also an update for this variable's meta-info (separate object)
       CALL metainfo_get_from_memwin(bufr_metainfo, iv, updated_info)
 
-      IF ( of%output_type == FILETYPE_GRB2 ) THEN
-        CALL set_GRIB2_timedep_keys(of%cdiFileID, info%cdiVarID, updated_info,       &
-          &                         of%out_event%output_event%event_data%sim_start,  &
-          &                         get_current_date(of%out_event))
-        CALL set_GRIB2_timedep_local_keys(of%cdiFileID, info%cdiVarID,     &
-          &                               gribout_config(of%phys_patch_id) )
-      END IF
+      CALL set_time_varying_metadata(of, info, updated_info)
 
       ! Set missval flag, if applicable
       !
