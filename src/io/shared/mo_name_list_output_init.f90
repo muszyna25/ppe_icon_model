@@ -41,6 +41,7 @@ MODULE mo_name_list_output_init
     &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS,                &
     &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,        &
     &                                             MAX_NZLEVS, MAX_NILEVS, BOUNDARY_MISSVAL,         &
+    &                                             pio_type_async,                                   &
     &                                             dtime_proleptic_gregorian => proleptic_gregorian, &
     &                                             dtime_cly360              => cly360,              &
     &                                             INWP
@@ -69,8 +70,7 @@ MODULE mo_name_list_output_init
   USE mo_math_utilities,                    ONLY: merge_values_into_set
   ! config modules
   USE mo_parallel_config,                   ONLY: nproma, p_test_run, &
-       use_dp_mpi2io, num_io_procs
-
+       use_dp_mpi2io, num_io_procs, pio_type
   USE mo_run_config,                        ONLY: dtime, msg_level, output_mode,                  &
     &                                             number_of_grid_used, iforcing
   USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, start_time, end_time,        &
@@ -1357,9 +1357,7 @@ CONTAINS
     ! Initial launch of non-blocking requests to all participating PEs
     ! to acknowledge the completion of the next output event
     IF (.NOT. is_mpi_test &
-      & .AND. (    (use_async_name_list_io .AND. my_process_is_mpi_ioroot()) &
-      &        .OR.(.NOT. use_async_name_list_io &
-      &             .AND. my_process_is_mpi_workroot()))) THEN
+      & .AND. use_async_name_list_io .AND. my_process_is_mpi_ioroot()) THEN
       ev => all_events
       DO WHILE (ASSOCIATED(ev))
         CALL trigger_output_step_irecv(ev)

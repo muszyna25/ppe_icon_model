@@ -110,7 +110,7 @@ MODULE mo_name_list_output
 #endif
   USE mo_gribout_config,            ONLY: gribout_config
   USE mo_parallel_config,           ONLY: p_test_run, use_dp_mpi2io, &
-       num_io_procs, io_proc_chunk_size, nproma
+       num_io_procs, io_proc_chunk_size, nproma, pio_type
   USE mo_name_list_output_config,   ONLY: use_async_name_list_io
   ! data types
   USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE, POST_OP_LUC
@@ -160,6 +160,14 @@ MODULE mo_name_list_output
   ! model domain
   USE mo_model_domain,              ONLY: t_patch, p_patch
   USE mo_loopindices,               ONLY: get_indices_c
+#ifdef HAVE_CDI_PIO
+  USE mo_cdi,                       ONLY: namespaceGetActive, namespaceSetActive
+  USE mo_cdi_pio_interface,         ONLY: nml_io_cdi_pio_namespace
+  USE mo_parallel_config,           ONLY: pio_type
+  USE mo_impl_constants,            ONLY: pio_type_cdipio
+  USE yaxt,                         ONLY: xt_idxlist, xt_stripe, xt_is_null, &
+    xt_idxlist_get_index_stripes, xt_idxstripes_new
+#endif
   ! post-ops
 
 #ifndef __NO_ICON_ATMO__
@@ -174,6 +182,9 @@ MODULE mo_name_list_output
   IMPLICIT NONE
 
   PRIVATE
+#ifdef HAVE_CDI_PIO
+  INCLUDE 'cdipio.inc'
+#endif
 
   PUBLIC :: write_name_list_output
   PUBLIC :: close_name_list_output
@@ -439,6 +450,7 @@ CONTAINS
     TYPE(t_par_output_event), POINTER :: ev
     INTEGER                           :: noutput_pe_list, io_proc_id
     INTEGER                           :: output_pe_list(MAX(1,num_io_procs))
+    INTEGER :: prev_cdi_namespace
     LOGICAL :: is_io, is_test, ofile_is_assigned_here
 
     is_io = my_process_is_io()
@@ -458,6 +470,12 @@ CONTAINS
     ENDIF
 #endif
 #endif
+#ifdef HAVE_CDI_PIO
+    IF (pio_type == pio_type_cdipio) THEN
+      prev_cdi_namespace = namespaceGetActive()
+      CALL namespaceSetActive(nml_io_cdi_pio_namespace)
+    END IF
+#endif
 
     IF (PRESENT(opt_lhas_output))  opt_lhas_output = .FALSE.
 
@@ -474,6 +492,9 @@ CONTAINS
       io_proc_id = output_file(i)%io_proc_id
       ofile_is_assigned_here = &
         &      (is_io .AND. io_proc_id == p_pe_work) &
+#ifdef HAVE_CDI_PIO
+        & .OR. (pio_type == pio_type_cdipio .AND. .NOT. is_test) &
+#endif
         & .OR. (.NOT. use_async_name_list_io .AND. .NOT. is_test &
         &       .AND. p_pe_work == 0)
       ! -------------------------------------------------
@@ -558,9 +579,8 @@ CONTAINS
     ! If asynchronous I/O is enabled, the compute PEs can now start
     ! the I/O PEs
 #ifndef NOMPI
-    IF (use_async_name_list_io  .AND. .NOT. is_io .AND. .NOT. is_test) THEN
+    IF (use_async_name_list_io  .AND. .NOT. is_io .AND. .NOT. is_test) &
       CALL compute_start_async_io(jstep, output_pe_list, noutput_pe_list)
-    END IF
 #endif
     ! Handle incoming "output step completed" messages: After all
     ! participating I/O PE's have acknowledged the completion of their
@@ -573,6 +593,9 @@ CONTAINS
             IF (is_output_step_complete(ev) .AND.  &
               & .NOT. is_output_event_finished(ev)) THEN
               !--- write ready file
+              !
+              ! FIXME: for CDI-PIO this needs to be moved to the I/O
+              ! processes which are aware what has been written when
               IF (check_write_readyfile(ev%output_event)) CALL write_ready_file(ev)
               ! launch a non-blocking request to all participating PEs to
               ! acknowledge the completion of the next output event
@@ -593,6 +616,10 @@ CONTAINS
           END DO HANDLE_COMPLETE_STEPS
        END IF
     END IF
+#ifdef HAVE_CDI_PIO
+    IF (pio_type == pio_type_cdipio) &
+      CALL namespaceSetActive(prev_cdi_namespace)
+#endif
     IF (ltimer) CALL timer_stop(timer_write_output)
     IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": write_name_list_output done."
   END SUBROUTINE write_name_list_output
@@ -961,19 +988,25 @@ CONTAINS
         CALL finish(routine,'unknown grid type')
       END SELECT
 
-      IF (.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) THEN
-        CALL gather_on_workroot_and_write(of, idata_type, r_ptr, s_ptr, &
-             i_ptr, ri_n_glb, iv, last_bdry_index, &
-             nlevs, var_ignore_level_selection, p_pat, info)
-#ifndef NOMPI
-
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio .AND. .NOT. is_mpi_test) THEN
+        CALL data_write_cdipio(of, idata_type, r_ptr, s_ptr, i_ptr, iv, &
+             nlevs, var_ignore_level_selection, p_ri, info, i_log_dom)
       ELSE
-        CALL data_write_to_memwin(of, idata_type, r_ptr, s_ptr, i_ptr, ioff, &
-          nlevs, var_ignore_level_selection, p_ri, info, i_log_dom)
-
 #endif
-
+        IF (.NOT.use_async_name_list_io .OR. is_mpi_test) THEN
+          CALL gather_on_workroot_and_write(of, idata_type, r_ptr, s_ptr, &
+            i_ptr, p_ri%n_glb, iv, last_bdry_index, &
+            nlevs, var_ignore_level_selection, p_pat, info)
+#ifndef NOMPI
+        ELSE
+          CALL data_write_to_memwin(of, idata_type, r_ptr, s_ptr, i_ptr, ioff, &
+            &  nlevs, var_ignore_level_selection, p_ri, info, i_log_dom)
+#endif
+        END IF
+#ifdef HAVE_CDI_PIO
       END IF
+#endif
 
     ENDDO
 
@@ -1608,6 +1641,169 @@ CONTAINS
     CALL get_indices_c(ptr_patch, i_endblk, i_startblk, i_endblk, &
       &                i_startidx, i_endidx, rl_start, rl_end)
   END SUBROUTINE get_bdry_blk_idx
+
+#ifdef HAVE_CDI_PIO
+  SUBROUTINE data_write_cdipio(of, idata_type, r_ptr, s_ptr, i_ptr, iv, &
+       nlevs, var_ignore_level_selection, ri, info, i_log_dom)
+    TYPE (t_output_file), INTENT(IN) :: of
+    INTEGER, INTENT(in) :: idata_type, iv, nlevs
+    LOGICAL, INTENT(in) :: var_ignore_level_selection
+    REAL(dp), INTENT(in) :: r_ptr(:,:,:)
+    REAL(sp), INTENT(in) :: s_ptr(:,:,:)
+    INTEGER, INTENT(in) :: i_ptr(:,:,:)
+    TYPE(t_reorder_info), INTENT(inout) :: ri
+    TYPE(t_var_metadata), INTENT(in) :: info
+    INTEGER, INTENT(in) :: i_log_dom
+
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, n_own, ioff, &
+         nmiss, i, jk, lev_idx
+    LOGICAL :: apply_missval, make_level_selection
+    REAL(dp) :: missval
+    REAL(dp), ALLOCATABLE :: temp_buf_dp(:)
+    REAL(sp), ALLOCATABLE :: temp_buf_sp(:)
+    TYPE(xt_idxlist) :: partdesc
+
+    ! set missval if needed
+    apply_missval =       info%lmask_boundary                  &
+      &             .AND. info%hgrid == GRID_UNSTRUCTURED_CELL &
+      &             .AND. config_lmask_boundary
+    IF (apply_missval) THEN
+      missval = get_bdry_missval(info, idata_type)
+      CALL get_bdry_blk_idx(i_log_dom, &
+        &                   i_startidx, i_endidx, i_startblk, i_endblk)
+    END IF
+
+    n_own = ri%n_own
+
+    IF (use_dp_mpi2io) THEN
+      ALLOCATE(temp_buf_dp(nlevs*n_own))
+    ELSE
+      ALLOCATE(temp_buf_sp(nlevs*n_own))
+    END IF
+
+    make_level_selection = ASSOCIATED(of%level_selection) &
+      &              .AND. (.NOT. var_ignore_level_selection) &
+      &              .AND. (info%ndims > 2)
+
+    CALL set_time_varying_metadata(of, info, of%var_desc(iv)%info_ptr)
+
+    IF (of%output_type == FILETYPE_GRB &
+      & .OR. of%output_type == FILETYPE_GRB2) THEN
+      nmiss = MERGE(1, 0, ( info%lmiss .OR.  &
+           &  ( info%lmask_boundary    .AND. &
+           &    config_lmask_boundary  .AND. &
+           &    ((i_log_dom > 1) .OR. l_limited_area) ) ))
+    ELSE
+      nmiss = 0
+    END IF
+
+    ioff = 0
+    partdesc = get_partdesc(ri%reorder_idxlst_xt, nlevs, ri%n_glb)
+    IF (use_dp_mpi2io) THEN
+      DO jk = 1, nlevs
+        ! handle the case that a few levels have been selected out of
+        ! the total number of levels:
+        IF (make_level_selection) THEN
+          lev_idx = of%level_selection%global_idx(jk)
+        ELSE
+          lev_idx = jk
+        END IF
+        IF (idata_type == iREAL) THEN
+          DO i = 1, n_own
+            temp_buf_dp(ioff+i) = &
+                 & REAL(r_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
+          ENDDO
+        ELSE IF (idata_type == iREAL_sp) THEN
+          DO i = 1, n_own
+            temp_buf_dp(ioff+i) = &
+                 & REAL(s_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
+          ENDDO
+        ELSE IF (idata_type == iINTEGER) THEN
+          DO i = 1, n_own
+            temp_buf_dp(ioff+i) = &
+                 & REAL(i_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
+          ENDDO
+        END IF
+        ! If required, set lateral boundary points to missing
+        ! value. Note that this modifies only the output buffer!
+        IF (apply_missval) &
+          CALL set_boundary_mask(temp_buf_dp(ioff:ioff+n_own), &
+          &                      missval, i_endblk, i_endidx, ri)
+        CALL streamWriteVarPart(of%cdiFileID, info%cdiVarID, &
+          &                     temp_buf_dp, nmiss, partdesc)
+      END DO
+    ELSE
+      DO jk = 1, nlevs
+        ! handle the case that a few levels have been selected out of
+        ! the total number of levels:
+        IF (make_level_selection) THEN
+          lev_idx = of%level_selection%global_idx(jk)
+        ELSE
+          lev_idx = jk
+        END IF
+        IF (idata_type == iREAL) THEN
+          DO i = 1, ri%n_own
+            temp_buf_sp(ioff+i) = &
+                 & REAL(r_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),sp)
+          ENDDO
+        ELSE IF (idata_type == iREAL_sp) THEN
+          DO i = 1, n_own
+            temp_buf_sp(ioff+i) = &
+                 & REAL(s_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),sp)
+          ENDDO
+        ELSE IF (idata_type == iINTEGER) THEN
+          DO i = 1, ri%n_own
+            temp_buf_sp(ioff+i) = &
+                 & REAL(i_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),sp)
+          ENDDO
+        END IF
+
+        ! If required, set lateral boundary points to missing
+        ! value. Note that this modifies only the output buffer!
+        IF (apply_missval) &
+          CALL set_boundary_mask(temp_buf_sp(ioff:ioff+ri%n_own), &
+          &                      REAL(missval, sp), i_endblk, i_endidx, ri)
+        ioff = ioff + INT(ri%n_own,i8)
+      END DO ! nlevs
+      CALL streamWriteVarPartF(of%cdiFileID, info%cdiVarID, &
+           &                   temp_buf_sp, nmiss, partdesc)
+    END IF
+
+  END SUBROUTINE data_write_cdipio
+
+  FUNCTION get_partdesc(reorder_idxlst_xt, nlevs, n_glb) RESULT(partdesc)
+    TYPE(xt_idxlist) :: partdesc
+    TYPE(xt_idxlist), ALLOCATABLE, INTENT(inout) :: reorder_idxlst_xt(:)
+    INTEGER, INTENT(in) :: nlevs, n_glb
+    INTEGER :: nlevs_max, nstripes, j, k
+    TYPE(xt_idxlist), ALLOCATABLE :: lists_realloc(:)
+    TYPE(xt_stripe), ALLOCATABLE :: stripes(:), stripes_project(:,:)
+    nlevs_max = SIZE(reorder_idxlst_xt)
+    IF (nlevs > nlevs_max) THEN
+      ALLOCATE(lists_realloc(nlevs))
+      lists_realloc(1:nlevs_max) = reorder_idxlst_xt
+      CALL MOVE_ALLOC(lists_realloc, reorder_idxlst_xt)
+    END IF
+    IF (xt_is_null(reorder_idxlst_xt(nlevs))) THEN
+      CALL xt_idxlist_get_index_stripes(reorder_idxlst_xt(1), stripes)
+      nstripes = SIZE(stripes)
+      ALLOCATE(stripes_project(nstripes, nlevs))
+      DO j = 1, nstripes
+        stripes_project(j, 1) = stripes(j)
+      END DO
+      DO k = 2, nlevs
+        DO j = 1, nstripes
+          stripes_project(j, k) &
+            &     = xt_stripe(stripes(j)%start + (k-1) * n_glb, &
+            &                 stripes(j)%stride, stripes(j)%nstrides)
+        END DO
+      END DO
+      reorder_idxlst_xt(nlevs) = xt_idxstripes_new(stripes_project)
+    END IF
+    partdesc = reorder_idxlst_xt(nlevs)
+  END FUNCTION get_partdesc
+
+#endif
 
   !------------------------------------------------------------------------------------------------
   !> Returns if it is time for the next output step

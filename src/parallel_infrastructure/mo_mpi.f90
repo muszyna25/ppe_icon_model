@@ -167,8 +167,10 @@ MODULE mo_mpi
 
   USE mo_kind, ONLY: i4, i8, dp, sp, wp
   USE mo_io_units,       ONLY: nerr
+  USE mo_impl_constants, ONLY: success, pio_type_async, pio_type_cdipio
   USE mtime,             ONLY: datetime, max_datetime_str_len, datetimeToString, &
     &                          newDatetime, deallocateDatetime
+  USE mo_cdi_pio_interface, ONLY: nml_io_cdi_pio_conf_handle
 !  USE mo_impl_constants, ONLY: SUCCESS
 
   IMPLICIT NONE
@@ -179,6 +181,9 @@ MODULE mo_mpi
 #if defined (__SUNPRO_F95)
   INCLUDE "mpif.h"
 #endif
+#endif
+#ifdef HAVE_CDI_PIO
+  INCLUDE 'cdipio.inc'
 #endif
 
   ! start/stop methods
@@ -1073,12 +1078,12 @@ CONTAINS
   !          We don't care about work processes here that are reused as restart writing processes.
   SUBROUTINE set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
     &                                   num_restart_procs, num_prefetch_proc, &
-    &                                   num_test_pe, opt_comp_id)
+    &                                   num_test_pe, pio_type, opt_comp_id)
     LOGICAL,INTENT(INOUT) :: p_test_run, l_test_openmp
     INTEGER,INTENT(INOUT) :: num_io_procs
     INTEGER,INTENT(INOUT) :: num_restart_procs
     INTEGER,INTENT(IN), OPTIONAL :: num_prefetch_proc, num_test_pe
-    INTEGER,INTENT(IN), OPTIONAL :: opt_comp_id
+    INTEGER,INTENT(IN), OPTIONAL :: pio_type, opt_comp_id
 
 !   !local variables
     INTEGER :: my_color, remote_leader, peer_comm, p_error, global_dup_comm
@@ -1086,7 +1091,8 @@ CONTAINS
     CHARACTER(*), PARAMETER :: method_name = "set_mpi_work_communicators"
     INTEGER :: grp_process_mpi_all_comm, grp_comm_work_io, input_ranks(1), &
                translated_ranks(1), grp_comm_work_pref
-    INTEGER :: sizeof_prefetch_processes
+    INTEGER :: sizeof_prefetch_processes, pio_type_
+    INTEGER :: my_cdi_pio_role, grib_mode_for_cdi_pio
     INTEGER :: num_component, i
     INTEGER, ALLOCATABLE :: root_buffer(:)
     INTEGER :: comp_id
@@ -1103,6 +1109,13 @@ CONTAINS
     ELSE
       comp_id = -1
     END IF
+
+    IF (PRESENT(pio_type)) THEN
+      pio_type_ = pio_type
+    ELSE
+      pio_type_ = pio_type_async
+    END IF
+
 
 ! check l_test_openmp
 #ifndef _OPENMP
@@ -1320,13 +1333,29 @@ CONTAINS
            .OR. my_mpi_function == io_mpi_process)
       CALL mpi_comm_split(process_mpi_all_comm, my_color, p_pe, &
            p_comm_work_io, p_error)
-      IF (     my_mpi_function == work_mpi_process &
-          .OR. my_mpi_function == io_mpi_process) THEN
+      IF (pio_type_ == pio_type_async &
+        & .AND. (     my_mpi_function == work_mpi_process &
+        &        .OR. my_mpi_function == io_mpi_process)) THEN
         my_color = MERGE(1, mpi_undefined, my_mpi_function == io_mpi_process)
         CALL mpi_comm_split(p_comm_work_io, my_color, p_pe, p_comm_io, p_error)
       ELSE
         p_comm_io = mpi_comm_null
       END IF
+#ifdef HAVE_CDI_PIO
+      IF (pio_type_ == pio_type_cdipio &
+        & .AND. (     my_mpi_function == work_mpi_process &
+        &        .OR. my_mpi_function == io_mpi_process)) THEN
+        grib_mode_for_cdi_pio = pio_mpi_fw_at_all
+        nml_io_cdi_pio_conf_handle = cdiPioConfCreate()
+        ! todo: cdiPioCSRLastN needs to match assignment of mpi function
+        my_cdi_pio_role = cdiPioCSRLastN(p_comm_work_io, &
+          &                              grib_mode_for_cdi_pio, &
+          &                              num_io_procs)
+        CALL cdiPioConfSetIOMode(nml_io_cdi_pio_conf_handle, &
+          &                      grib_mode_for_cdi_pio)
+        CALL cdiPioConfSetCSRole(nml_io_cdi_pio_conf_handle, my_cdi_pio_role)
+      END IF
+#endif
     ELSE IF (     my_mpi_function == work_mpi_process &
       &      .OR. my_mpi_function == test_mpi_process) THEN
       p_comm_work_io = my_function_comm
@@ -1352,6 +1381,8 @@ CONTAINS
       process_work_io0 = translated_ranks(1)
       CALL MPI_group_free(grp_process_mpi_all_comm, p_error)
       CALL MPI_group_free(grp_comm_work_io, p_error)
+    ELSE
+      process_work_io0 = -1
     END IF
 
     ! Set p_comm_work_restart, the communicator spanning work group and Restart Ouput PEs
@@ -1401,8 +1432,9 @@ CONTAINS
 
     CALL MPI_Comm_dup(process_mpi_all_comm, peer_comm, p_error)
 
-    IF (num_io_procs > 0 .AND. (my_mpi_function == work_mpi_process &
-      &                         .OR. my_mpi_function == io_mpi_process)) THEN
+    IF (num_io_procs > 0 .AND. (     my_mpi_function == work_mpi_process &
+      &                         .OR. my_mpi_function == io_mpi_process) &
+      &                  .AND. pio_type_ ==  pio_type_async) THEN
       remote_leader &
         = MERGE(p_io_pe0, p_work_pe0, my_mpi_function == work_mpi_process)
       CALL mpi_intercomm_create(my_function_comm, 0, peer_comm, remote_leader, &
@@ -1412,7 +1444,7 @@ CONTAINS
       p_comm_work_2_io = MPI_COMM_NULL
     ENDIF
 
-    IF (num_test_procs > 0 .AND. (my_mpi_function == work_mpi_process &
+    IF (num_test_procs > 0 .AND. (     my_mpi_function == work_mpi_process &
       &                           .OR. my_mpi_function == test_mpi_process)) THEN
       remote_leader &
         = MERGE(0, p_work_pe0, my_mpi_function == work_mpi_process)
@@ -1427,7 +1459,7 @@ CONTAINS
     ! Perform the same as above, but create the inter-communicators between
     ! the worker PEs and the restart PEs.
     IF (num_restart_procs > 0 &
-      & .AND. (my_mpi_function == work_mpi_process &
+      & .AND. (     my_mpi_function == work_mpi_process &
       &        .OR. my_mpi_function == restart_mpi_process)) THEN
       remote_leader &
         = MERGE(p_restart_pe0, p_work_pe0, my_mpi_function == work_mpi_process)
@@ -1441,7 +1473,7 @@ CONTAINS
     ! Perform the same as above, but create the inter-communicator between
     ! the worker PEs and the prefetching PEs.
     IF (sizeof_prefetch_processes > 0 &
-      & .AND. (my_mpi_function == work_mpi_process &
+      & .AND. (     my_mpi_function == work_mpi_process &
       &        .OR. my_mpi_function == pref_mpi_process)) THEN
       remote_leader &
            = MERGE(p_pref_pe0, p_work_pe0, my_mpi_function == work_mpi_process)

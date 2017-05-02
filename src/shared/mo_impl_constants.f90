@@ -507,6 +507,8 @@ MODULE mo_impl_constants
 
   !----- MPI parallelization -----
   INTEGER, PARAMETER :: MAX_NUM_IO_PROCS = 100      !< max. number of output ranks
+  INTEGER, PARAMETER :: pio_type_async = 1, &
+       pio_type_cdipio = 2
 
   !----------------------!
   !  VARIABLE DATA TYPES !

@@ -19,15 +19,26 @@ MODULE mo_atmo_model
   USE mo_exception,               ONLY: message, finish
   USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io,   &
     &                                   set_mpi_work_communicators, process_mpi_io_size,      &
-    &                                   my_process_is_pref, process_mpi_pref_size
+    &                                   my_process_is_pref, process_mpi_pref_size, &
+    &                                   mpi_comm_null, p_comm_work_io
   USE mo_timer,                   ONLY: init_timer, timer_start, timer_stop,                  &
     &                                   timers_level, timer_model_init,                       &
     &                                   timer_domain_decomp, timer_compute_coeffs,            &
     &                                   timer_ext_data, print_timer
-  USE mo_parallel_config,         ONLY: p_test_run, num_test_pe, l_test_openmp,&
-    &                                   num_io_procs, num_prefetch_proc
+  USE mo_parallel_config,         ONLY: p_test_run, num_test_pe, l_test_openmp,               &
+    &                                   num_io_procs,                                         &
+    &                                   num_prefetch_proc, pio_type
   USE mo_master_config,           ONLY: isRestart
   USE mo_memory_log,              ONLY: memory_log_terminate
+  USE mo_impl_constants,          ONLY: pio_type_async, pio_type_cdipio
+#ifdef HAVE_CDI_PIO
+  USE mo_cdi,                     ONLY: namespacegetactive
+  USE mo_cdi_pio_interface,       ONLY: nml_io_cdi_pio_namespace, &
+    &                                   cdi_base_namespace, &
+    &                                   nml_io_cdi_pio_client_comm, &
+    &                                   nml_io_cdi_pio_conf_handle
+#endif
+  USE mo_master_control,          ONLY: get_my_process_name, get_my_model_no
 #ifndef NOMPI
 #if defined(__GET_MAXRSS__)
   USE mo_mpi,                     ONLY: get_my_mpi_all_id
@@ -128,6 +139,9 @@ MODULE mo_atmo_model
 
   IMPLICIT NONE
   PRIVATE
+#ifdef HAVE_CDI_PIO
+  INCLUDE 'cdipio.inc'
+#endif
 
   PUBLIC :: atmo_model, construct_atmo_model, destruct_atmo_model
 
@@ -269,7 +283,7 @@ CONTAINS
     CALL set_mpi_work_communicators(p_test_run, l_test_openmp, &
          &                          num_io_procs, dedicatedRestartProcs, &
          &                          num_prefetch_proc, num_test_pe,      &
-         &                          opt_comp_id=atmo_process)
+         &                          pio_type, opt_comp_id=atmo_process)
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
@@ -312,7 +326,7 @@ CONTAINS
 
     ! If we belong to the I/O PEs just call xxx_io_main_proc before
     ! reading patches.  This routine will never return
-    IF (process_mpi_io_size > 0) THEN
+    IF (process_mpi_io_size > 0 .AND. pio_type == pio_type_async) THEN
       ! Decide whether async vlist or name_list IO is to be used,
       ! only one of both may be enabled!
 
@@ -350,6 +364,21 @@ CONTAINS
         CALL stop_mpi
         STOP
       ENDIF
+    ELSE IF (process_mpi_io_size > 0 .AND. pio_type == pio_type_cdipio) THEN
+      ! initialize parallel output via CDI-PIO
+#ifdef HAVE_CDI_PIO
+      cdi_base_namespace = namespaceGetActive()
+      nml_io_cdi_pio_client_comm = &
+        &   cdiPioInit(p_comm_work_io, nml_io_cdi_pio_conf_handle, &
+        &              nml_io_cdi_pio_namespace)
+      IF (nml_io_cdi_pio_client_comm == mpi_comm_null) THEN
+        ! todo: terminate program cleanly here
+        CALL stop_mpi
+        STOP
+      END IF
+#else
+      CALL finish(routine, 'CDI-PIO requested but unavailable')
+#endif
     ELSE
       ! -----------------------------------------
       ! non-asynchronous I/O (performed by PE #0)

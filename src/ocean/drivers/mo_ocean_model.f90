@@ -16,7 +16,7 @@ MODULE mo_ocean_model
   USE mo_exception,           ONLY: message, finish
   USE mo_master_config,       ONLY: isRestart
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs, &
-       &                            num_test_pe
+       &                            pio_type, num_test_pe
   USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size, &
        &                            stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
        &                            set_mpi_work_communicators, p_pe_work, process_mpi_io_size, &
@@ -354,7 +354,7 @@ MODULE mo_ocean_model
     !-------------------------------------------------------------------
     CALL restartWritingParameters(opt_dedicatedProcCount = dedicatedRestartProcs)
     CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
-      &                             dedicatedRestartProcs, num_test_pe)
+      &                             dedicatedRestartProcs, num_test_pe, pio_type)
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
