@@ -98,7 +98,7 @@ CONTAINS
     lmlo      = .FALSE.
     lice      = .FALSE.
     ljsbach   = .FALSE.
-    llake     = .FALSE.
+    llake     = .TRUE.
     lamip     = .FALSE.
     lebudget  = .FALSE.
 

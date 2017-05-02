@@ -293,13 +293,13 @@ foreach my $dir ( @directories ) {
 	    $include_dir =~ s/src/include/;
             print MAKEFILE "CFLAGS += -I../../../../../$include_dir\n";
 	    if ( $dir =~ m/yac/) {
-		$include_dir =~ s/include/src/;
-		print MAKEFILE "CFLAGS += -I../../../../../$include_dir\n";
-		print MAKEFILE "CFLAGS += -I../../../../../$include_dir/xml\n";
-	    }
+	        $include_dir =~ s/include/src/;
+	        print MAKEFILE "CFLAGS += -I../../../../../$include_dir\n";
+	        print MAKEFILE "CFLAGS += -I../../../../../$include_dir/xml\n";
+            }
             print MAKEFILE "FFLAGS := \$(subst ../module,../../../module, \$(FFLAGS))\n";	    
             if ( $dir =~ m/self/) {
-              print MAKEFILE 'FFLAGS := $(subst -C=all,,$(FFLAGS))';print MAKEFILE "\n";
+               print MAKEFILE 'FFLAGS := $(subst -C=all,,$(FFLAGS))';print MAKEFILE "\n";
             }
             print MAKEFILE "\n\n";
 	} else {
@@ -332,7 +332,11 @@ __EOF__
 ;
 	while ( my ($key, $value) = each(%target_programs) ) {
 	    my $okey = $key;
-	    $okey =~ s/ *$/.o/;	
+	    if ( "$okey" eq "jsb4_driver" ) {
+	        $okey = "jsb4_driver_dsl4jsb.o" ;
+	    } else {
+	        $okey =~ s/ *$/.o/;
+	    }
 	    print MAKEFILE "$okey: $value
 ../bin/$key: $okey libicon.a version.o
 \t\$(FC) \$(LDFLAGS) -o \$@ \$< libicon.a version.o \$(LIBS)
@@ -364,7 +368,7 @@ __EOF__
     
     if ( $dir =~ m/self/) {
       my @_myvpath = @vpath;
-      shift @_myvpath; 
+      shift @_myvpath;
       my $_myvpath = join('',@_myvpath);
       chop $_myvpath;
       print MAKEFILE "-include ",$_myvpath,"/../Makefile.depend";print MAKEFILE "\n";
