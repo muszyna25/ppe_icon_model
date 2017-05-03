@@ -1719,14 +1719,15 @@ CONTAINS
     ! INTEGER, ALLOCATABLE :: irecv_status(:,:)
 
     ret = .TRUE.
-    IF (event%irecv_nreq == 0)  RETURN
-    ! ALLOCATE(irecv_status(MPI_STATUS_SIZE,event%irecv_nreq), STAT=ierrstat)
-    ! IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-    CALL MPI_TESTALL(event%irecv_nreq, event%irecv_req, ret, &
-      &              mpi_statuses_ignore, ierrstat)
-    IF (ierrstat /= mpi_success) CALL finish (routine, 'Error in MPI_TESTALL.')
-    ! DEALLOCATE(irecv_status, STAT=ierrstat)
-    ! IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+    IF (event%irecv_nreq /= 0) THEN
+      ! ALLOCATE(irecv_status(MPI_STATUS_SIZE,event%irecv_nreq), STAT=ierrstat)
+      ! IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+      CALL MPI_TESTALL(event%irecv_nreq, event%irecv_req, ret, &
+        &              mpi_statuses_ignore, ierrstat)
+      IF (ierrstat /= mpi_success) CALL finish (routine, 'Error in MPI_TESTALL.')
+      ! DEALLOCATE(irecv_status, STAT=ierrstat)
+      ! IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+    END IF
 #else
     ret = .TRUE.
 #endif
