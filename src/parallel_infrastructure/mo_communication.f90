@@ -54,6 +54,10 @@ USE mo_parallel_config,      ONLY: blk_no, idx_no, idx_1d
 USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp
 USE mo_communication_orig,   ONLY: t_comm_pattern_orig, &
   &                                t_comm_pattern_collection_orig
+#ifdef HAVE_YAXT
+USE mo_communication_yaxt,   ONLY: t_comm_pattern_yaxt, &
+  &                                t_comm_pattern_collection_yaxt
+#endif
 USE mo_communication_types,  ONLY: t_comm_pattern, t_comm_pattern_collection, &
   &                                t_p_comm_pattern
 #ifdef _OPENACC
@@ -244,7 +248,15 @@ CONTAINS
 
     SELECT CASE (comm_type)
       CASE (comm_pattern_type_orig)
-       ALLOCATE(t_comm_pattern_orig::p_pat)
+        ALLOCATE(t_comm_pattern_orig::p_pat)
+      CASE (comm_pattern_type_yaxt)
+#ifdef HAVE_YAXT
+        ALLOCATE(t_comm_pattern_yaxt::p_pat)
+#else
+        CALL finish("setup_comm_pattern", &
+          "comm_pattern_type_yaxt has been selected, but ICON was&
+          & built without YAXT")
+#endif
       CASE DEFAULT
         CALL finish("setup_comm_pattern", "Invalid comm_type!")
     END SELECT
@@ -282,6 +294,10 @@ SUBROUTINE setup_comm_pattern_collection(patterns, pattern_collection)
     SELECT TYPE(first_pattern)
       TYPE IS(t_comm_pattern_orig)
         ALLOCATE(t_comm_pattern_collection_orig::pattern_collection)
+#ifdef HAVE_YAXT
+      TYPE IS(t_comm_pattern_yaxt)
+        ALLOCATE(t_comm_pattern_collection_yaxt::pattern_collection)
+#endif
       CLASS DEFAULT
         CALL finish("setup_comm_pattern_collection", "unknown comm pattern class")
     END SELECT
