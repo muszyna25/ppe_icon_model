@@ -103,7 +103,7 @@ MODULE mo_psrad_radiation
                                     yr_perp,              &
                                     tsi_radt,             &
                                     ssi_radt
-  USE mo_psrad_general,       ONLY: nbndsw, ngptsw, ngptlw, finish_cb, message_cb, warning_cb
+  USE mo_psrad_general,       ONLY: nbndsw, finish_cb, message_cb, warning_cb
   USE mo_psrad_solar_parameters, ONLY:                         &
                                      psctm,                    &
                                      ssi_factor,               &

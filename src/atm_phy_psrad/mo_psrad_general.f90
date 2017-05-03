@@ -1,12 +1,21 @@
 module mo_psrad_general
+#ifdef PSRAD_ONLY
   use, intrinsic :: iso_c_binding, only: c_float, c_double, c_long, c_int
-  !use mo_kind, only : kdp => dp, ki8 => i8, ki4 => i4
+#else
+  use mo_kind, only : dp, i8, i4
+  use mo_math_constants, only: pi
+  use mo_physical_constants, only: rhoh2o, grav, amd, amw, avo
+#endif
 
   implicit none
   public
   integer, parameter :: &
+#ifdef PSRAD_ONLY
     dp = c_double, wp = c_double, &
     i8 = c_long, i4 = c_int, &
+#else
+    wp = dp, &
+#endif
     mg = 16, &!< number of original g-intervals per spectral band
     jpband = 29, & !< number of last band (lw and sw share band 16)
     nbndsw = 14, & !< number of spectral bands in sw model
@@ -87,12 +96,14 @@ module mo_psrad_general
   ! spec_sampling config
   integer:: rad_perm = 0 ! Integer for perturbing random number seeds
 
+#ifdef PSRAD_ONLY
   real(wp) :: pi = 3.14159265358979323846264338327950288_wp, &
     rhoh2o = 1000._wp,  & ! density of liquid water [kg/m3]
     grav = 9.80665_wp,  & ! average gravity [m/s2]
     amd = 28.970_wp, & ! molar weight of dry air [g/mol]
     amw = 18.0154_wp, & ! molar weight of water [g/mol]
     avo = 6.02214179e23_wp ! Avogadro constant [1/mo]
+#endif
   
   interface 
     subroutine t_finish_cb(name, text, exit_no)

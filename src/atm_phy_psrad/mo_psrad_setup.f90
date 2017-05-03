@@ -21,10 +21,17 @@ contains
     use mo_psrad_lrtm_setup, only : setup_lrtm
     use mo_psrad_srtm_setup, only : setup_srtm
     use mo_psrad_general, only : finish_cb, default_finish
+#ifndef PSRAD_ONLY
+    use mo_exception, only : icon_finish => finish
+#endif
 
     implicit none
 
+#ifdef PSRAD_ONLY
     finish_cb => default_finish
+#else
+    finish_cb => icon_finish
+#endif
 
     call setup_cloud_optics
     call setup_lrtm

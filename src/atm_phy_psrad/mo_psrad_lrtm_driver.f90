@@ -38,7 +38,7 @@
 MODULE mo_psrad_lrtm_driver
 
   USE mo_psrad_general,      ONLY: wp, grav, amd, amw, nbndlw, ngptlw, &
-       & ngas, ih2o, ico2, nreact, ncfc, io3, in2o, ich4, io2
+       & ngas, nreact, ncfc 
   USE mo_psrad_radiation_parameters, &
                              ONLY: i_overlap, l_do_sep_clear_sky, rad_undef
   USE mo_psrad_lrtm_setup,   ONLY: ngb, delwave
@@ -80,7 +80,8 @@ CONTAINS
     wkl, wx, coldry, emis, cldfr, taucld, tauaer, rnseeds, uflx, dflx, &
     uflxc, dflxc)
 
-    use mo_psrad_general, only: ngptlw, ngas, ih2o, ico2, nreact
+    use mo_psrad_general, only: ngptlw, ngas, nreact, &
+      ih2o, ico2, io3, in2o, ich4, io2
     INTEGER, INTENT(in) :: &
       kbdim, & !< Maximum block length
       kproma, & !< Number of horizontal columns

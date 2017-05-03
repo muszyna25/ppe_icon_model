@@ -147,7 +147,7 @@ CONTAINS
     minorfrac, scaleminor, scaleminorn2, indminor, fracs_ret, tau_ret)
 
     INTEGER, INTENT(in) :: kproma, kbdim, klev 
-    INTEGER, INTENT(in) :: laytrop(kproma), & ! tropopause layer index
+    INTEGER, INTENT(in) :: laytrop(KBDIM), & ! tropopause layer index
       iabs(KBDIM,2,2,klev)
     REAL(wp), DIMENSION(KBDIM,klev,2), INTENT(IN) :: h2o_factor,h2o_fraction
     INTEGER, DIMENSION(KBDIM,klev,2), INTENT(IN) :: h2o_index
@@ -193,9 +193,9 @@ CONTAINS
       CALL do_atmosphere(2, merge_range, tau_upper, fracs_upper)
       DO gpt = 1,ngptlw
       DO lay = merge_range(1),merge_range(2)
-        WHERE (laytrop(:) < lay)
-          tau_ret(:,lay,gpt) = tau_upper(:,lay,gpt)
-          fracs_ret(:,lay,gpt) = fracs_upper(:,lay,gpt)
+        WHERE (laytrop(1:kproma) < lay)
+          tau_ret(1:kproma,lay,gpt) = tau_upper(1:kproma,lay,gpt)
+          fracs_ret(1:kproma,lay,gpt) = fracs_upper(1:kproma,lay,gpt)
         END WHERE
       END DO
       END DO
