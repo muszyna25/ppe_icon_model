@@ -1711,7 +1711,7 @@ CONTAINS
   !
   FUNCTION is_output_step_complete(event) RESULT(ret)
     LOGICAL :: ret
-    TYPE(t_par_output_event), POINTER                :: event
+    TYPE(t_par_output_event), INTENT(inout) :: event
     ! local variables
 #ifndef NOMPI
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::is_output_step_complete"
