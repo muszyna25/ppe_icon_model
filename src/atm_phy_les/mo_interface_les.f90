@@ -608,6 +608,30 @@ CONTAINS
 
         !-------------------------------------------------------------------------
         !>
+        !! re-calculate saturation adjustment to avoid needle clouds
+        !!
+        !-------------------------------------------------------------------------
+
+        IF(ANY((/4,5/) == atm_phy_nwp_config(jg)%inwp_gscp))THEN
+          CALL satad_v_3D( &
+               & maxiter  = 10 ,& !> IN
+               & tol      = 1.e-3_wp ,& !> IN
+               & te       = pt_diag%temp       (:,:,jb) ,& !> INOUT
+               & qve      = pt_prog_rcf%tracer (:,:,jb,iqv),& !> INOUT
+               & qce      = pt_prog_rcf%tracer (:,:,jb,iqc),& !> INOUT
+               & rhotot   = pt_prog%rho        (:,:,jb) ,& !> IN
+               & idim     = nproma ,& !> IN
+               & kdim     = nlev ,& !> IN
+               & ilo      = i_startidx ,& !> IN
+               & iup      = i_endidx ,& !> IN
+               & klo      = kstart_moist(jg) ,& !> IN
+               & kup      = nlev & !> IN
+              !& count, errstat, !> OUT
+               )
+        ENDIF
+
+        !-------------------------------------------------------------------------
+        !>
         !! re-calculate scalar prognostic variables out of physics variables!
         !!
         !-------------------------------------------------------------------------
