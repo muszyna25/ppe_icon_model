@@ -1616,7 +1616,7 @@ CONTAINS
       WRITE (0,'(a)') " ", "I/O : Explicit placement of I/O ranks:"
       DO i = 1, nfiles
         IF (pe_placement(i) /= -1) THEN
-          WRITE (0,'(a,i0,a,i0)') "    file #", i, " placed on rank #", io_proc_id(i)
+          WRITE (0,'(2(a,i0))') "    file #", i, " placed on rank #", io_proc_id(i)
         END IF
       END DO
       IF (nremaining_io_procs > 0) THEN
@@ -1646,7 +1646,7 @@ CONTAINS
           j = j + 1
           io_proc_id(i) = remaining_io_procs(MOD(j-1,nremaining_io_procs) + 1)
           IF ((process_mpi_io_size /= nremaining_io_procs) .AND. is_stdio) THEN
-            WRITE (0,'(a,i0,a,i0)') "    file #", i, " placed on rank #", io_proc_id(i)
+            WRITE (0,'(2(a,i0))') "    file #", i, " placed on rank #", io_proc_id(i)
           END IF
         END IF
       END DO
