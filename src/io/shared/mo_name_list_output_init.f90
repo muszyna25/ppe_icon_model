@@ -2844,8 +2844,7 @@ CONTAINS
       IF (.NOT. is_io) THEN
         element => var_lists(iv)%p%first_list_element
         nelems = 0
-        DO
-          IF(.NOT.ASSOCIATED(element)) EXIT
+        DO WHILE (ASSOCIATED(element))
           nelems = nelems+1
           info_storage(:,nelems) = TRANSFER(element%field%info, (/ 0 /))
           element => element%next_list_element
