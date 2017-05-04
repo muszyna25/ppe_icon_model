@@ -577,13 +577,17 @@ CONTAINS
     CHARACTER(LEN=*),                      INTENT(IN)  :: name                 !< output event name
     INTEGER,                               INTENT(IN)  :: i_pe                 !< rank of participating PE
     INTEGER,                               INTENT(IN)  :: i_tag                !< tag, e.g. for MPI isend/irecv messages
-    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(IN)  :: begin_str(MAX_TIME_INTERVALS) !< start time stamp + modifier
-    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(IN)  :: end_str(MAX_TIME_INTERVALS)   !< end time stamp   + modifier
+    !> start time stamp + modifier
+    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(IN)  :: begin_str(MAX_TIME_INTERVALS)
+    !> end time stamp   + modifier
+    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(IN)  :: end_str(MAX_TIME_INTERVALS)
     CHARACTER(len=MAX_DATETIME_STR_LEN),   INTENT(IN)  :: intvl_str(MAX_TIME_INTERVALS)
 
     LOGICAL,                               INTENT(IN)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
-    TYPE(t_sim_step_info),                 INTENT(IN)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
-    TYPE(t_fname_metadata),                INTENT(IN)  :: fname_metadata       !< additional meta-data for generating output filename
+    !> definitions for conversion "time stamp -> simulation step"
+    TYPE(t_sim_step_info),                 INTENT(IN)  :: sim_step_info
+    !> additional meta-data for generating output filename
+    TYPE(t_fname_metadata),                INTENT(IN)  :: fname_metadata
 
     INTERFACE
       !> As an argument of this function, the user must provide a
@@ -1121,12 +1125,17 @@ CONTAINS
     &                                fct_generate_filenames, local_event_no, icomm) RESULT(p_event)
     TYPE(t_par_output_event), POINTER :: p_event
     CHARACTER(LEN=*),                      INTENT(IN)  :: name                 !< output event name
-    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(IN)  :: begin_str(MAX_TIME_INTERVALS) !< start time stamp + modifier
-    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(IN)  :: end_str(MAX_TIME_INTERVALS)   !< start time stamp + modifier
+    !> start time stamp + modifier
+    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(IN)  :: begin_str(MAX_TIME_INTERVALS)
+    !> start time stamp + modifier
+    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(IN)  :: end_str(MAX_TIME_INTERVALS)
     CHARACTER(len=MAX_DATETIME_STR_LEN),   INTENT(IN)  :: intvl_str(MAX_TIME_INTERVALS)
-    LOGICAL,                               INTENT(IN)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
-    TYPE(t_sim_step_info),                 INTENT(IN)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
-    TYPE(t_fname_metadata),                INTENT(IN)  :: fname_metadata       !< additional meta-data for generating output filename
+    !> Flag. If .TRUE. the last step is always written
+    LOGICAL,                               INTENT(IN)  :: l_output_last
+    !> definitions for conversion "time stamp -> simulation step"
+    TYPE(t_sim_step_info),                 INTENT(IN)  :: sim_step_info
+    !> additional meta-data for generating output filename
+    TYPE(t_fname_metadata),                INTENT(IN)  :: fname_metadata
     INTEGER,                               INTENT(IN)  :: local_event_no       !< local index of this event on local PE
     INTEGER,                               INTENT(IN)  :: icomm                !< MPI communicator
 
