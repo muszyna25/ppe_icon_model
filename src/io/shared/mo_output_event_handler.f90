@@ -570,24 +570,11 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  FUNCTION new_output_event(name, i_pe, i_tag, begin_str, end_str, intvl_str,                  &
-    &                       l_output_last, sim_step_info, fname_metadata, fct_time2simstep,    &
+  FUNCTION new_output_event(evd, i_pe, fct_time2simstep,    &
     &                       fct_generate_filenames) RESULT(p_event)
-    TYPE(t_output_event),                  POINTER :: p_event
-    CHARACTER(LEN=*),                      INTENT(IN)  :: name                 !< output event name
-    INTEGER,                               INTENT(IN)  :: i_pe                 !< rank of participating PE
-    INTEGER,                               INTENT(IN)  :: i_tag                !< tag, e.g. for MPI isend/irecv messages
-    !> start time stamp + modifier
-    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(IN)  :: begin_str(MAX_TIME_INTERVALS)
-    !> end time stamp   + modifier
-    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(IN)  :: end_str(MAX_TIME_INTERVALS)
-    CHARACTER(len=MAX_DATETIME_STR_LEN),   INTENT(IN)  :: intvl_str(MAX_TIME_INTERVALS)
-
-    LOGICAL,                               INTENT(IN)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
-    !> definitions for conversion "time stamp -> simulation step"
-    TYPE(t_sim_step_info),                 INTENT(IN)  :: sim_step_info
-    !> additional meta-data for generating output filename
-    TYPE(t_fname_metadata),                INTENT(IN)  :: fname_metadata
+    TYPE(t_output_event),                POINTER :: p_event
+    TYPE(t_event_data_local),            INTENT(IN)  :: evd
+    INTEGER,                             INTENT(IN)  :: i_pe                 !< rank of participating PE
 
     INTERFACE
       !> As an argument of this function, the user must provide a
@@ -666,13 +653,13 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     n_event_steps                    = 0
     p_event%i_event_step             = 1
-    p_event%event_data%name          = name
-    p_event%event_data%sim_start     = sim_step_info%sim_start
+    p_event%event_data%name          = evd%name
+    p_event%event_data%sim_start     = evd%sim_step_info%sim_start
 
     ! count the number of different time intervals for this event (usually 1)
     nintvls = 0
     DO
-      IF (TRIM(begin_str(nintvls+1)) == '') EXIT
+      IF (TRIM(evd%begin_str(nintvls+1)) == '') EXIT
       nintvls = nintvls + 1
       IF (nintvls == MAX_TIME_INTERVALS) EXIT
     END DO
@@ -680,34 +667,40 @@ CONTAINS
     ! status output
     IF (ldebug) THEN
       WRITE (0,*) "PE ",get_my_global_mpi_id(), ":"
-      WRITE (0,*) 'Defining output event "'//TRIM(begin_str(1))//'", "'//TRIM(end_str(1))//'", "'//TRIM(intvl_str(1))//'"'
+      WRITE (0,'(7a)') 'Defining output event "', &
+           TRIM(evd%begin_str(1)), '", "', &
+           TRIM(evd%end_str(1)), '", "', &
+           TRIM(evd%intvl_str(1)), '"'
       DO i=2,nintvls
-        WRITE (0,*) ' +  "'//TRIM(begin_str(i))//'", "'//TRIM(end_str(i))//'", "'//TRIM(intvl_str(i))//'"'
+        WRITE (0,'(7a)') ' +  "', &
+             TRIM(evd%begin_str(i)), '", "', &
+             TRIM(evd%end_str(i)), '", "',   &
+             TRIM(evd%intvl_str(i)), '"'
       END DO
-      WRITE (0,*) 'Simulation bounds:    "'//TRIM(sim_step_info%sim_start)//'", "'//TRIM(sim_step_info%sim_end)//'"'
-      WRITE (0,*) 'restart bound: "'//TRIM(sim_step_info%restart_time)
+      WRITE (0,*) 'Simulation bounds:    "'//TRIM(evd%sim_step_info%sim_start)//'", "'//TRIM(evd%sim_step_info%sim_end)//'"'
+      WRITE (0,*) 'restart bound: "'//TRIM(evd%sim_step_info%restart_time)
     END IF
 
     ! set some dates used later:
-    sim_end     => newDatetime(TRIM(sim_step_info%sim_end))
-    run_start   => newDatetime(TRIM(sim_step_info%run_start))
+    sim_end     => newDatetime(TRIM(evd%sim_step_info%sim_end))
+    run_start   => newDatetime(TRIM(evd%sim_step_info%run_start))
 
     ! Domains (and their output) can be activated and deactivated
     ! during the simulation. This is determined by the parameters
     ! "dom_start_time" and "dom_end_time". Therefore, we must create
     ! a corresponding event.
-    mtime_dom_start => newDatetime(TRIM(sim_step_info%dom_start_time))
-    mtime_dom_end   => newDatetime(TRIM(sim_step_info%dom_end_time)) ! this carries the domain-specific namelist value "end_time"
+    mtime_dom_start => newDatetime(TRIM(evd%sim_step_info%dom_start_time))
+    mtime_dom_end   => newDatetime(TRIM(evd%sim_step_info%dom_end_time)) ! this carries the domain-specific namelist value "end_time"
 
     ! To avoid further case discriminations, sim_end is set to the minimum of the simulation end time
     ! and the time at which a nested domain is turned off
     IF (sim_end > mtime_dom_end) THEN
-      sim_end => newDatetime(TRIM(sim_step_info%dom_end_time))
+      sim_end => newDatetime(TRIM(evd%sim_step_info%dom_end_time))
     ENDIF
 
     ! Compute the end time wrt. "dt_restart": It might be that the
     ! simulation end is limited by this parameter
-    mtime_restart   => newDatetime(TRIM(sim_step_info%restart_time))
+    mtime_restart   => newDatetime(TRIM(evd%sim_step_info%restart_time))
 
     ! loop over the event occurrences
     
@@ -726,7 +719,7 @@ CONTAINS
     incl_end(:)   = .TRUE.
     DO iintvl=1,nintvls
       ! begin time stamp
-      dt_string = begin_str(iintvl)
+      dt_string = evd%begin_str(iintvl)
       char      = dt_string(1:1)
       SELECT CASE(char)
       CASE ('>')
@@ -736,7 +729,7 @@ CONTAINS
       begin_str2(iintvl) = dt_string
 
       ! end time stamp
-      dt_string = end_str(iintvl)
+      dt_string = evd%end_str(iintvl)
       char      = dt_string(1:1)
       SELECT CASE(char)
       CASE ('<')
@@ -748,7 +741,7 @@ CONTAINS
 
     allocate(indices_to_use(nintvls))
     
-    CALL remove_duplicate_intervals(begin_str2, end_str2, intvl_str, nintvls, &
+    CALL remove_duplicate_intervals(begin_str2, end_str2, evd%intvl_str, nintvls, &
          &                          indices_to_use, remaining_intvls)
     
     ! there may be multiple starts/ends/intervals (usually only one):
@@ -773,7 +766,7 @@ CONTAINS
       END IF
 
       mtime_date  => newDatetime(mtime_begin)
-      delta       => newTimedelta(TRIM(intvl_str(iintvl))) ! create a time delta
+      delta       => newTimedelta(TRIM(evd%intvl_str(iintvl))) ! create a time delta
       IF (mtime_end >= mtime_begin) THEN
         EVENT_LOOP: DO
           IF ((mtime_date    >= run_start)                         .AND. &
@@ -874,7 +867,7 @@ CONTAINS
     END DO
 
     ! Optional: Append the last event time step
-    IF (l_output_last .AND. (mtime_date < sim_end) .AND. mtime_end >= sim_end) THEN
+    IF (evd%l_output_last .AND. mtime_date < sim_end .AND. mtime_end >= sim_end) THEN
       ! check, that we do not duplicate the last time step:
       l_append_step = .TRUE.
       IF (n_event_steps > 0) THEN
@@ -905,9 +898,9 @@ CONTAINS
          &   filename_metadata(SIZE(mtime_date_string)), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     
-    CALL fct_time2simstep(n_event_steps, mtime_date_string,                            &
-         &                   sim_step_info, mtime_sim_steps, mtime_exactdate)
-    
+    CALL fct_time2simstep(n_event_steps, mtime_date_string, &
+      &                   evd%sim_step_info, mtime_sim_steps, mtime_exactdate)
+
     ! remove all those event steps which have no corresponding simulation
     ! step (mtime_sim_steps(i) < 0):
     DO i=1,n_event_steps
@@ -917,7 +910,7 @@ CONTAINS
     
     IF (n_event_steps > 0) THEN
       CALL fct_generate_filenames(n_event_steps, mtime_date_string,       &
-        &                   mtime_sim_steps, sim_step_info, fname_metadata, &
+        &                   mtime_sim_steps, evd%sim_step_info, evd%fname_metadata, &
         &                   skipped_dates, filename_metadata)
     END IF
     
@@ -935,7 +928,7 @@ CONTAINS
       step_data => p_event%event_step(i)%event_step_data(1)
       step_data%i_pe            = i_pe
       step_data%datetime_string = mtime_date_string(i)
-      step_data%i_tag           = i_tag
+      step_data%i_tag           = evd%i_tag
       step_data%filename_string = filename_metadata(i)%filename_string
       step_data%jfile           = filename_metadata(i)%jfile
       step_data%jpart           = filename_metadata(i)%jpart
@@ -1204,9 +1197,17 @@ CONTAINS
     END DO
 
     ! create the local (non-parallel) output event data structure:
-    p_event%output_event => new_output_event(name, this_pe, i_tag , begin_str, end_str, intvl_str,          &
-      &                                      l_output_last, sim_step_info, fname_metadata,                  &
-      &                                      fct_time2simstep, fct_generate_filenames)
+    evd%name = name
+    evd%begin_str = begin_str
+    evd%end_str = end_str
+    evd%intvl_str = intvl_str
+    evd%l_output_last = l_output_last
+    evd%sim_step_info = sim_step_info
+    evd%fname_metadata = fname_metadata
+    evd%i_tag = i_tag
+    p_event%output_event => new_output_event(evd, this_pe,         &
+      &                                      fct_time2simstep,     &
+      &                                      fct_generate_filenames)
 
     IF (ldebug) THEN
       WRITE (0,*) "PE ", get_my_global_mpi_id(), ": created event with ", &
@@ -1231,14 +1232,6 @@ CONTAINS
               &      TRIM(begin_str(i)), TRIM(end_str(i)), TRIM(intvl_str(i))
           END DO
         END IF
-        evd%name = name
-        evd%begin_str = begin_str
-        evd%end_str = end_str
-        evd%intvl_str = intvl_str
-        evd%l_output_last = l_output_last
-        evd%sim_step_info = sim_step_info
-        evd%fname_metadata = fname_metadata
-        evd%i_tag = i_tag
         CALL send_event_data(evd, icomm, ROOT_OUTEVENT)
       END IF
     ELSE
@@ -1386,10 +1379,7 @@ CONTAINS
         IF (.NOT. lrecv) EXIT RECEIVE_LOOP
 
         ! create the event steps from the received meta-data:
-        ev2 => new_output_event(TRIM(evd%name), i_pe, evd%i_tag, evd%begin_str,&
-          &                     evd%end_str, evd%intvl_str,                    &
-          &                     evd%l_output_last, evd%sim_step_info,          &
-          &                     evd%fname_metadata,                            &
+        ev2 => new_output_event(evd, i_pe, &
           &                     fct_time2simstep, fct_generate_filenames)
 
         ! find the parallel output event in the linked list that
