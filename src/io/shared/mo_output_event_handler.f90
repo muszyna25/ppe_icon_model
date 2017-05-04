@@ -1384,7 +1384,7 @@ CONTAINS
         NULLIFY(last_node)
         par_event => union_of_all_events
         DO WHILE (ASSOCIATED(par_event))
-          IF (TRIM(par_event%output_event%event_data%name) == TRIM(ev2%event_data%name)) EXIT
+          IF (par_event%output_event%event_data%name == ev2%event_data%name) EXIT
           last_node => par_event
           par_event => par_event%next
         END DO
