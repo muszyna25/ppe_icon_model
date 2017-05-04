@@ -657,11 +657,8 @@ CONTAINS
     p_event%event_data%sim_start     = evd%sim_step_info%sim_start
 
     ! count the number of different time intervals for this event (usually 1)
-    nintvls = 0
-    DO
-      IF (TRIM(evd%begin_str(nintvls+1)) == '') EXIT
-      nintvls = nintvls + 1
-      IF (nintvls == MAX_TIME_INTERVALS) EXIT
+    DO nintvls = 0, max_time_intervals-1
+      IF (LEN_TRIM(evd%begin_str(nintvls+1)) == 0) EXIT
     END DO
 
     ! status output
