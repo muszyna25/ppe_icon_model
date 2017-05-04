@@ -1621,7 +1621,7 @@ CONTAINS
       END DO
       IF (nremaining_io_procs > 0) THEN
         CALL sort_and_compress_list(remaining_io_procs(1:nremaining_io_procs), proc_list_str)
-        WRITE (0,'(a)') "I/O : Remaining I/O ranks: # ", TRIM(proc_list_str)
+        WRITE (0,'(2a)') "I/O : Remaining I/O ranks: # ", TRIM(proc_list_str)
       END IF
     END IF
 
