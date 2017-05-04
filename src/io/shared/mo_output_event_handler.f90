@@ -1445,6 +1445,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::event_union"
     INTEGER                             :: i1, i2, ierrstat, i_sim_step1, i_sim_step2, &
       &                                    max_sim_step, j1, j2, nsteps
+    LOGICAL :: copy_i1
     CHARACTER(LEN=MAX_FILENAME_STR_LEN) :: filename_string1
 
     ! allocate event data structure
@@ -1525,19 +1526,15 @@ CONTAINS
         i_sim_step2 = event2%event_step(i2)%i_sim_step
       END IF
       nsteps = nsteps+1
-      IF (i_sim_step2 > i_sim_step1) THEN
+      copy_i1 = i_sim_step1 <= i_sim_step2
+      IF (copy_i1) THEN
         ! copy event step i1 from event1:
         CALL append_event_step(p_event%event_step(nsteps), event1%event_step(i1), l_create=.TRUE.)
         i1 = i1 + 1
-      ELSE IF (i_sim_step2 < i_sim_step1) THEN
+      END IF
+      IF (i_sim_step2 <= i_sim_step1) THEN
         ! copy event step i2 from event2:
-        CALL append_event_step(p_event%event_step(nsteps), event2%event_step(i2), l_create=.TRUE.)
-        i2 = i2 + 1
-      ELSE
-        ! join event steps:
-        CALL append_event_step(p_event%event_step(nsteps), event1%event_step(i1), l_create=.TRUE.)
-        CALL append_event_step(p_event%event_step(nsteps), event2%event_step(i2), l_create=.FALSE.)
-        i1 = i1 + 1
+        CALL append_event_step(p_event%event_step(nsteps), event2%event_step(i2), l_create=(.NOT. copy_i1))
         i2 = i2 + 1
       END IF
     END DO
