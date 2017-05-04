@@ -1169,6 +1169,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::new_parallel_output_event"
     INTEGER :: ierrstat, this_pe, i_tag, nranks, i, nintvls
+    TYPE(t_event_data_local) :: evd
 
     ! determine this PE's MPI rank wrt. the given MPI communicator:
     this_pe = 0
@@ -1225,8 +1226,15 @@ CONTAINS
               &      TRIM(begin_str(i)), TRIM(end_str(i)), TRIM(intvl_str(i))
           END DO
         END IF
-        CALL send_event_data(name, begin_str, end_str, intvl_str, l_output_last, &
-          &                  sim_step_info, fname_metadata, i_tag, icomm, ROOT_OUTEVENT)
+        evd%name = name
+        evd%begin_str = begin_str
+        evd%end_str = end_str
+        evd%intvl_str = intvl_str
+        evd%l_output_last = l_output_last
+        evd%sim_step_info = sim_step_info
+        evd%fname_metadata = fname_metadata
+        evd%i_tag = i_tag
+        CALL send_event_data(evd, icomm, ROOT_OUTEVENT)
       END IF
     ELSE
 #endif
@@ -1302,16 +1310,10 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::union_of_all_events"
     TYPE(t_par_output_event), POINTER     :: par_event, last_node
     TYPE(t_output_event),     POINTER     :: ev1, ev2
-    CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN) :: recv_name                 !< output event name
-    CHARACTER(len=MAX_DATETIME_STR_LEN+1) :: recv_begin_str(MAX_TIME_INTERVALS)  !< date-time stamp + modifier
-    CHARACTER(len=MAX_DATETIME_STR_LEN+1) :: recv_end_str(MAX_TIME_INTERVALS)    !< date-time stamp + modifier
-    CHARACTER(len=MAX_DATETIME_STR_LEN)   :: recv_intvl_str(MAX_TIME_INTERVALS)
+    TYPE(t_event_data_local)              :: evd
     LOGICAL                               :: lrecv
-    LOGICAL                               :: recv_l_output_last        !< Flag. If .TRUE. the last step is always written
-    TYPE(t_sim_step_info)                 :: recv_sim_step_info        !< definitions for conversion "time stamp -> simulation step"
-    TYPE(t_fname_metadata)                :: recv_fname_metadata       !< additional meta-data for generating output filename
     INTEGER                               :: i_pe, nranks, ierrstat,            &
-      &                                      this_pe, nbcast_ranks, recv_i_tag, i
+      &                                      this_pe, nbcast_ranks, i
     LOGICAL                               :: lbroadcast
 
     IF (ldebug)  WRITE (0,*) routine, " enter."
@@ -1354,48 +1356,37 @@ CONTAINS
           lrecv = .FALSE.
         ELSE
           IF (this_pe == ROOT_OUTEVENT) THEN
-            lrecv = receive_event_data(recv_name, recv_begin_str, recv_end_str,      &
-              &                        recv_intvl_str,                               &
-              &                        recv_l_output_last, recv_sim_step_info,       &
-              &                        recv_fname_metadata, recv_i_tag, icomm, i_pe, &
-              &                        SENDRECV_TAG_SETUP)
+            lrecv = receive_event_data(evd, icomm, i_pe, SENDRECV_TAG_SETUP)
           END IF
         END IF
 #endif
         ! I/O PE #0: we keep a local list of event meta-data
         IF (.NOT. lrecv .AND. (ievent_list_local > 0)) THEN
-          lrecv =  .TRUE.
-          recv_name                = event_list_local(ievent_list_local)%name
-          recv_begin_str(:)        = event_list_local(ievent_list_local)%begin_str(:)
-          recv_end_str(:)          = event_list_local(ievent_list_local)%end_str(:)
-          recv_intvl_str(:)        = event_list_local(ievent_list_local)%intvl_str(:)
-          recv_l_output_last       = event_list_local(ievent_list_local)%l_output_last
-          recv_sim_step_info       = event_list_local(ievent_list_local)%sim_step_info
-          recv_fname_metadata      = event_list_local(ievent_list_local)%fname_metadata
-          recv_i_tag               = event_list_local(ievent_list_local)%i_tag
+          lrecv = .TRUE.
+          evd = event_list_local(ievent_list_local)
           ievent_list_local = ievent_list_local - 1
           IF (ldebug) THEN
             DO i=1,MAX_TIME_INTERVALS
-              WRITE (0,*) "Taking event ", TRIM(recv_begin_str(i)), " / ", TRIM(recv_end_str(i)), " / ", &
-                &         TRIM(recv_intvl_str(i)), " from local list."
+              WRITE (0,*) "Taking event ", TRIM(evd%begin_str(i)), " / ", TRIM(evd%end_str(i)), " / ", &
+                &         TRIM(evd%intvl_str(i)), " from local list."
             END DO
             WRITE (0,*) ievent_list_local, " entries are left."
           END IF
         END IF
         ! forward the event meta-data to the worker PEs
         IF (lbroadcast) THEN
-          lrecv =  broadcast_event_data(recv_name, recv_begin_str, recv_end_str,                     &
-            &                           recv_intvl_str, recv_l_output_last,                          &
-            &                           recv_sim_step_info, recv_fname_metadata, recv_i_tag,         &
-            &                           opt_broadcast_comm, opt_broadcast_root, lrecv)
+          lrecv = broadcast_event_data(evd,                                    &
+            &                          opt_broadcast_comm, opt_broadcast_root, &
+            &                          lrecv)
         END IF
         
         IF (.NOT. lrecv) EXIT RECEIVE_LOOP
 
         ! create the event steps from the received meta-data:
-        ev2 => new_output_event(TRIM(recv_name), i_pe, recv_i_tag, recv_begin_str,               &
-          &                     recv_end_str, recv_intvl_str,                                    &
-          &                     recv_l_output_last, recv_sim_step_info, recv_fname_metadata,     &
+        ev2 => new_output_event(TRIM(evd%name), i_pe, evd%i_tag, evd%begin_str,&
+          &                     evd%end_str, evd%intvl_str,                    &
+          &                     evd%l_output_last, evd%sim_step_info,          &
+          &                     evd%fname_metadata,                            &
           &                     fct_time2simstep, fct_generate_filenames)
 
         ! find the parallel output event in the linked list that
@@ -1925,7 +1916,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::is_event_root_pe"
 #ifndef NOMPI
-    INTEGER :: ierrstat, this_pe, p_comm
+    INTEGER :: this_pe, p_comm
 #endif
 
     ! at least one of the two arguments must be provided:
@@ -1963,18 +1954,10 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  SUBROUTINE send_event_data(name, begin_str, end_str, intvl_str, l_output_last,   &
-    &                        sim_step_info, fname_metadata, i_tag, icomm, dst_rank)
-    CHARACTER(LEN=*),                      INTENT(IN)  :: name                 !< output event name
-    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(IN)  :: begin_str(MAX_TIME_INTERVALS)  !< date-time stamp + modifier
-    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(IN)  :: end_str(MAX_TIME_INTERVALS)     !< date-time stamp + modifier
-    CHARACTER(len=MAX_DATETIME_STR_LEN),   INTENT(IN)  :: intvl_str(MAX_TIME_INTERVALS)
-    LOGICAL,                               INTENT(IN)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
-    TYPE(t_sim_step_info),                 INTENT(IN)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
-    TYPE(t_fname_metadata),                INTENT(IN)  :: fname_metadata       !< additional meta-data for generating output filename
-    INTEGER,                               INTENT(IN)  :: i_tag                !< this event's MPI tag
-    INTEGER,                               INTENT(IN)  :: icomm                !< MPI communicator
-    INTEGER,                               INTENT(IN)  :: dst_rank             !< MPI destination rank
+  SUBROUTINE send_event_data(evd, icomm, dst_rank)
+    TYPE(t_event_data_local),            INTENT(IN)  :: evd
+    INTEGER,                             INTENT(IN)  :: icomm                !< MPI communicator
+    INTEGER,                             INTENT(IN)  :: dst_rank             !< MPI destination rank
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::send_event_data"
     INTEGER :: nitems, ierrstat, position
@@ -1988,9 +1971,8 @@ CONTAINS
     ! prepare an MPI message:
     !
     nitems = 1
-    CALL p_pack_int(nitems,         buffer, position, icomm)
-    CALL pack_metadata(buffer, position, name, begin_str, end_str, intvl_str,  &
-      &                l_output_last, sim_step_info, fname_metadata, i_tag, icomm)
+    CALL p_pack_int(nitems, buffer, position, icomm)
+    CALL pack_metadata(buffer, position, evd, icomm)
 
     ! send packed message:
     CALL p_send_packed(buffer, dst_rank, SENDRECV_TAG_SETUP, position, icomm)
@@ -2042,21 +2024,15 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  FUNCTION receive_event_data(name, begin_str, end_str, intvl_str,                  &
-    &                         l_output_last, sim_step_info, fname_metadata, i_tag,  &
-    &                         icomm, isrc, isendrecv_tag)
+  FUNCTION receive_event_data(evd, icomm, isrc, isendrecv_tag)
     LOGICAL :: receive_event_data
-    CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN), INTENT(INOUT) :: name                 !< output event name
-    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(INOUT) :: begin_str(MAX_TIME_INTERVALS) !< date-time stamp + modifier
-    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(INOUT) :: end_str(MAX_TIME_INTERVALS)   !< date-time stamp + modifier
-    CHARACTER(len=MAX_DATETIME_STR_LEN),   INTENT(INOUT) :: intvl_str(MAX_TIME_INTERVALS)
-    LOGICAL,                               INTENT(INOUT) :: l_output_last        !< Flag. If .TRUE. the last step is always written
-    TYPE(t_sim_step_info),                 INTENT(INOUT) :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
-    TYPE(t_fname_metadata),                INTENT(INOUT) :: fname_metadata       !< additional meta-data for generating output filename
-    INTEGER,                               INTENT(INOUT) :: i_tag                !< this event's MPI tag
-    INTEGER,                               INTENT(IN)    :: icomm                !< MPI communicator
-    INTEGER,                               INTENT(IN)    :: isrc                 !< MPI rank of the sending PE
-    INTEGER,                               INTENT(IN)    :: isendrecv_tag        !< MPI tag for this messages isend/irecv communication
+    TYPE(t_event_data_local),              INTENT(INOUT)  :: evd
+    !> MPI communicator
+    INTEGER,                               INTENT(IN)     :: icomm
+    !> MPI rank of the sending PE
+    INTEGER,                               INTENT(IN)     :: isrc
+    !> MPI tag for this messages isend/irecv communication
+    INTEGER,                               INTENT(IN)     :: isendrecv_tag
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::receive_event_data"
     INTEGER :: nitems, ierrstat, position, i
@@ -2080,13 +2056,12 @@ CONTAINS
       receive_event_data = .FALSE.
     ELSE
       receive_event_data = .TRUE.
-      CALL unpack_metadata(buffer, position, name, begin_str, end_str, intvl_str, &
-        &                  l_output_last, sim_step_info, fname_metadata, i_tag, icomm)
+      CALL unpack_metadata(buffer, position, evd, icomm)
     END IF
 
     IF (ldebug) THEN
       DO i=1,MAX_TIME_INTERVALS
-        WRITE (0,*) "received event data: ", TRIM(begin_str(i)), TRIM(end_str(i)), TRIM(intvl_str(i))
+        WRITE (0,*) "received event data: ", TRIM(evd%begin_str(i)), TRIM(evd%end_str(i)), TRIM(evd%intvl_str(i))
       END DO
     END IF
 
@@ -2103,20 +2078,15 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  FUNCTION broadcast_event_data(name, begin_str, end_str, intvl_str, l_output_last, &
-    &                           sim_step_info, fname_metadata, i_tag, icomm, iroot, l_no_end_message)
+  FUNCTION broadcast_event_data(evd, icomm, iroot, l_no_end_message)
     LOGICAL :: broadcast_event_data
-    CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN), INTENT(INOUT) :: name                 !< output event name
-    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(INOUT) :: begin_str(MAX_TIME_INTERVALS) !< date-time stamp + modifier
-    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(INOUT) :: end_str(MAX_TIME_INTERVALS)   !< date-time stamp + modifier
-    CHARACTER(len=MAX_DATETIME_STR_LEN),   INTENT(INOUT) :: intvl_str(MAX_TIME_INTERVALS)
-    LOGICAL,                               INTENT(INOUT) :: l_output_last        !< Flag. If .TRUE. the last step is always written
-    TYPE(t_sim_step_info),                 INTENT(INOUT) :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
-    TYPE(t_fname_metadata),                INTENT(INOUT) :: fname_metadata       !< additional meta-data for generating output filename
-    INTEGER,                               INTENT(INOUT) :: i_tag                !< this event's MPI tag
-    INTEGER,                               INTENT(IN)    :: icomm                !< MPI communicator
-    INTEGER,                               INTENT(IN)    :: iroot                !< MPI broadcast root rank
-    LOGICAL,                               INTENT(IN)    :: l_no_end_message     !< Flag. .FALSE. if "end message" shall be broadcasted
+    TYPE(t_event_data_local),              INTENT(INOUT)  :: evd
+    !> MPI communicator
+    INTEGER,                               INTENT(IN)     :: icomm
+    !> MPI broadcast root rank
+    INTEGER,                               INTENT(IN)     :: iroot
+    !> Flag. .FALSE. if "end message" shall be broadcasted
+    LOGICAL,                               INTENT(IN)     :: l_no_end_message
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::broadcast_event_data"
     INTEGER :: nitems, ierrstat, position, this_pe, i
@@ -2138,13 +2108,12 @@ CONTAINS
       IF (l_no_end_message) THEN
         ! normal message:
         nitems = 1
-        CALL p_pack_int(nitems,         buffer, position, icomm)
-        CALL pack_metadata(buffer, position, name, begin_str, end_str, intvl_str, &
-          &                l_output_last, sim_step_info, fname_metadata, i_tag, icomm)
+        CALL p_pack_int(nitems, buffer, position, icomm)
+        CALL pack_metadata(buffer, position, evd, icomm)
         IF (ldebug) THEN
           DO i=1,MAX_TIME_INTERVALS
             WRITE (0,*) "PE ", get_my_global_mpi_id(), ": send event data: ", &
-              &         TRIM(begin_str(i)), TRIM(end_str(i)), TRIM(intvl_str(i))
+              &         TRIM(evd%begin_str(i)), TRIM(evd%end_str(i)), TRIM(evd%intvl_str(i))
           END DO
         END IF
       ELSE
@@ -2172,8 +2141,7 @@ CONTAINS
         broadcast_event_data = .FALSE.
       ELSE
         broadcast_event_data = .TRUE.
-        CALL unpack_metadata(buffer, position, name, begin_str, end_str, intvl_str, &
-          &                  l_output_last, sim_step_info, fname_metadata, i_tag, icomm)
+        CALL unpack_metadata(buffer, position, evd, icomm)
       END IF
     ELSE
       broadcast_event_data = l_no_end_message
@@ -2189,56 +2157,48 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  SUBROUTINE pack_metadata(buffer, position, name, begin_str, end_str, intvl_str,  &
-    &                      l_output_last, sim_step_info, fname_metadata, i_tag, icomm)
+  SUBROUTINE pack_metadata(buffer, position, evd, icomm)
     CHARACTER,                             INTENT(INOUT)  :: buffer(:)             !< MPI buffer for packed
     INTEGER,                               INTENT(INOUT)  :: position              !< MPI buffer position
-    CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN), INTENT(IN)     :: name                  !< output event name
-    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(IN)     :: begin_str(MAX_TIME_INTERVALS) !< date-time stamp + modifier
-    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(IN)     :: end_str(MAX_TIME_INTERVALS)   !< date-time stamp + modifier
-    CHARACTER(len=MAX_DATETIME_STR_LEN),   INTENT(IN)     :: intvl_str(MAX_TIME_INTERVALS)
-    LOGICAL,                               INTENT(IN)     :: l_output_last        !< Flag. If .TRUE. the last step is always written
-    TYPE(t_sim_step_info),                 INTENT(IN)     :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
-    TYPE(t_fname_metadata),                INTENT(IN)     :: fname_metadata       !< additional meta-data for generating output filename
-    INTEGER,                               INTENT(IN)     :: i_tag                !< this event's MPI tag
+    TYPE(t_event_data_local),              INTENT(IN)     :: evd
     INTEGER,                               INTENT(IN)     :: icomm                !< MPI communicator
     ! local variables
     INTEGER :: i
 
     ! encode event name string
-    CALL p_pack_string(TRIM(name),                           buffer, position, icomm)
+    CALL p_pack_string(TRIM(evd%name),                           buffer, position, icomm)
     DO i=1,MAX_TIME_INTERVALS
       ! encode event begin and end string
-      CALL p_pack_string(TRIM(begin_str(i)),                 buffer, position, icomm)
-      CALL p_pack_string(TRIM(end_str(i)),                   buffer, position, icomm)
+      CALL p_pack_string(TRIM(evd%begin_str(i)),                 buffer, position, icomm)
+      CALL p_pack_string(TRIM(evd%end_str(i)),                   buffer, position, icomm)
       ! encode event interval string
-      CALL p_pack_string(TRIM(intvl_str(i)),                 buffer, position, icomm)
+      CALL p_pack_string(TRIM(evd%intvl_str(i)),                 buffer, position, icomm)
     END DO
-    ! encode flag "l_output_last":
-    CALL p_pack_bool(l_output_last,                          buffer, position, icomm)
+    ! encode flag "evd%l_output_last":
+    CALL p_pack_bool(evd%l_output_last,                          buffer, position, icomm)
     ! encode t_sim_step_info data
-    CALL p_pack_string(TRIM(sim_step_info%sim_start),        buffer, position, icomm)
-    CALL p_pack_string(TRIM(sim_step_info%sim_end),          buffer, position, icomm)
-    CALL p_pack_real(sim_step_info%dtime,                    buffer, position, icomm)
-    CALL p_pack_string(TRIM(sim_step_info%run_start),        buffer, position, icomm)
-    CALL p_pack_string(TRIM(sim_step_info%restart_time),     buffer, position, icomm)
-    CALL p_pack_int(sim_step_info%jstep0,                    buffer, position, icomm)
-    CALL p_pack_string(sim_step_info%dom_start_time,         buffer, position, icomm)
-    CALL p_pack_string(sim_step_info%dom_end_time,           buffer, position, icomm)
+    CALL p_pack_string(TRIM(evd%sim_step_info%sim_start),        buffer, position, icomm)
+    CALL p_pack_string(TRIM(evd%sim_step_info%sim_end),          buffer, position, icomm)
+    CALL p_pack_real(evd%sim_step_info%dtime,                    buffer, position, icomm)
+    CALL p_pack_string(TRIM(evd%sim_step_info%run_start),        buffer, position, icomm)
+    CALL p_pack_string(TRIM(evd%sim_step_info%restart_time),     buffer, position, icomm)
+    CALL p_pack_int(evd%sim_step_info%jstep0,                    buffer, position, icomm)
+    CALL p_pack_string(evd%sim_step_info%dom_start_time,         buffer, position, icomm)
+    CALL p_pack_string(evd%sim_step_info%dom_end_time,           buffer, position, icomm)
     ! encode fname_metadata data
-    CALL p_pack_int(fname_metadata%steps_per_file,           buffer, position, icomm)
-    CALL p_pack_bool(fname_metadata%steps_per_file_inclfirst,buffer, position, icomm)
-    CALL p_pack_string(TRIM(fname_metadata%file_interval),   buffer, position, icomm)
-    CALL p_pack_int(fname_metadata%phys_patch_id,            buffer, position, icomm)
-    CALL p_pack_int(fname_metadata%ilev_type,                buffer, position, icomm)
-    CALL p_pack_string(TRIM(fname_metadata%filename_format), buffer, position, icomm)
-    CALL p_pack_string(TRIM(fname_metadata%filename_pref),   buffer, position, icomm)
-    CALL p_pack_string(TRIM(fname_metadata%extn),            buffer, position, icomm)
-    CALL p_pack_int(fname_metadata%jfile_offset,             buffer, position, icomm)
-    CALL p_pack_int(fname_metadata%npartitions,              buffer, position, icomm)
-    CALL p_pack_int(fname_metadata%ifile_partition,          buffer, position, icomm)
+    CALL p_pack_int(evd%fname_metadata%steps_per_file,           buffer, position, icomm)
+    CALL p_pack_bool(evd%fname_metadata%steps_per_file_inclfirst,buffer, position, icomm)
+    CALL p_pack_string(TRIM(evd%fname_metadata%file_interval),   buffer, position, icomm)
+    CALL p_pack_int(evd%fname_metadata%phys_patch_id,            buffer, position, icomm)
+    CALL p_pack_int(evd%fname_metadata%ilev_type,                buffer, position, icomm)
+    CALL p_pack_string(TRIM(evd%fname_metadata%filename_format), buffer, position, icomm)
+    CALL p_pack_string(TRIM(evd%fname_metadata%filename_pref),   buffer, position, icomm)
+    CALL p_pack_string(TRIM(evd%fname_metadata%extn),            buffer, position, icomm)
+    CALL p_pack_int(evd%fname_metadata%jfile_offset,             buffer, position, icomm)
+    CALL p_pack_int(evd%fname_metadata%npartitions,              buffer, position, icomm)
+    CALL p_pack_int(evd%fname_metadata%ifile_partition,          buffer, position, icomm)
     ! encode this event's MPI tag
-    CALL p_pack_int(i_tag,                                   buffer, position, icomm)
+    CALL p_pack_int(evd%i_tag,                                   buffer, position, icomm)
   END SUBROUTINE pack_metadata
 
 
@@ -2246,56 +2206,48 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  SUBROUTINE unpack_metadata(buffer, position, name, begin_str, end_str, intvl_str, &
-    &                        l_output_last, sim_step_info, fname_metadata, i_tag, icomm)
+  SUBROUTINE unpack_metadata(buffer, position, evd, icomm)
     CHARACTER,                             INTENT(INOUT)  :: buffer(:)             !< MPI buffer for packed
     INTEGER,                               INTENT(INOUT)  :: position              !< MPI buffer position
-    CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN), INTENT(INOUT)  :: name                  !< output event name
-    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(INOUT)  :: begin_str(MAX_TIME_INTERVALS) !< date-time stamp + modifier
-    CHARACTER(len=MAX_DATETIME_STR_LEN+1), INTENT(INOUT)  :: end_str(MAX_TIME_INTERVALS)   !< date-time stamp + modifier
-    CHARACTER(len=MAX_DATETIME_STR_LEN),   INTENT(INOUT)  :: intvl_str(MAX_TIME_INTERVALS)
-    LOGICAL,                               INTENT(INOUT)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
-    TYPE(t_sim_step_info),                 INTENT(INOUT)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
-    TYPE(t_fname_metadata),                INTENT(INOUT)  :: fname_metadata       !< additional meta-data for generating output filename
-    INTEGER,                               INTENT(INOUT)  :: i_tag                !< this event's MPI tag
+    TYPE(t_event_data_local),              INTENT(INOUT) :: evd
     INTEGER,                               INTENT(IN)     :: icomm                !< MPI communicator
     ! local variables
     INTEGER :: i
 
     ! decode event name string
-    CALL p_unpack_string(buffer, position, name,                                     icomm)
+    CALL p_unpack_string(buffer, position, evd%name,                                     icomm)
     DO i=1,(MAX_TIME_INTERVALS)
       ! decode event begin and end string                                                            
-      CALL p_unpack_string(buffer, position, begin_str(i),                           icomm)
-      CALL p_unpack_string(buffer, position, end_str(i),                             icomm)
+      CALL p_unpack_string(buffer, position, evd%begin_str(i),                           icomm)
+      CALL p_unpack_string(buffer, position, evd%end_str(i),                             icomm)
       ! decode event interval string                                                           
-      CALL p_unpack_string(buffer, position, intvl_str(i),                           icomm)
+      CALL p_unpack_string(buffer, position, evd%intvl_str(i),                           icomm)
     END DO
     ! decode flag "l_output_last":                                                                 
-    CALL p_unpack_bool(  buffer, position, l_output_last,                            icomm)
+    CALL p_unpack_bool(  buffer, position, evd%l_output_last,                            icomm)
     ! decode t_sim_step_info data                                                                  
-    CALL p_unpack_string(buffer, position, sim_step_info%sim_start,                  icomm)
-    CALL p_unpack_string(buffer, position, sim_step_info%sim_end,                    icomm)
-    CALL p_unpack_real(  buffer, position, sim_step_info%dtime,                      icomm)
-    CALL p_unpack_string(buffer, position, sim_step_info%run_start,                  icomm)
-    CALL p_unpack_string(buffer, position, sim_step_info%restart_time,               icomm)
-    CALL p_unpack_int(   buffer, position, sim_step_info%jstep0,                     icomm)
-    CALL p_unpack_string(buffer, position, sim_step_info%dom_start_time,             icomm)
-    CALL p_unpack_string(buffer, position, sim_step_info%dom_end_time,               icomm)
+    CALL p_unpack_string(buffer, position, evd%sim_step_info%sim_start,                  icomm)
+    CALL p_unpack_string(buffer, position, evd%sim_step_info%sim_end,                    icomm)
+    CALL p_unpack_real(  buffer, position, evd%sim_step_info%dtime,                      icomm)
+    CALL p_unpack_string(buffer, position, evd%sim_step_info%run_start,                  icomm)
+    CALL p_unpack_string(buffer, position, evd%sim_step_info%restart_time,               icomm)
+    CALL p_unpack_int(   buffer, position, evd%sim_step_info%jstep0,                     icomm)
+    CALL p_unpack_string(buffer, position, evd%sim_step_info%dom_start_time,             icomm)
+    CALL p_unpack_string(buffer, position, evd%sim_step_info%dom_end_time,               icomm)
     ! decode fname_metadata data
-    CALL p_unpack_int(   buffer, position, fname_metadata%steps_per_file,            icomm)
-    CALL p_unpack_bool(  buffer, position, fname_metadata%steps_per_file_inclfirst,  icomm)
-    CALL p_unpack_string(buffer, position, fname_metadata%file_interval,             icomm)
-    CALL p_unpack_int(   buffer, position, fname_metadata%phys_patch_id,             icomm)
-    CALL p_unpack_int(   buffer, position, fname_metadata%ilev_type,                 icomm)
-    CALL p_unpack_string(buffer, position, fname_metadata%filename_format,           icomm)
-    CALL p_unpack_string(buffer, position, fname_metadata%filename_pref,             icomm)
-    CALL p_unpack_string(buffer, position, fname_metadata%extn,                      icomm)
-    CALL p_unpack_int(   buffer, position, fname_metadata%jfile_offset,              icomm)
-    CALL p_unpack_int(   buffer, position, fname_metadata%npartitions,               icomm)
-    CALL p_unpack_int(   buffer, position, fname_metadata%ifile_partition,           icomm)
+    CALL p_unpack_int(   buffer, position, evd%fname_metadata%steps_per_file,            icomm)
+    CALL p_unpack_bool(  buffer, position, evd%fname_metadata%steps_per_file_inclfirst,  icomm)
+    CALL p_unpack_string(buffer, position, evd%fname_metadata%file_interval,             icomm)
+    CALL p_unpack_int(   buffer, position, evd%fname_metadata%phys_patch_id,             icomm)
+    CALL p_unpack_int(   buffer, position, evd%fname_metadata%ilev_type,                 icomm)
+    CALL p_unpack_string(buffer, position, evd%fname_metadata%filename_format,           icomm)
+    CALL p_unpack_string(buffer, position, evd%fname_metadata%filename_pref,             icomm)
+    CALL p_unpack_string(buffer, position, evd%fname_metadata%extn,                      icomm)
+    CALL p_unpack_int(   buffer, position, evd%fname_metadata%jfile_offset,              icomm)
+    CALL p_unpack_int(   buffer, position, evd%fname_metadata%npartitions,               icomm)
+    CALL p_unpack_int(   buffer, position, evd%fname_metadata%ifile_partition,           icomm)
     ! decode this event's MPI tag                                                                 
-    CALL p_unpack_int(   buffer, position, i_tag,                                    icomm)
+    CALL p_unpack_int(   buffer, position, evd%i_tag,                                    icomm)
   END SUBROUTINE unpack_metadata
 
 
