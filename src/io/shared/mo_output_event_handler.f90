@@ -262,12 +262,18 @@ MODULE mo_output_event_handler
     CHARACTER(LEN=MAX_DATETIME_STR_LEN+1)        :: begin_str(MAX_TIME_INTERVALS) !< date-time stamp + modifier
     CHARACTER(LEN=MAX_DATETIME_STR_LEN+1)        :: end_str(MAX_TIME_INTERVALS)   !< date-time stamp + modifier
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)         :: intvl_str(MAX_TIME_INTERVALS)
-    LOGICAL                                      :: l_output_last        !< Flag. If .TRUE. the last step is always written
-    TYPE(t_sim_step_info)                        :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
-    TYPE(t_fname_metadata)                       :: fname_metadata       !< additional meta-data for generating output filename
-    INTEGER                                      :: i_tag                !< this event's MPI tag
-    INTEGER                                      :: icomm                !< MPI communicator
-    INTEGER                                      :: dst_rank             !< MPI destination rank
+    !> Flag. If .TRUE. the last step is always written
+    LOGICAL                                      :: l_output_last
+    !> definitions for conversion "time stamp -> simulation step"
+    TYPE(t_sim_step_info)                        :: sim_step_info
+    !> additional meta-data for generating output filename
+    TYPE(t_fname_metadata)                       :: fname_metadata
+    !> this event's MPI tag
+    INTEGER                                      :: i_tag
+    !> MPI communicator
+    INTEGER                                      :: icomm
+    !> MPI destination rank
+    INTEGER                                      :: dst_rank
   END TYPE t_event_data_local
 
   !> Maximum length of local event meta-data list
@@ -2499,7 +2505,8 @@ CONTAINS
     TYPE(t_output_event),   INTENT(INOUT), TARGET :: event              !< output event data structure
     INTEGER,                INTENT(IN)            :: jstep              !< simulation step
     LOGICAL,                INTENT(IN)            :: l_isrestart        !< .TRUE. if this is a restart run
-    LOGICAL,                INTENT(IN)            :: lrecover_open_file !< Flag. If true, we test for an existing file from previous runs
+    !> Flag. If true, we test for an existing file from previous runs
+    LOGICAL,                INTENT(IN)            :: lrecover_open_file
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_event_to_simstep"
     CHARACTER(LEN=10) :: jpart_str
