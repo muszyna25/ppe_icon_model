@@ -6004,8 +6004,7 @@ CONTAINS
     INTEGER,   INTENT(INOUT) :: p_pos
     INTEGER, OPTIONAL, INTENT(IN) :: comm
 #ifndef NOMPI
-    INTEGER :: p_comm, ilength
-    CHARACTER(LEN=128) :: tmp_var
+    INTEGER :: p_comm, outsize, ilength
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -6013,14 +6012,13 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    tmp_var =     TRIM(t_var)
     ilength = LEN_TRIM(t_var)
     ! first pack string length, then the character sequence
     CALL MPI_PACK(ilength,       1,  p_int, t_buffer, SIZE(t_buffer), p_pos, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_char_1d", 'MPI call failed')
 #endif
-    CALL MPI_PACK(tmp_var, ilength, p_char, t_buffer, SIZE(t_buffer), p_pos, p_comm, p_error)
+    CALL MPI_PACK(t_var(1:ilength), ilength, p_char, t_buffer, SIZE(t_buffer), p_pos, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_char_1d", 'MPI call failed')
 #endif
