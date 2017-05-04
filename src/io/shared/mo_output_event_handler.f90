@@ -270,10 +270,6 @@ MODULE mo_output_event_handler
     TYPE(t_fname_metadata)                       :: fname_metadata
     !> this event's MPI tag
     INTEGER                                      :: i_tag
-    !> MPI communicator
-    INTEGER                                      :: icomm
-    !> MPI destination rank
-    INTEGER                                      :: dst_rank
   END TYPE t_event_data_local
 
   !> Maximum length of local event meta-data list
@@ -1248,8 +1244,6 @@ CONTAINS
       event_list_local(ievent_list_local)%sim_step_info      = sim_step_info
       event_list_local(ievent_list_local)%fname_metadata     = fname_metadata
       event_list_local(ievent_list_local)%i_tag              = i_tag
-      event_list_local(ievent_list_local)%icomm              = icomm
-      event_list_local(ievent_list_local)%dst_rank           = ROOT_OUTEVENT
 #ifndef NOMPI
     END IF
 #endif
