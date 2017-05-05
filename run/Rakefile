@@ -886,33 +886,30 @@ class MeanAnalyzer < DataAnalyzer
     else
       varlist = [@varname]
     end
+    pp varlist if $DEBUG
 
-    pp varlist
-
-    #Parallel.each(varlist) {|varname|
-    varlist.each {|varname|
+    Parallel.map(varlist,in_threads: 10) {|varname|
+    #varlist.each {|varname|
       TIMES2COMPARE[@meanPeriod].each {|timeStepPair|# list of timestep relations
-        pp timeStepPair
-          s = "\t\tref tstep:#{timeStepPair[:ref]} | mean tstep:#{timeStepPair[:mean]}".colorize(:color => :blue, :background => :white)
+#       pp timeStepPair
+          s = "\tref tstep:#{timeStepPair[:ref]} | mean tstep:#{timeStepPair[:mean]}".colorize(:color => :blue, :background => :white)
 
           timeSelectionRef  = "-seltimestep,#{timeStepPair[:ref]}"
           timeSelectionMean = "-seltimestep,#{timeStepPair[:mean]}"
 
-          diff = @cdo.diffv(input: [
-            "-timmean #{timeSelectionRef}  -selname,#{varname} #{@spotFile}",
-            "         #{timeSelectionMean} -selname,#{varname} #{@meanFile}"
-          ].join(' '),:options => '-s')
-          diffFile = @cdo.sub(input: [
-            "-timmean #{timeSelectionRef}  -selname,#{varname} #{@spotFile}",
-            "         #{timeSelectionMean} -selname,#{varname} #{@meanFile}"
-          ].join(' '),:returnArray => varname,
-          :options => '-s',
-          :output => [@meanPeriod, varname, File.basename(@spotFile)].map(&:to_s).join('_'))
+          diff = @cdo.diffv(input: [ "-timmean #{timeSelectionRef}  -selname,#{varname} #{@spotFile}",
+                                     "         #{timeSelectionMean} -selname,#{varname} #{@meanFile}" ].join(' '),
+                           :options => '-s')
+          diffFile = @cdo.sub(input: [ "-timmean #{timeSelectionRef}  -selname,#{varname} #{@spotFile}",
+                                       "         #{timeSelectionMean} -selname,#{varname} #{@meanFile}" ].join(' '),
+                             :returnArray => varname,
+                             :options => '-s',
+                             :output => [@meanPeriod, varname, File.basename(@spotFile)].map(&:to_s).join('_'))
 
           unless diff.empty? then
-            puts ["\n",s,varname.colorize(:red), "\t#{diff[1..-2].join("\n\t")}".colorize(:yellow), "\t"].join("\n")
+            puts [s,varname.colorize(:red), "\t#{diff.join("\n\t")}".colorize(:yellow)].join("\n")
           else
-            print "#{varname} ".colorize(:green)
+            puts [s,"#{varname}".colorize(:green)].join("\n")
           end
         }
 #     }
@@ -955,11 +952,12 @@ end
 desc "check general mean value: compare online and offline time avg"
 task :checkMeanStream, :dir, :what, :variable do |t,args|
 
+  ap args
   # collect all output files
   getMeanAndSpotFiles(args.dir).each {|period,filelist|
     filelist.each {|files|
       unless 'meanEachTimeStep' == period then
-        analyzer = MeanAnalyzer.new(files[:spot],files[:mean],period)
+        analyzer = MeanAnalyzer.new(files[:spot],files[:mean],period,args.variable)
         analyzer.run
       end
     }
