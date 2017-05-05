@@ -32,20 +32,18 @@ MODULE mo_art_sedi_interface
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
   USE mo_run_config,                    ONLY: lart,iqr,iqc,iqv
   USE mo_exception,                     ONLY: finish
-  USE mo_linked_list,                   ONLY: t_var_list
   USE mo_advection_vflux,               ONLY: upwind_vflux_ppm_cfl
   USE mo_loopindices,                   ONLY: get_indices_c
 #ifdef __ICON_ART
 ! infrastructure routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
-                                          &   t_fields_volc
+                                          &   t_fields_pollen,t_fields_volc
   USE mo_art_data,                      ONLY: p_art_data
-  USE mo_art_impl_constants,            ONLY: UNDEF_INT_ART
   USE mo_art_clipping,                  ONLY: art_clip_lt
   USE mo_art_config,                    ONLY: art_config
 ! sedimentation and deposition routines
-  USE mo_art_sedi_volc,                 ONLY: art_sedi_volc
+  USE mo_art_sedi_1mom,                 ONLY: art_sedi_1mom
   USE mo_art_sedi_2mom,                 ONLY: art_calc_v_sed, art_calc_sed_flx
   USE mo_art_depo_2mom,                 ONLY: art_calc_v_dep, art_store_v_dep
   USE mo_art_drydepo_radioact,          ONLY: art_drydepo_radioact
@@ -253,18 +251,62 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                 ENDDO !jb
               ENDDO !i
 
-            CLASS IS (t_fields_volc)
+            CLASS IS (t_fields_pollen)
               DO jb = i_startblk, i_endblk
                 CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
                   &                istart, iend, i_rlstart, i_rlend)
-                CALL art_sedi_volc(p_diag%temp(:,:,jb), p_diag%pres(:,:,jb), rho(:,:,jb),    &
+                CALL art_sedi_1mom(p_diag%temp(:,:,jb), p_diag%pres(:,:,jb), rho(:,:,jb),    &
                   &                p_diag%rho_ic(:,:,jb), p_metrics%wgtfac_c(:,:,jb),        &
                   &                p_metrics%wgtfacq_c(:,:,jb), fields%diam, fields%rho,     &
                   &                p_prog%turb_tracer(jb,:), istart, iend, nlev, jb,         &
                   &                fields%itr, art_config(jg), p_art_data(jg),               &
-                  &                fields%flx_contra_vsed3(:,:,jb))
+                  &                fields%flx_contra_vsed(:,:,jb))
               ENDDO
-              flx_contra_vsed => fields%flx_contra_vsed3
+              flx_contra_vsed => fields%flx_contra_vsed
+              jsp = fields%itr
+              
+              ! upwind_vflux_ppm_cfl is internally OpenMP parallelized
+              CALL upwind_vflux_ppm_cfl(p_patch, tracer(:,:,:,jsp),             &
+                &                       iubc, flx_contra_vsed, dt_sub,          &
+                &                       lcompute_gt, lcleanup_gt, itype_vlimit, &
+                &                       dz,                                     &
+                &                       rhodz_new, lprint_cfl,                  &
+                &                       p_upflux_sed(:,:,:),                    &
+                &                       opt_rlstart=i_rlstart,                  &
+                &                       opt_rlend=i_rlend,                      &
+                &                       opt_elev=nlevp1)
+              
+              ! ----------------------------------
+              ! --- update mixing ratio after sedimentation
+              ! ----------------------------------        
+              
+              DO jb = i_startblk, i_endblk
+                CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
+                  &                istart, iend, i_rlstart, i_rlend)
+                DO jk = 1, nlev
+                  ! index of bottom half level
+                  jkp1 = jk + 1
+                  DO jc = istart, iend
+                    sedim_update = (dt_sub * ( p_upflux_sed(jc,jk,  jb)   &
+                       &                      - p_upflux_sed(jc,jkp1,jb) )  &
+                       &         / rhodz_new(jc,jk,jb))
+                    tracer(jc,jk,jb,jsp) =   tracer(jc,jk,jb,jsp) - sedim_update
+                  ENDDO!jc
+                ENDDO !jk
+              ENDDO !jb
+
+            CLASS IS (t_fields_volc)
+              DO jb = i_startblk, i_endblk
+                CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
+                  &                istart, iend, i_rlstart, i_rlend)
+                CALL art_sedi_1mom(p_diag%temp(:,:,jb), p_diag%pres(:,:,jb), rho(:,:,jb),    &
+                  &                p_diag%rho_ic(:,:,jb), p_metrics%wgtfac_c(:,:,jb),        &
+                  &                p_metrics%wgtfacq_c(:,:,jb), fields%diam, fields%rho,     &
+                  &                p_prog%turb_tracer(jb,:), istart, iend, nlev, jb,         &
+                  &                fields%itr, art_config(jg), p_art_data(jg),               &
+                  &                fields%flx_contra_vsed(:,:,jb))
+              ENDDO
+              flx_contra_vsed => fields%flx_contra_vsed
               jsp = fields%itr
               
               ! upwind_vflux_ppm_cfl is internally OpenMP parallelized
@@ -299,7 +341,7 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
 
             CLASS IS (t_fields_radio)
               ! Sedimentation velocity is zero for radioact. tracers
-              fields%flx_contra_vsed3(:,:,:) = 0.0_wp
+              fields%flx_contra_vsed(:,:,:) = 0.0_wp
               ! However, a deposition velocity is required
               DO jb = i_startblk, i_endblk
                 CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &

@@ -59,7 +59,7 @@ MODULE mo_art_emission_interface
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
-                                          &   t_fields_volc,t_fields_1mom
+                                          &   t_fields_pollen, t_fields_volc
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_aerosol_utilities,         ONLY: art_air_properties
   USE mo_art_config,                    ONLY: art_config
@@ -68,7 +68,6 @@ MODULE mo_art_emission_interface
   USE mo_art_emission_volc_1mom,        ONLY: art_organize_emission_volc
   USE mo_art_emission_volc_2mom,        ONLY: art_prepare_emission_volc,    &
                                           &   art_calculate_emission_volc
-  USE mo_art_emission_radioact,         ONLY: art_emiss_radioact
   USE mo_art_emission_seas,             ONLY: art_seas_emiss_martensson,    &
                                           &   art_seas_emiss_monahan,       &
                                           &   art_seas_emiss_smith
@@ -216,7 +215,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           CASE(0)
             ! Nothing to do, no volcano emissions
           CASE(1)
-            ! bulk emissions see below
+            ! No preparations necessary
           CASE(2)
             CALL art_prepare_emission_volc(current_date,jb,nlev,p_nh_state%metrics%z_ifc(:,:,jb),  &
               &                            p_art_data(jg)%dict_tracer, p_art_data(jg)%ext%volc_data)
@@ -316,87 +315,57 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                   &                         opt_fac=(fields%info%mode_fac * fields%info%factnum))
               ENDDO !jb
 !$omp end parallel do
-            CLASS is (t_fields_1mom)
-              ! drieg: This needs to be done here instead of the version outside the jb loop below in the future
+            TYPE is (t_fields_pollen)
+              DO jb = i_startblk, i_endblk
+                CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                  &                istart, iend, i_rlstart, i_rlend)
+
+                DO jc = istart, iend
+                  dz(jc,nlev) = p_nh_state%metrics%ddqz_z_full(jc,nlev,jb)
+                ENDDO
+
+                SELECT CASE(TRIM(fields%name))
+                  CASE('pollbetu') ! Betula --> birch
+                    CALL art_emiss_pollen(dtime,current_date,                             &
+                      &                   rho(:,nlev,jb),                                 &
+                      &                   p_art_data(jg)%ext%pollen_prop%pollen_type(1),  & !< 1=pollbetu
+                      &                   tracer(:,nlev,jb,:),                            &
+                      &                   p_art_data(jg)%dict_tracer,                     &
+                      &                   p_nh_state%diag%temp(:,nlev,jb),                &
+                      &                   p_nh_state%diag%pres_sfc(:,jb),                 &
+                      &                   p_nh_state%prog(nnow)%tke(:,nlev,jb),           &
+                      &                   prm_diag%rain_gsp_rate(:,jb),                   &
+                      &                   prm_diag%rain_con_rate(:,jb),                   &
+                      &                   prm_diag%rh_2m(:,jb),                           &
+                      &                   dz(:,nlev),                                     &
+                      &                   ext_data%atm%llsm_atm_c(:,jb),                  &
+                      &                   jb, istart, iend )
+                  CASE DEFAULT
+                    CALL finish('mo_art_emission_interface:art_emission_interface', &
+                      &         'ART: Pollen emissions for '//TRIM(fields%name)//' not yet implemented')
+                END SELECT
+              ENDDO
+            CLASS is (t_fields_radio)
+              ! handled via pntSrc structure
+            CLASS is (t_fields_volc)
+              ! handled below
             CLASS default
               CALL finish('mo_art_emission_interface:art_emission_interface', &
                 &         'ART: Unknown mode field type')
           END SELECT
           this_mode => this_mode%next_mode
         ENDDO !while(associated)
-    
+
       DEALLOCATE(emiss_rate)
       DEALLOCATE(dz)
-      
-      ! START OLD BLOCK: Needs to be realized within jb loop above in the future
-      this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
-     
-      DO WHILE(ASSOCIATED(this_mode))
-        ! Select type of mode
-        SELECT TYPE (fields=>this_mode%fields)
-          TYPE is (t_fields_2mom)
-            ! Nothing to do here
-          CLASS is (t_fields_radio)
-            CALL art_emiss_radioact(dtime,rho,p_patch%cells%area,p_nh_state%metrics%ddqz_z_full,  &
-              &                     fields%imis,p_sim_time,tracer(:,:,:,fields%itr),&
-              &                     p_art_data(jg)%ext%radioact_data)
 
-          CLASS is (t_fields_volc)
-            ! nothing to do here, see below
-          CLASS default
-            CALL finish('mo_art_emission_interface:art_emission_interface', &
-              &         'ART: Unknown mode field type')
-        END SELECT
-        this_mode => this_mode%next_mode
-      ENDDO
-  
-      ! ----------------------------------
-      ! --- volcano emissions
-      ! ----------------------------------
-    
+      ! volcano emissions
       IF (art_config(jg)%iart_volcano == 1) THEN
         CALL art_organize_emission_volc(p_patch, current_date, dtime,rho,p_art_data(jg)%dict_tracer, &
-          &                             p_art_data(jg)%ext%volc_data,tracer) 
+          &                             p_art_data(jg)%ext%volc_data,tracer)
       ENDIF
 
-      ! ----------------------------------
-      ! --- pollen emissions
-      ! ----------------------------------
 
-      IF (art_config(jg)%iart_pollen == 1) THEN
-        ALLOCATE(dz(nproma,nlev))
-        
-        DO jb = i_startblk, i_endblk
-          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-            &                istart, iend, i_rlstart, i_rlend)
-            
-          ! Get model layer heights
-          DO jc = istart, iend
-            dz(jc,nlev) = p_nh_state%metrics%ddqz_z_full(jc,nlev,jb)
-          ENDDO
-
-          !Betula --> birch
-          CALL art_emiss_pollen(p_patch,dtime,current_date,                     &
-            &                   rho(:,nlev,jb),                                 &
-            &                   p_art_data(jg)%ext%pollen_prop%pollen_type(1),  &  !<- betu specific
-            &                   tracer(:,nlev,jb,:),                            &
-            &                   p_art_data(jg)%dict_tracer,                     &
-            &                   p_nh_state%diag%temp(:,nlev,jb),                &
-            &                   p_nh_state%diag%pres_sfc(:,jb),                 &
-            &                   p_nh_state%prog(nnow)%tke(:,nlev,jb),           &
-            &                   prm_diag%rain_gsp_rate(:,jb),                   &
-            &                   prm_diag%rain_con_rate(:,jb),                   &
-            &                   prm_diag%rh_2m(:,jb),                           &
-            &                   dz(:,nlev),                                     &
-            &                   ext_data%atm%llsm_atm_c(:,jb),                  &
-            &                   jb, istart, iend )                              
-             
-        ENDDO
-       
-        DEALLOCATE(dz)    
-      ENDIF !iart_pollen
-    
-      ! END OLD BLOCK
     ENDIF !lart_aerosol
     
     ! ----------------------------------
