@@ -328,25 +328,27 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  RECURSIVE SUBROUTINE deallocate_par_output_event(event)
+  SUBROUTINE deallocate_par_output_event(event)
     TYPE(t_par_output_event), POINTER :: event
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::deallocate_par_output_event"
     INTEGER :: ierrstat
 
-    IF (.NOT. ASSOCIATED(event)) RETURN
-    IF (ASSOCIATED(event%next)) THEN
-      CALL deallocate_output_event(event%next)
-      NULLIFY(event%next)
-    END IF
+    TYPE(t_par_output_event), POINTER :: ev, next
 
-    CALL deallocate_output_event(event%output_event)
-    IF (ALLOCATED(event%irecv_req)) THEN
-      DEALLOCATE(event%output_event, event%irecv_req, event%irecv_buf, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-    END IF
-    DEALLOCATE(event, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+    ierrstat = success
+    ev => event
+    DO WHILE (ASSOCIATED(ev))
+      next => ev%next
+      CALL deallocate_output_event(ev%output_event)
+      IF (ALLOCATED(ev%irecv_req)) THEN
+        DEALLOCATE(ev%output_event, ev%irecv_req, ev%irecv_buf, STAT=ierrstat)
+      END IF
+      IF (ierrstat == success) DEALLOCATE(ev, STAT=ierrstat)
+      IF (ierrstat /= success) CALL finish (routine, 'DEALLOCATE failed.')
+      ev => next
+    END DO
+    NULLIFY(event)
   END SUBROUTINE deallocate_par_output_event
 
 
