@@ -1555,17 +1555,12 @@ CONTAINS
     TYPE(t_event_step_data), ALLOCATABLE  :: tmp_event_step_data(:)
     INTEGER :: iold, ierrstat, i1, i2
 
-    ! event_step%i_sim_step
     IF (l_create) THEN
       dst_event_step%i_sim_step = src_event_step%i_sim_step
+      dst_event_step%exact_date_string = src_event_step%exact_date_string
     ELSE
       IF (src_event_step%i_sim_step /= dst_event_step%i_sim_step) &
         &   CALL finish(routine, "sim_steps do not match!")
-    END IF
-    ! event_step%exact_date_string
-    IF (l_create) THEN
-      dst_event_step%exact_date_string = src_event_step%exact_date_string
-    ELSE
       IF (src_event_step%exact_date_string /= dst_event_step%exact_date_string) &
         &   CALL finish(routine, "exact_date_strings do not match!")
     END IF
