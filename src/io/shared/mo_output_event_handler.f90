@@ -1304,7 +1304,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::union_of_all_events"
     TYPE(t_par_output_event), POINTER     :: par_event, last_node
-    TYPE(t_output_event),     POINTER     :: ev1, ev2
+    TYPE(t_output_event),     POINTER     :: ev2
     TYPE(t_event_data_local)              :: evd
     LOGICAL                               :: lrecv
     INTEGER                               :: i_pe, nranks, ierrstat,            &
@@ -1412,10 +1412,8 @@ CONTAINS
         ! increase MPI message tag ID st. it stays unique even for
         ! multiple events running on the same I/O PE:
         IF (ASSOCIATED(par_event%output_event)) THEN
-          ev1 => par_event%output_event
           ! create union of the two events:
-          par_event%output_event => event_union(ev1,ev2)
-          CALL deallocate_output_event(ev1)
+          CALL merge_events(par_event%output_event, ev2)
           CALL deallocate_output_event(ev2)
         ELSE
           par_event%output_event => ev2
@@ -1430,7 +1428,7 @@ CONTAINS
   END FUNCTION union_of_all_events
 
 
-  !> Create a new output event from two joint events.
+  !> Merge compatible event into another.
   !
   !  Different output events/PEs may be joined together to form a
   !  single new event. Then not every PE necessarily participates in
@@ -1440,29 +1438,25 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  FUNCTION event_union(event1, event2) RESULT(p_event)
-    TYPE(t_output_event), POINTER :: p_event
-    TYPE(t_output_event), INTENT(IN) :: event1, event2
+  SUBROUTINE merge_events(event1, event2)
+    TYPE(t_output_event), INTENT(INOUT) :: event1
+    TYPE(t_output_event), INTENT(IN) :: event2
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::event_union"
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::merge_event"
     INTEGER                             :: i1, i2, ierrstat, i_sim_step1, i_sim_step2, &
       &                                    max_sim_step, j1, j2, nsteps
     LOGICAL :: copy_i1
     CHARACTER(LEN=MAX_FILENAME_STR_LEN) :: filename_string1
-
+    TYPE(t_event_step), ALLOCATABLE :: new_steps(:)
     ! allocate event data structure
-    ALLOCATE(p_event, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-    p_event%i_event_step             = 1
-    IF (event1%event_data%name == event2%event_data%name) THEN
-      p_event%event_data%name        = event1%event_data%name
-    ELSE
-      p_event%event_data%name        = TRIM(event1%event_data%name)//","//TRIM(event2%event_data%name)
+    event1%i_event_step             = 1
+    IF (event1%event_data%name /= event2%event_data%name) THEN
+      i1 = LEN_TRIM(event1%event_data%name)
+      event1%event_data%name(i1:) = ","//event2%event_data%name
     END IF
     IF (event1%event_data%sim_start /= event2%event_data%sim_start) THEN
       CALL finish(routine, "Simulation start dates do not match!")
     END IF
-    p_event%event_data%sim_start = event1%event_data%sim_start
 
     ! consistency check: test, if any of the filenames in event1
     ! occurs in event2 (avoid duplicate names)
@@ -1508,10 +1502,9 @@ CONTAINS
       ! copy event step i2 from event2:
       i2 = i2 + MERGE(1, 0, i_sim_step2 <= i_sim_step1)
     END DO
-    p_event%n_event_steps = nsteps
 
     ! now create the new event:
-    ALLOCATE(p_event%event_step(nsteps), STAT=ierrstat)
+    ALLOCATE(new_steps(nsteps), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     nsteps = 0
     i1 = 1
@@ -1531,16 +1524,23 @@ CONTAINS
       copy_i1 = i_sim_step1 <= i_sim_step2
       IF (copy_i1) THEN
         ! copy event step i1 from event1:
-        CALL append_event_step(p_event%event_step(nsteps), event1%event_step(i1), l_create=.TRUE.)
+        new_steps(nsteps)%i_sim_step = event1%event_step(i1)%i_sim_step
+        new_steps(nsteps)%exact_date_string &
+          &    = event1%event_step(i1)%exact_date_string
+        new_steps(nsteps)%n_pes = event1%event_step(i1)%n_pes
+        CALL MOVE_ALLOC(from=event1%event_step(i1)%event_step_data, &
+          &             to=new_steps(nsteps)%event_step_data)
         i1 = i1 + 1
       END IF
       IF (i_sim_step2 <= i_sim_step1) THEN
         ! copy event step i2 from event2:
-        CALL append_event_step(p_event%event_step(nsteps), event2%event_step(i2), l_create=(.NOT. copy_i1))
+        CALL append_event_step(new_steps(nsteps), event2%event_step(i2), l_create=(.NOT. copy_i1))
         i2 = i2 + 1
       END IF
     END DO
-  END FUNCTION event_union
+    CALL MOVE_ALLOC(from=new_steps, to=event1%event_step)
+    event1%n_event_steps = nsteps
+  END SUBROUTINE merge_events
 
 
   !> Appends the data of an event step to the data of another event step.
