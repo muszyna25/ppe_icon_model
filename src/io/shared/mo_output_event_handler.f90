@@ -1553,7 +1553,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::append_event_step"
     TYPE(t_event_step_data), ALLOCATABLE  :: tmp_event_step_data(:)
-    INTEGER :: iold, ierrstat, i1, i2
+    INTEGER :: iold, ierrstat, i1, i2, inew, iadd
 
     IF (l_create) THEN
       dst_event_step%i_sim_step = src_event_step%i_sim_step
@@ -1572,30 +1572,28 @@ CONTAINS
       dst_event_step%event_step_data(1:dst_event_step%n_pes) = &
         &   src_event_step%event_step_data(1:src_event_step%n_pes)
     ELSE
-      ALLOCATE(tmp_event_step_data(dst_event_step%n_pes), STAT=ierrstat)
       iold = dst_event_step%n_pes
+      iadd = src_event_step%n_pes
+      inew = iold + iadd
+      ALLOCATE(tmp_event_step_data(inew), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-      tmp_event_step_data(1:dst_event_step%n_pes) = &
-        &   dst_event_step%event_step_data(1:dst_event_step%n_pes)
-      DEALLOCATE(dst_event_step%event_step_data, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-
-      dst_event_step%n_pes = dst_event_step%n_pes + src_event_step%n_pes
-      ALLOCATE(dst_event_step%event_step_data(dst_event_step%n_pes), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-      dst_event_step%event_step_data(1:iold) = tmp_event_step_data(1:iold)
-      dst_event_step%event_step_data((iold+1):(iold+src_event_step%n_pes)) = &
-        &   src_event_step%event_step_data(1:src_event_step%n_pes)
+      tmp_event_step_data(1:iold) = dst_event_step%event_step_data(1:iold)
+      tmp_event_step_data(iold+1:inew) = &
+           & src_event_step%event_step_data(1:iadd)
+      CALL MOVE_ALLOC(from=tmp_event_step_data, &
+        &             to=dst_event_step%event_step_data)
+      dst_event_step%n_pes = inew
 
       ! consistency check: test, if any of the filenames in group1
       ! occurs in group2 (avoid duplicate names)
       DO i1=1,iold
-         DO i2=(iold+1),(iold+src_event_step%n_pes)
-            IF (dst_event_step%event_step_data(i1)%filename_string == dst_event_step%event_step_data(i2)%filename_string) THEN
-               ! found a duplicate filename:
-               CALL finish(routine, "Ambiguous output file name: '"//TRIM(dst_event_step%event_step_data(i1)%filename_string)//"'")
-            END IF
-         END DO
+        DO i2=(iold+1),(iold+src_event_step%n_pes)
+          IF (dst_event_step%event_step_data(i1)%filename_string &
+            == dst_event_step%event_step_data(i2)%filename_string) THEN
+            ! found a duplicate filename:
+            CALL finish(routine, "Ambiguous output file name: '"//TRIM(dst_event_step%event_step_data(i1)%filename_string)//"'")
+          END IF
+        END DO
       END DO
     END IF
   END SUBROUTINE append_event_step
