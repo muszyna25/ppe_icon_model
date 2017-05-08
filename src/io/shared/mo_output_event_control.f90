@@ -230,7 +230,7 @@ CONTAINS
     ! ---------------------------------------------------
     ! a) user has specified "steps_per_file"
     ! b) user has specified "file_interval"
-    IF (TRIM(fname_metadata%file_interval) == "") THEN
+    IF (LEN_TRIM(fname_metadata%file_interval) == 0) THEN
       ! case a): steps_per_file
       mtime_first  => dates(1)
       ! special treatment for the initial time step written at the
