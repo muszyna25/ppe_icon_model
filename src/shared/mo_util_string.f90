@@ -479,29 +479,22 @@ CONTAINS
     INTEGER,                   INTENT(INOUT) :: nitems
     ! local variables
     INTEGER :: iwrite, iread, nitems_old, i
-    LOGICAL :: l_duplicate
 
     nitems_old = nitems
 
-    iwrite = 1
-    DO iread=1,nitems
+    iwrite = 0
+    ITEM_LOOP: DO iread=1,nitems
       ! check if item already in string list (1:iwrite-1):
-      l_duplicate = .FALSE.
-      CHECK_LOOP : DO i=1,(iwrite-1)
-        IF (TRIM(str_list(i)) == TRIM(str_list(iread))) THEN
-          l_duplicate = .TRUE.
-          EXIT CHECK_LOOP
-        END IF
-      END DO CHECK_LOOP
-      IF (.NOT. l_duplicate) THEN
-        str_list(iwrite) = str_list(iread)
-        iwrite = iwrite + 1
-      END IF
-    END DO
-    nitems = iwrite-1
+      DO i=1,iwrite
+        IF (str_list(i) == str_list(iread)) CYCLE item_loop
+      END DO
+      iwrite = iwrite + 1
+      IF (iwrite /= iread) str_list(iwrite) = str_list(iread)
+    END DO ITEM_LOOP
+    nitems = iwrite
 
     ! clear the rest of the list
-    DO iwrite=(nitems+1),nitems_old
+    DO iwrite = iwrite+1, nitems_old
       str_list(iwrite) = ' '
     END DO
   END SUBROUTINE remove_duplicates
