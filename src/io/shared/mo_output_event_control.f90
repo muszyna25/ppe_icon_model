@@ -212,7 +212,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::generate_output_filenames"
     INTEGER                             :: i, j, ifile, ipart, total_index, this_jfile, errno
     CHARACTER(len=MAX_CHAR_LENGTH)      :: cfilename 
-    TYPE (t_keyword_list), POINTER      :: keywords     => NULL()
+    TYPE (t_keyword_list), POINTER      :: keywords
     CHARACTER(len=MAX_CHAR_LENGTH)      :: fname(num_dates)        ! list for duplicate check
     INTEGER                             :: ifname                 ! current length of "ifname"
     TYPE(datetime),  POINTER            :: run_start, sim_start, &
@@ -301,6 +301,7 @@ CONTAINS
       END IF
     END DO
 
+    NULLIFY(keywords)
     ! ----------------------------------------------
     ! Set actual output file name (insert keywords):
     ! ----------------------------------------------
