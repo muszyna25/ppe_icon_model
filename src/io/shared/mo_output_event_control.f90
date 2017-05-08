@@ -110,9 +110,6 @@ CONTAINS
     mtime_begin     => newDatetime(TRIM(sim_step_info%run_start))
     mtime_end       => newDatetime(TRIM(sim_step_info%sim_end  ))
 
-    result_steps(:)     = -1
-    result_exactdate(:) = ""
-
     DO ilist = 1,num_dates
       ! check if domain is inactive:
       IF (((dates(ilist) >= mtime_dom_start) .AND. (dates(ilist) >= mtime_begin)) .OR.  &
@@ -124,8 +121,14 @@ CONTAINS
         IF (ldebug) THEN
           WRITE (0,*) ilist, ": ", result_steps(ilist), " -> ", TRIM(result_exactdate(ilist))
         END IF
+      ELSE
+        result_steps(ilist)     = -1
+        result_exactdate(ilist) = ""
       END IF
     END DO
+    result_steps(num_dates+1:)     = -1
+    result_exactdate(num_dates+1:) = ""
+
     ! clean up
     CALL deallocateDatetime(mtime_dom_start)
     CALL deallocateDatetime(mtime_dom_end)
