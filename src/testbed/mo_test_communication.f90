@@ -15,7 +15,7 @@
 !!
 MODULE mo_test_communication
 
-  USE mo_kind,                ONLY: wp
+  USE mo_kind,                ONLY: wp, sp, dp
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_mpi,                 ONLY: work_mpi_barrier, p_n_work, p_pe_work, &
     &                               p_comm_work, p_comm_rank, p_comm_size, &
@@ -29,6 +29,7 @@ MODULE mo_test_communication
     &                               delete_comm_gather_pattern, exchange_data, &
     &                               exchange_data_4de1, &
     &                               exchange_data_mult, &
+    &                               exchange_data_mult_mixprec, &
     &                               t_comm_allgather_pattern, &
     &                               setup_comm_allgather_pattern, &
     &                               delete_comm_allgather_pattern, &
@@ -1114,21 +1115,25 @@ CONTAINS
     CLASS(t_comm_pattern), POINTER :: comm_pattern
 
     INTEGER :: nlev
-    REAL(wp), ALLOCATABLE :: in_array_r_2d(:,:), in_array_r_3d(:,:,:), &
-      &                      in_array_r_4d(:,:,:,:)
+    REAL(wp), ALLOCATABLE :: in_array_r_2d(:,:), in_array_r_3d(:,:,:)
     INTEGER, ALLOCATABLE ::  in_array_i_2d(:,:), in_array_i_3d(:,:,:)
     LOGICAL, ALLOCATABLE ::  in_array_l_2d(:,:), in_array_l_3d(:,:,:)
-    REAL(wp), ALLOCATABLE :: out_array_r_2d(:,:), out_array_r_3d(:,:,:), &
-      &                      out_array_r_4d(:,:,:,:)
+    REAL(wp), ALLOCATABLE :: out_array_r_2d(:,:), out_array_r_3d(:,:,:)
     INTEGER, ALLOCATABLE ::  out_array_i_2d(:,:), out_array_i_3d(:,:,:)
     LOGICAL, ALLOCATABLE ::  out_array_l_2d(:,:), out_array_l_3d(:,:,:)
-    REAL(wp), ALLOCATABLE :: add_array_r_2d(:,:), add_array_r_3d(:,:,:), &
-      &                      add_array_r_4d(:,:,:,:)
+    REAL(wp), ALLOCATABLE :: add_array_r_2d(:,:), add_array_r_3d(:,:,:)
     INTEGER, ALLOCATABLE ::  add_array_i_2d(:,:), add_array_i_3d(:,:,:)
-    REAL(wp), ALLOCATABLE :: ref_out_array_r_2d(:,:), ref_out_array_r_3d(:,:,:), &
-      &                      ref_out_array_r_4d(:,:,:,:)
+    REAL(wp), ALLOCATABLE :: ref_out_array_r_2d(:,:), ref_out_array_r_3d(:,:,:)
     INTEGER, ALLOCATABLE ::  ref_out_array_i_2d(:,:), ref_out_array_i_3d(:,:,:)
     LOGICAL, ALLOCATABLE ::  ref_out_array_l_2d(:,:), ref_out_array_l_3d(:,:,:)
+    REAL(dp), ALLOCATABLE :: in_array_dp_4d(:,:,:,:), &
+      &                      out_array_dp_4d(:,:,:,:), &
+      &                      add_array_dp_4d(:,:,:,:), &
+      &                      ref_out_array_dp_4d(:,:,:,:)
+    REAL(sp), ALLOCATABLE :: in_array_sp_4d(:,:,:,:), &
+      &                      out_array_sp_4d(:,:,:,:), &
+      &                      add_array_sp_4d(:,:,:,:), &
+      &                      ref_out_array_sp_4d(:,:,:,:)
 
     CHARACTER(*), PARAMETER :: method_name = &
       "mo_test_communication:exchange_communication_testbed"
@@ -1497,574 +1502,423 @@ CONTAINS
 
     DO n = 1, 16
 
-      ALLOCATE(in_array_r_4d(n, nproma, nlev, 10), &
-        &      out_array_r_4d(n, nproma, nlev, 10), &
-        &      ref_out_array_r_4d(n, nproma, nlev, 10))
+      ALLOCATE(in_array_dp_4d(n, nproma, nlev, 10), &
+        &      out_array_dp_4d(n, nproma, nlev, 10), &
+        &      ref_out_array_dp_4d(n, nproma, nlev, 10))
 
       DO i = 1, nlev
         DO j = 1, n
-          in_array_r_4d(j,:,i,:) = RESHAPE(glb_index_src, (/nproma, 10/)) + &
-            &                              (i - 1) * global_size + 0.1_wp * j
+          in_array_dp_4d(j,:,i,:) = RESHAPE(glb_index_src, (/nproma, 10/)) + &
+            &                               (i - 1) * global_size + 0.1_wp * j
         END DO
       END DO
-      out_array_r_4d = -1
+      out_array_dp_4d = -1
       DO i = 1, nlev
         DO j = 1, n
-          ref_out_array_r_4d(j,:,i,:) = &
+          ref_out_array_dp_4d(j,:,i,:) = &
             RESHAPE(MERGE(-1._wp, glb_index_dst + (i - 1) * global_size + &
             &             0.1_wp * j, owner_local_dst == -1), (/nproma, 10/))
         END DO
       END DO
 
-      CALL check_exchange_4de1(in_array=in_array_r_4d, &
-        &                      out_array=out_array_r_4d, &
-        &                      ref_out_array=ref_out_array_r_4d, &
+      CALL check_exchange_4de1(in_array=in_array_dp_4d, &
+        &                      out_array=out_array_dp_4d, &
+        &                      ref_out_array=ref_out_array_dp_4d, &
         &                      comm_pattern=comm_pattern)
 
-      out_array_r_4d = in_array_r_4d
+      out_array_dp_4d = in_array_dp_4d
       DO i = 1, nlev
         DO j = 1, n
-          ref_out_array_r_4d(j,:,i,:) = &
+          ref_out_array_dp_4d(j,:,i,:) = &
             RESHAPE(MERGE(glb_index_src, glb_index_dst, &
             &             owner_local_dst == -1), (/nproma, 10/)) + &
             &             (i - 1) * global_size + 0.1_wp * j
         END DO
       END DO
 
-      CALL check_exchange_4de1(out_array=out_array_r_4d, &
-        &                      ref_out_array=ref_out_array_r_4d, &
+      CALL check_exchange_4de1(out_array=out_array_dp_4d, &
+        &                      ref_out_array=ref_out_array_dp_4d, &
         &                      comm_pattern=comm_pattern)
 
-      DEALLOCATE(in_array_r_4d, out_array_r_4d, ref_out_array_r_4d)
+      DEALLOCATE(in_array_dp_4d, out_array_dp_4d, ref_out_array_dp_4d)
     END DO
 
-    ALLOCATE(in_array_r_4d(nproma,nlev,10,20), &
-      &      add_array_r_4d(nproma,nlev,10,20), &
-      &      out_array_r_4d(nproma,nlev,10,20), &
-      &      ref_out_array_r_4d(nproma,nlev,10,20))
+    ALLOCATE(in_array_dp_4d(nproma,nlev,10,20), &
+      &      add_array_dp_4d(nproma,nlev,10,20), &
+      &      out_array_dp_4d(nproma,nlev,10,20), &
+      &      ref_out_array_dp_4d(nproma,nlev,10,20), &
+      &      in_array_sp_4d(nproma,nlev,10,20), &
+      &      add_array_sp_4d(nproma,nlev,10,20), &
+      &      out_array_sp_4d(nproma,nlev,10,20), &
+      &      ref_out_array_sp_4d(nproma,nlev,10,20))
 
     DO n = 1, 20
       DO i = 1, nlev
-        in_array_r_4d(:,i,:,n) = &
+        in_array_dp_4d(:,i,:,n) = &
           RESHAPE(MERGE(-1._wp, glb_index_src + (i - 1) * global_size + &
           &             n * 0.1_wp, -1 == owner_local_src), (/nproma, 10/))
-        ref_out_array_r_4d(:,i,:,n) = &
+        ref_out_array_dp_4d(:,i,:,n) = &
           RESHAPE(MERGE(-1._wp, glb_index_dst + (i - 1) * global_size + &
           &             n * 0.1_wp, -1 == owner_local_dst), (/nproma, 10/))
       END DO
     END DO
+    in_array_sp_4d = in_array_dp_4d
+    ref_out_array_sp_4d = ref_out_array_dp_4d
 
-    out_array_r_4d = -1
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      in_array1 = in_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      in_array2 = in_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      in_array3 = in_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4 = out_array_r_4d(:,:,:,4), &
-      in_array4 = in_array_r_4d(:,:,:,4), &
-      ref_out_array4 = ref_out_array_r_4d(:,:,:,4), &
-      out_array5 = out_array_r_4d(:,:,:,5), &
-      in_array5 = in_array_r_4d(:,:,:,5), &
-      ref_out_array5 = ref_out_array_r_4d(:,:,:,5), &
-      out_array6 = out_array_r_4d(:,:,:,6), &
-      in_array6 = in_array_r_4d(:,:,:,6), &
-      ref_out_array6 = ref_out_array_r_4d(:,:,:,6), &
-      out_array7 = out_array_r_4d(:,:,:,7), &
-      in_array7 = in_array_r_4d(:,:,:,7), &
-      ref_out_array7 = ref_out_array_r_4d(:,:,:,7), &
-      out_array4d = out_array_r_4d(:,:,:,8:), &
-      in_array4d = in_array_r_4d(:,:,:,8:), &
-      ref_out_array4d = ref_out_array_r_4d(:,:,:,8:), &
+    out_array_dp_4d = -1._dp
+    CALL check_exchange_mult_4d( &
+      out_array1 = out_array_dp_4d(:,:,:,1), &
+      in_array1 = in_array_dp_4d(:,:,:,1), &
+      ref_out_array1 = ref_out_array_dp_4d(:,:,:,1), &
+      out_array2 = out_array_dp_4d(:,:,:,2), &
+      in_array2 = in_array_dp_4d(:,:,:,2), &
+      ref_out_array2 = ref_out_array_dp_4d(:,:,:,2), &
+      out_array3 = out_array_dp_4d(:,:,:,3), &
+      in_array3 = in_array_dp_4d(:,:,:,3), &
+      ref_out_array3 = ref_out_array_dp_4d(:,:,:,3), &
+      out_array4 = out_array_dp_4d(:,:,:,4), &
+      in_array4 = in_array_dp_4d(:,:,:,4), &
+      ref_out_array4 = ref_out_array_dp_4d(:,:,:,4), &
+      out_array5 = out_array_dp_4d(:,:,:,5), &
+      in_array5 = in_array_dp_4d(:,:,:,5), &
+      ref_out_array5 = ref_out_array_dp_4d(:,:,:,5), &
+      out_array6 = out_array_dp_4d(:,:,:,6), &
+      in_array6 = in_array_dp_4d(:,:,:,6), &
+      ref_out_array6 = ref_out_array_dp_4d(:,:,:,6), &
+      out_array7 = out_array_dp_4d(:,:,:,7), &
+      in_array7 = in_array_dp_4d(:,:,:,7), &
+      ref_out_array7 = ref_out_array_dp_4d(:,:,:,7), &
+      out_array4d = out_array_dp_4d(:,:,:,8:), &
+      in_array4d = in_array_dp_4d(:,:,:,8:), &
+      ref_out_array4d = ref_out_array_dp_4d(:,:,:,8:), &
+      comm_pattern = comm_pattern)
+    out_array_dp_4d = -1._dp
+    out_array_sp_4d = -1._sp
+    CALL check_exchange_mixprec_4d_dp( &
+      out_array1_dp = out_array_dp_4d(:,:,:,1), &
+      in_array1_dp = in_array_dp_4d(:,:,:,1), &
+      ref_out_array1_dp = ref_out_array_dp_4d(:,:,:,1), &
+      out_array2_dp = out_array_dp_4d(:,:,:,2), &
+      in_array2_dp = in_array_dp_4d(:,:,:,2), &
+      ref_out_array2_dp = ref_out_array_dp_4d(:,:,:,2), &
+      out_array3_dp = out_array_dp_4d(:,:,:,3), &
+      in_array3_dp = in_array_dp_4d(:,:,:,3), &
+      ref_out_array3_dp = ref_out_array_dp_4d(:,:,:,3), &
+      out_array4_dp = out_array_dp_4d(:,:,:,4), &
+      in_array4_dp = in_array_dp_4d(:,:,:,4), &
+      ref_out_array4_dp = ref_out_array_dp_4d(:,:,:,4), &
+      out_array5_dp = out_array_dp_4d(:,:,:,5), &
+      in_array5_dp = in_array_dp_4d(:,:,:,5), &
+      ref_out_array5_dp = ref_out_array_dp_4d(:,:,:,5), &
+      out_array4d_dp = out_array_dp_4d(:,:,:,8:), &
+      in_array4d_dp = in_array_dp_4d(:,:,:,8:), &
+      ref_out_array4d_dp = ref_out_array_dp_4d(:,:,:,8:), &
+      out_array1_sp = out_array_sp_4d(:,:,:,1), &
+      in_array1_sp = in_array_sp_4d(:,:,:,1), &
+      ref_out_array1_sp = ref_out_array_sp_4d(:,:,:,1), &
+      out_array2_sp = out_array_sp_4d(:,:,:,2), &
+      in_array2_sp = in_array_sp_4d(:,:,:,2), &
+      ref_out_array2_sp = ref_out_array_sp_4d(:,:,:,2), &
+      out_array3_sp = out_array_sp_4d(:,:,:,3), &
+      in_array3_sp = in_array_sp_4d(:,:,:,3), &
+      ref_out_array3_sp = ref_out_array_sp_4d(:,:,:,3), &
+      out_array4_sp = out_array_sp_4d(:,:,:,4), &
+      in_array4_sp = in_array_sp_4d(:,:,:,4), &
+      ref_out_array4_sp = ref_out_array_sp_4d(:,:,:,4), &
+      out_array5_sp = out_array_sp_4d(:,:,:,5), &
+      in_array5_sp = in_array_sp_4d(:,:,:,5), &
+      ref_out_array5_sp = ref_out_array_sp_4d(:,:,:,5), &
+      out_array4d_sp = out_array_sp_4d(:,:,:,8:), &
+      in_array4d_sp = in_array_sp_4d(:,:,:,8:), &
+      ref_out_array4d_sp = ref_out_array_sp_4d(:,:,:,8:), &
+      comm_pattern = comm_pattern)
+    out_array_dp_4d = in_array_dp_4d
+    CALL check_exchange_mult_4d( &
+      out_array1 = out_array_dp_4d(:,:,:,1), &
+      ref_out_array1 = ref_out_array_dp_4d(:,:,:,1), &
+      out_array2 = out_array_dp_4d(:,:,:,2), &
+      ref_out_array2 = ref_out_array_dp_4d(:,:,:,2), &
+      out_array3 = out_array_dp_4d(:,:,:,3), &
+      ref_out_array3 = ref_out_array_dp_4d(:,:,:,3), &
+      out_array4 = out_array_dp_4d(:,:,:,4), &
+      ref_out_array4 = ref_out_array_dp_4d(:,:,:,4), &
+      out_array5 = out_array_dp_4d(:,:,:,5), &
+      ref_out_array5 = ref_out_array_dp_4d(:,:,:,5), &
+      out_array6 = out_array_dp_4d(:,:,:,6), &
+      ref_out_array6 = ref_out_array_dp_4d(:,:,:,6), &
+      out_array7 = out_array_dp_4d(:,:,:,7), &
+      ref_out_array7 = ref_out_array_dp_4d(:,:,:,7), &
+      out_array4d = out_array_dp_4d(:,:,:,8:), &
+      ref_out_array4d = ref_out_array_dp_4d(:,:,:,8:), &
+      comm_pattern = comm_pattern)
+    out_array_dp_4d = in_array_dp_4d
+    out_array_sp_4d = in_array_sp_4d
+    CALL check_exchange_mixprec_4d_dp( &
+      out_array1_dp = out_array_dp_4d(:,:,:,1), &
+      ref_out_array1_dp = ref_out_array_dp_4d(:,:,:,1), &
+      out_array2_dp = out_array_dp_4d(:,:,:,2), &
+      ref_out_array2_dp = ref_out_array_dp_4d(:,:,:,2), &
+      out_array3_dp = out_array_dp_4d(:,:,:,3), &
+      ref_out_array3_dp = ref_out_array_dp_4d(:,:,:,3), &
+      out_array4_dp = out_array_dp_4d(:,:,:,4), &
+      ref_out_array4_dp = ref_out_array_dp_4d(:,:,:,4), &
+      out_array5_dp = out_array_dp_4d(:,:,:,5), &
+      ref_out_array5_dp = ref_out_array_dp_4d(:,:,:,5), &
+      out_array4d_dp = out_array_dp_4d(:,:,:,8:), &
+      ref_out_array4d_dp = ref_out_array_dp_4d(:,:,:,8:), &
+      out_array1_sp = out_array_sp_4d(:,:,:,1), &
+      ref_out_array1_sp = ref_out_array_sp_4d(:,:,:,1), &
+      out_array2_sp = out_array_sp_4d(:,:,:,2), &
+      ref_out_array2_sp = ref_out_array_sp_4d(:,:,:,2), &
+      out_array3_sp = out_array_sp_4d(:,:,:,3), &
+      ref_out_array3_sp = ref_out_array_sp_4d(:,:,:,3), &
+      out_array4_sp = out_array_sp_4d(:,:,:,4), &
+      ref_out_array4_sp = ref_out_array_sp_4d(:,:,:,4), &
+      out_array5_sp = out_array_sp_4d(:,:,:,5), &
+      ref_out_array5_sp = ref_out_array_sp_4d(:,:,:,5), &
+      out_array4d_sp = out_array_sp_4d(:,:,:,8:), &
+      ref_out_array4d_sp = ref_out_array_sp_4d(:,:,:,8:), &
       comm_pattern = comm_pattern)
 
-    out_array_r_4d = -1
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      in_array1 = in_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      in_array2 = in_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      in_array3 = in_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4 = out_array_r_4d(:,:,:,4), &
-      in_array4 = in_array_r_4d(:,:,:,4), &
-      ref_out_array4 = ref_out_array_r_4d(:,:,:,4), &
-      out_array5 = out_array_r_4d(:,:,:,5), &
-      in_array5 = in_array_r_4d(:,:,:,5), &
-      ref_out_array5 = ref_out_array_r_4d(:,:,:,5), &
-      out_array6 = out_array_r_4d(:,:,:,6), &
-      in_array6 = in_array_r_4d(:,:,:,6), &
-      ref_out_array6 = ref_out_array_r_4d(:,:,:,6), &
-      out_array4d = out_array_r_4d(:,:,:,8:), &
-      in_array4d = in_array_r_4d(:,:,:,8:), &
-      ref_out_array4d = ref_out_array_r_4d(:,:,:,8:), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = -1
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      in_array1 = in_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      in_array2 = in_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      in_array3 = in_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4 = out_array_r_4d(:,:,:,4), &
-      in_array4 = in_array_r_4d(:,:,:,4), &
-      ref_out_array4 = ref_out_array_r_4d(:,:,:,4), &
-      out_array5 = out_array_r_4d(:,:,:,5), &
-      in_array5 = in_array_r_4d(:,:,:,5), &
-      ref_out_array5 = ref_out_array_r_4d(:,:,:,5), &
-      out_array4d = out_array_r_4d(:,:,:,8:), &
-      in_array4d = in_array_r_4d(:,:,:,8:), &
-      ref_out_array4d = ref_out_array_r_4d(:,:,:,8:), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = -1
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      in_array1 = in_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      in_array2 = in_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      in_array3 = in_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4 = out_array_r_4d(:,:,:,4), &
-      in_array4 = in_array_r_4d(:,:,:,4), &
-      ref_out_array4 = ref_out_array_r_4d(:,:,:,4), &
-      out_array4d = out_array_r_4d(:,:,:,8:), &
-      in_array4d = in_array_r_4d(:,:,:,8:), &
-      ref_out_array4d = ref_out_array_r_4d(:,:,:,8:), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = -1
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      in_array1 = in_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      in_array2 = in_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      in_array3 = in_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4d = out_array_r_4d(:,:,:,8:), &
-      in_array4d = in_array_r_4d(:,:,:,8:), &
-      ref_out_array4d = ref_out_array_r_4d(:,:,:,8:), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = -1
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      in_array1 = in_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      in_array2 = in_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array4d = out_array_r_4d(:,:,:,8:), &
-      in_array4d = in_array_r_4d(:,:,:,8:), &
-      ref_out_array4d = ref_out_array_r_4d(:,:,:,8:), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = -1
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      in_array1 = in_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array4d = out_array_r_4d(:,:,:,8:), &
-      in_array4d = in_array_r_4d(:,:,:,8:), &
-      ref_out_array4d = ref_out_array_r_4d(:,:,:,8:), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = -1
-    CALL check_exchange_mult( &
-      out_array4d = out_array_r_4d(:,:,:,8:), &
-      in_array4d = in_array_r_4d(:,:,:,8:), &
-      ref_out_array4d = ref_out_array_r_4d(:,:,:,8:), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = -1
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      in_array1 = in_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      in_array2 = in_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      in_array3 = in_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4 = out_array_r_4d(:,:,:,4), &
-      in_array4 = in_array_r_4d(:,:,:,4), &
-      ref_out_array4 = ref_out_array_r_4d(:,:,:,4), &
-      out_array5 = out_array_r_4d(:,:,:,5), &
-      in_array5 = in_array_r_4d(:,:,:,5), &
-      ref_out_array5 = ref_out_array_r_4d(:,:,:,5), &
-      out_array6 = out_array_r_4d(:,:,:,6), &
-      in_array6 = in_array_r_4d(:,:,:,6), &
-      ref_out_array6 = ref_out_array_r_4d(:,:,:,6), &
-      out_array7 = out_array_r_4d(:,:,:,7), &
-      in_array7 = in_array_r_4d(:,:,:,7), &
-      ref_out_array7 = ref_out_array_r_4d(:,:,:,7), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = -1
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      in_array1 = in_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      in_array2 = in_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      in_array3 = in_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4 = out_array_r_4d(:,:,:,4), &
-      in_array4 = in_array_r_4d(:,:,:,4), &
-      ref_out_array4 = ref_out_array_r_4d(:,:,:,4), &
-      out_array5 = out_array_r_4d(:,:,:,5), &
-      in_array5 = in_array_r_4d(:,:,:,5), &
-      ref_out_array5 = ref_out_array_r_4d(:,:,:,5), &
-      out_array6 = out_array_r_4d(:,:,:,6), &
-      in_array6 = in_array_r_4d(:,:,:,6), &
-      ref_out_array6 = ref_out_array_r_4d(:,:,:,6), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = -1
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      in_array1 = in_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      in_array2 = in_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      in_array3 = in_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4 = out_array_r_4d(:,:,:,4), &
-      in_array4 = in_array_r_4d(:,:,:,4), &
-      ref_out_array4 = ref_out_array_r_4d(:,:,:,4), &
-      out_array5 = out_array_r_4d(:,:,:,5), &
-      in_array5 = in_array_r_4d(:,:,:,5), &
-      ref_out_array5 = ref_out_array_r_4d(:,:,:,5), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = -1
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      in_array1 = in_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      in_array2 = in_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      in_array3 = in_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4 = out_array_r_4d(:,:,:,4), &
-      in_array4 = in_array_r_4d(:,:,:,4), &
-      ref_out_array4 = ref_out_array_r_4d(:,:,:,4), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = -1
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      in_array1 = in_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      in_array2 = in_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      in_array3 = in_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = -1
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      in_array1 = in_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      in_array2 = in_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = -1
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      in_array1 = in_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = in_array_r_4d
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4 = out_array_r_4d(:,:,:,4), &
-      ref_out_array4 = ref_out_array_r_4d(:,:,:,4), &
-      out_array5 = out_array_r_4d(:,:,:,5), &
-      ref_out_array5 = ref_out_array_r_4d(:,:,:,5), &
-      out_array6 = out_array_r_4d(:,:,:,6), &
-      ref_out_array6 = ref_out_array_r_4d(:,:,:,6), &
-      out_array7 = out_array_r_4d(:,:,:,7), &
-      ref_out_array7 = ref_out_array_r_4d(:,:,:,7), &
-      out_array4d = out_array_r_4d(:,:,:,8:), &
-      ref_out_array4d = ref_out_array_r_4d(:,:,:,8:), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = in_array_r_4d
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4 = out_array_r_4d(:,:,:,4), &
-      ref_out_array4 = ref_out_array_r_4d(:,:,:,4), &
-      out_array5 = out_array_r_4d(:,:,:,5), &
-      ref_out_array5 = ref_out_array_r_4d(:,:,:,5), &
-      out_array6 = out_array_r_4d(:,:,:,6), &
-      ref_out_array6 = ref_out_array_r_4d(:,:,:,6), &
-      out_array4d = out_array_r_4d(:,:,:,8:), &
-      ref_out_array4d = ref_out_array_r_4d(:,:,:,8:), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = in_array_r_4d
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4 = out_array_r_4d(:,:,:,4), &
-      ref_out_array4 = ref_out_array_r_4d(:,:,:,4), &
-      out_array5 = out_array_r_4d(:,:,:,5), &
-      ref_out_array5 = ref_out_array_r_4d(:,:,:,5), &
-      out_array4d = out_array_r_4d(:,:,:,8:), &
-      ref_out_array4d = ref_out_array_r_4d(:,:,:,8:), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = in_array_r_4d
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4 = out_array_r_4d(:,:,:,4), &
-      ref_out_array4 = ref_out_array_r_4d(:,:,:,4), &
-      out_array4d = out_array_r_4d(:,:,:,8:), &
-      ref_out_array4d = ref_out_array_r_4d(:,:,:,8:), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = in_array_r_4d
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4d = out_array_r_4d(:,:,:,8:), &
-      ref_out_array4d = ref_out_array_r_4d(:,:,:,8:), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = in_array_r_4d
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array4d = out_array_r_4d(:,:,:,8:), &
-      ref_out_array4d = ref_out_array_r_4d(:,:,:,8:), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = in_array_r_4d
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array4d = out_array_r_4d(:,:,:,8:), &
-      ref_out_array4d = ref_out_array_r_4d(:,:,:,8:), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = in_array_r_4d
-    CALL check_exchange_mult( &
-      out_array4d = out_array_r_4d(:,:,:,8:), &
-      ref_out_array4d = ref_out_array_r_4d(:,:,:,8:), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = in_array_r_4d
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4 = out_array_r_4d(:,:,:,4), &
-      ref_out_array4 = ref_out_array_r_4d(:,:,:,4), &
-      out_array5 = out_array_r_4d(:,:,:,5), &
-      ref_out_array5 = ref_out_array_r_4d(:,:,:,5), &
-      out_array6 = out_array_r_4d(:,:,:,6), &
-      ref_out_array6 = ref_out_array_r_4d(:,:,:,6), &
-      out_array7 = out_array_r_4d(:,:,:,7), &
-      ref_out_array7 = ref_out_array_r_4d(:,:,:,7), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = in_array_r_4d
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4 = out_array_r_4d(:,:,:,4), &
-      ref_out_array4 = ref_out_array_r_4d(:,:,:,4), &
-      out_array5 = out_array_r_4d(:,:,:,5), &
-      ref_out_array5 = ref_out_array_r_4d(:,:,:,5), &
-      out_array6 = out_array_r_4d(:,:,:,6), &
-      ref_out_array6 = ref_out_array_r_4d(:,:,:,6), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = in_array_r_4d
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4 = out_array_r_4d(:,:,:,4), &
-      ref_out_array4 = ref_out_array_r_4d(:,:,:,4), &
-      out_array5 = out_array_r_4d(:,:,:,5), &
-      ref_out_array5 = ref_out_array_r_4d(:,:,:,5), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = in_array_r_4d
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4 = out_array_r_4d(:,:,:,4), &
-      ref_out_array4 = ref_out_array_r_4d(:,:,:,4), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = in_array_r_4d
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = in_array_r_4d
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      comm_pattern = comm_pattern)
-
-    out_array_r_4d = in_array_r_4d
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      comm_pattern = comm_pattern)
-
-    DO n = 1, 20
-      DO i = 1, nlev
-        in_array_r_4d(:,i,:,n) = &
-          RESHAPE(MERGE(-1._wp, glb_index_src + (i - 1) * global_size + &
-          &             n * 0.1_wp, -1 == owner_local_src), (/nproma, 10/))
-        ref_out_array_r_4d(:,i,:,n) = &
-          RESHAPE(MERGE(-1._wp, glb_index_dst + (i - 1) * global_size + &
-          &             n * 0.1_wp, -1 == owner_local_dst), (/nproma, 10/))
-      END DO
-    END DO
-
-    out_array_r_4d = -1
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,:,:,1), &
-      in_array1 = in_array_r_4d(:,:,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,:,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      in_array2 = in_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      in_array3 = in_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4 = out_array_r_4d(:,:,:,4), &
-      in_array4 = in_array_r_4d(:,:,:,4), &
-      ref_out_array4 = ref_out_array_r_4d(:,:,:,4), &
-      out_array5 = out_array_r_4d(:,:,:,5), &
-      in_array5 = in_array_r_4d(:,:,:,5), &
-      ref_out_array5 = ref_out_array_r_4d(:,:,:,5), &
-      out_array6 = out_array_r_4d(:,:,:,6), &
-      in_array6 = in_array_r_4d(:,:,:,6), &
-      ref_out_array6 = ref_out_array_r_4d(:,:,:,6), &
-      out_array7 = out_array_r_4d(:,:,:,7), &
-      in_array7 = in_array_r_4d(:,:,:,7), &
-      ref_out_array7 = ref_out_array_r_4d(:,:,:,7), &
-      out_array4d = out_array_r_4d(:,:,:,8:), &
-      in_array4d = in_array_r_4d(:,:,:,8:), &
-      ref_out_array4d = ref_out_array_r_4d(:,:,:,8:), &
+    out_array_dp_4d = -1._dp
+    CALL check_exchange_mult_4d( &
+      out_array1 = out_array_dp_4d(:,:,:,1), &
+      in_array1 = in_array_dp_4d(:,:,:,1), &
+      ref_out_array1 = ref_out_array_dp_4d(:,:,:,1), &
+      out_array2 = out_array_dp_4d(:,:,:,2), &
+      in_array2 = in_array_dp_4d(:,:,:,2), &
+      ref_out_array2 = ref_out_array_dp_4d(:,:,:,2), &
+      out_array3 = out_array_dp_4d(:,:,:,3), &
+      in_array3 = in_array_dp_4d(:,:,:,3), &
+      ref_out_array3 = ref_out_array_dp_4d(:,:,:,3), &
+      out_array4 = out_array_dp_4d(:,:,:,4), &
+      in_array4 = in_array_dp_4d(:,:,:,4), &
+      ref_out_array4 = ref_out_array_dp_4d(:,:,:,4), &
+      out_array5 = out_array_dp_4d(:,:,:,5), &
+      in_array5 = in_array_dp_4d(:,:,:,5), &
+      ref_out_array5 = ref_out_array_dp_4d(:,:,:,5), &
+      out_array6 = out_array_dp_4d(:,:,:,6), &
+      in_array6 = in_array_dp_4d(:,:,:,6), &
+      ref_out_array6 = ref_out_array_dp_4d(:,:,:,6), &
+      out_array7 = out_array_dp_4d(:,:,:,7), &
+      in_array7 = in_array_dp_4d(:,:,:,7), &
+      ref_out_array7 = ref_out_array_dp_4d(:,:,:,7), &
+      out_array4d = out_array_dp_4d(:,:,:,8:), &
+      in_array4d = in_array_dp_4d(:,:,:,8:), &
+      ref_out_array4d = ref_out_array_dp_4d(:,:,:,8:), &
+      nshift = 0, comm_pattern = comm_pattern)
+    out_array_dp_4d = -1._dp
+    out_array_sp_4d = -1._sp
+    CALL check_exchange_mixprec_4d_dp( &
+      out_array1_dp = out_array_dp_4d(:,:,:,1), &
+      in_array1_dp = in_array_dp_4d(:,:,:,1), &
+      ref_out_array1_dp = ref_out_array_dp_4d(:,:,:,1), &
+      out_array2_dp = out_array_dp_4d(:,:,:,2), &
+      in_array2_dp = in_array_dp_4d(:,:,:,2), &
+      ref_out_array2_dp = ref_out_array_dp_4d(:,:,:,2), &
+      out_array3_dp = out_array_dp_4d(:,:,:,3), &
+      in_array3_dp = in_array_dp_4d(:,:,:,3), &
+      ref_out_array3_dp = ref_out_array_dp_4d(:,:,:,3), &
+      out_array4_dp = out_array_dp_4d(:,:,:,4), &
+      in_array4_dp = in_array_dp_4d(:,:,:,4), &
+      ref_out_array4_dp = ref_out_array_dp_4d(:,:,:,4), &
+      out_array5_dp = out_array_dp_4d(:,:,:,5), &
+      in_array5_dp = in_array_dp_4d(:,:,:,5), &
+      ref_out_array5_dp = ref_out_array_dp_4d(:,:,:,5), &
+      out_array4d_dp = out_array_dp_4d(:,:,:,8:), &
+      in_array4d_dp = in_array_dp_4d(:,:,:,8:), &
+      ref_out_array4d_dp = ref_out_array_dp_4d(:,:,:,8:), &
+      out_array1_sp = out_array_sp_4d(:,:,:,1), &
+      in_array1_sp = in_array_sp_4d(:,:,:,1), &
+      ref_out_array1_sp = ref_out_array_sp_4d(:,:,:,1), &
+      out_array2_sp = out_array_sp_4d(:,:,:,2), &
+      in_array2_sp = in_array_sp_4d(:,:,:,2), &
+      ref_out_array2_sp = ref_out_array_sp_4d(:,:,:,2), &
+      out_array3_sp = out_array_sp_4d(:,:,:,3), &
+      in_array3_sp = in_array_sp_4d(:,:,:,3), &
+      ref_out_array3_sp = ref_out_array_sp_4d(:,:,:,3), &
+      out_array4_sp = out_array_sp_4d(:,:,:,4), &
+      in_array4_sp = in_array_sp_4d(:,:,:,4), &
+      ref_out_array4_sp = ref_out_array_sp_4d(:,:,:,4), &
+      out_array5_sp = out_array_sp_4d(:,:,:,5), &
+      in_array5_sp = in_array_sp_4d(:,:,:,5), &
+      ref_out_array5_sp = ref_out_array_sp_4d(:,:,:,5), &
+      out_array4d_sp = out_array_sp_4d(:,:,:,8:), &
+      in_array4d_sp = in_array_sp_4d(:,:,:,8:), &
+      ref_out_array4d_sp = ref_out_array_sp_4d(:,:,:,8:), &
+      nshift = 0, comm_pattern = comm_pattern)
+    out_array_dp_4d = in_array_dp_4d
+    CALL check_exchange_mult_4d( &
+      out_array1 = out_array_dp_4d(:,:,:,1), &
+      ref_out_array1 = ref_out_array_dp_4d(:,:,:,1), &
+      out_array2 = out_array_dp_4d(:,:,:,2), &
+      ref_out_array2 = ref_out_array_dp_4d(:,:,:,2), &
+      out_array3 = out_array_dp_4d(:,:,:,3), &
+      ref_out_array3 = ref_out_array_dp_4d(:,:,:,3), &
+      out_array4 = out_array_dp_4d(:,:,:,4), &
+      ref_out_array4 = ref_out_array_dp_4d(:,:,:,4), &
+      out_array5 = out_array_dp_4d(:,:,:,5), &
+      ref_out_array5 = ref_out_array_dp_4d(:,:,:,5), &
+      out_array6 = out_array_dp_4d(:,:,:,6), &
+      ref_out_array6 = ref_out_array_dp_4d(:,:,:,6), &
+      out_array7 = out_array_dp_4d(:,:,:,7), &
+      ref_out_array7 = ref_out_array_dp_4d(:,:,:,7), &
+      out_array4d = out_array_dp_4d(:,:,:,8:), &
+      ref_out_array4d = ref_out_array_dp_4d(:,:,:,8:), &
+      nshift = 0, comm_pattern = comm_pattern)
+    out_array_dp_4d = in_array_dp_4d
+    out_array_sp_4d = in_array_sp_4d
+    CALL check_exchange_mixprec_4d_dp( &
+      out_array1_dp = out_array_dp_4d(:,:,:,1), &
+      ref_out_array1_dp = ref_out_array_dp_4d(:,:,:,1), &
+      out_array2_dp = out_array_dp_4d(:,:,:,2), &
+      ref_out_array2_dp = ref_out_array_dp_4d(:,:,:,2), &
+      out_array3_dp = out_array_dp_4d(:,:,:,3), &
+      ref_out_array3_dp = ref_out_array_dp_4d(:,:,:,3), &
+      out_array4_dp = out_array_dp_4d(:,:,:,4), &
+      ref_out_array4_dp = ref_out_array_dp_4d(:,:,:,4), &
+      out_array5_dp = out_array_dp_4d(:,:,:,5), &
+      ref_out_array5_dp = ref_out_array_dp_4d(:,:,:,5), &
+      out_array4d_dp = out_array_dp_4d(:,:,:,8:), &
+      ref_out_array4d_dp = ref_out_array_dp_4d(:,:,:,8:), &
+      out_array1_sp = out_array_sp_4d(:,:,:,1), &
+      ref_out_array1_sp = ref_out_array_sp_4d(:,:,:,1), &
+      out_array2_sp = out_array_sp_4d(:,:,:,2), &
+      ref_out_array2_sp = ref_out_array_sp_4d(:,:,:,2), &
+      out_array3_sp = out_array_sp_4d(:,:,:,3), &
+      ref_out_array3_sp = ref_out_array_sp_4d(:,:,:,3), &
+      out_array4_sp = out_array_sp_4d(:,:,:,4), &
+      ref_out_array4_sp = ref_out_array_sp_4d(:,:,:,4), &
+      out_array5_sp = out_array_sp_4d(:,:,:,5), &
+      ref_out_array5_sp = ref_out_array_sp_4d(:,:,:,5), &
+      out_array4d_sp = out_array_sp_4d(:,:,:,8:), &
+      ref_out_array4d_sp = ref_out_array_sp_4d(:,:,:,8:), &
       nshift = 0, comm_pattern = comm_pattern)
 
-    ref_out_array_r_4d(:,2:,:,1) = -1._wp
-    ref_out_array_r_4d(:,:5,:,2:) = -1._wp
-    out_array_r_4d = -1
-    CALL check_exchange_mult( &
-      out_array1 = out_array_r_4d(:,1:1,:,1), &
-      in_array1 = in_array_r_4d(:,1:1,:,1), &
-      ref_out_array1 = ref_out_array_r_4d(:,1:1,:,1), &
-      out_array2 = out_array_r_4d(:,:,:,2), &
-      in_array2 = in_array_r_4d(:,:,:,2), &
-      ref_out_array2 = ref_out_array_r_4d(:,:,:,2), &
-      out_array3 = out_array_r_4d(:,:,:,3), &
-      in_array3 = in_array_r_4d(:,:,:,3), &
-      ref_out_array3 = ref_out_array_r_4d(:,:,:,3), &
-      out_array4 = out_array_r_4d(:,:,:,4), &
-      in_array4 = in_array_r_4d(:,:,:,4), &
-      ref_out_array4 = ref_out_array_r_4d(:,:,:,4), &
-      out_array5 = out_array_r_4d(:,:,:,5), &
-      in_array5 = in_array_r_4d(:,:,:,5), &
-      ref_out_array5 = ref_out_array_r_4d(:,:,:,5), &
-      out_array6 = out_array_r_4d(:,:,:,6), &
-      in_array6 = in_array_r_4d(:,:,:,6), &
-      ref_out_array6 = ref_out_array_r_4d(:,:,:,6), &
-      out_array7 = out_array_r_4d(:,:,:,7), &
-      in_array7 = in_array_r_4d(:,:,:,7), &
-      ref_out_array7 = ref_out_array_r_4d(:,:,:,7), &
-      out_array4d = out_array_r_4d(:,:,:,8:), &
-      in_array4d = in_array_r_4d(:,:,:,8:), &
-      ref_out_array4d = ref_out_array_r_4d(:,:,:,8:), &
+    ref_out_array_dp_4d(:,:5,:,:) = -1._dp
+    in_array_dp_4d(:,:5,:,:) = -1._dp
+    out_array_dp_4d = -1._dp
+    CALL check_exchange_mult_4d( &
+      out_array1 = out_array_dp_4d(:,:,:,1), &
+      in_array1 = in_array_dp_4d(:,:,:,1), &
+      ref_out_array1 = ref_out_array_dp_4d(:,:,:,1), &
+      out_array2 = out_array_dp_4d(:,:,:,2), &
+      in_array2 = in_array_dp_4d(:,:,:,2), &
+      ref_out_array2 = ref_out_array_dp_4d(:,:,:,2), &
+      out_array3 = out_array_dp_4d(:,:,:,3), &
+      in_array3 = in_array_dp_4d(:,:,:,3), &
+      ref_out_array3 = ref_out_array_dp_4d(:,:,:,3), &
+      out_array4 = out_array_dp_4d(:,:,:,4), &
+      in_array4 = in_array_dp_4d(:,:,:,4), &
+      ref_out_array4 = ref_out_array_dp_4d(:,:,:,4), &
+      out_array5 = out_array_dp_4d(:,:,:,5), &
+      in_array5 = in_array_dp_4d(:,:,:,5), &
+      ref_out_array5 = ref_out_array_dp_4d(:,:,:,5), &
+      out_array6 = out_array_dp_4d(:,:,:,6), &
+      in_array6 = in_array_dp_4d(:,:,:,6), &
+      ref_out_array6 = ref_out_array_dp_4d(:,:,:,6), &
+      out_array7 = out_array_dp_4d(:,:,:,7), &
+      in_array7 = in_array_dp_4d(:,:,:,7), &
+      ref_out_array7 = ref_out_array_dp_4d(:,:,:,7), &
+      out_array4d = out_array_dp_4d(:,:,:,8:), &
+      in_array4d = in_array_dp_4d(:,:,:,8:), &
+      ref_out_array4d = ref_out_array_dp_4d(:,:,:,8:), &
+      nshift = 5, comm_pattern = comm_pattern)
+    ref_out_array_dp_4d(:,:5,:,:) = -1._dp
+    ref_out_array_sp_4d(:,:5,:,:) = -1._sp
+    in_array_dp_4d(:,:5,:,:) = -1._dp
+    in_array_sp_4d(:,:5,:,:) = -1._sp
+    out_array_dp_4d = -1._dp
+    out_array_sp_4d = -1._sp
+    CALL check_exchange_mixprec_4d_dp( &
+      out_array1_dp = out_array_dp_4d(:,:,:,1), &
+      in_array1_dp = in_array_dp_4d(:,:,:,1), &
+      ref_out_array1_dp = ref_out_array_dp_4d(:,:,:,1), &
+      out_array2_dp = out_array_dp_4d(:,:,:,2), &
+      in_array2_dp = in_array_dp_4d(:,:,:,2), &
+      ref_out_array2_dp = ref_out_array_dp_4d(:,:,:,2), &
+      out_array3_dp = out_array_dp_4d(:,:,:,3), &
+      in_array3_dp = in_array_dp_4d(:,:,:,3), &
+      ref_out_array3_dp = ref_out_array_dp_4d(:,:,:,3), &
+      out_array4_dp = out_array_dp_4d(:,:,:,4), &
+      in_array4_dp = in_array_dp_4d(:,:,:,4), &
+      ref_out_array4_dp = ref_out_array_dp_4d(:,:,:,4), &
+      out_array5_dp = out_array_dp_4d(:,:,:,5), &
+      in_array5_dp = in_array_dp_4d(:,:,:,5), &
+      ref_out_array5_dp = ref_out_array_dp_4d(:,:,:,5), &
+      out_array4d_dp = out_array_dp_4d(:,:,:,8:), &
+      in_array4d_dp = in_array_dp_4d(:,:,:,8:), &
+      ref_out_array4d_dp = ref_out_array_dp_4d(:,:,:,8:), &
+      out_array1_sp = out_array_sp_4d(:,:,:,1), &
+      in_array1_sp = in_array_sp_4d(:,:,:,1), &
+      ref_out_array1_sp = ref_out_array_sp_4d(:,:,:,1), &
+      out_array2_sp = out_array_sp_4d(:,:,:,2), &
+      in_array2_sp = in_array_sp_4d(:,:,:,2), &
+      ref_out_array2_sp = ref_out_array_sp_4d(:,:,:,2), &
+      out_array3_sp = out_array_sp_4d(:,:,:,3), &
+      in_array3_sp = in_array_sp_4d(:,:,:,3), &
+      ref_out_array3_sp = ref_out_array_sp_4d(:,:,:,3), &
+      out_array4_sp = out_array_sp_4d(:,:,:,4), &
+      in_array4_sp = in_array_sp_4d(:,:,:,4), &
+      ref_out_array4_sp = ref_out_array_sp_4d(:,:,:,4), &
+      out_array5_sp = out_array_sp_4d(:,:,:,5), &
+      in_array5_sp = in_array_sp_4d(:,:,:,5), &
+      ref_out_array5_sp = ref_out_array_sp_4d(:,:,:,5), &
+      out_array4d_sp = out_array_sp_4d(:,:,:,8:), &
+      in_array4d_sp = in_array_sp_4d(:,:,:,8:), &
+      ref_out_array4d_sp = ref_out_array_sp_4d(:,:,:,8:), &
+      nshift = 5, comm_pattern = comm_pattern)
+    out_array_dp_4d = in_array_dp_4d
+    CALL check_exchange_mult_4d( &
+      out_array1 = out_array_dp_4d(:,:,:,1), &
+      ref_out_array1 = ref_out_array_dp_4d(:,:,:,1), &
+      out_array2 = out_array_dp_4d(:,:,:,2), &
+      ref_out_array2 = ref_out_array_dp_4d(:,:,:,2), &
+      out_array3 = out_array_dp_4d(:,:,:,3), &
+      ref_out_array3 = ref_out_array_dp_4d(:,:,:,3), &
+      out_array4 = out_array_dp_4d(:,:,:,4), &
+      ref_out_array4 = ref_out_array_dp_4d(:,:,:,4), &
+      out_array5 = out_array_dp_4d(:,:,:,5), &
+      ref_out_array5 = ref_out_array_dp_4d(:,:,:,5), &
+      out_array6 = out_array_dp_4d(:,:,:,6), &
+      ref_out_array6 = ref_out_array_dp_4d(:,:,:,6), &
+      out_array7 = out_array_dp_4d(:,:,:,7), &
+      ref_out_array7 = ref_out_array_dp_4d(:,:,:,7), &
+      out_array4d = out_array_dp_4d(:,:,:,8:), &
+      ref_out_array4d = ref_out_array_dp_4d(:,:,:,8:), &
+      nshift = 5, comm_pattern = comm_pattern)
+    out_array_dp_4d = in_array_dp_4d
+    out_array_sp_4d = in_array_sp_4d
+    CALL check_exchange_mixprec_4d_dp( &
+      out_array1_dp = out_array_dp_4d(:,:,:,1), &
+      ref_out_array1_dp = ref_out_array_dp_4d(:,:,:,1), &
+      out_array2_dp = out_array_dp_4d(:,:,:,2), &
+      ref_out_array2_dp = ref_out_array_dp_4d(:,:,:,2), &
+      out_array3_dp = out_array_dp_4d(:,:,:,3), &
+      ref_out_array3_dp = ref_out_array_dp_4d(:,:,:,3), &
+      out_array4_dp = out_array_dp_4d(:,:,:,4), &
+      ref_out_array4_dp = ref_out_array_dp_4d(:,:,:,4), &
+      out_array5_dp = out_array_dp_4d(:,:,:,5), &
+      ref_out_array5_dp = ref_out_array_dp_4d(:,:,:,5), &
+      out_array4d_dp = out_array_dp_4d(:,:,:,8:), &
+      ref_out_array4d_dp = ref_out_array_dp_4d(:,:,:,8:), &
+      out_array1_sp = out_array_sp_4d(:,:,:,1), &
+      ref_out_array1_sp = ref_out_array_sp_4d(:,:,:,1), &
+      out_array2_sp = out_array_sp_4d(:,:,:,2), &
+      ref_out_array2_sp = ref_out_array_sp_4d(:,:,:,2), &
+      out_array3_sp = out_array_sp_4d(:,:,:,3), &
+      ref_out_array3_sp = ref_out_array_sp_4d(:,:,:,3), &
+      out_array4_sp = out_array_sp_4d(:,:,:,4), &
+      ref_out_array4_sp = ref_out_array_sp_4d(:,:,:,4), &
+      out_array5_sp = out_array_sp_4d(:,:,:,5), &
+      ref_out_array5_sp = ref_out_array_sp_4d(:,:,:,5), &
+      out_array4d_sp = out_array_sp_4d(:,:,:,8:), &
+      ref_out_array4d_sp = ref_out_array_sp_4d(:,:,:,8:), &
       nshift = 5, comm_pattern = comm_pattern)
 
-    DEALLOCATE(in_array_r_4d, add_array_r_4d, out_array_r_4d, &
-      &        ref_out_array_r_4d)
+    DEALLOCATE(in_array_dp_4d, add_array_dp_4d, out_array_dp_4d, &
+      &        ref_out_array_dp_4d, in_array_sp_4d, add_array_sp_4d, &
+      &        out_array_sp_4d, ref_out_array_sp_4d)
 
     CALL delete_comm_pattern(comm_pattern)
     CALL deallocate_glb2loc_index_lookup(send_glb2loc_index)
@@ -2161,6 +2015,175 @@ CONTAINS
 
     END SUBROUTINE check_exchange_4de1
 
+    SUBROUTINE check_exchange_mult_4d( &
+      & out_array1, in_array1, ref_out_array1, &
+      & out_array2, in_array2, ref_out_array2, &
+      & out_array3, in_array3, ref_out_array3, &
+      & out_array4, in_array4, ref_out_array4, &
+      & out_array5, in_array5, ref_out_array5, &
+      & out_array6, in_array6, ref_out_array6, &
+      & out_array7, in_array7, ref_out_array7, &
+      & out_array4d, in_array4d, ref_out_array4d, &
+      & nshift, comm_pattern)
+
+      REAL(dp), INTENT(INOUT), OPTIONAL ::  &
+        out_array1(:,:,:), out_array2(:,:,:), out_array3(:,:,:), &
+        out_array4(:,:,:), out_array5(:,:,:), out_array6(:,:,:), &
+        out_array7(:,:,:)
+      REAL(dp), INTENT(IN), OPTIONAL ::  &
+        in_array1(:,:,:), in_array2(:,:,:), in_array3(:,:,:), &
+        in_array4(:,:,:), in_array5(:,:,:), in_array6(:,:,:), &
+        in_array7(:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL ::  &
+        ref_out_array1(:,:,:), ref_out_array2(:,:,:), &
+        ref_out_array3(:,:,:), ref_out_array4(:,:,:), &
+        ref_out_array5(:,:,:), ref_out_array6(:,:,:), &
+        ref_out_array7(:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL :: out_array4d(:,:,:,:)
+      REAL(dp), INTENT(IN   ), OPTIONAL :: in_array4d(:,:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL :: ref_out_array4d(:,:,:,:)
+
+      INTEGER, OPTIONAL, INTENT(IN) :: nshift
+      CLASS(t_comm_pattern), POINTER, INTENT(INOUT) :: comm_pattern
+
+      CALL check_exchange_mult_dp( &
+        & out_array1=out_array1, in_array1=in_array1, ref_out_array1=ref_out_array1, &
+        & out_array2=out_array2, in_array2=in_array2, ref_out_array2=ref_out_array2, &
+        & out_array3=out_array3, in_array3=in_array3, ref_out_array3=ref_out_array3, &
+        & out_array4=out_array4, in_array4=in_array4, ref_out_array4=ref_out_array4, &
+        & out_array5=out_array5, in_array5=in_array5, ref_out_array5=ref_out_array5, &
+        & out_array6=out_array6, in_array6=in_array6, ref_out_array6=ref_out_array6, &
+        & out_array7=out_array7, in_array7=in_array7, ref_out_array7=ref_out_array7, &
+        & out_array4d=out_array4d, in_array4d=in_array4d, ref_out_array4d=ref_out_array4d, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+
+      CALL check_exchange_mult_dp( &
+        & out_array1=out_array1, in_array1=in_array1, ref_out_array1=ref_out_array1, &
+        & out_array2=out_array2, in_array2=in_array2, ref_out_array2=ref_out_array2, &
+        & out_array3=out_array3, in_array3=in_array3, ref_out_array3=ref_out_array3, &
+        & out_array4=out_array4, in_array4=in_array4, ref_out_array4=ref_out_array4, &
+        & out_array5=out_array5, in_array5=in_array5, ref_out_array5=ref_out_array5, &
+        & out_array6=out_array6, in_array6=in_array6, ref_out_array6=ref_out_array6, &
+        & out_array7=out_array7, in_array7=in_array7, ref_out_array7=ref_out_array7, &
+        ! & out_array4d=out_array4d, in_array4d=in_array4d, ref_out_array4d=ref_out_array4d, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+
+    END SUBROUTINE check_exchange_mult_4d
+
+    SUBROUTINE check_exchange_mult_dp( &
+      & out_array1, in_array1, ref_out_array1, &
+      & out_array2, in_array2, ref_out_array2, &
+      & out_array3, in_array3, ref_out_array3, &
+      & out_array4, in_array4, ref_out_array4, &
+      & out_array5, in_array5, ref_out_array5, &
+      & out_array6, in_array6, ref_out_array6, &
+      & out_array7, in_array7, ref_out_array7, &
+      & out_array4d, in_array4d, ref_out_array4d, &
+      & nshift, comm_pattern)
+
+      REAL(dp), INTENT(INOUT), OPTIONAL ::  &
+        out_array1(:,:,:), out_array2(:,:,:), out_array3(:,:,:), &
+        out_array4(:,:,:), out_array5(:,:,:), out_array6(:,:,:), &
+        out_array7(:,:,:)
+      REAL(dp), INTENT(IN), OPTIONAL ::  &
+        in_array1(:,:,:), in_array2(:,:,:), in_array3(:,:,:), &
+        in_array4(:,:,:), in_array5(:,:,:), in_array6(:,:,:), &
+        in_array7(:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL ::  &
+        ref_out_array1(:,:,:), ref_out_array2(:,:,:), &
+        ref_out_array3(:,:,:), ref_out_array4(:,:,:), &
+        ref_out_array5(:,:,:), ref_out_array6(:,:,:), &
+        ref_out_array7(:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL :: out_array4d(:,:,:,:)
+      REAL(dp), INTENT(IN   ), OPTIONAL :: in_array4d(:,:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL :: ref_out_array4d(:,:,:,:)
+
+      INTEGER, OPTIONAL, INTENT(IN) :: nshift
+      CLASS(t_comm_pattern), POINTER, INTENT(INOUT) :: comm_pattern
+
+      CALL check_exchange_mult( &
+        & out_array1=out_array1, in_array1=in_array1, ref_out_array1=ref_out_array1, &
+        & out_array2=out_array2, in_array2=in_array2, ref_out_array2=ref_out_array2, &
+        & out_array3=out_array3, in_array3=in_array3, ref_out_array3=ref_out_array3, &
+        & out_array4=out_array4, in_array4=in_array4, ref_out_array4=ref_out_array4, &
+        & out_array5=out_array5, in_array5=in_array5, ref_out_array5=ref_out_array5, &
+        & out_array6=out_array6, in_array6=in_array6, ref_out_array6=ref_out_array6, &
+        & out_array7=out_array7, in_array7=in_array7, ref_out_array7=ref_out_array7, &
+        & out_array4d=out_array4d, in_array4d=in_array4d, ref_out_array4d=ref_out_array4d, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+      CALL check_exchange_mult( &
+        & out_array1=out_array1, in_array1=in_array1, ref_out_array1=ref_out_array1, &
+        & out_array2=out_array2, in_array2=in_array2, ref_out_array2=ref_out_array2, &
+        & out_array3=out_array3, in_array3=in_array3, ref_out_array3=ref_out_array3, &
+        & out_array4=out_array4, in_array4=in_array4, ref_out_array4=ref_out_array4, &
+        & out_array5=out_array5, in_array5=in_array5, ref_out_array5=ref_out_array5, &
+        & out_array6=out_array6, in_array6=in_array6, ref_out_array6=ref_out_array6, &
+        ! & out_array7=out_array7, in_array7=in_array7, ref_out_array7=ref_out_array7, &
+        & out_array4d=out_array4d, in_array4d=in_array4d, ref_out_array4d=ref_out_array4d, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+      CALL check_exchange_mult( &
+        & out_array1=out_array1, in_array1=in_array1, ref_out_array1=ref_out_array1, &
+        & out_array2=out_array2, in_array2=in_array2, ref_out_array2=ref_out_array2, &
+        & out_array3=out_array3, in_array3=in_array3, ref_out_array3=ref_out_array3, &
+        & out_array4=out_array4, in_array4=in_array4, ref_out_array4=ref_out_array4, &
+        & out_array5=out_array5, in_array5=in_array5, ref_out_array5=ref_out_array5, &
+        ! & out_array6=out_array6, in_array6=in_array6, ref_out_array6=ref_out_array6, &
+        ! & out_array7=out_array7, in_array7=in_array7, ref_out_array7=ref_out_array7, &
+        & out_array4d=out_array4d, in_array4d=in_array4d, ref_out_array4d=ref_out_array4d, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+      CALL check_exchange_mult( &
+        & out_array1=out_array1, in_array1=in_array1, ref_out_array1=ref_out_array1, &
+        & out_array2=out_array2, in_array2=in_array2, ref_out_array2=ref_out_array2, &
+        & out_array3=out_array3, in_array3=in_array3, ref_out_array3=ref_out_array3, &
+        & out_array4=out_array4, in_array4=in_array4, ref_out_array4=ref_out_array4, &
+        ! & out_array5=out_array5, in_array5=in_array5, ref_out_array5=ref_out_array5, &
+        ! & out_array6=out_array6, in_array6=in_array6, ref_out_array6=ref_out_array6, &
+        ! & out_array7=out_array7, in_array7=in_array7, ref_out_array7=ref_out_array7, &
+        & out_array4d=out_array4d, in_array4d=in_array4d, ref_out_array4d=ref_out_array4d, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+      CALL check_exchange_mult( &
+        & out_array1=out_array1, in_array1=in_array1, ref_out_array1=ref_out_array1, &
+        & out_array2=out_array2, in_array2=in_array2, ref_out_array2=ref_out_array2, &
+        & out_array3=out_array3, in_array3=in_array3, ref_out_array3=ref_out_array3, &
+        ! & out_array4=out_array4, in_array4=in_array4, ref_out_array4=ref_out_array4, &
+        ! & out_array5=out_array5, in_array5=in_array5, ref_out_array5=ref_out_array5, &
+        ! & out_array6=out_array6, in_array6=in_array6, ref_out_array6=ref_out_array6, &
+        ! & out_array7=out_array7, in_array7=in_array7, ref_out_array7=ref_out_array7, &
+        & out_array4d=out_array4d, in_array4d=in_array4d, ref_out_array4d=ref_out_array4d, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+      CALL check_exchange_mult( &
+        & out_array1=out_array1, in_array1=in_array1, ref_out_array1=ref_out_array1, &
+        & out_array2=out_array2, in_array2=in_array2, ref_out_array2=ref_out_array2, &
+        ! & out_array3=out_array3, in_array3=in_array3, ref_out_array3=ref_out_array3, &
+        ! & out_array4=out_array4, in_array4=in_array4, ref_out_array4=ref_out_array4, &
+        ! & out_array5=out_array5, in_array5=in_array5, ref_out_array5=ref_out_array5, &
+        ! & out_array6=out_array6, in_array6=in_array6, ref_out_array6=ref_out_array6, &
+        ! & out_array7=out_array7, in_array7=in_array7, ref_out_array7=ref_out_array7, &
+        & out_array4d=out_array4d, in_array4d=in_array4d, ref_out_array4d=ref_out_array4d, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+      CALL check_exchange_mult( &
+        & out_array1=out_array1, in_array1=in_array1, ref_out_array1=ref_out_array1, &
+        ! & out_array2=out_array2, in_array2=in_array2, ref_out_array2=ref_out_array2, &
+        ! & out_array3=out_array3, in_array3=in_array3, ref_out_array3=ref_out_array3, &
+        ! & out_array4=out_array4, in_array4=in_array4, ref_out_array4=ref_out_array4, &
+        ! & out_array5=out_array5, in_array5=in_array5, ref_out_array5=ref_out_array5, &
+        ! & out_array6=out_array6, in_array6=in_array6, ref_out_array6=ref_out_array6, &
+        ! & out_array7=out_array7, in_array7=in_array7, ref_out_array7=ref_out_array7, &
+        & out_array4d=out_array4d, in_array4d=in_array4d, ref_out_array4d=ref_out_array4d, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+      CALL check_exchange_mult( &
+        ! & out_array1=out_array1, in_array1=in_array1, ref_out_array1=ref_out_array1, &
+        ! & out_array2=out_array2, in_array2=in_array2, ref_out_array2=ref_out_array2, &
+        ! & out_array3=out_array3, in_array3=in_array3, ref_out_array3=ref_out_array3, &
+        ! & out_array4=out_array4, in_array4=in_array4, ref_out_array4=ref_out_array4, &
+        ! & out_array5=out_array5, in_array5=in_array5, ref_out_array5=ref_out_array5, &
+        ! & out_array6=out_array6, in_array6=in_array6, ref_out_array6=ref_out_array6, &
+        ! & out_array7=out_array7, in_array7=in_array7, ref_out_array7=ref_out_array7, &
+        & out_array4d=out_array4d, in_array4d=in_array4d, ref_out_array4d=ref_out_array4d, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+
+    END SUBROUTINE check_exchange_mult_dp
+
     SUBROUTINE check_exchange_mult( &
       & out_array1, in_array1, ref_out_array1, &
       & out_array2, in_array2, ref_out_array2, &
@@ -2172,23 +2195,31 @@ CONTAINS
       & out_array4d, in_array4d, ref_out_array4d, &
       & nshift, comm_pattern)
 
-      REAL(wp), INTENT(INOUT), OPTIONAL ::  &
+      REAL(dp), INTENT(INOUT), OPTIONAL ::  &
         out_array1(:,:,:), out_array2(:,:,:), out_array3(:,:,:), &
         out_array4(:,:,:), out_array5(:,:,:), out_array6(:,:,:), &
         out_array7(:,:,:)
-      REAL(wp), INTENT(IN), OPTIONAL ::  &
+      REAL(dp), INTENT(IN), OPTIONAL ::  &
         in_array1(:,:,:), in_array2(:,:,:), in_array3(:,:,:), &
         in_array4(:,:,:), in_array5(:,:,:), in_array6(:,:,:), &
         in_array7(:,:,:)
-      REAL(wp), INTENT(INOUT), OPTIONAL ::  &
-        ref_out_array1(:,:,:), ref_out_array2(:,:,:), ref_out_array3(:,:,:), &
-        ref_out_array4(:,:,:), ref_out_array5(:,:,:), ref_out_array6(:,:,:), &
+      REAL(dp), INTENT(INOUT), OPTIONAL ::  &
+        ref_out_array1(:,:,:), ref_out_array2(:,:,:), &
+        ref_out_array3(:,:,:), ref_out_array4(:,:,:), &
+        ref_out_array5(:,:,:), ref_out_array6(:,:,:), &
         ref_out_array7(:,:,:)
-      REAL(wp), INTENT(INOUT), OPTIONAL :: out_array4d(:,:,:,:)
-      REAL(wp), INTENT(IN   ), OPTIONAL :: in_array4d(:,:,:,:)
-      REAL(wp), INTENT(INOUT), OPTIONAL :: ref_out_array4d(:,:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL :: out_array4d(:,:,:,:)
+      REAL(dp), INTENT(IN   ), OPTIONAL :: in_array4d(:,:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL :: ref_out_array4d(:,:,:,:)
+
       INTEGER, OPTIONAL, INTENT(IN) :: nshift
       CLASS(t_comm_pattern), POINTER, INTENT(INOUT) :: comm_pattern
+
+
+      REAL(dp), ALLOCATABLE ::  &
+        tmp_out_array1(:,:,:), tmp_out_array2(:,:,:), tmp_out_array3(:,:,:), &
+        tmp_out_array4(:,:,:), tmp_out_array5(:,:,:), tmp_out_array6(:,:,:), &
+        tmp_out_array7(:,:,:), tmp_out_array4d(:,:,:,:)
 
       INTEGER :: nfields, ndim2tot, ndim2, kshift
 
@@ -2198,36 +2229,60 @@ CONTAINS
       nfields = 0
       ndim2tot = 0
       IF (PRESENT(out_array4d)) THEN
+        ALLOCATE(tmp_out_array4d(SIZE(out_array4d,1),SIZE(out_array4d,2),&
+                                    SIZE(out_array4d,3),SIZE(out_array4d,4)))
+        tmp_out_array4d = out_array4d
         nfields = nfields + SIZE(out_array4d, 4)
         ndim2 = SIZE(out_array4d, 2)
         ndim2tot = ndim2tot + &
           &        MERGE(1, ndim2 - kshift, ndim2 == 1) * SIZE(out_array4d, 4)
       END IF
       IF (PRESENT(out_array1)) THEN
+        ALLOCATE(tmp_out_array1(SIZE(out_array1,1),SIZE(out_array1,2),&
+                                   SIZE(out_array1,3)))
+        tmp_out_array1 = out_array1
         nfields = nfields + 1
         ndim2 = SIZE(out_array1, 2)
         ndim2tot = ndim2tot + MERGE(1, ndim2 - kshift, ndim2 == 1)
         IF (PRESENT(out_array2)) THEN
+          ALLOCATE(tmp_out_array2(SIZE(out_array2,1),SIZE(out_array2,2),&
+                                     SIZE(out_array2,3)))
+          tmp_out_array2 = out_array2
           nfields = nfields + 1
           ndim2 = SIZE(out_array2, 2)
           ndim2tot = ndim2tot + MERGE(1, ndim2 - kshift, ndim2 == 1)
           IF (PRESENT(out_array3)) THEN
+            ALLOCATE(tmp_out_array3(SIZE(out_array3,1),SIZE(out_array3,2),&
+                                       SIZE(out_array3,3)))
+            tmp_out_array3 = out_array3
             nfields = nfields + 1
             ndim2 = SIZE(out_array3, 2)
             ndim2tot = ndim2tot + MERGE(1, ndim2 - kshift, ndim2 == 1)
             IF (PRESENT(out_array4)) THEN
+              ALLOCATE(tmp_out_array4(SIZE(out_array4,1),SIZE(out_array4,2),&
+                                         SIZE(out_array4,3)))
+              tmp_out_array4 = out_array4
               nfields = nfields + 1
               ndim2 = SIZE(out_array4, 2)
               ndim2tot = ndim2tot + MERGE(1, ndim2 - kshift, ndim2 == 1)
               IF (PRESENT(out_array5)) THEN
+                ALLOCATE(tmp_out_array5(SIZE(out_array5,1),SIZE(out_array5,2),&
+                                           SIZE(out_array5,3)))
+                tmp_out_array5 = out_array5
                 nfields = nfields + 1
                 ndim2 = SIZE(out_array5, 2)
                 ndim2tot = ndim2tot + MERGE(1, ndim2 - kshift, ndim2 == 1)
                 IF (PRESENT(out_array6)) THEN
+                  ALLOCATE(tmp_out_array6(SIZE(out_array6,1),SIZE(out_array6,2),&
+                                             SIZE(out_array6,3)))
+                  tmp_out_array6 = out_array6
                   nfields = nfields + 1
                   ndim2 = SIZE(out_array6, 2)
                   ndim2tot = ndim2tot + MERGE(1, ndim2 - kshift, ndim2 == 1)
                   IF (PRESENT(out_array7)) THEN
+                    ALLOCATE(tmp_out_array7(SIZE(out_array7,1),SIZE(out_array7,2),&
+                                               SIZE(out_array7,3)))
+                    tmp_out_array7 = out_array7
                     nfields = nfields + 1
                     ndim2 = SIZE(out_array7, 2)
                     ndim2tot = ndim2tot + MERGE(1, ndim2 - kshift, ndim2 == 1)
@@ -2239,67 +2294,759 @@ CONTAINS
         END IF
       END IF
 
-      CALL exchange_data_mult( &
-        p_pat=comm_pattern, nfields=nfields, ndim2tot=ndim2tot, &
-        recv1=out_array1, send1=in_array1, &
-        recv2=out_array2, send2=in_array2, &
-        recv3=out_array3, send3=in_array3, &
-        recv4=out_array4, send4=in_array4, &
-        recv5=out_array5, send5=in_array5, &
-        recv6=out_array6, send6=in_array6, &
-        recv7=out_array7, send7=in_array7, &
-        recv4d=out_array4d, send4d=in_array4d, &
-        nshift=kshift)
+      IF (nfields > 0) THEN
+        CALL exchange_data_mult( &
+          p_pat=comm_pattern, nfields=nfields, ndim2tot=ndim2tot, &
+          recv1=out_array1, send1=in_array1, &
+          recv2=out_array2, send2=in_array2, &
+          recv3=out_array3, send3=in_array3, &
+          recv4=out_array4, send4=in_array4, &
+          recv5=out_array5, send5=in_array5, &
+          recv6=out_array6, send6=in_array6, &
+          recv7=out_array7, send7=in_array7, &
+          recv4d=out_array4d, send4d=in_array4d, &
+          nshift=kshift)
+      END IF
 
       IF (PRESENT(out_array1)) THEN
         IF (ANY(out_array1 /= ref_out_array1)) THEN
-          WRITE(message_text,'(a,i0)') "Wrong exchange result r_3d_1"
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mult dp_3d_1"
           CALL finish(method_name, message_text)
         END IF
+        out_array1 = tmp_out_array1
       END IF
       IF (PRESENT(out_array2)) THEN
         IF (ANY(out_array2 /= ref_out_array2)) THEN
-          WRITE(message_text,'(a,i0)') "Wrong exchange result r_3d_2"
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mult dp_3d_2"
           CALL finish(method_name, message_text)
         END IF
+        out_array2 = tmp_out_array2
       END IF
       IF (PRESENT(out_array3)) THEN
         IF (ANY(out_array3 /= ref_out_array3)) THEN
-          WRITE(message_text,'(a,i0)') "Wrong exchange result r_3d_3"
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mult dp_3d_3"
           CALL finish(method_name, message_text)
         END IF
+        out_array3 = tmp_out_array3
       END IF
       IF (PRESENT(out_array4)) THEN
         IF (ANY(out_array4 /= ref_out_array4)) THEN
-          WRITE(message_text,'(a,i0)') "Wrong exchange result r_3d_4"
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mult dp_3d_4"
           CALL finish(method_name, message_text)
         END IF
+        out_array4 = tmp_out_array4
       END IF
       IF (PRESENT(out_array5)) THEN
         IF (ANY(out_array5 /= ref_out_array5)) THEN
-          WRITE(message_text,'(a,i0)') "Wrong exchange result r_3d_5"
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mult dp_3d_5"
           CALL finish(method_name, message_text)
         END IF
+        out_array5 = tmp_out_array5
       END IF
       IF (PRESENT(out_array6)) THEN
         IF (ANY(out_array6 /= ref_out_array6)) THEN
-          WRITE(message_text,'(a,i0)') "Wrong exchange result r_3d_6"
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mult dp_3d_6"
           CALL finish(method_name, message_text)
         END IF
+        out_array6 = tmp_out_array6
       END IF
       IF (PRESENT(out_array7)) THEN
         IF (ANY(out_array7 /= ref_out_array7)) THEN
-          WRITE(message_text,'(a,i0)') "Wrong exchange result r_3d_7"
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mult dp_3d_7"
           CALL finish(method_name, message_text)
         END IF
+        out_array7 = tmp_out_array7
       END IF
       IF (PRESENT(out_array4d)) THEN
         IF (ANY(out_array4d /= ref_out_array4d)) THEN
-          WRITE(message_text,'(a,i0)') "Wrong exchange result r_4d"
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mult dp_4d"
           CALL finish(method_name, message_text)
         END IF
+        out_array4d = tmp_out_array4d
       END IF
     END SUBROUTINE check_exchange_mult
+
+    SUBROUTINE check_exchange_mixprec_4d_dp( &
+      & out_array1_dp, in_array1_dp, ref_out_array1_dp, &
+      & out_array2_dp, in_array2_dp, ref_out_array2_dp, &
+      & out_array3_dp, in_array3_dp, ref_out_array3_dp, &
+      & out_array4_dp, in_array4_dp, ref_out_array4_dp, &
+      & out_array5_dp, in_array5_dp, ref_out_array5_dp, &
+      & out_array4d_dp, in_array4d_dp, ref_out_array4d_dp, &
+      & out_array1_sp, in_array1_sp, ref_out_array1_sp, &
+      & out_array2_sp, in_array2_sp, ref_out_array2_sp, &
+      & out_array3_sp, in_array3_sp, ref_out_array3_sp, &
+      & out_array4_sp, in_array4_sp, ref_out_array4_sp, &
+      & out_array5_sp, in_array5_sp, ref_out_array5_sp, &
+      & out_array4d_sp, in_array4d_sp, ref_out_array4d_sp, &
+      & nshift, comm_pattern)
+
+      REAL(dp), INTENT(INOUT), OPTIONAL ::  &
+        out_array1_dp(:,:,:), out_array2_dp(:,:,:), out_array3_dp(:,:,:), &
+        out_array4_dp(:,:,:), out_array5_dp(:,:,:)
+      REAL(dp), INTENT(IN), OPTIONAL ::  &
+        in_array1_dp(:,:,:), in_array2_dp(:,:,:), in_array3_dp(:,:,:), &
+        in_array4_dp(:,:,:), in_array5_dp(:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL ::  &
+        ref_out_array1_dp(:,:,:), ref_out_array2_dp(:,:,:), &
+        ref_out_array3_dp(:,:,:), ref_out_array4_dp(:,:,:), &
+        ref_out_array5_dp(:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL :: out_array4d_dp(:,:,:,:)
+      REAL(dp), INTENT(IN   ), OPTIONAL :: in_array4d_dp(:,:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL :: ref_out_array4d_dp(:,:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL ::  &
+        out_array1_sp(:,:,:), out_array2_sp(:,:,:), out_array3_sp(:,:,:), &
+        out_array4_sp(:,:,:), out_array5_sp(:,:,:)
+      REAL(sp), INTENT(IN), OPTIONAL ::  &
+        in_array1_sp(:,:,:), in_array2_sp(:,:,:), in_array3_sp(:,:,:), &
+        in_array4_sp(:,:,:), in_array5_sp(:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL ::  &
+        ref_out_array1_sp(:,:,:), ref_out_array2_sp(:,:,:), &
+        ref_out_array3_sp(:,:,:), ref_out_array4_sp(:,:,:), &
+        ref_out_array5_sp(:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL :: out_array4d_sp(:,:,:,:)
+      REAL(sp), INTENT(IN   ), OPTIONAL :: in_array4d_sp(:,:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL :: ref_out_array4d_sp(:,:,:,:)
+
+      INTEGER, OPTIONAL, INTENT(IN) :: nshift
+      CLASS(t_comm_pattern), POINTER, INTENT(INOUT) :: comm_pattern
+
+      CALL check_exchange_mixprec_4d_sp( &
+        & out_array1_dp=out_array1_dp, in_array1_dp=in_array1_dp, ref_out_array1_dp=ref_out_array1_dp, &
+        & out_array2_dp=out_array2_dp, in_array2_dp=in_array2_dp, ref_out_array2_dp=ref_out_array2_dp, &
+        & out_array3_dp=out_array3_dp, in_array3_dp=in_array3_dp, ref_out_array3_dp=ref_out_array3_dp, &
+        & out_array4_dp=out_array4_dp, in_array4_dp=in_array4_dp, ref_out_array4_dp=ref_out_array4_dp, &
+        & out_array5_dp=out_array5_dp, in_array5_dp=in_array5_dp, ref_out_array5_dp=ref_out_array5_dp, &
+        & out_array4d_dp=out_array4d_dp, in_array4d_dp=in_array4d_dp, ref_out_array4d_dp=ref_out_array4d_dp, &
+        & out_array1_sp=out_array1_sp, in_array1_sp=in_array1_sp, ref_out_array1_sp=ref_out_array1_sp, &
+        & out_array2_sp=out_array2_sp, in_array2_sp=in_array2_sp, ref_out_array2_sp=ref_out_array2_sp, &
+        & out_array3_sp=out_array3_sp, in_array3_sp=in_array3_sp, ref_out_array3_sp=ref_out_array3_sp, &
+        & out_array4_sp=out_array4_sp, in_array4_sp=in_array4_sp, ref_out_array4_sp=ref_out_array4_sp, &
+        & out_array5_sp=out_array5_sp, in_array5_sp=in_array5_sp, ref_out_array5_sp=ref_out_array5_sp, &
+        & out_array4d_sp=out_array4d_sp, in_array4d_sp=in_array4d_sp, ref_out_array4d_sp=ref_out_array4d_sp, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+      CALL check_exchange_mixprec_4d_sp( &
+        & out_array1_dp=out_array1_dp, in_array1_dp=in_array1_dp, ref_out_array1_dp=ref_out_array1_dp, &
+        & out_array2_dp=out_array2_dp, in_array2_dp=in_array2_dp, ref_out_array2_dp=ref_out_array2_dp, &
+        & out_array3_dp=out_array3_dp, in_array3_dp=in_array3_dp, ref_out_array3_dp=ref_out_array3_dp, &
+        & out_array4_dp=out_array4_dp, in_array4_dp=in_array4_dp, ref_out_array4_dp=ref_out_array4_dp, &
+        & out_array5_dp=out_array5_dp, in_array5_dp=in_array5_dp, ref_out_array5_dp=ref_out_array5_dp, &
+        ! & out_array4d_dp=out_array4d_dp, in_array4d_dp=in_array4d_dp, ref_out_array4d_dp=ref_out_array4d_dp, &
+        & out_array1_sp=out_array1_sp, in_array1_sp=in_array1_sp, ref_out_array1_sp=ref_out_array1_sp, &
+        & out_array2_sp=out_array2_sp, in_array2_sp=in_array2_sp, ref_out_array2_sp=ref_out_array2_sp, &
+        & out_array3_sp=out_array3_sp, in_array3_sp=in_array3_sp, ref_out_array3_sp=ref_out_array3_sp, &
+        & out_array4_sp=out_array4_sp, in_array4_sp=in_array4_sp, ref_out_array4_sp=ref_out_array4_sp, &
+        & out_array5_sp=out_array5_sp, in_array5_sp=in_array5_sp, ref_out_array5_sp=ref_out_array5_sp, &
+        & out_array4d_sp=out_array4d_sp, in_array4d_sp=in_array4d_sp, ref_out_array4d_sp=ref_out_array4d_sp, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+
+    END SUBROUTINE check_exchange_mixprec_4d_dp
+
+    SUBROUTINE check_exchange_mixprec_4d_sp( &
+      & out_array1_dp, in_array1_dp, ref_out_array1_dp, &
+      & out_array2_dp, in_array2_dp, ref_out_array2_dp, &
+      & out_array3_dp, in_array3_dp, ref_out_array3_dp, &
+      & out_array4_dp, in_array4_dp, ref_out_array4_dp, &
+      & out_array5_dp, in_array5_dp, ref_out_array5_dp, &
+      & out_array4d_dp, in_array4d_dp, ref_out_array4d_dp, &
+      & out_array1_sp, in_array1_sp, ref_out_array1_sp, &
+      & out_array2_sp, in_array2_sp, ref_out_array2_sp, &
+      & out_array3_sp, in_array3_sp, ref_out_array3_sp, &
+      & out_array4_sp, in_array4_sp, ref_out_array4_sp, &
+      & out_array5_sp, in_array5_sp, ref_out_array5_sp, &
+      & out_array4d_sp, in_array4d_sp, ref_out_array4d_sp, &
+      & nshift, comm_pattern)
+
+      REAL(dp), INTENT(INOUT), OPTIONAL ::  &
+        out_array1_dp(:,:,:), out_array2_dp(:,:,:), out_array3_dp(:,:,:), &
+        out_array4_dp(:,:,:), out_array5_dp(:,:,:)
+      REAL(dp), INTENT(IN), OPTIONAL ::  &
+        in_array1_dp(:,:,:), in_array2_dp(:,:,:), in_array3_dp(:,:,:), &
+        in_array4_dp(:,:,:), in_array5_dp(:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL ::  &
+        ref_out_array1_dp(:,:,:), ref_out_array2_dp(:,:,:), &
+        ref_out_array3_dp(:,:,:), ref_out_array4_dp(:,:,:), &
+        ref_out_array5_dp(:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL :: out_array4d_dp(:,:,:,:)
+      REAL(dp), INTENT(IN   ), OPTIONAL :: in_array4d_dp(:,:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL :: ref_out_array4d_dp(:,:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL ::  &
+        out_array1_sp(:,:,:), out_array2_sp(:,:,:), out_array3_sp(:,:,:), &
+        out_array4_sp(:,:,:), out_array5_sp(:,:,:)
+      REAL(sp), INTENT(IN), OPTIONAL ::  &
+        in_array1_sp(:,:,:), in_array2_sp(:,:,:), in_array3_sp(:,:,:), &
+        in_array4_sp(:,:,:), in_array5_sp(:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL ::  &
+        ref_out_array1_sp(:,:,:), ref_out_array2_sp(:,:,:), &
+        ref_out_array3_sp(:,:,:), ref_out_array4_sp(:,:,:), &
+        ref_out_array5_sp(:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL :: out_array4d_sp(:,:,:,:)
+      REAL(sp), INTENT(IN   ), OPTIONAL :: in_array4d_sp(:,:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL :: ref_out_array4d_sp(:,:,:,:)
+
+      INTEGER, OPTIONAL, INTENT(IN) :: nshift
+      CLASS(t_comm_pattern), POINTER, INTENT(INOUT) :: comm_pattern
+
+      CALL check_exchange_mixprec_dp( &
+        & out_array1_dp=out_array1_dp, in_array1_dp=in_array1_dp, ref_out_array1_dp=ref_out_array1_dp, &
+        & out_array2_dp=out_array2_dp, in_array2_dp=in_array2_dp, ref_out_array2_dp=ref_out_array2_dp, &
+        & out_array3_dp=out_array3_dp, in_array3_dp=in_array3_dp, ref_out_array3_dp=ref_out_array3_dp, &
+        & out_array4_dp=out_array4_dp, in_array4_dp=in_array4_dp, ref_out_array4_dp=ref_out_array4_dp, &
+        & out_array5_dp=out_array5_dp, in_array5_dp=in_array5_dp, ref_out_array5_dp=ref_out_array5_dp, &
+        & out_array4d_dp=out_array4d_dp, in_array4d_dp=in_array4d_dp, ref_out_array4d_dp=ref_out_array4d_dp, &
+        & out_array1_sp=out_array1_sp, in_array1_sp=in_array1_sp, ref_out_array1_sp=ref_out_array1_sp, &
+        & out_array2_sp=out_array2_sp, in_array2_sp=in_array2_sp, ref_out_array2_sp=ref_out_array2_sp, &
+        & out_array3_sp=out_array3_sp, in_array3_sp=in_array3_sp, ref_out_array3_sp=ref_out_array3_sp, &
+        & out_array4_sp=out_array4_sp, in_array4_sp=in_array4_sp, ref_out_array4_sp=ref_out_array4_sp, &
+        & out_array5_sp=out_array5_sp, in_array5_sp=in_array5_sp, ref_out_array5_sp=ref_out_array5_sp, &
+        & out_array4d_sp=out_array4d_sp, in_array4d_sp=in_array4d_sp, ref_out_array4d_sp=ref_out_array4d_sp, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+      CALL check_exchange_mixprec_dp( &
+        & out_array1_dp=out_array1_dp, in_array1_dp=in_array1_dp, ref_out_array1_dp=ref_out_array1_dp, &
+        & out_array2_dp=out_array2_dp, in_array2_dp=in_array2_dp, ref_out_array2_dp=ref_out_array2_dp, &
+        & out_array3_dp=out_array3_dp, in_array3_dp=in_array3_dp, ref_out_array3_dp=ref_out_array3_dp, &
+        & out_array4_dp=out_array4_dp, in_array4_dp=in_array4_dp, ref_out_array4_dp=ref_out_array4_dp, &
+        & out_array5_dp=out_array5_dp, in_array5_dp=in_array5_dp, ref_out_array5_dp=ref_out_array5_dp, &
+        & out_array4d_dp=out_array4d_dp, in_array4d_dp=in_array4d_dp, ref_out_array4d_dp=ref_out_array4d_dp, &
+        & out_array1_sp=out_array1_sp, in_array1_sp=in_array1_sp, ref_out_array1_sp=ref_out_array1_sp, &
+        & out_array2_sp=out_array2_sp, in_array2_sp=in_array2_sp, ref_out_array2_sp=ref_out_array2_sp, &
+        & out_array3_sp=out_array3_sp, in_array3_sp=in_array3_sp, ref_out_array3_sp=ref_out_array3_sp, &
+        & out_array4_sp=out_array4_sp, in_array4_sp=in_array4_sp, ref_out_array4_sp=ref_out_array4_sp, &
+        & out_array5_sp=out_array5_sp, in_array5_sp=in_array5_sp, ref_out_array5_sp=ref_out_array5_sp, &
+        ! & out_array4d_sp=out_array4d_sp, in_array4d_sp=in_array4d_sp, ref_out_array4d_sp=ref_out_array4d_sp, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+
+    END SUBROUTINE check_exchange_mixprec_4d_sp
+
+    SUBROUTINE check_exchange_mixprec_dp( &
+      & out_array1_dp, in_array1_dp, ref_out_array1_dp, &
+      & out_array2_dp, in_array2_dp, ref_out_array2_dp, &
+      & out_array3_dp, in_array3_dp, ref_out_array3_dp, &
+      & out_array4_dp, in_array4_dp, ref_out_array4_dp, &
+      & out_array5_dp, in_array5_dp, ref_out_array5_dp, &
+      & out_array4d_dp, in_array4d_dp, ref_out_array4d_dp, &
+      & out_array1_sp, in_array1_sp, ref_out_array1_sp, &
+      & out_array2_sp, in_array2_sp, ref_out_array2_sp, &
+      & out_array3_sp, in_array3_sp, ref_out_array3_sp, &
+      & out_array4_sp, in_array4_sp, ref_out_array4_sp, &
+      & out_array5_sp, in_array5_sp, ref_out_array5_sp, &
+      & out_array4d_sp, in_array4d_sp, ref_out_array4d_sp, &
+      & nshift, comm_pattern)
+
+      REAL(dp), INTENT(INOUT), OPTIONAL ::  &
+        out_array1_dp(:,:,:), out_array2_dp(:,:,:), out_array3_dp(:,:,:), &
+        out_array4_dp(:,:,:), out_array5_dp(:,:,:)
+      REAL(dp), INTENT(IN), OPTIONAL ::  &
+        in_array1_dp(:,:,:), in_array2_dp(:,:,:), in_array3_dp(:,:,:), &
+        in_array4_dp(:,:,:), in_array5_dp(:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL ::  &
+        ref_out_array1_dp(:,:,:), ref_out_array2_dp(:,:,:), &
+        ref_out_array3_dp(:,:,:), ref_out_array4_dp(:,:,:), &
+        ref_out_array5_dp(:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL :: out_array4d_dp(:,:,:,:)
+      REAL(dp), INTENT(IN   ), OPTIONAL :: in_array4d_dp(:,:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL :: ref_out_array4d_dp(:,:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL ::  &
+        out_array1_sp(:,:,:), out_array2_sp(:,:,:), out_array3_sp(:,:,:), &
+        out_array4_sp(:,:,:), out_array5_sp(:,:,:)
+      REAL(sp), INTENT(IN), OPTIONAL ::  &
+        in_array1_sp(:,:,:), in_array2_sp(:,:,:), in_array3_sp(:,:,:), &
+        in_array4_sp(:,:,:), in_array5_sp(:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL ::  &
+        ref_out_array1_sp(:,:,:), ref_out_array2_sp(:,:,:), &
+        ref_out_array3_sp(:,:,:), ref_out_array4_sp(:,:,:), &
+        ref_out_array5_sp(:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL :: out_array4d_sp(:,:,:,:)
+      REAL(sp), INTENT(IN   ), OPTIONAL :: in_array4d_sp(:,:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL :: ref_out_array4d_sp(:,:,:,:)
+
+      INTEGER, OPTIONAL, INTENT(IN) :: nshift
+      CLASS(t_comm_pattern), POINTER, INTENT(INOUT) :: comm_pattern
+
+      CALL check_exchange_mixprec_sp( &
+        & out_array1_dp=out_array1_dp, in_array1_dp=in_array1_dp, ref_out_array1_dp=ref_out_array1_dp, &
+        & out_array2_dp=out_array2_dp, in_array2_dp=in_array2_dp, ref_out_array2_dp=ref_out_array2_dp, &
+        & out_array3_dp=out_array3_dp, in_array3_dp=in_array3_dp, ref_out_array3_dp=ref_out_array3_dp, &
+        & out_array4_dp=out_array4_dp, in_array4_dp=in_array4_dp, ref_out_array4_dp=ref_out_array4_dp, &
+        & out_array5_dp=out_array5_dp, in_array5_dp=in_array5_dp, ref_out_array5_dp=ref_out_array5_dp, &
+        & out_array4d_dp=out_array4d_dp, in_array4d_dp=in_array4d_dp, ref_out_array4d_dp=ref_out_array4d_dp, &
+        & out_array1_sp=out_array1_sp, in_array1_sp=in_array1_sp, ref_out_array1_sp=ref_out_array1_sp, &
+        & out_array2_sp=out_array2_sp, in_array2_sp=in_array2_sp, ref_out_array2_sp=ref_out_array2_sp, &
+        & out_array3_sp=out_array3_sp, in_array3_sp=in_array3_sp, ref_out_array3_sp=ref_out_array3_sp, &
+        & out_array4_sp=out_array4_sp, in_array4_sp=in_array4_sp, ref_out_array4_sp=ref_out_array4_sp, &
+        & out_array5_sp=out_array5_sp, in_array5_sp=in_array5_sp, ref_out_array5_sp=ref_out_array5_sp, &
+        & out_array4d_sp=out_array4d_sp, in_array4d_sp=in_array4d_sp, ref_out_array4d_sp=ref_out_array4d_sp, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+      CALL check_exchange_mixprec_sp( &
+        & out_array1_dp=out_array1_dp, in_array1_dp=in_array1_dp, ref_out_array1_dp=ref_out_array1_dp, &
+        & out_array2_dp=out_array2_dp, in_array2_dp=in_array2_dp, ref_out_array2_dp=ref_out_array2_dp, &
+        & out_array3_dp=out_array3_dp, in_array3_dp=in_array3_dp, ref_out_array3_dp=ref_out_array3_dp, &
+        & out_array4_dp=out_array4_dp, in_array4_dp=in_array4_dp, ref_out_array4_dp=ref_out_array4_dp, &
+        ! & out_array5_dp=out_array5_dp, in_array5_dp=in_array5_dp, ref_out_array5_dp=ref_out_array5_dp, &
+        & out_array4d_dp=out_array4d_dp, in_array4d_dp=in_array4d_dp, ref_out_array4d_dp=ref_out_array4d_dp, &
+        & out_array1_sp=out_array1_sp, in_array1_sp=in_array1_sp, ref_out_array1_sp=ref_out_array1_sp, &
+        & out_array2_sp=out_array2_sp, in_array2_sp=in_array2_sp, ref_out_array2_sp=ref_out_array2_sp, &
+        & out_array3_sp=out_array3_sp, in_array3_sp=in_array3_sp, ref_out_array3_sp=ref_out_array3_sp, &
+        & out_array4_sp=out_array4_sp, in_array4_sp=in_array4_sp, ref_out_array4_sp=ref_out_array4_sp, &
+        & out_array5_sp=out_array5_sp, in_array5_sp=in_array5_sp, ref_out_array5_sp=ref_out_array5_sp, &
+        & out_array4d_sp=out_array4d_sp, in_array4d_sp=in_array4d_sp, ref_out_array4d_sp=ref_out_array4d_sp, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+      CALL check_exchange_mixprec_sp( &
+        & out_array1_dp=out_array1_dp, in_array1_dp=in_array1_dp, ref_out_array1_dp=ref_out_array1_dp, &
+        & out_array2_dp=out_array2_dp, in_array2_dp=in_array2_dp, ref_out_array2_dp=ref_out_array2_dp, &
+        & out_array3_dp=out_array3_dp, in_array3_dp=in_array3_dp, ref_out_array3_dp=ref_out_array3_dp, &
+        ! & out_array4_dp=out_array4_dp, in_array4_dp=in_array4_dp, ref_out_array4_dp=ref_out_array4_dp, &
+        ! & out_array5_dp=out_array5_dp, in_array5_dp=in_array5_dp, ref_out_array5_dp=ref_out_array5_dp, &
+        & out_array4d_dp=out_array4d_dp, in_array4d_dp=in_array4d_dp, ref_out_array4d_dp=ref_out_array4d_dp, &
+        & out_array1_sp=out_array1_sp, in_array1_sp=in_array1_sp, ref_out_array1_sp=ref_out_array1_sp, &
+        & out_array2_sp=out_array2_sp, in_array2_sp=in_array2_sp, ref_out_array2_sp=ref_out_array2_sp, &
+        & out_array3_sp=out_array3_sp, in_array3_sp=in_array3_sp, ref_out_array3_sp=ref_out_array3_sp, &
+        & out_array4_sp=out_array4_sp, in_array4_sp=in_array4_sp, ref_out_array4_sp=ref_out_array4_sp, &
+        & out_array5_sp=out_array5_sp, in_array5_sp=in_array5_sp, ref_out_array5_sp=ref_out_array5_sp, &
+        & out_array4d_sp=out_array4d_sp, in_array4d_sp=in_array4d_sp, ref_out_array4d_sp=ref_out_array4d_sp, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+      CALL check_exchange_mixprec_sp( &
+        & out_array1_dp=out_array1_dp, in_array1_dp=in_array1_dp, ref_out_array1_dp=ref_out_array1_dp, &
+        & out_array2_dp=out_array2_dp, in_array2_dp=in_array2_dp, ref_out_array2_dp=ref_out_array2_dp, &
+        ! & out_array3_dp=out_array3_dp, in_array3_dp=in_array3_dp, ref_out_array3_dp=ref_out_array3_dp, &
+        ! & out_array4_dp=out_array4_dp, in_array4_dp=in_array4_dp, ref_out_array4_dp=ref_out_array4_dp, &
+        ! & out_array5_dp=out_array5_dp, in_array5_dp=in_array5_dp, ref_out_array5_dp=ref_out_array5_dp, &
+        & out_array4d_dp=out_array4d_dp, in_array4d_dp=in_array4d_dp, ref_out_array4d_dp=ref_out_array4d_dp, &
+        & out_array1_sp=out_array1_sp, in_array1_sp=in_array1_sp, ref_out_array1_sp=ref_out_array1_sp, &
+        & out_array2_sp=out_array2_sp, in_array2_sp=in_array2_sp, ref_out_array2_sp=ref_out_array2_sp, &
+        & out_array3_sp=out_array3_sp, in_array3_sp=in_array3_sp, ref_out_array3_sp=ref_out_array3_sp, &
+        & out_array4_sp=out_array4_sp, in_array4_sp=in_array4_sp, ref_out_array4_sp=ref_out_array4_sp, &
+        & out_array5_sp=out_array5_sp, in_array5_sp=in_array5_sp, ref_out_array5_sp=ref_out_array5_sp, &
+        & out_array4d_sp=out_array4d_sp, in_array4d_sp=in_array4d_sp, ref_out_array4d_sp=ref_out_array4d_sp, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+      CALL check_exchange_mixprec_sp( &
+        & out_array1_dp=out_array1_dp, in_array1_dp=in_array1_dp, ref_out_array1_dp=ref_out_array1_dp, &
+        ! & out_array2_dp=out_array2_dp, in_array2_dp=in_array2_dp, ref_out_array2_dp=ref_out_array2_dp, &
+        ! & out_array3_dp=out_array3_dp, in_array3_dp=in_array3_dp, ref_out_array3_dp=ref_out_array3_dp, &
+        ! & out_array4_dp=out_array4_dp, in_array4_dp=in_array4_dp, ref_out_array4_dp=ref_out_array4_dp, &
+        ! & out_array5_dp=out_array5_dp, in_array5_dp=in_array5_dp, ref_out_array5_dp=ref_out_array5_dp, &
+        & out_array4d_dp=out_array4d_dp, in_array4d_dp=in_array4d_dp, ref_out_array4d_dp=ref_out_array4d_dp, &
+        & out_array1_sp=out_array1_sp, in_array1_sp=in_array1_sp, ref_out_array1_sp=ref_out_array1_sp, &
+        & out_array2_sp=out_array2_sp, in_array2_sp=in_array2_sp, ref_out_array2_sp=ref_out_array2_sp, &
+        & out_array3_sp=out_array3_sp, in_array3_sp=in_array3_sp, ref_out_array3_sp=ref_out_array3_sp, &
+        & out_array4_sp=out_array4_sp, in_array4_sp=in_array4_sp, ref_out_array4_sp=ref_out_array4_sp, &
+        & out_array5_sp=out_array5_sp, in_array5_sp=in_array5_sp, ref_out_array5_sp=ref_out_array5_sp, &
+        & out_array4d_sp=out_array4d_sp, in_array4d_sp=in_array4d_sp, ref_out_array4d_sp=ref_out_array4d_sp, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+      CALL check_exchange_mixprec_sp( &
+        ! & out_array1_dp=out_array1_dp, in_array1_dp=in_array1_dp, ref_out_array1_dp=ref_out_array1_dp, &
+        ! & out_array2_dp=out_array2_dp, in_array2_dp=in_array2_dp, ref_out_array2_dp=ref_out_array2_dp, &
+        ! & out_array3_dp=out_array3_dp, in_array3_dp=in_array3_dp, ref_out_array3_dp=ref_out_array3_dp, &
+        ! & out_array4_dp=out_array4_dp, in_array4_dp=in_array4_dp, ref_out_array4_dp=ref_out_array4_dp, &
+        ! & out_array5_dp=out_array5_dp, in_array5_dp=in_array5_dp, ref_out_array5_dp=ref_out_array5_dp, &
+        & out_array4d_dp=out_array4d_dp, in_array4d_dp=in_array4d_dp, ref_out_array4d_dp=ref_out_array4d_dp, &
+        & out_array1_sp=out_array1_sp, in_array1_sp=in_array1_sp, ref_out_array1_sp=ref_out_array1_sp, &
+        & out_array2_sp=out_array2_sp, in_array2_sp=in_array2_sp, ref_out_array2_sp=ref_out_array2_sp, &
+        & out_array3_sp=out_array3_sp, in_array3_sp=in_array3_sp, ref_out_array3_sp=ref_out_array3_sp, &
+        & out_array4_sp=out_array4_sp, in_array4_sp=in_array4_sp, ref_out_array4_sp=ref_out_array4_sp, &
+        & out_array5_sp=out_array5_sp, in_array5_sp=in_array5_sp, ref_out_array5_sp=ref_out_array5_sp, &
+        & out_array4d_sp=out_array4d_sp, in_array4d_sp=in_array4d_sp, ref_out_array4d_sp=ref_out_array4d_sp, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+
+    END SUBROUTINE check_exchange_mixprec_dp
+
+    SUBROUTINE check_exchange_mixprec_sp( &
+      & out_array1_dp, in_array1_dp, ref_out_array1_dp, &
+      & out_array2_dp, in_array2_dp, ref_out_array2_dp, &
+      & out_array3_dp, in_array3_dp, ref_out_array3_dp, &
+      & out_array4_dp, in_array4_dp, ref_out_array4_dp, &
+      & out_array5_dp, in_array5_dp, ref_out_array5_dp, &
+      & out_array4d_dp, in_array4d_dp, ref_out_array4d_dp, &
+      & out_array1_sp, in_array1_sp, ref_out_array1_sp, &
+      & out_array2_sp, in_array2_sp, ref_out_array2_sp, &
+      & out_array3_sp, in_array3_sp, ref_out_array3_sp, &
+      & out_array4_sp, in_array4_sp, ref_out_array4_sp, &
+      & out_array5_sp, in_array5_sp, ref_out_array5_sp, &
+      & out_array4d_sp, in_array4d_sp, ref_out_array4d_sp, &
+      & nshift, comm_pattern)
+
+      REAL(dp), INTENT(INOUT), OPTIONAL ::  &
+        out_array1_dp(:,:,:), out_array2_dp(:,:,:), out_array3_dp(:,:,:), &
+        out_array4_dp(:,:,:), out_array5_dp(:,:,:)
+      REAL(dp), INTENT(IN), OPTIONAL ::  &
+        in_array1_dp(:,:,:), in_array2_dp(:,:,:), in_array3_dp(:,:,:), &
+        in_array4_dp(:,:,:), in_array5_dp(:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL ::  &
+        ref_out_array1_dp(:,:,:), ref_out_array2_dp(:,:,:), &
+        ref_out_array3_dp(:,:,:), ref_out_array4_dp(:,:,:), &
+        ref_out_array5_dp(:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL :: out_array4d_dp(:,:,:,:)
+      REAL(dp), INTENT(IN   ), OPTIONAL :: in_array4d_dp(:,:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL :: ref_out_array4d_dp(:,:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL ::  &
+        out_array1_sp(:,:,:), out_array2_sp(:,:,:), out_array3_sp(:,:,:), &
+        out_array4_sp(:,:,:), out_array5_sp(:,:,:)
+      REAL(sp), INTENT(IN), OPTIONAL ::  &
+        in_array1_sp(:,:,:), in_array2_sp(:,:,:), in_array3_sp(:,:,:), &
+        in_array4_sp(:,:,:), in_array5_sp(:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL ::  &
+        ref_out_array1_sp(:,:,:), ref_out_array2_sp(:,:,:), &
+        ref_out_array3_sp(:,:,:), ref_out_array4_sp(:,:,:), &
+        ref_out_array5_sp(:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL :: out_array4d_sp(:,:,:,:)
+      REAL(sp), INTENT(IN   ), OPTIONAL :: in_array4d_sp(:,:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL :: ref_out_array4d_sp(:,:,:,:)
+
+      INTEGER, OPTIONAL, INTENT(IN) :: nshift
+      CLASS(t_comm_pattern), POINTER, INTENT(INOUT) :: comm_pattern
+
+      CALL check_exchange_mixprec( &
+        & out_array1_dp=out_array1_dp, in_array1_dp=in_array1_dp, ref_out_array1_dp=ref_out_array1_dp, &
+        & out_array2_dp=out_array2_dp, in_array2_dp=in_array2_dp, ref_out_array2_dp=ref_out_array2_dp, &
+        & out_array3_dp=out_array3_dp, in_array3_dp=in_array3_dp, ref_out_array3_dp=ref_out_array3_dp, &
+        & out_array4_dp=out_array4_dp, in_array4_dp=in_array4_dp, ref_out_array4_dp=ref_out_array4_dp, &
+        & out_array5_dp=out_array5_dp, in_array5_dp=in_array5_dp, ref_out_array5_dp=ref_out_array5_dp, &
+        & out_array4d_dp=out_array4d_dp, in_array4d_dp=in_array4d_dp, ref_out_array4d_dp=ref_out_array4d_dp, &
+        & out_array1_sp=out_array1_sp, in_array1_sp=in_array1_sp, ref_out_array1_sp=ref_out_array1_sp, &
+        & out_array2_sp=out_array2_sp, in_array2_sp=in_array2_sp, ref_out_array2_sp=ref_out_array2_sp, &
+        & out_array3_sp=out_array3_sp, in_array3_sp=in_array3_sp, ref_out_array3_sp=ref_out_array3_sp, &
+        & out_array4_sp=out_array4_sp, in_array4_sp=in_array4_sp, ref_out_array4_sp=ref_out_array4_sp, &
+        & out_array5_sp=out_array5_sp, in_array5_sp=in_array5_sp, ref_out_array5_sp=ref_out_array5_sp, &
+        & out_array4d_sp=out_array4d_sp, in_array4d_sp=in_array4d_sp, ref_out_array4d_sp=ref_out_array4d_sp, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+      CALL check_exchange_mixprec( &
+        & out_array1_dp=out_array1_dp, in_array1_dp=in_array1_dp, ref_out_array1_dp=ref_out_array1_dp, &
+        & out_array2_dp=out_array2_dp, in_array2_dp=in_array2_dp, ref_out_array2_dp=ref_out_array2_dp, &
+        & out_array3_dp=out_array3_dp, in_array3_dp=in_array3_dp, ref_out_array3_dp=ref_out_array3_dp, &
+        & out_array4_dp=out_array4_dp, in_array4_dp=in_array4_dp, ref_out_array4_dp=ref_out_array4_dp, &
+        & out_array5_dp=out_array5_dp, in_array5_dp=in_array5_dp, ref_out_array5_dp=ref_out_array5_dp, &
+        & out_array4d_dp=out_array4d_dp, in_array4d_dp=in_array4d_dp, ref_out_array4d_dp=ref_out_array4d_dp, &
+        & out_array1_sp=out_array1_sp, in_array1_sp=in_array1_sp, ref_out_array1_sp=ref_out_array1_sp, &
+        & out_array2_sp=out_array2_sp, in_array2_sp=in_array2_sp, ref_out_array2_sp=ref_out_array2_sp, &
+        & out_array3_sp=out_array3_sp, in_array3_sp=in_array3_sp, ref_out_array3_sp=ref_out_array3_sp, &
+        & out_array4_sp=out_array4_sp, in_array4_sp=in_array4_sp, ref_out_array4_sp=ref_out_array4_sp, &
+        ! & out_array5_sp=out_array5_sp, in_array5_sp=in_array5_sp, ref_out_array5_sp=ref_out_array5_sp, &
+        & out_array4d_sp=out_array4d_sp, in_array4d_sp=in_array4d_sp, ref_out_array4d_sp=ref_out_array4d_sp, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+      CALL check_exchange_mixprec( &
+        & out_array1_dp=out_array1_dp, in_array1_dp=in_array1_dp, ref_out_array1_dp=ref_out_array1_dp, &
+        & out_array2_dp=out_array2_dp, in_array2_dp=in_array2_dp, ref_out_array2_dp=ref_out_array2_dp, &
+        & out_array3_dp=out_array3_dp, in_array3_dp=in_array3_dp, ref_out_array3_dp=ref_out_array3_dp, &
+        & out_array4_dp=out_array4_dp, in_array4_dp=in_array4_dp, ref_out_array4_dp=ref_out_array4_dp, &
+        & out_array5_dp=out_array5_dp, in_array5_dp=in_array5_dp, ref_out_array5_dp=ref_out_array5_dp, &
+        & out_array4d_dp=out_array4d_dp, in_array4d_dp=in_array4d_dp, ref_out_array4d_dp=ref_out_array4d_dp, &
+        & out_array1_sp=out_array1_sp, in_array1_sp=in_array1_sp, ref_out_array1_sp=ref_out_array1_sp, &
+        & out_array2_sp=out_array2_sp, in_array2_sp=in_array2_sp, ref_out_array2_sp=ref_out_array2_sp, &
+        & out_array3_sp=out_array3_sp, in_array3_sp=in_array3_sp, ref_out_array3_sp=ref_out_array3_sp, &
+        ! & out_array4_sp=out_array4_sp, in_array4_sp=in_array4_sp, ref_out_array4_sp=ref_out_array4_sp, &
+        ! & out_array5_sp=out_array5_sp, in_array5_sp=in_array5_sp, ref_out_array5_sp=ref_out_array5_sp, &
+        & out_array4d_sp=out_array4d_sp, in_array4d_sp=in_array4d_sp, ref_out_array4d_sp=ref_out_array4d_sp, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+      CALL check_exchange_mixprec( &
+        & out_array1_dp=out_array1_dp, in_array1_dp=in_array1_dp, ref_out_array1_dp=ref_out_array1_dp, &
+        & out_array2_dp=out_array2_dp, in_array2_dp=in_array2_dp, ref_out_array2_dp=ref_out_array2_dp, &
+        & out_array3_dp=out_array3_dp, in_array3_dp=in_array3_dp, ref_out_array3_dp=ref_out_array3_dp, &
+        & out_array4_dp=out_array4_dp, in_array4_dp=in_array4_dp, ref_out_array4_dp=ref_out_array4_dp, &
+        & out_array5_dp=out_array5_dp, in_array5_dp=in_array5_dp, ref_out_array5_dp=ref_out_array5_dp, &
+        & out_array4d_dp=out_array4d_dp, in_array4d_dp=in_array4d_dp, ref_out_array4d_dp=ref_out_array4d_dp, &
+        & out_array1_sp=out_array1_sp, in_array1_sp=in_array1_sp, ref_out_array1_sp=ref_out_array1_sp, &
+        & out_array2_sp=out_array2_sp, in_array2_sp=in_array2_sp, ref_out_array2_sp=ref_out_array2_sp, &
+        ! & out_array3_sp=out_array3_sp, in_array3_sp=in_array3_sp, ref_out_array3_sp=ref_out_array3_sp, &
+        ! & out_array4_sp=out_array4_sp, in_array4_sp=in_array4_sp, ref_out_array4_sp=ref_out_array4_sp, &
+        ! & out_array5_sp=out_array5_sp, in_array5_sp=in_array5_sp, ref_out_array5_sp=ref_out_array5_sp, &
+        & out_array4d_sp=out_array4d_sp, in_array4d_sp=in_array4d_sp, ref_out_array4d_sp=ref_out_array4d_sp, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+      CALL check_exchange_mixprec( &
+        & out_array1_dp=out_array1_dp, in_array1_dp=in_array1_dp, ref_out_array1_dp=ref_out_array1_dp, &
+        & out_array2_dp=out_array2_dp, in_array2_dp=in_array2_dp, ref_out_array2_dp=ref_out_array2_dp, &
+        & out_array3_dp=out_array3_dp, in_array3_dp=in_array3_dp, ref_out_array3_dp=ref_out_array3_dp, &
+        & out_array4_dp=out_array4_dp, in_array4_dp=in_array4_dp, ref_out_array4_dp=ref_out_array4_dp, &
+        & out_array5_dp=out_array5_dp, in_array5_dp=in_array5_dp, ref_out_array5_dp=ref_out_array5_dp, &
+        & out_array4d_dp=out_array4d_dp, in_array4d_dp=in_array4d_dp, ref_out_array4d_dp=ref_out_array4d_dp, &
+        & out_array1_sp=out_array1_sp, in_array1_sp=in_array1_sp, ref_out_array1_sp=ref_out_array1_sp, &
+        ! & out_array2_sp=out_array2_sp, in_array2_sp=in_array2_sp, ref_out_array2_sp=ref_out_array2_sp, &
+        ! & out_array3_sp=out_array3_sp, in_array3_sp=in_array3_sp, ref_out_array3_sp=ref_out_array3_sp, &
+        ! & out_array4_sp=out_array4_sp, in_array4_sp=in_array4_sp, ref_out_array4_sp=ref_out_array4_sp, &
+        ! & out_array5_sp=out_array5_sp, in_array5_sp=in_array5_sp, ref_out_array5_sp=ref_out_array5_sp, &
+        & out_array4d_sp=out_array4d_sp, in_array4d_sp=in_array4d_sp, ref_out_array4d_sp=ref_out_array4d_sp, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+      CALL check_exchange_mixprec( &
+        & out_array1_dp=out_array1_dp, in_array1_dp=in_array1_dp, ref_out_array1_dp=ref_out_array1_dp, &
+        & out_array2_dp=out_array2_dp, in_array2_dp=in_array2_dp, ref_out_array2_dp=ref_out_array2_dp, &
+        & out_array3_dp=out_array3_dp, in_array3_dp=in_array3_dp, ref_out_array3_dp=ref_out_array3_dp, &
+        & out_array4_dp=out_array4_dp, in_array4_dp=in_array4_dp, ref_out_array4_dp=ref_out_array4_dp, &
+        & out_array5_dp=out_array5_dp, in_array5_dp=in_array5_dp, ref_out_array5_dp=ref_out_array5_dp, &
+        & out_array4d_dp=out_array4d_dp, in_array4d_dp=in_array4d_dp, ref_out_array4d_dp=ref_out_array4d_dp, &
+        ! & out_array1_sp=out_array1_sp, in_array1_sp=in_array1_sp, ref_out_array1_sp=ref_out_array1_sp, &
+        ! & out_array2_sp=out_array2_sp, in_array2_sp=in_array2_sp, ref_out_array2_sp=ref_out_array2_sp, &
+        ! & out_array3_sp=out_array3_sp, in_array3_sp=in_array3_sp, ref_out_array3_sp=ref_out_array3_sp, &
+        ! & out_array4_sp=out_array4_sp, in_array4_sp=in_array4_sp, ref_out_array4_sp=ref_out_array4_sp, &
+        ! & out_array5_sp=out_array5_sp, in_array5_sp=in_array5_sp, ref_out_array5_sp=ref_out_array5_sp, &
+        & out_array4d_sp=out_array4d_sp, in_array4d_sp=in_array4d_sp, ref_out_array4d_sp=ref_out_array4d_sp, &
+        & nshift=nshift, comm_pattern=comm_pattern)
+
+    END SUBROUTINE check_exchange_mixprec_sp
+
+    SUBROUTINE check_exchange_mixprec( &
+      & out_array1_dp, in_array1_dp, ref_out_array1_dp, &
+      & out_array2_dp, in_array2_dp, ref_out_array2_dp, &
+      & out_array3_dp, in_array3_dp, ref_out_array3_dp, &
+      & out_array4_dp, in_array4_dp, ref_out_array4_dp, &
+      & out_array5_dp, in_array5_dp, ref_out_array5_dp, &
+      & out_array4d_dp, in_array4d_dp, ref_out_array4d_dp, &
+      & out_array1_sp, in_array1_sp, ref_out_array1_sp, &
+      & out_array2_sp, in_array2_sp, ref_out_array2_sp, &
+      & out_array3_sp, in_array3_sp, ref_out_array3_sp, &
+      & out_array4_sp, in_array4_sp, ref_out_array4_sp, &
+      & out_array5_sp, in_array5_sp, ref_out_array5_sp, &
+      & out_array4d_sp, in_array4d_sp, ref_out_array4d_sp, &
+      & nshift, comm_pattern)
+
+      REAL(dp), INTENT(INOUT), OPTIONAL ::  &
+        out_array1_dp(:,:,:), out_array2_dp(:,:,:), out_array3_dp(:,:,:), &
+        out_array4_dp(:,:,:), out_array5_dp(:,:,:)
+      REAL(dp), INTENT(IN), OPTIONAL ::  &
+        in_array1_dp(:,:,:), in_array2_dp(:,:,:), in_array3_dp(:,:,:), &
+        in_array4_dp(:,:,:), in_array5_dp(:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL ::  &
+        ref_out_array1_dp(:,:,:), ref_out_array2_dp(:,:,:), &
+        ref_out_array3_dp(:,:,:), ref_out_array4_dp(:,:,:), &
+        ref_out_array5_dp(:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL :: out_array4d_dp(:,:,:,:)
+      REAL(dp), INTENT(IN   ), OPTIONAL :: in_array4d_dp(:,:,:,:)
+      REAL(dp), INTENT(INOUT), OPTIONAL :: ref_out_array4d_dp(:,:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL ::  &
+        out_array1_sp(:,:,:), out_array2_sp(:,:,:), out_array3_sp(:,:,:), &
+        out_array4_sp(:,:,:), out_array5_sp(:,:,:)
+      REAL(sp), INTENT(IN), OPTIONAL ::  &
+        in_array1_sp(:,:,:), in_array2_sp(:,:,:), in_array3_sp(:,:,:), &
+        in_array4_sp(:,:,:), in_array5_sp(:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL ::  &
+        ref_out_array1_sp(:,:,:), ref_out_array2_sp(:,:,:), &
+        ref_out_array3_sp(:,:,:), ref_out_array4_sp(:,:,:), &
+        ref_out_array5_sp(:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL :: out_array4d_sp(:,:,:,:)
+      REAL(sp), INTENT(IN   ), OPTIONAL :: in_array4d_sp(:,:,:,:)
+      REAL(sp), INTENT(INOUT), OPTIONAL :: ref_out_array4d_sp(:,:,:,:)
+
+      INTEGER, OPTIONAL, INTENT(IN) :: nshift
+      CLASS(t_comm_pattern), POINTER, INTENT(INOUT) :: comm_pattern
+
+
+      REAL(dp), ALLOCATABLE ::  &
+        tmp_out_array1_dp(:,:,:), tmp_out_array2_dp(:,:,:), tmp_out_array3_dp(:,:,:), &
+        tmp_out_array4_dp(:,:,:), tmp_out_array5_dp(:,:,:), tmp_out_array4d_dp(:,:,:,:)
+      REAL(sp), ALLOCATABLE ::  &
+        tmp_out_array1_sp(:,:,:), tmp_out_array2_sp(:,:,:), tmp_out_array3_sp(:,:,:), &
+        tmp_out_array4_sp(:,:,:), tmp_out_array5_sp(:,:,:), tmp_out_array4d_sp(:,:,:,:)
+
+      INTEGER :: nfields_dp, ndim2tot_dp, nfields_sp, ndim2tot_sp, ndim2, kshift
+
+      kshift = 0
+      IF (PRESENT(nshift)) kshift = nshift
+
+      nfields_dp = 0
+      ndim2tot_dp = 0
+      IF (PRESENT(out_array4d_dp)) THEN
+        ALLOCATE(tmp_out_array4d_dp(SIZE(out_array4d_dp,1),SIZE(out_array4d_dp,2),&
+                                    SIZE(out_array4d_dp,3),SIZE(out_array4d_dp,4)))
+        tmp_out_array4d_dp = out_array4d_dp
+        nfields_dp = nfields_dp + SIZE(out_array4d_dp, 4)
+        ndim2 = SIZE(out_array4d_dp, 2)
+        ndim2tot_dp = ndim2tot_dp + &
+          &        MERGE(1, ndim2 - kshift, ndim2 == 1) * SIZE(out_array4d_dp, 4)
+      END IF
+      IF (PRESENT(out_array1_dp)) THEN
+        ALLOCATE(tmp_out_array1_dp(SIZE(out_array1_dp,1),SIZE(out_array1_dp,2),&
+                                   SIZE(out_array1_dp,3)))
+        tmp_out_array1_dp = out_array1_dp
+        nfields_dp = nfields_dp + 1
+        ndim2 = SIZE(out_array1_dp, 2)
+        ndim2tot_dp = ndim2tot_dp + MERGE(1, ndim2 - kshift, ndim2 == 1)
+        IF (PRESENT(out_array2_dp)) THEN
+          ALLOCATE(tmp_out_array2_dp(SIZE(out_array2_dp,1),SIZE(out_array2_dp,2),&
+                                     SIZE(out_array2_dp,3)))
+          tmp_out_array2_dp = out_array2_dp
+          nfields_dp = nfields_dp + 1
+          ndim2 = SIZE(out_array2_dp, 2)
+          ndim2tot_dp = ndim2tot_dp + MERGE(1, ndim2 - kshift, ndim2 == 1)
+          IF (PRESENT(out_array3_dp)) THEN
+            ALLOCATE(tmp_out_array3_dp(SIZE(out_array3_dp,1),SIZE(out_array3_dp,2),&
+                                       SIZE(out_array3_dp,3)))
+            tmp_out_array3_dp = out_array3_dp
+            nfields_dp = nfields_dp + 1
+            ndim2 = SIZE(out_array3_dp, 2)
+            ndim2tot_dp = ndim2tot_dp + MERGE(1, ndim2 - kshift, ndim2 == 1)
+            IF (PRESENT(out_array4_dp)) THEN
+              ALLOCATE(tmp_out_array4_dp(SIZE(out_array4_dp,1),SIZE(out_array4_dp,2),&
+                                         SIZE(out_array4_dp,3)))
+              tmp_out_array4_dp = out_array4_dp
+              nfields_dp = nfields_dp + 1
+              ndim2 = SIZE(out_array4_dp, 2)
+              ndim2tot_dp = ndim2tot_dp + MERGE(1, ndim2 - kshift, ndim2 == 1)
+              IF (PRESENT(out_array5_dp)) THEN
+                ALLOCATE(tmp_out_array5_dp(SIZE(out_array5_dp,1),SIZE(out_array5_dp,2),&
+                                           SIZE(out_array5_dp,3)))
+                tmp_out_array5_dp = out_array5_dp
+                nfields_dp = nfields_dp + 1
+                ndim2 = SIZE(out_array5_dp, 2)
+                ndim2tot_dp = ndim2tot_dp + MERGE(1, ndim2 - kshift, ndim2 == 1)
+              END IF
+            END IF
+          END IF
+        END IF
+      END IF
+      nfields_sp = 0
+      ndim2tot_sp = 0
+      IF (PRESENT(out_array4d_sp)) THEN
+        ALLOCATE(tmp_out_array4d_sp(SIZE(out_array4d_sp,1),SIZE(out_array4d_sp,2),&
+                                    SIZE(out_array4d_sp,3),SIZE(out_array4d_sp,4)))
+        tmp_out_array4d_sp = out_array4d_sp
+        nfields_sp = nfields_sp + SIZE(out_array4d_sp, 4)
+        ndim2 = SIZE(out_array4d_sp, 2)
+        ndim2tot_sp = ndim2tot_sp + &
+          &        MERGE(1, ndim2 - kshift, ndim2 == 1) * SIZE(out_array4d_sp, 4)
+      END IF
+      IF (PRESENT(out_array1_sp)) THEN
+        ALLOCATE(tmp_out_array1_sp(SIZE(out_array1_sp,1),SIZE(out_array1_sp,2),&
+                                   SIZE(out_array1_sp,3)))
+        tmp_out_array1_sp = out_array1_sp
+        nfields_sp = nfields_sp + 1
+        ndim2 = SIZE(out_array1_sp, 2)
+        ndim2tot_sp = ndim2tot_sp + MERGE(1, ndim2 - kshift, ndim2 == 1)
+        IF (PRESENT(out_array2_sp)) THEN
+          ALLOCATE(tmp_out_array2_sp(SIZE(out_array2_sp,1),SIZE(out_array2_sp,2),&
+                                     SIZE(out_array2_sp,3)))
+          tmp_out_array2_sp = out_array2_sp
+          nfields_sp = nfields_sp + 1
+          ndim2 = SIZE(out_array2_sp, 2)
+          ndim2tot_sp = ndim2tot_sp + MERGE(1, ndim2 - kshift, ndim2 == 1)
+          IF (PRESENT(out_array3_sp)) THEN
+            ALLOCATE(tmp_out_array3_sp(SIZE(out_array3_sp,1),SIZE(out_array3_sp,2),&
+                                       SIZE(out_array3_sp,3)))
+            tmp_out_array3_sp = out_array3_sp
+            nfields_sp = nfields_sp + 1
+            ndim2 = SIZE(out_array3_sp, 2)
+            ndim2tot_sp = ndim2tot_sp + MERGE(1, ndim2 - kshift, ndim2 == 1)
+            IF (PRESENT(out_array4_sp)) THEN
+              ALLOCATE(tmp_out_array4_sp(SIZE(out_array4_sp,1),SIZE(out_array4_sp,2),&
+                                         SIZE(out_array4_sp,3)))
+              tmp_out_array4_sp = out_array4_sp
+              nfields_sp = nfields_sp + 1
+              ndim2 = SIZE(out_array4_sp, 2)
+              ndim2tot_sp = ndim2tot_sp + MERGE(1, ndim2 - kshift, ndim2 == 1)
+              IF (PRESENT(out_array5_sp)) THEN
+                ALLOCATE(tmp_out_array5_sp(SIZE(out_array5_sp,1),SIZE(out_array5_sp,2),&
+                                           SIZE(out_array5_sp,3)))
+                tmp_out_array5_sp = out_array5_sp
+                nfields_sp = nfields_sp + 1
+                ndim2 = SIZE(out_array5_sp, 2)
+                ndim2tot_sp = ndim2tot_sp + MERGE(1, ndim2 - kshift, ndim2 == 1)
+              END IF
+            END IF
+          END IF
+        END IF
+      END IF
+
+      IF ((nfields_dp > 0) .OR. (nfields_sp > 0)) THEN
+        CALL exchange_data_mult_mixprec( &
+          p_pat=comm_pattern, nfields_dp=nfields_dp, ndim2tot_dp=ndim2tot_dp, &
+          recv1_dp=out_array1_dp, send1_dp=in_array1_dp, &
+          recv2_dp=out_array2_dp, send2_dp=in_array2_dp, &
+          recv3_dp=out_array3_dp, send3_dp=in_array3_dp, &
+          recv4_dp=out_array4_dp, send4_dp=in_array4_dp, &
+          recv5_dp=out_array5_dp, send5_dp=in_array5_dp, &
+          recv4d_dp=out_array4d_dp, send4d_dp=in_array4d_dp, &
+          nfields_sp=nfields_sp, ndim2tot_sp=ndim2tot_sp, &
+          recv1_sp=out_array1_sp, send1_sp=in_array1_sp, &
+          recv2_sp=out_array2_sp, send2_sp=in_array2_sp, &
+          recv3_sp=out_array3_sp, send3_sp=in_array3_sp, &
+          recv4_sp=out_array4_sp, send4_sp=in_array4_sp, &
+          recv5_sp=out_array5_sp, send5_sp=in_array5_sp, &
+          recv4d_sp=out_array4d_sp, send4d_sp=in_array4d_sp, &
+          nshift=kshift)
+      END IF
+
+      IF (PRESENT(out_array1_dp)) THEN
+        IF (ANY(out_array1_dp /= ref_out_array1_dp)) THEN
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mixprec dp_3d_1"
+          CALL finish(method_name, message_text)
+        END IF
+        out_array1_dp = tmp_out_array1_dp
+      END IF
+      IF (PRESENT(out_array2_dp)) THEN
+        IF (ANY(out_array2_dp /= ref_out_array2_dp)) THEN
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mixprec dp_3d_2"
+          CALL finish(method_name, message_text)
+        END IF
+        out_array2_dp = tmp_out_array2_dp
+      END IF
+      IF (PRESENT(out_array3_dp)) THEN
+        IF (ANY(out_array3_dp /= ref_out_array3_dp)) THEN
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mixprec dp_3d_3"
+          CALL finish(method_name, message_text)
+        END IF
+        out_array3_dp = tmp_out_array3_dp
+      END IF
+      IF (PRESENT(out_array4_dp)) THEN
+        IF (ANY(out_array4_dp /= ref_out_array4_dp)) THEN
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mixprec dp_3d_4"
+          CALL finish(method_name, message_text)
+        END IF
+        out_array4_dp = tmp_out_array4_dp
+      END IF
+      IF (PRESENT(out_array5_dp)) THEN
+        IF (ANY(out_array5_dp /= ref_out_array5_dp)) THEN
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mixprec dp_3d_5"
+          CALL finish(method_name, message_text)
+        END IF
+        out_array5_dp = tmp_out_array5_dp
+      END IF
+      IF (PRESENT(out_array4d_dp)) THEN
+        IF (ANY(out_array4d_dp /= ref_out_array4d_dp)) THEN
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mixprec dp_4d"
+          CALL finish(method_name, message_text)
+        END IF
+        out_array4d_dp = tmp_out_array4d_dp
+      END IF
+      IF (PRESENT(out_array1_sp)) THEN
+        IF (ANY(out_array1_sp /= ref_out_array1_sp)) THEN
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mixprec sp_3d_1"
+          CALL finish(method_name, message_text)
+        END IF
+        out_array1_sp = tmp_out_array1_sp
+      END IF
+      IF (PRESENT(out_array2_sp)) THEN
+        IF (ANY(out_array2_sp /= ref_out_array2_sp)) THEN
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mixprec sp_3d_2"
+          CALL finish(method_name, message_text)
+        END IF
+        out_array2_sp = tmp_out_array2_sp
+      END IF
+      IF (PRESENT(out_array3_sp)) THEN
+        IF (ANY(out_array3_sp /= ref_out_array3_sp)) THEN
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mixprec sp_3d_3"
+          CALL finish(method_name, message_text)
+        END IF
+        out_array3_sp = tmp_out_array3_sp
+      END IF
+      IF (PRESENT(out_array4_sp)) THEN
+        IF (ANY(out_array4_sp /= ref_out_array4_sp)) THEN
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mixprec sp_3d_4"
+          CALL finish(method_name, message_text)
+        END IF
+        out_array4_sp = tmp_out_array4_sp
+      END IF
+      IF (PRESENT(out_array5_sp)) THEN
+        IF (ANY(out_array5_sp /= ref_out_array5_sp)) THEN
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mixprec sp_3d_5"
+          CALL finish(method_name, message_text)
+        END IF
+        out_array5_sp = tmp_out_array5_sp
+      END IF
+      IF (PRESENT(out_array4d_sp)) THEN
+        IF (ANY(out_array4d_sp /= ref_out_array4d_sp)) THEN
+          WRITE(message_text,'(a,i0)') "Wrong exchange result mixprec sp_4d"
+          CALL finish(method_name, message_text)
+        END IF
+        out_array4d_sp = tmp_out_array4d_sp
+      END IF
+    END SUBROUTINE check_exchange_mixprec
 
   END SUBROUTINE exchange_communication_testbed
 
