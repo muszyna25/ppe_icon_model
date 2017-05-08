@@ -20,7 +20,7 @@ MODULE mo_surface
   USE mo_exception,         ONLY: finish
 #endif
   USE mo_physical_constants,ONLY: grav, Tf, alf, albedoW, zemiss_def, stbo, tmelt, rhos!!$, rhoi
-  USE mo_echam_phy_config,  ONLY: echam_phy_config
+  USE mo_mpi_phy_config,    ONLY: mpi_phy_config
   USE mo_echam_phy_memory,  ONLY: cdimissval
   USE mo_echam_vdiff_params,ONLY: tpfac2
   USE mo_vdiff_config,      ONLY: vdiff_config
@@ -291,14 +291,14 @@ CONTAINS
     ! - perform bottom level elimination;
     ! - convert matrix entries to Richtmyer-Morton coefficients
     IF (idx_lnd <= ksfc_type) THEN
-      CALL matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
+      CALL matrix_to_richtmyer_coeff( jg, kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
         & aa(:,:,:,imh:imqv), bb(:,:,ih:iqv),      &! in
         & aa_btm, bb_btm,                          &! inout
         & zen_h, zfn_h, zen_qv, zfn_qv,            &! out
         & pcair = pcair(:),                        &! in
         & pcsat = pcsat(:))                         ! in
     ELSE
-      CALL matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
+      CALL matrix_to_richtmyer_coeff( jg, kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
         & aa(:,:,:,imh:imqv), bb(:,:,ih:iqv),      &! in
         & aa_btm, bb_btm,                          &! inout
         & zen_h, zfn_h, zen_qv, zfn_qv             )! out
@@ -394,7 +394,7 @@ CONTAINS
       rsns(1:kproma)      = rsds(1:kproma) - rsus(1:kproma)
       rlns(1:kproma)      = rlds(1:kproma) - rlus(1:kproma)
 
-      IF (echam_phy_config%lmlo) THEN
+      IF (mpi_phy_config(jg)%lmlo) THEN
         CALL ml_ocean ( kbdim, 1, kproma, pdtime, &
           & pahflw=plhflx_tile(:,idx_wtr),        & ! dependency on kproma has to be checked
           & pahfsw=pshflx_tile(:,idx_wtr),        & ! dependency on kproma has to be checked
@@ -416,7 +416,7 @@ CONTAINS
     ! Sea-ice model (thermodynamic)
     !===========================================================================
 
-    IF (idx_ice <= ksfc_type .AND. echam_phy_config%lice) THEN
+    IF (idx_ice <= ksfc_type .AND. mpi_phy_config(jg)%lice) THEN
 
 #ifndef __NO_ICON_OCEAN__
       ! LL This is a temporary solution,
@@ -476,7 +476,7 @@ CONTAINS
       !      ENDDO
       !      hi(:,:) = max( hi(:,:), 0._wp )
       ! Let it snow in AMIP
-      IF ( echam_phy_config%lamip ) THEN
+      IF ( mpi_phy_config(jg)%lamip ) THEN
         DO k=1,kice
           ! Snowfall on ice - no ice => no snow
           WHERE ( hi(1:kproma,k) > 0._wp )

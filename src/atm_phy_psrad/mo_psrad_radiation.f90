@@ -67,7 +67,7 @@ MODULE mo_psrad_radiation
   USE mo_ext_data_state,      ONLY: ext_data, nlev_o3
   USE mo_bc_ozone,            ONLY: o3_plev, nplev_o3, plev_full_o3, plev_half_o3
   USE mo_o3_util,             ONLY: o3_pl2ml, o3_timeint
-  USE mo_echam_phy_config,    ONLY: echam_phy_config
+  USE mo_mpi_phy_config,      ONLY: mpi_phy_config, mpi_phy_tc
   USE mo_psrad_orbit,         ONLY: orbit_kepler, orbit_vsop87, &
                                   & get_orbit_times
   USE mo_psrad_orbit_nml,     ONLY: read_psrad_orbit_namelist
@@ -116,7 +116,7 @@ MODULE mo_psrad_radiation
   USE mo_psrad_interface,     ONLY : setup_psrad, psrad_interface
   USE mo_psrad_orbit_config,  ONLY : psrad_orbit_config
 
-  USE mtime, ONLY: datetime
+  USE mtime, ONLY: datetime, getTotalSecondsTimeDelta
   
   IMPLICIT NONE
   
@@ -138,7 +138,7 @@ MODULE mo_psrad_radiation
     TYPE(t_patch),           INTENT(in) :: p_patch
     TYPE(datetime), POINTER, INTENT(in) :: datetime_radiation, & !< date and time of radiative transfer calculation
          &                                 current_datetime       !< current time step
-    LOGICAL,                 INTENT(in) :: ltrig_rad !< .true. if radiative transfer calculation has to be done at current time step
+    LOGICAL,                 INTENT(in) :: ltrig_rad !< .true. if SW radiative transfer calculation has to be done at current time step
     REAL(wp),                INTENT(out) :: amu0_x(:,:), rdayl_x(:,:), &
          &                                  amu0m_x(:,:), rdaylm_x(:,:)
 
@@ -216,9 +216,9 @@ MODULE mo_psrad_radiation
       CASE (0)
          dt_ext = 0.0_wp
       CASE (1:4)
-      ! Extend the sunlit area for the radiative transfer calculations over an extended area
-      ! including a rim of width dt_rad/2/86400*2pi (in radian) around the sunlit hemisphere.
-        dt_ext = echam_phy_config%dt_rad
+         ! Extend the sunlit area for the radiative transfer calculations over an extended area
+         ! including a rim of width dt_rad/2/86400*2pi (in radian) around the sunlit hemisphere.
+         dt_ext = getTotalSecondsTimeDelta(mpi_phy_tc(p_patch%id)%dt_rad,current_datetime)
       END SELECT
       !
       CALL solar_parameters(decl_sun,        time_of_day_rt,                      &
@@ -302,7 +302,7 @@ MODULE mo_psrad_radiation
           CALL message('',message_text)
         END DO
       END IF
-    END IF ! l_trigrad
+    END IF ! ltrig_rad
 
   END SUBROUTINE pre_psrad_radiation
 
@@ -340,15 +340,13 @@ MODULE mo_psrad_radiation
     !
     ! 3.0 If radiation is active check NAMELIST variable conformance
     ! --------------------------------
-    IF (echam_phy_config%lrad) THEN
+    IF (ANY(mpi_phy_config(:)%dt_rad/="")) THEN
 
       CALL message('','')
       CALL message('','PSrad setup')
       CALL message('','===========')
       CALL message('','- New (V4) LRTM Model')
       CALL message('','- AER RRTM Shortwave Model')
-      CALL message('','')
-      CALL print_value('radiation time step in [s]',echam_phy_config%dt_rad)
       CALL message('','')
       !
       CALL setup_psrad

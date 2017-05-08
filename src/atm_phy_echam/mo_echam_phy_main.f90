@@ -30,17 +30,19 @@
 MODULE mo_echam_phy_main
 
   USE mo_kind,                ONLY: wp
+  USE mo_exception,           ONLY: message
   USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv, Tf, tmelt
   USE mo_run_config,          ONLY: ntracer, nlev, nlevp1,    &
     &                               iqv, iqc, iqi, iqt
-  USE mo_echam_phy_config,    ONLY: echam_phy_config
+  USE mo_mpi_phy_config,      ONLY: mpi_phy_tc, dt_zero
   USE mo_echam_cloud_config,  ONLY: echam_cloud_config
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
     &                               t_echam_phy_tend,  prm_tend,      &
     &                               cdimissval
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,  &
     &                               timer_cover
-  USE mtime,                  ONLY: datetime
+  USE mtime,                  ONLY: datetime, isCurrentEventActive, &
+    &                               OPERATOR(<=), OPERATOR(>)
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_cover,               ONLY: cover
 
@@ -74,38 +76,34 @@ CONTAINS
 
   !>
   !!
-  SUBROUTINE echam_phy_main( patch,                         &
-    &                        rl_start, rl_end,              &
-    &                        this_datetime,pdtime,          &
-    &                        ltrig_rad                      )
+  SUBROUTINE echam_phy_main( patch,            &
+    &                        rl_start, rl_end, &
+    &                        datetime_old,     &
+    &                        pdtime            )
 
-    TYPE(t_patch)   ,INTENT(in), TARGET :: patch           !< grid/patch info
-    INTEGER         ,INTENT(IN)  :: rl_start, rl_end
+    TYPE(t_patch)  ,TARGET ,INTENT(in) :: patch
+    INTEGER                ,INTENT(in) :: rl_start, rl_end
 
-    TYPE(datetime),  POINTER     :: this_datetime    !< date and time 
-    REAL(wp)        ,INTENT(IN)  :: pdtime         !< time step
-
-    LOGICAL         ,INTENT(IN)  :: ltrig_rad      !< perform radiative transfer computation
+    TYPE(datetime)         ,POINTER    :: datetime_old    !< old date and time (at start of this step)
+    REAL(wp)               ,INTENT(in) :: pdtime          !< time step
 
     ! Local variables
     TYPE(t_echam_phy_field),   POINTER :: field
     TYPE(t_echam_phy_tend) ,   POINTER :: tend
 
-    REAL(wp) :: zconv  (nproma,nlev,patch%nblks_c)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
-    REAL(wp) :: zcpair (nproma,nlev,patch%nblks_c)       !< specific heat of moist air at const. pressure [J/K/kg]
-    REAL(wp) :: zcvair (nproma,nlev,patch%nblks_c)       !< specific heat of moist air at const. volume   [J/K/kg]
-
-    REAL(wp) :: zq_phy (nproma,nlev,patch%nblks_c)       !< heating by whole ECHAM physics    [W/m2]
-    REAL(wp) :: zq_rlw (nproma,nlev,patch%nblks_c)       !< heating by long  wave radiation   [W/m2]
-    REAL(wp) :: zq_rlw_impl (nproma)       !< additional heating by LW rad. due to impl. coupling in surface energy balance [W/m2]
+    REAL(wp) :: zq_rlw_impl (nproma)                     !< additional heating by LW rad. due to implicit coupling
+                                                         !  in surface energy balance [W/m2]
 
     INTEGER  :: ictop (nproma,patch%nblks_c)             !< from massflux
 
-    INTEGER  :: jg             !< grid level/domain index
+    INTEGER  :: jg                                       !< grid level/domain index
     INTEGER  :: i_nchdom
     INTEGER  :: i_startblk,i_endblk
-    INTEGER  :: jb             !< block index
-    INTEGER  :: jcs, jce       !< start/end column index within this block
+    INTEGER  :: jb                                       !< block index
+    INTEGER  :: jcs, jce                                 !< start/end column index within this block
+
+    LOGICAL  :: is_in_sd_ed_interval                     !< time is in process interval [sd,ed[
+    LOGICAL  :: is_active                                !< process is active
 
     jg         = patch%id
     i_nchdom   = MAX(1,patch%n_childdom)
@@ -130,11 +128,11 @@ CONTAINS
       tend%   ua_phy (jcs:jce,:,jb)   = tend%   ua (jcs:jce,:,jb)
       tend%   va_phy (jcs:jce,:,jb)   = tend%   va (jcs:jce,:,jb)
       tend% qtrc_phy (jcs:jce,:,jb,:) = tend% qtrc (jcs:jce,:,jb,:)
-    ENDDO
+    END DO
 !$OMP END PARALLEL DO 
 
     ! initialize physics accumulated heating
-    zq_phy(:,:,:) = 0._wp
+    field% q_phy(:,:,:) = 0._wp
 
     !------------------------------------------------------------
     ! 3. COMPUTE SOME FIELDS NEEDED BY THE PHYSICAL ROUTINES.
@@ -145,8 +143,8 @@ CONTAINS
 !$OMP PARALLEL DO PRIVATE(jcs,jce)
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-      CALL calculate_zcpair_zconv( jb,jcs,jce, nproma, field, zcpair(:,:,jb), zcvair(:,:,jb), zconv(:,:,jb))
-    ENDDO
+      CALL calculate_cpair_cvair_qconv(jb,jcs,jce, field)
+    END DO
 !$OMP END PARALLEL DO 
 
     !-------------------------------------------------------------------
@@ -156,18 +154,28 @@ CONTAINS
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
       CALL surface_fractions( jb,jcs,jce, nproma, field)
-    ENDDO
+    END DO
 !$OMP END PARALLEL DO 
  
     !-------------------------------------------------------------------
-    ! 3.13 DIAGNOSE CURRENT CLOUD COVER
+    ! Cloud cover (diagnostic)
     !------------------------------------------------------------------- 
+    IF ( mpi_phy_tc(jg)%dt_cld > dt_zero ) THEN
+       !
+       IF ( (mpi_phy_tc(jg)%sd_cld <= datetime_old) .AND. &
+            & (mpi_phy_tc(jg)%ed_cld >  datetime_old) .AND. &
+            & (mpi_phy_tc(jg)%dt_cld >  dt_zero     )       ) THEN
+          !
 !$OMP PARALLEL DO PRIVATE(jcs,jce)
-    DO jb = i_startblk,i_endblk
-      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-      CALL cloud_cover( jb,jcs,jce, nproma, field)
-    ENDDO
+          DO jb = i_startblk,i_endblk
+             CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+             CALL cloud_cover(jb,jcs,jce, nproma, field)
+          END DO
 !$OMP END PARALLEL DO 
+          !
+       END IF
+       !
+    END IF
 
     !---------------------------------------------------------------------
     ! 3.9 DETERMINE TROPOPAUSE HEIGHT AND MASS BUDGETS
@@ -192,45 +200,63 @@ CONTAINS
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
       CALL calculate_droplet_number( jb,jcs,jce, nproma, field)
-    ENDDO
+    END DO
 !$OMP END PARALLEL DO 
 
 
     !-------------------------------------------------------------------
-    ! 4. RADIATION PARAMETERISATION
+    ! Radiation (one interface for LW+SW)
     !-------------------------------------------------------------------
-    IF (echam_phy_config%lrad .AND. ltrig_rad) THEN
+    !
+    IF ( (mpi_phy_tc(jg)%dt_rad > dt_zero) ) THEN
+       !
+       is_in_sd_ed_interval =          (mpi_phy_tc(jg)%sd_rad <= datetime_old) .AND. &
+            &                          (mpi_phy_tc(jg)%ed_rad >  datetime_old)
+       is_active = isCurrentEventActive(mpi_phy_tc(jg)%ev_rad,   datetime_old)
+       !
+       CALL message_forcing_action('LW and SW radiation (rad)',  &
+            &                      is_in_sd_ed_interval,is_active)
+       !
+       ! radiative fluxes
+       CALL interface_echam_radiation(is_in_sd_ed_interval,     &
+            &                         is_active,                &
+            &                         patch,                    &
+            &                         field,                    &
+            &                         datetime_old              )
+       !
+       ! radiative heating
+       CALL interface_echam_radheating(is_in_sd_ed_interval,    &
+            &                          patch, rl_start, rl_end, &
+            &                          field, tend              )
+       !
+    END IF
 
-      ! 4.1 RADIATIVE TRANSFER
-      !----------------------- 
-      ! store ts_rad of this radiatiative transfer timestep in ts_rad_rt,
-      ! so that it can be reused in radheat in the other timesteps
-      field%ts_rad_rt(:,:) = field%ts_rad(:,:)
-
-      CALL interface_echam_radiation( patch, field, this_datetime)
-
-    END IF 
 
     !-------------------------------------------------------------------
-    ! 4.2 RADIATIVE HEATING
-    !----------------------
-    IF (echam_phy_config%lrad) THEN
-      CALL  interface_echam_radheating(patch, rl_start, rl_end, field, tend, zconv, zq_rlw, zq_phy)
-    ENDIF
-
-
+    ! Vertical diffusion, boundary layer and surface
     !-------------------------------------------------------------------
-    ! 5. BOUNDARY LAYER AND SURFACE PROCESSES
-    !-------------------------------------------------------------------
-    ! Note: In ECHAM this part is located between "CALL radiation" and
-    !       "CALL radheat".
-    IF (echam_phy_config%lvdiff) THEN
-      CALL interface_echam_vdiff_surface(patch, rl_start, rl_end, field, tend, zconv, zq_phy, pdtime)
-    ENDIF
+    !
+    IF ( mpi_phy_tc(jg)%dt_vdf >  dt_zero ) THEN
+       !
+       is_in_sd_ed_interval =          (mpi_phy_tc(jg)%sd_vdf <= datetime_old) .AND. &
+            &                          (mpi_phy_tc(jg)%ed_vdf >  datetime_old)
+       is_active = isCurrentEventActive(mpi_phy_tc(jg)%ev_vdf,   datetime_old)
+       !
+       CALL message_forcing_action('vertical diffusion (vdf)',   &
+            &                      is_in_sd_ed_interval,is_active)
+       !
+       CALL interface_echam_vdiff_surface(is_in_sd_ed_interval,     &
+            &                             is_active,                &
+            &                             patch,  rl_start, rl_end, &
+            &                             field,  tend,             &
+            &                             pdtime                    )
+       !
+    END IF
+    !
     !-----------------------
 
     !-----------------------
-    IF (echam_phy_config%lrad) THEN
+    IF ( mpi_phy_tc(jg)%dt_rad > dt_zero ) THEN
 !$OMP PARALLEL DO PRIVATE(jcs,jce, zq_rlw_impl)
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
@@ -238,49 +264,107 @@ CONTAINS
         zq_rlw_impl(jcs:jce) =                                                  &
           &   ( (field%rld_rt(jcs:jce,nlev,jb)-field%rlu_rt(jcs:jce,nlev,jb))   & ! (( rlns from "radiation"
           &    -(field%rlds  (jcs:jce,jb)     -field%rlus  (jcs:jce,jb)     ))  & !   -rlns from "radheating" and "update_surface")
-          &  -zq_rlw(jcs:jce,nlev,jb)                                                ! old heating from radheat
+          &  -field%q_rlw(jcs:jce,nlev,jb)                                                ! old heating from radheat
 
         ! Heating accumulated
-        zq_phy(jcs:jce,nlev,jb) = zq_phy(jcs:jce,nlev,jb) + zq_rlw_impl(jcs:jce)
+        field% q_phy(jcs:jce,nlev,jb) = field% q_phy(jcs:jce,nlev,jb) + zq_rlw_impl(jcs:jce)
 
         ! Tendency
-        tend%ta_rlw_impl(jcs:jce,jb) = zq_rlw_impl(jcs:jce) * zconv(jcs:jce,nlev,jb)
+        tend%ta_rlw_impl(jcs:jce,jb) = zq_rlw_impl(jcs:jce) * field% qconv(jcs:jce,nlev,jb)
 
         ! Tendencies accumulated
         tend%ta(jcs:jce,nlev,jb) = tend%ta(jcs:jce,nlev,jb) + tend%ta_rlw_impl(jcs:jce,jb)
-      ENDDO
+      END DO
 !$OMP END PARALLEL DO 
 
     END IF
     !---------------------
 
-    !---------------------
-    IF (echam_phy_config%lcariolle) THEN
-      CALL  interface_echam_o3_cariolle(patch, rl_start, rl_end, field, tend, this_datetime) 
+    !-------------------------------------------------------------------
+    ! Linearized ozone chemistry of Cariolle
+    !-------------------------------------------------------------------
+    !
+    IF ( mpi_phy_tc(jg)%dt_car > dt_zero ) THEN
+       !
+       is_in_sd_ed_interval =          (mpi_phy_tc(jg)%sd_car <= datetime_old) .AND. &
+            &                          (mpi_phy_tc(jg)%ed_car >  datetime_old)
+       is_active = isCurrentEventActive(mpi_phy_tc(jg)%ev_car,   datetime_old)
+       !
+       CALL message_forcing_action('lin. Cariolle ozone chem. (car)', &
+            &                      is_in_sd_ed_interval,is_active     )
+       !
+       CALL  interface_echam_o3_cariolle(is_in_sd_ed_interval,    &
+            &                            is_active,               &
+            &                            patch, rl_start, rl_end, &
+            &                            field, tend,             &
+            &                            datetime_old             )
+       !
     END IF
-    !---------------------
 
     !-------------------------------------------------------------------
-    ! 6. ATMOSPHERIC GRAVITY WAVES
+    ! Atmospheric gravity wave drag
     !-------------------------------------------------------------------
-    IF (echam_phy_config%lgw_hines) THEN
-      CALL  interface_echam_gwhines(patch, rl_start, rl_end, field, tend, zconv, zq_phy)
-    ENDIF
+    !
+    IF ( mpi_phy_tc(jg)%dt_gwd > dt_zero ) THEN
+       !
+       is_in_sd_ed_interval =          (mpi_phy_tc(jg)%sd_gwd <= datetime_old) .AND. &
+            &                          (mpi_phy_tc(jg)%ed_gwd >  datetime_old)
+       is_active = isCurrentEventActive(mpi_phy_tc(jg)%ev_gwd,   datetime_old)
+       !
+       CALL message_forcing_action('Hines gravity wave drag (gwd)', &
+            &                      is_in_sd_ed_interval,is_active   )
+       !
+       CALL interface_echam_gwhines(is_in_sd_ed_interval,    &
+            &                       is_active,               &
+            &                       patch, rl_start, rl_end, &
+            &                       field, tend              )
+       !
+    END IF
 
-    IF (echam_phy_config%lssodrag) THEN
-      CALL  interface_echam_sso(patch, rl_start, rl_end, field, tend, zconv, zq_phy, pdtime)
-    ENDIF
+    !-------------------------------------------------------------------
+    ! Sub grid scale orographic effects: blocking and orog. gravit waves
+    !-------------------------------------------------------------------
+    !
+    IF ( mpi_phy_tc(jg)%dt_sso > dt_zero ) THEN
+       !
+       is_in_sd_ed_interval =          (mpi_phy_tc(jg)%sd_sso <= datetime_old) .AND. &
+            &                          (mpi_phy_tc(jg)%ed_sso >  datetime_old)
+       is_active = isCurrentEventActive(mpi_phy_tc(jg)%ev_sso,   datetime_old)
+       !
+       CALL message_forcing_action('sub grid scale orographic effects (oro)', &
+            &                      is_in_sd_ed_interval,is_active             )
+       !
+       CALL  interface_echam_sso(is_in_sd_ed_interval,    &
+            &                    is_active,               &
+            &                    patch, rl_start, rl_end, &
+            &                    field, tend,             &
+            &                    pdtime                   )
+       !
+    END IF
 
     !-------------------------------------------------------------------
-    ! 7. CONVECTION PARAMETERISATION
+    ! Cumulus convection
     !-------------------------------------------------------------------
-    IF (echam_phy_config%lconv) THEN
-      CALL interface_echam_convection(patch, rl_start, rl_end, field, tend, &
-        & ictop, zconv, zq_phy, ntrac, pdtime)
+    !
+    IF ( mpi_phy_tc(jg)%dt_cnv > dt_zero ) THEN
+       !
+       is_in_sd_ed_interval =          (mpi_phy_tc(jg)%sd_cnv <= datetime_old) .AND. &
+            &                          (mpi_phy_tc(jg)%ed_cnv >  datetime_old)
+       is_active = isCurrentEventActive(mpi_phy_tc(jg)%ev_cnv,   datetime_old)
+       !
+       CALL message_forcing_action('cumulus convection (cnv)',   &
+            &                      is_in_sd_ed_interval,is_active)
+       !
+       CALL interface_echam_convection(is_in_sd_ed_interval,    &
+            &                          is_active,               &
+            &                          patch, rl_start, rl_end, &
+            &                          field, tend,             &
+            &                          ntrac, ictop,            &
+            &                          pdtime                   )
+       !
     ELSE
-      field% rtype(:,:) = 0.0_wp ! this probably is needed as is io in the echam_condensation
-    ENDIF
-    !-------------------------------------------------------------------
+       field% rtype(:,:) = 0.0_wp ! this probably is needed as is io in the echam_condensation
+    END IF
 
     !-------------------------------------------------------------
     ! Update provisional physics state
@@ -288,33 +372,51 @@ CONTAINS
     field% qtrc(:,:,:,iqi) = field% qtrc(:,:,:,iqi) + tend% qtrc(:,:,:,iqi)*pdtime
 
     !-------------------------------------------------------------------
-    IF(echam_phy_config%lcond) THEN
-      CALL interface_echam_condensation(patch, rl_start, rl_end, jks, field, tend, &
-        & zcpair, zconv, zq_phy, ictop, pdtime)
-    ENDIF
+    ! Cloud processes
+    !-------------------------------------------------------------------
+    !
+    IF ( mpi_phy_tc(jg)%dt_cld > dt_zero ) THEN
+       !
+       is_in_sd_ed_interval =          (mpi_phy_tc(jg)%sd_cld <= datetime_old) .AND. &
+            &                          (mpi_phy_tc(jg)%ed_cld >  datetime_old)
+       is_active = isCurrentEventActive(mpi_phy_tc(jg)%ev_cld,   datetime_old)
+       !
+       CALL message_forcing_action('cloud microphysics (cld)',   &
+            &                      is_in_sd_ed_interval,is_active)
+       !
+       CALL interface_echam_condensation(is_in_sd_ed_interval,    &
+            &                            is_active,               &
+            &                            patch, rl_start, rl_end, &
+            &                            jks,                     &
+            &                            field, tend,             &
+            &                            ictop,                   &
+            &                            pdtime                   )
+       !
+    END IF
+
     !-------------------------------------------------------------------
 
 !$OMP PARALLEL DO PRIVATE(jcs,jce)
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
-    ! KF accumulate fields for diagnostics
-
-    !  total precipitation flux
+      !  total precipitation flux
       field% totprec (jcs:jce,jb)     =  field% rsfl (jcs:jce,jb) & ! rain large scale
-            &                            +field% ssfl (jcs:jce,jb) & ! snow large scale
-            &                            +field% rsfc (jcs:jce,jb) & ! rain convection
-            &                            +field% ssfc (jcs:jce,jb)   ! snow convection
+            &                           +field% ssfl (jcs:jce,jb) & ! snow large scale
+            &                           +field% rsfc (jcs:jce,jb) & ! rain convection
+            &                           +field% ssfc (jcs:jce,jb)   ! snow convection
+
+      ! vertical integral
+      field% q_phy_vi(jcs:jce,jb) = SUM(field% q_phy(jcs:jce,:,jb),DIM=2)
 
       ! Now compute tendencies from physics alone
-
       tend%   ta_phy (jcs:jce,:,jb)   = tend%   ta (jcs:jce,:,jb)   - tend%   ta_phy (jcs:jce,:,jb)
       tend%   ua_phy (jcs:jce,:,jb)   = tend%   ua (jcs:jce,:,jb)   - tend%   ua_phy (jcs:jce,:,jb)
       tend%   va_phy (jcs:jce,:,jb)   = tend%   va (jcs:jce,:,jb)   - tend%   va_phy (jcs:jce,:,jb)
       tend% qtrc_phy (jcs:jce,:,jb,:) = tend% qtrc (jcs:jce,:,jb,:) - tend% qtrc_phy (jcs:jce,:,jb,:)
 
-      tend% ta_phy (jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb)*zcpair(jcs:jce,:,jb)/zcvair(jcs:jce,:,jb)
-    ENDDO
+      tend% ta_phy (jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb)*field%cpair(jcs:jce,:,jb)/field%cvair(jcs:jce,:,jb)
+    END DO
 !$OMP END PARALLEL DO 
 
     ! Done. Disassociate pointers.
@@ -363,7 +465,7 @@ CONTAINS
       !
       IF(zfri(jc) > 0._wp .AND. field%ts_tile(jc,jb,iice) == cdimissval ) THEN
          field% ts_tile(jc,jb,iice)  = tmelt + Tf    ! = 271.35 K
-      ENDIF
+      END IF
     END DO
 
     ! 3.4 Merge three pieces of information into one array for vdiff
@@ -375,7 +477,7 @@ CONTAINS
   !----------------------------------------------------------------
 
   !----------------------------------------------------------------
-  SUBROUTINE cloud_cover( jb,jcs,jce, nbdim, field)
+  SUBROUTINE cloud_cover(jb,jcs,jce, nbdim, field)
 
     INTEGER         ,INTENT(IN) :: jb             !< block index
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
@@ -388,26 +490,25 @@ CONTAINS
     ! 3.13 DIAGNOSE CURRENT CLOUD COVER
     !-------------------------------------------------------------------
 
+    IF (ltimer) CALL timer_start(timer_cover)
+
     itype(jcs:jce) = NINT(field%rtype(jcs:jce,jb))
-    IF (echam_phy_config%lcond) THEN
-      IF (ltimer) CALL timer_start(timer_cover)
+      
+    CALL cover( jce, nbdim, jks,              &! in
+         &         nlev, nlevp1,              &! in
+         &         itype,                     &! zfrw, zfri,       &! in
+         &         field%frac_tile(:,jb,iwtr),&
+         &         field%frac_tile(:,jb,iice),&
+         &         field% zf(:,:,jb),         &! in
+         &         field% presi_old(:,:,jb),  &! in
+         &         field% presm_old(:,:,jb),  &! in
+         &         field%  ta(:,:,jb),        &! in    tm1
+         &         field%  qtrc(:,:,jb,iqv),  &! in    qm1
+         &         field%  qtrc(:,:,jb,iqi),  &! in    xim1
+         &         field%  aclc(:,:,jb),      &! out   (for "radiation" and "vdiff_down")
+         &         field% rintop(:,  jb)     ) ! out   (for output)
 
-      CALL cover( jce, nbdim, jks,          &! in
-        &         nlev, nlevp1,             &! in
-        &         itype,                    & ! zfrw, zfri,       &! in
-        &         field%frac_tile(:,jb,iwtr),&
-        &         field%frac_tile(:,jb,iice),&
-        &         field% zf(:,:,jb),        &! in
-        &         field% presi_old(:,:,jb), &! in
-        &         field% presm_old(:,:,jb), &! in
-        &         field%  ta(:,:,jb),       &! in    tm1
-        &         field%  qtrc(:,:,jb,iqv), &! in    qm1
-        &         field%  qtrc(:,:,jb,iqi), &! in    xim1
-        &         field%  aclc(:,:,jb),     &! out   (for "radiation" and "vdiff_down")
-        &         field% rintop(:,  jb)    ) ! out   (for output)
-
-      IF (ltimer) CALL timer_stop(timer_cover)
-    ENDIF ! lcond
+    IF (ltimer) CALL timer_stop(timer_cover)
 
   END SUBROUTINE cloud_cover
   !----------------------------------------------------------------
@@ -443,12 +544,12 @@ CONTAINS
         ELSE
           zn1= echam_cloud_config% cn1sea
           zn2= echam_cloud_config% cn2sea
-        ENDIF
+        END IF
         IF (field%presm_old(jc,jk,jb).LT.80000._wp) THEN
           zcdnc=1.e6_wp*(zn1+(zn2-zn1)*(EXP(1._wp-zprat)))
         ELSE
           zcdnc=zn2*1.e6_wp
-        ENDIF
+        END IF
         field% acdnc(jc,jk,jb) = zcdnc
         !
       END DO
@@ -459,33 +560,45 @@ CONTAINS
 
  
   !---------------------------------------------------------------------
-  SUBROUTINE calculate_zcpair_zconv( jb,jcs,jce, nbdim, field, zcpair, zcvair, zconv)
-    INTEGER         ,INTENT(IN) :: jb             !< block index
-    INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
-    INTEGER         ,INTENT(IN) :: nbdim          !< size of this block
-    TYPE(t_echam_phy_field),   POINTER :: field    ! in
-    REAL(wp)         ,INTENT(INOUT) :: zcpair  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
-    REAL(wp)         ,INTENT(INOUT) :: zcvair  (nbdim,nlev)     
-    REAL(wp)         ,INTENT(INOUT) :: zconv   (nbdim,nlev)      
+  SUBROUTINE calculate_cpair_cvair_qconv( jb,jcs,jce, field)
+    INTEGER                 ,INTENT(in) :: jb
+    INTEGER                 ,INTENT(in) :: jcs, jce
+    TYPE(t_echam_phy_field) ,POINTER    :: field
 
     INTEGER  :: jc, jk
 
-    zcpair(:,:) = 0.0_wp
-    zcvair(:,:) = 0.0_wp
-    zconv(:,:) = 0.0_wp
-
     DO jk = 1,nlev
-      DO jc = jcs,jce
-        !
-        ! 3.2b Specific heat of moist air
-        !
-        zcpair  (jc,jk) = cpd+(cpv-cpd)*field%qtrc(jc,jk,jb,iqv)
-        zcvair  (jc,jk) = cvd+(cvv-cvd)*field%qtrc(jc,jk,jb,iqv)
-        !
-        zconv   (jc,jk) = 1._wp/(field%mair(jc,jk,jb)*zcpair(jc,jk))
-     END DO
+       DO jc = jcs,jce
+          !
+          field%cpair(jc,jk,jb) = cpd+(cpv-cpd)*field%qtrc(jc,jk,jb,iqv)
+          field%cvair(jc,jk,jb) = cvd+(cvv-cvd)*field%qtrc(jc,jk,jb,iqv)
+          !
+          field%qconv(jc,jk,jb) = 1._wp/(field%mair(jc,jk,jb)*field%cpair(jc,jk,jb))
+          !
+       END DO
     END DO
-  END SUBROUTINE calculate_zcpair_zconv
+    
+  END SUBROUTINE calculate_cpair_cvair_qconv
+  !----------------------------------------------------------------
+
+ 
+  !---------------------------------------------------------------------
+  SUBROUTINE message_forcing_action(process,is_in_sd_ed_interval,is_active)
+    CHARACTER(LEN=*) ,INTENT(in) :: process
+    LOGICAL          ,INTENT(in) :: is_in_sd_ed_interval
+    LOGICAL          ,INTENT(in) :: is_active
+
+    IF (is_in_sd_ed_interval) THEN
+       IF (is_active) THEN
+          CALL message('echam_phy_main','compute forcing by '//process)
+       ELSE
+          CALL message('echam_phy_main','recycle forcing by '//process)
+       END IF
+    ELSE
+       CALL    message('echam_phy_main','no      forcing by '//process)
+    END IF
+
+  END SUBROUTINE message_forcing_action
   !---------------------------------------------------------------------
 
 

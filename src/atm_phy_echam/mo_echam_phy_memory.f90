@@ -269,6 +269,28 @@ MODULE mo_echam_phy_memory
 
     ! Energy and moisture budget related diagnostic variables
     REAL(wp),POINTER :: &
+      & cpair    (:,:,:),   &!< specific heat of air at constant pressure [J/kg/K]
+      & cvair    (:,:,:),   &!< specific heat of air at constant volume   [J/kg/K]
+      & qconv    (:,:,:),   &!< convert heating to temp tend. [(K/s)/(W/m^2)]
+      !
+      & q_phy    (:,:,:),   &!< layer heating by physics [W/m^2]
+      & q_phy_vi (:,  :),   &!< vertically integrated heating by physics [W/m^2]
+      !
+      & q_rlw    (:,:,:),   &!< Layer heating by LW radiation
+      & q_rlw_vi (:,  :),   &!< Vertically integrated heating by LW radiation
+      & q_rsw    (:,:,:),   &!< Layer heating by SW radiation
+      & q_rsw_vi (:,  :),   &!< Vertically integrated heating by SW radiation
+      & q_vdf    (:,:,:),   &!< Layer heating by vertical diffusion
+      & q_vdf_vi (:,  :),   &!< Vertically integrated heating by vertical diffusion
+      & q_cnv    (:,:,:),   &!< Layer heating by convection
+      & q_cnv_vi (:,  :),   &!< Vertically integrated heating by convection
+      & q_cld    (:,:,:),   &!< Layer heating by cloud processes
+      & q_cld_vi (:,  :),   &!< Vertically integrated heating by cloud processes
+      & q_gwd    (:,:,:),   &!< Layer heating by atmospheric gravity wave dissipation
+      & q_gwd_vi (:,  :),   &!< Vertically integrated heating by atmospheric gravity wave dissipation
+      & q_sso    (:,:,:),   &!< Layer heating by orographic gravity wave dissipation
+      & q_sso_vi (:,  :),   &!< Vertically integrated heating by orographic gravity wave dissipation
+      !
       & sh_vdiff (:,  :),   &!< sensible heat flux of vdiff
       & qv_vdiff (:,  :),   &!< qv flux of vdiff
       & con_dtrl (:,  :),   &!< detrainment of liquid from convection
@@ -294,30 +316,28 @@ MODULE mo_echam_phy_memory
 
     ! Sea ice.
     ! See also atm_oce_lnd_interface/mo_sea_ice_types.f90
-    INTEGER              :: kice  ! Number of ice-thickness classes
+    INTEGER              :: kice ! Number of ice-thickness classes
     REAL(wp),POINTER     ::     &
-      & Tsurf   (:,:,:),        & ! Ice surface temperature [degC]
-      & T1      (:,:,:),        & ! Temperature of upper ice layer [degC]
-      & T2      (:,:,:),        & ! Temperature of lower ice layer [degC]
-      & hi      (:,:,:),        & ! Ice thickness [m]
-      & hs      (:,:,:),        & ! Snow thickness on ice [m]
-      & Qtop    (:,:,:),        & ! Energy flux available for surface melting [W/m^2]
-      & Qbot    (:,:,:),        & ! Energy flux at ice-ocean interface [W/m^2]
-      & conc    (:,:,:),        & ! Ice concentration [0,1]
-      & albvisdir_ice(:,:,:),   & ! Ice surface albedo for visible range, direct
-      & albvisdif_ice(:,:,:),   & ! Ice surface albedo for visible range, diffuse
-      & albnirdir_ice(:,:,:),   & ! Ice surface albedo for near IR range, direct
-      & albnirdif_ice(:,:,:)      ! Ice surface albedo for near IR range, diffuse
+      & Tsurf   (:,:,:),        &! Ice surface temperature [degC]
+      & T1      (:,:,:),        &! Temperature of upper ice layer [degC]
+      & T2      (:,:,:),        &! Temperature of lower ice layer [degC]
+      & hi      (:,:,:),        &! Ice thickness [m]
+      & hs      (:,:,:),        &! Snow thickness on ice [m]
+      & Qtop    (:,:,:),        &! Energy flux available for surface melting [W/m^2]
+      & Qbot    (:,:,:),        &! Energy flux at ice-ocean interface [W/m^2]
+      & conc    (:,:,:),        &! Ice concentration [0,1]
+      & albvisdir_ice(:,:,:),   &! Ice surface albedo for visible range, direct
+      & albvisdif_ice(:,:,:),   &! Ice surface albedo for visible range, diffuse
+      & albnirdir_ice(:,:,:),   &! Ice surface albedo for near IR range, direct
+      & albnirdif_ice(:,:,:)     ! Ice surface albedo for near IR range, diffuse
 
-    ! Orographic wave drag (ssodrag)
-
-    REAL(wp),POINTER ::     &
-      & u_stress_sso   (:,:),  &! < Zonal gravity wave stress
-      & v_stress_sso   (:,:),  &! < Meridional gravity wave stress
-      & dissipation_sso(:,:)    ! < Dissipation of orographic waves
+    ! Sub grid scale orographic effects (sso)
+    REAL(wp),POINTER ::         &
+      & u_stress_sso   (:,:),   &!< Zonal gravity wave stress
+      & v_stress_sso   (:,:),   &!< Meridional gravity wave stress
+      & dissipation_sso(:,:)     !< Dissipation of orographic waves
 
     ! Turbulence
-
     REAL(wp),POINTER ::     &
       & tke       (:,:,:),  &!< turbulent kinetik energy at step n+1
       & tkem0     (:,:,:),  &!< turbulent kinetik energy at step n
@@ -512,9 +532,9 @@ MODULE mo_echam_phy_memory
       !
       ! Hines param. for atmospheric gravity waves
       !
-      &   ua_gwh (:,:,:)  , & !< u-wind tendency due to non-orographic gravity waves
-      &   va_gwh (:,:,:)  , & !< v-wind tendency due to non-orographic gravity waves
-      &   ta_gwh (:,:,:)  , & !< temperature tendency due to non-orographic gravity waves
+      &   ua_gwd (:,:,:)  , & !< u-wind tendency due to non-orographic gravity waves
+      &   va_gwd (:,:,:)  , & !< v-wind tendency due to non-orographic gravity waves
+      &   ta_gwd (:,:,:)  , & !< temperature tendency due to non-orographic gravity waves
       !
       ! subgrid scale orographic (sso) blocking and gravity wave drag
       !
@@ -2144,6 +2164,210 @@ CONTAINS
     ! Variables for energy diagnostic of echam6 physics
     !---------------------------
 
+    CALL add_var( field_list, prefix//'cpair', field%cpair,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & t_cf_var('cpair', 'J/kg/K',                                     &
+                &          'specific heat of air at constant pressure',           &
+                &          datatype_flt),                                         &
+                & grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape3d,                                                  &
+                & lrestart = .FALSE.,                                             &
+                & vert_interp=create_vert_interp_metadata(                        &
+                &   vert_intp_type=vintp_types("P","Z","I"),                      &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
+
+    CALL add_var( field_list, prefix//'cvair', field%cvair,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & t_cf_var('cvair', 'J/kg/K',                                     &
+                &          'specific heat of air at constant colume',             &
+                &          datatype_flt),                                         &
+                & grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape3d,                                                  &
+                & lrestart = .FALSE.,                                             &
+                & vert_interp=create_vert_interp_metadata(                        &
+                &   vert_intp_type=vintp_types("P","Z","I"),                      &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
+
+    CALL add_var( field_list, prefix//'qconv', field%qconv,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & t_cf_var('qconv', '(K/s)/(W/m2)',                               &
+                &          'conv. factor layer heating to temp. tendency',        &
+                &          datatype_flt),                                         &
+                & grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape3d,                                                  &
+                & lrestart = .FALSE.,                                             &
+                & vert_interp=create_vert_interp_metadata(                        &
+                &   vert_intp_type=vintp_types("P","Z","I"),                      &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
+
+    CALL add_var( field_list, prefix//'q_phy', field%q_phy,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & t_cf_var('q_phy', 'W m-2',                                      &
+                &          'layer heating by physics',                            &
+                &          datatype_flt),                                         &
+                & grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape3d,                                                  &
+                & lrestart = .FALSE.,                                             &
+                & vert_interp=create_vert_interp_metadata(                        &
+                &   vert_intp_type=vintp_types("P","Z","I"),                      &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
+
+    CALL add_var( field_list, prefix//'q_phy_vi', field%q_phy_vi,                 &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                & t_cf_var('q_phy_vi', 'W m-2',                                   &
+                &          'vert. integr. heating by physics',                    &
+                &          datatype_flt),                                         &
+                & grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape2d,                                                  &
+                & lrestart = .FALSE. )
+
+    CALL add_var( field_list, prefix//'q_rlw', field%q_rlw,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & t_cf_var('q_rlw', 'W m-2',                                      &
+                &          'layer heating by LW radiation',                       &
+                &          datatype_flt),                                         &
+                & grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape3d,                                                  &
+                & lrestart = .FALSE.,                                             &
+                & vert_interp=create_vert_interp_metadata(                        &
+                &   vert_intp_type=vintp_types("P","Z","I"),                      &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
+
+    CALL add_var( field_list, prefix//'q_rlw_vi', field%q_rlw_vi,                 &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                & t_cf_var('q_rlw_vi', 'W m-2',                                   &
+                &          'vert. integr. heating by LW radiation',               &
+                &          datatype_flt),                                         &
+                & grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape2d,                                                  &
+                & lrestart = .FALSE. )
+
+    CALL add_var( field_list, prefix//'q_rsw', field%q_rsw,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & t_cf_var('q_rsw', 'W m-2',                                      &
+                &          'layer heating by SW radiation',                       &
+                &          datatype_flt),                                         &
+                & grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape3d,                                                  &
+                & lrestart = .FALSE.,                                             &
+                & vert_interp=create_vert_interp_metadata(                        &
+                &   vert_intp_type=vintp_types("P","Z","I"),                      &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
+
+    CALL add_var( field_list, prefix//'q_rsw_vi', field%q_rsw_vi,                 &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                & t_cf_var('q_rsw_vi', 'W m-2',                                   &
+                &          'vert. integr. heating by SW radiation',               &
+                &          datatype_flt),                                         &
+                & grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape2d,                                                  &
+                & lrestart = .FALSE. )
+
+    CALL add_var( field_list, prefix//'q_vdf', field%q_vdf,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & t_cf_var('q_vdf', 'W m-2',                                      &
+                &          'layer heating by vertical diffusion',                 &
+                &          datatype_flt),                                         &
+                & grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape3d,                                                  &
+                & lrestart = .FALSE.,                                             &
+                & vert_interp=create_vert_interp_metadata(                        &
+                &   vert_intp_type=vintp_types("P","Z","I"),                      &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
+
+    CALL add_var( field_list, prefix//'q_vdf_vi', field%q_vdf_vi,                 &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                & t_cf_var('q_vdf_vi', 'W m-2',                                   &
+                &          'vert. integr. heating by vertical diffusion',         &
+                &          datatype_flt),                                         &
+                & grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape2d,                                                  &
+                & lrestart = .FALSE. )
+
+    CALL add_var( field_list, prefix//'q_cnv', field%q_cnv,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & t_cf_var('q_cnv', 'W m-2',                                      &
+                &          'layer heating by vertical diffusion',                 &
+                &          datatype_flt),                                         &
+                & grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape3d,                                                  &
+                & lrestart = .FALSE.,                                             &
+                & vert_interp=create_vert_interp_metadata(                        &
+                &   vert_intp_type=vintp_types("P","Z","I"),                      &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
+
+    CALL add_var( field_list, prefix//'q_cnv_vi', field%q_cnv_vi,                 &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                & t_cf_var('q_cnv_vi', 'W m-2',                                   &
+                &          'vert. integr. heating by vertical diffusion',         &
+                &          datatype_flt),                                         &
+                & grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape2d,                                                  &
+                & lrestart = .FALSE. )
+
+    CALL add_var( field_list, prefix//'q_cld', field%q_cld,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & t_cf_var('q_cld', 'W m-2',                                      &
+                &          'layer heating by vertical diffusion',                 &
+                &          datatype_flt),                                         &
+                & grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape3d,                                                  &
+                & lrestart = .FALSE.,                                             &
+                & vert_interp=create_vert_interp_metadata(                        &
+                &   vert_intp_type=vintp_types("P","Z","I"),                      &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
+
+    CALL add_var( field_list, prefix//'q_cld_vi', field%q_cld_vi,                 &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                & t_cf_var('q_cld_vi', 'W m-2',                                   &
+                &          'vert. integr. heating by vertical diffusion',         &
+                &          datatype_flt),                                         &
+                & grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape2d,                                                  &
+                & lrestart = .FALSE. )
+
+    CALL add_var( field_list, prefix//'q_gwd', field%q_gwd,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & t_cf_var('q_gwd', 'W m-2',                                      &
+                &          'layer heating by atm. gravity wave drag',             &
+                &          datatype_flt),                                         &
+                & grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape3d,                                                  &
+                & lrestart = .FALSE.,                                             &
+                & vert_interp=create_vert_interp_metadata(                        &
+                &   vert_intp_type=vintp_types("P","Z","I"),                      &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
+
+    CALL add_var( field_list, prefix//'q_gwd_vi', field%q_gwd_vi,                 &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                & t_cf_var('q_gwd_vi', 'W m-2',                                   &
+                &          'vert. integr. heating by atm. gravity wave drag',     &
+                &          datatype_flt),                                         &
+                & grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape2d,                                                  &
+                & lrestart = .FALSE. )
+
+    CALL add_var( field_list, prefix//'q_sso', field%q_sso,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & t_cf_var('q_sso', 'W m-2',                                      &
+                &          'layer heating by atm. gravity wave drag',             &
+                &          datatype_flt),                                         &
+                & grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape3d,                                                  &
+                & lrestart = .FALSE.,                                             &
+                & vert_interp=create_vert_interp_metadata(                        &
+                &   vert_intp_type=vintp_types("P","Z","I"),                      &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
+
+    CALL add_var( field_list, prefix//'q_sso_vi', field%q_sso_vi,                 &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                & t_cf_var('q_sso_vi', 'W m-2',                                   &
+                &          'vert. integr. heating by atm. gravity wave drag',     &
+                &          datatype_flt),                                         &
+                & grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape2d,                                                  &
+                & lrestart = .FALSE. )
+
        cf_desc    = t_cf_var('sh_vdiff','J m-2 s-1', '', datatype_flt)
        grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( field_list, prefix//'sh_vdiff', field%sh_vdiff,          &
@@ -2171,7 +2395,7 @@ CONTAINS
                    & lrestart = .FALSE., ldims=shape2d )
 
     !---------------------------
-    ! Orographic wave drag diagnostics
+    ! Sub grid scale orographic effects (sso)
     !---------------------------
     CALL add_var( field_list, prefix//'tauu_sso', field%u_stress_sso,             &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
@@ -3223,12 +3447,12 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                    &
                 & cf_desc, grib2_desc, ldims=shape2d )
 
-    ! &       tend% ta_gwh  (nproma,nlev,nblks),          &
+    ! &       tend% ta_gwd  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_Hines_gw', 'K s-1',                      &
                 &         'temperature tendency due to non-orographic gravity waves',    &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ta_gwh', tend%  ta_gwh,                            &
+    CALL add_var( tend_list, prefix//'ta_gwd', tend%  ta_gwd,                            &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
@@ -3310,12 +3534,12 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend%    ua_gwh (nproma,nlev,nblks),          &
+    ! &       tend%    ua_gwd (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('u_wind_tendency_nonoro_gw', 'm s-2',                          &
                 &         'u-wind tendency due to non-orographic gravity waves',         &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ua_gwh', tend%ua_gwh,                              &
+    CALL add_var( tend_list, prefix//'ua_gwd', tend%ua_gwd,                              &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
@@ -3397,12 +3621,12 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend%    va_gwh (nproma,nlev,nblks),          &
+    ! &       tend%    va_gwd (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('v_wind_tendency_Hines_gw', 'm s-2',                           &
                 &         'v-wind tendency due to non-orographic gravity waves',         &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'va_gwh', tend%va_gwh,                              &
+    CALL add_var( tend_list, prefix//'va_gwd', tend%va_gwd,                              &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
