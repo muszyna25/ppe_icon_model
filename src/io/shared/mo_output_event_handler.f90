@@ -590,8 +590,8 @@ CONTAINS
         !> array of mtime datetime objects
         TYPE(datetime),        INTENT(IN)    :: dates(:)
         TYPE(t_sim_step_info), INTENT(IN)    :: sim_step_info        !< definitions: time step size, etc.
-        INTEGER,               INTENT(INOUT) :: result_steps(:)      !< resulting step indices
-        CHARACTER(LEN=*),      INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings
+        INTEGER,               INTENT(OUT)   :: result_steps(:)      !< resulting step indices
+        CHARACTER(LEN=*),      INTENT(OUT)   :: result_exactdate(:)  !< resulting (exact) time step strings
       END SUBROUTINE fct_time2simstep
 
       !> As an argument of this function, the user must provide a
@@ -1151,8 +1151,8 @@ CONTAINS
         !> array of mtime datetime objects
         TYPE(datetime),            INTENT(IN)    :: dates(:)
         TYPE(t_sim_step_info),     INTENT(IN)    :: sim_step_info        !< definitions: time step size, etc.
-        INTEGER,                   INTENT(INOUT) :: result_steps(:)      !< resulting step indices
-        CHARACTER(LEN=*),          INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings
+        INTEGER,                   INTENT(OUT)   :: result_steps(:)      !< resulting step indices
+        CHARACTER(LEN=*),          INTENT(OUT)   :: result_exactdate(:)  !< resulting (exact) time step strings
       END SUBROUTINE fct_time2simstep
 
       !> As an argument of this function, the user must provide a
@@ -1291,8 +1291,8 @@ CONTAINS
         !> array of mtime datetime objects
         TYPE(datetime),           INTENT(IN)    :: dates(:)
         TYPE(t_sim_step_info),    INTENT(IN)    :: sim_step_info        !< definitions: time step size, etc.
-        INTEGER,                  INTENT(INOUT) :: result_steps(:)      !< resulting step indices
-        CHARACTER(LEN=*),         INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings
+        INTEGER,                  INTENT(OUT)   :: result_steps(:)      !< resulting step indices
+        CHARACTER(LEN=*),         INTENT(OUT)   :: result_exactdate(:)  !< resulting (exact) time step strings
       END SUBROUTINE fct_time2simstep
 
       !> As an argument of this function, the user must provide a

@@ -83,9 +83,9 @@ CONTAINS
     !> array of mtime datetime objects
     TYPE(datetime),       INTENT(IN)    :: dates(:)
     TYPE(t_sim_step_info),INTENT(IN)    :: sim_step_info                        !< definitions: time step size, etc.
-    INTEGER,              INTENT(INOUT) :: result_steps(:)                      !< resulting step indices (+last sim step)
+    INTEGER,              INTENT(OUT) :: result_steps(:)                      !< resulting step indices (+last sim step)
     !> resulting (exact) time step strings  (+last sim step)
-    CHARACTER(LEN=*),     INTENT(INOUT) :: result_exactdate(:)
+    CHARACTER(LEN=*),     INTENT(OUT) :: result_exactdate(:)
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_matching_sim_steps"
