@@ -167,7 +167,7 @@ CONTAINS
     ! intvlsec    = REAL(dtime)
     ! step        = CEILING(datetimedividebyseconds(mtime_begin, mtime_date1, intvlsec))
 
-    intvlmillisec = NINT(dtime*1000._wp)
+    intvlmillisec = ANINT(dtime*1000._wp)
     CALL getPTStringFromMS(INT(intvlmillisec,i8), td_string)
     !CALL getptstringfromseconds(INT(intvlsec,i8), td_string)
     vlsec => newtimedelta(td_string)
