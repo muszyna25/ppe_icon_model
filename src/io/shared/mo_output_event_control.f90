@@ -22,7 +22,7 @@ MODULE mo_output_event_control
 
   USE mo_mpi,                ONLY: my_process_is_mpi_test, my_process_is_mpi_workroot
   USE mo_impl_constants,     ONLY: SUCCESS, MAX_CHAR_LENGTH
-  USE mo_exception,          ONLY: finish
+  USE mo_exception,          ONLY: finish, message_text
   USE mo_kind,               ONLY: wp, i4, i8
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mtime,                 ONLY: MAX_DATETIME_STR_LEN, MAX_DATETIME_STR_LEN,          &
@@ -211,10 +211,8 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::generate_output_filenames"
     INTEGER                             :: i, j, ifile, ipart, total_index, this_jfile, errno
-    CHARACTER(len=MAX_CHAR_LENGTH)      :: cfilename 
+    CHARACTER(len=MAX_CHAR_LENGTH)      :: cfilename
     TYPE (t_keyword_list), POINTER      :: keywords
-    CHARACTER(len=MAX_CHAR_LENGTH)      :: fname(num_dates)        ! list for duplicate check
-    INTEGER                             :: ifname                 ! current length of "ifname"
     TYPE(datetime),  POINTER            :: run_start, sim_start, &
       &                                    step_date, mtime_begin, &
       &                                    mtime_first, mtime_date
@@ -306,7 +304,6 @@ CONTAINS
     ! Set actual output file name (insert keywords):
     ! ----------------------------------------------
     forecast_delta => newTimedelta("P01D")
-    ifname = 0
     DO i=1,num_dates
       IF (.NOT. result_fnames(i)%l_open_file) THEN
         ! if no file is opened: filename is identical to last step
@@ -384,14 +381,17 @@ CONTAINS
 
       ! consistency check: test if the user has accidentally chosen a
       ! file name syntax which yields duplicate file names:
-      DO j=1,ifname
-        IF (result_fnames(i)%filename_string == fname(j)) THEN
+      DO j=1,i-1
+        IF (result_fnames(j)%l_open_file &
+          & .AND.    result_fnames(i)%filename_string &
+          &       == result_fnames(j)%filename_string) THEN
           ! found a duplicate filename:
-          CALL finish(routine, "Ambiguous output file name: '"//TRIM(fname(j))//"'")
+          WRITE (message_text, '(3a)') &
+               "Ambiguous output file name: '", &
+               result_fnames(j)%filename_string, "'"
+          CALL finish(routine, message_text)
         END IF
       END DO
-      ifname = ifname + 1
-      fname(ifname) = result_fnames(i)%filename_string
     END DO
     CALL deallocateTimedelta(forecast_delta)
 
