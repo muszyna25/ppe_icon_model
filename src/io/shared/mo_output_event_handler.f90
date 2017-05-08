@@ -596,19 +596,21 @@ CONTAINS
 
       !> As an argument of this function, the user must provide a
       !! function for generating output file names
-      SUBROUTINE fct_generate_filenames(nstrings, date_string, sim_steps, &
+      SUBROUTINE fct_generate_filenames(num_dates, dates, sim_steps, &
         &                             sim_step_info, fname_metadata, &
         &                             skipped_dates, result_fnames)
-        USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_step_data
-        USE mo_name_list_output_types, ONLY: t_fname_metadata
+        IMPORT :: t_sim_step_info, t_event_step_data, t_fname_metadata, &
+             datetime
 
-        INTEGER,                 INTENT(IN)    :: nstrings           !< no. of string to convert
-        CHARACTER(len=*),        INTENT(IN)    :: date_string(:)     !< array of ISO 8601 time stamp strings
+        !> no. of dates to convert
+        INTEGER,                 INTENT(IN)    :: num_dates
+        !> array of mtime datetime objects
+        TYPE(datetime), TARGET,  INTENT(IN)    :: dates(:)
         INTEGER,                 INTENT(IN)    :: sim_steps(:)       !< array of corresponding simulation steps
         TYPE(t_sim_step_info),   INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
         TYPE(t_fname_metadata),  INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
         INTEGER,                 INTENT(IN)    :: skipped_dates
-        TYPE(t_event_step_data), INTENT(out)   :: result_fnames(SIZE(date_string))
+        TYPE(t_event_step_data), INTENT(out)   :: result_fnames(SIZE(dates))
       END SUBROUTINE fct_generate_filenames
     END INTERFACE
 
@@ -916,7 +918,7 @@ CONTAINS
     n_event_steps = (i-1)
     
     IF (n_event_steps > 0) THEN
-      CALL fct_generate_filenames(n_event_steps, mtime_date_string,       &
+      CALL fct_generate_filenames(n_event_steps, mtime_dates,       &
         &                   mtime_sim_steps, evd%sim_step_info, evd%fname_metadata, &
         &                   skipped_dates, filename_metadata)
     END IF
@@ -1157,19 +1159,21 @@ CONTAINS
 
       !> As an argument of this function, the user must provide a
       !! function for generating output file names
-      SUBROUTINE fct_generate_filenames(nstrings, date_string, sim_steps, &
+      SUBROUTINE fct_generate_filenames(num_dates, dates, sim_steps, &
         &                               sim_step_info, fname_metadata, &
         &                               skipped_dates, result_fnames)
-        USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_step_data
-        USE mo_name_list_output_types, ONLY: t_fname_metadata
+        IMPORT :: t_sim_step_info, t_event_step_data, t_fname_metadata, &
+             datetime
 
-        INTEGER,                   INTENT(IN)    :: nstrings           !< no. of string to convert
-        CHARACTER(len=*),          INTENT(IN)    :: date_string(:)     !< array of ISO 8601 time stamp strings
+        !> no. of dates to convert
+        INTEGER,                   INTENT(IN)    :: num_dates
+        !> array of mtime datetime objects
+        TYPE(datetime), TARGET,    INTENT(IN)    :: dates(:)
         INTEGER,                   INTENT(IN)    :: sim_steps(:)       !< array of corresponding simulation steps
         TYPE(t_sim_step_info),     INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
         TYPE(t_fname_metadata),    INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
         INTEGER,                   INTENT(IN)    :: skipped_dates
-        TYPE(t_event_step_data),   INTENT(OUT)   :: result_fnames(SIZE(date_string))
+        TYPE(t_event_step_data),   INTENT(OUT)   :: result_fnames(SIZE(dates))
       END SUBROUTINE fct_generate_filenames
     END INTERFACE
 
@@ -1297,19 +1301,21 @@ CONTAINS
 
       !> As an argument of this function, the user must provide a
       !! function for generating output file names
-      SUBROUTINE fct_generate_filenames(nstrings, date_string, sim_steps, &
+      SUBROUTINE fct_generate_filenames(num_dates, dates, sim_steps, &
         &                               sim_step_info, fname_metadata, &
         &                               skipped_dates, result_fnames)
-        USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_step_data
-        USE mo_name_list_output_types, ONLY: t_fname_metadata
+        IMPORT :: t_sim_step_info, t_event_step_data, t_fname_metadata, &
+             datetime
 
-        INTEGER,                   INTENT(IN)    :: nstrings           !< no. of string to convert
-        CHARACTER(len=*),          INTENT(IN)    :: date_string(:)     !< array of ISO 8601 time stamp strings
+        !> no. of dates to convert
+        INTEGER,                   INTENT(IN)    :: num_dates
+        !> array of mtime datetime objects
+        TYPE(datetime), TARGET,    INTENT(IN)    :: dates(:)
         INTEGER,                   INTENT(IN)    :: sim_steps(:)       !< array of corresponding simulation steps
         TYPE(t_sim_step_info),     INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
         TYPE(t_fname_metadata),    INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
         INTEGER,                   INTENT(IN)    :: skipped_dates
-        TYPE(t_event_step_data),  INTENT(OUT)    :: result_fnames(SIZE(date_string))
+        TYPE(t_event_step_data),  INTENT(OUT)    :: result_fnames(SIZE(dates))
       END SUBROUTINE fct_generate_filenames
     END INTERFACE
 

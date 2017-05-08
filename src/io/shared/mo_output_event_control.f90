@@ -197,25 +197,28 @@ CONTAINS
   !  @author F. Prill, DWD
   !
   ! --------------------------------------------------------------------------------------------------
-  SUBROUTINE generate_output_filenames(nstrings, date_string, sim_steps, &
+  SUBROUTINE generate_output_filenames(num_dates, dates, sim_steps, &
     &                                  sim_step_info, fname_metadata, &
     &                                  skipped_dates, result_fnames)
-    INTEGER,                INTENT(IN)    :: nstrings           !< no. of string to convert
-    CHARACTER(len=*),       INTENT(IN)    :: date_string(:)     !< array of ISO 8601 time stamp strings
+    !> no. of dates to convert
+    INTEGER,                INTENT(IN)    :: num_dates
+    TYPE(datetime), TARGET, INTENT(IN)    :: dates(:)     !< array of ISO 8601 time stamp strings
     INTEGER,                INTENT(IN)    :: sim_steps(:)       !< array of corresponding simulation steps
     TYPE(t_sim_step_info),  INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
     TYPE(t_fname_metadata), INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
     INTEGER,                INTENT(IN)    :: skipped_dates
-    TYPE(t_event_step_data), INTENT(out)  :: result_fnames(SIZE(date_string))
+    TYPE(t_event_step_data), INTENT(out)  :: result_fnames(SIZE(dates))
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::generate_output_filenames"
     INTEGER                             :: i, j, ifile, ipart, total_index, this_jfile, errno
     CHARACTER(len=MAX_CHAR_LENGTH)      :: cfilename 
     TYPE (t_keyword_list), POINTER      :: keywords     => NULL()
-    CHARACTER(len=MAX_CHAR_LENGTH)      :: fname(nstrings)        ! list for duplicate check
+    CHARACTER(len=MAX_CHAR_LENGTH)      :: fname(num_dates)        ! list for duplicate check
     INTEGER                             :: ifname                 ! current length of "ifname"
-    TYPE(datetime),  POINTER            :: file_end, step_date, run_start, sim_start, &
+    TYPE(datetime),  POINTER            :: run_start, sim_start, &
+      &                                    step_date, mtime_begin, &
       &                                    mtime_first, mtime_date
+    TYPE(datetime) :: file_end
     TYPE(timedelta), POINTER            :: delta, forecast_delta
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string, forecast_delta_str
 
@@ -229,7 +232,7 @@ CONTAINS
     ! b) user has specified "file_interval"
     IF (TRIM(fname_metadata%file_interval) == "") THEN
       ! case a): steps_per_file
-      mtime_first  => newDatetime(TRIM(date_string(1)))
+      mtime_first  => dates(1)
       ! special treatment for the initial time step written at the
       ! begin of the simulation: The first file gets one extra entry
       IF ( (run_start == mtime_first)              .AND.  &
@@ -237,32 +240,30 @@ CONTAINS
         &  (fname_metadata%jfile_offset == 0) ) THEN
         result_fnames(1)%jfile = 1
         result_fnames(1)%jpart = 1
-        DO i=2,nstrings
+        DO i=2,num_dates
           result_fnames(i)%jfile = (i-2)/fname_metadata%steps_per_file + 1 ! INTEGER division!
           result_fnames(i)%jpart = i - 1 - (result_fnames(i)%jfile-1)*fname_metadata%steps_per_file
           IF (result_fnames(i)%jfile == 1)  result_fnames(i)%jpart = result_fnames(i)%jpart + 1
         END DO
       ELSE
-        DO i=1,nstrings
+        DO i=1,num_dates
           result_fnames(i)%jfile = (i-1)/fname_metadata%steps_per_file + 1 ! INTEGER division!
           result_fnames(i)%jpart = i - (result_fnames(i)%jfile-1)*fname_metadata%steps_per_file
         END DO
       END IF
-      CALL deallocateDatetime(mtime_first)
     ELSE
       ! case b): file_interval
       ifile      =  1
       ipart      =  0
       delta     =>  newTimedelta(TRIM(fname_metadata%file_interval),errno)
       IF (errno /= SUCCESS) CALL finish(routine,"Wrong file_interval")
-      file_end  =>  newDatetime(date_string(1))
+      file_end   =  dates(1) + delta
 
-      file_end   =  file_end + delta
-      OUTSTEP_LOOP : DO i=1,nstrings
-        step_date => newDatetime(date_string(i))
+      OUTSTEP_LOOP : DO i=1,num_dates
+        step_date => dates(i)
         IF (ldebug) THEN
           CALL datetimeToString(file_end, dtime_string)
-          WRITE (0,*) "step_date = ", date_string(i), "; file_end = ", dtime_string
+          WRITE (0,'(a,i0,2a)') "i=", i, "file_end = ", dtime_string
         END IF
         IF (step_date >= file_end) THEN
           ifile = ifile + 1
@@ -275,27 +276,25 @@ CONTAINS
         ipart = ipart + 1
         result_fnames(i)%jfile = ifile
         result_fnames(i)%jpart = ipart
-        CALL deallocateDatetime(step_date)
       END DO OUTSTEP_LOOP
-      CALL deallocateDatetime(file_end)
       CALL deallocateTimedelta(delta)
     END IF
     ! add offset to file numbers:
     IF (fname_metadata%jfile_offset /= 0) THEN
-      result_fnames(1:nstrings)%jfile = result_fnames(1:nstrings)%jfile + fname_metadata%jfile_offset - 1
+      result_fnames(1:num_dates)%jfile = result_fnames(1:num_dates)%jfile + fname_metadata%jfile_offset - 1
     END IF
 
     ! --------------------------------------------------------------
     ! prescribe, in which steps the output file is opened or closed:
     ! --------------------------------------------------------------
 
-    DO i=1,nstrings
+    DO i=1,num_dates
       IF (i == 1) THEN
         result_fnames(i)%l_open_file = .TRUE.
       ELSE
         result_fnames(i)%l_open_file = (result_fnames(i-1)%jfile /= result_fnames(i)%jfile)
       END IF
-      IF (i==nstrings) THEN
+      IF (i==num_dates) THEN
         result_fnames(i)%l_close_file = .TRUE.
       ELSE
         result_fnames(i)%l_close_file = (result_fnames(i+1)%jfile /= result_fnames(i)%jfile)
@@ -307,7 +306,7 @@ CONTAINS
     ! ----------------------------------------------
     forecast_delta => newTimedelta("P01D")
     ifname = 0
-    DO i=1,nstrings
+    DO i=1,num_dates
       IF (.NOT. result_fnames(i)%l_open_file) THEN
         ! if no file is opened: filename is identical to last step
         result_fnames(i)%filename_string = result_fnames(i-1)%filename_string
@@ -323,9 +322,10 @@ CONTAINS
       CALL associate_keyword("<levtype_l>",       TRIM(tolower(lev_type_str(fname_metadata%ilev_type))),    keywords)
       CALL associate_keyword("<npartitions>",     TRIM(int2string(fname_metadata%npartitions)),             keywords)
       CALL associate_keyword("<ifile_partition>", TRIM(int2string(fname_metadata%ifile_partition)),         keywords)
-      CALL associate_keyword("<datetime>",        TRIM(date_string(i)),                                     keywords)
+      CALL datetimeToString(dates(i), dtime_string)
+      CALL associate_keyword("<datetime>",        TRIM(dtime_string),                                       keywords)
       ! keywords: compute current forecast time (delta):
-      mtime_date => newDatetime(TRIM(date_string(i)))
+      mtime_date => dates(i)
       CALL associate_keyword("<ddhhmmss>",                                                     &
         &                    TRIM(mtime_utils%ddhhmmss(sim_start, mtime_date, FMT_DDHHMMSS)),  &
         &                    keywords)
@@ -355,7 +355,6 @@ CONTAINS
         &                      mtime_date%time%hour, mtime_date%time%minute, mtime_date%time%second, '.',      &
         &                      mtime_date%time%ms, 'Z'
       CALL associate_keyword("<datetime3>",       TRIM(dtime_string),                                       keywords)
-      CALL deallocateDatetime(mtime_date)
 
       ! "total_index": If we have split one namelist into concurrent,
       !                alternating files, compute the file index,
