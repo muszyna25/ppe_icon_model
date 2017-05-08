@@ -6,22 +6,19 @@ echo $TYP
 #
 NAME=$2
 #
-DIR=$3
-#
-RES=$4
-#
+RES=$3
 #
 echo $RES
 #
-eraRES=$5
-#
+eraRES=$4
 #
 echo $eraRES
 #
-TO=$6
+TO=$5
 #
 echo $TO
 #
+DATDIR=$6
 #
 
 echo QUELLE path $QUELLE
@@ -31,7 +28,7 @@ echo QUELLE path $QUELLE
 
 
 #
-inDat="${DIR}/${NAME}_atm_3d_ml.nc"
+inDat="${DATDIR}/${NAME}_atm_3d_ml.nc"
 
 ATMera="ERAin_T63_atm_3d_zon_${ERAystrt}_${ERAylast}_${TYP}.nc"
 ATMeralola="ERAin_${RES}_atm_2d_${ERAystrt}_${ERAylast}_${TYP}.nc"

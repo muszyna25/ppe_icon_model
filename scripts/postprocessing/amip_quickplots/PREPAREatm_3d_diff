@@ -14,20 +14,15 @@ echo QUELLE path $QUELLE
 AinDat="${ADIR}/${ANAME}_atm_3d_ml.nc"
 BinDat="${BDIR}/${BNAME}_atm_3d_ml.nc"
 #
-###########################################################################
-# var.txt input for atm_3d.ncl
+set -ex
 
 
-# number of latitudes
-nlat=`cdo griddes F_LAND| grep ysize | cut -d"=" -f2`
-echo $nlat >>var.txt
-more var.txt
 LEVELS="100000,92500,85000,77500,70000,60000,50000,40000,30000,25000,20000,15000,10000,7000,5000,3000,1000"
 #
 #
 ###########################################################################
 # 
-set -ex
+
 #
 which cdo
 
@@ -47,6 +42,12 @@ cdo sinfon  Uatm_dyn_plB
 cdo sinfon  Uatm_dyn_t63B
 
 
+#--- var.txt input for atm_3d.ncl
+
+#--- number of latitudes
+nlat=`cdo griddes Uatm_dyn_t63A| grep ysize | cut -d"=" -f2`
+echo $nlat >>var.txt
+more var.txt
 
 #
 #-----code223---Cloud cover-----CMOR: cl --

@@ -24,19 +24,19 @@ TYP=ANN
 
 #---   (AEXP-BEXP)  ---#
 
-EXPDIR=/work/.../experiments
 
-AEXP=atm_amip
+
+AEXP=mag0153_amip
 AYY1=1979
 AYY2=2008
-ADIR=${EXPDIR}/${AEXP}_post
+ADIR=/work/mh0287/users/marco/experiments/${AEXP}_post
 ANAME=timmean_monmean_${AEXP}
 
 
-BEXP=atm_amip_ref
+BEXP=mag0163_amip
 BYY1=1979
 BYY2=2008
-BDIR=${EXPDIR}/${BEXP}_post
+BDIR=/work/mh0287/users/marco/experiments/${BEXP}_post
 BNAME=timmean_monmean_${BEXP}
 
 
@@ -45,9 +45,9 @@ atm_RES=r2b4
 
 COMMENT='160km amip'
 
-WORKDIR=${EXPDIR}/amip_quickplots
+WORKDIR=/mnt/lustre01/work/mh0081/m214091/
 
-MODELDIR=~/git/icon-aes
+MODELDIR=~/icon-aes
 #######################################################
 #
 # cell=filled triangles cont=filled contour 
@@ -61,16 +61,6 @@ if [ "$default" = "1" ];then
    cell=-1
 fi
 
-
-# oce_RES= ocean grid resolution GR15 GR30 TP04 TP10
-oce_RES=GR15
-# Lev 47 possible
-LEV=47
-
-# era_RES= atmospheric grid resolution 63 
-#          (used for ERAinterim-data and table program)
-era_RES=63
-FIXCODE=/pool/data/ICON/post/ERA-Interim_T${era_RES}
 
 QUELLE=${MODELDIR}/scripts/postprocessing/amip_quickplots/
 
@@ -178,7 +168,7 @@ eof00
 
 
 cp ${QUELLE}/partab .
-cp ${FIXCODE}/F${era_RES}${oce_RES}_LAND  F_LAND
+
 
 #---
 ${QUELLE}/PREPAREatm_3d_diff $ANAME $ADIR $BNAME $BDIR
@@ -233,11 +223,8 @@ exit
 # EXP= experiment number, appears in the caption of the plots
 #
 # COMMENT= the comment appears in the subtitle of the plots
-#          maximum length 20 characters 
-# PRINTER = 1 Name of the black and white printer for the summary table 
-#           0 ghostview  the plot
-# PRINTERC= 1 Name of the color printer
-#           0 ghostview  the plot
+#          maximum length 20 characters (it works only for single plots)
+# 
 # TYP= average to compare with ERAinterim-data(1979-1999)or (1979-2008)
 #      ANN(annual), DJF(Dec-Feb), MAM(mar-may)  JJA(jul-aug), SON(sep-nov),
 #      JAN ... DEC
@@ -246,9 +233,9 @@ exit
 # YY2= end date, appears in the caption of the plots
 #                                
 #      
-# NAME= XXX name of data files (maximum length 10 characters)
-# WORKDIR= working directory (containing the input data atm_dyn_XXX and atm_phy_XXX)
-#
+# NAME= XXX name of data files (XXX_atm_2d_ml.nc and XXX_atm_3d_ml.nc)
+# WORKDIR= working directory 
+# DATDIR = directory for input data XXX_atm_2d_ml.nc and XXX_atm_3d_ml.nc
 # MODELDIR= model directory
 #
 #
@@ -258,21 +245,21 @@ exit
 #          0 no plot of surface data
 #
 #       the plot program expects the following two files:
-#                 atm_2d_XXX (surface data, containing at least:
+#               XXX_atm_2d_ml.nc (surface data, containing at least:
 #                           variable: 
-#                                     clwvi Liquid water + ice content
-#                                     clt   total cloud cover     
-#                                     psl   sea level pressure    
-#                                     tas   2 m temperature       
-#                                     ts    surface temperature   
-#                                     tauu  zonal wind stress     
-#                                     prw   column water vapor    
-#                                           vertical integral of cloud liquid water
-#                                     pr    total precipitation   
+#                                 clwvi Liquid water + ice content
+#                                 clt   total cloud cover     
+#                                 psl   sea level pressure    
+#                                 tas   2 m temperature       
+#                                 ts    surface temperature   
+#                                 tauu  zonal wind stress     
+#                                 prw   column water vapor    
+#                                       vertical integral of cloud liquid water
+#                                 pr    total precipitation   
 #                                                          
 #       the interpolation from model level to pressure level computes this programm automatically 
 # 
-#                atm_3d_XXX (atmosphere data, with the following pressure levels 
+#              XXX_atm_3d_ml.nc (atmosphere data, pressure levels 
 #                         in hPa:  1000,925,850,775,700,600,500,400,300,250,
 #                                   200,150,100,70,50,30,10
 #                         containing at least:
@@ -287,8 +274,7 @@ exit
 #                                       hur relative humidity
 #                                       cl  cloud cover
 #
-#                atm_3d_XXX (atmosphere data, 
-#                         e.g. with the following pressure 47 levels in hPa:
+#               XXX_atm_3d_ml.nc (atmosphere data, pressure levels (47) in hPa:
 #                         100900,99500,97100,93900,90200,86100,81700,77200,
 #                         72500,67900,63300,58800,54300,49900,45700,41600,
 #                         37700,33900,30402,27015,23833,20867,18116,15578,

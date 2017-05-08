@@ -14,22 +14,21 @@ set -e
 # "module avail cdo" and "module avail ncl"
 #
 
-TAB=1
+TAB=0
 
 ATM_2d=1
-ATM_3d=1
+ATM_3d=0
 
-SINGLE=1
+SINGLE=0
 PAGE=1
 
 TYP=ANN
 
-EXPDIR=/work/.../experiments
 
-EXP=atm_amip
+EXP=mag0153_amip
 YY1=1979
 YY2=2008
-DIR=${EXPDIR}/${EXP}_post
+DATDIR=/work/mh0287/users/marco/experiments/mag0153_amip_post
 NAME=timmean_monmean_${EXP}
 
 
@@ -38,9 +37,11 @@ atm_RES=r2b4
 
 COMMENT='amip 160 km '      #   only for Single-Plots
 
-WORKDIR=${EXPDIR}/amip_quickplots
+WORKDIR=/mnt/lustre01/work/mh0081/m214091/
 
-MODELDIR=~/git/icon-aes/
+MODELDIR=~/icon-aes/
+#####MODELDIR=/pool/data/ICON/post/
+#####MODELDIR=/home/zmaw/m214091/contrib_quick/
 #######################################################
 #
 # cell=filled triangles cont=filled contour 
@@ -129,9 +130,9 @@ which ncl
 if [ "$TAB" = "1" ]
 then
 
+echo $TYP $DATDIR $NAME $EXP $YY1 $YY2
 
-
-  ${QUELLE}/TABLE.job $TYP $DIR $NAME $EXP $YY1 $YY2
+  ${QUELLE}/TABLE.job $TYP $NAME $EXP $YY1 $YY2 $DATDIR 
 
 
 fi
@@ -160,11 +161,11 @@ eof00
 #---prepare seasonal amd timaverage from 2d-ERA-iterim
 if [ ! -s "ERAin_${atm_RES}_atm_2d_${ERAystrt}_${ERAylast}_${TYP}.nc" ]
 then
- ${QUELLE}/PREPAREera $ERAystrt $ERAylast $TYP $atm_RES $WORKDIR
+ ${QUELLE}/PREPAREera $ERAystrt $ERAylast $TYP $atm_RES 
 fi
 
 
-${QUELLE}/PREPAREatm_2d $TYP $NAME $DIR $atm_RES
+${QUELLE}/PREPAREatm_2d $TYP $NAME $atm_RES $DATDIR
 
 if [ "$PAGE" = "1" ]
 then
@@ -211,7 +212,7 @@ cp ${QUELLE}/partab .
 if [ ! -s "ERAin_T63_atm_3d_zon_${ERAystrt}_${ERAylast}_${TYP}.nc" -o \
      ! -s "ERAin_T63L47_atm_3d_zon_${ERAystrt}_${ERAylast}_${TYP}.nc" ]
 then
- ${QUELLE}/PREPAREera_3d $ERAystrt $ERAylast $TYP $atm_RES $WORKDIR
+ ${QUELLE}/PREPAREera_3d $ERAystrt $ERAylast $TYP $atm_RES 
 fi
 
 #---prepare seasonal amd timaverage from 2d-ERA-iterim
@@ -221,7 +222,8 @@ then
 fi
 
 #---
-${QUELLE}/PREPAREatm_3d_logp $TYP $NAME $DIR $atm_RES $era_RES $ERAylast $LEV
+${QUELLE}/PREPAREatm_3d_logp $TYP $NAME $atm_RES $era_RES $ERAylast $LEV $DATDIR 
+
 if [ "$PAGE" = "1" ]
 then
   ncl   ${QUELLE}/atm_3d_logp_page.ncl
@@ -230,12 +232,11 @@ if [ "$SINGLE" = "1" ]
 then
   ncl   ${QUELLE}/atm_3d_logp_single.ncl
 fi
-
 rm -f Ubusy_*.nc  Uatm_dyn_pl_log Uatm_dyn_pl
 
 
 #---
-${QUELLE}/PREPAREatm_3d $TYP $NAME $DIR $atm_RES $era_RES $ERAylast
+${QUELLE}/PREPAREatm_3d $TYP $NAME $atm_RES $era_RES $ERAylast $DATDIR
 
 if [ "$PAGE" = "1" ]
 then
@@ -273,9 +274,9 @@ exit
 # YY2= end date, appears in the caption of the plots
 #                                
 #      
-# NAME= XXX name of data files (maximum length 10 characters)
-# WORKDIR= working directory (containing the input data atm_dyn_XXX and atm_phy_XXX)
-#
+# NAME= XXX name of data files (XXX_atm_2d_ml.nc and XXX_atm_3d_ml.nc)
+# WORKDIR= working directory 
+# DATDIR = directory for input data XXX_atm_2d_ml.nc and XXX_atm_3d_ml.nc
 # MODELDIR= model directory
 #
 #
@@ -286,7 +287,7 @@ exit
 #          0 no plot of surface data
 #
 #       the plot program expects the following two files:
-#               atm_2d_XXX (surface data, containing at least:
+#               XXX_atm_2d_ml.nc (surface data, containing at least:
 #                           variable: 
 #                                 clwvi Liquid water + ice content
 #                                 clt   total cloud cover     
@@ -300,7 +301,7 @@ exit
 #                                                          
 #       the interpolation from model level to pressure level computes this programm automatically 
 # 
-#              atm_3d_XXX (atmosphere data, with the following pressure levels 
+#              XXX_atm_3d_ml.nc (atmosphere data, pressure levels 
 #                         in hPa:  1000,925,850,775,700,600,500,400,300,250,
 #                                   200,150,100,70,50,30,10
 #                         containing at least:
@@ -315,8 +316,7 @@ exit
 #                                       hur relative humidity
 #                                       cl  cloud cover
 #
-#               atm_3d_XXX (atmosphere data, 
-#                         e.g. with the following pressure 47 levels in hPa:
+#               XXX_atm_3d_ml.nc (atmosphere data, pressure levels (47) in hPa:
 #                         100900,99500,97100,93900,90200,86100,81700,77200,
 #                         72500,67900,63300,58800,54300,49900,45700,41600,
 #                         37700,33900,30402,27015,23833,20867,18116,15578,
