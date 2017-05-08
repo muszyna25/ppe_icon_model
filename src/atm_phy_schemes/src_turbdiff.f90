@@ -4837,15 +4837,18 @@ SUBROUTINE turbdiff
                val1=tkmmin*fakt; val2=tkhmin*fakt
 
                IF (tkhmin_strat.GT.z0 .OR. tkmmin_strat.GT.z0) THEN
-                  ! Enhanced diffusion in the stratosphere - very important for the data assimilation cycle,
-                  ! but can also be used in forecasting mode because there is no detectable detrimental
-                  ! impact on gravity waves:
-                  fakt = MIN( z1, 2.e-4_ireals*MAX( z0, hhl(i,k) - 25000._ireals ) ) !lin. incr. betw. 25 and 30 km
-                  fakt = fakt*MIN( 7.5_ireals, MAX( 0.125_ireals, xri(i,k) ) )
-
-                  val1=MAX( val1, tkmmin_strat*fakt ) ; val2=MAX( val2, tkhmin_strat*fakt )
+                  ! Enhanced diffusion in the stratosphere - needed primarily for momentum because 
+                  ! there is otherwise too little dynamic coupling between adjacent model levels
+                  fakt = MIN( z1, 2.e-4_ireals*MAX( z0, hhl(i,k) - 12500._ireals ) ) ! transition zone between 12.5 and 17.5 km
+                  ! Wider transition zone in the tropics in order to avoid too strong diffusion in the tropopause region
+                  x4 = z1-z1d3*trop_mask(i)*MIN(z1, 2.e-4_ireals*MAX(z0, 22500._ireals-hhl(i,k)) )
+                  fakt = fakt*MIN( x4*1.5_ireals, MAX( 0.25_ireals, SQRT(xri(i,k)) ) )
+                  val1=MAX( val1, tkmmin_strat*x4*fakt ) ; val2=MAX( val2, tkhmin_strat*x4*fakt )
                END IF
-!>Tuning: This kind of correction can be substituded by a less ad-hoc approach.
+!>Tuning: This kind of correction can be substituted by a less ad-hoc approach.
+! Remark (GZ): The enhanced stratospheric diffusion seems to parameterize a missing process outside the turbulence scheme,
+! maybe momentum transports due to non-stationary gravity waves. This may also explain why we need a much larger
+! minimum diffusion coefficient for momentum than for heat.
             END IF
 
 !Achtung: Beschraenkung mit lam. diff.coef. fehlte bislang auch in ICON; macht ev. Unterschiede

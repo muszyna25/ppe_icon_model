@@ -145,7 +145,7 @@ MODULE mo_ensemble_pert_config
 
     INTEGER, ALLOCATABLE :: rnd_seed(:)
     INTEGER  :: rnd_size, i, jg, ipn
-    REAL(wp) :: rnd_num, rnd_fac, alpha0_sv, z0_lcc, rootdp, rsmin, laimax
+    REAL(wp) :: rnd_num, rnd_fac, alpha0_sv, z0_lcc, rootdp, rsmin, laimax, tkfac
 
 
     IF (use_ensemble_pert) THEN
@@ -191,10 +191,14 @@ MODULE mo_ensemble_pert_config
       tune_box_liq = tune_box_liq + 2._wp*(rnd_num-0.5_wp)*range_box_liq
 
       CALL RANDOM_NUMBER(rnd_num)
+      tkfac = turbdiff_config(1)%tkhmin_strat/turbdiff_config(1)%tkhmin
       turbdiff_config(1:max_dom)%tkhmin = turbdiff_config(1:max_dom)%tkhmin + 2._wp*(rnd_num-0.5_wp)*range_tkhmin
+      turbdiff_config(1:max_dom)%tkhmin_strat = turbdiff_config(1:max_dom)%tkhmin_strat + 2._wp*tkfac*(rnd_num-0.5_wp)*range_tkhmin
 
       CALL RANDOM_NUMBER(rnd_num)
+      tkfac = turbdiff_config(1)%tkmmin_strat/turbdiff_config(1)%tkmmin
       turbdiff_config(1:max_dom)%tkmmin = turbdiff_config(1:max_dom)%tkmmin + 2._wp*(rnd_num-0.5_wp)*range_tkmmin
+      turbdiff_config(1:max_dom)%tkmmin_strat = turbdiff_config(1:max_dom)%tkmmin_strat + 2._wp*tkfac*(rnd_num-0.5_wp)*range_tkmmin
 
       CALL RANDOM_NUMBER(rnd_num)
       rnd_fac = range_rlam_heat**(2._wp*(rnd_num-0.5_wp))
