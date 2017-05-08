@@ -76,25 +76,24 @@ CONTAINS
   !  @author F. Prill, DWD
   !
   ! --------------------------------------------------------------------------------------------------
-  SUBROUTINE compute_matching_sim_steps(nstrings, date_string, sim_step_info, &
+  SUBROUTINE compute_matching_sim_steps(num_dates, dates, sim_step_info, &
     &                                   result_steps, result_exactdate)
 
-    INTEGER,              INTENT(IN)    :: nstrings                             !< no. of string to convert
-    CHARACTER(len=*),     INTENT(IN)    :: date_string(:)                       !< array of ISO 8601 time stamp strings
+    INTEGER,              INTENT(IN)    :: num_dates                             !< no. of string to convert
+    !> array of mtime datetime objects
+    TYPE(datetime),       INTENT(IN)    :: dates(:)
     TYPE(t_sim_step_info),INTENT(IN)    :: sim_step_info                        !< definitions: time step size, etc.
     INTEGER,              INTENT(INOUT) :: result_steps(:)                      !< resulting step indices (+last sim step)
-    CHARACTER(LEN=*),     INTENT(INOUT) :: result_exactdate(:)                  !< resulting (exact) time step strings  (+last sim step)
+    !> resulting (exact) time step strings  (+last sim step)
+    CHARACTER(LEN=*),     INTENT(INOUT) :: result_exactdate(:)
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_matching_sim_steps"
     INTEGER                  :: idtime_ms, ilist
-    TYPE(datetime),  POINTER :: mtime_begin, mtime_end, mtime_date1, &
+    TYPE(datetime),  POINTER :: mtime_begin, mtime_end, &
          &                      mtime_dom_start, mtime_dom_end
     TYPE(timedelta), POINTER :: delta
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
-
-    ! debugging output
-    IF (ldebug)  WRITE (0,*) "date_string: ", date_string(1:nstrings)
 
     ! build an ISO 8601 duration string from the given "dtime" value:
     idtime_ms = NINT(sim_step_info%dtime*1000._wp)
@@ -114,13 +113,11 @@ CONTAINS
     result_steps(:)     = -1
     result_exactdate(:) = ""
 
-    DO ilist = 1,nstrings
-      mtime_date1 => newDatetime(TRIM(date_string(ilist)))
-
+    DO ilist = 1,num_dates
       ! check if domain is inactive:
-      IF (((mtime_date1 >= mtime_dom_start) .AND. (mtime_date1 >= mtime_begin)) .OR.  &
-        & ((mtime_date1 <= mtime_end) .AND. (mtime_date1 <= mtime_dom_end))) THEN 
-        CALL compute_step(mtime_date1, mtime_begin, mtime_end,                &
+      IF (((dates(ilist) >= mtime_dom_start) .AND. (dates(ilist) >= mtime_begin)) .OR.  &
+        & ((dates(ilist) <= mtime_end) .AND. (dates(ilist) <= mtime_dom_end))) THEN 
+        CALL compute_step(dates(ilist), mtime_begin, mtime_end,                &
           &               sim_step_info%dtime, delta,                         &
           &               sim_step_info%jstep0,                               &
           &               result_steps(ilist), result_exactdate(ilist))
@@ -128,7 +125,6 @@ CONTAINS
           WRITE (0,*) ilist, ": ", result_steps(ilist), " -> ", TRIM(result_exactdate(ilist))
         END IF
       END IF
-      CALL deallocateDatetime(mtime_date1)
     END DO
     ! clean up
     CALL deallocateDatetime(mtime_dom_start)
@@ -147,7 +143,7 @@ CONTAINS
   ! --------------------------------------------------------------------------------------------------
   SUBROUTINE compute_step(mtime_current, mtime_begin, mtime_end, dtime,  &
     &                     delta, step_offset, step, exact_date)
-    TYPE(datetime),  POINTER                         :: mtime_current       !< input date to translated into step
+    TYPE(datetime),  INTENT(in)                      :: mtime_current       !< input date to translated into step
     TYPE(datetime),  POINTER                         :: mtime_begin         !< begin of run (note: restart cases!)
     TYPE(datetime),  POINTER                         :: mtime_end           !< end of run
     REAL(wp),                            INTENT(IN)  :: dtime               !< [s] length of a time step

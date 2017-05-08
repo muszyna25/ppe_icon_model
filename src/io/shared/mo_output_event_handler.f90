@@ -138,6 +138,7 @@ MODULE mo_output_event_handler
     &                                  OPERATOR(<), OPERATOR(<=), &
     &                                  OPERATOR(>), OPERATOR(+), OPERATOR(/=),              &
     &                                  deallocateTimedelta, newJulianDay, JulianDay,        &
+    &                                  deallocateJulianday,                                 &
     &                                  getJulianDayFromDatetime, getDatetimeFromJulianDay
   USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_step_data,                  &
     &                                  t_event_step, t_output_event, t_par_output_event,    &
@@ -581,11 +582,13 @@ CONTAINS
     INTERFACE
       !> As an argument of this function, the user must provide a
       !!  conversion "time stamp -> simulation step"
-      SUBROUTINE fct_time2simstep(nstrings, date_string, sim_step_info, &
+      SUBROUTINE fct_time2simstep(num_dates, dates, sim_step_info, &
         &                         result_steps, result_exactdate)
-        USE mo_output_event_types, ONLY: t_sim_step_info
-        INTEGER,               INTENT(IN)    :: nstrings             !< no. of string to convert
-        CHARACTER(len=*),      INTENT(IN)    :: date_string(:)       !< array of ISO 8601 time stamp strings
+        IMPORT :: t_sim_step_info, datetime
+        !> no. of dates to convert
+        INTEGER,               INTENT(IN)    :: num_dates
+        !> array of mtime datetime objects
+        TYPE(datetime),        INTENT(IN)    :: dates(:)
         TYPE(t_sim_step_info), INTENT(IN)    :: sim_step_info        !< definitions: time step size, etc.
         INTEGER,               INTENT(INOUT) :: result_steps(:)      !< resulting step indices
         CHARACTER(LEN=*),      INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings
@@ -616,8 +619,9 @@ CONTAINS
 
     TYPE(datetime),  POINTER :: mtime_date, mtime_begin, mtime_end, mtime_restart, &
       &                         sim_end, mtime_dom_start, mtime_dom_end, run_start
+    TYPE(datetime), TARGET, ALLOCATABLE :: mtime_dates(:), tmp_dates(:)
     TYPE(timedelta), POINTER :: delta
-    INTEGER                  :: ierrstat, i, n_event_steps, &
+    INTEGER                  :: ierrstat, i, j, n_event_steps, &
       &                         nintvls, iintvl, skipped_dates, &
       &                         old_size, new_size
     LOGICAL                  :: l_active, l_append_step
@@ -632,7 +636,7 @@ CONTAINS
     LOGICAL                                          :: incl_begin(MAX_TIME_INTERVALS)
     LOGICAL                                          :: incl_end(MAX_TIME_INTERVALS)
     CHARACTER                                        :: char
-    TYPE(julianday), POINTER :: tmp_jd => NULL()
+    TYPE(julianday), POINTER :: tmp_jd
     TYPE tmp_container
       INTEGER(i8) :: day
       INTEGER(i8) :: ms
@@ -702,7 +706,6 @@ CONTAINS
     mtime_restart   => newDatetime(TRIM(evd%sim_step_info%restart_time))
 
     ! loop over the event occurrences
-    
     ALLOCATE(mtime_date_container_a(256), stat=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     ALLOCATE(mtime_date_container_b(256), stat=ierrstat)   
@@ -852,38 +855,43 @@ CONTAINS
       
     END DO INTERVAL_LOOP
 
+    CALL deallocateJulianday(tmp_jd)
+
     ! copy back results into original data structures
     
     n_event_steps = n_event_steps_a
     ! to prevent a potential reallocation in next step add 1 element
-    ALLOCATE(mtime_date_string(n_event_steps+1), STAT=ierrstat)    
+    ALLOCATE(mtime_date_string(n_event_steps+1), mtime_dates(n_event_steps+1), &
+      &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     ! copy mtime_date_container_a to mtime_date_string 
     DO i = 1, n_event_steps
       tmp_jd => newJulianday(mtime_date_container_a(i)%day, mtime_date_container_a(i)%ms);      
-      CALL getDatetimeFromJulianDay(tmp_jd, mtime_date)
-      CALL datetimeToString(mtime_date, mtime_date_string(i))
+      CALL getDatetimeFromJulianDay(tmp_jd, mtime_dates(i))
+      CALL datetimeToString(mtime_dates(i), mtime_date_string(i))
     END DO
 
     ! Optional: Append the last event time step
-    IF (evd%l_output_last .AND. mtime_date < sim_end .AND. mtime_end >= sim_end) THEN
+    IF (evd%l_output_last .AND. mtime_dates(n_event_steps) < sim_end .AND. mtime_end >= sim_end) THEN
       ! check, that we do not duplicate the last time step:
       l_append_step = .TRUE.
       IF (n_event_steps > 0) THEN
-        mtime_date => newDatetime(TRIM(mtime_date_string(n_event_steps)))
-        IF (mtime_date == sim_end)  l_append_step = .FALSE.
+        IF (mtime_dates(n_event_steps) == sim_end) l_append_step = .FALSE.
       END IF
-      IF (l_append_step) THEN 
+      IF (l_append_step) THEN
         n_event_steps = n_event_steps + 1
         old_size = SIZE(mtime_date_string)
         IF (n_event_steps > old_size) THEN
           ! resize buffer
           new_size = old_size + INITIAL_NEVENT_STEPS
-          ALLOCATE(tmp_string(new_size), STAT=ierrstat)
+          ALLOCATE(tmp_string(new_size), tmp_dates(new_size), STAT=ierrstat)
           IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
           tmp_string(1:old_size) = mtime_date_string
+          tmp_dates(1:old_size) = mtime_dates
           CALL MOVE_ALLOC(tmp_string, mtime_date_string)
+          CALL MOVE_ALLOC(tmp_dates, mtime_dates)
         END IF
+        mtime_dates(n_event_steps) = sim_end
         CALL datetimeToString(sim_end, mtime_date_string(n_event_steps))
         IF (ldebug) THEN
           WRITE (0,*) get_my_global_mpi_id(), ": ", &
@@ -896,8 +904,8 @@ CONTAINS
          &   mtime_exactdate(SIZE(mtime_date_string)),   &
          &   filename_metadata(SIZE(mtime_date_string)), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-    
-    CALL fct_time2simstep(n_event_steps, mtime_date_string, &
+
+    CALL fct_time2simstep(n_event_steps, mtime_dates, &
       &                   evd%sim_step_info, mtime_sim_steps, mtime_exactdate)
 
     ! remove all those event steps which have no corresponding simulation
@@ -1135,11 +1143,13 @@ CONTAINS
     INTERFACE
       !> As an argument of this function, the user must provide a
       !! conversion "time stamp -> simulation step"
-      SUBROUTINE fct_time2simstep(nstrings, date_string, sim_step_info, &
+      SUBROUTINE fct_time2simstep(num_dates, dates, sim_step_info, &
         &                         result_steps, result_exactdate)
-        USE mo_output_event_types, ONLY: t_sim_step_info
-        INTEGER,                   INTENT(IN)    :: nstrings             !< no. of string to convert
-        CHARACTER(len=*),          INTENT(IN)    :: date_string(:)       !< array of ISO 8601 time stamp strings
+        IMPORT :: t_sim_step_info, datetime
+        !> no. of dates to convert
+        INTEGER,                   INTENT(IN)    :: num_dates
+        !> array of mtime datetime objects
+        TYPE(datetime),            INTENT(IN)    :: dates(:)
         TYPE(t_sim_step_info),     INTENT(IN)    :: sim_step_info        !< definitions: time step size, etc.
         INTEGER,                   INTENT(INOUT) :: result_steps(:)      !< resulting step indices
         CHARACTER(LEN=*),          INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings
@@ -1273,11 +1283,13 @@ CONTAINS
     INTERFACE
       !> As an argument of this function, the user must provide a
       !! conversion "time stamp -> simulation step"
-      SUBROUTINE fct_time2simstep(nstrings, date_string, sim_step_info, &
+      SUBROUTINE fct_time2simstep(num_dates, dates, sim_step_info, &
         &                         result_steps, result_exactdate)
-        USE mo_output_event_types, ONLY: t_sim_step_info
-        INTEGER,                  INTENT(IN)    :: nstrings             !< no. of string to convert
-        CHARACTER(len=*),         INTENT(IN)    :: date_string(:)       !< array of ISO 8601 time stamp strings
+        IMPORT :: t_sim_step_info, datetime
+        !> no. of dates to convert
+        INTEGER,                  INTENT(IN)    :: num_dates
+        !> array of mtime datetime objects
+        TYPE(datetime),           INTENT(IN)    :: dates(:)
         TYPE(t_sim_step_info),    INTENT(IN)    :: sim_step_info        !< definitions: time step size, etc.
         INTEGER,                  INTENT(INOUT) :: result_steps(:)      !< resulting step indices
         CHARACTER(LEN=*),         INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings
