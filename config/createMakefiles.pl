@@ -284,32 +284,32 @@ foreach my $dir ( @directories ) {
 
     if ( "$dir" ne "src" ) {
 	if ( $dir =~ m/^externals/) {
-            print MAKEFILE "../../../lib/lib\$(LIB).a: \$(OBJS)\n";
+        print MAKEFILE "../../../lib/lib\$(LIB).a: \$(OBJS)\n";
 	    print MAKEFILE "\t\$(AR) \$(ARFLAGS) ../../../lib/lib\$(LIB).a \$(OBJS)\n";
-            print MAKEFILE "\t\@for modfile in \$(wildcard *.mod); do \\\n";
-            print MAKEFILE "\t\tcp \$\$modfile ../../../include; \\\n"; 
-            print MAKEFILE "\t done\n\n";
+        print MAKEFILE "\t\@for modfile in \$(wildcard *.mod); do \\\n";
+        print MAKEFILE "\t\tcp \$\$modfile ../../../include; \\\n"; 
+        print MAKEFILE "\t done\n\n";
 	    my $include_dir = $dir;
 	    $include_dir =~ s/src/include/;
-            print MAKEFILE "CFLAGS += -I../../../../../$include_dir\n";
+        print MAKEFILE "CFLAGS += -I../../../../../$include_dir\n";
 	    if ( $dir =~ m/yac/) {
-	        $include_dir =~ s/include/src/;
-	        print MAKEFILE "CFLAGS += -I../../../../../$include_dir\n";
-	        print MAKEFILE "CFLAGS += -I../../../../../$include_dir/xml\n";
-            }
-            print MAKEFILE "FFLAGS := \$(subst ../module,../../../module, \$(FFLAGS))\n";	    
-            if ( $dir =~ m/self/) {
-               print MAKEFILE 'FFLAGS := $(subst -C=all,,$(FFLAGS))';print MAKEFILE "\n";
-            }
-            print MAKEFILE "\n\n";
+		    $include_dir =~ s/include/src/;
+		    print MAKEFILE "CFLAGS += -I../../../../../$include_dir\n";
+		    print MAKEFILE "CFLAGS += -I../../../../../$include_dir/xml\n";
+        }
+        print MAKEFILE "FFLAGS := \$(subst ../module,../../../module, \$(FFLAGS))\n";	    
+        if ( $dir =~ m/self/) {
+           print MAKEFILE 'FFLAGS := $(subst -C=all,,$(FFLAGS))';print MAKEFILE "\n";
+        }
+        print MAKEFILE "\n\n";
 	} else {
 	    print MAKEFILE "../lib/lib\$(LIB).a: \$(OBJS)\n";
 	    print MAKEFILE "\t\$(AR) \$(ARFLAGS) ../lib/lib\$(LIB).a \$(OBJS)\n\n";
 	}
 
 	if ( "$dir" eq "support" ) {
-            print MAKEFILE "ifeq (\$(ARCH), SX)\n";
-            print MAKEFILE "rtc_sx.o: rtc_sx.s\n";
+        print MAKEFILE "ifeq (\$(ARCH), SX)\n";
+        print MAKEFILE "rtc_sx.o: rtc_sx.s\n";
 	    print MAKEFILE "\t\$(AS) -c rtc_sx.s\n";
 	    print MAKEFILE "endif\n\n";
 	}
