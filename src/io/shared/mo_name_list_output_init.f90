@@ -646,7 +646,7 @@ CONTAINS
         !
         IF (p_onl%output_grid) THEN
           ! model levels
-          IF (TRIM(p_onl%ml_varlist(1)) /=  "") THEN
+          IF (LEN_TRIM(p_onl%ml_varlist(1)) /=  0) THEN
             SELECT CASE(p_onl%remap)
             CASE (REMAP_NONE)
               DO i=1,3
@@ -661,7 +661,7 @@ CONTAINS
             END SELECT
           END IF
           ! pressure levels
-          IF (TRIM(p_onl%pl_varlist(1)) /=  "") THEN
+          IF (LEN_TRIM(p_onl%pl_varlist(1)) /=  0) THEN
             SELECT CASE(p_onl%remap)
             CASE (REMAP_NONE)
               DO i=1,3
@@ -676,7 +676,7 @@ CONTAINS
             END SELECT
           END IF
           ! height levels
-          IF (TRIM(p_onl%hl_varlist(1)) /=  "") THEN
+          IF (LEN_TRIM(p_onl%hl_varlist(1)) /=  0) THEN
             SELECT CASE(p_onl%remap)
             CASE (REMAP_NONE)
               DO i=1,3
@@ -691,7 +691,7 @@ CONTAINS
             END SELECT
           END IF
           ! isentropic levels
-          IF (TRIM(p_onl%il_varlist(1)) /=  "") THEN
+          IF (LEN_TRIM(p_onl%il_varlist(1)) /=  0) THEN
             SELECT CASE(p_onl%remap)
             CASE (REMAP_NONE)
               DO i=1,3
