@@ -897,11 +897,13 @@ class MeanAnalyzer < DataAnalyzer
           timeSelectionRef  = "-seltimestep,#{timeStepPair[:ref]}"
           timeSelectionMean = "-seltimestep,#{timeStepPair[:mean]}"
 
-          diff = @cdo.diffv(input: [ "-timmean #{timeSelectionRef}  -selname,#{varname} #{@spotFile}",
-                                     "         #{timeSelectionMean} -selname,#{varname} #{@meanFile}" ].join(' '),
+          delNans           = "-setvals,nan,0,-nan,0"
+
+          diff = @cdo.diffv(input: [ "-timmean #{timeSelectionRef}  #{delNans} -selname,#{varname} #{@spotFile}",
+                                     "         #{timeSelectionMean} #{delNans} -selname,#{varname} #{@meanFile}" ].join(' '),
                            :options => '-s')
-          diffFile = @cdo.sub(input: [ "-timmean #{timeSelectionRef}  -selname,#{varname} #{@spotFile}",
-                                       "         #{timeSelectionMean} -selname,#{varname} #{@meanFile}" ].join(' '),
+          diffFile = @cdo.sub(input: [ "-timmean #{timeSelectionRef}  #{delNans} -selname,#{varname} #{@spotFile}",
+                                       "         #{timeSelectionMean} #{delNans} -selname,#{varname} #{@meanFile}" ].join(' '),
                              :returnArray => varname,
                              :options => '-s',
                              :output => [@meanPeriod, varname, File.basename(@spotFile)].map(&:to_s).join('_'))
