@@ -1857,12 +1857,12 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_varlist_to_output_file"
     INTEGER                       :: ivar, nvars, i, iv, tl
-    LOGICAL                       :: found, inspect
+    LOGICAL                       :: found, inspect, is_stdio
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_desc)              :: var_desc   !< variable descriptor
     TYPE(t_cf_var),       POINTER :: this_cf
 
-
+    is_stdio = my_process_is_stdio()
     ! Get the number of variables in varlist
     nvars = 0
     DO ivar = 1, SIZE(varlist)
@@ -1978,8 +1978,8 @@ CONTAINS
 
       IF (.NOT. found) THEN
 
-        DO i = 1, nvar_lists
-          IF (my_process_is_stdio()) THEN
+        IF (is_stdio) THEN
+          DO i = 1, nvar_lists
             WRITE(message_text,'(3a, i2)') &
                  'Variable list name: ',TRIM(var_lists(i)%p%name), &
                  ' Patch: ',var_lists(i)%p%patch_id
@@ -1999,8 +1999,8 @@ CONTAINS
               CALL message('',message_text)
               element => element%next_list_element
             ENDDO
-          ENDIF
-        ENDDO
+          ENDDO
+        ENDIF
 
         CALL finish(routine,'Output name list variable not found: '//TRIM(varlist(ivar))//&
           &", patch "//int2string(of%log_patch_id,'(i0)'))
