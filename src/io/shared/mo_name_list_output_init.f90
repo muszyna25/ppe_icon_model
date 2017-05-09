@@ -303,6 +303,7 @@ CONTAINS
 
     !> RBF shape parameter.
     REAL(wp)                              :: rbf_scale
+    LOGICAL :: is_stdio
 
     ! The namelist containing all variables above
     NAMELIST /output_nml/ &
@@ -353,6 +354,8 @@ CONTAINS
     p_onl                  => NULL()
     first_output_name_list => NULL()
     lrewind                = .TRUE.
+
+    is_stdio = my_process_is_stdio()
 
     IF (.NOT. output_mode%l_nml) RETURN ! do not read output namelists if main switch is set to false
 
@@ -416,12 +419,12 @@ CONTAINS
 
       ! -- Read output_nml
 
-      IF (my_process_is_stdio())  THEN
+      IF (is_stdio)  THEN
         iunit = temp_defaults()
         WRITE(iunit, output_nml)                                     ! write defaults to temporary text file
       END IF
       READ (nnml, output_nml)                          ! overwrite default settings
-      IF (my_process_is_stdio())  THEN
+      IF (is_stdio)  THEN
         iunit = temp_settings()
         WRITE(iunit, output_nml)                                     ! write settings to temporary text file
       END IF
@@ -708,7 +711,7 @@ CONTAINS
 
       ! -- write the contents of the namelist to an ASCII file
 
-      IF(my_process_is_stdio()) WRITE(nnml_output,nml=output_nml)
+      IF (is_stdio) WRITE(nnml_output,nml=output_nml)
 
     ENDDO
 
