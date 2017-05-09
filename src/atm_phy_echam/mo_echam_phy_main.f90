@@ -54,7 +54,8 @@ MODULE mo_echam_phy_main
   USE mo_interface_echam_gwhines,      ONLY: interface_echam_gwhines
   USE mo_interface_echam_sso,          ONLY: interface_echam_sso
   USE mo_interface_echam_condensation, ONLY: interface_echam_condensation
-
+  USE mo_interface_echam_methox,       ONLY: interface_echam_methox
+  
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_loopindices         ,ONLY: get_indices_c
   USE mo_model_domain        ,ONLY: t_patch
@@ -83,7 +84,6 @@ CONTAINS
 
     TYPE(t_patch)  ,TARGET ,INTENT(in) :: patch
     INTEGER                ,INTENT(in) :: rl_start, rl_end
-
     TYPE(datetime)         ,POINTER    :: datetime_old    !< old date and time (at start of this step)
     REAL(wp)               ,INTENT(in) :: pdtime          !< time step
 
@@ -395,6 +395,19 @@ CONTAINS
     END IF
 
     !-------------------------------------------------------------------
+    IF ( (mpi_phy_tc(jg)%dt_mox > dt_zero) ) THEN
+      !
+      is_in_sd_ed_interval =          (mpi_phy_tc(jg)%sd_mox <= datetime_old) .AND. &
+           &                          (mpi_phy_tc(jg)%ed_mox >  datetime_old)
+      is_active = isCurrentEventActive(mpi_phy_tc(jg)%ev_mox,   datetime_old)
+       !
+      CALL message_forcing_action('parameterized methane oxidation (mox)',  &
+           &                      is_in_sd_ed_interval,is_active)
+
+      CALL interface_echam_methox(                                      &
+           patch,   rl_start,   rl_end,   field,   tend                 )
+    END IF
+
 
 !$OMP PARALLEL DO PRIVATE(jcs,jce)
     DO jb = i_startblk,i_endblk

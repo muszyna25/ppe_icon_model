@@ -135,7 +135,7 @@ cat > ${atmo_namelist} << EOF
  mpi_phy_config(1)%dt_sso = "PT4M"
 !
 ! atmospheric chemistry (""=never)
- mpi_phy_config(1)%dt_mox = ""
+ mpi_phy_config(1)%dt_mox = "PT4M"
  mpi_phy_config(1)%dt_car = ""
  mpi_phy_config(1)%dt_art = ""
 !

@@ -93,10 +93,13 @@ MODULE mo_echam_phy_init
   USE mo_bc_sst_sic,             ONLY: read_bc_sst_sic, bc_sst_sic_time_interpolation
   USE mo_bc_greenhouse_gases,    ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
     &                                bc_greenhouse_gases_file_read, ghg_co2mmr
+  ! Cariolle interactive ozone scheme
   USE mo_lcariolle_externals,  ONLY: read_bcast_real_3d_wrap, &
     &                                read_bcast_real_1d_wrap, &
     &                                closeFile_wrap, openInputFile_wrap, &
     &                                get_constants
+  ! water vapour production by methane oxidation
+  USE mo_methox,               ONLY: init_methox
   ! for aeorosols in simple plumes
   USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
 
@@ -460,6 +463,15 @@ CONTAINS
          & get_constants                                       )
     END IF
 
+    ! water vapour production by methane oxidation
+    lany=.FALSE.
+    DO jd = 1,ndom
+      lany = lany .OR. (mpi_phy_tc(jd)%dt_mox > dt_zero)
+    END DO
+    IF (lany) THEN
+      CALL init_methox
+    END IF
+   
 #ifndef __NO_JSBACH__
     IF (ilnd <= nsfc_type .AND. ANY(mpi_phy_config(:)%ljsb)) THEN
 
