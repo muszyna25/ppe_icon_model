@@ -1646,23 +1646,19 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  RECURSIVE FUNCTION is_par_output_step(event, jstep)
-    LOGICAL :: is_par_output_step
+  FUNCTION is_par_output_step(event, jstep) RESULT(p)
     TYPE(t_par_output_event), POINTER                :: event  !< output event
     INTEGER,                           INTENT(IN)    :: jstep  !< given step index
+    TYPE(t_par_output_event), POINTER :: ev
     ! local variables
-    LOGICAL :: ret, ret_local
+    LOGICAL :: p
 
-    ret = .FALSE.
-    IF (ASSOCIATED(event)) THEN
-      ! first, check other output events in linked list:
-      IF (ASSOCIATED(event%next)) THEN
-        ret = ret .OR. is_output_step(event%next, jstep)
-      END IF
-      ret_local = is_output_step(event%output_event, jstep)
-      ret = ret .OR. ret_local
-    END IF
-    is_par_output_step = ret
+    p = .FALSE.
+    ev => event
+    DO WHILE (.NOT. p .AND. ASSOCIATED(ev))
+      p = p .OR. is_output_step(ev%output_event, jstep)
+      ev => ev%next
+    END DO
   END FUNCTION is_par_output_step
 
 
