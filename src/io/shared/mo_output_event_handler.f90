@@ -829,6 +829,8 @@ CONTAINS
         IF (ierrstat /= 0) STOP 'allocate failed'
         tmp(1:remaining_event_steps) = mtime_date_uniq(1:remaining_event_steps)
         CALL MOVE_ALLOC(tmp, mtime_date_container_a)
+      ELSE
+        mtime_date_container_a(1:remaining_event_steps) = mtime_date_uniq(1:remaining_event_steps)
       ENDIF
       
       n_event_steps_a = remaining_event_steps
