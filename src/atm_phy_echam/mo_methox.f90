@@ -11,6 +11,10 @@ MODULE mo_methox
 
   IMPLICIT NONE
 
+  PRIVATE
+
+  PUBLIC :: init_methox, methox  
+
   REAL(KIND=wp), PARAMETER :: RQLIM=4.25E-6_wp
   REAL(KIND=wp), PARAMETER :: RPBOTOX=10000._wp
   REAL(KIND=wp), PARAMETER :: RPBOTPH=20._wp

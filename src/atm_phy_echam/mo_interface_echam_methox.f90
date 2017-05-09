@@ -25,6 +25,13 @@ MODULE mo_interface_echam_methox
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: nlev, iqv
   USE mo_methox,              ONLY: methox
+
+  IMPLICIT NONE
+
+  PRIVATE
+
+  PUBLIC :: interface_echam_methox
+
 CONTAINS
   SUBROUTINE interface_echam_methox(patch,rl_start,rl_end,field,tend)
     TYPE(t_patch)   ,INTENT(IN), TARGET :: patch           !< grid/patch info
@@ -47,5 +54,5 @@ CONTAINS
        CALL methox(jcs, jce, nproma, nlev, field%qtrc(:,:,jb,iqv), dqdt, field%presm_old(:,:,jb))
       tend% qtrc(jcs:jce,:,jb,iqv) = tend% qtrc(jcs:jce,:,jb,iqv) + dqdt(jcs:jce,:)
     END DO
-  END SUBROUTINE INTERFACE_ECHAM_METHOX
+  END SUBROUTINE interface_echam_methox
   END MODULE mo_interface_echam_methox
