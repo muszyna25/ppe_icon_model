@@ -260,7 +260,7 @@ MODULE mo_output_event_handler
   INTEGER, PARAMETER :: LOCAL_NMAX_EVENT_LIST = 100
 
   !> local list of output events
-  TYPE(t_event_data_local) :: event_list_local(LOCAL_NMAX_EVENT_LIST)
+  TYPE(t_event_data_local), TARGET :: event_list_local(LOCAL_NMAX_EVENT_LIST)
 
   !> length of local list of output events
   INTEGER :: ievent_list_local = 0
@@ -1159,7 +1159,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::new_parallel_output_event"
     INTEGER :: ierrstat, this_pe, i_tag, nranks, i, nintvls
-    TYPE(t_event_data_local) :: evd
+    TYPE(t_event_data_local), POINTER :: evd
 
     ! determine this PE's MPI rank wrt. the given MPI communicator:
     this_pe = 0
@@ -1188,7 +1188,8 @@ CONTAINS
       IF (LEN_TRIM(begin_str(nintvls+1)) == 0) EXIT
     END DO
 
-    ! create the local (non-parallel) output event data structure:
+    ievent_list_local = ievent_list_local + 1
+    evd => event_list_local(ievent_list_local)
     evd%name = name
     evd%begin_str = begin_str
     evd%end_str = end_str
@@ -1197,6 +1198,7 @@ CONTAINS
     evd%sim_step_info = sim_step_info
     evd%fname_metadata = fname_metadata
     evd%i_tag = i_tag
+    ! create the local (non-parallel) output event data structure:
     p_event%output_event => new_output_event(evd, this_pe,         &
       &                                      fct_time2simstep,     &
       &                                      fct_generate_filenames)
@@ -1226,19 +1228,6 @@ CONTAINS
         END IF
         CALL send_event_data(evd, icomm, ROOT_OUTEVENT)
       END IF
-    ELSE
-#endif
-      ! I/O PE #0: we keep a local list of event meta-data
-      ievent_list_local = ievent_list_local + 1
-      event_list_local(ievent_list_local)%name               = name
-      event_list_local(ievent_list_local)%begin_str(:)       = begin_str(:)
-      event_list_local(ievent_list_local)%end_str(:)         = end_str(:)
-      event_list_local(ievent_list_local)%intvl_str(:)       = intvl_str(:)
-      event_list_local(ievent_list_local)%l_output_last      = l_output_last
-      event_list_local(ievent_list_local)%sim_step_info      = sim_step_info
-      event_list_local(ievent_list_local)%fname_metadata     = fname_metadata
-      event_list_local(ievent_list_local)%i_tag              = i_tag
-#ifndef NOMPI
     END IF
 #endif
   END FUNCTION new_parallel_output_event
@@ -1353,7 +1342,7 @@ CONTAINS
         END IF
 #endif
         ! I/O PE #0: we keep a local list of event meta-data
-        IF (.NOT. lrecv .AND. (ievent_list_local > 0)) THEN
+        IF (.NOT. lrecv .AND. this_pe == root_outevent .AND. ievent_list_local > 0) THEN
           lrecv = .TRUE.
           evd = event_list_local(ievent_list_local)
           ievent_list_local = ievent_list_local - 1
