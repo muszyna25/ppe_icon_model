@@ -148,7 +148,7 @@ MODULE mo_ensemble_pert_config
     REAL(wp) :: rnd_num, rnd_fac, alpha0_sv, z0_lcc, rootdp, rsmin, laimax, tkfac
 
 
-    IF (use_ensemble_pert) THEN
+    IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
 
       CALL RANDOM_SEED(rnd_size)
       ALLOCATE(rnd_seed(rnd_size))
@@ -363,7 +363,7 @@ MODULE mo_ensemble_pert_config
       i_startblk = p_patch(jg)%cells%start_block(rl_start)
       i_endblk   = p_patch(jg)%cells%end_block(rl_end)
 
-      IF (use_ensemble_pert) THEN
+      IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
 
 !$OMP DO PRIVATE(jb,jc,jt,i_startidx,i_endidx,wrnd_num,ilu)
         DO jb = i_startblk, i_endblk

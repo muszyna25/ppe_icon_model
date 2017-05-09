@@ -96,6 +96,7 @@ MODULE mo_nh_stepping
   USE mo_time_config,              ONLY: time_config
   USE mo_grid_config,              ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
     &                                    n_dom_start, lredgrid_phys, start_time, end_time, patch_weight
+  USE mo_gribout_config,           ONLY: gribout_config
   USE mo_nh_testcases,             ONLY: init_nh_testcase
   USE mo_nh_testcases_nml,         ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho, is_toy_chem
   USE mo_nh_pa_test,               ONLY: set_nh_w_rho
@@ -817,7 +818,7 @@ MODULE mo_nh_stepping
     ENDDO
 
     ! Update time-dependent ensemble perturbations if necessary
-    IF (use_ensemble_pert) THEN
+    IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
       CALL compute_ensemble_pert(p_patch(1:), ext_data, prm_diag, mtime_current)
     ENDIF
 
