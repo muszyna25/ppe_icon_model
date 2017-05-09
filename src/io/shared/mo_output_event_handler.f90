@@ -144,7 +144,7 @@ MODULE mo_output_event_handler
     &                                  t_event_step, t_output_event, t_par_output_event,    &
     &                                  MAX_FILENAME_STR_LEN, MAX_EVENT_NAME_STR_LEN,        &
     &                                  DEFAULT_EVENT_NAME
-  USE mo_name_list_output_types, ONLY: t_fname_metadata
+  USE mo_name_list_output_types, ONLY: t_fname_metadata, t_event_data_local
   USE mo_util_table,             ONLY: initialize_table, finalize_table, add_table_column,  &
     &                                  set_table_entry, print_table, t_table
   USE mo_name_list_output_config,   ONLY: use_async_name_list_io
@@ -255,22 +255,6 @@ MODULE mo_output_event_handler
   ! local list event with event meta-data
   !---------------------------------------------------------------
 
-  !> event meta-data: this is only required for I/O PE #0, where we have to
-  !  keep a local list of output events.
-  TYPE t_event_data_local
-    CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN)        :: name                 !< output event name
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN+1)        :: begin_str(MAX_TIME_INTERVALS) !< date-time stamp + modifier
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN+1)        :: end_str(MAX_TIME_INTERVALS)   !< date-time stamp + modifier
-    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)         :: intvl_str(MAX_TIME_INTERVALS)
-    !> Flag. If .TRUE. the last step is always written
-    LOGICAL                                      :: l_output_last
-    !> definitions for conversion "time stamp -> simulation step"
-    TYPE(t_sim_step_info)                        :: sim_step_info
-    !> additional meta-data for generating output filename
-    TYPE(t_fname_metadata)                       :: fname_metadata
-    !> this event's MPI tag
-    INTEGER                                      :: i_tag
-  END TYPE t_event_data_local
 
   !> Maximum length of local event meta-data list
   INTEGER, PARAMETER :: LOCAL_NMAX_EVENT_LIST = 100

@@ -34,9 +34,10 @@ MODULE mo_name_list_output_types
   USE mo_util_string,           ONLY: tolower
   USE mo_communication,         ONLY: t_comm_gather_pattern
   USE mtime,                    ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN
-  USE mo_output_event_types,    ONLY: t_par_output_event, MAX_EVENT_NAME_STR_LEN
   USE mo_level_selection_types, ONLY: t_level_selection
   USE mo_name_list_output_zaxes_types,ONLY: t_verticalAxisList
+  USE mo_output_event_types,    ONLY: t_par_output_event, t_sim_step_info, &
+    &                                 MAX_EVENT_NAME_STR_LEN
   USE mo_reorder_info,          ONLY: t_reorder_info
 
   IMPLICIT NONE
@@ -68,6 +69,7 @@ MODULE mo_name_list_output_types
   PUBLIC :: t_var_desc
   PUBLIC :: t_fname_metadata
   PUBLIC :: t_output_file
+  PUBLIC :: t_event_data_local
   ! global variables
   PUBLIC :: all_events
   ! utility subroutines
@@ -407,6 +409,24 @@ MODULE mo_name_list_output_types
     LOGICAL                               :: appending = .FALSE.              !< the current file is appended (.true.), otherwise .false.
 
   END TYPE t_output_file
+
+  !> event meta-data: data for construction during event setup is kept in
+  !! an array of this type
+  TYPE t_event_data_local
+    !> output event name
+    CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN) :: name
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: begin_str(max_time_intervals)
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: end_str(max_time_intervals)
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: intvl_str(max_time_intervals)
+    !> this event's MPI tag
+    INTEGER                               :: i_tag
+    !> Flag. If .TRUE. the last step is always written
+    LOGICAL                               :: l_output_last
+    !> definitions for conversion "time stamp -> simulation step"
+    TYPE(t_sim_step_info)                 :: sim_step_info
+    !> additional meta-data for generating output filename
+    TYPE(t_fname_metadata)                :: fname_metadata
+  END TYPE t_event_data_local
 
   ! "all_events": The root I/O MPI rank "ROOT_OUTEVENT" asks all
   ! participating I/O PEs for their output event info and generates a
