@@ -814,6 +814,11 @@ CONTAINS
         END DO EVENT_LOOP
       END IF
 
+      CALL deallocateTimedelta(delta)
+      CALL deallocateDatetime(mtime_date)
+      IF (iselected_intvl /= remaining_intvls) CALL deallocateDatetime(mtime_end)
+      CALL deallocateDatetime(mtime_begin)
+
       IF (iintvl == 1) THEN
         n_event_steps_a = n_event_steps
         mtime_date_container => mtime_date_container_b
@@ -944,15 +949,12 @@ CONTAINS
     END IF
 
     ! clean up
-    CALL deallocateDatetime(mtime_begin)
     CALL deallocateDatetime(mtime_end)
-    CALL deallocateDatetime(mtime_date)
     CALL deallocateDatetime(mtime_dom_start)
     CALL deallocateDatetime(mtime_dom_end)
     CALL deallocateDatetime(mtime_restart)
     CALL deallocateDatetime(sim_end)
     CALL deallocateDatetime(run_start)
-    CALL deallocateTimedelta(delta)
 
     DEALLOCATE(mtime_sim_steps, &
       &        mtime_exactdate, filename_metadata, STAT=ierrstat)
