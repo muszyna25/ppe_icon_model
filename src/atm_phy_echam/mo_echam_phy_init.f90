@@ -286,7 +286,7 @@ CONTAINS
 
         IF (phy_config%lvdiff) THEN
           CALL read_2D(stream_id=stream_id, location=on_cells, &
-                &       variable_name='z0',                    &
+                &       variable_name='roughness_length',      &
                 &       fill_array=prm_field(jg)% z0m(:,:))
         END IF
 
@@ -295,7 +295,7 @@ CONTAINS
              &       fill_array=prm_field(jg)% alb(:,:))
 
         CALL closeFile(stream_id)
-         
+
         ! orography
         IF (phy_config%lssodrag) THEN
           stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)

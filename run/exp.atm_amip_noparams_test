@@ -48,6 +48,8 @@ atmo_namelist=NAMELIST_${EXPNAME}_atm
 
 # JSBACH settings
 run_jsbach=no
+
+lnd_datadir=${icon_data_poolFolder}/grids/private/mpim/icon_preprocessing/source/preliminary_land/${grid_name}/land
 #--------------------------------------------------------------------------------------------------
 
 # (3) Define the model configuration
@@ -119,6 +121,7 @@ cat > ${atmo_namelist} << EOF
  lssodrag         = .FALSE.
  lcariolle        = .FALSE.
  lice             = .FALSE.
+ llake            = .FALSE.
  ljsbach          = .FALSE.
  lebudget         = .FALSE.
  lmlo             = .FALSE.
@@ -134,12 +137,12 @@ cat > ${atmo_namelist} << EOF
  irad_cfc11       = 4           ! 4: from greenhouse gas scenario
  irad_cfc12       = 4           ! 4: from greenhouse gas scenario
  irad_aero        = 18          ! 0: no aerosol
-                                !13: only Kinne's tropospheric aerosols 
-                                !14: only Stenchikov's volcanic aerosols
+                                !13: only Kinne\'s tropospheric aerosols 
+                                !14: only Stenchikov\'s volcanic aerosols
                                 !15: Kinne aerosol optics for troposphere
                                 !   +Stenchikov aerosol optics for stratosphere
                                 !18: Kinne background aerosols of 1850 (natural
-                                !    background + Stenchikov's volc. aerosols
+                                !    background + Stenchikov\'s volc. aerosols
                                 !    + simple plumes (anthropogenic)
  ighg             = 1           ! 1: transient well mixed greenhouse gas concentrations
  isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
@@ -187,10 +190,6 @@ INDATA=${icon_data_poolFolder}/input/r0004
 datadir=${icon_data_poolFolder}/setup/ifs_iconremap_amip
 add_link_file $datadir/ifs_remap_${grid_name}_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
 #
-# - land: source?, date+time?
-datadir=$INDATA/${grid_name}/lnd
-add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
-
 # boundary conditions
 #
 # range of years for yearly files
@@ -269,10 +268,9 @@ datadir=$INDATA/global/sun
 add_link_file $datadir/bc_solar_irradiance_14band_1849-2399.nc          ./bc_solar_irradiance_sw_b14.nc
 #
 # - land parameters
-datadir=$INDATA/${grid_name}/lnd
+datadir=${lnd_datadir}
 add_link_file $datadir/bc_land_frac_1976.nc                             ./bc_land_frac.nc
 add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
-add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
 add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
 
 #--------------------------------------------------------------------------------------------------

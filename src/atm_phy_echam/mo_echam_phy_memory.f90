@@ -293,7 +293,7 @@ MODULE mo_echam_phy_memory
       & cair       (:,  :)    !<
 
     ! Sea ice.
-    ! See also atm_oce_lnd_interface/mo_sea_ice_types.f90
+    ! See also sea_ice/thermodyn/mo_sea_ice_types.f90
     INTEGER              :: kice  ! Number of ice-thickness classes
     REAL(wp),POINTER     ::     &
       & Tsurf   (:,:,:),        & ! Ice surface temperature [degC]

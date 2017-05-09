@@ -339,9 +339,9 @@ CONTAINS
        !-----------------------
        IF (ltrig_rad) THEN
 
-          ! store ts_rad of this radiatiative transfer timestep in ts_rad_rt,
-          ! so that it can be reused in radheat in the other timesteps
-          field%ts_rad_rt(jcs:jce,jb) = field%ts_rad(jcs:jce,jb)
+        ! store ts_rad of this radiatiative transfer timestep in ts_rad_rt,
+        ! so that it can be reused in radheat in the other timesteps
+        field%ts_rad_rt(jcs:jce,jb) = field%ts_rad(jcs:jce,jb)
 
         IF (ltimer) CALL timer_start(timer_radiation)
 
