@@ -626,7 +626,7 @@ CONTAINS
       &                         nintvls, iintvl, skipped_dates, &
       &                         old_size, new_size
     LOGICAL                  :: l_active, l_append_step
-    CHARACTER(len=MAX_DATETIME_STR_LEN), ALLOCATABLE :: mtime_date_string(:), tmp_string(:)
+    CHARACTER(len=MAX_DATETIME_STR_LEN) :: dtime_string
     INTEGER,                             ALLOCATABLE :: mtime_sim_steps(:)
     CHARACTER(len=MAX_DATETIME_STR_LEN), ALLOCATABLE :: mtime_exactdate(:)
     TYPE(t_event_step_data),             ALLOCATABLE :: filename_metadata(:)
@@ -707,9 +707,8 @@ CONTAINS
     mtime_restart   => newDatetime(TRIM(evd%sim_step_info%restart_time))
 
     ! loop over the event occurrences
-    ALLOCATE(mtime_date_container_a(256), stat=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-    ALLOCATE(mtime_date_container_b(256), stat=ierrstat)   
+    ALLOCATE(mtime_date_container_a(256), &
+      &      mtime_date_container_b(256), stat=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     ! The begin and end time stamps may contain "modifier symbols",
@@ -862,14 +861,12 @@ CONTAINS
     
     n_event_steps = n_event_steps_a
     ! to prevent a potential reallocation in next step add 1 element
-    ALLOCATE(mtime_date_string(n_event_steps+1), mtime_dates(n_event_steps+1), &
-      &      STAT=ierrstat)
+    ALLOCATE(mtime_dates(n_event_steps+1), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     ! copy mtime_date_container_a to mtime_date_string 
     DO i = 1, n_event_steps
       tmp_jd => newJulianday(mtime_date_container_a(i)%day, mtime_date_container_a(i)%ms);      
       CALL getDatetimeFromJulianDay(tmp_jd, mtime_dates(i))
-      CALL datetimeToString(mtime_dates(i), mtime_date_string(i))
       CALL deallocateJulianday(tmp_jd)
     END DO
 
@@ -882,29 +879,27 @@ CONTAINS
       END IF
       IF (l_append_step) THEN
         n_event_steps = n_event_steps + 1
-        old_size = SIZE(mtime_date_string)
+        old_size = SIZE(mtime_dates)
         IF (n_event_steps > old_size) THEN
           ! resize buffer
           new_size = old_size + INITIAL_NEVENT_STEPS
-          ALLOCATE(tmp_string(new_size), tmp_dates(new_size), STAT=ierrstat)
+          ALLOCATE(tmp_dates(new_size), STAT=ierrstat)
           IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-          tmp_string(1:old_size) = mtime_date_string
           tmp_dates(1:old_size) = mtime_dates
-          CALL MOVE_ALLOC(tmp_string, mtime_date_string)
           CALL MOVE_ALLOC(tmp_dates, mtime_dates)
         END IF
         mtime_dates(n_event_steps) = sim_end
-        CALL datetimeToString(sim_end, mtime_date_string(n_event_steps))
         IF (ldebug) THEN
+          CALL datetimeToString(sim_end, dtime_string)
           WRITE (0,*) get_my_global_mpi_id(), ": ", &
-               &      n_event_steps, ": output event '", mtime_date_string(n_event_steps), "'"
+               &      n_event_steps, ": output event '", dtime_string, "'"
         END IF
       END IF
     END IF
     
-    ALLOCATE(mtime_sim_steps(SIZE(mtime_date_string)),   &
-         &   mtime_exactdate(SIZE(mtime_date_string)),   &
-         &   filename_metadata(SIZE(mtime_date_string)), STAT=ierrstat)
+    ALLOCATE(mtime_sim_steps(SIZE(mtime_dates)),   &
+         &   mtime_exactdate(SIZE(mtime_dates)),   &
+         &   filename_metadata(SIZE(mtime_dates)), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     CALL fct_time2simstep(n_event_steps, mtime_dates, &
@@ -936,7 +931,7 @@ CONTAINS
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
       step_data => p_event%event_step(i)%event_step_data(1)
       step_data%i_pe            = i_pe
-      step_data%datetime_string = mtime_date_string(i)
+      CALL datetimeToString(mtime_dates(i), step_data%datetime_string)
       step_data%i_tag           = evd%i_tag
       step_data%filename_string = filename_metadata(i)%filename_string
       step_data%jfile           = filename_metadata(i)%jfile
@@ -961,7 +956,7 @@ CONTAINS
     CALL deallocateDatetime(run_start)
     CALL deallocateTimedelta(delta)
 
-    DEALLOCATE(mtime_date_string, mtime_sim_steps, &
+    DEALLOCATE(mtime_sim_steps, &
       &        mtime_exactdate, filename_metadata, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
