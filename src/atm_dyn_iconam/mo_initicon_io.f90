@@ -36,15 +36,15 @@ MODULE mo_initicon_io
   USE mo_input_instructions,  ONLY: t_readInstructionListPtr, kInputSourceFg, &
     &                               kInputSourceAna, kInputSourceBoth, kStateFailedFetch, &
     &                               kInputSourceCold
-  USE mo_initicon_config,     ONLY: init_mode, nlevatm_in, l_sst_in, generate_filename, &
+  USE mo_initicon_config,     ONLY: init_mode, l_sst_in, generate_filename, &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               nml_filetype => filetype, lread_vn,      &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart,    &
-    &                               lvert_remap_fg, aerosol_fg_present
+    &                               lvert_remap_fg, aerosol_fg_present, nlevsoil_in
   USE mo_nh_init_nest_utils,  ONLY: interpolate_scal_increments, interpolate_sfcana
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom,                           &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
-    &                               MODE_COSMODE, iss, iorg, ibc, iso4, idu, SUCCESS
+    &                               MODE_COSMO, iss, iorg, ibc, iso4, idu, SUCCESS
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: p_io, p_bcast, p_comm_work,    &
@@ -411,8 +411,6 @@ MODULE mo_initicon_io
       CALL p_bcast(geopvar_ndims, p_io, mpi_comm)
       IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) CALL p_bcast( nhyi, p_io, mpi_comm)
 
-      nlevatm_in(:) = nlev_in
-
       IF (msg_level >= 10) THEN
         WRITE(message_text,'(a)') 'surface pressure variable: '//TRIM(psvar)
         CALL message(TRIM(routine), TRIM(message_text))
@@ -428,7 +426,10 @@ MODULE mo_initicon_io
       ENDIF
 
       ! allocate data structure
-      CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
+      CALL allocate_extana_atm(nblks_c  = p_patch(jg)%nblks_c, &
+        &                      nblks_e  = p_patch(jg)%nblks_e, &
+        &                      nlev_in  = nlev_in,             &
+        &                      atm_in   = initicon(jg)%atm_in  ) !inout
 
       ! start reading atmospheric fields
       !
@@ -443,7 +444,7 @@ MODULE mo_initicon_io
       ENDIF
 
 
-      IF (init_mode == MODE_COSMODE) THEN
+      IF (init_mode == MODE_COSMO) THEN
         CALL read_3d_1time(stream_id, on_cells, 'W', fill_array=initicon(jg)%atm_in%w_ifc)
       ELSE
         ! Note: in this case, input vertical velocity is in fact omega (Pa/s)
@@ -536,7 +537,7 @@ MODULE mo_initicon_io
 
         ENDIF  ! jg=1
 
-      ELSE IF (init_mode == MODE_COSMODE) THEN ! in case of COSMO-DE initial data
+      ELSE IF (init_mode == MODE_COSMO) THEN ! in case of COSMO-DE initial data
 
         CALL read_3d_1time(stream_id, on_cells, 'HHL', fill_array=initicon(jg)%atm_in%z3d_ifc)
         CALL read_3d_1time(stream_id, on_cells, 'P', fill_array=initicon(jg)%atm_in%pres)
@@ -568,7 +569,7 @@ MODULE mo_initicon_io
 
         CALL finish(TRIM(routine),'Incorrect init_mode')
 
-      ENDIF ! init_mode = MODE_COSMODE
+      ENDIF ! init_mode = MODE_COSMO
 
       ! close file
       !
@@ -741,7 +742,9 @@ MODULE mo_initicon_io
       CALL p_bcast(geop_sfc_var_ndims, p_io, mpi_comm)
 
       ! allocate data structure
-      CALL allocate_extana_sfc(jg, p_patch(jg)%nblks_c, initicon)
+      CALL allocate_extana_sfc(nblks_c     = p_patch(jg)%nblks_c,  &
+        &                      nlevsoil_in = nlevsoil_in,          &
+        &                      sfc_in      = initicon(jg)%sfc_in   ) !inout
 
 
       ! start reading surface fields
@@ -996,10 +999,13 @@ MODULE mo_initicon_io
             END IF
 
             IF (lvert_remap_fg) THEN
-                ! the number of input and output levels must be the same for this mode
-                nlevatm_in(jg) = p_patch(jg)%nlev
 
-                CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
+                ! the number of input and output levels must be the same for this mode
+                CALL allocate_extana_atm(nblks_c  = p_patch(jg)%nblks_c, & 
+                  &                      nblks_e  = p_patch(jg)%nblks_e, & 
+                  &                      nlev_in  = p_patch(jg)%nlev,    & 
+                  &                      atm_in   = initicon(jg)%atm_in  ) !inout
+
                 CALL fetchRequired3d(params, 'z_ifc', jg, initicon(jg)%atm_in%z3d_ifc)
             END IF
 
@@ -1046,9 +1052,11 @@ MODULE mo_initicon_io
             levelValues => requestList%getLevels('z_ifc', jg)
             IF(.NOT.ASSOCIATED(levelValues)) CALL finish(routine, "no DATA found for domain "//TRIM(int2string(jg))//" of &
                                                                   &required variable 'z_ifc'")
-            nlevatm_in(jg) = SIZE(levelValues, 1) - 1
 
-            CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
+            CALL allocate_extana_atm(nblks_c  = p_patch(jg)%nblks_c,    & 
+              &                      nblks_e  = p_patch(jg)%nblks_e,    & 
+              &                      nlev_in  = SIZE(levelValues,1)-1,  & 
+              &                      atm_in   = initicon(jg)%atm_in     ) !inout
 
             ! start reading first guess (atmosphere only)
             CALL fetchRequired3d(params, 'z_ifc', jg, initicon(jg)%atm_in%z3d_ifc)
@@ -1086,7 +1094,7 @@ MODULE mo_initicon_io
                     i_endidx = p_patch(jg)%npromz_c
                 END IF
 
-                DO jk = 1, nlevatm_in(jg)
+                DO jk = 1, initicon(jg)%atm_in%nlev
                     DO jc = 1, i_endidx
 
                         !XXX: This code IS a waste of resources:
@@ -1262,13 +1270,13 @@ MODULE mo_initicon_io
             wtr_prog => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
 
             ! COSMO-DE does not provide sea ice field. In that case set fr_seaice to 0
-            IF (init_mode /= MODE_COSMODE) THEN
+            IF (init_mode /= MODE_COSMO) THEN
                 CALL fetchSurface(params, 'fr_seaice', jg, lnd_diag%fr_seaice)
             ELSE
 !$OMP PARALLEL
                 CALL init(lnd_diag%fr_seaice(:,:))
 !$OMP END PARALLEL
-            ENDIF ! init_mode /= MODE_COSMODE
+            ENDIF ! init_mode /= MODE_COSMO
 
             ! sea-ice related fields
             CALL fetchSurface(params, 't_ice', jg, wtr_prog%t_ice)
@@ -1314,7 +1322,7 @@ MODULE mo_initicon_io
             ! on the initialization mode. Checking grp_vars_fg takes care of this. In case
             ! that smi is read, it is lateron converted to w_so (see smi_to_wsoil)
             SELECT CASE(init_mode)
-                CASE(MODE_COMBINED, MODE_COSMODE)
+                CASE(MODE_COMBINED, MODE_COSMO)
                     CALL fetchTiled3d(params, 'smi', jg, ntiles_total, lnd_prog%w_so_t)
                 CASE DEFAULT
                     CALL fetchTiled3d(params, 'w_so', jg, ntiles_total, lnd_prog%w_so_t)
@@ -1323,7 +1331,7 @@ MODULE mo_initicon_io
 
             CALL fetchTiled3d(params, 't_so', jg, ntiles_total, lnd_prog%t_so_t)
 
-            ! Skipped in MODE_COMBINED and in MODE_COSMODE (i.e. when starting from GME soil)
+            ! Skipped in MODE_COMBINED and in MODE_COSMO (i.e. when starting from GME soil)
             ! Instead z0 is re-initialized (see mo_nwp_phy_init)
             CALL fetchSurface(params, 'gz0', jg, prm_diag(jg)%gz0)
 
@@ -1416,9 +1424,9 @@ MODULE mo_initicon_io
                 END IF
             END DO
 
-            ! Only required, when starting from GME or COSMO soil (i.e. MODE_COMBINED or MODE_COSMODE).
+            ! Only required, when starting from GME or COSMO soil (i.e. MODE_COMBINED or MODE_COSMO).
             ! SMI stored in w_so_t must be converted to w_so
-            IF (ANY((/MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
+            IF (ANY((/MODE_COMBINED,MODE_COSMO/) == init_mode)) THEN
                 DO jt=1, ntiles_total
                     CALL smi_to_wsoil(p_patch(jg), lnd_prog%w_so_t(:,:,:,jt))
                 END DO

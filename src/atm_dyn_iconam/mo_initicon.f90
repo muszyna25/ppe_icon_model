@@ -34,14 +34,14 @@ MODULE mo_initicon
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_initicon_types,      ONLY: t_initicon_state, ana_varnames_dict
-  USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlevatm_in, lvert_remap_fg, &
+  USE mo_initicon_config,     ONLY: init_mode, dt_iau, lvert_remap_fg, &
     &                               rho_incr_filter_wgt, lread_ana, ltile_init, &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart, lconsistency_checks, &
     &                               niter_divdamp, niter_diffu, lanaread_tseasfc
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA,   &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,              &
-    &                               MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMODE,     &
+    &                               MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMO,       &
     &                               min_rlcell, INWP, min_rledge_int, grf_bdywidth_c, &
     &                               min_rlcell_int, dzsoil_icon => dzsoil
   USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd, tmelt, tf_salt
@@ -207,8 +207,8 @@ MODULE mo_initicon
             CALL message(modname,'MODE_IFS: perform initialization with IFS analysis')
         CASE(MODE_COMBINED)
             CALL message(modname,'MODE_COMBINED: IFS-atm + GME-soil')
-        CASE(MODE_COSMODE)
-            CALL message(modname,'MODE_COSMODE: COSMO-atm + COSMO-soil')
+        CASE(MODE_COSMO)
+            CALL message(modname,'MODE_COSMO: COSMO-atm + COSMO-soil')
         CASE DEFAULT
             CALL finish(modname, "Invalid operation mode!")
     END SELECT
@@ -237,7 +237,7 @@ MODULE mo_initicon
     SELECT CASE(init_mode)
         CASE(MODE_IFSANA)    !MODE_IFSANA uses the read_extana_*() routines, which directly use NetCDF input.
             RETURN
-        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU, MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMODE)
+        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU, MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMO)
         CASE DEFAULT
             CALL finish(routine, "assertion failed: unknown init_mode")
     END SELECT
@@ -282,7 +282,7 @@ MODULE mo_initicon
         CASE(MODE_ICONVREMAP)
             CALL fetch_dwdfg_atm_ii(requestList, p_patch, initicon, inputInstructions)
             CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
-        CASE(MODE_COMBINED, MODE_COSMODE)
+        CASE(MODE_COMBINED, MODE_COSMO)
             CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
     END SELECT
 
@@ -306,11 +306,11 @@ MODULE mo_initicon
     SELECT CASE(init_mode)
         CASE(MODE_ICONVREMAP)
             CALL process_input_dwdfg_sfc (p_patch, p_lnd_state, ext_data)
-        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU, MODE_COMBINED, MODE_COSMODE)
+        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU, MODE_COMBINED, MODE_COSMO)
             IF (lvert_remap_fg) THEN ! apply vertical remapping of FG input (requires that the number of model levels
                                      ! does not change; otherwise, init_mode = 7 must be used based on a full analysis)
                 CALL copy_fg2initicon(p_patch, initicon, p_nh_state)
-                CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, p_patch(:)%nlev, initicon, &
+                CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, initicon, &
                 &                    opt_convert_omega2w=.FALSE.)
                 CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
             END IF
@@ -359,7 +359,7 @@ MODULE mo_initicon
             ! NH set of prognostic variables
             IF (iforcing == inwp) CALL read_extana_sfc(p_patch, initicon)
             RETURN
-        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU, MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMODE)
+        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU, MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMO)
         CASE DEFAULT
             CALL finish(routine, "assertion failed: unknown init_mode")
     END SELECT
@@ -367,7 +367,7 @@ MODULE mo_initicon
     ! Create a request list for all the relevant variable names.
     requestList => InputRequestList_create()
     SELECT CASE(init_mode)
-        CASE(MODE_COMBINED, MODE_COSMODE)
+        CASE(MODE_COMBINED, MODE_COSMO)
             CALL read_extana_atm(p_patch, initicon)
     END SELECT
     DO jg = 1, n_dom
@@ -435,7 +435,7 @@ MODULE mo_initicon
         CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU)
             IF(lread_ana) CALL fetch_dwdana_atm(requestList, p_patch, p_nh_state, initicon, inputInstructions)
             IF(lread_ana) CALL fetch_dwdana_sfc(requestList, p_patch, p_lnd_state, initicon, inputInstructions)
-        CASE(MODE_COMBINED, MODE_COSMODE)
+        CASE(MODE_COMBINED, MODE_COSMO)
             IF(lread_ana) CALL fetch_dwdana_sfc(requestList, p_patch, p_lnd_state, initicon, inputInstructions)
         CASE(MODE_ICONVREMAP)
             IF(lread_ana) CALL fetch_dwdana_sfc(requestList, p_patch, p_lnd_state, initicon, inputInstructions)
@@ -477,15 +477,15 @@ MODULE mo_initicon
             CALL create_dwdanainc_atm(p_patch, p_nh_state, p_int_state)
         CASE(MODE_COMBINED, MODE_IFSANA)
             ! process IFS atmosphere analysis data
-            CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlevatm_in, initicon, &
+            CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, initicon, &
             &                    opt_convert_omega2w = .TRUE.)
             ! Finally copy the results to the prognostic model
             ! variables
             CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
-        CASE(MODE_ICONVREMAP, MODE_COSMODE)
+        CASE(MODE_ICONVREMAP, MODE_COSMO)
             ! process ICON (DWD) atmosphere first-guess data (having
             ! different vertical levels than the current grid)
-            CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlevatm_in, initicon, &
+            CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, initicon, &
             &                    opt_convert_omega2w = .FALSE.)
             ! Finally copy the results to the prognostic model
             ! variables
@@ -493,7 +493,7 @@ MODULE mo_initicon
     END SELECT
 
     SELECT CASE(init_mode)
-        CASE(MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU_OLD, MODE_IAU, MODE_COMBINED, MODE_COSMODE)
+        CASE(MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU_OLD, MODE_IAU, MODE_COMBINED, MODE_COSMO)
             ! process DWD land/surface analysis data / increments
             IF(lread_ana) CALL process_input_dwdana_sfc(p_patch, p_lnd_state, initicon)
             ! Add increments to time-shifted first guess in one go.
@@ -523,7 +523,7 @@ MODULE mo_initicon
     END SELECT
 
     SELECT CASE(init_mode)
-        CASE(MODE_COMBINED,MODE_COSMODE)
+        CASE(MODE_COMBINED,MODE_COSMO)
             ! Cold-start initialization of the fresh-water lake model
             ! FLake. The procedure is the same as in "int2lm". Note
             ! that no lake ice is assumed at the cold start.

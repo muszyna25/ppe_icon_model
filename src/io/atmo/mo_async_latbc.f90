@@ -32,9 +32,6 @@ MODULE mo_async_latbc
          &                                  my_process_is_mpi_test, p_int, p_real_sp
     USE mo_parallel_config,           ONLY: nproma
     USE mo_model_domain,              ONLY: p_patch
-    USE mo_model_domain,              ONLY: t_patch
-    USE mo_nonhydro_types,            ONLY: t_nh_state
-    USE mo_intp_data_strc,            ONLY: t_int_state
     ! MPI Communicators
     USE mo_mpi,                       ONLY: p_comm_work, p_comm_work_pref, p_comm_work_2_pref
     ! MPI Communication routines
@@ -52,8 +49,7 @@ MODULE mo_async_latbc
          &                                  compute_wait_for_async_pref, compute_shutdown_async_pref, &
          &                                  async_pref_send_handshake,  async_pref_wait_for_start, &
          &                                  allocate_pref_latbc_data
-    USE mo_impl_constants,            ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA, MODE_ICONVREMAP, &
-                                            MODE_IAU_OLD, MODE_IAU
+    USE mo_impl_constants,            ONLY: SUCCESS, MAX_CHAR_LENGTH
     USE mo_communication,             ONLY: idx_no, blk_no
     USE mo_nonhydro_state,            ONLY: p_nh_state
     USE mo_intp_data_strc,            ONLY: p_int_state
@@ -66,7 +62,6 @@ MODULE mo_async_latbc
     USE mo_dictionary,                ONLY: t_dictionary, dict_get, dict_init, dict_loadfile, &
          &                                  dict_finalize
     USE mo_util_string,               ONLY: add_to_list, tolower
-    USE mo_initicon_config,           ONLY: init_mode
     USE mo_time_config,               ONLY: time_config
     USE mo_cdi,                       ONLY: vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
          &                                  vlistNvars, zaxisInqSize, vlistInqVarName,         &
@@ -77,7 +72,6 @@ MODULE mo_async_latbc
     USE mo_io_util,                   ONLY: read_netcdf_int_1d
     USE mo_util_file,                 ONLY: util_filesize
     USE mo_util_cdi,                  ONLY: test_cdi_varID, cdiGetStringError
-    USE mtime,                        ONLY: datetime
     
     IMPLICIT NONE
 
