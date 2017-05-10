@@ -301,7 +301,7 @@ MODULE mo_mpi
   PUBLIC :: MPI_ANY_SOURCE, MPI_COMM_NULL
 
   ! real data type matching real type of MPI implementation
-  PUBLIC :: p_real_dp, p_real_sp
+  PUBLIC :: p_real_dp, p_real_sp, p_real
   PUBLIC :: p_int
   PUBLIC :: p_int_i8
   PUBLIC :: p_bool
@@ -1841,7 +1841,6 @@ CONTAINS
     CALL MPI_SIZEOF(rdp, p_real_dp_byte, p_error)
 
     p_int     = MPI_INTEGER
-    p_real    = MPI_REAL
     p_bool    = MPI_LOGICAL
     p_char    = MPI_CHARACTER
 
@@ -1849,7 +1848,13 @@ CONTAINS
     CALL MPI_TYPE_MATCH_SIZE(MPI_TYPECLASS_REAL, p_real_dp_byte, p_real_dp, p_error)
     CALL MPI_TYPE_MATCH_SIZE(MPI_TYPECLASS_INTEGER, p_int_i4_byte, p_int_i4, p_error)
     CALL MPI_TYPE_MATCH_SIZE(MPI_TYPECLASS_INTEGER, p_int_i8_byte, p_int_i8, p_error)
-
+    IF (wp == dp) THEN
+      p_real = p_real_dp
+    ELSE IF (wp == sp) THEN
+      p_real = p_real_sp
+    ELSE
+      p_real = mpi_datatype_null
+    END IF
 
 #ifdef DEBUG
     WRITE (nerr,'(/,a)')    ' MPI transfer sizes [bytes]:'
