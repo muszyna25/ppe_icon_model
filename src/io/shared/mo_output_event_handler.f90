@@ -110,7 +110,6 @@
 !!
 !! -----------------------------------------------------------------------------------
 MODULE mo_output_event_handler
-
   ! actual method (MPI-2)
 #ifndef NOMPI
 #if !defined (__SUNPRO_F95)
@@ -118,19 +117,21 @@ MODULE mo_output_event_handler
 #endif
 #endif
 
-  USE mo_kind,                   ONLY: i8
+  USE mo_kind,                   ONLY: i8, wp
   USE mo_impl_constants,         ONLY: SUCCESS, MAX_TIME_INTERVALS
   USE mo_exception,              ONLY: finish
   USE mo_io_units,               ONLY: FILENAME_MAX, find_next_free_unit
   USE mo_util_string,            ONLY: int2string
-  USE mo_mpi,                    ONLY: p_int,                                               &
+  USE mo_mpi,                    ONLY: p_int, p_real,                                       &
     &                                  p_pack_int, p_pack_string, p_pack_bool, p_pack_real, &
     &                                  p_unpack_int, p_unpack_string, p_unpack_bool,        &
     &                                  p_unpack_real, p_send_packed, p_irecv_packed,        &
     &                                  p_wait, p_bcast, get_my_global_mpi_id,               &
     &                                  my_process_is_mpi_test, p_pe,                        &
     &                                  my_process_is_mpi_workroot,                          &
-    &                                  p_comm_rank, p_comm_size
+    &                                  process_mpi_all_comm,                                &
+    &                                  p_comm_rank, p_comm_size,                            &
+    &                                  p_gather, p_gatherv, mpi_comm_null
   USE mtime,                     ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,         &
     &                                  datetime, timedelta,  newTimedelta,                  &
     &                                  deallocateDatetime, datetimeToString,                &
@@ -265,7 +266,9 @@ MODULE mo_output_event_handler
   !> length of local list of output events
   INTEGER :: ievent_list_local = 0
 
-
+#ifndef NOMPI
+  INTEGER :: event_data_dt = mpi_datatype_null
+#endif
 CONTAINS
 
   !---------------------------------------------------------------
@@ -1911,7 +1914,216 @@ CONTAINS
   !---------------------------------------------------------------
   ! ROUTINES PERFORMING DATA TRANSFER TO ROOT PE DURING SETUP
   !---------------------------------------------------------------
+#ifndef NOMPI
+  !> create mpi datatype for variables of type t_event_data_local
+  SUBROUTINE create_event_data_dt
+    USE iso_c_binding, ONLY: c_size_t
+    INTEGER, PARAMETER :: num_dt_elem = 8
+    INTEGER(mpi_address_kind) :: base, displs(num_dt_elem), ext, stride
+    INTEGER :: elem_dt(num_dt_elem), i, ierror, resized_dt
+    CHARACTER(len=*), PARAMETER :: routine = modname//"::create_event_data_dt"
+    INTEGER, PARAMETER :: blocklens(num_dt_elem) &
+      = (/ 1, max_time_intervals, max_time_intervals, max_time_intervals, &
+      &    1, 1, 1, 1 /)
+    TYPE(t_event_data_local), TARGET :: dummy(2)
+    EXTERNAL :: util_memcmp
+    LOGICAL :: util_memcmp
+    CALL mpi_type_contiguous(max_event_name_str_len, mpi_character, &
+      &                      elem_dt(1), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_type_contiguous error')
+    CALL mpi_type_contiguous(max_datetime_str_len, mpi_character, &
+      &                      elem_dt(2), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_type_contiguous error')
+    elem_dt(3) = elem_dt(2)
+    CALL mpi_type_contiguous(max_timedelta_str_len, mpi_character, &
+      &                      elem_dt(4), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_type_contiguous error')
+    elem_dt(5) = mpi_integer
+    elem_dt(6) = mpi_logical
+    CALL create_sim_step_info_dt(elem_dt(7))
+    CALL create_fname_metadata_dt(elem_dt(8))
+    CALL mpi_get_address(dummy(1), base, ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%name, displs(1), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%begin_str, displs(2), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%end_str, displs(3), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%intvl_str, displs(4), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%i_tag, displs(5), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%l_output_last, displs(6), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%sim_step_info, displs(7), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%fname_metadata, displs(8), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    displs = displs - base
+    CALL mpi_type_create_struct(num_dt_elem, blocklens, displs, elem_dt, &
+      &                         event_data_dt, ierror)
+    IF (ierror /= mpi_success) &
+         & CALL finish(routine, 'mpi_type_create_struct error')
+    CALL mpi_type_get_extent(event_data_dt, stride, ext, ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_type_get_extent error')
+    CALL mpi_get_address(dummy(2), stride, ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    stride = stride - base
+    IF (stride < ext) THEN
+      CALL finish(routine, 'fatal extent mismatch')
+    ELSE IF (stride > ext) THEN
+      CALL mpi_type_create_resized(event_data_dt, 0_mpi_address_kind, &
+        &                          stride, resized_dt, ierror)
+      IF (ierror /= mpi_success) &
+        CALL finish(routine, 'mpi_type_create_resized error')
+      CALL mpi_type_free(event_data_dt, ierror)
+      IF (ierror /= mpi_success) CALL finish(routine, 'mpi_type_free error')
+      event_data_dt = resized_dt
+    END IF
+    CALL mpi_type_commit(event_data_dt, ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_type_commit error')
+    DO i = 1, num_dt_elem
+      IF (i /= 3 .AND. i < 5 .OR. i > 6) THEN
+        CALL mpi_type_free(elem_dt(i), ierror)
+        IF (ierror /= mpi_success) CALL finish(routine, 'mpi_type_free error')
+      END IF
+    END DO
+    CALL util_memset(dummy, 0, INT(2*stride, c_size_t))
+    dummy(1)%name = 'test_name'
+    dummy(1)%begin_str(1) = '1970-01-01'
+    dummy(1)%begin_str(2:) = ''
+    dummy(1)%end_str(1) = '1970-12-31'
+    dummy(1)%end_str(2:) = ''
+    dummy(1)%intvl_str(1) = '1month'
+    dummy(1)%intvl_str(2:) = ''
+    dummy(1)%i_tag = 700
+    dummy(1)%l_output_last = .TRUE.
+    dummy(1)%sim_step_info%sim_start = '1969-01-01'
+    dummy(1)%sim_step_info%sim_end = '1975-12-06'
+    dummy(1)%sim_step_info%run_start = '1970-01-01'
+    dummy(1)%sim_step_info%restart_time = 'who knows'
+    dummy(1)%sim_step_info%dtime = 0.5_wp
+    dummy(1)%sim_step_info%dom_start_time = '1970-01-02'
+    dummy(1)%sim_step_info%dom_end_time = '1970-11-23'
+    dummy(1)%sim_step_info%jstep0 = 1
+    dummy(1)%fname_metadata%steps_per_file = 15
+    dummy(1)%fname_metadata%steps_per_file_inclfirst = .FALSE.
+    dummy(1)%fname_metadata%file_interval = '5days'
+    dummy(1)%fname_metadata%phys_patch_id = -25
+    dummy(1)%fname_metadata%ilev_type = 123456
+    dummy(1)%fname_metadata%filename_format = 'dummy.nc'
+    dummy(1)%fname_metadata%filename_pref = 'dummy-lalalal.nc'
+    dummy(1)%fname_metadata%extn = 'nc'
+    dummy(1)%fname_metadata%jfile_offset = 178
+    dummy(1)%fname_metadata%npartitions = 2
+    dummy(1)%fname_metadata%ifile_partition = 2
+    CALL mpi_sendrecv(dummy(1), 1, event_data_dt, 0, 178, &
+      &               dummy(2), 1, event_data_dt, 0, 178, &
+      &               mpi_comm_self, mpi_status_ignore, ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'transfer test error')
+    IF (util_memcmp(dummy(1), dummy(2), INT(stride, c_size_t))) &
+      CALL finish(routine, 'transfer test error')
+  END SUBROUTINE create_event_data_dt
 
+  SUBROUTINE create_sim_step_info_dt(dt)
+    INTEGER, INTENT(out) :: dt
+    INTEGER, PARAMETER :: num_dt_elem = 8
+    INTEGER(mpi_address_kind) :: base, displs(num_dt_elem)
+    INTEGER :: elem_dt(num_dt_elem), ierror
+    CHARACTER(len=*), PARAMETER :: routine &
+      = modname//"::create_sim_step_info_dt"
+    INTEGER, PARAMETER :: blocklens(num_dt_elem) &
+      = (/ MAX_DATETIME_STR_LEN, MAX_DATETIME_STR_LEN, MAX_DATETIME_STR_LEN, &
+      &    MAX_DATETIME_STR_LEN, 1, MAX_DATETIME_STR_LEN, &
+      &    MAX_DATETIME_STR_LEN, 1 /)
+    TYPE(t_sim_step_info) :: dummy(2)
+    elem_dt(1) = mpi_character
+    elem_dt(2) = mpi_character
+    elem_dt(3) = mpi_character
+    elem_dt(4) = mpi_character
+    elem_dt(5) = p_real
+    elem_dt(6) = mpi_character
+    elem_dt(7) = mpi_character
+    elem_dt(8) = mpi_integer
+    CALL mpi_get_address(dummy(1), base, ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%sim_start, displs(1), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%sim_end, displs(2), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%run_start, displs(3), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%restart_time, displs(4), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%dtime, displs(5), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%dom_start_time, displs(6), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%dom_end_time, displs(7), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%jstep0, displs(8), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    displs = displs - base
+    CALL mpi_type_create_struct(num_dt_elem, blocklens, displs, elem_dt, &
+      &                         dt, ierror)
+    IF (ierror /= mpi_success) &
+      & CALL finish(routine, 'mpi_type_create_struct error')
+  END SUBROUTINE create_sim_step_info_dt
+
+  SUBROUTINE create_fname_metadata_dt(dt)
+    INTEGER, INTENT(out) :: dt
+    INTEGER, PARAMETER :: num_dt_elem = 11
+    INTEGER(mpi_address_kind) :: base, displs(num_dt_elem)
+    INTEGER :: elem_dt(num_dt_elem), ierror
+    CHARACTER(len=*), PARAMETER :: routine &
+      = modname//"::create_fname_metadata_dt"
+    INTEGER, PARAMETER :: blocklens(num_dt_elem) &
+      = (/ 1, 1, MAX_TIMEDELTA_STR_LEN, 1, 1, FILENAME_MAX, FILENAME_MAX, 16, &
+      &    1, 1, 1 /)
+    TYPE(t_fname_metadata) :: dummy(2)
+    elem_dt(1) = mpi_integer
+    elem_dt(2) = mpi_logical
+    elem_dt(3) = mpi_character
+    elem_dt(4) = mpi_integer
+    elem_dt(5) = mpi_integer
+    elem_dt(6) = mpi_character
+    elem_dt(7) = mpi_character
+    elem_dt(8) = mpi_character
+    elem_dt(9) = mpi_integer
+    elem_dt(10) = mpi_integer
+    elem_dt(11) = mpi_integer
+    CALL mpi_get_address(dummy(1), base, ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%steps_per_file, displs(1), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%steps_per_file_inclfirst, displs(2), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%file_interval, displs(3), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%phys_patch_id, displs(4), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%ilev_type, displs(5), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%filename_format, displs(6), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%filename_pref, displs(7), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%extn, displs(8), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%jfile_offset, displs(9), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%npartitions, displs(10), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    CALL mpi_get_address(dummy(1)%ifile_partition, displs(11), ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_get_address error')
+    displs = displs - base
+    CALL mpi_type_create_struct(num_dt_elem, blocklens, displs, elem_dt, &
+      &                         dt, ierror)
+    IF (ierror /= mpi_success) &
+      & CALL finish(routine, 'mpi_type_create_struct error')
+  END SUBROUTINE create_fname_metadata_dt
+#endif
   !> MPI-send event data to root PE.
   !
   !  All data necessary to create the event dates must be transmitted.
@@ -1927,6 +2139,7 @@ CONTAINS
     INTEGER :: nitems, ierrstat, position
     CHARACTER, ALLOCATABLE :: buffer(:)   !< MPI buffer for packed
 
+    IF (event_data_dt == mpi_datatype_null) CALL create_event_data_dt
     ! allocate message buffer
     ALLOCATE(buffer(MAX_BUF_SIZE), stat=ierrstat)
     IF (ierrstat /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed')

@@ -331,7 +331,9 @@ MODULE mo_name_list_output_types
 
   !> Data structure containing additional meta-data for generating
   !> an output filename.
-  !
+  !!
+  !! When changing this type, mo_output_event_handler::create_fname_metadata_dt
+  !! needs to be adjusted accordingly!
   TYPE t_fname_metadata
     INTEGER                               :: steps_per_file                   !< (optional:) no. of output steps per file
     LOGICAL                               :: steps_per_file_inclfirst         !< Flag. Do not count first step in files count
@@ -412,6 +414,9 @@ MODULE mo_name_list_output_types
 
   !> event meta-data: data for construction during event setup is kept in
   !! an array of this type
+  !!
+  !! When changing this type, mo_output_event_handler::create_event_data_dt
+  !! needs to be adjusted accordingly!
   TYPE t_event_data_local
     !> output event name
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN) :: name
