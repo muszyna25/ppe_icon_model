@@ -1803,7 +1803,7 @@ CONTAINS
           ! all participating I/O PE's have acknowledged the completion of
           ! their write processes, we trigger a "ready file" on the first
           ! I/O PE.
-          IF (.NOT. is_mpi_test .AND. use_async_name_list_io .AND. is_io_root) THEN
+          IF (is_io_root) THEN
 
             ! Go over all output files
             l_complete = all_output_file_event_finished(output_file(:))
