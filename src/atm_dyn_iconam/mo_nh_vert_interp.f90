@@ -101,14 +101,13 @@ CONTAINS
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE vert_interp_atm(p_patch, p_nh_state, p_int, p_grf, nlevels_in, &
-    &                        initicon, opt_convert_omega2w)
+  SUBROUTINE vert_interp_atm(p_patch, p_nh_state, p_int, p_grf, initicon, &
+    &                        opt_convert_omega2w)
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch(:)
     TYPE(t_nh_state),       INTENT(IN)       :: p_nh_state(:)
     TYPE(t_int_state),      INTENT(IN)       :: p_int(:)
     TYPE(t_gridref_state),  INTENT(IN)       :: p_grf(:)
-    INTEGER,                INTENT(IN)       :: nlevels_in(:)
     TYPE(t_initicon_state), INTENT(INOUT)    :: initicon(:)
     LOGICAL,   OPTIONAL,    INTENT(IN)       :: opt_convert_omega2w
 
@@ -126,8 +125,9 @@ CONTAINS
 
       IF (p_patch(jg)%n_patch_cells==0) CYCLE ! skip empty patches
 
-      CALL vert_interp(p_patch(jg), p_int(jg), p_nh_state(jg)%metrics, nlevels_in(jg), &
-                       initicon(jg), opt_convert_omega2w)
+
+      CALL vert_interp(p_patch(jg), p_int(jg), p_nh_state(jg)%metrics, initicon(jg), &
+        &              opt_convert_omega2w)
 
       ! Apply boundary interpolation for u and v because the outer nest boundary
       ! points would remain undefined otherwise
@@ -152,7 +152,7 @@ CONTAINS
   !>
   !! SUBROUTINE vert_interp_sfc
   !! Outer driver routine for vertical interpolation of analysis
-  !! data (surface only) interpolated horizontally by IFS2ICON to
+  !! data (surface only) interpolated horizontally by ICONREMAP to
   !! the ICON grid
   !!
   !! @par Revision History
@@ -190,20 +190,29 @@ CONTAINS
   !>
   !! SUBROUTINE vert_interp
   !! Domain-wise driver routine for vertical interpolation of analysis
-  !! data (atmosphere only) interpolated horizontally by IFS2ICON to
+  !! data (atmosphere only) interpolated horizontally by ICONREMAP to
   !! the ICON grid
+  !!
+  !! SOURCE data taken from initicon%atm_in: 
+  !! z3d (psfc or log(psfc), phi_sfc), temp, vn (u,v), qv, qc, qi, qr, qs, pres, w (omega), tke
+  !! Alternatives are given in brackets.
+  !! - if z3d is not available, it is derived from (psfc or log(psfc), phi_sfc)
+  !! - if omega rather than w is given, it is converted to w prior to the interpolation step.
+  !!
+  !! Fields are vertically interpolated onto the ICON vertical grid 
+  !! and stored in the initicon%atm state. They are finally converted into the following 
+  !! set of prognostic variables:
+  !! vn, w, qv, qc, qi, qr, qs, rho, exner, theta_v
   !!
   !! @par Revision History
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE vert_interp(p_patch, p_int, p_metrics, nlev_in, initicon, opt_convert_omega2w, opt_use_vn)
-
+  SUBROUTINE vert_interp(p_patch, p_int, p_metrics, initicon, opt_convert_omega2w, opt_use_vn)
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch
     TYPE(t_int_state),      INTENT(IN)       :: p_int
     TYPE(t_nh_metrics),     INTENT(IN)       :: p_metrics
-    INTEGER,                INTENT(IN)       :: nlev_in
     TYPE(t_initicon_state), INTENT(INOUT)    :: initicon
     LOGICAL, OPTIONAL,      INTENT(IN)       :: opt_convert_omega2w
     LOGICAL, OPTIONAL,      INTENT(IN)       :: opt_use_vn
@@ -214,12 +223,13 @@ CONTAINS
 
     INTEGER :: jb
     INTEGER :: nlen, nlev, nlevp1
+    INTEGER :: nlev_in         ! number of vertical levels in source vgrid 
     LOGICAL :: lc2f, l_use_vn, lconvert_omega2w
 
     ! Auxiliary fields for input data
-    REAL(wp), DIMENSION(nproma,nlev_in+1) :: pres_ic, lnp_ic, geop_ic
-    REAL(wp), DIMENSION(nproma,nlev_in  ) :: delp, rdelp, rdlnpr, rdalpha, geop_mc
-    REAL(wp), DIMENSION(nproma,nlev_in,p_patch%nblks_c) :: temp_v_in
+    REAL(wp), DIMENSION(nproma,initicon%atm_in%nlev+1) :: pres_ic, lnp_ic, geop_ic
+    REAL(wp), DIMENSION(nproma,initicon%atm_in%nlev  ) :: delp, rdelp, rdlnpr, rdalpha, geop_mc
+    REAL(wp), DIMENSION(nproma,initicon%atm_in%nlev,p_patch%nblks_c) :: temp_v_in
 
     ! Auxiliary field for output data
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: &
@@ -266,12 +276,14 @@ CONTAINS
       bot_idx_lin_e, bot_idx_cub_e, kpbl1_e, kpbl2_e
 
     ! full level heights of initicon input fields at edge midpoints
-    REAL(wp), DIMENSION(nproma,nlev_in,p_patch%nblks_e) :: atm_in_z_me
+    REAL(wp), DIMENSION(nproma,initicon%atm_in%nlev,p_patch%nblks_e) :: atm_in_z_me
 
     ! full level heights of ICON vertical grid at edge midpoints
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_me
 
 !-------------------------------------------------------------------------
+
+    nlev_in = initicon%atm_in%nlev
 
     IF (nlev_in == 0) THEN
       CALL finish(routine, "Number of input levels <nlev_in> not yet initialized.")

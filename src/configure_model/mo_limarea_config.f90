@@ -20,7 +20,7 @@ MODULE mo_limarea_config
 
   USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: max_dom, MAX_CHAR_LENGTH
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_io_units,           ONLY: filename_max
   USE mo_util_string,        ONLY: t_keyword_list,                   &
                                    associate_keyword, with_keywords, &

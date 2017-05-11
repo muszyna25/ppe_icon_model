@@ -1774,7 +1774,7 @@ I & 2& &
 1: MODE\_DWDANA\\ \quad start from DWD analysis or FG \\
 2: MODE\_IFSANA\\ \quad start from IFS analysis \\
 3: MODE\_COMBINED\\ \quad IFS atm + ICON/GME soil \\
-4: MODE\_COSMODE\\ \quad start from COSMO-DE forecast \\
+4: MODE\_COSMO\\ \quad start from prognostic set of variables as used by COSMO \\
 5: MODE\_IAU\\ \quad start from DWD analysis with incremental analysis update. Extension of MODE\_IAU\_OLD including snow increments\\
 6: MODE\_IAU\_OLD\\ \quad start from DWD analysis with incremental analysis update. NOTE: Extension of mode MODE\_DWDANA\_INC 
    including W\_SO increments. \\
@@ -2459,7 +2459,7 @@ Type of lateral boundary nudging.\\
 conditions,\\
 %
 1: time-dependent lateral boundary conditions provided by an external
-source (IFS, COSMO-DE or a coarser-resolution ICON run), \\
+source (IFS, COSMO or a coarser-resolution ICON run), \\
 %
 2: Test mode using time-dependent lateral boundary conditions from a
 nested ICON run in which the present limited-area domain was operated

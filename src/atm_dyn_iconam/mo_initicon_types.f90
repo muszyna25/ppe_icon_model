@@ -65,6 +65,10 @@ MODULE mo_initicon_types
     ! Flag. True, if this data structure has been allocated
     LOGICAL :: linitialized
 
+    ! vertical dimension of 3D input fields
+    INTEGER :: nlev
+
+
     REAL(wp), POINTER, DIMENSION(:,:)   :: psfc    => NULL(), &
       &                                    phi_sfc => NULL()
     REAL(wp), POINTER, DIMENSION(:,:,:) :: temp    => NULL(), &
@@ -98,6 +102,9 @@ MODULE mo_initicon_types
     ! Flag. True, if this data structure has been allocated
     LOGICAL :: linitialized
 
+    ! number of soil levels
+    INTEGER :: nlevsoil
+
     REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, sst, snowalb,snowweq, snowdens, &
                                               skinres, ls_mask, seaice, phi
     REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: tsoil, wsoil
@@ -113,6 +120,9 @@ MODULE mo_initicon_types
     ! Flag. True, if this data structure has been allocated
     LOGICAL :: linitialized
 
+    ! vertical dimension of 3D input fields
+    INTEGER :: nlev
+
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: vn, u, v, w, temp, theta_v, exner, rho, &
                                                pres, qv, qc, qi, qr, qs, tke
   CONTAINS
@@ -125,6 +135,9 @@ MODULE mo_initicon_types
 
     ! Flag. True, if this data structure has been allocated
     LOGICAL :: linitialized
+
+    ! number of soil levels
+    INTEGER :: nlevsoil
 
     REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, sst,  snowalb, snowweq, snowdens, &
                                               skinres, ls_mask, seaice
@@ -142,6 +155,9 @@ MODULE mo_initicon_types
     !
     ! Flag. True, if this data structure has been allocated
     LOGICAL :: linitialized
+
+    ! number of soil levels
+    INTEGER :: nlevsoil
 
     REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: w_so
     REAL(wp), ALLOCATABLE, DIMENSION (:,:)   :: h_snow

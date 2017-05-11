@@ -39,7 +39,7 @@ MODULE mo_sync_latbc
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: nroot
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_COSMODE
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_COSMO
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_mpi,                 ONLY: p_io, p_bcast, my_process_is_stdio,       &
                                     p_comm_work_test, p_comm_work
@@ -121,7 +121,9 @@ MODULE mo_sync_latbc
 
       DO tlev = 1, 2
         NULLIFY(p_latbc_data(tlev)%atm_in%tke)
-        
+
+        p_latbc_data(tlev)%atm_in%nlev = nlev_in
+
         ! Basic icon_remap data
         ALLOCATE(p_latbc_data(tlev)%topography_c(nproma,nblks_c),         &
           p_latbc_data(tlev)%z_ifc       (nproma,nlevp1,nblks_c),  &
@@ -143,7 +145,7 @@ MODULE mo_sync_latbc
           p_latbc_data(tlev)%atm_in%qr   (nproma,nlev_in,nblks_c), &
           p_latbc_data(tlev)%atm_in%qs   (nproma,nlev_in,nblks_c)  )
         
-        IF (init_mode == MODE_COSMODE) THEN
+        IF (init_mode == MODE_COSMO) THEN
           ALLOCATE(p_latbc_data(tlev)%atm_in%w_ifc(nproma,nlev_in+1,nblks_c))
           ALLOCATE(p_latbc_data(tlev)%atm_in%z3d_ifc(nproma,nlev_in+1,nblks_c))
         ENDIF
@@ -618,7 +620,7 @@ MODULE mo_sync_latbc
         &          variable_name='V', fill_array=p_latbc_data(tlev)%atm_in%v)
     ENDIF
 
-    IF (init_mode /= MODE_COSMODE) THEN
+    IF (init_mode /= MODE_COSMO) THEN
       lconvert_omega2w = .TRUE.
       CALL read_3D_1time(stream_id=latbc_stream_id, location=on_cells, &
         &          variable_name='W', fill_array=p_latbc_data(tlev)%atm_in%omega)
@@ -628,7 +630,7 @@ MODULE mo_sync_latbc
         &          variable_name='W', fill_array=p_latbc_data(tlev)%atm_in%w_ifc)
     ENDIF
 
-    IF (init_mode == MODE_COSMODE) THEN
+    IF (init_mode == MODE_COSMO) THEN
       CALL read_3D_1time(stream_id=latbc_stream_id, location=on_cells, &
         &          variable_name='HHL', fill_array=p_latbc_data(tlev)%atm_in%z3d_ifc)
 
@@ -682,7 +684,7 @@ MODULE mo_sync_latbc
       p_latbc_data(tlev)%atm_in%qs(:,:,:)=0._wp
     ENDIF
 
-    IF (init_mode == MODE_COSMODE) THEN
+    IF (init_mode == MODE_COSMO) THEN
       CALL read_2D_1time(stream_id=latbc_stream_id, location=on_cells, &
        &                     variable_name=TRIM(psvar), &
        &                     fill_array=p_latbc_data(tlev)%atm_in%psfc)
@@ -698,7 +700,7 @@ MODULE mo_sync_latbc
         &                     fill_array=p_latbc_data(tlev)%atm_in%phi_sfc)
     END IF
 
-    IF (init_mode == MODE_COSMODE) THEN
+    IF (init_mode == MODE_COSMO) THEN
       CALL read_3D_1time(stream_id=latbc_stream_id, location=on_cells, &
         &          variable_name='P', fill_array=p_latbc_data(tlev)%atm_in%pres)
     ENDIF
@@ -716,7 +718,7 @@ MODULE mo_sync_latbc
     !
     ! perform vertical interpolation of horizonally interpolated analysis data
     !
-    CALL vert_interp(p_patch, p_int, p_nh_state%metrics, no_levels, p_latbc_data(tlev),              &
+    CALL vert_interp(p_patch, p_int, p_nh_state%metrics, p_latbc_data(tlev),  &
       &    opt_convert_omega2w=lconvert_omega2w, opt_use_vn=lread_vn)
 
   END SUBROUTINE read_latbc_ifs_data
@@ -754,7 +756,7 @@ MODULE mo_sync_latbc
                  p_latbc_data(tlev)%atm_in%qr, &
                  p_latbc_data(tlev)%atm_in%qs )
 
-      IF (init_mode == MODE_COSMODE) THEN
+      IF (init_mode == MODE_COSMO) THEN
         DEALLOCATE(p_latbc_data(tlev)%atm_in%w_ifc)
         DEALLOCATE(p_latbc_data(tlev)%atm_in%z3d_ifc)
       ENDIF

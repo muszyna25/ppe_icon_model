@@ -16,7 +16,7 @@ MODULE mo_input_instructions
     USE ISO_C_BINDING, ONLY: C_CHAR
     USE mo_dictionary, ONLY: dict_get
     USE mo_exception, ONLY: message, finish
-    USE mo_impl_constants, ONLY: SUCCESS, MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU, MODE_IAU_OLD, MODE_COMBINED, MODE_COSMODE
+    USE mo_impl_constants, ONLY: SUCCESS, MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU, MODE_IAU_OLD, MODE_COMBINED, MODE_COSMO
     USE mo_initicon_config, ONLY: initicon_config, lread_ana, ltile_coldstart, lp2cintp_incr, lp2cintp_sfcana, lvert_remap_fg
     USE mo_initicon_types, ONLY: ana_varnames_dict
     USE mo_input_request_list, ONLY: t_InputRequestList
@@ -119,8 +119,8 @@ CONTAINS
                 CALL collect_group('mode_iau_old_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE(MODE_COMBINED)
                 CALL collect_group('mode_combined_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
-            CASE(MODE_COSMODE)
-                CALL collect_group('mode_cosmode_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+            CASE(MODE_COSMO)
+                CALL collect_group('mode_cosmo_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE DEFAULT
                 outGroupSize = 0
         END SELECT
@@ -261,7 +261,7 @@ CONTAINS
                 ENDIF
 
 
-            CASE(MODE_COMBINED,MODE_COSMODE)
+            CASE(MODE_COMBINED,MODE_COSMO)
                 ! remove W_SO from default list and replace it by SMI
                 CALL difference (fgGroup, fgGroupSize, (/'w_so'/), 1)
                 CALL add_to_list(fgGroup, fgGroupSize, (/'smi'/) , 1)
@@ -293,7 +293,7 @@ CONTAINS
     !!     ANY of these first guess fields must be read from the first guess file.
     !!     I.e. optional first guess fields are turned into mandatory ones
     !!  3. some other interesting rules, like the substitution of 'smi' for 'w_so'
-    !!     IN the CASE of MODE_COSMODE AND MODE_COMBINED.
+    !!     IN the CASE of MODE_COSMO AND MODE_COMBINED.
     !!
     !! These are the variable groups which are used to determine from which file a variable IS READ:
     !!     MODE_DWDANA    : mode_dwd_fg_in + mode_dwd_ana_in
@@ -301,7 +301,7 @@ CONTAINS
     !!     MODE_IAU       : mode_iau_fg_in + mode_iau_ana_in - mode_iau_anaatm_in
     !!     MODE_IAU_OLD   : mode_iau_old_fg_in + mode_iau_old_ana_in - mode_iau_anaatm_in
     !!     MODE_COMBINED  : mode_combined_in
-    !!     MODE_COSMODE   : mode_cosmode_in
+    !!     MODE_COSMO     : mode_cosmo_in
     !!     MODE_IFSANA    : <NONE>
     !!
     !! In contrast to the old create_input_groups() SUBROUTINE, this does NOT check the contents of the files itself.

@@ -33,12 +33,12 @@ MODULE mo_initicon_utils
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_initicon_types,      ONLY: t_initicon_state, alb_snow_var, t_pi_atm_in, t_pi_sfc_in, t_pi_atm, t_pi_sfc, t_sfc_inc, &
                                     ana_varnames_dict
-  USE mo_initicon_config,     ONLY: init_mode, nlevatm_in, nlevsoil_in, l_sst_in,       &
-    &                               ana_varnames_map_file, lread_vn,         &
+  USE mo_initicon_config,     ONLY: init_mode, l_sst_in,                  &
+    &                               ana_varnames_map_file, lread_vn,      &
     &                               lvert_remap_fg, aerosol_fg_present
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_IAU,             &
                                     MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED,           &
-    &                               MODE_COSMODE, MODE_ICONVREMAP, MODIS,               &
+    &                               MODE_COSMO, MODE_ICONVREMAP, MODIS,                 &
     &                               min_rlcell_int, grf_bdywidth_c, min_rlcell,         &
     &                               iss, iorg, ibc, iso4, idu
   USE mo_loopindices,         ONLY: get_indices_c
@@ -88,17 +88,19 @@ MODULE mo_initicon_utils
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_initicon_utils'
 
 
+  ! construct/destruct
+  PUBLIC :: construct_initicon
+  PUBLIC :: deallocate_initicon
+  PUBLIC :: allocate_extana_atm
+  PUBLIC :: allocate_extana_sfc
+  PUBLIC :: deallocate_extana_atm 
+  PUBLIC :: deallocate_extana_sfc
+
   PUBLIC :: initicon_inverse_post_op
   PUBLIC :: copy_initicon2prog_atm
   PUBLIC :: copy_initicon2prog_sfc
   PUBLIC :: copy_fg2initicon
-  PUBLIC :: construct_initicon
   PUBLIC :: initVarnamesDict
-  PUBLIC :: allocate_extana_atm
-  PUBLIC :: allocate_extana_sfc
-  PUBLIC :: deallocate_initicon
-  PUBLIC :: deallocate_extana_atm 
-  PUBLIC :: deallocate_extana_sfc
   PUBLIC :: average_first_guess
   PUBLIC :: reinit_average_first_guess
   PUBLIC :: fill_tile_points
@@ -1368,6 +1370,33 @@ MODULE mo_initicon_utils
   END SUBROUTINE copy_initicon2prog_sfc
 
 
+  SUBROUTINE initVarnamesDict(dictionary)
+    TYPE(t_dictionary), INTENT(INOUT) :: dictionary
+
+    INTEGER :: mpi_comm
+
+    IF(p_test_run) THEN
+      mpi_comm = p_comm_work_test
+    ELSE
+      mpi_comm = p_comm_work
+    ENDIF
+
+    ! read the map file into dictionary data structure:
+    CALL dict_init(dictionary, lcase_sensitive=.FALSE.)
+    IF(ana_varnames_map_file /= ' ') THEN
+      IF (my_process_is_stdio()) THEN
+        CALL dict_loadfile(dictionary, TRIM(ana_varnames_map_file))
+      END IF
+      CALL p_bcast(dictionary%nmax_entries,     p_io, mpi_comm)
+      CALL p_bcast(dictionary%nentries,         p_io, mpi_comm)
+      CALL p_bcast(dictionary%lcase_sensitive,  p_io, mpi_comm)
+      IF (.NOT. my_process_is_stdio()) THEN
+        CALL dict_resize(dictionary, dictionary%nmax_entries)
+      END IF
+      CALL p_bcast(dictionary%array(1,:), p_io, mpi_comm)
+      CALL p_bcast(dictionary%array(2,:), p_io, mpi_comm)
+    END IF
+  END SUBROUTINE initVarnamesDict
 
 
   !-------------
@@ -1446,12 +1475,14 @@ MODULE mo_initicon_utils
         &       atm_in%theta_v, &
         &       atm_in%tke, &
         &       atm_in%tke_ifc)
+        atm_in%nlev         = 0
         atm_in%linitialized = .FALSE.
     END SUBROUTINE construct_atm_in
 
     SUBROUTINE construct_sfc_in(sfc_in)
         TYPE(t_pi_sfc_in), INTENT(INOUT) :: sfc_in
 
+        sfc_in%nlevsoil     = 0
         sfc_in%linitialized = .FALSE.
     END SUBROUTINE construct_sfc_in
 
@@ -1459,7 +1490,7 @@ MODULE mo_initicon_utils
     SUBROUTINE construct_atm(atm)
         TYPE(t_pi_atm), INTENT(INOUT) :: atm
 
-        IF(lvert_remap_fg .OR. ANY((/MODE_IFSANA, MODE_DWDANA, MODE_COSMODE, MODE_COMBINED, MODE_ICONVREMAP/)==init_mode)) THEN
+        IF(lvert_remap_fg .OR. ANY((/MODE_IFSANA, MODE_DWDANA, MODE_COSMO, MODE_COMBINED, MODE_ICONVREMAP/)==init_mode)) THEN
             ALLOCATE(atm%vn     (nproma,nlev  ,nblks_e), &
             &        atm%u      (nproma,nlev  ,nblks_c), &
             &        atm%v      (nproma,nlev  ,nblks_c), &
@@ -1498,8 +1529,10 @@ MODULE mo_initicon_utils
 !$OMP END PARALLEL
             END IF
 
+            atm%nlev         = nlev
             atm%linitialized = .TRUE.
         ELSE
+            atm%nlev         = 0
             atm%linitialized = .FALSE.
         END IF
     END SUBROUTINE construct_atm
@@ -1524,8 +1557,10 @@ MODULE mo_initicon_utils
             CALL init(atm_inc%qv(:,:,:))
 !$OMP END PARALLEL 
 
+            atm_inc%nlev         = nlev
             atm_inc%linitialized = .TRUE.
         ELSE
+            atm_inc%nlev         = 0
             atm_inc%linitialized = .FALSE.
         ENDIF
     END SUBROUTINE construct_atm_inc
@@ -1565,8 +1600,10 @@ MODULE mo_initicon_utils
 !$OMP END PARALLEL 
             ! note the flipped dimensions with respect to sfc_in!
 
+            sfc%nlevsoil     = nlev_soil
             sfc%linitialized = .TRUE.
         ELSE
+            sfc%nlevsoil     = 0
             sfc%linitialized = .FALSE.
         ENDIF
     END SUBROUTINE construct_sfc
@@ -1594,41 +1631,15 @@ MODULE mo_initicon_utils
 !$OMP END PARALLEL
             ENDIF  ! MODE_IAU
 
+            sfc_inc%nlevsoil     = nlev_soil
             sfc_inc%linitialized = .TRUE.
         ELSE
+            sfc_inc%nlevsoil     = 0
             sfc_inc%linitialized = .FALSE.
         ENDIF
     END SUBROUTINE construct_sfc_inc
 
   END SUBROUTINE construct_initicon
-
-  SUBROUTINE initVarnamesDict(dictionary)
-    TYPE(t_dictionary), INTENT(INOUT) :: dictionary
-
-    INTEGER :: mpi_comm
-
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
-
-    ! read the map file into dictionary data structure:
-    CALL dict_init(dictionary, lcase_sensitive=.FALSE.)
-    IF(ana_varnames_map_file /= ' ') THEN
-      IF (my_process_is_stdio()) THEN
-        CALL dict_loadfile(dictionary, TRIM(ana_varnames_map_file))
-      END IF
-      CALL p_bcast(dictionary%nmax_entries,     p_io, mpi_comm)
-      CALL p_bcast(dictionary%nentries,         p_io, mpi_comm)
-      CALL p_bcast(dictionary%lcase_sensitive,  p_io, mpi_comm)
-      IF (.NOT. my_process_is_stdio()) THEN
-        CALL dict_resize(dictionary, dictionary%nmax_entries)
-      END IF
-      CALL p_bcast(dictionary%array(1,:), p_io, mpi_comm)
-      CALL p_bcast(dictionary%array(2,:), p_io, mpi_comm)
-    END IF
-  END SUBROUTINE initVarnamesDict
 
 
   !-------------
@@ -1639,80 +1650,81 @@ MODULE mo_initicon_utils
   !! This initalizes all ALLOCATED memory to avoid nondeterministic
   !! checksums when ONLY a part of a field IS READ from file due to
   !! nonfull blocks.
-  SUBROUTINE allocate_extana_atm (jg, nblks_c, nblks_e, initicon)
-    INTEGER,                INTENT(IN)    :: jg, nblks_c, nblks_e
-    TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
+  SUBROUTINE allocate_extana_atm (nblks_c, nblks_e, nlev_in, atm_in)
+    INTEGER,                INTENT(IN)    :: nblks_c, nblks_e
+    INTEGER,                INTENT(IN)    :: nlev_in             ! number of vertical levels
+                                                                 ! of external analysis data
+    TYPE(t_pi_atm_in),      INTENT(INOUT) :: atm_in
     ! Local variables: loop control and dimensions
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':allocate_extana_atm'
 
-    INTEGER :: nlev_in
-
-    nlev_in = nlevatm_in(jg)
 
     IF (nlev_in == 0) THEN
-      CALL finish(routine, "Number of input levels <nlevatm_in> not yet initialized.")
+      CALL finish(routine, "Number of input levels <nlev_in> not yet initialized.")
     END IF
 
+    atm_in%nlev = nlev_in
+
     ! Allocate atmospheric input data
-    ALLOCATE( &
-      initicon(jg)%atm_in%psfc    (nproma,        nblks_c),   &
-      initicon(jg)%atm_in%phi_sfc (nproma,        nblks_c),   &
-      initicon(jg)%atm_in%pres    (nproma,nlev_in,nblks_c),   &
-      initicon(jg)%atm_in%z3d     (nproma,nlev_in,nblks_c),   &
-      initicon(jg)%atm_in%temp    (nproma,nlev_in,nblks_c),   &
-      initicon(jg)%atm_in%u       (nproma,nlev_in,nblks_c),   &
-      initicon(jg)%atm_in%v       (nproma,nlev_in,nblks_c),   &
-      initicon(jg)%atm_in%vn      (nproma,nlev_in,nblks_e),   &
-      initicon(jg)%atm_in%w       (nproma,nlev_in,nblks_c),   &
-      initicon(jg)%atm_in%omega   (nproma,nlev_in,nblks_c),   &
-      initicon(jg)%atm_in%qv      (nproma,nlev_in,nblks_c),   &
-      initicon(jg)%atm_in%qc      (nproma,nlev_in,nblks_c),   &
-      initicon(jg)%atm_in%qi      (nproma,nlev_in,nblks_c),   &
-      initicon(jg)%atm_in%qr      (nproma,nlev_in,nblks_c),   &
-      initicon(jg)%atm_in%qs      (nproma,nlev_in,nblks_c)    )
+    ALLOCATE(  &
+      atm_in%psfc    (nproma,        nblks_c),   &
+      atm_in%phi_sfc (nproma,        nblks_c),   &
+      atm_in%pres    (nproma,nlev_in,nblks_c),   &
+      atm_in%z3d     (nproma,nlev_in,nblks_c),   &
+      atm_in%temp    (nproma,nlev_in,nblks_c),   &
+      atm_in%u       (nproma,nlev_in,nblks_c),   &
+      atm_in%v       (nproma,nlev_in,nblks_c),   &
+      atm_in%vn      (nproma,nlev_in,nblks_e),   &
+      atm_in%w       (nproma,nlev_in,nblks_c),   &
+      atm_in%omega   (nproma,nlev_in,nblks_c),   &
+      atm_in%qv      (nproma,nlev_in,nblks_c),   &
+      atm_in%qc      (nproma,nlev_in,nblks_c),   &
+      atm_in%qi      (nproma,nlev_in,nblks_c),   &
+      atm_in%qr      (nproma,nlev_in,nblks_c),   &
+      atm_in%qs      (nproma,nlev_in,nblks_c)    )
 !$OMP PARALLEL 
-    CALL init(initicon(jg)%atm_in%psfc(:,:))
-    CALL init(initicon(jg)%atm_in%phi_sfc(:,:))
-    CALL init(initicon(jg)%atm_in%pres(:,:,:))
-    CALL init(initicon(jg)%atm_in%z3d(:,:,:))
-    CALL init(initicon(jg)%atm_in%temp(:,:,:))
-    CALL init(initicon(jg)%atm_in%u(:,:,:))
-    CALL init(initicon(jg)%atm_in%v(:,:,:))
-    CALL init(initicon(jg)%atm_in%vn(:,:,:))
-    CALL init(initicon(jg)%atm_in%w(:,:,:))
-    CALL init(initicon(jg)%atm_in%omega(:,:,:))
-    CALL init(initicon(jg)%atm_in%qv(:,:,:))
-    CALL init(initicon(jg)%atm_in%qc(:,:,:))
-    CALL init(initicon(jg)%atm_in%qi(:,:,:))
-    CALL init(initicon(jg)%atm_in%qr(:,:,:))
-    CALL init(initicon(jg)%atm_in%qs(:,:,:))
+    CALL init(atm_in%psfc(:,:))
+    CALL init(atm_in%phi_sfc(:,:))
+    CALL init(atm_in%pres(:,:,:))
+    CALL init(atm_in%z3d(:,:,:))
+    CALL init(atm_in%temp(:,:,:))
+    CALL init(atm_in%u(:,:,:))
+    CALL init(atm_in%v(:,:,:))
+    CALL init(atm_in%vn(:,:,:))
+    CALL init(atm_in%w(:,:,:))
+    CALL init(atm_in%omega(:,:,:))
+    CALL init(atm_in%qv(:,:,:))
+    CALL init(atm_in%qc(:,:,:))
+    CALL init(atm_in%qi(:,:,:))
+    CALL init(atm_in%qr(:,:,:))
+    CALL init(atm_in%qs(:,:,:))
 !$OMP END PARALLEL
 
-    IF (init_mode == MODE_COSMODE .OR. init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
+    IF (init_mode == MODE_COSMO .OR. init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
       ALLOCATE( &
-        initicon(jg)%atm_in%z3d_ifc (nproma,nlev_in+1,nblks_c), &
-        initicon(jg)%atm_in%w_ifc   (nproma,nlev_in+1,nblks_c)  )
+        atm_in%z3d_ifc (nproma,nlev_in+1,nblks_c), &
+        atm_in%w_ifc   (nproma,nlev_in+1,nblks_c)  )
 !$OMP PARALLEL
-      CALL init(initicon(jg)%atm_in%z3d_ifc(:,:,:))
-      CALL init(initicon(jg)%atm_in%w_ifc(:,:,:))
+      CALL init(atm_in%z3d_ifc(:,:,:))
+      CALL init(atm_in%w_ifc(:,:,:))
 !$OMP END PARALLEL
     ENDIF
 
     IF (init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
       ALLOCATE( &
-        initicon(jg)%atm_in%rho     (nproma,nlev_in  ,nblks_c), &
-        initicon(jg)%atm_in%theta_v (nproma,nlev_in  ,nblks_c), &
-        initicon(jg)%atm_in%tke     (nproma,nlev_in  ,nblks_c), &
-        initicon(jg)%atm_in%tke_ifc (nproma,nlev_in+1,nblks_c)  )
+        atm_in%rho     (nproma,nlev_in  ,nblks_c), &
+        atm_in%theta_v (nproma,nlev_in  ,nblks_c), &
+        atm_in%tke     (nproma,nlev_in  ,nblks_c), &
+        atm_in%tke_ifc (nproma,nlev_in+1,nblks_c)  )
 !$OMP PARALLEL
-      CALL init(initicon(jg)%atm_in%rho(:,:,:))
-      CALL init(initicon(jg)%atm_in%theta_v(:,:,:))
-      CALL init(initicon(jg)%atm_in%tke(:,:,:))
-      CALL init(initicon(jg)%atm_in%tke_ifc(:,:,:))
+      CALL init(atm_in%rho(:,:,:))
+      CALL init(atm_in%theta_v(:,:,:))
+      CALL init(atm_in%tke(:,:,:))
+      CALL init(atm_in%tke_ifc(:,:,:))
 !$OMP END PARALLEL
     ENDIF
 
-    initicon(jg)%atm_in%linitialized = .TRUE.
+    atm_in%linitialized = .TRUE.
   END SUBROUTINE allocate_extana_atm
 
 
@@ -1721,40 +1733,51 @@ MODULE mo_initicon_utils
   !! SUBROUTINE allocate_extana_sfc
   !! Allocates fields for reading in external analysis data
   !!
-  SUBROUTINE allocate_extana_sfc (jg, nblks_c, initicon)
-    INTEGER,                INTENT(IN)    :: jg, nblks_c
-    TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
+  SUBROUTINE allocate_extana_sfc (nblks_c, nlevsoil_in, sfc_in)
+    INTEGER,                INTENT(IN)    :: nblks_c
+    TYPE(t_pi_sfc_in),      INTENT(INOUT) :: sfc_in
+    INTEGER,                INTENT(IN)    :: nlevsoil_in    ! number of soil levels
+                                                            ! of external analysis data
+    ! Local variables: loop control and dimensions
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':allocate_extana_sfc'
+
+    IF (nlevsoil_in == 0) THEN
+      CALL finish(routine, "Number of input soil levels <nlevsoil_in> not yet initialized.")
+    END IF
+
+    sfc_in%nlevsoil = nlevsoil_in
 
     ! Allocate surface input data
     ! The extra soil temperature levels are not read in; they are only used to simplify vertical interpolation
-    ALLOCATE(initicon(jg)%sfc_in%phi      (nproma,nblks_c                ), &
-      initicon(jg)%sfc_in%tskin    (nproma,nblks_c                ), &
-      initicon(jg)%sfc_in%sst      (nproma,nblks_c                ), &
-      initicon(jg)%sfc_in%tsnow    (nproma,nblks_c                ), &
-      initicon(jg)%sfc_in%snowalb  (nproma,nblks_c                ), &
-      initicon(jg)%sfc_in%snowweq  (nproma,nblks_c                ), &
-      initicon(jg)%sfc_in%snowdens (nproma,nblks_c                ), &
-      initicon(jg)%sfc_in%skinres  (nproma,nblks_c                ), &
-      initicon(jg)%sfc_in%ls_mask  (nproma,nblks_c                ), &
-      initicon(jg)%sfc_in%seaice   (nproma,nblks_c                ), &
-      initicon(jg)%sfc_in%tsoil    (nproma,nblks_c,0:nlevsoil_in+1), &
-      initicon(jg)%sfc_in%wsoil    (nproma,nblks_c,0:nlevsoil_in+1)  )
+    ALLOCATE(  &
+      sfc_in%phi      (nproma,nblks_c                ), &
+      sfc_in%tskin    (nproma,nblks_c                ), &
+      sfc_in%sst      (nproma,nblks_c                ), &
+      sfc_in%tsnow    (nproma,nblks_c                ), &
+      sfc_in%snowalb  (nproma,nblks_c                ), &
+      sfc_in%snowweq  (nproma,nblks_c                ), &
+      sfc_in%snowdens (nproma,nblks_c                ), &
+      sfc_in%skinres  (nproma,nblks_c                ), &
+      sfc_in%ls_mask  (nproma,nblks_c                ), &
+      sfc_in%seaice   (nproma,nblks_c                ), &
+      sfc_in%tsoil    (nproma,nblks_c,0:nlevsoil_in+1), &
+      sfc_in%wsoil    (nproma,nblks_c,0:nlevsoil_in+1)  )
 !$OMP PARALLEL 
-    CALL init(initicon(jg)%sfc_in%phi(:,:))
-    CALL init(initicon(jg)%sfc_in%tskin(:,:))
-    CALL init(initicon(jg)%sfc_in%sst(:,:))
-    CALL init(initicon(jg)%sfc_in%tsnow(:,:))
-    CALL init(initicon(jg)%sfc_in%snowalb(:,:))
-    CALL init(initicon(jg)%sfc_in%snowweq(:,:))
-    CALL init(initicon(jg)%sfc_in%snowdens(:,:))
-    CALL init(initicon(jg)%sfc_in%skinres(:,:))
-    CALL init(initicon(jg)%sfc_in%ls_mask(:,:))
-    CALL init(initicon(jg)%sfc_in%seaice(:,:))
-    CALL init(initicon(jg)%sfc_in%tsoil(:,:,:))
-    CALL init(initicon(jg)%sfc_in%wsoil(:,:,:))
+    CALL init(sfc_in%phi(:,:))
+    CALL init(sfc_in%tskin(:,:))
+    CALL init(sfc_in%sst(:,:))
+    CALL init(sfc_in%tsnow(:,:))
+    CALL init(sfc_in%snowalb(:,:))
+    CALL init(sfc_in%snowweq(:,:))
+    CALL init(sfc_in%snowdens(:,:))
+    CALL init(sfc_in%skinres(:,:))
+    CALL init(sfc_in%ls_mask(:,:))
+    CALL init(sfc_in%seaice(:,:))
+    CALL init(sfc_in%tsoil(:,:,:))
+    CALL init(sfc_in%wsoil(:,:,:))
 !$OMP END PARALLEL
 
-    initicon(jg)%sfc_in%linitialized = .TRUE.
+    sfc_in%linitialized = .TRUE.
   END SUBROUTINE allocate_extana_sfc
 
 
@@ -1882,7 +1905,7 @@ MODULE mo_initicon_utils
                  initicon(jg)%atm_in%qr,      &
                  initicon(jg)%atm_in%qs )
 
-      IF (init_mode == MODE_COSMODE .OR. init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
+      IF (init_mode == MODE_COSMO .OR. init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
         DEALLOCATE( &
                  initicon(jg)%atm_in%z3d_ifc, &
                  initicon(jg)%atm_in%w_ifc    )
@@ -1896,6 +1919,7 @@ MODULE mo_initicon_utils
           initicon(jg)%atm_in%tke_ifc  )
       ENDIF
 
+      initicon(jg)%atm_in%nlev         = 0
       initicon(jg)%atm_in%linitialized = .FALSE.
     ENDDO ! loop over model domains
 
@@ -1928,6 +1952,8 @@ MODULE mo_initicon_utils
                  initicon(jg)%sfc_in%seaice,   &
                  initicon(jg)%sfc_in%tsoil,    &
                  initicon(jg)%sfc_in%wsoil     )
+
+      initicon(jg)%sfc_in%nlevsoil     = 0
       initicon(jg)%sfc_in%linitialized = .FALSE.
     ENDDO ! loop over model domains
 

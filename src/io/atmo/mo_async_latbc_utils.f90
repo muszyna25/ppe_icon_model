@@ -36,13 +36,13 @@
     USE mo_latbc_read_recv,     ONLY: prefetch_cdi_2d, prefetch_cdi_3d, compute_data_receive
 #endif
 
-    USE mo_async_latbc_types,   ONLY: t_patch_data, t_reorder_data, t_latbc_data
-    USE mo_kind,                ONLY: wp, sp, i8
+    USE mo_async_latbc_types,   ONLY: t_reorder_data, t_latbc_data
+    USE mo_kind,                ONLY: wp, i8
     USE mo_parallel_config,     ONLY: nproma
     USE mo_model_domain,        ONLY: t_patch
     USE mo_grid_config,         ONLY: nroot
-    USE mo_exception,           ONLY: message, message_text, finish
-    USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_COSMODE, MODE_DWDANA, MODE_ICONVREMAP, &
+    USE mo_exception,           ONLY: message, finish
+    USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_COSMO, MODE_DWDANA, MODE_ICONVREMAP, &
                                       MODE_IAU_OLD, MODE_IAU, SUCCESS
     USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
     USE mo_io_units,            ONLY: filename_max
@@ -56,18 +56,18 @@
     USE mo_sync,                ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, SYNC_C
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
     USE mtime,                  ONLY: timedelta, newTimedelta, deallocateTimedelta, &
-         &                            event, newEvent, datetime, newDatetime,      &
+         &                            newEvent, datetime, newDatetime,             &
          &                            isCurrentEventActive, deallocateDatetime,    &
-         &                            MAX_DATETIME_STR_LEN, MAX_EVENTNAME_STR_LEN, &
+         &                            MAX_DATETIME_STR_LEN,                        &
          &                            MAX_TIMEDELTA_STR_LEN, getPTStringFromMS,    &
          &                            OPERATOR(>=), OPERATOR(-), OPERATOR(>),      &
          &                            OPERATOR(/=), datetimeToString,              &
          &                            timedelta, newTimedelta, deallocateTimedelta,&
-         &                            OPERATOR(+), deallocateEvent, OPERATOR(*)
+         &                            OPERATOR(+), OPERATOR(*)
     USE mo_time_config,         ONLY: time_config
     USE mo_limarea_config,      ONLY: latbc_config, generate_filename_mtime, LATBC_TYPE_EXT
     USE mo_ext_data_types,      ONLY: t_external_data
-    USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime, nsteps, msg_level
+    USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, msg_level
     USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
     USE mo_initicon_config,     ONLY: init_mode
     USE mo_initicon_types,      ONLY: t_initicon_state
@@ -131,7 +131,7 @@
 
       ! Select operation mode determining the set of input fields to be allocated and read
       SELECT CASE (init_mode)
-      CASE (MODE_COSMODE)
+      CASE (MODE_COSMO)
         ioper_mode = 2
       CASE (MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU_OLD, MODE_IAU)
         ioper_mode = 3
@@ -156,7 +156,10 @@
               latbc%latbc_data(tlev)%z_mc        (nproma,nlev,nblks_c), STAT=ierrstat)
          IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
+
          ! Allocate atmospheric input data
+         latbc%latbc_data(tlev)%atm_in%nlev = nlev_in
+         !
          ALLOCATE(latbc%latbc_data(tlev)%atm_in%psfc(nproma,     nblks_c), &
               latbc%latbc_data(tlev)%atm_in%phi_sfc(nproma,      nblks_c), &
               latbc%latbc_data(tlev)%atm_in%pres (nproma,nlev_in,nblks_c), &
@@ -970,7 +973,7 @@
 
       ! Select operation mode determining the set of input fields to be allocated and read
       SELECT CASE (init_mode)
-      CASE (MODE_COSMODE)
+      CASE (MODE_COSMO)
         ioper_mode = 2
       CASE (MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU_OLD, MODE_IAU)
         ioper_mode = 3
@@ -1440,7 +1443,7 @@
 
       ! perform vertical interpolation of horizonally interpolated analysis data
       !
-      CALL vert_interp(p_patch, p_int, p_nh_state%metrics, nlev, latbc%latbc_data(tlev),              &
+      CALL vert_interp(p_patch, p_int, p_nh_state%metrics, latbc%latbc_data(tlev),    &
            &    opt_convert_omega2w=lconvert_omega2w, opt_use_vn=latbc%buffer%lread_vn)
 
 #endif
