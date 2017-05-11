@@ -335,6 +335,7 @@ MODULE mo_mpi
 #else
   INTEGER, PARAMETER :: p_address_kind = i8    ! should not get touched at all
   INTEGER, PARAMETER :: MPI_COMM_NULL  = 0
+  INTEGER, PARAMETER :: MPI_COMM_SELF  = 1
   ! dummy arguments for function calls:
   INTEGER, PARAMETER :: MPI_ANY_SOURCE = 0
   ! this is the global communicator
@@ -1135,6 +1136,7 @@ CONTAINS
     num_io_procs = 0
     sizeof_prefetch_processes = 0
     num_work_procs = 1
+    p_comm_io = mpi_comm_self
 
 #else
 
