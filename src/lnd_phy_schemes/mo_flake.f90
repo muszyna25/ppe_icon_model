@@ -619,7 +619,7 @@ CONTAINS
           h_ice_p(iflk)  = 0.1_ireals*fr_ice(iflk)
           ! Set the ice surface temperature to the fresh-water freezing point if the ice fraction is < 0.1
           IF (fr_ice(iflk) < 0.1_ireals) t_ice_p(iflk)  = tpl_T_f
-        ELSE IF (fr_ice(iflk) < 0.03_ireals) THEN 
+        ELSE IF (fr_ice(iflk) < 0.03_ireals .AND. h_ice_p(iflk) > h_Ice_min_flk) THEN
           ! Ice fraction is too small, remove ice 
           h_ice_p(iflk)  = 0.0_ireals
           ! Set the ice surface temperature to the fresh-water freezing point
