@@ -9315,7 +9315,8 @@ CONTAINS
   END SUBROUTINE p_scatter_int_2d1d
 
   SUBROUTINE p_gather_real_0d1d (sendbuf, recvbuf, p_dest, comm)
-    REAL(dp),          INTENT(inout) :: sendbuf, recvbuf(:)
+    REAL(dp),          INTENT(in) :: sendbuf
+    REAL(dp),          INTENT(out) :: recvbuf(:)
     INTEGER,           INTENT(in) :: p_dest
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -9337,7 +9338,8 @@ CONTAINS
    END SUBROUTINE p_gather_real_0d1d
 
   SUBROUTINE p_gather_real_1d2d (sendbuf, recvbuf, p_dest, comm)
-    REAL(dp),          INTENT(inout) :: sendbuf(:), recvbuf(:,:)
+    REAL(dp),          INTENT(in) :: sendbuf(:)
+    REAL(dp),          INTENT(out) :: recvbuf(:,:)
     INTEGER,           INTENT(in) :: p_dest
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -9359,8 +9361,8 @@ CONTAINS
    END SUBROUTINE p_gather_real_1d2d
 
    SUBROUTINE p_gather_real_5d6d (sendbuf, recvbuf, p_dest, comm)
-
-     REAL(dp)                      :: sendbuf(:,:,:,:,:), recvbuf(:,:,:,:,:,:)
+     REAL(dp),          INTENT(in) :: sendbuf(:,:,:,:,:)
+     REAL(dp),          INTENT(out):: recvbuf(:,:,:,:,:,:)
      INTEGER,           INTENT(in) :: p_dest
      INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -9390,7 +9392,8 @@ CONTAINS
 
 
   SUBROUTINE p_gather_real_1d1d (sendbuf, recvbuf, p_dest, comm)
-    REAL(dp),          INTENT(inout) :: sendbuf(:), recvbuf(:)
+    REAL(dp),          INTENT(in) :: sendbuf(:)
+    REAL(dp),          INTENT(inout) :: recvbuf(:)
     INTEGER,           INTENT(in) :: p_dest
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -9416,7 +9419,8 @@ CONTAINS
   !> wrapper for MPI_Gather()
   !---------------------------------------------------------------------------------------------------------------------------------
    SUBROUTINE p_gather_int_0d1d (sendbuf, recvbuf, p_dest, comm)
-     INTEGER,           INTENT(inout) :: sendbuf, recvbuf(:)
+     INTEGER,           INTENT(in) :: sendbuf
+     INTEGER,           INTENT(inout) :: recvbuf(:)
      INTEGER,           INTENT(in) :: p_dest
      INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -9444,7 +9448,8 @@ CONTAINS
   !> wrapper for MPI_Gather()
   !---------------------------------------------------------------------------------------------------------------------------------
    SUBROUTINE p_gather_int_1d1d (sendbuf, recvbuf, p_dest, comm)
-     INTEGER,           INTENT(inout) :: sendbuf(:), recvbuf(:)
+     INTEGER,           INTENT(in) :: sendbuf(:)
+     INTEGER,           INTENT(inout) :: recvbuf(:)
      INTEGER,           INTENT(in) :: p_dest
      INTEGER, OPTIONAL, INTENT(in) :: comm
 
