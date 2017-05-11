@@ -818,6 +818,189 @@ MODULE mo_psrad_radiation
   !-------------------------------------------------------------------
 
   !-------------------------------------------------------------------
+  SUBROUTINE psrad_get_gas_profiles ( &
+    & jg             ,&!< in  domain index
+    & jb             ,&!< in  block index
+    & kproma         ,&!< in  end index for loop over block
+    & kbdim          ,&!< in  dimension of block over cells
+    & klev           ,&!< in  number of full levels = number of layers
+    & klevp1         ,&!< in  number of half levels = number of layer interfaces
+    & this_datetime  ,&!< in  actual time step
+    & pp_hl          ,&!< in  pressure at half levels at t-dt [Pa]
+    & pp_fl          ,&!< in  pressure at full levels at t-dt [Pa]
+    & xm_dry         ,&!< in  dry air mass in layer [kg/m2]
+    & xm_trc         ,&!< in  tracer  mass in layer [kg/m2]
+    & xm_ozn         ,&  !< inout ozone mass mixing ratio [kg/kg]
+    & xm_vap,         & !< water vapor mass in layer [kg/m2]
+    & xm_liq,         & !< cloud water mass in layer [kg/m2]
+    & xm_ice,         & !< cloud ice   mass in layer [kg/m2]
+    & xm_co2,         & !< CO2 mass in layer [kg/m2]
+    & zo3_timint,     & !< intermediate value of ozon
+    & xm_o3,          & !< O3  mass in layer [kg/m2]
+    & xm_o2,          & !< O2  mass in layer [kg/m2]
+    & xm_ch4,         & !< CH4 mass in layer [kg/m2]
+    & xm_n2o,         & !< N2O mass in layer [kg/m2]
+    & xm_cfc          & !< CFC mass in layer [kg/m2]
+    ) 
+
+
+    INTEGER, INTENT(in)     :: &
+    & jg,                      & !< domain index
+    & jb,                      & !< block index
+    & kproma,                  & !< end   index for loop over block
+    & kbdim,                   & !< dimension of block over cells
+    & klev,                    & !< number of full levels = number of layers
+    & klevp1                     !< number of half levels = number of layer interfaces
+
+    TYPE(datetime), POINTER :: this_datetime !< actual time step
+
+    REAL(wp), INTENT(IN)    :: &
+    & pp_hl(kbdim,klevp1),     & !< pressure at half levels [Pa]
+    & pp_fl(kbdim,klev),       & !< Pressure at full levels [Pa]
+    & xm_dry(kbdim,klev),      & !< dry air mass in layer [kg/m2]
+    & xm_trc(kbdim,klev,ntracer)  !< tracer mass in layer [kg/m2]
+    REAL(wp), INTENT(INOUT) :: &
+    & xm_ozn(kbdim,klev)         !< ozone mixing ratio  [kg/kg]
+
+    REAL (wp), INTENT (OUT) ::      &
+    & xm_vap(kbdim,klev),           & !< water vapor mass in layer [kg/m2]
+    & xm_liq(kbdim,klev),           & !< cloud water mass in layer [kg/m2]
+    & xm_ice(kbdim,klev),           & !< cloud ice   mass in layer [kg/m2]
+    & xm_co2(kbdim,klev),           & !< CO2 mass in layer [kg/m2]
+    & zo3_timint(kbdim,nplev_o3),   & !< intermediate value of ozon
+    & xm_o3(kbdim,klev),            & !< O3  mass in layer [kg/m2]
+    & xm_o2(kbdim,klev),            & !< O2  mass in layer [kg/m2]
+    & xm_ch4(kbdim,klev),           & !< CH4 mass in layer [kg/m2]
+    & xm_n2o(kbdim,klev),           & !< N2O mass in layer [kg/m2]
+    & xm_cfc(kbdim,klev,2)!!$,         & !< CFC mass in layer [kg/m2]
+
+    INTEGER              :: jk, jl
+    INTEGER              :: selmon  !< index to select a calendar month
+!!$    INTEGER              :: knwtrc  !< number of non-water tracers
+
+
+    TYPE(t_external_atmos_td) ,POINTER :: atm_td
+
+    !
+    ! --- phases of water substance
+    !
+    !     vapor
+    xm_vap(1:kproma,:) = gas_profile(kproma, klev, irad_h2o, xm_dry,         &
+         &                           gas_val      = xm_trc(1:kproma,:,iqv),  &
+         &                           gas_factor   = fh2o)
+    !     cloud water
+    xm_liq(1:kproma,:) = gas_profile(kproma, klev, irad_h2o, xm_dry,         &
+         &                           gas_val      = xm_trc(1:kproma,:,iqc),  &
+         &                           gas_epsilon  = 0.0_wp,                  &
+         &                           gas_factor   = fh2o)
+    !     cloud ice
+    xm_ice(1:kproma,:) = gas_profile(kproma, klev, irad_h2o, xm_dry,         &
+         &                           gas_val      = xm_trc(1:kproma,:,iqi),  &
+         &                           gas_epsilon  = 0.0_wp,                  &
+         &                           gas_factor   = fh2o)
+    !
+    ! --- gases
+    !
+    ! CO2: use CO2 tracer only if the CO2 index is in the correct range
+    IF ( iqt <= ico2 .AND. ico2 <= ntracer ) THEN
+      xm_co2(1:kproma,:) = gas_profile(kproma, klev, irad_co2, xm_dry,           &
+           &                           gas_mmr      = mmr_co2,                   &
+           &                           gas_scenario = ghg_co2mmr,                &
+           &                           gas_val      = xm_trc(1:kproma,:,ico2),   &
+           &                           gas_factor   = fco2)
+    ELSE
+      xm_co2(1:kproma,:) = gas_profile(kproma, klev, irad_co2, xm_dry,   &
+           &                           gas_mmr      = mmr_co2,           &
+           &                           gas_scenario = ghg_co2mmr,        &
+           &                           gas_factor   = fco2)
+    END IF
+
+    xm_ch4(1:kproma,:)   = gas_profile(kproma, klev, irad_ch4, xm_dry,   &
+         &                             gas_mmr      = mmr_ch4,           &
+         &                             gas_scenario = ghg_ch4mmr,        &
+         &                             pressure = pp_fl, xp = ch4_v,     &
+         &                             gas_factor   = fch4)
+
+    xm_n2o(1:kproma,:)   = gas_profile(kproma, klev, irad_n2o, xm_dry,   &
+         &                             gas_mmr      = mmr_n2o,           &
+         &                             gas_scenario = ghg_n2ommr,        &
+         &                             pressure = pp_fl, xp = n2o_v,     &
+         &                             gas_factor   = fn2o)
+
+    xm_cfc(1:kproma,:,1) = gas_profile(kproma, klev, irad_cfc11, xm_dry, &
+         &                             gas_mmr      = mmr_cfc11,         &
+         &                             gas_scenario = ghg_cfcmmr(1),     &
+         &                             gas_factor   = fcfc)
+
+    xm_cfc(1:kproma,:,2) = gas_profile(kproma, klev, irad_cfc12, xm_dry, &
+         &                             gas_mmr      = mmr_cfc12,         &
+         &                             gas_scenario = ghg_cfcmmr(2),     &
+         &                             gas_factor   = fcfc)
+
+    ! O3: provisionally construct here the ozone profiles
+    atm_td => ext_data(jg)%atm_td
+    SELECT CASE(irad_o3)
+    CASE default
+      CALL finish('radiation','o3: this "irad_o3" is not supported')
+    CASE(0)
+      xm_ozn(:,:) = 0.0_wp
+      xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3, xm_dry,       &
+           &                             gas_scenario_v = xm_ozn(1:kproma,:), &
+           &                             gas_factor     = fo3)
+
+    CASE(io3_interact)
+      xm_ozn(1:kproma,:) = xm_trc(1:kproma,:,io3)
+      xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3, xm_dry,     &
+           &                             gas_val = xm_ozn(1:kproma,:),      &
+           &                             gas_factor     = fo3)
+
+    CASE(io3_clim, io3_ape)
+
+      IF(irad_o3 == io3_ape) THEN
+        selmon=1 ! select 1st month of file
+      ELSE
+        selmon=9 ! select 9th month of file
+      ENDIF
+
+      CALL o3_pl2ml ( kproma = kproma, kbdim = kbdim,        &
+           &          nlev_pres = nlev_o3, klev = klev,      &
+           &          pfoz = atm_td%pfoz(:),                 &
+           &          phoz = atm_td%phoz(:),                 &! in o3-levs
+           &          ppf  = pp_fl(:,:),                     &! in  app1
+           &          pph  = pp_hl(:,:),                     &! in  aphp1
+           &          o3_time_int = atm_td%o3(:,:,jb,selmon),&! in
+           &          o3_clim     = xm_ozn(:,:)              )! OUT
+      xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3, xm_dry,       &
+           &                             gas_scenario_v = xm_ozn(1:kproma,:), &
+           &                             gas_factor     = fo3)
+
+    CASE(io3_amip)
+      CALL o3_timeint(kproma = kproma, kbdim = kbdim,        &
+           &          nlev_pres=nplev_o3,                    &
+           &          ext_o3=o3_plev(:,:,jb,:),              &
+           &          current_date=this_datetime,            &
+           &          o3_time_int=zo3_timint                 )
+      CALL o3_pl2ml ( kproma = kproma, kbdim = kbdim,        &
+           &          nlev_pres = nplev_o3, klev = klev,     &
+           &          pfoz = plev_full_o3,                   &
+           &          phoz = plev_half_o3,                   &
+           &          ppf  = pp_fl(:,:),                     &
+           &          pph  = pp_hl(:,:),                     &
+           &          o3_time_int = zo3_timint,              &
+           &          o3_clim     = xm_ozn(:,:)              )
+      xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3, xm_dry,       &
+           &                             gas_scenario_v = xm_ozn(1:kproma,:), &
+           &                             gas_factor     = fo3)
+    END SELECT
+
+    xm_o2(1:kproma,:)    = gas_profile(kproma, klev, irad_o2, xm_dry,       &
+         &                             gas_mmr      = mmr_o2,               &
+         &                             gas_factor   = fo2)
+
+  END SUBROUTINE psrad_get_gas_profiles
+  !-------------------------------------------------------------------
+
+  !-------------------------------------------------------------------
   SUBROUTINE psrad_radiation_on_block ( &
     & jg             ,&!< in  domain index
     & jb             ,&!< in  block index
@@ -1125,6 +1308,7 @@ MODULE mo_psrad_radiation
            & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )
 
   END SUBROUTINE psrad_radiation_on_block
+  !-------------------------------------------------------------------
 
   !---------------------------------------------------------------------------
   !>
