@@ -1165,17 +1165,16 @@ CONTAINS
     TYPE(t_event_data_local), POINTER :: evd
 
     ! determine this PE's MPI rank wrt. the given MPI communicator:
-    this_pe = 0
-    nranks  = 1
-#ifndef NOMPI
-    IF (icomm /= MPI_COMM_NULL) THEN
+    IF (icomm /= mpi_comm_null) THEN
       this_pe = p_comm_rank(icomm)
       nranks = p_comm_size(icomm)
       IF (ldebug) THEN
         WRITE (0,*) "PE ",get_my_global_mpi_id(), ": local rank is ", this_pe, "; icomm has size ", nranks
       END IF
+    ELSE
+      this_pe = 0
+      nranks  = 1
     END IF
-#endif
 
     ! compute i_tag ID st. it stays unique even for multiple events
     ! running on the same I/O PE:
@@ -1298,9 +1297,12 @@ CONTAINS
     NULLIFY(union_of_all_events)
     ! get the number of ranks in this MPI communicator
     nranks  =  1
+#ifdef NOMPI
+    this_pe = root_outevent
+#else
     this_pe = -1
-#ifndef NOMPI
-    IF (icomm /= MPI_COMM_NULL) THEN
+#endif
+    IF (icomm /= mpi_comm_null) THEN
       this_pe = p_comm_rank(icomm)
       nranks = p_comm_size(icomm)
       IF (ldebug) THEN
