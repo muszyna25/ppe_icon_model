@@ -1,4 +1,4 @@
-\svnInfo $Id$
+
 % --------------------------------------------------------------------------------
 % Facsimile of DWD publication title page
 % compliant with the specifications by J. Rapp, PB FB, 
@@ -39,10 +39,13 @@
       \textbf{Version \vhCurrentVersion}
     \end{sansserif}};
   % 
-  \node[anchor=north west, xshift=3.25cm, yshift=-10.5cm, scale=1.4] at (current page.north west)
-  {\begin{sansserif}%
-      Last changes: \svnInfoLongDate
-    \end{sansserif}};
+  % LAST CHANGES (BASED ON SVN Version Control System)
+  % -- this does no longer work with Git --
+  %
+  % \node[anchor=north west, xshift=3.25cm, yshift=-10.5cm, scale=1.4] at (current page.north west)
+  % {\begin{sansserif}%
+  %   Last changes: \svnInfoLongDate
+  % \end{sansserif}};
   % 
   \node[anchor=north west, xshift=3.25cm, yshift=-12.5cm, scale=1.4] at (current page.north west)
   {\begin{sansserif}%
@@ -72,11 +75,15 @@
       \textbf{Version: \vhCurrentVersion}
     \end{sansserif}};
   % 
-  \node[anchor=north west, xshift=1.1cm, yshift=-19.0cm, scale=0.9] at (current page.north west)
-  {\begin{sansserif}%
-      This document is based on Revision \svnInfoRevision \, of the ICON code,
-      last changed on \svnInfoDate.
-    \end{sansserif}};
+  %
+  % SVN REVISION INFO
+  % -- this no longer works for Git --
+  % 
+  % \node[anchor=north west, xshift=1.1cm, yshift=-19.0cm, scale=0.9] at (current page.north west)
+  % {\begin{sansserif}%
+  %   This document is based on Revision \svnInfoRevision \, of the ICON code,
+  %   last changed on \svnInfoDate.
+  % \end{sansserif}};
   % 
   \draw[black] ($(current page.north west)+(1.1cm,-20.2cm)$) -- ++ (18.4cm,0cm);
   % 
