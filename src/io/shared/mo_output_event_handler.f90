@@ -220,7 +220,11 @@ MODULE mo_output_event_handler
   INTERFACE set_event_to_simstep
     MODULE PROCEDURE set_event_to_simstep
     MODULE PROCEDURE set_event_to_simstep_par
-  END INTERFACE
+  END INTERFACE set_event_to_simstep
+
+  INTERFACE p_gatherv
+    MODULE PROCEDURE p_gatherv_event_data_1d1d
+  END INTERFACE p_gatherv
 
 
   !---------------------------------------------------------------
@@ -1891,6 +1895,83 @@ CONTAINS
   !---------------------------------------------------------------
   ! ROUTINES PERFORMING DATA TRANSFER TO ROOT PE DURING SETUP
   !---------------------------------------------------------------
+  SUBROUTINE p_gatherv_event_data_1d1d(sbuf, rbuf, p_dest, counts, comm)
+    TYPE(t_event_data_local), INTENT(in) :: sbuf(:)
+#ifdef HAVE_FC_CONTIGUOUS
+    CONTIGUOUS :: sbuf
+#endif
+    TYPE(t_event_data_local), ALLOCATABLE, INTENT(inout) :: rbuf(:)
+    INTEGER, ALLOCATABLE, INTENT(inout) :: counts(:)
+    INTEGER, INTENT(in) :: p_dest
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+
+    INTEGER :: sum_counts
+#ifndef NOMPI
+    CHARACTER(len=*), PARAMETER :: &
+         routine = modname//"::p_gatherv_event_data_1d1d"
+    INTEGER, ALLOCATABLE :: displs(:)
+    INTEGER :: comm_rank, comm_size, p_comm, acc, i, ierror
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+    comm_size = p_comm_size(p_comm)
+    comm_rank = p_comm_rank(p_comm)
+    IF (comm_rank == p_dest) THEN
+      IF (ALLOCATED(counts)) THEN
+        IF (SIZE(counts) /= comm_size) DEALLOCATE(counts)
+      END IF
+      IF (.NOT. ALLOCATED(counts)) THEN
+        ALLOCATE(counts(comm_size))
+        counts(1) = -1
+      END IF
+      ALLOCATE(displs(comm_size))
+    ELSE
+      IF (ALLOCATED(counts)) THEN
+        IF (SIZE(counts) < 1) DEALLOCATE(counts)
+      END IF
+      IF (.NOT. ALLOCATED(counts)) THEN
+        ALLOCATE(counts(1))
+        counts(1) = -1
+      END IF
+      ALLOCATE(displs(1))
+    END IF
+    IF (counts(1) < 0) CALL p_gather(SIZE(sbuf), counts, p_dest, p_comm)
+    IF (comm_rank == p_dest) THEN
+      acc = 0
+      DO i = 1, comm_size
+        displs(i) = acc
+        acc = acc + counts(i)
+      END DO
+      sum_counts = acc
+    ELSE
+      sum_counts = 1
+    END IF
+    IF (ALLOCATED(rbuf)) THEN
+      IF (SIZE(rbuf) < sum_counts) DEALLOCATE(rbuf)
+    END IF
+    IF (.NOT. ALLOCATED(rbuf)) ALLOCATE(rbuf(sum_counts))
+    IF (event_data_dt == mpi_datatype_null) CALL create_event_data_dt
+    CALL mpi_gatherv(sbuf, SIZE(sbuf), event_data_dt, &
+      &              rbuf, counts, displs, event_data_dt, &
+      &              p_dest, p_comm, ierror)
+    IF (ierror /= mpi_success) CALL finish(routine, 'mpi_gatherv error')
+#else
+    sum_counts = SIZE(sbuf)
+    IF (ALLOCATED(counts)) THEN
+      IF (SIZE(counts) /= 1) DEALLOCATE(counts)
+    END IF
+    IF (.NOT. ALLOCATED(counts)) ALLOCATE(counts(1))
+    counts(1) = sum_counts
+    IF (ALLOCATED(rbuf)) THEN
+      IF (SIZE(rbuf) < sum_counts) DEALLOCATE(rbuf)
+    END IF
+    IF (.NOT. ALLOCATED(rbuf)) ALLOCATE(rbuf(sum_counts))
+    rbuf(1:sum_counts) = sbuf
+#endif
+  END SUBROUTINE p_gatherv_event_data_1d1d
+
 #ifndef NOMPI
   !> create mpi datatype for variables of type t_event_data_local
   SUBROUTINE create_event_data_dt
