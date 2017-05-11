@@ -126,7 +126,7 @@ MODULE mo_output_event_handler
     &                                  p_pack_int, p_pack_string, p_pack_bool, p_pack_real, &
     &                                  p_unpack_int, p_unpack_string, p_unpack_bool,        &
     &                                  p_unpack_real, p_send_packed, p_irecv_packed,        &
-    &                                  p_wait, p_bcast, get_my_global_mpi_id,               &
+    &                                  p_wait, get_my_global_mpi_id,                        &
     &                                  my_process_is_mpi_test, p_pe,                        &
     &                                  my_process_is_mpi_workroot,                          &
     &                                  process_mpi_all_comm,                                &
@@ -1243,17 +1243,11 @@ CONTAINS
   !> Receives event meta-data from all PEs within the given MPI
   !> communicator; creates the union of these events.
   !
-  !  Optional: Broadcast events via an inter-communicator, eg. to
-  !            worker PEs
-  !
   !  @author F. Prill, DWD
   !
-  FUNCTION union_of_all_events(fct_time2simstep, fct_generate_filenames, icomm, &
-    &                          opt_broadcast_comm, opt_broadcast_root)
+  FUNCTION union_of_all_events(fct_time2simstep, fct_generate_filenames, icomm)
     TYPE(t_par_output_event), POINTER :: union_of_all_events
     INTEGER, OPTIONAL,      INTENT(IN)  :: icomm                       !< MPI communicator for intra-I/O communication
-    INTEGER, OPTIONAL,      INTENT(IN)  :: opt_broadcast_comm          !< MPI communicator for broadcast IO->workers
-    INTEGER, OPTIONAL,      INTENT(IN)  :: opt_broadcast_root          !< MPI rank (broadcast source)
 
     INTERFACE
       !> As an argument of this function, the user must provide a
@@ -1296,18 +1290,10 @@ CONTAINS
     TYPE(t_output_event),     POINTER     :: ev2
     TYPE(t_event_data_local)              :: evd
     LOGICAL                               :: lrecv
-    INTEGER                               :: i_pe, nranks, ierrstat,            &
-      &                                      this_pe, nbcast_ranks, i
-    LOGICAL                               :: lbroadcast
+    INTEGER                               :: i_pe, nranks, ierrstat, &
+      &                                      this_pe, i
 
     IF (ldebug)  WRITE (0,*) routine, " enter."
-#ifndef NOMPI
-    lbroadcast = PRESENT(opt_broadcast_root) .AND. &
-         &       PRESENT(opt_broadcast_comm) .AND. &
-         &       (.NOT. my_process_is_mpi_test())
-#else
-    lbroadcast = .FALSE.
-#endif
 
     NULLIFY(union_of_all_events)
     ! get the number of ranks in this MPI communicator
@@ -1318,17 +1304,11 @@ CONTAINS
       this_pe = p_comm_rank(icomm)
       nranks = p_comm_size(icomm)
       IF (ldebug) THEN
-         WRITE (0,*) "PE ",get_my_global_mpi_id(), ": local rank is ", this_pe, "; icomm has size ", nranks
-         IF (lbroadcast) THEN
-            nbcast_ranks = p_comm_size(opt_broadcast_comm)
-            WRITE (0,*) "PE ",get_my_global_mpi_id(), ": local rank is ", this_pe, "; bcast comm has size ", nbcast_ranks, &
-                 &      ", root is ", opt_broadcast_root
-            lbroadcast = (nbcast_ranks > 1)
-         END IF
+         WRITE (0,*) "PE ",get_my_global_mpi_id(), ": local rank is ", &
+              this_pe, "; icomm has size ", nranks
       END IF
     END IF
 #endif
-    IF (lbroadcast)  CALL p_bcast(nranks, opt_broadcast_root, opt_broadcast_comm)
 
     ! loop over all PEs of the I/O communicator:
     DO i_pe = 0,(nranks-1)
@@ -1358,12 +1338,7 @@ CONTAINS
           END IF
         END IF
         ! forward the event meta-data to the worker PEs
-        IF (lbroadcast) THEN
-          lrecv = broadcast_event_data(evd,                                    &
-            &                          opt_broadcast_comm, opt_broadcast_root, &
-            &                          lrecv)
-        END IF
-        
+
         IF (.NOT. lrecv) EXIT RECEIVE_LOOP
 
         ! create the event steps from the received meta-data:
@@ -2246,88 +2221,6 @@ CONTAINS
     DEALLOCATE(buffer, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
   END FUNCTION receive_event_data
-
-
-  !> MPI-broadcast event data.
-  !
-  !  @return .FALSE. if no more event data is to be received from the
-  !          given PE.
-  !
-  !  @author F. Prill, DWD
-  !
-  FUNCTION broadcast_event_data(evd, icomm, iroot, l_no_end_message)
-    LOGICAL :: broadcast_event_data
-    TYPE(t_event_data_local),              INTENT(INOUT)  :: evd
-    !> MPI communicator
-    INTEGER,                               INTENT(IN)     :: icomm
-    !> MPI broadcast root rank
-    INTEGER,                               INTENT(IN)     :: iroot
-    !> Flag. .FALSE. if "end message" shall be broadcasted
-    LOGICAL,                               INTENT(IN)     :: l_no_end_message
-    ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::broadcast_event_data"
-    INTEGER :: nitems, ierrstat, position, this_pe, i
-    CHARACTER, ALLOCATABLE :: buffer(:)   !< MPI buffer for packed
-
-    ! allocate message buffer
-    ALLOCATE(buffer(MAX_BUF_SIZE), stat=ierrstat)
-    IF (ierrstat /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed')
-
-    ! determine this PE's MPI rank wrt. the given MPI communicator:
-    this_pe = -1
-#ifndef NOMPI
-    IF (icomm /= MPI_COMM_NULL) this_pe = p_comm_rank(icomm)
-#endif
-
-    ! prepare an MPI message:
-    IF (iroot == this_pe) THEN
-      position = 0
-      IF (l_no_end_message) THEN
-        ! normal message:
-        nitems = 1
-        CALL p_pack_int(nitems, buffer, position, icomm)
-        CALL pack_metadata(buffer, position, evd, icomm)
-        IF (ldebug) THEN
-          DO i=1,MAX_TIME_INTERVALS
-            WRITE (0,*) "PE ", get_my_global_mpi_id(), ": send event data: ", &
-              &         TRIM(evd%begin_str(i)), TRIM(evd%end_str(i)), TRIM(evd%intvl_str(i))
-          END DO
-        END IF
-      ELSE
-        ! empty, "end message":
-        nitems = 0
-        CALL p_pack_int(nitems, buffer, position, icomm)
-        IF (ldebug) THEN
-          WRITE (0,*) "PE ", get_my_global_mpi_id(), ": send end message after "
-        END IF
-      END IF
-    END IF
-
-#ifndef NOMPI
-    ! broadcast packed message:
-    CALL MPI_BCAST(buffer, MAX_BUF_SIZE, MPI_PACKED, iroot, icomm, ierrstat)
-    IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_BCAST.')
-#endif
-
-    ! unpack message:
-    IF (iroot /= this_pe) THEN
-      position = 0
-      nitems   = 1
-      CALL p_unpack_int(buffer, position, nitems, icomm)
-      IF (nitems == 0) THEN
-        broadcast_event_data = .FALSE.
-      ELSE
-        broadcast_event_data = .TRUE.
-        CALL unpack_metadata(buffer, position, evd, icomm)
-      END IF
-    ELSE
-      broadcast_event_data = l_no_end_message
-    END IF
-
-    ! clean up
-    DEALLOCATE(buffer, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-  END FUNCTION broadcast_event_data
 
 
   !> Utility routine: Unpack MPI message buffer with event meta-data.

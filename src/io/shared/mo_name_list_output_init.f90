@@ -1368,8 +1368,7 @@ CONTAINS
     ! The root I/O MPI rank asks all participating I/O PEs for their
     ! output event info and generates a unified output event,
     ! indicating which PE performs a write process at which step.
-    all_events => union_of_all_events(compute_matching_sim_steps, generate_output_filenames, p_comm_io, &
-         &                               p_comm_work_io, process_work_io0)
+    all_events => union_of_all_events(compute_matching_sim_steps, generate_output_filenames, p_comm_io)
 
     IF (dom_sim_step_info_jstep0 > 0) &
       &  CALL set_event_to_simstep(all_events, dom_sim_step_info_jstep0 + 1, &
