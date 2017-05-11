@@ -1627,7 +1627,7 @@ __COLLAPSE_2_LOOPS
                 * p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
                 + p_int%rbf_vec_coeff_e(4,je,jb)                       &
                 * p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
-#endif
+
             ENDDO
           ENDDO
 
