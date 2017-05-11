@@ -2284,7 +2284,7 @@ if test "${enable_jsbach+set}" = set; then
 else
   enable_jsbach=yes
 fi
-
+enable_jsbach=yes
 
 # Check whether --enable-ocean was given.
 if test "${enable_ocean+set}" = set; then
