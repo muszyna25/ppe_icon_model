@@ -162,7 +162,6 @@ MODULE mo_output_event_handler
 
   ! initialization + destruction
   PUBLIC :: new_parallel_output_event
-  PUBLIC :: complete_event_setup
   PUBLIC :: union_of_all_events
   PUBLIC :: deallocate_output_event
   PUBLIC :: blocking_wait_for_irecvs
@@ -1165,7 +1164,7 @@ CONTAINS
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::new_parallel_output_event"
-    INTEGER :: ierrstat, this_pe, i_tag, nranks, i, nintvls
+    INTEGER :: ierrstat, this_pe, i_tag, nranks, nintvls
     TYPE(t_event_data_local), POINTER :: evd
 
     ! determine this PE's MPI rank wrt. the given MPI communicator:
@@ -1221,20 +1220,6 @@ CONTAINS
     p_event%isend_req     = 0
 #ifndef NOMPI
     p_event%isend_req     = MPI_REQUEST_NULL
-    IF (this_pe /= ROOT_OUTEVENT) THEN
-      ! now send all the meta-data to the root PE
-      IF (icomm /= MPI_COMM_NULL) THEN
-        IF (ldebug) THEN
-          WRITE (0,*) "new_parallel_output_event: PE ", get_my_global_mpi_id(), ": send event data: ", &
-            &      TRIM(begin_str(1)), TRIM(end_str(1)), TRIM(intvl_str(1))
-          DO i=2,nintvls
-            WRITE (0,*) " + PE ", get_my_global_mpi_id(), ": send event data: ", &
-              &      TRIM(begin_str(i)), TRIM(end_str(i)), TRIM(intvl_str(i))
-          END DO
-        END IF
-        CALL send_event_data(evd, icomm, ROOT_OUTEVENT)
-      END IF
-    END IF
 #endif
   END FUNCTION new_parallel_output_event
 
@@ -1291,10 +1276,11 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::union_of_all_events"
     TYPE(t_par_output_event), POINTER     :: par_event, last_node
     TYPE(t_output_event),     POINTER     :: ev2
-    TYPE(t_event_data_local)              :: evd
-    LOGICAL                               :: lrecv
-    INTEGER                               :: i_pe, nranks, ierrstat, &
-      &                                      this_pe, i
+    INTEGER                               :: i_pe, nranks, ierror, &
+      &                                      this_pe, i, acc,   &
+      &                                      num_all_events, cnt
+    INTEGER, ALLOCATABLE                  :: evd_counts(:), evd_rank(:)
+    TYPE(t_event_data_local), ALLOCATABLE :: evd_all(:)
 
     IF (ldebug)  WRITE (0,*) routine, " enter."
 
@@ -1313,87 +1299,82 @@ CONTAINS
          WRITE (0,*) "PE ",get_my_global_mpi_id(), ": local rank is ", &
               this_pe, "; icomm has size ", nranks
       END IF
-    END IF
-#endif
-
-    ! loop over all PEs of the I/O communicator:
-    DO i_pe = 0,(nranks-1)
-      RECEIVE_LOOP : DO
-        lrecv = .FALSE.
-#ifndef NOMPI
-        ! receive event meta-data from participating I/O PEs:
-        IF (this_pe == i_pe) THEN
-          lrecv = .FALSE.
-        ELSE
-          IF (this_pe == ROOT_OUTEVENT) THEN
-            lrecv = receive_event_data(evd, icomm, i_pe, SENDRECV_TAG_SETUP)
-          END IF
-        END IF
-#endif
-        ! I/O PE #0: we keep a local list of event meta-data
-        IF (.NOT. lrecv .AND. this_pe == root_outevent .AND. ievent_list_local > 0) THEN
-          lrecv = .TRUE.
-          evd = event_list_local(ievent_list_local)
-          ievent_list_local = ievent_list_local - 1
-          IF (ldebug) THEN
-            DO i=1,MAX_TIME_INTERVALS
-              WRITE (0,*) "Taking event ", TRIM(evd%begin_str(i)), " / ", TRIM(evd%end_str(i)), " / ", &
-                &         TRIM(evd%intvl_str(i)), " from local list."
-            END DO
-            WRITE (0,*) ievent_list_local, " entries are left."
-          END IF
-        END IF
-        ! forward the event meta-data to the worker PEs
-
-        IF (.NOT. lrecv) EXIT RECEIVE_LOOP
-
-        ! create the event steps from the received meta-data:
-        ev2 => new_output_event(evd, i_pe, &
-          &                     fct_time2simstep, fct_generate_filenames)
-
-        ! find the parallel output event in the linked list that
-        ! matches the event name
-        NULLIFY(last_node)
-        par_event => union_of_all_events
-        DO WHILE (ASSOCIATED(par_event))
-          IF (par_event%output_event%event_data%name == ev2%event_data%name) EXIT
-          last_node => par_event
-          par_event => par_event%next
+      CALL p_gatherv(event_list_local(1:ievent_list_local), evd_all, &
+        &            root_outevent, counts=evd_counts, comm=icomm)
+      IF (this_pe == root_outevent) THEN
+        num_all_events = SIZE(evd_all)
+        ALLOCATE(evd_rank(num_all_events), STAT=ierror)
+        IF (ierror /= 0) CALL finish (routine, 'ALLOCATE failed.')
+        acc = 0
+        DO i = 1, nranks
+          cnt = evd_counts(i)
+          evd_rank(acc+1:acc+cnt) = i-1
+          acc = acc + cnt
         END DO
-        ! if there is no such parallel output event, then create one
-        ! at the end of the linked list:
-        IF (.NOT. ASSOCIATED(par_event)) THEN
-          IF (.NOT. ASSOCIATED(last_node)) THEN
-            ALLOCATE(union_of_all_events, STAT=ierrstat)
-            IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-            par_event => union_of_all_events
-          ELSE
-            ALLOCATE(last_node%next, STAT=ierrstat)
-            IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-            par_event => last_node%next
-          END IF
-          ! set the MPI-related data fields:
-          par_event%icomm         = icomm
-          par_event%iroot         = ROOT_OUTEVENT
-          par_event%irecv_nreq    = 0
-          NULLIFY(par_event%next)
-          NULLIFY(par_event%output_event)
-        END IF
-        ! increase MPI message tag ID st. it stays unique even for
-        ! multiple events running on the same I/O PE:
-        IF (ASSOCIATED(par_event%output_event)) THEN
-          ! create union of the two events:
-          CALL merge_events(par_event%output_event, ev2)
-          CALL deallocate_output_event(ev2)
-        ELSE
-          par_event%output_event => ev2
-        END IF
+      ELSE
+        num_all_events = 0
+      END IF
+
+      IF (num_all_events > 0) THEN
+        ! create the event steps from the received meta-data:
+        ev2 => new_output_event(evd_all(1), evd_rank(1), &
+          &                     fct_time2simstep, fct_generate_filenames)
+        ALLOCATE(union_of_all_events, STAT=ierror)
+        IF (ierror /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+        par_event => union_of_all_events
+        par_event%icomm         = icomm
+        par_event%iroot         = ROOT_OUTEVENT
+        par_event%irecv_nreq    = 0
+        NULLIFY(par_event%next)
+        par_event%output_event => ev2
         IF (ldebug) THEN
           WRITE (0,*) "PE ", get_my_global_mpi_id(), ": n_event_steps = ", &
             & union_of_all_events%output_event%n_event_steps
         END IF
-      END DO RECEIVE_LOOP
-    END DO
+        DO i = 2, num_all_events
+          i_pe = evd_rank(i)
+          ! create the event steps from the received meta-data:
+          ev2 => new_output_event(evd_all(i), i_pe, &
+            &                     fct_time2simstep, fct_generate_filenames)
+          ! find the parallel output event in the linked list that
+          ! matches the event name
+          NULLIFY(last_node)
+          par_event => union_of_all_events
+          DO WHILE (ASSOCIATED(par_event))
+            IF (par_event%output_event%event_data%name == ev2%event_data%name) EXIT
+            last_node => par_event
+            par_event => par_event%next
+          END DO
+          ! if there is no such parallel output event, then create one
+          ! at the end of the linked list:
+          IF (.NOT. ASSOCIATED(par_event)) THEN
+            ALLOCATE(last_node%next, STAT=ierror)
+            IF (ierror /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+            par_event => last_node%next
+            ! set the MPI-related data fields:
+            par_event%icomm         = icomm
+            par_event%iroot         = ROOT_OUTEVENT
+            par_event%irecv_nreq    = 0
+            NULLIFY(par_event%next)
+            NULLIFY(par_event%output_event)
+          END IF
+          ! increase MPI message tag ID st. it stays unique even for
+          ! multiple events running on the same I/O PE:
+          IF (ASSOCIATED(par_event%output_event)) THEN
+            ! create union of the two events:
+            CALL merge_events(par_event%output_event, ev2)
+            CALL deallocate_output_event(ev2)
+          ELSE
+            par_event%output_event => ev2
+          END IF
+          IF (ldebug) THEN
+            WRITE (0,*) "PE ", get_my_global_mpi_id(), ": n_event_steps = ", &
+                 & union_of_all_events%output_event%n_event_steps
+          END IF
+        END DO
+      END IF
+    END IF
+
     IF (ldebug)  WRITE (0,*) routine, " done."
   END FUNCTION union_of_all_events
 
@@ -2182,226 +2163,7 @@ CONTAINS
       & CALL finish(routine, 'mpi_type_create_struct error')
   END SUBROUTINE create_fname_metadata_dt
 #endif
-  !> MPI-send event data to root PE.
-  !
-  !  All data necessary to create the event dates must be transmitted.
-  !
-  !  @author F. Prill, DWD
-  !
-  SUBROUTINE send_event_data(evd, icomm, dst_rank)
-    TYPE(t_event_data_local),            INTENT(IN)  :: evd
-    INTEGER,                             INTENT(IN)  :: icomm                !< MPI communicator
-    INTEGER,                             INTENT(IN)  :: dst_rank             !< MPI destination rank
-    ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::send_event_data"
-    INTEGER :: nitems, ierrstat, position
-    CHARACTER, ALLOCATABLE :: buffer(:)   !< MPI buffer for packed
 
-    IF (event_data_dt == mpi_datatype_null) CALL create_event_data_dt
-    ! allocate message buffer
-    ALLOCATE(buffer(MAX_BUF_SIZE), stat=ierrstat)
-    IF (ierrstat /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed')
-    position = 0
-
-    ! prepare an MPI message:
-    !
-    nitems = 1
-    CALL p_pack_int(nitems, buffer, position, icomm)
-    CALL pack_metadata(buffer, position, evd, icomm)
-
-    ! send packed message:
-    CALL p_send_packed(buffer, dst_rank, SENDRECV_TAG_SETUP, position, icomm)
-
-    ! clean up
-    DEALLOCATE(buffer, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-  END SUBROUTINE send_event_data
-
-
-  !> Send an empty record of event data to root PE st. the receiver
-  !> knows that no more events will be transmitted.
-  SUBROUTINE complete_event_setup(icomm)
-    INTEGER,                INTENT(IN)  :: icomm                 !< MPI communicator
-    ! local variables
-#ifndef NOMPI
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::complete_event_setup"
-    INTEGER :: nitems, ierrstat, position, this_pe
-    CHARACTER, ALLOCATABLE :: buffer(:)   !< MPI buffer for packed
-
-    IF (icomm /= MPI_COMM_NULL) THEN
-      this_pe = p_comm_rank(icomm)
-
-      IF (this_pe /= ROOT_OUTEVENT) THEN
-        ! allocate message buffer
-        ALLOCATE(buffer(MAX_BUF_SIZE), stat=ierrstat)
-        IF (ierrstat /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed')
-        position = 0
-        ! prepare an empty MPI message:
-        nitems = 0
-        CALL p_pack_int(nitems, buffer, position, icomm)
-        
-        ! send packed message:
-        CALL p_send_packed(buffer, ROOT_OUTEVENT, SENDRECV_TAG_SETUP, position, icomm)
-        
-        ! clean up
-        DEALLOCATE(buffer, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-      END IF
-    END IF
-#endif
-  END SUBROUTINE complete_event_setup
-
-
-  !> MPI-receive event data.
-  !
-  !  @return .FALSE. if no more event data is to be received from the
-  !          given PE.
-  !
-  !  @author F. Prill, DWD
-  !
-  FUNCTION receive_event_data(evd, icomm, isrc, isendrecv_tag)
-    LOGICAL :: receive_event_data
-    TYPE(t_event_data_local),              INTENT(INOUT)  :: evd
-    !> MPI communicator
-    INTEGER,                               INTENT(IN)     :: icomm
-    !> MPI rank of the sending PE
-    INTEGER,                               INTENT(IN)     :: isrc
-    !> MPI tag for this messages isend/irecv communication
-    INTEGER,                               INTENT(IN)     :: isendrecv_tag
-    ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::receive_event_data"
-    INTEGER :: nitems, ierrstat, position, i
-    CHARACTER, ALLOCATABLE :: buffer(:)   !< MPI buffer for packed
-
-    ! allocate message buffer
-    ALLOCATE(buffer(MAX_BUF_SIZE), stat=ierrstat)
-    IF (ierrstat /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed')
-    position = 0
-
-    ! receive packed message:
-    CALL p_irecv_packed(buffer, isrc, isendrecv_tag, MAX_BUF_SIZE, icomm)
-    ! wait for message to arrive:
-    CALL p_wait()
-
-    ! unpack MPI message:
-    !
-    nitems = 1
-    CALL p_unpack_int(buffer, position, nitems, icomm)
-    IF (nitems == 0) THEN
-      receive_event_data = .FALSE.
-    ELSE
-      receive_event_data = .TRUE.
-      CALL unpack_metadata(buffer, position, evd, icomm)
-    END IF
-
-    IF (ldebug) THEN
-      DO i=1,MAX_TIME_INTERVALS
-        WRITE (0,*) "received event data: ", TRIM(evd%begin_str(i)), TRIM(evd%end_str(i)), TRIM(evd%intvl_str(i))
-      END DO
-    END IF
-
-    ! clean up
-    DEALLOCATE(buffer, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-  END FUNCTION receive_event_data
-
-
-  !> Utility routine: Unpack MPI message buffer with event meta-data.
-  !
-  !  @author F. Prill, DWD
-  !
-  SUBROUTINE pack_metadata(buffer, position, evd, icomm)
-    CHARACTER,                             INTENT(INOUT)  :: buffer(:)             !< MPI buffer for packed
-    INTEGER,                               INTENT(INOUT)  :: position              !< MPI buffer position
-    TYPE(t_event_data_local),              INTENT(IN)     :: evd
-    INTEGER,                               INTENT(IN)     :: icomm                !< MPI communicator
-    ! local variables
-    INTEGER :: i
-
-    ! encode event name string
-    CALL p_pack_string(TRIM(evd%name),                           buffer, position, icomm)
-    DO i=1,MAX_TIME_INTERVALS
-      ! encode event begin and end string
-      CALL p_pack_string(TRIM(evd%begin_str(i)),                 buffer, position, icomm)
-      CALL p_pack_string(TRIM(evd%end_str(i)),                   buffer, position, icomm)
-      ! encode event interval string
-      CALL p_pack_string(TRIM(evd%intvl_str(i)),                 buffer, position, icomm)
-    END DO
-    ! encode flag "evd%l_output_last":
-    CALL p_pack_bool(evd%l_output_last,                          buffer, position, icomm)
-    ! encode t_sim_step_info data
-    CALL p_pack_string(TRIM(evd%sim_step_info%sim_start),        buffer, position, icomm)
-    CALL p_pack_string(TRIM(evd%sim_step_info%sim_end),          buffer, position, icomm)
-    CALL p_pack_real(evd%sim_step_info%dtime,                    buffer, position, icomm)
-    CALL p_pack_string(TRIM(evd%sim_step_info%run_start),        buffer, position, icomm)
-    CALL p_pack_string(TRIM(evd%sim_step_info%restart_time),     buffer, position, icomm)
-    CALL p_pack_int(evd%sim_step_info%jstep0,                    buffer, position, icomm)
-    CALL p_pack_string(evd%sim_step_info%dom_start_time,         buffer, position, icomm)
-    CALL p_pack_string(evd%sim_step_info%dom_end_time,           buffer, position, icomm)
-    ! encode fname_metadata data
-    CALL p_pack_int(evd%fname_metadata%steps_per_file,           buffer, position, icomm)
-    CALL p_pack_bool(evd%fname_metadata%steps_per_file_inclfirst,buffer, position, icomm)
-    CALL p_pack_string(TRIM(evd%fname_metadata%file_interval),   buffer, position, icomm)
-    CALL p_pack_int(evd%fname_metadata%phys_patch_id,            buffer, position, icomm)
-    CALL p_pack_int(evd%fname_metadata%ilev_type,                buffer, position, icomm)
-    CALL p_pack_string(TRIM(evd%fname_metadata%filename_format), buffer, position, icomm)
-    CALL p_pack_string(TRIM(evd%fname_metadata%filename_pref),   buffer, position, icomm)
-    CALL p_pack_string(TRIM(evd%fname_metadata%extn),            buffer, position, icomm)
-    CALL p_pack_int(evd%fname_metadata%jfile_offset,             buffer, position, icomm)
-    CALL p_pack_int(evd%fname_metadata%npartitions,              buffer, position, icomm)
-    CALL p_pack_int(evd%fname_metadata%ifile_partition,          buffer, position, icomm)
-    ! encode this event's MPI tag
-    CALL p_pack_int(evd%i_tag,                                   buffer, position, icomm)
-  END SUBROUTINE pack_metadata
-
-
-  !> Utility routine: Unpack MPI message buffer with event meta-data.
-  !
-  !  @author F. Prill, DWD
-  !
-  SUBROUTINE unpack_metadata(buffer, position, evd, icomm)
-    CHARACTER,                             INTENT(INOUT)  :: buffer(:)             !< MPI buffer for packed
-    INTEGER,                               INTENT(INOUT)  :: position              !< MPI buffer position
-    TYPE(t_event_data_local),              INTENT(INOUT) :: evd
-    INTEGER,                               INTENT(IN)     :: icomm                !< MPI communicator
-    ! local variables
-    INTEGER :: i
-
-    ! decode event name string
-    CALL p_unpack_string(buffer, position, evd%name,                                     icomm)
-    DO i=1,(MAX_TIME_INTERVALS)
-      ! decode event begin and end string                                                            
-      CALL p_unpack_string(buffer, position, evd%begin_str(i),                           icomm)
-      CALL p_unpack_string(buffer, position, evd%end_str(i),                             icomm)
-      ! decode event interval string                                                           
-      CALL p_unpack_string(buffer, position, evd%intvl_str(i),                           icomm)
-    END DO
-    ! decode flag "l_output_last":                                                                 
-    CALL p_unpack_bool(  buffer, position, evd%l_output_last,                            icomm)
-    ! decode t_sim_step_info data                                                                  
-    CALL p_unpack_string(buffer, position, evd%sim_step_info%sim_start,                  icomm)
-    CALL p_unpack_string(buffer, position, evd%sim_step_info%sim_end,                    icomm)
-    CALL p_unpack_real(  buffer, position, evd%sim_step_info%dtime,                      icomm)
-    CALL p_unpack_string(buffer, position, evd%sim_step_info%run_start,                  icomm)
-    CALL p_unpack_string(buffer, position, evd%sim_step_info%restart_time,               icomm)
-    CALL p_unpack_int(   buffer, position, evd%sim_step_info%jstep0,                     icomm)
-    CALL p_unpack_string(buffer, position, evd%sim_step_info%dom_start_time,             icomm)
-    CALL p_unpack_string(buffer, position, evd%sim_step_info%dom_end_time,               icomm)
-    ! decode fname_metadata data
-    CALL p_unpack_int(   buffer, position, evd%fname_metadata%steps_per_file,            icomm)
-    CALL p_unpack_bool(  buffer, position, evd%fname_metadata%steps_per_file_inclfirst,  icomm)
-    CALL p_unpack_string(buffer, position, evd%fname_metadata%file_interval,             icomm)
-    CALL p_unpack_int(   buffer, position, evd%fname_metadata%phys_patch_id,             icomm)
-    CALL p_unpack_int(   buffer, position, evd%fname_metadata%ilev_type,                 icomm)
-    CALL p_unpack_string(buffer, position, evd%fname_metadata%filename_format,           icomm)
-    CALL p_unpack_string(buffer, position, evd%fname_metadata%filename_pref,             icomm)
-    CALL p_unpack_string(buffer, position, evd%fname_metadata%extn,                      icomm)
-    CALL p_unpack_int(   buffer, position, evd%fname_metadata%jfile_offset,              icomm)
-    CALL p_unpack_int(   buffer, position, evd%fname_metadata%npartitions,               icomm)
-    CALL p_unpack_int(   buffer, position, evd%fname_metadata%ifile_partition,           icomm)
-    ! decode this event's MPI tag                                                                 
-    CALL p_unpack_int(   buffer, position, evd%i_tag,                                    icomm)
-  END SUBROUTINE unpack_metadata
 
 
   !---------------------------------------------------------------

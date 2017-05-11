@@ -138,7 +138,7 @@ MODULE mo_name_list_output_init
   USE mo_output_event_control,              ONLY: compute_matching_sim_steps,                     &
     &                                             generate_output_filenames
   USE mo_output_event_handler,              ONLY: new_parallel_output_event,                      &
-    &                                             complete_event_setup, union_of_all_events,      &
+    &                                             union_of_all_events,      &
     &                                             print_output_event,                             &
     &                                             set_event_to_simstep
 #ifndef NOMPI
@@ -1359,10 +1359,6 @@ CONTAINS
         NULLIFY(output_file(i)%out_event)
       END IF
     END DO
-
-    ! tell the root I/O process that all output event data structures
-    ! have been created:
-    CALL complete_event_setup(p_comm_io)
 
     ! -----------------------------------------------------------
     ! The root I/O MPI rank asks all participating I/O PEs for their
