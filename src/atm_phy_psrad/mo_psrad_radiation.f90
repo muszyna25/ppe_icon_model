@@ -56,13 +56,15 @@ MODULE mo_psrad_radiation
 
   USE mo_kind,                ONLY: wp, i8
   USE mo_model_domain,        ONLY: t_patch
+  USE mo_loopindices         ,ONLY: get_indices_c
+  USE mo_impl_constants      ,ONLY: min_rlcell_int, grf_bdywidth_c, io3_interact, io3_clim, io3_ape, io3_amip
+
   USE mo_physical_constants,  ONLY: rae
   USE mo_exception,           ONLY: finish, message, warning, message_text, print_value
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_namelist,            ONLY: open_nml, position_nml, close_nml, POSITIONED
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist
-  USE mo_impl_constants,      ONLY: io3_interact, io3_clim, io3_ape, io3_amip
   USE mo_ext_data_types,      ONLY: t_external_atmos_td
   USE mo_ext_data_state,      ONLY: ext_data, nlev_o3
   USE mo_bc_ozone,            ONLY: o3_plev, nplev_o3, plev_full_o3, plev_half_o3
@@ -628,8 +630,195 @@ MODULE mo_psrad_radiation
     message_cb => warning
     warning_cb => warning
   END SUBROUTINE setup_psrad_radiation
+  !-------------------------------------------------------------------
 
-  SUBROUTINE psrad_radiation ( &
+  !-------------------------------------------------------------------
+  SUBROUTINE psrad_radiation( &
+    & patch          ,&!< in  domain index
+    & kbdim          ,&!< in  dimension of block over cells
+    & klev           ,&!< in  number of full levels = number of layers
+    & klevp1         ,&!< in  number of half levels = number of layer interfaces
+    & ktype          ,&!< in  type of convection
+    & loland         ,&!< in  land-sea mask. (1. = land, 0. = sea/lakes)
+    & loglac         ,&!< in  fraction of land covered by glaciers
+    & this_datetime  ,&!< in  actual time step
+    & pcos_mu0       ,&!< in  cosine of solar zenith angle
+    & daylght_frc    ,&!< in  daylight fraction; with diurnal cycle 0 or 1, with zonal mean in [0,1]
+    & alb_vis_dir    ,&!< in  surface albedo for visible range, direct
+    & alb_nir_dir    ,&!< in  surface albedo for near IR range, direct
+    & alb_vis_dif    ,&!< in  surface albedo for visible range, diffuse
+    & alb_nir_dif    ,&!< in  surface albedo for near IR range, diffuse
+    & tk_sfc         ,&!< in  grid box mean surface temperature
+    & zf             ,&!< in  geometric height at full level      [m]
+    & zh             ,&!< in  geometric height at half level      [m]
+    & dz             ,&!< in  geometric height thickness of layer [m]
+    & pp_hl          ,&!< in  pressure at half levels at t-dt [Pa]
+    & pp_fl          ,&!< in  pressure at full levels at t-dt [Pa]
+    & tk_fl          ,&!< in  tk_fl  = temperature at full level at t-dt
+    & xm_dry         ,&!< in  dry air mass in layer [kg/m2]
+    & xm_trc         ,&!< in  tracer  mass in layer [kg/m2]
+    & xm_ozn         ,&!< inout ozone mass mixing ratio [kg/kg]
+    !
+    & cdnc           ,&!< in  cloud droplet number concentration
+    & cld_frc        ,&!< in  cloud fraction
+    & cld_cvr        ,&!< out cloud cover in a column
+    !
+    & lw_dnw_clr     ,&!< out clear-sky downward longwave  at all levels
+    & lw_upw_clr     ,&!< out clear-sky upward   longwave  at all levels
+    & sw_dnw_clr     ,&!< out clear-sky downward shortwave at all levels
+    & sw_upw_clr     ,&!< out clear-sky upward   shortwave at all levels
+    & lw_dnw         ,&!< out all-sky   downward longwave  at all levels
+    & lw_upw         ,&!< out all-sky   upward   longwave  at all levels
+    & sw_dnw         ,&!< out all-sky   downward shortwave at all levels
+    & sw_upw         ,&!< out all-sky   upward   shortwave at all levels
+    !
+    & vis_dn_dir_sfc ,&!< out all-sky downward direct visible radiation at surface
+    & par_dn_dir_sfc ,&!< out all-sky downward direct PAR     radiation at surface
+    & nir_dn_dir_sfc ,&!< out all-sky downward direct near-IR radiation at surface
+    & vis_dn_dff_sfc ,&!< out all-sky downward diffuse visible radiation at surface
+    & par_dn_dff_sfc ,&!< out all-sky downward diffuse PAR     radiation at surface
+    & nir_dn_dff_sfc ,&!< out all-sky downward diffuse near-IR radiation at surface
+    & vis_up_sfc     ,&!< out all-sky upward visible radiation at surface
+    & par_up_sfc     ,&!< out all-sky upward PAR     radiation at surfac
+    & nir_up_sfc     ) !< out all-sky upward near-IR radiation at surface
+
+    TYPE(t_patch)   ,TARGET ,INTENT(in)    :: patch
+
+    INTEGER, INTENT(in)     :: &
+    & kbdim,                   & !< dimension of block over cells
+    & klev,                    & !< number of full levels = number of layers
+    & klevp1,                  & !< number of half levels = number of layer interfaces
+    & ktype(:,:)               !< convection type
+
+    LOGICAL, INTENT(IN)     :: &
+    & loland(:,:),           & !< land mask
+    & loglac(:,:)              !< glacier mask
+
+    TYPE(datetime), POINTER :: this_datetime !< actual time step
+
+    REAL(wp), INTENT(IN)    :: &
+    & pcos_mu0(:,:),         & !< cosine of solar zenith angle
+    & daylght_frc(:,:),      & !< daylight fraction; with diurnal cycle 0 or 1, with zonal mean in [0,1]
+    & alb_vis_dir(:,:),      & !< surface albedo for visible range and direct light
+    & alb_nir_dir(:,:),      & !< surface albedo for NIR range and direct light
+    & alb_vis_dif(:,:),      & !< surface albedo for visible range and diffuse light
+    & alb_nir_dif(:,:),      & !< surface albedo for NIR range and diffuse light
+    & tk_sfc(:,:),           & !< Surface temperature
+    & zf(:,:,:),          & !< geometric height at full level      [m]
+    & zh(:,:,:),          & !< geometric height at half level      [m]
+    & dz(:,:,:),          & !< geometric height thickness of layer [m]
+    & xm_dry(:,:,:),      & !< dry air mass in layer [kg/m2]
+    & pp_hl(:,:,:),       & !< pressure at half levels [Pa]
+    & pp_fl(:,:,:),       & !< Pressure at full levels [Pa]
+    & tk_fl(:,:,:),       & !< Temperature on full levels [K]
+    & xm_trc(:,:,:,:),    & !< tracer mass in layer [kg/m2]
+    & cdnc(:,:,:),        & !< Cloud drop number concentration
+    & cld_frc(:,:,:)        !< Cloud fraction
+    REAL(wp), INTENT(INOUT) :: &
+    & xm_ozn(:,:,:)         !< ozone mixing ratio  [kg/kg]
+    REAL(wp), INTENT(OUT)   :: &
+    & cld_cvr(:,:),            & !< Cloud cover in a column
+    & lw_dnw_clr(:,:,:),& !< Clear-sky downward longwave  at all levels
+    & lw_upw_clr(:,:,:),& !< Clear-sky upward   longwave  at all levels
+    & sw_dnw_clr(:,:,:),& !< Clear-sky downward shortwave at all levels
+    & sw_upw_clr(:,:,:),& !< Clear-sky upward   shortwave at all levels
+    & lw_dnw(:,:,:),    & !< All-sky   downward longwave  at all levels
+    & lw_upw(:,:,:),    & !< All-sky   upward   longwave  at all levels
+    & sw_dnw(:,:,:),    & !< All-sky   downward shortwave at all levels
+    & sw_upw(:,:,:)       !< All-sky   upward   shortwave at all levels
+
+    REAL (wp), INTENT (OUT) :: &
+    & vis_dn_dir_sfc(:,:)  , & !< Diffuse downward flux surface visible radiation 
+    & par_dn_dir_sfc(:,:)  , & !< Diffuse downward flux surface PAR
+    & nir_dn_dir_sfc(:,:)  , & !< Diffuse downward flux surface near-infrared radiation
+    & vis_dn_dff_sfc(:,:)  , & !< Direct  downward flux surface visible radiation 
+    & par_dn_dff_sfc(:,:)  , & !< Direct  downward flux surface PAR
+    & nir_dn_dff_sfc(:,:)  , & !< Direct  downward flux surface near-infrared radiation
+    & vis_up_sfc    (:,:)  , & !< Upward  flux surface visible radiation 
+    & par_up_sfc    (:,:)  , & !< Upward  flux surface PAR
+    & nir_up_sfc    (:,:)      !< Upward  flux surface near-infrared radiation
+
+
+    INTEGER  :: jg             
+    INTEGER  :: i_nchdom, rl_start, rl_end
+    INTEGER  :: i_startblk,i_endblk
+    INTEGER  :: jb             !< block index
+    INTEGER  :: jcs, jce       !< start/end column index within this block
+
+    jg         = patch%id
+    rl_start   = grf_bdywidth_c+1
+    rl_end     = min_rlcell_int
+ 
+    i_nchdom   = MAX(1,patch%n_childdom)
+    i_startblk = patch%cells%start_blk(rl_start,1)
+    i_endblk   = patch%cells%end_blk(rl_end,i_nchdom)
+
+    !-------------------------------------------------------------------
+!$OMP PARALLEL DO PRIVATE(jcs,jce)
+    DO jb = i_startblk,i_endblk
+       
+      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+       
+      CALL psrad_radiation_on_block(                              &
+          & jg                                         ,&!< in  domain index
+          & jb                                         ,&!< in  block index
+          & kproma         = jce                       ,&!< in  end index for loop over block
+          & kbdim          = kbdim                     ,&!< in  dimension of block over cells
+          & klev           = klev                      ,&!< in  number of full levels = number of layers
+          & klevp1         = klevp1                    ,&!< in  number of half levels = number of layer interfaces
+          & ktype          = ktype(:,jb)               ,&!< in  type of convection
+          & loland         = loland(:,jb)              ,&!< in  land-sea mask. (logical)
+          & loglac         = loglac(:,jb)             ,&!< in  glacier mask (logical)
+          & this_datetime  = this_datetime             ,&!< in  actual time step
+          & pcos_mu0       = pcos_mu0(:,jb)            ,&!< in  solar zenith angle
+          & daylght_frc    = daylght_frc(:,jb)         ,&!in daylight fraction
+          & alb_vis_dir    = alb_vis_dir(:,jb)         ,&!< in  surface albedo for visible range, direct
+          & alb_nir_dir    = alb_nir_dir(:,jb)         ,&!< in  surface albedo for near IR range, direct
+          & alb_vis_dif    = alb_vis_dif(:,jb)         ,&!< in  surface albedo for visible range, diffuse
+          & alb_nir_dif    = alb_nir_dif(:,jb)         ,&!< in  surface albedo for near IR range, diffuse
+          & tk_sfc         = tk_sfc(:,jb)              ,&!< in  grid box mean surface temperature
+          & zf             = zf(:,:,jb)                ,&!< in  geometric height at full level      [m]
+          & zh             = zh(:,:,jb)                ,&!< in  geometric height at half level      [m]
+          & dz             = dz(:,:,jb)                ,&!< in  geometric height thickness of layer [m]
+          & pp_hl          = pp_hl(:,:,jb)             ,&!< in  pressure at half levels at t-dt [Pa]
+          & pp_fl          = pp_fl(:,:,jb)             ,&!< in  pressure at full levels at t-dt [Pa]
+          & tk_fl          = tk_fl(:,:,jb)             ,&!< in  tk_fl  = temperature at full level at t-dt
+          & xm_dry         = xm_dry(:,:,jb)            ,&!< in  dry air mass in layer [kg/m2]
+          & xm_trc         = xm_trc(:,:,jb,:)          ,&!< in  tracer  mass in layer [kg/m2]
+          & xm_ozn         = xm_ozn(:,:,jb)            ,&!< inout  ozone  mass mixing ratio [kg/kg]
+          !
+          & cdnc           = cdnc(:,:,jb)              ,&!< in   cloud droplet number conc
+          & cld_frc        = cld_frc(:,:,jb)           ,&!< in   cloud fraction [m2/m2]
+          & cld_cvr        = cld_cvr(:,jb)             ,&!< out  total cloud cover
+          !
+          & lw_dnw_clr     = lw_dnw_clr(:,:,jb)        ,&!< out  Clear-sky net longwave  at all levels
+          & lw_upw_clr     = lw_upw_clr(:,:,jb)        ,&!< out  Clear-sky net longwave  at all levels
+          & sw_dnw_clr     = sw_dnw_clr(:,:,jb)        ,&!< out  Clear-sky net shortwave at all levels
+          & sw_upw_clr     = sw_upw_clr(:,:,jb)        ,&!< out  Clear-sky net shortwave at all levels
+          & lw_dnw         = lw_dnw  (:,:,jb)          ,&!< out  All-sky net longwave  at all levels
+          & lw_upw         = lw_upw  (:,:,jb)          ,&!< out  All-sky net longwave  at all levels
+          & sw_dnw         = sw_dnw  (:,:,jb)          ,&!< out  All-sky net longwave  at all levels
+          & sw_upw         = sw_upw  (:,:,jb)          ,&!< out  All-sky net longwave  at all levels
+          !
+          & vis_dn_dir_sfc = vis_dn_dir_sfc(:,jb)      ,&!< out  all-sky downward direct visible radiation at surface
+          & par_dn_dir_sfc = par_dn_dir_sfc(:,jb)      ,&!< out  all-sky downward direct PAR     radiation at surface
+          & nir_dn_dir_sfc = nir_dn_dir_sfc(:,jb)      ,&!< out  all-sky downward direct near-IR radiation at surface
+          & vis_dn_dff_sfc = vis_dn_dff_sfc(:,jb)      ,&!< out  all-sky downward diffuse visible radiation at surface
+          & par_dn_dff_sfc = par_dn_dff_sfc(:,jb)      ,&!< out  all-sky downward diffuse PAR     radiation at surface
+          & nir_dn_dff_sfc = nir_dn_dff_sfc(:,jb)      ,&!< out  all-sky downward diffuse near-IR radiation at surface
+          & vis_up_sfc     = vis_up_sfc    (:,jb)      ,&!< out  all-sky upward visible radiation at surface
+          & par_up_sfc     = par_up_sfc    (:,jb)      ,&!< out  all-sky upward PAR     radiation at surfac
+          & nir_up_sfc     = nir_up_sfc    (:,jb)       )!< out  all-sky upward near-IR radiation at surface
+
+    END DO
+!$OMP END PARALLEL DO 
+    !-------------------------------------------------------------------
+
+  END SUBROUTINE psrad_radiation
+  !-------------------------------------------------------------------
+
+  !-------------------------------------------------------------------
+  SUBROUTINE psrad_radiation_on_block ( &
     & jg             ,&!< in  domain index
     & jb             ,&!< in  block index
     & kproma         ,&!< in  end index for loop over block
@@ -935,7 +1124,7 @@ MODULE mo_psrad_radiation
            & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
            & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )
 
-  END SUBROUTINE psrad_radiation
+  END SUBROUTINE psrad_radiation_on_block
 
   !---------------------------------------------------------------------------
   !>
