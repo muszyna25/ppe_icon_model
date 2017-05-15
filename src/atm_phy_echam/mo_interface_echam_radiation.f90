@@ -28,8 +28,8 @@ MODULE mo_interface_echam_radiation
   USE mtime,                  ONLY: datetime, OPERATOR(<=), OPERATOR(>)
 
   USE mo_model_domain        ,ONLY: t_patch
-  USE mo_loopindices         ,ONLY: get_indices_c
-  USE mo_impl_constants      ,ONLY: min_rlcell_int, grf_bdywidth_c
+!   USE mo_loopindices         ,ONLY: get_indices_c
+!   USE mo_impl_constants      ,ONLY: min_rlcell_int, grf_bdywidth_c
 
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_run_config,          ONLY: nlev, nlevp1
@@ -76,7 +76,6 @@ CONTAINS
           !
           CALL psrad_radiation(                              &
               & patch                                      ,&
-              & kbdim          = nproma                    ,&!< in  dimension of block over cells
               & klev           = nlev                      ,&!< in  number of full levels = number of layers
               & klevp1         = nlevp1                    ,&!< in  number of half levels = number of layer interfaces
               & ktype          = itype(:,:)                ,&!< in  type of convection
