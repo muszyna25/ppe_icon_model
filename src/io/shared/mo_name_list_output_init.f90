@@ -1689,15 +1689,15 @@ CONTAINS
     fname_metadata%file_interval              = of%name_list%file_interval
     fname_metadata%phys_patch_id              = of%phys_patch_id
     fname_metadata%ilev_type                  = of%ilev_type
-    fname_metadata%filename_format            = TRIM(of%name_list%filename_format)
-    fname_metadata%filename_pref              = TRIM(of%filename_pref)
+    fname_metadata%filename_format            = of%name_list%filename_format
+    fname_metadata%filename_pref              = of%filename_pref
     fname_metadata%npartitions                = of%npartitions
     fname_metadata%ifile_partition            = of%ifile_partition
     ! set user-specified filename extension or use the default
     ! extension:
     tlen = LEN_TRIM(of%name_list%filename_extn)
     IF (of%name_list%filename_extn(1:tlen) == "default") THEN
-      fname_metadata%extn = TRIM(get_file_extension(of%name_list%filetype))
+      fname_metadata%extn = get_file_extension(of%name_list%filetype)
     ELSE
       fname_metadata%extn = of%name_list%filename_extn(1:tlen)
     END IF
@@ -2094,7 +2094,7 @@ CONTAINS
           &                   p_patch(jl)%verts%decomp_info%glb_index,                                &
           &                   patch_info(jp)%ri(ivert), patch_info(jp)%grid_info(ivert))
         ! Set grid_filename on work and test PE
-        patch_info(jp)%grid_filename = TRIM(p_patch(jl)%grid_filename)
+        patch_info(jp)%grid_filename = p_patch(jl)%grid_filename
         ! Set UUID on work and test PE
         patch_info(jp)%grid_uuid = p_patch(jl)%grid_uuid
         ! Set information about numberOfGridUsed on work and test PE
