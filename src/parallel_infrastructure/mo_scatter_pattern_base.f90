@@ -43,7 +43,7 @@ PUBLIC :: t_ScatterPattern, t_ScatterPatternPtr, constructScatterPattern, destru
         PROCEDURE(interface_distribute_dp),   DEFERRED :: distribute_dp   !< distribute double precision data
         PROCEDURE(interface_distribute_spdp), DEFERRED :: distribute_spdp   !< distribute single precision data
         PROCEDURE(interface_distribute_sp),   DEFERRED :: distribute_sp   !< distribute single precision data
-        PROCEDURE(interface_distribute_int),  DEFERRED :: distribute_int   !< distribute single precision data
+        PROCEDURE(interface_distribute_int),  DEFERRED :: distribute_int   !< distribute integer data
 
 
         PROCEDURE :: construct => constructScatterPattern   !< constructor

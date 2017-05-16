@@ -2305,6 +2305,14 @@ Type of restart file. One of CDI's FILETYPE\_XXX. So far, only 4 (=FILETYPE\_NC2
 \tabularnewline
 
 %\hline
+restart\_write\_mode&
+C& '' '' & &
+Restart read/write mode. \\
+Allowed settings (character strings!) are listed below.
+&
+\tabularnewline
+
+%\hline
 lmask\_boundary&
 L&  F& &
 Set to \texttt{.TRUE.}, if interpolation zone should be masked in output.&
@@ -2312,6 +2320,55 @@ Set to \texttt{.TRUE.}, if interpolation zone should be masked in output.&
 
 %\hline
 \end{longtab}
+
+
+% -------------------------------------------------------------
+\subsubsection{Restart read/write mode:}
+% -------------------------------------------------------------
+
+Allowed settings for \texttt{restart\_write\_mode} are:\\[1em]
+\texttt{''sync''} \\
+\hspace*{2em} 
+\parbox{0.8\textwidth}{\raggedright%
+  'Old' synchronous mode. PE \# 0 reads and writes restart files. All other PEs have to wait.}\\[1em]
+%
+\texttt{''async''} \\
+\hspace*{2em} 
+\parbox{0.8\textwidth}{\raggedright%
+  Asynchronous restart writing:
+  Dedicated PEs (\texttt{num\_restart\_proc > 0}) write restart files
+  while the simulation continues.  Restart PEs can only parallelize
+  over different patches. --- Read-in: PE \# 0 reads while other PEs
+  have to wait.  } \\[1em]
+%
+\texttt{''joint procs multifile''} \\
+\hspace*{2em} 
+\parbox{0.8\textwidth}{\raggedright%
+  All worker PEs write restart files to a dedicated
+  directory. Therefore, the directory itself is called the restart
+  file.  The information is stored in a way that it can be read back
+  into the model independent from the processor count and the domain
+  decomposition. --- Read-in: All worker PEs read the data in parallel.
+ }\\[1em]
+%
+\texttt{''dedicated procs multifile''} \\
+\hspace*{2em} 
+\parbox{0.8\textwidth}{\raggedright%
+
+  In this case, all the restart data is first transfered to memory
+  buffers in dedicated restart writer PEs.  After that, the work
+  processes carry on with their work immediately, while the restart
+  writers perform the actual restart writing asynchronously.  Restart
+  PEs can parallelize over patches and horizontal indices.
+  --- Read-in: All worker PEs read the data in parallel..
+}\\[1em]
+%
+\texttt{'' ''} \\
+\hspace*{2em} 
+\parbox{0.8\textwidth}{\raggedright%
+  Fallback mode. \\ If \texttt{num\_restart\_proc == 0} (\texttt{parallel\_nml}),
+  then this behaves like \texttt{''sync''}, otherwise like \texttt{''async''}.
+}\\[1em]
 
 Defined and used in: \verb+src/namelists/mo_io_nml.f90+
 

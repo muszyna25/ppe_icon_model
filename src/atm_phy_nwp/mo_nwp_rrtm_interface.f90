@@ -222,7 +222,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-        ! The routine aerdis is called to recieve some parameters for the vertical
+        ! The routine aerdis is called to receive some parameters for the vertical
         ! distribution of background aerosol.
         CALL aerdis ( &
           & kbdim  = nproma,      & !in
@@ -308,7 +308,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-        ! The routine aerdis is called to recieve some parameters for the vertical
+        ! The routine aerdis is called to receive some parameters for the vertical
         ! distribution of background aerosol.
         CALL aerdis ( &
           & kbdim  = nproma,      & !in

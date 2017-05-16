@@ -25,7 +25,7 @@ MODULE mo_time_nml
     &                                 restart_end_datetime_string,                    &
     &                                 restart_calendar
   USE mo_io_units,              ONLY: nnml, nnml_output
-  USE mo_master_control,        ONLY: use_restart_namelists, isRestart
+  USE mo_master_control,        ONLY: isRestart
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                   ONLY: my_process_is_stdio 
   USE mo_restart_namelist,      ONLY: open_and_restore_namelist, close_tmpfile, &

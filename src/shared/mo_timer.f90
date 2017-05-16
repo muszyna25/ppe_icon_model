@@ -119,7 +119,6 @@ MODULE mo_timer
   PUBLIC :: timer_cover_koe
   PUBLIC :: timer_omp_radiation
   PUBLIC :: timer_lonlat_setup
-  PUBLIC :: timer_write_restart_file
   PUBLIC :: timer_write_output
   PUBLIC :: timer_model_init, timer_init_latbc
   PUBLIC :: timer_domain_decomp, timer_compute_coeffs, timer_ext_data, timer_init_icon, timer_read_restart
@@ -165,6 +164,16 @@ MODULE mo_timer
     &        timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett, timer_bgc_cya,&
     &        timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
     &        timer_bgc_tend,timer_bgc_ini, timer_bgc_inv, timer_bgc_tot 
+
+  ! restart timers
+  PUBLIC :: timer_load_restart
+  PUBLIC :: timer_load_restart_io
+  PUBLIC :: timer_load_restart_comm_setup
+  PUBLIC :: timer_load_restart_communication
+  PUBLIC :: timer_load_restart_get_var_id
+  PUBLIC :: timer_write_restart
+  PUBLIC :: timer_write_restart_io
+  PUBLIC :: timer_write_restart_communication
 
   PUBLIC :: timer_extra1,  timer_extra2,  timer_extra3,  timer_extra4,  timer_extra5,  &
             timer_extra6,  timer_extra7,  timer_extra8,  timer_extra9,  timer_extra10, &
@@ -270,7 +279,6 @@ MODULE mo_timer
   INTEGER :: timer_lrtm, timer_srtm
 
   INTEGER :: timer_omp_radiation
-  INTEGER :: timer_write_restart_file
   INTEGER :: timer_write_output
   INTEGER :: timer_model_init, timer_init_latbc
   INTEGER :: timer_domain_decomp, timer_compute_coeffs, timer_ext_data, timer_init_icon, timer_read_restart
@@ -316,6 +324,17 @@ MODULE mo_timer
    &         timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett, timer_bgc_cya,&
    &         timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
    &         timer_bgc_tend, timer_bgc_ini, timer_bgc_inv, timer_bgc_tot
+
+  ! restart timers
+  INTEGER :: timer_load_restart
+  INTEGER :: timer_load_restart_io
+  INTEGER :: timer_load_restart_comm_setup
+  INTEGER :: timer_load_restart_communication
+  INTEGER :: timer_load_restart_get_var_id
+  INTEGER :: timer_write_restart
+  INTEGER :: timer_write_restart_io
+  INTEGER :: timer_write_restart_communication
+
   ! The purpose of these "extra" timers is to have otherwise unused timers available for
   ! special-purpose measurements. Please do not remove them and do not use them permanently.
   INTEGER :: timer_extra1,  timer_extra2,  timer_extra3,  timer_extra4,  timer_extra5,  &
@@ -361,7 +380,6 @@ CONTAINS
     timer_gmres_p_sum            = new_timer("gmres_p_sum")
 
     timer_write_output  = new_timer("wrt_output")
-    timer_write_restart_file = new_timer("wrt_restart")
 
     timer_integrate_nh      = new_timer  ("integrate_nh")
     timer_solve_nh          = new_timer  ("nh_solve")
@@ -543,7 +561,17 @@ CONTAINS
     timer_bgc_ini     = new_timer("hamocc_ini") 
     timer_bgc_inv     = new_timer("hamocc_inventories") 
     timer_bgc_tot     = new_timer("hamocc_total") 
-   
+
+    ! timers for restart writing/loading
+    timer_load_restart = new_timer("load_restart")
+    timer_load_restart_io = new_timer("load_restart_io")
+    timer_load_restart_comm_setup = new_timer("load_restart_comm_setup")
+    timer_load_restart_communication = new_timer("load_restart_communication")
+    timer_load_restart_get_var_id = new_timer("load_restart_get_var_id")
+    timer_write_restart = new_timer("write_restart")
+    timer_write_restart_io = new_timer("write_restart_io")
+    timer_write_restart_communication = new_timer("write_restart_communication")
+
   ! extra timers for on-demand (non-permanent) timings
     timer_extra1  = new_timer("extra1")
     timer_extra2  = new_timer("extra2")

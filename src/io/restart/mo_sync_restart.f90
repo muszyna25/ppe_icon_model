@@ -60,17 +60,17 @@ MODULE mo_sync_restart
   USE mo_fortran_tools,             ONLY: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int
   USE mo_grid_config,               ONLY: n_dom
   USE mo_impl_constants,            ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
-  USE mo_kind,                      ONLY: wp, dp, sp
+  USE mo_kind,                      ONLY: dp, sp
   USE mo_mpi,                       ONLY: my_process_is_mpi_workroot, my_process_is_mpi_test
   USE mo_restart_attributes,        ONLY: t_RestartAttributeList, RestartAttributeList_make
   USE mo_restart_descriptor,        ONLY: t_RestartDescriptor, t_RestartPatchData
   USE mo_restart_file,              ONLY: t_RestartFile
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
-  USE mo_restart_util,              ONLY: setGeneralRestartAttributes, setDynamicPatchRestartAttributes, &
-    &                                     setPhysicsRestartAttributes, create_restart_file_link, t_restart_args
+  USE mo_restart_util,              ONLY: setDynamicPatchRestartAttributes, setGeneralRestartAttributes, &
+    &                                     setPhysicsRestartAttributes, t_restart_args
   USE mo_restart_var_data,          ONLY: getLevelPointers, has_valid_time_level
-  USE mo_run_config,                ONLY: ltimer
-  USE mo_timer,                     ONLY: timer_start, timer_stop, timer_write_restart_file
+  USE mo_timer,                     ONLY: timer_start, timer_stop, timer_write_restart, timer_write_restart_io, &
+                                        & timer_write_restart_communication, timers_level
   USE mo_util_string,               ONLY: int2string
   USE mo_var_metadata_types,        ONLY: t_var_metadata
 
@@ -88,13 +88,10 @@ MODULE mo_sync_restart
   END TYPE t_SyncPatchData
 
   TYPE, EXTENDS(t_RestartDescriptor) :: t_SyncRestartDescriptor
-    CHARACTER(:), ALLOCATABLE :: modelType
   CONTAINS
     PROCEDURE :: construct => syncRestartDescriptor_construct   ! override
     PROCEDURE :: writeRestart => syncRestartDescriptor_writeRestart ! override
     PROCEDURE :: destruct => syncRestartDescriptor_destruct ! override
-
-    PROCEDURE, PRIVATE :: defineRestartAttributes => syncRestartDescriptor_defineRestartAttributes
   END TYPE t_SyncRestartDescriptor
 
   !> module name string
@@ -109,7 +106,17 @@ CONTAINS
     CHARACTER(LEN = *), INTENT(IN) :: modelType
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartDescriptor_construct'
 
-    me%modelType = modelType
+    IF(timers_level >= 5) CALL timer_start(timer_write_restart)
+
+    ! ensure that our subtimers are consistently seen as subtimers
+    IF(timers_level >= 7) THEN
+        CALL timer_start(timer_write_restart_io)
+        CALL timer_stop(timer_write_restart_io)
+        CALL timer_start(timer_write_restart_communication)
+        CALL timer_stop(timer_write_restart_communication)
+    END IF
+
+    CALL me%restartDescriptor_construct(modelType)
 
     ! allocate patch data structure
     ALLOCATE(t_SyncPatchData :: me%patchData(n_dom), STAT = error)
@@ -119,6 +126,7 @@ CONTAINS
     DO jg = 1, n_dom
         CALL me%patchData(jg)%construct(modelType, jg)
     END DO
+    IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
   END SUBROUTINE syncRestartDescriptor_construct
 
   SUBROUTINE syncRestartDescriptor_defineRestartAttributes(me, restartAttributes, this_datetime, jstep, opt_output_jfile)
@@ -181,73 +189,42 @@ CONTAINS
     TYPE(t_restart_args) :: restartArgs
     CHARACTER(*), PARAMETER :: routine = modname//":syncRestartDescriptor_writeRestart"
 
-    IF(ltimer) CALL timer_start(timer_write_restart_file)
-
-    restartAttributes => RestartAttributeList_make()
-    CALL me%defineRestartAttributes(restartAttributes, this_datetime, jstep, opt_output_jfile)
-    CALL restartArgs%construct(this_datetime, jstep, me%modelType, opt_output_jfile)
+    IF(timers_level >= 5) CALL timer_start(timer_write_restart)
 
     DO jg = 1, n_dom
         CALL me%patchData(jg)%description%setTimeLevels() !update the time levels
-        CALL me%patchData(jg)%writeFile(restartAttributes, restartArgs, 0, my_process_is_mpi_workroot())
+    END DO
+
+    restartAttributes => RestartAttributeList_make()
+    CALL restartArgs%construct(this_datetime, jstep, me%modelType, opt_output_jfile)
+    CALL me%defineRestartAttributes(restartAttributes, restartArgs)
+
+    DO jg = 1, n_dom
+        CALL me%patchData(jg)%writeFile(restartAttributes, restartArgs, my_process_is_mpi_workroot())
     END DO
 
     CALL restartArgs%destruct()
     CALL restartAttributes%destruct()
     DEALLOCATE(restartAttributes)
 
-    IF(ltimer) CALL timer_stop(timer_write_restart_file)
+    IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
   END SUBROUTINE syncRestartDescriptor_writeRestart
 
   SUBROUTINE syncRestartDescriptor_destruct(me)
     CLASS(t_SyncRestartDescriptor), INTENT(INOUT) :: me
 
-    DEALLOCATE(me%patchData)
+    INTEGER :: i
+
+    IF(timers_level >= 5) CALL timer_start(timer_write_restart)
+
+    IF(ASSOCIATED(me%patchData)) THEN
+        DO i = 1, SIZE(me%patchData, 1)
+            CALL me%patchData(i)%destruct()
+        END DO
+        DEALLOCATE(me%patchData)
+    END IF
+    IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
   END SUBROUTINE syncRestartDescriptor_destruct
-
-  SUBROUTINE defineRestartAttributes(restartAttributes, this_datetime, jstep, opt_ndom, opt_ndyn_substeps, &
-                                    &opt_jstep_adv_marchuk_order, opt_output_jfile, opt_sim_time, opt_t_elapsed_phy, opt_lcall_phy)
-    TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
-    TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
-    INTEGER, VALUE :: jstep
-    INTEGER, INTENT(IN), OPTIONAL :: opt_ndom, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_output_jfile(:)
-    REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_t_elapsed_phy(:,:)
-    LOGICAL , INTENT(IN), OPTIONAL :: opt_lcall_phy(:,:)
-
-    INTEGER :: jg, effectiveDomainCount
-    CHARACTER(LEN = 2) :: jgString
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":defineRestartAttributes"
-
-    ! first the attributes that are independent of the domain
-    effectiveDomainCount = 1
-    IF(PRESENT(opt_ndom)) effectiveDomainCount = opt_ndom
-    CALL setGeneralRestartAttributes(restartAttributes, this_datetime, effectiveDomainCount, jstep, opt_output_jfile)
-
-    ! now the stuff that depends on the domain
-    DO jg = 1, n_dom
-        jgString = TRIM(int2string(jg, "(i2.2)"))
-        CALL setDynamicPatchRestartAttributes(restartAttributes, jg, nold(jg), nnow(jg), nnew(jg), nnow_rcf(jg), nnew_rcf(jg))
-
-        !----------------
-        ! additional restart-output for nonhydrostatic model
-        IF (PRESENT(opt_sim_time)) CALL restartAttributes%setReal('sim_time_DOM'//jgString, opt_sim_time )
-
-        !-------------------------------------------------------------
-        ! DR
-        ! WORKAROUND FOR FIELDS WHICH NEED TO GO INTO THE RESTART FILE,
-        ! BUT SO FAR CANNOT BE HANDELED CORRECTLY BY ADD_VAR OR
-        ! SET_RESTART_ATTRIBUTE
-        !-------------------------------------------------------------
-
-        IF (PRESENT(opt_ndyn_substeps)) CALL restartAttributes%setInteger('ndyn_substeps_DOM'//jgString, opt_ndyn_substeps)
-        IF (PRESENT(opt_jstep_adv_marchuk_order)) CALL restartAttributes%setInteger('jstep_adv_marchuk_order_DOM'//jgString, &
-                                                                                   &opt_jstep_adv_marchuk_order)
-
-        IF (PRESENT(opt_t_elapsed_phy) .AND. PRESENT(opt_lcall_phy)) THEN
-            CALL setPhysicsRestartAttributes(restartAttributes, jg, opt_t_elapsed_phy(jg,:), opt_lcall_phy(jg,:))
-        ENDIF
-    END DO
-  END SUBROUTINE defineRestartAttributes
 
   ! loop over all var_lists for restart
   SUBROUTINE syncPatchData_writeData(me, file)
@@ -290,8 +267,10 @@ CONTAINS
 
           ! gather the data in the master process and write it to disk
           DO level = 1, SIZE(levelPointers_dp)
+            IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
             CALL exchange_data(in_array = levelPointers_dp(level)%p, out_array = gatherBuffer_dp, &
               &                gather_pattern = gatherPattern)
+            IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
             IF(my_process_is_mpi_workroot()) THEN
               CALL file%writeLevel(info%cdiVarID, level - 1, gatherBuffer_dp)
             END IF
@@ -308,8 +287,10 @@ CONTAINS
 
           ! gather the data in the master process and write it to disk
           DO level = 1, SIZE(levelPointers_sp)
+            IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
             CALL exchange_data(in_array = levelPointers_sp(level)%p, out_array = gatherBuffer_sp, &
               &                gather_pattern = gatherPattern)
+            IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
             IF(my_process_is_mpi_workroot()) THEN
               CALL file%writeLevel(info%cdiVarID, level - 1, gatherBuffer_sp)
             END IF

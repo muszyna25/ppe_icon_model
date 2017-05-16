@@ -34,7 +34,13 @@ MODULE mo_fortran_tools
   PUBLIC :: assign_if_present
   PUBLIC :: t_ptr_2d3d, t_ptr_2d3d_vp
   PUBLIC :: assign_if_present_allocatable
+  PUBLIC :: alloc
   PUBLIC :: ensureSize
+  PUBLIC :: t_alloc_character
+  PUBLIC :: t_ptr_1d
+  PUBLIC :: t_ptr_1d_generic
+  PUBLIC :: t_ptr_1d_ptr_1d
+  PUBLIC :: t_ptr_1d_generic_ptr_1d
   PUBLIC :: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int
   PUBLIC :: t_ptr_3d, t_ptr_3d_sp
   PUBLIC :: t_ptr_i2d3d
@@ -52,6 +58,28 @@ MODULE mo_fortran_tools
   CONTAINS
     PROCEDURE(interface_destructor), DEFERRED :: destruct
   END TYPE t_Destructible
+
+  TYPE t_alloc_character
+    CHARACTER(:), ALLOCATABLE :: a
+  END TYPE t_alloc_character
+
+  TYPE t_ptr_1d
+    REAL(wp),POINTER :: p(:)  ! pointer to 1D (spatial) array
+  END TYPE t_ptr_1d
+
+  TYPE t_ptr_1d_generic
+    REAL(sp),POINTER :: sp(:)  ! pointer to 1D (spatial) array
+    REAL(dp),POINTER :: dp(:)  ! pointer to 1D (spatial) array
+    INTEGER,POINTER :: int(:)  ! pointer to 1D (spatial) array
+  END TYPE t_ptr_1d_generic
+
+  TYPE t_ptr_1d_ptr_1d
+    TYPE(t_ptr_1d), POINTER :: p(:)  ! pointer to a 1D array of pointers to 1D (spatial) arrays
+  END TYPE t_ptr_1d_ptr_1d
+
+  TYPE t_ptr_1d_generic_ptr_1d
+    TYPE(t_ptr_1d_generic), POINTER :: p(:)  ! pointer to a 1D array of pointers to 1D (spatial) arrays
+  END TYPE t_ptr_1d_generic_ptr_1d
 
   TYPE t_ptr_2d
     REAL(dp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
@@ -112,6 +140,13 @@ MODULE mo_fortran_tools
     MODULE PROCEDURE assign_if_present_real_allocatable
     MODULE PROCEDURE assign_if_present_real_allocatable_1d
   END INTERFACE assign_if_present_allocatable
+
+  ! This allocates an array, adjusting the allocation SIZE to 1 IF the given SIZE IS zero OR less, AND checking for allocation failure.
+  INTERFACE alloc
+    MODULE PROCEDURE alloc_int_1d
+    MODULE PROCEDURE alloc_double_1d
+    MODULE PROCEDURE alloc_single_1d
+  END INTERFACE alloc
 
   ! This handles the recuring CASE of growing a buffer to match possibly increasing needs.
   ! We USE a POINTER to pass the buffer because that allows us to avoid an extra copy when reallocating the buffer.
@@ -332,6 +367,54 @@ CONTAINS
     END IF
     y(:) = x(:)
   END SUBROUTINE assign_if_present_real_allocatable_1d
+
+  SUBROUTINE alloc_int_1d(array, allocSize)
+    INTEGER, ALLOCATABLE, INTENT(INOUT) :: array(:)
+    INTEGER, VALUE :: allocSize
+
+    INTEGER :: error
+    CHARACTER(*), PARAMETER :: routine = modname//":alloc_int_1d"
+
+    IF(allocSize < 1) allocSize = 1
+    IF(ALLOCATED(array)) THEN
+        IF(SIZE(array) == allocSize) RETURN
+        DEALLOCATE(array)
+    END IF
+    ALLOCATE(array(allocSize), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+  END SUBROUTINE alloc_int_1d
+
+  SUBROUTINE alloc_double_1d(array, allocSize)
+    REAL(dp), ALLOCATABLE, INTENT(INOUT) :: array(:)
+    INTEGER, VALUE :: allocSize
+
+    INTEGER :: error
+    CHARACTER(*), PARAMETER :: routine = modname//":alloc_double_1d"
+
+    IF(allocSize < 1) allocSize = 1
+    IF(ALLOCATED(array)) THEN
+        IF(SIZE(array) == allocSize) RETURN
+        DEALLOCATE(array)
+    END IF
+    ALLOCATE(array(allocSize), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+  END SUBROUTINE alloc_double_1d
+
+  SUBROUTINE alloc_single_1d(array, allocSize)
+    REAL(sp), ALLOCATABLE, INTENT(INOUT) :: array(:)
+    INTEGER, VALUE :: allocSize
+
+    INTEGER :: error
+    CHARACTER(*), PARAMETER :: routine = modname//":alloc_single_1d"
+
+    IF(allocSize < 1) allocSize = 1
+    IF(ALLOCATED(array)) THEN
+        IF(SIZE(array) == allocSize) RETURN
+        DEALLOCATE(array)
+    END IF
+    ALLOCATE(array(allocSize), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+  END SUBROUTINE alloc_single_1d
 
   SUBROUTINE ensureSize_dp_1d(buffer, requiredSize)
     REAL(wp), POINTER, INTENT(INOUT) :: buffer(:)

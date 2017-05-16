@@ -72,19 +72,19 @@ MODULE mo_restart_attributes
   END TYPE t_Text
 
   TYPE, EXTENDS(t_Destructible) :: t_Real
-    REAL(wp) :: VALUE
+    REAL(wp) :: val
   CONTAINS
     PROCEDURE :: destruct => real_destruct  !< override
   END TYPE t_Real
 
   TYPE, EXTENDS(t_Destructible) :: t_Integer
-    INTEGER(KIND = C_INT) :: VALUE
+    INTEGER(KIND = C_INT) :: val
   CONTAINS
     PROCEDURE :: destruct => integer_destruct   !< override
   END TYPE t_Integer
 
   TYPE, EXTENDS(t_Destructible) :: t_Logical
-    LOGICAL :: VALUE
+    LOGICAL :: val
   CONTAINS
     PROCEDURE :: destruct => logical_destruct   !< override
   END TYPE t_Logical
@@ -96,8 +96,8 @@ MODULE mo_restart_attributes
 
 CONTAINS
 
-  FUNCTION text_create(VALUE) RESULT(resultVar)
-    CHARACTER(*), INTENT(IN) :: VALUE
+  FUNCTION text_create(val) RESULT(resultVar)
+    CHARACTER(*), INTENT(IN) :: val
     TYPE(t_Text), POINTER :: resultVar
 
     integer :: error
@@ -105,11 +105,11 @@ CONTAINS
 
     ALLOCATE(resultVar, STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    resultVar%text = VALUE
+    resultVar%text = val
   END FUNCTION text_create
 
-  FUNCTION real_create(VALUE) RESULT(resultVar)
-    REAL(wp), VALUE :: VALUE
+  FUNCTION real_create(val) RESULT(resultVar)
+    REAL(wp), VALUE :: val
     TYPE(t_Real), POINTER :: resultVar
 
     integer :: error
@@ -117,11 +117,11 @@ CONTAINS
 
     ALLOCATE(resultVar, STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    resultVar%VALUE = VALUE
+    resultVar%val = val
   END FUNCTION real_create
 
-  FUNCTION integer_create(VALUE) RESULT(resultVar)
-    INTEGER(KIND = C_INT), VALUE :: VALUE
+  FUNCTION integer_create(val) RESULT(resultVar)
+    INTEGER(KIND = C_INT), VALUE :: val
     TYPE(t_Integer), POINTER :: resultVar
 
     integer :: error
@@ -129,11 +129,11 @@ CONTAINS
 
     ALLOCATE(resultVar, STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    resultVar%VALUE = VALUE
+    resultVar%val = val
   END FUNCTION integer_create
 
-  FUNCTION logical_create(VALUE) RESULT(resultVar)
-    LOGICAL, VALUE :: VALUE
+  FUNCTION logical_create(val) RESULT(resultVar)
+    LOGICAL, VALUE :: val
     TYPE(t_Logical), POINTER :: resultVar
 
     integer :: error
@@ -141,7 +141,7 @@ CONTAINS
 
     ALLOCATE(resultVar, STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    resultVar%VALUE = VALUE
+    resultVar%val = val
   END FUNCTION logical_create
 
   ! Sets the restart attribute list that IS to be used for restarting. Must NOT be set when we are NOT restarting.
@@ -266,11 +266,11 @@ CONTAINS
     CALL resultVar%readFromFile(vlistId, root_pe, comm)
   END FUNCTION RestartAttributeList_makeFromFile
 
-  ! This takes posession of the VALUE object!
-  SUBROUTINE RestartAttributeList_setObject(me, key, VALUE)
+  ! This takes posession of the val object!
+  SUBROUTINE RestartAttributeList_setObject(me, key, val)
     CLASS(t_RestartAttributeList), INTENT(INOUT) :: me
     CHARACTER(*), INTENT(IN) :: key
-    CLASS(t_Destructible), POINTER, INTENT(INOUT) :: VALUE
+    CLASS(t_Destructible), POINTER, INTENT(INOUT) :: val
 
     CLASS(t_Destructible), POINTER :: keyObject
     CHARACTER(*), PARAMETER :: routine = modname//":RestartAttributeList_setObject"
@@ -280,7 +280,7 @@ CONTAINS
     IF(ASSOCIATED(me%table%getEntry(keyObject))) CALL finish(routine, "double definition of restart attribute '"//key//"'")
 
     ! Insert the key-VALUE pair into the hash table
-    CALL me%table%setEntry(keyObject, VALUE)
+    CALL me%table%setEntry(keyObject, val)
   END SUBROUTINE RestartAttributeList_setObject
 
   SUBROUTINE RestartAttributeList_set(me, key, opt_text, opt_real, opt_integer, opt_logical)
@@ -303,7 +303,7 @@ CONTAINS
     ELSE IF(PRESENT(opt_logical)) THEN
         valueObject => logical_create(opt_logical)
     ELSE
-        CALL finish(routine, "assertion failed: no VALUE passed to "//routine//"()")
+        CALL finish(routine, "assertion failed: no value passed to "//routine//"()")
     END IF
     CALL me%setObject(key, valueObject)
   END SUBROUTINE RestartAttributeList_set
@@ -347,15 +347,15 @@ CONTAINS
         TYPE IS(t_Real)
             IF(.NOT.PRESENT(opt_real)) CALL finish(routine, "type mismatch while reading restart attribute '"//key// &
                                                             "', which is of type REAL")
-            opt_real = valueObject%VALUE
+            opt_real = valueObject%val
         TYPE IS(t_integer)
             IF(.NOT.PRESENT(opt_integer)) CALL finish(routine, "type mismatch while reading restart attribute '"//key// &
                                                                "', which is of type INTEGER")
-            opt_integer = valueObject%VALUE
+            opt_integer = valueObject%val
         TYPE IS(t_logical)
             IF(.NOT.PRESENT(opt_logical)) CALL finish(routine, "type mismatch while reading restart attribute '"//key// &
                                                                "', which is of type LOGICAL")
-            opt_logical = valueObject%VALUE
+            opt_logical = valueObject%val
         CLASS DEFAULT
             CALL finish(routine, "assertion failed")
     END SELECT
@@ -363,31 +363,31 @@ CONTAINS
 
 
 
-  SUBROUTINE RestartAttributeList_setText(me, key, VALUE)
+  SUBROUTINE RestartAttributeList_setText(me, key, val)
     CLASS(t_RestartAttributeList), INTENT(INOUT) :: me
-    CHARACTER(*), INTENT(IN) :: key, VALUE
-    CALL me%set(key, opt_text = VALUE)
+    CHARACTER(*), INTENT(IN) :: key, val
+    CALL me%set(key, opt_text = val)
   END SUBROUTINE RestartAttributeList_setText
 
-  SUBROUTINE RestartAttributeList_setReal(me, key, VALUE)
+  SUBROUTINE RestartAttributeList_setReal(me, key, val)
     CLASS(t_RestartAttributeList), INTENT(INOUT) :: me
     CHARACTER(*), INTENT(IN) :: key
-    REAL(KIND = wp), VALUE :: VALUE
-    CALL me%set(key, opt_real = VALUE)
+    REAL(KIND = wp), VALUE :: val
+    CALL me%set(key, opt_real = val)
   END SUBROUTINE RestartAttributeList_setReal
 
-  SUBROUTINE RestartAttributeList_setInteger(me, key, VALUE)
+  SUBROUTINE RestartAttributeList_setInteger(me, key, val)
     CLASS(t_RestartAttributeList), INTENT(INOUT) :: me
     CHARACTER(*), INTENT(IN) :: key
-    INTEGER(KIND = C_INT), VALUE :: VALUE
-    CALL me%set(key, opt_integer = VALUE)
+    INTEGER(KIND = C_INT), VALUE :: val
+    CALL me%set(key, opt_integer = val)
   END SUBROUTINE RestartAttributeList_setInteger
 
-  SUBROUTINE RestartAttributeList_setLogical(me, key, VALUE)
+  SUBROUTINE RestartAttributeList_setLogical(me, key, val)
     CLASS(t_RestartAttributeList), INTENT(INOUT) :: me
     CHARACTER(*), INTENT(IN) :: key
-    LOGICAL, VALUE :: VALUE
-    CALL me%set(key, opt_logical = VALUE)
+    LOGICAL, VALUE :: val
+    CALL me%set(key, opt_logical = val)
   END SUBROUTINE RestartAttributeList_setLogical
 
 
@@ -452,11 +452,11 @@ CONTAINS
                     TYPE IS(t_Text)
                         WRITE(0, *) "    '"//curKeyAlias%text//"' = '"//curValueAlias%text//"'"
                     TYPE IS(t_Real)
-                        WRITE(0, *) "    '"//curKeyAlias%text//"' = "//TRIM(real2string(curValueAlias%VALUE))
+                        WRITE(0, *) "    '"//curKeyAlias%text//"' = "//TRIM(real2string(curValueAlias%val))
                     TYPE IS(t_integer)
-                        WRITE(0, *) "    '"//curKeyAlias%text//"' = INT("//TRIM(int2string(curValueAlias%VALUE))//")"
+                        WRITE(0, *) "    '"//curKeyAlias%text//"' = INT("//TRIM(int2string(curValueAlias%val))//")"
                     TYPE IS(t_logical)
-                        IF(curValueAlias%VALUE) THEN
+                        IF(curValueAlias%val) THEN
                             WRITE(0, *) "    '"//curKeyAlias%text//"' = .TRUE."
                         ELSE
                             WRITE(0, *) "    '"//curKeyAlias%text//"' = .FALSE."
@@ -496,11 +496,11 @@ CONTAINS
                         textAlias => curValueAlias%text
                         error = vlistDefAttTxt(vlistId, CDI_GLOBAL, curKeyAlias%text, LEN(textAlias), curValueAlias%text)
                     TYPE IS(t_Real)
-                        error = vlistDefAttFlt(vlistId, CDI_GLOBAL, curKeyAlias%text, DATATYPE_FLT64, 1, [curValueAlias%VALUE])
+                        error = vlistDefAttFlt(vlistId, CDI_GLOBAL, curKeyAlias%text, DATATYPE_FLT64, 1, [curValueAlias%val])
                     TYPE IS(t_integer)
-                        error = vlistDefAttInt(vlistId, CDI_GLOBAL, curKeyAlias%text, DATATYPE_INT32, 1, [curValueAlias%VALUE])
+                        error = vlistDefAttInt(vlistId, CDI_GLOBAL, curKeyAlias%text, DATATYPE_INT32, 1, [curValueAlias%val])
                     TYPE IS(t_logical)
-                        IF(curValueAlias%VALUE) THEN
+                        IF(curValueAlias%val) THEN
                             error = vlistDefAttInt(vlistId, CDI_GLOBAL, 'bool_'//curKeyAlias%text, DATATYPE_INT32, 1, [1])
                         ELSE
                             error = vlistDefAttInt(vlistId, CDI_GLOBAL, 'bool_'//curKeyAlias%text, DATATYPE_INT32, 1, [0])
@@ -516,7 +516,7 @@ CONTAINS
   END SUBROUTINE RestartAttributeList_writeToCdiVlist
 
   ! Collective CALL: Reads AND broadcasts the restart attributes to all processes.
-  ! TODO[NH]: Fuse into makeFromFile() to guarantee that we start with an empty AttributeList.
+  ! TODO: Fuse into makeFromFile() to guarantee that we start with an empty AttributeList.
   SUBROUTINE RestartAttributeList_readFromFile(me, vlistId, root_pe, comm)
     CLASS(t_RestartAttributeList), INTENT(INOUT) :: me
     INTEGER, VALUE :: vlistId, root_pe, comm
@@ -564,13 +564,15 @@ CONTAINS
                     CALL me%setInteger(TRIM(attributeName), oneInt(1))
                 ENDIF
             CASE(DATATYPE_TXT)
-                text = ''   !This is required because vlistInqAttTxt() seems not to output a properly zero terminated string in all cases.
-                IF (lread_pe) THEN
-                    error = vlistInqAttTxt(vlistID, CDI_GLOBAL, TRIM(attributeName), attributeLength, text)
-                    IF(error /= SUCCESS) CALL finish(routine, "error while reading restart attribute '"//TRIM(attributeName)//"'")
-                END IF
-                CALL p_bcast(text, root_pe, comm)
-                CALL me%setText(TRIM(attributeName), TRIM(text))
+              !This is required because vlistInqAttTxt() seems not to
+              !output a properly zero terminated string in all cases:
+              text = ''   
+              IF (lread_pe) THEN
+                error = vlistInqAttTxt(vlistID, CDI_GLOBAL, TRIM(attributeName), attributeLength, text)
+                IF(error /= SUCCESS) CALL finish(routine, "error while reading restart attribute '"//TRIM(attributeName)//"'")
+              END IF
+              CALL p_bcast(text, root_pe, comm)
+              CALL me%setText(TRIM(attributeName), TRIM(text))
         END SELECT
     ENDDO
   END SUBROUTINE RestartAttributeList_readFromFile

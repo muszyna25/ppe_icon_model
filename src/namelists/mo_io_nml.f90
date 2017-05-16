@@ -44,10 +44,12 @@ MODULE mo_io_nml
                                  & config_restart_file_type       => restart_file_type      , &
                                  & config_write_initial_state     => write_initial_state    , &
                                  & config_write_last_restart      => write_last_restart     , &
-                                 & config_timeSteps_per_outputStep  => timeSteps_per_outputStep ,&
-                                 & config_lmask_boundary            => lmask_boundary
+                                 & config_timeSteps_per_outputStep  => timeSteps_per_outputStep, &
+                                 & config_lmask_boundary            => lmask_boundary          , &
+                                 & config_restart_write_mode        => restart_write_mode
 
   USE mo_exception,        ONLY: finish
+  USE mo_util_string,      ONLY: tolower
 
 
   IMPLICIT NONE
@@ -119,6 +121,8 @@ CONTAINS
     INTEGER :: timeSteps_per_outputStep
 
     LOGICAL :: lmask_boundary ! flag: true, if interpolation zone should be masked *in output*
+
+    CHARACTER(LEN = 256) :: restart_write_mode
     
     NAMELIST/io_nml/ lkeep_in_sync, dt_diag, dt_checkpoint,  &
       &              inextra_2d, inextra_3d,                 &
@@ -127,7 +131,7 @@ CONTAINS
       &              lnetcdf_flt64_output,                   &
       &              restart_file_type, write_initial_state, &
       &              write_last_restart, timeSteps_per_outputStep, &
-      &              lmask_boundary, gust_interval
+      &              lmask_boundary, gust_interval, restart_write_mode
 
     !-----------------------
     ! 1. default settings
@@ -156,6 +160,8 @@ CONTAINS
     timeSteps_per_outputStep        = config_timeSteps_per_outputStep
 
     lmask_boundary          = .FALSE.
+
+    restart_write_mode = ""
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -207,6 +213,7 @@ CONTAINS
     config_timeSteps_per_outputStep= timeSteps_per_outputStep
     config_write_last_restart      = write_last_restart
     config_lmask_boundary          = lmask_boundary
+    config_restart_write_mode      = tolower(restart_write_mode)
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

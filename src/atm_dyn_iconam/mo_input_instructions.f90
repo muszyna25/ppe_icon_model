@@ -1,5 +1,6 @@
 !>
-!! This MODULE provides an input instruction list that IS used to determine, which variables may be READ from which input file.
+!! This module provides an input instruction list that is used to
+!! determine, which variables may be read from which input file.
 !!
 !!
 !! @par Copyright and License
@@ -13,68 +14,93 @@
 
 MODULE mo_input_instructions
 
-    USE ISO_C_BINDING, ONLY: C_CHAR
-    USE mo_dictionary, ONLY: dict_get
-    USE mo_exception, ONLY: message, finish
-    USE mo_impl_constants, ONLY: SUCCESS, MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU, MODE_IAU_OLD, MODE_COMBINED, MODE_COSMO
-    USE mo_initicon_config, ONLY: initicon_config, lread_ana, ltile_coldstart, lp2cintp_incr, lp2cintp_sfcana, lvert_remap_fg
-    USE mo_initicon_types, ONLY: ana_varnames_dict
+    USE mo_dictionary,         ONLY: dict_get
+    USE mo_exception,          ONLY: message, finish
+    USE mo_impl_constants,     ONLY: SUCCESS, MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU, MODE_IAU_OLD, &
+      &                              MODE_COMBINED, MODE_COSMO
+    USE mo_initicon_config,    ONLY: initicon_config, lread_ana, ltile_coldstart, lp2cintp_incr,    &
+      &                              lp2cintp_sfcana, lvert_remap_fg
+    USE mo_initicon_types,     ONLY: ana_varnames_dict
     USE mo_input_request_list, ONLY: t_InputRequestList
-    USE mo_lnd_nwp_config, ONLY: lsnowtile
-    USE mo_model_domain, ONLY: t_patch
-    USE mo_util_string, ONLY: difference, add_to_list, int2string, one_of
-    USE mo_util_table, ONLY: t_table, initialize_table, add_table_column, set_table_entry, print_table, finalize_table
-    USE mo_var_list, ONLY: collect_group
-    USE mo_var_metadata_types,  ONLY: VARNAME_LEN
+    USE mo_lnd_nwp_config,     ONLY: lsnowtile
+    USE mo_model_domain,       ONLY: t_patch
+    USE mo_util_string,        ONLY: difference, add_to_list, int2string, one_of
+    USE mo_util_table,         ONLY: t_table, initialize_table, add_table_column, set_table_entry,  &
+      &                              print_table, finalize_table
+    USE mo_var_list,           ONLY: collect_group
+    USE mo_var_metadata_types, ONLY: VARNAME_LEN
 
     IMPLICIT NONE
 
-PUBLIC :: t_readInstructionList, readInstructionList_make, t_readInstructionListPtr
-PUBLIC :: kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth, kInputSourceCold
-PUBLIC :: kStateNoFetch, kStateFailedFetch, kStateRead
+    PUBLIC :: t_readInstructionList, readInstructionList_make, t_readInstructionListPtr
+    PUBLIC :: kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth, kInputSourceCold
+    PUBLIC :: kStateNoFetch, kStateFailedFetch, kStateRead
+
     ! The possible RETURN values of readInstructionList_sourceOfVar().
-    INTEGER, PARAMETER :: kInputSourceUnset = -1, kInputSourceNone = 0, kInputSourceFg = 1, kInputSourceAna = 2, &
-                        & kInputSourceBoth = 3, kInputSourceCold = 4
+    ENUM, BIND(C)
+        ENUMERATOR :: kInputSourceUnset = 1, kInputSourceNone, kInputSourceFg, kInputSourceAna, &
+          &           kInputSourceBoth, kInputSourceCold
+    END ENUM
 
     ! The possible values for statusFg AND statusAna:
-    INTEGER(KIND = C_CHAR), PARAMETER :: kStateNoFetch = 0, kStateFailedFetch = 1, kStateRead = 2, kStateFailedOptFetch = 3
+    ENUM, BIND(C)
+        ENUMERATOR :: kStateNoFetch = 1, kStateFailedFetch, kStateRead, kStateFailedOptFetch
+    END ENUM
 
-    ! The readInstructionList is used to tell the fetch_dwd*() routines which fields may be read from first guess and/or analysis,
-    ! and to signal whether we have found data in the first guess file, so that we can fail correctly.
-    ! I. e. for each variable, we expect a pair of calls to
+    ! The readInstructionList is used to tell the fetch_dwd*()
+    ! routines which fields may be read from first guess and/or
+    ! analysis, and to signal whether we have found data in the first
+    ! guess file, so that we can fail correctly.  I. e. for each
+    ! variable, we expect a pair of calls to
     !
     !     wantVarXXX()
     !     handleErrorXXX()
     !
-    ! The wantVarXXX() CALL tells the caller whether they should try to READ the variable,
-    ! the handleErrorXXX() CALL tells the ReadInstructionList whether that READ was successfull,
-    ! possibly panicking with a `finish()` CALL IN CASE there are no options left to READ the DATA.
-    ! If a variable is declared as optional, handleErrorXXX() won't panick if no data is available. 
-    ! Instead sourceOfVar will be set to kInputSourceCold, indicating that the variable should 
-    ! experience some sort of coldstart initialization.
+    ! The wantVarXXX() CALL tells the caller whether they should try
+    ! to READ the variable, the handleErrorXXX() CALL tells the
+    ! ReadInstructionList whether that READ was successfull, possibly
+    ! panicking with a `finish()` CALL IN CASE there are no options
+    ! left to READ the DATA.  If a variable is declared as optional,
+    ! handleErrorXXX() won't panick if no data is available.  Instead
+    ! sourceOfVar will be set to kInputSourceCold, indicating that the
+    ! variable should experience some sort of coldstart
+    ! initialization.
     TYPE :: t_readInstructionList
         TYPE(t_readInstruction), POINTER :: list(:)
         INTEGER :: nInstructions
 
     CONTAINS
-        PROCEDURE :: fileRequests => readInstructionList_fileRequests   ! tell an InputRequestList what variables are required
+      ! tell an InputRequestList what variables are required:
+        PROCEDURE :: fileRequests => readInstructionList_fileRequests
 
         ! inquire whether an attempt should be made to read a variable
         PROCEDURE :: wantVar => readInstructionList_wantVar
         PROCEDURE :: wantVarFg => readInstructionList_wantVarFg
         PROCEDURE :: wantVarAna => readInstructionList_wantVarAna
 
-        ! inform the ReadInstructionList about the result of a read, possibly triggering a `finish()` call if there is no alternative left to read the variable
+        ! inform the ReadInstructionList about the result of a read,
+        ! possibly triggering a `finish()` call if there is no
+        ! alternative left to read the variable
         PROCEDURE :: handleError => readInstructionList_handleError
         PROCEDURE :: handleErrorFg => readInstructionList_handleErrorFg
         PROCEDURE :: handleErrorAna => readInstructionList_handleErrorAna
 
-        PROCEDURE :: sourceOfVar => readInstructionList_sourceOfVar ! returns kInputSourceNone, kInputSourceFg, kInputSourceAna, OR kInputSourceBoth
-        PROCEDURE :: setSource => readInstructionList_setSource ! overrides the automatic calculation of the input source, argument must be 'kInputSource\(None\|Fg\|Ana\|Both\)'
+        ! returns kInputSourceNone, kInputSourceFg, kInputSourceAna,
+        ! OR kInputSourceBoth:
+        PROCEDURE :: sourceOfVar => readInstructionList_sourceOfVar
 
-        PROCEDURE :: fetchStatus => readInstructionList_fetchStatus  ! returns the result of a read attempt for a particular field
+        ! overrides the automatic calculation of the input source,
+        ! argument must be 'kInputSource\(None\|Fg\|Ana\|Both\)':
+        PROCEDURE :: setSource => readInstructionList_setSource
 
-        PROCEDURE :: printSummary => readInstructionList_printSummary   ! print a table with the information obtained via `handleErrorXXX()`, and `setSource()`; THIS DEPENDS ON THE ACTUAL READ ATTEMPTS AND THEIR RESULTS, NOT ON `lReadFg` or `lReadAna`.
+        ! returns the result of a read attempt for a particular field:
+        PROCEDURE :: fetchStatus => readInstructionList_fetchStatus
+        
+        ! print a table with the information obtained via
+        ! `handleErrorXXX()`, and `setSource()`; THIS DEPENDS ON THE
+        ! ACTUAL READ ATTEMPTS AND THEIR RESULTS, NOT ON `lReadFg` or
+        ! `lReadAna`.
+        PROCEDURE :: printSummary => readInstructionList_printSummary
 
         PROCEDURE :: destruct => readInstructionList_destruct
 
@@ -91,12 +117,27 @@ PRIVATE
 
     TYPE :: t_readInstruction
         CHARACTER(LEN = VARNAME_LEN) :: varName
-        LOGICAL :: lReadFg, lReadAna    ! These reflect the result of interpreting the variable groups, they are not used in the table output.
-        LOGICAL :: lOptionalFg          ! TRUE: variable is read if it is present in the file, but it is not necessary to start the run
-                                        ! (re-set to .FALSE. according to the `fg_checklist` namelist parameter)
-        LOGICAL :: lRequireAna  ! Panick if reading from analysis fails (set according to the `ana_checklist` namelist parameter)
-        INTEGER(KIND = C_CHAR) :: statusFg, statusAna   ! These reflect what read attempts really have been made, and what their results were. This is the basis for the table output.
-        INTEGER :: sourceOverride   ! IF this IS NOT kInputSourceUnset, it overrides the automatic calculation of the input source.
+        ! These reflect the result of interpreting the variable
+        ! groups, they are not used in the table output:
+        LOGICAL :: lReadFg, lReadAna
+
+        ! TRUE: variable is read if it is present in the file, but it
+        ! is not necessary to start the run. (re-set to
+        ! .FALSE. according to the `fg_checklist` namelist parameter):
+        LOGICAL :: lOptionalFg
+                              
+        ! Panick if reading from analysis fails (set according to the
+        ! `ana_checklist` namelist parameter):
+        LOGICAL :: lRequireAna
+
+        ! These reflect what read attempts really have been made, and
+        ! what their results were. This is the basis for the table
+        ! output.
+        INTEGER :: statusFg, statusAna
+
+        ! If this is not kInputSourceUnset, it overrides the automatic
+        ! calculation of the input source.
+        INTEGER :: sourceOverride
     CONTAINS
         PROCEDURE :: source => readInstruction_source
     END TYPE t_readInstruction

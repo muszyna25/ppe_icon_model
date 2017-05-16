@@ -1903,7 +1903,7 @@ CONTAINS
 !                & patch_2D%edges%primal_cart_normal(edge_index_cell, edge_block_cell)%x)
 !             ! orientation should not be 0, since this would mean that the prime and dual are parallel
 !             ! overall this calculation should be derived from the verts%edge_orientation
-!             ! orientation will recieve a value -1, or 1 based on the previous,
+!             ! orientation will receive a value -1, or 1 based on the previous,
 !             ! then multuplied by -1 if neigbor=2, otherwise unchanged
 !             orientation = SIGN(1.0_wp,orientation) * (3.0_wp - 2.0_wp * REAL(neigbor,wp))
 ! 

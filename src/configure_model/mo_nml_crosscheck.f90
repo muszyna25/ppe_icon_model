@@ -31,9 +31,10 @@ MODULE mo_nml_crosscheck
   USE mo_time_config,        ONLY: time_config, dt_restart
   USE mo_extpar_config,      ONLY: itopo                                             
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
-    &                              lnetcdf_flt64_output
+    &                              lnetcdf_flt64_output, kAsyncRestartModule,        &
+    &                              restartWritingParameters
   USE mo_parallel_config,    ONLY: check_parallel_configuration,                &
-    &                              num_io_procs, itype_comm, num_restart_procs, &
+    &                              num_io_procs, itype_comm,                    &
     &                              num_prefetch_proc, use_dp_mpi2io
   USE mo_limarea_config,     ONLY: latbc_config
   USE mo_master_config,      ONLY: isRestart
@@ -59,7 +60,7 @@ MODULE mo_nml_crosscheck
   USE mo_radiation_config
   USE mo_turbdiff_config,    ONLY: turbdiff_config
   USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift
-  USE mo_nh_testcases_nml,   ONLY: linit_tracer_fv,nh_test_name
+  USE mo_nh_testcases_nml,   ONLY: nh_test_name
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
   USE mo_meteogram_config,   ONLY: check_meteogram_configuration
@@ -81,7 +82,6 @@ MODULE mo_nml_crosscheck
   PRIVATE
 
   PUBLIC :: atm_crosscheck
-
 
   CHARACTER(LEN = *), PARAMETER :: modname = "mo_nml_crosscheck"
 
@@ -830,7 +830,7 @@ CONTAINS
 
   !---------------------------------------------------------------------------------------
   SUBROUTINE land_crosscheck
-
+    INTEGER :: restartModule
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
 
 #ifdef __NO_JSBACH__
@@ -840,8 +840,10 @@ CONTAINS
     echam_phy_config% ljsbach   = .FALSE.     
 #else
     IF (echam_phy_config% ljsbach) THEN
-      IF (num_restart_procs > 0) THEN
-        CALL finish(method_name, "JSBACH currently doesn't work with asynchronous restart. Set num_restart_procs=0 !")
+      CALL restartWritingParameters(opt_restartModule = restartModule)
+      IF (restartModule == kAsyncRestartModule) THEN
+        CALL finish(method_name, "JSBACH currently doesn't work with asynchronous restart. &
+                                 &Set num_restart_procs=0 or use multifile restart!")
       END IF
       IF (num_io_procs > 0) THEN
         CALL finish(method_name, "JSBACH currently doesn't work with asynchronous IO. Set num_io_procs=0 !")

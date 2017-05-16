@@ -69,8 +69,7 @@ MODULE mo_nh_stepping
   USE mo_diffusion_config,         ONLY: diffusion_config
   USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method
   USE mo_io_config,                ONLY: is_totint_time, n_diag
-  USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output, &
-                                         num_prefetch_proc
+  USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, num_prefetch_proc
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
     &                                    ntracer, iforcing, msg_level, test_mode,           &
     &                                    output_mode, lart
@@ -1235,10 +1234,8 @@ MODULE mo_nh_stepping
         CALL restartDescriptor%writeRestart(mtime_current, jstep, opt_output_jfile = output_jfile)
 
 #ifdef MESSY
-        IF(.NOT.use_async_restart_output) THEN
-            CALL messy_channel_write_output(IOMODE_RST)
-!           CALL messy_ncregrid_write_restart
-        END IF
+        CALL messy_channel_write_output(IOMODE_RST)
+!       CALL messy_ncregrid_write_restart
 #endif
     END IF  ! lwrite_checkpoint
 
@@ -1294,7 +1291,7 @@ MODULE mo_nh_stepping
   ! clean-up routine for mo_nh_supervise module (eg. closing of files)
   CALL finalize_supervise_nh()
 
-  IF (use_async_restart_output) CALL deleteRestartDescriptor(restartDescriptor)
+  CALL deleteRestartDescriptor(restartDescriptor)
 
   IF (ltimer) CALL timer_stop(timer_total)
 

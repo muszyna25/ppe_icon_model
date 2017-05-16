@@ -307,20 +307,13 @@ CONTAINS
       ! This is a resumed integration. Read model state from restart file(s).
 
       IF (timers_level > 5) CALL timer_start(timer_read_restart)
-#ifdef NOMPI
-      ! TODO : Non-MPI mode does not work for multiple domains
+
       DO jg = 1,n_dom
         IF (p_patch(jg)%ldom_active) THEN
           CALL read_restart_files( p_patch(jg), n_dom)
         ENDIF
       END DO
-#else
-      DO jg = 1,n_dom
-        IF (p_patch(jg)%ldom_active) THEN
-          CALL read_restart_files( p_patch(jg), n_dom )
-        ENDIF
-      END DO
-#endif
+
       CALL message(TRIM(routine),'normal exit from read_restart_files')
       IF (timers_level > 5) CALL timer_stop(timer_read_restart)
 
