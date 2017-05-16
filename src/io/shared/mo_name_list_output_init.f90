@@ -1990,7 +1990,7 @@ CONTAINS
               WRITE (message_text,'(a,a,l1,a,a)') &
                    &     '    ',element%field%info%name,              &
                    &            element%field%info%loutput, '  ',     &
-                   &            TRIM(this_cf%long_name)
+                   &            this_cf%long_name
               CALL message('',message_text)
               element => element%next_list_element
             ENDDO
@@ -3148,7 +3148,7 @@ CONTAINS
       of%mem_win%mem_ptr_dp(:) = 0._dp
       CALL MPI_Win_create( of%mem_win%mem_ptr_dp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
         &                  p_comm_work_io,of%mem_win%mpi_win,mpierr )
-      IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
+      IF (mpierr /= 0) CALL finish(routine, "MPI error!")
 
     ELSE
 
@@ -3157,7 +3157,7 @@ CONTAINS
       of%mem_win%mem_ptr_sp(:) = 0._sp
       CALL MPI_Win_create( of%mem_win%mem_ptr_sp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
         &                  p_comm_work_io,of%mem_win%mpi_win,mpierr )
-      IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
+      IF (mpierr /= 0) CALL finish(routine, "MPI error!")
 
     ENDIF ! use_dp_mpi2io
 
