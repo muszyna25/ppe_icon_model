@@ -255,10 +255,6 @@ MODULE mo_output_event_handler
   INTEGER, PARAMETER :: MAX_PRINTOUT          = 2000
 
 
-
-  !> Maximum length of local event meta-data list
-  INTEGER, PUBLIC, PARAMETER :: LOCAL_NMAX_EVENT_LIST = 100
-
 #ifndef NOMPI
   INTEGER :: event_data_dt = mpi_datatype_null
 #endif

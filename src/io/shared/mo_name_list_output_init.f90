@@ -140,7 +140,7 @@ MODULE mo_name_list_output_init
   USE mo_output_event_handler,              ONLY: new_parallel_output_event,                      &
     &                                             union_of_all_events,      &
     &                                             print_output_event,                             &
-    &                                             set_event_to_simstep, local_nmax_event_list
+    &                                             set_event_to_simstep
 #ifndef NOMPI
   USE mo_output_event_handler,              ONLY: trigger_output_step_irecv
 #endif
@@ -1591,7 +1591,7 @@ CONTAINS
 
     TYPE(t_event_data_local), ALLOCATABLE  :: event_list_local(:)
     !> length of local list of output events
-    INTEGER :: ievent_list_local, local_i, i, nfiles
+    INTEGER :: ievent_list_local, local_i, i, nfiles, num_local_events
     INTEGER :: dom_sim_step_info_jstep0
     LOGICAL :: is_io, is_mpi_test
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
@@ -1610,7 +1610,17 @@ CONTAINS
     is_mpi_test = my_process_is_mpi_test()
     nfiles = SIZE(output_file)
 
-    ALLOCATE(event_list_local(LOCAL_NMAX_EVENT_LIST))
+    IF (.NOT. is_io) THEN
+      num_local_events = nfiles
+    ELSE
+      num_local_events = 0
+      DO i = 1, nfiles
+        num_local_events &
+          = num_local_events + MERGE(1,0,output_file(i)%io_proc_id == p_pe_work)
+      END DO
+    END IF
+
+    ALLOCATE(event_list_local(num_local_events))
     ievent_list_local = 0
     local_i = 0
     DO i = 1, nfiles
