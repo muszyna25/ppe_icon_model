@@ -255,19 +255,9 @@ MODULE mo_output_event_handler
   INTEGER, PARAMETER :: MAX_PRINTOUT          = 2000
 
 
-  !---------------------------------------------------------------
-  ! local list event with event meta-data
-  !---------------------------------------------------------------
-
 
   !> Maximum length of local event meta-data list
-  INTEGER, PARAMETER :: LOCAL_NMAX_EVENT_LIST = 100
-
-  !> local list of output events
-  TYPE(t_event_data_local), TARGET :: event_list_local(LOCAL_NMAX_EVENT_LIST)
-
-  !> length of local list of output events
-  INTEGER :: ievent_list_local = 0
+  INTEGER, PUBLIC, PARAMETER :: LOCAL_NMAX_EVENT_LIST = 100
 
 #ifndef NOMPI
   INTEGER :: event_data_dt = mpi_datatype_null
@@ -1109,7 +1099,8 @@ CONTAINS
   !
   FUNCTION new_parallel_output_event(name, begin_str, end_str, intvl_str,                               &
     &                                l_output_last, sim_step_info, fname_metadata, fct_time2simstep,    &
-    &                                fct_generate_filenames, local_event_no, icomm) RESULT(p_event)
+    &                                fct_generate_filenames, local_event_no, icomm,                     &
+    &                                event_list_local, ievent_list_local) RESULT(p_event)
     TYPE(t_par_output_event), POINTER :: p_event
     CHARACTER(LEN=*),                      INTENT(IN)  :: name                 !< output event name
     !> start time stamp + modifier
@@ -1125,6 +1116,13 @@ CONTAINS
     TYPE(t_fname_metadata),                INTENT(IN)  :: fname_metadata
     INTEGER,                               INTENT(IN)  :: local_event_no       !< local index of this event on local PE
     INTEGER,                               INTENT(IN)  :: icomm                !< MPI communicator
+    !> local list of output events
+    TYPE(t_event_data_local),              INTENT(INOUT)  :: event_list_local(:)
+#ifdef HAVE_FC_CONTIGUOUS
+    CONTIGUOUS :: event_list_local
+#endif
+    !> length of local list of output events
+    INTEGER,                               INTENT(INOUT) :: ievent_list_local
 
 
     INTERFACE
@@ -1165,7 +1163,6 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::new_parallel_output_event"
     INTEGER :: ierrstat, this_pe, i_tag, nranks, nintvls
-    TYPE(t_event_data_local), POINTER :: evd
 
     ! determine this PE's MPI rank wrt. the given MPI communicator:
     IF (icomm /= mpi_comm_null) THEN
@@ -1194,19 +1191,18 @@ CONTAINS
     END DO
 
     ievent_list_local = ievent_list_local + 1
-    evd => event_list_local(ievent_list_local)
-    evd%name = name
-    evd%begin_str = begin_str
-    evd%end_str = end_str
-    evd%intvl_str = intvl_str
-    evd%l_output_last = l_output_last
-    evd%sim_step_info = sim_step_info
-    evd%fname_metadata = fname_metadata
-    evd%i_tag = i_tag
+    event_list_local(ievent_list_local)%name = name
+    event_list_local(ievent_list_local)%begin_str = begin_str
+    event_list_local(ievent_list_local)%end_str = end_str
+    event_list_local(ievent_list_local)%intvl_str = intvl_str
+    event_list_local(ievent_list_local)%l_output_last = l_output_last
+    event_list_local(ievent_list_local)%sim_step_info = sim_step_info
+    event_list_local(ievent_list_local)%fname_metadata = fname_metadata
+    event_list_local(ievent_list_local)%i_tag = i_tag
     ! create the local (non-parallel) output event data structure:
-    p_event%output_event => new_output_event(evd, this_pe,         &
-      &                                      fct_time2simstep,     &
-      &                                      fct_generate_filenames)
+    p_event%output_event &
+      &  => new_output_event(event_list_local(ievent_list_local), this_pe, &
+      &                      fct_time2simstep, fct_generate_filenames)
 
     IF (ldebug) THEN
       WRITE (0,*) "PE ", get_my_global_mpi_id(), ": created event with ", &
@@ -1233,9 +1229,16 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  FUNCTION union_of_all_events(fct_time2simstep, fct_generate_filenames, icomm)
+  FUNCTION union_of_all_events(fct_time2simstep, fct_generate_filenames, icomm,&
+    &                          event_list_local, ievent_list_local)
     TYPE(t_par_output_event), POINTER :: union_of_all_events
     INTEGER, OPTIONAL,      INTENT(IN)  :: icomm                       !< MPI communicator for intra-I/O communication
+    TYPE(t_event_data_local), INTENT(INOUT) :: event_list_local(:)
+    !> length of local list of output events
+    INTEGER, INTENT(inout) :: ievent_list_local
+#ifdef HAVE_FC_CONTIGUOUS
+    CONTIGUOUS :: event_list_local
+#endif
 
     INTERFACE
       !> As an argument of this function, the user must provide a

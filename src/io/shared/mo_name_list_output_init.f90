@@ -140,7 +140,7 @@ MODULE mo_name_list_output_init
   USE mo_output_event_handler,              ONLY: new_parallel_output_event,                      &
     &                                             union_of_all_events,      &
     &                                             print_output_event,                             &
-    &                                             set_event_to_simstep
+    &                                             set_event_to_simstep, local_nmax_event_list
 #ifndef NOMPI
   USE mo_output_event_handler,              ONLY: trigger_output_step_irecv
 #endif
@@ -153,7 +153,8 @@ MODULE mo_name_list_output_init
     &                                             REMAP_NONE, REMAP_REGULAR_LATLON,               &
     &                                             GRP_PREFIX, TILE_PREFIX,                        &
     &                                             t_fname_metadata, all_events, t_patch_info_ll,  &
-    &                                             is_grid_info_var, GRB2_GRID_INFO_NAME
+    &                                             is_grid_info_var, GRB2_GRID_INFO_NAME,          &
+    &                                             t_event_data_local
   USE mo_name_list_output_gridinfo,         ONLY: set_grid_info_grb2, set_grid_info_netcdf,       &
     &                                             collect_all_grid_info, copy_grid_info,          &
     &                                             allgather_grid_info, deallocate_all_grid_info,  &
@@ -1033,6 +1034,9 @@ CONTAINS
     CHARACTER(LEN=max_char_length)       :: comp_name
 #endif
     INTEGER                              :: this_i_lctype
+    TYPE(t_event_data_local), ALLOCATABLE  :: event_list_local(:)
+    !> length of local list of output events
+    INTEGER :: ievent_list_local
 
     l_print_list = .FALSE.
     is_mpi_test = my_process_is_mpi_test()
@@ -1349,12 +1353,15 @@ CONTAINS
     ! event handling is static, i.e. all event occurrences are
     ! pre-defined during the initialization.
     !
+    ALLOCATE(event_list_local(LOCAL_NMAX_EVENT_LIST))
+    ievent_list_local = 0
     local_i = 0
     DO i = 1, nfiles
       IF (.NOT. is_io .OR. output_file(i)%io_proc_id == p_pe_work) THEN
         local_i = local_i + 1
         output_file(i)%out_event => add_out_event(output_file(i), i, local_i, &
-          &                           sim_step_info, dom_sim_step_info_jstep0)
+          &                           sim_step_info, dom_sim_step_info_jstep0, &
+          &                           event_list_local, ievent_list_local)
       ELSE
         NULLIFY(output_file(i)%out_event)
       END IF
@@ -1364,7 +1371,9 @@ CONTAINS
     ! The root I/O MPI rank asks all participating I/O PEs for their
     ! output event info and generates a unified output event,
     ! indicating which PE performs a write process at which step.
-    all_events => union_of_all_events(compute_matching_sim_steps, generate_output_filenames, p_comm_io)
+    all_events => union_of_all_events(compute_matching_sim_steps, &
+      &                               generate_output_filenames, p_comm_io, &
+      &                               event_list_local, ievent_list_local)
 
     IF (dom_sim_step_info_jstep0 > 0) &
       &  CALL set_event_to_simstep(all_events, dom_sim_step_info_jstep0 + 1, &
@@ -1656,13 +1665,22 @@ CONTAINS
 
   END SUBROUTINE assign_output_task
 
-  FUNCTION add_out_event(of, i, local_i, sim_step_info, dom_sim_step_info_jstep0) &
+  FUNCTION add_out_event(of, i, local_i, sim_step_info, &
+    &                    dom_sim_step_info_jstep0, &
+    &                    event_list_local, ievent_list_local) &
        RESULT(out_event)
     TYPE(t_par_output_event), POINTER :: out_event
     TYPE (t_output_file), INTENT(in) :: of
     INTEGER, INTENT(in) :: i, local_i
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
     INTEGER, INTENT(out) :: dom_sim_step_info_jstep0
+    TYPE(t_event_data_local), INTENT(INOUT)  :: event_list_local(:)
+#ifdef HAVE_FC_CONTIGUOUS
+    CONTIGUOUS :: event_list_local
+#endif
+
+    !> length of local list of output events
+    INTEGER, INTENT(inout) :: ievent_list_local
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_out_event"
 
@@ -1789,7 +1807,8 @@ CONTAINS
          &             of%name_list%output_start, of%name_list%output_end, &
          &             output_interval, include_last, dom_sim_step_info,   &
          &             fname_metadata, compute_matching_sim_steps,         &
-         &             generate_output_filenames, local_i, p_comm_io)
+         &             generate_output_filenames, local_i, p_comm_io,      &
+         &             event_list_local, ievent_list_local)
     ! ------------------------------------------------------------------------------------------
     IF (dom_sim_step_info%jstep0 > 0) &
          &  CALL set_event_to_simstep(out_event, dom_sim_step_info%jstep0 + 1, &
