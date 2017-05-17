@@ -1012,13 +1012,12 @@ CONTAINS
 
     LOGICAL                              :: l_print_list ! Flag. Enables  a list of all variables
     INTEGER                              :: i, j, nfiles, &
-      &                                     jp, idom, jg, local_i, idom_log,                  &
+      &                                     jp, idom, jg, idom_log,                           &
       &                                     grid_info_mode, ierrstat, jl,                     &
       &                                     errno
     TYPE (t_output_name_list), POINTER   :: p_onl
     TYPE(t_list_element),      POINTER   :: element
     TYPE(t_par_output_event),  POINTER   :: ev
-    INTEGER                              :: dom_sim_step_info_jstep0
     TYPE(timedelta),           POINTER   :: mtime_output_interval,                             &
       &                                     mtime_td1, mtime_td2, mtime_td3,   &
       &                                     mtime_td, mtime_day
@@ -1030,13 +1029,7 @@ CONTAINS
     LOGICAL                              :: is_io, is_stdio
     INTEGER(c_int64_t)                   :: total_ms
     LOGICAL                              :: is_mpi_test
-#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
-    CHARACTER(LEN=max_char_length)       :: comp_name
-#endif
     INTEGER                              :: this_i_lctype
-    TYPE(t_event_data_local), ALLOCATABLE  :: event_list_local(:)
-    !> length of local list of output events
-    INTEGER :: ievent_list_local
 
     l_print_list = .FALSE.
     is_mpi_test = my_process_is_mpi_test()
@@ -1342,79 +1335,7 @@ CONTAINS
 #endif
 ! NOMPI
 
-    ! ------------------------------------------------------
-    ! Create I/O event data structures:
-    ! ------------------------------------------------------
-    !
-    !  Regular output is triggered at
-    ! so-called "output event steps". The completion of an output
-    ! event step is communicated via non-blocking MPI messages to the
-    ! root I/O PE, which keeps track of the overall event status. This
-    ! event handling is static, i.e. all event occurrences are
-    ! pre-defined during the initialization.
-    !
-    ALLOCATE(event_list_local(LOCAL_NMAX_EVENT_LIST))
-    ievent_list_local = 0
-    local_i = 0
-    DO i = 1, nfiles
-      IF (.NOT. is_io .OR. output_file(i)%io_proc_id == p_pe_work) THEN
-        local_i = local_i + 1
-        output_file(i)%out_event => add_out_event(output_file(i), i, local_i, &
-          &                           sim_step_info, dom_sim_step_info_jstep0, &
-          &                           event_list_local, ievent_list_local)
-      ELSE
-        NULLIFY(output_file(i)%out_event)
-      END IF
-    END DO
-
-    ! -----------------------------------------------------------
-    ! The root I/O MPI rank asks all participating I/O PEs for their
-    ! output event info and generates a unified output event,
-    ! indicating which PE performs a write process at which step.
-    all_events => union_of_all_events(compute_matching_sim_steps, &
-      &                               generate_output_filenames, p_comm_io, &
-      &                               event_list_local, ievent_list_local)
-
-    IF (dom_sim_step_info_jstep0 > 0) &
-      &  CALL set_event_to_simstep(all_events, dom_sim_step_info_jstep0 + 1, &
-      &                            isRestart(), lrecover_open_file=.TRUE.)
-    ! print a table with all output events
-    IF (.NOT. is_mpi_test) THEN
-       IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
-            & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
-          CALL print_output_event(all_events)                                       ! screen output
-          IF (dom_sim_step_info_jstep0 > 0) THEN
-#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
-             IF ( is_coupled_run() ) THEN
-               comp_name = get_my_process_name()
-               CALL print_output_event(all_events, &
-                 ! ASCII file output:
-                 & opt_filename="output_schedule_"//TRIM(comp_name)//&
-                 &"_steps_"//TRIM(int2string(dom_sim_step_info_jstep0))//"+.txt")
-             ELSE
-               CALL print_output_event(all_events, &
-                 & opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info_jstep0))//&
-                 &"+.txt") ! ASCII file output
-             ENDIF
-#else
-             CALL print_output_event(all_events, &
-               & opt_filename="output_schedule_steps_"//&
-               &TRIM(int2string(dom_sim_step_info_jstep0))//"+.txt") ! ASCII file output
-#endif
-          ELSE
-#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
-             IF ( is_coupled_run() ) THEN
-                comp_name = TRIM(get_my_process_name())
-                CALL print_output_event(all_events, opt_filename="output_schedule_"//TRIM(comp_name)//".txt") ! ASCII file output
-             ELSE
-                CALL print_output_event(all_events, opt_filename="output_schedule.txt") ! ASCII file output
-             ENDIF
-#else
-             CALL print_output_event(all_events, opt_filename="output_schedule.txt") ! ASCII file output
-#endif
-          END IF
-       END IF
-    END IF
+    CALL create_event_data(sim_step_info)
 
     ! If async IO is used, initialize the memory window for communication
 #ifndef NOMPI
@@ -1664,6 +1585,94 @@ CONTAINS
     END IF
 
   END SUBROUTINE assign_output_task
+
+  SUBROUTINE create_event_data(sim_step_info)
+    TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
+
+    TYPE(t_event_data_local), ALLOCATABLE  :: event_list_local(:)
+    !> length of local list of output events
+    INTEGER :: ievent_list_local, local_i, i, nfiles
+    INTEGER :: dom_sim_step_info_jstep0
+    LOGICAL :: is_io, is_mpi_test
+#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
+    CHARACTER(LEN=max_char_length)       :: comp_name
+#endif
+
+    !
+    !  Regular output is triggered at
+    ! so-called "output event steps". The completion of an output
+    ! event step is communicated via non-blocking MPI messages to the
+    ! root I/O PE, which keeps track of the overall event status. This
+    ! event handling is static, i.e. all event occurrences are
+    ! pre-defined during the initialization.
+    !
+    is_io = my_process_is_io()
+    is_mpi_test = my_process_is_mpi_test()
+    nfiles = SIZE(output_file)
+
+    ALLOCATE(event_list_local(LOCAL_NMAX_EVENT_LIST))
+    ievent_list_local = 0
+    local_i = 0
+    DO i = 1, nfiles
+      IF (.NOT. is_io .OR. output_file(i)%io_proc_id == p_pe_work) THEN
+        local_i = local_i + 1
+        output_file(i)%out_event => add_out_event(output_file(i), i, local_i, &
+          &                           sim_step_info, dom_sim_step_info_jstep0, &
+          &                           event_list_local, ievent_list_local)
+      ELSE
+        NULLIFY(output_file(i)%out_event)
+      END IF
+    END DO
+
+    ! -----------------------------------------------------------
+    ! The root I/O MPI rank asks all participating I/O PEs for their
+    ! output event info and generates a unified output event,
+    ! indicating which PE performs a write process at which step.
+    all_events => union_of_all_events(compute_matching_sim_steps, &
+      &                               generate_output_filenames, p_comm_io, &
+      &                               event_list_local, ievent_list_local)
+
+    IF (dom_sim_step_info_jstep0 > 0) &
+      &  CALL set_event_to_simstep(all_events, dom_sim_step_info_jstep0 + 1, &
+      &                            isRestart(), lrecover_open_file=.TRUE.)
+    ! print a table with all output events
+    IF (.NOT. is_mpi_test) THEN
+       IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
+            & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
+          CALL print_output_event(all_events)                                       ! screen output
+          IF (dom_sim_step_info_jstep0 > 0) THEN
+#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
+             IF ( is_coupled_run() ) THEN
+               comp_name = get_my_process_name()
+               CALL print_output_event(all_events, &
+                 ! ASCII file output:
+                 & opt_filename="output_schedule_"//TRIM(comp_name)//&
+                 &"_steps_"//TRIM(int2string(dom_sim_step_info_jstep0))//"+.txt")
+             ELSE
+               CALL print_output_event(all_events, &
+                 & opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info_jstep0))//&
+                 &"+.txt") ! ASCII file output
+             ENDIF
+#else
+             CALL print_output_event(all_events, &
+               & opt_filename="output_schedule_steps_"//&
+               &TRIM(int2string(dom_sim_step_info_jstep0))//"+.txt") ! ASCII file output
+#endif
+          ELSE
+#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
+             IF ( is_coupled_run() ) THEN
+                comp_name = TRIM(get_my_process_name())
+                CALL print_output_event(all_events, opt_filename="output_schedule_"//TRIM(comp_name)//".txt") ! ASCII file output
+             ELSE
+                CALL print_output_event(all_events, opt_filename="output_schedule.txt") ! ASCII file output
+             ENDIF
+#else
+             CALL print_output_event(all_events, opt_filename="output_schedule.txt") ! ASCII file output
+#endif
+          END IF
+       END IF
+    END IF
+  END SUBROUTINE create_event_data
 
   FUNCTION add_out_event(of, i, local_i, sim_step_info, &
     &                    dom_sim_step_info_jstep0, &
