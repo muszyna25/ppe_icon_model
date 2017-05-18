@@ -1736,7 +1736,7 @@ CONTAINS
         &         ", shared by ", event%output_event%event_step(istep)%n_pes, " PEs."
       CALL finish(routine, "Error! Multi-part event step!")
     END IF
-    get_current_filename = TRIM(event%output_event%event_step(istep)%event_step_data(1)%filename_string)
+    get_current_filename = event%output_event%event_step(istep)%event_step_data(1)%filename_string
   END FUNCTION get_current_filename
 
 
@@ -2475,8 +2475,8 @@ CONTAINS
       n_pes = event%event_step(istep)%n_pes
       DO i_pe=1,n_pes
         event_step_data => event%event_step(istep)%event_step_data(i_pe)        
-        IF (TRIM(event_step_data%filename_string) == TRIM(old_name)) THEN
-          event_step_data%filename_string = TRIM(new_name)
+        IF (event_step_data%filename_string == old_name) THEN
+          event_step_data%filename_string = new_name
           ipart = ipart + 1
           event_step_data%jpart = ipart
         END IF
