@@ -27,19 +27,22 @@ MODULE mo_nwp_sfc_interp
   USE mo_parallel_config,     ONLY: nproma 
   USE mo_initicon_types,      ONLY: t_initicon_state
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ibot_w_so
+  USE mo_run_config,          ONLY: msg_level
   USE mo_impl_constants,      ONLY: zml_soil, dzsoil_icon => dzsoil
   USE mo_physical_constants,  ONLY: grav, dtdz_standardatm
   USE mo_phyparam_soil,       ONLY: cporv, cadp, cfcap, cpwp
   USE mo_ext_data_state,      ONLY: ext_data
-  USE mo_exception,           ONLY: finish
+  USE mo_exception,           ONLY: finish, message_text, message
 
   IMPLICIT NONE
   PRIVATE
 
 
+  ! SUBROUTINE
   PUBLIC :: process_sfcfields
   PUBLIC :: smi_to_wsoil
   PUBLIC :: wsoil_to_smi
+  PUBLIC :: wsoil2smi
 
 CONTAINS
 
@@ -263,6 +266,11 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER       :: routine = 'mo_nwp_sfc_interp:smi_to_wsoil'
 !-------------
 
+    IF (msg_level >= 10) THEN
+      WRITE(message_text,'(a)') 'convert SMI to W_SO'
+      CALL message('smi_to_wsoil:', TRIM(message_text))
+    ENDIF
+
     jg = p_patch%id
 
 !$OMP PARALLEL
@@ -369,6 +377,11 @@ CONTAINS
 
 !-------------
 
+    IF (msg_level >= 10) THEN
+      WRITE(message_text,'(a)') 'convert W_SO to SMI'
+      CALL message('wsoil_to_smi:', TRIM(message_text))
+    ENDIF
+
     jg = p_patch%id
 
 !$OMP PARALLEL
@@ -448,5 +461,31 @@ CONTAINS
 
   END SUBROUTINE wsoil_to_smi
 
+
+  SUBROUTINE wsoil2smi(wsoil, dzsoil, soiltyp, smi, ierr)
+    !
+    REAL(wp), INTENT(IN) :: wsoil    !< soil moisture mass [m H2O]
+    REAL(wp), INTENT(IN) :: dzsoil   !< soil layer thickness [m]
+    INTEGER , INTENT(IN) :: soiltyp  !< soiltype
+    REAL(wp), INTENT(OUT):: smi      !< soil moisture index
+    INTEGER , INTENT(OUT):: ierr     !< error code
+
+    ierr = 0
+
+    SELECT CASE(soiltyp)
+      CASE (1,2)  !ice,rock
+      ! set wsoil to 0 for ice and rock
+      smi = 0._wp
+
+      CASE(3,4,5,6,7,8)  !sand,sandyloam,loam,clayloam,clay,peat
+      smi = (wsoil/dzsoil - cpwp(soiltyp))/(cfcap(soiltyp) - cpwp(soiltyp))
+
+      CASE(9,10)!sea water, sea ice
+      ! ERROR landpoint has soiltype sea water or sea ice
+      ierr = -1
+
+    END SELECT
+
+  END SUBROUTINE wsoil2smi
 
 END MODULE mo_nwp_sfc_interp

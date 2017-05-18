@@ -65,6 +65,9 @@ MODULE mo_input_instructions
     ! sourceOfVar will be set to kInputSourceCold, indicating that the
     ! variable should experience some sort of coldstart
     ! initialization.
+    ! If there exists a fallback variable for a particular variable, 
+    ! optionalReadResultXXX() has to be used instead of handleErrorXXX(). 
+    ! The former won't panick if no data is available.
     TYPE :: t_readInstructionList
         TYPE(t_readInstruction), POINTER :: list(:)
         INTEGER :: nInstructions
@@ -84,6 +87,11 @@ MODULE mo_input_instructions
         PROCEDURE :: handleError => readInstructionList_handleError
         PROCEDURE :: handleErrorFg => readInstructionList_handleErrorFg
         PROCEDURE :: handleErrorAna => readInstructionList_handleErrorAna
+
+        ! inform the ReadInstructionList about the result of a read (nofail variant)
+        PROCEDURE :: optionalReadResult => readInstructionList_optionalReadResult
+        PROCEDURE :: optionalReadResultFg => readInstructionList_optionalReadResultFg
+        PROCEDURE :: optionalReadResultAna => readInstructionList_optionalReadResultAna
 
         ! returns kInputSourceNone, kInputSourceFg, kInputSourceAna,
         ! OR kInputSourceBoth:
@@ -301,10 +309,9 @@ CONTAINS
                   CALL add_to_list(fgGroup, fgGroupSize, (/'z_ifc'/) , 1)
                 ENDIF
 
-
             CASE(MODE_COMBINED,MODE_COSMO)
-                ! remove W_SO from default list and replace it by SMI
-                CALL difference (fgGroup, fgGroupSize, (/'w_so'/), 1)
+                ! add SMI to the default list
+                ! I.e. ICON tries to read SMI, with W_SO being the fallback-option
                 CALL add_to_list(fgGroup, fgGroupSize, (/'smi'/) , 1)
 
                 ! no analysis group
@@ -659,6 +666,61 @@ CONTAINS
             END IF
         END IF
     END SUBROUTINE readInstructionList_handleErrorAna
+
+
+    SUBROUTINE readInstructionList_optionalReadResult(me, lSuccess, varName, caller, lIsFg)
+        LOGICAL, VALUE :: lSuccess, lIsFg
+        CLASS(t_readInstructionList), INTENT(INOUT) :: me
+        CHARACTER(LEN = *), INTENT(IN) :: varName, caller
+
+        IF(lIsFg) THEN
+            CALL me%optionalReadResultFg(lSuccess, varName, caller)
+        ELSE
+            CALL me%optionalReadResultAna(lSuccess, varName, caller)
+        END IF
+    END SUBROUTINE readInstructionList_optionalReadResult
+
+    SUBROUTINE readInstructionList_optionalReadResultFg(me, lSuccess, varName, caller)
+        LOGICAL, VALUE :: lSuccess
+        CLASS(t_readInstructionList), INTENT(INOUT) :: me
+        CHARACTER(LEN = *), INTENT(IN) :: varName, caller
+
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//"readInstructionList_optionalReadResultFg"
+        TYPE(t_readInstruction), POINTER :: instruction
+
+        instruction => me%findInstruction(varName)
+
+        ! sanity check
+        IF(.NOT.instruction%lReadFg) CALL finish(routine, "internal error: variable '"//varName//"' was read even though there &
+            &are no read instructions for it")
+
+        IF(lSuccess) THEN
+            instruction%statusFg = kStateRead
+        ELSE
+            instruction%statusFg = kStateFailedFetch
+        END IF
+    END SUBROUTINE readInstructionList_optionalReadResultFg
+
+    SUBROUTINE readInstructionList_optionalReadResultAna(me, lSuccess, varName, caller)
+        LOGICAL, VALUE :: lSuccess
+        CLASS(t_readInstructionList), INTENT(INOUT) :: me
+        CHARACTER(LEN = *), INTENT(IN) :: varName, caller
+
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//"readInstructionList_optionalReadResultAna"
+        TYPE(t_readInstruction), POINTER :: instruction
+
+        instruction => me%findInstruction(varName)
+
+        ! sanity check
+        IF(.NOT.instruction%lReadAna) CALL finish(routine, "internal error: variable '"//varName//"' was read even though there &
+            &are no read instructions for it")
+
+        IF(lSuccess) THEN
+            instruction%statusAna = kStateRead
+        ELSE
+            instruction%statusAna = kStateFailedFetch
+        END IF
+    END SUBROUTINE readInstructionList_optionalReadResultAna
 
 
     INTEGER FUNCTION readInstruction_source(me) RESULT(resultVar)

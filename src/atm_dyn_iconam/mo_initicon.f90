@@ -292,8 +292,9 @@ MODULE mo_initicon
   END SUBROUTINE read_dwdfg
 
   ! Do postprocessing of data from first-guess file.
-  SUBROUTINE process_dwdfg(p_patch, p_nh_state, p_int_state, p_grf_state, ext_data, p_lnd_state, prm_diag)
+  SUBROUTINE process_dwdfg(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, ext_data, p_lnd_state, prm_diag)
     TYPE(t_patch), INTENT(IN) :: p_patch(:)
+    TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state), INTENT(IN) :: p_int_state(:)
     TYPE(t_gridref_state), INTENT(IN) :: p_grf_state(:)
@@ -305,7 +306,7 @@ MODULE mo_initicon
 
     SELECT CASE(init_mode)
         CASE(MODE_ICONVREMAP)
-            CALL process_input_dwdfg_sfc (p_patch, p_lnd_state, ext_data)
+            CALL process_input_dwdfg_sfc (p_patch, inputInstructions, p_lnd_state, ext_data)
         CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU, MODE_COMBINED, MODE_COSMO)
             IF (lvert_remap_fg) THEN ! apply vertical remapping of FG input (requires that the number of model levels
                                      ! does not change; otherwise, init_mode = 7 must be used based on a full analysis)
@@ -314,7 +315,7 @@ MODULE mo_initicon
                 &                    opt_convert_omega2w=.FALSE.)
                 CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
             END IF
-            CALL process_input_dwdfg_sfc (p_patch, p_lnd_state, ext_data)
+            CALL process_input_dwdfg_sfc (p_patch, inputInstructions, p_lnd_state, ext_data)
             IF(ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode)) THEN
                 ! In case of tile coldstart, fill sub-grid scale land
                 ! and water points with reasonable data from
@@ -340,7 +341,8 @@ MODULE mo_initicon
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":read_dwdana"
-#if __GNUC__ < 6
+#ifndef __GFORTRAN__ || __GNUC__ >= 6
+
     CHARACTER(LEN = :), ALLOCATABLE :: incrementsList(:)
 #else
     CHARACTER(LEN = 9) :: incrementsList_IAU(8)
@@ -397,7 +399,9 @@ MODULE mo_initicon
         CALL requestList%printInventory()
         IF(lconsistency_checks) THEN
 ! Workaround for GNU compiler (<6.0), which still does not fully support deferred length character arrays
-#if __GNUC__ < 6
+! Make use of deferred length character arrays if the GNU compiler is not used, or if 
+! its version number is at least equal to 6.0.
+#ifndef __GFORTRAN__ || __GNUC__ >= 6
             SELECT CASE(init_mode)
                 CASE(MODE_IAU)
                     incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so', 'h_snow', 'freshsnow']
@@ -592,7 +596,7 @@ MODULE mo_initicon
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":process_input_data"
 
     CALL read_dwdfg(p_patch, inputInstructions, p_nh_state, prm_diag, p_lnd_state)
-    CALL process_dwdfg(p_patch, p_nh_state, p_int_state, p_grf_state, ext_data, p_lnd_state, prm_diag)
+    CALL process_dwdfg(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, ext_data, p_lnd_state, prm_diag)
 
     CALL read_dwdana(p_patch, inputInstructions, p_nh_state, p_lnd_state)
     ! process DWD analysis data

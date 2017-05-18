@@ -295,16 +295,13 @@ MODULE mo_initicon_io
         !
         ! get number of vertical levels
         !
-        CALL nf(nf_inq_dimid(ncid, 'lev', dimid), routine)
+        ! would be good, if we could come up with a unique name ...
+        IF (nf_inq_dimid(ncid, 'lev', dimid) /= nf_noerr) THEN
+          ! try alternative name 
+          CALL nf(nf_inq_dimid(ncid, 'height_2', dimid), routine)
+        ENDIF
         CALL nf(nf_inq_dimlen(ncid, dimid, no_levels), routine)
 
-        IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
-        !
-        ! get number of hybrid coefficients
-        !
-          CALL nf(nf_inq_dimid(ncid, 'nhyi', dimid), routine)
-          CALL nf(nf_inq_dimlen(ncid, dimid, nhyi), routine)
-        ENDIF
 
         !
         ! check the number of cells
@@ -324,40 +321,6 @@ MODULE mo_initicon_io
         ELSE
           nlev_in = no_levels
         END IF
-
-        !
-        ! Check if surface pressure (PS) or its logarithm (LNPS) is provided as input
-        !
-        IF (nf_inq_varid(ncid, 'PS', varid) == nf_noerr) THEN
-          psvar = 'PS'
-        ELSE IF (nf_inq_varid(ncid, 'LNPS', varid) == nf_noerr) THEN
-          psvar = 'LNPS'
-        ENDIF
-
-        !Find out the dimension of psvar for reading purpose
-        IF (nf_inq_varid(ncid, TRIM(psvar), varid) == nf_noerr) THEN
-          CALL nf(nf_inq_varndims(ncid,varid,psvar_ndims), routine)
-        ELSE
-          CALL finish(TRIM(routine),'surface pressure var '//TRIM(psvar)//' is missing')
-        ENDIF
-
-        !
-        ! Check if model-level surface Geopotential is provided as GEOSP or GEOP_ML
-        !
-        IF (nf_inq_varid(ncid, 'GEOSP', varid) == nf_noerr) THEN
-          geop_ml_var = 'GEOSP'
-        ELSE IF (nf_inq_varid(ncid, 'GEOP_ML', varid) == nf_noerr) THEN
-          geop_ml_var = 'GEOP_ML'
-        ELSE
-          CALL finish(TRIM(routine),'Could not find model-level sfc geopotential')
-        ENDIF
-
-        !Find out the dimension of geop_ml_var for reading purpose
-        IF (nf_inq_varid(ncid, TRIM(geop_ml_var), varid) == nf_noerr) THEN
-          CALL nf(nf_inq_varndims(ncid,varid,geopvar_ndims), routine)
-        ELSE
-          CALL finish(TRIM(routine),'surface geopotential var '//TRIM(geop_ml_var)//' is missing')
-        ENDIF
 
 
         !
@@ -389,6 +352,49 @@ MODULE mo_initicon_io
           lread_vn = .FALSE.
         ENDIF
 
+
+        IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
+          !
+          ! get number of hybrid coefficients
+          !
+          CALL nf(nf_inq_dimid(ncid, 'nhyi', dimid), routine)
+          CALL nf(nf_inq_dimlen(ncid, dimid, nhyi), routine)
+          !
+          ! Check if surface pressure (PS) or its logarithm (LNPS) is provided as input
+          !
+          IF (nf_inq_varid(ncid, 'PS', varid) == nf_noerr) THEN
+            psvar = 'PS'
+          ELSE IF (nf_inq_varid(ncid, 'LNPS', varid) == nf_noerr) THEN
+            psvar = 'LNPS'
+          ENDIF
+
+          ! Find out the dimension of psvar for reading purpose
+          IF (nf_inq_varid(ncid, TRIM(psvar), varid) == nf_noerr) THEN
+            CALL nf(nf_inq_varndims(ncid,varid,psvar_ndims), routine)
+          ELSE
+            CALL finish(TRIM(routine),'surface pressure var '//TRIM(psvar)//' is missing')
+          ENDIF
+
+          !
+          ! Check if model-level surface Geopotential is provided as GEOSP or GEOP_ML
+          !
+          IF (nf_inq_varid(ncid, 'GEOSP', varid) == nf_noerr) THEN
+            geop_ml_var = 'GEOSP'
+          ELSE IF (nf_inq_varid(ncid, 'GEOP_ML', varid) == nf_noerr) THEN
+            geop_ml_var = 'GEOP_ML'
+          ELSE
+            CALL finish(TRIM(routine),'Could not find model-level sfc geopotential')
+          ENDIF
+
+          ! Find out the dimension of geop_ml_var for reading purpose
+          IF (nf_inq_varid(ncid, TRIM(geop_ml_var), varid) == nf_noerr) THEN
+            CALL nf(nf_inq_varndims(ncid,varid,geopvar_ndims), routine)
+          ELSE
+            CALL finish(TRIM(routine),'surface geopotential var '//TRIM(geop_ml_var)//' is missing')
+          ENDIF
+
+        ENDIF
+
       ENDIF ! pe_io
 
       !
@@ -407,15 +413,19 @@ MODULE mo_initicon_io
       CALL p_bcast(lread_qs,      p_io, mpi_comm)
       CALL p_bcast(lread_qr,      p_io, mpi_comm)
       CALL p_bcast(lread_vn,      p_io, mpi_comm)
-      CALL p_bcast(psvar_ndims,   p_io, mpi_comm)
-      CALL p_bcast(geopvar_ndims, p_io, mpi_comm)
-      IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) CALL p_bcast( nhyi, p_io, mpi_comm)
+      IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
+        CALL p_bcast( nhyi, p_io, mpi_comm)
+        CALL p_bcast(psvar_ndims,   p_io, mpi_comm)
+        CALL p_bcast(geopvar_ndims, p_io, mpi_comm)
+      ENDIF
 
       IF (msg_level >= 10) THEN
-        WRITE(message_text,'(a)') 'surface pressure variable: '//TRIM(psvar)
-        CALL message(TRIM(routine), TRIM(message_text))
-        WRITE(message_text,'(a)') 'Model-level surface geopotential: '//TRIM(geop_ml_var)
-        CALL message(TRIM(routine), TRIM(message_text))
+        IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
+          WRITE(message_text,'(a)') 'surface pressure variable: '//TRIM(psvar)
+          CALL message(TRIM(routine), TRIM(message_text))
+          WRITE(message_text,'(a)') 'Model-level surface geopotential: '//TRIM(geop_ml_var)
+          CALL message(TRIM(routine), TRIM(message_text))
+        ENDIF
         IF (.NOT. lread_vn) THEN
           WRITE(message_text,'(a)') 'No direct input of vn! vn derived from (u,v).'
           CALL message(TRIM(routine), TRIM(message_text))
@@ -467,25 +477,6 @@ MODULE mo_initicon_io
         initicon(jg)%atm_in%qs(:,:,:)=0._wp
       ENDIF
 
-      IF (psvar_ndims==2)THEN
-        CALL read_2d_1time(stream_id, on_cells, TRIM(psvar), &
-          &                     fill_array=initicon(jg)%atm_in%psfc)
-      ELSEIF(psvar_ndims==3)THEN
-        CALL read_2d_1lev_1time(stream_id, on_cells, TRIM(psvar), &
-          &                     fill_array=initicon(jg)%atm_in%psfc)
-      ELSE
-        CALL finish(TRIM(routine),'surface pressure var '//TRIM(psvar)//' dimension mismatch')
-      END IF
-
-      IF (geopvar_ndims==2)THEN
-        CALL read_2d_1time(stream_id, on_cells, TRIM(geop_ml_var), &
-          &                     fill_array=initicon(jg)%atm_in%phi_sfc)
-      ELSEIF(geopvar_ndims==3)THEN
-        CALL read_2d_1lev_1time(stream_id, on_cells, TRIM(geop_ml_var), &
-          &                     fill_array=initicon(jg)%atm_in%phi_sfc)
-      ELSE
-        CALL finish(TRIM(routine),'surface geopotential var '//TRIM(geop_ml_var)//' dimension mismatch')
-      END IF
 
       ! Allocate and read in vertical coordinate tables
       !
@@ -493,6 +484,28 @@ MODULE mo_initicon_io
       ! from vct_a, vct_b, vct for the ICON vertical grid.
       !
       IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
+
+        ! read surface presure and (surface) geopotential
+        IF (psvar_ndims==2)THEN
+          CALL read_2d_1time(stream_id, on_cells, TRIM(psvar), &
+            &                     fill_array=initicon(jg)%atm_in%psfc)
+        ELSEIF(psvar_ndims==3)THEN
+          CALL read_2d_1lev_1time(stream_id, on_cells, TRIM(psvar), &
+            &                     fill_array=initicon(jg)%atm_in%psfc)
+        ELSE
+          CALL finish(TRIM(routine),'surface pressure var '//TRIM(psvar)//' dimension mismatch')
+        END IF
+
+        IF (geopvar_ndims==2)THEN
+          CALL read_2d_1time(stream_id, on_cells, TRIM(geop_ml_var), &
+            &                     fill_array=initicon(jg)%atm_in%phi_sfc)
+        ELSEIF(geopvar_ndims==3)THEN
+          CALL read_2d_1lev_1time(stream_id, on_cells, TRIM(geop_ml_var), &
+            &                     fill_array=initicon(jg)%atm_in%phi_sfc)
+        ELSE
+          CALL finish(TRIM(routine),'surface geopotential var '//TRIM(geop_ml_var)//' dimension mismatch')
+        END IF
+
 
         IF (jg == 1) THEN
 
@@ -910,6 +923,68 @@ MODULE mo_initicon_io
     END IF
   END SUBROUTINE fetchTiled3d
 
+
+
+  ! Wrapper for requestList%fetchTiled3d() 
+  ! - that falls back to reading copies of untiled input IF ltile_coldstart IS set.
+  ! - has a fallback option, if the primary input field is not found.
+  SUBROUTINE fetchTiled3dWithFallback(params, varName, varNameFallback, jg, tileCount, field, opt_field_fallback)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName, varNameFallback
+    INTEGER, VALUE :: jg, tileCount
+    REAL(wp),           TARGET, INTENT(INOUT) :: field(:,:,:,:)
+    REAL(wp), OPTIONAL, TARGET, INTENT(INOUT) :: opt_field_fallback(:,:,:,:)  ! optional target field for 
+                                                                              ! fallback input
+    ! local
+    INTEGER :: jt
+    LOGICAL :: fetchResult
+    REAL(wp), POINTER :: ptr_field_fb(:,:,:,:)
+
+    ! set pointer to fallback target field
+    IF (PRESENT(opt_field_fallback)) THEN
+      ptr_field_fb => opt_field_fallback
+    ELSE
+      ptr_field_fb => field
+    ENDIF
+
+    IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
+        IF(ltile_coldstart) THEN
+            !Fake tiled input by copying the input field to all tiles.
+            fetchResult = .TRUE.
+            DO jt = 1, tileCount
+                fetchResult = fetchResult.AND.  &
+                  &           params%requestList%fetch3d(varName, trivial_tileId, jg, field(:,:,:,jt))
+            END DO
+            IF (.NOT.fetchResult) THEN
+                CALL params%inputInstructions(jg)%ptr%optionalReadResult(fetchResult, varName, params%routine, params%isFg)
+                ! try fallback
+                fetchResult = .TRUE.
+                DO jt = 1, tileCount
+                   fetchResult = fetchResult.AND. &
+                     &           params%requestList%fetch3d(varNameFallback, trivial_tileId, jg, ptr_field_fb(:,:,:,jt))
+                END DO
+                CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varNameFallback, params%routine, params%isFg)
+            ELSE
+                CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+            ENDIF
+        ELSE
+            !True tiled input.
+            fetchResult = params%requestList%fetchTiled3d(varName, jg, field)
+            IF (.NOT.fetchResult) THEN
+                CALL params%inputInstructions(jg)%ptr%optionalReadResult(fetchResult, varName, params%routine, params%isFg)
+                ! try fallback
+                fetchResult = params%requestList%fetchTiled3d(varNameFallback, jg, ptr_field_fb)
+                CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varNameFallback, params%routine, params%isFg)
+            ELSE
+                CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+            ENDIF
+        END IF
+    END IF
+  END SUBROUTINE fetchTiled3dWithFallback
+
+
+
+
   SUBROUTINE fetchRequired3d(params, varName, jg, field)
     TYPE(t_fetchParams), INTENT(INOUT) :: params
     CHARACTER(LEN = *), INTENT(IN) :: varName
@@ -1322,12 +1397,18 @@ MODULE mo_initicon_io
             ! on the initialization mode. Checking grp_vars_fg takes care of this. In case
             ! that smi is read, it is lateron converted to w_so (see smi_to_wsoil)
             SELECT CASE(init_mode)
-                CASE(MODE_COMBINED, MODE_COSMO)
-                    CALL fetchTiled3d(params, 'smi', jg, ntiles_total, lnd_prog%w_so_t)
+                CASE(MODE_COMBINED,MODE_COSMO)
+                    CALL fetchTiled3dWithFallback(params          = params,         &
+                      &                           varName         = 'smi' ,         &
+                      &                           varNameFallback = 'w_so',         &
+                      &                           jg              = jg,             &
+                      &                           tileCount       = ntiles_total,   &
+                      &                           field           = lnd_prog%w_so_t )
                 CASE DEFAULT
                     CALL fetchTiled3d(params, 'w_so', jg, ntiles_total, lnd_prog%w_so_t)
                     CALL fetchTiled3d(params, 'w_so_ice', jg, ntiles_total, lnd_prog%w_so_ice_t) ! w_so_ice is re-diagnosed in terra_multlay_init
             END SELECT
+
 
             CALL fetchTiled3d(params, 't_so', jg, ntiles_total, lnd_prog%t_so_t)
 
@@ -1385,10 +1466,11 @@ MODULE mo_initicon_io
 
 
   !! processing of DWD first-guess DATA
-  SUBROUTINE process_input_dwdfg_sfc(p_patch, p_lnd_state, ext_data)
-    TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
-    TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
-    TYPE(t_external_data)    , INTENT(INOUT) :: ext_data(:)
+  SUBROUTINE process_input_dwdfg_sfc(p_patch, inputInstructions, p_lnd_state, ext_data)
+    TYPE(t_patch),             INTENT(IN)      :: p_patch(:)
+    TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
+    TYPE(t_lnd_state), TARGET, INTENT(INOUT)   :: p_lnd_state(:)
+    TYPE(t_external_data)    , INTENT(INOUT)   :: ext_data(:)
 
     INTEGER :: jg, jt, jb, jc, ic, i_endidx
     TYPE(t_lnd_prog), POINTER :: lnd_prog
@@ -1424,12 +1506,16 @@ MODULE mo_initicon_io
                 END IF
             END DO
 
-            ! Only required, when starting from GME or COSMO soil (i.e. MODE_COMBINED or MODE_COSMO).
-            ! SMI stored in w_so_t must be converted to w_so
+
+            ! When starting from GME or COSMO soil (i.e. MODE_COMBINED or MODE_COSMODE).
+            ! SMI is read if available, with W_SO being the fallback option. If SMI is 
+            ! read, it is directly stored in w_so_t. Here, it is converted into w_so
             IF (ANY((/MODE_COMBINED,MODE_COSMO/) == init_mode)) THEN
-                DO jt=1, ntiles_total
-                    CALL smi_to_wsoil(p_patch(jg), lnd_prog%w_so_t(:,:,:,jt))
-                END DO
+                IF (inputInstructions(jg)%ptr%sourceOfVar('smi')==kInputSourceFg) THEN
+                    DO jt=1, ntiles_total
+                        CALL smi_to_wsoil(p_patch(jg), lnd_prog%w_so_t(:,:,:,jt))
+                    END DO
+                ENDIF
             END IF
 
 

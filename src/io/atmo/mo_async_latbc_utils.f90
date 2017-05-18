@@ -1352,7 +1352,8 @@
 !$OMP END DO
       ENDIF
 
-      IF (ioper_mode /= 3) THEN
+
+      IF (ioper_mode == 1) THEN
         ! Read parameter surface pressure (LNPS)
         jm = get_field_index(latbc, latbc%buffer%psvar,.TRUE.)
         IF (jm <= 0) THEN
