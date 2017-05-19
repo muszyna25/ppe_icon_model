@@ -325,15 +325,11 @@ CONTAINS
     !------------------------------------------------------------------
     CALL timer_start(timer_total)
 
+
     jstep = jstep0
     TIME_LOOP: DO
       
-      IF (lhamocc) THEN
-        IF (ltimer) CALL timer_start(timer_bgc_inv)
-        CALL message ('start of time loop', 'HAMOCC inventories', io_stdo_bgc)
-        IF (ltimer) CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
-        CALL timer_stop(timer_bgc_inv)
-      ENDIF
+     
 
       jstep = jstep + 1
       ! update model date and time mtime based
@@ -619,12 +615,6 @@ CONTAINS
             
     ENDDO TIME_LOOP
     
-    IF (lhamocc) THEN
-      if(ltimer) CALL timer_start(timer_bgc_inv)
-      CALL message ('end of time loop', 'HAMOCC inventories', io_stdo_bgc)
-      CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
-      if(ltimer) CALL timer_stop(timer_bgc_inv)
-    ENDIF
     CALL timer_stop(timer_total)
   
   END SUBROUTINE perform_ho_stepping
