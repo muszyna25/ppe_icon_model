@@ -86,7 +86,7 @@ SUBROUTINE art_diagnostics_interface(p_patch, rho, pres, p_trac, dz, hml, jg)
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
           &                istart, iend, i_rlstart, i_rlend)
     
-        CALL art_clip_lt(p_trac(istart:iend,1:nlev,jb,:),0.0_wp)
+    !    CALL art_clip_lt(p_trac(istart:iend,1:nlev,jb,:),0.0_wp)
     
         ! --------------------------------------
         ! --- Calculate aerosol optical depths
