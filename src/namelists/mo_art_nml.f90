@@ -58,6 +58,7 @@ MODULE mo_art_nml
   LOGICAL :: lart_chem               !< Main switch to enable chemistry
   LOGICAL :: lart_passive            !< Main switch to enable passive tracers
   INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
+  INTEGER :: iart_psc                !< integer which indicates the computation of PSCs (0: no PSC, 1: climatology, 2: online)
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_emiss_xml_file           !< path and file name of the xml files for emission metadata
   CHARACTER(LEN=IART_PATH_LEN)  :: &
@@ -113,7 +114,8 @@ MODULE mo_art_nml
    &                cart_vortex_init_date , cart_cheminit_file, cart_cheminit_coord,   & 
    &                cart_cheminit_type,                                                &
    &                cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml,            &
-   &                cart_modes_xml, cart_pntSrc_xml, cart_io_suffix, iart_init_passive
+   &                cart_modes_xml, cart_pntSrc_xml, cart_io_suffix, iart_init_passive,&
+   &                iart_psc
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -163,6 +165,7 @@ CONTAINS
     lart_chem             = .FALSE.
     lart_passive          = .FALSE.
     iart_chem_mechanism   = 0
+    iart_psc              = 0
     cart_emiss_xml_file   = ''
     cart_vortex_init_date = ''
     cart_cheminit_file    = ''
@@ -271,6 +274,7 @@ CONTAINS
       art_config(jg)%lart_chem             = lart_chem
       art_config(jg)%lart_passive          = lart_passive
       art_config(jg)%iart_chem_mechanism   = iart_chem_mechanism
+      art_config(jg)%iart_psc              = iart_psc
       art_config(jg)%cart_emiss_xml_file   = TRIM(cart_emiss_xml_file)
       art_config(jg)%cart_vortex_init_date = TRIM(cart_vortex_init_date)
       art_config(jg)%cart_cheminit_file    = TRIM(cart_cheminit_file)
