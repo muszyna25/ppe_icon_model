@@ -1072,8 +1072,8 @@ CONTAINS
 
       IF (timers_level > 3) CALL timer_start(timer_sso)
 
-      ! GZ: use fixed time step instead of dt_phy_jg(itsso) in order to avoid time-step dependence of low-level blocking
-      CALL nwp_gwdrag ( MAX(240._wp,dt_loc),       & !>input
+      ! GZ: use fast-physics time step instead of dt_phy_jg(itsso) in order to avoid calling-frequency dependence of low-level blocking
+      CALL nwp_gwdrag ( dt_loc,                    & !>input
         &               lcall_phy_jg(itsso),       & !>input
         &               dt_phy_jg(itgwd),          & !>input
         &               lcall_phy_jg(itgwd),       & !>input

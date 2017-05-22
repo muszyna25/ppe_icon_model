@@ -216,7 +216,7 @@ REAL (KIND = ireals) ::      &
 ! Gkdrag  = 0.30          , &   ! gw drag constant (Original ECMWF value)
   Gkdrag                  , &   ! gw drag constant (set in mo_nwp_tuning_nml)
   Gkwake                  , &   ! gw drag constant (set in mo_nwp_tuning_nml)
-  Grcrit  = 0.25_ireals   , &   ! critical Richardson number
+  Grcrit  = 0.333_ireals  , &   ! critical Richardson number (original value 0.25)
   Gfrcrit                 , &   ! critical Froude number (determines depth of blocking layer; set in mo_nwp_tuning_nml)
 
 ! Security constants
