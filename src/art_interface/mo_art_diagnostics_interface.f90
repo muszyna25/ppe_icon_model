@@ -33,6 +33,10 @@ MODULE mo_art_diagnostics_interface
   USE mo_art_aero_optical_props,        ONLY: art_calc_aod, art_calc_bsc
   USE mo_art_diagnostics,               ONLY: art_volc_diagnostics
   USE mo_art_clipping,                  ONLY: art_clip_lt
+  USE mo_run_config,                    ONLY: iforcing
+  USE mo_impl_constants,                ONLY: iecham, inwp
+  
+  
 #endif
 
   IMPLICIT NONE
@@ -85,8 +89,10 @@ SUBROUTINE art_diagnostics_interface(p_patch, rho, pres, p_trac, dz, hml, jg)
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
           &                istart, iend, i_rlstart, i_rlend)
-    
-    !    CALL art_clip_lt(p_trac(istart:iend,1:nlev,jb,:),0.0_wp)
+
+      IF (iforcing == inwp) THEN
+        CALL art_clip_lt(p_trac(istart:iend,1:nlev,jb,:),0.0_wp)
+      ENDIF
     
         ! --------------------------------------
         ! --- Calculate aerosol optical depths
