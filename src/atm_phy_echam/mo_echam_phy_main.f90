@@ -239,16 +239,16 @@ CONTAINS
       ! non-fractional, each grid cell is either land, sea, or sea-ice.
       ! See mo_echam_phy_init or input data set for details.
 
-      zfrl(jc) = field% lsmask(jc,jb)
+      zfrl(jc) = MAX(field% lsmask(jc,jb),0._wp)
 
       ! fraction of sea/lake in the grid box
       ! * (1. - fraction of sea ice in the sea/lake part of the grid box)
       ! => fraction of open water in the grid box
 
-      zfrw(jc) = (1._wp-zfrl(jc))*(1._wp-(field%seaice(jc,jb)+field%lake_ice_frc(jc,jb)))
+      zfrw(jc) = MAX(1._wp-zfrl(jc),0._wp)*MAX(1._wp-(field%seaice(jc,jb)+field%lake_ice_frc(jc,jb)),0._wp)
 
       ! fraction of sea ice in the grid box
-      zfri(jc) = 1._wp-zfrl(jc)-zfrw(jc)
+      zfri(jc) = MAX(1._wp-zfrl(jc)-zfrw(jc),0._wp)
       ! security for ice temperature with changing ice mask
       !
       IF(zfri(jc) > 0._wp .AND. field%ts_tile(jc,jb,iice) == cdimissval ) THEN
