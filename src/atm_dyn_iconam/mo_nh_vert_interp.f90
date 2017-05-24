@@ -40,9 +40,7 @@ MODULE mo_nh_vert_interp
     &                               PRES_MSL_METHOD_IFS_CORR, MODE_IFSANA, MODE_COMBINED, MODE_ICONVREMAP
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_initicon_config,     ONLY: zpbl1, zpbl2, l_coarse2fine_mode, init_mode, lread_vn, lvert_remap_fg
-  USE mo_initicon_types,      ONLY: t_initicon_state
-  USE mo_ifs_coord,           ONLY: half_level_pressure, full_level_pressure, &
-                                    auxhyb, geopot
+  USE mo_initicon_types,      ONLY: t_init_state, t_initicon_state
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, adjust_w, convert_thdvars, &
                                     convert_omega2w
@@ -101,15 +99,13 @@ CONTAINS
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE vert_interp_atm(p_patch, p_nh_state, p_int, p_grf, initicon, &
-    &                        opt_convert_omega2w)
+  SUBROUTINE vert_interp_atm(p_patch, p_nh_state, p_int, p_grf, initicon)
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch(:)
     TYPE(t_nh_state),       INTENT(IN)       :: p_nh_state(:)
     TYPE(t_int_state),      INTENT(IN)       :: p_int(:)
     TYPE(t_gridref_state),  INTENT(IN)       :: p_grf(:)
     TYPE(t_initicon_state), INTENT(INOUT)    :: initicon(:)
-    LOGICAL,   OPTIONAL,    INTENT(IN)       :: opt_convert_omega2w
 
     ! LOCAL VARIABLES
     INTEGER :: jg, jn, jgc
@@ -125,9 +121,7 @@ CONTAINS
 
       IF (p_patch(jg)%n_patch_cells==0) CYCLE ! skip empty patches
 
-
-      CALL vert_interp(p_patch(jg), p_int(jg), p_nh_state(jg)%metrics, initicon(jg), &
-        &              opt_convert_omega2w)
+      CALL vert_interp(p_patch(jg), p_int(jg), p_nh_state(jg)%metrics, initicon(jg))
 
       ! Apply boundary interpolation for u and v because the outer nest boundary
       ! points would remain undefined otherwise
@@ -161,13 +155,13 @@ CONTAINS
   !!
   SUBROUTINE vert_interp_sfc(p_patch, initicon)
 
-    TYPE(t_patch),          INTENT(IN)       :: p_patch(:)
-    TYPE(t_initicon_state), INTENT(INOUT)    :: initicon(:)
+    TYPE(t_patch),       INTENT(IN)       :: p_patch(:)
+    CLASS(t_init_state), INTENT(INOUT)    :: initicon(:)
 
     ! LOCAL VARIABLES
     INTEGER :: jg
 
-!-------------------------------------------------------------------------
+    !-------------------------------------------------------------------------
 
     DO jg = 1, n_dom
 
@@ -180,10 +174,7 @@ CONTAINS
       CALL process_sfcfields(p_patch(jg), initicon(jg))
     ENDDO
 
-
   END SUBROUTINE vert_interp_sfc
-
-
 
 
   !-------------
@@ -208,13 +199,16 @@ CONTAINS
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE vert_interp(p_patch, p_int, p_metrics, initicon, opt_convert_omega2w, opt_use_vn)
+  SUBROUTINE vert_interp(p_patch, p_int, p_metrics, initicon, opt_use_vn)
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch
     TYPE(t_int_state),      INTENT(IN)       :: p_int
     TYPE(t_nh_metrics),     INTENT(IN)       :: p_metrics
-    TYPE(t_initicon_state), INTENT(INOUT)    :: initicon
-    LOGICAL, OPTIONAL,      INTENT(IN)       :: opt_convert_omega2w
+
+    ! (Note: This is a CLASS parameter, st. we can feed
+    ! t_initicon_state into this subroutine)
+    CLASS(t_init_state),    INTENT(INOUT)    :: initicon
+
     LOGICAL, OPTIONAL,      INTENT(IN)       :: opt_use_vn
 
 
@@ -224,11 +218,9 @@ CONTAINS
     INTEGER :: jb
     INTEGER :: nlen, nlev, nlevp1
     INTEGER :: nlev_in         ! number of vertical levels in source vgrid 
-    LOGICAL :: lc2f, l_use_vn, lconvert_omega2w
+    LOGICAL :: lc2f, l_use_vn
 
     ! Auxiliary fields for input data
-    REAL(wp), DIMENSION(nproma,initicon%atm_in%nlev+1) :: pres_ic, lnp_ic, geop_ic
-    REAL(wp), DIMENSION(nproma,initicon%atm_in%nlev  ) :: delp, rdelp, rdlnpr, rdalpha, geop_mc
     REAL(wp), DIMENSION(nproma,initicon%atm_in%nlev,p_patch%nblks_c) :: temp_v_in
 
     ! Auxiliary field for output data
@@ -286,19 +278,13 @@ CONTAINS
     nlev_in = initicon%atm_in%nlev
 
     IF (nlev_in == 0) THEN
-      CALL finish(routine, "Number of input levels <nlev_in> not yet initialized.")
+       CALL finish(routine, "Number of input levels <nlev_in> not yet initialized.")
     END IF
 
     IF (PRESENT(opt_use_vn)) THEN
       l_use_vn = opt_use_vn
     ELSE
       l_use_vn = lread_vn ! use vn field if available as input from file
-    ENDIF
-
-    IF( PRESENT(opt_convert_omega2w) ) THEN
-      lconvert_omega2w = opt_convert_omega2w
-    ELSE
-      lconvert_omega2w = .TRUE.
     ENDIF
 
     nlev   = p_patch%nlev
@@ -312,56 +298,24 @@ CONTAINS
                       initicon%atm_in%qi, initicon%atm_in%qr, initicon%atm_in%qs,            &
                       temp_v=temp_v_in)
 
-    ! 1. Compute pressure and height of input data, using the IFS routines
-
-    IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN ! i.e. atmospheric data from IFS
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, pres_ic, lnp_ic, geop_ic, delp, rdelp, rdlnpr, &
-!$OMP            rdalpha, geop_mc) ICON_OMP_DEFAULT_SCHEDULE
-
-      DO jb = 1,p_patch%nblks_c
-
-        IF (jb /= p_patch%nblks_c) THEN
-           nlen = nproma
-        ELSE
-           nlen = p_patch%npromz_c
-        ENDIF
-
-        ! Check if psfc is really psfc or LOG(psfc)
-        IF (MAXVAL(initicon%atm_in%psfc(1:nlen,jb)) <= 100._wp) THEN
-          initicon%atm_in%psfc(1:nlen,jb) = EXP(initicon%atm_in%psfc(1:nlen,jb))
-        ENDIF
-
-        CALL half_level_pressure(initicon%atm_in%psfc(:,jb), nproma, nlen, nlev_in, pres_ic)
-
-        CALL full_level_pressure(pres_ic,nproma, nlen, nlev_in, initicon%atm_in%pres(:,:,jb))
-
-        CALL auxhyb(pres_ic, nproma, nlen, nlev_in,     & ! in
-                    delp, rdelp, lnp_ic, rdlnpr, rdalpha) ! out
-
-        CALL geopot(temp_v_in(:,:,jb), rdlnpr, rdalpha, initicon%atm_in%phi_sfc(:,jb), & ! in
-                    nproma, 1, nlen, nlev_in, geop_mc, geop_ic ) ! inout
-
-        ! Compute 3D height coordinate field
-        initicon%atm_in%z3d(1:nlen,1:nlev_in,jb) = geop_mc(1:nlen,1:nlev_in)/grav
-
-      ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-    ENDIF
-
     ! Prepare interpolation coefficients for cells
-    CALL prepare_lin_intp(initicon%atm_in%z3d, initicon%z_mc,               &
+    IF (.NOT. ASSOCIATED(initicon%const%z_mc)) THEN
+       CALL finish(routine, "Internal error!")
+    END IF
+    IF (.NOT. ASSOCIATED(initicon%const%z_mc_in)) THEN
+       CALL finish(routine, "Internal error: z_mc_in not associated!")
+    END IF
+    CALL prepare_lin_intp(initicon%const%z_mc_in, initicon%const%z_mc,      &
                           p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev, &
                           wfac_lin, idx0_lin, bot_idx_lin)
 
-    CALL prepare_extrap(initicon%atm_in%z3d,                        &
+    CALL prepare_extrap(initicon%const%z_mc_in,                     &
                         p_patch%nblks_c, p_patch%npromz_c, nlev_in, &
                         kpbl1, wfacpbl1, kpbl2, wfacpbl2 )
 
 
 
-    CALL prepare_cubic_intp(initicon%atm_in%z3d, initicon%z_mc,               &
+    CALL prepare_cubic_intp(initicon%const%z_mc_in, initicon%const%z_mc,      &
                             p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev, &
                             coef1, coef2, coef3, idx0_cub, bot_idx_cub)
 
@@ -369,10 +323,10 @@ CONTAINS
     ! Perform vertical interpolation
 
     ! Temperature
-    CALL compute_slope(p_patch, p_int, initicon%topography_c, slope)
+    CALL compute_slope(p_patch, p_int, initicon%const%topography_c, slope)
 
     CALL temperature_intp(initicon%atm_in%temp, initicon%atm%temp,                &
-                          initicon%atm_in%z3d, initicon%z_mc,                     &
+                          initicon%const%z_mc_in, initicon%const%z_mc,            &
                           p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev,       &
                           coef1, coef2, coef3, wfac_lin,                          &
                           idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,           &
@@ -389,7 +343,7 @@ CONTAINS
       !
 
       ! full level heights at edges for initicon input
-      CALL cells2edges_scalar(initicon%atm_in%z3d, p_patch, p_int%c_lin_e, atm_in_z_me, opt_fill_latbc=.TRUE.)
+      CALL cells2edges_scalar(initicon%const%z_mc_in, p_patch, p_int%c_lin_e, atm_in_z_me, opt_fill_latbc=.TRUE.)
 
 
       ! full level heights at edges for ICON vertical grid
@@ -422,14 +376,14 @@ CONTAINS
 
     ELSE
       CALL uv_intp(initicon%atm_in%u, initicon%atm%u,                &
-                   initicon%atm_in%z3d, initicon%z_mc,               &
+                   initicon%const%z_mc_in, initicon%const%z_mc,      &
                    p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev, &
                    coef1, coef2, coef3, wfac_lin,                    &
                    idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,     &
                    wfacpbl1, kpbl1, wfacpbl2, kpbl2,                 &
                    l_hires_intp=lc2f                                 )
       CALL uv_intp(initicon%atm_in%v, initicon%atm%v,                &
-                   initicon%atm_in%z3d, initicon%z_mc,               &
+                   initicon%const%z_mc_in, initicon%const%z_mc,      &
                    p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev, &
                    coef1, coef2, coef3, wfac_lin,                    &
                    idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,     &
@@ -484,14 +438,14 @@ CONTAINS
                       initicon%atm%qi, initicon%atm%qr, initicon%atm%qs, temp_v=z_tempv)
 
     ! Interpolate pressure on ICON grid
-    CALL pressure_intp_initmode(initicon%atm_in%pres, temp_v_in, initicon%atm_in%z3d,    &
-      &                        initicon%atm%pres, z_tempv, initicon%z_mc,                &
-      &                        p_patch%nblks_c, p_patch%npromz_c, nlev,                  &
+    CALL pressure_intp_initmode(initicon%atm_in%pres, temp_v_in, initicon%const%z_mc_in,    &
+      &                        initicon%atm%pres, z_tempv, initicon%const%z_mc,&
+      &                        p_patch%nblks_c, p_patch%npromz_c, nlev,        &
       &                        wfac_lin, idx0_lin, bot_idx_lin)
 
 
-    CALL qv_intp(initicon%atm_in%qv, initicon%atm%qv, initicon%atm_in%z3d,  &
-                 initicon%z_mc, initicon%atm_in%temp, initicon%atm_in%pres, &
+    CALL qv_intp(initicon%atm_in%qv, initicon%atm%qv, initicon%const%z_mc_in,  &
+                 initicon%const%z_mc, initicon%atm_in%temp, initicon%atm_in%pres, &
                  initicon%atm%temp, initicon%atm%pres,                      &
                  p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev,          &
                  coef1, coef2, coef3, wfac_lin,                             &
@@ -505,8 +459,8 @@ CONTAINS
                       initicon%atm%qi, initicon%atm%qr, initicon%atm%qs, temp_v=z_tempv)
 
     ! Final interpolation of pressure on ICON grid
-    CALL pressure_intp_initmode(initicon%atm_in%pres, temp_v_in, initicon%atm_in%z3d,    &
-      &                        initicon%atm%pres, z_tempv, initicon%z_mc,                &
+    CALL pressure_intp_initmode(initicon%atm_in%pres, temp_v_in, initicon%const%z_mc_in, &
+      &                        initicon%atm%pres, z_tempv, initicon%const%z_mc,          &
       &                        p_patch%nblks_c, p_patch%npromz_c, nlev,                  &
       &                        wfac_lin, idx0_lin, bot_idx_lin)
 
@@ -516,17 +470,9 @@ CONTAINS
                          initicon%atm%rho, initicon%atm%exner,   &
                          initicon%atm%theta_v                    )
 
-    ! Convert omega to w
-    IF (lconvert_omega2w) THEN
-
-      CALL convert_omega2w(initicon%atm_in%omega, initicon%atm_in%w,   &
-                           initicon%atm_in%pres, initicon%atm_in%temp, &
-                           p_patch%nblks_c, p_patch%npromz_c, nlev_in  )
-
-    ENDIF
 
       ! Compute coefficients for w interpolation
-      CALL prepare_lin_intp(initicon%atm_in%z3d, initicon%z_ifc,                &
+      CALL prepare_lin_intp(initicon%const%z_mc_in, initicon%const%z_ifc,       &
                             p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlevp1, &
                             wfac_lin_w, idx0_lin_w, bot_idx_lin_w)
 
@@ -540,7 +486,7 @@ CONTAINS
                     l_pd_limit=.FALSE.)
 
     ! Impose appropriate lower boundary condition on vertical wind field
-    CALL adjust_w(p_patch, p_int, initicon%atm%vn, initicon%z_ifc, initicon%atm%w)
+    CALL adjust_w(p_patch, p_int, initicon%atm%vn, initicon%const%z_ifc, initicon%atm%w)
 
     CALL sync_patch_array(SYNC_C,p_patch,initicon%atm%w)
 

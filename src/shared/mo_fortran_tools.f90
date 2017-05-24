@@ -49,6 +49,7 @@ MODULE mo_fortran_tools
   PUBLIC :: var_scale, var_add
   PUBLIC :: init_zero_contiguous_dp, init_zero_contiguous_sp
   PUBLIC :: resize_arr_c1d
+  PUBLIC :: DO_DEALLOCATE
 
   PRIVATE
 
@@ -209,6 +210,21 @@ MODULE mo_fortran_tools
         CLASS(t_Destructible), INTENT(INOUT) :: me
     END SUBROUTINE interface_destructor
   END INTERFACE
+
+
+  ! auxiliary routines
+  INTERFACE DO_DEALLOCATE
+    MODULE PROCEDURE DO_DEALLOCATE_r4D
+    MODULE PROCEDURE DO_DEALLOCATE_r3D
+    MODULE PROCEDURE DO_DEALLOCATE_r2D
+    MODULE PROCEDURE DO_DEALLOCATE_r1D
+    MODULE PROCEDURE DO_DEALLOCATE_i3D
+    MODULE PROCEDURE DO_DEALLOCATE_i2D
+    MODULE PROCEDURE DO_PTR_DEALLOCATE_r3D
+    MODULE PROCEDURE DO_PTR_DEALLOCATE_r2D
+  END INTERFACE
+
+
 
   CHARACTER(LEN = *), PARAMETER :: modname = "mo_fortran_tools"
 
@@ -1387,6 +1403,83 @@ CONTAINS
 !$omp end do nowait
 #endif
   END SUBROUTINE init_zero_contiguous_sp
+
+
+
+  ! AUXILIARY ROUTINES FOR DEALLOCATION
+
+  SUBROUTINE DO_DEALLOCATE_r4D(object)
+    REAL(wp), ALLOCATABLE, INTENT(INOUT) :: object(:,:,:,:)
+    INTEGER :: ierrstat
+    IF (ALLOCATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_r4D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_DEALLOCATE_R4D
+
+  SUBROUTINE DO_DEALLOCATE_r3D(object)
+    REAL(wp), ALLOCATABLE, INTENT(INOUT) :: object(:,:,:)
+    INTEGER :: ierrstat
+    IF (ALLOCATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_r3D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_DEALLOCATE_R3D
+
+  SUBROUTINE DO_DEALLOCATE_r2D(object)
+    REAL(wp), ALLOCATABLE, INTENT(INOUT) :: object(:,:)
+    INTEGER :: ierrstat
+    IF (ALLOCATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_r2D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_DEALLOCATE_R2D
+
+  SUBROUTINE DO_DEALLOCATE_r1D(object)
+    REAL(wp), ALLOCATABLE, INTENT(INOUT) :: object(:)
+    INTEGER :: ierrstat
+    IF (ALLOCATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_r1D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_DEALLOCATE_R1D
+
+  SUBROUTINE DO_DEALLOCATE_i3D(object)
+    INTEGER, ALLOCATABLE, INTENT(INOUT) :: object(:,:,:)
+    INTEGER :: ierrstat
+    IF (ALLOCATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_i3D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_DEALLOCATE_i3D
+
+  SUBROUTINE DO_DEALLOCATE_i2D(object)
+    INTEGER, ALLOCATABLE, INTENT(INOUT) :: object(:,:)
+    INTEGER :: ierrstat
+    IF (ALLOCATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_i2D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_DEALLOCATE_i2D
+
+  SUBROUTINE DO_PTR_DEALLOCATE_r3D(object)
+    REAL(wp), POINTER, INTENT(INOUT) :: object(:,:,:)
+    INTEGER :: ierrstat
+    IF (ASSOCIATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_PTR_DEALLOCATE_r3D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_PTR_DEALLOCATE_R3D
+
+  SUBROUTINE DO_PTR_DEALLOCATE_r2D(object)
+    REAL(wp), POINTER, INTENT(INOUT) :: object(:,:)
+    INTEGER :: ierrstat
+    IF (ASSOCIATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_PTR_DEALLOCATE_r2D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_PTR_DEALLOCATE_R2D
+
 
 
 END MODULE mo_fortran_tools

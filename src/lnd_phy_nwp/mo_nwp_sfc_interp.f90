@@ -25,7 +25,7 @@ MODULE mo_nwp_sfc_interp
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_parallel_config,     ONLY: nproma 
-  USE mo_initicon_types,      ONLY: t_initicon_state
+  USE mo_initicon_types,      ONLY: t_init_state
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ibot_w_so
   USE mo_run_config,          ONLY: msg_level
   USE mo_impl_constants,      ONLY: zml_soil, dzsoil_icon => dzsoil
@@ -67,7 +67,7 @@ CONTAINS
 
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch
-    TYPE(t_initicon_state), INTENT(INOUT)    :: initicon
+    CLASS(t_init_state),    INTENT(INOUT)    :: initicon
 
     ! LOCAL VARIABLES
     CHARACTER(LEN=*), PARAMETER       :: routine = 'process_sfcfields'
@@ -166,7 +166,7 @@ CONTAINS
         tcorr1(jc) = initicon%atm%temp(jc,nlev,jb) - initicon%atm_in%temp(jc,nlev_in,jb)
         ! climatological correction for deep soil levels
         tcorr2(jc) = dtdz_standardatm &
-          &        * (initicon%topography_c(jc,jb)-initicon%sfc_in%phi(jc,jb)/grav)
+          &        * (initicon%const%topography_c(jc,jb)-initicon%sfc_in%phi(jc,jb)/grav)
       ENDDO
 
       DO jk = 1, nlevsoil_in

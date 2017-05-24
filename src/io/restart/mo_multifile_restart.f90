@@ -176,8 +176,19 @@
 !! the directory scanning code directly in C
 !! (support/util_multifile_restart.c).
 !!
-!! TODO: Check whether the buildbot can handle restart files that are
-!! directories and create buildbot tests for this functionality.
+!! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!
+!! Dedicated proc mode: The current implementation creates a
+!! bottle neck: in "openPayloadFile", a loop over all variables
+!! and all levels collects all restart data. The collecting
+!! process therefore runs into memory problems, before it is
+!! able to write the data out. Thus it would be necessary to
+!! put the variabel loop outside of the the collect&write
+!! process. This, again, is not possible, since the collect*
+!! implementation uses blocking sends and receives!
+!!
+!! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!
 
 MODULE mo_multifile_restart
     USE ISO_C_BINDING,                   ONLY: C_INT
@@ -569,6 +580,7 @@ CONTAINS
         !In the CASE of joint proc mode, the writing IS performed
         !interleaved with the collecting of DATA inside the first
         !loop.
+        !
         DO jg = 1, SIZE(me%patchData)
             cdiIds(jg) = me%openPayloadFile(filename, jg, restartArgs%restart_datetime)
         END DO

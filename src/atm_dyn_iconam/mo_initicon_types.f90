@@ -26,10 +26,10 @@
 MODULE mo_initicon_types
 
   USE mo_kind,                 ONLY: wp
-  USE mo_impl_constants,       ONLY: SUCCESS
   USE mo_var_metadata_types,   ONLY: VARNAME_LEN
   USE mo_dictionary,           ONLY: t_dictionary
-  USE mo_exception,            ONLY: finish
+  USE mo_ifs_coord,            ONLY: t_vct
+  USE mo_fortran_tools,        ONLY: DO_DEALLOCATE
 
   IMPLICIT NONE
   PRIVATE
@@ -37,6 +37,8 @@ MODULE mo_initicon_types
 
   !
   !variables
+  PUBLIC :: t_init_state_const
+  PUBLIC :: t_init_state      !> state vector for latbc data
   PUBLIC :: t_initicon_state  !> state vector for initicon
   PUBLIC :: t_pi_atm_in
   PUBLIC :: t_pi_sfc_in
@@ -47,16 +49,7 @@ MODULE mo_initicon_types
   PUBLIC :: geop_ml_var, alb_snow_var
   PUBLIC :: ana_varnames_dict
 
-  ! auxiliary routines
-  INTERFACE DO_DEALLOCATE
-    MODULE PROCEDURE DO_DEALLOCATE_r4D
-    MODULE PROCEDURE DO_DEALLOCATE_r3D
-    MODULE PROCEDURE DO_DEALLOCATE_r2D
-    MODULE PROCEDURE DO_DEALLOCATE_i3D
-    MODULE PROCEDURE DO_DEALLOCATE_i2D
-    MODULE PROCEDURE DO_PTR_DEALLOCATE_r3D
-    MODULE PROCEDURE DO_PTR_DEALLOCATE_r2D
-  END INTERFACE
+
 
   ! atmospheric input variables
   TYPE :: t_pi_atm_in ! surface geopotential is regarded as
@@ -69,16 +62,10 @@ MODULE mo_initicon_types
     INTEGER :: nlev
 
 
-    REAL(wp), POINTER, DIMENSION(:,:)   :: psfc    => NULL(), &
-      &                                    phi_sfc => NULL()
     REAL(wp), POINTER, DIMENSION(:,:,:) :: temp    => NULL(), &
       &                                    pres    => NULL(), &
-      &                                    z3d_ifc => NULL(), &
-      &                                    w_ifc   => NULL(), &
-      &                                    z3d     => NULL(), &
       &                                    u       => NULL(), &
       &                                    v       => NULL(), &
-      &                                    omega   => NULL(), &
       &                                    w       => NULL(), &
       &                                    vn      => NULL(), &
       &                                    qv      => NULL(), &
@@ -88,12 +75,33 @@ MODULE mo_initicon_types
       &                                    qs      => NULL(), &
       &                                    rho     => NULL(), &
       &                                    theta_v => NULL(), &
-      &                                    tke     => NULL(), &
-      &                                    tke_ifc => NULL()
+      &                                    tke     => NULL()
 
   CONTAINS
     PROCEDURE :: finalize => t_pi_atm_in_finalize   !< destructor
   END TYPE t_pi_atm_in
+
+
+  ! vertical level height of input data
+  TYPE :: t_init_state_const
+    
+    ! Flag. True, if this data structure has been allocated
+    LOGICAL :: linitialized
+
+    ! (half) level heights of input data
+    REAL(wp), POINTER, DIMENSION(:,:,:) :: z_mc_in  => NULL() 
+
+    ! (half) level heights of the model
+    REAL(wp), POINTER :: z_ifc(:,:,:), z_mc(:,:,:)
+
+    REAL(wp), POINTER :: topography_c(:,:)
+
+    ! vertical coordinate table for IFS coordinates
+    TYPE(t_vct) :: vct
+
+  CONTAINS
+    PROCEDURE :: finalize => t_init_state_const_finalize   !< destructor
+  END TYPE t_init_state_const
 
 
   ! surface input variables
@@ -168,23 +176,31 @@ MODULE mo_initicon_types
   END TYPE t_sfc_inc
 
 
-  ! complete state vector type
+  ! state vector type: base class
   !
-  TYPE :: t_initicon_state
-
-    REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: topography_c
-
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: z_ifc, z_mc
+  TYPE :: t_init_state
 
     TYPE (t_pi_atm_in)     :: atm_in
     TYPE (t_pi_sfc_in)     :: sfc_in
     TYPE (t_pi_atm)        :: atm
-    TYPE (t_pi_atm)        :: atm_inc
     TYPE (t_pi_sfc)        :: sfc
+
+    TYPE (t_init_state_const), POINTER :: const => NULL()
+
+  CONTAINS
+    PROCEDURE, PUBLIC :: finalize => t_init_state_finalize
+  END TYPE t_init_state
+
+
+  ! complete state vector type
+  !
+  TYPE, EXTENDS(t_init_state) :: t_initicon_state
+
+    TYPE (t_pi_atm)        :: atm_inc
     TYPE (t_sfc_inc)       :: sfc_inc
 
   CONTAINS
-    PROCEDURE :: finalize => t_initicon_state_finalize !< destructor
+    PROCEDURE, PUBLIC :: finalize => t_initicon_state_finalize
   END TYPE t_initicon_state
 
 
@@ -221,72 +237,6 @@ MODULE mo_initicon_types
 
 CONTAINS
 
-  ! AUXILIARY ROUTINES
-
-  SUBROUTINE DO_DEALLOCATE_r4D(object)
-    REAL(wp), ALLOCATABLE, INTENT(INOUT) :: object(:,:,:,:)
-    INTEGER :: ierrstat
-    IF (ALLOCATED(object)) THEN
-      DEALLOCATE(object, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_r4D", "DEALLOCATE failed!")
-    END IF
-  END SUBROUTINE DO_DEALLOCATE_R4D
-
-  SUBROUTINE DO_DEALLOCATE_r3D(object)
-    REAL(wp), ALLOCATABLE, INTENT(INOUT) :: object(:,:,:)
-    INTEGER :: ierrstat
-    IF (ALLOCATED(object)) THEN
-      DEALLOCATE(object, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_r3D", "DEALLOCATE failed!")
-    END IF
-  END SUBROUTINE DO_DEALLOCATE_R3D
-
-  SUBROUTINE DO_DEALLOCATE_r2D(object)
-    REAL(wp), ALLOCATABLE, INTENT(INOUT) :: object(:,:)
-    INTEGER :: ierrstat
-    IF (ALLOCATED(object)) THEN
-      DEALLOCATE(object, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_r2D", "DEALLOCATE failed!")
-    END IF
-  END SUBROUTINE DO_DEALLOCATE_R2D
-
-  SUBROUTINE DO_DEALLOCATE_i3D(object)
-    INTEGER, ALLOCATABLE, INTENT(INOUT) :: object(:,:,:)
-    INTEGER :: ierrstat
-    IF (ALLOCATED(object)) THEN
-      DEALLOCATE(object, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_i3D", "DEALLOCATE failed!")
-    END IF
-  END SUBROUTINE DO_DEALLOCATE_i3D
-
-  SUBROUTINE DO_DEALLOCATE_i2D(object)
-    INTEGER, ALLOCATABLE, INTENT(INOUT) :: object(:,:)
-    INTEGER :: ierrstat
-    IF (ALLOCATED(object)) THEN
-      DEALLOCATE(object, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_i2D", "DEALLOCATE failed!")
-    END IF
-  END SUBROUTINE DO_DEALLOCATE_i2D
-
-  SUBROUTINE DO_PTR_DEALLOCATE_r3D(object)
-    REAL(wp), POINTER, INTENT(INOUT) :: object(:,:,:)
-    INTEGER :: ierrstat
-    IF (ASSOCIATED(object)) THEN
-      DEALLOCATE(object, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish("DO_PTR_DEALLOCATE_r3D", "DEALLOCATE failed!")
-    END IF
-  END SUBROUTINE DO_PTR_DEALLOCATE_R3D
-
-  SUBROUTINE DO_PTR_DEALLOCATE_r2D(object)
-    REAL(wp), POINTER, INTENT(INOUT) :: object(:,:)
-    INTEGER :: ierrstat
-    IF (ASSOCIATED(object)) THEN
-      DEALLOCATE(object, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish("DO_PTR_DEALLOCATE_r2D", "DEALLOCATE failed!")
-    END IF
-  END SUBROUTINE DO_PTR_DEALLOCATE_R2D
-
-
 
   ! FINALIZE ROUTINES
 
@@ -294,16 +244,10 @@ CONTAINS
     CLASS(t_pi_atm_in), INTENT(INOUT) :: atm_in
 
     atm_in%linitialized = .FALSE.
-    CALL DO_DEALLOCATE(atm_in%psfc)
-    CALL DO_DEALLOCATE(atm_in%phi_sfc)
     CALL DO_DEALLOCATE(atm_in%temp)
     CALL DO_DEALLOCATE(atm_in%pres)
-    CALL DO_DEALLOCATE(atm_in%z3d_ifc)
-    CALL DO_DEALLOCATE(atm_in%w_ifc)
-    CALL DO_DEALLOCATE(atm_in%z3d)
     CALL DO_DEALLOCATE(atm_in%u)
     CALL DO_DEALLOCATE(atm_in%v)
-    CALL DO_DEALLOCATE(atm_in%omega)
     CALL DO_DEALLOCATE(atm_in%w)
     CALL DO_DEALLOCATE(atm_in%vn)
     CALL DO_DEALLOCATE(atm_in%qv)
@@ -314,8 +258,24 @@ CONTAINS
     CALL DO_DEALLOCATE(atm_in%rho)
     CALL DO_DEALLOCATE(atm_in%theta_v)
     CALL DO_DEALLOCATE(atm_in%tke)
-    CALL DO_DEALLOCATE(atm_in%tke_ifc)
   END SUBROUTINE t_pi_atm_in_finalize
+
+
+  SUBROUTINE t_init_state_const_finalize(const)
+    CLASS(t_init_state_const), INTENT(INOUT) :: const
+
+    const%linitialized = .FALSE.
+
+    CALL const%vct%finalize()
+
+    CALL DO_DEALLOCATE(const%z_mc_in)
+
+    ! note: these pointers are not owned by this object
+    NULLIFY(const%topography_c)
+    NULLIFY(const%z_ifc)
+    NULLIFY(const%z_mc)
+
+  END SUBROUTINE t_init_state_const_finalize
 
 
   SUBROUTINE t_pi_sfc_in_finalize(sfc_in)
@@ -388,19 +348,29 @@ CONTAINS
   END SUBROUTINE t_sfc_inc_finalize
 
 
-  SUBROUTINE t_initicon_state_finalize(initicon_data)
-    CLASS(t_initicon_state), INTENT(INOUT) :: initicon_data
+  SUBROUTINE t_init_state_finalize(init_data)
+    CLASS(t_init_state), INTENT(INOUT) :: init_data
 
-    CALL DO_DEALLOCATE(initicon_data%topography_c)
-    CALL DO_DEALLOCATE(initicon_data%z_ifc)
-    CALL DO_DEALLOCATE(initicon_data%z_mc)
+    CALL init_data%atm_in%finalize()
+    CALL init_data%sfc_in%finalize()
+    CALL init_data%atm%finalize()
+    CALL init_data%sfc%finalize()
 
-    CALL initicon_data%atm_in%finalize()
-    CALL initicon_data%sfc_in%finalize()
-    CALL initicon_data%atm%finalize()
-    CALL initicon_data%atm_inc%finalize()
-    CALL initicon_data%sfc%finalize()
-    CALL initicon_data%sfc_inc%finalize()
+    ! note: we do not call "initicon_data%const%finalize()", since
+    ! this is a pointer to an external object which may be the target
+    ! of another pointer.
+    NULLIFY(init_data%const)
+  END SUBROUTINE t_init_state_finalize
+
+
+  SUBROUTINE t_initicon_state_finalize(init_data)
+    CLASS(t_initicon_state), INTENT(INOUT) :: init_data
+
+    ! call base class destructor
+    CALL t_init_state_finalize(init_data)
+
+    CALL init_data%atm_inc%finalize()
+    CALL init_data%sfc_inc%finalize()
   END SUBROUTINE t_initicon_state_finalize
 
 

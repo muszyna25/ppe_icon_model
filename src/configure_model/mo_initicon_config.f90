@@ -24,9 +24,10 @@ MODULE mo_initicon_config
     &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP
   USE mo_grid_config,        ONLY: l_limited_area
   USE mo_time_config,        ONLY: time_config
-  USE mtime,                 ONLY: timedelta, newTimedelta, max_timedelta_str_len,   &
-    &                              OPERATOR(+), OPERATOR(<=), OPERATOR(>=),          &
-    &                              datetime, getPTStringFromSeconds
+  USE mtime,                 ONLY: timedelta, newTimedelta,                          &
+    &                              max_timedelta_str_len, datetime, OPERATOR(+),     &
+    &                              OPERATOR(<=), OPERATOR(>=), &
+    &                              getPTStringFromSeconds
   USE mo_exception,          ONLY: message_text, message
 
   IMPLICIT NONE

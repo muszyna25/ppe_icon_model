@@ -33,7 +33,7 @@ MODULE mo_initicon
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
-  USE mo_initicon_types,      ONLY: t_initicon_state, ana_varnames_dict
+  USE mo_initicon_types,      ONLY: t_initicon_state, ana_varnames_dict, t_init_state_const
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, lvert_remap_fg, &
     &                               rho_incr_filter_wgt, lread_ana, ltile_init, &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart, lconsistency_checks, &
@@ -68,7 +68,7 @@ MODULE mo_initicon
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_initicon_utils,      ONLY: fill_tile_points, init_snowtiles,             &
                                   & copy_initicon2prog_atm, copy_initicon2prog_sfc, construct_initicon, &
-                                  & deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc, &
+                                  & deallocate_initicon,  &
                                   & copy_fg2initicon, initVarnamesDict, printChecksums, init_aerosol
   USE mo_initicon_io,         ONLY: read_extana_atm, read_extana_sfc, fetch_dwdfg_atm, fetch_dwdana_sfc, &
                                   & process_input_dwdana_sfc, process_input_dwdana_atm, process_input_dwdfg_sfc, &
@@ -88,7 +88,8 @@ MODULE mo_initicon
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_initicon'
 
-  TYPE(t_initicon_state), ALLOCATABLE, TARGET :: initicon(:)
+  TYPE(t_initicon_state),   ALLOCATABLE, TARGET :: initicon(:)
+  TYPE(t_init_state_const), ALLOCATABLE, TARGET :: initicon_const(:)
 
   PUBLIC :: init_icon
 
@@ -120,11 +121,12 @@ MODULE mo_initicon
     TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
 
     ! Allocate initicon data type
-    ALLOCATE (initicon(n_dom),                         &
+    ALLOCATE (initicon(n_dom), initicon_const(n_dom),  &
       &       stat=ist)
     IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'allocation for initicon failed')
 
     DO jg = 1, n_dom
+      initicon(jg)%const => initicon_const(jg)
       CALL construct_initicon(initicon(jg), p_patch(jg), ext_data(jg)%atm%topography_c, p_nh_state(jg)%metrics)
     END DO
 
@@ -168,8 +170,6 @@ MODULE mo_initicon
     ! Deallocate initicon data type
     !
     CALL deallocate_initicon(initicon)
-    CALL deallocate_extana_atm (initicon)
-    CALL deallocate_extana_sfc (initicon)
 
     DEALLOCATE (initicon, stat=ist)
     IF (ist /= success) CALL finish(TRIM(routine),'deallocation for initicon failed')
@@ -311,8 +311,7 @@ MODULE mo_initicon
             IF (lvert_remap_fg) THEN ! apply vertical remapping of FG input (requires that the number of model levels
                                      ! does not change; otherwise, init_mode = 7 must be used based on a full analysis)
                 CALL copy_fg2initicon(p_patch, initicon, p_nh_state)
-                CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, initicon, &
-                &                    opt_convert_omega2w=.FALSE.)
+                CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
                 CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
             END IF
             CALL process_input_dwdfg_sfc (p_patch, inputInstructions, p_lnd_state, ext_data)
@@ -481,16 +480,14 @@ MODULE mo_initicon
             CALL create_dwdanainc_atm(p_patch, p_nh_state, p_int_state)
         CASE(MODE_COMBINED, MODE_IFSANA)
             ! process IFS atmosphere analysis data
-            CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, initicon, &
-            &                    opt_convert_omega2w = .TRUE.)
+            CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
             ! Finally copy the results to the prognostic model
             ! variables
             CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
         CASE(MODE_ICONVREMAP, MODE_COSMO)
             ! process ICON (DWD) atmosphere first-guess data (having
             ! different vertical levels than the current grid)
-            CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, initicon, &
-            &                    opt_convert_omega2w = .FALSE.)
+            CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
             ! Finally copy the results to the prognostic model
             ! variables
             CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
