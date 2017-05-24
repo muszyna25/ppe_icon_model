@@ -468,9 +468,6 @@ CONTAINS
         IF (idx_wtr <= ksfc_type) THEN
           WHERE (alake(1:kproma) > 0._wp)
             ptsfc_tile    (1:kproma, idx_wtr) = ztsfc_lwtr   (1:kproma)
-            pevap_tile    (1:kproma, idx_wtr) = zevap_lwtr   (1:kproma)
-            plhflx_tile   (1:kproma, idx_wtr) = zlhflx_lwtr  (1:kproma)
-            pshflx_tile   (1:kproma, idx_wtr) = zshflx_lwtr  (1:kproma)
             albvisdir_tile(1:kproma, idx_wtr) = zalbedo_lwtr (1:kproma)
             albvisdif_tile(1:kproma, idx_wtr) = zalbedo_lwtr (1:kproma)
             albnirdir_tile(1:kproma, idx_wtr) = zalbedo_lwtr (1:kproma)
@@ -480,9 +477,6 @@ CONTAINS
         IF (idx_ice <= ksfc_type) THEN
           WHERE (alake(1:kproma) > 0._wp)
             ptsfc_tile    (1:kproma, idx_ice) = ztsfc_lice   (1:kproma)
-            pevap_tile    (1:kproma, idx_ice) = zevap_lice   (1:kproma)
-            plhflx_tile   (1:kproma, idx_ice) = zlhflx_lice  (1:kproma)
-            pshflx_tile   (1:kproma, idx_ice) = zshflx_lice  (1:kproma)
             albvisdir_tile(1:kproma, idx_ice) = zalbedo_lice (1:kproma)
             albvisdif_tile(1:kproma, idx_ice) = zalbedo_lice (1:kproma)
             albnirdir_tile(1:kproma, idx_ice) = zalbedo_lice (1:kproma)
@@ -630,11 +624,11 @@ CONTAINS
           albvisdif_tile(1:kproma,idx_ice) = SUM( conc(1:kproma,:) * albvisdif_ice(1:kproma,:), 2 ) / conc_sum(1:kproma)
           albnirdir_tile(1:kproma,idx_ice) = SUM( conc(1:kproma,:) * albnirdir_ice(1:kproma,:), 2 ) / conc_sum(1:kproma)
           albnirdif_tile(1:kproma,idx_ice) = SUM( conc(1:kproma,:) * albnirdif_ice(1:kproma,:), 2 ) / conc_sum(1:kproma)
+
+          ! Set the tile temperature, convert back to K
+          ptsfc_tile(1:kproma,idx_ice) = Tsurf(1:kproma,1) + tmelt
         END WHERE
       END WHERE
-
-      ! Set the tile temperature, convert back to Deg K
-      ptsfc_tile(1:kproma,idx_ice) = Tsurf(1:kproma,1) + tmelt
 
       ! Compute new dry static energy
       ! (Switched off for now, should be used for implicit coupling)
@@ -794,10 +788,6 @@ CONTAINS
     ptsfc_rad(1:kproma) = ptsfc_rad(1:kproma)**0.25_wp
 
     ! Compute lw and sw surface radiation fluxes on tiles
-    !    preset values to cdimissval
-    rlns_tile(:,:) = cdimissval
-    rsns_tile(:,:) = cdimissval
-
     DO jsfc=1,ksfc_type
       DO jls = 1,is(jsfc)
         ! set index
@@ -846,7 +836,7 @@ CONTAINS
     DO jsfc=1,ksfc_type
       mask(:) = .FALSE.
       !
-      mask(1:kproma) = pfrc(1:kproma,jsfc) == 0._wp
+      mask(1:kproma) = pfrc(1:kproma,jsfc) <= 0._wp
       !
       WHERE (mask(1:kproma))
         pqsat_tile     (1:kproma,jsfc) = cdimissval
