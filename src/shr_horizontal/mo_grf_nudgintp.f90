@@ -316,6 +316,209 @@ ENDDO
 END SUBROUTINE interpol_vec_nudging
 
 
+
+! Factored out to avoid some OpenMP bug in Intel16, might still improve
+! performance due to better locality and less pointers.
+! The problem is that loop boundaries (i_startidx,i_endidx) are not private
+! despite their declaration.
+SUBROUTINE interpol_scal_nudging_core(ptr_pp, jb, i_startblk, i_endblk, all_enabled, elev, &
+  ptr_coeff, ptr_dist, p_in_fld, h_aux, iidx, iblk, l_enabled, js, lbound_haux,&
+  r_ovsht_fac, ovsht_fac)
+
+  TYPE(t_patch), INTENT(in   ) :: ptr_pp
+  INTEGER,       INTENT(in   ) :: jb,js,i_startblk, i_endblk, lbound_haux, elev
+  INTEGER,       INTENT(in   ) :: iidx(:,:,:), iblk(:,:,:)
+  REAL(wp),      INTENT(  out) :: h_aux(:,:,lbound_haux:,:)
+  LOGICAL,       INTENT(in   ) :: all_enabled, l_enabled(:)
+  REAL(wp),      INTENT(in   ) :: ptr_coeff(:,:,:,:), ptr_dist(:,:,:,:)
+  REAL(wp),      INTENT(in   ) :: p_in_fld(:,:,:), r_ovsht_fac, ovsht_fac
+
+  INTEGER :: i_startidx
+  INTEGER :: i_endidx
+  INTEGER :: jk, jc, n
+
+  ! Auxiliary fields
+  REAL(wp), DIMENSION(nproma,elev+js) :: grad_x, grad_y, maxval_neighb, minval_neighb
+
+  REAL(wp) :: limfac1, limfac2, limfac, min_expval(nproma), max_expval(nproma), &
+              relaxed_minval, relaxed_maxval
+
+  REAL(wp), PARAMETER :: epsi = 1.e-75_wp
+
+
+  CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
+       i_startidx, i_endidx, grf_nudgintp_start_c, min_rlcell_int)
+
+  IF (all_enabled) THEN ! Use vectorizable form with loop reordering
+#ifdef __LOOP_EXCHANGE
+    DO jc = i_startidx, i_endidx
+      DO jk = 1, elev
+#else
+    DO jk = 1, elev
+      DO jc = i_startidx, i_endidx
+#endif
+        grad_x(jc,jk) =  &
+          ptr_coeff(1,1,jc,jb)* p_in_fld(jc,jk+js,jb) + &
+          ptr_coeff(2,1,jc,jb)* p_in_fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)) + &
+          ptr_coeff(3,1,jc,jb)* p_in_fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)) + &
+          ptr_coeff(4,1,jc,jb)* p_in_fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)) + &
+          ptr_coeff(5,1,jc,jb)* p_in_fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)) + &
+          ptr_coeff(6,1,jc,jb)* p_in_fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)) + &
+          ptr_coeff(7,1,jc,jb)* p_in_fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)) + &
+          ptr_coeff(8,1,jc,jb)* p_in_fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)) + &
+          ptr_coeff(9,1,jc,jb)* p_in_fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)) + &
+          ptr_coeff(10,1,jc,jb)*p_in_fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb))
+        grad_y(jc,jk) =  &
+          ptr_coeff(1,2,jc,jb)*p_in_fld(jc,jk+js,jb) + &
+          ptr_coeff(2,2,jc,jb)*p_in_fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)) + &
+          ptr_coeff(3,2,jc,jb)*p_in_fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)) + &
+          ptr_coeff(4,2,jc,jb)*p_in_fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)) + &
+          ptr_coeff(5,2,jc,jb)*p_in_fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)) + &
+          ptr_coeff(6,2,jc,jb)*p_in_fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)) + &
+          ptr_coeff(7,2,jc,jb)*p_in_fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)) + &
+          ptr_coeff(8,2,jc,jb)*p_in_fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)) + &
+          ptr_coeff(9,2,jc,jb)*p_in_fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)) + &
+          ptr_coeff(10,2,jc,jb)*p_in_fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb))
+        maxval_neighb(jc,jk) =                                 &
+          MAX(p_in_fld(jc,jk+js,jb),                       &
+              p_in_fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)), &
+              p_in_fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)), &
+              p_in_fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)), &
+              p_in_fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)), &
+              p_in_fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)), &
+              p_in_fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)), &
+              p_in_fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)), &
+              p_in_fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)), &
+              p_in_fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb)))
+        minval_neighb(jc,jk) =                                 &
+          MIN(p_in_fld(jc,jk+js,jb),                       &
+              p_in_fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)), &
+              p_in_fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)), &
+              p_in_fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)), &
+              p_in_fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)), &
+              p_in_fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)), &
+              p_in_fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)), &
+              p_in_fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)), &
+              p_in_fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)), &
+              p_in_fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb)))
+      ENDDO
+    ENDDO
+  ELSE
+    DO jk = 1, elev
+      IF (.NOT. l_enabled(jk)) CYCLE
+      DO jc = i_startidx, i_endidx
+        grad_x(jc,jk) =  &
+          ptr_coeff(1,1,jc,jb)*p_in_fld(jc,jk+js,jb) + &
+          ptr_coeff(2,1,jc,jb)*p_in_fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)) + &
+          ptr_coeff(3,1,jc,jb)*p_in_fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)) + &
+          ptr_coeff(4,1,jc,jb)*p_in_fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)) + &
+          ptr_coeff(5,1,jc,jb)*p_in_fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)) + &
+          ptr_coeff(6,1,jc,jb)*p_in_fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)) + &
+          ptr_coeff(7,1,jc,jb)*p_in_fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)) + &
+          ptr_coeff(8,1,jc,jb)*p_in_fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)) + &
+          ptr_coeff(9,1,jc,jb)*p_in_fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)) + &
+          ptr_coeff(10,1,jc,jb)*p_in_fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb))
+        grad_y(jc,jk) =  &
+          ptr_coeff(1,2,jc,jb)*p_in_fld(jc,jk+js,jb) + &
+          ptr_coeff(2,2,jc,jb)*p_in_fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)) + &
+          ptr_coeff(3,2,jc,jb)*p_in_fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)) + &
+          ptr_coeff(4,2,jc,jb)*p_in_fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)) + &
+          ptr_coeff(5,2,jc,jb)*p_in_fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)) + &
+          ptr_coeff(6,2,jc,jb)*p_in_fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)) + &
+          ptr_coeff(7,2,jc,jb)*p_in_fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)) + &
+          ptr_coeff(8,2,jc,jb)*p_in_fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)) + &
+          ptr_coeff(9,2,jc,jb)*p_in_fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)) + &
+          ptr_coeff(10,2,jc,jb)*p_in_fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb))
+        maxval_neighb(jc,jk) =                                 &
+          MAX(p_in_fld(jc,jk+js,jb),                       &
+              p_in_fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)), &
+              p_in_fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)), &
+              p_in_fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)), &
+              p_in_fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)), &
+              p_in_fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)), &
+              p_in_fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)), &
+              p_in_fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)), &
+              p_in_fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)), &
+              p_in_fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb)))
+        minval_neighb(jc,jk) =                                 &
+          MIN(p_in_fld(jc,jk+js,jb),                       &
+              p_in_fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)), &
+              p_in_fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)), &
+              p_in_fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)), &
+              p_in_fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)), &
+              p_in_fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)), &
+              p_in_fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)), &
+              p_in_fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)), &
+              p_in_fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)), &
+              p_in_fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb)))
+      ENDDO
+    ENDDO
+  ENDIF
+
+  DO jk = 1, elev
+    IF (.NOT. l_enabled(jk)) CYCLE
+    DO jc = i_startidx, i_endidx
+      min_expval(jc) = MIN(grad_x(jc,jk)*ptr_dist(jc,1,1,jb) + &
+                         grad_y(jc,jk)*ptr_dist(jc,1,2,jb),  &
+                         grad_x(jc,jk)*ptr_dist(jc,2,1,jb) + &
+                         grad_y(jc,jk)*ptr_dist(jc,2,2,jb),  &
+                         grad_x(jc,jk)*ptr_dist(jc,3,1,jb) + &
+                         grad_y(jc,jk)*ptr_dist(jc,3,2,jb),  &
+                         grad_x(jc,jk)*ptr_dist(jc,4,1,jb) + &
+                         grad_y(jc,jk)*ptr_dist(jc,4,2,jb),  &
+                         -1.e-80_wp )
+      max_expval(jc) = MAX(grad_x(jc,jk)*ptr_dist(jc,1,1,jb) + &
+                         grad_y(jc,jk)*ptr_dist(jc,1,2,jb),  &
+                         grad_x(jc,jk)*ptr_dist(jc,2,1,jb) + &
+                         grad_y(jc,jk)*ptr_dist(jc,2,2,jb),  &
+                         grad_x(jc,jk)*ptr_dist(jc,3,1,jb) + &
+                         grad_y(jc,jk)*ptr_dist(jc,3,2,jb),  &
+                         grad_x(jc,jk)*ptr_dist(jc,4,1,jb) + &
+                         grad_y(jc,jk)*ptr_dist(jc,4,2,jb),  &
+                         1.e-80_wp )
+
+      ! Allow a limited amount of over-/undershooting in the downscaled fields
+      relaxed_minval = MERGE(r_ovsht_fac, ovsht_fac, &
+           minval_neighb(jc,jk) > 0._wp) * minval_neighb(jc,jk)
+      relaxed_maxval = MERGE(ovsht_fac, r_ovsht_fac, &
+           maxval_neighb(jc,jk) > 0._wp) * maxval_neighb(jc,jk)
+
+      limfac1 = MERGE(1._wp, &
+           ABS((relaxed_minval-p_in_fld(jc,jk+js,jb))/min_expval(jc)), &
+           p_in_fld(jc,jk+js,jb) + min_expval(jc) >= relaxed_minval-epsi)
+      limfac2 = MERGE(1._wp, &
+           ABS((relaxed_maxval-p_in_fld(jc,jk+js,jb))/max_expval(jc)), &
+           p_in_fld(jc,jk+js,jb) + max_expval(jc) <= relaxed_maxval+epsi)
+      limfac = MIN(limfac1,limfac2)
+
+      grad_x(jc,jk) = grad_x(jc,jk)*limfac
+      grad_y(jc,jk) = grad_y(jc,jk)*limfac
+
+    ENDDO
+  ENDDO
+
+  DO jk = 1, elev
+    IF (.NOT. l_enabled(jk)) CYCLE
+    DO jc = i_startidx, i_endidx
+
+      h_aux(jc,jk,jb,1) = p_in_fld(jc,jk+js,jb) + &
+        grad_x(jc,jk)*ptr_dist(jc,1,1,jb)              + &
+        grad_y(jc,jk)*ptr_dist(jc,1,2,jb)
+      h_aux(jc,jk,jb,2) = p_in_fld(jc,jk+js,jb) + &
+        grad_x(jc,jk)*ptr_dist(jc,2,1,jb)              + &
+        grad_y(jc,jk)*ptr_dist(jc,2,2,jb)
+      h_aux(jc,jk,jb,3) = p_in_fld(jc,jk+js,jb) + &
+        grad_x(jc,jk)*ptr_dist(jc,3,1,jb)              + &
+        grad_y(jc,jk)*ptr_dist(jc,3,2,jb)
+      h_aux(jc,jk,jb,4) = p_in_fld(jc,jk+js,jb) + &
+        grad_x(jc,jk)*ptr_dist(jc,4,1,jb)              + &
+        grad_y(jc,jk)*ptr_dist(jc,4,2,jb)
+
+    ENDDO
+  ENDDO
+
+END SUBROUTINE interpol_scal_nudging_core
+
 !-------------------------------------------------------------------------
 !
 !>
@@ -395,10 +598,8 @@ REAL(wp) :: h_aux(nproma,MAX(32,ptr_pp%nlevp1),                       &
                   MAX(ptr_pp%cells%start_block(grf_nudgintp_start_c), &
                       ptr_pp%cells%end_block(min_rlcell_int)),4,nfields)
 
-REAL(wp) :: limfac1, limfac2, limfac, min_expval(nproma), max_expval(nproma), ovsht_fac, r_ovsht_fac, &
-            relaxed_minval, relaxed_maxval
+REAL(wp) :: ovsht_fac, r_ovsht_fac
 
-REAL(wp), PARAMETER :: epsi = 1.e-75_wp
 ! Pointers to index and coefficient fields
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk, ichcidx, ichcblk
 REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff, ptr_dist
@@ -504,183 +705,14 @@ js = nshift
 DO jn = 1, nfields
   elev = UBOUND(p_out(jn)%fld,2)
 
-!$OMP DO PRIVATE (jb,jk,jc,i_startidx,i_endidx,grad_x,grad_y,min_expval, &
-!$OMP   max_expval,limfac1,limfac2,limfac,maxval_neighb,minval_neighb,   &
-!$OMP   relaxed_minval,relaxed_maxval) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jb) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
-
-    CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
-         i_startidx, i_endidx, grf_nudgintp_start_c, min_rlcell_int)
-
-    IF (all_enabled) THEN ! Use vectorizable form with loop reordering
-#ifdef __LOOP_EXCHANGE
-      DO jc = i_startidx, i_endidx
-        DO jk = 1, elev
-#else
-      DO jk = 1, elev
-        DO jc = i_startidx, i_endidx
-#endif
-          grad_x(jc,jk) =  &
-            ptr_coeff(1,1,jc,jb)*p_in(jn)%fld(jc,jk+js,jb) + &
-            ptr_coeff(2,1,jc,jb)*p_in(jn)%fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)) + &
-            ptr_coeff(3,1,jc,jb)*p_in(jn)%fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)) + &
-            ptr_coeff(4,1,jc,jb)*p_in(jn)%fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)) + &
-            ptr_coeff(5,1,jc,jb)*p_in(jn)%fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)) + &
-            ptr_coeff(6,1,jc,jb)*p_in(jn)%fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)) + &
-            ptr_coeff(7,1,jc,jb)*p_in(jn)%fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)) + &
-            ptr_coeff(8,1,jc,jb)*p_in(jn)%fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)) + &
-            ptr_coeff(9,1,jc,jb)*p_in(jn)%fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)) + &
-            ptr_coeff(10,1,jc,jb)*p_in(jn)%fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb))
-          grad_y(jc,jk) =  &
-            ptr_coeff(1,2,jc,jb)*p_in(jn)%fld(jc,jk+js,jb) + &
-            ptr_coeff(2,2,jc,jb)*p_in(jn)%fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)) + &
-            ptr_coeff(3,2,jc,jb)*p_in(jn)%fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)) + &
-            ptr_coeff(4,2,jc,jb)*p_in(jn)%fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)) + &
-            ptr_coeff(5,2,jc,jb)*p_in(jn)%fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)) + &
-            ptr_coeff(6,2,jc,jb)*p_in(jn)%fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)) + &
-            ptr_coeff(7,2,jc,jb)*p_in(jn)%fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)) + &
-            ptr_coeff(8,2,jc,jb)*p_in(jn)%fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)) + &
-            ptr_coeff(9,2,jc,jb)*p_in(jn)%fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)) + &
-            ptr_coeff(10,2,jc,jb)*p_in(jn)%fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb))
-          maxval_neighb(jc,jk) =                                 &
-            MAX(p_in(jn)%fld(jc,jk+js,jb),                       &
-                p_in(jn)%fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)), &
-                p_in(jn)%fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)), &
-                p_in(jn)%fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)), &
-                p_in(jn)%fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)), &
-                p_in(jn)%fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)), &
-                p_in(jn)%fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)), &
-                p_in(jn)%fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)), &
-                p_in(jn)%fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)), &
-                p_in(jn)%fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb)))
-          minval_neighb(jc,jk) =                                 &
-            MIN(p_in(jn)%fld(jc,jk+js,jb),                       &
-                p_in(jn)%fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)), &
-                p_in(jn)%fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)), &
-                p_in(jn)%fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)), &
-                p_in(jn)%fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)), &
-                p_in(jn)%fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)), &
-                p_in(jn)%fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)), &
-                p_in(jn)%fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)), &
-                p_in(jn)%fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)), &
-                p_in(jn)%fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb)))
-        ENDDO
-      ENDDO
-    ELSE
-      DO jk = 1, elev
-        IF (.NOT. l_enabled(jk)) CYCLE
-        DO jc = i_startidx, i_endidx
-          grad_x(jc,jk) =  &
-            ptr_coeff(1,1,jc,jb)*p_in(jn)%fld(jc,jk+js,jb) + &
-            ptr_coeff(2,1,jc,jb)*p_in(jn)%fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)) + &
-            ptr_coeff(3,1,jc,jb)*p_in(jn)%fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)) + &
-            ptr_coeff(4,1,jc,jb)*p_in(jn)%fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)) + &
-            ptr_coeff(5,1,jc,jb)*p_in(jn)%fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)) + &
-            ptr_coeff(6,1,jc,jb)*p_in(jn)%fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)) + &
-            ptr_coeff(7,1,jc,jb)*p_in(jn)%fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)) + &
-            ptr_coeff(8,1,jc,jb)*p_in(jn)%fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)) + &
-            ptr_coeff(9,1,jc,jb)*p_in(jn)%fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)) + &
-            ptr_coeff(10,1,jc,jb)*p_in(jn)%fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb))
-          grad_y(jc,jk) =  &
-            ptr_coeff(1,2,jc,jb)*p_in(jn)%fld(jc,jk+js,jb) + &
-            ptr_coeff(2,2,jc,jb)*p_in(jn)%fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)) + &
-            ptr_coeff(3,2,jc,jb)*p_in(jn)%fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)) + &
-            ptr_coeff(4,2,jc,jb)*p_in(jn)%fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)) + &
-            ptr_coeff(5,2,jc,jb)*p_in(jn)%fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)) + &
-            ptr_coeff(6,2,jc,jb)*p_in(jn)%fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)) + &
-            ptr_coeff(7,2,jc,jb)*p_in(jn)%fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)) + &
-            ptr_coeff(8,2,jc,jb)*p_in(jn)%fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)) + &
-            ptr_coeff(9,2,jc,jb)*p_in(jn)%fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)) + &
-            ptr_coeff(10,2,jc,jb)*p_in(jn)%fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb))
-          maxval_neighb(jc,jk) =                                 &
-            MAX(p_in(jn)%fld(jc,jk+js,jb),                       &
-                p_in(jn)%fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)), &
-                p_in(jn)%fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)), &
-                p_in(jn)%fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)), &
-                p_in(jn)%fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)), &
-                p_in(jn)%fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)), &
-                p_in(jn)%fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)), &
-                p_in(jn)%fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)), &
-                p_in(jn)%fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)), &
-                p_in(jn)%fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb)))
-          minval_neighb(jc,jk) =                                 &
-            MIN(p_in(jn)%fld(jc,jk+js,jb),                       &
-                p_in(jn)%fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)), &
-                p_in(jn)%fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)), &
-                p_in(jn)%fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)), &
-                p_in(jn)%fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)), &
-                p_in(jn)%fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)), &
-                p_in(jn)%fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)), &
-                p_in(jn)%fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)), &
-                p_in(jn)%fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)), &
-                p_in(jn)%fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb)))
-        ENDDO
-      ENDDO
-    ENDIF
-
-    DO jk = 1, elev
-      IF (.NOT. l_enabled(jk)) CYCLE
-      DO jc = i_startidx, i_endidx
-        min_expval(jc) = MIN(grad_x(jc,jk)*ptr_dist(jc,1,1,jb) + &
-                           grad_y(jc,jk)*ptr_dist(jc,1,2,jb),  &
-                           grad_x(jc,jk)*ptr_dist(jc,2,1,jb) + &
-                           grad_y(jc,jk)*ptr_dist(jc,2,2,jb),  &
-                           grad_x(jc,jk)*ptr_dist(jc,3,1,jb) + &
-                           grad_y(jc,jk)*ptr_dist(jc,3,2,jb),  &
-                           grad_x(jc,jk)*ptr_dist(jc,4,1,jb) + &
-                           grad_y(jc,jk)*ptr_dist(jc,4,2,jb),  &
-                           -1.e-80_wp )
-        max_expval(jc) = MAX(grad_x(jc,jk)*ptr_dist(jc,1,1,jb) + &
-                           grad_y(jc,jk)*ptr_dist(jc,1,2,jb),  &
-                           grad_x(jc,jk)*ptr_dist(jc,2,1,jb) + &
-                           grad_y(jc,jk)*ptr_dist(jc,2,2,jb),  &
-                           grad_x(jc,jk)*ptr_dist(jc,3,1,jb) + &
-                           grad_y(jc,jk)*ptr_dist(jc,3,2,jb),  &
-                           grad_x(jc,jk)*ptr_dist(jc,4,1,jb) + &
-                           grad_y(jc,jk)*ptr_dist(jc,4,2,jb),  &
-                           1.e-80_wp )
-
-        ! Allow a limited amount of over-/undershooting in the downscaled fields
-        relaxed_minval = MERGE(r_ovsht_fac, ovsht_fac, &
-             minval_neighb(jc,jk) > 0._wp) * minval_neighb(jc,jk)
-        relaxed_maxval = MERGE(ovsht_fac, r_ovsht_fac, &
-             maxval_neighb(jc,jk) > 0._wp) * maxval_neighb(jc,jk)
-
-        limfac1 = MERGE(1._wp, &
-             ABS((relaxed_minval-p_in(jn)%fld(jc,jk+js,jb))/min_expval(jc)), &
-             p_in(jn)%fld(jc,jk+js,jb) + min_expval(jc) >= relaxed_minval-epsi)
-        limfac2 = MERGE(1._wp, &
-             ABS((relaxed_maxval-p_in(jn)%fld(jc,jk+js,jb))/max_expval(jc)), &
-             p_in(jn)%fld(jc,jk+js,jb) + max_expval(jc) <= relaxed_maxval+epsi)
-        limfac = MIN(limfac1,limfac2)
-
-        grad_x(jc,jk) = grad_x(jc,jk)*limfac
-        grad_y(jc,jk) = grad_y(jc,jk)*limfac
-
-      ENDDO
-    ENDDO
-
-    DO jk = 1, elev
-      IF (.NOT. l_enabled(jk)) CYCLE
-      DO jc = i_startidx, i_endidx
-
-        h_aux(jc,jk,jb,1,jn) = p_in(jn)%fld(jc,jk+js,jb) + &
-          grad_x(jc,jk)*ptr_dist(jc,1,1,jb)              + &
-          grad_y(jc,jk)*ptr_dist(jc,1,2,jb)
-        h_aux(jc,jk,jb,2,jn) = p_in(jn)%fld(jc,jk+js,jb) + &
-          grad_x(jc,jk)*ptr_dist(jc,2,1,jb)              + &
-          grad_y(jc,jk)*ptr_dist(jc,2,2,jb)
-        h_aux(jc,jk,jb,3,jn) = p_in(jn)%fld(jc,jk+js,jb) + &
-          grad_x(jc,jk)*ptr_dist(jc,3,1,jb)              + &
-          grad_y(jc,jk)*ptr_dist(jc,3,2,jb)
-        h_aux(jc,jk,jb,4,jn) = p_in(jn)%fld(jc,jk+js,jb) + &
-          grad_x(jc,jk)*ptr_dist(jc,4,1,jb)              + &
-          grad_y(jc,jk)*ptr_dist(jc,4,2,jb)
-
-      ENDDO
-    ENDDO
+    CALL interpol_scal_nudging_core(ptr_pp, jb, i_startblk, i_endblk, &
+      all_enabled, elev, ptr_coeff, ptr_dist, p_in(jn)%fld, &
+      h_aux(:,:,:,:,jn), iidx, iblk, l_enabled, js, &
+      ptr_pp%cells%start_block(grf_nudgintp_start_c), r_ovsht_fac, &
+      ovsht_fac)
   ENDDO ! blocks
-
 !$OMP END DO
 ENDDO ! fields
 
