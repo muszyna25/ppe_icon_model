@@ -20,6 +20,7 @@
 MODULE mo_art_nml
 
   USE mo_exception,           ONLY: message, finish, message_text
+  USE mo_run_config,          ONLY: lart
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
@@ -232,28 +233,33 @@ CONTAINS
 
 
     !----------------------------------------------------
-    ! 4. Sanity check
+    ! 4. Sanity check (only if lart is true)
     !----------------------------------------------------
-    
-    IF (iart_aci_cold == 6 .AND. iart_dust == 0) THEN
-      CALL finish('mo_art_nml:read_art_namelist',  &
-        &         'Invalid combination: iart_aci_cold = 6 and iart_dust = 0')
-    ENDIF
-    IF (iart_aci_cold == 7 .AND. iart_dust == 0) THEN
-      CALL finish('mo_art_nml:read_art_namelist',  &
-        &         'Invalid combination: iart_aci_cold = 7 and iart_dust = 0')
-    ENDIF
 
-    ! Emission paths and file
-    IF (TRIM(cart_emiss_xml_file) /= '') THEN
-      INQUIRE(file = TRIM(cart_emiss_xml_file), EXIST = l_exist)
+    IF (lart) THEN
     
-      IF (.NOT. l_exist) THEN
+      IF (iart_aci_cold == 6 .AND. iart_dust == 0) THEN
         CALL finish('mo_art_nml:read_art_namelist',  &
-                    TRIM(cart_emiss_xml_file)//  &
-                    & ' could not be found. Check cart_emiss_xml_file.')
+          &         'Invalid combination: iart_aci_cold = 6 and iart_dust = 0')
+      ENDIF
+      IF (iart_aci_cold == 7 .AND. iart_dust == 0) THEN
+        CALL finish('mo_art_nml:read_art_namelist',  &
+          &         'Invalid combination: iart_aci_cold = 7 and iart_dust = 0')
+      ENDIF
+  
+      ! Emission paths and file
+      IF (TRIM(cart_emiss_xml_file) /= '') THEN
+        INQUIRE(file = TRIM(cart_emiss_xml_file), EXIST = l_exist)
+      
+        IF (.NOT. l_exist) THEN
+          CALL finish('mo_art_nml:read_art_namelist',  &
+                      TRIM(cart_emiss_xml_file)//  &
+                      & ' could not be found. Check cart_emiss_xml_file.')
+        END IF
       END IF
-    END IF
+
+    END IF  ! lart
+
 
     !----------------------------------------------------
     ! 5. Fill the configuration state
