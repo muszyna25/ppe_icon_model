@@ -145,6 +145,12 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
           ptr(idx_tot)%fc = .FALSE.
         END IF
 
+        IF ((art_config(jg)%lart_emiss_turbdiff) &
+         & .AND. (p_art_data(jg)%emiss%exists(p_prog_rcf%turb_tracer(jb,idx_trac)%idx_tracer))) THEN
+
+          ptr(idx_tot)%fc = .TRUE.
+        END IF
+
       END DO
 
     CASE('update_ptr')
