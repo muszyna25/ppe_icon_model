@@ -63,6 +63,7 @@ MODULE mo_art_config
     INTEGER :: iart_init_passive         !< Initialization of passive species
     LOGICAL :: lart_diag_out             !< Enable output of diagnostic fields
     LOGICAL :: lart_pntSrc               !< Enables point sources
+    LOGICAL :: lart_emiss_turbdiff       !< Switch if emission should be included as surface flux condition
     CHARACTER(LEN=20) :: cart_io_suffix  !< user given suffix instead of automatically generated grid number 
                                          !  in ICON-ART input filename convention: 
                                          !  ART_iconR<n>B<kk>-grid-<yyyy-mm-dd-hh>_<grid_suffix>.nc

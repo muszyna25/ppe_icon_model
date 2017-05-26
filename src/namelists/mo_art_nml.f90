@@ -49,6 +49,7 @@ MODULE mo_art_nml
   INTEGER :: iart_init_gas           !< Initialization of gaseous species
   LOGICAL :: lart_diag_out           !< Enable output of diagnostic fields
   LOGICAL :: lart_pntSrc             !< Enables point sources
+  LOGICAL :: lart_emiss_turbdiff     !< Switch if emissions should be included as surface flux condition
   CHARACTER(LEN=20) :: & 
    &  cart_io_suffix(1:max_dom)      !< user given suffix instead of automatically generated grid number 
                                      !  in ICON-ART input filename convention: 
@@ -113,6 +114,7 @@ MODULE mo_art_nml
    &                lart_diag_out, cart_emiss_xml_file,                                &
    &                cart_vortex_init_date , cart_cheminit_file, cart_cheminit_coord,   & 
    &                cart_cheminit_type,                                                &
+   &                lart_emiss_turbdiff,                                               &
    &                cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml,            &
    &                cart_modes_xml, cart_pntSrc_xml, cart_io_suffix, iart_init_passive,&
    &                iart_psc
@@ -159,6 +161,7 @@ CONTAINS
     iart_init_gas              = 0
     lart_diag_out              = .FALSE.
     lart_pntSrc                = .FALSE.
+    lart_emiss_turbdiff        = .FALSE.
     cart_io_suffix(1:max_dom)  = 'grid-number'
       
     ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
@@ -268,6 +271,7 @@ CONTAINS
       art_config(jg)%iart_init_passive   = iart_init_passive
       art_config(jg)%lart_diag_out       = lart_diag_out
       art_config(jg)%lart_pntSrc         = lart_pntSrc
+      art_config(jg)%lart_emiss_turbdiff = lart_emiss_turbdiff
       art_config(jg)%cart_io_suffix      = TRIM(cart_io_suffix(jg))
       
       ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
