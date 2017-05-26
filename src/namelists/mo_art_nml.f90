@@ -31,6 +31,7 @@ MODULE mo_art_nml
   USE mo_art_config,          ONLY: art_config, IART_PATH_LEN
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
+  USE mo_art_init_interface,  ONLY: art_calc_number_of_art_tracers
   
   IMPLICIT NONE
   PRIVATE
@@ -44,7 +45,6 @@ MODULE mo_art_nml
   ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_input_folder             !< Absolute Path to ART source code
-  INTEGER :: iart_ntracer            !< number transported ART tracers
   INTEGER :: iart_init_aero          !< Initialization of aerosol species
   INTEGER :: iart_init_passive       !< Initialization of passive species
   INTEGER :: iart_init_gas           !< Initialization of gaseous species
@@ -110,7 +110,7 @@ MODULE mo_art_nml
    &                iart_volcano, cart_volcano_file, iart_radioact,                    &
    &                cart_radioact_file, iart_pollen,                                   &
    &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
-   &                lart_conv, lart_turb, iart_ntracer, iart_init_aero, iart_init_gas, &
+   &                lart_conv, lart_turb, iart_init_aero, iart_init_gas,               &
    &                lart_diag_out, cart_emiss_xml_file,                                &
    &                cart_vortex_init_date , cart_cheminit_file, cart_cheminit_coord,   & 
    &                cart_cheminit_type,                                                &
@@ -154,7 +154,6 @@ CONTAINS
       
     ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
     cart_input_folder          = ''
-    iart_ntracer               = 0
     iart_init_aero             = 0
     iart_init_passive          = 0
     iart_init_gas              = 0
@@ -257,6 +256,54 @@ CONTAINS
                       & ' could not be found. Check cart_emiss_xml_file.')
         END IF
       END IF
+  
+      ! chemistry xml file
+      IF (lart_chem) THEN
+        IF (TRIM(cart_chemistry_xml) == '') THEN
+          CALL finish('mo_art_nml:read_art_namelist','namelist parameter cart_chemistry_xml' &
+                    //' has to be given for lart_chem == .TRUE.')
+        ELSE
+          INQUIRE(file = TRIM(cart_chemistry_xml), EXIST = l_exist)
+  
+          IF (.NOT. l_exist) THEN
+            CALL finish('mo_art_nml:read_art_namelist',  &
+                        TRIM(cart_chemistry_xml)//  &
+                        & ' could not be found. Check cart_chemistry_xml.')
+          END IF
+        END IF
+      END IF
+  
+      ! aerosol xml file
+      IF (lart_aerosol) THEN
+        IF (TRIM(cart_aerosol_xml) == '') THEN
+          CALL finish('mo_art_nml:read_art_namelist','namelist parameter cart_aerosol_xml' &
+                    //' has to be given for lart_aerosol == .TRUE.')
+        ELSE
+          INQUIRE(file = TRIM(cart_aerosol_xml), EXIST = l_exist)
+  
+          IF (.NOT. l_exist) THEN
+            CALL finish('mo_art_nml:read_art_namelist',  &
+                        TRIM(cart_aerosol_xml)//  &
+                        & ' could not be found. Check cart_aerosol_xml.')
+          END IF
+        END IF
+      END IF
+  
+      ! passive xml file
+      IF (lart_passive) THEN
+        IF (TRIM(cart_passive_xml) == '') THEN
+          CALL finish('mo_art_nml:read_art_namelist','namelist parameter cart_passive_xml' &
+                    //' has to be given for lart_passive == .TRUE.')
+        ELSE
+          INQUIRE(file = TRIM(cart_passive_xml), EXIST = l_exist)
+  
+          IF (.NOT. l_exist) THEN
+            CALL finish('mo_art_nml:read_art_namelist',  &
+                        TRIM(cart_passive_xml)//  &
+                        & ' could not be found. Check cart_passive_xml.')
+          END IF
+        END IF
+      END IF
 
     END IF  ! lart
 
@@ -268,7 +315,6 @@ CONTAINS
     DO jg= 1,max_dom !< Do not take into account reduced radiation grid
       ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
       art_config(jg)%cart_input_folder   = TRIM(cart_input_folder)
-      art_config(jg)%iart_ntracer        = iart_ntracer
       art_config(jg)%iart_init_aero      = iart_init_aero
       art_config(jg)%iart_init_gas       = iart_init_gas
       art_config(jg)%iart_init_passive   = iart_init_passive
@@ -316,6 +362,8 @@ CONTAINS
       art_config(jg)%lart_conv           = lart_conv
       art_config(jg)%lart_turb           = lart_turb
 
+      ! art number of tracers
+      CALL art_calc_number_of_art_tracers(art_config(jg))
     ENDDO !jg
 
     !-----------------------------------------------------
