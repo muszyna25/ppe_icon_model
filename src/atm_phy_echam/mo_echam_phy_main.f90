@@ -404,8 +404,13 @@ CONTAINS
       CALL message_forcing_action('parameterized methane oxidation (mox)',  &
            &                      is_in_sd_ed_interval,is_active)
 
-      CALL interface_echam_methox(                                      &
-           patch,   rl_start,   rl_end,   field,   tend                 )
+      CALL interface_echam_methox( is_in_sd_ed_interval,                     &
+           &                       is_active,                                &
+           &                       patch,                                    &
+           &                       rl_start,                                 &
+           &                       rl_end,                                   &
+           &                       field,                                    &
+           &                       tend                                      )
     END IF
 
 

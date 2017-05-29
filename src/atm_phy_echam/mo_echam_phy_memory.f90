@@ -546,7 +546,11 @@ MODULE mo_echam_phy_memory
       !
       &   ta_rsw (:,:,:)  , & !< temperature due to shortwave radiation
       &   ta_rlw (:,:,:)  , & !< temperature due to longwave radiation
-      &   ta_rlw_impl(:,:)    !< temperature tendency due to LW rad. due to implicit land surface temperature change
+      &   ta_rlw_impl(:,:), & !< temperature tendency due to LW rad. due to implicit land surface temperature change
+      !
+      ! methane oxidation
+      ! 
+      & qtrc_mox (:,:,:,:)    !< tracer mass mixing ratio (in fact that of water vapour) due to methane oxidation and H2O photolysis
 
     TYPE(t_ptr_3d),ALLOCATABLE :: qtrc_ptr(:)
     TYPE(t_ptr_3d),ALLOCATABLE :: qtrc_dyn_ptr(:)
@@ -554,6 +558,7 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr_3d),ALLOCATABLE :: qtrc_cld_ptr(:)
     TYPE(t_ptr_3d),ALLOCATABLE :: qtrc_cnv_ptr(:)
     TYPE(t_ptr_3d),ALLOCATABLE :: qtrc_vdf_ptr(:)
+    TYPE(t_ptr_3d),ALLOCATABLE :: qtrc_mox_ptr(:)
               
     TYPE(t_ptr_3d),ALLOCATABLE :: mtrc_phy_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: mtrcvi_phy_ptr(:)
@@ -3709,6 +3714,16 @@ CONTAINS
                 & ldims = shape_trc,                                           &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
 
+    CALL add_var( tend_list, prefix//'qtrc_mox', tend%qtrc_mox,                &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
+                & t_cf_var('tend_qtrc_mox', 'kg kg-1 s-1',                     &
+                &          'tendency of mass mixing ratio of tracers '//       &
+                &          'due to methane ox. and H2O photolysis',            &
+                &          datatype_flt),                                      &           
+                & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_CELL),&
+                & ldims = shape_trc,                                           &
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
+
     CALL add_var( tend_list, prefix//'mtrc_phy', tend%mtrc_phy,                &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
                 & t_cf_var('tend_mtrc_phy', 'kg m-2 s-1',                      &
@@ -3737,6 +3752,7 @@ CONTAINS
     ALLOCATE(tend% qtrc_cld_ptr(ktracer))
     ALLOCATE(tend% qtrc_cnv_ptr(ktracer))
     ALLOCATE(tend% qtrc_vdf_ptr(ktracer))
+    ALLOCATE(tend% qtrc_mox_ptr(ktracer))
 
     ALLOCATE(tend% mtrc_phy_ptr(ktracer))
     ALLOCATE(tend% mtrcvi_phy_ptr(ktracer))
@@ -3819,6 +3835,20 @@ CONTAINS
                   &          'tendency of mass mixing ratio of tracer '//                 &
                   &          TRIM(ctracer(jtrc))//                                        &
                   &          ' due to vertical diffusion',                                &
+                  &          datatype_flt),                                               &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                  & ref_idx=jtrc, ldims=(/kproma,klev,kblks/),                            &
+                  & vert_interp=create_vert_interp_metadata(                              &
+                  &             vert_intp_type=vintp_types("P","Z","I"),                  &
+                  &             vert_intp_method=VINTP_METHOD_LIN )                       )
+
+      CALL add_ref( tend_list, prefix//'qtrc_mox',                                        &
+                  & prefix//'q'//TRIM(ctracer(jtrc))//'_mox', tend%qtrc_mox_ptr(jtrc)%p,  &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                                    &
+                  & t_cf_var('tend_q'//TRIM(ctracer(jtrc))//'_mox', 'kg kg-1 s-1',        &
+                  &          'tendency of mass mixing ratio of tracer '//                 &
+                  &          TRIM(ctracer(jtrc))//                                        &
+                  &          ' due to methane oxidation and H2O photolysis',              &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
                   & ref_idx=jtrc, ldims=(/kproma,klev,kblks/),                            &

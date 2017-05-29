@@ -33,12 +33,20 @@ MODULE mo_interface_echam_methox
   PUBLIC :: interface_echam_methox
 
 CONTAINS
-  SUBROUTINE interface_echam_methox(patch,rl_start,rl_end,field,tend)
+  SUBROUTINE interface_echam_methox(is_in_sd_ed_interval,                   &  
+       &                            is_active,                              &
+       &                            patch,                                  &
+       &                            rl_start,                               &
+       &                            rl_end,                                 &
+       &                            field,                                  &
+       &                            tend                                    )
+    LOGICAL         ,INTENT(IN)         :: is_in_sd_ed_interval
+    LOGICAL         ,INTENT(IN)         :: is_active
     TYPE(t_patch)   ,INTENT(IN), TARGET :: patch           !< grid/patch info
     INTEGER         ,INTENT(IN)         :: rl_start, rl_end
     TYPE(t_echam_phy_field),   POINTER  :: field    
     TYPE(t_echam_phy_tend) ,   POINTER  :: tend
-    REAL(wp)                            :: dqdt(nproma,nlev)
+    REAL(wp)                            :: zdqdt(nproma,nlev)
     INTEGER  :: i_nchdom
     INTEGER  :: i_startblk,i_endblk
     INTEGER  :: jb             !< block index
@@ -50,9 +58,21 @@ CONTAINS
     DO jb = i_startblk,i_endblk
        CALL get_indices_c(patch, jb,   i_startblk,   i_endblk,    &
             &             jcs,   jce,  rl_start,     rl_end       )
-       dqdt(:,:)=0._wp
-       CALL methox(jcs, jce, nproma, nlev, field%qtrc(:,:,jb,iqv), dqdt, field%presm_old(:,:,jb))
-      tend% qtrc(jcs:jce,:,jb,iqv) = tend% qtrc(jcs:jce,:,jb,iqv) + dqdt(jcs:jce,:)
-    END DO
+       IF ( is_in_sd_ed_interval ) THEN
+         IF ( is_active ) THEN
+           zdqdt(:,:)=0._wp
+           CALL methox( jcs,                    jce,                       &
+                      & nproma,                 nlev,                      &
+!!$                      & field%qtrc(:,:,jb,iqv), tend%qtrc_mox(:,:,jb,iqv), &
+                      & field%qtrc(:,:,jb,iqv), zdqdt, &
+                      & field%presm_old(:,:,jb)                          )
+           tend%qtrc_mox(jcs:jce,:,jb,iqv)=zdqdt(jcs:jce,:)
+         END IF
+         tend%qtrc(jcs:jce,:,jb,iqv) = tend%qtrc(jcs:jce,:,jb,iqv) + &
+                                     &  tend%qtrc_mox(jcs:jce,:,jb,iqv)
+      ELSE
+        tend% qtrc_mox(jcs:jce,:,jb,iqv) = 0.0_wp
+      END IF
+   END DO
   END SUBROUTINE interface_echam_methox
   END MODULE mo_interface_echam_methox
