@@ -643,8 +643,8 @@ CONTAINS
     jg          = patch%id
 
     IF (jg > 1 .OR. l_limited_area) THEN
-      vn_aux(1:istartblk_e,:) = 0._wp
-      w_aux (1:istartblk_c,:) = 0._wp
+      vn_aux(1:MIN(istartblk_e,iendblk_e),:) = 0._wp
+      w_aux (1:MIN(istartblk_c,iendblk_c),:) = 0._wp
     ENDIF
 
 !$OMP PARALLEL
