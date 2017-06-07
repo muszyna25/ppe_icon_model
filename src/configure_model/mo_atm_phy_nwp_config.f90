@@ -151,11 +151,12 @@ MODULE mo_atm_phy_nwp_config
   ! ozone tuning if GEMS climatology is used:
   LOGICAL  :: ltuning_ozone 
   REAL(wp) :: tune_ozone_ztop
-  REAL(wp) :: tune_ozone_zmid
+  REAL(wp) :: tune_ozone_zmid, tune_ozone_zmid2
   REAL(wp) :: tune_ozone_zbot
   REAL(wp) :: tune_ozone_fac
   REAL(wp) :: tune_ozone_lat
   REAL(wp) :: tune_ozone_maxinc
+  INTEGER  :: ozone_shapemode
 
 CONTAINS
 
@@ -348,27 +349,33 @@ CONTAINS
       CALL message(TRIM(routine), 'Use GEMS ozone climatology with tuning')
       ltuning_ozone     = .TRUE.
       tune_ozone_ztop   = 30000.0_wp
+      tune_ozone_zmid2  = 15000.0_wp
       tune_ozone_zmid   = 15000.0_wp
       tune_ozone_zbot   = 10000.0_wp
       tune_ozone_fac    = 0.5_wp
-      tune_ozone_lat    = 45._wp   ! tuning is applied at low latitudes only
+      ozone_shapemode   = 1        ! tuning is applied at low latitudes only
+      tune_ozone_lat    = 45._wp   ! tuning ends at 45 deg
       tune_ozone_maxinc = 2.e-6_wp ! maximum absolute change of O3 mixing ratio
                                    ! this value is about 12% of the climatological maximum in the tropics
     CASE (79,97) ! Blending between GEMS and MACC climatologies
       CALL message(TRIM(routine), 'Use blending between GEMS and MACC ozone climatologies with tuning')
       ltuning_ozone     = .TRUE.
-      tune_ozone_ztop   = 27000.0_wp
-      tune_ozone_zmid   = 22000.0_wp
-      tune_ozone_zbot   = 19000.0_wp
+      tune_ozone_ztop   = 29000.0_wp
+      tune_ozone_zmid2  = 26000.0_wp
+      tune_ozone_zmid   = 20000.0_wp
+      tune_ozone_zbot   = 17000.0_wp
       tune_ozone_fac    = 0.15_wp
-      tune_ozone_lat    = -1._wp  ! tuning is applied globally
+      ozone_shapemode   = 2
+      tune_ozone_lat    = 30._wp
       tune_ozone_maxinc = 1.e-6_wp
     CASE DEFAULT
       ltuning_ozone     = .FALSE.
       tune_ozone_ztop   = 30000.0_wp
+      tune_ozone_zmid2  = 15000.0_wp
       tune_ozone_zmid   = 15000.0_wp
       tune_ozone_zbot   = 10000.0_wp
       tune_ozone_fac    = 0._wp
+      ozone_shapemode   = 1
       tune_ozone_lat    = -1._wp
       tune_ozone_maxinc = 0._wp
     END SELECT
@@ -384,18 +391,14 @@ CONTAINS
         jk_shift = jk+p_patch(jg)%nshift_total
         z_mc_ref = 0.5_wp*(vct_a(jk_shift)+vct_a(jk_shift+1))
         IF ( z_mc_ref > tune_ozone_zbot .AND. z_mc_ref < tune_ozone_ztop ) THEN
-! Default:
-!           atm_phy_nwp_config(jg)%fac_ozone(jk) = tune_ozone_fac *                        &
-!             & MIN( (z_mc_ref-tune_ozone_zbot)/(tune_ozone_zmid-tune_ozone_zbot), &
-!             &      (tune_ozone_ztop-z_mc_ref)/(tune_ozone_ztop-tune_ozone_zmid) )
-
-! Double cosine^2
           IF ( z_mc_ref < tune_ozone_zmid ) THEN
             atm_phy_nwp_config(jg)%fac_ozone(jk) = tune_ozone_fac *                        &
                  & sin((z_mc_ref-tune_ozone_zbot)/(tune_ozone_zmid-tune_ozone_zbot)*pi_2)**2
+          ELSE IF ( z_mc_ref < tune_ozone_zmid2 ) THEN
+            atm_phy_nwp_config(jg)%fac_ozone(jk) = tune_ozone_fac 
           ELSE
             atm_phy_nwp_config(jg)%fac_ozone(jk) = tune_ozone_fac *                        &
-                 & cos((z_mc_ref-tune_ozone_zmid)/(tune_ozone_ztop-tune_ozone_zmid)*pi_2)**2
+                 & cos((z_mc_ref-tune_ozone_zmid2)/(tune_ozone_ztop-tune_ozone_zmid2)*pi_2)**2
           END IF
         ELSE
           atm_phy_nwp_config(jg)%fac_ozone(jk) = 0.0_wp
@@ -404,12 +407,19 @@ CONTAINS
       ! Horizontal profile function for fac_ozone
       DO jb = 1, p_patch(jg)%nblks_c
         DO jc = 1, nproma          
-          IF (tune_ozone_lat > 0._wp) THEN
+          IF (ozone_shapemode == 1 .AND. tune_ozone_lat > 0._wp) THEN
             IF (ABS(p_patch(jg)%cells%center(jc,jb)%lat) < tune_ozone_lat * deg2rad) THEN
               atm_phy_nwp_config(jg)%shapefunc_ozone(jc,jb) = &
                 COS(p_patch(jg)%cells%center(jc,jb)%lat * 90._wp/tune_ozone_lat)**2
             ELSE
               atm_phy_nwp_config(jg)%shapefunc_ozone(jc,jb) = 0._wp
+            END IF
+          ELSE IF (ozone_shapemode == 2 .AND. tune_ozone_lat > 0._wp) THEN
+            IF (ABS(p_patch(jg)%cells%center(jc,jb)%lat) < tune_ozone_lat * deg2rad) THEN
+              atm_phy_nwp_config(jg)%shapefunc_ozone(jc,jb) = &
+                1._wp - 0.75_wp*SQRT(COS(p_patch(jg)%cells%center(jc,jb)%lat * 90._wp/tune_ozone_lat))
+            ELSE
+              atm_phy_nwp_config(jg)%shapefunc_ozone(jc,jb) = 1._wp
             END IF
           ELSE
             atm_phy_nwp_config(jg)%shapefunc_ozone(jc,jb) = 1.0_wp
