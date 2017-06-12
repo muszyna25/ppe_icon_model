@@ -56,6 +56,9 @@ MODULE mo_var_list
   USE mo_fortran_tools,    ONLY: assign_if_present
   USE mo_action_types,     ONLY: t_var_action
   USE mo_io_config,        ONLY: restart_file_type
+#ifdef DEBUG_MVSTREAM
+  USE mo_mpi, ONLY: my_process_is_stdio
+#endif
 
   IMPLICIT NONE
 
@@ -4036,6 +4039,9 @@ CONTAINS
     caseInsensitive = .FALSE.
     CALL assign_if_present(caseInsensitive, opt_caseInsensitive)
 
+#ifdef DEBUG_MVSTREAM
+    IF (my_process_is_stdio()) write (0,*)'name2look4:',name2look4,'|elementname:',get_var_name(element%field)
+#endif
     elementFoundByName = merge(tolower(name2look4) == tolower(get_var_name(element%field)), &
         &                      key2look4 == element%field%info%key, &
         &                      caseInsensitive)
