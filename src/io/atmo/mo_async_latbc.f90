@@ -347,7 +347,11 @@ MODULE mo_async_latbc
 
       ! open and read file containing information of prefetch variables
       ALLOCATE(StrLowCasegrp(MAX_NUM_GRPVARS))
-      CALL read_init_file(latbc, p_patch(1), StrLowCasegrp, latbc_varnames_dict)
+      IF( my_process_is_work() ) THEN
+        CALL read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict, p_patch(1))
+      ELSE IF ( my_process_is_pref() ) THEN
+        CALL read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict)
+      ENDIF
 
       ! destroy variable name dictionaries:
       CALL dict_finalize(latbc_varnames_dict)
@@ -396,11 +400,11 @@ MODULE mo_async_latbc
     !-------------------------------------------------------------------------------------------------
     !> open files containing first variable list and analysis
     !
-    SUBROUTINE read_init_file(latbc, p_patch, StrLowCasegrp, latbc_varnames_dict)
+    SUBROUTINE read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict, p_patch)
       TYPE (t_latbc_data),        INTENT(INOUT) :: latbc
-      TYPE(t_patch),              INTENT(IN)    :: p_patch
       CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: StrLowCasegrp(:) !< grp name in lower case letter
       TYPE (t_dictionary),        INTENT(IN)    :: latbc_varnames_dict
+      TYPE(t_patch), OPTIONAL,    INTENT(IN)    :: p_patch
 
       CHARACTER(*), PARAMETER                   :: routine = modname//"::read_init_files"
 #ifndef NOMPI
@@ -451,7 +455,7 @@ MODULE mo_async_latbc
       latbc_filename = generate_filename(nroot, latbc%patch_data%level, time_config%tc_startdate)
       latbc_file = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
 
-      IF(my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
+      IF(my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN
 
          INQUIRE (FILE=latbc_file, EXIST=l_exist)
          IF (.NOT.l_exist) THEN
