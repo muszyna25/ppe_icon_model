@@ -603,9 +603,7 @@ if [[ "$output_lnd" == "full" ]]; then
  ml_varlist       = 'sse_grnd_hflx_land'   , 'sse_hcap_grnd_land'   , 'sse_hcap_grnd_veg'    , 'sse_grnd_hflx_veg',
                     'sse_hcap_grnd_glac'   , 'sse_grnd_hflx_glac'   ,
                     'sse_t_soil_veg'       , 'sse_t_soil_acoef_veg' , 'sse_t_soil_bcoef_veg' ,
-                    'sse_t_snow_veg'       , 'sse_t_snow_acoef_veg' , 'sse_t_snow_bcoef_veg' ,
                     'sse_t_soil_glac'      , 'sse_t_soil_acoef_glac', 'sse_t_soil_bcoef_glac',
-                    'sse_snow_depth_sl_veg', 'sse_thaw_depth_veg'
 /
 &output_nml
  output_filename  = "${EXPNAME}_lnd_hydro"
