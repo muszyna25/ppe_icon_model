@@ -372,7 +372,8 @@ MODULE mo_nh_init_nest_utils
           lndvars_par(jc,jk1+5,jb) = p_parent_ldiag%rho_snow(jc,jb)
           lndvars_par(jc,jk1+6,jb) = p_parent_ldiag%w_i(jc,jb)
           lndvars_par(jc,jk1+7,jb) = p_parent_ldiag%freshsnow(jc,jb)
-          lndvars_par(jc,jk1+8,jb) = MAX(271._wp,p_parent_ldiag%t_seasfc(jc,jb)) ! to avoid trouble with missing values
+          lndvars_par(jc,jk1+8,jb) = MERGE(MAX(271._wp,p_parent_ldiag%t_so(jc,4,jb)), & ! fill t_seasfc with t_so where undefined
+                                     p_parent_ldiag%t_seasfc(jc,jb),p_parent_ldiag%t_seasfc(jc,jb)<=0._wp)
           lndvars_par(jc,jk1+9,jb) = p_parent_ldiag%qv_s(jc,jb)
         ENDDO
       ENDIF

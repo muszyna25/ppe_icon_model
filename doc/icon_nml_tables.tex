@@ -6925,3 +6925,21 @@ terrain following coordinates. The hybrid level specification is stored in
 $<$icon home$>$/hyb\_params/HYB\_PARAMS\_$<$nlev$>$.
 The {\bf hydrostatic} model assumes to get {\bf pressure based} coordinates, the {\bf nonhydrostatic}
 model expects {\bf height based} coordinates. For further information see $<$icon home$>$/hyb\_params/README.
+
+\section{Compile flag for mixed precision}
+
+To speed up code parts strongly limited by memory bandwidth (primarily the dynamical core and the tracer advection), 
+an option exists to use single precision for variables that are presumed to be insensitive to computational accuracy.
+This affects most local arrays in the dynamical core routines (solve\_nonhydro and velocity\_advection), some local
+arreays in the tracer transport routines, the metrics coefficients,
+arrays used for storing tendencies or differenced fields (gradients, divergence etc.), reference atmosphere fields,
+and interpolation coefficients. Prognostic variables and intermediate variables affecting the accuracy of mass conservation
+are still treated in double precision. To activate the mixed-precision option, the cpp flags '-D\_\_MIXED\_PRECISION' and  
+'-D\_\_MIXED\_PRECISION\_2' need to be specified in the configuration settings used for generating the Makefile.
+The latter flag is used for physics tendencies.
+Note that interpolation to a latitude-longitude grid is not supported for single-precision variables; if you desire to output
+physics tendency fields on a regular grid for diagnostic purposes, do not set '-D\_\_MIXED\_PRECISION\_2'.
+
+
+
+
