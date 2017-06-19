@@ -593,10 +593,11 @@ REAL(wp):: r_limval(nfields)
 
 ! Auxiliary fields
 REAL(wp), DIMENSION(nproma,MAX(32,ptr_pp%nlevp1)) :: grad_x, grad_y, maxval_neighb, minval_neighb
-REAL(wp) :: h_aux(nproma,MAX(32,ptr_pp%nlevp1),                       &
+REAL(wp) :: h_aux(nproma,MAX(32,ptr_pp%nlevp1), 4,                    &
                   ptr_pp%cells%start_block(grf_nudgintp_start_c):     &
                   MAX(ptr_pp%cells%start_block(grf_nudgintp_start_c), &
-                      ptr_pp%cells%end_block(min_rlcell_int)),4,nfields)
+                      ptr_pp%cells%end_block(min_rlcell_int)),        &
+                  nfields)
 
 REAL(wp) :: ovsht_fac, r_ovsht_fac
 
@@ -709,7 +710,7 @@ DO jn = 1, nfields
   DO jb = i_startblk, i_endblk
     CALL interpol_scal_nudging_core(ptr_pp, jb, i_startblk, i_endblk, &
       all_enabled, elev, ptr_coeff, ptr_dist, p_in(jn)%fld, &
-      h_aux(:,:,jb,:,jn), iidx, iblk, l_enabled, js, &
+      h_aux(:,:,:,jb,jn), iidx, iblk, l_enabled, js, &
       r_ovsht_fac, ovsht_fac)
   ENDDO ! blocks
 !$OMP END DO
@@ -743,13 +744,13 @@ DO jn = 1, nfields
         DO jc = i_startidx, i_endidx
 #endif
           p_out(jn)%fld(ichcidx(jc,jb,1),jk,ichcblk(jc,jb,1)) = &
-            MAX(h_aux(jc,jk,jb,1,jn),r_limval(jn))
+            MAX(h_aux(jc,jk,1,jb,jn),r_limval(jn))
           p_out(jn)%fld(ichcidx(jc,jb,2),jk,ichcblk(jc,jb,2)) = &
-            MAX(h_aux(jc,jk,jb,2,jn),r_limval(jn))
+            MAX(h_aux(jc,jk,2,jb,jn),r_limval(jn))
           p_out(jn)%fld(ichcidx(jc,jb,3),jk,ichcblk(jc,jb,3)) = &
-            MAX(h_aux(jc,jk,jb,3,jn),r_limval(jn))
+            MAX(h_aux(jc,jk,3,jb,jn),r_limval(jn))
           p_out(jn)%fld(ichcidx(jc,jb,4),jk,ichcblk(jc,jb,4)) = &
-            MAX(h_aux(jc,jk,jb,4,jn),r_limval(jn))
+            MAX(h_aux(jc,jk,4,jb,jn),r_limval(jn))
 
         ENDDO
       ENDDO
@@ -767,10 +768,10 @@ DO jn = 1, nfields
         DO jc = i_startidx, i_endidx
 #endif
 
-          p_out(jn)%fld(ichcidx(jc,jb,1),jk,ichcblk(jc,jb,1)) = h_aux(jc,jk,jb,1,jn)
-          p_out(jn)%fld(ichcidx(jc,jb,2),jk,ichcblk(jc,jb,2)) = h_aux(jc,jk,jb,2,jn)
-          p_out(jn)%fld(ichcidx(jc,jb,3),jk,ichcblk(jc,jb,3)) = h_aux(jc,jk,jb,3,jn)
-          p_out(jn)%fld(ichcidx(jc,jb,4),jk,ichcblk(jc,jb,4)) = h_aux(jc,jk,jb,4,jn)
+          p_out(jn)%fld(ichcidx(jc,jb,1),jk,ichcblk(jc,jb,1)) = h_aux(jc,jk,1,jb,jn)
+          p_out(jn)%fld(ichcidx(jc,jb,2),jk,ichcblk(jc,jb,2)) = h_aux(jc,jk,2,jb,jn)
+          p_out(jn)%fld(ichcidx(jc,jb,3),jk,ichcblk(jc,jb,3)) = h_aux(jc,jk,3,jb,jn)
+          p_out(jn)%fld(ichcidx(jc,jb,4),jk,ichcblk(jc,jb,4)) = h_aux(jc,jk,4,jb,jn)
 
         ENDDO
       ENDDO
