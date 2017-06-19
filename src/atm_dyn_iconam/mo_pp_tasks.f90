@@ -83,7 +83,7 @@ MODULE mo_pp_tasks
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_pp_tasks'
 
   ! max. name string length
-  INTEGER, PARAMETER, PUBLIC :: MAX_NAME_LENGTH   =   64
+  INTEGER, PARAMETER, PUBLIC :: MAX_NAME_LENGTH   =   256
 
   ! priority levels for tasks (smaller is earlier):
   INTEGER, PARAMETER, PUBLIC  :: HIGH_PRIORITY     =    0  
@@ -217,7 +217,7 @@ CONTAINS
   SUBROUTINE pp_task_lonlat(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//"p_task_lonlat"
+    CHARACTER(*), PARAMETER :: routine = modname//"::p_task_lonlat"
     INTEGER                            ::        &
       &  nblks_ll, npromz_ll, lonlat_id, jg,     &
       &  in_var_idx, out_var_idx, out_var_idx_2, &
@@ -502,7 +502,7 @@ CONTAINS
   SUBROUTINE pp_task_sync(sim_status)
     TYPE(t_simulation_status),  INTENT(IN) :: sim_status
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_sync"
+    CHARACTER(*), PARAMETER :: routine = modname//"::pp_task_sync"
     TYPE(t_job_queue),         POINTER :: ptr_task
     INTEGER                            :: in_var_idx, jg, sync_mode, &
       &                                   var_ref_pos
@@ -627,7 +627,7 @@ CONTAINS
   SUBROUTINE pp_task_ipzlev_setup(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_ipzlev_setup"
+    CHARACTER(*), PARAMETER :: routine = modname//"::pp_task_ipzlev_setup"
     INTEGER                            :: jg, nzlev, nplev, nilev
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_metrics),        POINTER :: p_metrics    
@@ -699,7 +699,7 @@ CONTAINS
   SUBROUTINE pp_task_ipzlev(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_ipzlev"
+    CHARACTER(*), PARAMETER :: routine = modname//"::pp_task_ipzlev"
     INTEGER                            :: &
       &  vert_intp_method, jg,                    &
       &  in_var_idx, out_var_idx, nlev, nlevp1,   &
@@ -972,7 +972,7 @@ CONTAINS
   SUBROUTINE pp_task_intp_msl(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables    
-    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_intp_msl"
+    CHARACTER(*), PARAMETER :: routine = modname//"::pp_task_intp_msl"
     INTEGER,  PARAMETER :: nzlev         =        1     ! just a single z-level... 
     REAL(wp), PARAMETER :: ZERO_HEIGHT   =    0._wp, &
       &                    EXTRAPOL_DIST = -500._wp
@@ -1102,7 +1102,7 @@ CONTAINS
     !TYPE(t_int_state),         POINTER :: p_int_state
     TYPE(t_nh_prog),           POINTER :: p_prog
     TYPE(t_nh_diag),           POINTER :: p_diag
-    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_compute_field"
+    CHARACTER(*), PARAMETER :: routine = modname//"::pp_task_compute_field"
     LOGICAL :: lclip                   ! limit rh to MAX(rh,100._wp)
     
     ! output field for this task
@@ -1164,7 +1164,7 @@ CONTAINS
   SUBROUTINE pp_task_edge2cell(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_edge2cell"
+    CHARACTER(*), PARAMETER :: routine = modname//"::pp_task_edge2cell"
     INTEGER :: &
       &  in_var_idx, out_var_idx_1, out_var_idx_2, &
       &  in_var_ref_pos, out_var_ref_pos_1,        &

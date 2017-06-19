@@ -282,6 +282,7 @@ CONTAINS
                &              field%  evap_tile    (:,jb,:),                  &! out
                &              nblock = jb,                                    &! in
                &              lsm = field%lsmask(:,jb),                       &!< in, land-sea mask
+               &              alake = field%alake(:,jb),                      &! in, lake fraction
                &              pu    = field% ua(:,nlev,jb),                   &! in, um1
                &              pv    = field% va(:,nlev,jb),                   &! in, vm1
                &              ptemp = field% ta(:,nlev,jb),                   &! in, tm1
@@ -293,7 +294,7 @@ CONTAINS
                &              rlds        = field% rlds (:,jb),               &! in,  downward surface  longwave flux [W/m2]
                &              rlus        = field% rlus (:,jb),               &! inout, upward surface  longwave flux [W/m2]
                &              rsds        = field% rsds (:,jb),               &! in,  downward surface shortwave flux [W/m2]
-               &              rsus        = field% rsus (:,jb),               &! inout, upward surface shortwave flux [W/m2]
+               &              rsus        = field% rsus (:,jb),               &! in,  upward surface shortwave flux [W/m2]
                !
                &              rvds_dir   = field%rvds_dir   (:,jb),           &! in, all-sky downward direct visible radiation at surface
                &              rpds_dir   = field%rpds_dir   (:,jb),           &! in, all-sky downward direct PAR     radiation at surface
@@ -324,6 +325,7 @@ CONTAINS
                &              ptsfc_rad = field%ts_rad(:,jb),                 &! out
                &              rlns_tile = field%lwflxsfc_tile(:,jb,:),        &! out (for coupling)
                &              rsns_tile = field%swflxsfc_tile(:,jb,:),        &! out (for coupling)
+               &              lake_ice_frc = field%lake_ice_frc(:,jb),        &! out
                &              Tsurf = field% Tsurf(:,:,jb),                   &! inout, for sea ice
                &              T1    = field% T1   (:,:,jb),                   &! inout, for sea ice
                &              T2    = field% T2   (:,:,jb),                   &! inout, for sea ice

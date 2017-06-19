@@ -812,7 +812,7 @@ run\_nml:iforcing = inwp
 \hline
 range\_gkwake&
 R&
-0.333&
+0.5&
 &
 Variability range for low level wake drag constant&
 \tabularnewline
@@ -825,6 +825,13 @@ R&
 Variability range for orographic gravity wave drag constant&
 \tabularnewline
 
+\hline
+range\_gfrcrit&
+R&
+0.1&
+&
+Variability range for critical Froude number in SSO scheme&
+\tabularnewline
 
 \hline
 range\_gfluxlaun&
@@ -944,6 +951,22 @@ R&
 &
 Variability range for minimum value to which snow cover fraction is artificially reduced in case of melting snow & 
 idiag\_snowfrac = 20/30/40
+\tabularnewline
+
+\hline
+range\_c\_soil&
+R&
+0.25&
+&
+Variability range for evaporating fraction of soil & 
+\tabularnewline
+
+\hline
+range\_cwimax\_ml&
+R&
+2.0&
+&
+Variability range for capacity of interception storage (multiplicative) & 
 \tabularnewline
 
 \hline
@@ -1757,6 +1780,14 @@ init\_mode=1,3
 \tabularnewline
 
 %\hline
+use\_lakeiceana&
+L & .FALSE.& &
+If .TRUE., analysis data for sea ice fraction are also used for freshwater lakes (for the time being restricted to the Great Lakes; extension to other
+lakes needs to be tested) &
+init\_mode=5,6
+\tabularnewline
+
+%\hline
 lconsistency\_checks&
 L & .TRUE.& &
 If .FALSE., consistency checks for Analysis and First Guess fields are skipped. On default, checks are performed for 
@@ -1858,21 +1889,24 @@ If this parameter has not been set, we try to determine the file type by its ext
 
 
 %\hline
-ana\_varlist &
+check\_fg(jg)\%list &
 C(:)& & &
-List of mandatory analysis fields for the \textbf{global domain} that must be present in the analysis file. If these fields are not found, 
-the model aborts. For all other analysis fields, the FG-fields will serve as fallback position.
+In ICON a small subset of first guess input fields is declared 'optional', meaning that they are read in 
+if present, but they are not mandatory to start the model. By adding optional fields to this list, 
+they become mandatory for domain \texttt{jg}, such that the model aborts if any of them is missing. 
+This list may include a subset of the optional first guess fields, or even the entire set of first 
+guess fields. On default this list is empty, such that optional fields experience a cold-start 
+initialization if they are missing and the model does not abort.
 & init\_mode=1,5,6
 \tabularnewline
 
 %\hline
-ana\_varlist\_n2 &
+check\_ana(jg)\%list &
 C(:)& & &
-List of mandatory analysis fields for \textbf{domain 2} that must be present in the analysis file. If these fields are not found, 
+List of mandatory analysis fields for domain \texttt{jg} that must be present in the analysis file. If these fields are not found, 
 the model aborts. For all other analysis fields, the FG-fields will serve as fallback position.
-& init\_mode=5,6
+& init\_mode=1,5,6
 \tabularnewline
-
 
 %\hline
 \textbf{ana\_varnames\_map\_ file} &
@@ -2021,6 +2055,13 @@ support\_baryctr\_intp &
 L& .FALSE. & &
 Flag. If .FALSE. barycentric interpolation is replaced by a
 fallback interpolation.&
+\tabularnewline
+
+%\hline
+lreduced\_nestbdry\_stencil &
+L& .FALSE. & &
+Flag. If .TRUE. then the nest boundary points are taken out from
+the lat-lon interpolation stencil.&
 \tabularnewline
 
 \end{longtab}
@@ -2353,16 +2394,6 @@ itype\_latbc $\ge$ 1
 \tabularnewline
 
 %\hline
-\textbf{nlev\_latbc}&
-I &
-0& s
-&
-Number of vertical levels in boundary data.
-&
-itype\_latbc $\ge$ 1
-\tabularnewline
-
-%\hline
 \textbf{latbc\_filename}&
 C &
 &
@@ -2643,6 +2674,17 @@ L&
 &
 .TRUE. for use of sea-ice model&
 \tabularnewline
+
+
+%\hline
+lprog\_albsi &
+L&
+.FALSE.&
+&
+If .TRUE., sea-ice albedo is computed prognostically & lseaice=.TRUE.
+\tabularnewline
+
+
 %\hline
 \textbf{llake} &
 L&
@@ -3566,6 +3608,15 @@ run\_nml:iforcing = inwp
 \tabularnewline
 
 \hline
+tune\_gfrcrit&
+R&
+0.4&
+&
+critical Froude number (controls depth of blocking layer)&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
 \hline
 \multicolumn{6}{|l|}{\textbf{GWD} (Warner McIntyre)} 
 \tabularnewline
@@ -4429,7 +4480,7 @@ Number of restart processors (running exclusively for doing restart)&
 
 %\hline
 \textbf{num\_prefetch\_proc} &
-I & 0& &
+I & 1& &
 Number of processors for prefetching of boundary data asynchronously for
 a limited area run (running exclusively for reading Input boundary
 data. Maximum no of processors used for it is limited to 1). &
@@ -5330,13 +5381,12 @@ L& .FALSE.& & Time splitting method & \tabularnewline
 & & & & FALSE: first order Godunov splitting & \tabularnewline
 
 %\hline
-ctracer\_list&
-C& ''& & Two purposes: & \tabularnewline
- & &   &  & 
- - used for selecting those tracers which should be initialized for idealized testcases. & [nh/ha]\_test\_name=\\'jabw','PA','DF'
-\tabularnewline
- & &   &  & 
- - used for tracer output names. In some idealized cases tracers are named 'Q\emph{x}', with \emph{x} being a 1-digit integer taken from \texttt{ctracer\_list}. & iforcing$\ne$ inwp, iecham
+tracer\_names&
+C(:)& 'Int2Str(i)'& & Tracer-specific name suffixes. When running idealized cases or the hydrostatic ICON, 
+this variable is used to specify tracer names. If nothing is specified, the tracer name is given as 
+\texttt{PREFIX+Int2String(i)}, where \texttt{i} is the tracer index. Note that this 
+namelist variable has no effect for nonhydrostatic real-case runs, if the NWP- or ECHAM physics 
+packages are switched on. & iforcing$\ne$ inwp, iecham'
 \tabularnewline
 
 %\hline
@@ -5844,6 +5894,17 @@ ntracer = 2
 lshallow\_water=.FALSE.
 \tabularnewline
 
+tracer\_inidist\_list & 
+I(:) & 1 &  &
+For a subset of testcases pre-defined initial tracer distributions are available. 
+This namelist parameter specifies the initial distribution for each tracer. 
+In the following the testcases and the pre-defined numbers are given:\\
+`PA': 4,5,6,7,8\\
+'JABW':1,2,3,4\\
+'DF': 5,6,7,8,9\\
+For more details on the initial distributions, please have a look into the code. & ha\_testcase\_nml='PA',\\'JABW','DF'
+\tabularnewline
+
 %\hline
 rotate\_axis\_deg&
 R& 0.0& deg&
@@ -6097,6 +6158,17 @@ is\_plane\_torus= .TRUE.
 is\_toy\_chem & 
 L & .FALSE. &  &
 Terminator toy chemistry activated when .TRUE. &
+\tabularnewline
+
+tracer\_inidist\_list & 
+I(:) & 1 &  &
+For a subset of testcases pre-defined initial tracer distributions are available. 
+This namelist parameter specifies the initial distribution for each tracer. 
+In the following the testcases and the pre-defined numbers are given:\\
+`PA': 4,5,6,7,8\\
+'JABW':1,2,3,4\\
+'DF': 5,6,7,8,9\\
+For more details on the initial distributions, please have a look into the code. & nh\_test\_name='PA',\\'JABW','DF'
 \tabularnewline
 
 \hline

@@ -251,7 +251,7 @@ REAL (KIND=ireals)     ::     &
   ! Dimensionless parameters used in the sub grid scale condensation scheme
   ! (statistical cloud scheme):
   clc_diag   =  0.5_ireals,   & !cloud cover at saturation
-  q_crit     =  4.0_ireals,   & !critical value for normalized over-saturation
+  q_crit     =  1.6_ireals,   & !critical value for normalized over-saturation
   c_scld     =  1.0_ireals      !factor for liquid water flux density in sub grid scale clouds
 
 !==============================================================================

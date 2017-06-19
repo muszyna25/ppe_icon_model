@@ -181,7 +181,6 @@ cat > NAMELIST_nwptest << EOF
  zpbl1                        = 500.
  zpbl2                        = 1000.
  lread_ana                    = .true. ! (T) Read dwdana
- l_sst_in                     = .true.
  lp2cintp_incr                = .true.      ! parent-to-child-interpolation
  lp2cintp_sfcana              = .true.      ! of analyses
  dwdfg_filename               = "<path>fg_R<nroot0>B<jlev>_DOM<idom>.grb"
@@ -307,7 +306,6 @@ cat > NAMELIST_nwptest << EOF
  lcoriolis                    = .true.
 /
 &transport_nml
- ctracer_list                 = '12345'
  ivadv_tracer                 = 3,3,3,3,3
  itype_hlimit                 = 3,4,4,4,4
  ihadv_tracer                 = 52,2,2,2,2

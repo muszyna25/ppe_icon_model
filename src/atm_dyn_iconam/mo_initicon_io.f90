@@ -33,8 +33,9 @@ MODULE mo_initicon_io
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_initicon_types,      ONLY: t_initicon_state, t_pi_atm, alb_snow_var, geop_ml_var
-  USE mo_input_instructions,  ONLY: t_readInstructionListPtr, kInputSourceNone, kInputSourceFg, &
-    &                               kInputSourceAna, kInputSourceBoth, kStateFailedFetch
+  USE mo_input_instructions,  ONLY: t_readInstructionListPtr, kInputSourceFg, &
+    &                               kInputSourceAna, kInputSourceBoth, kStateFailedFetch, &
+    &                               kInputSourceCold
   USE mo_initicon_config,     ONLY: init_mode, nlevatm_in, l_sst_in, generate_filename, &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               nml_filetype => filetype, lread_vn,      &
@@ -56,7 +57,7 @@ MODULE mo_initicon_io
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: ntiles_total,  l2lay_rho_snow, &
     &                               ntiles_water, lmulti_snow, lsnowtile, &
-    &                               isub_lake, llake
+    &                               isub_lake, llake, lprog_albsi
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
   USE mo_io_util,             ONLY: get_filetype
@@ -79,7 +80,7 @@ MODULE mo_initicon_io
   !
   !  2. init_mode
   !
-  !  3. further flags and the `ana_varlist` field from the namelists
+  !  3. further flags and the `ana_checklist` and 'fg_checklist' fields from the namelists
   !
   !
   ! Steps of reading
@@ -89,7 +90,7 @@ MODULE mo_initicon_io
   !     The code for this is found in `mo_input_instructions`.
   !
   !     This is where the variable groups enter the process, all further processing depends on the variable groups only indirectly via `t_ReadInstructions`.
-  !     This is also the place where the `ana_varlist` namelist parameter is evaluated.
+  !     This is also the place where the `ana_checklist` and `fg_checklist` namelist parameter is evaluated.
   !
   !     The input instructions serve a dual purpose (which is a source of confusion, unfortunately):
   !     They encode from which input file a read attempt for a variable should be made,
@@ -129,6 +130,9 @@ MODULE mo_initicon_io
   ! There are two places that need to be changed to add support for a new input variable:
   !
   !  1. The variable has to be added to the relevant variable groups, so that input instructions are generated for it, and so that it's requested from the right files.
+  !
+  !  2. If the new variable is an optional first guess field, it has to be added manually in the SUBROUTINE collectGroupFgOpt 
+  !     in mo_input_instructions
   !
   !  2. Code has to be added to one of the `fetch_dwd...()` routines in this file to retrieve the data from the file(s)
   !     and to inform the `t_ReadInstructions` about the succes/failure to do so.
@@ -839,19 +843,6 @@ MODULE mo_initicon_io
     END IF
   END SUBROUTINE fetch3d
 
-  FUNCTION fetchSurfaceOptional(params, varName, jg, field) RESULT(resultVar)
-    TYPE(t_fetchParams), INTENT(INOUT) :: params
-    CHARACTER(LEN = *), INTENT(IN) :: varName
-    INTEGER, VALUE :: jg
-    REAL(wp), INTENT(INOUT) :: field(:,:)
-    LOGICAL :: resultVar
-
-    IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
-        resultVar = params%requestList%fetchSurface(varName, trivial_tileId, jg, field)
-        CALL params%inputInstructions(jg)%ptr%optionalReadResult(resultVar, varName, params%routine, params%isFg)
-    END IF
-  END FUNCTION fetchSurfaceOptional
-
   SUBROUTINE fetchSurface(params, varName, jg, field)
     TYPE(t_fetchParams), INTENT(INOUT) :: params
     CHARACTER(LEN = *), INTENT(IN) :: varName
@@ -915,31 +906,6 @@ MODULE mo_initicon_io
         CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
     END IF
   END SUBROUTINE fetchTiled3d
-
-  ! Same as above for variables that are optionally read from input file.
-  SUBROUTINE fetchTiled3dOptional(params, varName, jg, tileCount, field, avail)
-    TYPE(t_fetchParams), INTENT(INOUT) :: params
-    CHARACTER(LEN = *), INTENT(IN) :: varName
-    INTEGER, VALUE :: jg, tileCount
-    REAL(wp), INTENT(INOUT) :: field(:,:,:,:)
-    LOGICAL, INTENT(OUT) :: avail
-
-    INTEGER :: jt
-
-    IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
-        IF(ltile_coldstart) THEN
-            !Fake tiled input by copying the input field to all tiles.
-            avail = .TRUE.
-            DO jt = 1, tileCount
-                avail = avail.AND.params%requestList%fetch3d(varName, trivial_tileId, jg, field(:,:,:,jt))
-            END DO
-        ELSE
-            !True tiled input.
-            avail = params%requestList%fetchTiled3d(varName, jg, field)
-        END IF
-        CALL params%inputInstructions(jg)%ptr%optionalReadResult(avail, varName, params%routine, params%isFg)
-    END IF
-  END SUBROUTINE fetchTiled3dOptional
 
   SUBROUTINE fetchRequired3d(params, varName, jg, field)
     TYPE(t_fetchParams), INTENT(INOUT) :: params
@@ -1272,7 +1238,6 @@ MODULE mo_initicon_io
     TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
     INTEGER :: jg, error
-    LOGICAL :: avail
     REAL(wp), POINTER :: my_ptr2d(:,:)
     TYPE(t_lnd_prog), POINTER :: lnd_prog
     TYPE(t_lnd_diag), POINTER :: lnd_diag
@@ -1308,6 +1273,9 @@ MODULE mo_initicon_io
             ! sea-ice related fields
             CALL fetchSurface(params, 't_ice', jg, wtr_prog%t_ice)
             CALL fetchSurface(params, 'h_ice', jg, wtr_prog%h_ice)
+            IF ( lprog_albsi ) THEN  ! prognostic sea-ice albedo
+              CALL fetchSurface(params, 'alb_si', jg, wtr_prog%alb_si)
+            ENDIF
 
             !These two fields are required for the processing step below, AND they are NOT initialized before this SUBROUTINE IS called, so they are fetched as required.
             !This diverges from the code that I found which READ them conditionally.
@@ -1332,8 +1300,8 @@ MODULE mo_initicon_io
                 CALL fetchTiled3d(params, 'wliq_snow', jg, ntiles_total, lnd_prog%wliq_snow_t)
                 CALL fetchTiled3d(params, 'dzh_snow', jg, ntiles_total, lnd_prog%dzh_snow_t)
             ELSE IF (l2lay_rho_snow) THEN
-                CALL fetchTiled3dOptional(params, 'rho_snow_mult', jg, ntiles_total, lnd_prog%rho_snow_mult_t, avail)
-                IF(.NOT. avail) THEN
+                CALL fetchTiled3d(params, 'rho_snow_mult', jg, ntiles_total, lnd_prog%rho_snow_mult_t)
+                IF (inputInstructions(jg)%ptr%sourceOfVar('rho_snow_mult') == kInputSourceCold) THEN
                     ! initialize top-layer snow density with average density if no input field is available
                     lnd_prog%rho_snow_mult_t(:,1,:,:) = lnd_prog%rho_snow_t(:,:,:)
                 ENDIF
@@ -1372,23 +1340,32 @@ MODULE mo_initicon_io
                 aerosol_fg_present(jg) = .TRUE.
 
                 my_ptr2d => prm_diag(jg)%aerosol(:,iss,:)
-                IF(.NOT.fetchSurfaceOptional(params, 'aer_ss', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+                CALL fetchSurface(params, 'aer_ss', jg, my_ptr2d)
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_ss') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
+                !
                 my_ptr2d => prm_diag(jg)%aerosol(:,iorg,:)
-                IF(.NOT.fetchSurfaceOptional(params, 'aer_or', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+                CALL fetchSurface(params, 'aer_or', jg, my_ptr2d)
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_or') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
+                !
                 my_ptr2d => prm_diag(jg)%aerosol(:,ibc,:)
-                IF(.NOT.fetchSurfaceOptional(params, 'aer_bc', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+                CALL fetchSurface(params, 'aer_bc', jg, my_ptr2d)
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_bc') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
+                !
                 my_ptr2d => prm_diag(jg)%aerosol(:,iso4,:)
-                IF(.NOT.fetchSurfaceOptional(params, 'aer_su', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+                CALL fetchSurface(params, 'aer_su', jg, my_ptr2d)
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_su') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
+                !
                 my_ptr2d => prm_diag(jg)%aerosol(:,idu,:)
-                IF(.NOT.fetchSurfaceOptional(params, 'aer_du', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+                CALL fetchSurface(params, 'aer_du', jg, my_ptr2d)
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_du') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
 
                 ! Reading of these variables IS purely OPTIONAL, but IF reading of one fails, we USE NONE. Inform the InputInstructions about this.
                 IF(.NOT.aerosol_fg_present(jg)) THEN
-                    CALL inputInstructions(jg)%ptr%setSource('aer_ss', kInputSourceNone)
-                    CALL inputInstructions(jg)%ptr%setSource('aer_or', kInputSourceNone)
-                    CALL inputInstructions(jg)%ptr%setSource('aer_bc', kInputSourceNone)
-                    CALL inputInstructions(jg)%ptr%setSource('aer_su', kInputSourceNone)
-                    CALL inputInstructions(jg)%ptr%setSource('aer_du', kInputSourceNone)
+                    CALL inputInstructions(jg)%ptr%setSource('aer_ss', kInputSourceCold)
+                    CALL inputInstructions(jg)%ptr%setSource('aer_or', kInputSourceCold)
+                    CALL inputInstructions(jg)%ptr%setSource('aer_bc', kInputSourceCold)
+                    CALL inputInstructions(jg)%ptr%setSource('aer_su', kInputSourceCold)
+                    CALL inputInstructions(jg)%ptr%setSource('aer_du', kInputSourceCold)
                 END IF
             ELSE
                 aerosol_fg_present(jg) = .FALSE.
@@ -1407,15 +1384,16 @@ MODULE mo_initicon_io
 
     INTEGER :: jg, jt, jb, jc, ic, i_endidx
     TYPE(t_lnd_prog), POINTER :: lnd_prog
-    TYPE(t_wtr_prog), POINTER :: wtr_prog
+    TYPE(t_wtr_prog), POINTER :: wtr_prog_now
     TYPE(t_lnd_diag), POINTER :: lnd_diag
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":process_input_dwdfg_sfc"
 
+
     DO jg = 1, n_dom
         IF(p_patch(jg)%ldom_active) THEN
-            lnd_prog => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
-            wtr_prog => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
-            lnd_diag => p_lnd_state(jg)%diag_lnd
+            lnd_prog     => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
+            wtr_prog_now => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
+            lnd_diag     => p_lnd_state(jg)%diag_lnd
             DO jt=1, ntiles_total + ntiles_water
                 ! Copy t_g_t and qv_s_t to t_g and qv_s, respectively, on limited-area domains.
                 ! This is needed to avoid invalid operations in the initialization of the turbulence scheme
@@ -1464,7 +1442,7 @@ MODULE mo_initicon_io
                 ! take lake surface temperature from t_wml_lk
                 DO ic = 1, ext_data(jg)%atm%fp_count(jb)
                   jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-                  lnd_prog%t_s_t(jc,jb,isub_lake) = wtr_prog%t_wml_lk(jc,jb)
+                  lnd_prog%t_s_t(jc,jb,isub_lake) = wtr_prog_now%t_wml_lk(jc,jb)
                 ENDDO
               ELSE
                 ! without lake model, take t_g as an estimate of the lake temperature
@@ -1484,6 +1462,7 @@ MODULE mo_initicon_io
 
             ENDDO  ! jb
 !$OMP END PARALLEL DO
+
         END IF
 
     END DO

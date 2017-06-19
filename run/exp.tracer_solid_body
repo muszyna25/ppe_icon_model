@@ -48,7 +48,8 @@ cat > NAMELIST_${EXPNAME} << EOF
 &parallel_ctl
 /
 &testcase_ctl
- ctest_name  = 'PA'             ! test case identifier PA=pure advection test case
+ ctest_name  = 'PA'             ! test case identifier PA=pure advection testcase
+ tracer_inidist_list = 4        ! choose initial distribution nr. 4
 /
 &grid_ctl
  nroot       = ${R}             ! root division of icosahedron edges
@@ -79,7 +80,7 @@ cat > NAMELIST_${EXPNAME} << EOF
  idiv_method      = 2           ! bilinear averaging
 /
 &transport_ctl
-  ctracer_list = '4'            ! list of tracer names
+  tracer_names = '4'            ! list of tracer names
   ihadv_tracer = 2              ! default: miura
   ivadv_tracer = 3              ! default: ppm
   lvadv_tracer = .TRUE.         ! default: .FALSE.

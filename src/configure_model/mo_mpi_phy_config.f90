@@ -106,6 +106,7 @@ MODULE mo_mpi_phy_config
      LOGICAL                              :: lmlo    !< .true. for mixed layer ocean
      LOGICAL                              :: lice    !< .true. for sea-ice temperature calculation
      LOGICAL                              :: ljsb    !< .true. for calculating the JSBACH land surface
+     LOGICAL                              :: llake   !< .true. for using lakes in JSBACH
      LOGICAL                              :: lamip   !< .true. for AMIP simulations
      !
   END TYPE t_mpi_phy_config
@@ -246,6 +247,7 @@ CONTAINS
     !
     ! logical switches
     mpi_phy_config(:)% ljsb  = .FALSE.
+    mpi_phy_config(:)% llake = .FALSE.
     mpi_phy_config(:)% lamip = .FALSE.
     mpi_phy_config(:)% lmlo  = .FALSE.
     mpi_phy_config(:)% lice  = .FALSE.
@@ -606,6 +608,7 @@ CONTAINS
        CALL print_value('    mpi_phy_config('//TRIM(cg)//')% lmlo ',mpi_phy_config(jg)% lmlo         )
        CALL print_value('    mpi_phy_config('//TRIM(cg)//')% lice ',mpi_phy_config(jg)% lice         )
        CALL print_value('    mpi_phy_config('//TRIM(cg)//')% ljsb ',mpi_phy_config(jg)% ljsb         )
+       CALL print_value('    mpi_phy_config('//TRIM(cg)//')% llake',mpi_phy_config(jg)% llake        )
        CALL print_value('    mpi_phy_config('//TRIM(cg)//')% lamip',mpi_phy_config(jg)% lamip        )
        CALL message    ('','')
        CALL message    ('','')

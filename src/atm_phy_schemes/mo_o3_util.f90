@@ -967,13 +967,13 @@ CONTAINS
     IDY = mtime_datetime%date%day - 1 !NDD(KINDAT)-1
     IMN = mtime_datetime%date%month ! NMM(KINDAT)
     IF (IMN == 1) THEN
-      ZXTIME=REAL(IDY*1440 + mtime_datetime%time%hour*60 + mtime_datetime%time%minute, wp) !KMINUT      
+      ZXTIME=REAL(IDY*1440 + mtime_datetime%time%hour*60 + mtime_datetime%time%minute, wp)      
     ELSEIF (IMN == 2) THEN
       IF(IDY == 28) IDY=IDY-1
       ! A DAY IN FEB. IS 28.25*24*60/28=1452.8571min LONG.
-      ZXTIME=44640._wp+REAL(IDY,wp)*1452.8571_wp + REAL(mtime_datetime%time%hour*60 + mtime_datetime%time%minute, wp) !KMINUT
+      ZXTIME=44640._wp+REAL(IDY,wp)*1452.8571_wp + REAL(mtime_datetime%time%hour*60 + mtime_datetime%time%minute, wp)
     ELSE
-      ZXTIME=(ZMDAY(IMN-1)+REAL(IDY,KIND(ZXTIME)))*1440._wp + REAL(mtime_datetime%time%hour*60 + mtime_datetime%time%minute, wp) !KMINUT
+      ZXTIME=(ZMDAY(IMN-1)+REAL(IDY,KIND(ZXTIME)))*1440._wp + REAL(mtime_datetime%time%hour*60 + mtime_datetime%time%minute, wp)
     ENDIF
     ! 525960=MINUTES IN A SIDERAL YEAR (365.25d)
     ZXTIME=MOD(ZXTIME,525960._wp)
@@ -1077,10 +1077,10 @@ CONTAINS
 
       ! Pressure mask field for tropics (used for ozone enhancement in January and February)
       DO jk = 1, nlev_gems
-        IF (zrefp(jk) >= 7000._wp .AND. zrefp(jk) <= 10000._wp) THEN
+        IF (zrefp(jk) >= 5000._wp .AND. zrefp(jk) <= 10000._wp) THEN
           wfac_p_tr(jk) = 1._wp
-        ELSE IF (zrefp(jk) < 7000._wp .AND. zrefp(jk) >= 5000._wp) THEN
-          wfac_p_tr(jk) = (zrefp(jk)-5000._wp)/2000._wp
+        ELSE IF (zrefp(jk) < 5000._wp .AND. zrefp(jk) >= 3000._wp) THEN
+          wfac_p_tr(jk) = (zrefp(jk)-3000._wp)/2000._wp
         ELSE IF (zrefp(jk) > 10000._wp .AND. zrefp(jk) < 15000._wp) THEN
           wfac_p_tr(jk) = (15000._wp-zrefp(jk))/5000._wp
         ELSE
@@ -1122,7 +1122,7 @@ CONTAINS
           o3_gems1 = RGHG7(JL,JK,IM1) + MERGE(wfac_tr(jl)*wfac_p_tr(jk)*&
                      MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM1)), 0._wp, im1==1 .OR. im1==2)
           o3_gems2 = RGHG7(JL,JK,IM2) + MERGE(wfac_tr(jl)*wfac_p_tr(jk)*&
-                     MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM2)), 0._wp, im1==1 .OR. im1==2)
+                     MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM2)), 0._wp, im2==1 .OR. im2==2)
 
           zozn(JL,JK) = amo3/amd * ( wfac * (o3_macc2+ZTIMI*(o3_macc1-o3_macc2)) + &
                               (1._wp-wfac)* (o3_gems2+ZTIMI*(o3_gems1-o3_gems2)) )

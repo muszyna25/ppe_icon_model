@@ -236,15 +236,17 @@ done
 # Add JSBACH part to master_namelist
 
 if [[ $run_jsbach == @(yes|true) ]]; then
-  cat >> $master_namelist <<EOF
+  cat >> $master_namelist << EOF
 &jsb_control_nml
  is_standalone      = .false.
  restart_jsbach     = .false.
+ debug              = 0
 /
 &jsb_model_nml
- model_name = 'JSBACHlite'
- model_shortname = 'jsblite'
- model_description = 'JSBACH-lite model'
+ model_id = 1
+ model_name = 'JSBACH'
+ model_shortname = 'jsb'
+ model_description = 'JSBACH land surface model'
  model_namelist_filename = "${lnd_namelist}"
 /
 EOF
