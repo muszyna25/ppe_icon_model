@@ -7,7 +7,7 @@ models are stored in run/. These scripts write namelist files containing
 the specified Fortran namelists. Programs are stored in $<$ icon home$>$/build/$<$architecture$>$/bin/.
 
 
-\begin{table}[htd]
+\begin{table}[ht]
 \caption{Namelist files}
 \begin{center}
 \begin{tabular}{llll}\hline
@@ -3315,10 +3315,12 @@ The switches for the physics schemes and the time steps can be set for each mode
 If only one value is specified, it is copied to all child domains, implying that the same set
 of parameterizations and time steps is used in all domains. If the number of values given
 in the namelist is larger than 1 but less than the number of model domains, then the settings
-from the highest domain ID are used for the remaining model domains. If the time steps are not
-an integer multiple of the advective time step (dtime), then the time step of the
+from the highest domain ID are used for the remaining model domains. 
+
+If the time steps are not an integer multiple of the advective time step (dtime), then the time step of the
 respective physics parameterization is automatically rounded to the next higher integer multiple
-of the advective time step.
+of the advective time step. If the radiation time step is not an integer multiple of the cloud-cover 
+time step it is automatically rounded to the next higher integer multiple of the cloud cover time step.
 
 \begin{longtab}
 
@@ -3565,7 +3567,8 @@ inwp\_turb $>$ 0
 R (max\_ dom)&
 600.&
 s&
-time interval of convection call\\
+time interval of convection and cloud-cover call.\\
+If convection is switched off, dt\_conv controlls the time intervall of cloud-cover, only.\\
 currently each subdomain has the same value
 &run\_nml:iforcing = inwp
 \tabularnewline

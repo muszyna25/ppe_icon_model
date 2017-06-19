@@ -112,7 +112,7 @@ MODULE mo_async_latbc
          &                                  FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2
     USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_read_interface,            ONLY: nf
-    USE mo_io_units,                  ONLY: filename_max, nerr
+    USE mo_io_units,                  ONLY: filename_max
     USE mo_io_util,                   ONLY: read_netcdf_int_1d
     USE mo_util_file,                 ONLY: util_filesize
     USE mo_util_cdi,                  ONLY: test_cdi_varID, cdiGetStringError

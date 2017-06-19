@@ -24,6 +24,7 @@
 MODULE mo_atm_phy_nwp_config
 
   USE mo_kind,                ONLY: wp
+  USE mo_run_config,          ONLY: msg_level
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_parallel_config,     ONLY: nproma
   USE mo_io_units,            ONLY: filename_max
@@ -38,7 +39,9 @@ MODULE mo_atm_phy_nwp_config
   USE mo_radiation_config,    ONLY: irad_o3
   USE mo_les_config,          ONLY: configure_les
   USE mo_limarea_config,      ONLY: configure_latbc
-
+  USE mo_util_table,          ONLY: t_table, initialize_table, add_table_column, &
+    &                               set_table_entry, print_table, finalize_table
+  USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_name_list_output_config, ONLY: first_output_name_list, is_variable_in_output
 
   IMPLICIT NONE
@@ -53,7 +56,7 @@ MODULE mo_atm_phy_nwp_config
   PUBLIC :: ltuning_ozone
 
   !!--------------------------------------------------------------------------
-  !! Basic configuration setup for atm dynamics
+  !! Basic configuration setup for nwp physics
   !!--------------------------------------------------------------------------
   TYPE :: t_atm_phy_nwp_config
 
@@ -126,6 +129,7 @@ MODULE mo_atm_phy_nwp_config
   !!
   TYPE(t_atm_phy_nwp_config) :: atm_phy_nwp_config(max_dom) !< shape: (n_dom)
 
+
   !> NetCDF file containing longwave absorption coefficients and other data
   !> for RRTMG_LW k-distribution model ('rrtmg_lw.nc')
   CHARACTER(LEN=filename_max) :: lrtm_filename
@@ -160,35 +164,58 @@ MODULE mo_atm_phy_nwp_config
 
 CONTAINS
 
+  !-------------------------------------------------------------------------
+  !>
+  !! Setup NWP physics
+  !!
+  !! Read namelist for physics. Choose the physical package and subsequent
+  !! parameters.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2010-10-06)
+  !! revision for restructuring by Kristina Froehlich MPI-M (2011-07-12)
+  !! Modifications by Daniel Reinert, DWD (2017-06-02)
+  !! - revised crosschecks for slow physics time intervals.
+  !!
   SUBROUTINE configure_atm_phy_nwp( n_dom, p_patch, dtime )
-    !-------------------------------------------------------------------------
-    !
-    !>
-    !! Setup NWP physics
-    !!
-    !! Read namelist for physics. Choose the physical package and subsequent
-    !! parameters.
-    !!
-    !! @par Revision History
-    !! Initial revision by Daniel Reinert, DWD (2010-10-06)
-    !! revision for restructuring by Kristina Froehlich MPI-M (2011-07-12)
-  
+
     TYPE(t_patch), TARGET,INTENT(IN) :: p_patch(:)
     INTEGER, INTENT(IN) :: n_dom
     REAL(wp),INTENT(IN) :: dtime
-  
+
+    ! local
     INTEGER :: jg, jk, jk_shift, jb, jc
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &      routine = 'mo_atm_phy_nwp_config:configure_atm_phy_nwp'
+      &      routine = 'configure_atm_phy_nwp'
     REAL(wp) :: z_mc_ref
+    REAL(wp) :: &                             ! time-intervals for calling various 
+      &  dt_phy_orig(max_dom,iphysproc_short) ! physical processes. Original values as 
+                                              ! provided by user
+  !-------------------------------------------------------------------------
 
+    ! check whether dpsdt should be computed for output purposes
+    atm_phy_nwp_config(1:n_dom)%lcalc_dpsdt = &
+      is_variable_in_output(first_output_name_list, var_name='ddt_pres_sfc')
 
+    ! for each fast physics process the time interval is set 
+    ! equal to the time interval for advection.
     DO jg = 1,n_dom
       atm_phy_nwp_config(jg)%dt_fastphy = (dtime/2._wp**(p_patch(jg)%level &
           &                            -  p_patch(1)%level))            !seconds
     ENDDO
 
-    dt_phy(:,:) = 0._wp
+
+    ! store original (user defined) dt_phy values for LOG-output (see below)
+    DO jg = 1,n_dom
+      dt_phy_orig(jg,:)        = 0._wp  ! init
+      dt_phy_orig(jg,itconv)   = atm_phy_nwp_config(jg)% dt_conv
+      dt_phy_orig(jg,itsso)    = atm_phy_nwp_config(jg)% dt_sso 
+      dt_phy_orig(jg,itgwd)    = atm_phy_nwp_config(jg)% dt_gwd 
+      dt_phy_orig(jg,itrad)    = atm_phy_nwp_config(jg)% dt_rad 
+      dt_phy_orig(jg,itccov)   = atm_phy_nwp_config(jg)% dt_ccov
+      dt_phy_orig(jg,itfastphy)= atm_phy_nwp_config(jg)% dt_fastphy
+    ENDDO
+
 
     DO jg = 1,n_dom
 
@@ -229,16 +256,148 @@ CONTAINS
         &  atm_phy_nwp_config(jg)%lproc_on(itgwd)     = .TRUE.
 
 
-      ! Slow physics:
-      ! currently for each domain the same time intervals are set
+      ! Configure LES physics (if activated)
       !
-      ! Fast physics:
-      ! for each fast physics process the time interval is set equal to the 
-      ! time interval for advection.
+      atm_phy_nwp_config(jg)%is_les_phy = .FALSE. 
+    
+      IF(atm_phy_nwp_config(jg)%inwp_turb==ismag)THEN
+        CALL configure_les(jg,dtime)
+        atm_phy_nwp_config(jg)%is_les_phy = .TRUE. 
+      END IF 
 
+      IF( atm_phy_nwp_config(jg)%is_les_phy ) THEN
+
+        ! convection should be turned off for LES
+        IF(atm_phy_nwp_config(jg)%inwp_convection>0)THEN
+          CALL message(TRIM(routine),'Turning off convection for LES!')
+          atm_phy_nwp_config(jg)%inwp_convection  = 0
+          atm_phy_nwp_config(jg)%lproc_on(itconv) = .FALSE.
+        END IF
+
+        ! SSO should be turned off for LES
+        IF(atm_phy_nwp_config(jg)%inwp_sso>0)THEN
+          CALL message(TRIM(routine),'Turning off SSO scheme for LES!')
+          atm_phy_nwp_config(jg)%inwp_sso = 0
+          atm_phy_nwp_config(jg)%lproc_on(itsso)= .FALSE.
+        END IF
+
+        ! GWD should be turned off for LES
+        IF(atm_phy_nwp_config(jg)%inwp_gwd>0)THEN
+          CALL message(TRIM(routine),'Turning off GWD scheme for LES!')
+          atm_phy_nwp_config(jg)%inwp_gwd = 0
+          atm_phy_nwp_config(jg)%lproc_on(itgwd) =.FALSE.
+        END IF
+
+      ENDIF ! is_les_phy
+
+
+      ! Check, whether the user-defined slow-physics timesteps adhere 
+      ! to ICON-internal rules. If not, adapt the timesteps accordingly.
+      ! RULES:
+      !  I) Every slow-physics timestep must be an integer multiple  
+      !     of the advection/fast-physics timestep.
+      !     If not, the slow physics timestep is rounded up to the 
+      !     next integer multiple.
+      ! II) If convection is switched on, the timesteps for cloud-cover 
+      !     and convection must be the same as to ensure proper output 
+      !     of Qx_tot.
+      !     If convection is switched off, the time step for cloud-cover 
+      !     must only adhere to rule (I).
+      !III) The radiation timestep must be an integer multiple of the 
+      !     cloud-cover timestep. If not, the radiation timestep is 
+      !     rounded up to the next integer multiple.
+
+
+      ! These rules are applied for every patch. As a result, timesteps for a 
+      ! particular process may differ from patch to patch.
+
+      ! RULE (I)
+      IF (isModulo(atm_phy_nwp_config(jg)%dt_conv,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
+        WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
+          &                            ': Convection timestep is not a multiple of advection step => rounded up!'
+        CALL message(TRIM(routine), message_text)
+        atm_phy_nwp_config(jg)%dt_conv = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_conv,  &
+          &                                                  atm_phy_nwp_config(jg)%dt_fastphy)
+      ENDIF
+      !
+      IF (isModulo(atm_phy_nwp_config(jg)%dt_ccov,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
+        WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
+          &                            ': Cloud-cover timestep is not a multiple of advection step => rounded up!'
+        CALL message(TRIM(routine), message_text)
+        atm_phy_nwp_config(jg)%dt_ccov = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_ccov,  &
+          &                                                  atm_phy_nwp_config(jg)%dt_fastphy)
+      ENDIF
+      !
+      IF (isModulo(atm_phy_nwp_config(jg)%dt_sso,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
+        WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
+          &                            ': SSO timestep is not a multiple of advection step => rounded up!'
+        CALL message(TRIM(routine), message_text)
+        atm_phy_nwp_config(jg)%dt_sso = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_sso,    &
+          &                                                 atm_phy_nwp_config(jg)%dt_fastphy)
+      ENDIF
+      !
+      IF (isModulo(atm_phy_nwp_config(jg)%dt_gwd,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
+        WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
+          &                            ': GWD timestep is not a multiple of advection step => rounded up!'
+        CALL message(TRIM(routine), message_text)
+        atm_phy_nwp_config(jg)%dt_gwd = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_gwd,    &
+                                                            atm_phy_nwp_config(jg)%dt_fastphy)
+      ENDIF
+      !
+      IF (isModulo(atm_phy_nwp_config(jg)%dt_rad,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
+        WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
+          &                            ': Radiation timestep is not a multiple of advection step => rounded up!'
+        CALL message(TRIM(routine), message_text)
+        atm_phy_nwp_config(jg)%dt_rad = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_rad,    &
+          &                                                 atm_phy_nwp_config(jg)%dt_fastphy)
+      ENDIF
+
+
+      ! RULE (II)
+      !
+      ! Already fulfilled through copying the namelist variable dt_conv to both 
+      ! atm_phy_nwp_config(jg)%dt_conv
+      ! and
+      ! atm_phy_nwp_config(jg)%dt_ccov
+      ! in mo_nwp_phy_nml:read_nwp_phy_namelist.
+      !
+      ! Here, we merley perform a sanity check (Paranoia).
+      ! 
+      IF (atm_phy_nwp_config(jg)%lproc_on(itconv)) THEN
+        IF (atm_phy_nwp_config(jg)%dt_ccov /= atm_phy_nwp_config(jg)%dt_conv) THEN
+          WRITE(message_text,'(a,f7.2,a,f7.2,a)') 'Timesteps for cloud-cover and convection differ. (', &
+            &   atm_phy_nwp_config(jg)%dt_ccov,'/', atm_phy_nwp_config(jg)%dt_conv,'). Resetting dt_ccov...'
+          CALL message(TRIM(routine), message_text)
+          atm_phy_nwp_config(jg)%dt_ccov = atm_phy_nwp_config(jg)%dt_conv
+        ENDIF
+      ENDIF
+      !
+      ! Special rule for EDMF DUALM:
+      ! cloud cover is called every turbulence time step
+      IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
+        WRITE(message_text,'(a)') 'EDMF DUALM selected => Resetting dt_ccov to dt_fastphy.'
+        CALL message(TRIM(routine), message_text)
+        atm_phy_nwp_config(jg)% dt_ccov = atm_phy_nwp_config(jg)% dt_fastphy
+      ENDIF
+
+
+      ! RULE (III)
+      IF (isModulo(atm_phy_nwp_config(jg)%dt_rad,atm_phy_nwp_config(jg)%dt_ccov)) THEN
+        WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
+          &                            ': Radiation timestep is not a multiple of cloud-cover step => rounded up!'
+        CALL message(TRIM(routine), message_text)
+        atm_phy_nwp_config(jg)%dt_rad = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_rad,    &
+          &                                                 atm_phy_nwp_config(jg)%dt_ccov)
+      ENDIF
+
+
+
+      ! Fill dt_phy with final timesteps
+      !
+      dt_phy(jg,:) = 0._wp  ! init
 
       ! Slow physics time steps
-
+      !
       dt_phy(jg,itconv) = atm_phy_nwp_config(jg)% dt_conv    ! sec
 
       dt_phy(jg,itsso)  = atm_phy_nwp_config(jg)% dt_sso     ! sec
@@ -247,98 +406,27 @@ CONTAINS
 
       dt_phy(jg,itrad)  = atm_phy_nwp_config(jg)% dt_rad     ! sec
 
-      !> KF always call clouds after convection
-      !! to ensure the proper output of Qx_tot
-      IF ( atm_phy_nwp_config(jg)%lproc_on(itccov)   .AND.  &
-        &  atm_phy_nwp_config(jg)%lproc_on(itconv) ) THEN
-        atm_phy_nwp_config(jg)% dt_ccov = atm_phy_nwp_config(jg)% dt_conv
-      ELSE
-        atm_phy_nwp_config(jg)% dt_ccov = atm_phy_nwp_config(jg)% dt_fastphy ! sec
-      ENDIF
-
-      ! For EDMF DUALM cloud cover is called every turbulence time step
-      IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
-        atm_phy_nwp_config(jg)% dt_ccov = atm_phy_nwp_config(jg)% dt_fastphy ! sec
-      ENDIF
-
-      dt_phy(jg,itccov) = atm_phy_nwp_config(jg)% dt_ccov   ! sec
+      dt_phy(jg,itccov) = atm_phy_nwp_config(jg)% dt_ccov    ! sec
 
       ! Fast physics time step
+      !
       dt_phy(jg,itfastphy) = atm_phy_nwp_config(jg)%dt_fastphy ! sec
 
 
-
-      IF (jg == 1) THEN
-        ! issue a warning, if advective and convective timesteps are not synchronized
-        !
-        ! so far, only for Domain 1
-        IF( MOD(atm_phy_nwp_config(jg)%dt_conv,dtime) > 10._wp*dbl_eps )  THEN
-          WRITE(message_text,'(a,2F8.1)') &
-            &'WARNING: convective timestep is not a multiple of advective timestep: ', &
-            & dt_phy(jg,itconv), dtime
-          CALL message(TRIM(routine), TRIM(message_text))
-          WRITE(message_text,'(a,F8.1)') &
-            &'implicit synchronization in time_ctrl_physics: dt_conv !=!', &
-            & REAL((FLOOR(atm_phy_nwp_config(jg)%dt_conv/dtime) + 1),wp) &
-            & * dtime
-          CALL message(TRIM(routine), TRIM(message_text))
-        ENDIF
-      ENDIF  ! jg=1
-
+      ! screen printout of chosen physics timesteps
+      IF ( my_process_is_stdio() .AND. msg_level>=10 ) THEN
+        CALL phy_nwp_print_dt (atm_phy_nwp_config = atm_phy_nwp_config(jg), &
+          &                    dt_phy_orig        = dt_phy_orig(jg,:),      &
+          &                    dt_phy             = dt_phy(jg,:),           &
+          &                    pid                = jg                      )
+      ENDIF
 
     ENDDO  ! jg loop
 
-    atm_phy_nwp_config(1:n_dom)%lcalc_dpsdt = &
-      is_variable_in_output(first_output_name_list, var_name='ddt_pres_sfc')
 
-    !Configure LES physics
-    DO jg = 1, n_dom
-    
-      atm_phy_nwp_config(jg)%is_les_phy = .FALSE. 
-    
-      IF(atm_phy_nwp_config(jg)%inwp_turb==ismag)THEN
-        CALL configure_les(jg,dtime)
-        atm_phy_nwp_config(jg)%is_les_phy = .TRUE. 
-      END IF 
-    
-      !convection should be turned off for LES
-      IF(atm_phy_nwp_config(jg)%inwp_convection>0.AND.atm_phy_nwp_config(jg)%is_les_phy)THEN
-        CALL message(TRIM(routine),'Turning off convection for LES!')
-        atm_phy_nwp_config(jg)%inwp_convection = 0
-      END IF
 
-      !SSO should be turned off for LES
-      IF(atm_phy_nwp_config(jg)%inwp_sso>0.AND.atm_phy_nwp_config(jg)%is_les_phy)THEN
-        CALL message(TRIM(routine),'Turning off SSO scheme for LES!')
-        atm_phy_nwp_config(jg)%inwp_sso = 0
-      END IF
 
-      !GWD should be turned off for LES
-      IF(atm_phy_nwp_config(jg)%inwp_gwd>0.AND.atm_phy_nwp_config(jg)%is_les_phy)THEN
-        CALL message(TRIM(routine),'Turning off GWD scheme for LES!')
-        atm_phy_nwp_config(jg)%inwp_gwd = 0
-      END IF
- 
- 
-      ! Round up dt_rad to nearest advection timestep
-      IF( MOD(dt_phy(jg,itrad),dtime)>10._wp*dbl_eps .AND. atm_phy_nwp_config(jg)%is_les_phy)THEN
-        ! write warning only for global domain
-        IF (jg==1) THEN
-          WRITE(message_text,'(a,2F8.1)') &
-            &'WARNING: radiation timestep is not a multiple of fastphy timestep: ', &
-            & dt_phy(jg,itrad), dtime
-          CALL message(TRIM(routine), TRIM(message_text))
-          WRITE(message_text,'(a,F8.1)') &
-            &'radiation time step is rounded up to next multiple: dt_rad !=!', &
-            & REAL((FLOOR(dt_phy(jg,itrad)/dtime) + 1),wp) * dtime
-          CALL message(TRIM(routine), TRIM(message_text))
-        ENDIF
-        dt_phy(jg,itrad) = REAL((FLOOR(dt_phy(jg,itrad)/dtime) + 1),wp) * dtime
-      ENDIF
-
-    END DO !ndom
-
-    !Configure lateral boundary condition for limited area model
+    ! Configure lateral boundary condition for limited area model
     IF(l_limited_area) THEN
       CALL configure_latbc()
     END IF
@@ -429,6 +517,131 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE configure_atm_phy_nwp
+
+
+  !>
+  !! Checks, whether the modulo operation remainder is above a certain threshold.
+  !!
+  !! Checks, whether the modulo operation results in a remainder 
+  !! which is above a certain threshold. The threshold can be given 
+  !! as an optional argument. If nothing is specified the threshold 
+  !! is set to 10._wp*dbl_eps.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2017-06-02)
+  !!
+  LOGICAL FUNCTION isModulo (dividend, divisor, optThresh)
+
+    REAL(wp)          , INTENT(IN) :: dividend
+    REAL(wp)          , INTENT(IN) :: divisor
+    REAL(wp), OPTIONAL, INTENT(IN) :: optThresh  !< optional threshold value
+
+    ! local
+    REAL(wp) :: thresh    ! threshold value
+  !-------------------------------------------------------------------------
+
+    IF (PRESENT(optThresh)) THEN
+      thresh = optThresh
+    ELSE
+      thresh = 10._wp*dbl_eps
+    ENDIF
+    isModulo = MOD(dividend,divisor) > thresh
+
+  END FUNCTION isModulo
+
+
+  !>
+  !! Round up to the next integer multiple
+  !!
+  !! The input value is rounded up to the next integer multiple
+  !!  of the divisor
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2017-06-02)
+  !!
+  REAL(wp) FUNCTION roundToNextMultiple (inval, divisor)
+
+    REAL(wp)          , INTENT(IN) :: inval
+    REAL(wp)          , INTENT(IN) :: divisor
+
+  !-------------------------------------------------------------------------
+
+    roundToNextMultiple = REAL(FLOOR(inval/divisor+1),wp) * divisor
+
+  END FUNCTION roundToNextMultiple
+
+
+
+  !>
+  !! Screen print out of physics timesteps
+  !!
+  !! Screen print out of physics timesteps.
+  !! Printout in any case, if the respective timestep was modified by ICON
+  !! Conditional printout (msg_lev>10), if the respective timestep was not modified. 
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2017-03-30)
+  !!
+  SUBROUTINE phy_nwp_print_dt (atm_phy_nwp_config, dt_phy_orig, dt_phy, pid)
+    !
+    TYPE(t_atm_phy_nwp_config), INTENT(IN) :: atm_phy_nwp_config  !< object for which the setup will be printed
+    REAL(wp)                  , INTENT(IN) :: dt_phy_orig(:)      !< calling intervals as defined by user
+    REAL(wp)                  , INTENT(IN) :: dt_phy(:)           !< final calling intervals
+    INTEGER                   , INTENT(IN) :: pid                 !< patch ID 
+
+    ! local variables
+    TYPE(t_table)   :: table
+    INTEGER         :: irow            ! row to fill
+    INTEGER         :: i               ! loop index
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: dt_str, dt_str_orig
+    INTEGER                        :: idx_arr(iphysproc_short)
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: proc_names(iphysproc_short)
+    !--------------------------------------------------------------------------
+
+    ! Iniitalize index-arrax and string-array
+    idx_arr = (/itfastphy,itconv,itccov,itrad,itsso,itgwd/)
+    !
+    proc_names(itfastphy) = "fastphy"
+    proc_names(itconv)    = "conv"
+    proc_names(itccov)    = "ccov"
+    proc_names(itrad)     = "rad"
+    proc_names(itsso)     = "sso"
+    proc_names(itgwd)     = "gwd"
+
+    ! could this be transformed into a table header?
+    write(0,*) "Time intervals for calling NWP physics on patch ", pid
+
+    ! table-based output
+    CALL initialize_table(table)
+    ! the latter is no longer mandatory
+    CALL add_table_column(table, "Process")
+    CALL add_table_column(table, "dt user [=> final]")
+
+    irow = 0
+
+    DO i=1,SIZE(idx_arr)
+
+      IF (atm_phy_nwp_config%lproc_on(i)) THEN
+        irow=irow+1
+        CALL set_table_entry(table,irow,"Process", TRIM(proc_names(i)))
+        WRITE(dt_str,'(f7.2)') dt_phy(i)
+        IF (dt_phy(i) /= dt_phy_orig(i)) THEN
+          WRITE(dt_str_orig,'(f7.2)') dt_phy_orig(i)
+          CALL set_table_entry(table,irow,"dt user [=> final]", TRIM(dt_str_orig)//' => '//TRIM(dt_str))
+        ELSE
+          CALL set_table_entry(table,irow,"dt user [=> final]", TRIM(dt_str))
+        ENDIF
+      ENDIF
+
+    ENDDO
+
+
+    CALL print_table(table, opt_delimiter=' | ')
+    CALL finalize_table(table)
+
+    WRITE (0,*) " " ! newline
+  END SUBROUTINE phy_nwp_print_dt
+
 
 
 END MODULE mo_atm_phy_nwp_config

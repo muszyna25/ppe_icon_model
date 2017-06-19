@@ -1761,12 +1761,6 @@ MODULE mo_nh_stepping
               &                      .FALSE.,                   &! in
               &                      t_elapsed_phy,             &! inout
               &                      lcall_phy )                 ! out
-
-            IF (msg_level >= 13) THEN
-              WRITE(message_text,'(a,i2,a,5l2,a,6l2)') 'call phys. proc DOM:', &
-                &  jg ,'   SP:', lcall_phy(jg,1:5), '   FP:',lcall_phy(jg,6:10)
-              CALL message(TRIM(routine), TRIM(message_text))
-            END IF
           END IF
 
           IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
@@ -1775,7 +1769,7 @@ MODULE mo_nh_stepping
             CALL les_phy_interface(lcall_phy(jg,:), .FALSE.,         & !in
               &                  lredgrid_phys(jg),                  & !in
               &                  dt_loc,                             & !in
-              &                  t_elapsed_phy(jg,:),                & !in
+              &                  dt_phy(jg,:),                       & !in
               &                  nstep_global,                       & !in
               &                  datetime_local(jg)%ptr,              & !in
               &                  p_patch(jg)  ,                      & !in
@@ -1806,7 +1800,7 @@ MODULE mo_nh_stepping
               CALL nwp_nh_interface(lcall_phy(jg,:), .FALSE.,          & !in
                 &                  lredgrid_phys(jg),                  & !in
                 &                  dt_loc,                             & !in
-                &                  t_elapsed_phy(jg,:),                & !in
+                &                  dt_phy(jg,:),                       & !in
                 &                  datetime_local(jg)%ptr,              & !in
                 &                  p_patch(jg)  ,                      & !in
                 &                  p_int_state(jg),                    & !in
@@ -2896,7 +2890,7 @@ MODULE mo_nh_stepping
 
     INTEGER :: ip, ips                  !< loop index
 
-
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':time_ctrl_physics'
   !-------------------------------------------------------------------------
 
     ! special treatment for the first physics call prior to the very first
@@ -2964,6 +2958,13 @@ MODULE mo_nh_stepping
       ENDDO  ! ip
 
     ENDIF
+
+    ! debug output
+    IF (msg_level >= 13) THEN
+      WRITE(message_text,'(a,i2,a,5l2,a,6l2)') 'call phys. proc DOM:', &
+        &  jg ,'   SP:', lcall_phy(jg,1:5), '   FP:',lcall_phy(jg,6:10)
+      CALL message(TRIM(routine), TRIM(message_text))
+    END IF
 
   END SUBROUTINE time_ctrl_physics
 
