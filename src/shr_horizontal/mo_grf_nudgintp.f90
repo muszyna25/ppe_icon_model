@@ -322,13 +322,13 @@ END SUBROUTINE interpol_vec_nudging
 ! The problem is that loop boundaries (i_startidx,i_endidx) are not private
 ! despite their declaration.
 SUBROUTINE interpol_scal_nudging_core(ptr_pp, jb, i_startblk, i_endblk, all_enabled, elev, &
-  ptr_coeff, ptr_dist, p_in_fld, h_aux, iidx, iblk, l_enabled, js, lbound_haux,&
+  ptr_coeff, ptr_dist, p_in_fld, h_aux, iidx, iblk, l_enabled, js, &
   r_ovsht_fac, ovsht_fac)
 
   TYPE(t_patch), INTENT(in   ) :: ptr_pp
-  INTEGER,       INTENT(in   ) :: jb,js,i_startblk, i_endblk, lbound_haux, elev
+  INTEGER,       INTENT(in   ) :: jb,js,i_startblk, i_endblk, elev
   INTEGER,       INTENT(in   ) :: iidx(:,:,:), iblk(:,:,:)
-  REAL(wp),      INTENT(inout) :: h_aux(:,:,lbound_haux:,:)
+  REAL(wp),      INTENT(  out) :: h_aux(:,:,:)
   LOGICAL,       INTENT(in   ) :: all_enabled, l_enabled(:)
   REAL(wp),      INTENT(in   ) :: ptr_coeff(:,:,:,:), ptr_dist(:,:,:,:)
   REAL(wp),      INTENT(in   ) :: p_in_fld(:,:,:), r_ovsht_fac, ovsht_fac
@@ -501,16 +501,16 @@ SUBROUTINE interpol_scal_nudging_core(ptr_pp, jb, i_startblk, i_endblk, all_enab
     IF (.NOT. l_enabled(jk)) CYCLE
     DO jc = i_startidx, i_endidx
 
-      h_aux(jc,jk,jb,1) = p_in_fld(jc,jk+js,jb) + &
+      h_aux(jc,jk,1) = p_in_fld(jc,jk+js,jb) + &
         grad_x(jc,jk)*ptr_dist(jc,1,1,jb)              + &
         grad_y(jc,jk)*ptr_dist(jc,1,2,jb)
-      h_aux(jc,jk,jb,2) = p_in_fld(jc,jk+js,jb) + &
+      h_aux(jc,jk,2) = p_in_fld(jc,jk+js,jb) + &
         grad_x(jc,jk)*ptr_dist(jc,2,1,jb)              + &
         grad_y(jc,jk)*ptr_dist(jc,2,2,jb)
-      h_aux(jc,jk,jb,3) = p_in_fld(jc,jk+js,jb) + &
+      h_aux(jc,jk,3) = p_in_fld(jc,jk+js,jb) + &
         grad_x(jc,jk)*ptr_dist(jc,3,1,jb)              + &
         grad_y(jc,jk)*ptr_dist(jc,3,2,jb)
-      h_aux(jc,jk,jb,4) = p_in_fld(jc,jk+js,jb) + &
+      h_aux(jc,jk,4) = p_in_fld(jc,jk+js,jb) + &
         grad_x(jc,jk)*ptr_dist(jc,4,1,jb)              + &
         grad_y(jc,jk)*ptr_dist(jc,4,2,jb)
 
@@ -709,9 +709,8 @@ DO jn = 1, nfields
   DO jb = i_startblk, i_endblk
     CALL interpol_scal_nudging_core(ptr_pp, jb, i_startblk, i_endblk, &
       all_enabled, elev, ptr_coeff, ptr_dist, p_in(jn)%fld, &
-      h_aux(:,:,:,:,jn), iidx, iblk, l_enabled, js, &
-      ptr_pp%cells%start_block(grf_nudgintp_start_c), r_ovsht_fac, &
-      ovsht_fac)
+      h_aux(:,:,jb,:,jn), iidx, iblk, l_enabled, js, &
+      r_ovsht_fac, ovsht_fac)
   ENDDO ! blocks
 !$OMP END DO
 ENDDO ! fields
