@@ -328,7 +328,7 @@ SUBROUTINE interpol_scal_nudging_core(ptr_pp, jb, i_startblk, i_endblk, all_enab
   TYPE(t_patch), INTENT(in   ) :: ptr_pp
   INTEGER,       INTENT(in   ) :: jb,js,i_startblk, i_endblk, lbound_haux, elev
   INTEGER,       INTENT(in   ) :: iidx(:,:,:), iblk(:,:,:)
-  REAL(wp),      INTENT(  out) :: h_aux(:,:,lbound_haux:,:)
+  REAL(wp),      INTENT(inout) :: h_aux(:,:,lbound_haux:,:)
   LOGICAL,       INTENT(in   ) :: all_enabled, l_enabled(:)
   REAL(wp),      INTENT(in   ) :: ptr_coeff(:,:,:,:), ptr_dist(:,:,:,:)
   REAL(wp),      INTENT(in   ) :: p_in_fld(:,:,:), r_ovsht_fac, ovsht_fac
