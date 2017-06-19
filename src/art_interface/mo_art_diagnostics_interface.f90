@@ -25,6 +25,8 @@ MODULE mo_art_diagnostics_interface
   USE mo_impl_constants_grf,            ONLY: grf_bdywidth_c
   USE mo_loopindices,                   ONLY: get_indices_c
   USE mo_run_config,                    ONLY: lart
+  USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
+    timer_art, timer_art_diagInt
 
 ! ART
 #ifdef __ICON_ART
@@ -73,6 +75,9 @@ SUBROUTINE art_diagnostics_interface(p_patch, rho, pres, p_trac, dz, hml, jg)
     &  nlev                    !< Number of levels (equals index of lowest full level)
 
   IF (lart) THEN 
+    IF (timers_level > 3) CALL timer_start(timer_art)
+    IF (timers_level > 3) CALL timer_start(timer_art_diagInt)
+
     IF (art_config(jg)%lart_diag_out) THEN
       ! --- Get the loop indizes
       i_nchdom   = MAX(1,p_patch%n_childdom)
@@ -112,6 +117,9 @@ SUBROUTINE art_diagnostics_interface(p_patch, rho, pres, p_trac, dz, hml, jg)
     
       ENDDO
     END IF
+
+    IF (timers_level > 3) CALL timer_stop(timer_art_diagInt)
+    IF (timers_level > 3) CALL timer_stop(timer_art)
   END IF !lart
 
 #endif

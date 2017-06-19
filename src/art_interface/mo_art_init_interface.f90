@@ -22,6 +22,8 @@
 MODULE mo_art_init_interface
 
   USE mo_run_config,                    ONLY: lart
+  USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
+    timer_art_initInt
 #ifdef __ICON_ART
   USE mo_art_init_all_dom,              ONLY: art_init_all_dom
   USE mo_art_clean_up,                  ONLY: art_clean_up
@@ -46,6 +48,8 @@ SUBROUTINE art_init_interface(n_dom,defcase)
     
 #ifdef __ICON_ART
   if (lart) then
+    IF (timers_level > 3) CALL timer_start(timer_art_initInt)
+
     if (TRIM(defcase) == 'construct') then
       CALL art_init_all_dom(n_dom)
     end if
@@ -53,6 +57,9 @@ SUBROUTINE art_init_interface(n_dom,defcase)
     if (TRIM(defcase) == 'destruct') then
       CALL art_clean_up(n_dom)
     end if
+
+    IF (timers_level > 3) CALL timer_stop(timer_art_initInt)
+
   end if
 #endif
 

@@ -33,6 +33,8 @@ MODULE mo_art_washout_interface
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
   USE mo_run_config,                    ONLY: lart,iqr,iqnr,iqs
   USE mo_nonhydro_types,                ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+  USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
+    timer_art, timer_art_washoutInt
 
 #ifdef __ICON_ART
 ! Infrastructure Routines
@@ -113,6 +115,9 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
   i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
   
   IF(lart) THEN 
+    IF (timers_level > 3) CALL timer_start(timer_art)
+    IF (timers_level > 3) CALL timer_start(timer_art_washoutInt)
+
     IF (art_config(jg)%lart_aerosol) THEN
       ALLOCATE(wash_rate_m0(nproma,nlev))
       ALLOCATE(wash_rate_m3(nproma,nlev))
@@ -220,6 +225,9 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
       DEALLOCATE(wash_rate_m0)
       DEALLOCATE(wash_rate_m3)
     ENDIF !lart_aerosol
+
+    IF (timers_level > 3) CALL timer_stop(timer_art_washoutInt)
+    IF (timers_level > 3) CALL timer_stop(timer_art)
   ENDIF !lart
 #endif
 
