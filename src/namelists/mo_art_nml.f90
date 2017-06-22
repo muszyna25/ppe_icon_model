@@ -87,6 +87,7 @@ MODULE mo_art_nml
   INTEGER :: iart_anthro             !< Treatment of anthropogenic aerosol
   INTEGER :: iart_fire               !< Treatment of wildfire aerosol
   INTEGER :: iart_volcano            !< Treatment of volcanic ash aerosol
+  INTEGER :: iart_nonsph             !< Treatment of nonspherical particles
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_volcano_file             !< Absolute path + filename of input file for volcanoes
   INTEGER :: iart_radioact           !< Treatment of radioactive particles
@@ -107,7 +108,7 @@ MODULE mo_art_nml
    &                iart_chem_mechanism, cart_io_suffix, lart_pntSrc,                  &
    &                lart_aerosol, iart_seasalt, iart_dust, iart_anthro, iart_fire,     &
    &                iart_volcano, cart_volcano_file, iart_radioact,                    &
-   &                cart_radioact_file, iart_pollen,                                   &
+   &                cart_radioact_file, iart_pollen, iart_nonsph,                      &
    &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
    &                lart_conv, lart_turb, iart_ntracer, iart_init_aero, iart_init_gas, &
    &                lart_diag_out, cart_emiss_xml_file,                                &
@@ -190,6 +191,7 @@ CONTAINS
     iart_radioact       = 0
     cart_radioact_file  = ''
     iart_pollen         = 0
+	iart_nonsph			= 0
       
     ! Feedback processes (Details: cf. Tab. 2.4 ICON-ART User Guide)
     iart_aci_warm       = 0
@@ -296,6 +298,7 @@ CONTAINS
       art_config(jg)%iart_anthro         = iart_anthro
       art_config(jg)%iart_fire           = iart_fire
       art_config(jg)%iart_volcano        = iart_volcano
+	  art_config(jg)%iart_nonsph         = iart_nonsph
       art_config(jg)%cart_volcano_file   = TRIM(cart_volcano_file)
       art_config(jg)%iart_radioact       = iart_radioact
       art_config(jg)%cart_radioact_file  = TRIM(cart_radioact_file)
