@@ -62,16 +62,16 @@ AS_CASE([$ac_hostname],
            [ac_sitename=$(echo $fqdn | $AWK -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')],
            [ac_sitename=])])
 
-AS_IF([ test -n "$fqdn" ],
-      [AS_IF([test -z "$ac_sitename"],
+AS_IF([test -n "$fqdn" ],
+      [AS_IF([test -z "$[ac_sitename]"],
              [ac_sitename=local.net],
              [])],
-      [AS_IF([ test -n "$PE_ENV" ],
+      [AS_IF([test -n "$PE_ENV" ],
              [fqdn=$(echo ${PE_ENV} | $AWK '{print tolower($0)}')
               AC_MSG_CHECKING([for Cray environment])
               AC_MSG_RESULT([$[fqdn]])],
              [fqdn=${HOSTNAME}])
-       [ac_sitename=${fqdn}]])        
+       [ac_sitename=${fqdn}]])
 
 AC_MSG_CHECKING([for hostname])
 AC_MSG_RESULT([$[ac_hostname]])

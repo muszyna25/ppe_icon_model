@@ -2574,12 +2574,12 @@ else
 fi ;;
 esac
 
-if  test -n "$fqdn" ; then :
+if test -n "$fqdn" ; then :
   if test -z "$ac_sitename"; then :
   ac_sitename=local.net
 fi
 else
-  if  test -n "$PE_ENV" ; then :
+  if test -n "$PE_ENV" ; then :
   fqdn=$(echo ${PE_ENV} | $AWK '{print tolower($0)}')
               { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Cray environment" >&5
 $as_echo_n "checking for Cray environment... " >&6; }
