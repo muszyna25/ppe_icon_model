@@ -194,7 +194,7 @@ CONTAINS
     iart_radioact       = 0
     cart_radioact_file  = ''
     iart_pollen         = 0
-	iart_nonsph			= 0
+    iart_nonsph         = 0
       
     ! Feedback processes (Details: cf. Tab. 2.4 ICON-ART User Guide)
     iart_aci_warm       = 0
@@ -302,7 +302,7 @@ CONTAINS
       art_config(jg)%iart_anthro         = iart_anthro
       art_config(jg)%iart_fire           = iart_fire
       art_config(jg)%iart_volcano        = iart_volcano
-	  art_config(jg)%iart_nonsph         = iart_nonsph
+      art_config(jg)%iart_nonsph         = iart_nonsph
       art_config(jg)%cart_volcano_file   = TRIM(cart_volcano_file)
       art_config(jg)%iart_radioact       = iart_radioact
       art_config(jg)%cart_radioact_file  = TRIM(cart_radioact_file)

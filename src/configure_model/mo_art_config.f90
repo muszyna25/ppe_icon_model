@@ -102,7 +102,7 @@ MODULE mo_art_config
     INTEGER :: iart_anthro             !< Treatment of anthropogenic aerosol
     INTEGER :: iart_fire               !< Treatment of wildfire aerosol
     INTEGER :: iart_volcano            !< Treatment of volcanic ash aerosol
-	INTEGER :: iart_nonsph             !< Treatment of nonspherical particles
+    INTEGER :: iart_nonsph             !< Treatment of nonspherical particles
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_volcano_file             !< Absolute path + filename of input file for volcanoes
     INTEGER :: iart_radioact           !< Treatment of radioactive particles
