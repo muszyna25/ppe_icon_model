@@ -34,6 +34,8 @@ MODULE mo_art_sedi_interface
   USE mo_exception,                     ONLY: finish
   USE mo_advection_vflux,               ONLY: upwind_vflux_ppm_cfl
   USE mo_loopindices,                   ONLY: get_indices_c
+  USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
+    timer_art, timer_art_sedInt
 #ifdef __ICON_ART
 ! infrastructure routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
@@ -91,13 +93,13 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
     &  lprint_cfl                        !< determines if vertical CFL number shall be printed in upwind_vflux_ppm_cfl
 ! Local Variables
   REAL(wp), ALLOCATABLE        :: &  
-    &  p_upflux_sed(:,:,:,:),       & !< upwind flux at half levels due to sedimentation
-    &  rhodz_new(:,:,:,:),          & !< density * height of full layer
-    &  dz(:,:,:,:),                 & !< Layer height
-    &  vsed0(:,:,:),                & !< Sedimentation velocities 0th moment [m s-1]
-    &  vsed3(:,:,:),                & !< Sedimentation velocities 3th moment [m s-1]
-    &  vdep0(:,:),                  & !< Deposition velocities 0th moment [m s-1]
-    &  vdep3(:, :)                     !< Deposition velocities 3th moment [m s-1]
+    &  p_upflux_sed(:,:,:),       & !< upwind flux at half levels due to sedimentation
+    &  rhodz_new(:,:,:),          & !< density * height of full layer
+    &  dz(:,:,:),                 & !< Layer height
+    &  vsed0(:,:),                & !< Sedimentation velocities 0th moment [m s-1]
+    &  vsed3(:,:),                & !< Sedimentation velocities 3th moment [m s-1]
+    &  vdep0(:),                  & !< Deposition velocities 0th moment [m s-1]
+    &  vdep3(:)                     !< Deposition velocities 3th moment [m s-1]
   REAL(wp),POINTER             :: &
     &  flx_contra_vsed(:,:,:)       !< Flux due to sedimentation (can be mass or number)
   REAL(wp) ::       &
@@ -139,24 +141,36 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
   i_rlend   = min_rlcell_int
   i_startblk = p_patch%cells%start_blk(i_rlstart,1)
   i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
-  
-  IF(lart) THEN
-    IF (art_config(jg)%lart_aerosol) THEN
-        ALLOCATE(vsed0(nsubsteps, nproma,nlev),vsed3(nsubsteps, nproma,nlev))
-        ALLOCATE(vdep0(nsubsteps, nproma),vdep3(nsubsteps, nproma))
-        ALLOCATE(p_upflux_sed(nsubsteps, nproma,nlevp1,nblks))
-        ALLOCATE(rhodz_new(nsubsteps, nproma,nlev,nblks))
-        ALLOCATE(dz(nsubsteps,nproma,nlev,nblks))
-      
-      DO n = 1, nsubsteps
 
+
+  IF (lart) THEN
+    IF (timers_level > 3) CALL timer_start(timer_art)
+    IF (timers_level > 3) CALL timer_start(timer_art_sedInt)
+
+    IF (art_config(jg)%lart_aerosol) THEN
+      ALLOCATE(vsed0(nproma,nlev),vsed3(nproma,nlev))
+      ALLOCATE(vdep0(nproma),vdep3(nproma))
+      ALLOCATE(p_upflux_sed(nproma,nlevp1,nblks))
+      ALLOCATE(rhodz_new(nproma,nlev,nblks))
+      ALLOCATE(dz(nproma,nlev,nblks))
+   
+      DO n = 1, nsubsteps
+         vsed0(:,:) = 0.d0
+         vsed3(:,:) = 0.d0
+         vdep0(:) = 0.d0
+         vdep3(:) = 0.d0
+         p_upflux_sed(:,:,:) = 0.0d0
+         rhodz_new(:,:,:) = 0.0d0
+         dz(:,:,:) = 0.0d0
+
+        
         DO jb = i_startblk, i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
             &                istart, iend, i_rlstart, i_rlend)
           DO jk = 1, nlev
             DO jc = istart, iend
-              dz(n,jc,jk,jb)        = p_metrics%z_ifc(jc,jk,jb)-p_metrics%z_ifc(jc,jk+1,jb)
-              rhodz_new(n,jc,jk,jb) = rho(jc,jk,jb) * dz (n,jc,jk,jb)
+              dz(jc,jk,jb)        = p_metrics%z_ifc(jc,jk,jb)-p_metrics%z_ifc(jc,jk+1,jb)
+              rhodz_new(jc,jk,jb) = rho(jc,jk,jb) * dz(jc,jk,jb)
             ENDDO
           ENDDO
         ENDDO
@@ -180,12 +194,12 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                 CALL fields%modal_param(p_art_data(jg)%air_prop%art_free_path(:,:,jb),                &
                   &                     istart, iend, nlev, jb, tracer(:,:,jb,:))
                 ! Calculate sedimentation velocities for 0th and 3rd moment
-                CALL art_calc_v_sed(dz(n,:,:,jb),                                                       &
+                CALL art_calc_v_sed(dz(:,:,jb),                                                       &
                   &     p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb), fields%density(:,:,jb),         &
                   &     fields%diameter(:,:,jb), fields%info%exp_aero, fields%knudsen_nr(:,:,jb),     &
-                  &     istart, iend, nlev, vsed0(n,:,:), vsed3(n,:,:))
+                  &     istart, iend, nlev, vsed0(:,:), vsed3(:,:))
                 ! Calculate massflux due to sedimentation for 0th and 3rd moment
-                CALL art_calc_sed_flx(vsed0(n, :,:),vsed3(n,:,:),p_metrics%wgtfac_c(:,:,jb),               &
+                CALL art_calc_sed_flx(vsed0(:,:),vsed3(:,:),p_metrics%wgtfac_c(:,:,jb),               &
                   &     p_metrics%wgtfacq_c(:,:,jb),rho(:,:,jb),                                      &
                   &     p_diag%rho_ic(:,:,jb), istart, iend, nlev,                                    &
                   &     fields%flx_contra_vsed0(:,:,jb),fields%flx_contra_vsed3(:,:,jb))
@@ -195,16 +209,16 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                     &     p_diag%u(:,nlev,jb), p_diag%v(:,nlev,jb), rho(:,nlev,jb),prm_diag%tcm(:,jb),  &
                     &     prm_diag%tch(:,jb),tracer(:,nlev,jb,iqv),tracer(:,nlev,jb,iqc),               &
                     &     tracer(:,nlev,jb,iqr), p_prog%theta_v(:,nlev,jb), prm_diag%gz0(:,jb),         &
-                    &     dz(n,:,nlev,jb),                                                                &
+                    &     dz(:,nlev,jb),                                                                &
                     &     p_art_data(jg)%air_prop%art_dyn_visc(:,nlev,jb), fields%diameter(:,nlev,jb),  &
-                    &     fields%info%exp_aero,fields%knudsen_nr(:,nlev,jb), vsed0(n,:,nlev),             &
-                    &     vsed3(n,:,nlev), istart, iend, nlev, vdep0(n, :), vdep3(n,:))
+                    &     fields%info%exp_aero,fields%knudsen_nr(:,nlev,jb), vsed0(:,nlev),             &
+                    &     vsed3(:,nlev), istart, iend, nlev, vdep0(:), vdep3(:))
                   ! Store deposition velocities for the use in turbulence scheme
                   ALLOCATE(jsp_ar(fields%ntr-1))
                   DO i =1, fields%ntr-1
                     jsp_ar(i) = fields%itr3(i)
                   ENDDO
-                  CALL art_store_v_dep(vdep0(n,:), vdep3(n, :), (fields%ntr-1), jsp_ar,                     &
+                  CALL art_store_v_dep(vdep0(:), vdep3(:), (fields%ntr-1), jsp_ar,                     &
                     &     fields%itr0, art_config(jg)%nturb_tracer,                                    &
                     &     p_prog%turb_tracer(jb,:),istart,iend,p_art_data(jg)%turb_fields%vdep(:,jb,:))
                   DEALLOCATE(jsp_ar)
@@ -224,9 +238,9 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                 CALL upwind_vflux_ppm_cfl(p_patch, tracer(:,:,:,jsp),             &
                   &                       iubc, flx_contra_vsed, dt_sub,          &
                   &                       lcompute_gt, lcleanup_gt, itype_vlimit, &
-                  &                       dz(n,:,:,:),                                     &
-                  &                       rhodz_new(n,:,:,:), lprint_cfl,                  &
-                  &                       p_upflux_sed(n,:,:,:),                    &
+                  &                       dz,                                     &
+                  &                       rhodz_new, lprint_cfl,                  &
+                  &                       p_upflux_sed(:,:,:),                    &
                   &                       opt_rlstart=i_rlstart,                  &
                   &                       opt_rlend=i_rlend,                      &
                   &                       opt_elev=nlevp1)
@@ -242,9 +256,9 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                     ! index of bottom half level
                     jkp1 = jk + 1
                     DO jc = istart, iend
-                      sedim_update = (dt_sub * ( p_upflux_sed(n, jc,jk,  jb)   &
-                         &                      - p_upflux_sed(n, jc,jkp1,jb) )  &
-                         &         / rhodz_new(n,jc,jk,jb))
+                      sedim_update = (dt_sub * ( p_upflux_sed(jc,jk,  jb)   &
+                         &                      - p_upflux_sed(jc,jkp1,jb) )  &
+                         &         / rhodz_new(jc,jk,jb))
                       tracer(jc,jk,jb,jsp) =   tracer(jc,jk,jb,jsp) - sedim_update
                     ENDDO!jc
                   ENDDO !jk
@@ -269,9 +283,9 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
               CALL upwind_vflux_ppm_cfl(p_patch, tracer(:,:,:,jsp),             &
                 &                       iubc, flx_contra_vsed, dt_sub,          &
                 &                       lcompute_gt, lcleanup_gt, itype_vlimit, &
-                &                       dz(n,:,:,:),                                     &
-                &                       rhodz_new(n,:,:,:), lprint_cfl,                  &
-                &                       p_upflux_sed(n,:,:,:),                    &
+                &                       dz,                                     &
+                &                       rhodz_new, lprint_cfl,                  &
+                &                       p_upflux_sed(:,:,:),                    &
                 &                       opt_rlstart=i_rlstart,                  &
                 &                       opt_rlend=i_rlend,                      &
                 &                       opt_elev=nlevp1)
@@ -287,9 +301,9 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                   ! index of bottom half level
                   jkp1 = jk + 1
                   DO jc = istart, iend
-                    sedim_update = (dt_sub * ( p_upflux_sed(n, jc,jk,  jb)   &
-                       &                      - p_upflux_sed(n,jc,jkp1,jb) )  &
-                       &         / rhodz_new(n,jc,jk,jb))
+                    sedim_update = (dt_sub * ( p_upflux_sed(jc,jk,  jb)   &
+                       &                      - p_upflux_sed(jc,jkp1,jb) )  &
+                       &         / rhodz_new(jc,jk,jb))
                     tracer(jc,jk,jb,jsp) =   tracer(jc,jk,jb,jsp) - sedim_update
                   ENDDO!jc
                 ENDDO !jk
@@ -313,9 +327,9 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
               CALL upwind_vflux_ppm_cfl(p_patch, tracer(:,:,:,jsp),             &
                 &                       iubc, flx_contra_vsed, dt_sub,          &
                 &                       lcompute_gt, lcleanup_gt, itype_vlimit, &
-                &                       dz(n,:,:,:),                                     &
-                &                       rhodz_new(n,:,:,:), lprint_cfl,                  &
-                &                       p_upflux_sed(n, :,:,:),                    &
+                &                       dz,                                     &
+                &                       rhodz_new, lprint_cfl,                  &
+                &                       p_upflux_sed(:,:,:),                    &
                 &                       opt_rlstart=i_rlstart,                  &
                 &                       opt_rlend=i_rlend,                      &
                 &                       opt_elev=nlevp1)
@@ -331,9 +345,9 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                   ! index of bottom half level
                   jkp1 = jk + 1
                   DO jc = istart, iend
-                    sedim_update = (dt_sub * ( p_upflux_sed(n, jc,jk,  jb)   &
-                       &                      - p_upflux_sed(n,jc,jkp1,jb) )  &
-                       &         / rhodz_new(n, jc,jk,jb))
+                    sedim_update = (dt_sub * ( p_upflux_sed(jc,jk,  jb)   &
+                       &                      - p_upflux_sed(jc,jkp1,jb) )  &
+                       &         / rhodz_new(jc,jk,jb))
                     tracer(jc,jk,jb,jsp) =   tracer(jc,jk,jb,jsp) - sedim_update
                   ENDDO!jc
                 ENDDO !jk
@@ -369,11 +383,15 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
         
 
       ENDDO !nsubsteps
-        DEALLOCATE(p_upflux_sed)
-        DEALLOCATE(vsed0,vsed3,vdep0,vdep3)
-        DEALLOCATE(rhodz_new)
-        DEALLOCATE(dz)
+     DEALLOCATE(p_upflux_sed)
+    DEALLOCATE(vsed0,vsed3,vdep0,vdep3)
+    DEALLOCATE(rhodz_new)
+    DEALLOCATE(dz)
+
     ENDIF !lart_aerosol
+
+    IF (timers_level > 3) CALL timer_stop(timer_art_sedInt)
+    IF (timers_level > 3) CALL timer_stop(timer_art)
   ENDIF !lart
 
 #endif

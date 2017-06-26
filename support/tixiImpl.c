@@ -655,3 +655,101 @@ void tixiDefaultMessageHandler(MessageType type, const char *message)
     fputs(message, stderr);
   }
 }
+
+DLL_EXPORT ReturnCode tixiGetNumberOfAttributes(const TixiDocumentHandle handle, const char *elementPath, int* nAttributes)
+{
+  TixiDocument *document = getDocument(handle);
+  xmlDocPtr xmlDocument = NULL;
+  xmlXPathObjectPtr xpathObject = NULL;
+  xmlNodePtr element = NULL;
+  ReturnCode error = SUCCESS;
+
+
+  if (!document) {
+    printMsg(MESSAGETYPE_ERROR, "Error: Invalid document handle.\n");
+    return INVALID_HANDLE;
+  }
+  xmlDocument = document->docPtr;
+
+  error = checkElement(xmlDocument, elementPath, &element, &xpathObject);
+  xmlXPathFreeObject(xpathObject);
+
+  if (!error) {
+    xmlAttrPtr attr = element->properties;
+    *nAttributes = 0;
+
+    while(attr){
+      attr = attr->next;
+      (*nAttributes)++;
+    }
+  }
+
+  return error;
+}
+
+DLL_EXPORT ReturnCode tixiGetAttributeName(const TixiDocumentHandle handle, const char *elementPath, int attrIndex, char** attrName)
+{
+  TixiDocument *document = getDocument(handle);
+  xmlDocPtr xmlDocument = NULL;
+  xmlXPathObjectPtr xpathObject = NULL;
+  xmlNodePtr element = NULL;
+  ReturnCode error = SUCCESS;
+
+
+  if (!document) {
+    printMsg(MESSAGETYPE_ERROR, "Error: Invalid document handle.\n");
+    return INVALID_HANDLE;
+  }
+  xmlDocument = document->docPtr;
+
+  if(attrIndex <= 0){
+    return INDEX_OUT_OF_RANGE;
+  }
+
+  error = checkElement(xmlDocument, elementPath, &element, &xpathObject);
+  xmlXPathFreeObject(xpathObject);
+
+
+  if (!error) {
+    xmlAttrPtr attr = element->properties;
+    int pos = 1;
+
+    while(attr && pos < attrIndex){
+      attr = attr->next;
+      pos++;
+    }
+
+    if(pos != attrIndex || !attr){
+      return INDEX_OUT_OF_RANGE;
+    }
+
+    // get name
+    *attrName = (char *) malloc((strlen((char*)attr->name) + 3) * sizeof(char));
+    strcpy(*attrName,  (char*)attr->name);
+    error = addToMemoryList(document, (void *) *attrName);
+    }
+   
+  return error;
+}
+   
+
+DLL_EXPORT ReturnCode tixiGetDocumentPath(TixiDocumentHandle handle, char** documentPath)
+{
+  TixiDocument *document = NULL;
+
+  if (!documentPath) {
+    printMsg(MESSAGETYPE_ERROR, "Error: Null Pointer in tixiGetDocumentPath.\n");
+    return FAILED;
+  }
+
+  document = getDocument(handle);
+  if (!document) {
+    printMsg(MESSAGETYPE_ERROR, "Error: Invalid document handle in tixiGetDocumentPath.\n");
+    return INVALID_HANDLE;
+  }
+
+  *documentPath = document->xmlFilename;
+
+  return SUCCESS;
+}
+

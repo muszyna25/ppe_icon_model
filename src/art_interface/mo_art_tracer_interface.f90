@@ -31,6 +31,8 @@ MODULE mo_art_tracer_interface
   USE mo_run_config,                    ONLY: lart
   USE mo_art_config,                    ONLY: art_config
   USE mo_time_config,                   ONLY: time_config
+  USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
+    timer_art_tracInt
 #ifdef __ICON_ART
   USE mo_art_tracer,                    ONLY: art_tracer
   USE mo_art_init,                      ONLY: art_init
@@ -89,6 +91,8 @@ SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix,&
  
 #ifdef __ICON_ART
   IF (lart) THEN
+    IF (timers_level > 3) CALL timer_start(timer_art_tracInt)
+
     IF (TRIM(defcase) .NE. 'diag') THEN
     
       IF (.NOT. PRESENT(advconf)) THEN
@@ -117,6 +121,8 @@ SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix,&
     ELSE !defcase is diag
       CALL art_create_diagnostics(jg, p_art_data(jg)%dict_tracer, this_list)
     ENDIF
+
+    IF (timers_level > 3) CALL timer_stop(timer_art_tracInt)
   ENDIF ! lart
 #endif
 
