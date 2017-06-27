@@ -54,6 +54,10 @@ MODULE mo_velocity_advection
 
   PUBLIC :: velocity_tendencies
 
+#ifdef _CRAYFTN
+#define __CRAY_FTN_VERSION (_RELEASE_MAJOR * 100 + _RELEASE_MINOR)
+#endif
+
 #if defined( _OPENACC )
 #if defined(__VELOCITY_ADVECTION_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
@@ -63,7 +67,11 @@ MODULE mo_velocity_advection
   LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #define __COLLAPSE_2_LOOPS !$ACC LOOP VECTOR COLLAPSE(2)
 #else
+#if __CRAY_FTN_VERSION > 850
 #define __COLLAPSE_2_LOOPS !$OMP SIMD
+#else
+#define __COLLAPSE_2_LOOPS !SIMD not supported
+#endif
 #endif
 
   CONTAINS
