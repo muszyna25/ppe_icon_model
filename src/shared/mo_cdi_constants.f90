@@ -25,7 +25,7 @@ MODULE mo_cdi_constants
   INTEGER, PARAMETER :: GRID_UNSTRUCTURED_VERT = 2
   INTEGER, PARAMETER :: GRID_UNSTRUCTURED_EDGE = 3
 
-  INTEGER, PARAMETER :: GRID_REGULAR_LONLAT    = 44
+  INTEGER, PARAMETER :: GRID_REGULAR_LONLAT    = 45
 
 ! Intermediate fix, until GRID_REFERENCE has completely been removed from ICON
   INTEGER, PARAMETER :: GRID_REFERENCE = 9
@@ -85,8 +85,10 @@ MODULE mo_cdi_constants
   INTEGER, PARAMETER, PUBLIC      :: ZA_PRES_FL_245_390     = 41
   INTEGER, PARAMETER, PUBLIC      :: ZA_PRES_FL_390_530     = 42
   INTEGER, PARAMETER, PUBLIC      :: ZA_ATMOSPHERE          = 43
+  !
+  INTEGER, PARAMETER, PUBLIC      :: ZA_HEIGHT_2M_LAYER     = 44
   ! Max for all the constants above, used to dimension arrays with one entry for each
-  INTEGER, PARAMETER, PUBLIC      :: ZA_COUNT               = 43
+  INTEGER, PARAMETER, PUBLIC      :: ZA_COUNT               = 44
 
   ! Array mapping our internal ZA_... constants to the respective CDI zaxis types
   INTEGER, PARAMETER, PUBLIC :: cdi_zaxis_types(ZA_COUNT) = [ ZAXIS_SURFACE, &              ! ZA_SURFACE
@@ -131,8 +133,8 @@ MODULE mo_cdi_constants
                                                             & ZAXIS_PRESSURE, &             ! ZA_PRES_FL_100_245
                                                             & ZAXIS_PRESSURE, &             ! ZA_PRES_FL_245_390
                                                             & ZAXIS_PRESSURE, &             ! ZA_PRES_FL_390_530
-                                                            & ZAXIS_ATMOSPHERE ]            ! ZA_ATMOSPHERE
-
+                                                            & ZAXIS_ATMOSPHERE, &           ! ZA_ATMOSPHERE
+                                                            & ZAXIS_HEIGHT ]                ! ZA_HEIGHT_2M_LAYER
 CONTAINS
 
   PURE FUNCTION is_2d_field(izaxis)
@@ -155,7 +157,8 @@ CONTAINS
       &           (izaxis == ZA_PRESSURE_400)            .OR.  &
       &           (izaxis == ZA_PRESSURE_0)              .OR.  &
       &           (izaxis == ZA_DEPTH_RUNOFF_S)          .OR.  &
-      &           (izaxis == ZA_DEPTH_RUNOFF_G)
+      &           (izaxis == ZA_DEPTH_RUNOFF_G)          .OR.  &
+      &           (izaxis == ZA_HEIGHT_2M_LAYER)
 
     IF (.NOT.is_2d_field) THEN
        is_2d_field = (izaxis == ZA_PRES_FL_SFC_200)      .OR.  &

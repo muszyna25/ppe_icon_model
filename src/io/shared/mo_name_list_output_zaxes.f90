@@ -78,7 +78,8 @@ MODULE mo_name_list_output_zaxes
                                                 & ZA_ATMOSPHERE, ZA_PRES_FL_SFC_200, ZA_PRES_FL_200_350, ZA_PRES_FL_350_550,      &
                                                 & ZA_PRES_FL_SFC_100, ZA_PRES_FL_100_245, ZA_PRES_FL_245_390, ZA_PRES_FL_390_530, &
                                                 & ZA_reference, ZA_reference_half, ZA_reference_half_hhl, cdi_zaxis_types, &
-                                                & ZA_sediment_bottom_tw_half, ZA_snow, ZA_snow_half, ZA_toa, ZA_OCEAN_SEDIMENT
+                                                & ZA_sediment_bottom_tw_half, ZA_snow, ZA_snow_half, ZA_toa, ZA_OCEAN_SEDIMENT, &
+                                                & ZA_height_2m_layer
   USE mo_kind,                              ONLY: wp, dp
   USE mo_impl_constants,                    ONLY: zml_soil, SUCCESS
   USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl,    &
@@ -195,7 +196,12 @@ CONTAINS
     ! Definitions for single layers --------------------------------------------------------
     ! --------------------------------------------------------------------------------------
 
-    ! Isobaric surface 800 hPa (layer)
+    ! Specified height level above ground: 2m
+    ! Layered-Version, which allows to re-set typeOfFirst/SeconFixedSurface 
+    ! without loosing the information stored in scaledValueOfFirst/SecondFixedSurface 
+    CALL define_single_layer_axis(of, ZA_height_2m_layer, 2._dp,   0._dp, "m")
+
+
     !DR Note that for this particular axis in GME and COSMO, 
     !DR   scaleFactorOfSecondFixedSurface = scaledValueOfSecondFixedSurface = missing
     !DR whereas in ICON
@@ -203,6 +209,7 @@ CONTAINS
     !DR This is because, CDI does not allow layer-type vertical axis without setting 
     !DR scaleFactorOfSecondFixedSurface and scaledValueOfSecondFixedSurface.
     !
+    ! Isobaric surface 800 hPa (layer)
     CALL define_single_layer_axis(of, ZA_pressure_800, 800._dp,   0._dp, "hPa")
     ! Isobaric surface 400 hPa (layer)
     CALL define_single_layer_axis(of, ZA_pressure_400, 400._dp, 800._dp, "hPa")

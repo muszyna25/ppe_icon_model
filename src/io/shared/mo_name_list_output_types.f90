@@ -101,7 +101,7 @@ MODULE mo_name_list_output_types
   ! or logical patches.
   LOGICAL, PARAMETER :: l_output_phys_patch = .TRUE. !** DO NOT CHANGE - needed for GRIB output **!
 
-  INTEGER, PARAMETER :: max_z_axes = 43
+  INTEGER, PARAMETER :: max_z_axes = 44
 
   ! Character-strings denoting the "special" GRIB2 output fields that
   ! describe the grid coordinates. These fields are ignored by most

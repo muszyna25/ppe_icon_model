@@ -86,7 +86,7 @@ USE mo_cdi,                 ONLY: TSTEP_MIN, TSTEP_MAX, TSTEP_INSTANT, TSTEP_CON
 USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL,                        &
   &                               GRID_CELL, ZA_HYBRID, ZA_HYBRID_HALF,          &
   &                               ZA_SURFACE, ZA_HEIGHT_2M, ZA_HEIGHT_10M,       &
-  &                               ZA_TOA, ZA_DEPTH_BELOW_LAND,   &
+  &                               ZA_HEIGHT_2M_LAYER, ZA_TOA, ZA_DEPTH_BELOW_LAND,   &
   &                               ZA_PRESSURE_0, ZA_PRESSURE_400,&
   &                               ZA_PRESSURE_800, ZA_CLOUD_BASE, ZA_CLOUD_TOP,  &
   &                               ZA_ISOTHERM_ZERO
@@ -1937,10 +1937,12 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) )
 
     ! &      diag%t_2m_land(nproma,nblks_c)
-    cf_desc    = t_cf_var('t_2m_land', 'K ','temperature in 2m', datatype_flt)
-    grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    cf_desc    = t_cf_var('t_2m_land', 'K ','temperature in 2m over land fraction', &
+      &          datatype_flt)
+    grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL) &
+      &           + t_grib2_int_key("typeOfSecondFixedSurface", 181)
     CALL add_var( diag_list, 't_2m_land', diag%t_2m_land,                 &
-      & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
+      & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M_LAYER, cf_desc, grib2_desc,  &
       & ldims=shape2d, lrestart=.FALSE., in_group=groups("pbl_vars") )
 
     ! &      diag%tmax_2m(nproma,nblks_c)
@@ -1981,10 +1983,12 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & ldims=shape2d, lrestart=.FALSE. )
 
     ! &      diag%rh_2m_land(nproma,nblks_c)
-    cf_desc    = t_cf_var('rh_2m', '%','relative humidity in 2m', datatype_flt)
-    grib2_desc = grib2_var(0, 1, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    cf_desc    = t_cf_var('rh_2m_land', '%','relative humidity in 2m over land fraction', &
+      &          datatype_flt)
+    grib2_desc = grib2_var(0, 1, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)  &
+      &           + t_grib2_int_key("typeOfSecondFixedSurface", 181)
     CALL add_var( diag_list, 'rh_2m_land', diag%rh_2m_land,               &
-      & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
+      & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M_LAYER, cf_desc, grib2_desc,  &
       & ldims=shape2d, lrestart=.FALSE. )
 
     ! &      diag%td_2m(nproma,nblks_c)
@@ -1995,10 +1999,12 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & ldims=shape2d, lrestart=.FALSE., in_group=groups("pbl_vars","dwd_fg_atm_vars") )
 
     ! &      diag%td_2m_land(nproma,nblks_c)
-    cf_desc    = t_cf_var('td_2m_land', 'K ','dew-point in 2m', datatype_flt)
-    grib2_desc = grib2_var(0, 0, 6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    cf_desc    = t_cf_var('td_2m_land', 'K ','dew-point in 2m over land fraction', &
+      &           datatype_flt)
+    grib2_desc = grib2_var(0, 0, 6, ibits, GRID_UNSTRUCTURED, GRID_CELL)  &
+      &           + t_grib2_int_key("typeOfSecondFixedSurface", 181)
     CALL add_var( diag_list, 'td_2m_land', diag%td_2m_land,               &
-      & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
+      & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M_LAYER, cf_desc, grib2_desc,  &
       & ldims=shape2d, lrestart=.FALSE., in_group=groups("pbl_vars") )
 
     ! &      diag%u_10m(nproma,nblks_c)
