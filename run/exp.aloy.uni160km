@@ -203,19 +203,32 @@ cat > ${atm_namelist} << EOF
  itype_hlimit     = 3,4,4
  ihadv_tracer     = 52,2,2
 /
-&echam_phy_nml
- dt_rad           =  7200.      ! [s] radiation time step
- lrad             = .TRUE.
- lvdiff           = .TRUE.
- lconv            = .TRUE.
- lcond            = .TRUE.
- lgw_hines        = .TRUE.
- lssodrag         = .TRUE.
- lice             = .TRUE.
- ljsbach          = .TRUE.
- lebudget         = .TRUE.
- lmlo             = .FALSE.
- lamip            = .FALSE.
+&mpi_phy_nml
+!
+! domain 1
+! --------
+!
+! atmospheric phyiscs (""=never)
+ mpi_phy_config(1)%dt_rad = "PT2H"
+ mpi_phy_config(1)%dt_vdf = "PT10M"
+ mpi_phy_config(1)%dt_cnv = "PT10M"
+ mpi_phy_config(1)%dt_cld = "PT10M"
+ mpi_phy_config(1)%dt_sso = "PT10M"
+ mpi_phy_config(1)%dt_gwd = "PT10M"
+!
+! atmospheric chemistry (""=never)
+ mpi_phy_config(1)%dt_mox = ""
+ mpi_phy_config(1)%dt_car = ""
+ mpi_phy_config(1)%dt_art = ""
+!
+! surface (.TRUE. or .FALSE.)
+ mpi_phy_config(1)%ljsb  = .TRUE.
+ mpi_phy_config(1)%lamip = .FALSE.
+ mpi_phy_config(1)%lice  = .TRUE.
+ mpi_phy_config(1)%lmlo  = .FALSE.
+!
+/
+&mpi_sso_nml
 /
 &radiation_nml
  irad_h2o         = 1           ! 1: prognostic vapor, liquid and ice
@@ -545,13 +558,13 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  include_last     = .FALSE.
  ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
-                    'tend_ta_vdf'  , 'tend_ta_gwh'  , 'tend_ta_sso'  ,
+                    'tend_ta_vdf'  , 'tend_ta_gwd'  , 'tend_ta_sso'  ,
                     'tend_ta_cnv'  , 'tend_ta_cld'  , 
                     'tend_ua'      , 'tend_ua_dyn'  , 'tend_ua_phy'  ,
-                    'tend_ua_vdf'  , 'tend_ua_gwh'  , 'tend_ua_sso'  ,
+                    'tend_ua_vdf'  , 'tend_ua_gwd'  , 'tend_ua_sso'  ,
                     'tend_ua_cnv'  , 
                     'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
-                    'tend_va_vdf'  , 'tend_va_gwh'  , 'tend_va_sso'  ,
+                    'tend_va_vdf'  , 'tend_va_gwd'  , 'tend_va_sso'  ,
                     'tend_va_cnv'  ,
                     'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
                     'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf' ,

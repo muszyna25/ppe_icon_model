@@ -3,7 +3,7 @@
 !!----------------------------------------------------------------------
 !! This module provides the interface between dynamics+transport and
 !! echam physics and controls the coupling procedure dependent on the
-!! switch echam_phy_config%idcphycpl.
+!! switch mpi_phy_config%idcphycpl.
 !!
 !! @author Marco Giorgetta (MPI-M)
 !!
@@ -11,7 +11,7 @@
 !!
 !! @brief Interface between ICONAM dynamics+transport and ECHAM physics
 !!
-!! The coupling mechanism is controlled by echam_phy_config%idcphycpl:
+!! The coupling mechanism is controlled by mpi_phy_config%idcphycpl:
 !!
 !! idcphycpl = 1: The whole physics is treated as "fast" phyiscs.
 !!                The physics tendencies are computed from the
@@ -75,7 +75,7 @@ MODULE mo_interface_iconam_echam
   USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi, io3
   USE mo_nonhydrostatic_config ,ONLY: lhdiff_rcf
   USE mo_diffusion_config      ,ONLY: diffusion_config
-  USE mo_echam_phy_config      ,ONLY: echam_phy_config
+  USE mo_mpi_phy_config        ,ONLY: mpi_phy_config, mpi_phy_tc, dt_zero
 
   USE mo_model_domain          ,ONLY: t_patch
   USE mo_intp_data_strc        ,ONLY: t_int_state
@@ -91,7 +91,7 @@ MODULE mo_interface_iconam_echam
   USE mtime                    ,ONLY: datetime , newDatetime , deallocateDatetime     ,&
     &                                 timedelta, newTimedelta, deallocateTimedelta    ,&
     &                                 max_timedelta_str_len  , getPTStringFromSeconds ,&
-    &                                 OPERATOR(+)
+    &                                 OPERATOR(+), OPERATOR(>)
 
   USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
@@ -107,7 +107,7 @@ MODULE mo_interface_iconam_echam
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
 
-  USE mo_lcariolle_types       ,ONLY: avi, t_time_interpolation
+  USE mo_lcariolle_types         ,ONLY: l_cariolle_initialized_o3, t_avi, t_time_interpolation
   USE mo_linked_list,             ONLY: t_var_list
   USE mo_ext_data_state,          ONLY: ext_data
   USE mo_art_reaction_interface,  ONLY: art_reaction_interface
@@ -137,7 +137,7 @@ CONTAINS
     &                                p_metrics       ,& !in
     &                                pt_prog_new     ,& !inout
     &                                pt_prog_new_rcf ,& !inout
-    &                                pt_diag          ,& !inout
+    &                                pt_diag         ,& !inout
     &                                p_prog_list)
 
     !
@@ -183,7 +183,7 @@ CONTAINS
     REAL(wp) :: zvn1, zvn2
     REAL(wp), POINTER :: zdudt(:,:,:), zdvdt(:,:,:)
 
-    LOGICAL  :: ltrig_rad
+    TYPE(t_avi) :: avi
 
     INTEGER  :: return_status
 
@@ -234,7 +234,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_d2p_prep)
 
-    SELECT CASE (echam_phy_config%idcphycpl)
+    SELECT CASE (mpi_phy_config(jg)%idcphycpl)
       !
     CASE (1) ! idcphycpl
       ! In this case all ECHAM physics is treated as "fast" physics.
@@ -368,7 +368,7 @@ CONTAINS
             &                                     -prm_field(jg)%       mh2o(jc,jk,jb)
           !
           ! cloud water+ice
-          IF (echam_phy_config%ldrymoist) THEN
+          IF (mpi_phy_config(jg)%ldrymoist) THEN
             prm_field(jg)%        qx(jc,jk,jb)     = ( pt_prog_new_rcf% tracer(jc,jk,jb,iqc)  &
               &                                       +pt_prog_new_rcf% tracer(jc,jk,jb,iqi)) &
               &                                      *prm_field(jg)%      mair(jc,jk,jb)      &
@@ -411,8 +411,9 @@ CONTAINS
 !   Initialize ozone mass mixing ratios for Cariolle scheme here. 
 !   An approximative initialization 
 !   that considers the atmosphere as being dry is enough.
-    IF (echam_phy_config%lcariolle) THEN
-      IF (.NOT.isRestart().AND. .NOT. avi%l_initialized_o3) THEN
+    IF (mpi_phy_tc(jg)%dt_car > dt_zero) THEN
+      IF (.NOT.isRestart().AND. .NOT. l_cariolle_initialized_o3) THEN
+        ALLOCATE(avi%cell_center_lat(nproma))
         avi%ldown=.TRUE.
         current_time_interpolation_weights = calculate_time_interpolation_weights(datetime_old)
         time_interpolation%imonth1=current_time_interpolation_weights%month1_index
@@ -421,15 +422,16 @@ CONTAINS
         time_interpolation%weight2=current_time_interpolation_weights%weight2
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-          avi%pres(jcs:jce,:)=prm_field(jg)%presm_old(jcs:jce,:,jb)
-          avi%cell_center_lat(jcs:jce)=prm_field(jg)%clat(jcs:jce,jb)
+          avi%pres                     => prm_field(jg)%presm_old(:,:,jb)
+          avi%cell_center_lat(jcs:jce) =  prm_field(jg)%clat(jcs:jce,jb)
           CALL lcariolle_init_o3(                                              &
            & jcs,                   jce,                nproma,                &
            & nlev,                  time_interpolation, lcariolle_lat_intp_li, &
            & lcariolle_pres_intp_li,avi,                vmr_o3                 )
           pt_prog_new_rcf% tracer(jcs:jce,:,jb,io3)=vmr_o3(jcs:jce,:)*amo3/amd
         END DO
-        avi%l_initialized_o3=.TRUE.
+        l_cariolle_initialized_o3 = .TRUE.
+        DEALLOCATE(avi%cell_center_lat)
       END IF
     END IF
 
@@ -446,7 +448,7 @@ CONTAINS
                &                                    *prm_field(jg)%      mair(jc,jk,jb)
             !
             ! Tracer mass fraction
-            IF (echam_phy_config%ldrymoist) THEN
+            IF (mpi_phy_config(jg)%ldrymoist) THEN
               prm_field(jg)%      qtrc(jc,jk,jb,jt)  = pt_prog_new_rcf% tracer(jc,jk,jb,jt) &
                 &                                     *prm_field(jg)%     mair(jc,jk,jb)    &
                 &                                     /prm_field(jg)%     mdry(jc,jk,jb)
@@ -461,7 +463,7 @@ CONTAINS
             !
             ! Advective tendencies, already accounted for, but needed
             ! for diagnostic purposes in the convection scheme
-            IF (echam_phy_config%ldrymoist) THEN
+            IF (mpi_phy_config(jg)%ldrymoist) THEN
               prm_tend(jg)%   qtrc_dyn(jc,jk,jb,jt)  = pt_diag% ddt_tracer_adv(jc,jk,jb,jt) &
                 &                                     *prm_field(jg)%     mair(jc,jk,jb)    &
                 &                                     /prm_field(jg)%     mdry(jc,jk,jb)
@@ -493,8 +495,7 @@ CONTAINS
     CALL echam_phy_bcs_global( datetime_old ,&! in
       &                        jg           ,&! in
       &                        patch        ,&! in
-      &                        dt_loc       ,&! in
-      &                        ltrig_rad    ) ! out
+      &                        dt_loc       ) ! out
 
     IF (ltimer) CALL timer_stop(timer_echam_bcs)
     !
@@ -508,41 +509,20 @@ CONTAINS
     !     to the parameterization of vertical turbulent fluxes.
     !
 #ifndef __NO_JSBACH__
-    IF (echam_phy_config%ljsbach) THEN
+    IF (mpi_phy_config(jg)%ljsb) THEN
       CALL jsbach_start_timestep(jg)
     END IF
 #endif
 
     IF (ltimer) CALL timer_start(timer_echam_phy)
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jcs,jce),  ICON_OMP_GUIDED_SCHEDULE
-
-    DO jb = i_startblk,i_endblk
-      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-
       ! Like in ECHAM, the subroutine *echam_phy_main* has direct access to the memory
-      ! buffers prm_field and prm_tend. In addition it can also directly access
-      ! the grid/patch information on which the computations are performed.
-      ! Thus the argument list contains only
-      ! - jg: the grid index in the grid hierarchy
-      ! - jb: the row index in the block
-      ! - jcs and jce: start and end indices of columns in a row
-      ! - nproma: the block length
-      ! - a few other globally valid arguments
+      ! buffers prm_field and prm_tend. 
 
-      CALL echam_phy_main( jg           ,&! in
-        &                  jb           ,&! in
-        &                  jcs          ,&! in
-        &                  jce          ,&! in
-        &                  nproma       ,&! in
-        &                  datetime_old ,&! in
-        &                  dt_loc       ,&! in
-        &                  ltrig_rad    ) ! in
-
-    END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+      CALL echam_phy_main( patch,           &! in
+        &                  rl_start, rl_end,&! in  
+        &                  datetime_old    ,&! in
+        &                  dt_loc          ) ! in
 
     IF (ltimer) CALL timer_stop(timer_echam_phy)
 
@@ -551,7 +531,7 @@ CONTAINS
     !=====================================================================================
 
 #ifndef __NO_JSBACH__
-    IF (echam_phy_config%ljsbach) THEN
+    IF (mpi_phy_config(jg)%ljsb) THEN
       CALL jsbach_finish_timestep(jg, dt_loc)
     END IF
 #endif
@@ -653,7 +633,7 @@ CONTAINS
 
     IF (ltimer) CALL timer_start(timer_p2d_couple)
     !
-    SELECT CASE (echam_phy_config%idcphycpl)
+    SELECT CASE (mpi_phy_config(jg)%idcphycpl)
 
     CASE (1) ! idcphycpl
       ! In this case all ECHAM physics is treated as "fast" physics:
@@ -706,7 +686,7 @@ CONTAINS
               ! (2.1) Tracer mixing ratio with respect to dry air
               !
               ! tracer mass tendency
-              IF (echam_phy_config%ldrymoist) THEN
+              IF (mpi_phy_config(jg)%ldrymoist) THEN
                 prm_tend(jg)%   mtrc_phy(jc,jk,jb,jt)  = prm_tend(jg)%  qtrc_phy(jc,jk,jb,jt) &
                   &                                     *prm_field(jg)% mdry    (jc,jk,jb)
               ELSE
@@ -757,7 +737,7 @@ CONTAINS
             prm_field(jg)% mh2ovi(jc,   jb) = prm_field(jg)%      mh2ovi(jc,   jb) &
                 &                            +prm_field(jg)%      mh2o  (jc,jk,jb)
             !
-            IF (echam_phy_config%ldrymoist) THEN
+            IF (mpi_phy_config(jg)%ldrymoist) THEN
               !
               ! new air mass
               prm_field(jg)% mair  (jc,jk,jb) = prm_field(jg)%      mdry (jc,jk,jb) &
@@ -803,7 +783,7 @@ CONTAINS
             DO jc = jcs, jce
               !
               ! new tracer mass fraction with respect to dry air
-              IF (echam_phy_config%ldrymoist) THEN
+              IF (mpi_phy_config(jg)%ldrymoist) THEN
                 prm_field(jg)%   qtrc   (jc,jk,jb,jt)  = prm_field(jg)%  mtrc(jc,jk,jb,jt) &
                   &                                     /prm_field(jg)%  mdry(jc,jk,jb)
               ELSE
@@ -940,21 +920,21 @@ CONTAINS
     !
     ! Now the final new state (pt_prog_new/pt_prog_new_rcf) and
     ! the slow-physics forcing based on this new state are ready.
-    ! The latter is zero if echam_phy_config%idcphycpl=1.
+    ! The latter is zero if mpi_phy_config%idcphycpl=1.
     !
     !=====================================================================================
 
-  IF (lart) THEN
-      CALL art_reaction_interface(ext_data(jg),                    & !> in
-                &          patch,                              & !> in
-                &          datetime_new,                       & !> in
-                &          dt_loc,                             & !> in
-                &          p_prog_list,                        & !> in
-                &          pt_prog_new,                        &
-                &          p_metrics,                          & !> in
-                &          pt_diag,                            & !> inout
-                &          pt_prog_new_rcf%tracer)
-  ENDIF
+    IF (mpi_phy_tc(jg)%dt_art > dt_zero) THEN
+       CALL art_reaction_interface(ext_data(jg),           & !> in
+            &                      patch,                  & !> in
+            &                      datetime_new,           & !> in
+            &                      dt_loc,                 & !> in
+            &                      p_prog_list,            & !> in
+            &                      pt_prog_new,            &
+            &                      p_metrics,              & !> in
+            &                      pt_diag,                & !> inout
+            &                      pt_prog_new_rcf%tracer)
+    ENDIF
 
   END SUBROUTINE interface_iconam_echam
   !----------------------------------------------------------------------------

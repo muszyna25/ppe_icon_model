@@ -35,7 +35,7 @@ MODULE mo_psrad_cld_sampling
 
   USE mo_kind, ONLY          : wp
   USE mo_exception, ONLY     : finish
-  USE mo_random_numbers, ONLY: get_random
+  USE mo_psrad_random, ONLY: get_random
 
   IMPLICIT NONE
   PRIVATE

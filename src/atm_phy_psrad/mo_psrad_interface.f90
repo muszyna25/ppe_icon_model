@@ -7,10 +7,11 @@
 !!
 MODULE mo_psrad_interface
   USE mo_kind,                       ONLY: wp
-  USE mo_physical_constants,         ONLY: avo, amd, amw, amco2, amch4, amn2o, amo3, amo2, amc11, amc12
+  USE mo_physical_constants,         ONLY: avo, amd, amw, amco2, amch4, amn2o, amo3, amo2, amc11, amc12, zemiss_def
   USE mo_exception,                  ONLY: finish
-  USE mo_psrad_radiation_parameters, ONLY: rad_perm, psctm, ssi_factor
-  USE mo_rrtm_params,                ONLY: maxxsec, maxinpx, nbndsw, nbndlw
+  USE mo_psrad_radiation_parameters, ONLY: rad_perm
+  USE mo_psrad_solar_parameters,     ONLY: psctm, ssi_factor
+  USE mo_psrad_general,              ONLY: ncfc, ngas, nbndsw, nbndlw
   USE mo_psrad_cloud_optics,         ONLY: cloud_optics
   USE mo_bc_aeropt_kinne,            ONLY: set_bc_aeropt_kinne  
   USE mo_bc_aeropt_stenchikov,       ONLY: add_bc_aeropt_stenchikov 
@@ -28,20 +29,18 @@ MODULE mo_psrad_interface
 !!$  USE mo_cosp_simulator,             ONLY: cosp_reffl, cosp_reffi,      &
 !!$                                           locosp, cosp_f3d, Lisccp_sim,&
 !!$                                           cisccp_cldtau3d, cisccp_cldemi3d
-  USE mo_psrad_spec_sampling,        ONLY: spec_sampling_strategy, get_num_gpoints
-  USE mo_random_numbers,             ONLY: seed_size_random
+  USE mo_psrad_random,               ONLY: seed_size_random
   USE mo_rad_diag,                   ONLY: rad_aero_diag
   USE mtime,                         ONLY: datetime
+  USE mo_timer,                      ONLY: ltimer, timer_start, timer_stop, &
+    timer_lrtm, timer_srtm
 
   IMPLICIT NONE
 
   PRIVATE
 
-  PUBLIC :: setup_psrad, psrad_interface, & 
-            lw_strat, sw_strat
+  PUBLIC :: setup_psrad, psrad_interface
   
-  TYPE(spec_sampling_strategy), SAVE &
-    &                   :: lw_strat, sw_strat !< Spectral sampling strategies for longwave, shortwave
   INTEGER, PARAMETER    :: rng_seed_size = 4
 CONTAINS
   !---------------------------------------------------------------------------
@@ -80,7 +79,7 @@ CONTAINS
   !!   required to derive cloud optical properties
   !!
   !! @par The gases are passed into RRTM via two multi-constituent arrays: 
-  !!   zwkl and wx_r. zwkl has maxinpx species and  wx_r has maxxsec species  
+  !!   zwkl and wx_r. zwkl has ngas and  wx_r has ncfc species  
   !!   The species are identifed as follows.  
   !!     ZWKL [#/cm2]          WX_R [#/cm2]
   !!    index = 1 => H20     index = 1 => n/a
@@ -90,14 +89,16 @@ CONTAINS
   !!    index = 5 => n/a
   !!    index = 6 => CH4
   !!    index = 7 => O2
-  !
+  ! TODO/BUG?
+  ! NOTE: The above are not identical to the current ones in 
+  ! psrad_general
 
   SUBROUTINE psrad_interface(              jg              ,krow            ,&
        & iaero           ,kproma          ,kbdim           ,klev            ,&
-!!$       & ktrac           ,ktype           ,nb_sw                         ,&
-       &                  ktype           ,nb_sw                            ,&
-       & laland          ,laglac          ,this_datetime   ,pmu0            ,&
-       & cemiss                                                             ,&
+!!$       & ktrac                                                              ,&
+       & ktype                                                              ,&
+       & laland          ,laglac          ,this_datetime                    ,&
+       & pmu0            ,daylght_frc                                       ,&
        & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
        & zf              ,zh              ,dz                               ,&
        & pp_sfc          ,pp_fl                                             ,&
@@ -121,8 +122,7 @@ CONTAINS
          kbdim,                        & !< first dimension of 2-d arrays
          klev,                         & !< number of levels
 !!$         ktrac,                        & !< number of tracers
-         ktype(kbdim),                 & !< type of convection
-         nb_sw                           !< number of shortwave bands
+         ktype(kbdim)                    !< type of convection
 
     LOGICAL,INTENT(IN) ::              &
          laland(kbdim),                & !< land sea mask, land=.true.
@@ -132,7 +132,7 @@ CONTAINS
 
     REAL(WP),INTENT(IN)  ::            &
          pmu0(kbdim),                  & !< mu0 for solar zenith angle
-         cemiss,                       & !< surface emissivity
+         daylght_frc(kbdim),           & !< daylight fraction; with diurnal cycle 0 or 1, with zonal mean in [0,1]
          alb_vis_dir(kbdim),           & !< surface albedo for vis range and dir light
          alb_nir_dir(kbdim),           & !< surface albedo for NIR range and dir light
          alb_vis_dif(kbdim),           & !< surface albedo for vis range and dif light
@@ -197,22 +197,22 @@ CONTAINS
          tk_hl_vr  (kbdim,klev+1),         & !< half level temperature [K]
          cdnc_vr   (kbdim,klev),           & !< cloud nuclei concentration
          cld_frc_vr(kbdim,klev),           & !< secure cloud fraction
-         ziwp_vr   (kbdim,klev),           & !< in cloud ice    water content        [g/m2]
-         ziwc_vr   (kbdim,klev),           & !< in cloud ice    water concentration  [g/m3]
+         ziwp_vr   (kbdim,klev),           & !< in cloud ice water content        [g/m2]
+         ziwc_vr   (kbdim,klev),           & !< in cloud ice water concentration  [g/m3]
          zlwp_vr   (kbdim,klev),           & !< in cloud liquid water content        [g/m2]
          zlwc_vr   (kbdim,klev),           & !< in cloud liquid water concentration  [g/m3]
          re_drop   (kbdim,klev),           & !< effective radius of liquid
          re_cryst  (kbdim,klev),           & !< effective radius of ice
-         wkl_vr       (kbdim,maxinpx,klev),& !< number of molecules/cm2 of
-         wx_vr        (kbdim,maxxsec,klev),& !< number of molecules/cm2 of
+         wkl_vr    (kbdim,klev,ngas),      & !< number of molecules/cm2 of
+         wx_vr     (kbdim,ncfc,klev),      & !< number of molecules/cm2 of
          cld_tau_lw_vr(kbdim,klev,nbndlw), & !< LW optical thickness of clouds
-         cld_tau_sw_vr(kbdim,klev,nb_sw),  & !< extincion
-         cld_cg_sw_vr (kbdim,klev,nb_sw),  & !< asymmetry factor
-         cld_piz_sw_vr(kbdim,klev,nb_sw),  & !< single scattering albedo
+         cld_tau_sw_vr(kbdim,klev,nbndsw), & !< extincion
+         cld_cg_sw_vr (kbdim,klev,nbndsw), & !< asymmetry factor
+         cld_piz_sw_vr(kbdim,klev,nbndsw), & !< single scattering albedo
          aer_tau_lw_vr(kbdim,klev,nbndlw), & !< LW optical thickness of aerosols
-         aer_tau_sw_vr(kbdim,klev,nb_sw),  & !< aerosol optical thickness
-         aer_cg_sw_vr (kbdim,klev,nb_sw),  & !< aerosol asymmetry factor
-         aer_piz_sw_vr(kbdim,klev,nb_sw),  & !< aerosol single scattering albedo
+         aer_tau_sw_vr(kbdim,klev,nbndsw), & !< aerosol optical thickness
+         aer_cg_sw_vr (kbdim,klev,nbndsw), & !< aerosol asymmetry factor
+         aer_piz_sw_vr(kbdim,klev,nbndsw), & !< aerosol single scattering albedo
          x_cdnc       (kbdim)                !< Scale factor for Cloud Droplet Number Concentration
     REAL(wp) ::                            &
          flx_uplw_vr(kbdim,klev+1),        & !< upward flux, total sky
@@ -224,12 +224,6 @@ CONTAINS
     ! Random seeds for sampling. Needs to get somewhere upstream 
     !
     INTEGER :: rnseeds(kbdim,rng_seed_size)
-
-    !
-    ! Number of g-points per time step. Determine here to allow automatic array allocation in 
-    !   lrtm, srtm subroutines. 
-    !
-    INTEGER :: n_gpts_ts
 
     ! 1.0 Constituent properties 
     !--------------------------------
@@ -265,6 +259,8 @@ CONTAINS
     END DO
 
 !IBM* ASSERT(NODEPS)
+    wkl_vr = 0
+    wx_vr = 0
     DO jk = 1, klev
       jkb = klev+1-jk
       DO jl = 1, kproma
@@ -290,17 +286,15 @@ CONTAINS
         !
         ! --- H2O, CO2, O3, N2O, CH4, O2: [kg/m2] --> [molecules/cm2]
         !
-        wkl_vr(jl,:,jk)   = 0.0_wp
-        wkl_vr(jl,1,jk)   = 0.1_wp * avo * xm_vap(jl,jkb)/amw
-        wkl_vr(jl,2,jk)   = 0.1_wp * avo * xm_co2(jl,jkb)/amco2
-        wkl_vr(jl,3,jk)   = 0.1_wp * avo * xm_o3 (jl,jkb)/amo3
-        wkl_vr(jl,4,jk)   = 0.1_wp * avo * xm_n2o(jl,jkb)/amn2o
-        wkl_vr(jl,6,jk)   = 0.1_wp * avo * xm_ch4(jl,jkb)/amch4
-        wkl_vr(jl,7,jk)   = 0.1_wp * avo * xm_o2 (jl,jkb)/amo2
+        wkl_vr(jl,jk,1)   = 0.1_wp * avo * xm_vap(jl,jkb)/amw
+        wkl_vr(jl,jk,2)   = 0.1_wp * avo * xm_co2(jl,jkb)/amco2
+        wkl_vr(jl,jk,3)   = 0.1_wp * avo * xm_ch4(jl,jkb)/amch4
+        wkl_vr(jl,jk,4)   = 0.1_wp * avo * xm_o2 (jl,jkb)/amo2
+        wkl_vr(jl,jk,5)   = 0.1_wp * avo * xm_o3 (jl,jkb)/amo3
+        wkl_vr(jl,jk,6)   = 0.1_wp * avo * xm_n2o(jl,jkb)/amn2o
         !
         ! --- CFC11, CFC12: [kg/m2] --> [molecules/cm2]
         !
-        wx_vr(jl,:,jk)    = 0.0_wp
         wx_vr(jl,2,jk)    = 0.1_wp * avo * xm_cfc(jl,jkb,1)/amc11
         wx_vr(jl,3,jk)    = 0.1_wp * avo * xm_cfc(jl,jkb,2)/amc12
         !
@@ -310,7 +304,8 @@ CONTAINS
     !
     ! 2.0 Surface Properties
     ! --------------------------------
-    zsemiss(1:kproma,:) = cemiss 
+    zsemiss(1:kproma,:) = zemiss_def 
+
     !
     ! 3.0 Particulate Optical Properties
     ! --------------------------------
@@ -331,7 +326,7 @@ CONTAINS
 ! iaero=18: Kinne background aerosols (of natural origin, 1850) are set
       CALL set_bc_aeropt_kinne( this_datetime                          ,&
            & kproma           ,kbdim                 ,klev             ,&
-           & krow             ,nb_sw                 ,nbndlw           ,&
+           & krow             ,nbndsw                ,nbndlw           ,&
            & zf               ,dz                                      ,&
            & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
            & aer_tau_lw_vr                                              )
@@ -343,7 +338,7 @@ CONTAINS
 !           aerosols (of natural origin, 1850) 
       CALL add_bc_aeropt_stenchikov( this_datetime   ,jg               ,&
            & kproma           ,kbdim                 ,klev             ,&
-           & krow             ,nb_sw                 ,nbndlw           ,&
+           & krow             ,nbndsw                ,nbndlw           ,&
            & dz               ,pp_fl                                   ,&
            & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
            & aer_tau_lw_vr                                              )
@@ -351,14 +346,14 @@ CONTAINS
 !!$    IF (iaero==16) THEN
 !!$      CALL add_aop_volc_ham( &
 !!$           & kproma           ,kbdim                 ,klev             ,&
-!!$           & krow             ,nbndlw                ,nb_sw            ,&
+!!$           & krow             ,nbndlw                ,nbndsw           ,&
 !!$           & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
 !!$           & aer_cg_sw_vr                                               )
 !!$    END IF
 !!$    IF (iaero==17) THEN
 !!$      CALL add_aop_volc_crow( &
 !!$           & kproma           ,kbdim                 ,klev             ,&
-!!$           & krow             ,nbndlw                ,nb_sw            ,&
+!!$           & krow             ,nbndlw                ,nbndsw           ,&
 !!$           & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
 !!$           & aer_cg_sw_vr                                               )
 !!$    END IF
@@ -367,7 +362,7 @@ CONTAINS
 !           and Kinne background aerosols (of natural origin, 1850) 
      CALL add_bc_aeropt_splumes(jg                                     ,&
            & kproma           ,kbdim                 ,klev             ,&
-           & krow             ,nb_sw                 ,this_datetime    ,&
+           & krow             ,nbndsw                ,this_datetime    ,&
            & zf               ,dz                    ,zh(:,klev+1)     ,&
            & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
            & x_cdnc                                                     )
@@ -376,12 +371,12 @@ CONTAINS
       CALL rad_aero_diag (                                  &
       & jg              ,krow            ,kproma          , &
       & kbdim           ,klev            ,nbndlw          , &
-      & nb_sw           ,aer_tau_lw_vr   ,aer_tau_sw_vr   , &
+      & nbndsw          ,aer_tau_lw_vr   ,aer_tau_sw_vr   , &
       & aer_piz_sw_vr   ,aer_cg_sw_vr                       )
 
     CALL cloud_optics(                                                  &
          & laglac        ,laland        ,kproma        ,kbdim          ,& 
-         & klev          , ktype        ,nbndlw        ,nbndsw         ,&
+         & klev          , ktype,&       
          & icldlyr       ,zlwp_vr       ,ziwp_vr       ,zlwc_vr        ,&
          & ziwc_vr       ,cdnc_vr       ,cld_tau_lw_vr ,cld_tau_sw_vr  ,&
          & cld_piz_sw_vr ,cld_cg_sw_vr  ,re_drop       ,re_cryst    )  
@@ -424,7 +419,7 @@ CONTAINS
 !!$    ! -----------------------------------------------------------------------------------
 !!$    IF (lanysubmodel)  CALL radiation_subm_1(                     &
 !!$         kproma           ,kbdim            ,klev         ,krow  ,&
-!!$         ktrac            ,iaero            ,nbndlw       ,nb_sw ,&
+!!$         ktrac            ,iaero            ,nbndlw       ,nbndsw,&
 !!$         aer_tau_sw_vr    ,aer_piz_sw_vr    ,aer_cg_sw_vr        ,&
 !!$         aer_tau_lw_vr    ,......           ,xm_trc               )
     !
@@ -433,37 +428,58 @@ CONTAINS
     !
     ! Seeds for random numbers come from least significant digits of pressure field 
     !
-    rnseeds(1:kproma,1:rng_seed_size) = (pm_fl_vr(1:kproma,1:rng_seed_size) -  &
-         int(pm_fl_vr(1:kproma,1:rng_seed_size)))* 1E9 + rad_perm
+    rnseeds(1:kproma,1:rng_seed_size) = int((pm_fl_vr(1:kproma,1:rng_seed_size) -  &
+         int(pm_fl_vr(1:kproma,1:rng_seed_size)))* 1E9 + rad_perm)
 
-    n_gpts_ts = get_num_gpoints(lw_strat)
+    !n_gpts_ts = get_num_gpts_lw()
+    IF (kproma /= kbdim) THEN
+      pm_fl_vr(kproma+1:kbdim,:) = 1.0_wp
+      tk_hl_vr(kproma+1:kbdim,:) = 1.0_wp
+      tk_fl_vr(kproma+1:kbdim,:) = 1.0_wp
+      cld_frc_vr(kproma+1:kbdim,:) = 0.0_wp
+      ziwp_vr(kproma+1:kbdim,:) = 0.0_wp
+      zlwp_vr(kproma+1:kbdim,:) = 0.0_wp
+      ziwc_vr(kproma+1:kbdim,:) = 0.0_wp
+      zlwc_vr(kproma+1:kbdim,:) = 0.0_wp
+      cdnc_vr(kproma+1:kbdim,:) = 0.0_wp
+      col_dry_vr(kproma+1:kbdim,:) = 1.0_wp
+      zsemiss(kproma+1:kbdim,:) = 0.0_wp
+      pm_sfc(kproma+1:kbdim) = 1.0_wp
+      aer_tau_lw_vr(kproma+1:kbdim,:,:) = 0.0_wp
+      cld_tau_lw_vr(kproma+1:kbdim,:,:) = 0.0_wp
+    ENDIF
+    IF (ltimer) CALL timer_start(timer_lrtm)
     CALL lrtm(kproma                                                          ,&
          & kbdim           ,klev            ,pm_fl_vr        ,pm_sfc          ,&
          & tk_fl_vr        ,tk_hl_vr        ,tk_sfc          ,wkl_vr          ,&
          & wx_vr           ,col_dry_vr      ,zsemiss         ,cld_frc_vr      ,&
-         & cld_tau_lw_vr   ,aer_tau_lw_vr   ,rnseeds         ,lw_strat        ,&
-         & n_gpts_ts       ,flx_uplw_vr     ,flx_dnlw_vr     ,flx_uplw_clr_vr ,&
-         & flx_dnlw_clr_vr )
+         & cld_tau_lw_vr   ,aer_tau_lw_vr   , &
+         & rnseeds         ,&
+         & flx_uplw_vr     ,flx_dnlw_vr     ,flx_uplw_clr_vr ,flx_dnlw_clr_vr )
+    IF (ltimer) CALL timer_stop(timer_lrtm)
     !
     ! Reset random seeds so SW doesn't depend on what's happened in LW but is also independent
     !
-    rnseeds(1:kproma,1:rng_seed_size) = (pm_fl_vr(1:kproma,rng_seed_size:1:-1) - &
-         int(pm_fl_vr(1:kproma,rng_seed_size:1:-1)))* 1E9 + rad_perm
-    n_gpts_ts = get_num_gpoints(sw_strat)
+    rnseeds(1:kproma,1:rng_seed_size) = int((pm_fl_vr(1:kproma,rng_seed_size:1:-1) - &
+         int(pm_fl_vr(1:kproma,rng_seed_size:1:-1)))* 1E9 + rad_perm)
+
     ! 
     ! Potential pitfall - we're passing every argument but some may not be present
     !
+    IF (ltimer) CALL timer_start(timer_srtm)
     CALL srtm(kproma                                                           , & 
          &  kbdim           ,klev            ,pm_fl_vr        ,tk_fl_vr        , &
-         &  wkl_vr          ,col_dry_vr      ,alb_vis_dir     ,alb_vis_dif     , &
-         &  alb_nir_dir     ,alb_nir_dif     ,pmu0            ,ssi_factor      , &
-         &  psctm           ,cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    , &
+         &  wkl_vr          ,col_dry_vr                                        , &
+         &  alb_vis_dir     ,alb_vis_dif     ,alb_nir_dir     ,alb_nir_dif     , &
+         &  pmu0            ,daylght_frc     ,ssi_factor      ,psctm           , &
+         &  cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr                     , &
          &  cld_piz_sw_vr   ,aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr   , & 
-         &  rnseeds         ,sw_strat        ,n_gpts_ts       ,flx_dnsw        , &
-         &  flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr                     , &
+         &  rnseeds         ,&
+         &  flx_dnsw        , flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr   , &
          &  vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   , &
          &  vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   , &
          &  vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )
+    IF (ltimer) CALL timer_stop(timer_srtm)
     !
     ! 5.0 Post Processing
     ! --------------------------------

@@ -32,8 +32,8 @@
 !!    Overall period>2^123; 
 !!
 !
-MODULE mo_random_numbers
-  USE mo_kind, ONLY : dp, i8
+MODULE mo_psrad_random
+  USE mo_psrad_general, ONLY : dp, i8
   IMPLICIT NONE
 
   LOGICAL, PARAMETER:: big_endian = (transfer(1_i8, 1) == 0)
@@ -43,9 +43,10 @@ MODULE mo_random_numbers
              (/123456789,362436069,21288629,14921776/) 
   
   PRIVATE
-  PUBLIC :: get_random, seed_size_random, set_seed_random
+  PUBLIC :: get_random, get_i_random, seed_size_random, set_seed_random
   INTERFACE get_random
-    MODULE PROCEDURE kisssca, kiss_global, kissvec, kissvec_all, kissvec_global
+    MODULE PROCEDURE kisssca, kiss_global, kissvec, kissvec_legacy, &
+      kissvec_all, kissvec_global
   END INTERFACE get_random
   
 CONTAINS
@@ -69,27 +70,37 @@ CONTAINS
     INTEGER,  INTENT(inout) :: seed(:,:)  ! Dimension nproma, seed_size
     REAL(DP), INTENT(  out) :: harvest(:) ! Dimension nproma
   
-    LOGICAL :: mask(kbdim) 
+    INTEGER :: mask(KBDIM) 
     
-    mask(:) = .true. 
-    CALL kissvec(kproma, kbdim, seed, mask, harvest)
+    mask(:) = 1
+    CALL kissvec(kproma, KBDIM, seed, mask, harvest)
     
   END SUBROUTINE kissvec_all
   ! -----------------------------------------------
+#define m(k,n) (ieor (k, ishft (k, n)))
+  ! -----------------------------------------------
+#ifdef BIG_ENDIAN
+#define low_byte(i) transfer(ishft(i,bit_size(1)),1)
+#else
+#define low_byte(i) transfer(i,1)
+#endif
+  ! -----------------------------------------------
+
   SUBROUTINE kissvec(kproma, kbdim, seed, mask, harvest)
     INTEGER,  INTENT(in   ) :: kproma, kbdim
     INTEGER,  INTENT(inout) :: seed(:,:)      ! Dimension kbdim, seed_size or bigger
-    LOGICAL,  INTENT(in   ) :: mask(kbdim)    
-    REAL(DP), INTENT(  out) :: harvest(kbdim) 
+    INTEGER,  INTENT(in   ) :: mask(KBDIM)    
+    REAL(DP), INTENT(  out) :: harvest(KBDIM) 
     
     INTEGER(i8) :: kiss(kproma) 
     INTEGER     :: jk 
     
     DO jk = 1, kproma
-      IF(mask(jk)) THEN  
-        kiss(jk  ) = 69069_i8 * seed(jk,1) + 1327217885
-        seed(jk,1) = low_byte(kiss(jk))
-        seed(jk,2) = m (m (m (seed(jk,2), 13), - 17), 5)
+      IF(mask(jk) == 1) THEN  
+        seed(jk,1) = low_byte(69069_i8 * seed(jk,1) + 1327217885)
+        seed(jk,2) = m (seed(jk,2), 13)
+        seed(jk,2) = m (seed(jk,2), - 17)
+        seed(jk,2) = m (seed(jk,2), 5)
         seed(jk,3) = 18000 * iand (seed(jk,3), 65535) + ishft (seed(jk,3), - 16)
         seed(jk,4) = 30903 * iand (seed(jk,4), 65535) + ishft (seed(jk,4), - 16)
         kiss(jk) = int(seed(jk,1), i8) + seed(jk,2) + ishft (seed(jk,3), 16) + seed(jk,4)
@@ -99,6 +110,48 @@ CONTAINS
       END IF 
     END DO
   END SUBROUTINE kissvec
+
+  SUBROUTINE kissvec_legacy(kproma, kbdim, seed, mask, harvest)
+    INTEGER,  INTENT(in   ) :: kproma, kbdim
+    INTEGER,  INTENT(inout) :: seed(:,:)      ! Dimension kbdim, seed_size or bigger
+    LOGICAL,  INTENT(in   ) :: mask(KBDIM)    
+    REAL(DP), INTENT(  out) :: harvest(KBDIM) 
+    
+    INTEGER(i8) :: kiss(kproma) 
+    INTEGER     :: jk 
+    
+    DO jk = 1, kproma
+      IF(mask(jk)) THEN  
+        seed(jk,1) = low_byte(69069_i8 * seed(jk,1) + 1327217885)
+        seed(jk,2) = m (seed(jk,2), 13)
+        seed(jk,2) = m (seed(jk,2), - 17)
+        seed(jk,2) = m (seed(jk,2), 5)
+        seed(jk,3) = 18000 * iand (seed(jk,3), 65535) + ishft (seed(jk,3), - 16)
+        seed(jk,4) = 30903 * iand (seed(jk,4), 65535) + ishft (seed(jk,4), - 16)
+        kiss(jk) = int(seed(jk,1), i8) + seed(jk,2) + ishft (seed(jk,3), 16) + seed(jk,4)
+        harvest(jk) = low_byte(kiss(jk))*2.328306e-10_dp + 0.5_dp
+      ELSE  
+        harvest(jk) = 0._dp
+      END IF 
+    END DO
+  END SUBROUTINE kissvec_legacy
+  ! -----------------------------------------------
+  SUBROUTINE get_i_random(kproma, kbdim, seed, a, b, harvest)
+    integer, intent(in   ) :: kproma, kbdim, a, b
+    integer, intent(inout) :: seed(:,:)
+    integer, intent(  out) :: harvest(KBDIM) 
+    
+    integer(i8) :: kiss(kproma) 
+    
+    seed(:,1) = low_byte(69069_i8 * seed(:,1) + 1327217885)
+    seed(:,2) = m (seed(:,2), 13)
+    seed(:,2) = m (seed(:,2), - 17)
+    seed(:,2) = m (seed(:,2), 5)
+    seed(:,3) = 18000 * iand (seed(:,3), 65535) + ishft (seed(:,3), - 16)
+    seed(:,4) = 30903 * iand (seed(:,4), 65535) + ishft (seed(:,4), - 16)
+    kiss(:) = int(seed(:,1), i8) + seed(:,2) + ishft (seed(:,3), 16) + seed(:,4)
+    harvest(:) = int(mod(kiss(:), int(b-a+1,i8))) + a
+  END SUBROUTINE get_i_random
   ! -----------------------------------------------
   SUBROUTINE kisssca(seed, harvest)
     INTEGER,       INTENT(inout) :: seed(:)
@@ -106,9 +159,9 @@ CONTAINS
     
     INTEGER(i8) :: kiss
 
-    kiss = 69069_i8 * seed(1) + 1327217885
-    seed(1) = low_byte(kiss)
-    seed(2) = m (m (m (seed(2), 13), - 17), 5)
+    seed(1) = low_byte(69069_i8 * seed(1) + 1327217885)
+    seed(2) = m (m (seed(2), 13), - 17)
+    seed(2) = m (seed(2), 5)
     seed(3) = 18000 * iand (seed(3), 65535) + ishft (seed(3), - 16)
     seed(4) = 30903 * iand (seed(4), 65535) + ishft (seed(4), - 16)
     kiss = int(seed(1), i8) + seed(2) + ishft (seed(3), 16) + seed(4)
@@ -129,21 +182,6 @@ CONTAINS
       CALL kisssca(global_seed, harvest(i))
     END DO
   END SUBROUTINE kissvec_global
-  ! -----------------------------------------------
-  ELEMENTAL INTEGER FUNCTION m(k, n)
-    INTEGER, INTENT(in) :: k
-    INTEGER, INTENT(in) :: n
-    m = ieor (k, ishft (k, n) )
-  END FUNCTION m
-  ! -----------------------------------------------
-  ELEMENTAL INTEGER FUNCTION low_byte(i)
-    INTEGER(KIND=i8), intent(in) :: i
-    IF(big_endian) THEN
-      low_byte = transfer(ishft(i,bit_size(1)),1)
-    ELSE
-       low_byte = transfer(i,1)
-    END IF 
-  END FUNCTION low_byte
   
-END MODULE mo_random_numbers
+END MODULE mo_psrad_random
   ! -----------------------------------------------

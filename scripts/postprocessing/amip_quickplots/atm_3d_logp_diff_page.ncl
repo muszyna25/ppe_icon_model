@@ -146,8 +146,7 @@ begin
 
   print(meantime)
   print(workdir)
-  print(nlati)
-
+  print("nlati "+nlati)
 
 ;***define plot and open
    pltType = "pdf"                        ; x11, eps, ps, pdf, png
