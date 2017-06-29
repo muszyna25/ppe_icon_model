@@ -1273,12 +1273,13 @@ CONTAINS
                    x_c = particle_meanmass(cloud, q_c,n_c)
 
                    !..Hom. freezing based on Jeffrey und Austin (1997), see also Cotton und Field (2001)
+                   !  (note that log in Cotton and Field is log10, not ln)
                    IF (T_c > -30.0_wp) THEN
                       j_hom = 1.0e6_wp/rho_w &
-                           &  * EXP(-7.63-2.996*(T_c+30.0))           !..J in 1/(m3 s)
+                           &  * 10**(-7.63-2.996*(T_c+30.0))           !..J in 1/(kg s)
                    ELSE
                       j_hom = 1.0e6_wp/rho_w &
-                           &  * EXP(-243.4-14.75*T_c-0.307*T_c**2-0.00287*T_c**3-0.0000102*T_c**4)
+                           &  * 10**(-243.4-14.75*T_c-0.307*T_c**2-0.00287*T_c**3-0.0000102*T_c**4)
                    ENDIF
 
                    fr_n  = j_hom * q_c *  dt
