@@ -2178,7 +2178,7 @@ MODULE mo_sgs_turbmetric
 
     !4) Calculate var at interface for vertical diffusion
 
-    rl_start = grf_bdywidth_c+1
+    rl_start = grf_bdywidth_c
     rl_end   = min_rlcell_int-1
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
