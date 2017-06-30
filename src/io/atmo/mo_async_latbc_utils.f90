@@ -1037,7 +1037,7 @@
       ENDIF
 
       ! boundary exchange for a 2-D and 3-D array, needed because the
-      ! vertical interpolation includes the halo region (otherwise, the 
+      ! vertical interpolation includes the halo region (otherwise, the
       ! syncs would have to be called after vert_interp)
       CALL sync_patch_array_mult(SYNC_C,p_patch,4, latbc%latbc_data_const%z_mc_in,  &
         &                        latbc%latbc_data(tlev)%atm_in%w,                   &
