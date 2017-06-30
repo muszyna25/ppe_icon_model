@@ -681,7 +681,7 @@ MODULE mo_async_latbc
                   latbc%buffer%internal_name(counter) = &
                     TRIM(dict_get(latbc_varnames_dict, TRIM(name), linverse=.TRUE., default=TRIM(name)))
                   ! getting the variable name in lower case letter
-                  StrLowCasegrp(counter) = TRIM(grp_vars(jp))
+                  StrLowCasegrp(counter) = grp_vars(jp)
 
                   IF (ldebug) THEN
                     WRITE(0,*) '=> internal_name ',  (latbc%buffer%internal_name(counter))
