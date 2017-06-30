@@ -1384,7 +1384,7 @@
       ! looping over variable list in internal name
       LOOP : DO varID=1, latbc%buffer%ngrp_vars
         IF (ldebug)  WRITE (0,*) "internal name : ", TRIM(latbc%buffer%internal_name(varID))
-        IF (TRIM(tolower(name)) == TRIM(tolower(latbc%buffer%internal_name(varID)))) THEN
+        IF (tolower(name) == tolower(latbc%buffer%internal_name(varID))) THEN
           result_varID = varID
           EXIT LOOP
         END IF
