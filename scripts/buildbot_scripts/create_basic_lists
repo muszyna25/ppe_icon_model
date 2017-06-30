@@ -8,7 +8,8 @@ addexp="./addexp"
 #############################################################################
 listname=icon-dev
 ./rmlist $listname
-./mklist $listname
+# ./mklist $listname
+./create_all_builders $listname
 
 #-----------------------------------------------------------
 # AES
@@ -75,7 +76,7 @@ $addexp checksuite.ocean_internal/other/exp.oce_testbed_read --runflags "cpu_tim
 #############################################################################
 listname=build_only
 ./rmlist $listname
-./mklist $listname
+./create_all_builders $listname
 ./set_builder_flags build_only --builders "*" --list $listname
 #lets see the list
 ./lslist $listname
