@@ -555,7 +555,6 @@ CONTAINS
       IF (iice <= nsfc_type) THEN
 
         prm_field(jg)%ts_tile(:,:,iice) = prm_field(jg)%ts_tile(:,:,iwtr)
-        ! field%ts_tile(:,:,iice) = Tf + tmelt  ! ?
         !
         prm_field(jg)% albvisdir_tile(:,:,iice) = albi    ! albedo in the visible range for direct radiation
         prm_field(jg)% albnirdir_tile(:,:,iice) = albi    ! albedo in the NIR range for direct radiation
