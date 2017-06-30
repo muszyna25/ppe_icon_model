@@ -702,7 +702,6 @@ set_run_target_mpipc()
     set_default use_openmp_threads 1
   fi
 
-
   # create header
   start_header
 

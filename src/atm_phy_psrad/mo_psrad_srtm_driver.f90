@@ -60,9 +60,10 @@ MODULE mo_psrad_srtm_driver
   INTEGER :: i
   REAL (wp), PARAMETER      :: frc_par_array(nbndsw) = &
              (/ (0.0_wp, i = 1, 8), 0.533725_wp, 1.0_wp, 0.550164_wp, (0.0_wp, i = 12, nbndsw) /) 
-  REAL (wp), PARAMETER      ::       frc_vis(1:nbndsw) = MAX(0.0_wp, MIN(1.0_wp, & 
-           (/ ((wavenum2(i+jpb1-1) - nir_vis_boundary) / delwave(i+jpb1-1), i = 1, nbndsw) /) ))
-
+!  REAL (wp), PARAMETER      ::       frc_vis(1:nbndsw) = MAX(0.0_wp, MIN(1.0_wp, & 
+!           (/ ((wavenum2(i+jpb1-1) - nir_vis_boundary) / delwave(i+jpb1-1), i = 1, nbndsw) /) ))
+!HB: ugly hack for PGI internal compiler error ...
+  REAL (wp), PARAMETER      ::       frc_vis(1:nbndsw) = 0.0_wp
 
 CONTAINS
 
