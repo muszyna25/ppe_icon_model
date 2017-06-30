@@ -19,7 +19,7 @@ MODULE mo_atmo_model
   USE mo_exception,               ONLY: message, finish
   USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
     &                                   set_mpi_work_communicators, process_mpi_io_size,      &
-    &                                   my_process_is_pref, process_mpi_pref_size  
+    &                                   my_process_is_pref, process_mpi_pref_size
   USE mo_timer,                   ONLY: init_timer, timer_start, timer_stop,                  &
     &                                   timers_level, timer_model_init,                       &
     &                                   timer_domain_decomp, timer_compute_coeffs,            &
@@ -90,7 +90,7 @@ MODULE mo_atmo_model
 
   ! external data, physics
   USE mo_ext_data_state,          ONLY: ext_data, destruct_ext_data
-  USE mo_ext_data_init,           ONLY: init_ext_data 
+  USE mo_ext_data_init,           ONLY: init_ext_data
   USE mo_nwp_ww,                  ONLY: configure_ww
 
   USE mo_diffusion_config,        ONLY: configure_diffusion
@@ -231,7 +231,6 @@ CONTAINS
     ENDIF
 
     !---------------------------------------------------------------------
-
     ! 1.1 Read namelists (newly) specified by the user; fill the
     !     corresponding sections of the configuration states.
     !---------------------------------------------------------------------
@@ -306,10 +305,10 @@ CONTAINS
       num_prefetch_proc = 1
       CALL message(routine,'asynchronous input prefetching is enabled.')
       IF (my_process_is_pref() .AND. (.NOT. my_process_is_mpi_test())) THEN
-        CALL prefetch_main_proc()
+        CALL prefetch_main_proc
       ENDIF
     ENDIF
- 
+
     ! If we belong to the I/O PEs just call xxx_io_main_proc before
     ! reading patches.  This routine will never return
     IF (process_mpi_io_size > 0) THEN
@@ -447,7 +446,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 7. Constructing data for lon-lat interpolation
     !-------------------------------------------------------------------
-    
+
     CALL compute_lonlat_intp_coeffs(p_patch(1:), p_int_state(1:))
 
     IF (n_dom_start==0 .OR. n_dom > 1) THEN
@@ -456,7 +455,7 @@ CONTAINS
     IF (timers_level > 5) CALL timer_stop(timer_compute_coeffs)
 
    !---------------------------------------------------------------------
-   ! Prepare dynamics and land 
+   ! Prepare dynamics and land
    !---------------------------------------------------------------------
 
     CALL configure_dynamics ( n_dom )
@@ -530,7 +529,7 @@ CONTAINS
     !------------------------------------------------------------------
     ! 11. Create ART data fields
     !------------------------------------------------------------------
-    
+
     CALL art_init_interface(n_dom,'construct')
 
     !------------------------------------------------------------------
