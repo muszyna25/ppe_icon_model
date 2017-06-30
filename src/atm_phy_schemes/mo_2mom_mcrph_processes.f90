@@ -169,7 +169,7 @@ MODULE mo_2mom_mcrph_processes
        &    na_dust    = 162.e3_wp,   & ! initial number density of dust [1/m³], Phillips08 value 162e3
        &    na_soot    =  15.e6_wp,   & ! initial number density of soot [1/m³], Phillips08 value 15e6
        &    na_orga    = 177.e6_wp,   & ! initial number density of organics [1/m3], Phillips08 value 177e6
-       &    ni_het_max = 50.0e3_wp,   & ! max number of IN between 1-10 per liter, i.e. 1d3-10d3
+       &    ni_het_max = 500.0e3_wp,  & ! max number of IN between 1-10 per liter, i.e. 1d3-10d3
        &    ni_hom_max = 5000.0e3_wp    ! number of liquid aerosols between 100-5000 per liter
 
   INTEGER, PARAMETER ::               & ! Look-up table for Phillips et al. nucleation
@@ -1710,10 +1710,10 @@ CONTAINS
 
 
     ! parameters for deposition formula, Eq (2) of Hande et al.
-    REAL(wp), PARAMETER :: a_dep =  2.7626_wp
+    REAL(wp), PARAMETER :: a_dep =  2.7626_wp * 0.1_wp
     REAL(wp), PARAMETER :: b_dep =  6.2100_wp  ! 0.0621*100, because we use ssi instead of RHi
     REAL(wp), PARAMETER :: c_dep = -1.3107_wp
-    REAL(wp), PARAMETER :: d_dep =  2.6789_wp
+    REAL(wp), PARAMETER :: d_dep =  2.6789_wp * 0.1_wp
 
     REAL(wp)             :: nuc_n, nuc_q
     REAL(wp)             :: T_a, ssi, e_si
