@@ -443,13 +443,9 @@ MODULE mo_async_latbc
          ! Root is proc 0 on the prefetch PE
          bcast_root = 0
       ELSE
-         ! Special root setting for inter-communicators:
-         ! The PE really sending must use MPI_ROOT, the others MPI_PROC_NULL
-         IF(p_pe_work == 0) THEN
-            bcast_root = MPI_ROOT
-         ELSE
-            bcast_root = MPI_PROC_NULL
-         ENDIF
+        ! Special root setting for inter-communicators:
+        ! The PE really sending must use MPI_ROOT, the others MPI_PROC_NULL
+        bcast_root = MERGE(MPI_ROOT, MPI_PROC_NULL, p_pe_work == 0)
       ENDIF
 
       ! read the map file into dictionary data structure
