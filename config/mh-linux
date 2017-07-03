@@ -234,7 +234,7 @@ case "$ac_sitename" in
                 FC = ftn
                 F77= ftn
                 GRIBAPIROOT = /apps/daint/UES/6.0.UP02/sandbox-ws/grib_api
-		XML2ROOT    = /apps/daint/UES/jenkins/sandbox/easybuild/software/libxml2/2.9.3-CrayGNU-2016.03
+		XML2ROOT    = /apps/daint/UES/6.0.UP02/sandbox-ws/xml2/2.9.4/CRAY/8.5.5
                 ZLIBROOT    = /usr
 
                 case "$fortran_compiler" in
@@ -248,11 +248,11 @@ case "$ac_sitename" in
                         config_target=daint_cpu
                         load_modules = PrgEnv-intel cray-netcdf cray-mpich 
                         CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF
-                        STD_FLAGS   = -O2 -mavx -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
-                        FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE
+                        STD_FLAGS   = -g -O2 -qopt-report -fp-model source -fpp -traceback  -D__LOOP_EXCHANGE
+                        F77FLAGS    = -g -O2 -qopt-report -fp-model source -fpp -traceback  
+                        FFLAGS      = -g -O2 -qopt-report -fp-model source -fpp -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -assume realloc_lhs
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/INTEL/15.0
-                        F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
-                        MODDIR      = -I
+                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/INTEL/17.0.1.132/lib -ljasper -L/apps/daint/UES/6.0.UP02/sandbox-ws/xml2/2.9.4/GNU/5.3.0/lib -lxml2
 			;;
                     pgi)
                         config_target=daint_cpu 
@@ -267,7 +267,7 @@ case "$ac_sitename" in
                         CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -O3 -DUSE_XML2
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
 			HDF5ROOT    = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
-                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -L/apps/daint/UES/jenkins/sandbox/easybuild/software/libxml2/2.9.3-CrayGNU-2016.03/lib -lxml2
+                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -L/apps/daint/UES/6.0.UP02/sandbox-ws/xml2/2.9.4/CRAY/8.5.5/lib -lxml2
 			;;
                     cray_gpu)
                         config_target=daint_gpu
@@ -276,7 +276,7 @@ case "$ac_sitename" in
                         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3 -DUSE_XML2
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
 			HDF5ROOT    = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
-                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -L/apps/daint/UES/jenkins/sandbox/easybuild/software/libxml2/2.9.3-CrayGNU-2016.03/lib -lxml2
+                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -L/apps/daint/UES/6.0.UP02/sandbox-ws/xml2/2.9.4/CRAY/8.5.5/lib -lxml2
 			;;
                     *)
                         echo
