@@ -545,7 +545,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
         ENDDO
       ENDDO
 
-      IF (jgp == 0) THEN ! settings for passive extra layer above model top for global grid (nshift=1 in this case)
+      IF (jgp == 0 .OR. p_patch(jg)%nshift == 0) THEN ! settings for passive extra layer above model top for global grid (nshift=1 in this case)
         DO jc = i_startidx, i_endidx
           ! Temperature is extrapolated linearly assuming a vertical temperature gradient of -5.0 K/km
           p_temp(jc,1,jb) = p_temp(jc,2,jb) - 5.0e-3_wp*exdist_f
@@ -2518,10 +2518,12 @@ SUBROUTINE copy_rrg_ubc (jg, jgc)
   jks = MAX(0, p_patch(jgc)%nshift - nexlevs_rrg_vnest) + 1
   jke = p_patch(jgc)%nshift
   nshift = MIN(nexlevs_rrg_vnest, p_patch(jgc)%nshift)
-  CALL exchange_data_mult(p_patch_local_parent(jgc)%comm_pat_glb_to_loc_c, 3, 3*nshift,                          &
+  IF (nshift > 0) THEN
+    CALL exchange_data_mult(p_patch_local_parent(jgc)%comm_pat_glb_to_loc_c, 3, 3*nshift,                        &
        RECV1=prm_diag(jgc)%buffer_rrg(:,         1:  nshift,:), SEND1=p_nh_state(jg)%diag%pres_ifc(:,jks:jke,:), &
        RECV2=prm_diag(jgc)%buffer_rrg(:,  nshift+1:2*nshift,:), SEND2=p_nh_state(jg)%diag%pres(:,jks:jke,:),     &
        RECV3=prm_diag(jgc)%buffer_rrg(:,2*nshift+1:3*nshift,:), SEND3=p_nh_state(jg)%diag%temp(:,jks:jke,:)      )
+  ENDIF
 
 END SUBROUTINE copy_rrg_ubc
 
