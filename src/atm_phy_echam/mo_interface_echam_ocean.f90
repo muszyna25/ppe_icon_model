@@ -42,7 +42,6 @@ MODULE mo_interface_echam_ocean
 
 #if !defined(__NO_JSBACH__) && !defined(__NO_JSBACH_HD__)
   USE mo_interface_hd_ocean  ,ONLY: jsb_fdef_hd_fields
-! USE mo_srf_init            ,ONLY: ocean_coast
 #endif
 
   USE mo_master_control      ,ONLY: get_my_process_name
@@ -491,7 +490,7 @@ CONTAINS
     ! 1. prm_field(jg)% u_stress_tile(:,:,iwtr/iice)  and 
     !    prm_field(jg)% v_stress_tile(:,:,iwtr/iice)  which are the wind stress components over water and ice respectively
     !
-    ! 2. prm_field(jg)% evap_tile(:,:,iwtr/iice)  evaporation rate over ice-covered and open ocean, no land;
+    ! 2. prm_field(jg)% evap_tile(:,:,iwtr/iice)  evaporation rate over ice-covered and open ocean/lakes, no land;
     !
     ! 3. prm_field(jg)%rsfl + prm_field(jg)%rsfc + prm_field(jg)%ssfl + prm_field(jg)%ssfc
     !    which gives the precipitation rate;

@@ -833,7 +833,8 @@ CONTAINS
     IF (echam_phy_config% ljsbach) THEN
       CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__, or set ljsbach=.FALSE.")
     ENDIF
-    echam_phy_config% ljsbach   = .FALSE.     
+    echam_phy_config% ljsbach   = .FALSE.
+    echam_phy_config% llake     = .FALSE.     
 #else
     IF (echam_phy_config% ljsbach) THEN
       IF (num_restart_procs > 0) THEN
@@ -842,6 +843,9 @@ CONTAINS
       IF (num_io_procs > 0) THEN
         CALL finish(method_name, "JSBACH currently doesn't work with asynchronous IO. Set num_io_procs=0 !")
       END IF
+    ELSE IF (echam_phy_config%llake) THEN
+      CALL message(TRIM(method_name), 'Setting llake = .FALSE. since ljsbach = .FALSE.')
+      echam_phy_config%llake = .FALSE.
     END IF
 #endif
 

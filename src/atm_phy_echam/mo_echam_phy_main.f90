@@ -239,16 +239,16 @@ CONTAINS
       ! non-fractional, each grid cell is either land, sea, or sea-ice.
       ! See mo_echam_phy_init or input data set for details.
 
-      zfrl(jc) = field% lsmask(jc,jb)
+      zfrl(jc) = MAX(field% lsmask(jc,jb),0._wp)
 
       ! fraction of sea/lake in the grid box
       ! * (1. - fraction of sea ice in the sea/lake part of the grid box)
       ! => fraction of open water in the grid box
 
-      zfrw(jc) = (1._wp-zfrl(jc))*(1._wp-field%seaice(jc,jb))
+      zfrw(jc) = MAX(1._wp-zfrl(jc),0._wp)*MAX(1._wp-(field%seaice(jc,jb)+field%lake_ice_frc(jc,jb)),0._wp)
 
       ! fraction of sea ice in the grid box
-      zfri(jc) = 1._wp-zfrl(jc)-zfrw(jc)
+      zfri(jc) = MAX(1._wp-zfrl(jc)-zfrw(jc),0._wp)
       ! security for ice temperature with changing ice mask
       !
       IF(zfri(jc) > 0._wp .AND. field%ts_tile(jc,jb,iice) == cdimissval ) THEN
@@ -339,9 +339,9 @@ CONTAINS
        !-----------------------
        IF (ltrig_rad) THEN
 
-          ! store ts_rad of this radiatiative transfer timestep in ts_rad_rt,
-          ! so that it can be reused in radheat in the other timesteps
-          field%ts_rad_rt(jcs:jce,jb) = field%ts_rad(jcs:jce,jb)
+        ! store ts_rad of this radiatiative transfer timestep in ts_rad_rt,
+        ! so that it can be reused in radheat in the other timesteps
+        field%ts_rad_rt(jcs:jce,jb) = field%ts_rad(jcs:jce,jb)
 
         IF (ltimer) CALL timer_start(timer_radiation)
 
@@ -626,7 +626,8 @@ CONTAINS
           & field%  evap_tile    (:,jb,:),   &! out
                                 !! optional
           & nblock = jb,                  &! in
-          & lsm = field%lsmask(:,jb), &!< in, land-sea mask
+          & lsm = field%lsmask(:,jb),     &!< in, land-sea mask
+          & alake = field%alake(:,jb),    &! in, lake fraction
           & pu    = field% ua(:,nlev,jb), &! in, um1
           & pv    = field% va(:,nlev,jb), &! in, vm1
           & ptemp = field% ta(:,nlev,jb), &! in, tm1
@@ -637,8 +638,8 @@ CONTAINS
           & pssfc = field% ssfc(:,jb),    &! in, snow surface concective (from cucall)
           & rlds        = field% rlds (:,jb), &! in,  downward surface  longwave flux [W/m2]
           & rlus        = field% rlus (:,jb), &! inout, upward surface  longwave flux [W/m2]
-          & rsds        = field% rsds (:,jb), &! in,  downward surface shortwave flux [W/m2]
-          & rsus        = field% rsus (:,jb), &! inout, upward surface shortwave flux [W/m2]
+          & rsds        = field% rsds (:,jb), &! in, downward surface shortwave flux [W/m2]
+          & rsus        = field% rsus (:,jb), &! in, upward surface shortwave flux [W/m2]
           !
           & rvds_dir   = field%rvds_dir   (:,jb), &! in, all-sky downward direct visible radiation at surface
           & rpds_dir   = field%rpds_dir   (:,jb), &! in, all-sky downward direct PAR     radiation at surface
@@ -669,6 +670,7 @@ CONTAINS
           & ptsfc_rad = field%ts_rad(:,jb),                        &! out
           & rlns_tile = field%lwflxsfc_tile(:,jb,:),               &! out (for coupling)
           & rsns_tile = field%swflxsfc_tile(:,jb,:),               &! out (for coupling)
+          & lake_ice_frc = field%lake_ice_frc(:,jb),               &! out
           & Tsurf = field% Tsurf(:,:,jb),  &! inout, for sea ice
           & T1    = field% T1   (:,:,jb),  &! inout, for sea ice
           & T2    = field% T2   (:,:,jb),  &! inout, for sea ice
