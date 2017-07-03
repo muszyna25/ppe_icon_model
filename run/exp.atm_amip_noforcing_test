@@ -149,7 +149,6 @@ cat >> ${atmo_namelist} << EOF
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
  lnetcdf_flt64_output = .TRUE.
- restart_file_type= 5
 /
 EOF
 
@@ -169,7 +168,6 @@ if [[ "$output_atm_3d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_atm_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
@@ -193,7 +191,6 @@ if [[ "$output_trc_3d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"

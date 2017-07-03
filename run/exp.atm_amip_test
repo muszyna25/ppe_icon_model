@@ -411,7 +411,6 @@ cat >> ${atmo_namelist} << EOF
  netcdf_dict      = "${dict_file}"
  lnetcdf_flt64_output = .TRUE.
  itype_pres_msl   = 4
- restart_file_type= 5
 /
 EOF
 
@@ -431,7 +430,6 @@ if [[ "$output_atm_cgrid" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_atm_cgrid"
  filename_format  = "<output_filename>_<levtype_l>"
- filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"       ! output_start = output_end
@@ -452,7 +450,6 @@ if [[ "$output_atm_3d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_atm_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
@@ -479,7 +476,6 @@ if [[ "$output_atm_2d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_atm_2d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
@@ -518,7 +514,6 @@ if [[ "$output_phy_3d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_phy_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
@@ -552,7 +547,6 @@ if [[ "$output_trc_3d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
@@ -580,7 +574,6 @@ if [[ "$output_aer_3d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_aer_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
  remap            = 1
  reg_def_mode     = 1
  reg_lat_def      = ${reg_lat_def_rmb}
@@ -606,7 +599,6 @@ if [[ "$output_lnd" == "min" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_lnd"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
@@ -638,7 +630,6 @@ if [[ "$output_lnd" == "full" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_lnd_a2l"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
@@ -657,7 +648,6 @@ if [[ "$output_lnd" == "full" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_lnd_l2a"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
@@ -677,7 +667,6 @@ if [[ "$output_lnd" == "full" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_lnd_rad"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
@@ -696,7 +685,6 @@ if [[ "$output_lnd" == "full" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_lnd_seb"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
@@ -709,7 +697,6 @@ if [[ "$output_lnd" == "full" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_lnd_sse"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
@@ -727,7 +714,6 @@ if [[ "$output_lnd" == "full" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_lnd_hydro"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
@@ -749,7 +735,6 @@ if [[ "$output_lnd" == "full" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_lnd_pheno"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
@@ -768,7 +753,6 @@ if [[ "$jsbach_check_wbal" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_lnd_wbal"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
