@@ -434,14 +434,6 @@ MODULE mo_nh_stepping
                &                      ext_data(jg),                           & !in
                &                      prm_diag(jg)                            ) !inout
 
-          ! In case of vertical nesting, copy upper levels of synsat input fields to local parent grid
-          DO jn = 1, p_patch(jg)%n_childdom
-            jgc = p_patch(jg)%child_id(jn)
-            IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
-            IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
-          ENDDO
-          ! Compute synthetic sat images
-          IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
 
         ELSE !is_les_phy
 
@@ -461,6 +453,20 @@ MODULE mo_nh_stepping
       ENDDO!jg
 
       CALL fill_nestlatbc_phys
+
+      ! Compute synthetic satellite images if requested
+      DO jg = 1, n_dom
+
+        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+        ! In case of vertical nesting, copy upper levels of synsat input fields to local parent grid
+        DO jn = 1, p_patch(jg)%n_childdom
+          jgc = p_patch(jg)%child_id(jn)
+          IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
+          IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
+        ENDDO
+        IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
+
+      ENDDO!jg
 
     ENDIF!is_restart
   CASE (iecham)
@@ -1031,14 +1037,6 @@ MODULE mo_nh_stepping
                  &                      ext_data(jg),                           & !in
                  &                      prm_diag(jg)                            ) !inout
 
-            ! In case of vertical nesting, copy upper levels of synsat input fields to local parent grid
-            DO jn = 1, p_patch(jg)%n_childdom
-              jgc = p_patch(jg)%child_id(jn)
-              IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
-              IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
-            ENDDO
-            ! Compute synthetic sat images
-            IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
 
           ELSE !is_les_phy
 
@@ -1059,6 +1057,20 @@ MODULE mo_nh_stepping
         ENDDO!jg
 
         CALL fill_nestlatbc_phys
+
+      ! Compute synthetic satellite images if requested
+        DO jg = 1, n_dom
+
+          IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+          ! In case of vertical nesting, copy upper levels of synsat input fields to local parent grid
+          DO jn = 1, p_patch(jg)%n_childdom
+            jgc = p_patch(jg)%child_id(jn)
+            IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
+            IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
+          ENDDO
+          IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
+
+        ENDDO!jg
 
       END IF !iforcing=inwp
 
