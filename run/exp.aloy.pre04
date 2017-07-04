@@ -93,7 +93,7 @@ dtime_oce=${dtime_oce:=600}
 # restart interval
 # ----------------
 
-checkpoint_interval="P200Y" #  mtime ISO-format
+checkpoint_interval="P20Y" #  mtime ISO-format
 
 # high frequency output and restart intervals
 #  - Warning: restart_interval must be multiple of radiation time step (see below).
@@ -103,7 +103,6 @@ lnd_output_interval="PT6H"
 oce_output_interval="PT6H"
 
 # mid-frequency output and restart intervals
-##  P6M ?
 #restart_interval="P1Y"   
 #atm_output_interval="P1D"
 #lnd_output_interval="P1D"
@@ -111,7 +110,6 @@ oce_output_interval="PT6H"
 
 ## long-term low frequency output and restart intervals
 #restart_interval="P2Y"   
-#checkpoint_interval="P1Y"
 #atm_output_interval="P1M"
 #lnd_output_interval="P1M"
 #oce_output_interval="P1M"
