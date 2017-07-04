@@ -66,10 +66,6 @@ MODULE mo_initicon_nml
 
   PUBLIC :: read_initicon_namelist
 
-  CHARACTER(len=*), PARAMETER :: modelname    = 'icon'
-  CHARACTER(len=*), PARAMETER :: modelversion = 'dev'
-
-
   ! Variables of that type contain a list of all mandatory input fields
   ! This list can include a subset or the entire set of mandatory fields.
   TYPE t_check_input
