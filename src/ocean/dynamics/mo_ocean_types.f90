@@ -195,6 +195,7 @@ MODULE mo_ocean_types
       & osalttend,                    &
       & odensitytend
 
+
     onCells_2D :: &
       & thick_c          ,& ! individual fluid column thickness at cells. Unit [m].
       & u_vint           ,& ! barotropic zonal velocity. Unit [m*m/s]
@@ -259,6 +260,10 @@ MODULE mo_ocean_types
       & thick_e          ! individual fluid column thickness at edges. Unit [m].
     
     TYPE(t_ocean_monitor) :: monitor
+
+    ! for the testbed
+    !    testbed_div (test_mode: 103-113)
+    onCells :: div_model, div_diff, divPtP, divPtP_diff
     
   END TYPE t_hydro_ocean_diag
   !-------------------------------------------------------------------------

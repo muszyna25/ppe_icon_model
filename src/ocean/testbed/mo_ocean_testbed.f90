@@ -44,6 +44,8 @@ MODULE mo_ocean_testbed
   USE mo_ocean_testbed_solverMatrix,ONLY: createSolverMatrix
   USE mo_ocean_math_operators,      ONLY: update_height_depdendent_variables
   USE mtime,                        ONLY: datetime
+  USE mo_hamocc_types,          ONLY: t_hamocc_state
+  USE mo_ocean_output
   
 !-------------------------------------------------------------------------
 IMPLICIT NONE
@@ -79,6 +81,8 @@ CONTAINS
     TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
 
     CHARACTER(LEN=*), PARAMETER ::  method_name = "ocean_testbed"
+    TYPE (t_hamocc_state)        :: hamocc_State
+    INTEGER :: jstep, jstep0
 
     CALL update_height_depdendent_variables( patch_3D, ocean_state(1), external_data(1), operators_coefficients, solverCoeff_sp)
 
@@ -121,6 +125,15 @@ CONTAINS
 
     END SELECT
 
+    jstep = 1
+    jstep0 = 1
+    CALL output_ocean( patch_3d, &
+      & ocean_state,             &
+      & this_datetime,           &
+      & surface_fluxes,          &
+      & ocean_ice,               &
+      & hamocc_state,            &
+      & jstep, jstep0)
 
   END SUBROUTINE ocean_testbed
   !-------------------------------------------------------------------------
