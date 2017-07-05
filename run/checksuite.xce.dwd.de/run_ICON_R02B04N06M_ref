@@ -40,8 +40,11 @@ export ATP_MAX_CORES=0
 # path definitions
 # ----------------------------------------------------------------------------
 
+# root directory for input data
+DATAROOT=/lustre2/rwork0/routfor/test/icon/Checksuite_data/
+
 # directory with input grids:
-GRIDDIR=/e/uhome/gzaengl/icon-dev/experiments/GRF_R2B4N6M
+GRIDDIR=${DATAROOT}/GRF_R2B4N6M
 
 # base directory for ICON sources and binary:
 ICONDIR=${PBS_O_WORKDIR}/../../
@@ -251,7 +254,7 @@ cat > NAMELIST_NWP << EOF
  inwp_sso                    =                          0         ! subgrid scale orographic drag
  inwp_gwd                    =                          1         ! non-orographic gravity wave drag
  inwp_surface                =                          0         ! surface scheme
- latm_above_top              =              .FALSE.,.TRUE.        ! take into account atmosphere above model top for radiation computation
+ latm_above_top              =.FALSE.,.TRUE.,.TRUE.,.TRUE.,.TRUE. !  take into account atmosphere above model top for radiation computation
  efdt_min_raylfric           =                       7200.0       ! minimum e-folding time of Rayleigh friction
  itype_z0                    =                          2         ! type of roughness length data
 /

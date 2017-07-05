@@ -16,6 +16,10 @@
 #
 # Platform: Cray XC30
 #           xce.dwd.de
+# ---------------------------------------------------------------
+# VARIANT WITH RESTART
+# (and a different nproma and number of OpenMP threads)
+# ---------------------------------------------------------------
 #
 # 05/2014 : G. Zaengl, F. Prill, DWD
 #
@@ -55,7 +59,7 @@ EXTPARDIR=${DATAROOT}/Extpar_R2B6N8_IFStest
 ICONDIR=${PBS_O_WORKDIR}/../../
 
 # absolute path to directory with plenty of space:
-EXPDIR=$TMPDIR/../experiments/exp10
+EXPDIR=$TMPDIR/../experiments/exp11
 
 # path to model binary, including the executable:
 MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/icon
@@ -71,14 +75,19 @@ if [ ! -d $EXPDIR ]; then
 fi
 cd ${EXPDIR}
 
+# delete existing restart files
+rm -rf *restart_*
+
 # grid files
 ln -sf ${GRIDDIR}/iconR2B05_DOM00.nc iconR2B05_DOM00.nc
 ln -sf ${GRIDDIR}/iconR2B06_DOM01.nc iconR2B06_DOM01.nc
 ln -sf ${GRIDDIR}/iconR2B07_DOM02.nc iconR2B07_DOM02.nc
+ln -sf ${GRIDDIR}/iconR2B08_DOM03.nc iconR2B08_DOM03.nc
 
 # external parameter (from ExtPar tool)
 ln -sf ${EXTPARDIR}/extpar_R2B06_DOM01.nc extpar_iconR2B06_DOM01.nc
 ln -sf ${EXTPARDIR}/extpar_R2B07_DOM02.nc extpar_iconR2B07_DOM02.nc
+ln -sf ${EXTPARDIR}/extpar_R2B08_DOM03.nc extpar_iconR2B08_DOM03.nc
 
 # interpolated IFS data
 ln -sf $IFSDATADIR/prepiconR2B06_DOM01_2012062100.nc ifs2icon_R2B06_DOM01.nc
@@ -97,7 +106,7 @@ cp -p $MODEL icon
 # ----------------------------------------------------------------------------
 
 # the grid parameters
-atmo_dyn_grids="iconR2B06_DOM01.nc iconR2B07_DOM02.nc"
+atmo_dyn_grids="iconR2B06_DOM01.nc iconR2B07_DOM02.nc iconR2B08_DOM03.nc"
 atmo_rad_grids="iconR2B05_DOM00.nc"
 
 # reconstruct the grid parameters in namelist form
@@ -112,6 +121,30 @@ done
 
 
 # ----------------------------------------------------------------------------
+# ============================================================================
+#                        LOOP: MODEL IS EXECUTED TWO TIMES
+# ============================================================================
+for iter in 1 2 ; do
+
+
+if [ $iter -eq 1 ] ; then
+
+restart="       .FALSE.  "
+nsteps="           280   "
+checkpoint="     86400.0 "
+nrest_procs="        1   "
+
+else
+
+restart="        .TRUE.  "
+nsteps="           180   "
+checkpoint="    864000.0 "
+nrest_procs="        0   "
+
+fi
+
+
+# ----------------------------------------------------------------------------
 # create ICON master namelist
 # ----------------------------------------------------------------------------
 
@@ -119,7 +152,7 @@ cat > icon_master.namelist << EOF
 
 ! master_nml: ----------------------------------------------------------------
 &master_nml
- lrestart                   =                      .FALSE.        ! .TRUE.=current experiment is resumed
+ lrestart                   =                   ${restart}        ! .TRUE.=current experiment is resumed
 /
 
 ! master_model_nml: repeated for each model ----------------------------------
@@ -149,19 +182,19 @@ cat > NAMELIST_NWP << EOF
 
 ! parallel_nml: MPI parallelization -------------------------------------------
 &parallel_nml
- nproma                      =                          8         ! loop chunk length
+ nproma                      =                         16         ! loop chunk length
  p_test_run                  =                     .FALSE.        ! .TRUE. means verification run for MPI parallelization
- num_io_procs                =                          2         ! number of I/O processors
- num_restart_procs           =                          0         ! number of restart processors
+ num_io_procs                =                          1         ! number of I/O processors
+ num_restart_procs           =             ${nrest_procs}         ! number of restart processors
  iorder_sendrecv             =                          3         ! sequence of MPI send/receive calls
 /
 
 ! run_nml: general switches ---------------------------------------------------
 &run_nml
  ltestcase                   =                     .FALSE.        ! idealized testcase runs
- num_lev                     =                     90, 56         ! number of full levels (atm.) for each domain
+ num_lev                     =                 90, 56, 52         ! number of full levels (atm.) for each domain
  lvert_nest                  =                      .TRUE.        ! vertical nesting
- nsteps                      =                        420         ! number of time steps of this run
+ nsteps                      =                   ${nsteps}        ! number of time steps of this run
  dtime                       =                        360         ! timestep in seconds
  ldynamics                   =                      .TRUE.        ! compute adiabatic dynamic tendencies
  ltransport                  =                      .TRUE.        ! compute large-scale tracer transport
@@ -212,8 +245,10 @@ cat > NAMELIST_NWP << EOF
  radiation_grid_filename     = ${radiation_grid_filename}         ! array of the grid filenames for the radiation model
  dynamics_parent_grid_id     =                       0, 1         ! array of the indexes of the parent grid filenames
  lredgrid_phys               =               .TRUE.,.TRUE.        ! .true.=radiation is calculated on a reduced grid
- lfeedback                   =                      .TRUE.        ! specifies if feedback to parent grid is performed
+ lfeedback                   =       .TRUE.,.TRUE.,.FALSE.        ! specifies if feedback to parent grid is performed
  ifeedback_type              =                          2         ! feedback type (incremental/relaxation-based)
+ start_time                  =                0.,0.,7200.         ! R2B8 nest starts after 2h
+ end_time                    =         0.,172800.,108000.         ! ... and ends after 30h
 /
 
 ! gridref_nml: grid refinement and nesting -----------------------------------
@@ -227,8 +262,12 @@ cat > NAMELIST_NWP << EOF
 ! io_nml: general switches for model I/O -------------------------------------
 &io_nml
  dt_diag                     =                      21600.0       ! diagnostic integral output interval
- dt_checkpoint               =                     864000.0       ! time interval for writing restart files.
+ dt_checkpoint               =               ${checkpoint}        ! time interval for writing restart files.
  itype_pres_msl              =                          2         ! method for computation of mean sea level pressure
+/
+
+&interpol_nml
+support_baryctr_intp         =                      .true.        ! use barycentric interpolation
 /
 
 ! nonhydrostatic_nml: nonhydrostatic model -----------------------------------
@@ -367,6 +406,10 @@ EOF
 # -N xx   : number of MPI tasks/node
 # -d  x   : number of threads/MPI task
 # -j 2    : Hyperthreading enabled: 20 physical cores -> 40 "virtual" cores
-# -m 3g   : 3G memory/task
+# -m 6g   : 6G memory/task
 
 aprun  -n 240 -N 12 -j 2 -d 4 -m 3g icon
+
+# ----------------------------------------------------------------------------
+done # iterations for restart testing
+# ----------------------------------------------------------------------------

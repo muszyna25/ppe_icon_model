@@ -43,14 +43,17 @@ export ATP_MAX_CORES=0
 # path definitions
 # ----------------------------------------------------------------------------
 
+# root directory for input data
+DATAROOT=/lustre2/rwork0/routfor/test/icon/Checksuite_data/
+
 # directory with input grids:
-GRIDDIR=/e/uhome/gzaengl/icon-dev/experiments/GRF_R2B6N8_EUR2
+GRIDDIR=${DATAROOT}/GRF_R2B6N8_IFStest
 
 # directory with input data from IFS:
-IFSDATADIR=/e/uhome/gzaengl/icon-dev/experiments/PREPICON_OUT
+IFSDATADIR=${DATAROOT}/Inidata_R2B6N7_IFStest
 
 # directory with external parameter data:
-EXTPARDIR=/e/uhome/gzaengl/icon-dev/experiments/Extpar_R2B6N8
+EXTPARDIR=${DATAROOT}/Extpar_R2B6N8_IFStest
 
 # base directory for ICON sources and binary:
 ICONDIR=${PBS_O_WORKDIR}/../../
@@ -71,6 +74,9 @@ if [ ! -d $EXPDIR ]; then
     mkdir -p $EXPDIR
 fi
 cd ${EXPDIR}
+
+# delete existing restart files
+rm -rf *restart_*
 
 # grid files
 ln -sf ${GRIDDIR}/iconR2B05_DOM00.nc iconR2B05_DOM00.nc
