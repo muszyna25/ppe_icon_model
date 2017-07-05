@@ -425,7 +425,7 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    END IF
    src_idxlist = &
     xt_idxvec_new(MERGE(src_global_index(1:src_n_points), -1,&
-    &                  src_owner(1:src_n_points) == p_pe_work))
+    &                   src_owner(1:src_n_points) == p_pe_work))
    IF (ALLOCATED(p_pat%dst_mask)) THEN
      dst_idxlist = xt_idxvec_new(PACK(dst_global_index(1:dst_n_points), &
        &                              p_pat%dst_mask))
