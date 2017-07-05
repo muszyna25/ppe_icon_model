@@ -199,7 +199,7 @@ cat > ${atmo_namelist} << EOF
  end_time                = 0., 432000.    ! ** bewirkt, dass das Nest nur bis vv=120h laueft **
 /
 &synsat_nml
- lsynsat = .false.,.true.  ! output only within nest1
+ lsynsat = .false.,.false.  ! left out for the time being ! output only within nest1
 / 
 &initicon_nml
   init_mode             = 5
@@ -814,12 +814,13 @@ cat > ${atmo_namelist} << EOF
                         'HTOP_DC', 'HZEROCL', 'H_ICE', 'H_SNOW', 'P', 'PMSL', 
                         'PS', 'QC', 'QI', 'QV', 'QV_2M', 'QV_S', 'RAIN_CON', 
                         'RAIN_GSP', 'RELHUM_2M', 'RHO_SNOW', 'RUNOFF_G', 
-                        'RUNOFF_S', 'SNOWLMT', 'SNOW_CON', 'SNOW_GSP', 'SYNMSG_BT_CL_IR10.8', 
-                        'SYNMSG_BT_CL_WV6.2', 'T', 'TCH', 'TCM', 'TD_2M', 
+                        'RUNOFF_S', 'SNOWLMT', 'SNOW_CON', 'SNOW_GSP',
+                        'T', 'TCH', 'TCM', 'TD_2M', 
                         'TKE', 'TMAX_2M', 'TMIN_2M', 'TOT_PREC', 'TQC', 'TQI', 
                         'TQR', 'TQS', 'TQV', 'T_2M', 'T_G', 'T_ICE', 'T_SNOW', 
                         'T_SO', 'U', 'V', 'W', 'WW', 'W_SNOW', 'W_SO', 'W_SO_ICE', 
                         'Z0', 
+! 'SYNMSG_BT_CL_IR10.8', 'SYNMSG_BT_CL_WV6.2',
 !m_levels             = '1...(nlev+1)',
  pl_varlist           = 'U',         'V',         'OMEGA',         'T',         'FI',
                         'RELHUM',    'CLC'
@@ -906,7 +907,7 @@ cat > ${atmo_namelist} << EOF
   n0_mtgrm           = 0                          ! meteogram initial time step (0 is first step!)
   ninc_mtgrm         = 30, 30 ! meteogram output interval (in terms of time steps)
   ldistributed       = .false., .false.
-  stationlist_tot    =  50.0,       8.6,    'Frankfurt-Flughafen',  ! Lat, Lon
+  stationlist_tot    =  50.0,       8.6,    'Frankfurt-Flughafen',
                         52.2418,   14.2320, 'Lindenberg_IGLO',
                         52.2055,   14.0702, 'Lindenberg_IEU',
                         52.1817,   13.9525, 'Waldstation_Kehrigk',
@@ -920,7 +921,7 @@ cat > ${atmo_namelist} << EOF
                         43.3853,    1.2922, 'Fauga_Mauzac',
                         53.633,     9.983,  'Hamburg-Fuhlsbuettel',
                         47.8019,   11.0119, 'Hohenpeissenberg',
-                        61.843,    24.288,  'Hyytiala-FI',            ! Mobile ARM-Station. Discon 09.2015, Finns are measuring
+                        61.843,    24.288,  'Hyytiala-FI',
                         50.90856,   6.4134, 'Juelich',
                         51.35,     12.43,   'Leipzig',
                         50.326,   350.096,  'Mace-Head-IR',
@@ -939,13 +940,13 @@ cat > ${atmo_namelist} << EOF
                         13.50,      2.5 ,   'Niamey',
                         36.606,   262.515,  'ARMsouthernGreatPlains',
                         71.323,   203.39,   'ARMnorthSlopeAlaskaBarrow',
-                        47.419,    10.982,  'Schneefernerhaus',            !
-                        78.923,    11.921,  'Nyalesund_ac3',               ! until end of 2019, ask S. Crewell
+                        47.419,    10.982,  'Schneefernerhaus',
+                        78.923,    11.921,  'Nyalesund_ac3',   
                         39.0911,  331.9703, 'ARM-Azores',
-                        -7.97,    345.6,    'ARM-Ascension-Island',        ! Mobile ARM-Station, until 31.10.2017
-                        -2.146,  -59.006,   'ATTO_Amazon',                 ! 300m measurment tower from MPI-Chem
-                       -77.85,    166.67,   'ARM-McMurdo-Antarctica',      ! Mobile ARM-Station, until early 2017 
-                        13.16,    -59.43,   'Barbados-cloud-observatory',  ! ask Daniel Klocke in August 2017 if it is still needed!
+                        -7.97,    345.6,    'ARM-Ascension-Island',
+                        -2.146,  -59.006,   'ATTO_Amazon',
+                       -77.85,    166.67,   'ARM-McMurdo-Antarctica', 
+                        13.16,    -59.43,   'Barbados-cloud-observatory',
 /
 EOF
 

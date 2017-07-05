@@ -418,10 +418,8 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  filename_format      = '<output_filename><ddhhmmss><levtype>v01'
  stream_partitions_ml = 1
  pe_placement_ml      = 1
- ml_varlist           = ! multilevel fields
-                        'U',         'V',         'T',         'W',         'TKE',
+ ml_varlist           = 'U',         'V',         'T',         'W',         'TKE',
                         'QV',        'QC',        'QI',        'QR',        'QS',
-                        ! single level fields
                         'T_G',       'H_ICE',     'FR_ICE',    'RELHUM_2M',
                         'T_SNOW',    'H_SNOW',    'FRESHSNW',  'PS',
                         'T_SO',      'W_SO'
@@ -451,9 +449,7 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  filename_format      = '<output_filename><ddhhmmss>v02'
  stream_partitions_ml = 1
  pe_placement_ml      = 1
- ml_varlist           = ! multilevel fields
-                        'P',
-                        ! single level fields
+ ml_varlist           = 'P',
                         'CLCT',      'CLCH',      'CLCM',      'CLCL',
                         'PMSL',      'T_2M',      'TD_2M',     'TMIN_2M',
                         'TMAX_2M',   'U_10M',     'V_10M',     'TOT_PREC',
@@ -585,18 +581,12 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  filename_format      = '<output_filename><ddhhmmss><levtype>'
  stream_partitions_ml = 1
  pe_placement_ml      = 2
- ml_varlist           = ! multilevel fields
-                        'QV',        'QC',        'QI',        'QR',        'QS',
+ ml_varlist           = 'QV',        'QC',        'QI',        'QR',        'QS',
                         'U',         'V',         'T',         'P',
-                        ! multilevel fields, only vv=0, vv=3
                         'W',
-                        ! soil
                         'T_SO',
-                        ! soil, only vv=0, vv=3
                         'W_SO',
-                        ! single level fields
                         'T_SNOW',    'W_SNOW',    'QV_S',      'T_G',
-                        ! single level fields, only vv=0, vv=3
                         'W_I',       'FRESHSNW',  'T_ICE',     'H_ICE',
  output_grid          = .false.
 /
@@ -618,12 +608,9 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  filename_format      = '<output_filename><ddhhmmss><levtype>'
  stream_partitions_ml = 1
  pe_placement_ml      = 2
- ml_varlist           = ! multilevel fields
-                        'QV',        'QC',        'QI',        'QR',        'QS',
+ ml_varlist           = 'QV',        'QC',        'QI',        'QR',        'QS',
                         'U',         'V',         'T',         'P',
-                        ! soil
                         'T_SO',
-                        ! single level fields
                         'T_SNOW',    'W_SNOW',    'QV_S',      'T_G',
  output_grid          = .false.
 /
@@ -645,10 +632,8 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  filename_format      = '<output_filename><ddhhmmss><levtype>v00'
  stream_partitions_ml = 1
  pe_placement_ml      = 2
- ml_varlist           = ! multilevel fields
-                        'TKE',
-                        ! single level fields
-                                                'CLCT', 'CLCH', 'CLCM', 'CLCL',
+ ml_varlist           = 'TKE',
+                        'CLCT', 'CLCH', 'CLCM', 'CLCL',
                         'PMSL', 'PS',
                         'T_2M',     'TD_2M',    'RELHUM_2M', 'U_10M', 'V_10M',
                         'FR_ICE',  'H_SNOW',
@@ -679,9 +664,7 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  filename_format      = '<output_filename><ddhhmmss><levtype>v01'
  stream_partitions_ml = 1
  pe_placement_ml      = 2
- ml_varlist           = ! multilevel fields
-                        'W',         'TKE',
-                        ! single level fields
+ ml_varlist           = 'W',         'TKE',
                         'ASWDIFD_S','ASWDIR_S', 'CLCT', 'CLCH', 'CLCM', 'CLCL',
                         'PMSL', 'PS',
                         'TOT_PREC', 'RAIN_CON', 'RAIN_GSP',  'SNOW_CON', 'SNOW_GSP',
