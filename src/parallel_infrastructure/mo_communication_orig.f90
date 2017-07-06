@@ -322,8 +322,7 @@ CONTAINS
     p_pat%recv_limits(comm_size) = i
 
     ! The last entry in recv_limits is the total number of points we receive
-
-    p_pat%n_recv = p_pat%recv_limits(comm_size)
+    p_pat%n_recv = i
 
     ! Allocate and set up the recv_src array
 
@@ -387,13 +386,15 @@ CONTAINS
     ALLOCATE(p_pat%send_limits(0:comm_size))
 
     p_pat%send_limits(0) = 0
+    i = 0
     DO nr = 0, comm_size-1
-      p_pat%send_limits(nr+1) = p_pat%send_limits(nr) + icnt(nr)
+      p_pat%send_limits(nr) = i
+      i = i + icnt(nr)
     ENDDO
+    p_pat%send_limits(comm_size) = i
 
     ! The last entry in send_limits is the total number of points we receive
-
-    p_pat%n_send = p_pat%send_limits(comm_size)
+    p_pat%n_send = i
 
     ! Allocate and set up the send_src array
 
