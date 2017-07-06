@@ -171,10 +171,7 @@ CONTAINS
             CALL restartAttributes%setInteger('jstep_adv_marchuk_order_DOM'//jgString, curDescription%opt_jstep_adv_marchuk_order)
         END IF
 
-        IF(ALLOCATED(curDescription%opt_t_elapsed_phy) .AND. ALLOCATED(curDescription%opt_lcall_phy)) THEN
-            CALL setPhysicsRestartAttributes(restartAttributes, jg, curDescription%opt_t_elapsed_phy(:), &
-                                                                  & curDescription%opt_lcall_phy(:))
-        END IF
+        CALL setPhysicsRestartAttributes(restartAttributes, jg, curDescription%opt_t_elapsed_phy(:))
     END DO
   END SUBROUTINE syncRestartDescriptor_defineRestartAttributes
 

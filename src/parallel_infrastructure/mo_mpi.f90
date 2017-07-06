@@ -167,8 +167,10 @@ MODULE mo_mpi
 #endif
 
   USE mo_kind, ONLY: i4, i8, dp, sp, wp
-  USE mo_impl_constants, ONLY: SUCCESS
   USE mo_io_units,       ONLY: nerr
+  USE mtime,             ONLY: datetime, max_datetime_str_len, datetimeToString, &
+    &                          newDatetime, deallocateDatetime
+!  USE mo_impl_constants, ONLY: SUCCESS
 
   IMPLICIT NONE
 
@@ -624,6 +626,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_bcast_char
      MODULE PROCEDURE p_bcast_cchar
      MODULE PROCEDURE p_bcast_char_1d
+     MODULE PROCEDURE p_bcast_datetime
   END INTERFACE
 
   INTERFACE p_scatter
@@ -7949,6 +7952,37 @@ CONTAINS
 !#endif
 !    END SUBROUTINE p_bcast_achar
 
+
+!DR Test
+  SUBROUTINE p_bcast_datetime (mtime_datetime, p_source, comm)
+
+    TYPE(datetime), TARGET  , INTENT(inout) :: mtime_datetime
+    INTEGER                 , INTENT(in)    :: p_source
+    INTEGER       , OPTIONAL, INTENT(in)    :: comm
+    !
+    ! local
+    character(len=max_datetime_str_len) :: mtime_datetime_str
+    TYPE(datetime), POINTER             :: mtime_datetime_ptr
+    TYPE(datetime), POINTER             :: datetime_loc
+    INTEGER                             :: errno
+ 
+#ifndef NOMPI
+    mtime_datetime_ptr => mtime_datetime
+    CALL datetimeToString(mtime_datetime_ptr, mtime_datetime_str, errno)
+
+    CALL p_bcast_char (mtime_datetime_str, p_source, comm)
+
+    datetime_loc => newDatetime(mtime_datetime_str, errno)
+
+    mtime_datetime = datetime_loc
+
+    CALL deallocateDatetime(datetime_loc)
+#endif
+
+  END SUBROUTINE p_bcast_datetime
+
+
+
   ! Collective CALL to determine whether this process IS a sender/receiver IN a broadcast operation.
   ! This routine IS robust IN the presence of inter-communicators (which IS its reason d'etre).
   SUBROUTINE p_get_bcast_role(root, communicator, lIsSender, lIsReceiver)
@@ -7981,6 +8015,7 @@ CONTAINS
     lIsReceiver = .FALSE.
 #endif
   END SUBROUTINE p_get_bcast_role
+
 
 
   ! probe implementation

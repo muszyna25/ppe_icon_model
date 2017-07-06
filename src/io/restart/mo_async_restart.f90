@@ -645,7 +645,6 @@ CONTAINS
 
     ! patch informations
     PRINT *,routine, ' SIZE(patchData%description%opt_pvct) = ', SIZE(patchData%description%opt_pvct)
-    PRINT *,routine, ' SIZE(patchData%description%opt_lcall_phy) =', SIZE(patchData%description%opt_lcall_phy)
     PRINT *,routine, ' SIZE(patchData%description%opt_t_elapsed_phy) =', SIZE(patchData%description%opt_t_elapsed_phy)
   END SUBROUTINE print_restart_arguments
 

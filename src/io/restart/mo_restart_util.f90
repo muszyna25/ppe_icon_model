@@ -266,24 +266,23 @@ CONTAINS
         CALL restartAttributes%setInteger('nnew_rcf_DOM'//jgString, nnew_rcf)
     END SUBROUTINE setDynamicPatchRestartAttributes
 
-    SUBROUTINE setPhysicsRestartAttributes(restartAttributes, jg, t_elapsed_phy, lcall_phy)
+
+    SUBROUTINE setPhysicsRestartAttributes(restartAttributes, jg, opt_t_elapsed_phy)
         TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
         INTEGER, VALUE :: jg
-        REAL(wp), INTENT(IN) :: t_elapsed_phy(:)
-        LOGICAL, INTENT(IN) :: lcall_phy(:)
+        REAL(wp), OPTIONAL, INTENT(IN) :: opt_t_elapsed_phy(:)
 
         INTEGER :: i
         CHARACTER(LEN = :), ALLOCATABLE :: prefix
 
-        prefix = 't_elapsed_phy_DOM'//TRIM(int2string(jg, "(i2.2)"))//'_PHY'
-        DO i = 1, SIZE(t_elapsed_phy)
-            CALL restartAttributes%setReal(prefix//TRIM(int2string(i, '(i2.2)')), t_elapsed_phy(i) )
-        END DO
+        ! F2008: A null pointer or unallocated allocatable can be used to denote an absent optional argument
+        IF (PRESENT(opt_t_elapsed_phy)) THEN
+          prefix = 't_elapsed_phy_DOM'//TRIM(int2string(jg, "(i2.2)"))//'_PHY'
+          DO i = 1, SIZE(opt_t_elapsed_phy)
+              CALL restartAttributes%setReal(prefix//TRIM(int2string(i, '(i2.2)')), opt_t_elapsed_phy(i) )
+          END DO
+        ENDIF
 
-        prefix = 'lcall_phy_DOM'//TRIM(int2string(jg, "(i2.2)"))//'_PHY'
-        DO i = 1, SIZE(lcall_phy)
-            CALL restartAttributes%setLogical(prefix//TRIM(int2string(i, '(i2.2)')), lcall_phy(i) )
-        END DO
     END SUBROUTINE setPhysicsRestartAttributes
 
     FUNCTION restartSymlinkName(modelType, jg, opt_ndom) RESULT(resultVar)

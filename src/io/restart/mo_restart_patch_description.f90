@@ -83,7 +83,6 @@ MODULE mo_restart_patch_description
                               & opt_ndom, opt_ocean_zlevels
 
         REAL(wp), ALLOCATABLE :: opt_pvct(:)
-        LOGICAL, ALLOCATABLE :: opt_lcall_phy(:)
         REAL(wp), ALLOCATABLE :: opt_t_elapsed_phy(:)
         REAL(wp), ALLOCATABLE :: opt_ocean_zheight_cellMiddle(:)
         REAL(wp), ALLOCATABLE :: opt_ocean_zheight_cellInterfaces(:)
@@ -151,7 +150,7 @@ CONTAINS
         END IF
     END SUBROUTINE restartPatchDescription_init
 
-    SUBROUTINE restartPatchDescription_update(me, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, &
+    SUBROUTINE restartPatchDescription_update(me, patch, opt_pvct, opt_t_elapsed_phy, &
                                              &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
                                              &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
                                              &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
@@ -161,7 +160,6 @@ CONTAINS
                                        & opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels
         REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:), opt_t_elapsed_phy(:), opt_ocean_zheight_cellMiddle(:), &
              & opt_ocean_zheight_cellInterfaces(:)
-        LOGICAL, INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartPatchDescription_update"
 
@@ -179,7 +177,6 @@ CONTAINS
             ! Patch-dependent attributes
             CALL assign_if_present_allocatable(me%opt_pvct, opt_pvct)
             CALL assign_if_present_allocatable(me%opt_t_elapsed_phy, opt_t_elapsed_phy)
-            CALL assign_if_present_allocatable(me%opt_lcall_phy, opt_lcall_phy)
             CALL assign_if_present_allocatable(me%opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellMiddle)
             CALL assign_if_present_allocatable(me%opt_ocean_zheight_cellInterfaces, opt_ocean_zheight_cellInterfaces)
             CALL assign_if_present_allocatable(me%opt_ndyn_substeps, opt_ndyn_substeps)
@@ -243,7 +240,6 @@ CONTAINS
 
         ! optional parameter arrays
         CALL packedMessage%packer(operation, me%opt_pvct)
-        CALL packedMessage%packer(operation, me%opt_lcall_phy)
         CALL packedMessage%packer(operation, me%opt_t_elapsed_phy)
     END SUBROUTINE restartPatchDescription_packer
 
@@ -369,9 +365,8 @@ CONTAINS
             CALL restartAttributes%setInteger('jstep_adv_marchuk_order_DOM'//domainString, me%opt_jstep_adv_marchuk_order)
         END IF
 
-        IF (ALLOCATED(me%opt_t_elapsed_phy) .AND. ALLOCATED(me%opt_lcall_phy)) THEN
-            CALL setPhysicsRestartAttributes(restartAttributes, me%id, me%opt_t_elapsed_phy, me%opt_lcall_phy)
-        END IF
+        CALL setPhysicsRestartAttributes(restartAttributes, me%id, me%opt_t_elapsed_phy)
+
     END SUBROUTINE restartPatchDescription_setRestartAttributes
 
     FUNCTION restartPatchDescription_getGatherPattern(me, gridType) RESULT(resultVar)

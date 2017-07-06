@@ -601,6 +601,9 @@ CONTAINS
     IF (iforcing == inwp) THEN
       CALL destruct_nwp_phy_state
       CALL destruct_nwp_lnd_state( p_lnd_state )
+      DO jg = 1, n_dom
+        CALL atm_phy_nwp_config(jg)%finalize()
+      ENDDO
     ENDIF
 
     IF (iforcing == iecham) THEN

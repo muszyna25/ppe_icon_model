@@ -2518,6 +2518,7 @@ SUBROUTINE copy_rrg_ubc (jg, jgc)
   jks = MAX(0, p_patch(jgc)%nshift - nexlevs_rrg_vnest) + 1
   jke = p_patch(jgc)%nshift
   nshift = MIN(nexlevs_rrg_vnest, p_patch(jgc)%nshift)
+
   IF (nshift > 0) THEN
     CALL exchange_data_mult(p_patch_local_parent(jgc)%comm_pat_glb_to_loc_c, 3, 3*nshift,                        &
        RECV1=prm_diag(jgc)%buffer_rrg(:,         1:  nshift,:), SEND1=p_nh_state(jg)%diag%pres_ifc(:,jks:jke,:), &

@@ -1,11 +1,7 @@
 !>
-!! <Short description of module for listings and indices>
+!! @brief configuration for NWP physics package
 !!
-!! <Describe the concepts of the procedures and algorithms used in the module.>
-!! <Details of procedures are documented below with their definitions.>
-!! <Include any applicable external references inline as module::procedure,>
-!! <external_procedure(), or by using @see.>
-!! <Don't forget references to literature.>
+!! Setup of config-state for NWP physics package
 !!
 !! @author <name, affiliation>
 !!
@@ -23,37 +19,59 @@
 !!
 MODULE mo_atm_phy_nwp_config
 
-  USE mo_kind,                ONLY: wp
+  USE mo_kind,                ONLY: wp, i8
+  USE mo_grid_config,         ONLY: l_limited_area, start_time, end_time,      &
+    &                               DEFAULT_ENDTIME
   USE mo_run_config,          ONLY: msg_level
-  USE mo_grid_config,         ONLY: l_limited_area
   USE mo_parallel_config,     ONLY: nproma
   USE mo_io_units,            ONLY: filename_max
   USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH, itconv, itccov,  &
     &                               itrad, itradheat, itsso, itgscp, itsatad,  &
     &                               itturb, itsfc, itgwd, itfastphy,           &
-    &                               iphysproc, iphysproc_short, ismag, iedmf
+    &                               iphysproc, iphysproc_short, ismag, iedmf,  &
+    &                               SUCCESS
   USE mo_math_constants,      ONLY: dbl_eps, pi_2, deg2rad
-  USE mo_exception,           ONLY: message, message_text
+  USE mo_exception,           ONLY: message, message_text, finish
   USE mo_model_domain,        ONLY: t_patch
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_radiation_config,    ONLY: irad_o3
   USE mo_les_config,          ONLY: configure_les
   USE mo_limarea_config,      ONLY: configure_latbc
+  USE mo_time_config,         ONLY: time_config
+  USE mo_initicon_config,     ONLY: timeshift
+  USE mtime,                  ONLY: datetime, timedelta, newTimedelta, &
+    &                               getPTStringFromMS, MAX_TIMEDELTA_STR_LEN, &
+    &                               deallocateTimedelta, OPERATOR(+), OPERATOR(>)
   USE mo_util_table,          ONLY: t_table, initialize_table, add_table_column, &
     &                               set_table_entry, print_table, finalize_table
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_name_list_output_config, ONLY: first_output_name_list, is_variable_in_output
+  USE mo_phy_events,          ONLY: t_phyProcFast, t_phyProcSlow, t_phyProcGroup
 
   IMPLICIT NONE
 
   PRIVATE
 
-  PUBLIC :: atm_phy_nwp_config, t_atm_phy_nwp_config, dt_phy
+  CHARACTER(LEN = *), PARAMETER :: modname = 'mo_atm_phy_nwp_config'
+
+  ! TYPES
+  PUBLIC :: t_atm_phy_nwp_config
+
+  ! SUBROUTINES
   PUBLIC :: configure_atm_phy_nwp
+
+  ! VARS
+  PUBLIC :: atm_phy_nwp_config, dt_phy
   PUBLIC :: lrtm_filename
   PUBLIC :: cldopt_filename
-  PUBLIC :: ltuning_kessler, icpl_aero_conv, icpl_o3_tp, iprog_aero
+  PUBLIC :: ltuning_kessler 
   PUBLIC :: ltuning_ozone
+  PUBLIC :: icpl_aero_conv
+  PUBLIC :: icpl_o3_tp
+  PUBLIC :: iprog_aero
+
+
+
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for nwp physics
@@ -95,11 +113,16 @@ MODULE mo_atm_phy_nwp_config
     LOGICAL  :: latm_above_top     !! use extra layer above model top for radiation 
                                    !! (reduced grid only)
 
+
     ! Derived variables
 
-    LOGICAL :: lproc_on(iphysproc) !> contains information about status of 
+    LOGICAL :: lenabled(iphysproc) !> contains information about status of 
                                    !! corresponding physical process
-                                   !! ON: TRUE; OFF: FALSE
+                                   !! enabled: TRUE; disabled: FALSE
+
+    LOGICAL, ALLOCATABLE :: &      !> ith physics package must be called at the current time step
+      &  lcall_phy(:)              !! TRUE/FALSE, time dependent
+
     LOGICAL :: lcalc_acc_avg       ! TRUE: calculate accumulated and averaged quantities
 
     LOGICAL :: lcalc_moist_integral_avg ! TRUE: calculate temporally averaged vertical integrals of moisture fields
@@ -117,17 +140,36 @@ MODULE mo_atm_phy_nwp_config
     INTEGER :: nclass_gscp         !> number of hydrometeor classes for 
                                    ! chosen grid scale microphysics
 
+    ! NWP events
+    TYPE(t_phyProcGroup) :: phyProcs        !> physical processes event group
+    TYPE(t_phyProcFast)  :: phyProc_satad   !> saturation adjustment
+    TYPE(t_phyProcFast)  :: phyProc_turb    !> turbulence
+    TYPE(t_phyProcFast)  :: phyProc_gscp    !> grid-scale microphysics
+    TYPE(t_phyProcFast)  :: phyProc_sfc     !> land/surface
+    TYPE(t_phyProcFast)  :: phyProc_radheat !> radiative heating
+
+    TYPE(t_phyProcSlow)  :: phyProc_conv    !> convection (deep+shallow)
+    TYPE(t_phyProcSlow)  :: phyProc_ccov    !> cloud cover
+    TYPE(t_phyProcSlow)  :: phyProc_rad     !> radiation (SW+LW)
+    TYPE(t_phyProcSlow)  :: phyProc_sso     !> sub-gridscale orographic wave drag
+    TYPE(t_phyProcSlow)  :: phyProc_gwd     !> non-orographic wave drag
+
+
     ! Tuning variables
 
     REAL(wp), ALLOCATABLE :: fac_ozone(:)         ! vertical profile funtion for ozone tuning
     REAL(wp), ALLOCATABLE :: shapefunc_ozone(:,:) ! horizontal profile funtion for ozone tuning
     REAL(wp)              :: ozone_maxinc         ! maximum allowed change of ozone mixing ratio
 
+  CONTAINS
+    !
+    ! finalization routine
+    PROCEDURE  :: finalize => atm_phy_nwp_config_finalize
   END TYPE t_atm_phy_nwp_config
 
   !>
   !!
-  TYPE(t_atm_phy_nwp_config) :: atm_phy_nwp_config(max_dom) !< shape: (n_dom)
+  TYPE(t_atm_phy_nwp_config), TARGET :: atm_phy_nwp_config(max_dom) !< shape: (n_dom)
 
 
   !> NetCDF file containing longwave absorption coefficients and other data
@@ -168,8 +210,7 @@ CONTAINS
   !>
   !! Setup NWP physics
   !!
-  !! Read namelist for physics. Choose the physical package and subsequent
-  !! parameters.
+  !! Read namelist for NWP physics and setup physics time control.
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2010-10-06)
@@ -185,12 +226,21 @@ CONTAINS
 
     ! local
     INTEGER :: jg, jk, jk_shift, jb, jc
+    INTEGER :: error
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &      routine = 'configure_atm_phy_nwp'
+      &      routine = modname//":configure_atm_phy_nwp"
     REAL(wp) :: z_mc_ref
     REAL(wp) :: &                             ! time-intervals for calling various 
       &  dt_phy_orig(max_dom,iphysproc_short) ! physical processes. Original values as 
                                               ! provided by user
+
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: td_start_str
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: td_end_str
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: td_dt_str
+    TYPE(datetime)           :: domStartDate, domEndDate
+    TYPE(datetime)           :: eventStartDate, eventEndDate
+    TYPE(timedelta), POINTER :: td_start, td_end, td_dt   => NULL()
+
   !-------------------------------------------------------------------------
 
     ! check whether dpsdt should be computed for output purposes
@@ -219,41 +269,41 @@ CONTAINS
 
     DO jg = 1,n_dom
 
-      ! initialize lproc_on
-      atm_phy_nwp_config(jg)%lproc_on(1:iphysproc)    = .FALSE.
+      ! initialize lenabled
+      atm_phy_nwp_config(jg)%lenabled(1:iphysproc)    = .FALSE.
 
 
-      ! Fill derived variable lproc_on
+      ! Fill derived variable lenabled
  
       IF ( atm_phy_nwp_config(jg)%inwp_satad > 0 )               &
-        &  atm_phy_nwp_config(jg)%lproc_on(itsatad)   = .TRUE. 
+        &  atm_phy_nwp_config(jg)%lenabled(itsatad)   = .TRUE. 
 
       IF ( atm_phy_nwp_config(jg)%inwp_convection > 0 )          &
-        &  atm_phy_nwp_config(jg)%lproc_on(itconv)    = .TRUE. 
+        &  atm_phy_nwp_config(jg)%lenabled(itconv)    = .TRUE. 
 
       IF ( atm_phy_nwp_config(jg)%inwp_cldcover > 0 )            &
-        &  atm_phy_nwp_config(jg)%lproc_on(itccov)    = .TRUE.
+        &  atm_phy_nwp_config(jg)%lenabled(itccov)    = .TRUE.
 
       IF ( atm_phy_nwp_config(jg)%inwp_radiation > 0 )           &
-        &  atm_phy_nwp_config(jg)%lproc_on(itrad)     = .TRUE.
+        &  atm_phy_nwp_config(jg)%lenabled(itrad)     = .TRUE.
 
       IF ( atm_phy_nwp_config(jg)%inwp_sso > 0 )                 &
-        &  atm_phy_nwp_config(jg)%lproc_on(itsso)     = .TRUE.
+        &  atm_phy_nwp_config(jg)%lenabled(itsso)     = .TRUE.
 
       IF ( atm_phy_nwp_config(jg)%inwp_gscp > 0 )                &
-        &  atm_phy_nwp_config(jg)%lproc_on(itgscp)    = .TRUE.
+        &  atm_phy_nwp_config(jg)%lenabled(itgscp)    = .TRUE.
 
       IF ( atm_phy_nwp_config(jg)%inwp_turb > 0 )                &
-        &  atm_phy_nwp_config(jg)%lproc_on(itturb)    = .TRUE.
+        &  atm_phy_nwp_config(jg)%lenabled(itturb)    = .TRUE.
 
       IF ( atm_phy_nwp_config(jg)%inwp_radiation > 0 )           &
-        &  atm_phy_nwp_config(jg)%lproc_on(itradheat) = .TRUE.
+        &  atm_phy_nwp_config(jg)%lenabled(itradheat) = .TRUE.
 
       IF ( atm_phy_nwp_config(jg)%inwp_surface > 0 )             &
-        &  atm_phy_nwp_config(jg)%lproc_on(itsfc)     = .TRUE.
+        &  atm_phy_nwp_config(jg)%lenabled(itsfc)     = .TRUE.
 
       IF ( atm_phy_nwp_config(jg)%inwp_gwd > 0 )                 &
-        &  atm_phy_nwp_config(jg)%lproc_on(itgwd)     = .TRUE.
+        &  atm_phy_nwp_config(jg)%lenabled(itgwd)     = .TRUE.
 
 
       ! Configure LES physics (if activated)
@@ -271,21 +321,21 @@ CONTAINS
         IF(atm_phy_nwp_config(jg)%inwp_convection>0)THEN
           CALL message(TRIM(routine),'Turning off convection for LES!')
           atm_phy_nwp_config(jg)%inwp_convection  = 0
-          atm_phy_nwp_config(jg)%lproc_on(itconv) = .FALSE.
+          atm_phy_nwp_config(jg)%lenabled(itconv) = .FALSE.
         END IF
 
         ! SSO should be turned off for LES
         IF(atm_phy_nwp_config(jg)%inwp_sso>0)THEN
           CALL message(TRIM(routine),'Turning off SSO scheme for LES!')
           atm_phy_nwp_config(jg)%inwp_sso = 0
-          atm_phy_nwp_config(jg)%lproc_on(itsso)= .FALSE.
+          atm_phy_nwp_config(jg)%lenabled(itsso)= .FALSE.
         END IF
 
         ! GWD should be turned off for LES
         IF(atm_phy_nwp_config(jg)%inwp_gwd>0)THEN
           CALL message(TRIM(routine),'Turning off GWD scheme for LES!')
           atm_phy_nwp_config(jg)%inwp_gwd = 0
-          atm_phy_nwp_config(jg)%lproc_on(itgwd) =.FALSE.
+          atm_phy_nwp_config(jg)%lenabled(itgwd) =.FALSE.
         END IF
 
       ENDIF ! is_les_phy
@@ -363,7 +413,7 @@ CONTAINS
       !
       ! Here, we merley perform a sanity check (Paranoia).
       ! 
-      IF (atm_phy_nwp_config(jg)%lproc_on(itconv)) THEN
+      IF (atm_phy_nwp_config(jg)%lenabled(itconv)) THEN
         IF (atm_phy_nwp_config(jg)%dt_ccov /= atm_phy_nwp_config(jg)%dt_conv) THEN
           WRITE(message_text,'(a,f7.2,a,f7.2,a)') 'Timesteps for cloud-cover and convection differ. (', &
             &   atm_phy_nwp_config(jg)%dt_ccov,'/', atm_phy_nwp_config(jg)%dt_conv,'). Resetting dt_ccov...'
@@ -414,7 +464,7 @@ CONTAINS
 
 
       ! screen printout of chosen physics timesteps
-      IF ( my_process_is_stdio() .AND. msg_level>=10 ) THEN
+      IF ( msg_level>=10 ) THEN
         CALL phy_nwp_print_dt (atm_phy_nwp_config = atm_phy_nwp_config(jg), &
           &                    dt_phy_orig        = dt_phy_orig(jg,:),      &
           &                    dt_phy             = dt_phy(jg,:),           &
@@ -516,7 +566,386 @@ CONTAINS
       ENDDO
     ENDDO
 
+
+
+    !
+    ! initialize event-management for parameterized physical processes
+    !
+    ! - Event start/end dates are set equal to the domain start/end dates
+    ! - For the computation of domain start/end dates we have to distinguish 
+    !   between global/master domains (i.e. DOM(1)) and the nests.
+    !   Start dates:
+    !   * DOM(1): dom_start_date = tc_exp_startdate + timeshift%dt_shift 
+    !             where dt_shift is a possible timeshift due to IAU.
+    !   * DOM(i>1): dom_start_date = tc_exp_startdate + start_time(i) 
+    !   End dates:
+    !   * DOM(1)  : dom_end_date = tc_exp_stopdate
+    !   * DOM(i>1): dom_end_date = tc_exp_startdate +  end_time(i)
+    !   If end_time(i) is not set, tc_exp_stopdate is used.
+    !
+    ! - for each domain, the event start dates are set to
+    !   event_start_date(i) =  dom_start_date(i) +  dt_fastphy(i)
+    !   * adding dt_fastphy is necessitated by the fact, that the model time 
+    !     is updated at the beginning of a timestep.
+    !   * by doing so, care is taken that all physics processes are called during the 
+    !   first integration step of the given patch.
+    !
+    ! - initialization calls are not controlled by mtime events. 
+    !   It is decided upon the physical process TYPE metainformation, 
+    !   whether an intialization call should be issued or not.
+    ! 
+    DO jg = 1,n_dom
+
+
+      ! compute event start date
+      IF (jg > 1) THEN
+        CALL getPTStringFromMS(INT(start_time(jg)*1000._wp,i8), td_start_str)
+        td_start => newTimedelta(td_start_str)
+        domStartDate = time_config%tc_exp_startdate + td_start
+        CALL deallocateTimedelta(td_start)
+      ELSE
+        domStartDate = time_config%tc_exp_startdate
+        ! take care of possibe IAU-Timeshift
+        IF (timeshift%dt_shift < 0._wp) THEN
+          domStartDate = domStartDate + timeshift%mtime_shift
+        ENDIF
+      ENDIF
+      ! Note that the model time is updated at the beginning of a timestep.
+      !
+      ! by adding td_dt we make sure, that all events are triggered 
+      ! during the first integration step of the given patch.
+      CALL getPTStringFromMS(INT(atm_phy_nwp_config(jg)%dt_fastphy*1000._wp,i8), td_dt_str)
+      td_dt => newTimedelta(td_dt_str)
+      !
+      eventStartDate = domStartDate + td_dt
+      CALL deallocateTimedelta(td_dt)
+
+
+      ! compute event end date
+      IF (jg > 1) THEN
+        IF (end_time(jg) /= DEFAULT_ENDTIME) THEN
+          CALL getPTStringFromMS(INT(end_time(jg)*1000._wp,i8), td_end_str)
+          td_end => newTimedelta(td_end_str)
+          domEndDate = time_config%tc_exp_startdate + td_end
+          CALL deallocateTimedelta(td_end)
+          ! make sure that eventEndDate<=tc_exp_stopdate
+          IF (domEndDate > time_config%tc_exp_stopdate) &
+            &  domEndDate = time_config%tc_exp_stopdate
+        ELSE
+          domEndDate = time_config%tc_exp_stopdate
+        ENDIF
+      ELSE
+        domEndDate = time_config%tc_exp_stopdate
+      ENDIF
+      eventEndDate = domEndDate
+
+
+      ! Setup NWP physics event group for domain jg
+      CALL setupEventsNwp(atm_phy_nwp_config = atm_phy_nwp_config(jg),      & !inout
+        &                 pid                = jg,                          & !in
+        &                 grpName            = 'phyNwpEventGroup',          & !in
+        &                 eventStartDate     = eventStartDate,              & !in
+        &                 eventEndDate       = eventEndDate,                & !in
+        &                 dt_phy             = dt_phy(jg,:)                 ) !in
+
+
+      ! allocate lcall_phy to be of the same size as phyProcs%proc(:),  
+      ! since lcall_phy shall contain one entry per physical process.
+      ALLOCATE(atm_phy_nwp_config(jg)%lcall_phy(          &
+        &  SIZE(atm_phy_nwp_config(jg)%phyProcs%proc, 1)  &
+        &  ), STAT = error)
+      IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+
+      ! initialize lcall_phy (will be updated by mo_phy_events:mtime_ctrl_physics)
+      atm_phy_nwp_config(jg)%lcall_phy(:) = .FALSE.
+
+    ENDDO  ! jg
+
+
   END SUBROUTINE configure_atm_phy_nwp
+
+
+
+  !>
+  !! Setup event group for NWP physics
+  !!
+  !! Setup event group for NWP physics.
+  !! Makes use of mtime events
+  !!
+  !! Creating and adding a new physics event works as follows:
+  !! 1) Add a new variable X of type t_phyProcFast/t_phyProcSlow 
+  !!    to the config state. Initialize the new physics event by calling 
+  !!    X%initialize() and pass details describing the new event via the 
+  !!    argument list.
+  !! 2) Add the new variable to the existing physics event group G by calling
+  !!    G%addToGroup(X). You may alternatively add X to another group. 
+  !!    A new group, say G2, can be constructed by calling G2%construct() just 
+  !!    before G2%addToGroup(X).
+  !! 3) A single physics event and/or an entire group can be queried with 
+  !!    the help of various type-bound procedures listed in atm_phy_nwp:mo_phy_events.
+  !! 4) Calling the routine atm_phy_nwp:mtime_ctrl_physics will provide you with 
+  !!    an array of logicals of the same size as your group. This array tells you 
+  !!    whether a specific physics event is due at the current time step, or not.  
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2017-05-30)
+  !!
+  SUBROUTINE setupEventsNwp(atm_phy_nwp_config, pid, grpName, eventStartDate, eventEndDate, dt_phy)
+
+    TYPE(t_atm_phy_nwp_config), TARGET, INTENT(INOUT)  :: atm_phy_nwp_config  !< config state
+    !
+    INTEGER       , INTENT(IN)      :: pid                  !< patch ID
+    CHARACTER(len=*)                :: grpName              !< group name 
+    TYPE(datetime), INTENT(IN)      :: eventStartDate
+    TYPE(datetime), INTENT(IN)      :: eventEndDate
+    REAL(wp)      , INTENT(IN)      :: dt_phy(:)            !< physics time intervals
+
+    ! local
+    TYPE(timedelta), POINTER        :: eventInterval    => NULL()
+    TYPE(datetime)                  :: eventEndDate_proc     ! process-specific end date
+                                                             ! set to startDate, if process is disabled
+    TYPE(timedelta), POINTER        :: plusSlack    => NULL()
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: dt_phy_str       ! physics timestep (PT-format)
+
+
+    ! construct physics group for given patch
+    CALL atm_phy_nwp_config%phyProcs%construct(grpName=TRIM(grpName), pid=pid, grpSize=iphysproc)
+
+    ! Events are triggered between [actual_trigger_time, actual_trigger_time + plus_slack]
+    plusSlack =>newTimedelta("PT0S")
+
+
+    ! convection
+    eventEndDate_proc = MERGE(eventEndDate, eventStartDate, atm_phy_nwp_config%lenabled(itconv))
+    !
+    CALL getPTStringFromMS(INT(dt_phy(itconv)*1000._wp,i8), dt_phy_str)
+    eventInterval=>newTimedelta(dt_phy_str)
+    !
+    CALL atm_phy_nwp_config%phyProc_conv%initialize(                            &
+      &                     name        = 'conv',                               & !in
+      &                     id          = itconv,                               & !in
+      &                     is_enabled  = atm_phy_nwp_config%lenabled(itconv),  & !in
+      &                     startDate   = eventStartDate,                       & !in
+      &                     endDate     = eventEndDate_proc,                    & !in
+      &                     dt          = eventInterval,                        & !in
+      &                     plusSlack   = plusSlack,                            & !in
+      &                     optReqInit  = .TRUE.,                               & !in
+      &                     optInclStart= .TRUE.                                ) !in
+    ! add to physics group
+    CALL atm_phy_nwp_config%phyProcs%addToGroup(                          &
+      &                     phyProc = atm_phy_nwp_config%phyProc_conv)
+    CALL deallocateTimedelta(eventInterval)
+
+    !
+    ! cloudcover
+    eventEndDate_proc = MERGE(eventEndDate, eventStartDate, atm_phy_nwp_config%lenabled(itccov))
+    !
+    CALL getPTStringFromMS(INT(dt_phy(itccov)*1000._wp,i8), dt_phy_str)
+    eventInterval=>newTimedelta(dt_phy_str)
+    !
+    CALL atm_phy_nwp_config%phyProc_ccov%initialize(                            &
+      &                     name        = 'ccov',                               & !in
+      &                     id          = itccov,                               & !in
+      &                     is_enabled  = atm_phy_nwp_config%lenabled(itccov),  & !in
+      &                     startDate   = eventStartDate,                       & !in
+      &                     endDate     = eventEndDate_proc,                    & !in
+      &                     dt          = eventInterval,                        & !in
+      &                     plusSlack   = plusSlack,                            & !in
+      &                     optReqInit  = .TRUE.,                               & !in
+      &                     optInclStart= .TRUE.                                ) !in
+    ! add to physics group
+    CALL atm_phy_nwp_config%phyProcs%addToGroup(                          &
+      &                     phyProc = atm_phy_nwp_config%phyProc_ccov)
+    CALL deallocateTimedelta(eventInterval)
+
+
+    !
+    ! radiation (SW+LW)
+    eventEndDate_proc = MERGE(eventEndDate, eventStartDate, atm_phy_nwp_config%lenabled(itrad))
+    !
+    CALL getPTStringFromMS(INT(dt_phy(itrad)*1000._wp,i8), dt_phy_str)
+    eventInterval=>newTimedelta(dt_phy_str)
+    !
+    CALL atm_phy_nwp_config%phyProc_rad%initialize(                             &
+      &                     name        = 'rad',                                & !in
+      &                     id          = itrad,                                & !in
+      &                     is_enabled  = atm_phy_nwp_config%lenabled(itrad),   & !in
+      &                     startDate   = eventStartDate,                       & !in
+      &                     endDate     = eventEndDate_proc,                    & !in
+      &                     dt          = eventInterval,                        & !in
+      &                     plusSlack   = plusSlack,                            & !in
+      &                     optReqInit  = .TRUE.,                               & !in
+      &                     optInclStart= .TRUE.                                ) !in
+    ! add to physics group
+    CALL atm_phy_nwp_config%phyProcs%addToGroup(                          &
+      &                     phyProc = atm_phy_nwp_config%phyProc_rad)
+    CALL deallocateTimedelta(eventInterval)
+
+
+    !
+    ! sub-gridscale orographic drag
+    eventEndDate_proc = MERGE(eventEndDate, eventStartDate, atm_phy_nwp_config%lenabled(itsso))
+    !
+    CALL getPTStringFromMS(INT(dt_phy(itsso)*1000._wp,i8), dt_phy_str)
+    eventInterval=>newTimedelta(dt_phy_str)
+    !
+    CALL atm_phy_nwp_config%phyProc_sso%initialize(                             &
+      &                     name        = 'sso',                                & !in
+      &                     id          = itsso,                                & !in
+      &                     is_enabled  = atm_phy_nwp_config%lenabled(itsso),   & !in
+      &                     startDate   = eventStartDate,                       & !in
+      &                     endDate     = eventEndDate_proc,                    & !in
+      &                     dt          = eventInterval,                        & !in
+      &                     plusSlack   = plusSlack,                            & !in
+      &                     optReqInit  = .TRUE.,                               & !in
+      &                     optInclStart= .TRUE.                                ) !in
+    ! add to physics group
+    CALL atm_phy_nwp_config%phyProcs%addToGroup(                          &
+      &                     phyProc = atm_phy_nwp_config%phyProc_sso)
+    CALL deallocateTimedelta(eventInterval)
+
+
+    !
+    ! non-orographic gravity wave drag
+    eventEndDate_proc = MERGE(eventEndDate, eventStartDate, atm_phy_nwp_config%lenabled(itgwd))
+    !
+    CALL getPTStringFromMS(INT(dt_phy(itgwd)*1000._wp,i8), dt_phy_str)
+    eventInterval=>newTimedelta(dt_phy_str)
+    !
+    CALL atm_phy_nwp_config%phyProc_gwd%initialize(                             &
+      &                     name        = 'gwd',                                & !in
+      &                     id          = itgwd,                                & !in
+      &                     is_enabled  = atm_phy_nwp_config%lenabled(itgwd),   & !in
+      &                     startDate   = eventStartDate,                       & !in
+      &                     endDate     = eventEndDate_proc,                    & !in
+      &                     dt          = eventInterval,                        & !in
+      &                     plusSlack   = plusSlack,                            & !in
+      &                     optReqInit  = .TRUE.,                               & !in
+      &                     optInclStart= .TRUE.                                ) !in
+    ! add to physics group
+    CALL atm_phy_nwp_config%phyProcs%addToGroup(                          &
+      &                     phyProc = atm_phy_nwp_config%phyProc_gwd)
+    CALL deallocateTimedelta(eventInterval)
+
+
+    !
+    ! saturation adjustment
+    eventEndDate_proc = MERGE(eventEndDate, eventStartDate, atm_phy_nwp_config%lenabled(itsatad))
+    !
+    CALL getPTStringFromMS(INT(dt_phy(itfastphy)*1000._wp,i8), dt_phy_str)
+    eventInterval=>newTimedelta(dt_phy_str)
+    !
+    CALL atm_phy_nwp_config%phyProc_satad%initialize(                           &
+      &                     name        = 'satad',                              & !in
+      &                     id          = itsatad,                              & !in
+      &                     is_enabled  = atm_phy_nwp_config%lenabled(itsatad), & !in
+      &                     startDate   = eventStartDate,                       & !in
+      &                     endDate     = eventEndDate_proc,                    & !in
+      &                     dt          = eventInterval,                        & !in
+      &                     plusSlack   = plusSlack,                            & !in
+      &                     optInclStart= .TRUE.                                ) !in
+    ! add to physics group
+    CALL atm_phy_nwp_config%phyProcs%addToGroup(                          &
+      &                     phyProc = atm_phy_nwp_config%phyProc_satad)
+    CALL deallocateTimedelta(eventInterval)
+
+
+    !
+    ! turbulence
+    eventEndDate_proc = MERGE(eventEndDate, eventStartDate, atm_phy_nwp_config%lenabled(itturb))
+    !
+    CALL getPTStringFromMS(INT(dt_phy(itfastphy)*1000._wp,i8), dt_phy_str)
+    eventInterval=>newTimedelta(dt_phy_str)
+    !
+    CALL atm_phy_nwp_config%phyProc_turb%initialize(                            &
+      &                     name        = 'turb',                               & !in
+      &                     id          = itturb,                               & !in
+      &                     is_enabled  = atm_phy_nwp_config%lenabled(itturb),  & !in
+      &                     startDate   = eventStartDate,                       & !in
+      &                     endDate     = eventEndDate_proc,                    & !in
+      &                     dt          = eventInterval,                        & !in
+      &                     plusSlack   = plusSlack,                            & !in
+      &                     optInclStart= .TRUE.                                ) !in
+    ! add to physics group
+    CALL atm_phy_nwp_config%phyProcs%addToGroup(                          &
+      &                     phyProc = atm_phy_nwp_config%phyProc_turb)
+    CALL deallocateTimedelta(eventInterval)
+
+
+    !
+    ! grid-scale microphysics
+    eventEndDate_proc = MERGE(eventEndDate, eventStartDate, atm_phy_nwp_config%lenabled(itgscp))
+    !
+      CALL getPTStringFromMS(INT(dt_phy(itfastphy)*1000._wp,i8), dt_phy_str)
+    eventInterval=>newTimedelta(dt_phy_str)
+    !
+    CALL atm_phy_nwp_config%phyProc_gscp%initialize(                            &
+      &                     name        = 'gscp',                               & !in
+      &                     id          = itgscp,                               & !in
+      &                     is_enabled  = atm_phy_nwp_config%lenabled(itgscp),  & !in
+      &                     startDate   = eventStartDate,                       & !in
+      &                     endDate     = eventEndDate_proc,                    & !in
+      &                     dt          = eventInterval,                        & !in
+      &                     plusSlack   = plusSlack,                            & !in
+      &                     optInclStart= .TRUE.                                ) !in
+    ! add to physics group
+    CALL atm_phy_nwp_config%phyProcs%addToGroup(                          &
+      &                     phyProc = atm_phy_nwp_config%phyProc_gscp)
+    CALL deallocateTimedelta(eventInterval)
+
+
+    !
+    ! land/surface
+    eventEndDate_proc = MERGE(eventEndDate, eventStartDate, atm_phy_nwp_config%lenabled(itsfc))
+    !
+    CALL getPTStringFromMS(INT(dt_phy(itfastphy)*1000._wp,i8), dt_phy_str)
+    eventInterval=>newTimedelta(dt_phy_str)
+    !
+    CALL atm_phy_nwp_config%phyProc_sfc%initialize(                             &
+      &                     name        = 'sfc',                                & !in
+      &                     id          = itsfc,                                & !in
+      &                     is_enabled  = atm_phy_nwp_config%lenabled(itsfc),   & !in
+      &                     startDate   = eventStartDate,                       & !in
+      &                     endDate     = eventEndDate_proc,                    & !in
+      &                     dt          = eventInterval,                        & !in
+      &                     plusSlack   = plusSlack,                            & !in
+      &                     optInclStart= .TRUE.                                ) !in
+    ! add to physics group
+    CALL atm_phy_nwp_config%phyProcs%addToGroup(                          &
+      &                     phyProc = atm_phy_nwp_config%phyProc_sfc)
+    CALL deallocateTimedelta(eventInterval)
+
+
+    !
+    ! radheat
+    eventEndDate_proc = MERGE(eventEndDate, eventStartDate, atm_phy_nwp_config%lenabled(itradheat))
+    !
+    CALL getPTStringFromMS(INT(dt_phy(itfastphy)*1000._wp,i8), dt_phy_str)
+    eventInterval=>newTimedelta(dt_phy_str)
+    !
+    CALL atm_phy_nwp_config%phyProc_radheat%initialize(                           &
+      &                     name        = 'radheat',                              & !in
+      &                     id          = itradheat,                              & !in
+      &                     is_enabled  = atm_phy_nwp_config%lenabled(itradheat), & !in
+      &                     startDate   = eventStartDate,                         & !in
+      &                     endDate     = eventEndDate_proc,                      & !in
+      &                     dt          = eventInterval,                          & !in
+      &                     plusSlack   = plusSlack,                              & !in
+      &                     optReqInit  = .TRUE.,                                 & !in
+      &                     optInclStart= .TRUE.                                  ) !in 
+    ! add to physics group
+    CALL atm_phy_nwp_config%phyProcs%addToGroup(                          &
+      &                     phyProc = atm_phy_nwp_config%phyProc_radheat)
+    CALL deallocateTimedelta(eventInterval)
+
+
+    ! Debug output
+    IF (msg_level >= 10) THEN
+      CALL atm_phy_nwp_config%phyProcs%printSetup()
+    ENDIF
+
+
+  END SUBROUTINE setupEventsNwp
 
 
   !>
@@ -598,7 +1027,10 @@ CONTAINS
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: proc_names(iphysproc_short)
     !--------------------------------------------------------------------------
 
-    ! Iniitalize index-arrax and string-array
+    ! will only be executed by stdio process
+    IF(.NOT. my_process_is_stdio()) RETURN
+
+    ! Initialize index-arrax and string-array
     idx_arr = (/itfastphy,itconv,itccov,itrad,itsso,itgwd/)
     !
     proc_names(itfastphy) = "fastphy"
@@ -621,7 +1053,7 @@ CONTAINS
 
     DO i=1,SIZE(idx_arr)
 
-      IF (atm_phy_nwp_config%lproc_on(i)) THEN
+      IF (atm_phy_nwp_config%lenabled(i)) THEN
         irow=irow+1
         CALL set_table_entry(table,irow,"Process", TRIM(proc_names(i)))
         WRITE(dt_str,'(f7.2)') dt_phy(i)
@@ -642,6 +1074,29 @@ CONTAINS
     WRITE (0,*) " " ! newline
   END SUBROUTINE phy_nwp_print_dt
 
+
+  !>
+  !! Finalize atm_phy_nwp_config state
+  !!
+  !! Finalize atm_phy_nwp_config state
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2017-06-21)
+  !!
+  SUBROUTINE atm_phy_nwp_config_finalize (me)
+    CLASS(t_atm_phy_nwp_config), INTENT(INOUT) :: me       !< passed-object dummy argument
+
+    ! local
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//":t_atm_phy_nwp_config_finalize"
+  !-----------------------------------------------------------------
+
+    IF (ALLOCATED(me%lcall_phy))          DEALLOCATE(me%lcall_phy) 
+    IF (ALLOCATED(me%fac_ozone))          DEALLOCATE(me%fac_ozone)
+    IF (ALLOCATED(me%shapefunc_ozone))    DEALLOCATE(me%shapefunc_ozone)
+
+    CALL me%phyProcs%finalize()
+
+  END SUBROUTINE atm_phy_nwp_config_finalize
 
 
 END MODULE mo_atm_phy_nwp_config

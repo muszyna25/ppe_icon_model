@@ -298,7 +298,7 @@ MODULE mo_impl_constants
                                              ! a reference state.
   INTEGER,PARAMETER :: RAYLEIGH_KLEMP   = 2  ! Klemp (2008) type Rayleigh damping
 
-  ! identifiers for NWP time control variables lcall_phy, dt_phy, t_elapsed_phy
+  ! identifiers for physical processes (NWP)
   INTEGER, PARAMETER :: itconv   =  1
   INTEGER, PARAMETER :: itccov   =  2
   INTEGER, PARAMETER :: itrad    =  3

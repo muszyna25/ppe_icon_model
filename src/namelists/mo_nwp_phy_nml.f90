@@ -80,7 +80,8 @@ MODULE mo_nwp_phy_nml
   ! parameter for cloud microphysics
   real(wp) :: mu_rain            !! shape parameter in gamma distribution for rain
   real(wp) :: mu_snow            !! ...for snow
-  
+
+
   !> NetCDF file containing longwave absorption coefficients and other data
   !> for RRTMG_LW k-distribution model ('rrtmg_lw.nc')
   CHARACTER(LEN=filename_max) :: lrtm_filename
@@ -98,7 +99,8 @@ MODULE mo_nwp_phy_nml
     &                    latm_above_top, itype_z0, mu_rain,          &
     &                    mu_snow, icapdcycl, icpl_aero_conv,         &
     &                    lrtm_filename, cldopt_filename, icpl_o3_tp, &
-    &                    iprog_aero, lshallowconv_only, ldetrain_conv_prec
+    &                    iprog_aero, lshallowconv_only,              &
+    &                    ldetrain_conv_prec
 
   LOGICAL :: l_nwp_phy_namelist_read = .false.
   
@@ -196,6 +198,8 @@ CONTAINS
     ! coupling between ozone and the tropopause
     icpl_o3_tp = 1      ! 0 = none
                         ! 1 = take climatological values from 100/350 hPa above/below the tropopause in the extratropics
+
+
 
     !------------------------------------------------------------------
     ! 1. If this is a resumed integration, overwrite the defaults above 
