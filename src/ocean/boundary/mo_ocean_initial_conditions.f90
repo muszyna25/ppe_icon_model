@@ -60,7 +60,6 @@ MODULE mo_ocean_initial_conditions
   USE mo_util_dbg_prnt,      ONLY: dbg_print
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d
   USE mo_ext_data_types,     ONLY: t_external_data
-  USE mo_sea_ice_types,      ONLY: t_sfc_flx
   USE mo_ocean_types,          ONLY: t_hydro_ocean_state
   USE mo_scalar_product,     ONLY: map_cell2edges_3D
   USE mo_ocean_math_operators,ONLY: grad_fd_norm_oce_3d, smooth_onCells
