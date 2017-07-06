@@ -65,9 +65,9 @@ fi
 # ------------------
 
 # Variables atmo_dyn_grids and ocean_grids are used in namelist and linked to model directory
-grids_folder=${icon_data_poolFolder}/coupled_input_temp/aloy_pre03.5
-atmo_dyn_grids='ATMOOceGridWithCoast_158km.nc'
-ocean_grids='OCEANGridNoLake_pre04_slo_0039km_bathy.edit2016.nc'
+grids_folder=${icon_data_poolFolder}/coupled_input_temp/aloy_pre04.ff
+atmo_dyn_grids='ATMOOCEANINP_pre04_OceWithCoast_158km_editSLOHH2017_G.cdo172.nc'
+ocean_grids='OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G.nc'
 
 # start and end date+time
 # -----------------------
@@ -93,7 +93,7 @@ dtime_oce=${dtime_oce:=600}
 # restart interval
 # ----------------
 
-checkpoint_interval="P200Y" #  mtime ISO-format
+checkpoint_interval="P20Y" #  mtime ISO-format
 
 # high frequency output and restart intervals
 #  - Warning: restart_interval must be multiple of radiation time step (see below).
@@ -103,7 +103,6 @@ lnd_output_interval="PT6H"
 oce_output_interval="PT6H"
 
 # mid-frequency output and restart intervals
-##  P6M ?
 #restart_interval="P1Y"   
 #atm_output_interval="P1D"
 #lnd_output_interval="P1D"
@@ -111,7 +110,6 @@ oce_output_interval="PT6H"
 
 ## long-term low frequency output and restart intervals
 #restart_interval="P2Y"   
-#checkpoint_interval="P1Y"
 #atm_output_interval="P1M"
 #lnd_output_interval="P1M"
 #oce_output_interval="P1M"
@@ -159,7 +157,7 @@ cpl_xmlctrfn=XMLCTRFN_${EXPNAME}_cpl
 run_jsbach=yes
 jsbach_with_hd=yes
 jsbach_with_lakes=yes
-jsbach_usecase=jsbach_lite     # jsbach_lite or jsbach_pfts
+jsbach_usecase=jsbach_lite    # jsbach_lite or jsbach_pfts
 jsbach_check_wbal=yes          # check water balance
 #
 [[ $jsbach_with_lakes == yes ]] || jsbach_usecase=${jsbach_usecase}_nolake
@@ -295,7 +293,7 @@ EOF
 # II.1.2 Land surface and soil
 # ----------------------------
 
-cat > ${lnd_namelist} << EOF
+cat > ${lnd_namelist} <<EOF
 &jsb_model_nml
   usecase         = "${jsbach_usecase}"
   fract_filename  = "bc_land_frac.nc"
@@ -306,7 +304,7 @@ cat > ${lnd_namelist} << EOF
   ic_filename     = 'ic_land_soil.nc'
 /
 &jsb_rad_nml
-  use_alb_veg_simple = .TRUE.           ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
+  use_alb_veg_simple = .TRUE.          ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
   bc_filename     = 'bc_land_phys.nc'
   ic_filename     = 'ic_land_soil.nc'
 /
@@ -315,11 +313,6 @@ cat > ${lnd_namelist} << EOF
   ic_filename     = 'ic_land_soil.nc'
 /
 &jsb_sse_nml
-  l_heat_cap_map  = .FALSE.
-  l_heat_cond_map = .FALSE.
-  l_heat_cap_dyn  = .TRUE.
-  l_heat_cond_dyn = .TRUE.
-  l_snow          = .TRUE.
   l_dynsnow       = .TRUE.
   l_freeze        = .FALSE.
   l_supercool     = .FALSE.
@@ -407,34 +400,35 @@ end_year=$(( ${end_date%%-*} + 1 ))
 #
 # - well mixed greenhouse gases
 # mbe/slo - attention: do not use, set to constant 1850 via namelist
-datadir=$INDATA/global/atm
-add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_greenhouse_gases.nc
+#datadir=$INDATA/global/atm
+#add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_greenhouse_gases.nc
 
 # - ozone
 # mbe/slo - attention: do not use, set to constant 1850 via namelist
-datadir=$grids_folder/Atmos
-add_link_file $datadir/bc_ozone_pre04_slo_0158km_CMIP6_picontrol.nc     ./bc_ozone.nc
+datadir=$grids_folder
+add_link_file $datadir/bc_ozone.pre04.ff.nc                             ./bc_ozone.nc
 
 # - sst and sic
-datadir=$grids_folder/Atmos
-add_link_file $datadir/bc_sic_pcmdi_cmip6_pre04_slo_0158km_1870-2015.nc ./bc_sic.nc
-add_link_file $datadir/bc_sst_pcmdi_cmip6_pre04_slo_0158km_1870-2015.nc ./bc_sst.nc
+datadir=$grids_folder
+add_link_file $datadir/bc_sic.pre04.ff.nc                               ./bc_sic.nc
+add_link_file $datadir/bc_sst.pre04.ff.nc                               ./bc_sst.nc
 
 # - land parameters
 datadir=$grids_folder/Land
-add_link_file $datadir/bc_land_frac_11pfts_1976.nc                      ./bc_land_frac.nc
+add_link_file $datadir/bc_land_frac_1976.nc                             ./bc_land_frac.nc
 add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
 add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
 add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
-add_link_file $datadir/hd_para_icon_r2b4_pre04_vs1_5.nc                 ./bc_land_hd.nc
+datadir=$grids_folder
+add_link_file $datadir/hd_para_icon_r2b4_pre04_ff_vs1_7.nc              ./bc_land_hd.nc
 #
 # - lctlib file for JSBACH
 add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def        ./lctlib_nlct21.def
 
 # read -2to2 cell_sea_land_mask for HD-model (lsf>0:=land)
-add_link_file $datadir/slm-2to2_forHDmodel_158km.nc                     ./hd_mask.nc
-add_link_file $datadir/runoff_a2o.r110.3.HD.corGibr.nc                  ./runoff_a2o.weights.nc
-#add_link_file $datadir/runoff_a2o.r110.2.HD.nc                          ./runoff_a2o.weights.nc
+datadir=$grids_folder
+add_link_file $datadir/slm-2to2_forHDmodel.pre04_158km_editSLOHH2017_G.nc ./hd_mask.nc
+add_link_file $datadir/runoff_a2o.pre04.yac_p15.nc                        ./runoff_a2o.weights.nc
 #
 
 #--------------------------------------------------------------------------------------------------
@@ -900,7 +894,7 @@ fi
 # ------------------------------------
 
 # PHC3.0, 40km resolution:
-datadir=$grids_folder/Ocean
+datadir=$grids_folder
 add_required_file ${datadir}/ts_phc3.0_annual_pre04_slo_0039km_L64.nc initial_state.nc
 
 #--------------------------------------------------------------------------------------------------
@@ -1186,7 +1180,6 @@ cat > ${cpl_xmlctrfn} << EOF
             </timestep>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
                <interpolation method="user_file" filename="runoff_a2o.weights.nc"/>
-               <interpolation method="fixed_value" user_value="0.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
             <enforce_write_restart>false</enforce_write_restart>
@@ -1222,7 +1215,8 @@ EOF
 #  <interpolation method="source_to_target_map"/>
 #  <interpolation method="fixed_value" user_value="99.0"/>
 #  <interpolation method="user_file" filename="runoff_a2o.weights.nc"/>
-#  <enforce_write_weight_file filename="runoff_a2o_written.weights.nc">true</enforce_write_weight_file>
+#  <enforce_write_weight_file filename="runoff_a2o.pre04.write.nc">true</enforce_write_weight_file>
+#  <enforce_write_restart>false</enforce_write_restart>
 
 # IV.4 xsd and xml files for yac
 # ------------------------------
@@ -1234,4 +1228,5 @@ add_required_file ${basedir}/run/component.xsd ./
 # set grid filenames to undefined to avoid copy mechanism by exec.iconrun (not tested, change later):
 #atmo_dyn_grids=""
 #ocean_grids=""
+
 
