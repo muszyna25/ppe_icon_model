@@ -273,7 +273,7 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: routine = modname//"::setup_comm_pattern"
     INTEGER, ALLOCATABLE :: icnt(:), flag(:), global_recv_index(:), send_src(:), num_rcv(:)
     INTEGER :: i, n, np, nr, num_recv, irs, ire, num_send, iss, ise, max_glb, &
-      comm_size, comm_rank, recv_idx, abs_dst_idx
+      comm_size, comm_rank, recv_idx, abs_dst_idx, n_pnts
     LOGICAL :: any_np_le_0
 
     !-----------------------------------------------------------------------
@@ -296,17 +296,19 @@ CONTAINS
     icnt(:) = 0
     flag(:) = 0
 
-    p_pat%n_pnts = 0
+    n_pnts = 0
 
     DO i = 1, dst_n_points
-      IF(dst_owner(i)>=0) THEN
-        p_pat%n_pnts = p_pat%n_pnts + 1 ! Count total number of points we output
-        IF(flag(ABS(dst_global_index(i)))==0) THEN
+      IF (dst_owner(i) >= 0) THEN
+        n_pnts = n_pnts + 1 ! Count total number of points we output
+        abs_dst_idx = ABS(dst_global_index(i))
+        IF (flag(abs_dst_idx)==0) THEN
           icnt(dst_owner(i)) = icnt(dst_owner(i))+1 ! Number to get from dst_owner(i)
-          flag(ABS(dst_global_index(i))) = 1 ! Flag that this global point is already on the list
+          flag(abs_dst_idx) = 1 ! Flag that this global point is already on the list
         ENDIF
       ENDIF
     ENDDO
+    p_pat%n_pnts = n_pnts
 
     ! Allocate and set up the recv_limits array
 
@@ -325,9 +327,9 @@ CONTAINS
 
     ! Allocate and set up the recv_src array
 
-    ALLOCATE(p_pat%recv_src(p_pat%n_pnts))
-    ALLOCATE(p_pat%recv_dst_blk(p_pat%n_pnts))
-    ALLOCATE(p_pat%recv_dst_idx(p_pat%n_pnts))
+    ALLOCATE(p_pat%recv_src(n_pnts))
+    ALLOCATE(p_pat%recv_dst_blk(n_pnts))
+    ALLOCATE(p_pat%recv_dst_idx(n_pnts))
     ALLOCATE(global_recv_index(p_pat%n_recv))
 
     DO np = 0, comm_size-1
