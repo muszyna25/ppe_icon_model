@@ -43,7 +43,7 @@ export ATP_MAX_CORES=0
 ICONDIR=${PBS_O_WORKDIR}/../../
 
 # Base directory containing input data
-DATADIR=/lustre2/uwork/dreinert/ICON/checksuite.xce.dwd.de_data/ICON_LAM/
+DATADIR=/lustre2/rwork0/routfor/test/icon/Checksuite_data/ICON_LAM/
 
 # directory with input grids:
 GRIDDIR=${DATADIR}/input
