@@ -32,7 +32,7 @@ fi
 ICONDIR=${PBS_O_WORKDIR}/../../
 
 EXP="NWP"    # experiment identifier
-EDIR="exp14"  # working directory
+EDIR="exp02"  # working directory
 
 
 # absolute path to directory with plenty of space:

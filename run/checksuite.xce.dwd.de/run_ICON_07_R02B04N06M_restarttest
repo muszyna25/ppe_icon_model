@@ -53,7 +53,7 @@ GRIDDIR=${DATAROOT}/GRF_R2B4N6M
 ICONDIR=${PBS_O_WORKDIR}/../../
 
 # absolute path to directory with plenty of space:
-EXPDIR=$TMPDIR/../experiments/exp14
+EXPDIR=$TMPDIR/../experiments/exp07
 
 # path to model binary, including the executable:
 MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/icon

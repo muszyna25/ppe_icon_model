@@ -39,7 +39,7 @@ fi
 ICONDIR=${PBS_O_WORKDIR}/../../
 
 EXP="LIMtest"    # experiment identifier
-EDIR="exp4"  # working directory
+EDIR="exp01"  # working directory
 
 # absolute path to directory with plenty of space:
 EXPDIR=$TMPDIR/../experiments/${EDIR}

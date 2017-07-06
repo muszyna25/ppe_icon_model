@@ -40,7 +40,7 @@ fi
 ICONDIR=${PBS_O_WORKDIR}/../../
 
 EXP="NWP"    # experiment identifier
-EDIR="Test_R2B6N7_EPS"
+EDIR="exp09"
 GRIDDIR=/e/rhome/routfox/routfox/icon/grids/public/edzw/ # grid directory
 EXTPDIR=/e/rhome/routfox/routfox/icon/grids/public/edzw/ # external parameter directory
 

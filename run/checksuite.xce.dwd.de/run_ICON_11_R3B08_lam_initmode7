@@ -58,7 +58,7 @@ LBCDIR=${DATADIR}/forcing_mode7
 EXTPARDIR=${DATADIR}/input
 
 # absolute path to directory with plenty of space:
-EXPDIR=$TMPDIR/../experiments/exp16
+EXPDIR=$TMPDIR/../experiments/exp11
 
 # path to model binary, including the executable:
 MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/icon
