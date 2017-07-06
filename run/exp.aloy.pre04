@@ -851,12 +851,12 @@ if [[ "$output_oce_min" == "yes" ]]; then
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c', 'Qtop', 'Qbot',
                       'mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc',
-                      't_acc','s_acc','u_acc','topBoundCond_windStress_u_acc',
+                      't_acc','s_acc','u_acc',
                       'HeatFlux_Total_acc','atmos_fluxes_HeatFlux_ShortWave','atmos_fluxes_HeatFlux_LongWave',
                       'HeatFlux_ShortWave_acc',
                       'atmos_fluxes_HeatFlux_Latent','atmos_fluxes_HeatFlux_Sensible'
                       'FrshFlux_Runoff_acc','FrshFlux_Precipitation_acc','FrshFlux_Evaporation_acc','FrshFlux_SnowFall_acc',
-                      'FrshFlux_TotalOcean_acc', 'oceWind_Speed_10m'
+                      'FrshFlux_TotalOcean_acc', 'Wind_Speed_10m'
 /
 EOF
 fi
@@ -881,11 +881,11 @@ if [[ "$output_oce_full" == "yes" ]]; then
   include_last     = .false.
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'wet_c','basin_c','regio_c','mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc',
-                      'Qbot','Qtop','topBoundCond_windStress_u_acc','t_acc','s_acc','u_acc', 'v_acc', 'w_acc',
+                      'Qbot','Qtop','t_acc','s_acc','u_acc', 'v_acc', 'w_acc',
                       'HeatFlux_Total_acc','FrshFlux_Runoff_acc','FrshFlux_Precipitation_acc',
                       'FrshFlux_Evaporation_acc', 'FrshFlux_TotalIce_acc', 'FrshFlux_TotalSalt_acc',
                       'FrshFlux_TotalOcean_acc', 'FrshFlux_VolumeTotal_acc', 'FrshFlux_SnowFall_acc',
-                      'atmos_fluxes_FrshFlux_VolumeIce','oceWind_Speed_10m'
+                      'atmos_fluxes_FrshFlux_VolumeIce','Wind_Speed_10m'
 /
 EOF
 fi
