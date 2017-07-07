@@ -45,6 +45,7 @@ MODULE mo_statistics
   !-------------------------------------------------------------------------  
   ! NOTE: in order to get correct results make sure you provide the proper in_subset (ie, owned)!
   PUBLIC :: global_minmaxmean, subset_sum, add_fields, add_fields_3d, add_sqr_fields
+  PUBLIC :: L2Norm, LInfNorm
   PUBLIC :: accumulate_mean, levels_horizontal_mean, horizontal_mean, total_mean
   PUBLIC :: horizontal_sum
   PUBLIc :: print_value_location
@@ -60,7 +61,17 @@ MODULE mo_statistics
     MODULE PROCEDURE MinMaxMean_2D_InRange
     MODULE PROCEDURE MinMaxMean_3D_AllLevels_InRange
   END INTERFACE global_minmaxmean
+
+  INTERFACE L2Norm
+    MODULE PROCEDURE L2Norm_2D_InRange
+  END INTERFACE L2Norm
   
+  INTERFACE LInfNorm
+    MODULE PROCEDURE LInfNorm_2D_InRange
+  END INTERFACE LInfNorm
+  
+
+
   ! weighted total sum, uses indexed subset
   ! used for calculating total fluxes acros given paths
   INTERFACE subset_sum
@@ -390,6 +401,69 @@ CONTAINS
   END SUBROUTINE print_3Dvalue_location
   !-----------------------------------------------------------------------
   
+  !-----------------------------------------------------------------------
+  !>
+  ! Returns the l2 norm for a 2D array in a given range subset
+  FUNCTION LInfNorm_2D_InRange(values, in_subset) result(lInfnorm)
+    REAL(wp) :: values(:,:) ! INTENT(in)
+    TYPE(t_subset_range), TARGET :: in_subset
+    REAL(wp) :: lInfnorm
+    
+    REAL(wp) :: minmaxmean(3)
+    
+    minmaxmean = global_minmaxmean(values, in_subset)
+    lInfnorm = MAX(ABS(minmaxmean(1)), ABS(minmaxmean(2)))
+
+  END FUNCTION LInfNorm_2D_InRange
+  !-----------------------------------------------------------------------
+  
+  !-----------------------------------------------------------------------
+  !>
+  ! Returns the l2 norm for a 2D array in a given range subset
+  FUNCTION L2Norm_2D_InRange(values, in_subset) result(l2norm)
+    REAL(wp) :: values(:,:) ! INTENT(in)
+    TYPE(t_subset_range), TARGET :: in_subset
+    REAL(wp) :: l2norm
+    
+    REAL(wp) :: sumOfSquares
+    INTEGER :: block, start_index, end_index, idx
+    
+    IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
+    sumOfSquares = 0._wp
+    
+    IF (ASSOCIATED(in_subset%vertical_levels)) THEN
+!ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index, idx), reduction(+:sumOfSquares) 
+      DO block = in_subset%start_block, in_subset%end_block
+        CALL get_index_range(in_subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+          IF (in_subset%vertical_levels(idx,block) > 0) THEN
+            sumOfSquares    = sumOfSquares + values(idx, block)**2
+            ! write(*,*) "number of values=", number_of_values, " value=", values(idx, block), " sum=", sum_value
+          ENDIF
+        ENDDO
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
+      
+    ELSE ! no in_subset%vertical_levels
+      
+!ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index) &
+!ICON_OMP   reduction(+:sumOfSquares)
+      DO block = in_subset%start_block, in_subset%end_block
+        CALL get_index_range(in_subset, block, start_index, end_index)
+        sumOfSquares    = sumOfSquares + SUM(values(start_index:end_index, block)**2)
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
+      
+    ENDIF ! (ASSOCIATED(in_subset%vertical_levels))
+    
+!     write(0,*) "sumOfSquares=", sumOfSquares
+    l2norm = gather_sum(sumOfSquares)
+!     write(0,*) "l2norm=", l2norm
+
+    l2norm = SQRT(l2norm)
+
+  END FUNCTION L2Norm_2D_InRange
+  !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
   !>
@@ -427,7 +501,7 @@ CONTAINS
       
     ELSE ! no in_subset%vertical_levels
       
-!ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index) &
+!ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index, min_in_block, max_in_block) &
 !ICON_OMP  reduction(MIN:min_value) reduction(MAX:max_value) reduction(+:sum_value)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
@@ -503,7 +577,7 @@ CONTAINS
       
     ELSE ! no in_subset%vertical_levels
       
-!ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index)  &
+!ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index, min_in_block, max_in_block)  &
 !ICON_OMP  reduction(MIN:min_value) reduction(MAX:max_value) reduction(+:sum_value)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
@@ -1130,6 +1204,23 @@ CONTAINS
 
   END SUBROUTINE gather_minmaxmean
   !-----------------------------------------------------------------------
+ 
+  !-----------------------------------------------------------------------
+  REAL(wp) FUNCTION gather_sum(sum_value)
+    REAL(wp), INTENT(in) :: sum_value
+    
+    INTEGER :: communicator
+    
+    IF (my_process_is_mpi_parallel()) THEN
+      communicator = get_my_mpi_work_communicator()
+      gather_sum = p_sum( sum_value,  comm=communicator)
+    ELSE
+      gather_sum = sum_value
+    ENDIF
+
+  END FUNCTION gather_sum
+  !-----------------------------------------------------------------------
+
 
   !-----------------------------------------------------------------------
   SUBROUTINE gather_sums_1D(sum_1, sum_2)
