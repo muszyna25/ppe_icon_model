@@ -1,13 +1,18 @@
-machine|daint_cpu|default
-builder|DAINT_CPU_cce||Ocean
-experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00
-machine|breeze|default
+machine|breeze|
 builder|BREEZE_nag|--with-fortran=nag|Ocean
 builder|BREEZE_gcc_openmp|--with-fortran=gcc --with-openmp|Ocean
 builder|BREEZE_gcc|--with-fortran=gcc|Ocean
 builder|BREEZE_intel|--with-fortran=intel|Ocean
 builder|BREEZE_intel_openmp|--with-fortran=intel --with-openmp|Ocean
-machine|mistral|compute
+machine|daint|
+builder|DWD_cray|--with-fortran=cray|Ocean
+builder|DWD_cray_production|--with-fortran=cray|Ocean
+builder|BREEZE_nag|--with-fortran=nag|Ocean
+builder|BREEZE_gcc_openmp|--with-fortran=gcc --with-openmp|Ocean
+builder|BREEZE_gcc|--with-fortran=gcc|Ocean
+builder|BREEZE_intel|--with-fortran=intel|Ocean
+builder|BREEZE_intel_openmp|--with-fortran=intel --with-openmp|Ocean
+machine|mistral|
 builder|MISTRAL_intel|--with-fortran=intel|Ocean
 experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00
 builder|MISTRAL_intel_hybrid|--with-fortran=intel --with-openmp|Ocean

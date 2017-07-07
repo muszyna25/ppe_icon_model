@@ -1,17 +1,10 @@
-machine|daint_cpu|default
-builder|DAINT_CPU_cce||AES
-experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics|
-experiment|checksuite.icon-dev/check.atm_amip_noparams|
-experiment|checksuite.icon-dev/check.atm_amip_noforcing|
-experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
-experiment|checksuite.icon-dev/check.atm_amip|
-machine|breeze|default
+machine|breeze|
 builder|BREEZE_intel|--with-fortran=intel|AES
 builder|BREEZE_gcc_openmp|--with-fortran=gcc --with-openmp|AES
 builder|BREEZE_gcc|--with-fortran=gcc|AES
 builder|BREEZE_nag|--with-fortran=nag|AES
 builder|BREEZE_intel_openmp|--with-fortran=intel --with-openmp|AES
-machine|mistral|compute
+machine|mistral|
 builder|MISTRAL_intel|--with-fortran=intel|AES
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
