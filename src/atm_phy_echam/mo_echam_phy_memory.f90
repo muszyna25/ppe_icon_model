@@ -623,7 +623,8 @@ CONTAINS
 
     TYPE(t_patch),INTENT(IN) :: patch_array(:)
     INTEGER,INTENT(IN) :: ntracer
-    CHARACTER(len=MAX_CHAR_LENGTH) :: listname
+    CHARACTER(len=13) :: listname_f
+    CHARACTER(len=12) :: listname_t
     CHARACTER(len=MAX_CHAR_LENGTH) :: ctracer(ntracer) !< tracer acronyms
     INTEGER :: ndomain, jg, ist, nblks, nlev, jtrc
 
@@ -679,14 +680,14 @@ CONTAINS
       nblks = patch_array(jg)%nblks_c
       nlev  = patch_array(jg)%nlev
 
-      WRITE(listname,'(a,i2.2)') 'prm_field_D',jg
+      WRITE(listname_f,'(a,i2.2)') 'prm_field_D',jg
       CALL new_echam_phy_field_list( jg, nproma, nlev, nblks, ntracer, ctracer, &
-                                   & nsfc_type, TRIM(listname), '',             &
+                                   & nsfc_type, listname_f, '',             &
                                    & prm_field_list(jg), prm_field(jg)          )
 
-      WRITE(listname,'(a,i2.2)') 'prm_tend_D',jg
+      WRITE(listname_t,'(a,i2.2)') 'prm_tend_D',jg
       CALL new_echam_phy_tend_list( jg, nproma, nlev, nblks, ntracer, ctracer, &
-                                  & TRIM(listname), 'tend_',                   &
+                                  & listname_t, 'tend_',                   &
                                   & prm_tend_list(jg), prm_tend(jg)            )
     ENDDO
     CALL message(thismodule,'Construction of ECHAM physics state finished.')
@@ -773,7 +774,7 @@ CONTAINS
 
     ! Register a field list and apply default settings
 
-    CALL new_var_list( field_list, TRIM(listname), patch_id=k_jg )
+    CALL new_var_list( field_list, listname, patch_id=k_jg )
     CALL default_var_list_settings( field_list,                &
                                   & lrestart=.TRUE.  )
 
@@ -3454,7 +3455,7 @@ CONTAINS
     shape3d   = (/kproma, klev, kblks/)
     shape_trc = (/kproma, klev, kblks, ktracer/)
 
-    CALL new_var_list( tend_list, TRIM(listname), patch_id=k_jg )
+    CALL new_var_list( tend_list, listname, patch_id=k_jg )
     CALL default_var_list_settings( tend_list, lrestart=.FALSE. )
 
     !------------------------------
