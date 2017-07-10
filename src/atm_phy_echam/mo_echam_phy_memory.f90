@@ -639,21 +639,28 @@ CONTAINS
 
     ! Define tracer names to be used in the construction of tracer related variables
     !
-    DO jtrc = 1,ntracer
-       !
-       ! default name
-            WRITE(ctracer(jtrc),'(a1,i0)') 't',jtrc
-            !
-            ! specific names
-            IF (jtrc == 1 ) ctracer(jtrc) = 'hus'
-            IF (jtrc == 2 ) ctracer(jtrc) = 'clw'
-            IF (jtrc == 3 ) ctracer(jtrc) = 'cli'
-            IF (jtrc == 4 ) ctracer(jtrc) = 'o3'
-            IF (jtrc == 5 ) ctracer(jtrc) = 'co2'
-            IF (jtrc == 6 ) ctracer(jtrc) = 'ch4'
-            IF (jtrc == 7 ) ctracer(jtrc) = 'n2o'
-            !
-        END DO
+      DO jtrc = 1,ntracer
+        !
+        ! specific names
+        SELECT CASE (jtrc)
+        CASE(1)
+          ctracer(jtrc) = 'hus'
+        CASE(2)
+          ctracer(jtrc) = 'clw'
+        CASE(3)
+          ctracer(jtrc) = 'cli'
+        CASE(4)
+          ctracer(jtrc) = 'o3'
+        CASE(5)
+          ctracer(jtrc) = 'co2'
+        CASE(6)
+          ctracer(jtrc) = 'ch4'
+        CASE(7)
+          ctracer(jtrc) = 'n2o'
+        CASE DEFAULT
+          WRITE(ctracer(jtrc),'(a1,i0)') 't',jtrc
+        END SELECT
+      END DO
 
     ENDIF
 
