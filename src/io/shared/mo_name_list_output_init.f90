@@ -967,9 +967,9 @@ CONTAINS
           vname = TRIM(in_varlist(ivar))
           IF (vname(1:1) == "-") THEN
             nsubtract_vars = nsubtract_vars + 1
-            varlist(nsubtract_vars) = TRIM(ADJUSTL(vname))
+            varlist(nsubtract_vars) = ADJUSTL(vname)
             nsubtract_vars = nsubtract_vars + 1
-            varlist(nsubtract_vars) = TRIM(ADJUSTL(vname(2:)))
+            varlist(nsubtract_vars) = ADJUSTL(vname(2:))
           END IF
         END DO
         ! remove variables
