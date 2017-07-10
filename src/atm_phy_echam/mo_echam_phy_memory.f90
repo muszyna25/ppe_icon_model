@@ -762,7 +762,7 @@ CONTAINS
 !0!    INTEGER :: shape4d(4)
     INTEGER :: ibits, iextbits
     INTEGER :: datatype_flt
-    INTEGER :: jsfc, jtrc
+    INTEGER :: jsfc, jtrc, tlen
 
     ibits = DATATYPE_PACK16
     iextbits = DATATYPE_PACK24
@@ -1039,12 +1039,13 @@ CONTAINS
     
     ! Generic references to single tracers
     DO jtrc = 1,ktracer
+      tlen = LEN_TRIM(ctracer(jtrc))
       CALL add_ref( field_list, prefix//'qtrc_phy',                            &
-                  & prefix//'q'//TRIM(ctracer(jtrc))//'_phy', field%qtrc_ptr(jtrc)%p, &
+                  & prefix//'q'//ctracer(jtrc)(1:tlen)//'_phy', field%qtrc_ptr(jtrc)%p, &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                         &
-                  & t_cf_var('mass_fraction_of_'//TRIM(ctracer(jtrc))//'_in_air', &
+                  & t_cf_var('mass_fraction_of_'//ctracer(jtrc)(1:tlen)//'_in_air', &
                   &          'kg kg-1',                                        &
-                  &          'mass fraction of '//TRIM(ctracer(jtrc))//' in air (physics)', &
+                  &          'mass fraction of '//ctracer(jtrc)(1:tlen)//' in air (physics)', &
                   &          datatype_flt),                                    &
                   & grib2_var(0,20,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
                   & ref_idx=jtrc, ldims=(/kproma,klev,kblks/),                 &
@@ -1056,11 +1057,11 @@ CONTAINS
                   &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,         &
                   &             lower_limit=0._wp )                            )
       CALL add_ref( field_list, prefix//'mtrc_phy',                            &
-                  & prefix//'m'//TRIM(ctracer(jtrc))//'_phy', field%mtrc_ptr(jtrc)%p, &
+                  & prefix//'m'//ctracer(jtrc)(1:tlen)//'_phy', field%mtrc_ptr(jtrc)%p, &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                         &
-                  & t_cf_var('mass_of_'//TRIM(ctracer(jtrc))//'_in_air',       &
+                  & t_cf_var('mass_of_'//ctracer(jtrc)(1:tlen)//'_in_air',       &
                   &          'kg m-2',                                         &
-                  &          'mass of '//TRIM(ctracer(jtrc))//' in air (physics)', &
+                  &          'mass of '//ctracer(jtrc)(1:tlen)//' in air (physics)', &
                   &          datatype_flt),                                    &
                   & grib2_var(0,20,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
                   & ref_idx=jtrc, ldims=(/kproma,klev,kblks/),                 &
@@ -1072,10 +1073,10 @@ CONTAINS
                   &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,         &
                   &             lower_limit=0._wp )                            )
       CALL add_ref( field_list, prefix//'mtrcvi_phy',                          &
-                  & prefix//'m'//TRIM(ctracer(jtrc))//'vi_phy', field%mtrcvi_ptr(jtrc)%p, &
+                  & prefix//'m'//ctracer(jtrc)(1:tlen)//'vi_phy', field%mtrcvi_ptr(jtrc)%p, &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
-                  & t_cf_var('atmosphere_'//TRIM(ctracer(jtrc))//'_content',   &
-                  &          'kg m-2', TRIM(ctracer(jtrc))//' path (physics)', &
+                  & t_cf_var('atmosphere_'//ctracer(jtrc)(1:tlen)//'_content',   &
+                  &          'kg m-2', ctracer(jtrc)(1:tlen)//' path (physics)', &
                   &          datatype_flt),                                    &
                   & grib2_var(0,20,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
                   & ref_idx=jtrc, ldims=(/kproma,kblks/),                      &
@@ -1084,7 +1085,8 @@ CONTAINS
 
     ! Specific references for tracers with specific names
     DO jtrc = 1,ktracer
-       IF ( TRIM(ctracer(jtrc)) == 'hus' ) THEN
+      tlen = LEN_TRIM(ctracer(jtrc))
+       IF ( ctracer(jtrc)(1:tlen) == 'hus' ) THEN
           CALL add_ref( field_list, prefix//'mtrcvi_phy',                      &
                   & prefix//'prw', field%prw,                                  &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
@@ -1094,7 +1096,7 @@ CONTAINS
                   & ref_idx=jtrc, ldims=(/kproma,kblks/),                      &
                   & lrestart = .FALSE.                                         )
        END IF
-       IF ( TRIM(ctracer(jtrc)) == 'clw' ) THEN
+       IF ( ctracer(jtrc)(1:tlen) == 'clw' ) THEN
           CALL add_ref( field_list, prefix//'mtrcvi_phy',                      &
                   & prefix//'cllvi', field%cllvi,                              &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
@@ -1104,7 +1106,7 @@ CONTAINS
                   & ref_idx=jtrc, ldims=(/kproma,kblks/),                      &
                   & lrestart = .FALSE.                                         )
        END IF
-       IF ( TRIM(ctracer(jtrc)) == 'cli' ) THEN
+       IF ( ctracer(jtrc)(1:tlen) == 'cli' ) THEN
           CALL add_ref( field_list, prefix//'mtrcvi_phy',                      &
                   & prefix//'clivi', field%clivi,                              &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
@@ -3446,7 +3448,7 @@ CONTAINS
     TYPE(t_grib2_var) :: grib2_desc
 
     INTEGER :: shape2d(2), shape3d(3), shape_trc(4)
-    INTEGER :: ibits, jtrc
+    INTEGER :: ibits, jtrc, tlen
     INTEGER :: datatype_flt
     !------------------------------
 
@@ -3888,13 +3890,13 @@ CONTAINS
     ALLOCATE(tend% mtrcvi_phy_ptr(ktracer))
     
     DO jtrc = 1,ktracer
-
+      tlen = LEN_TRIM(ctracer(jtrc))
       CALL add_ref( tend_list, prefix//'qtrc',                                            &
-                  & prefix//'q'//TRIM(ctracer(jtrc)), tend%qtrc_ptr(jtrc)%p,              &
+                  & prefix//'q'//ctracer(jtrc)(1:tlen), tend%qtrc_ptr(jtrc)%p,              &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                    &
-                  & t_cf_var('tend_q'//TRIM(ctracer(jtrc)), 'kg kg-1 s-1',                &
+                  & t_cf_var('tend_q'//ctracer(jtrc)(1:tlen), 'kg kg-1 s-1',                &
                   &          'tendency of mass mixing ratio of tracer '//                 &
-                  &          TRIM(ctracer(jtrc)),                                         &
+                  &          ctracer(jtrc)(1:tlen),                                         &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
                   & ref_idx=jtrc, ldims=(/kproma,klev,kblks/),                            &
@@ -3903,11 +3905,11 @@ CONTAINS
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
 
       CALL add_ref( tend_list, prefix//'qtrc_dyn',                                        &
-                  & prefix//'q'//TRIM(ctracer(jtrc))//'_dyn', tend%qtrc_dyn_ptr(jtrc)%p,  &
+                  & prefix//'q'//ctracer(jtrc)(1:tlen)//'_dyn', tend%qtrc_dyn_ptr(jtrc)%p,  &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                    &
-                  & t_cf_var('tend_q'//TRIM(ctracer(jtrc))//'_dyn', 'kg kg-1 s-1',        &
+                  & t_cf_var('tend_q'//ctracer(jtrc)(1:tlen)//'_dyn', 'kg kg-1 s-1',        &
                   &          'tendency of mass mixing ratio of tracer '//                 &
-                  &          TRIM(ctracer(jtrc))//                                        &
+                  &          ctracer(jtrc)(1:tlen)//                                        &
                   &          ' due to resolved dynamics',                                 &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
@@ -3917,11 +3919,11 @@ CONTAINS
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
 
       CALL add_ref( tend_list, prefix//'qtrc_phy',                                        &
-                  & prefix//'q'//TRIM(ctracer(jtrc))//'_phy', tend%qtrc_phy_ptr(jtrc)%p,  &
+                  & prefix//'q'//ctracer(jtrc)(1:tlen)//'_phy', tend%qtrc_phy_ptr(jtrc)%p,  &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                    &
-                  & t_cf_var('tend_q'//TRIM(ctracer(jtrc))//'_phy', 'kg kg-1 s-1',        &
+                  & t_cf_var('tend_q'//ctracer(jtrc)(1:tlen)//'_phy', 'kg kg-1 s-1',        &
                   &          'tendency of mass mixing ratio of tracer '//                 &
-                  &          TRIM(ctracer(jtrc))//                                        &
+                  &          ctracer(jtrc)(1:tlen)//                                        &
                   &          ' due to parameterized processes',                           &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
@@ -3931,11 +3933,11 @@ CONTAINS
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
 
       CALL add_ref( tend_list, prefix//'qtrc_cld',                                        &
-                  & prefix//'q'//TRIM(ctracer(jtrc))//'_cld', tend%qtrc_cld_ptr(jtrc)%p,  &
+                  & prefix//'q'//ctracer(jtrc)(1:tlen)//'_cld', tend%qtrc_cld_ptr(jtrc)%p,  &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                    &
-                  & t_cf_var('tend_q'//TRIM(ctracer(jtrc))//'_cld', 'kg kg-1 s-1',        &
+                  & t_cf_var('tend_q'//ctracer(jtrc)(1:tlen)//'_cld', 'kg kg-1 s-1',        &
                   &          'tendency of mass mixing ratio of tracer '//                 &
-                  &          TRIM(ctracer(jtrc))//                                        &
+                  &          ctracer(jtrc)(1:tlen)//                                        &
                   &          ' due to large scale cloud processes',                       &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
@@ -3945,11 +3947,11 @@ CONTAINS
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
 
       CALL add_ref( tend_list, prefix//'qtrc_cnv',                                        &
-                  & prefix//'q'//TRIM(ctracer(jtrc))//'_cnv', tend%qtrc_cnv_ptr(jtrc)%p,  &
+                  & prefix//'q'//ctracer(jtrc)(1:tlen)//'_cnv', tend%qtrc_cnv_ptr(jtrc)%p,  &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                    &
-                  & t_cf_var('tend_q'//TRIM(ctracer(jtrc))//'_cnv', 'kg kg-1 s-1',        &
+                  & t_cf_var('tend_q'//ctracer(jtrc)(1:tlen)//'_cnv', 'kg kg-1 s-1',        &
                   &          'tendency of mass mixing ratio of tracer '//                 &
-                  &          TRIM(ctracer(jtrc))//                                        &
+                  &          ctracer(jtrc)(1:tlen)//                                        &
                   &          ' due to convective cloud processes',                        &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
@@ -3959,11 +3961,11 @@ CONTAINS
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
 
       CALL add_ref( tend_list, prefix//'qtrc_vdf',                                        &
-                  & prefix//'q'//TRIM(ctracer(jtrc))//'_vdf', tend%qtrc_vdf_ptr(jtrc)%p,  &
+                  & prefix//'q'//ctracer(jtrc)(1:tlen)//'_vdf', tend%qtrc_vdf_ptr(jtrc)%p,  &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                    &
-                  & t_cf_var('tend_q'//TRIM(ctracer(jtrc))//'_vdf', 'kg kg-1 s-1',        &
+                  & t_cf_var('tend_q'//ctracer(jtrc)(1:tlen)//'_vdf', 'kg kg-1 s-1',        &
                   &          'tendency of mass mixing ratio of tracer '//                 &
-                  &          TRIM(ctracer(jtrc))//                                        &
+                  &          ctracer(jtrc)(1:tlen)//                                        &
                   &          ' due to vertical diffusion',                                &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
@@ -3987,10 +3989,10 @@ CONTAINS
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
 
       CALL add_ref( tend_list, prefix//'mtrc_phy',                                        &
-                  & prefix//'m'//TRIM(ctracer(jtrc))//'_phy', tend%mtrc_phy_ptr(jtrc)%p,  &
+                  & prefix//'m'//ctracer(jtrc)(1:tlen)//'_phy', tend%mtrc_phy_ptr(jtrc)%p,  &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                    &
-                  & t_cf_var('tend_m'//TRIM(ctracer(jtrc))//'_phy', 'kg m-2 s-1',         &
-                  &          'tendency of '//TRIM(ctracer(jtrc))//                        &
+                  & t_cf_var('tend_m'//ctracer(jtrc)(1:tlen)//'_phy', 'kg m-2 s-1',         &
+                  &          'tendency of '//ctracer(jtrc)(1:tlen)//                        &
                   &          ' mass due to parameterized processes',                      &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
@@ -4000,10 +4002,10 @@ CONTAINS
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
 
       CALL add_ref( tend_list, prefix//'mtrcvi_phy',                                      &
-                  & prefix//'m'//TRIM(ctracer(jtrc))//'vi_phy', tend%mtrcvi_phy_ptr(jtrc)%p, &
+                  & prefix//'m'//ctracer(jtrc)(1:tlen)//'vi_phy', tend%mtrcvi_phy_ptr(jtrc)%p, &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                   &
-                  & t_cf_var('tend_m'//TRIM(ctracer(jtrc))//'vi_phy', 'kg m-2 s-1',       &
-                  &          'tendency of '//TRIM(ctracer(jtrc))//                        &
+                  & t_cf_var('tend_m'//ctracer(jtrc)(1:tlen)//'vi_phy', 'kg m-2 s-1',       &
+                  &          'tendency of '//ctracer(jtrc)(1:tlen)//                        &
                   &          ' path due to parameterized processes',                      &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
