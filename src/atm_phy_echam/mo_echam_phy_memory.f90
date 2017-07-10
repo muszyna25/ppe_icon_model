@@ -629,7 +629,7 @@ CONTAINS
 
     !---
 
-    CALL message(TRIM(thismodule),'Construction of ECHAM physics state started.')
+    CALL message(thismodule,'Construction of ECHAM physics state started.')
 
 
     IF (lart) THEN
@@ -664,11 +664,11 @@ CONTAINS
     ndomain = SIZE(patch_array)
 
     ALLOCATE( prm_field(ndomain), prm_tend(ndomain), STAT=ist)
-    IF (ist/=SUCCESS) CALL finish(TRIM(thismodule), &
+    IF (ist/=SUCCESS) CALL finish(thismodule, &
       &'allocation of prm_field/tend array failed')
 
     ALLOCATE( prm_field_list(ndomain), prm_tend_list(ndomain), STAT=ist)
-    IF (ist/=SUCCESS) CALL finish(TRIM(thismodule), &
+    IF (ist/=SUCCESS) CALL finish(thismodule, &
       &'allocation of prm_field/tend list array failed')
 
     ! Build a field list and a tendency list for each grid level.
@@ -689,7 +689,7 @@ CONTAINS
                                   & TRIM(listname), 'tend_',                   &
                                   & prm_tend_list(jg), prm_tend(jg)            )
     ENDDO
-    CALL message(TRIM(thismodule),'Construction of ECHAM physics state finished.')
+    CALL message(thismodule,'Construction of ECHAM physics state finished.')
 
   END SUBROUTINE construct_echam_phy_state
   !--------------------------------------------------------------------
@@ -706,7 +706,7 @@ CONTAINS
     INTEGER :: ist      !< system status code
 
     !---
-    CALL message(TRIM(thismodule),'Destruction of ECHAM physics state started.')
+    CALL message(thismodule,'Destruction of ECHAM physics state started.')
 
     ndomain = SIZE(prm_field)
 
@@ -716,14 +716,14 @@ CONTAINS
     ENDDO
 
     DEALLOCATE( prm_field_list, prm_tend_list, STAT=ist )
-    IF (ist/=SUCCESS) CALL finish(TRIM(thismodule), &
+    IF (ist/=SUCCESS) CALL finish(thismodule, &
       & 'deallocation of prm_field/tend list array failed')
 
     DEALLOCATE( prm_field, prm_tend, STAT=ist )
-    IF (ist/=SUCCESS) CALL finish(TRIM(thismodule), &
+    IF (ist/=SUCCESS) CALL finish(thismodule, &
       & 'deallocation of prm_field/tend array failed')
 
-    CALL message(TRIM(thismodule),'Destruction of ECHAM physics state finished.')
+    CALL message(thismodule,'Destruction of ECHAM physics state finished.')
 
   END SUBROUTINE destruct_echam_phy_state
   !--------------------------------------------------------------------
