@@ -1873,15 +1873,7 @@ CONTAINS
     p_of%num_vars = 0
     ALLOCATE(p_of%var_desc(p_of%max_vars))
     DO ivar = 1,nvars
-      ! Nullify pointers in p_of%var_desc
-      p_of%var_desc(ivar)%r_ptr => NULL()
-      p_of%var_desc(ivar)%s_ptr => NULL()
-      p_of%var_desc(ivar)%i_ptr => NULL()
-      DO i = 1, max_time_levels
-        p_of%var_desc(ivar)%tlev_rptr(i)%p => NULL()
-        p_of%var_desc(ivar)%tlev_sptr(i)%p => NULL()
-        p_of%var_desc(ivar)%tlev_iptr(i)%p => NULL()
-      ENDDO
+      CALL nullify_var_desc_ptr(p_of%var_desc(ivar))
     END DO ! ivar
 
     ! Allocate array of variable descriptions
@@ -1889,16 +1881,7 @@ CONTAINS
       IF (is_grid_info_var(varlist(ivar)))  CYCLE
 
       found = .FALSE.
-      ! Nullify pointers
-      var_desc%r_ptr => NULL()
-      var_desc%s_ptr => NULL()
-      var_desc%i_ptr => NULL()
-      DO i = 1, max_time_levels
-        var_desc%tlev_rptr(i)%p => NULL()
-        var_desc%tlev_sptr(i)%p => NULL()
-        var_desc%tlev_iptr(i)%p => NULL()
-      ENDDO
-
+      CALL nullify_var_desc_ptr(var_desc)
       ! Loop over all var_lists listed in vl_list to find the variable
       ! Please note that there may be several variables with different time levels,
       ! we just add unconditionally all with the name varlist(ivar).
@@ -2031,6 +2014,17 @@ CONTAINS
     ENDDO ! ivar = 1,nvars
 
   END SUBROUTINE add_varlist_to_output_file
+
+
+  SUBROUTINE nullify_var_desc_ptr(var_desc)
+    TYPE(t_var_desc), INTENT(inout) :: var_desc
+    INTEGER :: i
+    NULLIFY(var_desc%r_ptr, var_desc%s_ptr, var_desc%i_ptr)
+    DO i = 1, max_time_levels
+      NULLIFY(var_desc%tlev_rptr(i)%p, var_desc%tlev_sptr(i)%p, &
+           &     var_desc%tlev_iptr(i)%p)
+    ENDDO
+  END SUBROUTINE nullify_var_desc_ptr
 
 
   !------------------------------------------------------------------------------------------------
