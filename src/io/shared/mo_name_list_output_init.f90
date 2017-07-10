@@ -242,7 +242,6 @@ CONTAINS
 
     INTEGER                               :: istat, i, j, idom
     TYPE(t_output_name_list), POINTER     :: p_onl
-    INTEGER                               :: nnamelists
     LOGICAL                               :: lrewind
 
     ! Local variables corresponding to members of output_name_list
@@ -350,7 +349,6 @@ CONTAINS
 
     p_onl                  => NULL()
     first_output_name_list => NULL()
-    nnamelists             =  0
     lrewind                = .TRUE.
 
     IF (.NOT. output_mode%l_nml) RETURN ! do not read output namelists if main switch is set to false
@@ -424,8 +422,6 @@ CONTAINS
         iunit = temp_settings()
         WRITE(iunit, output_nml)                                     ! write settings to temporary text file
       END IF
-
-      nnamelists = nnamelists+1
 
       ! -- Consistency checks:
 
