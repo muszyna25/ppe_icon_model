@@ -38,7 +38,7 @@ MODULE mo_name_list_output_config
   IMPLICIT NONE
 
   PUBLIC :: is_grib_output,                                  &
-    &       is_variable_in_output_nml, is_variable_in_output
+    &       is_variable_in_output
   PUBLIC :: use_async_name_list_io
   PUBLIC :: first_output_name_list
   PUBLIC :: add_var_desc
@@ -86,29 +86,35 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: var_name   !< variable name
     ! local variables
     INTEGER :: ivar
-   
+    CHARACTER(len=LEN(var_name)) :: var_name_u
+
     ! if a specific variable name has been provided, loop over the
     ! variables for this output file
     retval = .FALSE.
+    var_name_u = toupper(var_name)
     DO ivar=1,max_var_ml
-      IF (p_onl%ml_varlist(ivar) == ' ') CYCLE
-      IF (toupper(TRIM(p_onl%ml_varlist(ivar))) == toupper(TRIM(var_name))) retval=.TRUE.
-      IF (retval) EXIT
+      IF (p_onl%ml_varlist(ivar) /= ' ') THEN
+        retval = toupper(TRIM(p_onl%ml_varlist(ivar))) == var_name_u
+        IF (retval) RETURN
+      END IF
     END DO
     DO ivar=1,max_var_pl
-      IF (p_onl%pl_varlist(ivar) == ' ') CYCLE
-      IF (toupper(TRIM(p_onl%pl_varlist(ivar))) == toupper(TRIM(var_name))) retval=.TRUE.
-      IF (retval) EXIT
+      IF (p_onl%pl_varlist(ivar) /= ' ') THEN
+        retval = toupper(TRIM(p_onl%pl_varlist(ivar))) == var_name_u
+        IF (retval) RETURN
+      END IF
     END DO
     DO ivar=1,max_var_hl
-      IF (p_onl%hl_varlist(ivar) == ' ') CYCLE
-      IF (toupper(TRIM(p_onl%hl_varlist(ivar))) == toupper(TRIM(var_name))) retval=.TRUE.
-      IF (retval) EXIT
+      IF (p_onl%hl_varlist(ivar) /= ' ') THEN
+        retval = toupper(TRIM(p_onl%hl_varlist(ivar))) == var_name_u
+        IF (retval) RETURN
+      END IF
     END DO
     DO ivar=1,max_var_il
-      IF (p_onl%il_varlist(ivar) == ' ') CYCLE
-      IF (toupper(TRIM(p_onl%il_varlist(ivar))) == toupper(TRIM(var_name))) retval=.TRUE.
-      IF (retval) EXIT
+      IF (p_onl%il_varlist(ivar) /= ' ') THEN
+        retval = toupper(TRIM(p_onl%il_varlist(ivar))) == var_name_u
+        IF (retval) RETURN
+      END IF
     END DO
   END FUNCTION is_variable_in_output_nml
 
@@ -121,17 +127,18 @@ CONTAINS
   FUNCTION is_variable_in_output(first_output_name_list, var_name) RESULT(retval)
     LOGICAL                           :: retval
 
-    TYPE(t_output_name_list), POINTER          :: first_output_name_list   !< head output namelist list
+    !> head output namelist list
+    TYPE(t_output_name_list), POINTER :: first_output_name_list
     CHARACTER(LEN=*), INTENT(IN)  :: var_name   !< variable name
     ! local variables
     TYPE (t_output_name_list), POINTER :: p_onl
+    INTEGER :: tlen
 
+    tlen = LEN_TRIM(var_name)
     p_onl => first_output_name_list
     retval = .FALSE.
-    DO
-      IF(.NOT.ASSOCIATED(p_onl)) EXIT
-      IF (retval) EXIT
-      retval = is_variable_in_output_nml(p_onl, var_name=var_name)
+    DO WHILE (ASSOCIATED(p_onl) .AND. .NOT. retval)
+      retval = is_variable_in_output_nml(p_onl, var_name=var_name(1:tlen))
       p_onl => p_onl%next
     END DO
   END FUNCTION is_variable_in_output
