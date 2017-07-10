@@ -905,7 +905,7 @@ SUBROUTINE organize_turbdiff ( &
 !
           i_st, i_en, i_stp, i_enp, &
 !
-          l_hori, hhl, dp0, trop_mask, &
+          l_hori, hhl, dp0, trop_mask, innertrop_mask, &
 !
           fr_land, depth_lk, h_ice, gz0, sai, &
 !
@@ -1179,8 +1179,8 @@ REAL (KIND=ireals), DIMENSION(:,:), TARGET, OPTIONAL, INTENT(INOUT) :: &
 
 REAL (KIND=ireals), DIMENSION(:), TARGET, OPTIONAL, INTENT(IN) :: &
 !
-     trop_mask      ! mask-factor (1: within tropics; 0: within extra-tropics)
-                    ! used for vertical smoothing of TKE forcing terms
+     trop_mask,  &   ! mask-factor (1: within tropics; 0: within extra-tropics)
+     innertrop_mask  ! used for vertical smoothing of TKE forcing terms
 REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(INOUT) :: &
 !
      qv_conv         ! qv-flux-convergence                            ( 1/s )
@@ -3558,7 +3558,7 @@ SUBROUTINE turbdiff
 !<For_Tuning
 !Achtung:
 ! x1,x2,x3, &
-           x4, xri(ie,ke)
+           x4, x4i, xri(ie,ke)
 !>For_Tuning
 
 ! Local arrays:
@@ -4841,9 +4841,10 @@ SUBROUTINE turbdiff
                   ! there is otherwise too little dynamic coupling between adjacent model levels
                   fakt = MIN( z1, 2.e-4_ireals*MAX( z0, hhl(i,k) - 12500._ireals ) ) ! transition zone between 12.5 and 17.5 km
                   ! Wider transition zone in the tropics in order to avoid too strong diffusion in the tropopause region
-                  x4 = z1-z1d3*trop_mask(i)*MIN(z1, 2.e-4_ireals*MAX(z0, 22500._ireals-hhl(i,k)) )
+                  x4  = z1-z1d3*trop_mask(i)*MIN(z1, 2.e-4_ireals*MAX(z0, 22500._ireals-hhl(i,k)) )
+                  x4i = z1-z1d2*innertrop_mask(i)*MIN(z1, 2.e-4_ireals*MAX(z0, 27500._ireals-hhl(i,k)) )
                   fakt = fakt*MIN( x4*1.5_ireals, MAX( 0.25_ireals, SQRT(xri(i,k)) ) )
-                  val1=MAX( val1, tkmmin_strat*x4*fakt ) ; val2=MAX( val2, tkhmin_strat*x4*fakt )
+                  val1=MAX( val1, tkmmin_strat*MIN(x4,x4i)*fakt ) ; val2=MAX( val2, tkhmin_strat*x4*fakt )
                END IF
 !>Tuning: This kind of correction can be substituted by a less ad-hoc approach.
 ! Remark (GZ): The enhanced stratospheric diffusion seems to parameterize a missing process outside the turbulence scheme,

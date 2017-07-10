@@ -299,6 +299,13 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       ELSE
         prm_diag%tropics_mask(jc,jb) = (30._wp-zlat)/5._wp
       ENDIF
+      IF (zlat < 12.5_wp) THEN
+        prm_diag%innertropics_mask(jc,jb) = 1._wp
+      ELSE IF (zlat > 17.5_wp) THEN
+        prm_diag%innertropics_mask(jc,jb) = 0._wp
+      ELSE
+        prm_diag%innertropics_mask(jc,jb) = (17.5_wp-zlat)/5._wp
+      ENDIF
     ENDDO
   ENDDO
 

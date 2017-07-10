@@ -2797,6 +2797,13 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,           &
                 & ldims=shape2d, lrestart=.FALSE., loutput=.FALSE. )
 
+    ! mask field to distinguish between inner tropics and elsewhere (for tuning purposes)
+    cf_desc    = t_cf_var('innertropics_mask', '', 'innertropics_mask', datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'innertropics_mask', diag%innertropics_mask,            &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,           &
+                & ldims=shape2d, lrestart=.FALSE., loutput=.FALSE. )
+
     ! buffer field needed for the combination of vertical nesting with a reduced radiation grid
     IF (k_jg > n_dom_start) THEN
       ALLOCATE(diag%buffer_rrg(nproma, 3*nexlevs_rrg_vnest, p_patch_local_parent(k_jg)%nblks_c))
