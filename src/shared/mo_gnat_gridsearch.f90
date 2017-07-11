@@ -1435,11 +1435,8 @@ CONTAINS
 
       !-- assign new work to one of the PEs
       ! find first non-associated PE in node_proc
-      j = 1
-      FINDFIRST : DO
-        IF (j > nproc)      EXIT FINDFIRST
+      FINDFIRST : DO j = 1, nproc
         IF (idx(1,j) == -1) EXIT FINDFIRST
-        j = j + 1
       END DO FINDFIRST
 
       IF (j<=nproc) THEN
