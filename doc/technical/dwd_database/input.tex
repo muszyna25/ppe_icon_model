@@ -75,7 +75,7 @@ or the plant cover fraction.
 
 The ExtPar software (ExtPar -- External parameter for Numerical Weather Prediction and Climate Application) 
 is able to generate external parameters for the ICON model. The generation is based on a set of 
-raw-datafields which are listed in Table \ref{table_extpar_raw}. For a more detailed overview of ExtPar, 
+raw datafields which are listed in Table \ref{table_extpar_raw}. For a more detailed overview of ExtPar, 
 the reader is referred to the \emph{User and Implementation Guide} of Extpar.
 
 \begin{longtable}{p{6.5cm}p{6cm}p{1.8cm}}
@@ -95,8 +95,8 @@ GLOBE orography                                        &  NOAA/NGDC             
 GlobCover 2009                                         &  ESA                        &  10''  \\
 %GLC2000 land use                                       &  JRC Ispra                  &  30''  \\
 GLCC land use                                          &  USGS                       &  30''  \\
-%DSMW Digital Soil Map of the World                     &  FAO                        &  5'    \\
-HWSD Harmonized World Soil Database                    &  FAO/IIASA/ISRIC/ISSCAS/JRC &  30''  \\
+DSMW Digital Soil Map of the World                     &  FAO                        &  5'    \\
+%HWSD Harmonized World Soil Database                    &  FAO/IIASA/ISRIC/ISSCAS/JRC &  30''  \\
 NDVI Climatotology, SeaWiFS                            &  NASA/GSFC                  &  2.5'  \\
 CRU near surface climatology                           &  CRU University of East Anglia & $0.5^{\circ}$  \\
 GACP Aerosol Optical thickness                         &  NASA/GISS \newline (Global Aerosol Climatology Project)   &  $4x5^{\circ}$ \\
@@ -147,7 +147,7 @@ raw dataset. Note that these are mandatory input fields for assimilation- and fo
   PLCOV\_MX  (*)                        & Plant covering degree in the vegetation phase   &        GlobCover 2009     \\
   ROOTDP (*)                            & Root depth                                      &        GlobCover 2009     \\
   RSMIN  (*)                            & Minimum stomatal resistance                     &        GlobCover 2009     \\
-  SOILTYP                               & Soil type                                       &        HWSD               \\
+  SOILTYP                               & Soil type                                       &        DSMW               \\
   SSO\_STDH                             & Standard deviation of sub-grid scale orographic height  &   GLOBE           \\
   SSO\_THETA                            & Principal axis-angle of sub-grid scale orography &          GLOBE           \\
   SSO\_GAMMA                            & Horizontal anisotropy of sub-grid scale orography &         GLOBE           \\
