@@ -1,5 +1,5 @@
 MODULE mo_reorder_info
-  USE mo_kind, ONLY: i8
+  USE mo_kind, ONLY: i4, i8, dp, sp
   USE mo_mpi, ONLY: p_bcast, p_comm_remote_size, p_allgather, p_allgatherv, &
        p_comm_size, p_int_i8
   USE mo_exception, ONLY: finish, message_text
@@ -43,9 +43,14 @@ MODULE mo_reorder_info
   CONTAINS
     PROCEDURE :: finalize => t_reorder_info_finalize
   END TYPE t_reorder_info
+  INTERFACE ri_cpy_part2whole
+    MODULE PROCEDURE ri_part2whole_1d_dp_dp, ri_part2whole_1d_sp_sp, &
+         ri_part2whole_1d_sp_dp, ri_part2whole_1d_dp_sp, ri_part2whole_1d_i4_i4
+  END INTERFACE ri_cpy_part2whole
   PUBLIC :: t_reorder_info
   PUBLIC :: transfer_reorder_info
   PUBLIC :: mask2reorder_info
+  PUBLIC :: ri_cpy_part2whole
   CHARACTER(len=*), PARAMETER :: modname = 'mo_reorder_info'
 CONTAINS
 
@@ -211,5 +216,90 @@ CONTAINS
     END IF
 
   END SUBROUTINE transfer_reorder_info
+
+  SUBROUTINE ri_part2whole_1d_dp_dp(ri, part_idx, part_data, whole_data)
+    TYPE(t_reorder_info), INTENT(IN) :: ri
+    INTEGER, INTENT(in) :: part_idx
+    REAL(dp), INTENT(in) :: part_data(:)
+    REAL(dp), INTENT(inout) :: whole_data(:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: part_data, whole_data
+#endif
+    INTEGER :: i, n, ofs
+
+    ofs = ri%pe_off(part_idx)
+    n = ri%pe_own(part_idx)
+    DO i = 1, n
+      whole_data(ri%reorder_index(ofs + i)) = part_data(i)
+    END DO
+  END SUBROUTINE ri_part2whole_1d_dp_dp
+
+  SUBROUTINE ri_part2whole_1d_sp_sp(ri, part_idx, part_data, whole_data)
+    TYPE(t_reorder_info), INTENT(IN) :: ri
+    INTEGER, INTENT(in) :: part_idx
+    REAL(sp), INTENT(in) :: part_data(:)
+    REAL(sp), INTENT(inout) :: whole_data(:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: part_data, whole_data
+#endif
+    INTEGER :: i, n, ofs
+
+    ofs = ri%pe_off(part_idx)
+    n = ri%pe_own(part_idx)
+    DO i = 1, n
+      whole_data(ri%reorder_index(ofs + i)) = part_data(i)
+    END DO
+  END SUBROUTINE ri_part2whole_1d_sp_sp
+
+  SUBROUTINE ri_part2whole_1d_sp_dp(ri, part_idx, part_data, whole_data)
+    TYPE(t_reorder_info), INTENT(IN) :: ri
+    INTEGER, INTENT(in) :: part_idx
+    REAL(sp), INTENT(in) :: part_data(:)
+    REAL(dp), INTENT(inout) :: whole_data(:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: part_data, whole_data
+#endif
+    INTEGER :: i, n, ofs
+
+    ofs = ri%pe_off(part_idx)
+    n = ri%pe_own(part_idx)
+    DO i = 1, n
+      whole_data(ri%reorder_index(ofs + i)) = part_data(i)
+    END DO
+  END SUBROUTINE ri_part2whole_1d_sp_dp
+
+  SUBROUTINE ri_part2whole_1d_dp_sp(ri, part_idx, part_data, whole_data)
+    TYPE(t_reorder_info), INTENT(IN) :: ri
+    INTEGER, INTENT(in) :: part_idx
+    REAL(dp), INTENT(in) :: part_data(:)
+    REAL(sp), INTENT(inout) :: whole_data(:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: part_data, whole_data
+#endif
+    INTEGER :: i, n, ofs
+
+    ofs = ri%pe_off(part_idx)
+    n = ri%pe_own(part_idx)
+    DO i = 1, n
+      whole_data(ri%reorder_index(ofs + i)) = REAL(part_data(i), sp)
+    END DO
+  END SUBROUTINE ri_part2whole_1d_dp_sp
+
+  SUBROUTINE ri_part2whole_1d_i4_i4(ri, part_idx, part_data, whole_data)
+    TYPE(t_reorder_info), INTENT(IN) :: ri
+    INTEGER, INTENT(in) :: part_idx
+    INTEGER(i4), INTENT(in) :: part_data(:)
+    INTEGER(i4), INTENT(inout) :: whole_data(:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: part_data, whole_data
+#endif
+    INTEGER :: i, n, ofs
+
+    ofs = ri%pe_off(part_idx)
+    n = ri%pe_own(part_idx)
+    DO i = 1, n
+      whole_data(ri%reorder_index(ofs + i)) = part_data(i)
+    END DO
+  END SUBROUTINE ri_part2whole_1d_i4_i4
 
 END MODULE mo_reorder_info
