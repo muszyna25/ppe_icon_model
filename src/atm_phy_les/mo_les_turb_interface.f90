@@ -53,6 +53,7 @@ CONTAINS
   !!-------------------------------------------------------------------------
   !!
 SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
+                          & p_sim_time,                       & !>in (added by Christopher Moseley)
                           & p_patch,                          & !>in
                           & p_metrics,                        & !>in
                           & p_int,                            & !>in
@@ -77,6 +78,7 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
   TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_new    !< prog vars for sfc
   TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag        !< diag vars for sfc
   REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for turbulence
+  REAL(wp),                    INTENT(in)   :: p_sim_time      !< current sim time
 
   ! Local array bounds
 
@@ -108,7 +110,8 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
 
     ! if les metrics is choosen, drive the subgrid diffusion from mo_sgs_turbmetric
     IF (les_config(jg)%les_metric) THEN
-      CALL drive_subgrid_diffusion_m(p_prog,       & !inout for w (it is updated inside)
+      CALL drive_subgrid_diffusion_m(p_sim_time,   & !in (Christopher Moseley)
+                                     p_prog,       & !inout for w (it is updated inside)
                                      p_prog_rcf,   & !in
                                      p_diag,       & !inout
                                      p_metrics,    & !in
@@ -124,7 +127,8 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
 
 
     ELSE
-      CALL drive_subgrid_diffusion(p_prog,       & !inout for w (it is updated inside)
+      CALL drive_subgrid_diffusion(p_sim_time,   & !in (Christopher Moseley)
+                                   p_prog,       & !inout for w (it is updated inside)
                                    p_prog_rcf,   & !in
                                    p_diag,       & !inout
                                    p_metrics,    & !in

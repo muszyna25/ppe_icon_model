@@ -863,6 +863,21 @@ CONTAINS
        IF(atm_phy_nwp_config(jg)%inwp_gscp>0) &
          CALL levels_horizontal_mean(phy_tend%ddt_temp_gscp, p_patch%cells%area,  &
                                      p_patch%cells%owned, outvar(1:nlev))
+     ! Christopher Moseley: Forcing tendencies
+     CASE('dthls_w')
+       outvar(1:nlev) = phy_tend%ddt_temp_subs_ls(1:nlev)
+     CASE('dqls_w ')
+       outvar(1:nlev) = phy_tend%ddt_qv_subs_ls(1:nlev)
+     CASE('dthls_h')
+       outvar(1:nlev) = phy_tend%ddt_temp_adv_ls(1:nlev)
+     CASE('dqls_h ')
+       outvar(1:nlev) = phy_tend%ddt_qv_adv_ls(1:nlev)
+     CASE('nt_thl ')
+       outvar(1:nlev) = phy_tend%ddt_temp_nud_ls(1:nlev)
+     CASE('nt_qt  ')
+       outvar(1:nlev) = phy_tend%ddt_qv_nud_ls(1:nlev)
+     CASE('wfls   ')
+       outvar(1:nlev) = phy_tend%wsub(1:nlev)
      CASE DEFAULT !In case calculations are performed somewhere else
       
        outvar = 0._wp
@@ -1260,6 +1275,28 @@ CONTAINS
      CASE('dt_t_mc') 
        longname = 'microphysics temp tendency'
        unit     = 'K/s'
+     ! Christopher Moseley: LS forcing output
+     CASE('dthls_w') 
+       longname = 'Tend. of vert. temperature adv. from LS forcing'
+       unit     = 'K/s'
+     CASE('dthls_h') 
+       longname = 'Tend. of horiz. temperature adv. from LS forcing'
+       unit     = 'K/s'
+     CASE('dqls_w') 
+       longname = 'Tend. of vert. moisture adv. from LS forcing'
+       unit     = 'kg/kg/s'
+     CASE('dqls_h') 
+       longname = 'Tend. of horiz. moisture adv. from LS forcing'
+       unit     = 'kg/kg/s'
+     CASE('nt_thl') 
+       longname = 'Nudging tendency of temperature'
+       unit     = 'K/s'
+     CASE('nt_qt') 
+       longname = 'Nudging tendency of moisture'
+       unit     = 'kg/kg/s'
+     CASE('wfls') 
+       longname = 'LS subsidence velocity'
+       unit     = 'm/s'
      CASE DEFAULT 
          WRITE(message_text,'(a)')TRIM(turb_profile_list(n))
          CALL finish(routine,'Variable '//TRIM(message_text)//' is not listed in les_nml')

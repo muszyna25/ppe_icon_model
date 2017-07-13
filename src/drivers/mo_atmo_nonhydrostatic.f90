@@ -44,7 +44,7 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
   &                                ico2, io3,            &
   &                                number_of_grid_used
 USE mo_nh_testcases,         ONLY: init_nh_testcase
-USE mo_ls_forcing_nml,       ONLY: is_ls_forcing
+USE mo_ls_forcing_nml,       ONLY: is_ls_forcing, is_nudging
 USE mo_ls_forcing,           ONLY: init_ls_forcing
 USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
 ! Horizontal grid
@@ -378,7 +378,8 @@ CONTAINS
           &                   ext_data        ,&
           &                   ntl=2           )
         !
-        IF (is_ls_forcing) CALL init_ls_forcing(p_nh_state(1)%metrics)
+        IF(is_ls_forcing .OR. is_nudging) &
+          CALL init_ls_forcing(p_nh_state(1)%metrics)
         !
       ELSE
         !

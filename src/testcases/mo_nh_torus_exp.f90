@@ -662,7 +662,8 @@ MODULE mo_nh_torus_exp
     
     !open file again to read data this time
     iunit = find_next_free_unit(10,100)
-    OPEN (unit=iunit,file='sound_in', action='READ', status='OLD', IOSTAT=ist) 
+    OPEN (unit=iunit,file='sound_in', access='SEQUENTIAL', &
+            form='FORMATTED',action='READ', status='OLD', IOSTAT=ist) 
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), 'open verticaling sound file failed')
     ENDIF

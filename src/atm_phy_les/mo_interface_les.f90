@@ -495,6 +495,7 @@ CONTAINS
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
 
       CALL les_turbulence (  dt_phy_jg(itfastphy),              & !>in
+                            & p_sim_time,                       & !>in (added by Christopher Moseley)
                             & pt_patch, p_metrics,              & !>in
                             & pt_int_state,                     & !>in
                             & pt_prog,                          & !>in
@@ -1030,17 +1031,26 @@ CONTAINS
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
 
+      ! Modified by Christopher Moseley: call to apply_ls_forcing
       CALL apply_ls_forcing ( pt_patch,          &  !>in
         &                     p_metrics,         &  !>in
+        &                     p_sim_time,        &  !>in
         &                     pt_prog,           &  !>in
         &                     pt_diag,           &  !>in
-        &                     pt_prog_rcf%tracer(:,:,:,iqv),  & !>in
-        &                     rl_start,                       & !>in
-        &                     rl_end,                         & !>in
-        &                     prm_nwp_tend%ddt_u_ls,          & !>out
-        &                     prm_nwp_tend%ddt_v_ls,          & !>out
-        &                     prm_nwp_tend%ddt_temp_ls,       & !>out
-        &                     prm_nwp_tend%ddt_tracer_ls(:,iqv) ) !>out
+        &                     pt_prog_rcf%tracer(:,:,:,iqv),    & !>in
+        &                     rl_start,                         & !>in
+        &                     rl_end,                           & !>in
+        &                     prm_nwp_tend%ddt_u_ls,            & !>out
+        &                     prm_nwp_tend%ddt_v_ls,            & !>out
+        &                     prm_nwp_tend%ddt_temp_ls,         & !>out
+        &                     prm_nwp_tend%ddt_tracer_ls(:,iqv),& !>out
+        &                     prm_nwp_tend%ddt_temp_subs_ls,    & !>output
+        &                     prm_nwp_tend%ddt_qv_subs_ls,      & !>output
+        &                     prm_nwp_tend%ddt_temp_adv_ls,     & !>output
+        &                     prm_nwp_tend%ddt_qv_adv_ls,       & !>output
+        &                     prm_nwp_tend%ddt_temp_nud_ls,     & !>output
+        &                     prm_nwp_tend%ddt_qv_nud_ls,       & !>output
+        &                     prm_nwp_tend%wsub)                  !>output
 
       IF (timers_level > 3) CALL timer_stop(timer_ls_forcing)
 

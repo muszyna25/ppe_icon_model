@@ -29,7 +29,7 @@ MODULE mo_ls_forcing_nml
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: read_ls_forcing_namelist, is_ls_forcing, is_subsidence_moment, is_subsidence_heat, &
-            is_advection, is_geowind, is_rad_forcing, is_theta
+            is_advection, is_geowind, is_rad_forcing, is_theta, is_nudging
 
   LOGICAL  :: is_ls_forcing  !true if any forcing is on
   LOGICAL  :: is_subsidence_moment  !true if subsidence is on for u and v
@@ -38,9 +38,10 @@ MODULE mo_ls_forcing_nml
   LOGICAL  :: is_geowind     !true if geostophic wind is set 
   LOGICAL  :: is_rad_forcing !true if radiative forcing is on
   LOGICAL  :: is_theta       !true is forcings are in terms of theta
+  LOGICAL  :: is_nudging      !true if nudging applied
  
   NAMELIST/ls_forcing_nml/ is_subsidence_moment, is_subsidence_heat, is_advection, is_geowind, is_rad_forcing,  &
-                           is_theta
+                           is_theta, is_nudging
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -77,6 +78,7 @@ CONTAINS
     is_geowind    = .FALSE.
     is_rad_forcing = .FALSE.
     is_theta       = .FALSE.
+    is_nudging     = .FALSE.
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 

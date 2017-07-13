@@ -1312,8 +1312,11 @@ CONTAINS
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
 
+      ! Modified by Christopher Moseley:
+      ! Call to apply_ls_forcing
       CALL apply_ls_forcing ( pt_patch,          &  !>in
         &                     p_metrics,         &  !>in
+        &                     p_sim_time,        &  !>in
         &                     pt_prog,           &  !>in
         &                     pt_diag,           &  !>in
         &                     pt_prog_rcf%tracer(:,:,:,iqv),  & !>in
@@ -1322,7 +1325,14 @@ CONTAINS
         &                     prm_nwp_tend%ddt_u_ls,          & !>out
         &                     prm_nwp_tend%ddt_v_ls,          & !>out
         &                     prm_nwp_tend%ddt_temp_ls,       & !>out
-        &                     prm_nwp_tend%ddt_tracer_ls(:,iqv) ) !>out
+        &                     prm_nwp_tend%ddt_tracer_ls(:,iqv),& !>out
+        &                     prm_nwp_tend%ddt_temp_subs_ls,    & !>output
+        &                     prm_nwp_tend%ddt_qv_subs_ls,      & !>output
+        &                     prm_nwp_tend%ddt_temp_adv_ls,     & !>output
+        &                     prm_nwp_tend%ddt_qv_adv_ls,       & !>output
+        &                     prm_nwp_tend%ddt_temp_nud_ls,     & !>output
+        &                     prm_nwp_tend%ddt_qv_nud_ls,       & !>output
+        &                     prm_nwp_tend%wsub)                  !>output
 
       IF (timers_level > 3) CALL timer_stop(timer_ls_forcing)
 
@@ -1331,7 +1341,7 @@ CONTAINS
 
     IF (timers_level > 2) CALL timer_start(timer_phys_acc)
     !-------------------------------------------------------------------------
-    !>  accumulate tendencies of slow_physics
+    !>  accumulate tendencies of slow_physics: Not called when LS focing is ON
     !-------------------------------------------------------------------------
     IF( (l_any_slowphys .OR. lcall_phy_jg(itradheat)) .OR. is_ls_forcing) THEN
 
