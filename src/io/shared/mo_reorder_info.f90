@@ -47,10 +47,15 @@ MODULE mo_reorder_info
     MODULE PROCEDURE ri_part2whole_1d_dp_dp, ri_part2whole_1d_sp_sp, &
          ri_part2whole_1d_sp_dp, ri_part2whole_1d_dp_sp, ri_part2whole_1d_i4_i4
   END INTERFACE ri_cpy_part2whole
+  INTERFACE ri_cpy_blk2part
+    MODULE PROCEDURE ri_blk2part_2d_dp_dp, ri_blk2part_2d_sp_sp, &
+         ri_blk2part_2d_sp_dp, ri_blk2part_2d_i4_i4, ri_blk2part_2d_i4_dp
+  END INTERFACE ri_cpy_blk2part
   PUBLIC :: t_reorder_info
   PUBLIC :: transfer_reorder_info
   PUBLIC :: mask2reorder_info
   PUBLIC :: ri_cpy_part2whole
+  PUBLIC :: ri_cpy_blk2part
   CHARACTER(len=*), PARAMETER :: modname = 'mo_reorder_info'
 CONTAINS
 
@@ -301,5 +306,77 @@ CONTAINS
       whole_data(ri%reorder_index(ofs + i)) = part_data(i)
     END DO
   END SUBROUTINE ri_part2whole_1d_i4_i4
+
+  ! in the following routines, part_data has the POINTER attribute because
+  ! ifort is being a dick about copying in the array otherwise
+  SUBROUTINE ri_blk2part_2d_dp_dp(ri, blk_data, part_data, offset)
+    TYPE(t_reorder_info), INTENT(IN) :: ri
+    REAL(dp), INTENT(in) :: blk_data(:,:)
+    REAL(dp), INTENT(inout) :: part_data(:)
+    INTEGER, INTENT(inout) :: offset
+    INTEGER :: i, n
+
+    n = ri%n_own
+    DO i = 1, n
+      part_data(offset + i) = blk_data(ri%own_idx(i), ri%own_blk(i))
+    END DO
+    offset = offset + n
+  END SUBROUTINE ri_blk2part_2d_dp_dp
+
+  SUBROUTINE ri_blk2part_2d_sp_sp(ri, blk_data, part_data, offset)
+    TYPE(t_reorder_info), INTENT(IN) :: ri
+    REAL(sp), INTENT(in) :: blk_data(:,:)
+    REAL(sp), INTENT(inout) :: part_data(:)
+    INTEGER, INTENT(inout) :: offset
+    INTEGER :: i, n
+
+    n = ri%n_own
+    DO i = 1, n
+      part_data(offset + i) = blk_data(ri%own_idx(i), ri%own_blk(i))
+    END DO
+    offset = offset + n
+  END SUBROUTINE ri_blk2part_2d_sp_sp
+
+  SUBROUTINE ri_blk2part_2d_sp_dp(ri, blk_data, part_data, offset)
+    TYPE(t_reorder_info), INTENT(IN) :: ri
+    REAL(sp), INTENT(in) :: blk_data(:,:)
+    REAL(dp), INTENT(inout) :: part_data(:)
+    INTEGER, INTENT(inout) :: offset
+    INTEGER :: i, n
+
+    n = ri%n_own
+    DO i = 1, n
+      part_data(offset + i) = REAL(blk_data(ri%own_idx(i), ri%own_blk(i)), dp)
+    END DO
+    offset = offset + n
+  END SUBROUTINE ri_blk2part_2d_sp_dp
+
+  SUBROUTINE ri_blk2part_2d_i4_i4(ri, blk_data, part_data, offset)
+    TYPE(t_reorder_info), INTENT(IN) :: ri
+    INTEGER(i4), INTENT(in) :: blk_data(:,:)
+    INTEGER(i4), INTENT(inout) :: part_data(:)
+    INTEGER, INTENT(inout) :: offset
+    INTEGER :: i, n
+
+    n = ri%n_own
+    DO i = 1, n
+      part_data(offset + i) = blk_data(ri%own_idx(i), ri%own_blk(i))
+    END DO
+    offset = offset + n
+  END SUBROUTINE ri_blk2part_2d_i4_i4
+
+  SUBROUTINE ri_blk2part_2d_i4_dp(ri, blk_data, part_data, offset)
+    TYPE(t_reorder_info), INTENT(IN) :: ri
+    INTEGER(i4), INTENT(in) :: blk_data(:,:)
+    REAL(dp), INTENT(inout) :: part_data(:)
+    INTEGER, INTENT(inout) :: offset
+    INTEGER :: i, n
+
+    n = ri%n_own
+    DO i = 1, n
+      part_data(offset + i) = REAL(blk_data(ri%own_idx(i), ri%own_blk(i)), dp)
+    END DO
+    offset = offset + n
+  END SUBROUTINE ri_blk2part_2d_i4_dp
 
 END MODULE mo_reorder_info
