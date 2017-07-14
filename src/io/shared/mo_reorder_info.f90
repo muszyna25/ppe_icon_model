@@ -46,6 +46,8 @@ MODULE mo_reorder_info
   INTERFACE ri_cpy_part2whole
     MODULE PROCEDURE ri_part2whole_1d_dp_dp, ri_part2whole_1d_sp_sp, &
          ri_part2whole_1d_sp_dp, ri_part2whole_1d_dp_sp, ri_part2whole_1d_i4_i4
+    MODULE PROCEDURE ri_part2whole_2d_dp_dp, ri_part2whole_2d_sp_sp, &
+         ri_part2whole_2d_sp_dp, ri_part2whole_2d_dp_sp, ri_part2whole_2d_i4_i4
   END INTERFACE ri_cpy_part2whole
   INTERFACE ri_cpy_blk2part
     MODULE PROCEDURE ri_blk2part_2d_dp_dp, ri_blk2part_2d_sp_sp, &
@@ -306,6 +308,106 @@ CONTAINS
       whole_data(ri%reorder_index(ofs + i)) = part_data(i)
     END DO
   END SUBROUTINE ri_part2whole_1d_i4_i4
+
+  SUBROUTINE ri_part2whole_2d_dp_dp(ri, part_idx, part_data, whole_data)
+    TYPE(t_reorder_info), INTENT(IN) :: ri
+    INTEGER, INTENT(in) :: part_idx
+    REAL(dp), INTENT(in) :: part_data(:,:)
+    REAL(dp), INTENT(inout) :: whole_data(:,:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: part_data, whole_data
+#endif
+    INTEGER :: i, k, n, nlev, ofs
+
+    ofs = ri%pe_off(part_idx)
+    n = ri%pe_own(part_idx)
+    nlev = SIZE(part_data, 2)
+    DO k = 1, nlev
+      DO i = 1, n
+        whole_data(ri%reorder_index(ofs + i), k) = part_data(i, k)
+      END DO
+    END DO
+  END SUBROUTINE ri_part2whole_2d_dp_dp
+
+  SUBROUTINE ri_part2whole_2d_sp_sp(ri, part_idx, part_data, whole_data)
+    TYPE(t_reorder_info), INTENT(IN) :: ri
+    INTEGER, INTENT(in) :: part_idx
+    REAL(sp), INTENT(in) :: part_data(:,:)
+    REAL(sp), INTENT(inout) :: whole_data(:,:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: part_data, whole_data
+#endif
+    INTEGER :: i, k, n, nlev, ofs
+
+    ofs = ri%pe_off(part_idx)
+    n = ri%pe_own(part_idx)
+    nlev = SIZE(part_data, 2)
+    DO k = 1, nlev
+      DO i = 1, n
+        whole_data(ri%reorder_index(ofs + i), k) = part_data(i, k)
+      END DO
+    END DO
+  END SUBROUTINE ri_part2whole_2d_sp_sp
+
+  SUBROUTINE ri_part2whole_2d_sp_dp(ri, part_idx, part_data, whole_data)
+    TYPE(t_reorder_info), INTENT(IN) :: ri
+    INTEGER, INTENT(in) :: part_idx
+    REAL(sp), INTENT(in) :: part_data(:,:)
+    REAL(dp), INTENT(inout) :: whole_data(:,:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: part_data, whole_data
+#endif
+    INTEGER :: i, k, n, nlev, ofs
+
+    ofs = ri%pe_off(part_idx)
+    n = ri%pe_own(part_idx)
+    nlev = SIZE(part_data, 2)
+    DO k = 1, nlev
+      DO i = 1, n
+        whole_data(ri%reorder_index(ofs + i), k) = part_data(i, k)
+      END DO
+    END DO
+  END SUBROUTINE ri_part2whole_2d_sp_dp
+
+  SUBROUTINE ri_part2whole_2d_dp_sp(ri, part_idx, part_data, whole_data)
+    TYPE(t_reorder_info), INTENT(IN) :: ri
+    INTEGER, INTENT(in) :: part_idx
+    REAL(dp), INTENT(in) :: part_data(:,:)
+    REAL(sp), INTENT(inout) :: whole_data(:,:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: part_data, whole_data
+#endif
+    INTEGER :: i, k, n, nlev, ofs
+
+    ofs = ri%pe_off(part_idx)
+    n = ri%pe_own(part_idx)
+    nlev = SIZE(part_data, 2)
+    DO k = 1, nlev
+      DO i = 1, n
+        whole_data(ri%reorder_index(ofs + i), k) = REAL(part_data(i, k), sp)
+      END DO
+    END DO
+  END SUBROUTINE ri_part2whole_2d_dp_sp
+
+  SUBROUTINE ri_part2whole_2d_i4_i4(ri, part_idx, part_data, whole_data)
+    TYPE(t_reorder_info), INTENT(IN) :: ri
+    INTEGER, INTENT(in) :: part_idx
+    INTEGER(i4), INTENT(in) :: part_data(:,:)
+    INTEGER(i4), INTENT(inout) :: whole_data(:,:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: part_data, whole_data
+#endif
+    INTEGER :: i, k, n, nlev, ofs
+
+    ofs = ri%pe_off(part_idx)
+    n = ri%pe_own(part_idx)
+    nlev = SIZE(part_data, 2)
+    DO k = 1, nlev
+      DO i = 1, n
+        whole_data(ri%reorder_index(ofs + i), k) = part_data(i, k)
+      END DO
+    END DO
+  END SUBROUTINE ri_part2whole_2d_i4_i4
 
   ! in the following routines, part_data has the POINTER attribute because
   ! ifort is being a dick about copying in the array otherwise
