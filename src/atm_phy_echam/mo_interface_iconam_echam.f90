@@ -460,12 +460,6 @@ CONTAINS
              prm_tend(jg)% va_dyn(jc,jk,jb)     = (pt_diag%v   (jc,jk,jb)-prm_tend(jg)%va(jc,jk,jb))/dt_loc
              prm_tend(jg)% ta_dyn(jc,jk,jb)     = (pt_diag%temp(jc,jk,jb)-prm_tend(jg)%ta(jc,jk,jb))/dt_loc
              !
-             !-FOR TESTING-------------------------------!
-             prm_tend(jg)% ua_dyn(jc,jk,jb)     = 0.0_wp !
-             prm_tend(jg)% va_dyn(jc,jk,jb)     = 0.0_wp !
-             prm_tend(jg)% ta_dyn(jc,jk,jb)     = 0.0_wp !
-             !-------------------------------------------!
-             !
              ! Initialize the total tendencies, to be computed later:
              prm_tend(jg)% ua    (jc,jk,jb)     = 0.0_wp
              prm_tend(jg)% va    (jc,jk,jb)     = 0.0_wp
@@ -727,8 +721,6 @@ CONTAINS
 
     IF (ltimer) CALL timer_stop(timer_p2d_prep)
 
-    ! Now derive the physics-induced normal wind tendency, and add it to the
-    ! total tendency.
     IF (ltimer) CALL timer_start(timer_p2d_sync)
     CALL sync_patch_array_mult(SYNC_C, patch, 2, zdudt, zdvdt)
     IF (ltimer) CALL timer_stop(timer_p2d_sync)
@@ -829,10 +821,10 @@ CONTAINS
           DO jk = 1,nlev
             DO jc = jcs, jce
 
-!!$              ! Diagnose the total tendencies
-!!$              prm_tend(jg)%qtrc(jc,jk,jb,jt) =   prm_tend(jg)%qtrc_dyn(jc,jk,jb,jt)  &
-!!$                &                              + prm_tend(jg)%qtrc_phy(jc,jk,jb,jt)
-!!$
+              ! Diagnose the total tendencies
+              prm_tend(jg)%qtrc(jc,jk,jb,jt) =   prm_tend(jg)%qtrc_dyn(jc,jk,jb,jt)  &
+                &                              + prm_tend(jg)%qtrc_phy(jc,jk,jb,jt)
+
               ! (2.1) Tracer mixing ratio with respect to dry air
               !
               ! tracer mass tendency
@@ -959,10 +951,10 @@ CONTAINS
         DO jk = 1,nlev
           DO jc = jcs, jce
 
-!!$            ! Diagnose the total tendencies
-!!$            prm_tend(jg)%ua(jc,jk,jb) = prm_tend(jg)%ua_dyn(jc,jk,jb) + prm_tend(jg)%ua_phy(jc,jk,jb)
-!!$            prm_tend(jg)%va(jc,jk,jb) = prm_tend(jg)%va_dyn(jc,jk,jb) + prm_tend(jg)%va_phy(jc,jk,jb)
-!!$            prm_tend(jg)%ta(jc,jk,jb) = prm_tend(jg)%ta_dyn(jc,jk,jb) + prm_tend(jg)%ta_phy(jc,jk,jb)
+            ! Diagnose the total tendencies
+            prm_tend(jg)%ua(jc,jk,jb) = prm_tend(jg)%ua_dyn(jc,jk,jb) + prm_tend(jg)%ua_phy(jc,jk,jb)
+            prm_tend(jg)%va(jc,jk,jb) = prm_tend(jg)%va_dyn(jc,jk,jb) + prm_tend(jg)%va_phy(jc,jk,jb)
+            prm_tend(jg)%ta(jc,jk,jb) = prm_tend(jg)%ta_dyn(jc,jk,jb) + prm_tend(jg)%ta_phy(jc,jk,jb)
             !
             ! (3) Exner function and virtual potential temperature
             !
