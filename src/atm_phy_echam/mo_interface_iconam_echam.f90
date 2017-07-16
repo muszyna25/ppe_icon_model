@@ -135,6 +135,8 @@ CONTAINS
     &                                patch           ,& !in
     &                                pt_int_state    ,& !in
     &                                p_metrics       ,& !in
+    &                                pt_prog_old     ,& !in
+    &                                pt_prog_old_rcf ,& !in
     &                                pt_prog_new     ,& !inout
     &                                pt_prog_new_rcf ,& !inout
     &                                pt_diag         ,& !inout
@@ -151,6 +153,8 @@ CONTAINS
     TYPE(t_nh_metrics)    , INTENT(in)            :: p_metrics
 
     TYPE(t_nh_diag)       , INTENT(inout), TARGET :: pt_diag         !< diagnostic variables
+    TYPE(t_nh_prog)       , INTENT(inout), TARGET :: pt_prog_old     !< progn. vars before dynamics  for wind, temp. rho, ...
+    TYPE(t_nh_prog)       , INTENT(inout), TARGET :: pt_prog_old_rcf !< progn. vars before advection for tracers
     TYPE(t_nh_prog)       , INTENT(inout), TARGET :: pt_prog_new     !< progn. vars after dynamics  for wind, temp. rho, ...
     TYPE(t_nh_prog)       , INTENT(inout), TARGET :: pt_prog_new_rcf !< progn. vars after advection for tracers
 
@@ -200,6 +204,8 @@ CONTAINS
 
     IF (ltimer) CALL timer_start(timer_dyn2phy)
 
+    IF (ltimer) CALL timer_start(timer_d2p_prep)
+
     ! Inquire current grid level and the total number of grid cells
     i_nchdom = MAX(1,patch%n_childdom)
     rl_start = grf_bdywidth_c+1
@@ -232,8 +238,6 @@ CONTAINS
     !
     ! Update prognostic variables
     !
-    IF (ltimer) CALL timer_start(timer_d2p_prep)
-
     SELECT CASE (mpi_phy_config(jg)%idcphycpl)
       !
     CASE (1) ! idcphycpl
@@ -273,7 +277,8 @@ CONTAINS
     ! Now the new prognostic state variables (pt_prog_new and pt_prog_new_rcf) of
     ! the dynamics and transport are complete and ready to be used in the phyiscs.
     !
-    ! idcphycpl = 1: The "new" state is provisional, updated only by dynamics.
+    ! idcphycpl = 1: The "new" state is provisional, updated only by dynamics,
+    !                diffusion and tracer transport.
     !                In the following the phyiscs forcing is computed for this new
     !                provisional state and the provisional new state is updated
     !                to obtain the final "new" state X(t+dt).
@@ -287,7 +292,6 @@ CONTAINS
 
     !=====================================================================================
     !
-
     ! (2) Diagnostics
     !
     ! - pt_diag%tempv
@@ -309,13 +313,13 @@ CONTAINS
       &                      opt_rlend=min_rlcell_int )
 
     IF (ltimer) CALL timer_stop(timer_d2p_prep)
-    !
+
     ! - pt_diag%u
     ! - pt_diag%v
     IF (ltimer) CALL timer_start(timer_d2p_sync)
     CALL sync_patch_array( SYNC_E, patch, pt_prog_old%vn )
     IF (ltimer) CALL timer_stop(timer_d2p_sync)
-    !
+
     IF (ltimer) CALL timer_start(timer_d2p_prep)
 
     CALL rbf_vec_interpol_cell( pt_prog_old%vn       ,&! in
@@ -326,8 +330,6 @@ CONTAINS
       &                         opt_rlstart=rl_start ,&! in
       &                         opt_rlend  =rl_end   ) ! in
 
-    IF (ltimer) CALL timer_stop(timer_d2p_prep)
-    !
     !
     ! Store old diagnosed fields provisionally for diagnosing later the trends:
     !
@@ -337,9 +339,9 @@ CONTAINS
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
       DO jk = 1,nlev
         DO jc = jcs, jce
-          prm_tend(jg)% ua(jc,jk,jb) = pt_diag%u
-          prm_tend(jg)% va(jc,jk,jb) = pt_diag%v
-          prm_tend(jg)% ta(jc,jk,jb) = pt_diag%temp
+          prm_tend(jg)% ua(jc,jk,jb) = pt_diag% u   (jc,jk,jb)
+          prm_tend(jg)% va(jc,jk,jb) = pt_diag% v   (jc,jk,jb)
+          prm_tend(jg)% ta(jc,jk,jb) = pt_diag% temp(jc,jk,jb)
         END DO
       END DO
     END DO ! jb
@@ -359,7 +361,7 @@ CONTAINS
       &                      opt_rlend=min_rlcell_int )
 
     IF (ltimer) CALL timer_stop(timer_d2p_prep)
-    !
+
     ! - pt_diag%u
     ! - pt_diag%v
     IF (ltimer) CALL timer_start(timer_d2p_sync)
@@ -377,9 +379,10 @@ CONTAINS
       &                         opt_rlend  =rl_end   ) ! in
 
     IF (ltimer) CALL timer_stop(timer_d2p_prep)
+    
     !
-    ! Now the new prognostic and diagnostic state variables (pt_prog_new, pt_prog_new_rcf,
-    ! pt_diag) of the dynamical core are ready to be used in the phyiscs.
+    ! Now the old and new prognostic and diagnostic state variables of the dynamical core
+    ! are ready to be used in the phyiscs.
     !
     !=====================================================================================
 
@@ -414,7 +417,7 @@ CONTAINS
           !
           ! density
           prm_field(jg)%       rho(jc,jk,jb)     = pt_prog_new %         rho(jc,jk,jb)
-              !
+          !
           ! air mass
           prm_field(jg)%      mair(jc,jk,jb)     = pt_prog_new %         rho(jc,jk,jb) &
             &                                     *prm_field(jg)%         dz(jc,jk,jb)
@@ -451,22 +454,48 @@ CONTAINS
             !
           CASE (1) ! idcphycpl
              ! In this case the new state is provisional and updated only by dynamics:
-             prm_tend(jg)% ua_dyn(jc,jk,jb)     = (pt_diag%u   -prm_tend(jg)%ua(jc,jk,jb))/dt_loc
-             prm_tend(jg)% va_dyn(jc,jk,jb)     = (pt_diag%v   -prm_tend(jg)%va(jc,jk,jb))/dt_loc
-             prm_tend(jg)% ta_dyn(jc,jk,jb)     = (pt_diag%temp-prm_tend(jg)%ta(jc,jk,jb))/dt_loc
+             ! The dynamical tendency is diagnosed as the difference of the new and old(="now") state.
+             ! The old state for ua, va, and ta is provisionally stored in the tendency variables:
+             prm_tend(jg)% ua_dyn(jc,jk,jb)     = (pt_diag%u   (jc,jk,jb)-prm_tend(jg)%ua(jc,jk,jb))/dt_loc
+             prm_tend(jg)% va_dyn(jc,jk,jb)     = (pt_diag%v   (jc,jk,jb)-prm_tend(jg)%va(jc,jk,jb))/dt_loc
+             prm_tend(jg)% ta_dyn(jc,jk,jb)     = (pt_diag%temp(jc,jk,jb)-prm_tend(jg)%ta(jc,jk,jb))/dt_loc
+             !
+             !-FOR TESTING-------------------------------!
+             prm_tend(jg)% ua_dyn(jc,jk,jb)     = 0.0_wp !
+             prm_tend(jg)% va_dyn(jc,jk,jb)     = 0.0_wp !
+             prm_tend(jg)% ta_dyn(jc,jk,jb)     = 0.0_wp !
+             !-------------------------------------------!
+             !
+             ! Initialize the total tendencies, to be computed later:
+             prm_tend(jg)% ua    (jc,jk,jb)     = 0.0_wp
+             prm_tend(jg)% va    (jc,jk,jb)     = 0.0_wp
+             prm_tend(jg)% ta    (jc,jk,jb)     = 0.0_wp
+             !
+             ! Now reset the physics tendencies before entering the physics:
+             prm_tend(jg)% ua_phy(jc,jk,jb)     = 0.0_wp
+             prm_tend(jg)% va_phy(jc,jk,jb)     = 0.0_wp
+             prm_tend(jg)% ta_phy(jc,jk,jb)     = 0.0_wp
              !
           CASE(2) ! idcphycpl
              ! In this case the new state is final:
-             prm_tend(jg)% ua    (jc,jk,jb)     = (pt_diag%u   -prm_tend(jg)%ua(jc,jk,jb))/dt_loc
-             prm_tend(jg)% va    (jc,jk,jb)     = (pt_diag%v   -prm_tend(jg)%va(jc,jk,jb))/dt_loc
-             prm_tend(jg)% ta    (jc,jk,jb)     = (pt_diag%temp-prm_tend(jg)%ta(jc,jk,jb))/dt_loc
-             ! And the dynamic tendency can be diagnosed from the total and the physics tendencies:
+             ! The total tendency is diagnosed as the difference of the new and old(="now") state.
+             ! The old state for ua, va, and ta is provisionally stored in the tendency variables:
+             prm_tend(jg)% ua    (jc,jk,jb)     = (pt_diag%u   (jc,jk,jb)-prm_tend(jg)%ua(jc,jk,jb))/dt_loc
+             prm_tend(jg)% va    (jc,jk,jb)     = (pt_diag%v   (jc,jk,jb)-prm_tend(jg)%va(jc,jk,jb))/dt_loc
+             prm_tend(jg)% ta    (jc,jk,jb)     = (pt_diag%temp(jc,jk,jb)-prm_tend(jg)%ta(jc,jk,jb))/dt_loc
+             !
+             ! The dynamic tendency can be diagnosed from the total and the old physics tendencies:
              prm_tend(jg)% ua_dyn(jc,jk,jb)     = prm_tend(jg)% ua(jc,jk,jb)-prm_tend(jg)% ua_phy(jc,jk,jb)
              prm_tend(jg)% va_dyn(jc,jk,jb)     = prm_tend(jg)% va(jc,jk,jb)-prm_tend(jg)% va_phy(jc,jk,jb)
              prm_tend(jg)% ta_dyn(jc,jk,jb)     = prm_tend(jg)% ta(jc,jk,jb)-prm_tend(jg)% ta_phy(jc,jk,jb)
              !
+             ! Now reset the physics tendencies before entering the physics:
+             prm_tend(jg)% ua_phy(jc,jk,jb)     = 0.0_wp
+             prm_tend(jg)% va_phy(jc,jk,jb)     = 0.0_wp
+             prm_tend(jg)% ta_phy(jc,jk,jb)     = 0.0_wp
+             !
           END SELECT
-          !
+
         END DO
       END DO
 
@@ -530,23 +559,45 @@ CONTAINS
             ELSE
               prm_field(jg)%      qtrc(jc,jk,jb,jt)  = pt_prog_new_rcf% tracer(jc,jk,jb,jt)
             END IF
-            !
+
             SELECT CASE (mpi_phy_config(jg)%idcphycpl)
+               !
+               ! Diagnose tendencies from the new and old states and the local time step:
                !
             CASE (1) ! idcphycpl
                ! In this case the new state is provisional and updated only by dynamics:
+               ! The dynamical tendency is diagnosed as the difference of the new and old(="now") state.
                IF (mpi_phy_config(jg)%ldrymoist) THEN
-                  prm_tend(jg)%   qtrc_dyn(jc,jk,jb,jt)  = ( pt_prog_new_rcf% tracer(jc,jk,jb,jt)          &
-                       &                                    -pt_prog_old_rcf% tracer(jc,jk,jb,jt) )/dt_loc &
-                       &                                   *prm_field(jg)%     mair(jc,jk,jb)              &
-                       &                                   /prm_field(jg)%     mdry(jc,jk,jb)
-               ELSE
-                  prm_tend(jg)%   qtrc_dyn(jc,jk,jb,jt)  = ( pt_prog_new_rcf% tracer(jc,jk,jb,jt)          &
-                       &                                    -pt_prog_old_rcf% tracer(jc,jk,jb,jt) )/dt_loc
+                 prm_tend(jg)%   qtrc_dyn(jc,jk,jb,jt)  = ( pt_prog_new_rcf% tracer(jc,jk,jb,jt)          &
+                      &                                    -pt_prog_old_rcf% tracer(jc,jk,jb,jt) )/dt_loc &
+                      &                                   *prm_field(jg)%      mair(jc,jk,jb)             &
+                      &                                   /prm_field(jg)%      mdry(jc,jk,jb)
+                 !
+                 !-FOR TESTING-------------------------------------------------------------------!
+                 prm_tend(jg)%   qtrc_dyn(jc,jk,jb,jt)  = pt_diag% ddt_tracer_adv(jc,jk,jb,jt) & !
+                   &                                     *prm_field(jg)%     mair(jc,jk,jb)    & !
+                   &                                     /prm_field(jg)%     mdry(jc,jk,jb)      !
+                 !-------------------------------------------------------------------------------!
+                 !
+              ELSE
+                 prm_tend(jg)%   qtrc_dyn(jc,jk,jb,jt)  = ( pt_prog_new_rcf% tracer(jc,jk,jb,jt)          &
+                      &                                    -pt_prog_old_rcf% tracer(jc,jk,jb,jt) )/dt_loc
+                 !
+                 !-FOR TESTING-------------------------------------------------------------------!
+                 prm_tend(jg)%   qtrc_dyn(jc,jk,jb,jt)  = pt_diag% ddt_tracer_adv(jc,jk,jb,jt)   !
+                 !-------------------------------------------------------------------------------!
+                 !
                END IF
+               !
+               ! Initialize the total tendencies, to be computed later:
+               prm_tend(jg)%     qtrc    (jc,jk,jb,jt)  = 0.0_wp
+               !
+               ! Now reset the physics tendencies before entering the physics
+               prm_tend(jg)%     qtrc_phy(jc,jk,jb,jt)  = 0.0_wp
                !
             CASE (2) ! idcphycpl
                ! In this case the new state is final:
+               ! The total tendency is diagnosed as the difference of the new and old(="now") state.
                IF (mpi_phy_config(jg)%ldrymoist) THEN
                   prm_tend(jg)%   qtrc    (jc,jk,jb,jt)  = ( pt_prog_new_rcf% tracer(jc,jk,jb,jt)          &
                        &                                    -pt_prog_old_rcf% tracer(jc,jk,jb,jt) )/dt_loc &
@@ -556,19 +607,15 @@ CONTAINS
                   prm_tend(jg)%   qtrc    (jc,jk,jb,jt)  = ( pt_prog_new_rcf% tracer(jc,jk,jb,jt)          &
                        &                                    -pt_prog_new_rcf% tracer(jc,jk,jb,jt) )/dt_loc
                END IF
-               ! And the dynamic tendency can be diagnosed from the total and the physics tendencies:
+               !
+               ! And the dynamic tendency can be diagnosed from the total and the old physics tendencies:
                prm_tend(jg)%      qtrc_dyn(jc,jk,jb,jt)  =  prm_tend(jg)% qtrc    (jc,jk,jb,jt)  &
                     &                                      -prm_tend(jg)% qtrc_phy(jc,jk,jb,jt)
                !
+               ! Now reset the physics tendencies before entering the physics
+               prm_tend(jg)%      qtrc_phy(jc,jk,jb,jt)  = 0.0_wp
+               !
             END SELECT
-            !
-            ! Tendencies passed to the ECHAM physics for internal upating are set to 0
-            ! because the state passed to physics is already updated with tendencies
-            ! due to dynamics and transport.
-            prm_tend(jg)%       qtrc(jc,jk,jb,jt)  = 0.0_wp
-            !
-            ! Advective tendencies, already accounted for, but needed
-            ! for diagnostic purposes in the convection scheme
             !
             
           END DO
@@ -615,13 +662,13 @@ CONTAINS
 
     IF (ltimer) CALL timer_start(timer_echam_phy)
 
-      ! Like in ECHAM, the subroutine *echam_phy_main* has direct access to the memory
-      ! buffers prm_field and prm_tend. 
+    ! Like in ECHAM, the subroutine *echam_phy_main* has direct access to the memory
+    ! buffers prm_field and prm_tend. 
 
-      CALL echam_phy_main( patch,           &! in
-        &                  rl_start, rl_end,&! in  
-        &                  datetime_old    ,&! in
-        &                  dt_loc          ) ! in
+    CALL echam_phy_main( patch,           &! in
+      &                  rl_start, rl_end,&! in  
+      &                  datetime_old    ,&! in
+      &                  dt_loc          ) ! in
 
     IF (ltimer) CALL timer_stop(timer_echam_phy)
 
@@ -782,10 +829,10 @@ CONTAINS
           DO jk = 1,nlev
             DO jc = jcs, jce
 
-              ! Diagnose the total tendencies
-              prm_tend(jg)%qtrc(jc,jk,jb,jt) =   prm_tend(jg)%qtrc_dyn(jc,jk,jb,jt)  &
-                &                              + prm_tend(jg)%qtrc_phy(jc,jk,jb,jt)
-              !
+!!$              ! Diagnose the total tendencies
+!!$              prm_tend(jg)%qtrc(jc,jk,jb,jt) =   prm_tend(jg)%qtrc_dyn(jc,jk,jb,jt)  &
+!!$                &                              + prm_tend(jg)%qtrc_phy(jc,jk,jb,jt)
+!!$
               ! (2.1) Tracer mixing ratio with respect to dry air
               !
               ! tracer mass tendency
@@ -912,11 +959,10 @@ CONTAINS
         DO jk = 1,nlev
           DO jc = jcs, jce
 
-            ! Diagnose the total tendencies
-            !
-            prm_tend(jg)%ua(jc,jk,jb) = prm_tend(jg)%ua_dyn(jc,jk,jb) + prm_tend(jg)%ua_phy(jc,jk,jb)
-            prm_tend(jg)%va(jc,jk,jb) = prm_tend(jg)%va_dyn(jc,jk,jb) + prm_tend(jg)%va_phy(jc,jk,jb)
-            prm_tend(jg)%ta(jc,jk,jb) = prm_tend(jg)%ta_dyn(jc,jk,jb) + prm_tend(jg)%ta_phy(jc,jk,jb)
+!!$            ! Diagnose the total tendencies
+!!$            prm_tend(jg)%ua(jc,jk,jb) = prm_tend(jg)%ua_dyn(jc,jk,jb) + prm_tend(jg)%ua_phy(jc,jk,jb)
+!!$            prm_tend(jg)%va(jc,jk,jb) = prm_tend(jg)%va_dyn(jc,jk,jb) + prm_tend(jg)%va_phy(jc,jk,jb)
+!!$            prm_tend(jg)%ta(jc,jk,jb) = prm_tend(jg)%ta_dyn(jc,jk,jb) + prm_tend(jg)%ta_phy(jc,jk,jb)
             !
             ! (3) Exner function and virtual potential temperature
             !

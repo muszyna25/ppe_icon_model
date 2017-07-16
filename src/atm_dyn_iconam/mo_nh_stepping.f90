@@ -1848,10 +1848,12 @@ MODULE mo_nh_stepping
               ! echam physics
               IF (ltimer) CALL timer_start(timer_iconam_echam)
               CALL interface_iconam_echam( dt_loc                         ,& !in
-                &                          datetime_local(jg)%ptr          ,& !in
+                &                          datetime_local(jg)%ptr         ,& !in
                 &                          p_patch(jg)                    ,& !in
                 &                          p_int_state(jg)                ,& !in
                 &                          p_nh_state(jg)%metrics         ,& !in
+                &                          p_nh_state(jg)%prog(nnow(jg))  ,& !in
+                &                          p_nh_state(jg)%prog(n_now_rcf) ,& !in
                 &                          p_nh_state(jg)%prog(nnew(jg))  ,& !inout
                 &                          p_nh_state(jg)%prog(n_new_rcf) ,& !inout
                 &                          p_nh_state(jg)%diag,            &            
@@ -2500,6 +2502,8 @@ MODULE mo_nh_stepping
             &                          p_patch(jg)                    ,& !in
             &                          p_int_state(jg)                ,& !in
             &                          p_nh_state(jg)%metrics         ,& !in
+            &                          p_nh_state(jg)%prog(nnow(jg))  ,& !inout
+            &                          p_nh_state(jg)%prog(n_now_rcf) ,& !inout
             &                          p_nh_state(jg)%prog(nnow(jg))  ,& !inout
             &                          p_nh_state(jg)%prog(n_now_rcf) ,& !inout
             &                          p_nh_state(jg)%diag            ,&
