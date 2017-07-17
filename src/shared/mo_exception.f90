@@ -216,7 +216,7 @@ CONTAINS
     LOGICAL :: ladjust
     LOGICAL :: lactive
 
-    CHARACTER(len=32) :: prefix
+    CHARACTER(len=8) :: prefix
 
     CHARACTER(len=LEN(message_text)) :: write_text
 
@@ -265,7 +265,7 @@ CONTAINS
       message_text = TRIM(name) // ': ' // TRIM(message_text)
     ENDIF
     IF (ilevel > em_none) THEN
-      message_text = TRIM(prefix) // ' ' // TRIM(message_text)
+      message_text = prefix // ' ' // TRIM(message_text)
     ENDIF
 
     IF (run_is_global_mpi_parallel() .AND. &
