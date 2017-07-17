@@ -28,7 +28,10 @@ MODULE mo_art_init_interface
 #ifdef __ICON_ART
   USE mo_art_init_all_dom,              ONLY: art_init_all_dom
   USE mo_art_clean_up,                  ONLY: art_clean_up
-  USE mo_art_read_xml,                  ONLY: art_get_element_number_xml
+  USE mo_art_read_xml,                  ONLY: art_get_childnumber_xml,   &
+                                          &   art_open_xml_file,         &
+                                          &   art_close_xml_file,        &
+                                          &   t_xml_file
 #endif
   
   IMPLICIT NONE
@@ -74,6 +77,7 @@ SUBROUTINE art_calc_number_of_art_tracers(art_config_jg)
   TYPE(t_art_config), INTENT(inout) :: art_config_jg
 #ifdef __ICON_ART
   INTEGER :: number_elem
+  TYPE(t_xml_file) :: tixi_file
 #endif
 
   art_config_jg%iart_ntracer = 0
@@ -81,22 +85,31 @@ SUBROUTINE art_calc_number_of_art_tracers(art_config_jg)
 #ifdef __ICON_ART
 
   IF (art_config_jg%lart_chem) THEN
-    CALL art_get_element_number_xml(number_elem,'/tracers','chemical', &
-                             &  TRIM(art_config_jg%cart_chemistry_xml))
+    CALL art_open_xml_file(TRIM(art_config_jg%cart_chemistry_xml),tixi_file)
+
+    CALL art_get_childnumber_xml(tixi_file,"/tracers",number_elem)
+
+    CALL art_close_xml_file(tixi_file)
 
     art_config_jg%iart_ntracer = art_config_jg%iart_ntracer + number_elem
   END IF
 
   IF (art_config_jg%lart_aerosol) THEN
-    CALL art_get_element_number_xml(number_elem,'/tracers','aerosol', &
-                             &  TRIM(art_config_jg%cart_aerosol_xml))
+    CALL art_open_xml_file(TRIM(art_config_jg%cart_aerosol_xml),tixi_file)
+
+    CALL art_get_childnumber_xml(tixi_file,"/tracers",number_elem)
+
+    CALL art_close_xml_file(tixi_file)
 
     art_config_jg%iart_ntracer = art_config_jg%iart_ntracer + number_elem
   END IF
 
   IF (art_config_jg%lart_passive) THEN
-    CALL art_get_element_number_xml(number_elem,'/tracers','passive', &
-                             &  TRIM(art_config_jg%cart_passive_xml))
+    CALL art_open_xml_file(TRIM(art_config_jg%cart_passive_xml),tixi_file)
+
+    CALL art_get_childnumber_xml(tixi_file,"/tracers",number_elem)
+
+    CALL art_close_xml_file(tixi_file)
 
     art_config_jg%iart_ntracer = art_config_jg%iart_ntracer + number_elem
   END IF
