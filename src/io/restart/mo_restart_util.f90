@@ -258,7 +258,7 @@ CONTAINS
 
         CHARACTER(LEN = 2) :: jgString
 
-        jgString = TRIM(int2string(jg, "(i2.2)"))
+        jgString = int2string(jg, "(i2.2)")
 
         CALL restartAttributes%setInteger('nold_DOM'//jgString, nold)
         CALL restartAttributes%setInteger('nnow_DOM'//jgString, nnow)
