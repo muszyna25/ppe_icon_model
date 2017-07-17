@@ -39,6 +39,8 @@ MODULE mo_art_reaction_interface
   USE mo_nonhydro_types,                ONLY: t_nh_metrics, t_nh_prog, t_nh_diag
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
   USE mtime,                            ONLY: datetime
+  USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
+    timer_art, timer_art_reacInt, timer_art_losschem, timer_art_photo
 #ifdef __ICON_ART
   USE mo_art_decay_radioact,            ONLY: art_decay_radioact
   USE mo_art_chemtracer,                ONLY: art_loss_chemtracer
@@ -111,6 +113,9 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
 #ifdef __ICON_ART
   IF(lart) THEN
 
+    IF (timers_level > 3) CALL timer_start(timer_art)
+    IF (timers_level > 3) CALL timer_start(timer_art_reacInt)
+
     ! --- Get the loop indizes
     i_nchdom   = MAX(1,p_patch%n_childdom)
     jg         = p_patch%id
@@ -151,6 +156,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
     IF (art_config(jg)%lart_chem) THEN
       SELECT CASE(art_config(jg)%iart_chem_mechanism)
         CASE(0)
+          IF (timers_level > 3) CALL timer_start(timer_art_losschem)
           CALL art_loss_chemtracer(ext_data, p_patch, &
                  & current_date,                      &
                  & p_dtime,                           &
@@ -159,7 +165,9 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
                  & p_diag,                            &
                  & p_metrics,                         &
                  & tracer)
+          IF (timers_level > 3) CALL timer_stop(timer_art_losschem)
         CASE(1)
+          IF (timers_level > 3) CALL timer_start(timer_art_photo)
             IF (iforcing == inwp) THEN
           CALL art_photolysis(ext_data,               &
                  & p_patch,                           &
@@ -184,6 +192,11 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
                  & p_metrics,                         &
                  & tracer                             )
           ENDIF
+
+          IF (timers_level > 3) CALL timer_stop(timer_art_photo)
+
+          IF (timers_level > 3) CALL timer_start(timer_art_losschem)
+
           CALL art_loss_chemtracer(ext_data, p_patch, &
                  & current_date,                      &
                  & p_dtime,                           &
@@ -192,8 +205,11 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
                  & p_diag,                            &
                  & p_metrics,                         &
                  & tracer)
+          IF (timers_level > 3) CALL timer_stop(timer_art_losschem)
         CASE(2)
           IF (iforcing == inwp) THEN
+            IF (timers_level > 3) CALL timer_start(timer_art_photo)
+
             CALL art_photolysis(ext_data,               &
                    & p_patch,                           &
                    & current_date,                      &
@@ -205,6 +221,10 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
                    & p_metrics,                         &
                    & tracer,                            &
                    & prm_diag = prm_diag)
+
+            IF (timers_level > 3) CALL timer_stop(timer_art_photo)
+            IF (timers_level > 3) CALL timer_start(timer_art_losschem)
+
             CALL art_loss_gasphase(current_date,        &
                    & ext_data,                          &
                    & p_patch,                           &
@@ -213,7 +233,11 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
                    & p_diag,                            &
                    & p_metrics,                         &
                    & tracer)
+
+            IF (timers_level > 3) CALL timer_stop(timer_art_losschem)
           ELSEIF (iforcing == iecham) THEN
+            IF (timers_level > 3) CALL timer_start(timer_art_photo)
+
             CALL art_photolysis(ext_data,               &
                    & p_patch,                           &
                    & current_date,                      &
@@ -224,6 +248,10 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
                    & p_prog%rho,                        &
                    & p_metrics,                         &
                    & tracer)
+
+            IF (timers_level > 3) CALL timer_stop(timer_art_photo)
+            IF (timers_level > 3) CALL timer_start(timer_art_losschem)
+
             CALL art_loss_gasphase(current_date,        &
                    & ext_data,                          &
                    & p_patch,                           &
@@ -232,6 +260,8 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
                    & p_diag,                            &
                    & p_metrics,                         &
                    & tracer)
+
+            IF (timers_level > 3) CALL timer_stop(timer_art_losschem)
           ENDIF
 
         CASE DEFAULT
@@ -240,6 +270,8 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
       END SELECT
     ENDIF !lart_chem
 
+    IF (timers_level > 3) CALL timer_stop(timer_art_reacInt)
+    IF (timers_level > 3) CALL timer_stop(timer_art)
   ENDIF ! lart
 #endif
 

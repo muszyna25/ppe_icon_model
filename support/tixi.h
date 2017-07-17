@@ -812,7 +812,68 @@ DLL_EXPORT ReturnCode tixiGetDoubleAttribute (const TixiDocumentHandle handle,
                                               const char *elementPath, const char *attributeName,
                                               double *number);
                                               
+/**
+  @brief Returns the number of attributes  of a given node.
 
+  <b>Fortran syntax:</b>
+
+  tixi_get_number_of_attributes( integer handle, character*n element_path, int* nattr, integer error )
+
+  @param[in]  handle handle as returned by ::tixiCreateDocument, ::tixiOpenDocumentRecursive or ::tixiOpenDocumentFromHTTP
+  @param[in]  elementPath an XPath compliant path to an element in the document
+                          specified by handle (see section \ref XPathExamples above).
+  @param[out] nAttributes Number of attributes of a given node.
+
+  @return
+    - SUCCESS if a count is computed
+    - INVALID_HANDLE if the handle is not valid, i.e.  does not or no longer exist
+    - INVALID_XPATH if elementPath is not a well-formed XPath-expression
+    - ELEMENT_NOT_FOUND if elementPath does not point to a node in the XML-document
+    - ELEMENT_PATH_NOT_UNIQUE if elementPath resolves not to a single element but
+                              to a list of elements
+ */
+DLL_EXPORT ReturnCode tixiGetNumberOfAttributes(const TixiDocumentHandle handle, const char *elementPath, int* nAttributes);
+
+/**
+  @brief Returns the name of an attribute beneath a given path.
+
+  <b>Fortran syntax:</b>
+
+  tixi_get_attribute_name( integer handle, character*n element_path, int* index, character*n attr_name_array, integer error )
+
+  @param[in]  handle handle as returned by ::tixiCreateDocument, ::tixiOpenDocumentRecursive or ::tixiOpenDocumentFromHTTP
+  @param[in]  elementPath an XPath compliant path to an element in the document
+                          specified by handle (see section \ref XPathExamples above).
+  @param[in]  attrIndex number index of the attribute of the given path (counting from 1...tixiGetNumberOfAttributes)
+  @param[out] attrName  String containing the attribute name.
+
+  @return
+    - SUCCESS if a count is computed
+    - INVALID_HANDLE if the handle is not valid, i.e.  does not or no longer exist
+    - INVALID_XPATH if elementPath is not a well-formed XPath-expression
+    - ELEMENT_NOT_FOUND if elementPath does not point to a node in the XML-document
+    - ELEMENT_PATH_NOT_UNIQUE if elementPath resolves not to a single element but
+                              to a list of elements
+ */
+
+DLL_EXPORT ReturnCode tixiGetAttributeName(const TixiDocumentHandle handle, const char *elementPath, int attrIndex, char** attrName);
+
+/**
+  @brief Returns the file path to the document.
+
+  The path is empty, if the document was not opened, but created by ::tixiCreateDocument.
+
+  @param[in]  handle document handle as returned by ::tixiOpenDocument, ::tixiOpenDocumentRecursive, ::tixiOpenDocumentFromHTTP, ::tixiCreateDocument or ::tixiImportFromString
+  @param[out] documentPath  Path to the file, opened by ::tixiOpenDocument, ::tixiOpenDocumentRecursive, ::tixiOpenDocumentFromHTTP
+                            The path is a null pointer, if the document was created by ::tixiCreateDocument or ::tixiImportFromString
+
+  @return
+    - SUCCESS in case of no errors.
+    - FAILED if documentPath is a null pointer.
+    - INVALID_HANDLE if the document handle is invalid.
+ */
+
+DLL_EXPORT ReturnCode tixiGetDocumentPath (TixiDocumentHandle handle, char** documentPath);
 
 /*@}*/
 

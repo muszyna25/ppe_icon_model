@@ -23,7 +23,6 @@ MODULE mo_ls_forcing_nml
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_run_config,          ONLY: ltestcase
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-  USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_grid_config,         ONLY: is_plane_torus
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
@@ -85,7 +84,7 @@ CONTAINS
     ! ltestcase is added here because it was causing trouble for AMIP runs
     ! restarting with a file generated long ago
     !------------------------------------------------------------------
-    IF (use_restart_namelists() .AND. .NOT.echam_phy_config%lamip) THEN 
+    IF (use_restart_namelists()) THEN 
       funit = open_and_restore_namelist('ls_forcing_nml')
       READ(funit,NML=ls_forcing_nml)
       CALL close_tmpfile(funit)

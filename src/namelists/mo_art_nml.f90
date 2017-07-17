@@ -50,6 +50,7 @@ MODULE mo_art_nml
   INTEGER :: iart_init_gas           !< Initialization of gaseous species
   LOGICAL :: lart_diag_out           !< Enable output of diagnostic fields
   LOGICAL :: lart_pntSrc             !< Enables point sources
+  LOGICAL :: lart_emiss_turbdiff     !< Switch if emissions should be included as surface flux condition
   CHARACTER(LEN=20) :: & 
    &  cart_io_suffix(1:max_dom)      !< user given suffix instead of automatically generated grid number 
                                      !  in ICON-ART input filename convention: 
@@ -88,6 +89,7 @@ MODULE mo_art_nml
   INTEGER :: iart_anthro             !< Treatment of anthropogenic aerosol
   INTEGER :: iart_fire               !< Treatment of wildfire aerosol
   INTEGER :: iart_volcano            !< Treatment of volcanic ash aerosol
+  INTEGER :: iart_nonsph             !< Treatment of nonspherical particles
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_volcano_file             !< Absolute path + filename of input file for volcanoes
   INTEGER :: iart_radioact           !< Treatment of radioactive particles
@@ -108,12 +110,13 @@ MODULE mo_art_nml
    &                iart_chem_mechanism, cart_io_suffix, lart_pntSrc,                  &
    &                lart_aerosol, iart_seasalt, iart_dust, iart_anthro, iart_fire,     &
    &                iart_volcano, cart_volcano_file, iart_radioact,                    &
-   &                cart_radioact_file, iart_pollen,                                   &
+   &                cart_radioact_file, iart_pollen, iart_nonsph,                      &
    &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
    &                lart_conv, lart_turb, iart_init_aero, iart_init_gas,               &
    &                lart_diag_out, cart_emiss_xml_file,                                &
    &                cart_vortex_init_date , cart_cheminit_file, cart_cheminit_coord,   & 
    &                cart_cheminit_type,                                                &
+   &                lart_emiss_turbdiff,                                               &
    &                cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml,            &
    &                cart_modes_xml, cart_pntSrc_xml, cart_io_suffix, iart_init_passive,&
    &                iart_psc
@@ -159,6 +162,7 @@ CONTAINS
     iart_init_gas              = 0
     lart_diag_out              = .FALSE.
     lart_pntSrc                = .FALSE.
+    lart_emiss_turbdiff        = .FALSE.
     cart_io_suffix(1:max_dom)  = 'grid-number'
       
     ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
@@ -190,6 +194,7 @@ CONTAINS
     iart_radioact       = 0
     cart_radioact_file  = ''
     iart_pollen         = 0
+    iart_nonsph         = 0
       
     ! Feedback processes (Details: cf. Tab. 2.4 ICON-ART User Guide)
     iart_aci_warm       = 0
@@ -320,6 +325,7 @@ CONTAINS
       art_config(jg)%iart_init_passive   = iart_init_passive
       art_config(jg)%lart_diag_out       = lart_diag_out
       art_config(jg)%lart_pntSrc         = lart_pntSrc
+      art_config(jg)%lart_emiss_turbdiff = lart_emiss_turbdiff
       art_config(jg)%cart_io_suffix      = TRIM(cart_io_suffix(jg))
       
       ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
@@ -348,6 +354,7 @@ CONTAINS
       art_config(jg)%iart_anthro         = iart_anthro
       art_config(jg)%iart_fire           = iart_fire
       art_config(jg)%iart_volcano        = iart_volcano
+      art_config(jg)%iart_nonsph         = iart_nonsph
       art_config(jg)%cart_volcano_file   = TRIM(cart_volcano_file)
       art_config(jg)%iart_radioact       = iart_radioact
       art_config(jg)%cart_radioact_file  = TRIM(cart_radioact_file)

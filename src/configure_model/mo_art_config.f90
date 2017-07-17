@@ -63,6 +63,7 @@ MODULE mo_art_config
     INTEGER :: iart_init_passive         !< Initialization of passive species
     LOGICAL :: lart_diag_out             !< Enable output of diagnostic fields
     LOGICAL :: lart_pntSrc               !< Enables point sources
+    LOGICAL :: lart_emiss_turbdiff       !< Switch if emission should be included as surface flux condition
     CHARACTER(LEN=20) :: cart_io_suffix  !< user given suffix instead of automatically generated grid number 
                                          !  in ICON-ART input filename convention: 
                                          !  ART_iconR<n>B<kk>-grid-<yyyy-mm-dd-hh>_<grid_suffix>.nc
@@ -101,6 +102,7 @@ MODULE mo_art_config
     INTEGER :: iart_anthro             !< Treatment of anthropogenic aerosol
     INTEGER :: iart_fire               !< Treatment of wildfire aerosol
     INTEGER :: iart_volcano            !< Treatment of volcanic ash aerosol
+    INTEGER :: iart_nonsph             !< Treatment of nonspherical particles
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_volcano_file             !< Absolute path + filename of input file for volcanoes
     INTEGER :: iart_radioact           !< Treatment of radioactive particles

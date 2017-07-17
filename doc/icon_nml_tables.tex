@@ -7,7 +7,7 @@ models are stored in run/. These scripts write namelist files containing
 the specified Fortran namelists. Programs are stored in $<$ icon home$>$/build/$<$architecture$>$/bin/.
 
 
-\begin{table}[htd]
+\begin{table}[htb]
 \caption{Namelist files}
 \begin{center}
 \begin{tabular}{llll}\hline
@@ -473,6 +473,17 @@ Output name style\\
 
 Defined and used in: \verb+src/grid_generator/mo_gridrefinement.f90+
 
+%MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+%MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+%MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+
+\section{Namelist parameters defining the atmospheric model}
+
+Namelist parameters for the ICON models are organized in several thematic
+Fortran namelists controling the experiment, and the properties of
+dynamics, transport, physics etc.
+
+
 %------------------------------------------------------------------------------
 % coupling_model_nml:
 %------------------------------------------------------------------------------
@@ -490,16 +501,6 @@ L &
 
 Defined and used in: \verb+src/namelists/mo_coupling_nml.f90+
 
-
-%MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
-%MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
-%MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
-
-\section{Namelist parameters defining the atmospheric model}
-
-Namelist parameters for the ICON models are organized in several thematic
-Fortran namelists controling the experiment, and the properties of
-dynamics, transport, physics etc.
 
 %-----------------------------------------------------------------------------
 % diffusion_nml: horizontal (numerical) diffusion
@@ -786,100 +787,6 @@ iforcing = 2 .AND. lconv = .TRUE.
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_echam_conv_nml.f90+
-
-
-\newpage
-
-%------------------------------------------------------------------------------
-% echam_phy_nml:
-%------------------------------------------------------------------------------
-\subsection{echam\_phy\_nml}
-
-\begin{longtab}
-
-\textbf{lrad} &
-L& .TRUE.&&
-.TRUE. for radiation.&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{dt\_rad} &
-R&
-3600.&
-s&
-time interval for radiative transfer computation&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{lvdiff} &
-L& .TRUE.&&
-.TRUE. for vertical turbulent diffusion&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{lconv} &
-L& .TRUE.&&
-.TRUE. for cumulus convection&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{lcond} &
-L& .TRUE.&&
-.TRUE. for large scale condensation&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{lgw\_hines} &
-L& .TRUE.&&
-.TRUE. for non-orographic gravity wave drag (Hines)&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{lssodrag} &
-L& .TRUE.&&
-.TRUE. for subgrid scale orographic effects (Lott and Miller)&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{lice} &
-L& .FALSE.&&
-.TRUE. for sea-ice temperature calculation&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{lmlo} &
-L& .FALSE.&&
-.TRUE. for mixed layer ocean&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{ljsbach} &
-L& .FALSE.&&
-.TRUE. for calculating land surface properties (JSBACH)&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{lamip} &
-L& .FALSE.&&
-.TRUE. for AMIP boundary conditions&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\end{longtab}
-
-Defined and used in: \verb+src/namelists/mo_echam_phy_nml.f90+
-
 
 %------------------------------------------------------------------------------
 % ensemble_pert_nml:
@@ -2986,6 +2893,107 @@ meteogram
 Defined and used in: \verb+src/namelists/mo_mtgrm_nml.f90+
 
 
+%------------------------------------------------------------------------------
+% mpi_phy_nml:
+%------------------------------------------------------------------------------
+\subsection{mpi\_phy\_nml}
+
+The MPI physics is configured by a data structure \textit{mpi\_phy\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains. The structure contains several parameters providing time control for atmospheric forcings and additional logical switches for controlling how the atmospheric boundary conditions for the MPI physics are determined. Time control parameters are available for the following atmospheric processes:
+
+\begin{table}[htbp]
+\begin{center}
+\begin{tabular}{l|l}
+\textit{prc} & \textit{parameterized process} \\
+\hline
+rad & LW and SW radiation \\
+vdf & vertical diffusion \\
+cnv & cumulus convection \\
+ cld & cloud microphysics \\
+gwd & atmospheric gravity wave drag \\
+sso & sub grid scale orographic effects \\
+mox & methane oxidation and water vapor photolysis \\
+car & Cariolle's linearized ozone chemistry \\
+art & ART chemistry \\
+\end{tabular}
+\end{center}
+\label{default}
+\end{table}%
+
+The time control for an atmospheric forcing by a process \textit{prc} consists of three components, the time interval \textit{dt\_prc} for re-computing the forcing, and the start and end dates and times defining the interval \textit{[sd\_prc,ed\_prc[}, in which the forcing is either computed, if the date/time coincides with the interval \textit{dt\_prc}, or recycled. Recycling means that the forcing stored from the last computation is used again. Outside of the interval the forcing is set to zero.
+
+If \textit{dt\_prc} is not specified, or an empty string or a string of blanks or an interval of length 0s, e.g. \textit{"PT0S"} is given, then the forcing is switched off for the entire experiment and the start and end dates and times are irrelevant.
+
+If \textit{sd\_prc} or \textit{ed\_prc} are not specified, or an empty string or a string of blanks are given, then the experiment start date and the experiment stop date are used, respectively.
+
+\begin{longtab}
+%
+mpi\_phy\_config(jg)\% \newline dt\_prc & C & "" & &
+This is the time interval in ISO 8601-2004 format at which the forcing by the process \textit{prc} is computed. &
+run\_nml/iforcing = 2 \tabularnewline
+%
+mpi\_phy\_config(jg)\% \newline sd\_prc & C & "" & &
+Defines the start date/time in ISO 8601-2004 format of the interval \textit{[sd\_prc,ed\_prc[}, in which the forcing by the process \textit{prc} is computed in intervals \textit{dt\_prc}. &
+run\_nml/iforcing = 2 and
+\textit{dt\_prc}  > 0.000s \tabularnewline
+%
+mpi\_phy\_config(jg)\% \newline ed\_prc & C & "" & &
+Defines the end date/time in ISO 8601-2004 format of the interval \textit{[sd\_prc,ed\_prc[}, in which the forcing by the process \textit{prc} is computed in intervals \textit{dt\_prc}. &
+run\_nml/iforcing = 2 and
+\textit{dt\_prc}  > 0.000s \tabularnewline
+%
+mpi\_phy\_config(jg)\% \newline lice & L & .FALSE. & &
+.TRUE. for sea-ice temperature calculation &
+run\_nml/iforcing = 2 \tabularnewline
+%
+mpi\_phy\_config(jg)\% \newline lmlo & L & .FALSE. & &
+.TRUE. for mixed layer ocean &
+run\_nml/iforcing = 2 \tabularnewline
+%
+mpi\_phy\_config(jg)\% \newline ljsb & L & .FALSE. & &
+.TRUE. for using the JSBACH land surface model &
+run\_nml/iforcing = 2 \tabularnewline
+%
+mpi\_phy\_config(jg)\% \newline lamip & L & .FALSE. & &
+.TRUE. for AMIP boundary conditions &
+run\_nml/iforcing = 2 \tabularnewline
+%
+\end{longtab}
+
+The namelist mpi\_phy\_nml is defined and read in: \verb+src/namelists/mo_mpi_phy_nml.f90+
+
+%------------------------------------------------------------------------------
+% mpi_sso_nml:
+%------------------------------------------------------------------------------
+\subsection{mpi\_sso\_nml}
+
+The parameterization of subgrid scale orographic (SSO) effects for the MPI physics is configured by a data structure \textit{mpi\_sso\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains. The structure contains parameters providing control over the parametrized effects:
+
+\begin{longtab}
+%
+mpi\_sso\_config(jg)\% \newline gpicmea & R & 40. & m &
+Minimum height difference of peak height and mean height to activate the SSO parameterization. &
+mpi\_phy\_config(jg)\% \newline dt\_sso > 0.000s \tabularnewline
+%
+mpi\_sso\_config(jg)\% \newline gstd & R & 10. & m &
+Minimum standard deviation of the SSO height to activate the SSO parameterization. &
+mpi\_phy\_config(jg)\% \newline dt\_sso > 0.000s \tabularnewline
+%
+mpi\_sso\_config(jg)\% \newline gkdrag & R & 0.05 & &
+Coefficient for orographic gravity wave drag. &
+mpi\_phy\_config(jg)\% \newline dt\_sso > 0.000s \tabularnewline
+%
+mpi\_sso\_config(jg)\% \newline gkwake & R & 0. & &
+Coefficient for low level blocking. &
+mpi\_phy\_config(jg)\% \newline dt\_sso > 0.000s \tabularnewline
+%
+mpi\_sso\_config(jg)\% \newline gklift & R & 0. & &
+Coefficient for low level lift. &
+mpi\_phy\_config(jg)\% \newline dt\_sso > 0.000s \tabularnewline
+%
+\end{longtab}
+
+The namelist mpi\_sso\_nml is defined and read in: \verb+src/namelists/mo_mpi_sso_nml.f90+
+
 
 %-----------------------------------------------------------------------------
 % nonhydrostatic_nml:
@@ -4753,7 +4761,7 @@ I&
 Switches for the concentration of radiative agents\par
 irad\_xyz = 0: set to zero\par
 irad\_h2o = 1: vapor, cloud water and cloud ice from tracer variables\par
-irad\_co2 = 1: CO_2 from tracer variable\par
+irad\_co2 = 1: CO\_2 from tracer variable\par
 irad\_co2/ch4/n2o/o2/cfc11/cfc12 = 2: concentration given by vmr\_co2/ch4/n2o/o2/cfc11/cfc12\par
 irad\_ch4/n2o = 3: tanh-profile with surface concentration given by vmr\_ch4/n2o\par
 irad\_co2/cfc11/cfc12 = 4: time dependent concentration from greenhouse gas file

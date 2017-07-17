@@ -92,7 +92,6 @@ atmo_model_equations=3   # equation system
 #                       -1=shallow water model
 #                       -2=hydrost. ocean
 nlev=47                  # nlev = number of full levels
-iforcing=2               # ECHAM physics
 #
 #-----------------------------------------------------------------------------
 # grid file
@@ -370,7 +369,7 @@ cat > $atmo_namelist << EOF
  ldynamics            = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
  ltransport           = .TRUE.       ! switch on tracer transport   --> transport_ctl
  ntracer              = 3            ! number of tracers
- iforcing             = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
+ iforcing             = 2            ! ECHAM phyiscs
  msg_level            = 1            ! detailed report during integration
  ltimer               = .TRUE.
  timers_level         = 10
@@ -395,19 +394,32 @@ cat > $atmo_namelist << EOF
  itype_hlimit     = 3,4,4
  ihadv_tracer     = 52,2,2
 /
-&echam_phy_nml
- lrad             = .TRUE.
- dt_rad           =  7200.      ! [s] radiation time step
- lvdiff           = .TRUE.
- lconv            = .TRUE.
- lcond            = .TRUE.
- lgw_hines        = .TRUE.
- lssodrag         = .FALSE.
- lmlo             = .FALSE.
- lice             = .FALSE.
- ljsbach          = .FALSE.
- lebudget         = .FALSE.
- lamip            = .FALSE.
+&mpi_phy_nml
+!
+! domain 1
+! --------
+!
+! atmospheric phyiscs (""=never)
+ mpi_phy_config(1)%dt_rad = "PT2H"
+ mpi_phy_config(1)%dt_vdf = "PT10M"
+ mpi_phy_config(1)%dt_cnv = "PT10M"
+ mpi_phy_config(1)%dt_cld = "PT10M"
+ mpi_phy_config(1)%dt_gwd = "PT10M"
+ mpi_phy_config(1)%dt_sso = ""
+!
+! atmospheric chemistry (""=never)
+ mpi_phy_config(1)%dt_mox = ""
+ mpi_phy_config(1)%dt_car = ""
+ mpi_phy_config(1)%dt_art = ""
+!
+! surface (.TRUE. or .FALSE.)
+ mpi_phy_config(1)%ljsb  = .FALSE.
+ mpi_phy_config(1)%lamip = .FALSE.
+ mpi_phy_config(1)%lice  = .FALSE.
+ mpi_phy_config(1)%lmlo  = .FALSE.
+!
+/
+&mpi_sso_nml
 /
 &radiation_nml
  irad_o3    = 4             ! 4= use APE ozone 0=no ozone 6: non-hydrostatic ozone

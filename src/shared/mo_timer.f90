@@ -175,6 +175,12 @@ MODULE mo_timer
             timer_extra31, timer_extra32, timer_extra33, timer_extra34, timer_extra35, &
             timer_extra36, timer_extra37, timer_extra38, timer_extra39, timer_extra40
 
+  ! ART timers of the interfaces
+  PUBLIC :: timer_art, timer_art_emissInt, timer_art_reacInt,                                  &
+            timer_art_cldInt, timer_art_diagInt, timer_art_sedInt, timer_art_toolInt,          &
+            timer_art_tracInt, timer_art_turbdiffInt, timer_art_washoutInt, timer_art_initInt, &
+            timer_art_radInt, timer_art_photo, timer_art_losschem
+
   ! low level timing routine
   PUBLIC :: tic, toc
   PUBLIC :: timer_ls_forcing 
@@ -328,6 +334,13 @@ MODULE mo_timer
              timer_extra36, timer_extra37, timer_extra38, timer_extra39, timer_extra40
 
   INTEGER :: timer_ls_forcing
+
+  ! ART timers around the ART interfaces
+  INTEGER :: timer_art, timer_art_emissInt, timer_art_reacInt,                                  &
+             timer_art_cldInt, timer_art_diagInt, timer_art_sedInt, timer_art_toolInt,          &
+             timer_art_tracInt, timer_art_turbdiffInt, timer_art_washoutInt, timer_art_initInt, &
+             timer_art_radInt, timer_art_photo, timer_art_losschem
+
 CONTAINS
 
   SUBROUTINE init_timer
@@ -587,7 +600,22 @@ CONTAINS
     timer_extra40 = new_timer("extra40")
 
     timer_ls_forcing = new_timer("ls_forcing")
-
+   
+    ! ART timers around the ART interfaces
+    timer_art = new_timer("ART")
+    timer_art_emissInt = new_timer("art_emissInt") 
+    timer_art_reacInt = new_timer("art_reacInt") 
+    timer_art_photo = new_timer("art_photo") 
+    timer_art_losschem = new_timer("art_losschem")
+    timer_art_cldInt = new_timer("art_cldInt") 
+    timer_art_diagInt = new_timer("art_diagInt") 
+    timer_art_initInt = new_timer("art_initInt")
+    timer_art_radInt = new_timer("art_radInt")
+    timer_art_sedInt = new_timer("art_sedInt") 
+    timer_art_toolInt = new_timer("art_toolInt")
+    timer_art_tracInt = new_timer("art_tracInt") 
+    timer_art_turbdiffInt = new_timer("art_turbdiffInt") 
+    timer_art_washoutInt = new_timer("art_washoutInt")
   END SUBROUTINE init_timer
 
 

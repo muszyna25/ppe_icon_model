@@ -31,6 +31,8 @@ MODULE mo_art_turbdiff_interface
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE src_turbdiff,                     ONLY: modvar
   USE mo_run_config,                    ONLY: lart
+  USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
+    timer_art, timer_art_turbdiffInt
 #ifdef __ICON_ART
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_diag_types,                ONLY: t_art_diag
@@ -110,6 +112,9 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
   
   jg  = p_patch%id
   IF ( lart ) THEN
+    IF (timers_level > 3) CALL timer_start(timer_art)
+    IF (timers_level > 3) CALL timer_start(timer_art_turbdiffInt)
+
     SELECT CASE(TRIM(defcase))
     
     CASE('setup_ptr')
@@ -145,6 +150,12 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
           ptr(idx_tot)%fc = .FALSE.
         END IF
 
+        IF ((art_config(jg)%lart_emiss_turbdiff) &
+         & .AND. (p_art_data(jg)%emiss%exists(p_prog_rcf%turb_tracer(jb,idx_trac)%idx_tracer))) THEN
+
+          ptr(idx_tot)%fc = .TRUE.
+        END IF
+
       END DO
 
     CASE('update_ptr')
@@ -164,6 +175,9 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
       END DO
     
     END SELECT
+
+    IF (timers_level > 3) CALL timer_stop(timer_art_turbdiffInt)
+    IF (timers_level > 3) CALL timer_stop(timer_art)
   END IF
 
 #endif

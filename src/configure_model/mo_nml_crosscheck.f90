@@ -28,7 +28,7 @@ MODULE mo_nml_crosscheck
     &                              FFSL_MCYCL, FFSL_HYB_MCYCL, iecham,               &
     &                              RAYLEIGH_CLASSIC,                                 &
     &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD
-  USE mo_time_config,        ONLY: dt_restart
+  USE mo_time_config,        ONLY: dt_restart, time_config
   USE mo_extpar_config,      ONLY: itopo                                             
   USE mo_io_config,          ONLY: lflux_avg,inextra_2d, inextra_3d,                 &
     &                              lnetcdf_flt64_output
@@ -53,7 +53,7 @@ MODULE mo_nml_crosscheck
   USE mo_diffusion_config,   ONLY: diffusion_config
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
   USE mo_lnd_nwp_config,     ONLY: ntiles_lnd, lsnowtile
-  USE mo_echam_phy_config,   ONLY: echam_phy_config
+  USE mo_mpi_phy_config,     ONLY: mpi_phy_config
   USE mo_radiation_config
   USE mo_turbdiff_config,    ONLY: turbdiff_config
   USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart
@@ -61,12 +61,13 @@ MODULE mo_nml_crosscheck
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
   USE mo_meteogram_config,   ONLY: check_meteogram_configuration
-  USE mo_grid_config,        ONLY: lplane, n_dom, init_grid_configuration, l_limited_area
+  USE mo_grid_config,        ONLY: lplane, n_dom, l_limited_area
 
   USE mo_art_config,         ONLY: art_config
   USE mo_time_management,    ONLY: compute_timestep_settings,                        &
     &                              compute_restart_settings,                         &
     &                              compute_date_settings
+  USE mo_event_manager,      ONLY: initEventManager
 
   USE mo_gridref_config
   USE mo_interpol_config
@@ -95,6 +96,7 @@ CONTAINS
     
     !--------------------------------------------------------------------
     ! Compute date/time/time step settings
+    ! and initialize the event manager
     !--------------------------------------------------------------------
     !
     ! Note that the ordering of the following three calls must not be
@@ -103,7 +105,10 @@ CONTAINS
     CALL compute_timestep_settings()
     CALL compute_restart_settings()
     CALL compute_date_settings("atm", dt_restart, nsteps)
-
+    !
+    ! Create an event manager, ie. a collection of different events
+    !
+    CALL initEventManager(time_config%tc_exp_refdate)
 
     !--------------------------------------------------------------------
     ! Parallelization
@@ -115,9 +120,6 @@ CONTAINS
     ! Grid and dynamics
     !--------------------------------------------------------------------
 
-    ! check the configuration
-    CALL init_grid_configuration()
-    
     IF (lplane) CALL finish( TRIM(method_name),&
       'Currently a plane version is not available')
 
@@ -289,7 +291,7 @@ CONTAINS
 
         ! check radiation scheme in relation to chosen ozone and irad_aero=6 to itopo
 
-        IF ( (atm_phy_nwp_config(jg)%inwp_radiation > 0).OR.(echam_phy_config%lrad) )  THEN
+        IF ( (atm_phy_nwp_config(jg)%inwp_radiation > 0) )  THEN
 
           SELECT CASE (irad_o3)
           CASE (0) ! ok
@@ -653,11 +655,6 @@ CONTAINS
             CALL message(TRIM(method_name),'number of tracers is adjusted according to given list')
           END IF
 
-
-          IF (echam_phy_config%lrad) THEN
-            IF ( izenith > 5)  &
-              CALL finish(TRIM(method_name), 'Choose a valid case for rad_nml: izenith.')
-          ENDIF
         END SELECT ! iforcing
 
       END DO ! jg = 1,n_dom
@@ -824,7 +821,8 @@ CONTAINS
     ! check meteogram configuration
     CALL check_meteogram_configuration(num_io_procs)
 
-    CALL land_crosscheck()
+    IF (iforcing==iecham) CALL land_crosscheck()
+
     CALL art_crosscheck()
 
   END  SUBROUTINE atm_crosscheck
@@ -836,12 +834,11 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
 
 #ifdef __NO_JSBACH__
-    IF (echam_phy_config% ljsbach) THEN
+    IF (ANY(mpi_phy_config(:)%ljsb)) THEN
       CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__, or set ljsbach=.FALSE.")
     ENDIF
-    echam_phy_config% ljsbach   = .FALSE.     
 #else
-    IF (echam_phy_config% ljsbach) THEN
+    IF (ANY(mpi_phy_config(:)%ljsb)) THEN
       IF (num_restart_procs > 0) THEN
         CALL finish(method_name, "JSBACH currently doesn't work with asynchronous restart. Set num_restart_procs=0 !")
       END IF

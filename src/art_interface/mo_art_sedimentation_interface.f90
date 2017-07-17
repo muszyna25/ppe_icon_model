@@ -34,6 +34,8 @@ MODULE mo_art_sedi_interface
   USE mo_exception,                     ONLY: finish
   USE mo_advection_vflux,               ONLY: upwind_vflux_ppm_cfl
   USE mo_loopindices,                   ONLY: get_indices_c
+  USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
+    timer_art, timer_art_sedInt
 #ifdef __ICON_ART
 ! infrastructure routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
@@ -141,13 +143,16 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
   i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
 
-  IF(lart) THEN
+  IF (lart) THEN
+    IF (timers_level > 3) CALL timer_start(timer_art)
+    IF (timers_level > 3) CALL timer_start(timer_art_sedInt)
+
     IF (art_config(jg)%lart_aerosol) THEN
-       ALLOCATE(vsed0(nproma,nlev),vsed3(nproma,nlev))
-  ALLOCATE(vdep0(nproma),vdep3(nproma))
-  ALLOCATE(p_upflux_sed(nproma,nlevp1,nblks))
-  ALLOCATE(rhodz_new(nproma,nlev,nblks))
-  ALLOCATE(dz(nproma,nlev,nblks))
+      ALLOCATE(vsed0(nproma,nlev),vsed3(nproma,nlev))
+      ALLOCATE(vdep0(nproma),vdep3(nproma))
+      ALLOCATE(p_upflux_sed(nproma,nlevp1,nblks))
+      ALLOCATE(rhodz_new(nproma,nlev,nblks))
+      ALLOCATE(dz(nproma,nlev,nblks))
    
       DO n = 1, nsubsteps
          vsed0(:,:) = 0.d0
@@ -384,6 +389,9 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
     DEALLOCATE(dz)
 
     ENDIF !lart_aerosol
+
+    IF (timers_level > 3) CALL timer_stop(timer_art_sedInt)
+    IF (timers_level > 3) CALL timer_stop(timer_art)
   ENDIF !lart
 
 #endif

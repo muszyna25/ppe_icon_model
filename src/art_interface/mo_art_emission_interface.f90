@@ -55,6 +55,8 @@ MODULE mo_art_emission_interface
                                           &   getTimeDeltaFromDateTime,          &
                                           &   getTotalMillisecondsTimedelta,     &
                                           &   deallocateTimedelta
+  USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
+    timer_art, timer_art_emissInt
 #ifdef __ICON_ART
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
@@ -156,6 +158,9 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
   i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
   IF (lart) THEN
+    IF (timers_level > 3) CALL timer_start(timer_art)
+    IF (timers_level > 3) CALL timer_start(timer_art_emissInt)
+
 
     IF (art_config(jg)%lart_pntSrc) THEN
       ! Point sources
@@ -424,6 +429,10 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     ENDIF !lart_chem
     
     CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer,  f4din=tracer(:,:,:,:))
+
+    IF (timers_level > 3) CALL timer_stop(timer_art_emissInt)
+    IF (timers_level > 3) CALL timer_stop(timer_art)
+
   ENDIF !lart
        
 #endif

@@ -68,13 +68,13 @@ MODULE mo_nh_stepping
     &                                    ndyn_substeps, ndyn_substeps_var, ndyn_substeps_max
   USE mo_diffusion_config,         ONLY: diffusion_config
   USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method
-  USE mo_io_config,                ONLY: is_checkpoint_time, is_totint_time, n_chkpt, n_diag
+  USE mo_io_config,                ONLY: is_totint_time, n_diag
   USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output, &
                                          num_prefetch_proc
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
     &                                    ntracer, iforcing, msg_level, test_mode,           &
     &                                    output_mode, lart
-  USE mo_echam_phy_config,         ONLY: echam_phy_config
+  USE mo_mpi_phy_config,           ONLY: mpi_phy_config
   USE mo_advection_config,         ONLY: advection_config
   USE mo_radiation_config,         ONLY: albedo_type
   USE mo_timer,                    ONLY: ltimer, timers_level, timer_start, timer_stop,   &
@@ -130,7 +130,7 @@ MODULE mo_nh_stepping
   USE mo_integrate_density_pa,     ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
-  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, p_bcast, p_comm_work, my_process_is_stdio
+  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, p_bcast, p_comm_work
 
 #ifdef NOMPI
   USE mo_mpi,                      ONLY: my_process_is_mpi_all_seq
@@ -200,7 +200,7 @@ MODULE mo_nh_stepping
        &                                 addEventToEventGroup, isCurrentEventActive,                      &
        &                                 getTotalMillisecondsTimedelta, getTotalSecondsTimedelta,     &
        &                                 getTimedeltaFromDatetime
-  USE mo_event_manager,            ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup
+  USE mo_event_manager,            ONLY: addEventGroup, getEventGroup, printEventGroup
   USE mo_derived_variable_handling, ONLY: perform_accumulation, reset_accumulation
 #ifdef MESSY
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
@@ -730,9 +730,6 @@ MODULE mo_nh_stepping
     restartRefDate    => time_config%tc_exp_startdate
   ENDIF
 
-  ! create an event manager, ie. a collection of different events
-  CALL initEventManager(time_config%tc_exp_refdate)
-
   ! --- create an event group for checkpointing and restart
   checkpointEvents =  addEventGroup('checkpointEventGroup')
   checkpointEventGroup => getEventGroup(checkpointEvents)
@@ -1062,24 +1059,28 @@ MODULE mo_nh_stepping
 
       END IF !iforcing=inwp
 
-      ! Unit conversion for output from mass mixing ratios to densities
-      ! and calculation of ART diagnostics
-      DO jg = 1, n_dom
-        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-        ! Call the ART diagnostics
-        CALL art_diagnostics_interface(p_patch(jg),                              &
-          &                            p_nh_state(jg)%prog(nnew(jg))%rho,        &
-          &                            p_nh_state(jg)%diag%pres,                 &
-          &                            p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
-          &                            p_nh_state(jg)%metrics%ddqz_z_full,       &
-          &                            p_nh_state(jg)%metrics%z_mc, jg)
-        ! Call the ART unit conversion 
-        CALL art_tools_interface('unit_conversion',                            & !< in
-          &                      p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)), & !< in
-          &                      p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,     & !< in
-          &                      p_nh_state(jg)%prog(nnew_rcf(jg))%tracer,     & !< out
-          &                      p_nh_state(jg)%prog(nnew(jg))%rho)              !< in
-      END DO
+      IF (ntracer>0) THEN
+         !
+         ! Unit conversion for output from mass mixing ratios to densities
+         ! and calculation of ART diagnostics
+         DO jg = 1, n_dom
+            IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+            ! Call the ART diagnostics
+            CALL art_diagnostics_interface(p_patch(jg),                              &
+                 &                            p_nh_state(jg)%prog(nnew(jg))%rho,        &
+                 &                            p_nh_state(jg)%diag%pres,                 &
+                 &                            p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
+                 &                            p_nh_state(jg)%metrics%ddqz_z_full,       &
+                 &                            p_nh_state(jg)%metrics%z_mc, jg)
+            ! Call the ART unit conversion 
+            CALL art_tools_interface('unit_conversion',                            & !< in
+                 &                      p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)), & !< in
+                 &                      p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,     & !< in
+                 &                      p_nh_state(jg)%prog(nnew_rcf(jg))%tracer,     & !< out
+                 &                      p_nh_state(jg)%prog(nnew(jg))%rho)              !< in
+         END DO
+         !
+      END IF ! ntracer>0
 
     ENDIF
 
@@ -2448,7 +2449,7 @@ MODULE mo_nh_stepping
 
       CASE (iecham) ! iforcing
 
-        SELECT CASE (echam_phy_config%idcphycpl)
+        SELECT CASE (mpi_phy_config(jg)%idcphycpl)
 
         CASE (1) ! idcphycpl
 
@@ -2475,7 +2476,7 @@ MODULE mo_nh_stepping
 
         CASE DEFAULT ! idcphycpl
 
-          CALL finish (routine, 'echam_phy_config%idcphycpl /= 1,2 currently not implemented')
+          CALL finish (routine, 'mpi_phy_config(jg)%idcphycpl /= 1,2 currently not implemented')
 
         END SELECT ! idcphycpl
 

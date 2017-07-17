@@ -55,7 +55,7 @@ MODULE mo_ext_data_init
     &                              n_iter_smooth_topo, i_lctype, nclass_lu, nmonths_ext
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
-  USE mo_echam_phy_config,   ONLY: echam_phy_config
+  USE mo_mpi_phy_config,     ONLY: mpi_phy_config
   USE mo_smooth_topo,        ONLY: smooth_topo_real_data
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
@@ -204,7 +204,9 @@ CONTAINS
 
     SELECT CASE(itopo)
 
-    CASE(0) ! itopo, do not read external data except in some cases (see below)
+    CASE(0) ! itopo, do not read external data
+      !
+      CALL message( TRIM(routine),'Running with analytical topography' )
       !
       ! initalize external data with meaningful data, in the case that they
       ! are not read in from file.
@@ -236,15 +238,7 @@ CONTAINS
       END IF
 
       ! call read_ext_data_atm to read O3
-      ! topography is used from analytical functions, except for ljsbach=.TRUE. in which case
-      ! elevation of cell centers is read in and the topography is "grown" gradually to this elevation
-      IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape .OR. sstice_mode == SSTICE_CLIM .OR. &
-         & echam_phy_config%ljsbach) THEN
-        IF ( echam_phy_config%ljsbach .AND. (iequations /= inh_atmosphere) ) THEN
-          CALL message( TRIM(routine),'topography is grown to elevation' )
-        ELSE
-          CALL message( TRIM(routine),'Running with analytical topography' )
-        END IF
+      IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape .OR. sstice_mode == SSTICE_CLIM ) THEN
         CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, &
           &                     extpar_varnames_dict)
         CALL message( TRIM(routine),'read_ext_data_atm completed' )
@@ -925,19 +919,23 @@ CONTAINS
     END IF
 
     ! Open/Read slm for HDmodel in configuration with jsbach, used in yac-coupler
-    IF ( is_coupled_run() .AND. echam_phy_config%ljsbach) THEN
+    IF ( iforcing == iecham .AND. is_coupled_run() ) THEN
 
       DO jg = 1,n_dom
 
-        stream_id = openInputFile('hd_mask.nc', p_patch(jg), default_read_method)
-     
-        ! get land-sea-mask on cells, integer marks are:
-        ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
-        ! boundary land (1, cells and vertices), inner land (2)
-        CALL read_2D_int(stream_id, on_cells, 'cell_sea_land_mask', &
-          &              ext_data(jg)%atm%lsm_hd_c)
+        IF ( mpi_phy_config(jg)%ljsb ) THEN
 
-        CALL closeFile(stream_id)
+          stream_id = openInputFile('hd_mask.nc', p_patch(jg), default_read_method)
+     
+          ! get land-sea-mask on cells, integer marks are:
+          ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
+          ! boundary land (1, cells and vertices), inner land (2)
+          CALL read_2D_int(stream_id, on_cells, 'cell_sea_land_mask', &
+            &              ext_data(jg)%atm%lsm_hd_c)
+
+          CALL closeFile(stream_id)
+
+        END IF
 
       END DO
 

@@ -283,6 +283,45 @@ interface
     integer(kind=C_INT) :: ret
   end function tixiGetDoubleAttribute_c
 
+! ReturnCode tixiGetNumberOfAttributes (const TixiDocumentHandle handle, const char *elementPath, int nattr);
+  function tixiGetNumberOfAttributes_c(handle, &
+        elementPath, &
+        nattr) &
+      result(ret) &
+      bind(C,name='tixiGetNumberOfAttributes')
+    use, intrinsic :: iso_c_binding
+    integer(kind=C_INT), value :: handle
+    character(kind=C_CHAR), intent(in) :: elementPath(*)
+    integer(kind=C_INT), intent(out) :: nattr
+    integer(kind=C_INT) :: ret
+  end function tixiGetNumberOfAttributes_c
+
+! ReturnCode tixiGetAttributeName (const TixiDocumentHandle handle, const char *elementPath, int *attrIndex, const char *attrName);
+  function tixiGetAttributeName_c(handle, &
+        elementPath, &
+        attrIndex, &
+        text_c) &
+      result(ret) &
+      bind(C,name='tixiGetAttributeName')
+    use, intrinsic :: iso_c_binding
+    integer(kind=C_INT), value :: handle
+    character(kind=C_CHAR), intent(in) :: elementPath(*)
+    integer(kind=C_INT), value :: attrIndex
+    type(C_PTR), intent(inout) :: text_c
+    integer(kind=C_INT) :: ret
+  end function tixiGetAttributeName_c
+
+! ReturnCode tixiGetDocumentPath (TixiDocumentHandle handle, char** documentPath);
+  function tixiGetDocumentPath_c(handle, &
+        text_c) &
+      result(ret) &
+      bind(C,name='tixiGetDocumentPath')
+    use, intrinsic :: iso_c_binding
+    integer(kind=C_INT), value :: handle
+    type(C_PTR), intent(inout) :: text_c
+    integer(kind=C_INT) :: ret
+  end function tixiGetDocumentPath_c
+
 
 end interface
 
@@ -299,6 +338,9 @@ end interface
   private :: tixiGetTextAttribute_c
   private :: tixiGetIntegerAttribute_c
   private :: tixiGetDoubleAttribute_c
+  private :: tixiGetNumberOfAttributes_c
+  private :: tixiGetAttributeName_c
+  private :: tixiGetDocumentPath_c
 
   private :: f_c_strarrayptr
   private :: c_f_strarrayptr
@@ -633,6 +675,62 @@ contains
         number)
 
   end function tixiGetDoubleAttribute
+
+! ReturnCode tixiGetNumberOfAttributes(const TixiDocumentHandle handle, const char *elementPath, int* nAttributes);
+  function tixiGetNumberOfAttributes(handle, &
+         elementPath,  &
+         nattr) &
+    result(ret)
+  use, intrinsic :: iso_c_binding
+  integer(kind=C_INT), intent(in) :: handle
+  character(kind=C_CHAR,len=*), intent(in) :: elementPath
+  integer(kind=C_INT), intent(out) :: nattr
+  integer(kind=C_INT) :: ret
+
+  ret = tixiGetNumberOfAttributes_c(handle, &
+       elementPath // C_NULL_CHAR, &
+       nattr)
+  end function tixiGetNumberOfAttributes
+
+
+!ReturnCode tixiGetAttributeName(const TixiDocumentHandle handle, const char *elementPath, int attrIndex, char** attrName);
+  function tixiGetAttributeName(handle, &
+         elementPath,  &
+         attr_idx, &
+         attrName) &
+    result(ret)
+  use, intrinsic :: iso_c_binding
+  integer(kind=C_INT), intent(in) :: handle
+  character(kind=C_CHAR,len=*), intent(in) :: elementPath
+  integer(kind=C_INT), intent(in) :: attr_idx
+  character(kind=C_CHAR), pointer :: attrName(:)
+  integer(kind=C_INT) :: ret
+  type(C_PTR) :: text_c = C_NULL_PTR
+
+  ret = tixiGetAttributeName_c(handle, &
+       elementPath // C_NULL_CHAR, &
+       attr_idx,  &
+       text_c)
+
+    call c_f_stringptr(text_c, attrName)
+  end function tixiGetAttributeName
+
+
+!ReturnCode tixiGetDocumentPath (TixiDocumentHandle handle, char** documentPath);
+  function tixiGetDocumentPath(handle, &
+         docPath) &
+    result(ret)
+  use, intrinsic :: iso_c_binding
+  integer(kind=C_INT), intent(in) :: handle
+  character(kind=C_CHAR), pointer :: docPath(:)
+  integer(kind=C_INT) :: ret
+  type(C_PTR) :: text_c = C_NULL_PTR
+
+  ret = tixiGetDocumentPath_c(handle, &
+       text_c)
+
+    call c_f_stringptr(text_c, docPath)
+  end function tixiGetDocumentPath
 
 
 

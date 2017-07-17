@@ -57,7 +57,7 @@ MODULE mo_psrad_radiation
   USE mo_kind,                ONLY: wp, i8
   USE mo_model_domain,        ONLY: t_patch
   USE mo_physical_constants,  ONLY: rae
-  USE mo_exception,           ONLY: finish, message, message_text, print_value
+  USE mo_exception,           ONLY: finish, message, warning, message_text, print_value
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_namelist,            ONLY: open_nml, position_nml, close_nml, POSITIONED
   USE mo_io_units,            ONLY: nnml, nnml_output
@@ -67,7 +67,7 @@ MODULE mo_psrad_radiation
   USE mo_ext_data_state,      ONLY: ext_data, nlev_o3
   USE mo_bc_ozone,            ONLY: o3_plev, nplev_o3, plev_full_o3, plev_half_o3
   USE mo_o3_util,             ONLY: o3_pl2ml, o3_timeint
-  USE mo_echam_phy_config,    ONLY: echam_phy_config
+  USE mo_mpi_phy_config,      ONLY: mpi_phy_config, mpi_phy_tc
   USE mo_psrad_orbit,         ONLY: orbit_kepler, orbit_vsop87, &
                                   & get_orbit_times
   USE mo_psrad_orbit_nml,     ONLY: read_psrad_orbit_namelist
@@ -98,35 +98,25 @@ MODULE mo_psrad_radiation
                                     nmonth,               &
                                     isolrad,              &
                                     ldiur,                &
+                                    icosmu0,              &
                                     lyr_perp,             &
                                     yr_perp,              &
-                                    lradforcing,          &
                                     tsi_radt,             &
                                     ssi_radt
-  USE mo_psrad_radiation_parameters, ONLY: nb_sw,              & 
-                                     irad_aero_forcing,        &
-                                     lw_spec_samp,             &
-                                     sw_spec_samp,             &
-                                     lw_gpts_ts,               &
-                                     sw_gpts_ts,               &
-                                     rad_perm,                 &
-                                     cemiss,                   &
+  USE mo_psrad_general,       ONLY: nbndsw, finish_cb, message_cb, warning_cb
+  USE mo_psrad_solar_parameters, ONLY:                         &
                                      psctm,                    &
                                      ssi_factor,               &
-                                     flx_ratio_cur,            &
-                                     flx_ratio_rad,            &
                                      solar_parameters
+  USE mo_psrad_radiation_parameters, ONLY : rad_perm
 
-  USE mo_rrtm_params,   ONLY : nbndsw
 ! new to icon
-  USE mo_psrad_srtm_setup,ONLY : ssi_default, ssi_preind, ssi_amip,           &
-                             & ssi_RCEdiurnOn, ssi_RCEdiurnOff, ssi_cmip6_picontrol
-  USE mo_psrad_interface,ONLY : setup_psrad, psrad_interface, &
-                                lw_strat, sw_strat
-  USE mo_psrad_spec_sampling, ONLY : set_spec_sampling_lw, set_spec_sampling_sw, get_num_gpoints
+  USE mo_psrad_srtm_setup,    ONLY : ssi_default, ssi_preind, ssi_amip,           &
+                                     ssi_RCEdiurnOn, ssi_RCEdiurnOff, ssi_cmip6_picontrol
+  USE mo_psrad_interface,     ONLY : setup_psrad, psrad_interface
   USE mo_psrad_orbit_config,  ONLY : psrad_orbit_config
 
-  USE mtime, ONLY: datetime
+  USE mtime, ONLY: datetime, getTotalSecondsTimeDelta
   
   IMPLICIT NONE
   
@@ -148,7 +138,7 @@ MODULE mo_psrad_radiation
     TYPE(t_patch),           INTENT(in) :: p_patch
     TYPE(datetime), POINTER, INTENT(in) :: datetime_radiation, & !< date and time of radiative transfer calculation
          &                                 current_datetime       !< current time step
-    LOGICAL,                 INTENT(in) :: ltrig_rad !< .true. if radiative transfer calculation has to be done at current time step
+    LOGICAL,                 INTENT(in) :: ltrig_rad !< .true. if SW radiative transfer calculation has to be done at current time step
     REAL(wp),                INTENT(out) :: amu0_x(:,:), rdayl_x(:,:), &
          &                                  amu0m_x(:,:), rdaylm_x(:,:)
 
@@ -161,10 +151,9 @@ MODULE mo_psrad_radiation
     REAL(wp) :: time_of_day_rt, orbit_date_rt
     REAL(wp) :: dt_ext
     REAL(wp) :: tsi
-    LOGICAL  :: l_orbvsop87, l_sph_symm_irr
+    LOGICAL  :: l_orbvsop87
 
     l_orbvsop87 = psrad_orbit_config%l_orbvsop87
-    l_sph_symm_irr = psrad_orbit_config%l_sph_symm_irr
 
     !
     ! 1.0 Compute orbital parameters for current time step
@@ -188,20 +177,30 @@ MODULE mo_psrad_radiation
       CALL orbit_kepler (orbit_date_rt, rasc_sun, decl_sun, dist_sun)
     END IF
 
-    ! Compute cos(zenith angle) "amu0_x" for the time "time_of_day" of this time step
-    ! and for the orbit parameters "decl_sun" and "dist_sun" valid for "orbit_date_rt".
-    !
-    ! "amu0_x" is needed for the incoming SW flux field at the top of the atmosphere.
-    !
-    ! Do not extend the sun-lit area. Exactly half of the globe is sun-lit
     dt_ext = 0.0_wp
+    ! Compute cos(zenith angle) "amu0_x" for the current time "time_of_day", if the
+    ! SW fluxes should be adjusted to the current sun (icosmu0=1:4), or the radiation
+    ! time "time_of_day_rt", if the heating shall be computed for the sun position
+    ! used for the radiative transfer (icosmu0=0).
+    ! In both cases use the orbit parameters "decl_sun" and "dist_sun" valid for
+    ! the "orbit_date_rt".
+    SELECT CASE (icosmu0)
+    CASE (0)
+       CALL solar_parameters(decl_sun,        time_of_day_rt,                     &
+            &                icosmu0,         dt_ext,                             &
+            &                ldiur,           psrad_orbit_config%l_sph_symm_irr,  &
+            &                p_patch,                                             &
+            &                amu0_x,          rdayl_x                             )
+    CASE (1:4)
+       CALL solar_parameters(decl_sun,        time_of_day,                        &
+            &                icosmu0,         dt_ext,                             &
+            &                ldiur,           psrad_orbit_config%l_sph_symm_irr,  &
+            &                p_patch,                                             &
+            &                amu0_x,          rdayl_x                             )
+    CASE DEFAULT
+       CALL finish('mo_psrad_radiation/pre_psrad_radiation','invalid icosmu0, must be in 0:4')
+    END SELECT
     !
-    CALL solar_parameters(decl_sun,       dist_sun,                            &
-         &                time_of_day,    dt_ext,                              &
-         &                ldiur,          l_sph_symm_irr,                      &
-         &                p_patch,                                             &
-         &                flx_ratio_cur,  amu0_x,           rdayl_x            )
-
     !
     ! 2.0 Prepare time dependent quantities for rad (on radiation timestep)
     ! --------------------------------
@@ -213,15 +212,20 @@ MODULE mo_psrad_radiation
       ! "amu0m_x" is needed for the incoming SW flux field at the top of the atmosphere
       ! and for the optical paths.
       !
-      ! Extend the sunlit area for the radiative transfer calculations over an extended area
-      ! including a rim of width dt_rad/2/86400*2pi (in radian) around the sunlit hemisphere.
-      dt_ext = echam_phy_config%dt_rad
+      SELECT CASE (icosmu0)
+      CASE (0)
+         dt_ext = 0.0_wp
+      CASE (1:4)
+         ! Extend the sunlit area for the radiative transfer calculations over an extended area
+         ! including a rim of width dt_rad/2/86400*2pi (in radian) around the sunlit hemisphere.
+         dt_ext = getTotalSecondsTimeDelta(mpi_phy_tc(p_patch%id)%dt_rad,current_datetime)
+      END SELECT
       !
-      CALL solar_parameters(decl_sun,        dist_sun,                              &
-           &                time_of_day_rt,  dt_ext,                                &
-           &                ldiur,           l_sph_symm_irr,                        &
-           &                p_patch,                                                &
-           &                flx_ratio_rad,   amu0m_x,           rdaylm_x            )
+      CALL solar_parameters(decl_sun,        time_of_day_rt,                      &
+           &                icosmu0,         dt_ext,                              &
+           &                ldiur,           psrad_orbit_config%l_sph_symm_irr,   &
+           &                p_patch,                                              &
+           &                amu0m_x,         rdaylm_x                             )
       !
       ! Consider curvature of the atmosphere for high zenith angles:
       ! The atmospheric path for a zenith angle mu0 through a spherical shell of
@@ -274,7 +278,7 @@ MODULE mo_psrad_radiation
              'isolrad = ', isolrad, ' in radctl namelist is not supported'
         CALL message('pre_radiation', message_text)
       END SELECT
-      psctm = flx_ratio_rad*tsi
+      psctm = tsi/dist_sun**2
       ssi_factor(:) = ssi_factor(:)/tsi
 
       ! output of solar constant every month
@@ -291,14 +295,14 @@ MODULE mo_psrad_radiation
              icurrentmonth, ' = ', tsi
         CALL message('',message_text)
         CALL message('','')
-        DO i = 1, nb_sw
+        DO i = 1, nbndsw
           WRITE (message_text,'(a,i2,a,f7.5)') &
                '   solar constant fraction: band ', i, &
                ' = ', ssi_factor(i)
           CALL message('',message_text)
         END DO
       END IF
-    END IF ! l_trigrad
+    END IF ! ltrig_rad
 
   END SUBROUTINE pre_psrad_radiation
 
@@ -308,17 +312,7 @@ MODULE mo_psrad_radiation
     INTEGER :: istat, funit
     CHARACTER(len=2)                  :: cio3
 
-    NAMELIST /psrad_nml/ lradforcing,       & ! switch for short and longwave
-     ! radiative forcing calculation by double call to radiation (default:
-     ! (/.FALSE.,.FALSE./)) 
-                       & irad_aero_forcing, & ! key number of aerosols 
-     ! in reference radiation computation for radiative forcing calculation
-     ! by double call to radiation
-                       & lw_gpts_ts,        &
-                       & lw_spec_samp,      &
-                       & rad_perm,          &
-                       & sw_gpts_ts,        &
-                       & sw_spec_samp
+    NAMELIST /psrad_nml/ rad_perm
 
     ! 0.9 Read psrad_orbit namelist
     CALL read_psrad_orbit_namelist(file_name)
@@ -346,7 +340,7 @@ MODULE mo_psrad_radiation
     !
     ! 3.0 If radiation is active check NAMELIST variable conformance
     ! --------------------------------
-    IF (echam_phy_config%lrad) THEN
+    IF (ANY(mpi_phy_config(:)%dt_rad/="")) THEN
 
       CALL message('','')
       CALL message('','PSrad setup')
@@ -354,23 +348,8 @@ MODULE mo_psrad_radiation
       CALL message('','- New (V4) LRTM Model')
       CALL message('','- AER RRTM Shortwave Model')
       CALL message('','')
-      CALL print_value('radiation time step in [s]',echam_phy_config%dt_rad)
-      CALL message('','')
       !
       CALL setup_psrad
-      nb_sw = nbndsw
-      !
-      ! --- Spectral sampling strategy
-      !
-      lw_strat = set_spec_sampling_lw(lw_spec_samp, num_gpts_ts=lw_gpts_ts) 
-      sw_strat = set_spec_sampling_sw(sw_spec_samp, num_gpts_ts=sw_gpts_ts) 
-      WRITE (message_text, '("LW sampling strategy", i2, ", using ", i3, " g-points per rad. time step")') &
-                 lw_spec_samp, get_num_gpoints(lw_strat)
-      CALL message('',message_text)
-      WRITE (message_text, '("SW sampling strategy", i2, ", using ", i3, " g-points per rad. time step")') &
-                 sw_spec_samp, get_num_gpoints(sw_strat)
-      CALL message('',message_text)
-
 
       CALL message('','')
       CALL message('','Sources of volume/mass mixing ratios used in radiation')
@@ -541,20 +520,20 @@ MODULE mo_psrad_radiation
 !!$        CALL message('','irad_aero= 1 --> prognostic aerosol (sub model)')
 !!$      CASE(3)
 !!$        CALL message('','irad_aero= 3 --> Kinne climatology')
-!!$        CALL su_aero_kinne(nb_sw)
+!!$        CALL su_aero_kinne(nbndsw)
 !!$      CASE(5)
 !!$        CALL message('','irad_aero= 5 --> Kinne climatology + Stenchikov volcanic aerosol')
-!!$        CALL su_aero_kinne(nb_sw)
-!!$        CALL su_aero_volc(nb_sw)
+!!$        CALL su_aero_kinne(nbndsw)
+!!$        CALL su_aero_volc(nbndsw)
 !!$      CASE(6)
 !!$        CALL message('','irad_aero= 6 --> Kinne climatology + Stenchikov volcanic aerosols + HAM volcanic aerosol')
-!!$        CALL su_aero_kinne(nb_sw)
-!!$        CALL su_aero_volc(nb_sw)
+!!$        CALL su_aero_kinne(nbndsw)
+!!$        CALL su_aero_volc(nbndsw)
 !!$        CALL su_aero_prop_ham
 !!$        CALL read_aero_volc_tables
 !!$      CASE(7)
 !!$        CALL message('','irad_aero= 7 --> Kinne climatology + Crowley volcanic aerosol')
-!!$        CALL su_aero_kinne(nb_sw)
+!!$        CALL su_aero_kinne(nbndsw)
 !!$        CALL su_aero_prop_crow
 !!$        CALL read_aero_volc_tables
 !!$      CASE default
@@ -645,6 +624,9 @@ MODULE mo_psrad_radiation
       CALL setup_cloud_optics
       !
     ENDIF
+    finish_cb => finish
+    message_cb => warning
+    warning_cb => warning
   END SUBROUTINE setup_psrad_radiation
 
   SUBROUTINE psrad_radiation ( &
@@ -659,6 +641,7 @@ MODULE mo_psrad_radiation
     & loglac         ,&!< in  fraction of land covered by glaciers
     & this_datetime  ,&!< in  actual time step
     & pcos_mu0       ,&!< in  cosine of solar zenith angle
+    & daylght_frc    ,&!< in  daylight fraction; with diurnal cycle 0 or 1, with zonal mean in [0,1]
     & alb_vis_dir    ,&!< in  surface albedo for visible range, direct
     & alb_nir_dir    ,&!< in  surface albedo for near IR range, direct
     & alb_vis_dif    ,&!< in  surface albedo for visible range, diffuse
@@ -715,6 +698,7 @@ MODULE mo_psrad_radiation
 
     REAL(wp), INTENT(IN)    :: &
     & pcos_mu0(kbdim),         & !< cosine of solar zenith angle
+    & daylght_frc(kbdim),      & !< daylight fraction; with diurnal cycle 0 or 1, with zonal mean in [0,1]
     & alb_vis_dir(kbdim),      & !< surface albedo for visible range and direct light
     & alb_nir_dir(kbdim),      & !< surface albedo for NIR range and direct light
     & alb_vis_dif(kbdim),      & !< surface albedo for visible range and diffuse light
@@ -932,10 +916,10 @@ MODULE mo_psrad_radiation
     !
       CALL psrad_interface(                    jg              ,jb              ,&
            & irad_aero       ,kproma          ,kbdim           ,klev            ,& 
-!!$           & knwtrc          ,ktype           ,nb_sw                            ,&
-           &                  ktype           ,nb_sw                            ,&
-           & loland          ,loglac          ,this_datetime   ,pcos_mu0        ,&
-           & cemiss                                                             ,&
+!!$           & knwtrc                                                             ,&
+           & ktype                                                              ,&
+           & loland          ,loglac          ,this_datetime                    ,&
+           & pcos_mu0        ,daylght_frc                                       ,&
            & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
            & zf              ,zh              ,dz                               ,&
            & pp_sfc          ,pp_fl                                             ,&
@@ -950,7 +934,6 @@ MODULE mo_psrad_radiation
            & vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   ,&
            & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
            & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )
-
 
   END SUBROUTINE psrad_radiation
 
