@@ -203,13 +203,15 @@ CONTAINS
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartDescriptor_updatePatch"
 
         IF(.NOT.my_process_is_work()) CALL finish(routine, "assertion failed")
-        jg = patch%id
-        IF(jg < 1 .OR. jg > SIZE(me%patchData)) CALL finish(routine, "assertion failed: patch id IS OUT of range")
-        IF(me%patchData(jg)%description%id /= jg) CALL finish(routine, "assertion failed: patch id doesn't match its array index")
-        CALL me%patchData(jg)%description%update(patch, opt_pvct, opt_t_elapsed_phy, &
-                                                 &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
-                                                 &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
-                                                 &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
+
+        DO jg = 1, SIZE(me%patchData)
+          IF (patch%id == me%patchData(jg)%description%id) THEN
+            CALL me%patchData(jg)%description%update(patch, opt_pvct, opt_t_elapsed_phy,                &
+              &      opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd,                     &
+              &      opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels,                        &
+              &      opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
+          END IF
+        END DO
     END SUBROUTINE restartDescriptor_updatePatch
 
     SUBROUTINE restartDescriptor_defineRestartAttributes(me, restartAttributes, restartArgs)
@@ -222,7 +224,9 @@ CONTAINS
 
         ! first the attributes that are independent of the domain
         effectiveDomainCount = 1
-        IF(ALLOCATED(me%patchData(1)%description%opt_ndom)) effectiveDomainCount = me%patchData(1)%description%opt_ndom
+        IF(ALLOCATED(me%patchData(1)%description%opt_ndom)) THEN
+          effectiveDomainCount = me%patchData(1)%description%opt_ndom
+        END IF
         IF(ALLOCATED(restartArgs%output_jfile)) THEN
             CALL setGeneralRestartAttributes(restartAttributes, restartArgs%restart_datetime, &
               &                              effectiveDomainCount, restartArgs%jstep, &
@@ -233,7 +237,7 @@ CONTAINS
         END IF
 
         ! now the stuff that depends on the domain
-        DO jg = 1, n_dom
+        DO jg = 1, SIZE(me%patchData)
             CALL me%patchData(jg)%description%setRestartAttributes(restartAttributes)
         END DO
     END SUBROUTINE restartDescriptor_defineRestartAttributes

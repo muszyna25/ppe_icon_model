@@ -2313,6 +2313,19 @@ Allowed settings (character strings!) are listed below.
 \tabularnewline
 
 %\hline
+nrestart\_streams&
+I& 1 & &
+%
+ When using the restart write mode "dedicated procs multifile", it is
+ possible to split the restart output into several files, as if
+ \verb+nrestart_streams * num_io_procs+ restart processes were
+ involved. This speeds up the read-in process, since all the files may
+ then be read in parallel.
+%
+& \verb+restart_write_mode+ = \verb+"dedicated procs multifile"+ 
+\tabularnewline
+
+%\hline
 lmask\_boundary&
 L&  F& &
 Set to \texttt{.TRUE.}, if interpolation zone should be masked in output.&

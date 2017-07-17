@@ -43,9 +43,11 @@ CONTAINS
         CLASS(t_RestartDescriptor), POINTER :: resultVar
 
         INTEGER :: error, restartModule
+        LOGICAL :: lDedicatedProcMode
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":createRestartDescriptor"
 
-        CALL restartWritingParameters(opt_restartModule = restartModule)
+        CALL restartWritingParameters(opt_restartModule      = restartModule, &
+          &                           opt_lDedicatedProcMode = lDedicatedProcMode)
         SELECT CASE(restartModule)
             CASE(kSyncRestartModule)
                 CALL message('','synchronous restart writing selected.')
@@ -59,8 +61,12 @@ CONTAINS
                 ALLOCATE(t_AsyncRestartDescriptor :: resultVar, STAT = error)
 #endif
             CASE(kMultifileRestartModule)
-                CALL message('','multifile restart writing selected.')
-                ALLOCATE(t_MultifileRestartDescriptor :: resultVar, STAT = error)
+              IF (lDedicatedProcMode) THEN
+                CALL message('','multifile restart writing selected, with dedicated procs.')
+              ELSE
+                CALL message('','multifile restart writing selected, joint proc mode.')
+              END IF
+              ALLOCATE(t_MultifileRestartDescriptor :: resultVar, STAT = error)
         END SELECT
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
         CALL resultVar%construct(modelType)

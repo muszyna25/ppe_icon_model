@@ -89,6 +89,13 @@ MODULE mo_io_config
 
   CHARACTER(LEN = 256) :: restart_write_mode
 
+  ! When using the restart write mode "dedicated proc mode", it is
+  ! possible to split the restart output into several files, as if
+  ! "nrestart_streams" * "num_io_procs" restart processes were
+  ! involved. This speeds up the read-in process, since all the files
+  ! may then be read in parallel.
+  INTEGER :: nrestart_streams
+
   ! constants to communicate which restart writing MODULE to USE
   ENUM, BIND(C)
     ENUMERATOR :: kSyncRestartModule = 1, kAsyncRestartModule, kMultifileRestartModule
@@ -225,88 +232,115 @@ CONTAINS
   !                         off the MPI_Communicator OR are a subset
   !                         of mpi_comm_work.
   !
-  SUBROUTINE restartWritingParameters(opt_dedicatedProcCount, opt_restartProcCount, opt_restartModule, opt_lDedicatedProcMode)
-    INTEGER, INTENT(OUT), OPTIONAL :: opt_dedicatedProcCount, opt_restartProcCount, opt_restartModule
+  SUBROUTINE restartWritingParameters(opt_dedicatedProcCount, &
+    &                                 opt_restartProcCount,   &
+    &                                 opt_restartModule,      &
+    &                                 opt_lDedicatedProcMode, &
+    &                                 opt_nrestart_streams)
+
+    INTEGER, INTENT(OUT), OPTIONAL :: opt_dedicatedProcCount, &
+      &                               opt_restartProcCount,   &
+      &                               opt_restartModule,      &
+      &                               opt_nrestart_streams
     LOGICAL, INTENT(OUT), OPTIONAL :: opt_lDedicatedProcMode
 
     LOGICAL, SAVE :: cacheValid = .FALSE., lDedicatedProcMode = .FALSE.
-    INTEGER, SAVE :: dedicatedProcCount = -1, restartProcCount = -1, restartModule = -1
+    INTEGER, SAVE :: dedicatedProcCount = -1, &
+      &              restartProcCount   = -1, &
+      &              restartModule      = -1, &
+      &              nrestartStreams    = -1
     CHARACTER(:), ALLOCATABLE :: errorMessage
     CHARACTER(*), PARAMETER :: routine = modname//":restartWritingParameters"
 
     ! If this IS the first CALL of this FUNCTION, analyze the namelist
     ! parameters AND cache the RESULT, sanity checking the settings.
     IF(.NOT.cacheValid) THEN
-        IF(num_restart_procs < 0) THEN
-            ! No matter what, negative process counts are illegal.
-            errorMessage = "illegal value of namelist parameter num_restart_procs: value must not be negative"
-
-        ELSE IF(restart_write_mode == "") THEN
-            ! No restart_write_mode given, so we fall back to the old behavior of switching between sync/async restart mode based on num_restart_procs for backwards compatibility.
-            dedicatedProcCount = num_restart_procs
-            restartProcCount = MAX(1, num_restart_procs)
-            lDedicatedProcMode = num_restart_procs > 0
-            IF(lDedicatedProcMode) THEN
-                restartModule = kAsyncRestartModule
-            ELSE
-                restartModule = kSyncRestartModule
-            END IF
-
-        ELSE IF(restart_write_mode == "sync") THEN
-            IF(num_restart_procs /= 0) errorMessage = "inconsistent namelist parameters: num_restart_procs must be zero OR unset &
-                                                      &for the given restart_write_mode"
-            dedicatedProcCount = 0
-            restartProcCount = 1
-            restartModule = kSyncRestartModule
-            lDedicatedProcMode = .FALSE.
-
-        ELSE IF(restart_write_mode == "async") THEN
-            IF(num_restart_procs == 0) errorMessage = "inconsistent namelist parameters: num_restart_procs must be non-zero for &
-                                                      &the given restart_write_mode"
-            dedicatedProcCount = num_restart_procs
-            restartProcCount = num_restart_procs
-            restartModule = kAsyncRestartModule
-            lDedicatedProcMode = .TRUE.
-
-        ELSE IF(restart_write_mode == "joint procs multifile") THEN
-            dedicatedProcCount = 0
-
-            ! if not set otherwise (num_restart_procs=0), set the
-            ! number of restart PEs to the number of worker
-            ! PEs... this is done later, since the number of workers
-            ! is not yet available.
-            IF (num_restart_procs == 0) THEN
-              restartProcCount = ALL_WORKERS_INVOLVED
-            ELSE
-              restartProcCount = num_restart_procs
-            END IF
-
-            restartModule = kMultifileRestartModule
-            lDedicatedProcMode = .FALSE.
-
-        ELSE IF(restart_write_mode == "dedicated procs multifile") THEN
-            IF(num_restart_procs == 0) errorMessage = "inconsistent namelist parameters: num_restart_procs must be non-zero for &
-                                                      &the given restart_write_mode"
-            dedicatedProcCount = num_restart_procs
-            restartProcCount = num_restart_procs
-            restartModule = kMultifileRestartModule
-            lDedicatedProcMode = .TRUE.
-
+      IF(num_restart_procs < 0) THEN
+        ! No matter what, negative process counts are illegal.
+        errorMessage = "illegal value of namelist parameter num_restart_procs: value must not be negative"
+        
+      ELSE IF(restart_write_mode == "") THEN
+        ! No restart_write_mode given, so we fall back to the old
+        ! behavior of switching between sync/async restart mode based
+        ! on num_restart_procs for backwards compatibility.
+        dedicatedProcCount = num_restart_procs
+        restartProcCount   = MAX(1, num_restart_procs)
+        lDedicatedProcMode = num_restart_procs > 0
+        nrestartStreams    = 1
+        IF(lDedicatedProcMode) THEN
+          restartModule = kAsyncRestartModule
         ELSE
-            errorMessage = "illegal value of namelist parameter restart_write_mode: expected one of 'sync', 'async', &
-                           &'joint procs multifile', or 'dedicated procs multifile'"
-
+          restartModule = kSyncRestartModule
         END IF
-        IF(ALLOCATED(errorMessage)) CALL finish(routine, errorMessage//" (got restart_write_mode = '"//TRIM(restart_write_mode)// &
-                                               &"', num_restart_procs = "//TRIM(int2string(num_restart_procs))//")")
-        cacheValid = .TRUE.
-    END IF
+        
+      ELSE IF(restart_write_mode == "sync") THEN
+        IF(num_restart_procs /= 0) THEN
+          errorMessage = "inconsistent namelist parameters: num_restart_procs must be zero OR unset &
+            &for the given restart_write_mode"
+        END IF
+        dedicatedProcCount = 0
+        restartProcCount   = 1
+        restartModule      = kSyncRestartModule
+        lDedicatedProcMode = .FALSE.
+        nrestartStreams    = 1
+        
+      ELSE IF(restart_write_mode == "async") THEN
+        IF(num_restart_procs == 0) THEN
+          errorMessage = "inconsistent namelist parameters: num_restart_procs must be non-zero for &
+            &the given restart_write_mode"
+        END IF
+        dedicatedProcCount = num_restart_procs
+        restartProcCount   = num_restart_procs
+        restartModule      = kAsyncRestartModule
+        lDedicatedProcMode = .TRUE.
+        nrestartStreams    = 1
 
+      ELSE IF(restart_write_mode == "joint procs multifile") THEN
+        dedicatedProcCount = 0
+        
+        ! if not set otherwise (num_restart_procs=0), set the
+        ! number of restart PEs to the number of worker
+        ! PEs... this is done later, since the number of workers
+        ! is not yet available.
+        IF (num_restart_procs == 0) THEN
+          restartProcCount = ALL_WORKERS_INVOLVED
+        ELSE
+          restartProcCount = num_restart_procs
+        END IF
+        restartModule      = kMultifileRestartModule
+        lDedicatedProcMode = .FALSE.
+        nrestartStreams    = 1
+        
+      ELSE IF(restart_write_mode == "dedicated procs multifile") THEN
+        IF(num_restart_procs == 0) THEN
+          errorMessage = "inconsistent namelist parameters: num_restart_procs must be non-zero for &
+            &the given restart_write_mode"
+        END IF
+        dedicatedProcCount = num_restart_procs
+        restartProcCount   = num_restart_procs
+        restartModule      = kMultifileRestartModule
+        lDedicatedProcMode = .TRUE.
+        nrestartStreams    = nrestart_streams
+        
+      ELSE
+        errorMessage = "illegal value of namelist parameter restart_write_mode: expected one of 'sync', 'async', &
+          &'joint procs multifile', or 'dedicated procs multifile'"
+        
+      END IF
+      IF(ALLOCATED(errorMessage)) THEN
+        CALL finish(routine, errorMessage//" (got restart_write_mode = '"//TRIM(restart_write_mode)// &
+          &"', num_restart_procs = "//TRIM(int2string(num_restart_procs))//")")
+      END IF
+      cacheValid = .TRUE.
+    END IF
+    
     ! Ok, the cache IS up to date. What info did the caller want again?
-    IF(PRESENT(opt_dedicatedProcCount)) opt_dedicatedProcCount = dedicatedProcCount;
-    IF(PRESENT(opt_restartProcCount)) opt_restartProcCount = restartProcCount;
-    IF(PRESENT(opt_restartModule)) opt_restartModule = restartModule;
-    IF(PRESENT(opt_lDedicatedProcMode)) opt_lDedicatedProcMode = lDedicatedProcMode;
+    IF(PRESENT(opt_dedicatedProcCount))  opt_dedicatedProcCount = dedicatedProcCount;
+    IF(PRESENT(opt_restartProcCount))    opt_restartProcCount   = restartProcCount;
+    IF(PRESENT(opt_restartModule))       opt_restartModule      = restartModule;
+    IF(PRESENT(opt_lDedicatedProcMode))  opt_lDedicatedProcMode = lDedicatedProcMode;
+    IF(PRESENT(opt_nrestart_streams))    opt_nrestart_streams   = nrestartStreams
+
   END SUBROUTINE restartWritingParameters
 
 END MODULE mo_io_config

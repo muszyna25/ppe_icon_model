@@ -797,9 +797,9 @@ CONTAINS
       reference_dt => newDatetime("1980-06-01T00:00:00.000")
       IF (dt_checkpoint > 0._wp) THEN
         restart_time = MIN(dt_checkpoint, &
-          &                1000._wp * getTotalMilliSecondsTimeDelta(time_config%tc_dt_restart, reference_dt))
+          &                0.001_wp * getTotalMilliSecondsTimeDelta(time_config%tc_dt_restart, reference_dt))
       ELSE
-        restart_time = 1000._wp * getTotalMilliSecondsTimeDelta(time_config%tc_dt_restart, reference_dt)
+        restart_time = 0.001_wp * getTotalMilliSecondsTimeDelta(time_config%tc_dt_restart, reference_dt)
       ENDIF
       CALL deallocateDatetime(reference_dt)
       IF (.NOT. isRestart() .AND. (restart_time <= dt_iau+timeshift%dt_shift)) THEN

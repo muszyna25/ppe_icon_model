@@ -819,23 +819,25 @@ CONTAINS
         n_event_steps_b = n_event_steps
         n_event_steps = 0      
         
-        CALL merge2SortedAndRemoveDuplicates(mtime_date_container_a, n_event_steps_a, &
-             &                               mtime_date_container_b, n_event_steps_b, &
-             &                               mtime_date_uniq, remaining_event_steps)
-      ENDIF
+        IF (n_event_steps_b > 0) THEN
+          CALL merge2SortedAndRemoveDuplicates(mtime_date_container_a, n_event_steps_a, &
+            &                               mtime_date_container_b, n_event_steps_b, &
+            &                               mtime_date_uniq, remaining_event_steps)
 
-      IF (remaining_event_steps > SIZE(mtime_date_container_a)) THEN
-        ALLOCATE(tmp(SIZE(mtime_date_container_a)), stat=ierrstat)
-        IF (ierrstat /= 0) STOP 'allocate failed'
-        tmp(1:remaining_event_steps) = mtime_date_uniq(1:remaining_event_steps)
-        CALL MOVE_ALLOC(tmp, mtime_date_container_a)
-      ELSE
-        mtime_date_container_a(1:remaining_event_steps) = mtime_date_uniq(1:remaining_event_steps)
+          IF (remaining_event_steps > SIZE(mtime_date_container_a)) THEN
+            ALLOCATE(tmp(SIZE(mtime_date_container_a)), stat=ierrstat)
+            IF (ierrstat /= 0) STOP 'allocate failed'
+            tmp(1:remaining_event_steps) = mtime_date_uniq(1:remaining_event_steps)
+            CALL MOVE_ALLOC(tmp, mtime_date_container_a)
+          ELSE
+            mtime_date_container_a(1:remaining_event_steps) = mtime_date_uniq(1:remaining_event_steps)
+          ENDIF
+          
+          n_event_steps_a = remaining_event_steps
+          
+          DEALLOCATE(mtime_date_uniq)
+        END IF
       ENDIF
-      
-      n_event_steps_a = remaining_event_steps
-      
-      DEALLOCATE(mtime_date_uniq)
       
     END DO INTERVAL_LOOP
 

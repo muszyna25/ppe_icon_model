@@ -12,11 +12,12 @@
 !! headers of the routines.
 
 MODULE mo_multifile_restart_util
-    USE mo_exception, ONLY: finish
+    USE mo_kind,           ONLY: dp, sp
+    USE mo_exception,      ONLY: finish
     USE mo_impl_constants, ONLY: SUCCESS
-    USE mo_std_c_lib, ONLY: strerror
-    USE mo_util_file, ONLY: createSymlink
-    USE mo_util_string, ONLY: int2string
+    USE mo_std_c_lib,      ONLY: strerror
+    USE mo_util_file,      ONLY: createSymlink
+    USE mo_util_string,    ONLY: int2string
 
     IMPLICIT NONE
 
@@ -30,6 +31,10 @@ MODULE mo_multifile_restart_util
     PUBLIC :: multifileMetadataPath
     PUBLIC :: multifilePayloadPath
 
+    PUBLIC :: t_ptr_1d_generic
+    PUBLIC :: t_ptr_1d_generic_ptr_1d
+
+
     PRIVATE
 
     CHARACTER(*), PARAMETER :: kVarName_globalCellIndex = "global_cell_indices"
@@ -37,6 +42,20 @@ MODULE mo_multifile_restart_util
     CHARACTER(*), PARAMETER :: kVarName_globalVertIndex = "global_vert_indices"
 
     CHARACTER(*), PARAMETER :: modname = "mo_multifile_restart_util"
+
+
+    TYPE t_ptr_1d_generic
+      REAL(sp), POINTER :: sp(:)      ! pointer to 1D (spatial) array
+      REAL(dp), POINTER :: dp(:)      ! pointer to 1D (spatial) array
+      INTEGER,  POINTER :: int(:)     ! pointer to 1D (spatial) array
+    END TYPE t_ptr_1d_generic
+    
+    
+    TYPE t_ptr_1d_generic_ptr_1d
+      TYPE(t_ptr_1d_generic), POINTER :: p(:)  ! pointer to a 1D array of pointers to 1D (spatial) arrays
+      !    
+      INTEGER, ALLOCATABLE    :: levelIdx(:)   ! level indices corresponding to the content
+    END TYPE t_ptr_1d_generic_ptr_1d
 
 CONTAINS
 

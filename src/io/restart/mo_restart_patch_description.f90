@@ -347,7 +347,8 @@ CONTAINS
         domainString = TRIM(int2string(me%id, '(i2.2)'))
 
         ! set time levels
-        CALL setDynamicPatchRestartAttributes(restartAttributes, me%id, me%nold, me%nnow, me%nnew, me%nnow_rcf, me%nnew_rcf)
+        CALL setDynamicPatchRestartAttributes(restartAttributes, me%id, me%nold, me%nnow, &
+          &                                   me%nnew, me%nnow_rcf, me%nnew_rcf)
 
         !-------------------------------------------------------------
         ! DR

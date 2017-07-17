@@ -13,7 +13,13 @@
 !!
 !! ----------------------------------------------------------------------------------------------------
 !!
-!! Implementation note: Unfortunately, t_comm_pattern uses ONLY
+!! All work processes are used to read the data from the
+!! multifile. Each processor handles all domains of its horizontal
+!! "chunk", since the domain loop is located outside of this routine,
+!! in the calling "src/drivers" routine.
+!!
+!!
+!! Implementation note [NH]: Unfortunately, t_comm_pattern uses ONLY
 !!     p_comm_work AND does NOT allow for ANY other communicators.
 !!     Extending t_comm_pattern to allow this seems prohibitive
 !!     considering the small amount of time that's left to my work on
@@ -32,18 +38,20 @@ MODULE mo_load_multifile_restart
       &                                  streamReadVarSlice, streamReadVarSliceF, CDI_GLOBAL,          &
       &                                  vlistInqAttInt
     USE mo_cdi_constants,          ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT
-    USE mo_communication,          ONLY: t_comm_pattern, setup_comm_pattern, delete_comm_pattern, exchange_data
+    USE mo_communication,          ONLY: t_comm_pattern, setup_comm_pattern, delete_comm_pattern, exchange_data_noblk
     USE mo_decomposition_tools,    ONLY: t_glb2loc_index_lookup, init_glb2loc_index_lookup, set_inner_glb_index, &
       &                                  deallocate_glb2loc_index_lookup
     USE mo_dynamics_config,        ONLY: nnew, nnew_rcf
     USE mo_exception,              ONLY: finish
-    USE mo_fortran_tools,          ONLY: t_ptr_1d_generic, t_ptr_2d_sp, t_ptr_2d, t_ptr_2d_int
+    USE mo_fortran_tools,          ONLY: t_ptr_2d_sp, t_ptr_2d, t_ptr_2d_int
     USE mo_kind,                   ONLY: sp, dp, i8
     USE mo_model_domain,           ONLY: t_patch
     USE mo_mpi,                    ONLY: p_barrier, p_comm_work, p_comm_size, p_comm_rank, my_process_is_work, &
-      &                                  p_allreduce, p_sum_op, p_mpi_wtime, my_process_is_stdio, p_bcast
-    USE mo_multifile_restart_util, ONLY: multifilePayloadPath, kVarName_globalCellIndex, &
-      &                                  kVarName_globalEdgeIndex, kVarName_globalVertIndex
+      &                                  p_allreduce, p_sum_op, p_mpi_wtime, my_process_is_stdio, p_bcast,     &
+      &                                  my_process_is_mpi_workroot
+    USE mo_multifile_restart_util, ONLY: multifilePayloadPath, kVarName_globalCellIndex,      &
+      &                                  kVarName_globalEdgeIndex, kVarName_globalVertIndex,  &
+      &                                  t_ptr_1d_generic
     USE mo_parallel_config,        ONLY: nproma, idx_no, blk_no
     USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
     USE mo_restart_var_data,       ONLY: t_restartVarData, getLevelPointers, has_valid_time_level
@@ -89,9 +97,9 @@ MODULE mo_load_multifile_restart
 
       ! should be pointers to tell Fortran, that these _will_ be
       ! aliased
-      REAL(sp), POINTER :: readBuffer_1d_s(:), readBuffer_2d_s(:,:)
-      REAL(dp), POINTER :: readBuffer_1d_d(:), readBuffer_2d_d(:,:)
-      INTEGER,  POINTER :: readBuffer_1d_int(:), readBuffer_2d_int(:,:)
+      REAL(sp), POINTER :: readBuffer_1d_s(:)
+      REAL(dp), POINTER :: readBuffer_1d_d(:)
+      INTEGER,  POINTER :: readBuffer_1d_int(:)
 
       TYPE(t_comm_pattern) :: commPattern
     CONTAINS
@@ -392,12 +400,6 @@ CONTAINS
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
         ALLOCATE(me%readBuffer_1d_int(pointCount), STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-        ALLOCATE(me%readBuffer_2d_d(nproma, blk_no(pointCount)), STAT = error)
-        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-        ALLOCATE(me%readBuffer_2d_s(nproma, blk_no(pointCount)), STAT = error)
-        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-        ALLOCATE(me%readBuffer_2d_int(nproma, blk_no(pointCount)), STAT = error)
-        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
 
         ! Init the window offset
         me%curWindowOffset = 1
@@ -440,14 +442,9 @@ CONTAINS
             CALL finish(routine, "assertion failed: redistribute called on a non-full buffer")
         END IF
 
-        ! copy the DATA over into the 2d buffer
-        DO i = 1, pointCount
-            me%readBuffer_2d_s(idx_no(i), blk_no(i)) = me%readBuffer_1d_s(i)
-        END DO
-
         ! redistribute the DATA
         IF(timers_level >= 7) CALL timer_start(timer_load_restart_communication)
-        CALL exchange_data(me%commPattern, destination, me%readBuffer_2d_s)
+        CALL exchange_data_noblk(me%commPattern, destination, me%readBuffer_1d_s)
         IF(timers_level >= 7) CALL timer_stop(timer_load_restart_communication)
 
         ! reset the window
@@ -467,14 +464,9 @@ CONTAINS
             CALL finish(routine, "assertion failed: redistribute called on a non-full buffer")
         END IF
 
-        ! copy the DATA over into the 2d buffer
-        DO i = 1, pointCount
-            me%readBuffer_2d_d(idx_no(i), blk_no(i)) = me%readBuffer_1d_d(i)
-        END DO
-
         ! redistribute the DATA
         IF(timers_level >= 7) CALL timer_start(timer_load_restart_communication)
-        CALL exchange_data(me%commPattern, destination, me%readBuffer_2d_d)
+        CALL exchange_data_noblk(me%commPattern, destination, me%readBuffer_1d_d)
         IF(timers_level >= 7) CALL timer_stop(timer_load_restart_communication)
 
         ! reset the window
@@ -494,14 +486,9 @@ CONTAINS
             CALL finish(routine, "assertion failed: redistribute called on a non-full buffer")
         END IF
 
-        ! copy the DATA over into the 2d buffer
-        DO i = 1, pointCount
-            me%readBuffer_2d_int(idx_no(i), blk_no(i)) = me%readBuffer_1d_int(i)
-        END DO
-
         ! redistribute the DATA
         IF(timers_level >= 7) CALL timer_start(timer_load_restart_communication)
-        CALL exchange_data(me%commPattern, destination, me%readBuffer_2d_int)
+        CALL exchange_data_noblk(me%commPattern, destination, me%readBuffer_1d_int)
         IF(timers_level >= 7) CALL timer_stop(timer_load_restart_communication)
 
         ! reset the window
@@ -515,8 +502,7 @@ CONTAINS
 
         IF(me%curWindowOffset /= 1) CALL finish(routine, "assertion failed: buffer NOT empty on destruction")
 
-        DEALLOCATE(me%readBuffer_1d_d, me%readBuffer_1d_s, me%readBuffer_1d_int, &
-          &        me%readBuffer_2d_d, me%readBuffer_2d_s, me%readBuffer_2d_int)
+        DEALLOCATE(me%readBuffer_1d_d, me%readBuffer_1d_s, me%readBuffer_1d_int)
         CALL delete_comm_pattern(me%commPattern)
     END SUBROUTINE readBuffer_destruct
 
@@ -529,7 +515,12 @@ CONTAINS
 
         !get the expected domain AND file counts from the restart attributes
         restartAttributes => getAttributesForRestarting()
-        n_dom = restartAttributes%getInteger('n_dom')
+
+        ! If not all domains are active, then the multifile restart
+        ! directory contains less payload files than there are
+        ! domains:
+        n_dom = restartAttributes%getInteger('multifile_n_dom_active')
+
         multifile_file_count = restartAttributes%getInteger('multifile_file_count')
 
         ! Must NOT start the timer here because the timers have NOT been initialized at this point.
@@ -557,7 +548,7 @@ CONTAINS
         INTEGER, VALUE :: multifile_file_count, domain
         INTEGER, INTENT(OUT) :: out_totalCellCount, out_totalEdgeCount, out_totalVertCount
 
-        INTEGER :: procCount, myRank, myFileCount, error, curFileIndex, curFileId
+        INTEGER :: procCount, myRank, myFileCount, error, curFileIndex, curFileId, proc_file_ratio
         CHARACTER(*), PARAMETER :: routine = modname//":openPayloadFiles"
 
         IF(.NOT.my_process_is_work()) CALL finish(routine, "assertion failed: routine must ONLY be called on work processes")
@@ -571,8 +562,16 @@ CONTAINS
         ! calculation agrees with the loop control.
         procCount = p_comm_size(p_comm_work)
         myRank = p_comm_rank(p_comm_work)
-        myFileCount = (multifile_file_count - myRank + procCount - 1)/procCount
-
+        proc_file_ratio = procCount/multifile_file_count
+        IF (proc_file_ratio > 2) THEN
+          IF (MOD(myRank,proc_file_ratio) == 0 .AND. myRank/proc_file_ratio < multifile_file_count) THEN
+            myFileCount = 1
+          ELSE
+            myFileCount = 0
+          ENDIF
+        ELSE
+          myFileCount = (multifile_file_count - myRank + procCount - 1)/procCount
+        ENDIF
         ! Allocate space to open all our files IN parallel.
         ALLOCATE(files(myFileCount), STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
@@ -588,7 +587,8 @@ CONTAINS
         out_totalCellCount = 0
         out_totalEdgeCount = 0
         out_totalVertCount = 0
-        DO curFileId = myRank, multifile_file_count - 1, procCount
+        IF (proc_file_ratio <= 2) THEN
+          DO curFileId = myRank, multifile_file_count - 1, procCount
             curFileIndex = curFileId/procCount + 1
             IF(curFileIndex > myFileCount) CALL finish(routine, "assertion failed: myFileCount IS too small")
 
@@ -596,7 +596,16 @@ CONTAINS
             out_totalCellCount = out_totalCellCount + files(curFileIndex)%cellCount
             out_totalEdgeCount = out_totalEdgeCount + files(curFileIndex)%edgeCount
             out_totalVertCount = out_totalVertCount + files(curFileIndex)%vertCount
-        END DO
+          END DO
+        ELSE IF (myFileCount == 1) THEN
+          curFileId = myRank/proc_file_ratio
+          curFileIndex = 1
+
+          CALL files(curFileIndex)%construct(multifilePath, domain, curFileId)
+          out_totalCellCount = out_totalCellCount + files(curFileIndex)%cellCount
+          out_totalEdgeCount = out_totalEdgeCount + files(curFileIndex)%edgeCount
+          out_totalVertCount = out_totalVertCount + files(curFileIndex)%vertCount
+        ENDIF
         IF(curFileIndex /= myFileCount) CALL finish(routine, "assertion failed: myFileCount IS too large")
     END FUNCTION openPayloadFiles
 
@@ -646,11 +655,8 @@ CONTAINS
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
 
         ! perform an exchange according to the given communication pattern
-        DO i = 1, inputSize
-            input(idx_no(i), blk_no(i)) = providedGlobalIndices(i)
-        END DO
         output(:,:) = -1
-        CALL exchange_data(pattern, output, input)
+        CALL exchange_data_noblk(pattern, output, providedGlobalIndices)
 
         ! assert that the RESULT IS as expected
         DO i = 1, outputSize
@@ -693,7 +699,7 @@ CONTAINS
           CALL finish(routine//"-"//TRIM(name), "assertion failed: a global index is out of RANGE (<1)")
         END IF
         IF(globalSize < MAXVAL(providedGlobalIndices)) THEN
-          WRITE (0,*) "MAXVAL(providedGlobalIndices) = ", MINVAL(providedGlobalIndices), " > ", globalSize
+          WRITE (0,*) "MAXVAL(providedGlobalIndices) = ", MAXVAL(providedGlobalIndices), " > ", globalSize
           CALL finish(routine//"-"//TRIM(name), "assertion failed: a global index is out of range (>globalSize)")
         END IF
 
@@ -756,6 +762,10 @@ CONTAINS
 
         restartAttributes => getAttributesForRestarting()
         multifile_file_count = restartAttributes%getInteger('multifile_file_count')
+
+        IF (my_process_is_mpi_workroot()) THEN
+          WRITE (0,*) "reading from ", multifile_file_count, " files/patch."
+        END IF
 
         me%domain = p_patch%id
         me%files = openPayloadFiles(multifilePath, multifile_file_count, p_patch%id, &

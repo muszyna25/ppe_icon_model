@@ -38,9 +38,7 @@ MODULE mo_fortran_tools
   PUBLIC :: ensureSize
   PUBLIC :: t_alloc_character
   PUBLIC :: t_ptr_1d
-  PUBLIC :: t_ptr_1d_generic
   PUBLIC :: t_ptr_1d_ptr_1d
-  PUBLIC :: t_ptr_1d_generic_ptr_1d
   PUBLIC :: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int
   PUBLIC :: t_ptr_3d, t_ptr_3d_sp
   PUBLIC :: t_ptr_i2d3d
@@ -68,19 +66,9 @@ MODULE mo_fortran_tools
     REAL(wp),POINTER :: p(:)  ! pointer to 1D (spatial) array
   END TYPE t_ptr_1d
 
-  TYPE t_ptr_1d_generic
-    REAL(sp),POINTER :: sp(:)  ! pointer to 1D (spatial) array
-    REAL(dp),POINTER :: dp(:)  ! pointer to 1D (spatial) array
-    INTEGER,POINTER :: int(:)  ! pointer to 1D (spatial) array
-  END TYPE t_ptr_1d_generic
-
   TYPE t_ptr_1d_ptr_1d
     TYPE(t_ptr_1d), POINTER :: p(:)  ! pointer to a 1D array of pointers to 1D (spatial) arrays
   END TYPE t_ptr_1d_ptr_1d
-
-  TYPE t_ptr_1d_generic_ptr_1d
-    TYPE(t_ptr_1d_generic), POINTER :: p(:)  ! pointer to a 1D array of pointers to 1D (spatial) arrays
-  END TYPE t_ptr_1d_generic_ptr_1d
 
   TYPE t_ptr_2d
     REAL(dp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array

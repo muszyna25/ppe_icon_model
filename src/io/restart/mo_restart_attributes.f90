@@ -277,7 +277,9 @@ CONTAINS
 
     ! Create a key object AND check whether this attribute has already been set.
     keyObject => text_create(key)
-    IF(ASSOCIATED(me%table%getEntry(keyObject))) CALL finish(routine, "double definition of restart attribute '"//key//"'")
+    !IF(ASSOCIATED(me%table%getEntry(keyObject))) THEN
+    !  CALL finish(routine, "double definition of restart attribute '"//key//"'")
+    !END IF
 
     ! Insert the key-VALUE pair into the hash table
     CALL me%table%setEntry(keyObject, val)
