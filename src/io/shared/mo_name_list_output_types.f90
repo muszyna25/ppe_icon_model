@@ -81,7 +81,7 @@ MODULE mo_name_list_output_types
   ! prefix for group identifier in output namelist
   CHARACTER(len=*), PARAMETER :: GRP_PREFIX = "group:"
   ! prefix for tile-group identifier in output namelist
-  CHARACTER(len=6), PARAMETER :: TILE_PREFIX = "tiles:"
+  CHARACTER(len=*), PARAMETER :: TILE_PREFIX = "tiles:"
 
   ! Tags for communication between compute PEs and I/O PEs
   INTEGER, PARAMETER :: msg_io_start    = 12345
