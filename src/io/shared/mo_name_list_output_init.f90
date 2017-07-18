@@ -961,7 +961,7 @@ CONTAINS
         ! second step: look for "subtraction" of variables groups ("-varname"):
         nsubtract_vars = 0
         DO ivar = 1, nvars
-          vname = TRIM(in_varlist(ivar))
+          vname = in_varlist(ivar)
           IF (vname(1:1) == "-") THEN
             nsubtract_vars = nsubtract_vars + 1
             varlist(nsubtract_vars) = ADJUSTL(vname)
