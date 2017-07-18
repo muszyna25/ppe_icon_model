@@ -857,10 +857,16 @@ CONTAINS
       ! process i_typ=ml_varlist, pl_varlist, hl_varlist, il_varlist:
       DO i_typ = 1, 4
 
-        IF (i_typ == level_type_ml)  in_varlist => p_onl%ml_varlist
-        IF (i_typ == level_type_pl)  in_varlist => p_onl%pl_varlist
-        IF (i_typ == level_type_hl)  in_varlist => p_onl%hl_varlist
-        IF (i_typ == level_type_il)  in_varlist => p_onl%il_varlist
+        SELECT CASE(i_typ)
+        CASE (level_type_ml)
+          in_varlist => p_onl%ml_varlist
+        CASE (level_type_pl)
+          in_varlist => p_onl%pl_varlist
+        CASE (level_type_hl)
+          in_varlist => p_onl%hl_varlist
+        CASE (level_type_il)
+          in_varlist => p_onl%il_varlist
+        END SELECT
 
         ! Get the number of variables in varlist
         nvars = 1
