@@ -887,7 +887,7 @@ CONTAINS
 
           IF (INDEX(vname, TILE_PREFIX) > 0) THEN
             ! this is a tile group identifier
-            grp_name = vname((LEN(TRIM(TILE_PREFIX))+1) : LEN(vname))
+            grp_name = vname(LEN_TRIM(TILE_PREFIX)+1 : LEN(vname))
 
             ! translate group name from GRIB2 to internal nomenclature, if necessary
             grp_name = dict_get(varnames_dict, grp_name, grp_name)
