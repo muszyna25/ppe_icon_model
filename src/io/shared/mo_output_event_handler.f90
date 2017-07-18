@@ -832,7 +832,15 @@ CONTAINS
             ALLOCATE(tmp(SIZE(mtime_date_container_a)), stat=ierrstat)
             IF (ierrstat /= 0) STOP 'allocate failed'
             tmp(1:remaining_event_steps) = mtime_date_uniq(1:remaining_event_steps)
+            ! FIXME: this is probably a bug and the deallocation of
+            ! mtime_date_container_a needs to be framed with
+            ! 1.
+            ! l_assoc = ASSOCIATED(mtime_date_container, mtime_date_container_a)
+            ! ...
             CALL MOVE_ALLOC(tmp, mtime_date_container_a)
+            ! ... and
+            ! 2.
+            ! mtime_date_container => mtime_date_container_a
           ELSE
             mtime_date_container_a(1:remaining_event_steps) = mtime_date_uniq(1:remaining_event_steps)
           ENDIF
