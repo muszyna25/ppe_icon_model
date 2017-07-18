@@ -1377,7 +1377,7 @@ CONTAINS
           IF (dom_sim_step_info%jstep0 > 0) THEN
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
              IF ( is_coupled_run() ) THEN
-               comp_name = TRIM(get_my_process_name())
+               comp_name = get_my_process_name()
                CALL print_output_event(all_events, &
                  ! ASCII file output:
                  & opt_filename="output_schedule_"//TRIM(comp_name)//&
