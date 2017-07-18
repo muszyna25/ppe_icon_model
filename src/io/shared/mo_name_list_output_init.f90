@@ -869,13 +869,11 @@ CONTAINS
         END SELECT
 
         ! Get the number of variables in varlist
-        nvars = 1
-        DO
-          IF (nvars>SIZE(in_varlist))   EXIT
-          IF (in_varlist(nvars) == ' ') EXIT
+        nvars = 0
+        DO WHILE (nvars < SIZE(in_varlist))
+          IF (in_varlist(nvars+1) == ' ') EXIT
           nvars = nvars + 1
         END DO
-        nvars = nvars - 1
 
         IF (nvars>ntotal_vars)  CALL finish(routine, "Internal error: nvars > ntotal_vars")
 
@@ -952,13 +950,11 @@ CONTAINS
         END DO
 
         ! Again, count the number of variables in varlist
-        nvars = 1
-        DO
-          IF (nvars>SIZE(varlist))   EXIT
-          IF (varlist(nvars) == ' ') EXIT
+        nvars = 0
+        DO WHILE (nvars < SIZE(varlist))
+          IF (varlist(nvars+1) == ' ') EXIT
           nvars = nvars + 1
         END DO
-        nvars = nvars - 1
 
         IF (i_typ == level_type_ml)  p_onl%ml_varlist(1:nvars) = varlist(1:nvars)
         IF (i_typ == level_type_pl)  p_onl%pl_varlist(1:nvars) = varlist(1:nvars)
