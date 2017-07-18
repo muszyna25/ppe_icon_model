@@ -894,6 +894,7 @@ CONTAINS
 
             tlen = len_trim(grp_name)
             grp_name(tlen+1:tlen+3) ="_t"
+            tlen = tlen + 2
             ! loop over all variables and collects the variables names
             ! corresponding to the group "grp_name"
             CALL collect_group(grp_name, grp_vars, ngrp_vars,                           &
@@ -913,7 +914,7 @@ CONTAINS
 
             ! status output
             IF (msg_level >= 12) THEN
-              CALL message(routine, "Activating group of variables: "//TRIM(grp_name))
+              CALL message(routine, "Activating group of variables: "//grp_name(1:tlen))
               DO jvar=1,ngrp_vars
                 CALL message(routine, "   "//TRIM(grp_vars(jvar)))
               END DO
