@@ -921,7 +921,7 @@ CONTAINS
 
           IF (INDEX(vname, GRP_PREFIX) > 0) THEN
             ! this is a group identifier
-            grp_name = vname((LEN(TRIM(GRP_PREFIX))+1) : LEN(vname))
+            grp_name = vname((LEN(GRP_PREFIX)+1) : LEN(vname))
             ! loop over all variables and collects the variables names
             ! corresponding to the group "grp_name"
             CALL collect_group(grp_name, grp_vars, ngrp_vars,                           &
@@ -935,7 +935,7 @@ CONTAINS
             ! generate varlist where "grp_name" has been replaced;
             ! duplicates are removed
             CALL insert_group(varlist, VARNAME_LEN, ntotal_vars, &
-              &               TRIM(GRP_PREFIX)//TRIM(grp_name),  &
+              &               GRP_PREFIX//TRIM(grp_name),  &
               &               grp_vars(1:ngrp_vars), new_varlist)
             varlist(:) = new_varlist(:)
 

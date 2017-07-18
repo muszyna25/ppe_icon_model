@@ -79,7 +79,7 @@ MODULE mo_name_list_output_types
   !------------------------------------------------------------------------------------------------
 
   ! prefix for group identifier in output namelist
-  CHARACTER(len=6), PARAMETER :: GRP_PREFIX = "group:"
+  CHARACTER(len=*), PARAMETER :: GRP_PREFIX = "group:"
   ! prefix for tile-group identifier in output namelist
   CHARACTER(len=6), PARAMETER :: TILE_PREFIX = "tiles:"
 
