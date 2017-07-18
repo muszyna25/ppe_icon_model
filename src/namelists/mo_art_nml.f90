@@ -381,9 +381,6 @@ CONTAINS
       ! art number of tracers
       CALL art_calc_number_of_art_tracers(art_config(jg))
 
-      WRITE(*,*) iart_ntracer
-      WRITE(*,*) art_config(jg)%iart_ntracer
-
       IF ((iart_ntracer > -1)  &
          &  .AND. (art_config(jg)%iart_ntracer /= iart_ntracer)) THEN
         CALL finish('mo_art_nml:read_art_namelist',                              &
