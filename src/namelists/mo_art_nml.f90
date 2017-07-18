@@ -31,7 +31,7 @@ MODULE mo_art_nml
   USE mo_art_config,          ONLY: art_config, IART_PATH_LEN
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
-  USE mo_art_init_interface,  ONLY: art_calc_number_of_art_tracers
+  USE mo_art_init_interface,  ONLY: art_calc_number_of_art_tracers_xml
   
   IMPLICIT NONE
   PRIVATE
@@ -145,6 +145,8 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg          !< patch loop index
+    INTEGER :: auto_ntracer      !< automatically computed number of tracers
+    INTEGER :: auto_ntracer_xml  !< art ntracer from one xml file
     LOGICAL :: l_exist, l_dir_exist     !< variable for inquiring if the xml file 
                                         !   and emission base path exist.
     CHARACTER(LEN = 2) :: str_dom  !< number of domain as string
@@ -244,12 +246,6 @@ CONTAINS
 
     IF (lart) THEN
 
-      IF (iart_ntracer > -1) THEN
-        CALL message('WARNING',  &
-          &          'Namelist parameter iart_ntracer of art_nml is obsolete '  &
-          &        //'and will be removed soon.')
-      END IF
-
     
       IF (iart_aci_cold == 6 .AND. iart_dust == 0) THEN
         CALL finish('mo_art_nml:read_art_namelist',  &
@@ -271,6 +267,7 @@ CONTAINS
         END IF
       END IF
   
+      auto_ntracer = 0
       ! chemistry xml file
       IF (lart_chem) THEN
         IF (TRIM(cart_chemistry_xml) == '') THEN
@@ -279,7 +276,11 @@ CONTAINS
         ELSE
           INQUIRE(file = TRIM(cart_chemistry_xml), EXIST = l_exist)
   
-          IF (.NOT. l_exist) THEN
+          IF (l_exist) THEN
+            CALL art_calc_number_of_art_tracers_xml(TRIM(cart_chemistry_xml),  &
+                                   &                auto_ntracer_xml)
+            auto_ntracer = auto_ntracer + auto_ntracer_xml
+          ELSE
             CALL finish('mo_art_nml:read_art_namelist',  &
                         TRIM(cart_chemistry_xml)//  &
                         & ' could not be found. Check cart_chemistry_xml.')
@@ -295,7 +296,11 @@ CONTAINS
         ELSE
           INQUIRE(file = TRIM(cart_aerosol_xml), EXIST = l_exist)
   
-          IF (.NOT. l_exist) THEN
+          IF (l_exist) THEN
+            CALL art_calc_number_of_art_tracers_xml(TRIM(cart_aerosol_xml),  &
+                                   &                auto_ntracer_xml)
+            auto_ntracer = auto_ntracer + auto_ntracer_xml
+          ELSE
             CALL finish('mo_art_nml:read_art_namelist',  &
                         TRIM(cart_aerosol_xml)//  &
                         & ' could not be found. Check cart_aerosol_xml.')
@@ -311,13 +316,33 @@ CONTAINS
         ELSE
           INQUIRE(file = TRIM(cart_passive_xml), EXIST = l_exist)
   
-          IF (.NOT. l_exist) THEN
+          IF (l_exist) THEN
+            CALL art_calc_number_of_art_tracers_xml(TRIM(cart_passive_xml),  &
+                                   &                auto_ntracer_xml)
+            auto_ntracer = auto_ntracer + auto_ntracer_xml
+          ELSE
             CALL finish('mo_art_nml:read_art_namelist',  &
                         TRIM(cart_passive_xml)//  &
                         & ' could not be found. Check cart_passive_xml.')
           END IF
         END IF
       END IF
+
+      IF (iart_ntracer > -1) THEN
+        CALL message('WARNING',  &
+          &          'Namelist parameter iart_ntracer of art_nml is obsolete '  &
+          &        //'and will be removed soon.')
+      END IF
+
+
+      IF ((iart_ntracer > -1)  &
+         &  .AND. (auto_ntracer /= iart_ntracer)) THEN
+        CALL finish('mo_art_nml:read_art_namelist',                              &
+              &     'The given namelist parameter iart_ntracer is not equal to ' &
+              &   //'the automatically computed one. This namelist parameter '   &
+              &   //'is obsolete so just remove it from your art_nml.')
+      END IF
+          
 
     END IF  ! lart
 
@@ -379,16 +404,7 @@ CONTAINS
       art_config(jg)%lart_turb           = lart_turb
 
       ! art number of tracers
-      CALL art_calc_number_of_art_tracers(art_config(jg))
-
-      IF ((iart_ntracer > -1)  &
-         &  .AND. (art_config(jg)%iart_ntracer /= iart_ntracer)) THEN
-        CALL finish('mo_art_nml:read_art_namelist',                              &
-              &     'The given namelist parameter iart_ntracer is not equal to ' &
-              &   //'the automatically computed one. This namelist parameter '   &
-              &   //'is obsolete so just remove it from your art_nml.')
-      END IF
-          
+      art_config(jg)%iart_ntracer        = auto_ntracer 
     ENDDO !jg
 
     !-----------------------------------------------------
