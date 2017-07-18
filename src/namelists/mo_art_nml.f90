@@ -45,6 +45,7 @@ MODULE mo_art_nml
   ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_input_folder             !< Absolute Path to ART source code
+  INTEGER :: iart_ntracer            !< number transported ART tracers
   INTEGER :: iart_init_aero          !< Initialization of aerosol species
   INTEGER :: iart_init_passive       !< Initialization of passive species
   INTEGER :: iart_init_gas           !< Initialization of gaseous species
@@ -112,7 +113,7 @@ MODULE mo_art_nml
    &                iart_volcano, cart_volcano_file, iart_radioact,                    &
    &                cart_radioact_file, iart_pollen, iart_nonsph,                      &
    &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
-   &                lart_conv, lart_turb, iart_init_aero, iart_init_gas,               &
+   &                lart_conv, iart_ntracer, lart_turb, iart_init_aero, iart_init_gas, &
    &                lart_diag_out, cart_emiss_xml_file,                                &
    &                cart_vortex_init_date , cart_cheminit_file, cart_cheminit_coord,   & 
    &                cart_cheminit_type,                                                &
@@ -157,6 +158,7 @@ CONTAINS
       
     ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
     cart_input_folder          = ''
+    iart_ntracer               = -1    !< default value if it is not given
     iart_init_aero             = 0
     iart_init_passive          = 0
     iart_init_gas              = 0
@@ -241,6 +243,13 @@ CONTAINS
     !----------------------------------------------------
 
     IF (lart) THEN
+
+      IF (iart_ntracer > -1) THEN
+        CALL message('WARNING',  &
+          &          'Namelist parameter iart_ntracer of art_nml is obsolete '  &
+          &        //'and will be removed soon.')
+      END IF
+
     
       IF (iart_aci_cold == 6 .AND. iart_dust == 0) THEN
         CALL finish('mo_art_nml:read_art_namelist',  &
@@ -371,6 +380,18 @@ CONTAINS
 
       ! art number of tracers
       CALL art_calc_number_of_art_tracers(art_config(jg))
+
+      WRITE(*,*) iart_ntracer
+      WRITE(*,*) art_config(jg)%iart_ntracer
+
+      IF ((iart_ntracer > -1)  &
+         &  .AND. (art_config(jg)%iart_ntracer /= iart_ntracer)) THEN
+        CALL finish('mo_art_nml:read_art_namelist',                              &
+              &     'The given namelist parameter iart_ntracer is not equal to ' &
+              &   //'the automatically computed one. This namelist parameter '   &
+              &   //'is obsolete so just remove it from your art_nml.')
+      END IF
+          
     ENDDO !jg
 
     !-----------------------------------------------------
