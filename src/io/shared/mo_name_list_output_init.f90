@@ -956,10 +956,7 @@ CONTAINS
           nvars = nvars + 1
         END DO
 
-        IF (i_typ == level_type_ml)  p_onl%ml_varlist(1:nvars) = varlist(1:nvars)
-        IF (i_typ == level_type_pl)  p_onl%pl_varlist(1:nvars) = varlist(1:nvars)
-        IF (i_typ == level_type_hl)  p_onl%hl_varlist(1:nvars) = varlist(1:nvars)
-        IF (i_typ == level_type_il)  p_onl%il_varlist(1:nvars) = varlist(1:nvars)
+        in_varlist(1:nvars) = varlist(1:nvars)
 
         ! second step: look for "subtraction" of variables groups ("-varname"):
         nsubtract_vars = 0
