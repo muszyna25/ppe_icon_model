@@ -841,7 +841,7 @@ CONTAINS
     CHARACTER(LEN=VARNAME_LEN)              :: vname, grp_name
     INTEGER                                 :: nvars, ngrp_vars, i_typ, ierrstat, &
       &                                        ivar, ntotal_vars, jvar, i,        &
-      &                                        nsubtract_vars
+      &                                        nsubtract_vars, tlen
     CHARACTER(LEN=vname_len),  POINTER      :: in_varlist(:)
     TYPE (t_output_name_list), POINTER      :: p_onl
 
@@ -892,7 +892,8 @@ CONTAINS
             ! translate group name from GRIB2 to internal nomenclature, if necessary
             grp_name = dict_get(varnames_dict, grp_name, grp_name)
 
-            grp_name(len_trim(grp_name)+1:len_trim(grp_name)+3) ="_t"
+            tlen = len_trim(grp_name)
+            grp_name(tlen+1:tlen+3) ="_t"
             ! loop over all variables and collects the variables names
             ! corresponding to the group "grp_name"
             CALL collect_group(grp_name, grp_vars, ngrp_vars,                           &
