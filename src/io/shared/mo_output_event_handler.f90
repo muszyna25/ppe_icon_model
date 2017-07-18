@@ -645,7 +645,7 @@ CONTAINS
 
     TYPE(tmp_container), ALLOCATABLE, TARGET :: mtime_date_container_a(:)
     TYPE(tmp_container), ALLOCATABLE, TARGET :: mtime_date_container_b(:)  
-    TYPE(tmp_container), ALLOCATABLE, TARGET :: tmp(:)
+    TYPE(tmp_container), ALLOCATABLE :: tmp(:)
     TYPE(tmp_container), ALLOCATABLE :: mtime_date_uniq(:)
     
     TYPE(tmp_container), POINTER :: mtime_date_container(:) => NULL()
