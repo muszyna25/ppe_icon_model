@@ -32,6 +32,9 @@ MODULE mo_storage
 
   INTEGER,PARAMETER :: stringVal_len= 120  !< Maximum allowed length for string keys or values
 
+  INTEGER(C_INT32_T), PARAMETER :: i32_t = 0
+  INTEGER(C_INT64_T), PARAMETER :: p32 = INT(HUGE(i32_t), C_INT64_T) + 1 
+
 
   TYPE, EXTENDS(t_Destructible) :: t_scalarVal
     PRIVATE
@@ -386,7 +389,6 @@ INTEGER(C_INT32_T) FUNCTION storage_hashKey_DJB_cs(key) RESULT(result)
 ! Create hash key as proposed by Daniel J. Bernstein
   CLASS(t_Destructible), POINTER, INTENT(in) :: key
 ! Local
-  INTEGER(C_INT64_T), PARAMETER :: p = INT(HUGE(RESULT), C_INT64_T) + 1 
   integer :: i
   CHARACTER(LEN=*), PARAMETER    :: routine = modname//":storage_hashKey_DJB"
   INTEGER(C_INT64_T) :: t 
@@ -397,7 +399,7 @@ INTEGER(C_INT32_T) FUNCTION storage_hashKey_DJB_cs(key) RESULT(result)
     TYPE IS(t_stringVal)
       do i=1,len(TRIM(key%stringVal))
         t = ISHFT(RESULT,5)
-        RESULT = MOD( (t + RESULT) + ICHAR(key%stringVal(i:i)), p ) 
+        RESULT = MOD( (t + RESULT) + ICHAR(key%stringVal(i:i)), p32 ) 
       end do
     CLASS DEFAULT
       CALL finish(routine, "Unknown type for key.")
@@ -410,7 +412,6 @@ INTEGER(C_INT32_T) FUNCTION storage_hashKey_DJB_ci(key) RESULT(result)
 ! Create hash key as proposed by Daniel J. Bernstein
   CLASS(t_Destructible), POINTER, INTENT(in) :: key
 ! Local
-  INTEGER(C_INT64_T), PARAMETER :: p = INT(HUGE(RESULT), C_INT64_T) + 1 
   integer :: i
   CHARACTER(LEN=*), PARAMETER    :: routine = modname//":storage_hashKey_DJB"
   INTEGER(C_INT64_T) :: t 
@@ -421,7 +422,7 @@ INTEGER(C_INT32_T) FUNCTION storage_hashKey_DJB_ci(key) RESULT(result)
     TYPE IS(t_stringVal)
       do i=1,len(TRIM(key%stringVal))
         t = ISHFT(RESULT,5)
-        RESULT = MOD( (t + RESULT) + ICHAR(tolower(key%stringVal(i:i))), p ) 
+        RESULT = MOD( (t + RESULT) + ICHAR(tolower(key%stringVal(i:i))), p32 ) 
       end do
     CLASS DEFAULT
       CALL finish(routine, "Unknown type for key.")
