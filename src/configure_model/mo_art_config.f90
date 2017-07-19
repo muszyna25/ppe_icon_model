@@ -94,6 +94,8 @@ MODULE mo_art_config
       &  cart_modes_xml               !< Path to XML file for modes
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_pntSrc_xml              !< Path to XML file for point sources
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_diagnostics_xml         !< Path to XML file for aerosol diagnostics (GRIB2 meta data)
 
     ! Atmospheric Aerosol (Details: cf. Tab. 2.4 ICON-ART User Guide)
     LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol

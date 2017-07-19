@@ -1,7 +1,7 @@
 !>
 !! Namelist for ART-package
 !!
-!! Subroutine is called by read_atmo_namelists for setting up the ART-package 
+!! Subroutine is called by read_atmo_namelists for setting up the ART-package
 !!
 !! @author Daniel Reinert, DWD
 !! @author Kristina Lundgren, KIT
@@ -41,7 +41,7 @@ MODULE mo_art_nml
   !----------------------------------!
   ! art_nml namelist variables       !
   !----------------------------------!
-  
+
   ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_input_folder             !< Absolute Path to ART source code
@@ -56,7 +56,7 @@ MODULE mo_art_nml
    &  cart_io_suffix(1:max_dom)      !< user given suffix instead of automatically generated grid number 
                                      !  in ICON-ART input filename convention: 
                                      !  ART_iconR<n>B<kk>-grid-<yyyy-mm-dd-hh>_<grid_suffix>.nc
-    
+
   ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
   LOGICAL :: lart_chem               !< Main switch to enable chemistry
   LOGICAL :: lart_passive            !< Main switch to enable passive tracers
@@ -83,6 +83,8 @@ MODULE mo_art_nml
     &  cart_modes_xml                !< Path to XML file for modes
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_pntSrc_xml               !< Path to XML file for point sources
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_diagnostics_xml          !< Path to XML file for aerosol diagnostics (GRIB2 meta data)
   ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
   LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
   INTEGER :: iart_seasalt            !< Treatment of sea salt aerosol
@@ -97,12 +99,12 @@ MODULE mo_art_nml
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_radioact_file            !< Absolute path + filename of input file for radioactive emissions
   INTEGER :: iart_pollen             !< Treatment of pollen
-    
+
   ! Feedback processes (Details: cf. Tab. 2.4 ICON-ART User Guide)
   INTEGER :: iart_aci_warm           !< Nucleation of aerosol to cloud droplets
   INTEGER :: iart_aci_cold           !< Nucleation of aerosol to cloud ice
   INTEGER :: iart_ari                !< Direct interaction of aerosol with radiation
-    
+
   ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
   LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
   LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
@@ -115,22 +117,22 @@ MODULE mo_art_nml
    &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
    &                lart_conv, iart_ntracer, lart_turb, iart_init_aero, iart_init_gas, &
    &                lart_diag_out, cart_emiss_xml_file,                                &
-   &                cart_vortex_init_date , cart_cheminit_file, cart_cheminit_coord,   & 
+   &                cart_vortex_init_date , cart_cheminit_file, cart_cheminit_coord,   &
    &                cart_cheminit_type,                                                &
    &                lart_emiss_turbdiff,                                               &
    &                cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml,            &
-   &                cart_modes_xml, cart_pntSrc_xml, cart_io_suffix, iart_init_passive,&
-   &                iart_psc
+   &                cart_modes_xml, cart_pntSrc_xml, cart_diagnostics_xml,             &
+   &                cart_io_suffix, iart_init_passive, iart_psc
 
 CONTAINS
   !-------------------------------------------------------------------------
   !>
-  !! Read Namelist for ART-package. 
+  !! Read Namelist for ART-package.
   !!
-  !! This subroutine 
+  !! This subroutine
   !! - reads the Namelist for the ART-package
   !! - sets default values
-  !! - potentially overwrites the defaults by values used in a 
+  !! - potentially overwrites the defaults by values used in a
   !!   previous integration (if this is a resumed run)
   !! - reads the user's (new) specifications
   !! - stores the Namelist for restart
@@ -155,9 +157,9 @@ CONTAINS
     INTEGER :: iunit
 
     !-----------------------
-    ! 1. default settings   
+    ! 1. default settings
     !-----------------------
-      
+
     ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
     cart_input_folder          = ''
     iart_ntracer               = -1    !< default value if it is not given
@@ -168,7 +170,7 @@ CONTAINS
     lart_pntSrc                = .FALSE.
     lart_emiss_turbdiff        = .FALSE.
     cart_io_suffix(1:max_dom)  = 'grid-number'
-      
+
     ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
     lart_chem             = .FALSE.
     lart_passive          = .FALSE.
@@ -179,13 +181,14 @@ CONTAINS
     cart_cheminit_file    = ''
     cart_cheminit_coord   = ''
     cart_cheminit_type    = ''
-    
+
     ! Paths and filenames of XML configuration
     cart_chemistry_xml    = ''
     cart_aerosol_xml      = ''
     cart_passive_xml      = ''
     cart_modes_xml        = ''
     cart_pntSrc_xml       = ''
+    cart_diagnostics_xml  = ''
 
     ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
     lart_aerosol        = .FALSE.
@@ -199,18 +202,18 @@ CONTAINS
     cart_radioact_file  = ''
     iart_pollen         = 0
     iart_nonsph         = 0
-      
+
     ! Feedback processes (Details: cf. Tab. 2.4 ICON-ART User Guide)
     iart_aci_warm       = 0
     iart_aci_cold       = 0
     iart_ari            = 0
-      
+
     ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
     lart_conv           = .TRUE.
     lart_turb           = .TRUE.
-    
+
     !------------------------------------------------------------------
-    ! 2. If this is a resumed integration, overwrite the defaults above 
+    ! 2. If this is a resumed integration, overwrite the defaults above
     !    by values used in the previous integration.
     !------------------------------------------------------------------
     IF (use_restart_namelists()) THEN
@@ -347,10 +350,21 @@ CONTAINS
     END IF  ! lart
 
 
+    ! Diagnostics paths and file
+    IF (TRIM(cart_diagnostics_xml) /= '') THEN
+      INQUIRE(file = TRIM(cart_diagnostics_xml), EXIST = l_exist)
+
+      IF (.NOT. l_exist) THEN
+        CALL finish('mo_art_nml:read_art_namelist',  &
+                    TRIM(cart_diagnostics_xml)//  &
+                    & ' could not be found. Check cart_diagnostics_xml.')
+      END IF
+    END IF
+
     !----------------------------------------------------
     ! 5. Fill the configuration state
     !----------------------------------------------------
-    
+
     DO jg= 1,max_dom !< Do not take into account reduced radiation grid
       ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
       art_config(jg)%cart_input_folder   = TRIM(cart_input_folder)
@@ -361,7 +375,7 @@ CONTAINS
       art_config(jg)%lart_pntSrc         = lart_pntSrc
       art_config(jg)%lart_emiss_turbdiff = lart_emiss_turbdiff
       art_config(jg)%cart_io_suffix      = TRIM(cart_io_suffix(jg))
-      
+
       ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
       art_config(jg)%lart_chem             = lart_chem
       art_config(jg)%lart_passive          = lart_passive
@@ -372,13 +386,14 @@ CONTAINS
       art_config(jg)%cart_cheminit_file    = TRIM(cart_cheminit_file)
       art_config(jg)%cart_cheminit_coord   = TRIM(cart_cheminit_coord)
       art_config(jg)%cart_cheminit_type    = TRIM(cart_cheminit_type)
-      
+
       ! Paths and filenames of XML configuration
       art_config(jg)%cart_chemistry_xml    = TRIM(cart_chemistry_xml)
       art_config(jg)%cart_aerosol_xml      = TRIM(cart_aerosol_xml)
       art_config(jg)%cart_passive_xml      = TRIM(cart_passive_xml)
       art_config(jg)%cart_modes_xml        = TRIM(cart_modes_xml)
       art_config(jg)%cart_pntSrc_xml       = TRIM(cart_pntSrc_xml)
+      art_config(jg)%cart_diagnostics_xml  = TRIM(cart_diagnostics_xml)
 
 
       ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
@@ -393,12 +408,12 @@ CONTAINS
       art_config(jg)%iart_radioact       = iart_radioact
       art_config(jg)%cart_radioact_file  = TRIM(cart_radioact_file)
       art_config(jg)%iart_pollen         = iart_pollen
-      
+
      ! Feedback processes (Details: cf. Tab. 2.4 ICON-ART User Guide)
       art_config(jg)%iart_aci_warm       = iart_aci_warm
       art_config(jg)%iart_aci_cold       = iart_aci_cold
       art_config(jg)%iart_ari            = iart_ari
-      
+
       ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
       art_config(jg)%lart_conv           = lart_conv
       art_config(jg)%lart_turb           = lart_turb
@@ -412,8 +427,8 @@ CONTAINS
     !-----------------------------------------------------
     IF(my_process_is_stdio())  THEN
       funit = open_tmpfile()
-      WRITE(funit,NML=art_nml)                    
-      CALL store_and_close_namelist(funit, 'art_nml')             
+      WRITE(funit,NML=art_nml)
+      CALL store_and_close_namelist(funit, 'art_nml')
     ENDIF
 
     ! 7. write the contents of the namelist to an ASCII file
