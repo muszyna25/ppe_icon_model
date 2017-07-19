@@ -18,7 +18,7 @@
 !!
 MODULE mo_storage
 
-  USE ISO_C_BINDING,                    ONLY: C_INT32_T
+  USE ISO_C_BINDING,                    ONLY: C_INT32_T, C_INT64_T
   USE mo_kind,                          ONLY: wp
   USE mo_exception,                     ONLY: finish
   USE mo_util_string,                   ONLY: tolower
@@ -386,15 +386,18 @@ INTEGER(C_INT32_T) FUNCTION storage_hashKey_DJB_cs(key) RESULT(result)
 ! Create hash key as proposed by Daniel J. Bernstein
   CLASS(t_Destructible), POINTER, INTENT(in) :: key
 ! Local
+  INTEGER(C_INT64_T), PARAMETER :: p = INT(HUGE(RESULT), C_INT64_T) + 1 
   integer :: i
   CHARACTER(LEN=*), PARAMETER    :: routine = modname//":storage_hashKey_DJB"
+  INTEGER(C_INT64_T) :: t 
 
   result = 5381
 
   SELECT TYPE(key)
     TYPE IS(t_stringVal)
       do i=1,len(TRIM(key%stringVal))
-        result = (ishft(result,5) + result) + ichar(key%stringVal(i:i))
+        t = ISHFT(RESULT,5)
+        RESULT = MOD( (t + RESULT) + ICHAR(key%stringVal(i:i)), p ) 
       end do
     CLASS DEFAULT
       CALL finish(routine, "Unknown type for key.")
@@ -407,15 +410,18 @@ INTEGER(C_INT32_T) FUNCTION storage_hashKey_DJB_ci(key) RESULT(result)
 ! Create hash key as proposed by Daniel J. Bernstein
   CLASS(t_Destructible), POINTER, INTENT(in) :: key
 ! Local
+  INTEGER(C_INT64_T), PARAMETER :: p = INT(HUGE(RESULT), C_INT64_T) + 1 
   integer :: i
   CHARACTER(LEN=*), PARAMETER    :: routine = modname//":storage_hashKey_DJB"
+  INTEGER(C_INT64_T) :: t 
 
   result = 5381
 
   SELECT TYPE(key)
     TYPE IS(t_stringVal)
       do i=1,len(TRIM(key%stringVal))
-        result = (ishft(result,5) + result) + ichar(tolower(key%stringVal(i:i)))
+        t = ISHFT(RESULT,5)
+        RESULT = MOD( (t + RESULT) + ICHAR(tolower(key%stringVal(i:i))), p ) 
       end do
     CLASS DEFAULT
       CALL finish(routine, "Unknown type for key.")
