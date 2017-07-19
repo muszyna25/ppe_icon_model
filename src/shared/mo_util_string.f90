@@ -722,8 +722,7 @@ CONTAINS
     END DO
     ! build the result string:
     i = 1
-    DO
-      IF (i>N) EXIT
+    DO WHILE (i <= n)
       IF (nnext(i) > 1) THEN
         IF (nnext(i) == 2) THEN
           dst = TRIM(dst)//TRIM(int2string(list(i)))//","//TRIM(int2string(list(i+1)))
