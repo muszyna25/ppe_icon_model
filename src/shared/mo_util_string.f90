@@ -519,29 +519,23 @@ CONTAINS
     INTEGER,                   INTENT(IN)    :: nitems2
     ! local variables
     INTEGER :: iwrite, iread, nitems_old, i
-    LOGICAL :: l_duplicate
 
     nitems_old = nitems1
 
     iwrite = 1
-    DO iread=1,nitems1
+    ITEM1_LOOP: DO iread=1,nitems_old
       ! check if item is in string list 2:
-      l_duplicate = .FALSE.
-      CHECK_LOOP : DO i=1,nitems2
-        IF (TRIM(str_list2(i)) == TRIM(str_list1(iread))) THEN
-          l_duplicate = .TRUE.
-          EXIT CHECK_LOOP
-        END IF
-      END DO CHECK_LOOP
-      IF (.NOT. l_duplicate) THEN
-        str_list1(iwrite) = str_list1(iread)
-        iwrite = iwrite + 1
-      END IF
-    END DO
+      DO i=1,nitems2
+        IF (str_list2(i) == str_list1(iread)) CYCLE ITEM1_LOOP
+      END DO
+      ! can only be reached for non-duplicate entries
+      IF (iwrite /= iread) str_list1(iwrite) = str_list1(iread)
+      iwrite = iwrite + 1
+    END DO ITEM1_LOOP
     nitems1 = iwrite-1
 
     ! clear the rest of the list
-    DO iwrite=(nitems1+1),nitems_old
+    DO iwrite=iwrite,nitems_old
       str_list1(iwrite) = ' '
     END DO
   END SUBROUTINE difference
