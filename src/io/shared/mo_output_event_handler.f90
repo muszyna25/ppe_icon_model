@@ -726,7 +726,7 @@ CONTAINS
     incl_end(:)   = .TRUE.
     DO iintvl=1,nintvls
       ! begin time stamp
-      dt_string = TRIM(begin_str(iintvl))
+      dt_string = begin_str(iintvl)
       char      = dt_string(1:1)
       SELECT CASE(char)
       CASE ('>')
@@ -736,7 +736,7 @@ CONTAINS
       begin_str2(iintvl) = dt_string
 
       ! end time stamp
-      dt_string = TRIM(end_str(iintvl))
+      dt_string = end_str(iintvl)
       char      = dt_string(1:1)
       SELECT CASE(char)
       CASE ('<')
