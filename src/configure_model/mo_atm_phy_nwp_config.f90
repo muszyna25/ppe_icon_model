@@ -464,7 +464,7 @@ CONTAINS
 
 
       ! screen printout of chosen physics timesteps
-      IF ( msg_level>=10 ) THEN
+      IF ( msg_level>=7 ) THEN
         CALL phy_nwp_print_dt (atm_phy_nwp_config = atm_phy_nwp_config(jg), &
           &                    dt_phy_orig        = dt_phy_orig(jg,:),      &
           &                    dt_phy             = dt_phy(jg,:),           &
