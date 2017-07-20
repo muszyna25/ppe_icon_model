@@ -161,7 +161,7 @@ MODULE mo_initicon_utils
 
         ! Check for matching name (take care of suffix of
         ! time-dependent variables):
-        IF (TRIM(varname) == TRIM(tolower(get_var_name(element%field)))) THEN
+        IF (TRIM(tolower(varname)) == TRIM(tolower(get_var_name(element%field)))) THEN
           info => element%field%info
           EXIT
         ENDIF

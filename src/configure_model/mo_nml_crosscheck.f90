@@ -312,8 +312,9 @@ CONTAINS
             CALL finish(TRIM(method_name),'irad_aero=6 requires itopo=1')
           ENDIF
 
-          IF ( irad_aero /= 6 .AND. (atm_phy_nwp_config(jg)%icpl_aero_gscp > 0 .OR. icpl_aero_conv > 0)) THEN
-            CALL finish(TRIM(method_name),'aerosol-precipitation coupling requires irad_aero=6')
+          IF ( ( irad_aero /= 6 .AND. irad_aero /= 9 ) .AND.  &
+            &  ( atm_phy_nwp_config(jg)%icpl_aero_gscp > 0 .OR. icpl_aero_conv > 0 ) ) THEN
+            CALL finish(TRIM(method_name),'aerosol-precipitation coupling requires irad_aero=6 or =9')
           ENDIF
         ELSE
 
