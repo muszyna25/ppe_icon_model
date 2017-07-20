@@ -554,7 +554,7 @@ set_run_target_bullx()
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 4
+      set_default use_openmp_threads '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / 6))"'
       set_default use_mpi_procs_pernode '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / 2 / OMP_NUM_THREADS))"'
     else
       set_default use_mpi_procs_pernode '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / 2))"'
