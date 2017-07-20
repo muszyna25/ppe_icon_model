@@ -1381,6 +1381,7 @@ CONTAINS
                 &           ldims=shape3d, lrestart=.FALSE.,                &
                 &           tracer_info=info_dyn%tracer,                    &
                 &           loutput=.TRUE., new_element=new_element,        &
+                &           isteptype=info%isteptype,                       &
                 &           post_op=info%post_op, var_class=info%var_class, &
                 &           tlev_source=info%tlev_source )
 

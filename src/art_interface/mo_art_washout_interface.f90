@@ -93,7 +93,8 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
     &  istart, iend,         & !< Start and end of nproma loop
     &  i_rlstart, i_rlend,   & !< Relaxation start and end
     &  i_nchdom,             & !< Number of child domains
-    &  nlev                    !< Number of levels (equals index of lowest full level)
+    &  nlev,                 & !< Number of levels (equals index of lowest full level)
+    &  num_radioact            !< counter for number of radionuclides
   REAL(wp),POINTER        :: &
     &  rho(:,:,:)              !< Pointer to air density [kg m-3]
   REAL(wp),ALLOCATABLE    :: &
@@ -128,6 +129,8 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
           &                     istart,iend,1,nlev,jb,p_art_data(jg))
       ENDDO
       
+      num_radioact = 0
+
       this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
      
       DO WHILE(ASSOCIATED(this_mode))
@@ -191,17 +194,18 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
                 &                   tracer(:,:,jb,fields%itr))
             ENDDO
           CLASS IS (t_fields_radio)
+            num_radioact = num_radioact+1
             DO jb = i_startblk, i_endblk
               CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                 &                istart, iend, i_rlstart, i_rlend)
-              CALL art_washout_radioact(rho(:,:,jb), p_metrics%ddqz_z_full(:,:,jb),                 &
-                &                       tracer(:,:,jb,iqr),tracer(:,:,jb,iqs),                      &
-                &                       prm_diag%rain_gsp_rate(:,jb), prm_diag%rain_con_rate(:,jb), &
-                &                       prm_diag%rain_con_rate_3d(:,:,jb),                          &
-                &                       prm_diag%snow_gsp_rate(:,jb), prm_diag%snow_con_rate(:,jb), &
-                &                       prm_diag%snow_con_rate_3d(:,:,jb),                          &
-                &                       fields%itr, fields%imis, istart, iend, nlev, jb, dtime,     &
-                &                       tracer(:,:,jb,fields%itr),p_art_data(jg))
+              CALL art_washout_radioact(rho(:,:,jb), p_metrics%ddqz_z_full(:,:,jb),                          &
+                &                       tracer(:,:,jb,iqr),tracer(:,:,jb,iqs),                               &
+                &                       prm_diag%rain_gsp_rate(:,jb), prm_diag%rain_con_rate(:,jb),          &
+                &                       prm_diag%rain_con_rate_3d(:,:,jb),                                   &
+                &                       prm_diag%snow_gsp_rate(:,jb), prm_diag%snow_con_rate(:,jb),          &
+                &                       prm_diag%snow_con_rate_3d(:,:,jb), num_radioact,                     &
+                &                       fields%fac_wetdep, fields%exp_wetdep, istart, iend, nlev, jb, dtime, &
+                &                       tracer(:,:,jb,fields%itr), p_art_data(jg))
             ENDDO
           CLASS DEFAULT
             CALL finish('mo_art_washout_interface:art_washout_interface', &
