@@ -51,23 +51,23 @@ MODULE mo_output_event_types
   ! DEFINITIONS FOR CONVERSION "time stamp -> simulation step"
 
   !> Data structure containing all necessary data for mapping a time
-  !  stamp onto a corresponding simulation step index.
-  !
-  !  These data members correspond to the master_time_control_nml in
-  !  the following way:
-  !
-  !    ***************************  EXPERIMENT RUN   *************
-  !    *                                                         *
-  !    *                    ***  JOB RUN   ***                   *
-  !    *                    *                *                   *
-  !  --|--------------------[----------------]-------------------|---------------> (time axis)
-  !    ^                    ^                ^                   ^
-  !    tc_exp_startdate     tc_startdate     tc_stopdate         tc_exp_stopdate   (master_time_control_nml notation)
-  !
-  !    sim_start            run_start        restart_time        sim_end           (t_sim_step_info)
-  !    
-  !
-  !
+  !! stamp onto a corresponding simulation step index.
+  !!
+  !! These data members correspond to the master_time_control_nml in
+  !! the following way:
+  !!
+  !!   ***************************  EXPERIMENT RUN   *************
+  !!   *                                                         *
+  !!   *                    ***  JOB RUN   ***                   *
+  !!   *                    *                *                   *
+  !! --|--------------------[----------------]-------------------|---------------> (time axis)
+  !!   ^                    ^                ^                   ^
+  !!   tc_exp_startdate     tc_startdate     tc_stopdate         tc_exp_stopdate   (master_time_control_nml notation)
+  !!
+  !!   sim_start            run_start        restart_time        sim_end           (t_sim_step_info)
+  !!
+  !!
+  !!
   TYPE t_sim_step_info
     CHARACTER(len=MAX_DATETIME_STR_LEN)   :: sim_start, sim_end               !< simulation start/end time stamp
     CHARACTER(len=MAX_DATETIME_STR_LEN)   :: run_start                        !< start of this run (-> restart)
