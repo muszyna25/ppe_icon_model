@@ -2581,15 +2581,13 @@ CONTAINS
     CHARACTER(LEN=LEN_TRIM(dt_string)) :: strip_from_modifiers
     ! local variables
     CHARACTER :: char
-    CHARACTER(LEN=LEN(dt_string)) :: str
 
-    str  = TRIM(remove_whitespace(TRIM(dt_string)))
-    char = str(1:1)
+    strip_from_modifiers = remove_whitespace(dt_string)
+    char = strip_from_modifiers(1:1)
     SELECT CASE(char)
     CASE ('>','<')
-      str = str(2:)
+      strip_from_modifiers = strip_from_modifiers(2:)
     END SELECT
-    strip_from_modifiers = TRIM(str)
   END FUNCTION strip_from_modifiers
 
 END MODULE mo_output_event_handler
