@@ -60,7 +60,8 @@ MODULE mo_name_list_output_init
   USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference,                &
-    &                                             sort_and_compress_list, real2string
+    &                                             sort_and_compress_list,                         &
+    &                                             real2string, remove_whitespace
   USE mo_util_hash,                         ONLY: util_hashword
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
   USE mo_restart_attributes,                ONLY: t_RestartAttributeList, getAttributesForRestarting
@@ -139,7 +140,7 @@ MODULE mo_name_list_output_init
   USE mo_output_event_handler,              ONLY: new_parallel_output_event,                      &
     &                                             complete_event_setup, union_of_all_events,      &
     &                                             print_output_event,                             &
-    &                                             set_event_to_simstep, strip_from_modifiers
+    &                                             set_event_to_simstep
 #ifndef NOMPI
   USE mo_output_event_handler,              ONLY: trigger_output_step_irecv
 #endif
@@ -3166,5 +3167,25 @@ CONTAINS
 
 #endif
 ! NOMPI
+
+
+  !> Utility routine: Strip date-time stamp (string) from modifiers,
+  !  e.g. ">", "<".
+  !
+  !  @author F. Prill, DWD
+  !
+  FUNCTION strip_from_modifiers(dt_string)
+    CHARACTER(LEN=*), INTENT(IN) :: dt_string
+    CHARACTER(LEN=LEN_TRIM(dt_string)) :: strip_from_modifiers
+    ! local variables
+    CHARACTER :: char
+
+    strip_from_modifiers = remove_whitespace(dt_string)
+    char = strip_from_modifiers(1:1)
+    SELECT CASE(char)
+    CASE ('>','<')
+      strip_from_modifiers = strip_from_modifiers(2:)
+    END SELECT
+  END FUNCTION strip_from_modifiers
 
 END MODULE mo_name_list_output_init

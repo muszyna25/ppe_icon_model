@@ -122,7 +122,7 @@ MODULE mo_output_event_handler
   USE mo_impl_constants,         ONLY: SUCCESS, MAX_TIME_INTERVALS
   USE mo_exception,              ONLY: finish
   USE mo_io_units,               ONLY: FILENAME_MAX, find_next_free_unit
-  USE mo_util_string,            ONLY: int2string, remove_whitespace
+  USE mo_util_string,            ONLY: int2string
   USE mo_mpi,                    ONLY: p_int,                                               &
     &                                  p_pack_int, p_pack_string, p_pack_bool, p_pack_real, &
     &                                  p_unpack_int, p_unpack_string, p_unpack_bool,        &
@@ -185,7 +185,6 @@ MODULE mo_output_event_handler
   ! auxiliary functions
   PUBLIC :: print_output_event
   PUBLIC :: set_event_to_simstep
-  PUBLIC :: strip_from_modifiers
 
   INTERFACE deallocate_output_event
     MODULE PROCEDURE deallocate_output_event
@@ -2569,25 +2568,5 @@ CONTAINS
       END DO
     END DO
   END SUBROUTINE modify_filename
-
-
-  !> Utility routine: Strip date-time stamp (string) from modifiers,
-  !  e.g. ">", "<".
-  !
-  !  @author F. Prill, DWD
-  !
-  FUNCTION strip_from_modifiers(dt_string)
-    CHARACTER(LEN=*), INTENT(IN) :: dt_string
-    CHARACTER(LEN=LEN_TRIM(dt_string)) :: strip_from_modifiers
-    ! local variables
-    CHARACTER :: char
-
-    strip_from_modifiers = remove_whitespace(dt_string)
-    char = strip_from_modifiers(1:1)
-    SELECT CASE(char)
-    CASE ('>','<')
-      strip_from_modifiers = strip_from_modifiers(2:)
-    END SELECT
-  END FUNCTION strip_from_modifiers
 
 END MODULE mo_output_event_handler
