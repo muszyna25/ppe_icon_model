@@ -648,7 +648,7 @@ CONTAINS
     TYPE(tmp_container), ALLOCATABLE :: tmp(:)
     TYPE(tmp_container), ALLOCATABLE :: mtime_date_uniq(:)
     
-    TYPE(tmp_container), POINTER :: mtime_date_container(:) => NULL()
+    TYPE(tmp_container), POINTER :: mtime_date_container(:)
     
     INTEGER, ALLOCATABLE :: indices_to_use(:)
     INTEGER :: remaining_intvls, iselected_intvl
