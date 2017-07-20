@@ -870,6 +870,7 @@ CONTAINS
       tmp_jd => newJulianday(mtime_date_container_a(i)%day, mtime_date_container_a(i)%ms);      
       CALL getDatetimeFromJulianDay(tmp_jd, mtime_dates(i))
       CALL datetimeToString(mtime_dates(i), mtime_date_string(i))
+      CALL deallocateJulianday(tmp_jd)
     END DO
 
     ! Optional: Append the last event time step
