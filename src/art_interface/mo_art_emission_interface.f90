@@ -209,7 +209,8 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           CASE(1)
             CALL art_prepare_emission_dust(p_nh_state%diag%u(:,nlev,jb),p_nh_state%diag%v(:,nlev,jb),           &
               &          rho(:,nlev,jb),prm_diag%tcm(:,jb),p_diag_lnd%w_so(:,1,jb),p_diag_lnd%w_so_ice(:,1,jb), &
-              &          dzsoil(1),p_diag_lnd%h_snow(:,jb),jb,istart,iend,p_art_data(jg)%ext%soil_prop)
+              &          dzsoil(1),p_diag_lnd%h_snow(:,jb),jb,istart,iend,p_art_data(jg)%ext%soil_prop,         &
+              &          p_art_data(jg)%diag%ustar_threshold(:,jb),p_art_data(jg)%diag%ustar(:,jb))
           CASE(2)
             ! not available yet
           CASE default
@@ -279,6 +280,11 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
                       &             jb,istart,iend,'dusta',p_art_data(jg)%ext%soil_prop,emiss_rate(:,nlev))
+                    ! Compute emission rate [mug m-2 s-1] and collect for output
+                    p_art_data(jg)%diag%emiss_rate_dusta(:,jb) = emiss_rate(:,nlev)*dz(:,nlev)
+                    ! Accumulate emission rate 
+                    p_art_data(jg)%diag%acc_emiss_dusta(:,jb) = p_art_data(jg)%diag%acc_emiss_dusta(:,jb) &
+                                                              + dtime * p_art_data(jg)%diag%emiss_rate_dusta(:,jb)
                   CASE ('dustb')
                     CALL art_emission_dust(dz(:,nlev),                                                 &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub_eg),   &
@@ -287,6 +293,11 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
                       &             jb,istart,iend,'dustb',p_art_data(jg)%ext%soil_prop,emiss_rate(:,nlev))
+                    ! Compute emission rate [mug m-2 s-1] and collect for output
+                    p_art_data(jg)%diag%emiss_rate_dustb(:,jb) = emiss_rate(:,nlev)*dz(:,nlev)
+                    ! Accumulate emission rate 
+                    p_art_data(jg)%diag%acc_emiss_dustb(:,jb) = p_art_data(jg)%diag%acc_emiss_dustb(:,jb) &
+                                                              + dtime * p_art_data(jg)%diag%emiss_rate_dustb(:,jb)
                   CASE ('dustc')
                     CALL art_emission_dust(dz(:,nlev),                                                 &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub_eg),   &
@@ -295,6 +306,11 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
                       &             jb,istart,iend,'dustc',p_art_data(jg)%ext%soil_prop,emiss_rate(:,nlev))
+                    ! Compute emission rate [mug m-2 s-1] and collect for output
+                    p_art_data(jg)%diag%emiss_rate_dustc(:,jb) = emiss_rate(:,nlev)*dz(:,nlev)
+                    ! Accumulate emission rate 
+                    p_art_data(jg)%diag%acc_emiss_dustc(:,jb) = p_art_data(jg)%diag%acc_emiss_dustc(:,jb) &
+                                                              + dtime * p_art_data(jg)%diag%emiss_rate_dustc(:,jb)
                   CASE ('asha')
                     CALL art_calculate_emission_volc( jb, p_nh_state%metrics%ddqz_z_full(:,:,jb),      &
                       &             p_patch%cells%area(:,jb), nlev, p_art_data(jg)%ext%volc_data,      &
