@@ -759,12 +759,10 @@ CONTAINS
       iintvl = indices_to_use(iselected_intvl)
       
       mtime_begin => newDatetime(TRIM(begin_str2(iintvl)))
-      IF (.NOT. ASSOCIATED(mtime_begin))  THEN
-        CALL finish(routine, "date-time conversion error: "//TRIM(begin_str2(iintvl)))
-      END IF
       mtime_end   => newDatetime(TRIM(end_str2(iintvl)))
-      IF (.NOT. ASSOCIATED(mtime_end))  THEN
-        CALL finish(routine, "date-time conversion error: "//TRIM(end_str2(iintvl)))
+      IF (.NOT. ASSOCIATED(mtime_begin) .OR. .NOT. ASSOCIATED(mtime_end))  THEN
+        CALL finish(routine, "date-time conversion error: "&
+             //TRIM(begin_str2(iintvl))//" "//TRIM(end_str2(iintvl)))
       END IF
 
       mtime_date  => newDatetime(mtime_begin)
