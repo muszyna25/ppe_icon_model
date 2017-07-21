@@ -834,11 +834,11 @@ CONTAINS
 !$OMP DO ORDERED
     DO itid = 1, omp_get_num_threads()
       tid = omp_get_thread_num()
+!$OMP ORDERED
 #else
       tid = 1
 #endif
 
-!$OMP ORDERED
       CALL print_reportline(it1, timer_file_id, nd)
 #if defined(_OPENMP)
 !$OMP FLUSH

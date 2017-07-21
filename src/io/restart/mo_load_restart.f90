@@ -13,7 +13,8 @@
 
 MODULE mo_load_restart
     USE mo_cdi,                ONLY: streamOpenRead, streamInqVlist, streamClose, streamOpenRead, &
-      &                              streamReadVarSlice, vlistInqTaxis, vlistNvars,               &
+      &                              streamReadVarSlice, streamReadVarSliceF,                     &
+      &                              vlistInqTaxis, vlistNvars,                                   &
       &                              vlistInqVarName, vlistInqVarGrid, vlistInqVarZaxis,          &
       &                              taxisInqVdate, taxisInqVtime, zaxisInqType, zaxisInqSize,    &
       &                              gridInqSize, ZAXIS_SURFACE, cdiStringError

@@ -68,7 +68,8 @@ MODULE mo_name_list_output_zaxes
 
   USE ISO_C_BINDING,                        ONLY: C_SIGNED_CHAR
   USE mo_cdi,                               ONLY: CDI_UNDEFID, zaxisCreate, zaxisDefNumber, zaxisDefUUID, zaxisDefLevels, &
-                                                & zaxisDefLbounds, zaxisDefUbounds, zaxisDefVct, zaxisDefUnits, zaxisDefNlevRef
+                                                & zaxisDefLbounds, zaxisDefUbounds, zaxisDefVct, zaxisDefUnits,           &
+                                                & zaxisDefNlevRef, zaxisDefName
   USE mo_cdi_constants,                     ONLY: ZA_depth_below_sea, ZA_depth_below_sea_half, ZA_GENERIC_ICE, ZA_surface, &
                                                 & ZA_isentropic, ZA_altitude, ZA_pressure, ZA_cloud_base, ZA_cloud_top, &
                                                 & ZA_depth_below_land, ZA_depth_below_land_p1, ZA_depth_runoff_g, &

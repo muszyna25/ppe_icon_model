@@ -522,7 +522,7 @@ set_run_target_thunder()
 #SBATCH --output=$job_log_name.o
 #SBATCH --error=$job_log_name.o
 #SBATCH --partition=$queue
-# #SBATCH --workdir=$output_folder
+ #SBATCH --workdir=$output_folder
 #SBATCH --nodes=$use_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
@@ -862,30 +862,26 @@ set_run_target_daint_cpu()
   set_default use_nproma 16
   set_default use_nodes 1
   # use_OMP_SCHEDULE="static,1"
-  use_OMP_SCHEDULE="static,8"
+  use_OMP_SCHEDULE="static,12"
+  icon_data_rootFolder=${icon_data_rootFolder:=/scratch/snx3000/icontest/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/scratch/snx3000/icontest/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
     if [[ $use_openmp == "yes" ]]; then
       set_default use_mpi_procs_pernode 2
-      set_default use_openmp_threads 4
+      set_default use_openmp_threads 6
     else
-      set_default use_mpi_procs_pernode 8
+      set_default use_mpi_procs_pernode 12
     fi
   else
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 8
+      set_default use_openmp_threads 12
       set_default use_mpi_procs_pernode 1
      else
        is_serial_run="yes"
    fi
   fi
-
-  case x$use_queue in
-    "xcscs_develop" )
-      queue="viz"
-      ;;
-  esac
 
   case _$use_compiler in
     "_intel" )
@@ -896,16 +892,12 @@ set_run_target_daint_cpu()
         add_free_var OMP_WAIT_POLICY "active"
       ;;
   esac
-  # create header
-  start_header
 
   if [[ "$is_serial_run" == "yes"  ]] ; then
-    queue=${queue:="viz"}
     use_nodes=1
     tasks_per_node=1
     SBATCH_ntasks_per_node=""
- else
-    queue=${queue:="viz"}
+  else
     job_type=parallel
     tasks_per_node=$use_mpi_procs_pernode
     SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=2"
@@ -926,23 +918,25 @@ set_run_target_daint_cpu()
     # this is buldbot, do not run more than 45 minutes
     s_cpu_time="SBATCH --time=00:45:00"
   fi
-
   # ------------------------------------
 
   cat >> $output_script << EOF
 # =====================================
 # daint batch job parameters
 #-----------------------------------------------------------------------------
+#SBATCH --constraint=gpu
 #SBATCH --job-name=$job_name
-#SBATCH --output=$job_log_name.o
-#SBATCH --error=$job_log_name.o
-#SBATCH --partition=$queue
+#SBATCH --output=$output_folder/$job_log_name.o
+#SBATCH --error=$output_folder/$job_log_name.o
 # #SBATCH --workdir=$output_folder
 #SBATCH --nodes=$use_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
 #========================================
 EOF
+  # create header
+  start_header
+
 }
 
 #=============================================================================
@@ -952,6 +946,8 @@ set_run_target_daint_gpu()
   set_default use_nproma 256
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,1"
+  icon_data_rootFolder=${icon_data_rootFolder:=/scratch/snx3000/icontest/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/scratch/snx3000/icontest/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -970,12 +966,6 @@ set_run_target_daint_gpu()
    fi
   fi
 
-  case x$use_queue in
-    "xcscs_develop" )
-      queue="viz"
-      ;;
-  esac
-
   case _$use_compiler in
     "_intel" )
         use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
@@ -985,16 +975,12 @@ set_run_target_daint_gpu()
         add_free_var OMP_WAIT_POLICY "active"
       ;;
   esac
-  # create header
-  start_header
 
   if [[ "$is_serial_run" == "yes"  ]] ; then
-    queue=${queue:="viz"}
     use_nodes=1
     tasks_per_node=1
     SBATCH_ntasks_per_node=""
- else
-    queue=${queue:="viz"}
+  else
     job_type=parallel
     tasks_per_node=$use_mpi_procs_pernode
     SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=1"
@@ -1023,16 +1009,18 @@ set_run_target_daint_gpu()
 # =====================================
 # daint batch job parameters
 #-----------------------------------------------------------------------------
+#SBATCH --constraint=gpu
 #SBATCH --job-name=$job_name
-#SBATCH --output=$job_log_name.o
-#SBATCH --error=$job_log_name.o
-#SBATCH --partition=$queue
-# #SBATCH --workdir=$output_folder
+#SBATCH --output=$output_folder/$job_log_name.o
+#SBATCH --error=$output_folder/$job_log_name.o
+#SBATCH --workdir=$output_folder
 #SBATCH --nodes=$use_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
 #========================================
 EOF
+  # create header
+  start_header
 }
 
 #=============================================================================
@@ -1042,6 +1030,8 @@ set_run_target_dom_gpu()
   set_default use_nproma 256
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,1"
+  icon_data_rootFolder=${icon_data_rootFolder:=/scratch/snx3000/icontest}
+  icon_data_poolFolder=${icon_data_poolFolder:=/scratch/snx3000/icontest}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -1059,9 +1049,6 @@ set_run_target_dom_gpu()
        is_serial_run="yes"
    fi
   fi
-
-  # create header
-  start_header
 
   if [[ "$is_serial_run" == "yes"  ]] ; then
     use_nodes=1
@@ -1094,7 +1081,7 @@ set_run_target_dom_gpu()
 
   cat >> $output_script << EOF
 # =====================================
-# daint batch job parameters
+# dom batch job parameters
 #-----------------------------------------------------------------------------
 #SBATCH --job-name=$job_name
 #SBATCH --output=$job_log_name.o
@@ -1104,38 +1091,36 @@ set_run_target_dom_gpu()
 #$s_cpu_time
 #========================================
 EOF
+  # create header
+  start_header
 }
 
-set_run_target_dora()
+#=============================================================================
+set_run_target_tave_knl()
 {
 
   set_default use_nproma 16
   set_default use_nodes 1
-  # use_OMP_SCHEDULE="static,1"
-  use_OMP_SCHEDULE="static,12"
+  use_OMP_SCHEDULE="static,2"
+  icon_data_rootFolder=${icon_data_rootFolder:=/scratch/snx3000/icontest/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/scratch/snx3000/icontest/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_mpi_procs_pernode 2
-      set_default use_openmp_threads 12
+      set_default use_mpi_procs_pernode 60
+      set_default use_openmp_threads 2
     else
-      set_default use_mpi_procs_pernode 24
+      set_default use_mpi_procs_pernode 60
     fi
   else
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 24
-#      set_default use_mpi_procs_pernode 1
+      set_default use_openmp_threads 60
+      set_default use_mpi_procs_pernode 1
      else
        is_serial_run="yes"
    fi
   fi
-
-  case x$use_queue in
-    "xcscs_normal" )
-      queue="normal"
-      ;;
-  esac
 
   case _$use_compiler in
     "_intel" )
@@ -1146,19 +1131,15 @@ set_run_target_dora()
         add_free_var OMP_WAIT_POLICY "active"
       ;;
   esac
-  # create header
-  start_header
 
   if [[ "$is_serial_run" == "yes"  ]] ; then
-    queue=${queue:="normal"}
     use_nodes=1
     tasks_per_node=1
     SBATCH_ntasks_per_node=""
- else
-    queue=${queue:="normal"}
+  else
     job_type=parallel
     tasks_per_node=$use_mpi_procs_pernode
-    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=2"
+    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=32"
   fi
 
   if [[ "x$BB_SYSTEM" != "x" ]]; then
@@ -1167,7 +1148,6 @@ set_run_target_dora()
   else
     job_log_name="LOG.$job_name.%j"
   fi
-
   # ------------------------------------
   s_cpu_time=""
   if [[ "x$use_cpu_time" != "x" ]] ; then
@@ -1177,23 +1157,24 @@ set_run_target_dora()
     # this is buldbot, do not run more than 45 minutes
     s_cpu_time="SBATCH --time=00:45:00"
   fi
-
   # ------------------------------------
 
   cat >> $output_script << EOF
 # =====================================
-# thunder batch job parameters
+# daint batch job parameters
 #-----------------------------------------------------------------------------
 #SBATCH --job-name=$job_name
-#SBATCH --output=$job_log_name.o
-#SBATCH --error=$job_log_name.o
-#SBATCH --partition=$queue
+#SBATCH --output=$output_folder/$job_log_name.o
+#SBATCH --error=$output_folder/$job_log_name.o
 # #SBATCH --workdir=$output_folder
 #SBATCH --nodes=$use_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
 #========================================
 EOF
+  # create header
+  start_header
+
 }
 
 #=============================================================================

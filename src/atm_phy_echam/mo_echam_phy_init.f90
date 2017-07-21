@@ -259,10 +259,10 @@ CONTAINS
 
       IF (ilnd <= nsfc_type) THEN
 
-         ! read time-constant boundary conditions from files
-      
-         ! land, glacier and lake masks
-         stream_id = openInputFile(land_frac_fn, p_patch(jg), default_read_method)
+        ! read time-constant boundary conditions from files
+
+        ! land, glacier and lake masks
+        stream_id = openInputFile(land_frac_fn, p_patch(jg), default_read_method)
         CALL read_2D(stream_id=stream_id, location=on_cells,&
              &          variable_name='land',               &
              &          fill_array=prm_field(jg)%lsmask(:,:))
@@ -274,15 +274,19 @@ CONTAINS
              &          fill_array=prm_field(jg)% alake(:,:))
         CALL closeFile(stream_id)
         !
-        ! add lake mask to land sea mask to remove lakes again
-        prm_field(jg)%lsmask(:,:) = prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:)
+        ! At this point, %lsmask is the fraction of land (incl. glacier, but not lakes) in the grid box.
+        ! If running without lakes, add lake mask to %lsmask to remove lakes and set %alake to zero.
+        IF (.NOT. phy_config%llake) THEN
+          prm_field(jg)%lsmask(:,:) = prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:)
+          prm_field(jg)%alake (:,:) = 0._wp
+        END IF
 
         ! roughness length and background albedo
         stream_id = openInputFile(land_phys_fn, p_patch(jg), default_read_method)
 
         IF (phy_config%lvdiff) THEN
           CALL read_2D(stream_id=stream_id, location=on_cells, &
-                &       variable_name='z0',                    &
+                &       variable_name='roughness_length',      &
                 &       fill_array=prm_field(jg)% z0m(:,:))
         END IF
 
@@ -291,7 +295,7 @@ CONTAINS
              &       fill_array=prm_field(jg)% alb(:,:))
 
         CALL closeFile(stream_id)
-         
+
         ! orography
         IF (phy_config%lssodrag) THEN
           stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
@@ -318,6 +322,12 @@ CONTAINS
              &         fill_array=prm_field(jg)% oroval(:,:))
           CALL closeFile(stream_id)
         END IF
+
+      ELSE
+
+        prm_field(jg)%lsmask(:,:) = 0._wp
+        prm_field(jg)%glac  (:,:) = 0._wp
+        prm_field(jg)%alake (:,:) = 0._wp
 
       END IF
 
@@ -379,12 +389,17 @@ CONTAINS
         CALL read_bc_sst_sic(mtime_current%date%year, p_patch(1))
         !
         CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights, &
-             &                             prm_field(jg)%lsmask(:,:)         , &
+             &                             prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:) > 1._wp - 10._wp*EPSILON(1._wp), &
              &                             prm_field(jg)%ts_tile(:,:,iwtr)   , &
              &                             prm_field(jg)%seaice(:,:)         , &
              &                             prm_field(jg)%siced(:,:)          , &
              &                             p_patch(1)                        )
         !
+
+      ELSE
+
+        prm_field(jg)%seaice(:,:) = 0._wp
+
       END IF
 
     END DO
@@ -491,8 +506,17 @@ CONTAINS
       ! initial conditions
       field% qtrc (:,:,:,iqv) = qv(:,:,:)
       field% xvar (:,:,:)     = qv(:,:,:)*0.1_wp
+ 
+      field% swflxsfc_tile(:,:,:) = 0._wp
+      field% lwflxsfc_tile(:,:,:) = 0._wp
+
 !$OMP END WORKSHARE
 !$OMP END PARALLEL
+
+!$OMP PARALLEL WORKSHARE
+        field% ocu   (:,:)   = 0._wp
+        field% ocv   (:,:)   = 0._wp
+!$OMP END PARALLEL WORKSHARE
 
       IF (phy_config%lvdiff) THEN
         IF (iwtr<=nsfc_type) field% z0m_tile(:,:,iwtr) = 1e-3_wp !see init_surf in echam (or z0m_oce?)
@@ -578,6 +602,7 @@ CONTAINS
             field% ts_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
           END DO
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
         END DO
@@ -595,6 +620,7 @@ CONTAINS
             field% ts_tile(jc,jb,iwtr) = th_cbl(1)
           END DO
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
         END DO
@@ -629,6 +655,7 @@ CONTAINS
             ENDIF
           END DO
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
         END DO
 !$OMP END PARALLEL DO
@@ -658,6 +685,7 @@ CONTAINS
             field%seaice(jc,  jb) = field%conc(jc,1,jb)
           END DO
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
         END DO
 !$OMP END PARALLEL DO
@@ -672,6 +700,7 @@ CONTAINS
         DO jb = jbs,nblks_c
           CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
           field% lsmask(jcs:jce,jb) = 1._wp   ! land fraction = 1
+          field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
 
@@ -693,6 +722,7 @@ CONTAINS
           field% ts_tile(jcs:jce,jb,iwtr) = temp(jcs:jce,nlev,jb)
 
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
         END DO
@@ -706,12 +736,12 @@ CONTAINS
       DO jb = jbs,nblks_c
         CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
 
-        ! Initialize the flag lfland (.TRUE. if the fraction of land in
+        ! Initialize the flag lfland (.TRUE. if the fraction of land+lake in
         ! a grid box is larger than zero). In ECHAM a local array
         ! is initialized in each call of the subroutine "physc"
         DO jc = jcs,jce
-          field%lfland(jc,jb) = field%lsmask(jc,jb).GT.0._wp
-          field%lfglac(jc,jb) = field%glac  (jc,jb).GT.0._wp
+          field%lfland(jc,jb) = (field%lsmask(jc,jb) + field%alake(jc,jb)) > 0._wp
+          field%lfglac(jc,jb) = field%glac  (jc,jb) > 0._wp
         END DO
 
       END DO      !jb
@@ -805,13 +835,14 @@ CONTAINS
               field% ts     (jc,     jb) = field% ts_tile(jc,jb,iwtr)
             END DO
             field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+            field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
             field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
             field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
 
           END SELECT
 
         !--------------------------------------------------------------------
-        ! Initialize the flag lfland (.TRUE. if the fraction of land in
+        ! Initialize the flag lfland (.TRUE. if the fraction of land+lake in
         ! a grid box is larger than zero). In ECHAM a local array
         ! is initialized in each call of the subroutine "physc".
         ! Note that this initialization is needed for all resumed integrations
@@ -820,8 +851,8 @@ CONTAINS
         !--------------------------------------------------------------------
 
         DO jc = jcs,jce
-          field%lfland(jc,jb) = field%lsmask(jc,jb).GT.0._wp
-          field%lfglac(jc,jb) = field%glac  (jc,jb).GT.0._wp
+          field%lfland(jc,jb) = (field%lsmask(jc,jb) + field%alake(jc,jb)) > 0._wp
+          field%lfglac(jc,jb) = field%glac  (jc,jb) > 0._wp
         ENDDO !jc
       ENDDO   !jb
 !$OMP END DO NOWAIT

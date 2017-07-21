@@ -1438,12 +1438,15 @@ MODULE mo_initicon_utils
     initicon%const%z_ifc        => metrics%z_ifc
     initicon%const%z_mc         => metrics%z_mc
 
+!WS 2017-04-12:  ORDERED was added here to work around a CCE 8.5.5 bug
+!$OMP ORDERED
     CALL construct_atm_in(initicon%atm_in, initicon%const)
     CALL construct_sfc_in(initicon%sfc_in)
     CALL construct_atm(initicon%atm)
     CALL construct_atm_inc(initicon%atm_inc)
     CALL construct_sfc(initicon%sfc)
     CALL construct_sfc_inc(initicon%sfc_inc)
+!$OMP END ORDERED
 
 !-------------------------------------------------------------------------
 

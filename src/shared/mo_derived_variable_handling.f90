@@ -383,7 +383,7 @@ call print_summary("COPY variable:"//TRIM(name))
       & tlev_source=source_element%field%info%tlev_source, &
       & isteptype=source_element%field%info%isteptype, &
       & post_op=source_element%field%info%post_op, &
-      & initval_r=source_element%field%info%initval%rval, &
+      & initval_r=source_element%field%info%resetval%rval, &
       & resetval_r=source_element%field%info%resetval%rval, &
       & lmiss=source_element%field%info%lmiss, &
       & missval_r=source_element%field%info%missval%rval, &

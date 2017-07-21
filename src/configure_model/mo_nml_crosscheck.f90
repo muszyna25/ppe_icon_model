@@ -795,12 +795,14 @@ CONTAINS
       ENDIF 
 
       reference_dt => newDatetime("1980-06-01T00:00:00.000")
+
       IF (dt_checkpoint > 0._wp) THEN
         restart_time = MIN(dt_checkpoint, &
           &                0.001_wp * getTotalMilliSecondsTimeDelta(time_config%tc_dt_restart, reference_dt))
       ELSE
         restart_time = 0.001_wp * getTotalMilliSecondsTimeDelta(time_config%tc_dt_restart, reference_dt)
       ENDIF
+
       CALL deallocateDatetime(reference_dt)
       IF (.NOT. isRestart() .AND. (restart_time <= dt_iau+timeshift%dt_shift)) THEN
         WRITE (message_text,'(a)') "Restarting is not allowed within the IAU phase"
@@ -837,7 +839,8 @@ CONTAINS
     IF (echam_phy_config% ljsbach) THEN
       CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__, or set ljsbach=.FALSE.")
     ENDIF
-    echam_phy_config% ljsbach   = .FALSE.     
+    echam_phy_config% ljsbach   = .FALSE.
+    echam_phy_config% llake     = .FALSE.     
 #else
     IF (echam_phy_config% ljsbach) THEN
       CALL restartWritingParameters(opt_restartModule = restartModule)
@@ -848,6 +851,9 @@ CONTAINS
       IF (num_io_procs > 0) THEN
         CALL finish(method_name, "JSBACH currently doesn't work with asynchronous IO. Set num_io_procs=0 !")
       END IF
+    ELSE IF (echam_phy_config%llake) THEN
+      CALL message(TRIM(method_name), 'Setting llake = .FALSE. since ljsbach = .FALSE.')
+      echam_phy_config%llake = .FALSE.
     END IF
 #endif
 

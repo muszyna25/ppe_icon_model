@@ -41,6 +41,9 @@ MODULE mo_nh_supervise
   USE mo_sync,                ONLY: global_sum_array, global_max
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
+#ifdef _OPENACC
+  USE mo_mpi,                 ONLY: i_am_accel_node
+#endif
 
   IMPLICIT NONE
 
@@ -62,6 +65,15 @@ MODULE mo_nh_supervise
   PUBLIC :: init_supervise_nh
   PUBLIC :: finalize_supervise_nh
   PUBLIC :: supervise_total_integrals_nh, print_maxwinds
+
+#if defined( _OPENACC )
+#define ACC_DEBUG NOACC
+#if defined(__NH_SUPERVISE_NOACC)
+  LOGICAL, PARAMETER ::  acc_on = .FALSE.
+#else
+  LOGICAL, PARAMETER ::  acc_on = .TRUE.
+#endif
+#endif
 
 CONTAINS
 
@@ -253,7 +265,6 @@ CONTAINS
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
-
 
 #ifdef NOMPI
 
@@ -642,25 +653,42 @@ CONTAINS
     iendblk_e   = patch%edges%end_blk(min_rledge_int,i_nchdom)
     jg          = patch%id
 
+!$ACC DATA CREATE( vn_aux, w_aux ),  &
+!$ACC      COPY( vn_aux_lev, w_aux_lev ),                            &
+!$ACC      IF ( i_am_accel_node .AND. acc_on )
+
     IF (jg > 1 .OR. l_limited_area) THEN
+!$ACC KERNELS PRESENT( vn_aux, w_aux ), IF ( i_am_accel_node .AND. acc_on )
       vn_aux(1:MIN(istartblk_e,iendblk_e),:) = 0._wp
       w_aux (1:MIN(istartblk_c,iendblk_c),:) = 0._wp
+!$ACC END KERNELS
     ENDIF
 
+#ifdef _OPENACC
+!$ACC PARALLEL PRESENT( patch, vn, vn_aux ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#endif
     DO jb = istartblk_e, iendblk_e
 
       CALL get_indices_e(patch, jb, istartblk_e, iendblk_e, i_startidx, i_endidx, &
                          grf_bdywidth_e+1, min_rledge_int)
 
+!$ACC LOOP VECTOR
       DO jk = 1, patch%nlev
         vn_aux(jb,jk) = MAXVAL(ABS(vn(i_startidx:i_endidx,jk,jb)))
       ENDDO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!$ACC PARALLEL PRESENT( patch, w, w_aux ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
+#else
 !$OMP END DO
-
 !$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#endif
     DO jb = istartblk_c, iendblk_c
 
       CALL get_indices_c(patch, jb, istartblk_c, iendblk_c, i_startidx, i_endidx, &
@@ -670,21 +698,32 @@ CONTAINS
         w_aux(jb,jk) = MAXVAL(ABS(w(i_startidx:i_endidx,jk,jb)))
       ENDDO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!$ACC PARALLEL PRESENT( vn_aux, w_aux, vn_aux_lev, w_aux_lev), IF ( i_am_accel_node .AND. acc_on )
+!$ACC LOOP
+#else
 !$OMP END DO
-
 !$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
+#endif
     DO jk = 1, patch%nlev
       vn_aux_lev(jk) = MAXVAL(vn_aux(:,jk))
       w_aux_lev (jk) = MAXVAL(w_aux(:,jk))
     END DO
-!$OMP END DO
 
+#ifdef _OPENACC
+!$ACC END PARALLEL
+#else
+!$OMP END DO
 !$OMP END PARALLEL
+#endif
 
     ! Add surface level for w
     jk = patch%nlevp1
+!$ACC KERNELS PRESENT( w_aux, w_aux_lev ), IF ( i_am_accel_node .AND. acc_on )
     w_aux_lev (jk) = MAXVAL(w_aux(:,jk))
-
+!$ACC END KERNELS
+!$ACC END DATA
 
     !--- Get max over all PEs
     vmax(1)   = MAXVAL(vn_aux_lev(:))

@@ -69,7 +69,7 @@
     USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
     USE mo_initicon_types,      ONLY: t_init_state
     USE mo_cdi,                 ONLY: streamOpenRead, streamClose, streamInqVlist, vlistInqTaxis, &
-      &                               taxisInqVDate, taxisInqVTime
+      &                               taxisInqVDate, taxisInqVTime, cdiDecodeTime, cdiDecodeDate
     USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_util_cdi,            ONLY: cdiGetStringError
     USE mo_master_config,       ONLY: isRestart

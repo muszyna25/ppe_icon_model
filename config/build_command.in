@@ -8,7 +8,7 @@ shell_in_use=ksh
 #________________________________________________________________
 #
 
-set -eux
+set -eu
 
 # this script is out of our control:
 # contains undefined variables and silent errors
@@ -19,16 +19,6 @@ set -eu
 
 #________________________________________________________________
 #
-
-module_list() {
-    modversion=$(module --version 2>&1 | awk 'NR==1{print $0}')
-    if [ "x$modversion" = x"3.3.0" ]
-    then
-        module list -t 2>&1
-    else
-        module -t list 2>&1
-    fi
-}
 
 module_swap() {
     modversion=$(module --version 2>&1 | awk 'NR==1{print $0}')
@@ -42,8 +32,8 @@ module_swap() {
 }
 
 is_module_loaded() {
-    mod_base="^${1%%/*}"
-    module_load_status=$(module_list | awk -v p="$mod_base" '$0 ~ p { print $0}')
+    mod_base="${1%%/*}"
+    module_load_status=$(module list 2>&1 |  awk '{for (i=1; i <= NF; ++i) { print $i}; }' | grep ^${mod_base%%/*})
 
     if [ -z $module_load_status ]
     then
@@ -88,14 +78,14 @@ then
     echo
 
 
-    module_list=$(echo $load_modules_in_use | awk '{split($0,a," "); for(i=1;i<=length(a);i++){print a[i];}}')
-    current_prgenv=$(module_list | awk '/PrgEnv/{print}')
+    modules_to_load_list=$(echo $load_modules_in_use | awk '{split($0,a," "); for(i=1;i<=length(a);i++){print a[i];}}')
+    current_prgenv=$(module list -t 2>&1 | awk '/PrgEnv/{print}')
 
     if [ ! -z $current_prgenv ]
     then
         # module update on Cray
 
-        for mod in $module_list
+        for mod in $modules_to_load_list
         do
             if [ "${mod%%-*}" = "PrgEnv" ]
             then
@@ -106,13 +96,13 @@ then
         done
     else
         # module update on other systems, non-Cray
-        for mod in $module_list
+        for mod in $modules_to_load_list
         do
             is_module_loaded $mod || {
                 module load $mod
                 false
             } && {
-                mod_loaded=$(module_list | awk -v p="^${mod%%/*}$" '$0 ~ p { print $0}')
+                mod_loaded=$(module list -t 2>&1 | awk '{for (i=1; i <= NF; ++i) { print $i}; }' | grep ^${mod%%/*})
                 if [ "$mod_loaded" != "$mod" ]
                 then
                     module_swap "$mod_loaded" "$mod"
