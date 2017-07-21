@@ -1,7 +1,7 @@
 #! /bin/ksh
 # ----------------------------------------------------------------------------
 #PBS -q xc_norm_h
-#PBS -l select=20:ompthreads=4
+#PBS -l select=8:ompthreads=4
 #PBS -l place=scatter
 #PBS -l walltime=01:00:00
 #PBS -j oe
@@ -11,8 +11,12 @@
 #
 # Cray batch script for the ICON model
 #
-# Real-data test case starting with interpolated IFS input.
-# Setup with nest.
+# Initializes the Jablonowski Williamson test case with a 
+# mountain instead of the wind perturbation. 
+# Setup with multiple nests.
+# ----------------------------------------
+# VARIANT WITH RESTART (and patch weights)
+# ----------------------------------------
 #
 # Platform: Cray XC30
 #           xce.dwd.de
@@ -39,20 +43,17 @@ export ATP_MAX_CORES=0
 # path definitions
 # ----------------------------------------------------------------------------
 
+# root directory for input data
+DATAROOT=/lustre2/rwork0/routfor/test/icon/Checksuite_data/
+
 # directory with input grids:
-GRIDDIR=/e/uhome/gzaengl/icon-dev/experiments/GRF_R2B6N8_EUR2
-
-# directory with input data from IFS:
-IFSDATADIR=/e/uhome/gzaengl/icon-dev/experiments/PREPICON_OUT
-
-# directory with external parameter data:
-EXTPARDIR=/e/uhome/gzaengl/icon-dev/experiments/Extpar_R2B6N8
+GRIDDIR=${DATAROOT}/GRF_R2B4N6M
 
 # base directory for ICON sources and binary:
 ICONDIR=${PBS_O_WORKDIR}/../../
 
 # absolute path to directory with plenty of space:
-EXPDIR=$TMPDIR/../experiments/exp10
+EXPDIR=$TMPDIR/../experiments/exp07
 
 # path to model binary, including the executable:
 MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/icon
@@ -69,17 +70,12 @@ fi
 cd ${EXPDIR}
 
 # grid files
-ln -sf ${GRIDDIR}/iconR2B05_DOM00.nc iconR2B05_DOM00.nc
-ln -sf ${GRIDDIR}/iconR2B06_DOM01.nc iconR2B06_DOM01.nc
-ln -sf ${GRIDDIR}/iconR2B07_DOM02.nc iconR2B07_DOM02.nc
-
-# external parameter (from ExtPar tool)
-ln -sf ${EXTPARDIR}/extpar_R2B06_DOM01.nc extpar_iconR2B06_DOM01.nc
-ln -sf ${EXTPARDIR}/extpar_R2B07_DOM02.nc extpar_iconR2B07_DOM02.nc
-
-# interpolated IFS data
-ln -sf $IFSDATADIR/prepiconR2B06_DOM01_2012062100.nc ifs2icon_R2B06_DOM01.nc
-ln -sf $IFSDATADIR/prepiconR2B07_DOM02_2012062100.nc ifs2icon_R2B07_DOM02.nc
+ln -sf ${GRIDDIR}/iconR2B03_DOM00.nc iconR2B03_DOM00.nc
+ln -sf ${GRIDDIR}/iconR2B04_DOM01.nc iconR2B04_DOM01.nc
+ln -sf ${GRIDDIR}/iconR2B05_DOM02.nc iconR2B05_DOM02.nc
+ln -sf ${GRIDDIR}/iconR2B06_DOM03.nc iconR2B06_DOM03.nc
+ln -sf ${GRIDDIR}/iconR2B05_DOM04.nc iconR2B05_DOM04.nc
+ln -sf ${GRIDDIR}/iconR2B06_DOM05.nc iconR2B06_DOM05.nc
 
 # files needed for radiation
 ln -sf ${ICONDIR}/data/ECHAM6_CldOptProps.nc .
@@ -94,8 +90,8 @@ cp -p $MODEL icon
 # ----------------------------------------------------------------------------
 
 # the grid parameters
-atmo_dyn_grids="iconR2B06_DOM01.nc iconR2B07_DOM02.nc"
-atmo_rad_grids="iconR2B05_DOM00.nc"
+atmo_dyn_grids="iconR2B04_DOM01.nc iconR2B05_DOM02.nc iconR2B06_DOM03.nc iconR2B05_DOM04.nc iconR2B06_DOM05.nc"
+atmo_rad_grids="iconR2B03_DOM00.nc"
 
 # reconstruct the grid parameters in namelist form
 dynamics_grid_filename=""
@@ -109,6 +105,30 @@ done
 
 
 # ----------------------------------------------------------------------------
+# ============================================================================
+#                        LOOP: MODEL IS EXECUTED TWO TIMES
+# ============================================================================
+for iter in 1 2 ; do
+
+
+if [ $iter -eq 1 ] ; then
+
+restart="       .FALSE.  "
+nsteps="            50   "
+checkpoint="     57600.0 "
+nrest_procs="        1   "
+
+else
+
+restart="        .TRUE.  "
+nsteps="            60   "
+checkpoint="   4320000.0 "
+nrest_procs="        0   "
+
+fi
+
+
+# ----------------------------------------------------------------------------
 # create ICON master namelist
 # ----------------------------------------------------------------------------
 
@@ -116,7 +136,7 @@ cat > icon_master.namelist << EOF
 
 ! master_nml: ----------------------------------------------------------------
 &master_nml
- lrestart                   =                      .FALSE.        ! .TRUE.=current experiment is resumed
+ lrestart                   =                   ${restart}        ! .TRUE.=current experiment is resumed
 /
 
 ! master_model_nml: repeated for each model ----------------------------------
@@ -131,7 +151,7 @@ cat > icon_master.namelist << EOF
 
 ! time_nml: specification of date and time------------------------------------
 &time_nml
- ini_datetime_string         =      "2012-06-21T00:00:00Z"        ! initial date and time of the simulation
+ ini_datetime_string         =      "2011-01-01T00:00:00Z"        ! initial date and time of the simulation
 /
 
 EOF
@@ -148,24 +168,24 @@ cat > NAMELIST_NWP << EOF
 &parallel_nml
  nproma                      =                          8         ! loop chunk length
  p_test_run                  =                     .FALSE.        ! .TRUE. means verification run for MPI parallelization
- num_io_procs                =                          2         ! number of I/O processors
- num_restart_procs           =                          0         ! number of restart processors
+ num_io_procs                =                          1         ! number of I/O processors
+ num_restart_procs           =              ${nrest_procs}        ! number of restart processors
  iorder_sendrecv             =                          3         ! sequence of MPI send/receive calls
 /
 
 ! run_nml: general switches ---------------------------------------------------
 &run_nml
- ltestcase                   =                     .FALSE.        ! idealized testcase runs
- num_lev                     =                     90, 56         ! number of full levels (atm.) for each domain
+ ltestcase                   =                      .TRUE.        ! idealized testcase runs
+ num_lev                     =         90, 60, 54, 60, 54         ! number of full levels (atm.) for each domain
  lvert_nest                  =                      .TRUE.        ! vertical nesting
- nsteps                      =                        420         ! number of time steps of this run
- dtime                       =                        360         ! timestep in seconds
+ nsteps                      =                  ${nsteps}         ! number of time steps of this run
+ dtime                       =                       1440         ! timestep in seconds
  ldynamics                   =                      .TRUE.        ! compute adiabatic dynamic tendencies
  ltransport                  =                      .TRUE.        ! compute large-scale tracer transport
  ntracer                     =                          5         ! number of advected tracers
  iforcing                    =                          3         ! forcing of dynamics and transport by parameterized processes
- msg_level                   =                         12         ! controls how much printout is written during runtime
- ltimer                      =                      .TRUE.        ! timer for monitoring the runtime of specific routines
+ msg_level                   =                          7         ! controls how much printout is written during runtime
+ ltimer                      =                     .FALSE.        ! timer for monitoring the runtime of specific routines
  timers_level                =                         10         ! performance timer granularity
  output                      =                       "nml"        ! main switch for enabling/disabling components of the model output
 /
@@ -191,26 +211,19 @@ cat > NAMELIST_NWP << EOF
 
 ! extpar_nml: external data --------------------------------------------------
 &extpar_nml
- extpar_filename             =  "<path>extpar_<gridfile>"         ! filename of external parameter input file
- itopo                       =                          1         ! topography (0:analytical)
- n_iter_smooth_topo          =                          1         ! iterations of topography smoother
- heightdiff_threshold        =                       3000.0       ! height difference between neighb. grid points
-/
-
-! initicon_nml: specify read-in of initial state ------------------------------
-&initicon_nml
-  zpbl1                      =                        500.0       ! bottom height of layer used for gradient computation
-  zpbl2                      =                       1000.0       ! top height of layer used for gradient computation
+ extpar_filename             =                         ""         ! filename of external parameter input file
+ itopo                       =                          0         ! topography (0:analytical)
 /
 
 ! grid_nml: horizontal grid --------------------------------------------------
 &grid_nml
  dynamics_grid_filename      =  ${dynamics_grid_filename}         ! array of the grid filenames for the dycore
  radiation_grid_filename     = ${radiation_grid_filename}         ! array of the grid filenames for the radiation model
- dynamics_parent_grid_id     =                       0, 1         ! array of the indexes of the parent grid filenames
- lredgrid_phys               =               .TRUE.,.TRUE.        ! .true.=radiation is calculated on a reduced grid
+ dynamics_parent_grid_id     =              0, 1, 2, 1, 4         ! array of the indexes of the parent grid filenames
+ lredgrid_phys               = .TRUE.,.TRUE.,.TRUE.,.TRUE.,.TRUE. ! .true.=radiation is calculated on a reduced grid
  lfeedback                   =                      .TRUE.        ! specifies if feedback to parent grid is performed
  ifeedback_type              =                          2         ! feedback type (incremental/relaxation-based)
+ patch_weight                =      0., 0.33, 0., 0.67, 0.        ! perform processor splitting
 /
 
 ! gridref_nml: grid refinement and nesting -----------------------------------
@@ -224,8 +237,17 @@ cat > NAMELIST_NWP << EOF
 ! io_nml: general switches for model I/O -------------------------------------
 &io_nml
  dt_diag                     =                      21600.0       ! diagnostic integral output interval
- dt_checkpoint               =                     864000.0       ! time interval for writing restart files.
+ dt_checkpoint               =               ${checkpoint}        ! time interval for writing restart files.
  itype_pres_msl              =                          2         ! method for computation of mean sea level pressure
+/
+
+! nh_testcase_nml: idealized testcase specification --------------------------
+&nh_testcase_nml
+ nh_test_name                =                    'jabw_m'        ! testcase selection
+ mount_height                =                       7500.0       ! maximum mount height
+ mount_half_width            =                    2000000.0       ! half width of mountain
+ rh_at_1000hpa               =                          0.99      ! relative humidity at 1000 hPa
+ qv_max                      =                         35.e-3     ! specific humidity in the tropics
 /
 
 ! nonhydrostatic_nml: nonhydrostatic model -----------------------------------
@@ -246,7 +268,7 @@ cat > NAMELIST_NWP << EOF
  thslp_zdiffu                =                          0.02      ! slope threshold (temperature diffusion)
  thhgtd_zdiffu               =                        125.0       ! threshold of height difference (temperature diffusion)
  htop_moist_proc             =                      22500.0       ! max. height for moist physics
- hbot_qvsubstep              =                      19500.0       ! height above which QV is advected with substepping scheme
+ hbot_qvsubstep              =                      22500.0       ! height above which QV is advected with substepping scheme
 /
 
 ! nwp_phy_nml: switches for the physics schemes ------------------------------
@@ -257,10 +279,10 @@ cat > NAMELIST_NWP << EOF
  inwp_cldcover               =                          1         ! cloud cover scheme for radiation
  inwp_turb                   =                          1         ! vertical diffusion and transfer
  inwp_satad                  =                          1         ! saturation adjustment
- inwp_sso                    =                          1         ! subgrid scale orographic drag
+ inwp_sso                    =                          0         ! subgrid scale orographic drag
  inwp_gwd                    =                          1         ! non-orographic gravity wave drag
- inwp_surface                =                          1         ! surface scheme
- latm_above_top              =              .FALSE.,.TRUE.        ! take into account atmosphere above model top for radiation computation
+ inwp_surface                =                          0         ! surface scheme
+ latm_above_top              =.FALSE.,.TRUE.,.TRUE.,.TRUE.,.TRUE. !  take into account atmosphere above model top for radiation computation
  efdt_min_raylfric           =                       7200.0       ! minimum e-folding time of Rayleigh friction
  itype_z0                    =                          2         ! type of roughness length data
 /
@@ -269,7 +291,7 @@ cat > NAMELIST_NWP << EOF
 &output_nml
  filetype                    =                          4         ! output format: 2=GRIB2, 4=NETCDFv2
  dom                         =                         -1         ! write all domains
- output_bounds               =       0., 10000000., 10800.        ! output: start, end, increment
+ output_bounds               =       0., 10000000., 21600.        ! output: start, end, increment
  steps_per_file              =                          2         ! number of output steps in one output file
  mode                        =                          1         ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
  include_last                =                      .TRUE.        ! flag whether to include the last time step
@@ -278,28 +300,7 @@ cat > NAMELIST_NWP << EOF
  !
  ml_varlist                  =  'u', 'v', 'w', 'temp', 'pres','topography_c', 'pres_msl', 
                                 'qv', 'qc', 'qi', 'qr', 'qs', 'tke',                      
-                                'tkvm', 'tkvh', 'group:pbl_vars',                         
-                                'group:precip_vars',  'group:additional_precip_vars',     
-                                'group:land_vars', 'group:land_tile_vars',                
-                                'group:multisnow_vars'
-/
-
-! meteogram_output_nml: meteogram output for specified locations --------------
-&meteogram_output_nml
- lmeteogram_enabled          =                      .TRUE.        ! .TRUE.=meteogram of output variables is desired
- n0_mtgrm                    =                          0         ! initial time step for meteogram output
- ninc_mtgrm                  =                         10         ! meteogram output interval (in terms of time steps)
- ldistributed                =                     .FALSE.        ! .FALSE.=Do not separate files for each PE
- stationlist_tot             =  52.17,  14.12, 'Lindenberg',
-                                51.97,   4.93, 'Cabauw',
-                               -10.08, -61.93, 'LBA_Rondonia',
-                                13.50,   2.5 , 'Niamey',
-                                36.61, -97.49, 'ARM_Southern_Great_Plains',
-                               -71.32, 156.62, 'ARM_North_Slope_of_Alaska_Barrow',
-                                -2.06, 147.43, 'ARM_Tropical_W_Pacific_Manus',
-                               -12.43, 130.89, 'ARM_Tropical_W_Pacific_Darwin',
-                                60.00,  80.00, 'Snow Test Russia',
-                                50.00,   8.6 , 'Frankfurt-Flughafen'
+                                'group:precip_vars', 'group:additional_precip_vars'
 /
 
 ! sleve_nml: vertical level specification -------------------------------------
@@ -315,9 +316,8 @@ cat > NAMELIST_NWP << EOF
 
 ! radiation_nml: radiation scheme ---------------------------------------------
 &radiation_nml
- irad_o3                     =                          7         ! ozone climatology
- irad_aero                   =                          6         ! aerosols
- albedo_type                 =                          2         ! type of surface albedo
+ irad_o3                     =                          6         ! ozone climatology
+ irad_aero                   =                          5         ! aerosols
 /
 
 ! transport_nml: tracer transport ---------------------------------------------
@@ -331,25 +331,11 @@ cat > NAMELIST_NWP << EOF
 
 ! turbdiff_nml: turbulent diffusion -------------------------------------------
 &turbdiff_nml
- tkhmin                      =                          0.75      ! scaling factor for minimum vertical diffusion coefficient
- tkmmin                      =                          0.75      ! scaling factor for minimum vertical diffusion coefficient
+ tkhmin                      =                          0.2       ! scaling factor for minimum vertical diffusion coefficient
+ tkmmin                      =                          0.2       ! scaling factor for minimum vertical diffusion coefficient
  pat_len                     =                        100.0       ! 
  c_diff                      =                          0.2       !
- rat_sea                     =                          9.0       !
-/
-
-! lnd_nml: land scheme switches -----------------------------------------------
-&lnd_nml
- ntiles                      =                          3         ! number of tiles
- nlev_snow                   =                          2         ! number of snow layers
- lmulti_snow                 =                     .FALSE.        ! .TRUE. for use of multi-layer snow model
- idiag_snowfrac              =                          4         ! type of snow-fraction diagnosis
- lsnowtile                   =                      .TRUE.        ! .TRUE.=consider snow-covered and snow-free separately
- itype_root                  =                          2         ! root density distribution
- itype_heatcond              =                          2         ! type of soil heat conductivity
- itype_lndtbl                =                          2         ! table for associating surface parameters
- lseaice                     =                      .TRUE.        ! .TRUE. for use of sea-ice model
- llake                       =                      .TRUE.        ! .TRUE. for use of lake model
+ rat_sea                     =                         10         !
 /
 
 EOF
@@ -366,4 +352,9 @@ EOF
 # -j 2    : Hyperthreading enabled: 20 physical cores -> 40 "virtual" cores
 # -m 3g   : 3G memory/task
 
-aprun  -n 240 -N 12 -j 2 -d 4 -m 3g icon
+aprun  -n 96 -N 12 -j 2 -d 4 icon
+
+
+# ----------------------------------------------------------------------------
+done # iterations for restart testing
+# ----------------------------------------------------------------------------

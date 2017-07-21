@@ -37,6 +37,7 @@ experiment|checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.ocean_internal/technical/exp.ocean_omip_ptest|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_icoles_nested|cpu_time=00:30:00
+experiment|exp.test_nwp_R02B04N06_multifile_restart|
 builder|MISTRAL_intel_hybrid|--with-fortran=intel --with-openmp|Active
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|exp.nat_jww_nwp_mpiomp|cpu_time=00:30:00
@@ -93,6 +94,7 @@ experiment|checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.ocean_internal/technical/exp.ocean_omip_ptest|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_icoles_nested|cpu_time=00:30:00
+experiment|exp.test_nwp_R02B04N06_multifile_restart|
 builder|MISTRAL_nag|--with-fortran=nag|Active
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|exp.nat_jww_nwp_mpiomp|cpu_time=00:30:00
@@ -113,6 +115,7 @@ experiment|checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.ocean_internal/technical/exp.ocean_omip_ptest|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_icoles_nested|cpu_time=00:30:00
+experiment|exp.test_nwp_R02B04N06_multifile_restart|
 machine|dwd_cray|compute
 builder|DWD_cray|--with-fortran=cray|build_only
 builder|DWD_cray_production|--with-fortran=cray|Inactive

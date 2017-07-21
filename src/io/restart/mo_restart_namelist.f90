@@ -15,7 +15,7 @@ MODULE mo_restart_namelist
     USE mo_exception, ONLY: message, finish
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_io_units, ONLY: nerr, find_next_free_unit, filename_max
-    USE mo_mpi, ONLY: p_bcast, p_pe, p_comm_rank, p_get_bcast_role
+    USE mo_mpi, ONLY: p_pe, p_get_bcast_role
     USE mo_packed_message, ONLY: t_PackedMessage, kPackOp, kUnpackOp
     USE mo_util_file, ONLY: util_tmpnam, util_filesize, util_unlink
     USE mo_util_string, ONLY: tocompact
@@ -45,13 +45,19 @@ MODULE mo_restart_namelist
         PROCEDURE :: setNamelist => namelistArchive_setNamelist
         PROCEDURE :: getNamelist => namelistArchive_getNamelist
         PROCEDURE :: print => namelistArchive_print
-        PROCEDURE :: writeToCdiVlist => namelistArchive_writeToCdiVlist ! store the namelists as attributes to the given CDI vlistId, noncollective!
+
+        ! store the namelists as attributes to the given CDI vlistId, noncollective:
+        PROCEDURE :: writeToCdiVlist => namelistArchive_writeToCdiVlist
+
         PROCEDURE :: readFromFile => namelistArchive_readFromFile   ! noncollective!
         PROCEDURE :: packer => namelistArchive_packer
         PROCEDURE :: bcast => namelistArchive_bcast
         PROCEDURE :: reset => namelistArchive_reset
 
-        PROCEDURE, PRIVATE :: construct => namelistArchive_construct    ! singleton: namelistArchive() IS the ONLY point where a t_NamelistArchive IS constructed
+        ! singleton: namelistArchive() IS the ONLY point where a
+        ! t_NamelistArchive IS constructed:
+        PROCEDURE, PRIVATE :: construct => namelistArchive_construct
+
         PROCEDURE, PRIVATE :: find => namelistArchive_find  ! returns a new entry IF NONE exists yet
         ! no destructor since this IS a singleton that lives until the very END of the program run
     END TYPE t_NamelistArchive

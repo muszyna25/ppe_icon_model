@@ -170,6 +170,10 @@ MODULE mo_nwp_lnd_types
     &  wtot_snow    (:,:,:) , & ! total (liquid + solid) water content of snow  (m H2O)
     &  dzh_snow     (:,:,:)     ! layer thickness between half levels in snow   (  m  )
 
+    !> (Optional:) Additional diagnostic fields:
+    REAL(wp), POINTER ::  &
+    &  smi          (:,:,:)     ! soil moisture index                            (  -  )
+
     TYPE(t_ptr_2d3d), ALLOCATABLE :: qv_st_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: h_snow_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: freshsnow_ptr(:)

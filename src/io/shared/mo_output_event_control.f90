@@ -213,12 +213,13 @@ CONTAINS
     TYPE (t_keyword_list), POINTER      :: keywords     => NULL()
     CHARACTER(len=MAX_CHAR_LENGTH)      :: fname(nstrings)        ! list for duplicate check
     INTEGER                             :: ifname                 ! current length of "ifname"
-    TYPE(datetime),  POINTER            :: file_end, step_date, mtime_begin, &
+    TYPE(datetime),  POINTER            :: file_end, step_date, run_start, sim_start, &
       &                                    mtime_first, mtime_date
     TYPE(timedelta), POINTER            :: delta, forecast_delta
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string, forecast_delta_str
 
-    mtime_begin  => newDatetime(TRIM(sim_step_info%run_start))
+    run_start  => newDatetime(TRIM(sim_step_info%run_start))
+    sim_start  => newDatetime(TRIM(sim_step_info%sim_start))
 
     ! ---------------------------------------------------
     ! prescribe, which file is used in which output step.
@@ -230,7 +231,7 @@ CONTAINS
       mtime_first  => newDatetime(TRIM(date_string(1)))
       ! special treatment for the initial time step written at the
       ! begin of the simulation: The first file gets one extra entry
-      IF ( (mtime_begin == mtime_first)              .AND.  &
+      IF ( (run_start == mtime_first)              .AND.  &
         &  fname_metadata%steps_per_file_inclfirst   .AND.  &
         &  (fname_metadata%jfile_offset == 0) ) THEN
         result_fnames(1)%jfile = 1
@@ -323,7 +324,7 @@ CONTAINS
       CALL associate_keyword("<datetime>",        TRIM(date_string(i)),                                     keywords)
       ! keywords: compute current forecast time (delta):
       mtime_date => newDatetime(TRIM(date_string(i)))
-      forecast_delta = mtime_date - mtime_begin
+      forecast_delta = mtime_date - sim_start
       WRITE (forecast_delta_str,'(4(i2.2))') forecast_delta%day, forecast_delta%hour, &
         &                                    forecast_delta%minute, forecast_delta%second 
       CALL associate_keyword("<ddhhmmss>",        TRIM(forecast_delta_str),                                 keywords)
@@ -389,7 +390,8 @@ CONTAINS
     CALL deallocateTimedelta(forecast_delta)
 
     ! clean up
-    CALL deallocateDatetime(mtime_begin)
+    CALL deallocateDatetime(run_start)
+    CALL deallocateDatetime(sim_start)
 
   END FUNCTION generate_output_filenames
 

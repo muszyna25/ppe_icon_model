@@ -1314,38 +1314,38 @@ CONTAINS
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE add_data_one_value_real(statistic, value)
+  SUBROUTINE add_data_one_value_real(statistic, val)
     TYPE(t_statistic), INTENT(inout) :: statistic
-    REAL(wp), INTENT(in) :: value
+    REAL(wp), INTENT(in) :: val
     
-    CALL add_statistic_one_value(statistic%id, value)
+    CALL add_statistic_one_value(statistic%id, val)
   END SUBROUTINE add_data_one_value_real
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE add_data_one_value_int(statistic, value)
+  SUBROUTINE add_data_one_value_int(statistic, val)
     TYPE(t_statistic), INTENT(inout) :: statistic
-    INTEGER, INTENT(in) :: value
+    INTEGER, INTENT(in) :: val
     
-    CALL add_statistic_one_value(statistic%id, REAL(value,wp))
+    CALL add_statistic_one_value(statistic%id, REAL(val,wp))
   END SUBROUTINE add_data_one_value_int
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE add_statistic_one_value(statistic_id, value)
+  SUBROUTINE add_statistic_one_value(statistic_id, val)
     INTEGER, INTENT(in) :: statistic_id
-    REAL(wp), INTENT(in) :: value
+    REAL(wp), INTENT(in) :: val
     
     CALL check_active_statistic_id(statistic_id)
     
     statistic_object(statistic_id)%sum_of_values  = &
-      & statistic_object(statistic_id)%sum_of_values + value
+      & statistic_object(statistic_id)%sum_of_values + val
     statistic_object(statistic_id)%max_of_values  = &
-      & MAX(statistic_object(statistic_id)%max_of_values, value)
+      & MAX(statistic_object(statistic_id)%max_of_values, val)
     statistic_object(statistic_id)%min_of_values  = &
-      & MIN(statistic_object(statistic_id)%min_of_values, value)
+      & MIN(statistic_object(statistic_id)%min_of_values, val)
     
     statistic_object(statistic_id)%no_of_values   = &
       & statistic_object(statistic_id)%no_of_values + 1
