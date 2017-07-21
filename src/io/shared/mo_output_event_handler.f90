@@ -291,8 +291,7 @@ CONTAINS
     END DO
     event%n_event_steps = 0
     DEALLOCATE(event%event_step, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-    DEALLOCATE(event, STAT=ierrstat)
+    IF (ierrstat == SUCCESS) DEALLOCATE(event, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
   END SUBROUTINE deallocate_output_event
 
