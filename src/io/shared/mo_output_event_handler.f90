@@ -339,7 +339,7 @@ CONTAINS
   !        the called and will be closed by the caller.
   !
   SUBROUTINE print_output_event(event, opt_dstfile)
-    TYPE(t_output_event), POINTER             :: event           !< output event data structure
+    TYPE(t_output_event),          INTENT(IN) :: event           !< output event data structure
     INTEGER, OPTIONAL,             INTENT(IN) :: opt_dstfile     !< optional destination ASCII file unit
     ! local variables
     INTEGER                     :: i, j, irow, dst
@@ -395,55 +395,64 @@ CONTAINS
     CALL add_table_column(table, "close")
     irow = 0
     DO i=1,event%n_event_steps
-      event_step => event%event_step(i)
-      DO j=1,event_step%n_pes
-        irow = irow + 1
-        IF (j==1) THEN
-          CALL set_table_entry(table,irow,"model step", int2string(event_step%i_sim_step))
-          CALL set_table_entry(table,irow,"model date", TRIM(event_step%exact_date_string))
-        ELSE
-          CALL set_table_entry(table,irow,"model step", " ")
-          CALL set_table_entry(table,irow,"model date", " ")
-        END IF
-#ifdef __SX__
-        ! save some characters on SX:
-        IF ((LEN_TRIM(event_step%event_step_data(j)%filename_string) > 20) .AND. (dst == 0)) THEN
-          CALL set_table_entry(table,irow,"filename",    TRIM(event_step%event_step_data(j)%filename_string(1:20)//"..."))
-        ELSE
-          CALL set_table_entry(table,irow,"filename",    TRIM(event_step%event_step_data(j)%filename_string))
-        END IF
-#else
-        CALL set_table_entry(table,irow,"filename",    TRIM(event_step%event_step_data(j)%filename_string))
-#endif
-        CALL set_table_entry(table,irow,"I/O PE",      int2string(event_step%event_step_data(j)%i_pe))
-
-        CALL set_table_entry(table,irow,"output date", TRIM(event_step%event_step_data(j)%datetime_string))
-#ifdef __SX__
-        IF (dst /= 0) THEN
-#endif
-          ! do not add the file-part column on the NEC SX9, because we have a
-          ! line limit of 132 characters there
-          CALL set_table_entry(table,irow,"#",           &
-            & TRIM(int2string(event_step%event_step_data(j)%jfile))//"."//TRIM(int2string(event_step%event_step_data(j)%jpart)))
-#ifdef __SX__
-        END IF
-#endif
-        ! append "+ open" or "+ close" according to event step data:
-        IF (event_step%event_step_data(j)%l_open_file) THEN
-          CALL set_table_entry(table,irow,"open", "x")
-        ELSE
-          CALL set_table_entry(table,irow,"open", " ")
-        END IF
-        IF (event_step%event_step_data(j)%l_close_file) THEN
-          CALL set_table_entry(table,irow,"close","x")
-        ELSE
-          CALL set_table_entry(table,irow,"close"," ")
-        END IF
-      END DO
+      CALL tabulate_event_step(table, irow, dst, event%event_step(i))
     END DO
     CALL print_table(table, opt_delimiter='   ', opt_dstfile=dst)
     CALL finalize_table(table)
   END SUBROUTINE print_output_event
+
+  SUBROUTINE tabulate_event_step(table, irow, dst, event_step)
+    TYPE(t_table), INTENT(inout) :: table
+    INTEGER, INTENT(inout) :: irow
+    INTEGER, INTENT(in) :: dst
+    TYPE(t_event_step), INTENT(in) :: event_step
+
+    INTEGER :: j
+    DO j=1,event_step%n_pes
+      irow = irow + 1
+      IF (j==1) THEN
+        CALL set_table_entry(table,irow,"model step", int2string(event_step%i_sim_step))
+        CALL set_table_entry(table,irow,"model date", TRIM(event_step%exact_date_string))
+      ELSE
+        CALL set_table_entry(table,irow,"model step", " ")
+        CALL set_table_entry(table,irow,"model date", " ")
+      END IF
+#ifdef __SX__
+        ! save some characters on SX:
+      IF ((LEN_TRIM(event_step%event_step_data(j)%filename_string) > 20) .AND. (dst == 0)) THEN
+        CALL set_table_entry(table,irow,"filename",    TRIM(event_step%event_step_data(j)%filename_string(1:20)//"..."))
+      ELSE
+        CALL set_table_entry(table,irow,"filename",    TRIM(event_step%event_step_data(j)%filename_string))
+      END IF
+#else
+      CALL set_table_entry(table,irow,"filename",    TRIM(event_step%event_step_data(j)%filename_string))
+#endif
+      CALL set_table_entry(table,irow,"I/O PE",      int2string(event_step%event_step_data(j)%i_pe))
+
+      CALL set_table_entry(table,irow,"output date", TRIM(event_step%event_step_data(j)%datetime_string))
+#ifdef __SX__
+      IF (dst /= 0) THEN
+#endif
+        ! do not add the file-part column on the NEC SX9, because we have a
+        ! line limit of 132 characters there
+        CALL set_table_entry(table,irow,"#",           &
+          & TRIM(int2string(event_step%event_step_data(j)%jfile))//"."//TRIM(int2string(event_step%event_step_data(j)%jpart)))
+#ifdef __SX__
+      END IF
+#endif
+      ! append "+ open" or "+ close" according to event step data:
+      IF (event_step%event_step_data(j)%l_open_file) THEN
+        CALL set_table_entry(table,irow,"open", "x")
+      ELSE
+        CALL set_table_entry(table,irow,"open", " ")
+      END IF
+      IF (event_step%event_step_data(j)%l_close_file) THEN
+        CALL set_table_entry(table,irow,"close","x")
+      ELSE
+        CALL set_table_entry(table,irow,"close"," ")
+      END IF
+    END DO
+  END SUBROUTINE tabulate_event_step
 
 
   !> Screen print-out of a parallel output event.
