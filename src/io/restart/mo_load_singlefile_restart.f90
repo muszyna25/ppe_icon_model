@@ -13,7 +13,7 @@
 
 MODULE mo_load_singlefile_restart
     USE mo_cdi,                ONLY: vlistInqTaxis, taxisInqVdate, taxisInqVtime, streamOpenRead, &
-      &                              streamInqVlist, vlistNvars, vlistInqVarName, &
+      &                              streamInqVlist, vlistNvars, vlistInqVarName, streamClose,    &
       &                              streamReadVarSlice, streamReadVarSliceF, vlistInqVarGrid, gridInqSize
     USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
     USE mo_communication,      ONLY: t_ScatterPattern

@@ -26,7 +26,9 @@ MODULE mo_cdi_ids
     &                              gridDefXlongname, gridDefXunits, gridDefYname,               &
     &                              gridDefYlongname, gridDefYunits, GRID_UNSTRUCTURED,          &
     &                              streamDefVlist, DATATYPE_FLT32, vlistDefAttInt, CDI_GLOBAL,  &
-    &                              DATATYPE_INT32
+    &                              DATATYPE_INT32, zaxisDefVct, zaxisDefLbounds,                &
+    &                              zaxisDefUbounds, zaxisDefUnits, streamClose, vlistDestroy,   &
+    &                              taxisDestroy, gridDestroy, zaxisDestroy
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT
   USE mo_cdi_constants,      ONLY: ZA_COUNT, ZA_HYBRID, ZA_HYBRID_HALF, ZA_LAKE_BOTTOM,           &
     &                              ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_SEDIMENT_BOTTOM_TW_HALF, &
