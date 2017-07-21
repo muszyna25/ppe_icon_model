@@ -1091,7 +1091,11 @@ CONTAINS
     CASE (2)
       var_ref_pos = 3
       IF (info%lcontained)  var_ref_pos = info%var_ref_pos
-
+      IF (var_ref_pos < 1 .OR. var_ref_pos > 3) THEN
+        WRITE (message_text, '(2a,i0)') TRIM(info%name), &
+             ": internal error! var_ref_pos=", var_ref_pos
+        GO TO 999
+      END IF
       IF      (ASSOCIATED(r_ptr_5d)) THEN
         SELECT CASE(var_ref_pos)
         CASE (1)
@@ -1102,8 +1106,6 @@ CONTAINS
         CASE (3)
           CALL insert_dimension(r_ptr_t, r_ptr_5d, 2)
           r_ptr => r_ptr_t(:,1:1,:,nindex,1,1)
-        CASE default
-          CALL finish(routine, "internal error!")
         END SELECT
       ELSE IF (ASSOCIATED(s_ptr_5d)) THEN
         SELECT CASE(var_ref_pos)
@@ -1115,8 +1117,6 @@ CONTAINS
         CASE (3)
           CALL insert_dimension(s_ptr_t, s_ptr_5d, 2)
           s_ptr => s_ptr_t(:,1:1,:,nindex,1,1)
-        CASE default
-          CALL finish(routine, "internal error!")
         END SELECT
       ELSE IF (ASSOCIATED(i_ptr_5d)) THEN
         SELECT CASE(var_ref_pos)
@@ -1128,14 +1128,17 @@ CONTAINS
         CASE (3)
           CALL insert_dimension(i_ptr_t, i_ptr_5d, 2)
           i_ptr => i_ptr_t(:,1:1,:,nindex,1,1)
-        CASE default
-          CALL finish(routine, "internal error!")
         END SELECT
       ENDIF
     CASE (3)
 
       var_ref_pos = 4
       IF (info%lcontained)  var_ref_pos = info%var_ref_pos
+      IF (var_ref_pos < 1 .OR. var_ref_pos > 4) THEN
+        WRITE (message_text, '(2a,i0)') TRIM(info%name), &
+             ": internal error! var_ref_pos=", var_ref_pos
+        GO TO 999
+      END IF
 
       ! 3D fields: Here we could just set a pointer to the
       ! array... if there were no post-ops
@@ -1149,8 +1152,6 @@ CONTAINS
           r_ptr => r_ptr_5d(:,:,nindex,:,1)
         CASE (4)
           r_ptr => r_ptr_5d(:,:,:,nindex,1)
-        CASE default
-          CALL finish(routine, "internal error!")
         END SELECT
       ELSE IF (ASSOCIATED(s_ptr_5d)) THEN
         SELECT CASE(var_ref_pos)
@@ -1162,8 +1163,6 @@ CONTAINS
           s_ptr => s_ptr_5d(:,:,nindex,:,1)
         CASE (4)
           s_ptr => s_ptr_5d(:,:,:,nindex,1)
-        CASE default
-          CALL finish(routine, "internal error!")
         END SELECT
       ELSE IF (ASSOCIATED(i_ptr_5d)) THEN
         SELECT CASE(var_ref_pos)
@@ -1175,20 +1174,16 @@ CONTAINS
           i_ptr => var_desc%i_ptr(:,:,nindex,:,1)
         CASE (4)
           i_ptr => var_desc%i_ptr(:,:,:,nindex,1)
-        CASE default
-          CALL finish(routine, "internal error!")
         END SELECT
       END IF
-    CASE (4)
-      CALL message(routine, info%name)
-      CALL finish(routine,'4d arrays not handled yet.')
-    CASE (5)
-      CALL message(routine, info%name)
-      CALL finish(routine,'5d arrays not handled yet.')
     CASE DEFAULT
-      CALL message(routine, info%name)
-      CALL finish(routine,'dimension not set.')
+      WRITE (message_text, '(2a,i0)') TRIM(info%name), &
+           ": internal error! unhandled info%ndims=", info%ndims
+      GO TO 999
     END SELECT
+    RETURN
+999 CALL finish(routine,message_text)
+
   END SUBROUTINE get_ptr_to_var_data
 
   SUBROUTINE gather_on_workroot_and_write(of, idata_type, r_ptr, s_ptr, &
