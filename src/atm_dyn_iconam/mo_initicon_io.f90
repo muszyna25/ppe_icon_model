@@ -234,7 +234,7 @@ MODULE mo_initicon_io
     INTEGER :: jg, jlev, jc, jk, jb, i_endidx
     LOGICAL :: l_exist
 
-    INTEGER :: no_cells, no_levels, nlev_in, nhyi
+    INTEGER :: no_cells, no_levels, nlev_in, nhyi, nlev1, nlev2, nlev3
     INTEGER :: ncid, dimid, varid, mpi_comm, ierrstat
     TYPE(t_stream_id) :: stream_id
     INTEGER :: psvar_ndims, geopvar_ndims
@@ -296,12 +296,15 @@ MODULE mo_initicon_io
         ! get number of vertical levels
         !
         ! would be good, if we could come up with a unique name ...
-        IF (nf_inq_dimid(ncid, 'lev', dimid) /= nf_noerr) THEN
-          ! try alternative name 
-          CALL nf(nf_inq_dimid(ncid, 'height_2', dimid), routine)
+        IF (nf_inq_dimid(ncid, 'lev', dimid) == nf_noerr) THEN
+          CALL nf(nf_inq_dimlen(ncid, dimid, no_levels), routine)
+        ELSE ! try alternative names and take their minimum to ensure that we register the full-level dimension
+          nlev1 = 10000 ; nlev2 = 10000; nlev3 = 10000
+          IF (nf_inq_dimid(ncid, 'height', dimid) == nf_noerr)   CALL nf(nf_inq_dimlen(ncid, dimid, nlev1), routine)
+          IF (nf_inq_dimid(ncid, 'height_2', dimid) == nf_noerr) CALL nf(nf_inq_dimlen(ncid, dimid, nlev2), routine)
+          IF (nf_inq_dimid(ncid, 'height_3', dimid) == nf_noerr) CALL nf(nf_inq_dimlen(ncid, dimid, nlev3), routine)
+          no_levels = MIN(nlev1, nlev2, nlev3)
         ENDIF
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_levels), routine)
-
 
         !
         ! check the number of cells
