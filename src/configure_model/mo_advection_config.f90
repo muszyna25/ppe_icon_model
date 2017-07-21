@@ -37,6 +37,9 @@ MODULE mo_advection_config
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta, t_hydro_meta
   USE mo_util_table,            ONLY: t_table, initialize_table, add_table_column, &
     &                                 set_table_entry, print_table, finalize_table
+#ifdef _OPENACC
+  USE mo_mpi,                   ONLY: i_am_accel_node
+#endif
 
 
   IMPLICIT NONE
@@ -934,7 +937,7 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_config: destruct_trList'
 
-!$ACC EXIT DATA DELETE( obj%list ), IF (i_am_accel_node .AND. acc_on)
+    !!$ACC EXIT DATA DELETE( obj%list ), IF (i_am_accel_node .AND. acc_on)
 
     IF (ALLOCATED(obj%list)) THEN
       DEALLOCATE(obj%list, STAT=ist)
