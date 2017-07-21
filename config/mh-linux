@@ -608,7 +608,7 @@ case "$ac_sitename" in
         esac
         ;;
 #===============================================
-    kfa-juelich.de|*jureca*)
+    kfa-juelich.de|fz-juelich.de|*jureca*)
         case "$(hostname)" in
             jrl*)
                 NETCDFROOT    = $EBROOTNETCDF
