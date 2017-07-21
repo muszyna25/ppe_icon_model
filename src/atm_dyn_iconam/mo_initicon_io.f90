@@ -922,7 +922,6 @@ MODULE mo_initicon_io
   END SUBROUTINE fetchTiled3d
 
 
-
   ! Wrapper for requestList%fetchTiled3d() 
   ! - that falls back to reading copies of untiled input IF ltile_coldstart IS set.
   ! - has a fallback option, if the primary input field is not found.
@@ -979,8 +978,6 @@ MODULE mo_initicon_io
         END IF
     END IF
   END SUBROUTINE fetchTiled3dWithFallback
-
-
 
 
   SUBROUTINE fetchRequired3d(params, varName, jg, field)
