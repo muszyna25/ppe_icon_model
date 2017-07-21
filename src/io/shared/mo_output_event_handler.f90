@@ -1353,8 +1353,7 @@ CONTAINS
             par_event%icomm         = icomm
             par_event%iroot         = ROOT_OUTEVENT
             par_event%irecv_nreq    = 0
-            NULLIFY(par_event%next)
-            NULLIFY(par_event%output_event)
+            NULLIFY(par_event%next, par_event%output_event)
           END IF
           ! increase MPI message tag ID st. it stays unique even for
           ! multiple events running on the same I/O PE:
