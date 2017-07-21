@@ -1769,16 +1769,12 @@ CONTAINS
   !          event.
   !  @author F. Prill, DWD
   !
-  FUNCTION check_write_readyfile(event)
-    LOGICAL :: check_write_readyfile
-    TYPE(t_output_event), POINTER :: event
+  FUNCTION check_write_readyfile(event) RESULT(do_write)
+    LOGICAL :: do_write
+    TYPE(t_output_event), INTENT(in) :: event
 
-    IF (ASSOCIATED(event)) THEN
-      check_write_readyfile = (TRIM(event%event_data%name) /= DEFAULT_EVENT_NAME) .AND.  &
-        &                     (event%n_event_steps > 0)
-    ELSE
-      check_write_readyfile = .FALSE.
-    END IF
+    do_write =       (event%event_data%name /= DEFAULT_EVENT_NAME) &
+      &        .AND. (event%n_event_steps > 0)
   END FUNCTION check_write_readyfile
 
 
