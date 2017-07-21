@@ -768,7 +768,7 @@ CONTAINS
           ! Tracer values are clipped here to avoid generation of negative values
           ! For mass conservation, a correction has to be applied in the
           ! feedback routine anyway
-!$ACC LOOP VECTOR COLLAPSE(2)
+!!$ACC LOOP VECTOR COLLAPSE(2)
           DO nt = 1, trAdvect%len ! Tracer loop
 
             jt = trAdvect%list(nt)
