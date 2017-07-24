@@ -231,15 +231,17 @@ CONTAINS
         outGroupSize = inGroupSize
     END SUBROUTINE copyGroup
 
-    SUBROUTINE mergeAnaIntoFg(anaGroup, anaGroupSize, fgGroup, fgGroupSize)
+    SUBROUTINE mergeAnaIntoFg(anaGroup, anaGroupSize, fgGroup, fgGroupSize, init_mode)
         CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: anaGroup(:), fgGroup(:)
         INTEGER, INTENT(INOUT) :: anaGroupSize, fgGroupSize
+        INTEGER, INTENT(IN)    :: init_mode
 
         ! fgGroup += anaGroup
         CALL add_to_list(fgGroup, fgGroupSize, anaGroup(1:anaGroupSize), anaGroupSize)
 
-        ! Remove fields 'u', 'v', 'temp', 'pres'
-        CALL difference(fgGroup, fgGroupSize, (/'u   ','v   ','temp','pres'/), 4)
+        ! Remove fields 'u', 'v', 'temp', 'pres' except in VREMAP mode, where the diagnostic variable set
+        ! is allowed as an alternative to the corresponding prognostic variable set (vn, theta_v, rho)
+        IF (init_mode /= MODE_ICONVREMAP) CALL difference(fgGroup, fgGroupSize, (/'u   ','v   ','temp','pres'/), 4)
 
         ! anaGroup = --
         anaGroupSize = 0
@@ -271,7 +273,7 @@ CONTAINS
             CASE(MODE_DWDANA, MODE_ICONVREMAP)
                 IF(.NOT.lread_ana) THEN
                     ! lump together fgGroup and anaGroup
-                    CALL mergeAnaIntoFg(anaGroup, anaGroupSize, fgGroup, fgGroupSize)
+                    CALL mergeAnaIntoFg(anaGroup, anaGroupSize, fgGroup, fgGroupSize, init_mode)
                 ENDIF
 
             CASE(MODE_IAU, MODE_IAU_OLD)
@@ -295,7 +297,7 @@ CONTAINS
                 ELSE IF (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg) ) THEN
                     ! no ANA-read
                     ! lump together fgGroup and anaGroup
-                    CALL mergeAnaIntoFg(anaGroup, anaGroupSize, fgGroup, fgGroupSize)
+                    CALL mergeAnaIntoFg(anaGroup, anaGroupSize, fgGroup, fgGroupSize, init_mode)
 
                 ELSE
                     WRITE(message_text,'(a,l1,a,l1,a)') 'Combination lp2cintp_incr=',lp2cintp_incr(jg), &

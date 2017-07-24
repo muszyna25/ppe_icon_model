@@ -47,6 +47,7 @@ MODULE mo_initicon_config
   PUBLIC :: use_lakeiceana
   PUBLIC :: lread_ana
   PUBLIC :: lread_vn
+  PUBLIC :: lread_tke
   PUBLIC :: lconsistency_checks
   PUBLIC :: l_coarse2fine_mode
   PUBLIC :: lp2cintp_incr, lp2cintp_sfcana
@@ -181,6 +182,7 @@ MODULE mo_initicon_config
   ! ----------------------------------------------------------------------------
 
   LOGICAL :: lread_vn  = .FALSE. !< control variable that specifies if u/v or vn are read as wind field input
+  LOGICAL :: lread_tke = .FALSE. !< control variable that specifies if TKE has been found in the input (used for MODE_ICONVREMAP only)
   LOGICAL :: l_sst_in  = .TRUE.  !< logical switch, if sea surface temperature is provided as input
 
   INTEGER :: init_mode_soil     !< initialization mode of soil model (coldstart, warmstart, warmstart+IAU)

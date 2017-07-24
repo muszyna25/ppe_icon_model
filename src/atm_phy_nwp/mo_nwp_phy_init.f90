@@ -38,7 +38,7 @@ MODULE mo_nwp_phy_init
   USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape,  &
     &                               MODE_COMBINED, MODE_IFSANA, icosmo, ismag,      &
     &                               igme, iedmf, SUCCESS, MAX_CHAR_LENGTH,          &
-    &                               MODE_COSMO, iss, iorg, ibc, iso4, idu
+    &                               MODE_COSMO, MODE_ICONVREMAP, iss, iorg, ibc, iso4, idu
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
@@ -107,7 +107,7 @@ MODULE mo_nwp_phy_init
   USE mo_master_config,       ONLY: isRestart
   USE mo_nwp_parameters,      ONLY: t_phy_params
 
-  USE mo_initicon_config,     ONLY: init_mode
+  USE mo_initicon_config,     ONLY: init_mode, lread_tke
 
   USE mo_nwp_ww,              ONLY: configure_ww
   USE mo_nwp_tuning_config,   ONLY: tune_gkwake, tune_gkdrag, tune_gfrcrit, tune_grcrit, tune_zceff_min, &
@@ -214,7 +214,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string, yyyymmdd
 
   ! Local control variable for extended turbulence initializations
-  IF (ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMO/) == init_mode) ) THEN
+  IF (ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMO/) == init_mode) .OR. &
+      init_mode == MODE_ICONVREMAP .AND. .NOT. lread_tke) THEN
     lturb_init = .TRUE.
   ELSE
     lturb_init = .FALSE.

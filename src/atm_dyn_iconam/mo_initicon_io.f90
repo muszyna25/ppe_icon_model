@@ -38,7 +38,7 @@ MODULE mo_initicon_io
     &                               kInputSourceCold
   USE mo_initicon_config,     ONLY: init_mode, l_sst_in, generate_filename, &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
-    &                               nml_filetype => filetype, lread_vn,      &
+    &                               nml_filetype => filetype, lread_vn, lread_tke,     &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart,    &
     &                               lvert_remap_fg, aerosol_fg_present, nlevsoil_in
   USE mo_nh_init_nest_utils,  ONLY: interpolate_scal_increments, interpolate_sfcana
@@ -843,31 +843,41 @@ MODULE mo_initicon_io
     END IF
   END SUBROUTINE fetch2d
 
-  SUBROUTINE fetch3d(params, varName, jg, field)
+  SUBROUTINE fetch3d(params, varName, jg, field, found)
     TYPE(t_fetchParams), INTENT(INOUT) :: params
     CHARACTER(LEN = *), INTENT(IN) :: varName
     INTEGER, VALUE :: jg
     REAL(wp), INTENT(INOUT) :: field(:,:,:)
+    LOGICAL, INTENT(OUT), OPTIONAL :: found ! allows to do the error handling in the calling routine
 
     LOGICAL :: fetchResult
 
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
         fetchResult = params%requestList%fetch3d(varName, trivial_tileId, jg, field)
-        CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+        IF (PRESENT(found)) THEN
+          found = fetchResult
+        ELSE
+          CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+        ENDIF
     END IF
   END SUBROUTINE fetch3d
 
-  SUBROUTINE fetchSurface(params, varName, jg, field)
+  SUBROUTINE fetchSurface(params, varName, jg, field, found)
     TYPE(t_fetchParams), INTENT(INOUT) :: params
     CHARACTER(LEN = *), INTENT(IN) :: varName
     INTEGER, VALUE :: jg
     REAL(wp), INTENT(INOUT) :: field(:,:)
+    LOGICAL, INTENT(OUT), OPTIONAL :: found ! allows to do the error handling in the calling routine
 
     LOGICAL :: fetchResult
 
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
         fetchResult = params%requestList%fetchSurface(varName, trivial_tileId, jg, field)
-        CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+        IF (PRESENT(found)) THEN
+          found = fetchResult
+        ELSE
+          CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+        ENDIF
     END IF
   END SUBROUTINE fetchSurface
 
@@ -1141,6 +1151,7 @@ MODULE mo_initicon_io
     REAL(dp), POINTER :: levelValues(:)
     TYPE(t_fetchParams) :: params
     REAL(wp), ALLOCATABLE :: z_ifc_in(:,:,:), w_ifc(:,:,:), tke_ifc(:,:,:)
+    LOGICAL :: lfound_thv, lfound_rho, lfound_vn
 
     params%inputInstructions = inputInstructions
     params%requestList => requestList
@@ -1169,10 +1180,15 @@ MODULE mo_initicon_io
 
             ! start reading first guess (atmosphere only)
             CALL fetchRequired3d(params, 'z_ifc', jg, z_ifc_in)
-            CALL fetchRequired3d(params, 'theta_v', jg, initicon(jg)%atm_in%theta_v)
-            CALL fetchRequired3d(params, 'rho', jg, initicon(jg)%atm_in%rho)
+            CALL fetch3d(params, 'theta_v', jg, initicon(jg)%atm_in%theta_v, lfound_thv)
+            CALL fetch3d(params, 'rho', jg, initicon(jg)%atm_in%rho, lfound_rho)
+            IF (.NOT. (lfound_thv .AND. lfound_rho) ) THEN ! try fetching the diagnostic thermodynamic variables
+              CALL fetchRequired3d(params, 'temp', jg, initicon(jg)%atm_in%temp)
+              CALL fetchRequired3d(params, 'pres', jg, initicon(jg)%atm_in%pres)
+            ENDIF
             CALL fetchRequired3d(params, 'w',   jg, w_ifc)
-            CALL fetchRequired3d(params, 'tke', jg, tke_ifc)
+            ! If the TKE field is not in the input data, a cold-start initialization is executed in init_nwp_phy
+            CALL fetch3d(params, 'tke', jg, tke_ifc, lread_tke)
 
             CALL fetchRequired3d(params, 'qv', jg, initicon(jg)%atm_in%qv)
             CALL fetchRequired3d(params, 'qc', jg, initicon(jg)%atm_in%qc)
@@ -1189,7 +1205,14 @@ MODULE mo_initicon_io
             initicon(jg)%atm_in%qs(:,:,:) = 0._wp
             END IF
 
-            CALL fetchRequired3d(params, 'vn', jg, initicon(jg)%atm_in%vn)
+            CALL fetch3d(params, 'vn', jg, initicon(jg)%atm_in%vn, lfound_vn)
+            IF (lfound_vn) THEN
+              lread_vn = .TRUE.  ! Tell the vertical interpolation routine that vn needs to be processed
+            ELSE ! try fetching U and V components
+              CALL fetchRequired3d(params, 'u', jg, initicon(jg)%atm_in%u)
+              CALL fetchRequired3d(params, 'v', jg, initicon(jg)%atm_in%v)
+              lread_vn = .FALSE.
+            ENDIF
 
             ! Interpolate half level variables from interface levels to main levels, and convert thermodynamic variables
             ! into temperature and pressure as expected by the vertical interpolation routine  
@@ -1204,21 +1227,33 @@ MODULE mo_initicon_io
                 END IF
 
                 DO jk = 1, initicon(jg)%atm_in%nlev
+
+                  DO jc = 1, i_endidx
+                    initicon(jg)%const%z_mc_in(jc,jk,jb) = (z_ifc_in(jc,jk,jb) + z_ifc_in(jc,jk+1,jb)) * 0.5_wp
+                    initicon(jg)%atm_in%w(jc,jk,jb) = (w_ifc(jc,jk,jb) + w_ifc(jc,jk+1,jb)) * 0.5_wp
+                  END DO
+
+                  IF (lread_tke) THEN
+                    DO jc = 1, i_endidx
+                      initicon(jg)%atm_in%tke(jc,jk,jb) = (tke_ifc(jc,jk,jb) + tke_ifc(jc,jk+1,jb)) * 0.5_wp
+                    END DO
+                  ELSE
+                    initicon(jg)%atm_in%tke(:,:,jb) = 0._wp
+                  ENDIF
+
+                  IF (lfound_thv .AND. lfound_rho) THEN
                     DO jc = 1, i_endidx
 
-                        initicon(jg)%const%z_mc_in(jc,jk,jb) = (z_ifc_in(jc,jk,jb) + z_ifc_in(jc,jk+1,jb)) * 0.5_wp
-                        initicon(jg)%atm_in%w(jc,jk,jb) = (w_ifc(jc,jk,jb) + w_ifc(jc,jk+1,jb)) * 0.5_wp
-                        initicon(jg)%atm_in%tke(jc,jk,jb) = (tke_ifc(jc,jk,jb) + tke_ifc(jc,jk+1,jb)) * 0.5_wp
+                      exner = (initicon(jg)%atm_in%rho(jc,jk,jb)*initicon(jg)%atm_in%theta_v(jc,jk,jb)*rd/p0ref)**(1._wp/cvd_o_rd)
+                      tempv = initicon(jg)%atm_in%theta_v(jc,jk,jb)*exner
 
-                        exner = (initicon(jg)%atm_in%rho(jc,jk,jb)*initicon(jg)%atm_in%theta_v(jc,jk,jb)*rd/p0ref)**(1._wp/cvd_o_rd)
-                        tempv = initicon(jg)%atm_in%theta_v(jc,jk,jb)*exner
-
-                        initicon(jg)%atm_in%pres(jc,jk,jb) = exner**(cpd/rd)*p0ref
-                        initicon(jg)%atm_in%temp(jc,jk,jb) = tempv / (1._wp + vtmpc1*initicon(jg)%atm_in%qv(jc,jk,jb) - &
-                            (initicon(jg)%atm_in%qc(jc,jk,jb) + initicon(jg)%atm_in%qi(jc,jk,jb) +                      &
-                             initicon(jg)%atm_in%qr(jc,jk,jb) + initicon(jg)%atm_in%qs(jc,jk,jb)) )
+                      initicon(jg)%atm_in%pres(jc,jk,jb) = exner**(cpd/rd)*p0ref
+                      initicon(jg)%atm_in%temp(jc,jk,jb) = tempv / (1._wp + vtmpc1*initicon(jg)%atm_in%qv(jc,jk,jb) - &
+                        (initicon(jg)%atm_in%qc(jc,jk,jb) + initicon(jg)%atm_in%qi(jc,jk,jb) +                      &
+                         initicon(jg)%atm_in%qr(jc,jk,jb) + initicon(jg)%atm_in%qs(jc,jk,jb)) )
 
                     END DO
+                  ENDIF
                 END DO
               END DO
 !$OMP END DO
@@ -1229,10 +1264,9 @@ MODULE mo_initicon_io
               IF (ALLOCATED(w_ifc))    DEALLOCATE(w_ifc)
               IF (ALLOCATED(tke_ifc))  DEALLOCATE(tke_ifc)
 
-            END IF
+        END IF !ldom_active
     ENDDO
 
-    lread_vn = .TRUE.  ! Tell the vertical interpolation routine that vn needs to be processed
   END SUBROUTINE fetch_dwdfg_atm_ii
 
 
@@ -1350,6 +1384,7 @@ MODULE mo_initicon_io
     TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
     INTEGER :: jg, error
+    LOGICAL :: lfound
     REAL(wp), POINTER :: my_ptr2d(:,:)
     TYPE(t_lnd_prog), POINTER :: lnd_prog
     TYPE(t_lnd_diag), POINTER :: lnd_diag
@@ -1451,8 +1486,9 @@ MODULE mo_initicon_io
             IF(ASSOCIATED(wtr_prog%h_ml_lk)) CALL fetchSurface(params, 'h_ml_lk', jg, wtr_prog%h_ml_lk)
             IF(ASSOCIATED(wtr_prog%t_bot_lk)) CALL fetchSurface(params, 't_bot_lk', jg, wtr_prog%t_bot_lk)
             IF(ASSOCIATED(wtr_prog%c_t_lk)) CALL fetchSurface(params, 'c_t_lk', jg, wtr_prog%c_t_lk)
-            IF(ASSOCIATED(wtr_prog%t_b1_lk)) CALL fetchSurface(params, 't_b1_lk', jg, wtr_prog%t_b1_lk)
-            IF(ASSOCIATED(wtr_prog%h_b1_lk)) CALL fetchSurface(params, 'h_b1_lk', jg, wtr_prog%h_b1_lk)
+            ! The following two variables are actually constants and would not need to be read at all
+            IF(ASSOCIATED(wtr_prog%t_b1_lk)) CALL fetchSurface(params, 't_b1_lk', jg, wtr_prog%t_b1_lk, lfound)
+            IF(ASSOCIATED(wtr_prog%h_b1_lk)) CALL fetchSurface(params, 'h_b1_lk', jg, wtr_prog%h_b1_lk, lfound)
 
             IF(iprog_aero == 1) THEN
                 aerosol_fg_present(jg) = .TRUE.

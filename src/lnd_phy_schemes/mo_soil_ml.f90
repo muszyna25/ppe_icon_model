@@ -5356,13 +5356,13 @@ END FUNCTION zsf_dqvdt_iw
 REAL (KIND = ireals) FUNCTION watrcon_RT(ks,lw,kw1,pv,adp)
    implicit none
    real (KIND=ireals   ), intent(in)  :: ks,lw,kw1,pv,adp
-   watrcon_RT=ks*EXP(kw1*(pv-lw)/(pv-adp))
+   watrcon_RT=ks*EXP(kw1*MAX(0._ireals,pv-lw)/(pv-adp))
 END FUNCTION watrcon_RT
 
 REAL (KIND = ireals) FUNCTION watrdiff_RT(ds,lw,dw1,pv,adp)
    implicit none
    real (KIND=ireals   ), intent(in)  ::  ds,lw,dw1,pv,adp
-   watrdiff_RT = ds*EXP(dw1*(pv-lw)/(pv-adp))
+   watrdiff_RT = ds*EXP(dw1*MAX(0._ireals,pv-lw)/(pv-adp))
 END FUNCTION watrdiff_RT
 
 

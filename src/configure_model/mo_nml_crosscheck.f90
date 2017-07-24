@@ -436,8 +436,10 @@ CONTAINS
       ininact  = ntracer+100
 
       !
-      !
-      SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
+      ! Taking the 'highest' microphysics option in some cases allows using more
+      ! complex microphysics schemes in nested domains than in the global domain
+      ! However, a clean implementation would require a domain-dependent 'ntracer' dimension
+      SELECT CASE (MAXVAL(atm_phy_nwp_config(1:n_dom)%inwp_gscp))
         
 
       CASE(2)  ! COSMO-DE (3-cat ice: snow, cloud ice, graupel)
@@ -518,7 +520,7 @@ CONTAINS
       END SELECT ! microphysics schemes
 
 
-      IF (atm_phy_nwp_config(jg)%inwp_turb == iedmf) THEN ! EDMF turbulence
+      IF (atm_phy_nwp_config(1)%inwp_turb == iedmf) THEN ! EDMF turbulence
 
         iqtvar = iqt       !! qt variance
         iqt    = iqt + 1   !! start index of other tracers than hydrometeors
@@ -530,8 +532,8 @@ CONTAINS
 
       ENDIF
 
-      IF ( (advection_config(jg)%iadv_tke) > 0 ) THEN
-        IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
+      IF ( (advection_config(1)%iadv_tke) > 0 ) THEN
+        IF ( atm_phy_nwp_config(1)%inwp_turb == icosmo ) THEN
           iqtke = iqt        !! TKE
  
           ! Note that iqt is not increased, since TKE does not belong to the hydrometeor group.
@@ -543,7 +545,7 @@ CONTAINS
           CALL message(TRIM(method_name),message_text)
         ELSE
           WRITE(message_text,'(a,i2)') 'TKE advection not supported for inwp_turb= ', &
-            &                          atm_phy_nwp_config(jg)%inwp_turb
+            &                          atm_phy_nwp_config(1)%inwp_turb
           CALL finish(TRIM(method_name), TRIM(message_text) )
         ENDIF
       ENDIF
@@ -558,10 +560,10 @@ CONTAINS
 
       IF (lart) THEN
         
-        ntracer = ntracer + art_config(jg)%iart_ntracer
+        ntracer = ntracer + art_config(1)%iart_ntracer
         
         WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
-                                     'ntracer is increased by ',art_config(jg)%iart_ntracer, &
+                                     'ntracer is increased by ',art_config(1)%iart_ntracer, &
                                      ' to ',ntracer
         CALL message(TRIM(method_name),message_text)
 

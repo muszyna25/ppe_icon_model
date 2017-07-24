@@ -1894,7 +1894,7 @@ MODULE mo_initicon
              ENDIF
           ENDDO  ! ic
 
-          IF (init_mode == MODE_ICONVREMAP) THEN
+          IF (ANY((/MODE_COMBINED,MODE_COSMO,MODE_ICONVREMAP/) == init_mode)) THEN
 
             ! Constrain both rho_snow and t_snow because initial fields interpolated from a coarser grid
             ! may suffer from missing values near coasts
@@ -1910,8 +1910,8 @@ MODULE mo_initicon
                 p_lnd_state(jg)%prog_lnd(ntlr)%t_snow_t(jc,jb,jt) = &
                 MAX(p_lnd_state(jg)%prog_lnd(ntlr)%t_snow_t(jc,jb,jt), p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,jt)-10._wp)
 
-             ENDDO
-           ENDIF
+            ENDDO
+          ENDIF
 
 
           ! Catch problematic coast cases: ICON-land but GME ocean for moisture
