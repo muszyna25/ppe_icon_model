@@ -1368,15 +1368,15 @@ CONTAINS
     CHARACTER(len=vname_len), POINTER :: varlist_ptr(:)
     INTEGER, POINTER                     :: pe_placement(:)
     INTEGER :: ifile, ifile_partition, npartitions, i_typ, idom, nvl, &
-         vl_list(max_var_lists), i, j
+         vl_list(max_var_lists), i, j, log_patch_id
     CHARACTER(len=*), PARAMETER :: routine &
          = modname//"::output_name_lists_to_files"
 
     p_onl => first_output_name_list
     ifile = 0
     LOOP_NML : DO WHILE (ASSOCIATED(p_onl))
-
       idom = p_onl%dom ! domain for which this name list should be used
+      log_patch_id = patch_info(idom)%log_patch_id
       ! non-existent domains are simply ignored:
       IF(idom > n_dom_out) THEN
         p_onl => p_onl%next
@@ -1421,7 +1421,7 @@ CONTAINS
           ! Fill data members of "t_output_file" data structures
           p_of%filename_pref   = TRIM(p_onl%output_filename)
           p_of%phys_patch_id   = idom
-          p_of%log_patch_id    = patch_info(idom)%log_patch_id
+          p_of%log_patch_id    = log_patch_id
           p_of%output_type     = p_onl%filetype
           p_of%name_list       => p_onl
           p_of%remap           = p_onl%remap
@@ -1446,7 +1446,7 @@ CONTAINS
 
             IF(.NOT. var_lists(j)%p%loutput) CYCLE
             ! patch_id in var_lists always corresponds to the LOGICAL domain
-            IF(var_lists(j)%p%patch_id /= patch_info(idom)%log_patch_id) CYCLE
+            IF(var_lists(j)%p%patch_id /= log_patch_id) CYCLE
 
             IF(i_typ /= var_lists(j)%p%vlevel_type) CYCLE
 
@@ -1456,8 +1456,8 @@ CONTAINS
           ENDDO
 
           IF ( my_process_is_work() ) THEN ! avoid addidional io or restart processes
-            IF ( p_of%log_patch_id == 1 ) THEN             ! use global domain, only
-              CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch(p_of%log_patch_id))
+            IF ( log_patch_id == 1 ) THEN             ! use global domain, only
+              CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch(log_patch_id))
             ENDIF
           ENDIF
 
