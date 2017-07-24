@@ -642,14 +642,14 @@ CONTAINS
     k=0
     DO i=1,SIZE(varlist)
       IF (varlist(i) == ' ') EXIT
-      IF (TRIM(toupper(varlist(i))) == TRIM(toupper(group_name))) THEN
+      IF (toupper(varlist(i)) == toupper(group_name)) THEN
         DO j=1,SIZE(group_list)
           k = k+1
-          result_list(k) = TRIM(group_list(j))
+          result_list(k) = group_list(j)
         END DO
       ELSE
         k = k+1
-        result_list(k) = TRIM(varlist(i))
+        result_list(k) = varlist(i)
       END IF
     END DO
     CALL remove_duplicates(result_list, k )
