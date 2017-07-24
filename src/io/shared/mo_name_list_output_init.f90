@@ -739,7 +739,7 @@ CONTAINS
     IF (ivar > SIZE(p_varlist)) THEN
       CALL finish(routine, "Insufficient array size!")
     END IF
-    p_varlist(ivar) = TRIM(tolower(TRIM(new_varname)))
+    p_varlist(ivar) = tolower(new_varname)
   END SUBROUTINE append_varname
 
 
