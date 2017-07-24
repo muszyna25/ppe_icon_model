@@ -1395,20 +1395,24 @@ CONTAINS
         SELECT CASE(i_typ)
         CASE (level_type_ml)
           IF (p_onl%ml_varlist(1) == ' ') CYCLE
-          npartitions     = p_onl%stream_partitions_ml
+          npartitions  =  p_onl%stream_partitions_ml
           pe_placement => p_onl%pe_placement_ml(1:npartitions)
+          varlist_ptr  => p_onl%ml_varlist
         CASE (level_type_pl)
           IF (p_onl%pl_varlist(1) == ' ') CYCLE
-          npartitions     = p_onl%stream_partitions_pl
+          npartitions  =  p_onl%stream_partitions_pl
           pe_placement => p_onl%pe_placement_pl(:)
+          varlist_ptr  => p_onl%pl_varlist
         CASE (level_type_hl)
           IF (p_onl%hl_varlist(1) == ' ') CYCLE
-          npartitions     = p_onl%stream_partitions_hl
+          npartitions  =  p_onl%stream_partitions_hl
           pe_placement => p_onl%pe_placement_hl(:)
+          varlist_ptr  => p_onl%hl_varlist
         CASE (level_type_il)
           IF (p_onl%il_varlist(1) == ' ') CYCLE
-          npartitions     = p_onl%stream_partitions_il
+          npartitions  =  p_onl%stream_partitions_il
           pe_placement => p_onl%pe_placement_il(:)
+          varlist_ptr  => p_onl%il_varlist
         END SELECT
 
         IF (npartitions > 1) THEN
@@ -1466,16 +1470,6 @@ CONTAINS
             ENDIF
           ENDIF
 
-          SELECT CASE(i_typ)
-          CASE(level_type_ml)
-            varlist_ptr => p_onl%ml_varlist
-          CASE(level_type_pl)
-            varlist_ptr => p_onl%pl_varlist
-          CASE(level_type_hl)
-            varlist_ptr => p_onl%hl_varlist
-          CASE(level_type_il)
-            varlist_ptr => p_onl%il_varlist
-          END SELECT
           CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),varlist_ptr)
 
         END DO ! ifile_partition
