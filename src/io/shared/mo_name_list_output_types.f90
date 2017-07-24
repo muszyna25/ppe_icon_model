@@ -31,7 +31,6 @@ MODULE mo_name_list_output_types
   USE mo_io_units,              ONLY: filename_max
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_util_uuid_types,       ONLY: t_uuid
-  USE mo_util_string,           ONLY: tolower
   USE mo_communication,         ONLY: t_comm_gather_pattern
   USE mtime,                    ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN
   USE mo_level_selection_types, ONLY: t_level_selection
@@ -111,6 +110,7 @@ MODULE mo_name_list_output_types
   ! describe the grid coordinates. These fields are ignored by most
   ! output routines and only used by "set_grid_info_grb2":
   CHARACTER(LEN=5), PARAMETER :: GRB2_GRID_INFO = "GRID:"
+  CHARACTER(LEN=LEN(grb2_grid_info)), PARAMETER :: grb2_grid_info_lc = 'grid:'
   CHARACTER(LEN=9), PARAMETER :: GRB2_GRID_INFO_NAME(0:3,2) = &
     &  RESHAPE( (/ "GRID:RLON", "GRID:CLON", "GRID:ELON", "GRID:VLON", &
     &              "GRID:RLAT", "GRID:CLAT", "GRID:ELAT", "GRID:VLAT" /), (/4,2/) )
@@ -452,7 +452,7 @@ CONTAINS
     ! local variables
     INTEGER :: idx
 
-    idx = INDEX(TRIM(varname), TRIM(tolower(GRB2_GRID_INFO)))
+    idx = INDEX(varname, grb2_grid_info_lc)
     is_grid_info_var = (idx > 0)
   END FUNCTION is_grid_info_var
 
