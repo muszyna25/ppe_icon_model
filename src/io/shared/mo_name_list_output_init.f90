@@ -2780,6 +2780,7 @@ CONTAINS
   END SUBROUTINE transfer_grid_info
 
 
+#ifndef NOMPI
   !-------------------------------------------------------------------------------------------------
   !> Replicates data (mainly the variable lists) needed for async I/O on the I/O procs.
   !  ATTENTION: The data is not completely replicated, only as far as needed for I/O.
@@ -3050,8 +3051,6 @@ CONTAINS
 
     isRegistered = outputRegiser%includes(util_hashword(TRIM(tolower(name)),LEN_TRIM(name),0))
   END FUNCTION
-
-#ifndef NOMPI
 
   !------------------------------------------------------------------------------------------------
   !> Initializes the memory window for asynchronous IO
