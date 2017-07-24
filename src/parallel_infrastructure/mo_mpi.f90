@@ -8185,8 +8185,7 @@ CONTAINS
   FUNCTION p_test() RESULT(ret)
     LOGICAL :: ret
 #ifndef NOMPI
-    INTEGER :: p_status_wait(MPI_STATUS_SIZE,p_irequest)
-    CALL MPI_TESTALL(p_irequest, p_request, ret, p_status_wait, p_error)
+    CALL MPI_TESTALL(p_irequest, p_request, ret, mpi_statuses_ignore, p_error)
 #else
     ret = .TRUE.
 #endif
