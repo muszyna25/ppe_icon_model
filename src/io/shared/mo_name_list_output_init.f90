@@ -134,7 +134,8 @@ MODULE mo_name_list_output_init
     &                                             mtime_proleptic_gregorian => proleptic_gregorian, &
     &                                             mtime_year_of_360_days => year_of_360_days
   USE mo_output_event_types,                ONLY: t_sim_step_info, MAX_EVENT_NAME_STR_LEN,        &
-    &                                             DEFAULT_EVENT_NAME, t_par_output_event
+    &                                             DEFAULT_EVENT_NAME, t_par_output_event,         &
+    &                                             max_filename_str_len
   USE mo_output_event_control,              ONLY: compute_matching_sim_steps,                     &
     &                                             generate_output_filenames
   USE mo_output_event_handler,              ONLY: new_parallel_output_event,                      &
@@ -1589,7 +1590,7 @@ CONTAINS
   SUBROUTINE create_event_data(sim_step_info)
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
 
-    TYPE(t_event_data_local), ALLOCATABLE  :: event_list_local(:)
+    TYPE(t_event_data_local), ALLOCATABLE :: event_list_local(:)
     !> length of local list of output events
     INTEGER :: ievent_list_local, local_i, i, nfiles, num_local_events
     INTEGER :: dom_sim_step_info_jstep0
@@ -1597,6 +1598,7 @@ CONTAINS
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
     CHARACTER(LEN=max_char_length)       :: comp_name
 #endif
+    CHARACTER(len=max_filename_str_len) :: osched_fname
 
     !
     !  Regular output is triggered at
@@ -1647,40 +1649,40 @@ CONTAINS
       &                            isRestart(), lrecover_open_file=.TRUE.)
     ! print a table with all output events
     IF (.NOT. is_mpi_test) THEN
-       IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
-            & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
-          CALL print_output_event(all_events)                                       ! screen output
-          IF (dom_sim_step_info_jstep0 > 0) THEN
+      IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
+        & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
+        CALL print_output_event(all_events)                                       ! screen output
+        IF (dom_sim_step_info_jstep0 > 0) THEN
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
-             IF ( is_coupled_run() ) THEN
-               comp_name = get_my_process_name()
-               CALL print_output_event(all_events, &
-                 ! ASCII file output:
-                 & opt_filename="output_schedule_"//TRIM(comp_name)//&
-                 &"_steps_"//TRIM(int2string(dom_sim_step_info_jstep0))//"+.txt")
-             ELSE
-               CALL print_output_event(all_events, &
-                 & opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info_jstep0))//&
-                 &"+.txt") ! ASCII file output
-             ENDIF
-#else
-             CALL print_output_event(all_events, &
-               & opt_filename="output_schedule_steps_"//&
-               &TRIM(int2string(dom_sim_step_info_jstep0))//"+.txt") ! ASCII file output
-#endif
+          IF ( is_coupled_run() ) THEN
+            comp_name = get_my_process_name()
+            WRITE (osched_fname, '(3a,i0,a)') "output_schedule_", &
+              TRIM(comp_name), "_steps_", dom_sim_step_info_jstep0, "+.txt"
           ELSE
-#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
-             IF ( is_coupled_run() ) THEN
-                comp_name = TRIM(get_my_process_name())
-                CALL print_output_event(all_events, opt_filename="output_schedule_"//TRIM(comp_name)//".txt") ! ASCII file output
-             ELSE
-                CALL print_output_event(all_events, opt_filename="output_schedule.txt") ! ASCII file output
-             ENDIF
+            WRITE (osched_fname, '(a,i0,a)') "output_schedule_steps_", &
+              dom_sim_step_info_jstep0, "+.txt"
+          ENDIF
 #else
-             CALL print_output_event(all_events, opt_filename="output_schedule.txt") ! ASCII file output
+          WRITE (osched_fname, '(a,i0,a)') "output_schedule_steps_", &
+            dom_sim_step_info_jstep0, "+.txt"
 #endif
-          END IF
-       END IF
+        ELSE
+#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
+          IF ( is_coupled_run() ) THEN
+            comp_name = TRIM(get_my_process_name())
+            WRITE (osched_fname, '(3a)') "output_schedule_", &
+              &                          TRIM(comp_name), ".txt"
+          ELSE
+            osched_fname = "output_schedule.txt"
+          ENDIF
+#else
+          osched_fname = "output_schedule.txt"
+#endif
+        END IF
+        CALL print_output_event(all_events, &
+             ! ASCII file output:
+             & opt_filename=TRIM(osched_fname))
+      END IF
     END IF
   END SUBROUTINE create_event_data
 
