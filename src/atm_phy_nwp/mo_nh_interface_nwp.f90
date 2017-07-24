@@ -34,68 +34,69 @@
 
 MODULE mo_nh_interface_nwp
 
-  USE mtime,                       ONLY: datetime, timeDelta, newTimedelta,             &
-    &                                    deallocateTimedelta, getTimedeltaFromDatetime, &
-    &                                    getTotalMillisecondsTimedelta
-  USE mo_time_config,              ONLY: time_config
-  USE mo_kind,                     ONLY: wp
+  USE mtime,                      ONLY: datetime, timeDelta, newTimedelta,             &
+    &                                   deallocateTimedelta, getTimedeltaFromDatetime, &
+    &                                   getTotalMillisecondsTimedelta
+  USE mo_time_config,             ONLY: time_config
+  USE mo_kind,                    ONLY: wp
 
   USE mo_timer
-  USE mo_exception,                ONLY: message, message_text, finish
-  USE mo_impl_constants,           ONLY: itconv, itccov, itrad, itgscp,                        &
-    &                                    itsatad, itturb, itsfc, itradheat,                    &
-    &                                    itsso, itgwd, itfastphy, icosmo, igme, iedmf,         &
-    &                                    min_rlcell_int, min_rledge_int, min_rlcell
-  USE mo_impl_constants_grf,       ONLY: grf_bdywidth_c, grf_bdywidth_e
-  USE mo_loopindices,              ONLY: get_indices_c, get_indices_e
-  USE mo_intp_rbf,                 ONLY: rbf_vec_interpol_cell
-  USE mo_model_domain,             ONLY: t_patch
-  USE mo_intp_data_strc,           ONLY: t_int_state
-  USE mo_nonhydro_types,           ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nonhydrostatic_config,    ONLY: kstart_moist, lhdiff_rcf, ih_clch, ih_clcm
-  USE mo_nwp_lnd_types,            ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
-  USE mo_ext_data_types,           ONLY: t_external_data
-  USE mo_nwp_phy_types,            ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE mo_parallel_config,          ONLY: nproma, p_test_run, use_icon_comm, use_physics_barrier
-  USE mo_diffusion_config,         ONLY: diffusion_config
-  USE mo_run_config,               ONLY: ntracer, iqv, iqc, iqi, iqs, iqtvar, iqtke,  &
-    &                                    msg_level, ltimer, timers_level, lart
-  USE mo_grid_config,              ONLY: l_limited_area
-  USE mo_physical_constants,       ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cvd, cvv
+  USE mo_exception,               ONLY: message, message_text, finish
+  USE mo_impl_constants,          ONLY: itconv, itccov, itrad, itgscp,                        &
+    &                                   itsatad, itturb, itsfc, itradheat,                    &
+    &                                   itsso, itgwd, itfastphy, icosmo, igme, iedmf,         &
+    &                                   min_rlcell_int, min_rledge_int, min_rlcell
+  USE mo_impl_constants_grf,      ONLY: grf_bdywidth_c, grf_bdywidth_e
+  USE mo_loopindices,             ONLY: get_indices_c, get_indices_e
+  USE mo_intp_rbf,                ONLY: rbf_vec_interpol_cell
+  USE mo_model_domain,            ONLY: t_patch
+  USE mo_intp_data_strc,          ONLY: t_int_state
+  USE mo_nonhydro_types,          ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+  USE mo_nonhydrostatic_config,   ONLY: kstart_moist, lhdiff_rcf, ih_clch, ih_clcm
+  USE mo_nwp_lnd_types,           ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
+  USE mo_ext_data_types,          ONLY: t_external_data
+  USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag, t_nwp_phy_tend
+  USE mo_parallel_config,         ONLY: nproma, p_test_run, use_icon_comm, use_physics_barrier
+  USE mo_diffusion_config,        ONLY: diffusion_config
+  USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqs, iqtvar, iqtke,  &
+    &                                   msg_level, ltimer, timers_level, lart
+  USE mo_grid_config,             ONLY: l_limited_area
+  USE mo_physical_constants,      ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cvd, cvv
 
-  USE mo_nh_diagnose_pres_temp,    ONLY: diagnose_pres_temp, diag_pres, diag_temp
+  USE mo_nh_diagnose_pres_temp,   ONLY: diagnose_pres_temp, diag_pres, diag_temp
 
-  USE mo_atm_phy_nwp_config,       ONLY: atm_phy_nwp_config, iprog_aero
-  USE mo_util_phys,                ONLY: nh_update_tracer_phy
-  USE mo_lnd_nwp_config,           ONLY: ntiles_total, ntiles_water
-  USE mo_cover_koe,                ONLY: cover_koe
-  USE mo_satad,                    ONLY: satad_v_3D
-  USE mo_aerosol_util,             ONLY: prog_aerosol_2D
-  USE mo_radiation,                ONLY: radheat, pre_radiation_nwp
-  USE mo_radiation_config,         ONLY: irad_aero
-  USE mo_nwp_gw_interface,         ONLY: nwp_gwdrag
-  USE mo_nwp_gscp_interface,       ONLY: nwp_microphysics
-  USE mo_nwp_turbtrans_interface,  ONLY: nwp_turbtrans
-  USE mo_nwp_turbdiff_interface,   ONLY: nwp_turbdiff
-  USE mo_nwp_turb_sfc_interface,   ONLY: nwp_turbulence_sfc
-  USE mo_nwp_sfc_interface,        ONLY: nwp_surface
-  USE mo_nwp_conv_interface,       ONLY: nwp_convection
-  USE mo_nwp_rad_interface,        ONLY: nwp_radiation
-  USE mo_sync,                     ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E,      &
-                                         SYNC_C, SYNC_C1, global_sum_array
-  USE mo_mpi,                      ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier,     &
-    &                                    process_mpi_stdio_id, my_process_is_stdio
-  USE mo_nwp_diagnosis,            ONLY: nwp_statistics, nwp_diag_output_1, nwp_diag_output_2
-  USE mo_icon_comm_lib,            ONLY: new_icon_comm_variable,                               &
-    &                                    icon_comm_sync_all, is_ready, until_sync
+  USE mo_atm_phy_nwp_config,      ONLY: atm_phy_nwp_config, iprog_aero
+  USE mo_util_phys,               ONLY: nh_update_tracer_phy
+  USE mo_lnd_nwp_config,          ONLY: ntiles_total, ntiles_water
+  USE mo_cover_koe,               ONLY: cover_koe
+  USE mo_satad,                   ONLY: satad_v_3D
+  USE mo_aerosol_util,            ONLY: prog_aerosol_2D
+  USE mo_radiation,               ONLY: radheat, pre_radiation_nwp
+  USE mo_radiation_config,        ONLY: irad_aero
+  USE mo_nwp_gw_interface,        ONLY: nwp_gwdrag
+  USE mo_nwp_gscp_interface,      ONLY: nwp_microphysics
+  USE mo_nwp_turbtrans_interface, ONLY: nwp_turbtrans
+  USE mo_nwp_turbdiff_interface,  ONLY: nwp_turbdiff
+  USE mo_nwp_turb_sfc_interface,  ONLY: nwp_turbulence_sfc
+  USE mo_nwp_sfc_interface,       ONLY: nwp_surface
+  USE mo_nwp_conv_interface,      ONLY: nwp_convection
+  USE mo_nwp_rad_interface,       ONLY: nwp_radiation
+  USE mo_sync,                    ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E,      &
+                                        SYNC_C, SYNC_C1, global_sum_array
+  USE mo_mpi,                     ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier,     &
+    &                                   process_mpi_stdio_id, my_process_is_stdio
+  USE mo_nwp_diagnosis,           ONLY: nwp_statistics, nwp_diag_output_1, nwp_diag_output_2
+  USE mo_icon_comm_lib,           ONLY: new_icon_comm_variable,                               &
+    &                                   icon_comm_sync_all, is_ready, until_sync
   USE mo_art_diagnostics_interface,ONLY: art_diagnostics_interface
-  USE mo_art_washout_interface,    ONLY: art_washout_interface
-  USE mo_art_reaction_interface,   ONLY: art_reaction_interface
-  USE mo_linked_list,              ONLY: t_var_list
-  USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
-  USE mo_ls_forcing,               ONLY: apply_ls_forcing
-  USE mo_advection_config,         ONLY: advection_config
-  USE mo_o3_util,                  ONLY: calc_o3_gems
+
+  USE mo_art_washout_interface,   ONLY: art_washout_interface
+  USE mo_art_reaction_interface,  ONLY: art_reaction_interface
+  USE mo_linked_list,             ONLY: t_var_list
+  USE mo_ls_forcing_nml,          ONLY: is_ls_forcing
+  USE mo_ls_forcing,              ONLY: apply_ls_forcing
+  USE mo_advection_config,        ONLY: advection_config
+  USE mo_o3_util,                 ONLY: calc_o3_gems
 
   IMPLICIT NONE
 
