@@ -889,6 +889,11 @@ CONTAINS
         DO ivar = 1, nvars
           vname = in_varlist(ivar)
 
+          ! FIXME: this is probably a bug: the INDEX function also
+          ! gives a match if tile_prefix is found after the first
+          ! position, i.e. one would need to check for index returning
+          ! exactly 1 or compare vname(1:len(tile_prefix)) ==
+          ! tile_prefix
           IF (INDEX(vname, TILE_PREFIX) > 0) THEN
             ! this is a tile group identifier
             grp_name = vname(LEN(TILE_PREFIX)+1:)
