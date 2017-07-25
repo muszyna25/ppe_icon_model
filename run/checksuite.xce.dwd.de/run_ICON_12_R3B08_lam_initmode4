@@ -102,10 +102,6 @@ ln -sf ${ICONDIR}/data/ECHAM6_CldOptProps.nc rrtm_cldopt.nc
 ln -sf ${ICONDIR}/data/rrtmg_lw.nc .
 
 
-
-# Dictionary for the mapping: DWD GRIB2 names <-> ICON internal names
-ln -s ${ICONDIR}/run/ana_varnames_map_file.txt map_file.ana
-
 # Dictionary for the mapping: GRIB2/Netcdf input names <-> ICON internal names
 ln -s ${GRIDDIR}/map_file.latbc .
 
@@ -218,7 +214,6 @@ cat > NAMELIST_NWP << EOF
  lread_ana                   =                     .FALSE.        ! no analysis data will be read
  dwdfg_filename              = "init_DOM02_ML_20170112T000000Z.nc" ! initial data filename
  ifs2icon_filename           = "init_DOM02_ML_20170112T000000Z.nc" ! initial data filename
- ana_varnames_map_file       =              "map_file.ana"        ! dictionary mapping internal names onto GRIB2 shortNames
  ltile_coldstart             =                      .TRUE.        ! coldstart for surface tiles
  ltile_init                  =                     .FALSE.        ! set it to .TRUE. if FG data originate from run without tiles
 /

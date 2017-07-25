@@ -257,9 +257,7 @@ MODULE mo_initicon
                 CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(fgFilename(p_patch(jg))))
             ENDIF  ! p_io
             SELECT CASE(fgFiletype())
-                CASE(FILETYPE_NC2, FILETYPE_NC4)
-                    CALL requestList%readFile(p_patch(jg), TRIM(fgFilename(p_patch(jg))), .TRUE.)
-                CASE(FILETYPE_GRB2)
+                CASE(FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2)
                     CALL requestList%readFile(p_patch(jg), TRIM(fgFilename(p_patch(jg))), .TRUE., opt_dict = ana_varnames_dict)
                 CASE DEFAULT
                     CALL finish(routine, "Unknown file TYPE")
