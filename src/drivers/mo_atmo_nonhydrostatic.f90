@@ -63,6 +63,7 @@ USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
 USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
 ! Initialization with real data
 USE mo_initicon,            ONLY: init_icon
+USE mo_initicon_config,     ONLY: timeshift
 USE mo_ext_data_state,      ONLY: ext_data
 USE mo_ext_data_init,       ONLY: init_index_lists
 ! meteogram output
@@ -182,11 +183,13 @@ CONTAINS
     time_diff  => newTimedelta("PT0S")
     time_diff  =  getTimeDeltaFromDateTime(time_config%tc_current_date, time_config%tc_exp_startdate)
     sim_time   =  getTotalMillisecondsTimedelta(time_diff, time_config%tc_current_date)*1.e-3_wp
+    ! Account for IAU time shift if we are not in restart mode
+    IF (.NOT. isRestart()) sim_time = sim_time + timeshift%dt_shift
     CALL deallocateTimedelta(time_diff)
     
     DO jg=1, n_dom
       IF (jg > 1 .AND. start_time(jg) > sim_time .OR. end_time(jg) <= sim_time) THEN
-        p_patch(jg)%ldom_active = .FALSE. ! domain not active at restart time
+        p_patch(jg)%ldom_active = .FALSE. ! domain not active
       ELSE
         p_patch(jg)%ldom_active = .TRUE.
       ENDIF

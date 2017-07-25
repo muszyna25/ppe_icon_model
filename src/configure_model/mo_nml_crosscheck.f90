@@ -64,7 +64,7 @@ MODULE mo_nml_crosscheck
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
   USE mo_meteogram_config,   ONLY: check_meteogram_configuration
-  USE mo_grid_config,        ONLY: lplane, n_dom, init_grid_configuration, l_limited_area
+  USE mo_grid_config,        ONLY: lplane, n_dom, init_grid_configuration, l_limited_area, start_time
 
   USE mo_art_config,         ONLY: art_config
   USE mo_time_management,    ONLY: compute_timestep_settings,                        &
@@ -810,6 +810,13 @@ CONTAINS
         WRITE (message_text,'(a)') "Restarting is not allowed within the IAU phase"
         CALL finish('atm_crosscheck:', TRIM(message_text))
       ENDIF
+
+      DO jg = 2, n_dom
+        IF (start_time(jg) > timeshift%dt_shift .AND. start_time(jg) < dt_iau+timeshift%dt_shift) THEN
+          WRITE (message_text,'(a)') "Starting a nest is not allowed within the IAU phase"
+          CALL finish('atm_crosscheck:', TRIM(message_text))
+        ENDIF
+      ENDDO
 
       ! IAU modes MODE_IAU_OLD cannot be combined with snowtiles
       ! when performing snowtile warmstart.
