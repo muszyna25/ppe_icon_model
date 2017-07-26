@@ -78,6 +78,11 @@ MODULE mo_radiation_config
                                ! 3: maximum overlap
                                ! 4: random overlap
 
+    INTEGER :: islope_rad      ! slope correction for surface radiation
+                               ! 0: none
+                               ! 1: slope correction for solar radiation without shading effects
+                               ! option 2 is reserved for slope-dependent radiation with shading (not yet implemented)
+
     ! --- Switches for radiative agents
     !     irad_x=0 : radiation uses tracer x = 0
     !     irad_x=1 : radiation uses tracer x from a tracer variable

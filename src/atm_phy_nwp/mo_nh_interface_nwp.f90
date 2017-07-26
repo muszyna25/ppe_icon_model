@@ -186,7 +186,7 @@ CONTAINS
     !< vertical interfaces
 
     REAL(wp) :: zsct ! solar constant (at time of year)
-    REAL(wp) :: zcosmu0 (nproma,pt_patch%nblks_c)
+    REAL(wp) :: zcosmu0 (nproma,pt_patch%nblks_c), cosmu0_slope(nproma,pt_patch%nblks_c)
 
     REAL(wp) :: z_qsum(nproma,pt_patch%nlev)  !< summand of virtual increment
     REAL(wp) :: z_ddt_qsum                    !< summand of tendency of virtual increment
@@ -904,7 +904,11 @@ CONTAINS
         & p_sim_time = p_sim_time,                  &
         & pt_patch   = pt_patch,                    &
         & zsmu0      = zcosmu0,                     &
-        & zsct       = zsct )
+        & zsct       = zsct,                        &
+        & slope_ang  = p_metrics%slope_angle,       &
+        & slope_azi  = p_metrics%slope_azimuth,     &
+        & cosmu0_slp = cosmu0_slope                 )
+
       IF (timers_level > 10) CALL timer_stop(timer_pre_radiation_nwp)
 
       ! exclude boundary interpolation zone of nested domains
@@ -971,7 +975,8 @@ CONTAINS
           & idx_lst_t=ext_data%atm%idx_lst_t(:,jb,:), &! in   index list of land points per tile
           & idx_lst_spi=ext_data%atm%idx_lst_spi(:,jb),&! in  index list of seaice points
           & idx_lst_fp=ext_data%atm%idx_lst_fp(:,jb),&! in    index list of (f)lake points
-          & cosmu0=zcosmu0(:,jb)                   ,&! in     cosine of solar zenith angle
+          & cosmu0=zcosmu0(:,jb)                   ,&! in     cosine of solar zenith angle (w.r.t. plain surface)
+          & cosmu0_slp=cosmu0_slope(:,jb)          ,&! in     slope-dependent cosine of solar zenith angle
           & opt_nh_corr=.TRUE.                     ,&! in     switch for NH mode
           & ptsfc=lnd_prog_new%t_g(:,jb)           ,&! in     surface temperature         [K]
           & ptsfc_t=lnd_prog_new%t_g_t(:,jb,:)     ,&! in     tile-specific surface temperature         [K]
@@ -1025,6 +1030,7 @@ CONTAINS
           & pqi=prm_diag%tot_cld    (:,:,jb,iqi)   ,&! in     specific cloud ice          [kg/kg]
           & ppres_ifc=pt_diag%pres_ifc(:,:,jb)     ,&! in     pressure at layer boundaries [Pa]
           & cosmu0=zcosmu0(:,jb)                   ,&! in     cosine of solar zenith angle
+          & cosmu0_slp=cosmu0_slope(:,jb)          ,&! in     slope-dependent cosine of solar zenith angle
           & opt_nh_corr=.TRUE.                     ,&! in     switch for NH mode
           & ptsfc=lnd_prog_new%t_g(:,jb)           ,&! in     surface temperature         [K]
           & ptsfctrad=prm_diag%tsfctrad(:,jb)      ,&! in     sfc temp. used for pflxlw   [K]

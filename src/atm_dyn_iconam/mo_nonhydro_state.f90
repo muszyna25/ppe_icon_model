@@ -3519,6 +3519,28 @@ MODULE mo_nonhydro_state
                   & ldims=shape2d_c,                                            &
                   & isteptype=TSTEP_CONSTANT )
 
+      ! Slope angle
+      ! p_metrics%slope_angle(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('Slope angle', 'rad',                               &
+      &                     'Slpe angle', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_metrics_list, 'slope_angle', p_metrics%slope_angle,       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape2d_c,                                            &
+                  & isteptype=TSTEP_CONSTANT )
+
+      ! Slope azimuth
+      ! p_metrics%slope_azimuth(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('Slope azimuth', 'rad',                             &
+      &                     'Slpe azimuth', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_metrics_list, 'slope_azimuth', p_metrics%slope_azimuth,   &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape2d_c,                                            &
+                  & isteptype=TSTEP_CONSTANT )
+
     !Add LES related variables : Anurag Dipankar MPIM (2013-04)
     IF(atm_phy_nwp_config(jg)%is_les_phy)THEN
 
