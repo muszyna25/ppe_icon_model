@@ -2337,36 +2337,34 @@ CONTAINS
       IF (ALLOCATED(ev%irecv_req)) nreq = nreq + ev%irecv_nreq
       ev => ev%next
     END DO
-    IF (ldebug) THEN
-      WRITE (0,*) "Total ", nreq, " IRECV request handles."
+    IF (ldebug) WRITE (0,*) "Total ", nreq, " IRECV request handles."
+    IF (nreq > 0) THEN
+      ! collect the request handles
+      ALLOCATE(irecv_req(nreq), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+      ev   =>  event
+      ireq = 1
+      DO WHILE (ASSOCIATED(ev))
+        IF (ALLOCATED(ev%irecv_req)) &
+          irecv_req(ireq:(ireq+ev%irecv_nreq-1)) = ev%irecv_req(1:ev%irecv_nreq)
+        ireq = ireq + ev%irecv_nreq
+        ev => ev%next
+      END DO
+
+      ! wait for the last IRECVs to be processed:
+      CALL MPI_WAITALL(nreq, irecv_req, mpi_statuses_ignore, ierrstat)
+      IF (ierrstat /= mpi_success) CALL finish (routine, 'Error in MPI_WAITALL.')
+      DEALLOCATE(irecv_req, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+
+      ! clear the request handles
+      ev => event
+      DO WHILE (ASSOCIATED(ev))
+        IF (ALLOCATED(ev%irecv_req)) &
+          ev%irecv_req(:) = MPI_REQUEST_NULL
+        ev => ev%next
+      END DO
     END IF
-    IF (nreq == 0) RETURN
-
-    ! collect the request handles
-    ALLOCATE(irecv_req(nreq), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-    ev   =>  event
-    ireq = 1
-    DO WHILE (ASSOCIATED(ev))
-      IF (ALLOCATED(ev%irecv_req)) &
-        irecv_req(ireq:(ireq+ev%irecv_nreq-1)) = ev%irecv_req(1:ev%irecv_nreq)
-      ireq = ireq + ev%irecv_nreq
-      ev => ev%next
-    END DO
-
-    ! wait for the last IRECVs to be processed:
-    CALL MPI_WAITALL(nreq, irecv_req, mpi_statuses_ignore, ierrstat)
-    IF (ierrstat /= mpi_success) CALL finish (routine, 'Error in MPI_WAITALL.')
-    DEALLOCATE(irecv_req, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-
-    ! clear the request handles
-    ev => event
-    DO WHILE (ASSOCIATED(ev))
-      IF (ALLOCATED(ev%irecv_req)) &
-        ev%irecv_req(:) = MPI_REQUEST_NULL
-      ev => ev%next
-    END DO
 #endif
   END SUBROUTINE blocking_wait_for_irecvs
 
