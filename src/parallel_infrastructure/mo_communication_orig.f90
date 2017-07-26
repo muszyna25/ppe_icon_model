@@ -423,11 +423,23 @@ CONTAINS
     DO i = 1, p_pat%n_send
 
       np = get_local_index(send_glb2loc_index, send_src(i))
+      IF (np <= 0) THEN
+        WRITE (0, '(3(a,i0))') 'problem at i=', i, &
+          ', send_src(i)=', send_src(i), &
+          ', np=', np
+      END IF
       any_np_le_0 = any_np_le_0 .OR. np <= 0
       p_pat%send_src_blk(i) = blk_no(np)
       p_pat%send_src_idx(i) = idx_no(np)
     ENDDO
-    IF (any_np_le_0) CALL finish(routine, 'Got illegal index')
+    IF (any_np_le_0) THEN
+      WRITE (0, '(a)') 'send_glb2loc_index%outer_glb_index'
+      WRITE (0, '(10(i0," "))') send_glb2loc_index%outer_glb_index
+      WRITE (0, '(a)') 'send_glb2loc_index%inner_glb_index'
+      WRITE (0, '(10(i0," "))') send_glb2loc_index%inner_glb_index
+      FLUSH(0)
+      CALL finish(routine, 'Got illegal index')
+    END IF
     ! Finally, compute lists of processors for send and receive operations
 
     num_send = 0
