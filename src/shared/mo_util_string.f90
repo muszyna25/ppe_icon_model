@@ -637,22 +637,28 @@ CONTAINS
     CHARACTER(LEN=*),               INTENT(IN)    :: varlist(:), group_list(:)
     CHARACTER(LEN=*),               INTENT(IN)    :: group_name
     ! local variables
-    INTEGER :: i,j,k
+    INTEGER :: i,j,k,m,ngroups
+    CHARACTER(len=LEN_TRIM(group_name)) :: group_name_uc
 
     k=0
-    DO i=1,SIZE(varlist)
-      IF (varlist(i) == ' ') EXIT
-      IF (toupper(varlist(i)) == toupper(group_name)) THEN
-        DO j=1,SIZE(group_list)
+    ngroups = SIZE(group_list)
+    m = SIZE(varlist)
+    IF (m > 0) THEN
+      group_name_uc = toupper(group_name)
+      DO i=1,m
+        IF (varlist(i) == ' ') EXIT
+        IF (toupper(varlist(i)) == group_name_uc) THEN
+          DO j=1,ngroups
+            k = k+1
+            result_list(k) = group_list(j)
+          END DO
+        ELSE
           k = k+1
-          result_list(k) = group_list(j)
-        END DO
-      ELSE
-        k = k+1
-        result_list(k) = varlist(i)
-      END IF
-    END DO
-    CALL remove_duplicates(result_list, k )
+          result_list(k) = varlist(i)
+        END IF
+      END DO
+      CALL remove_duplicates(result_list, k )
+    END IF
     DO i=k+1,n
       result_list(i) = " "
     END DO
