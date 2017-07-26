@@ -1613,8 +1613,8 @@ CONTAINS
   !  @author F. Prill, DWD
   !
   FUNCTION is_par_output_step(event, jstep) RESULT(p)
-    TYPE(t_par_output_event), POINTER                :: event  !< output event
-    INTEGER,                           INTENT(IN)    :: jstep  !< given step index
+    TYPE(t_par_output_event), POINTER, INTENT(IN) :: event  !< output event
+    INTEGER,                           INTENT(IN) :: jstep  !< given step index
     TYPE(t_par_output_event), POINTER :: ev
     ! local variables
     LOGICAL :: p
