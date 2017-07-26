@@ -342,9 +342,8 @@ CONTAINS
     TYPE(t_output_event),          INTENT(IN) :: event           !< output event data structure
     INTEGER, OPTIONAL,             INTENT(IN) :: opt_dstfile     !< optional destination ASCII file unit
     ! local variables
-    INTEGER                     :: i, j, irow, dst
+    INTEGER                     :: i, irow, dst
     TYPE(t_table)               :: table
-    TYPE(t_event_step), POINTER :: event_step
 
     dst = 0
     IF (PRESENT(opt_dstfile)) dst = opt_dstfile
@@ -1575,13 +1574,9 @@ CONTAINS
   !
   FUNCTION is_par_output_event_finished(event)
     LOGICAL :: is_par_output_event_finished
-    TYPE(t_par_output_event), POINTER             :: event
+    TYPE(t_par_output_event), INTENT(in)             :: event
 
-    IF (.NOT. ASSOCIATED(event)) THEN
-      is_par_output_event_finished = .TRUE.
-    ELSE
-      is_par_output_event_finished = is_output_event_finished(event%output_event)
-    END IF
+    is_par_output_event_finished = is_output_event_finished(event%output_event)
   END FUNCTION is_par_output_event_finished
 
 
@@ -1842,7 +1837,7 @@ CONTAINS
   !
   FUNCTION is_event_root_pe(opt_event, opt_icomm)
     LOGICAL :: is_event_root_pe
-    TYPE(t_par_output_event), POINTER, OPTIONAL :: opt_event
+    TYPE(t_par_output_event), INTENT(inout), OPTIONAL :: opt_event
     INTEGER, INTENT(IN),               OPTIONAL :: opt_icomm
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::is_event_root_pe"
@@ -2181,7 +2176,7 @@ CONTAINS
   !  @author F. Prill, DWD
   !
   SUBROUTINE pass_output_step(event)
-    TYPE(t_par_output_event), POINTER :: event
+    TYPE(t_par_output_event), INTENT(inout) :: event
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::pass_output_step"
     LOGICAL :: step_is_not_finished
@@ -2237,13 +2232,11 @@ CONTAINS
   !  @author F. Prill, DWD
   !
   SUBROUTINE trigger_output_step_irecv(event)
-    TYPE(t_par_output_event), POINTER :: event
+    TYPE(t_par_output_event), INTENT(inout) :: event
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::trigger_output_step_irecv"
-    INTEGER                     :: ierrstat, cur_step, i, i_pe, i_tag
-    TYPE(t_event_step), POINTER :: event_step
+    INTEGER                     :: ierrstat
 
-    IF (.NOT. ASSOCIATED(event))  RETURN
     ! determine this PE's MPI rank wrt. the given MPI communicator and
     ! return if this PE is not root PE for the given event:
     IF (.NOT. is_event_root_pe(event))  RETURN
@@ -2257,38 +2250,52 @@ CONTAINS
       event%irecv_nreq = 0
     END IF
     IF (.NOT. is_output_event_finished(event)) THEN
-      ! launch a couple of new non-blocking receives:
-      cur_step         =  event%output_event%i_event_step
-      event_step       => event%output_event%event_step(cur_step)
-      event%irecv_nreq =  event_step%n_pes
-
-      ALLOCATE(event%irecv_req(event%irecv_nreq), event%irecv_buf(event%irecv_nreq), STAT=ierrstat)
-      event%irecv_req(:) = MPI_REQUEST_NULL
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-      DO i=1,event%irecv_nreq
-        i_pe  = event_step%event_step_data(i)%i_pe
-        i_tag = event_step%event_step_data(i)%i_tag
-        IF (ldebug) THEN
-          WRITE (0,*) routine, ": launching IRECV ", i_tag, " on ", get_my_global_mpi_id(), &
-            &         " to ", i_pe
-        END IF
-        CALL MPI_IRECV(event%irecv_buf(i), 1, p_int, i_pe, &
-          &            i_tag, event%icomm, event%irecv_req(i), ierrstat)
-        IF (ierrstat /= mpi_success) CALL finish (routine, 'Error in MPI_IRECV.')
-      END DO
+      CALL start_event_step_irecvs(event%icomm, &
+           event%output_event%event_step(event%output_event%i_event_step), &
+           event%irecv_req, event%irecv_buf, event%irecv_nreq)
     END IF
   END SUBROUTINE trigger_output_step_irecv
 #endif
 
-
 #ifndef NOMPI
+  SUBROUTINE start_event_step_irecvs(icomm, event_step, &
+       irecv_req, irecv_buf, irecv_nreq)
+    INTEGER, INTENT(in) :: icomm
+    TYPE(t_event_step),    INTENT(in) :: event_step
+    INTEGER, ALLOCATABLE, INTENT(out) :: irecv_req(:), irecv_buf(:)
+    INTEGER, INTENT(out)              :: irecv_nreq
+
+    CHARACTER(LEN=*), PARAMETER :: routine = &
+         modname//"::start_event_step_irecvs"
+    INTEGER :: i, ierror, nreq, i_pe, i_tag
+    ! launch a couple of new non-blocking receives:
+    nreq = event_step%n_pes
+    irecv_nreq = nreq
+
+    ALLOCATE(irecv_req(nreq), irecv_buf(nreq), STAT=ierror)
+    IF (ierror /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+    irecv_req = MPI_REQUEST_NULL
+    DO i=1, nreq
+      i_pe  = event_step%event_step_data(i)%i_pe
+      i_tag = event_step%event_step_data(i)%i_tag
+      IF (ldebug) THEN
+        WRITE (0,*) routine, ": launching IRECV ", i_tag, " on ", get_my_global_mpi_id(), &
+          &         " to ", i_pe
+      END IF
+      CALL mpi_irecv(irecv_buf(i), 1, p_int, i_pe, &
+        &            i_tag, icomm, irecv_req(i), ierror)
+      IF (ierror /= mpi_success) CALL finish (routine, 'Error in MPI_IRECV.')
+    END DO
+  END SUBROUTINE start_event_step_irecvs
+
+
   !> Utility routine: blocking wait for pending "output completed"
   !> messages.
   !
   !  @author F. Prill, DWD
   !
   SUBROUTINE wait_for_pending_irecvs(event)
-    TYPE(t_par_output_event), POINTER :: event
+    TYPE(t_par_output_event), INTENT(inout) :: event
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::wait_for_pending_irecs"
     INTEGER                     :: ierrstat
