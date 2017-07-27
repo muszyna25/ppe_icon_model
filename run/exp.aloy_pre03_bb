@@ -193,7 +193,7 @@ cat > ${atm_namelist} << EOF
  ltestcase        = .FALSE.      ! run testcase
  ldynamics        = .TRUE.       ! dynamics
  ltransport       = .TRUE.       ! transport
- ntracer          = 3            ! number of tracers
+ ntracer          = 3           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
  iforcing         = 2            ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 15           ! level of details report during integration 
@@ -234,10 +234,10 @@ cat > ${atm_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
- ctracer_list     = 'vwi'       ! water vapour, cloud water, cloud ice
- ivadv_tracer     = 3,3,3
- itype_hlimit     = 3,4,4
- ihadv_tracer     = 52,2,2
+!                   hus,clw,cli, o3
+ ivadv_tracer     =   3,  3,  3,  3
+ itype_hlimit     =   3,  4,  4,  4
+ ihadv_tracer     =  52,  2,  2, 52
 /
 &mpi_phy_nml
 !
@@ -258,13 +258,12 @@ cat > ${atm_namelist} << EOF
  mpi_phy_config(1)%dt_art = ""
 !
 ! surface (.TRUE. or .FALSE.)
- mpi_phy_config(1)%ljsb  = .TRUE.
+ mpi_phy_config(1)%ljsb  = ${ljsbach}
  mpi_phy_config(1)%lamip = .FALSE.
  mpi_phy_config(1)%lice  = .TRUE.
  mpi_phy_config(1)%lmlo  = .FALSE.
+ mpi_phy_config(1)%llake  = ${llake}
 !
-/
-&mpi_sso_nml
 /
 &radiation_nml
  irad_h2o         = 1           ! 1: prognostic vapor, liquid and ice
@@ -304,13 +303,14 @@ cat > ${lnd_namelist} << EOF
 &jsb_model_nml
   usecase         = "${jsbach_usecase}"
   fract_filename  = "bc_land_frac.nc"
+  l_compat401     = .TRUE.              ! TRUE: overwrites some of the settings below
 /
 &jsb_seb_nml
   bc_filename     = 'bc_land_phys.nc'
   ic_filename     = 'ic_land_soil.nc'
 /
 &jsb_rad_nml
-  use_alb_veg_simple = .TRUE.          ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
+  use_alb_veg_simple = .TRUE.           ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
   bc_filename     = 'bc_land_phys.nc'
   ic_filename     = 'ic_land_soil.nc'
 /
@@ -833,12 +833,12 @@ if [[ "$output_oce_min" == "yes" ]]; then
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c', 'Qtop', 'Qbot',
                       'mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc',
-                      't_acc','s_acc','u_acc','topBoundCond_windStress_u_acc',
+                      't_acc','s_acc','u_acc',
                       'HeatFlux_Total_acc','atmos_fluxes_HeatFlux_ShortWave','atmos_fluxes_HeatFlux_LongWave',
                       'HeatFlux_ShortWave_acc',
                       'atmos_fluxes_HeatFlux_Latent','atmos_fluxes_HeatFlux_Sensible'
                       'FrshFlux_Runoff_acc','FrshFlux_Precipitation_acc','FrshFlux_Evaporation_acc','FrshFlux_SnowFall_acc',
-                      'FrshFlux_TotalOcean_acc', 'oceWind_Speed_10m'
+                      'FrshFlux_TotalOcean_acc'!,'Wind_Speed_10m'
 /
 EOF
 fi
@@ -863,11 +863,11 @@ if [[ "$output_oce_full" == "yes" ]]; then
   include_last     = .false.
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'wet_c','basin_c','regio_c','mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc',
-                      'Qbot','Qtop','topBoundCond_windStress_u_acc','t_acc','s_acc','u_acc', 'v_acc', 'w_acc',
+                      'Qbot','Qtop','t_acc','s_acc','u_acc', 'v_acc', 'w_acc',
                       'HeatFlux_Total_acc','FrshFlux_Runoff_acc','FrshFlux_Precipitation_acc',
                       'FrshFlux_Evaporation_acc', 'FrshFlux_TotalIce_acc', 'FrshFlux_TotalSalt_acc',
                       'FrshFlux_TotalOcean_acc', 'FrshFlux_VolumeTotal_acc', 'FrshFlux_SnowFall_acc',
-                      'atmos_fluxes_FrshFlux_VolumeIce','oceWind_Speed_10m'
+                      'atmos_fluxes_FrshFlux_VolumeIce'!,'Wind_Speed_10m'
 /
 EOF
 fi

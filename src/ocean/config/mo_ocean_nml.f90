@@ -62,7 +62,9 @@ MODULE mo_ocean_nml
 
   INTEGER, PARAMETER :: toplev    = 1   ! surface ocean level
 
-  INTEGER :: surface_module = 2  !  surface module - 1: old mo_ocean_bulk, 2: new mo_ocean_surface - implies i_therm_slo in sea ice
+  INTEGER :: surface_module = 3         ! 1: old mo_ocean_bulk      - obsolete and no longer technically functional
+                                        ! 2: old mo_ocean_surface   - 1st restructuring of sea ice thermodynamics (Feature #5913, Stephan, 03/2015)
+                                        ! 3: new mo_ocean_surface_refactor - 2nd restructuring of sea ice thermodynamics (Feature #5936, Vladimir, 03/2017)
 
   ! switch for reading relaxation data: 1: read from file
   INTEGER :: init_oce_relax = 0

@@ -636,12 +636,16 @@ CONTAINS
 
           ENDIF
 
-
-        CASE (inoforcing, iheldsuarez, iecham, ildf_dry, ildf_echam)
-        !...........................................................
-        ! Other types of adiabatic forcing
-        !...........................................................
-
+!
+!        CASE (inoforcing, iheldsuarez, iecham, ildf_dry, ildf_echam)
+!        !...........................................................
+!        ! Other types of adiabatic forcing
+!        !...........................................................
+!
+!          IF (echam_phy_config%lrad) THEN
+!            IF ( izenith > 5)  &
+!              CALL finish(TRIM(method_name), 'Choose a valid case for rad_nml: izenith.')
+!          ENDIF
         END SELECT ! iforcing
 
       END DO ! jg = 1,n_dom
