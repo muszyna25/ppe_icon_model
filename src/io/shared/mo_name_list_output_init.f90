@@ -99,8 +99,7 @@ MODULE mo_name_list_output_init
     &                                             my_process_is_mpi_ioroot,                       &
     &                                             process_mpi_stdio_id, process_work_io0,         &
     &                                             process_mpi_io_size, num_work_procs, p_n_work,  &
-    &                                             p_pe_work, p_io_pe0, p_pe, my_process_is_restart, &
-    &                                             my_process_is_work
+    &                                             p_pe_work, p_io_pe0, p_pe, my_process_is_work
   USE mo_communication,                     ONLY: idx_no, blk_no
   ! namelist handling
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml

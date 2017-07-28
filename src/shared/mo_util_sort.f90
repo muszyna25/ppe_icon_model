@@ -12,6 +12,8 @@
 !! headers of the routines.
 !!
 MODULE mo_util_sort
+  USE mo_exception, ONLY: finish
+  USE mo_impl_constants, ONLY: SUCCESS
 
 #ifdef __ICON__
   USE mo_kind,   ONLY: wp
@@ -24,6 +26,7 @@ MODULE mo_util_sort
   PRIVATE
   PUBLIC :: quicksort
   PUBLIC :: insertion_sort
+  PUBLIC :: t_Permutation
 
   ! generic interface for in-situ QuickSort sorting routine
   INTERFACE quicksort
@@ -34,6 +37,18 @@ MODULE mo_util_sort
   INTERFACE insertion_sort
     MODULE PROCEDURE insertion_sort_int
   END INTERFACE insertion_sort
+
+  ! A simple tool to reorder DATA.
+  TYPE t_Permutation
+    INTEGER, ALLOCATABLE :: indexTranslation(:), inverseTranslation(:)
+  CONTAINS
+    PROCEDURE :: construct => permutation_construct
+    PROCEDURE :: permute => permutation_permute
+    PROCEDURE :: reverse => permutation_reverse
+    PROCEDURE :: destruct => permutation_destruct
+  END TYPE t_Permutation
+
+  CHARACTER(*), PARAMETER :: modname = "mo_util_sort"
 
 CONTAINS
 
@@ -204,5 +219,151 @@ CONTAINS
       a(h + 1) = t
     END DO
   END SUBROUTINE insertion_sort_int
+
+  ! Constructs a permutation on the length of the supplied INTEGER array such that permutating that same array results IN a sorted array.
+  ! There IS no requirement on the supplied array itself: It may USE non-consecutive numbers AND/OR contain repetitions, AND the number range IS NOT restricted IN ANY way.
+  ! IF two OR more entries of the supplied array are equal, the resulting FUNCTION IS NOT injective:
+  !     permute() will ignore all but one of each input corresponding to the same order VALUE, AND its output array IS expected to be smaller than the input array.
+  !     reverse() will output more points than it has input by multiplexing each entry to all positions that correspond to its VALUE IN the order array.
+  !     Thus, the sequence
+  !         CALL permutation%reverse(a, b);
+  !         CALL permutation%permute(b, c);
+  !     IS guaranteed to RESULT IN `a == c`. However, the sequence
+  !         CALL permutation%permute(a, b);
+  !         CALL permutation%reverse(b, c);
+  !     does NOT provide the same guarantee as information IS lost within the smaller array `b`.
+  SUBROUTINE permutation_construct(me, order)
+    CLASS(t_Permutation), INTENT(INOUT) :: me
+    INTEGER, INTENT(IN) :: order(:)
+
+    INTEGER :: inputSize, outputSize, i, error
+    INTEGER, ALLOCATABLE :: sorted(:), inversePermutation(:), outputReductionTranslation(:)
+    CHARACTER(*), PARAMETER :: routine = modname//":permutation_construct"
+
+    ! ALLOCATE memory AND handle the trivial CASE that the permutation SIZE IS zero
+    inputSize = SIZE(order)
+    ALLOCATE(me%indexTranslation(inputSize), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+    IF(inputSize == 0) THEN
+        ! normaly, this IS ALLOCATED later, but we should ALLOCATE it before returning
+        ALLOCATE(me%inverseTranslation(inputSize), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+        RETURN
+    END IF
+
+    ALLOCATE(inversePermutation(inputSize), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+    ALLOCATE(sorted(inputSize), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+    ALLOCATE(outputReductionTranslation(inputSize), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+
+    ! compute an inverse permutation first as this IS easily achieved using the quicksort() FUNCTION
+    DO i = 1, inputSize
+        inversePermutation(i) = i
+    END DO
+    sorted(:) = order(:)
+    CALL quicksort(sorted, inversePermutation)
+
+    ! derive a forward permutation from the inverse translation
+    ! this IS NOT the FINAL forward translation as that has to remove the duplicates
+    me%indexTranslation(:) = -1
+    DO i = 1, inputSize
+        me%indexTranslation(inversePermutation(i)) = i
+    END DO
+
+    ! assert that every element of indexTranslation was initialized correctly
+    IF(ANY(me%indexTranslation < 1)) CALL finish(routine, "assertion failed")
+
+    ! determine how we have to reduce the output
+    outputReductionTranslation(1) = 1
+    DO i = 2, inputSize
+        IF(sorted(i-1) == sorted(i)) THEN
+            outputReductionTranslation(i) = outputReductionTranslation(i-1)
+        ELSE
+            outputReductionTranslation(i) = outputReductionTranslation(i-1) + 1
+        END IF
+    END DO
+    outputSize = outputReductionTranslation(inputSize)
+
+    ! update the forward translation accordingly
+    DO i = 1, inputSize
+        me%indexTranslation(i) = outputReductionTranslation(me%indexTranslation(i))
+    END DO
+
+    ! derive the backward translation from the forward translation
+    ALLOCATE(me%inverseTranslation(outputSize), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+    me%inverseTranslation(:) = -1
+    DO i = 1, inputSize
+        me%inverseTranslation(me%indexTranslation(i)) = i
+    END DO
+
+    ! assert that every element of inverseTranslation was initialized correctly
+    IF(ANY(me%inverseTranslation < 1)) CALL finish(routine, "assertion failed")
+
+    ! cleanup
+    DEALLOCATE(sorted, inversePermutation, outputReductionTranslation)
+  END SUBROUTINE permutation_construct
+
+  SUBROUTINE permutation_permute(me, input, output)
+    CLASS(t_Permutation), INTENT(INOUT) :: me
+    INTEGER, INTENT(IN) :: input(:)
+    INTEGER, INTENT(OUT) :: output(:)
+
+    INTEGER :: i
+    CHARACTER(*), PARAMETER :: routine = modname//":permutation_permute"
+    CHARACTER(len=1000) :: message_text = ''
+
+    ! check preconditions
+    IF(SIZE(input) /= SIZE(me%indexTranslation)) THEN
+      WRITE (message_text, *)  "illegal argument: input size (= ", SIZE(input), ") ", &
+        & "must match input size of the permutation (= ", SIZE(me%indexTranslation), ")"
+      CALL finish(routine, message_text)
+    END IF
+    IF(SIZE(output) /= SIZE(me%inverseTranslation)) THEN
+      WRITE (message_text, *)  "illegal argument: output size (= ", SIZE(output), ") ", &
+        & "must match output size of the permutation (= ", SIZE(me%inverseTranslation), &
+        & ") (which may be smaller than the input size of the permutation)"
+      CALL finish(routine, message_text)
+    END IF
+
+    DO i = 1, SIZE(output)
+        output(i) = input(me%inverseTranslation(i))
+    END DO
+  END SUBROUTINE permutation_permute
+
+  SUBROUTINE permutation_reverse(me, input, output)
+    CLASS(t_Permutation), INTENT(INOUT) :: me
+    INTEGER, INTENT(IN) :: input(:)
+    INTEGER, INTENT(OUT) :: output(:)
+
+    INTEGER :: i
+    CHARACTER(*), PARAMETER :: routine = modname//":permutation_reverse"
+    CHARACTER(len=1000) :: message_text = ''
+
+    ! check preconditions
+    IF(SIZE(output) /= SIZE(me%indexTranslation)) THEN
+      WRITE (message_text, *) "illegal argument: output size (= ", SIZE(output), ") ", &
+        & "must match input size of the permutation (= ", SIZE(me%indexTranslation), ")"
+      CALL finish(routine, message_text)
+    END IF
+    IF(SIZE(input) /= SIZE(me%inverseTranslation)) THEN
+      WRITE (message_text, *) "illegal argument: input size (= ", SIZE(input), ") ", &
+        & "must match output size of the permutation (= ", SIZE(me%inverseTranslation), &
+        & ") (which may be smaller than the input size of the permutation)"
+      CALL finish(routine, message_text)
+    END IF
+
+    DO i = 1, SIZE(output)
+        output(i) = input(me%indexTranslation(i))
+    END DO
+  END SUBROUTINE permutation_reverse
+
+  SUBROUTINE permutation_destruct(me)
+    CLASS(t_Permutation), INTENT(INOUT) :: me
+
+    DEALLOCATE(me%indexTranslation, me%inverseTranslation)
+  END SUBROUTINE permutation_destruct
 
 END MODULE mo_util_sort

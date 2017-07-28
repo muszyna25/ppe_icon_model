@@ -445,22 +445,22 @@ CONTAINS
       IF (idbg_mxmn >= 2 .OR. debug_check_level > 5) THEN
         CALL horizontal_mean(values=ocean_state(jg)%p_prog(nnew(1))%h(:,:), weights=patch_2d%cells%area(:,:), &
           & in_subset=patch_2d%cells%owned, mean=mean_height)
-        CALL debug_printValue(description="Mean Height", value=mean_height, detail_level=2)
+        CALL debug_printValue(description="Mean Height", val=mean_height, detail_level=2)
       ENDIF
       IF (debug_check_level > 5 .AND. idbg_mxmn >= 2) THEN
         ! check difference from old_mean_height
-!         CALL debug_printValue(description="Old/New Mean Height", value=old_mean_height, &
+!         CALL debug_printValue(description="Old/New Mean Height", val=old_mean_height, &
 !           & value1=mean_height, value2=(mean_height-old_mean_height) / old_mean_height, &
 !           & detail_level=2)
         CALL debug_printValue(description="Old/New Mean Height", &
-          & value=old_mean_height, value1=mean_height, detail_level=2)
+          & val=old_mean_height, value1=mean_height, detail_level=2)
         ! check if vertical and horizontal fluxes add to 0
 !         ocean_state(jg)%p_diag%w
         CALL horizontal_mean(values=ocean_state(jg)%p_diag%w, weights=patch_2d%cells%area(:,:), &
           & in_subset=patch_2d%cells%owned, mean=verticalMeanFlux, start_level=2, end_level=n_zlev)
         
         DO level=2, n_zlev-1
-          CALL debug_printValue(description="Mean vertical flux at", value=REAL(level,wp),  &
+          CALL debug_printValue(description="Mean vertical flux at", val=REAL(level,wp),  &
             & value1=verticalMeanFlux(level), detail_level=2)
         ENDDO         
       END IF

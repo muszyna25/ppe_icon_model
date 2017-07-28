@@ -122,7 +122,7 @@ MODULE mo_icon_comm_lib
   ! TYPE definitions
 
   !--------------------------------------------------------------
-  !> Holds the buffer pointers to procs to be sent and recieved
+  !> Holds the buffer pointers to procs to be sent and received
   TYPE t_comm_process_buffer
   
      INTEGER :: pid             ! the process to communicate to
@@ -2129,7 +2129,7 @@ CONTAINS
     
     start_sync_timer(timer_icon_comm_ircv)
      
-    ! start recieve
+    ! start receive
     DO bfid = 1, active_recv_buffers
 
       buffer_start = recv_procs_buffer(bfid)%start_index
@@ -2218,8 +2218,8 @@ CONTAINS
       recv_var_3d => comm_variable(comm_var)%recv_values_3d
     ENDIF
 
-    ! go through the requested recieve pids
-    DO np = 1, grid_comm_pattern%no_of_recv_procs ! loop over PEs from where to recieve the data
+    ! go through the requested receive pids
+    DO np = 1, grid_comm_pattern%no_of_recv_procs ! loop over PEs from where to receive the data
 
       bfid = grid_comm_pattern%recv(np)%buffer_index
       current_buffer_index = recv_procs_buffer(bfid)%current_index
@@ -2291,7 +2291,7 @@ CONTAINS
 
   !-----------------------------------------------------------------------
   !>
-  !! Computes the sizes and the indexes for buffers to be recieved
+  !! Computes the sizes and the indexes for buffers to be received
   SUBROUTINE compute_recv_buffer_sizes()
     
     TYPE(t_grid_comm_pattern), POINTER :: grid_comm_pattern
@@ -2315,8 +2315,8 @@ CONTAINS
       vertical_layers = comm_variable(comm_var)%vertical_layers
       no_of_variables = comm_variable(comm_var)%no_of_variables
 
-      ! go through the requested recieve pids
-      DO np = 1, grid_comm_pattern%no_of_recv_procs ! loop over PEs from where to recieve the data
+      ! go through the requested receive pids
+      DO np = 1, grid_comm_pattern%no_of_recv_procs ! loop over PEs from where to receive the data
         
         total_recv_size = &
           & ((grid_comm_pattern%recv(np)%no_of_points * vertical_layers) + checksum_size) &

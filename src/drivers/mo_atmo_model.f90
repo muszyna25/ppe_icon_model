@@ -19,14 +19,12 @@ MODULE mo_atmo_model
   USE mo_exception,               ONLY: message, finish
   USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
     &                                   set_mpi_work_communicators, process_mpi_io_size,      &
-    &                                   my_process_is_restart, process_mpi_restart_size,      &
     &                                   my_process_is_pref, process_mpi_pref_size  
   USE mo_timer,                   ONLY: init_timer, timer_start, timer_stop,                  &
     &                                   timers_level, timer_model_init,                       &
     &                                   timer_domain_decomp, timer_compute_coeffs,            &
     &                                   timer_ext_data, print_timer
   USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,              &
-    &                                   num_restart_procs, use_async_restart_output,          &
     &                                   num_prefetch_proc
   USE mo_master_config,           ONLY: isRestart
 #ifndef NOMPI
@@ -46,6 +44,7 @@ MODULE mo_atmo_model
   USE mo_nml_crosscheck,          ONLY: atm_crosscheck
   USE mo_nonhydrostatic_config,   ONLY: configure_nonhydrostatic
   USE mo_initicon_config,         ONLY: configure_initicon
+  USE mo_io_config,               ONLY: restartWritingParameters
   USE mo_lnd_nwp_config,          ONLY: configure_lnd_nwp
   USE mo_dynamics_config,         ONLY: configure_dynamics, iequations
   USE mo_run_config,              ONLY: configure_run,                                        &
@@ -58,6 +57,7 @@ MODULE mo_atmo_model
     &                                   grid_generatingSubcenter,                             & ! grid generating subcenter
     &                                   iforcing
   USE mo_gribout_config,          ONLY: configure_gribout
+  USE mo_event_manager,           ONLY: initEventManager
 
   ! time stepping
   USE mo_atmo_hydrostatic,        ONLY: atmo_hydrostatic
@@ -105,9 +105,7 @@ MODULE mo_atmo_model
   USE mo_interface_echam_ocean,   ONLY: construct_atmo_coupler, destruct_atmo_coupler
 
   ! I/O
-#ifndef NOMPI
-  USE mo_async_restart,           ONLY: restart_main_proc                                       ! main procedure for Restart PEs
-#endif
+  USE mo_restart,                 ONLY: detachRestartProcs
   USE mo_name_list_output,        ONLY: name_list_io_main_proc
   USE mo_name_list_output_config, ONLY: use_async_name_list_io
   USE mo_time_config,             ONLY: time_config      ! variable
@@ -208,7 +206,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
     ! local variables
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:construct_atmo_model"
-    INTEGER                 :: jg, jgp, jstep0, error_status
+    INTEGER                 :: jg, jgp, jstep0, error_status, dedicatedRestartProcs
     TYPE(t_sim_step_info)   :: sim_step_info  
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
@@ -260,7 +258,8 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
-    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, num_restart_procs, &
+    CALL restartWritingParameters(opt_dedicatedProcCount = dedicatedRestartProcs)
+    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, dedicatedRestartProcs, &
                &                    num_prefetch_proc)
 
     !-------------------------------------------------------------------
@@ -269,23 +268,16 @@ CONTAINS
     IF (ltimer) CALL init_timer
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
+    ! create an event manager, ie. a collection of different events
+    CALL initEventManager(time_config%tc_exp_refdate)
+
+
     !-------------------------------------------------------------------
     ! 3.3 I/O initialization
     !-------------------------------------------------------------------
 
-    ! If we belong to the Restart PEs just call restart_main_proc before reading patches.
-    ! This routine will never return
-    IF (process_mpi_restart_size > 0) THEN
-#ifndef NOMPI
-      use_async_restart_output = .TRUE.
-      CALL message('','asynchronous restart output is enabled.')
-      IF (my_process_is_restart()) THEN
-        CALL restart_main_proc
-      ENDIF
-#else
-      CALL finish('', 'this executable was compiled without MPI support, hence asynchronous restart output is not available')
-#endif
-    ENDIF
+    ! This won't RETURN on dedicated restart PEs, starting their main loop instead.
+    CALL detachRestartProcs()
 
     ! If we belong to the prefetching PEs just call prefetch_main_proc before reading patches.
     ! This routine will never return

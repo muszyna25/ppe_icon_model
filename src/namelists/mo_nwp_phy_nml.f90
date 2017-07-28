@@ -25,7 +25,6 @@ MODULE mo_nwp_phy_nml
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_impl_constants,      ONLY: max_dom, icosmo
-  USE mo_math_constants,      ONLY: dbl_eps
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
@@ -81,7 +80,8 @@ MODULE mo_nwp_phy_nml
   ! parameter for cloud microphysics
   real(wp) :: mu_rain            !! shape parameter in gamma distribution for rain
   real(wp) :: mu_snow            !! ...for snow
-  
+
+
   !> NetCDF file containing longwave absorption coefficients and other data
   !> for RRTMG_LW k-distribution model ('rrtmg_lw.nc')
   CHARACTER(LEN=filename_max) :: lrtm_filename
@@ -99,7 +99,8 @@ MODULE mo_nwp_phy_nml
     &                    latm_above_top, itype_z0, mu_rain,          &
     &                    mu_snow, icapdcycl, icpl_aero_conv,         &
     &                    lrtm_filename, cldopt_filename, icpl_o3_tp, &
-    &                    iprog_aero, lshallowconv_only, ldetrain_conv_prec
+    &                    iprog_aero, lshallowconv_only,              &
+    &                    ldetrain_conv_prec
 
   LOGICAL :: l_nwp_phy_namelist_read = .false.
   
@@ -197,6 +198,8 @@ CONTAINS
     ! coupling between ozone and the tropopause
     icpl_o3_tp = 1      ! 0 = none
                         ! 1 = take climatological values from 100/350 hPa above/below the tropopause in the extratropics
+
+
 
     !------------------------------------------------------------------
     ! 1. If this is a resumed integration, overwrite the defaults above 
@@ -307,24 +310,6 @@ CONTAINS
         CALL finish( TRIM(routine), 'Aerosol-microphysics coupling currently available only for inwp_gscp=1,2')
       ENDIF
 
-      ! Check whether the radiation time step is a multiple of the convection time step.
-      ! If not, then adapt the radiation time step. I.e. the radiation time step is rounded up to 
-      ! the next full multiple.
-      IF( MOD(dt_rad(jg),dt_conv(jg)) > 10._wp*dbl_eps .AND. inwp_convection(jg)>0 ) THEN
-        ! write warning only for global domain
-        IF (jg==1) THEN
-          WRITE(message_text,'(a,2F8.1)') &
-            &'WARNING: radiation timestep is not a multiple of convection timestep: ', &
-            & dt_rad(jg), dt_conv(jg)
-          CALL message(TRIM(routine), TRIM(message_text))
-          WRITE(message_text,'(a,F8.1)') &
-            &'radiation time step is rounded up to next multiple: dt_rad !=!', &
-            & REAL((FLOOR(dt_rad(jg)/dt_conv(jg)) + 1),wp) * dt_conv(jg)
-          CALL message(TRIM(routine), TRIM(message_text))
-        ENDIF
-        dt_rad(jg) = REAL((FLOOR(dt_rad(jg)/dt_conv(jg)) + 1),wp) * dt_conv(jg)
-      ENDIF
-
 
       ! For backward compatibility, do not throw an error message, if inwp_turb=10,11 or 12 
       ! is chosen. reset inwp_turb to 1, instead
@@ -357,7 +342,8 @@ CONTAINS
       atm_phy_nwp_config(jg)%lshallowconv_only  = lshallowconv_only(jg)
       atm_phy_nwp_config(jg)%ldetrain_conv_prec = ldetrain_conv_prec(jg)
 
-      atm_phy_nwp_config(jg)%dt_conv         = dt_conv (jg) 
+      atm_phy_nwp_config(jg)%dt_conv         = dt_conv (jg)
+      atm_phy_nwp_config(jg)%dt_ccov         = dt_conv (jg)
       atm_phy_nwp_config(jg)%dt_rad          = dt_rad  (jg)
       atm_phy_nwp_config(jg)%dt_sso          = dt_sso  (jg)
       atm_phy_nwp_config(jg)%dt_gwd          = dt_gwd  (jg)
