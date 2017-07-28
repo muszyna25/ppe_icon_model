@@ -22,7 +22,8 @@ MODULE mo_scatter_pattern_base
     USE mo_exception, ONLY: finish
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_kind, ONLY: wp, dp, sp, i8
-    USE mo_mpi, ONLY: my_process_is_stdio, p_mpi_wtime, p_max, p_comm_rank
+    USE mo_mpi, ONLY: my_process_is_stdio, p_mpi_wtime, p_max, p_comm_rank, &
+         p_comm_size
     USE mo_run_config, ONLY: msg_level
 
     IMPLICIT NONE
@@ -35,7 +36,7 @@ PUBLIC :: t_ScatterPattern, t_ScatterPatternPtr, constructScatterPattern, destru
         INTEGER :: myPointCount !< number of points needed by this PE
         INTEGER :: jg   !< the domain for which this pattern is used
         INTEGER :: communicator !< the communicator to use
-        INTEGER :: rank, root_rank
+        INTEGER :: rank, root_rank, comm_size
         INTEGER(i8) :: distributedData  !< statistic on how much data was distributed
         REAL(dp) :: curStartTime    !< the time when the last distribution call was started
         REAL(dp) :: distributionTime    !< statistic on how long we took to distribute the data
@@ -207,6 +208,7 @@ CONTAINS
         me%jg = jg
         me%communicator = communicator
         me%rank = p_comm_rank(communicator)
+        me%comm_size = p_comm_size(communicator)
         IF (PRESENT(root_rank)) THEN
           me%root_rank = root_rank
         ELSE

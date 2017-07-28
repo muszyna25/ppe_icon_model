@@ -66,7 +66,7 @@ CONTAINS
         INTEGER, OPTIONAL, INTENT(in) :: root_rank
 
         CHARACTER(*), PARAMETER :: routine = modname//":constructScatterPatternScatterV"
-        INTEGER :: procCount, i, ierr
+        INTEGER :: comm_size, i, ierr
         LOGICAL :: l_write_debug_info, is_scatter_root
 
         is_scatter_root = my_process_is_stdio()
@@ -81,10 +81,10 @@ CONTAINS
         CALL constructScatterPattern(me, jg, loc_arr_len, glb_index, &
              communicator, root_rank)
         IF (me%rank == me%root_rank) THEN
-            procCount = p_comm_size(communicator)
-            ALLOCATE(me%pointCounts(procCount), stat = ierr)
+            comm_size = me%comm_size
+            ALLOCATE(me%pointCounts(comm_size), stat = ierr)
             IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
-            ALLOCATE(me%displacements(procCount), stat = ierr)
+            ALLOCATE(me%displacements(comm_size), stat = ierr)
             IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
         ELSE
             ALLOCATE(me%pointCounts(1), stat = ierr)
@@ -95,7 +95,7 @@ CONTAINS
         CALL p_gather(me%myPointCount, me%pointCounts, me%root_rank, communicator)
         IF (me%rank == me%root_rank) THEN
             me%pointCount = 0
-            DO i = 1, procCount
+            DO i = 1, comm_size
                 me%displacements(i) = me%pointCount
                 me%pointCount = me%pointCount + me%pointCounts(i)
             END DO

@@ -20,7 +20,7 @@ MODULE mo_scatter_pattern_scatter
     USE mo_kind, ONLY: wp, dp, sp, i8
     USE mo_scatter_pattern_base
     USE mo_mpi, ONLY: my_process_is_stdio, &
-    &                 p_comm_size, p_max, p_gather, p_scatter
+    &                 p_max, p_gather, p_scatter
     USE mo_parallel_config, ONLY: blk_no, idx_no
     USE mo_exception, ONLY: finish
 
@@ -61,7 +61,7 @@ CONTAINS
 
         CHARACTER(*), PARAMETER :: routine &
              = modname//":costructScatterPatternScatter"
-        INTEGER :: processCount, ierr
+        INTEGER :: comm_size, ierr
         INTEGER, ALLOCATABLE :: myIndices(:)
         LOGICAL :: l_write_debug_info
 
@@ -75,10 +75,10 @@ CONTAINS
         CALL constructScatterPattern(me, jg, loc_arr_len, glb_index, communicator, root_rank)
         me%slapSize = p_max(me%myPointCount, comm = communicator)
         IF(me%rank == me%root_rank) THEN
-            processCount = p_comm_size(communicator)
-            me%pointCount = processCount * me%slapSize
-            ALLOCATE(me%pointIndices(me%pointCount), stat = ierr)
-            IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
+          comm_size = me%comm_size
+          me%pointCount = comm_size * me%slapSize
+          ALLOCATE(me%pointIndices(me%pointCount), stat = ierr)
+          IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
         ELSE
             ALLOCATE(me%pointIndices(1), stat = ierr)   !Just some dummy memory block.
             IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
