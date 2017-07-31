@@ -350,7 +350,11 @@ MODULE mo_vertical_grid
 
         DO jc = i_startidx, i_endidx
           p_nh(jg)%metrics%slope_angle(jc,jb)   = ATAN(SQRT(z_aux_c(jc,1,jb)**2+z_aux_c2(jc,1,jb)**2))
-          p_nh(jg)%metrics%slope_azimuth(jc,jb) = ATAN2(z_aux_c(jc,1,jb),z_aux_c2(jc,1,jb))
+          IF (z_aux_c(jc,1,jb) /= 0._wp .OR. z_aux_c2(jc,1,jb) /= 0._wp) THEN
+            p_nh(jg)%metrics%slope_azimuth(jc,jb) = ATAN2(z_aux_c(jc,1,jb),z_aux_c2(jc,1,jb))
+          ELSE
+            p_nh(jg)%metrics%slope_azimuth(jc,jb) = 0._wp
+          ENDIF
         ENDDO
 
       ENDDO
