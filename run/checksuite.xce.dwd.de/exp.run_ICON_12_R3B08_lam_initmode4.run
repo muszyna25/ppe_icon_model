@@ -5,12 +5,12 @@
 #PBS -l place=scatter
 #PBS -l walltime=00:15:00
 #PBS -j oe
+#PBS -o LOG.exp.run_ICON_12_R3B08_lam_initmode4.run.run.o
 # ----------------------------------------------------------------------
 # ============================================================================
 # Basic CRAY batch script for the ICON model
 #
 # Limited-area run forced by ICON forecasts
-# Initialization with init_mode=7 (MODE_DWD)
 #
 # Region: Central Europe
 # Resolution: 6.5 km
@@ -35,30 +35,32 @@ export RLIMIT_CORE=0
 export ATP_MAX_CORES=0
 
 
+
 # ----------------------------------------------------------------------
 # SETTINGS: Input/output directories
 # ----------------------------------------------------------------------
 
 # base directory for ICON sources and binary:
-ICONDIR=${PBS_O_WORKDIR}/../../
+ICONDIR=${PBS_O_WORKDIR}/../
 
 # Base directory containing input data
 DATADIR=/lustre2/rwork0/routfor/test/icon/Checksuite_data/ICON_LAM/
 
 # directory with input grids:
-GRIDDIR=${DATADIR}/input
+GRIDDIR=${DATADIR}/input/
 
 # directory with initial conditions
-INIDIR=${DATADIR}/forcing_mode7
+INIDIR=${DATADIR}/forcing_mode4
 
 # directory with lateral boundary forcing data
-LBCDIR=${DATADIR}/forcing_mode7
+LBCDIR=${DATADIR}/forcing_mode4
 
 # directory with external parameter data:
 EXTPARDIR=${DATADIR}/input
 
 # absolute path to directory with plenty of space:
-EXPDIR=$TMPDIR/../experiments/exp11
+EDIR="exp12"
+EXPDIR=$TMPDIR/${EDIR}/
 
 # path to model binary, including the executable:
 MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/icon
@@ -100,7 +102,6 @@ ln -sf $INIDIR/init_DOM02_ML_20170112T000000Z.nc init_DOM02_ML_20170112T000000Z.
 # files needed for radiation
 ln -sf ${ICONDIR}/data/ECHAM6_CldOptProps.nc rrtm_cldopt.nc
 ln -sf ${ICONDIR}/data/rrtmg_lw.nc .
-
 
 
 # Dictionary for the mapping: GRIB2/Netcdf input names <-> ICON internal names
@@ -211,9 +212,10 @@ cat > NAMELIST_NWP << EOF
 
 ! initicon_nml: specify read-in of initial state ------------------------------
 &initicon_nml
- init_mode                   =                          7         ! start from DWD fg with subsequent vertical remapping 
+ init_mode                   =                          4         ! start from DWD fg with subsequent vertical remapping 
  lread_ana                   =                     .FALSE.        ! no analysis data will be read
  dwdfg_filename              = "init_DOM02_ML_20170112T000000Z.nc" ! initial data filename
+ ifs2icon_filename           = "init_DOM02_ML_20170112T000000Z.nc" ! initial data filename
  ltile_coldstart             =                      .TRUE.        ! coldstart for surface tiles
  ltile_init                  =                     .FALSE.        ! set it to .TRUE. if FG data originate from run without tiles
 /

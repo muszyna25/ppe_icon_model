@@ -5,6 +5,7 @@
 #PBS -l place=scatter
 #PBS -l walltime=00:20:00
 #PBS -j oe
+#PBS -o LOG.exp.run_ICON_09_R2B6N7_oper_EPS.run.run.o
 # ----------------------------------------------------------------------
 # Basic CRAY batch script for the ICON model
 #
@@ -37,7 +38,7 @@ if [[ -n ${PBS_O_WORKDIR} ]] ; then
 fi
 
 # base directory for ICON sources and binary:
-ICONDIR=${PBS_O_WORKDIR}/../../
+ICONDIR=${PBS_O_WORKDIR}/../
 
 EXP="NWP"    # experiment identifier
 EDIR="exp09"
@@ -45,7 +46,7 @@ GRIDDIR=/e/rhome/routfox/routfox/icon/grids/public/edzw/ # grid directory
 EXTPDIR=/e/rhome/routfox/routfox/icon/grids/public/edzw/ # external parameter directory
 
 # absolute path to directory with plenty of space:
-EXPDIR=$TMPDIR/../experiments/${EDIR}
+EXPDIR=$TMPDIR/${EDIR}/
 
 # root directory for input data
 DATAROOT=/lustre2/rwork0/routfor/test/icon/Checksuite_data/

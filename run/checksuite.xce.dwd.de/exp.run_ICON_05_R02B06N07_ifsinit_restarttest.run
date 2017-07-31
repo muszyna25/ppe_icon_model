@@ -6,6 +6,7 @@
 #PBS -l walltime=01:00:00
 #PBS -j oe
 #PBS -W umask=022
+#PBS -o LOG.exp.run_ICON_05_R02B06N07_ifsinit_restarttest.run.run.o
 # ----------------------------------------------------------------------------
 # ============================================================================
 #
@@ -56,10 +57,11 @@ IFSDATADIR=${DATAROOT}/Inidata_R2B6N7_IFStest
 EXTPARDIR=${DATAROOT}/Extpar_R2B6N8_IFStest
 
 # base directory for ICON sources and binary:
-ICONDIR=${PBS_O_WORKDIR}/../../
+ICONDIR=${PBS_O_WORKDIR}/../
 
 # absolute path to directory with plenty of space:
-EXPDIR=$TMPDIR/../experiments/exp04
+EDIR="exp05"
+EXPDIR=$TMPDIR/${EDIR}/
 
 # path to model binary, including the executable:
 MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/icon
@@ -82,12 +84,10 @@ rm -rf *restart_*
 ln -sf ${GRIDDIR}/iconR2B05_DOM00.nc iconR2B05_DOM00.nc
 ln -sf ${GRIDDIR}/iconR2B06_DOM01.nc iconR2B06_DOM01.nc
 ln -sf ${GRIDDIR}/iconR2B07_DOM02.nc iconR2B07_DOM02.nc
-ln -sf ${GRIDDIR}/iconR2B08_DOM03.nc iconR2B08_DOM03.nc
 
 # external parameter (from ExtPar tool)
 ln -sf ${EXTPARDIR}/extpar_R2B06_DOM01.nc extpar_iconR2B06_DOM01.nc
 ln -sf ${EXTPARDIR}/extpar_R2B07_DOM02.nc extpar_iconR2B07_DOM02.nc
-ln -sf ${EXTPARDIR}/extpar_R2B08_DOM03.nc extpar_iconR2B08_DOM03.nc
 
 # interpolated IFS data
 ln -sf $IFSDATADIR/prepiconR2B06_DOM01_2012062100.nc ifs2icon_R2B06_DOM01.nc
@@ -106,7 +106,7 @@ cp -p $MODEL icon
 # ----------------------------------------------------------------------------
 
 # the grid parameters
-atmo_dyn_grids="iconR2B06_DOM01.nc iconR2B07_DOM02.nc iconR2B08_DOM03.nc"
+atmo_dyn_grids="iconR2B06_DOM01.nc iconR2B07_DOM02.nc"
 atmo_rad_grids="iconR2B05_DOM00.nc"
 
 # reconstruct the grid parameters in namelist form
@@ -192,7 +192,7 @@ cat > NAMELIST_NWP << EOF
 ! run_nml: general switches ---------------------------------------------------
 &run_nml
  ltestcase                   =                     .FALSE.        ! idealized testcase runs
- num_lev                     =                 90, 56, 52         ! number of full levels (atm.) for each domain
+ num_lev                     =                     90, 56         ! number of full levels (atm.) for each domain
  lvert_nest                  =                      .TRUE.        ! vertical nesting
  nsteps                      =                   ${nsteps}        ! number of time steps of this run
  dtime                       =                        360         ! timestep in seconds
@@ -245,10 +245,8 @@ cat > NAMELIST_NWP << EOF
  radiation_grid_filename     = ${radiation_grid_filename}         ! array of the grid filenames for the radiation model
  dynamics_parent_grid_id     =                       0, 1         ! array of the indexes of the parent grid filenames
  lredgrid_phys               =               .TRUE.,.TRUE.        ! .true.=radiation is calculated on a reduced grid
- lfeedback                   =       .TRUE.,.TRUE.,.FALSE.        ! specifies if feedback to parent grid is performed
+ lfeedback                   =                      .TRUE.        ! specifies if feedback to parent grid is performed
  ifeedback_type              =                          2         ! feedback type (incremental/relaxation-based)
- start_time                  =                0.,0.,7200.         ! R2B8 nest starts after 2h
- end_time                    =         0.,172800.,108000.         ! ... and ends after 30h
 /
 
 ! gridref_nml: grid refinement and nesting -----------------------------------
@@ -264,10 +262,6 @@ cat > NAMELIST_NWP << EOF
  dt_diag                     =                      21600.0       ! diagnostic integral output interval
  dt_checkpoint               =               ${checkpoint}        ! time interval for writing restart files.
  itype_pres_msl              =                          2         ! method for computation of mean sea level pressure
-/
-
-&interpol_nml
-support_baryctr_intp         =                      .true.        ! use barycentric interpolation
 /
 
 ! nonhydrostatic_nml: nonhydrostatic model -----------------------------------
