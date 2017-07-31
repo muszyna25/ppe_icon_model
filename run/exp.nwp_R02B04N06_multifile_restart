@@ -1,173 +1,121 @@
-#! /bin/ksh
-# ----------------------------------------------------------------------------
-#PBS -q xc_norm_h
-#PBS -l select=8:ompthreads=4
-#PBS -l place=scatter
-#PBS -l walltime=01:00:00
-#PBS -j oe
-#PBS -W umask=022
-# ----------------------------------------------------------------------------
-# ============================================================================
+#=============================================================================
 #
-# Cray batch script for the ICON model
+# exp.test_nwp_R02B04N06_multifile_restart
 #
-# Initializes the Jablonowski Williamson test case with a 
-# mountain instead of the wind perturbation. 
-# Setup with multiple nests.
-# ----------------------------------------
-# VARIANT WITH RESTART (and patch weights)
-# ----------------------------------------
+# Basic test case for the ICON NWP mode with multifile restart.
 #
-# Platform: Cray XC30
-#           xce.dwd.de
+# This variant of the restart option ("joint proc multifile restart")
+# works as follows:
 #
-# 05/2014 : G. Zaengl, F. Prill, DWD
-#
-# ----------------------------------------------------------------------------
-# ============================================================================
+# All worker PEs write restart files to a dedicated
+# directory. Therefore, the directory itself is called the restart
+# file.  The information is stored in a way that it can be read back
+# into the model independent from the processor count and the domain
+# decomposition. --- Read-in: All worker PEs read the data in
+# parallel.
 
+#
+#
+#
+# This section of the run script contains the specifications of the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# EXPNAME and NPROMA must be defined as environment variables or they must 
+# be substituted with appropriate values.
+#
+#-----------------------------------------------------------------------------
+#
+# Basic specifications of the simulation
+# --------------------------------------
+#
+# These variables are set in the header section of the completed run script:
+#
+# EXPNAME = experiment name
+# NPROMA  = array blocking length / inner loop length
+#-----------------------------------------------------------------------------
 
 set -x
 
-# OpenMP settings
-export OMP_SCHEDULE="static"
-export OMP_DYNAMIC="false"
-# MPI: use DMAPP for off-node data movement
-export MPICH_RMA_OVER_DMAPP=1
-# disable core dumps
-export RLIMIT_CORE=0
-export ATP_MAX_CORES=0
+#
+#-----------------------------------------------------------------------------
+# The following information is included to present some information on the buildbot-html main page
+#
+# _bb_table_Description_  Basic real-data test case for the ICON NWP mode
+# _bb_table_Model_        non-hydrost. atmosph.
+# _bb_table_Grid_         triangle
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2011-01-01T00:00:00Z"
+end_date="2011-01-01T12:00:00Z"
+#
+#-----------------------------------------------------------------------------
 
-
-# ----------------------------------------------------------------------------
-# path definitions
-# ----------------------------------------------------------------------------
-
-# directory with input grids:
-GRIDDIR=/e/uhome/gzaengl/icon-dev/experiments/GRF_R2B4N6M
-
-# base directory for ICON sources and binary:
-ICONDIR=${PBS_O_WORKDIR}/../../
-
-# absolute path to directory with plenty of space:
-EXPDIR=$TMPDIR/../experiments/exp14
-
-# path to model binary, including the executable:
-MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/icon
-
-
-# ----------------------------------------------------------------------------
-# copy input data: grids, external parameters, model
-# ----------------------------------------------------------------------------
-
-# the directory for the experiment will be created, if not already there
-if [ ! -d $EXPDIR ]; then
-    mkdir -p $EXPDIR
-fi
-cd ${EXPDIR}
-
-# grid files
-ln -sf ${GRIDDIR}/iconR2B03_DOM00.nc iconR2B03_DOM00.nc
-ln -sf ${GRIDDIR}/iconR2B04_DOM01.nc iconR2B04_DOM01.nc
-ln -sf ${GRIDDIR}/iconR2B05_DOM02.nc iconR2B05_DOM02.nc
-ln -sf ${GRIDDIR}/iconR2B06_DOM03.nc iconR2B06_DOM03.nc
-ln -sf ${GRIDDIR}/iconR2B05_DOM04.nc iconR2B05_DOM04.nc
-ln -sf ${GRIDDIR}/iconR2B06_DOM05.nc iconR2B06_DOM05.nc
-
-# files needed for radiation
-ln -sf ${ICONDIR}/data/ECHAM6_CldOptProps.nc .
-ln -sf ${ICONDIR}/data/rrtmg_lw.nc .
-
-# copy binary
-cp -p $MODEL icon
-
-
-# ----------------------------------------------------------------------------
-# grid namelist settings
-# ----------------------------------------------------------------------------
-
-# the grid parameters
+#-----------------------------------------------------------------------------
+# the grid files
+grids_folder="${icon_data_poolFolder}/buildbot_data/nwp/grids/multinest"
 atmo_dyn_grids="iconR2B04_DOM01.nc iconR2B05_DOM02.nc iconR2B06_DOM03.nc iconR2B05_DOM04.nc iconR2B06_DOM05.nc"
 atmo_rad_grids="iconR2B03_DOM00.nc"
+#
+radiation_grid_filename=""
+for gridfile in ${atmo_rad_grids}; do
+  radiation_grid_filename="${radiation_grid_filename} '${gridfile}',"
+done
+#-----------------------------------------------------------------------------
+
+# We do not use this test with the NAG compiler, which is too slow
+# if [[ "x$compiler" = "xnag" ]]; then
+#   echo "Disabled for ${compiler} --> exit test without error"
+#   check_error 0 "exp.nwp_R02B04N06multi2"
+#   exit 0
+# fi
+
+# If the model runs with mpi_procs=1, then this script exits without error:
+if [[ ${mpi_total_procs} = 1 ]]; then
+  echo "This test must not be started if mpi_procs=1 --> exit test without error"
+  check_error 0 "exp.nwp_R02B04N06multi2"
+  exit 0
+fi
+
+# If running in parallel, mpi_procs*no_of_nodes must be bigger than 4:
+n_procs=`expr ${mpi_procs_pernode} \* ${no_of_nodes}`
+if [[ ${n_procs} -lt 5 ]]; then
+  echo "This test needs at least 5 MPI processes --> exit test without error"
+  check_error 0 "exp.nwp_R02B04N06multi2"
+  exit 0
+fi
 
 # reconstruct the grid parameters in namelist form
 dynamics_grid_filename=""
 for gridfile in ${atmo_dyn_grids}; do
   dynamics_grid_filename="${dynamics_grid_filename} '${gridfile}',"
 done
-radiation_grid_filename=""
-for gridfile in ${atmo_rad_grids}; do
-  radiation_grid_filename="${radiation_grid_filename} '${gridfile}',"
-done
+dynamics_parent_grid_id="${dynamics_parent_grid_id},"
+#
 
 
-# ----------------------------------------------------------------------------
-# ============================================================================
-#                        LOOP: MODEL IS EXECUTED TWO TIMES
-# ============================================================================
-for iter in 1 2 ; do
-
-
-if [ $iter -eq 1 ] ; then
-
-restart="       .FALSE.  "
-nsteps="            50   "
-checkpoint="     57600.0 "
-nrest_procs="        1   "
-
-else
-
-restart="        .TRUE.  "
-nsteps="            60   "
-checkpoint="   4320000.0 "
-nrest_procs="        0   "
-
-fi
-
-
-# ----------------------------------------------------------------------------
-# create ICON master namelist
-# ----------------------------------------------------------------------------
-
-cat > icon_master.namelist << EOF
-
-! master_nml: ----------------------------------------------------------------
-&master_nml
- lrestart                   =                   ${restart}        ! .TRUE.=current experiment is resumed
-/
-
-! master_model_nml: repeated for each model ----------------------------------
-&master_model_nml
- model_type                  =                          1         ! identifies which component to run (atmosphere,ocean,...)
- model_name                  =                      "ATMO"        ! character string for naming this component.
- model_namelist_filename     =              "NAMELIST_NWP"        ! file name containing the model namelists
- model_min_rank              =                          1         ! start MPI rank for this model
- model_max_rank              =                      65536         ! end MPI rank for this model
- model_inc_rank              =                          1         ! stride of MPI ranks
-/
-
-! time_nml: specification of date and time------------------------------------
-&time_nml
- ini_datetime_string         =      "2011-01-01T00:00:00Z"        ! initial date and time of the simulation
-/
-
-EOF
-
-
-# ----------------------------------------------------------------------------
-# model namelists
-# ----------------------------------------------------------------------------
-# For a complete list see doc/Namelist_overview.pdf
-
-cat > NAMELIST_NWP << EOF
-
+#-----------------------------------------------------------------------------
+#
+# write ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+cat > ${atmo_namelist} << EOF
 ! parallel_nml: MPI parallelization -------------------------------------------
 &parallel_nml
  nproma                      =                          8         ! loop chunk length
  p_test_run                  =                     .FALSE.        ! .TRUE. means verification run for MPI parallelization
  num_io_procs                =                          1         ! number of I/O processors
- num_restart_procs           =              ${nrest_procs}        ! number of restart processors
  iorder_sendrecv             =                          3         ! sequence of MPI send/receive calls
+ num_dist_array_replicas     = ${replicate_grid-1} ! can be 1 iff passive or active (see HAVE_SLOW_PASSIVE_TARGET_ONESIDED) target RMA works well
 /
 
 ! run_nml: general switches ---------------------------------------------------
@@ -175,7 +123,6 @@ cat > NAMELIST_NWP << EOF
  ltestcase                   =                      .TRUE.        ! idealized testcase runs
  num_lev                     =         90, 60, 54, 60, 54         ! number of full levels (atm.) for each domain
  lvert_nest                  =                      .TRUE.        ! vertical nesting
- nsteps                      =                  ${nsteps}         ! number of time steps of this run
  dtime                       =                       1440         ! timestep in seconds
  ldynamics                   =                      .TRUE.        ! compute adiabatic dynamic tendencies
  ltransport                  =                      .TRUE.        ! compute large-scale tracer transport
@@ -184,7 +131,8 @@ cat > NAMELIST_NWP << EOF
  msg_level                   =                          7         ! controls how much printout is written during runtime
  ltimer                      =                     .FALSE.        ! timer for monitoring the runtime of specific routines
  timers_level                =                         10         ! performance timer granularity
- output                      =                       "nml"        ! main switch for enabling/disabling components of the model output
+ output                      =           "nml", "maxwinds"        ! main switch for enabling/disabling components of the model output
+ restart_filename            = "${EXPNAME}_restart_atm_DOM<idom>_<rsttime>.nc"
 /
 
 ! diffusion_nml: horizontal (numerical) diffusion ----------------------------
@@ -214,8 +162,8 @@ cat > NAMELIST_NWP << EOF
 
 ! grid_nml: horizontal grid --------------------------------------------------
 &grid_nml
- dynamics_grid_filename      =  ${dynamics_grid_filename}         ! array of the grid filenames for the dycore
- radiation_grid_filename     = ${radiation_grid_filename}         ! array of the grid filenames for the radiation model
+ dynamics_grid_filename      =  ${dynamics_grid_filename}
+ radiation_grid_filename     = ${radiation_grid_filename}
  dynamics_parent_grid_id     =              0, 1, 2, 1, 4         ! array of the indexes of the parent grid filenames
  lredgrid_phys               = .TRUE.,.TRUE.,.TRUE.,.TRUE.,.TRUE. ! .true.=radiation is calculated on a reduced grid
  lfeedback                   =                      .TRUE.        ! specifies if feedback to parent grid is performed
@@ -234,8 +182,9 @@ cat > NAMELIST_NWP << EOF
 ! io_nml: general switches for model I/O -------------------------------------
 &io_nml
  dt_diag                     =                      21600.0       ! diagnostic integral output interval
- dt_checkpoint               =               ${checkpoint}        ! time interval for writing restart files.
+ dt_checkpoint               =                      21600.0       ! time interval for writing restart files.
  itype_pres_msl              =                          2         ! method for computation of mean sea level pressure
+ restart_write_mode          =       "joint procs multifile"
 /
 
 ! nh_testcase_nml: idealized testcase specification --------------------------
@@ -334,24 +283,27 @@ cat > NAMELIST_NWP << EOF
  c_diff                      =                          0.2       !
  rat_sea                     =                         10         !
 /
-
 EOF
 
 
-# ----------------------------------------------------------------------------
-# run the model!
-# ----------------------------------------------------------------------------
+# Define the input
 
-# "aprun" command:
-# -n xx   : number of MPI tasks
-# -N xx   : number of MPI tasks/node
-# -d  x   : number of threads/MPI task
-# -j 2    : Hyperthreading enabled: 20 physical cores -> 40 "virtual" cores
-# -m 3g   : 3G memory/task
+# model files
+#
+add_link_file ${basedir}/data/rrtmg_lw.nc                               ./
+add_link_file ${basedir}/data/rrtmg_sw.nc                               ./
+add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
-aprun  -n 96 -N 12 -j 2 -d 4 icon
+# namelist files
+#
+add_required_file ${basedir}/run/${atmo_namelist}                       ./
+
+#-----------------------------------------------------------------------------
+cat ${atmo_namelist}
+#-----------------------------------------------------------------------------
+# add standard atmo_non-hydrostatic_files
+. ${thisdir}/add_required_atmo_non-hydrostatic_files
+#-----------------------------------------------------------------------------
 
 
-# ----------------------------------------------------------------------------
-done # iterations for restart testing
-# ----------------------------------------------------------------------------
+

@@ -243,6 +243,7 @@ cat > ${lnd_namelist} << EOF
 &jsb_assimi_nml
   active          = .FALSE.             ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
 /
+>>>>>>> upstream/icon-mpiesm2-dev
 &jsb_pheno_nml
   scheme          = 'climatology'       ! scheme = logrop / climatology; use climatology for jsbach_lite
   bc_filename     = 'bc_land_phys.nc'
@@ -524,7 +525,10 @@ if [[ "$output_lnd" == "min" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_lnd"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+<<<<<<< HEAD
  filetype         = 5
+=======
+>>>>>>> upstream/icon-mpiesm2-dev
  remap            = 0
  operation        = 'mean'
  output_grid      = .TRUE.
@@ -551,7 +555,10 @@ if [[ "$output_lnd" == "full" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_lnd_a2l"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+<<<<<<< HEAD
  filetype         = 5
+=======
+>>>>>>> upstream/icon-mpiesm2-dev
  remap            = 0
  operation        = 'mean'
  output_grid      = .TRUE.
@@ -570,7 +577,10 @@ if [[ "$output_lnd" == "full" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_lnd_rad"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+<<<<<<< HEAD
  filetype         = 5
+=======
+>>>>>>> upstream/icon-mpiesm2-dev
  remap            = 0
  operation        = 'mean'
  output_grid      = .TRUE.
@@ -590,7 +600,10 @@ if [[ "$output_lnd" == "full" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_lnd_seb"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+<<<<<<< HEAD
  filetype         = 5
+=======
+>>>>>>> upstream/icon-mpiesm2-dev
  remap            = 0
  operation        = 'mean'
  output_grid      = .TRUE.
@@ -604,6 +617,7 @@ if [[ "$output_lnd" == "full" ]]; then
 /
 &output_nml
  output_filename  = "${EXPNAME}_lnd_sse"
+<<<<<<< HEAD
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  filetype         = 5
  remap            = 0
@@ -664,6 +678,8 @@ if [[ "$jsbach_check_wbal" == "yes" ]]; then
   cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_lnd_wbal"
+=======
+>>>>>>> upstream/icon-mpiesm2-dev
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  filetype         = 5
  remap            = 0
@@ -674,6 +690,66 @@ if [[ "$jsbach_check_wbal" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
+<<<<<<< HEAD
+=======
+ ml_varlist       = 'sse_grnd_hflx_land'   , 'sse_hcap_grnd_land'   , 'sse_hcap_grnd_veg'    , 'sse_grnd_hflx_veg',
+                    'sse_hcap_grnd_glac'   , 'sse_grnd_hflx_glac'   ,
+                    'sse_t_soil_veg'       , 'sse_t_soil_acoef_veg' , 'sse_t_soil_bcoef_veg' ,
+                    'sse_t_soil_glac'      , 'sse_t_soil_acoef_glac', 'sse_t_soil_bcoef_glac',
+/
+&output_nml
+ output_filename  = "${EXPNAME}_lnd_hydro"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'hydro_q_snocpymlt_box'        , 'hydro_w_skin_box'       , 'hydro_w_snow_box'             ,
+                    'hydro_snowmelt_box'           , 'hydro_w_soil_column_veg', 'hydro_w_soil_sl_veg'          , 
+                    'hydro_evapotranspiration_veg' , 'hydro_evapopot_veg'     , 'hydro_trans_veg'              ,
+                    'hydro_fract_water_veg'        , 'hydro_fract_snow_veg'   , 'hydro_w_skin_veg'             ,
+                    'hydro_w_snow_veg'             , 'hydro_q_snocpymlt_veg'  ,
+                    'hydro_fract_snow_soil_veg'    , 'hydro_w_snow_soil_veg'  , 'hydro_snow_accum_veg'         ,
+                    'hydro_fract_snow_can_veg'     , 'hydro_w_snow_can_veg'   ,
+                    'hydro_water_stress_veg'       , 'hydro_canopy_cond_veg'  , 'hydro_canopy_cond_limited_veg'
+                    'hydro_evapotranspiration_glac', 'hydro_evapopot_glac'    ,
+                    'hydro_snowmelt_glac'          , 'hydro_q_snocpymlt_glac'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_lnd_pheno"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'pheno_lai_veg'          , 'pheno_fract_fpc_veg'   ,
+                    'pheno_fract_fpc_max_veg', 'pheno_fract_forest_veg'
+/
+EOF
+fi
+
+if [[ "$jsbach_check_wbal" == "yes" ]]; then
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_lnd_wbal"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+>>>>>>> upstream/icon-mpiesm2-dev
  ml_varlist       = 'hydro_water_flux_box', 'hydro_water_content_box', 'hydro_water_budget_box',
 EOF
   if [[ "$jsbach_with_hd" == "yes" ]]; then

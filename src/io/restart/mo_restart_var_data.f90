@@ -18,7 +18,8 @@ MODULE mo_restart_var_data
     USE mo_fortran_tools,      ONLY: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int
     USE mo_grid_config,        ONLY: l_limited_area
     USE mo_impl_constants,     ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, INH_ATMOSPHERE, &
-      &                              TLEV_NNOW, TLEV_NNOW_RCF, SUCCESS, LEAPFROG_EXPL, LEAPFROG_SI
+      &                              TLEV_NNOW, TLEV_NNOW_RCF, SUCCESS, LEAPFROG_EXPL, LEAPFROG_SI, &
+      &                              REAL_T, SINGLE_T, INT_T
 #ifdef DEBUG
     USE mo_io_units,           ONLY: nerr
 #endif
@@ -44,7 +45,7 @@ MODULE mo_restart_var_data
       MODULE PROCEDURE getLevelPointers_sp
       MODULE PROCEDURE getLevelPointers_int
     END INTERFACE
-    
+
     PRIVATE
 
     ! All the info that's required about a variable for restart purposes.
@@ -53,11 +54,35 @@ MODULE mo_restart_var_data
         REAL(sp), POINTER :: s_ptr(:,:,:,:,:)
         INTEGER,  POINTER :: i_ptr(:,:,:,:,:)
         TYPE(t_var_metadata) :: info
+    CONTAINS
+        PROCEDURE :: isDoublePrecision => restartVarData_isDoublePrecision
+        PROCEDURE :: getDatatype => restartVarData_getDatatype
     END TYPE t_RestartVarData
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_restart_var_data"
 
 CONTAINS
+
+    LOGICAL FUNCTION restartVarData_isDoublePrecision(me) RESULT(resultVar)
+        CLASS(t_RestartVarData), INTENT(IN) :: me
+
+        CHARACTER(*), PARAMETER :: routine = modname//":restartVarData_isDoublePrecision"
+
+        SELECT CASE(me%info%data_type)
+        CASE(REAL_T) 
+          resultVar = .TRUE.
+        CASE(SINGLE_T, INT_T)
+          resultVar = .FALSE.
+        CASE DEFAULT
+          CALL finish(routine, "assertion failed: unexpected type of restart variable '"//TRIM(me%info%NAME)//"'")
+        END SELECT
+    END FUNCTION restartVarData_isDoublePrecision
+
+    INTEGER FUNCTION restartVarData_getDatatype(me) RESULT(resultVar)
+      CLASS(t_RestartVarData), INTENT(IN) :: me
+      
+      resultVar = me%info%data_type
+    END FUNCTION restartVarData_getDatatype
 
     LOGICAL FUNCTION wantVarlist(varlist, patch_id, modelType) RESULT(resultVar)
         TYPE(t_var_list), INTENT(IN) :: varlist
@@ -376,7 +401,7 @@ CONTAINS
         ! get time index of the given field
         time_level = get_var_timelevel(p_info)
 
-        !TODO[NH]: I found the `time_level >= 0` condition IN the async restart code ONLY. Check whether it should be removed OR NOT.
+        !TODO: I found the `time_level >= 0` condition IN the async restart code ONLY. Check whether it should be removed OR NOT.
         IF(time_level >= 0) THEN
             ! get information about time level to be skipped for current field
             IF (p_info%tlev_source == TLEV_NNOW) THEN

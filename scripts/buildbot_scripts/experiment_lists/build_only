@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 machine|breeze|
 builder|BREEZE_intel|--with-fortran=intel|build_only
 builder|BREEZE_gcc_openmp|--with-fortran=gcc --with-openmp|build_only

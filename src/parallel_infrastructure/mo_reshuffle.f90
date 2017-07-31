@@ -20,6 +20,7 @@ MODULE mo_reshuffle
 #endif
 
   USE mo_exception,          ONLY: finish
+  USE mo_util_sort, ONLY: quicksort
 
   IMPLICIT NONE
 
@@ -83,77 +84,6 @@ CONTAINS
       permutation(j) = t_p
     END IF
   END SUBROUTINE swap_int
-
-  ! --------------------------------------------------------------------
-  !> Simple recursive implementation of Hoare's QuickSort algorithm
-  !  for a 1D array of INTEGER values.
-  ! 
-  !  Ordering after the sorting process: smallest...largest.
-  !
-  RECURSIVE SUBROUTINE quicksort_int(a, permutation, l_in, r_in)
-    INTEGER,  INTENT(INOUT)           :: a(:)           !< array for in-situ sorting
-    INTEGER,  INTENT(INOUT), OPTIONAL :: permutation(:) !< (optional) permutation of indices
-    INTEGER,  INTENT(IN),    OPTIONAL :: l_in,r_in      !< left, right partition indices
-    ! local variables
-    INTEGER :: i,j,l,r,t_p,t,v,m
-
-    IF (PRESENT(l_in)) THEN
-      l = l_in
-    ELSE
-      l = 1
-    END IF
-    IF (PRESENT(r_in)) THEN
-      r = r_in
-    ELSE
-      r = SIZE(a,1)
-    END IF
-    IF (r>l) THEN
-      i = l-1
-      j = r
-      
-      ! median-of-three selection of partitioning element
-      IF ((r-l) > 3) THEN 
-        m = (l+r)/2
-        IF (a(l)>a(m))  CALL swap_int(a, l,m, permutation)
-        IF (a(l)>a(r)) THEN
-          CALL swap_int(a, l,r, permutation)
-        ELSE IF (a(r)>a(m)) THEN
-          CALL swap_int(a, r,m, permutation)
-        END IF
-      END IF
-
-      v = a(r)
-      LOOP : DO
-        CNTLOOP1 : DO
-          i = i+1
-          IF (a(i) >= v) EXIT CNTLOOP1
-        END DO CNTLOOP1
-        CNTLOOP2 : DO
-          j = j-1
-          IF ((a(j) <= v) .OR. (j==1)) EXIT CNTLOOP2
-        END DO CNTLOOP2
-        t    = a(i)
-        a(i) = a(j)
-        a(j) = t
-        IF (PRESENT(permutation)) THEN
-          t_p            = permutation(i)
-          permutation(i) = permutation(j)
-          permutation(j) = t_p
-        END IF
-        IF (j <= i) EXIT LOOP
-      END DO LOOP
-      a(j) = a(i)
-      a(i) = a(r)
-      a(r) = t
-      IF (PRESENT(permutation)) THEN
-        permutation(j) = permutation(i)
-        permutation(i) = permutation(r)
-        permutation(r) = t_p
-      END IF
-      CALL quicksort_int(a,permutation,l,i-1)
-      CALL quicksort_int(a,permutation,i+1,r)
-    END IF
-  END SUBROUTINE quicksort_int
 
   SUBROUTINE calc_displs(i_pe, displs)
     INTEGER, INTENT(IN)    :: i_pe(:)    !< i_pe(i) contains the PE where to send/receive index "i" to/from
@@ -315,8 +245,8 @@ CONTAINS
       &      permutation_owner(nlocal), reordered_owner_idx(nlocal))
     permutation(:)       = (/ ( i, i=1,nsend) /)
     permutation_owner(:) = (/ ( i, i=1,nlocal) /)
-    CALL quicksort_int(i_pe, permutation)
-    CALL quicksort_int(i_pe_owner, permutation_owner)
+    CALL quicksort(i_pe, permutation)
+    CALL quicksort(i_pe_owner, permutation_owner)
     glb_idx(:)             = in_glb_idx(permutation(:))
     values(:)              = in_values(permutation(:))
     reordered_owner_idx(:) = owner_idx(permutation_owner(:))

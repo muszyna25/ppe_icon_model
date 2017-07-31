@@ -458,7 +458,7 @@ CONTAINS
     INTEGER  :: jc
  
  
-     ! 3.3 Weighting factors for fractional surface coverage
+    ! 3.3 Weighting factors for fractional surface coverage
     !     Accumulate ice portion for diagnostics
 
     DO jc=jcs,jce

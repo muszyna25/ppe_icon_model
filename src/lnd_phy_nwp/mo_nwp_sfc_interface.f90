@@ -353,24 +353,31 @@ CONTAINS
              ! Snow and rain fall onto snow-covered tile surface only, 
              ! if 
              ! 1) the corresponding snow tile already exists and 
-             ! 2) the temperature of snow-free tile is below freezing point.
+             ! 2) the temperature of snow-free tile is below freezing point (with transition zone between 0 and 1 deg C).
              ! If the temperature of snow-free tile is above freezing point,
              ! precipitation over it will be processed by this tile itself (no snow is created).
              ! If there is no snow tile so far at all, precipitation falls on the snow-free tile,
              ! and the snow tile will be created after TERRA.
              !
-             ! DR after discussion with Ekaterina, changed from '>' to '<='
-             IF(lnd_prog_now%t_snow_t(jc,jb,isubs) <= tmelt) THEN
-               rain_gsp_rate(jc,isubs)    = 0._wp
-               snow_gsp_rate(jc,isubs)    = 0._wp
-               rain_con_rate(jc,isubs)    = 0._wp
-               snow_con_rate(jc,isubs)    = 0._wp
-               graupel_gsp_rate(jc,isubs) = 0._wp
-               rain_gsp_rate(jc,isubs_snow)    = rain_gsp_rate(jc,isubs_snow)/MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.05_wp)
-               snow_gsp_rate(jc,isubs_snow)    = snow_gsp_rate(jc,isubs_snow)/MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.05_wp)
-               rain_con_rate(jc,isubs_snow)    = rain_con_rate(jc,isubs_snow)/MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.05_wp)
-               snow_con_rate(jc,isubs_snow)    = snow_con_rate(jc,isubs_snow)/MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.05_wp)
-               graupel_gsp_rate(jc,isubs_snow) = graupel_gsp_rate(jc,isubs_snow)/MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.05_wp)
+             IF (lnd_diag%snowfrac_lc_t(jc,jb,isubs) < 1._wp .AND. lnd_prog_now%t_snow_t(jc,jb,isubs) < tmelt+1._wp) THEN
+
+               ! transition factor to avoid discontinuity at freezing point of soil in snow-free tile
+               tmp3 = tmelt + 1._wp - MAX(tmelt,lnd_prog_now%t_snow_t(jc,jb,isubs))
+               ! enhancement factor in snow tile
+               tmp1 = MAX(1._wp,tmp3/MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.01_wp))
+               ! factor for snow-free tile to ensure that no water gets lost
+               tmp2 = (1._wp-tmp1*lnd_diag%snowfrac_lc_t(jc,jb,isubs))/(1._wp-lnd_diag%snowfrac_lc_t(jc,jb,isubs))
+
+               rain_gsp_rate(jc,isubs)    = rain_gsp_rate(jc,isubs)*tmp2
+               snow_gsp_rate(jc,isubs)    = snow_gsp_rate(jc,isubs)*tmp2
+               rain_con_rate(jc,isubs)    = rain_con_rate(jc,isubs)*tmp2
+               snow_con_rate(jc,isubs)    = snow_con_rate(jc,isubs)*tmp2
+               graupel_gsp_rate(jc,isubs) = graupel_gsp_rate(jc,isubs)*tmp2
+               rain_gsp_rate(jc,isubs_snow)    = rain_gsp_rate(jc,isubs_snow)*tmp1
+               snow_gsp_rate(jc,isubs_snow)    = snow_gsp_rate(jc,isubs_snow)*tmp1
+               rain_con_rate(jc,isubs_snow)    = rain_con_rate(jc,isubs_snow)*tmp1
+               snow_con_rate(jc,isubs_snow)    = snow_con_rate(jc,isubs_snow)*tmp1
+               graupel_gsp_rate(jc,isubs_snow) = graupel_gsp_rate(jc,isubs_snow)*tmp1
              END IF
            END DO
          END DO

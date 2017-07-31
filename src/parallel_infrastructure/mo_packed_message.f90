@@ -26,7 +26,11 @@ MODULE mo_packed_message
     PRIVATE
 
     PUBLIC :: t_PackedMessage
-    INTEGER, PARAMETER, PUBLIC :: kPackOp = 0, kUnpackOp = 1
+    PUBLIC :: kPackOp, kUnpackOp
+
+    ENUM, BIND(C)
+        ENUMERATOR :: kPackOp = 1, kUnpackOp
+    END ENUM
 
     ! A t_PackedMessage IS used to bundle a number of different values
     ! together into a single message, that can be communicated via a
@@ -77,6 +81,9 @@ MODULE mo_packed_message
         PROCEDURE :: construct => PackedMessage_construct
         PROCEDURE :: reset => PackedMessage_reset   
 
+        ! The routine marked as "base CASE" are the ones that perform the actual packing,
+        ! i. e. they are the ones that need to be overridden to change the way the DATA IS serialized.
+        ! This IS done IN t_SerializedData, which produces platform-independent ASCII text instead of platform-dependent (endianess!) binary DATA.
         ! pack routines
         PROCEDURE :: packInt => PackedMessage_packInt
         PROCEDURE :: packLong => PackedMessage_packLong        
@@ -175,7 +182,7 @@ MODULE mo_packed_message
              &                          packerAllocatableLogical
 
         ! communication routines
-        ! All of these will flush ANY contents of the reciever(s), replacing it with a copy of the sender's packet.
+        ! All of these will flush ANY contents of the receiver(s), replacing it with a copy of the sender's packet.
         PROCEDURE :: send => PackedMessage_send
         PROCEDURE :: recv => PackedMessage_recv
         PROCEDURE :: bcast => PackedMessage_bcast
@@ -183,11 +190,12 @@ MODULE mo_packed_message
         ! destructor
         PROCEDURE :: destruct => PackedMessage_destruct
 
-        PROCEDURE, PRIVATE :: ensureSpace => PackedMessage_ensureSpace
+        PROCEDURE :: ensureSpace => PackedMessage_ensureSpace   ! protected, use only in subclasses that implement their own packing
         PROCEDURE, PRIVATE :: printState => PackedMessage_printState
 
         ! these two methods are ONLY ever invoked via the two preprocessor macros below
         PROCEDURE, PRIVATE :: packBytes => PackedMessage_packBytes
+
         ! returns a POINTER to a subarray of the internal storage, so
         ! that POINTER IS invalidated by ANY (IN)direct CALL to
         ! ensureSpace()!
@@ -305,56 +313,56 @@ CONTAINS
     !
     !     Since the required fallback implementation IS sufficient to be also used IN the MPI CASE, I have scraped the USE of MPI_Pack*() AND MPI_Pack*_external() from this MODULE.
 
-    SUBROUTINE PackedMessage_packInt(me, VALUE)
+    SUBROUTINE PackedMessage_packInt(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        INTEGER, VALUE :: VALUE
+        INTEGER, VALUE :: val
 
-        doPacking(me, VALUE)
+        doPacking(me, val)
     END SUBROUTINE PackedMessage_packInt
 
-    SUBROUTINE PackedMessage_packLong(me, VALUE)
+    SUBROUTINE PackedMessage_packLong(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        INTEGER(i8), VALUE :: VALUE
+        INTEGER(i8), VALUE :: val
 
-        doPacking(me, VALUE)
+        doPacking(me, val)
     END SUBROUTINE PackedMessage_packLong
 
-    SUBROUTINE PackedMessage_packSingle(me, VALUE)
+    SUBROUTINE PackedMessage_packSingle(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        REAL(sp), VALUE :: VALUE
+        REAL(sp), VALUE :: val
 
-        doPacking(me, VALUE)
+        doPacking(me, val)
     END SUBROUTINE PackedMessage_packSingle
 
-    SUBROUTINE PackedMessage_packDouble(me, VALUE)
+    SUBROUTINE PackedMessage_packDouble(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        REAL(dp), VALUE :: VALUE
+        REAL(dp), VALUE :: val
 
-        doPacking(me, VALUE)
+        doPacking(me, val)
     END SUBROUTINE PackedMessage_packDouble
 
-    SUBROUTINE PackedMessage_packLogical(me, VALUE)
+    SUBROUTINE PackedMessage_packLogical(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        LOGICAL, VALUE :: VALUE
+        LOGICAL, VALUE :: val
 
-        doPacking(me, VALUE)
+        doPacking(me, val)
     END SUBROUTINE PackedMessage_packLogical
 
-    SUBROUTINE PackedMessage_packCharacter(me, VALUE)
+    SUBROUTINE PackedMessage_packCharacter(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        CHARACTER(LEN = *), INTENT(IN) :: VALUE
+        CHARACTER(LEN = *), INTENT(IN) :: val
 
-        doPacking(me, VALUE)
+        doPacking(me, val)
     END SUBROUTINE PackedMessage_packCharacter
 
     ! pack routines for ALLOCATABLE scalars !
 
-    SUBROUTINE PackedMessage_packAllocatableInt(me, VALUE)
+    SUBROUTINE PackedMessage_packAllocatableInt(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        INTEGER, ALLOCATABLE, INTENT(IN) :: VALUE
+        INTEGER, ALLOCATABLE, INTENT(IN) :: val
 
-        CALL me%pack(ALLOCATED(VALUE))
-        IF(ALLOCATED(VALUE)) CALL me%pack(VALUE)
+        CALL me%pack(ALLOCATED(val))
+        IF(ALLOCATED(val)) CALL me%pack(val)
     END SUBROUTINE PackedMessage_packAllocatableInt
 
     SUBROUTINE PackedMessage_packAllocatableLong(me, VALUE)
@@ -365,39 +373,39 @@ CONTAINS
         IF(ALLOCATED(VALUE)) CALL me%pack(VALUE)
     END SUBROUTINE PackedMessage_packAllocatableLong
 
-    SUBROUTINE PackedMessage_packAllocatableSingle(me, VALUE)
+    SUBROUTINE PackedMessage_packAllocatableSingle(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        REAL(sp), ALLOCATABLE, INTENT(IN) :: VALUE
+        REAL(sp), ALLOCATABLE, INTENT(IN) :: val
 
-        CALL me%pack(ALLOCATED(VALUE))
-        IF(ALLOCATED(VALUE)) CALL me%pack(VALUE)
+        CALL me%pack(ALLOCATED(val))
+        IF(ALLOCATED(val)) CALL me%pack(val)
     END SUBROUTINE PackedMessage_packAllocatableSingle
 
-    SUBROUTINE PackedMessage_packAllocatableDouble(me, VALUE)
+    SUBROUTINE PackedMessage_packAllocatableDouble(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        REAL(dp), ALLOCATABLE, INTENT(IN) :: VALUE
+        REAL(dp), ALLOCATABLE, INTENT(IN) :: val
 
-        CALL me%pack(ALLOCATED(VALUE))
-        IF(ALLOCATED(VALUE)) CALL me%pack(VALUE)
+        CALL me%pack(ALLOCATED(val))
+        IF(ALLOCATED(val)) CALL me%pack(val)
     END SUBROUTINE PackedMessage_packAllocatableDouble
 
-    SUBROUTINE PackedMessage_packAllocatableLogical(me, VALUE)
+    SUBROUTINE PackedMessage_packAllocatableLogical(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        LOGICAL, ALLOCATABLE, INTENT(IN) :: VALUE
+        LOGICAL, ALLOCATABLE, INTENT(IN) :: val
 
-        CALL me%pack(ALLOCATED(VALUE))
-        IF(ALLOCATED(VALUE)) CALL me%pack(VALUE)
+        CALL me%pack(ALLOCATED(val))
+        IF(ALLOCATED(val)) CALL me%pack(val)
     END SUBROUTINE PackedMessage_packAllocatableLogical
 
 !XXX: see PackedMessage_unpackAllocatableCharacter() for an explanation of the deactivation
-!   SUBROUTINE PackedMessage_packAllocatableCharacter(me, VALUE)
+!   SUBROUTINE PackedMessage_packAllocatableCharacter(me, val)
 !       CLASS(t_PackedMessage), INTENT(INOUT) :: me
-!       CHARACTER(:), ALLOCATABLE, INTENT(IN) :: VALUE
+!       CHARACTER(:), ALLOCATABLE, INTENT(IN) :: val
 
-!       CALL me%pack(ALLOCATED(VALUE))
-!       IF(ALLOCATED(VALUE)) THEN
-!           CALL me%pack(LEN(VALUE))
-!           CALL me%pack(VALUE)
+!       CALL me%pack(ALLOCATED(val))
+!       IF(ALLOCATED(val)) THEN
+!           CALL me%pack(LEN(val))
+!           CALL me%pack(val)
 !       END IF
 !   END SUBROUTINE PackedMessage_packAllocatableCharacter
 
@@ -475,53 +483,53 @@ CONTAINS
 
     ! unpack routines for scalar values !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    SUBROUTINE PackedMessage_unpackInt(me, VALUE)
+    SUBROUTINE PackedMessage_unpackInt(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        INTEGER, INTENT(OUT) :: VALUE
+        INTEGER, INTENT(OUT) :: val
 
-        doUnpacking(me, VALUE)
+        doUnpacking(me, val)
     END SUBROUTINE PackedMessage_unpackInt
 
-    SUBROUTINE PackedMessage_unpackLong(me, VALUE)
+    SUBROUTINE PackedMessage_unpackLong(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        INTEGER(i8), INTENT(OUT) :: VALUE
+        INTEGER(i8), INTENT(OUT) :: val
 
-        doUnpacking(me, VALUE)
+        doUnpacking(me, val)
     END SUBROUTINE PackedMessage_unpackLong
 
-    SUBROUTINE PackedMessage_unpackSingle(me, VALUE)
+    SUBROUTINE PackedMessage_unpackSingle(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        REAL(sp), INTENT(OUT) :: VALUE
+        REAL(sp), INTENT(OUT) :: val
 
-        doUnpacking(me, VALUE)
+        doUnpacking(me, val)
     END SUBROUTINE PackedMessage_unpackSingle
 
-    SUBROUTINE PackedMessage_unpackDouble(me, VALUE)
+    SUBROUTINE PackedMessage_unpackDouble(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        REAL(dp), INTENT(OUT) :: VALUE
+        REAL(dp), INTENT(OUT) :: val
 
-        doUnpacking(me, VALUE)
+        doUnpacking(me, val)
     END SUBROUTINE PackedMessage_unpackDouble
 
-    SUBROUTINE PackedMessage_unpackLogical(me, VALUE)
+    SUBROUTINE PackedMessage_unpackLogical(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        LOGICAL, INTENT(OUT) :: VALUE
+        LOGICAL, INTENT(OUT) :: val
 
-        doUnpacking(me, VALUE)
+        doUnpacking(me, val)
     END SUBROUTINE PackedMessage_unpackLogical
 
-    SUBROUTINE PackedMessage_unpackCharacter(me, VALUE)
+    SUBROUTINE PackedMessage_unpackCharacter(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        CHARACTER(LEN = *), INTENT(INOUT) :: VALUE
+        CHARACTER(LEN = *), INTENT(INOUT) :: val
 
-        doUnpacking(me, VALUE)
+        doUnpacking(me, val)
     END SUBROUTINE PackedMessage_unpackCharacter
 
     ! unpack routines for ALLOCATABLE scalars !
 
-    SUBROUTINE PackedMessage_unpackAllocatableInt(me, VALUE)
+    SUBROUTINE PackedMessage_unpackAllocatableInt(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        INTEGER, ALLOCATABLE, INTENT(INOUT) :: VALUE
+        INTEGER, ALLOCATABLE, INTENT(INOUT) :: val
 
         LOGICAL :: isAllocated
         INTEGER :: error
@@ -529,13 +537,13 @@ CONTAINS
 
         CALL me%unpack(isAllocated)
         IF(isAllocated) THEN
-            IF(.NOT.ALLOCATED(VALUE)) THEN
-                ALLOCATE(VALUE, STAT = error)
+            IF(.NOT.ALLOCATED(val)) THEN
+                ALLOCATE(val, STAT = error)
                 IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
             END IF
-            CALL me%unpack(VALUE)
+            CALL me%unpack(val)
         ELSE
-            IF(ALLOCATED(VALUE)) DEALLOCATE(VALUE)
+            IF(ALLOCATED(val)) DEALLOCATE(val)
         END IF
     END SUBROUTINE PackedMessage_unpackAllocatableInt
 
@@ -559,9 +567,9 @@ CONTAINS
         END IF
     END SUBROUTINE PackedMessage_unpackAllocatableLong
 
-    SUBROUTINE PackedMessage_unpackAllocatableSingle(me, VALUE)
+    SUBROUTINE PackedMessage_unpackAllocatableSingle(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        REAL(sp), ALLOCATABLE, INTENT(INOUT) :: VALUE
+        REAL(sp), ALLOCATABLE, INTENT(INOUT) :: val
 
         LOGICAL :: isAllocated
         INTEGER :: error
@@ -569,19 +577,19 @@ CONTAINS
 
         CALL me%unpack(isAllocated)
         IF(isAllocated) THEN
-            IF(.NOT.ALLOCATED(VALUE)) THEN
-                ALLOCATE(VALUE, STAT = error)
+            IF(.NOT.ALLOCATED(val)) THEN
+                ALLOCATE(val, STAT = error)
                 IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
             END IF
-            CALL me%unpack(VALUE)
+            CALL me%unpack(val)
         ELSE
-            IF(ALLOCATED(VALUE)) DEALLOCATE(VALUE)
+            IF(ALLOCATED(val)) DEALLOCATE(val)
         END IF
     END SUBROUTINE PackedMessage_unpackAllocatableSingle
 
-    SUBROUTINE PackedMessage_unpackAllocatableDouble(me, VALUE)
+    SUBROUTINE PackedMessage_unpackAllocatableDouble(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        REAL(dp), ALLOCATABLE, INTENT(INOUT) :: VALUE
+        REAL(dp), ALLOCATABLE, INTENT(INOUT) :: val
 
         LOGICAL :: isAllocated
         INTEGER :: error
@@ -589,19 +597,19 @@ CONTAINS
 
         CALL me%unpack(isAllocated)
         IF(isAllocated) THEN
-            IF(.NOT.ALLOCATED(VALUE)) THEN
-                ALLOCATE(VALUE, STAT = error)
+            IF(.NOT.ALLOCATED(val)) THEN
+                ALLOCATE(val, STAT = error)
                 IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
             END IF
-            CALL me%unpack(VALUE)
+            CALL me%unpack(val)
         ELSE
-            IF(ALLOCATED(VALUE)) DEALLOCATE(VALUE)
+            IF(ALLOCATED(val)) DEALLOCATE(val)
         END IF
     END SUBROUTINE PackedMessage_unpackAllocatableDouble
 
-    SUBROUTINE PackedMessage_unpackAllocatableLogical(me, VALUE)
+    SUBROUTINE PackedMessage_unpackAllocatableLogical(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        LOGICAL, ALLOCATABLE, INTENT(INOUT) :: VALUE
+        LOGICAL, ALLOCATABLE, INTENT(INOUT) :: val
 
         LOGICAL :: isAllocated
         INTEGER :: error
@@ -609,35 +617,35 @@ CONTAINS
 
         CALL me%unpack(isAllocated)
         IF(isAllocated) THEN
-            IF(.NOT.ALLOCATED(VALUE)) THEN
-                ALLOCATE(VALUE, STAT = error)
+            IF(.NOT.ALLOCATED(val)) THEN
+                ALLOCATE(val, STAT = error)
                 IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
             END IF
-            CALL me%unpack(VALUE)
+            CALL me%unpack(val)
         ELSE
-            IF(ALLOCATED(VALUE)) DEALLOCATE(VALUE)
+            IF(ALLOCATED(val)) DEALLOCATE(val)
         END IF
     END SUBROUTINE PackedMessage_unpackAllocatableLogical
 
-!XXX: This is deactivated because it triggers a bug in gfortran that looses the contents of VALUE on return from the routine.
+!XXX: This is deactivated because it triggers a bug in gfortran that looses the contents of val on return from the routine.
 !     The only known workaround is to implement the functionality right where it is needed.
 !
-!   SUBROUTINE PackedMessage_unpackAllocatableCharacter(me, VALUE)
+!   SUBROUTINE PackedMessage_unpackAllocatableCharacter(me, val)
 !       CLASS(t_PackedMessage), INTENT(INOUT) :: me
-!       CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: VALUE
+!       CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: val
 
 !       LOGICAL :: isAllocated
 !       INTEGER :: error, length
 !       CHARACTER(*), PARAMETER :: routine = modname//":PackedMessage_unpackAllocatableCharacter"
 
-!       IF(ALLOCATED(VALUE)) DEALLOCATE(VALUE)  ! get VALUE into a known state (unallocated)
+!       IF(ALLOCATED(val)) DEALLOCATE(val)  ! get val into a known state (unallocated)
 
 !       CALL me%unpack(isAllocated)
 !       IF(isAllocated) THEN
 !           CALL me%unpack(length)
-!           ALLOCATE(CHARACTER(length) :: VALUE, STAT = error)
+!           ALLOCATE(CHARACTER(length) :: val, STAT = error)
 !           IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-!           CALL me%unpack(VALUE)
+!           CALL me%unpack(val)
 !       END IF
 !   END SUBROUTINE PackedMessage_unpackAllocatableCharacter
 
@@ -745,17 +753,17 @@ CONTAINS
 
     ! wrappers for unified (un)packing !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    SUBROUTINE PackedMessage_packerInt(me, operation, value)
+    SUBROUTINE PackedMessage_packerInt(me, operation, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
-        INTEGER, INTENT(INOUT) :: value
+        INTEGER, INTENT(INOUT) :: val
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerInt"
 
         SELECT CASE(operation)
             CASE(kPackOp)
-                CALL me%pack(value)
+                CALL me%pack(val)
             CASE(kUnpackOp)
-                CALL me%unpack(value)
+                CALL me%unpack(val)
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
@@ -777,184 +785,184 @@ CONTAINS
         END SELECT
     END SUBROUTINE PackedMessage_packerLong
 
-    SUBROUTINE PackedMessage_packerSingle(me, operation, value)
+    SUBROUTINE PackedMessage_packerSingle(me, operation, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
-        REAL(sp), INTENT(INOUT) :: value
+        REAL(sp), INTENT(INOUT) :: val
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerSingle"
 
         SELECT CASE(operation)
             CASE(kPackOp)
-                CALL me%pack(value)
+                CALL me%pack(val)
             CASE(kUnpackOp)
-                CALL me%unpack(value)
+                CALL me%unpack(val)
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
     END SUBROUTINE PackedMessage_packerSingle
 
-    SUBROUTINE PackedMessage_packerDouble(me, operation, value)
+    SUBROUTINE PackedMessage_packerDouble(me, operation, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
-        REAL(dp), INTENT(INOUT) :: value
+        REAL(dp), INTENT(INOUT) :: val
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerDouble"
 
         SELECT CASE(operation)
             CASE(kPackOp)
-                CALL me%pack(value)
+                CALL me%pack(val)
             CASE(kUnpackOp)
-                CALL me%unpack(value)
+                CALL me%unpack(val)
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
     END SUBROUTINE PackedMessage_packerDouble
 
-    SUBROUTINE PackedMessage_packerLogical(me, operation, value)
+    SUBROUTINE PackedMessage_packerLogical(me, operation, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
-        LOGICAL, INTENT(INOUT) :: value
+        LOGICAL, INTENT(INOUT) :: val
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerLogical"
 
         SELECT CASE(operation)
             CASE(kPackOp)
-                CALL me%pack(value)
+                CALL me%pack(val)
             CASE(kUnpackOp)
-                CALL me%unpack(value)
+                CALL me%unpack(val)
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
     END SUBROUTINE PackedMessage_packerLogical
 
-    SUBROUTINE PackedMessage_packerCharacter(me, operation, value)
+    SUBROUTINE PackedMessage_packerCharacter(me, operation, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
-        CHARACTER(LEN = *), INTENT(INOUT) :: VALUE
+        CHARACTER(LEN = *), INTENT(INOUT) :: val
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerCharacter"
 
         SELECT CASE(operation)
             CASE(kPackOp)
-                CALL me%pack(value)
+                CALL me%pack(val)
             CASE(kUnpackOp)
-                CALL me%unpack(value)
+                CALL me%unpack(val)
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
     END SUBROUTINE PackedMessage_packerCharacter
 
-    SUBROUTINE PackedMessage_packerAllocatableInt(me, operation, VALUE)
+    SUBROUTINE PackedMessage_packerAllocatableInt(me, operation, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
-        INTEGER, ALLOCATABLE, INTENT(INOUT) :: VALUE
+        INTEGER, ALLOCATABLE, INTENT(INOUT) :: val
 
         CHARACTER(*), PARAMETER :: routine = modname//":PackedMessage_packerAllocatableInt"
 
         SELECT CASE(operation)
             CASE(kPackOp)
-                CALL me%packAllocatable(VALUE)
+                CALL me%packAllocatable(val)
             CASE(kUnpackOp)
-                CALL me%unpackAllocatable(VALUE)
+                CALL me%unpackAllocatable(val)
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
     END SUBROUTINE PackedMessage_packerAllocatableInt
 
-    SUBROUTINE PackedMessage_packerAllocatableLong(me, operation, VALUE)
+    SUBROUTINE PackedMessage_packerAllocatableLong(me, operation, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
-        INTEGER(i8), ALLOCATABLE, INTENT(INOUT) :: VALUE
+        INTEGER(i8), ALLOCATABLE, INTENT(INOUT) :: val
 
         CHARACTER(*), PARAMETER :: routine = modname//":PackedMessage_packerAllocatableLong"
 
         SELECT CASE(operation)
             CASE(kPackOp)
-                CALL me%packAllocatable(VALUE)
+                CALL me%packAllocatable(val)
             CASE(kUnpackOp)
-                CALL me%unpackAllocatable(VALUE)
+                CALL me%unpackAllocatable(val)
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
     END SUBROUTINE PackedMessage_packerAllocatableLong
 
-    SUBROUTINE PackedMessage_packerAllocatableSingle(me, operation, VALUE)
+    SUBROUTINE PackedMessage_packerAllocatableSingle(me, operation, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
-        REAL(sp), ALLOCATABLE, INTENT(INOUT) :: VALUE
+        REAL(sp), ALLOCATABLE, INTENT(INOUT) :: val
 
         CHARACTER(*), PARAMETER :: routine = modname//":PackedMessage_packerAllocatableSingle"
 
         SELECT CASE(operation)
             CASE(kPackOp)
-                CALL me%packAllocatable(VALUE)
+                CALL me%packAllocatable(val)
             CASE(kUnpackOp)
-                CALL me%unpackAllocatable(VALUE)
+                CALL me%unpackAllocatable(val)
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
     END SUBROUTINE PackedMessage_packerAllocatableSingle
 
-    SUBROUTINE PackedMessage_packerAllocatableDouble(me, operation, VALUE)
+    SUBROUTINE PackedMessage_packerAllocatableDouble(me, operation, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
-        REAL(dp), ALLOCATABLE, INTENT(INOUT) :: VALUE
+        REAL(dp), ALLOCATABLE, INTENT(INOUT) :: val
 
         CHARACTER(*), PARAMETER :: routine = modname//":PackedMessage_packerAllocatableDouble"
 
         SELECT CASE(operation)
             CASE(kPackOp)
-                CALL me%packAllocatable(VALUE)
+                CALL me%packAllocatable(val)
             CASE(kUnpackOp)
-                CALL me%unpackAllocatable(VALUE)
+                CALL me%unpackAllocatable(val)
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
     END SUBROUTINE PackedMessage_packerAllocatableDouble
 
-    SUBROUTINE PackedMessage_packerAllocatableLogical(me, operation, VALUE)
+    SUBROUTINE PackedMessage_packerAllocatableLogical(me, operation, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
-        LOGICAL, ALLOCATABLE, INTENT(INOUT) :: VALUE
+        LOGICAL, ALLOCATABLE, INTENT(INOUT) :: val
 
         CHARACTER(*), PARAMETER :: routine = modname//":PackedMessage_packerAllocatableLogical"
 
         SELECT CASE(operation)
             CASE(kPackOp)
-                CALL me%packAllocatable(VALUE)
+                CALL me%packAllocatable(val)
             CASE(kUnpackOp)
-                CALL me%unpackAllocatable(VALUE)
+                CALL me%unpackAllocatable(val)
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
     END SUBROUTINE PackedMessage_packerAllocatableLogical
 
 !XXX: see PackedMessage_unpackAllocatableCharacter() for an explanation of the deactivation
-!   SUBROUTINE PackedMessage_packerAllocatableCharacter(me, operation, VALUE)
+!   SUBROUTINE PackedMessage_packerAllocatableCharacter(me, operation, val)
 !       CLASS(t_PackedMessage), INTENT(INOUT) :: me
 !       INTEGER, VALUE :: operation
-!       CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: VALUE
+!       CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: val
 
 !       CHARACTER(*), PARAMETER :: routine = modname//":PackedMessage_packerAllocatableCharacter"
 
 !       SELECT CASE(operation)
 !           CASE(kPackOp)
-!               CALL me%packAllocatable(VALUE)
+!               CALL me%packAllocatable(val)
 !           CASE(kUnpackOp)
-!               CALL me%unpackAllocatable(VALUE)
+!               CALL me%unpackAllocatable(val)
 !           CASE DEFAULT
 !               CALL finish(routine, "illegal operation")
 !       END SELECT
 !   END SUBROUTINE PackedMessage_packerAllocatableCharacter
 
-    SUBROUTINE PackedMessage_packerIntArray(me, operation, value)
+    SUBROUTINE PackedMessage_packerIntArray(me, operation, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
-        INTEGER, ALLOCATABLE, INTENT(INOUT) :: value(:)
+        INTEGER, ALLOCATABLE, INTENT(INOUT) :: val(:)
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerIntArray"
 
         SELECT CASE(operation)
             CASE(kPackOp)
-                CALL me%pack(value)
+                CALL me%pack(val)
             CASE(kUnpackOp)
-                CALL me%unpack(value)
+                CALL me%unpack(val)
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
@@ -976,49 +984,49 @@ CONTAINS
         END SELECT
     END SUBROUTINE PackedMessage_packerLongArray
 
-    SUBROUTINE PackedMessage_packerSingleArray(me, operation, value)
+    SUBROUTINE PackedMessage_packerSingleArray(me, operation, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
-        REAL(sp), ALLOCATABLE, INTENT(INOUT) :: value(:)
+        REAL(sp), ALLOCATABLE, INTENT(INOUT) :: val(:)
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerSingleArray"
 
         SELECT CASE(operation)
             CASE(kPackOp)
-                CALL me%pack(value)
+                CALL me%pack(val)
             CASE(kUnpackOp)
-                CALL me%unpack(value)
+                CALL me%unpack(val)
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
     END SUBROUTINE PackedMessage_packerSingleArray
 
-    SUBROUTINE PackedMessage_packerDoubleArray(me, operation, value)
+    SUBROUTINE PackedMessage_packerDoubleArray(me, operation, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
-        REAL(dp), ALLOCATABLE, INTENT(INOUT) :: value(:)
+        REAL(dp), ALLOCATABLE, INTENT(INOUT) :: val(:)
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerDoubleArray"
 
         SELECT CASE(operation)
             CASE(kPackOp)
-                CALL me%pack(value)
+                CALL me%pack(val)
             CASE(kUnpackOp)
-                CALL me%unpack(value)
+                CALL me%unpack(val)
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
     END SUBROUTINE PackedMessage_packerDoubleArray
 
-    SUBROUTINE PackedMessage_packerLogicalArray(me, operation, value)
+    SUBROUTINE PackedMessage_packerLogicalArray(me, operation, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
-        LOGICAL, ALLOCATABLE, INTENT(INOUT) :: value(:)
+        LOGICAL, ALLOCATABLE, INTENT(INOUT) :: val(:)
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerLogicalArray"
 
         SELECT CASE(operation)
             CASE(kPackOp)
-                CALL me%pack(value)
+                CALL me%pack(val)
             CASE(kUnpackOp)
-                CALL me%unpack(value)
+                CALL me%unpack(val)
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT

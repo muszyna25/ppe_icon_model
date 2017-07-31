@@ -148,7 +148,7 @@ MODULE mo_nh_diagnose_pres_temp
       IF ( l_opt_calc_temp) THEN
         IF ( lforcing .AND. iforcing /= iheldsuarez  ) THEN
 
-          CALL diag_temp (pt_prog, pt_prog_rcf, advection_config(jg)%ilist_hydroMass, &
+          CALL diag_temp (pt_prog, pt_prog_rcf, advection_config(jg)%trHydroMass%list, &
             &            pt_diag, jb, i_startidx, i_endidx, slev, slev_moist, nlev)
 
 

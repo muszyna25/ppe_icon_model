@@ -375,7 +375,8 @@ MODULE mo_nwp_phy_types
       &  ktop_envel(:,:),   & !< level index of upper boundary of SSO envelope layer
       &  iww     (:,:)        !< significant weather
 
-    REAL(wp), POINTER :: tropics_mask(:,:) !< mask field that is 1 in the tropics and 0 in the extratropics
+    REAL(wp), POINTER :: tropics_mask(:,:)      !< mask field that is 1 in the tropics and 0 in the extratropics
+    REAL(wp), POINTER :: innertropics_mask(:,:) !< mask field that is 1 in the inner tropics and 0 elsewhere
 
     LOGICAL, POINTER        &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS

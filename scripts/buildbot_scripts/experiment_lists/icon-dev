@@ -38,6 +38,7 @@ experiment|exp.aloy_pre03_bb|cpu_time=00:30:00 no_of_nodes=2
 experiment|checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_Hex|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/technical/exp.ocean_omip_ptest|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_icoles_nested|cpu_time=00:30:00
+experiment|exp.test_nwp_R02B04N06_multifile_restart|
 builder|MISTRAL_intel_hybrid|--with-fortran=intel --with-openmp|Active
 experiment|checksuite.icon-dev/check.atm_heldsuarez|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics|
@@ -97,6 +98,7 @@ experiment|exp.test_nwp_R02B04N06multi2|cpu_time=00:45:00 no_of_nodes=2
 experiment|checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_Hex|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/technical/exp.ocean_omip_ptest|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_icoles_nested|cpu_time=00:30:00
+experiment|exp.test_nwp_R02B04N06_multifile_restart|
 builder|MISTRAL_nag|--with-fortran=nag|Active
 experiment|checksuite.icon-dev/check.atm_heldsuarez|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics|
