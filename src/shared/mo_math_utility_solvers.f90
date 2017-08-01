@@ -435,9 +435,9 @@ CONTAINS
 #if defined(SINGULARITY_CHECKS)
         IF (z_sum <= 1.e-12_wp) THEN
           WRITE (*,*) p_a
-          CALL message ('mo_math_utilities:choldec',                           &
+          CALL message ('mo_math_utilities:choldec_v',                         &
                & 'error in matrix inversion, nearly singular matrix')
-          CALL finish  ('mo_math_utilities:choldec',                           &
+          CALL finish  ('mo_math_utilities:choldec_v',                         &
                & 'error in matrix inversion, nearly singular matrix')
         ELSE
 #endif
