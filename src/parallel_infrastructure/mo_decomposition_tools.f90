@@ -469,7 +469,9 @@ CONTAINS
 
     TYPE (t_glb2loc_index_lookup), INTENT(INOUT) :: glb2loc
     INTEGER, INTENT(IN) :: glb_index(:), loc_index(:)
-
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: glb_index, loc_index
+#endif
     INTEGER :: ist, num_indices
 
     num_indices = SIZE(glb_index(:))
@@ -500,7 +502,9 @@ CONTAINS
 
     TYPE (t_glb2loc_index_lookup), INTENT(INOUT) :: glb2loc
     INTEGER, INTENT(IN) :: glb_index(:), loc_index(:)
-
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: glb_index, loc_index
+#endif
     INTEGER :: ist, num_indices
 
     num_indices = SIZE(glb_index(:))

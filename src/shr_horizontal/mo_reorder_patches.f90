@@ -291,6 +291,9 @@ CONTAINS
     TYPE(t_grid_domain_decomp_info), INTENT(inout) :: decomp_info
     INTEGER, INTENT(IN) :: idx_old2new(:) ! permutation array
     INTEGER, INTENT(IN) :: n, nblks, npromz
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: idx_old2new
+#endif
 
     CALL reorder_array_pos(decomp_info%owner_mask, idx_old2new, nblks, npromz)
     CALL reorder_array_pos(decomp_info%decomp_domain, idx_old2new, nblks, npromz)
@@ -336,6 +339,9 @@ CONTAINS
     INTEGER,     INTENT(INOUT) :: arr(:)
     INTEGER,     INTENT(IN)    :: idx_old2new(:) ! permutation array
     INTEGER,     INTENT(IN)    :: nentries
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: arr, idx_old2new
+#endif
     ! local variables
     INTEGER :: tmp(SIZE(arr,1))
     INTEGER :: j
@@ -356,6 +362,9 @@ CONTAINS
     INTEGER,     INTENT(INOUT) :: arr(:,:)
     INTEGER,     INTENT(IN)    :: idx_old2new(:) ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: arr, idx_old2new
+#endif
     ! local variables
     INTEGER :: tmp(SIZE(arr,1), SIZE(arr,2))
     INTEGER :: iidx,jc,jb,jc_new,jb_new,i_endidx
@@ -383,6 +392,9 @@ CONTAINS
     LOGICAL,     INTENT(INOUT) :: arr(:,:)
     INTEGER,     INTENT(IN)    :: idx_old2new(:) ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: arr, idx_old2new
+#endif
     ! local variables
     LOGICAL :: tmp(SIZE(arr,1), SIZE(arr,2))
     INTEGER :: iidx,jc,jb,jc_new,jb_new,i_endidx
@@ -410,6 +422,9 @@ CONTAINS
     REAL(wp),    INTENT(INOUT) :: arr(:,:)
     INTEGER,     INTENT(IN)    :: idx_old2new(:) ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: arr, idx_old2new
+#endif
     ! local variables
     REAL(wp) :: tmp(SIZE(arr,1), SIZE(arr,2))
     INTEGER  :: iidx,jc,jb,jc_new,jb_new,i_endidx
@@ -437,6 +452,9 @@ CONTAINS
     TYPE(t_geographical_coordinates), INTENT(INOUT) :: arr(:,:)
     INTEGER,     INTENT(IN)    :: idx_old2new(:) ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: arr, idx_old2new
+#endif
     ! local variables
     TYPE(t_geographical_coordinates) :: tmp(SIZE(arr,1), SIZE(arr,2))
     INTEGER  :: iidx,jc,jb,jc_new,jb_new,i_endidx
@@ -464,6 +482,9 @@ CONTAINS
     TYPE(t_tangent_vectors), INTENT(INOUT) :: arr(:,:)
     INTEGER,     INTENT(IN)    :: idx_old2new(:) ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: arr, idx_old2new
+#endif
     ! local variables
     TYPE(t_tangent_vectors) :: tmp(SIZE(arr,1), SIZE(arr,2))
     INTEGER  :: iidx,jc,jb,jc_new,jb_new,i_endidx
@@ -491,6 +512,9 @@ CONTAINS
     TYPE(t_cartesian_coordinates), INTENT(INOUT) :: arr(:,:)
     INTEGER,     INTENT(IN)    :: idx_old2new(:) ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: arr, idx_old2new
+#endif
     ! local variables
     TYPE(t_cartesian_coordinates) :: tmp(SIZE(arr,1), SIZE(arr,2))
     INTEGER  :: iidx,jc,jb,jc_new,jb_new,i_endidx
@@ -521,6 +545,9 @@ CONTAINS
     INTEGER,     INTENT(IN)    :: nblks, npromz
     INTEGER,     INTENT(IN)    :: idim_nproma, idim_blks ! index positions of nproma and blocks
     LOGICAL, INTENT(IN), OPTIONAL :: opt_owner(:,:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: arr, idx_old2new, opt_owner
+#endif
     ! local variables
     CHARACTER (LEN=*), PARAMETER :: routine = modname//":reorder_array_pos_i3D"
     INTEGER :: tmp(SIZE(arr,1), SIZE(arr,2), SIZE(arr,3))
@@ -569,6 +596,9 @@ CONTAINS
     INTEGER,     INTENT(IN)    :: idx_old2new(:)         ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
     INTEGER,     INTENT(IN)    :: idim_nproma, idim_blks ! index positions of nproma and blocks
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: arr, idx_old2new
+#endif
     ! local variables
     CHARACTER (LEN=*), PARAMETER :: routine = modname//":reorder_array_pos_i4D"
     INTEGER :: tmp(SIZE(arr,1), SIZE(arr,2), SIZE(arr,3), SIZE(arr,4))
@@ -603,6 +633,9 @@ CONTAINS
     INTEGER,     INTENT(IN)    :: idx_old2new(:)         ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
     INTEGER,     INTENT(IN)    :: idim_nproma, idim_blks ! index positions of nproma and blocks
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: arr, idx_old2new
+#endif
     ! local variables
     CHARACTER (LEN=*), PARAMETER :: routine = modname//":reorder_array_pos_r3D"
     REAL(wp) :: tmp(SIZE(arr,1), SIZE(arr,2), SIZE(arr,3))
@@ -648,6 +681,9 @@ CONTAINS
     INTEGER,     INTENT(IN)    :: idx_old2new(:)         ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
     INTEGER,     INTENT(IN)    :: idim_nproma, idim_blks ! index positions of nproma and blocks
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: arr, idx_old2new
+#endif
     ! local variables
     CHARACTER (LEN=*), PARAMETER :: routine = modname//":reorder_array_pos_t3D"
     TYPE(t_tangent_vectors) :: tmp(SIZE(arr,1), SIZE(arr,2), SIZE(arr,3))
@@ -692,6 +728,9 @@ CONTAINS
     INTEGER,     INTENT(IN)    :: glb_idx(:)             ! index local->global
     INTEGER,     INTENT(IN)    :: idx_old2new(:)         ! permutation array
     INTEGER,     INTENT(IN)    :: nentries               ! no. of local entries
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: arr, glb_idx, idx_old2new
+#endif
     ! local variables
     INTEGER :: j, idx_g
     INTEGER :: tmp(SIZE(arr,1))
@@ -716,6 +755,9 @@ CONTAINS
     INTEGER,     INTENT(IN)    :: idx_old2new(:)         ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
     LOGICAL, INTENT(IN), OPTIONAL :: opt_owner(:,:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: idx_arr, blk_arr, idx_old2new, opt_owner
+#endif
     ! local variables
     CHARACTER (LEN=*), PARAMETER :: routine = modname//":reorder_array_content_i2D"
     INTEGER :: iidx,jc,jb,i_endidx
