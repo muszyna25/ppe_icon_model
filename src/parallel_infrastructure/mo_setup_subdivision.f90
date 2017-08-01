@@ -772,6 +772,7 @@ CONTAINS
 
     INTEGER :: child_chunk_first, child_chunk_last, child_chunk_size, i
     INTEGER :: n_cells_parent_g, parent_part_rank, dist_array_pes_size
+    INTEGER :: accum_recv, accum_send
     TYPE(global_array_desc) :: dist_cell_owner_p_desc(1)
     TYPE(extent) :: parent_chunk(1,1)
     INTEGER, POINTER :: parent_chunk_ptr(:), child_chunk_ptr(:), &
@@ -828,13 +829,13 @@ CONTAINS
       &             p_parent_patch_pre%dist_array_comm)
 
     ! alltoallv parent cell global index and owners
-    parent_owner_send_displ(0) = 0
-    parent_owner_recv_displ(0) = 0
-    DO i = 1, dist_array_pes_size-1
-      parent_owner_send_displ(i) = parent_owner_send_displ(i-1) + &
-        &                          num_parent_owner_send(i-1)
-      parent_owner_recv_displ(i) = parent_owner_recv_displ(i-1) + &
-        &                          num_parent_owner_recv(i-1)
+    accum_recv = 0
+    accum_send = 0
+    DO i = 0, dist_array_pes_size-1
+      parent_owner_recv_displ(i) = accum_recv
+      parent_owner_send_displ(i) = accum_send
+      accum_recv = accum_recv + num_parent_owner_recv(i)
+      accum_send = accum_send + num_parent_owner_send(i)
     END DO
     ALLOCATE( &
       parent_chunk_prep( &
