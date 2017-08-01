@@ -35,14 +35,22 @@ unset OMPI_MCA_coll_fca_priority
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 
+# overwrite the default setting with the new path
+
+icon_data_poolFolder="/pool/data/ICON/grids/private/mpim/icon_preprocessing/source"
+
 #--------------------------------------------------------------------------------------------------
 
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
-grid_name=r2b4_amip
-grids_folder=${icon_data_poolFolder}/grids/private/${grid_name}/r0002
+grid_name=icon_grid_0005_R02B04_G
+grids_folder=${icon_data_poolFolder}/grids
 atmo_dyn_grids=${grid_name}.nc
+
+resolution_a=$(awk -F'_' '{print $4}' <<< $grid_name)
+resolution_b=${resolution_a/0/}
+resolution_c=${resolution_a//0/}
 
 # start and end date+time
 start_date="1979-01-01T00:00:00Z"
@@ -80,7 +88,6 @@ else
   pft_file_tag=""
 fi
 
-lnd_datadir=${icon_data_poolFolder}/grids/private/mpim/icon_preprocessing/source/preliminary_land/${grid_name}/land
 #--------------------------------------------------------------------------------------------------
 
 # (3) Define the model configuration
@@ -184,7 +191,7 @@ cat > ${atmo_namelist} << EOF
                                 !14: only Stenchikov\'s volcanic aerosols
                                 !15: Kinne aerosol optics for troposphere
                                 !   +Stenchikov aerosol optics for stratosphere
-                                !18: Kinne background aerosols of 1850 (natural
+                                !18: Kinne background aerosols of 1865 (natural
                                 !    background + Stenchikov\'s volc. aerosols
                                 !    + simple plumes (anthropogenic)
  ighg             = 1           ! 1: transient well mixed greenhouse gas concentrations
@@ -288,14 +295,12 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 
 # initial conditions
 #
-INDATA=${icon_data_poolFolder}/input/r0004
-#
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
-datadir=${icon_data_poolFolder}/setup/ifs_iconremap_amip
-add_link_file $datadir/ifs_remap_${grid_name}_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
+datadir=${icon_data_poolFolder}/initial_condition
+add_link_file $datadir/ifs2icon_1979010100_${resolution_a}_G.nc ./ifs2icon_${resolution_b}_DOM01.nc
 #
 # - land: source?, date+time?
-datadir=${lnd_datadir}
+datadir=${icon_data_poolFolder}/preliminary_land/${resolution_c}/land
 add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
 
 # boundary conditions
@@ -306,38 +311,43 @@ start_year=$(( ${start_date%%-*} - 1 ))
 end_year=$(( ${end_date%%-*} + 1 ))
 #
 # - well mixed greenhouse gases
-datadir=$INDATA/global/atm
-add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_greenhouse_gases.nc
+datadir=${icon_data_poolFolder}/greenhouse_gases
+add_link_file $datadir/greenhouse_historical.nc                         ./bc_greenhouse_gases.nc
 #
 # - ozone
 # -- for irad_o3=8
-datadir=$INDATA/${grid_name}/atm/bc_ozone_cmip5
+datadir=${icon_data_poolFolder}/ozone/cmip6/${resolution_a}
 year=$start_year
 while [[ $year -le $end_year ]]
 do
-  add_link_file $datadir/bc_ozone_cmip5_${year}.nc                      ./bc_ozone_${year}.nc
+  if [[ $year -le 2014 ]]
+  then
+    add_link_file $datadir/bc_ozone_historical_${year}.nc               ./bc_ozone_${year}.nc
+  else
+    add_link_file $datadir/bc_ozone_historical_2014.nc                  ./bc_ozone_${year}.nc
+  fi
   (( year = year+1 ))
 done
 # -- for irad_o3=1 with Cariolle ozone chemistry
-datadir=$INDATA/global/atm
+datadir=${icon_data_poolFolder}/greenhouse_gases
 add_link_file $datadir/bc_ozone_cariolle.nc                             ./cariolle_coeff.nc
 #
 # - tropospheric anthropogenic aerosols, simple plumes
   add_link_file ${basedir}/data/MACv2.0-SP_v1.nc ./MACv2.0-SP_v1.nc
 #   Kinne background aerosols are needed for the years 1849, 1850, 1851 
-!   accessing all the same data of 1850:
-datadir=$INDATA/${grid_name}/atm/bc_aeropt_kinne
+#   accessing all the same data of 1865:
+datadir=${icon_data_poolFolder}/aerosol/kinne/${resolution_a}
 year=1849
 while [[ $year -le 1851 ]]
 do
   add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
   add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
-  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
+  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1865.nc             ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
   (( year = year+1 ))
 done
 #
 # - stratospheric aerosol
-datadir=$INDATA/${grid_name}/atm/bc_aeropt_stenchikov
+datadir=${icon_data_poolFolder}/aerosol/stenchikov
 year=$start_year
 while [[ $year -le $end_year ]]
 do
@@ -351,23 +361,23 @@ do
 done
 #
 # - sst and sic
-datadir=$INDATA/${grid_name}/oce
-add_link_file $datadir/bc_sic_pcmdi_1870-2010.nc                        ./bc_sic.nc
-add_link_file $datadir/bc_sst_pcmdi_1870-2010.nc                        ./bc_sst.nc
+datadir=${icon_data_poolFolder}/sst_and_seaice/1.1.2
+add_link_file $datadir/sic_${resolution_a}.nc                           ./bc_sic.nc
+add_link_file $datadir/sst_${resolution_a}.nc                           ./bc_sst.nc
 #
 # - ssi and tsi
-datadir=$INDATA/global/sun
-add_link_file $datadir/bc_solar_irradiance_14band_1849-2399.nc          ./bc_solar_irradiance_sw_b14.nc
+datadir=${icon_data_poolFolder}/solar_radiation/3.2
+add_link_file $datadir/bc_solar_irradiance_14band_cmip6_1850-2299.nc    ./bc_solar_irradiance_sw_b14.nc
 #
 # - land parameters
-datadir=${lnd_datadir}
+datadir=${icon_data_poolFolder}/preliminary_land/${resolution_c}/land
 add_link_file $datadir/bc_land_frac_${pft_file_tag}1976.nc              ./bc_land_frac.nc
 add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
 add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
 add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
+# The following bc_land_hd-file is not yet available...
 if [[ ${jsbach_with_hd} = yes ]]; then
-  #add_link_file $datadir/bc_land_hd.nc                                  ./bc_land_hd.nc
-  add_link_file $datadir/hd_para_icon_r2b4_pre04_vs1_5.nc               ./bc_land_hd.nc
+  add_link_file $datadir/bc_land_hd.nc                                  ./bc_land_hd.nc
 fi
 #
 # - lctlib file for JSBACH

@@ -705,6 +705,8 @@ CONTAINS
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':read_ext_data_atm'
+    ! input file for topography_c for mpi-physics
+    CHARACTER(len=max_char_length), PARAMETER :: land_sso_fn  = 'bc_land_sso.nc'
 
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
     CHARACTER(filename_max) :: sst_td_file !< file name for reading in
@@ -871,43 +873,30 @@ CONTAINS
 
     IF ( itopo == 1 .AND. ( iforcing == iecham .OR. iforcing == ildf_echam ) ) THEN
 
-      ! Read elevation of grid cells centers from grid file; this is then used to dynamically "grow" a topography for
-      ! the hydrostatic model (in mo_ha_diag_util). This should be removed once the echam atmosphere is realistically
-      ! initialized and uses a real topography.
-
       DO jg = 1,n_dom
-
-        stream_id = openInputFile(p_patch(jg)%grid_filename, p_patch(jg), &
-          &                       default_read_method)
 
         ! get land-sea-mask on cells, integer marks are:
         ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
         ! boundary land (1, cells and vertices), inner land (2)
+
+        stream_id = openInputFile(p_patch(jg)%grid_filename, p_patch(jg), &
+          &                       default_read_method)
+
         CALL read_2D_int(stream_id, on_cells, 'cell_sea_land_mask', &
           &              ext_data(jg)%atm%lsm_ctr_c)
 
+        CALL closeFile(stream_id)
+
         ! get topography [m]
-        ! - The hydrostatic AMIP setup grows the topography form zero to the elevation
-        !   read from the grid file. Therefore the read in topography is stored in
-        !   'elevation_c' and the actual 'topography_c' is computed later.
         ! - The non-hydrostatic AMIP setup starts directly from the topography read from
-        !   the grid file. Hence the read in topography is stored in 'topography_c'.
-        SELECT CASE (iequations)
-        CASE (ihs_atm_temp,ihs_atm_theta) ! iequations
-          ! Read topography
-          CALL read_2D(stream_id, on_cells, 'cell_elevation', &
-            &          ext_data(jg)%atm%elevation_c)
-          ! Mask out ocean
-          ext_data(jg)%atm%elevation_c(:,:) = MERGE(ext_data(jg)%atm%elevation_c(:,:), 0._wp, &
-            &                                       ext_data(jg)%atm%lsm_ctr_c(:,:)  > 0     )
-        CASE (inh_atmosphere) ! iequations
-          ! Read topography
-          CALL read_2D(stream_id, on_cells, 'cell_elevation', &
-            &          ext_data(jg)%atm%topography_c)
-          ! Mask out ocean
-          ext_data(jg)%atm%topography_c(:,:) = MERGE(ext_data(jg)%atm%topography_c(:,:), 0._wp, &
-            &                                        ext_data(jg)%atm%lsm_ctr_c(:,:)   > 0     )
-        END SELECT ! iequations
+        !   the elevation stored in the land_sso file. Hence the read in elevation is 
+        !   stored in 'topography_c'.
+
+        ! Read topography
+
+        stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
+        CALL read_2D(stream_id, on_cells, 'elevation', &
+          &          ext_data(jg)%atm%topography_c)
 
         CALL closeFile(stream_id)
 
