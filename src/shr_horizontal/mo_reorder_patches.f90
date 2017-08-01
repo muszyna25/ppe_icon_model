@@ -560,11 +560,12 @@ CONTAINS
           i_endidx = nproma
           IF (jb == nblks) i_endidx = npromz
           DO jc=1,i_endidx
-            IF (.NOT. opt_owner(jc,jb))  CYCLE
-            iidx = idx_old2new(idx_1d(jc,jb))
-            jc_new = idx_no(iidx)
-            jb_new = blk_no(iidx)
-            arr(jc_new,jb_new,:) = tmp(jc,jb,:)
+            IF (opt_owner(jc,jb)) THEN
+              iidx = idx_old2new(idx_1d(jc,jb))
+              jc_new = idx_no(iidx)
+              jb_new = blk_no(iidx)
+              arr(jc_new,jb_new,:) = tmp(jc,jb,:)
+            END IF
           END DO
         END DO
       ELSE
@@ -763,15 +764,15 @@ CONTAINS
     INTEGER :: iidx,jc,jb,i_endidx
 
     DO jb=1,nblks
-      i_endidx = nproma
-      IF (jb == nblks) i_endidx = npromz
+      i_endidx = MERGE(nproma, npromz, jb /= nblks)
 
       IF (PRESENT(opt_owner)) THEN
         DO jc=1,i_endidx
-          IF (.NOT. opt_owner(jc,jb)) CYCLE
-          iidx = idx_old2new(idx_1d(idx_arr(jc,jb), blk_arr(jc,jb)))
-          idx_arr(jc,jb) = idx_no(iidx)
-          blk_arr(jc,jb) = blk_no(iidx)
+          IF (opt_owner(jc,jb)) THEN
+            iidx = idx_old2new(idx_1d(idx_arr(jc,jb), blk_arr(jc,jb)))
+            idx_arr(jc,jb) = idx_no(iidx)
+            blk_arr(jc,jb) = blk_no(iidx)
+          END IF
         END DO
       ELSE
         DO jc=1,i_endidx
