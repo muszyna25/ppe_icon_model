@@ -79,7 +79,9 @@ MODULE mo_art_emission_interface
   USE mo_art_emission_gasphase,         ONLY: art_emiss_gasphase
   USE mo_art_emission_pollen,           ONLY: art_emiss_pollen
   USE mo_art_emission_pntSrc,           ONLY: art_emission_pntSrc
-  USE mo_art_read_emissions,            ONLY: art_add_emission_to_tracers
+  USE mo_art_read_emissions,            ONLY: art_add_emission_to_tracers,  &
+                                          &   art_read_emissions
+  USE mo_art_prescribed_types,          ONLY: t_art_prescr_list_element
   USE omp_lib 
   USE mo_sync,                          ONLY: sync_patch_array_mult, SYNC_C
 
@@ -139,6 +141,8 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     &  time_diff               !< mtime object: Elapsed time since experiment start
   REAL(wp)                :: &
     &  p_sim_time              !< elapsed simulation time on this grid level
+  TYPE(t_art_prescr_list_element), POINTER :: &
+    &  prescr_element
   
   ! calculate elapsed simulation time in seconds (local time for
   ! this domain!)
@@ -173,7 +177,24 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
 
     IF (art_config(jg)%lart_aerosol .OR. art_config(jg)%lart_chem &
         .OR. art_config(jg)%lart_passive) THEN
-      IF(p_art_data(jg)%emiss%is_init) THEN
+
+      IF (p_art_data(jg)%prescr_list%num_elements > 0) THEN
+        prescr_element => p_art_data(jg)%prescr_list%first_prescr_element
+
+        DO WHILE(ASSOCIATED(prescr_element))
+          CALL art_read_emissions(p_patch,current_date,prescr_element%prescr)
+
+          DO ijsp = 1,prescr_element%prescr%num_vars
+            tracer(:,:,:,prescr_element%prescr%tracer_idx(ijsp)) = &
+              &  prescr_element%prescr%vinterp_3d(:,:,:,ijsp,2)
+          END DO
+
+          prescr_element => prescr_element%next_prescr_element
+        END DO
+      END IF
+
+
+      IF (p_art_data(jg)%emiss%is_init) THEN
         IF (iforcing == inwp) THEN
           CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
                                       &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &
