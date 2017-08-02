@@ -447,7 +447,7 @@ CONTAINS
           lfound = .TRUE. ; EXIT LOOP_FOUND
         END IF
       END DO LOOP_FOUND
-      IF ((nvals == 0) .OR. (.NOT. lfound)) THEN
+      IF (.NOT. lfound) THEN
         nvals = nvals + 1
         IF (nvals > ncollisions)  CALL finish(routine, TRIM(description)//" - Error! Too many collisions!")
         reg_partition_buf(nvals, local_idx)   = in_values(i)
