@@ -562,25 +562,11 @@ CONTAINS
                ! In this case the new state is provisional and updated only by dynamics:
                ! The dynamical tendency is diagnosed as the difference of the new and old(="now") state.
                IF (mpi_phy_config(jg)%ldrymoist) THEN
-                 prm_tend(jg)%   qtrc_dyn(jc,jk,jb,jt)  = ( pt_prog_new_rcf% tracer(jc,jk,jb,jt)          &
-                      &                                    -pt_prog_old_rcf% tracer(jc,jk,jb,jt) )/dt_loc &
-                      &                                   *prm_field(jg)%      mair(jc,jk,jb)             &
-                      &                                   /prm_field(jg)%      mdry(jc,jk,jb)
-                 !
-                 !-FOR TESTING-------------------------------------------------------------------!
-                 prm_tend(jg)%   qtrc_dyn(jc,jk,jb,jt)  = pt_diag% ddt_tracer_adv(jc,jk,jb,jt) & !
-                   &                                     *prm_field(jg)%     mair(jc,jk,jb)    & !
-                   &                                     /prm_field(jg)%     mdry(jc,jk,jb)      !
-                 !-------------------------------------------------------------------------------!
-                 !
-              ELSE
-                 prm_tend(jg)%   qtrc_dyn(jc,jk,jb,jt)  = ( pt_prog_new_rcf% tracer(jc,jk,jb,jt)          &
-                      &                                    -pt_prog_old_rcf% tracer(jc,jk,jb,jt) )/dt_loc
-                 !
-                 !-FOR TESTING-------------------------------------------------------------------!
-                 prm_tend(jg)%   qtrc_dyn(jc,jk,jb,jt)  = pt_diag% ddt_tracer_adv(jc,jk,jb,jt)   !
-                 !-------------------------------------------------------------------------------!
-                 !
+                 prm_tend(jg)%   qtrc_dyn(jc,jk,jb,jt)  = pt_diag% ddt_tracer_adv(jc,jk,jb,jt) &
+                   &                                     *prm_field(jg)%     mair(jc,jk,jb)    &
+                   &                                     /prm_field(jg)%     mdry(jc,jk,jb)
+               ELSE
+                 prm_tend(jg)%   qtrc_dyn(jc,jk,jb,jt)  = pt_diag% ddt_tracer_adv(jc,jk,jb,jt)
                END IF
                !
                ! Initialize the total tendencies, to be computed later:

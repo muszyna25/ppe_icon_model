@@ -496,62 +496,64 @@ MODULE mo_echam_phy_memory
       !
       &   ua_dyn (:,:,:)  , & !< [m/s2]    u-wind
       &   va_dyn (:,:,:)  , & !< [m/s2]    v-wind
-      &   ta_dyn (:,:,:)  , & !< [K/s]     temperature
+      &   ta_dyn (:,:,:)  , & !< [K/s]     temperature (for const. volume)
       & qtrc_dyn (:,:,:,:), & !< [kg/kg/s] tracer mass mixing ratio
       !
       ! tendency due to parameterized processes
       !
       &   ua_phy (:,:,:)  , & !< [m/s2]    u-wind
       &   va_phy (:,:,:)  , & !< [m/s2]    v-wind
-      &   ta_phy (:,:,:)  , & !< [K/s]     temperature
+      &   ta_phy (:,:,:)  , & !< [K/s]     temperature (for const. volume)
       & qtrc_phy (:,:,:,:), & !< [kg/kg/s] tracer mass mixing ratio
       & mtrc_phy (:,:,:,:), & !< [kg/m2/s] tracer mass
       & mtrcvi_phy(:,:,  :),& !< [kg/m2/s] tracer content, vertically integrated through the atmospheric column
       !
       ! cloud microphysics
       !
-      &   ta_cld (:,:,:)  , & !< temperature tendency due to large scale cloud processes
+      &   ta_cld (:,:,:)  , & !< temperature tendency due to large scale cloud processes (for const. pressure)
       & qtrc_cld (:,:,:,:), & !< tracer tendency  due to large scale cloud processes
       !
       ! cumulus convection
       !
-      &   ta_cnv (:,:,:),   & !< temperature tendency due to convective cloud processes
+      &   ta_cnv (:,:,:),   & !< temperature tendency due to convective cloud processes (for const. pressure)
       &   ua_cnv (:,:,:),   & !< u-wind tendency due to convective cloud processes
       &   va_cnv (:,:,:),   & !< v-wind tendency due to convective cloud processes
       & qtrc_cnv (:,:,:,:), & !< tracer tendency due to convective cloud processes
       !
       ! vertical diffusion ("vdiff")
       !
-      &   ta_vdf (:,:,:)  , & !< temperature tendency due to vertical diffusion
+      &   ta_vdf (:,:,:)  , & !< temperature tendency due to vertical diffusion (for const. pressure)
       &   ua_vdf (:,:,:)  , & !< u-wind tendency due to vertical diffusion
       &   va_vdf (:,:,:)  , & !< v-wind tendency due to vertical diffusion
       & qtrc_vdf (:,:,:,:), & !< tracer tendency due to vertical diffusion
       !
       ! surface scheme
       !
-      &   ta_sfc (:,:)  , & !< temperature tendency in lowermost layer due to surface processes
+      &   ta_sfc (:,:)  , & !< temperature tendency in lowermost layer due to surface processes (for const. pressure)
       !
       ! Hines param. for atmospheric gravity waves
       !
       &   ua_gwd (:,:,:)  , & !< u-wind tendency due to non-orographic gravity waves
       &   va_gwd (:,:,:)  , & !< v-wind tendency due to non-orographic gravity waves
-      &   ta_gwd (:,:,:)  , & !< temperature tendency due to non-orographic gravity waves
+      &   ta_gwd (:,:,:)  , & !< temperature tendency due to non-orographic gravity waves (for const. pressure)
       !
       ! subgrid scale orographic (sso) blocking and gravity wave drag
       !
       &   ua_sso (:,:,:)  , & !< u-wind tendency due to sub grid scale orography
       &   va_sso (:,:,:)  , & !< v-wind tendency due to sub grid scale orography
-      &   ta_sso (:,:,:)  , & !< temperature tendency due to sub grid scale orography
+      &   ta_sso (:,:,:)  , & !< temperature tendency due to sub grid scale orography (for const. pressure)
       !
       ! radiation
       !
-      &   ta_rsw (:,:,:)  , & !< temperature due to shortwave radiation
-      &   ta_rlw (:,:,:)  , & !< temperature due to longwave radiation
-      &   ta_rlw_impl(:,:), & !< temperature tendency due to LW rad. due to implicit land surface temperature change
+      &   ta_rsw (:,:,:)  , & !< temperature due to shortwave radiation (for const. pressure)
+      &   ta_rlw (:,:,:)  , & !< temperature due to longwave radiation  (for const. pressure)
+      &   ta_rlw_impl(:,:)    !< temperature tendency due to LW rad. due to implicit land surface temperature change
+      !                          (for const. pressure)
       !
       ! methane oxidation
       ! 
-      & qtrc_mox (:,:,:,:)    !< tracer mass mixing ratio (in fact that of water vapour) due to methane oxidation and H2O photolysis
+      & qtrc_mox (:,:,:,:)    !< tracer mass mixing ratio (in fact that of water vapour) due to methane oxidation
+      !                          and H2O photolysis
 
     TYPE(t_ptr_3d),ALLOCATABLE :: qtrc_ptr(:)
     TYPE(t_ptr_3d),ALLOCATABLE :: qtrc_dyn_ptr(:)
@@ -3349,7 +3351,7 @@ CONTAINS
     !------------------------------
     ! &       tend% ta      (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency', 'K s-1',                               &
-                &         'temperature tendency',                                        &
+                &         'temperature tendency (cv)',                                   &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( tend_list, prefix//'ta', tend%ta,                                      &
@@ -3361,7 +3363,7 @@ CONTAINS
 
     ! &       tend% ta_dyn  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_dyn', 'K s-1',                           &
-                &         'temperature tendency due to  due to resolved dynamics',       &
+                &         'temperature tendency due to  due to resolved dynamics (cv)',  &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( tend_list, prefix//'ta_dyn', tend%  ta_dyn,                            &
@@ -3373,7 +3375,7 @@ CONTAINS
 
     ! &       tend% ta_phy  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_phy', 'K s-1',                           &
-                &         'temperature tendency due to parameterized processes',         &
+                &         'temperature tendency due to parameterized processes (cv)',    &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( tend_list, prefix//'ta_phy', tend%  ta_phy,                            &
@@ -3385,7 +3387,7 @@ CONTAINS
 
     ! &       tend% ta_rsw(nproma,nlev,nblks),            &
     cf_desc    = t_cf_var('temperature_tendency_rsw', 'K s-1',                           &
-                &         'temperature tendency due to shortwave radiation',             &
+                &         'temperature tendency due to shortwave radiation (cp)',        &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( tend_list, prefix//'ta_rsw', tend%  ta_rsw,                            &
@@ -3397,7 +3399,7 @@ CONTAINS
 
     ! &       tend% ta_rlw(nproma,nlev,nblks),            &
     cf_desc    = t_cf_var('temperature_tendency_rlw', 'K s-1',                           &
-                &         'temperature tendency due to longwave radiation',              &
+                &         'temperature tendency due to longwave radiation (cp)',         &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( tend_list, prefix//'ta_rlw', tend%  ta_rlw,                            &
@@ -3409,7 +3411,7 @@ CONTAINS
 
     ! &       tend% ta_rlw_impl(nproma,nblks),            &
     cf_desc    = t_cf_var('temperature_tendency_rlw_impl', 'K s-1',                      &
-                &         'temperature tendency due to LW rad. due to implicit land surface temperature change', &
+                &         'temperature tendency due to LW rad. due to implicit land surface temperature change (cp)', &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( tend_list, prefix//'ta_rlw_impl', tend%  ta_rlw_impl,                  &
@@ -3418,7 +3420,7 @@ CONTAINS
 
     ! &       tend% ta_cld  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_cloud', 'K s-1',                         &
-                &         'temperature tendency due to large scale cloud processes',     &
+                &         'temperature tendency due to large scale cloud processes (cp)',&
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( tend_list, prefix//'ta_cld', tend%  ta_cld,                            &
@@ -3430,7 +3432,7 @@ CONTAINS
 
     ! &       tend% ta_cnv  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_convective', 'K s-1',                    &
-                &         'temperature tendency due to convective cloud processes',      &
+                &         'temperature tendency due to convective cloud processes (cp)', &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( tend_list, prefix//'ta_cnv', tend%  ta_cnv,                            &
@@ -3442,7 +3444,7 @@ CONTAINS
 
     ! &       tend% ta_vdf  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_turbulent', 'K s-1',                     &
-                &         'temperature tendency due to vertical diffusion',              &
+                &         'temperature tendency due to vertical diffusion (cp)',         &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( tend_list, prefix//'ta_vdf', tend%  ta_vdf,                            &
@@ -3454,7 +3456,7 @@ CONTAINS
 
     ! &       tend% ta_sfc  (nproma,nblks),               &
     cf_desc    = t_cf_var('temperature_tendency_surface',   'K s-1',                     &
-                &         'temperature tendency due to surface porcesses',               &
+                &         'temperature tendency due to surface porcesses (cp)',          &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( tend_list, prefix//'ta_sfc', tend%  ta_sfc,                            &
@@ -3463,7 +3465,7 @@ CONTAINS
 
     ! &       tend% ta_gwd  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_Hines_gw', 'K s-1',                      &
-                &         'temperature tendency due to non-orographic gravity waves',    &
+                &         'temperature tendency due to non-orogr. gravity waves (cp)',   &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( tend_list, prefix//'ta_gwd', tend%  ta_gwd,                            &
@@ -3475,7 +3477,7 @@ CONTAINS
 
     ! &       tend% ta_sso  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_sso', 'K s-1',                           &
-                &         'temperature tendency due to sub grid scale orography',        &
+                &         'temperature tendency due to sub grid scale orography (cp)',   &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( tend_list, prefix//'ta_sso', tend%  ta_sso,                            &
