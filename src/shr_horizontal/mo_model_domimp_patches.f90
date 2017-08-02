@@ -2722,8 +2722,7 @@ CONTAINS
     END DO
 
     ALLOCATE(out_data(2,p_p%n_patch_edges),out_count(2,p_p%n_patch_edges))
-    out_data(:,:)  = 0
-    out_count(:,:) = 0
+    out_data = 0
     communicator   = p_comm_work
  
     ! communicate between processors:
