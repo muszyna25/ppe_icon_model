@@ -138,6 +138,9 @@ CONTAINS
     INTEGER, INTENT(IN)    :: communicator     !< MPI comm.
     INTEGER, INTENT(INOUT) :: out_values(:,:)  !< resulting local part of distributed array
     INTEGER, INTENT(INOUT) :: out_count(:,:)   !< counts, how often an entry was received
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: out_count, out_values, in_glb_idx, in_values, owner_idx
+#endif
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':reshuffle'
     INTEGER                   :: nsend, nlocal, i, j, ncollisions, local_idx, nvals, dst_idx
