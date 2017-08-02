@@ -25,7 +25,7 @@ MODULE mo_async_restart
 
   USE mo_async_restart_comm_data,   ONLY: t_AsyncRestartCommData
   USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
-  USE mo_exception,                 ONLY: finish
+  USE mo_exception,                 ONLY: finish, message
   USE mo_fortran_tools,             ONLY: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int
   USE mo_kind,                      ONLY: wp, i8, dp, sp
   USE mtime,                        ONLY: datetime
@@ -495,6 +495,7 @@ CONTAINS
 
     ! first compute PE receives message from restart leader
     IF(p_pe_work == 0) THEN
+      CALL message(routine, "Waiting for restart to finish (might take a while)")
       CALL p_recv(msg, p_restart_pe0, 0)
 #ifdef DEBUG
       WRITE (nerr,FORMAT_VALS7)routine,' p_pe=',p_pe, &
