@@ -365,7 +365,7 @@ add_link_file $datadir/sst_${resolution_a}.nc                           ./bc_sst
 #
 # - ssi and tsi
 datadir=${icon_data_poolFolder}/solar_radiation/3.2
-add_link_file $datadir/bc_solar_irradiance_14band_cmip6_1850-2299.nc    ./bc_solar_irradiance_sw_b14.nc
+add_link_file $datadir/swflux_14band_cmip6_1850-2299-v3.2.nc            ./bc_solar_irradiance_sw_b14.nc
 #
 # - land parameters
 datadir=${icon_data_poolFolder}/preliminary_land/${resolution_c}/land
