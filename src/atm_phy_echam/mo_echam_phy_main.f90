@@ -120,16 +120,6 @@ CONTAINS
     tend   => prm_tend (jg)
 
     ictop(:,:)   = nlev-1
-!!$    ! provisionally copy the incoming tedencies
-!!$!$OMP PARALLEL DO PRIVATE(jcs,jce)
-!!$    DO jb = i_startblk,i_endblk
-!!$      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$      tend%   ta_phy (jcs:jce,:,jb)   = tend%   ta (jcs:jce,:,jb)
-!!$      tend%   ua_phy (jcs:jce,:,jb)   = tend%   ua (jcs:jce,:,jb)
-!!$      tend%   va_phy (jcs:jce,:,jb)   = tend%   va (jcs:jce,:,jb)
-!!$      tend% qtrc_phy (jcs:jce,:,jb,:) = tend% qtrc (jcs:jce,:,jb,:)
-!!$    END DO
-!!$!$OMP END PARALLEL DO 
 
     ! initialize physics accumulated heating
     field% q_phy(:,:,:) = 0._wp
