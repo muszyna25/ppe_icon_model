@@ -120,16 +120,16 @@ CONTAINS
     tend   => prm_tend (jg)
 
     ictop(:,:)   = nlev-1
-    ! provisionally copy the incoming tedencies
-!$OMP PARALLEL DO PRIVATE(jcs,jce)
-    DO jb = i_startblk,i_endblk
-      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-      tend%   ta_phy (jcs:jce,:,jb)   = tend%   ta (jcs:jce,:,jb)
-      tend%   ua_phy (jcs:jce,:,jb)   = tend%   ua (jcs:jce,:,jb)
-      tend%   va_phy (jcs:jce,:,jb)   = tend%   va (jcs:jce,:,jb)
-      tend% qtrc_phy (jcs:jce,:,jb,:) = tend% qtrc (jcs:jce,:,jb,:)
-    END DO
-!$OMP END PARALLEL DO 
+!!$    ! provisionally copy the incoming tedencies
+!!$!$OMP PARALLEL DO PRIVATE(jcs,jce)
+!!$    DO jb = i_startblk,i_endblk
+!!$      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+!!$      tend%   ta_phy (jcs:jce,:,jb)   = tend%   ta (jcs:jce,:,jb)
+!!$      tend%   ua_phy (jcs:jce,:,jb)   = tend%   ua (jcs:jce,:,jb)
+!!$      tend%   va_phy (jcs:jce,:,jb)   = tend%   va (jcs:jce,:,jb)
+!!$      tend% qtrc_phy (jcs:jce,:,jb,:) = tend% qtrc (jcs:jce,:,jb,:)
+!!$    END DO
+!!$!$OMP END PARALLEL DO 
 
     ! initialize physics accumulated heating
     field% q_phy(:,:,:) = 0._wp
@@ -273,12 +273,13 @@ CONTAINS
         tend%ta_rlw_impl(jcs:jce,jb) = zq_rlw_impl(jcs:jce) * field% qconv(jcs:jce,nlev,jb)
 
         ! Tendencies accumulated
-        tend%ta(jcs:jce,nlev,jb) = tend%ta(jcs:jce,nlev,jb) + tend%ta_rlw_impl(jcs:jce,jb)
+        tend%ta_phy(jcs:jce,nlev,jb) = tend%ta_phy(jcs:jce,nlev,jb) + tend%ta_rlw_impl(jcs:jce,jb)
       END DO
 !$OMP END PARALLEL DO 
 
     END IF
     !---------------------
+
 
     !-------------------------------------------------------------------
     ! Linearized ozone chemistry of Cariolle
@@ -368,8 +369,8 @@ CONTAINS
 
     !-------------------------------------------------------------
     ! Update provisional physics state
-    field% qtrc(:,:,:,iqc) = field% qtrc(:,:,:,iqc) + tend% qtrc(:,:,:,iqc)*pdtime
-    field% qtrc(:,:,:,iqi) = field% qtrc(:,:,:,iqi) + tend% qtrc(:,:,:,iqi)*pdtime
+    field% qtrc(:,:,:,iqc) = field% qtrc(:,:,:,iqc) + tend% qtrc_phy(:,:,:,iqc)*pdtime
+    field% qtrc(:,:,:,iqi) = field% qtrc(:,:,:,iqi) + tend% qtrc_phy(:,:,:,iqi)*pdtime
 
     !-------------------------------------------------------------------
     ! Cloud processes
@@ -427,12 +428,8 @@ CONTAINS
       ! vertical integral
       field% q_phy_vi(jcs:jce,jb) = SUM(field% q_phy(jcs:jce,:,jb),DIM=2)
 
-      ! Now compute tendencies from physics alone
-      tend%   ta_phy (jcs:jce,:,jb)   = tend%   ta (jcs:jce,:,jb)   - tend%   ta_phy (jcs:jce,:,jb)
-      tend%   ua_phy (jcs:jce,:,jb)   = tend%   ua (jcs:jce,:,jb)   - tend%   ua_phy (jcs:jce,:,jb)
-      tend%   va_phy (jcs:jce,:,jb)   = tend%   va (jcs:jce,:,jb)   - tend%   va_phy (jcs:jce,:,jb)
-      tend% qtrc_phy (jcs:jce,:,jb,:) = tend% qtrc (jcs:jce,:,jb,:) - tend% qtrc_phy (jcs:jce,:,jb,:)
-
+      ! now convert the temperature tendency from physics, as computed for constant pressure conditions,
+      ! to constant volume conditions, as needed for the coupling to the dynamics
       tend% ta_phy (jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb)*field%cpair(jcs:jce,:,jb)/field%cvair(jcs:jce,:,jb)
     END DO
 !$OMP END PARALLEL DO 

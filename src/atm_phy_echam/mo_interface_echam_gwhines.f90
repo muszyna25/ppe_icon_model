@@ -153,9 +153,9 @@ CONTAINS
        field% q_phy(jcs:jce,:,jb) = field% q_phy(jcs:jce,:,jb) + field% q_gwd(jcs:jce,:,jb)
        !
        ! tendencies accumulated
-       tend% ta(jcs:jce,:,jb) = tend% ta(jcs:jce,:,jb) + tend% ta_gwd(jcs:jce,:,jb)
-       tend% ua(jcs:jce,:,jb) = tend% ua(jcs:jce,:,jb) + tend% ua_gwd(jcs:jce,:,jb)
-       tend% va(jcs:jce,:,jb) = tend% va(jcs:jce,:,jb) + tend% va_gwd(jcs:jce,:,jb)
+       tend% ta_phy(jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb) + tend% ta_gwd(jcs:jce,:,jb)
+       tend% ua_phy(jcs:jce,:,jb) = tend% ua_phy(jcs:jce,:,jb) + tend% ua_gwd(jcs:jce,:,jb)
+       tend% va_phy(jcs:jce,:,jb) = tend% va_phy(jcs:jce,:,jb) + tend% va_gwd(jcs:jce,:,jb)
        !
     ELSE
        !
