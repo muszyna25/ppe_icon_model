@@ -61,9 +61,8 @@ MODULE mo_art_nml
   LOGICAL :: lart_chem               !< Main switch to enable chemistry
   LOGICAL :: lart_passive            !< Main switch to enable passive tracers
   INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
-  INTEGER :: iart_psc                !< integer which indicates the computation of PSCs (0: no PSC, 1: climatology, 2: online)
-  CHARACTER(LEN=IART_PATH_LEN)  :: &
-    &  cart_emiss_xml_file           !< path and file name of the xml files for emission metadata
+  INTEGER :: iart_psc                !< integer which indicates the computation of PSCs 
+                                     !  (0: no PSC, >0: compute PSCs (for the moment))
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_vortex_init_date         !< Date of vortex initialization
   CHARACTER(LEN=IART_PATH_LEN)  :: &
@@ -85,6 +84,11 @@ MODULE mo_art_nml
     &  cart_pntSrc_xml               !< Path to XML file for point sources
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_diagnostics_xml          !< Path to XML file for aerosol diagnostics (GRIB2 meta data)
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_emiss_xml_file           !< path and file name of the xml files for emission metadata
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_ext_data_xml             !< Path to XML file for metadata of datasets 
+                                     !  that can prescribe tracers
   ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
   LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
   INTEGER :: iart_seasalt            !< Treatment of sea salt aerosol
@@ -116,7 +120,7 @@ MODULE mo_art_nml
    &                cart_radioact_file, iart_pollen, iart_nonsph,                      &
    &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
    &                lart_conv, iart_ntracer, lart_turb, iart_init_aero, iart_init_gas, &
-   &                lart_diag_out, cart_emiss_xml_file,                                &
+   &                lart_diag_out, cart_emiss_xml_file, cart_ext_data_xml,             &
    &                cart_vortex_init_date , cart_cheminit_file, cart_cheminit_coord,   &
    &                cart_cheminit_type,                                                &
    &                lart_emiss_turbdiff,                                               &
@@ -176,7 +180,6 @@ CONTAINS
     lart_passive          = .FALSE.
     iart_chem_mechanism   = 0
     iart_psc              = 0
-    cart_emiss_xml_file   = ''
     cart_vortex_init_date = ''
     cart_cheminit_file    = ''
     cart_cheminit_coord   = ''
@@ -189,6 +192,8 @@ CONTAINS
     cart_modes_xml        = ''
     cart_pntSrc_xml       = ''
     cart_diagnostics_xml  = ''
+    cart_emiss_xml_file   = ''
+    cart_ext_data_xml     = ''
 
     ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
     lart_aerosol        = .FALSE.
@@ -381,7 +386,6 @@ CONTAINS
       art_config(jg)%lart_passive          = lart_passive
       art_config(jg)%iart_chem_mechanism   = iart_chem_mechanism
       art_config(jg)%iart_psc              = iart_psc
-      art_config(jg)%cart_emiss_xml_file   = TRIM(cart_emiss_xml_file)
       art_config(jg)%cart_vortex_init_date = TRIM(cart_vortex_init_date)
       art_config(jg)%cart_cheminit_file    = TRIM(cart_cheminit_file)
       art_config(jg)%cart_cheminit_coord   = TRIM(cart_cheminit_coord)
@@ -394,6 +398,8 @@ CONTAINS
       art_config(jg)%cart_modes_xml        = TRIM(cart_modes_xml)
       art_config(jg)%cart_pntSrc_xml       = TRIM(cart_pntSrc_xml)
       art_config(jg)%cart_diagnostics_xml  = TRIM(cart_diagnostics_xml)
+      art_config(jg)%cart_emiss_xml_file   = TRIM(cart_emiss_xml_file)
+      art_config(jg)%cart_ext_data_xml     = TRIM(cart_ext_data_xml)
 
 
       ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
