@@ -42,6 +42,7 @@ case %SIMMODE% in
   2) lcpdata=0        # monthly mean 10day forecasts
      ldeldata=0  ;;
   3) set -A means all seas  # all year seas mon
+     lseasonal=1
      lseldate=1
      lcpdata=1  
      ldeldata=0
@@ -52,6 +53,7 @@ esac
 #lecfs=0
 #lseldate=0
 #lsplitdata=0
+#lseasonal=0
 #lseasmean=0
 #set -A means year
 #lmonthmean=0
@@ -95,8 +97,8 @@ else
  ecp    ${ecfsdir}/icon_rev.txt ${bindir}
 fi
 
+mkdir -p grb_data
 if [[ $lsplitdata = 1 ]] ; then  
-  mkdir -p grb_data
   rm -f grb_data/*
 fi
 
@@ -113,7 +115,8 @@ for nfile in ${file_nums} ; do
 # GRIB: file exists: copy to ecfs; file doesn't exist: get from ecfs
 
   if [[ $lecfs = 1 ]] ; then
-    for levtype in ML PL HL ; do
+#   for levtype in ML PL HL ; do
+    for levtype in ML PL    ; do
       if [[ -f ${outdir}/${basename}_DOM01_${levtype}_${nfile}.grb ]] ; then
         ecp -o ${outdir}/${basename}_DOM01_${levtype}_${nfile}.grb $ecfsdir
         ls     ${outdir}/${basename}_DOM01_${levtype}_${nfile}.grb
@@ -226,103 +229,107 @@ fi
 #-----------------------------------------------------------------------------
 # Calculate seasonal (and monthly and annual) means and standard deviation
 
-for mean in ${means[*]} ; do
-  case $mean in
-    all)  rm -f *_A_???_mean.grb
-          rm -f *_A_???_std.grb
-          set -A periods ALL ;;
-    year) rm -f *_Y_????_mean.grb
-          rm -f *_Y_????_std.grb
-          periods=`ls ${basename}_DOM01_all_${variables[0]}_Y_????.grb | awk 'BEGIN { FS = "_" } ; { print $NF }' | sed 's/.grb//'` ;;
-    seas) rm -f *_S_???_mean.grb
-          rm -f *_S_???_std.grb
-          set -A periods DJF MAM JJA SON ;;
-    mon)  rm -f *_M_??_mean.grb
-          rm -f *_M_??_std.grb
-          set -A periods 01 02 03 04 05 06 07 08 09 10 11 12 ;; 
-  esac
+if [[ $lseasonal = 1 ]] ; then
 
-  for period in ${periods[*]} ; do
-
-    for levt in sfc pl zl ; do
-      i=0
-      case $mean in
-        all)  set -A files `ls *${levt}*_A_${period}.grb` ;;
-        year) set -A files `ls *${levt}*_Y_${period}.grb` ;;
-        seas) set -A files `ls *${levt}*_S_${period}.grb` ;;
-        mon)  set -A files `ls *${levt}*_M_${period}.grb` ;; 
-      esac
-
-      for file in ${files[*]} ; do
-%nopp
-        file_grb=${file%%.grb}
-%end
-        NAME=`cdo showname ${file}`
-        NAME=${NAME#" "}                   #remove the leading blank 
-        nsteps=`cdo ntime ${file}`
-        nintv=`expr ${nsteps}  \- 1 `
-        case $NAME in 
-          tp|param76.1.0|param77.1.0|lssrwe|csrwe|rain_con|rain_gsp|snow_con|snow_gsp|RAIN_CON|RAIN_GSP|SNOW_CON|SNOW_GSP)
-            numdays=$(echo "scale=9; ${nintv} * ${dout} " | bc)
-            cdo sub -seltimestep,$nsteps ${file} -seltimestep,1 ${file} out.grb
-            #cdo setunit,'"Kg m**-2 d**-1"' out.grb out2.grb
-            cdo divc,${numdays} out.grb ${file_grb}_mean.grb
-            rm -f out.grb 
-            ;;
-          ttr|nswrf|ssr|str|sshf|slhf|ACCSOB_T)
-            numdays=$(echo "scale=9; ${nintv} * ${dout} " | bc)
-            numsec=$(echo "scale=9; ${numdays} * 86400 "  | bc)
-            cdo sub -seltimestep,$nsteps ${file} -seltimestep,1 ${file} out.grb
-            #cdo setunit,'"W m**-2"' out.grb out2.grb
-            cdo divc,${numsec} out.grb ${file_grb}_mean.grb
-            rm -f out.grb
-            ;;
-          *)
-            case $mean in
-              all)  cdo timmean  ${file} ${file_grb}_mean.grb   ;;
-              year) cdo timmean  ${file} ${file_grb}_mean.grb   ;;
-              seas) cdo seasmean ${file} ${file_grb}_mean.grb   ;;
-              mon)  cdo monmean  ${file} ${file_grb}_mean.grb   ;; 
-            esac
-            #cdo seasstd ${file} ${file_grb}_std.grb
-            ;;
-        esac
-        i=`expr ${i} \+ 1`
-      done
-
-      if [[ $i -gt 0 ]] ; then
+  for mean in ${means[*]} ; do
+    case $mean in
+      all)  rm -f *_A_???_mean.grb
+            rm -f *_A_???_std.grb
+            set -A periods ALL ;;
+      year) rm -f *_Y_????_mean.grb
+            rm -f *_Y_????_std.grb
+            periods=`ls ${basename}_DOM01_all_${variables[0]}_Y_????.grb | awk 'BEGIN { FS = "_" } ; { print $NF }' | sed 's/.grb//'` ;;
+      seas) rm -f *_S_???_mean.grb
+            rm -f *_S_???_std.grb
+            set -A periods DJF MAM JJA SON ;;
+      mon)  rm -f *_M_??_mean.grb
+            rm -f *_M_??_std.grb
+            set -A periods 01 02 03 04 05 06 07 08 09 10 11 12 ;; 
+    esac
+  
+    for period in ${periods[*]} ; do
+  
+      for levt in sfc pl zl ; do
+        i=0
         case $mean in
-          all)  catlist=`ls *${levt}*A*${period}*mean.grb` ;;
-          year) catlist=`ls *${levt}*Y*${period}*mean.grb` ;;
-          seas) catlist=`ls *${levt}*S*${period}*mean.grb` ;;
-          mon)  catlist=`ls *${levt}*M*${period}*mean.grb` ;; 
+          all)  set -A files `ls *${levt}*_A_${period}.grb` ;;
+          year) set -A files `ls *${levt}*_Y_${period}.grb` ;;
+          seas) set -A files `ls *${levt}*_S_${period}.grb` ;;
+          mon)  set -A files `ls *${levt}*_M_${period}.grb` ;; 
         esac
-        set -A clist ${catlist}
+  
+        for file in ${files[*]} ; do
 %nopp
-        myfile=${clist[0]%%_mean.grb}.grb
+          file_grb=${file%%.grb}
 %end
-        cdo -O merge ${catlist} outfile.grb
-        nmon=`cdo nmon $myfile `
-        mons=`cdo showmon  $myfile `
-        set -A lmons $mons
-        years=`cdo showyear  $myfile `
-        set -A lyears $years
-        fmon=${lmons[0]}
-        if [[ $fmon -lt 10 ]] ; then
-         fmon=0${fmon}
+          NAME=`cdo showname ${file}`
+          NAME=${NAME#" "}                   #remove the leading blank 
+          nsteps=`cdo ntime ${file}`
+          nintv=`expr ${nsteps}  \- 1 `
+          case $NAME in 
+            tp|param76.1.0|param77.1.0|lssrwe|csrwe|rain_con|rain_gsp|snow_con|snow_gsp|RAIN_CON|RAIN_GSP|SNOW_CON|SNOW_GSP)
+              numdays=$(echo "scale=9; ${nintv} * ${dout} " | bc)
+              cdo sub -seltimestep,$nsteps ${file} -seltimestep,1 ${file} out.grb
+              #cdo setunit,'"Kg m**-2 d**-1"' out.grb out2.grb
+              cdo divc,${numdays} out.grb ${file_grb}_mean.grb
+              rm -f out.grb 
+              ;;
+            ttr|nswrf|ssr|str|sshf|slhf|ACCSOB_T)
+              numdays=$(echo "scale=9; ${nintv} * ${dout} " | bc)
+              numsec=$(echo "scale=9; ${numdays} * 86400 "  | bc)
+              cdo sub -seltimestep,$nsteps ${file} -seltimestep,1 ${file} out.grb
+              #cdo setunit,'"W m**-2"' out.grb out2.grb
+              cdo divc,${numsec} out.grb ${file_grb}_mean.grb
+              rm -f out.grb
+              ;;
+            *)
+              case $mean in
+                all)  cdo timmean  ${file} ${file_grb}_mean.grb   ;;
+                year) cdo timmean  ${file} ${file_grb}_mean.grb   ;;
+                seas) cdo seasmean ${file} ${file_grb}_mean.grb   ;;
+                mon)  cdo monmean  ${file} ${file_grb}_mean.grb   ;; 
+              esac
+              #cdo seasstd ${file} ${file_grb}_std.grb
+              ;;
+          esac
+          i=`expr ${i} \+ 1`
+        done
+  
+        if [[ $i -gt 0 ]] ; then
+          case $mean in
+            all)  catlist=`ls *${levt}*A*${period}*mean.grb` ;;
+            year) catlist=`ls *${levt}*Y*${period}*mean.grb` ;;
+            seas) catlist=`ls *${levt}*S*${period}*mean.grb` ;;
+            mon)  catlist=`ls *${levt}*M*${period}*mean.grb` ;; 
+          esac
+          set -A clist ${catlist}
+%nopp
+          myfile=${clist[0]%%_mean.grb}.grb
+%end
+          cdo -O merge ${catlist} outfile.grb
+          nmon=`cdo nmon $myfile `
+          mons=`cdo showmon  $myfile `
+          set -A lmons $mons
+          years=`cdo showyear  $myfile `
+          set -A lyears $years
+          fmon=${lmons[0]}
+          if [[ $fmon -lt 10 ]] ; then
+           fmon=0${fmon}
+          fi
+          fyear=${lyears[0]}
+          mv outfile.grb mmean_%SUITE%_%EXPNUM%_${levt}_ini${RYMD}_mon${fyear}${fmon}_n${nmon}.grb
+          case $mean in
+            all)  rm *${levt}*A*mean.grb ;;
+            year) rm *${levt}*Y*mean.grb ;;
+            seas) rm *${levt}*S*mean.grb ;;
+            mon)  rm *${levt}*M*mean.grb ;; 
+          esac
         fi
-        fyear=${lyears[0]}
-        mv outfile.grb mmean_%SUITE%_%EXPNUM%_${levt}_ini${RYMD}_mon${fyear}${fmon}_n${nmon}.grb
-        case $mean in
-          all)  rm *${levt}*A*mean.grb ;;
-          year) rm *${levt}*Y*mean.grb ;;
-          seas) rm *${levt}*S*mean.grb ;;
-          mon)  rm *${levt}*M*mean.grb ;; 
-        esac
-      fi
-    done # levt
-  done # period
-done # mean
+      done # levt
+    done # period
+  done # mean
+
+fi
 
 
 #-----------------------------------------------------------------------------

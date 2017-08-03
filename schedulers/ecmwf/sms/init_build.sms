@@ -34,7 +34,7 @@ compiler='cray'    # 'cray' or 'gcc' or 'intel'
 #arch=rs6000-ibm-aix
 arch=x86_64-unknown-linux-gnu
 #toolstag=tags/icontools-1.4.0       # recent tag - synchronize with init_cp_binary.sms!
-toolstag=trunk                       # alternative: choose trunk
+#toolstag=trunk                      # alternative: choose trunk
 
 case ${compiler} in
   cray)
@@ -42,13 +42,16 @@ case ${compiler} in
     #module swap fortran fortran/xlf/14.1.0.3
     
     #---CRAY 8.3.1
+    export CRAY_ADD_RPATH=yes 
     module swap cce cce/8.4.5
    #module swap PrgEnv-cray PrgEnv-cray/5.1.29
     
-    module load subversion
-    module swap grib_api grib_api/1.15.0
+   #module load subversion
+    module unload eccodes
+    module load grib_api/1.15.0
+   #module swap grib_api grib_api/1.13.1
    #module load hdf5/1.8.13
-   #module load netcdf4/4.3.2
+   #module load netcdf4/4.3
    #module load netcdf
     module load cray-netcdf/4.4.0                 # netcdf4/4.3.2
     module load cray-hdf5/1.8.16                  # cray-hdf5/1.8.12, hdf5/1.8.13
@@ -75,23 +78,25 @@ gmake clean    # distclean
 gmake -j%SCTOTALTASKS%
 smsevent make
 
-
-# Store revision number of successful compilation 
-module load subversion
-#revision=`ssh $WSHOST svn info %ECPERMIII%/%DEIA_ICON_DIR% | grep Revision | awk '{print $2}'`
-revision=`svn info %SCPERMIII%/%DEIA_ICON_DIR% | grep Revision | awk '{print $2}'`
-echo $revision > %SCPERMIII%/%DEIA_ICON_DIR%/build/${arch}/bin/icon_rev.txt
+# ICON: store branch and revision number of successful compilation 
+echo '--- ICON revision ---' > %SCPERMIII%/%DEIA_ICON_DIR%/build/${arch}/bin/icon_rev.txt
+git status | grep -i branch >> %SCPERMIII%/%DEIA_ICON_DIR%/build/${arch}/bin/icon_rev.txt
+git log -1 | cat            >> %SCPERMIII%/%DEIA_ICON_DIR%/build/${arch}/bin/icon_rev.txt
 
 
 # Compile dwd_icon_tools for remap_mpi ------------
-#ssh $WSHOST svn update %ECPERMIII%/dwd_icon_tools
-svn update %SCPERMIII%/dwd_icon_tools
-cd %SCPERMIII%/dwd_icon_tools/${toolstag}/icontools
+cd %SCPERMIII%/dwd_icon_tools
+git pull --quiet
+cd icontools
+
 case ${compiler} in
   cray)
     module swap cce/8.4.1
-    module swap grib_api grib_api/1.12.3
-    module load netcdf4/4.3.0
+   #module swap grib_api grib_api/1.12.3
+    module swap grib_api grib_api/CY41R2.1
+   #module unload cray-netcdf
+    module swap netcdf4 netcdf4/4.3.0
+    module unload cray-hdf5
     module load hdf5/1.8.13
    #module swap PrgEnv-cray/5.1.29
     gmake clean
@@ -104,7 +109,11 @@ case ${compiler} in
     ;;
 esac
 
-echo $toolstag >> %SCPERMIII%/%DEIA_ICON_DIR%/build/${arch}/bin/icon_rev.txt
+# DWD_ICON_TOOLS: store branch and revision number of successful compilation 
+echo ''                       >> %SCPERMIII%/%DEIA_ICON_DIR%/build/${arch}/bin/icon_rev.txt
+echo '--- icon_dwd_tools ---' >> %SCPERMIII%/%DEIA_ICON_DIR%/build/${arch}/bin/icon_rev.txt
+git status | grep -i branch   >> %SCPERMIII%/%DEIA_ICON_DIR%/build/${arch}/bin/icon_rev.txt
+git log -1 | cat              >> %SCPERMIII%/%DEIA_ICON_DIR%/build/${arch}/bin/icon_rev.txt
 
 
 # -------------------------------------------------

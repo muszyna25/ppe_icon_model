@@ -313,7 +313,7 @@ cat > ${atmo_namelist} << EOF
  itype_lndtbl                 = 3       ! 2: tuned stomata resistance rsmin
  itype_root                   = 2       ! 2: exponetial root distribution, 1: roots at level 3 
  llake                        = .true.
- sstice_mode                  = 3
+ sstice_mode                  = 4
  sst_td_filename              = '${sst_td_filename}'
  ci_td_filename               = '${ci_td_filename}'
 /
