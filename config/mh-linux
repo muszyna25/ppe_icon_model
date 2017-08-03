@@ -64,7 +64,7 @@ case "$fortran_compiler" in
         F77FLAGS    = -march=native -O0 -ffast-math -mpc64
         LDFLAGS     = $FOTPTIM
         OMPFLAG     = -fopenmp
-        ART_FFLAGS  = -D__ICON_ART -fall-intrinsics
+        ART_FFLAGS  = -fall-intrinsics
         CC_OMPFLAG  = -fopenmp
         DEFOPT      = -D
         DEFCOPT     = -D
@@ -169,7 +169,7 @@ case "$fortran_compiler" in
         FCLIBS      = 
         GEN_FLAGS   =
         FDEBUG      = -g -R abc
-        ART_FFLAGS  = -D__ICON_ART -D__ART_TMP_IFDEF
+        ART_FFLAGS  = -D__ART_TMP_IFDEF
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
@@ -209,7 +209,6 @@ case "$fortran_compiler" in
         F77         = $FC
         F77FLAGS    = $FFLAGS $STD_FLAGS
         OMPFLAG     = -openmp
-        ART_FFLAGS  = -D__ICON_ART
         CC_OMPFLAG  = -openmp
         DEFOPT      = -D
         DEFCOPT     = -D

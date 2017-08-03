@@ -159,7 +159,9 @@ AC_ARG_WITH([art],
 
 AS_IF([test "x$with_art" = "xyes"],
       [use_art="yes"],
-      [use_art="no"])
+      [use_art="no"],
+
+)
 
 AS_CASE([$host],
         [i*86-*-linux-*],
@@ -953,6 +955,7 @@ if [[ "x$use_messy" = xyes ]] ; then
 fi
 
 if [[ "x$use_art" = xyes ]] ; then
+    ART_FFLAGS="${DEFOPT}__ICON_ART"
     FFLAGS="${FFLAGS} ${ART_FFLAGS}"
     # ATTENTION: only temporary until chemistry part of ICON-ART is Fortran 2003 conform !!!
     if [[ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ]] ; then
@@ -1393,3 +1396,4 @@ AS_IF([test "x$enable_atmo" = "xyes" && test "x$enable_ocean" = "xno"],
 [AC_MSG_WARN([In order to use ECHAM physics, you need to enable ocean!])])
 
 echo ""
+
