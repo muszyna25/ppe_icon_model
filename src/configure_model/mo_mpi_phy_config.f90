@@ -206,7 +206,7 @@ CONTAINS
 
     ! dynamics physics coupling
     mpi_phy_config(:)%idcphycpl = 1
-    mpi_phy_config(:)%ldrymoist = .TRUE.
+    mpi_phy_config(:)%ldrymoist = .FALSE.
     !
     ! time control parameters
     mpi_phy_config(:)% dt_rad = ''
