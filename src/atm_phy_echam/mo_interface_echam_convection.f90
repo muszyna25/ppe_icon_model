@@ -140,9 +140,6 @@ CONTAINS
           !
           zqtrc_cnd(jcs:jce,:) = zqtrc(jcs:jce,:,iqc) + zqtrc(jcs:jce,:,iqi)
           ztend_qv (jcs:jce,:) = tend%qtrc_dyn(jcs:jce,:,jb,iqv) + tend%qtrc_phy(jcs:jce,:,jb,iqv)
-          !- TESTING --------------------------------------------!
-          ztend_qv (jcs:jce,:) = tend%qtrc_dyn(jcs:jce,:,jb,iqv) !
-          !------------------------------------------------------!
           !
           CALL cumastr(jce, nbdim,                      &! in
                &       nlev, nlevp1, nlevm1,         &! in
