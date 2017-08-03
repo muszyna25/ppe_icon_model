@@ -547,7 +547,7 @@ MODULE mo_echam_phy_memory
       !
       &   ta_rsw (:,:,:)  , & !< temperature due to shortwave radiation (for const. pressure)
       &   ta_rlw (:,:,:)  , & !< temperature due to longwave radiation  (for const. pressure)
-      &   ta_rlw_impl(:,:)    !< temperature tendency due to LW rad. due to implicit land surface temperature change
+      &   ta_rlw_impl(:,:), & !< temperature tendency due to LW rad. due to implicit land surface temperature change
       !                          (for const. pressure)
       !
       ! methane oxidation
