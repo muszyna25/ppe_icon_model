@@ -16,7 +16,7 @@
        &                        n2prod, sulfate_reduction, strahl,                 &
        &                        thresh_aerob, thresh_o2, prodn2o, & 
        &                        thresh_sred, dmsp, calmax, &
-       &                        satoxy, meanswr,&
+       &                        satoxy, meanswr, ralk, bkh2sox, rh2sox,&
        &                        bgctra, swr_frac, bgctend
 
 
@@ -25,11 +25,12 @@
    USE mo_param1_bgc, ONLY     : icalc, iopal, ian2o, igasnit, idms, &
        &                         iphy, izoo, isilica, iphosph, &
        &                         iano3, ioxygen, idet, idoc, isco212, &
-       &                         ialkali, kphosy, kremin,   &
+       &                         ialkali, kphosy, kremin, ih2s,    &
        &                         iiron, ksred, kdenit, kgraz, kbacfra, &
        &                         kn2b, kh2ob, kdelcar, kdelsil, kbacfrac, &
        &                         kdmsprod, kdmsuv, kdmsbac,keuexp, knlim, kflim,&
-       &                         kplim, kgraton, kexudp, kexudz, kpdy,kzdy, kaou
+       &                         kplim, kgraton, kexudp, kexudz, kpdy,kzdy,kaou,&
+       &                         kh2sprod, kh2sloss
 
 
 
@@ -58,7 +59,7 @@
        &      export, delsil, delcar, remin,             &
        &      opalrem, remin2o, aou, refra,                      &
        &      o2lim, actn2o, avdet,   &
-       &      maxn2o, avoxy
+       &      maxn2o, avoxy, oxid
 
    REAL(wp) :: surface_height
 
@@ -70,7 +71,7 @@
 !HAMOCC_OMP            avanfe,phofa,temfa,pho,phosy,xa,xn,ya,yn,grazing,&
 !HAMOCC_OMP            graton,gratpoc,grawa,phymor,zoomor,zoothresh,excdoc,&
 !HAMOCC_OMP            exud,export,delsil,delcar,opalrem,dms_prod,dms_bac,&
-!HAMOCC_OMP            dms_uv,avoxy,maxn2o,actn2o,o2lim, avdet,&
+!HAMOCC_OMP            dms_uv,avoxy,maxn2o,actn2o,o2lim, avdet, oxid,&
 !HAMOCC_OMP            bacfra,remin,aou,refra,remin2o) HAMOCC_OMP_DEFAULT_SCHEDULE
 
  DO j = start_idx, end_idx
@@ -119,7 +120,8 @@
 
        xa    = avanfe
        xn    = xa / (1._wp + pho*avphy / (xa+bkphy) )                ! bkphy = half saturation constant
-       phosy = MAX(0._wp, xa-xn)                                     ! photosynthesis
+       phosy = MAX(0._wp, xa-xn)                                     ! photo synthesis 
+       phosy=MERGE(bgctra(j,k,isco212)/rcar,phosy,bgctra(j,k,isco212).le.rcar*phosy) ! limit phosy by available DIC
        if(pho < 0.000001_wp)phosy=0._wp 
 
        ! zooplankton growth, phy grazing
@@ -160,7 +162,7 @@
 
 
        bgctra(j,k,ialkali) = bgctra(j,k,ialkali) - 2._wp * delcar &
-                      - rnit * ( - phosy + graton + ecan*zoomor)
+                      - ralk * ( - phosy + graton + ecan*zoomor)
 
        bgctra(j,k,iphy) = bgctra(j,k,iphy) + phosy - grazing       &
                    &             - phymor - exud
@@ -260,7 +262,7 @@
 
           
            bgctra(j,k,ialkali) = bgctra(j,k,ialkali)       &
-        &             - (bacfra +  remin)*rnit
+        &             - (bacfra +  remin)*ralk
 
            bgctra(j,k,iano3)= bgctra(j,k,iano3)                  &
         &             +(bacfra + remin)*rnit
@@ -294,7 +296,7 @@
        ENDIF   ! O2 >= thresh_aerob
 
 
-       IF (bgctra(j,k,ioxygen) < 5.e-7_wp) THEN                          
+       IF (bgctra(j,k,ioxygen) <= 5.e-7_wp) THEN                          
             !=====DENITRIFICATION ========================
 
            avdet = MAX(1.e-15_wp,bgctra(j,k,idet))
@@ -324,7 +326,7 @@
 
 
            bgctra(j,k,iano3)   = bgctra(j,k,iano3)     &
-                   &          - 2._wp*n2prod*remin + rnit*(remin + remin2o)
+                   &          - nitdem*remin + rnit*(remin + remin2o)
 
            bgctra(j,k,igasnit) = bgctra(j,k,igasnit)   &
                    &                + n2prod*remin + 2._wp*ro2ut*remin2o
@@ -338,9 +340,9 @@
 
            !alkalinity is increased during denitrification due to consumption of H+ (see Wolf-Gladrow etal,2007)
            bgctra(j,k,ialkali) = bgctra(j,k,ialkali)   &
-                   &          + nitdem*remin - rnit*remin2o
+                   &          + nitdem*remin - ralk*(remin+remin2o)
 
-          bgctend(j,k,kn2b) = bgctend(j,k,kn2b) + 2._wp * n2prod * remin * (pddpo(j,k) + surface_height) 
+          bgctend(j,k,kn2b) = bgctend(j,k,kn2b) + nitdem * remin * (pddpo(j,k) + surface_height) 
           !denitrification produces water (H2O), the corresponding O2 uptake is budgeted in h2obudget
           bgctend(j,k,kh2ob) = bgctend(j,k,kh2ob) + 0.5_wp * n2prod * remin * (pddpo(j,k) + surface_height) 
 
@@ -366,7 +368,8 @@
 
  
              bgctra(j,k,idet)    = bgctra(j,k,idet)    -        remin
-             bgctra(j,k,ialkali) = bgctra(j,k,ialkali) + rnit * remin 
+             bgctra(j,k,ialkali) = bgctra(j,k,ialkali) + ralk * remin 
+             bgctra(j,k,ih2s)    = bgctra(j,k,ih2s) + ralk * remin 
              bgctra(j,k,isco212) = bgctra(j,k,isco212) + rcar * remin
              bgctra(j,k,iphosph) = bgctra(j,k,iphosph) +        remin
 
@@ -374,9 +377,27 @@
              bgctra(j,k,iiron)   = bgctra(j,k,iiron)   + riron * remin
              
              bgctend(j,k,ksred) = remin / dtbgc 
+             bgctend(j,k,kh2sprod) =  ralk * remin /dtbgc
+             bgctend(j,k,kh2sloss) =  0._wp
      
-             bgctend(j,k,kn2b) = bgctend(j,k,kn2b) + 2._wp * rnit * remin * (pddpo(j,k) + surface_height) 
+             bgctend(j,k,kn2b) = bgctend(j,k,kn2b) + 2._wp * ralk * remin * (pddpo(j,k) + surface_height) 
              bgctend(j,k,kh2ob) = bgctend(j,k,kh2ob) - ro2ut * remin * (pddpo(j,k) + surface_height) 
+
+       else
+             ! HS oxidation 
+               o2lim = bgctra(j,k,ioxygen)/(bgctra(j,k,ioxygen) + bkh2sox)
+               xa = max(0._wp,bgctra(j,k,ih2s))
+               xn = xa / ( 1._wp + rh2sox*o2lim)
+               oxid = max(0._wp, xa-xn)
+
+               bgctra(j,k,ih2s) = bgctra(j,k,ih2s) - oxid
+
+               bgctra(j,k,ialkali) = bgctra(j,k,ialkali) - 2._wp  * oxid
+               bgctend(j,k,kn2b) = bgctend(j,k,kn2b) - 2._wp * oxid * (pddpo(j,k) + surface_height) 
+   
+               bgctend(j,k,kh2sprod) =  0._wp
+               bgctend(j,k,kh2sloss) =  oxid /dtbgc
+
 
        ENDIF ! O2 < thresh_sred
        bgctend(j,k,kaou)   = satoxy(j,k) - bgctra(j,k,ioxygen)
