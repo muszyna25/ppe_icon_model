@@ -5,365 +5,195 @@
 !! file COPYING in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the headers of the routines.
 !!
-MODULE psrad_rrsw_kg16
+MODULE mo_psrad_srtm_kgs
 
-  USE mo_kind, ONLY : wp
+  USE mo_psrad_general, ONLY : wp, nbndsw
   IMPLICIT NONE
 
   PUBLIC
 
-  SAVE
-
-  INTEGER, PARAMETER :: no16 = 16
-  REAL(wp) :: kao(9,5,13,no16)
-  REAL(wp) :: kbo(5,13:59,no16)
-  REAL(wp) :: selfrefo(10,no16), forrefo(3,no16)
-  REAL(wp) :: sfluxrefo(no16)
-  REAL(wp) :: rayl
-
-  INTEGER, PARAMETER :: ng16 = 6
-  REAL(wp) :: ka(9,5,13,ng16) , absa(585,ng16)
-  REAL(wp) :: kb(5,13:59,ng16), absb(235,ng16)
-  REAL(wp) :: selfref(10,ng16), forref(3,ng16)
-  REAL(wp) :: sfluxref(ng16)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg16
-
-MODULE psrad_rrsw_kg17
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no17 = 16
-  REAL(wp) :: kao(9,5,13,no17)
-  REAL(wp) :: kbo(5,5,13:59,no17)
-  REAL(wp) :: selfrefo(10,no17), forrefo(4,no17)
-  REAL(wp) :: sfluxrefo(no17,5)
-  REAL(wp) :: rayl
-
-  INTEGER, PARAMETER :: ng17 = 12
-  REAL(wp) :: ka(9,5,13,ng17) , absa(585,ng17)
-  REAL(wp) :: kb(5,5,13:59,ng17), absb(1175,ng17)
-  REAL(wp) :: selfref(10,ng17), forref(4,ng17)
-  REAL(wp) :: sfluxref(ng17,5)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg17
-
-MODULE psrad_rrsw_kg18
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no18 = 16
-  REAL(wp) :: kao(9,5,13,no18)
-  REAL(wp) :: kbo(5,13:59,no18)
-  REAL(wp) :: selfrefo(10,no18), forrefo(3,no18)
-  REAL(wp) :: sfluxrefo(no18,9)
-  REAL(wp) :: rayl
-
-  INTEGER, PARAMETER :: ng18 = 8
-  REAL(wp) :: ka(9,5,13,ng18), absa(585,ng18)
-  REAL(wp) :: kb(5,13:59,ng18), absb(235,ng18)
-  REAL(wp) :: selfref(10,ng18), forref(3,ng18)
-  REAL(wp) :: sfluxref(ng18,9)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg18
-
-MODULE psrad_rrsw_kg19
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no19 = 16
-  REAL(wp) :: kao(9,5,13,no19)
-  REAL(wp) :: kbo(5,13:59,no19)
-  REAL(wp) :: selfrefo(10,no19), forrefo(3,no19)
-  REAL(wp) :: sfluxrefo(no19,9)
-  REAL(wp) :: rayl
-
-  INTEGER, PARAMETER :: ng19 = 8
-  REAL(wp) :: ka(9,5,13,ng19), absa(585,ng19)
-  REAL(wp) :: kb(5,13:59,ng19), absb(235,ng19)
-  REAL(wp) :: selfref(10,ng19), forref(3,ng19)
-  REAL(wp) :: sfluxref(ng19,9)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg19
-
-MODULE psrad_rrsw_kg20
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no20 = 16
-
-  REAL(wp) :: kao(5,13,no20)
-  REAL(wp) :: kbo(5,13:59,no20)
-  REAL(wp) :: selfrefo(10,no20), forrefo(4,no20)
-  REAL(wp) :: sfluxrefo(no20)
-  REAL(wp) :: absch4o(no20)
-
-  REAL(wp) :: rayl 
-
-  INTEGER, PARAMETER :: ng20 = 10
-  REAL(wp) :: ka(5,13,ng20), absa(65,ng20)
-  REAL(wp) :: kb(5,13:59,ng20), absb(235,ng20)
-  REAL(wp) :: selfref(10,ng20), forref(4,ng20)
-  REAL(wp) :: sfluxref(ng20)
-  REAL(wp) :: absch4(ng20)
-
-  EQUIVALENCE (ka(1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg20
-
-MODULE psrad_rrsw_kg21
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no21 = 16
-  REAL(wp) :: kao(9,5,13,no21)
-  REAL(wp) :: kbo(5,5,13:59,no21)
-  REAL(wp) :: selfrefo(10,no21), forrefo(4,no21)
-  REAL(wp) :: sfluxrefo(no21,9)
-  REAL(wp) :: rayl
-
-  INTEGER, PARAMETER :: ng21 = 10
-  REAL(wp) :: ka(9,5,13,ng21), absa(585,ng21)
-  REAL(wp) :: kb(5,5,13:59,ng21), absb(1175,ng21)
-  REAL(wp) :: selfref(10,ng21), forref(4,ng21)
-  REAL(wp) :: sfluxref(ng21,9)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg21
-
-MODULE psrad_rrsw_kg22
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no22 = 16
-
-  REAL(wp) :: kao(9,5,13,no22)
-  REAL(wp) :: kbo(5,13:59,no22)
-  REAL(wp) :: selfrefo(10,no22), forrefo(3,no22)
-  REAL(wp) :: sfluxrefo(no22,9)
-
-  REAL(wp) :: rayl
-
-  INTEGER, PARAMETER :: ng22 = 2
-  REAL(wp) :: ka(9,5,13,ng22), absa(585,ng22)
-  REAL(wp) :: kb(5,13:59,ng22), absb(235,ng22)
-  REAL(wp) :: selfref(10,ng22), forref(3,ng22)
-  REAL(wp) :: sfluxref(ng22,9)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg22
-
-MODULE psrad_rrsw_kg23
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no23 = 16
-  REAL(wp) :: kao(5,13,no23)
-  REAL(wp) :: selfrefo(10,no23), forrefo(3,no23)
-  REAL(wp) :: sfluxrefo(no23)
-  REAL(wp) :: raylo(no23)
-
-  INTEGER, PARAMETER :: ng23 = 10
-  REAL(wp) :: ka(5,13,ng23), absa(65,ng23)
-  REAL(wp) :: selfref(10,ng23), forref(3,ng23)
-  REAL(wp) :: sfluxref(ng23), rayl(ng23)
-
-  EQUIVALENCE (ka(1,1,1),absa(1,1))
-
-END MODULE psrad_rrsw_kg23
-
-MODULE psrad_rrsw_kg24
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no24 = 16
-  REAL(wp) :: kao(9,5,13,no24)
-  REAL(wp) :: kbo(5,13:59,no24)
-  REAL(wp) :: selfrefo(10,no24), forrefo(3,no24)
-  REAL(wp) :: sfluxrefo(no24,9)
-  REAL(wp) :: abso3ao(no24), abso3bo(no24)
-  REAL(wp) :: raylao(no24,9), raylbo(no24)
-
-  INTEGER, PARAMETER :: ng24 = 8
-  REAL(wp) :: ka(9,5,13,ng24), absa(585,ng24)
-  REAL(wp) :: kb(5,13:59,ng24), absb(235,ng24)
-  REAL(wp) :: selfref(10,ng24), forref(3,ng24)
-  REAL(wp) :: sfluxref(ng24,9)
-  REAL(wp) :: abso3a(ng24), abso3b(ng24)
-  REAL(wp) :: rayla(ng24,9), raylb(ng24)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg24
-
-MODULE psrad_rrsw_kg25
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no25 = 16
-  REAL(wp) :: kao(5,13,no25)
-  REAL(wp) :: sfluxrefo(no25)
-  REAL(wp) :: abso3ao(no25), abso3bo(no25)
-  REAL(wp) :: raylo(no25)
-
-  INTEGER, PARAMETER :: ng25 = 6
-  REAL(wp) :: ka(5,13,ng25), absa(65,ng25)
-  REAL(wp) :: sfluxref(ng25)
-  REAL(wp) :: abso3a(ng25), abso3b(ng25)
-  REAL(wp) :: rayl(ng25)
-
-  EQUIVALENCE (ka(1,1,1),absa(1,1))
-
-END MODULE psrad_rrsw_kg25
-
-MODULE psrad_rrsw_kg26
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no26 = 16
-  REAL(wp) :: sfluxrefo(no26)
-  REAL(wp) :: raylo(no26)
-
-  INTEGER, PARAMETER :: ng26 = 6
-  REAL(wp) :: sfluxref(ng26)
-  REAL(wp) :: rayl(ng26)
-
-END MODULE psrad_rrsw_kg26
-
-MODULE psrad_rrsw_kg27
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no27 = 16
-  REAL(wp) :: kao(5,13,no27)
-  REAL(wp) :: kbo(5,13:59,no27)
-  REAL(wp) :: sfluxrefo(no27)
-  REAL(wp) :: raylo(no27)
-
-  INTEGER, PARAMETER :: ng27 = 8
-  REAL(wp) :: ka(5,13,ng27), absa(65,ng27)
-  REAL(wp) :: kb(5,13:59,ng27), absb(235,ng27)
-  REAL(wp) :: sfluxref(ng27)
-  REAL(wp) :: rayl(ng27)
-
-  EQUIVALENCE (ka(1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg27
-
-MODULE psrad_rrsw_kg28
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no28 = 16
-  REAL(wp) :: kao(9,5,13,no28)
-  REAL(wp) :: kbo(5,5,13:59,no28)
-  REAL(wp) :: sfluxrefo(no28,5)
-  REAL(wp) :: rayl
-
-  INTEGER, PARAMETER :: ng28 = 6
-  REAL(wp) :: ka(9,5,13,ng28), absa(585,ng28)
-  REAL(wp) :: kb(5,5,13:59,ng28), absb(1175,ng28)
-  REAL(wp) :: sfluxref(ng28,5)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg28
-
-MODULE psrad_rrsw_kg29
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no29 = 16
-  REAL(wp) :: kao(5,13,no29)
-  REAL(wp) :: kbo(5,13:59,no29)
-  REAL(wp) :: selfrefo(10,no29), forrefo(4,no29)
-  REAL(wp) :: sfluxrefo(no29)
-  REAL(wp) :: absh2oo(no29), absco2o(no29)
-  REAL(wp) :: rayl
-
-  INTEGER, PARAMETER :: ng29 = 12
-  REAL(wp) :: ka(5,13,ng29), absa(65,ng29)
-  REAL(wp) :: kb(5,13:59,ng29), absb(235,ng29)
-  REAL(wp) :: selfref(10,ng29), forref(4,ng29)
-  REAL(wp) :: sfluxref(ng29)
-  REAL(wp) :: absh2o(ng29), absco2(ng29)
-
-  EQUIVALENCE (ka(1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg29
+  INTEGER, PARAMETER :: &
+    ng(nbndsw) = (/6, 12, 8, 8, 10, 10, 2, 10, 8, 6, 6, 8, 6, 12/), &
+    no(nbndsw) = &
+      (/16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16/)
+
+  REAL(wp) :: kao16(9,5,13,no(1))
+  REAL(wp) :: kbo16(5,47,no(1))
+  REAL(wp) :: selfrefo16(10,no(1)), forrefo16(3,no(1))
+  REAL(wp) :: sfluxrefo16(no(1))
+  REAL(wp) :: rayl16
+
+  REAL(wp) :: ka16(9,5,13,ng(1)) , absa16(585,ng(1))
+  REAL(wp) :: kb16(5,47,ng(1)), absb16(235,ng(1))
+  REAL(wp) :: selfref16(10,ng(1)), forref16(3,ng(1))
+  REAL(wp) :: sfluxref16(ng(1))
+
+  EQUIVALENCE (ka16(1,1,1,1),absa16(1,1)), (kb16(1,1,1),absb16(1,1))
+
+  REAL(wp) :: kao17(9,5,13,no(2))
+  REAL(wp) :: kbo17(5,5,47,no(2))
+  REAL(wp) :: selfrefo17(10,no(2)), forrefo17(4,no(2))
+  REAL(wp) :: sfluxrefo17(no(2),5)
+  REAL(wp) :: rayl17
+
+  REAL(wp) :: ka17(9,5,13,ng(2)) , absa17(585,ng(2))
+  REAL(wp) :: kb17(5,5,47,ng(2)), absb17(1175,ng(2))
+  REAL(wp) :: selfref17(10,ng(2)), forref17(4,ng(2))
+  REAL(wp) :: sfluxref17(ng(2),5)
+
+  EQUIVALENCE (ka17(1,1,1,1),absa17(1,1)), (kb17(1,1,1,1),absb17(1,1))
+
+  REAL(wp) :: kao18(9,5,13,no(3))
+  REAL(wp) :: kbo18(5,47,no(3))
+  REAL(wp) :: selfrefo18(10,no(3)), forrefo18(3,no(3))
+  REAL(wp) :: sfluxrefo18(no(3),9)
+  REAL(wp) :: rayl18
+
+  REAL(wp) :: ka18(9,5,13,ng(3)), absa18(585,ng(3))
+  REAL(wp) :: kb18(5,47,ng(3)), absb18(235,ng(3))
+  REAL(wp) :: selfref18(10,ng(3)), forref18(3,ng(3))
+  REAL(wp) :: sfluxref18(ng(3),9)
+
+  EQUIVALENCE (ka18(1,1,1,1),absa18(1,1)), (kb18(1,1,1),absb18(1,1))
+
+  REAL(wp) :: kao19(9,5,13,no(4))
+  REAL(wp) :: kbo19(5,47,no(4))
+  REAL(wp) :: selfrefo19(10,no(4)), forrefo19(3,no(4))
+  REAL(wp) :: sfluxrefo19(no(4),9)
+  REAL(wp) :: rayl19
+
+  REAL(wp) :: ka19(9,5,13,ng(4)), absa19(585,ng(4))
+  REAL(wp) :: kb19(5,47,ng(4)), absb19(235,ng(4))
+  REAL(wp) :: selfref19(10,ng(4)), forref19(3,ng(4))
+  REAL(wp) :: sfluxref19(ng(4),9)
+
+  EQUIVALENCE (ka19(1,1,1,1),absa19(1,1)), (kb19(1,1,1),absb19(1,1))
+
+  REAL(wp) :: kao20(5,13,no(5))
+  REAL(wp) :: kbo20(5,47,no(5))
+  REAL(wp) :: selfrefo20(10,no(5)), forrefo20(4,no(5))
+  REAL(wp) :: sfluxrefo20(no(5))
+  REAL(wp) :: absch4o20(no(5))
+
+  REAL(wp) :: rayl20
+
+  REAL(wp) :: ka20(5,13,ng(5)), absa20(65,ng(5))
+  REAL(wp) :: kb20(5,47,ng(5)), absb20(235,ng(5))
+  REAL(wp) :: selfref20(10,ng(5)), forref20(4,ng(5))
+  REAL(wp) :: sfluxref20(ng(5))
+  REAL(wp) :: absch420(ng(5))
+
+  EQUIVALENCE (ka20(1,1,1),absa20(1,1)), (kb20(1,1,1),absb20(1,1))
+
+  REAL(wp) :: kao21(9,5,13,no(6))
+  REAL(wp) :: kbo21(5,5,47,no(6))
+  REAL(wp) :: selfrefo21(10,no(6)), forrefo21(4,no(6))
+  REAL(wp) :: sfluxrefo21(no(6),9)
+  REAL(wp) :: rayl21
+
+  REAL(wp) :: ka21(9,5,13,ng(6)), absa21(585,ng(6))
+  REAL(wp) :: kb21(5,5,47,ng(6)), absb21(1175,ng(6))
+  REAL(wp) :: selfref21(10,ng(6)), forref21(4,ng(6))
+  REAL(wp) :: sfluxref21(ng(6),9)
+
+  EQUIVALENCE (ka21(1,1,1,1),absa21(1,1)), (kb21(1,1,1,1),absb21(1,1))
+
+  REAL(wp) :: kao22(9,5,13,no(7))
+  REAL(wp) :: kbo22(5,47,no(7))
+  REAL(wp) :: selfrefo22(10,no(7)), forrefo22(3,no(7))
+  REAL(wp) :: sfluxrefo22(no(7),9)
+
+  REAL(wp) :: rayl22
+
+  REAL(wp) :: ka22(9,5,13,ng(7)), absa22(585,ng(7))
+  REAL(wp) :: kb22(5,47,ng(7)), absb22(235,ng(7))
+  REAL(wp) :: selfref22(10,ng(7)), forref22(3,ng(7))
+  REAL(wp) :: sfluxref22(ng(7),9)
+
+  EQUIVALENCE (ka22(1,1,1,1),absa22(1,1)), (kb22(1,1,1),absb22(1,1))
+
+  REAL(wp) :: kao23(5,13,no(8))
+  REAL(wp) :: selfrefo23(10,no(8)), forrefo23(3,no(8))
+  REAL(wp) :: sfluxrefo23(no(8))
+  REAL(wp) :: raylo23(no(8))
+
+  REAL(wp) :: ka23(5,13,ng(8)), absa23(65,ng(8))
+  REAL(wp) :: selfref23(10,ng(8)), forref23(3,ng(8))
+  REAL(wp) :: sfluxref23(ng(8)), rayl23(ng(8))
+
+  EQUIVALENCE (ka23(1,1,1),absa23(1,1))
+
+  REAL(wp) :: kao24(9,5,13,no(9))
+  REAL(wp) :: kbo24(5,47,no(9))
+  REAL(wp) :: selfrefo24(10,no(9)), forrefo24(3,no(9))
+  REAL(wp) :: sfluxrefo24(no(9),9)
+  REAL(wp) :: abso3ao24(no(9)), abso3bo24(no(9))
+  REAL(wp) :: raylao24(no(9),9), raylbo24(no(9))
+
+  REAL(wp) :: ka24(9,5,13,ng(9)), absa24(585,ng(9))
+  REAL(wp) :: kb24(5,47,ng(9)), absb24(235,ng(9))
+  REAL(wp) :: selfref24(10,ng(9)), forref24(3,ng(9))
+  REAL(wp) :: sfluxref24(ng(9),9)
+  REAL(wp) :: abso3a24(ng(9)), abso3b24(ng(9))
+  REAL(wp) :: rayla24(ng(9),9), raylb24(ng(9))
+
+  EQUIVALENCE (ka24(1,1,1,1),absa24(1,1)), (kb24(1,1,1),absb24(1,1))
+
+  REAL(wp) :: kao25(5,13,no(10))
+  REAL(wp) :: sfluxrefo25(no(10))
+  REAL(wp) :: abso3ao25(no(10)), abso3bo25(no(10))
+  REAL(wp) :: raylo25(no(10))
+
+  REAL(wp) :: ka25(5,13,ng(10)), absa25(65,ng(10))
+  REAL(wp) :: sfluxref25(ng(10))
+  REAL(wp) :: abso3a25(ng(10)), abso3b25(ng(10))
+  REAL(wp) :: rayl25(ng(10))
+
+  EQUIVALENCE (ka25(1,1,1),absa25(1,1))
+
+  REAL(wp) :: sfluxrefo26(no(11))
+  REAL(wp) :: raylo26(no(11))
+
+  REAL(wp) :: sfluxref26(ng(11))
+  REAL(wp) :: rayl26(ng(11))
+
+  REAL(wp) :: kao27(5,13,no(12))
+  REAL(wp) :: kbo27(5,47,no(12))
+  REAL(wp) :: sfluxrefo27(no(12))
+  REAL(wp) :: raylo27(no(12))
+
+  REAL(wp) :: ka27(5,13,ng(12)), absa27(65,ng(12))
+  REAL(wp) :: kb27(5,47,ng(12)), absb27(235,ng(12))
+  REAL(wp) :: sfluxref27(ng(12))
+  REAL(wp) :: rayl27(ng(12))
+
+  EQUIVALENCE (ka27(1,1,1),absa27(1,1)), (kb27(1,1,1),absb27(1,1))
+
+  REAL(wp) :: kao28(9,5,13,no(13))
+  REAL(wp) :: kbo28(5,5,47,no(13))
+  REAL(wp) :: sfluxrefo28(no(13),5)
+  REAL(wp) :: rayl28
+
+  REAL(wp) :: ka28(9,5,13,ng(13)), absa28(585,ng(13))
+  REAL(wp) :: kb28(5,5,47,ng(13)), absb28(1175,ng(13))
+  REAL(wp) :: sfluxref28(ng(13),5)
+
+  EQUIVALENCE (ka28(1,1,1,1),absa28(1,1)), (kb28(1,1,1,1),absb28(1,1))
+
+  REAL(wp) :: kao29(5,13,no(14))
+  REAL(wp) :: kbo29(5,47,no(14))
+  REAL(wp) :: selfrefo29(10,no(14)), forrefo29(4,no(14))
+  REAL(wp) :: sfluxrefo29(no(14))
+  REAL(wp) :: absh2oo29(no(14)), absco2o29(no(14))
+  REAL(wp) :: rayl29
+
+  REAL(wp) :: ka29(5,13,ng(14)), absa29(65,ng(14))
+  REAL(wp) :: kb29(5,47,ng(14)), absb29(235,ng(14))
+  REAL(wp) :: selfref29(10,ng(14)), forref29(4,ng(14))
+  REAL(wp) :: sfluxref29(ng(14))
+  REAL(wp) :: absh2o29(ng(14)), absco229(ng(14))
+
+  EQUIVALENCE (ka29(1,1,1),absa29(1,1)), (kb29(1,1,1),absb29(1,1))
+
+END MODULE mo_psrad_srtm_kgs
 

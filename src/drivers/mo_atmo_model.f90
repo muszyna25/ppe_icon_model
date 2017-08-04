@@ -57,7 +57,6 @@ MODULE mo_atmo_model
     &                                   grid_generatingSubcenter,                             & ! grid generating subcenter
     &                                   iforcing
   USE mo_gribout_config,          ONLY: configure_gribout
-  USE mo_event_manager,           ONLY: initEventManager
 
   ! time stepping
   USE mo_atmo_hydrostatic,        ONLY: atmo_hydrostatic
@@ -267,10 +266,6 @@ CONTAINS
     !-------------------------------------------------------------------
     IF (ltimer) CALL init_timer
     IF (timers_level > 3) CALL timer_start(timer_model_init)
-
-    ! create an event manager, ie. a collection of different events
-    CALL initEventManager(time_config%tc_exp_refdate)
-
 
     !-------------------------------------------------------------------
     ! 3.3 I/O initialization

@@ -28,6 +28,7 @@ MODULE mo_async_restart_comm_data
     USE mo_util_string,          ONLY: int2string
     USE mpi,                     ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL, MPI_LOCK_SHARED, MPI_MODE_NOCHECK, &
       &                                MPI_WIN_NULL, MPI_LOCK_EXCLUSIVE, MPI_SUCCESS
+    USE mo_impl_constants,       ONLY: SUCCESS
 #ifdef DEBUG
     USE mo_mpi,                  ONLY: p_pe
 #endif

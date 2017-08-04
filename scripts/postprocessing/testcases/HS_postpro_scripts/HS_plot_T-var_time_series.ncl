@@ -1,5 +1,6 @@
 ;
-; Hui Wan (MPI, 2005.07.27)
+; Hui Wan (MPI-M, 2005-07-27)
+; Marco Giorgetta (MPI-M, 2017-04-26)
 ;-----------------------------------------------------------------------------
  load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_code.ncl"
  load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_csm.ncl"
@@ -7,37 +8,22 @@
 ;-----------------------------------------------------------------------------
  begin
   PlotFormat = getenv("plot_file_format")
-  Model      = getenv("Model")
   DataPath   = getenv("DataPath")
   DataID     = getenv("DataID")
   PlotPath   = getenv("PlotPath")
   ConfigStr  = getenv("ConfigStr")
   VarName    = getenv("VarName")
-  CellType   = getenv("cell_type")
-  Resolution = getenv("Resolution")
 
   title = "Held-Suarez Test"
   DataFile = DataPath+DataID+".nc" 
   PlotFile = PlotPath+DataID
 
-  if (CellType .eq. 3) then
-    cell_type="tri"
-  end if
-
-  if (CellType .eq. 6) then
-    cell_type="hex"
-  end if
 ;----------------------------------------------
 
 
   File = addfile( DataFile,"r" )
-  if ( Model .eq. "ICOHDC") then
-     lev  = doubletointeger(File->lev)
-     lev  = lev/100
-  end if
-  if ( Model .eq. "ICONAM") then
-     lev  = File->lev
-  end if
+  lev  = doubletointeger(File->lev)
+  lev  = lev/100
 ;--------------------------------------------------------------- 
 ; plot settings
 
@@ -86,20 +72,13 @@
      gsn_define_colormap( wks,"BkBlAqGrYeOrReViWh200" )
 
      var = File->$VarName$(:,0,:,0)  ;(time,lev,lat,lon)
-
      ntime = dimsizes(var&time)
      delete(var&time)
      var&time = fspan(0,ntime-1,ntime)
 
-     ;ResC@gsnLeftString   = "" ;ConfigStr
-     ResC@gsnLeftString   = Resolution+cell_type
+     ResC@gsnLeftString   = ConfigStr
      ResC@gsnCenterString = ""
-     if ( Model .eq. "ICOHDC") then
-      ResC@gsnRightString  = "Evolution of zonal temperature variance (K~S~2~N~) at "+lev+" hPa"
-     end if
-     if ( Model .eq. "ICONAM") then
-      ResC@gsnRightString  = "Evolution of zonal temperature variance (K~S~2~N~) at model level "+lev
-     end if
+     ResC@gsnRightString  = "Zonal temperature variance (K~S~2~N~) at "+lev+" hPa"
      
      ResC@cnLevelSelectionMode  = "ManualLevels"
      ResC@cnMinLevelValF        =  0             

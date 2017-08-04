@@ -20,7 +20,7 @@ MODULE mo_lcariolle_types
 USE mo_lcariolle_kind, ONLY: wp,wi
 IMPLICIT NONE
 PRIVATE
-PUBLIC :: t_avi, t_pvi, nlatx, nlevx, nmonthx, pvi, avi, t_time_interpolation
+PUBLIC :: t_avi, t_pvi, nlatx, nlevx, nmonthx, pvi, t_time_interpolation, l_cariolle_initialized_o3
 ! number of latitudes, pressure layers and months used in the Cariolle
 ! climatology
 INTEGER(wi), PARAMETER          :: nlatx=65, nlevx=91, nmonthx=12
@@ -35,9 +35,7 @@ REAL(wp), POINTER :: o3_vmr(:,:)
 LOGICAL, POINTER  :: lday(:)
 REAL(wp), POINTER :: cell_center_lat(:)
 LOGICAL           :: ldown
-LOGICAL           :: l_initialized_o3=.FALSE.
 END type t_avi
-TYPE(t_avi)       :: avi
 ! The derived type t_pvi is meant to host all variables connected to
 ! the Cariolle climatology of coefficients determining the ozone tendencies.
 TYPE t_pvi
@@ -58,4 +56,7 @@ TYPE t_time_interpolation
 INTEGER(wi)          :: imonth1,imonth2
 REAL(wp)             :: weight1,weight2
 END TYPE t_time_interpolation
+
+LOGICAL :: l_cariolle_initialized_o3 = .FALSE.
+
 END MODULE mo_lcariolle_types
