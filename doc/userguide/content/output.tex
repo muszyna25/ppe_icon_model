@@ -488,49 +488,17 @@ n is the number of processors used for output.
 
 
 \subsubsection{Time mean output:}
-The builtin functionality for getting time-averaged output fields preliminary is in an intermediate state. It has the following limitation:
+The builtin functionality for getting time-averaged output fields has the following features and limitations
 \begin{itemize}
-  \item The list of variables for which time averages can be obtained is fixed. There is no way to change this via namelist
-  \item Respective variables are collected into groups: prog\_timemean, echam\_timemean, tracer\_timemean (all: atmo\_timemean)
-  \item When time-averaged output is selected, only a single output interval per model component is allowed for the whole experiment
+  \item The list of variables is configurabe via \texttt{output\_nml} like the regular instantaneous
+  \item There can be multiple mean values intervals for the same variable, but only one interval per file
+  \item 2d and 3d Variables are supported
+  \item output is limited to model level
+  \item nesting is not supported
+  \item GRIB output is not supported
   \item Output interval has to be a divisor of the restart interval, because the intermediate accumulation results are not saved
   \item The output for the initial timestep of the time mean variables is zero.
 \end{itemize}
-
-\paragraph{Testing Time mean:}
-There are 3 tests prepared for checking the correctness all based on the amip setup: \texttt{exp.atm\_amip\_acc\_dtime}, \texttt{exp.atm\_amip\_acc\_2dtime} \texttt{exp.atm\_amip\_acc\_dtime\_sp}, which are all located in \texttt{run/checksuite.icon-dev/timeMean}. All of them have a runtime of 80 minutes with timestep \texttt{dtime} = 20min:
-\begin{itemize}
-  \item \texttt{exp.atm\_amip\_acc\_dtime\_sp}: This test has output for time mean variables and their instantanious counterparts versions each time step. It uses the default single precision for output.
-  \item \texttt{exp.atm\_amip\_acc\_dtime}: Same as above, but with double precision output
-  \item \texttt{exp.atm\_amip\_acc\_2dtime}: Same as double precision, but with output every second timestep
-\end{itemize}
-
-To get binary identical data for online and offline computed mean values, double precision \emph{has} to be used for output and for IO-related MPI communication. In order get the latter activated the variable \texttt{use\_dp\_mpi2io} from the \texttt{parallel\_nml} has to be set to \texttt{TRUE}.\\
-The testing is splitted into 2 steps. The first should ensure, that the output of the instantanious variables is identical to the output if the same variables averaged over one timestep. This can be done with \texttt{exp.atm\_amip\_acc\_dtime\_sp}. The values of the variable pairs should be identical in the output file:
-\begin{table}[h]
-  \resizebox{\textwidth}{!}{%
-\begin{tabular}{l|llllllllllllllllllllllll|}
-  \hline
-  \textbf{time mean} & cosmu0\_m & flxdwswtoa\_m & aclcov\_m & rsfl\_m & rsfc\_m & ssfl\_m & ssfc\_m & totprec\_m & qvi\_m & xlvi\_m & xivi\_m & \\
-  \textbf{instant} & cosmu0 & rsdt & clt & prlr & prcr & prls & prcs & pr & prw & cllvi & clivi \\
-  \hline
-  \textbf{time mean} & swflxsfc\_m & swflxtoa\_m & lwflxsfc\_m & lwflxtoa\_m & tsfc\_m & evap\_m & lhflx\_m & shflx\_m & u\_stress\_m & v\_stress\_m \\
-  \textbf{instant} & rsns & rsnt & rlns & rlnt & ts & evspsbl & hfls & hfss & tauu & tauv \\
-  \hline
-  \textbf{time mean} & xlvi\_m & xivi\_m & swflxsfc\_m & swflxtoa\_m & lwflxsfc\_m & lwflxtoa\_m & tsfc\_m & evap\_m & lhflx\_m & shflx\_m \\
-  \textbf{instant}   &  cllvi & clivi & rsns & rsnt & rlns & rlnt & ts & evspsbl & hfls & hfss \\
-  \hline
-  \textbf{time mean} & qc\_m & qv\_m & qi\_m \\
-  \textbf{instant}   & clw & hus & cli \\
-  \hline
-  \textbf{time mean} & u\_m & v\_m & temp\_m & pres\_sfc\_m & pres\_msl\_m & z\_mc\_m & rho\_m \\
-  \textbf{instant}   & ua & va & ta &  ps & psl & zg & rho \\
-  \hline
-\end{tabular}}
-\end{table}
-The shell script \texttt{exp.check\_timemean\_01} can be used for this purpose.
-
-The second check compares online and offline computations. Therefor both \texttt{exp.atm\_amip\_acc\_dtime} and \texttt{exp.atm\_amip\_acc\_2dtime} has to be run. For all variables in the \textbf{time mean} group, the values of the \texttt{exp.atm\_amip\_acc\_2dtime} experiment have to be equal to the mean values of the corresponding variables and timesteps in the results of \texttt{exp.atm\_amip\_acc\_dtime}.\\For example the time mean of timesteps 2 and 3 from \texttt{exp.atm\_amip\_acc\_dtime} should have no difference to timestep 2 of \texttt{exp.atm\_amip\_acc\_2dtime}. \texttt{exp.check\_timemean\_02} executes this check.
 
 \paragraph{Example Usage}
 
@@ -538,8 +506,11 @@ For getting 6-hourly averaged output, two namelist variable of \texttt{output\_n
 
 \begin{itemize}
   \item \texttt{output\_interval = "PT06H"}
-  \item \texttt{ml\_varlist} should contain the desired list of variables e.g. \texttt{ 'u\_m', 'v\_m', 'qv\_m', 'rho\_m', 'temp\_m', 'xlvi\_m', 'cosmu0\_m'} or \texttt{'group:prog\_timemean','group:echam\_timemean'}
+  \item \texttt{operation = "mean"}
 \end{itemize}
+
+If daily mean values should be created in addition, a new \texttt{output\_nml} has to be defined for a new output file with
+\texttt{output\_interval = "P1D"}.
 
 
 \subsection*{Discussion}
@@ -549,5 +520,4 @@ Document last edited by \textit{S Gruber} on \textit{08-01-2014}\\
 Document last edited by \textit{B Vogel} on \textit{27-05-2014}\\
 Document last edited by \textit{B Vogel} on \textit{30-06-2014}\\
 Document last edited by \textit{\ram} on \textit{26-03-2015}\\
-
-
+Document last edited by \textit{\ram} on \textit{07-02-2017}\\

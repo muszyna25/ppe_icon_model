@@ -25,7 +25,6 @@ MODULE mo_interface_echam_ocean
   USE mo_kind                ,ONLY: wp
   USE mo_model_domain        ,ONLY: t_patch
   USE mo_echam_phy_memory    ,ONLY: prm_field
-  USE mo_echam_phy_config    ,ONLY: echam_phy_config
                                 
   USE mo_parallel_config     ,ONLY: nproma
   
@@ -56,7 +55,6 @@ MODULE mo_interface_echam_ocean
   USE mo_model_domain        ,ONLY: t_patch
 
   USE mo_exception           ,ONLY: warning, finish
-  USE mo_output_event_types  ,ONLY: t_sim_step_info
 
   USE mo_yac_finterface      ,ONLY: yac_fput, yac_fget,                          &
     &                               yac_fget_nbr_fields, yac_fget_field_ids,     &
@@ -87,7 +85,6 @@ MODULE mo_interface_echam_ocean
   INTEGER, SAVE         :: nbr_inner_cells
 
   CHARACTER(len=12)     :: str_module    = 'InterFaceOce'  ! Output of module for 1 line debug
-  INTEGER               :: idt_src       = 1               ! Level of detail for 1 line debug
 
 CONTAINS
 

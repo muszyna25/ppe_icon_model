@@ -26,6 +26,7 @@
 MODULE mo_initicon_types
 
   USE mo_kind,                 ONLY: wp
+  USE mo_impl_constants,       ONLY: SUCCESS
   USE mo_var_metadata_types,   ONLY: VARNAME_LEN
   USE mo_dictionary,           ONLY: t_dictionary
   USE mo_ifs_coord,            ONLY: t_vct
@@ -48,7 +49,6 @@ MODULE mo_initicon_types
   PUBLIC :: t_saveinit_state ! state for saving initial state for double IAU runs
   PUBLIC :: geop_ml_var, alb_snow_var
   PUBLIC :: ana_varnames_dict
-
 
 
   ! atmospheric input variables
@@ -236,7 +236,6 @@ MODULE mo_initicon_types
 
 
 CONTAINS
-
 
   ! FINALIZE ROUTINES
 

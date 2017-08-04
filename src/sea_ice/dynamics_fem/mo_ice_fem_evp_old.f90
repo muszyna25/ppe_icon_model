@@ -11,31 +11,28 @@
 !
 !
 ! Vladimir: added omp parallelization; rhs_a, rhs_m, rhs_mis are precalculated now
-! The "original" AWI version of this solver is available in mo_ice_evp_old
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
 !============================================================================
-module mo_ice_evp
+module mo_ice_fem_evp_old
   !
   ! Arrays defined here are used to keep mesh information
   !
-  use mo_ice_elements
-  use mo_ice_mesh
-  use mo_ice
-  use mo_ice_parsup
+  use mo_ice_fem_mesh
+  use mo_ice_fem_types
 
   USE mo_kind,    ONLY: wp
 
   IMPLICIT NONE
 
-  PUBLIC :: init_evp_solver_coeffs
-  PUBLIC :: EVPdynamics
+  PUBLIC :: init_evp_solver_coeffs_old
+  PUBLIC :: EVPdynamics_old
 
-  PRIVATE :: stress_tensor
-  PRIVATE :: stress2rhs
-  PRIVATE :: precalc4rhs
-  PRIVATE :: index_si_elements
+  PRIVATE :: stress_tensor_old
+  PRIVATE :: stress2rhs_old
+  PRIVATE :: precalc4rhs_old
+  PRIVATE :: index_si_elements_old
 
   PRIVATE
   ! some aggregated parameters used in the EVP solver
@@ -47,8 +44,8 @@ CONTAINS
 
 !===================================================================
 
-subroutine index_si_elements
-! Replaces "if" checking of whether sea ice is actually present in a given cell/node
+subroutine index_si_elements_old
+! Replaces ifs checking if sea ice is actually present in a given cell/node
 
     IMPLICIT NONE
     INTEGER :: elem,row, elnodes(3), i
@@ -95,10 +92,10 @@ subroutine index_si_elements
     allocate(si_idx_elem(si_elem2D))
     si_idx_elem=buffy_array(1:si_elem2D)
 
-end subroutine index_si_elements
+end subroutine index_si_elements_old
 !===================================================================
 
-subroutine precalc4rhs
+subroutine precalc4rhs_old
 ! Some of the quantities used in the solver do not change
 ! with the subcycles. Hence, can be precalculated and stored.
 ! Those are rhs_a, rhs_m, mass
@@ -106,82 +103,71 @@ subroutine precalc4rhs
   use mo_physical_constants,  ONLY: rhoi, rhos
 
 IMPLICIT NONE
-INTEGER      :: row, elem, elnodes(3), nodels(6), k, i
+INTEGER      :: row, elem, elnodes(3), k, i!, nodels(6)
 REAL(wp) :: mass, aa
-REAL(wp) :: cluster_area,elevation_elem(3),dx(3),dy(3)
-REAL(wp) :: da(myDim_elem2D), dm(myDim_elem2D) ! temp storage for element-wise contributions from SSH
+REAL(wp) :: cluster_area,elevation_elem(3)
+REAL(wp) :: dx(3), dy(3), da, dm
 
-!ICON_OMP_PARALLEL
-
-!ICON_OMP_DO PRIVATE(i,row) SCHEDULE(static,4)
  DO i=1, myDim_nod2D
      row=myList_nod2D(i)
      rhs_a(row)=0.0_wp    ! these are used as temporal storage here
      rhs_m(row)=0.0_wp    ! for the contribution due to ssh
      rhs_mis(row)=0.0_wp
-
-     rhs_u(row)=0.0_wp    ! these will be reinitialized at every subcycling iteration for non-ice-free nodes
-     rhs_v(row)=0.0_wp    ! but fill all nodal vals with zeros here as well
  END DO
-!ICON_OMP_END_DO
 
-!ICON_OMP_DO PRIVATE(i,elem) SCHEDULE(static,4)
- DO i=1, myDim_elem2D
-     elem=myList_elem2D(i)
-     da(elem)=0.0_wp    ! initialize
-     dm(elem)=0.0_wp    !
- END DO
-!ICON_OMP_END_DO
-
-!ICON_OMP_DO PRIVATE(i,elem,elnodes,aa,dx,dy,elevation_elem) SCHEDULE(static,4)
-DO i=1,si_elem2D
+! omp parallelization not possible when looping over elements and updating vertices
+ DO i=1,si_elem2D
      elem=si_idx_elem(i)
      elnodes=elem2D_nodes(:,elem)
 
+      ! Vladimir: this check is no longer needed. si_idx_elem contains only indices of elements with ice
+      ! ===== Skip if ice is absent
+!     aa=product(m_ice(elnodes))*product(a_ice(elnodes))
+!     if (aa==0._wp) CYCLE
+      ! =====
      dx=bafux(:,elem)
      dy=bafuy(:,elem)
      elevation_elem=elevation(elnodes)
 
      ! use rhs_m and rhs_a for storing the contribution from elevation:
      aa=9.81_wp*voltriangle(elem)/3.0_wp
-     da(elem)=-aa*sum(dx*elevation_elem)
-     dm(elem)=-aa*sum(dy*elevation_elem)
- end do
-!ICON_OMP_END_DO
+     da=-aa*sum(dx*elevation_elem)
+     dm=-aa*sum(dy*elevation_elem)
 
-!ICON_OMP_DO  PRIVATE(i,row,nodels,k,elem)  SCHEDULE(static,4)
- DO i=1,si_nod2D
-    row=si_idx_nodes(i)
-    nodels=nod2D_elems(:,row)
-
-     DO k=1,6
-        elem=nodels(k)
-        IF (elem > 0) THEN
-         ! use rhs_m and rhs_a for storing the contribution from elevation:
-        rhs_a(row)=rhs_a(row)+da(elem)
-        rhs_m(row)=rhs_m(row)+dm(elem)
-        END IF
+     DO k=1,3
+        row=elnodes(k)
+        rhs_a(row)=rhs_a(row)+da
+        rhs_m(row)=rhs_m(row)+dm
      END DO
-END DO
-!ICON_OMP_END_DO
+!     DO k=1,3
+!        row=elnodes(k)
+!        rhs_a(row)=rhs_a(row)-aa*sum(dx*elevation_elem)
+!        rhs_m(row)=rhs_m(row)-aa*sum(dy*elevation_elem)
+!     END DO
+ end do
 
-!ICON_OMP_DO  PRIVATE(i,row,cluster_area,mass) SCHEDULE(static,4)
+!ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) SCHEDULE(static)
   DO i=1,si_nod2D
      row=si_idx_nodes(i)
      cluster_area=lmass_matrix(row)
      mass=cluster_area*(m_ice(row)*rhoi+m_snow(row)*rhos)
 
+!     if (mass.ne.0._wp) then           !Vladimir: already taken care of at the initialization step
      rhs_a(row) = rhs_a(row)/cluster_area
      rhs_m(row) = rhs_m(row)/cluster_area
      rhs_mis(row) = mass
+!     else
+!     rhs_u(row)=0._wp
+!     rhs_v(row)=0._wp
+!     rhs_mis(row)=0._wp
+!     end if
   END DO
-!ICON_OMP_END_DO
-!ICON_OMP_END_PARALLEL
+!ICON_OMP_END_PARALLEL_DO
 
-end subroutine precalc4rhs
+end subroutine precalc4rhs_old
 !===================================================================
 
-subroutine init_evp_solver_coeffs
+subroutine init_evp_solver_coeffs_old
 ! Calculates coefficients which are used for calculations in stress_tensor
 ! Called once during the initialization step at ice_init_fem
 
@@ -204,10 +190,10 @@ subroutine init_evp_solver_coeffs
   ax=cos(theta_io)
   ay=sin(theta_io)
 
-end subroutine init_evp_solver_coeffs
+end subroutine init_evp_solver_coeffs_old
 !===================================================================
 
-subroutine stress_tensor(elem)
+subroutine stress_tensor_old(elem)
 ! EVP rheology implementation. Computes stress tensor components based on ice 
 ! velocity field. They are stored as elemental arrays (sigma11, sigma22 and
 ! sigma12). 
@@ -229,11 +215,16 @@ implicit none
 ! differentiation of metrics. 
 
      elnodes=elem2D_nodes(:,elem)
-
+      ! Vladimir: this check is no longer needed. si_idx_elem contains only indices of elements with ice
+!      ! ===== Check if there is ice on elem
+!        aa=product(m_ice(elnodes))*product(a_ice(elnodes))
+!        if (aa==0._wp) CYCLE     ! There is no ice in elem
+!      ! =====
      dx=bafux(:,elem)
      dy=bafuy(:,elem)
 
-!    meancos=sin_elem2D(elem)/cos_elem2D(elem)/earth_radius !is precalculated and stored as metrics_elem2D(elem)
+!    precalculated as metrics_elem2D(elem)
+!     meancos=sin_elem2D(elem)/cos_elem2D(elem)/earth_radius  !metrics
      vsum=sum(v_ice(elnodes))                           !metrics   
      usum=sum(u_ice(elnodes))                           !metrics
 
@@ -292,54 +283,78 @@ implicit none
      sigma11(elem)=0.5_wp*(si1+si2)
      sigma22(elem)=0.5_wp*(si1-si2)
    
-end subroutine stress_tensor
+end subroutine stress_tensor_old
 
 !===================================================================
-subroutine stress2rhs(row)
+subroutine stress2rhs_old
 ! EVP implementation:
 ! Computes the divergence of stress tensor and puts the result into the
 ! rhs vectors 
 
 IMPLICIT NONE
+INTEGER  :: row, elem, elnodes(3), k, i
+!REAL(wp) :: mass, aa
+!REAL(wp) :: cluster_area,elevation_elem(3)
+REAL(wp) :: dx(3), dy(3)
 
-INTEGER  :: row, elem, nodels(6), k
-REAL(wp) :: dx(6), dy(6)
-
-     nodels=nod2D_elems(:,row)
-
-     dx=bafux_nod(:,row)
-     dy=bafuy_nod(:,row)
-
-     ! initialize
+! initialize
+ DO i=1, myDim_nod2D
+     row=myList_nod2D(i)
      rhs_u(row)=0.0_wp
      rhs_v(row)=0.0_wp
+     ! Vladimir: now done in precalc4rhs_omp
+!     rhs_a(row)=0.0_wp    ! these are used as temporal storage here
+!     rhs_m(row)=0.0_wp    ! for the contribution due to ssh
+ END DO
 
-     DO k=1,6
-        elem=nodels(k)
-        IF (elem > 0) THEN
+! omp parallelization not possible when looping over elements and updating vertices
+ DO i=1,si_elem2D
+     elem=si_idx_elem(i)
+     elnodes=elem2D_nodes(:,elem)
+     ! Vladimir: this check is no longer needed. si_idx_elem contains only indices of elements with ice
+!      ! ===== Skip if ice is absent
+!     aa=product(m_ice(elnodes))*product(a_ice(elnodes))
+!     if (aa==0._wp) CYCLE
+!      ! =====
 
+     dx=bafux(:,elem)
+     dy=bafuy(:,elem)
+!     elevation_elem=elevation(elnodes)
+     
+     DO k=1,3
+        row=elnodes(k)
         rhs_u(row)=rhs_u(row) - voltriangle(elem) * &
              (sigma11(elem)*dx(k)+sigma12(elem)*(dy(k)) &
              +sigma12(elem)*val3*metrics_elem2D(elem))                          !metrics
         rhs_v(row)=rhs_v(row) - voltriangle(elem) * &
-             (sigma12(elem)*dx(k)+sigma22(elem)*dy(k) &
+             (sigma12(elem)*dx(k)+sigma22(elem)*dy(k) &   
              -sigma11(elem)*val3*metrics_elem2D(elem))
-        END IF
      END DO
+ END DO
 
-     !  Vladimir: rhs_a and rhs_m are calculated in precalc4rhs
-     rhs_u(row)=rhs_u(row)/rhs_mis(row) + rhs_a(row)
-     rhs_v(row)=rhs_v(row)/rhs_mis(row) + rhs_m(row)
+!ICON_OMP_PARALLEL_DO PRIVATE(i,row) SCHEDULE(static)
+  DO i=1,si_nod2D
+     row=si_idx_nodes(i)
 
-end subroutine stress2rhs
+!     if (rhs_mis(row).ne.0._wp) then           !Vladimir: already taken care of at the initialization step
+      rhs_u(row)=rhs_u(row)/rhs_mis(row) + rhs_a(row)
+      rhs_v(row)=rhs_v(row)/rhs_mis(row) + rhs_m(row)
+!     else
+!     rhs_u(row)=0._wp
+!     rhs_v(row)=0._wp
+!     rhs_mis(row)=0._wp
+!     end if
+  END DO
+!ICON_OMP_END_PARALLE_DO
+
+end subroutine stress2rhs_old
 !===================================================================
 
-subroutine EVPdynamics
+subroutine EVPdynamics_old
 ! EVP implementation. Does cybcycling and boundary conditions.  
   USE mo_sea_ice_nml,           ONLY: evp_rheol_steps
   USE mo_physical_constants,    ONLY: rhoi, rhos, Cd_io, rho_ref
-
-  USE mo_ice_fem_init,         ONLY: exchange_nod2D
+  USE mo_ice_fem_icon_init,     ONLY: exchange_nod2D
 
 IMPLICIT NONE
 integer     :: shortstep
@@ -347,9 +362,9 @@ REAL(wp)    ::  drag, inv_mass, det, umod, rhsu, rhsv
 integer     ::  i,j
 
 ! index elements/nodes where sea ice is present for faster loops
-    call index_si_elements
+    call index_si_elements_old
 ! precalculate several arrays that do not change during subcycling
-    call precalc4rhs
+    call precalc4rhs_old
 
  DO shortstep=1, evp_rheol_steps
      ! ===== Boundary conditions
@@ -361,22 +376,24 @@ integer     ::  i,j
         end if
      end do
 
-!ICON_OMP_PARALLEL
-!ICON_OMP_DO        PRIVATE(i)  SCHEDULE(static,4)
-     DO i=1,si_elem2D
-        call stress_tensor(si_idx_elem(i))
-     ENDDO
-!ICON_OMP_END_DO
+!ICON_OMP_PARALLEL_DO PRIVATE(i) ICON_OMP_DEFAULT_SCHEDULE
+    DO i=1,si_elem2D
+        call stress_tensor_old(si_idx_elem(i))
+    ENDDO
+!ICON_OMP_END_PARALLEL_DO
 
-!ICON_OMP_DO        PRIVATE(i) ICON_OMP_DEFAULT_SCHEDULE
-     DO i=1,si_nod2D
-         call stress2rhs(si_idx_nodes(i))
-     END DO
-!ICON_OMP_END_DO
+     !write(*,*) 'stress', maxval(sigma11), minval(sigma11)
+     !if(shortstep<3) write(*,*) 'stress ', &
+     !minval(sigma11(myList_elem2D(1:myDim_elem2D)))
 
-!ICON_OMP_DO        PRIVATE(j,i,inv_mass,umod,drag,rhsu,rhsv,det) ICON_OMP_DEFAULT_SCHEDULE
-     DO j=1,si_nod2D
-        i=si_idx_nodes(j)
+     call stress2rhs_old
+      !write(*,*) 'rhs', maxval(rhs_u), minval(rhs_v)
+      !if(shortstep<3)  write(*,*) 'rhs  ', &
+      !   maxval(rhs_u(myList_nod2D(1:myDim_nod2D)))
+
+!ICON_OMP_PARALLEL_DO PRIVATE(j,i,inv_mass,umod,drag,rhsu,rhsv,det) ICON_OMP_DEFAULT_SCHEDULE
+     do j=1,myDim_nod2D
+        i=myList_nod2D(j)
       if (index_nod2D(i)>0) CYCLE          ! Skip boundary nodes
       if (a_ice(i) > 0.01_wp) then             ! If ice is present, update velocities
        inv_mass=(rhoi*m_ice(i)+rhos*m_snow(i))/a_ice(i)
@@ -399,14 +416,13 @@ integer     ::  i,j
       ! v_ice(i)=v_w(i)
        end if
      end do
-!ICON_OMP_END_DO
-!ICON_OMP_END_PARALLEL
+!ICON_OMP_END_PARALLEL_DO
 
      call exchange_nod2D(u_ice)
      call exchange_nod2D(v_ice)
  END DO
 
-end subroutine EVPdynamics
+end subroutine EVPdynamics_old
 !===================================================================
 
-end module mo_ice_evp
+end module mo_ice_fem_evp_old

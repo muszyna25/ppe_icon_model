@@ -15,6 +15,7 @@ listname=icon-dev
 # AES
 # add amip tests to all builders
 $addexp "checksuite.icon-dev/check.atm_amip*" --list $listname
+$addexp "checksuite.icon-dev/check.atm_heldsuarez" --list $listname
 
 #-----------------------------------------------------------
 # OES

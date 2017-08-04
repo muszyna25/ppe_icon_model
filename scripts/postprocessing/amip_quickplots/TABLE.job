@@ -11,21 +11,19 @@ YY1=$4
 #
 YY2=$5
 #
-WORKDIR=$6
+DATDIR=$6
 #
 #
 
+echo TYP path $TYP
+echo DIR path $DATDIR
 echo QUELLE path $QUELLE
 echo PLTDIR path $PLTDIR
 
 
-case `hostname` in
-  mlogin*|mistral*) CDO=/pf/m/m214003/local/bin/cdo ;;
-  *)               CDO=/home/zmaw/m214003/local/thunder/bin/cdo  ;;
-esac
 
 atm_phy=busy_atm_phy
-cdo copy ${WORKDIR}/atm_2d_${NAME} $atm_phy
+cdo copy ${DATDIR}/${NAME}_atm_2d_ml.nc $atm_phy
 
 #
 #----rlnt   longwave, net, top (net=down-up) code179
