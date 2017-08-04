@@ -955,7 +955,7 @@ if [[ "x$use_messy" = xyes ]] ; then
 fi
 
 if [[ "x$use_art" = xyes ]] ; then
-    ART_FFLAGS="${DEFOPT}__ICON_ART"
+    ART_FFLAGS="${DEFOPT}__ICON_ART -${DEFOPT}__ART_TMP_IFDEF -lxml2"
     FFLAGS="${FFLAGS} ${ART_FFLAGS}"
     # ATTENTION: only temporary until chemistry part of ICON-ART is Fortran 2003 conform !!!
     if [[ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ]] ; then

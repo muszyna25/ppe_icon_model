@@ -169,7 +169,6 @@ case "$fortran_compiler" in
         FCLIBS      = 
         GEN_FLAGS   =
         FDEBUG      = -g -R abc
-        ART_FFLAGS  = -D__ART_TMP_IFDEF
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
@@ -302,11 +301,11 @@ case "$ac_sitename" in
                       load_modules    = PrgEnv-cray grib_api cray-netcdf/4.3.2 atp ${load_modules}
                       RTTOV_LIBS      = -L/usr/local/pkg/for0adm/lib -L/usr/local/pkg/for0adm/lib/unsupported -lradiance -lrttov10.2 -lhrit_tools
                       OTHER_LIBS      = $RTTOV_LIBS $OTHER_LIBS
-                      case "$with_art" in
-                           yes)
-                             OTHER_LIBS = ${OTHER_LIBS} -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
-                             ;;
-                      esac
+                     # case "$with_art" in
+                     #      yes)
+                     #        OTHER_LIBS = ${OTHER_LIBS} -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
+                     #        ;;
+                     # esac
                       STD_FLAGS       = -D__USE_RTTOV -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
                       FFLAGS          = ${FFLAGS} -I/usr/local/pkg/for0adm/include/radiance
                       GRIBAPIROOT     = ${GRIB_API}
@@ -316,11 +315,11 @@ case "$ac_sitename" in
                       FFLAGS          = ${FFLAGS}
                       GRIBAPIROOT     = ${GRIB_API}
                       OTHER_LIBS      = $OTHER_LIBS
-                      case "$with_art" in
-                           yes)
-                             OTHER_LIBS = ${OTHER_LIBS} -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
-                             ;;
-                      esac
+                     # case "$with_art" in
+                     #      yes)
+                     #        OTHER_LIBS = ${OTHER_LIBS} -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
+                     #        ;;
+                     # esac
                       ;;
                 esac
                 ;;
@@ -602,11 +601,11 @@ case "$ac_sitename" in
                MPIROOT     = /pfs/imk/ICON/LIBRARIES_IFORT16
                GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
                MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
-               case "$with_art" in
-                    yes)
-                      OTHER_LIBS = ${OTHER_LIBS} -lxml2
-                      ;;
-               esac
+              # case "$with_art" in
+              #      yes)
+              #        OTHER_LIBS = ${OTHER_LIBS} -lxml2
+              #        ;;
+              # esac
                CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
                config_target=ic2
                make_command=make -j8
