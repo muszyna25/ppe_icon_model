@@ -128,7 +128,8 @@ MODULE mo_name_list_output
     &                                     p_max
   ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime, OPERATOR(-),   &
-    &                                     timedelta, newTimedelta, deallocateTimedelta
+    &                                     timedelta, newTimedelta, deallocateTimedelta,             &
+    &                                     MAX_DATETIME_STR_LEN
   ! output scheduling
   USE mo_output_event_handler,      ONLY: is_output_step, check_open_file, check_close_file,        &
     &                                     pass_output_step, get_current_filename,                   &
@@ -612,6 +613,7 @@ CONTAINS
     TYPE(timedelta), POINTER            :: forecast_delta
     INTEGER                             :: iunit
     TYPE (t_keyword_list), POINTER      :: keywords     => NULL()
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
 
     ! compute current forecast time (delta):
     mtime_date     => newDatetime(TRIM(get_current_date(ev)))
@@ -628,6 +630,12 @@ CONTAINS
     CALL associate_keyword("<path>",            TRIM(getModelBaseDir()),         keywords)
     CALL associate_keyword("<datetime>",        TRIM(get_current_date(ev)),      keywords)
     CALL associate_keyword("<ddhhmmss>",        TRIM(forecast_delta_str),        keywords)
+
+    WRITE (dtime_string,'(i4.4,2(i2.2),a,3(i2.2),a)')                                                 &
+      &                      mtime_date%date%year, mtime_date%date%month, mtime_date%date%day, 'T',   &
+      &                      mtime_date%time%hour, mtime_date%time%minute, mtime_date%time%second, 'Z'
+    CALL associate_keyword("<datetime2>",       TRIM(dtime_string),              keywords)
+
     rdy_filename = TRIM(with_keywords(keywords, ev%output_event%event_data%name))
 
     IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
