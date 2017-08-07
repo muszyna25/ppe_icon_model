@@ -300,12 +300,9 @@ CONTAINS
       INTEGER :: idx
       CHARACTER(len=*), INTENT(in)  :: instring ,delim
       CHARACTER(len=*), INTENT(out) :: string1
-      CHARACTER(len=256) :: tmp_string
 
-      tmp_string = TRIM(instring)
-
-      idx = INDEX(tmp_string, delim)
-      string1 = tmp_string(1:idx-1)
+      idx = INDEX(instring, delim)
+      string1 = instring(1:idx-1)
 
     END FUNCTION split_output_filename
 
