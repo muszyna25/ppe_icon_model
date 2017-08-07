@@ -22,6 +22,7 @@ MODULE mo_restart_file
     USE mo_restart_patch_description, ONLY: t_restart_patch_description
     USE mo_restart_util,              ONLY: getRestartFilename, t_restart_args
     USE mo_restart_var_data,          ONLY: t_RestartVarData, has_valid_time_level
+    USE mo_timer,                     ONLY: timer_start, timer_stop, timer_write_restart_io, timers_level
     USE mtime,                        ONLY: datetimeToString, MAX_DATETIME_STR_LEN
 
     IMPLICIT NONE
@@ -75,8 +76,7 @@ CONTAINS
                 CALL finish(routine, "file format for restart variables must be NetCDF")
         END SELECT
 
-        me%filename = getRestartFilename(description%base_filename, description%id, restart_args%restart_datetime, &
-                                        &TRIM(restart_args%modelType))
+        me%filename = getRestartFilename(description%base_filename, description%id, restart_args)
 
         IF(ALLOCATED(description%opt_pvct)) THEN
             CALL me%cdiIds%openRestartAndCreateIds(TRIM(me%filename), restartType, description%n_patch_cells_g, &
@@ -101,7 +101,11 @@ CONTAINS
         ! go over the all restart variables in the associated array AND define those that have a valid time level
         DO i = 1, SIZE(varData)
             IF(has_valid_time_level(varData(i)%info, description%id, description%nnew, description%nnew_rcf)) THEN
-                CALL me%cdiIds%defineVariable(varData(i)%info)
+                IF(varData(i)%isDoublePrecision()) THEN
+                    CALL me%cdiIds%defineVariable(varData(i)%info)
+                ELSE
+                    CALL me%cdiIds%defineVariable(varData(i)%info)
+                END IF
             END IF
         ENDDO
 
@@ -113,16 +117,20 @@ CONTAINS
         INTEGER, VALUE :: varId, levelId
         REAL(dp), INTENT(IN) :: data(:)
 
+        IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
         CALL streamWriteVarSlice(me%cdiIds%file, varId, levelId, data, 0)
-      END SUBROUTINE restartFile_writeLevel_r
+        IF(timers_level >= 7) CALL timer_stop(timer_write_restart_io)
+    END SUBROUTINE restartFile_writeLevel_r
 
     SUBROUTINE restartFile_writeLevel_s(me, varId, levelId, data)
         CLASS(t_RestartFile), INTENT(IN) :: me
         INTEGER, VALUE :: varId, levelId
         REAL(sp), INTENT(IN) :: data(:)
 
+        IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
         CALL streamWriteVarSliceF(me%cdiIds%file, varId, levelId, data, 0)
-      END SUBROUTINE restartFile_writeLevel_s
+        IF(timers_level >= 7) CALL timer_stop(timer_write_restart_io)
+    END SUBROUTINE restartFile_writeLevel_s
 
     !------------------------------------------------------------------------------------------------
     !

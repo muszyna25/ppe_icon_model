@@ -668,10 +668,10 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   !! Print out given  min, mean and max
-  SUBROUTINE debug_printValue( description, value, value1, value2, detail_level )
+  SUBROUTINE debug_printValue( description, val, value1, value2, detail_level )
 
     CHARACTER(LEN=*),      INTENT(in) :: description    
-    REAL(wp),              INTENT(in) :: value           
+    REAL(wp),              INTENT(in) :: val
     REAL(wp), OPTIONAL,    INTENT(in) :: value1, value2    
     INTEGER,               INTENT(in) :: detail_level    
 
@@ -685,11 +685,11 @@ CONTAINS
     IF (.NOT. my_process_is_stdio()) RETURN
 
     IF (PRESENT(value2)) THEN
-       WRITE(nerr,*) TRIM(description), ": ", value, value1, value2
+       WRITE(nerr,*) TRIM(description), ": ", val, value1, value2
     ELSEIF (PRESENT(value1)) THEN
-       WRITE(nerr,*) TRIM(description), ": ", value, value1
+       WRITE(nerr,*) TRIM(description), ": ", val, value1
     ELSE
-       WRITE(nerr,*) TRIM(description), ": ", value
+       WRITE(nerr,*) TRIM(description), ": ", val
     ENDIF
 
   END SUBROUTINE debug_printValue

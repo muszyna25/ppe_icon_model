@@ -40,7 +40,8 @@ MODULE mo_nwp_sfc_interface
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ibot_w_so, ntiles_total,    &
     &                               ntiles_water, lseaice, llake, lmulti_snow,        &
     &                               ntiles_lnd, lsnowtile, isub_water, isub_seaice,   &
-    &                               isub_lake, itype_interception, l2lay_rho_snow
+    &                               isub_lake, itype_interception, l2lay_rho_snow,    &
+    &                               lprog_albsi
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
@@ -352,24 +353,31 @@ CONTAINS
              ! Snow and rain fall onto snow-covered tile surface only, 
              ! if 
              ! 1) the corresponding snow tile already exists and 
-             ! 2) the temperature of snow-free tile is below freezing point.
+             ! 2) the temperature of snow-free tile is below freezing point (with transition zone between 0 and 1 deg C).
              ! If the temperature of snow-free tile is above freezing point,
              ! precipitation over it will be processed by this tile itself (no snow is created).
              ! If there is no snow tile so far at all, precipitation falls on the snow-free tile,
              ! and the snow tile will be created after TERRA.
              !
-             ! DR after discussion with Ekaterina, changed from '>' to '<='
-             IF(lnd_prog_now%t_snow_t(jc,jb,isubs) <= tmelt) THEN
-               rain_gsp_rate(jc,isubs)    = 0._wp
-               snow_gsp_rate(jc,isubs)    = 0._wp
-               rain_con_rate(jc,isubs)    = 0._wp
-               snow_con_rate(jc,isubs)    = 0._wp
-               graupel_gsp_rate(jc,isubs) = 0._wp
-               rain_gsp_rate(jc,isubs_snow)    = rain_gsp_rate(jc,isubs_snow)/MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.05_wp)
-               snow_gsp_rate(jc,isubs_snow)    = snow_gsp_rate(jc,isubs_snow)/MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.05_wp)
-               rain_con_rate(jc,isubs_snow)    = rain_con_rate(jc,isubs_snow)/MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.05_wp)
-               snow_con_rate(jc,isubs_snow)    = snow_con_rate(jc,isubs_snow)/MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.05_wp)
-               graupel_gsp_rate(jc,isubs_snow) = graupel_gsp_rate(jc,isubs_snow)/MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.05_wp)
+             IF (lnd_diag%snowfrac_lc_t(jc,jb,isubs) < 1._wp .AND. lnd_prog_now%t_snow_t(jc,jb,isubs) < tmelt+1._wp) THEN
+
+               ! transition factor to avoid discontinuity at freezing point of soil in snow-free tile
+               tmp3 = tmelt + 1._wp - MAX(tmelt,lnd_prog_now%t_snow_t(jc,jb,isubs))
+               ! enhancement factor in snow tile
+               tmp1 = MAX(1._wp,tmp3/MAX(lnd_diag%snowfrac_lc_t(jc,jb,isubs),0.01_wp))
+               ! factor for snow-free tile to ensure that no water gets lost
+               tmp2 = (1._wp-tmp1*lnd_diag%snowfrac_lc_t(jc,jb,isubs))/(1._wp-lnd_diag%snowfrac_lc_t(jc,jb,isubs))
+
+               rain_gsp_rate(jc,isubs)    = rain_gsp_rate(jc,isubs)*tmp2
+               snow_gsp_rate(jc,isubs)    = snow_gsp_rate(jc,isubs)*tmp2
+               rain_con_rate(jc,isubs)    = rain_con_rate(jc,isubs)*tmp2
+               snow_con_rate(jc,isubs)    = snow_con_rate(jc,isubs)*tmp2
+               graupel_gsp_rate(jc,isubs) = graupel_gsp_rate(jc,isubs)*tmp2
+               rain_gsp_rate(jc,isubs_snow)    = rain_gsp_rate(jc,isubs_snow)*tmp1
+               snow_gsp_rate(jc,isubs_snow)    = snow_gsp_rate(jc,isubs_snow)*tmp1
+               rain_con_rate(jc,isubs_snow)    = rain_con_rate(jc,isubs_snow)*tmp1
+               snow_con_rate(jc,isubs_snow)    = snow_con_rate(jc,isubs_snow)*tmp1
+               graupel_gsp_rate(jc,isubs_snow) = graupel_gsp_rate(jc,isubs_snow)*tmp1
              END IF
            END DO
          END DO
@@ -1115,6 +1123,10 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2012-08-31)
   !!
+  !! Modifications by Dmitrii Mironov, DWD (2016-08-08)
+  !! - Call to "seaice_timestep_nwp" is modified 
+  !!   to allow prognostic treatment of the sea-ice albedo.
+  !!
   SUBROUTINE nwp_seaice (p_patch, p_diag, prm_diag, p_prog_wtr_now,  &
     &                    p_prog_wtr_new, lnd_prog_now, lnd_prog_new, &
     &                    ext_data, p_lnd_diag, dtime)
@@ -1137,14 +1149,18 @@ CONTAINS
     REAL(wp) :: lhfl_s   (nproma)   ! latent heat flux at the surface                 [W/m^2]
     REAL(wp) :: lwflxsfc (nproma)   ! net long-wave radiation flux at the surface     [W/m^2] 
     REAL(wp) :: swflxsfc (nproma)   ! net solar radiation flux at the surface         [W/m^2]
+    REAL(wp) :: snow_rate(nproma)   ! snow rate (convecive + grid-scale)              [kg/(m^2 s)]
+    REAL(wp) :: rain_rate(nproma)   ! rain rate (convecive + grid-scale)              [kg/(m^2 s)]
     REAL(wp) :: tice_now (nproma)   ! temperature of ice upper surface at previous time  [K]
     REAL(wp) :: hice_now (nproma)   ! ice thickness at previous time level               [m]
     REAL(wp) :: tsnow_now(nproma)   ! temperature of snow upper surface at previous time [K]
     REAL(wp) :: hsnow_now(nproma)   ! snow thickness at previous time level              [m]
+    REAL(wp) :: albsi_now(nproma)   ! sea-ice albedo at previous time level              [-]
     REAL(wp) :: tice_new (nproma)   ! temperature of ice upper surface at new time       [K]
     REAL(wp) :: hice_new (nproma)   ! ice thickness at new time level                    [m]
     REAL(wp) :: tsnow_new(nproma)   ! temperature of snow upper surface at new time      [K]
     REAL(wp) :: hsnow_new(nproma)   ! snow thickness at new time level                   [m]
+    REAL(wp) :: albsi_new(nproma)   ! sea-ice albedo at new time level                   [-]
 
     ! Local array bounds:
     !
@@ -1174,9 +1190,9 @@ CONTAINS
     ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_count,ic,jc,shfl_s,lhfl_s,lwflxsfc,swflxsfc,tice_now, &
-!$OMP            hice_now,tsnow_now,hsnow_now,tice_new,hice_new,tsnow_new,  &
-!$OMP            hsnow_new) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,i_count,ic,jc,shfl_s,lhfl_s,lwflxsfc,swflxsfc,snow_rate,rain_rate, &
+!$OMP            tice_now, hice_now,tsnow_now,hsnow_now,tice_new,hice_new,tsnow_new,   &
+!$OMP            hsnow_new,albsi_now,albsi_new) ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       !
@@ -1194,10 +1210,15 @@ CONTAINS
         lhfl_s   (ic) = prm_diag%lhfl_s_t  (jc,jb,isub_seaice)   ! latent heat flux at sfc      [W/m^2]
         lwflxsfc (ic) = prm_diag%lwflxsfc_t(jc,jb,isub_seaice)   ! net lw radiation flux at sfc [W/m^2]
         swflxsfc (ic) = prm_diag%swflxsfc_t(jc,jb,isub_seaice)   ! net solar radiation flux at sfc [W/m^2]
+        snow_rate(ic) = prm_diag%snow_gsp_rate(jc,jb)  &         ! snow rate (convecive + grid-scale) [kg/(m^2 s)]
+          &           + prm_diag%snow_con_rate(jc,jb)
+        rain_rate(ic) = prm_diag%rain_gsp_rate(jc,jb)  &         !  rain rate (convecive + grid-scale) [kg/(m^2 s)]
+          &           + prm_diag%rain_con_rate(jc,jb)
         tice_now (ic) = p_prog_wtr_now%t_ice    (jc,jb)
         hice_now (ic) = p_prog_wtr_now%h_ice    (jc,jb)
         tsnow_now(ic) = p_prog_wtr_now%t_snow_si(jc,jb)
         hsnow_now(ic) = p_prog_wtr_now%h_snow_si(jc,jb)
+        albsi_now(ic) = p_prog_wtr_now%alb_si(jc,jb)             ! sea-ice albedo [-]
       ENDDO  ! ic
 
 
@@ -1210,14 +1231,18 @@ CONTAINS
                             &   qlat    = lhfl_s(:),           & !in
                             &   qlwrnet = lwflxsfc(:),         & !in
                             &   qsolnet = swflxsfc(:),         & !in
+                            &   snow_rate = snow_rate(:),      & !in
+                            &   rain_rate = rain_rate(:),      & !in
                             &   tice_p  = tice_now(:),         & !in
                             &   hice_p  = hice_now(:),         & !in
                             &   tsnow_p = tsnow_now(:),        & !in    ! DUMMY: not used yet
                             &   hsnow_p = hsnow_now(:),        & !in    ! DUMMY: not used yet
+                            &   albsi_p = albsi_now(:),        & !in 
                             &   tice_n  = tice_new(:),         & !out
                             &   hice_n  = hice_new(:),         & !out
                             &   tsnow_n = tsnow_new(:),        & !out   ! DUMMY: not used yet
-                            &   hsnow_n = hsnow_new(:)         ) !out   ! DUMMY: not used yet
+                            &   hsnow_n = hsnow_new(:),        & !out   ! DUMMY: not used yet
+                            &   albsi_n = albsi_new(:)         ) !out
 ! optional arguments dticedt, dhicedt, dtsnowdt, dhsnowdt (tendencies) are neglected
 
 
@@ -1231,6 +1256,9 @@ CONTAINS
         p_prog_wtr_new%h_ice(jc,jb)     = hice_new(ic)
         p_prog_wtr_new%t_snow_si(jc,jb) = tsnow_new(ic)
         p_prog_wtr_new%h_snow_si(jc,jb) = hsnow_new(ic)
+        IF (lprog_albsi) THEN
+          p_prog_wtr_new%alb_si(jc,jb)  = albsi_new(ic)
+        ENDIF
 
         lnd_prog_new%t_g_t(jc,jb,isub_seaice) = tice_new(ic)
         ! surface saturation specific humidity (uses saturation water vapor pressure 
@@ -1251,9 +1279,12 @@ CONTAINS
         &              spi_count     = ext_data%atm%spi_count(jb),              &!inout
         &              frac_t_ice    = ext_data%atm%frac_t(:,jb,isub_seaice),   &!inout
         &              frac_t_water  = ext_data%atm%frac_t(:,jb,isub_water),    &!inout
+        &              lc_frac_t_water = ext_data%atm%lc_frac_t(:,jb,isub_water), &!inout
         &              fr_seaice     = p_lnd_diag%fr_seaice(:,jb),              &!inout
         &              hice_old      = p_prog_wtr_now%h_ice(:,jb),              &!inout
         &              tice_old      = p_prog_wtr_now%t_ice(:,jb),              &!inout
+        &              albsi_now     = p_prog_wtr_now%alb_si(:,jb),             &!inout
+        &              albsi_new     = p_prog_wtr_new%alb_si(:,jb),             &!inout
         &              t_g_t_now     = lnd_prog_now%t_g_t(:,jb,isub_water),     &!inout
         &              t_g_t_new     = lnd_prog_new%t_g_t(:,jb,isub_water),     &!inout
         &              t_s_t_now     = lnd_prog_now%t_s_t(:,jb,isub_water),     &!inout

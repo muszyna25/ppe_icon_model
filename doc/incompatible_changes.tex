@@ -328,6 +328,39 @@
   \end{itemize}
 \end{changeitem}
 
+\begin{changeitem}{initicon\_nml}{2016-12-14}{62288ed77b2975182204a2ec6fa210a3fb1ad8a7}
+  \begin{itemize}
+   \item Namelist parameters \texttt{ana\_varlist, ana\_varlist\_n2} have been renamed to \texttt{check\_ana(jg)\%list}, 
+   with jg indicating the patch ID.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{initicon\_nml}{2017-01-27}{ae1be66f}
+  \begin{itemize}
+   \item The default value of the namelist parameter
+     \texttt{num\_prefetch\_proc} has been changed to 1,
+     i.e. asynchronous read-in of lateral boundary data is now
+     enabled.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{interpol\_nml}{2017-01-31}{e1c56104}
+  \begin{itemize}
+   \item With the introduction of the namelist parameter
+     \texttt{lreduced\_nestbdry\_stencil} in the namelist
+     \texttt{interpol\_nml} the nest boundary points are no longer
+     removed from lat-lon interpolation stencil by default.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{limarea\_nml}{2017-03-14}{631b731627}
+  \begin{itemize}
+   \item The namelist parameter \texttt{nlev\_latbc} is now
+     deprecated. Information about the vertical level number is taken
+     directly from the input file.
+  \end{itemize}
+\end{changeitem}
+
 \begin{changeitem}{echam\_phy\_nml / mpi\_phy\_nml}{2017-04-19}{icon-aes:icon-aes-mag 9ecee54f69108716308029d8d7aa0296c343a3c2}
   \begin{itemize}
    \item The namelist echam\_phy\_nml is replaced by the namelist mpi\_phy\_nml, which extends the control to multiple domains and introduces time control in terms of start and end date/time [sd\_prc,ed\_prc[ and time interval dt\_prc for individual atmospheric processes \textit{prc}.

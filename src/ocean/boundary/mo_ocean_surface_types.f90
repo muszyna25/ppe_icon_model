@@ -1,13 +1,15 @@
 !>
-!! Provide an implementation of the types for the surface module
+!! This module provides definition of ocean surface module types that describe:
+!!  1) ocean surface fluxes : t_ocean_surface
+!!  2) OMIP fluxes          : t_atmos_fluxes
+!! ----------------------------------------------------------------------------------------
 !!
-!! Provide an implementation of the types for the surface module
-!! used between the atmosphere and the hydrostatic ocean model.
 !!
 !! @author Stephan Lorenz, MPI
 !!
 !! @par Revision History
 !!  Initial release by Stephan Lorenz, MPI-M (2015-04)
+!!  Modified        by Vladimir Lapin, MPI-M (2017-04)
 !!
 !! @par Copyright and License
 !!
@@ -24,59 +26,132 @@ MODULE mo_ocean_surface_types
   IMPLICIT NONE
   PRIVATE
 
-
-  ! Definition of forcing types for ocean surface module
-  ! public types
   PUBLIC  :: t_ocean_surface
+  PUBLIC  :: t_atmos_for_ocean
 
+! ---------------------------------------------------------------------------------------
 
-  !------  Definition of surface flux type---------------------
-
-  ! These fluxes will successively replace the fluxes defined in type t_sfc_flx,
-  ! they are at the end exclusively used by module mo_ocean_surface
-
+  ! --------------------
+  ! Ocean surface types
+  ! --------------------
+  !
   TYPE t_ocean_surface
 
     ! The forcing is specified as fluxes at the air-sea interface defined on cell-centers
     ! dimension: (nproma, nblks_c)
     REAL(wp), POINTER ::   &
+      &  Wind_Speed_10m            (:,:), & ! wind speed in 10m height                                  [m/s]
       &  TopBC_WindStress_u        (:,:), & ! forcing of zonal component of velocity equation           [Pa]
       &  TopBC_WindStress_v        (:,:), & ! forcing of meridional component of velocity equation      [Pa]
-      &  Wind_Speed_10m            (:,:), & ! wind speed in 10m height                                  [m/s]
-      &  HeatFlux_Total            (:,:), & ! sum of forcing surface heat flux                          [W/m2]
-      &  HeatFlux_Shortwave        (:,:), & ! shortwave heat flux for penetration into deeper layers    [W/m2]
-      &  FrshFlux_TotalIce         (:,:), & ! forcing surface freshwater flux due to sea ice change     [m/s]
-      &  FrshFlux_VolumeTotal      (:,:), & ! sum of forcing volume flux including relaxation           [m/s]
       &  SST                       (:,:), & ! sea surface temperature                                   [C]
       &  SSS                       (:,:), & ! sea surface salinity                                      [psu]
-      &  data_surfRelax_Temp(:,:),        & ! contains data to which temperature is relaxed             [C]
-      &  data_surfRelax_Salt(:,:),        & ! contains data to which salinity is relaxed                [psu]
+      &  cellThicknessUnderIce     (:,:), & ! thickness of freeboard, open water below ice              [m]
+
+      ! heat fluxes
+      &  HeatFlux_Total            (:,:), & ! sum of forcing surface heat flux                          [W/m2]
+      &  HeatFlux_Shortwave        (:,:), & ! shortwave heat flux for penetration into deeper layers    [W/m2]
+      ! auxillary heat fluxes
+      &  HeatFlux_LongWave         (:,:), & ! surface long wave heat flux                               [W/m2]
+      &  HeatFlux_Sensible         (:,:), & ! surface sensible heat flux                                [W/m2]
+      &  HeatFlux_Latent           (:,:), & ! surface latent heat flux                                  [W/m2]
+
+      ! freshwater fluxes
+      &  FrshFlux_TotalIce         (:,:), & ! forcing surface freshwater flux due to sea ice change     [m/s]
+      &  FrshFlux_VolumeTotal      (:,:), & ! sum of forcing volume flux including relaxation           [m/s]
+      &  FrshFlux_IceSalt          (:,:), & ! salt volume flux due to sea ice change                    [psu*m/s]
+      ! auxillary freshwater fluxes
+      &  FrshFlux_Precipitation    (:,:), & ! total precipitation flux                                  [m/s]
+      &  FrshFlux_SnowFall         (:,:), & ! total snow flux                                           [m/s]
+      &  FrshFlux_Evaporation      (:,:), & ! evaporation flux                                          [m/s]
+      &  FrshFlux_Runoff           (:,:), & ! river runoff flux                                         [m/s]
+      &  FrshFlux_TotalSalt        (:,:), & ! sum of forcing surface freshwater flux from BC            [m/s]
+      &  FrshFlux_TotalOcean       (:,:), & ! forcing surface freshwater flux at open ocean             [m/s]
+      &  FrshFlux_VolumeIce        (:,:), & ! forcing volume flux for height equation under sea ice     [m/s]
+
+      ! relaxaton
+      &  data_surfRelax_Temp       (:,:), & ! contains data to which temperature is relaxed             [C]
+      &  data_surfRelax_Salt       (:,:), & ! contains data to which salinity is relaxed                [psu]
+      &  TopBC_Temp_vdiff          (:,:), & ! forcing of temperature in vertical diffusion equation     [C*m/s]
+      &  TopBC_Salt_vdiff          (:,:), & ! forcing of salinity in vertical diffusion equation        [psu*m/s]
+      &  TempFlux_Relax            (:,:), & ! temperature tracer flux due to relaxation                 [C/s]
+      &  SaltFlux_Relax            (:,:), & ! salinity tracer flux due to relaxation                    [psu/s]
       &  HeatFlux_Relax            (:,:), & ! surface heat flux due to relaxation                       [W/m2]
       &  FrshFlux_Relax            (:,:), & ! surface freshwater flux due to relaxation                 [m/s]
-      &  cellThicknessUnderIce     (:,:), & ! thickness of freeboard, open water below ice              [m]
-      !
+
       !  accumulation variables - comments see above
+      &  Wind_Speed_10m_acc             (:,:),  &
       &  TopBC_WindStress_u_acc         (:,:),  &
       &  TopBC_WindStress_v_acc         (:,:),  &
-      &  Wind_Speed_10m_acc             (:,:),  &
+!      &  cellThicknessUnderIce_acc      (:,:),  &
+
       &  HeatFlux_Total_acc             (:,:),  &
       &  HeatFlux_Shortwave_acc         (:,:),  &
+      &  HeatFlux_LongWave_acc          (:,:),  &
+      &  HeatFlux_Sensible_acc          (:,:),  &
+      &  HeatFlux_Latent_acc            (:,:),  &
+
       &  FrshFlux_TotalIce_acc          (:,:),  &
       &  FrshFlux_VolumeTotal_acc       (:,:),  &
-      &  SST_acc                        (:,:),  &
-      &  SSS_acc                        (:,:),  &
+      &  FrshFlux_Precipitation_acc     (:,:),  &
+      &  FrshFlux_SnowFall_acc          (:,:),  &
+      &  FrshFlux_Evaporation_acc       (:,:),  &
+      &  FrshFlux_Runoff_acc            (:,:),  &
+      &  FrshFlux_TotalSalt_acc         (:,:),  &
+      &  FrshFlux_TotalOcean_acc        (:,:),  &
+      &  FrshFlux_VolumeIce_acc         (:,:),  &
+
+      ! Are these relaxation-related accumulated fields really necessary?
+      &  data_surfRelax_Temp_acc        (:,:),  &
+      &  data_surfRelax_Salt_acc        (:,:),  &
+      &  TopBC_Temp_vdiff_acc           (:,:),  &
+      &  TopBC_Salt_vdiff_acc           (:,:),  &
+!      &  TempFlux_Relax_acc             (:,:),  &
+!      &  SaltFlux_Relax_acc             (:,:),  &
       &  HeatFlux_Relax_acc             (:,:),  &
-      &  FrshFlux_Relax_acc             (:,:),  &
-      &  cellThicknessUnderIce_acc      (:,:)
+      &  FrshFlux_Relax_acc             (:,:)
 
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
       & ALLOCATABLE :: TopBC_WindStress_cc(:,:)
 
-  ! TYPE(t_ptr2d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
   END TYPE t_ocean_surface
 
   ! global type variables
   TYPE(t_ocean_surface), PUBLIC, TARGET :: v_oce_sfc
+
+! ---------------------------------------------------------------------------------------
+
+  !---------------------------------------
+  !------------  OMIP forcing ------------
+  !---------------------------------------
+  ! OMIP representation of atmosphere state for driving the ocean model.
+  ! These fields are transformed via bulk fomulas into atmospheric fluxes.
+  ! The fluxes are then used to set the oceans surface boundary conditions.
+
+  TYPE t_atmos_for_ocean
+
+    ! on cell-centers, dimension: (nproma, nblks_c)
+    REAL(wp), POINTER :: &
+      & tafo                     (:,:), & ! 2 m air temperature                              [C]
+      & ftdew                    (:,:), & ! 2 m dew-point temperature                        [K]
+      & fclou                    (:,:), & ! Fractional cloud cover
+      & fu10                     (:,:), & ! 10 m wind speed                                  [m/s]
+      & fswr                     (:,:), & ! Incoming surface solar radiation                 [W/m]
+      & pao                      (:,:), & ! Surface atmospheric pressure                     [hPa]
+      & u                        (:,:), & ! wind in reference height                         [m/s]
+      & v                        (:,:), &
+!      & precip                   (:,:), & ! precipitation rate                               [m/s]
+!      & evap                     (:,:), & ! evaporation   rate                               [m/s]
+!      & runoff                   (:,:), & ! river runoff  rate                               [m/s]
+      & topBoundCond_windStress_u(:,:), &
+      & topBoundCond_windStress_v(:,:), &
+      & FrshFlux_Precipitation   (:,:), &
+      & FrshFlux_Runoff          (:,:), &
+      & data_surfRelax_Salt      (:,:), &
+      & data_surfRelax_Temp      (:,:)
+
+  END TYPE t_atmos_for_ocean
+
+! ---------------------------------------------------------------------------------------
 
 END MODULE mo_ocean_surface_types
 

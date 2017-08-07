@@ -15,7 +15,7 @@
 !!    1.    worker PEs    : majority of MPI tasks, doing the actual work
 !!    2.    I/O PEs       : dedicated I/O server tasks        (only for parallel_nml::num_io_procs > 0)
 !!    3.    one test PE   : for verification runs             (only for parallel_nml::p_test_run == .TRUE.)
-!!    4.    restart PEs   : for asynchronous restart writing  (only for parallel_nml::num_restart_procs > 0)
+!!    4.    restart PEs   : for asynchronous restart writing  (only for dedicatedRestartProcs > 0)
 !!    5.    prefetch PEs  : for prefetching of data           (only for parallel_nml::num_prefetch_proc > 0)
 !!
 !!
@@ -142,6 +142,13 @@
 !!    not use the io process (the third part). This will be different from using
 !!    the stdio process only in the case of p_test
 
+!This IS a small helper to avoid a full #ifdef ... #ELSE ... #endif sequence where we can just replace the MPI symbol with something constant.
+#ifdef NOMPI
+#define MERGE_HAVE_MPI(mpiVariant, noMpiVariant) noMpiVariant
+#else
+#define MERGE_HAVE_MPI(mpiVariant, noMpiVariant) mpiVariant
+#endif
+
 MODULE mo_mpi
 
   ! Comment: Please use basic WRITE to nerr for messaging in the whole
@@ -159,9 +166,11 @@ MODULE mo_mpi
   USE omp_lib, ONLY: omp_get_max_threads, omp_set_num_threads
 #endif
 
-  USE mo_kind
-  USE mo_impl_constants, ONLY: SUCCESS
+  USE mo_kind, ONLY: i4, i8, dp, sp, wp
   USE mo_io_units,       ONLY: nerr
+  USE mtime,             ONLY: datetime, max_datetime_str_len, datetimeToString, &
+    &                          newDatetime, deallocateDatetime
+!  USE mo_impl_constants, ONLY: SUCCESS
 
   IMPLICIT NONE
 
@@ -254,6 +263,9 @@ MODULE mo_mpi
   PUBLIC :: p_gatherv, p_allgather, p_allgatherv
   PUBLIC :: p_scatterv
   PUBLIC :: p_allreduce_max
+  PUBLIC :: p_reduce
+  PUBLIC :: p_allreduce
+  PUBLIC :: p_sum_op, p_min_op, p_max_op, p_minloc_op, p_maxloc_op
   PUBLIC :: p_commit_type_struct
   PUBLIC :: p_alltoall
   PUBLIC :: p_alltoallv
@@ -470,8 +482,6 @@ MODULE mo_mpi
   INTEGER :: p_int_i4_byte  = 0
   INTEGER :: p_int_i8_byte  = 0
 
-  CHARACTER(len=256) :: message_text = ''
-
   ! Flag if processor splitting is active
   LOGICAL, PUBLIC :: proc_split = .FALSE.
 #ifdef _OPENACC
@@ -499,6 +509,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_send_int
      MODULE PROCEDURE p_send_bool
      MODULE PROCEDURE p_send_real_1d
+     MODULE PROCEDURE p_send_sreal_1d
      MODULE PROCEDURE p_send_int_1d
      MODULE PROCEDURE p_send_bool_1d
      MODULE PROCEDURE p_send_char_1d
@@ -521,6 +532,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_isend_int
      MODULE PROCEDURE p_isend_bool
      MODULE PROCEDURE p_isend_real_1d
+     MODULE PROCEDURE p_isend_sreal_1d
      MODULE PROCEDURE p_isend_int_1d
      MODULE PROCEDURE p_isend_bool_1d
      MODULE PROCEDURE p_isend_real_2d
@@ -543,6 +555,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_recv_int
      MODULE PROCEDURE p_recv_bool
      MODULE PROCEDURE p_recv_real_1d
+     MODULE PROCEDURE p_recv_sreal_1d
      MODULE PROCEDURE p_recv_int_1d
      MODULE PROCEDURE p_recv_bool_1d
      MODULE PROCEDURE p_recv_char_1d
@@ -565,6 +578,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_irecv_int
      MODULE PROCEDURE p_irecv_bool
      MODULE PROCEDURE p_irecv_real_1d
+     MODULE PROCEDURE p_irecv_sreal_1d
      MODULE PROCEDURE p_irecv_int_1d
      MODULE PROCEDURE p_irecv_bool_1d
      MODULE PROCEDURE p_irecv_real_2d
@@ -614,6 +628,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_bcast_char
      MODULE PROCEDURE p_bcast_cchar
      MODULE PROCEDURE p_bcast_char_1d
+     MODULE PROCEDURE p_bcast_datetime
   END INTERFACE
 
   INTERFACE p_scatter
@@ -698,6 +713,15 @@ MODULE mo_mpi
     MODULE PROCEDURE p_allreduce_max_int_1d
   END INTERFACE
 
+  INTERFACE p_reduce
+    MODULE PROCEDURE p_reduce_int8_0d
+  END INTERFACE p_reduce
+
+  INTERFACE p_allreduce
+    MODULE PROCEDURE p_allreduce_int4_0d
+    MODULE PROCEDURE p_allreduce_int8_0d
+  END INTERFACE p_allreduce
+
   INTERFACE p_alltoall
     MODULE PROCEDURE p_alltoall_int
   END INTERFACE
@@ -734,22 +758,14 @@ CONTAINS
 
   !------------------------------------------------------------------------------
   REAL(dp) FUNCTION get_mpi_time()
-#ifdef NOMPI
-    get_mpi_time = 0.0_dp
-#else
-    get_mpi_time = MPI_Wtime()
-#endif
+    get_mpi_time = MERGE_HAVE_MPI(MPI_Wtime(), 0.0_dp)
   END FUNCTION get_mpi_time
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
   REAL(dp) FUNCTION ellapsed_mpi_time(start_time)
     REAL(dp), INTENT(in) :: start_time
-#ifdef NOMPI
-    ellapsed_mpi_time = 0.0_dp
-#else
-    ellapsed_mpi_time = MPI_Wtime() - start_time
-#endif
+    ellapsed_mpi_time = MERGE_HAVE_MPI(MPI_Wtime() - start_time, 0.0_dp)
   END FUNCTION ellapsed_mpi_time
   !------------------------------------------------------------------------------
 
@@ -839,11 +855,7 @@ CONTAINS
 
   !------------------------------------------------------------------------------
   LOGICAL FUNCTION my_process_is_stdio()
-#ifdef NOMPI
-    my_process_is_stdio = .TRUE.
-#else
-    my_process_is_stdio = process_is_stdio
-#endif
+    my_process_is_stdio = MERGE_HAVE_MPI(process_is_stdio, .TRUE.)
   END FUNCTION my_process_is_stdio
   !------------------------------------------------------------------------------
 
@@ -1085,6 +1097,9 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
+  ! Warning: The dummy argument num_restart_procs IS NOT identical to the namelist PARAMETER anymore,
+  !          rather, it IS the number of *dedicated* restart processes.
+  !          We don't care about work processes here that are reused as restart writing processes.
   SUBROUTINE set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
     &                                   num_restart_procs, num_prefetch_proc)
     LOGICAL,INTENT(INOUT) :: p_test_run, l_test_openmp
@@ -1098,6 +1113,7 @@ CONTAINS
     INTEGER :: grp_process_mpi_all_comm, grp_comm_work_io, input_ranks(1), &
                translated_ranks(1)
     INTEGER :: sizeof_prefetch_processes
+    CHARACTER(len=1000) :: message_text = ''
 
     IF (PRESENT(num_prefetch_proc)) THEN
       sizeof_prefetch_processes = num_prefetch_proc
@@ -1213,8 +1229,12 @@ CONTAINS
       CALL finish(method_name, &
       & 'not enough processors for given values of p_test_run/num_io_procs/num_restart_procs/sizeof_prefetch_processes')
     ELSE IF (p_test_run .AND. num_work_procs == 1) THEN
+#ifdef _OPENACC
+      PRINT *, "Testing 1 CPU against 1 GPU"
+#else
       CALL finish(method_name, &
       & 'running p_test_run with only 1 work processor does not make sense')
+#endif
     ENDIF
 
     WRITE(message_text,'(5(a,i0))') 'Number of procs for test: ',num_test_procs, &
@@ -1231,6 +1251,15 @@ CONTAINS
     p_io_pe0      = num_test_procs + num_work_procs
     p_restart_pe0 = num_test_procs + num_work_procs + num_io_procs
     p_pref_pe0    = num_test_procs + num_work_procs + num_io_procs + num_restart_procs
+
+    ! Print the process layout
+    WRITE (message_text, *) "0 <= ", num_test_procs, " test procs < "                          , &
+                          & p_work_pe0,    " <= ", num_work_procs, " work procs < "            , &
+                          & p_io_pe0,      " <= ", num_io_procs, " io procs < "                , &
+                          & p_restart_pe0, " <= ", num_restart_procs, " restart procs < "      , &
+                          & p_pref_pe0,    " <= ", sizeof_prefetch_processes, " pref procs < " , &
+                          & process_mpi_all_size
+    CALL print_info_stderr(method_name, message_text)
 
     ! Set up p_n_work and p_pe_work which are NOT identical on all PEs
     IF(p_pe < p_work_pe0) THEN
@@ -1333,20 +1362,14 @@ CONTAINS
     END IF
 
     ! Set p_comm_work_restart, the communicator spanning work group and Restart Ouput PEs
-    IF(num_restart_procs > 0) THEN
-      IF(p_pe < p_work_pe0 .OR. &
-      &  ((num_io_procs > 0 .AND. (p_pe >= p_io_pe0 .AND. p_pe < p_restart_pe0)) .OR. &
-      &  (sizeof_prefetch_processes > 0 .AND. p_pe >= p_pref_pe0))) THEN
-        my_color = MPI_UNDEFINED ! p_comm_work_restart must never be used on test and IO PE
-      ELSE
+    ! In the CASE that num_restart_procs IS zero, this includes ONLY the work processes, which IS what we want for joint-mode multifile restart writing.
+    IF((p_pe >= p_work_pe0 .AND. p_pe < p_io_pe0) .OR. &
+      &(p_pe >= p_restart_pe0 .AND. p_pe < p_pref_pe0)) THEN
         my_color = 1    ! This is set only for all workers and for all restart PEs
-      ENDIF
-
-      CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work_restart, p_error)
     ELSE
-      ! If no I/O PEs are present, p_comm_work_io must not be used at all
-      p_comm_work_restart = MPI_COMM_NULL
-    ENDIF
+        my_color = MPI_UNDEFINED ! p_comm_work_restart must never be used on test and IO PE
+    END IF
+    CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work_restart, p_error)
 
     ! Set p_comm_work_pref, the communicator spanning work group and prefetching PEs
     IF(sizeof_prefetch_processes > 0) THEN
@@ -2438,6 +2461,50 @@ CONTAINS
 
   END SUBROUTINE p_send_real_1d
 
+  SUBROUTINE p_send_sreal_1d (t_buffer, p_destination, p_tag, p_count, comm)
+
+    REAL (sp), INTENT(in) :: t_buffer(:)
+    INTEGER,   INTENT(in) :: p_destination, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+#ifdef __USE_G2G
+!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node )
+#endif
+
+    IF (PRESENT(p_count)) THEN
+       CALL MPI_SEND (t_buffer, p_count, p_real_sp, p_destination, p_tag, &
+            p_comm, p_error)
+    ELSE
+       CALL MPI_SEND (t_buffer, SIZE(t_buffer), p_real_sp, p_destination, p_tag, &
+            p_comm, p_error)
+    END IF
+
+#ifdef __USE_G2G
+!$ACC END HOST_DATA
+!$ACC END DATA
+#endif
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
+            ' to ', p_destination, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_send_sreal_1d
+
   SUBROUTINE p_send_real_2d (t_buffer, p_destination, p_tag, p_count, comm)
 
     REAL (dp), INTENT(in) :: t_buffer(:,:)
@@ -3165,13 +3232,14 @@ CONTAINS
 
   END SUBROUTINE p_inc_request
 
-  SUBROUTINE p_isend_real (t_buffer, p_destination, p_tag, p_count, comm)
+  SUBROUTINE p_isend_real (t_buffer, p_destination, p_tag, p_count, comm, request)
 
     REAL (dp), INTENT(inout) :: t_buffer
     INTEGER,   INTENT(in) :: p_destination, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    INTEGER,   INTENT(INOUT), OPTIONAL :: request
 #ifndef NOMPI
-    INTEGER :: p_comm
+    INTEGER :: p_comm, out_request
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -3185,19 +3253,24 @@ CONTAINS
 #endif
 
     IF (PRESENT(p_count)) THEN
-       CALL p_inc_request
        CALL MPI_ISEND (t_buffer, p_count, p_real_dp, p_destination, p_tag, &
-            p_comm, p_request(p_irequest), p_error)
+            p_comm, out_request, p_error)
     ELSE
-       CALL p_inc_request
        CALL MPI_ISEND (t_buffer, 1, p_real_dp, p_destination, p_tag, &
-            p_comm, p_request(p_irequest), p_error)
+            p_comm, out_request, p_error)
     END IF
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
 !$ACC END DATA
 #endif
+
+    IF (PRESENT(request)) THEN
+      request               = out_request
+    ELSE
+      CALL p_inc_request
+      p_request(p_irequest) = out_request
+    END IF
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3212,13 +3285,14 @@ CONTAINS
   END SUBROUTINE p_isend_real
 
 
-  SUBROUTINE p_isend_sreal (t_buffer, p_destination, p_tag, p_count, comm)
+  SUBROUTINE p_isend_sreal (t_buffer, p_destination, p_tag, p_count, comm, request)
 
     REAL (sp), INTENT(inout) :: t_buffer
     INTEGER,   INTENT(in) :: p_destination, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    INTEGER,   INTENT(INOUT), OPTIONAL :: request
 #ifndef NOMPI
-    INTEGER :: p_comm
+    INTEGER :: p_comm, out_request
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -3232,19 +3306,24 @@ CONTAINS
 #endif
 
     IF (PRESENT(p_count)) THEN
-       CALL p_inc_request
        CALL MPI_ISEND (t_buffer, p_count, p_real_sp, p_destination, p_tag, &
-            p_comm, p_request(p_irequest), p_error)
+            p_comm, out_request, p_error)
     ELSE
-       CALL p_inc_request
        CALL MPI_ISEND (t_buffer, 1, p_real_sp, p_destination, p_tag, &
-            p_comm, p_request(p_irequest), p_error)
+            p_comm, out_request, p_error)
     END IF
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
 !$ACC END DATA
 #endif
+
+    IF (PRESENT(request)) THEN
+      request               = out_request
+    ELSE
+      CALL p_inc_request
+      p_request(p_irequest) = out_request
+    END IF
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3282,7 +3361,6 @@ CONTAINS
 !$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
 #endif
 
-    CALL p_inc_request
     CALL MPI_ISEND (t_buffer, icount, p_real_dp, p_destination, p_tag, &
       &             p_comm, out_request, p_error)
 
@@ -3294,6 +3372,7 @@ CONTAINS
     IF (PRESENT(request)) THEN
       request               = out_request
     ELSE
+      CALL p_inc_request
       p_request(p_irequest) = out_request
     END IF
 
@@ -3308,6 +3387,58 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_isend_real_1d
+
+
+  SUBROUTINE p_isend_sreal_1d (t_buffer, p_destination, p_tag, p_count, comm, request)
+
+    REAL (sp), INTENT(inout) :: t_buffer(:)
+    INTEGER,   INTENT(in) :: p_destination, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    INTEGER,   INTENT(INOUT), OPTIONAL :: request
+#ifndef NOMPI
+    INTEGER :: p_comm, icount, out_request
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    icount = SIZE(t_buffer)
+    IF (PRESENT(p_count))  icount = p_count
+
+#ifdef __USE_G2G
+!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+#endif
+
+    CALL MPI_ISEND (t_buffer, icount, p_real_sp, p_destination, p_tag, &
+      &             p_comm, out_request, p_error)
+
+#ifdef __USE_G2G
+!$ACC END HOST_DATA
+!$ACC END DATA
+#endif
+
+    IF (PRESENT(request)) THEN
+      request               = out_request
+    ELSE
+      CALL p_inc_request
+      p_request(p_irequest) = out_request
+    END IF
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
+            ' to ', p_destination, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_isend_sreal_1d
+
 
   SUBROUTINE p_isend_real_2d (t_buffer, p_destination, p_tag, p_count, comm)
 
@@ -3546,14 +3677,15 @@ CONTAINS
 
   END SUBROUTINE p_isend_real_5d
 
-  SUBROUTINE p_isend_int (t_buffer, p_destination, p_tag, p_count, comm)
+  SUBROUTINE p_isend_int (t_buffer, p_destination, p_tag, p_count, comm, request)
 
     INTEGER, INTENT(inout) :: t_buffer
     INTEGER, INTENT(in) :: p_destination, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    INTEGER,   INTENT(INOUT), OPTIONAL :: request
 
 #ifndef NOMPI
-    INTEGER :: p_comm
+    INTEGER :: p_comm, out_request
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -3567,19 +3699,24 @@ CONTAINS
 #endif
 
     IF (PRESENT(p_count)) THEN
-       CALL p_inc_request
        CALL MPI_ISEND (t_buffer, p_count, p_int, p_destination, p_tag, &
-            p_comm, p_request(p_irequest), p_error)
+            p_comm, out_request, p_error)
     ELSE
-       CALL p_inc_request
        CALL MPI_ISEND (t_buffer, 1, p_int, p_destination, p_tag, &
-            p_comm, p_request(p_irequest), p_error)
+            p_comm, out_request, p_error)
     END IF
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
 !$ACC END DATA
 #endif
+
+    IF (PRESENT(request)) THEN
+      request               = out_request
+    ELSE
+      CALL p_inc_request
+      p_request(p_irequest) = out_request
+    END IF
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -3593,14 +3730,15 @@ CONTAINS
 
   END SUBROUTINE p_isend_int
 
-  SUBROUTINE p_isend_int_1d (t_buffer, p_destination, p_tag, p_count, comm)
+  SUBROUTINE p_isend_int_1d (t_buffer, p_destination, p_tag, p_count, comm, request)
 
     INTEGER, INTENT(inout) :: t_buffer(:)
     INTEGER, INTENT(in) :: p_destination, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    INTEGER,   INTENT(INOUT), OPTIONAL :: request
 
 #ifndef NOMPI
-    INTEGER :: p_comm
+    INTEGER :: p_comm, out_request
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -3614,19 +3752,24 @@ CONTAINS
 #endif
 
     IF (PRESENT(p_count)) THEN
-       CALL p_inc_request
        CALL MPI_ISEND (t_buffer, p_count, p_int, p_destination, p_tag, &
-            p_comm, p_request(p_irequest), p_error)
+            p_comm, out_request, p_error)
     ELSE
-       CALL p_inc_request
        CALL MPI_ISEND (t_buffer, SIZE(t_buffer), p_int, p_destination, p_tag, &
-            p_comm, p_request(p_irequest), p_error)
+            p_comm, out_request, p_error)
     END IF
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
 !$ACC END DATA
 #endif
+
+    IF (PRESENT(request)) THEN
+      request               = out_request
+    ELSE
+      CALL p_inc_request
+      p_request(p_irequest) = out_request
+    END IF
 
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) THEN
@@ -4199,6 +4342,51 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_recv_real_1d
+
+  SUBROUTINE p_recv_sreal_1d (t_buffer, p_source, p_tag, p_count, comm, displs)
+
+    REAL (sp), INTENT(out) :: t_buffer(:)
+    INTEGER,   INTENT(in)  :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm, displs
+#ifndef NOMPI
+    INTEGER :: p_comm, icount, idispls
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    icount = SIZE(t_buffer)
+    IF (PRESENT(p_count))  icount = p_count
+
+    idispls = 1
+    IF (PRESENT(displs)) idispls = displs
+
+#ifdef __USE_G2G
+!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node )
+#endif
+
+    CALL MPI_RECV (t_buffer(idispls), icount, p_real_sp, p_source, p_tag, &
+      &            p_comm, p_status, p_error)
+
+#ifdef __USE_G2G
+!$ACC END HOST_DATA
+!$ACC END DATA
+#endif
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_recv_sreal_1d
 
   SUBROUTINE p_recv_real_2d (t_buffer, p_source, p_tag, p_count, comm)
 
@@ -5071,12 +5259,11 @@ CONTAINS
 !$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
 #endif
 
+    CALL p_inc_request
     IF (PRESENT(p_count)) THEN
-       CALL p_inc_request
        CALL MPI_IRECV (t_buffer, p_count, p_real_dp, p_source, p_tag, &
             p_comm, p_request(p_irequest), p_error)
     ELSE
-       CALL p_inc_request
        CALL MPI_IRECV (t_buffer, SIZE(t_buffer), p_real_dp, p_source, p_tag, &
             p_comm, p_request(p_irequest), p_error)
     END IF
@@ -5097,6 +5284,53 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_irecv_real_1d
+
+
+  SUBROUTINE p_irecv_sreal_1d (t_buffer, p_source, p_tag, p_count, comm)
+
+    REAL(sp),  INTENT(inout) :: t_buffer(:)
+    INTEGER,   INTENT(in) :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+#ifdef __USE_G2G
+!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+#endif
+
+    CALL p_inc_request
+    IF (PRESENT(p_count)) THEN
+       CALL MPI_IRECV (t_buffer, p_count, p_real_sp, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    ELSE
+       CALL MPI_IRECV (t_buffer, SIZE(t_buffer), p_real_sp, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    END IF
+
+#ifdef __USE_G2G
+!$ACC END HOST_DATA
+!$ACC END DATA
+#endif
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_irecv_sreal_1d
+
 
   SUBROUTINE p_irecv_real_2d (t_buffer, p_source, p_tag, p_count, comm)
 
@@ -5355,12 +5589,11 @@ CONTAINS
 !$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
 #endif
 
+    CALL p_inc_request
     IF (PRESENT(p_count)) THEN
-       CALL p_inc_request
        CALL MPI_IRECV (t_buffer, p_count, p_int, p_source, p_tag, &
             p_comm, p_request(p_irequest), p_error)
     ELSE
-       CALL p_inc_request
        CALL MPI_IRECV (t_buffer, SIZE(t_buffer), p_int, p_source, p_tag, &
             p_comm, p_request(p_irequest), p_error)
     END IF
@@ -7846,6 +8079,37 @@ CONTAINS
 !#endif
 !    END SUBROUTINE p_bcast_achar
 
+
+!DR Test
+  SUBROUTINE p_bcast_datetime (mtime_datetime, p_source, comm)
+
+    TYPE(datetime), TARGET  , INTENT(inout) :: mtime_datetime
+    INTEGER                 , INTENT(in)    :: p_source
+    INTEGER       , OPTIONAL, INTENT(in)    :: comm
+    !
+    ! local
+    character(len=max_datetime_str_len) :: mtime_datetime_str
+    TYPE(datetime), POINTER             :: mtime_datetime_ptr
+    TYPE(datetime), POINTER             :: datetime_loc
+    INTEGER                             :: errno
+ 
+#ifndef NOMPI
+    mtime_datetime_ptr => mtime_datetime
+    CALL datetimeToString(mtime_datetime_ptr, mtime_datetime_str, errno)
+
+    CALL p_bcast_char (mtime_datetime_str, p_source, comm)
+
+    datetime_loc => newDatetime(mtime_datetime_str, errno)
+
+    mtime_datetime = datetime_loc
+
+    CALL deallocateDatetime(datetime_loc)
+#endif
+
+  END SUBROUTINE p_bcast_datetime
+
+
+
   ! Collective CALL to determine whether this process IS a sender/receiver IN a broadcast operation.
   ! This routine IS robust IN the presence of inter-communicators (which IS its reason d'etre).
   SUBROUTINE p_get_bcast_role(root, communicator, lIsSender, lIsReceiver)
@@ -7878,6 +8142,7 @@ CONTAINS
     lIsReceiver = .FALSE.
 #endif
   END SUBROUTINE p_get_bcast_role
+
 
 
   ! probe implementation
@@ -8055,7 +8320,7 @@ CONTAINS
 
     IF (my_process_is_mpi_parallel()) THEN
         CALL MPI_ALLREDUCE (zfield, p_sum, 1, p_real_sp, &
-          MPI_SUM, p_comm, p_error)
+          p_sum_op(), p_comm, p_error)
     ELSE
        p_sum = zfield
     END IF
@@ -8084,14 +8349,14 @@ CONTAINS
     IF (my_process_is_mpi_parallel()) THEN
       IF (PRESENT(root)) THEN
         CALL MPI_REDUCE (zfield, p_sum, 1, p_real_dp, &
-          MPI_SUM, root, p_comm, p_error)
+          p_sum_op(), root, p_comm, p_error)
         ! get local PE identification
         CALL MPI_COMM_RANK (p_comm, my_rank, p_error)
         ! do not use the result on all the other ranks:
         IF (root /= my_rank)  p_sum = zfield
       ELSE
         CALL MPI_ALLREDUCE (zfield, p_sum, 1, p_real_dp, &
-          MPI_SUM, p_comm, p_error)
+          p_sum_op(), p_comm, p_error)
       END IF
     ELSE
        p_sum = zfield
@@ -8156,7 +8421,7 @@ CONTAINS
 
     IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (kfield, p_sum, SIZE(kfield), p_int_i8, &
-            MPI_SUM, p_comm, p_error)
+            p_sum_op(), p_comm, p_error)
     ELSE
        p_sum = kfield
     END IF
@@ -8183,7 +8448,7 @@ CONTAINS
 
     IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (kfield, p_sum, SIZE(kfield), p_int, &
-            MPI_SUM, p_comm, p_error)
+            p_sum_op(), p_comm, p_error)
     ELSE
        p_sum = kfield
     END IF
@@ -8211,7 +8476,7 @@ CONTAINS
 
     IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (kfield, p_sum, 1, p_int, &
-            MPI_SUM, p_comm, p_error)
+            p_sum_op(), p_comm, p_error)
     ELSE
        p_sum = kfield
     END IF
@@ -8239,7 +8504,7 @@ CONTAINS
 
     IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_REDUCE (zfield, pe_sums, SIZE(zfield), p_real_dp, &
-            MPI_SUM, process_mpi_root_id, p_comm, p_error)
+            p_sum_op(), process_mpi_root_id, p_comm, p_error)
        p_sum = SUM(pe_sums)
     ELSE
        p_sum = SUM(zfield)
@@ -8267,7 +8532,7 @@ CONTAINS
 
     IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_REDUCE (zfield, p_sum, SIZE(zfield), p_real_dp, &
-            MPI_SUM, process_mpi_root_id, p_comm, p_error)
+            p_sum_op(), process_mpi_root_id, p_comm, p_error)
        IF (.NOT. my_process_is_stdio()) p_sum = 0.0_dp
     ELSE
        p_sum = zfield
@@ -8326,7 +8591,7 @@ CONTAINS
                op, p_comm, p_error)
           ikey = MERGE(meta_info, HUGE(1), in_field == out_field)
           CALL mpi_reduce(ikey, meta_info, n, mpi_integer, &
-               mpi_min, root, p_comm, p_error)
+               p_min_op(), root, p_comm, p_error)
 #else
           val_loc(1, :, 1) = DBLE(in_field)
           val_loc(2, :, 1) = DBLE(meta_info)
@@ -8345,7 +8610,7 @@ CONTAINS
                op, p_comm, p_error)
           ikey = MERGE(meta_info, HUGE(1), in_field == out_field)
           CALL mpi_allreduce(ikey, meta_info, n, mpi_integer, &
-               mpi_min, p_comm, p_error)
+               p_min_op(), p_comm, p_error)
 #else
           val_loc(1, :, 1) = DBLE(in_field)
           val_loc(2, :, 1) = DBLE(meta_info)
@@ -8406,27 +8671,24 @@ CONTAINS
 
     REAL(dp) :: temp_in(1), temp_out(1)
     INTEGER :: temp_keyval(1), temp_proc_id(1)
-#ifdef NOMPI
-    INTEGER, PARAMETER :: mpi_max = 3333, mpi_maxloc = 3333
-#endif
     temp_in(1) = zfield
     IF (PRESENT(proc_id) .AND. PRESENT(keyval)) THEN
       temp_keyval(1) = keyval; temp_proc_id(1) = proc_id
-      CALL p_minmax_common(temp_in, temp_out, 1, mpi_max, mpi_maxloc, &
+      CALL p_minmax_common(temp_in, temp_out, 1, p_max_op(), p_maxloc_op(), &
            proc_id=temp_proc_id, keyval=temp_keyval, comm=comm, root=root)
       keyval = temp_keyval(1); proc_id = temp_proc_id(1)
     ELSE IF (PRESENT(proc_id)) THEN
       temp_proc_id(1) = proc_id
-      CALL p_minmax_common(temp_in, temp_out, 1, mpi_max, mpi_maxloc, &
+      CALL p_minmax_common(temp_in, temp_out, 1, p_max_op(), p_maxloc_op(), &
            proc_id=temp_proc_id, comm=comm, root=root)
       proc_id = temp_proc_id(1)
     ELSE IF (PRESENT(keyval)) THEN
       temp_keyval(1) = keyval
-      CALL p_minmax_common(temp_in, temp_out, 1, mpi_max, mpi_maxloc, &
+      CALL p_minmax_common(temp_in, temp_out, 1, p_max_op(), p_maxloc_op(), &
          keyval=temp_keyval, comm=comm, root=root)
       keyval = temp_keyval(1)
     ELSE ! .not. present(keyval) .and. .not. present(proc_id)
-      CALL p_minmax_common(temp_in, temp_out, 1, mpi_max, mpi_maxloc, &
+      CALL p_minmax_common(temp_in, temp_out, 1, p_max_op(), p_maxloc_op(), &
            comm=comm, root=root)
     END IF
 
@@ -8450,7 +8712,7 @@ CONTAINS
 
     IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_max, 1, p_int, &
-            MPI_MAX, p_comm, p_error)
+            p_max_op(), p_comm, p_error)
     ELSE
        p_max = zfield
     END IF
@@ -8479,11 +8741,8 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in)    :: root
     INTEGER, OPTIONAL, INTENT(in)    :: comm
     REAL(dp)                         :: p_max (SIZE(zfield))
-#ifdef NOMPI
-    INTEGER, PARAMETER :: mpi_max = 3333, mpi_maxloc = 3333
-#endif
 
-    CALL p_minmax_common(zfield, p_max, SIZE(zfield), mpi_max, mpi_maxloc, &
+    CALL p_minmax_common(zfield, p_max, SIZE(zfield), p_max_op(), p_maxloc_op(), &
            proc_id=proc_id, keyval=keyval, comm=comm, root=root)
 
   END FUNCTION p_max_1d
@@ -8511,10 +8770,10 @@ CONTAINS
     IF (my_process_is_mpi_all_parallel()) THEN
       IF (PRESENT(root)) THEN
         CALL MPI_REDUCE (zfield, p_max, SIZE(zfield), p_int, &
-          MPI_MAX, root, p_comm, p_error)
+          p_max_op(), root, p_comm, p_error)
       ELSE
         CALL MPI_ALLREDUCE (zfield, p_max, SIZE(zfield), p_int, &
-          MPI_MAX, p_comm, p_error)
+          p_max_op(), p_comm, p_error)
       END IF ! if present(root)
     ELSE
        p_max = zfield
@@ -8542,7 +8801,7 @@ CONTAINS
 
     IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_max, SIZE(zfield), p_real_dp, &
-            MPI_MAX, p_comm, p_error)
+            p_max_op(), p_comm, p_error)
     ELSE
        p_max = zfield
     END IF
@@ -8570,7 +8829,7 @@ CONTAINS
 
     IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_max, SIZE(zfield), p_real_dp, &
-            MPI_MAX, p_comm, p_error)
+            p_max_op(), p_comm, p_error)
     ELSE
        p_max = zfield
     END IF
@@ -8603,27 +8862,24 @@ CONTAINS
 
     REAL(dp) :: temp_in(1), temp_out(1)
     INTEGER :: temp_keyval(1), temp_proc_id(1)
-#ifdef NOMPI
-    INTEGER, PARAMETER :: mpi_min = 4444, mpi_minloc = 4444
-#endif
     temp_in(1) = zfield
     IF (PRESENT(proc_id) .AND. PRESENT(keyval)) THEN
       temp_keyval(1) = keyval; temp_proc_id(1) = proc_id
-      CALL p_minmax_common(temp_in, temp_out, 1, mpi_min, mpi_minloc, &
+      CALL p_minmax_common(temp_in, temp_out, 1, p_min_op(), p_minloc_op(), &
            proc_id=temp_proc_id, keyval=temp_keyval, comm=comm, root=root)
       keyval = temp_keyval(1); proc_id = temp_proc_id(1)
     ELSE IF (PRESENT(proc_id)) THEN
       temp_proc_id(1) = proc_id
-      CALL p_minmax_common(temp_in, temp_out, 1, mpi_min, mpi_minloc, &
+      CALL p_minmax_common(temp_in, temp_out, 1, p_min_op(), p_minloc_op(), &
            proc_id=temp_proc_id, comm=comm, root=root)
       proc_id = temp_proc_id(1)
     ELSE IF (PRESENT(keyval)) THEN
       temp_keyval(1) = keyval
-      CALL p_minmax_common(temp_in, temp_out, 1, mpi_min, mpi_minloc, &
+      CALL p_minmax_common(temp_in, temp_out, 1, p_min_op(), p_minloc_op(), &
          keyval=temp_keyval, comm=comm, root=root)
       keyval = temp_keyval(1)
     ELSE ! .not. present(keyval) .and. .not. present(proc_id)
-      CALL p_minmax_common(temp_in, temp_out, 1, mpi_min, mpi_minloc, &
+      CALL p_minmax_common(temp_in, temp_out, 1, p_min_op(), p_minloc_op(), &
            comm=comm, root=root)
     END IF
 
@@ -8647,7 +8903,7 @@ CONTAINS
 
     IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_min, 1, p_int, &
-            MPI_MIN, p_comm, p_error)
+            p_min_op(), p_comm, p_error)
     ELSE
        p_min = zfield
     END IF
@@ -8665,11 +8921,8 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in) :: root
     INTEGER, OPTIONAL, INTENT(in) :: comm
     REAL(dp)                      :: p_min (SIZE(zfield))
-#ifdef NOMPI
-    INTEGER, PARAMETER :: mpi_min = 4444, mpi_minloc = 4444
-#endif
 
-    CALL p_minmax_common(zfield, p_min, SIZE(zfield), mpi_min, mpi_minloc, &
+    CALL p_minmax_common(zfield, p_min, SIZE(zfield), p_min_op(), p_minloc_op(), &
            proc_id=proc_id, keyval=keyval, comm=comm, root=root)
 
   END FUNCTION p_min_1d
@@ -8691,7 +8944,7 @@ CONTAINS
 
     IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_min, SIZE(zfield), p_int, &
-            MPI_MIN, p_comm, p_error)
+            p_min_op(), p_comm, p_error)
     ELSE
        p_min = zfield
     END IF
@@ -8718,7 +8971,7 @@ CONTAINS
 
     IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_min, SIZE(zfield), p_real_dp, &
-            MPI_MIN, p_comm, p_error)
+            p_min_op(), p_comm, p_error)
     ELSE
        p_min = zfield
     END IF
@@ -8745,7 +8998,7 @@ CONTAINS
 
     IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_min, SIZE(zfield), p_real_dp, &
-            MPI_MIN, p_comm, p_error)
+            p_min_op(), p_comm, p_error)
     ELSE
        p_min = zfield
     END IF
@@ -8771,13 +9024,78 @@ CONTAINS
     p_comm = comm
     IF (PRESENT(root)) THEN
       CALL MPI_REDUCE (MPI_IN_PLACE, zfield, SIZE(zfield), p_int, &
-        MPI_MAX, root, p_comm, p_error)
+        p_max_op(), root, p_comm, p_error)
     ELSE
       CALL MPI_ALLREDUCE (MPI_IN_PLACE, zfield, SIZE(zfield), p_int, &
-        MPI_MAX, p_comm, p_error)
+        p_max_op(), p_comm, p_error)
     END IF ! if present(root)
 #endif
   END SUBROUTINE p_allreduce_max_int_1d
+
+  INTEGER FUNCTION p_sum_op() RESULT(resultVar)
+    resultVar = MERGE_HAVE_MPI(MPI_SUM, 0)
+  END FUNCTION p_sum_op
+
+  INTEGER FUNCTION p_min_op() RESULT(resultVar)
+    resultVar = MERGE_HAVE_MPI(MPI_MIN, 0)
+  END FUNCTION p_min_op
+
+  INTEGER FUNCTION p_max_op() RESULT(resultVar)
+    resultVar = MERGE_HAVE_MPI(MPI_MAX, 0)
+  END FUNCTION p_max_op
+
+  INTEGER FUNCTION p_minloc_op() RESULT(resultVar)
+    resultVar = MERGE_HAVE_MPI(MPI_MINLOC, 0)
+  END FUNCTION p_minloc_op
+
+  INTEGER FUNCTION p_maxloc_op() RESULT(resultVar)
+    resultVar = MERGE_HAVE_MPI(MPI_MAXLOC, 0)
+  END FUNCTION p_maxloc_op
+
+  INTEGER(i8) FUNCTION p_reduce_int8_0d(input, reductionOp, root, communicator) RESULT(resultVar)
+    INTEGER(i8), INTENT(IN) :: input
+    INTEGER, VALUE :: reductionOp, root, communicator
+
+#ifndef NOMPI
+    INTEGER :: error
+    CHARACTER(*), PARAMETER :: routine = modname//":p_reduce_int8_0d"
+
+    CALL MPI_Reduce(input, resultVar, 1, p_int_i8, reductionOp, root, communicator, error)
+    IF(error /= MPI_SUCCESS) CALL finish(routine, "error in MPI call.")
+#else
+    resultVar = input
+#endif
+  END FUNCTION p_reduce_int8_0d
+
+  INTEGER(i4) FUNCTION p_allreduce_int4_0d(input, reductionOp, communicator) RESULT(resultVar)
+    INTEGER(i4), INTENT(IN) :: input
+    INTEGER, VALUE :: reductionOp, communicator
+
+#ifndef NOMPI
+    INTEGER :: error
+    CHARACTER(*), PARAMETER :: routine = modname//":p_allreduce_int4_0d"
+
+    CALL MPI_Allreduce(input, resultVar, 1, p_int_i4, reductionOp, communicator, error)
+    IF(error /= MPI_SUCCESS) CALL finish(routine, "error in MPI call.")
+#else
+    resultVar = input
+#endif
+  END FUNCTION p_allreduce_int4_0d
+
+  INTEGER(i8) FUNCTION p_allreduce_int8_0d(input, reductionOp, communicator) RESULT(resultVar)
+    INTEGER(i8), INTENT(IN) :: input
+    INTEGER, VALUE :: reductionOp, communicator
+
+#ifndef NOMPI
+    INTEGER :: error
+    CHARACTER(*), PARAMETER :: routine = modname//":p_allreduce_int8_0d"
+
+    CALL MPI_Allreduce(input, resultVar, 1, p_int_i8, reductionOp, communicator, error)
+    IF(error /= MPI_SUCCESS) CALL finish(routine, "error in MPI call.)")
+#else
+    resultVar = input
+#endif
+  END FUNCTION p_allreduce_int8_0d
 
 
   !---------------------------------------------------------------------------------------------------------------------------------
@@ -9749,19 +10067,13 @@ CONTAINS
 
   SUBROUTINE p_clear_request(request)
     INTEGER, INTENT(INOUT) :: request
-#if !defined(NOMPI)
-    request = MPI_REQUEST_NULL
-#endif
+    request = MERGE_HAVE_MPI(MPI_REQUEST_NULL, 0)
   END SUBROUTINE p_clear_request
 
 
   FUNCTION p_mpi_wtime()
     REAL(dp) :: p_mpi_wtime
-#ifndef NOMPI
-    p_mpi_wtime = MPI_Wtime()
-#else
-    p_mpi_wtime = 0d0
-#endif
+    p_mpi_wtime = MERGE_HAVE_MPI(MPI_Wtime(), 0d0)
   END FUNCTION p_mpi_wtime
 
 
@@ -9852,8 +10164,8 @@ CONTAINS
   END FUNCTION p_comm_remote_size
 
 
-  LOGICAL FUNCTION p_isEqual_int(value, comm) RESULT(resultVar)
-    INTEGER, VALUE :: value
+  LOGICAL FUNCTION p_isEqual_int(val, comm) RESULT(resultVar)
+    INTEGER, VALUE :: val
     INTEGER, OPTIONAL, INTENT(IN) :: comm
 
 #ifndef NOMPI
@@ -9862,8 +10174,8 @@ CONTAINS
 
     !Compute the MIN AND MAX of the values using the fact that MAX_i(x_i) = -min_i(-x_i)
     !i. e. we compute both with a single MPI MIN reduction.
-    sendBuffer(1) = VALUE
-    sendBuffer(2) = -VALUE
+    sendBuffer(1) = val
+    sendBuffer(2) = -val
     minmax = p_min(sendBuffer, comm = comm)
     resultVar = minmax(1) == -minmax(2)
 #else

@@ -1,4 +1,4 @@
-\svnInfo $Id$
+
 % --------------------------------------------------------------------------------
 % Facsimile of DWD publication title page
 % compliant with the specifications by J. Rapp, PB FB, 
@@ -39,10 +39,13 @@
       \textbf{Version \vhCurrentVersion}
     \end{sansserif}};
   % 
-  \node[anchor=north west, xshift=3.25cm, yshift=-10.5cm, scale=1.4] at (current page.north west)
-  {\begin{sansserif}%
-      Last changes: \svnInfoLongDate
-    \end{sansserif}};
+  % LAST CHANGES (BASED ON SVN Version Control System)
+  % -- this does no longer work with Git --
+  %
+  % \node[anchor=north west, xshift=3.25cm, yshift=-10.5cm, scale=1.4] at (current page.north west)
+  % {\begin{sansserif}%
+  %   Last changes: \svnInfoLongDate
+  % \end{sansserif}};
   % 
   \node[anchor=north west, xshift=3.25cm, yshift=-12.5cm, scale=1.4] at (current page.north west)
   {\begin{sansserif}%
@@ -57,7 +60,7 @@
   % 
   \node[anchor=north west, xshift=3.25cm, yshift=3.0cm, scale=0.8] at (current page.south west)
   {\begin{sansserif}%
-      Offenbach am Main, 2016
+      Offenbach am Main, \the\year
     \end{sansserif}};
 \end{tikzpicture}
 % ----------------------------------------------------------%
@@ -72,11 +75,15 @@
       \textbf{Version: \vhCurrentVersion}
     \end{sansserif}};
   % 
-  \node[anchor=north west, xshift=1.1cm, yshift=-19.0cm, scale=0.9] at (current page.north west)
-  {\begin{sansserif}%
-      This document is based on Revision \svnInfoRevision \, of the ICON code,
-      last changed on \svnInfoDate.
-    \end{sansserif}};
+  %
+  % SVN REVISION INFO
+  % -- this no longer works for Git --
+  % 
+  % \node[anchor=north west, xshift=1.1cm, yshift=-19.0cm, scale=0.9] at (current page.north west)
+  % {\begin{sansserif}%
+  %   This document is based on Revision \svnInfoRevision \, of the ICON code,
+  %   last changed on \svnInfoDate.
+  % \end{sansserif}};
   % 
   \draw[black] ($(current page.north west)+(1.1cm,-20.2cm)$) -- ++ (18.4cm,0cm);
   % 
@@ -178,5 +185,8 @@
   \vhEntry{1.1.6}{28.01.16}{DR   }{Extend tables by field specific lat-lon interpolation method.}
   \vhEntry{1.1.7}{11.04.16}{DR|FP}{Add timeline of model changes.}
   \vhEntry{1.1.8}{06.07.16}{HF   }{Add DTKE\_HSH and other minor corrections.}
-  \vhEntry{1.1.9}{27.09.16}{DR   }{Update intro and timeline.}  
+  \vhEntry{1.1.9}{27.09.16}{DR   }{Update intro and timeline.}
+  \vhEntry{1.1.10}{03.02.17}{DR  }{update lat-lon interpolation methods and timeline.}  
+  \vhEntry{1.1.11}{08.05.17}{DR  }{update version history.}  
+  \vhEntry{1.1.12}{13.07.17}{DR  }{Update description for output variable \texttt{SOILTYP}.}  
 \end{versionhistory}

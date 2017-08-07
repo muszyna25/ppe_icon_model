@@ -73,7 +73,7 @@ MODULE mo_var_metadata_types
     &  "MODE_IAU_OLD_FG_IN    ",  &  ! First guess input for old IAU mode
     &  "MODE_IAU_OLD_ANA_IN   ",  &  ! Analysis input for old IAU mode
     &  "MODE_COMBINED_IN      ",  &  ! Input fields for MODE_COMBINED
-    &  "MODE_COSMODE_IN       ",  &  ! Input fields for MODE_COSMODE
+    &  "MODE_COSMO_IN         ",  &  ! Input fields for MODE_COSMO
     &  "OCE_PROG              ",  &
     &  "OCE_DIAG              ",  &
     &  "OCE_DEFAULT           ",  &

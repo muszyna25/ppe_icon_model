@@ -165,7 +165,7 @@ cat > NAMELIST_ICON << EOF
 &transport_ctl
  ihadv_tracer = 2           ! default: 'muscl', test 'muscl_nolimit'
  ivadv_tracer = 3
- ctracer_list = 'vwi45'     ! 'vwi4' or 'vwi45' with ozone
+ tracer_names = 'v','w','i','4','5'     ! 'vwi4' or 'vwi45' with ozone
  lstrang      = .FALSE.
  itype_hlimit = 4
  itype_vlimit = 1

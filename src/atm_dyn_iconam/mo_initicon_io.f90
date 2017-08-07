@@ -33,17 +33,19 @@ MODULE mo_initicon_io
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_initicon_types,      ONLY: t_initicon_state, t_pi_atm, alb_snow_var, geop_ml_var
-  USE mo_input_instructions,  ONLY: t_readInstructionListPtr, kInputSourceNone, kInputSourceFg, &
-    &                               kInputSourceAna, kInputSourceBoth, kStateFailedFetch
-  USE mo_initicon_config,     ONLY: init_mode, nlevatm_in, l_sst_in, generate_filename, &
+  USE mo_input_instructions,  ONLY: t_readInstructionListPtr, kInputSourceFg, &
+    &                               kInputSourceAna, kInputSourceBoth, kStateFailedFetch, &
+    &                               kInputSourceCold
+  USE mo_initicon_config,     ONLY: init_mode, l_sst_in, generate_filename, &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               nml_filetype => filetype, lread_vn,      &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart,    &
-    &                               lvert_remap_fg, aerosol_fg_present
+    &                               lvert_remap_fg, aerosol_fg_present, nlevsoil_in
   USE mo_nh_init_nest_utils,  ONLY: interpolate_scal_increments, interpolate_sfcana
+  USE mo_nh_init_utils,       ONLY: convert_omega2w, compute_input_pressure_and_height
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom,                           &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
-    &                               MODE_COSMODE, iss, iorg, ibc, iso4, idu, SUCCESS
+    &                               MODE_COSMO, iss, iorg, ibc, iso4, idu, SUCCESS
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: p_io, p_bcast, p_comm_work,    &
@@ -53,10 +55,9 @@ MODULE mo_initicon_io
     &                               read_2d_1time, read_2d_1lev_1time, &
     &                               read_3d_1time, on_cells, on_edges
   USE mo_util_cdi,            ONLY: trivial_tileId
-  USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: ntiles_total,  l2lay_rho_snow, &
     &                               ntiles_water, lmulti_snow, lsnowtile, &
-    &                               isub_lake, llake
+    &                               isub_lake, llake, lprog_albsi
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
   USE mo_io_util,             ONLY: get_filetype
@@ -79,7 +80,7 @@ MODULE mo_initicon_io
   !
   !  2. init_mode
   !
-  !  3. further flags and the `ana_varlist` field from the namelists
+  !  3. further flags and the `ana_checklist` and 'fg_checklist' fields from the namelists
   !
   !
   ! Steps of reading
@@ -89,7 +90,7 @@ MODULE mo_initicon_io
   !     The code for this is found in `mo_input_instructions`.
   !
   !     This is where the variable groups enter the process, all further processing depends on the variable groups only indirectly via `t_ReadInstructions`.
-  !     This is also the place where the `ana_varlist` namelist parameter is evaluated.
+  !     This is also the place where the `ana_checklist` and `fg_checklist` namelist parameter is evaluated.
   !
   !     The input instructions serve a dual purpose (which is a source of confusion, unfortunately):
   !     They encode from which input file a read attempt for a variable should be made,
@@ -129,6 +130,9 @@ MODULE mo_initicon_io
   ! There are two places that need to be changed to add support for a new input variable:
   !
   !  1. The variable has to be added to the relevant variable groups, so that input instructions are generated for it, and so that it's requested from the right files.
+  !
+  !  2. If the new variable is an optional first guess field, it has to be added manually in the SUBROUTINE collectGroupFgOpt 
+  !     in mo_input_instructions
   !
   !  2. Code has to be added to one of the `fetch_dwd...()` routines in this file to retrieve the data from the file(s)
   !     and to inform the `t_ReadInstructions` about the succes/failure to do so.
@@ -231,12 +235,12 @@ MODULE mo_initicon_io
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_levels, nlev_in, nhyi
-    INTEGER :: ncid, dimid, varid, mpi_comm
+    INTEGER :: ncid, dimid, varid, mpi_comm, ierrstat
     TYPE(t_stream_id) :: stream_id
     INTEGER :: psvar_ndims, geopvar_ndims
-    REAL(wp), ALLOCATABLE :: lev_ifs(:)
-    INTEGER,  ALLOCATABLE :: lev_hyi(:)
-    REAL(wp), ALLOCATABLE :: hyab(:)
+
+    REAL(wp), ALLOCATABLE               :: psfc(:,:), phi_sfc(:,:), z_ifc_in(:,:,:), &
+      &                                    w_ifc(:,:,:), omega(:,:,:)
 
     CHARACTER(LEN=10) :: psvar
 
@@ -291,16 +295,13 @@ MODULE mo_initicon_io
         !
         ! get number of vertical levels
         !
-        CALL nf(nf_inq_dimid(ncid, 'lev', dimid), routine)
+        ! would be good, if we could come up with a unique name ...
+        IF (nf_inq_dimid(ncid, 'lev', dimid) /= nf_noerr) THEN
+          ! try alternative name 
+          CALL nf(nf_inq_dimid(ncid, 'height_2', dimid), routine)
+        ENDIF
         CALL nf(nf_inq_dimlen(ncid, dimid, no_levels), routine)
 
-        IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
-        !
-        ! get number of hybrid coefficients
-        !
-          CALL nf(nf_inq_dimid(ncid, 'nhyi', dimid), routine)
-          CALL nf(nf_inq_dimlen(ncid, dimid, nhyi), routine)
-        ENDIF
 
         !
         ! check the number of cells
@@ -320,40 +321,6 @@ MODULE mo_initicon_io
         ELSE
           nlev_in = no_levels
         END IF
-
-        !
-        ! Check if surface pressure (PS) or its logarithm (LNPS) is provided as input
-        !
-        IF (nf_inq_varid(ncid, 'PS', varid) == nf_noerr) THEN
-          psvar = 'PS'
-        ELSE IF (nf_inq_varid(ncid, 'LNPS', varid) == nf_noerr) THEN
-          psvar = 'LNPS'
-        ENDIF
-
-        !Find out the dimension of psvar for reading purpose
-        IF (nf_inq_varid(ncid, TRIM(psvar), varid) == nf_noerr) THEN
-          CALL nf(nf_inq_varndims(ncid,varid,psvar_ndims), routine)
-        ELSE
-          CALL finish(TRIM(routine),'surface pressure var '//TRIM(psvar)//' is missing')
-        ENDIF
-
-        !
-        ! Check if model-level surface Geopotential is provided as GEOSP or GEOP_ML
-        !
-        IF (nf_inq_varid(ncid, 'GEOSP', varid) == nf_noerr) THEN
-          geop_ml_var = 'GEOSP'
-        ELSE IF (nf_inq_varid(ncid, 'GEOP_ML', varid) == nf_noerr) THEN
-          geop_ml_var = 'GEOP_ML'
-        ELSE
-          CALL finish(TRIM(routine),'Could not find model-level sfc geopotential')
-        ENDIF
-
-        !Find out the dimension of geop_ml_var for reading purpose
-        IF (nf_inq_varid(ncid, TRIM(geop_ml_var), varid) == nf_noerr) THEN
-          CALL nf(nf_inq_varndims(ncid,varid,geopvar_ndims), routine)
-        ELSE
-          CALL finish(TRIM(routine),'surface geopotential var '//TRIM(geop_ml_var)//' is missing')
-        ENDIF
 
 
         !
@@ -385,6 +352,49 @@ MODULE mo_initicon_io
           lread_vn = .FALSE.
         ENDIF
 
+
+        IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
+          !
+          ! get number of hybrid coefficients
+          !
+          CALL nf(nf_inq_dimid(ncid, 'nhyi', dimid), routine)
+          CALL nf(nf_inq_dimlen(ncid, dimid, nhyi), routine)
+          !
+          ! Check if surface pressure (PS) or its logarithm (LNPS) is provided as input
+          !
+          IF (nf_inq_varid(ncid, 'PS', varid) == nf_noerr) THEN
+            psvar = 'PS'
+          ELSE IF (nf_inq_varid(ncid, 'LNPS', varid) == nf_noerr) THEN
+            psvar = 'LNPS'
+          ENDIF
+
+          ! Find out the dimension of psvar for reading purpose
+          IF (nf_inq_varid(ncid, TRIM(psvar), varid) == nf_noerr) THEN
+            CALL nf(nf_inq_varndims(ncid,varid,psvar_ndims), routine)
+          ELSE
+            CALL finish(TRIM(routine),'surface pressure var '//TRIM(psvar)//' is missing')
+          ENDIF
+
+          !
+          ! Check if model-level surface Geopotential is provided as GEOSP or GEOP_ML
+          !
+          IF (nf_inq_varid(ncid, 'GEOSP', varid) == nf_noerr) THEN
+            geop_ml_var = 'GEOSP'
+          ELSE IF (nf_inq_varid(ncid, 'GEOP_ML', varid) == nf_noerr) THEN
+            geop_ml_var = 'GEOP_ML'
+          ELSE
+            CALL finish(TRIM(routine),'Could not find model-level sfc geopotential')
+          ENDIF
+
+          ! Find out the dimension of geop_ml_var for reading purpose
+          IF (nf_inq_varid(ncid, TRIM(geop_ml_var), varid) == nf_noerr) THEN
+            CALL nf(nf_inq_varndims(ncid,varid,geopvar_ndims), routine)
+          ELSE
+            CALL finish(TRIM(routine),'surface geopotential var '//TRIM(geop_ml_var)//' is missing')
+          ENDIF
+
+        ENDIF
+
       ENDIF ! pe_io
 
       !
@@ -403,17 +413,19 @@ MODULE mo_initicon_io
       CALL p_bcast(lread_qs,      p_io, mpi_comm)
       CALL p_bcast(lread_qr,      p_io, mpi_comm)
       CALL p_bcast(lread_vn,      p_io, mpi_comm)
-      CALL p_bcast(psvar_ndims,   p_io, mpi_comm)
-      CALL p_bcast(geopvar_ndims, p_io, mpi_comm)
-      IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) CALL p_bcast( nhyi, p_io, mpi_comm)
-
-      nlevatm_in(:) = nlev_in
+      IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
+        CALL p_bcast( nhyi, p_io, mpi_comm)
+        CALL p_bcast(psvar_ndims,   p_io, mpi_comm)
+        CALL p_bcast(geopvar_ndims, p_io, mpi_comm)
+      ENDIF
 
       IF (msg_level >= 10) THEN
-        WRITE(message_text,'(a)') 'surface pressure variable: '//TRIM(psvar)
-        CALL message(TRIM(routine), TRIM(message_text))
-        WRITE(message_text,'(a)') 'Model-level surface geopotential: '//TRIM(geop_ml_var)
-        CALL message(TRIM(routine), TRIM(message_text))
+        IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
+          WRITE(message_text,'(a)') 'surface pressure variable: '//TRIM(psvar)
+          CALL message(TRIM(routine), TRIM(message_text))
+          WRITE(message_text,'(a)') 'Model-level surface geopotential: '//TRIM(geop_ml_var)
+          CALL message(TRIM(routine), TRIM(message_text))
+        ENDIF
         IF (.NOT. lread_vn) THEN
           WRITE(message_text,'(a)') 'No direct input of vn! vn derived from (u,v).'
           CALL message(TRIM(routine), TRIM(message_text))
@@ -424,7 +436,14 @@ MODULE mo_initicon_io
       ENDIF
 
       ! allocate data structure
-      CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
+      CALL allocate_extana_atm(nblks_c  = p_patch(jg)%nblks_c, &
+        &                      nblks_e  = p_patch(jg)%nblks_e, &
+        &                      nlev_in  = nlev_in,             &
+        &                      atm_in   = initicon(jg)%atm_in, &
+        &                      const    = initicon(jg)%const  ) !inout
+
+      ! allocate local temporary arrays:
+      ALLOCATE(psfc(nproma, p_patch(jg)%nblks_c), phi_sfc(nproma, p_patch(jg)%nblks_c))
 
       ! start reading atmospheric fields
       !
@@ -439,11 +458,18 @@ MODULE mo_initicon_io
       ENDIF
 
 
-      IF (init_mode == MODE_COSMODE) THEN
-        CALL read_3d_1time(stream_id, on_cells, 'W', fill_array=initicon(jg)%atm_in%w_ifc)
+      IF (init_mode == MODE_COSMO) THEN
+        ! allocate temporary array:
+        ALLOCATE(w_ifc(nproma,nlev_in+1, p_patch(jg)%nblks_c))
+
+        CALL read_3d_1time(stream_id, on_cells, 'W', fill_array=w_ifc)
       ELSE
         ! Note: in this case, input vertical velocity is in fact omega (Pa/s)
-        CALL read_3d_1time(stream_id, on_cells, 'W', fill_array=initicon(jg)%atm_in%omega)
+
+        ! allocate temporary array:
+        ALLOCATE(omega(nproma,nlev_in,p_patch(jg)%nblks_c))
+
+        CALL read_3d_1time(stream_id, on_cells, 'W', fill_array=omega)
       ENDIF
 
       CALL read_3d_1time(stream_id, on_cells, 'QV', fill_array=initicon(jg)%atm_in%qv)
@@ -462,79 +488,50 @@ MODULE mo_initicon_io
         initicon(jg)%atm_in%qs(:,:,:)=0._wp
       ENDIF
 
-      IF (psvar_ndims==2)THEN
-        CALL read_2d_1time(stream_id, on_cells, TRIM(psvar), &
-          &                     fill_array=initicon(jg)%atm_in%psfc)
-      ELSEIF(psvar_ndims==3)THEN
-        CALL read_2d_1lev_1time(stream_id, on_cells, TRIM(psvar), &
-          &                     fill_array=initicon(jg)%atm_in%psfc)
-      ELSE
-        CALL finish(TRIM(routine),'surface pressure var '//TRIM(psvar)//' dimension mismatch')
-      END IF
-
-      IF (geopvar_ndims==2)THEN
-        CALL read_2d_1time(stream_id, on_cells, TRIM(geop_ml_var), &
-          &                     fill_array=initicon(jg)%atm_in%phi_sfc)
-      ELSEIF(geopvar_ndims==3)THEN
-        CALL read_2d_1lev_1time(stream_id, on_cells, TRIM(geop_ml_var), &
-          &                     fill_array=initicon(jg)%atm_in%phi_sfc)
-      ELSE
-        CALL finish(TRIM(routine),'surface geopotential var '//TRIM(geop_ml_var)//' dimension mismatch')
-      END IF
-
       ! Allocate and read in vertical coordinate tables
       !
-      ! Note that here the IFS input vertical grid is set up. This has to be distinguished
-      ! from vct_a, vct_b, vct for the ICON vertical grid.
+      ! Note that here the IFS input vertical grid is set up. This has
+      ! to be distinguished from vct_a, vct_b, vct for the ICON
+      ! vertical grid.
       !
       IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
 
-        IF (jg == 1) THEN
+        ! read surface presure and (surface) geopotential
+        IF (psvar_ndims==2)THEN
+          CALL read_2d_1time(stream_id, on_cells, TRIM(psvar), &
+            &                     fill_array=psfc)
+        ELSEIF(psvar_ndims==3)THEN
+          CALL read_2d_1lev_1time(stream_id, on_cells, TRIM(psvar), &
+            &                     fill_array=psfc)
+        ELSE
+          CALL finish(TRIM(routine),'surface pressure var '//TRIM(psvar)//' dimension mismatch')
+        END IF
+        
+        IF (geopvar_ndims==2)THEN
+          CALL read_2d_1time(stream_id, on_cells, TRIM(geop_ml_var), &
+            &                     fill_array=phi_sfc)
+        ELSEIF(geopvar_ndims==3)THEN
+          CALL read_2d_1lev_1time(stream_id, on_cells, TRIM(geop_ml_var), &
+            &                     fill_array=phi_sfc)
+        ELSE
+          CALL finish(TRIM(routine),'surface geopotential var '//TRIM(geop_ml_var)//' dimension mismatch')
+        END IF
+        
+        IF(p_test_run) THEN
+          mpi_comm = p_comm_work_test
+        ELSE
+          mpi_comm = p_comm_work
+        ENDIF
+        
+        CALL initicon(jg)%const%vct%construct(ncid, p_io, mpi_comm)
 
-          ALLOCATE( lev_ifs(nlev_in), lev_hyi(nlev_in+1), hyab(nhyi) )
-          ALLOCATE( vct_a(nlev_in+1), vct_b(nlev_in+1), vct(2*(nlev_in+1)))
+      ELSE IF (init_mode == MODE_COSMO) THEN ! in case of COSMO-DE initial data
+        
+        ! allocate temporary array:
+        ALLOCATE(z_ifc_in(nproma,nlev_in+1, p_patch(jg)%nblks_c), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-          IF(lread_process) THEN
-            CALL nf(nf_inq_varid(ncid, 'lev', varid), routine)
-            CALL nf(nf_get_var_double(ncid, varid, lev_ifs), routine)
-            lev_hyi(1:nlev_in) = NINT( lev_ifs(:) )
-            lev_hyi(nlev_in+1) = lev_hyi(nlev_in) + 1
-            IF ( nlev_in+1 /= nhyi) THEN
-              WRITE(message_text,*) 'Reading only IFS levels ', lev_hyi(1:nlev_in)
-              CALL message(TRIM(routine), TRIM(message_text))
-            END IF
-
-            CALL nf(nf_inq_varid(ncid, 'hyai', varid), routine)
-            CALL nf(nf_get_var_double(ncid, varid, hyab), routine)
-            vct_a(:) = hyab( lev_hyi(:))
-
-            CALL nf(nf_inq_varid(ncid, 'hybi', varid), routine)
-            CALL nf(nf_get_var_double(ncid, varid, hyab), routine)
-            vct_b(:) = hyab( lev_hyi(:))
-          ENDIF
-
-          IF(p_test_run) THEN
-            mpi_comm = p_comm_work_test
-          ELSE
-            mpi_comm = p_comm_work
-          ENDIF
-
-          CALL p_bcast(vct_a, p_io, mpi_comm)
-          CALL p_bcast(vct_b, p_io, mpi_comm)
-
-
-          vct(1:nlev_in+1)             = vct_a(:)
-          vct(nlev_in+2:2*(nlev_in+1)) = vct_b(:)
-
-
-          CALL alloc_vct(nlev_in)
-          CALL init_vct(nlev_in)
-
-        ENDIF  ! jg=1
-
-      ELSE IF (init_mode == MODE_COSMODE) THEN ! in case of COSMO-DE initial data
-
-        CALL read_3d_1time(stream_id, on_cells, 'HHL', fill_array=initicon(jg)%atm_in%z3d_ifc)
+        CALL read_3d_1time(stream_id, on_cells, 'HHL', fill_array=z_ifc_in)
         CALL read_3d_1time(stream_id, on_cells, 'P', fill_array=initicon(jg)%atm_in%pres)
 
         ! Interpolate input 'z3d' and 'w' from interface levels to main levels
@@ -551,25 +548,41 @@ MODULE mo_initicon_io
           DO jk = 1, nlev_in
             DO jc = 1, i_endidx
 
-              initicon(jg)%atm_in%z3d(jc,jk,jb) = (initicon(jg)%atm_in%z3d_ifc(jc,jk,jb) + &
-                &   initicon(jg)%atm_in%z3d_ifc(jc,jk+1,jb)) * 0.5_wp
-              initicon(jg)%atm_in%w(jc,jk,jb) = (initicon(jg)%atm_in%w_ifc(jc,jk,jb) +     &
-                &   initicon(jg)%atm_in%w_ifc(jc,jk+1,jb)) * 0.5_wp
+              initicon(jg)%const%z_mc_in(jc,jk,jb) = (z_ifc_in(jc,jk,jb) + z_ifc_in(jc,jk+1,jb)) * 0.5_wp
+              initicon(jg)%atm_in%w(jc,jk,jb)      = (w_ifc(jc,jk,jb)    + w_ifc(jc,jk+1,jb)) * 0.5_wp
             ENDDO
           ENDDO
         ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
+
       ELSE
 
         CALL finish(TRIM(routine),'Incorrect init_mode')
 
-      ENDIF ! init_mode = MODE_COSMODE
+      ENDIF ! init_mode = MODE_COSMO
 
       ! close file
       !
       IF(lread_process) CALL nf(nf_close(ncid), routine)
       CALL closeFile(stream_id)
+
+      IF (ANY(init_mode == (/ MODE_COMBINED, MODE_IFSANA /) )) THEN
+        ! compute pressure and height of input data, using the IFS routines
+        CALL compute_input_pressure_and_height(p_patch(jg), psfc, phi_sfc, initicon(jg))
+
+        CALL convert_omega2w(omega, initicon(jg)%atm_in%w,                        &
+          &                  initicon(jg)%atm_in%pres,  initicon(jg)%atm_in%temp, &
+          &                  p_patch(jg)%nblks_c, p_patch(jg)%npromz_c,           &
+          &                  initicon(jg)%atm_in%nlev )
+      END IF
+
+      ! cleanup
+      IF (ALLOCATED(omega))    DEALLOCATE(omega)
+      IF (ALLOCATED(psfc))     DEALLOCATE(psfc)
+      IF (ALLOCATED(phi_sfc))  DEALLOCATE(phi_sfc)
+      IF (ALLOCATED(z_ifc_in)) DEALLOCATE(z_ifc_in)
+      IF (ALLOCATED(w_ifc))    DEALLOCATE(w_ifc)
 
     ENDDO ! loop over model domains
 
@@ -737,7 +750,9 @@ MODULE mo_initicon_io
       CALL p_bcast(geop_sfc_var_ndims, p_io, mpi_comm)
 
       ! allocate data structure
-      CALL allocate_extana_sfc(jg, p_patch(jg)%nblks_c, initicon)
+      CALL allocate_extana_sfc(nblks_c     = p_patch(jg)%nblks_c,  &
+        &                      nlevsoil_in = nlevsoil_in,          &
+        &                      sfc_in      = initicon(jg)%sfc_in   ) !inout
 
 
       ! start reading surface fields
@@ -839,19 +854,6 @@ MODULE mo_initicon_io
     END IF
   END SUBROUTINE fetch3d
 
-  FUNCTION fetchSurfaceOptional(params, varName, jg, field) RESULT(resultVar)
-    TYPE(t_fetchParams), INTENT(INOUT) :: params
-    CHARACTER(LEN = *), INTENT(IN) :: varName
-    INTEGER, VALUE :: jg
-    REAL(wp), INTENT(INOUT) :: field(:,:)
-    LOGICAL :: resultVar
-
-    IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
-        resultVar = params%requestList%fetchSurface(varName, trivial_tileId, jg, field)
-        CALL params%inputInstructions(jg)%ptr%optionalReadResult(resultVar, varName, params%routine, params%isFg)
-    END IF
-  END FUNCTION fetchSurfaceOptional
-
   SUBROUTINE fetchSurface(params, varName, jg, field)
     TYPE(t_fetchParams), INTENT(INOUT) :: params
     CHARACTER(LEN = *), INTENT(IN) :: varName
@@ -916,30 +918,64 @@ MODULE mo_initicon_io
     END IF
   END SUBROUTINE fetchTiled3d
 
-  ! Same as above for variables that are optionally read from input file.
-  SUBROUTINE fetchTiled3dOptional(params, varName, jg, tileCount, field, avail)
-    TYPE(t_fetchParams), INTENT(INOUT) :: params
-    CHARACTER(LEN = *), INTENT(IN) :: varName
-    INTEGER, VALUE :: jg, tileCount
-    REAL(wp), INTENT(INOUT) :: field(:,:,:,:)
-    LOGICAL, INTENT(OUT) :: avail
 
+  ! Wrapper for requestList%fetchTiled3d() 
+  ! - that falls back to reading copies of untiled input IF ltile_coldstart IS set.
+  ! - has a fallback option, if the primary input field is not found.
+  SUBROUTINE fetchTiled3dWithFallback(params, varName, varNameFallback, jg, tileCount, field, opt_field_fallback)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName, varNameFallback
+    INTEGER, VALUE :: jg, tileCount
+    REAL(wp),           TARGET, INTENT(INOUT) :: field(:,:,:,:)
+    REAL(wp), OPTIONAL, TARGET, INTENT(INOUT) :: opt_field_fallback(:,:,:,:)  ! optional target field for 
+                                                                              ! fallback input
+    ! local
     INTEGER :: jt
+    LOGICAL :: fetchResult
+    REAL(wp), POINTER :: ptr_field_fb(:,:,:,:)
+
+    ! set pointer to fallback target field
+    IF (PRESENT(opt_field_fallback)) THEN
+      ptr_field_fb => opt_field_fallback
+    ELSE
+      ptr_field_fb => field
+    ENDIF
 
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
         IF(ltile_coldstart) THEN
             !Fake tiled input by copying the input field to all tiles.
-            avail = .TRUE.
+            fetchResult = .TRUE.
             DO jt = 1, tileCount
-                avail = avail.AND.params%requestList%fetch3d(varName, trivial_tileId, jg, field(:,:,:,jt))
+                fetchResult = fetchResult.AND.  &
+                  &           params%requestList%fetch3d(varName, trivial_tileId, jg, field(:,:,:,jt))
             END DO
+            IF (.NOT.fetchResult) THEN
+                CALL params%inputInstructions(jg)%ptr%optionalReadResult(fetchResult, varName, params%routine, params%isFg)
+                ! try fallback
+                fetchResult = .TRUE.
+                DO jt = 1, tileCount
+                   fetchResult = fetchResult.AND. &
+                     &           params%requestList%fetch3d(varNameFallback, trivial_tileId, jg, ptr_field_fb(:,:,:,jt))
+                END DO
+                CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varNameFallback, params%routine, params%isFg)
+            ELSE
+                CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+            ENDIF
         ELSE
             !True tiled input.
-            avail = params%requestList%fetchTiled3d(varName, jg, field)
+            fetchResult = params%requestList%fetchTiled3d(varName, jg, field)
+            IF (.NOT.fetchResult) THEN
+                CALL params%inputInstructions(jg)%ptr%optionalReadResult(fetchResult, varName, params%routine, params%isFg)
+                ! try fallback
+                fetchResult = params%requestList%fetchTiled3d(varNameFallback, jg, ptr_field_fb)
+                CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varNameFallback, params%routine, params%isFg)
+            ELSE
+                CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+            ENDIF
         END IF
-        CALL params%inputInstructions(jg)%ptr%optionalReadResult(avail, varName, params%routine, params%isFg)
     END IF
-  END SUBROUTINE fetchTiled3dOptional
+  END SUBROUTINE fetchTiled3dWithFallback
+
 
   SUBROUTINE fetchRequired3d(params, varName, jg, field)
     TYPE(t_fetchParams), INTENT(INOUT) :: params
@@ -988,10 +1024,11 @@ MODULE mo_initicon_io
     TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
     CHARACTER(*), PARAMETER :: routine = modname//':fetch_dwdfg_atm'
-    INTEGER jg
+    INTEGER                  :: jg, nlev_in, jb,jk,jc,nlen
     TYPE(t_nh_prog), POINTER :: prognosticFields
-    REAL(wp), POINTER :: my_ptr3d(:,:,:)
-    TYPE(t_fetchParams) :: params
+    REAL(wp), POINTER        :: my_ptr3d(:,:,:)
+    TYPE(t_fetchParams)      :: params
+    REAL(wp), ALLOCATABLE    :: z_ifc_in(:,:,:)
 
     params%inputInstructions = inputInstructions
     params%requestList => requestList
@@ -1030,11 +1067,44 @@ MODULE mo_initicon_io
             END IF
 
             IF (lvert_remap_fg) THEN
-                ! the number of input and output levels must be the same for this mode
-                nlevatm_in(jg) = p_patch(jg)%nlev
 
-                CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
-                CALL fetchRequired3d(params, 'z_ifc', jg, initicon(jg)%atm_in%z3d_ifc)
+                ! the number of input and output levels must be the same for this mode
+                CALL allocate_extana_atm(nblks_c  = p_patch(jg)%nblks_c, & 
+                  &                      nblks_e  = p_patch(jg)%nblks_e, & 
+                  &                      nlev_in  = p_patch(jg)%nlev,    & 
+                  &                      atm_in   = initicon(jg)%atm_in, & 
+                  &                      const    = initicon(jg)%const  ) !inout
+
+                ! allocate temporary array:
+                nlev_in = SIZE(initicon(jg)%const%z_mc_in,2)
+                ALLOCATE(z_ifc_in(nproma,nlev_in+1, p_patch(jg)%nblks_c))
+
+                CALL fetchRequired3d(params, 'z_ifc', jg, z_ifc_in)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,nlen) ICON_OMP_DEFAULT_SCHEDULE
+                DO jb = 1, p_patch(jg)%nblks_c
+                  
+                  IF (jb /= p_patch(jg)%nblks_c) THEN
+                    nlen = nproma
+                  ELSE
+                    nlen = p_patch(jg)%npromz_c
+                  ENDIF
+
+                  ! interpolate half-level variables to full levels and diagnose pressure and temperature 
+                  DO jk = 1, nlev_in
+                    DO jc = 1, nlen
+                      
+                      initicon(jg)%const%z_mc_in(jc,jk,jb) = (z_ifc_in(jc,jk,jb) + &
+                        &   z_ifc_in(jc,jk+1,jb)) * 0.5_wp
+                      
+                    END DO
+                  END DO
+                END DO
+!$OMP END DO
+!$OMP END PARALLEL
+
+                ! clean-up
+                DEALLOCATE(z_ifc_in)
             END IF
 
             CALL fetchRequired3d(params, 'vn', jg, prognosticFields%vn)
@@ -1063,10 +1133,11 @@ MODULE mo_initicon_io
     TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':fetch_dwdfg_atm_ii'
-    INTEGER :: jg, jb, jk, jc, i_endidx
+    INTEGER :: jg, jb, jk, jc, i_endidx, nlev_in
     REAL(wp) :: tempv, exner
     REAL(dp), POINTER :: levelValues(:)
     TYPE(t_fetchParams) :: params
+    REAL(wp), ALLOCATABLE :: z_ifc_in(:,:,:), w_ifc(:,:,:), tke_ifc(:,:,:)
 
     params%inputInstructions = inputInstructions
     params%requestList => requestList
@@ -1080,16 +1151,25 @@ MODULE mo_initicon_io
             levelValues => requestList%getLevels('z_ifc', jg)
             IF(.NOT.ASSOCIATED(levelValues)) CALL finish(routine, "no DATA found for domain "//TRIM(int2string(jg))//" of &
                                                                   &required variable 'z_ifc'")
-            nlevatm_in(jg) = SIZE(levelValues, 1) - 1
 
-            CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
+            CALL allocate_extana_atm(nblks_c  = p_patch(jg)%nblks_c,    & 
+              &                      nblks_e  = p_patch(jg)%nblks_e,    & 
+              &                      nlev_in  = SIZE(levelValues,1)-1,  & 
+              &                      atm_in   = initicon(jg)%atm_in  ,  & 
+              &                      const    = initicon(jg)%const    ) !inout
+
+            ! allocate temporary array:
+            nlev_in = SIZE(initicon(jg)%const%z_mc_in,2)
+            ALLOCATE(z_ifc_in(nproma,nlev_in+1, p_patch(jg)%nblks_c), &
+              &      w_ifc   (nproma,nlev_in+1, p_patch(jg)%nblks_c), &
+              &      tke_ifc (nproma,nlev_in+1, p_patch(jg)%nblks_c) )
 
             ! start reading first guess (atmosphere only)
-            CALL fetchRequired3d(params, 'z_ifc', jg, initicon(jg)%atm_in%z3d_ifc)
+            CALL fetchRequired3d(params, 'z_ifc', jg, z_ifc_in)
             CALL fetchRequired3d(params, 'theta_v', jg, initicon(jg)%atm_in%theta_v)
             CALL fetchRequired3d(params, 'rho', jg, initicon(jg)%atm_in%rho)
-            CALL fetchRequired3d(params, 'w', jg, initicon(jg)%atm_in%w_ifc)
-            CALL fetchRequired3d(params, 'tke', jg, initicon(jg)%atm_in%tke_ifc)
+            CALL fetchRequired3d(params, 'w',   jg, w_ifc)
+            CALL fetchRequired3d(params, 'tke', jg, tke_ifc)
 
             CALL fetchRequired3d(params, 'qv', jg, initicon(jg)%atm_in%qv)
             CALL fetchRequired3d(params, 'qc', jg, initicon(jg)%atm_in%qc)
@@ -1120,23 +1200,12 @@ MODULE mo_initicon_io
                     i_endidx = p_patch(jg)%npromz_c
                 END IF
 
-                DO jk = 1, nlevatm_in(jg)
+                DO jk = 1, initicon(jg)%atm_in%nlev
                     DO jc = 1, i_endidx
 
-                        !XXX: This code IS a waste of resources:
-                        !       1. It IS memory bound.
-                        !       2. Like all other places that USE the fields z3d_ifc, w_ifc, AND tke_ifc,
-                        !          it uses them purely as temporary buffers to cache the input to the interpolation.
-                        !     This could be avoided by moving these calculations directly after the fetch calls above (better cache USE),
-                        !     scraping the *_ifc fields, AND using a temporary buffer instead (which can be reused for the next variable, smaller memory footprint).
-                        !     However, since the fields are also used IN mo_initicon_utils, mo_async_latbc_utils, AND mo_sync_latbc IN a similar pattern,
-                        !     all these places would need to be rewritten to scrape the *_ifc fields.
-                        initicon(jg)%atm_in%z3d(jc,jk,jb) = (initicon(jg)%atm_in%z3d_ifc(jc,jk,jb) + &
-                            &   initicon(jg)%atm_in%z3d_ifc(jc,jk+1,jb)) * 0.5_wp
-                        initicon(jg)%atm_in%w(jc,jk,jb) = (initicon(jg)%atm_in%w_ifc(jc,jk,jb) +     &
-                            &   initicon(jg)%atm_in%w_ifc(jc,jk+1,jb)) * 0.5_wp
-                        initicon(jg)%atm_in%tke(jc,jk,jb) = (initicon(jg)%atm_in%tke_ifc(jc,jk,jb) + &
-                            &   initicon(jg)%atm_in%tke_ifc(jc,jk+1,jb)) * 0.5_wp
+                        initicon(jg)%const%z_mc_in(jc,jk,jb) = (z_ifc_in(jc,jk,jb) + z_ifc_in(jc,jk+1,jb)) * 0.5_wp
+                        initicon(jg)%atm_in%w(jc,jk,jb) = (w_ifc(jc,jk,jb) + w_ifc(jc,jk+1,jb)) * 0.5_wp
+                        initicon(jg)%atm_in%tke(jc,jk,jb) = (tke_ifc(jc,jk,jb) + tke_ifc(jc,jk+1,jb)) * 0.5_wp
 
                         exner = (initicon(jg)%atm_in%rho(jc,jk,jb)*initicon(jg)%atm_in%theta_v(jc,jk,jb)*rd/p0ref)**(1._wp/cvd_o_rd)
                         tempv = initicon(jg)%atm_in%theta_v(jc,jk,jb)*exner
@@ -1148,10 +1217,16 @@ MODULE mo_initicon_io
 
                     END DO
                 END DO
-            END DO
+              END DO
 !$OMP END DO
 !$OMP END PARALLEL
-        END IF
+
+              ! cleanup
+              IF (ALLOCATED(z_ifc_in)) DEALLOCATE(z_ifc_in)
+              IF (ALLOCATED(w_ifc))    DEALLOCATE(w_ifc)
+              IF (ALLOCATED(tke_ifc))  DEALLOCATE(tke_ifc)
+
+            END IF
     ENDDO
 
     lread_vn = .TRUE.  ! Tell the vertical interpolation routine that vn needs to be processed
@@ -1272,7 +1347,6 @@ MODULE mo_initicon_io
     TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
     INTEGER :: jg, error
-    LOGICAL :: avail
     REAL(wp), POINTER :: my_ptr2d(:,:)
     TYPE(t_lnd_prog), POINTER :: lnd_prog
     TYPE(t_lnd_diag), POINTER :: lnd_diag
@@ -1297,17 +1371,20 @@ MODULE mo_initicon_io
             wtr_prog => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
 
             ! COSMO-DE does not provide sea ice field. In that case set fr_seaice to 0
-            IF (init_mode /= MODE_COSMODE) THEN
+            IF (init_mode /= MODE_COSMO) THEN
                 CALL fetchSurface(params, 'fr_seaice', jg, lnd_diag%fr_seaice)
             ELSE
 !$OMP PARALLEL
                 CALL init(lnd_diag%fr_seaice(:,:))
 !$OMP END PARALLEL
-            ENDIF ! init_mode /= MODE_COSMODE
+            ENDIF ! init_mode /= MODE_COSMO
 
             ! sea-ice related fields
             CALL fetchSurface(params, 't_ice', jg, wtr_prog%t_ice)
             CALL fetchSurface(params, 'h_ice', jg, wtr_prog%h_ice)
+            IF ( lprog_albsi ) THEN  ! prognostic sea-ice albedo
+              CALL fetchSurface(params, 'alb_si', jg, wtr_prog%alb_si)
+            ENDIF
 
             !These two fields are required for the processing step below, AND they are NOT initialized before this SUBROUTINE IS called, so they are fetched as required.
             !This diverges from the code that I found which READ them conditionally.
@@ -1332,8 +1409,8 @@ MODULE mo_initicon_io
                 CALL fetchTiled3d(params, 'wliq_snow', jg, ntiles_total, lnd_prog%wliq_snow_t)
                 CALL fetchTiled3d(params, 'dzh_snow', jg, ntiles_total, lnd_prog%dzh_snow_t)
             ELSE IF (l2lay_rho_snow) THEN
-                CALL fetchTiled3dOptional(params, 'rho_snow_mult', jg, ntiles_total, lnd_prog%rho_snow_mult_t, avail)
-                IF(.NOT. avail) THEN
+                CALL fetchTiled3d(params, 'rho_snow_mult', jg, ntiles_total, lnd_prog%rho_snow_mult_t)
+                IF (inputInstructions(jg)%ptr%sourceOfVar('rho_snow_mult') == kInputSourceCold) THEN
                     ! initialize top-layer snow density with average density if no input field is available
                     lnd_prog%rho_snow_mult_t(:,1,:,:) = lnd_prog%rho_snow_t(:,:,:)
                 ENDIF
@@ -1346,16 +1423,22 @@ MODULE mo_initicon_io
             ! on the initialization mode. Checking grp_vars_fg takes care of this. In case
             ! that smi is read, it is lateron converted to w_so (see smi_to_wsoil)
             SELECT CASE(init_mode)
-                CASE(MODE_COMBINED, MODE_COSMODE)
-                    CALL fetchTiled3d(params, 'smi', jg, ntiles_total, lnd_prog%w_so_t)
+                CASE(MODE_COMBINED,MODE_COSMO)
+                    CALL fetchTiled3dWithFallback(params          = params,         &
+                      &                           varName         = 'smi' ,         &
+                      &                           varNameFallback = 'w_so',         &
+                      &                           jg              = jg,             &
+                      &                           tileCount       = ntiles_total,   &
+                      &                           field           = lnd_prog%w_so_t )
                 CASE DEFAULT
                     CALL fetchTiled3d(params, 'w_so', jg, ntiles_total, lnd_prog%w_so_t)
                     CALL fetchTiled3d(params, 'w_so_ice', jg, ntiles_total, lnd_prog%w_so_ice_t) ! w_so_ice is re-diagnosed in terra_multlay_init
             END SELECT
 
+
             CALL fetchTiled3d(params, 't_so', jg, ntiles_total, lnd_prog%t_so_t)
 
-            ! Skipped in MODE_COMBINED and in MODE_COSMODE (i.e. when starting from GME soil)
+            ! Skipped in MODE_COMBINED and in MODE_COSMO (i.e. when starting from GME soil)
             ! Instead z0 is re-initialized (see mo_nwp_phy_init)
             CALL fetchSurface(params, 'gz0', jg, prm_diag(jg)%gz0)
 
@@ -1372,23 +1455,32 @@ MODULE mo_initicon_io
                 aerosol_fg_present(jg) = .TRUE.
 
                 my_ptr2d => prm_diag(jg)%aerosol(:,iss,:)
-                IF(.NOT.fetchSurfaceOptional(params, 'aer_ss', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+                CALL fetchSurface(params, 'aer_ss', jg, my_ptr2d)
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_ss') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
+                !
                 my_ptr2d => prm_diag(jg)%aerosol(:,iorg,:)
-                IF(.NOT.fetchSurfaceOptional(params, 'aer_or', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+                CALL fetchSurface(params, 'aer_or', jg, my_ptr2d)
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_or') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
+                !
                 my_ptr2d => prm_diag(jg)%aerosol(:,ibc,:)
-                IF(.NOT.fetchSurfaceOptional(params, 'aer_bc', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+                CALL fetchSurface(params, 'aer_bc', jg, my_ptr2d)
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_bc') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
+                !
                 my_ptr2d => prm_diag(jg)%aerosol(:,iso4,:)
-                IF(.NOT.fetchSurfaceOptional(params, 'aer_su', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+                CALL fetchSurface(params, 'aer_su', jg, my_ptr2d)
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_su') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
+                !
                 my_ptr2d => prm_diag(jg)%aerosol(:,idu,:)
-                IF(.NOT.fetchSurfaceOptional(params, 'aer_du', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+                CALL fetchSurface(params, 'aer_du', jg, my_ptr2d)
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_du') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
 
                 ! Reading of these variables IS purely OPTIONAL, but IF reading of one fails, we USE NONE. Inform the InputInstructions about this.
                 IF(.NOT.aerosol_fg_present(jg)) THEN
-                    CALL inputInstructions(jg)%ptr%setSource('aer_ss', kInputSourceNone)
-                    CALL inputInstructions(jg)%ptr%setSource('aer_or', kInputSourceNone)
-                    CALL inputInstructions(jg)%ptr%setSource('aer_bc', kInputSourceNone)
-                    CALL inputInstructions(jg)%ptr%setSource('aer_su', kInputSourceNone)
-                    CALL inputInstructions(jg)%ptr%setSource('aer_du', kInputSourceNone)
+                    CALL inputInstructions(jg)%ptr%setSource('aer_ss', kInputSourceCold)
+                    CALL inputInstructions(jg)%ptr%setSource('aer_or', kInputSourceCold)
+                    CALL inputInstructions(jg)%ptr%setSource('aer_bc', kInputSourceCold)
+                    CALL inputInstructions(jg)%ptr%setSource('aer_su', kInputSourceCold)
+                    CALL inputInstructions(jg)%ptr%setSource('aer_du', kInputSourceCold)
                 END IF
             ELSE
                 aerosol_fg_present(jg) = .FALSE.
@@ -1400,22 +1492,24 @@ MODULE mo_initicon_io
 
 
   !! processing of DWD first-guess DATA
-  SUBROUTINE process_input_dwdfg_sfc(p_patch, p_lnd_state, ext_data)
-    TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
-    TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
-    TYPE(t_external_data)    , INTENT(INOUT) :: ext_data(:)
+  SUBROUTINE process_input_dwdfg_sfc(p_patch, inputInstructions, p_lnd_state, ext_data)
+    TYPE(t_patch),             INTENT(IN)      :: p_patch(:)
+    TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
+    TYPE(t_lnd_state), TARGET, INTENT(INOUT)   :: p_lnd_state(:)
+    TYPE(t_external_data)    , INTENT(INOUT)   :: ext_data(:)
 
     INTEGER :: jg, jt, jb, jc, ic, i_endidx
     TYPE(t_lnd_prog), POINTER :: lnd_prog
-    TYPE(t_wtr_prog), POINTER :: wtr_prog
+    TYPE(t_wtr_prog), POINTER :: wtr_prog_now
     TYPE(t_lnd_diag), POINTER :: lnd_diag
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":process_input_dwdfg_sfc"
 
+
     DO jg = 1, n_dom
         IF(p_patch(jg)%ldom_active) THEN
-            lnd_prog => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
-            wtr_prog => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
-            lnd_diag => p_lnd_state(jg)%diag_lnd
+            lnd_prog     => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
+            wtr_prog_now => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
+            lnd_diag     => p_lnd_state(jg)%diag_lnd
             DO jt=1, ntiles_total + ntiles_water
                 ! Copy t_g_t and qv_s_t to t_g and qv_s, respectively, on limited-area domains.
                 ! This is needed to avoid invalid operations in the initialization of the turbulence scheme
@@ -1438,12 +1532,16 @@ MODULE mo_initicon_io
                 END IF
             END DO
 
-            ! Only required, when starting from GME or COSMO soil (i.e. MODE_COMBINED or MODE_COSMODE).
-            ! SMI stored in w_so_t must be converted to w_so
-            IF (ANY((/MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
-                DO jt=1, ntiles_total
-                    CALL smi_to_wsoil(p_patch(jg), lnd_prog%w_so_t(:,:,:,jt))
-                END DO
+
+            ! When starting from GME or COSMO soil (i.e. MODE_COMBINED or MODE_COSMODE).
+            ! SMI is read if available, with W_SO being the fallback option. If SMI is 
+            ! read, it is directly stored in w_so_t. Here, it is converted into w_so
+            IF (ANY((/MODE_COMBINED,MODE_COSMO/) == init_mode)) THEN
+                IF (inputInstructions(jg)%ptr%sourceOfVar('smi')==kInputSourceFg) THEN
+                    DO jt=1, ntiles_total
+                        CALL smi_to_wsoil(p_patch(jg), lnd_prog%w_so_t(:,:,:,jt))
+                    END DO
+                ENDIF
             END IF
 
 
@@ -1464,7 +1562,7 @@ MODULE mo_initicon_io
                 ! take lake surface temperature from t_wml_lk
                 DO ic = 1, ext_data(jg)%atm%fp_count(jb)
                   jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-                  lnd_prog%t_s_t(jc,jb,isub_lake) = wtr_prog%t_wml_lk(jc,jb)
+                  lnd_prog%t_s_t(jc,jb,isub_lake) = wtr_prog_now%t_wml_lk(jc,jb)
                 ENDDO
               ELSE
                 ! without lake model, take t_g as an estimate of the lake temperature
@@ -1484,6 +1582,7 @@ MODULE mo_initicon_io
 
             ENDDO  ! jb
 !$OMP END PARALLEL DO
+
         END IF
 
     END DO

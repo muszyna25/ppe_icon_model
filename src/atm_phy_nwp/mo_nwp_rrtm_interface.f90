@@ -179,7 +179,7 @@ CONTAINS
         & pt_patch   = pt_patch,                     & ! in
         & zvio3      = prm_diag%vio3,                & !inout
         & zhmo3      = prm_diag%hmo3  )                !inout
-    CASE (7,9,79)
+    CASE (7,9,79,97)
       CALL calc_o3_gems(pt_patch,mtime_datetime,pt_diag,prm_diag,ext_data)
     CASE(10)
       !CALL message('mo_nwp_rg_interface:irad_o3=10', &  
@@ -222,7 +222,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-        ! The routine aerdis is called to recieve some parameters for the vertical
+        ! The routine aerdis is called to receive some parameters for the vertical
         ! distribution of background aerosol.
         CALL aerdis ( &
           & kbdim  = nproma,      & !in
@@ -308,7 +308,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-        ! The routine aerdis is called to recieve some parameters for the vertical
+        ! The routine aerdis is called to receive some parameters for the vertical
         ! distribution of background aerosol.
         CALL aerdis ( &
           & kbdim  = nproma,      & !in

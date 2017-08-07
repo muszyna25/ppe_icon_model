@@ -34,8 +34,12 @@ MODULE mo_fortran_tools
   PUBLIC :: assign_if_present
   PUBLIC :: t_ptr_2d3d, t_ptr_2d3d_vp
   PUBLIC :: assign_if_present_allocatable
+  PUBLIC :: alloc
   PUBLIC :: ensureSize
-  PUBLIC :: t_ptr_2d, t_ptr_2d_sp
+  PUBLIC :: t_alloc_character
+  PUBLIC :: t_ptr_1d
+  PUBLIC :: t_ptr_1d_ptr_1d
+  PUBLIC :: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int
   PUBLIC :: t_ptr_3d, t_ptr_3d_sp
   PUBLIC :: t_ptr_i2d3d
   PUBLIC :: t_ptr_tracer
@@ -43,6 +47,7 @@ MODULE mo_fortran_tools
   PUBLIC :: var_scale, var_add
   PUBLIC :: init_zero_contiguous_dp, init_zero_contiguous_sp
   PUBLIC :: resize_arr_c1d
+  PUBLIC :: DO_DEALLOCATE
 
   PRIVATE
 
@@ -53,6 +58,18 @@ MODULE mo_fortran_tools
     PROCEDURE(interface_destructor), DEFERRED :: destruct
   END TYPE t_Destructible
 
+  TYPE t_alloc_character
+    CHARACTER(:), ALLOCATABLE :: a
+  END TYPE t_alloc_character
+
+  TYPE t_ptr_1d
+    REAL(wp),POINTER :: p(:)  ! pointer to 1D (spatial) array
+  END TYPE t_ptr_1d
+
+  TYPE t_ptr_1d_ptr_1d
+    TYPE(t_ptr_1d), POINTER :: p(:)  ! pointer to a 1D array of pointers to 1D (spatial) arrays
+  END TYPE t_ptr_1d_ptr_1d
+
   TYPE t_ptr_2d
     REAL(dp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
   END TYPE t_ptr_2d
@@ -60,6 +77,10 @@ MODULE mo_fortran_tools
   TYPE t_ptr_2d_sp
     REAL(sp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
   END TYPE t_ptr_2d_sp
+
+  TYPE t_ptr_2d_int
+    INTEGER,POINTER :: p(:,:)  ! pointer to 2D (spatial) array
+  END TYPE t_ptr_2d_int
 
   TYPE t_ptr_3d
     REAL(dp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
@@ -108,6 +129,13 @@ MODULE mo_fortran_tools
     MODULE PROCEDURE assign_if_present_real_allocatable
     MODULE PROCEDURE assign_if_present_real_allocatable_1d
   END INTERFACE assign_if_present_allocatable
+
+  ! This allocates an array, adjusting the allocation SIZE to 1 IF the given SIZE IS zero OR less, AND checking for allocation failure.
+  INTERFACE alloc
+    MODULE PROCEDURE alloc_int_1d
+    MODULE PROCEDURE alloc_double_1d
+    MODULE PROCEDURE alloc_single_1d
+  END INTERFACE alloc
 
   ! This handles the recuring CASE of growing a buffer to match possibly increasing needs.
   ! We USE a POINTER to pass the buffer because that allows us to avoid an extra copy when reallocating the buffer.
@@ -171,15 +199,30 @@ MODULE mo_fortran_tools
     END SUBROUTINE interface_destructor
   END INTERFACE
 
+
+  ! auxiliary routines
+  INTERFACE DO_DEALLOCATE
+    MODULE PROCEDURE DO_DEALLOCATE_r4D
+    MODULE PROCEDURE DO_DEALLOCATE_r3D
+    MODULE PROCEDURE DO_DEALLOCATE_r2D
+    MODULE PROCEDURE DO_DEALLOCATE_r1D
+    MODULE PROCEDURE DO_DEALLOCATE_i3D
+    MODULE PROCEDURE DO_DEALLOCATE_i2D
+    MODULE PROCEDURE DO_PTR_DEALLOCATE_r3D
+    MODULE PROCEDURE DO_PTR_DEALLOCATE_r2D
+  END INTERFACE
+
+
+
   CHARACTER(LEN = *), PARAMETER :: modname = "mo_fortran_tools"
 
 #if defined( _OPENACC )
-#define ACC_DEBUG $ACC
 #if defined(__FORTRAN_TOOLS_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
+  LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! Only activate for validation phase
 #endif
 
 
@@ -329,6 +372,54 @@ CONTAINS
     y(:) = x(:)
   END SUBROUTINE assign_if_present_real_allocatable_1d
 
+  SUBROUTINE alloc_int_1d(array, allocSize)
+    INTEGER, ALLOCATABLE, INTENT(INOUT) :: array(:)
+    INTEGER, VALUE :: allocSize
+
+    INTEGER :: error
+    CHARACTER(*), PARAMETER :: routine = modname//":alloc_int_1d"
+
+    IF(allocSize < 1) allocSize = 1
+    IF(ALLOCATED(array)) THEN
+        IF(SIZE(array) == allocSize) RETURN
+        DEALLOCATE(array)
+    END IF
+    ALLOCATE(array(allocSize), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+  END SUBROUTINE alloc_int_1d
+
+  SUBROUTINE alloc_double_1d(array, allocSize)
+    REAL(dp), ALLOCATABLE, INTENT(INOUT) :: array(:)
+    INTEGER, VALUE :: allocSize
+
+    INTEGER :: error
+    CHARACTER(*), PARAMETER :: routine = modname//":alloc_double_1d"
+
+    IF(allocSize < 1) allocSize = 1
+    IF(ALLOCATED(array)) THEN
+        IF(SIZE(array) == allocSize) RETURN
+        DEALLOCATE(array)
+    END IF
+    ALLOCATE(array(allocSize), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+  END SUBROUTINE alloc_double_1d
+
+  SUBROUTINE alloc_single_1d(array, allocSize)
+    REAL(sp), ALLOCATABLE, INTENT(INOUT) :: array(:)
+    INTEGER, VALUE :: allocSize
+
+    INTEGER :: error
+    CHARACTER(*), PARAMETER :: routine = modname//":alloc_single_1d"
+
+    IF(allocSize < 1) allocSize = 1
+    IF(ALLOCATED(array)) THEN
+        IF(SIZE(array) == allocSize) RETURN
+        DEALLOCATE(array)
+    END IF
+    ALLOCATE(array(allocSize), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+  END SUBROUTINE alloc_single_1d
+
   SUBROUTINE ensureSize_dp_1d(buffer, requiredSize)
     REAL(wp), POINTER, INTENT(INOUT) :: buffer(:)
     INTEGER, VALUE ::requiredSize
@@ -438,7 +529,7 @@ CONTAINS
     m2 = SIZE(dest, 2)
 #ifdef _OPENACC
 !$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(2)
 #else
@@ -451,7 +542,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -469,7 +560,7 @@ CONTAINS
     m3 = SIZE(dest, 3)
 #ifdef _OPENACC
 !$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
@@ -488,7 +579,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -504,10 +595,17 @@ CONTAINS
     m2 = SIZE(dest, 2)
     m3 = SIZE(dest, 3)
     m4 = SIZE(dest, 4)
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(4)
+#else
 #ifdef _CRAYFTN
 !$omp do
 #else
 !$omp do collapse(4)
+#endif
 #endif
     DO i4 = 1, m4
       DO i3 = 1, m3
@@ -518,7 +616,13 @@ CONTAINS
         END DO
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!$ACC UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE copy_4d_dp
 
   !> copy state, omp parallel, does not wait for other threads to complete
@@ -533,7 +637,7 @@ CONTAINS
     m5 = SIZE(dest, 5)
 #ifdef _OPENACC
 !$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
@@ -552,7 +656,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -571,7 +675,7 @@ CONTAINS
     m5 = SIZE(dest, 5)
 #ifdef _OPENACC
 !$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
@@ -590,7 +694,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -609,7 +713,7 @@ CONTAINS
     m5 = SIZE(dest, 5)
 #ifdef _OPENACC
 !$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
@@ -628,7 +732,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -644,7 +748,7 @@ CONTAINS
     m2 = SIZE(dest, 2)
 #ifdef _OPENACC
 !$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(2)
 #else
@@ -657,7 +761,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -677,7 +781,7 @@ CONTAINS
 
 #ifdef _OPENACC
 !$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
@@ -696,7 +800,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -713,7 +817,7 @@ CONTAINS
     m3 = SIZE(dest, 3)
 #ifdef _OPENACC
 !$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
@@ -728,7 +832,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -763,7 +867,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -800,7 +904,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -837,7 +941,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -867,7 +971,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -896,7 +1000,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -926,7 +1030,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -959,7 +1063,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -983,7 +1087,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1010,7 +1114,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1042,7 +1146,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1074,7 +1178,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1112,7 +1216,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1150,7 +1254,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1170,7 +1274,7 @@ CONTAINS
 
 #ifdef _OPENACC
 !$ACC DATA PCOPYOUT( var ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
@@ -1185,7 +1289,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1228,7 +1332,7 @@ CONTAINS
 
 #ifdef _OPENACC
 !$ACC DATA PCOPY( var ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(4)
 #else
@@ -1246,7 +1350,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1270,7 +1374,7 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
@@ -1294,12 +1398,89 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
 #endif
   END SUBROUTINE init_zero_contiguous_sp
+
+
+
+  ! AUXILIARY ROUTINES FOR DEALLOCATION
+
+  SUBROUTINE DO_DEALLOCATE_r4D(object)
+    REAL(wp), ALLOCATABLE, INTENT(INOUT) :: object(:,:,:,:)
+    INTEGER :: ierrstat
+    IF (ALLOCATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_r4D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_DEALLOCATE_R4D
+
+  SUBROUTINE DO_DEALLOCATE_r3D(object)
+    REAL(wp), ALLOCATABLE, INTENT(INOUT) :: object(:,:,:)
+    INTEGER :: ierrstat
+    IF (ALLOCATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_r3D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_DEALLOCATE_R3D
+
+  SUBROUTINE DO_DEALLOCATE_r2D(object)
+    REAL(wp), ALLOCATABLE, INTENT(INOUT) :: object(:,:)
+    INTEGER :: ierrstat
+    IF (ALLOCATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_r2D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_DEALLOCATE_R2D
+
+  SUBROUTINE DO_DEALLOCATE_r1D(object)
+    REAL(wp), ALLOCATABLE, INTENT(INOUT) :: object(:)
+    INTEGER :: ierrstat
+    IF (ALLOCATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_r1D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_DEALLOCATE_R1D
+
+  SUBROUTINE DO_DEALLOCATE_i3D(object)
+    INTEGER, ALLOCATABLE, INTENT(INOUT) :: object(:,:,:)
+    INTEGER :: ierrstat
+    IF (ALLOCATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_i3D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_DEALLOCATE_i3D
+
+  SUBROUTINE DO_DEALLOCATE_i2D(object)
+    INTEGER, ALLOCATABLE, INTENT(INOUT) :: object(:,:)
+    INTEGER :: ierrstat
+    IF (ALLOCATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_DEALLOCATE_i2D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_DEALLOCATE_i2D
+
+  SUBROUTINE DO_PTR_DEALLOCATE_r3D(object)
+    REAL(wp), POINTER, INTENT(INOUT) :: object(:,:,:)
+    INTEGER :: ierrstat
+    IF (ASSOCIATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_PTR_DEALLOCATE_r3D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_PTR_DEALLOCATE_R3D
+
+  SUBROUTINE DO_PTR_DEALLOCATE_r2D(object)
+    REAL(wp), POINTER, INTENT(INOUT) :: object(:,:)
+    INTEGER :: ierrstat
+    IF (ASSOCIATED(object)) THEN
+      DEALLOCATE(object, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish("DO_PTR_DEALLOCATE_r2D", "DEALLOCATE failed!")
+    END IF
+  END SUBROUTINE DO_PTR_DEALLOCATE_R2D
+
 
 
 END MODULE mo_fortran_tools

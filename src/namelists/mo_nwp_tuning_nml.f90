@@ -30,6 +30,8 @@ MODULE mo_nwp_tuning_nml
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   USE mo_nwp_tuning_config,   ONLY: config_tune_gkwake    => tune_gkwake,    &
     &                               config_tune_gkdrag    => tune_gkdrag,    &
+    &                               config_tune_gfrcrit   => tune_gfrcrit,   &
+    &                               config_tune_grcrit    => tune_grcrit,    &
     &                               config_tune_gfluxlaun => tune_gfluxlaun, &
     &                               config_tune_zceff_min => tune_zceff_min, &
     &                               config_tune_v0snow    => tune_v0snow,    &
@@ -65,6 +67,12 @@ MODULE mo_nwp_tuning_nml
 
   REAL(wp) :: &                    !< gravity wave drag constant
     &  tune_gkdrag
+
+  REAL(wp) :: &                    !< critical Froude number in SSO scheme
+    &  tune_gfrcrit
+
+  REAL(wp) :: &                    !< critical Richardson number in SSO scheme
+    &  tune_grcrit
 
   REAL(wp) :: &                    !< total launch momentum flux in each azimuth (rho_o x F_o)
     &  tune_gfluxlaun
@@ -132,7 +140,7 @@ MODULE mo_nwp_tuning_nml
     &                      tune_rhebc_ocean, tune_rcucov, tune_texc,        &
     &                      tune_qexc, tune_minsnowfrac,tune_rhebc_land_trop,&
     &                      tune_rhebc_ocean_trop, tune_rcucov_trop,         &
-    &                      tune_dust_abs
+    &                      tune_dust_abs, tune_gfrcrit, tune_grcrit
 
 CONTAINS
 
@@ -175,6 +183,8 @@ CONTAINS
     ! SSO tuning
     tune_gkwake     = 1.5_wp       ! original COSMO value 0.5
     tune_gkdrag     = 0.075_wp     ! original COSMO value 0.075
+    tune_gfrcrit    = 0.4_wp       ! original COSMO value 0.5
+    tune_grcrit     = 0.25_wp      ! original COSMO value 0.25
     !
     ! GWD tuning
     tune_gfluxlaun  = 2.50e-3_wp   ! original IFS value 3.75e-3
@@ -257,6 +267,8 @@ CONTAINS
 
     config_tune_gkwake           = tune_gkwake
     config_tune_gkdrag           = tune_gkdrag
+    config_tune_gfrcrit          = tune_gfrcrit
+    config_tune_grcrit           = tune_grcrit
     config_tune_gfluxlaun        = tune_gfluxlaun
     config_tune_zceff_min        = tune_zceff_min 
     config_tune_v0snow           = tune_v0snow

@@ -44,7 +44,7 @@ MODULE mo_ocean_tracer
   USE mo_exception,                 ONLY: finish !, message_text, message
   USE mo_ocean_boundcond,           ONLY: top_bound_cond_tracer
   USE mo_ocean_physics_types,       ONLY: t_ho_params
-  USE mo_sea_ice_types,             ONLY: t_sfc_flx
+  USE mo_ocean_surface_types,       ONLY: t_ocean_surface
   USE mo_ocean_diffusion,           ONLY: tracer_diffusion_vertical_implicit, tracer_diffusion_vert_explicit,tracer_diffusion_horz
   USE mo_ocean_tracer_transport_horz, ONLY: advect_horz, diffuse_horz
   USE mo_ocean_tracer_transport_vert, ONLY: advect_flux_vertical
@@ -80,11 +80,11 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
 !<Optimize:inUse>
-  SUBROUTINE advect_ocean_tracers(patch_3d, p_os, p_param, p_sfc_flx,p_op_coeff, timestep)
+  SUBROUTINE advect_ocean_tracers(patch_3d, p_os, p_param, p_oce_sfc,p_op_coeff, timestep)
     TYPE(t_patch_3d ),TARGET, INTENT(inout)      :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: p_os
     TYPE(t_ho_params),                 INTENT(inout) :: p_param
-    TYPE(t_sfc_flx),                   INTENT(inout) :: p_sfc_flx
+    TYPE(t_ocean_surface),             INTENT(inout) :: p_oce_sfc
     TYPE(t_operator_coeff),            INTENT(inout) :: p_op_coeff
     INTEGER :: timestep
 
@@ -131,7 +131,7 @@ CONTAINS
         CALL top_bound_cond_tracer( patch_2D,            &
                                   & p_os,               &
                                   & tracer_index,       &
-                                  & p_sfc_flx,          &
+                                  & p_oce_sfc,          &
                                   & p_os%p_aux%bc_top_tracer)
       ENDDO
     ENDIF
@@ -222,7 +222,7 @@ CONTAINS
     !  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
     !    CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
     !    DO jc = start_cell_index, end_cell_index
-    !      p_os%p_prog(nnew(1))%h(jc,jb) = p_os%p_prog(nnew(1))%h(jc,jb) + p_sfc_flx%forc_fwfx(jc,jb)*dtime
+    !      p_os%p_prog(nnew(1))%h(jc,jb) = p_os%p_prog(nnew(1))%h(jc,jb) + p_oce_sfc%forc_fwfx(jc,jb)*dtime
     !    END DO
     !  END DO
     !END IF
@@ -832,21 +832,13 @@ CONTAINS
     CALL dbg_print('aft. AdvIndivTrac: trac_old', trac_old, str_module, 3, in_subset=cells_in_domain)
     CALL dbg_print('aft. AdvIndivTrac: trac_new', trac_new, str_module, 3, in_subset=cells_in_domain)
     IF(tracer_index == 1) THEN
-      DO level=1,n_zlev
-        CALL dbg_print('temp tend:', p_os%p_diag%opottemptend(:,level,:), str_module, 3, in_subset=cells_in_domain)
-      END DO
-     ELSEIF(tracer_index == 2) THEN
-      DO level=1,n_zlev
-        CALL dbg_print('temp tend:', p_os%p_diag%opottemptend(:,level,:), str_module, 3, in_subset=cells_in_domain)
-      END DO
-      DO level=1,n_zlev
-        CALL dbg_print('salt tend:', p_os%p_diag%osalttend(:,level,:), str_module, 3, in_subset=cells_in_domain)
-      END DO
-     ELSEIF(tracer_index >= 3) THEN 
-      DO level=1,n_zlev
-        CALL dbg_print('tracer tend:', (new_ocean_tracer%concentration(:,level,:)&
-              &- old_ocean_tracer%concentration(:,level,:))/dtime, str_module, 3, in_subset=cells_in_domain)
-      END DO           
+      CALL dbg_print('temp tend trc1:', p_os%p_diag%opottemptend, str_module, 4, in_subset=cells_in_domain)
+    ELSEIF(tracer_index == 2) THEN
+      CALL dbg_print('temp tend trc2:', p_os%p_diag%opottemptend, str_module, 4, in_subset=cells_in_domain)
+      CALL dbg_print('salt tend trc2:', p_os%p_diag%osalttend,    str_module, 4, in_subset=cells_in_domain)
+    ELSEIF(tracer_index >= 3) THEN 
+      CALL dbg_print('tracer tend >3:', (new_ocean_tracer%concentration(:,:,:)&
+            &- old_ocean_tracer%concentration(:,:,:))/dtime, str_module, 4, in_subset=cells_in_domain)
     ENDIF  
       
     !---------------------------------------------------------------------

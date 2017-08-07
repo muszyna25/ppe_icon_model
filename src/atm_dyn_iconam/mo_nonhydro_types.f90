@@ -58,8 +58,8 @@ MODULE mo_nonhydro_types
       exner(:,:,:),      & !! Exner pressure (nproma,nlev,nblks_c)                   [-]
       theta_v(:,:,:),    & !! virtual potential temperature (nproma,nlev,nblks_c)    [K]
       tracer(:,:,:,:),   & !! tracer concentration (nproma,nlev,nblks_c,ntracer) [kg/kg]
-      tke   (:,:,:)        !! turbulent kinetic energy                         [m^2/s^2]
-                           !! (defined on half levels) with 2 time levels
+      tke   (:,:,:)      & !! turbulent kinetic energy                         [m^2/s^2]
+        => NULL()          !! (defined on half levels) with 2 time levels
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
     TYPE(t_ptr_tracer),ALLOCATABLE :: conv_tracer(:,:)  
     TYPE(t_ptr_tracer),ALLOCATABLE :: turb_tracer(:,:)  
@@ -144,8 +144,8 @@ MODULE mo_nonhydro_types
     &  v_avg    (:,:,:),    & ! normal velocity average          [m/s]
     &  pres_avg (:,:,:),    & ! exner average                    [-]
     &  temp_avg   (:,:,:),  & ! moist density average            [kg/m^3]
-    &  qv_avg    (:,:,:)      ! specific humidity average        [kg/kg]
-
+    &  qv_avg    (:,:,:)    &  ! specific humidity average        [kg/kg]
+    &  => NULL()
 
     ! d) variables that are in single precision when "__MIXED_PRECISION" is defined
     REAL(vp), POINTER       &
@@ -170,24 +170,25 @@ MODULE mo_nonhydro_types
     &  mass_fl_e_sv(:,:,:), & ! storage field for horizontal mass flux at edges (nproma,nlev,nblks_e) [kg/m/s]
     &  ddt_vn_adv(:,:,:,:), & ! normal wind tendency from advection
                               ! (nproma,nlev,nblks_e,1:3)                    [m/s^2]
-    &  ddt_w_adv(:,:,:,:)     ! vert. wind tendency from advection
-                              ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
+    &  ddt_w_adv(:,:,:,:)   & ! vert. wind tendency from advection
+    &  => NULL()              ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
 
-    REAL(vp2), POINTER      &   ! single precision if "__MIXED_PRECISION_2" is defined
+    REAL(vp2), POINTER      & ! single precision if "__MIXED_PRECISION_2" is defined
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS            &
 #endif
     &  ::                   &
-    &  ddt_temp_dyn(:,:,:)    ! rediagnosed temperature tendency from dynamics [K/s]
-
+    &  ddt_temp_dyn(:,:,:)  & ! rediagnosed temperature tendency from dynamics [K/s]
+    &  => NULL()
 
     INTEGER, POINTER ::     &
-    &  nsteps_avg(:)          ! number of time steps summed up for averaging
-
+    &  nsteps_avg(:)        &  ! number of time steps summed up for averaging
+    &  => NULL()
 
     REAL(wp), POINTER ::    & !
      &  extra_2d(:,:,:)  ,  & !> extra debug output in 2d and
-     &  extra_3d(:,:,:,:)     !!                       3d
+     &  extra_3d(:,:,:,:)   & !!                       3d
+     &  => NULL()
 
     REAL(vp) :: max_vcfl_dyn=0._vp  ! maximum vertical CFL number in dynamical core
 
@@ -213,7 +214,8 @@ MODULE mo_nonhydro_types
   TYPE t_nh_ref
     REAL(wp), POINTER ::    &
       vn_ref  (:,:,:),      & !! orthogonal normal wind (nproma,nlev,nblks_e)      [m/s]
-      w_ref   (:,:,:)         !> orthogonal vertical wind (nproma,nlevp1,nblks_c)  [m/s]
+      w_ref   (:,:,:)       & !> orthogonal vertical wind (nproma,nlevp1,nblks_c)  [m/s]
+      => NULL()
   END TYPE t_nh_ref
 
 
@@ -270,7 +272,8 @@ MODULE mo_nonhydro_types
      mask_mtnpoints(:,:) , & ! 
      mask_mtnpoints_g(:,:) , & ! 
      ! Area of subdomain for which feedback is performed; dim: (nlev)
-     fbk_dom_volume(:)
+     fbk_dom_volume(:)       &
+     => NULL()
 
     ! Variables that are in single precision when "__MIXED_PRECISION" is defined
     REAL(vp), POINTER      &
@@ -330,8 +333,8 @@ MODULE mo_nonhydro_types
      !
      ! d) other stuff
      !
-     pg_exdist (:)           ! extrapolation distance needed for igradp_method = 3
-
+     pg_exdist (:)         &  ! extrapolation distance needed for igradp_method = 3
+     => NULL()
 
     INTEGER, POINTER          &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
@@ -370,7 +373,8 @@ MODULE mo_nonhydro_types
      ovlp_halo_c_blk(:,:) , & 
      ! c) index lists for mass fluxes at lateral nest boundary (including the required halo points)
      bdy_mflx_e_idx(:) , & 
-     bdy_mflx_e_blk(:)
+     bdy_mflx_e_blk(:)   &
+     => NULL()
 
 
 
@@ -383,7 +387,7 @@ MODULE mo_nonhydro_types
 
 
    ! Finally, a mask field that excludes boundary halo points
-   LOGICAL,  POINTER :: mask_prog_halo_c(:,:)
+   LOGICAL,  POINTER :: mask_prog_halo_c(:,:) => NULL()
 
   END TYPE t_nh_metrics
 

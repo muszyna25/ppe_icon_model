@@ -28,13 +28,16 @@ MODULE mo_nml_crosscheck
     &                              FFSL_MCYCL, FFSL_HYB_MCYCL, iecham,               &
     &                              RAYLEIGH_CLASSIC,                                 &
     &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD
-  USE mo_time_config,        ONLY: dt_restart, time_config
+  USE mo_time_config,        ONLY: time_config, dt_restart
   USE mo_extpar_config,      ONLY: itopo                                             
-  USE mo_io_config,          ONLY: lflux_avg,inextra_2d, inextra_3d,                 &
-    &                              lnetcdf_flt64_output
+  USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
+    &                              lnetcdf_flt64_output, kAsyncRestartModule,        &
+    &                              restartWritingParameters
   USE mo_parallel_config,    ONLY: check_parallel_configuration,                &
     &                              num_io_procs, itype_comm, num_restart_procs, &
     &                              num_prefetch_proc, use_dp_mpi2io
+  USE mo_limarea_config,     ONLY: latbc_config
+  USE mo_master_config,      ONLY: isRestart
   USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                          &
     &                              ltransport, ntracer, nlev, ltestcase,             &
     &                              nqtendphy, iqtke, iqv, iqc, iqi,                  &
@@ -56,7 +59,7 @@ MODULE mo_nml_crosscheck
   USE mo_mpi_phy_config,     ONLY: mpi_phy_config
   USE mo_radiation_config
   USE mo_turbdiff_config,    ONLY: turbdiff_config
-  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart
+  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift
   USE mo_nh_testcases_nml,   ONLY: nh_test_name
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
@@ -68,7 +71,8 @@ MODULE mo_nml_crosscheck
     &                              compute_restart_settings,                         &
     &                              compute_date_settings
   USE mo_event_manager,      ONLY: initEventManager
-
+  USE mtime,                 ONLY: getTotalMilliSecondsTimeDelta, datetime,          &
+    &                              newDatetime, deallocateDatetime
   USE mo_gridref_config
   USE mo_interpol_config
   USE mo_sleve_config
@@ -80,7 +84,6 @@ MODULE mo_nml_crosscheck
 
   PUBLIC :: atm_crosscheck
 
-
   CHARACTER(LEN = *), PARAMETER :: modname = "mo_nml_crosscheck"
 
 
@@ -88,11 +91,12 @@ CONTAINS
 
   SUBROUTINE atm_crosscheck
 
-    INTEGER :: jg
-    INTEGER :: jt   ! tracer loop index
-    INTEGER :: i_listlen
-    INTEGER :: z_go_tri(11)  ! for crosscheck
+    INTEGER  :: jg
+    INTEGER  :: jt   ! tracer loop index
+    INTEGER  :: z_go_tri(11)  ! for crosscheck
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:atm_crosscheck'
+    REAL(wp) :: restart_time
+    TYPE(datetime), POINTER :: reference_dt
     
     !--------------------------------------------------------------------
     ! Compute date/time/time step settings
@@ -124,7 +128,8 @@ CONTAINS
       'Currently a plane version is not available')
 
     ! Reset num_prefetch_proc to zero if the model does not run in limited-area mode
-    IF (.NOT. l_limited_area) num_prefetch_proc = 0
+    ! or if there are no lateral boundary data to be read
+    IF (.NOT. l_limited_area .OR. latbc_config%itype_latbc == 0) num_prefetch_proc = 0
 
     SELECT CASE (iequations)
     CASE(IHS_ATM_TEMP,IHS_ATM_THETA)         ! hydrostatic atm model
@@ -296,7 +301,7 @@ CONTAINS
           SELECT CASE (irad_o3)
           CASE (0) ! ok
             CALL message(TRIM(method_name),'radiation is used without ozone')
-          CASE (2,4,6,7,8,9,79) ! ok
+          CASE (2,4,6,7,8,9,79,97) ! ok
             CALL message(TRIM(method_name),'radiation is used with ozone')
           CASE (10) ! ok
             CALL message(TRIM(method_name),'radiation is used with ozone calculated from ART')
@@ -601,8 +606,6 @@ CONTAINS
 
       DO jg = 1,n_dom
 
-        i_listlen = LEN_TRIM(advection_config(jg)%ctracer_list)
-
         SELECT CASE ( iforcing )
         CASE ( INWP )
         !...........................................................
@@ -634,28 +637,16 @@ CONTAINS
 
           ENDIF
 
-
-          IF ( i_listlen /= ntracer ) THEN
-            DO jt=1,ntracer
-              WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
-            ENDDO
-            WRITE(message_text,'(a,a)') &
-              & 'Attention: according to physics, ctracer_list is set to ',&
-              & advection_config(jg)%ctracer_list(1:ntracer)
-            CALL message(TRIM(method_name),message_text)
-          ENDIF
-
-
-        CASE (inoforcing, iheldsuarez, iecham, ildf_dry, ildf_echam)
-        !...........................................................
-        ! Other types of adiabatic forcing
-        !...........................................................
-
-          IF ( i_listlen < ntracer .AND. i_listlen /= 0 ) THEN
-            ntracer = i_listlen
-            CALL message(TRIM(method_name),'number of tracers is adjusted according to given list')
-          END IF
-
+!
+!        CASE (inoforcing, iheldsuarez, iecham, ildf_dry, ildf_echam)
+!        !...........................................................
+!        ! Other types of adiabatic forcing
+!        !...........................................................
+!
+!          IF (echam_phy_config%lrad) THEN
+!            IF ( izenith > 5)  &
+!              CALL finish(TRIM(method_name), 'Choose a valid case for rad_nml: izenith.')
+!          ENDIF
         END SELECT ! iforcing
 
       END DO ! jg = 1,n_dom
@@ -806,6 +797,20 @@ CONTAINS
         CALL finish('initicon_nml:', TRIM(message_text))
       ENDIF 
 
+      reference_dt => newDatetime("1980-06-01T00:00:00.000")
+
+      IF (dt_checkpoint > 0._wp) THEN
+        restart_time = MIN(dt_checkpoint, &
+          &                0.001_wp * getTotalMilliSecondsTimeDelta(time_config%tc_dt_restart, reference_dt))
+      ELSE
+        restart_time = 0.001_wp * getTotalMilliSecondsTimeDelta(time_config%tc_dt_restart, reference_dt)
+      ENDIF
+
+      CALL deallocateDatetime(reference_dt)
+      IF (.NOT. isRestart() .AND. (restart_time <= dt_iau+timeshift%dt_shift)) THEN
+        WRITE (message_text,'(a)') "Restarting is not allowed within the IAU phase"
+        CALL finish('atm_crosscheck:', TRIM(message_text))
+      ENDIF
 
       ! IAU modes MODE_IAU_OLD cannot be combined with snowtiles
       ! when performing snowtile warmstart.
@@ -831,12 +836,12 @@ CONTAINS
 
   !---------------------------------------------------------------------------------------
   SUBROUTINE land_crosscheck
-
+    INTEGER :: restartModule
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
 
 #ifdef __NO_JSBACH__
     IF (ANY(mpi_phy_config(:)%ljsb)) THEN
-      CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__, or set ljsbach=.FALSE.")
+      CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__, or set ljsb=.FALSE.")
     ENDIF
 #else
     IF (ANY(mpi_phy_config(:)%ljsb)) THEN
@@ -846,6 +851,9 @@ CONTAINS
       IF (num_io_procs > 0) THEN
         CALL finish(method_name, "JSBACH currently doesn't work with asynchronous IO. Set num_io_procs=0 !")
       END IF
+    ELSE IF (ANY(mpi_phy_config(:)%llake)) THEN
+      CALL message(TRIM(method_name), 'Setting llake = .FALSE. since ljsb = .FALSE.')
+      mpi_phy_config(:)%llake = .FALSE.
     END IF
 #endif
 
