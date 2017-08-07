@@ -218,7 +218,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::open_output_file"
     CHARACTER(LEN=filename_max)    :: filename, filename_for_append
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
-    INTEGER                        :: tsID
+    INTEGER                        :: tsID, name_len
     LOGICAL                        :: lexist, lappend
 
     ! open/append file: as this is a preliminary solution only, I do not try to
@@ -230,14 +230,16 @@ CONTAINS
     ! check and reset filename, if data should be appended
     IF (split_output_filename(filename, filename_for_append, '_part_') > 0) THEN
       ! does the file to append to exist
-      INQUIRE(file=TRIM(filename_for_append), exist=lexist)
+      name_len = LEN_TRIM(filename_for_append)
+      INQUIRE(file=filename_for_append(1:name_len), exist=lexist)
+      filename = filename_for_append
       IF (lexist) THEN
         ! store the orginal allocated vlist (the handlers different) for later use with new files
         of%cdiVlistID_orig = of%cdiVlistID
         of%cdiTaxisID_orig = of%cdiTaxisID
 
         ! open for append
-        of%cdiFileID       = streamOpenAppend(TRIM(filename_for_append))
+        of%cdiFileID       = streamOpenAppend(filename(1:name_len))
 
         ! inquire the opened file for its associated vlist
         of%cdiVlistID      = streamInqVlist(of%cdiFileID)
@@ -258,11 +260,11 @@ CONTAINS
           of%cdiTaxisID_orig = CDI_UNDEFID
         ENDIF
         ! file to append to does not exist that means we can use the name without part trailer
-        filename = filename_for_append
-        of%cdiFileID       = streamOpenWrite(TRIM(filename), of%output_type)
+        of%cdiFileID       = streamOpenWrite(filename(1:name_len), of%output_type)
         of%appending       = .FALSE.
       ENDIF
     ELSE
+      name_len = LEN_TRIM(filename)
       IF (of%appending) THEN
         ! restore model internal vlist and time axis handler association
         of%cdiVlistID      = of%cdiVlistID_orig
@@ -270,20 +272,19 @@ CONTAINS
         of%cdiTaxisID      = of%cdiTaxisID_orig
         of%cdiTaxisID_orig = CDI_UNDEFID
       ENDIF
-        of%cdiFileID       = streamOpenWrite(TRIM(filename), of%output_type)
-        of%appending       = .FALSE.
+      of%cdiFileID       = streamOpenWrite(filename(1:name_len), of%output_type)
+      of%appending       = .FALSE.
     ENDIF
 
     IF (of%cdiFileID < 0) THEN
-      CALL cdiGetStringError(of%cdiFileID, cdiErrorText)
-      WRITE(message_text,'(a)') TRIM(cdiErrorText)
-      CALL message('',message_text,all_print=.TRUE.)
-      CALL finish (routine, 'open failed on '//TRIM(filename))
+      CALL cdiGetStringError(of%cdiFileID, message_text)
+      CALL message(routine, message_text, all_print=.TRUE.)
+      CALL finish (routine, 'open failed on '//filename(1:name_len))
     ELSE IF (msg_level >= 8) THEN
       IF (lappend) THEN
-        CALL message (routine, 'to add more data, reopened '//TRIM(filename_for_append),all_print=.TRUE.)
+        CALL message (routine, 'to add more data, reopened '//filename(1:name_len),all_print=.TRUE.)
       ELSE
-        CALL message (routine, 'opened '//TRIM(filename),all_print=.TRUE.)
+        CALL message (routine, 'opened '//filename(1:name_len),all_print=.TRUE.)
       END IF
     ENDIF
 
