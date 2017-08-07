@@ -1004,14 +1004,15 @@ CONTAINS
     INTEGER(C_INT), VALUE :: errorId
     CHARACTER(KIND = C_CHAR), INTENT(INOUT) :: outErrorString
     CHARACTER(KIND = C_CHAR), dimension(:), POINTER :: cString
-    INTEGER :: i
+    INTEGER :: i, n
 
     cString => cdiStringError(errorId)
     outErrorString = ""
     IF(ASSOCIATED(cString)) THEN
-        DO i = 1, MIN(LEN(outErrorString), SIZE(cString, 1))
-            outErrorString(i:i) = cString(i)
-        END DO
+      n = MIN(LEN(outErrorString), SIZE(cString, 1))
+      DO i = 1, n
+        outErrorString(i:i) = cString(i)
+      END DO
     END IF
   END SUBROUTINE cdiGetStringError
 
