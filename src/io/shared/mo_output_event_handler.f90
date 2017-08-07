@@ -1337,7 +1337,7 @@ CONTAINS
           WRITE (0,*) "PE ", get_my_global_mpi_id(), ": n_event_steps = ", &
             & union_of_all_events%output_event%n_event_steps
         END IF
-        DO i = 2, num_all_events
+        event_append_loop: DO i = 2, num_all_events
           i_pe = evd_rank(i)
           ! create the event steps from the received meta-data:
           ev2 => new_output_event(evd_all(i), i_pe, &
@@ -1347,36 +1347,27 @@ CONTAINS
           NULLIFY(last_node)
           par_event => union_of_all_events
           DO WHILE (ASSOCIATED(par_event))
-            IF (par_event%output_event%event_data%name == ev2%event_data%name) EXIT
+            IF (par_event%output_event%event_data%name == ev2%event_data%name) THEN
+              CALL merge_events(par_event%output_event, ev2)
+              CALL deallocate_output_event(ev2)
+              CYCLE event_append_loop
+            END IF
+
             last_node => par_event
             par_event => par_event%next
           END DO
           ! if there is no such parallel output event, then create one
           ! at the end of the linked list:
-          IF (.NOT. ASSOCIATED(par_event)) THEN
-            ALLOCATE(last_node%next, STAT=ierror)
-            IF (ierror /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-            par_event => last_node%next
-            ! set the MPI-related data fields:
-            par_event%icomm         = icomm
-            par_event%iroot         = ROOT_OUTEVENT
-            par_event%irecv_nreq    = 0
-            NULLIFY(par_event%next, par_event%output_event)
-          END IF
-          ! increase MPI message tag ID st. it stays unique even for
-          ! multiple events running on the same I/O PE:
-          IF (ASSOCIATED(par_event%output_event)) THEN
-            ! create union of the two events:
-            CALL merge_events(par_event%output_event, ev2)
-            CALL deallocate_output_event(ev2)
-          ELSE
-            par_event%output_event => ev2
-          END IF
-          IF (ldebug) THEN
-            WRITE (0,*) "PE ", get_my_global_mpi_id(), ": n_event_steps = ", &
-                 & union_of_all_events%output_event%n_event_steps
-          END IF
-        END DO
+          ALLOCATE(last_node%next, STAT=ierror)
+          IF (ierror /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+          par_event => last_node%next
+          ! set the MPI-related data fields:
+          par_event%icomm         = icomm
+          par_event%iroot         = ROOT_OUTEVENT
+          par_event%irecv_nreq    = 0
+          NULLIFY(par_event%next)
+          par_event%output_event => ev2
+        END DO event_append_loop
       END IF
     END IF
 
