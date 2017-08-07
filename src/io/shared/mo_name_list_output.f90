@@ -616,7 +616,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER         :: routine = modname//"::write_ready_file"
     CHARACTER(LEN=FILENAME_MAX)         :: rdy_filename
-    CHARACTER(LEN=FILENAME_MAX)         :: forecast_delta_str
+    CHARACTER(LEN=8)         :: forecast_delta_str
     TYPE(datetime),  POINTER            :: mtime_begin, mtime_date
     TYPE(timedelta), POINTER            :: forecast_delta
     INTEGER                             :: iunit
@@ -641,11 +641,10 @@ CONTAINS
 
     NULLIFY(keywords)
     ! substitute tokens in ready file name
-    CALL associate_keyword("<path>",            TRIM(getModelBaseDir()),         keywords)
-    CALL associate_keyword("<datetime>",        TRIM(get_current_date(ev)),      keywords)
-    CALL associate_keyword("<ddhhmmss>",        TRIM(forecast_delta_str),        keywords)
-    CALL associate_keyword("<datetime2>",       TRIM(dtime_string),              keywords)
-
+    CALL associate_keyword("<path>",            TRIM(getModelBaseDir()),    keywords)
+    CALL associate_keyword("<datetime>",        TRIM(get_current_date(ev)), keywords)
+    CALL associate_keyword("<ddhhmmss>",        forecast_delta_str,         keywords)
+    CALL associate_keyword("<datetime2>",       TRIM(dtime_string),         keywords)
     rdy_filename = with_keywords(keywords, ev%output_event%event_data%name)
     IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
       & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN
