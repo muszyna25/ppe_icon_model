@@ -281,18 +281,19 @@ CONTAINS
   ! @author F. Prill, DWD
   !
   SUBROUTINE deallocate_output_event(event)
-    TYPE(t_output_event), POINTER :: event
+    TYPE(t_output_event), ALLOCATABLE, INTENT(inout) :: event
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::deallocate_output_event"
     INTEGER :: ierrstat,i
-    IF (.NOT. ASSOCIATED(event)) RETURN
-    DO i=1,event%n_event_steps
-      CALL deallocate_event_step(event%event_step(i))
-    END DO
-    event%n_event_steps = 0
-    DEALLOCATE(event%event_step, STAT=ierrstat)
-    IF (ierrstat == SUCCESS) DEALLOCATE(event, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+    IF (ALLOCATED(event)) THEN
+      DO i=1,event%n_event_steps
+        CALL deallocate_event_step(event%event_step(i))
+      END DO
+      event%n_event_steps = 0
+      DEALLOCATE(event%event_step, STAT=ierrstat)
+      IF (ierrstat == SUCCESS) DEALLOCATE(event, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+    END IF
   END SUBROUTINE deallocate_output_event
 
 
@@ -555,11 +556,12 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  FUNCTION new_output_event(evd, i_pe, fct_time2simstep,    &
-    &                       fct_generate_filenames) RESULT(p_event)
-    TYPE(t_output_event),                POINTER :: p_event
-    TYPE(t_event_data_local),            INTENT(IN)  :: evd
-    INTEGER,                             INTENT(IN)  :: i_pe                 !< rank of participating PE
+  SUBROUTINE init_output_event(p_event, evd, i_pe, fct_time2simstep,    &
+       &                       fct_generate_filenames)
+    TYPE(t_output_event), ALLOCATABLE, INTENT(OUT) :: p_event
+    TYPE(t_event_data_local),          INTENT(IN)  :: evd
+    !> rank of participating PE
+    INTEGER,                           INTENT(IN)  :: i_pe
 
     INTERFACE
       !> As an argument of this function, the user must provide a
@@ -597,7 +599,7 @@ CONTAINS
     END INTERFACE
 
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::new_output_event"
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_output_event"
     !> Max. no. of event steps (used for local array sizes)
     INTEGER, PARAMETER :: INITIAL_NEVENT_STEPS = 256 ! tested to be a good compromise
 
@@ -613,7 +615,7 @@ CONTAINS
     INTEGER,                             ALLOCATABLE :: mtime_sim_steps(:)
     CHARACTER(len=MAX_DATETIME_STR_LEN), ALLOCATABLE :: mtime_exactdate(:)
     TYPE(t_event_step_data),             ALLOCATABLE :: filename_metadata(:)
-    TYPE(t_event_step_data),             POINTER     :: step_data
+    TYPE(t_event_step_data),             ALLOCATABLE :: step_data(:)
     CHARACTER(len=MAX_DATETIME_STR_LEN+1)            :: dt_string
     CHARACTER(len=MAX_DATETIME_STR_LEN)              :: begin_str2(MAX_TIME_INTERVALS)
     CHARACTER(len=MAX_DATETIME_STR_LEN)              :: end_str2(MAX_TIME_INTERVALS)
@@ -913,17 +915,17 @@ CONTAINS
       p_event%event_step(i)%exact_date_string  = mtime_exactdate(i)
       p_event%event_step(i)%i_sim_step         = mtime_sim_steps(i)
       p_event%event_step(i)%n_pes              = 1
-      ALLOCATE(p_event%event_step(i)%event_step_data(p_event%event_step(i)%n_pes), STAT=ierrstat)
+      ALLOCATE(step_data(1), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-      step_data => p_event%event_step(i)%event_step_data(1)
-      step_data%i_pe            = i_pe
-      CALL datetimeToString(mtime_dates(i), step_data%datetime_string)
-      step_data%i_tag           = evd%i_tag
-      step_data%filename_string = filename_metadata(i)%filename_string
-      step_data%jfile           = filename_metadata(i)%jfile
-      step_data%jpart           = filename_metadata(i)%jpart
-      step_data%l_open_file     = filename_metadata(i)%l_open_file
-      step_data%l_close_file    = filename_metadata(i)%l_close_file
+      step_data(1)%i_pe            = i_pe
+      CALL datetimeToString(mtime_dates(i), step_data(1)%datetime_string)
+      step_data(1)%i_tag           = evd%i_tag
+      step_data(1)%filename_string = filename_metadata(i)%filename_string
+      step_data(1)%jfile           = filename_metadata(i)%jfile
+      step_data(1)%jpart           = filename_metadata(i)%jpart
+      step_data(1)%l_open_file     = filename_metadata(i)%l_open_file
+      step_data(1)%l_close_file    = filename_metadata(i)%l_close_file
+      CALL MOVE_ALLOC(step_data, p_event%event_step(i)%event_step_data)
     END DO
     IF (ldebug) THEN
       WRITE (0,*) routine, ": defined event ",                            &
@@ -1085,7 +1087,7 @@ CONTAINS
       
     END SUBROUTINE remove_duplicate_intervals
     
-  END FUNCTION new_output_event
+  END SUBROUTINE init_output_event
 
 
   !> Create a simple *parallel* output event, happening at regular intervals.
@@ -1203,9 +1205,9 @@ CONTAINS
     event_list_local(ievent_list_local)%fname_metadata = fname_metadata
     event_list_local(ievent_list_local)%i_tag = i_tag
     ! create the local (non-parallel) output event data structure:
-    p_event%output_event &
-      &  => new_output_event(event_list_local(ievent_list_local), this_pe, &
-      &                      fct_time2simstep, fct_generate_filenames)
+    CALL init_output_event(p_event%output_event, &
+      &                    event_list_local(ievent_list_local), this_pe, &
+      &                    fct_time2simstep, fct_generate_filenames)
 
     IF (ldebug) THEN
       WRITE (0,*) "PE ", get_my_global_mpi_id(), ": created event with ", &
@@ -1281,7 +1283,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::union_of_all_events"
     TYPE(t_par_output_event), POINTER     :: par_event, last_node
-    TYPE(t_output_event),     POINTER     :: ev2
+    TYPE(t_output_event), ALLOCATABLE     :: ev2
     INTEGER                               :: i_pe, nranks, ierror, &
       &                                      this_pe, i, acc,   &
       &                                      num_all_events, cnt
@@ -1323,16 +1325,16 @@ CONTAINS
 
       IF (num_all_events > 0) THEN
         ! create the event steps from the received meta-data:
-        ev2 => new_output_event(evd_all(1), evd_rank(1), &
-          &                     fct_time2simstep, fct_generate_filenames)
         ALLOCATE(union_of_all_events, STAT=ierror)
         IF (ierror /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
         par_event => union_of_all_events
+        CALL init_output_event(par_event%output_event, &
+          &                    evd_all(1), evd_rank(1), &
+          &                    fct_time2simstep, fct_generate_filenames)
         par_event%icomm         = icomm
         par_event%iroot         = ROOT_OUTEVENT
         par_event%irecv_nreq    = 0
         NULLIFY(par_event%next)
-        par_event%output_event => ev2
         IF (ldebug) THEN
           WRITE (0,*) "PE ", get_my_global_mpi_id(), ": n_event_steps = ", &
             & union_of_all_events%output_event%n_event_steps
@@ -1340,8 +1342,8 @@ CONTAINS
         event_append_loop: DO i = 2, num_all_events
           i_pe = evd_rank(i)
           ! create the event steps from the received meta-data:
-          ev2 => new_output_event(evd_all(i), i_pe, &
-            &                     fct_time2simstep, fct_generate_filenames)
+          CALL init_output_event(ev2, evd_all(i), i_pe, &
+            &                    fct_time2simstep, fct_generate_filenames)
           ! find the parallel output event in the linked list that
           ! matches the event name
           NULLIFY(last_node)
@@ -1349,7 +1351,6 @@ CONTAINS
           DO WHILE (ASSOCIATED(par_event))
             IF (par_event%output_event%event_data%name == ev2%event_data%name) THEN
               CALL merge_events(par_event%output_event, ev2)
-              CALL deallocate_output_event(ev2)
               CYCLE event_append_loop
             END IF
 
@@ -1366,7 +1367,7 @@ CONTAINS
           par_event%iroot         = ROOT_OUTEVENT
           par_event%irecv_nreq    = 0
           NULLIFY(par_event%next)
-          par_event%output_event => ev2
+          CALL MOVE_ALLOC(ev2, par_event%output_event)
         END DO event_append_loop
       END IF
     END IF
@@ -1692,7 +1693,7 @@ CONTAINS
   !
   FUNCTION get_current_step(event)
     INTEGER :: get_current_step
-    TYPE(t_output_event), POINTER :: event
+    TYPE(t_output_event), INTENT(in) :: event
     get_current_step = MIN(event%i_event_step, event%n_event_steps)
   END FUNCTION get_current_step
 

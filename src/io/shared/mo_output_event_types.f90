@@ -149,7 +149,7 @@ MODULE mo_output_event_types
   !  parallel.
   !
   TYPE t_par_output_event
-    TYPE(t_output_event), POINTER         :: output_event                     !< event data structure
+    TYPE(t_output_event), ALLOCATABLE     :: output_event                     !< event data structure
 
     ! --- MPI related fields:
     INTEGER                               :: icomm                            !< MPI communicator
