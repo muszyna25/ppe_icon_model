@@ -216,23 +216,22 @@ CONTAINS
     TYPE(t_output_file), INTENT(INOUT) :: of
     ! local variables:
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::open_output_file"
-    CHARACTER(LEN=filename_max)    :: filename, filename_for_append
+    CHARACTER(LEN=filename_max)    :: filename
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
-    INTEGER                        :: tsID, name_len
+    INTEGER                        :: tsID, name_len, part_idx
     LOGICAL                        :: lexist, lappend
 
     ! open/append file: as this is a preliminary solution only, I do not try to
     ! streamline the conditionals
-    filename            = TRIM(get_current_filename(of%out_event))
-    filename_for_append = ''
-    lappend             = .FALSE.
+    filename = get_current_filename(of%out_event)
+    lappend  = .FALSE.
 
     ! check and reset filename, if data should be appended
-    IF (split_output_filename(filename, filename_for_append, '_part_') > 0) THEN
+    part_idx = INDEX(filename, '_part_')
+    IF (part_idx > 0) THEN
       ! does the file to append to exist
-      name_len = LEN_TRIM(filename_for_append)
-      INQUIRE(file=filename_for_append(1:name_len), exist=lexist)
-      filename = filename_for_append
+      name_len = LEN_TRIM(filename(1:part_idx))
+      INQUIRE(file=filename(1:name_len), exist=lexist)
       IF (lexist) THEN
         ! store the orginal allocated vlist (the handlers different) for later use with new files
         of%cdiVlistID_orig = of%cdiVlistID
@@ -294,18 +293,6 @@ CONTAINS
       ! set cdi internal time index to 0 for writing time slices in netCDF
       of%cdiTimeIndex = 0
     ENDIF
-
-  CONTAINS
-
-    FUNCTION split_output_filename(instring, string1, delim) RESULT (idx)
-      INTEGER :: idx
-      CHARACTER(len=*), INTENT(in)  :: instring ,delim
-      CHARACTER(len=*), INTENT(out) :: string1
-
-      idx = INDEX(instring, delim)
-      string1 = instring(1:idx-1)
-
-    END FUNCTION split_output_filename
 
   END SUBROUTINE open_output_file
 
