@@ -574,7 +574,11 @@ MODULE mo_async_latbc
         IF (p_pe_work == p_work_pe0) THEN
           ! set the maximum no. of levels to the size of the half
           ! level height field (HHL/z_ifc) minus 1.
-          nlev_in = MAXVAL(latbc%buffer%nlev(1:latbc%buffer%ngrp_vars))-1
+          IF (latbc%buffer%lcompute_hhl_pres) THEN
+            nlev_in = MAXVAL(latbc%buffer%nlev(1:latbc%buffer%ngrp_vars)) ! IFS input data have no vertical staggering
+          ELSE
+            nlev_in = MAXVAL(latbc%buffer%nlev(1:latbc%buffer%ngrp_vars))-1 ! All other supported input sources have staggering
+          ENDIF
         END IF
         CALL p_bcast(nlev_in, 0, p_comm_work)
         CALL allocate_pref_latbc_data(latbc, nlev_in, p_nh_state(1), ext_data(1), p_patch)
@@ -591,17 +595,10 @@ MODULE mo_async_latbc
 
         IF (latbc%buffer%lcompute_hhl_pres) THEN
           CALL nf(nf_open(TRIM(latbc_file), NF_NOWRITE, ncid), routine)
-        END IF
-
-
-        IF (latbc%buffer%lcompute_hhl_pres) THEN
 
           CALL latbc%latbc_data_const%vct%construct(ncid, &
             &                                       p_comm_work_pref_compute_pe0, p_comm_work_pref)
 
-        END IF
-
-        IF (latbc%buffer%lcompute_hhl_pres) THEN
           CALL nf(nf_close(ncid), routine)
         END IF
       END IF
