@@ -463,7 +463,7 @@ CONTAINS
   !  @author F. Prill, DWD
   !
   SUBROUTINE print_par_output_event(event, opt_filename, opt_dstfile)
-    TYPE(t_par_output_event), TARGET              :: event
+    TYPE(t_par_output_event), TARGET,  INTENT(IN) :: event
     CHARACTER(LEN=*), OPTIONAL,        INTENT(IN) :: opt_filename    !< name of ASCII file (optional)
     INTEGER,          OPTIONAL,        INTENT(IN) :: opt_dstfile     !< optional destination ASCII file unit
     ! local variables
