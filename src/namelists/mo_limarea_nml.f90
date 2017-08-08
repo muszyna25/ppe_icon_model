@@ -25,12 +25,12 @@ MODULE mo_limarea_nml
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_master_control,      ONLY: use_restart_namelists
-  USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist     , &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_limarea_config,      ONLY: latbc_config
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
-  USE mtime,                  ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,            &
+  USE mtime,                  ONLY: MAX_TIMEDELTA_STR_LEN,                                  &
     &                               newTimedelta, deallocateTimedelta, OPERATOR(==),        &
     &                               getPTStringFromMS, timedelta,                           &
     &                               getTotalMilliSecondsTimeDelta, datetime, newDatetime,   &
@@ -81,9 +81,11 @@ CONTAINS
     ! Default settings
     !------------------------------------------------------------
     itype_latbc         = 0
+
     dtime_latbc         = -1._wp
     dt_latbc            = ''
-    nlev_latbc          = 0
+    nlev_latbc          = -1
+
     latbc_filename      = "prepiconR<nroot>B<jlev>_<y><m><d><h>.nc"
     latbc_path          = "./"
     latbc_boundary_grid = ""  ! empty string means: whole domain is read for lateral boundary
@@ -120,12 +122,24 @@ CONTAINS
     CALL close_nml
 
     !----------------------------------------------------
+    ! check for deprecated namelist parameters
+    !----------------------------------------------------
+
+    IF ((nlev_latbc /= -1) .AND. my_process_is_stdio()) THEN
+      WRITE (0,*) " "
+      WRITE (0,*) "---------------------------------------------"
+      WRITE (0,*) "DEPRECATED NAMELIST PARAMETER: nlev_latbc !!!"
+      WRITE (0,*) "---------------------------------------------"
+      WRITE (0,*) " "
+    END IF
+
+
+    !----------------------------------------------------
     ! Fill the configuration state
     !----------------------------------------------------
 
     latbc_config%itype_latbc         = itype_latbc
     latbc_config%dtime_latbc         = dtime_latbc
-    latbc_config%nlev_in             = nlev_latbc
     latbc_config%latbc_filename      = latbc_filename
     latbc_config%latbc_path          = TRIM(latbc_path)//'/'
     latbc_config%latbc_boundary_grid = latbc_boundary_grid

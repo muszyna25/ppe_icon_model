@@ -570,7 +570,7 @@ CONTAINS
       IF ( use_omip_fluxes ) THEN
 
       ! Read complete OMIP data sets for focing ocean model
-      !  - names are used in type t_atmos_for_ocean in mo_se_ice_types
+      !  - names are used in type t_atmos_for_ocean in mo_ocean_surface_types
       !  4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
       !  5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
       !  6:  fu10(:,:) ,  &  ! 10 m wind speed                                  [m/s]

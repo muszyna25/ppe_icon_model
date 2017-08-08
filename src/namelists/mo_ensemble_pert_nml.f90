@@ -32,11 +32,14 @@ MODULE mo_ensemble_pert_nml
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   USE mo_ensemble_pert_config,ONLY: config_range_gkwake    => range_gkwake,    &
     &                               config_range_gkdrag    => range_gkdrag,    &
+    &                               config_range_gfrcrit   => range_gfrcrit,   &
     &                               config_range_gfluxlaun => range_gfluxlaun, &
     &                               config_range_zvz0i     => range_zvz0i,     &  
     &                               config_range_entrorg   => range_entrorg,   &  
     &                               config_range_capdcfac_et => range_capdcfac_et, &  
-    &                               config_range_minsnowfrac => range_minsnowfrac, &  
+    &                               config_range_minsnowfrac => range_minsnowfrac, &
+    &                               config_range_c_soil    => range_c_soil,    &
+    &                               config_range_cwimax_ml => range_cwimax_ml, &
     &                               config_range_rhebc     => range_rhebc,     &  
     &                               config_range_texc      => range_texc,      &  
     &                               config_range_box_liq   => range_box_liq,   &  
@@ -68,6 +71,9 @@ MODULE mo_ensemble_pert_nml
   REAL(wp) :: &                    !< gravity wave drag constant
     &  range_gkdrag
 
+  REAL(wp) :: &                    !< critical Froude number used for computing blocking layer depth
+    &  range_gfrcrit
+
   REAL(wp) :: &                    !< gravity wave flux emission
     &  range_gfluxlaun
 
@@ -88,6 +94,12 @@ MODULE mo_ensemble_pert_nml
 
   REAL(wp) :: &                    !< Minimum value to which the snow cover fraction is artificially reduced
     &  range_minsnowfrac           !  in case of melting show (in case of idiag_snowfrac = 20/30/40)
+
+  REAL(wp) :: &                    !< Fraction of surface area available for bare soil evaporation
+    &  range_c_soil
+
+  REAL(wp) :: &                    !< Capacity of interception storage (multiplicative perturbation)
+    &  range_cwimax_ml
 
   REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
     &  range_box_liq                ! (in case of inwp_cldcover = 1)
@@ -125,7 +137,8 @@ MODULE mo_ensemble_pert_nml
   NAMELIST/ensemble_pert_nml/ use_ensemble_pert, range_gkwake, range_gkdrag, range_gfluxlaun, range_zvz0i, &
     &                         range_entrorg, range_capdcfac_et, range_box_liq, range_tkhmin, range_tkmmin, &
     &                         range_rlam_heat, range_rhebc, range_texc, range_minsnowfrac, range_z0_lcc,   &
-    &                         range_rootdp, range_rsmin, range_laimax, range_charnock, range_tkred_sfc
+    &                         range_rootdp, range_rsmin, range_laimax, range_charnock, range_tkred_sfc,    &
+    &                         range_gfrcrit, range_c_soil, range_cwimax_ml
 
 CONTAINS
 
@@ -165,8 +178,9 @@ CONTAINS
     ! Ranges for ensemble perturbations:
 
     ! SSO tuning
-    range_gkwake     = 1._wp/3._wp  ! low-level blocking parameter
+    range_gkwake     = 0.5_wp       ! low-level blocking parameter
     range_gkdrag     = 0.04_wp      ! parameter for wave drag deposition in the atmosphere
+    range_gfrcrit    = 0.1_wp       ! parameter for critical Froude number
     !
     ! GWD tuning
     range_gfluxlaun  = 0.75e-3_wp   ! scaling parameter for GWD flux production
@@ -195,6 +209,10 @@ CONTAINS
     ! snow cover diagnosis
     range_minsnowfrac = 0.05_wp     ! Minimum value to which the snow cover fraction is artificially reduced
                                     ! in case of melting show (in case of idiag_snowfrac = 20/30/40)
+    !
+    ! TERRA
+    range_c_soil      = 0.25_wp     ! evaporative surface area
+    range_cwimax_ml   = 2._wp       ! capacity of interception storage (multiplicative perturbation)
 
     ! external parameters specified depending on land-cover class
     ! all subsequent ranges indicate relative changes of the respective parameter
@@ -248,6 +266,7 @@ CONTAINS
 
     config_range_gkwake       = range_gkwake
     config_range_gkdrag       = range_gkdrag
+    config_range_gfrcrit      = range_gfrcrit
     config_range_gfluxlaun    = range_gfluxlaun
     config_range_zvz0i        = range_zvz0i
     config_range_entrorg      = range_entrorg
@@ -255,6 +274,8 @@ CONTAINS
     config_range_rhebc        = range_rhebc
     config_range_texc         = range_texc
     config_range_minsnowfrac  = range_minsnowfrac
+    config_range_c_soil       = range_c_soil
+    config_range_cwimax_ml    = range_cwimax_ml
     config_range_box_liq      = range_box_liq
     config_range_tkhmin       = range_tkhmin
     config_range_tkmmin       = range_tkmmin

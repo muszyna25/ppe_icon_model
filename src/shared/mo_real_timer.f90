@@ -834,11 +834,11 @@ CONTAINS
 !$OMP DO ORDERED
     DO itid = 1, omp_get_num_threads()
       tid = omp_get_thread_num()
+!$OMP ORDERED
 #else
       tid = 1
 #endif
 
-!$OMP ORDERED
       CALL print_reportline(it1, timer_file_id, nd)
 #if defined(_OPENMP)
 !$OMP FLUSH
@@ -1059,9 +1059,14 @@ CONTAINS
         CALL print_report_hierch_agg(table, irow, subtimer_list(k), nd+1,tmr)
       ENDDO
     ELSE
-      IF (my_process_is_stdio()) &
-           WRITE (0, '(2a,3(", ",i0))') 'problem: sub-timers inconsistent! ', &
-           TRIM(srt(it)%text), it, irow - 1, n
+      IF (my_process_is_stdio()) THEN
+        WRITE (0, '(2a,3(", ",i0))') 'problem: sub-timers inconsistent! ', TRIM(srt(it)%text), it, irow - 1, n
+        IF(consistent_sub_timer_counts) THEN
+            WRITE(0,*) "cause: inconsistent timer lists"
+        ELSE
+            WRITE(0,*) "cause: inconsistent subtimer counts: ", tcounts
+        END IF
+      END IF
       tmr%inconsistent_timers = .TRUE.
     END IF
   END SUBROUTINE print_report_hierch_agg
@@ -1195,15 +1200,20 @@ CONTAINS
     CHARACTER(len=2) :: d_str, h_str, m_str, s_str
     CHARACTER(len=12) :: x
 
+    ! ensure that we don't crash with illegal inputs
+    IF(ts > REAL(99*3600*24,dp)) THEN
+        time_str = '>99d'
+        RETURN
+    ENDIF
+    IF(ts < 0) THEN
+        time_str = 'negative'
+        RETURN
+    END IF
+
     rest = ts
 
     d = INT(rest/REAL(3600*24,dp))
     rest = rest-REAL(d*(3600*24),dp)
-    IF (d > 99) THEN
-      x = '>99d'
-      time_str = ADJUSTR(x)
-      RETURN
-    ENDIF
     WRITE(d_str,'(i2.2)') d
 
     h = INT(rest/3600.0_dp)

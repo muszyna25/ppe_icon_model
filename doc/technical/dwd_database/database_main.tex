@@ -7,7 +7,7 @@
 \usepackage{amsmath}
 \usepackage{pgfplots,pgfplotstable}
 \usepackage{colortbl}
-\usepackage[notoday,nofancy]{svninfo}
+%\usepackage[notoday,nofancy]{svninfo}
 
 \usepackage[nottoc]{tocbibind}     %--- adds bibliography to toc 
 % --- but without toc itself [nottoc] 
@@ -39,6 +39,7 @@
 \usepackage{pgf}
 \usepackage{pgffor}
 \usepackage[toc,section=chapter]{glossaries}
+\usepackage{ltablex}
 
 \usetikzlibrary{calc}
 \usetikzlibrary{matrix}
@@ -360,7 +361,7 @@ p{1.1cm}p{0.9cm}p{1cm}p{1cm}}#1\\
 
 % ------------------ start of document -----------------------%
 \begin{document}
-\svnInfo $Id$
+
 \setcounter{tocdepth}{3}     %--- maximum toc depth
 
 \include{./glossary}

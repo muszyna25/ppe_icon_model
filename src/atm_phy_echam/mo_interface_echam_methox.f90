@@ -68,7 +68,7 @@ CONTAINS
                       & field%presm_old(:,:,jb)                          )
            tend%qtrc_mox(jcs:jce,:,jb,iqv)=zdqdt(jcs:jce,:)
          END IF
-         tend%qtrc(jcs:jce,:,jb,iqv) = tend%qtrc(jcs:jce,:,jb,iqv) + &
+         tend% qtrc_phy(jcs:jce,:,jb,iqv) = tend% qtrc_phy(jcs:jce,:,jb,iqv) + &
                                      &  tend%qtrc_mox(jcs:jce,:,jb,iqv)
       ELSE
         tend% qtrc_mox(jcs:jce,:,jb,iqv) = 0.0_wp

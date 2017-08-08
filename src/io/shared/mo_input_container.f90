@@ -192,7 +192,7 @@ CONTAINS
         INTEGER, OPTIONAL, INTENT(IN) :: opt_tile, opt_jg
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputContainer_dataAvailable"
-        CLASS(t_Destructible), POINTER :: key, polymorphicKey, VALUE
+        CLASS(t_Destructible), POINTER :: key, polymorphicKey, val
         INTEGER :: levelCount, tileCount, levelIndex, tileIndex, error
 
         resultVar = .FALSE.
@@ -217,8 +217,8 @@ CONTAINS
                         key%tileId = INT(me%tiles%values(tileIndex))
                         IF(PRESENT(opt_tile)) key%tileId = opt_tile
 
-                        VALUE => me%fields%getEntry(polymorphicKey)
-                        IF(.NOT.ASSOCIATED(VALUE)) THEN
+                        val => me%fields%getEntry(polymorphicKey)
+                        IF(.NOT.ASSOCIATED(val)) THEN
                             resultVar = .FALSE.
                             EXIT outerLoop
                         END IF
@@ -242,7 +242,7 @@ CONTAINS
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputContainer_fetch2D"
         INTEGER :: error
-        CLASS(t_Destructible), POINTER :: key, VALUE
+        CLASS(t_Destructible), POINTER :: key, val
         LOGICAL :: debugInfo
 
         debugInfo = .FALSE.
@@ -260,15 +260,15 @@ CONTAINS
             CLASS DEFAULT
                 CALL finish(routine, "assertion failed")
         END SELECT
-        VALUE => me%fields%getEntry(key)
+        val => me%fields%getEntry(key)
 
-        IF(.NOT.ASSOCIATED(VALUE)) CALL finish(routine, "internal error: dataAvailable() returned TRUE, but getEntry() failed")
-        SELECT TYPE(VALUE)
+        IF(.NOT.ASSOCIATED(val)) CALL finish(routine, "internal error: dataAvailable() returned TRUE, but getEntry() failed")
+        SELECT TYPE(val)
             TYPE IS(t_LevelPointer)
-                IF(SIZE(outData, 1) /= SIZE(VALUE%ptr, 1) .OR.  SIZE(outData, 2) /= SIZE(VALUE%ptr, 2)) THEN
+                IF(SIZE(outData, 1) /= SIZE(val%ptr, 1) .OR.  SIZE(outData, 2) /= SIZE(val%ptr, 2)) THEN
                    CALL finish(routine, "dimensions of output array do not match the dimensions of the data read from file")
                 END IF
-                outData(:,:) = VALUE%ptr(:,:)
+                outData(:,:) = val%ptr(:,:)
             CLASS DEFAULT
                 CALL finish(routine, "assertion failed")
         END SELECT
@@ -440,7 +440,7 @@ CONTAINS
         TYPE(t_Statistics), INTENT(INOUT) :: statistics ! This gets the statistics of the READ field added, but ONLY on the master process.
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputContainer_readField"
-        CLASS(t_Destructible), POINTER :: key, VALUE
+        CLASS(t_Destructible), POINTER :: key, val
         REAL(C_DOUBLE), POINTER :: bufferD(:)
         REAL(C_FLOAT), POINTER :: bufferS(:)
         INTEGER :: gridSize, datatype, packedMessage(2), error    !packedMessage(1) == gridSize, packedMessage(2) == datatype
@@ -475,15 +475,15 @@ CONTAINS
         !Get the corresponding ScatterPattern AND initialize our hash table entry.
         distribution => lookupScatterPattern(jg, gridSize)
         IF(.NOT. ASSOCIATED(distribution)) CALL finish(routine, "could not find scatter pattern to distribute input field")
-        ALLOCATE(t_LevelPointer :: VALUE, STAT = error)
+        ALLOCATE(t_LevelPointer :: val, STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-        SELECT TYPE(VALUE)
+        SELECT TYPE(val)
             TYPE IS(t_LevelPointer)
 
                 !ALLOCATE the local buffer
-                ALLOCATE(VALUE%ptr(nproma, blk_no(distribution%localSize())), STAT = error)
+                ALLOCATE(val%ptr(nproma, blk_no(distribution%localSize())), STAT = error)
                 IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-                VALUE%ptr(:,:) = 0.0_wp     !Avoid nondeterministic values IN the unused points for checksumming.
+                val%ptr(:,:) = 0.0_wp     !Avoid nondeterministic values IN the unused points for checksumming.
                 SELECT CASE(datatype)
                     CASE(DATATYPE_PACK23:DATATYPE_PACK32, DATATYPE_FLT64, DATATYPE_INT32)
                         !ALLOCATE the global buffer
@@ -504,8 +504,9 @@ CONTAINS
                             timer(4) = timer(4) + p_mpi_wtime() - savetime
                         END IF
                         savetime = p_mpi_wtime()
-                        CALL distribution%distribute(bufferD, VALUE%ptr(:, :), .FALSE.)
+                        CALL distribution%distribute(bufferD, val%ptr(:, :), .FALSE.)
                         timer(5) = timer(5) + p_mpi_wtime() - savetime
+
                         DEALLOCATE(bufferD)
 
                     CASE DEFAULT
@@ -527,8 +528,9 @@ CONTAINS
                             timer(4) = timer(4) + p_mpi_wtime() - savetime
                         END IF
                         savetime = p_mpi_wtime()
-                        CALL distribution%distribute(bufferS, VALUE%ptr(:, :), .FALSE.)
+                        CALL distribution%distribute(bufferS, val%ptr(:, :), .FALSE.)
                         timer(5) = timer(5) + p_mpi_wtime() - savetime
+
                         DEALLOCATE(bufferS)
 
                 END SELECT
@@ -538,7 +540,7 @@ CONTAINS
         END SELECT
 
         !store the DATA IN our hash table
-        CALL me%fields%setEntry(key, VALUE) !this will DEALLOCATE both the VALUE AND the key eventually
+        CALL me%fields%setEntry(key, val) !this will DEALLOCATE both the val AND the key eventually
         me%fieldCount = me%fieldCount + 1
         CALL me%tiles%addValue(REAL(tile, dp))
         CALL me%levels%addValue(level)
@@ -558,31 +560,31 @@ CONTAINS
         END DO
     END SUBROUTINE ValueList_init
 
-    SUBROUTINE ValueList_addValue(me, VALUE)
+    SUBROUTINE ValueList_addValue(me, val)
         CLASS(t_ValueList), INTENT(INOUT) :: me
-        REAL(dp), VALUE :: VALUE
+        REAL(dp), VALUE :: val
 
         CHARACTER(*), PARAMETER :: routine = modname//":ValueList_addValue"
         INTEGER :: i, j
 
-        !check whether the VALUE is already IN the list
+        !check whether the val is already IN the list
         DO i = 1, me%valueCount
-            IF(me%values(i) == VALUE) RETURN    !nothing to DO, we already have this value
-            IF(me%values(i) > VALUE) EXIT
+            IF(me%values(i) == val) RETURN    !nothing to DO, we already have this val
+            IF(me%values(i) > val) EXIT
         END DO
 
-        !insert the VALUE at the point that i is pointing to
+        !insert the val at the point that i is pointing to
         CALL me%ensureSpace()
         DO j = me%valueCount, i, -1
             me%values(j+1) = me%values(j)
         END DO
-        me%values(i) = VALUE
+        me%values(i) = val
         me%valueCount = me%valueCount + 1
     END SUBROUTINE ValueList_addValue
 
-    FUNCTION ValueList_haveValue(me, VALUE) RESULT(resultVar)
+    FUNCTION ValueList_haveValue(me, val) RESULT(resultVar)
         CLASS(t_ValueList), INTENT(IN) :: me
-        REAL(dp), VALUE :: VALUE
+        REAL(dp), VALUE :: val
         LOGICAL :: resultVar
 
         CHARACTER(*), PARAMETER :: routine = modname//":ValueList_haveValue"
@@ -590,7 +592,7 @@ CONTAINS
 
         resultVar = .TRUE.
         DO i = 1, me%valueCount
-            IF(me%values(i) == VALUE) RETURN    !found it, RETURN success
+            IF(me%values(i) == val) RETURN    !found it, RETURN success
         END DO
         resultVar = .FALSE.
     END FUNCTION ValueList_haveValue

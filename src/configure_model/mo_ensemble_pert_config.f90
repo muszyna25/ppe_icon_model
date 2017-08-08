@@ -22,21 +22,24 @@ MODULE mo_ensemble_pert_config
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_dom, min_rlcell_int
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
+  USE mo_math_constants,     ONLY: pi2
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_nwp_tuning_config,  ONLY: tune_gkwake, tune_gkdrag, tune_gfluxlaun, tune_zvz0i,    &
     &                        tune_entrorg, tune_capdcfac_et, tune_box_liq, tune_rhebc_land, &
     &                        tune_rhebc_ocean, tune_rcucov, tune_texc, tune_qexc,           &
     &                        tune_minsnowfrac, tune_rhebc_land_trop, tune_rhebc_ocean_trop, &
-    &                        tune_rcucov_trop
+    &                        tune_rcucov_trop, tune_gfrcrit
   USE mo_turbdiff_config,    ONLY: turbdiff_config
   USE mo_gribout_config,     ONLY: gribout_config
-  USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water
+  USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, c_soil, cwimax_ml
   USE mo_grid_config,        ONLY: n_dom
+  USE mo_parallel_config,    ONLY: nproma
   USE mo_model_domain,       ONLY: t_patch
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_extpar_config,      ONLY: nclass_lu
   USE mo_exception,          ONLY: message_text, message
+  USE mtime,                 ONLY: datetime, getDayOfYearFromDateTime
 
   IMPLICIT NONE
   PRIVATE
@@ -46,7 +49,7 @@ MODULE mo_ensemble_pert_config
   PUBLIC :: range_gkwake, range_gkdrag, range_gfluxlaun, range_zvz0i, range_entrorg, range_capdcfac_et, &
             range_box_liq, range_tkhmin, range_tkmmin, range_rlam_heat, range_rhebc, range_texc,        &
             range_minsnowfrac, range_z0_lcc, range_rootdp, range_rsmin, range_laimax, range_charnock,   &
-            range_tkred_sfc
+            range_tkred_sfc, range_gfrcrit, range_c_soil, range_cwimax_ml
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ensemble perturbations
@@ -59,6 +62,9 @@ MODULE mo_ensemble_pert_config
 
   REAL(wp) :: &                    !< gravity wave drag constant
     &  range_gkdrag
+
+  REAL(wp) :: &                    !< critical Froude number used for computing blocking layer depth
+    &  range_gfrcrit
 
   REAL(wp) :: &                    !< gravity wave flux emission
     &  range_gfluxlaun
@@ -81,6 +87,12 @@ MODULE mo_ensemble_pert_config
   REAL(wp) :: &                    !< Minimum value to which the snow cover fraction is artificially reduced
     &  range_minsnowfrac           !  in case of melting show (in case of idiag_snowfrac = 20/30/40)
 
+  REAL(wp) :: &                    !< Fraction of surface area available for bare soil evaporation
+    &  range_c_soil
+
+  REAL(wp) :: &                    !< Capacity of interception storage (multiplicative perturbation)
+    &  range_cwimax_ml
+
   REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
     &  range_box_liq               ! (in case of inwp_cldcover = 1)
 
@@ -94,7 +106,7 @@ MODULE mo_ensemble_pert_config
     &  range_tkred_sfc             !  coefficients near the surface 
 
   REAL(wp), ALLOCATABLE :: &        !< Array of random numbers used for computing the above-mentioned perturbation
-    &  fac_tkred_sfc(:)
+    &  rnd_tkred_sfc(:)
 
   REAL(wp) :: &                    !< Laminar transport resistance parameter 
     &  range_rlam_heat
@@ -133,10 +145,10 @@ MODULE mo_ensemble_pert_config
 
     INTEGER, ALLOCATABLE :: rnd_seed(:)
     INTEGER  :: rnd_size, i, jg, ipn
-    REAL(wp) :: rnd_num, rnd_fac, alpha0_sv, z0_lcc, rootdp, rsmin, laimax
+    REAL(wp) :: rnd_num, rnd_fac, alpha0_sv, z0_lcc, rootdp, rsmin, laimax, tkfac
 
 
-    IF (use_ensemble_pert) THEN
+    IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
 
       CALL RANDOM_SEED(rnd_size)
       ALLOCATE(rnd_seed(rnd_size))
@@ -154,9 +166,13 @@ MODULE mo_ensemble_pert_config
       ! Apply perturbations to physics tuning parameters
 
       CALL RANDOM_NUMBER(rnd_num)
-      ! perturbations for gkwake and gkdrag must be anticorrelated
-      tune_gkwake = tune_gkwake + 2._wp*(rnd_num-0.5_wp)*range_gkwake
-      tune_gkdrag = tune_gkdrag - 2._wp*(rnd_num-0.5_wp)*range_gkdrag
+      ! perturbations for gkwake and gfrcrit must be correlated
+      ! (for gfrcrit, a higher value means a thinner blocking layer)
+      tune_gkwake  = tune_gkwake  + 2._wp*(rnd_num-0.5_wp)*range_gkwake
+      tune_gfrcrit = tune_gfrcrit + 2._wp*(rnd_num-0.5_wp)*range_gfrcrit
+
+      CALL RANDOM_NUMBER(rnd_num)
+      tune_gkdrag = tune_gkdrag + 2._wp*(rnd_num-0.5_wp)*range_gkdrag
 
       CALL RANDOM_NUMBER(rnd_num)
       ! perturbations for zvz0i and entrorg must be anticorrelated
@@ -175,10 +191,14 @@ MODULE mo_ensemble_pert_config
       tune_box_liq = tune_box_liq + 2._wp*(rnd_num-0.5_wp)*range_box_liq
 
       CALL RANDOM_NUMBER(rnd_num)
+      tkfac = turbdiff_config(1)%tkhmin_strat/turbdiff_config(1)%tkhmin
       turbdiff_config(1:max_dom)%tkhmin = turbdiff_config(1:max_dom)%tkhmin + 2._wp*(rnd_num-0.5_wp)*range_tkhmin
+      turbdiff_config(1:max_dom)%tkhmin_strat = turbdiff_config(1:max_dom)%tkhmin_strat + 2._wp*tkfac*(rnd_num-0.5_wp)*range_tkhmin
 
       CALL RANDOM_NUMBER(rnd_num)
+      tkfac = turbdiff_config(1)%tkmmin_strat/turbdiff_config(1)%tkmmin
       turbdiff_config(1:max_dom)%tkmmin = turbdiff_config(1:max_dom)%tkmmin + 2._wp*(rnd_num-0.5_wp)*range_tkmmin
+      turbdiff_config(1:max_dom)%tkmmin_strat = turbdiff_config(1:max_dom)%tkmmin_strat + 2._wp*tkfac*(rnd_num-0.5_wp)*range_tkmmin
 
       CALL RANDOM_NUMBER(rnd_num)
       rnd_fac = range_rlam_heat**(2._wp*(rnd_num-0.5_wp))
@@ -207,6 +227,14 @@ MODULE mo_ensemble_pert_config
       tune_minsnowfrac = tune_minsnowfrac + 2._wp*(rnd_num-0.5_wp)*range_minsnowfrac
 
       CALL RANDOM_NUMBER(rnd_num)
+      c_soil = c_soil + 2._wp*(rnd_num-0.5_wp)*range_c_soil
+      c_soil = MAX(0._wp,MIN(2._wp,c_soil))
+
+      CALL RANDOM_NUMBER(rnd_num)
+      rnd_fac = range_cwimax_ml**(2._wp*(rnd_num-0.5_wp))
+      cwimax_ml = cwimax_ml * rnd_fac
+
+      CALL RANDOM_NUMBER(rnd_num)
       rnd_fac   = range_charnock**(2._wp*(rnd_num-0.5_wp))
       alpha0_sv = turbdiff_config(1)%alpha0
       !
@@ -220,8 +248,8 @@ MODULE mo_ensemble_pert_config
       turbdiff_config(1:max_dom)%alpha0_pert = (rnd_num-0.5_wp)*alpha0_sv*(range_charnock-1._wp)
 
       ! control output
-      WRITE(message_text,'(2f8.4,e11.4)') tune_gkwake, tune_gkdrag, tune_gfluxlaun
-      CALL message('Perturbed values, gkwake, gkdrag, gfluxlaun', TRIM(message_text))
+      WRITE(message_text,'(3f8.4,e11.4,f8.4,e11.4)') tune_gkwake, tune_gkdrag, tune_gfrcrit, tune_gfluxlaun, c_soil, cwimax_ml
+      CALL message('Perturbed values, gkwake, gkdrag, gfrcrit, gfluxlaun, c_soil, cwimax_ml', TRIM(message_text))
 
       WRITE(message_text,'(4f8.4,e11.4)') tune_box_liq, tune_minsnowfrac, tune_capdcfac_et, tune_zvz0i, tune_entrorg
       CALL message('Perturbed values, box_liq, minsnowfrac, capdcfac_et, zvz0i, entrorg', TRIM(message_text))
@@ -245,7 +273,7 @@ MODULE mo_ensemble_pert_config
         CALL RANDOM_NUMBER(rnd_num)
       ENDDO
 
-      ALLOCATE(fac_tkred_sfc(nclass_lu(1)))
+      ALLOCATE(rnd_tkred_sfc(nclass_lu(1)))
 
       CALL message('','')
       CALL message('','Perturbed external parameters: roughness length, root depth, min. stomata resistance,&
@@ -284,7 +312,7 @@ MODULE mo_ensemble_pert_config
         ! store random number for subsequent (in SR compute_ensemble_pert) computation of perturbation of 
         ! minimum diffusion coefficients near the surface
         CALL RANDOM_NUMBER(rnd_num)
-        fac_tkred_sfc(i) = rnd_num
+        rnd_tkred_sfc(i) = rnd_num
 
       ENDDO
 
@@ -300,20 +328,34 @@ MODULE mo_ensemble_pert_config
   !! @par Revision History
   !! Initial revision by Guenther Zaengl, DWD (2016-04-08)
   !!
-  SUBROUTINE compute_ensemble_pert(p_patch, ext_data, prm_diag)
+  SUBROUTINE compute_ensemble_pert(p_patch, ext_data, prm_diag, mtime_date)
 
     TYPE(t_patch),         INTENT(IN)    :: p_patch(:)
     TYPE(t_external_data), INTENT(IN)    :: ext_data(:)
     TYPE(t_nwp_phy_diag),  INTENT(INOUT) :: prm_diag(:)
+    TYPE(datetime),        POINTER       :: mtime_date
 
-    INTEGER  :: jg, jb, jc, jt, ilu
+    INTEGER  :: jg, jb, jc, jt, ilu, iyr
     INTEGER  :: rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
-    REAL(wp) :: wrnd_num, log_range_tkred
+    REAL(wp) :: wrnd_num(nproma), log_range_tkred, ssny, secyr, phaseshift
 
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
     log_range_tkred = LOG(range_tkred_sfc)
+
+    ! ssny = seconds since New Year
+    ssny = (getDayOfYearFromDateTime(mtime_date)-1)*86400._wp + mtime_date%time%hour*3600._wp + &
+           mtime_date%time%minute*60._wp + mtime_date%time%second
+
+    iyr = mtime_date%date%year
+    IF (MOD(iyr,4) == 0 .AND. .NOT. (MOD(iyr,100) == 0 .AND. MOD(iyr,400) /= 0)) THEN
+      secyr = 366._wp*86400._wp
+    ELSE
+      secyr = 365._wp*86400._wp
+    ENDIF
+    phaseshift = 20._wp*ssny/secyr
+    phaseshift = phaseshift - INT(phaseshift)
 
 !$OMP PARALLEL PRIVATE(jg,i_startblk,i_endblk)
     DO jg = 1, n_dom
@@ -321,7 +363,7 @@ MODULE mo_ensemble_pert_config
       i_startblk = p_patch(jg)%cells%start_block(rl_start)
       i_endblk   = p_patch(jg)%cells%end_block(rl_end)
 
-      IF (use_ensemble_pert) THEN
+      IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
 
 !$OMP DO PRIVATE(jb,jc,jt,i_startidx,i_endidx,wrnd_num,ilu)
         DO jb = i_startblk, i_endblk
@@ -329,17 +371,17 @@ MODULE mo_ensemble_pert_config
           CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
             i_startidx, i_endidx, rl_start, rl_end)
 
+          wrnd_num(:) = 0._wp
+          DO jt = 1, ntiles_total+ntiles_water
+            IF (jt <= ntiles_lnd .OR. jt >= ntiles_total+1) THEN
+              DO jc = i_startidx, i_endidx
+                ilu = MAX(1,ext_data(jg)%atm%lc_class_t(jc,jb,jt))
+                wrnd_num(jc) = wrnd_num(jc) + rnd_tkred_sfc(ilu)*ext_data(jg)%atm%lc_frac_t(jc,jb,jt)
+              ENDDO
+            ENDIF
+          ENDDO
           DO jc = i_startidx, i_endidx
-            wrnd_num = 0._wp
-            DO jt = 1, ntiles_lnd
-              ilu = MAX(1,ext_data(jg)%atm%lc_class_t(jc,jb,jt))
-              wrnd_num = wrnd_num + fac_tkred_sfc(ilu)*ext_data(jg)%atm%lc_frac_t(jc,jb,jt)
-            ENDDO
-            DO jt = ntiles_total+1, ntiles_total+ntiles_water
-              ilu = MAX(1,ext_data(jg)%atm%lc_class_t(jc,jb,jt))
-              wrnd_num = wrnd_num + fac_tkred_sfc(ilu)*ext_data(jg)%atm%lc_frac_t(jc,jb,jt)
-            ENDDO
-            prm_diag(jg)%tkred_sfc(jc,jb) = EXP(log_range_tkred*2._wp*(wrnd_num-0.5_wp))
+            prm_diag(jg)%tkred_sfc(jc,jb) = EXP(log_range_tkred*SIN(pi2*(wrnd_num(jc)+phaseshift)))
           ENDDO
 
         ENDDO

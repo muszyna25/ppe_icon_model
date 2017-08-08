@@ -7,7 +7,7 @@ models are stored in run/. These scripts write namelist files containing
 the specified Fortran namelists. Programs are stored in $<$ icon home$>$/build/$<$architecture$>$/bin/.
 
 
-\begin{table}[htb]
+\begin{table}[ht]
 \caption{Namelist files}
 \begin{center}
 \begin{tabular}{llll}\hline
@@ -812,7 +812,7 @@ run\_nml:iforcing = inwp
 \hline
 range\_gkwake&
 R&
-0.333&
+0.5&
 &
 Variability range for low level wake drag constant&
 \tabularnewline
@@ -825,6 +825,13 @@ R&
 Variability range for orographic gravity wave drag constant&
 \tabularnewline
 
+\hline
+range\_gfrcrit&
+R&
+0.1&
+&
+Variability range for critical Froude number in SSO scheme&
+\tabularnewline
 
 \hline
 range\_gfluxlaun&
@@ -944,6 +951,22 @@ R&
 &
 Variability range for minimum value to which snow cover fraction is artificially reduced in case of melting snow & 
 idiag\_snowfrac = 20/30/40
+\tabularnewline
+
+\hline
+range\_c\_soil&
+R&
+0.25&
+&
+Variability range for evaporating fraction of soil & 
+\tabularnewline
+
+\hline
+range\_cwimax\_ml&
+R&
+2.0&
+&
+Variability range for capacity of interception storage (multiplicative) & 
 \tabularnewline
 
 \hline
@@ -1658,7 +1681,7 @@ I & 2& &
 1: MODE\_DWDANA\\ \quad start from DWD analysis or FG \\
 2: MODE\_IFSANA\\ \quad start from IFS analysis \\
 3: MODE\_COMBINED\\ \quad IFS atm + ICON/GME soil \\
-4: MODE\_COSMODE\\ \quad start from COSMO-DE forecast \\
+4: MODE\_COSMO\\ \quad start from prognostic set of variables as used by COSMO \\
 5: MODE\_IAU\\ \quad start from DWD analysis with incremental analysis update. Extension of MODE\_IAU\_OLD including snow increments\\
 6: MODE\_IAU\_OLD\\ \quad start from DWD analysis with incremental analysis update. NOTE: Extension of mode MODE\_DWDANA\_INC 
    including W\_SO increments. \\
@@ -1754,6 +1777,14 @@ lread\_ana&
 L & .TRUE.& &
 If .FALSE., ICON is started from first guess only. Analysis field is not required, and skipped if provided. &
 init\_mode=1,3
+\tabularnewline
+
+%\hline
+use\_lakeiceana&
+L & .FALSE.& &
+If .TRUE., analysis data for sea ice fraction are also used for freshwater lakes (for the time being restricted to the Great Lakes; extension to other
+lakes needs to be tested) &
+init\_mode=5,6
 \tabularnewline
 
 %\hline
@@ -1858,21 +1889,24 @@ If this parameter has not been set, we try to determine the file type by its ext
 
 
 %\hline
-ana\_varlist &
+check\_fg(jg)\%list &
 C(:)& & &
-List of mandatory analysis fields for the \textbf{global domain} that must be present in the analysis file. If these fields are not found, 
-the model aborts. For all other analysis fields, the FG-fields will serve as fallback position.
+In ICON a small subset of first guess input fields is declared 'optional', meaning that they are read in 
+if present, but they are not mandatory to start the model. By adding optional fields to this list, 
+they become mandatory for domain \texttt{jg}, such that the model aborts if any of them is missing. 
+This list may include a subset of the optional first guess fields, or even the entire set of first 
+guess fields. On default this list is empty, such that optional fields experience a cold-start 
+initialization if they are missing and the model does not abort.
 & init\_mode=1,5,6
 \tabularnewline
 
 %\hline
-ana\_varlist\_n2 &
+check\_ana(jg)\%list &
 C(:)& & &
-List of mandatory analysis fields for \textbf{domain 2} that must be present in the analysis file. If these fields are not found, 
+List of mandatory analysis fields for domain \texttt{jg} that must be present in the analysis file. If these fields are not found, 
 the model aborts. For all other analysis fields, the FG-fields will serve as fallback position.
-& init\_mode=5,6
+& init\_mode=1,5,6
 \tabularnewline
-
 
 %\hline
 \textbf{ana\_varnames\_map\_ file} &
@@ -2023,6 +2057,13 @@ Flag. If .FALSE. barycentric interpolation is replaced by a
 fallback interpolation.&
 \tabularnewline
 
+%\hline
+lreduced\_nestbdry\_stencil &
+L& .FALSE. & &
+Flag. If .TRUE. then the nest boundary points are taken out from
+the lat-lon interpolation stencil.&
+\tabularnewline
+
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_interpol_nml.f90+
@@ -2171,6 +2212,27 @@ Type of restart file. One of CDI's FILETYPE\_XXX. So far, only 4 (=FILETYPE\_NC2
 \tabularnewline
 
 %\hline
+restart\_write\_mode&
+C& '' '' & &
+Restart read/write mode. \\
+Allowed settings (character strings!) are listed below.
+&
+\tabularnewline
+
+%\hline
+nrestart\_streams&
+I& 1 & &
+%
+ When using the restart write mode "dedicated procs multifile", it is
+ possible to split the restart output into several files, as if
+ \verb+nrestart_streams * num_io_procs+ restart processes were
+ involved. This speeds up the read-in process, since all the files may
+ then be read in parallel.
+%
+& \verb+restart_write_mode+ = \verb+"dedicated procs multifile"+ 
+\tabularnewline
+
+%\hline
 lmask\_boundary&
 L&  F& &
 Set to \texttt{.TRUE.}, if interpolation zone should be masked in output.&
@@ -2178,6 +2240,55 @@ Set to \texttt{.TRUE.}, if interpolation zone should be masked in output.&
 
 %\hline
 \end{longtab}
+
+
+% -------------------------------------------------------------
+\subsubsection{Restart read/write mode:}
+% -------------------------------------------------------------
+
+Allowed settings for \texttt{restart\_write\_mode} are:\\[1em]
+\texttt{''sync''} \\
+\hspace*{2em} 
+\parbox{0.8\textwidth}{\raggedright%
+  'Old' synchronous mode. PE \# 0 reads and writes restart files. All other PEs have to wait.}\\[1em]
+%
+\texttt{''async''} \\
+\hspace*{2em} 
+\parbox{0.8\textwidth}{\raggedright%
+  Asynchronous restart writing:
+  Dedicated PEs (\texttt{num\_restart\_proc > 0}) write restart files
+  while the simulation continues.  Restart PEs can only parallelize
+  over different patches. --- Read-in: PE \# 0 reads while other PEs
+  have to wait.  } \\[1em]
+%
+\texttt{''joint procs multifile''} \\
+\hspace*{2em} 
+\parbox{0.8\textwidth}{\raggedright%
+  All worker PEs write restart files to a dedicated
+  directory. Therefore, the directory itself is called the restart
+  file.  The information is stored in a way that it can be read back
+  into the model independent from the processor count and the domain
+  decomposition. --- Read-in: All worker PEs read the data in parallel.
+ }\\[1em]
+%
+\texttt{''dedicated procs multifile''} \\
+\hspace*{2em} 
+\parbox{0.8\textwidth}{\raggedright%
+
+  In this case, all the restart data is first transfered to memory
+  buffers in dedicated restart writer PEs.  After that, the work
+  processes carry on with their work immediately, while the restart
+  writers perform the actual restart writing asynchronously.  Restart
+  PEs can parallelize over patches and horizontal indices.
+  --- Read-in: All worker PEs read the data in parallel..
+}\\[1em]
+%
+\texttt{'' ''} \\
+\hspace*{2em} 
+\parbox{0.8\textwidth}{\raggedright%
+  Fallback mode. \\ If \texttt{num\_restart\_proc == 0} (\texttt{parallel\_nml}),
+  then this behaves like \texttt{''sync''}, otherwise like \texttt{''async''}.
+}\\[1em]
 
 Defined and used in: \verb+src/namelists/mo_io_nml.f90+
 
@@ -2325,7 +2436,7 @@ Type of lateral boundary nudging.\\
 conditions,\\
 %
 1: time-dependent lateral boundary conditions provided by an external
-source (IFS, COSMO-DE or a coarser-resolution ICON run), \\
+source (IFS, COSMO or a coarser-resolution ICON run), \\
 %
 2: Test mode using time-dependent lateral boundary conditions from a
 nested ICON run in which the present limited-area domain was operated
@@ -2348,16 +2459,6 @@ L &
 .FALSE. & 
 &
 If .TRUE., take lateral boundary conditions for initial time from first guess (or analysis) field
-&
-itype\_latbc $\ge$ 1
-\tabularnewline
-
-%\hline
-\textbf{nlev\_latbc}&
-I &
-0& s
-&
-Number of vertical levels in boundary data.
 &
 itype\_latbc $\ge$ 1
 \tabularnewline
@@ -2643,6 +2744,17 @@ L&
 &
 .TRUE. for use of sea-ice model&
 \tabularnewline
+
+
+%\hline
+lprog\_albsi &
+L&
+.FALSE.&
+&
+If .TRUE., sea-ice albedo is computed prognostically & lseaice=.TRUE.
+\tabularnewline
+
+
 %\hline
 \textbf{llake} &
 L&
@@ -3224,10 +3336,12 @@ The switches for the physics schemes and the time steps can be set for each mode
 If only one value is specified, it is copied to all child domains, implying that the same set
 of parameterizations and time steps is used in all domains. If the number of values given
 in the namelist is larger than 1 but less than the number of model domains, then the settings
-from the highest domain ID are used for the remaining model domains. If the time steps are not
-an integer multiple of the advective time step (dtime), then the time step of the
+from the highest domain ID are used for the remaining model domains. 
+
+If the time steps are not an integer multiple of the advective time step (dtime), then the time step of the
 respective physics parameterization is automatically rounded to the next higher integer multiple
-of the advective time step.
+of the advective time step. If the radiation time step is not an integer multiple of the cloud-cover 
+time step it is automatically rounded to the next higher integer multiple of the cloud cover time step.
 
 \begin{longtab}
 
@@ -3474,7 +3588,8 @@ inwp\_turb $>$ 0
 R (max\_ dom)&
 600.&
 s&
-time interval of convection call\\
+time interval of convection and cloud-cover call.\\
+If convection is switched off, dt\_conv controlls the time intervall of cloud-cover, only.\\
 currently each subdomain has the same value
 &run\_nml:iforcing = inwp
 \tabularnewline
@@ -3566,7 +3681,26 @@ run\_nml:iforcing = inwp
 \tabularnewline
 
 \hline
+tune\_gfrcrit&
+R&
+0.4&
+&
+critical Froude number (controls depth of blocking layer)&
+run\_nml:iforcing = inwp
+\tabularnewline
+
 \hline
+
+tune\_grcrit&
+R&
+0.25&
+&
+critical Richardson number (controls onset of wave breaking)&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
+
 \multicolumn{6}{|l|}{\textbf{GWD} (Warner McIntyre)} 
 \tabularnewline
 
@@ -4429,7 +4563,7 @@ Number of restart processors (running exclusively for doing restart)&
 
 %\hline
 \textbf{num\_prefetch\_proc} &
-I & 0& &
+I & 1& &
 Number of processors for prefetching of boundary data asynchronously for
 a limited area run (running exclusively for reading Input boundary
 data. Maximum no of processors used for it is limited to 1). &
@@ -4761,7 +4895,7 @@ I&
 Switches for the concentration of radiative agents\par
 irad\_xyz = 0: set to zero\par
 irad\_h2o = 1: vapor, cloud water and cloud ice from tracer variables\par
-irad\_co2 = 1: CO\_2 from tracer variable\par
+irad\_co2 = 1: CO$_2$ from tracer variable\par
 irad\_co2/ch4/n2o/o2/cfc11/cfc12 = 2: concentration given by vmr\_co2/ch4/n2o/o2/cfc11/cfc12\par
 irad\_ch4/n2o = 3: tanh-profile with surface concentration given by vmr\_ch4/n2o\par
 irad\_co2/cfc11/cfc12 = 4: time dependent concentration from greenhouse gas file
@@ -4772,7 +4906,8 @@ irad\_o3 = 6: ozone climatology with T5 geographical distribution and Fourier se
 irad\_o3 = 7: GEMS ozone climatology (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
 irad\_o3 = 8: ozone climatology for AMIP \par
 irad\_o3 = 9: MACC ozone climatology (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
-irad\_o3 = 79: Blending between GEMS and MACC ozone climatologies (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
+irad\_o3 = 79: Blending between GEMS and MACC ozone climatologies (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)}; MACC is used over Antarctica \par
+irad\_o3 = 97: As 79, but MACC is also used above 1 hPa with transition zone between 5 hPa and 1 hPa \par
 irad\_o3 = 10: Linearized ozone chemistry (ART extension necessary) {\color{red}for run\_nml/iforcing = 3 (NWP)}
 &
 \tabularnewline
@@ -5330,13 +5465,12 @@ L& .FALSE.& & Time splitting method & \tabularnewline
 & & & & FALSE: first order Godunov splitting & \tabularnewline
 
 %\hline
-ctracer\_list&
-C& ''& & Two purposes: & \tabularnewline
- & &   &  & 
- - used for selecting those tracers which should be initialized for idealized testcases. & [nh/ha]\_test\_name=\\'jabw','PA','DF'
-\tabularnewline
- & &   &  & 
- - used for tracer output names. In some idealized cases tracers are named 'Q\emph{x}', with \emph{x} being a 1-digit integer taken from \texttt{ctracer\_list}. & iforcing$\ne$ inwp, iecham
+tracer\_names&
+C(:)& 'Int2Str(i)'& & Tracer-specific name suffixes. When running idealized cases or the hydrostatic ICON, 
+this variable is used to specify tracer names. If nothing is specified, the tracer name is given as 
+\texttt{PREFIX+Int2String(i)}, where \texttt{i} is the tracer index. Note that this 
+namelist variable has no effect for nonhydrostatic real-case runs, if the NWP- or ECHAM physics 
+packages are switched on. & iforcing$\ne$ inwp, iecham'
 \tabularnewline
 
 %\hline
@@ -5562,28 +5696,28 @@ velocity dependence &
 %\hline
 tkhmin &
 R                &     0.75      & $\mathrm{m^2/s}$ &
-Scaling factor for minimum vertical diffusion coefficient (proportional to $1/\sqrt{Ri}$)
+Scaling factor for minimum vertical diffusion coefficient (proportional to ${Ri}^{-2/3}$)
 for heat and moisture &
 \tabularnewline
 
 %\hline
 tkmmin &
 R                &     0.75      & $\mathrm{m^2/s}$ &
-Scaling factor for minimum vertical diffusion coefficient (proportional to $1/\sqrt{Ri}$)
+Scaling factor for minimum vertical diffusion coefficient (proportional to ${Ri}^{-2/3}$)
  for momentum & 
 \tabularnewline
 
 
 tkmmin\_strat &
-R                &     5      & $\mathrm{m^2/s}$ &
-Enhanced scaling factor for minimum vertical diffusion coefficient (proportional to $1/\sqrt{Ri}$)
- for momentum, valid in the stratosphere above 30 km & 
+R                &    4      & $\mathrm{m^2/s}$ &
+Scaling factor for stratospheric minimum vertical diffusion coefficient (proportional to ${Ri}^{-1/3}$)
+ for momentum, valid above 17.5 km (tropics above 22.5 km)& 
 \tabularnewline
 
 tkhmin\_strat &
-R                &     5      & $\mathrm{m^2/s}$ &
-Enhanced scaling factor for minimum vertical diffusion coefficient (proportional to $1/\sqrt{Ri}$)
-for heat and moisture, valid in the stratosphere above 30 km  &
+R                &     0.75      & $\mathrm{m^2/s}$ &
+Scaling factor for stratospheric minimum vertical diffusion coefficient (proportional to ${Ri}^{-1/3}$)
+for heat and moisture, valid above 17.5 km (tropics above 22.5 km)  &
 \tabularnewline
 
 
@@ -5844,6 +5978,17 @@ ntracer = 2
 lshallow\_water=.FALSE.
 \tabularnewline
 
+tracer\_inidist\_list & 
+I(:) & 1 &  &
+For a subset of testcases pre-defined initial tracer distributions are available. 
+This namelist parameter specifies the initial distribution for each tracer. 
+In the following the testcases and the pre-defined numbers are given:\\
+`PA': 4,5,6,7,8\\
+'JABW':1,2,3,4\\
+'DF': 5,6,7,8,9\\
+For more details on the initial distributions, please have a look into the code. & ha\_testcase\_nml='PA',\\'JABW','DF'
+\tabularnewline
+
 %\hline
 rotate\_axis\_deg&
 R& 0.0& deg&
@@ -6097,6 +6242,17 @@ is\_plane\_torus= .TRUE.
 is\_toy\_chem & 
 L & .FALSE. &  &
 Terminator toy chemistry activated when .TRUE. &
+\tabularnewline
+
+tracer\_inidist\_list & 
+I(:) & 1 &  &
+For a subset of testcases pre-defined initial tracer distributions are available. 
+This namelist parameter specifies the initial distribution for each tracer. 
+In the following the testcases and the pre-defined numbers are given:\\
+`PA': 4,5,6,7,8\\
+'JABW':1,2,3,4\\
+'DF': 5,6,7,8,9\\
+For more details on the initial distributions, please have a look into the code. & nh\_test\_name='PA',\\'JABW','DF'
 \tabularnewline
 
 \hline
@@ -6794,3 +6950,21 @@ terrain following coordinates. The hybrid level specification is stored in
 $<$icon home$>$/hyb\_params/HYB\_PARAMS\_$<$nlev$>$.
 The {\bf hydrostatic} model assumes to get {\bf pressure based} coordinates, the {\bf nonhydrostatic}
 model expects {\bf height based} coordinates. For further information see $<$icon home$>$/hyb\_params/README.
+
+\section{Compile flag for mixed precision}
+
+To speed up code parts strongly limited by memory bandwidth (primarily the dynamical core and the tracer advection), 
+an option exists to use single precision for variables that are presumed to be insensitive to computational accuracy.
+This affects most local arrays in the dynamical core routines (solve\_nonhydro and velocity\_advection), some local
+arreays in the tracer transport routines, the metrics coefficients,
+arrays used for storing tendencies or differenced fields (gradients, divergence etc.), reference atmosphere fields,
+and interpolation coefficients. Prognostic variables and intermediate variables affecting the accuracy of mass conservation
+are still treated in double precision. To activate the mixed-precision option, the cpp flags '-D\_\_MIXED\_PRECISION' and  
+'-D\_\_MIXED\_PRECISION\_2' need to be specified in the configuration settings used for generating the Makefile.
+The latter flag is used for physics tendencies.
+Note that interpolation to a latitude-longitude grid is not supported for single-precision variables; if you desire to output
+physics tendency fields on a regular grid for diagnostic purposes, do not set '-D\_\_MIXED\_PRECISION\_2'.
+
+
+
+

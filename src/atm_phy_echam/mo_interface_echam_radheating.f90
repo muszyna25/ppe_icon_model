@@ -193,7 +193,7 @@ CONTAINS
        field% q_phy(jcs:jce,:,jb) = field% q_phy(jcs:jce,:,jb) + field%q_rsw(jcs:jce,:,jb) + field%q_rlw(jcs:jce,:,jb)
        !
        ! accumulate tendencies
-       tend% ta(jcs:jce,:,jb) = tend% ta     (jcs:jce,:,jb) + tend% ta_rsw (jcs:jce,:,jb) + tend% ta_rlw (jcs:jce,:,jb)
+       tend% ta_phy(jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb) + tend% ta_rsw (jcs:jce,:,jb) + tend% ta_rlw (jcs:jce,:,jb)
        !
     ELSE
        !

@@ -14,6 +14,9 @@
 !! Initial by Kristina Froehlich (2010-11-09)
 !! Modification by Daniel Reinert, DWD (2012-04-03)
 !! - encapsulated type definitions (mo_nwp_lnd_types)
+!! Modifications by Dmitrii Mironov, DWD (2016-08-04)
+!! - Prognostic sea-ice albedo "alb_si" is added 
+!!   to the state vector "t_wtr_prog".
 !!
 !!
 !! @par Copyright and License
@@ -105,6 +108,7 @@ MODULE mo_nwp_lnd_types
     &  h_ice        (:,:)   , & ! depth of the sea ice                   (  m  )
     &  t_snow_si    (:,:)   , & ! temperature of the snow on sea ice     (  K  )
     &  h_snow_si    (:,:)   , & ! depth of the snow on sea ice           (  m  )
+    &  alb_si       (:,:)   , & ! prognostic (diffuse) sea-ice albedo    (  -  )
     &  t_snow_lk    (:,:)   , & ! temperature of snow on lake ice        (  K  )
     &  h_snow_lk    (:,:)   , & ! depth of snow on lake ice              (  K  )
     &  t_mnw_lk     (:,:)   , & ! mean temperature of the water column   (  K  )
@@ -165,6 +169,10 @@ MODULE mo_nwp_lnd_types
     &  wliq_snow    (:,:,:) , & ! liquid water content in the snow              (m H2O)
     &  wtot_snow    (:,:,:) , & ! total (liquid + solid) water content of snow  (m H2O)
     &  dzh_snow     (:,:,:)     ! layer thickness between half levels in snow   (  m  )
+
+    !> (Optional:) Additional diagnostic fields:
+    REAL(wp), POINTER ::  &
+    &  smi          (:,:,:)     ! soil moisture index                            (  -  )
 
     TYPE(t_ptr_2d3d), ALLOCATABLE :: qv_st_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: h_snow_ptr(:)

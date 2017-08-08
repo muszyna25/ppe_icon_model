@@ -93,6 +93,7 @@ USE mo_output_event_types,  ONLY: t_sim_step_info
 USE mo_action,              ONLY: ACTION_RESET, reset_act
 USE mo_turbulent_diagnostic,ONLY: init_les_turbulent_output, close_les_turbulent_output
 USE mo_limarea_config,      ONLY: latbc_config
+USE mo_async_latbc_types,   ONLY: t_latbc_data
 USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
 
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
@@ -112,10 +113,11 @@ CONTAINS
 
   !---------------------------------------------------------------------
   SUBROUTINE atmo_nonhydrostatic
+    TYPE(t_latbc_data) :: latbc !< data structure for async latbc prefetching
 
 !!$    CHARACTER(*), PARAMETER :: routine = "mo_atmo_nonhydrostatic"
 
-    CALL construct_atmo_nonhydrostatic()
+    CALL construct_atmo_nonhydrostatic(latbc)
 
     !------------------------------------------------------------------
     ! Now start the time stepping:
@@ -123,18 +125,19 @@ CONTAINS
     ! is executed within process_grid_level
     !------------------------------------------------------------------
 
-    CALL perform_nh_stepping( time_config%tc_current_date )
+    CALL perform_nh_stepping( time_config%tc_current_date, latbc )
 
     !---------------------------------------------------------------------
     ! 6. Integration finished. Clean up.
     !---------------------------------------------------------------------
-    CALL destruct_atmo_nonhydrostatic()
+    CALL destruct_atmo_nonhydrostatic(latbc)
 
   END SUBROUTINE atmo_nonhydrostatic
   !---------------------------------------------------------------------
 
   !---------------------------------------------------------------------
-  SUBROUTINE construct_atmo_nonhydrostatic
+  SUBROUTINE construct_atmo_nonhydrostatic(latbc)
+    TYPE(t_latbc_data), INTENT(INOUT) :: latbc !< data structure for async latbc prefetching
 
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
 
@@ -143,6 +146,7 @@ CONTAINS
     LOGICAL :: l_omega(n_dom)    !< Flag. TRUE if computation of vertical velocity desired
     LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
     LOGICAL :: l_pv(n_dom)       !< Flag. TRUE if computation of potential vorticity desired
+    LOGICAL :: l_smi(n_dom)      !< Flag. TRUE if computation of soil moisture index desired
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
     INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
@@ -176,7 +180,7 @@ CONTAINS
 
     ! calculate elapsed simulation time in seconds
     time_diff  => newTimedelta("PT0S")
-    time_diff  =  getTimeDeltaFromDateTime(time_config%tc_current_date, time_config%tc_startdate)
+    time_diff  =  getTimeDeltaFromDateTime(time_config%tc_current_date, time_config%tc_exp_startdate)
     sim_time   =  getTotalMillisecondsTimedelta(time_diff, time_config%tc_current_date)*1.e-3_wp
     CALL deallocateTimedelta(time_diff)
     
@@ -229,15 +233,16 @@ CONTAINS
 
     IF(iforcing == inwp) THEN
       DO jg=1,n_dom
-        l_rh(jg) = is_variable_in_output(first_output_name_list, var_name="rh")
-        l_pv(jg) = is_variable_in_output(first_output_name_list, var_name="pv")
+        l_rh(jg)  = is_variable_in_output(first_output_name_list, var_name="rh")
+        l_pv(jg)  = is_variable_in_output(first_output_name_list, var_name="pv")
+        l_smi(jg) = is_variable_in_output(first_output_name_list, var_name="smi")
       END DO
     END IF
 
     IF (iforcing == inwp) THEN
       CALL construct_nwp_phy_state( p_patch(1:), l_rh, l_pv )
-      CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
-      CALL compute_ensemble_pert  ( p_patch(1:), ext_data, prm_diag)
+      CALL construct_nwp_lnd_state( p_patch(1:), p_lnd_state, l_smi, n_timelevels=2 )
+      CALL compute_ensemble_pert  ( p_patch(1:), ext_data, prm_diag, time_config%tc_current_date)
     END IF
 
 #ifdef MESSY
@@ -304,20 +309,13 @@ CONTAINS
       ! This is a resumed integration. Read model state from restart file(s).
 
       IF (timers_level > 5) CALL timer_start(timer_read_restart)
-#ifdef NOMPI
-      ! TODO : Non-MPI mode does not work for multiple domains
+
       DO jg = 1,n_dom
         IF (p_patch(jg)%ldom_active) THEN
           CALL read_restart_files( p_patch(jg), n_dom)
         ENDIF
       END DO
-#else
-      DO jg = 1,n_dom
-        IF (p_patch(jg)%ldom_active) THEN
-          CALL read_restart_files( p_patch(jg), n_dom )
-        ENDIF
-      END DO
-#endif
+
       CALL message(TRIM(routine),'normal exit from read_restart_files')
       IF (timers_level > 5) CALL timer_stop(timer_read_restart)
 
@@ -413,7 +411,7 @@ CONTAINS
     ! with the prefetching processor and effectively starts async prefetching
     IF ((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
       IF (timers_level > 5) CALL timer_start(timer_init_latbc)
-      CALL init_prefetch
+      CALL init_prefetch(latbc)
       IF (timers_level > 5) CALL timer_stop(timer_init_latbc)
     ENDIF
 
@@ -561,7 +559,8 @@ CONTAINS
   END SUBROUTINE construct_atmo_nonhydrostatic
 
   !---------------------------------------------------------------------
-  SUBROUTINE destruct_atmo_nonhydrostatic
+  SUBROUTINE destruct_atmo_nonhydrostatic(latbc)
+    TYPE(t_latbc_data), INTENT(INOUT) :: latbc !< data structure for async latbc prefetching
 
     CHARACTER(*), PARAMETER :: routine = "destruct_atmo_nonhydrostatic"
 
@@ -602,6 +601,9 @@ CONTAINS
     IF (iforcing == inwp) THEN
       CALL destruct_nwp_phy_state
       CALL destruct_nwp_lnd_state( p_lnd_state )
+      DO jg = 1, n_dom
+        CALL atm_phy_nwp_config(jg)%finalize()
+      ENDDO
     ENDIF
 
     IF (iforcing == iecham) THEN
@@ -609,9 +611,11 @@ CONTAINS
     ENDIF
 
     ! call close name list prefetch
-    IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) &
-       CALL close_prefetch
-
+    IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
+      CALL close_prefetch()
+      CALL latbc%finalize()
+    END IF
+    
     ! Delete output variable lists
     IF (output_mode%l_nml) THEN
       CALL close_name_list_output

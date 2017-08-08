@@ -329,15 +329,18 @@ MODULE mo_nh_jabw_exp
   !! @par Revision History
   !!
   SUBROUTINE init_passive_tracers_nh_jabw( ptr_patch, ptr_nh_prog,           &
-                                     &     rotate_axis_deg, ctracer_list, p_sfc)  
+                                     &     rotate_axis_deg, tracer_inidist_list, p_sfc)  
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'init_passive_tracers_nh_jabw'
 
     TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
       &  ptr_patch
 
     TYPE(t_nh_prog), INTENT(INOUT)      :: &  !< prognostic state vector
       &  ptr_nh_prog
-   CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
-    &  ctracer_list
+    INTEGER                             :: &  !< tracer initial distributions
+      &  tracer_inidist_list(:)
 
     REAL(wp), ALLOCATABLE               :: zeta_v(:,:,:)
 
@@ -353,8 +356,7 @@ MODULE mo_nh_jabw_exp
                                          &  nlen
    REAL(wp)                             :: zlat, zlon 
    REAL(wp)                             :: ps_o_p0ref
-   ! Tracer related variables
-   CHARACTER(LEN=1)                     :: ctracer
+
 !--------------------------------------------------------------------
 !
     CALL init_ncar_testcases_domain()
@@ -381,7 +383,7 @@ MODULE mo_nh_jabw_exp
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jjt,jc,nlen,ctracer,zlat,zlon)
+!$OMP DO PRIVATE(jb,jk,jjt,jc,nlen,zlat,zlon)
    DO jb = 1, nblks_c
      IF (jb /= nblks_c) THEN 
       nlen = nproma
@@ -390,10 +392,9 @@ MODULE mo_nh_jabw_exp
      ENDIF
      DO jk = 1, nlev
       DO jjt = 1, ntracer
-        ctracer = ctracer_list(jjt:jjt)
-        SELECT CASE(ctracer)
+        SELECT CASE(tracer_inidist_list(jjt))
   
-        CASE('1')
+        CASE(1)
   
                     DO jc = 1, nlen
                       zlat = ptr_patch%cells%center(jc,jb)%lat
@@ -402,7 +403,7 @@ MODULE mo_nh_jabw_exp
                       tracer_q1_q2(zlon, zlat, zeta_v(jc,jk,jb), rotate_axis_deg, 0.6_wp)
                     ENDDO ! cell loop
   
-        CASE('2')
+        CASE(2)
   
                     DO jc =1, nlen
                       zlat = ptr_patch%cells%center(jc,jb)%lat
@@ -411,7 +412,7 @@ MODULE mo_nh_jabw_exp
                         tracer_q1_q2(zlon, zlat, zeta_v(jc,jk,jb), rotate_axis_deg, 1.0_wp)
                     ENDDO ! cell loop
   
-        CASE('3')
+        CASE(3)
   
                     DO jc =1, nlen
                       zlat = ptr_patch%cells%center(jc,jb)%lat
@@ -420,9 +421,13 @@ MODULE mo_nh_jabw_exp
                         tracer_q3(zlon, zlat, rotate_axis_deg)
                     ENDDO ! cell loop
   
-        CASE('4')
+        CASE(4)
                     ptr_nh_prog%tracer(:,jk,jb,jjt) = 1._wp
-  
+
+        CASE default
+                    WRITE(message_text,'(a,i3,a)') 'Undefined tracer initial distribution ', &
+                      &  tracer_inidist_list(jjt),'; must be <=4'
+                    CALL finish(routine,TRIM(message_text))
         END SELECT
        END DO
       END DO

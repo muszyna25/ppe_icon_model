@@ -1,5 +1,7 @@
 !>
-!! A CLASS that handles the serialization of DATA into the async restart RMA windows, AND its subsequent deserialization into a global array.
+!! A CLASS that handles the serialization of DATA into the async
+!! restart RMA windows, AND its subsequent deserialization into a
+!! global array.
 !!
 !! @par Copyright and License
 !!
@@ -14,7 +16,7 @@ MODULE mo_async_restart_packer
     USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info
     USE mo_exception,           ONLY: finish
     USE mo_impl_constants,      ONLY: SUCCESS
-    USE mo_kind,                ONLY: wp, dp, i8, sp
+    USE mo_kind,                ONLY: dp, i8, sp
     USE mo_mpi,                 ONLY: my_process_is_work, my_process_is_restart, p_n_work,  &
       &                               p_int, p_comm_work, p_comm_work_2_restart, p_pe_work, &
       &                               num_work_procs, p_bcast
@@ -34,35 +36,56 @@ MODULE mo_async_restart_packer
     ! Below, "points" refers to either cells, edges or verts.
     TYPE t_asyncRestartPacker
         PRIVATE
-        INTEGER, PUBLIC              :: n_glb                                                     ! Global number of points per logical patch
-        INTEGER, PUBLIC              :: n_own                                                     ! Number of own points (without halo, only belonging to logical patch). Only set on compute PEs, set to 0 on restart PEs.
-        INTEGER, PUBLIC, ALLOCATABLE :: pe_own(:)                                                 ! n_own, gathered for all compute PEs (set on all PEs)
+        ! Global number of points per logical patch:
+        INTEGER, PUBLIC              :: n_glb
 
-        INTEGER, ALLOCATABLE         :: own_idx(:), own_blk(:)                                    ! idx and blk for own points, only set on compute PEs
+        ! Number of own points (without halo, only belonging to
+        ! logical patch). Only set on compute PEs, set to 0 on restart
+        ! PEs:
+        INTEGER, PUBLIC              :: n_own
 
-                                                                                                  ! Index how to reorder the contributions of all compute PEs into the global array (set on all PEs)
-        INTEGER, ALLOCATABLE         :: inverse_reorder_index(:)                                  ! given a gathered array index, this gives the index within the global array
+        ! n_own, gathered for all compute PEs (set on all PEs):
+        INTEGER, PUBLIC, ALLOCATABLE :: pe_own(:)
+
+        ! idx and blk for own points, only set on compute PEs:
+        INTEGER, ALLOCATABLE         :: own_idx(:), own_blk(:)
+
+        ! Index how to reorder the contributions of all compute PEs
+        ! into the global array (set on all PEs)
+        INTEGER, ALLOCATABLE         :: inverse_reorder_index(:)                 
+        ! given a gathered array index, this gives the index within
+        ! the global array
     CONTAINS
-                                                                                                  ! There is no point in pretending this is a usable class when NOMPI is defined.
+      ! There is no point in pretending this is a usable class when NOMPI is defined.
 #ifndef NOMPI
-        PROCEDURE                    :: construct => asyncRestartPacker_construct                 ! Collective across work AND restart. This IS a two step process utilizing the two methods below.
+      ! Collective across work AND restart. This IS a two step process
+      ! utilizing the two methods below.
+      PROCEDURE                    :: construct => asyncRestartPacker_construct
 
-        PROCEDURE                    :: packLevel_dp => asyncRestartPacker_packLevel_dp           ! pack the contents of a single level/variable into our memory window
-        PROCEDURE                    :: packLevel_sp => asyncRestartPacker_packLevel_sp           ! pack the contents of a single level/variable into our memory window
-        GENERIC, PUBLIC              :: packLevel => packLevel_dp, packLevel_sp
+      ! pack the contents of a single level/variable into our memory window:
+      PROCEDURE                    :: packLevel_dp => asyncRestartPacker_packLevel_dp
 
-        ! sort the DATA of a single level from a single PE into a
-        ! global array:
-        PROCEDURE                    :: unpackLevelFromPe_dp => asyncRestartPacker_unpackLevelFromPe_dp
-        PROCEDURE                    :: unpackLevelFromPe_sp => asyncRestartPacker_unpackLevelFromPe_sp
-        GENERIC, PUBLIC              :: unpackLevelFromPe => unpackLevelFromPe_dp, unpackLevelFromPe_sp
+      ! pack the contents of a single level/variable into our memory window:
+      PROCEDURE                    :: packLevel_sp => asyncRestartPacker_packLevel_sp
 
-        PROCEDURE                    :: destruct => asyncRestartPacker_destruct
+      ! pack the contents of a single level/variable into our memory window:
+      PROCEDURE                    :: packLevel_int => asyncRestartPacker_packLevel_int
 
-        PROCEDURE, PRIVATE           :: constructCompute => asyncRestartPacker_constructCompute   ! The part of the constructor that runs ONLY on the compute processes.
+      GENERIC, PUBLIC              :: packLevel => packLevel_dp, packLevel_sp, packLevel_int
 
-        ! Constructs the reorder data on the restart processes:
-        PROCEDURE, PRIVATE           :: transferToRestart => asyncRestartPacker_transferToRestart
+      ! sort the DATA of a single level from a single PE into a global
+      ! array:
+      PROCEDURE                    :: unpackLevelFromPe_dp => asyncRestartPacker_unpackLevelFromPe_dp
+      PROCEDURE                    :: unpackLevelFromPe_sp => asyncRestartPacker_unpackLevelFromPe_sp
+      GENERIC, PUBLIC              :: unpackLevelFromPe => unpackLevelFromPe_dp, unpackLevelFromPe_sp
+      
+      PROCEDURE                    :: destruct => asyncRestartPacker_destruct
+        
+      ! The part of the constructor that runs ONLY on the compute processes.
+      PROCEDURE, PRIVATE           :: constructCompute => asyncRestartPacker_constructCompute
+
+      ! Constructs the reorder data on the restart processes:
+      PROCEDURE, PRIVATE           :: transferToRestart => asyncRestartPacker_transferToRestart
 #endif
     END TYPE t_asyncRestartPacker
 
@@ -70,7 +93,8 @@ MODULE mo_async_restart_packer
 
 CONTAINS
 
-    ! Broadcast root for intercommunicator broadcasts from compute PEs to restart PEs using p_comm_work_2_restart.
+    ! Broadcast root for intercommunicator broadcasts from compute PEs
+    ! to restart PEs using p_comm_work_2_restart.
     INTEGER FUNCTION restartBcastRoot() RESULT(resultVar)
 #ifdef NOMPI
         resultVar = 0
@@ -253,7 +277,7 @@ CONTAINS
         CLASS(t_asyncRestartPacker), INTENT(IN) :: me
         REAL(dp), INTENT(IN) :: source(:,:)
         REAL(dp), INTENT(INOUT) :: dest(:)
-        !TODO[NH]: Replace this by an INTENT(IN) level count
+        !TODO: Replace this by an INTENT(IN) level count
         INTEGER(i8), INTENT(INOUT) :: offset
 
         INTEGER :: i
@@ -268,7 +292,7 @@ CONTAINS
         CLASS(t_asyncRestartPacker), INTENT(IN) :: me
         REAL(sp), INTENT(IN) :: source(:,:)
         REAL(dp), INTENT(INOUT) :: dest(:)
-        !TODO[NH]: Replace this by an INTENT(IN) level count
+        !TODO: Replace this by an INTENT(IN) level count
         INTEGER(i8), INTENT(INOUT) :: offset
 
         INTEGER :: i
@@ -278,6 +302,21 @@ CONTAINS
             dest(offset) = REAL(source(me%own_idx(i), me%own_blk(i)), dp)
         END DO
     END SUBROUTINE asyncRestartPacker_packLevel_sp
+
+    SUBROUTINE asyncRestartPacker_packLevel_int(me, source, dest, offset)
+        CLASS(t_asyncRestartPacker), INTENT(IN) :: me
+        INTEGER, INTENT(IN) :: source(:,:)
+        REAL(dp), INTENT(INOUT) :: dest(:)
+        !TODO[NH]: Replace this by an INTENT(IN) level count
+        INTEGER(i8), INTENT(INOUT) :: offset
+
+        INTEGER :: i
+
+        DO i = 1, me%n_own
+            offset = offset + 1
+            dest(offset) = REAL(source(me%own_idx(i), me%own_blk(i)), dp)
+        END DO
+      END SUBROUTINE asyncRestartPacker_packLevel_int
 
     SUBROUTINE asyncRestartPacker_unpackLevelFromPe_dp(me, level, pe, dataIn, globalArray)
         CLASS(t_asyncRestartPacker), INTENT(IN) :: me

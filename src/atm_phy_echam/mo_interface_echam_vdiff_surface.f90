@@ -282,6 +282,7 @@ CONTAINS
                &              field%  evap_tile    (:,jb,:),                  &! out
                &              nblock = jb,                                    &! in
                &              lsm = field%lsmask(:,jb),                       &!< in, land-sea mask
+               &              alake = field%alake(:,jb),                      &! in, lake fraction
                &              pu    = field% ua(:,nlev,jb),                   &! in, um1
                &              pv    = field% va(:,nlev,jb),                   &! in, vm1
                &              ptemp = field% ta(:,nlev,jb),                   &! in, tm1
@@ -293,7 +294,7 @@ CONTAINS
                &              rlds        = field% rlds (:,jb),               &! in,  downward surface  longwave flux [W/m2]
                &              rlus        = field% rlus (:,jb),               &! inout, upward surface  longwave flux [W/m2]
                &              rsds        = field% rsds (:,jb),               &! in,  downward surface shortwave flux [W/m2]
-               &              rsus        = field% rsus (:,jb),               &! inout, upward surface shortwave flux [W/m2]
+               &              rsus        = field% rsus (:,jb),               &! in,  upward surface shortwave flux [W/m2]
                !
                &              rvds_dir   = field%rvds_dir   (:,jb),           &! in, all-sky downward direct visible radiation at surface
                &              rpds_dir   = field%rpds_dir   (:,jb),           &! in, all-sky downward direct PAR     radiation at surface
@@ -324,6 +325,7 @@ CONTAINS
                &              ptsfc_rad = field%ts_rad(:,jb),                 &! out
                &              rlns_tile = field%lwflxsfc_tile(:,jb,:),        &! out (for coupling)
                &              rsns_tile = field%swflxsfc_tile(:,jb,:),        &! out (for coupling)
+               &              lake_ice_frc = field%lake_ice_frc(:,jb),        &! out
                &              Tsurf = field% Tsurf(:,:,jb),                   &! inout, for sea ice
                &              T1    = field% T1   (:,:,jb),                   &! inout, for sea ice
                &              T2    = field% T2   (:,:,jb),                   &! inout, for sea ice
@@ -349,10 +351,10 @@ CONTAINS
              field% q_phy(jcs:jce,nlev,jb) = field% q_phy(jcs:jce,nlev,jb) - zq_snocpymlt(jcs:jce)
              !
              ! tendency
-             tend% ta_sfc(jcs:jce,jb) = -zq_snocpymlt(jcs:jce) * field% qconv(jcs:jce,nlev,jb)
+             tend% ta_sfc(jcs:jce,jb)      = -zq_snocpymlt(jcs:jce) * field% qconv(jcs:jce,nlev,jb)
              !
              ! tendencies accumulated
-             tend% ta(jcs:jce,nlev,jb) = tend% ta(jcs:jce,nlev,jb) + tend% ta_sfc(jcs:jce,jb)
+             tend% ta_phy(jcs:jce,nlev,jb) = tend% ta_phy(jcs:jce,nlev,jb) + tend% ta_sfc(jcs:jce,jb)
              !
           END IF
           !
@@ -413,13 +415,13 @@ CONTAINS
        field% q_phy(jcs:jce,:,jb) = field% q_phy(jcs:jce,:,jb) + field% q_vdf(jcs:jce,:,jb)
        !
        ! accumulated tendencies
-       tend%   ua(jcs:jce,:,jb)      = tend%   ua(jcs:jce,:,jb)      + tend%   ua_vdf(jcs:jce,:,jb)
-       tend%   va(jcs:jce,:,jb)      = tend%   va(jcs:jce,:,jb)      + tend%   va_vdf(jcs:jce,:,jb)
-       tend%   ta(jcs:jce,:,jb)      = tend%   ta(jcs:jce,:,jb)      + tend%   ta_vdf(jcs:jce,:,jb)
-       tend% qtrc(jcs:jce,:,jb,iqv)  = tend% qtrc(jcs:jce,:,jb,iqv)  + tend% qtrc_vdf(jcs:jce,:,jb,iqv)
-       tend% qtrc(jcs:jce,:,jb,iqc)  = tend% qtrc(jcs:jce,:,jb,iqc)  + tend% qtrc_vdf(jcs:jce,:,jb,iqc)
-       tend% qtrc(jcs:jce,:,jb,iqi)  = tend% qtrc(jcs:jce,:,jb,iqi)  + tend% qtrc_vdf(jcs:jce,:,jb,iqi)
-       tend% qtrc(jcs:jce,:,jb,iqt:) = tend% qtrc(jcs:jce,:,jb,iqt:) + tend% qtrc_vdf(jcs:jce,:,jb,iqt:)
+       tend%   ua_phy(jcs:jce,:,jb)      = tend%   ua_phy(jcs:jce,:,jb)      + tend%   ua_vdf(jcs:jce,:,jb)
+       tend%   va_phy(jcs:jce,:,jb)      = tend%   va_phy(jcs:jce,:,jb)      + tend%   va_vdf(jcs:jce,:,jb)
+       tend%   ta_phy(jcs:jce,:,jb)      = tend%   ta_phy(jcs:jce,:,jb)      + tend%   ta_vdf(jcs:jce,:,jb)
+       tend% qtrc_phy(jcs:jce,:,jb,iqv)  = tend% qtrc_phy(jcs:jce,:,jb,iqv)  + tend% qtrc_vdf(jcs:jce,:,jb,iqv)
+       tend% qtrc_phy(jcs:jce,:,jb,iqc)  = tend% qtrc_phy(jcs:jce,:,jb,iqc)  + tend% qtrc_vdf(jcs:jce,:,jb,iqc)
+       tend% qtrc_phy(jcs:jce,:,jb,iqi)  = tend% qtrc_phy(jcs:jce,:,jb,iqi)  + tend% qtrc_vdf(jcs:jce,:,jb,iqi)
+       tend% qtrc_phy(jcs:jce,:,jb,iqt:) = tend% qtrc_phy(jcs:jce,:,jb,iqt:) + tend% qtrc_vdf(jcs:jce,:,jb,iqt:)
 
 !!$       ! TIME FILTER FOR TURBULENT KINETIC ENERGY
 !!$

@@ -33,6 +33,7 @@ MODULE mo_interpol_config
   PUBLIC :: rbf_dim_c2l, l_intp_c2l, l_mono_c2l                                 !< variables
   PUBLIC :: rbf_scale_mode_ll                                                   !< variables
   PUBLIC :: support_baryctr_intp                                                !< variables
+  PUBLIC :: lreduced_nestbdry_stencil                                           !< variables
   PUBLIC :: configure_interpolation                                             !< subroutine
   !>
   !!
@@ -126,6 +127,10 @@ MODULE mo_interpol_config
     ! Flag. If .FALSE. barycentric interpolation is replaced by a
     ! fallback interpolation.
     LOGICAL :: support_baryctr_intp
+
+    ! Flag. If .TRUE. then the nest boundary points are taken out from
+    ! the lat-lon interpolation stencil.
+    LOGICAL :: lreduced_nestbdry_stencil
   
   !END TYPE t_interpol_config
   !>

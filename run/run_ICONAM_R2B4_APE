@@ -247,7 +247,6 @@ ntiles           = 1
  lcoriolis      = .TRUE.
 /
 &transport_nml
- ctracer_list  = '12345'    ! '12345'  (even with ozone)
  ivadv_tracer  = 3,3,3,3,3
  itype_hlimit  = 3,4,4,4,4,0
  ihadv_tracer  = 3,3,3,3,2,0

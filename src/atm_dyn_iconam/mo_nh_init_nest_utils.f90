@@ -35,7 +35,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_physical_constants,    ONLY: rd, cvd_o_rd, p0ref, rhoh2o, tmelt
   USE mo_phyparam_soil,         ONLY: crhosminf
   USE mo_impl_constants,        ONLY: min_rlcell, min_rlcell_int, min_rledge_int, &
-    &                                 MAX_CHAR_LENGTH, dzsoil, inwp, nclass_aero
+    &                                 MAX_CHAR_LENGTH, dzsoil, inwp, nclass_aero, ALB_SI_MISSVAL
   USE mo_grf_nudgintp,          ONLY: interpol_scal_nudging, interpol_vec_nudging
   USE mo_grf_bdyintp,           ONLY: interpol_scal_grf, interpol2_vec_grf
   USE mo_grid_config,           ONLY: lfeedback, ifeedback_type
@@ -51,7 +51,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_fbk_start_c
   USE mo_nwp_lnd_types,         ONLY: t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water, nlev_soil, lseaice,  &
-    &                                 llake, isub_lake, frlake_thrhld, frsea_thrhld
+    &                                 llake, isub_lake, frlake_thrhld, frsea_thrhld, lprog_albsi
   USE mo_nwp_lnd_state,         ONLY: p_lnd_state
   USE mo_nwp_phy_state,         ONLY: prm_diag
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config, iprog_aero
@@ -62,7 +62,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_seaice_nwp,            ONLY: frsi_min
   USE mo_nwp_sfc_interp,        ONLY: smi_to_wsoil, wsoil_to_smi
   USE mo_flake,                 ONLY: flake_coldinit
-  USE mo_phyparam_soil,         ONLY: cporv, cadp
+  USE mo_phyparam_soil,         ONLY: cporv, cadp, csalb, ist_seawtr
 
   IMPLICIT NONE
 
@@ -205,7 +205,7 @@ MODULE mo_nh_init_nest_utils
     ! the interpolation of the multi-layer snow fields has been completely removed from this routine
     num_lndvars = 2*nlev_soil+1+ &     ! multi-layer soil variables t_so and w_so (w_so_ice is initialized in terra_multlay_init)
                   5+4+1                ! single-layer prognostic variables + t_g, freshsnow, t_seasfc and qv_s + aux variable for lake temp
-    num_wtrvars  = 5                   ! water state fields + fr_seaice
+    num_wtrvars  = 6                   ! water state fields + fr_seaice + alb_si
     num_phdiagvars = 21                ! number of physics diagnostic variables (copied from interpol_phys_grf)
 
     ALLOCATE(thv_pr_par  (nproma, nlev_p,      p_patch(jg)%nblks_c), &
@@ -372,7 +372,8 @@ MODULE mo_nh_init_nest_utils
           lndvars_par(jc,jk1+5,jb) = p_parent_ldiag%rho_snow(jc,jb)
           lndvars_par(jc,jk1+6,jb) = p_parent_ldiag%w_i(jc,jb)
           lndvars_par(jc,jk1+7,jb) = p_parent_ldiag%freshsnow(jc,jb)
-          lndvars_par(jc,jk1+8,jb) = MAX(271._wp,p_parent_ldiag%t_seasfc(jc,jb)) ! to avoid trouble with missing values
+          lndvars_par(jc,jk1+8,jb) = MERGE(MAX(271._wp,p_parent_ldiag%t_so(jc,4,jb)), & ! fill t_seasfc with t_so where undefined
+                                     p_parent_ldiag%t_seasfc(jc,jb),p_parent_ldiag%t_seasfc(jc,jb)<=0._wp)
           lndvars_par(jc,jk1+9,jb) = p_parent_ldiag%qv_s(jc,jb)
         ENDDO
       ENDIF
@@ -388,6 +389,11 @@ MODULE mo_nh_init_nest_utils
           wtrvars_par(jc,3,jb) = p_parent_wprog%t_snow_si(jc,jb)
           wtrvars_par(jc,4,jb) = p_parent_wprog%h_snow_si(jc,jb)
           wtrvars_par(jc,5,jb) = p_parent_ldiag%fr_seaice(jc,jb)
+          IF (lprog_albsi) THEN
+            wtrvars_par(jc,6,jb) = MAX(csalb(ist_seawtr),p_parent_wprog%alb_si(jc,jb))
+          ELSE
+            wtrvars_par(jc,6,jb) = ALB_SI_MISSVAL ! -1
+          ENDIF
         ENDDO
       ENDIF
 
@@ -666,8 +672,16 @@ MODULE mo_nh_init_nest_utils
           p_child_wprog%t_snow_si(jc,jb) = MIN(tmelt,wtrvars_chi(jc,3,jb))
           p_child_wprog%h_snow_si(jc,jb) = MAX(0._wp,wtrvars_chi(jc,4,jb))
           p_child_ldiag%fr_seaice(jc,jb) = MAX(0._wp,MIN(1._wp,wtrvars_chi(jc,5,jb)))
+          p_child_wprog%alb_si(jc,jb)    = wtrvars_chi(jc,6,jb)
           IF (p_child_ldiag%fr_seaice(jc,jb) < frsi_min )         p_child_ldiag%fr_seaice(jc,jb) = 0._wp
           IF (p_child_ldiag%fr_seaice(jc,jb) > (1._wp-frsi_min) ) p_child_ldiag%fr_seaice(jc,jb) = 1._wp
+          IF (lprog_albsi) THEN
+            IF (p_child_ldiag%fr_seaice(jc,jb) == 0._wp) THEN
+              p_child_wprog%alb_si(jc,jb) = ALB_SI_MISSVAL ! -1
+            ELSE
+              p_child_wprog%alb_si(jc,jb) = MIN(0.8_wp, MAX(0.4_wp, p_child_wprog%alb_si(jc,jb)))
+            ENDIF
+          ENDIF
           IF (ext_data(jgc)%atm%fr_land(jc,jb) >= 1._wp-MAX(frlake_thrhld,frsea_thrhld)) THEN ! pure land point
             p_child_wprog%h_ice(jc,jb) = 0._wp
             p_child_wprog%h_snow_si(jc,jb) = 0._wp

@@ -25,7 +25,7 @@ MODULE mo_initicon_nml
   USE mo_impl_constants,     ONLY: max_char_length, max_dom, vname_len,      &
     &                              max_var_ml, MODE_IFSANA, MODE_DWDANA,     &
     &                              MODE_IAU, MODE_IAU_OLD, MODE_COMBINED,    &
-    &                              MODE_COSMODE, MODE_ICONVREMAP
+    &                              MODE_COSMO, MODE_ICONVREMAP
   USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
@@ -35,6 +35,7 @@ MODULE mo_initicon_nml
     & config_zpbl1               => zpbl1,               &
     & config_zpbl2               => zpbl2,               &
     & config_lread_ana           => lread_ana,           &
+    & config_use_lakeiceana      => use_lakeiceana,      &
     & config_lconsistency_checks => lconsistency_checks, &
     & config_ifs2icon_filename   => ifs2icon_filename,   &
     & config_dwdfg_filename      => dwdfg_filename,      &
@@ -68,6 +69,14 @@ MODULE mo_initicon_nml
   CHARACTER(len=*), PARAMETER :: modelname    = 'icon'
   CHARACTER(len=*), PARAMETER :: modelversion = 'dev'
 
+
+  ! Variables of that type contain a list of all mandatory input fields
+  ! This list can include a subset or the entire set of mandatory fields.
+  TYPE t_check_input
+    CHARACTER(LEN=vname_len) :: list(max_var_ml)
+  END TYPE t_check_input
+
+
   ! ----------------------------------------------------------------------------
   ! 1.0 Namelist variables for the init_icon preprocessing program
   ! ----------------------------------------------------------------------------
@@ -92,7 +101,10 @@ MODULE mo_initicon_nml
 
   LOGICAL  :: ltile_init       ! If true, initialize tile-based surface fields from first guess without tiles
 
+  LOGICAL  :: use_lakeiceana   ! If true, use ice fraction analysis data also over lakes (otherwise sea points only)
+
   LOGICAL  :: lvert_remap_fg   ! If true, vertical remappting of first guess input is performed
+
 
   ! Variables controlling computation of temporally averaged first guess fields for DA
   ! The calculation is switched on by setting end_time > start_time
@@ -117,13 +129,25 @@ MODULE mo_initicon_nml
   INTEGER  :: niter_divdamp ! number of divergence damping iterations on wind increment from DA
   INTEGER  :: niter_diffu   ! number of diffusion iterations on wind increment from DA
 
-  CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
-                                                      ! This list can include a subset or the 
-                                                      ! entire set of default analysis fields.
 
-  CHARACTER(LEN=vname_len) :: ana_varlist_n2(max_var_ml) ! list of mandatory analysis fields for patch 2 (nest 1). 
-                                                         ! This list can include a subset or the 
-                                                         ! entire set of default analysis fields.
+  TYPE(t_check_input) :: check_ana(max_dom)  ! patch-specific list of mandatory analysis fields.
+                                             ! This list can include a subset or the 
+                                             ! entire set of default analysis fields.
+
+  TYPE(t_check_input) :: check_fg(max_dom)  ! A small subset of first guess input fields are 
+                                            ! declared 'optional' in ICON. By adding them to this list, 
+                                            ! they will become mandatory, meaning that the model 
+                                            ! aborts if any of these fields is missing. This list can 
+                                            ! include a subset of the optional first guess fields, 
+                                            ! or even the entire set of first guess fields (however, 
+                                            ! it only effects the optional ones). On default this list 
+                                            ! is empty, meaning that optional first guess fields 
+                                            ! experience a cold-start initialization if they are missing. 
+                                            ! The model does not abort.
+
+   ! patch-specific list of mandatory first guess fields.
+                                             ! This list can include a subset or the 
+                                             ! entire set of default first guess fields.
 
   ! IFS2ICON input filename, may contain keywords, by default
   ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -146,9 +170,9 @@ MODULE mo_initicon_nml
                           lconsistency_checks, rho_incr_filter_wgt,         &
                           ifs2icon_filename, dwdfg_filename,                &
                           dwdana_filename, filetype, dt_iau, dt_shift,      &
-                          type_iau_wgt, ana_varlist, ana_varlist_n2,        &
+                          type_iau_wgt, check_ana, check_fg,                &
                           ana_varnames_map_file, lp2cintp_incr,             &
-                          lp2cintp_sfcana,                                  &
+                          lp2cintp_sfcana, use_lakeiceana,                  &
                           start_time_avg_fg, end_time_avg_fg,               &
                           interval_avg_fg, ltile_coldstart, ltile_init,     &
                           lvert_remap_fg, iterate_iau, niter_divdamp,       &
@@ -190,6 +214,7 @@ CONTAINS
   zpbl2       = 1000._wp       ! gradients
   lread_ana   = .TRUE.         ! true: read analysis fields from file dwdana_filename
                                ! false: start ICON from first guess file (no analysis)
+  use_lakeiceana = .FALSE.     ! do not use ice fraction analysis data over freshwater lakes
   lconsistency_checks = .TRUE. ! check validity of input fields  
   filetype    = -1             ! "-1": undefined
   dt_iau      = 10800._wp      ! 3-hour interval for IAU
@@ -199,13 +224,24 @@ CONTAINS
   niter_diffu = 10             ! number of diffusion iterations on wind increment from DA
   niter_divdamp = 25           ! number of divergence damping iterations on wind increment from DA
   type_iau_wgt= 1              ! Top-hat weighting function
-  ana_varlist = ''             ! list of mandatory analysis fields. This list can include a subset 
-                               ! or the entire set of default analysis fields. If any of these fields
+
+  DO jg=1,SIZE(check_ana)
+    check_ana(jg)%list(:) = '' ! list of mandatory analysis fields. This list can include a subset 
+  ENDDO                        ! or the entire set of default analysis fields. If any of these fields
                                ! is missing in the analysis file, the model aborts. On default 
                                ! this list is empty, meaning that fields which are missing in the 
                                ! analysis file (when compared to the default set), are simply 
                                ! taken from the first guess.
-  ana_varlist_n2 = ''          ! Same for patch nr. 2 (nest 1) 
+
+  DO jg=1,SIZE(check_fg)
+    check_fg(jg)%list(:) = '' ! A small subset of first guess input fields are declared 'optional' in ICON. 
+  ENDDO                       ! By adding them to this list, they will become mandatory, meaning that the model 
+                              ! aborts if any of these fields is missing. This list can include a subset 
+                              ! of the optional first guess fields, or even the entire set of first guess fields 
+                              ! (however, it only effects the optional first guess fields). On default 
+                              ! this list is empty, meaning that optional first guess fields experience 
+                              ! a cold-start initialization if they are missing. The model does not abort.
+
   ana_varnames_map_file = " "
 
   ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -217,6 +253,7 @@ CONTAINS
   ltile_coldstart       = .FALSE. ! true: initialize tile-based surface fields from first guess with tile-averaged fields
   ltile_init            = .FALSE. ! true: initialize tile-based surface fields from first guess without tiles
   lvert_remap_fg        = .FALSE. ! true: perform vertical remapping of first-guess input
+
 
   start_time_avg_fg = 0._wp
   end_time_avg_fg   = 0._wp
@@ -248,7 +285,7 @@ CONTAINS
   ! 4.0 check the consistency of the parameters
   !------------------------------------------------------------
   !
-  z_go_init = (/MODE_IFSANA,MODE_DWDANA,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMODE,MODE_ICONVREMAP/)
+  z_go_init = (/MODE_IFSANA,MODE_DWDANA,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMO,MODE_ICONVREMAP/)
   IF (ALL(z_go_init /= init_mode)) THEN
     CALL finish( TRIM(routine),                         &
       &  'Invalid initialization mode. init_mode must be between 1 and 7')
@@ -273,7 +310,7 @@ CONTAINS
   ENDIF
 
   ! Check whether init_mode and lread_ana are consistent
-  IF (ANY((/MODE_COMBINED,MODE_COSMODE,MODE_ICONVREMAP/)==init_mode) .AND. lread_ana) THEN
+  IF (ANY((/MODE_COMBINED,MODE_COSMO,MODE_ICONVREMAP/)==init_mode) .AND. lread_ana) THEN
     lread_ana = .FALSE.
     WRITE(message_text,'(a,i2,a)') 'init_mode=', init_mode, &
       '. no analysis required => lread_ana re-set to .FALSE.'
@@ -326,6 +363,7 @@ CONTAINS
   config_zpbl1               = zpbl1
   config_zpbl2               = zpbl2
   config_lread_ana           = lread_ana
+  config_use_lakeiceana      = use_lakeiceana
   config_lconsistency_checks = lconsistency_checks
   config_ifs2icon_filename   = ifs2icon_filename
   config_dwdfg_filename      = dwdfg_filename
@@ -346,14 +384,12 @@ CONTAINS
   config_type_iau_wgt        = type_iau_wgt
   config_ana_varnames_map_file = ana_varnames_map_file
   config_rho_incr_filter_wgt   = rho_incr_filter_wgt
-  config_niter_divdamp       = niter_divdamp
-  config_niter_diffu         = niter_diffu
+  config_niter_divdamp         = niter_divdamp
+  config_niter_diffu           = niter_diffu
 
-  initicon_config(1)%ana_varlist  = ana_varlist
-  initicon_config(2)%ana_varlist  = ana_varlist_n2
-  ! Well defined state for all other domains
-  DO jg=3,max_dom
-    initicon_config(jg)%ana_varlist = ' '
+  DO jg=1,max_dom
+    initicon_config(jg)%ana_checklist = check_ana(jg)%list
+    initicon_config(jg)%fg_checklist  = check_fg(jg)%list
   ENDDO
 
   ! write the contents of the namelist to an ASCII file

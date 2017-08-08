@@ -115,7 +115,7 @@ CONTAINS
           END IF
           !
           ! accumulate tendencies
-          tend% qtrc(jcs:jce,:,jb,io3) = tend% qtrc(jcs:jce,:,jb,io3) + do3dt(jcs:jce,:)*amo3/amd
+          tend% qtrc_phy(jcs:jce,:,jb,io3) = tend% qtrc_phy(jcs:jce,:,jb,io3) + do3dt(jcs:jce,:)*amo3/amd
           !
        END IF
        !
