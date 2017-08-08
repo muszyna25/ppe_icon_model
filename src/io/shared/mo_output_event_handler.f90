@@ -1237,7 +1237,8 @@ CONTAINS
   FUNCTION union_of_all_events(fct_time2simstep, fct_generate_filenames, icomm,&
     &                          event_list_local, ievent_list_local)
     TYPE(t_par_output_event), POINTER :: union_of_all_events
-    INTEGER, OPTIONAL,      INTENT(IN)  :: icomm                       !< MPI communicator for intra-I/O communication
+    !> MPI communicator for intra-I/O communication
+    INTEGER,                INTENT(IN)  :: icomm
     TYPE(t_event_data_local), INTENT(INOUT) :: event_list_local(:)
     !> length of local list of output events
     INTEGER, INTENT(inout) :: ievent_list_local
