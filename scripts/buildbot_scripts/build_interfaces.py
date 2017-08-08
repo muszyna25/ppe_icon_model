@@ -95,7 +95,7 @@ def make_nwp_binaries(configure_flags):
   aes_flags=" --disable-ocean --disable-jsbach --disable-testbed --with-yac=no"
   os.chdir(paths.basePath)
   aes_folder = paths.basePath+"/nwp_build"
-  status = runCommand("scripts/building/get_atmo "+paths.basePath+" "+aes_folder)
+  status = runCommand("scripts/building/get_nwp "+paths.basePath+" "+aes_folder)
   if not status == 0:
     print("get_aes failed")
     return status
@@ -129,10 +129,23 @@ def make_runscript(experimentPathName, runflags):
   if not paths.thisExperimentExists(experimentPathName):
     print("Warning:experiment "+experimentPathName+" does not exist.")
     return 1
-  #print("make runscript:"+experimentPathName+" with flags:"+runflags)
-  os.chdir(paths.basePath)
+
   # seperate the the input path from the experiment name
   experimentPath, experimentName = paths.getPathAndName(experimentPathName)
+
+  # do not create the experiment if it has extetion .run
+  filename, file_extension = os.path.splitext(experimentPathName)
+
+  if file_extension == ".run":
+    # do nothing if the file is already located in the runPath
+    # otherwise: create a symbolic link in the runPath
+    if not (os.path.exists(paths.runPath+"/"+experimentName)):
+      os.symlink(experimentPathName,paths.runPath+"/"+experimentName)
+
+    return 0, experimentName
+
+  #print("make runscript:"+experimentPathName+" with flags:"+runflags)
+  os.chdir(paths.basePath)
   outscript=experimentName+".run"
   expname = get_EXPNAME(outscript)
   make_runscript_command=paths.basePath+"/config/make_target_runscript "

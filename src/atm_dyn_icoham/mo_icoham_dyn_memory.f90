@@ -24,7 +24,7 @@
 !!
 MODULE mo_icoham_dyn_memory
 
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, VNAME_LEN, MAX_NTRACER
   USE mo_exception,           ONLY: message,finish
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm, t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_model_domain,        ONLY: t_patch
@@ -82,7 +82,7 @@ CONTAINS
 
     INTEGER :: ndomain, jg, jt, istat, nblks_c, nblks_e, nblks_v, nlev
     CHARACTER(len=MAX_CHAR_LENGTH) :: listname, varname_prefix
-    CHARACTER(len=MAX_CHAR_LENGTH) :: ctracer_list !< list of tracers to initialize
+    CHARACTER(len=VNAME_LEN) :: tracer_names(MAX_NTRACER) 
 
     CHARACTER(len=*),PARAMETER ::  &
              routine = 'mo_icoham_dyn_memory:construct_icoham_dyn_state'
@@ -123,8 +123,9 @@ CONTAINS
       nblks_v = p_patch(jg)%nblks_v
       nlev    = p_patch(jg)%nlev
 
-      ! get ctracer_list
-      ctracer_list = advection_config(jg)%ctracer_list
+
+      ! get tracer names
+      tracer_names = advection_config(jg)%tracer_names
 
       !----------------------------
       ! 1.  For time integration:
@@ -140,7 +141,7 @@ CONTAINS
         WRITE(listname,'(a,i2.2,a,i2.2)')  'hydro_prog_D',jg,'_timlev',jt
         WRITE(varname_prefix,'(a,i2.2,a)') 'ha_prog_TL',jt,'_'
 
-        CALL new_hydro_prog_list( jg, nproma, nlev, ntracer, ctracer_list, &
+        CALL new_hydro_prog_list( jg, nproma, nlev, ntracer, tracer_names, &
                                 & ha_dyn_config%ltheta_dyn,                &
                                 & nblks_c, nblks_e, TRIM(listname),        &
                                 & TRIM(varname_prefix),                    &
@@ -153,7 +154,7 @@ CONTAINS
 
       WRITE(listname,'(a,i2.2)')  'hydro_diag_D',jg
       WRITE(varname_prefix,'(a)') 'ha_diag_'
-      CALL new_hydro_diag_list( jg, nproma, nlev, ntracer, ctracer_list, &
+      CALL new_hydro_diag_list( jg, nproma, nlev, ntracer, tracer_names, &
                               & ha_dyn_config%ltheta_dyn,             &
                               & nblks_c, nblks_e, nblks_v,            &
                               & TRIM(listname), TRIM(varname_prefix), &
@@ -165,7 +166,7 @@ CONTAINS
 
       WRITE(listname,'(a,i2.2)')  'hydro_tend_dyn_D',jg
       WRITE(varname_prefix,'(a)') 'ha_tend_dyn_'
-      CALL new_hydro_prog_list( jg, nproma, nlev, ntracer, ctracer_list, &
+      CALL new_hydro_prog_list( jg, nproma, nlev, ntracer, tracer_names, &
                               & ha_dyn_config%ltheta_dyn,                &
                               & nblks_c, nblks_e, TRIM(listname),        &
                               & TRIM(varname_prefix),                    &
@@ -175,7 +176,7 @@ CONTAINS
 
       WRITE(listname,'(a,i2.2)')  'hydro_tend_phy_D',jg
       WRITE(varname_prefix,'(a)') 'ha_tend_phy_'
-      CALL new_hydro_prog_list( jg, nproma, nlev, ntracer, ctracer_list, &
+      CALL new_hydro_prog_list( jg, nproma, nlev, ntracer, tracer_names, &
                               & ha_dyn_config%ltheta_dyn,                &
                               & nblks_c, nblks_e, TRIM(listname),        &
                               & TRIM(varname_prefix),                    &
@@ -188,7 +189,7 @@ CONTAINS
       !----------------------------
       WRITE(listname,'(a,i2.2)')  'hydro_prog_out_D',jg
       WRITE(varname_prefix,'(a)') 'ha_prog_out_'
-      CALL new_hydro_prog_list( jg, nproma, nlev, ntracer, ctracer_list, &
+      CALL new_hydro_prog_list( jg, nproma, nlev, ntracer, tracer_names, &
                               & ha_dyn_config%ltheta_dyn,                &
                               & nblks_c, nblks_e, TRIM(listname),        &
                               & TRIM(varname_prefix),                    &
@@ -198,7 +199,7 @@ CONTAINS
 
       WRITE(listname,'(a,i2.2)')  'hydro_diag_out_D',jg
       WRITE(varname_prefix,'(a)') 'ha_diag_out_'
-      CALL new_hydro_diag_list( jg, nproma, nlev, ntracer, ctracer_list, &
+      CALL new_hydro_diag_list( jg, nproma, nlev, ntracer, tracer_names, &
                               & ha_dyn_config%ltheta_dyn,             &
                               & nblks_c, nblks_e, nblks_v,            &
                               & TRIM(listname), TRIM(varname_prefix), &
@@ -269,7 +270,7 @@ CONTAINS
   !!
   !!
   SUBROUTINE new_hydro_prog_list( k_jg, kproma, klev, ktracer,    &
-                                & ctracer_list, ltheta_dyn,       &
+                                & tracer_names, ltheta_dyn,       &
                                 & kblks_c, kblks_e,               &
                                 & listname, vname_prefix,         &
                                 & field_list, field, store_in_restart )
@@ -281,8 +282,7 @@ CONTAINS
     LOGICAL,INTENT(IN) :: store_in_restart               !< store in restart file?
 
     CHARACTER(len=*),INTENT(IN) :: listname, vname_prefix
-    CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
-    &  ctracer_list
+    CHARACTER(len=VNAME_LEN) :: tracer_names(:)      !< tracer-specific name suffixes
 
     TYPE(t_var_list)      ,INTENT(INOUT) :: field_list
     TYPE(t_hydro_atm_prog),INTENT(INOUT) :: field
@@ -359,10 +359,10 @@ CONTAINS
       DO jtrc = 1,ktracer
 
         CALL add_ref( field_list, vname_prefix//'tracer',                          &
-                    & vname_prefix//'q'//ctracer_list(jtrc:jtrc),                  &
+                    & vname_prefix//'q'//TRIM(tracer_names(jtrc)),                 &
                     & field%tracer_ptr(jtrc)%p,                                    &
                     & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
-                    & t_cf_var('tracer_'//ctracer_list(jtrc:jtrc), 'kg kg-1', '', datatype_flt),&
+                    & t_cf_var('tracer_'//TRIM(tracer_names(jtrc)), 'kg kg-1', '', datatype_flt),&
                     & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
                     & ldims=(/kproma,klev,kblks_c/))
 
@@ -374,7 +374,7 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE new_hydro_diag_list( k_jg, kproma, klev, ktracer, ctracer_list, &
+  SUBROUTINE new_hydro_diag_list( k_jg, kproma, klev, ktracer, tracer_names, &
                                 & ltheta_dyn,                          &
                                 & kblks_c, kblks_e, kblks_v,           & 
                                 & listname, vname_prefix,              &
@@ -387,8 +387,7 @@ CONTAINS
     LOGICAL,INTENT(IN) :: store_in_restart
 
     CHARACTER(len=*),INTENT(IN) :: listname, vname_prefix
-    CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
-    &  ctracer_list
+    CHARACTER(len=VNAME_LEN) :: tracer_names(:)      !< tracer-specific name suffixes
 
     TYPE(t_var_list)      ,INTENT(INOUT) :: field_list
     TYPE(t_hydro_atm_diag),INTENT(INOUT) :: field
@@ -658,19 +657,19 @@ CONTAINS
       DO jtrc = 1,ktracer
 
         CALL add_ref( field_list, vname_prefix//'hfl_tracer',                       &
-                    & vname_prefix//'hfl_q'//ctracer_list(jtrc:jtrc),               &
+                    & vname_prefix//'hfl_q'//TRIM(tracer_names(jtrc)),              &
                     & field%hfl_tracer_ptr(jtrc)%p,                                 &
                     & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID,                            &
-                    & t_cf_var('hfl_q'//ctracer_list(jtrc:jtrc), 'kg m-1 s-1', '',  &
+                    & t_cf_var('hfl_q'//TRIM(tracer_names(jtrc)), 'kg m-1 s-1', '', &
                     &          datatype_flt), &
                     & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE),&
                     & ldims = (/kproma,klev,kblks_e/)                               )
 
         CALL add_ref( field_list, vname_prefix//'vfl_tracer',                       &
-                    & vname_prefix//'vfl_q'//ctracer_list(jtrc:jtrc),               &
+                    & vname_prefix//'vfl_q'//TRIM(tracer_names(jtrc)),              &
                     & field%vfl_tracer_ptr(jtrc)%p,                                 &
                     & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF,                       &
-                    & t_cf_var('vfl_q'//ctracer_list(jtrc:jtrc), 'kg m-1 s-1', '',  &
+                    & t_cf_var('vfl_q'//TRIM(tracer_names(jtrc)), 'kg m-1 s-1', '', &
                     &          datatype_flt), &
                     & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
                     & ldims = (/kproma,klevp1,kblks_c/)                             )

@@ -20,13 +20,13 @@ MODULE mo_initicon_config
     &                              int2string
   USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, MAX_CHAR_LENGTH,  &
-    &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMODE,         &
+    &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMO,           &
     &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP
   USE mo_grid_config,        ONLY: l_limited_area
   USE mo_time_config,        ONLY: time_config
-  USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta,     &
+  USE mtime,                 ONLY: timedelta, newTimedelta,                          &
     &                              max_timedelta_str_len, datetime, OPERATOR(+),     &
-    &                              MAX_DATETIME_STR_LEN, OPERATOR(<=), OPERATOR(>=), &
+    &                              OPERATOR(<=), OPERATOR(>=), &
     &                              getPTStringFromSeconds
   USE mo_exception,          ONLY: message_text, message
 
@@ -39,11 +39,12 @@ MODULE mo_initicon_config
   PUBLIC :: t_initicon_config
 
   ! Variables
-  PUBLIC :: init_mode, nlevatm_in, nlevsoil_in, zpbl1, zpbl2
+  PUBLIC :: init_mode, nlevsoil_in, zpbl1, zpbl2
   PUBLIC :: dt_iau
   PUBLIC :: type_iau_wgt
   PUBLIC :: iterate_iau
   PUBLIC :: l_sst_in
+  PUBLIC :: use_lakeiceana
   PUBLIC :: lread_ana
   PUBLIC :: lread_vn
   PUBLIC :: lconsistency_checks
@@ -73,6 +74,7 @@ MODULE mo_initicon_config
   PUBLIC :: timeshift
   PUBLIC :: initicon_config
   PUBLIC :: aerosol_fg_present
+  PUBLIC :: lanaread_tseasfc
 
   ! Subroutines
   PUBLIC :: configure_initicon
@@ -92,9 +94,12 @@ MODULE mo_initicon_config
   ! ----------------------------------------------------------------------------
   !
   TYPE :: t_initicon_config
-    CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
+    CHARACTER(LEN=vname_len) :: ana_checklist(max_var_ml) ! list of mandatory analysis fields. 
                                                         ! This list can include a subset or the 
                                                         ! entire set of default analysis fields.
+    CHARACTER(LEN=vname_len) :: fg_checklist(max_var_ml) ! list of mandatory first guess fields. 
+                                                        ! This list can include a subset or the 
+                                                        ! entire set of default first guess fields.
   END TYPE t_initicon_config
   !
   ! probably those which are domain-dependent could be included into aboves type lateron
@@ -119,7 +124,10 @@ MODULE mo_initicon_config
 
   LOGICAL  :: ltile_init       ! If true, initialize tile-based surface fields from first guess without tiles
 
+  LOGICAL  :: use_lakeiceana   ! If true, use ice fraction analysis data also over lakes (otherwise sea points only)
+
   LOGICAL  :: lvert_remap_fg   ! If true, vertical remappting of first guess input is performed
+
 
   ! Variables controlling computation of temporally averaged first guess fields for DA
   ! The calculation is switched on by setting end_time > start_time
@@ -172,7 +180,6 @@ MODULE mo_initicon_config
   ! Derived variables / variables based on input file contents
   ! ----------------------------------------------------------------------------
 
-  INTEGER :: nlevatm_in(max_dom) = 0  !< number of atmospheric model levels of input data
   LOGICAL :: lread_vn  = .FALSE. !< control variable that specifies if u/v or vn are read as wind field input
   LOGICAL :: l_sst_in  = .TRUE.  !< logical switch, if sea surface temperature is provided as input
 
@@ -186,6 +193,8 @@ MODULE mo_initicon_config
   REAL(wp):: iau_wgt_adv = 0._wp    !< IAU weight for tracer fields
 
   LOGICAL :: aerosol_fg_present(max_dom) = .FALSE. !< registers if aerosol fields have been read from the first-guess data
+
+  LOGICAL :: lanaread_tseasfc(max_dom) = .FALSE. !< registers if SST and sea ice fraction data have been read from analysis
 
   TYPE(t_initicon_config), TARGET :: initicon_config(0:max_dom)
 
@@ -219,7 +228,7 @@ CONTAINS
     !
 
 
-    IF ( ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
+    IF ( ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMO/) == init_mode) ) THEN
        init_mode_soil = 1   ! full coldstart is executed
        ! i.e. w_so_ice and h_snow are re-diagnosed
     ELSE IF (l_limited_area .AND. init_mode == MODE_ICONVREMAP .AND. .NOT. lread_ana) THEN

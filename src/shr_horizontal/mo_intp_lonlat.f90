@@ -59,7 +59,8 @@
       &                               lonlat_grid_list, n_lonlat_grids, MAX_LONLAT_GRIDS
     USE mo_interpol_config,     ONLY: rbf_vec_dim_c, rbf_c2grad_dim, rbf_vec_kern_ll,         &
       &                               rbf_vec_scale_ll, rbf_dim_c2l,                          &
-      &                               l_mono_c2l, rbf_scale_mode_ll, support_baryctr_intp
+      &                               l_mono_c2l, rbf_scale_mode_ll, support_baryctr_intp,    &
+      &                               lreduced_nestbdry_stencil
     USE mo_gnat_gridsearch,     ONLY: gnat_init_grid, gnat_destroy, t_gnat_tree,              &
       &                               gnat_query_containing_triangles,                        &
       &                               gnat_merge_distributed_queries, gk, SKIP_NODE,          &
@@ -283,6 +284,11 @@
             END IF
 
             ! mask out nest boundary points
+            !
+            ! Tentative fix: "lreduced_nestbdry_stencil" controls
+            ! only barycentric interpolation.
+            !
+            !            IF ((jg > 1) .AND. lreduced_nestbdry_stencil) THEN 
             IF (jg > 1) THEN 
               CALL mask_out_boundary( p_patch(jg), lonlat_grid_list(i)%intp(jg) )
             END IF
@@ -1200,6 +1206,11 @@
           ptr_coeff => ptr_int_lonlat%nnb_coeff
         CASE (HINTP_TYPE_LONLAT_BCTR)
           IF (.NOT. support_baryctr_intp)  CYCLE
+
+          ! Tentative fix: "lreduced_nestbdry_stencil" controls
+          ! only barycentric interpolation.
+          IF (.NOT. lreduced_nestbdry_stencil) CYCLE
+
           ptr_coeff => ptr_int_lonlat%baryctr_coeff
         CASE DEFAULT
           CALL finish(routine, "Internal error!")

@@ -158,8 +158,8 @@ REAL (KIND=ireals)     ::     &
   ! Minimal diffusion coefficients in [m^2/s] for vertical
   tkhmin     =  0.75_ireals,  & ! scalar (heat) transport
   tkmmin     =  0.75_ireals,  & ! momentum transport
-  tkhmin_strat = 5.0_ireals,  & ! scalar (heat) transport, enhanced value for stratosphere
-  tkmmin_strat = 5.0_ireals,  & ! momentum transport,      enhanced value for stratosphere
+  tkhmin_strat = 0.75_ireals, & ! scalar (heat) transport, enhanced value for stratosphere
+  tkmmin_strat = 4.0_ireals,  & ! momentum transport,      enhanced value for stratosphere
 
   ditsmot    =  0.00_ireals,  & ! smoothing factor for direct time-step iteration
 
@@ -251,7 +251,7 @@ REAL (KIND=ireals)     ::     &
   ! Dimensionless parameters used in the sub grid scale condensation scheme
   ! (statistical cloud scheme):
   clc_diag   =  0.5_ireals,   & !cloud cover at saturation
-  q_crit     =  4.0_ireals,   & !critical value for normalized over-saturation
+  q_crit     =  1.6_ireals,   & !critical value for normalized over-saturation
   c_scld     =  1.0_ireals      !factor for liquid water flux density in sub grid scale clouds
 
 !==============================================================================

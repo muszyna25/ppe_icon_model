@@ -28,7 +28,8 @@ MODULE mo_pp_tasks
     & TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I,              &
     & TASK_FINALIZE_IPZ,                                              &
     & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV,                       &
-    & TASK_COMPUTE_RH, TASK_COMPUTE_PV, TASK_INTP_VER_ZLEV,           &
+    & TASK_COMPUTE_RH, TASK_COMPUTE_PV, TASK_COMPUTE_SMI,             &
+    & TASK_INTP_VER_ZLEV,                                             &
     & TASK_INTP_VER_ILEV,                                             &
     & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom,              &
     & ALL_TIMELEVELS, PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_DWD,       &
@@ -70,10 +71,17 @@ MODULE mo_pp_tasks
   USE mo_util_phys,               ONLY: compute_field_rel_hum_wmo,               &
     &                                   compute_field_rel_hum_ifs,               &
     &                                   compute_field_omega,                     &
-    &                                   compute_field_pv
+    &                                   compute_field_pv,                        &
+    &                                   compute_field_smi
   USE mo_io_config,               ONLY: itype_pres_msl, itype_rh
   USE mo_grid_config,             ONLY: l_limited_area
   USE mo_interpol_config,         ONLY: support_baryctr_intp
+
+  ! Workaround for SMI computation. Not nice, however by making 
+  ! direct use of the states below, we avoid enhancing the type t_data_input.
+  USE mo_nwp_lnd_state,           ONLY: p_lnd_state
+  USE mo_ext_data_state,          ONLY: ext_data
+
   IMPLICIT NONE
 
   ! interface definition
@@ -83,7 +91,7 @@ MODULE mo_pp_tasks
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_pp_tasks'
 
   ! max. name string length
-  INTEGER, PARAMETER, PUBLIC :: MAX_NAME_LENGTH   =   64
+  INTEGER, PARAMETER, PUBLIC :: MAX_NAME_LENGTH   =   256
 
   ! priority levels for tasks (smaller is earlier):
   INTEGER, PARAMETER, PUBLIC  :: HIGH_PRIORITY     =    0  
@@ -217,7 +225,7 @@ CONTAINS
   SUBROUTINE pp_task_lonlat(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//"p_task_lonlat"
+    CHARACTER(*), PARAMETER :: routine = modname//"::p_task_lonlat"
     INTEGER                            ::        &
       &  nblks_ll, npromz_ll, lonlat_id, jg,     &
       &  in_var_idx, out_var_idx, out_var_idx_2, &
@@ -502,7 +510,7 @@ CONTAINS
   SUBROUTINE pp_task_sync(sim_status)
     TYPE(t_simulation_status),  INTENT(IN) :: sim_status
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_sync"
+    CHARACTER(*), PARAMETER :: routine = modname//"::pp_task_sync"
     TYPE(t_job_queue),         POINTER :: ptr_task
     INTEGER                            :: in_var_idx, jg, sync_mode, &
       &                                   var_ref_pos
@@ -627,7 +635,7 @@ CONTAINS
   SUBROUTINE pp_task_ipzlev_setup(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_ipzlev_setup"
+    CHARACTER(*), PARAMETER :: routine = modname//"::pp_task_ipzlev_setup"
     INTEGER                            :: jg, nzlev, nplev, nilev
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_metrics),        POINTER :: p_metrics    
@@ -699,7 +707,7 @@ CONTAINS
   SUBROUTINE pp_task_ipzlev(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_ipzlev"
+    CHARACTER(*), PARAMETER :: routine = modname//"::pp_task_ipzlev"
     INTEGER                            :: &
       &  vert_intp_method, jg,                    &
       &  in_var_idx, out_var_idx, nlev, nlevp1,   &
@@ -972,7 +980,7 @@ CONTAINS
   SUBROUTINE pp_task_intp_msl(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables    
-    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_intp_msl"
+    CHARACTER(*), PARAMETER :: routine = modname//"::pp_task_intp_msl"
     INTEGER,  PARAMETER :: nzlev         =        1     ! just a single z-level... 
     REAL(wp), PARAMETER :: ZERO_HEIGHT   =    0._wp, &
       &                    EXTRAPOL_DIST = -500._wp
@@ -1102,7 +1110,7 @@ CONTAINS
     !TYPE(t_int_state),         POINTER :: p_int_state
     TYPE(t_nh_prog),           POINTER :: p_prog
     TYPE(t_nh_diag),           POINTER :: p_diag
-    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_compute_field"
+    CHARACTER(*), PARAMETER :: routine = modname//"::pp_task_compute_field"
     LOGICAL :: lclip                   ! limit rh to MAX(rh,100._wp)
     
     ! output field for this task
@@ -1145,10 +1153,13 @@ CONTAINS
         &                      out_var%r_ptr(:,:,:,out_var_idx,1))
     
     CASE (TASK_COMPUTE_PV)
-    CALL compute_field_pv(p_patch, p_int_state(jg),                    &
+      CALL compute_field_pv(p_patch, p_int_state(jg),                  &
         &   ptr_task%data_input%p_nh_state%metrics, p_prog, p_diag,    &  
         &   out_var%r_ptr(:,:,:,out_var_idx,1))
-    
+
+    CASE (TASK_COMPUTE_SMI)
+      CALL compute_field_smi(p_patch, p_lnd_state(jg)%diag_lnd, &
+        &                    ext_data(jg), out_var%r_ptr(:,:,:,out_var_idx,1))
     CASE DEFAULT
       CALL finish(routine, 'Internal error!')
     END SELECT
@@ -1164,7 +1175,7 @@ CONTAINS
   SUBROUTINE pp_task_edge2cell(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_edge2cell"
+    CHARACTER(*), PARAMETER :: routine = modname//"::pp_task_edge2cell"
     INTEGER :: &
       &  in_var_idx, out_var_idx_1, out_var_idx_2, &
       &  in_var_ref_pos, out_var_ref_pos_1,        &

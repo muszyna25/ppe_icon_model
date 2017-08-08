@@ -130,11 +130,11 @@ MODULE mo_model_domain
     INTEGER :: size
     INTEGER :: recommended_stride  ! in case of parallelization/vectorization
 
-    TYPE(t_patch), POINTER :: patch
-    TYPE(t_patch_3D), POINTER :: patch_3D
+    TYPE(t_patch), POINTER :: patch => NULL()
+    TYPE(t_patch_3D), POINTER :: patch_3D => NULL()
     INTEGER :: entity_location ! on_cells, on_edges, on_verts
 
-    INTEGER, POINTER :: vertical_levels(:,:)  ! if not null, points to the number of vertical levels array
+    INTEGER, POINTER :: vertical_levels(:,:) => NULL()  ! if not null, points to the number of vertical levels array
 
     LOGICAL :: is_in_domain
 
@@ -155,11 +155,11 @@ MODULE mo_model_domain
 
     INTEGER :: size
 
-    TYPE(t_patch), POINTER :: patch
+    TYPE(t_patch), POINTER :: patch => NULL()
     INTEGER :: entity_location ! on_cells, on_edges, on_verts
 
     INTEGER :: max_vertical_levels
-    INTEGER, POINTER :: vertical_levels(:,:)  ! if not null, points to the number of verticall levels array
+    INTEGER, POINTER :: vertical_levels(:,:) => NULL()  ! if not null, points to the number of verticall levels array
 
     INTEGER :: no_of_holes ! the number of holes in the subset
     LOGICAL :: is_in_domain
@@ -174,13 +174,13 @@ MODULE mo_model_domain
   !> Defines an index for a subset_range
   TYPE :: t_subset_range_index
 
-    INTEGER, POINTER :: block ! the current block in the subset
-    INTEGER, POINTER :: index ! the current index in the subset
+    INTEGER, POINTER :: block => NULL() ! the current block in the subset
+    INTEGER, POINTER :: index => NULL() ! the current index in the subset
 
     INTEGER :: start_index ! the current start index within the current block,
     INTEGER :: end_index   ! the current end index within the current block,
 
-    TYPE(t_subset_range), POINTER :: subset_range
+    TYPE(t_subset_range), POINTER :: subset_range => NULL()
 
   END TYPE t_subset_range_index
   !----------------------------------------------------
@@ -282,7 +282,7 @@ MODULE mo_model_domain
 
     ! area of triangle
     ! index1=nproma, index2=1,nblks_c
-    REAL(wp), POINTER :: area(:,:)
+    REAL(wp), POINTER :: area(:,:) => NULL()
 
     ! Coriolis parameter at cell centers
     ! index1=1,nproma, index2=1,nblks_c
@@ -292,7 +292,7 @@ MODULE mo_model_domain
     ! cell geometry auxiliary variables
     ! the cartesian coordinates of the cell centers on the unit sphere
     TYPE(t_cartesian_coordinates), POINTER ::  &
-      & cartesian_center(:,:)
+      & cartesian_center(:,:) => NULL()
     !----------------------------------
 
     ! refinement control flag
@@ -326,7 +326,7 @@ MODULE mo_model_domain
     ! the pointer is needed because mo_read_interface has references this,
     ! without this pointer p_patch would have to be TARGET everywhere the
     ! distributed IO is used
-    TYPE(t_distrib_read_data), POINTER :: dist_io_data
+    TYPE(t_distrib_read_data), POINTER :: dist_io_data => NULL()
 
     ! Please note that the following array is only needed on local parent patches
     ! for storing the corresponding variable from nh_metrics.
@@ -487,12 +487,12 @@ MODULE mo_model_domain
     ! Cartesian normal to triangle edge
     ! index=1,nproma, index2=1,nblks_e
     TYPE(t_cartesian_coordinates), POINTER ::  &
-      & primal_cart_normal(:,:)
+      & primal_cart_normal(:,:) => NULL()
 
     ! Cartesian dual to triangle edge
     ! index=1,nproma, index2=1,nblks_e
     TYPE(t_cartesian_coordinates), POINTER ::  &
-      & dual_cart_normal(:,:)
+      & dual_cart_normal(:,:) => NULL()
 
     ! normal to hexagon/pentagon edge
     ! index=1,nproma, index2=1,nblks_e
@@ -521,7 +521,7 @@ MODULE mo_model_domain
 
     ! length of triangle edge
     ! index=1,nproma, index2=1,nblks_e
-    REAL(wp), POINTER :: primal_edge_length(:,:)
+    REAL(wp), POINTER :: primal_edge_length(:,:) => NULL()
 
     ! inverse length of triangle edge
     ! index=1,nproma, index2=1,nblks_e
@@ -557,10 +557,10 @@ MODULE mo_model_domain
 
     ! edge geometry auxiliary variables
     TYPE(t_cartesian_coordinates), POINTER ::  &
-      & cartesian_center(:,:)
+      & cartesian_center(:,:) => NULL()
 
     TYPE(t_cartesian_coordinates), POINTER ::  &
-      & cartesian_dual_middle(:,:)
+      & cartesian_dual_middle(:,:) => NULL()
 
     ! Coriolis parameter at cell edges
     ! index1=1,nproma, index2=1,nblks_e
@@ -597,7 +597,7 @@ MODULE mo_model_domain
     ! the pointer is needed because mo_read_interface has references this,
     ! without this pointer p_patch would have to be TARGET everywhere the
     ! distributed IO is used
-    TYPE(t_distrib_read_data), POINTER :: dist_io_data
+    TYPE(t_distrib_read_data), POINTER :: dist_io_data => NULL()
 
     ! define basic subsets
     TYPE(t_subset_range) :: ALL          ! these are the all valid entities, including all valid halos
@@ -685,7 +685,7 @@ MODULE mo_model_domain
 
     ! area of hexagon/pentagon of which vertex is center:
     ! index1=1,nproma, index2=1,nblks_v
-    REAL(wp), POINTER :: dual_area(:,:)
+    REAL(wp), POINTER :: dual_area(:,:) => NULL()
 
     ! Coriolis parameter at cell vertices
     ! index1=1,nproma, index2=1,nblks_v
@@ -693,7 +693,7 @@ MODULE mo_model_domain
 
     ! vertex geometry auxiliary variables
     TYPE(t_cartesian_coordinates), POINTER ::  &
-      & cartesian(:,:)
+      & cartesian(:,:) => NULL()
 
     ! refinement control flag
     ! index1=1,nproma, index2=1,nblks_v
@@ -726,7 +726,7 @@ MODULE mo_model_domain
     ! the pointer is needed because mo_read_interface has references this,
     ! without this pointer p_patch would have to be TARGET everywhere the
     ! distributed IO is used
-    TYPE(t_distrib_read_data), POINTER :: dist_io_data
+    TYPE(t_distrib_read_data), POINTER :: dist_io_data => NULL()
 
     ! define basic subsets
     TYPE(t_subset_range) :: ALL          ! these are the all valid entities, including all valid halos
@@ -920,9 +920,9 @@ MODULE mo_model_domain
 
     ! Scatter complete patch from proc 0
     ! Useful only for regular patches (defined but unused on local parents)
-    CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_c
-    CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_e
-    CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_v
+    CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_c => NULL()
+    CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_e => NULL()
+    CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_v => NULL()
 
     ! Communication between local parent and its global counterpart,
     ! defined only on local parents.
@@ -1095,9 +1095,9 @@ MODULE mo_model_domain
     ! Currently there is no need for this, so we avoid the overhead of creating it.
     ! Add creation to mo_complete_subdivision::setup_phys_patches and mo_complete_subdivision::setup_phys_patches_cve if you need
     ! this.
-!   CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_c
-!   CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_e
-!   CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_v
+!   CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_c => NULL()
+!   CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_e => NULL()
+!   CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_v => NULL()
 
   END TYPE t_phys_patch
 
@@ -1171,12 +1171,12 @@ MODULE mo_model_domain
     ! If the ocean bottom is flat dolic_c and dolic_e are identical and equal
     ! to the number of z-coodinate surfaces.
     !
-    INTEGER, POINTER :: dolic_c(:,:)    ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, POINTER :: dolic_e(:,:)    ! index1=1,nproma, index2=1,nblks_e
-    INTEGER, POINTER :: vertex_bottomLevel(:,:)
+    INTEGER, POINTER :: dolic_c(:,:) => NULL()    ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, POINTER :: dolic_e(:,:)  => NULL()   ! index1=1,nproma, index2=1,nblks_e
+    INTEGER, POINTER :: vertex_bottomLevel(:,:) => NULL()
 
-    REAL(wp), POINTER :: ocean_area   (:)  ! global ocean area for each vertical level
-    REAL(wp), POINTER :: ocean_volume (:)  ! global ocean volume for each vertical level
+    REAL(wp), POINTER :: ocean_area   (:) => NULL()  ! global ocean area for each vertical level
+    REAL(wp), POINTER :: ocean_volume (:) => NULL()  ! global ocean volume for each vertical level
 
     REAL(wp), POINTER ::                &
       &  prism_thick_c(:,:,:),          & ! individual prism thickness at cells. Unit [m].
@@ -1200,14 +1200,14 @@ MODULE mo_model_domain
       &  inv_prism_center_dist_e(:,:,:),& ! inverse vertical distance between prism centers at edges. Unit [m].
                                           ! This array assumes a flat surface dimension: (nproma, n_zlev, nblks_e)
       &  depth_CellMiddle(:,:,:),      & ! depth of the middle of the prism, update according to the current h
-      &  depth_CellInterface(:,:,:)      ! depths at the interface (size is levels + 1)
-
-    REAL(wp), POINTER :: invConstantPrismThickness(:,:,:)
+      &  depth_CellInterface(:,:,:)    & ! depths at the interface (size is levels + 1)
+      &  => NULL()
+    REAL(wp), POINTER :: invConstantPrismThickness(:,:,:) => NULL()
     !! the vertical distance between the prism centers, dim = n_zlev+1
     !! constantPrismCenters_zDistance(2) = vertical distance between prisms at 1 and 2 levels
-    REAL(wp), POINTER :: constantPrismCenters_Zdistance(:,:,:)
+    REAL(wp), POINTER :: constantPrismCenters_Zdistance(:,:,:) => NULL()
     !!the inverse of the above
-    REAL(wp), POINTER :: constantPrismCenters_invZdistance(:,:,:)
+    REAL(wp), POINTER :: constantPrismCenters_invZdistance(:,:,:) => NULL()
     
   END TYPE t_patch_vert
 
@@ -1215,8 +1215,8 @@ MODULE mo_model_domain
 
   TYPE t_patch_3D
 
-    TYPE(t_patch),     POINTER :: p_patch_2D(:)
-    TYPE(t_patch_vert),POINTER :: p_patch_1D(:)
+    TYPE(t_patch),     POINTER :: p_patch_2D(:) => NULL()
+    TYPE(t_patch_vert),POINTER :: p_patch_1D(:) => NULL()
 
     ! land-sea-mask for ocean has 3 dimensions (the 2nd is the number of
     ! vertical levels)
@@ -1224,33 +1224,33 @@ MODULE mo_model_domain
     !
     ! land-sea-mask for cell centers
     ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_c
-    INTEGER, POINTER :: lsm_c(:,:,:)
+    INTEGER, POINTER :: lsm_c(:,:,:) => NULL()
 
     ! land-sea-mask for edges
     ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_e
-    INTEGER, POINTER :: lsm_e(:,:,:)
+    INTEGER, POINTER :: lsm_e(:,:,:) => NULL()
 
     ! surface land-sea-mask for cells, edges, vertices
-    INTEGER, POINTER :: surface_cell_sea_land_mask(:,:)
-    INTEGER, POINTER :: surface_edge_sea_land_mask(:,:)
-    INTEGER, POINTER :: surface_vertex_sea_land_mask(:,:)
+    INTEGER, POINTER :: surface_cell_sea_land_mask(:,:) => NULL()
+    INTEGER, POINTER :: surface_edge_sea_land_mask(:,:) => NULL()
+    INTEGER, POINTER :: surface_vertex_sea_land_mask(:,:) => NULL()
 
     ! To simply set land points to zero we store additional 3-dim wet points
     ! dimensions as in lsm_oce:
-    REAL(wp), POINTER :: wet_c(:,:,:)  ! cells
-    REAL(wp), POINTER :: wet_e(:,:,:)  ! edges
+    REAL(wp), POINTER :: wet_c(:,:,:) => NULL()  ! cells
+    REAL(wp), POINTER :: wet_e(:,:,:) => NULL()  ! edges
     ! For calculation of global sum and area including lsm the halo must be set to zero:
-    REAL(wp), POINTER :: wet_halo_zero_c(:,:,:)  !  cells
-    REAL(wp), POINTER :: wet_halo_zero_e(:,:,:)  !  edges
+    REAL(wp), POINTER :: wet_halo_zero_c(:,:,:) => NULL()  !  cells
+    REAL(wp), POINTER :: wet_halo_zero_e(:,:,:) => NULL()  !  edges
 
     ! For diagnosis like stream functions and area calculations we add surface arrays
     ! index1=1,nproma, index2=1,nblks_c
-    INTEGER,  POINTER :: basin_c(:,:)  ! basin information Atlantic/Indian/Pacific
-    INTEGER,  POINTER :: regio_c(:,:)  ! area information like tropical Atlantic etc.
-    REAL(wp), POINTER :: bottom_thick_c(:,:)  ! individual bottom prism thickness at cells. Unit [m].
-    REAL(wp), POINTER :: bottom_thick_e(:,:)  ! individual bottom prism thickness at edges. Unit [m].
-    REAL(wp), POINTER :: column_thick_c(:,:)  ! individual column thickness at cells, no elevation. Unit [m].
-    REAL(wp), POINTER :: column_thick_e(:,:)  ! individual column thickness at edges, no elevation. Unit [m].
+    INTEGER,  POINTER :: basin_c(:,:) => NULL()  ! basin information Atlantic/Indian/Pacific
+    INTEGER,  POINTER :: regio_c(:,:) => NULL()  ! area information like tropical Atlantic etc.
+    REAL(wp), POINTER :: bottom_thick_c(:,:) => NULL()  ! individual bottom prism thickness at cells. Unit [m].
+    REAL(wp), POINTER :: bottom_thick_e(:,:) => NULL()  ! individual bottom prism thickness at edges. Unit [m].
+    REAL(wp), POINTER :: column_thick_c(:,:) => NULL()  ! individual column thickness at cells, no elevation. Unit [m].
+    REAL(wp), POINTER :: column_thick_e(:,:) => NULL()  ! individual column thickness at edges, no elevation. Unit [m].
 
   END TYPE t_patch_3D
   !--------------------------------------------------------------------

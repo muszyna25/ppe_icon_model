@@ -168,9 +168,9 @@ CONTAINS
        field% q_phy(jcs:jce,:,jb) = field% q_phy(jcs:jce,:,jb) + field% q_sso(jcs:jce,:,jb)
 
        ! accumulate tendencies
-       tend% ta(jcs:jce,:,jb) = tend% ta(jcs:jce,:,jb) + tend% ta_sso(jcs:jce,:,jb)
-       tend% ua(jcs:jce,:,jb) = tend% ua(jcs:jce,:,jb) + tend% ua_sso(jcs:jce,:,jb)
-       tend% va(jcs:jce,:,jb) = tend% va(jcs:jce,:,jb) + tend% va_sso(jcs:jce,:,jb)
+       tend% ta_phy(jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb) + tend% ta_sso(jcs:jce,:,jb)
+       tend% ua_phy(jcs:jce,:,jb) = tend% ua_phy(jcs:jce,:,jb) + tend% ua_sso(jcs:jce,:,jb)
+       tend% va_phy(jcs:jce,:,jb) = tend% va_phy(jcs:jce,:,jb) + tend% va_sso(jcs:jce,:,jb)
 
     ELSE
        !

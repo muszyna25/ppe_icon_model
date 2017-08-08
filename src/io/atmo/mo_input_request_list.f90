@@ -18,7 +18,8 @@ MODULE mo_input_request_list
 
     USE mo_cdi, ONLY: t_CdiIterator, cdiIterator_new, cdiIterator_nextField, cdiIterator_delete, cdiIterator_inqVTime, &
                     & cdiIterator_inqLevelType, cdiIterator_inqLevel, cdiIterator_inqGridId, cdiIterator_inqVariableName, &
-                    & gridInqType, gridInqSize, CDI_UNDEFID, ZAXIS_SURFACE, ZAXIS_GENERIC, ZAXIS_HYBRID, ZAXIS_HYBRID_HALF, &
+                    & gridInqType, gridInqSize, gridInqUuid, CDI_UNDEFID, ZAXIS_SURFACE, ZAXIS_GENERIC, ZAXIS_HYBRID, &
+                    & ZAXIS_HYBRID_HALF, &
                     & ZAXIS_PRESSURE, ZAXIS_HEIGHT, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_DEPTH_BELOW_LAND, ZAXIS_ISENTROPIC, &
                     & ZAXIS_TRAJECTORY, ZAXIS_ALTITUDE, ZAXIS_SIGMA, ZAXIS_MEANSEA, ZAXIS_TOA, ZAXIS_SEA_BOTTOM, &
                     & ZAXIS_ATMOSPHERE, ZAXIS_CLOUD_BASE, ZAXIS_CLOUD_TOP, ZAXIS_ISOTHERM_ZERO, ZAXIS_SNOW, ZAXIS_LAKE_BOTTOM, &
@@ -96,7 +97,7 @@ PUBLIC :: t_InputRequestList, InputRequestList_create
         PROCEDURE, PRIVATE :: findTranslatedName => InputRequestList_findTranslatedName    !< As findIconName, but uses the translatedVarName.
         PROCEDURE, PRIVATE :: sendStopMessage => InputRequestList_sendStopMessage
         PROCEDURE, PRIVATE :: sendFieldMetadata => InputRequestList_sendFieldMetadata
-        PROCEDURE, PRIVATE :: recieveFieldMetadata => InputRequestList_recieveFieldMetadata
+        PROCEDURE, PRIVATE :: receiveFieldMetadata => InputRequestList_receiveFieldMetadata
         PROCEDURE, PRIVATE :: isRecordValid => InputRequestList_isRecordValid
         PROCEDURE, PRIVATE :: nextField => InputRequestList_nextField
     END TYPE
@@ -412,7 +413,7 @@ CONTAINS
                 error = cdiIterator_inqLevel(iterator, 1, outValue1 = levelValue)
                 level = REAL(levelValue, dp)
                 IF(error /= 0) CALL fail("cdiIterator_inqLevel() failed")
-                !TODO[NH]: check the zaxis UUID
+                !TODO: check the zaxis UUID
 
             !the level types for special levels
             CASE(ZAXIS_TOA, ZAXIS_ATMOSPHERE, ZAXIS_CLOUD_BASE, ZAXIS_CLOUD_TOP, ZAXIS_ISOTHERM_ZERO, &
@@ -532,7 +533,7 @@ CONTAINS
     ! message(3) = tileId
     !
     ! In the case that the variable NAME length is nonzero, this is followed by another message containing the NAME itself.
-    ! Note: The broadcasts IN recieveFieldMetadata() are matched with the broadcasts within sendFieldMetadata() and sendStopMessage().
+    ! Note: The broadcasts IN receiveFieldMetadata() are matched with the broadcasts within sendFieldMetadata() and sendStopMessage().
     SUBROUTINE InputRequestList_sendStopMessage(me)
         CLASS(t_InputRequestList), INTENT(INOUT) :: me
 
@@ -567,13 +568,13 @@ CONTAINS
         DEALLOCATE(tempName)
     END SUBROUTINE InputRequestList_sendFieldMetadata
 
-    LOGICAL FUNCTION InputRequestList_recieveFieldMetadata(me, level, tileId, variableName) RESULT(resultVar)
+    LOGICAL FUNCTION InputRequestList_receiveFieldMetadata(me, level, tileId, variableName) RESULT(resultVar)
         CLASS(t_InputRequestList), INTENT(INOUT) :: me
         REAL(dp), INTENT(INOUT) :: level
         INTEGER, INTENT(INOUT) :: tileId
         CHARACTER(KIND = C_CHAR), DIMENSION(:), POINTER, INTENT(INOUT) :: variableName
 
-        CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_recieveFieldMetadata"
+        CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_receiveFieldMetadata"
         REAL(dp) :: message(3)
         CHARACTER(:), ALLOCATABLE :: tempName
         INTEGER :: error
@@ -593,7 +594,7 @@ CONTAINS
             variableName => toCharArray(tempName)
             DEALLOCATE(tempName)
         END IF
-    END FUNCTION InputRequestList_recieveFieldMetadata
+    END FUNCTION InputRequestList_receiveFieldMetadata
 
     ! Find the next field that we are interested IN.
     ! This FUNCTION is collective: either all processes RETURN .TRUE. or all RETURN .FALSE. .
@@ -631,7 +632,7 @@ CONTAINS
                 END IF
             END DO
         ELSE
-            resultVar = me%recieveFieldMetadata(level, tileId, variableName)
+            resultVar = me%receiveFieldMetadata(level, tileId, variableName)
         END IF
     END FUNCTION InputRequestList_nextField
 

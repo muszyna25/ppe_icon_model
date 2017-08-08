@@ -23,6 +23,10 @@ cdo_diffn*.out
 experiments*
 run/*.status
 run/*.run
-run/NAMELIST_*_lnd
 *#
 autom4te.cache
+externals/bin/
+externals/lib/
+externals/include/
+externals/sct/
+externals/cdi/

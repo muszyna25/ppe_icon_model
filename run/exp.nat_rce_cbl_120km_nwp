@@ -152,7 +152,6 @@ rad_perm=1
 &sleve_nml
 /
 &transport_nml
-  ctracer_list  = '12345'
 /
 &diffusion_nml
 /

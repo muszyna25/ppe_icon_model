@@ -69,8 +69,7 @@ MODULE mo_nh_stepping
   USE mo_diffusion_config,         ONLY: diffusion_config
   USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method
   USE mo_io_config,                ONLY: is_totint_time, n_diag
-  USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output, &
-                                         num_prefetch_proc
+  USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, num_prefetch_proc
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
     &                                    ntracer, iforcing, msg_level, test_mode,           &
     &                                    output_mode, lart
@@ -83,6 +82,7 @@ MODULE mo_nh_stepping
     &                                    timer_integrate_nh, timer_nh_diagnostics,        &
     &                                    timer_iconam_echam
   USE mo_atm_phy_nwp_config,       ONLY: dt_phy, atm_phy_nwp_config, iprog_aero
+  USE mo_ensemble_pert_config,     ONLY: compute_ensemble_pert, use_ensemble_pert
   USE mo_nwp_phy_init,             ONLY: init_nwp_phy, init_cloud_aero_cpl
   USE mo_nwp_phy_state,            ONLY: prm_diag, prm_nwp_tend, phy_params
   USE mo_lnd_nwp_config,           ONLY: nlev_soil, nlev_snow, sstice_mode
@@ -95,6 +95,7 @@ MODULE mo_nh_stepping
   USE mo_time_config,              ONLY: time_config
   USE mo_grid_config,              ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
     &                                    n_dom_start, lredgrid_phys, start_time, end_time, patch_weight
+  USE mo_gribout_config,           ONLY: gribout_config
   USE mo_nh_testcases,             ONLY: init_nh_testcase
   USE mo_nh_testcases_nml,         ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho, is_toy_chem
   USE mo_nh_pa_test,               ONLY: set_nh_w_rho
@@ -116,10 +117,8 @@ MODULE mo_nh_stepping
                                          prep_outer_bdy_nudging, save_progvars
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback
   USE mo_exception,                ONLY: message, message_text, finish
-  USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
-    &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
+  USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH,                                 &
     &                                    inoforcing, iheldsuarez, inwp, iecham,                    &
-    &                                    itturb, itgscp, itsfc,                                    &
     &                                    MODE_IAU, MODE_IAU_OLD, MODIS, SSTICE_ANA_CLINC,          &
     &                                    SSTICE_CLIM, SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY, max_dom
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
@@ -130,7 +129,7 @@ MODULE mo_nh_stepping
   USE mo_integrate_density_pa,     ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
-  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, p_bcast, p_comm_work
+  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, p_comm_work
 
 #ifdef NOMPI
   USE mo_mpi,                      ONLY: my_process_is_mpi_all_seq
@@ -169,7 +168,8 @@ MODULE mo_nh_stepping
   USE mo_rttov_interface,          ONLY: rttov_driver, copy_rttov_ubc
   USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_ls_forcing,               ONLY: init_ls_forcing
-  USE mo_sync_latbc,               ONLY: prepare_latbc_data , read_latbc_data,  &
+  USE mo_sync_latbc,               ONLY: prepare_latbc_data,                    &
+    &                                    read_latbc_data_sync=>read_latbc_data, &
     &                                    deallocate_latbc_data, p_latbc_data,   &
     &                                    read_latbc_tlev, last_latbc_tlev,      &
     &                                    update_lin_interc
@@ -185,8 +185,8 @@ MODULE mo_nh_stepping
   USE mo_opt_diagnostics,          ONLY: update_opt_acc, reset_opt_acc, &
     &                                    calc_mean_opt_acc, p_nh_opt_diag
   USE mo_var_list,                 ONLY: nvar_lists, var_lists, print_var_list
-  USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, new_latbc_tlev, pref_latbc_data, &
-    &                                    prev_latbc_tlev, latbc_data, update_lin_interpolation
+  USE mo_async_latbc_utils,        ONLY: recv_latbc_data, update_lin_interpolation
+  USE mo_async_latbc_types,        ONLY: t_latbc_data
   USE mo_nonhydro_types,           ONLY: t_nh_state
   USE mo_interface_les,            ONLY: init_les_phy_interface
   USE mo_fortran_tools,            ONLY: swap, copy, init
@@ -201,6 +201,7 @@ MODULE mo_nh_stepping
        &                                 getTotalMillisecondsTimedelta, getTotalSecondsTimedelta,     &
        &                                 getTimedeltaFromDatetime
   USE mo_event_manager,            ONLY: addEventGroup, getEventGroup, printEventGroup
+  USE mo_phy_events,               ONLY: mtime_ctrl_physics
   USE mo_derived_variable_handling, ONLY: perform_accumulation, reset_accumulation
 #ifdef MESSY
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
@@ -227,22 +228,8 @@ MODULE mo_nh_stepping
 
   ! additional flow control variables that need to be dimensioned with the
   ! number of model domains
-  LOGICAL, ALLOCATABLE :: lcall_phy(:,:) ! contains information which physics package
-                                         ! must be called at the current timestep
-                                         ! and on the current domain.
-
-  REAL(wp), ALLOCATABLE :: t_elapsed_phy(:,:)  ! time (in s) since the last call of
-                                               ! the corresponding physics package
-                                               ! (fast physics packages are treated as one)
-
   LOGICAL, ALLOCATABLE :: linit_dyn(:)  ! determines whether dynamics must be initialized
                                         ! on given patch
-
-
-  ! additional time control variables which are not dimensioned with the number
-  ! of model domains
-  LOGICAL :: map_phyproc(iphysproc,iphysproc_short) !< mapping matrix
-  INTEGER :: iproclist(iphysproc)  !< x-axis of mapping matrix
 
   ! event handling manager, wrong place, have to move later
 
@@ -293,10 +280,6 @@ MODULE mo_nh_stepping
        CALL init_ls_forcing(p_nh_state(1)%metrics)
   ENDIF
 
-  IF (iforcing == inwp) THEN
-    CALL setup_time_ctrl_physics( )
-  END IF
-
   ! init LES
   DO jg = 1 , n_dom
    IF(atm_phy_nwp_config(jg)%is_les_phy) THEN
@@ -317,9 +300,11 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_stepping (mtime_current)
-!
-  TYPE(datetime),   POINTER            :: mtime_current     ! current datetime (mtime)
+  SUBROUTINE perform_nh_stepping (mtime_current, latbc)
+    !
+    TYPE(datetime),     POINTER       :: mtime_current     !< current datetime (mtime)
+    TYPE(t_latbc_data), INTENT(INOUT) :: latbc             !< data structure for async latbc prefetching
+
   TYPE(t_simulation_status)            :: simulation_status
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -328,6 +313,7 @@ MODULE mo_nh_stepping
   INTEGER                              :: jg, jgc, jn
   INTEGER                              :: ierr
 
+
 !!$  INTEGER omp_get_num_threads
 !!$  INTEGER omp_get_max_threads
 !!$  INTEGER omp_get_max_active_levels
@@ -335,7 +321,7 @@ MODULE mo_nh_stepping
 
   IF (timers_level > 3) CALL timer_start(timer_model_init)
 
-  CALL allocate_nh_stepping ()
+  CALL allocate_nh_stepping (mtime_current)
 
   ! Compute diagnostic dynamics fields for initial output and physics initialization
   CALL diag_for_output_dyn ()
@@ -371,7 +357,7 @@ MODULE mo_nh_stepping
   END IF
 
   ! Save initial state if IAU iteration mode is chosen
-  IF (iterate_iau) THEN
+  IF (iterate_iau .AND. .NOT. isRestart()) THEN
     CALL save_initial_state(p_patch(1:), p_nh_state, prm_diag, p_lnd_state, ext_data)
     WRITE(message_text,'(a)') 'IAU iteration is activated: Start of first cycle with halved IAU window'
     CALL message('',message_text)
@@ -430,14 +416,6 @@ MODULE mo_nh_stepping
                &                      ext_data(jg),                           & !in
                &                      prm_diag(jg)                            ) !inout
 
-          ! In case of vertical nesting, copy upper levels of synsat input fields to local parent grid
-          DO jn = 1, p_patch(jg)%n_childdom
-            jgc = p_patch(jg)%child_id(jn)
-            IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
-            IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
-          ENDDO
-          ! Compute synthetic sat images
-          IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
 
         ELSE !is_les_phy
 
@@ -457,6 +435,20 @@ MODULE mo_nh_stepping
       ENDDO!jg
 
       CALL fill_nestlatbc_phys
+
+      ! Compute synthetic satellite images if requested
+      DO jg = 1, n_dom
+
+        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+        ! In case of vertical nesting, copy upper levels of synsat input fields to local parent grid
+        DO jn = 1, p_patch(jg)%n_childdom
+          jgc = p_patch(jg)%child_id(jn)
+          IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
+          IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
+        ENDDO
+        IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
+
+      ENDDO!jg
 
     ENDIF!is_restart
   CASE (iecham)
@@ -565,10 +557,10 @@ MODULE mo_nh_stepping
 !   ELSE
     !---------------------------------------
 
-    CALL perform_nh_timeloop (mtime_current)
+    CALL perform_nh_timeloop (mtime_current, latbc)
 !   ENDIF
 
-  CALL deallocate_nh_stepping ()
+  CALL deallocate_nh_stepping (latbc)
 
 
   END SUBROUTINE perform_nh_stepping
@@ -582,12 +574,11 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_timeloop (mtime_current)
-!
-  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':perform_nh_timeloop'
-
-  TYPE(datetime),   POINTER            :: mtime_current     ! current datetime (mtime)
+  SUBROUTINE perform_nh_timeloop (mtime_current, latbc)
+    !
+    CHARACTER(len=*), PARAMETER :: routine = modname//':perform_nh_timeloop'
+    TYPE(t_latbc_data),     INTENT(INOUT)  :: latbc !< data structure for async latbc prefetching
+    TYPE(datetime),         POINTER        :: mtime_current     ! current datetime (mtime)
 
   INTEGER                              :: jg, jn, jgc
   INTEGER                              :: ierr
@@ -634,7 +625,10 @@ MODULE mo_nh_stepping
   REAL(wp)                             :: sim_time     !< elapsed simulation time
 
   LOGICAL :: l_isStartdate, l_isExpStopdate, l_isRestart, l_isCheckpoint, l_doWriteRestart
-  
+
+  REAL(wp), ALLOCATABLE :: elapsedTime(:)  ! time elapsed since last call of 
+                                           ! NWP physics routines. For restart purposes.
+
 !!$  INTEGER omp_get_num_threads
 
 !-----------------------------------------------------------------------
@@ -646,7 +640,7 @@ MODULE mo_nh_stepping
   time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_exp_startdate)
   sim_time   =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
 
-  IF (iterate_iau) THEN
+  IF (iterate_iau .AND. .NOT. isRestart()) THEN
     iau_iter = 1
   ELSE
     iau_iter = 0
@@ -662,7 +656,7 @@ MODULE mo_nh_stepping
   ! MPI communication from now on.
   IF (test_mode > 0) iorder_sendrecv = 0
 
-  IF (timeshift%dt_shift < 0._wp) THEN
+  IF (timeshift%dt_shift < 0._wp  .AND. .NOT. isRestart()) THEN
     jstep_shift = NINT(timeshift%dt_shift/dtime)
     WRITE(message_text,'(a,i6,a)') 'Model start shifted backwards by ', ABS(jstep_shift),' time steps'
     CALL message(TRIM(routine),message_text)
@@ -774,13 +768,6 @@ MODULE mo_nh_stepping
 
   ! set time loop properties
   model_time_step => time_config%tc_dt_model
-
-  ! IMPORTANT NOTE: The MTIME implementation of the time loop does not
-  ! take the IAU mode of the ICON model into account which starts with
-  ! "negative" time steps, controlled by "jstep_shift".
-  IF (jstep_shift /= 0) THEN
-    CALL finish('perform_nh_timeloop', "Backward time shift of model not yet implemented!")
-  END IF
   
   CALL message('','')
   CALL datetimeToString(mtime_current, dstring)
@@ -794,7 +781,6 @@ MODULE mo_nh_stepping
   jstep = jstep0+jstep_shift+1
 
 #if defined( _OPENACC )
-!
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
 
   CALL save_convenience_pointers( )
@@ -802,8 +788,6 @@ MODULE mo_nh_stepping
 !$ACC DATA COPYIN( p_int_state, p_patch, p_nh_state, prep_adv, advection_config ), IF ( i_am_accel_node )
 
   CALL refresh_convenience_pointers( )
-  i_am_accel_node = .FALSE.                 ! Deactivate GPUs
-
 #endif
 
   TIME_LOOP: DO
@@ -816,6 +800,11 @@ MODULE mo_nh_stepping
         CALL message('perform_nh_timeloop', TRIM(message_text))
       ENDIF
     ENDDO
+
+    ! Update time-dependent ensemble perturbations if necessary
+    IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
+      CALL compute_ensemble_pert(p_patch(1:), ext_data, prm_diag, mtime_current)
+    ENDIF
 
     ! update model date and time mtime based
     mtime_current = mtime_current + model_time_step
@@ -832,7 +821,7 @@ MODULE mo_nh_stepping
 
     ! read boundary data if necessary
     IF (l_limited_area .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) &
-      CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), mtime_current)
+      CALL read_latbc_data_sync(p_patch(1), p_nh_state(1), ext_data(1), p_int_state(1), mtime_current)
 
     IF (msg_level > 2) THEN
       lprint_timestep = .TRUE.
@@ -961,8 +950,7 @@ MODULE mo_nh_stepping
     ! Set output flags
     !--------------------------------------------------------------------------
 
-    l_nml_output   = output_mode%l_nml .AND. jstep >= 0 .AND.                 &
-      &              (jstep==(nsteps+jstep0) .OR. istime4name_list_output(jstep) )
+    l_nml_output = output_mode%l_nml .AND. jstep >= 0 .AND. istime4name_list_output(jstep)
 
     ! In IAU iteration mode, output at the nominal initial date is written only at the
     ! end of the first cycle, providing an initialized analysis to which the analysis 
@@ -999,7 +987,7 @@ MODULE mo_nh_stepping
     !
     ! dynamics stepping
     !
-    CALL integrate_nh(datetime_current, 1, jstep-jstep_shift, iau_iter, dtime, model_time_step, 1)
+    CALL integrate_nh(datetime_current, 1, jstep-jstep_shift, iau_iter, dtime, model_time_step, 1, latbc)
 
     ! Compute diagnostics for output if necessary
     IF (l_compute_diagnostic_quants .OR. iforcing==iecham .OR. iforcing==inoforcing) THEN
@@ -1028,14 +1016,6 @@ MODULE mo_nh_stepping
                  &                      ext_data(jg),                           & !in
                  &                      prm_diag(jg)                            ) !inout
 
-            ! In case of vertical nesting, copy upper levels of synsat input fields to local parent grid
-            DO jn = 1, p_patch(jg)%n_childdom
-              jgc = p_patch(jg)%child_id(jn)
-              IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
-              IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
-            ENDDO
-            ! Compute synthetic sat images
-            IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
 
           ELSE !is_les_phy
 
@@ -1056,6 +1036,20 @@ MODULE mo_nh_stepping
         ENDDO!jg
 
         CALL fill_nestlatbc_phys
+
+      ! Compute synthetic satellite images if requested
+        DO jg = 1, n_dom
+
+          IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+          ! In case of vertical nesting, copy upper levels of synsat input fields to local parent grid
+          DO jn = 1, p_patch(jg)%n_childdom
+            jgc = p_patch(jg)%child_id(jn)
+            IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
+            IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
+          ENDDO
+          IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
+
+        ENDDO!jg
 
       END IF !iforcing=inwp
 
@@ -1209,29 +1203,47 @@ MODULE mo_nh_stepping
         lwrite_checkpoint = .TRUE.
       END IF
     END IF
-    
-    CALL message('','')
+
 
     IF (lwrite_checkpoint) THEN
+
+      ! apply nest boundary filling; this has no impact on the correctness (in the sense of reproducibility)
+      ! of the restart but facilitates debugging
+      CALL diag_for_output_dyn ()
+      IF (iforcing == inwp) THEN
+        CALL aggr_landvars
+        CALL fill_nestlatbc_phys
+      END IF
+
         DO jg = 1, n_dom
+
+            ! get elapsed time since last call of NWP physics processes and write it into 
+            ! the restart file
+            IF (iforcing == inwp) THEN
+              CALL atm_phy_nwp_config(jg)%phyProcs%serialize (mtime_current, elapsedTime)
+            ENDIF
+
             CALL restartDescriptor%updatePatch(p_patch(jg), &
-              & opt_t_elapsed_phy          = t_elapsed_phy(jg,:),        &
-              & opt_lcall_phy              = lcall_phy(jg,:),            &
+              & opt_t_elapsed_phy          = elapsedTime,                &
               & opt_ndyn_substeps          = ndyn_substeps_var(jg),      &
               & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
               & opt_depth_lnd              = nlev_soil,                  &
               & opt_nlev_snow              = nlev_snow,                  &
               & opt_ndom                   = n_dom)
+
         ENDDO
 
         CALL restartDescriptor%writeRestart(mtime_current, jstep, opt_output_jfile = output_jfile)
 
 #ifdef MESSY
-        IF(.NOT.use_async_restart_output) THEN
-            CALL messy_channel_write_output(IOMODE_RST)
-!           CALL messy_ncregrid_write_restart
-        END IF
+        CALL messy_channel_write_output(IOMODE_RST)
+!       CALL messy_ncregrid_write_restart
 #endif
+
+        IF (ALLOCATED(elapsedTime)) THEN
+          DEALLOCATE(elapsedTime, STAT=ierr)
+          IF (ierr /= SUCCESS)  CALL finish (routine, 'DEALLOCATE failed!')
+        ENDIF
     END IF  ! lwrite_checkpoint
 
 #ifdef MESSYTIMER
@@ -1241,7 +1253,9 @@ MODULE mo_nh_stepping
 
     ! prefetch boundary data if necessary
     IF(num_prefetch_proc >= 1 .AND. latbc_config%itype_latbc > 0) THEN
-      CALL pref_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), mtime_current)
+      CALL recv_latbc_data(latbc, p_patch(1), p_nh_state(1), p_int_state(1), &
+        &                  cur_datetime=mtime_current, lcheck_read=.TRUE., ltime_incr=.TRUE.,     &
+        &                  tlev=latbc%new_latbc_tlev)
     ENDIF
 
     IF (mtime_current >= time_config%tc_stopdate) THEN
@@ -1253,13 +1267,16 @@ MODULE mo_nh_stepping
 
     IF (jstep == 0 .AND. iau_iter == 1) THEN
       jstep_adv(:)%marchuk_order = 0
-      t_elapsed_phy(:,:)         = 0._wp
       linit_dyn(:)               = .TRUE.
       !time_config%sim_time(:)    = timeshift%dt_shift
       mtime_current = mtime_current + timeshift%mtime_shift
       mtime_old = mtime_current
       DO jg = 1, n_dom
         datetime_current(jg)%ptr = mtime_current
+        IF (iforcing == inwp) THEN
+          ! reinitialize mtime events for NWP physics
+          CALL atm_phy_nwp_config(jg)%phyProcs%reinitEvents()
+        ENDIF
       END DO
       CALL reset_to_initial_state(mtime_current)
       iau_iter = 2
@@ -1274,7 +1291,6 @@ MODULE mo_nh_stepping
   ENDDO TIME_LOOP
 
 #if defined( _OPENACC )
-  i_am_accel_node = my_process_is_work()    ! Activate GPUs
   CALL save_convenience_pointers( )
 !$ACC END DATA
   CALL refresh_convenience_pointers( )
@@ -1284,7 +1300,7 @@ MODULE mo_nh_stepping
   ! clean-up routine for mo_nh_supervise module (eg. closing of files)
   CALL finalize_supervise_nh()
 
-  IF (use_async_restart_output) CALL deleteRestartDescriptor(restartDescriptor)
+  CALL deleteRestartDescriptor(restartDescriptor)
 
   IF (ltimer) CALL timer_stop(timer_total)
 
@@ -1323,7 +1339,7 @@ MODULE mo_nh_stepping
   !!  - optional reduced calling frequency for transport and physics
   !!
   RECURSIVE SUBROUTINE integrate_nh (datetime_local, jg, nstep_global,   &
-    &                                iau_iter, dt_loc, mtime_dt_loc, num_steps )
+    &                                iau_iter, dt_loc, mtime_dt_loc, num_steps, latbc )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':integrate_nh'
 
@@ -1335,6 +1351,7 @@ MODULE mo_nh_stepping
     INTEGER , INTENT(IN)    :: iau_iter     !< counter for IAU iteration
     REAL(wp), INTENT(IN)    :: dt_loc       !< time step applicable to local grid level
     TYPE(timedelta), POINTER :: mtime_dt_loc !< time step applicable to local grid level (mtime format)
+    TYPE(t_latbc_data), INTENT(INOUT) :: latbc
 
     ! Local variables
 
@@ -1386,7 +1403,9 @@ MODULE mo_nh_stepping
 
       n_save = nsav2(jg)
       n_now = nnow(jg)
+#ifndef _OPENACC
 !$OMP PARALLEL
+#endif
       CALL copy(p_nh_state(jg)%prog(n_now)%vn, &
            p_nh_state(jg)%prog(n_save)%vn)
       CALL copy(p_nh_state(jg)%prog(n_now)%w, &
@@ -1395,7 +1414,9 @@ MODULE mo_nh_stepping
            p_nh_state(jg)%prog(n_save)%rho)
       CALL copy(p_nh_state(jg)%prog(n_now)%theta_v, &
            p_nh_state(jg)%prog(n_save)%theta_v)
+#ifndef _OPENACC
 !$OMP END PARALLEL
+#endif
 
     ENDIF
 
@@ -1408,7 +1429,9 @@ MODULE mo_nh_stepping
         ! feedback increments (not needed in global domain)
         n_now = nnow(jg)
         n_save = nsav2(jg)
+#ifndef _OPENACC
 !$OMP PARALLEL
+#endif
         CALL copy(p_nh_state(jg)%prog(n_now)%vn, &
              p_nh_state(jg)%prog(n_save)%vn)
         CALL copy(p_nh_state(jg)%prog(n_now)%w, &
@@ -1417,7 +1440,9 @@ MODULE mo_nh_stepping
              p_nh_state(jg)%prog(n_save)%rho)
         CALL copy(p_nh_state(jg)%prog(n_now)%theta_v, &
              p_nh_state(jg)%prog(n_save)%theta_v)
+#ifndef _OPENACC
 !$OMP END PARALLEL
+#endif
       ENDIF
 
 
@@ -1446,12 +1471,16 @@ MODULE mo_nh_stepping
         n_now  = nnow(jg)
         n_save = nsav1(jg)
         IF (lbdy_nudging) THEN ! full copy needed
+#ifndef _OPENACC
 !$OMP PARALLEL
+#endif
           CALL copy(p_nh_state(jg)%prog(n_now)%vn,p_nh_state(jg)%prog(n_save)%vn)
           CALL copy(p_nh_state(jg)%prog(n_now)%w,p_nh_state(jg)%prog(n_save)%w)
           CALL copy(p_nh_state(jg)%prog(n_now)%rho,p_nh_state(jg)%prog(n_save)%rho)
           CALL copy(p_nh_state(jg)%prog(n_now)%theta_v,p_nh_state(jg)%prog(n_save)%theta_v)
+#ifndef _OPENACC
 !$OMP END PARALLEL
+#endif
         ELSE IF (lnest_active) THEN ! optimized copy restricted to nest boundary points
           CALL save_progvars(jg,p_nh_state(jg)%prog(n_now),p_nh_state(jg)%prog(n_save))
         ENDIF
@@ -1750,25 +1779,20 @@ MODULE mo_nh_stepping
           ! Determine which physics packages must be called/not called at the current
           ! time step
           IF ( iforcing==inwp ) THEN
-            CALL time_ctrl_physics ( dt_phy, dt_loc, jg,        &! in
-              &                      .FALSE.,                   &! in
-              &                      t_elapsed_phy,             &! inout
-              &                      lcall_phy )                 ! out
-
-            IF (msg_level >= 13) THEN
-              WRITE(message_text,'(a,i2,a,5l2,a,6l2)') 'call phys. proc DOM:', &
-                &  jg ,'   SP:', lcall_phy(jg,1:5), '   FP:',lcall_phy(jg,6:10)
-              CALL message(TRIM(routine), TRIM(message_text))
-            END IF
+            CALL mtime_ctrl_physics(phyProcs      = atm_phy_nwp_config(jg)%phyProcs,    & !in
+              &                     mtime_current = datetime_local(jg)%ptr,             & !in
+              &                     isInit        = .FALSE.,                            & !in
+              &                     lcall_phy     = atm_phy_nwp_config(jg)%lcall_phy(:) ) !inout
           END IF
 
           IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
 
             ! les physics
-            CALL les_phy_interface(lcall_phy(jg,:), .FALSE.,         & !in
+            CALL les_phy_interface(atm_phy_nwp_config(jg)%lcall_phy(:), & !in
+              &                  .FALSE.,                            & !in
               &                  lredgrid_phys(jg),                  & !in
               &                  dt_loc,                             & !in
-              &                  t_elapsed_phy(jg,:),                & !in
+              &                  dt_phy(jg,:),                       & !in
               &                  nstep_global,                       & !in
               &                  datetime_local(jg)%ptr,              & !in
               &                  p_patch(jg)  ,                      & !in
@@ -1796,10 +1820,11 @@ MODULE mo_nh_stepping
             CASE (inwp) ! iforcing
 
               ! nwp physics
-              CALL nwp_nh_interface(lcall_phy(jg,:), .FALSE.,          & !in
+              CALL nwp_nh_interface(atm_phy_nwp_config(jg)%lcall_phy(:), & !in
+                &                  .FALSE.,                            & !in
                 &                  lredgrid_phys(jg),                  & !in
                 &                  dt_loc,                             & !in
-                &                  t_elapsed_phy(jg,:),                & !in
+                &                  dt_phy(jg,:),                       & !in
                 &                  datetime_local(jg)%ptr,              & !in
                 &                  p_patch(jg)  ,                      & !in
                 &                  p_int_state(jg),                    & !in
@@ -1824,10 +1849,12 @@ MODULE mo_nh_stepping
               ! echam physics
               IF (ltimer) CALL timer_start(timer_iconam_echam)
               CALL interface_iconam_echam( dt_loc                         ,& !in
-                &                          datetime_local(jg)%ptr          ,& !in
+                &                          datetime_local(jg)%ptr         ,& !in
                 &                          p_patch(jg)                    ,& !in
                 &                          p_int_state(jg)                ,& !in
                 &                          p_nh_state(jg)%metrics         ,& !in
+                &                          p_nh_state(jg)%prog(nnow(jg))  ,& !in
+                &                          p_nh_state(jg)%prog(n_now_rcf) ,& !in
                 &                          p_nh_state(jg)%prog(nnew(jg))  ,& !inout
                 &                          p_nh_state(jg)%prog(n_new_rcf) ,& !inout
                 &                          p_nh_state(jg)%diag,            &            
@@ -1848,15 +1875,25 @@ MODULE mo_nh_stepping
             jgc = p_patch(jg)%child_id(jn)
             IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
-            IF (patch_weight(jgc) > 0._wp) THEN
-              CALL p_bcast(lcall_phy(jgc,itrad),      p_patch(jgc)%proc0, p_comm_work)
-              CALL p_bcast(t_elapsed_phy(jgc,itrad),  p_patch(jgc)%proc0, p_comm_work)
-            ENDIF
+            IF ( lredgrid_phys(jgc) ) THEN
+              ! Determine if radiation in the nested domain will be triggered  
+              ! during the subsequent two (small) time steps. 
+              ! The time range is given by ]mtime_current, mtime_current+slack]
+              IF (patch_weight(jgc) > 0._wp) THEN
+                ! in this case, broadcasts of mtime_current and nextActive are necessary. 
+                ! They are encapsulated in isNextTriggerTimeInRange
+                lcall_rrg = atm_phy_nwp_config(jgc)%phyProc_rad%isNextTriggerTimeInRange( &
+                  &                                             mtime_current = datetime_local(jgc)%ptr, &
+                  &                                             slack         = mtime_dt_loc, &
+                  &                                             p_source      = p_patch(jgc)%proc0, &
+                  &                                             comm          = p_comm_work)
 
-            ! Determine if radiation will be called in the nested domain during the subsequent two (small) time steps
-            IF (lredgrid_phys(jgc) .AND. atm_phy_nwp_config(jgc)%lproc_on(itrad) .AND. .NOT. lcall_phy(jgc,itrad) &
-              .AND. t_elapsed_phy(jgc,itrad) + dt_loc >= 0.99999999_wp*dt_phy(jgc,itrad) ) THEN
-              lcall_rrg = .TRUE.
+              ELSE
+                lcall_rrg = atm_phy_nwp_config(jgc)%phyProc_rad%isNextTriggerTimeInRange( &
+                  &                                             mtime_current = datetime_local(jgc)%ptr, &
+                  &                                             slack         = mtime_dt_loc)
+              ENDIF
+
             ELSE
               lcall_rrg = .FALSE.
             ENDIF
@@ -1900,18 +1937,24 @@ MODULE mo_nh_stepping
 
             IF (num_prefetch_proc >= 1) THEN
 
-               ! update the coefficients for the linear interpolation
-               CALL update_lin_interpolation(datetime_local(jg)%ptr)
-               CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
-                    p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_old=latbc_data(prev_latbc_tlev)%atm,           &
-                    p_latbc_new=latbc_data(new_latbc_tlev)%atm)
+              ! Asynchronous LatBC read-in:
+              ! update the coefficients for the linear interpolation
+              CALL update_lin_interpolation(latbc, datetime_local(jg)%ptr)
+              CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),  &
+                &  p_nh_state(jg)%prog(n_new_rcf),                                    &
+                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,                        &
+                &  p_latbc_old=latbc%latbc_data(latbc%prev_latbc_tlev())%atm,         &
+                &  p_latbc_new=latbc%latbc_data(latbc%new_latbc_tlev)%atm)
             ELSE
+              
+              ! update the coefficients for the linear interpolation
+              CALL update_lin_interc(datetime_local(jg)%ptr)
+              CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
+                &                         p_nh_state(jg)%prog(n_new_rcf),                &  
+                &                         p_nh_state(jg)%metrics,p_nh_state(jg)%diag,    &
+                &                         p_latbc_old=p_latbc_data(last_latbc_tlev)%atm, &
+                &                         p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
 
-               ! update the coefficients for the linear interpolation
-               CALL update_lin_interc(datetime_local(jg)%ptr)
-               CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
-                    p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,        &
-                    p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
             ENDIF
 
          ELSE ! constant lateral boundary data
@@ -2004,8 +2047,8 @@ MODULE mo_nh_stepping
           IF(p_patch(jgc)%n_patch_cells > 0) THEN
             IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
             ! Recursive call to process_grid_level for child grid level
-            CALL integrate_nh( datetime_local, jgc, nstep_global, iau_iter, dt_sub, mtime_dt_sub, nsteps_nest )
-
+            CALL integrate_nh( datetime_local, jgc, nstep_global, iau_iter, &
+              &                dt_sub, mtime_dt_sub, nsteps_nest, latbc )
             IF(proc_split) CALL pop_glob_comm()
           ENDIF
 
@@ -2076,7 +2119,6 @@ MODULE mo_nh_stepping
 
             jstep_adv(jgc)%marchuk_order = 0
             datetime_local(jgc)%ptr      = datetime_local(jg)%ptr
-            t_elapsed_phy(jgc,:)         = 0._wp
             linit_dyn(jgc)               = .TRUE.
             dt_sub                       = dt_loc/2._wp
 
@@ -2285,16 +2327,10 @@ MODULE mo_nh_stepping
       ENDIF
 
       ! integrate dynamical core
-#ifdef _OPENACC
-      i_am_accel_node = my_process_is_work()    ! Activate GPUs
-#endif
       CALL solve_nh(p_nh_state, p_patch, p_int_state, prep_adv,     &
         &           nnow(jg), nnew(jg), linit_dyn(jg), l_recompute, &
         &           lsave_mflx, lprep_adv, lclean_mflx,             &
         &           nstep, ndyn_substeps_tot-1, l_bdy_nudge, dt_dyn)
-#ifdef _OPENACC
-      i_am_accel_node = .FALSE.
-#endif
 
       ! now reset linit_dyn to .FALSE.
       linit_dyn(jg) = .FALSE.
@@ -2374,10 +2410,10 @@ MODULE mo_nh_stepping
     n_now_rcf = nnow_rcf(jg)
 
     IF (iforcing == inwp) THEN
-      CALL time_ctrl_physics ( dt_phy, dt_loc, jg,     &! in
-        &                      .TRUE.,                 &! in
-        &                      t_elapsed_phy,          &! inout
-        &                      lcall_phy )              ! out
+      CALL mtime_ctrl_physics(phyProcs      = atm_phy_nwp_config(jg)%phyProcs,    &
+        &                     mtime_current = mtime_current,                      &
+        &                     isInit        = .TRUE.,                             &
+        &                     lcall_phy     = atm_phy_nwp_config(jg)%lcall_phy(:) )
     END IF
 
 
@@ -2389,7 +2425,8 @@ MODULE mo_nh_stepping
     IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
 
       nstep = 0
-      CALL les_phy_interface(lcall_phy(jg,:), .TRUE.,          & !in
+      CALL les_phy_interface(atm_phy_nwp_config(jg)%lcall_phy(:), & !in
+        &                  .TRUE.,                             & !in
         &                  lredgrid_phys(jg),                  & !in
         &                  dt_loc,                             & !in
         &                  dt_phy(jg,:),                       & !in
@@ -2420,7 +2457,8 @@ MODULE mo_nh_stepping
       CASE (inwp) ! iforcing
 
         ! nwp physics, slow physics forcing
-        CALL nwp_nh_interface(lcall_phy(jg,:), .TRUE.,           & !in
+        CALL nwp_nh_interface(atm_phy_nwp_config(jg)%lcall_phy(:), & !in
+          &                  .TRUE.,                             & !in
           &                  lredgrid_phys(jg),                  & !in
           &                  dt_loc,                             & !in
           &                  dt_phy(jg,:),                       & !in
@@ -2443,9 +2481,6 @@ MODULE mo_nh_stepping
           &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
           &                  p_nh_state_lists(jg)%prog_list(n_now_rcf) ) !in
 
-      ! This is to enforce another slow physics call at the end of the first time step
-      lcall_phy(jg,:)     = .FALSE.
-      t_elapsed_phy(jg,:) = dt_phy(jg,:) - dt_loc
 
       CASE (iecham) ! iforcing
 
@@ -2468,6 +2503,8 @@ MODULE mo_nh_stepping
             &                          p_patch(jg)                    ,& !in
             &                          p_int_state(jg)                ,& !in
             &                          p_nh_state(jg)%metrics         ,& !in
+            &                          p_nh_state(jg)%prog(nnow(jg))  ,& !inout
+            &                          p_nh_state(jg)%prog(n_now_rcf) ,& !inout
             &                          p_nh_state(jg)%prog(nnow(jg))  ,& !inout
             &                          p_nh_state(jg)%prog(n_now_rcf) ,& !inout
             &                          p_nh_state(jg)%diag            ,&
@@ -2713,10 +2750,14 @@ MODULE mo_nh_stepping
     INTEGER, INTENT(IN) :: nnow ! time step indicator
 
 
+#ifndef _OPENACC
 !$OMP PARALLEL
+#endif
     CALL copy(p_nh_state(jg)%prog(nnow)%exner-REAL(p_nh_state(jg)%metrics%exner_ref_mc,wp), &
          p_nh_state(jg)%diag%exner_pr)
+#ifndef _OPENACC
 !$OMP END PARALLEL
+#endif
 
   END SUBROUTINE init_exner_pr
 
@@ -2845,155 +2886,14 @@ MODULE mo_nh_stepping
 
   END SUBROUTINE set_ndyn_substeps
 
-  !-------------------------------------------------------------------------
-  !>
-  !! Physics time control
-  !!
-  !! Time control for slow and fast physics. This function provides a 2D array
-  !! of type LOGICAL. For each physical process there is one column of length
-  !! n_dom. A physical process (iphys) on domain (jg) will be called, if
-  !! lcall_phy(jg,iphys)=.TRUE.. Whether it is .TRUE. or .FALSE. depends
-  !! on the current time and the prescribed calling period listed in
-  !! dt_phy.
-  !!
-  !! @par Revision History
-  !! Developed by Daniel Reinert, DWD (2010-09-23)
-  !! Modification by Daniel Reinert (2011-12-14)
-  !! - replaced zoo of fast physics time steps by a single time step, named
-  !!   dt_fastphy.
-  !!
-  SUBROUTINE time_ctrl_physics ( dt_phy, dt_loc, jg, linit, t_elapsed_phy, lcall_phy )
-
-    REAL(wp), INTENT(IN)    ::   &      !< Field of calling-time interval (seconds) for
-      &  dt_phy(:,:)                    !< each domain and physical process
-
-    LOGICAL, INTENT(IN)     ::   &      !< special initialization of lcall_phy and
-      &  linit                          !< t_elapsed_phy for the first call of
-                                        !< nwp_nh_interface before the first dynamcs step
-
-    REAL(wp), INTENT(INOUT) ::   &      !< elapsed time after the last call of physics
-      &  t_elapsed_phy(:,:)             !< packages
-
-    LOGICAL, INTENT(OUT)    ::   &
-      &  lcall_phy(:,:)
-
-    REAL(wp), INTENT(IN) :: dt_loc      !< transport/physics time step
-
-    INTEGER, INTENT(IN) :: jg           !< domain number
-
-    INTEGER :: ip, ips                  !< loop index
-
-
-  !-------------------------------------------------------------------------
-
-    ! special treatment for the first physics call prior to the very first
-    ! dynamics step
-    IF (linit) THEN
-
-      ! Initialize lcall_phy with .false. Only slow physics will be set to .true. initially;
-      ! turbulent transfer is called by specifying the initialization mode of the NWP interface
-      lcall_phy(jg,:)  = .FALSE.
-
-      ! slow physics
-      IF ( atm_phy_nwp_config(jg)%lproc_on(itconv) ) lcall_phy(jg,itconv) = .TRUE.
-
-      IF ( atm_phy_nwp_config(jg)%lproc_on(itccov) ) lcall_phy(jg,itccov) = .TRUE.
-
-      IF ( atm_phy_nwp_config(jg)%lproc_on(itrad)  ) lcall_phy(jg,itrad)  = .TRUE.
-
-      IF ( atm_phy_nwp_config(jg)%lproc_on(itradheat) ) lcall_phy(jg,itradheat) = .TRUE.
-
-      IF ( atm_phy_nwp_config(jg)%lproc_on(itsso)  ) lcall_phy(jg,itsso)  = .TRUE.
-
-      IF ( atm_phy_nwp_config(jg)%lproc_on(itgwd)  ) lcall_phy(jg,itgwd)  = .TRUE.
-
-    ELSE
-      !
-      ! all physical processes are forced to run at a multiple of
-      ! the advective time step. Note that fast physics are treated
-      ! as a combined process in the case of t_elapsed_phy and dt_phy,
-      ! but treated individually in the case of lcall_phy.
-      !
-      DO ips = 1, iphysproc_short
-
-        ! If a physics package has been called at previous timestep,
-        ! reset the time counter.
-        !
-        IF ( ANY(lcall_phy(jg,PACK(iproclist,map_phyproc(1:iphysproc,ips)))) ) THEN
-           t_elapsed_phy(jg,ips)  = 0._wp
-        ENDIF
-
-        ! update time counter
-        !
-        t_elapsed_phy(jg,ips) = t_elapsed_phy(jg,ips) + dt_loc  ! transport/physics timestep !!
-
-
-        ! The purpose of the 0.99999999 factor is to prevent pathological cases of
-        ! truncation error accumulation; will become obsolete when changing to
-        ! integer arithmetics for time control
-        IF( t_elapsed_phy(jg,ips) >= 0.99999999_wp*dt_phy(jg,ips) ) THEN
-          lcall_phy(jg,PACK(iproclist,map_phyproc(1:iphysproc,ips)))  = .TRUE.
-        ELSE
-          lcall_phy(jg,PACK(iproclist,map_phyproc(1:iphysproc,ips)))  = .FALSE.
-        ENDIF
-
-      ENDDO  ! ips
-
-
-      ! In addition, it must be checked, whether the individual processes
-      ! are switched on at all (lproc_on =.TRUE.). If not, lcall_phy is
-      ! reset to false.
-      !
-      DO ip = 1, iphysproc   ! not that we have to loop over ALL processes
-        IF (.NOT. atm_phy_nwp_config(jg)%lproc_on(ip) ) THEN
-          lcall_phy(jg,ip)  = .FALSE.
-        ENDIF
-      ENDDO  ! ip
-
-    ENDIF
-
-  END SUBROUTINE time_ctrl_physics
-
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Setup of physics time control
-  !!
-  !! Setup of time control for slow and fast physics. The mapping matrix is
-  !! initialized, which provides mapping rules required when mapping
-  !! between variables of size iphysproc and iphysproc_short. Typical examples
-  !! are lcall_phy and t_elapsed_phy.
-  !!
-  !! @par Revision History
-  !! Developed by Daniel Reinert, DWD (2011-12-14)
-  !!
-  SUBROUTINE setup_time_ctrl_physics ( )
-
-  !-------------------------------------------------------------------------
-
-  ! list of physical processes (x-axis of mapping matrix)
-    iproclist = (/ itconv,itccov,itrad,itsso,itgwd,itsatad,itturb,&
-      &            itgscp,itsfc,itradheat /)
-
-    map_phyproc(1:iphysproc,1:iphysproc_short) = .FALSE. ! initialization
-
-    map_phyproc(1   ,1) = .TRUE.  ! simple one to one mapping
-    map_phyproc(2   ,2) = .TRUE.  ! simple one to one mapping
-    map_phyproc(3   ,3) = .TRUE.  ! simple one to one mapping
-    map_phyproc(4   ,4) = .TRUE.  ! simple one to one mapping
-    map_phyproc(5   ,5) = .TRUE.  ! simple one to one mapping
-    map_phyproc(6:10,6) = .TRUE.  ! mapping of fast physics processes to single one
-
-  END SUBROUTINE setup_time_ctrl_physics
-  !-------------------------------------------------------------------------
-
 
   !-------------------------------------------------------------------------
   !>
   !! @par Revision History
   !!
-  SUBROUTINE deallocate_nh_stepping
+  SUBROUTINE deallocate_nh_stepping(latbc)
 
+    TYPE (t_latbc_data), INTENT(INOUT) :: latbc
   INTEGER                              ::  jg, ist
 
   !-----------------------------------------------------------------------
@@ -3026,16 +2926,15 @@ MODULE mo_nh_stepping
   !
   ! deallocate flow control variables
   !
-  DEALLOCATE( lcall_phy, linit_dyn, t_elapsed_phy, STAT=ist )
+  DEALLOCATE( linit_dyn, STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ( modname//': perform_nh_stepping',          &
-      &    'deallocation for lcall_phy, t_elapsed_phy ' //        &
-      &    'failed' )
+    CALL finish ( modname//': perform_nh_stepping',    &
+      &    'deallocation for linit_dyn failed' )
   ENDIF
 
   IF (l_limited_area .AND. latbc_config%itype_latbc > 0) THEN
     IF (num_prefetch_proc >= 1) THEN
-      CALL deallocate_pref_latbc_data()
+      CALL latbc%finalize()
     ELSE
       CALL deallocate_latbc_data()
     ENDIF
@@ -3048,9 +2947,11 @@ MODULE mo_nh_stepping
   !>
   !! @par Revision History
   !!
-  SUBROUTINE allocate_nh_stepping
+  SUBROUTINE allocate_nh_stepping(mtime_current)
 !
-  INTEGER                              :: jg, jp !, nlen
+  TYPE(datetime),     POINTER          :: mtime_current     !< current datetime (mtime)
+
+  INTEGER                              :: jg
   INTEGER                              :: ist
   CHARACTER(len=MAX_CHAR_LENGTH)       :: attname   ! attribute name
   TYPE(t_RestartAttributeList), POINTER :: restartAttributes
@@ -3074,9 +2975,7 @@ MODULE mo_nh_stepping
 
 
   ! allocate flow control variables for transport and slow physics calls
-  ALLOCATE(lcall_phy(n_dom,iphysproc), linit_dyn(n_dom), &
-    &      t_elapsed_phy(n_dom,iphysproc_short),         &
-    &      STAT=ist )
+  ALLOCATE(linit_dyn(n_dom), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ( modname//': perform_nh_stepping',           &
     &      'allocation for flow control variables failed' )
@@ -3086,26 +2985,16 @@ MODULE mo_nh_stepping
   restartAttributes => getAttributesForRestarting()
   IF (ASSOCIATED(restartAttributes)) THEN
     !
-    ! Get t_elapsed_phy and lcall_phy from restart file
+    ! Get attributes from restart file
     DO jg = 1,n_dom
       WRITE(attname,'(a,i2.2)') 'ndyn_substeps_DOM',jg
       ndyn_substeps_var(jg) = restartAttributes%getInteger(TRIM(attname))
       WRITE(attname,'(a,i2.2)') 'jstep_adv_marchuk_order_DOM',jg
       jstep_adv(jg)%marchuk_order = restartAttributes%getInteger(TRIM(attname))
-
-      DO jp = 1,iphysproc_short
-        WRITE(attname,'(a,i2.2,a,i2.2)') 't_elapsed_phy_DOM',jg,'_PHY',jp
-        t_elapsed_phy(jg,jp) = restartAttributes%getReal(TRIM(attname))
-      ENDDO
-      DO jp = 1,iphysproc
-        WRITE(attname,'(a,i2.2,a,i2.2)') 'lcall_phy_DOM',jg,'_PHY',jp
-        lcall_phy(jg,jp) = restartAttributes%getLogical(TRIM(attname))
-      ENDDO
     ENDDO
     linit_dyn(:)      = .FALSE.
   ELSE
     jstep_adv(:)%marchuk_order = 0
-    t_elapsed_phy(:,:)         = 0._wp
     linit_dyn(:)               = .TRUE.
   ENDIF
 
@@ -3132,6 +3021,12 @@ MODULE mo_nh_stepping
     CALL init(prep_adv(jg)%w_traj)
     CALL init(prep_adv(jg)%topflx_tra)
 !$OMP END PARALLEL
+
+    IF (iforcing == inwp) THEN
+      ! reads elapsed_time from the restart file, to re-initialize 
+      ! NWP physics events.
+      CALL atm_phy_nwp_config(jg)%phyProcs%deserialize (mtime_current)
+    ENDIF
 
   ENDDO
 

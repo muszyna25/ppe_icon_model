@@ -98,6 +98,7 @@ cat > ${atmo_namelist} << EOF
  l_test_openmp  = .false.
  l_log_checks   = .false.
  num_io_procs   = 0
+ num_prefetch_proc = 0
 /
 &grid_nml
  ! cell_type is not used = 3            ! triangular cells
@@ -163,6 +164,7 @@ inwp_surface    = 1,1
 latm_above_top  = .true.,.true.
 efdt_min_raylfric = 7200.
 itype_z0         = 2
+dt_conv          = 10.,10.   !DR Test
 dt_rad           = 60.,60.
 /
 &les_nml

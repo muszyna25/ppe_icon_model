@@ -35,7 +35,8 @@ MODULE mo_ocean_coupling
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
 
   USE mo_ocean_types
-  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes,t_atmos_for_ocean
+  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
+  USE mo_ocean_surface_types, ONLY: t_atmos_for_ocean
   USE mo_time_config,         ONLY: set_tc_current_date
   USE mtime,                  ONLY: datetime, datetimeToString, &
     &                               MAX_DATETIME_STR_LEN
@@ -482,7 +483,7 @@ CONTAINS
     !   field_id(9) represents "ocean_sea_ice_bundle"                     - ice thickness, snow thickness, ice concentration
     !
 
-    !  add another comment here
+    !  add another comment here - 
 
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
@@ -974,7 +975,8 @@ MODULE mo_ocean_coupling
 
   USE mo_model_domain,        ONLY: t_patch_3d
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
-  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes, t_atmos_for_ocean
+  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
+  USE mo_ocean_surface_types, ONLY: t_atmos_for_ocean
   USE mo_coupling_config,     ONLY: is_coupled_run
   USE mo_exception,           ONLY: finish
   USE mtime,                  ONLY: datetime

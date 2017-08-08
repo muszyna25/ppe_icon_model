@@ -9,9 +9,14 @@
 !!
 !!
 !! @par Revision History
+!!
 !! Initial Revision by Daniel Reinert, DWD (2012-03-19)
 !! Moved to a central place from mo_nwp_rad_interface and 
 !! mo_nwp_rrtm_interface.
+!!
+!! Modifications by Dmitrii Mironov, DWD (2016-08-11)
+!! - Changes related to the use of a rate equation 
+!!   for the sea-ice albedo.
 !!
 !! @par Copyright and License
 !!
@@ -37,16 +42,18 @@ MODULE mo_albedo
   USE mo_parallel_config,      ONLY: nproma
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_radiation_config,     ONLY: rad_csalbw, direct_albedo
-  USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, ntiles_lnd,  &
-    &                                lseaice, llake, isub_water, isub_lake,   &
+  USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, ntiles_lnd,             &
+    &                                lseaice, lprog_albsi, llake, isub_water, isub_lake, &
     &                                isub_seaice
   USE mo_phyparam_soil,        ONLY: csalb, csalb_snow_fe, csalb_snow_fd,     &
-    &                                csalb_snow_min, csalb_snow_max, csalb_p, csalb_snow
+    &                                csalb_snow_min, csalb_snow_max, csalb_p, csalb_snow, &
+    &                                ist_seawtr, ist_seaice
   USE mo_physical_constants,   ONLY: tmelt, tf_salt
   USE mo_data_flake,           ONLY: albedo_whiteice_ref, albedo_blueice_ref, &
     &                                c_albice_MR, tpl_T_f, h_Ice_min_flk
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_impl_constants,       ONLY: min_rlcell_int
+  USE mo_seaice_nwp,           ONLY: alb_seaice_equil
 
   IMPLICIT NONE
 
@@ -74,10 +81,14 @@ CONTAINS
   !! - Moved here from mo_nwp_rad_interface and mo_nwp_rrtm_interface.
   !!   Adaption to TERRA-tile approach.
   !! - Modification by Daniel Reinert, DWD (2013-07-03)
-  !!   Albedo for lake-ice points based on an empirical formula proposed by 
+  !!   Albedo for lake-ice points based on an empirical formula 
   !!   proposed by Mironov and Ritter (2004)
   !! - Modification by Daniel Reinert, DWD (2013-08-07)
   !!   Added albedo for direct radiation (VIS and NIR spectral bands)
+  !! Modifications by Dmitrii Mironov, DWD (2016-08-11)
+  !! - Depending on the switch "lprog_albsi", 
+  !!   either prognostic sea-ice albedo (computed within the routines of the sea-ice scheme), 
+  !!   or diagnostic sea-ice albedo (computed here) is used. 
   !!
   SUBROUTINE sfc_albedo(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
 
@@ -287,11 +298,8 @@ CONTAINS
           DO ic = 1, i_count_sea
             jc = ext_data%atm%idx_lst_spw(ic,jb)
 
-            ist = 9  ! sea water
-
-            prm_diag%albdif_t(jc,jb,isub_water) = csalb(ist)
+            prm_diag%albdif_t(jc,jb,isub_water) = csalb(ist_seawtr)
           ENDDO
-
 
           !
           ! Sea-ice points
@@ -300,24 +308,34 @@ CONTAINS
           !
           i_count_seaice = ext_data%atm%spi_count(jb)
 
-          DO ic = 1, i_count_seaice
-            jc = ext_data%atm%idx_lst_spi(ic,jb)
-
-            ist = 10   ! seaice
-
-            ! In case the sea ice model is used, compute ice albedo for seaice 
-            ! points with an empirical formula taken from GME.
-            ! The ice albedo is the lower the warmer, and therefore wetter 
-            ! the ice is. Use ice temperature at time level nnew 
-            ! (2-time level scheme in sea ice model).
-            prm_diag%albdif_t(jc,jb,isub_seaice) = csalb(ist) * ( 1.0_wp - 0.3846_wp    &
-              &                         * EXP(-0.35_wp*(tmelt-wtr_prog%t_ice(jc,jb))))
-            ! gives alb_max = 0.70
-            !       alb_min = 0.43
-            ! compare with Mironov et. al (2012), Tellus
-            !       alb_max = 0.65
-            !       alb_min = 0.40
-          ENDDO
+          PrognosticSeaIceAlbedo: IF ( lprog_albsi ) THEN
+            ! Use prognostic sea-ice albedo (computed within the routines of the sea-ice scheme)
+            DO ic = 1, i_count_seaice
+              jc = ext_data%atm%idx_lst_spi(ic,jb)
+              prm_diag%albdif_t(jc,jb,isub_seaice) = MAX(0._wp,wtr_prog%alb_si(jc,jb))
+              ! Note that missing values for alb_si are chosen to be negative (usually -1)
+              ! If something goes wrong with the sea-ice index list, or if the initialization 
+              ! fails, there is the danger that we make use negative albedo values. To force a
+              ! model crash in this case, we set negative albedo values to 0.
+              ! 
+            ENDDO
+          ELSE 
+            ! Use diagnostic sea-ice albedo (computed here)
+            DO ic = 1, i_count_seaice
+              jc = ext_data%atm%idx_lst_spi(ic,jb)
+              ! In case the sea ice model is used, compute ice albedo for seaice 
+              ! points with an empirical formula taken from GME.
+              ! The ice albedo is the lower the warmer, and therefore wetter 
+              ! the ice is. Use ice temperature at time level nnew 
+              ! (2-time level scheme in sea ice model).
+              prm_diag%albdif_t(jc,jb,isub_seaice) = alb_seaice_equil( wtr_prog%t_ice(jc,jb) )
+              ! gives alb_max = 0.70
+              !       alb_min = 0.43
+              ! compare with Mironov et. al (2012), Tellus
+              !       alb_max = 0.65
+              !       alb_min = 0.40
+            ENDDO
+          ENDIF PrognosticSeaIceAlbedo
 
         ELSE   ! no seaice model
 
@@ -333,9 +351,9 @@ CONTAINS
 
             ! special handling of sea ice points
             IF (lnd_prog%t_g_t(jc,jb,isub_water) < tf_salt) THEN 
-              ist = 10  ! sea ice
+              ist = ist_seaice  ! sea ice
             ELSE
-              ist = 9   ! sea water 
+              ist = ist_seawtr  ! sea water
             ENDIF
 
             prm_diag%albdif_t(jc,jb,isub_water) = csalb(ist)
@@ -375,8 +393,7 @@ CONTAINS
                 &              * EXP(-c_albice_MR*(tpl_T_f-lnd_prog%t_g_t(jc,jb,isub_lake)) &
                 &              /tpl_T_f)
             ELSE
-              ist = 9   ! water
-              prm_diag%albdif_t(jc,jb,isub_lake) = csalb(ist)
+              prm_diag%albdif_t(jc,jb,isub_lake) = csalb(ist_seawtr)
             ENDIF
           ENDDO
 
@@ -394,9 +411,9 @@ CONTAINS
 
             ! special handling of sea ice points
             IF (lnd_prog%t_g_t(jc,jb,isub_lake) < tpl_T_f) THEN 
-              ist = 10  ! sea ice
+              ist = ist_seaice ! sea ice
             ELSE
-              ist = 9   ! water
+              ist = ist_seawtr   ! water
             ENDIF
 
             prm_diag%albdif_t(jc,jb,isub_lake) = csalb(ist)
@@ -456,7 +473,7 @@ CONTAINS
 
         DO jc = i_startidx, i_endidx
           
-          ist = 10
+          ist = ist_seaice
 
           IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tf_salt ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
@@ -552,6 +569,10 @@ CONTAINS
   !!   Added albedo for direct radiation (VIS and NIR spectral bands)
   !! - Modification by Daniel Reinert, DWD (2013-08-08)
   !!   Added albedo for direct radiation (now separate computation for VIS and NIR spectral bands)
+  !! Modifications by Dmitrii Mironov, DWD (2016-08-11)
+  !! - Depending on the switch "lprog_albsi", 
+  !!   either prognostic sea-ice albedo (computed within the routines of the sea-ice scheme), 
+  !!   or diagnostic sea-ice albedo (computed here) is used. 
   !!
   SUBROUTINE sfc_albedo_modis(pt_patch, ext_data, lnd_prog, wtr_prog, lnd_diag, prm_diag)
 
@@ -793,12 +814,9 @@ CONTAINS
           DO ic = 1, i_count_sea
             jc = ext_data%atm%idx_lst_spw(ic,jb)
 
-            ist = 9  ! sea water
-
-            ! diffuse albedo
-            prm_diag%albdif_t   (jc,jb,isub_water) = csalb(ist)
-            prm_diag%albvisdif_t(jc,jb,isub_water) = csalb(ist)
-            prm_diag%albnirdif_t(jc,jb,isub_water) = csalb(ist)
+            prm_diag%albdif_t   (jc,jb,isub_water) = csalb(ist_seawtr)
+            prm_diag%albvisdif_t(jc,jb,isub_water) = csalb(ist_seawtr)
+            prm_diag%albnirdif_t(jc,jb,isub_water) = csalb(ist_seawtr)
 
             ! direct albedo
             zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
@@ -807,35 +825,38 @@ CONTAINS
               &                                             prm_diag%albnirdif_t(jc,jb,isub_water))
           ENDDO
 
-
-
           !
           ! Sea-ice points
           !
           ! - loop over sea-ice points (points which are at least partly ice-covered)
           !
+          !
           i_count_seaice = ext_data%atm%spi_count(jb)
+
+          PrognosticSeaIceAlbedo_modis: IF ( lprog_albsi ) THEN 
+            ! Use prognostic diffuse sea-ice albedo (computed within the routines of the sea-ice scheme)
+            DO ic = 1, i_count_seaice
+              jc = ext_data%atm%idx_lst_spi(ic,jb)
+
+              prm_diag%albdif_t(jc,jb,isub_seaice) = MAX(0._wp,wtr_prog%alb_si(jc,jb))
+              ! Note that missing values for alb_si are chosen to be negative (usually -1)
+              ! If something goes wrong with the sea-ice index list, or if the initialization 
+              ! fails, there is the danger that we make use negative albedo values. To force a
+              ! model crash in this case, we set negative albedo values to 0.
+              ! 
+            ENDDO                         
+          ELSE 
+            ! Use diagnostic diffuse sea-ice albedo (computed here)
+            DO ic = 1, i_count_seaice
+              jc = ext_data%atm%idx_lst_spi(ic,jb)
+              prm_diag%albdif_t(jc,jb,isub_seaice) = alb_seaice_equil( wtr_prog%t_ice(jc,jb) )
+            ENDDO
+          ENDIF PrognosticSeaIceAlbedo_modis
 
           DO ic = 1, i_count_seaice
             jc = ext_data%atm%idx_lst_spi(ic,jb)
 
-            ist = 10   ! sea-ice
-
-            ! In case the sea ice model is used, compute ice albedo for seaice 
-            ! points with an empirical formula taken from GME.
-            ! The ice albedo is the lower the warmer, and therefore wetter 
-            ! the ice is. Use ice temperature at time level nnew 
-            ! (2-time level scheme in sea ice model).
-            !
-            ! diffuse albedo
-            prm_diag%albdif_t(jc,jb,isub_seaice) = csalb(ist) * ( 1.0_wp - 0.3846_wp  &
-              &                         * EXP(-0.35_wp*(tmelt-wtr_prog%t_ice(jc,jb))))
-            ! gives alb_max = 0.70
-            !       alb_min = 0.43
-            ! compare with Mironov et. al (2012), Tellus
-            !       alb_max = 0.65
-            !       alb_min = 0.40
-
+            ! diffuse albedo             
             prm_diag%albvisdif_t(jc,jb,isub_seaice) = prm_diag%albdif_t(jc,jb,isub_seaice)
             prm_diag%albnirdif_t(jc,jb,isub_seaice) = prm_diag%albdif_t(jc,jb,isub_seaice)
 
@@ -845,7 +866,6 @@ CONTAINS
             zalbnirdir_t(jc,isub_seaice) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
               &                                              prm_diag%albnirdif_t(jc,jb,isub_seaice))
           ENDDO
-
 
         ELSE
 
@@ -861,9 +881,9 @@ CONTAINS
 
             ! special handling of sea ice points
             IF (lnd_prog%t_g_t(jc,jb,isub_water) < tf_salt) THEN 
-              ist = 10  ! sea ice
+              ist = ist_seaice  ! sea ice
             ELSE
-              ist = 9   ! sea water
+              ist = ist_seawtr  ! sea water
             ENDIF
 
             ! diffuse albedo
@@ -914,8 +934,7 @@ CONTAINS
                 &              * EXP(-c_albice_MR*(tpl_T_f-lnd_prog%t_g_t(jc,jb,isub_lake)) &
                 &              /tpl_T_f)
             ELSE
-              ist = 9   ! water
-              prm_diag%albdif_t(jc,jb,isub_lake) = csalb(ist)
+              prm_diag%albdif_t(jc,jb,isub_lake) = csalb(ist_seawtr)
             ENDIF
 
             prm_diag%albvisdif_t(jc,jb,isub_lake) = prm_diag%albdif_t(jc,jb,isub_lake)
@@ -943,9 +962,9 @@ CONTAINS
 
             ! special handling of sea ice points
             IF (lnd_prog%t_g_t(jc,jb,isub_lake) < tpl_T_f) THEN 
-              ist = 10 ! sea ice
+              ist = ist_seaice ! sea ice
             ELSE
-              ist = 9  ! water
+              ist = ist_seawtr  ! water
             ENDIF
 
             ! diffuse albedo 
@@ -1034,7 +1053,7 @@ CONTAINS
 
         DO jc = i_startidx, i_endidx
           
-          ist = 10
+          ist = ist_seaice
 
           IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tf_salt ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included

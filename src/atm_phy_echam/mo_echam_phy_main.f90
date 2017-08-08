@@ -120,16 +120,6 @@ CONTAINS
     tend   => prm_tend (jg)
 
     ictop(:,:)   = nlev-1
-    ! provisionally copy the incoming tedencies
-!$OMP PARALLEL DO PRIVATE(jcs,jce)
-    DO jb = i_startblk,i_endblk
-      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-      tend%   ta_phy (jcs:jce,:,jb)   = tend%   ta (jcs:jce,:,jb)
-      tend%   ua_phy (jcs:jce,:,jb)   = tend%   ua (jcs:jce,:,jb)
-      tend%   va_phy (jcs:jce,:,jb)   = tend%   va (jcs:jce,:,jb)
-      tend% qtrc_phy (jcs:jce,:,jb,:) = tend% qtrc (jcs:jce,:,jb,:)
-    END DO
-!$OMP END PARALLEL DO 
 
     ! initialize physics accumulated heating
     field% q_phy(:,:,:) = 0._wp
@@ -273,12 +263,13 @@ CONTAINS
         tend%ta_rlw_impl(jcs:jce,jb) = zq_rlw_impl(jcs:jce) * field% qconv(jcs:jce,nlev,jb)
 
         ! Tendencies accumulated
-        tend%ta(jcs:jce,nlev,jb) = tend%ta(jcs:jce,nlev,jb) + tend%ta_rlw_impl(jcs:jce,jb)
+        tend%ta_phy(jcs:jce,nlev,jb) = tend%ta_phy(jcs:jce,nlev,jb) + tend%ta_rlw_impl(jcs:jce,jb)
       END DO
 !$OMP END PARALLEL DO 
 
     END IF
     !---------------------
+
 
     !-------------------------------------------------------------------
     ! Linearized ozone chemistry of Cariolle
@@ -368,8 +359,8 @@ CONTAINS
 
     !-------------------------------------------------------------
     ! Update provisional physics state
-    field% qtrc(:,:,:,iqc) = field% qtrc(:,:,:,iqc) + tend% qtrc(:,:,:,iqc)*pdtime
-    field% qtrc(:,:,:,iqi) = field% qtrc(:,:,:,iqi) + tend% qtrc(:,:,:,iqi)*pdtime
+    field% qtrc(:,:,:,iqc) = field% qtrc(:,:,:,iqc) + tend% qtrc_phy(:,:,:,iqc)*pdtime
+    field% qtrc(:,:,:,iqi) = field% qtrc(:,:,:,iqi) + tend% qtrc_phy(:,:,:,iqi)*pdtime
 
     !-------------------------------------------------------------------
     ! Cloud processes
@@ -427,12 +418,8 @@ CONTAINS
       ! vertical integral
       field% q_phy_vi(jcs:jce,jb) = SUM(field% q_phy(jcs:jce,:,jb),DIM=2)
 
-      ! Now compute tendencies from physics alone
-      tend%   ta_phy (jcs:jce,:,jb)   = tend%   ta (jcs:jce,:,jb)   - tend%   ta_phy (jcs:jce,:,jb)
-      tend%   ua_phy (jcs:jce,:,jb)   = tend%   ua (jcs:jce,:,jb)   - tend%   ua_phy (jcs:jce,:,jb)
-      tend%   va_phy (jcs:jce,:,jb)   = tend%   va (jcs:jce,:,jb)   - tend%   va_phy (jcs:jce,:,jb)
-      tend% qtrc_phy (jcs:jce,:,jb,:) = tend% qtrc (jcs:jce,:,jb,:) - tend% qtrc_phy (jcs:jce,:,jb,:)
-
+      ! now convert the temperature tendency from physics, as computed for constant pressure conditions,
+      ! to constant volume conditions, as needed for the coupling to the dynamics
       tend% ta_phy (jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb)*field%cpair(jcs:jce,:,jb)/field%cvair(jcs:jce,:,jb)
     END DO
 !$OMP END PARALLEL DO 
@@ -458,7 +445,7 @@ CONTAINS
     INTEGER  :: jc
  
  
-     ! 3.3 Weighting factors for fractional surface coverage
+    ! 3.3 Weighting factors for fractional surface coverage
     !     Accumulate ice portion for diagnostics
 
     DO jc=jcs,jce
@@ -469,16 +456,16 @@ CONTAINS
       ! non-fractional, each grid cell is either land, sea, or sea-ice.
       ! See mo_echam_phy_init or input data set for details.
 
-      zfrl(jc) = field% lsmask(jc,jb)
+      zfrl(jc) = MAX(field% lsmask(jc,jb),0._wp)
 
       ! fraction of sea/lake in the grid box
       ! * (1. - fraction of sea ice in the sea/lake part of the grid box)
       ! => fraction of open water in the grid box
 
-      zfrw(jc) = (1._wp-zfrl(jc))*(1._wp-field%seaice(jc,jb))
+      zfrw(jc) = MAX(1._wp-zfrl(jc),0._wp)*MAX(1._wp-(field%seaice(jc,jb)+field%lake_ice_frc(jc,jb)),0._wp)
 
       ! fraction of sea ice in the grid box
-      zfri(jc) = 1._wp-zfrl(jc)-zfrw(jc)
+      zfri(jc) = MAX(1._wp-zfrl(jc)-zfrw(jc),0._wp)
       ! security for ice temperature with changing ice mask
       !
       IF(zfri(jc) > 0._wp .AND. field%ts_tile(jc,jb,iice) == cdimissval ) THEN

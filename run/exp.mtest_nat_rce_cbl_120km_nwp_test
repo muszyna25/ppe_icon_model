@@ -195,7 +195,6 @@ cat >> ${atmo_namelist} << EOF
 &sleve_nml
 /
 &transport_nml
-  ctracer_list  = '12345'
 /
 &diffusion_nml
 /

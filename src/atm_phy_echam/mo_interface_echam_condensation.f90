@@ -133,8 +133,8 @@ CONTAINS
                &     field% qtrc     (:,:,jb,iqv), &! in  qm1
                &     field% qtrc     (:,:,jb,iqc), &! in  xlm1
                &     field% qtrc     (:,:,jb,iqi), &! in  xim1
-               &      tend% ta       (:,:,jb),     &! in  tte
-               &      tend% qtrc     (:,:,jb,iqv), &! in  qte
+               &      tend%   ta_phy (:,:,jb),     &! in  tte
+               &      tend% qtrc_phy (:,:,jb,iqv), &! in  qte
                !
                &     itype,                        &! inout
                &     field% aclc     (:,:,jb),     &! inout
@@ -162,10 +162,10 @@ CONTAINS
        field% q_phy(jcs:jce,:,jb) = field% q_phy(jcs:jce,:,jb) + field% q_cld(jcs:jce,:,jb)
        !
        ! accumulate tendencies
-       tend% ta  (jcs:jce,:,jb)      = tend% ta  (jcs:jce,:,jb)     + tend% ta_cld  (jcs:jce,:,jb)
-       tend% qtrc(jcs:jce,:,jb,iqv)  = tend% qtrc(jcs:jce,:,jb,iqv) + tend% qtrc_cld(jcs:jce,:,jb,iqv)
-       tend% qtrc(jcs:jce,:,jb,iqc)  = tend% qtrc(jcs:jce,:,jb,iqc) + tend% qtrc_cld(jcs:jce,:,jb,iqc)
-       tend% qtrc(jcs:jce,:,jb,iqi)  = tend% qtrc(jcs:jce,:,jb,iqi) + tend% qtrc_cld(jcs:jce,:,jb,iqi)
+       tend%   ta_phy(jcs:jce,:,jb)      = tend%   ta_phy(jcs:jce,:,jb)     + tend%   ta_cld(jcs:jce,:,jb)
+       tend% qtrc_phy(jcs:jce,:,jb,iqv)  = tend% qtrc_phy(jcs:jce,:,jb,iqv) + tend% qtrc_cld(jcs:jce,:,jb,iqv)
+       tend% qtrc_phy(jcs:jce,:,jb,iqc)  = tend% qtrc_phy(jcs:jce,:,jb,iqc) + tend% qtrc_cld(jcs:jce,:,jb,iqc)
+       tend% qtrc_phy(jcs:jce,:,jb,iqi)  = tend% qtrc_phy(jcs:jce,:,jb,iqi) + tend% qtrc_cld(jcs:jce,:,jb,iqi)
        !
     ELSE
        !

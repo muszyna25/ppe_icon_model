@@ -99,14 +99,15 @@ CONTAINS
       ! iwtr      = 999
 
     CASE('TPEo','TPEc')
-      ! Terra-planet simulation, no ocean, no ice;
+      ! Terra-planet simulation
+      ! no ocean, no ice but lakes and ice on lakes ... therefore have to use iice and iwtr
       ! No need to distinguish the aggregated grid-box mean
       ! and the value on different types of surface
 
-      nsfc_type = 1
-      ilnd      = 1
-      iice      = 999
-      iwtr      = 999
+      nsfc_type = 3
+      iwtr      = 1
+      iice      = 2
+      ilnd      = 3
       igbm      = 0
 
     CASE DEFAULT

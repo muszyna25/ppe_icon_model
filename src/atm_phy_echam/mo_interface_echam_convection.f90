@@ -133,10 +133,10 @@ CONTAINS
        IF ( is_active ) THEN
           !
           ! Update physics state for input to convection
-          zta  (jcs:jce,:)   =     field% ta  (jcs:jce,:,jb)   + pdtime*tend% ta  (jcs:jce,:,jb)
-          zqtrc(jcs:jce,:,:) = MAX(field% qtrc(jcs:jce,:,jb,:) + pdtime*tend% qtrc(jcs:jce,:,jb,:), 0.0_wp)
-          zua  (jcs:jce,:)   =     field% ua  (jcs:jce,:,jb)   + pdtime*tend% ua  (jcs:jce,:,jb)
-          zva  (jcs:jce,:)   =     field% va  (jcs:jce,:,jb)   + pdtime*tend% va  (jcs:jce,:,jb)
+          zta  (jcs:jce,:)   =     field% ta  (jcs:jce,:,jb)   + pdtime*tend%   ta_phy(jcs:jce,:,jb)
+          zqtrc(jcs:jce,:,:) = MAX(field% qtrc(jcs:jce,:,jb,:) + pdtime*tend% qtrc_phy(jcs:jce,:,jb,:), 0.0_wp)
+          zua  (jcs:jce,:)   =     field% ua  (jcs:jce,:,jb)   + pdtime*tend%   ua_phy(jcs:jce,:,jb)
+          zva  (jcs:jce,:)   =     field% va  (jcs:jce,:,jb)   + pdtime*tend%   va_phy(jcs:jce,:,jb)
           !
           zqtrc_cnd(jcs:jce,:) = zqtrc(jcs:jce,:,iqc) + zqtrc(jcs:jce,:,iqi)
           ztend_qv (jcs:jce,:) = tend%qtrc_dyn(jcs:jce,:,jb,iqv) + tend%qtrc_phy(jcs:jce,:,jb,iqv)
@@ -197,14 +197,14 @@ CONTAINS
        field% q_phy(jcs:jce,:,jb) = field% q_phy(jcs:jce,:,jb) + field% q_cnv(jcs:jce,:,jb)
        !
        ! accumulate tendencies
-       tend% ua(jcs:jce,:,jb) = tend% ua(jcs:jce,:,jb) + tend% ua_cnv(jcs:jce,:,jb)
-       tend% va(jcs:jce,:,jb) = tend% va(jcs:jce,:,jb) + tend% va_cnv(jcs:jce,:,jb)
-       tend% ta(jcs:jce,:,jb) = tend% ta(jcs:jce,:,jb) + tend% ta_cnv(jcs:jce,:,jb)
+       tend%   ua_phy(jcs:jce,:,jb)      = tend%   ua_phy(jcs:jce,:,jb)      + tend%   ua_cnv(jcs:jce,:,jb)
+       tend%   va_phy(jcs:jce,:,jb)      = tend%   va_phy(jcs:jce,:,jb)      + tend%   va_cnv(jcs:jce,:,jb)
+       tend%   ta_phy(jcs:jce,:,jb)      = tend%   ta_phy(jcs:jce,:,jb)      + tend%   ta_cnv(jcs:jce,:,jb)
        !
-       tend% qtrc(jcs:jce,:,jb,iqv)  = tend% qtrc(jcs:jce,:,jb,iqv)  + tend% qtrc_cnv(jcs:jce,:,jb,iqv)
-       tend% qtrc(jcs:jce,:,jb,iqc)  = tend% qtrc(jcs:jce,:,jb,iqc)  + tend% qtrc_cnv(jcs:jce,:,jb,iqc)
-       tend% qtrc(jcs:jce,:,jb,iqi)  = tend% qtrc(jcs:jce,:,jb,iqi)  + tend% qtrc_cnv(jcs:jce,:,jb,iqi)
-       tend% qtrc(jcs:jce,:,jb,iqt:) = tend% qtrc(jcs:jce,:,jb,iqt:) + tend% qtrc_cnv(jcs:jce,:,jb,iqt:)
+       tend% qtrc_phy(jcs:jce,:,jb,iqv)  = tend% qtrc_phy(jcs:jce,:,jb,iqv)  + tend% qtrc_cnv(jcs:jce,:,jb,iqv)
+       tend% qtrc_phy(jcs:jce,:,jb,iqc)  = tend% qtrc_phy(jcs:jce,:,jb,iqc)  + tend% qtrc_cnv(jcs:jce,:,jb,iqc)
+       tend% qtrc_phy(jcs:jce,:,jb,iqi)  = tend% qtrc_phy(jcs:jce,:,jb,iqi)  + tend% qtrc_cnv(jcs:jce,:,jb,iqi)
+       tend% qtrc_phy(jcs:jce,:,jb,iqt:) = tend% qtrc_phy(jcs:jce,:,jb,iqt:) + tend% qtrc_cnv(jcs:jce,:,jb,iqt:)
        !
     ELSE
        !

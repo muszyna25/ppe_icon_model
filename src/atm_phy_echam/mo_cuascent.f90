@@ -191,7 +191,6 @@ CONTAINS
         pqude(jl,jk)=0._wp
         pdmfup(jl,jk)=0._wp
         IF(.NOT.ldcum(jl).OR.ktype(jl).EQ.3) klab(jl,jk)=0
-        IF(.NOT.ldcum(jl).AND.paphp1(jl,jk).LT.4.e4_wp) kctop0(jl)=jk  ! <-- not deep conv. limited to 400 hPa
         IF(jk.LT.kcbot(jl)) klab(jl,jk)=0
       END DO
       DO jt=1,ktrac

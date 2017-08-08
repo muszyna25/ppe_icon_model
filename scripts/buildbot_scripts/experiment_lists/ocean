@@ -1,13 +1,4 @@
-<<<<<<< HEAD
-=======
-machine|daint_cpu|default
-builder|DAINT_CPU_cce||Ocean
-experiment|checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_Hex|cpu_time=00:30:00
-experiment|checksuite.ocean_internal/technical/exp.ocean_omip_ptest|cpu_time=00:30:00
-experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
-experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00
->>>>>>> reference/master
-machine|mistral|compute
+machine|mistral|
 builder|MISTRAL_intel|--with-fortran=intel|Ocean
 experiment|checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_Hex|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/technical/exp.ocean_omip_ptest|cpu_time=00:30:00

@@ -57,7 +57,7 @@ MODULE mo_ompthreads
   
   TYPE t_ompthread_strc
     INTEGER :: status
-    INTEGER :: recieved_request
+    INTEGER :: received_request
     INTEGER :: send_request
 !     INTEGER :: comm_request
 !     INTEGER :: from_thread
@@ -106,7 +106,7 @@ CONTAINS
       IF (ompthread_of(thread_id)%status == ompthread_notused) THEN
         ompthread_of(thread_id)%status           = ompthread_ready
         ompthread_of(thread_id)%sync_status      = ompthread_null
-        ompthread_of(thread_id)%recieved_request = ompthread_null
+        ompthread_of(thread_id)%received_request = ompthread_null
         ompthread_of(thread_id)%send_request     = ompthread_null
         new_ompthread%id = thread_id
         RETURN
@@ -147,7 +147,7 @@ CONTAINS
     TYPE (t_ompthread), INTENT(in) :: thread
 
     ompthread_has_endrequest = &
-      & (ompthread_of(thread%id)%recieved_request == ompthread_endrequest)
+      & (ompthread_of(thread%id)%received_request == ompthread_endrequest)
 
   END FUNCTION ompthread_has_endrequest
   !-----------------------------------------
@@ -173,7 +173,7 @@ CONTAINS
     IF (ompthread_of(my_thread_id)%status == ompthread_ended) THEN
       write(0,*) my_thread_id, ' is dead, but requests sync from thread ', to_thread_id
       sync_ompthread_to = ompthread_ended
-      my_thread%recieved_request = sync_ompthread_to
+      my_thread%received_request = sync_ompthread_to
       RETURN
     ENDIF
     
@@ -185,7 +185,7 @@ CONTAINS
     IF (ompthread_of(to_thread_id)%status == ompthread_ended) THEN
       write(0,*) my_thread_id, ' requests sync from dead thread ', to_thread_id
       sync_ompthread_to = ompthread_ended
-      my_thread%recieved_request = sync_ompthread_to
+      my_thread%received_request = sync_ompthread_to
       RETURN
     ENDIF
 
@@ -193,7 +193,7 @@ CONTAINS
     ! sync the threads
     write(0,*) my_thread_id, ' waits for sync from ', to_thread_id
     wait_cnt = wait_for_syncrequest_ompthread(to_thread_id)
-    write(0,*) my_thread_id, ' recieved sync from ', to_thread_id
+    write(0,*) my_thread_id, ' received sync from ', to_thread_id
     !-----------------------------
     ! make sure we communicate with the right thread.
     ! ..................
@@ -202,7 +202,7 @@ CONTAINS
     ! get request
     sync_ompthread_to = to_thread%send_request    
     IF (sync_ompthread_to == ompthread_endrequest) THEN
-      write(0,*) my_thread_id, ' recieved ompthread_endrequest from ', to_thread_id
+      write(0,*) my_thread_id, ' received ompthread_endrequest from ', to_thread_id
     ENDIF
     
     ! -----------------------------------------
@@ -217,7 +217,7 @@ CONTAINS
    
     !----------------------------------------------
     ! update my request
-    my_thread%recieved_request = sync_ompthread_to
+    my_thread%received_request = sync_ompthread_to
     
     RETURN
     
