@@ -516,8 +516,7 @@ MODULE mo_nh_stepping
 
   TYPE(timedelta), POINTER             :: model_time_step => NULL()
 
-  TYPE(datetime), POINTER              :: eventRefDate      => NULL(), &
-       &                                  eventStartDate    => NULL(), &
+  TYPE(datetime), POINTER              :: eventStartDate    => NULL(), &
        &                                  eventEndDate      => NULL()
   TYPE(datetime), POINTER              :: checkpointRefDate => NULL(), &
        &                                  restartRefDate    => NULL()
@@ -618,7 +617,6 @@ MODULE mo_nh_stepping
 
   CALL message('','')
 
-  eventRefDate   => time_config%tc_exp_refdate
   eventStartDate => time_config%tc_exp_startdate
   eventEndDate   => time_config%tc_exp_stopdate
 
