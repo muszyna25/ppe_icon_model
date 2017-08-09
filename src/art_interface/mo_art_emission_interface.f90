@@ -80,6 +80,7 @@ MODULE mo_art_emission_interface
   USE mo_art_emission_pollen,           ONLY: art_emiss_pollen
   USE mo_art_emission_pntSrc,           ONLY: art_emission_pntSrc
   USE mo_art_read_emissions,            ONLY: art_add_emission_to_tracers,  &
+                                          &   art_init_emission_struct,     &
                                           &   art_read_emissions
   USE mo_art_prescribed_types,          ONLY: t_art_prescr_list_element
   USE omp_lib 
@@ -182,7 +183,11 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
         prescr_element => p_art_data(jg)%prescr_list%first_prescr_element
 
         DO WHILE(ASSOCIATED(prescr_element))
-          CALL art_read_emissions(p_patch,current_date,prescr_element%prescr)
+          IF (prescr_element%prescr%type_is_init) THEN
+            CALL art_read_emissions(p_patch,current_date,prescr_element%prescr)
+          ELSE
+            CALL art_init_emission_struct(p_patch,current_date,prescr_element%prescr)
+          END IF
 
           DO ijsp = 1,prescr_element%prescr%num_vars
             tracer(:,:,:,prescr_element%prescr%tracer_idx(ijsp)) = &
