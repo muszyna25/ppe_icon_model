@@ -4191,7 +4191,6 @@ CONTAINS
             END DO
         END IF
 
-        DEALLOCATE(info_storage)
     END DO
   END SUBROUTINE varlistPacker
 
