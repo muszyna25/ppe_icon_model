@@ -279,7 +279,7 @@ MODULE mo_parallel_nml
     ! MPI gather to output processes in DOUBLE PRECISION
     use_dp_mpi2io = .FALSE.
 
-    restart_chunk_size = 1
+    restart_chunk_size = -1
 
     io_proc_chunk_size = -1
 
