@@ -59,6 +59,13 @@ MODULE mo_echam_phy_main
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_loopindices         ,ONLY: get_indices_c
   USE mo_model_domain        ,ONLY: t_patch
+
+  USE mo_ext_data_state,                ONLY: ext_data
+  USE mo_linked_list,                   ONLY: t_var_list
+  USE mo_nonhydro_types,                ONLY: t_nh_diag
+  USE mo_nonhydro_types,                ONLY: t_nh_metrics, t_nh_prog, t_nh_diag
+  USE mo_art_reaction_interface,        ONLY: art_reaction_interface
+
   
   IMPLICIT NONE
   PRIVATE
@@ -80,7 +87,12 @@ CONTAINS
   SUBROUTINE echam_phy_main( patch,            &
     &                        rl_start, rl_end, &
     &                        datetime_old,     &
-    &                        pdtime            )
+    &                        pdtime,           &
+    &                        p_prog_list,      &
+    &                        pt_prog_new,      &
+    &                        p_metrics,        &
+    &                        pt_diag )
+
 
     TYPE(t_patch)  ,TARGET ,INTENT(in) :: patch
     INTEGER                ,INTENT(in) :: rl_start, rl_end
@@ -104,6 +116,15 @@ CONTAINS
 
     LOGICAL  :: is_in_sd_ed_interval                     !< time is in process interval [sd,ed[
     LOGICAL  :: is_active                                !< process is active
+
+    TYPE(t_var_list), INTENT(IN)        :: &
+    &  p_prog_list                       !< current prognostic state list
+    TYPE(t_nh_prog), INTENT(IN)         :: &
+    &  pt_prog_new
+    TYPE(t_nh_metrics), INTENT(IN)      :: &
+    &  p_metrics                         !< NH metrics state
+    TYPE(t_nh_diag), INTENT(IN)       :: &
+    &  pt_diag                            !< list of diagnostic fields
 
     jg         = patch%id
     i_nchdom   = MAX(1,patch%n_childdom)
@@ -404,6 +425,27 @@ CONTAINS
            &                       tend                                      )
     END IF
 
+    
+    IF (mpi_phy_tc(jg)%dt_art > dt_zero) THEN
+
+      is_in_sd_ed_interval =          (mpi_phy_tc(jg)%sd_art <= datetime_old) .AND. &
+           &                          (mpi_phy_tc(jg)%ed_art >  datetime_old)
+      is_active = isCurrentEventActive(mpi_phy_tc(jg)%ev_art,   datetime_old)
+
+      CALL message_forcing_action('ART (rad)',  &
+            &                      is_in_sd_ed_interval,is_active)
+
+       CALL art_reaction_interface(ext_data(jg),           & !> in
+            &                      patch,                  & !> in
+            &                      datetime_old,           & !> in
+            &                      pdtime,                 & !> in
+            &                      p_prog_list,            & !> in
+            &                      pt_prog_new,            &
+            &                      p_metrics,              & !> in
+            &                      pt_diag,                & !> inout
+            &                      field%qtrc,             &
+            &                      tend = tend)
+    ENDIF
 
 !$OMP PARALLEL DO PRIVATE(jcs,jce)
     DO jb = i_startblk,i_endblk

@@ -648,7 +648,11 @@ CONTAINS
     CALL echam_phy_main( patch,           &! in
       &                  rl_start, rl_end,&! in  
       &                  datetime_old    ,&! in
-      &                  dt_loc          ) ! in
+      &                  dt_loc,          & !in
+      &                  p_prog_list,     & 
+      &                  pt_prog_new,     &
+      &                  p_metrics,       & 
+      &                  pt_diag          ) 
 
     IF (ltimer) CALL timer_stop(timer_echam_phy)
 
@@ -1057,17 +1061,6 @@ CONTAINS
     !
     !=====================================================================================
 
-    IF (mpi_phy_tc(jg)%dt_art > dt_zero) THEN
-       CALL art_reaction_interface(ext_data(jg),           & !> in
-            &                      patch,                  & !> in
-            &                      datetime_new,           & !> in
-            &                      dt_loc,                 & !> in
-            &                      p_prog_list,            & !> in
-            &                      pt_prog_new,            &
-            &                      p_metrics,              & !> in
-            &                      pt_diag,                & !> inout
-            &                      pt_prog_new_rcf%tracer)
-    ENDIF
 
   END SUBROUTINE interface_iconam_echam
   !----------------------------------------------------------------------------
