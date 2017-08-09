@@ -990,10 +990,12 @@ if [[ "x$use_art" = xyes ]] ; then
     # ATTENTION: only temporary until chemistry part of ICON-ART is Fortran 2003 conform !!!
     if [[ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ]] ; then
         FFLAGS="`echo ${FFLAGS} | sed -e s/-std=f2003/-std=gnu/`"
-        FFLAGS="${FFLAGS} -fall-intrinsics"
     fi
 fi
 
+if [[ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ]] ; then
+    FFLAGS="${FFLAGS} -fall-intrinsics"
+fi
 ac_srcdirs=$my_srcdirs
 
 if test "$use_mpcc_r" = yes ; then
