@@ -120,6 +120,8 @@ MODULE mo_psrad_radiation
   USE mo_psrad_orbit_config,  ONLY : psrad_orbit_config
 
   USE mtime, ONLY: datetime, getTotalSecondsTimeDelta
+
+  USE mo_run_config, ONLY: lart
   
   IMPLICIT NONE
   
@@ -378,7 +380,7 @@ MODULE mo_psrad_radiation
       CASE(0)
         CALL message('','irad_co2   = 0 --> no CO2 in radiation')
       CASE(1)
-        IF ( iqt <= ico2 .AND. ico2 <= ntracer) THEN
+        IF ( iqt <= ico2 .AND. ico2 <= ntracer .AND. .NOT. lart) THEN
           CALL message('','irad_co2   = 1 --> CO2   mass mixing ratio from tracer field')
         ELSE
           CALL finish('setup_psrad_radiation','irad_co2 = 1 (CO2 tracer in radiation) is not '// &
@@ -1075,6 +1077,15 @@ MODULE mo_psrad_radiation
       xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3, xm_dry,     &
            &                             gas_val = xm_ozn(1:kproma,:),      &
            &                             gas_factor     = fo3)
+
+    CASE(10) ! ozone from ART
+        IF (.NOT. lart) CALL finish('psrad:mo_psrad_radiation', &
+            & 'irad_o3=10 not supported without lart = .True.')
+
+        xm_o3(1:kproma,:)    = gas_profile(kproma, klev, 8, xm_dry,       &
+          &                             gas_scenario_v = xm_ozn(1:kproma,:), &
+          &                             gas_factor     = fo3)
+
 
     CASE(io3_clim, io3_ape)
 

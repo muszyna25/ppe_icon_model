@@ -189,7 +189,7 @@ CONTAINS
       END IF
       !
       ! ozone concentration
-      IF (irad_o3 == io3_amip) THEN
+      IF (irad_o3 == io3_amip .OR. irad_o3 == 10 ) THEN
         CALL read_bc_ozone(mtime_old%date%year, patch)
       END IF
       !
