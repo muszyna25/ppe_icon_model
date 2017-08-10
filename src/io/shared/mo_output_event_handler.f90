@@ -1465,16 +1465,15 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     p_event%n_event_steps            = 0
     p_event%i_event_step             = 1
-    IF (TRIM(event1%event_data%name) == TRIM(event2%event_data%name)) THEN
-      p_event%event_data%name        = TRIM(event1%event_data%name)
+    IF (event1%event_data%name == event2%event_data%name) THEN
+      p_event%event_data%name        = event1%event_data%name
     ELSE
       p_event%event_data%name        = TRIM(event1%event_data%name)//","//TRIM(event2%event_data%name)
     END IF
-    IF (TRIM(event1%event_data%sim_start) == TRIM(event2%event_data%sim_start)) THEN
-      p_event%event_data%sim_start = event1%event_data%sim_start
-    ELSE
+    IF (event1%event_data%sim_start /= event2%event_data%sim_start) THEN
       CALL finish(routine, "Simulation start dates do not match!")
     END IF
+    p_event%event_data%sim_start = event1%event_data%sim_start
 
     ! loop over the two events, determine the size of the union:
     i2 = 1
@@ -1501,7 +1500,7 @@ CONTAINS
         DO i2=1,event2%n_event_steps
           DO j2=1,event2%event_step(i2)%n_pes
             IF (.NOT. event2%event_step(i2)%event_step_data(j2)%l_open_file) CYCLE
-            IF (TRIM(event2%event_step(i2)%event_step_data(j2)%filename_string) == TRIM(filename_string1)) THEN
+            IF (event2%event_step(i2)%event_step_data(j2)%filename_string == filename_string1) THEN
               ! found a duplicate filename:
               CALL finish(routine, "Error! Ambiguous output file name: '"//TRIM(filename_string1)//"'")
             END IF
