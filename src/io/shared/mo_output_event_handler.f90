@@ -1294,13 +1294,7 @@ CONTAINS
     IF (ldebug)  WRITE (0,*) routine, " enter."
 
     NULLIFY(union_of_all_events)
-    ! get the number of ranks in this MPI communicator
-    nranks  =  1
-#ifdef NOMPI
-    this_pe = root_outevent
-#else
-    this_pe = -1
-#endif
+
     IF (icomm /= mpi_comm_null) THEN
       this_pe = p_comm_rank(icomm)
       nranks = p_comm_size(icomm)
