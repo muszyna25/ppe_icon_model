@@ -1439,5 +1439,4 @@ AS_IF([test "x$enable_atmo" = "xyes" && test "x$enable_ocean" = "xno"],
       [AC_MSG_WARN([In order to use ECHAM physics, you need to enable ocean!])
        echo ""])
 
-echo ""
 
