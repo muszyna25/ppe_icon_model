@@ -672,11 +672,6 @@ case "$ac_sitename" in
                 XML2ROOT    = /usr
                 GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
                 MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
-                case "$with_art" in
-                     yes)
-                       OTHER_LIBS = ${OTHER_LIBS} -lxml2
-                       ;;
-                esac
                 CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2
                 config_target=ic2
                 make_command=make -j8

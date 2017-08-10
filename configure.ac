@@ -48,6 +48,9 @@ AS_CASE([$ac_hostname],
         [ic2*],      
         [ac_sitename=kit.edu;
          fqdn=$ac_hostname.$ac_sitename],         
+        [uc1*],      
+        [ac_sitename=kit.edu;
+         fqdn=$ac_hostname.$ac_sitename],         
         [fh2*],      
         [ac_sitename=kit.edu;
          fqdn=$ac_hostname.$ac_sitename],         
