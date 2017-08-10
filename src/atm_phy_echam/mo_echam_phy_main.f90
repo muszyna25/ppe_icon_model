@@ -313,6 +313,27 @@ CONTAINS
        !
     END IF
 
+    IF (mpi_phy_tc(jg)%dt_art > dt_zero) THEN
+
+      is_in_sd_ed_interval =          (mpi_phy_tc(jg)%sd_art <= datetime_old) .AND. &
+           &                          (mpi_phy_tc(jg)%ed_art >  datetime_old)
+      is_active = isCurrentEventActive(mpi_phy_tc(jg)%ev_art,   datetime_old)
+
+      CALL message_forcing_action('ART (rad)',  &
+            &                      is_in_sd_ed_interval,is_active)
+
+       CALL art_reaction_interface(ext_data(jg),           & !> in
+            &                      patch,                  & !> in
+            &                      datetime_old,           & !> in
+            &                      pdtime,                 & !> in
+            &                      p_prog_list,            & !> in
+            &                      pt_prog_new,            &
+            &                      p_metrics,              & !> in
+            &                      pt_diag,                & !> inout
+            &                      field%qtrc,             &
+            &                      tend = tend)
+    ENDIF
+
     !-------------------------------------------------------------------
     ! Atmospheric gravity wave drag
     !-------------------------------------------------------------------
@@ -426,26 +447,7 @@ CONTAINS
     END IF
 
     
-    IF (mpi_phy_tc(jg)%dt_art > dt_zero) THEN
 
-      is_in_sd_ed_interval =          (mpi_phy_tc(jg)%sd_art <= datetime_old) .AND. &
-           &                          (mpi_phy_tc(jg)%ed_art >  datetime_old)
-      is_active = isCurrentEventActive(mpi_phy_tc(jg)%ev_art,   datetime_old)
-
-      CALL message_forcing_action('ART (rad)',  &
-            &                      is_in_sd_ed_interval,is_active)
-
-       CALL art_reaction_interface(ext_data(jg),           & !> in
-            &                      patch,                  & !> in
-            &                      datetime_old,           & !> in
-            &                      pdtime,                 & !> in
-            &                      p_prog_list,            & !> in
-            &                      pt_prog_new,            &
-            &                      p_metrics,              & !> in
-            &                      pt_diag,                & !> inout
-            &                      field%qtrc,             &
-            &                      tend = tend)
-    ENDIF
 
 !$OMP PARALLEL DO PRIVATE(jcs,jce)
     DO jb = i_startblk,i_endblk

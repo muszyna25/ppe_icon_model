@@ -801,7 +801,7 @@ CONTAINS
       ! Loop over cells
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-      DO jt =1,ntracer    
+      DO jt =1,3    
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
           DO jc = jcs, jce
@@ -908,7 +908,7 @@ CONTAINS
       ! Loop over cells
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-      DO jt =1,ntracer    
+      DO jt =1,3    
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
           DO jk = 1,nlev
@@ -930,6 +930,21 @@ CONTAINS
           END DO
         END DO
       END DO
+
+  IF(lart) THEN 
+      DO jt = 4,ntracer
+        DO jb = i_startblk,i_endblk
+          CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+          DO jk = 1,nlev
+            DO jc = jcs, jce
+             ! prm_tend(jg)%qtrc_phy(jc,jk,jb,4) = 0.0_wp
+
+  pt_prog_new_rcf% tracer(jc,jk,jb,jt) = prm_field(jg)%qtrc(jc,jk,jb,jt)  +prm_tend(jg)%qtrc_phy(jc,jk,jb,jt)*dt_loc
+            ENDDO
+          ENDDO
+        ENDDO
+    ENDDO
+  ENDIF
 !$OMP END DO
 !$OMP END PARALLEL
 
