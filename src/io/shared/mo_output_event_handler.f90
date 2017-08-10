@@ -1456,14 +1456,13 @@ CONTAINS
     TYPE(t_output_event), INTENT(IN) :: event1, event2
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::event_union"
-    INTEGER                             :: i1, i2, ierrstat, i, i_sim_step1, i_sim_step2, &
-      &                                    max_sim_step, j1, j2
+    INTEGER                             :: i1, i2, ierrstat, i_sim_step1, i_sim_step2, &
+      &                                    max_sim_step, j1, j2, nsteps
     CHARACTER(LEN=MAX_FILENAME_STR_LEN) :: filename_string1
 
     ! allocate event data structure
     ALLOCATE(p_event, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-    p_event%n_event_steps            = 0
     p_event%i_event_step             = 1
     IF (event1%event_data%name == event2%event_data%name) THEN
       p_event%event_data%name        = event1%event_data%name
@@ -1474,22 +1473,6 @@ CONTAINS
       CALL finish(routine, "Simulation start dates do not match!")
     END IF
     p_event%event_data%sim_start = event1%event_data%sim_start
-
-    ! loop over the two events, determine the size of the union:
-    i2 = 1
-    DO i1=1,event1%n_event_steps
-      p_event%n_event_steps = p_event%n_event_steps + 1
-      ! find step in second event matching i1:
-      STEP_LOOP1 : DO
-        IF (i2 > event2%n_event_steps)  EXIT STEP_LOOP1
-        IF (event2%event_step(i2)%i_sim_step > event1%event_step(i1)%i_sim_step)  EXIT STEP_LOOP1
-        ! avoid double-counting joint event steps:
-        IF (.NOT. (event1%event_step(i1)%i_sim_step == event2%event_step(i2)%i_sim_step)) THEN
-          p_event%n_event_steps = p_event%n_event_steps + 1
-        END IF
-        i2 = i2 + 1
-      END DO STEP_LOOP1
-    END DO
 
     ! consistency check: test, if any of the filenames in event1
     ! occurs in event2 (avoid duplicate names)
@@ -1515,11 +1498,10 @@ CONTAINS
     IF (event2%n_event_steps > 0)  max_sim_step = MAX(max_sim_step, event2%event_step(event2%n_event_steps)%i_sim_step)
     max_sim_step = max_sim_step + 1
 
-    i  = 0
+    nsteps = 0
     i1 = 1
     i2 = 1
-    DO
-      IF ((i1 > event1%n_event_steps) .AND. (i2 > event2%n_event_steps))  EXIT
+    DO WHILE (i1 <= event1%n_event_steps .OR. i2 <= event2%n_event_steps)
       IF (i1 > event1%n_event_steps) THEN
         i_sim_step1 = max_sim_step
       ELSE
@@ -1530,31 +1512,21 @@ CONTAINS
       ELSE
         i_sim_step2 = event2%event_step(i2)%i_sim_step
       END IF
-      IF (i_sim_step2 > i_sim_step1) THEN
-        ! copy event step i1 from event1:
-        i = i+1
-        i1 = i1 + 1
-      ELSE IF (i_sim_step2 < i_sim_step1) THEN
-        ! copy event step i2 from event2:
-        i = i+1
-        i2 = i2 + 1
-      ELSE
-        i = i+1
-        ! join event steps:
-        i1 = i1 + 1
-        i2 = i2 + 1
-      END IF
+      nsteps = nsteps+1
+      ! copy event step i1 from event1:
+      i1 = i1 + MERGE(1, 0, i_sim_step2 >= i_sim_step1)
+      ! copy event step i2 from event2:
+      i2 = i2 + MERGE(1, 0, i_sim_step2 <= i_sim_step1)
     END DO
-    p_event%n_event_steps = i
+    p_event%n_event_steps = nsteps
 
     ! now create the new event:
-    ALLOCATE(p_event%event_step(p_event%n_event_steps), STAT=ierrstat)
+    ALLOCATE(p_event%event_step(nsteps), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-    i  = 0
+    nsteps = 0
     i1 = 1
     i2 = 1
-    DO
-      IF ((i1 > event1%n_event_steps) .AND. (i2 > event2%n_event_steps))  EXIT
+    DO WHILE (i1 <= event1%n_event_steps .OR. i2 <= event2%n_event_steps)
       IF (i1 > event1%n_event_steps) THEN
         i_sim_step1 = max_sim_step
       ELSE
@@ -1565,21 +1537,19 @@ CONTAINS
       ELSE
         i_sim_step2 = event2%event_step(i2)%i_sim_step
       END IF
+      nsteps = nsteps+1
       IF (i_sim_step2 > i_sim_step1) THEN
         ! copy event step i1 from event1:
-        i = i+1
-        CALL append_event_step(p_event%event_step(i), event1%event_step(i1), l_create=.TRUE.)
+        CALL append_event_step(p_event%event_step(nsteps), event1%event_step(i1), l_create=.TRUE.)
         i1 = i1 + 1
       ELSE IF (i_sim_step2 < i_sim_step1) THEN
         ! copy event step i2 from event2:
-        i = i+1
-        CALL append_event_step(p_event%event_step(i), event2%event_step(i2), l_create=.TRUE.)
+        CALL append_event_step(p_event%event_step(nsteps), event2%event_step(i2), l_create=.TRUE.)
         i2 = i2 + 1
       ELSE
-        i = i+1
         ! join event steps:
-        CALL append_event_step(p_event%event_step(i), event1%event_step(i1), l_create=.TRUE.)
-        CALL append_event_step(p_event%event_step(i), event2%event_step(i2), l_create=.FALSE.)
+        CALL append_event_step(p_event%event_step(nsteps), event1%event_step(i1), l_create=.TRUE.)
+        CALL append_event_step(p_event%event_step(nsteps), event2%event_step(i2), l_create=.FALSE.)
         i1 = i1 + 1
         i2 = i2 + 1
       END IF
