@@ -1125,8 +1125,9 @@ CONTAINS
         CALL ww_diagnostics( nproma, nlev, nlevp1, i_startidx, i_endidx, jg,             &
             &                pt_diag%temp(:,:,jb), pt_prog_rcf%tracer(:,:,jb,iqv),       &
             &                pt_prog_rcf%tracer(:,:,jb,iqc),                             &
-            &                pt_diag%u   (:,:,jb), pt_diag%v       (:,:,jb),             &
-            &                pt_diag%pres(:,:,jb), pt_diag%pres_ifc(:,:,jb),             &
+            &                pt_diag%u   (:,:,jb), pt_diag%v         (:,:,jb),           &
+            &                prm_diag%clc(:,:,jb),                                       &
+            &                pt_diag%pres(:,:,jb), pt_diag%pres_ifc  (:,:,jb),           &
             &                prm_diag%t_2m     (:,jb), prm_diag%td_2m   (:,jb),          &
             &                p_prog_lnd_now%t_g(:,jb),                                   &
             &                prm_diag%clct     (:,jb), prm_diag%clcm    (:,jb),          &
@@ -1136,7 +1137,7 @@ CONTAINS
             &                prm_diag%snow_gsp0(:,jb), prm_diag%snow_gsp(:,jb),          &
             &                prm_diag%snow_con0(:,jb), prm_diag%snow_con(:,jb),          &
             &                prm_diag%mbas_con (:,jb), prm_diag%mtop_con(:,jb),          &
-            &                time_diff, 'ICON',         prm_diag%iww     (:,jb) )
+            &                time_diff, prm_diag%iww(:,jb) )
 !       Save precipitation and time until next call of ww_diagnostics
         DO jc = i_startidx, i_endidx
           prm_diag%rain_gsp0(jc,jb) = prm_diag%rain_gsp(jc,jb)
