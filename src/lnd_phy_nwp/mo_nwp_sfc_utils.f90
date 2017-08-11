@@ -925,7 +925,7 @@ CONTAINS
 
 
 
-      IF(lsnowtile .AND. .NOT. lsnowtile_warmstart) THEN ! snow is considered as separate tiles
+      IF(lsnowtile) THEN ! snow is considered as separate tiles
         DO isubs = 1, ntiles_lnd
 
           isubs_snow = isubs + ntiles_lnd
