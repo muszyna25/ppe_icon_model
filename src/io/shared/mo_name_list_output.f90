@@ -190,6 +190,7 @@ MODULE mo_name_list_output
   PUBLIC :: close_name_list_output
   PUBLIC :: istime4name_list_output
   PUBLIC :: name_list_io_main_proc
+  PUBLIC :: write_ready_files_cdipio
 
   !> module name string
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_name_list_output'
@@ -623,6 +624,24 @@ CONTAINS
     IF (ltimer) CALL timer_stop(timer_write_output)
     IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": write_name_list_output done."
   END SUBROUTINE write_name_list_output
+
+  SUBROUTINE write_ready_files_cdipio
+    TYPE(t_par_output_event), POINTER :: ev
+    IF (p_pe_work == 0) THEN
+      ev => all_events
+      DO WHILE (ASSOCIATED(ev))
+        IF (.NOT. is_output_event_finished(ev)) THEN
+          !--- write ready file
+          !
+          IF (check_write_readyfile(ev%output_event)) CALL write_ready_file(ev)
+          ! launch a non-blocking request to all participating PEs to
+          ! acknowledge the completion of the next output event
+          ev%output_event%i_event_step = ev%output_event%i_event_step + 1
+          ev => ev%next
+        END IF
+      END DO
+    END IF
+  END SUBROUTINE write_ready_files_cdipio
 
 
   !------------------------------------------------------------------------------------------------

@@ -299,13 +299,13 @@ MODULE mo_mpi
             MPI_UNDEFINED, mpi_max, mpi_in_place
 #else
   PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS, &
-            MPI_INFO_NULL, MPI_ADDRESS_KIND, MPI_COMM_SELF, &
+            MPI_INFO_NULL, MPI_ADDRESS_KIND, &
             MPI_UNDEFINED, mpi_max, mpi_in_place, mpi_op_null, &
             mpi_datatype_null, mpi_sum, mpi_lor
 #endif
   PUBLIC :: MPI_2INTEGER
 #endif
-  PUBLIC :: MPI_ANY_SOURCE, MPI_COMM_NULL
+  PUBLIC :: MPI_ANY_SOURCE, MPI_COMM_NULL, MPI_COMM_SELF
 
   ! real data type matching real type of MPI implementation
   PUBLIC :: p_real_dp, p_real_sp, p_real

@@ -124,8 +124,12 @@ MODULE mo_atmo_model
   USE mo_interface_echam_ocean,   ONLY: construct_atmo_coupler, destruct_atmo_coupler
 
   ! I/O
+#ifndef NOMPI
   USE mo_restart,                 ONLY: detachRestartProcs
-  USE mo_name_list_output,        ONLY: name_list_io_main_proc
+#endif
+  USE mo_name_list_output,        ONLY: name_list_io_main_proc, &
+    &                                   write_ready_files_cdipio
+  USE mo_name_list_output_init,   ONLY: init_cdipio_cb
   USE mo_name_list_output_config, ONLY: use_async_name_list_io
   USE mo_time_config,             ONLY: time_config      ! variable
   USE mo_output_event_types,      ONLY: t_sim_step_info
@@ -368,6 +372,10 @@ CONTAINS
       ! initialize parallel output via CDI-PIO
 #ifdef HAVE_CDI_PIO
       cdi_base_namespace = namespaceGetActive()
+      CALL cdiPioConfSetCallBackActions(nml_io_cdi_pio_conf_handle, &
+        cdipio_callback_postcommsetup, init_cdipio_cb)
+      CALL cdiPioConfSetCallBackActions(nml_io_cdi_pio_conf_handle, &
+        cdipio_callback_postwritebatch, write_ready_files_cdipio)
       nml_io_cdi_pio_client_comm = &
         &   cdiPioInit(p_comm_work_io, nml_io_cdi_pio_conf_handle, &
         &              nml_io_cdi_pio_namespace)
