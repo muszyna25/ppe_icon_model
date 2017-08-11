@@ -186,7 +186,9 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           IF (prescr_element%prescr%type_is_init) THEN
             CALL art_read_emissions(p_patch,current_date,prescr_element%prescr)
           ELSE
-            CALL art_init_emission_struct(p_patch,current_date,prescr_element%prescr)
+            CALL art_init_emission_struct(p_patch,current_date,prescr_element%prescr, &
+                                   &      p_nh_state%diag%pres, p_nh_state%diag%tempv,&
+                                   &      p_nh_state%metrics%z_mc)
           END IF
 
           DO ijsp = 1,prescr_element%prescr%num_vars
