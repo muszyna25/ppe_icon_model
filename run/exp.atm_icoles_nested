@@ -193,6 +193,15 @@ itype_lndtbl   =  2
 &interpol_nml
 nudge_zone_width  = 8  !-1 create nudge zone in grid
 lsq_high_ord      = 2
+
+! there is a problem with the defaults, see #7829.
+! These values are found by reducing them until the singular matrices disappear
+! no warranty for this being correct.
+rbf_vec_scale_c   = -1, 0.2
+rbf_vec_scale_v   = -1, -1
+rbf_vec_scale_e   = -1, -1
+! dom1 is ok, v and e too
+
 /
 &gridref_nml
  grf_intmethod_e  = 6
