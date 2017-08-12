@@ -2413,7 +2413,7 @@ END SUBROUTINE message
 !!$!        IF (llandmask(i)) THEN ! land points only,
 !!$          IF (m_styp(i).ge.3) THEN ! neither ice or rocks
             IF (zep_s(i) < 0.0_ireals) THEN  ! upwards directed potential evaporation
-              zuv        = SQRT (u_10m(i) **2 + v_10m(i)**2 )
+              zuv        = SQRT (u(i) **2 + v(i)**2 )
               zcatm      = tch(i)*zuv           ! Function CA
 
               IF(icant == 1) THEN !additional laminar canopy resistance in case of Louis-transfer-scheme

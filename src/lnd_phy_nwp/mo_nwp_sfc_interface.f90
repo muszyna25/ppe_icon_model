@@ -405,12 +405,8 @@ CONTAINS
           prs_gsp_t(ic) =  snow_gsp_rate(jc,isubs)
           prg_gsp_t(ic) =  graupel_gsp_rate(jc,isubs)
 
-   !       u_t(ic)       =  p_diag%u         (jc,nlev,jb)     
-   !       v_t(ic)       =  p_diag%v         (jc,nlev,jb)
-          ! GZ, 2017-08-11: provisional fix for consistency of time levels;
-          ! will become obsolete once transfer velocities rather than transfer coefficients are passed to TERRA
-          u_t(ic)       =  prm_diag%u_10m_t(jc,jb,isubs)
-          v_t(ic)       =  prm_diag%v_10m_t(jc,jb,isubs)  
+          u_t(ic)       =  p_diag%u         (jc,nlev,jb)
+          v_t(ic)       =  p_diag%v         (jc,nlev,jb)
           t_t(ic)       =  p_diag%temp      (jc,nlev,jb)     
           qv_t(ic)      =  p_prog_rcf%tracer(jc,nlev,jb,iqv) 
           p0_t(ic)      =  p_diag%pres      (jc,nlev,jb) 
