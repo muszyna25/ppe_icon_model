@@ -342,7 +342,8 @@ MODULE mo_sync_latbc
       mpi_comm = p_comm_work
     ENDIF
 
-    latbc_filename = generate_filename(nroot, p_patch%level, last_latbc_mtime)
+    latbc_filename = generate_filename(nroot, p_patch%level, &
+      &                                last_latbc_mtime, time_config%tc_exp_startdate)
 
     latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
 
@@ -501,7 +502,8 @@ MODULE mo_sync_latbc
       mpi_comm = p_comm_work
     ENDIF
 
-    latbc_filename = generate_filename(nroot, p_patch%level, last_latbc_mtime)
+    latbc_filename = generate_filename(nroot, p_patch%level, &
+      &                                last_latbc_mtime, time_config%tc_exp_startdate)
 
     latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
 

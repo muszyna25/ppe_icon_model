@@ -452,7 +452,8 @@ MODULE mo_async_latbc
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
       ! generate file name
-      latbc_filename = generate_filename(nroot, latbc%patch_data%level, time_config%tc_startdate)
+      latbc_filename = generate_filename(nroot, latbc%patch_data%level, &
+        &                                time_config%tc_startdate, time_config%tc_exp_startdate)
       latbc_file = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
 
       IF(my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN
@@ -632,7 +633,8 @@ MODULE mo_async_latbc
       ! prefetch processor opens the file and checks if variables are present
       IF( my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
          ! generate file name
-         latbc_filename = generate_filename(nroot, latbc%patch_data%level, time_config%tc_startdate)
+         latbc_filename = generate_filename(nroot, latbc%patch_data%level, &
+           &                                time_config%tc_startdate, time_config%tc_exp_startdate)
          latbc_file = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
          INQUIRE (FILE=latbc_file, EXIST=l_exist)
          IF (.NOT.l_exist) THEN
