@@ -4092,8 +4092,6 @@ fi
 
 
 
-if test x$use_yac = xyes ; then
-
 XML2_LIB=""
 XML2_INCLUDE=""
 
@@ -4145,8 +4143,6 @@ fi
     echo "         set XML2ROOT to the xml2 root directory"
 
   fi
-
-fi
 
 
 
