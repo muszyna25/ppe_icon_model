@@ -104,37 +104,41 @@ SUBROUTINE art_diagnostics_interface(p_patch, rho, pres, p_trac, dz, hml, jg, &
     i_startblk = p_patch%cells%start_blk(i_rlstart,1)
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
-    IF (art_config(jg)%lart_diag_out .AND. l_output_step) THEN
-    
-      ! ----------------------------------
-      ! --- Clipping as convection might produce negative values
-      ! ----------------------------------
-    
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-          &                istart, iend, i_rlstart, i_rlend)
+    IF (l_output_step) THEN
 
-        IF (iforcing == inwp) THEN
-          CALL art_clip_lt(p_trac(istart:iend,1:nlev,jb,:),0.0_wp)
-        ENDIF
-    
-        ! --------------------------------------
-        ! --- Calculate aerosol optical depths
-        ! --------------------------------------
-        IF (art_config(jg)%iart_dust > 0 .OR. art_config(jg)%iart_seasalt > 0 .OR. art_config(jg)%iart_volcano > 0) THEN
-          CALL art_calc_aod(rho(:,:,jb), p_trac(:,:,jb,:), dz(:,:,jb), istart, iend, nlev, jb, jg, p_art_data(jg))
-          CALL art_calc_bsc(rho(:,:,jb), p_trac(:,:,jb,:), dz(:,:,jb), istart, iend, nlev, jb, jg, p_art_data(jg))
-        ENDIF
-    
-        ! -------------------------------------
-        ! --- Calculate volcanic ash products
-        ! -------------------------------------
-        IF (art_config(jg)%iart_volcano > 0) THEN
-          CALL art_volc_diagnostics( rho(:,:,jb), pres(:,:,jb), p_trac(:,:,jb,:), dz(:,:,jb), hml(:,:,jb),  &
-            &                        istart, iend, nlev, jb, p_art_data(jg), art_config(jg)%iart_volcano )
-        END IF
-    
-      ENDDO
+      IF (art_config(jg)%lart_diag_out) THEN
+
+        ! ----------------------------------
+        ! --- Clipping as convection might produce negative values
+        ! ----------------------------------
+
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+            &                istart, iend, i_rlstart, i_rlend)
+
+          IF (iforcing == inwp) THEN
+            CALL art_clip_lt(p_trac(istart:iend,1:nlev,jb,:),0.0_wp)
+          ENDIF
+
+          ! --------------------------------------
+          ! --- Calculate aerosol optical depths
+          ! --------------------------------------
+          IF (art_config(jg)%iart_dust > 0 .OR. art_config(jg)%iart_seasalt > 0 .OR. art_config(jg)%iart_volcano > 0) THEN
+            CALL art_calc_aod(rho(:,:,jb), p_trac(:,:,jb,:), dz(:,:,jb), istart, iend, nlev, jb, jg, p_art_data(jg))
+            CALL art_calc_bsc(rho(:,:,jb), p_trac(:,:,jb,:), dz(:,:,jb), istart, iend, nlev, jb, jg, p_art_data(jg))
+          ENDIF
+
+          ! -------------------------------------
+          ! --- Calculate volcanic ash products
+          ! -------------------------------------
+          IF (art_config(jg)%iart_volcano > 0) THEN
+            CALL art_volc_diagnostics( rho(:,:,jb), pres(:,:,jb), p_trac(:,:,jb,:), dz(:,:,jb), hml(:,:,jb),  &
+              &                        istart, iend, nlev, jb, p_art_data(jg), art_config(jg)%iart_volcano )
+          END IF
+
+        ENDDO
+
+      ENDIF
 
     ELSE
 
