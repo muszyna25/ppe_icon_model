@@ -446,8 +446,6 @@ CONTAINS
            &                       tend                                      )
     END IF
 
-    
-
 
 !$OMP PARALLEL DO PRIVATE(jcs,jce)
     DO jb = i_startblk,i_endblk
