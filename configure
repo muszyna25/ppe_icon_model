@@ -2297,6 +2297,8 @@ case $ac_hostname in
          fqdn=$ac_hostname.$ac_sitename ;;
   ic2*) ac_sitename=kit.edu;
          fqdn=$ac_hostname.$ac_sitename ;;
+  uc1*) ac_sitename=kit.edu;
+         fqdn=$ac_hostname.$ac_sitename ;;
   fh2*) ac_sitename=kit.edu;
          fqdn=$ac_hostname.$ac_sitename ;;
   *)
@@ -4090,8 +4092,6 @@ fi
 
 
 
-if test x$use_yac = xyes ; then
-
 XML2_LIB=""
 XML2_INCLUDE=""
 
@@ -4143,8 +4143,6 @@ fi
     echo "         set XML2ROOT to the xml2 root directory"
 
   fi
-
-fi
 
 
 

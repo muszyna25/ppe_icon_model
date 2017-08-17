@@ -662,6 +662,22 @@ case "$ac_sitename" in
                submit=sbatch
                mpi_startrun=runjob --ranks-per-node \\\$mpi_procs_pernode --envs OMP_NUM_THREADS=\\\$OMP_NUM_THREADS --exe
 ;;
+            uc1*)
+               NETCDFROOT  = /pfs/imk/ICON/LIBRARIES_IFORT16
+               NETCDFFROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
+               HDF5ROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
+               SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
+               ZLIBROOT    = /usr
+               MPIROOT     = /pfs/imk/ICON/LIBRARIES_IFORT16
+               GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
+               XML2ROOT    = /usr
+               MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+               CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
+               config_target=ic2
+               make_command=make -j8
+               submit=sbatch
+               mpi_startrun=runjob --ranks-per-node \\\$mpi_procs_pernode --envs OMP_NUM_THREADS=\\\$OMP_NUM_THREADS --exe
+            ;;
             fh2*)
                 NETCDFROOT  = /pfs/imk/ICON/LIBRARIES_IFORT16
                 NETCDFFROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
@@ -672,11 +688,6 @@ case "$ac_sitename" in
                 XML2ROOT    = /usr
                 GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
                 MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
-                case "$with_art" in
-                     yes)
-                       OTHER_LIBS = ${OTHER_LIBS} -lxml2
-                       ;;
-                esac
                 CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2
                 config_target=ic2
                 make_command=make -j8
