@@ -799,9 +799,10 @@ CONTAINS
 !$OMP END PARALLEL
 
       ! Loop over cells
+
+IF (lart) THEN 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-    IF (lart) THEN 
       DO jt =1,3    
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
@@ -844,7 +845,11 @@ CONTAINS
           END DO
         END DO
       END DO
+!$OMP END DO
+!$OMP END PARALLEL
    ELSE
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
       DO jt =1,ntracer  
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
@@ -887,12 +892,9 @@ CONTAINS
           END DO
         END DO
       END DO
-    ENDIF
-
-
 !$OMP END DO
 !$OMP END PARALLEL
-
+    ENDIF
       ! Loop over cells
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
@@ -953,9 +955,9 @@ CONTAINS
 !$OMP END PARALLEL
 
       ! Loop over cells
+ IF(lart) THEN 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
- IF(lart) THEN 
       DO jt =1,(iqt-1)  
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
@@ -979,21 +981,25 @@ CONTAINS
         END DO
       END DO
 
+!$OMP END DO
+!$OMP END PARALLEL
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
       DO jt = iqt,ntracer
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
           DO jk = 1,nlev
             DO jc = jcs, jce
-             ! prm_tend(jg)%qtrc_phy(jc,jk,jb,4) = 0.0_wp
-
                 pt_prog_new_rcf% tracer(jc,jk,jb,jt) = prm_field(jg)%qtrc(jc,jk,jb,jt)  +prm_tend(jg)%qtrc_phy(jc,jk,jb,jt)*dt_loc
             ENDDO
           ENDDO
         ENDDO
     ENDDO
-
+!$OMP END DO
+!$OMP END PARALLEL
     ELSE
-
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
       DO jt =1,ntracer  
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
@@ -1017,9 +1023,9 @@ CONTAINS
         END DO
       END DO   
 
-  ENDIF
 !$OMP END DO
 !$OMP END PARALLEL
+  ENDIF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_exner) ICON_OMP_DEFAULT_SCHEDULE
