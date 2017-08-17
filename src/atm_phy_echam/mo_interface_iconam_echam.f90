@@ -801,6 +801,7 @@ CONTAINS
       ! Loop over cells
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+    IF (lart) THEN 
       DO jt =1,3    
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
@@ -843,6 +844,52 @@ CONTAINS
           END DO
         END DO
       END DO
+   ELSE
+      DO jt =1,ntracer  
+        DO jb = i_startblk,i_endblk
+          CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+          DO jc = jcs, jce
+            prm_field(jg)% mtrcvi    (jc,jb,jt) = 0.0_wp
+            prm_tend (jg)% mtrcvi_phy(jc,jb,jt) = 0.0_wp
+          END DO
+          DO jk = 1,nlev
+            DO jc = jcs, jce
+
+              ! Diagnose the total tendencies
+              prm_tend(jg)%qtrc(jc,jk,jb,jt) =   prm_tend(jg)%qtrc_dyn(jc,jk,jb,jt)  &
+                &                              + prm_tend(jg)%qtrc_phy(jc,jk,jb,jt)
+
+              ! (2.1) Tracer mixing ratio with respect to dry air
+              !
+              ! tracer mass tendency
+              IF (mpi_phy_config(jg)%ldrymoist) THEN
+                prm_tend(jg)%   mtrc_phy(jc,jk,jb,jt)  = prm_tend(jg)%  qtrc_phy(jc,jk,jb,jt) &
+                  &                                     *prm_field(jg)% mdry    (jc,jk,jb)
+              ELSE
+                prm_tend(jg)%   mtrc_phy(jc,jk,jb,jt)  = prm_tend(jg)%  qtrc_phy(jc,jk,jb,jt) &
+                  &                                     *prm_field(jg)% mair    (jc,jk,jb)
+              END IF
+              !
+              ! tracer path tendency
+              prm_tend(jg)% mtrcvi_phy(jc,   jb,jt)  = prm_tend(jg)% mtrcvi_phy(jc,   jb,jt) &
+                &                                     +prm_tend(jg)%   mtrc_phy(jc,jk,jb,jt)
+              !
+              ! new tracer mass
+              prm_field(jg)%  mtrc    (jc,jk,jb,jt)  = prm_field(jg)% mtrc    (jc,jk,jb,jt) &
+                &                                     +prm_tend(jg)%  mtrc_phy(jc,jk,jb,jt) &
+                &                                     *dt_loc
+              !
+              ! new tracer path
+              prm_field(jg)%  mtrcvi  (jc,   jb,jt)  = prm_field(jg)% mtrcvi  (jc,   jb,jt) &
+                &                                     +prm_field(jg)% mtrc    (jc,jk,jb,jt)
+              !
+            END DO
+          END DO
+        END DO
+      END DO
+    ENDIF
+
+
 !$OMP END DO
 !$OMP END PARALLEL
 
