@@ -620,8 +620,13 @@ CONTAINS
     mtime_begin    => newDatetime(TRIM(ev%output_event%event_data%sim_start))
     forecast_delta => newTimedelta("P01D")
     forecast_delta = mtime_date - mtime_begin
+
     WRITE (forecast_delta_str,'(4(i2.2))') forecast_delta%day, forecast_delta%hour, &
       &                                    forecast_delta%minute, forecast_delta%second
+    WRITE (dtime_string,'(i4.4,2(i2.2),a,3(i2.2),a)')                                                 &
+      &                      mtime_date%date%year, mtime_date%date%month, mtime_date%date%day, 'T',   &
+      &                      mtime_date%time%hour, mtime_date%time%minute, mtime_date%time%second, 'Z'
+
     CALL deallocateDatetime(mtime_date)
     CALL deallocateDatetime(mtime_begin)
     CALL deallocateTimedelta(forecast_delta)
@@ -630,10 +635,6 @@ CONTAINS
     CALL associate_keyword("<path>",            TRIM(getModelBaseDir()),         keywords)
     CALL associate_keyword("<datetime>",        TRIM(get_current_date(ev)),      keywords)
     CALL associate_keyword("<ddhhmmss>",        TRIM(forecast_delta_str),        keywords)
-
-    WRITE (dtime_string,'(i4.4,2(i2.2),a,3(i2.2),a)')                                                 &
-      &                      mtime_date%date%year, mtime_date%date%month, mtime_date%date%day, 'T',   &
-      &                      mtime_date%time%hour, mtime_date%time%minute, mtime_date%time%second, 'Z'
     CALL associate_keyword("<datetime2>",       TRIM(dtime_string),              keywords)
 
     rdy_filename = TRIM(with_keywords(keywords, ev%output_event%event_data%name))
