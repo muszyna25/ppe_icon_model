@@ -41,7 +41,7 @@ MODULE mo_art_reaction_interface
   USE mtime,                            ONLY: datetime
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
     timer_art, timer_art_reacInt, timer_art_losschem, timer_art_photo
-  USE mo_echam_phy_memory,              ONLY: t_echam_phy_field, t_echam_phy_tend
+  USE mo_echam_phy_memory,              ONLY: t_echam_phy_tend
 #ifdef __ICON_ART
   USE mo_art_decay_radioact,            ONLY: art_decay_radioact
   USE mo_art_chemtracer,                ONLY: art_loss_chemtracer
