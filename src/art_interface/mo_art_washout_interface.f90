@@ -34,7 +34,7 @@ MODULE mo_art_washout_interface
   USE mo_run_config,                    ONLY: lart,iqr,iqnr,iqs
   USE mo_nonhydro_types,                ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
-    timer_art, timer_art_washoutInt
+                                          &   timer_art, timer_art_washoutInt
 
 #ifdef __ICON_ART
 ! Infrastructure Routines

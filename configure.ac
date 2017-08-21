@@ -335,8 +335,6 @@ dnl Checks for program properties
 dnl ######################################################################
 dnl Checks for XML2.
 
-if test x$use_yac = xyes ; then
-
 XML2_LIB=""
 XML2_INCLUDE=""
 
@@ -384,8 +382,6 @@ AC_ARG_WITH([xml2],
     echo "         set XML2ROOT to the xml2 root directory"
 
   fi
-
-fi
 
 dnl ######################################################################
 dnl Checks for LAPACK/BLAS

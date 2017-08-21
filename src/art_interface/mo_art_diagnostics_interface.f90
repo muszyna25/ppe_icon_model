@@ -31,7 +31,7 @@ MODULE mo_art_diagnostics_interface
   USE mo_loopindices,                   ONLY: get_indices_c
   USE mo_run_config,                    ONLY: lart
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
-    timer_art, timer_art_diagInt
+                                          &   timer_art, timer_art_diagInt
 
 ! ART
 #ifdef __ICON_ART

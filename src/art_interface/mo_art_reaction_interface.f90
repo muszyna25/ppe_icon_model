@@ -40,7 +40,9 @@ MODULE mo_art_reaction_interface
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
   USE mtime,                            ONLY: datetime
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
-    timer_art, timer_art_reacInt, timer_art_losschem, timer_art_photo
+                                          &   timer_art, timer_art_reacInt,            &
+                                          &   timer_art_losschem, timer_art_photo
+  USE mo_echam_phy_memory,              ONLY: t_echam_phy_tend
 #ifdef __ICON_ART
   USE mo_art_decay_radioact,            ONLY: art_decay_radioact
   USE mo_art_chemtracer,                ONLY: art_loss_chemtracer
@@ -62,7 +64,7 @@ CONTAINS
 !!-------------------------------------------------------------------------
 !!
 SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_list,p_prog, &
-  &                               p_metrics,p_diag,tracer, prm_diag)
+  &                               p_metrics,p_diag,tracer, prm_diag, tend)
 
   !>
   !! Interface for ART-routines treating reactions of any kind (chemistry, radioactive decay)
@@ -95,6 +97,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
     &  tracer(:,:,:,:)                   !< tracer mixing ratios (specific concentrations)
   TYPE(t_nwp_phy_diag),OPTIONAL, INTENT(IN)  :: &
     &  prm_diag                          !< NH metrics state
+  TYPE(t_echam_phy_tend) , OPTIONAL,  POINTER  :: tend
 ! Local variables
   INTEGER                           :: &
     &  jb,                             & !< loop index

@@ -32,7 +32,7 @@ MODULE mo_art_tracer_interface
   USE mo_art_config,                    ONLY: art_config
   USE mo_time_config,                   ONLY: time_config
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
-    timer_art_tracInt
+                                          &   timer_art_tracInt
 #ifdef __ICON_ART
   USE mo_art_tracer,                    ONLY: art_tracer
   USE mo_art_init,                      ONLY: art_init

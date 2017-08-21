@@ -56,7 +56,7 @@ MODULE mo_art_emission_interface
                                           &   getTotalMillisecondsTimedelta,     &
                                           &   deallocateTimedelta
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
-    timer_art, timer_art_emissInt
+                                          &   timer_art, timer_art_emissInt
 #ifdef __ICON_ART
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode

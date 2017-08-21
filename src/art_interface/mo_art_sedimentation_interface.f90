@@ -35,7 +35,7 @@ MODULE mo_art_sedi_interface
   USE mo_advection_vflux,               ONLY: upwind_vflux_ppm_cfl
   USE mo_loopindices,                   ONLY: get_indices_c
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
-    timer_art, timer_art_sedInt
+                                          &   timer_art, timer_art_sedInt
 #ifdef __ICON_ART
 ! infrastructure routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
