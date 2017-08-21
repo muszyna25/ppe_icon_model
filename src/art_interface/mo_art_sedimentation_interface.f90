@@ -155,13 +155,13 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
       ALLOCATE(dz(nproma,nlev,nblks))
    
       DO n = 1, nsubsteps
-         vsed0(:,:) = 0.d0
-         vsed3(:,:) = 0.d0
-         vdep0(:) = 0.d0
-         vdep3(:) = 0.d0
-         p_upflux_sed(:,:,:) = 0.0d0
-         rhodz_new(:,:,:) = 0.0d0
-         dz(:,:,:) = 0.0d0
+         vsed0(:,:)          = 0._wp
+         vsed3(:,:)          = 0._wp
+         vdep0(:)            = 0._wp
+         vdep3(:)            = 0._wp
+         p_upflux_sed(:,:,:) = 0._wp
+         rhodz_new(:,:,:)    = 0._wp
+         dz(:,:,:)           = 0._wp
 
         
         DO jb = i_startblk, i_endblk

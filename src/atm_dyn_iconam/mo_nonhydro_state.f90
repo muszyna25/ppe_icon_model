@@ -42,7 +42,7 @@ MODULE mo_nonhydro_state
     &                                iedmf, MODE_IAU, MODE_IAU_OLD,        &
     &                                TASK_COMPUTE_OMEGA, TLEV_NNOW_RCF,    &
     &                                MODE_ICONVREMAP,HINTP_TYPE_LONLAT_RBF,&
-    &                                HINTP_TYPE_LONLAT_BCTR, VNAME_LEN
+    &                                HINTP_TYPE_LONLAT_BCTR
   USE mo_exception,            ONLY: message, finish
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_state_lists,       &
