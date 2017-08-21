@@ -40,7 +40,8 @@ MODULE mo_art_reaction_interface
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
   USE mtime,                            ONLY: datetime
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
-    timer_art, timer_art_reacInt, timer_art_losschem, timer_art_photo
+                                          &   timer_art, timer_art_reacInt,            &
+                                          &   timer_art_losschem, timer_art_photo
   USE mo_echam_phy_memory,              ONLY: t_echam_phy_tend
 #ifdef __ICON_ART
   USE mo_art_decay_radioact,            ONLY: art_decay_radioact

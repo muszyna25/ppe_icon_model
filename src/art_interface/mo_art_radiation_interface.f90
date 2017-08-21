@@ -25,7 +25,7 @@ MODULE mo_art_radiation_interface
   USE mo_run_config,                    ONLY: lart
   USE mo_exception,                     ONLY: finish
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
-    timer_art, timer_art_radInt
+                                          &   timer_art, timer_art_radInt
   ! ART Routines
 #ifdef __ICON_ART
   USE mo_art_radiation_aero,            ONLY: art_radiation_aero

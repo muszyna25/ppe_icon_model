@@ -23,7 +23,7 @@ MODULE mo_art_init_interface
 
   USE mo_run_config,                    ONLY: lart
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
-    timer_art_initInt
+                                          &   timer_art_initInt
 #ifdef __ICON_ART
   USE mo_art_init_all_dom,              ONLY: art_init_all_dom
   USE mo_art_clean_up,                  ONLY: art_clean_up
