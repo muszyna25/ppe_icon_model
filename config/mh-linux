@@ -655,6 +655,7 @@ case "$ac_sitename" in
                ZLIBROOT    = /usr
                MPIROOT     = /pfs/imk/ICON/LIBRARIES_IFORT16
                GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
+               XML2ROOT    = /usr
                MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
                CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
                config_target=ic2
