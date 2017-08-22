@@ -317,8 +317,9 @@ CONTAINS
             CALL finish(TRIM(method_name),'irad_aero=6 requires itopo=1')
           ENDIF
 
-          IF ( irad_aero /= 6 .AND. (atm_phy_nwp_config(jg)%icpl_aero_gscp > 0 .OR. icpl_aero_conv > 0)) THEN
-            CALL finish(TRIM(method_name),'aerosol-precipitation coupling requires irad_aero=6')
+          IF ( ( irad_aero /= 6 .AND. irad_aero /= 9 ) .AND.  &
+            &  ( atm_phy_nwp_config(jg)%icpl_aero_gscp > 0 .OR. icpl_aero_conv > 0 ) ) THEN
+            CALL finish(TRIM(method_name),'aerosol-precipitation coupling requires irad_aero=6 or =9')
           ENDIF
         ELSE
 
@@ -899,10 +900,6 @@ CONTAINS
         CALL finish(TRIM(method_name),'iart_ari > 0 requires irad_aero=9')
       ENDIF
     ENDDO
-    
-    IF(art_config(jg)%lart_pntSrc .AND. .NOT. art_config(jg)%lart_passive) THEN
-      CALL finish(TRIM(method_name),'lart_pntSrc needs lart_passive to be .true.')
-    ENDIF
     
     ! XML specification checks
     

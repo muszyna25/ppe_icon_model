@@ -7,13 +7,17 @@
 !! headers of the routines.
 MODULE mo_grib2
 
+  USE mo_kind,                  ONLY: dp
+
   IMPLICIT NONE
 
   PRIVATE
 
-  ! max. number of additional GRIB2 integer keys per  variable
-  INTEGER, PARAMETER :: MAX_INT_KEYS = 5
+  ! max. number of additional GRIB2 integer keys per variable
+  INTEGER, PARAMETER :: MAX_INT_KEYS = 10
 
+  ! max. number of additional GRIB2 double keys per variable
+  INTEGER, PARAMETER :: MAX_DBL_KEYS = 5
 
 
   TYPE t_grib2_global
@@ -23,13 +27,20 @@ MODULE mo_grib2
   END TYPE t_grib2_global
 
   TYPE t_grib2_int_key
-    CHARACTER(len=32) :: key
+    CHARACTER(len=50) :: key
     INTEGER           :: val
   END TYPE t_grib2_int_key
 
+  TYPE t_grib2_dbl_key
+    CHARACTER(len=50) :: key
+    REAL(dp)          :: val
+  END TYPE t_grib2_dbl_key
+
   TYPE t_grib2_key_list
-    INTEGER                :: nint_keys ! no. of integer keys
+    INTEGER                :: nint_keys  ! no. of integer keys
+    INTEGER                :: ndbl_keys  ! no. of double keys
     TYPE (t_grib2_int_key) :: int_key(MAX_INT_KEYS)    
+    TYPE (t_grib2_dbl_key) :: dbl_key(MAX_DBL_KEYS)
   END TYPE t_grib2_key_list
 
   TYPE t_grib2_var
@@ -45,12 +56,14 @@ MODULE mo_grib2
   END TYPE t_grib2_var
 
   INTERFACE OPERATOR(+)
-    MODULE PROCEDURE grib2_key_list_plus
+    MODULE PROCEDURE grib2_key_list_plus_int
+    MODULE PROCEDURE grib2_key_list_plus_dbl
   END INTERFACE OPERATOR(+)
 
   PUBLIC :: t_grib2_global
   PUBLIC :: t_grib2_var
   PUBLIC :: t_grib2_int_key
+  PUBLIC :: t_grib2_dbl_key
   PUBLIC :: grib2_var
   PUBLIC :: OPERATOR(+)
 
@@ -74,21 +87,37 @@ CONTAINS
     grib2_var%subgridtype = subgridtype
 
     grib2_var%additional_keys%nint_keys = 0
+    grib2_var%additional_keys%ndbl_keys = 0
   END FUNCTION grib2_var
 
-  FUNCTION grib2_key_list_plus(a, b)
-    TYPE(t_grib2_var) :: grib2_key_list_plus
+  FUNCTION grib2_key_list_plus_int(a, b)
+    TYPE(t_grib2_var) :: grib2_key_list_plus_int
     TYPE(t_grib2_var),     INTENT(IN) :: a
     TYPE(t_grib2_int_key), INTENT(IN) :: b
     ! local variables
     INTEGER :: i
 
-    grib2_key_list_plus = a
+    grib2_key_list_plus_int = a
     IF (a%additional_keys%nint_keys < MAX_INT_KEYS) THEN
-      i = grib2_key_list_plus%additional_keys%nint_keys
-      grib2_key_list_plus%additional_keys%nint_keys = i + 1
-      grib2_key_list_plus%additional_keys%int_key(i+1) = b
+      i = grib2_key_list_plus_int%additional_keys%nint_keys
+      grib2_key_list_plus_int%additional_keys%nint_keys = i + 1
+      grib2_key_list_plus_int%additional_keys%int_key(i+1) = b
     END IF
-  END FUNCTION grib2_key_list_plus
+  END FUNCTION grib2_key_list_plus_int
+
+  FUNCTION grib2_key_list_plus_dbl(a, b)
+    TYPE(t_grib2_var) :: grib2_key_list_plus_dbl
+    TYPE(t_grib2_var),     INTENT(IN) :: a
+    TYPE(t_grib2_dbl_key), INTENT(IN) :: b
+    ! local variables
+    INTEGER :: i
+
+    grib2_key_list_plus_dbl = a
+    IF (a%additional_keys%ndbl_keys < MAX_DBL_KEYS) THEN
+      i = grib2_key_list_plus_dbl%additional_keys%ndbl_keys
+      grib2_key_list_plus_dbl%additional_keys%ndbl_keys = i + 1
+      grib2_key_list_plus_dbl%additional_keys%dbl_key(i+1) = b
+    END IF
+  END FUNCTION grib2_key_list_plus_dbl
 
 END MODULE mo_grib2
