@@ -20,19 +20,16 @@
 SUBROUTINE lcariolle_init(                            &
          & open_file,        close_file,              &
          & read_3d_var,      read_1d_var,             &
-         & get_constants,    NCX,                     &
-         & nlev                                       )
+         & get_constants                              )
 USE mo_lcariolle_kind,         ONLY: wp,wi
 USE mo_lcariolle_types,        ONLY: &
      & nlatx,nlevx,nmonthx, & !< number of latitudes, levels, months in climatology
-     & pvi,avi                !< derived types: pvi (inside Cariolle),
-                              !< avi (variables passed from host model to this submodel)
+     & pvi                !< derived types: pvi (inside Cariolle),
+
 IMPLICIT NONE
 INTEGER, EXTERNAL            :: open_file
 EXTERNAL close_file, read_3d_var, read_1d_var !< reading from netcdf files
 REAL(wp),EXTERNAL            :: get_constants !< defines physical constants
-INTEGER, INTENT(in)          :: NCX,        & !< number of columns as in calling subprograms
-                              & nlev          !< number of levels
 INTEGER                      :: file_id
 CHARACTER(LEN=17)            :: fname='cariolle_coeff.nc' !< standard input file name for Cariolle
                                                           !< coefficients
@@ -111,10 +108,4 @@ pvi%a8(nlatx+1,:,:)=pvi%a8(nlatx,:,:)
 ! get physical constants
 pvi%avogadro=get_constants('avogadro')
 ! allocate fields for variables passed from host model to submodel
-ALLOCATE(avi%tmprt(NCX,nlev))
-ALLOCATE(avi%vmr2molm2(NCX,nlev))
-ALLOCATE(avi%pres(NCX,nlev))
-ALLOCATE(avi%o3_vmr(NCX,nlev))
-ALLOCATE(avi%cell_center_lat(NCX))
-ALLOCATE(avi%lday(NCX))
 END SUBROUTINE lcariolle_init

@@ -32,13 +32,13 @@ MODULE mo_nwp_phy_init
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ext_data_state,      ONLY: nlev_o3, nmonths
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_exception,           ONLY: message, finish, message_text
+  USE mo_exception,           ONLY: message, finish !, message_text
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape,  &
     &                               MODE_COMBINED, MODE_IFSANA, icosmo, ismag,      &
     &                               igme, iedmf, SUCCESS, MAX_CHAR_LENGTH,          &
-    &                               MODE_COSMODE, iss, iorg, ibc, iso4, idu
+    &                               MODE_COSMO, iss, iorg, ibc, iso4, idu
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
@@ -62,11 +62,8 @@ MODULE mo_nwp_phy_init
   USE mo_o3_util,             ONLY: o3_pl2ml!, o3_zl2ml
   USE mo_psrad_lrtm_setup,    ONLY: setup_lrtm
   USE mo_psrad_srtm_setup,    ONLY: setup_srtm_psrad => setup_srtm
-  USE mo_psrad_spec_sampling, ONLY: set_spec_sampling_lw, set_spec_sampling_sw
   USE mo_psrad_cloud_optics,  ONLY: setup_cloud_optics  
-  USE mo_psrad_interface,     ONLY: setup_psrad, lw_strat, sw_strat
-  USE mo_rrtm_params,         ONLY: nbndsw
-  USE mo_psrad_radiation_parameters, ONLY: nb_sw 
+  USE mo_psrad_interface,     ONLY: setup_psrad
 
   ! microphysics
   USE gscp_data,              ONLY: gscp_set_coefficients
@@ -110,7 +107,7 @@ MODULE mo_nwp_phy_init
   USE mo_initicon_config,     ONLY: init_mode
 
   USE mo_nwp_ww,              ONLY: configure_ww
-  USE mo_nwp_tuning_config,   ONLY: tune_gkwake, tune_gkdrag, tune_gfrcrit, tune_zceff_min, &
+  USE mo_nwp_tuning_config,   ONLY: tune_gkwake, tune_gkdrag, tune_gfrcrit, tune_grcrit, tune_zceff_min, &
     &                               tune_v0snow, tune_zvz0i
   USE mo_sso_cosmo,           ONLY: sso_cosmo_init_param
   USE mo_cuparameters,        ONLY: sugwd
@@ -214,7 +211,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string, yyyymmdd
 
   ! Local control variable for extended turbulence initializations
-  IF (ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
+  IF (ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMO/) == init_mode) ) THEN
     lturb_init = .TRUE.
   ELSE
     lturb_init = .FALSE.
@@ -298,6 +295,13 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
         prm_diag%tropics_mask(jc,jb) = 0._wp
       ELSE
         prm_diag%tropics_mask(jc,jb) = (30._wp-zlat)/5._wp
+      ENDIF
+      IF (zlat < 12.5_wp) THEN
+        prm_diag%innertropics_mask(jc,jb) = 1._wp
+      ELSE IF (zlat > 17.5_wp) THEN
+        prm_diag%innertropics_mask(jc,jb) = 0._wp
+      ELSE
+        prm_diag%innertropics_mask(jc,jb) = (17.5_wp-zlat)/5._wp
       ENDIF
     ENDDO
   ENDDO
@@ -726,9 +730,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       CALL setup_newcld_optics(cldopt_filename)
     ELSE   ! PSRAD init
       CALL setup_psrad
-      nb_sw = nbndsw
-      lw_strat = set_spec_sampling_lw(1, 1) 
-      sw_strat = set_spec_sampling_sw(1, 1)
       CALL setup_cloud_optics
       CALL setup_lrtm
       CALL lrtm_setup(lrtm_filename) ! ** necessary because of incorrect USE statements in mo_psrad_lrtm_gas_optics **
@@ -1481,7 +1482,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   !
   SELECT CASE ( atm_phy_nwp_config(jg)%inwp_sso )
   CASE ( 1 )                                ! COSMO SSO scheme
-    IF (jg == 1) CALL sso_cosmo_init_param(tune_gkwake=tune_gkwake, tune_gkdrag=tune_gkdrag, tune_gfrcrit=tune_gfrcrit)
+    IF (jg == 1) CALL sso_cosmo_init_param(tune_gkwake=tune_gkwake, tune_gkdrag=tune_gkdrag, &
+                                           tune_gfrcrit=tune_gfrcrit, tune_grcrit=tune_grcrit)
     IF (linit_mode) prm_diag%ktop_envel(:,:) = nlev
   CASE ( 2 )                                ! IFS SSO scheme
     CALL sugwd(nlev, pref, phy_params )

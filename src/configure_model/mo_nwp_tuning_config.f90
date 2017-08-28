@@ -28,6 +28,7 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_gkwake
   PUBLIC :: tune_gkdrag
   PUBLIC :: tune_gfrcrit
+  PUBLIC :: tune_grcrit
   PUBLIC :: tune_gfluxlaun
   PUBLIC :: tune_zceff_min
   PUBLIC :: tune_v0snow
@@ -64,6 +65,9 @@ MODULE mo_nwp_tuning_config
 
   REAL(wp) :: &                    !< critical Froude number in SSO scheme
     &  tune_gfrcrit
+
+  REAL(wp) :: &                    !< critical Richardson number in SSO scheme
+    &  tune_grcrit
 
   REAL(wp) :: &                    !< total launch momentum flux in each azimuth (rho_o x F_o)
     &  tune_gfluxlaun

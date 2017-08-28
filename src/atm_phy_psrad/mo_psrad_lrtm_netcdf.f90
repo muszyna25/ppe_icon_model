@@ -7,1167 +7,174 @@
 !!
 MODULE mo_psrad_lrtm_netcdf
 
-!!$  USE mo_mpi,       ONLY: p_parallel_io, p_io, p_bcast
-!!$  USE mo_netcdf,    ONLY: io_inq_varid, io_get_vara_double
-!!$  USE mo_io,        ONLY: io_open, io_close, io_read, file_info  
-  USE mo_netcdf_parallel, ONLY: p_nf_open,             &
-    &                           p_nf_inq_varid,        &
-    &                           p_nf_get_vara_double,  &
-    &                           nf_read, nf_noerr
-  USE mo_exception, ONLY: finish
+  USE mo_psrad_lrtm_kgs, ONLY : no, kmajor3_in, kmajor4_in, &
+    planck_fraction1_in, planck_fraction2_in, &
+    kgas2_in, kgas3_in, kgas2_list, kgas3_list, h2oref_in, cfc_in, &
+    npressure, nsp_species, nsp_fraction, cfc_list
+  USE mo_psrad_general, ONLY: wp, finish, ngas, ncfc, nbndlw, &
+    ih2o, ico2, io3, in2o, io2, ich4, ico!, in2
+  USE mo_psrad_io, ONLY: psrad_io_open, &
+    read=>psrad_io_copy_double
 
   IMPLICIT NONE
 
   PRIVATE
   PUBLIC :: lrtm_read
 
-  INTEGER, PARAMETER :: maxAbsorberNameLength =  5, &
-       Absorber              = 12
+  INTEGER, PARAMETER :: keylower = 9, keyupper = 5, Tdiff = 5, ps = 59, &
+    plower = 13, pupper = 47, Tself = 10, Tforeign = 4, pforeign = 4, &
+    T = 19, Tplanck = 181, GPoint = 16, GPointSet = 2
 
-  CHARACTER(len = maxAbsorberNameLength), PARAMETER :: &
-       AbsorberNames(Absorber) = (/        &
-       'N2   ',  &
-       'CCL4 ',  &
-       'CFC11',  &
-       'CFC12',  &
-       'CFC22',  &
-       'H2O  ',  &
-       'CO2  ',  &
-       'O3   ',  &
-       'N2O  ',  & 
-       'CO   ',  &
-       'CH4  ',  &
-       'O2   '  /)
-
-  INTEGER, PARAMETER :: &
-       keylower  = 9,   &
-       keyupper  = 5,   &
-       Tdiff     = 5,   &
-       ps        = 59,  &
-       plower    = 13,  &
-       pupper    = 47,  &
-       Tself     = 10,  &
-       Tforeign  = 4,   &
-       pforeign  = 4,   &
-       T         = 19,  &
-       Tplanck   = 181, &
-       band      = 16,  &
-       GPoint    = 16,  &
-       GPointSet = 2
+  !matching psrad_general
+  ! ih2o  = 1, ico2  = 2, ich4  = 3, io2   = 4, 
+  ! io3   = 5, in2o = 6, ico = 7, in2 = 8, ngas = 8
+  INTEGER, PARAMETER :: netcdf_idx(ngas) = (/ &
+    6, 7, 11, 12, 8, 9, 10, 1/)
+  !  iccl4 = cfc_offset+1, icfc11 = cfc_offset+2, &
+  !  icfc12 = cfc_offset+3, icfc22 = cfc_offset+4, &
+  INTEGER, PARAMETER :: netcdf_cfc_idx(ncfc) = (/ &
+    2, 3, 4, 5/)
 
   INTEGER, PARAMETER :: gPointSetNumber = 1
-  INTEGER :: varid
-  INTEGER :: fileid     !< id number of netcdf file
-  INTEGER :: nf_status  !< return status of netcdf function
-
-!!$  TYPE(file_info) :: rrtmg_lw
+  INTEGER :: fileid
 
 CONTAINS 
 
-  !=============================================================================
+  SUBROUTINE read_gases
+    CHARACTER(len=*), PARAMETER :: var_name(2) = (/ &
+      'AbsorptionCoefficientsLowerAtmos', &
+      'AbsorptionCoefficientsUpperAtmos'/)
+    INTEGER, PARAMETER :: key(2) = (/9, 5/)
+    INTEGER :: band, atm, igas, M
+    DO band = 1,nbndlw
+      DO igas = 1, ncfc
+        IF (cfc_list(igas,band) /= 0) THEN
+          CALL read(fileid,var_name(1), &
+            (/1,1,1,netcdf_cfc_idx(igas),band,gPointSetNumber/), &
+            (/1,1,no,1,1,1/), &
+            cfc_in(igas,band)%v)
+        END IF
+      END DO
+      DO atm = 1,2
+      DO igas = 1, ngas
+        M = kgas2_list(igas,atm,band)
+        IF (M /= 0) THEN
+          CALL read(fileid,var_name(atm), &
+            (/1,1,1,netcdf_idx(igas),band,gPointSetNumber/), &
+            (/1,T,no,1,1,1/), &
+            kgas2_in(igas,atm,band)%v)
+        ENDIF
+        M = kgas3_list(1,igas,atm,band)
+        IF (M /= 0) THEN
+          CALL read(fileid,var_name(atm), &
+            (/1,1,1,netcdf_idx(igas),band,gPointSetNumber/), &
+            (/key(atm),T,no,1,1,1/), &
+            kgas3_in(igas,atm,band)%v)
+        ENDIF
+      ENDDO
+      ENDDO
+    ENDDO
+  END SUBROUTINE read_gases
 
-  INTEGER FUNCTION AbsorberIndex(AbsorberName)
-    CHARACTER(len=*), INTENT(in)  :: AbsorberName
+  SUBROUTINE read_water
+    CHARACTER(len=*), PARAMETER :: var_name(2) = (/ &
+      'H20SelfAbsorptionCoefficients   ', &
+      'H20ForeignAbsorptionCoefficients'/)
+    INTEGER, PARAMETER :: key(2) = (/10, 4/)
+    INTEGER :: band, which
+    DO band = 1,nbndlw
+    DO which = 1,2
+      CALL read(fileid,trim(var_name(which)), &
+        (/1,1,band,gPointSetNumber/), &
+        (/key(which),no,1,1/), &
+        h2oref_in(1:key(which),:,which,band))
+    ENDDO
+    ENDDO
+  END SUBROUTINE read_water
 
-    INTEGER :: m
+  SUBROUTINE read_planck_fraction
+    CHARACTER(len=*), PARAMETER :: var_name(2) = (/ &
+      'PlanckFractionLowerAtmos', &
+      'PlanckFractionUpperAtmos'/)
+    INTEGER :: band, atm, n
+    REAL(wp) :: linear(no*MAXVAL(nsp_fraction))
+    DO band = 1, nbndlw
+    DO atm = 1,2
+      n = nsp_fraction(atm,band)
+      IF (n /= 0) THEN
+        IF (n == 1) THEN
+          CALL read(fileid,var_name(atm), &
+            (/1,1,band,gPointSetNumber/), &
+            (/no,1,1,1/), &
+            planck_fraction1_in(:,atm,band))
+        ELSE
+          CALL read(fileid,var_name(atm), &
+            (/1,1,band,gPointSetNumber/), &
+            (/no,n,1,1/), &
+            linear)
+            planck_fraction2_in(atm,band)%v(1:n,:) = TRANSPOSE(RESHAPE(&
+              linear, SHAPE =(/no,n/)))
+        ENDIF
+      ENDIF
+    ENDDO
+    ENDDO
+  END SUBROUTINE read_planck_fraction
 
-    AbsorberIndex = -1
-    DO m = 1, Absorber
-      IF (TRIM(AbsorberNames(m)) == TRIM(AbsorberName)) THEN
-        AbsorberIndex = m
-      END IF
-    END DO
+  SUBROUTINE read_key_species
+    CHARACTER(len=*), PARAMETER :: var_name(2) = (/ &
+      'KeySpeciesAbsorptionCoefficientsLowerAtmos', &
+      'KeySpeciesAbsorptionCoefficientsUpperAtmos'/)
+    INTEGER :: band, atm, n
+    DO band = 1, nbndlw
+    DO atm = 1,2
+      n = nsp_species(atm,band)
+      IF (n /= 0) THEN
+        IF (n == 1) THEN
+          CALL read(fileid, var_name(atm), &
+            (/1,1,1,1,band,gPointSetNumber/), &
+            (/1,Tdiff,npressure(atm),no,1,1/), &
+            kmajor3_in(atm,band)%v)
+        ELSE
+          CALL read(fileid, var_name(atm), &
+            (/1,1,1,1,band,gPointSetNumber/), &
+            (/n,Tdiff,npressure(atm),no,1,1/), &
+            kmajor4_in(atm,band)%v)
+        ENDIF
+      ENDIF 
+    ENDDO
+    ENDDO
+  END SUBROUTINE read_key_species
 
-    IF (AbsorberIndex == -1) THEN
-      CALL finish('Absorber name index lookup failed.')
-    END IF
-
-  END FUNCTION AbsorberIndex
-
-  !=============================================================================
 
   SUBROUTINE lrtm_read
 
-    USE rrlw_planck, ONLY: chi_mls, totplanck, totplanck16
+    USE mo_psrad_lrtm_kgs, ONLY: chi_mls, totplanck, totplanck16
 
-    nf_status = p_nf_open('rrtmg_lw.nc', nf_read, fileid)
-    IF (nf_status /= nf_noerr) THEN
+    CALL psrad_io_open('rrtmg_lw.nc', fileid)
+    IF (fileid == 0) THEN
       CALL finish('mo_psrad_lrtm_netcdf/lrtm_read', 'File rrtmg_lw.nc cannot be opened')
     END IF
 
-!!$	IF (p_parallel_io) THEN
- 
-  nf_status = p_nf_inq_varid(fileid, 'AbsorberAmountMLS', varid)
-  nf_status = p_nf_get_vara_double(fileid, varid, &
-		   (/6, 1/), &
-		   (/SIZE(chi_mls, 1), SIZE(chi_mls, 2) /), &
-		   chi_mls)
-  nf_status = p_nf_inq_varid(fileid, 'IntegratedPlanckFunction', varid)
-  nf_status = p_nf_get_vara_double(fileid, varid, &
-		   (/1, 1/), &
-		   (/SIZE(totplanck,1), SIZE(totplanck,2)/), &
-		   totplanck)
-  nf_status = p_nf_inq_varid(fileid, 'IntegratedPlanckFunctionBand16', varid)
-  nf_status = p_nf_get_vara_double(fileid, varid, &
-		   (/ 1 /), &
-		   (/SIZE(totplanck16)/), &
-		   totplanck16)
-!!$	END IF 
-!!$    CALL p_bcast(chi_mls,     p_io) 
-!!$    CALL p_bcast(totplanck,   p_io) 
-!!$    CALL p_bcast(totplanck16, p_io) 
-	
-    CALL lw_kgb01  ! molecular absorption coefficients
-    CALL lw_kgb02
-    CALL lw_kgb03
-    CALL lw_kgb04
-    CALL lw_kgb05
-    CALL lw_kgb06
-    CALL lw_kgb07
-    CALL lw_kgb08
-    CALL lw_kgb09
-    CALL lw_kgb10
-    CALL lw_kgb11
-    CALL lw_kgb12
-    CALL lw_kgb13
-    CALL lw_kgb14
-    CALL lw_kgb15
-    CALL lw_kgb16
+    chi_mls = 0
+    CALL read(fileid, 'AbsorberAmountMLS', &
+      (/6, 1/), &
+      (/7, 59 /), & ! TODO
+      chi_mls(1:7,:))
+    chi_mls((/ih2o, ico2, io3, in2o, io2, ich4, ico/),:) = chi_mls(1:7,:)
 
-!!$    IF (p_parallel_io) THEN
-!!$      CALL io_close(rrtmg_lw)
-!!$    ENDIF
+    CALL read(fileid, 'IntegratedPlanckFunction', &
+      (/1, 1/), &
+      (/SIZE(totplanck,1), SIZE(totplanck,2)/), &
+      totplanck)
+    CALL read(fileid, 'IntegratedPlanckFunctionBand16', &
+      (/ 1 /), &
+      (/SIZE(totplanck16)/), &
+      totplanck16)
+    CALL read_gases
+    CALL read_water
+    CALL read_planck_fraction
+    CALL read_key_species
 
   END SUBROUTINE lrtm_read 
-
-    SUBROUTINE lw_kgb01
-
-      USE psrad_rrlw_kg01, ONLY : fracrefao, fracrefbo, kao, kbo, kao_mn2, kbo_mn2, selfrefo, forrefo, no1
-
-      INTEGER, PARAMETER :: bandNumber = 1
-      INTEGER, PARAMETER :: numGPoints = no1
-
-!!$      IF (p_parallel_io) THEN
-
-    nf_status = p_nf_inq_varid(fileid, 'PlanckFractionLowerAtmos', varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,1,1,1/), &
-             fracrefao)
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,1,1,1/), &
-             fracrefbo)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/1,Tdiff,plower,numGPoints,1,1/), &
-             kao)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/1,Tdiff,pupper,numGPoints,1,1/), &
-             kbo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20SelfAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tself,numGPoints,1,1/), &
-             selfrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20ForeignAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tforeign,numGPoints,1,1/), &
-             forrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('N2'),bandNumber,gPointSetNumber/), &
-             (/1,T,numGPoints,1,1,1/), &
-             kao_mn2)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('N2'),bandNumber,gPointSetNumber/), &
-             (/1,T,numGPoints,1,1,1/), &
-             kbo_mn2)
-
-!!$      ENDIF
-
-!!$      CALL p_bcast(fracrefao, p_io) 
-!!$      CALL p_bcast(fracrefbo, p_io)
-!!$      CALL p_bcast(kao,       p_io) 
-!!$      CALL p_bcast(kbo,       p_io)
-!!$      CALL p_bcast(kao_mn2,   p_io)
-!!$      CALL p_bcast(kbo_mn2,   p_io) 
-!!$      CALL p_bcast(selfrefo,  p_io)
-!!$      CALL p_bcast(forrefo,   p_io)
-
-    END SUBROUTINE lw_kgb01
-
-    SUBROUTINE lw_kgb02
-
-      USE psrad_rrlw_kg02, ONLY : fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, no2
-
-      INTEGER, PARAMETER :: bandNumber = 2
-      INTEGER, PARAMETER :: numGPoints = no2
-
-!!$      IF (p_parallel_io) THEN
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,1,1,1/), &
-             fracrefao)
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,1,1,1/), &
-             fracrefbo)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/1,Tdiff,plower,numGPoints,1,1/), &
-             kao)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/1,Tdiff,pupper,numGPoints,1,1/), &
-             kbo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20SelfAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tself,numGPoints,1,1/), &
-             selfrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20ForeignAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tforeign,numGPoints,1,1/), &
-             forrefo)
-
-!!$      ENDIF
-!!$
-!!$      CALL p_bcast(fracrefao, p_io)
-!!$      CALL p_bcast(fracrefbo, p_io)
-!!$      CALL p_bcast(kao,       p_io)
-!!$      CALL p_bcast(kbo,       p_io)
-!!$      CALL p_bcast(selfrefo,  p_io)
-!!$      CALL p_bcast(forrefo,   p_io)
-
-    END SUBROUTINE lw_kgb02
-
-    SUBROUTINE lw_kgb03
-
-      USE psrad_rrlw_kg03, ONLY : fracrefao, fracrefbo, kao, kbo, kao_mn2o, kbo_mn2o, selfrefo, forrefo, no3
-
-      INTEGER, PARAMETER :: bandNumber = 3
-      INTEGER, PARAMETER :: numGPoints = no3
-
-!!$      IF (p_parallel_io) THEN
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,keylower,1,1/), &
-             fracrefao)
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,keyupper,1,1/), &
-             fracrefbo)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/keylower,Tdiff,plower,numGPoints,1,1/), &
-             kao)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/keyupper,Tdiff,pupper,numGPoints,1,1/), &
-             kbo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20SelfAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tself,numGPoints,1,1/), &
-             selfrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20ForeignAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tforeign,numGPoints,1,1/), &
-             forrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('N2O'),bandNumber,gPointSetNumber/), &
-             (/keylower,T,numGPoints,1,1,1/), &
-             kao_mn2o)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('N2O'),bandNumber,gPointSetNumber/), &
-             (/keyupper,T,numGPoints,1,1,1/), &
-             kbo_mn2o)
-
-!!$      ENDIF
-!!$
-!!$      CALL p_bcast(fracrefao, p_io)
-!!$      CALL p_bcast(fracrefbo, p_io) 
-!!$      CALL p_bcast(kao,       p_io) 
-!!$      CALL p_bcast(kbo,       p_io) 
-!!$      CALL p_bcast(kao_mn2o,  p_io)
-!!$      CALL p_bcast(kbo_mn2o,  p_io) 
-!!$      CALL p_bcast(selfrefo,  p_io)
-!!$      CALL p_bcast(forrefo,   p_io)
-
-    END SUBROUTINE lw_kgb03
-
-    SUBROUTINE lw_kgb04
-
-      USE psrad_rrlw_kg04, ONLY : fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, no4
-
-      INTEGER, PARAMETER :: bandNumber = 4
-      INTEGER, PARAMETER :: numGPoints = no4
-
-!!$      IF (p_parallel_io) THEN
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,keylower,1,1/), &
-             fracrefao)
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,keyupper,1,1/), &
-             fracrefbo(:,1:5))
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/keylower,Tdiff,plower,numGPoints,1,1/), &
-             kao)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/keyupper,Tdiff,pupper,numGPoints,1,1/), &
-             kbo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20SelfAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tself,numGPoints,1,1/), &
-             selfrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20ForeignAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tforeign,numGPoints,1,1/), &
-             forrefo)
-
-!!$      ENDIF
-!!$
-!!$      CALL p_bcast(fracrefao, p_io)
-!!$      CALL p_bcast(fracrefbo, p_io)
-!!$      CALL p_bcast(kao,       p_io)
-!!$      CALL p_bcast(kbo,       p_io)
-!!$      CALL p_bcast(selfrefo,  p_io)
-!!$      CALL p_bcast(forrefo,   p_io)
-
-    END SUBROUTINE lw_kgb04
-
-    SUBROUTINE lw_kgb05
-
-      USE psrad_rrlw_kg05, ONLY : fracrefao, fracrefbo, kao, kbo, kao_mo3, selfrefo, forrefo, ccl4o, no5
-
-      INTEGER, PARAMETER :: bandNumber = 5
-      INTEGER, PARAMETER :: numGPoints = no5
-
-!!$      IF (p_parallel_io) THEN
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,keylower,1,1/), &
-             fracrefao)
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,keyupper,1,1/), &
-             fracrefbo)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, & 
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/keylower,Tdiff,plower,numGPoints,1,1/), &
-             kao)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/keyupper,Tdiff,pupper,numGPoints,1,1/), &
-             kbo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20SelfAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tself,numGPoints,1,1/), &
-             selfrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20ForeignAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tforeign,numGPoints,1,1/), &
-             forrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('O3'),bandNumber,gPointSetNumber/), &
-             (/keylower,T,numGPoints,1,1,1/), &
-             kao_mo3)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('CCL4'),bandNumber,gPointSetNumber/), &
-             (/1,1,numGPoints,1,1,1/), &
-             ccl4o)
-
-!!$      ENDIF
-!!$
-!!$      CALL p_bcast(fracrefao, p_io) 
-!!$      CALL p_bcast(fracrefbo, p_io)
-!!$      CALL p_bcast(kao,       p_io)
-!!$      CALL p_bcast(kbo,       p_io)
-!!$      CALL p_bcast(kao_mo3,   p_io)
-!!$      CALL p_bcast(selfrefo,  p_io)
-!!$      CALL p_bcast(forrefo,   p_io)
-!!$      CALL p_bcast(ccl4o,     p_io)
-
-    END SUBROUTINE lw_kgb05
-
-    SUBROUTINE lw_kgb06
-
-      USE psrad_rrlw_kg06, ONLY : fracrefao, kao, kao_mco2, selfrefo, forrefo, cfc11adjo, cfc12o, no6
-
-      INTEGER, PARAMETER :: bandNumber = 6
-      INTEGER, PARAMETER :: numGPoints = no6
-
-!!$      IF (p_parallel_io) THEN
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,1,1,1/), &
-             fracrefao)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/1,Tdiff,plower,numGPoints,1,1/), &
-             kao)
-
-    nf_status = p_nf_inq_varid(fileid,'H20SelfAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tself,numGPoints,1,1/), &
-             selfrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20ForeignAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tforeign,numGPoints,1,1/), &
-             forrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('CO2'),bandNumber,gPointSetNumber/), &
-             (/1,T,numGPoints,1,1,1/), &
-             kao_mco2)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('CFC11'),bandNumber,gPointSetNumber/), &
-             (/1,1,numGPoints,1,1,1/), &
-             cfc11adjo)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('CFC12'),bandNumber,gPointSetNumber/), &
-             (/1,1,numGPoints,1,1,1/), &
-             cfc12o)
-
-!!$      ENDIF
-!!$
-!!$      CALL p_bcast(fracrefao, p_io) 
-!!$      CALL p_bcast(kao,       p_io) 
-!!$      CALL p_bcast(kao_mco2,  p_io) 
-!!$      CALL p_bcast(selfrefo,  p_io) 
-!!$      CALL p_bcast(forrefo,   p_io) 
-!!$      CALL p_bcast(cfc11adjo, p_io) 
-!!$      CALL p_bcast(cfc12o,    p_io)
-
-    END SUBROUTINE lw_kgb06
-
-    SUBROUTINE lw_kgb07 
-
-      USE psrad_rrlw_kg07, ONLY : fracrefao, fracrefbo, kao, kbo, kao_mco2, kbo_mco2, selfrefo, forrefo, no7
-
-      INTEGER, PARAMETER :: bandNumber = 7
-      INTEGER, PARAMETER :: numGPoints = no7
-
-!!$      IF (p_parallel_io) THEN
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,keylower,1,1/), &
-             fracrefao)
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,1,1,1/), &
-             fracrefbo)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/keylower,Tdiff,plower,numGPoints,1,1/), &
-             kao)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, & 
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/1,Tdiff,pupper,numGPoints,1,1/), &
-             kbo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20SelfAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tself,numGPoints,1,1/), &
-             selfrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20ForeignAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tforeign,numGPoints,1,1/), &
-             forrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('CO2'),bandNumber,gPointSetNumber/), &
-             (/keylower,T,numGPoints,1,1,1/), &
-             kao_mco2)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('CO2'),bandNumber,gPointSetNumber/), &
-             (/1,T,numGPoints,1,1,1/), &
-             kbo_mco2)
-
-!!$      ENDIF
-!!$
-!!$      CALL p_bcast(fracrefao, p_io) 
-!!$      CALL p_bcast(fracrefbo, p_io) 
-!!$      CALL p_bcast(kao,       p_io) 
-!!$      CALL p_bcast(kbo,       p_io) 
-!!$      CALL p_bcast(kao_mco2,  p_io) 
-!!$      CALL p_bcast(kbo_mco2,  p_io)
-!!$      CALL p_bcast(selfrefo,  p_io) 
-!!$      CALL p_bcast(forrefo,   p_io)
-
-    END SUBROUTINE lw_kgb07
-
-    SUBROUTINE lw_kgb08         
-
-      USE psrad_rrlw_kg08, ONLY : fracrefao, fracrefbo, kao, kao_mco2, kao_mn2o, kao_mo3, kbo, kbo_mco2, kbo_mn2o, &
-           selfrefo, forrefo, cfc12o, cfc22adjo, no8
-
-      INTEGER, PARAMETER :: bandNumber = 8
-      INTEGER, PARAMETER :: numGPoints = no8
-
-!!$      IF (p_parallel_io) THEN
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,1,1,1/), &
-             fracrefao)
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,1,1,1/), &
-             fracrefbo)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/1,Tdiff,plower,numGPoints,1,1/), &
-             kao)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/1,Tdiff,pupper,numGPoints,1,1/), &
-             kbo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20SelfAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tself,numGPoints,1,1/), &
-             selfrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20ForeignAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tforeign,numGPoints,1,1/), &
-             forrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('O3'),bandNumber,gPointSetNumber/), &
-             (/1,T,numGPoints,1,1,1/), &
-             kao_mo3)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('CO2'),bandNumber,gPointSetNumber/), &
-             (/1,T,numGPoints,1,1,1/), &
-             kao_mco2)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('CO2'),bandNumber,gPointSetNumber/), &
-             (/1,T,numGPoints,1,1,1/), &
-             kbo_mco2)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('N2O'),bandNumber,gPointSetNumber/), &
-             (/1,T,numGPoints,1,1,1/), &
-             kao_mn2o)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('N2O'),bandNumber,gPointSetNumber/), &
-             (/1,T,numGPoints,1,1,1/), &
-             kbo_mn2o)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('CFC12'),bandNumber,gPointSetNumber/), &
-             (/1,1,numGPoints,1,1,1/), &
-             cfc12o)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('CFC22'),bandNumber,gPointSetNumber/), &
-             (/1,1,numGPoints,1,1,1/), &
-             cfc22adjo)
-
-!!$      ENDIF
-!!$
-!!$      CALL p_bcast(fracrefao, p_io) 
-!!$      CALL p_bcast(fracrefbo, p_io) 
-!!$      CALL p_bcast(kao,       p_io) 
-!!$      CALL p_bcast(kao_mco2,  p_io) 
-!!$      CALL p_bcast(kao_mn2o,  p_io) 
-!!$      CALL p_bcast(kao_mo3,   p_io)
-!!$      CALL p_bcast(kbo,       p_io) 
-!!$      CALL p_bcast(kbo_mco2,  p_io)
-!!$      CALL p_bcast(kbo_mn2o,  p_io) 
-!!$      CALL p_bcast(selfrefo,  p_io) 
-!!$      CALL p_bcast(forrefo,   p_io) 
-!!$      CALL p_bcast(cfc12o,    p_io) 
-!!$      CALL p_bcast(cfc22adjo, p_io)
-
-    END SUBROUTINE lw_kgb08
-
-    SUBROUTINE lw_kgb09 
-
-      USE psrad_rrlw_kg09, ONLY : fracrefao, fracrefbo, kao, kbo, kao_mn2o, kbo_mn2o, selfrefo, forrefo, no9
-
-      INTEGER, PARAMETER :: bandNumber = 9
-      INTEGER, PARAMETER :: numGPoints = no9
-
-!!$      IF (p_parallel_io) THEN
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,keylower,1,1/), &
-             fracrefao)
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,1,1,1/), &
-             fracrefbo)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/keylower,Tdiff,plower,numGPoints,1,1/), &
-             kao)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/1,Tdiff,pupper,numGPoints,1,1/), &
-             kbo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20SelfAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tself,numGPoints,1,1/), &
-             selfrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20ForeignAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tforeign,numGPoints,1,1/), &
-             forrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('N2O'),bandNumber,gPointSetNumber/), &
-             (/keylower,T,numGPoints,1,1,1/), &
-             kao_mn2o)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('N2O'),bandNumber,gPointSetNumber/), &
-             (/1,T,numGPoints,1,1,1/), &
-             kbo_mn2o)
-
-!!$      ENDIF
-!!$
-!!$      CALL p_bcast(fracrefao, p_io) 
-!!$      CALL p_bcast(fracrefbo, p_io) 
-!!$      CALL p_bcast(kao,       p_io) 
-!!$      CALL p_bcast(kbo,       p_io) 
-!!$      CALL p_bcast(kao_mn2o,  p_io) 
-!!$      CALL p_bcast(kbo_mn2o,  p_io) 
-!!$      CALL p_bcast(selfrefo,  p_io) 
-!!$      CALL p_bcast(forrefo,   p_io)
-
-    END SUBROUTINE lw_kgb09
-
-    SUBROUTINE lw_kgb10         
-
-      USE psrad_rrlw_kg10, ONLY : fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, no10
-
-      INTEGER, PARAMETER :: bandNumber = 10
-      INTEGER, PARAMETER :: numGPoints = no10
-
-!!$      IF (p_parallel_io) THEN
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,1,1,1/), &
-             fracrefao)
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,1,1,1/), &
-             fracrefbo)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/1,Tdiff,plower,numGPoints,1,1/), &
-             kao)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/1,Tdiff,pupper,numGPoints,1,1/), &
-             kbo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20SelfAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tself,numGPoints,1,1/), &
-             selfrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20ForeignAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tforeign,numGPoints,1,1/), &
-             forrefo)
-
-!!$      ENDIF
-!!$
-!!$      CALL p_bcast(fracrefao, p_io) 
-!!$      CALL p_bcast(fracrefbo, p_io) 
-!!$      CALL p_bcast(kao,       p_io) 
-!!$      CALL p_bcast(kbo,       p_io) 
-!!$      CALL p_bcast(selfrefo,  p_io) 
-!!$      CALL p_bcast(forrefo,   p_io)
-
-    END SUBROUTINE lw_kgb10
-
-    SUBROUTINE lw_kgb11
-      USE psrad_rrlw_kg11, ONLY : fracrefao, fracrefbo, kao, kbo, kao_mo2, kbo_mo2, selfrefo, forrefo, no11
-
-      INTEGER, PARAMETER :: bandNumber = 11
-      INTEGER, PARAMETER :: numGPoints = no11
-
-!!$      IF (p_parallel_io) THEN
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,1,1,1/), &
-             fracrefao)
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,1,1,1/), &
-             fracrefbo)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/1,Tdiff,plower,numGPoints,1,1/), &
-             kao)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/1,Tdiff,pupper,numGPoints,1,1/), &
-             kbo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20SelfAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tself,numGPoints,1,1/), &
-             selfrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20ForeignAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tforeign,numGPoints,1,1/), &
-             forrefo)
-
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('O2'),bandNumber,gPointSetNumber/), &
-             (/1,T,numGPoints,1,1,1/), &
-             kao_mo2)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('O2'),bandNumber,gPointSetNumber/), &
-             (/1,T,numGPoints,1,1,1/), &
-             kbo_mo2)
-
-!!$      ENDIF
-!!$
-!!$      CALL p_bcast(fracrefao, p_io) 
-!!$      CALL p_bcast(fracrefbo, p_io) 
-!!$      CALL p_bcast(kao,       p_io) 
-!!$      CALL p_bcast(kbo,       p_io) 
-!!$      CALL p_bcast(kao_mo2,   p_io) 
-!!$      CALL p_bcast(kbo_mo2,   p_io) 
-!!$      CALL p_bcast(selfrefo,  p_io) 
-!!$      CALL p_bcast(forrefo,   p_io)
-
-    END SUBROUTINE lw_kgb11
-
-    SUBROUTINE lw_kgb12
-
-      USE psrad_rrlw_kg12, ONLY : fracrefao, kao, selfrefo, forrefo, no12
-
-      INTEGER, PARAMETER :: bandNumber = 12
-      INTEGER, PARAMETER :: numGPoints = no12
-
-!!$      IF (p_parallel_io) THEN
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,keylower,1,1/), &
-             fracrefao)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/keylower,Tdiff,plower,numGPoints,1,1/), &
-             kao)
-
-    nf_status = p_nf_inq_varid(fileid,'H20SelfAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tself,numGPoints,1,1/), &
-             selfrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20ForeignAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tforeign,numGPoints,1,1/), &
-             forrefo)
-
-!!$      ENDIF
-!!$
-!!$      CALL p_bcast(fracrefao, p_io) 
-!!$      CALL p_bcast(kao,       p_io) 
-!!$      CALL p_bcast(selfrefo,  p_io) 
-!!$      CALL p_bcast(forrefo,   p_io)
-
-    END SUBROUTINE lw_kgb12
-
-    SUBROUTINE lw_kgb13         
-
-      USE psrad_rrlw_kg13, ONLY : fracrefao, fracrefbo, kao, kao_mco2, kao_mco, kbo_mo3, selfrefo, forrefo, no13
-
-      INTEGER, PARAMETER :: bandNumber = 13
-      INTEGER, PARAMETER :: numGPoints = no13  
-
-!!$      IF (p_parallel_io) THEN
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,keylower,1,1/), &
-             fracrefao)
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/),  &
-             (/numGPoints,1,1,1/), &
-             fracrefbo)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/keylower,Tdiff,plower,numGPoints,1,1/), &
-             kao)
-
-    nf_status = p_nf_inq_varid(fileid,'H20SelfAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tself,numGPoints,1,1/), &
-             selfrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20ForeignAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tforeign,numGPoints,1,1/), &
-             forrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('O3'),bandNumber,gPointSetNumber/), &
-             (/1,T,numGPoints,1,1,1/), &
-             kbo_mo3)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('CO2'),bandNumber,gPointSetNumber/), &
-             (/keylower,T,numGPoints,1,1,1/), &
-             kao_mco2)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('CO'),bandNumber,gPointSetNumber/), &
-             (/keylower,T,numGPoints,1,1,1/), &
-             kao_mco)
-
-!!$      ENDIF
-!!$
-!!$      CALL p_bcast(fracrefao, p_io)
-!!$      CALL p_bcast(fracrefbo, p_io)
-!!$      CALL p_bcast(kao,       p_io)
-!!$      CALL p_bcast(kao_mco2,  p_io)
-!!$      CALL p_bcast(kao_mco,   p_io)
-!!$      CALL p_bcast(kbo_mo3,   p_io) 
-!!$      CALL p_bcast(selfrefo,  p_io) 
-!!$      CALL p_bcast(forrefo,   p_io)
-
-    END SUBROUTINE lw_kgb13
-
-    SUBROUTINE lw_kgb14 
-
-      USE psrad_rrlw_kg14, ONLY : fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, no14
-
-      INTEGER, PARAMETER :: bandNumber = 14
-      INTEGER, PARAMETER :: numGPoints = no14
-
-!!$      IF (p_parallel_io) THEN
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,1,1,1/), &
-             fracrefao)
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,1,1,1/), &
-             fracrefbo)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/1,Tdiff,plower,numGPoints,1,1/), &
-             kao)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/1,Tdiff,pupper,numGPoints,1,1/), &
-             kbo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20SelfAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tself,numGPoints,1,1/), &
-             selfrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20ForeignAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tforeign,numGPoints,1,1/), &
-             forrefo)
-
-!!$      ENDIF
-!!$
-!!$      CALL p_bcast(fracrefao, p_io)
-!!$      CALL p_bcast(fracrefbo, p_io)
-!!$      CALL p_bcast(kao,       p_io)
-!!$      CALL p_bcast(kbo,       p_io)
-!!$      CALL p_bcast(selfrefo,  p_io) 
-!!$      CALL p_bcast(forrefo,   p_io)
-
-    END SUBROUTINE lw_kgb14
-
-    SUBROUTINE lw_kgb15 
-
-      USE psrad_rrlw_kg15, ONLY : fracrefao, kao, kao_mn2, selfrefo, forrefo, no15
-
-      INTEGER, PARAMETER :: bandNumber = 15
-      INTEGER, PARAMETER :: numGPoints = no15
-
-!!$      IF (p_parallel_io) THEN
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,keylower,1,1/), &
-             fracrefao)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/keylower,Tdiff,plower,numGPoints,1,1/), &
-             kao)
-
-    nf_status = p_nf_inq_varid(fileid,'H20SelfAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tself,numGPoints,1,1/), &
-             selfrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20ForeignAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tforeign,numGPoints,1,1/), &
-             forrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'AbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,AbsorberIndex('N2'),bandNumber,gPointSetNumber/), &
-             (/keylower,T,numGPoints,1,1,1/), &
-             kao_mn2)
-
-!!$      ENDIF
-!!$
-!!$      CALL p_bcast(fracrefao, p_io) 
-!!$      CALL p_bcast(kao,       p_io) 
-!!$      CALL p_bcast(kao_mn2,   p_io)
-!!$      CALL p_bcast(selfrefo,  p_io) 
-!!$      CALL p_bcast(forrefo,   p_io)
-
-    END SUBROUTINE lw_kgb15
-
-    SUBROUTINE lw_kgb16         
-
-      USE psrad_rrlw_kg16, ONLY : fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, no16
-
-      INTEGER, PARAMETER :: bandNumber = 16
-      INTEGER, PARAMETER :: numGPoints = no16
-
-!!$      IF (p_parallel_io) THEN
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,keylower,1,1/), &
-             fracrefao)
-
-    nf_status = p_nf_inq_varid(fileid,'PlanckFractionUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/numGPoints,1,1,1/), &
-             fracrefbo)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsLowerAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/keylower,Tdiff,plower,numGPoints,1,1/), &
-             kao)
-
-    nf_status = p_nf_inq_varid(fileid,'KeySpeciesAbsorptionCoefficientsUpperAtmos',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,1,1,bandNumber,gPointSetNumber/), &
-             (/1,Tdiff,pupper,numGPoints,1,1/), &
-             kbo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20SelfAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tself,numGPoints,1,1/), &
-             selfrefo)
-
-    nf_status = p_nf_inq_varid(fileid,'H20ForeignAbsorptionCoefficients',varid)
-    nf_status = p_nf_get_vara_double(fileid, varid, &
-             (/1,1,bandNumber,gPointSetNumber/), &
-             (/Tforeign,numGPoints,1,1/), &
-             forrefo)
-
-!!$      ENDIF
-!!$
-!!$      CALL p_bcast(fracrefao, p_io) 
-!!$      CALL p_bcast(fracrefbo, p_io) 
-!!$      CALL p_bcast(kao,       p_io) 
-!!$      CALL p_bcast(kbo,       p_io) 
-!!$      CALL p_bcast(selfrefo,  p_io) 
-!!$      CALL p_bcast(forrefo,   p_io)
-
-    END SUBROUTINE lw_kgb16
 
 END MODULE mo_psrad_lrtm_netcdf

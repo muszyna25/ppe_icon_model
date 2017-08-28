@@ -407,7 +407,7 @@ CONTAINS
     LOGICAL                  :: lmatch                       ! check matching of uuid's
 
     CHARACTER(len=uuid_string_length) :: uuid_unparsed
-    TYPE(t_inputParameters)  :: parameters   !TODO[NH]: Move to caller?
+    TYPE(t_inputParameters)  :: parameters   !TODO: Move to caller?
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
     CALL message(routine, "read vertical grid description file.")

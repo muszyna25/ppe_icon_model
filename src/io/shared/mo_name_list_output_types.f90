@@ -28,6 +28,7 @@ MODULE mo_name_list_output_types
     &                                 MAX_TIME_LEVELS, MAX_NUM_IO_PROCS,               &
     &                                 MAX_TIME_INTERVALS, MAX_CHAR_LENGTH, MAX_NPLEVS, &
     &                                 MAX_NZLEVS, MAX_NILEVS
+  USE mo_cdi_constants,         ONLY: ZA_COUNT
   USE mo_io_units,              ONLY: filename_max
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_util_uuid_types,       ONLY: t_uuid
@@ -40,7 +41,7 @@ MODULE mo_name_list_output_types
 
   PRIVATE
   ! constants:
-  PUBLIC :: l_output_phys_patch,max_z_axes
+  PUBLIC :: l_output_phys_patch
   PUBLIC :: REMAP_NONE
   PUBLIC :: REMAP_REGULAR_LATLON
   PUBLIC :: msg_io_start
@@ -100,8 +101,6 @@ MODULE mo_name_list_output_types
   ! and thus whether the domain number in output name lists pertains to physical
   ! or logical patches.
   LOGICAL, PARAMETER :: l_output_phys_patch = .TRUE. !** DO NOT CHANGE - needed for GRIB output **!
-
-  INTEGER, PARAMETER :: max_z_axes = 43
 
   ! Character-strings denoting the "special" GRIB2 output fields that
   ! describe the grid coordinates. These fields are ignored by most
@@ -424,7 +423,7 @@ MODULE mo_name_list_output_types
     INTEGER                               :: cdiVertGridID
     INTEGER                               :: cdiEdgeGridID
     INTEGER                               :: cdiLonLatGridID
-    INTEGER                               :: cdiZaxisID(max_z_axes)           !< All types of possible Zaxis ID's
+    INTEGER                               :: cdiZaxisID(ZA_COUNT)             !< All types of possible Zaxis ID's
     INTEGER                               :: cdiTaxisID
     INTEGER                               :: cdiTaxisID_orig
     INTEGER                               :: cdiTimeIndex
