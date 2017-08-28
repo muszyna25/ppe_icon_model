@@ -428,7 +428,7 @@ WW_PRECIP: IF (rgdiff < rgdiff_th1) THEN
      &                  rko)
 
         IF ( (rkdiff > rkgrenz1 .AND. (top_con(i) > 0 .AND. top_con(i) <= ke1))     &
-     &        .AND.( dp > 400.e2_wp .AND. t(i, top_con(i)) < tmelt-25._wp)        &
+     &        .AND.( dp > 400.e2_wp .AND. t(i, MAX(1,top_con(i))) < tmelt-25._wp)   &
      &        .AND.(rko < rkogrenz) ) THEN
 
           IF (rko < -6._wp .AND. t(i, top_con(i)) < tmelt-45._wp .AND.  rkdiff > rkgrenz2) THEN
