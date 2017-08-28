@@ -618,7 +618,7 @@ CONTAINS
     CHARACTER(LEN=FILENAME_MAX)         :: rdy_filename
     CHARACTER(LEN=8)         :: forecast_delta_str
     TYPE(datetime),  POINTER            :: mtime_begin, mtime_date
-    TYPE(timedelta), POINTER            :: forecast_delta
+    TYPE(timedelta)                     :: forecast_delta
     INTEGER                             :: iunit
     TYPE (t_keyword_list), POINTER      :: keywords
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
@@ -626,7 +626,6 @@ CONTAINS
     ! compute current forecast time (delta):
     mtime_date     => newDatetime(TRIM(get_current_date(ev)))
     mtime_begin    => newDatetime(TRIM(ev%output_event%event_data%sim_start))
-    forecast_delta => newTimedelta("P01D")
     forecast_delta = mtime_date - mtime_begin
 
     WRITE (forecast_delta_str,'(4(i2.2))') forecast_delta%day, forecast_delta%hour, &
@@ -637,7 +636,6 @@ CONTAINS
 
     CALL deallocateDatetime(mtime_date)
     CALL deallocateDatetime(mtime_begin)
-    CALL deallocateTimedelta(forecast_delta)
 
     NULLIFY(keywords)
     ! substitute tokens in ready file name
