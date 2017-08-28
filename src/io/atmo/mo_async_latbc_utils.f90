@@ -892,17 +892,15 @@
       END IF
 
 
-      IF (latbc%buffer%lread_pres_temp) THEN
-        CALL fetch_from_buffer(latbc, 'temp', latbc%latbc_data(tlev)%atm_in%temp)
+      IF (latbc%buffer%lread_pres) THEN
         CALL fetch_from_buffer(latbc, 'pres', latbc%latbc_data(tlev)%atm_in%pres)
       ENDIF
-
-
+      IF (latbc%buffer%lread_temp) THEN
+        CALL fetch_from_buffer(latbc, 'temp', latbc%latbc_data(tlev)%atm_in%temp)
+      ENDIF
       IF (latbc%buffer%lread_vn) THEN
         CALL fetch_from_buffer(latbc, 'vn', latbc%latbc_data(tlev)%atm_in%vn, latbc%patch_data%edges)
       END IF
-
-
       IF (latbc%buffer%lread_u_v) THEN
         CALL fetch_from_buffer(latbc, 'u', latbc%latbc_data(tlev)%atm_in%u)
         CALL fetch_from_buffer(latbc, 'v', latbc%latbc_data(tlev)%atm_in%v)
@@ -973,29 +971,25 @@
       ENDIF
 
 
-
       IF (latbc%buffer%lread_ps_geop) THEN
-
         ! allocate local temporary arrays:
         ALLOCATE(psfc(nproma, nblks_c), phi_sfc(nproma, nblks_c), STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
         ! Read parameter surface pressure (LNPS)
-        CALL fetch_from_buffer(latbc, latbc%buffer%psvar, psfc)
+        CALL fetch_from_buffer(latbc, "pres_sfc", psfc)
 
         ! Read parameter  surface Geopotential (GEOSP)
         CALL fetch_from_buffer(latbc, latbc%buffer%geop_ml_var, phi_sfc)
-
       ENDIF
-
 
       ! boundary exchange for a 2-D and 3-D array, needed because the
       ! vertical interpolation includes the halo region (otherwise, the 
       ! syncs would have to be called after vert_interp)
-      CALL sync_patch_array_mult(SYNC_C,p_patch,4,latbc%latbc_data(tlev)%atm_in%temp, &
-        &                        latbc%latbc_data_const%z_mc_in,                      &
-        &                        latbc%latbc_data(tlev)%atm_in%w,                     &
-        &                        latbc%latbc_data(tlev)%atm_in%pres)
+      CALL sync_patch_array_mult(SYNC_C,p_patch,4, latbc%latbc_data_const%z_mc_in,  &
+        &                        latbc%latbc_data(tlev)%atm_in%w,                   &
+        &                        latbc%latbc_data(tlev)%atm_in%pres,                &
+        &                        latbc%latbc_data(tlev)%atm_in%temp)
       CALL sync_patch_array_mult(SYNC_C,p_patch,5,latbc%latbc_data(tlev)%atm_in%qv, &
         &                        latbc%latbc_data(tlev)%atm_in%qc,                  &
         &                        latbc%latbc_data(tlev)%atm_in%qi,                  &
@@ -1009,20 +1003,21 @@
            &                        latbc%latbc_data(tlev)%atm_in%v)
       ENDIF
 
+      IF (latbc%buffer%lcompute_hhl_pres) THEN ! i.e. atmospheric data from IFS
+        CALL sync_patch_array(SYNC_C,p_patch,phi_sfc)
+        CALL sync_patch_array(SYNC_C,p_patch,psfc)
+        CALL compute_input_pressure_and_height(p_patch, psfc, phi_sfc, latbc%latbc_data(tlev))
+      END IF
+
       IF (latbc%buffer%lconvert_omega2w) THEN
         CALL sync_patch_array(SYNC_C, p_patch, omega)
+        ! (note that "convert_omega2w" requires the pressure field
+        ! which has been computed before)
         CALL convert_omega2w(omega, &
           &                  latbc%latbc_data(tlev)%atm_in%w,     &
           &                  latbc%latbc_data(tlev)%atm_in%pres,  &
           &                  latbc%latbc_data(tlev)%atm_in%temp,  &
           &                  nblks_c, p_patch%npromz_c, nlev_in )
-
-      END IF
-
-      IF (latbc%buffer%lcompute_hhl_pres) THEN ! i.e. atmospheric data from IFS
-        CALL sync_patch_array(SYNC_C,p_patch,phi_sfc)
-        CALL sync_patch_array(SYNC_C,p_patch,psfc)
-        CALL compute_input_pressure_and_height(p_patch, psfc, phi_sfc, latbc%latbc_data(tlev))
       END IF
 
       ! cleanup
@@ -1032,7 +1027,9 @@
       IF (ALLOCATED(w_ifc))    DEALLOCATE(w_ifc)
       IF (ALLOCATED(z_ifc_in)) DEALLOCATE(z_ifc_in)
 
-      ! perform vertical interpolation of horizonally interpolated analysis data
+      ! perform vertical interpolation of horizonally interpolated analysis data.
+      !
+      ! (note that we compute RHO in this subroutine)
       !
       CALL vert_interp(p_patch, p_int, p_nh_state%metrics, latbc%latbc_data(tlev),   &
            &    opt_use_vn=latbc%buffer%lread_vn)
@@ -1304,40 +1301,24 @@
     !! @par Revision History
     !! Initial version by M. Pondkule, DWD (2013-05-19)
     !!
-    FUNCTION get_field_index(latbc,name,opt_lmap) RESULT(result_varID)
+    FUNCTION get_field_index(latbc,name) RESULT(result_varID)
       TYPE (t_latbc_data), INTENT(IN) :: latbc
       CHARACTER (LEN=*),   INTENT(IN) :: name !< variable name
-      LOGICAL, OPTIONAL,   INTENT(IN) :: opt_lmap
       ! local variables
       LOGICAL, PARAMETER :: ldebug = .FALSE.
       INTEGER :: result_varID, varID
-      LOGICAL :: lmap
-
-      lmap = .FALSE.
-      IF (PRESENT(opt_lmap)) THEN
-        IF (opt_lmap) lmap = .TRUE.
-      ENDIF
 
       IF (ldebug)  WRITE (0,*) "name : ", TRIM(name)
 
       result_varID = -1
-      ! looping over variable list in internal or mapped name
-      IF (lmap) THEN
-        DO varID=1, latbc%buffer%ngrp_vars
-          IF (ldebug)  WRITE (0,*) "mapped name : ", TRIM(latbc%buffer%mapped_name(varID))
-          IF (TRIM(tolower(name)) == TRIM(tolower(latbc%buffer%mapped_name(varID)))) THEN
-            result_varID = varID
-          END IF
-        END DO
-      ELSE
-        DO varID=1, latbc%buffer%ngrp_vars
-          IF (ldebug)  WRITE (0,*) "internal name : ", TRIM(latbc%buffer%internal_name(varID))
-          IF (TRIM(tolower(name)) == TRIM(tolower(latbc%buffer%internal_name(varID)))) THEN
-            result_varID = varID
-          END IF
-        END DO
-      ENDIF
-
+      ! looping over variable list in internal name
+      LOOP : DO varID=1, latbc%buffer%ngrp_vars
+        IF (ldebug)  WRITE (0,*) "internal name : ", TRIM(latbc%buffer%internal_name(varID))
+        IF (TRIM(tolower(name)) == TRIM(tolower(latbc%buffer%internal_name(varID)))) THEN
+          result_varID = varID
+          EXIT LOOP
+        END IF
+      END DO LOOP
     END FUNCTION get_field_index
 
     !-------------------------------------------------------------------------

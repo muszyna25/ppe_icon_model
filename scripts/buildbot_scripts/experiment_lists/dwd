@@ -1,8 +1,23 @@
+machine|dwd_cray|compute
+builder|DWD_cray|--with-fortran=cray|Active
+experiment|checksuite.xce.dwd.de/exp.run_ICON_03_R19B7N8-ID2_ID1_lam.run|
+experiment|checksuite.xce.dwd.de/exp.run_ICON_05_R02B06N07_ifsinit_restarttest.run|
+experiment|checksuite.xce.dwd.de/exp.run_ICON_01_R3B9_lam.run|
+experiment|checksuite.xce.dwd.de/exp.run_ICON_13_R2B08-dkltest.run|
+experiment|checksuite.xce.dwd.de/exp.run_ICON_07_R02B04N06M_restarttest.run|
+experiment|checksuite.xce.dwd.de/exp.run_ICON_04_R02B06N08_ifsinit_restarttest.run|
+experiment|checksuite.xce.dwd.de/exp.run_ICON_12_R3B08_lam_initmode4.run|
+experiment|checksuite.xce.dwd.de/exp.run_ICON_02_R2B13_lam.run|
+experiment|checksuite.xce.dwd.de/exp.run_ICON_11_R3B08_lam_initmode7.run|
+experiment|checksuite.xce.dwd.de/exp.run_ICON_08_R02B04N06M_ref.run|
+experiment|checksuite.xce.dwd.de/exp.run_ICON_09_R2B6N7_oper_EPS.run|
+experiment|checksuite.xce.dwd.de/exp.run_ICON_06_R02B06N07_ifsinit_ref.run|
+builder|DWD_cray_production|--with-fortran=cray|Inactive
 machine|breeze|
-builder|BREEZE_intel|--with-fortran=intel|Inactive
+builder|BREEZE_nag|--with-fortran=nag|Inactive
 builder|BREEZE_gcc_openmp|--with-fortran=gcc --with-openmp|Inactive
 builder|BREEZE_gcc|--with-fortran=gcc|Inactive
-builder|BREEZE_nag|--with-fortran=nag|Inactive
+builder|BREEZE_intel|--with-fortran=intel|Inactive
 builder|BREEZE_intel_openmp|--with-fortran=intel --with-openmp|Inactive
 machine|daint|
 builder|DAINT_CPU_cce|--with-fortran=cray --build=x86_64-cray-linux --host=x86_64-unknown-linux-gnu|Inactive
@@ -15,17 +30,3 @@ builder|MISTRAL_nag_serial|--with-fortran=nag --without-mpi --without-yac|Inacti
 builder|MISTRAL_ocean|--with-fortran=intel --with-openmp --with-flags=ocean|Inactive
 builder|MISTRAL_gcc|--with-fortran=gcc|Inactive
 builder|MISTRAL_nag|--with-fortran=nag|Inactive
-machine|dwd_cray|compute
-builder|DWD_cray_production|--with-fortran=cray|Inactive
-builder|DWD_cray|--with-fortran=cray|Active
-experiment|checksuite.xce.dwd.de/exp.run_ICON_01_R3B9_lam.run|
-experiment|checksuite.xce.dwd.de/exp.run_ICON_02_R2B13_lam.run|
-experiment|checksuite.xce.dwd.de/exp.run_ICON_03_R19B7N8-ID2_ID1_lam.run|
-experiment|checksuite.xce.dwd.de/exp.run_ICON_04_R02B06N08_ifsinit_restarttest.run|
-experiment|checksuite.xce.dwd.de/exp.run_ICON_05_R02B06N07_ifsinit_restarttest.run|
-experiment|checksuite.xce.dwd.de/exp.run_ICON_06_R02B06N07_ifsinit_ref.run|
-experiment|checksuite.xce.dwd.de/exp.run_ICON_07_R02B04N06M_restarttest.run|
-experiment|checksuite.xce.dwd.de/exp.run_ICON_08_R02B04N06M_ref.run|
-experiment|checksuite.xce.dwd.de/exp.run_ICON_09_R2B6N7_oper_EPS.run|
-experiment|checksuite.xce.dwd.de/exp.run_ICON_11_R3B08_lam_initmode7.run|
-experiment|checksuite.xce.dwd.de/exp.run_ICON_12_R3B08_lam_initmode4.run|
