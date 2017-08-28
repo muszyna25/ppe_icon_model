@@ -1278,7 +1278,7 @@ MODULE mo_async_latbc
       ENDIF
 
       ! allocate amount of memory needed with MPI_Alloc_mem
-      CALL allocate_mem_noncray(latbc%patch_data, MAX(mem_size,1))
+      CALL allocate_mem_noncray(latbc%patch_data, MAX(mem_size,1_i8))
 #endif
 
     END SUBROUTINE init_remote_memory_window
