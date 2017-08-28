@@ -693,10 +693,13 @@ CONTAINS
     LOGICAL,              INTENT(IN)            :: l_first_write
     ! local variables:
     CHARACTER(LEN=*), PARAMETER                 :: routine = modname//"::write_name_list"
-    INTEGER                                     :: tl, i_dom, i_log_dom, i, iv, jk, &
-      &                                            nlevs, nindex, mpierr, lonlat_id,          &
-      &                                            idata_type, lev_idx, lev
+    INTEGER                                     :: tl, i_dom, i_log_dom, iv, jk, &
+      &                                            nlevs, nindex, lonlat_id,          &
+      &                                            idata_type
     INTEGER(i8)                                 :: ioff
+#ifndef NOMPI
+    INTEGER                                     :: mpierr
+#endif
     TYPE (t_var_metadata), POINTER              :: info
     TYPE(t_reorder_info),  POINTER              :: p_ri
     REAL(wp), POINTER :: r_ptr(:,:,:), r_ptr_t(:,:,:,:,:,:)
@@ -710,8 +713,6 @@ CONTAINS
     TYPE(t_comm_gather_pattern), POINTER        :: p_pat
     LOGICAL                                     :: var_ignore_level_selection
     INTEGER                                     :: var_ref_pos, last_bdry_index
-    TYPE(t_patch), POINTER                      :: ptr_patch
-    REAL(wp)                                    :: missval
     INTEGER                                     :: rl_start, rl_end, i_nchdom, &
          i_startblk, i_endblk, i_startidx, i_endidx
     REAL(wp), TARGET :: r_dummy(1,1,1)
@@ -1171,126 +1172,8 @@ CONTAINS
 #ifndef NOMPI
 
       ELSE
-
-        ! ------------------------
-        ! Asynchronous I/O is used
-        ! ------------------------
-
-        ! just copy the OWN DATA points to the memory window
-        DO jk = 1, nlevs
-          ! handle the case that a few levels have been selected out of
-          ! the total number of levels:
-          IF (      ASSOCIATED(of%level_selection)   .AND. &
-            & (.NOT. var_ignore_level_selection)     .AND. &
-            & (info%ndims > 2)) THEN
-            lev_idx = of%level_selection%global_idx(jk)
-          ELSE
-            lev_idx = jk
-          END IF
-
-          IF (use_dp_mpi2io) THEN
-            IF (idata_type == iREAL) THEN
-              DO i = 1, p_ri%n_own
-                of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = &
-                  & REAL(r_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),dp)
-              ENDDO
-            END IF
-            IF (idata_type == iREAL_sp) THEN
-              DO i = 1, p_ri%n_own
-                of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = &
-                  & REAL(s_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),dp)
-              ENDDO
-            END IF
-            IF (idata_type == iINTEGER) THEN
-              DO i = 1, p_ri%n_own
-                of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = &
-                  & REAL(i_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),dp)
-              ENDDO
-            END IF
-
-            ! If required, set lateral boundary points to missing
-            ! value. Note that this modifies only the output buffer!
-            IF ( info%lmask_boundary                    .AND. &
-              &  (info%hgrid == GRID_UNSTRUCTURED_CELL) .AND. &
-              &  config_lmask_boundary ) THEN
-              missval = BOUNDARY_MISSVAL
-              IF (info%lmiss) THEN
-                IF (idata_type == iREAL) THEN
-                  missval = info%missval%rval
-                ELSE IF (idata_type == iINTEGER) THEN
-                  missval = REAL(info%missval%ival,dp)
-                END IF
-              END IF
-              ptr_patch => p_patch(i_log_dom)
-              rl_start   = 1
-              rl_end     = grf_bdywidth_c
-              i_nchdom   = MAX(1,ptr_patch%n_childdom)
-              i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-              i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
-              CALL get_indices_c(ptr_patch, i_endblk, i_startblk, i_endblk, &
-                i_startidx, i_endidx, rl_start, rl_end)
-              DO i = 1, p_ri%n_own
-                IF ( (p_ri%own_blk(i) < i_endblk) .OR. &
-                  &  ((p_ri%own_blk(i) == i_endblk) .AND. &
-                  &   (p_ri%own_idx(i) <= i_endidx)) ) THEN
-                  of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = missval
-                END IF
-              END DO
-            END IF
-
-          ELSE
-            IF (idata_type == iREAL) THEN
-              DO i = 1, p_ri%n_own
-                of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
-                  & REAL(r_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),sp)
-              ENDDO
-            END IF
-            IF (idata_type == iREAL_sp) THEN
-              DO i = 1, p_ri%n_own
-                of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
-                  & s_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i))
-              ENDDO
-            END IF
-            IF (idata_type == iINTEGER) THEN
-              DO i = 1, p_ri%n_own
-                of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
-                  & REAL(i_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),sp)
-              ENDDO
-            END IF
-
-            ! If required, set lateral boundary points to missing
-            ! value. Note that this modifies only the output buffer!
-            IF ( info%lmask_boundary                    .AND. &
-              &  (info%hgrid == GRID_UNSTRUCTURED_CELL) .AND. &
-              &  config_lmask_boundary ) THEN
-              missval = BOUNDARY_MISSVAL
-              IF (info%lmiss) THEN
-                IF (idata_type == iREAL) THEN
-                  missval = info%missval%rval
-                ELSE IF (idata_type == iINTEGER) THEN
-                  missval = REAL(info%missval%ival,sp)
-                END IF
-              END IF
-              ptr_patch => p_patch(i_log_dom)
-              rl_start   = 1
-              rl_end     = grf_bdywidth_c
-              i_nchdom   = MAX(1,ptr_patch%n_childdom)
-              i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-              i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
-              CALL get_indices_c(ptr_patch, i_endblk, i_startblk, i_endblk, &
-                i_startidx, i_endidx, rl_start, rl_end)
-              DO i = 1, p_ri%n_own
-                IF ( (p_ri%own_blk(i) < i_endblk) .OR. &
-                  &  ((p_ri%own_blk(i) == i_endblk) .AND. &
-                  &   (p_ri%own_idx(i) <= i_endidx)) ) THEN
-                  of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = REAL(missval,sp)
-                END IF
-              END DO
-            END IF
-
-          END IF
-          ioff = ioff + INT(p_ri%n_own,i8)
-        END DO ! nlevs
+        CALL data_write_to_memwin(of, idata_type, r_ptr, s_ptr, i_ptr, ioff, &
+          nlevs, var_ignore_level_selection, p_ri, info, i_log_dom)
 
 #endif
 
@@ -1582,6 +1465,143 @@ CONTAINS
 
   END SUBROUTINE gather_on_workroot_and_write
 
+  SUBROUTINE data_write_to_memwin(of, idata_type, r_ptr, s_ptr, i_ptr, ioff, &
+       nlevs, var_ignore_level_selection, p_ri, info, i_log_dom)
+    TYPE (t_output_file), INTENT(IN) :: of
+    INTEGER, INTENT(in) :: idata_type, nlevs
+    LOGICAL, INTENT(in) :: var_ignore_level_selection
+    REAL(dp), POINTER, INTENT(in) :: r_ptr(:,:,:)
+    REAL(sp), POINTER, INTENT(in) :: s_ptr(:,:,:)
+    INTEGER, POINTER, INTENT(in) :: i_ptr(:,:,:)
+    INTEGER(i8), INTENT(inout) :: ioff
+    TYPE(t_reorder_info),  INTENT(in) :: p_ri
+    TYPE(t_var_metadata), INTENT(in) :: info
+    INTEGER, INTENT(in) :: i_log_dom
+    TYPE(t_patch), POINTER :: ptr_patch
+
+
+    REAL(wp)                                    :: missval
+    INTEGER                                     :: rl_start, rl_end, i_nchdom, &
+         i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: i, jk, lev_idx
+    ! ------------------------
+    ! Asynchronous I/O is used
+    ! ------------------------
+    ! just copy the OWN DATA points to the memory window
+    DO jk = 1, nlevs
+      ! handle the case that a few levels have been selected out of
+      ! the total number of levels:
+      IF (      ASSOCIATED(of%level_selection)   .AND. &
+           & (.NOT. var_ignore_level_selection)     .AND. &
+           & (info%ndims > 2)) THEN
+        lev_idx = of%level_selection%global_idx(jk)
+      ELSE
+        lev_idx = jk
+      END IF
+
+      IF (use_dp_mpi2io) THEN
+        IF (idata_type == iREAL) THEN
+          DO i = 1, p_ri%n_own
+            of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = &
+                 & REAL(r_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),dp)
+          ENDDO
+        END IF
+        IF (idata_type == iREAL_sp) THEN
+          DO i = 1, p_ri%n_own
+            of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = &
+                 & REAL(s_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),dp)
+          ENDDO
+        END IF
+        IF (idata_type == iINTEGER) THEN
+          DO i = 1, p_ri%n_own
+            of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = &
+                 & REAL(i_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),dp)
+          ENDDO
+        END IF
+
+        ! If required, set lateral boundary points to missing
+        ! value. Note that this modifies only the output buffer!
+        IF ( info%lmask_boundary                    .AND. &
+             &  (info%hgrid == GRID_UNSTRUCTURED_CELL) .AND. &
+             &  config_lmask_boundary ) THEN
+          missval = BOUNDARY_MISSVAL
+          IF (info%lmiss) THEN
+            IF (idata_type == iREAL) THEN
+              missval = info%missval%rval
+            ELSE IF (idata_type == iINTEGER) THEN
+              missval = REAL(info%missval%ival,dp)
+            END IF
+          END IF
+          ptr_patch => p_patch(i_log_dom)
+          rl_start   = 1
+          rl_end     = grf_bdywidth_c
+          i_nchdom   = MAX(1,ptr_patch%n_childdom)
+          i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+          i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+          CALL get_indices_c(ptr_patch, i_endblk, i_startblk, i_endblk, &
+               i_startidx, i_endidx, rl_start, rl_end)
+          DO i = 1, p_ri%n_own
+            IF ( (p_ri%own_blk(i) < i_endblk) .OR. &
+                 &  ((p_ri%own_blk(i) == i_endblk) .AND. &
+                 &   (p_ri%own_idx(i) <= i_endidx)) ) THEN
+              of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = missval
+            END IF
+          END DO
+        END IF
+      ELSE
+        IF (idata_type == iREAL) THEN
+          DO i = 1, p_ri%n_own
+            of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
+                 & REAL(r_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),sp)
+          ENDDO
+        END IF
+        IF (idata_type == iREAL_sp) THEN
+          DO i = 1, p_ri%n_own
+            of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
+                 & s_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i))
+          ENDDO
+        END IF
+        IF (idata_type == iINTEGER) THEN
+          DO i = 1, p_ri%n_own
+            of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
+                 & REAL(i_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),sp)
+          ENDDO
+        END IF
+
+        ! If required, set lateral boundary points to missing
+        ! value. Note that this modifies only the output buffer!
+        IF ( info%lmask_boundary                    .AND. &
+             &  (info%hgrid == GRID_UNSTRUCTURED_CELL) .AND. &
+             &  config_lmask_boundary ) THEN
+          missval = BOUNDARY_MISSVAL
+          IF (info%lmiss) THEN
+            IF (idata_type == iREAL) THEN
+              missval = info%missval%rval
+            ELSE IF (idata_type == iINTEGER) THEN
+              missval = REAL(info%missval%ival,sp)
+            END IF
+          END IF
+          ptr_patch => p_patch(i_log_dom)
+          rl_start   = 1
+          rl_end     = grf_bdywidth_c
+          i_nchdom   = MAX(1,ptr_patch%n_childdom)
+          i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+          i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+          CALL get_indices_c(ptr_patch, i_endblk, i_startblk, i_endblk, &
+               i_startidx, i_endidx, rl_start, rl_end)
+          DO i = 1, p_ri%n_own
+            IF ( (p_ri%own_blk(i) < i_endblk) .OR. &
+                 &  ((p_ri%own_blk(i) == i_endblk) .AND. &
+                 &   (p_ri%own_idx(i) <= i_endidx)) ) THEN
+              of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = REAL(missval,sp)
+            END IF
+          END DO
+        END IF
+
+      END IF
+      ioff = ioff + INT(p_ri%n_own,i8)
+    END DO ! nlevs
+  END SUBROUTINE data_write_to_memwin
   !------------------------------------------------------------------------------------------------
   !> Returns if it is time for the next output step
   !  Please note:
