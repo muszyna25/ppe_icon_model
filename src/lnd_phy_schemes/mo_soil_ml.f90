@@ -506,6 +506,7 @@ END SUBROUTINE message
                   h_snow           , & ! snow depth                                   (  m  )
                   h_snow_gp        , & ! grid-point averaged snow depth               (  m  )
                   meltrate         , & ! snow melting rate                             (kg/(m**2*s))
+                  tsnred           , & ! snow temperature offset for calculating evaporation  (K)
 !
                   w_i_now          , & ! water content of interception water           (m H2O)
                   w_i_new          , & ! water content of interception water           (m H2O)
@@ -644,6 +645,8 @@ END SUBROUTINE message
                   h_snow_gp            ! grid-point averaged snow depth
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
                   meltrate             ! snow melting rate
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
+                  tsnred               ! snow temperature offset for calculating evaporation (K)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
                   w_i_now              ! water content of interception water           (m H2O)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
@@ -2060,7 +2063,11 @@ END SUBROUTINE message
     z2iw        = ztsnow_pm(i)*b2w + (1._ireals - ztsnow_pm(i))*b2i
     z4iw        = ztsnow_pm(i)*b4w + (1._ireals - ztsnow_pm(i))*b4i
     z234iw      = z2iw*(b3 - z4iw)
-    zqsnow      = zsf_qsat(zsf_psat_iw(ztsnow(i),z2iw,z4iw), ps(i))
+    IF (tsnred(i) >= 0._ireals) THEN
+      zqsnow    = zsf_qsat(zsf_psat_iw(ztsnow(i)-tsnred(i),z2iw,z4iw), ps(i))
+    ELSE
+      zqsnow    = zsf_qsat(zsf_psat_iw(MIN(t0_melt,ztsnow(i)),z2iw,z4iw), ps(i))
+    ENDIF
     zdqvtsnow(i)= zsf_dqvdt_iw(ztsnow(i), zqsnow, z4iw,z234iw)
     zdqsnow     = zqvlow - zqsnow
     IF (ABS(zdqsnow).LT.0.01_ireals*zepsi) zdqsnow = 0._ireals
@@ -2423,7 +2430,6 @@ END SUBROUTINE message
                 zrla       = 0._ireals
               ENDIF
 
-
               ! to compute CV, first the stomatal resistance has to be determined
               ! this requires the determination of the F-functions:
               ! Radiation function
@@ -2460,6 +2466,7 @@ END SUBROUTINE message
                                         (rdv + o_m_rdv*qv(i))
               zf_sat     = MAX(0.0_ireals,MIN(1.0_ireals,1.0_ireals -  &
                                               (zepsat - zepke)/csatdef))
+
               ! zf_sat paralysed:
               zf_sat     = 1.0_ireals
 
@@ -2565,6 +2572,13 @@ ELSE          IF (itype_interception == 2) THEN
       zdwidt(i)  = zdwidt(i) *zzz
       zesoil(i)  = zesoil(i) *zzz
       ztrangs(i) = ztrangs(i)*zzz
+    ENDIF
+    ! Negative values of tsnred indicate that snow is present on the corresponding snow tile;
+    ! in this case, bare soil evaporation is limited to potential evaporation at the freezing level.
+    ! A linear transition is applied between 0 and 5 cm of snow.
+    IF (tsnred(i) < 0._ireals .AND. zesoil(i) < 0._ireals .AND. zesoil(i) < zep_snow(i)) THEN
+      zzz = MAX(0._ireals,zep_snow(i)/zesoil(i))*ABS(tsnred(i)) + (1._ireals-ABS(tsnred(i)))
+      zesoil(i)  = zesoil(i) *zzz
     ENDIF
   ENDDO
 
