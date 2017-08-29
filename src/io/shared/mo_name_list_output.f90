@@ -308,7 +308,7 @@ CONTAINS
 #ifndef __NO_ICON_ATMO__
     IF (use_async_name_list_io .AND. my_process_is_work()) THEN
       !-- compute PEs (senders):
-      CALL compute_wait_for_async_io(jstep=WAIT_UNTIL_FINISHED)
+      CALL compute_final_wait_for_async_io
       CALL compute_shutdown_async_io()
 
     ELSE IF (.NOT. my_process_is_mpi_test()) THEN
@@ -2321,45 +2321,50 @@ CONTAINS
     INTEGER :: msg
     INTEGER  :: i,j, nwait_list, io_proc_id
     INTEGER  :: wait_list(num_io_procs)
+    CHARACTER(len=*), PARAMETER :: &
+      routine = modname//'::compute_wait_for_async_io'
 
     ! Compute PE #0 receives message from I/O PEs
     !
     ! Note: We only need to wait for those I/O PEs which are involved
     !       in the current step.
     IF (p_pe_work==0) THEN
-      IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": compute_wait_for_async_io, jstep=",jstep
-      IF (jstep == WAIT_UNTIL_FINISHED) THEN
-        CALL p_wait()
-      ELSE
-        wait_list(:) = -1
-        nwait_list   =  0
+      IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": ", routine, ", jstep=",jstep
+      wait_list(:) = -1
+      nwait_list   =  0
 
-        ! Go over all output files, collect IO PEs
-        OUTFILE_LOOP : DO i=1,SIZE(output_file)
-          io_proc_id = output_file(i)%io_proc_id
-          ! Skip this output file if it is not due for output!
-          IF (is_output_step(output_file(i)%out_event, jstep) &
-            & .AND. ALL(wait_list(1:nwait_list) /= io_proc_id)) THEN
-            nwait_list = nwait_list + 1
-            wait_list(nwait_list) = io_proc_id
-          END IF
-        END DO OUTFILE_LOOP
-        DO i=1,nwait_list
-          ! Blocking receive call:
-          IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": wait for PE ",  wait_list(i)
-          CALL p_recv(msg, wait_list(i), 0, comm=p_comm_work_2_io)
-          ! Just for safety: Check if we got the correct tag
-          IF(INT(msg) /= msg_io_done) CALL finish(modname, 'Compute PE: Got illegal I/O tag')
-        END DO
-      END IF
-    ENDIF
-    IF (jstep /= WAIT_UNTIL_FINISHED) THEN
-      ! Wait in barrier until message is here
-      IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": waiting in barrier (compute_wait_for_async_io)"
-      CALL p_barrier(comm=p_comm_work)
-      IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": barrier done (compute_wait_for_async_io)"
+      ! Go over all output files, collect IO PEs
+      OUTFILE_LOOP : DO i=1,SIZE(output_file)
+        io_proc_id = output_file(i)%io_proc_id
+        ! Skip this output file if it is not due for output!
+        IF (is_output_step(output_file(i)%out_event, jstep) &
+          & .AND. ALL(wait_list(1:nwait_list) /= io_proc_id)) THEN
+          nwait_list = nwait_list + 1
+          wait_list(nwait_list) = io_proc_id
+        END IF
+      END DO OUTFILE_LOOP
+      DO i=1,nwait_list
+        ! Blocking receive call:
+        IF (ldebug) WRITE (0,*) "pe ", p_pe, ": wait for PE ",  wait_list(i)
+        CALL p_recv(msg, wait_list(i), 0, comm=p_comm_work_2_io)
+        ! Just for safety: Check if we got the correct tag
+        IF (msg /= msg_io_done) CALL finish(routine, 'Got illegal I/O tag')
+      END DO
     END IF
+    ! Wait in barrier until message is here
+    IF (ldebug) WRITE (0,*) "pe ", p_pe, ": waiting in barrier ", routine
+    CALL p_barrier(comm=p_comm_work)
+    IF (ldebug) WRITE (0,*) "pe ", p_pe, ": barrier done ", routine
   END SUBROUTINE compute_wait_for_async_io
+
+  SUBROUTINE compute_final_wait_for_async_io
+    CHARACTER(len=*), PARAMETER :: &
+      routine = modname//'::compute_final_wait_for_async_io'
+    IF (p_pe_work == 0) THEN
+      IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": ", routine
+      CALL p_wait()
+    END IF
+  END SUBROUTINE compute_final_wait_for_async_io
 #endif
 
   !-------------------------------------------------------------------------------------------------
