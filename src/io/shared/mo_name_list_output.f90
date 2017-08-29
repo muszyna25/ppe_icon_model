@@ -1737,10 +1737,10 @@ CONTAINS
                 l_complete = .TRUE.
                 HANDLE_COMPLETE_STEPS : DO WHILE (ASSOCIATED(ev))
                   !--- write ready file
-                  IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
                   IF (.NOT. is_output_event_finished(ev)) THEN
                     l_complete = .FALSE.
                     IF (is_output_step_complete(ev)) THEN
+                      IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
                       CALL trigger_output_step_irecv(ev)
                     END IF
                   END IF
