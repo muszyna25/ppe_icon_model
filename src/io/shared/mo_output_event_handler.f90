@@ -1674,12 +1674,8 @@ CONTAINS
   !
   FUNCTION get_current_date_par(event)
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: get_current_date_par
-    TYPE(t_par_output_event), POINTER :: event
-    IF (.NOT. ASSOCIATED(event)) THEN
-      get_current_date_par = ""
-    ELSE
-      get_current_date_par =  get_current_date(event%output_event)
-    END IF
+    TYPE(t_par_output_event), INTENT(in) :: event
+    get_current_date_par =  get_current_date(event%output_event)
   END FUNCTION get_current_date_par
 
 

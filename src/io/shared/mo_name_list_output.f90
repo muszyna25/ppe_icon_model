@@ -612,7 +612,7 @@ CONTAINS
   !  are written by the program.
   !
   SUBROUTINE write_ready_file(ev)
-    TYPE(t_par_output_event), POINTER :: ev
+    TYPE(t_par_output_event), INTENT(IN) :: ev
     ! local variables
     CHARACTER(LEN=*), PARAMETER         :: routine = modname//"::write_ready_file"
     CHARACTER(LEN=FILENAME_MAX)         :: rdy_filename
