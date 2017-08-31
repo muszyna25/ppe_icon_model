@@ -647,14 +647,15 @@ CONTAINS
     CALL associate_keyword("<ddhhmmss>",        forecast_delta_str,         keywords)
     CALL associate_keyword("<datetime2>",       TRIM(dtime_string),         keywords)
     rdy_filename = with_keywords(keywords, ev%output_event%event_data%name)
+    tlen = LEN_TRIM(rdy_filename)
     IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
       & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN
-      WRITE (0,*) 'Write ready file "', TRIM(rdy_filename), '"'
+      WRITE (0,*) 'Write ready file "', rdy_filename(1:tlen), '"'
     END IF
 
     ! actually create ready file:
     iunit = find_next_free_unit(10,20)
-    OPEN (iunit, file=TRIM(rdy_filename), form='formatted')
+    OPEN (iunit, file=rdy_filename(1:tlen), form='formatted')
     WRITE(iunit, '(A)') 'ready'
     CLOSE(iunit)
   END SUBROUTINE write_ready_file
