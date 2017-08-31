@@ -37,7 +37,8 @@ MODULE mo_initicon
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, lvert_remap_fg, &
     &                               rho_incr_filter_wgt, lread_ana, ltile_init, &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart, lconsistency_checks, &
-    &                               niter_divdamp, niter_diffu, lanaread_tseasfc
+    &                               niter_divdamp, niter_diffu, lanaread_tseasfc, &
+    &                               fgFilename, fgFiletype, anaFilename, anaFiletype
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA,   &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,              &
@@ -72,8 +73,7 @@ MODULE mo_initicon
                                   & copy_fg2initicon, initVarnamesDict, printChecksums, init_aerosol
   USE mo_initicon_io,         ONLY: read_extana_atm, read_extana_sfc, fetch_dwdfg_atm, fetch_dwdana_sfc, &
                                   & process_input_dwdana_sfc, process_input_dwdana_atm, process_input_dwdfg_sfc, &
-                                  & fetch_dwdfg_sfc, fetch_dwdfg_atm_ii, fetch_dwdana_atm, &
-                                  & fgFilename, fgFiletype, anaFilename, anaFiletype
+                                  & fetch_dwdfg_sfc, fetch_dwdfg_atm_ii, fetch_dwdana_atm
   USE mo_input_request_list,  ONLY: t_InputRequestList, InputRequestList_create
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_input_instructions,  ONLY: t_readInstructionListPtr, readInstructionList_make, kInputSourceAna, &
@@ -383,9 +383,7 @@ MODULE mo_initicon
                 CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(anaFilename(p_patch(jg))))
             ENDIF  ! p_io
             SELECT CASE(anaFiletype())
-                CASE(FILETYPE_NC2, FILETYPE_NC4)
-                    CALL requestList%readFile(p_patch(jg), TRIM(anaFilename(p_patch(jg))), .FALSE.)
-                CASE(FILETYPE_GRB2)
+                CASE(FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2)
                     CALL requestList%readFile(p_patch(jg), TRIM(anaFilename(p_patch(jg))), .FALSE., opt_dict = ana_varnames_dict)
                 CASE DEFAULT
                     CALL finish(routine, "Unknown file TYPE")

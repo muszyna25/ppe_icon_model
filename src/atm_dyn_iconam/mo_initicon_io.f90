@@ -36,9 +36,8 @@ MODULE mo_initicon_io
   USE mo_input_instructions,  ONLY: t_readInstructionListPtr, kInputSourceFg, &
     &                               kInputSourceAna, kInputSourceBoth, kStateFailedFetch, &
     &                               kInputSourceCold
-  USE mo_initicon_config,     ONLY: init_mode, l_sst_in, generate_filename, &
-    &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
-    &                               nml_filetype => filetype, lread_vn, lread_tke,     &
+  USE mo_initicon_config,     ONLY: init_mode, l_sst_in, generate_filename,             &
+    &                               ifs2icon_filename, lread_vn, lread_tke,             &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart,    &
     &                               lvert_remap_fg, aerosol_fg_present, nlevsoil_in
   USE mo_nh_init_nest_utils,  ONLY: interpolate_scal_increments, interpolate_sfcana
@@ -60,7 +59,6 @@ MODULE mo_initicon_io
     &                               isub_lake, llake, lprog_albsi
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
-  USE mo_io_util,             ONLY: get_filetype
   USE mo_initicon_utils,      ONLY: allocate_extana_atm, allocate_extana_sfc
   USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1, tmelt
   USE mo_fortran_tools,       ONLY: init
@@ -150,11 +148,6 @@ MODULE mo_initicon_io
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_initicon_io'
 
 
-  PUBLIC :: fgFilename
-  PUBLIC :: fgFiletype
-  PUBLIC :: anaFilename
-  PUBLIC :: anaFiletype
-
   PUBLIC :: read_extana_atm
   PUBLIC :: read_extana_sfc
 
@@ -179,40 +172,6 @@ MODULE mo_initicon_io
   END TYPE t_fetchParams
 
   CONTAINS
-
-  FUNCTION fgFilename(p_patch) RESULT(resultVar)
-    CHARACTER(LEN = filename_max) :: resultVar
-    TYPE(t_patch), INTENT(IN) :: p_patch
-
-    resultVar = generate_filename(dwdfg_filename, getModelBaseDir(), nroot, p_patch%level, p_patch%id)
-  END FUNCTION fgFilename
-
-  FUNCTION anaFilename(p_patch) RESULT(resultVar)
-    CHARACTER(LEN = filename_max) :: resultVar
-    TYPE(t_patch), INTENT(IN) :: p_patch
-
-    resultVar = generate_filename(dwdana_filename, getModelBaseDir(), nroot, p_patch%level, p_patch%id)
-  END FUNCTION anaFilename
-
-  INTEGER FUNCTION fgFiletype() RESULT(resultVar)
-    IF(nml_filetype == -1) THEN
-        ! get_filetype() ONLY uses the suffix, which IS already a part of the template IN dwdfg_filename.
-        ! This IS why it suffices to USE the dwdfg_filename directly here without expanding it first via generate_filename().
-        resultVar = get_filetype(TRIM(dwdfg_filename))
-    ELSE
-        resultVar = nml_filetype
-    END IF
-  END FUNCTION fgFiletype
-
-  INTEGER FUNCTION anaFiletype() RESULT(resultVar)
-    IF(nml_filetype == -1) THEN
-        ! get_filetype() ONLY uses the suffix, which IS already a part of the template IN dwdana_filename.
-        ! This IS why it suffices to USE the dwdana_filename directly here without expanding it first via generate_filename().
-        resultVar = get_filetype(TRIM(dwdana_filename))
-    ELSE
-        resultVar = nml_filetype
-    END IF
-  END FUNCTION anaFiletype
 
 
   !>

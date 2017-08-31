@@ -27,7 +27,8 @@ MODULE mo_nml_crosscheck
     &                              MCYCL, MIURA_MCYCL, MIURA3_MCYCL,                 &
     &                              FFSL_MCYCL, FFSL_HYB_MCYCL, iecham,               &
     &                              RAYLEIGH_CLASSIC,                                 &
-    &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD
+    &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD, MODE_IFSANA
+  USE mo_cdi,                ONLY: FILETYPE_GRB2
   USE mo_time_config,        ONLY: time_config, dt_restart
   USE mo_extpar_config,      ONLY: itopo                                             
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
@@ -59,7 +60,8 @@ MODULE mo_nml_crosscheck
   USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_radiation_config
   USE mo_turbdiff_config,    ONLY: turbdiff_config
-  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift
+  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift,     &
+    &                              ana_varnames_map_file, lread_ana, fgFiletype, anaFiletype
   USE mo_nh_testcases_nml,   ONLY: nh_test_name
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
@@ -783,6 +785,29 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Realcase runs
     !--------------------------------------------------------------------
+
+    ! mixed file formats are currently not foreseen.
+    ! check whether the analysis and first guess file have the same file format.
+    IF (lread_ana) THEN
+      IF (fgFiletype() /= anaFiletype()) THEN
+        CALL finish( TRIM(method_name),                         &
+          &  'first-guess and analysis file must be of the same filetype.')
+      ENDIF
+    ENDIF
+
+    ! Check whether a Map file for translating fileInputName<=>internalName is required
+    ! - a Map File is mandatory, if input is read in GRIB2-Format
+    ! - a Map File is optional, if input is read in NetCDF-Format
+    ! checking for fgFiletype is sufficient here, since we already ensured that the 
+    ! first-guess and analysis file have the same file format.
+    IF (.NOT. init_mode == MODE_IFSANA) THEN
+      IF (fgFiletype() == FILETYPE_GRB2) THEN
+        IF(TRIM(ana_varnames_map_file) == "") &
+        CALL finish( TRIM(method_name),                         &
+          &  'ana_varnames_map_file missing. It is required when trying to read data in GRIB format.')
+      END IF
+    ENDIF
+
 
     IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN  ! start from dwd analysis with incremental update
 
