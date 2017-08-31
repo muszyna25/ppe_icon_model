@@ -619,12 +619,15 @@ CONTAINS
     CHARACTER(LEN=8)         :: forecast_delta_str
     TYPE(datetime),  POINTER            :: mtime_begin, mtime_date
     TYPE(timedelta)                     :: forecast_delta
-    INTEGER                             :: iunit
+    INTEGER                             :: iunit, tlen
     TYPE (t_keyword_list), POINTER      :: keywords
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: current_date
 
+    current_date = get_current_date(ev)
+    tlen = LEN_TRIM(current_date)
     ! compute current forecast time (delta):
-    mtime_date     => newDatetime(TRIM(get_current_date(ev)))
+    mtime_date     => newDatetime(current_date(1:tlen))
     mtime_begin    => newDatetime(TRIM(ev%output_event%event_data%sim_start))
     forecast_delta = mtime_date - mtime_begin
 
@@ -640,7 +643,7 @@ CONTAINS
     NULLIFY(keywords)
     ! substitute tokens in ready file name
     CALL associate_keyword("<path>",            TRIM(getModelBaseDir()),    keywords)
-    CALL associate_keyword("<datetime>",        TRIM(get_current_date(ev)), keywords)
+    CALL associate_keyword("<datetime>",        current_date(1:tlen),    keywords)
     CALL associate_keyword("<ddhhmmss>",        forecast_delta_str,         keywords)
     CALL associate_keyword("<datetime2>",       TRIM(dtime_string),         keywords)
     rdy_filename = with_keywords(keywords, ev%output_event%event_data%name)
