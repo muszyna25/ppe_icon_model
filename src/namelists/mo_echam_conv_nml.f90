@@ -87,8 +87,8 @@ CONTAINS
     entrpen  = 2.0e-4_wp
     entrdd   = 4.0e-4_wp
     !
-    cprcon   = 1.5e-4_wp
-    cmfctop  = 0.23_wp
+    cprcon   = 2.5e-4_wp
+    cmfctop  = 0.2_wp
     cmfdeps  = 0.3_wp
     !
     cminbuoy = 0.2_wp

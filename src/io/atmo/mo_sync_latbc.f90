@@ -721,6 +721,7 @@ MODULE mo_sync_latbc
     END IF
 
     ! compute pressure and height of input data, using the IFS routines
+    IF (init_mode == MODE_IFSANA)  CALL p_latbc_data_const%vct%construct(latbc_ncid, p_io, mpi_comm)
     IF ((init_mode == MODE_IFSANA) .OR. (init_mode == MODE_COMBINED)) THEN ! i.e. atmospheric data from IFS
       CALL compute_input_pressure_and_height(p_patch, psfc, phi_sfc, p_latbc_data(tlev))
     END IF
@@ -760,6 +761,8 @@ MODULE mo_sync_latbc
     ! perform vertical interpolation of horizonally interpolated analysis data
     !
     CALL vert_interp(p_patch, p_int, p_nh_state%metrics, p_latbc_data(tlev), opt_use_vn=lread_vn)
+
+    CALL p_latbc_data_const%vct%finalize()
 
   END SUBROUTINE read_latbc_ifs_data
   !-------------------------------------------------------------------------

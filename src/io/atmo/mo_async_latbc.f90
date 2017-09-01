@@ -29,9 +29,10 @@
   !! - "QV", "QC", "QI" are always read
   !! - "QR", "QS" are read if available
   !!
-  !!
   !! The other fields for the lateral boundary conditions are read
-  !! from file, based on the following decision tree:
+  !! from file, based on the following decision tree.  Note that the
+  !! basic distinction between input from non-hydrostatic and
+  !! hydrostatic models is made on the availability of the HHL field.
   !!
   !!                            +------------------+
   !!                            |  HHL available?  |
@@ -39,21 +40,28 @@
   !!                                     |
   !!                     ______yes_______|________no________
   !!                     |                                  |
-  !!         +--------------------------+            +----------------------+
-  !!         | RHO & THETA_V available? |            | PS & GEOP available? |
-  !!         +--------------------------+            +----------------------+
+  !!         +--------------------------+            +------------------------+
+  !!         | RHO & THETA_V available? |            | PS,GEOP & T available? |
+  !!         +--------------------------+            +------------------------+
   !!                     |                                        |
   !!           ____yes___|____no______                    ___yes__|________no___________
   !!           |                      |                  |                              |
   !!           |               +----------------+        |                          +--------+
-  !! * read HHL,RHO,THETA_V,W  | P,T available? |     * read in PS,GEOP,OMEGA       | ERROR! | 
-  !! * ignore PS,GEOP          +----------------+     * CALL OMEGA -> W             +--------+
-  !!                                  |               * compute P,HHL
+  !! * read HHL,RHO,THETA_V,W  | P,T available? |     * read in PS,GEOP,OMEGA,T     | ERROR! | 
+  !! * ignore PS,GEOP          +----------------+     * compute P,HHL               +--------+
+  !! * diagnose P,T                   |               * CALL OMEGA -> W
   !!                          ___yes__|___no____
   !!                         |                  |
   !!                         |               +--------+
   !!                    * read HHL,P,T,W     | ERROR! |
   !!                    * ignore PS,GEOP     +--------+
+  !!
+  !!
+  !! Afterwards, we 
+  !! - re-compute the virtual temperature (inside the vertical
+  !!   interpolation subroutine)
+  !! - (re-)compute RHO (inside the vertical interpolation subroutine)
+  !! - perform vertical interpolation
 
 
   !----------------------------
@@ -407,6 +415,7 @@ MODULE mo_async_latbc
       TYPE(t_patch), OPTIONAL,    INTENT(IN)    :: p_patch
 
       CHARACTER(*), PARAMETER                   :: routine = modname//"::read_init_files"
+      LOGICAL,      PARAMETER                   :: ldebug  = .FALSE.
 #ifndef NOMPI
       ! local variables
       CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: grp_vars(:)
@@ -472,32 +481,20 @@ MODULE mo_async_latbc
          ENDIF
 
          filetype = streamInqFiletype(fileID_latbc)
+         IF (.NOT. ANY(filetype == [FILETYPE_NC2, FILETYPE_NC4,FILETYPE_GRB2])) THEN
+           CALL finish(routine, "Unknown file type")
+         END IF
 
-         ! Search name mapping for name in GRIB2 file
-         SELECT CASE(filetype)
-         CASE (FILETYPE_NC2, FILETYPE_NC4)
-            IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
-               DO jp= 1, ngrp_prefetch_vars
-                  latbc%buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
-               ENDDO
-            ELSE
-               DO jp= 1, ngrp_prefetch_vars
-                  latbc%buffer%grp_vars(jp) = TRIM(grp_vars(jp))
-               ENDDO
-            ENDIF
-         CASE (FILETYPE_GRB2)
-            IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
-               DO jp= 1, ngrp_prefetch_vars
-                  latbc%buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
-               ENDDO
-            ELSE
-               DO jp= 1, ngrp_prefetch_vars
-                  latbc%buffer%grp_vars(jp) = TRIM(grp_vars(jp))
-               ENDDO
-            ENDIF
-         CASE DEFAULT
-            CALL finish(routine, "Unknown file type")
-         END SELECT
+         IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
+           ! Search name mapping for name in file
+           DO jp= 1, ngrp_prefetch_vars
+             latbc%buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
+           ENDDO
+         ELSE
+           DO jp= 1, ngrp_prefetch_vars
+             latbc%buffer%grp_vars(jp) = TRIM(grp_vars(jp))
+           ENDDO
+         ENDIF
 
          ! check whether the file is empty (does not work unfortunately; internal CDI error)
          flen_latbc = util_filesize(TRIM(latbc_file))
@@ -519,7 +516,7 @@ MODULE mo_async_latbc
          LOOP : DO varID=0,(nvars-1)
             CALL vlistInqVarName(vlistID, varID, name)
 
-            ! WRITE(0,*) 'name ', TRIM(name)
+            IF (ldebug)  WRITE(0,*) 'name ', TRIM(name)
 
             DO jp = 1, ngrp_prefetch_vars !latbc%buffer%ngrp_vars
                IF(tolower(name) == tolower(latbc%buffer%grp_vars(jp))) THEN
@@ -540,7 +537,10 @@ MODULE mo_async_latbc
                   ! getting the variable name in lower case letter
                   StrLowCasegrp(counter) = TRIM(grp_vars(jp))
 
-                  ! WRITE(0,*) '=> mapped_name ',  (latbc%buffer%mapped_name(counter))
+                  IF (ldebug) THEN
+                    WRITE(0,*) '=> internal_name ',  (latbc%buffer%internal_name(counter))
+                    WRITE(0,*) '=> mapped_name   ',  (latbc%buffer%mapped_name(counter))
+                  END IF
                ENDIF
             ENDDO
          END DO LOOP
@@ -575,7 +575,11 @@ MODULE mo_async_latbc
         IF (p_pe_work == p_work_pe0) THEN
           ! set the maximum no. of levels to the size of the half
           ! level height field (HHL/z_ifc) minus 1.
-          nlev_in = MAXVAL(latbc%buffer%nlev(1:latbc%buffer%ngrp_vars))-1
+          IF (latbc%buffer%lcompute_hhl_pres) THEN
+            nlev_in = MAXVAL(latbc%buffer%nlev(1:latbc%buffer%ngrp_vars)) ! IFS input data have no vertical staggering
+          ELSE
+            nlev_in = MAXVAL(latbc%buffer%nlev(1:latbc%buffer%ngrp_vars))-1 ! All other supported input sources have staggering
+          ENDIF
         END IF
         CALL p_bcast(nlev_in, 0, p_comm_work)
         CALL allocate_pref_latbc_data(latbc, nlev_in, p_nh_state(1), ext_data(1), p_patch)
@@ -592,17 +596,7 @@ MODULE mo_async_latbc
 
         IF (latbc%buffer%lcompute_hhl_pres) THEN
           CALL nf(nf_open(TRIM(latbc_file), NF_NOWRITE, ncid), routine)
-        END IF
-
-
-        IF (latbc%buffer%lcompute_hhl_pres) THEN
-
-          CALL latbc%latbc_data_const%vct%construct(ncid, &
-            &                                       p_comm_work_pref_compute_pe0, p_comm_work_pref)
-
-        END IF
-
-        IF (latbc%buffer%lcompute_hhl_pres) THEN
+          CALL latbc%latbc_data_const%vct%construct(ncid, p_work_pe0, p_comm_work)
           CALL nf(nf_close(ncid), routine)
         END IF
       END IF
@@ -626,7 +620,7 @@ MODULE mo_async_latbc
       INTEGER                        :: fileID_latbc
       LOGICAL                        :: l_exist, lhave_ps_geop, lhave_ps, lhave_geop,  &
         &                               lhave_hhl, lhave_theta_rho, lhave_w, lhave_vn, &
-        &                               lhave_u, lhave_v, lhave_pres_temp
+        &                               lhave_u, lhave_v, lhave_pres, lhave_temp
       CHARACTER(LEN=filename_max)    :: latbc_filename, latbc_file
       CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
@@ -708,8 +702,8 @@ MODULE mo_async_latbc
          lhave_ps_geop = (lhave_ps .and. lhave_geop)
 
          ! Check if pressure and temperature are available:
-         lhave_pres_temp = (test_cdi_varID(fileID_latbc, 'PRES', latbc_dict) /= -1)  .AND.   &
-           &               (test_cdi_varID(fileID_latbc, 'TEMP', latbc_dict) /= -1)
+         lhave_pres = (test_cdi_varID(fileID_latbc, 'PRES', latbc_dict) /= -1)
+         lhave_temp = (test_cdi_varID(fileID_latbc, 'TEMP', latbc_dict) /= -1)
 
 
          ! closes the open dataset
@@ -720,7 +714,8 @@ MODULE mo_async_latbc
 
          latbc%buffer%lread_hhl         = .FALSE.
          latbc%buffer%lread_theta_rho   = .FALSE.
-         latbc%buffer%lread_pres_temp   = .FALSE.
+         latbc%buffer%lread_pres        = .FALSE.
+         latbc%buffer%lread_temp        = .FALSE.
          latbc%buffer%lread_ps_geop     = .FALSE.
          latbc%buffer%lconvert_omega2w  = .FALSE.
          latbc%buffer%lcompute_hhl_pres = .FALSE.
@@ -731,9 +726,10 @@ MODULE mo_async_latbc
              latbc%buffer%lread_hhl       = .TRUE.
              latbc%buffer%lread_theta_rho = .TRUE.
              !
-           ELSE IF (lhave_pres_temp) THEN
+           ELSE IF (lhave_pres .AND. lhave_temp) THEN
              latbc%buffer%lread_hhl       = .TRUE.
-             latbc%buffer%lread_pres_temp = .TRUE.
+             latbc%buffer%lread_pres      = .TRUE.
+             latbc%buffer%lread_temp      = .TRUE.
              !
            ELSE
              CALL finish(routine, "Non-hydrostatic LATBC data set, but neither RHO+THETA_V nor P,T provided!")
@@ -741,12 +737,13 @@ MODULE mo_async_latbc
 
          ELSE
            
-           IF (lhave_ps_geop) THEN
-             latbc%buffer%lread_ps_geop = .TRUE.
-             latbc%buffer%lconvert_omega2w = .TRUE.
+           IF (lhave_ps_geop .AND. lhave_temp) THEN
+             latbc%buffer%lread_temp        = .TRUE.
+             latbc%buffer%lread_ps_geop     = .TRUE.
+             latbc%buffer%lconvert_omega2w  = .TRUE.
              latbc%buffer%lcompute_hhl_pres = .TRUE.
            ELSE
-             CALL finish(routine, "Hydrostatic LATBC data set, but PS,GEOP not provided!")
+             CALL finish(routine, "Hydrostatic LATBC data set, but PS,GEOP,T not provided!")
            END IF
 
          END IF
@@ -783,7 +780,7 @@ MODULE mo_async_latbc
          ! Write some status output:
          !
          IF (latbc%buffer%lread_theta_rho) THEN
-           CALL message(routine,'Prognostic thermodynamic variables (rho and theta_v) are used.')
+           CALL message(routine,'Prognostic thermodynamic variables (RHO and THETA_V) are read from file.')
          ENDIF
 
          IF (.NOT. latbc%buffer%lread_qr) THEN
@@ -794,16 +791,42 @@ MODULE mo_async_latbc
             CALL message(routine,'Snow water (QS) not available in input data.')
          ENDIF
 
-         IF (.NOT. latbc%buffer%lread_hhl) THEN
-            CALL message(routine,'Input levels are computed from sfc geopotential.')
+         IF (latbc%buffer%lread_hhl) THEN
+            CALL message(routine,'Input levels (HHL) are read from file.')
+         ELSE
+            CALL message(routine,'Input levels (HHL) are computed from sfc geopotential.')
          ENDIF
 
          IF (latbc%buffer%lconvert_omega2w) THEN
             CALL message(routine,'Compute W from OMEGA.')
          ENDIF
 
+         IF (latbc%buffer%lread_ps_geop) THEN
+           CALL message(routine,'PS and GEOP are read from file.')
+         ELSE IF (lhave_ps_geop) THEN
+           CALL message(routine,'PS and GEOP are ignored.')
+         END IF
+
          IF (latbc%buffer%lcompute_hhl_pres) THEN
            CALL message(routine,'HHL and PRES are computed based on PS and GEOP.')
+         END IF
+
+         IF (latbc%buffer%lread_pres) THEN
+           CALL message(routine,'PRES is read from file.')
+         ELSE
+           CALL message(routine,'PRES is diagnosed.')
+         END IF
+
+         IF (latbc%buffer%lread_temp) THEN
+           CALL message(routine,'TEMP is read from file.')
+         ELSE
+           CALL message(routine,'TEMP is diagnosed.')
+         END IF
+
+         IF (latbc%buffer%lread_vn) THEN
+           CALL message(routine,'VN is read from file.')
+         ELSE
+           CALL message(routine,'U,V are read from file.')
          END IF
 
        ENDIF
@@ -821,7 +844,8 @@ MODULE mo_async_latbc
       CALL p_bcast(latbc%buffer%lread_hhl,                p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%lread_theta_rho,          p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%lread_ps_geop,            p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(latbc%buffer%lread_pres_temp,          p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%lread_pres,               p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%lread_temp,               p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%lconvert_omega2w,         p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%lcompute_hhl_pres,        p_comm_work_pref_compute_pe0, p_comm_work_pref)
 #endif
@@ -1256,7 +1280,7 @@ MODULE mo_async_latbc
       ENDIF
 
       ! allocate amount of memory needed with MPI_Alloc_mem
-      CALL allocate_mem_noncray(latbc%patch_data, mem_size)
+      CALL allocate_mem_noncray(latbc%patch_data, MAX(mem_size,1_i8))
 #endif
 
     END SUBROUTINE init_remote_memory_window
@@ -1286,7 +1310,7 @@ MODULE mo_async_latbc
       CALL MPI_Type_extent(p_real_sp, nbytes_real, mpierr)
 
       ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
-      mem_bytes = MAX(mem_size,1_i8)*INT(nbytes_real,i8)
+      mem_bytes = mem_size*INT(nbytes_real,i8)
 
       ! TYPE(c_ptr) and INTEGER(KIND=MPI_ADDRESS_KIND) do NOT necessarily have the same size!!!
       ! So check if at least c_intptr_t and MPI_ADDRESS_KIND are the same, else we may get
@@ -1302,21 +1326,13 @@ MODULE mo_async_latbc
 
       CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, mpierr)
 
-      ! The NEC requires a standard INTEGER array as 3rd argument for c_f_pointer,
-      ! although it would make more sense to have it of size MPI_ADDRESS_KIND.
-
       NULLIFY(patch_data%mem_win%mem_ptr_sp)
-
-#ifdef __SX__
-      CALL C_F_POINTER(c_mem_ptr, patch_data%mem_win%mem_ptr_sp, (/ INT(mem_size) /) )
-#else
       CALL C_F_POINTER(c_mem_ptr, patch_data%mem_win%mem_ptr_sp, (/ mem_size /) )
-#endif
+
       ! Create memory window for communication
       patch_data%mem_win%mem_ptr_sp(:) = 0._sp
       CALL MPI_Win_create( patch_data%mem_win%mem_ptr_sp, mem_bytes, nbytes_real, MPI_INFO_NULL,&
-           &                  p_comm_work_pref, patch_data%mem_win%mpi_win, mpierr )
-
+        &                  p_comm_work_pref, patch_data%mem_win%mpi_win, mpierr )
       IF (mpierr /= 0) CALL finish(routine, "MPI error!")
 #endif
 
