@@ -407,7 +407,7 @@ CONTAINS
     INTEGER, INTENT(in) :: dst
     TYPE(t_event_step), INTENT(in) :: event_step
 
-    INTEGER :: j
+    INTEGER :: j, tlen
     DO j=1,event_step%n_pes
       irow = irow + 1
       IF (j==1) THEN
@@ -417,15 +417,16 @@ CONTAINS
         CALL set_table_entry(table,irow,"model step", " ")
         CALL set_table_entry(table,irow,"model date", " ")
       END IF
+      tlen = LEN_TRIM(event_step%event_step_data(j)%filename_string)
 #ifdef __SX__
-        ! save some characters on SX:
-      IF ((LEN_TRIM(event_step%event_step_data(j)%filename_string) > 20) .AND. (dst == 0)) THEN
-        CALL set_table_entry(table,irow,"filename",    TRIM(event_step%event_step_data(j)%filename_string(1:20)//"..."))
+      ! save some characters on SX:
+      IF (tlen > 20 .AND. (dst == 0)) THEN
+        CALL set_table_entry(table,irow,"filename",    event_step%event_step_data(j)%filename_string(1:20)//"...")
       ELSE
-        CALL set_table_entry(table,irow,"filename",    TRIM(event_step%event_step_data(j)%filename_string))
+        CALL set_table_entry(table,irow,"filename",    event_step%event_step_data(j)%filename_string(1:tlen))
       END IF
 #else
-      CALL set_table_entry(table,irow,"filename",    TRIM(event_step%event_step_data(j)%filename_string))
+      CALL set_table_entry(table,irow,"filename",    event_step%event_step_data(j)%filename_string(1:tlen))
 #endif
       CALL set_table_entry(table,irow,"I/O PE",      int2string(event_step%event_step_data(j)%i_pe))
 
