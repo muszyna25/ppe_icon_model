@@ -603,8 +603,8 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_output_event"
     !> Max. no. of event steps (used for local array sizes)
     INTEGER, PARAMETER :: INITIAL_NEVENT_STEPS = 256 ! tested to be a good compromise
-
-    TYPE(datetime),  POINTER :: mtime_date, mtime_begin, mtime_end, mtime_restart, &
+    TYPE(datetime) :: mtime_date
+    TYPE(datetime),  POINTER :: mtime_begin, mtime_end, mtime_restart, &
       &                         sim_end, mtime_dom_start, mtime_dom_end, run_start
     TYPE(datetime), TARGET, ALLOCATABLE :: mtime_dates(:), tmp_dates(:)
     TYPE(timedelta), POINTER :: delta
@@ -744,7 +744,7 @@ CONTAINS
              //TRIM(begin_str2(iintvl))//" "//TRIM(end_str2(iintvl)))
       END IF
 
-      mtime_date  => newDatetime(mtime_begin)
+      mtime_date  = mtime_begin
       delta       => newTimedelta(TRIM(evd%intvl_str(iintvl))) ! create a time delta
       IF (mtime_end >= mtime_begin) THEN
         EVENT_LOOP: DO
@@ -793,7 +793,6 @@ CONTAINS
       END IF
 
       CALL deallocateTimedelta(delta)
-      CALL deallocateDatetime(mtime_date)
       IF (iselected_intvl /= remaining_intvls) CALL deallocateDatetime(mtime_end)
       CALL deallocateDatetime(mtime_begin)
 
