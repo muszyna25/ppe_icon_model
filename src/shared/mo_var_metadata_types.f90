@@ -130,7 +130,14 @@ MODULE mo_var_metadata_types
   INTEGER, PARAMETER, PUBLIC :: CLASS_TILE_LAND     = 2   !< variable contains tile-specific information
                                                           !< but is restricted to land-tiles only
   INTEGER, PARAMETER, PUBLIC :: CLASS_SYNSAT        = 3
-  INTEGER, PARAMETER, PUBLIC :: CLASS_CHEM          = 4   !< atmospheric chemical constituent
+  INTEGER, PARAMETER, PUBLIC :: CLASS_CHEM          = 4   !< atmospheric chemical constituent (PDT 40)
+  INTEGER, PARAMETER, PUBLIC :: CLASS_CHEM_STAT     = 5   !< atmospheric chemical constituent (PDT 42)
+                                                          !< statistical process
+  INTEGER, PARAMETER, PUBLIC :: CLASS_CHEM_OPTP     = 6   !< atmospheric chemical constituent (PDT 48)
+                                                          !< optical properties
+  INTEGER, PARAMETER, PUBLIC :: CLASS_DISTR         = 7   !< variable based on a distribuition function (PDT 57)
+  INTEGER, PARAMETER, PUBLIC :: CLASS_DISTR_STAT    = 8   !< variable based on a distribuition function (PDT 40467)
+                                                          !< statistical process
 
   ! ---------------------------------------------------------------
   ! TYPE DEFINITIONS

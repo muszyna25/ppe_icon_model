@@ -1522,7 +1522,7 @@ END SUBROUTINE init_nwp_phy
     jg = p_patch%id
     nlev = p_patch%nlev
 
-    IF (irad_aero /= 6) RETURN
+    IF (irad_aero /= 6 .AND. irad_aero /= 9) RETURN
     IF (atm_phy_nwp_config(jg)%icpl_aero_gscp /= 1 .AND. icpl_aero_conv /= 1) RETURN
 
     

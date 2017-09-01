@@ -31,7 +31,7 @@ MODULE mo_echam_phy_init
 
   ! model configuration
   USE mo_run_config,           ONLY: nlev, iqv, iqt, ico2, io3, &
-    &                                ntracer, ltestcase
+    &                                ntracer, ltestcase, lart
   USE mo_vertical_coord_table, ONLY: vct
   USE mo_dynamics_config,      ONLY: iequations
   USE mo_impl_constants,       ONLY: inh_atmosphere, max_char_length
@@ -403,7 +403,7 @@ CONTAINS
       !
       ! IF a CO2 tracer exists, then copy the time interpolated scalar ghg_co2mmr
       ! to the 3-dimensional tracer field.
-      IF ( iqt <= ico2 .AND. ico2 <= ntracer ) THEN
+      IF ( iqt <= ico2 .AND. ico2 <= ntracer .AND. .NOT. lart) THEN
         DO jg = 1,ndomain
           prm_field(jg)%qtrc(:,:,:,ico2) = ghg_co2mmr
         END DO
