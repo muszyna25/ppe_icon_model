@@ -313,6 +313,7 @@ CONTAINS
         varId = vlistDefVar(me%vlist, gridId, zaxisId, TIME_VARIABLE)
         IF(varID == CDI_UNDEFID) CALL finish(routine, 'error WHILE defining CDI variable "'//TRIM(info%name)//'"')
         info%cdiVarID = varId
+
         ! based on data type "info%data_type" set DATATYPE_FLT64 or
         ! DATATYPE_FLT32:
         SELECT CASE(info%data_type)

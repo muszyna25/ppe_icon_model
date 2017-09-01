@@ -110,8 +110,8 @@ CONTAINS
     ! (1) the resolution of the topography data used to compute the SSO parameters, and
     ! (2) the model resolution.
     ! A 0-value switches the relevant effect off.
-    mpi_sso_config(:)% gkdrag  = 0.05_wp
-    mpi_sso_config(:)% gkwake  = 0.00_wp
+    mpi_sso_config(:)% gkdrag  = 0.10_wp
+    mpi_sso_config(:)% gkwake  = 0.01_wp
     mpi_sso_config(:)% gklift  = 0.00_wp
 
     ! parameters related to the vertical grid

@@ -1693,7 +1693,8 @@ MODULE mo_nh_stepping
               &      prm_diag(jg),                             &!in
               &      p_lnd_state(jg)%diag_lnd,                 &!in
               &      p_nh_state(jg)%prog(nnew(jg))%rho,        &!in
-              &      datetime_local(jg)%ptr,                    &!in
+              &      datetime_local(jg)%ptr,                   &!in
+              &      nnow(jg),                                 &!in
               &      p_nh_state(jg)%prog(n_now_rcf)%tracer)     !inout
           ENDIF
 

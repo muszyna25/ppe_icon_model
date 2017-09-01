@@ -18,7 +18,7 @@
 !!
 MODULE mo_storage
 
-  USE ISO_C_BINDING,                    ONLY: C_INT32_T
+  USE ISO_C_BINDING,                    ONLY: C_INT32_T, C_INT64_T
   USE mo_kind,                          ONLY: wp
   USE mo_exception,                     ONLY: finish
   USE mo_util_string,                   ONLY: tolower
@@ -31,6 +31,9 @@ MODULE mo_storage
   PRIVATE
 
   INTEGER,PARAMETER :: stringVal_len= 120  !< Maximum allowed length for string keys or values
+
+  INTEGER(C_INT32_T), PARAMETER :: i32_t = 0
+  INTEGER(C_INT64_T), PARAMETER :: p32 = INT(HUGE(i32_t), C_INT64_T) + 1 
 
 
   TYPE, EXTENDS(t_Destructible) :: t_scalarVal
@@ -388,13 +391,15 @@ INTEGER(C_INT32_T) FUNCTION storage_hashKey_DJB_cs(key) RESULT(result)
 ! Local
   integer :: i
   CHARACTER(LEN=*), PARAMETER    :: routine = modname//":storage_hashKey_DJB"
+  INTEGER(C_INT64_T) :: t 
 
   result = 5381
 
   SELECT TYPE(key)
     TYPE IS(t_stringVal)
       do i=1,len(TRIM(key%stringVal))
-        result = (ishft(result,5) + result) + ichar(key%stringVal(i:i))
+        t = ISHFT(RESULT,5)
+        RESULT = MOD( (t + RESULT) + ICHAR(key%stringVal(i:i)), p32 ) 
       end do
     CLASS DEFAULT
       CALL finish(routine, "Unknown type for key.")
@@ -409,13 +414,15 @@ INTEGER(C_INT32_T) FUNCTION storage_hashKey_DJB_ci(key) RESULT(result)
 ! Local
   integer :: i
   CHARACTER(LEN=*), PARAMETER    :: routine = modname//":storage_hashKey_DJB"
+  INTEGER(C_INT64_T) :: t 
 
   result = 5381
 
   SELECT TYPE(key)
     TYPE IS(t_stringVal)
       do i=1,len(TRIM(key%stringVal))
-        result = (ishft(result,5) + result) + ichar(tolower(key%stringVal(i:i)))
+        t = ISHFT(RESULT,5)
+        RESULT = MOD( (t + RESULT) + ICHAR(tolower(key%stringVal(i:i))), p32 ) 
       end do
     CLASS DEFAULT
       CALL finish(routine, "Unknown type for key.")

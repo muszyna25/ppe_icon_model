@@ -24,6 +24,8 @@ MODULE mo_art_tools_interface
   USE mo_kind,                          ONLY: wp
   USE mo_run_config,                    ONLY: lart
   USE mo_linked_list,                   ONLY: t_var_list
+  USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
+                                          &   timer_art, timer_art_toolInt
 #ifdef __ICON_ART
   USE mo_art_unit_conversion,           ONLY: art_massmix2density
 #endif
@@ -57,9 +59,15 @@ SUBROUTINE art_tools_interface(defcase, prog_list, tracer_now, tracer_new, rho)
   
 #ifdef __ICON_ART
   IF (lart) THEN
+    IF (timers_level > 3) CALL timer_start(timer_art)
+    IF (timers_level > 3) CALL timer_start(timer_art_toolInt)
+
     IF (TRIM(defcase) .EQ. 'unit_conversion') THEN
       CALL art_massmix2density(prog_list, tracer_now, tracer_new, rho)
     ENDIF
+
+    IF (timers_level > 3) CALL timer_stop(timer_art_toolInt)
+    IF (timers_level > 3) CALL timer_stop(timer_art)
   ENDIF
 #endif
     

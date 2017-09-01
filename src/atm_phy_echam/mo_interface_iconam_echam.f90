@@ -111,7 +111,7 @@ MODULE mo_interface_iconam_echam
   USE mo_linked_list,             ONLY: t_var_list
   USE mo_ext_data_state,          ONLY: ext_data
   USE mo_art_reaction_interface,  ONLY: art_reaction_interface
-  USE mo_run_config,              ONLY: lart
+  USE mo_run_config,              ONLY: lart, iqt
 
   IMPLICIT NONE
 
@@ -648,7 +648,11 @@ CONTAINS
     CALL echam_phy_main( patch,           &! in
       &                  rl_start, rl_end,&! in  
       &                  datetime_old    ,&! in
-      &                  dt_loc          ) ! in
+      &                  dt_loc,          & !in
+      &                  p_prog_list,     & 
+      &                  pt_prog_new,     &
+      &                  p_metrics,       & 
+      &                  pt_diag          ) 
 
     IF (ltimer) CALL timer_stop(timer_echam_phy)
 
@@ -795,9 +799,11 @@ CONTAINS
 !$OMP END PARALLEL
 
       ! Loop over cells
+
+IF (lart) THEN 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-      DO jt =1,ntracer    
+      DO jt =1,3    
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
           DO jc = jcs, jce
@@ -841,7 +847,54 @@ CONTAINS
       END DO
 !$OMP END DO
 !$OMP END PARALLEL
+   ELSE
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+      DO jt =1,ntracer  
+        DO jb = i_startblk,i_endblk
+          CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+          DO jc = jcs, jce
+            prm_field(jg)% mtrcvi    (jc,jb,jt) = 0.0_wp
+            prm_tend (jg)% mtrcvi_phy(jc,jb,jt) = 0.0_wp
+          END DO
+          DO jk = 1,nlev
+            DO jc = jcs, jce
 
+              ! Diagnose the total tendencies
+              prm_tend(jg)%qtrc(jc,jk,jb,jt) =   prm_tend(jg)%qtrc_dyn(jc,jk,jb,jt)  &
+                &                              + prm_tend(jg)%qtrc_phy(jc,jk,jb,jt)
+
+              ! (2.1) Tracer mixing ratio with respect to dry air
+              !
+              ! tracer mass tendency
+              IF (mpi_phy_config(jg)%ldrymoist) THEN
+                prm_tend(jg)%   mtrc_phy(jc,jk,jb,jt)  = prm_tend(jg)%  qtrc_phy(jc,jk,jb,jt) &
+                  &                                     *prm_field(jg)% mdry    (jc,jk,jb)
+              ELSE
+                prm_tend(jg)%   mtrc_phy(jc,jk,jb,jt)  = prm_tend(jg)%  qtrc_phy(jc,jk,jb,jt) &
+                  &                                     *prm_field(jg)% mair    (jc,jk,jb)
+              END IF
+              !
+              ! tracer path tendency
+              prm_tend(jg)% mtrcvi_phy(jc,   jb,jt)  = prm_tend(jg)% mtrcvi_phy(jc,   jb,jt) &
+                &                                     +prm_tend(jg)%   mtrc_phy(jc,jk,jb,jt)
+              !
+              ! new tracer mass
+              prm_field(jg)%  mtrc    (jc,jk,jb,jt)  = prm_field(jg)% mtrc    (jc,jk,jb,jt) &
+                &                                     +prm_tend(jg)%  mtrc_phy(jc,jk,jb,jt) &
+                &                                     *dt_loc
+              !
+              ! new tracer path
+              prm_field(jg)%  mtrcvi  (jc,   jb,jt)  = prm_field(jg)% mtrcvi  (jc,   jb,jt) &
+                &                                     +prm_field(jg)% mtrc    (jc,jk,jb,jt)
+              !
+            END DO
+          END DO
+        END DO
+      END DO
+!$OMP END DO
+!$OMP END PARALLEL
+    ENDIF
       ! Loop over cells
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
@@ -902,9 +955,10 @@ CONTAINS
 !$OMP END PARALLEL
 
       ! Loop over cells
+ IF(lart) THEN 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-      DO jt =1,ntracer    
+      DO jt =1,(iqt-1)  
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
           DO jk = 1,nlev
@@ -926,8 +980,52 @@ CONTAINS
           END DO
         END DO
       END DO
+
 !$OMP END DO
 !$OMP END PARALLEL
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+      DO jt = iqt,ntracer
+        DO jb = i_startblk,i_endblk
+          CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+          DO jk = 1,nlev
+            DO jc = jcs, jce
+                pt_prog_new_rcf% tracer(jc,jk,jb,jt) = prm_field(jg)%qtrc(jc,jk,jb,jt)  +prm_tend(jg)%qtrc_phy(jc,jk,jb,jt)*dt_loc
+            ENDDO
+          ENDDO
+        ENDDO
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+    ELSE
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+      DO jt =1,ntracer  
+        DO jb = i_startblk,i_endblk
+          CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+          DO jk = 1,nlev
+            DO jc = jcs, jce
+              !
+              ! new tracer mass fraction with respect to dry air
+              IF (mpi_phy_config(jg)%ldrymoist) THEN
+                prm_field(jg)%   qtrc   (jc,jk,jb,jt)  = prm_field(jg)%  mtrc(jc,jk,jb,jt) &
+                  &                                     /prm_field(jg)%  mdry(jc,jk,jb)
+              ELSE
+                prm_field(jg)%   qtrc   (jc,jk,jb,jt)  = prm_field(jg)%  mtrc(jc,jk,jb,jt) &
+                  &                                     /prm_field(jg)%  mair(jc,jk,jb)
+              END IF
+              !
+              pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = prm_field(jg)%  mtrc(jc,jk,jb,jt) &
+                &                                     /prm_field(jg)%  mair(jc,jk,jb)
+              !
+            END DO
+          END DO
+        END DO
+      END DO   
+
+!$OMP END DO
+!$OMP END PARALLEL
+  ENDIF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_exner) ICON_OMP_DEFAULT_SCHEDULE
@@ -1057,17 +1155,6 @@ CONTAINS
     !
     !=====================================================================================
 
-    IF (mpi_phy_tc(jg)%dt_art > dt_zero) THEN
-       CALL art_reaction_interface(ext_data(jg),           & !> in
-            &                      patch,                  & !> in
-            &                      datetime_new,           & !> in
-            &                      dt_loc,                 & !> in
-            &                      p_prog_list,            & !> in
-            &                      pt_prog_new,            &
-            &                      p_metrics,              & !> in
-            &                      pt_diag,                & !> inout
-            &                      pt_prog_new_rcf%tracer)
-    ENDIF
 
   END SUBROUTINE interface_iconam_echam
   !----------------------------------------------------------------------------
