@@ -974,9 +974,6 @@ CONTAINS
       
       ALLOCATE(OutputArray(n))
       
-      i = 1
-      j = 1
-      k = 1
 
       ! handle special case for k == 1 to be Fortran conforming in start-up step
 
@@ -984,18 +981,18 @@ CONTAINS
       IF (diff < 0_i8) THEN
         OutputArray(1) = InputArray1(1)
         i = 2
-        k = 2
+        j = 1
       ELSE IF (diff > 0_i8) THEN
         OutputArray(1) = InputArray2(1)
+        i = 1
         j = 2
-        k = 2
       ELSE
         OutputArray(1) = InputArray1(1)
         i = 2
         j = 2
-        k = 2
       ENDIF
-      
+      k = 2
+
       DO WHILE (i <= na .AND. j <= nb)
         diff = 86400000_i8 * (InputArray1(i)%day - InputArray2(j)%day) + InputArray1(i)%ms - InputArray2(j)%ms
         IF (diff < 0_i8) THEN
