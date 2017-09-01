@@ -41,7 +41,7 @@ MODULE mo_nwp_sfc_interface
     &                               ntiles_water, lseaice, llake, lmulti_snow,        &
     &                               ntiles_lnd, lsnowtile, isub_water, isub_seaice,   &
     &                               isub_lake, itype_interception, l2lay_rho_snow,    &
-    &                               lprog_albsi
+    &                               lprog_albsi, itype_trvg
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
@@ -227,7 +227,9 @@ CONTAINS
     REAL(wp) :: lhfl_snow_t (nproma) ! latent heat flux sfc   (snow covered)
     REAL(wp) :: lhfl_bs_t   (nproma)
     REAL(wp) :: lhfl_pl_t   (nproma, nlev_soil)
+    REAL(wp) :: plevap_t    (nproma)
     REAL(wp) :: rstom_t     (nproma)
+    REAL(wp) :: z0_t        (nproma)
 
 !--------------------------------------------------------------
 
@@ -283,7 +285,7 @@ CONTAINS
 !$OMP   lhfl_bs_t,rstom_t,shfl_s_t,lhfl_s_t,qhfl_s_t,t_snow_mult_new_t,rho_snow_mult_new_t,      &
 !$OMP   wliq_snow_new_t,wtot_snow_new_t,dzh_snow_new_t,w_so_new_t,w_so_ice_new_t,lhfl_pl_t,      &
 !$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,graupel_gsp_rate,prg_gsp_t, &
-!$OMP   meltrate,h_snow_gp_t,conv_frac,tsnred) ICON_OMP_GUIDED_SCHEDULE
+!$OMP   meltrate,h_snow_gp_t,conv_frac,tsnred,plevap_t,z0_t) ICON_OMP_GUIDED_SCHEDULE
  
     DO jb = i_startblk, i_endblk
 
@@ -440,6 +442,12 @@ CONTAINS
             w_s_now_t(ic)             =  0._wp
           END IF
 
+          IF (itype_trvg == 3) THEN
+            plevap_t(ic)            =  lnd_diag%plantevap_t(jc,jb,isubs)
+          ELSE
+            plevap_t(ic)            =  0._wp
+          ENDIF
+
           runoff_s_t(ic)            =  lnd_diag%runoff_s_t(jc,jb,isubs) 
           runoff_g_t(ic)            =  lnd_diag%runoff_g_t(jc,jb,isubs)
           u_10m_t(ic)               =  prm_diag%u_10m_t(jc,jb,isubs)
@@ -458,6 +466,7 @@ CONTAINS
           tai_t(ic)                 =  ext_data%atm%tai_t(jc,jb,isubs)
           eai_t(ic)                 =  ext_data%atm%eai_t(jc,jb,isubs)
           rsmin2d_t(ic)             =  ext_data%atm%rsmin2d_t(jc,jb,isubs)
+          z0_t(ic)                  =  ext_data%atm%z0_lcc(lc_class_t(ic))
 
           t_so_now_t(ic,nlev_soil+1)= lnd_prog_now%t_so_t(jc,nlev_soil+1,jb,isubs)
 
@@ -552,6 +561,7 @@ CONTAINS
         &  tai          = tai_t                  , & !IN surface area index                  --
         &  eai          = eai_t                  , & !IN surface area index                  --
         &  rsmin2d      = rsmin2d_t              , & !IN minimum stomata resistance        ( s/m )
+        &  z0           = z0_t                   , & !IN vegetation roughness length        ( m )
 !
         &  u  =  u_t                             , & !IN zonal wind speed
         &  v  =  v_t                             , & !IN meridional wind speed 
@@ -642,6 +652,7 @@ CONTAINS
         &  zlhfl_snow    = lhfl_snow_t           , & !OUT latent   heat flux snow/air interface    (W/m2) 
         &  lhfl_bs       = lhfl_bs_t             , & !OUT latent heat flux from bare soil evap.    (W/m2)
         &  lhfl_pl       = lhfl_pl_t             , & !OUT latent heat flux from bare soil evap.    (W/m2)
+        &  plevap        = plevap_t              , & !INOUT accumulated plant evaporation          (kg/m2)
         &  rstom         = rstom_t               , & !OUT stomatal resistance                      ( s/m )
         &  zshfl_sfc     = shfl_s_t              , & !OUT sensible heat flux surface interface     (W/m2) 
         &  zlhfl_sfc     = lhfl_s_t              , & !OUT latent   heat flux surface interface     (W/m2) 
@@ -713,6 +724,7 @@ CONTAINS
           prm_diag%lhfl_s_t      (jc,jb,isubs) = lhfl_s_t      (ic)
           prm_diag%qhfl_s_t      (jc,jb,isubs) = qhfl_s_t      (ic)
 
+          IF (itype_trvg == 3) lnd_diag%plantevap_t(jc,jb,isubs) = plevap_t(ic)     
 
           IF(lmulti_snow) THEN
             lnd_prog_new%t_snow_mult_t(jc,nlev_snow+1,jb,isubs) = t_snow_mult_new_t(ic,nlev_snow+1)
@@ -855,6 +867,8 @@ CONTAINS
              lnd_prog_new%w_so_t    (jc,:,jb,is1) = lnd_prog_new%w_so_t    (jc,:,jb,is2)        
              lnd_prog_new%w_so_ice_t(jc,:,jb,is1) = lnd_prog_new%w_so_ice_t(jc,:,jb,is2)
              prm_diag%lhfl_pl_t     (jc,:,jb,is1) = prm_diag%lhfl_pl_t     (jc,:,jb,is2)     
+
+             IF (itype_trvg == 3) lnd_diag%plantevap_t(jc,jb,is1) = lnd_diag%plantevap_t(jc,jb,is2)     
 
              IF (l2lay_rho_snow .OR. lmulti_snow) THEN
                lnd_prog_new%rho_snow_mult_t(jc,:,jb,is1) = lnd_prog_new%rho_snow_mult_t(jc,:,jb,is2)

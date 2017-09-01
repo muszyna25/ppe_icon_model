@@ -56,7 +56,7 @@ MODULE mo_initicon_io
   USE mo_util_cdi,            ONLY: trivial_tileId
   USE mo_lnd_nwp_config,      ONLY: ntiles_total,  l2lay_rho_snow, &
     &                               ntiles_water, lmulti_snow, lsnowtile, &
-    &                               isub_lake, llake, lprog_albsi
+    &                               isub_lake, llake, lprog_albsi, itype_trvg
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
   USE mo_initicon_utils,      ONLY: allocate_extana_atm, allocate_extana_sfc
@@ -1396,6 +1396,10 @@ MODULE mo_initicon_io
             CALL fetchTiledSurface(params, 'h_snow', jg, ntiles_total, lnd_diag%h_snow_t)
             CALL fetchTiledSurface(params, 't_snow', jg, ntiles_total, lnd_prog%t_snow_t)
             CALL fetchTiledSurface(params, 'rho_snow', jg, ntiles_total, lnd_prog%rho_snow_t)
+
+            IF (itype_trvg == 3) THEN
+              CALL fetchTiledSurface(params, 'plantevap', jg, ntiles_total, lnd_diag%plantevap_t)
+            ENDIF
 
             IF (lmulti_snow) THEN
                 ! multi layer snow fields

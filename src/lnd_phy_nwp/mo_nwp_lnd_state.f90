@@ -58,7 +58,7 @@ MODULE mo_nwp_lnd_state
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, &
     &                                lmulti_snow, ntiles_water, lseaice, llake, &
-    &                                itype_interception, l2lay_rho_snow
+    &                                itype_interception, l2lay_rho_snow, itype_trvg
   USE mo_io_config,            ONLY: lnetcdf_flt64_output
   USE mo_gribout_config,       ONLY: gribout_config
   USE mo_linked_list,          ONLY: t_var_list
@@ -1471,7 +1471,39 @@ MODULE mo_nwp_lnd_state
            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE.,        &
            & loutput=.FALSE. )
 
+    IF (itype_trvg == 3) THEN ! extended plant evaporation scheme
+      ! & p_diag_lnd%plantevap(nproma,nblks_c)
+      cf_desc    = t_cf_var('plantevap', 'kg m-2', &
+         &       'function of time-integrated plant evaporation', datatype_flt)
+      grib2_desc = grib2_var(2, 0, 198, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, vname_prefix//'plantevap', p_diag_lnd%plantevap,   &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,             &
+           & ldims=shape2d,in_group=groups("dwd_fg_sfc_vars", "mode_iau_fg_in"),  &
+           & lrestart=.FALSE., loutput=.TRUE. )
 
+      ! & p_diag_lnd%plantevap_t(nproma,nblks_c,ntiles_total)
+      cf_desc    = t_cf_var('plantevap_t', 'kg m-2', &
+         &       'function of time-integrated plant evaporation', datatype_flt)
+      grib2_desc = grib2_var(2, 0, 198, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, vname_prefix//'plantevap_t', p_diag_lnd%plantevap_t,  &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,                &
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
+      ! fill the separate variables belonging to the container plantevap
+      ALLOCATE(p_diag_lnd%plantevap_ptr(ntiles_total))
+      DO jsfc = 1,ntiles_total
+        NULLIFY(p_diag_lnd%plantevap_ptr(jsfc)%p_2d, p_diag_lnd%plantevap_ptr(jsfc)%p_3d)
+        WRITE(csfc,'(i2)') jsfc 
+        CALL add_ref( diag_list, vname_prefix//'plantevap_t',                    &
+               & vname_prefix//'plantevap_t_'//ADJUSTL(TRIM(csfc)),              &
+               & p_diag_lnd%plantevap_ptr(jsfc)%p_2d,                            &
+               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+               & t_cf_var('plantevap_t_'//csfc, '', '', datatype_flt),           &
+               & grib2_var(2, 0, 198, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
+               & var_class=CLASS_TILE_LAND,in_group=groups("land_tile_vars",     &
+               & "dwd_fg_sfc_vars_t"), ldims=shape2d )
+      END DO
+    ENDIF
 
     ! & p_diag_lnd%t_snow(nproma,nblks_c)
     cf_desc    = t_cf_var('t_snow', 'K', 'weighted temperature of the snow-surface', &

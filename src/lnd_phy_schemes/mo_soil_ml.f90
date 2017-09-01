@@ -474,6 +474,7 @@ END SUBROUTINE message
                   eai              , & ! earth area (evaporative surface area) index     --
 !                 llandmask        , & ! landpoint mask                                  --
                   rsmin2d          , & ! minimum stomata resistance                    ( s/m )
+                  z0               , & ! vegetation roughness length                    ( m )
 !
                   u                , & ! zonal wind speed                              ( m/s )
                   v                , & ! meridional wind speed                         ( m/s )
@@ -565,6 +566,7 @@ END SUBROUTINE message
                   zlhfl_snow       , & ! latent   heat flux snow/air interface         (W/m2)
                   lhfl_bs          , & ! latent heat flux from bare soil evap.         (W/m2)
                   lhfl_pl          , & ! latent heat flux from plants                  (W/m2)
+                  plevap           , & ! function of accumulated plant evaporation     (kg/m2)
                   rstom            , & ! stomatal resistance                           ( s/m )
                   zshfl_sfc        , & ! sensible heat flux surface interface          (W/m2)
                   zlhfl_sfc        , & ! latent   heat flux surface interface          (W/m2)
@@ -605,6 +607,8 @@ END SUBROUTINE message
 !                  llandmask           ! landpoint mask                                  --
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
                  rsmin2d               ! minimum stomata resistance                    ( s/m )
+  REAL    (KIND = ireals), DIMENSION(ie), OPTIONAL, INTENT(IN) :: &
+                  z0                   ! vegetation roughness length                    ( m )
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
                   u                , & ! zonal wind speed                              ( m/s )
                   v                , & ! meridional wind speed                         ( m/s )
@@ -721,6 +725,8 @@ END SUBROUTINE message
                   lhfl_bs          ! latent heat flux from bare soil evap.             ( W/m2)
   REAL    (KIND = ireals), DIMENSION(ie,ke_soil+1), INTENT(OUT) :: &
                   lhfl_pl          ! average latent heat flux from plants              ( W/m2)
+  REAL    (KIND = ireals), DIMENSION(ie), OPTIONAL, INTENT(INOUT) :: &
+                  plevap           ! function of accumulated plant evaporation         (kg/m2)
   REAL    (KIND = ireals), DIMENSION(ie), OPTIONAL, INTENT(OUT) :: &
                   zshfl_sfc        , & ! sensible heat flux surface interface          (W/m2)
                   zlhfl_sfc        , & ! latent   heat flux surface interface          (W/m2)
@@ -2345,11 +2351,14 @@ END SUBROUTINE message
   ! Section I.4.3b: transpiration by plants, BATS version
   !----------------------------------------------------------------------------
 
-  IF (itype_trvg.EQ.2) THEN   ! BATS version
+  IF (itype_trvg == 2 .OR. itype_trvg == 3) THEN   ! BATS version
     ! This version is based on Dickinson's (1984) BATS scheme, simplified by
     ! neglecting the water and energy transports between the soil and the plant
     ! canopy. This leads to a Monteith combination formula for the computation
     ! of plant transpiration.
+    ! Option 3 is an extended variant with an additional diagnostic variable for 
+    ! accumulated plant evaporation since sunrise, allowing for a better representation of
+    ! the diurnal cycle of plant evaporation (in particular trees)
 
 
   ! Root distribution
@@ -2373,7 +2382,8 @@ END SUBROUTINE message
                   zrootdz = zrootfr*MIN(zdzhs(kso),MAX(0.0_ireals, zbwt(i)-(zmls(kso) &
                     &       -0.5_ireals*zdzhs(kso)) ) )
                   zrootdz_int(i)=zrootdz_int(i) + zrootdz
-                  zwrootdz(i,kso)=zrootdz*(zw_fr(i,kso)-w_so_ice_now(i,kso)/zdzhs(kso))
+                  ! The factor of 10 ensures that plants do not extract notable amounts of water from partly frozen soil
+                  zwrootdz(i,kso)=zrootdz*MAX(zpwp(i,kso),zw_fr(i,kso)-10._ireals*w_so_ice_now(i,kso)/zdzhs(kso))
                   zwrootdz_int(i)=zwrootdz_int(i) + zwrootdz(i,kso)
                 END IF  ! negative potential evaporation only
 !!$              END IF  ! neither ice or rocks
@@ -2433,8 +2443,17 @@ END SUBROUTINE message
               ! to compute CV, first the stomatal resistance has to be determined
               ! this requires the determination of the F-functions:
               ! Radiation function
-              zpar       = pabs(i)  !  PAR
-              zf_rad(i)= MAX(0.0_ireals,MIN(1.0_ireals,zpar/cparcrit))
+              IF (itype_trvg == 3) THEN
+                ! modification depending on accumulated plant evaporation in order to reduce evaporation in the evening
+                zxx      = 0.75_ireals*ABS(plevap(i))/MAX(0.2_ireals,plcov(i))
+                zzz      = MIN(3._ireals,MAX(1._ireals,zxx))
+                ! stronger limitation for non-forest vegetation classes
+                IF (z0(i) <= 0.4_ireals) zzz = MIN(2._ireals, zzz)
+              ELSE
+                zzz = 1._ireals
+              ENDIF
+              zpar     = pabs(i)/(cparcrit*zzz)   ! normalized PAR
+              zf_rad(i)= MAX(0.0_ireals,MIN(1.0_ireals,zpar))
               ztlpmwp(i) = (zfcap(i,1) - zpwp(i,1))*(0.81_ireals +       &
                  0.121_ireals*ATAN(-86400._ireals*zep_s(i) - 4.75_ireals))
 
@@ -2457,21 +2476,30 @@ END SUBROUTINE message
               zf_tem     = MAX(0.0_ireals,MIN(1.0_ireals,4.0_ireals*     &
                            (t(i)-t0_melt)*(ctend-t(i))/(ctend-t0_melt)**2))
 
-              ! Saturation deficit function (function not used, but computations
-              ! necessary for determination of  slope of the saturation curve)
-              z2iw       = zts_pm(i)*b2w + (1._ireals - zts_pm(i))*b2i
-              z4iw       = zts_pm(i)*b4w + (1._ireals - zts_pm(i))*b4i
-              zepsat     = zsf_psat_iw(t(i),z2iw,z4iw)
-              zepke      = qv(i)*ps(i)/                   &
-                                        (rdv + o_m_rdv*qv(i))
-              zf_sat     = MAX(0.0_ireals,MIN(1.0_ireals,1.0_ireals -  &
-                                              (zepsat - zepke)/csatdef))
+              ! Saturation deficit function (not used, see below)
+      !        z2iw       = zts_pm(i)*b2w + (1._ireals - zts_pm(i))*b2i
+      !        z4iw       = zts_pm(i)*b4w + (1._ireals - zts_pm(i))*b4i
+      !        zepsat     = zsf_psat_iw(t(i),z2iw,z4iw)
+      !        zepke      = qv(i)*ps(i)/                   &
+      !                                  (rdv + o_m_rdv*qv(i))
+      !        zf_sat     = MAX(0.0_ireals,MIN(1.0_ireals,1.0_ireals -  &
+      !                                        (zepsat - zepke)/csatdef))
 
               ! zf_sat paralysed:
               zf_sat     = 1.0_ireals
 
               IF (lstomata) THEN
-                zedrstom   = 1.0_ireals/crsmax + (1.0_ireals/MAX(40._ireals,rsmin2d(i)) -     &
+                IF (itype_trvg == 3) THEN
+                  ! Modification of rsmin depending on accumulated plant evaporation; the z0 dependency
+                  ! is used to get a stronger effect for trees than for low vegetation
+                  IF (z0(i) <= 0.4_ireals) zxx = MIN(1.25_ireals, zxx)
+                  zzz = MAX(0.5_ireals, EXP(SQRT(z0(i))*LOG(zxx)) )
+                  ! limit reduction of rsmin-factor below 1 at low temperatures
+                  zzz = MAX(zzz, MIN(1._ireals,(t0_melt+15._ireals-t(i))/15._ireals))
+                ELSE
+                  zzz = 1._ireals
+                ENDIF
+                zedrstom   = 1.0_ireals/crsmax + (1.0_ireals/MAX(40._ireals,zzz*rsmin2d(i)) - &
                              1.0_ireals/crsmax)*zf_rad(i)*zf_wat*zf_tem*zf_sat
               ELSE
                 zedrstom   = 1.0_ireals/crsmax + (1.0_ireals/crsmin -     &
@@ -2572,6 +2600,14 @@ ELSE          IF (itype_interception == 2) THEN
       zdwidt(i)  = zdwidt(i) *zzz
       zesoil(i)  = zesoil(i) *zzz
       ztrangs(i) = ztrangs(i)*zzz
+    ENDIF
+    IF (itype_trvg == 3) THEN
+      ! accumulated plant evaporation since sunrise; an offset is subtracted to parameterize the
+      ! amount of water that can be continuously supplied through the stem, and an increased recovery
+      ! rate is assumed at night
+      zzz = MAX(1._ireals, 0.1_ireals*(50._ireals - pabs(i)))
+      plevap(i) = MAX(-6._ireals, MIN(0._ireals, plevap(i) + zzz*dt/lh_v *           &
+                 (SUM(lhfl_pl(i,1:ke_soil_hy))+MAX(0.2_ireals,plcov(i))*75._ireals) ))
     ENDIF
     ! Negative values of tsnred indicate that snow is present on the corresponding snow tile;
     ! in this case, bare soil evaporation is limited to potential evaporation at the freezing level.
