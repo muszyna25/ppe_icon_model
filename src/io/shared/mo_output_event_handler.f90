@@ -624,17 +624,13 @@ CONTAINS
     LOGICAL                                          :: incl_end(MAX_TIME_INTERVALS)
     CHARACTER                                        :: char
     TYPE(julianday), POINTER :: tmp_jd
-    TYPE tmp_container
-      INTEGER(i8) :: day
-      INTEGER(i8) :: ms
-    END TYPE tmp_container
 
-    TYPE(tmp_container), ALLOCATABLE, TARGET :: mtime_date_container_a(:)
-    TYPE(tmp_container), ALLOCATABLE, TARGET :: mtime_date_container_b(:)  
-    TYPE(tmp_container), ALLOCATABLE :: tmp(:)
-    TYPE(tmp_container), ALLOCATABLE :: mtime_date_uniq(:)
+    TYPE(julianday), ALLOCATABLE, TARGET :: mtime_date_container_a(:), &
+      &                                     mtime_date_container_b(:)
+    TYPE(julianday), ALLOCATABLE :: tmp(:)
+    TYPE(julianday), ALLOCATABLE :: mtime_date_uniq(:)
     
-    TYPE(tmp_container), POINTER :: mtime_date_container(:)
+    TYPE(julianday), POINTER :: mtime_date_container(:)
     
     INTEGER, ALLOCATABLE :: indices_to_use(:)
     INTEGER :: remaining_intvls, iselected_intvl
@@ -735,9 +731,6 @@ CONTAINS
     ! there may be multiple starts/ends/intervals (usually only one):
 
     mtime_date_container => mtime_date_container_a
-    
-    tmp_jd => newJulianday(0_i8, 0_i8);
-    
     n_event_steps = 0
     skipped_dates = 0
 
@@ -779,9 +772,8 @@ CONTAINS
                 ENDIF
               ENDIF
 
+              tmp_jd => mtime_date_container(n_event_steps)
               CALL getJulianDayFromDatetime(mtime_date, tmp_jd)
-              mtime_date_container(n_event_steps)%day = tmp_jd%day
-              mtime_date_container(n_event_steps)%ms = tmp_jd%ms
 
             ELSE
               ! we skip an output date when the domain is not yet
@@ -844,19 +836,14 @@ CONTAINS
       
     END DO INTERVAL_LOOP
 
-    CALL deallocateJulianday(tmp_jd)
-
     ! copy back results into original data structures
-    
     n_event_steps = n_event_steps_a
     ! to prevent a potential reallocation in next step add 1 element
     ALLOCATE(mtime_dates(n_event_steps+1), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     ! copy mtime_date_container_a to mtime_date_string 
     DO i = 1, n_event_steps
-      tmp_jd => newJulianday(mtime_date_container_a(i)%day, mtime_date_container_a(i)%ms);      
-      CALL getDatetimeFromJulianDay(tmp_jd, mtime_dates(i))
-      CALL deallocateJulianday(tmp_jd)
+      CALL getDatetimeFromJulianDay(mtime_date_container_a(i), mtime_dates(i))
     END DO
 
     ! Optional: Append the last event time step
@@ -951,9 +938,9 @@ CONTAINS
     SUBROUTINE merge2SortedAndRemoveDuplicates(InputArray1, nsize_IA1, &
          &                                     InputArray2, nsize_IA2, &
          &                                     OutputArray, nsize_OA)
-      TYPE(tmp_container), INTENT(in) :: InputArray1(:)
-      TYPE(tmp_container), INTENT(in) :: InputArray2(:)
-      TYPE(tmp_container), ALLOCATABLE, INTENT(out) :: OutputArray(:)
+      TYPE(julianday), INTENT(in) :: InputArray1(:)
+      TYPE(julianday), INTENT(in) :: InputArray2(:)
+      TYPE(julianday), ALLOCATABLE, INTENT(out) :: OutputArray(:)
       INTEGER, INTENT(in) :: nsize_IA1
       INTEGER, INTENT(in) :: nsize_IA2
       INTEGER, INTENT(out) :: nsize_OA
