@@ -2367,7 +2367,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_event_to_simstep"
     CHARACTER(LEN=10) :: jpart_str
-    INTEGER :: ev_step, istep, n_pes, i_pe
+    INTEGER :: ev_step, istep, n_pes, i_pe, tlen
     TYPE(t_event_step_data), POINTER :: event_step_data
 
     ev_step = 0
@@ -2413,13 +2413,14 @@ CONTAINS
             ! otherwise: modify file name s.t. the new, resumed file
             ! is clearly distinguishable: We append "_<part>+"
             jpart_str = int2string(event_step_data%jpart)
+            tlen = LEN_TRIM(event_step_data%filename_string)
             IF (my_process_is_mpi_workroot()) THEN
-              WRITE (0,*) "Modify filename ", TRIM(event_step_data%filename_string), " to ", &
-                &      TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+",  &
+              WRITE (0,*) "Modify filename ", event_step_data%filename_string(1:tlen), " to ", &
+                &      event_step_data%filename_string(1:tlen)//"_part_"//TRIM(jpart_str)//"+",  &
                 &      " after restart."
             END IF
-            CALL modify_filename(event, TRIM(event_step_data%filename_string), &
-              &       TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+", &
+            CALL modify_filename(event, event_step_data%filename_string(1:tlen), &
+              &       event_step_data%filename_string(1:tlen)//"_part_"//TRIM(jpart_str)//"+", &
               &       start_step=istep)
           END IF
         END IF
