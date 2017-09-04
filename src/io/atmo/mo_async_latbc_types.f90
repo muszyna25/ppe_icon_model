@@ -105,8 +105,11 @@ MODULE mo_async_latbc_types
      ! are prognostic thermodynamic variables (= rho and theta_v) present in the input file?
      LOGICAL                                     :: lread_theta_rho      
 
-     ! .TRUE., if pressure and temperature are read from input
-     LOGICAL                                     :: lread_pres_temp
+     ! .TRUE., if pressure is read from input
+     LOGICAL                                     :: lread_pres
+
+     ! .TRUE., if temperature is read from input
+     LOGICAL                                     :: lread_temp
 
      ! If .TRUE., surface pressure and geopotential are available in
      ! the input file

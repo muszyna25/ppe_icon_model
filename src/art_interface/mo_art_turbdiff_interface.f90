@@ -32,7 +32,7 @@ MODULE mo_art_turbdiff_interface
   USE src_turbdiff,                     ONLY: modvar
   USE mo_run_config,                    ONLY: lart
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
-    timer_art, timer_art_turbdiffInt
+                                          &   timer_art, timer_art_turbdiffInt
 #ifdef __ICON_ART
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_diag_types,                ONLY: t_art_diag
