@@ -55,10 +55,10 @@ END SUBROUTINE
 
 SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinp)
 ! apply nitrogen deposition
-  USE mo_memory_bgc, ONLY         : bgctra
-  USE mo_param1_bgc, ONLY     : iano3
+  USE mo_memory_bgc, ONLY     : bgctra, bgctend
+  USE mo_param1_bgc, ONLY     : iano3, ialkali, kn2b
   USE mo_control_bgc, ONLY    : dtb
-  USE mo_bgc_constants, ONLY : rmnit
+  USE mo_bgc_constants, ONLY  : rmnit
 
 
   !Arguments
@@ -83,6 +83,8 @@ SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinp)
        ninp = nitinp(jc) / rmnit* dtbgc/(pddpo(jc,1)+za(jc)) ! kmol N m-3 time_step-1
 
        bgctra(jc,1,iano3) = bgctra(jc,1,iano3) + ninp
+       bgctra(jc,1,ialkali) = bgctra(jc,1,ialkali) - ninp
+       bgctend(jc,1,kn2b)   = bgctend(jc,1,kn2b) - ninp * (pddpo(jc,1) + za(jc)) 
 
   endif
 

@@ -25,7 +25,7 @@
 MODULE mo_hydro_ocean_run
   !-------------------------------------------------------------------------
   USE mo_kind,                   ONLY: wp
-   USE mtime,                     ONLY: datetime, datetimeToString, deallocateDatetime,              &
+  USE mtime,                     ONLY: datetime, datetimeToString, deallocateDatetime,              &
        &                               timedelta, newTimedelta, deallocateTimedelta,                &
        &                               MAX_DATETIME_STR_LEN, newDatetime,                           &
        &                               MAX_MTIME_ERROR_STR_LEN, no_error, mtime_strerror,           &

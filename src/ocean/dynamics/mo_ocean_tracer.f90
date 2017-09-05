@@ -100,7 +100,7 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2D
     !-------------------------------------------------------------------------------
     IF(tracer_update_mode == use_none ) THEN
-      DO tracer_index = 1, no_tracer
+      DO tracer_index = 1, no_tracer+nbgcadv
         CALL copy_individual_tracer_ab( patch_3d,            &
           & p_os%p_prog(nold(1))%ocean_tracers(tracer_index), &
           & p_os%p_prog(nnew(1))%ocean_tracers(tracer_index))

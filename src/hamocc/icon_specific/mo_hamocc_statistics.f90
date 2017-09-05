@@ -59,6 +59,8 @@ CONTAINS
     CALL add_fields(hamocc_state%p_acc%bacfra          , hamocc_state%p_tend%bacfra          , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%delsil          , hamocc_state%p_tend%delsil          , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%delcar          , hamocc_state%p_tend%delcar          , cells,levels=max_zlev)
+    CALL add_fields(hamocc_state%p_acc%h2sprod         , hamocc_state%p_tend%h2sprod         , cells,levels=max_zlev)
+    CALL add_fields(hamocc_state%p_acc%h2sloss         , hamocc_state%p_tend%h2sloss         , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%dmsprod         , hamocc_state%p_tend%dmsprod         , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%dmsbac          , hamocc_state%p_tend%dmsbac          , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%dmsuv           , hamocc_state%p_tend%dmsuv           , cells,levels=max_zlev)
@@ -166,6 +168,8 @@ CONTAINS
     p_acc%sedrs                       = p_acc%sedrs                      /REAL(nsteps_since_last_output,wp)
     p_acc%sedrn                       = p_acc%sedrn                      /REAL(nsteps_since_last_output,wp)
     p_acc%sedro2                      = p_acc%sedro2                     /REAL(nsteps_since_last_output,wp)
+    p_acc%h2sprod                     = p_acc%h2sprod                    /REAL(nsteps_since_last_output,wp)
+    p_acc%h2sloss                     = p_acc%h2sloss                    /REAL(nsteps_since_last_output,wp)
     p_acc%dmsprod                     = p_acc%dmsprod                    /REAL(nsteps_since_last_output,wp)
     p_acc%dmsbac                      = p_acc%dmsbac                     /REAL(nsteps_since_last_output,wp)
     p_acc%dmsuv                       = p_acc%dmsuv                      /REAL(nsteps_since_last_output,wp)
@@ -248,6 +252,8 @@ CONTAINS
     p_acc%dmsbac                      = 0._wp
     p_acc%dmsuv                       = 0._wp
     p_acc%dmsprod                      = 0._wp
+    p_acc%h2sprod                      = 0._wp
+    p_acc%h2sloss                      = 0._wp
     p_acc%euexp                      = 0._wp
     p_acc%flim                       = 0._wp
     p_acc%plim                       = 0._wp
