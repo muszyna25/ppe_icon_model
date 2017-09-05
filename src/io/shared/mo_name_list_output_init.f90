@@ -2374,14 +2374,12 @@ CONTAINS
     INTEGER                           :: k, i_dom, gridtype, idate, &
       &                                  itime, iret, tlen, ll_dim1, ll_dim2
     TYPE(t_lon_lat_data), POINTER     :: lonlat
-    REAL(wp)                          :: pi_180
+    REAL(wp), PARAMETER               :: pi_180 = ATAN(1._wp)/45._wp
     INTEGER                           :: max_cell_connectivity, max_vertex_connectivity, &
       &                                  cdiInstID
     INTEGER                           :: i, cdi_grid_ids(3)
     REAL(wp), ALLOCATABLE             :: p_lonlat(:)
     TYPE(t_verticalAxisList), POINTER :: it
-
-    pi_180 = ATAN(1._wp)/45._wp
 
     gridtype = GRID_UNSTRUCTURED
 
