@@ -179,7 +179,8 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
 
       CALL art_prescribe_tracers(tracer, p_art_data(jg)%prescr_list,     &
                &                 p_patch, current_date, p_nh_state%diag, &
-               &                 p_nh_state%metrics%z_mc)
+               &                 p_nh_state%metrics%z_mc,                &
+               &                 i_startblk, i_endblk, i_rlstart, i_rlend)
 
       IF (p_art_data(jg)%emiss%is_init) THEN
         IF (iforcing == inwp) THEN
