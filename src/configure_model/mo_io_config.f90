@@ -23,12 +23,14 @@
 !! headers of the routines.
 !!
 MODULE mo_io_config
-
-  USE mo_kind,           ONLY: wp
-  USE mo_run_config,     ONLY: dtime
-  USE mo_io_units,       ONLY: filename_max
-  USE mo_cdi,            ONLY: FILETYPE_NC2
-  USE mo_impl_constants, ONLY: max_dom
+  USE mo_cdi,             ONLY: FILETYPE_NC2
+  USE mo_exception,       ONLY: finish, message
+  USE mo_impl_constants,  ONLY: max_dom
+  USE mo_io_units,        ONLY: filename_max
+  USE mo_kind,            ONLY: wp
+  USE mo_parallel_config, ONLY: num_restart_procs
+  USE mo_run_config,      ONLY: dtime
+  USE mo_util_string,     ONLY: int2string
 
   IMPLICIT NONE
   PUBLIC
@@ -85,6 +87,25 @@ MODULE mo_io_config
 
   LOGICAL :: lmask_boundary    ! flag: true, if interpolation zone should be masked *in output*
 
+  CHARACTER(LEN = 256) :: restart_write_mode
+
+  ! When using the restart write mode "dedicated proc mode", it is
+  ! possible to split the restart output into several files, as if
+  ! "nrestart_streams" * "num_io_procs" restart processes were
+  ! involved. This speeds up the read-in process, since all the files
+  ! may then be read in parallel.
+  INTEGER :: nrestart_streams
+
+  ! constants to communicate which restart writing MODULE to USE
+  ENUM, BIND(C)
+    ENUMERATOR :: kSyncRestartModule = 1, kAsyncRestartModule, kMultifileRestartModule
+  END ENUM
+
+  CHARACTER(*), PARAMETER :: modname = "mo_io_config"
+
+  INTEGER, PARAMETER :: ALL_WORKERS_INVOLVED = -1
+
+
 CONTAINS
 
   !>
@@ -117,6 +138,7 @@ CONTAINS
      INTEGER :: n_checkpoints
 
      n_checkpoints = NINT(dt_checkpoint/dtime)  ! write restart files
+     IF (n_checkpoints == 0) n_checkpoints = HUGE(1)
    END FUNCTION n_checkpoints
   !----------------------------------------------------------------------------------
 
@@ -189,5 +211,136 @@ CONTAINS
       &              (kstep==n_steps))                    .AND.&
       &              (current_step > 0 )
   END FUNCTION is_totint_time
+
+  ! Inquire the parameters for restart writing.
+  !
+  ! opt_dedicatedProcCount: The number of processes that are split off
+  !                         the MPI_Communicator to serve as dedicated
+  !                         restart processes.
+  !
+  ! opt_restartProcCount:   The number of processes that actually
+  !                         perform restart writing. This IS never zero,
+  !                         especially NOT when opt_dedicatedProcCount
+  !                         IS zero.
+  !
+  ! opt_restartModule:      The id of the MODULE that handles the restart
+  !                         writing. Possible values are
+  !                         kSyncRestartModule, kAsyncRestartModule, AND
+  !                         kMultifileRestartModule.
+  !
+  ! opt_lDedicatedProcMode: Whether the restart processes are split
+  !                         off the MPI_Communicator OR are a subset
+  !                         of mpi_comm_work.
+  !
+  SUBROUTINE restartWritingParameters(opt_dedicatedProcCount, &
+    &                                 opt_restartProcCount,   &
+    &                                 opt_restartModule,      &
+    &                                 opt_lDedicatedProcMode, &
+    &                                 opt_nrestart_streams)
+
+    INTEGER, INTENT(OUT), OPTIONAL :: opt_dedicatedProcCount, &
+      &                               opt_restartProcCount,   &
+      &                               opt_restartModule,      &
+      &                               opt_nrestart_streams
+    LOGICAL, INTENT(OUT), OPTIONAL :: opt_lDedicatedProcMode
+
+    LOGICAL, SAVE :: cacheValid = .FALSE., lDedicatedProcMode = .FALSE.
+    INTEGER, SAVE :: dedicatedProcCount = -1, &
+      &              restartProcCount   = -1, &
+      &              restartModule      = -1, &
+      &              nrestartStreams    = -1
+    CHARACTER(:), ALLOCATABLE :: errorMessage
+    CHARACTER(*), PARAMETER :: routine = modname//":restartWritingParameters"
+
+    ! If this IS the first CALL of this FUNCTION, analyze the namelist
+    ! parameters AND cache the RESULT, sanity checking the settings.
+    IF(.NOT.cacheValid) THEN
+      IF(num_restart_procs < 0) THEN
+        ! No matter what, negative process counts are illegal.
+        errorMessage = "illegal value of namelist parameter num_restart_procs: value must not be negative"
+        
+      ELSE IF(restart_write_mode == "") THEN
+        ! No restart_write_mode given, so we fall back to the old
+        ! behavior of switching between sync/async restart mode based
+        ! on num_restart_procs for backwards compatibility.
+        dedicatedProcCount = num_restart_procs
+        restartProcCount   = MAX(1, num_restart_procs)
+        lDedicatedProcMode = num_restart_procs > 0
+        nrestartStreams    = 1
+        IF(lDedicatedProcMode) THEN
+          restartModule = kAsyncRestartModule
+        ELSE
+          restartModule = kSyncRestartModule
+        END IF
+        
+      ELSE IF(restart_write_mode == "sync") THEN
+        IF(num_restart_procs /= 0) THEN
+          errorMessage = "inconsistent namelist parameters: num_restart_procs must be zero OR unset &
+            &for the given restart_write_mode"
+        END IF
+        dedicatedProcCount = 0
+        restartProcCount   = 1
+        restartModule      = kSyncRestartModule
+        lDedicatedProcMode = .FALSE.
+        nrestartStreams    = 1
+        
+      ELSE IF(restart_write_mode == "async") THEN
+        IF(num_restart_procs == 0) THEN
+          errorMessage = "inconsistent namelist parameters: num_restart_procs must be non-zero for &
+            &the given restart_write_mode"
+        END IF
+        dedicatedProcCount = num_restart_procs
+        restartProcCount   = num_restart_procs
+        restartModule      = kAsyncRestartModule
+        lDedicatedProcMode = .TRUE.
+        nrestartStreams    = 1
+
+      ELSE IF(restart_write_mode == "joint procs multifile") THEN
+        dedicatedProcCount = 0
+        
+        ! if not set otherwise (num_restart_procs=0), set the
+        ! number of restart PEs to the number of worker
+        ! PEs... this is done later, since the number of workers
+        ! is not yet available.
+        IF (num_restart_procs == 0) THEN
+          restartProcCount = ALL_WORKERS_INVOLVED
+        ELSE
+          restartProcCount = num_restart_procs
+        END IF
+        restartModule      = kMultifileRestartModule
+        lDedicatedProcMode = .FALSE.
+        nrestartStreams    = 1
+        
+      ELSE IF(restart_write_mode == "dedicated procs multifile") THEN
+        IF(num_restart_procs == 0) THEN
+          errorMessage = "inconsistent namelist parameters: num_restart_procs must be non-zero for &
+            &the given restart_write_mode"
+        END IF
+        dedicatedProcCount = num_restart_procs
+        restartProcCount   = num_restart_procs
+        restartModule      = kMultifileRestartModule
+        lDedicatedProcMode = .TRUE.
+        nrestartStreams    = nrestart_streams
+        
+      ELSE
+        errorMessage = "illegal value of namelist parameter restart_write_mode: expected one of 'sync', 'async', &
+          &'joint procs multifile', or 'dedicated procs multifile'"
+        
+      END IF
+      IF(ALLOCATED(errorMessage)) THEN
+        CALL finish(routine, errorMessage//" (got restart_write_mode = '"//TRIM(restart_write_mode)// &
+          &"', num_restart_procs = "//TRIM(int2string(num_restart_procs))//")")
+      END IF
+      cacheValid = .TRUE.
+    END IF
+    
+    ! Ok, the cache IS up to date. What info did the caller want again?
+    IF(PRESENT(opt_dedicatedProcCount))  opt_dedicatedProcCount = dedicatedProcCount;
+    IF(PRESENT(opt_restartProcCount))    opt_restartProcCount   = restartProcCount;
+    IF(PRESENT(opt_restartModule))       opt_restartModule      = restartModule;
+    IF(PRESENT(opt_lDedicatedProcMode))  opt_lDedicatedProcMode = lDedicatedProcMode;
+    IF(PRESENT(opt_nrestart_streams))    opt_nrestart_streams   = nrestartStreams
+
+  END SUBROUTINE restartWritingParameters
 
 END MODULE mo_io_config

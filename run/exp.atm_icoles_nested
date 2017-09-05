@@ -164,6 +164,7 @@ inwp_surface    = 1,1
 latm_above_top  = .true.,.true.
 efdt_min_raylfric = 7200.
 itype_z0         = 2
+dt_conv          = 10.,10.   !DR Test
 dt_rad           = 60.,60.
 /
 &les_nml

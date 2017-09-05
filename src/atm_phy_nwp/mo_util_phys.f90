@@ -28,14 +28,16 @@ MODULE mo_util_phys
     &                                 grav,            &
     &                                 tmelt, earth_radius, &
     &                                 alvdcp, rd_o_cpd
+  USE mo_exception,             ONLY: finish
   USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
   USE mo_fortran_tools,         ONLY: assign_if_present
   USE mo_impl_constants,        ONLY: min_rlcell_int, min_rledge_int, &
-    &                                 min_rlcell
+    &                                 min_rlcell, dzsoil
   USE mo_model_domain,          ONLY: t_patch
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, nqtendphy, lart
+  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, iqni, ininact, &
+       &                              iqm_max, nqtendphy, lart
   USE mo_nh_diagnose_pres_temp, ONLY: diag_pres, diag_temp
   USE mo_ls_forcing_nml,        ONLY: is_ls_forcing
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
@@ -44,8 +46,12 @@ MODULE mo_util_phys
   USE mo_art_config,            ONLY: art_config
   USE mo_initicon_config,       ONLY: is_iau_active, iau_wgt_adv
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
+  USE mo_lnd_nwp_config,        ONLY: nlev_soil
+  USE mo_nwp_lnd_types,         ONLY: t_lnd_diag
+  USE mo_ext_data_types,        ONLY: t_external_data
   USE mo_satad,                 ONLY: qsat_rho
   USE mo_intp_data_strc,        ONLY: t_int_state
+  USE mo_nwp_sfc_interp,        ONLY: wsoil2smi
   USE mo_icon_interpolation_scalar,                     &
     &                           ONLY: edges2cells_scalar, cells2edges_scalar, &
     &                                 cells2verts_scalar, verts2edges_scalar, &
@@ -71,6 +77,7 @@ MODULE mo_util_phys
   PUBLIC :: compute_field_rel_hum_ifs
   PUBLIC :: compute_field_omega
   PUBLIC :: compute_field_pv
+  PUBLIC :: compute_field_smi
   PUBLIC :: nh_update_tracer_phy
   PUBLIC :: cal_cape_cin
 
@@ -716,7 +723,83 @@ CONTAINS
 
 
   END SUBROUTINE compute_field_omega
-  
+
+
+
+  !> computation of soil mositure index (smi)
+  !!
+  !! Conversion of soil moisture into soil moisture index
+  !! smi = (soil moisture - wilting point) / (field capacity - wilting point)
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2017-05-03) 
+  !!
+  SUBROUTINE compute_field_smi(ptr_patch, diag_lnd, ext_data, out_var, &
+    &                            opt_rlstart, opt_rlend)
+
+    TYPE(t_patch)        , INTENT(IN)    :: ptr_patch              !< patch on which computation is performed
+    TYPE(t_lnd_diag)     , INTENT(IN)    :: diag_lnd               !< nwp diag land state
+    TYPE(t_external_data), INTENT(IN)    :: ext_data               !< ext_data state
+    REAL(wp)             , INTENT(INOUT) :: out_var(:,:,:)         !< output variable, dim: (nproma,nlev,nblks_c)
+    INTEGER, INTENT(IN), OPTIONAL        :: opt_rlstart, opt_rlend !< start and end values of refin_ctrl flag
+
+
+    ! local
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: jc, jk, jb, ic  
+    INTEGER :: i_count
+    INTEGER :: ierr, ierr_wsoil2smi
+
+    ! default values
+    rl_start = 2
+    rl_end   = min_rlcell_int-1
+    ! check optional arguments
+    CALL assign_if_present(rl_start, opt_rlstart)
+    CALL assign_if_present(rl_end,   opt_rlend)
+
+    ! values for the blocking
+    i_startblk = ptr_patch%cells%start_block(rl_start)
+    i_endblk   = ptr_patch%cells%end_block(rl_end)
+
+!$OMP PARALLEL    
+!$OMP DO PRIVATE(jc,jk,jb,ic,i_count,ierr,ierr_wsoil2smi), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      ierr = 0
+
+      ! loop over target (ICON) land points only
+      i_count = ext_data%atm%lp_count(jb)
+
+      DO ic = 1, i_count
+        jc = ext_data%atm%idx_lst_lp(ic,jb)
+
+        DO jk = 1, nlev_soil-1
+
+          CALL wsoil2smi(wsoil   = diag_lnd%w_so(jc,jk,jb),     & !in
+            &            dzsoil  = dzsoil(jk),                  & !in
+            &            soiltyp = ext_data%atm%soiltyp(jc,jb), & !in
+            &            smi     = out_var(jc,jk,jb),           & !out
+            &            ierr    = ierr_wsoil2smi               ) !out
+          !
+          ierr = MIN(ierr, ierr_wsoil2smi)
+        ENDDO
+        ! assume no-gradient condition for soil moisture reservoir layer
+        out_var(jc,nlev_soil,jb) = out_var(jc,nlev_soil-1,jb)
+      ENDDO
+
+      IF (ierr < 0) THEN
+        CALL finish("compute_field_smi", "Landpoint has invalid soiltype (sea water or sea ice)")
+      ENDIF
+
+    ENDDO  ! jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_smi
+
+
+
   !> Computation of potential vorticity
   !! The full 3D-Ertel PV is calculated at the edges and interpolated to cells.
   !! The shallow atmosphere approximations are used.
@@ -962,7 +1045,7 @@ CONTAINS
     IF (is_iau_active) THEN
 
       ! Diagnose pressure and temperature for subsequent calculations
-      CALL diag_temp (pt_prog, pt_prog_rcf, advection_config(jg)%ilist_hydroMass, pt_diag, &
+      CALL diag_temp (pt_prog, pt_prog_rcf, advection_config(jg)%trHydroMass%list, pt_diag, &
                       jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
       CALL diag_pres (pt_prog, pt_diag, p_metrics, jb, i_startidx, i_endidx, 1, nlev)
 
@@ -1033,15 +1116,26 @@ CONTAINS
       ENDDO
     ENDIF !lart
 
-    ! additional clipping for qr, qs 
+    ! additional clipping for qr, qs, ... up to iqm_max
     ! (very small negative values may occur during the transport process (order 10E-15)) 
-    DO jt=iqr, iqs  ! qr,qs
+    DO jt=iqr, iqm_max  ! qr,qs,etc. 
       DO jk = kstart_moist(jg), nlev
         DO jc = i_startidx, i_endidx
-          pt_prog_rcf%tracer(jc,jk,jb,jt) =MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt))
+          pt_prog_rcf%tracer(jc,jk,jb,jt) = MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt))
         ENDDO
       ENDDO
     ENDDO
+    
+    ! clipping for number concentrations
+    IF(ANY((/4,5,6/) == atm_phy_nwp_config(jg)%inwp_gscp))THEN
+      DO jt=iqni, ininact  ! qni,qnr,qns,qng,qnh,qnc and ninact (but not yet ninpot)
+        DO jk = kstart_moist(jg), nlev
+          DO jc = i_startidx, i_endidx
+            pt_prog_rcf%tracer(jc,jk,jb,jt) = MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt))
+          ENDDO          
+        ENDDO
+      ENDDO
+    END IF
 
     IF (atm_phy_nwp_config(jg)%lcalc_acc_avg) THEN
 

@@ -168,10 +168,10 @@ ljsbach=$([ "${run_jsbach:=no}" == yes ] && echo .TRUE. || echo .FALSE. )
 llake=$([ "${jsbach_with_lakes:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
 if [[ $jsbach_usecase == *pfts* ]]
 then
-#  pft_file_tag="11pfts_"
+  pft_file_tag="11pfts_"
   nproma=64
-#else
-#  pft_file_tag=""
+else
+  pft_file_tag=""
 fi
 
 #--------------------------------------------------------------------------------------------------
@@ -422,7 +422,7 @@ add_link_file $datadir/bc_sst_pcmdi_cmip6_pre04_slo_0158km_1870-2015.nc ./bc_sst
 
 # - land parameters
 datadir=$grids_folder/Land
-add_link_file $datadir/bc_land_frac_11pfts_1976.nc                      ./bc_land_frac.nc
+add_link_file $datadir/bc_land_frac_${pft_file_tag}1976.nc              ./bc_land_frac.nc
 add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
 add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
 add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc

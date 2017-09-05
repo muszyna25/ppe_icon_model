@@ -589,9 +589,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             prm_diag%tcm_t   (jc,jb,jt) = tcm_t(ic,jt)    ! needed by TERRA
             prm_diag%tfv_t   (jc,jb,jt) = tfv_t(ic,jt)    ! needed by TERRA
 
-          ! 'tvm_t' and 'thv_t' are not yet used in TERRA:
-          ! prm_diag%tvm_t   (jc,jb,jt) = tvm_t(ic,jt)    ! needed by TERRA (should be used instead of 'tcm')
-          ! prm_diag%tvh_t   (jc,jb,jt) = tvh_t(ic,jt)    ! needed by TERRA (should be used instead of 'tch')
+            prm_diag%tvm_t   (jc,jb,jt) = tvm_t(ic,jt)    ! to be used by TERRA instead of 'tcm'
+            prm_diag%tvh_t   (jc,jb,jt) = tvh_t(ic,jt)    ! to be used by TERRA instead of 'tch'
             prm_diag%tkr_t   (jc,jb,jt) = tkr_t(ic,jt)    ! input for turbtran
             prm_diag%gz0_t   (jc,jb,jt) = gz0_t(ic,jt)    ! input for turbtran at n+1
                                                           ! over land

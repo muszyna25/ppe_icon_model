@@ -45,12 +45,13 @@ MODULE mo_tracer_metadata
 
 CONTAINS
 
-  TYPE(t_tracer_meta) FUNCTION create_tracer_metadata(lis_tracer, name, ihadv_tracer, ivadv_tracer,         &
+  TYPE(t_tracer_meta) FUNCTION create_tracer_metadata(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer, &
                       &                               lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer, &
                       &                               iwash_tracer)
     ! Base type (t_tracer_meta) content
     LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer       ! this is a tracer field (TRUE/FALSE)
-    CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name      ! Name of tracer
+    CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name       ! Name of tracer
+    LOGICAL, INTENT(IN), OPTIONAL  :: lfeedback        ! feedback from child- to parent domain
     INTEGER, INTENT(IN), OPTIONAL  :: ihadv_tracer     ! Method for horizontal transport
     INTEGER, INTENT(IN), OPTIONAL  :: ivadv_tracer     ! Method for vertical transport
     LOGICAL, INTENT(IN), OPTIONAL  :: lturb_tracer     ! Switch for turbulent transport
@@ -60,7 +61,7 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL  :: iwash_tracer     ! Method for washout
 
     ! Fill the metadata of the base type
-    CALL create_tracer_metadata%construct_base(lis_tracer, name, ihadv_tracer, ivadv_tracer,  &
+    CALL create_tracer_metadata%construct_base(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer,  &
       &                                        lturb_tracer, lconv_tracer, ised_tracer,       &
       &                                        ldep_tracer, iwash_tracer)
 
@@ -68,13 +69,14 @@ CONTAINS
 
 
 
-  TYPE(t_aero_meta) FUNCTION create_tracer_metadata_aero(lis_tracer, name, ihadv_tracer, ivadv_tracer,          &
+  TYPE(t_aero_meta) FUNCTION create_tracer_metadata_aero(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer, &
                       &                                  lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer,  &
                       &                                  iwash_tracer,                                          &
                       &                                  moment, mode, rho, mol_weight)
     ! Base type (t_tracer_meta) content
     LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer      ! this is a tracer field (TRUE/FALSE)
     CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name      ! Name of tracer
+    LOGICAL, INTENT(IN), OPTIONAL  :: lfeedback        ! feedback from child- to parent domain
     INTEGER, INTENT(IN), OPTIONAL  :: ihadv_tracer    ! Method for horizontal transport
     INTEGER, INTENT(IN), OPTIONAL  :: ivadv_tracer    ! Method for vertical transport
     LOGICAL, INTENT(IN), OPTIONAL  :: lturb_tracer    ! Switch for turbulent transport
@@ -90,7 +92,7 @@ CONTAINS
     REAL(wp), INTENT(IN), OPTIONAL :: mol_weight       ! Molar mass [g mol-1]
 
     ! Fill the metadata of the base type
-    CALL create_tracer_metadata_aero%construct_base(lis_tracer, name, ihadv_tracer, ivadv_tracer,  &
+    CALL create_tracer_metadata_aero%construct_base(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer,  &
       &                                             lturb_tracer, lconv_tracer, ised_tracer,       &
       &                                             ldep_tracer, iwash_tracer)
 
@@ -124,12 +126,13 @@ CONTAINS
 
 
 
-  TYPE(t_chem_meta) FUNCTION create_tracer_metadata_chem(lis_tracer, name, ihadv_tracer, ivadv_tracer,          &
+  TYPE(t_chem_meta) FUNCTION create_tracer_metadata_chem(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer, &
                       &                                  lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer,  &
                       &                                  iwash_tracer,  mol_weight)
     ! Base type (t_tracer_meta) content
     LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer       ! this is a tracer field (TRUE/FALSE)
     CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name       ! Name of tracer
+    LOGICAL, INTENT(IN), OPTIONAL  :: lfeedback        ! feedback from child- to parent domain
     INTEGER, INTENT(IN), OPTIONAL  :: ihadv_tracer     ! Method for horizontal transport
     INTEGER, INTENT(IN), OPTIONAL  :: ivadv_tracer     ! Method for vertical transport
     LOGICAL, INTENT(IN), OPTIONAL  :: lturb_tracer     ! Switch for turbulent transport
@@ -141,7 +144,7 @@ CONTAINS
     REAL(wp), INTENT(IN), OPTIONAL :: mol_weight       ! Molar mass [g mol-1]
 
     ! Fill the metadata of the base type
-    CALL create_tracer_metadata_chem%construct_base(lis_tracer, name, ihadv_tracer, ivadv_tracer,  &
+    CALL create_tracer_metadata_chem%construct_base(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer,  &
       &                                             lturb_tracer, lconv_tracer, ised_tracer,       &
       &                                             ldep_tracer, iwash_tracer)
 
@@ -156,12 +159,13 @@ CONTAINS
 
 
 
-  TYPE(t_hydro_meta) FUNCTION create_tracer_metadata_hydro(lis_tracer, name, ihadv_tracer, ivadv_tracer,       &
+  TYPE(t_hydro_meta) FUNCTION create_tracer_metadata_hydro(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer, &
                       &                                  lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer, &
                       &                                  iwash_tracer)
     ! Base type (t_tracer_meta) content
     LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer       ! this is a tracer field (TRUE/FALSE)
     CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name      ! Name of tracer
+    LOGICAL, INTENT(IN), OPTIONAL  :: lfeedback        ! feedback from child- to parent domain
     INTEGER, INTENT(IN), OPTIONAL  :: ihadv_tracer     ! Method for horizontal transport
     INTEGER, INTENT(IN), OPTIONAL  :: ivadv_tracer     ! Method for vertical transport
     LOGICAL, INTENT(IN), OPTIONAL  :: lturb_tracer     ! Switch for turbulent transport
@@ -173,7 +177,7 @@ CONTAINS
     ! ...
 
     ! Fill the metadata of the base type
-    CALL create_tracer_metadata_hydro%construct_base(lis_tracer, name, ihadv_tracer, ivadv_tracer,  &
+    CALL create_tracer_metadata_hydro%construct_base(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer,  &
       &                                              lturb_tracer, lconv_tracer, ised_tracer,       &
       &                                              ldep_tracer, iwash_tracer)
 

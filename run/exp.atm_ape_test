@@ -41,17 +41,11 @@ atmo_dyn_grids=${grid_name}.nc
 # start and end date+time
 start_date="1979-01-01T00:00:00Z"
   end_date="1979-01-01T00:16:00Z"
-  calendar="'360 day year'"
-  calendar_type=2
+  calendar="360 day year"
 # restart intervals
 checkpoint_interval="PT08M"
 restart_interval="PT16M"
 #
-# NEEDED TO KEEP THIS TEST WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
-# TO BE DELETED AFTER THE "mtime time loop" IS COMPLETELY IMPLEMENTED.
-(( dt_checkpoint =  8 * minute))    # !! MUST BE EQUAL TO "checkpoint_interval"  !!
-(( dt_restart    = 16 * minute))    # !! MUST BE EQUAL TO "restart_interval"     !!
-
 # output intervals
 output_interval_3d="PT04M"
 output_interval_2d="PT04M"
@@ -145,19 +139,32 @@ cat > ${atmo_namelist} << EOF
  itype_hlimit     = 3,4,4
  ihadv_tracer     = 52,2,2
 /
-&echam_phy_nml
- dt_rad           =  480.       ! [s] radiation time step
- lrad             = .TRUE.
- lvdiff           = .TRUE.
- lconv            = .TRUE.
- lcond            = .TRUE.
- lgw_hines        = .TRUE.
- lssodrag         = .FALSE.
- lice             = .FALSE.
- ljsbach          = .FALSE.
- lebudget         = .FALSE.
- lmlo             = .FALSE.
- lamip            = .FALSE.
+&mpi_phy_nml
+!
+! domain 1
+! --------
+!
+! atmospheric phyiscs (""=never)
+ mpi_phy_config(1)%dt_rad = "PT8M"
+ mpi_phy_config(1)%dt_vdf = "PT4M"
+ mpi_phy_config(1)%dt_cnv = "PT4M"
+ mpi_phy_config(1)%dt_cld = "PT4M"
+ mpi_phy_config(1)%dt_gwd = "PT4M"
+ mpi_phy_config(1)%dt_sso = ""
+!
+! atmospheric chemistry (""=never)
+ mpi_phy_config(1)%dt_mox = ""
+ mpi_phy_config(1)%dt_car = ""
+ mpi_phy_config(1)%dt_art = ""
+!
+! surface (.TRUE. or .FALSE.)
+ mpi_phy_config(1)%ljsb  = .FALSE
+ mpi_phy_config(1)%lamip = .FALSE.
+ mpi_phy_config(1)%lice  = .FALSE.
+ mpi_phy_config(1)%lmlo  = .FALSE.
+!
+/
+&mpi_sso_nml
 /
 &radiation_nml
  irad_h2o         = 1           ! 1: prognostic vapor, liquid and ice
@@ -356,13 +363,13 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  include_last     = .FALSE.
  ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
-                    'tend_ta_vdf'  , 'tend_ta_gwh'  ,
+                    'tend_ta_vdf'  , 'tend_ta_gwd'  ,
                     'tend_ta_cnv'  , 'tend_ta_cld'  , 
                     'tend_ua'      , 'tend_ua_dyn'  , 'tend_ua_phy'  ,
-                    'tend_ua_vdf'  , 'tend_ua_gwh'  ,
+                    'tend_ua_vdf'  , 'tend_ua_gwd'  ,
                     'tend_ua_cnv'  , 
                     'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
-                    'tend_va_vdf'  , 'tend_va_gwh'  ,
+                    'tend_va_vdf'  , 'tend_va_gwd'  ,
                     'tend_va_cnv'  ,
                     'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
                     'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf' ,
@@ -392,13 +399,13 @@ if [[ "$output_phy_3d_rmb" == "yes" ]]; then
  ml_varlist       = 'ta','ua','va','wa','wap','hus','hur','cl','clw','cli','rho','zg'
                     'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
-                    'tend_ta_vdf'  , 'tend_ta_gwh'  , 
+                    'tend_ta_vdf'  , 'tend_ta_gwd'  , 
                     'tend_ta_cnv'  , 'tend_ta_cld'  , 
                     'tend_ua'      , 'tend_ua_dyn'  , 'tend_ua_phy'  ,
-                    'tend_ua_vdf'  , 'tend_ua_gwh'  , 
+                    'tend_ua_vdf'  , 'tend_ua_gwd'  , 
                     'tend_ua_cnv'  , 
                     'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
-                    'tend_va_vdf'  , 'tend_va_gwh'  , 
+                    'tend_va_vdf'  , 'tend_va_gwd'  , 
                     'tend_va_cnv'  ,
                     'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
                     'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf'

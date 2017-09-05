@@ -37,7 +37,7 @@ load_modules=
 #-----------------------------------------------------------------------------
 # cc is the gcc
 CC     = gcc
-CFLAGS = -std=gnu99 -march=native -O2 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
+CFLAGS = -std=gnu99 -march=native -O2 -DHAVE_LIBNETCDF -DHAVE_NETCDF4
 
 case "$fortran_compiler" in
     default|gcc)
@@ -62,7 +62,6 @@ case "$fortran_compiler" in
         F77FLAGS    = -march=native -O0 -ffast-math -mpc64
         LDFLAGS     = $FOTPTIM
         OMPFLAG     = -fopenmp
-        ART_FFLAGS  = -D__ICON_ART -fall-intrinsics
         CC_OMPFLAG  = -fopenmp
         DEFOPT      = -D
         DEFCOPT     = -D
@@ -77,7 +76,7 @@ case "$fortran_compiler" in
         INFOFLAGS= -qlistopt -qphsinfo -V
         INFOFLAGS=
         GENFLAGS = $INFOFLAGS -WF,-DSLOW_MPI_MAXMINLOC -WF,-DSLOW_MPI_USER_REDUCTION -WF,-DSLOW_MPI_IN_PLACE
-        CFLAGS   = -DHAVE_CF_INTERFACE -DIBMR2Fortran -O2 -qipa
+        CFLAGS   = -DIBMR2Fortran -O2 -qipa
 
         FC       = mpixlf2003_r
 
@@ -162,12 +161,11 @@ case "$fortran_compiler" in
         FC          = ftn
         F77         = $FC
         FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc  -O cache0 -r am -Ktrap=divz,ovf,inv
-        CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -O3
+        CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -O3
         F77FLAGS    = $FFLAGS
         FCLIBS      = 
         GEN_FLAGS   =
         FDEBUG      = -g -R abc
-        ART_FFLAGS  = -D__ICON_ART -D__ART_TMP_IFDEF
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
@@ -180,12 +178,11 @@ case "$fortran_compiler" in
         FC          = ftn
         F77         = $FC
         FFLAGS      = -v -D__OPENACC_BUG_TYPES_1 -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf -hacc_model=deep_copy
-        CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3
+        CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -O3
         F77FLAGS    = $FFLAGS
         FCLIBS      = 
         GEN_FLAGS   =
         FDEBUG      = -g -R abc
-        ART_FFLAGS  = -D__ICON_ART
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
@@ -196,7 +193,7 @@ case "$fortran_compiler" in
         compiler_version = $(ifort -V 2>&1 | awk -F "," 'NR==1{split($2,v," "); printf("intel%d",v[2])}')
         # CC          = icc
         # ccversion   = $(icc --version 2>&1 | awk 'NR==1')
-        # CFLAGS      = -fpe0 -msse2 -pc64  -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
+        # CFLAGS      = -fpe0 -msse2 -pc64  -DpgiFortran -DHAVE_LIBNETCDF
         CFLAGS      = $CFLAGS -DpgiFortran
         AR          = xiar
         FC          = ifort
@@ -206,7 +203,6 @@ case "$fortran_compiler" in
         F77         = $FC
         F77FLAGS    = $FFLAGS $STD_FLAGS
         OMPFLAG     = -openmp
-        ART_FFLAGS  = -D__ICON_ART
         CC_OMPFLAG  = -openmp
         DEFOPT      = -D
         DEFCOPT     = -D
@@ -241,13 +237,13 @@ case "$ac_sitename" in
                     gcc)
                         config_target=daint_cpu
                         load_modules =modules craype daint-gpu PrgEnv-gnu cray-netcdf cray-mpich
-                        CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF
+                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
 			;;
                     intel)
                         config_target=daint_cpu
                         load_modules = PrgEnv-intel cray-netcdf cray-mpich 
-                        CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF
+                        CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_LIBNETCDF
                         STD_FLAGS   = -g -O2 -qopt-report -fp-model source -fpp -traceback  -D__LOOP_EXCHANGE
                         F77FLAGS    = -g -O2 -qopt-report -fp-model source -fpp -traceback  
                         FFLAGS      = -g -O2 -qopt-report -fp-model source -fpp -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -assume realloc_lhs
@@ -257,7 +253,7 @@ case "$ac_sitename" in
                     pgi)
                         config_target=daint_cpu 
                         load_modules = PrgEnv-pgi cray-netcdf cray-mpich
-                        CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF
+                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
 			;;
                     cray)
@@ -273,7 +269,7 @@ case "$ac_sitename" in
                         config_target=daint_gpu
                         load_modules = modules craype daint-gpu PrgEnv-cray cray-mpich cray-netcdf craype-accel-nvidia60
         		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hnoomp -hflex_mp=intolerant -hfp0 -hadd_paren -hacc_model=deep_copy -O1,cache0,ipa1 -r am -Ktrap=divz,ovf,inv
-                        CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3 -DUSE_XML2
+                        CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -O3 -DUSE_XML2
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
 			HDF5ROOT    = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -L/apps/daint/UES/6.0.UP02/sandbox-ws/xml2/2.9.4/CRAY/8.5.5/lib -lxml2
@@ -302,13 +298,13 @@ case "$ac_sitename" in
                     gcc)
                         config_target=tave_knl
                         load_modules =PrgEnv-gnu cray-netcdf cray-mpich craype-mic-knl
-                        CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF
+                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF
                          NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
 			;;
                     intel)
                         config_target=tave_knl
                         load_modules = PrgEnv-intel cray-netcdf cray-mpich craype-mic-knl
-                        CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF
+                        CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_LIBNETCDF
                         STD_FLAGS   = -O2 -mavx -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
                         FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/INTEL/15.0
@@ -318,14 +314,14 @@ case "$ac_sitename" in
                     pgi)
                         config_target=tave_knl
                         load_modules = PrgEnv-pgi cray-netcdf cray-mpich craype-mic-knl
-                        CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF
+                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
 			;;
                     cray)
                         config_target=tave_knl
                         load_modules = PrgEnv-cray cray-netcdf cray-mpich craype-mic-knl
                         FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv
-                        CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3 -DUSE_XML2
+                        CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -O3 -DUSE_XML2
                         NETCDFROOT  = /opt/cray/pe/netcdf/default/CRAY/8.3
 			HDF5ROOT    = /opt/cray/pe/hdf5/default/CRAY/8.3
                         OTHER_LIBS  =
@@ -368,11 +364,6 @@ case "$ac_sitename" in
                       load_modules    = cray-netcdf cray-hdf5 grib_api
                       RTTOV_LIBS      = -L/usr/local/pkg/for0adm/lib -L/usr/local/pkg/for0adm/lib/unsupported -lradiance -lrttov10.2 -lhrit_tools
                       OTHER_LIBS      = $RTTOV_LIBS $OTHER_LIBS
-                      case "$with_art" in
-                           yes)
-                             OTHER_LIBS = ${OTHER_LIBS} -L/e/uhome/jfoerstn/Software/lib -lTIXI -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
-                             ;;
-                      esac
                       STD_FLAGS       = -D__USE_RTTOV -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
                       FFLAGS          = ${FFLAGS} -I/usr/local/pkg/for0adm/include/radiance
                       GRIBAPIROOT     = ${GRIB_API}
@@ -382,11 +373,6 @@ case "$ac_sitename" in
                       FFLAGS          = ${FFLAGS}
                       GRIBAPIROOT     = ${GRIB_API}
                       OTHER_LIBS      = $OTHER_LIBS
-                      case "$with_art" in
-                           yes)
-                             OTHER_LIBS = ${OTHER_LIBS} -L/e/uhome/jfoerstn/Software/lib -lTIXI -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
-                             ;;
-                      esac
                       ;;
                 esac
                 ;;
@@ -465,7 +451,7 @@ case "$ac_sitename" in
                         esac
                         config_compiler = intel
                         CC          = icc
-                        CFLAGS      = -std=gnu99 -g -O3 -ftz -march=native -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DgFortran
+                        CFLAGS      = -std=gnu99 -g -O3 -ftz -march=native -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2 -DHAVE_LIBSZ -DgFortran
                         ccversion   = $(icc --version 2>&1 | awk 'NR==1')
                         F77         = ifort
                         FC          = ifort
@@ -545,7 +531,7 @@ case "$ac_sitename" in
                         config_compiler = gcc
                         c_compiler_version = $(gcc --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
                         CC     = gcc
-                        CFLAGS = -std=gnu99 -g -O3 -march=native -mpc64 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DgFortran -DWITHOUT_PACK_EXTERNAL
+                        CFLAGS = -std=gnu99 -g -O3 -march=native -mpc64 -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2 -DHAVE_LIBSZ  -DgFortran -DWITHOUT_PACK_EXTERNAL
                         F77    = gfortran
                         FC     = gfortran
                         OCEAN_FLAGS = -march=native -O3 -mpc64 -D__LOOP_EXCHANGE -g
@@ -573,7 +559,7 @@ case "$ac_sitename" in
                         config_compiler = nag
                         c_compiler_version = $(gcc --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
                         CC     = gcc
-                        CFLAGS = -std=gnu99 -g -O3 -march=native -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DgFortran -DWITHOUT_PACK_EXTERNAL
+                        CFLAGS = -std=gnu99 -g -O3 -march=native -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2 -DHAVE_LIBSZ -DgFortran -DWITHOUT_PACK_EXTERNAL
                         F77    = nagfor
                         FC     = nagfor
 
@@ -594,7 +580,7 @@ case "$ac_sitename" in
                         load_modules    = pgi/16.7 intelmpi/5.1.2.150 ${load_modules}
                         config_compiler = pgi
                         CC              = pgcc
-                        CFLAGS          = -O0 -g -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DpgiFortran
+                        CFLAGS          = -O0 -g -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF -DHAVE_LIBSZ -DpgiFortran
                         FFLAGS          = -O0 -g -Mpreprocess -Mrecursive -Mallocatable=03
 
                         NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.3-pgi16
@@ -646,7 +632,7 @@ case "$ac_sitename" in
                 HDF5ROOT = /bgsys/local/hdf5
                 SZIPROOT = /bgsys/local/szip
                 ZLIBROOT = /bgsys/local/zlib
-                CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
+                CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2
                 IB_LIBS    = -ldl -Wl,--export-dynamic -lutil -lm -ldl -ldrt
                 OTHER_LIBS = -L/bgsys/local/parallel-netcdf/v1.3.1/lib -lpnetcdf 
                 FFLAGS = $FFLAGS -WF,-DLRTM_FULL_VECTORIZATION
@@ -669,18 +655,30 @@ case "$ac_sitename" in
                ZLIBROOT    = /usr
                MPIROOT     = /pfs/imk/ICON/LIBRARIES_IFORT16
                GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
+               XML2ROOT    = /usr
                MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
-               case "$with_art" in
-                    yes)
-                      OTHER_LIBS = ${OTHER_LIBS} -lTIXI
-                      ;;
-               esac
                CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
                config_target=ic2
                make_command=make -j8
                submit=sbatch
                mpi_startrun=runjob --ranks-per-node \\\$mpi_procs_pernode --envs OMP_NUM_THREADS=\\\$OMP_NUM_THREADS --exe
 ;;
+            uc1*)
+               NETCDFROOT  = /pfs/imk/ICON/LIBRARIES_IFORT16
+               NETCDFFROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
+               HDF5ROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
+               SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
+               ZLIBROOT    = /usr
+               MPIROOT     = /pfs/imk/ICON/LIBRARIES_IFORT16
+               GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
+               XML2ROOT    = /usr
+               MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+               CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
+               config_target=ic2
+               make_command=make -j8
+               submit=sbatch
+               mpi_startrun=runjob --ranks-per-node \\\$mpi_procs_pernode --envs OMP_NUM_THREADS=\\\$OMP_NUM_THREADS --exe
+            ;;
             fh2*)
                 NETCDFROOT  = /pfs/imk/ICON/LIBRARIES_IFORT16
                 NETCDFFROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
@@ -688,14 +686,10 @@ case "$ac_sitename" in
                 SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
                 ZLIBROOT    = /usr
                 MPIROOT     = /software/all/mpi/openmpi/1.10_intel
+                XML2ROOT    = /usr
                 GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
                 MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
-                case "$with_art" in
-                     yes)
-                       OTHER_LIBS = ${OTHER_LIBS} -lTIXI
-                       ;;
-                esac
-                CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
+                CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2
                 config_target=ic2
                 make_command=make -j8
                 submit=sbatch
@@ -844,7 +838,7 @@ case "$ac_sitename" in
                 ### ### intel/13.1-2 openmpi/1.6.4/intel/13.1.0
                 config_compiler = intel
                 CC       = mpicc
-                CFLAGS = -std=gnu99 -O2 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DpgiFortran
+                CFLAGS = -std=gnu99 -O2 -DHAVE_LIBNETCDF -DpgiFortran
                 F77 = mpif90
                 FC = mpif90
                 ##### F95 EXTENSIONS
@@ -869,7 +863,7 @@ case "$ac_sitename" in
                 echo "Compiler GFORTRAN detected."
                 ### ### openmpi/1.4.4/gfortran/4.6.2
                 CC       = mpicc
-                # CFLAGS = -std=gnu99 -O2 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DpgiFortran
+                # CFLAGS = -std=gnu99 -O2 -DHAVE_LIBNETCDF -DpgiFortran
                 # CFLAGS   = -std=gnu99 -march=native -O2 -Df2cFortran
                 # CFLAGS   = ${CFLAGS} -Df2cFortran
                 # CFLAGS   = -O -Df2cFortran

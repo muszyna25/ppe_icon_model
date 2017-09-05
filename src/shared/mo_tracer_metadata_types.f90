@@ -38,6 +38,8 @@ MODULE mo_tracer_metadata_types
     !
     LOGICAL :: lis_tracer         ! this is a tracer field (TRUE/FALSE)
     CHARACTER(LEN=VARNAME_LEN) :: name         ! Name of tracer
+    ! One-way vs. Two-way nesting
+    LOGICAL :: lfeedback          ! feedback from child- to parent domain (TRUE/FALSE)
     ! Advection
     INTEGER :: ihadv_tracer       ! Method for horizontal transport
     INTEGER :: ivadv_tracer       ! Method for vertical transport
@@ -89,13 +91,14 @@ MODULE mo_tracer_metadata_types
 
 CONTAINS
 
-  SUBROUTINE construct_t_tracer_meta(meta, lis_tracer, name, ihadv_tracer, ivadv_tracer,   &
+  SUBROUTINE construct_t_tracer_meta(meta, lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer, &
     &                                lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer, &
     &                                iwash_tracer)
 
     CLASS(t_tracer_meta),INTENT(OUT)     :: meta          ! Base meta container to be filled
     LOGICAL, INTENT(IN), OPTIONAL        :: lis_tracer    ! this is a tracer field (TRUE/FALSE)
     CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name          ! Name of tracer
+    LOGICAL, INTENT(IN), OPTIONAL        :: lfeedback     ! feedback from child- to parent domain
     INTEGER, INTENT(IN), OPTIONAL        :: ihadv_tracer  ! Method for horizontal transport
     INTEGER, INTENT(IN), OPTIONAL        :: ivadv_tracer  ! Method for vertical transport
     LOGICAL, INTENT(IN), OPTIONAL        :: lturb_tracer  ! Switch for turbulent transport
@@ -116,6 +119,13 @@ CONTAINS
       meta%name = TRIM(name)
     ELSE
       meta%name = "unnamed"
+    ENDIF
+
+    ! lfeedback
+    IF ( PRESENT(lfeedback) ) THEN
+      meta%lfeedback = lfeedback
+    ELSE
+      meta%lfeedback = .FALSE.
     ENDIF
 
     ! ihadv_tracer

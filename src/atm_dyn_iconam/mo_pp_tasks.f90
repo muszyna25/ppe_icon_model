@@ -28,7 +28,8 @@ MODULE mo_pp_tasks
     & TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I,              &
     & TASK_FINALIZE_IPZ,                                              &
     & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV,                       &
-    & TASK_COMPUTE_RH, TASK_COMPUTE_PV, TASK_INTP_VER_ZLEV,           &
+    & TASK_COMPUTE_RH, TASK_COMPUTE_PV, TASK_COMPUTE_SMI,             &
+    & TASK_INTP_VER_ZLEV,                                             &
     & TASK_INTP_VER_ILEV,                                             &
     & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom,              &
     & ALL_TIMELEVELS, PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_DWD,       &
@@ -70,10 +71,17 @@ MODULE mo_pp_tasks
   USE mo_util_phys,               ONLY: compute_field_rel_hum_wmo,               &
     &                                   compute_field_rel_hum_ifs,               &
     &                                   compute_field_omega,                     &
-    &                                   compute_field_pv
+    &                                   compute_field_pv,                        &
+    &                                   compute_field_smi
   USE mo_io_config,               ONLY: itype_pres_msl, itype_rh
   USE mo_grid_config,             ONLY: l_limited_area
   USE mo_interpol_config,         ONLY: support_baryctr_intp
+
+  ! Workaround for SMI computation. Not nice, however by making 
+  ! direct use of the states below, we avoid enhancing the type t_data_input.
+  USE mo_nwp_lnd_state,           ONLY: p_lnd_state
+  USE mo_ext_data_state,          ONLY: ext_data
+
   IMPLICIT NONE
 
   ! interface definition
@@ -1145,10 +1153,13 @@ CONTAINS
         &                      out_var%r_ptr(:,:,:,out_var_idx,1))
     
     CASE (TASK_COMPUTE_PV)
-    CALL compute_field_pv(p_patch, p_int_state(jg),                    &
+      CALL compute_field_pv(p_patch, p_int_state(jg),                  &
         &   ptr_task%data_input%p_nh_state%metrics, p_prog, p_diag,    &  
         &   out_var%r_ptr(:,:,:,out_var_idx,1))
-    
+
+    CASE (TASK_COMPUTE_SMI)
+      CALL compute_field_smi(p_patch, p_lnd_state(jg)%diag_lnd, &
+        &                    ext_data(jg), out_var%r_ptr(:,:,:,out_var_idx,1))
     CASE DEFAULT
       CALL finish(routine, 'Internal error!')
     END SELECT

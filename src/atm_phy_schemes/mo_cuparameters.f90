@@ -36,7 +36,7 @@ MODULE mo_cuparameters
   USE mo_nwp_parameters,  ONLY: t_phy_params
   USE mo_nwp_tuning_config, ONLY: tune_entrorg, tune_rhebc_land, tune_rhebc_ocean, tune_rcucov, &
     tune_texc, tune_qexc, tune_rhebc_land_trop, tune_rhebc_ocean_trop, tune_rcucov_trop, tune_gkdrag, &
-    tune_gkwake, tune_gfrcrit
+    tune_gkwake, tune_gfrcrit, tune_grcrit
 #endif
 
 #ifdef __GME__
@@ -2056,7 +2056,7 @@ IF (lhook) CALL dr_hook('SUCUMF',1,zhook_handle)
   !38r2
   !GKWAKE =1.3_JPRB
   
-  GRCRIT =0.25_JPRB
+  GRCRIT  = tune_grcrit
   GFRCRIT = tune_gfrcrit
   
   !      ----------------------------------------------------------------

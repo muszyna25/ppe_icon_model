@@ -28,8 +28,8 @@ SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
   USE mo_bgc_icon_comm,       ONLY: update_icon, update_bgc, hamocc_state, &
        &                            set_bgc_tendencies_output
   USE mo_dynamics_config,     ONLY: nold, nnew
-  USE mo_sea_ice_types,       ONLY: t_sea_ice 
-  USE mo_ocean_surface_types, ONLY: t_atmos_for_ocean 
+  USE mo_sea_ice_types,       ONLY: t_sea_ice
+  USE mo_ocean_surface_types, ONLY: t_atmos_for_ocean
   USE mo_hamocc_nml,          ONLY: i_settling, l_cyadyn,l_bgc_check,io_stdo_bgc,l_implsed, &
        &                            l_dynamic_pi, l_pdm_settling 
   USE mo_control_bgc,         ONLY: dtb, dtbgc, inv_dtbgc, ndtdaybgc, icyclibgc,  &
