@@ -257,6 +257,7 @@ CONTAINS
     disso_po = disso_po * dtb
     disso_cal = disso_cal * dtb
     rh2sox  = rh2sox * dtb
+    cycdec  = cycdec * dtb
   END SUBROUTINE
 
   ! ---------------------------------------------------------------------

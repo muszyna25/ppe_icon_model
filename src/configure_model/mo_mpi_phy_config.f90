@@ -108,6 +108,7 @@ MODULE mo_mpi_phy_config
      LOGICAL                              :: ljsb    !< .true. for calculating the JSBACH land surface
      LOGICAL                              :: llake   !< .true. for using lakes in JSBACH
      LOGICAL                              :: lamip   !< .true. for AMIP simulations
+     LOGICAL                              :: lcpl_co2_atmoce !< .true. for coupling of co2 atmo/ocean
      !
   END TYPE t_mpi_phy_config
 
@@ -251,6 +252,7 @@ CONTAINS
     mpi_phy_config(:)% lamip = .FALSE.
     mpi_phy_config(:)% lmlo  = .FALSE.
     mpi_phy_config(:)% lice  = .FALSE.
+    mpi_phy_config(:)% lcpl_co2_atmoce  = .FALSE.
 
   END SUBROUTINE init_mpi_phy_config
 
@@ -609,7 +611,7 @@ CONTAINS
        CALL print_value('    mpi_phy_config('//TRIM(cg)//')% lice ',mpi_phy_config(jg)% lice         )
        CALL print_value('    mpi_phy_config('//TRIM(cg)//')% ljsb ',mpi_phy_config(jg)% ljsb         )
        CALL print_value('    mpi_phy_config('//TRIM(cg)//')% llake',mpi_phy_config(jg)% llake        )
-       CALL print_value('    mpi_phy_config('//TRIM(cg)//')% lamip',mpi_phy_config(jg)% lamip        )
+       CALL print_value('    mpi_phy_config('//TRIM(cg)//')% lcpl_co2_atmoce',mpi_phy_config(jg)% lcpl_co2_atmoce)       
        CALL message    ('','')
        CALL message    ('','')
        !

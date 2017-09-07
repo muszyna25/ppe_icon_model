@@ -104,6 +104,7 @@ ENDIF
         CALL update_bgc(start_index,end_index,levels,&
              & p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
              &jb, p_os%p_prog(nold(1))%tracer(:,:,jb,:)&
+             & ,p_as%co2(:,jb)                        & ! co2mixing ratio
              & ,hamocc_state%p_diag,hamocc_state%p_sed, hamocc_state%p_tend)
         stop_detail_timer(timer_bgc_up_bgc,5)
 
@@ -244,7 +245,8 @@ ENDIF
         start_detail_timer(timer_bgc_up_ic,5)
         CALL update_icon(start_index,end_index,levels,&
   &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
-  &               p_os%p_prog(nold(1))%tracer(:,:,jb,:))
+  &               p_os%p_prog(nold(1))%tracer(:,:,jb,:),            &
+  &               p_as%co2flx(:,jb)                    )          ! co2flux for coupling
         stop_detail_timer(timer_bgc_up_ic,5)
 
         start_detail_timer(timer_bgc_tend,5)

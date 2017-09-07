@@ -109,9 +109,10 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !<Optimize:inUse>
-  SUBROUTINE prepare_ho_stepping(patch_3d, operators_coefficients, ocean_state, sea_ice, ext_data, is_restart, &
+  SUBROUTINE prepare_ho_stepping(patch_3d, operators_coefficients, ocean_state,p_as, sea_ice, ext_data, is_restart, &
     & solvercoeff_sp)
     TYPE(t_patch_3d ), INTENT(in)     :: patch_3d
+    TYPE(t_atmos_for_ocean),  INTENT(in)   :: p_as
     TYPE(t_operator_coeff)            :: operators_coefficients
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE (t_sea_ice),   INTENT(inout) :: sea_ice
@@ -121,7 +122,7 @@ CONTAINS
     TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
     if(lhamocc)then
       if(ltimer)call timer_start(timer_bgc_ini)
-      CALL ini_bgc_icon(patch_3d,ocean_state,is_restart)
+      CALL ini_bgc_icon(patch_3d,ocean_state,p_as, is_restart)
       if(ltimer)call timer_stop(timer_bgc_ini)
     endif
 

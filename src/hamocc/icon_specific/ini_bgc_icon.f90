@@ -1,6 +1,6 @@
 #ifndef __NO_ICON_OCEAN__
 
-SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
+SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
 
   USE mo_kind, ONLY           : wp, dp
   USE mo_hamocc_nml, ONLY     : l_cpl_co2, io_stdo_bgc
@@ -37,6 +37,7 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
   USE mo_parallel_config,     ONLY: nproma
   USE mo_sync,                ONLY: global_sum_array
   USE mo_math_utilities,      ONLY: set_zlev
+  USE mo_ocean_surface_types, ONLY: t_atmos_for_ocean 
  ! USE mo_hamocc_diagnostics,  ONLY: get_inventories
 
   IMPLICIT NONE
@@ -44,6 +45,7 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
   !! Arguments
   TYPE(t_patch_3D),             TARGET,INTENT(IN)    :: p_patch_3D
   TYPE(t_hydro_ocean_state)                   :: p_os
+  TYPE(t_atmos_for_ocean)                     :: p_as
   LOGICAL, INTENT(in):: l_is_restart
 
   INTEGER :: alloc_cell_blocks
@@ -182,6 +184,7 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
           CALL update_bgc(start_index,end_index,levels,&
              & p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
              &jb, p_os%p_prog(nold(1))%tracer(:,:,jb,:)&
+             &,p_as%co2(:,jb)&
              & ,hamocc_state%p_diag,hamocc_state%p_sed, hamocc_state%p_tend)
 
           CALL ini_bottom(start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))

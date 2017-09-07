@@ -226,7 +226,11 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
            kwn2o = (1._wp - psicomo(j)) * cmh2ms * pfu10( j)**2        &
                 &           * (660._wp / scn2o)**0.5_wp
 
-           atco2 = atm_co2
+           if(l_cpl_co2)then 
+            atco2 = atm(j,iatmco2)
+           else
+            atco2 = atm_co2
+           endif
            ato2  = atm_o2
            atn2  = atm_n2
 

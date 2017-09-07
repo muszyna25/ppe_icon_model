@@ -470,6 +470,11 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr_2d),ALLOCATABLE :: tas_tile_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: dew2_tile_ptr(:)
 
+    ! coupling to HAMOCC lcpl_co2_atmoce
+    REAL(wp),POINTER :: &
+      & co2mr(:,:),   &   !< co2 mixing ratio
+      & co2flux(:,:)      !< co2 flux
+
   END TYPE t_echam_phy_field
 
   !>

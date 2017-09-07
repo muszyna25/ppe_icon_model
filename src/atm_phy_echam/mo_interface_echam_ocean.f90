@@ -25,10 +25,11 @@ MODULE mo_interface_echam_ocean
   USE mo_kind                ,ONLY: wp
   USE mo_model_domain        ,ONLY: t_patch
   USE mo_echam_phy_memory    ,ONLY: prm_field
+  USE mo_mpi_phy_config      ,ONLY: mpi_phy_config
                                 
   USE mo_parallel_config     ,ONLY: nproma
   
-  USE mo_run_config          ,ONLY: ltimer !, nlev
+  USE mo_run_config          ,ONLY: ltimer, ico2 !, nlev
   USE mo_timer,               ONLY: timer_start, timer_stop,                &
        &                            timer_coupling_put, timer_coupling_get, &
        &                            timer_coupling_1stget, timer_coupling_init
@@ -78,7 +79,7 @@ MODULE mo_interface_echam_ocean
 
   CHARACTER(len=*), PARAMETER :: thismodule = 'mo_interface_echam_ocean'
 
-  INTEGER, PARAMETER    :: no_of_fields = 10
+  INTEGER, PARAMETER    :: no_of_fields = 12
   INTEGER               :: field_id(no_of_fields)
 
   REAL(wp), ALLOCATABLE :: buffer(:,:)
@@ -352,6 +353,8 @@ CONTAINS
     field_name(8) = "northward_sea_water_velocity"
     field_name(9) = "ocean_sea_ice_bundle"               ! bundled field containing three components
     field_name(10) = "10m_wind_speed"
+    field_name(11) = "co2_mixing_ratio"
+    field_name(12) = "co2_flux"
 
     DO idx = 1, no_of_fields
       CALL yac_fdef_field (      &
@@ -774,6 +777,45 @@ CONTAINS
        CALL warning('interface_echam_ocean', 'YAC says it is put for restart - id=10, wind speed')
     ENDIF
 
+#ifndef __NO_ICON_OCEAN__
+    IF(ANY(mpi_phy_config(:)%lcpl_co2_atmoce))then
+    !
+    ! ------------------------------
+    !  Send co2 mixing ratio
+    !   field_id(11) represents "co2_mixing_ratio" - CO2 mixing ratio
+    !
+    buffer(:,:) = 0.0_wp
+!!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
+    DO i_blk = 1, p_patch%nblks_c
+      nn = (i_blk-1)*nproma
+      IF (i_blk /= p_patch%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = p_patch%npromz_c
+      END IF
+      DO n = 1, nlen
+        buffer(nn+n,1) = prm_field(jg)%qtrc(n,1,i_blk,ico2)
+      ENDDO
+    ENDDO
+!!ICON_OMP_END_PARALLEL_DO
+    !
+    IF (ltimer) CALL timer_start(timer_coupling_put)
+
+    no_arr = 1
+    CALL yac_fput ( field_id(11), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
+    IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
+    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=11, co2 mr')
+
+    IF (ltimer) CALL timer_stop(timer_coupling_put)
+    !
+    IF ( write_coupler_restart ) THEN
+       CALL warning('interface_echam_ocean', 'YAC says it is put for restart - id=11, co2 mr')
+    ENDIF
+    ENDIF
+#endif
+
+
+
     !
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
@@ -956,9 +998,46 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
       
     END IF
+  !    !
+    IF(ANY(mpi_phy_config(:)%lcpl_co2_atmoce))then
+    !
+    ! ------------------------------
+    !  Receive co2 flux
+    !   field_id(12) represents "co2_flux" - ocean co2 flux
+    !
+    IF (ltimer) CALL timer_start(timer_coupling_get)
 
+    buffer(:,:) = 0.0_wp
+    CALL yac_fget ( field_id(12), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
+    if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
 
-    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    IF (ltimer) CALL timer_stop(timer_coupling_get)
+    !
+    IF ( info > 0 .AND. info < 7 ) THEN
+      !
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
+      DO i_blk = 1, p_patch%nblks_c
+        nn = (i_blk-1)*nproma
+        IF (i_blk /= p_patch%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = p_patch%npromz_c
+        END IF
+        DO n = 1, nlen
+          IF ( nn+n > nbr_inner_cells ) THEN
+            prm_field(jg)%co2flux(n,i_blk) = dummy
+          ELSE
+            prm_field(jg)%co2flux(n,i_blk) = buffer(nn+n,1)
+          ENDIF
+        ENDDO
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
+      !
+      CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%co2flux(:,:))
+    ENDIF ! lcpl_co2_atmoce
+
+    END IF    !---------DEBUG DIAGNOSTICS-------------------------------------------
 
     ! u/v-stress on ice and water sent
     scr(:,:) = prm_field(jg)%u_stress_tile(:,:,iwtr)
