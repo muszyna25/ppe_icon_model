@@ -611,6 +611,7 @@ CONTAINS
        CALL print_value('    mpi_phy_config('//TRIM(cg)//')% lice ',mpi_phy_config(jg)% lice         )
        CALL print_value('    mpi_phy_config('//TRIM(cg)//')% ljsb ',mpi_phy_config(jg)% ljsb         )
        CALL print_value('    mpi_phy_config('//TRIM(cg)//')% llake',mpi_phy_config(jg)% llake        )
+       CALL print_value('    mpi_phy_config('//TRIM(cg)//')% lamip',mpi_phy_config(jg)% lamip        )
        CALL print_value('    mpi_phy_config('//TRIM(cg)//')% lcpl_co2_atmoce',mpi_phy_config(jg)% lcpl_co2_atmoce)       
        CALL message    ('','')
        CALL message    ('','')
