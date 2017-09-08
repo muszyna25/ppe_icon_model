@@ -186,7 +186,11 @@ MODULE mo_name_list_output_init
   USE mo_coupling_config,                   ONLY: is_coupled_run
   USE mo_master_control,                    ONLY: get_my_process_name
 #endif
-
+#ifdef HAVE_CDI_PIO
+  USE yaxt, ONLY: xt_idxlist
+  USE ppm_extents,                          ONLY: extent
+  USE mo_decomposition_tools,               ONLY: uniform_partition_start
+#endif
   IMPLICIT NONE
 
   PRIVATE
@@ -2439,9 +2443,14 @@ CONTAINS
     REAL(wp), PARAMETER               :: pi_180 = ATAN(1._wp)/45._wp
     INTEGER                           :: max_cell_connectivity, max_vertex_connectivity, &
       &                                  cdiInstID
-    INTEGER                           :: i, cdi_grid_ids(3)
+    INTEGER                           :: i, cdi_grid_ids(3), nvert
     REAL(wp), ALLOCATABLE             :: p_lonlat(:)
     TYPE(t_verticalAxisList), POINTER :: it
+#ifdef HAVE_CDI_PIO
+    TYPE(xt_idxlist)                  :: null_idxlist
+    INTEGER                           :: grid_deco_part(2)
+    TYPE(extent)                      :: grid_size_desc
+#endif
 
     gridtype = GRID_UNSTRUCTURED
 
@@ -2549,9 +2558,27 @@ CONTAINS
     ELSE
 
       ! Cells
-
-      of%cdiCellGridID = gridCreate(gridtype, patch_info(i_dom)%ri(icell)%n_glb)
-      CALL gridDefNvertex(of%cdiCellGridID, max_cell_connectivity)
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio) THEN
+        grid_size_desc = extent(0, patch_info(i_dom)%ri(icell)%n_glb)
+        DO i = 1, 2
+          grid_deco_part(i) = uniform_partition_start(grid_size_desc, &
+            &                      p_n_work, p_pe_work+i)
+        END DO
+        of%cdiCellGridID = &
+          cdiPioDistGridCreate(gridtype, patch_info(i_dom)%ri(icell)%n_glb, &
+          &             patch_info(i_dom)%ri(icell)%n_glb, 1, &
+          &             max_cell_connectivity, &
+          &             grid_deco_part, null_idxlist, &
+          &             patch_info(i_dom)%ri(icell)%reorder_idxlst_xt(1), &
+          &             null_idxlist)
+      ELSE
+#endif
+        of%cdiCellGridID = gridCreate(gridtype, patch_info(i_dom)%ri(icell)%n_glb)
+        CALL gridDefNvertex(of%cdiCellGridID, max_cell_connectivity)
+#ifdef HAVE_CDI_PIO
+      END IF
+#endif
       !
       CALL gridDefXname(of%cdiCellGridID, 'clon')
       CALL gridDefXlongname(of%cdiCellGridID, 'center longitude')
@@ -2588,13 +2615,29 @@ CONTAINS
       DEALLOCATE(p_lonlat)
 
       ! Verts
-
-      of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%ri(ivert)%n_glb)
-      IF (my_process_is_ocean()) THEN
-        CALL gridDefNvertex(of%cdiVertGridID, max_vertex_connectivity)
+      nvert = MERGE(max_vertex_connectivity, 9-max_cell_connectivity, &
+           my_process_is_ocean())
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio) THEN
+        grid_size_desc = extent(0, patch_info(i_dom)%ri(ivert)%n_glb)
+        DO i = 1, 2
+          grid_deco_part(i) = uniform_partition_start(grid_size_desc, &
+            &                      p_n_work, p_pe_work+i)
+        END DO
+        of%cdiVertGridID = &
+          cdiPioDistGridCreate(gridtype, patch_info(i_dom)%ri(ivert)%n_glb, &
+          &             patch_info(i_dom)%ri(ivert)%n_glb, 1, &
+          &             max_cell_connectivity, &
+          &             grid_deco_part, null_idxlist, &
+          &             patch_info(i_dom)%ri(ivert)%reorder_idxlst_xt(1), &
+          &             null_idxlist)
       ELSE
-        CALL gridDefNvertex(of%cdiVertGridID, 9-max_cell_connectivity)
+#endif
+        of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%ri(ivert)%n_glb)
+        CALL gridDefNvertex(of%cdiVertGridID, nvert)
+#ifdef HAVE_CDI_PIO
       ENDIF
+#endif
       !
       CALL gridDefXname(of%cdiVertGridID, 'vlon')
       CALL gridDefXlongname(of%cdiVertGridID, 'vertex longitude')
@@ -2613,9 +2656,28 @@ CONTAINS
       CALL gridDefPosition(of%cdiVertGridID, GRID_VERTEX)
 
       ! Edges
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio) THEN
+        grid_size_desc = extent(0, patch_info(i_dom)%ri(iedge)%n_glb)
+        DO i = 1, 2
+          grid_deco_part(i) = uniform_partition_start(grid_size_desc, &
+            &                      p_n_work, p_pe_work+i)
+        END DO
+        of%cdiEdgeGridID = &
+          cdiPioDistGridCreate(gridtype, patch_info(i_dom)%ri(iedge)%n_glb, &
+          &             patch_info(i_dom)%ri(iedge)%n_glb, 4, &
+          &             max_cell_connectivity, &
+          &             grid_deco_part, null_idxlist, &
+          &             patch_info(i_dom)%ri(iedge)%reorder_idxlst_xt(1), &
+          &             null_idxlist)
+      ELSE
+#endif
 
-      of%cdiEdgeGridID = gridCreate(gridtype, patch_info(i_dom)%ri(iedge)%n_glb)
-      CALL gridDefNvertex(of%cdiEdgeGridID, 4)
+        of%cdiEdgeGridID = gridCreate(gridtype, patch_info(i_dom)%ri(iedge)%n_glb)
+        CALL gridDefNvertex(of%cdiEdgeGridID, 4)
+#ifdef HAVE_CDI_PIO
+      ENDIF
+#endif
       !
       CALL gridDefXname(of%cdiEdgeGridID, 'elon')
       CALL gridDefXlongname(of%cdiEdgeGridID, 'edge midpoint longitude')
