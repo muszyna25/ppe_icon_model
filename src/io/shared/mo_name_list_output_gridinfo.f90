@@ -897,6 +897,8 @@ CONTAINS
         REAL(wp),           INTENT(INOUT) :: lonv(:,:,:), latv(:,:,:)
       END SUBROUTINE cf_1_1_grid
     END INTERFACE
+    !> only those I/O processes which need the coordinate data for
+    !! this patch set keep_grid_info to .TRUE.
     LOGICAL,            INTENT(IN)                     :: keep_grid_info
     TYPE(t_patch), OPTIONAL, INTENT(IN)                :: p_patch
 
@@ -957,6 +959,8 @@ CONTAINS
 
   SUBROUTINE allgather_grid_info(patch_info, keep_grid_info, p_patch)
     TYPE(t_patch_info),    INTENT(INOUT) :: patch_info
+    !> only those I/O processes which need the coordinate data for
+    !! this patch set keep_grid_info to .TRUE.
     LOGICAL,               INTENT(IN)    :: keep_grid_info
     TYPE(t_patch), OPTIONAL, TARGET, INTENT(IN)    :: p_patch
 
