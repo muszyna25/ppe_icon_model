@@ -3017,25 +3017,34 @@ CONTAINS
     ! Replicate coordinates of cells/edges/vertices:
 
     ! Go over all output domains
-    DO idom = 1, n_dom_out
-      temp(1,idom) = patch_info(idom)%nblks_glb_c
-      temp(2,idom) = patch_info(idom)%nblks_glb_e
-      temp(3,idom) = patch_info(idom)%nblks_glb_v
-      temp(4,idom) = patch_info(idom)%max_cell_connectivity
-    END DO
+    IF (.NOT. is_io) THEN
+      DO idom = 1, n_dom_out
+        temp(1,idom) = patch_info(idom)%nblks_glb_c
+        temp(2,idom) = patch_info(idom)%nblks_glb_e
+        temp(3,idom) = patch_info(idom)%nblks_glb_v
+        temp(4,idom) = patch_info(idom)%max_cell_connectivity
+      END DO
+    END IF
     CALL p_bcast(temp, bcast_root, p_comm_work_2_io)
     DO idom = 1, n_dom_out
-      patch_info(idom)%nblks_glb_c = temp(1,idom)
-      patch_info(idom)%nblks_glb_e = temp(2,idom)
-      patch_info(idom)%nblks_glb_v = temp(3,idom)
-      patch_info(idom)%max_cell_connectivity = temp(4,idom)
+      IF (is_io) THEN
+        patch_info(idom)%nblks_glb_c = temp(1,idom)
+        patch_info(idom)%nblks_glb_e = temp(2,idom)
+        patch_info(idom)%nblks_glb_v = temp(3,idom)
+        patch_info(idom)%max_cell_connectivity = temp(4,idom)
+      END IF
       IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
         ! logical domain ID
         idom_log = patch_info(idom)%log_patch_id
         keep_grid_info = is_io &
           &           .AND. ANY(output_file(:)%io_proc_id == p_pe_work &
           &                     .AND. output_file(:)%phys_patch_id == idom)
-        CALL allgather_grid_info(patch_info(idom), idom_log, keep_grid_info)
+        IF (.NOT. is_io) THEN
+          CALL allgather_grid_info(patch_info(idom), keep_grid_info, &
+            &                      p_patch(idom_log))
+        ELSE
+          CALL allgather_grid_info(patch_info(idom), keep_grid_info)
+        END IF
       END IF
     END DO
 
