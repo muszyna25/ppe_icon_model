@@ -82,13 +82,17 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
 mts_atm="PT10M"
 mts_oce="PT10M"
 
-# in seconds for YAC - must match those of the submodels:
-dtime_atm=${dtime_atm:=600}
-dtime_oce=${dtime_oce:=600}
+# Note: mts_oce can be increased during a run (up to 30 minutes tested after 1 year spinup)
 
-# change timestep of ocean/coupled to multiple of atm. timestep
-# dtime_oce must be multiple of dtime_atm
-#(( dtime_oce=dtime_atm * 1 ))
+# coupling timestep
+# -----------------
+
+# in ISO-format for YAC used in coupling.xml further below
+# successfull coupling requires that
+# - mts_atm is a multiple of mts_oce or vice versa
+# - mts_atm and mts_oce are multiples of mts_cpl
+# here the coupling timestp is equal to the ocean timestep.
+mts_cpl=$mts_oce
 
 # restart interval
 # ----------------
@@ -114,13 +118,6 @@ oce_output_interval="PT6H"
 #lnd_output_interval="P1M"
 #oce_output_interval="P1M"
 
-# ocean timestep:
-#  - mts_oce can be increased during a run (up to 30 minutes tested after 1 year spinup)
-#  - change timestep for coupler accordingly: dtime_oce
-#  - dtime_oce must be multiple of dtime_atm
-#mts_oce="PT30M"
-#(( dtime_oce=dtime_atm * 3 ))
-
 # standard long-term output switches - _min=yes only:
 output_atm_min=yes
 output_oce_min=yes
@@ -141,9 +138,6 @@ output_phy_3d=no
 output_aer_3d=no # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
 output_oce_full=no
 output_lnd_full=no
-
-# coupling timestep for YAC (equals ocean timestep)
-dtime_cpl=$dtime_oce
 
 # namelist files
 # --------------
@@ -1014,7 +1008,7 @@ cat > ${cpl_xmlctrfn} << EOF
       <end_date>+2100-01-01T00:00:00.000</end_date>
       <calendar>proleptic-gregorian</calendar>
    </dates>
-   <timestep_unit>second</timestep_unit>
+   <timestep_unit>ISO_format</timestep_unit>
    <couples>
       <couple>
          <component1 component_id="1"/>
@@ -1023,9 +1017,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="1" transient_grid_ref="1"/>
             <target transient_grid_ref="1"/>
             <timestep>
-               <source>${dtime_atm}</source>
-               <target>${dtime_oce}</target>
-               <coupling_period operation="average">${dtime_cpl}</coupling_period>
+               <source>${mts_atm}</source>
+               <target>${mts_oce}</target>
+               <coupling_period operation="average">${mts_cpl}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
@@ -1041,9 +1035,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="1" transient_grid_ref="2"/>
             <target transient_grid_ref="2"/>
             <timestep>
-               <source>${dtime_atm}</source>
-               <target>${dtime_oce}</target>
-               <coupling_period operation="average">${dtime_cpl}</coupling_period>
+               <source>${mts_atm}</source>
+               <target>${mts_oce}</target>
+               <coupling_period operation="average">${mts_cpl}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
@@ -1059,9 +1053,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="1" transient_grid_ref="3"/>
             <target transient_grid_ref="3"/>
             <timestep>
-               <source>${dtime_atm}</source>
-               <target>${dtime_oce}</target>
-               <coupling_period operation="average">${dtime_cpl}</coupling_period>
+               <source>${mts_atm}</source>
+               <target>${mts_oce}</target>
+               <coupling_period operation="average">${mts_cpl}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
@@ -1077,9 +1071,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="1" transient_grid_ref="4"/>
             <target transient_grid_ref="4"/>
             <timestep>
-               <source>${dtime_atm}</source>
-               <target>${dtime_oce}</target>
-               <coupling_period operation="average">${dtime_cpl}</coupling_period>
+               <source>${mts_atm}</source>
+               <target>${mts_oce}</target>
+               <coupling_period operation="average">${mts_cpl}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
@@ -1095,9 +1089,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="1" transient_grid_ref="5"/>
             <target transient_grid_ref="5"/>
             <timestep>
-               <source>${dtime_atm}</source>
-               <target>${dtime_oce}</target>
-               <coupling_period operation="average">${dtime_cpl}</coupling_period>
+               <source>${mts_atm}</source>
+               <target>${mts_oce}</target>
+               <coupling_period operation="average">${mts_cpl}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
@@ -1113,9 +1107,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="2" transient_grid_ref="6"/>
             <target transient_grid_ref="6"/>
             <timestep>
-               <source>${dtime_oce}</source>
-               <target>${dtime_atm}</target>
-               <coupling_period operation="none">${dtime_cpl}</coupling_period>
+               <source>${mts_oce}</source>
+               <target>${mts_atm}</target>
+               <coupling_period operation="none">${mts_cpl}</coupling_period>
                <source_timelag>1</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
@@ -1131,9 +1125,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="2" transient_grid_ref="7"/>
             <target transient_grid_ref="7"/>
             <timestep>
-               <source>${dtime_oce}</source>
-               <target>${dtime_atm}</target>
-               <coupling_period operation="none">${dtime_cpl}</coupling_period>
+               <source>${mts_oce}</source>
+               <target>${mts_atm}</target>
+               <coupling_period operation="none">${mts_cpl}</coupling_period>
                <source_timelag>1</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
@@ -1149,9 +1143,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="2" transient_grid_ref="8"/>
             <target transient_grid_ref="8"/>
             <timestep>
-               <source>${dtime_oce}</source>
-               <target>${dtime_atm}</target>
-               <coupling_period operation="none">${dtime_cpl}</coupling_period>
+               <source>${mts_oce}</source>
+               <target>${mts_atm}</target>
+               <coupling_period operation="none">${mts_cpl}</coupling_period>
                <source_timelag>1</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
@@ -1167,9 +1161,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="2" transient_grid_ref="9"/>
             <target transient_grid_ref="9"/>
             <timestep>
-               <source>${dtime_oce}</source>
-               <target>${dtime_atm}</target>
-               <coupling_period operation="none">${dtime_cpl}</coupling_period>
+               <source>${mts_oce}</source>
+               <target>${mts_atm}</target>
+               <coupling_period operation="none">${mts_cpl}</coupling_period>
                <source_timelag>1</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
@@ -1185,9 +1179,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="1" transient_grid_ref="11"/>
             <target transient_grid_ref="11"/>
             <timestep>
-               <source>${dtime_atm}</source>
-               <target>${dtime_oce}</target>
-               <coupling_period operation="average">${dtime_cpl}</coupling_period>
+               <source>${mts_atm}</source>
+               <target>${mts_oce}</target>
+               <coupling_period operation="average">${mts_cpl}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
@@ -1202,9 +1196,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="1" transient_grid_ref="10"/>
             <target transient_grid_ref="10"/>
             <timestep>
-               <source>${dtime_atm}</source>
-               <target>${dtime_oce}</target>
-               <coupling_period operation="average">${dtime_cpl}</coupling_period>
+               <source>${mts_atm}</source>
+               <target>${mts_oce}</target>
+               <coupling_period operation="average">${mts_cpl}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
