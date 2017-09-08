@@ -1174,22 +1174,6 @@ CONTAINS
         &          bcast_root, p_comm_work_2_io)
     END IF
 
-    ! Prepare the output of grid information: For each
-    ! physical/logical patch we must collect the geographical
-    ! locations of cells, edges, and vertices
-
-    ! Only needed if no async name list io is used
-    IF (.NOT. use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
-      ! Go over all output domains
-      DO idom = 1, n_dom_out
-        IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
-          ! logical domain ID
-          idom_log = patch_info(idom)%log_patch_id
-          CALL collect_all_grid_info(p_patch(idom_log), patch_info(idom))
-        END IF
-      END DO
-    END IF
-
     ! Set the number of domains in output and the patch reorder information
     CALL set_patch_info
 
@@ -1322,24 +1306,43 @@ CONTAINS
     CALL assign_output_task(output_file%io_proc_id, output_file%pe_placement)
 
     ! ---------------------------------------------------------------------------
-    ! If async IO is used, replicate coordinate data on IO procs
+    ! handle grid coordinate information
+    IF (.NOT. is_mpi_test) THEN
 
-#ifndef NOMPI
-    IF (use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
-      CALL replicate_coordinate_data_on_io_procs
+      ! Prepare the output of grid information: For each
+      ! physical/logical patch we must collect the geographical
+      ! locations of cells, edges, and vertices
 
-      ! Clear patch_info fields clon, clat, etc. (especially on work
-      ! PE 0) since they aren't needed there any longer.
-      IF (.NOT. is_io) THEN
-        ! Go over all output domains (deallocation is skipped if data
-        ! structures were not allocated)
+      ! Only needed if no async name list io is used
+      IF (.NOT. use_async_name_list_io) THEN
+        ! Go over all output domains
         DO idom = 1, n_dom_out
-          CALL deallocate_all_grid_info(patch_info(idom))
+          IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
+            ! logical domain ID
+            idom_log = patch_info(idom)%log_patch_id
+            CALL collect_all_grid_info(p_patch(idom_log), patch_info(idom))
+          END IF
         END DO
       END IF
-    END IF
+
+#ifndef NOMPI
+      ! If async IO is used, replicate coordinate data on IO procs
+      IF (use_async_name_list_io) THEN
+        CALL replicate_coordinate_data_on_io_procs
+
+        ! Clear patch_info fields clon, clat, etc. (especially on work
+        ! PE 0) since they aren't needed there any longer.
+        IF (.NOT. is_io) THEN
+          ! Go over all output domains (deallocation is skipped if data
+          ! structures were not allocated)
+          DO idom = 1, n_dom_out
+            CALL deallocate_all_grid_info(patch_info(idom))
+          END DO
+        END IF
+      END IF
 #endif
 ! NOMPI
+    END IF
 
     CALL create_event_data(sim_step_info)
 
