@@ -1376,6 +1376,9 @@ CONTAINS
          vl_list(max_var_lists), i, j, log_patch_id
     CHARACTER(len=*), PARAMETER :: routine &
          = modname//"::output_name_lists_to_files"
+    LOGICAL :: is_work
+
+    is_work = my_process_is_work()
 
     p_onl => first_output_name_list
     ifile = 0
@@ -1464,7 +1467,7 @@ CONTAINS
 
           ENDDO
 
-          IF ( my_process_is_work() ) THEN ! avoid addidional io or restart processes
+          IF ( is_work ) THEN ! avoid addidional io or restart processes
             IF ( log_patch_id == 1 ) THEN             ! use global domain, only
               CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch(log_patch_id))
             ENDIF
