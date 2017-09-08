@@ -968,6 +968,7 @@ CONTAINS
     TYPE(t_comm_gather_pattern), TARGET :: empty_gather_pattern
     TYPE(t_comm_gather_pattern), POINTER :: gather_pattern
     LOGICAL :: is_io
+    INTEGER :: nblks
 
     is_io = my_process_is_io()
     IF (is_io) THEN
@@ -978,13 +979,15 @@ CONTAINS
       dummy_coordinates(1,1)%lat = -1._wp
       coordinates => dummy_coordinates
       gather_pattern => empty_gather_pattern
+      nblks = 0
     ELSE
       coordinates => p_patch%cells%center
       gather_pattern => patch_info%p_pat_c
+      nblks = p_patch%nblks_c
     END IF
 
     CALL allgather_grid_info_cve(patch_info%max_cell_connectivity, &
-      &                          patch_info%nblks_glb_c, patch_info%nblks_glb_c, &
+      &                          nblks, patch_info%nblks_glb_c, &
       &                          coordinates, patch_info%grid_info(icell), &
       &                          gather_pattern, cf_1_1_grid_cells, &
       &                          keep_grid_info, p_patch)
@@ -992,17 +995,18 @@ CONTAINS
     IF (.NOT. is_io) THEN
       coordinates => p_patch%verts%vertex
       gather_pattern => patch_info%p_pat_v
+      nblks = p_patch%nblks_v
     END IF
 
     IF (my_process_is_ocean()) THEN
       CALL allgather_grid_info_cve(patch_info%max_vertex_connectivity, &
-        &                          patch_info%nblks_glb_v, patch_info%nblks_glb_v, &
+        &                          nblks, patch_info%nblks_glb_v, &
         &                          coordinates, patch_info%grid_info(ivert), &
         &                          gather_pattern, cf_1_1_grid_verts_ocean, &
         &                          keep_grid_info, p_patch)
     ELSE
       CALL allgather_grid_info_cve(9 - patch_info%max_cell_connectivity, &
-        &                          patch_info%nblks_glb_v, patch_info%nblks_glb_v, &
+        &                          nblks, patch_info%nblks_glb_v, &
         &                          coordinates, patch_info%grid_info(ivert), &
         &                          gather_pattern, cf_1_1_grid_verts, &
         &                          keep_grid_info, p_patch)
@@ -1011,10 +1015,11 @@ CONTAINS
     IF (.NOT. is_io) THEN
       coordinates => p_patch%edges%center
       gather_pattern => patch_info%p_pat_e
+      nblks = p_patch%nblks_e
     END IF
 
     CALL allgather_grid_info_cve(4, &
-      &                          patch_info%nblks_glb_e, patch_info%nblks_glb_e, &
+      &                          nblks, patch_info%nblks_glb_e, &
       &                          coordinates, patch_info%grid_info(iedge), &
       &                          gather_pattern, cf_1_1_grid_edges, &
       &                          keep_grid_info, p_patch)
