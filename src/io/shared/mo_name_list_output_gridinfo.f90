@@ -479,14 +479,13 @@ CONTAINS
     INTEGER :: jc, jb, j, iidx, iblk,                  &
       &        rl_start, rl_end, i_startblk, i_endblk, &
       &        i_startidx, i_endidx, i_nchdom
-    INTEGER :: max_cell_connectivity, max_vertex_connectivity
+    INTEGER :: max_vertex_connectivity
 
     rl_start   = 2
     rl_end     = min_rlvert
     i_nchdom   = MAX(1,p_patch%n_childdom)
     i_startblk = p_patch%verts%start_blk(rl_start,1)
     i_endblk   = p_patch%verts%end_blk(rl_end,i_nchdom)
-    max_cell_connectivity   = p_patch%cells%max_connectivity
     max_vertex_connectivity = p_patch%verts%max_connectivity
 
     lonv(:,:,:) = 0.0_wp
