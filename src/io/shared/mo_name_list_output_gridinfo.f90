@@ -55,6 +55,9 @@ MODULE mo_name_list_output_gridinfo
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxis
   USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl, &
     &                                             level_type_il
+#ifdef HAVE_CDI_PIO
+  USE mo_reorder_info,                      ONLY: ri_cpy_blk2part, t_reorder_info
+#endif
   IMPLICIT NONE
 
   PRIVATE
@@ -70,6 +73,7 @@ MODULE mo_name_list_output_gridinfo
   ! subroutines
   PUBLIC :: deallocate_all_grid_info
   PUBLIC :: collect_all_grid_info
+  PUBLIC :: create_all_distributed_grid_info
   PUBLIC :: set_grid_info_netcdf
   PUBLIC :: set_grid_info_grb2
   PUBLIC :: copy_grid_info
@@ -191,6 +195,93 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
   END SUBROUTINE collect_all_grid_info
 
+#ifdef HAVE_CDI_PIO
+  SUBROUTINE create_all_distributed_grid_info(p_patch, patch_info)
+    TYPE(t_patch),        INTENT(IN)    :: p_patch
+    TYPE(t_patch_info),   INTENT(INOUT) :: patch_info
+
+    CHARACTER(LEN=*), PARAMETER :: &
+      routine = modname//"::create_distributed_grid_info"
+    INTEGER :: ierrstat, max_cell_conn, max_vrtx_conn, &
+         nblks_c, nblks_e, nblks_v
+    REAL(wp), ALLOCATABLE :: lonv(:,:,:), latv(:,:,:)
+    PROCEDURE(cf_1_1_grid_verts), POINTER :: cf_1_1_grid_verts_ptr
+
+    max_cell_conn   = p_patch%cells%max_connectivity
+    max_vrtx_conn = p_patch%verts%max_connectivity
+
+    !-- collect domain data on working PE 0
+    nblks_c = p_patch%nblks_c
+    nblks_e = p_patch%nblks_e
+    nblks_v = p_patch%nblks_v
+
+    ! --cells
+    CALL create_distributed_grid_info(p_patch, patch_info%ri(icell), &
+      &                               lonv, latv, p_patch%cells%center, &
+      &                               patch_info%grid_info(icell), &
+      &                               nblks_c, max_cell_conn, cf_1_1_grid_cells)
+
+    !-- edges
+    CALL create_distributed_grid_info(p_patch, patch_info%ri(iedge), &
+      &                               lonv, latv, p_patch%edges%center, &
+      &                               patch_info%grid_info(iedge), &
+      &                               nblks_e, 4, cf_1_1_grid_edges)
+
+    !-- verts
+    IF (my_process_is_ocean()) THEN
+      cf_1_1_grid_verts_ptr => cf_1_1_grid_verts_ocean
+    ELSE
+      cf_1_1_grid_verts_ptr => cf_1_1_grid_verts
+    ENDIF
+    CALL create_distributed_grid_info(p_patch, patch_info%ri(ivert), &
+      &                               lonv, latv, p_patch%verts%vertex, &
+      &                               patch_info%grid_info(ivert), &
+      &                               nblks_v, max_vrtx_conn, &
+      &                               cf_1_1_grid_verts_ptr)
+
+    DEALLOCATE(lonv, latv, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+
+  END SUBROUTINE create_all_distributed_grid_info
+
+  SUBROUTINE create_distributed_grid_info(p_patch, ri, lonv, latv, coordinates,&
+    &                                     grid_info, nconn, nblks, cf_1_1_grid)
+    TYPE(t_patch), INTENT(in) :: p_patch
+    TYPE(t_reorder_info), INTENT(in) :: ri
+    REAL(wp), ALLOCATABLE, INTENT(inout)    :: lonv(:,:,:), latv(:,:,:)
+    TYPE(t_geographical_coordinates), INTENT(IN) :: coordinates(:,:)
+    TYPE(t_grid_info), INTENT(INOUT) :: grid_info
+    INTEGER, INTENT(in) :: nconn, nblks
+    INTERFACE
+      SUBROUTINE cf_1_1_grid(p_patch, lonv, latv)
+        USE mo_model_domain, ONLY: t_patch
+        USE mo_kind,         ONLY: wp
+        TYPE(t_patch),      INTENT(IN)    :: p_patch
+        REAL(wp),           INTENT(INOUT) :: lonv(:,:,:), latv(:,:,:)
+      END SUBROUTINE cf_1_1_grid
+    END INTERFACE
+
+    CHARACTER(len=*), PARAMETER :: &
+      routine = modname//'::create_distributed_grid_info'
+    INTEGER :: ierrstat, j, n_own, ofs
+    n_own = ri%n_own
+    ALLOCATE(grid_info%lon(n_own), grid_info%lat(n_own), &
+      &      grid_info%lonv(nconn, n_own), grid_info%latv(nconn, n_own))
+
+    ALLOCATE(lonv(nproma, nblks, nconn), latv(nproma, nblks, nconn), &
+      &      STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+    CALL cf_1_1_grid(p_patch, lonv, latv)
+    ofs = 0 ; CALL ri_cpy_blk2part(ri, coordinates%lon, grid_info%lon, ofs)
+    ofs = 0 ; CALL ri_cpy_blk2part(ri, coordinates%lat, grid_info%lat, ofs)
+    DO j = 1, nconn
+      ofs = 0 ; CALL ri_cpy_blk2part(ri, lonv(:,:,j), grid_info%lonv(j,:), ofs)
+      ofs = 0 ; CALL ri_cpy_blk2part(ri, latv(:,:,j), grid_info%latv(j,:), ofs)
+    END DO
+    DEALLOCATE(lonv, latv, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+  END SUBROUTINE create_distributed_grid_info
+#endif
 
   !------------------------------------------------------------------------------------------------
   !> SUBROUTINE collect_grid_info
