@@ -332,6 +332,7 @@ CONTAINS
       &        rl_start, rl_end, i_startblk, i_endblk, &
       &        i_startidx, i_endidx, i_nchdom
     REAL(wp) :: swap(4)
+    REAL(wp) :: lonv_temp, latv_temp
 
     rl_start   = 1
     rl_end     = min_rledge_int
@@ -339,11 +340,13 @@ CONTAINS
     i_nchdom   = MAX(1,p_patch%n_childdom)
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
-    lonv(:,:,:) = 0.0_wp
-    latv(:,:,:) = 0.0_wp
     DO jb = i_startblk, i_endblk
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
+      DO jc = 1, i_startidx - 1
+        lonv(jc,jb,:) = 0.0_wp
+        latv(jc,jb,:) = 0.0_wp
+      END DO
       DO jc = i_startidx, i_endidx
         iidx = p_patch%edges%vertex_idx(jc,jb,1)
         iblk = p_patch%edges%vertex_blk(jc,jb,1)
@@ -375,29 +378,23 @@ CONTAINS
           latv(jc,jb,2) = 0._wp
         END IF
       END DO
-    END DO
-
-    WHERE (ABS(lonv(:,:,:)) < EPSILON(0.0_wp))
-      lonv(:,:,:) = 0.0_wp
-    END WHERE
-    WHERE (ABS(latv(:,:,:)) < EPSILON(0.0_wp))
-      latv(:,:,:) = 0.0_wp
-    END WHERE
-
-    DO j = 1, 4
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-          &                i_startidx, i_endidx, rl_start, rl_end)
+      DO jc = i_endidx+1, nproma
+        lonv(jc,jb,:) = 0.0_wp
+        latv(jc,jb,:) = 0.0_wp
+      END DO
+      DO j = 1, 4
         DO jc = i_startidx, i_endidx
-          IF ( ABS(latv(jc,jb,j)) > 0.5_wp*pi-EPSILON(0.0_wp)) THEN
+          latv_temp = MERGE(latv(jc,jb,j), 0.0_wp, &
+            &               ABS(latv(jc,jb,j)) >= EPSILON(0.0_wp))
+          latv(jc,jb,j) = latv_temp
+          IF ( ABS(latv_temp) > 0.5_wp*pi-EPSILON(0.0_wp)) THEN
             lonv(jc,jb,j) = p_patch%edges%center(jc,jb)%lon
-          ENDIF
-        ENDDO
-      ENDDO
-    END DO
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-        &                i_startidx, i_endidx, rl_start, rl_end)
+          ELSE
+            lonv(jc,jb,j) = MERGE(lonv(jc,jb,j), 0.0_wp, &
+              &                   ABS(lonv(jc,jb,j)) < EPSILON(0.0_wp))
+          END IF
+        END DO
+      END DO
       DO jc = i_startidx, i_endidx
         IF ( check_orientation(p_patch%edges%center(jc,jb)%lon, &
           &                    lonv(jc,jb,:), latv(jc,jb,:), 4) < 0 ) THEN
@@ -407,7 +404,7 @@ CONTAINS
           latv(jc,jb,:) = swap(:)
         END IF
       END DO
-    ENDDO
+    END DO
 
   END SUBROUTINE cf_1_1_grid_edges
 
