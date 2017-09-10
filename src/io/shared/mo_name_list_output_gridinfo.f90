@@ -421,39 +421,44 @@ CONTAINS
     TYPE(t_patch),      INTENT(IN)    :: patch_2D
     REAL(wp),           INTENT(INOUT) :: lonv(:,:,:), latv(:,:,:)
     ! local variables
-    INTEGER :: jc, jb, j, iidx, iblk,                  &
+    INTEGER :: jc, jb, j, &
+      &        iidx(nproma,patch_2D%verts%max_connectivity), &
+      &        iblk(nproma,patch_2D%verts%max_connectivity), &
       &        rl_start, rl_end, i_startblk, i_endblk, &
       &        i_startidx, i_endidx, i_nchdom
-    INTEGER :: last_valid_cell
+    INTEGER :: last_valid_cell(nproma), max_vrtx_conn
 
     rl_start   = 2
     rl_end     = min_rlvert
     i_nchdom   = MAX(1,patch_2D%n_childdom)
     i_startblk = patch_2D%verts%start_blk(rl_start,1)
     i_endblk   = patch_2D%verts%end_blk(rl_end,i_nchdom)
+    max_vrtx_conn = patch_2D%verts%max_connectivity
 
-    lonv(:,:,:) = 0.0_wp
-    latv(:,:,:) = 0.0_wp
     DO jb = i_startblk, i_endblk
       CALL get_indices_v(patch_2D, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
-      DO jc = i_startidx, i_endidx
-        last_valid_cell = 0
-        DO j = 1,patch_2D%verts%max_connectivity
-          IF ((patch_2D%verts%cell_idx(jc,jb,j) > 0)) THEN
-            last_valid_cell = j
-            iidx = patch_2D%verts%cell_idx(jc,jb,j)
-            iblk = patch_2D%verts%cell_blk(jc,jb,j)
-            lonv(jc,jb, j) = patch_2D%cells%center(iidx,iblk)%lon
-            latv(jc,jb, j) = patch_2D%cells%center(iidx,iblk)%lat
-          ELSE
-            iidx = patch_2D%verts%cell_idx(jc,jb,last_valid_cell)
-            iblk = patch_2D%verts%cell_blk(jc,jb,last_valid_cell)
-            lonv(jc,jb, j) = patch_2D%cells%center(iidx,iblk)%lon
-            latv(jc,jb, j) = patch_2D%cells%center(iidx,iblk)%lat
-          ENDIF
+      last_valid_cell = 0
+      DO j = 1, max_vrtx_conn
+        DO jc = 1, i_startidx - 1
+          lonv(jc,jb,j) = 0.0_wp
+          latv(jc,jb,j) = 0.0_wp
+        END DO
+        DO jc = i_startidx, i_endidx
+          last_valid_cell(jc) = MERGE(j, last_valid_cell(jc), &
+            &                         patch_2D%verts%cell_idx(jc,jb,j) > 0)
+          iidx(jc,j) = patch_2D%verts%cell_idx(jc,jb,last_valid_cell(jc))
+          iblk(jc,j) = patch_2D%verts%cell_blk(jc,jb,last_valid_cell(jc))
+        END DO
+        DO jc = i_startidx, i_endidx
+          lonv(jc,jb, j) = patch_2D%cells%center(iidx(jc,j),iblk(jc,j))%lon
+          latv(jc,jb, j) = patch_2D%cells%center(iidx(jc,j),iblk(jc,j))%lat
         ENDDO
-      ENDDO
+        DO jc = i_endidx+1, nproma
+          lonv(jc,jb,j) = 0.0_wp
+          latv(jc,jb,j) = 0.0_wp
+        END DO
+      END DO
     END DO
   END SUBROUTINE cf_1_1_grid_verts_ocean
   !------------------------------------------------------------------------------------------------
