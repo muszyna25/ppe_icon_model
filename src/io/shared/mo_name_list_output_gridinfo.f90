@@ -275,6 +275,7 @@ CONTAINS
       &        rl_start, rl_end, i_startblk, i_endblk, &
       &        i_startidx, i_endidx, i_nchdom
     INTEGER :: max_cell_connectivity
+    REAL(wp) :: lonv_temp, latv_temp
 
     rl_start   = 1
     rl_end     = min_rlcell_int
@@ -283,43 +284,38 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
     max_cell_connectivity   = p_patch%cells%max_connectivity
 
-    lonv(:,:,:) = 0.0_wp
-    latv(:,:,:) = 0.0_wp
-    DO j = 1, max_cell_connectivity
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-          i_startidx, i_endidx, rl_start, rl_end)
+    DO jb = i_startblk, i_endblk
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+        &                i_startidx, i_endidx, rl_start, rl_end)
+      DO j = 1, max_cell_connectivity
+        DO jc = 1, i_startidx - 1
+          lonv(jc,jb,j) = 0.0_wp
+          latv(jc,jb,j) = 0.0_wp
+        END DO
         DO jc = i_startidx, i_endidx
           iidx = p_patch%cells%vertex_idx(jc,jb,j)
           iblk = p_patch%cells%vertex_blk(jc,jb,j)
           IF (iidx > 0) THEN
-            lonv(jc,jb,j) = p_patch%verts%vertex(iidx,iblk)%lon
-            latv(jc,jb,j) = p_patch%verts%vertex(iidx,iblk)%lat
+            lonv_temp = p_patch%verts%vertex(iidx,iblk)%lon
+            latv_temp = p_patch%verts%vertex(iidx,iblk)%lat
+            latv(jc,jb,j) = MERGE(latv_temp, 0.0_wp, &
+                 ABS(latv_temp) >= EPSILON(0.0_wp))
+            lonv(jc,jb,j) = MERGE(lonv_temp, 0.0_wp, &
+                 ABS(lonv_temp) >= EPSILON(0.0_wp))
+            IF (ABS(latv_temp) > 0.5_wp*pi-EPSILON(0.0_wp)) THEN
+              lonv(jc,jb,j) = p_patch%cells%center(jc,jb)%lon
+            ENDIF
           ELSE
             lonv(jc,jb,j) = 0.0_wp
             latv(jc,jb,j) = 0.0_wp
           ENDIF
         END DO
-      END DO
-    END DO
-    WHERE (ABS(lonv(:,:,:)) < EPSILON(0.0_wp))
-      lonv(:,:,:) = 0.0_wp
-    END WHERE
-    WHERE (ABS(latv(:,:,:)) < EPSILON(0.0_wp))
-      latv(:,:,:) = 0.0_wp
-    END WHERE
-    DO j = 1, max_cell_connectivity
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-          i_startidx, i_endidx, rl_start, rl_end)
-        DO jc = i_startidx, i_endidx
-          IF (ABS(latv(jc,jb,j)) > 0.5_wp*pi-EPSILON(0.0_wp)) THEN
-            lonv(jc,jb,j) = p_patch%cells%center(jc,jb)%lon
-          ENDIF
+        DO jc = i_endidx+1, nproma
+          lonv(jc,jb,j) = 0.0_wp
+          latv(jc,jb,j) = 0.0_wp
         END DO
       END DO
     END DO
-
   END SUBROUTINE cf_1_1_grid_cells
 
 
