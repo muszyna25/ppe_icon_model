@@ -486,12 +486,14 @@ CONTAINS
     i_endblk   = p_patch%verts%end_blk(rl_end,i_nchdom)
     max_vertex_connectivity = p_patch%verts%max_connectivity
 
-    lonv(:,:,:) = 0.0_wp
-    latv(:,:,:) = 0.0_wp
-    DO j = 1,max_vertex_connectivity
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_v(p_patch, jb, i_startblk, i_endblk, &
-          &                i_startidx, i_endidx, rl_start, rl_end)
+    DO jb = i_startblk, i_endblk
+      CALL get_indices_v(p_patch, jb, i_startblk, i_endblk, &
+        &                i_startidx, i_endidx, rl_start, rl_end)
+      DO j = 1,max_vertex_connectivity
+        DO jc = 1, i_startidx - 1
+          lonv(jc,jb,j) = 0.0_wp
+          latv(jc,jb,j) = 0.0_wp
+        END DO
         DO jc = i_startidx, i_endidx
           IF ((p_patch%verts%cell_idx(jc,jb,j) == 0) .AND. &
             & (p_patch%verts%refin_ctrl(jc,jb) /= 1)) THEN
@@ -510,6 +512,10 @@ CONTAINS
             latv(jc,jb,max_vertex_connectivity+1-j) = p_patch%cells%center(iidx,iblk)%lat
           ENDIF
         ENDDO
+        DO jc = i_endidx+1, nproma
+          lonv(jc,jb,j) = 0.0_wp
+          latv(jc,jb,j) = 0.0_wp
+        END DO
       ENDDO
     END DO
   END SUBROUTINE cf_1_1_grid_verts
