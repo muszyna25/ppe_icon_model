@@ -73,7 +73,9 @@ MODULE mo_name_list_output_gridinfo
   ! subroutines
   PUBLIC :: deallocate_all_grid_info
   PUBLIC :: collect_all_grid_info
-  PUBLIC :: create_all_distributed_grid_info
+#ifdef HAVE_CDI_PIO
+  PUBLIC :: distribute_all_grid_info
+#endif
   PUBLIC :: set_grid_info_netcdf
   PUBLIC :: set_grid_info_grb2
   PUBLIC :: copy_grid_info
@@ -196,17 +198,23 @@ CONTAINS
   END SUBROUTINE collect_all_grid_info
 
 #ifdef HAVE_CDI_PIO
-  SUBROUTINE create_all_distributed_grid_info(p_patch, patch_info)
+  SUBROUTINE distribute_all_grid_info(p_patch, patch_info)
     TYPE(t_patch),        INTENT(IN)    :: p_patch
     TYPE(t_patch_info),   INTENT(INOUT) :: patch_info
 
     CHARACTER(LEN=*), PARAMETER :: &
       routine = modname//"::create_distributed_grid_info"
     INTEGER :: ierrstat, max_cell_conn, max_vrtx_conn, &
-         nblks_c, nblks_e, nblks_v
+         nblks_c, nblks_e, nblks_v, max_nblks
     REAL(wp), ALLOCATABLE :: lonv(:,:,:), latv(:,:,:)
     PROCEDURE(cf_1_1_grid_verts), POINTER :: cf_1_1_grid_verts_ptr
 
+    IF (my_process_is_ocean()) THEN
+      cf_1_1_grid_verts_ptr => cf_1_1_grid_verts_ocean
+    ELSE
+      cf_1_1_grid_verts_ptr => cf_1_1_grid_verts
+    ENDIF
+!$omp parallel private(max_cell_conn, max_vrtx_conn, nblks_c, nblks_e, nblks_v)
     max_cell_conn   = p_patch%cells%max_connectivity
     max_vrtx_conn = p_patch%verts%max_connectivity
 
@@ -214,7 +222,6 @@ CONTAINS
     nblks_c = p_patch%nblks_c
     nblks_e = p_patch%nblks_e
     nblks_v = p_patch%nblks_v
-
     ! --cells
     CALL create_distributed_grid_info(p_patch, patch_info%ri(icell), &
       &                               lonv, latv, p_patch%cells%center, &
@@ -228,21 +235,13 @@ CONTAINS
       &                               nblks_e, 4, cf_1_1_grid_edges)
 
     !-- verts
-    IF (my_process_is_ocean()) THEN
-      cf_1_1_grid_verts_ptr => cf_1_1_grid_verts_ocean
-    ELSE
-      cf_1_1_grid_verts_ptr => cf_1_1_grid_verts
-    ENDIF
     CALL create_distributed_grid_info(p_patch, patch_info%ri(ivert), &
       &                               lonv, latv, p_patch%verts%vertex, &
       &                               patch_info%grid_info(ivert), &
       &                               nblks_v, max_vrtx_conn, &
       &                               cf_1_1_grid_verts_ptr)
-
-    DEALLOCATE(lonv, latv, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-
-  END SUBROUTINE create_all_distributed_grid_info
+!$omp end parallel
+  END SUBROUTINE distribute_all_grid_info
 
   SUBROUTINE create_distributed_grid_info(p_patch, ri, lonv, latv, coordinates,&
     &                                     grid_info, nconn, nblks, cf_1_1_grid)
@@ -265,6 +264,7 @@ CONTAINS
       routine = modname//'::create_distributed_grid_info'
     INTEGER :: ierrstat, j, n_own, ofs
     n_own = ri%n_own
+!$omp master
     ALLOCATE(grid_info%lon(n_own), grid_info%lat(n_own), &
       &      grid_info%lonv(nconn, n_own), grid_info%latv(nconn, n_own))
 
@@ -272,14 +272,19 @@ CONTAINS
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     CALL cf_1_1_grid(p_patch, lonv, latv)
+!$omp end master
+!$omp barrier
     ofs = 0 ; CALL ri_cpy_blk2part(ri, coordinates%lon, grid_info%lon, ofs)
     ofs = 0 ; CALL ri_cpy_blk2part(ri, coordinates%lat, grid_info%lat, ofs)
     DO j = 1, nconn
       ofs = 0 ; CALL ri_cpy_blk2part(ri, lonv(:,:,j), grid_info%lonv(j,:), ofs)
       ofs = 0 ; CALL ri_cpy_blk2part(ri, latv(:,:,j), grid_info%latv(j,:), ofs)
     END DO
+!$omp barrier
+!$omp master
     DEALLOCATE(lonv, latv, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+!$omp end master
   END SUBROUTINE create_distributed_grid_info
 #endif
 

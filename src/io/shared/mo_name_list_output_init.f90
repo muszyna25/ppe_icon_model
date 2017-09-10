@@ -190,6 +190,7 @@ MODULE mo_name_list_output_init
   USE yaxt, ONLY: xt_idxlist
   USE ppm_extents,                          ONLY: extent
   USE mo_decomposition_tools,               ONLY: uniform_partition_start
+  USE mo_name_list_output_gridinfo,         ONLY: distribute_all_grid_info
 #endif
   IMPLICIT NONE
 
@@ -1324,6 +1325,15 @@ CONTAINS
       ! locations of cells, edges, and vertices
 
       ! Only needed if no async name list io is used
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio) THEN
+        DO idom = 1, n_dom_out
+          ! logical domain ID
+          idom_log = patch_info(idom)%log_patch_id
+          CALL distribute_all_grid_info(p_patch(idom_log), patch_info(idom))
+        END DO
+      ELSE &
+#endif
       IF (.NOT. use_async_name_list_io) THEN
         ! Go over all output domains
         DO idom = 1, n_dom_out
