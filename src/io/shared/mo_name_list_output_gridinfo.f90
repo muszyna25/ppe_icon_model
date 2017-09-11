@@ -135,7 +135,9 @@ CONTAINS
       &      latv(nproma, p_patch%nblks_c, max_cell_connectivity), &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+!$omp parallel
     CALL cf_1_1_grid_cells(p_patch, lonv, latv)
+!$omp end parallel
     CALL collect_grid_info(patch_info%nblks_glb_c,              &
       &                    p_patch%nblks_c,                     &
       &                    p_patch%cells%center,                &
@@ -151,7 +153,9 @@ CONTAINS
       &      latv(nproma, p_patch%nblks_e, 4), &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+!$omp parallel
     CALL cf_1_1_grid_edges(p_patch, lonv, latv)
+!$omp end parallel
     CALL collect_grid_info(patch_info%nblks_glb_e,              &
       &                    p_patch%nblks_e,                     &
       &                    p_patch%edges%center,                &
@@ -168,11 +172,13 @@ CONTAINS
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
+!$omp parallel
     IF (my_process_is_ocean()) THEN
       CALL cf_1_1_grid_verts_ocean(p_patch, lonv, latv)
     ELSE
       CALL cf_1_1_grid_verts(p_patch, lonv, latv)
     ENDIF
+!$omp end parallel
 
     CALL collect_grid_info(patch_info%nblks_glb_v,              &
       &                    p_patch%nblks_v,                     &
@@ -284,6 +290,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
     max_cell_connectivity   = p_patch%cells%max_connectivity
 
+!$omp do
     DO jb = i_startblk, i_endblk
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
@@ -316,6 +323,7 @@ CONTAINS
         END DO
       END DO
     END DO
+!$omp end do nowait
   END SUBROUTINE cf_1_1_grid_cells
 
 
@@ -340,13 +348,10 @@ CONTAINS
     i_nchdom   = MAX(1,p_patch%n_childdom)
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
+!$omp do
     DO jb = i_startblk, i_endblk
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
-      DO jc = 1, i_startidx - 1
-        lonv(jc,jb,:) = 0.0_wp
-        latv(jc,jb,:) = 0.0_wp
-      END DO
       DO jc = i_startidx, i_endidx
         iidx = p_patch%edges%vertex_idx(jc,jb,1)
         iblk = p_patch%edges%vertex_blk(jc,jb,1)
@@ -378,11 +383,11 @@ CONTAINS
           latv(jc,jb,2) = 0._wp
         END IF
       END DO
-      DO jc = i_endidx+1, nproma
-        lonv(jc,jb,:) = 0.0_wp
-        latv(jc,jb,:) = 0.0_wp
-      END DO
       DO j = 1, 4
+        DO jc = 1, i_startidx - 1
+          lonv(jc,jb,j) = 0.0_wp
+          latv(jc,jb,j) = 0.0_wp
+        END DO
         DO jc = i_startidx, i_endidx
           latv_temp = MERGE(latv(jc,jb,j), 0.0_wp, &
             &               ABS(latv(jc,jb,j)) >= EPSILON(0.0_wp))
@@ -393,6 +398,10 @@ CONTAINS
             lonv(jc,jb,j) = MERGE(lonv(jc,jb,j), 0.0_wp, &
               &                   ABS(lonv(jc,jb,j)) < EPSILON(0.0_wp))
           END IF
+        END DO
+        DO jc = i_endidx+1, nproma
+          lonv(jc,jb,j) = 0.0_wp
+          latv(jc,jb,j) = 0.0_wp
         END DO
       END DO
       DO jc = i_startidx, i_endidx
@@ -405,6 +414,7 @@ CONTAINS
         END IF
       END DO
     END DO
+!$omp end do nowait
 
   END SUBROUTINE cf_1_1_grid_edges
 
@@ -435,6 +445,7 @@ CONTAINS
     i_endblk   = patch_2D%verts%end_blk(rl_end,i_nchdom)
     max_vrtx_conn = patch_2D%verts%max_connectivity
 
+!$omp do
     DO jb = i_startblk, i_endblk
       CALL get_indices_v(patch_2D, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
@@ -460,6 +471,7 @@ CONTAINS
         END DO
       END DO
     END DO
+!$omp end do nowait
   END SUBROUTINE cf_1_1_grid_verts_ocean
   !------------------------------------------------------------------------------------------------
 
@@ -486,6 +498,7 @@ CONTAINS
     i_endblk   = p_patch%verts%end_blk(rl_end,i_nchdom)
     max_vertex_connectivity = p_patch%verts%max_connectivity
 
+!$omp do
     DO jb = i_startblk, i_endblk
       CALL get_indices_v(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
@@ -518,6 +531,7 @@ CONTAINS
         END DO
       ENDDO
     END DO
+!$omp end do nowait
   END SUBROUTINE cf_1_1_grid_verts
 
 
@@ -930,7 +944,9 @@ CONTAINS
     ELSE
       ALLOCATE(lonv(nproma, nblks, connectivity), &
         &      latv(nproma, nblks, connectivity))
+!$omp parallel
       CALL cf_1_1_grid(p_patch, lonv, latv)
+!$omp end parallel
       r1d => dummy
     END IF
 
