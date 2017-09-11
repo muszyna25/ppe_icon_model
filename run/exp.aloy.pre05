@@ -1369,8 +1369,8 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="2" transient_grid_ref="13"/>
             <target transient_grid_ref="13"/>
             <timestep>
-               <source>${mts_atm}</source>
-               <target>${mts_oce}</target>
+               <source>${mts_oce}</source>
+               <target>${mts_atm}</target>
                <coupling_period operation="average">${mts_cpl}</coupling_period>
                <source_timelag>1</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
