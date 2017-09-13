@@ -655,7 +655,9 @@ MODULE mo_nh_init_nest_utils
             p_child_ldiag%freshsnow_t(jc,jb,jt) = MAX(0._wp,MIN(1._wp,lndvars_chi(jc,jk1+7,jb)))
             p_child_ldiag%t_seasfc(jc,jb) = lndvars_chi(jc,jk1+8,jb)
             p_child_ldiag%qv_s(jc,jb)     = lndvars_chi(jc,jk1+9,jb)
-            IF (itype_trvg == 3) p_child_ldiag%plantevap(jc,jb) = lndvars_chi(jc,jk1+10,jb)
+            IF (itype_trvg == 3) THEN
+              p_child_ldiag%plantevap_t(jc,jb,jt) = p_child_ldiag%plantevap(jc,jb)
+            ENDIF
           ENDDO
         ENDDO
         DO jt = ntiles_total+1, ntiles_total+ntiles_water
@@ -665,7 +667,6 @@ MODULE mo_nh_init_nest_utils
             p_child_lprog%t_s_t(jc,jb,jt)  = p_child_ldiag%t_s(jc,jb)
             p_child_lprog2%t_s_t(jc,jb,jt) = p_child_ldiag%t_s(jc,jb)
             p_child_ldiag%qv_s_t(jc,jb,jt) = p_child_ldiag%qv_s(jc,jb)
-            IF (itype_trvg == 3) p_child_ldiag%plantevap_t(jc,jb,jt) = p_child_ldiag%plantevap(jc,jb)
           ENDDO
         ENDDO
 
