@@ -205,7 +205,7 @@ CONTAINS
                                     ! independent of grid-scale QV))
 
     ! The following switches allow separate tuning for evaporation below cloud base in the tropics
-    tune_rhebc_land_trop  = 0.70_wp
+    tune_rhebc_land_trop  = 0.75_wp
     tune_rhebc_ocean_trop = 0.80_wp
     tune_rcucov_trop      = 0.05_wp
 

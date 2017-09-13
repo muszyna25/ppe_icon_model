@@ -307,6 +307,12 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
         prm_diag%innertropics_mask(jc,jb) = (17.5_wp-zlat)/5._wp
       ENDIF
     ENDDO
+
+    ! pat_len field for circulation term in turbdiff
+    DO jc = i_startidx,i_endidx
+      prm_diag%pat_len(jc,jb) = 300._wp*EXP(1.5_wp*LOG(MAX(1.e-2_wp,(ext_data%atm%sso_stdh_raw(jc,jb)-150._wp)/300._wp)))
+    ENDDO
+
   ENDDO
 
   IF (linit_mode) THEN

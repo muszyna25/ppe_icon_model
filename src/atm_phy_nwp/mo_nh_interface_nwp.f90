@@ -61,7 +61,7 @@ MODULE mo_nh_interface_nwp
   USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqs, iqtvar, iqtke,  &
     &                                   msg_level, ltimer, timers_level, lart
   USE mo_grid_config,             ONLY: l_limited_area
-  USE mo_physical_constants,      ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cvd, cvv, tmelt
+  USE mo_physical_constants,      ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cvd, cvv, tmelt, grav
 
   USE mo_nh_diagnose_pres_temp,   ONLY: diagnose_pres_temp, diag_pres, diag_temp
 
@@ -180,8 +180,8 @@ CONTAINS
       & z_ddt_v_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),& !< hor. wind tendencies
       & z_ddt_temp  (nproma,pt_patch%nlev)   !< Temperature tendency
 
-    REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c), z_tempv, &
-      zddt_u_raylfric(nproma,pt_patch%nlev), zddt_v_raylfric(nproma,pt_patch%nlev), convfac
+    REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c), z_tempv, sqrt_ri(nproma), n2, dvdz2, &
+      zddt_u_raylfric(nproma,pt_patch%nlev), zddt_v_raylfric(nproma,pt_patch%nlev), convfac, wfac
 
     !< vertical interfaces
 
@@ -1163,7 +1163,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_qsum,z_ddt_temp,z_ddt_qsum,vabs, &
-!$OMP  rfric_fac,zddt_u_raylfric,zddt_v_raylfric,convfac) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP  rfric_fac,zddt_u_raylfric,zddt_v_raylfric,convfac,sqrt_ri,n2,dvdz2,wfac) ICON_OMP_DEFAULT_SCHEDULE
 !
       DO jb = i_startblk, i_endblk
 !
@@ -1190,10 +1190,21 @@ CONTAINS
           zddt_v_raylfric(:,:) = 0._wp
         ENDIF
 
+        ! SQRT of Richardson number between the two lowest model levels
+        ! This is used below to reduce frictional heating near the surface under very stable conditions
+        DO jc = i_startidx, i_endidx
+          n2 = 2._wp*grav/(pt_prog%theta_v(jc,nlev,jb)+pt_prog%theta_v(jc,nlev-1,jb)) * MAX(1.e-4_wp,        &
+               (pt_prog%theta_v(jc,nlev-1,jb)-pt_prog%theta_v(jc,nlev,jb))/p_metrics%ddqz_z_half(jc,nlev,jb) )
+          dvdz2 = MAX(1.e-6_wp, ( (pt_diag%u(jc,nlev-1,jb)-pt_diag%u(jc,nlev,jb))**2 +                      &
+                  (pt_diag%v(jc,nlev-1,jb)-pt_diag%v(jc,nlev,jb))**2 )/p_metrics%ddqz_z_half(jc,nlev,jb)**2 )
+          sqrt_ri(jc) = MAX(1._wp, SQRT(n2/dvdz2))
+        ENDDO
+
         ! heating related to momentum deposition by SSO, GWD and Rayleigh friction
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
+            wfac = MIN(1._wp, 0.004_wp*p_metrics%geopot_agl(jc,jk,jb)/grav)
             prm_nwp_tend%ddt_temp_drag(jc,jk,jb) = -rcvd*(pt_diag%u(jc,jk,jb)*             &
                                                    (prm_nwp_tend%ddt_u_sso(jc,jk,jb)+      &
                                                     prm_nwp_tend%ddt_u_gwd(jc,jk,jb)+      &
@@ -1201,7 +1212,8 @@ CONTAINS
                                                    +      pt_diag%v(jc,jk,jb)*             &
                                                    (prm_nwp_tend%ddt_v_sso(jc,jk,jb)+      &
                                                     prm_nwp_tend%ddt_v_gwd(jc,jk,jb)+      &
-                                                    zddt_v_raylfric(jc,jk))                )
+                                                    zddt_v_raylfric(jc,jk)) ) /            &
+                                                    ((1._wp-wfac)*sqrt_ri(jc) + wfac)
           ENDDO
         ENDDO
 !DIR$ IVDEP
