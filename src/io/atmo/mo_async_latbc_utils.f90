@@ -504,6 +504,7 @@
       ! Perform CDI read operation
       !
       VARLOOP: DO jm = 1, latbc%buffer%ngrp_vars
+        ! WRITE (0,*) routine,'fetch variable '//TRIM(latbc%buffer%mapped_name(jm))
 
         ! ------------------------------------------------------------
         ! skip constant variables
@@ -511,7 +512,7 @@
         IF (.NOT. linitial_file) THEN
 
           nlevs = latbc%buffer%nlev(jm)
-          IF (TRIM(latbc%buffer%mapped_name(jm)) == TRIM(latbc%buffer%hhl_var)) THEN
+          IF (TRIM(tolower(latbc%buffer%internal_name(jm))) == TRIM(tolower(latbc%buffer%hhl_var))) THEN
             ! when skipping a variable: be sure to move the buffer
             ! offset position, too
             ioff(:) = ioff(:) + INT(nlevs * latbc%patch_data%cells%pe_own(:),i8)
@@ -521,7 +522,6 @@
 
         ! Get pointer to appropriate reorder_info
         IF(latbc%buffer%nlev(jm) /= 1 ) THEN
-          ! WRITE (0,*) routine,'fetch variable '//TRIM(latbc%buffer%mapped_name(jm))
 
           SELECT CASE (latbc%buffer%hgrid(jm))
           CASE(GRID_UNSTRUCTURED_CELL)
