@@ -19,15 +19,7 @@ output_interval="P1M"                  # ocean model output interval in days
 daily="P1D"
 monthly="P1M"
 file_interval="P1Y"
-
-modelTimeStep="PT600S"
-restartSemaphoreFilename='isRestartRun.sem'
-if [ -f ../experiments/${EXPNAME}/${restartSemaphoreFilename} ]; then
-  modelTimeStep="PT1800S"
-fi
-
-
-
+modelTimeStep="PT1H"
 autoPostProcessing="false"                         # submit postprocessing job
 #steps_per_file=610                               # assigned output intervals per file interval
 #-----------------------------------------------------------------------------
@@ -35,8 +27,8 @@ autoPostProcessing="false"                         # submit postprocessing job
 iforc=12
 forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
 init_relax=1
-ocean_vertical_levels=64
-ocean_grids="OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G.nc"
+ocean_vertical_levels=40
+ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-points
 #-----------------------------------------------------------------------------
 #icon_data_rootFolder=/pool/data/ICON
 #
@@ -86,7 +78,7 @@ cat > ${ocean_namelist} << EOF
   output_end       = "${end_date}"
   output_interval  = "${monthly}"
   output_grid      = .true.
-  file_interval="P1Y"
+  file_interval="P10Y"
   output_filename  = "${EXPNAME}_oceanMonitor"
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'group:ocean_monitor'
@@ -101,26 +93,20 @@ cat > ${ocean_namelist} << EOF
   str_mod_tst='all'               ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
-! 64 unevenly spaced levels used by MPIOM/GR30
  n_zlev             =   $ocean_vertical_levels
- dzlev_m(1:64)      =  12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   10.0,   11.0,   11.0,   12.0,
-                       13.0,   14.0,   15.0,   16.0,   17.0,   18.0,   20.0,   22.0,   24.0,   26.0,
-                       29.0,   33.0,   36.0,   39.0,   42.0,   45.0,   48.0,   52.0,   56.0,   60.0,
-                       64.0,   68.0,   72.0,   76.0,   80.0,   85.0,   90.0,   95.0,  100.0,  106.0,
-                      112.0,  118.0,  124.0,  130.0,  138.0,  146.0,  154.0,  162.0,  170.0,  178.0,
-                      186.0,  196.0,  206.0,  216.0,  226.0,  236.0,  246.0,  256.0,  266.0,  276.0,
-                      286.0,  296.0,  306.0,  318.0
+ dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
+                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
+                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
+                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based                    = .FALSE.   ! edge- or cell-based mimetic discretization
   l_partial_cells                 = .FALSE.   ! partial bottom cells=true: local varying bottom depth
   select_solver                   =   2       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart
   use_absolute_solver_tolerance   = .true.
   solver_tolerance                =  7.5E-14
-  solver_max_iter_per_restart     =  14      !
-  solver_FirstGuess               = 1
-  select_lhs                      = 2
-
-
+  solver_max_iter_per_restart     =  19       !
   solver_max_restart_iterations   = 100       ! outer (restart solver)
+!  select_lhs                      = 2
+
   fast_performance_level          = 200       ! performance level 12: for cell-based; 5: default
   use_continuity_correction       = .TRUE.    ! height adjustment according to vertical velocity in dynamics
   cfl_check                       = .FALSE.
@@ -140,13 +126,11 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_horizontal_diffusion_nml
   laplacian_form = 1                   ! 1=curlcurl-graddiv
-  VelocityDiffusion_order = 2          ! 21=biharmonic+laplacian (for the laplacian leith)
+  VelocityDiffusion_order = 1          ! 21=biharmonic+laplacian (for the laplacian leith)
 
-  BiharmonicViscosity_scaling     =  1
-  BiharmonicViscosity_reference   =  1.5E12  !  [m2/s] constant horizontal viscosity coefficient for velocity
-  BiharmonicViscosity_background  =  0.0  ! [m2/s] constant horizontal viscosity coefficient for velocity
   HarmonicViscosity_scaling     =  1
-  HarmonicViscosity_reference   =  100.0  !  [m2/s] constant horizontal viscosity coefficient for velocity
+  HarmonicViscosity_reference   =  3.0E+4  !  [m2/s] constant horizontal viscosity coefficient for velocity
+  HarmonicViscosity_background  =  0.0  
 
   TracerHorizontalDiffusion_scaling          = 1
   Temperature_HorizontalDiffusion_Background = 0.0
@@ -177,8 +161,8 @@ cat > ${ocean_namelist} << EOF
   GMRedi_usesRelativeMaxSlopes = .false.
   S_max=1.0e-3                               
   S_d=0.0001                                 ! 1e-3 to 1e-4
-  k_tracer_GM_kappa_parameter     = 250.0     !
-  k_tracer_isoneutral_parameter   = 250.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
+  k_tracer_GM_kappa_parameter     = 600.0     !
+  k_tracer_isoneutral_parameter   = 600.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
   k_tracer_dianeutral_parameter   = 0.0       !1.0E-5  !
   SWITCH_OFF_DIAGONAL_VERT_EXPL          =.TRUE.
   GMREDI_COMBINED_DIAGNOSTIC             =.TRUE.
@@ -227,8 +211,19 @@ cat > ${ocean_namelist} << EOF
   initial_temperature_type        = 1         ! read from file
 /                                    
 &ocean_diagnostics_nml
-  diagnostics_level            = 1
-  diagnose_for_horizontalVelocity = .false.
+   diagnostics_level            = 1
+   gibraltar(1:10)              = 1367,1369
+   denmark_strait(1:10)         = 1411,1443
+   drake_passage(1:10)          = 7167,7201,7203,7288,7290,7505
+   indonesian_throughflow(1:20) = 2114,2118,2117,2120,4242,4245,4343,4349,4340,4350,4250,4615,4611,4616
+   scotland_iceland(1:10)       = 1240,1439,1238,1249,1248
+   mozambique(1:10)             = 1704,1688,1707,4200
+   framStrait(1:10)             = 116,118,1462
+   beringStrait(1:10)           = 693,721
+   barentsOpening(1:10)         = 68,65,67,42
+   agulhas(1:10)                = 8024,8022
+   agulhas_long(1:10)           = 8024,8022,6036
+   agulhas_longer(1:10)         = 8024,8022,6036,6025
 /
 EOF
 #-----------------------------------------------------------------------------
