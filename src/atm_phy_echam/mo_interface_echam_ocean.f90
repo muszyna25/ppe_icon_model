@@ -804,12 +804,12 @@ CONTAINS
     no_arr = 1
     CALL yac_fput ( field_id(11), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
-    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=11, co2 mr')
+    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=11, co2mmr')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
     IF ( write_coupler_restart ) THEN
-       CALL warning('interface_echam_ocean', 'YAC says it is put for restart - id=11, co2 mr')
+       CALL warning('interface_echam_ocean', 'YAC says it is put for restart - id=11, co2mmr')
     ENDIF
     ENDIF
 #endif

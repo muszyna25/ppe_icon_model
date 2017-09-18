@@ -472,7 +472,7 @@ MODULE mo_echam_phy_memory
 
     ! coupling to HAMOCC lcpl_co2_atmoce
     REAL(wp),POINTER :: &
-      & co2mr(:,:),   &   !< co2 mixing ratio
+      & co2mmr(:,:),   &  !< co2 mixing ratio
       & co2flux(:,:)      !< co2 flux
 
   END TYPE t_echam_phy_field
