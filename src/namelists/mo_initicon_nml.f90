@@ -57,6 +57,7 @@ MODULE mo_initicon_nml
     & config_rho_incr_filter_wgt => rho_incr_filter_wgt, &
     & config_niter_divdamp       => niter_divdamp,       &
     & config_niter_diffu         => niter_diffu,         &
+    & config_max_sstdev_from_clim => max_sstdev_from_clim, &
     & config_ana_varnames_map_file => ana_varnames_map_file
 
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
@@ -125,6 +126,7 @@ MODULE mo_initicon_nml
   LOGICAL  :: iterate_iau   ! if .TRUE., iterate IAU phase with halved dt_iau in first iteration
   REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
                                    ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD
+  REAL(wp) :: max_sstdev_from_clim ! maximum allowed deviation of SST analysis from climatology (K)
 
   INTEGER  :: niter_divdamp ! number of divergence damping iterations on wind increment from DA
   INTEGER  :: niter_diffu   ! number of diffusion iterations on wind increment from DA
@@ -176,7 +178,7 @@ MODULE mo_initicon_nml
                           start_time_avg_fg, end_time_avg_fg,               &
                           interval_avg_fg, ltile_coldstart, ltile_init,     &
                           lvert_remap_fg, iterate_iau, niter_divdamp,       &
-                          niter_diffu
+                          niter_diffu, max_sstdev_from_clim
                           
 CONTAINS
 
@@ -224,6 +226,7 @@ CONTAINS
   niter_diffu = 10             ! number of diffusion iterations on wind increment from DA
   niter_divdamp = 25           ! number of divergence damping iterations on wind increment from DA
   type_iau_wgt= 1              ! Top-hat weighting function
+  max_sstdev_from_clim = 100._wp ! Maximum deviation of SST analysis from climatology
 
   DO jg=1,SIZE(check_ana)
     check_ana(jg)%list(:) = '' ! list of mandatory analysis fields. This list can include a subset 
@@ -377,6 +380,7 @@ CONTAINS
   config_rho_incr_filter_wgt   = rho_incr_filter_wgt
   config_niter_divdamp         = niter_divdamp
   config_niter_diffu           = niter_diffu
+  config_max_sstdev_from_clim  = max_sstdev_from_clim
 
   DO jg=1,max_dom
     initicon_config(jg)%ana_checklist = check_ana(jg)%list
