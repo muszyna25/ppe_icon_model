@@ -24,10 +24,14 @@ MODULE mo_art_init_interface
   USE mo_run_config,                    ONLY: lart
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art_initInt
+  USE mo_storage,                       ONLY: t_storage
 #ifdef __ICON_ART
   USE mo_art_init_all_dom,              ONLY: art_init_all_dom
   USE mo_art_clean_up,                  ONLY: art_clean_up
+  USE mo_art_impl_constants,            ONLY: IART_VARNAMELEN
+  USE mo_art_tagging,                   ONLY: get_number_tagged_tracer
   USE mo_art_read_xml,                  ONLY: art_get_childnumber_xml,   &
+                                          &   art_read_elements_xml,     &
                                           &   art_open_xml_file,         &
                                           &   art_close_xml_file,        &
                                           &   t_xml_file
@@ -78,8 +82,16 @@ SUBROUTINE art_calc_number_of_art_tracers_xml(xml_filename,auto_ntracer)
   INTEGER, INTENT(out) ::         &
      &   auto_ntracer                    !< automatically computed number of
                                          !   tracer within one xml file
+  INTEGER ::          &
+     &   idx_tracer,  &                  !< index of the tracer in XML
+     &   ntags                           !< number of tags for the current tracer
+  CHARACTER(LEN = 5) :: &
+     &   idx_tracer_str                  !< string of the index
+  TYPE(t_storage) :: &
+     &   storage                         !< temporally created storage for the tracer
+
 #ifdef __ICON_ART
-  TYPE(t_xml_file) :: tixi_file
+  TYPE(t_xml_file) :: tixi_file          !< tracer XML file
 #endif
 
   auto_ntracer = 0
@@ -88,6 +100,31 @@ SUBROUTINE art_calc_number_of_art_tracers_xml(xml_filename,auto_ntracer)
   CALL art_open_xml_file(TRIM(xml_filename),tixi_file)
 
   CALL art_get_childnumber_xml(tixi_file,"/tracers",auto_ntracer)
+
+  IF (auto_ntracer > 0) THEN
+    DO idx_tracer = 1,auto_ntracer
+      ! Create a storage container
+      CALL storage%init(lcase_sensitivity=.FALSE.)
+
+      WRITE(idx_tracer_str,'(I5)') idx_tracer
+      CALL art_read_elements_xml(tixi_file,'/tracers/*['     &
+               &               //TRIM(ADJUSTL(idx_tracer_str))//']/',storage)
+
+      ntags = get_number_tagged_tracer(storage)
+
+      IF (ntags > 1) THEN
+        ! the first tag is already included in the calculation of the number of
+        ! tracer so add only the tagged tracer with number greater than 1
+        ! (tag002 to tag999)
+        auto_ntracer = auto_ntracer + ntags - 1
+      END IF
+
+      ! Set metadata storage free again
+      CALL storage%destruct
+
+    END DO
+  END IF
+  
 
   CALL art_close_xml_file(tixi_file)
 #endif
