@@ -463,14 +463,15 @@ CONTAINS
     DO jd = 1,ndom
        lany = lany .OR. (mpi_phy_tc(jd)%dt_car > dt_zero)
     END DO
+
     IF (lany) THEN
       IF(io3 > ntracer) THEN
         CALL finish('init_echam_phy: mo_echam_phy_init.f90', &
                    &'cannot find an ozone tracer - abort')
       END IF
-      IF(jg > 1) THEN
+      IF(ndom > 1) THEN
         CALL finish('init_echam_phy: mo_echam_phy_init.f90', &
-                   &'Cariolle initialization not ready for jg>1')
+                   &'Cariolle initialization not ready for ndom>1')
       END IF
       CALL lcariolle_init(                                     &
          & openInputFile_wrap,       closeFile_wrap,           &
