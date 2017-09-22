@@ -995,7 +995,7 @@ CONTAINS
     REAL(wp)                 :: sim_time     !< elapsed simulation time on this grid level
 
     ! calculate elapsed simulation time in seconds
-    sim_time = getElapsedSimTimeInSeconds(this_datetime, anchor_datetime=time_config%tc_startdate) 
+    sim_time = getElapsedSimTimeInSeconds(this_datetime, anchor_datetime=time_config%tc_exp_startdate)
 
     !Write profiles
     inv_ncount = 1._wp / REAL(ncount,wp)
@@ -1036,7 +1036,7 @@ CONTAINS
     REAL(wp)                 :: sim_time     !< elapsed simulation time on this grid level
     
     ! calculate elapsed simulation time in seconds
-    sim_time = getElapsedSimTimeInSeconds(this_datetime, anchor_datetime=time_config%tc_startdate) 
+    sim_time = getElapsedSimTimeInSeconds(this_datetime, anchor_datetime=time_config%tc_exp_startdate)
 
     !Write time series
     nvar = SIZE(turb_tseries_list,1)
@@ -1083,7 +1083,7 @@ CONTAINS
    REAL(wp)                            :: p_sim_time     !< elapsed simulation time on this grid level
  
    ! calculate elapsed simulation time in seconds
-   p_sim_time = getElapsedSimTimeInSeconds(this_datetime, anchor_datetime=time_config%tc_startdate) 
+   p_sim_time = getElapsedSimTimeInSeconds(this_datetime, anchor_datetime=time_config%tc_exp_startdate)
 
    jg = p_patch%id
 
