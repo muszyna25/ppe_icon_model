@@ -640,6 +640,7 @@ MODULE mo_nh_torus_exp
   ! where the top row is close to surface/or surface and bottom row
   ! is near the top
   !!
+  ! adjusted by Christopher Moseley for HPS simlations
   SUBROUTINE  read_ext_profile(z_in, theta_in, qv_in, u_in, v_in, psfc_in)
   
     REAL(wp),  INTENT(IN)  :: z_in(:)
@@ -655,7 +656,9 @@ MODULE mo_nh_torus_exp
   
     INTEGER :: ist, iunit
     INTEGER :: jk, klev 
-  
+    
+    REAL    :: dummy    ! Christopher Moseley: dummy for cloud liquid water
+    
     !-------------------------------------------------------------------------
   
     CALL message(TRIM(routine), 'READING FROM SOUNDING!')
@@ -676,9 +679,9 @@ MODULE mo_nh_torus_exp
     zs = 0.0_wp; ths = 0._wp; us = 0._wp; vs = 0._wp; qvs = 0._wp
 
     DO jk = klev,1,-1 
-      READ (iunit,*,IOSTAT=ist) zs(jk),ths(jk),qvs(jk),us(jk),vs(jk)
+      READ (iunit,*,IOSTAT=ist) zs(jk),ths(jk),qvs(jk),dummy,us(jk),vs(jk)
       IF(ist/=success)THEN
-        CALL finish (TRIM(routine), 'reading souding file failed')
+        CALL finish (TRIM(routine), 'reading sounding file failed')
       ENDIF
     END DO
 
@@ -697,6 +700,8 @@ MODULE mo_nh_torus_exp
     CALL vert_intp_linear_1d(zs,qvs,z_in,qv_in)
     CALL vert_intp_linear_1d(zs,us,z_in,u_in)
     CALL vert_intp_linear_1d(zs,vs,z_in,v_in)
+    
+    qv_in = qv_in * 0.001   ! convert from g/kg into kg/kg
   
     DEALLOCATE(zs, ths, qvs, us, vs)
   
