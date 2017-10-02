@@ -42,6 +42,10 @@ MODULE mo_interface_les
   USE mo_model_domain,       ONLY: t_patch
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+  USE mo_nonhydro_state,     ONLY: p_nh_state
+  USE mo_dynamics_config,    ONLY: nnow, nnow_rcf
+  USE mo_nwp_phy_state,      ONLY: phy_params
+  USE mo_nwp_lnd_state,      ONLY: p_lnd_state
   USE mo_nonhydrostatic_config, ONLY: kstart_moist, lhdiff_rcf, ih_clch, ih_clcm, &
     &                              lcalc_dpsdt
   USE mo_nwp_lnd_types,      ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
@@ -81,7 +85,7 @@ MODULE mo_interface_les
   USE mo_turbulent_diagnostic, ONLY: calculate_turbulent_diagnostics, &
                                      write_vertical_profiles, write_time_series, &
                                      avg_interval_step, sampl_freq_step,  &
-                                     is_sampling_time, is_writing_time
+                                     is_sampling_time, is_writing_time, les_cloud_diag
   USE mo_les_utilities,       ONLY: init_vertical_grid_for_les
   USE mo_fortran_tools,       ONLY: copy
   USE mo_nh_supervise,        ONLY: compute_dpsdt
@@ -1409,8 +1413,23 @@ CONTAINS
                         & pt_diag,                       & !inout
                         & prm_diag                       ) !inout
 
+    !Christopher Moseley: Cloud diagnostics (cloud base, top, etc) for LES
+    IF (  lcall_phy_jg(itturb) .OR. linit ) &
+      !CALL les_cloud_diag(pt_patch, pt_prog_rcf, kstart_moist(jg),   &
+      !                    lnd_prog_new, lnd_diag, pt_diag, &
+      !                    pt_prog, p_metrics, prm_diag) 
+      CALL les_cloud_diag    ( kstart_moist(jg),		       & !in
+        &		       ih_clch(jg), ih_clcm(jg),	       & !in
+        &		       phy_params(jg),  		       & !in
+        &		       pt_patch,			       & !in
+        &		       p_nh_state(jg)%metrics,  	       & !in
+        &		       p_nh_state(jg)%prog(nnow(jg)),	       & !in
+        &		       p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in
+        &		       p_nh_state(jg)%diag,		       & !in
+        &		       p_lnd_state(jg)%diag_lnd,	       & !in
+        &		       p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
+        &		       prm_diag 			       ) !inout
 
-    !Special diagnostics for LES runs- 1D, time series
     IF( is_sampling_time )THEN
       CALL calculate_turbulent_diagnostics(                 &
                               & pt_patch,                   & !in
