@@ -239,6 +239,7 @@ MODULE mo_mpi
   PUBLIC :: process_mpi_stdio_id
   PUBLIC :: process_mpi_root_id
   PUBLIC :: process_work_io0
+  PUBLIC :: process_work_pref0
 
   ! Main communication methods
   PUBLIC :: global_mpi_barrier
@@ -366,6 +367,7 @@ MODULE mo_mpi
   INTEGER :: process_work_io0
   INTEGER :: process_mpi_all_prefroot_id ! the id of the first prefetch process
   INTEGER :: p_comm_work_pref_compute_pe0 ! the ID for Communicator spanning work group and prefetch PEs
+  INTEGER :: process_work_pref0           ! ID of prefetch PE0 within p_comm_work_pref communicator
 
   LOGICAL :: process_is_mpi_parallel
   LOGICAL :: process_is_stdio
@@ -645,6 +647,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_gather_int_0d1d
      MODULE PROCEDURE p_gather_int_1d1d
      MODULE PROCEDURE p_gather_char_0d1d
+     MODULE PROCEDURE p_gather_bool_0d1d
   END INTERFACE
 
   INTERFACE p_allgather
@@ -1111,7 +1114,7 @@ CONTAINS
     INTEGER :: my_color, peer_comm, peer_comm_restart, peer_comm_pref, p_error
     CHARACTER(*), PARAMETER :: method_name = "set_mpi_work_communicators"
     INTEGER :: grp_process_mpi_all_comm, grp_comm_work_io, input_ranks(1), &
-               translated_ranks(1)
+               translated_ranks(1), grp_comm_work_pref
     INTEGER :: sizeof_prefetch_processes
     CHARACTER(len=1000) :: message_text = ''
 
@@ -1386,6 +1389,25 @@ CONTAINS
       ! If no prefetching PEs are present, p_comm_inp_pref must not be used at all
       p_comm_work_pref = MPI_COMM_NULL
     ENDIF
+
+    ! translate the rank "p_pref_pe0" to the communicator "p_comm_work_pref":
+    IF (p_comm_work_pref /= MPI_COMM_NULL) THEN
+      CALL MPI_Comm_group(process_mpi_all_comm, grp_process_mpi_all_comm, p_error)
+      CALL MPI_Comm_group(p_comm_work_pref,     grp_comm_work_pref,       p_error)
+      IF (sizeof_prefetch_processes > 0) THEN
+        input_ranks(1) = p_pref_pe0
+      ELSE IF (p_test_run .AND. (p_pe < p_work_pe0)) THEN
+        input_ranks(1) = 0
+      ELSE
+        input_ranks(1) = p_work_pe0
+      END IF
+      CALL MPI_group_translate_ranks(grp_process_mpi_all_comm, 1, input_ranks, &
+        &                            grp_comm_work_pref, translated_ranks, p_error)
+      process_work_pref0 = translated_ranks(1)
+      CALL MPI_group_free(grp_process_mpi_all_comm, p_error)
+      CALL MPI_group_free(grp_comm_work_pref, p_error)
+    END IF
+
 
 !     The following is moved to set_comm_input_bcast
 !     ! Set p_comm_input_bcast, the communicator for broadcasting the NetCDF input
@@ -9107,7 +9129,7 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
 #ifndef NOMPI
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_scatter_real_1d1d")
+    CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_scatter_real_1d1d"
     INTEGER :: p_comm
 
     IF (PRESENT(comm)) THEN
@@ -9134,7 +9156,7 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
 #ifndef NOMPI
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_scatter_single_1d1d")
+    CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_scatter_single_1d1d"
     INTEGER :: p_comm
 
     IF (PRESENT(comm)) THEN
@@ -9161,7 +9183,7 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
 #ifndef NOMPI
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_scatter_int_1d1d")
+    CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_scatter_int_1d1d"
     INTEGER :: p_comm
 
     IF (PRESENT(comm)) THEN
@@ -9286,7 +9308,7 @@ CONTAINS
      INTEGER, OPTIONAL, INTENT(in) :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gather_int_0d1d")
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gather_int_0d1d"
      INTEGER :: p_comm
 
      IF (PRESENT(comm)) THEN
@@ -9314,7 +9336,7 @@ CONTAINS
      INTEGER, OPTIONAL, INTENT(in) :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gather_int_1d1d")
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gather_int_1d1d"
      INTEGER :: p_comm
 
      IF (PRESENT(comm)) THEN
@@ -9372,6 +9394,45 @@ CONTAINS
    END SUBROUTINE p_gather_char_0d1d
 
 
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> wrapper for MPI_Gather()
+  !---------------------------------------------------------------------------------------------------------------------------------
+   SUBROUTINE p_gather_bool_0d1d (sendbuf, recvbuf, p_dest, comm)
+     LOGICAL,           INTENT(inout) :: sendbuf, recvbuf(:)
+     INTEGER,           INTENT(in) :: p_dest
+     INTEGER, OPTIONAL, INTENT(in) :: comm
+
+#ifndef NOMPI
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gather_bool_0d1d"
+     INTEGER :: p_comm, comm_size, this_rank
+
+     IF (PRESENT(comm)) THEN
+       p_comm = comm
+     ELSE
+       p_comm = process_mpi_all_comm
+     ENDIF
+
+     CALL MPI_COMM_SIZE (comm, comm_size, p_error)
+     IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_COMM_SIZE operation!')
+     CALL MPI_COMM_RANK (comm, this_rank, p_error)
+     IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_COMM_RANK operation!')
+
+     IF ((this_rank == p_dest) .AND. (comm_size /= SIZE(recvbuf))) THEN
+       WRITE (0,*) "comm_size     = ", comm_size
+       WRITE (0,*) "SIZE(recvbuf) = ", SIZE(recvbuf)
+       CALL finish(routine, "Receive buffer too small!")
+     END IF
+
+     CALL MPI_GATHER(sendbuf, 1, p_bool, &
+       &             recvbuf, 1, p_bool, &
+       &             p_dest, p_comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_GATHER operation!')
+#else
+     recvbuf = sendbuf
+#endif
+   END SUBROUTINE p_gather_bool_0d1d
+
+
    SUBROUTINE p_gatherv_int (sendbuf, sendcount, recvbuf, recvcounts, &
      &                       displs, p_dest, comm)
      INTEGER,           INTENT(in)    :: sendbuf(:), sendcount
@@ -9380,7 +9441,7 @@ CONTAINS
      INTEGER, OPTIONAL, INTENT(in)    :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_int")
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gatherv_int"
      INTEGER :: p_comm
 
      IF (PRESENT(comm)) THEN
@@ -9410,7 +9471,7 @@ CONTAINS
      INTEGER, INTENT(IN)  :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_real2D2D")
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gatherv_real2D2D"
 
      INTEGER :: dim1_size
 
@@ -9438,7 +9499,7 @@ CONTAINS
      INTEGER, INTENT(IN)  :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_sreal2D2D")
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gatherv_sreal2D2D"
 
      INTEGER :: dim1_size
 
@@ -9466,7 +9527,7 @@ CONTAINS
      INTEGER, INTENT(IN)  :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_int2D2D")
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gatherv_int2D2D"
 
      INTEGER :: dim1_size
 
@@ -9492,7 +9553,7 @@ CONTAINS
      INTEGER,           INTENT(in)    :: comm
 
 #if !defined(NOMPI)
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_real2D1D")
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gatherv_real2D1D"
      INTEGER :: p_error
 
      CALL MPI_GATHERV(sendbuf, sendcount, p_real_dp,   &    ! sendbuf, sendcount, sendtype
@@ -9514,7 +9575,7 @@ CONTAINS
     INTEGER,           INTENT(in)    :: comm
 
 #if !defined(NOMPI)
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_int2D1D")
+    CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gatherv_int2D1D"
     INTEGER :: p_error
 
     CALL MPI_GATHERV(sendbuf, sendcount, p_int,       &    ! sendbuf, sendcount, sendtype
@@ -9536,7 +9597,7 @@ CONTAINS
      INTEGER,           INTENT(in)    :: comm
 
 #if !defined(NOMPI)
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_real2D1D")
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gatherv_real2D1D"
      INTEGER :: p_error
 
      CALL MPI_GATHERV(sendbuf, sendcount, p_real_dp,   &    ! sendbuf, sendcount, sendtype
@@ -9558,7 +9619,7 @@ CONTAINS
      INTEGER,           INTENT(in)    :: comm
 
 #if !defined(NOMPI)
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_scatterv_real1D2D")
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_scatterv_real1D2D"
      INTEGER :: p_error
 
      ! FIXME: I may be wrong, but this looks like a bug to me:
@@ -9587,7 +9648,7 @@ CONTAINS
         INTEGER, INTENT(IN)  :: comm
 
 #ifndef NOMPI
-        CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_scatterv_real1D1D")
+        CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_scatterv_real1D1D"
         INTEGER :: ierr
 
         CALL MPI_Scatterv(sendbuf, sendcounts, displs, p_real_dp, &
@@ -9614,7 +9675,7 @@ CONTAINS
         INTEGER, INTENT(IN)  :: comm
 
 #ifndef NOMPI
-        CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_scatterv_single1D1D")
+        CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_scatterv_single1D1D"
         INTEGER :: ierr
 
         CALL MPI_Scatterv(sendbuf, sendcounts, displs, p_real_sp, &
@@ -9632,7 +9693,7 @@ CONTAINS
      INTEGER, OPTIONAL, INTENT(in) :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_allgather_int_0d1d")
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_allgather_int_0d1d"
      INTEGER :: p_comm
 
      IF (PRESENT(comm)) THEN
@@ -9656,7 +9717,7 @@ CONTAINS
      INTEGER, OPTIONAL, INTENT(in) :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_allgather_int_0d1d")
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_allgather_int_0d1d"
      INTEGER :: p_comm, n
 
      IF (PRESENT(comm)) THEN
@@ -9681,7 +9742,7 @@ CONTAINS
      INTEGER, OPTIONAL, INTENT(in)    :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_allgatherv_real_1d")
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_allgatherv_real_1d"
      INTEGER :: p_comm, sendcount, comm_size, i
      INTEGER, ALLOCATABLE :: displs(:)
 
@@ -9727,7 +9788,7 @@ CONTAINS
      INTEGER, OPTIONAL, INTENT(in)    :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_allgatherv_int_1d")
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_allgatherv_int_1d"
      INTEGER :: p_comm, sendcount, comm_size, i
      INTEGER, ALLOCATABLE :: displs(:)
 
@@ -9789,7 +9850,7 @@ CONTAINS
      INTEGER,           INTENT(inout) :: sendbuf(:), recvbuf(:)
      INTEGER,           INTENT(in) :: comm
 #if !defined(NOMPI)
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_alltoall_int")
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_alltoall_int"
      INTEGER :: p_comm, p_error
 
      p_comm = comm
@@ -9809,7 +9870,7 @@ CONTAINS
      INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
      INTEGER,           INTENT(in) :: comm
 #if !defined(NOMPI)
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_alltoallv_real_2d")
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_alltoallv_real_2d"
      INTEGER :: p_comm, p_error, dim1_size
 
      p_comm = comm
@@ -9836,7 +9897,7 @@ CONTAINS
      INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
      INTEGER,           INTENT(in) :: comm
 #if !defined(NOMPI)
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_alltoallv_real_2d")
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_alltoallv_real_2d"
      INTEGER :: p_comm, p_error, dim1_size
 
      p_comm = comm
@@ -9863,7 +9924,7 @@ CONTAINS
      INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
      INTEGER,           INTENT(in) :: comm
 #if !defined(NOMPI)
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_alltoallv_int_2d")
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_alltoallv_int_2d"
      INTEGER :: p_comm, p_error, dim1_size
 
      p_comm = comm
@@ -9889,7 +9950,7 @@ CONTAINS
      INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
      INTEGER,           INTENT(in) :: comm
 #if !defined(NOMPI)
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_alltoallv_int")
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_alltoallv_int"
      INTEGER :: p_comm, p_error
 
      p_comm = comm
@@ -10087,7 +10148,7 @@ CONTAINS
     INTEGER, INTENT(OUT) :: global_ranks(:)    !< Output: list of global MPI ranks in communicator "comm"
     INTEGER, INTENT(OUT) :: nranks             !< Output: number of entries in rank list
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:get_mpi_comm_world_ranks")
+    CHARACTER(*), PARAMETER :: routine = "mo_mpi:get_mpi_comm_world_ranks"
     INTEGER              :: p_error, grp_comm, grp_comm_world, i
     INTEGER, ALLOCATABLE :: comm_ranks(:)
 

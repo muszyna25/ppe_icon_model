@@ -80,13 +80,14 @@ MODULE mo_async_latbc
     USE mo_kind,                      ONLY: i8, sp
     USE mo_exception,                 ONLY: finish, message, message_text
     USE mo_mpi,                       ONLY: stop_mpi, my_process_is_io,  my_process_is_pref, &
-         &                                  my_process_is_mpi_test, p_int, p_real_sp
-    USE mo_parallel_config,           ONLY: nproma
+         &                                  my_process_is_mpi_test, p_int, p_real_sp,        &
+         &                                  process_work_pref0, p_gather
+    USE mo_parallel_config,           ONLY: nproma, num_prefetch_proc
     USE mo_model_domain,              ONLY: p_patch, t_patch
     ! MPI Communicators
     USE mo_mpi,                       ONLY: p_comm_work, p_comm_work_pref, p_comm_work_2_pref
     ! MPI Communication routines
-    USE mo_mpi,                       ONLY: p_bcast
+    USE mo_mpi,                       ONLY: p_bcast, p_barrier
     ! MPI Process type intrinsics
     USE mo_mpi,                       ONLY: my_process_is_work
     ! MPI Process group sizes
@@ -121,9 +122,11 @@ MODULE mo_async_latbc
     USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_read_interface,            ONLY: nf
     USE mo_io_units,                  ONLY: filename_max
-    USE mo_io_util,                   ONLY: read_netcdf_int_1d
+    USE mo_io_util,                   ONLY: read_netcdf_int_1d, t_netcdf_att_int
     USE mo_util_file,                 ONLY: util_filesize
     USE mo_util_cdi,                  ONLY: test_cdi_varID, cdiGetStringError
+    USE mo_latbc_read_recv,           ONLY: prefetch_proc_send, compute_data_receive
+    USE mo_sync,                      ONLY: sync_patch_array, SYNC_E, SYNC_C
     
     IMPLICIT NONE
 
@@ -306,11 +309,97 @@ MODULE mo_async_latbc
     END SUBROUTINE set_patch_data
 
 
+    !> Based on a 1D list of global indices, available on the
+    !> prefetching PE: Create a local LOGICAL mask on each worker PE
+    !> which is TRUE, when this entry is present in the index list.
+    !
+    SUBROUTINE create_latbc_mask(latbc, p_ri, glb_indices, nindices_g, hgrid_type)
+
+      TYPE(t_latbc_data),   INTENT(INOUT), TARGET :: latbc
+      TYPE(t_reorder_data), INTENT(INOUT) :: p_ri           ! reorder info data structure
+      INTEGER,              INTENT(IN)    :: glb_indices(:)
+      INTEGER,              INTENT(IN)    :: nindices_g     ! global no. of indices
+      INTEGER,              INTENT(IN)    :: hgrid_type     ! grid type (CELL/EDGE)
+#ifndef NOMPI
+      ! local variables:
+      CHARACTER(LEN=*), PARAMETER :: routine = modname//"::create_latbc_mask"
+      INTEGER                   :: nblks, sync_type, ierrstat
+      INTEGER(i8)               :: eoff
+      INTEGER(i8), ALLOCATABLE  :: ioff(:)
+      REAL(sp),   ALLOCATABLE   :: var_out(:,:,:), tmp_buf(:)
+
+      IF (my_process_is_pref()) THEN
+        ALLOCATE(p_ri%pe_skip(0:num_work_procs-1+num_prefetch_proc), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+        p_ri%pe_skip(:) = .FALSE.
+      ELSE
+        SELECT CASE(hgrid_type)
+        CASE (GRID_UNSTRUCTURED_CELL)
+          nblks     = p_patch(1)%nblks_c
+          sync_type = SYNC_C
+        CASE (GRID_UNSTRUCTURED_EDGE)
+          nblks     = p_patch(1)%nblks_e
+          sync_type = SYNC_E
+        CASE DEFAULT
+          CALL finish(routine, "Internal error!")
+        END SELECT
+      END IF
+
+      ! we use the send/receive routines here to determine which
+      ! entries are read from file.!
+      ! 
+      ! Set a "1.0" on all LATBC points and send them to the compute
+      ! PEs ...
+      IF (my_process_is_pref()) THEN
+        
+        ALLOCATE(ioff(0:num_work_procs+num_prefetch_proc-1), tmp_buf(nindices_g), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+        tmp_buf(:)              = 0.0_sp
+        tmp_buf(glb_indices(:)) = 1.0_sp
+        ioff                    = 0
+        CALL prefetch_proc_send(latbc%patch_data, tmp_buf(:), 1, hgrid_type, ioff)
+        DEALLOCATE(ioff, tmp_buf, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+        
+      END IF ! my_process_is_pref()
+
+      CALL p_barrier(p_comm_work_pref)
+      
+      IF (.NOT. my_process_is_pref()) THEN
+        ALLOCATE(var_out(nproma, 1, nblks), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+        var_out        = 0.0_sp
+        eoff           = 0_i8
+        p_ri%this_skip = .FALSE.
+        CALL compute_data_receive(hgrid_type, 1, var_out, eoff, latbc%patch_data)
+
+        ! build a logical mask, which local points are read from file
+        !
+        ! TODO: does compute data receive fill the halo points? then
+        ! the following sync is obsolete:
+        CALL sync_patch_array(sync_type, p_patch(1), var_out)
+        p_ri%read_mask(:,:) = (var_out(:,1,:)  > 0._sp)
+
+        DEALLOCATE(var_out, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+      END IF
+
+      IF (.NOT. my_process_is_pref()) THEN
+        p_ri%this_skip = .NOT. ANY(p_ri%read_mask(:,:))
+      ELSE
+        p_ri%this_skip = .TRUE.
+      END IF
+
+      CALL p_gather(p_ri%this_skip, p_ri%pe_skip, process_work_pref0, p_comm_work_pref)
+#endif
+    END SUBROUTINE create_latbc_mask
+
+
     !------------------------------------------------------------------------------------------------
     !> Replicates data (mainly the variable lists) needed for async prefetching
     !  on the prefetching procs.
     SUBROUTINE init_prefetch(latbc)
-      TYPE(t_latbc_data), INTENT(INOUT) :: latbc
+      TYPE(t_latbc_data), INTENT(INOUT), TARGET :: latbc
 
       ! local variables:
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_prefetch"
@@ -322,7 +411,9 @@ MODULE mo_async_latbc
       ! PEs to prefetching PE using p_comm_work_2_pref
       INTEGER :: bcast_root
 
-      TYPE (t_dictionary) :: latbc_varnames_dict
+      TYPE (t_dictionary)           :: latbc_varnames_dict
+      TYPE(t_netcdf_att_int)        :: opt_att(2)            ! optional attribute values
+      INTEGER                       :: ierrstat
       
       ! bcast_root is not used in this case
       bcast_root = 0
@@ -373,23 +464,62 @@ MODULE mo_async_latbc
       !
       !     this requires index information obtained from an additional
       !     grid file:
-      IF (my_process_is_pref() .AND. latbc_config%lsparse_latbc) THEN
-        CALL read_netcdf_int_1d(latbc_config%latbc_boundary_grid,                   &
-          &                     varname1     = "global_cell_index",                 &
-          &                     var1         = latbc%global_index%cells,            &
-          &                     opt_varname2 = "global_edge_index",                 &
-          &                     opt_var2     = latbc%global_index%edges,            &
-          &                     opt_attname  = "nglobal",                           &
-          &                     opt_attvar1  = latbc%global_index%n_patch_cells_g,  &
-          &                     opt_attvar2  = latbc%global_index%n_patch_edges_g)
-        ! consistency checks:
-        IF (latbc%global_index%n_patch_cells_g /= latbc%patch_data%n_patch_cells_g) THEN
-          CALL finish(routine, "LatBC boundary cell list does not match in size!")
+      ALLOCATE(latbc%patch_data%cells%read_mask(nproma, latbc%patch_data%nblks_c), &
+        &      latbc%patch_data%edges%read_mask(nproma, latbc%patch_data%nblks_e), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+      latbc%patch_data%cells%read_mask(:,:) = .TRUE.
+      latbc%patch_data%edges%read_mask(:,:) = .TRUE.
+
+      IF (latbc_config%lsparse_latbc) THEN
+
+        CALL message(routine, "sparse LATBC read-in mode.")
+
+        IF (my_process_is_pref()) THEN
+       
+          opt_att(1)%var_name = "global_cell_index"
+          opt_att(1)%att_name = "nglobal"
+          opt_att(1)%value => latbc%global_index%n_patch_cells_g
+          
+          opt_att(2)%var_name = "global_edge_index"
+          opt_att(2)%att_name = "nglobal"
+          opt_att(2)%value => latbc%global_index%n_patch_edges_g
+                   
+          CALL read_netcdf_int_1d(latbc_config%latbc_boundary_grid,                   &
+            &                     varname1     = "global_cell_index",                 &
+            &                     var1         = latbc%global_index%cells,            &
+            &                     opt_varname2 = "global_edge_index",                 &
+            &                     opt_var2     = latbc%global_index%edges,            &
+            &                     opt_att      = opt_att)
+
+          ! consistency checks:
+          IF (latbc%global_index%n_patch_cells_g /= latbc%patch_data%n_patch_cells_g) THEN
+            CALL finish(routine, "LatBC boundary cell list does not match in size!")
+          END IF
+          IF (latbc%global_index%n_patch_edges_g /= latbc%patch_data%n_patch_edges_g) THEN
+            CALL finish(routine, "LatBC boundary edge list does not match in size!")
+          END IF
         END IF
-        IF (latbc%global_index%n_patch_edges_g /= latbc%patch_data%n_patch_edges_g) THEN
-          CALL finish(routine, "LatBC boundary edge list does not match in size!")
+
+        CALL create_latbc_mask(latbc, latbc%patch_data%cells, latbc%global_index%cells, &
+          &                    latbc%global_index%n_patch_cells_g, GRID_UNSTRUCTURED_CELL)
+        CALL create_latbc_mask(latbc, latbc%patch_data%edges, latbc%global_index%edges, &
+          &                    latbc%global_index%n_patch_edges_g, GRID_UNSTRUCTURED_EDGE)
+
+        ! status output
+        IF (my_process_is_pref()) THEN
+          WRITE (0,'(3a,i0,a,i0,a)') &
+            &   " ", routine, ": prefetching PE reads ", latbc%global_index%n_patch_cells_g, &
+            &   " cells and ", latbc%global_index%n_patch_edges_g, " edges."
+          WRITE (0,'(3a,i0,a,i0,a)')      &
+            &   " ", routine, ": ", COUNT(.NOT. latbc%patch_data%edges%pe_skip), " of ", num_work_procs, &
+            &   " worker PEs are involved in the LATBC read-in."
         END IF
-      END IF
+
+      ELSE
+
+        CALL message(routine, "non-sparse LATBC read-in mode.")
+
+      END IF ! lsparse_latbc
 
       ! allocate input data for lateral boundary nudging
       IF( my_process_is_work()) THEN
@@ -1169,8 +1299,8 @@ MODULE mo_async_latbc
          IF(ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
       ENDIF
 
-      CALL p_bcast(p_reo%pe_own, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(p_reo%pe_off, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(p_reo%pe_own,        bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(p_reo%pe_off,        bcast_root, p_comm_work_2_pref)
       CALL p_bcast(p_reo%reorder_index, bcast_root, p_comm_work_2_pref)
 #endif
     END SUBROUTINE  transfer_reorder_data

@@ -43,12 +43,12 @@ MODULE mo_pp_tasks
   USE mo_intp_data_strc,          ONLY: t_int_state, lonlat_grid_list,      &
     &                                   t_lon_lat_intp, p_int_state
   USE mo_intp_rbf,                ONLY: rbf_vec_interpol_cell
-  USE mo_nh_vert_interp,          ONLY: prepare_vert_interp_z,              &
+  USE mo_nh_vert_interp,          ONLY: lin_intp, uv_intp, qv_intp,         &
+    &                                   prepare_extrap, prepare_extrap_ifspp
+  USE mo_nh_vert_interp_ipz,      ONLY: prepare_vert_interp_z,              &
     &                                   prepare_vert_interp_p,              &
-    &                                   prepare_vert_interp_i,              &
-    &                                   lin_intp, uv_intp, qv_intp,         &
-    &                                   diagnose_pmsl, diagnose_pmsl_gme,   &
-    &                                   prepare_extrap, prepare_extrap_ifspp,&
+    &                                   prepare_vert_interp_i
+  USE mo_nh_diagnose_pmsl,        ONLY: diagnose_pmsl, diagnose_pmsl_gme,   &
     &                                   diagnose_pmsl_ifs
   USE mo_nonhydro_types,          ONLY: t_nh_state, t_nh_prog, t_nh_diag,   &
     &                                   t_nh_metrics

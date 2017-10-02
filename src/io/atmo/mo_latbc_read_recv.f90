@@ -43,6 +43,7 @@ MODULE mo_latbc_read_recv
   PUBLIC  :: prefetch_cdi_2d 
   PUBLIC  :: prefetch_cdi_3d
   PUBLIC  :: compute_data_receive
+  PUBLIC  :: prefetch_proc_send
 
   CHARACTER(LEN=*), PARAMETER :: modname = '::mo_latbc_read_recv'
 
@@ -138,13 +139,11 @@ CONTAINS
       CALL streamReadVarSliceF(streamID, varID, jk-1, read_buf(:), nmiss)
       
       ! --- "sparse latbc mode": read only data for boundary rows
-      ! the non-zero initialization of tmp_buf is needed because the subsequent vertical interpolation crashes otherwise
+      !
       IF (latbc_config%lsparse_latbc) THEN
         IF (hgrid == GRID_UNSTRUCTURED_CELL) THEN
-          tmp_buf(:) = read_buf(1)
           tmp_buf(latbc_data%global_index%cells(:)) = read_buf(:)
         ELSE IF (hgrid == GRID_UNSTRUCTURED_EDGE) THEN
-          tmp_buf(:) = read_buf(1)
           tmp_buf(latbc_data%global_index%edges(:)) = read_buf(:)
         END IF
       END IF
@@ -152,11 +151,13 @@ CONTAINS
       ! send 2d buffer using MPI_PUT
       CALL prefetch_proc_send(latbc_data%patch_data, tmp_buf(:), 1, hgrid, ioff)
     ENDDO ! jk=1,nlevs 
-    !  ENDIF
   
     ! clean up
     IF (latbc_config%lsparse_latbc) THEN
       DEALLOCATE(tmp_buf, read_buf, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+    ELSE
+      DEALLOCATE(tmp_buf, STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
     END IF
 #endif
@@ -207,11 +208,6 @@ CONTAINS
     INTEGER     :: j, jl, jb, jk, mpi_error      
 
 #ifndef NOMPI
-    CALL MPI_Win_lock(MPI_LOCK_SHARED, p_pe_work, MPI_MODE_NOCHECK, patch_data%mem_win%mpi_win, mpi_error)
-
-    ! initialize output field:
-    var_out(:,:,:) = 0._sp
-
     ! Get pointer to appropriate reorder_info
     SELECT CASE (hgrid)
     CASE(GRID_UNSTRUCTURED_CELL)
@@ -221,6 +217,13 @@ CONTAINS
     CASE default
        CALL finish(routine,'unknown grid type')
     END SELECT
+
+    IF (p_ri%this_skip .AND. latbc_config%lsparse_latbc)  RETURN
+
+    CALL MPI_Win_lock(MPI_LOCK_SHARED, p_pe_work, MPI_MODE_NOCHECK, patch_data%mem_win%mpi_win, mpi_error)
+
+    ! initialize output field:
+    var_out(:,:,:) = 0._sp
 
     DO jk=1, nlevs
       DO j = 1,  p_ri%n_own 
@@ -249,17 +252,20 @@ CONTAINS
     INTEGER, INTENT(INOUT)                        :: ioff(0:)
 #endif
     ! local variables  
-    TYPE(t_patch_data), TARGET, INTENT(IN)  :: patch_data  !< patch data containing information for prefetch 
-    REAL(sp), INTENT(IN) :: var1_sp(:)
-    INTEGER, INTENT(IN) :: nlevs
-    INTEGER, INTENT(IN) :: hgrid 
-    INTEGER :: voff(0:num_work_procs-1) 
-    INTEGER :: nv_off_np(0:num_work_procs)
-    TYPE(t_reorder_data),  POINTER :: p_ri
-    REAL(sp), ALLOCATABLE   :: var3_sp(:)
-    INTEGER :: np, nval, nv_off, mpi_error, ierrstat !gridType, gridNumber
-    INTEGER :: dst_start, dst_end, src_start, src_end
+    TYPE(t_patch_data), TARGET, INTENT(IN) :: patch_data  !< patch data containing information for prefetch 
+    REAL(sp),                   INTENT(IN) :: var1_sp(:)
+    INTEGER,                    INTENT(IN) :: nlevs
+    INTEGER,                    INTENT(IN) :: hgrid 
+
     CHARACTER(len=max_char_length), PARAMETER :: routine = modname//'::prefetch_proc_send'
+    INTEGER                        :: voff(0:num_work_procs-1) 
+    INTEGER                        :: nv_off_np(0:num_work_procs)
+    TYPE(t_reorder_data),  POINTER :: p_ri
+    REAL(sp), ALLOCATABLE          :: var3_sp(:)
+    INTEGER                        :: np, nval, nv_off, mpi_error, ierrstat
+    INTEGER                        :: dst_start, dst_end, src_start, src_end
+    LOGICAL                        :: lskip
+
 
     SELECT CASE (hgrid)
        ! 1 is equal to GRID_UNSTRUCTURED_CELL 
@@ -271,6 +277,13 @@ CONTAINS
     CASE default
        CALL finish(routine,'unknown grid type')
     END SELECT
+
+    IF (.NOT. ALLOCATED(p_ri%pe_own)) THEN
+      CALL finish(routine, "Internal error: data structure p_ri%pe_own unallocated!")
+    END IF
+    IF (latbc_config%lsparse_latbc .AND. .NOT. ALLOCATED(p_ri%pe_skip)) THEN
+      CALL finish(routine, "Internal error: data structure p_ri%pe_skip unallocated!")
+    END IF
     
     ! compute the total offset for each PE
     nv_off       = 0
@@ -309,22 +322,30 @@ CONTAINS
 #ifndef NOMPI
     DO np = 0, num_work_procs-1
 
-       IF(p_ri%pe_own(np) == 0) CYCLE
+       IF (p_ri%pe_own(np) == 0) CYCLE
 
        nval = p_ri%pe_own(np)*nlevs
 
-       CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, np, MPI_MODE_NOCHECK, patch_data%mem_win%mpi_win, mpi_error)
-
-       ! consistency check:
-       IF (SIZE(var3_sp) < nv_off+nval) THEN
-         WRITE (0,*) "SIZE(var3_sp) = ", SIZE(var3_sp), " < nv_off+nval = ", nv_off+nval
-         CALL finish(routine, "Internal error!")
+       IF (.NOT. latbc_config%lsparse_latbc) THEN
+         lskip = .FALSE.
+       ELSE
+         lskip = p_ri%pe_skip(np)
        END IF
 
-       CALL MPI_PUT(var3_sp(nv_off+1), nval, p_real_sp, np, ioff(np), nval, p_real_sp, &
-         & patch_data%mem_win%mpi_win, mpi_error) !MPI_WIN_NULL) 
+       IF (.NOT. lskip) THEN
+         CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, np, MPI_MODE_NOCHECK, patch_data%mem_win%mpi_win, mpi_error)
+         
+         ! consistency check:
+         IF (SIZE(var3_sp) < nv_off+nval) THEN
+           WRITE (0,*) "SIZE(var3_sp) = ", SIZE(var3_sp), " < nv_off+nval = ", nv_off+nval
+           CALL finish(routine, "Internal error!")
+         END IF
 
-       CALL MPI_Win_unlock(np, patch_data%mem_win%mpi_win, mpi_error)
+         CALL MPI_PUT(var3_sp(nv_off+1), nval, p_real_sp, np, ioff(np), nval, p_real_sp, &
+           & patch_data%mem_win%mpi_win, mpi_error) !MPI_WIN_NULL) 
+         
+         CALL MPI_Win_unlock(np, patch_data%mem_win%mpi_win, mpi_error)
+       END IF
 
        ! Update the offset in var1
        nv_off = nv_off + nval

@@ -33,6 +33,7 @@ export MPICH_RMA_OVER_DMAPP=1
 # disable core dumps
 export RLIMIT_CORE=0
 export ATP_MAX_CORES=0
+export ATP_ENABLED=1
 
 
 
