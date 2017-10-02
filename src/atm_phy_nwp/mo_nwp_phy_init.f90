@@ -1028,13 +1028,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   !------------------------------------------
   !< call for convection
   !------------------------------------------
-  ! initialization.
-  ! k800, k400 will be used for inwp_convection==0 as well. 
-  ! Thus we need to make sure that they are initialized.
-  prm_diag%k850(:,:) = nlev
-  prm_diag%k950(:,:) = nlev
-  prm_diag%k800(:,:) = nlev
-  prm_diag%k400(:,:) = nlev
 
   IF ( atm_phy_nwp_config(jg)%inwp_convection == 1 .OR. &
     &  atm_phy_nwp_config(jg)%inwp_turb == iedmf )     THEN
@@ -1059,66 +1052,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     CALL suvdfs
     CALL sucldp
 
-
-    ! Initialize fields k850 and k950, which are required for computing the
-    ! convective contribution to wind gusts
-    rl_start = 1  ! Initialization should be done for all points
-    rl_end   = min_rlcell
-
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-
-    ! height of 850 and 950hPa surface for US standard atmosphere in m
-    ! For derivation, see documentation of US standard atmosphere
-    h850_standard = 1457.235199_wp
-    h950_standard = 540.3130233_wp
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,hag,zpres,zpres0) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-        &  i_startidx, i_endidx, rl_start, rl_end)
-
-      DO jc=i_startidx, i_endidx
-        ! initialization
-!!$        prm_diag%k850(jc,jb) = nlev
-!!$        prm_diag%k950(jc,jb) = nlev
-        DO jk=nlev, 1, -1
-          ! height above ground
-          hag = p_metrics%z_mc(jc,jk,jb)-ext_data%atm%topography_c(jc,jb)
-
-          IF (hag < h850_standard) THEN
-            prm_diag%k850(jc,jb) = jk
-          ENDIF
-          IF (hag < h950_standard) THEN
-            prm_diag%k950(jc,jb) = jk
-          ENDIF
-        ENDDO
-        ! security measure
-        prm_diag%k950(jc,jb) = MAX(prm_diag%k950(jc,jb),2)
-        prm_diag%k850(jc,jb) = MAX(prm_diag%k850(jc,jb),2)
-
-        ! analogous initialization of k800 and k400, based on reference pressure
-        ! because this is more meaningful for k400 in the presence of very high orography
-        zpres0 = p0ref * (p_metrics%exner_ref_mc(jc,nlev,jb))**(cpd/rd)
-!!$        prm_diag%k800(jc,jb) = nlev
-!!$        prm_diag%k400(jc,jb) = nlev
-        DO jk=nlev-1, 2, -1
-          zpres = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb))**(cpd/rd)
-          IF (zpres/zpres0 >= pr800) prm_diag%k800(jc,jb) = jk
-          IF (zpres/zpres0 >= pr400*SQRT(p0ref/zpres0)) THEN
-            prm_diag%k400(jc,jb) = jk
-          ELSE
-            EXIT
-          ENDIF
-        ENDDO
-
-      ENDDO  ! jc
-    ENDDO  ! jb
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
     CALL message('mo_nwp_phy_init:', 'convection initialized')
   ELSE
     ! initialize parameters that are accessed outside the convection scheme
@@ -1132,6 +1065,69 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     phy_params%texc             = 0._wp
     phy_params%qexc             = 0._wp
   ENDIF
+
+  ! Initialize fields k850 and k950, which are required for computing the
+  ! convective contribution to wind gusts
+  !
+  ! k800, k400 will be used for inwp_convection==0 as well. 
+  ! Thus we need to make sure that they are initialized.
+  prm_diag%k850(:,:) = nlev
+  prm_diag%k950(:,:) = nlev
+  prm_diag%k800(:,:) = nlev
+  prm_diag%k400(:,:) = nlev
+
+  rl_start = 1  ! Initialization should be done for all points
+  rl_end   = min_rlcell
+
+  i_startblk = p_patch%cells%start_blk(rl_start,1)
+  i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+  ! height of 850 and 950hPa surface for US standard atmosphere in m
+  ! For derivation, see documentation of US standard atmosphere
+  h850_standard = 1457.235199_wp
+  h950_standard = 540.3130233_wp
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,hag,zpres,zpres0) ICON_OMP_DEFAULT_SCHEDULE
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+      &  i_startidx, i_endidx, rl_start, rl_end)
+
+    DO jc=i_startidx, i_endidx
+
+      DO jk=nlev, 1, -1
+        ! height above ground
+        hag = p_metrics%z_mc(jc,jk,jb)-ext_data%atm%topography_c(jc,jb)
+
+        IF (hag < h850_standard) THEN
+          prm_diag%k850(jc,jb) = jk
+        ENDIF
+        IF (hag < h950_standard) THEN
+          prm_diag%k950(jc,jb) = jk
+        ENDIF
+      ENDDO
+      ! security measure
+      prm_diag%k950(jc,jb) = MAX(prm_diag%k950(jc,jb),2)
+      prm_diag%k850(jc,jb) = MAX(prm_diag%k850(jc,jb),2)
+
+      ! analogous initialization of k800 and k400, based on reference pressure
+      ! because this is more meaningful for k400 in the presence of very high orography
+      zpres0 = p0ref * (p_metrics%exner_ref_mc(jc,nlev,jb))**(cpd/rd)
+      DO jk=nlev-1, 2, -1
+        zpres = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb))**(cpd/rd)
+        IF (zpres/zpres0 >= pr800) prm_diag%k800(jc,jb) = jk
+        IF (zpres/zpres0 >= pr400*SQRT(p0ref/zpres0)) THEN
+          prm_diag%k400(jc,jb) = jk
+        ELSE
+          EXIT
+        ENDIF
+      ENDDO
+
+    ENDDO  ! jc
+  ENDDO  ! jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
 
 
   !------------------------------------------
