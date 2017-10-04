@@ -21,7 +21,7 @@ MODULE mo_ocean_coupling
   USE mo_master_control,      ONLY: get_my_process_name
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_exception,           ONLY: warning
+  USE mo_exception,           ONLY: warning, message
   USE mo_impl_constants,      ONLY: max_char_length
   USE mo_physical_constants,  ONLY: tmelt, rhoh2o
   USE mo_mpi,                 ONLY: p_pe_work
@@ -46,7 +46,7 @@ MODULE mo_ocean_coupling
   !
   USE mo_math_constants,      ONLY: pi
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_yac_finterface,      ONLY: yac_finit, yac_fdef_comp,                    &
+  USE mo_yac_finterface,      ONLY: yac_finit, yac_fdef_comp, yac_fget_version,  &
     &                               yac_fdef_datetime,                           &
     &                               yac_fdef_subdomain, yac_fconnect_subdomains, &
     &                               yac_fdef_elements, yac_fdef_points,          &
@@ -142,6 +142,9 @@ CONTAINS
     ! Inform the coupler about what we are
     CALL yac_fdef_comp ( TRIM(comp_name), comp_id )
     comp_ids(1) = comp_id
+
+    ! Print the YAC version
+    CALL message('Running ICON ocean in coupled mode with YAC version ', TRIM(yac_fget_version()) )
 
     ! Overwrite job start and end date with component data
     CALL datetimeToString(time_config%tc_startdate, startdatestring)

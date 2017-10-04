@@ -55,9 +55,9 @@ MODULE mo_interface_echam_ocean
   
   USE mo_model_domain        ,ONLY: t_patch
 
-  USE mo_exception           ,ONLY: warning, finish
+  USE mo_exception           ,ONLY: warning, finish, message
 
-  USE mo_yac_finterface      ,ONLY: yac_fput, yac_fget,                          &
+  USE mo_yac_finterface      ,ONLY: yac_fput, yac_fget, yac_fget_version,        &
     &                               yac_fget_nbr_fields, yac_fget_field_ids,     &
     &                               yac_finit, yac_fdef_comp,                    &
     &                               yac_fdef_datetime,                           &
@@ -163,6 +163,9 @@ CONTAINS
     ! Inform the coupler about what we are
     CALL yac_fdef_comp ( TRIM(comp_name), comp_id )
     comp_ids(1) = comp_id
+
+    ! Print the YAC version
+    CALL message('Running ICON atmosphere in coupled mode with YAC version ', TRIM(yac_fget_version()) )
 
     ! Overwrite job start and end date with component data
     CALL datetimeToString(time_config%tc_startdate, startdatestring)
