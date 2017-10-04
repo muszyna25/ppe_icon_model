@@ -1227,9 +1227,9 @@ EOF
 # IV.4 xsd and xml files for yac
 # ------------------------------
 
-add_required_file ${basedir}/run/${cpl_xmlctrfn}  ./coupling.xml
-add_required_file ${basedir}/run/coupling.xsd  ./
-add_required_file ${basedir}/run/component.xsd ./
+add_required_file ${basedir}/run/${cpl_xmlctrfn}                  ./coupling.xml
+add_required_file ${basedir}/externals/yac/input/coupling.xsd.in  ./coupling.xsd
+add_required_file ${basedir}/externals/yac/input/component.xsd.in ./component.xsd
 
 # set grid filenames to undefined to avoid copy mechanism by exec.iconrun (not tested, change later):
 #atmo_dyn_grids=""
