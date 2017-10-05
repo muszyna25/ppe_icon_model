@@ -964,7 +964,7 @@ if [[ "x$LAPACKROOT" = xlocal ]] ; then
     LAPACKROOT=""
 fi
 
-my_srcdirs="externals/self/src externals/mtime/src ${my_srcdirs}"
+my_srcdirs="externals/self/src externals/mtime/src externals/tixi/src ${my_srcdirs}"
 
 if [[ "x$use_yac" = xyes ]] ; then
     my_srcdirs="externals/yac/src ${my_srcdirs}"
@@ -1168,7 +1168,7 @@ AC_SUBST(FFLAGS,$FFLAGS)
 AC_SUBST(FlibFLAGS,$FlibFLAGS)
 AC_SUBST(F77FLAGS,$F77FLAGS)
 
-ac_libs="${ac_libs} -lmtime -lself"
+ac_libs="${ac_libs} -ltixi -lmtime -lself"
 
 AC_SUBST(LIB,$ac_libs)
 
