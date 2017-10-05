@@ -1694,7 +1694,7 @@ CONTAINS
     IF (.NOT. is_mpi_test) THEN
       IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
         & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot() &
-#ifdef HAVE_CDIPIO
+#ifdef HAVE_CDI_PIO
         &  .AND. pio_type /= pio_type_cdipio &
 #endif
         &  )) THEN
@@ -2456,6 +2456,7 @@ CONTAINS
     INTEGER                           :: i, cdi_grid_ids(3), nvert
     REAL(wp), ALLOCATABLE             :: p_lonlat(:)
     TYPE(t_verticalAxisList), POINTER :: it
+    CHARACTER(len=128)                :: comment
 #ifdef HAVE_CDI_PIO
     TYPE(xt_idxlist)                  :: null_idxlist
     INTEGER                           :: grid_deco_part(2)
@@ -2503,9 +2504,14 @@ CONTAINS
     tlen = LEN_TRIM(cf_global_info%references)
     iret = cdiDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'references',  &
          &                tlen, cf_global_info%references(1:tlen))
-    tlen = LEN_TRIM(cf_global_info%comment)
+    comment = cf_global_info%comment
+#ifdef HAVE_CDI_PIO
+    IF (pio_type == pio_type_cdipio) &
+         CALL p_bcast(comment, 0, comm=p_comm_work)
+#endif
+    tlen = LEN_TRIM(comment)
     iret = cdiDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'comment',     &
-         &                tlen, cf_global_info%comment(1:tlen))
+      &                 tlen, comment(1:tlen))
 
     ! 3. add horizontal grid descriptions
 
@@ -2571,17 +2577,16 @@ CONTAINS
 #ifdef HAVE_CDI_PIO
       IF (pio_type == pio_type_cdipio) THEN
         grid_size_desc = extent(0, patch_info(i_dom)%ri(icell)%n_glb)
-        DO i = 1, 2
-          grid_deco_part(i) = uniform_partition_start(grid_size_desc, &
-            &                      p_n_work, p_pe_work+i)
-        END DO
+        grid_deco_part(1) =   uniform_partition_start(grid_size_desc, &
+          &                                           p_n_work, p_pe_work+1)
+        grid_deco_part(2) =   uniform_partition_start(grid_size_desc, &
+          &                                           p_n_work, p_pe_work+2) &
+          &                 - grid_deco_part(1)
         of%cdiCellGridID = &
           cdiPioDistGridCreate(gridtype, patch_info(i_dom)%ri(icell)%n_glb, &
-          &             patch_info(i_dom)%ri(icell)%n_glb, 1, &
-          &             max_cell_connectivity, &
-          &             grid_deco_part, null_idxlist, &
+          &             -1, -1, max_cell_connectivity, grid_deco_part, &
           &             patch_info(i_dom)%ri(icell)%reorder_idxlst_xt(1), &
-          &             null_idxlist)
+          &             null_idxlist, null_idxlist)
       ELSE
 #endif
         of%cdiCellGridID = gridCreate(gridtype, patch_info(i_dom)%ri(icell)%n_glb)
@@ -2630,17 +2635,16 @@ CONTAINS
 #ifdef HAVE_CDI_PIO
       IF (pio_type == pio_type_cdipio) THEN
         grid_size_desc = extent(0, patch_info(i_dom)%ri(ivert)%n_glb)
-        DO i = 1, 2
-          grid_deco_part(i) = uniform_partition_start(grid_size_desc, &
-            &                      p_n_work, p_pe_work+i)
-        END DO
+        grid_deco_part(1) =   uniform_partition_start(grid_size_desc, &
+          &                                           p_n_work, p_pe_work+1)
+        grid_deco_part(2) =   uniform_partition_start(grid_size_desc, &
+          &                                           p_n_work, p_pe_work+2) &
+          &                 - grid_deco_part(1)
         of%cdiVertGridID = &
           cdiPioDistGridCreate(gridtype, patch_info(i_dom)%ri(ivert)%n_glb, &
-          &             patch_info(i_dom)%ri(ivert)%n_glb, 1, &
-          &             max_cell_connectivity, &
-          &             grid_deco_part, null_idxlist, &
+          &             -1, -1, nvert, grid_deco_part, &
           &             patch_info(i_dom)%ri(ivert)%reorder_idxlst_xt(1), &
-          &             null_idxlist)
+          &             null_idxlist, null_idxlist)
       ELSE
 #endif
         of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%ri(ivert)%n_glb)
@@ -2669,17 +2673,16 @@ CONTAINS
 #ifdef HAVE_CDI_PIO
       IF (pio_type == pio_type_cdipio) THEN
         grid_size_desc = extent(0, patch_info(i_dom)%ri(iedge)%n_glb)
-        DO i = 1, 2
-          grid_deco_part(i) = uniform_partition_start(grid_size_desc, &
-            &                      p_n_work, p_pe_work+i)
-        END DO
+        grid_deco_part(1) =   uniform_partition_start(grid_size_desc, &
+          &                                           p_n_work, p_pe_work+1)
+        grid_deco_part(2) =   uniform_partition_start(grid_size_desc, &
+          &                                           p_n_work, p_pe_work+2) &
+          &                 - grid_deco_part(1)
         of%cdiEdgeGridID = &
           cdiPioDistGridCreate(gridtype, patch_info(i_dom)%ri(iedge)%n_glb, &
-          &             patch_info(i_dom)%ri(iedge)%n_glb, 4, &
-          &             max_cell_connectivity, &
-          &             grid_deco_part, null_idxlist, &
+          &             -1, -1, 4, grid_deco_part, &
           &             patch_info(i_dom)%ri(iedge)%reorder_idxlst_xt(1), &
-          &             null_idxlist)
+          &             null_idxlist, null_idxlist)
       ELSE
 #endif
 

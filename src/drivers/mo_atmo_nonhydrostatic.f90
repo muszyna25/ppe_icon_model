@@ -123,6 +123,12 @@ USE mo_var_list,            ONLY: print_group_details
 USE mo_sync,                ONLY: sync_patch_array, sync_c
 
 !-------------------------------------------------------------------------
+#ifdef HAVE_CDI_PIO
+  USE mo_impl_constants,      ONLY: pio_type_cdipio
+  USE mo_parallel_config,     ONLY: pio_type
+  USE mo_cdi,                 ONLY: namespaceGetActive, namespaceSetActive
+  USE mo_cdi_pio_interface,         ONLY: nml_io_cdi_pio_namespace
+#endif
 
 IMPLICIT NONE
 PRIVATE
@@ -683,7 +689,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "destruct_atmo_nonhydrostatic"
 
 
-    INTEGER :: jg, ist
+    INTEGER :: jg, ist, prev_cdi_namespace
 
     !---------------------------------------------------------------------
     ! 6. Integration finished. Clean up.
@@ -733,13 +739,20 @@ CONTAINS
       CALL close_prefetch()
       CALL latbc%finalize()
     END IF
-    
+
     ! Delete output variable lists
     IF (output_mode%l_nml) THEN
       CALL close_name_list_output
       CALL finish_mean_stream()
     END IF
-
+#ifdef HAVE_CDI_PIO
+    IF (pio_type == pio_type_cdipio) THEN
+      prev_cdi_namespace = namespaceGetActive()
+      CALL namespaceSetActive(nml_io_cdi_pio_namespace)
+      CALL pioFinalize
+      CALL namespaceSetActive(prev_cdi_namespace)
+    END IF
+#endif
     ! finalize meteogram output
     IF (output_mode%l_nml) THEN
       DO jg = 1, n_dom

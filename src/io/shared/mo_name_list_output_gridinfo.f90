@@ -203,7 +203,7 @@ CONTAINS
     TYPE(t_patch_info),   INTENT(INOUT) :: patch_info
 
     CHARACTER(LEN=*), PARAMETER :: &
-      routine = modname//"::create_distributed_grid_info"
+      routine = modname//"::distributed_all_grid_info"
     INTEGER :: ierrstat, max_cell_conn, max_vrtx_conn, &
          nblks_c, nblks_e, nblks_v, max_nblks
     REAL(wp), ALLOCATABLE :: lonv(:,:,:), latv(:,:,:)
@@ -226,19 +226,19 @@ CONTAINS
     CALL create_distributed_grid_info(p_patch, patch_info%ri(icell), &
       &                               lonv, latv, p_patch%cells%center, &
       &                               patch_info%grid_info(icell), &
-      &                               nblks_c, max_cell_conn, cf_1_1_grid_cells)
+      &                               max_cell_conn, nblks_c, cf_1_1_grid_cells)
 
     !-- edges
     CALL create_distributed_grid_info(p_patch, patch_info%ri(iedge), &
       &                               lonv, latv, p_patch%edges%center, &
       &                               patch_info%grid_info(iedge), &
-      &                               nblks_e, 4, cf_1_1_grid_edges)
+      &                               4, nblks_e, cf_1_1_grid_edges)
 
     !-- verts
     CALL create_distributed_grid_info(p_patch, patch_info%ri(ivert), &
       &                               lonv, latv, p_patch%verts%vertex, &
       &                               patch_info%grid_info(ivert), &
-      &                               nblks_v, max_vrtx_conn, &
+      &                               max_vrtx_conn, nblks_v, &
       &                               cf_1_1_grid_verts_ptr)
 !$omp end parallel
   END SUBROUTINE distribute_all_grid_info
@@ -674,7 +674,7 @@ CONTAINS
   !
   SUBROUTINE set_grid_info_grb2(of)
     TYPE (t_output_file), INTENT(INOUT) :: of
-    ! local variables:
+    ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_grid_info_grb"
     CHARACTER(LEN=4), PARAMETER :: grid_coord_name(2) = (/ "RLON", "RLAT" /)
     TYPE (t_grib2_var) :: grid_coord_grib2(2)
@@ -1157,7 +1157,7 @@ CONTAINS
   SUBROUTINE write_grid_info_grb2(of, patch_info)
     TYPE (t_output_file), INTENT(INOUT)           :: of
     TYPE(t_patch_info),   INTENT(IN),   TARGET    :: patch_info (:)
-    ! local variables:
+    ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::write_grid_info_grb2"
 
     INTEGER                        :: errstat, idom, igrid, n, idom_log

@@ -32,6 +32,7 @@ MODULE mo_atmo_model
   USE mo_memory_log,              ONLY: memory_log_terminate
   USE mo_impl_constants,          ONLY: pio_type_async, pio_type_cdipio
 #ifdef HAVE_CDI_PIO
+  USE yaxt,                       ONLY: xt_initialize, xt_initialized
   USE mo_cdi,                     ONLY: namespacegetactive
   USE mo_cdi_pio_interface,       ONLY: nml_io_cdi_pio_namespace, &
     &                                   cdi_base_namespace, &
@@ -371,6 +372,7 @@ CONTAINS
     ELSE IF (process_mpi_io_size > 0 .AND. pio_type == pio_type_cdipio) THEN
       ! initialize parallel output via CDI-PIO
 #ifdef HAVE_CDI_PIO
+      IF (.NOT. xt_initialized()) CALL xt_initialize(p_comm_work_io)
       cdi_base_namespace = namespaceGetActive()
       CALL cdiPioConfSetCallBackActions(nml_io_cdi_pio_conf_handle, &
         cdipio_callback_postcommsetup, init_cdipio_cb)

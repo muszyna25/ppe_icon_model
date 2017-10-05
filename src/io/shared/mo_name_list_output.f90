@@ -223,9 +223,10 @@ CONTAINS
   !  all_print=.TRUE. argument so that the messages really appear in
   !  the log.
   !
-  SUBROUTINE open_output_file(of)
+  SUBROUTINE open_output_file(of, all_print)
 
     TYPE(t_output_file), INTENT(INOUT) :: of
+    LOGICAL, INTENT(in)                :: all_print
     ! local variables:
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::open_output_file"
     CHARACTER(LEN=filename_max)    :: filename
@@ -293,9 +294,9 @@ CONTAINS
       CALL finish (routine, 'open failed on '//filename(1:name_len))
     ELSE IF (msg_level >= 8) THEN
       IF (lappend) THEN
-        CALL message (routine, 'to add more data, reopened '//filename(1:name_len),all_print=.TRUE.)
+        CALL message (routine, 'to add more data, reopened '//filename(1:name_len),all_print=all_print)
       ELSE
-        CALL message (routine, 'opened '//filename(1:name_len),all_print=.TRUE.)
+        CALL message (routine, 'opened '//filename(1:name_len),all_print=all_print)
       END IF
     ENDIF
 
@@ -453,10 +454,18 @@ CONTAINS
     INTEGER                           :: output_pe_list(MAX(1,num_io_procs))
     INTEGER :: prev_cdi_namespace
     LOGICAL :: is_io, is_test, ofile_is_assigned_here
+    LOGICAL :: lhas_output, all_print
+
+    IF (ltimer) CALL timer_start(timer_write_output)
 
     is_io = my_process_is_io()
     is_test = my_process_is_mpi_test()
-    IF (ltimer) CALL timer_start(timer_write_output)
+#ifdef HAVE_CDI_PIO
+    all_print = pio_type /= pio_type_cdipio
+#else
+    all_print = .TRUE.
+#endif
+
 #ifndef NOMPI
 #ifndef __NO_ICON_ATMO__
     IF  (use_async_name_list_io .AND. .NOT. is_io .AND. .NOT. is_test) THEN
@@ -478,7 +487,7 @@ CONTAINS
     END IF
 #endif
 
-    IF (PRESENT(opt_lhas_output))  opt_lhas_output = .FALSE.
+    lhas_output = .FALSE.
 
     ! during the following loop, we collect a list of all I/O PEs for
     ! which output is performed:
@@ -498,6 +507,8 @@ CONTAINS
 #endif
         & .OR. (.NOT. use_async_name_list_io .AND. .NOT. is_test &
         &       .AND. p_pe_work == 0)
+      lhas_output = lhas_output .OR. ofile_is_assigned_here
+
       ! -------------------------------------------------
       ! Check if files have to be (re)opened
       ! -------------------------------------------------
@@ -506,7 +517,7 @@ CONTAINS
         & .AND. ofile_is_assigned_here) THEN
         IF (output_file(i)%cdiVlistId == CDI_UNDEFID)  &
           &  CALL setup_output_vlist(output_file(i))
-        CALL open_output_file(output_file(i))
+        CALL open_output_file(output_file(i), all_print)
       END IF
 
       ! -------------------------------------------------
@@ -516,11 +527,25 @@ CONTAINS
       ! Notify user
       IF (ofile_is_assigned_here) THEN
         IF (msg_level >= 8) THEN
-          WRITE(text,'(a,a,a,a,a,i0)') &
-            & 'Output to ',TRIM(get_current_filename(output_file(i)%out_event)),        &
-            & ' at simulation time ', TRIM(get_current_date(output_file(i)%out_event)), &
-            & ' by PE ', p_pe
-          CALL message(routine, text,all_print=.TRUE.)
+#ifdef HAVE_CDI_PIO
+          IF (pio_type == pio_type_cdipio) THEN
+            WRITE(text,'(4a)')                                               &
+              & 'Collective asynchronous output to ',                        &
+              & TRIM(get_current_filename(output_file(i)%out_event)),        &
+              & ' at simulation time ',                                      &
+              & TRIM(get_current_date(output_file(i)%out_event))
+          ELSE
+#endif
+            WRITE(text,'(5a,i0)')                                            &
+              & 'Output to ',                                                &
+              & TRIM(get_current_filename(output_file(i)%out_event)),        &
+              & ' at simulation time ',                                      &
+              & TRIM(get_current_date(output_file(i)%out_event)), &
+              & ' by PE ', p_pe
+#ifdef HAVE_CDI_PIO
+          END IF
+#endif
+          CALL message(routine, text,all_print=all_print)
         END IF
 
         ! convert time stamp string into
@@ -544,7 +569,6 @@ CONTAINS
 #ifndef NOMPI
         IF (ofile_is_assigned_here) THEN
           CALL io_proc_write_name_list(output_file(i), check_open_file(output_file(i)%out_event))
-          IF (PRESENT(opt_lhas_output))  opt_lhas_output = .TRUE.
         ENDIF
 #endif
       ELSE
@@ -559,7 +583,7 @@ CONTAINS
         & ofile_is_assigned_here) THEN
         CALL close_output_file(output_file(i))
         IF (msg_level >= 8) THEN
-          CALL message (routine, 'closed '//TRIM(get_current_filename(output_file(i)%out_event)),all_print=.TRUE.)
+          CALL message (routine, 'closed '//TRIM(get_current_filename(output_file(i)%out_event)),all_print=all_print)
         END IF
       END IF
 
@@ -618,9 +642,12 @@ CONTAINS
        END IF
     END IF
 #ifdef HAVE_CDI_PIO
-    IF (pio_type == pio_type_cdipio) &
+    IF (pio_type == pio_type_cdipio) THEN
+      IF (lhas_output) CALL pioWriteTimestep
       CALL namespaceSetActive(prev_cdi_namespace)
+    END IF
 #endif
+    IF (PRESENT(opt_lhas_output)) opt_lhas_output = lhas_output
     IF (ltimer) CALL timer_stop(timer_write_output)
     IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": write_name_list_output done."
   END SUBROUTINE write_name_list_output
@@ -637,8 +664,8 @@ CONTAINS
           ! launch a non-blocking request to all participating PEs to
           ! acknowledge the completion of the next output event
           ev%output_event%i_event_step = ev%output_event%i_event_step + 1
-          ev => ev%next
         END IF
+        ev => ev%next
       END DO
     END IF
   END SUBROUTINE write_ready_files_cdipio
@@ -695,6 +722,9 @@ CONTAINS
     rdy_filename = with_keywords(keywords, ev%output_event%event_data%name)
     tlen = LEN_TRIM(rdy_filename)
     IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
+#ifdef HAVE_CDI_PIO
+      & (      pio_type == pio_type_cdipio ) .OR.                             &
+#endif
       & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN
       WRITE (0,*) 'Write ready file "', rdy_filename(1:tlen), '"'
     END IF
@@ -1746,11 +1776,12 @@ CONTAINS
         ! If required, set lateral boundary points to missing
         ! value. Note that this modifies only the output buffer!
         IF (apply_missval) &
-          CALL set_boundary_mask(temp_buf_dp(ioff:ioff+n_own), &
+          CALL set_boundary_mask(temp_buf_dp(ioff+1:ioff+n_own), &
           &                      missval, i_endblk, i_endidx, ri)
-        CALL streamWriteVarPart(of%cdiFileID, info%cdiVarID, &
-          &                     temp_buf_dp, nmiss, partdesc)
+        ioff = ioff + ri%n_own
       END DO
+      CALL streamWriteVarPart(of%cdiFileID, info%cdiVarID, &
+           &                  temp_buf_dp, nmiss, partdesc)
     ELSE
       DO jk = 1, nlevs
         ! handle the case that a few levels have been selected out of
@@ -1780,9 +1811,9 @@ CONTAINS
         ! If required, set lateral boundary points to missing
         ! value. Note that this modifies only the output buffer!
         IF (apply_missval) &
-          CALL set_boundary_mask(temp_buf_sp(ioff:ioff+ri%n_own), &
+          CALL set_boundary_mask(temp_buf_sp(ioff+1:ioff+ri%n_own), &
           &                      REAL(missval, sp), i_endblk, i_endidx, ri)
-        ioff = ioff + INT(ri%n_own,i8)
+        ioff = ioff + ri%n_own
       END DO ! nlevs
       CALL streamWriteVarPartF(of%cdiFileID, info%cdiVarID, &
            &                   temp_buf_sp, nmiss, partdesc)
