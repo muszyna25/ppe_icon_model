@@ -688,10 +688,12 @@ AS_IF(
 export CDIROOT	#inform config/createMakefiles.pl whether it should include cdilib.c in the support/Makefile .
 
 dnl ######################################################################
-dnl Checks for grib_api.
+dnl Checks for grib_api/eccodes.
 
 GRIBAPI_LIB=""
 GRIBAPI_INCLUDE=""
+
+LIB_GRIB_API_ROOT="grib_api"
 
 AC_ARG_WITH([grib_api],
             [AC_HELP_STRING([--with-grib_api=DIR],
@@ -699,21 +701,39 @@ AC_ARG_WITH([grib_api],
                             [],
                             with_grib_api=yes)
 
+
+AC_ARG_ENABLE([eccodes],
+            [AC_HELP_STRING([--enable-eccodes=DIR],
+                            [Update GRIB_API setup to successor ECCODES package])],
+                            [],
+                            enable_eccodes=no)
+
+AS_CASE([$enable_eccodes],
+        [no],
+        [],
+        [yes],
+        [AC_MSG_ERROR([--enable-eccodes requires an installation directory.])],
+        [GRIBAPIROOT=$enable_eccodes
+         with_grib_api=yes
+         LIB_GRIB_API_ROOT="eccodes"])
+
 AS_CASE([$with_grib_api],
         [no],
         [AC_MSG_CHECKING([for grib_api library])
          AC_MSG_RESULT([suppressed])],
         [yes],
-        [#AS_IF([test -f "$GRIBAPIROOT/lib/libgrib_api.a"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
-         AS_IF([test -f "$GRIBAPIROOT/include/grib_api.h"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h]))],
+        [AS_IF([test -f "$GRIBAPIROOT/include/grib_api.h"],
+               [],
+               [AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h])])],
         [GRIBAPIROOT=$with_grib_api
-         #AS_IF([test -f "$GRIBAPIROOT/lib/libgrib_api.a"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
-         AS_IF([test -f "$GRIBAPIROOT/include/grib_api.h"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h]))])
+         AS_IF([test -f "$GRIBAPIROOT/include/grib_api.h"],
+               [],
+               [AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h])])])
 
 AS_IF([test -n "$GRIBAPIROOT"],
-      [AS_IF([test -r "$GRIBAPIROOT/lib/libgrib_api.a" || test -r "$GRIBAPIROOT/lib/libgrib_api.dylib" || test -r "$GRIBAPIROOT/lib/libgrib_api.so"],
-             [GRIBAPI_LIB='-L$(GRIBAPIROOT)/lib -lgrib_api'],
-             [AC_MSG_ERROR([cannot read $GRIBAPIROOT/lib/libgrib_api.a])])
+      [AS_IF([test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.a" || test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.dylib" || test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.so"],
+             [GRIBAPI_LIB="-L\$(GRIBAPIROOT)/lib -l${LIB_GRIB_API_ROOT}"],
+             [AC_MSG_ERROR([cannot read $GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.a])])
        AS_IF([test -d "$GRIBAPIROOT/include"],
              [GRIBAPI_INCLUDE='-I$(GRIBAPIROOT)/include'],
              [AC_MSG_ERROR([cannot find $GRIBAPIROOT/include])])  
@@ -774,7 +794,7 @@ if test -n "$SCTROOT" ; then
                    [nagfor],
                    [SCT_LIB=$(echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
                    [SCT_LIB=$(echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])],
-          [])                   
+          [])
 
 dnl checks for additional libs needed for sct, eg. papi
 
