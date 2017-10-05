@@ -20,13 +20,13 @@ MODULE mo_initicon_config
     &                              int2string
   USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, MAX_CHAR_LENGTH,  &
-    &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMODE,         &
+    &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMO,           &
     &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP
   USE mo_grid_config,        ONLY: l_limited_area
   USE mo_time_config,        ONLY: time_config
-  USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta,     &
+  USE mtime,                 ONLY: timedelta, newTimedelta,                          &
     &                              max_timedelta_str_len, datetime, OPERATOR(+),     &
-    &                              MAX_DATETIME_STR_LEN, OPERATOR(<=), OPERATOR(>=), &
+    &                              OPERATOR(<=), OPERATOR(>=), &
     &                              getPTStringFromSeconds
   USE mo_exception,          ONLY: message_text, message
 
@@ -39,7 +39,7 @@ MODULE mo_initicon_config
   PUBLIC :: t_initicon_config
 
   ! Variables
-  PUBLIC :: init_mode, nlevatm_in, nlevsoil_in, zpbl1, zpbl2
+  PUBLIC :: init_mode, nlevsoil_in, zpbl1, zpbl2
   PUBLIC :: dt_iau
   PUBLIC :: type_iau_wgt
   PUBLIC :: iterate_iau
@@ -180,7 +180,6 @@ MODULE mo_initicon_config
   ! Derived variables / variables based on input file contents
   ! ----------------------------------------------------------------------------
 
-  INTEGER :: nlevatm_in(max_dom) = 0  !< number of atmospheric model levels of input data
   LOGICAL :: lread_vn  = .FALSE. !< control variable that specifies if u/v or vn are read as wind field input
   LOGICAL :: l_sst_in  = .TRUE.  !< logical switch, if sea surface temperature is provided as input
 
@@ -229,7 +228,7 @@ CONTAINS
     !
 
 
-    IF ( ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
+    IF ( ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMO/) == init_mode) ) THEN
        init_mode_soil = 1   ! full coldstart is executed
        ! i.e. w_so_ice and h_snow are re-diagnosed
     ELSE IF (l_limited_area .AND. init_mode == MODE_ICONVREMAP .AND. .NOT. lread_ana) THEN
@@ -332,7 +331,7 @@ CONTAINS
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
     CALL associate_keyword("<path>",   TRIM(model_base_dir),             keywords)
-    CALL associate_keyword("<nroot>",  TRIM(int2string(nroot,"(i1)")),   keywords)
+    CALL associate_keyword("<nroot>",  TRIM(int2string(nroot,"(i0)")),   keywords)
     CALL associate_keyword("<nroot0>", TRIM(int2string(nroot,"(i2.2)")), keywords)
     CALL associate_keyword("<jlev>",   TRIM(int2string(jlev, "(i2.2)")), keywords)
     CALL associate_keyword("<idom>",   TRIM(int2string(idom, "(i2.2)")), keywords)

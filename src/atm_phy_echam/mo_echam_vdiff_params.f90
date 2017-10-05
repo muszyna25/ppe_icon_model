@@ -64,7 +64,7 @@ MODULE mo_echam_vdiff_params
   REAL(wp),PARAMETER :: cons25 = cons2/clam
   REAL(wp),PARAMETER :: cons5  = 3._wp*cb*cc
 
-  REAL(wp),PARAMETER :: pr0      =  0.85_wp  ! neutral limit Prandtl number, can be varied from about 0.6 to 1.0
+  REAL(wp),PARAMETER :: pr0      =  1.00_wp  ! neutral limit Prandtl number, can be varied from about 0.6 to 1.0
   REAL(wp),PARAMETER :: f_tau0   =  0.17_wp  ! neutral non-dimensional stress factor
   REAL(wp),PARAMETER :: f_theta0 = -SQRT(f_tau0**2/2.0_wp/pr0) ! neutral non-dimensional heat flux factor 
   REAL(wp),PARAMETER :: c_f      =  0.185_wp ! mixing length: coriolis term tuning parameter

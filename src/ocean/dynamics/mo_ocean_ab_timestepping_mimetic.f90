@@ -70,7 +70,7 @@ MODULE mo_ocean_ab_timestepping_mimetic
   USE mo_ocean_thermodyn,           ONLY: calculate_density, calc_internal_press_grad
   USE mo_ocean_physics_types,       ONLY: t_ho_params
   USE mo_ocean_pp_scheme,           ONLY: ICON_PP_Edge_vnPredict_scheme
-  USE mo_sea_ice_types,             ONLY: t_sfc_flx
+  USE mo_ocean_surface_types,       ONLY: t_ocean_surface
   USE mo_scalar_product,            ONLY:   &
     & calc_scalar_product_veloc_3d,         &
     & map_edges2edges_viacell_3d_const_z,   &
@@ -140,13 +140,13 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
 !<Optimize:inUse>
-  SUBROUTINE solve_free_sfc_ab_mimetic(patch_3d, ocean_state, p_ext_data, p_sfc_flx, &
+  SUBROUTINE solve_free_sfc_ab_mimetic(patch_3d, ocean_state, p_ext_data, p_oce_sfc, &
     & p_phys_param, timestep, op_coeffs, solverCoeff_sp, return_status)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)       :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET             :: ocean_state
     TYPE(t_external_data), TARGET, INTENT(in)     :: p_ext_data
-    TYPE(t_sfc_flx), INTENT(inout)                :: p_sfc_flx
+    TYPE(t_ocean_surface), INTENT(inout)          :: p_oce_sfc
     TYPE (t_ho_params)                            :: p_phys_param
     INTEGER, INTENT(in)                           :: timestep
     TYPE(t_operator_coeff)                        :: op_coeffs
@@ -219,7 +219,7 @@ CONTAINS
     ! END IF
     
     ! Apply windstress
-    CALL top_bound_cond_horz_veloc(patch_3d, ocean_state, op_coeffs, p_sfc_flx) ! ,     &
+    CALL top_bound_cond_horz_veloc(patch_3d, ocean_state, op_coeffs, p_oce_sfc) ! ,     &
  !    & ocean_state%p_aux%bc_top_u, ocean_state%p_aux%bc_top_v, &
  !    & ocean_state%p_aux%bc_top_veloc_cc)
     
@@ -241,7 +241,7 @@ CONTAINS
       
       ! Calculate RHS of surface equation
       start_detail_timer(timer_ab_rhs4sfc,5)
-      CALL fill_rhs4surface_eq_ab(patch_3d, ocean_state, p_sfc_flx, op_coeffs)
+      CALL fill_rhs4surface_eq_ab(patch_3d, ocean_state, op_coeffs)
       stop_detail_timer(timer_ab_rhs4sfc,5)
 
       
@@ -1120,12 +1120,11 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
 !<Optimize:inUse>
-  SUBROUTINE fill_rhs4surface_eq_ab( patch_3d, ocean_state, p_sfc_flx, op_coeffs)
+  SUBROUTINE fill_rhs4surface_eq_ab( patch_3d, ocean_state, op_coeffs)
     !
     ! Patch on which computation is performed
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
-    TYPE(t_sfc_flx), INTENT(in)          :: p_sfc_flx
     TYPE(t_operator_coeff)               :: op_coeffs
     !
     INTEGER :: start_cell_index, end_cell_index

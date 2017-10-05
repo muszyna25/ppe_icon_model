@@ -25,7 +25,7 @@ MODULE mo_initicon_nml
   USE mo_impl_constants,     ONLY: max_char_length, max_dom, vname_len,      &
     &                              max_var_ml, MODE_IFSANA, MODE_DWDANA,     &
     &                              MODE_IAU, MODE_IAU_OLD, MODE_COMBINED,    &
-    &                              MODE_COSMODE, MODE_ICONVREMAP
+    &                              MODE_COSMO, MODE_ICONVREMAP
   USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
@@ -285,7 +285,7 @@ CONTAINS
   ! 4.0 check the consistency of the parameters
   !------------------------------------------------------------
   !
-  z_go_init = (/MODE_IFSANA,MODE_DWDANA,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMODE,MODE_ICONVREMAP/)
+  z_go_init = (/MODE_IFSANA,MODE_DWDANA,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMO,MODE_ICONVREMAP/)
   IF (ALL(z_go_init /= init_mode)) THEN
     CALL finish( TRIM(routine),                         &
       &  'Invalid initialization mode. init_mode must be between 1 and 7')
@@ -310,7 +310,7 @@ CONTAINS
   ENDIF
 
   ! Check whether init_mode and lread_ana are consistent
-  IF (ANY((/MODE_COMBINED,MODE_COSMODE,MODE_ICONVREMAP/)==init_mode) .AND. lread_ana) THEN
+  IF (ANY((/MODE_COMBINED,MODE_COSMO,MODE_ICONVREMAP/)==init_mode) .AND. lread_ana) THEN
     lread_ana = .FALSE.
     WRITE(message_text,'(a,i2,a)') 'init_mode=', init_mode, &
       '. no analysis required => lread_ana re-set to .FALSE.'

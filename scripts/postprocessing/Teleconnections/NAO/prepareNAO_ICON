@@ -78,6 +78,6 @@ fi
 cdo copy -remapycon,psl_${exp}_${seas}.nc eof1_psl_${exp}_${seas}.nc eof1_psl_${exp}_${seas}_fullgrid.nc
    rm data.nc eof1var.txt sign.nc
 done
-rm  eof_1.nc  eof_1_ts.nc  monmean.nc
+rm  -f eof_1.nc  eof_1_ts.nc  monmean.nc
 ls $workdir
 exit

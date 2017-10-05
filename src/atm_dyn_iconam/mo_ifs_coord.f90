@@ -24,200 +24,193 @@
 !!
 MODULE mo_ifs_coord
 
-
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: finish
-  USE mo_impl_constants,     ONLY: success, max_char_length
-  USE mo_physical_constants, ONLY: grav, rcpd, rd
+  USE mo_exception,          ONLY: finish, message_text, message
+  USE mo_impl_constants,     ONLY: success
+  USE mo_physical_constants, ONLY: rd
+  USE mo_fortran_tools,      ONLY: DO_DEALLOCATE
+  USE mo_mpi,                ONLY: p_bcast, p_comm_rank
+  USE mo_read_interface,     ONLY: nf
 
   IMPLICIT NONE
 
+  INCLUDE 'netcdf.inc'
+
   PRIVATE
 
+  ! Data type containing all data specifying a pressure-sigma hybrid
+  ! vertical coordinate (the eta coordinate).
+  !
+  TYPE :: t_vct
+    INTEGER :: nlevm1         ! (number of levels)-1.
+    INTEGER :: nplev          ! *number of pressure levels.
+    INTEGER :: nplvp1         ! *nplev+1.*
+    INTEGER :: nplvp2         ! *nplev+2.*
+    INTEGER :: nlmsgl         ! *nlev* - (number of sigma levels).
+    INTEGER :: nlmslp         ! *nlmsgl+1.*
+    INTEGER :: nlmsla         ! *nlmslp,* or 2 if *nlmslp=1.*
+    
+    REAL(wp), ALLOCATABLE :: ralpha(:) ! rd*alpha at pressure and sigma levels.
+    REAL(wp), ALLOCATABLE :: rlnpr(:)  ! rd*ln(p(k+.5)/p(k-.5))
+    REAL(wp), ALLOCATABLE :: delpr(:)  ! p(k+.5)-p(k-.5) of
+                                       ! the reference surface pressure.
+    REAL(wp), ALLOCATABLE :: rdelpr(:) ! *reciprocal of *delpr.*
+    
+    REAL(wp), ALLOCATABLE :: vct  (:) ! param. A and B of the vertical coordinate
 
-  INTEGER :: nlevm1         ! (number of levels)-1.
-  INTEGER :: nplev          ! *number of pressure levels.
-  INTEGER :: nplvp1         ! *nplev+1.*
-  INTEGER :: nplvp2         ! *nplev+2.*
-  INTEGER :: nlmsgl         ! *nlev* - (number of sigma levels).
-  INTEGER :: nlmslp         ! *nlmsgl+1.*
-  INTEGER :: nlmsla         ! *nlmslp,* or 2 if *nlmslp=1.*
+  CONTAINS
+    PROCEDURE :: t_vct_construct_with_arrays
+    PROCEDURE :: t_vct_construct_ncfile
+    GENERIC :: construct => t_vct_construct_with_arrays, t_vct_construct_ncfile
 
-  REAL(wp) :: apzero        ! *reference pressure for computation of the
-  !                         !  hybrid vertical levels.
-  REAL(wp) :: t0icao        ! *surface temperatur of reference atmosphere
-  REAL(wp) :: tsticao       ! *stratospheric temperature of reference atmosphere
-  REAL(wp) :: rdlnp0i       ! *rd*ln(surface pressure) of reference atmosphere
-  REAL(wp) :: alrrdic       ! *lapse-rate parameter of reference atmosphere
-  REAL(wp) :: rdlnpti       ! *rd*ln(ptricao)
+    PROCEDURE :: finalize            => t_vct_finalize
+    PROCEDURE :: half_level_pressure => t_vct_half_level_pressure
+    PROCEDURE :: full_level_pressure => t_vct_full_level_pressure
+    PROCEDURE :: auxhyb              => t_vct_auxhyb
+   
+  END TYPE t_vct
 
-  REAL(wp), ALLOCATABLE :: ralpha(:) ! rd*alpha at pressure and sigma levels.
-  REAL(wp), ALLOCATABLE :: rlnpr(:)  ! rd*ln(p(k+.5)/p(k-.5))
-  REAL(wp), ALLOCATABLE :: dela(:)   ! a(k+.5)-a(k-.5).
-  REAL(wp), ALLOCATABLE :: delb(:)   ! b(k+.5)-b(k-.5).
-  REAL(wp), ALLOCATABLE :: rddelb(:) ! rd*delb.
-  REAL(wp), ALLOCATABLE :: cpg(:)    ! a(k+.5)*b(k-.5)-b(k+.5)*a(k-.5).
-  REAL(wp), ALLOCATABLE :: delpr(:)  ! p(k+.5)-p(k-.5) of
-                                     ! the refrence surface pressure.
-  REAL(wp), ALLOCATABLE :: rdelpr(:) ! *reciprocal of *delpr.*
-  REAL(wp), ALLOCATABLE :: alpham(:) ! *constant array for use by dyn.
-  REAL(wp), ALLOCATABLE :: ardprc(:) ! *constant array for use by dyn.
-  REAL(wp), ALLOCATABLE :: ceta(:)   ! *full hybrid vertical levels.
-  REAL(wp), ALLOCATABLE :: cetah(:)  ! *half hybrid vertical levels.
 
-  REAL(wp), ALLOCATABLE :: vct_a(:) ! param. A of the vertical coordinte
-  REAL(wp), ALLOCATABLE :: vct_b(:) ! param. B of the vertical coordinate
-  REAL(wp), ALLOCATABLE :: vct  (:) ! param. A and B of the vertical coordinate
+  PUBLIC :: t_vct
+  PUBLIC :: geopot
 
-  PUBLIC :: half_level_pressure, full_level_pressure
-  PUBLIC :: auxhyb, geopot, alloc_vct, init_vct, vct, vct_a, vct_b
+
+  ! module name
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_ifs_coord'
 
 CONTAINS
 
-  !>
-  !!
-  SUBROUTINE alloc_vct(nlev)
+  ! ----------------------------------------------------------------------
+  !> Allocates and initializes vertical coordinate data structure
+  !> based on a NetCDF file.
+  !
+  !  Note: This call is MPI-collective: only the first PE reads the
+  !  data from file and broadcasts it to the other PEs.
+  !
+  SUBROUTINE t_vct_construct_ncfile(vct, ncid, p_io, mpi_comm)
+    CLASS(t_vct), INTENT(INOUT) :: vct
+    INTEGER, INTENT(IN) :: ncid           !< NetCDF file ID (file already opened)
+    INTEGER, INTENT(IN) :: p_io           !< MPI rank of reading process
+    INTEGER, INTENT(IN) :: mpi_comm       !< MPI communicator
+
+    ! local variables
+    CHARACTER(LEN=*),PARAMETER :: routine =  modname//'::t_vct_construct_ncfile'
+    REAL(wp), ALLOCATABLE :: vct_a(:) ! param. A of the vertical coordinte
+    REAL(wp), ALLOCATABLE :: vct_b(:) ! param. B of the vertical coordinate
+    REAL(wp), ALLOCATABLE :: lev_ifs(:)
+    INTEGER,  ALLOCATABLE :: lev_hyi(:)
+    REAL(wp), ALLOCATABLE :: hyab(:)
+    INTEGER  :: varid, nlev_in, dimid, nhyi, ierrstat, var_ndims, var_dimlen(NF_MAX_VAR_DIMS), &
+      &         var_dimids(NF_MAX_VAR_DIMS), i
+    LOGICAL  :: lread_process  !< .TRUE. on the reading PE
+
+    lread_process = (p_comm_rank(mpi_comm) == p_io)
+
+    IF (lread_process) THEN
+      CALL nf(nf_inq_varid(ncid, 'lev', varid), routine)
+      ! retrieve number of levels
+      CALL nf(nf_inq_varndims(ncid, varid, var_ndims), routine)
+      CALL nf(nf_inq_vardimid(ncid, varid, var_dimids), routine)
+      DO i = 1, var_ndims
+        CALL nf(nf_inq_dimlen (ncid, var_dimids(i), var_dimlen(i)), routine)
+      END DO
+      nlev_in = var_dimlen(1)
+    END IF
+
+    CALL p_bcast(nlev_in, p_io, mpi_comm)
+
+    ALLOCATE( vct_a(nlev_in+1), vct_b(nlev_in+1), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
+    IF (lread_process) THEN
+      CALL nf(nf_inq_dimid(ncid, 'nhyi', dimid), routine)
+      CALL nf(nf_inq_dimlen(ncid, dimid, nhyi), routine)
+
+      ALLOCATE( lev_ifs(nlev_in), lev_hyi(nlev_in+1), hyab(nhyi), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
+      CALL nf(nf_get_var_double(ncid, varid, lev_ifs), routine)
+      lev_hyi(1:nlev_in) = NINT( lev_ifs(:) )
+      lev_hyi(nlev_in+1) = lev_hyi(nlev_in) + 1
+      IF ( nlev_in+1 /= nhyi) THEN
+        WRITE(message_text,*) 'Reading only IFS levels ', lev_hyi(1:nlev_in)
+        CALL message(TRIM(routine), TRIM(message_text))
+      END IF
+
+      CALL nf(nf_inq_varid(ncid, 'hyai', varid), routine)
+      CALL nf(nf_get_var_double(ncid, varid, hyab), routine)
+      vct_a(:) = hyab( lev_hyi(:))
+
+      CALL nf(nf_inq_varid(ncid, 'hybi', varid), routine)
+      CALL nf(nf_get_var_double(ncid, varid, hyab), routine)
+      vct_b(:) = hyab( lev_hyi(:))
+    ENDIF
+
+    CALL p_bcast(vct_a, p_io, mpi_comm)
+    CALL p_bcast(vct_b, p_io, mpi_comm)
+
+    ! now call constructor based on arrays:
+    CALL vct%construct(nlev_in, vct_a, vct_b)
+
+    DEALLOCATE( vct_a, vct_b, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+  END SUBROUTINE t_vct_construct_ncfile
+
+
+  ! ----------------------------------------------------------------------
+  !> Allocates and initializes vertical coordinate data structure
+  !> based on "vct_a", "vct_b" arrays.
+  !
+  SUBROUTINE t_vct_construct_with_arrays(vct, nlev, vct_a, vct_b)
+    CLASS(t_vct), INTENT(INOUT) :: vct
+    REAL(wp), INTENT(IN) :: vct_a(:) ! param. A of the vertical coordinte
+    REAL(wp), INTENT(IN) :: vct_b(:) ! param. B of the vertical coordinate
 
     INTEGER, INTENT(IN) :: nlev
-    INTEGER :: ist
+
     INTEGER :: nlevp1
 
-    CHARACTER(len=max_char_length),PARAMETER :: routine = &
-         & 'mo_vertical_coord_table:alloc_vct'
+    CHARACTER(LEN=*),PARAMETER :: routine =  modname//'::t_vct_construct_with_arrays'
 
-    !-----------------------------------------------------------------------
-    !BOC
+    !  Local scalars:
+    REAL(wp) :: za, zb, zp, zpp, zrd, zs, zsm
+    INTEGER  :: ilev, ilevp1, iplev, iplvp1, is, ism, ist, &
+      &         nvclev
+
+    !  Intrinsic functions
+    INTRINSIC LOG
 
     nlevp1 = nlev+1
 
-    ALLOCATE (ralpha(nlev), STAT=ist)
-    IF(ist/=success)THEN
-      CALL finish (TRIM(routine), ' allocation of ralpha failed')
-    ENDIF
+    ALLOCATE( vct%vct(2*(nlevp1)), STAT=ist)
+    IF (ist/=success)  CALL finish(routine, 'ALLOCATE failed!') 
 
-    ALLOCATE (rlnpr(nlev), STAT=ist)
-    IF(ist/=success)THEN
-      CALL finish (TRIM(routine), ' allocation of rlnpr failed')
-    ENDIF
+    vct%vct(1:nlevp1)        = vct_a(:)
+    vct%vct(nlev+2:2*nlevp1) = vct_b(:)
 
-    ALLOCATE (dela(nlev), STAT=ist)
-    IF(ist/=success)THEN
-      CALL finish (TRIM(routine), ' allocation of dela failed')
-    ENDIF
+    ALLOCATE (vct%ralpha(nlev), vct%rlnpr(nlev),  &
+      &       vct%delpr(nlev),   vct%rdelpr(nlev), STAT=ist)
+    IF (ist/=success)  CALL finish(routine, 'ALLOCATE failed!') 
 
-    ALLOCATE (delb(nlev), STAT=ist)
-    IF(ist/=success)THEN
-      CALL finish (TRIM(routine), ' allocation of delb failed')
-    ENDIF
 
-    ALLOCATE (rddelb(nlev), STAT=ist)
-    IF(ist/=success)THEN
-      CALL finish (TRIM(routine), ' allocation of rddelb failed')
-    ENDIF
-
-    ALLOCATE (cpg(nlev), STAT=ist)
-    IF(ist/=success)THEN
-      CALL finish (TRIM(routine), ' allocation of cpg failed')
-    ENDIF
-
-    ALLOCATE (delpr(nlev), STAT=ist)
-    IF(ist/=success)THEN
-      CALL finish (TRIM(routine), ' allocation of rdelpr failed')
-    ENDIF
-
-    ALLOCATE (rdelpr(nlev), STAT=ist)
-    IF(ist/=success)THEN
-      CALL finish (TRIM(routine), ' allocation of rdelpr failed')
-    ENDIF
-
-    ALLOCATE (alpham(nlev), STAT=ist)
-    IF(ist/=success)THEN
-      CALL finish (TRIM(routine), ' allocation of alpham failed')
-    ENDIF
-
-    ALLOCATE (ardprc(nlev), STAT=ist)
-    IF(ist/=success)THEN
-      CALL finish (TRIM(routine), ' allocation of ardprc failed')
-    ENDIF
-
-    ALLOCATE (ceta(nlev), STAT=ist)
-    IF(ist/=success)THEN
-      CALL finish (TRIM(routine), ' allocation of ceta failed')
-    ENDIF
-
-    ALLOCATE (cetah(nlevp1), STAT=ist)
-    IF(ist/=success)THEN
-      CALL finish (TRIM(routine), ' allocation of cetah failed')
-    ENDIF
-
-  END SUBROUTINE alloc_vct
-
-  !EOC
-  !-------------------------------------------------------------------------
-  !
-  !
-
-  !>
-  !!  Initializes constants for vertical coordinate calculations.
-  !!
-  !!  Method:
-  !!    Compute loop indices and surface-pressure independent
-  !!    variables associated with the vertical finite-difference scheme.
-  !!    Output is in module *mo_hyb*
-  !!
-  !! @par Revision History
-  !!  A. J. Simmons, ECMWF, November 1981, original source
-  !!  L. Kornblueh, MPI, May 1998, f90 rewrite
-  !!  U. Schulzweida, MPI, May 1998, f90 rewrite
-  !!  A. Rhodin, MPI, Jan 1999, subroutine inihyb -> module mo_hyb
-  !!  H. Wan, MPI-M, Feb 2006, rewrite: "goto" removed
-  !!  H. Wan, MPI-M, Aug 2007, new name: init_hyb_params
-  !!  A. Gassmann, MPI-M, (2008-04-23), change apzero to 10^5Pa
-  !! @par
-  !!  for more details see file AUTHORS
-  !!
-  SUBROUTINE init_vct(nlev)
-
-    INTEGER, INTENT(IN) :: nlev
-
-    !  Local scalars:
-    REAL(wp) :: za, zb, zetam, zetap, zp, zp0icao, zpp, zrd, zs, zsm
-    INTEGER  :: ilev, ilevp1, iplev, iplvp1, is, ism, ist, &
-      &         jk, jlev, nvclev
-
-    !  Intrinsic functions
-    INTRINSIC EXP, LOG
-
-    !-----------------------------------------------------------------------
-    !BOC
-
-    !  Executable statements
+    ! --------------------------------------------------------------------------------
 
     !-- 1. Initialize variables
     nvclev = nlev+1
-!ag    apzero    = 101325._wp ! changed for NCAR summer colloquium!
-    apzero    = 100000._wp
     zrd       = rd
-    ralpha(1) = zrd*LOG(2._wp)
-    rlnpr(1)  = 2._wp*ralpha(1)
+    vct%ralpha(1) = zrd*LOG(2._wp)
+    vct%rlnpr(1)  = 2._wp*vct%ralpha(1)
     ilev      = nlev
     ilevp1    = ilev + 1
-    nlevm1    = ilev - 1
+    vct%nlevm1    = ilev - 1
     iplev     = 0
     iplvp1    = 1
     is        = nvclev + ilevp1
     ism       = is - 1
-    zpp       = vct(1)
-    zsm       = vct(is)
+    zpp       = vct%vct(1)
+    zsm       = vct%vct(is)
 
-    t0icao  = 288._wp
-    tsticao = 216.5_wp
-    zp0icao = 101320._wp
-    rdlnp0i = rd*LOG(zp0icao)
-    alrrdic = 0.0065_wp/grav
-    rdlnpti = rdlnp0i + (LOG(tsticao/t0icao))/alrrdic
-
-    zb      = vct(nvclev+iplvp1+1)
+    zb      = vct%vct(nvclev+iplvp1+1)
 
     !-- 2. Calculate pressure-level values
 
@@ -228,32 +221,30 @@ CONTAINS
       IF (iplvp1==ilevp1) EXIT    ! if all levels are pressure levels
 
       zp            = zpp
-      zpp           = vct(iplvp1)
-      delpr(iplev)  = zpp - zp
-      rdelpr(iplev) = 1._wp/delpr(iplev)
+      zpp           = vct%vct(iplvp1)
+      vct%delpr(iplev)  = zpp - zp
+      vct%rdelpr(iplev) = 1._wp/vct%delpr(iplev)
 
       IF ( iplev>1 ) THEN
-        rlnpr(iplev)  = zrd*LOG(zpp/zp)
-        ralpha(iplev) = zrd - zp*rlnpr(iplev)/delpr(iplev)
+        vct%rlnpr(iplev)  = zrd*LOG(zpp/zp)
+        vct%ralpha(iplev) = zrd - zp*vct%rlnpr(iplev)/vct%delpr(iplev)
       END IF
 
-      alpham(iplev) = ralpha(iplev)*rcpd
-      ardprc(iplev) = rlnpr(iplev)*rdelpr(iplev)*rcpd
-      zb            = vct(nvclev+iplvp1+1)
+      zb            = vct%vct(nvclev+iplvp1+1)
 
     ENDDO
 
 
     IF (iplvp1/=ilevp1) THEN   ! All levels are not pressure-levels
 
-      nplev  = iplev
-      nplvp1 = iplvp1
-      nplvp2 = iplvp1 + 1
+      vct%nplev  = iplev
+      vct%nplvp1 = iplvp1
+      vct%nplvp2 = iplvp1 + 1
 
 
       !-- 3. Calculate sigma-level values
 
-      za = vct(ism-nvclev)
+      za = vct%vct(ism-nvclev)
 
       DO WHILE ( za == 0._wp )
 
@@ -261,56 +252,46 @@ CONTAINS
         ism = is - 1
         ist = is - nvclev
         zs  = zsm
-        zsm = vct(is)
+        zsm = vct%vct(is)
         IF (ist==1) THEN
-          nlmsgl = 0
-          nlmslp = 1
-          nlmsla = 2
+          vct%nlmsgl = 0
+          vct%nlmslp = 1
+          vct%nlmsla = 2
           EXIT
         ELSE
-          rlnpr(ist)  = zrd*LOG(zs/zsm)
-          ralpha(ist) = zrd - zsm*rlnpr(ist)/(zs-zsm)
+          vct%rlnpr(ist)  = zrd*LOG(zs/zsm)
+          vct%ralpha(ist) = zrd - zsm*vct%rlnpr(ist)/(zs-zsm)
         END IF
-        za = vct(ism-nvclev)
+        za = vct%vct(ism-nvclev)
 
       END DO
 
       IF (za>0._wp) THEN
-        nlmsgl = ism - nvclev
-        nlmslp = nlmsgl + 1
-        nlmsla = nlmslp
+        vct%nlmsgl = ism - nvclev
+        vct%nlmslp = vct%nlmsgl + 1
+        vct%nlmsla = vct%nlmslp
       END IF
-
-      !-- 4. Calculate dela, delb, rddelb, cpg, and complete alphdb
-
-      DO jk = 1, nlev
-        dela(jk)   = vct(jk+1) - vct(jk)
-        delb(jk)   = vct(nvclev+jk+1) - vct(nvclev+jk)
-        rddelb(jk) = rd*delb(jk)
-        cpg(jk)    = vct(nvclev+jk)*vct(jk+1) - vct(nvclev+jk+1)*vct(jk)
-      END DO
-
-      DO jk = nlmslp, nlev
-        alpham(jk) = ralpha(jk)*delb(jk)
-      END DO
 
     ENDIF  ! If all levels are not pressure-levels
 
-    !-- 5. Compute full level values of the hybrid coordinate
+  END SUBROUTINE t_vct_construct_with_arrays
 
-    zetam    = vct(1)/apzero + vct(nvclev+1)
-    cetah(1) = zetam
 
-    DO jlev = 1, nlev
-      zetap         = vct(jlev+1)/apzero + vct(nvclev+1+jlev)
-      ceta(jlev)    = (zetam+zetap)*.5_wp
-      cetah(jlev+1) = zetap
-      zetam = zetap
-    END DO
+  SUBROUTINE t_vct_finalize(vct)
+    CLASS(t_vct), INTENT(INOUT) :: vct
 
-  END SUBROUTINE init_vct
+    CHARACTER(LEN=*),PARAMETER :: routine =  modname//'::t_vct_finalize'
 
-!-------------------------------------------------------------------------
+    CALL DO_DEALLOCATE(vct%vct)
+    CALL DO_DEALLOCATE(vct%ralpha)
+    CALL DO_DEALLOCATE(vct%rlnpr)
+    CALL DO_DEALLOCATE(vct%delpr)
+    CALL DO_DEALLOCATE(vct%rdelpr)
+
+  END SUBROUTINE t_vct_finalize
+
+
+  !-------------------------------------------------------------------------
   !>
   !! Calculate half-level pressures at all model levels
   !! for a given surface pressure.
@@ -346,24 +327,44 @@ CONTAINS
   !!    H. Wan, MPI, Feb 2006, adapted for ICOHDC
   !!    H. Wan, MPI, Jan 2010, renamed the interface
   !!
-  SUBROUTINE half_level_pressure( ps,kdimp,klen,nlev_in, ph)
+  SUBROUTINE t_vct_half_level_pressure(vct, ps,kdimp,klen,nlev_in, ph)
+    CLASS(t_vct), INTENT(IN) :: vct
 
     INTEGER ,INTENT(in)  :: kdimp
-    REAL(wp),INTENT(in)  :: ps(kdimp)   !< surface pressure
+    REAL(wp),INTENT(in)  :: ps(:)   !< surface pressure
     INTEGER ,INTENT(in)  :: klen, nlev_in
 
     REAL(wp),INTENT(inout) :: ph(kdimp,nlev_in+1) !< half-level pressure
 
+    CHARACTER(LEN=*),PARAMETER :: routine =  modname//'::t_vct_half_level_pressure'
     REAL(wp):: zb, zp
     INTEGER :: jk, jl, nvclev, nlevp1
+
+    ! consistency checks:
+
+    IF (SIZE(ph,1) < klen) THEN
+      WRITE (message_text,*) "Wrong dimension: SIZE(ph,1)=",SIZE(ph,1), ", klen=",klen
+      CALL finish(routine, message_text)
+    END IF
+    IF (SIZE(ps) /= kdimp) THEN
+      WRITE (message_text,*) "Wrong dimension: SIZE(ps)=",SIZE(ps), ", kdimp=",kdimp
+      CALL finish(routine, message_text)
+    END IF
+    IF (.NOT. ALLOCATED(vct%vct)) THEN
+      CALL finish(routine, "vct%vct not allocated!")
+    END IF
+    IF (SIZE(vct%vct) < vct%nlmsgl) THEN
+      WRITE (message_text,*) "Wrong dimension: SIZE(vct%vct)=",SIZE(vct%vct),"; vct%nlmsgl=",vct%nlmsgl
+      CALL finish(routine, message_text)
+    END IF
 
     nvclev = nlev_in+1
     nlevp1 = nvclev
 
     ! Transfer pressure level values
 
-    DO jk = 1, nplvp1
-      zp = vct(jk)
+    DO jk = 1, vct%nplvp1
+      zp = vct%vct(jk)
       DO jl = 1, klen
         ph(jl,jk) = zp
       END DO
@@ -371,9 +372,9 @@ CONTAINS
 
     ! Compute hybrid level values
 
-    DO jk = nplvp2, nlmsgl
-      zp = vct(jk)
-      zb = vct(jk+nvclev)
+    DO jk = vct%nplvp2, vct%nlmsgl
+      zp = vct%vct(jk)
+      zb = vct%vct(jk+nvclev)
       DO jl = 1, klen
         ph(jl,jk) = zp + zb*ps(jl)
       END DO
@@ -381,14 +382,15 @@ CONTAINS
 
     ! Compute sigma-level values
 
-    DO jk = nlmslp, nlevp1
-      zb = vct(jk+nvclev)
+    DO jk = vct%nlmslp, nlevp1
+      zb = vct%vct(jk+nvclev)
       DO jl = 1, klen
         ph(jl,jk) = zb*ps(jl)
       END DO
     END DO
 
-  END SUBROUTINE half_level_pressure
+  END SUBROUTINE t_vct_half_level_pressure
+
 
   !>
   !! Calculate full-level pressures for all vertical layers
@@ -408,7 +410,8 @@ CONTAINS
   !! @par Revision History
   !!    H. Wan, MPI, 2006-08-17
   !!
-  SUBROUTINE full_level_pressure( pres_i, kdimp, klen, nlev_in, pres_m)
+  SUBROUTINE t_vct_full_level_pressure( vct, pres_i, kdimp, klen, nlev_in, pres_m)
+    CLASS(t_vct), INTENT(IN) :: vct
 
     INTEGER ,INTENT(in) :: kdimp, klen, nlev_in    !< dimension parameters
     REAL(wp),INTENT(in) :: pres_i(kdimp,nlev_in+1) !< half-level pressure
@@ -421,7 +424,7 @@ CONTAINS
     !-----
 
     nlev = nlev_in
-    zpres_i_top_min = vct(1)
+    zpres_i_top_min = vct%vct(1)
     IF ( zpres_i_top_min > 0._wp ) THEN
       ik_top = 1
     ELSE
@@ -439,7 +442,8 @@ CONTAINS
        END DO
     END DO
 
-  END SUBROUTINE full_level_pressure
+  END SUBROUTINE t_vct_full_level_pressure
+
 
   !-------------------------------------------------------------------------
   !>
@@ -477,8 +481,10 @@ CONTAINS
   !!    L. Kornblueh, MPI, May 1998, f90 rewrite
   !!    U. Schulzweida, MPI, May 1998, f90 rewrite
   !!
-  SUBROUTINE auxhyb( ph,kdim,klen,nlev_in,                   &
-                     pdelp,prdelp,plnph,plnpr,palpha )
+  SUBROUTINE t_vct_auxhyb( vct, ph,kdim,klen,nlev_in,                   &
+    &                      pdelp,prdelp,plnph,plnpr,palpha )
+    
+    CLASS(t_vct), INTENT(IN) :: vct
 
     INTEGER ,INTENT(in)  :: kdim, klen, nlev_in
     REAL(wp),INTENT(in)  :: ph(kdim, nlev_in+1)
@@ -496,11 +502,11 @@ CONTAINS
     !-----
     ! Set pressure-level values or other top-level values
 
-    DO jk = 1, nplev
-      zd = delpr(jk)
-      zr = rdelpr(jk)
-      zl = rlnpr(jk)
-      za = ralpha(jk)
+    DO jk = 1, vct%nplev
+      zd = vct%delpr(jk)
+      zr = vct%rdelpr(jk)
+      zl = vct%rlnpr(jk)
+      za = vct%ralpha(jk)
       DO jl = 1, klen
         pdelp(jl,jk) = zd
         prdelp(jl,jk) = zr
@@ -511,9 +517,9 @@ CONTAINS
 
     ! Calculate hybrid-level values
 
-    DO jk = nplvp1, nlmsgl
+    DO jk = vct%nplvp1, vct%nlmsgl
 
-      IF (jk == 1 .AND. vct(1) == 0.0_wp ) THEN
+      IF (jk == 1 .AND. vct%vct(1) == 0.0_wp ) THEN
 
         DO jl = 1, klen
           pdelp(jl,jk)  = ph(jl,jk+1) - ph(jl,jk)
@@ -535,9 +541,9 @@ CONTAINS
 
     ! Set sigma-level values
 
-    DO jk = nlmsla, nlev
-      zl = rlnpr(jk)
-      za = ralpha(jk)
+    DO jk = vct%nlmsla, nlev
+      zl = vct%rlnpr(jk)
+      za = vct%ralpha(jk)
       DO jl = 1, klen
         pdelp(jl,jk)  = ph(jl,jk+1) - ph(jl,jk)
         prdelp(jl,jk) = 1._wp/pdelp(jl,jk)
@@ -552,7 +558,8 @@ CONTAINS
       END DO
     END DO
 
-  END SUBROUTINE auxhyb
+  END SUBROUTINE t_vct_auxhyb
+
 
   !-------------------------------------------------------------------------
   !>
@@ -609,10 +616,11 @@ CONTAINS
     REAL(wp) ,INTENT(in)    :: palpha(kdim,nlev_in), pgeop_sfc(kdim)
     REAL(wp) ,INTENT(inout) :: pgeop_m(kdim,nlev_in),   pgeop_i(kdim,nlev_in+1)
 
-    INTEGER :: jk, jl, jkp, nlev, nlevp1
+    INTEGER :: jk, jl, jkp, nlev, nlevp1, nlevm1
 
     nlev = nlev_in
     nlevp1 = nlev+1
+    nlevm1 = nlev-1
 
     ! Integrate hydrostatic equation
 
@@ -638,6 +646,7 @@ CONTAINS
     END DO
 
   END SUBROUTINE geopot
+
 
 END MODULE mo_ifs_coord
 

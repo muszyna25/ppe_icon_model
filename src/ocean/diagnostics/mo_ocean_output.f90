@@ -41,8 +41,8 @@ MODULE mo_ocean_output
   USE mo_ocean_state,              ONLY: ocean_restart_list
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_sea_ice,                ONLY: compute_mean_ice_statistics, reset_ice_statistics
-  USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
-    & t_sea_ice
+  USE mo_sea_ice_types,          ONLY: t_atmos_fluxes, t_sea_ice
+  USE mo_ocean_surface_types,    ONLY: t_ocean_surface
   !USE mo_ocean_physics,            ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_ocean_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
@@ -93,7 +93,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(datetime), POINTER                          :: this_datetime
-    TYPE(t_sfc_flx)                                  :: surface_fluxes
+    TYPE(t_ocean_surface)                            :: surface_fluxes
     TYPE (t_sea_ice),         INTENT(inout)          :: sea_ice
     INTEGER,   INTENT(in)                            :: jstep, jstep0
     TYPE(t_hamocc_state), TARGET, INTENT(inout)      :: hamocc

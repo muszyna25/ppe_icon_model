@@ -133,9 +133,9 @@ CONTAINS
     &                   pvm1       ,&! in,  v                      [m/s]
     &                   lat_deg    ,&! in,  latitude               [degN]
 !!$    &                   paprflux   ,&! in, precipitation flux at surface
-    &                   dissip_gwh ,&! out,     Q|Hines            [W/kg]
-    &                   tend_u_gwh ,&! out, du/dt|Hines            [m/s2]
-    &                   tend_v_gwh ) ! out, dv/dt|Hines            [m/s2]
+    &                   dissip_gwd ,&! out,     Q|Hines            [W/kg]
+    &                   tend_u_gwd ,&! out, du/dt|Hines            [m/s2]
+    &                   tend_v_gwd ) ! out, dv/dt|Hines            [m/s2]
 
 
     !
@@ -178,9 +178,9 @@ CONTAINS
 
     !  Array arguments with intent(OUT):
     ! - input/output 2d
-    REAL(wp) ,INTENT(out) :: dissip_gwh(nbdim,nlev)  ! gw energy dissipation
-    REAL(wp) ,INTENT(out) :: tend_u_gwh(nbdim,nlev)  ! tendency of zonal wind
-    REAL(wp) ,INTENT(out) :: tend_v_gwh(nbdim,nlev)  ! tendency of meridional wind
+    REAL(wp) ,INTENT(out) :: dissip_gwd(nbdim,nlev)  ! gw energy dissipation
+    REAL(wp) ,INTENT(out) :: tend_u_gwd(nbdim,nlev)  ! tendency of zonal wind
+    REAL(wp) ,INTENT(out) :: tend_v_gwd(nbdim,nlev)  ! tendency of meridional wind
 
     !  Local arrays for ccc/mam hines gwd scheme:
 
@@ -235,9 +235,9 @@ CONTAINS
   CALL trace_start ('gw_hines', 20)
 #endif
 
-    dissip_gwh(:,:) = 0.0_wp
-    tend_u_gwh(:,:) = 0.0_wp
-    tend_v_gwh(:,:) = 0.0_wp
+    dissip_gwd(:,:) = 0.0_wp
+    tend_u_gwd(:,:) = 0.0_wp
+    tend_v_gwd(:,:) = 0.0_wp
 
     !
     !--  Check consistency of nc, jcs and jce
@@ -413,9 +413,9 @@ CONTAINS
     !     * heating rate only calculated if lheatcal = .TRUE.).
     !
     CALL hines_extro ( nc, nlev, nazmth,                          &
-      &                tend_u_gwh(jcs:jce,:),                     &
-      &                tend_v_gwh(jcs:jce,:),                     &
-      &                dissip_gwh(jcs:jce,:),                     &
+      &                tend_u_gwd(jcs:jce,:),                     &
+      &                tend_v_gwd(jcs:jce,:),                     &
+      &                dissip_gwd(jcs:jce,:),                     &
       &                diffco,                                    &
       &                flux_u,                                    &
       &                flux_v,                                    &

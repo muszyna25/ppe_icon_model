@@ -34,8 +34,7 @@ MODULE mo_sea_ice_zerolayer
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, hci_layer, use_constant_tfreez
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state 
-  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, &
-    &                               t_atmos_for_ocean
+  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
   USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 
 
@@ -55,12 +54,10 @@ CONTAINS
   !
   !  
   !>
-  !! ! set_ice_temp_zerolayer:: calculate new ice + snow temperatures based on:
+  !! ! set_ice_temp_zerolayer:: calculate new ice and snow temperatures based on:
   !!    Semtner, Albert J., 1976: A Model for the Thermodynamic Growth of Sea
   !!    Ice in Numerical Investigations of Climate. J. Phys. Oceanogr., 6,
-  !!    379--389.  doi:
-  !!    http://dx.doi.org/10.1175/1520-0485(1976)006<0379:AMFTTG>2.0.CO;2
-  !!   (Appendix)
+  !!    379--389. (Appendix)
   !!
   !! This function changes:
   !! ice % Tsurf    the new surface temperature   for each ice category     [deg C]

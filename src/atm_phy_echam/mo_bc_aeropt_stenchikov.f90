@@ -28,7 +28,7 @@ MODULE mo_bc_aeropt_stenchikov
   USE mo_latitude_interpolation, ONLY: latitude_weights_li
   USE mo_physical_constants,     ONLY: rgrav, rd
   USE mo_math_constants,         ONLY: deg2rad, pi_2
-  USE mo_echam_phy_config,       ONLY: echam_phy_config
+  USE mo_mpi_phy_config,         ONLY: mpi_phy_config
   USE mtime,                     ONLY: datetime 
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
        &                               calculate_time_interpolation_weights
@@ -103,8 +103,9 @@ END SUBROUTINE shift_months_bc_aeropt_stenchikov
   !> SUBROUTINE read_bc_aeropt_stenchikov -- read the aerosol optical properties 
   !! of the volcanic (Stratospheric) Stenchikov aerosols
 
-SUBROUTINE read_bc_aeropt_stenchikov(current_date)
+SUBROUTINE read_bc_aeropt_stenchikov(current_date, p_patch_id)
   TYPE(datetime), POINTER, INTENT(in) :: current_date
+  INTEGER, INTENT(in)                 :: p_patch_id
 
   !LOCAL VARIABLES
   INTEGER(i8) :: iyear(2)
@@ -144,7 +145,7 @@ SUBROUTINE read_bc_aeropt_stenchikov(current_date)
   ENDIF
   inm2_time_interpolation=tiw%month2_index
   DO imonths=1,nmonths
-  CALL read_months_bc_aeropt_stenchikov (                             &
+  CALL read_months_bc_aeropt_stenchikov (p_patch_id,                  &
                      'longitude',       'latitude',         'levels', &
                      imonth(imonths),    iyear(imonths),    imonths   )
   END DO
@@ -438,10 +439,11 @@ END SUBROUTINE pressure_index
 !!   asymm: asymmetry fractor corresp. to tautl: asymm(time, levels, latitude, longitude)
 !!   levels: non-equidistant pressure levels corresp. to exts, omega, asymm: levels(levels).
 !!     Only the mid-point pressures are given.
-  SUBROUTINE read_months_bc_aeropt_stenchikov (      &
+  SUBROUTINE read_months_bc_aeropt_stenchikov (p_patch_id,  &
     cwave_dim,        clat_dim,           clev_dim,  &
     kmonth,           kyear,            ktime_step   )
-!
+  !
+  INTEGER, INTENT(in)            :: p_patch_id   ! id number of the patch
   CHARACTER(len=*), INTENT(in)   :: cwave_dim,  &! name of wavelength dimension
                                     clat_dim,   &! name of latitude dimension
                                     clev_dim     ! name of level dimension
@@ -470,7 +472,7 @@ END SUBROUTINE pressure_index
   END IF
   WRITE(ckyear,*) kyear
 
-  IF ( echam_phy_config%lamip ) THEN
+  IF ( mpi_phy_config(p_patch_id)%lamip ) THEN
     cfname='bc_aeropt_stenchikov_lw_b16_sw_b14_'//TRIM(ADJUSTL(ckyear))//'.nc'
   ELSE
     cfname='bc_aeropt_stenchikov_lw_b16_sw_b14.nc'
