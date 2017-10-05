@@ -2611,11 +2611,11 @@ CONTAINS
     LOGICAL,                  INTENT(IN) :: l_isrestart        !< .TRUE. if this is a restart run
     LOGICAL,                  INTENT(IN) :: lrecover_open_file !< Flag. If true, we test for an existing file from previous runs
 
-    IF (.NOT. ASSOCIATED(event)) RETURN
-    IF (ASSOCIATED(event%next)) THEN
-      CALL set_event_to_simstep_par(event%next, jstep, l_isrestart, lrecover_open_file)
+    IF (ASSOCIATED(event)) THEN
+      IF (ASSOCIATED(event%next)) &
+        CALL set_event_to_simstep_par(event%next, jstep, l_isrestart, lrecover_open_file)
+      CALL set_event_to_simstep(event%output_event, jstep, l_isrestart, lrecover_open_file)
     END IF
-    CALL set_event_to_simstep(event%output_event, jstep, l_isrestart, lrecover_open_file)
   END SUBROUTINE set_event_to_simstep_par
 
 
