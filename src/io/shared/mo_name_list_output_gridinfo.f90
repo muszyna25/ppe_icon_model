@@ -55,8 +55,17 @@ MODULE mo_name_list_output_gridinfo
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxis
   USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl, &
     &                                             level_type_il
+  USE mo_reorder_info,                      ONLY: t_reorder_info
 #ifdef HAVE_CDI_PIO
-  USE mo_reorder_info,                      ONLY: ri_cpy_blk2part, t_reorder_info
+  USE mo_reorder_info,                      ONLY: ri_cpy_blk2part
+  USE mo_parallel_config,                   ONLY: pio_type
+  USE mo_impl_constants,                    ONLY: pio_type_cdipio
+  USE yaxt,                                 ONLY: xt_idxlist, xt_stripe, &
+    &                                             xt_idxstripes_new
+  USE ppm_extents,                          ONLY: extent
+  USE mo_decomposition_tools,               ONLY: uniform_partition_start, uniform_partition
+  USE mo_mpi,                               ONLY: p_n_work, p_pe_work
+  USE iso_c_binding,                        ONLY: c_int
 #endif
   IMPLICIT NONE
 
@@ -1189,7 +1198,15 @@ CONTAINS
       idom     = of%phys_patch_id
       idom_log = patch_info(idom)%log_patch_id
       DO igrid=1,3
-        n = patch_info(idom_log)%ri(igrid)%n_glb
+#ifdef HAVE_CDI_PIO
+        IF (pio_type == pio_type_cdipio) THEN
+          n = SIZE(patch_info(idom_log)%grid_info(igrid)%lon)
+        ELSE
+#endif
+          n = patch_info(idom_log)%ri(igrid)%n_glb
+#ifdef HAVE_CDI_PIO
+        END IF
+#endif
         ! allocate data buffer:
         ALLOCATE(r_out_dp_1D(n), stat=errstat)
         IF (errstat /= SUCCESS) CALL finish(routine, 'ALLOCATE failed!')
@@ -1197,11 +1214,15 @@ CONTAINS
         ! write RLON, RLAT
         IF (one_of(GRB2_GRID_INFO_NAME(igrid,IRLON), p_varlist) /= -1) THEN
           r_out_dp_1D(:) = patch_info(idom_log)%grid_info(igrid)%lon(1:n) * rad2deg
-          CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(idx(igrid),IRLON), r_out_dp_1D, 0)
+          CALL write_unstruct_grid2var(of%cdiFileID, &
+            of%cdi_grb2(idx(igrid),IRLON), r_out_dp_1D, &
+            patch_info(idom_log)%ri(igrid))
         END IF
         IF (one_of(GRB2_GRID_INFO_NAME(igrid,IRLAT), p_varlist) /= -1) THEN
           r_out_dp_1D(:) = patch_info(idom_log)%grid_info(igrid)%lat(1:n) * rad2deg
-          CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(idx(igrid),IRLAT), r_out_dp_1D, 0)
+          CALL write_unstruct_grid2var(of%cdiFileID, &
+            of%cdi_grb2(idx(igrid),IRLAT), r_out_dp_1D, &
+            patch_info(idom_log)%ri(igrid))
         END IF
 
         ! clean up
@@ -1223,11 +1244,13 @@ CONTAINS
       ! write RLON, RLAT
       IF (one_of(GRB2_GRID_INFO_NAME(0,IRLON), p_varlist) /= -1) THEN
         r_out_dp(:,:) = rotated_pts(:,:,1) * rad2deg
-        CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(ILATLON,IRLON), r_out_dp, 0)
+        CALL write_remap_grid2var(of%cdiFileID, of%cdi_grb2(ILATLON,IRLON), &
+          r_out_dp)
       END IF
       IF (one_of(GRB2_GRID_INFO_NAME(0,IRLAT), p_varlist) /= -1) THEN
         r_out_dp(:,:) = rotated_pts(:,:,2) * rad2deg
-        CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(ILATLON,IRLAT), r_out_dp, 0)
+        CALL write_remap_grid2var(of%cdiFileID, of%cdi_grb2(ILATLON,IRLAT), &
+          r_out_dp)
       END IF
 
       ! clean up
@@ -1237,6 +1260,76 @@ CONTAINS
     CASE DEFAULT
       CALL finish(routine, "Unsupported grid type.")
     END SELECT
+
+  CONTAINS
+    SUBROUTINE write_unstruct_grid2var(fileid, varid, r_out_dp_1D, ri)
+      INTEGER, INTENT(in) :: fileid, varid
+      REAL(wp), INTENT(in) :: r_out_dp_1d(:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      CONTIGUOUS :: r_out_dp_1d
+#endif
+      TYPE(t_reorder_info), INTENT(in) :: ri
+#ifdef HAVE_CDI_PIO
+      TYPE(extent) :: grid_size_desc, grid_part_desc
+      INTEGER(c_int) :: grid_chunk(2, 3)
+      INTEGER :: i,j
+#endif
+
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio) THEN
+        CALL streamWriteVarPart(fileid, varid, r_out_dp_1D(i:j), 0, &
+          &                     ri%reorder_idxlst_xt(1))
+      ELSE
+#endif
+        CALL streamWriteVar(fileid, varid, r_out_dp_1D, 0)
+#ifdef HAVE_CDI_PIO
+      END IF
+#endif
+    END SUBROUTINE write_unstruct_grid2var
+
+    SUBROUTINE write_remap_grid2var(fileid, varid, r_out_dp)
+      INTEGER, INTENT(in) :: fileid, varid
+      REAL(wp), TARGET, INTENT(in) :: r_out_dp(:,:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      CONTIGUOUS :: r_out_dp
+#endif
+#ifdef HAVE_CDI_PIO
+      TYPE(extent) :: grid_size_desc(2), grid_part_desc(2)
+      INTEGER(c_int) :: grid_chunk(2, 3)
+      INTEGER :: p(2), q(2), div(2), div2, partx, party, i
+#endif
+
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio) THEN
+        div2 = FLOOR(SQRT(REAL(p_n_work)))
+        DO WHILE (div2 > 2)
+          IF (MOD(p_n_work, div2) == 0) EXIT
+          div2 = div2 - 1
+        END DO
+        div(1) = p_n_work / div2
+        div(2) = div2
+        p(1) = MOD(p_pe_work, div(1)) + 1
+        p(2) = p_pe_work / div(1) + 1
+        DO i = 1, 2
+          grid_size_desc(i)%first = 1
+          grid_size_desc(i)%size = SIZE(r_out_dp, i)
+          grid_part_desc(i) = uniform_partition(grid_size_desc(i), div(i), p(i))
+          p(i) = grid_part_desc(i)%first
+          grid_chunk(i,1) = INT(p(i), c_int)
+          q(i) = p(i) + grid_part_desc(i)%size - 1
+          grid_chunk(i,2) = INT(q(i), c_int)
+        END DO
+        grid_chunk(1,3) = 1
+        grid_chunk(2,3) = 1
+        CALL streamWriteVarChunk(fileid, varid, grid_chunk, &
+          &                      r_out_dp(p(1):q(1),p(2):q(2)), 0)
+      ELSE
+#endif
+        CALL streamWriteVar(fileid, varid, r_out_dp, 0)
+#ifdef HAVE_CDI_PIO
+      END IF
+#endif
+    END SUBROUTINE write_remap_grid2var
 
   END SUBROUTINE write_grid_info_grb2
 ! #endif
