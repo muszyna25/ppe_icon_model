@@ -1070,6 +1070,7 @@ CONTAINS
     CHARACTER(LEN=vname_len), POINTER :: p_varlist(:)
     INTEGER, PARAMETER :: idx(3) = (/ ICELL, IEDGE, IVERT /)
 
+    CALL get_varlist(of, p_varlist)
     SELECT CASE(of%name_list%remap)
     CASE (REMAP_NONE)
       idom     = of%phys_patch_id
@@ -1081,7 +1082,6 @@ CONTAINS
         IF (errstat /= SUCCESS) CALL finish(routine, 'ALLOCATE failed!')
 
         ! write RLON, RLAT
-        CALL get_varlist(of, p_varlist)
         IF (one_of(GRB2_GRID_INFO_NAME(igrid,IRLON), p_varlist) /= -1) THEN
           r_out_dp_1D(:) = patch_info(idom_log)%grid_info(igrid)%lon(1:n) / pi_180
           CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(idx(igrid),IRLON), r_out_dp_1D, 0)
@@ -1108,7 +1108,6 @@ CONTAINS
       CALL rotate_latlon_grid(grid, rotated_pts)
 
       ! write RLON, RLAT
-      CALL get_varlist(of, p_varlist)
       IF (one_of(GRB2_GRID_INFO_NAME(0,IRLON), p_varlist) /= -1) THEN
         r_out_dp(:,:) = rotated_pts(:,:,1) / pi_180
         CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(ILATLON,IRLON), r_out_dp, 0)
