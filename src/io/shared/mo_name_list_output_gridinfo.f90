@@ -37,7 +37,7 @@ MODULE mo_name_list_output_gridinfo
   USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid, compute_lonlat_specs,     &
     &                                             rotate_latlon_grid
   USE mo_intp_lonlat_types,                 ONLY: lonlat_grids
-  USE mo_math_constants,                    ONLY: pi_180, pi
+  USE mo_math_constants,                    ONLY: pi, rad2deg
   USE mo_impl_constants,                    ONLY: SUCCESS, min_rlcell_int, min_rledge_int,  &
     &                                             min_rlvert, vname_len
   USE mo_cdi_constants,                     ONLY: GRID_CELL
@@ -1083,11 +1083,11 @@ CONTAINS
 
         ! write RLON, RLAT
         IF (one_of(GRB2_GRID_INFO_NAME(igrid,IRLON), p_varlist) /= -1) THEN
-          r_out_dp_1D(:) = patch_info(idom_log)%grid_info(igrid)%lon(1:n) / pi_180
+          r_out_dp_1D(:) = patch_info(idom_log)%grid_info(igrid)%lon(1:n) * rad2deg
           CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(idx(igrid),IRLON), r_out_dp_1D, 0)
         END IF
         IF (one_of(GRB2_GRID_INFO_NAME(igrid,IRLAT), p_varlist) /= -1) THEN
-          r_out_dp_1D(:) = patch_info(idom_log)%grid_info(igrid)%lat(1:n) / pi_180
+          r_out_dp_1D(:) = patch_info(idom_log)%grid_info(igrid)%lat(1:n) * rad2deg
           CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(idx(igrid),IRLAT), r_out_dp_1D, 0)
         END IF
 
@@ -1109,11 +1109,11 @@ CONTAINS
 
       ! write RLON, RLAT
       IF (one_of(GRB2_GRID_INFO_NAME(0,IRLON), p_varlist) /= -1) THEN
-        r_out_dp(:,:) = rotated_pts(:,:,1) / pi_180
+        r_out_dp(:,:) = rotated_pts(:,:,1) * rad2deg
         CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(ILATLON,IRLON), r_out_dp, 0)
       END IF
       IF (one_of(GRB2_GRID_INFO_NAME(0,IRLAT), p_varlist) /= -1) THEN
-        r_out_dp(:,:) = rotated_pts(:,:,2) / pi_180
+        r_out_dp(:,:) = rotated_pts(:,:,2) * rad2deg
         CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(ILATLON,IRLAT), r_out_dp, 0)
       END IF
 
