@@ -282,14 +282,17 @@ CONTAINS
     CHARACTER(len=*), INTENT(IN)           :: arg(:)
     ! local variables:
     INTEGER :: i, in_str_tlen, arg_tlen
+    CHARACTER(len=len_trim(in_str)) :: in_str_upper
 
     one_of = -1
-    IF (SIZE(arg) > 0) THEN
+    n = SIZE(arg)
+    IF (n > 0) THEN
+      in_str_upper = toupper(in_str)
       in_str_tlen = LEN_TRIM(in_str)
-      DO i=1,SIZE(arg)
+      DO i=1,n
         arg_tlen = LEN_TRIM(arg(i))
         IF (arg_tlen == in_str_tlen) THEN
-          IF (toupper(in_str(1:in_str_tlen)) == toupper(arg(i)(1:arg_tlen))) THEN
+          IF (in_str_upper == toupper(arg(i))) THEN
             one_of=i
             EXIT
           ENDIF
