@@ -447,6 +447,13 @@
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
+    CALL add_var(hamocc_acc_list, 'co2mr',hamocc_state_acc%co2mr,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('co2mr','ppm','co2 mixing ratio in the atmosphere', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 92, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
     CALL add_var(hamocc_acc_list, 'co2flux',hamocc_state_acc%cflux,    &
       & grid_unstructured_cell, za_surface,&
       & t_cf_var('co2flux','kmol C m-2 s-1','co2 flux', DATATYPE_FLT32), &
@@ -1345,6 +1352,14 @@
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'co2mr',hamocc_state_tend%co2mr,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('co2mr','ppm','co2 mixing ratio', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
 
     CALL add_var(hamocc_tendency_list, 'co2flux',hamocc_state_tend%cflux,    &
       & grid_unstructured_cell, za_surface,&

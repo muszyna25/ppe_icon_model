@@ -2913,6 +2913,14 @@ CONTAINS
     ! Surface fluxes
     !---------------------------
     ! gridbox mean
+    CALL add_var( field_list, prefix//'co2flux', field%co2flux,              &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
+                & t_cf_var('co2flux', 'kg m-2 s-1', 'co2 flux',           &
+                & datatype_flt),                                          &
+                & grib2_var(255,255,255,iextbits, GRID_UNSTRUCTURED, GRID_CELL),&
+                & ldims=shape2d,                                          &
+                & lrestart = .FALSE.,                                     &
+                & isteptype=TSTEP_INSTANT                                 )
 
     CALL add_var( field_list, prefix//'evspsbl', field%evap,              &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
@@ -3132,6 +3140,15 @@ CONTAINS
     !-----------------------------------------
     ! near surface diagnostics, grid box mean
     !-----------------------------------------
+
+    CALL add_var( field_list, prefix//'co2mmr', field%co2mmr,                     &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                & t_cf_var('CO2 MR','kg kg-1','co2 mixing ratio',               &
+                &          datatype_flt),                                       &
+                & grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
+                & ldims=shape2d,                                                &
+                & lrestart = .FALSE.,                                           &
+                & isteptype=TSTEP_INSTANT                                       )
 
     CALL add_var( field_list, prefix//'sfcwind', field%sfcwind,                 &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &

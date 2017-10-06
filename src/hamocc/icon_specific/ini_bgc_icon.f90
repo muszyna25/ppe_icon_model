@@ -205,7 +205,8 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
               &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
               &              jb, &
               &              p_os%p_prog(nold(1))%tracer(:,:,jb,:),&
-              &              hamocc_state%p_sed, hamocc_state%p_diag)
+              &              hamocc_state%p_sed, hamocc_state%p_diag,&
+              &              p_as%co2flx(:,jb))
      
 
   ENDDO

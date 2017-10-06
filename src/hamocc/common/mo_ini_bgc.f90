@@ -404,7 +404,7 @@ CONTAINS
                 powtra(j,k,ipowaph) = bgctra(j,kbo(j),iphosph)
                 powtra(j,k,ipowaox) = bgctra(j,kbo(j),ioxygen)
                 powtra(j,k,ipown2)  = 0._wp
-                powtra(j,k,ipowh2s)  = 0._wp
+                powtra(j,k,ipowh2s) = 0._wp
                 powtra(j,k,ipowno3) = bgctra(j,kbo(j),iano3)
                 powtra(j,k,ipowasi) = bgctra(j,kbo(j),isilica)
                 powtra(j,k,ipowafe) = bgctra(j,kbo(j),iiron)

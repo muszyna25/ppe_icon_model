@@ -119,6 +119,8 @@ oce_output_interval="PT6H"
 #lnd_output_interval="P1M"
 #oce_output_interval="P1M"
 monthly="P1M"
+yearly="P1Y"
+daily="P1D"
 
 # standard long-term output switches - _min=yes only:
 output_atm_min=yes
@@ -264,7 +266,7 @@ cat > ${atm_namelist} << EOF
  mpi_phy_config(1)%lice  = .TRUE.
  mpi_phy_config(1)%lmlo  = .FALSE.
  mpi_phy_config(1)%llake  = ${llake}
- mpi_phy_config(1)%lcpl_co2_atmoce  = .FALSE.
+ mpi_phy_config(1)%lcpl_co2_atmoce  = .TRUE.
 !
 /
 &vdiff_nml
@@ -495,7 +497,7 @@ if [[ "$output_atm_min" == "yes" ]]; then
                     'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  ,
                     'tauu_wtr', 'tauu_ice', 'tauu_lnd',
                     'tauv_wtr', 'tauv_ice', 'tauv_lnd',
-                    'sfcwind' , 'uas'     , 'vas'
+                    'sfcwind' , 'uas'     , 'vas', 'co2flux'
 /
 &dbg_index_nml
   idbg_mxmn        = 2                        ! initialize MIN/MAX  debug output
@@ -576,7 +578,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'tauu'    , 'tauv'    ,
                     'tauu_sso', 'tauv_sso', 'diss_sso', 
                     'sfcwind' , 'uas'     , 'vas'     ,
-                    'tas'     , 'dew2'
+                    'tas'     , 'dew2', 'co2flux'
 /
 EOF
 fi
@@ -692,7 +694,7 @@ fi
 # III. ocean, hamocc,  and sea-ice section
 #--------------------------------------------------------------------------------------------------
 # HAMOCC settings
-use_hamocc=no
+use_hamocc=yes
 if [  "x${use_hamocc}"  = "xyes" ]; then
 lhamocc=".true."
 lbgcadv=".true."
@@ -747,8 +749,8 @@ cat >> ${oce_namelist} << EOF1
  output_start     = "${start_date}"
   output_end       = "${end_date}"
   file_interval    = "${oce_file_interval}"           ! interval in ISO-format
-  output_interval  = "P30D"
-  output_grid      = .TRUE.
+  output_interval  = "${yearly}"
+  output_grid      = .False.
   mode             = 2
   output_filename  = "${EXPNAME}_hamocc_monitor"
   filename_format  = "<output_filename>_<datetime2>"
@@ -759,7 +761,7 @@ cat >> ${oce_namelist} << EOF1
   output_filename  = "${EXPNAME}_hamocc"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${monthly}"
+  output_interval  = "${daily}"
   file_interval="P1Y"
   mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
@@ -772,7 +774,7 @@ cat >> ${oce_namelist} << EOF1
   output_filename  = "${EXPNAME}_hamocc_sediment"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${monthly}"
+  output_interval  = "${yearly}"
   file_interval="P1Y"
   mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .FALSE.
@@ -785,7 +787,7 @@ cat >> ${oce_namelist} << EOF1
   output_filename  = "${EXPNAME}_hamocc_3d_tendencies"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${monthly}"
+  output_interval  = "${yearly}"
   file_interval="P1Y"
   mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .TRUE.
@@ -798,7 +800,7 @@ cat >> ${oce_namelist} << EOF1
   output_filename  = "${EXPNAME}_hamocc_EU_tendencies"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${monthly}"
+  output_interval  = "${yearly}"
   file_interval="P1Y"
   mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .TRUE.
@@ -813,13 +815,13 @@ cat >> ${oce_namelist} << EOF1
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${monthly}"
+  output_interval  = "${daily}"
   file_interval="P1Y"
   mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .TRUE.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'co2flux','orginp','dmsflux','silinp','calinp','o2flux','n2flux','n2oflux','nfix_diag','coex90','calex90','opex90','coex1000','opex1000','calex1000','coex2000','opex2000','calex2000','o2min','zo2min'
+  ml_varlist       =  'co2flux','orginp','dmsflux','silinp','calinp','o2flux','n2flux','n2oflux','nfix_diag','coex90','calex90','opex90','coex1000','opex1000','calex1000','coex2000','opex2000','calex2000','o2min','zo2min','co2mr'
 /
 EOF1
 fi
@@ -1030,7 +1032,7 @@ fi
 datadir=$grids_folder
 add_required_file ${datadir}/ts_phc3.0_annual_pre04_slo_0039km_L64.nc initial_state.nc
 
-# HAMOCC dust field
+# HAMOCC dust & nitrogen fields
 if [  "x${use_hamocc}"  = "xyes" ]; then
 add_required_file /work/mh0727/m224013/input/icon/MAHOWALDDUST_OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G.nc dust.nc
 add_required_file /work/mh0727/m224013/input/icon/OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G_ndepo_CMIP_NCAR_CCMI-1-0_gr_185001-185012-clim.nc nitrogen.nc

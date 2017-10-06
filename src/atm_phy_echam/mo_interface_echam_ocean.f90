@@ -797,7 +797,7 @@ CONTAINS
         nlen = p_patch%npromz_c
       END IF
       DO n = 1, nlen
-        buffer(nn+n,1) = prm_field(jg)%qtrc(n,1,i_blk,ico2)
+        buffer(nn+n,1) = 42._wp!prm_field(jg)%qtrc(n,1,i_blk,ico2)
       ENDDO
     ENDDO
 !!ICON_OMP_END_PARALLEL_DO
