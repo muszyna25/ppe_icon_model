@@ -582,8 +582,9 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_grid_info_grb"
     CHARACTER(LEN=4), PARAMETER :: grid_coord_name(2) = (/ "RLON", "RLAT" /)
     TYPE (t_grib2_var) :: grid_coord_grib2(2)
-    INTEGER :: igrid,i,vlistID,idx(3),gridID(3),zaxisID
+    INTEGER :: igrid,i,vlistID,gridID(3),zaxisID
     TYPE(t_verticalAxis), POINTER  :: zaxis
+    INTEGER, PARAMETER :: idx(3) = (/ ICELL, IEDGE, IVERT /)
 
     ! geographical longitude RLON
     grid_coord_grib2(1) = grib2_var(               0,   &  ! discipline
@@ -608,8 +609,9 @@ CONTAINS
 
     SELECT CASE(of%name_list%remap)
     CASE (REMAP_NONE)
-      idx(:)    = (/ ICELL, IEDGE, IVERT /)
-      gridID(:) = (/ of%cdiCellGridID, of%cdiEdgeGridID, of%cdiVertGridID /)
+      gridID(1) = of%cdiCellGridID
+      gridID(2) = of%cdiEdgeGridID
+      gridID(3) = of%cdiVertGridID
       DO igrid=1,3
         DO i=1,2 ! for longitude, latitude:
           of%cdi_grb2(idx(igrid),i) = vlistDefVar(vlistID, gridID(igrid), zaxisID, TSTEP_CONSTANT)
@@ -1062,16 +1064,16 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::write_grid_info_grb2"
 
-    INTEGER                        :: errstat, idom, igrid, idx(3), n, idom_log
+    INTEGER                        :: errstat, idom, igrid, n, idom_log
     TYPE (t_lon_lat_grid), POINTER :: grid
     REAL(wp), ALLOCATABLE          :: rotated_pts(:,:,:), r_out_dp(:,:), r_out_dp_1D(:)
     CHARACTER(LEN=vname_len), POINTER :: p_varlist(:)
+    INTEGER, PARAMETER :: idx(3) = (/ ICELL, IEDGE, IVERT /)
 
     SELECT CASE(of%name_list%remap)
     CASE (REMAP_NONE)
       idom     = of%phys_patch_id
       idom_log = patch_info(idom)%log_patch_id
-      idx(:)    = (/ ICELL, IEDGE, IVERT /)
       DO igrid=1,3
         n = patch_info(idom_log)%ri(igrid)%n_glb
         ! allocate data buffer:
