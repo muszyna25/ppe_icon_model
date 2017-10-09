@@ -406,7 +406,7 @@ CONTAINS
           p_ice%zUnderIce(jc,jb) = zUnderIceOld(jc,jb) + p_oce_sfc%FrshFlux_VolumeTotal(jc,jb) * dtime
           p_oce_sfc%SSS(jc,jb)   = sss_inter(jc,jb) * zUnderIceOld(jc,jb) / p_ice%zUnderIce(jc,jb)
 
-          h_old_test=  (p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
+          h_old_test=  (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
 
 
           !******  (Thermodynamic Eq. 5)  ******
@@ -423,7 +423,7 @@ CONTAINS
           DO i_bgc_tra = no_tracer+1, no_tracer+nbgctra
            ! for HAMOCC tracer dilution
              p_os%p_prog(nold(1))%tracer(jc,1,jb,i_bgc_tra)  = p_os%p_prog(nold(1))%tracer(jc,1,jb,i_bgc_tra) &
-           &        * h_old_test/(p_os%p_prog(nold(1))%h(jc,jb) + p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb))
+           &        * h_old_test/(p_os%p_prog(nold(1))%h(jc,jb) + p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb))
           ENDDO
           endif
 
