@@ -93,7 +93,11 @@ MODULE mo_solve_nonhydro
   LOGICAL, PARAMETER ::  acc_validate = .FALSE.    ! Only .TRUE. during unit testing
 #define __COLLAPSE_2_LOOPS !$ACC LOOP VECTOR COLLAPSE(2)
 #else
+#if defined(_INTEL_COMPILER)
 #define __COLLAPSE_2_LOOPS !$OMP SIMD
+#else
+#define __COLLAPSE_2_LOOPS !NO LOOP COLLAPSE DIRECTIVE AVAILABLE
+#endif
 #endif
 
   CONTAINS
@@ -252,7 +256,6 @@ MODULE mo_solve_nonhydro
       iqidx(:,:,:), iqblk(:,:,:), &
       ! for igradp_method = 3
       iplev(:), ipeidx(:), ipeblk(:)
-
 
     !-------------------------------------------------------------------
     IF (use_dycore_barrier) THEN
