@@ -298,7 +298,7 @@ MODULE mo_impl_constants
                                              ! a reference state.
   INTEGER,PARAMETER :: RAYLEIGH_KLEMP   = 2  ! Klemp (2008) type Rayleigh damping
 
-  ! identifiers for NWP time control variables lcall_phy, dt_phy, t_elapsed_phy
+  ! identifiers for physical processes (NWP)
   INTEGER, PARAMETER :: itconv   =  1
   INTEGER, PARAMETER :: itccov   =  2
   INTEGER, PARAMETER :: itrad    =  3
@@ -372,7 +372,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: FFSL_HYB_MCYCL = 52
 
   ! identifier for vertical transport scheme
-  INTEGER, PARAMETER :: ino_vadv    = 0
+  INTEGER, PARAMETER :: NO_VADV     = 0
   INTEGER, PARAMETER :: iup_v       = 1
   INTEGER, PARAMETER :: ippm_vcfl   = 3
   INTEGER, PARAMETER :: ippm_v      = 30
@@ -502,7 +502,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: MODE_DWDANA      = 1
   INTEGER, PARAMETER :: MODE_IFSANA      = 2
   INTEGER, PARAMETER :: MODE_COMBINED    = 3
-  INTEGER, PARAMETER :: MODE_COSMODE     = 4
+  INTEGER, PARAMETER :: MODE_COSMO       = 4
   INTEGER, PARAMETER :: MODE_IAU         = 5
   INTEGER, PARAMETER :: MODE_IAU_OLD     = 6
   INTEGER, PARAMETER :: MODE_ICONVREMAP  = 7
@@ -583,6 +583,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_RH        = 13 !< task: compute relative humidity
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_OMEGA     = 14 !< task: compute vertical velocity
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_PV        = 15 !< task: compute potential vorticity
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_SMI       = 16 !< task: compute soil moisture index
 
   !--------------------------------------------------------------------!
   !  VARIABLE TIMELEVEL SPECIFICATION (FOR POST-PROCESSING SCHEDULER)  !

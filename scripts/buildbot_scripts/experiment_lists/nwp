@@ -1,15 +1,15 @@
-machine|daint_cpu|default
-builder|DAINT_CPU_cce||NWP
+machine|breeze|
+builder|BREEZE_nag|--with-fortran=nag|NWP
+builder|BREEZE_gcc_openmp|--with-fortran=gcc --with-openmp|NWP
+builder|BREEZE_gcc|--with-fortran=gcc|NWP
+builder|BREEZE_intel|--with-fortran=intel|NWP
+builder|BREEZE_intel_openmp|--with-fortran=intel --with-openmp|NWP
+machine|dwd_cray|
+builder|DWD_cray|--with-fortran=cray|NWP
 experiment|exp.test_nwp_R02B04N06multi|cpu_time=00:30:00
 experiment|exp.test_nwp_R02B04_R02B05_nest|cpu_time=00:30:00
 experiment|exp.test_nwp_R02B04N06multi2|cpu_time=00:30:00
-machine|breeze|default
-builder|BREEZE_intel|--with-fortran=intel|NWP
-builder|BREEZE_gcc_openmp|--with-fortran=gcc --with-openmp|NWP
-builder|BREEZE_gcc|--with-fortran=gcc|NWP
-builder|BREEZE_nag|--with-fortran=nag|NWP
-builder|BREEZE_intel_openmp|--with-fortran=intel --with-openmp|NWP
-machine|mistral|compute
+machine|mistral|
 builder|MISTRAL_intel|--with-fortran=intel|NWP
 experiment|exp.test_nwp_R02B04N06multi|cpu_time=00:30:00
 experiment|exp.test_nwp_R02B04_R02B05_nest|cpu_time=00:30:00

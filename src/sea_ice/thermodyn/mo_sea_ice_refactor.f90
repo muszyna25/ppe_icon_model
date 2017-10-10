@@ -45,7 +45,6 @@ MODULE mo_sea_ice_refactor
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_util_dbg_prnt,       ONLY: dbg_print
 ! USE mo_dbg_nml,             ONLY: idbg_mxmn, idbg_val
-! USE mo_ice_fem_utils,       ONLY: fem_ice_wrap, ice_advection, ice_ocean_stress
 
 !  USE mo_grid_config,         ONLY: n_dom   ! restrict sea-ice model to the global domain for the time being
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff

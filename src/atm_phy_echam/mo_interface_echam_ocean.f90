@@ -25,7 +25,6 @@ MODULE mo_interface_echam_ocean
   USE mo_kind                ,ONLY: wp
   USE mo_model_domain        ,ONLY: t_patch
   USE mo_echam_phy_memory    ,ONLY: prm_field
-  USE mo_echam_phy_config    ,ONLY: echam_phy_config
                                 
   USE mo_parallel_config     ,ONLY: nproma
   
@@ -42,7 +41,6 @@ MODULE mo_interface_echam_ocean
 
 #if !defined(__NO_JSBACH__) && !defined(__NO_JSBACH_HD__)
   USE mo_interface_hd_ocean  ,ONLY: jsb_fdef_hd_fields
-! USE mo_srf_init            ,ONLY: ocean_coast
 #endif
 
   USE mo_master_control      ,ONLY: get_my_process_name
@@ -57,7 +55,6 @@ MODULE mo_interface_echam_ocean
   USE mo_model_domain        ,ONLY: t_patch
 
   USE mo_exception           ,ONLY: warning, finish
-  USE mo_output_event_types  ,ONLY: t_sim_step_info
 
   USE mo_yac_finterface      ,ONLY: yac_fput, yac_fget,                          &
     &                               yac_fget_nbr_fields, yac_fget_field_ids,     &
@@ -88,7 +85,6 @@ MODULE mo_interface_echam_ocean
   INTEGER, SAVE         :: nbr_inner_cells
 
   CHARACTER(len=12)     :: str_module    = 'InterFaceOce'  ! Output of module for 1 line debug
-  INTEGER               :: idt_src       = 1               ! Level of detail for 1 line debug
 
 CONTAINS
 
@@ -491,7 +487,7 @@ CONTAINS
     ! 1. prm_field(jg)% u_stress_tile(:,:,iwtr/iice)  and 
     !    prm_field(jg)% v_stress_tile(:,:,iwtr/iice)  which are the wind stress components over water and ice respectively
     !
-    ! 2. prm_field(jg)% evap_tile(:,:,iwtr/iice)  evaporation rate over ice-covered and open ocean, no land;
+    ! 2. prm_field(jg)% evap_tile(:,:,iwtr/iice)  evaporation rate over ice-covered and open ocean/lakes, no land;
     !
     ! 3. prm_field(jg)%rsfl + prm_field(jg)%rsfc + prm_field(jg)%ssfl + prm_field(jg)%ssfc
     !    which gives the precipitation rate;

@@ -84,6 +84,15 @@ if ( -d "externals/mtime/include" ) {
     }
 }
 
+if ( -d "externals/tixi/include" ) {
+    opendir(DIR, "externals/tixi/include");
+    @incs = grep /\.(inc|h)/, readdir(DIR);
+    closedir(DIR);
+    foreach my $inc ( @incs ) {
+	copy ( "externals/tixi/include/${inc}", "${build_path}/include/${inc}" );
+    }
+}
+
 if ( -d "externals/yac/include" ) {
     opendir(DIR, "externals/yac/include");
     @incs = grep /\.(inc|h)/, readdir(DIR);
@@ -284,32 +293,32 @@ foreach my $dir ( @directories ) {
 
     if ( "$dir" ne "src" ) {
 	if ( $dir =~ m/^externals/) {
-            print MAKEFILE "../../../lib/lib\$(LIB).a: \$(OBJS)\n";
+        print MAKEFILE "../../../lib/lib\$(LIB).a: \$(OBJS)\n";
 	    print MAKEFILE "\t\$(AR) \$(ARFLAGS) ../../../lib/lib\$(LIB).a \$(OBJS)\n";
-            print MAKEFILE "\t\@for modfile in \$(wildcard *.mod); do \\\n";
-            print MAKEFILE "\t\tcp \$\$modfile ../../../include; \\\n"; 
-            print MAKEFILE "\t done\n\n";
+        print MAKEFILE "\t\@for modfile in \$(wildcard *.mod); do \\\n";
+        print MAKEFILE "\t\tcp \$\$modfile ../../../include; \\\n"; 
+        print MAKEFILE "\t done\n\n";
 	    my $include_dir = $dir;
 	    $include_dir =~ s/src/include/;
-            print MAKEFILE "CFLAGS += -I../../../../../$include_dir\n";
+        print MAKEFILE "CFLAGS += -I../../../../../$include_dir\n";
 	    if ( $dir =~ m/yac/) {
-		$include_dir =~ s/include/src/;
-		print MAKEFILE "CFLAGS += -I../../../../../$include_dir\n";
-		print MAKEFILE "CFLAGS += -I../../../../../$include_dir/xml\n";
-	    }
-            print MAKEFILE "FFLAGS := \$(subst ../module,../../../module, \$(FFLAGS))\n";	    
-            if ( $dir =~ m/self/) {
-              print MAKEFILE 'FFLAGS := $(subst -C=all,,$(FFLAGS))';print MAKEFILE "\n";
-            }
-            print MAKEFILE "\n\n";
+		    $include_dir =~ s/include/src/;
+		    print MAKEFILE "CFLAGS += -I../../../../../$include_dir\n";
+		    print MAKEFILE "CFLAGS += -I../../../../../$include_dir/xml\n";
+        }
+        print MAKEFILE "FFLAGS := \$(subst ../module,../../../module, \$(FFLAGS))\n";	    
+        if ( $dir =~ m/self/) {
+           print MAKEFILE 'FFLAGS := $(subst -C=all,,$(FFLAGS))';print MAKEFILE "\n";
+        }
+        print MAKEFILE "\n\n";
 	} else {
 	    print MAKEFILE "../lib/lib\$(LIB).a: \$(OBJS)\n";
 	    print MAKEFILE "\t\$(AR) \$(ARFLAGS) ../lib/lib\$(LIB).a \$(OBJS)\n\n";
 	}
 
 	if ( "$dir" eq "support" ) {
-            print MAKEFILE "ifeq (\$(ARCH), SX)\n";
-            print MAKEFILE "rtc_sx.o: rtc_sx.s\n";
+        print MAKEFILE "ifeq (\$(ARCH), SX)\n";
+        print MAKEFILE "rtc_sx.o: rtc_sx.s\n";
 	    print MAKEFILE "\t\$(AS) -c rtc_sx.s\n";
 	    print MAKEFILE "endif\n\n";
 	}
@@ -332,7 +341,11 @@ __EOF__
 ;
 	while ( my ($key, $value) = each(%target_programs) ) {
 	    my $okey = $key;
-	    $okey =~ s/ *$/.o/;	
+	    if ( "$okey" eq "jsb4_driver" ) {
+	        $okey = "jsb4_driver_dsl4jsb.o" ;
+	    } else {
+	        $okey =~ s/ *$/.o/;
+	    }
 	    print MAKEFILE "$okey: $value
 ../bin/$key: $okey libicon.a version.o
 \t\$(FC) \$(LDFLAGS) -o \$@ \$< libicon.a version.o \$(LIBS)
@@ -364,7 +377,7 @@ __EOF__
     
     if ( $dir =~ m/self/) {
       my @_myvpath = @vpath;
-      shift @_myvpath; 
+      shift @_myvpath;
       my $_myvpath = join('',@_myvpath);
       chop $_myvpath;
       print MAKEFILE "-include ",$_myvpath,"/../Makefile.depend";print MAKEFILE "\n";

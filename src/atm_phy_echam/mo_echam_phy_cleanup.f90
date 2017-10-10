@@ -14,9 +14,10 @@
 !!
 MODULE mo_echam_phy_cleanup
 
+  USE mtime,                 ONLY: OPERATOR(>)
   USE mo_echam_phy_memory,   ONLY: destruct_echam_phy_state
   USE mo_psrad_memory,       ONLY: destruct_psrad_forcing_list
-  USE mo_echam_phy_config,   ONLY: phy_config => echam_phy_config
+  USE mo_mpi_phy_config,     ONLY: mpi_phy_tc, dt_zero, dealloc_mpi_phy_config
   USE mo_echam_conv_config,  ONLY: cleanup_echam_convection
   USE mo_vdiff_solver,       ONLY: cleanup_vdiff_solver
 
@@ -35,15 +36,33 @@ CONTAINS
   !!
   SUBROUTINE cleanup_echam_phy
 
-    IF (phy_config%lvdiff) CALL cleanup_vdiff_solver  ! Deallocate array "matrix_idx"
+    LOGICAL :: lany
+    INTEGER :: ndom
+    INTEGER :: jd
 
-    IF (phy_config%lconv) THEN
-      CALL cleanup_echam_convection  ! deallocate array "cevapcu"
-    END IF
+    ndom = SIZE(mpi_phy_tc)
 
+    lany=.FALSE.
+    DO jd = 1,ndom
+       lany = lany .OR. (mpi_phy_tc(jd)%dt_vdf > dt_zero)
+    END DO
+    IF (lany) CALL cleanup_vdiff_solver      ! deallocate array "matrix_idx"
+
+    lany=.FALSE.
+    DO jd = 1,ndom
+       lany = lany .OR. (mpi_phy_tc(jd)%dt_cnv > dt_zero)
+    END DO
+    IF (lany) CALL cleanup_echam_convection  ! deallocate array "cevapcu"
+
+    lany=.FALSE.
+    DO jd = 1,ndom
+       lany = lany .OR. (mpi_phy_tc(jd)%dt_rad > dt_zero)
+    END DO
+    IF (lany) CALL destruct_psrad_forcing_list
+   
     CALL destruct_echam_phy_state
 
-    CALL destruct_psrad_forcing_list
+    CALL dealloc_mpi_phy_config
 
   END SUBROUTINE cleanup_echam_phy
   !-------------

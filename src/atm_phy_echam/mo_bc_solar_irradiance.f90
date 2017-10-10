@@ -107,9 +107,11 @@ CONTAINS
        start(2) = idx; cnt(2) = 14;
        CALL nf_check(p_nf_get_vara_double (ncid, nvarid, start, cnt, ssi_radt_m))
        lread_solar_radt=.FALSE.
+       last_year_radt=year
     ELSE
        CALL nf_check(p_nf_get_vara_double(ncid, nvarid, start, cnt, tsi_m))
        lread_solar=.FALSE.
+       last_year=year
     END IF
 
     CALL nf_check(p_nf_close(ncid))

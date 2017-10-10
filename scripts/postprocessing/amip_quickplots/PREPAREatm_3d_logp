@@ -21,18 +21,17 @@ LEV=$6
 #
 echo $LEV
 #
-WORKDIR=$7
-echo $WORKDIR
+DATDIR=$7
 #
-#
+
 echo QUELLE path $QUELLE 
 
 #
 
 
 #
-###############LOGmod="${WORKDIR}/atm_dyn_${NAME}"
-inDat="${WORKDIR}/atm_3d_${NAME}"
+inDat="${DATDIR}/${NAME}_atm_3d_ml.nc"
+
 ATMera="ERAin_T63L47_atm_3d_zon_${ERAystrt}_${ERAylast}_${TYP}.nc"
 #
 ###########################################################################

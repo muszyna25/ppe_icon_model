@@ -68,6 +68,8 @@ MODULE mo_dictionary
   PUBLIC :: dict_finalize
   PUBLIC :: dict_set
   PUBLIC :: dict_get
+  PUBLIC :: dict_size
+  PUBLIC :: dict_getKey
   PUBLIC :: dict_loadfile
   PUBLIC :: dict_resize
   PUBLIC :: dict_copy
@@ -253,6 +255,30 @@ CONTAINS
     END IF
   END FUNCTION dict_get
 
+  !--------------------------------------------------------------------------
+  !> Get the number of entries within the dictionary.
+  !
+  !  This IS mainly useful IN combination with dict_getKey()
+  INTEGER FUNCTION dict_size(dict) RESULT(resultVar)
+    TYPE(t_dictionary), INTENT(IN) :: dict
+
+    resultVar = dict%nentries
+  END FUNCTION dict_size
+
+  !--------------------------------------------------------------------------
+  !> Get an entry by position.
+  !
+  !  The dictionary does NOT guarantee ANY specific order IN which keys are stored, it just guarantees that all indices from 1 to dict_size() are valid.
+  FUNCTION dict_getKey(dict, keyIndex) RESULT(resultVar)
+    CHARACTER(:), ALLOCATABLE :: resultVar
+    TYPE(t_dictionary), INTENT(IN) :: dict
+    INTEGER, VALUE :: keyIndex
+
+    CHARACTER(*), PARAMETER :: routine = modname//":dict_getKey"
+
+    IF(keyIndex <= 0 .OR. keyIndex > dict%nentries) CALL finish(routine, "assertion failed: keyIndex out of bounds")
+    resultVar = TRIM(dict%array(1, keyIndex))
+  END FUNCTION dict_getKey
 
   !--------------------------------------------------------------------------
   !> Load the contents of a text file into the given dictionary data

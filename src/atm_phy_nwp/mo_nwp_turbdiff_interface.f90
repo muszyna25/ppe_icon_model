@@ -271,6 +271,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 !
         &  dt_var=tcall_turb_jg, dt_tke=tcall_turb_jg,                                & !in
         &  nprv=1, ntur=1, ntim=1, trop_mask=prm_diag%tropics_mask(:,jb),             & !in
+        &  innertrop_mask=prm_diag%innertropics_mask(:,jb),                           & !in
         &  ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevcm,                                & !in
         &  i_st=i_startidx, i_en=i_endidx, i_stp=i_startidx, i_enp=i_endidx,          &
         &  l_hori=l_hori, hhl=p_metrics%z_ifc(:,:,jb),                                & !in

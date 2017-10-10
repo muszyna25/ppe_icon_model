@@ -781,6 +781,7 @@ with_hdf5
 with_netcdf
 with_cdi
 with_grib_api
+enable_eccodes
 with_sct
 with_sctlibs
 with_mpi
@@ -1416,6 +1417,7 @@ Optional Features:
   --enable-ocean          Use ocean model component.
   --enable-testbed        Use testbed component.
   --disable-mh-file       disable machine file usage
+  --enable-eccodes=DIR    Update GRIB_API setup to successor ECCODES package
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -2536,6 +2538,9 @@ case $ac_hostname in #(
   ic2*) :
     ac_sitename=kit.edu;
          fqdn=$ac_hostname.$ac_sitename ;; #(
+  uc1*) :
+    ac_sitename=kit.edu;
+         fqdn=$ac_hostname.$ac_sitename ;; #(
   fh2*) :
     ac_sitename=kit.edu;
          fqdn=$ac_hostname.$ac_sitename ;; #(
@@ -2693,8 +2698,8 @@ fi
 
 if test "x$with_art" = "xyes"; then :
   use_art="yes"
-else
-  use_art="no"
+elif use_art="no"; then :
+
 fi
 
 
@@ -4113,8 +4118,6 @@ fi
 
 
 
-if test x$use_yac = xyes ; then
-
 XML2_LIB=""
 XML2_INCLUDE=""
 
@@ -4166,8 +4169,6 @@ fi
     echo "         set XML2ROOT to the xml2 root directory"
 
   fi
-
-fi
 
 
 
@@ -4528,6 +4529,8 @@ export CDIROOT	#inform config/createMakefiles.pl whether it should include cdili
 GRIBAPI_LIB=""
 GRIBAPI_INCLUDE=""
 
+LIB_GRIB_API_ROOT="grib_api"
+
 
 # Check whether --with-grib_api was given.
 if test "${with_grib_api+set}" = set; then :
@@ -4537,6 +4540,26 @@ else
 fi
 
 
+
+# Check whether --enable-eccodes was given.
+if test "${enable_eccodes+set}" = set; then :
+  enableval=$enable_eccodes;
+else
+  enable_eccodes=no
+fi
+
+
+case $enable_eccodes in #(
+  no) :
+     ;; #(
+  yes) :
+    as_fn_error $? "--enable-eccodes requires an installation directory." "$LINENO" 5 ;; #(
+  *) :
+    GRIBAPIROOT=$enable_eccodes
+         with_grib_api=yes
+         LIB_GRIB_API_ROOT="eccodes" ;;
+esac
+
 case $with_grib_api in #(
   no) :
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for grib_api library" >&5
@@ -4544,15 +4567,13 @@ $as_echo_n "checking for grib_api library... " >&6; }
          { $as_echo "$as_me:${as_lineno-$LINENO}: result: suppressed" >&5
 $as_echo "suppressed" >&6; } ;; #(
   yes) :
-    #AS_IF([test -f "$GRIBAPIROOT/lib/libgrib_api.a"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
-         if test -f "$GRIBAPIROOT/include/grib_api.h"; then :
+    if test -f "$GRIBAPIROOT/include/grib_api.h"; then :
 
 else
   as_fn_error $? "GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h" "$LINENO" 5
 fi ;; #(
   *) :
     GRIBAPIROOT=$with_grib_api
-         #AS_IF([test -f "$GRIBAPIROOT/lib/libgrib_api.a"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
          if test -f "$GRIBAPIROOT/include/grib_api.h"; then :
 
 else
@@ -4561,10 +4582,10 @@ fi ;;
 esac
 
 if test -n "$GRIBAPIROOT"; then :
-  if test -r "$GRIBAPIROOT/lib/libgrib_api.a" || test -r "$GRIBAPIROOT/lib/libgrib_api.dylib" || test -r "$GRIBAPIROOT/lib/libgrib_api.so"; then :
-  GRIBAPI_LIB='-L$(GRIBAPIROOT)/lib -lgrib_api'
+  if test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.a" || test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.dylib" || test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.so"; then :
+  GRIBAPI_LIB="-L\$(GRIBAPIROOT)/lib -l${LIB_GRIB_API_ROOT}"
 else
-  as_fn_error $? "cannot read $GRIBAPIROOT/lib/libgrib_api.a" "$LINENO" 5
+  as_fn_error $? "cannot read $GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.a" "$LINENO" 5
 fi
        if test -d "$GRIBAPIROOT/include"; then :
   GRIBAPI_INCLUDE='-I$(GRIBAPIROOT)/include'
@@ -4574,7 +4595,7 @@ fi
        FFLAGS="${FFLAGS} ${DEFOPT}HAVE_LIBGRIB ${DEFOPT}HAVE_LIBGRIB_API"
        CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_LIBGRIB ${DEFCOPT}HAVE_LIBGRIB_API"
        case $ac_hostname in #(
-  mlogin*|btc*) :
+  mlogin*|btc*|daint*) :
     case $FC in #(
   nagfor) :
     GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g') ;; #(
@@ -6268,7 +6289,7 @@ if [ "x$LAPACKROOT" = xlocal ] ; then
     LAPACKROOT=""
 fi
 
-my_srcdirs="externals/self/src externals/mtime/src ${my_srcdirs}"
+my_srcdirs="externals/self/src externals/mtime/src externals/tixi/src ${my_srcdirs}"
 
 if [ "x$use_yac" = xyes ] ; then
     my_srcdirs="externals/yac/src ${my_srcdirs}"
@@ -6288,13 +6309,17 @@ if [ "x$use_messy" = xyes ] ; then
 fi
 
 if [ "x$use_art" = xyes ] ; then
-    FFLAGS="${FFLAGS} ${ART_FFLAGS}"
+    ART_FFLAGS="${DEFOPT}__ICON_ART ${DEFOPT}__ART_TMP_IFDEF"
+    FFLAGS="${FFLAGS} $ART_FFLAGS"
     # ATTENTION: only temporary until chemistry part of ICON-ART is Fortran 2003 conform !!!
     if [ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ] ; then
         FFLAGS="`echo ${FFLAGS} | sed -e s/-std=f2003/-std=gnu/`"
     fi
 fi
 
+if [ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ] ; then
+    FFLAGS="${FFLAGS} -fall-intrinsics"
+fi
 ac_srcdirs=$my_srcdirs
 
 if test "$use_mpcc_r" = yes ; then
@@ -6544,7 +6569,7 @@ FlibFLAGS=$FlibFLAGS
 F77FLAGS=$F77FLAGS
 
 
-ac_libs="${ac_libs} -lmtime -lself"
+ac_libs="${ac_libs} -ltixi -lmtime -lself"
 
 LIB=$ac_libs
 
@@ -8130,4 +8155,5 @@ if test "x$enable_atmo" = "xyes" && test "x$enable_ocean" = "xno"; then :
 $as_echo "$as_me: WARNING: In order to use ECHAM physics, you need to enable ocean!" >&2;}
        echo ""
 fi
+
 

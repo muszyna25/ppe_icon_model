@@ -40,7 +40,7 @@ fi
 echo " "
 
 # first and last dates/times included in the monthly means
-first_datetime="1979-01-01-01T00:00:00" ; last_datetime="2008-12-31T23:59:59"
+first_datetime="1979-01-01-01T00:00:00" ; last_datetime="2014-12-31T23:59:59"
 echo "first_datetime=$first_datetime ; last_datetime=$last_datetime"
 echo " "
 

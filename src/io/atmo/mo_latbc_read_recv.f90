@@ -24,7 +24,7 @@ MODULE mo_latbc_read_recv
   USE mpi
 #endif
 
-  USE mo_kind,               ONLY: sp, dp, i8
+  USE mo_kind,               ONLY: sp, i8
   USE mo_exception,          ONLY: finish, message, message_text
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS
   USE mo_mpi,                ONLY: p_pe_work,  &
