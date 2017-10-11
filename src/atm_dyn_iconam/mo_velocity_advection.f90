@@ -69,8 +69,6 @@ MODULE mo_velocity_advection
 #else
 #if __CRAY_FTN_VERSION > 850
 #define __COLLAPSE_2_LOOPS !$OMP SIMD
-#else
-#define __COLLAPSE_2_LOOPS !SIMD not supported
 #endif
 #endif
 
