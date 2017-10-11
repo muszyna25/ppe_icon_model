@@ -819,9 +819,6 @@ CONTAINS
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
 #endif
 
-    ! check process
-    IF (.NOT. my_process_is_work()) CALL finish(routine, 'Must be called on a compute PE!')
-
     ! dynamic downcast of patchData argument
     asyncPatchData => toAsyncPatchData(patchData)
     IF(.NOT.ASSOCIATED(asyncPatchData)) CALL finish(routine, "assertion failed: wrong type of patchData")
