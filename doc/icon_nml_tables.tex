@@ -4966,6 +4966,12 @@ L & .FALSE.& &
 processes full domain) &
 \tabularnewline
 
+num\_test\_pe&I&-1&&If set to more than 1, use this many ranks for
+testing and switch to different consistency test. This enables tests
+for identity in setups which are too big to run on a single rank but
+is limited to comparing one MPI parallelization setup
+vs.\ another, obviously.&p\_test\_run = .TRUE.  \tabularnewline
+
 %\hline
 l\_test\_openmp &
 L & .FALSE.& &
