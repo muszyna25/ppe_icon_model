@@ -744,6 +744,8 @@ AS_IF([test -n "$GRIBAPIROOT"],
                [AS_CASE([$FC],
                         [nagfor],
                         [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
+			[cray],
+                        [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -dynamic -Wl,-rpath,\2!g')],
                         [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])],
                [])],
       [])
