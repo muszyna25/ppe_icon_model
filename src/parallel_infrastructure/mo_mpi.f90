@@ -10450,7 +10450,7 @@ CONTAINS
   !
   SUBROUTINE get_mpi_comm_world_ranks(comm, global_ranks, nranks)
     INTEGER, INTENT(IN)  :: comm               !< MPI communicator
-    INTEGER, INTENT(OUT) :: global_ranks(:)    !< Output: list of global MPI ranks in communicator "comm"
+    INTEGER, ALLOCATABLE, INTENT(OUT) :: global_ranks(:)    !< Output: list of global MPI ranks in communicator "comm"
     INTEGER, INTENT(OUT) :: nranks             !< Output: number of entries in rank list
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::get_mpi_comm_world_ranks"
@@ -10462,8 +10462,7 @@ CONTAINS
     IF (comm /= MPI_COMM_NULL) THEN
       nranks = p_comm_size(comm)    ! inquire communicator size
 
-      IF (nranks > SIZE(global_ranks))  CALL finish (routine, 'Input array too small!')
-      ALLOCATE(comm_ranks(nranks))
+      ALLOCATE(comm_ranks(nranks), global_ranks(nranks))
       comm_ranks(1:nranks) = (/ (i, i=0,(nranks-1)) /)
 
       CALL MPI_COMM_GROUP(comm, grp_comm, p_error)
@@ -10485,6 +10484,7 @@ CONTAINS
     END IF
 #else
     nranks = 1
+    ALLOCATE(global_ranks(1))
     global_ranks(1) = 0
 #endif
   END SUBROUTINE get_mpi_comm_world_ranks
