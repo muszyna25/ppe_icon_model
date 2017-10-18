@@ -70,6 +70,8 @@ CONTAINS
     !> prefix of latbc files
     CHARACTER(LEN=filename_max)     :: latbc_filename
     !> directory containing external latbc files
+    !! FIXME: since latbc_path refers to a path, using max_char_length
+    !! seems an odd choice
     CHARACTER(LEN=MAX_CHAR_LENGTH)  :: latbc_path
     !> grid file defining the lateral boundary
     CHARACTER(LEN=FILENAME_MAX)     :: latbc_boundary_grid
