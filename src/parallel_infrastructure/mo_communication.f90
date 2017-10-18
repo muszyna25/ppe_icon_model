@@ -1449,7 +1449,7 @@ CONTAINS
     CALL p_allgatherv(collector_buffer(1,:), out_array, collector_buffer_sizes,&
       comm)
 
-    DEALLOCATE(collector_buffer_sizes)
+    DEALLOCATE(collector_buffer_sizes, collector_buffer)
   END SUBROUTINE allgather_r_1d_deblock
 
 
@@ -1505,7 +1505,7 @@ CONTAINS
     CALL p_allgatherv(collector_buffer(1,:), out_array, collector_buffer_sizes,&
       comm)
 
-    DEALLOCATE(collector_buffer_sizes)
+    DEALLOCATE(collector_buffer_sizes, collector_buffer)
   END SUBROUTINE allgather_i_1d_deblock
 
 
