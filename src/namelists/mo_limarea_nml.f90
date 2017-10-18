@@ -40,27 +40,8 @@ MODULE mo_limarea_nml
   PRIVATE
   PUBLIC read_limarea_namelist
 
-  !------------------------------------------------------------------------
-  ! Namelist variables
-  !------------------------------------------------------------------------
-  INTEGER                         :: itype_latbc         ! type of limited area boundary nudging
-  REAL(wp)                        :: dtime_latbc         ! dt between two consequtive external latbc files
-  INTEGER                         :: nlev_latbc          ! number of vertical levels in boundary data
-  CHARACTER(LEN=filename_max)     :: latbc_filename      ! prefix of latbc files
-  CHARACTER(LEN=MAX_CHAR_LENGTH)  :: latbc_path          ! directory containing external latbc files
-  CHARACTER(LEN=FILENAME_MAX)     :: latbc_boundary_grid ! grid file defining the lateral boundary
-  LOGICAL                         :: init_latbc_from_fg  ! take initial lateral boundary conditions from first guess
-
-  ! dictionary which maps internal variable names onto
-  ! GRIB2 shortnames or NetCDF var names used for lateral boundary nudging.
-  CHARACTER(LEN=filename_max) :: latbc_varnames_map_file  
-
   !> module name
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_limarea_nml'
-
-  NAMELIST /limarea_nml/ itype_latbc, dtime_latbc, nlev_latbc, latbc_filename,     &
-    &                    latbc_path, latbc_boundary_grid, latbc_varnames_map_file, &
-    &                    init_latbc_from_fg
 
 CONTAINS
   !>
@@ -76,6 +57,33 @@ CONTAINS
     TYPE(timedelta), POINTER             :: td
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: dt_latbc, dt_latbc_str
     TYPE(datetime), POINTER              :: base_dt
+
+    !------------------------------------------------------------------------
+    ! Namelist variables
+    !------------------------------------------------------------------------
+    !> type of limited area boundary nudging
+    INTEGER                         :: itype_latbc
+    !> dt between two consequtive external latbc files
+    REAL(wp)                        :: dtime_latbc
+    !> number of vertical levels in boundary data
+    INTEGER                         :: nlev_latbc
+    !> prefix of latbc files
+    CHARACTER(LEN=filename_max)     :: latbc_filename
+    !> directory containing external latbc files
+    CHARACTER(LEN=MAX_CHAR_LENGTH)  :: latbc_path
+    !> grid file defining the lateral boundary
+    CHARACTER(LEN=FILENAME_MAX)     :: latbc_boundary_grid
+    !> take initial lateral boundary conditions from first guess
+    LOGICAL                         :: init_latbc_from_fg
+
+    ! dictionary which maps internal variable names onto
+    ! GRIB2 shortnames or NetCDF var names used for lateral boundary nudging.
+    CHARACTER(LEN=filename_max) :: latbc_varnames_map_file
+
+
+    NAMELIST /limarea_nml/ itype_latbc, dtime_latbc, nlev_latbc, &
+     &                     latbc_filename, latbc_path, latbc_boundary_grid, &
+     &                     latbc_varnames_map_file, init_latbc_from_fg
 
     !------------------------------------------------------------
     ! Default settings
