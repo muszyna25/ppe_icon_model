@@ -48,7 +48,7 @@ MODULE mo_real_timer
        p_comm_work_test
 #endif
 
-  USE mo_mpi,             ONLY: num_test_procs, num_work_procs, get_my_mpi_work_id, &
+  USE mo_mpi,             ONLY: num_test_procs, get_my_mpi_work_id, &
     &                           get_mpi_comm_world_ranks, p_pe_work, p_min, p_max,  &
     &                           num_work_procs, p_sum, p_allgather
   USE mo_master_control,  ONLY: get_my_process_name
