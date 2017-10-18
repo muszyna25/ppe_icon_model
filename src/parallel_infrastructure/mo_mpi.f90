@@ -10178,7 +10178,7 @@ CONTAINS
 
    SUBROUTINE p_alltoallv_real_2d (sendbuf, sendcounts, sdispls, &
      &                             recvbuf, recvcounts, rdispls, comm)
-     REAL(dp),          INTENT(in) :: sendbuf(:,:)
+     REAL(dp), TARGET,  INTENT(in) :: sendbuf(:,:)
      INTEGER,           INTENT(in) :: sendcounts(:), sdispls(:)
      REAL(dp),          INTENT(inout) :: recvbuf(:,:)
      INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
@@ -10186,10 +10186,17 @@ CONTAINS
 #if !defined(NOMPI)
      CHARACTER(*), PARAMETER :: routine = modname//"::p_alltoallv_real_2d"
      INTEGER :: p_comm, p_error, dim1_size
+     REAL(dp), POINTER :: p_sendbuf(:,:)
+     REAL(dp), TARGET :: dummy(1,1)
 
      p_comm = comm
      dim1_size = SIZE(sendbuf, 1)
-     CALL MPI_ALLTOALLV(sendbuf, sendcounts(:)*dim1_size, &
+     IF (SIZE(sendbuf) > 0) THEN
+       p_sendbuf => sendbuf
+     ELSE
+       p_sendbuf => dummy
+     END IF
+     CALL MPI_ALLTOALLV(p_sendbuf, sendcounts(:)*dim1_size, &
        &                sdispls(:)*dim1_size, p_real_dp, recvbuf, &
        &                recvcounts(:)*dim1_size, rdispls(:)*dim1_size, &
        &                p_real_dp, p_comm, p_error)
@@ -10205,7 +10212,7 @@ CONTAINS
 
    SUBROUTINE p_alltoallv_sreal_2d (sendbuf, sendcounts, sdispls, &
      &                              recvbuf, recvcounts, rdispls, comm)
-     REAL(sp),          INTENT(in) :: sendbuf(:,:)
+     REAL(sp), TARGET,  INTENT(in) :: sendbuf(:,:)
      INTEGER,           INTENT(in) :: sendcounts(:), sdispls(:)
      REAL(sp),          INTENT(inout) :: recvbuf(:,:)
      INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
@@ -10213,10 +10220,17 @@ CONTAINS
 #if !defined(NOMPI)
      CHARACTER(*), PARAMETER :: routine = modname//"::p_alltoallv_sreal_2d"
      INTEGER :: p_comm, p_error, dim1_size
+     REAL(sp), POINTER :: p_sendbuf(:,:)
+     REAL(sp), TARGET :: dummy(1,1)
 
      p_comm = comm
      dim1_size = SIZE(sendbuf, 1)
-     CALL MPI_ALLTOALLV(sendbuf, sendcounts(:)*dim1_size, &
+     IF (SIZE(sendbuf) > 0) THEN
+       p_sendbuf => sendbuf
+     ELSE
+       p_sendbuf => dummy
+     END IF
+     CALL MPI_ALLTOALLV(p_sendbuf, sendcounts(:)*dim1_size, &
        &                sdispls(:)*dim1_size, p_real_sp, recvbuf, &
        &                recvcounts(:)*dim1_size, rdispls(:)*dim1_size, &
        &                p_real_sp, p_comm, p_error)
@@ -10232,7 +10246,7 @@ CONTAINS
 
    SUBROUTINE p_alltoallv_int_2d (sendbuf, sendcounts, sdispls, &
      &                            recvbuf, recvcounts, rdispls, comm)
-     INTEGER,           INTENT(in) :: sendbuf(:,:)
+     INTEGER, TARGET,   INTENT(in) :: sendbuf(:,:)
      INTEGER,           INTENT(in) :: sendcounts(:), sdispls(:)
      INTEGER,           INTENT(inout) :: recvbuf(:,:)
      INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
@@ -10240,10 +10254,17 @@ CONTAINS
 #if !defined(NOMPI)
      CHARACTER(*), PARAMETER :: routine = modname//"::p_alltoallv_int_2d"
      INTEGER :: p_comm, p_error, dim1_size
+     INTEGER, POINTER :: p_sendbuf(:,:)
+     INTEGER, TARGET :: dummy(1,1)
 
      p_comm = comm
      dim1_size = SIZE(sendbuf, 1)
-     CALL MPI_ALLTOALLV(sendbuf, sendcounts(:)*dim1_size, &
+     IF (SIZE(sendbuf) > 0) THEN
+       p_sendbuf => sendbuf
+     ELSE
+       p_sendbuf => dummy
+     END IF
+     CALL MPI_ALLTOALLV(p_sendbuf, sendcounts(:)*dim1_size, &
        &                sdispls(:)*dim1_size, p_int, recvbuf, &
        &                recvcounts(:)*dim1_size, rdispls(:)*dim1_size, &
        &                p_int, p_comm, p_error)
