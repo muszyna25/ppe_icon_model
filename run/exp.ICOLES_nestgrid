@@ -103,7 +103,7 @@ cat > ${atmo_namelist} << EOF
  p_test_run     = .false.
  l_test_openmp  = .false.
  l_log_checks   = .false.
- num_io_procs   = 0
+ num_io_procs   = 8
  io_proc_chunk_size = -1
  num_prefetch_proc = 0
 /
