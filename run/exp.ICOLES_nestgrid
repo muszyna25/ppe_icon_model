@@ -142,8 +142,6 @@ cat > ${atmo_namelist} << EOF
 &limarea_nml
  itype_latbc     = 1
  dtime_latbc     = 10800.
- dt_latbc        = 'PT03H'
- nlev_latbc      = 50
  latbc_path      = '${LATBC_PATH}'
  latbc_filename  = 'latbc_${grid_1}_<y><m><d><h>.nc'
  latbc_varnames_map_file = '$ICON_BASE_PATH/run/dict.latbc'

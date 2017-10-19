@@ -137,7 +137,6 @@ cat > ${atmo_namelist} << EOF
 &limarea_nml
  itype_latbc     = 1
  dtime_latbc     = 3600.
- nlev_latbc      = 50
  latbc_path      = '${LATBC_PATH}'
  latbc_filename  = 'latbc_${grid_1}_<y><m><d><h>.nc'
 /

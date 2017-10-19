@@ -163,7 +163,6 @@ cat > ${atmo_namelist} << EOF
 &initicon_nml
  init_mode              =  4 !4=cosmo, 2=ifs, 3=combined
  ana_varnames_map_file  = '$ICON_BASE_PATH/run/ana_varnames_map_file.txt'
- latbc_varnames_map_file = '$ICON_BASE_PATH/run/dict.latbc'
  nlevsoil_in            =  8
  lread_ana              = .false.
 /
@@ -192,10 +191,9 @@ cat > ${atmo_namelist} << EOF
 &limarea_nml
  itype_latbc     = 1
  dtime_latbc     = 3600.
- dt_latbc        = 'PT01H'
- nlev_latbc      = 50
  latbc_path      = '${LATBC_PATH}'
  latbc_filename  = 'lbd_${grid_1}_<y><m><d><h>.nc'
+ latbc_varnames_map_file = '$ICON_BASE_PATH/run/dict.latbc'
 /
 &diffusion_nml
  hdiff_order      = 5 !4 fourth combined
