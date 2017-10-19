@@ -1,5 +1,7 @@
 !>
 !! Some utilities which are specific to the transport algorithm.
+!! Routines are mostly dealing with the computation of backward 
+!! trajectories and/or departure regions.
 !!
 !! Module contains some functions and procedures which are specifically related
 !! to the transport schemes. These subroutines or functions are needed at
@@ -392,26 +394,30 @@ CONTAINS
   !! Computation of first order backward trajectories for FFSL transport scheme
   !!
   !! Computes backward trajectories in order to determine an approximation to the
-  !! departure region. Here, the departure region is approximated by a rhomboid,
-  !! using a simple first order accurate backward trajectory. Computations
-  !! are performed on a plane tangent to the edge midpoint. Coordinate axes point into
-  !! the local normal and tangential direction.
-  !! Once the 4 vertices of the departure region are known, the distance vector
-  !! between the circumcenter of the upstream cell and the vertices is computed.
-  !! In a final step, these vectors are transformed into a rotated coordinate system
-  !! which has its origin at the circumcenter. The coordinate axes point to the local
-  !! east and local north. This subroutine may be combined with any reconstruction method
+  !! departure region. Here, the departure region is approximated by a rhomboid 
+  !! with the help of first order accurate backward trajectories which start at 
+  !! edge vertices. Computations are performed on a plane tangent to the edge 
+  !! midpoint. Base vectors of this coordinate system (S1) point into the 
+  !! local tangential and normal direction. Once the departure region vertices 
+  !! are known w.r.t. S1, they are transformed into second coordinate frame (S2) 
+  !! which follows from S1 by translation and rotation. The origin of S2 is 
+  !! located at the cell circumcenter of the upstream cell, with the base 
+  !! vectors pointing to local east and local north.
+  !! So far, we take care that the departure region vertices are stored in
+  !! counterclockwise order. This ensures that the following gaussian 
+  !! quadrature is positive definite.
+  !!
+  !! This subroutine may be combined with any reconstruction method 
   !! for the subgrid distribution.
-  !! Note: So far, we take care that the vertices of the departure region are stored in
-  !! counterclockwise order. This ensures that the gaussian quadrature is positive definite.
   !!
   !! NOTE_1: Since we are only interested in the departure region average rather than 
   !!       the departure region integral, counterclockwise numbering is not strictly 
   !!       necessary. Maybe we should remove the computational overhead of counterclockwise 
-  !!       numbering at some time. However, the points must not be numbered in random order.
-  !!       Care must be taken that the points are numbered either clockwise or counterclockwise. 
+  !!       numbering at some time. However, the vertices must not be numbered in 
+  !!       random order. Care must be taken that the points are numbered either 
+  !!       clockwise or counterclockwise. 
   !!       
-  !! Note_2: The coordinates for 2 of the 4 vertices do not change with time. However, 
+  !! Note_2: The coordinates for 2 of the 4 vertices are time independent. However, 
   !!       tests indicated that re-computing these coordinates is faster than fetching 
   !!       precomputed ones from memory. 
   !!
@@ -450,7 +456,7 @@ CONTAINS
 
     REAL(vp), INTENT(OUT) ::    &  !< coordinates of departure region vertices. The origin
          &  p_coords_dreg_v(:,:,:,:,:)!< of the coordinate system is at the circumcenter of
-                                      !< the upwind cell. Unit vectors point to local East
+                                      !< the upwind cell. Base vectors point to local East
                                       !< and North. (geographical coordinates)
                                       !< dim: (nproma,4,2,nlev,ptr_p%nblks_e)
 
@@ -630,6 +636,9 @@ CONTAINS
           ! departure region and correct counterclockwise numbering of vertices
           !--------------------------------------------------------------------
           !
+          ! Quadrilaterals show the position of the departure region, depending 
+          ! on the sign of vn.
+          !
           !        -1                          +1            : system orientation
           !
           !  3\--------------\2       4\--------------\3
@@ -646,8 +655,8 @@ CONTAINS
           ! Determine the upwind cell
           ! Cell indices are chosen such that the direction from cell 1 to cell 2
           ! is the positive direction of the normal vector N.
-          ! Edge indices are chosen such that the direction from edge 1 to edge 2
-          ! is the positive directions of the tangential vector T.
+          ! Vertex indices are chosen such that the direction from vertex 1 to vertex 2
+          ! is the positive direction of the tangential vector T.
           !
           ! If (T,N,Z) form a right-hand system, the system orientation is 1.
           ! If (T,N,Z) form a left-hand system, the system orientation is -1.
