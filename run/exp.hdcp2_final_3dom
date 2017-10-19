@@ -168,7 +168,7 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev     = ${nlev},${nlev},${nlev}  ! number of full levels of vertical grid
- lvert_nest = .flase.
+ lvert_nest = .false.
  dtime       = ${dtime}     ! [s] timestep in seconds
  ldynamics   = .TRUE.       ! dynamics
  ltestcase   = .FALSE.      ! testcase
