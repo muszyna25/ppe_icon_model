@@ -452,7 +452,7 @@ case "$ac_sitename" in
                         esac
                         config_compiler = intel
                         CC          = icc
-                        CFLAGS      = -std=gnu99 -g -O3 -ftz -march=native -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2 -DHAVE_LIBSZ -DgFortran
+                        CFLAGS      = -std=gnu99 -g -O3 -qno-opt-dynamic-align -ftz -march=native -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2 -DHAVE_LIBSZ -DgFortran
                         ccversion   = $(icc --version 2>&1 | awk 'NR==1')
                         F77         = ifort
                         FC          = ifort
