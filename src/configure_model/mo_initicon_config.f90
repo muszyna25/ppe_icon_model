@@ -79,7 +79,6 @@ MODULE mo_initicon_config
   PUBLIC :: initicon_config
   PUBLIC :: aerosol_fg_present
   PUBLIC :: lanaread_tseasfc
-  PUBLIC :: max_sstdev_from_clim
 
   ! Subroutines
   PUBLIC :: configure_initicon
@@ -163,7 +162,6 @@ MODULE mo_initicon_config
   LOGICAL  :: iterate_iau   ! if .TRUE., iterate IAU phase with halved dt_iau in first iteration
   REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
                                    ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD
-  REAL(wp) :: max_sstdev_from_clim ! maximum allowed deviation of SST analysis from climatology (K)
 
   INTEGER  :: niter_divdamp ! number of divergence damping iterations on wind increment from DA
   INTEGER  :: niter_diffu   ! number of diffusion iterations on wind increment from DA

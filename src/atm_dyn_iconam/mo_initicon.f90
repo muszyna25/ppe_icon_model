@@ -38,13 +38,13 @@ MODULE mo_initicon
     &                               rho_incr_filter_wgt, lread_ana, ltile_init, &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart, lconsistency_checks, &
     &                               niter_divdamp, niter_diffu, lanaread_tseasfc, &
-    &                               fgFilename, fgFiletype, anaFilename, anaFiletype, max_sstdev_from_clim
+    &                               fgFilename, fgFiletype, anaFilename, anaFiletype
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA,   &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,              &
     &                               MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMO,       &
     &                               min_rlcell, INWP, min_rledge_int, grf_bdywidth_c, &
-    &                               min_rlcell_int, dzsoil_icon => dzsoil, SSTICE_ANA_CLINC
+    &                               min_rlcell_int, dzsoil_icon => dzsoil
   USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd, tmelt, tf_salt
   USE mo_exception,           ONLY: message, finish
   USE mo_grid_config,         ONLY: n_dom, l_limited_area
@@ -54,7 +54,7 @@ MODULE mo_initicon
   USE mo_satad,               ONLY: sat_pres_ice, spec_humi
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, ntiles_lnd, llake, &
     &                               isub_lake, isub_water, lsnowtile, frlnd_thrhld, &
-    &                               frlake_thrhld, lprog_albsi, sstice_mode
+    &                               frlake_thrhld, lprog_albsi
   USE mo_seaice_nwp,          ONLY: frsi_min
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
   USE mo_phyparam_soil,       ONLY: cporv, cadp, crhosmaxf, crhosmin_ml, crhosmax_ml
@@ -69,7 +69,7 @@ MODULE mo_initicon
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_initicon_utils,      ONLY: fill_tile_points, init_snowtiles, copy_initicon2prog_atm, copy_initicon2prog_sfc, &
                                   & construct_initicon, deallocate_initicon, copy_fg2initicon, &
-                                  & initVarnamesDict, printChecksums, init_aerosol, limit_sstdev_from_clim
+                                  & initVarnamesDict, printChecksums, init_aerosol
   USE mo_initicon_io,         ONLY: read_extana_atm, read_extana_sfc, fetch_dwdfg_atm, fetch_dwdana_sfc, &
                                   & process_input_dwdana_sfc, process_input_dwdana_atm, process_input_dwdfg_sfc, &
                                   & fetch_dwdfg_sfc, fetch_dwdfg_atm_ii, fetch_dwdana_atm
@@ -1795,10 +1795,6 @@ MODULE mo_initicon
 
       lanaread_tseasfc(jg) = ( inputInstructions(jgch)%ptr%sourceOfVar('t_seasfc') == kInputSourceAna .OR. &
               ANY((/kInputSourceAna,kInputSourceBoth/) == inputInstructions(jgch)%ptr%sourceOfVar('t_so')) )
-
-      IF (lanaread_tseasfc(jg) .AND. max_sstdev_from_clim < 100._wp .AND. sstice_mode == SSTICE_ANA_CLINC) THEN
-        CALL limit_sstdev_from_clim(p_patch(jg), ext_data(jg), initicon(jg)%sfc%sst)
-      ENDIF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx,lp_mask,ist,z_t_seasfc) ICON_OMP_DEFAULT_SCHEDULE

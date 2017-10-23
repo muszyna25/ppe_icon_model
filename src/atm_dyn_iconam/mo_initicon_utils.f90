@@ -31,10 +31,9 @@ MODULE mo_initicon_utils
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_ext_data_init,       ONLY: interpol_monthly_mean
   USE mo_initicon_types,      ONLY: t_initicon_state, alb_snow_var, t_pi_atm_in, t_pi_sfc_in, t_pi_atm, &
     &                               t_pi_sfc, t_sfc_inc, ana_varnames_dict, t_init_state_const
-  USE mo_initicon_config,     ONLY: init_mode, l_sst_in, max_sstdev_from_clim,  &
+  USE mo_initicon_config,     ONLY: init_mode, l_sst_in,                  &
     &                               ana_varnames_map_file, lread_vn,      &
     &                               lvert_remap_fg, aerosol_fg_present
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_IAU,             &
@@ -106,7 +105,6 @@ MODULE mo_initicon_utils
   PUBLIC :: init_snowtiles
   PUBLIC :: printChecksums
   PUBLIC :: init_aerosol
-  PUBLIC :: limit_sstdev_from_clim
 
   CONTAINS
 
@@ -272,66 +270,6 @@ MODULE mo_initicon_utils
 !$OMP END PARALLEL
 
   END SUBROUTINE init_aerosol
-
-
-
-
-  !>
-  !! SUBROUTINE limit_sstdev_from_clim
-  !! Limits deviation of SST analysis from climatology
-  !!
-  !! @par Revision History
-  !! Initial version by Guenther Zaengl, DWD (2017-09-19)
-  !!
-  SUBROUTINE limit_sstdev_from_clim(p_patch, ext_data, sst)
-
-    TYPE(t_patch),          INTENT(in)    :: p_patch
-    TYPE(t_external_data),  INTENT(in)    :: ext_data
-    REAL(wp),               INTENT(inout) :: sst(:,:)
-
-
-    TYPE(datetime), POINTER :: mtime_date
-    
-    INTEGER  :: rl_start, rl_end, i_startblk, i_endblk
-    INTEGER  :: jb, ic, jc
-
-    REAL(wp), ALLOCATABLE :: clim_sst(:,:)
-
-    ALLOCATE(clim_sst(nproma,p_patch%nblks_c))
-
-    mtime_date => newDatetime(time_config%tc_current_date)
-
-    CALL interpol_monthly_mean(p_patch, mtime_date, ext_data%atm_td%sst_m,  clim_sst)
-
-    CALL deallocateDatetime(mtime_date)
-
-
-    rl_start = 1
-    rl_end   = min_rlcell
-
-    i_startblk = p_patch%cells%start_block(rl_start)
-    i_endblk   = p_patch%cells%end_block(rl_end)
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,ic,jc)
-    DO jb = i_startblk, i_endblk
-
-      DO ic = 1, ext_data%atm%sp_count(jb)
-        jc = ext_data%atm%idx_lst_sp(ic,jb)
-        ! criterion for limitation: at least 80% water fraction and grid point at sea level (excludes Caspian Sea)
-        IF (ext_data%atm%fr_land(jc,jb) < 0.2_wp .AND. ABS(ext_data%atm%topography_c(jc,jb)) < 0.1_wp ) THEN
-          sst(jc,jb) = MAX(sst(jc,jb),clim_sst(jc,jb)-max_sstdev_from_clim)
-          sst(jc,jb) = MIN(sst(jc,jb),clim_sst(jc,jb)+max_sstdev_from_clim)
-        ENDIF
-      END DO
-
-    ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-
-    DEALLOCATE(clim_sst)
-
-  END SUBROUTINE limit_sstdev_from_clim
 
 
   !>
