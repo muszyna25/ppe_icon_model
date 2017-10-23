@@ -98,7 +98,7 @@ MODULE mo_interface_les
 
   PUBLIC :: les_phy_interface, init_les_phy_interface
 
-  CHARACTER(len=12)  :: str_module = 'les_interface'  ! Output of module for 1 line debug
+  CHARACTER(len=*), PARAMETER  :: modname = 'mo_interface_les'  ! Output of module for 1 line debug
 
 CONTAINS
   !
@@ -204,7 +204,7 @@ CONTAINS
     ! since they are not treated individually
     INTEGER :: ddt_u_tot_comm, ddt_v_tot_comm, tracers_comm, tempv_comm, exner_pr_comm
 
-    CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_interface_les:les_phy_interface:'
+    CHARACTER(len=*), PARAMETER :: routine = modname//'::les_phy_interface:'
 
     ! Pointer to IDs of tracers which contain prognostic condensate.
     ! Required for computing the water loading term 
