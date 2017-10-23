@@ -70,8 +70,8 @@ MODULE mo_turbulent_diagnostic
   INTEGER  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx
   INTEGER  :: idx_sgs_u_flx, idx_sgs_v_flx
   
-  CHARACTER(20) :: tname     = 'time'
-  CHARACTER(20) :: tlongname = 'Time'
+  CHARACTER(len=*), PARAMETER :: tname = 'time'
+  CHARACTER(len=*), PARAMETER :: tlongname = 'Time'
 
   PRIVATE
 
