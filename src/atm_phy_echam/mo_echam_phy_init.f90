@@ -463,7 +463,6 @@ CONTAINS
     DO jd = 1,ndom
        lany = lany .OR. (mpi_phy_tc(jd)%dt_car > dt_zero)
     END DO
-
     IF (lany) THEN
       IF(io3 > ntracer) THEN
         CALL finish('init_echam_phy: mo_echam_phy_init.f90', &
