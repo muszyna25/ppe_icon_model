@@ -47,6 +47,8 @@ MODULE mo_fortran_tools
   PUBLIC :: copy, init, swap, negative2zero
   PUBLIC :: var_scale, var_add
   PUBLIC :: init_zero_contiguous_dp, init_zero_contiguous_sp
+  PUBLIC :: init_contiguous_dp, init_contiguous_sp
+  PUBLIC :: init_contiguous_i4, init_contiguous_l
   PUBLIC :: resize_arr_c1d
   PUBLIC :: DO_DEALLOCATE
   PUBLIC :: DO_PTR_DEALLOCATE
@@ -1370,9 +1372,10 @@ CONTAINS
 #endif
   END SUBROUTINE negative2zero_4d_dp
 
-  SUBROUTINE init_zero_contiguous_dp(var, n)
+  SUBROUTINE init_contiguous_dp(var, n, v)
     INTEGER, INTENT(in) :: n
     REAL(dp), INTENT(out) :: var(n)
+    REAL(dp), INTENT(in) :: v
 
     INTEGER :: i
 #ifdef _OPENACC
@@ -1383,7 +1386,7 @@ CONTAINS
 !$omp do
 #endif
     DO i = 1, n
-      var(i) = 0.0_dp
+      var(i) = v
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
@@ -1392,11 +1395,49 @@ CONTAINS
 #else
 !$omp end do nowait
 #endif
+  END SUBROUTINE init_contiguous_dp
+
+  SUBROUTINE init_zero_contiguous_dp(var, n)
+    INTEGER, INTENT(in) :: n
+    REAL(dp), INTENT(out) :: var(n)
+    CALL init_contiguous_dp(var, n, 0.0_dp)
   END SUBROUTINE init_zero_contiguous_dp
+
+  SUBROUTINE init_contiguous_sp(var, n, v)
+    INTEGER, INTENT(in) :: n
+    REAL(sp), INTENT(out) :: var(n)
+    REAL(sp), INTENT(in) :: v
+
+    INTEGER :: i
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP
+#else
+!$omp do
+#endif
+    DO i = 1, n
+      var(i) = v
+    END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!$ACC UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC END DATA
+#else
+!$omp end do nowait
+#endif
+  END SUBROUTINE init_contiguous_sp
 
   SUBROUTINE init_zero_contiguous_sp(var, n)
     INTEGER, INTENT(in) :: n
     REAL(sp), INTENT(out) :: var(n)
+    CALL init_contiguous_sp(var, n, 0.0_sp)
+  END SUBROUTINE init_zero_contiguous_sp
+
+  SUBROUTINE init_contiguous_i4(var, n, v)
+    INTEGER, INTENT(in) :: n
+    INTEGER(ik4), INTENT(out) :: var(n)
+    INTEGER(ik4), INTENT(in) :: v
 
     INTEGER :: i
 #ifdef _OPENACC
@@ -1407,7 +1448,7 @@ CONTAINS
 !$omp do
 #endif
     DO i = 1, n
-      var(i) = 0.0_sp
+      var(i) = v
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
@@ -1416,7 +1457,32 @@ CONTAINS
 #else
 !$omp end do nowait
 #endif
-  END SUBROUTINE init_zero_contiguous_sp
+  END SUBROUTINE init_contiguous_i4
+
+  SUBROUTINE init_contiguous_l(var, n, v)
+    INTEGER, INTENT(in) :: n
+    LOGICAL, INTENT(out) :: var(n)
+    LOGICAL, INTENT(in) :: v
+
+    INTEGER :: i
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP
+#else
+!$omp do
+#endif
+    DO i = 1, n
+      var(i) = v
+    END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!$ACC UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC END DATA
+#else
+!$omp end do nowait
+#endif
+  END SUBROUTINE init_contiguous_l
 
   SUBROUTINE insert_dimension_r_wp_3_2_s(ptr_out, ptr_in, in_shape, &
        new_dim_rank)
