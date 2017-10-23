@@ -51,7 +51,9 @@ MODULE mo_var_list
     &                            BOOL_T, INT_T, SUCCESS
   USE mo_cdi_constants,    ONLY: GRID_UNSTRUCTURED_CELL,            &
     &                            GRID_REGULAR_LONLAT
-  USE mo_fortran_tools,    ONLY: assign_if_present
+  USE mo_fortran_tools,    ONLY: assign_if_present, &
+    &                            init_contiguous_dp, init_contiguous_sp, &
+    &                            init_contiguous_i4, init_contiguous_l
   USE mo_action_types,     ONLY: t_var_action
   USE mo_io_config,        ONLY: restart_file_type
   USE mo_packed_message,   ONLY: t_PackedMessage, kPackOp, kUnpackOp
@@ -826,21 +828,23 @@ CONTAINS
     REAL(wp),           POINTER     :: ptr(:,:,:,:,:)      ! pointer to field
     LOGICAL,            INTENT(IN)  :: linit, lmiss
     TYPE(t_union_vals), INTENT(IN)  :: initval, missval    ! optional initialization value
+    REAL(wp) :: init_val
 
-    IF (lmiss) THEN
-      ptr = missval%rval
+    IF (linit) THEN
+      init_val = initval%rval
+    ELSE IF (lmiss) THEN
+      init_val = missval%rval
     ELSE
-#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
-#ifdef VARLIST_INITIZIALIZE_WITH_NAN
-      ptr = ieee_value(ptr, ieee_signaling_nan)
+#if    defined (VARLIST_INITIZIALIZE_WITH_NAN) \
+    && (defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR))
+      init_val = ieee_value(ptr, ieee_signaling_nan)
 #else
-      ptr = 0.0_wp
-#endif
-#else
-      ptr = 0.0_wp
+      init_val = 0.0_wp
 #endif
     END IF
-    IF (linit)  ptr = initval%rval
+!$omp parallel
+    CALL init_contiguous_dp(ptr, SIZE(ptr), init_val)
+!$omp end parallel
   END SUBROUTINE init_array_r5d
 
   ! Auxiliary routine: initialize array, REAL(sp) variant
@@ -848,21 +852,23 @@ CONTAINS
     REAL(sp),           POINTER     :: ptr(:,:,:,:,:)      ! pointer to field
     LOGICAL,            INTENT(IN)  :: linit, lmiss
     TYPE(t_union_vals), INTENT(IN)  :: initval, missval    ! optional initialization value
+    REAL(sp) :: init_val
 
-    IF (lmiss) THEN
-      ptr = missval%sval
+    IF (linit) THEN
+      init_val = initval%sval
+    ELSE IF (lmiss) THEN
+      init_val = missval%sval
     ELSE
-#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
-#ifdef VARLIST_INITIZIALIZE_WITH_NAN
-      ptr = ieee_value(ptr, ieee_signaling_nan)
+#if    defined (VARLIST_INITIZIALIZE_WITH_NAN) \
+    && (defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR))
+      init_val = ieee_value(ptr, ieee_signaling_nan)
 #else
-      ptr = 0.0_sp
-#endif
-#else
-      ptr = 0.0_sp
+      init_val = 0.0_sp
 #endif
     END IF
-    IF (linit)  ptr = initval%sval
+!$omp parallel
+    CALL init_contiguous_sp(ptr, SIZE(ptr), init_val)
+!$omp end parallel
   END SUBROUTINE init_array_s5d
 
 
@@ -871,13 +877,18 @@ CONTAINS
     INTEGER, POINTER                :: ptr(:,:,:,:,:)      ! pointer to field
     LOGICAL,            INTENT(IN)  :: linit, lmiss
     TYPE(t_union_vals), INTENT(IN)  :: initval, missval    ! optional initialization value
+    INTEGER :: init_val
 
-    IF (lmiss) THEN
-      ptr = missval%ival
+    IF (linit) THEN
+      init_val = initval%ival
+    ELSE IF (lmiss) THEN
+      init_val = missval%ival
     ELSE
-      ptr = 0
+      init_val = 0
     END IF
-    IF (linit)  ptr = initval%ival
+!$omp parallel
+    CALL init_contiguous_i4(ptr, SIZE(ptr), init_val)
+!$omp end parallel
   END SUBROUTINE init_array_i5d
 
 
@@ -886,13 +897,18 @@ CONTAINS
     LOGICAL, POINTER                :: ptr(:,:,:,:,:)      ! pointer to field
     LOGICAL,            INTENT(IN)  :: linit, lmiss
     TYPE(t_union_vals), INTENT(IN)  :: initval, missval    ! optional initialization value
+    LOGICAL :: init_val
 
-    IF (lmiss) THEN
-      ptr = missval%lval
+    IF (linit) THEN
+      init_val = initval%lval
+    ELSE IF (lmiss) THEN
+      init_val = missval%lval
     ELSE
-      ptr = .FALSE.
+      init_val = .FALSE.
     END IF
-    IF (linit)  ptr = initval%lval
+!$omp parallel
+    CALL init_contiguous_l(ptr, SIZE(ptr), init_val)
+!$omp end parallel
   END SUBROUTINE init_array_l5d
 
 
@@ -1051,19 +1067,15 @@ CONTAINS
       CASE (REAL_T)
         new_list_element%field%var_base_size    = 8
         ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
-        new_list_element%field%r_ptr(:,:,:,:,:) = 0._wp
       CASE (SINGLE_T)
         new_list_element%field%var_base_size    = 4
         ALLOCATE(new_list_element%field%s_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
-        new_list_element%field%s_ptr(:,:,:,:,:) = 0._sp
       CASE (INT_T)
         new_list_element%field%var_base_size    = 4
         ALLOCATE(new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
-        new_list_element%field%i_ptr(:,:,:,:,:) = 0
       CASE (BOOL_T)
         new_list_element%field%var_base_size    = 4
         ALLOCATE(new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
-        new_list_element%field%l_ptr(:,:,:,:,:) = .FALSE.
       END SELECT
 
       IF (istat /= 0) THEN
