@@ -112,10 +112,8 @@ MODULE mo_var_metadata_types
   ! 
   ! A variable can have any combination of this which means that it
   ! can be interpolated vertically in these different ways.
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: VINTP_TYPE_LIST(3) = &
-    (/ "Z                     ",  &
-    &  "P                     ",  &
-    &  "I                     " /)
+  CHARACTER(len=1), PARAMETER :: VINTP_TYPE_LIST(3) = &
+    (/ "Z",  "P", "I" /)
 
 
   ! list of available post-op's (small arithmetic operations on
