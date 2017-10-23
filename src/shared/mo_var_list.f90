@@ -4024,22 +4024,19 @@ CONTAINS
   SUBROUTINE assign_if_present_cf (y,x)
     TYPE(t_cf_var), INTENT(inout)        :: y
     TYPE(t_cf_var), INTENT(in) ,OPTIONAL :: x
-    IF (.NOT.PRESENT(x)) RETURN
-    y = x
+    IF (PRESENT(x)) y = x
   END SUBROUTINE assign_if_present_cf
   !------------------------------------------------------------------------------------------------
   SUBROUTINE assign_if_present_grib2 (y,x)
     TYPE(t_grib2_var), INTENT(inout)        :: y
     TYPE(t_grib2_var) ,INTENT(in) ,OPTIONAL :: x
-    IF (.NOT.PRESENT(x)) RETURN
-    y = x
+    IF (PRESENT(x)) y = x
   END SUBROUTINE assign_if_present_grib2
   !------------------------------------------------------------------------------------------------
   SUBROUTINE assign_if_present_union (y,x)
     TYPE(t_union_vals), INTENT(inout)        :: y
     TYPE(t_union_vals) ,INTENT(in) ,OPTIONAL :: x
-    IF (.NOT.PRESENT(x)) RETURN
-    y = x
+    IF (PRESENT(x)) y = x
   END SUBROUTINE assign_if_present_union
   !------------------------------------------------------------------------------------------------
   SUBROUTINE assign_if_present_tracer_meta (y,x)
@@ -4059,29 +4056,25 @@ CONTAINS
   SUBROUTINE assign_if_present_vert_interp (y,x)
     TYPE(t_vert_interp_meta), INTENT(inout)        :: y
     TYPE(t_vert_interp_meta) ,INTENT(in) ,OPTIONAL :: x
-    IF (.NOT.PRESENT(x)) RETURN
-    y = x
+    IF (PRESENT(x)) y = x
   END SUBROUTINE assign_if_present_vert_interp
   !------------------------------------------------------------------------------------------------
   SUBROUTINE assign_if_present_hor_interp (y,x)
     TYPE(t_hor_interp_meta), INTENT(inout)        :: y
     TYPE(t_hor_interp_meta) ,INTENT(in) ,OPTIONAL :: x
-    IF (.NOT.PRESENT(x)) RETURN
-    y = x
+    IF (PRESENT(x)) y = x
   END SUBROUTINE assign_if_present_hor_interp
   !------------------------------------------------------------------------------------------------
   SUBROUTINE assign_if_present_post_op (y,x)
     TYPE(t_post_op_meta), INTENT(inout)        :: y
     TYPE(t_post_op_meta) ,INTENT(in) ,OPTIONAL :: x
-    IF (.NOT.PRESENT(x)) RETURN
-    y = x
+    IF (PRESENT(x)) y = x
   END SUBROUTINE assign_if_present_post_op
   !------------------------------------------------------------------------------------------------
   SUBROUTINE assign_if_present_action_list (y,x)
     TYPE(t_var_action), INTENT(inout)        :: y
     TYPE(t_var_action) ,INTENT(in) ,OPTIONAL :: x
-    IF (.NOT.PRESENT(x)) RETURN
-    y = x
+    IF (PRESENT(x)) y = x
   END SUBROUTINE assign_if_present_action_list
   !------------------------------------------------------------------------------------------------
   LOGICAL FUNCTION elementFoundByName(key2look4,name2look4,element,opt_caseInsensitive)
