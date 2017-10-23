@@ -633,12 +633,14 @@ CONTAINS
     !
   END SUBROUTINE default_var_list_settings
   !------------------------------------------------------------------------------------------------
-  FUNCTION default_var_list_metadata(this_list) RESULT(this_info)
+  SUBROUTINE default_var_list_metadata(this_info, this_list)
+    !> memory info structure
+    TYPE(t_var_metadata), INTENT(out) :: this_info
     !
-    TYPE(t_var_metadata)         :: this_info        ! memory info structure
+    !> output var_list
+    TYPE(t_var_list), INTENT(in)      :: this_list
     !
-    TYPE(t_var_list), INTENT(in) :: this_list        ! output var_list
-    !
+
     this_info%key                 = 0
     this_info%name                = ''
     this_info%var_class           = CLASS_DEFAULT
@@ -689,7 +691,7 @@ CONTAINS
     !
     this_info%l_pp_scheduler_task = 0
 
-  END FUNCTION default_var_list_metadata
+  END SUBROUTINE default_var_list_metadata
 
 
 
@@ -1007,7 +1009,7 @@ CONTAINS
     ! add list entry
 
     CALL append_list_element (this_list, new_list_element)
-    new_list_element%field%info = default_var_list_metadata(this_list)
+    CALL default_var_list_metadata(new_list_element%field%info, this_list)
 
     ! init local fields
 
@@ -2634,7 +2636,7 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
-    ref_info =  default_var_list_metadata(this_list)
+    CALL default_var_list_metadata(ref_info, this_list)
 
     !
     ! init local fields
@@ -2839,7 +2841,7 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
-    ref_info = default_var_list_metadata(this_list)
+    CALL default_var_list_metadata(ref_info, this_list)
     !
     ! init local fields
     !
@@ -3036,7 +3038,7 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
-    ref_info =  default_var_list_metadata(this_list)
+    CALL default_var_list_metadata(ref_info, this_list)
 
     !
     ! init local fields
@@ -3241,7 +3243,7 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
-    ref_info = default_var_list_metadata(this_list)
+    CALL default_var_list_metadata(ref_info, this_list)
     !
     ! init local fields
     !
@@ -3444,7 +3446,7 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
-    ref_info = default_var_list_metadata(this_list)
+    CALL default_var_list_metadata(ref_info, this_list)
     !
     ! init local fields
     !
