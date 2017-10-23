@@ -136,7 +136,7 @@ CONTAINS
     INTEGER :: i_nchdom, jg            !< domain index
     INTEGER :: jc,jk,jb                !block index
     INTEGER :: mtop_min
-    INTEGER :: mlab(nproma)
+    LOGICAL :: mlab(nproma)
 
     nlev      = p_patch%nlev 
     nlevp1    = p_patch%nlev+1 
@@ -236,14 +236,14 @@ CONTAINS
        !
        DO jc = i_startidx, i_endidx 
          prm_diag%htop_dc(jc,jb) = zundef
-         mlab(jc) = 1
+         mlab(jc) = .TRUE.
          ztp (jc) = p_diag%temp(jc,nlev,jb) + 0.25_wp
          zqp (jc) = p_prog_rcf%tracer(jc,nlev,jb,iqv)
        ENDDO
 
        DO jk = nlev-1, mtop_min, -1
          DO jc = i_startidx, i_endidx 
-           IF ( mlab(jc) == 1) THEN
+           IF ( mlab(jc) ) THEN
              ztp(jc) = ztp(jc)  - grav_o_cpd*( p_metrics%z_mc(jc,jk,jb)    &
             &                                 -p_metrics%z_mc(jc,jk+1,jb) )
              zbuoy = ztp(jc)*( 1._wp + vtmpc1*zqp(jc) ) - p_diag%tempv(jc,jk,jb)
@@ -253,7 +253,7 @@ CONTAINS
              IF ( zcond < 0._wp .AND. zbuoy > 0._wp) THEN
                prm_diag%htop_dc(jc,jb) = p_metrics%z_ifc(jc,jk,jb)
              ELSE
-               mlab(jc) = 0
+               mlab(jc) = .FALSE.
              END IF
            END IF
          ENDDO
