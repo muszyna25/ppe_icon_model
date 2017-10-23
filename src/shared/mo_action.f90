@@ -366,8 +366,6 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_action:")
 
-    TYPE(datetime) :: lastTrigger_datetime  ! latest intended triggering date
-
   !-------------------------------------------------------------------------
 
     ! compute allowed slack in PT-Format
@@ -384,7 +382,7 @@ CONTAINS
 ! parallelization for the time being.
 !!$OMP PARALLEL
     ! Loop over all fields attached to this action
-!!$OMP DO PRIVATE(ivar,var_action_idx,field,this_event,isactive,lastTrigger_datetime,message_text)
+!!$OMP DO PRIVATE(ivar,var_action_idx,field,this_event,isactive,message_text)
     DO ivar = 1, act_obj%nvars
 
       var_action_idx = act_obj%var_action_index(ivar)
@@ -415,9 +413,8 @@ CONTAINS
         CALL datetimeToString(mtime_date, mtime_cur_datetime)
         field%info%action_list%action(var_action_idx)%lastActive = TRIM(mtime_cur_datetime)
         ! store latest intended triggering date
-        CALL getTriggeredPreviousEventAtDateTime(this_event, lastTrigger_datetime)
-        field%info%action_list%action(var_action_idx)%EventLastTriggerDate = lastTrigger_datetime
-
+        CALL getTriggeredPreviousEventAtDateTime(this_event, &
+          field%info%action_list%action(var_action_idx)%EventLastTriggerDate)
 
         IF (msg_level >= 12) THEN
           WRITE(message_text,'(5a,i2,a,a)') 'action ',TRIM(ACTION_NAMES(act_obj%actionTyp)),&
