@@ -1076,15 +1076,12 @@ CONTAINS
    INTEGER :: n, nlev, nlevp1, nvar, jg
    REAL(wp) :: z_mc_avg(p_patch%nlev), z_ic_avg(p_patch%nlev+1)
    CHARACTER(len=*), PARAMETER :: routine = 'mo_turbulent_diagnostic:init_les_turbulent_output'
-   TYPE(timeDelta), POINTER            :: time_diff
+   TYPE(timeDelta) :: time_diff
    REAL(wp)                            :: p_sim_time     !< elapsed simulation time on this grid level
  
    ! calculate elapsed simulation time in seconds
-   time_diff  => newTimedelta("PT0S")
    time_diff  =  getTimeDeltaFromDateTime(this_datetime, time_config%tc_startdate)
    p_sim_time =  getTotalMillisecondsTimedelta(time_diff, this_datetime)*1.e-3_wp
-   CALL deallocateTimedelta(time_diff)
-
    jg = p_patch%id
 
    !Check if diagnostics are to be calculated or not
