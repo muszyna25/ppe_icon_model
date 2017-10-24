@@ -45,7 +45,7 @@ MODULE mo_turbulent_diagnostic
   USE mo_les_nml,            ONLY: turb_profile_list, turb_tseries_list
   USE mo_les_config,         ONLY: les_config
   USE mo_mpi,                ONLY: my_process_is_stdio
-  USE mo_write_netcdf      
+  USE mo_write_netcdf,       ONLY: open_nc, addvar_nc, writevar_nc, close_nc
   USE mo_impl_constants,     ONLY: min_rlcell_int
   USE mo_physical_constants, ONLY: cpd, grav, alv, vtmpc1
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
