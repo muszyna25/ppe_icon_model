@@ -979,17 +979,13 @@ CONTAINS
     INTEGER                  :: nvar, n
     REAL(wp)                 :: inv_ncount
     REAL(wp)                 :: sim_time     !< elapsed simulation time on this grid level
-    TYPE(timeDelta), POINTER :: time_diff
+    TYPE(timeDelta) :: time_diff
 
-    
     ! calculate elapsed simulation time in seconds
-    time_diff  => newTimedelta("PT0S")
     time_diff  =  getTimeDeltaFromDateTime(this_datetime, time_config%tc_startdate)
     sim_time   =  getTotalMillisecondsTimedelta(time_diff, this_datetime)*1.e-3_wp
-    CALL deallocateTimedelta(time_diff)
- 
+
     !Write profiles
-      
     inv_ncount = 1._wp / REAL(ncount,wp)
 
     nvar = SIZE(turb_profile_list,1)
@@ -1026,15 +1022,13 @@ CONTAINS
 
     INTEGER                  :: nvar, n
     REAL(wp)                 :: sim_time     !< elapsed simulation time on this grid level
-    TYPE(timeDelta), POINTER :: time_diff
-    
+    TYPE(timeDelta) :: time_diff
+
     ! calculate elapsed simulation time in seconds
-    time_diff  => newTimedelta("PT0S")
     time_diff  =  getTimeDeltaFromDateTime(this_datetime, time_config%tc_startdate)
     sim_time   =  getTotalMillisecondsTimedelta(time_diff, this_datetime)*1.e-3_wp
-    CALL deallocateTimedelta(time_diff)
 
-    !Write time series 
+    !Write time series
     nvar = SIZE(turb_tseries_list,1)
 
     !Loop over all variables
