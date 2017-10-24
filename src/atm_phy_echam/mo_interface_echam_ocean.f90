@@ -64,7 +64,7 @@ MODULE mo_interface_echam_ocean
     &                               yac_fdef_subdomain, yac_fconnect_subdomains, &
     &                               yac_fdef_elements, yac_fdef_points,          &
     &                               yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
-    &                               yac_ffinalize
+    &                               yac_ffinalize, YAC_LOCATION_CELL
 
   USE mtime                  ,ONLY: datetimeToString, MAX_DATETIME_STR_LEN
   
@@ -113,8 +113,6 @@ CONTAINS
     !---------------------------------------------------------------------
 
     INTEGER, PARAMETER :: nbr_subdomain_ids = 1
-    INTEGER, PARAMETER :: CELL = 0 ! one point per cell
-    ! (see definition of enum location in points.h)
 
     REAL(wp), PARAMETER :: deg = 180.0_wp / pi
 
@@ -253,7 +251,7 @@ CONTAINS
     CALL yac_fdef_points (        &
       & subdomain_id,             &
       & patch_horz%n_patch_cells, &
-      & CELL,                     &
+      & YAC_LOCATION_CELL,        &
       & buffer_lon,               &
       & buffer_lat,               &
       & cell_point_ids(1) )
@@ -278,7 +276,7 @@ CONTAINS
     CALL yac_fdef_index_location (              &
       & subdomain_id,                           &
       & patch_horz%n_patch_cells,               &
-      & CELL,                                   &
+      & YAC_LOCATION_CELL,                      &
       & patch_horz%cells%decomp_info%glb_index, &
       & ibuffer )
 
