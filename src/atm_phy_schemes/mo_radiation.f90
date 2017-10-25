@@ -547,7 +547,8 @@ CONTAINS
     ! input
     & current_date                                                         &
     & ,jg, jb                                                              &
-    & ,jce               ,kbdim           ,klev             ,klevp1        &
+    & ,jcs               ,jce             ,kbdim                           &
+    & ,klev              ,klevp1                                           &
     & ,ktype             ,zland           ,zglac            ,cos_mu0       &
     & ,alb_vis_dir       ,alb_nir_dir     ,alb_vis_dif      ,alb_nir_dif   &
     & ,emis_rad                                                            &
@@ -572,6 +573,7 @@ CONTAINS
     INTEGER, INTENT(in)   :: &
       &  jg,                 & !< domain index
       &  jb,                 & !< block index
+      &  jcs,                & !< start index for loop over block
       &  jce,                & !< end   index for loop over block
       &  kbdim,              & !< dimension of block over cells
       &  klev,               & !< number of full levels = number of layers
@@ -782,7 +784,7 @@ CONTAINS
       ! input
       & current_date                                                       ,&
       & jg              ,jb              ,1                                ,&
-      & jce             ,kbdim           ,klev                             ,&
+      & jcs             ,jce             ,kbdim           ,klev            ,&
       & ktype           ,zland           ,zglac                            ,&
       & cos_mu0_mod                                                        ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
@@ -841,7 +843,8 @@ CONTAINS
     ! input
     &  current_date                                                        &
     & ,jg, jb, irad                                                        &
-    & ,jce               ,kbdim           ,klev             ,klevp1        &
+    & ,jcs               ,jce               ,kbdim                         &
+    & ,klev              ,klevp1                                           &
     & ,ktype             ,zland           ,zglac            ,cos_mu0       &
     & ,alb_vis_dir       ,alb_nir_dir     ,alb_vis_dif      ,alb_nir_dif   &
     & ,emis_rad                                                            &
@@ -862,6 +865,7 @@ CONTAINS
       &  jg,                 & !< domain index
       &  jb,                 & !< block index
       &  irad,               & !< option for radiation scheme (RRTM/PSRAD)
+      &  jcs,                & !< start index for loop over block
       &  jce,                & !< end   index for loop over block
       &  kbdim,              & !< dimension of block over cells
       &  klev,               & !< number of full levels = number of layers
@@ -1031,7 +1035,7 @@ CONTAINS
       ! input
       & current_date                                                       ,&
       & jg              ,jb              ,irad                             ,&
-      & jce             ,kbdim           ,klev                             ,&
+      & jcs             ,jce             ,kbdim           ,klev            ,&
       & ktype           ,zland           ,zglac                            ,&
       & cos_mu0                                                            ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
@@ -1180,7 +1184,7 @@ CONTAINS
     ! input
     & current_date                                                       ,&
     & jg              ,jb              ,irad                             ,&
-    & jce             ,kbdim           ,klev                             ,&
+    & jcs             ,jce             ,kbdim           ,klev            ,&
     & ktype           ,zland           ,zglac                            ,&
     & pmu0                                                               ,&
     & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
@@ -1209,6 +1213,7 @@ CONTAINS
       &  jb,                              & !< block index
       &  irad,                            & !< option for radiation scheme (RRTM/PSRAD); active in NWP mode only, 
       !                                        ECHAM mode uses a completely different interface
+      &  jcs,                             & !< number of skipped columns
       &  jce,                             & !< number of columns
       &  kbdim,                           & !< first dimension of 2-d arrays
       &  klev                               !< number of levels
@@ -1725,21 +1730,43 @@ CONTAINS
 
     DO jk = 1, klev+1
       jkb = klev+2-jk
-      DO jl = 1, jce
-        flx_lw_net(jl,jk)     = flx_dnlw_vr(jl,jkb)-flx_uplw_vr(jl,jkb)
-        flx_lw_net_clr(jl,jk) = flx_dnlw_clr_vr(jl,jkb)-flx_uplw_clr_vr(jl,jkb)
-        flx_sw_net(jl,jk)     = flx_dnsw(jl,jk) - flx_upsw(jl,jk)
-        flx_sw_net_clr(jl,jk) = flx_dnsw_clr(jl,jk)-flx_upsw_clr(jl,jk)
+      DO jl = 1, kbdim
+        flx_lw_net(jl,jk)     = MERGE(flx_dnlw_vr(jl,jkb)-flx_uplw_vr(jl,jkb), &
+          &                           0.0_wp, jl <= jce .AND. jl >= jcs)
+        flx_lw_net_clr(jl,jk) = MERGE(  flx_dnlw_clr_vr(jl,jkb)                &
+          &                           - flx_uplw_clr_vr(jl,jkb),               &
+          &                           0.0_wp, jl <= jce .AND. jl >= jcs)
+        flx_sw_net(jl,jk)     = MERGE(flx_dnsw(jl,jk) - flx_upsw(jl,jk),       &
+          &                           0.0_wp, jl <= jce .AND. jl >= jcs)
+        flx_sw_net_clr(jl,jk) = MERGE(  flx_dnsw_clr(jl,jk)                    &
+          &                           - flx_upsw_clr(jl,jk),                   &
+          &                           0.0_wp, jl <= jce .AND. jl >= jcs)
       END DO
     END DO
-    flx_uplw_sfc(1:jce)     = flx_uplw_vr(1:jce,1)
-    flx_uplw_sfc_clr(1:jce) = flx_uplw_clr_vr(1:jce,1)
-    flx_upsw_sfc(1:jce)     = flx_upsw(1:jce,klev+1)
-    flx_upsw_sfc_clr(1:jce) = flx_upsw_clr(1:jce,klev+1)
-    IF (PRESENT(flx_upsw_toa)) flx_upsw_toa(1:jce) = flx_upsw(1:jce,1)
-    IF (irad /= 1 .AND. PRESENT(flx_dnsw_diff_sfc))    &  ! approximate calculation!!
-      !   dnsw_diff_sfc        = vis_dn_dff_sfc   + nir_dn_dff_sfc
-      flx_dnsw_diff_sfc(1:jce) = aux_out(1:jce,4) + aux_out(1:jce,6)
+    DO jl = 1, kbdim
+      flx_uplw_sfc(jl)     = MERGE(flx_uplw_vr(jl,1), 0.0_wp,             &
+        &                          jl <= jce .AND. jl >= jcs)
+      flx_uplw_sfc_clr(jl) = MERGE(flx_uplw_clr_vr(jl,1), 0.0_wp,         &
+        &                          jl <= jce .AND. jl >= jcs)
+      flx_upsw_sfc(jl)     = MERGE(flx_upsw(jl,klev+1), 0.0_wp,           &
+        &                          jl <= jce .AND. jl >= jcs)
+      flx_upsw_sfc_clr(jl) = MERGE(flx_upsw_clr(jl,klev+1), 0.0_wp,       &
+        &                          jl <= jce .AND. jl >= jcs)
+    END DO
+    IF (PRESENT(flx_upsw_toa)) THEN
+      DO jl = 1, kbdim
+        flx_upsw_toa(jl) = MERGE(flx_upsw(jl,1), 0.0_wp,             &
+          &                      jl <= jce .AND. jl >= jcs)
+      END DO
+    END IF
+    IF (irad /= 1 .AND. PRESENT(flx_dnsw_diff_sfc)) THEN
+      ! approximate calculation!!
+      DO jl = 1, kbdim
+        !   dnsw_diff_sfc        = vis_dn_dff_sfc   + nir_dn_dff_sfc
+        flx_dnsw_diff_sfc(jl) = MERGE(aux_out(jl,4) + aux_out(jl,6), 0.0_wp, &
+          &                           jl <= jce .AND. jl >= jcs)
+      END DO
+    END IF
 !!$    sw_irr_toa(1:jce)       = flx_dnsw(1:jce,1)
     !
     IF (ltimer) CALL timer_stop(timer_rrtm_post)
