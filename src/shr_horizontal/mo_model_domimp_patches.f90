@@ -1668,29 +1668,23 @@ CONTAINS
     ! nesting/lateral boundary indexes
 
     ! p_p%cells%phys_id(:,:)
-    IF (ig <= 1) THEN
-      DO ip = 0, n_lp
-        p_p => get_patch_ptr(patch, id_lp, ip)
-        p_p%cells%phys_id(:,:) = ig
-      ENDDO
+    IF (ig > 1) THEN
+      lhave_phys_id = nf_inq_varid(ncid_grf, 'phys_cell_id', varid) == nf_noerr
     ELSE
+      lhave_phys_id = .FALSE.
+    END IF
+    IF (lhave_phys_id) THEN
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
         multivar_2d_data_int(ip+1)%data => p_p%cells%phys_id(:,:)
       END DO
-
-      lhave_phys_id = (nf_inq_varid(ncid_grf, 'phys_cell_id', varid) == nf_noerr)
-      IF (lhave_phys_id) THEN
-        CALL read_2D_int(stream_id_grf, on_cells, 'phys_cell_id', n_lp+1, &
-          &              multivar_2d_data_int(:))
-      ELSE
-
-        DO ip = 0, n_lp
-          p_p => get_patch_ptr(patch, id_lp, ip)
-          p_p%cells%phys_id(:,:) = ig
-        END DO
-
-      END IF
+      CALL read_2D_int(stream_id_grf, on_cells, 'phys_cell_id', n_lp+1, &
+        &              multivar_2d_data_int(:))
+    ELSE
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(patch, id_lp, ip)
+        p_p%cells%phys_id(:,:) = ig
+      END DO
     END IF
 
     ! p_p%cells%edge_orientation(:,:,:)
@@ -1712,27 +1706,23 @@ CONTAINS
       &          multivar_2d_data_wp(:))
 
     ! p_p%edges%phys_id(:,:)
-    IF (ig <= 1) THEN
-      DO ip = 0, n_lp
-        p_p => get_patch_ptr(patch, id_lp, ip)
-        p_p%edges%phys_id(:,:) = ig
-      ENDDO
+    IF (ig > 1) THEN
+      lhave_phys_id = nf_inq_varid(ncid_grf, 'phys_edge_id', varid) == nf_noerr
     ELSE
+      lhave_phys_id = .FALSE.
+    END IF
+    IF (lhave_phys_id) THEN
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
         multivar_2d_data_int(ip+1)%data => p_p%edges%phys_id(:,:)
       END DO
-      lhave_phys_id = (nf_inq_varid(ncid_grf, 'phys_edge_id', varid) == nf_noerr)
-      IF (lhave_phys_id) THEN
-        CALL read_2D_int(stream_id_grf, on_edges, 'phys_edge_id', n_lp+1, &
-          &              multivar_2d_data_int(:))
-      ELSE
-
-        DO ip = 0, n_lp
-          p_p => get_patch_ptr(patch, id_lp, ip)
-          p_p%edges%phys_id(:,:) = ig
-        ENDDO
-      END IF
+      CALL read_2D_int(stream_id_grf, on_edges, 'phys_edge_id', n_lp+1, &
+        &              multivar_2d_data_int(:))
+    ELSE
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(patch, id_lp, ip)
+        p_p%edges%phys_id(:,:) = ig
+      ENDDO
     END IF
 
     ! p_p%edges%cell_idx(:,:,:)
