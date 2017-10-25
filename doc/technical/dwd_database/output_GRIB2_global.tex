@@ -119,9 +119,11 @@ forecast period and output intervals is provided in Figure \ref{fig:forecast_len
 
 Main forecasts are performed $4$ times a day at $0,\, 6,\, 12,\, 18$ UTC, covering a forecast time span of $180\,\mathrm{h}$ for the 
 $0$ und $12$ UTC runs and $120\,\mathrm{h}$ for the $6$ und $18$ UTC runs. Prior to 2015-02-25 the 6 and 18 UTC runs were restricted 
-to $78\,\mathrm{h}$. In preparation for the replacement of COSMO-EU by a high resolution ICON nest, additional short-range forecasts 
-are performed at 3, 9, 15 and 21UTC. The ICON nest will provide boundary data for the high resolution COSMO-DE runs, once COSMO-EU has 
-been switched off later this year. The forecast time covered by these runs is limited to $30\,\mathrm{h}$. See Chapter 
+to $78\,\mathrm{h}$. 
+Additional short-range forecasts are performed at $3$, $9$, $15$ and $21$ UTC.
+The ICON nest will provide boundary data for the high resolution
+COSMO-DE runs.
+The forecast time covered by these runs is limited to $30\,\mathrm{h}$. See Chapter 
 \ref{nest:chap_forecast_runs} for more details on the ICON nest and the available output fields. 
 
 All time-dependent output fields are available hourly up to
@@ -420,11 +422,13 @@ unit for accumulated fields (\emph{typeOfStatisticalProcessing}=1), the unit dis
     \\ \hline\hline
     % ----------------------------------------------------------------------------------------------------------
     45 & Fog                                     &  48  & Fog, depositing rime              \\
-    50 & Slight drizzle                          &  56  & Drizzle, freezing, slight         \\
-    60 & Slight rain, not freezing               &  63  & Moderate rain, not freezing       \\
-    65 & Heavy rain, not freezing                &  66  & Rain, freezing, slight            \\
-    67 & Rain, freezing, moderate or heavy       &  70  & Slight fall of snowflakes         \\
-    73 & Moderate fall of snowflakes             &  75  & Heavy fall of snowflakes          \\
+    51 & Slight drizzle                          &  53  & Moderate drizzle                  \\
+    55 & Heavy drizzle                           &  56  & Drizzle, freezing, slight         \\
+    57 & Drizzle, freezing, moderate or heavy    &  61  & Slight rain, not freezing         \\
+    63 & Moderate rain, not freezing             &  65  & Heavy rain, not freezing          \\
+    66 & Rain, freezing, slight                  &  67  & Rain, freezing, moderate or heavy \\
+    71 & Slight fall of snowflakes               &  73  & Moderate fall of snowflakes       \\
+    75 & Heavy fall of snowflakes                &  77  & Snow grains                       \\
     80 & Rain shower(s), slight                  &  81  & Rain shower(s), moderate or heavy \\
     82 & Rain shower(s), violent                 &  85  & Snow shower(s), slight            \\
     86 & Snow shower(s), moderate or heavy       &  95  & Thunderstorm, slight or moderate  \\
