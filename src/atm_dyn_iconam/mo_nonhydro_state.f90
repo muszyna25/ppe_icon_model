@@ -49,7 +49,8 @@ MODULE mo_nonhydro_state
                                      t_nh_prog, t_nh_diag,               &
     &                                t_nh_ref, t_nh_metrics
   USE mo_grid_config,          ONLY: n_dom, l_limited_area, ifeedback_type
-  USE mo_nonhydrostatic_config,ONLY: itime_scheme, igradp_method, ndyn_substeps_max
+  USE mo_nonhydrostatic_config,ONLY: itime_scheme, igradp_method, ndyn_substeps_max, &
+    &                                lcalc_dpsdt
   USE mo_dynamics_config,      ONLY: nsav1, nsav2
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: iforcing, ntracer, iqm_max, iqt,           &
@@ -57,7 +58,7 @@ MODULE mo_nonhydro_state
     &                                ico2, ich4, in2o, io3,                     &
     &                                iqni, iqni_nuc, iqg, iqh, iqnr, iqns,      & 
     &                                iqng, iqnh, iqnc, inccn, ininpot, ininact, &
-    &                                iqtke, nqtendphy, ltestcase, lart, msg_level
+    &                                iqtke, nqtendphy, ltestcase, lart
   USE mo_io_config,            ONLY: inextra_2d, inextra_3d, lnetcdf_flt64_output
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
   USE mo_turbdiff_config,      ONLY: turbdiff_config
@@ -1397,7 +1398,7 @@ MODULE mo_nonhydro_state
 
     INTEGER :: datatype_flt  !< floating point accuracy in NetCDF output
 
-    INTEGER :: jt, jg
+    INTEGER :: jt
 
     LOGICAL :: lrestart
 
@@ -1413,8 +1414,6 @@ MODULE mo_nonhydro_state
     ! number of vertical levels
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
-
-    jg = p_patch%id
 
     IF (itime_scheme >= 2) THEN
      n_timlevs = 2
@@ -1656,7 +1655,8 @@ MODULE mo_nonhydro_state
                 & ldims=shape2d_c, lrestart=.FALSE.,                            &
                 & in_group=groups("dwd_fg_atm_vars", "LATBC_PREFETCH_VARS" ) )
 
-    IF (msg_level >= 11 .OR. atm_phy_nwp_config(jg)%lcalc_dpsdt) THEN
+
+    IF (lcalc_dpsdt) THEN
      ! pres_sfc_old     p_diag%pres_sfc_old(nproma,nblks_c)
       !
       cf_desc    = t_cf_var('surface_pressure', 'Pa', 'surface pressure', datatype_flt)

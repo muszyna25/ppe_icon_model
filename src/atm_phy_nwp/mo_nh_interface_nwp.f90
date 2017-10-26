@@ -52,7 +52,8 @@ MODULE mo_nh_interface_nwp
   USE mo_model_domain,            ONLY: t_patch
   USE mo_intp_data_strc,          ONLY: t_int_state
   USE mo_nonhydro_types,          ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nonhydrostatic_config,   ONLY: kstart_moist, lhdiff_rcf, ih_clch, ih_clcm
+  USE mo_nonhydrostatic_config,   ONLY: kstart_moist, lhdiff_rcf, ih_clch, ih_clcm, &
+    &                                   lcalc_dpsdt
   USE mo_nwp_lnd_types,           ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_ext_data_types,          ONLY: t_external_data
   USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag, t_nwp_phy_tend
@@ -82,9 +83,9 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_conv_interface,      ONLY: nwp_convection
   USE mo_nwp_rad_interface,       ONLY: nwp_radiation
   USE mo_sync,                    ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E,      &
-                                        SYNC_C, SYNC_C1, global_sum_array
+                                        SYNC_C, SYNC_C1
   USE mo_mpi,                     ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier,     &
-    &                                   process_mpi_stdio_id, my_process_is_stdio
+    &                                   process_mpi_stdio_id
   USE mo_nwp_diagnosis,           ONLY: nwp_statistics, nwp_diag_output_1, nwp_diag_output_2
   USE mo_icon_comm_lib,           ONLY: new_icon_comm_variable,                               &
     &                                   icon_comm_sync_all, is_ready, until_sync
@@ -95,6 +96,7 @@ MODULE mo_nh_interface_nwp
   USE mo_ls_forcing,              ONLY: apply_ls_forcing
   USE mo_advection_config,        ONLY: advection_config
   USE mo_o3_util,                 ONLY: calc_o3_gems
+  USE mo_nh_supervise,            ONLY: compute_dpsdt
 
   IMPLICIT NONE
 
@@ -193,10 +195,6 @@ CONTAINS
 
     ! auxiliaries for Rayleigh friction computation
     REAL(wp) :: vabs, rfric_fac, ustart, uoffset_q, ustart_q, max_relax
-
-    ! Variables for dpsdt diagnostic
-    REAL(wp) :: dps_blk(pt_patch%nblks_c), dpsdt_avg
-    INTEGER  :: npoints_blk(pt_patch%nblks_c), npoints
 
     ! Variables for EDMF DUALM
     REAL(wp) :: qtvar(nproma,pt_patch%nlev)
@@ -1521,13 +1519,6 @@ CONTAINS
     IF (timers_level > 10) CALL timer_stop(timer_phys_acc_par)
 
 
-    ! Initialize fields for runtime diagnostics
-    ! In case that average ABS(dpsdt) is diagnosed
-    IF (msg_level >= 11) THEN
-      dps_blk(:)   = 0._wp
-      npoints_blk(:) = 0
-    ENDIF
-
     !-------------------------------------------------------------------------
     !>
     !!    @par Interpolation from  u,v onto v_n
@@ -1621,72 +1612,28 @@ CONTAINS
 
     ENDDO
 !$OMP END DO
-
-
-    ! Diagnosis of ABS(dpsdt) if msg_level >= 11
-    rl_start = grf_bdywidth_c+1
-    rl_end   = min_rlcell_int
-
-    i_startblk = pt_patch%cells%start_blk(rl_start,1)
-    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-    IF (msg_level >= 11) THEN
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
-
-        DO jc = i_startidx, i_endidx
-          pt_diag%ddt_pres_sfc(jc,jb) = (pt_diag%pres_sfc(jc,jb)-pt_diag%pres_sfc_old(jc,jb))/dt_loc
-          pt_diag%pres_sfc_old(jc,jb) = pt_diag%pres_sfc(jc,jb)
-
-          dps_blk(jb) = dps_blk(jb) + ABS(pt_diag%ddt_pres_sfc(jc,jb))
-          npoints_blk(jb) = npoints_blk(jb) + 1
-        ENDDO
-      ENDDO
-!$OMP END DO NOWAIT
-    ELSE IF (atm_phy_nwp_config(jg)%lcalc_dpsdt) THEN ! compute dpsdt field for output
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
-
-        DO jc = i_startidx, i_endidx
-          pt_diag%ddt_pres_sfc(jc,jb) = (pt_diag%pres_sfc(jc,jb)-pt_diag%pres_sfc_old(jc,jb))/dt_loc
-          pt_diag%pres_sfc_old(jc,jb) = pt_diag%pres_sfc(jc,jb)
-        ENDDO
-      ENDDO
-!$OMP END DO NOWAIT
-    ENDIF
-
 !$OMP END PARALLEL
 
     IF (timers_level > 10) CALL timer_stop(timer_phys_acc_2)
+
+
+    IF (timers_level > 10) CALL timer_start(timer_phys_dpsdt)
+    !
+    ! dpsdt diagnostic
+    IF (lcalc_dpsdt) THEN
+      CALL compute_dpsdt (pt_patch = pt_patch, &
+        &                 dt       = dt_loc,   &
+        &                 pt_diag  = pt_diag   )
+    ENDIF
+    IF (timers_level > 10) CALL timer_stop(timer_phys_dpsdt)
+
+
     IF (timers_level > 10) CALL timer_start(timer_phys_sync_vn)
     IF (lcall_phy_jg(itturb)) CALL sync_patch_array(SYNC_E, pt_patch, pt_prog%vn)
     IF (timers_level > 10) CALL timer_stop(timer_phys_sync_vn)
     IF (timers_level > 2) CALL timer_stop(timer_phys_acc)
 
 
-    ! dpsdt diagnostic - omitted in the case of a parallization test (p_test_run) because this
-    ! is a purely diagnostic quantitiy, for which it does not make sense to implement an order-invariant
-    ! summation
-    IF (.NOT. p_test_run .AND. msg_level >= 11) THEN
-      dpsdt_avg = SUM(dps_blk)
-      npoints   = SUM(npoints_blk)
-      dpsdt_avg = global_sum_array(dpsdt_avg, opt_iroot=process_mpi_stdio_id)
-      npoints   = global_sum_array(npoints  , opt_iroot=process_mpi_stdio_id)
-      IF (my_process_is_stdio()) THEN
-        dpsdt_avg = dpsdt_avg/(REAL(npoints,wp))
-        ! Exclude initial time step where pres_sfc_old is zero
-        IF (dpsdt_avg < 10000._wp/dt_loc) THEN
-          WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',jg
-          CALL message('nwp_nh_interface: ', TRIM(message_text))
-        ENDIF
-      ENDIF
-    ENDIF
 
     IF (msg_level >= 18) THEN ! extended diagnostic
       CALL nwp_diag_output_2(pt_patch, pt_prog_rcf, prm_nwp_tend, lcall_phy_jg(itturb))

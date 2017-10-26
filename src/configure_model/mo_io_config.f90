@@ -23,14 +23,14 @@
 !! headers of the routines.
 !!
 MODULE mo_io_config
-  USE mo_cdi,             ONLY: FILETYPE_NC2
-  USE mo_exception,       ONLY: finish, message
-  USE mo_impl_constants,  ONLY: max_dom
-  USE mo_io_units,        ONLY: filename_max
-  USE mo_kind,            ONLY: wp
-  USE mo_parallel_config, ONLY: num_restart_procs
-  USE mo_run_config,      ONLY: dtime
-  USE mo_util_string,     ONLY: int2string
+  USE mo_cdi,                     ONLY: FILETYPE_NC2
+  USE mo_exception,               ONLY: finish, message
+  USE mo_impl_constants,          ONLY: max_dom
+  USE mo_io_units,                ONLY: filename_max
+  USE mo_kind,                    ONLY: wp
+  USE mo_parallel_config,         ONLY: num_restart_procs
+  USE mo_run_config,              ONLY: dtime
+  USE mo_util_string,             ONLY: int2string
 
   IMPLICIT NONE
   PUBLIC
