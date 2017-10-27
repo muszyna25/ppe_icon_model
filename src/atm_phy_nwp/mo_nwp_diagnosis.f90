@@ -813,10 +813,12 @@ CONTAINS
 
           ! calibration of layer-wise cloud cover fields
           DO jc = i_startidx, i_endidx
-            clcl_mod = MIN(4._wp*prm_diag%clcl(jc,jb),EXP((1._wp+prm_diag%clcl(jc,jb))/2._wp*LOG(prm_diag%clcl(jc,jb))))
-            clcm_mod = MIN(3._wp*prm_diag%clcm(jc,jb),EXP((2._wp+prm_diag%clcm(jc,jb))/3._wp*LOG(prm_diag%clcm(jc,jb))))
+            clcl_mod = MIN(4._wp*prm_diag%clcl(jc,jb), &
+              EXP((1._wp+prm_diag%clcl(jc,jb))/2._wp*LOG(MAX(eps_clc,prm_diag%clcl(jc,jb)))))
+            clcm_mod = MIN(3._wp*prm_diag%clcm(jc,jb), &
+              EXP((2._wp+prm_diag%clcm(jc,jb))/3._wp*LOG(MAX(eps_clc,prm_diag%clcm(jc,jb)))))
             clct_fac = (clcl_mod+clcm_mod+prm_diag%clch(jc,jb)) /                        &
-              MAX(0.001_wp,prm_diag%clcl(jc,jb)+prm_diag%clcm(jc,jb)+prm_diag%clch(jc,jb))
+              MAX(eps_clc,prm_diag%clcl(jc,jb)+prm_diag%clcm(jc,jb)+prm_diag%clch(jc,jb))
             prm_diag%clct(jc,jb) = MIN(1._wp,clct_fac*prm_diag%clct(jc,jb))
             prm_diag%clcm(jc,jb) = clcm_mod
             prm_diag%clcl(jc,jb) = clcl_mod
