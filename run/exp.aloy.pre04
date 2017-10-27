@@ -12,19 +12,22 @@ author_list="Marco Giorgetta, Rene Redler, Reiner Schnur, Stephan Lorenz"
 # based on atm_amip, ocean_omip_long, and yac_nh_r2b3
 #
 # The atmosphere is based on the non-hydrostatic dynamics and the ECHAM physics, and is intialized
-# from analysis files and using transient boundary conditions for:
+# from analysis files and using constant pre-industrial (PI) boundary conditions for:
 # - spectral solar irradiation
 # - well mixed greenhouse gases CO2, CH4, N2O, CFCs
 # - O3 concentration
-# - tropospheric aerosol optical properties
-# - stratospheric volcanic aerosol optical properties
 #
-# SST and sea ice are provided via coupling by the ocean
+# No tropospheric aerosol optical properties and stratospheric volcanic aerosol optical properties
+# are provided for PI experiment
+#
+# SST and sea ice are provided via coupling by the ocean - but these are needed for initialization
 #
 # The land ... JSBACH_lite ...
 #
 # The ocean is initialized with temperature and salinity from PHC3.0 
 #
+# Restart files for ocean and atmosphere are provided from pool if desired (not yet)
+
 #--------------------------------------------------------------------------------------------------
 # I. General setup
 #--------------------------------------------------------------------------------------------------
@@ -47,6 +50,7 @@ author_list="Marco Giorgetta, Rene Redler, Reiner Schnur, Stephan Lorenz"
 
 # Number of ocean processes
 # -------------------------
+#  - a better configuration can be provided by specifying $mpi_oce_nodes above
 mpi_oce_nodes=${mpi_oce_nodes:=((no_of_nodes/2))}   # default: half of requested nodes
 ((mpi_oce_procs=mpi_oce_nodes * mpi_procs_pernode))
 if [ $mpi_oce_procs -lt 1 ] ; then
@@ -72,23 +76,29 @@ ocean_grids='OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G.nc'
 # start and end date+time
 # -----------------------
 
-start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
-  end_date="1979-01-03T00:00:00Z"        # ISO-format date+time
+start_date="2196-01-01T00:00:00Z"        # ISO-format date+time
+  end_date="2196-01-03T00:00:00Z"        # ISO-format date+time
 
 # time step length
 # ----------------
 
 # in ISO-format for atmosphere and ocean submodels:
 mts_atm="PT10M"
-mts_oce="PT10M"
+mts_oce="PT10M"  # default for first year if initializing with 'Levitus'
 
-# in seconds for YAC - must match those of the submodels:
-dtime_atm=${dtime_atm:=600}
-dtime_oce=${dtime_oce:=600}
+# ocean timestep:
+# mts_oce can be set to 30 minutes timestep when spun-up for 1 year minimum
+# mts_oce="PT30M"
 
-# change timestep of ocean/coupled to multiple of atm. timestep
-# dtime_oce must be multiple of dtime_atm
-#(( dtime_oce=dtime_atm * 1 ))
+# coupling timestep
+# -----------------
+
+# in ISO-format for YAC used in coupling.xml further below
+# successfull coupling requires that
+# - mts_atm is a multiple of mts_oce or vice versa
+# - mts_atm and mts_oce are multiples of mts_cpl
+# here the coupling timestp is equal to the ocean timestep.
+mts_cpl=$mts_oce
 
 # restart interval
 # ----------------
@@ -114,13 +124,6 @@ oce_output_interval="PT6H"
 #lnd_output_interval="P1M"
 #oce_output_interval="P1M"
 
-# ocean timestep:
-#  - mts_oce can be increased during a run (up to 30 minutes tested after 1 year spinup)
-#  - change timestep for coupler accordingly: dtime_oce
-#  - dtime_oce must be multiple of dtime_atm
-#mts_oce="PT30M"
-#(( dtime_oce=dtime_atm * 3 ))
-
 # standard long-term output switches - _min=yes only:
 output_atm_min=yes
 output_oce_min=yes
@@ -130,20 +133,16 @@ atm_file_interval="P20Y"
 lnd_file_interval="P20Y"
 oce_file_interval="P20Y"
 
-# full output switches - monthly atmospheric output:
-atm_output_interval_3d="P1M"
-atm_output_interval_2d="P1M"
-
 # full output switches - set to "yes" if needed
+output_oce_def=no   #  yes writes much output and needs more computing time
 output_atm_3d=yes
 output_atm_2d=yes
 output_phy_3d=no
 output_aer_3d=no # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
-output_oce_full=no
-output_lnd_full=no
 
-# coupling timestep for YAC (equals ocean timestep)
-dtime_cpl=$dtime_oce
+# full atmospheric output interval, normally set to general atmos interval:
+atm_output_interval_3d="$atm_output_interval"
+atm_output_interval_2d="$atm_output_interval"
 
 # namelist files
 # --------------
@@ -442,7 +441,18 @@ add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def        ./lctlib
 datadir=$grids_folder
 add_link_file $datadir/slm-2to2_forHDmodel.pre04_158km_editSLOHH2017_G.nc ./hd_mask.nc
 add_link_file $datadir/runoff_a2o.pre04.yac_p15.nc                        ./runoff_a2o.weights.nc
-#
+
+# II.2.6 Restart files
+# --------------------
+#  - links to restart files for atmosphere and ocean
+#datadir=$grids_folder/Restart_files
+#add_link_file $datadir/slo1004_restart_atm_21960101T000000Z.nc          ./init_restart_atm.nc
+#add_link_file $datadir/ocean_omip_long_r2b6_smax1e-3_17250-RTC_restart_oce_21960101T000000Z.nc ./init_restart_oce.nc
+#  - add links to standard names, will be overwritten during model run
+#add_link_file ./init_restart_atm.nc                                     ./restart_atm_DOM01.nc
+#add_link_file ./init_restart_oce.nc                                     ./restart_oce_DOM01.nc
+# set restart to true (default is false):
+#restart=.true.
 
 #--------------------------------------------------------------------------------------------------
 
@@ -481,16 +491,24 @@ if [[ "$output_atm_min" == "yes" ]]; then
  include_last     = .FALSE.
  ml_varlist       = 'orog'    , 'ps'      ,
                     'frac_wtr', 'frac_ice', 'frac_lnd',
-                    'sic'     , 'sit'     , 'qtop_icecl', 'qbot_icecl',
+                    'hs_icecl', 'ts_icecl', 'qtop_icecl','qbot_icecl',
+                    'sic'     , 'sit'     , 'sic_icecl', 'sit_icecl',
                     'clt'     , 'psl'     , 'tas'     , 'ts'      ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
                     'tauu'    , 'tauv'    , 'albedo'  ,
+                    'albedo_wtr', 'albedo_ice', 'albedo_lnd',
+                    'albvisdir','albvisdif' , 'albnirdir' , 'albnirdif',
+                    'albvisdir_ice', 'albvisdir_wtr', 'albvisdir_lnd',
+                    'rvds_dir','rvds_dif','rnds_dir','rnds_dif','rvus','rnus',
                     'hfls'    , 'hfss'    , 'evspsbl' ,
                     'hfls_wtr', 'hfls_ice', 'hfls_lnd',
                     'hfss_wtr', 'hfss_ice', 'hfss_lnd',
                     'rsns_wtr', 'rsns_ice', 'rsns_lnd',
                     'rlns_wtr', 'rlns_ice', 'rlns_lnd', 
+                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs',
+                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs',
+                    'rsus'    , 'rsuscs'  , 'rlus'    ,
                     'evspsbl_wtr', 'evspsbl_ice', 'evspsbl_lnd',
                     'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  ,
                     'tauu_wtr', 'tauu_ice', 'tauu_lnd',
@@ -660,34 +678,6 @@ if [[ "$output_lnd_min" == "yes" ]]; then
 EOF
 fi
 
-if [[ "$output_lnd_full" == "yes" ]]; then
-  cat >> ${atm_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_lnd_full"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 0
- operation        = 'mean'
- output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "${lnd_output_interval}"
- file_interval    = "${lnd_file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'fract_box',
-                    'seb_t_box'                , 'seb_t_eff_box'               , 'seb_qsat_star_box'      ,
-                    'a2l_swvis_srf_down_box'   , 'a2l_swnir_srf_down_box'      , 'a2l_lw_srf_down_box'    ,
-                    'seb_latent_hflx_box'      , 'seb_sensible_hflx_box'       ,
-                    'rad_alb_vis_box'          , 'rad_alb_nir_box'             ,
-                    'rad_rad_srf_net_box'      , 'rad_lw_srf_net_box'          , 'rad_sw_srf_net_box'     ,
-                    'seb_latent_hflx_box'      , 'seb_sensible_hflx_box'       , 'pheno_lai_box'          ,
-                    'hydro_w_skin_box'         , 'hydro_w_snow_box'            ,
-                    'hydro_snowmelt_box'       , 'hydro_evapotranspiration_box', 'hydro_w_soil_column_box',
-                    'hydro_runoff_box'         , 'hydro_drainage_box'          ,
-                    'hydro_discharge_ocean_box', 'hydro_discharge_box'         ,
-/
-EOF
-fi
-
 #--------------------------------------------------------------------------------------------------
 # III. ocean and sea-ice section
 #--------------------------------------------------------------------------------------------------
@@ -725,6 +715,7 @@ cat > ${oce_namelist} << EOF
   output_end       = "${end_date}"                    ! end date in ISO-format
   output_interval  = "${oce_output_interval}"         ! interval in ISO-format
   file_interval    = "${oce_file_interval}"           ! interval in ISO-format
+  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_oceanMonitor"
   filename_format  = "<output_filename>_<datetime2>"
@@ -764,8 +755,9 @@ cat > ${oce_namelist} << EOF
   use_continuity_correction       = .TRUE.    ! height adjustment according to vertical velocity in dynamics
   cfl_check                       = .FALSE.
   cfl_write                       = .FALSE.
-  i_bc_veloc_top                  =   4
+  i_bc_veloc_top                  =   1       ! coupled was: 4; now 1 as in 17250-RTC
   i_bc_veloc_bot                  =   1
+  select_lhs                      =   2       ! default=1, now 2 as in 17250-RTC
 /
 &ocean_tracer_transport_nml
   FLUX_CALCULATION_HORZ = 5      ! 1=upwind, 2=central, 3=Lax-Friedrichs, 4=Miura, 5=FCT with Zalesak limiter (default)
@@ -790,55 +782,72 @@ cat > ${oce_namelist} << EOF
 
   TracerHorizontalDiffusion_scaling          = 1
   Temperature_HorizontalDiffusion_Background = 0.0
-  Temperature_HorizontalDiffusion_Reference  = 120 !  40
+  Temperature_HorizontalDiffusion_Reference  = 0   ! 120 !  40
   Salinity_HorizontalDiffusion_Background    = 0.0
-  Salinity_HorizontalDiffusion_Reference     = 120 !  40
+  Salinity_HorizontalDiffusion_Reference     = 0   ! 120 !  40
 /
 &ocean_vertical_diffusion_nml
   ! PPscheme_type: type of pp-scheme, 4 is recommended:
   ! 1=ICON-optimized; 2=MPIOM-type; 4=ICON-edge-based - factor e-3 for wind mixing needed
-  PPscheme_type                            = 2
+  PPscheme_type                            = 4         ! coupled was: 2; now 4 as in 17250-RTC
   VerticalViscosity_TimeWeight             = 0.005
   velocity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
   Temperature_VerticalDiffusion_background =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
   Salinity_VerticalDiffusion_background    =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
   tracer_convection_MixingCoefficient      =   0.1 ! max vertical tracer diffusion for convection used in case of instability
-!  convection_InstabilityThreshold         =  -1.0E-6  ! used in update_ho_params - default=-5e-8
-!  RichardsonDiffusion_threshold           =   0.0     ! used in update_ho_params - default=+5e-8
+  convection_InstabilityThreshold          =  -1.0E-6  ! used in update_ho_params - default=-5e-8
+  RichardsonDiffusion_threshold            =   0.0     ! used in update_ho_params - default=+5e-8
   tracer_RichardsonCoeff                   =   2.0E-3  ! factor for vertical diffusion coefficient in PP scheme
   velocity_RichardsonCoeff                 =   2.0E-3  ! factor for vertical viscosity coefficient in PP scheme
   bottom_drag_coeff                        =   3.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
 
   use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
   ! lambda_wind                     = 0.03
-  tracer_TopWindMixing            = 5.0E-4 ! 4.0E-6 The used values maybe are too high 
-  velocity_TopWindMixing          = 5.0E-4 ! 4.0E-6
+  tracer_TopWindMixing            = 4.0E-6 ! 5.0E-4  ! lower values now as in 17250-RTC
+  velocity_TopWindMixing          = 4.0E-6 ! 5.0E-4  ! lower values now as in 17250-RTC
 /
 &ocean_GentMcWilliamsRedi_nml
-  GMRedi_configuration           =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
-  GMREDI_COMBINED_DIAGNOSTIC    = .false.
+  GMRedi_configuration                     =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
+  tapering_scheme                          =   1
+  GMRedi_usesRelativeMaxSlopes             = .false.
+  S_max                                    =   1.0e-3                             
+  S_d                                      =   0.0001  ! 5e-3 to 5e-4
+  k_tracer_GM_kappa_parameter              = 250.0     !
+  k_tracer_isoneutral_parameter            = 250.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
+  k_tracer_dianeutral_parameter            =   0.0     ! 1.0E-5  !
+  SWITCH_OFF_DIAGONAL_VERT_EXPL            = .TRUE.
+  GMREDI_COMBINED_DIAGNOSTIC               = .FALSE.
+  SWITCH_ON_REDI_BALANCE_DIAGONSTIC        = .FALSE.
+  REVERT_VERTICAL_RECON_AND_TRANSPOSED     = .TRUE.
+  SLOPE_CALC_VIA_TEMPERTURE_SALINITY       = .TRUE.
+  INCLUDE_SLOPE_SQUARED_IMPLICIT           = .TRUE.    ! think of l_with_vert_tracer_diffusion
+  SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION  = .TRUE.
 /
 &ocean_physics_nml
 /                                           
 &sea_ice_nml
   i_ice_therm                     =   1       ! 1=zero-layer (default), 2=Winton, 0/2: not allowed
   i_ice_dyn                       =   1       ! 1/0=switch on/off AWI ice dynamics; TODO: ice dynamics not yet ready for coupling
+! i_Qio_type                      =   3       ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
+! leadclose_1                     =   0.25    ! default: 0.5 - value of MPIOM: 0.25
+! leadclose_2n                    =   0.666   ! default: 0.0 - value of MPIOM: 2/3
 /
 &ocean_forcing_nml
   iforc_oce                       =  14       ! ocean forcing: FORCING_FROM_COUPLED_FLUX  = 14
   type_surfRelax_Temp             =  -1       ! -1: use net surface heat flux from atmosphere as boundary condition - no relaxation
   forcing_enable_freshwater       = .TRUE.    ! enable freshwater flux
-  forcing_windstress_u_type       =  22       ! 0: wind-stress set to zero (default) 1: read from (OMIP-) file; 2-100: untouched wind stress
+  forcing_windstress_u_type       =  22       ! 0: wind-stress set to zero (default); 1: read from (OMIP-) file;
+                                              ! 2-100: untouched wind stress
   forcing_windstress_v_type       =  22
   limit_seaice                    = .TRUE.    ! true: mass and energy conserving maximum of sea ice
-  seaice_limit                    =   0.7     ! 12m surface layer: 8.4m sea-ice limit
+  seaice_limit                    =   0.8     ! 12m surface layer: 9.6m sea-ice limit
 /
 &ocean_initialConditions_nml
   initial_salinity_type           =   1       ! read S from initial_state.nc
   initial_temperature_type        =   1       ! read T from initial_state.nc
 /                                    
 &ocean_diagnostics_nml
-   diagnostics_level              =   1
+  diagnostics_level               =   1
 /
 &io_nml
   lkeep_in_sync = .TRUE.          ! sync after each timestep
@@ -860,14 +869,15 @@ if [[ "$output_oce_min" == "yes" ]]; then
   mode             =  2                               ! 1: forecast mode (relative t-axis),
                                                       ! 2: climate mode (absolute t-axis)
   include_last     = .false.
-  m_levels         = "1...3,10"                       ! reduced output out of 64 levels
+  m_levels         = "1,2"                            ! surface and subsurface level only
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c', 'Qtop', 'Qbot',
-                      'mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc',
-                      't_acc','s_acc','u_acc',
+  ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c',
+                      'Qtop', 'Qbot','CondHeat', 'zHeatOceI','heatOceI','heatOceW','draftave','zUnderIce',
+                      'Qtop_acc', 'Qbot_acc','CondHeat_acc','zHeatOceI_acc','heatOceI_acc','heatOceW_acc',
+                      'draftave_acc','zUnderIce_acc',
+                      'mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc','t_acc','s_acc','u_acc',
                       'HeatFlux_Total_acc','atmos_fluxes_HeatFlux_ShortWave','atmos_fluxes_HeatFlux_LongWave',
-                      'HeatFlux_ShortWave_acc',
-                      'atmos_fluxes_HeatFlux_Latent','atmos_fluxes_HeatFlux_Sensible'
+                      'HeatFlux_ShortWave_acc','HeatFlux_LongWave_acc','HeatFlux_Sensible_acc','HeatFlux_Latent_acc',
                       'FrshFlux_Runoff_acc','FrshFlux_Precipitation_acc','FrshFlux_Evaporation_acc','FrshFlux_SnowFall_acc',
                       'FrshFlux_TotalOcean_acc', 'Wind_Speed_10m'
 /
@@ -877,12 +887,12 @@ fi
 # m_levels         = "1...3,10,21,32,44,51,56"        ! reduced output out of 64 levels
 #                                                     ! (0-27m, 100m, 305.5, 829, 1986, 3092, 4147m) 
 
-if [[ "$output_oce_full" == "yes" ]]; then
+if [[ "$output_oce_def" == "yes" ]]; then
   cat >> ${oce_namelist} <<EOF
 
 &output_nml
   filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_oce_full"
+  output_filename  = "${EXPNAME}_oce_def"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start date in ISO-format
   output_end       = "${end_date}"                    ! end date in ISO-format
@@ -893,12 +903,9 @@ if [[ "$output_oce_full" == "yes" ]]; then
                                                       ! 2: climate mode (absolute t-axis)
   include_last     = .false.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'wet_c','basin_c','regio_c','mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc',
-                      'Qbot','Qtop','t_acc','s_acc','u_acc', 'v_acc', 'w_acc',
-                      'HeatFlux_Total_acc','FrshFlux_Runoff_acc','FrshFlux_Precipitation_acc',
-                      'FrshFlux_Evaporation_acc', 'FrshFlux_TotalIce_acc', 'FrshFlux_TotalSalt_acc',
-                      'FrshFlux_TotalOcean_acc', 'FrshFlux_VolumeTotal_acc', 'FrshFlux_SnowFall_acc',
-                      'atmos_fluxes_FrshFlux_VolumeIce','Wind_Speed_10m'
+  ml_varlist       =  'group:oce_default','group:oce_essentials'
+  !ml_varlist       =  'group:oce_default','group:ice_diag'
+  !ml_varlist       =  'group:oce_diag','group:ice_diag','group:oce_geometry'
 /
 EOF
 fi
@@ -1014,7 +1021,7 @@ cat > ${cpl_xmlctrfn} << EOF
       <end_date>+2100-01-01T00:00:00.000</end_date>
       <calendar>proleptic-gregorian</calendar>
    </dates>
-   <timestep_unit>second</timestep_unit>
+   <timestep_unit>ISO_format</timestep_unit>
    <couples>
       <couple>
          <component1 component_id="1"/>
@@ -1023,9 +1030,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="1" transient_grid_ref="1"/>
             <target transient_grid_ref="1"/>
             <timestep>
-               <source>${dtime_atm}</source>
-               <target>${dtime_oce}</target>
-               <coupling_period operation="average">${dtime_cpl}</coupling_period>
+               <source>${mts_atm}</source>
+               <target>${mts_oce}</target>
+               <coupling_period operation="average">${mts_cpl}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
@@ -1041,9 +1048,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="1" transient_grid_ref="2"/>
             <target transient_grid_ref="2"/>
             <timestep>
-               <source>${dtime_atm}</source>
-               <target>${dtime_oce}</target>
-               <coupling_period operation="average">${dtime_cpl}</coupling_period>
+               <source>${mts_atm}</source>
+               <target>${mts_oce}</target>
+               <coupling_period operation="average">${mts_cpl}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
@@ -1059,9 +1066,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="1" transient_grid_ref="3"/>
             <target transient_grid_ref="3"/>
             <timestep>
-               <source>${dtime_atm}</source>
-               <target>${dtime_oce}</target>
-               <coupling_period operation="average">${dtime_cpl}</coupling_period>
+               <source>${mts_atm}</source>
+               <target>${mts_oce}</target>
+               <coupling_period operation="average">${mts_cpl}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
@@ -1077,9 +1084,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="1" transient_grid_ref="4"/>
             <target transient_grid_ref="4"/>
             <timestep>
-               <source>${dtime_atm}</source>
-               <target>${dtime_oce}</target>
-               <coupling_period operation="average">${dtime_cpl}</coupling_period>
+               <source>${mts_atm}</source>
+               <target>${mts_oce}</target>
+               <coupling_period operation="average">${mts_cpl}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
@@ -1095,9 +1102,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="1" transient_grid_ref="5"/>
             <target transient_grid_ref="5"/>
             <timestep>
-               <source>${dtime_atm}</source>
-               <target>${dtime_oce}</target>
-               <coupling_period operation="average">${dtime_cpl}</coupling_period>
+               <source>${mts_atm}</source>
+               <target>${mts_oce}</target>
+               <coupling_period operation="average">${mts_cpl}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
@@ -1113,9 +1120,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="2" transient_grid_ref="6"/>
             <target transient_grid_ref="6"/>
             <timestep>
-               <source>${dtime_oce}</source>
-               <target>${dtime_atm}</target>
-               <coupling_period operation="none">${dtime_cpl}</coupling_period>
+               <source>${mts_oce}</source>
+               <target>${mts_atm}</target>
+               <coupling_period operation="none">${mts_cpl}</coupling_period>
                <source_timelag>1</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
@@ -1131,9 +1138,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="2" transient_grid_ref="7"/>
             <target transient_grid_ref="7"/>
             <timestep>
-               <source>${dtime_oce}</source>
-               <target>${dtime_atm}</target>
-               <coupling_period operation="none">${dtime_cpl}</coupling_period>
+               <source>${mts_oce}</source>
+               <target>${mts_atm}</target>
+               <coupling_period operation="none">${mts_cpl}</coupling_period>
                <source_timelag>1</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
@@ -1149,9 +1156,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="2" transient_grid_ref="8"/>
             <target transient_grid_ref="8"/>
             <timestep>
-               <source>${dtime_oce}</source>
-               <target>${dtime_atm}</target>
-               <coupling_period operation="none">${dtime_cpl}</coupling_period>
+               <source>${mts_oce}</source>
+               <target>${mts_atm}</target>
+               <coupling_period operation="none">${mts_cpl}</coupling_period>
                <source_timelag>1</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
@@ -1167,9 +1174,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="2" transient_grid_ref="9"/>
             <target transient_grid_ref="9"/>
             <timestep>
-               <source>${dtime_oce}</source>
-               <target>${dtime_atm}</target>
-               <coupling_period operation="none">${dtime_cpl}</coupling_period>
+               <source>${mts_oce}</source>
+               <target>${mts_atm}</target>
+               <coupling_period operation="none">${mts_cpl}</coupling_period>
                <source_timelag>1</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
@@ -1185,9 +1192,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="1" transient_grid_ref="11"/>
             <target transient_grid_ref="11"/>
             <timestep>
-               <source>${dtime_atm}</source>
-               <target>${dtime_oce}</target>
-               <coupling_period operation="average">${dtime_cpl}</coupling_period>
+               <source>${mts_atm}</source>
+               <target>${mts_oce}</target>
+               <coupling_period operation="average">${mts_cpl}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
@@ -1202,9 +1209,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <source component_ref="1" transient_grid_ref="10"/>
             <target transient_grid_ref="10"/>
             <timestep>
-               <source>${dtime_atm}</source>
-               <target>${dtime_oce}</target>
-               <coupling_period operation="average">${dtime_cpl}</coupling_period>
+               <source>${mts_atm}</source>
+               <target>${mts_oce}</target>
+               <coupling_period operation="average">${mts_cpl}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>

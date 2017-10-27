@@ -249,13 +249,13 @@ CONTAINS
       & za_depth_below_sea_half, &
       & t_cf_var('A_veloc_v', 'kg/kg', 'vertical velocity diffusion', datatype_flt),&
       & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
-      & ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_physics","oce_default"))
+      & ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_physics","oce_diag"))
 
     CALL add_var(ocean_params_list, 'velocity_windMixing', params_oce%velocity_windMixing , grid_unstructured_edge,&
       & za_depth_below_sea_half, &
       & t_cf_var('velocity_windMixing', '', 'velocity_windMixing', datatype_flt),&
       & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
-      & ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_physics","oce_default"))
+      & ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_physics","oce_diag"))
 
 
     !! Tracers
@@ -284,7 +284,7 @@ CONTAINS
         & t_cf_var('tracer_windMixing', '', 'tracer_windMixing', datatype_flt),&
         & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
         & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/), &
-        & loutput=.TRUE., lrestart=.FALSE.,in_group=groups("oce_physics","oce_default"))
+        & loutput=.TRUE., lrestart=.FALSE.,in_group=groups("oce_physics","oce_diag"))
 
       ! Reference to individual tracer, for I/O
       ALLOCATE(params_oce%tracer_h_ptr(no_tracer))
