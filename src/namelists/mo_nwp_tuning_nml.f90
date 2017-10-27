@@ -190,7 +190,7 @@ CONTAINS
     tune_gfluxlaun  = 2.50e-3_wp   ! original IFS value 3.75e-3
     !
     ! grid scale microphysics
-    tune_zceff_min  = 0.075_wp
+    tune_zceff_min  = 0.01_wp
     tune_v0snow     = 25.0_wp      ! previous ICON value was 20
     tune_zvz0i      = 1.25_wp      ! original value of Heymsfield+Donner 1990: 3.29
     !

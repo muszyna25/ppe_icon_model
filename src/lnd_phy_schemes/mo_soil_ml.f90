@@ -2673,7 +2673,8 @@ ELSE          IF (itype_interception == 2) THEN
   z1d2dt = 1._ireals/zdt      ! 1./2*timestep
 
   ! Number of soil layers contributing to surface run-off
-  msr_off  = 0
+  ! (excess water removed from the uppermost layer constitutes the surface run-off)
+  msr_off  = 1
 
   zdtdrhw = zdt/rho_w   ! timestep/density of liquid water
 
@@ -2844,17 +2845,8 @@ ELSE          IF (itype_interception == 2) THEN
         ENDIF
 
         ! add rain contribution to water supply for infiltration
-        zvers(i) = zinf + (1._ireals - zalf)*zrr(i) + (1._ireals-conv_frac(i))*zalf*prr_con(i)
-
-        ! compute surface runoff; accounting for the fractional area of convective precip proved to be disadvantageous
-        ! here because of excessive drying of the soil in longer-term runs
-        zro_inf  = MAX(0._ireals,zvers(i)-zinfmx(i))
-
-        ! final infiltration rate
-        zinfil(i) = zvers(i) - zro_inf
-
-        ! surface run-off (residual of potential minus actual infiltration)
-        runoff_s(i) = runoff_s(i) + zro_inf*zroffdt
+        ! surface runoff is evaluated after the calculation of infiltration
+        zinfil(i) = zinf + (1._ireals - zalf)*zrr(i) + (1._ireals-conv_frac(i))*zalf*prr_con(i)
 
         ! change of snow water and interception water store
         ! (negligible residuals are added to the run-off)

@@ -495,7 +495,7 @@ CONTAINS
       tune_ozone_zmid2  = 26000.0_wp
       tune_ozone_zmid   = 20000.0_wp
       tune_ozone_zbot   = 17000.0_wp
-      tune_ozone_fac    = 0.15_wp
+      tune_ozone_fac    = 0.2_wp
       ozone_shapemode   = 2
       tune_ozone_lat    = 30._wp
       tune_ozone_maxinc = 1.e-6_wp

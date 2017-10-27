@@ -178,7 +178,7 @@ REAL(KIND=wp) :: &
   & fgew   , fgee   , fgqs   , & !fgqv   , & ! name of statement functions
   & ztt    , zzpv   , zzpa   , zzps   , &
   & zf_ice , deltaq , qisat_grid, &
-  & vap_pres, zaux, zqisat_m60, zqisat_m25, qi_mod, box_liq_ass, par1, par2, qcc, asyfac
+  & vap_pres, zaux, zqisat_m50, zqisat_m25, qi_mod, box_liq_ass, par1, par2, qcc, asyfac
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   zqlsat , zqisat, zagl_lim
@@ -212,8 +212,8 @@ REAL(KIND=wp), PARAMETER  :: &
 
 !-----------------------------------------------------------------------
 
-! saturation mixing ratio at -60 C and 200 hPa
-zqisat_m60 = fgqs ( fgee(213.15_wp), 0._wp, 20000._wp )
+! saturation mixing ratio at -50 C and 200 hPa
+zqisat_m50 = fgqs ( fgee(223.15_wp), 0._wp, 20000._wp )
 
 ! saturation mixing ratio at -25 C and 700 hPa
 zqisat_m25 = fgqs ( fgee(248.15_wp), 0._wp, 70000._wp )
@@ -279,10 +279,10 @@ CASE( 1 )
 ! stratiform cloud
 !  liquid cloud
      ! quadratic increase of cloud cover from 0 to 1 between RH = (100 - 2.5*asyfac*tune_box_liq)% and (100 + tune_box_liq)%;
-     ! the additional asymmetry factor asyfac is 1.2 in subsaturated air at temperatures above freezing and smoothly
+     ! the additional asymmetry factor asyfac is 1.25 in subsaturated air at temperatures above freezing and smoothly
      ! decreases to 1 if clouds are present and/or cold temperatures.
      ! Diagnosed cloud water is proportional to clcov**2
-      asyfac = MAX(1._wp,1.2_wp-10._wp*qc(jl,jk)/zqlsat(jl,jk)+0.04_wp*MIN(0._wp,tt(jl,jk)-tmelt))
+      asyfac = MAX(1._wp,1.25_wp-12.5_wp*qc(jl,jk)/zqlsat(jl,jk)+0.05_wp*MIN(0._wp,tt(jl,jk)-tmelt))
       deltaq = MIN(tune_box_liq*asyfac, zagl_lim(jl,jk)) * zqlsat(jl,jk)
       IF ( ( qv(jl,jk) + qc(jl,jk) - deltaq ) > zqlsat(jl,jk) ) THEN
         cc_turb_liq(jl,jk) = 1.0_wp
@@ -325,8 +325,8 @@ CASE( 1 )
       ENDIF
 
       ! reduce cloud cover fraction of very thin ice clouds, defined as clouds with a mixing ratio
-      ! of less than 5% of the saturation mixing ratio w.r.t. ice at -60 deg C
-      cc_turb_ice(jl,jk) = MIN(cc_turb_ice(jl,jk),qi_turb(jl,jk)/(box_ice*zqisat_m60))
+      ! of less than 5% of the saturation mixing ratio w.r.t. ice at -50 deg C
+      cc_turb_ice(jl,jk) = MIN(cc_turb_ice(jl,jk),qi_turb(jl,jk)/(box_ice*zqisat_m50))
 
       cc_turb(jl,jk) = max( cc_turb_liq(jl,jk), cc_turb_ice(jl,jk) )          ! max overlap liq/ice
       cc_turb(jl,jk) = min(max(0.0_wp,cc_turb(jl,jk)),1.0_wp)
@@ -337,6 +337,8 @@ CASE( 1 )
 ! convective cloud
       cc_conv(jl,jk) = ( pmfude_rate(jl,jk) / rho(jl,jk) ) &                  ! cc = detrainment / rho /
                    & / ( pmfude_rate(jl,jk) / rho(jl,jk) + 1.0_wp / taudecay )!      ( Du/rho + 1/tau,decay )
+      ! Assume 2% cloud cover in non-detraining updraft region
+      cc_conv(jl,jk) = MAX(cc_conv(jl,jk), MIN(0.02_wp,0.2_wp*plu(jl,jk)/zqlsat(jl,jk)) )
       qc_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*       foealfcu(tt(jl,jk)) ! ql up  foealfa = liquid/(liquid+ice)
       qi_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*(1._wp-foealfcu(tt(jl,jk)))! qi up
       IF (ktype(jl) == 2) THEN ! shallow convection

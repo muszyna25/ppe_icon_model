@@ -621,7 +621,7 @@ CONTAINS
     INTEGER :: jt               ! tracer loop index
 
     REAL(wp):: clearsky(nproma)
-    REAL(wp):: ccmax, ccran, alpha(nproma,pt_patch%nlev)
+    REAL(wp):: ccmax, ccran, alpha(nproma,pt_patch%nlev), clcl_mod, clcm_mod, clct_fac
 
 
     REAL(wp), PARAMETER :: eps_clc = 1.e-7_wp
@@ -659,7 +659,7 @@ CONTAINS
 !$OMP PARALLEL
     IF ( atm_phy_nwp_config(jg)%lenabled(itccov) ) THEN
 
-!$OMP DO PRIVATE(jc,jk,jb,z_help,i_startidx,i_endidx,clearsky,ccmax,ccran,alpha) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jc,jk,jb,z_help,i_startidx,i_endidx,clearsky,ccmax,ccran,alpha,clcl_mod,clcm_mod,clct_fac)
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -809,6 +809,17 @@ CONTAINS
                        & ( prm_diag%clc(jc,jk,jb) * prm_diag%clcl(jc,jb) )
               prm_diag%clcl(jc,jb) = alpha(jc,jk) * ccmax + (1._wp-alpha(jc,jk)) * ccran
             ENDDO
+          ENDDO
+
+          ! calibration of layer-wise cloud cover fields
+          DO jc = i_startidx, i_endidx
+            clcl_mod = MIN(4._wp*prm_diag%clcl(jc,jb),EXP((1._wp+prm_diag%clcl(jc,jb))/2._wp*LOG(prm_diag%clcl(jc,jb))))
+            clcm_mod = MIN(3._wp*prm_diag%clcm(jc,jb),EXP((2._wp+prm_diag%clcm(jc,jb))/3._wp*LOG(prm_diag%clcm(jc,jb))))
+            clct_fac = (clcl_mod+clcm_mod+prm_diag%clch(jc,jb)) /                        &
+              MAX(0.001_wp,prm_diag%clcl(jc,jb)+prm_diag%clcm(jc,jb)+prm_diag%clch(jc,jb))
+            prm_diag%clct(jc,jb) = MIN(1._wp,clct_fac*prm_diag%clct(jc,jb))
+            prm_diag%clcm(jc,jb) = clcm_mod
+            prm_diag%clcl(jc,jb) = clcl_mod
           ENDDO
 
         END SELECT
