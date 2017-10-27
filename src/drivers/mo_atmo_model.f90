@@ -83,7 +83,6 @@ MODULE mo_atmo_model
   ! external data, physics
   USE mo_ext_data_state,          ONLY: ext_data, destruct_ext_data
   USE mo_ext_data_init,           ONLY: init_ext_data 
-  USE mo_rrtm_data_interface,     ONLY: init_rrtm_model_repart, destruct_rrtm_model_repart
   USE mo_nwp_ww,                  ONLY: configure_ww
 
   USE mo_diffusion_config,        ONLY: configure_diffusion
@@ -492,12 +491,6 @@ CONTAINS
     ENDIF
 
 
-
-    !------------------------------------------------------------------
-    ! 11. Repartitioning of radiation grid (Karteileiche?!)
-    !------------------------------------------------------------------
-    CALL init_rrtm_model_repart()
-
 #ifdef MESSY
     CALL messy_initialize(n_dom)
     CALL messy_new_tracer
@@ -568,7 +561,6 @@ CONTAINS
       CALL finish(TRIM(routine),'deallocate for patch array failed')
     ENDIF
 
-    CALL destruct_rrtm_model_repart()
 !    IF (use_icon_comm) THEN
       CALL destruct_icon_communication()
 !    ENDIF
