@@ -116,10 +116,7 @@ MODULE mo_name_list_output_init
   ! lon-lat interpolation
   USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid, compute_lonlat_blocking,        &
     &                                             compute_lonlat_specs, threshold_delta_or_intvls
-  USE mo_intp_data_strc,                    ONLY: t_lon_lat_intp,                                 &
-    &                                             t_lon_lat_data, get_free_lonlat_grid,           &
-    &                                             lonlat_grid_list, n_lonlat_grids,               &
-    &                                             get_lonlat_grid_ID
+  USE mo_intp_lonlat_types,                 ONLY: t_lon_lat_intp, t_lon_lat_data, lonlat_grids
   ! output events
   USE mtime,                                ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,    &
     &                                             timedelta, newTimedelta, deallocateTimedelta,   &
@@ -483,21 +480,19 @@ CONTAINS
         ! grid. Otherwise we might share the lon-lat coefficients with
         ! other output namelists.
         IF (rbf_scale > 0._wp) THEN
-          lonlat_id             =  get_free_lonlat_grid()
-          lonlat                => lonlat_grid_list(lonlat_id)
-          lonlat%grid           =  new_grid
-          lonlat%intp%rbf_scale =  rbf_scale
+          lonlat_id             =  lonlat_grids%add_new_grid()
+          lonlat                => lonlat_grids%list(lonlat_id)
+          CALL lonlat%init(new_grid, rbf_scale)
         ELSE
           ! check, if lon-lat grids has already been registered
-          lonlat_id = get_lonlat_grid_ID(new_grid)
+          lonlat_id = lonlat_grids%get_ID(new_grid)
           IF (lonlat_id == -1) THEN
             ! Register a lon-lat grid data structure in global list
-            lonlat_id             =  get_free_lonlat_grid()
-            lonlat                => lonlat_grid_list(lonlat_id)
-            lonlat%grid           =  new_grid
-            lonlat%intp%rbf_scale =  rbf_scale
+            lonlat_id             =  lonlat_grids%add_new_grid()
+            lonlat                => lonlat_grids%list(lonlat_id)
+            CALL lonlat%init(new_grid, rbf_scale)
           ELSE
-            lonlat => lonlat_grid_list(lonlat_id)
+            lonlat => lonlat_grids%list(lonlat_id)
           END IF
         END IF
 
@@ -1097,7 +1092,7 @@ CONTAINS
     ! grids:
     ALLOCATE(patch_info(n_dom_out), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-    ALLOCATE(lonlat_info(n_lonlat_grids, n_dom), STAT=ierrstat)
+    ALLOCATE(lonlat_info(lonlat_grids%ngrids, n_dom), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     ! ---------------------------------------------------------------------------
@@ -1195,7 +1190,7 @@ CONTAINS
         CALL p_bcast(patch_info(idom)%grid_info_mode, bcast_root, p_comm_work_2_io)
       END DO
       ! A similar process as above - for the lon-lat grids
-      DO jl = 1,n_lonlat_grids
+      DO jl = 1,lonlat_grids%ngrids
         DO jg = 1,n_dom
           CALL p_bcast(lonlat_info(jl,jg)%grid_info_mode, bcast_root, p_comm_work_2_io)
         END DO
@@ -2047,13 +2042,13 @@ CONTAINS
 
 #ifndef __NO_ICON_ATMO__
     ! A similar process as above - for the lon-lat grids
-    DO jl = 1,n_lonlat_grids
+    DO jl = 1,lonlat_grids%ngrids
       DO jg = 1,n_dom
-        IF (.NOT. lonlat_grid_list(jl)%l_dom(jg)) CYCLE
+        IF (.NOT. lonlat_grids%list(jl)%l_dom(jg)) CYCLE
         IF(.NOT.my_process_is_io()) THEN
           ! Set reorder_info on work and test PE
-          CALL set_reorder_info_lonlat(lonlat_grid_list(jl)%grid,      &
-            &                          lonlat_grid_list(jl)%intp(jg),  &
+          CALL set_reorder_info_lonlat(lonlat_grids%list(jl)%grid,      &
+            &                          lonlat_grids%list(jl)%intp(jg),  &
             &                          lonlat_info(jl,jg))
         ENDIF
 #ifndef NOMPI
@@ -2379,7 +2374,7 @@ CONTAINS
       of%cdiEdgeGridID = CDI_UNDEFID
       of%cdiVertGridID = CDI_UNDEFID
 
-      lonlat => lonlat_grid_list(of%name_list%lonlat_id)
+      lonlat => lonlat_grids%list(of%name_list%lonlat_id)
       ll_dim(1) = lonlat%grid%lon_dim
       ll_dim(2) = lonlat%grid%lat_dim
 
@@ -2852,14 +2847,12 @@ CONTAINS
     ! var_list_name should have at least the length of var_list names
     ! (although this doesn't matter as long as it is big enough for every name)
     CHARACTER(LEN=256)            :: var_list_name
-    INTEGER                       :: idom, i
+    INTEGER                       :: idom
 
 !DR Test
     INTEGER :: nvgrid, ivgrid
     INTEGER :: size_tiles
     INTEGER :: size_var_groups_dyn
-    INTEGER :: idom_log
-    LOGICAL :: keep_grid_info
 
     ! There is nothing to do for the test PE:
     IF(my_process_is_mpi_test()) RETURN

@@ -36,31 +36,39 @@ MODULE mo_opt_diagnostics
     &                                VINTP_METHOD_QV,                    &
     &                                VINTP_METHOD_PRES,                  &
     &                                VINTP_METHOD_LIN,                   &
-    &                                VINTP_METHOD_LIN_NLEVP1
+    &                                VINTP_METHOD_LIN_NLEVP1,            &
+    &                                HINTP_TYPE_NONE
+  USE mo_physical_constants,   ONLY: earth_radius
   USE mo_exception,            ONLY: finish!!$, message, message_text
   USE mo_grid_config,          ONLY: n_dom
   USE mo_run_config,           ONLY: ntracer,iqv,iqc,iqi
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
-  USE mo_cdi,                  ONLY: DATATYPE_FLT32, DATATYPE_PACK16,                &
-    &                                DATATYPE_PACK24, TSTEP_INSTANT,                 &
-    &                                DATATYPE_FLT64
-  USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,          &
+  USE mo_cdi,                  ONLY: DATATYPE_FLT32, DATATYPE_PACK16,                  &
+    &                                DATATYPE_PACK24, TSTEP_INSTANT,                   & 
+    &                                DATATYPE_FLT64, GRID_UNSTRUCTURED,                &
+    &                                TSTEP_CONSTANT
+  USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,           &
     &                                GRID_CELL, ZA_HYBRID, ZA_HYBRID_HALF, ZA_SURFACE, &
-    &                                ZA_MEANSEA
-  USE mo_var_list,             ONLY: default_var_list_settings,     &
+    &                                ZA_MEANSEA, GRID_REGULAR_LONLAT
+  USE mo_nonhydro_state,       ONLY: p_nh_state_lists
+  USE mo_var_list,             ONLY: default_var_list_settings,                        &
     &                                new_var_list, delete_var_list, add_var, add_ref
-  USE mo_var_list_element,     ONLY: level_type_ml, level_type_pl,  &
+  USE mo_var_list_element,     ONLY: level_type_ml, level_type_pl,                     &
     &                                level_type_hl, level_type_il
   USE mo_name_list_output_config,ONLY: first_output_name_list, is_variable_in_output
   USE mo_io_config,            ONLY: lnetcdf_flt64_output
   USE mo_gribout_config,       ONLY: gribout_config
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var
-  USE mo_var_metadata,         ONLY: create_vert_interp_metadata,            &
+  USE mo_var_metadata,         ONLY: create_vert_interp_metadata,                      &
+    &                                create_hor_interp_metadata,                       &
     &                                groups, vintp_types
   USE mo_tracer_metadata,      ONLY: create_tracer_metadata
   USE mo_statistics,           ONLY: add_fields
   USE mo_util_dbg_prnt,        ONLY: dbg_print
+  USE mo_lonlat_grid,          ONLY: t_lon_lat_grid, latlon_compute_area_weights
+  USE mo_intp_lonlat_types,    ONLY: t_lon_lat_intp, t_lon_lat_list
+  USE mo_linked_list,          ONLY: t_list_element
 
   IMPLICIT NONE
 
@@ -79,6 +87,10 @@ MODULE mo_opt_diagnostics
   PUBLIC :: construct_opt_diag
   PUBLIC :: destruct_opt_diag
   PUBLIC :: update_opt_acc, reset_opt_acc, calc_mean_opt_acc
+  PUBLIC :: compute_lonlat_area_weights
+
+  !> module name
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_opt_diagnostics'
 
   ! Sub-type of "t_vcoeff" containing linear interpolation
   ! coefficients
@@ -883,6 +895,87 @@ CONTAINS
 
     vcoeff%l_initialized = .FALSE.
   END SUBROUTINE vcoeff_deallocate
+
+
+  !---------------------------------------------------------------
+  !> Adds a special metrics variable containing the area weights of
+  !  the regular lon-lat grid.
+  !
+  !  @note This new variable is time-constant!
+  !
+  SUBROUTINE compute_lonlat_area_weights(lonlat_data)
+    TYPE (t_lon_lat_list), TARGET, INTENT(IN) :: lonlat_data
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = modname//"::compute_lonlat_area_weights"
+    TYPE(t_cf_var)       :: cf_desc
+    TYPE(t_grib2_var)    :: grib2_desc
+    INTEGER              :: var_shape(3), nblks_lonlat, i, jg, ierrstat, &
+      &                     i_lat, idx_glb, jc, jb, j, datatype_flt
+    TYPE (t_lon_lat_grid), POINTER :: grid
+    TYPE (t_lon_lat_intp), POINTER :: ptr_int_lonlat
+!DR      REAL(wp),              POINTER :: area_weights(:), p_dummy(:,:,:)
+!DR !!! Using the POINTER attribute for area_weights(:) mysteriously leads
+!DR !!! to a bus error on NEC SX9 (tested with compiler revision 450). However,
+!DR !!! using the ALLOCATABLE attribute, instead, works.
+    REAL(wp), ALLOCATABLE          :: area_weights(:)
+    REAL(wp),              POINTER :: p_dummy(:,:,:)
+    TYPE(t_list_element),  POINTER :: new_element
+
+    ! define NetCDF output precision
+    IF ( lnetcdf_flt64_output ) THEN
+      datatype_flt = DATATYPE_FLT64
+    ELSE
+      datatype_flt = DATATYPE_FLT32
+    ENDIF
+
+    ! Add area weights
+    DO i=1, lonlat_data%ngrids
+      DO jg=1,n_dom
+        IF (lonlat_data%list(i)%l_dom(jg)) THEN
+          
+          grid           => lonlat_data%list(i)%grid
+          ptr_int_lonlat => lonlat_data%list(i)%intp(jg)
+          
+          nblks_lonlat   =  ptr_int_lonlat%nblks_lonlat(nproma)
+          var_shape = (/ nproma, 1, nblks_lonlat /)
+          cf_desc    = t_cf_var('aw', '1', 'area weights for regular lat-lon grid', datatype_flt)
+          grib2_desc = grib2_var(0, 191, 193, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL)
+          
+          ALLOCATE(area_weights(grid%lat_dim), STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+          
+          CALL add_var( p_nh_state_lists(jg)%diag_list,                             &
+            &           "aw", p_dummy,                                        &
+            &           GRID_REGULAR_LONLAT, ZA_SURFACE, cf_desc, grib2_desc, &
+            &           ldims=var_shape, lrestart=.FALSE.,                    &
+            &           loutput=.TRUE., new_element=new_element,              &
+            &           hor_interp=create_hor_interp_metadata(                &
+            &             hor_intp_type=HINTP_TYPE_NONE ),                    &
+            &           isteptype=TSTEP_CONSTANT )
+          ! link this new variable to the lon-lat grid:
+          new_element%field%info%hor_interp%lonlat_id = i
+          ! compute area weights:
+!CDIR NOIEXPAND
+          CALL latlon_compute_area_weights(grid, earth_radius, area_weights)
+          ! for each local lon-lat point on this PE:
+          DO j=1, ptr_int_lonlat%nthis_local_pts
+            ! determine block, index
+            jb = (j-1)/nproma + 1
+            jc = j - (jb-1)*nproma
+            ! determine latitude index:
+            idx_glb = ptr_int_lonlat%global_idx(j)
+            i_lat   = (idx_glb-1)/grid%lon_dim + 1
+            ! set area weight:
+            p_dummy(jc,1,jb) = area_weights(i_lat)
+          END DO
+          
+          DEALLOCATE(area_weights, STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+        END IF
+      END DO
+    END DO
+  END SUBROUTINE compute_lonlat_area_weights
+    
 
 END MODULE mo_opt_diagnostics
 

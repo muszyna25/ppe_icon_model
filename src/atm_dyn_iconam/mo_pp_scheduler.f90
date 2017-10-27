@@ -172,9 +172,8 @@ MODULE mo_pp_scheduler
   USE mo_var_metadata_types,      ONLY: t_var_metadata, t_var_metadata_dynamic, VARNAME_LEN,&
     &                                   t_post_op_meta
   USE mo_var_metadata,            ONLY: create_hor_interp_metadata, vintp_type_id
-  USE mo_intp_data_strc,          ONLY: lonlat_grid_list,                                   &
-    &                                   t_lon_lat_intp, p_int_state,                        &
-    &                                   MAX_LONLAT_GRIDS
+  USE mo_intp_data_strc,          ONLY: p_int_state
+  USE mo_intp_lonlat_types,       ONLY: t_lon_lat_intp, lonlat_grids
   USE mo_nonhydro_state,          ONLY: p_nh_state, p_nh_state_lists
   USE mo_opt_diagnostics,         ONLY: t_nh_diag_pz, p_nh_opt_diag
   USE mo_nwp_phy_state,           ONLY: prm_diag
@@ -385,7 +384,7 @@ CONTAINS
       ! loop only over model level variables
       IF (var_lists(i)%p%vlevel_type /= lev_type) CYCLE         
       ! loop only over variables of where domain was requested
-      IF (.NOT. lonlat_grid_list(ll_grid_id)%l_dom(jg)) CYCLE
+      IF (.NOT. lonlat_grids%list(ll_grid_id)%l_dom(jg)) CYCLE
 
       ! now, search for "vn" in the variable list:
       element => NULL()
@@ -417,7 +416,7 @@ CONTAINS
         
         !- predefined array shapes
         nlev = element%field%info%used_dimensions(2)
-        ptr_int_lonlat => lonlat_grid_list(ll_grid_id)%intp(jg)
+        ptr_int_lonlat => lonlat_grids%list(ll_grid_id)%intp(jg)
         nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
         shape3d_ll = (/ nproma, nlev, nblks_lonlat /)
 
@@ -487,7 +486,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine =  modname//"::pp_scheduler_init_lonlat"
     INTEGER                               :: &
       &  jg, ndom, ierrstat, ivar, i, j, nvars_ll, &
-      &  nblks_lonlat, ilev_type, max_var, ilev, n_uv_hrz_intp
+      &  nblks_lonlat, ilev_type, max_var, ilev, n_uv_hrz_intp, ngrids
     LOGICAL                               :: found, l_horintp, lvar_present
     TYPE (t_output_name_list), POINTER    :: p_onl
     TYPE(t_job_queue),         POINTER    :: task
@@ -504,11 +503,15 @@ CONTAINS
     TYPE(t_var_metadata_dynamic),POINTER  :: info_dyn
     INTEGER                               :: var_shape(5)
     TYPE (t_lon_lat_intp),     POINTER    :: ptr_int_lonlat
-    INTEGER                               :: uv_hrz_intp_grid(4*MAX_LONLAT_GRIDS), &
-      &                                      uv_hrz_intp_levs(4*MAX_LONLAT_GRIDS)
+    INTEGER, ALLOCATABLE                  :: uv_hrz_intp_grid(:), &
+      &                                      uv_hrz_intp_levs(:)
     CHARACTER(LEN=1)                      :: prefix
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
+
+    ngrids = 4*lonlat_grids%ngrids
+    ALLOCATE(uv_hrz_intp_grid(ngrids), uv_hrz_intp_levs(ngrids), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     ! initialize "new_element" pointer (cf. NEC compiler bugs DWD0121
     ! and DWD0123 for hybrid parallelization)
@@ -639,7 +642,7 @@ CONTAINS
         IF (var_lists(i)%p%vlevel_type/=ll_varlevs(ivar)) CYCLE LIST_LOOP
         ! loop only over variables on requested domains:
         jg = var_lists(i)%p%patch_id
-        IF (.NOT. lonlat_grid_list(ll_vargrid(ivar))%l_dom(jg)) CYCLE LIST_LOOP
+        IF (.NOT. lonlat_grids%list(ll_vargrid(ivar))%l_dom(jg)) CYCLE LIST_LOOP
         element => NULL()
         VAR_LOOP : DO
           IF(.NOT.ASSOCIATED(element)) THEN
@@ -689,7 +692,7 @@ CONTAINS
           END SELECT
 
           ! set local values for "nblks" and "npromz"
-          ptr_int_lonlat => lonlat_grid_list(ll_vargrid(ivar))%intp(jg)
+          ptr_int_lonlat => lonlat_grids%list(ll_vargrid(ivar))%intp(jg)
           nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
           var_shape      =  info%used_dimensions(:)
           IF (is_2d_field(info%vgrid) .AND. (info%ndims /= 2)) THEN
@@ -826,6 +829,9 @@ CONTAINS
       task%activity%check_dom_active = .FALSE. ! i.e. no domain-wise (in-)activity 
       task%activity%i_timelevel      = ALL_TIMELEVELS
     END IF
+
+    DEALLOCATE(uv_hrz_intp_grid, uv_hrz_intp_levs, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
     IF (dbg_level > 5)  CALL message(routine, "Done")
     
   END SUBROUTINE pp_scheduler_init_lonlat

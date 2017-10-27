@@ -64,11 +64,11 @@ MODULE m_dyn
   USE mo_run_config,         ONLY: nlev, nlevm1, nlevp1,iqv, iforcing, &
                                    iqm_max, output_mode
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_intp_data_strc,     ONLY: t_int_state, sick_a, sick_o
+  USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_intp,               ONLY: cell_avg,                    &
                                  & cells2edges_scalar, edges2cells_scalar, &
                                  & verts2edges_scalar, cells2verts_scalar
-  USE mo_interpol_config,    ONLY: i_cori_method                                   
+  USE mo_interpol_config,    ONLY: i_cori_method, sick_a, sick_o
   USE mo_nonlinear_adv,      ONLY: kin_vel_rot, lamb_rot
   USE mo_eta_coord_diag,     ONLY: half_level_pressure, full_level_pressure, &
                                    auxhyb, geopot

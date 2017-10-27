@@ -154,7 +154,7 @@ MODULE mo_name_list_output
   USE mo_post_op,                   ONLY: perform_post_op
   USE mo_meteogram_output,          ONLY: meteogram_init, meteogram_finalize
   USE mo_meteogram_config,          ONLY: meteogram_output_config
-  USE mo_intp_data_strc,            ONLY: lonlat_grid_list
+  USE mo_intp_lonlat_types,         ONLY: lonlat_grids
 #endif
 
   IMPLICIT NONE
@@ -1105,7 +1105,7 @@ CONTAINS
       CASE (GRID_REGULAR_LONLAT)
         lonlat_id = info%hor_interp%lonlat_id
         p_ri  => lonlat_info(lonlat_id, i_log_dom)%ri
-        p_pat => lonlat_grid_list(lonlat_id)%p_pat(i_log_dom)
+        p_pat => lonlat_grids%list(lonlat_id)%p_pat(i_log_dom)
 #endif
       CASE default
         CALL finish(routine,'unknown grid type')

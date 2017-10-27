@@ -36,7 +36,7 @@ MODULE mo_name_list_output_gridinfo
     &                                             set_GRIB2_local_keys
   USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid, compute_lonlat_specs,     &
     &                                             rotate_latlon_grid
-  USE mo_intp_data_strc,                    ONLY: lonlat_grid_list
+  USE mo_intp_lonlat_types,                 ONLY: lonlat_grids
   USE mo_math_constants,                    ONLY: pi_180, pi
   USE mo_impl_constants,                    ONLY: SUCCESS, min_rlcell_int, min_rledge_int,  &
     &                                             min_rlvert, vname_len
@@ -1062,7 +1062,7 @@ CONTAINS
 
     CASE (REMAP_REGULAR_LATLON)
       ! allocate data buffer:
-      grid => lonlat_grid_list(of%name_list%lonlat_id)%grid
+      grid => lonlat_grids%list(of%name_list%lonlat_id)%grid
       ! compute some entries of lon-lat grid specification:
       CALL compute_lonlat_specs(grid)
       ALLOCATE(rotated_pts(grid%lon_dim, grid%lat_dim, 2), &

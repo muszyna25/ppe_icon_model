@@ -43,6 +43,7 @@ USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, i
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time, end_time, is_plane_torus
 USE mo_intp_data_strc,       ONLY: p_int_state
+USE mo_intp_lonlat_types,    ONLY: lonlat_grids
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
 ! NH-namelist state
 USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc, &
@@ -54,7 +55,8 @@ USE mo_synsat_config,        ONLY: configure_synsat
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
   &                                construct_nh_state, destruct_nh_state
-USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag
+USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag,      &
+  &                                compute_lonlat_area_weights
 USE mo_nwp_phy_state,        ONLY: prm_diag, construct_nwp_phy_state,          &
   &                                destruct_nwp_phy_state
 USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
@@ -78,7 +80,6 @@ USE mo_name_list_output_init, ONLY:  init_name_list_output,        &
 USE mo_name_list_output_zaxes, ONLY: create_mipz_level_selections
 USE mo_name_list_output,    ONLY: close_name_list_output
 USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
-USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
 
 ! LGS - for the implementation of ECHAM physics in iconam
 USE mo_echam_phy_init,      ONLY: init_echam_phy, initcond_echam_phy
@@ -427,7 +428,7 @@ CONTAINS
 
     ! Add a special metrics variable containing the area weights of
     ! the regular lon-lat grid.
-    CALL compute_lonlat_area_weights()
+    CALL compute_lonlat_area_weights(lonlat_grids)
 
     ! Map the variable groups given in the output namelist onto the
     ! corresponding variable subsets:

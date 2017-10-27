@@ -17,19 +17,23 @@
 
 MODULE mo_delaunay_types
 
-#if !defined(NOMPI)
+#ifndef NOMPI
 #if !defined (__SUNPRO_F95)
-  USE MPI
+  USE mpi
 #endif
 #endif
 
 !$  USE OMP_LIB
+
+  USE mo_util_file,         ONLY: util_file_is_writable
+  USE mo_read_interface,    ONLY: nf
 
   USE mo_exception,         ONLY: finish
   USE mo_impl_constants,    ONLY: SUCCESS
   USE mo_kind,              ONLY: wp
   USE mo_mpi,               ONLY: p_comm_work, p_real_dp
   IMPLICIT NONE
+  INCLUDE 'netcdf.inc'
   
   PRIVATE
   PUBLIC :: t_edge, t_point, t_triangle
@@ -40,7 +44,7 @@ MODULE mo_delaunay_types
   PUBLIC :: OPERATOR(<), OPERATOR(/), OPERATOR(*), OPERATOR(==), OPERATOR(+)
   PUBLIC :: ccw_spherical, circum_circle_spherical
 
-#if !defined(NOMPI)
+#ifndef NOMPI
 #if defined (__SUNPRO_F95)
   INCLUDE "mpif.h"
 #endif
@@ -142,13 +146,17 @@ MODULE mo_delaunay_types
   TYPE, EXTENDS(t_sortable_list) :: t_triangulation
     TYPE(t_triangle), ALLOCATABLE :: a(:)
   CONTAINS
-    PROCEDURE :: swap       => swap_triangulation
-    PROCEDURE :: cmp        => cmp_triangulation
-    PROCEDURE :: destructor => destructor_triangulation
-    PROCEDURE :: reserve    => reserve_triangulation
-    PROCEDURE :: resize     => resize_triangulation
-    PROCEDURE :: push_back  => push_back_triangulation
-    PROCEDURE :: sync       => sync_triangulation
+    PROCEDURE :: swap         => swap_triangulation
+    PROCEDURE :: cmp          => cmp_triangulation
+    PROCEDURE :: destructor   => destructor_triangulation
+    PROCEDURE :: reserve      => reserve_triangulation
+    PROCEDURE :: resize       => resize_triangulation
+    PROCEDURE :: push_back    => push_back_triangulation
+    PROCEDURE :: sync         => sync_triangulation
+
+    PROCEDURE :: write_vtk    => write_vtk_triangulation
+    PROCEDURE :: write_netcdf => write_netcdf_triangulation
+    PROCEDURE :: read_netcdf  => read_netcdf_triangulation
   END TYPE t_triangulation
 
   !> type declaration: list of triangles
@@ -1126,46 +1134,54 @@ CONTAINS
     TYPE (t_min_heap)       :: heap
     TYPE (t_min_heap_elt)   :: last_elt
 
-    k = SIZE(isize)
+    k     = SIZE(isize)
+    count = 0
 
     ! Create a min heap with k heap nodes. Every heap node has first
     ! element of an array.
-    istart(0) = 0
-    heap_init(0:(k-1))%j = 1                       ! index of next element to be stored from array
-    heap_init(0:(k-1))%i = (/ ( i, i=0,(k-1) ) /)  ! index of array
+    istart(0) =  0
+    j         = -1
     DO i=0,(k-1)
-      heap_init(i)%elt%p%p = arr(istart(i))%p ! Store the first element
+      IF (isize(i)>0) THEN
+        j = j + 1
+        heap_init(j)%elt%p%p = arr(istart(i))%p  ! Store the first element
+        heap_init(j)%j = 1                       ! index of next element to be stored from array
+        heap_init(j)%i = i                       ! index of array
+      END IF
       IF (i /= (k-1)) THEN
         istart(i+1) = istart(i) + isize(i)
       END IF
     END DO
-    CALL construct_heap(heap, heap_init) ! create the heap
+
+    IF (j == -1)  RETURN ! skip routine if no input
+    CALL construct_heap(heap, heap_init(0:j)) ! create the heap
 
     ! Now one by one get the minimum element from min heap and replace
     ! it with next element of its array
-    count = 0
-    DO j=0,(SIZE(arr)-1)
-      ! get the minimum element and store it in output
-      root          = heap%harr(0)
-      IF ((j == 0) .OR. (.NOT. (root%elt%p == last_elt%p))) THEN
-        output(count)%p = root%elt%p
-        last_elt        = root%elt
-        count = count + 1
-      END IF
-
-      ! Find the next element that will replace current root of heap.
-      ! The next element belongs to same array as the current root.
-      IF (root%j < isize(root%i)) THEN
-        root%elt%p%p = arr(istart(root%i)+root%j)%p
-        root%j = root%j + 1
-      ELSE
-        ! If root was the last element of its array
-        root%elt%p%p(0) =  HUGE(1)
-      END IF
-      ! Replace root with next element of array
-      heap%harr(0) = root
-      CALL heap_heapify(heap, 0); 
-    END DO
+    IF (SIZE(arr) > 0) THEN
+      DO j=0,(SIZE(arr)-1)
+        ! get the minimum element and store it in output
+        root          = heap%harr(0)
+        IF ((j == 0) .OR. (.NOT. (root%elt%p == last_elt%p))) THEN
+          output(count)%p = root%elt%p
+          last_elt        = root%elt
+          count = count + 1
+        END IF
+        
+        ! Find the next element that will replace current root of heap.
+        ! The next element belongs to same array as the current root.
+        IF (root%j < isize(root%i)) THEN
+          root%elt%p%p = arr(istart(root%i)+root%j)%p
+          root%j = root%j + 1
+        ELSE
+          ! If root was the last element of its array
+          root%elt%p%p(0) =  HUGE(1)
+        END IF
+        ! Replace root with next element of array
+        heap%harr(0) = root
+        CALL heap_heapify(heap, 0); 
+      END DO
+    END IF
     ! clean up
     DEALLOCATE(heap%harr)
   END SUBROUTINE kway_merge
@@ -1233,22 +1249,25 @@ CONTAINS
       color2 = MPI_UNDEFINED
       IF (MOD(irank2, ngroups) == root_pe)  color2 = 1
       CALL MPI_COMM_SPLIT(mpi_comm, color2, irank, comm2, ierr)
-!$  time_s = omp_get_wtime()
+!$    time_s = omp_get_wtime()
+
       ! local sort on each PE
-      CALL this%quicksort()
-!$  toc = omp_get_wtime() - time_s
+      IF (this%nentries > 0)  CALL this%quicksort()
+!$    toc = omp_get_wtime() - time_s
 !$    IF (print_timers .AND. (irank == 0))  WRITE (0,*) "sorting: ", toc
       ! recursive call, gather stage 1
-!$  time_s = omp_get_wtime()
+!$    time_s = omp_get_wtime()
       CALL sync_triangulation(this, comm1)
-!$  toc = omp_get_wtime() - time_s
+!$    toc = omp_get_wtime() - time_s
+
 !$    IF (print_timers .AND. (irank == 0))  WRITE (0,*) "sync, stage 1: ", toc
       ! recursive call, gather stage 2
-!$  time_s = omp_get_wtime()
+!$    time_s = omp_get_wtime()
       CALL sync_triangulation(this, comm2)
-!$  toc = omp_get_wtime() - time_s
+!$    toc = omp_get_wtime() - time_s
+
 !$    IF (print_timers .AND. (irank == 0))  WRITE (0,*) "sync, stage 2: ", toc
-!$  time_s = omp_get_wtime()
+!$    time_s = omp_get_wtime()
       IF (irank /= 0) THEN
         local_nentries = 0
       ELSE
@@ -1257,7 +1276,7 @@ CONTAINS
       alloc_size = local_nentries
       ! broadcast buffer size from PE "irank == 0"
       CALL MPI_BCAST(alloc_size, 1, MPI_INTEGER, 0, mpi_comm, ierr)
-!$  toc = omp_get_wtime() - time_s
+!$    toc = omp_get_wtime() - time_s
 !$    IF (print_timers .AND. (irank == 0))  WRITE (0,*) "epilogue 1: ", toc
     ELSE
       local_nentries = this%nentries
@@ -1265,29 +1284,38 @@ CONTAINS
     END IF
 
     ! create an MPI-sendable copy of the triangle list
-    ALLOCATE(tmp(0:(alloc_size-1)), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    tmp(0:(local_nentries-1))%p(0) = this%a(0:(local_nentries-1))%p(0)
-    tmp(0:(local_nentries-1))%p(1) = this%a(0:(local_nentries-1))%p(1)
-    tmp(0:(local_nentries-1))%p(2) = this%a(0:(local_nentries-1))%p(2)
+    IF (alloc_size > 0) THEN
+      ALLOCATE(tmp(0:(alloc_size-1)), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+      IF (local_nentries > 0) THEN
+        tmp(0:(local_nentries-1))%p(0) = this%a(0:(local_nentries-1))%p(0)
+        tmp(0:(local_nentries-1))%p(1) = this%a(0:(local_nentries-1))%p(1)
+        tmp(0:(local_nentries-1))%p(2) = this%a(0:(local_nentries-1))%p(2)
+      END IF
+    ELSE
+      ALLOCATE(tmp(0:0), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+    END IF
 
     IF (.NOT. PRESENT(opt_mpi_comm)) THEN
       ! broadcast result from PE "irank == 0"
-!$  time_s = omp_get_wtime()
+!$    time_s = omp_get_wtime()
       CALL MPI_BCAST(tmp, alloc_size, mpi_t_triangle, 0, mpi_comm, ierr)
-!$  toc = omp_get_wtime() - time_s
+!$    toc = omp_get_wtime() - time_s
 !$    IF (print_timers .AND. (irank == 0))  WRITE (0,*) "bcast: ", toc
-!$  time_s = omp_get_wtime()
+!$    time_s = omp_get_wtime()
       IF (irank /= 0) THEN
         CALL this%resize(alloc_size)
-        this%a(0:(alloc_size-1))%p(0) = tmp(0:(alloc_size-1))%p(0)
-        this%a(0:(alloc_size-1))%p(1) = tmp(0:(alloc_size-1))%p(1)
-        this%a(0:(alloc_size-1))%p(2) = tmp(0:(alloc_size-1))%p(2)
+        IF (alloc_size > 0) THEN
+          this%a(0:(alloc_size-1))%p(0) = tmp(0:(alloc_size-1))%p(0)
+          this%a(0:(alloc_size-1))%p(1) = tmp(0:(alloc_size-1))%p(1)
+          this%a(0:(alloc_size-1))%p(2) = tmp(0:(alloc_size-1))%p(2)
+        END IF
       END IF
 
       DEALLOCATE(tmp, STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-!$  toc = omp_get_wtime() - time_s
+!$    toc = omp_get_wtime() - time_s
 !$    IF (print_timers .AND. (irank == 0))  WRITE (0,*) "epilogue 2: ", toc
     ELSE
       ! communicate max. number of points
@@ -1298,7 +1326,11 @@ CONTAINS
         global_nentries = SUM(recv_count(:)) ! gather a total of "global_nentries" entries
       
         ! perform gather operation
-        ALLOCATE(recv_tmp(0:(global_nentries-1)), STAT=ierrstat)
+        IF (global_nentries > 0) THEN
+          ALLOCATE(recv_tmp(0:(global_nentries-1)), STAT=ierrstat)
+        ELSE
+          ALLOCATE(recv_tmp(0:0), STAT=ierrstat)
+        END IF
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
         recv_displs(0) = 0
         DO i=1,(nranks-1)
@@ -1308,7 +1340,6 @@ CONTAINS
         ALLOCATE(recv_tmp(0:1), STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
       END IF
-        
       CALL MPI_GATHERV(tmp, local_nentries, mpi_t_triangle, recv_tmp, recv_count, recv_displs, &
         &              mpi_t_triangle, root_pe, mpi_comm, ierr)
 
@@ -1316,7 +1347,11 @@ CONTAINS
       IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
                
       IF (irank == root_pe) THEN
-        ALLOCATE(kway_merge_array_out(0:global_nentries-1), STAT=ierrstat)
+        IF (global_nentries > 0) THEN
+          ALLOCATE(kway_merge_array_out(0:global_nentries-1), STAT=ierrstat)
+        ELSE
+          ALLOCATE(kway_merge_array_out(0:0), STAT=ierrstat)
+        END IF
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
       
         ! perform a k-way merging of the sorted arrays from the k MPI
@@ -1327,10 +1362,11 @@ CONTAINS
         IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
 
         CALL this%resize(count)
-        this%a(0:(this%nentries-1))%p(0) = kway_merge_array_out(0:(this%nentries-1))%p%p(0)
-        this%a(0:(this%nentries-1))%p(1) = kway_merge_array_out(0:(this%nentries-1))%p%p(1)
-        this%a(0:(this%nentries-1))%p(2) = kway_merge_array_out(0:(this%nentries-1))%p%p(2)
-        
+        IF (this%nentries > 0) THEN
+          this%a(0:(this%nentries-1))%p(0) = kway_merge_array_out(0:(this%nentries-1))%p%p(0)
+          this%a(0:(this%nentries-1))%p(1) = kway_merge_array_out(0:(this%nentries-1))%p%p(1)
+          this%a(0:(this%nentries-1))%p(2) = kway_merge_array_out(0:(this%nentries-1))%p%p(2)
+        END IF
         DEALLOCATE(kway_merge_array_out, STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
       ELSE
@@ -1343,6 +1379,157 @@ CONTAINS
     CALL MPI_TYPE_FREE(mpi_t_triangle, ierr) 
 #endif
   END SUBROUTINE sync_triangulation
+
+
+  ! --------------------------------------------------------------------
+  !> Write out triangulation in VTK ASCII format.
+  !
+  SUBROUTINE write_vtk_triangulation(tri, filename, p, ldata)
+    CLASS(t_triangulation), INTENT(IN) :: tri
+    CHARACTER(LEN=*),       INTENT(IN) :: filename
+    TYPE(t_point_list),     INTENT(IN) :: p
+    LOGICAL,                INTENT(IN) :: ldata
+    ! local variables
+    INTEGER :: out_unit, i
+    
+    ! write triangles in vtk format
+    out_unit=20
+    OPEN (unit=out_unit,file=TRIM(filename),action="write",status="replace")
+    WRITE (out_unit,'(a)') "# vtk DataFile Version 2.0"
+    WRITE (out_unit,'(a)') "# delaunay example"
+    WRITE (out_unit,'(a)') "ASCII"
+    WRITE (out_unit,'(a)') "DATASET UNSTRUCTURED_GRID"
+    WRITE (out_unit,'(a,i0,a)') "POINTS ", p%nentries, " float"
+    DO i=0,(p%nentries-1)
+      WRITE (out_unit,'(3f12.8)') p%a(i)%x, p%a(i)%y, p%a(i)%z
+    END DO
+    WRITE (out_unit,'(a,i0,a,i0)') "CELLS ", tri%nentries," ", 4*tri%nentries
+    DO i=0,(tri%nentries-1)
+      WRITE (out_unit,'(3(a,i0))') "3 ", tri%a(i)%p(0)," ",tri%a(i)%p(1)," ",tri%a(i)%p(2)
+    END DO
+    WRITE (out_unit,'(a,i0)') "CELL_TYPES ", tri%nentries
+    DO i=0,(tri%nentries-1)
+      WRITE (out_unit,'(a)') "5"
+    END DO
+    IF (ldata) THEN
+      WRITE (out_unit,'(a,i0)') "CELL_DATA ", tri%nentries
+      WRITE (out_unit,'(a)')    "SCALARS rdiscard float 1"
+      WRITE (out_unit,'(a)')    "LOOKUP_TABLE default"
+      DO i=0,(tri%nentries-1)
+        WRITE (out_unit,'(f7.3)') tri%a(i)%rdiscard
+      END DO
+    END IF
+    CLOSE(out_unit)
+  END SUBROUTINE write_vtk_triangulation
+
+
+  ! --------------------------------------------------------------------
+  !> Write out triangulation in NetCDF format.
+  !
+  !  Note: If the output file already exists, then the data is
+  !        appended.
+  !
+  SUBROUTINE write_netcdf_triangulation(tri, filename)
+    CLASS(t_triangulation), INTENT(IN) :: tri
+    CHARACTER(LEN=*),       INTENT(IN) :: filename
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//":write_netcdf_triangulation"
+    CHARACTER(LEN=*), PARAMETER :: dimname1 = "cell_delaunay"
+    CHARACTER(LEN=*), PARAMETER :: dimname2 = "vert_delaunay"
+    CHARACTER(LEN=*), PARAMETER :: varname  = "cc_delaunay"
+    LOGICAL :: lexist, lreadonly
+    INTEGER :: ncfileid, has_id, has_var, dimID1, dimID2, varID, i, ierrstat
+    INTEGER, ALLOCATABLE :: tri_data(:,:)
+
+    INQUIRE (FILE=TRIM(filename), EXIST=lexist)
+    IF (lexist) THEN
+      ! check if we can write to the file
+      lreadonly = .NOT. util_file_is_writable(filename)
+      IF (lreadonly)  CALL finish(routine, "NetCDF file exists and is read-only!")
+      CALL nf(nf_open(TRIM(filename), NF_WRITE, ncfileid), routine)
+      ! check if the dimension and variable already exist:
+      has_id = nf_inq_dimid(ncfileid, dimname1, dimID1)
+      IF (has_id == nf_noerr)  CALL finish(routine, "Dimension 1 seems to exist!")
+      has_id = nf_inq_dimid(ncfileid, dimname2, dimID2)
+      IF (has_id == nf_noerr)  CALL finish(routine, "Dimension 2 seems to exist!")
+      has_var = nf_inq_varid(ncfileid, varname, varID)
+      IF (has_var == nf_noerr)  CALL finish(routine, "Variable seems to exist!")
+    ELSE
+      ! create file from scratch
+      CALL nf(nf_create(TRIM(filename), NF_CLOBBER, ncfileid), routine)
+    END IF
+
+    ! define necessary dimension
+    CALL nf(nf_redef(ncfileid), routine)
+    CALL nf(nf_def_dim(ncfileid, dimname1, tri%nentries, dimID1), routine)    
+    CALL nf(nf_def_dim(ncfileid, dimname2,            3, dimID2), routine)    
+    CALL nf(nf_def_var(ncfileid, varname, NF_INT, 2, (/ dimID1, dimID2 /), varID), routine)    
+    ! leave define mode
+    CALL nf(nf_enddef(ncfileid), routine)
+    
+    ALLOCATE(tri_data(0:(tri%nentries-1), 3), stat=ierrstat)
+    IF (ierrstat /= SUCCESS)  CALL finish(routine, "ALLOCATE failed!")
+    DO i=0,(tri%nentries-1)
+      tri_data(i,:) = tri%a(i)%p(:)
+    END DO
+    CALL nf(nf_put_var_int(ncfileid, varid, tri_data), routine)
+    DEALLOCATE(tri_data, stat=ierrstat)
+    IF (ierrstat /= SUCCESS)  CALL finish(routine, "DEALLOCATE failed!")
+
+    CALL nf(nf_close(ncfileid), routine)  ! close NetCDF file
+  END SUBROUTINE write_netcdf_triangulation
+
+
+  ! --------------------------------------------------------------------
+  !> Read triangulation from NetCDF format.
+  !
+  INTEGER FUNCTION read_netcdf_triangulation(tri, filename)
+    CLASS(t_triangulation), INTENT(INOUT) :: tri
+    CHARACTER(LEN=*),       INTENT(IN)    :: filename
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//":read_netcdf_triangulation"
+    CHARACTER(LEN=*), PARAMETER :: dimname1 = "cell_delaunay"
+    CHARACTER(LEN=*), PARAMETER :: dimname2 = "vert_delaunay"
+    CHARACTER(LEN=*), PARAMETER :: varname  = "cc_delaunay"
+    INTEGER :: ncfileid, has_id1, has_id2, has_var, dimID1, dimID2, varID, dimlen, ierrstat, i
+    LOGICAL :: lexist
+    INTEGER, ALLOCATABLE :: tri_data(:,:)
+
+    read_netcdf_triangulation = SUCCESS
+
+    INQUIRE (FILE=TRIM(filename), EXIST=lexist)
+    IF (.NOT. lexist)  CALL finish(routine, "File '"//TRIM(filename)//"' not found!")
+
+    ! open file in read-only mode:
+    CALL nf(nf_open(TRIM(filename), NF_NOWRITE, ncfileid), routine)
+
+    ! check if the dimension and variable exist:
+    has_id1 = nf_inq_dimid(ncfileid, dimname1, dimID1)
+    has_id2 = nf_inq_dimid(ncfileid, dimname2, dimID2)
+    has_var = nf_inq_varid(ncfileid, varname, varID)
+    IF ((has_id1 /= nf_noerr) .OR. (has_id2 /= nf_noerr) .OR. (has_var /= nf_noerr)) THEN
+
+      read_netcdf_triangulation = -1
+
+    ELSE
+
+      CALL nf(nf_inq_dimlen(ncfileid, dimID1, dimlen), routine)
+      CALL tri%resize(dimlen)
+
+      ALLOCATE(tri_data(0:(tri%nentries-1), 3), stat=ierrstat)
+      IF (ierrstat /= SUCCESS)  CALL finish(routine, "ALLOCATE failed!")
+      CALL nf(nf_get_var_int(ncfileid, varid, tri_data), routine)
+      DO i=0,(tri%nentries-1)
+        ! note that we shift the point indices st. they are suitable for
+        ! 0-based arrays.
+        tri%a(i)%p(:) = tri_data(i,:) - 1
+      END DO
+      DEALLOCATE(tri_data, stat=ierrstat)
+      IF (ierrstat /= SUCCESS)  CALL finish(routine, "DEALLOCATE failed!")
+
+    END IF
+    CALL nf(nf_close(ncfileid), routine)  ! close NetCDF file
+  END FUNCTION read_netcdf_triangulation
 
 
   ! --------------------------------------------------------------------
@@ -1440,6 +1627,5 @@ CONTAINS
     this%a(this%nentries) = element
     this%nentries         = this%nentries + 1
   END SUBROUTINE push_back_sphcap_list
-
 
 END MODULE mo_delaunay_types

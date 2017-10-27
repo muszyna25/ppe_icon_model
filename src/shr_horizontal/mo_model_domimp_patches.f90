@@ -111,7 +111,7 @@ MODULE mo_model_domimp_patches
   USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start, &
     & max_childdom, dynamics_parent_grid_id, &
     & lplane, grid_length_rescale_factor, is_plane_torus, grid_sphere_radius, &
-    & use_duplicated_connectivity
+    & use_duplicated_connectivity, set_patches_grid_filename
   USE mo_dynamics_config,    ONLY: lcoriolis
   USE mo_run_config,         ONLY: grid_generatingCenter, grid_generatingSubcenter, &
     &                              number_of_grid_used, msg_level, check_uuid_gracefully
@@ -126,8 +126,7 @@ MODULE mo_model_domimp_patches
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry, sphere_geometry, &
     &  set_grid_geometry_derived_info, copy_grid_geometry_info,            &
     & parallel_read_geometry_info, triangular_cell, planar_channel_geometry
-  USE mo_alloc_patches,      ONLY: set_patches_grid_filename, &
-    & allocate_pre_patch, allocate_remaining_patch
+  USE mo_alloc_patches,      ONLY: allocate_pre_patch, allocate_remaining_patch
   USE mo_math_constants,     ONLY: pi
   USE mo_reorder_patches,    ONLY: reorder_cells, reorder_edges, &
     &                              reorder_verts
@@ -381,7 +380,8 @@ CONTAINS
 
     patch_pre(n_dom_start:n_dom)%max_childdom =  max_childdom
 
-    CALL set_patches_grid_filename(patch_pre)
+    CALL set_patches_grid_filename(patch_pre(n_dom_start:n_dom)%grid_filename, &
+      &                            patch_pre(n_dom_start:n_dom)%grid_filename_grfinfo)
 
     ! nullify UUID buffer and other metadata vars
     DO jg = n_dom_start, n_dom

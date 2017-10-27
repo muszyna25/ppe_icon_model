@@ -79,6 +79,17 @@ long int util_filesize(char *filename)
   return ((long int) statbuf.st_size);
 }
 
+int util_file_is_writable(char *filename)
+{
+  int result = 0;
+  int rval = access (filename, W_OK);
+  if (rval == 0)
+    return 1;
+  else if ((errno == EACCES) ||  (errno == EROFS))
+    return 0;
+  return 0;
+}
+
 int putFile(const char* path, size_t dataSize, const char* data, int fileMode)
 {
   errno = 0;
@@ -146,3 +157,4 @@ int createSymlink(const char* targetPath, const char* linkName)
   symlink(targetPath, linkName);
   return errno;
 }
+

@@ -96,9 +96,9 @@ MODULE mo_atmo_model
     &                                   destruct_2d_gridref_state, transfer_grf_state,        &
     &                                   create_grf_index_lists
   USE mo_intp_data_strc,          ONLY: p_int_state, p_int_state_local_parent
+  USE mo_intp_lonlat_types,       ONLY: lonlat_grids
   USE mo_grf_intp_data_strc,      ONLY: p_grf_state, p_grf_state_local_parent
-  USE mo_intp_lonlat,             ONLY: init_lonlat_grid_list, compute_lonlat_intp_coeffs,    &
-    &                                   destroy_lonlat_grid_list
+  USE mo_intp_lonlat,             ONLY: compute_lonlat_intp_coeffs
 
   ! coupling
   USE mo_coupling_config,         ONLY: is_coupled_run
@@ -211,7 +211,7 @@ CONTAINS
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
     ! initialize global registry of lon-lat grids
-    CALL init_lonlat_grid_list()
+    CALL lonlat_grids%init()
 
     !---------------------------------------------------------------------
     ! 0. If this is a resumed or warm-start run...
@@ -556,7 +556,7 @@ CONTAINS
     ENDIF
 
     ! Deallocate global registry for lon-lat grids
-    CALL destroy_lonlat_grid_list()
+    CALL lonlat_grids%finalize()
 
     ! Deallocate grid patches
     CALL destruct_patches( p_patch )

@@ -35,13 +35,13 @@ MODULE mo_pp_tasks
     & ALL_TIMELEVELS, PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_DWD,       &
     & PRES_MSL_METHOD_IFS_CORR, RH_METHOD_WMO, RH_METHOD_IFS,         &
     & RH_METHOD_IFS_CLIP, TASK_COMPUTE_OMEGA, HINTP_TYPE_LONLAT_BCTR, &
-    & TLEV_NNOW, TLEV_NNOW_RCF
+    & TLEV_NNOW, TLEV_NNOW_RCF, HINTP_TYPE_LONLAT_RBF
   USE mo_model_domain,            ONLY: t_patch
   USE mo_var_list_element,        ONLY: t_var_list_element
   USE mo_var_metadata_types,      ONLY: t_var_metadata, t_vert_interp_meta
   USE mo_intp,                    ONLY: cell_avg, cells2edges_scalar
-  USE mo_intp_data_strc,          ONLY: t_int_state, lonlat_grid_list,      &
-    &                                   t_lon_lat_intp, p_int_state
+  USE mo_intp_data_strc,          ONLY: t_int_state, p_int_state
+  USE mo_intp_lonlat_types,       ONLY: t_lon_lat_intp, lonlat_grids
   USE mo_intp_rbf,                ONLY: rbf_vec_interpol_cell
   USE mo_nh_vert_interp,          ONLY: lin_intp, uv_intp, qv_intp,         &
     &                                   prepare_extrap, prepare_extrap_ifspp
@@ -62,8 +62,6 @@ MODULE mo_pp_tasks
   USE mo_cdi_constants,           ONLY: GRID_UNSTRUCTURED_CELL,                  &
     &                                   GRID_UNSTRUCTURED_EDGE,                  &
     &                                   is_2d_field
-  USE mo_intp_lonlat,             ONLY: interpol_lonlat,                         &
-    &                                   rbf_vec_interpol_lonlat
   USE mo_sync,                    ONLY: sync_patch_array,                        &
     &                                   SYNC_C, SYNC_E,                          &
     &                                   cumulative_sync_patch_array,             &
@@ -227,7 +225,7 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::p_task_lonlat"
     INTEGER                            ::        &
-      &  nblks_ll, npromz_ll, lonlat_id, jg,     &
+      &  lonlat_id, jg,                          &
       &  in_var_idx, out_var_idx, out_var_idx_2, &
       &  ierrstat, dim1, dim2, hintp_type
     TYPE (t_var_list_element), POINTER :: in_var, out_var, out_var_2
@@ -247,7 +245,7 @@ CONTAINS
 
     lonlat_id      =  ptr_task%data_output%var%info%hor_interp%lonlat_id
     jg             =  ptr_task%data_input%jg
-    ptr_int_lonlat => lonlat_grid_list(lonlat_id)%intp(jg)
+    ptr_int_lonlat => lonlat_grids%list(lonlat_id)%intp(jg)
     hintp_type     = p_info%hor_interp%hor_intp_type
 
     ! --------------------------------------------------------------------------
@@ -277,9 +275,6 @@ CONTAINS
       out_var_idx_2  =  1
       IF (out_var_2%info%lcontained) out_var_idx_2 = out_var_2%info%ncontained
     END IF
-
-    nblks_ll  = (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
-    npromz_ll =  ptr_int_lonlat%nthis_local_pts - (nblks_ll-1)*nproma
 
     IF (is_2d_field(p_info%vgrid) .AND. (p_info%ndims /= 2)) THEN
       CALL finish(routine, "Inconsistent dimension info!")
@@ -316,12 +311,11 @@ CONTAINS
 
           ! for cell-based variables: interpolate gradients (finite
           ! differences) and reconstruct
-          CALL interpol_lonlat(                     &
+          CALL ptr_int_lonlat%interpolate(          &
             &   TRIM(p_info%name),                  &
-            &   tmp_var(:,:,:),                     &
-            &   ptr_int_lonlat,                     &
+            &   tmp_var(:,:,:), nproma,             &
             &   out_var%r_ptr(:,:,:,out_var_idx,1), &
-            &   nblks_ll, npromz_ll, hintp_type)
+            &   hintp_type)
 
           ! clean up:
           DEALLOCATE(tmp_var, STAT=ierrstat)
@@ -345,11 +339,10 @@ CONTAINS
 
           ! for cell-based variables: interpolate gradients (finite
           ! differences) and reconstruct
-          CALL interpol_lonlat(                     &
-            &   TRIM(p_info%name), tmp_ptr,         &
-            &   ptr_int_lonlat,                     &
+          CALL ptr_int_lonlat%interpolate(          &
+            &   TRIM(p_info%name), tmp_ptr, nproma, &
             &   out_var%r_ptr(:,:,:,out_var_idx,1), &
-            &   nblks_ll, npromz_ll, hintp_type)
+            &   hintp_type)
         END IF ! 2D
 
     ELSE IF (ASSOCIATED(in_var%i_ptr)) THEN
@@ -381,12 +374,11 @@ CONTAINS
 
           ! for cell-based variables: interpolate gradients (finite
           ! differences) and reconstruct
-          CALL interpol_lonlat(                     &
+          CALL ptr_int_lonlat%interpolate(          &
             &   TRIM(p_info%name),                  &
-            &   tmp_int_var(:,:,:),                 &
-            &   ptr_int_lonlat,                     &
+            &   tmp_int_var(:,:,:), nproma,         &
             &   out_var%i_ptr(:,:,:,out_var_idx,1), &
-            &   nblks_ll, npromz_ll, hintp_type)
+            &   hintp_type)
 
           ! clean up:
           DEALLOCATE(tmp_int_var, STAT=ierrstat)
@@ -410,11 +402,10 @@ CONTAINS
 
           ! for cell-based variables: interpolate gradients (finite
           ! differences) and reconstruct
-          CALL interpol_lonlat(                     &
-            &   TRIM(p_info%name), tmp_int_ptr,     &
-            &   ptr_int_lonlat,                     &
-            &   out_var%i_ptr(:,:,:,out_var_idx,1), &
-            &   nblks_ll, npromz_ll, hintp_type)
+          CALL ptr_int_lonlat%interpolate(               &
+            &   TRIM(p_info%name), tmp_int_ptr, nproma,  &
+            &   out_var%i_ptr(:,:,:,out_var_idx,1),      &
+            &   hintp_type)
         END IF ! 2D
 
       END IF
@@ -449,12 +440,11 @@ CONTAINS
         END SELECT
 
         ! for edge-based variables: simple interpolation
-        CALL rbf_vec_interpol_lonlat(                 &
-          &   tmp_var(:,:,:),                         &
-          &   ptr_int_lonlat,                         &
+        CALL ptr_int_lonlat%interpolate(              &
+          &   tmp_var(:,:,:), nproma,                 &
           &   out_var%r_ptr(:,:,:,out_var_idx,1),     &
           &   out_var_2%r_ptr(:,:,:,out_var_idx_2,1), &
-          &   nblks_ll, npromz_ll)
+          &   HINTP_TYPE_LONLAT_RBF)
         ! clean up:
         DEALLOCATE(tmp_var, STAT=ierrstat)
         IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
@@ -476,11 +466,10 @@ CONTAINS
         END SELECT
 
         ! for edge-based variables: simple interpolation
-        CALL rbf_vec_interpol_lonlat( tmp_ptr,        &
-          &   ptr_int_lonlat,                         &
-          &   out_var%r_ptr(:,:,:,out_var_idx,1),     &
-          &   out_var_2%r_ptr(:,:,:,out_var_idx_2,1), &
-          &   nblks_ll, npromz_ll)
+        CALL ptr_int_lonlat%interpolate( tmp_ptr, nproma,                            &
+          &                              out_var%r_ptr(:,:,:,out_var_idx,1),         &
+          &                              out_var_2%r_ptr(:,:,:,out_var_idx_2,1),     &
+          &                              HINTP_TYPE_LONLAT_RBF )
       END IF ! 2D
     CASE DEFAULT
       CALL finish(routine, 'Unknown grid type.')
