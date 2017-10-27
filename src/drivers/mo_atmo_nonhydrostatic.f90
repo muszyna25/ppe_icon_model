@@ -36,8 +36,9 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
   &                                output_mode,          &
   &                                lvert_nest, ntracer,  &
   &                                nlev,                 &
-  &                                iqv, iqc, iqt,        &
+  &                                iqv, iqc, iqt, ico2,  &
   &                                number_of_grid_used
+USE mo_radiation_config,     ONLY: mmr_co2
 USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
@@ -287,6 +288,7 @@ CONTAINS
       !!       initcond_echam_phy should therefore not rely on the fact that this has been properly set.
       !!       It is the case for some testcases, but not e.g. for coupled or AMIP runs if the atmosphere
       !!       is initialized with IFS analyses.
+      !! NOTE: tracer variables, e.g. o3 or co2 are not part of the IFS analyses.
       DO jg = 1,n_dom
         CALL initcond_echam_phy( jg                                                 ,&
           &                      p_patch(jg)                                        ,&
@@ -361,12 +363,17 @@ CONTAINS
         ! initialize tracers fields jt=iqt to jt=ntracer, which are not available
         ! in the analysis file
         DO jg = 1,n_dom
-           IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-           DO jt = iqt,ntracer
+          IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+          DO jt = iqt,ntracer
 !$OMP PARALLEL
-             CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,jt),0.0_wp)
+            CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,jt),0.0_wp)
 !$OMP END PARALLEL
           END DO
+          IF ( iqt <= ico2 .AND. ico2 <= ntracer) THEN
+!$OMP PARALLEL
+            CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,ico2),mmr_co2)
+!$OMP END PARALLEL
+          END IF
         END DO
 
         IF (timers_level > 5) CALL timer_stop(timer_init_icon)

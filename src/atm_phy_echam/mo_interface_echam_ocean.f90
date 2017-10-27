@@ -29,7 +29,7 @@ MODULE mo_interface_echam_ocean
                                 
   USE mo_parallel_config     ,ONLY: nproma
   
-  USE mo_run_config          ,ONLY: ltimer, ico2 !, nlev
+  USE mo_run_config          ,ONLY: ltimer, ico2, nlev
   USE mo_timer,               ONLY: timer_start, timer_stop,                &
        &                            timer_coupling_put, timer_coupling_get, &
        &                            timer_coupling_1stget, timer_coupling_init
@@ -521,12 +521,14 @@ CONTAINS
     !   field_id(4) represents "total heat flux" bundle                   - short wave, long wave, sensible, latent heat flux
     !   field_id(5) represents "atmosphere_sea_ice_bundle"                - sea ice surface and bottom melt potentials
     !   field_id(10) represents "10m_wind_speed"                          - atmospheric wind speed
+    !   field_id(11) represents "qtrc(nlev,co2)"                          - co2 mixing ratio
     !
     !  Receive fields from ocean:
     !   field_id(6) represents "sea_surface_temperature"                  - SST
     !   field_id(7) represents "eastward_sea_water_velocity"              - zonal velocity, u component of ocean surface current
     !   field_id(8) represents "northward_sea_water_velocity"             - meridional velocity, v component of ocean surface current
     !   field_id(9) represents "ocean_sea_ice_bundle"                     - ice thickness, snow thickness, ice concentration
+    !   field_id(12) represents "co2_flux"                                - ocean co2 flux
     !
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
@@ -795,7 +797,7 @@ CONTAINS
         nlen = p_patch%npromz_c
       END IF
       DO n = 1, nlen
-        buffer(nn+n,1) = 42._wp!prm_field(jg)%qtrc(n,1,i_blk,ico2)
+        buffer(nn+n,1) = prm_field(jg)%qtrc(n,nlev,i_blk,ico2)
       ENDDO
     ENDDO
 !!ICON_OMP_END_PARALLEL_DO
@@ -1027,15 +1029,15 @@ CONTAINS
         END IF
         DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
-            prm_field(jg)%co2flux(n,i_blk) = dummy
+            prm_field(jg)%co2_flux_tile(n,i_blk,iwtr) = dummy
           ELSE
-            prm_field(jg)%co2flux(n,i_blk) = buffer(nn+n,1)
+            prm_field(jg)%co2_flux_tile(n,i_blk,iwtr) = buffer(nn+n,1)
           ENDIF
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
       !
-      CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%co2flux(:,:))
+      CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%co2_flux_tile(:,:,iwtr))
     ENDIF ! lcpl_co2_atmoce
 
     END IF    !---------DEBUG DIAGNOSTICS-------------------------------------------

@@ -100,44 +100,28 @@ mts_cpl=$mts_oce
 
 checkpoint_interval="P20Y" #  mtime ISO-format
 
-# high frequency output and restart intervals
-#  - Warning: restart_interval must be multiple of radiation time step (see below).
-restart_interval="P1D"
-atm_output_interval="PT6H"
-lnd_output_interval="PT6H"
-oce_output_interval="PT6H"
+restart_interval="P1Y"
+atm_output_interval="P1D"
+lnd_output_interval="P1M"
+oce_output_interval="P1M"
 
-# mid-frequency output and restart intervals
-#restart_interval="P1Y"   
-#atm_output_interval="P1D"
-#lnd_output_interval="P1D"
-#oce_output_interval="P1D"
-
-## long-term low frequency output and restart intervals
-#restart_interval="P2Y"   
-#atm_output_interval="P1M"
-#lnd_output_interval="P1M"
-#oce_output_interval="P1M"
+# for HAMOCC
 monthly="P1M"
 yearly="P1Y"
 daily="P1D"
 
 # standard long-term output switches - _min=yes only:
-output_atm_min=yes
 output_oce_min=yes
 output_lnd_min=yes
 
-atm_file_interval="P20Y"
+atm_file_interval="P1M"
 lnd_file_interval="P20Y"
 oce_file_interval="P20Y"
-
-# full output switches - monthly atmospheric output:
-atm_output_interval_3d="P1M"
-atm_output_interval_2d="P1M"
 
 # full output switches - set to "yes" if needed
 output_atm_3d=yes
 output_atm_2d=yes
+output_trc_3d=yes
 output_phy_3d=no
 output_aer_3d=no # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
 output_oce_full=no
@@ -196,7 +180,9 @@ cat > ${atm_namelist} << EOF
  ltestcase        = .FALSE.      ! run testcase
  ldynamics        = .TRUE.       ! dynamics
  ltransport       = .TRUE.       ! transport
- ntracer          = 5            ! number of tracers
+ ntracer          = 5            ! number of tracers; 3: hus, clw, cli;
+                                 !                    4: hus, clw, cli, o3
+                                 !                    5: hus, clw, cli, o3, co2
  iforcing         = 2            ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 15           ! level of details report during integration 
@@ -237,9 +223,9 @@ cat > ${atm_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
-!                   hus,clw,cli, o3
- ivadv_tracer     =   3,  3,  3,  3, 3
- itype_hlimit     =   3,  4,  4,  4, 3
+!                   hus,clw,cli, o3, co2
+ ivadv_tracer     =   3,  3,  3,  3,  3
+ itype_hlimit     =   3,  4,  4,  4,  4
  ihadv_tracer     =  52,  2,  2, 52, 52
 /
 &mpi_phy_nml
@@ -270,7 +256,7 @@ cat > ${atm_namelist} << EOF
 !
 /
 &vdiff_nml
-lsfc_co2_flux =.FALSE.
+ lsfc_co2_flux =.FALSE.
 /
 &mpi_sso_nml
 /
@@ -293,7 +279,7 @@ lsfc_co2_flux =.FALSE.
  vmr_n2o          = 273.021e-9  ! constant volume mixing ration
 /
 &psrad_nml
-rad_perm          = 1           ! Integer for perturbing random number seeds
+ rad_perm         = 1           ! Integer for perturbing random number seeds
 /
 &echam_conv_nml
 /
@@ -468,66 +454,6 @@ EOF
 #
 # output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
 
-if [[ "$output_atm_min" == "yes" ]]; then
-  cat >> ${atm_namelist} <<EOF
-&output_nml
- output_filename  = "${EXPNAME}_atm_min"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 0
- operation        = 'mean'
- output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "${atm_output_interval}"
- file_interval    = "${atm_file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'orog'    , 'ps'      ,
-                    'frac_wtr', 'frac_ice', 'frac_lnd',
-                    'sic'     , 'sit'     , 'qtop_icecl', 'qbot_icecl',
-                    'clt'     , 'psl'     , 'tas'     , 'ts'      ,
-                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
-                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
-                    'tauu'    , 'tauv'    , 'albedo'  ,
-                    'hfls'    , 'hfss'    , 'evspsbl' ,
-                    'hfls_wtr', 'hfls_ice', 'hfls_lnd',
-                    'hfss_wtr', 'hfss_ice', 'hfss_lnd',
-                    'rsns_wtr', 'rsns_ice', 'rsns_lnd',
-                    'rlns_wtr', 'rlns_ice', 'rlns_lnd', 
-                    'evspsbl_wtr', 'evspsbl_ice', 'evspsbl_lnd',
-                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  ,
-                    'tauu_wtr', 'tauu_ice', 'tauu_lnd',
-                    'tauv_wtr', 'tauv_ice', 'tauv_lnd',
-                    'sfcwind' , 'uas'     , 'vas', 'co2flux'
-/
-&dbg_index_nml
-  idbg_mxmn        = 2                        ! initialize MIN/MAX  debug output
-  idbg_val         = 0                        ! initialize one cell debug output
-  idbg_slev        = 1                        ! initialize start level for debug output
-  idbg_elev        = 2                        ! initialize end level for debug output
-  dbg_lat_in       =  30.0                    ! latitude location of one cell debug output
-  dbg_lon_in       = -30.0                    ! longitude location of one cell debug output
-  str_mod_tst      ='InterFaceOce'            ! define modules to print out in debug mode
-/
-EOF
-fi
-
-#  Variables not allowed?
-#  'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    , 'rsdt'    ,
-
-#  more variables for test output
-#  'cosmu0'  , 'daylght_frc',
-#  'visdffsfc','nirdffsfc','vissfc'  , 'nirsfc'  ,
-#  'albedo_wtr', 'albedo_ice', 'albedo_lnd',
-#  'albvisdir','albvisdif' , 'albnirdir' , 'albnirdif',
-#  'albvisdir_ice', 'albvisdir_wtr', 'albvisdir_lnd',
-#  'tauu_sso', 'tauv_sso', 'diss_sso', 
-#  'sh_vdiff', 'qv_vdiff',
-#  'ch_concloud',
-#  'con_dtrl', 'con_dtri', 'con_iteqv',
-#  'cld_dtrl', 'cld_dtri', 'cld_iteq' ,
-#  'dew2'
-
-
 if [[ "$output_atm_3d" == "yes" ]]; then
   cat >> ${atm_namelist} << EOF
 &output_nml
@@ -538,7 +464,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${atm_output_interval_3d}"
+ output_interval  = "${atm_output_interval}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
@@ -559,7 +485,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${atm_output_interval_2d}"
+ output_interval  = "${atm_output_interval}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
@@ -569,16 +495,28 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'
                     'rsus'    , 'rsuscs'  , 'rlus'    ,
                     'ts'      ,
+                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  ,
                     'sic'     , 'sit'     ,
                     'albedo'  ,
                     'clt'     ,
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
+                    'hfls_wtr', 'hfls_ice', 'hfls_lnd',
+                    'hfss_wtr', 'hfss_ice', 'hfss_lnd',
+                    'rsns_wtr', 'rsns_ice', 'rsns_lnd',
+                    'rlns_wtr', 'rlns_ice', 'rlns_lnd',
+                    'evspsbl_wtr', 'evspsbl_ice', 'evspsbl_lnd',
                     'tauu'    , 'tauv'    ,
                     'tauu_sso', 'tauv_sso', 'diss_sso', 
+                    'tauu_wtr', 'tauu_ice', 'tauu_lnd',
+                    'tauv_wtr', 'tauv_ice', 'tauv_lnd',
+                    'frac_wtr', 'frac_ice', 'frac_lnd',
+                    'qtop_icecl', 'qbot_icecl',
                     'sfcwind' , 'uas'     , 'vas'     ,
-                    'tas'     , 'dew2', 'co2flux'
+                    'tas'     , 'dew2',
+                    'co2_flux_wtr' , 'co2_flux_ice' , 'co2_flux_lnd' ,
+                    'fco2nat'
 /
 EOF
 fi
@@ -594,7 +532,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${atm_output_interval_3d}"
+ output_interval  = "${atm_output_interval}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
@@ -614,6 +552,33 @@ if [[ "$output_phy_3d" == "yes" ]]; then
 EOF
 fi
 
+#
+if [[ "$output_trc_3d" == "yes" ]]; then
+  #
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_trc_3d"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'ps'        , 'pfull'     ,
+!                    'mairvi_phy',
+!                    'mdryvi_phy',
+!                    'mh2ovi_phy',
+!                    'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
+!                    'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
+!                    'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    'qco2_phy'  , 'mco2vi_phy', 'tend_mco2vi_phy',
+!                    'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
+/
+EOF
+fi
+
 
 if [[ "$output_aer_3d" == "yes" ]]; then
   cat >> ${atm_namelist} << EOF
@@ -625,7 +590,7 @@ if [[ "$output_aer_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${atm_output_interval_3d}"
+ output_interval  = "${atm_output_interval}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'aer_aod_533',  'aer_ssa_533',  'aer_asy_533' , 
@@ -761,7 +726,7 @@ cat >> ${oce_namelist} << EOF1
   output_filename  = "${EXPNAME}_hamocc"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${daily}"
+  output_interval  = "${yearly}"
   file_interval="P1Y"
   mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
@@ -815,7 +780,7 @@ cat >> ${oce_namelist} << EOF1
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${daily}"
+  output_interval  = "${monthly}"
   file_interval="P1Y"
   mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .TRUE.
