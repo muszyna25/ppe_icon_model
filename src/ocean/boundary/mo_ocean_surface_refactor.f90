@@ -406,7 +406,7 @@ CONTAINS
           p_ice%zUnderIce(jc,jb) = zUnderIceOld(jc,jb) + p_oce_sfc%FrshFlux_VolumeTotal(jc,jb) * dtime
           p_oce_sfc%SSS(jc,jb)   = sss_inter(jc,jb) * zUnderIceOld(jc,jb) / p_ice%zUnderIce(jc,jb)
 
-          h_old_test=  (p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
+          h_old_test=  (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
 
 
           !******  (Thermodynamic Eq. 5)  ******
@@ -423,7 +423,7 @@ CONTAINS
           DO i_bgc_tra = no_tracer+1, no_tracer+nbgctra
            ! for HAMOCC tracer dilution
              p_os%p_prog(nold(1))%tracer(jc,1,jb,i_bgc_tra)  = p_os%p_prog(nold(1))%tracer(jc,1,jb,i_bgc_tra) &
-           &        * h_old_test/(p_os%p_prog(nold(1))%h(jc,jb) + p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb))
+           &        * h_old_test/(p_os%p_prog(nold(1))%h(jc,jb) + p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb))
           ENDDO
           endif
 
@@ -629,14 +629,15 @@ CONTAINS
     ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('aftAtmFluxUpd:atmflx%LWnetIce', atmos_fluxes%LWnet   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('aftAtmFluxUpd:atmflx%SensIce',  atmos_fluxes%sens    ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('aftAtmFluxUpd:atmflx%LatentIce',atmos_fluxes%lat     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('aftAtmFluxUpd:atmflx%dsensdT'  ,atmos_fluxes%dsensdT ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('aftAtmFluxUpd:atmflx%dlatdT'   ,atmos_fluxes%dlatdT  ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('aftAtmFluxUpd:atmflx%dLWdT'    ,atmos_fluxes%dLWdt   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('aftAtmFluxUpd:stress_x'        ,atmos_fluxes%stress_x,str_module,idt_src, in_subset=p_patch%cells%owned)
+    !idt_src=5  ! output print level (1-5, fix)
+    !  these fluxes are always zero - fluxes over ice-covered area are Qbot, Qtop only
+    !CALL dbg_print('aftAtmFluxUpd:atmflx%LWnetIce', atmos_fluxes%LWnet   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    !CALL dbg_print('aftAtmFluxUpd:atmflx%SensIce',  atmos_fluxes%sens    ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    !CALL dbg_print('aftAtmFluxUpd:atmflx%LatentIce',atmos_fluxes%lat     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    !CALL dbg_print('aftAtmFluxUpd:atmflx%dsensdT'  ,atmos_fluxes%dsensdT ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    !CALL dbg_print('aftAtmFluxUpd:atmflx%dlatdT'   ,atmos_fluxes%dlatdT  ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    !CALL dbg_print('aftAtmFluxUpd:atmflx%dLWdT'    ,atmos_fluxes%dLWdt   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    !CALL dbg_print('aftAtmFluxUpd:stress_x'        ,atmos_fluxes%stress_x,str_module,idt_src, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
     CALL dbg_print('aftAtmFluxUpd: Precipitation', p_oce_sfc%FrshFlux_Precipitation,str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('aftAtmFluxUpd: Evaporation'  , p_oce_sfc%FrshFlux_Evaporation  ,str_module, 3, in_subset=p_patch%cells%owned)

@@ -142,11 +142,6 @@ CONTAINS
       &                             jstep-jstep0   , &
       &                             this_datetime) ! , &
           ! &                             oce_ts)
-    IF (diagnostics_level > 0 ) THEN
-      IF (no_tracer>=2) THEN
-        CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_diag%w(:,:,:), this_datetime)
-      ENDIF
-    ENDIF
     ! compute mean values for output interval
     !TODO [ram] src/io/shared/mo_output_event_types.f90 for types to use
     !TODO [ram] nsteps_since_last_output =
@@ -159,6 +154,14 @@ CONTAINS
       CALL compute_mean_hamocc_statistics(hamocc%p_acc,nsteps_since_last_output)
       CALL get_monitoring(hamocc,ocean_state(1),patch_3d)
     ENDIF
+
+    IF (diagnostics_level > 0 ) THEN
+      IF (no_tracer>=2) THEN
+!         CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_diag%w(:,:,:), this_datetime)
+        CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_acc%w(:,:,:), this_datetime)
+      ENDIF
+    ENDIF
+
    ! set the output variable pointer to the correct timelevel
     CALL set_output_pointers(nnew(1), ocean_state(jg)%p_diag, ocean_state(jg)%p_prog(nnew(1)))
     IF(lhamocc)CALL set_bgc_output_pointers(nnew(1), hamocc%p_diag, ocean_state(jg)%p_prog(nnew(1)))
