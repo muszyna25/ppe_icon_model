@@ -1903,19 +1903,12 @@ CONTAINS
       &                     n_lp+1, fill_array=multivar_3d_data_int(:), &
       &                     start_extdim=1, end_extdim=max_verts_connectivity)
     DO ip = 0, n_lp
-      p_p => patches(ip)%p
-      CALL convert_to_local_index( &
-        p_p%verts%neighbor_idx(:,:,1:max_verts_connectivity), &
-        p_p%n_patch_verts, max_verts_connectivity, &
-        p_p%verts%decomp_info%glb2loc_index, use_duplicated_connectivity)
-      CALL move_dummies_to_end_idxblk( &
-        p_p%verts%neighbor_idx(:,:,1:max_verts_connectivity), &
-        p_p%n_patch_verts, max_verts_connectivity, &
-        use_duplicated_connectivity)
-      p_p%verts%neighbor_blk(:,:,1:max_verts_connectivity) = &
-        blk_no(p_p%verts%neighbor_idx(:,:,1:max_verts_connectivity))
-      p_p%verts%neighbor_idx(:,:,1:max_verts_connectivity) = &
-        idx_no(p_p%verts%neighbor_idx(:,:,1:max_verts_connectivity))
+      CALL block_connectivity(&
+        patches(ip)%p%verts%neighbor_idx(:,:,1:max_verts_connectivity), &
+        patches(ip)%p%verts%neighbor_blk(:,:,1:max_verts_connectivity), &
+        patches(ip)%p%verts%decomp_info%glb2loc_index, &
+        SIZE(patches(ip)%p%verts%neighbor_idx, 2), &
+        patches(ip)%p%n_patch_verts, max_verts_connectivity)
     END DO
 
     ! p_p%verts%cell_idx(:,:,:)
@@ -1928,22 +1921,12 @@ CONTAINS
       &                     n_lp+1, fill_array=multivar_3d_data_int(:), &
       &                     start_extdim=1, end_extdim=max_verts_connectivity)
     DO ip = 0, n_lp
-      p_p => patches(ip)%p
-      CALL convert_to_local_index( &
-        p_p%verts%cell_idx(:,:,1:max_verts_connectivity), &
-        p_p%n_patch_verts, max_verts_connectivity, &
-        p_p%cells%decomp_info%glb2loc_index, use_duplicated_connectivity)
-      ! account for dummy cells arising in case of a pentagon
-      ! Fill dummy cell with existing index to simplify do loops
-      ! Note, however, that related multiplication factors must be zero
-      CALL move_dummies_to_end_idxblk( &
-        p_p%verts%cell_idx(:,:,1:max_verts_connectivity), &
-        p_p%n_patch_verts, max_verts_connectivity, &
-        use_duplicated_connectivity)
-      p_p%verts%cell_blk(:,:,1:max_verts_connectivity) = &
-        blk_no(p_p%verts%cell_idx(:,:,1:max_verts_connectivity))
-      p_p%verts%cell_idx(:,:,1:max_verts_connectivity) = &
-        idx_no(p_p%verts%cell_idx(:,:,1:max_verts_connectivity))
+      CALL block_connectivity(&
+        patches(ip)%p%verts%cell_idx(:,:,1:max_verts_connectivity), &
+        patches(ip)%p%verts%cell_blk(:,:,1:max_verts_connectivity), &
+        patches(ip)%p%cells%decomp_info%glb2loc_index, &
+        SIZE(patches(ip)%p%verts%cell_idx, 2), &
+        patches(ip)%p%n_patch_verts, max_verts_connectivity)
     END DO
 
     ! p_p%verts%edge_idx(:,:,:)
@@ -1956,22 +1939,12 @@ CONTAINS
       &                     n_lp+1, fill_array=multivar_3d_data_int(:), &
       &                     start_extdim=1, end_extdim=max_verts_connectivity)
     DO ip = 0, n_lp
-      p_p => patches(ip)%p
-      CALL convert_to_local_index( &
-        p_p%verts%edge_idx(:,:,1:max_verts_connectivity), &
-        p_p%n_patch_verts, max_verts_connectivity, &
-        p_p%edges%decomp_info%glb2loc_index, use_duplicated_connectivity)
-      ! account for dummy cells arising in case of a pentagon
-      ! Fill dummy cell with existing index to simplify do loops
-      ! Note, however, that related multiplication factors must be zero
-      CALL move_dummies_to_end_idxblk( &
-        p_p%verts%edge_idx(:,:,1:max_verts_connectivity), &
-        p_p%n_patch_verts, max_verts_connectivity, &
-        use_duplicated_connectivity)
-      p_p%verts%edge_blk(:,:,1:max_verts_connectivity) = &
-        blk_no(p_p%verts%edge_idx(:,:,1:max_verts_connectivity))
-      p_p%verts%edge_idx(:,:,1:max_verts_connectivity) = &
-        idx_no(p_p%verts%edge_idx(:,:,1:max_verts_connectivity))
+      CALL block_connectivity(&
+        patches(ip)%p%verts%edge_idx(:,:,1:max_verts_connectivity), &
+        patches(ip)%p%verts%edge_blk(:,:,1:max_verts_connectivity), &
+        patches(ip)%p%edges%decomp_info%glb2loc_index, &
+        SIZE(patches(ip)%p%verts%edge_idx, 2), &
+        patches(ip)%p%n_patch_verts, max_verts_connectivity)
     END DO
 
     ! p_p%verts%num_edges
@@ -2147,6 +2120,31 @@ CONTAINS
   END SUBROUTINE move_dummies_to_end
   !-------------------------------------------------------------------------
 
+  SUBROUTINE block_connectivity(indices, blocks, glb2loc_index, &
+       nconn_blk, nconn_glb, max_connect)
+    INTEGER, INTENT(in) :: nconn_glb, nconn_blk, max_connect
+    TYPE(t_glb2loc_index_lookup), INTENT(in) :: glb2loc_index
+    INTEGER, INTENT(inout) :: indices(nproma,nconn_blk,max_connect), &
+         blocks(nproma,nconn_blk,max_connect)
+    INTEGER :: jb,jl,jn
+
+    CALL convert_to_local_index(indices, nconn_glb, max_connect, &
+         glb2loc_index, use_duplicated_connectivity)
+    ! account for dummy cells arising in case of a pentagon
+    ! Fill dummy cell with existing index to simplify do loops
+    ! Note, however, that related multiplication factors must be zero
+    CALL move_dummies_to_end_idxblk(indices, nconn_glb, max_connect, &
+         use_duplicated_connectivity)
+    DO jn = 1, max_connect
+      DO jb = 1, nconn_blk
+        DO jl = 1, nproma
+          blocks(jl,jb,jn) = blk_no(indices(jl,jb,jn))
+          indices(jl,jb,jn) = idx_no(indices(jl,jb,jn))
+        END DO
+      END DO
+    END DO
+
+  END SUBROUTINE block_connectivity
   !-------------------------------------------------------------------------
   ! Checks for the pentagon case and moves dummy cells to end.
   ! The dummy entry is either set to 0 or duplicated from the last one
