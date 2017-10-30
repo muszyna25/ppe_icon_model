@@ -104,7 +104,7 @@
       DO jc=start_idx,end_idx 
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
-          pco2flx(jc)=bgcflux(jc,kcflux)
+          pco2flx(jc)=bgcflux(jc,kcflux) * 44.011_wp
         DO jk =1,kpke
           DO itrac=no_tracer+1,no_tracer+n_bgctra
              ptracer(jc,jk,itrac) = bgctra(jc,jk,itrac-no_tracer)
@@ -448,7 +448,7 @@
       DO jc=start_index,end_index 
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
-         if(l_cpl_co2)pco2flux(jc)=bgcflux(jc,kcflux)
+         if(l_cpl_co2)pco2flux(jc)=bgcflux(jc,kcflux) * 44.011_wp
         DO jk =1,kpke
           DO itrac=no_tracer+1,no_tracer+n_bgctra
              ptracer(jc,jk,itrac) = bgctra(jc,jk,itrac-no_tracer)
