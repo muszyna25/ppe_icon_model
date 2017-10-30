@@ -237,6 +237,7 @@ CONTAINS
       & zalbedo_lwtr(kbdim), zalbedo_lice(kbdim)
 
     REAL(wp) :: zgrnd_hflx(kbdim,ksfc_type), zgrnd_hcap(kbdim,ksfc_type)
+    REAL(wp) :: co2_flux_tile(kbdim,ksfc_type)
 
     !REAL(wp) :: zt2s_conv(kbdim,ksfc_type)
 
@@ -329,6 +330,7 @@ CONTAINS
     z0h_lnd(:)       = 0._wp
     q_snocpymlt(:)   = 0._wp
     lake_ice_frc(:)  = 0._wp
+    co2_flux_tile(:,:) = 0._wp
 
     IF (idx_lnd <= ksfc_type) THEN
 
@@ -392,6 +394,7 @@ CONTAINS
           & alb_nir_dir       = albnirdir_tile(1:kproma, idx_lnd),                         & ! out
           & alb_vis_dif       = albvisdif_tile(1:kproma, idx_lnd),                         & ! out
           & alb_nir_dif       = albnirdif_tile(1:kproma, idx_lnd),                         & ! out
+          & CO2_flux          = co2_flux_tile(1:kproma, idx_lnd),                          & ! out
           !
           & drag_wtr          = grav*pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_wtr),     & ! in
           & drag_ice          = grav*pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_ice),     & ! in
@@ -457,7 +460,8 @@ CONTAINS
           & alb_vis_dir      = albvisdir_tile(1:kproma, idx_lnd),                         & ! out
           & alb_nir_dir      = albnirdir_tile(1:kproma, idx_lnd),                         & ! out
           & alb_vis_dif      = albvisdif_tile(1:kproma, idx_lnd),                         & ! out
-          & alb_nir_dif      = albnirdif_tile(1:kproma, idx_lnd)                          & ! out
+          & alb_nir_dif      = albnirdif_tile(1:kproma, idx_lnd),                         & ! out
+          & CO2_flux         = co2_flux_tile(1:kproma, idx_lnd)                           & ! out
         )
       END IF
 
