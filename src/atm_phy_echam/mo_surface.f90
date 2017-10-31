@@ -378,7 +378,7 @@ CONTAINS
           & pch               = MERGE(pch_tile(1:kproma,idx_lnd),1._wp,lsm(1:kproma)>0._wp),  & ! in
           & cos_zenith_angle  = pcosmu0(1:kproma),                                         & ! in
           & CO2_air           = SPREAD(mmr_co2, DIM=1, NCOPIES=kproma),                    & ! in
-!          & CO2_air           = pco2(1:kproma),                                            & ! in
+          ! & CO2_air           = pco2(1:kproma),                                            & ! in
           & t_srf             = ztsfc_lnd(1:kproma),                                       & ! out (T_s^(n+1)) surface temp (filtered, if Asselin)
                                                                                              ! (filtered, if Asselin)
           & t_eff_srf         = ztsfc_lnd_eff(1:kproma),                                   & ! out (T_s^eff) surface temp (effective, for longwave rad)
@@ -399,7 +399,7 @@ CONTAINS
           & alb_nir_dir       = albnirdir_tile(1:kproma, idx_lnd),                         & ! out
           & alb_vis_dif       = albvisdif_tile(1:kproma, idx_lnd),                         & ! out
           & alb_nir_dif       = albnirdif_tile(1:kproma, idx_lnd),                         & ! out
-          !& co2_flux          = pco2_flux_tile(1:kproma, idx_lnd),                               & ! inout
+          & co2_flux          = pco2_flux_tile(1:kproma, idx_lnd),                         & ! out
           !
           & drag_wtr          = grav*pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_wtr),     & ! in
           & drag_ice          = grav*pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_ice),     & ! in
@@ -446,7 +446,7 @@ CONTAINS
           & pch              = MERGE(pch_tile(1:kproma,idx_lnd),1._wp,lsm(1:kproma)>0._wp),  & ! in
           & cos_zenith_angle = pcosmu0(1:kproma),                                         & ! in
           & CO2_air          = SPREAD(mmr_co2, DIM=1, NCOPIES=kproma),                    & ! in
-!          & CO2_air           = pco2(1:kproma),                                            & ! in
+          ! & CO2_air          = pco2(1:kproma),                                            & ! in
           & t_srf            = ztsfc_lnd(1:kproma),                                       & ! out (T_s^(n+1)) surface temp 
                                                                                             ! (filtered, if Asselin)
           & t_eff_srf        = ztsfc_lnd_eff(1:kproma),                                   & ! out (T_s^eff) surface temp 
@@ -466,13 +466,12 @@ CONTAINS
           & alb_vis_dir      = albvisdir_tile(1:kproma, idx_lnd),                         & ! out
           & alb_nir_dir      = albnirdir_tile(1:kproma, idx_lnd),                         & ! out
           & alb_vis_dif      = albvisdif_tile(1:kproma, idx_lnd),                         & ! out
-          & alb_nir_dif      = albnirdif_tile(1:kproma, idx_lnd)                          & ! out
-          !& , co2_flux         = pco2_flux_tile(1:kproma, idx_lnd)                               & ! inout
+          & alb_nir_dif      = albnirdif_tile(1:kproma, idx_lnd),                         & ! out
+          & co2_flux         = pco2_flux_tile(1:kproma, idx_lnd)                          & ! out
         )
       END IF
 
       ! preliminary, dummy values
-      pco2_flux_tile(1:kproma, idx_lnd) = 24._wp
       pco2_flux_tile(1:kproma, idx_ice) =  0._wp
 
       ptsfc_tile(1:kproma,idx_lnd) = ztsfc_lnd(1:kproma)

@@ -139,10 +139,22 @@ cpl_xmlctrfn=XMLCTRFN_${EXPNAME}_cpl
 run_jsbach=yes
 jsbach_with_hd=yes
 jsbach_with_lakes=yes
-jsbach_usecase=jsbach_lite    # jsbach_lite or jsbach_pfts
-jsbach_check_wbal=yes          # check water balance
+jsbach_usecase=jsbach_pfts_with_carbon    # jsbach_lite/jsbach_pfts/jsbach_pfts_with_carbon
+jsbach_check_wbal=yes                     # check water balance
+[[ "${output_lnd_min}" == "yes" ]] && output_lnd=basic
+[[ "${output_lnd_full}" == "yes" ]] && output_lnd=medium
 #
-[[ $jsbach_with_lakes == yes ]] || jsbach_usecase=${jsbach_usecase}_nolake
+output_tiles="'box'"
+if [[ ${output_lnd} != "basic" ]]
+then
+  output_tiles="${output_tiles}, 'glac', 'veg'"
+fi
+if [[ $jsbach_with_lakes == yes ]]
+then
+  [[ ${output_lnd} != "basic" ]] && output_tiles="${output_tiles}, 'lake', 'land'"
+else
+  jsbach_usecase=${jsbach_usecase}_nolake
+fi
 [[ $jsbach_with_hd == yes ]] && jsbach_usecase=${jsbach_usecase}_with_hd
 ljsbach=$([ "${run_jsbach:=no}" == yes ] && echo .TRUE. || echo .FALSE. )
 llake=$([ "${jsbach_with_lakes:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
@@ -150,6 +162,8 @@ if [[ $jsbach_usecase == *pfts* ]]
 then
   pft_file_tag="11pfts_"
   nproma=64
+  [[ ${output_lnd} != "basic" ]] && \
+    output_tiles="${output_tiles}, 'pft01','pft02','pft03','pft04','pft05','pft06','pft07','pft08','pft09','pft10','pft11'"
 else
   pft_file_tag=""
 fi
@@ -294,18 +308,19 @@ EOF
 # II.1.2 Land surface and soil
 # ----------------------------
 
-cat > ${lnd_namelist} <<EOF
+cat > ${lnd_namelist} << EOF
 &jsb_model_nml
   usecase         = "${jsbach_usecase}"
   fract_filename  = "bc_land_frac.nc"
   l_compat401     = .TRUE.              ! TRUE: overwrites some of the settings below
+  output_tiles    = ${output_tiles}     ! List of tiles to output
 /
 &jsb_seb_nml
   bc_filename     = 'bc_land_phys.nc'
   ic_filename     = 'ic_land_soil.nc'
 /
 &jsb_rad_nml
-  use_alb_veg_simple = .TRUE.          ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
+  use_alb_veg_simple = .FALSE.          ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
   bc_filename     = 'bc_land_phys.nc'
   ic_filename     = 'ic_land_soil.nc'
 /
@@ -326,10 +341,10 @@ cat > ${lnd_namelist} <<EOF
   bc_sso_filename = 'bc_land_sso.nc'
 /
 &jsb_assimi_nml
-  active          = .FALSE.             ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
+  active          = .TRUE.              ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
 /
 &jsb_pheno_nml
-  scheme          = 'climatology'       ! scheme = logrop / climatology; use climatology for jsbach_lite
+  scheme          = 'logrop'            ! scheme = logrop / climatology; use climatology for jsbach_lite
   bc_filename     = 'bc_land_phys.nc'
   ic_filename     = 'ic_land_soil.nc'
 /
@@ -341,7 +356,7 @@ cat >> ${lnd_namelist} << EOF
   routing_scheme       = 'full'
   bc_filename          = 'bc_land_hd.nc'
   diag_water_budget    = .TRUE.
-  debug_hd             = .FALSE.
+  debug_hd             = .TRUE.
   enforce_water_budget = .TRUE.         ! True: stop in case of water conservation problem
 /
 EOF
@@ -602,10 +617,22 @@ EOF
 fi
 
 
-if [[ "$output_lnd_min" == "yes" ]]; then
+if [[ "$output_lnd_min" == "yes" ]] || [[ "${output_lnd_full}" == "yes" ]]; then
   cat >> ${atm_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_lnd_min"
+ output_filename  = "${EXPNAME}_lnd_fract"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${lnd_output_interval}"
+ file_interval    = "${lnd_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'group:jsb_tile_fractions'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_lnd_basic"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
  operation        = 'mean'
@@ -615,14 +642,7 @@ if [[ "$output_lnd_min" == "yes" ]]; then
  output_interval  = "${lnd_output_interval}"
  file_interval    = "${lnd_file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'fract_box',
-                    'seb_t_box'                   , 'seb_qsat_star_box'      ,
-                    'rad_alb_vis_box'             , 'rad_alb_nir_box'        ,
-                    'rad_rad_srf_net_box'         , 'rad_lw_srf_net_box'     , 'rad_sw_srf_net_box',
-                    'seb_latent_hflx_box'         , 'seb_sensible_hflx_box'  , 'pheno_lai_box'     ,
-                    'hydro_evapotranspiration_box', 'hydro_w_soil_column_box',
-                    'hydro_runoff_box'            , 'hydro_drainage_box'     ,
-                    'hydro_discharge_ocean_box'   , 'hydro_discharge_box'    ,
+ ml_varlist       = 'group:jsb_all_basic'
 /
 EOF
 fi
@@ -630,7 +650,7 @@ fi
 if [[ "$output_lnd_full" == "yes" ]]; then
   cat >> ${atm_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_lnd_full"
+ output_filename  = "${EXPNAME}_lnd_medium"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
  operation        = 'mean'
@@ -640,17 +660,32 @@ if [[ "$output_lnd_full" == "yes" ]]; then
  output_interval  = "${lnd_output_interval}"
  file_interval    = "${lnd_file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'fract_box',
-                    'seb_t_box'                , 'seb_t_eff_box'               , 'seb_qsat_star_box'      ,
-                    'a2l_swvis_srf_down_box'   , 'a2l_swnir_srf_down_box'      , 'a2l_lw_srf_down_box'    ,
-                    'seb_latent_hflx_box'      , 'seb_sensible_hflx_box'       ,
-                    'rad_alb_vis_box'          , 'rad_alb_nir_box'             ,
-                    'rad_rad_srf_net_box'      , 'rad_lw_srf_net_box'          , 'rad_sw_srf_net_box'     ,
-                    'seb_latent_hflx_box'      , 'seb_sensible_hflx_box'       , 'pheno_lai_box'          ,
-                    'hydro_w_skin_box'         , 'hydro_w_snow_box'            ,
-                    'hydro_snowmelt_box'       , 'hydro_evapotranspiration_box', 'hydro_w_soil_column_box',
-                    'hydro_runoff_box'         , 'hydro_drainage_box'          ,
-                    'hydro_discharge_ocean_box', 'hydro_discharge_box'         ,
+ ml_varlist       = 'group:jsb_all_medium'
+/
+EOF
+fi
+if [[ "$jsbach_check_wbal" == "yes" ]]; then
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_lnd_wbal"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${lnd_output_interval}"
+ file_interval    = "${lnd_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'hydro_water_flux_box', 'hydro_water_content_box', 'hydro_water_budget_box',
+EOF
+  if [[ "$jsbach_with_hd" == "yes" ]]; then
+    cat >> ${atm_namelist} << EOF
+                    'hydro_runoff_box'   , 'hydro_drainage_box',
+                    'hd_water_budget_box', 'hd_water_budget_old_box', 'hd_water_flux_box', 'hd_water_error_box'
+EOF
+  fi
+  cat >> ${atm_namelist} << EOF
 /
 EOF
 fi
