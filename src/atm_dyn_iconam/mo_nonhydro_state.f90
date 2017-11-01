@@ -1279,18 +1279,18 @@ MODULE mo_nonhydro_state
   !!
   SUBROUTINE new_nh_state_tracer_list ( p_patch, from_var_list, p_tracer_list,  &
     &                                 listname )
-!
-    TYPE(t_patch), TARGET, INTENT(IN) :: & !< current patch
-      &  p_patch
+    !
+    !> current patch
+    TYPE(t_patch), INTENT(IN)         :: p_patch
 
-    TYPE(t_var_list), INTENT(IN)      :: & !< source list to be referenced
-      &  from_var_list 
+    !> source list to be referenced
+    TYPE(t_var_list), INTENT(IN)      :: from_var_list
 
-    TYPE(t_var_list), INTENT(INOUT)   :: & !< new tracer list (containing all tracers)
-      &  p_tracer_list
+    !> new tracer list (containing all tracers)
+    TYPE(t_var_list), INTENT(INOUT)   :: p_tracer_list
 
-    CHARACTER(len=*), INTENT(IN)      :: & !< list name
-      &  listname
+    !> list name
+    CHARACTER(len=*), INTENT(IN)      :: listname
 
     ! local variables
     TYPE (t_var_metadata), POINTER         :: from_info
