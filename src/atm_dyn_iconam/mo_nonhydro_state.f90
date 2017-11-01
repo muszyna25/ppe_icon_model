@@ -155,11 +155,11 @@ MODULE mo_nonhydro_state
 
     CHARACTER(len=MAX_CHAR_LENGTH) :: listname, varname_prefix
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_nonhydro_state:construct_nh_state'
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = modname//'::construct_nh_state'
 !-----------------------------------------------------------------------
 
-    CALL message (TRIM(routine), 'Construction of NH state started')
+    CALL message (routine, 'Construction of NH state started')
 
     DO jg = 1, n_dom
 
@@ -191,24 +191,18 @@ MODULE mo_nonhydro_state
       !
       ! create state arrays
       ALLOCATE(p_nh_state(jg)%prog(1:ntl), STAT=ist)
-      IF(ist/=SUCCESS)THEN
-        CALL finish (TRIM(routine),                               &
-          &          'allocation of prognostic state array failed')
-      ENDIF
+      IF (ist/=SUCCESS) CALL finish(routine,                                   &
+        'allocation of prognostic state array failed')
 
       ! create state list
       ALLOCATE(p_nh_state_lists(jg)%prog_list(1:ntl), STAT=ist)
-      IF(ist/=SUCCESS)THEN
-        CALL finish (TRIM(routine),                                    &
-          &          'allocation of prognostic state list array failed')
-      ENDIF
+      IF (ist/=SUCCESS) CALL finish(routine,                                   &
+        'allocation of prognostic state list array failed')
 
       ! create tracer list (no extra timelevels)
       ALLOCATE(p_nh_state_lists(jg)%tracer_list(1:ntl_pure), STAT=ist)
-      IF(ist/=SUCCESS)THEN
-        CALL finish (TRIM(routine),                                    &
-          &          'allocation of prognostic tracer list array failed')
-      ENDIF
+      IF (ist/=SUCCESS) CALL finish(routine,                                   &
+        'allocation of prognostic tracer list array failed')
 
 
       !
@@ -275,7 +269,7 @@ MODULE mo_nonhydro_state
 
     ENDDO ! jg
 
-    CALL message (TRIM(routine), 'NH state construction completed')
+    CALL message (routine, 'NH state construction completed')
 
   END SUBROUTINE construct_nh_state
 
@@ -306,23 +300,22 @@ MODULE mo_nonhydro_state
                 jg,  &      ! grid level counter
                 jt          ! time level counter
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_nonhydro_state:destruct_nh_state'
+    CHARACTER(len=*), PARAMETER :: routine = modname//'::destruct_nh_state'
 !-----------------------------------------------------------------------
 
-    CALL message (TRIM(routine), 'Destruction of NH state started')
+    CALL message(routine, 'Destruction of NH state started')
 
 
     DO jg = 1, n_dom
 
       ntl_prog = SIZE(p_nh_state(jg)%prog(:))
       IF(ntl_prog==0)THEN
-        CALL finish(TRIM(routine), 'prognostic array has no timelevels')
+        CALL finish(routine, 'prognostic array has no timelevels')
       ENDIF
 
       ntl_tra = SIZE(p_nh_state_lists(jg)%tracer_list(:))
       IF(ntl_tra==0)THEN
-        CALL finish(TRIM(routine), 'tracer list has no timelevels')
+        CALL finish(routine, 'tracer list has no timelevels')
       ENDIF
 
       ! delete reference state list elements
@@ -350,20 +343,20 @@ MODULE mo_nonhydro_state
 
       ! destruct state lists and arrays
       DEALLOCATE(p_nh_state_lists(jg)%prog_list, STAT=ist )
-      IF(ist/=SUCCESS) CALL finish (TRIM(routine),&
+      IF (ist/=SUCCESS) CALL finish(routine,&
         & 'deallocation of prognostic state list array failed')
 
       DEALLOCATE(p_nh_state_lists(jg)%tracer_list, STAT=ist )
-      IF(ist/=SUCCESS) CALL finish (TRIM(routine),&
+      IF (ist/=SUCCESS) CALL finish(routine,&
         & 'deallocation of tracer list array failed')
 
       DEALLOCATE(p_nh_state(jg)%prog )
-      IF(ist/=SUCCESS) CALL finish (TRIM(routine),&
+      IF (ist/=SUCCESS) CALL finish (routine,&
         & 'deallocation of prognostic state array failed')
 
     ENDDO
 
-    CALL message (TRIM(routine), 'NH state destruction completed')
+    CALL message(routine, 'NH state destruction completed')
 
   END SUBROUTINE destruct_nh_state
   !-------------------------------------------------------------------------
