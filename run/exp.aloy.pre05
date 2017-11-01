@@ -312,7 +312,7 @@ cat > ${lnd_namelist} << EOF
 &jsb_model_nml
   usecase         = "${jsbach_usecase}"
   fract_filename  = "bc_land_frac.nc"
-  l_compat401     = .TRUE.              ! TRUE: overwrites some of the settings below
+  l_compat401     = .FALSE.             ! TRUE: overwrites some of the settings below
   output_tiles    = ${output_tiles}     ! List of tiles to output
 /
 &jsb_seb_nml
@@ -329,6 +329,11 @@ cat > ${lnd_namelist} << EOF
   ic_filename     = 'ic_land_soil.nc'
 /
 &jsb_sse_nml
+  l_heat_cap_map  = .FALSE.
+  l_heat_cond_map = .FALSE.
+  l_heat_cap_dyn  = .TRUE.
+  l_heat_cond_dyn = .TRUE.
+  l_snow          = .TRUE.
   l_dynsnow       = .TRUE.
   l_freeze        = .FALSE.
   l_supercool     = .FALSE.
