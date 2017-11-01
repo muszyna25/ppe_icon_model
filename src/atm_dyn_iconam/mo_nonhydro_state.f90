@@ -212,11 +212,7 @@ MODULE mo_nonhydro_state
 
         ! Tracer fields do not need extra time levels because feedback is not incremental
         ! and the nest-call frequency is always synchronized with the advection time step
-        IF (jt > n_timelevels) THEN
-          l_extra_timelev = .TRUE.
-        ELSE
-          l_extra_timelev = .FALSE.
-        ENDIF
+        l_extra_timelev = jt > n_timelevels
 
         WRITE(listname,'(a,i2.2,a,i2.2)') 'nh_state_prog_of_domain_',jg, &
           &                               '_and_timelev_',jt
@@ -1982,11 +1978,8 @@ MODULE mo_nonhydro_state
 
       ! grf_tend_vn  p_diag%grf_tend_vn(nproma,nlev,nblks_e)
       !
-      IF (p_patch%id == 1 .AND. l_limited_area) THEN
-        lrestart = .TRUE.  ! needed for boundary nudging in this case
-      ELSE
-        lrestart = .FALSE.
-      ENDIF
+      ! restart needed for boundary nudging in case l_limited_area
+      lrestart = p_patch%id == 1 .AND. l_limited_area
 
       cf_desc    = t_cf_var('normal_wind_tendency', 'm s-2',                    &
         &                   'normal wind tendency (grid refinement)', datatype_flt)
