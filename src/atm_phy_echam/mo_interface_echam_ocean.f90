@@ -66,8 +66,6 @@ MODULE mo_interface_echam_ocean
     &                               yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
     &                               yac_ffinalize, YAC_LOCATION_CELL
 
-  USE mo_radiation_config,  ONLY: mmr_co2      ! This should be here only temporarily
-
   USE mtime                  ,ONLY: datetimeToString, MAX_DATETIME_STR_LEN
   
   USE mo_util_dbg_prnt       ,ONLY: dbg_print
@@ -799,8 +797,7 @@ CONTAINS
         nlen = p_patch%npromz_c
       END IF
       DO n = 1, nlen
-        buffer(nn+n,1) = mmr_co2  ! Temporary solution until qtrc is correctly set for CO2 concentration
-        !buffer(nn+n,1) = prm_field(jg)%qtrc(n,nlev,i_blk,ico2)
+        buffer(nn+n,1) = prm_field(jg)%qtrc(n,nlev,i_blk,ico2)
       ENDDO
     ENDDO
 !!ICON_OMP_END_PARALLEL_DO
