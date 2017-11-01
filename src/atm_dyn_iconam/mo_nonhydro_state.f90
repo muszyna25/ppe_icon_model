@@ -1296,7 +1296,6 @@ MODULE mo_nonhydro_state
     TYPE (t_var_metadata), POINTER         :: from_info
     TYPE (t_var_metadata_dynamic), POINTER :: from_info_dyn
     TYPE (t_list_element), POINTER         :: element
-    TYPE (t_list_element), TARGET          :: start_with
 
     !--------------------------------------------------------------
 
@@ -1312,13 +1311,9 @@ MODULE mo_nonhydro_state
     !
     ! add references to all tracer fields of the source list (prognostic state)
     !
-    element => start_with
-    element%next_list_element => from_var_list%p%first_list_element
+    element => from_var_list%p%first_list_element
     !
-    for_all_list_elements: DO
-      !
-      element => element%next_list_element
-      IF (.NOT.ASSOCIATED(element)) EXIT
+    for_all_list_elements: DO WHILE (ASSOCIATED(element))
       !
       ! retrieve information from actual linked list element
       !
@@ -1326,13 +1321,11 @@ MODULE mo_nonhydro_state
       from_info_dyn => element%field%info_dyn
 
       ! Only add tracer fields to the tracer list
-      IF (from_info_dyn%tracer%lis_tracer .AND. .NOT. from_info%lcontainer ) THEN
-
+      IF (from_info_dyn%tracer%lis_tracer .AND. .NOT. from_info%lcontainer ) &
         CALL add_var_list_reference(p_tracer_list, from_info%name, &
           &                         from_var_list%p%name, in_group=groups() )
 
-      ENDIF
-
+      element => element%next_list_element
     ENDDO for_all_list_elements
 
 
