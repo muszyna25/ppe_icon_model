@@ -101,7 +101,7 @@ run_scripts_submit()
   case $submit in
       sbatch*)
           batch_system=slurm
-          slurm_user=`whomai`
+          slurm_user=`whoami`
           typeset -A job_submitted
       ;;
       *)
