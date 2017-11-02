@@ -1,9 +1,9 @@
-#!/bin/ksh
+#! /bin/ksh
 #------------------------------------------------------------------------------
 # This script is called on all buildbot slaves and should be used to run the runscripts
 #------------------------------------------------------------------------------
 
-#Define of the text which is written in case of a script fail or OK run
+# Define of the text which is written in case of a script fail or OK run
 
 TEXT_RUN_FAILED="FAILED"
 TEXT_RUN_OK="OK"
@@ -98,6 +98,16 @@ run_scripts_submit()
   cd run
   EXP_FILES=`cat runscripts_list`
 
+  case $submit in
+      sbatch*)
+          batch_system=slurm
+          typeset -A job_submitted
+      ;;
+      *)
+          batch_system=other
+      ;;
+  esac
+  
   for EXP_FILE in $EXP_FILES
   do 
     run_command="$submit ./$EXP_FILE"
@@ -112,8 +122,13 @@ run_scripts_submit()
         echo $run_command > submit.$EXP_FILE
         chmod +x submit.$EXP_FILE        
        ./submit.$EXP_FILE &    
+
+
     fi
-  
+    if [[ "$batch_system" = "slurm" ]]
+    then
+        job_submitted["$EXP_FILE"]=`squeue -u ${user} -h -o '%i' -S '-i' | awk 'NR==1{print $1}'`
+    fi
   done
 
   # wait for all jobs to finish
@@ -138,6 +153,23 @@ run_scripts_submit()
       echo " "
       echo "---------------------------------------------------------"
 
+      if [[ "$batch_system" = "slurm" ]]
+      then
+          slurm_jobid=${job_submitted["$EXP_FILE"]}
+          job_state=`sacct -j ${slurm_jobid} -o jobid,state,exitcode | awk 'NR==1{print $2}'`
+          case "$job_state" in
+              TIMEOUT)
+                  echo 127 > ${EXP_FILE}.status
+              ;;
+              COMPLETED)
+                  # all did run fine
+              ;;
+              *)
+                  echo 191 > ${EXP_FILE}.status                  
+              ;;
+          esac    
+      fi
+            
       STATUS_IN_FILE=255
       if [ -r $EXP_FILE.status ]
       then

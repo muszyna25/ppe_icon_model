@@ -225,7 +225,7 @@ case "$ac_sitename" in
                 make_command="make" "-j" "8"
                 load_profile="/opt/modules/default/etc/modules.sh"
                 submit="sbatch"
-                sync_submit="sbatch_synced"
+                sync_submit="sbatch --wait"
                 CC = cc
                 FC = ftn
                 F77= ftn
@@ -432,7 +432,7 @@ case "$ac_sitename" in
                 config_target = bullx
                 make_command  = make -j8
                 submit        = sbatch
-                sync_submit   = srunjob
+                sync_submit   = "sbatch --wait"
                 queue         = compute
                 case "$fortran_compiler" in
                     intel*)
