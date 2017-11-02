@@ -70,6 +70,8 @@ MODULE mo_interface_echam_ocean
   
   USE mo_util_dbg_prnt       ,ONLY: dbg_print
 
+  USE mo_physical_constants  ,ONLY: amd, amco2
+
   IMPLICIT NONE
 
   PRIVATE
@@ -797,7 +799,7 @@ CONTAINS
         nlen = p_patch%npromz_c
       END IF
       DO n = 1, nlen
-        buffer(nn+n,1) = prm_field(jg)%qtrc(n,nlev,i_blk,ico2)
+        buffer(nn+n,1) = prm_field(jg)%qtrc(n,nlev,i_blk,ico2) * amd/amco2 * 1.0e6_wp
       ENDDO
     ENDDO
 !!ICON_OMP_END_PARALLEL_DO
