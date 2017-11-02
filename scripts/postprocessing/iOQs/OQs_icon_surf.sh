@@ -25,6 +25,7 @@ for YEAR in $(seq $Y1 $CHUNK $Y2)
 do
 
     INFILE=$(printf $DATADIR/${EXPID}/${EXPID}_oce_min_%04.0f0101T000000Z.nc $YEAR)
+    #INFILE=$(printf $DATADIR/${EXPID}/${EXPID}_%04.0f0101T000000Z.nc $YEAR)
 
     if [ -e $INFILE ]
     then
@@ -49,7 +50,7 @@ $CDO -ymonmean $CATFILE2 $infile2 &
 wait
 rm -f $CATFILE $CATFILE2
 
-#$BINDIR/plot2d_ncl --lstring=msftbarot --cstring=barotropic_streamfunction --rstring=[Sv] --code=27 --min=-100 --max=250 --inc=10 --scal=1.025e-9 --type=0 $infile
+#$BINDIR/plot2d_ncl  --cstring=barotropic_streamfunction --lstring=[Sv] --rstring="${Y1}-${Y2}" --code=27 --min=-100 --max=250 --inc=10 --scal=1.025e-9 --type=0 $infile
 #mv $outfile psi.$outfile
 
 $CDO -remapnn,r720x360 -ifthen mask_glo_surf.nc -selvar,h_acc  $infile zos.$infile
@@ -77,7 +78,7 @@ $BINDIR/plot2d_ncl  --title="Sea_surface_salinity" --lstring="[1e-3]" --cstring=
 
 #### compute anomalies to Levitus ####
 $CDO -f nc -sub sos.$infile -remapnn,r720x360 -selcode,5 -sellevidx,1 $ref_SAL sos-ano.$infile
-$BINDIR/plot2d_ncl  --title="Sea_surface_salinity_bias" --lstring="[1e-3]" --cstring=ano-sos --rstring="${Y1}-${Y2}" --var=s_acc --min=-2 --max=2 --inc=0.2 --pal=BlueWhiteOrangeRed sos-ano.$infile
+$BINDIR/plot2d_ncl  --title="Sea_surface_salinity_bias" --lstring="[1e-3]" --cstring=sos --rstring="${Y1}-${Y2}" --var=s_acc --min=-2 --max=2 --inc=0.2 --pal=BlueWhiteOrangeRed sos-ano.$infile
 
 
 #### Seasonal plots ####
@@ -126,7 +127,7 @@ $BINDIR/plot2d_ncl --title="Snow_equivalence_thickness_SH_March" --lstring="[m]"
 $CDO -remapnn,r720x360 -ifthen mask_glo_surf.nc -sellevidx,1 -selvar,mld  $infile2 mld.$infile2
 
 cdo -O -selmon,3 mld.$infile2 mld3.$infile2
-$BINDIR/plot2d_ncl --title="Mixed_layer_depth_September" --lstring="[m]" --cstring=zmld --rstring="${Y1}-${Y2}" --lev=-1 --var=mld --min=0 --max=5000 --inc=250 --pal=WhiteBlueGreenYellowRed mld3.$infile2
+$BINDIR/plot2d_ncl --title="Mixed_layer_depth_March" --lstring="[m]" --cstring=zmld --rstring="${Y1}-${Y2}" --lev=-1 --var=mld --min=0 --max=5000 --inc=250 --pal=WhiteBlueGreenYellowRed mld3.$infile2
 cdo -O -selmon,9 mld.$infile2 mld9.$infile2
 $BINDIR/plot2d_ncl --title="Mixed_layer_depth_September" --lstring="[m]" --cstring=zmld --rstring="${Y1}-${Y2}" --lev=-1 --var=mld --min=0 --max=5000 --inc=250 --pal=WhiteBlueGreenYellowRed mld9.$infile2
 
