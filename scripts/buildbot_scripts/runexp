@@ -101,6 +101,7 @@ run_scripts_submit()
   case $submit in
       sbatch*)
           batch_system=slurm
+          slurm_user=`whomai`
           typeset -A job_submitted
       ;;
       *)
@@ -127,7 +128,7 @@ run_scripts_submit()
     fi
     if [[ "$batch_system" = "slurm" ]]
     then
-        job_submitted["$EXP_FILE"]=`squeue -u ${user} -h -o '%i' -S '-i' | awk 'NR==1{print $1}'`
+        job_submitted["$EXP_FILE"]=`squeue -u ${slurm_user} -h -o '%i' -S '-i' | awk 'NR==1{print $1}'`
     fi
   done
 
