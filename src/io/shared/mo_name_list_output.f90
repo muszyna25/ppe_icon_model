@@ -743,7 +743,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> Write an output name list. Called by non-IO PEs.
   !
-  SUBROUTINE write_name_list(of, l_first_write)
+  SUBROUTINE write_name_list(of, is_first_write)
 
 #ifndef NOMPI
 #ifdef  __SUNPRO_F95
@@ -754,7 +754,7 @@ CONTAINS
 #endif
 
     TYPE (t_output_file), INTENT(INOUT), TARGET :: of
-    LOGICAL,              INTENT(IN)            :: l_first_write
+    LOGICAL,              INTENT(IN)            :: is_first_write
     ! local variables:
     CHARACTER(LEN=*), PARAMETER                 :: routine = modname//"::write_name_list"
     INTEGER                                     :: tl, i_dom, i_log_dom, iv, jk, &
@@ -865,7 +865,7 @@ CONTAINS
 
       ! inspect time-constant variables only if we are writing the
       ! first step in this file:
-      IF ((info%isteptype == TSTEP_CONSTANT) .AND. .NOT. l_first_write) CYCLE
+      IF ((info%isteptype == TSTEP_CONSTANT) .AND. .NOT. is_first_write) CYCLE
 
       ! Check if first dimension of array is nproma.
       ! Otherwise we got an array which is not suitable for this output scheme.
@@ -2082,7 +2082,7 @@ CONTAINS
   !  @note This subroutine is called by asynchronous I/O PEs only.
   !
 #ifndef NOMPI
-  SUBROUTINE io_proc_write_name_list(of, l_first_write)
+  SUBROUTINE io_proc_write_name_list(of, is_first_write)
 
 #ifdef __SUNPRO_F95
     INCLUDE "mpif.h"
@@ -2091,7 +2091,7 @@ CONTAINS
 #endif
 
     TYPE (t_output_file), TARGET, INTENT(IN) :: of
-    LOGICAL                     , INTENT(IN) :: l_first_write
+    LOGICAL                     , INTENT(IN) :: is_first_write
 
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::io_proc_write_name_list"
 
@@ -2213,7 +2213,7 @@ CONTAINS
 
       ! inspect time-constant variables only if we are writing the
       ! first step in this file:
-      IF ((info%isteptype == TSTEP_CONSTANT) .AND. .NOT. l_first_write) CYCLE
+      IF ((info%isteptype == TSTEP_CONSTANT) .AND. .NOT. is_first_write) CYCLE
 
       IF(info%ndims == 2) THEN
         nlevs = 1
