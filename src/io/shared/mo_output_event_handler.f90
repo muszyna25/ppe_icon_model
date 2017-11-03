@@ -380,11 +380,6 @@ CONTAINS
       RETURN
     END IF
 
-    ! classic output
-    !    DO i=1,event%n_event_steps
-    !      CALL print_event_step(event%event_step(i))
-    !    END DO
-
     ! table-based output
     CALL initialize_table(table)
     CALL add_table_column(table, "model step")
@@ -517,33 +512,6 @@ CONTAINS
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'CLOSE failed.')
     END IF
   END SUBROUTINE print_par_output_event
-
-
-  !> Screen print-out of a single output event step.
-  !  @author F. Prill, DWD
-  !
-  SUBROUTINE print_event_step(event_step)
-    TYPE(t_event_step), INTENT(IN) :: event_step
-    ! local variables
-    CHARACTER(LEN=7), PARAMETER :: SUFFIX_STR(3) = (/ "+ open ", "+ close", "       "/)
-    INTEGER :: i, suffix1, suffix2
-
-    WRITE (0,'(a,i0,a,a)') "   model step ", event_step%i_sim_step,      &
-      &                    ", exact date: ", TRIM(event_step%exact_date_string)
-    DO i=1,event_step%n_pes
-      suffix1 = 3
-      suffix2 = 3
-      ! append "+ open" or "+ close" according to event step data:
-      IF (event_step%event_step_data(i)%l_open_file)  suffix1 = 1
-      IF (event_step%event_step_data(i)%l_close_file) suffix2 = 2
-      WRITE (0,'(a,a,a,i0,a,a,a,a,a)') &
-        & "      output to '",                                       &
-        & TRIM(event_step%event_step_data(i)%filename_string),       &
-        & "' (I/O PE ", event_step%event_step_data(i)%i_pe,          &
-        & ", ", TRIM(event_step%event_step_data(i)%datetime_string), &
-        & ") ", SUFFIX_STR(suffix1), SUFFIX_STR(suffix2)
-    END DO
-  END SUBROUTINE print_event_step
 
 
   !---------------------------------------------------------------
