@@ -466,8 +466,11 @@ CONTAINS
     INTEGER                           :: noutput_pe_list, io_proc_id
     INTEGER                           :: output_pe_list(MAX(1,num_io_procs))
     INTEGER :: prev_cdi_namespace
-    LOGICAL :: is_io, is_test, ofile_is_assigned_here
+    LOGICAL :: is_io, is_test
     LOGICAL :: lhas_output, all_print
+    LOGICAL :: ofile_is_active(SIZE(output_file)), &
+         ofile_has_first_write(SIZE(output_file)), &
+         ofile_is_assigned_here(SIZE(output_file))
 
     IF (ltimer) CALL timer_start(timer_write_output)
 
@@ -507,38 +510,57 @@ CONTAINS
     output_pe_list(:) = -1
     noutput_pe_list   =  0
 
+    OUTFILE_OPEN_CLOSE_LOOP : DO i=1,SIZE(output_file)
+      ofile_is_active(i) = is_output_step(output_file(i)%out_event, jstep)
+      IF (ofile_is_active(i)) THEN
+        io_proc_id = output_file(i)%io_proc_id
+        ofile_is_assigned_here(i) = &
+          &      (is_io .AND. io_proc_id == p_pe_work) &
+#ifdef HAVE_CDI_PIO
+          & .OR. (pio_type == pio_type_cdipio .AND. .NOT. is_test) &
+#endif
+          & .OR. (.NOT. use_async_name_list_io .AND. .NOT. is_test &
+          &       .AND. p_pe_work == 0)
+        ofile_has_first_write(i) = check_open_file(output_file(i)%out_event)
+        IF (ofile_is_assigned_here(i)) THEN
+          ! -------------------------------------------------
+          ! Check if files have to be closed
+          ! -------------------------------------------------
+          IF (check_close_file(output_file(i)%out_event)) THEN
+            CALL close_output_file(output_file(i))
+            IF (msg_level >= 8) THEN
+              CALL message (routine, 'closed '//TRIM(get_current_filename(output_file(i)%out_event)),all_print=all_print)
+            END IF
+          END IF
+          ! -------------------------------------------------
+          ! Check if files have to be (re)opened
+          ! -------------------------------------------------
+          IF (ofile_has_first_write(i)) THEN
+            IF (output_file(i)%cdiVlistId == CDI_UNDEFID)  &
+                 &  CALL setup_output_vlist(output_file(i))
+            CALL open_output_file(output_file(i), all_print)
+          END IF
+        END IF
+      ELSE
+        ofile_is_assigned_here(i) = .FALSE.
+        ofile_has_first_write(i) = .FALSE.
+      END IF
+    END DO OUTFILE_OPEN_CLOSE_LOOP
+
     ! Go over all output files
-    OUTFILE_LOOP : DO i=1,SIZE(output_file)
+    OUTFILE_WRITE_LOOP : DO i=1,SIZE(output_file)
 
       ! Skip this output file if it is not due for output!
-      IF (.NOT. is_output_step(output_file(i)%out_event, jstep))  CYCLE OUTFILE_LOOP
+      IF (.NOT. ofile_is_active(i)) CYCLE OUTFILE_WRITE_LOOP
       io_proc_id = output_file(i)%io_proc_id
-      ofile_is_assigned_here = &
-        &      (is_io .AND. io_proc_id == p_pe_work) &
-#ifdef HAVE_CDI_PIO
-        & .OR. (pio_type == pio_type_cdipio .AND. .NOT. is_test) &
-#endif
-        & .OR. (.NOT. use_async_name_list_io .AND. .NOT. is_test &
-        &       .AND. p_pe_work == 0)
-      lhas_output = lhas_output .OR. ofile_is_assigned_here
+      lhas_output = lhas_output .OR. ofile_is_assigned_here(i)
 
-      ! -------------------------------------------------
-      ! Check if files have to be (re)opened
-      ! -------------------------------------------------
+      IF (ofile_is_assigned_here(i)) THEN
+        ! -------------------------------------------------
+        ! Do the output
+        ! -------------------------------------------------
 
-      IF (check_open_file(output_file(i)%out_event) &
-        & .AND. ofile_is_assigned_here) THEN
-        IF (output_file(i)%cdiVlistId == CDI_UNDEFID)  &
-          &  CALL setup_output_vlist(output_file(i))
-        CALL open_output_file(output_file(i), all_print)
-      END IF
-
-      ! -------------------------------------------------
-      ! Do the output
-      ! -------------------------------------------------
-
-      ! Notify user
-      IF (ofile_is_assigned_here) THEN
+        ! Notify user
         IF (msg_level >= 8) THEN
 #ifdef HAVE_CDI_PIO
           IF (pio_type == pio_type_cdipio) THEN
@@ -580,25 +602,12 @@ CONTAINS
 
       IF(is_io) THEN
 #ifndef NOMPI
-        IF (ofile_is_assigned_here) THEN
-          CALL io_proc_write_name_list(output_file(i), check_open_file(output_file(i)%out_event))
-        ENDIF
+        IF (ofile_is_assigned_here(i)) &
+          CALL io_proc_write_name_list(output_file(i), ofile_has_first_write(i))
 #endif
       ELSE
-        CALL write_name_list(output_file(i), check_open_file(output_file(i)%out_event))
+        CALL write_name_list(output_file(i), ofile_has_first_write(i))
       ENDIF
-
-      ! -------------------------------------------------
-      ! Check if files have to be closed
-      ! -------------------------------------------------
-
-      IF (check_close_file(output_file(i)%out_event) .AND. &
-        & ofile_is_assigned_here) THEN
-        CALL close_output_file(output_file(i))
-        IF (msg_level >= 8) THEN
-          CALL message (routine, 'closed '//TRIM(get_current_filename(output_file(i)%out_event)),all_print=all_print)
-        END IF
-      END IF
 
       ! -------------------------------------------------
       ! add I/O PE of output file to the "output_list"
@@ -612,7 +621,7 @@ CONTAINS
       ! hand-shake protocol: step finished!
       ! -------------------------------------------------
       CALL pass_output_step(output_file(i)%out_event)
-    ENDDO OUTFILE_LOOP
+    ENDDO OUTFILE_WRITE_LOOP
 
     ! If asynchronous I/O is enabled, the compute PEs can now start
     ! the I/O PEs

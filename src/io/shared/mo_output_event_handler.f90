@@ -353,7 +353,7 @@ CONTAINS
     TYPE(t_output_event),          INTENT(IN) :: event           !< output event data structure
     INTEGER, OPTIONAL,             INTENT(IN) :: opt_dstfile     !< optional destination ASCII file unit
     ! local variables
-    INTEGER                     :: i, irow, dst
+    INTEGER                     :: i, irow, dst, n
     TYPE(t_table)               :: table
 
     dst = 0
@@ -399,20 +399,23 @@ CONTAINS
     CALL add_table_column(table, "open")
     CALL add_table_column(table, "close")
     irow = 0
-    DO i=1,event%n_event_steps
-      CALL tabulate_event_step(table, irow, dst, event%event_step(i))
+    n = event%n_event_steps
+    DO i = 1, n
+      CALL tabulate_event_step(table, irow, dst, event%event_step(i), i, n)
     END DO
     CALL print_table(table, opt_delimiter='   ', opt_dstfile=dst)
     CALL finalize_table(table)
   END SUBROUTINE print_output_event
 
-  SUBROUTINE tabulate_event_step(table, irow, dst, event_step)
+  SUBROUTINE tabulate_event_step(table, irow, dst, event_step, &
+    &                            step_idx, num_steps)
     TYPE(t_table), INTENT(inout) :: table
     INTEGER, INTENT(inout) :: irow
-    INTEGER, INTENT(in) :: dst
+    INTEGER, INTENT(in) :: dst, step_idx, num_steps
     TYPE(t_event_step), INTENT(in) :: event_step
 
     INTEGER :: j, tlen
+    LOGICAL :: lclose, lopen
     DO j=1,event_step%n_pes
       irow = irow + 1
       IF (j==1) THEN
@@ -447,16 +450,12 @@ CONTAINS
       END IF
 #endif
       ! append "+ open" or "+ close" according to event step data:
-      IF (event_step%event_step_data(j)%l_open_file) THEN
-        CALL set_table_entry(table,irow,"open", "x")
-      ELSE
-        CALL set_table_entry(table,irow,"open", " ")
-      END IF
-      IF (event_step%event_step_data(j)%l_close_file) THEN
-        CALL set_table_entry(table,irow,"close","x")
-      ELSE
-        CALL set_table_entry(table,irow,"close"," ")
-      END IF
+      lopen = event_step%event_step_data(j)%l_open_file
+      CALL set_table_entry(table,irow,"open", MERGE("x", " ", lopen))
+      lclose = step_idx > 1 &
+        .AND. (     step_idx == num_steps &
+        &      .OR. event_step%event_step_data(j)%l_open_file)
+      CALL set_table_entry(table,irow,"close", MERGE("x", " ", lclose))
     END DO
   END SUBROUTINE tabulate_event_step
 
@@ -889,7 +888,6 @@ CONTAINS
       step_data(1)%jfile           = filename_metadata(i)%jfile
       step_data(1)%jpart           = filename_metadata(i)%jpart
       step_data(1)%l_open_file     = filename_metadata(i)%l_open_file
-      step_data(1)%l_close_file    = filename_metadata(i)%l_close_file
       CALL MOVE_ALLOC(step_data, p_event%event_step(i)%event_step_data)
     END DO
     IF (ldebug) THEN
@@ -1793,7 +1791,8 @@ CONTAINS
         &         ", shared by ", event%output_event%event_step(istep)%n_pes, " PEs."
       CALL finish(routine, "Error! Multi-part event step!")
     END IF
-    check_close_file = event%output_event%event_step(istep)%event_step_data(1)%l_close_file
+    check_close_file = istep > 1 &
+      .AND. event%output_event%event_step(istep)%event_step_data(1)%l_open_file
   END FUNCTION check_close_file
 
 
