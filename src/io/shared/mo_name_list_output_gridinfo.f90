@@ -199,57 +199,82 @@ CONTAINS
 
 #ifdef HAVE_CDI_PIO
   SUBROUTINE distribute_all_grid_info(p_patch, patch_info)
-    TYPE(t_patch),        INTENT(IN)    :: p_patch
-    TYPE(t_patch_info),   INTENT(INOUT) :: patch_info
+    TYPE(t_patch), TARGET, INTENT(in)   :: p_patch
+    TYPE(t_patch_info),   INTENT(inout) :: patch_info
 
     CHARACTER(LEN=*), PARAMETER :: &
       routine = modname//"::distributed_all_grid_info"
-    INTEGER :: ierrstat, max_cell_conn, max_vrtx_conn, &
-         nblks_c, nblks_e, nblks_v, max_nblks
-    REAL(wp), ALLOCATABLE :: lonv(:,:,:), latv(:,:,:)
-    PROCEDURE(cf_1_1_grid_verts), POINTER :: cf_1_1_grid_verts_ptr
+    INTEGER :: ierrstat, max_a_size, igeom
+    REAL(wp), ALLOCATABLE :: lonv(:), latv(:)
+    TYPE cf_1_1_grid_ptr
+      PROCEDURE(cf_1_1_grid_verts), NOPASS, POINTER :: p
+    END TYPE cf_1_1_grid_ptr
+    TYPE(cf_1_1_grid_ptr) :: cf_1_1(3)
+    TYPE p_geographical_coordinates
+      TYPE(t_geographical_coordinates), POINTER :: p(:,:)
+    END TYPE p_geographical_coordinates
+    TYPE(p_geographical_coordinates) :: p_coords(3)
+    INTEGER :: max_conn(3), nblks(3)
 
+    cf_1_1(icell)%p => cf_1_1_grid_cells
+    cf_1_1(iedge)%p => cf_1_1_grid_edges
     IF (my_process_is_ocean()) THEN
-      cf_1_1_grid_verts_ptr => cf_1_1_grid_verts_ocean
+      cf_1_1(ivert)%p => cf_1_1_grid_verts_ocean
     ELSE
-      cf_1_1_grid_verts_ptr => cf_1_1_grid_verts
+      cf_1_1(ivert)%p => cf_1_1_grid_verts
     ENDIF
-!$omp parallel private(max_cell_conn, max_vrtx_conn, nblks_c, nblks_e, nblks_v)
-    max_cell_conn   = p_patch%cells%max_connectivity
-    max_vrtx_conn = p_patch%verts%max_connectivity
 
-    !-- collect domain data on working PE 0
-    nblks_c = p_patch%nblks_c
-    nblks_e = p_patch%nblks_e
-    nblks_v = p_patch%nblks_v
-    ! --cells
-    CALL create_distributed_grid_info(p_patch, patch_info%ri(icell), &
-      &                               lonv, latv, p_patch%cells%center, &
-      &                               patch_info%grid_info(icell), &
-      &                               max_cell_conn, nblks_c, cf_1_1_grid_cells)
+    p_coords(icell)%p => p_patch%cells%center
+    p_coords(iedge)%p => p_patch%edges%center
+    p_coords(ivert)%p => p_patch%verts%vertex
 
-    !-- edges
-    CALL create_distributed_grid_info(p_patch, patch_info%ri(iedge), &
-      &                               lonv, latv, p_patch%edges%center, &
-      &                               patch_info%grid_info(iedge), &
-      &                               4, nblks_e, cf_1_1_grid_edges)
+    max_conn(icell) = p_patch%cells%max_connectivity
+    max_conn(iedge) = 4
+    max_conn(ivert) = p_patch%verts%max_connectivity
 
-    !-- verts
-    CALL create_distributed_grid_info(p_patch, patch_info%ri(ivert), &
-      &                               lonv, latv, p_patch%verts%vertex, &
-      &                               patch_info%grid_info(ivert), &
-      &                               max_vrtx_conn, nblks_v, &
-      &                               cf_1_1_grid_verts_ptr)
+    nblks(icell) = p_patch%nblks_c
+    nblks(iedge) = p_patch%nblks_e
+    nblks(ivert) = p_patch%nblks_v
+
+    DO igeom = icell, ivert
+      CALL alloc_distributed_grid_info(patch_info%grid_info(igeom), &
+        patch_info%ri(igeom)%n_own, max_conn(igeom))
+    END DO
+
+    max_a_size = nproma * MAXVAL(nblks * max_conn)
+    ALLOCATE(lonv(max_a_size), latv(max_a_size))
+!$omp parallel private(igeom)
+    DO igeom = icell, ivert
+      CALL create_distributed_grid_info(p_patch, patch_info%ri(igeom), &
+        &                               lonv, latv, p_coords(igeom)%p, &
+        &                               patch_info%grid_info(igeom), &
+        &                               max_conn(igeom), nblks(igeom), &
+        &                               cf_1_1(igeom)%p)
+    END DO
 !$omp end parallel
   END SUBROUTINE distribute_all_grid_info
+
+  SUBROUTINE alloc_distributed_grid_info(grid_info, n_own, nconn)
+    TYPE(t_grid_info), INTENT(inout) :: grid_info
+    INTEGER, INTENT(in) :: n_own, nconn
+
+    CHARACTER(len=*), PARAMETER :: &
+         routine = modname//'::alloc_distributed_grid_info'
+    INTEGER :: ierrstat
+
+    ALLOCATE(grid_info%lon(n_own), grid_info%lat(n_own), &
+      &      grid_info%lonv(nconn, n_own), grid_info%latv(nconn, n_own), &
+      &      STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+  END SUBROUTINE alloc_distributed_grid_info
 
   SUBROUTINE create_distributed_grid_info(p_patch, ri, lonv, latv, coordinates,&
     &                                     grid_info, nconn, nblks, cf_1_1_grid)
     TYPE(t_patch), INTENT(in) :: p_patch
     TYPE(t_reorder_info), INTENT(in) :: ri
-    REAL(wp), ALLOCATABLE, INTENT(inout)    :: lonv(:,:,:), latv(:,:,:)
+    REAL(wp), TARGET, INTENT(inout) :: lonv(:), latv(:)
     TYPE(t_geographical_coordinates), INTENT(IN) :: coordinates(:,:)
-    TYPE(t_grid_info), INTENT(INOUT) :: grid_info
+    TYPE(t_grid_info), INTENT(inout) :: grid_info
     INTEGER, INTENT(in) :: nconn, nblks
     INTERFACE
       SUBROUTINE cf_1_1_grid(p_patch, lonv, latv)
@@ -263,28 +288,20 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: &
       routine = modname//'::create_distributed_grid_info'
     INTEGER :: ierrstat, j, n_own, ofs
-    n_own = ri%n_own
-!$omp master
-    ALLOCATE(grid_info%lon(n_own), grid_info%lat(n_own), &
-      &      grid_info%lonv(nconn, n_own), grid_info%latv(nconn, n_own))
+    REAL(wp), POINTER :: plonv(:,:,:), platv(:,:,:)
 
-    ALLOCATE(lonv(nproma, nblks, nconn), latv(nproma, nblks, nconn), &
-      &      STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-    CALL cf_1_1_grid(p_patch, lonv, latv)
-!$omp end master
+    n_own = ri%n_own
+    plonv(1:nproma, 1:nblks, 1:nconn) => lonv
+    platv(1:nproma, 1:nblks, 1:nconn) => latv
+    CALL cf_1_1_grid(p_patch, plonv, platv)
 !$omp barrier
     ofs = 0 ; CALL ri_cpy_blk2part(ri, coordinates%lon, grid_info%lon, ofs)
     ofs = 0 ; CALL ri_cpy_blk2part(ri, coordinates%lat, grid_info%lat, ofs)
     DO j = 1, nconn
-      ofs = 0 ; CALL ri_cpy_blk2part(ri, lonv(:,:,j), grid_info%lonv(j,:), ofs)
-      ofs = 0 ; CALL ri_cpy_blk2part(ri, latv(:,:,j), grid_info%latv(j,:), ofs)
+      ofs = 0 ; CALL ri_cpy_blk2part(ri, plonv(:,:,j), grid_info%lonv(j,:), ofs)
+      ofs = 0 ; CALL ri_cpy_blk2part(ri, platv(:,:,j), grid_info%latv(j,:), ofs)
     END DO
 !$omp barrier
-!$omp master
-    DEALLOCATE(lonv, latv, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-!$omp end master
   END SUBROUTINE create_distributed_grid_info
 #endif
 
