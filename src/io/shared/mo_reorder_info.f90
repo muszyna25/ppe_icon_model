@@ -1,3 +1,10 @@
+! the Intel compiler has an interesting behaviour: if optimization is off,
+! actual arguments to dummy arguments with attribute CONTIGUOUS will always
+! be copied
+#if defined HAVE_FC_ATTRIBUTE_CONTIGUOUS \
+  && ((! defined __INTEL_COMPILER) || defined __OPTIMIZE__)
+#define USE_CONTIGUOUS 1
+#endif
 MODULE mo_reorder_info
   USE mo_kind, ONLY: i4, i8, dp, sp
   USE mo_mpi, ONLY: p_bcast, p_comm_remote_size, p_allgather, p_allgatherv, &
@@ -97,7 +104,7 @@ CONTAINS
     TYPE(t_reorder_info), INTENT(inout) :: ri
     LOGICAL, INTENT(in) :: mask(:)
     INTEGER, INTENT(in) :: n_points_g, glb_index(:), group_comm
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: glb_index, mask
 #endif
     INTEGER(i8), ALLOCATABLE, OPTIONAL, INTENT(out) :: &
@@ -226,7 +233,7 @@ CONTAINS
     INTEGER, ALLOCATABLE, INTENT(inout) :: a_perm(:)
     INTEGER, INTENT(in) :: permutation(:)
     CHARACTER(len=*), PARAMETER :: routine=modname//"::permute"
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: permutation
 #endif
     INTEGER, ALLOCATABLE :: temp(:)
@@ -296,7 +303,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     REAL(dp), INTENT(in) :: part_data(:)
     REAL(dp), INTENT(inout) :: whole_data(:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, n, ofs
@@ -313,7 +320,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     REAL(sp), INTENT(in) :: part_data(:)
     REAL(sp), INTENT(inout) :: whole_data(:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, n, ofs
@@ -330,7 +337,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     REAL(sp), INTENT(in) :: part_data(:)
     REAL(dp), INTENT(inout) :: whole_data(:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, n, ofs
@@ -347,7 +354,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     REAL(dp), INTENT(in) :: part_data(:)
     REAL(sp), INTENT(inout) :: whole_data(:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, n, ofs
@@ -364,7 +371,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     INTEGER(i4), INTENT(in) :: part_data(:)
     INTEGER(i4), INTENT(inout) :: whole_data(:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, n, ofs
@@ -381,7 +388,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     REAL(dp), INTENT(in) :: part_data(:,:)
     REAL(dp), INTENT(inout) :: whole_data(:,:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, k, n, nlev, ofs
@@ -401,7 +408,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     REAL(sp), INTENT(in) :: part_data(:,:)
     REAL(sp), INTENT(inout) :: whole_data(:,:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, k, n, nlev, ofs
@@ -421,7 +428,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     REAL(sp), INTENT(in) :: part_data(:,:)
     REAL(dp), INTENT(inout) :: whole_data(:,:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, k, n, nlev, ofs
@@ -441,7 +448,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     REAL(dp), INTENT(in) :: part_data(:,:)
     REAL(sp), INTENT(inout) :: whole_data(:,:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, k, n, nlev, ofs
@@ -461,7 +468,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     INTEGER(i4), INTENT(in) :: part_data(:,:)
     INTEGER(i4), INTENT(inout) :: whole_data(:,:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, k, n, nlev, ofs
