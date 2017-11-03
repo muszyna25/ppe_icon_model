@@ -315,7 +315,7 @@ CONTAINS
   !
   SUBROUTINE close_name_list_output()
     ! local variables
-    INTEGER :: i, ierror
+    INTEGER :: i, ierror, prev_cdi_namespace
 
 #ifndef NOMPI
 #ifndef __NO_ICON_ATMO__
@@ -327,6 +327,12 @@ CONTAINS
     ELSE IF (.NOT. my_process_is_mpi_test()) THEN
 
 #endif
+#endif
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio) THEN
+        prev_cdi_namespace = namespaceGetActive()
+        CALL namespaceSetActive(nml_io_cdi_pio_namespace)
+      END IF
 #endif
       !-- asynchronous I/O PEs (receiver):
       DO i = 1, SIZE(output_file)
@@ -356,6 +362,10 @@ CONTAINS
         ! destroy vertical axes meta-data:
         CALL output_file(i)%verticalAxisList%finalize()
       ENDDO
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio) &
+        CALL namespaceSetActive(prev_cdi_namespace)
+#endif
 #ifndef NOMPI
 #ifndef __NO_ICON_ATMO__
     ENDIF
