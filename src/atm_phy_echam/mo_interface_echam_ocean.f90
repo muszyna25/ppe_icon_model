@@ -474,7 +474,7 @@ CONTAINS
 
     REAL(wp), PARAMETER   :: dummy = 0.0_wp
     REAL(wp)              :: scr(nproma,p_patch%alloc_cell_blocks)
-    REAL(wp)              :: frac_oce
+    REAL(wp)              :: frac_oce, fwf_fac
 
     IF ( .NOT. is_coupled_run() ) RETURN
 
@@ -606,6 +606,13 @@ CONTAINS
     !         evap.oce = (evap.wtr*frac.wtr + evap.ice*frac.ice)/(1-frac.lnd)
     !
     buffer(:,:) = 0.0_wp  ! temporarily
+    !
+    ! Preliminary: hard-coded correction factor for freshwater imbalance stemming from the atmosphere
+    ! Precipitation is reduced by Factor fwf_fac
+    ! factor calculated from run slo1014, used in run slo1016:
+    ! Global imbalance D=1.7 mm/y; Precip P=1070 mm/y; D/P~0.0016; 1-D/P= 0.9984
+    fwf_fac = 0.9984_wp   
+    ! fwf_fac = 1.0_wp      ! neutral factor
 
     ! Aquaplanet coupling: surface types ocean and ice only
     IF (nsfc_type == 2) THEN
@@ -621,8 +628,10 @@ CONTAINS
         DO n = 1, nlen
      
           ! total rates of rain and snow over whole cell
-          buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk)
-          buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk)
+          !buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk)
+          !buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk)
+          buffer(nn+n,1) = (prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk))*fwf_fac
+          buffer(nn+n,2) = (prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk))*fwf_fac
      
           ! evaporation over ice-free and ice-covered water fraction - of whole ocean part
           frac_oce = prm_field(jg)%frac_tile(n,i_blk,iwtr) + prm_field(jg)%frac_tile(n,i_blk,iice) ! 1.0?
@@ -646,8 +655,10 @@ CONTAINS
         DO n = 1, nlen
     
           ! total rates of rain and snow over whole cell
-          buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk)
-          buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk)
+          !buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk)
+          !buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk)
+          buffer(nn+n,1) = (prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk))*fwf_fac
+          buffer(nn+n,2) = (prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk))*fwf_fac
     
           ! evaporation over ice-free and ice-covered water fraction, of whole ocean part, without land part
           frac_oce=1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)
