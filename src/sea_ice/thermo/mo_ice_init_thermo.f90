@@ -318,11 +318,6 @@ CONTAINS
       &          t_cf_var('heatOceW', 'W/m^2', 'Heat flux to ocean from the atmosphere', datatype_flt),&
       &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'CondHeat', p_ice%CondHeat ,&
-      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
-      &          t_cf_var('CondHeat', 'W/m^2', 'Conductive heat flux through ice', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
     CALL add_var(ocean_default_list, 'snow_to_ice', p_ice%snow_to_ice ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('snow_to_ice', 'm', 'amount of snow that is transformed to ice', &
@@ -490,39 +485,6 @@ CONTAINS
         &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
         &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("ice_diag"))
     ENDIF
-    ! more ice diagnostics
-    CALL add_var(ocean_default_list, 'Qtop_acc', p_ice%acc%Qtop ,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
-      &          t_cf_var('Qtop_acc', 'W/m^2', 'Energy flux available for surface melting', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'Qbot_acc', p_ice%acc%Qbot ,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
-      &          t_cf_var('Qbot_acc', 'W/m^2', 'Energy flux at ice-ocean interface', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'heatOceI_acc', p_ice%acc%heatOceI ,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
-      &          t_cf_var('heatOceI_acc', 'W/m^2', 'Heat flux to ocean from the ice growth', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'heatOceW_acc', p_ice%acc%heatOceW ,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
-      &          t_cf_var('heatOceW_acc', 'W/m^2', 'Heat flux to ocean from the atmosphere', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'CondHeat_acc', p_ice%acc%CondHeat ,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
-      &          t_cf_var('CondHeat_acc', 'W/m^2', 'Conductive heat flux through ice', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'zHeatOceI_acc', p_ice%acc%zHeatOceI,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
-      &          t_cf_var('zHeatOceI_acc', 'W/m^2', 'Oceanic Heat flux', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'draftave_acc', p_ice%acc%draftave ,GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &          t_cf_var('draftave_acc', 'm', 'avrg. water equiv. of ice and snow on grid area', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'zUnderIce_acc', p_ice%acc%zUnderIce ,GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &          t_cf_var('zUnderIce_acc', 'm', 'water in upper ocean grid cell below ice', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
     CALL message(TRIM(routine), 'end' )
 

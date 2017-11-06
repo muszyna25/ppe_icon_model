@@ -95,7 +95,7 @@ MODULE mo_memory_bgc
   REAL(wp) :: dremopal, calmax, gutc
   REAL(wp) :: psedi, csedi, ssedi
   REAL(wp) :: perc_diron, riron, fesoly, relaxfe, wdust,bolaymin
-  REAL(wp) :: pi_alpha, fPAR, bkh2sox, rh2sox
+  REAL(wp) :: pi_alpha, fPAR
   REAL(wp) :: nitdem, n2prod, ro2nitri
   REAL(wp) :: dremn3o, ro2bal
   REAL(wp) :: dustd1, dustd2, dustd3, dustsink
@@ -103,7 +103,7 @@ MODULE mo_memory_bgc
   REAL(wp) :: cycdec, pi_alpha_cya,cya_growth_max,Topt_cya,T1_cya,T2_cya ! (namelist parameter)
   REAL(wp) :: bkcya_P, bkcya_fe, bkcya_N, doccya_fac           ! (namelist parameter)
   REAL(wp) :: buoyancyspeed_cya      
-  REAL(wp) :: ralk, cyamin, ro2ut_cya
+
 
 
   REAL(wp), PARAMETER :: ppm2con=0.35e-3_wp     !> ppm2con: atmospheric weight: ~10000kg/m^2, avrg. ~29 g/mol

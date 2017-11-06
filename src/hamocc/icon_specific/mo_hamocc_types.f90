@@ -92,7 +92,6 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  iron(:,:,:)           
     REAL(wp), POINTER ::  n2o(:,:,:)         
     REAL(wp), POINTER ::  dms(:,:,:)         
-    REAL(wp), POINTER ::  h2s(:,:,:)         
     REAL(wp), POINTER ::  calc(:,:,:)         
     REAL(wp), POINTER ::  opal(:,:,:)         
     REAL(wp), POINTER ::  dust(:,:,:)         
@@ -113,7 +112,6 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  pwox(:,:,:)       
     REAL(wp), POINTER ::  pwsi(:,:,:)       
     REAL(wp), POINTER ::  pwfe(:,:,:)       
-    REAL(wp), POINTER ::  pwh2s(:,:,:)       
     REAL(wp), POINTER ::  pwn2(:,:,:)       
     REAL(wp), POINTER ::  pwno3(:,:,:)       
     REAL(wp), POINTER ::  sedhi(:,:,:)       
@@ -178,7 +176,6 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  sedflfe(:,:)       
     REAL(wp), POINTER ::  sedfln2(:,:)       
     REAL(wp), POINTER ::  sedflno3(:,:)       
-    REAL(wp), POINTER ::  sedflh2s(:,:)       
     REAL(wp), POINTER ::  sedro2(:,:,:)       
     REAL(wp), POINTER ::  sedrn(:,:,:)       
     REAL(wp), POINTER ::  sedrs(:,:,:)       
@@ -205,8 +202,6 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  cFlim(:,:,:)       
     REAL(wp), POINTER ::  o2min(:,:)       
     REAL(wp), POINTER ::  zo2min(:,:)       
-    REAL(wp), POINTER ::  h2sprod(:,:,:)       
-    REAL(wp), POINTER ::  h2sloss(:,:,:)       
   END TYPE t_hamocc_acc
 
   TYPE, EXTENDS(t_hamocc_acc):: t_hamocc_tend

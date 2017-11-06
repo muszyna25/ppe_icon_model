@@ -27,7 +27,7 @@ CONTAINS
    USE mo_memory_bgc, ONLY  : ak13, ak23, akb3, akw3, aksp,               &
         &                     aks3,akf3,ak1p3,ak2p3,ak3p3,aksi3,          &          
         &                     bolay, kbo, ro2ut, rnit, nitdem, n2prod,    &
-        &                     rrrcl, rcar, ralk
+        &                     rrrcl, rcar
 
    USE mo_sedmnt, ONLY      : sedlay, sedhpl, seddw, silpro,              &
         &                     powtra, prcaca, prorca, produs,             &
@@ -40,7 +40,7 @@ CONTAINS
  
    USE mo_control_bgc, ONLY : dtbgc, bgc_nproma, bgc_zlevs
  
-   USE mo_param1_bgc, ONLY  : ipowasi, issssil, ipowaox,ipowh2s,  &
+   USE mo_param1_bgc, ONLY  : ipowasi, issssil, ipowaox,     &
         &                     issso12, ipowaph, ipowno3, ipown2, &
         &                     ipowaal, ipowaic, isssc12, issster
  
@@ -119,8 +119,8 @@ CONTAINS
          sedlay(j,k,issso12) = sedlay(j,k,issso12) - posol
 
          powtra(j,k,ipowaic) = powtra(j,k,ipowaic) + posol*rcar*pors2w(k)
-         powtra(j,k,ipowaph)=powtra(j,k,ipowaph)+ posol*pors2w(k)
-         powtra(j,k,ipowno3)=powtra(j,k,ipowno3)+ posol*rnit*pors2w(k)
+         powtra(j,k,ipowaph)=powtra(j,k,ipowaph)+posol*pors2w(k)
+         powtra(j,k,ipowno3)=powtra(j,k,ipowno3)+posol*rnit*pors2w(k)
          powtra(j,k,ipowaal)=powtra(j,k,ipowaal)-posol*rnit*pors2w(k)
          powtra(j,k,ipowaox)=powtra(j,k,ipowaox)-posol*pors2w(k)*ro2ut
 
@@ -184,8 +184,7 @@ CONTAINS
            powtra(j,k,ipowaic)=powtra(j,k,ipowaic)+posol*pors2w(k)*rcar
            powtra(j,k,ipowaph)=powtra(j,k,ipowaph)+posol*pors2w(k)
            powtra(j,k,ipowno3)=powtra(j,k,ipowno3)+posol*rnit*pors2w(k)
-           powtra(j,k,ipowaal)=powtra(j,k,ipowaal)+posol*ralk*pors2w(k) 
-           powtra(j,k,ipowh2s) = powtra(j,k,ipowh2s) + posol*pors2w(k)*ralk
+           powtra(j,k,ipowaal)=powtra(j,k,ipowaal)+posol*rnit*pors2w(k) ! alkalinity correction 2015
            powh2obud(j,k)=powh2obud(j,k)-posol*ro2ut*pors2w(k)
            pown2bud(j,k) = pown2bud(j,k) + 2._wp*rnit*posol*pors2w(k) 
 
@@ -363,7 +362,7 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
        &                     ak13, ak23, akb3, akw3, aksp, co3,          &
        &                     aks3,akf3,ak1p3,ak2p3,ak3p3,aksi3,          &
        &                     bolay, kbo, ro2ut, rnit, nitdem, n2prod,    &
-       &                     rrrcl, rcar, riron, ralk
+       &                     rrrcl, rcar, riron
 
 
   USE mo_sedmnt, ONLY      : sedlay, sedhpl, seddw, silpro, produs,      &
@@ -379,8 +378,7 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
 
   USE mo_param1_bgc, ONLY  : ipowasi, isilica, issssil, ipowaox, kaou,   &
        &                     ioxygen, issso12, ipowaph, ipowno3, ipown2, &
-       &                     ipowaal, ipowaic, isssc12, ipowafe, issster,&
-       &                     ipowh2s
+       &                     ipowaal, ipowaic, isssc12, ipowafe, issster
 
   USE mo_hamocc_nml, ONLY  : disso_po, denit_sed
 
@@ -548,7 +546,6 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
            bgctend(j,kbo(j),kaou) = satoxy(j,kbo(j)) - bgctra(j,kbo(j),ioxygen) ! update AOU
            sedlay(j,1,issso12)                                     &
                 &      =sedlay(j,1,issso12)+prorca(j)/(porsol(1)*seddw(1))
-           prorca(j) = 0._wp
         ENDIF
 
 
@@ -587,7 +584,7 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
            IF (bolay( j) > 0._wp) THEN
               IF (powtra(j, k, ipowaox) < 1.e-6_wp) THEN
 
-                 posol  = denit_sed * MIN(0.5_wp * powtra(j,k,ipowno3)/(nitdem-rnit), &
+                 posol  = denit_sed * MIN(0.5_wp * powtra(j,k,ipowno3)/nitdem, &
                       &                       sedlay(j,k,issso12))
                  anaerob(k) = posol*umfa !this has P units: kmol P/m3 of pore water
                  seddenit(j) = seddenit(j) + 2._wp*n2prod*posol*umfa/dtbgc*seddw(k)
@@ -618,8 +615,6 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
                  sedlay(j,k,issso12) = sedlay(j,k,issso12) - posol
                  powtra(j,k,ipowaph) = powtra(j,k,ipowaph) + posol*umfa
                  powtra(j,k,ipowno3) = powtra(j,k,ipowno3) + posol*umfa*rno3
-                 powtra(j,k,ipowh2s) = powtra(j,k,ipowh2s) + posol*umfa*ralk
-
                  powh2obud(j,k)      = powh2obud(j,k) - ro2ut*posol*umfa
                  !pown2bud update below
                  sedtend(j,k, isremins) = posol*umfa/dtbgc
@@ -652,7 +647,7 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
                sit   = powtra(j,k,ipowasi) 
                pt    = powtra(j,k,ipowaph)
 
-               alk  = powtra(j,k,ipowaal) -( -ansulf(k)  +aerob(k)+anaerob(k))*ralk + nitdem*anaerob(k)
+               alk  = powtra(j,k,ipowaal) -( -ansulf(k)  +aerob(k))*rnit + nitdem*anaerob(k)
                c    = powtra(j,k,ipowaic) +(anaerob(k) +aerob(k) + ansulf(k))*rcar
 
                ak1  = ak13(j,kbo(j))
@@ -771,11 +766,11 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
                    &                + anaerob(k) + ansulf(k))*rcar
 
               powtra(j,k,ipowaal) = powtra(j,k,ipowaal)                 &
-                   &                + 2._wp*posol*umfa - ralk*(aerob(k)   &
-                   &                - ansulf(k) + anaerob(k)) + nitdem*anaerob(k)
+                   &                + 2._wp*posol*umfa - rnit*(aerob(k)   &
+                   &                - ansulf(k)) + nitdem*anaerob(k)
 
-              pown2bud(j,k)       = pown2bud(j,k) +  nitdem*anaerob(k) &
-                                  + 2._wp*ralk*ansulf(k)
+              pown2bud(j,k)       = pown2bud(j,k) +  2._wp*n2prod*anaerob(k) &
+                                  + 2._wp*rnit*ansulf(k)
 
               powtra(j,k,ipowafe) = powtra(j,k,ipowafe)                 &
                    &                + (aerob(k)+anaerob(k)+ansulf(k))*riron

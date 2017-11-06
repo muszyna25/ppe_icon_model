@@ -151,15 +151,6 @@
        bgc_tracer_longnames(itrac) = 'dms'
        bgc_tracer_units(itrac)     = 'kmol DMS m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
-      
-       itrac=itrac+1
-       bgc_tracer_names(itrac)     = 'h2s'
-       IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(itrac) = 'h2s_'//TRIM(suffix)
-       END IF
-       bgc_tracer_longnames(itrac) = 'h2s'
-       bgc_tracer_units(itrac)     = 'kmol m-3'
-       bgc_tracer_codes(itrac)     = last_oce_code+itrac
 
        itrac=itrac+1
        bgc_tracer_names(itrac)     = 'calc'

@@ -127,7 +127,7 @@
  &                             ipowaox, ipown2, ipowno3,  &
  &                             ipowasi, ipowafe, kn2b,    &
  &                             kh2ob, korginp, ksilinp,   &
-&                              kcalinp,keuexp, ipowh2s
+&                              kcalinp,keuexp
 
 
       USE mo_sedmnt,  ONLY: pown2bud, powh2obud
@@ -193,7 +193,6 @@
              powtra(jc,jk,ipowafe) = p_sed%pwfe(jc,jk,jb) 
              powtra(jc,jk,ipown2)  = p_sed%pwn2(jc,jk,jb) 
              powtra(jc,jk,ipowno3) = p_sed%pwno3(jc,jk,jb) 
-             powtra(jc,jk,ipowh2s) = p_sed%pwh2s(jc,jk,jb) 
              sedhpl(jc,jk)         = p_sed%sedhi(jc,jk,jb) 
              powh2obud(jc,jk)    = p_sed%pwh2ob(jc,jk,jb) 
              pown2bud(jc,jk)     = p_sed%pwn2b(jc,jk,jb) 
@@ -211,7 +210,7 @@
     USE mo_param1_bgc, ONLY: isco212, ialkali, iphosph,iano3, igasnit, &
 &                            iphy, izoo, icya, ioxygen, isilica, idoc, &
 &                            ian2o, idet, iiron, icalc, iopal,&
-&                            idust, idms, ih2s
+&                            idust, idms
 
     INTEGER, INTENT(in) :: timelevel
     TYPE(t_hamocc_diag) :: p_diag
@@ -236,7 +235,6 @@
     p_diag%det(:,:,:)        =  p_prog%tracer(:,:,:,idet+no_tracer)
     p_diag%iron(:,:,:)       =  p_prog%tracer(:,:,:,iiron+no_tracer)
     p_diag%dms(:,:,:)        =  p_prog%tracer(:,:,:,idms+no_tracer)
-    p_diag%h2s(:,:,:)        =  p_prog%tracer(:,:,:,ih2s+no_tracer)
     p_diag%calc(:,:,:)       =  p_prog%tracer(:,:,:,icalc+no_tracer)
     p_diag%opal(:,:,:)       =  p_prog%tracer(:,:,:,iopal+no_tracer)
     p_diag%dust(:,:,:)       =  p_prog%tracer(:,:,:,idust+no_tracer)
@@ -268,8 +266,7 @@
 &                              kzdy, kpdy,kcoex1000,kcoex2000, &
 &                              kopex1000,kopex2000,kcalex1000,&
 &                              kcalex2000, kaou, kcTlim, kcLlim, &
-&                              kcPlim, kcFlim, ipowh2s,kh2sprod, &   
-&                              kh2sloss
+&                              kcPlim, kcFlim
   
       USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend, &
 &                           isremino, isreminn, isremins
@@ -333,8 +330,6 @@
              p_tend%n2budget(jc,jk,jb) = bgctend(jc,jk,kn2b)
              p_tend%delsil(jc,jk,jb) = bgctend(jc,jk,kdelsil)
              p_tend%delcar(jc,jk,jb) = bgctend(jc,jk,kdelcar)
-             p_tend%h2sprod(jc,jk,jb) = bgctend(jc,jk,kh2sprod)
-             p_tend%h2sloss(jc,jk,jb) = bgctend(jc,jk,kh2sloss)
              p_tend%dmsprod(jc,jk,jb) = bgctend(jc,jk,kdmsprod)
              p_tend%dmsbac(jc,jk,jb) = bgctend(jc,jk,kdmsbac)
              p_tend%dmsuv(jc,jk,jb) = bgctend(jc,jk,kdmsuv)
@@ -374,7 +369,6 @@
         p_tend%sedflfe(jc,jb) = sedfluxo(jc,ipowafe) 
         p_tend%sedfln2(jc,jb) = sedfluxo(jc,ipown2) 
         p_tend%sedflno3(jc,jb) = sedfluxo(jc,ipowno3) 
-        p_tend%sedflh2s(jc,jb) = sedfluxo(jc,ipowh2s) 
         DO jk =1,ks
              ! Solid sediment
              p_sed%so12(jc,jk,jb) = sedlay(jc,jk,issso12)
@@ -390,7 +384,6 @@
              p_sed%pwfe(jc,jk,jb) = powtra(jc,jk,ipowafe)
              p_sed%pwn2(jc,jk,jb) = powtra(jc,jk,ipown2)
              p_sed%pwno3(jc,jk,jb) = powtra(jc,jk,ipowno3)
-             p_sed%pwh2s(jc,jk,jb) = powtra(jc,jk,ipowh2s)
              p_sed%sedhi(jc,jk,jb) = sedhpl(jc,jk)
              p_sed%pwh2ob(jc,jk,jb) = powh2obud(jc,jk)
              p_sed%pwn2b(jc,jk,jb) = pown2bud(jc,jk)
@@ -418,7 +411,7 @@
  &                             isssc12, issssil, issster, &
  &                             ipowaic, ipowaal, ipowaph, &
  &                             ipowaox, ipown2, ipowno3,  &
- &                             ipowasi, ipowafe, ipowh2s
+ &                             ipowasi, ipowafe
   
 
 
@@ -450,7 +443,7 @@
         ! Sediment
         ! Burial layers
         p_sed%bo12(jc,jb) = burial(jc,issso12)
-        p_sed%bc12(jc,jb) = burial(jc,isssc12)
+        p_sed%bc12(jc,jb) = burial(jc,issso12)
         p_sed%bsil(jc,jb) = burial(jc,issssil)
         p_sed%bter(jc,jb) = burial(jc,issster) 
         p_sed%bolay(jc,jb) = bolay(jc)
@@ -470,7 +463,6 @@
              p_sed%pwfe(jc,jk,jb) = powtra(jc,jk,ipowafe)
              p_sed%pwn2(jc,jk,jb) = powtra(jc,jk,ipown2)
              p_sed%pwno3(jc,jk,jb) = powtra(jc,jk,ipowno3)
-             p_sed%pwh2s(jc,jk,jb) = powtra(jc,jk,ipowh2s)
              p_sed%sedhi(jc,jk,jb) = sedhpl(jc,jk)
         ENDDO
       ENDIF

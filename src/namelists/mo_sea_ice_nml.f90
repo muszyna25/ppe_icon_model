@@ -237,8 +237,8 @@ CONTAINS
     ENDIF
 
 
-    IF (i_Qio_type < 0 .OR. i_Qio_type > 3) THEN
-      CALL finish(TRIM(routine), 'i_Qio_type must be either 0, 1,2 or 3.')
+    IF (i_Qio_type < 1 .OR. i_Qio_type > 3) THEN
+      CALL finish(TRIM(routine), 'i_Qio_type must be either 1,2 or 3.')
     END IF
 
     IF (i_ice_dyn == 0 .AND. i_Qio_type == 2) THEN

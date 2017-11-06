@@ -205,20 +205,20 @@ MODULE mo_physical_constants
                                       ! (aka melting) temperature) [C]
 !   muS          = -(-0.0575 + 1.710523E-3*Sqrt(Sice) - 2.154996E-4*Sice) * Sice
     albedoW      = 0.07_wp,         & ! albedo of the ocean used in atmosphere
+! MPIOM albedo scheme without OMIP update
+!   albs         = 0.75_wp,         ! Albedo of snow (not melting)
+!   albsm        = 0.65_wp,         ! Albedo of snow (melting)    
+!   albi         = 0.66_wp,         ! Albedo of ice (not melting)
+!   albim        = 0.64_wp,         ! Albedo of ice (melting)    
 ! MPIOM albedo scheme for OMIP, tuned for MPIOM
     albedoW_sim  = 0.10_wp,         & ! albedo of the ocean used in sea ice model
-!   albs         = 0.85_wp,         & ! Albedo of snow (not melting)
-!   albsm        = 0.70_wp,         & ! Albedo of snow (melting)    
-!   albi         = 0.75_wp,         & ! Albedo of ice (not melting)
-!   albim        = 0.70_wp,         & ! Albedo of ice (melting)    
+    albs         = 0.85_wp,         & ! Albedo of snow (not melting)
+    albsm        = 0.70_wp,         & ! Albedo of snow (melting)    
+    albi         = 0.75_wp,         & ! Albedo of ice (not melting)
+    albim        = 0.70_wp,         & ! Albedo of ice (melting)    
     fr_fac       = 1.1925_wp,       & ! Frank Roeske energy budget closing factor for OMIP
 !   fr_fac       = 1.0_wp,          ! factor not active
-! changed snow and ice albedo for tuning tests in coupled model (+0.01, not for OMIP)
-    albs         = 0.86_wp,         & ! Albedo of snow (not melting)
-    albsm        = 0.71_wp,         & ! Albedo of snow (melting)    
-    albi         = 0.76_wp,         & ! Albedo of ice (not melting)
-    albim        = 0.71_wp,         & ! Albedo of ice (melting)    
-! CCSM3 albedo scheme - not used for coupling
+! CCSM3 albedo scheme
     alb_ice_vis  = 0.73_wp,         & ! Albedo of dry ice  (visible)
     alb_ice_nir  = 0.33_wp,         & ! Albedo of dry ice  (near-infrared)
     alb_sno_vis  = 0.96_wp,         & ! Albedo of dry snow (visible)

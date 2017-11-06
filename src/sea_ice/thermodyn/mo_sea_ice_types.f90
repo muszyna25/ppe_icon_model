@@ -49,15 +49,7 @@ MODULE mo_sea_ice_types
       & hs         (:,:,:)       ,   & ! Snow thickness                                [m]
       & conc       (:,:,:)       ,   & ! ice concentration in each ice class
       & u          (:,:)         ,   & ! Zonal velocity on cell centre (diagnostic)    [m/s]
-      & v          (:,:)         ,   & ! Meridional velocity on cell centre (diagn.)   [m/s]
-      & draftave   (:,:)         ,   & ! Averaged water equivalent of ice and snow over grid area [m]
-      & zUnderIce  (:,:)         ,   & ! water in upper ocean grid cell below ice      [m]
-      & Qtop       (:,:,:)       ,   & ! Energy flux available for surface melting     [W/m2]
-      & Qbot       (:,:,:)       ,   & ! Energy flux at ice-ocean interface            [W/m2]
-      & zHeatOceI  (:,:,:)       ,   & ! Heat flux that goes into ice from below       [W/m^2]
-      & heatOceI   (:,:,:)       ,   & ! Heat flux to ocean due to the ice growth      [W/m^2]
-      & heatOceW   (:,:)         ,   & ! Heat flux to ocean from the atmosphere        [W/m^2]
-      & CondHeat   (:,:,:)             ! Conductive Heat flux through ice              [W/m^2]
+      & v          (:,:)               ! Meridional velocity on cell centre (diagn.)   [m/s]
   END TYPE t_sea_ice_acc
 
   TYPE t_sea_ice_budgets
@@ -104,7 +96,6 @@ MODULE mo_sea_ice_types
       & zHeatOceI  (:,:,:)       ,   & ! Heat flux that goes into ice from below                [W/m^2]
       & heatOceI   (:,:,:)       ,   & ! Heat flux to ocean due to the ice growth               [W/m^2]
       & heatOceW   (:,:)         ,   & ! Heat flux to ocean from the atmosphere                 [W/m^2]
-      & CondHeat   (:,:,:)       ,   & ! Conductive Heat flux through ice                       [W/m^2]
       & snow_to_ice(:,:,:)       ,   & ! Amount of snow that is transformed to ice              [m]
       & newice     (:,:)         ,   & ! New ice growth in open water                           [m]
       & totalsnowfall(:,:)       ,   & ! Snow fall on ice-covered part of cell (water equiv.)   [m]

@@ -100,7 +100,7 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2D
     !-------------------------------------------------------------------------------
     IF(tracer_update_mode == use_none ) THEN
-      DO tracer_index = 1, no_tracer+nbgcadv
+      DO tracer_index = 1, no_tracer
         CALL copy_individual_tracer_ab( patch_3d,            &
           & p_os%p_prog(nold(1))%ocean_tracers(tracer_index), &
           & p_os%p_prog(nnew(1))%ocean_tracers(tracer_index))
@@ -578,18 +578,13 @@ CONTAINS
           END DO
         END DO
 !ICON_OMP_END_PARALLEL_DO
-
-        !---------DEBUG DIAGNOSTICS-------------------------------------------
-        idt_src=4  ! output print level (1-5, fix)
-        CALL dbg_print('AftGMRedi: opottempGMRedi',p_os%p_diag%opottempGMRedi(:,:,:),str_module,idt_src, in_subset=cells_in_domain)
-        !---------------------------------------------------------------------
         
-     !  DO level=1,n_zlev
-     !    !CALL dbg_print('AftGMRedi: divGMRediflux',p_os%p_diag%div_of_GMRedi_flux(:,level,:),&
-     !    !&str_module,idt_src, in_subset=cells_in_domain)
-     !    CALL dbg_print('AftGMRedi: opottempGMRedi',p_os%p_diag%opottempGMRedi(:,level,:),&
-     !    & str_module, idt_src, in_subset=cells_in_domain)      
-     !  END DO
+        DO level=1,n_zlev
+          !CALL dbg_print('AftGMRedi: divGMRediflux',p_os%p_diag%div_of_GMRedi_flux(:,level,:),&
+          !&str_module,idt_src, in_subset=cells_in_domain)
+          CALL dbg_print('AftGMRedi: opottempGMRedi',p_os%p_diag%opottempGMRedi(:,level,:),&
+          & str_module, idt_src, in_subset=cells_in_domain)      
+        END DO
         
       ELSEIF(tracer_index == 2) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, &

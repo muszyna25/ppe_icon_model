@@ -441,39 +441,6 @@ CONTAINS
         &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("ice_diag"),&
         &          lrestart_cont=.FALSE.)
     ENDIF
-    ! more ice diagnostics
-    CALL add_var(ocean_default_list, 'Qtop_acc', p_ice%acc%Qtop ,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
-      &          t_cf_var('Qtop_acc', 'W/m^2', 'Energy flux available for surface melting', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'Qbot_acc', p_ice%acc%Qbot ,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
-      &          t_cf_var('Qbot_acc', 'W/m^2', 'Energy flux at ice-ocean interface', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'heatOceI_acc', p_ice%acc%heatOceI ,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
-      &          t_cf_var('heatOceI_acc', 'W/m^2', 'Heat flux to ocean from the ice growth', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'heatOceW_acc', p_ice%acc%heatOceW ,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
-      &          t_cf_var('heatOceW_acc', 'W/m^2', 'Heat flux to ocean from the atmosphere', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'CondHeat_acc', p_ice%acc%CondHeat ,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
-      &          t_cf_var('CondHeat_acc', 'W/m^2', 'Conductive heat flux through ice', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'zHeatOceI_acc', p_ice%acc%zHeatOceI,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
-      &          t_cf_var('zHeatOceI_acc', 'W/m^2', 'Oceanic Heat flux', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'draftave_acc', p_ice%acc%draftave ,GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &          t_cf_var('draftave_acc', 'm', 'avrg. water equiv. of ice and snow on grid area', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'zUnderIce_acc', p_ice%acc%zUnderIce ,GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &          t_cf_var('zUnderIce_acc', 'm', 'water in upper ocean grid cell below ice', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
     CALL message(TRIM(routine), 'end' )
 
@@ -2921,39 +2888,23 @@ CONTAINS
     TYPE(t_sea_ice_acc),  INTENT(INOUT) :: p_acc
     TYPE(t_sea_ice),      INTENT(IN)    :: p_ice
     TYPE(t_subset_range), INTENT(IN)    :: subset
+
     CALL add_fields(p_acc%hi  , p_ice%hi  , subset , levels=p_ice%kice)
     CALL add_fields(p_acc%hs  , p_ice%hs  , subset , levels=p_ice%kice)
     CALL add_fields(p_acc%conc, p_ice%conc, subset , levels=p_ice%kice)
     CALL add_fields(p_acc%u   , p_ice%u   , subset)
     CALL add_fields(p_acc%v   , p_ice%v   , subset)
-    CALL add_fields(p_acc%HeatOceW , p_ice%HeatOceW , subset)
-    CALL add_fields(p_acc%zUnderIce, p_ice%zUnderIce, subset)
-    CALL add_fields(p_acc%draftave , p_ice%draftave , subset)
-    CALL add_fields(p_acc%Qtop     , p_ice%Qtop     , subset , levels=p_ice%kice)
-    CALL add_fields(p_acc%Qbot     , p_ice%Qbot     , subset , levels=p_ice%kice)
-    CALL add_fields(p_acc%CondHeat , p_ice%CondHeat , subset , levels=p_ice%kice)
-    CALL add_fields(p_acc%HeatOceI , p_ice%HeatOceI , subset , levels=p_ice%kice)
-    CALL add_fields(p_acc%zHeatOceI, p_ice%zHeatOceI, subset , levels=p_ice%kice)
   END SUBROUTINE update_ice_statistic
-
   SUBROUTINE compute_mean_ice_statistics(p_acc,nsteps_since_last_output)
     TYPE(t_sea_ice_acc), INTENT(INOUT) :: p_acc
     INTEGER,INTENT(IN)                 :: nsteps_since_last_output
-    p_acc%hi                        = p_acc%hi       /REAL(nsteps_since_last_output,wp)
-    p_acc%hs                        = p_acc%hs       /REAL(nsteps_since_last_output,wp)
-    p_acc%u                         = p_acc%u        /REAL(nsteps_since_last_output,wp)
-    p_acc%v                         = p_acc%v        /REAL(nsteps_since_last_output,wp)
-    p_acc%conc                      = p_acc%conc     /REAL(nsteps_since_last_output,wp)
-    p_acc%Qtop                      = p_acc%Qtop     /REAL(nsteps_since_last_output,wp)
-    p_acc%Qbot                      = p_acc%Qbot     /REAL(nsteps_since_last_output,wp)
-    p_acc%CondHeat                  = p_acc%CondHeat /REAL(nsteps_since_last_output,wp)
-    p_acc%HeatOceI                  = p_acc%HeatOceI /REAL(nsteps_since_last_output,wp)
-    p_acc%HeatOceW                  = p_acc%HeatOceW /REAL(nsteps_since_last_output,wp)
-    p_acc%zHeatOceI                 = p_acc%zHeatOceI/REAL(nsteps_since_last_output,wp)
-    p_acc%zUnderIce                 = p_acc%zUnderIce/REAL(nsteps_since_last_output,wp)
-    p_acc%draftave                  = p_acc%draftave /REAL(nsteps_since_last_output,wp)
-  END SUBROUTINE compute_mean_ice_statistics
 
+    p_acc%hi                        = p_acc%hi  /REAL(nsteps_since_last_output,wp)
+    p_acc%hs                        = p_acc%hs  /REAL(nsteps_since_last_output,wp)
+    p_acc%u                         = p_acc%u   /REAL(nsteps_since_last_output,wp)
+    p_acc%v                         = p_acc%v   /REAL(nsteps_since_last_output,wp)
+    p_acc%conc                      = p_acc%conc/REAL(nsteps_since_last_output,wp)
+  END SUBROUTINE compute_mean_ice_statistics
   SUBROUTINE reset_ice_statistics(p_acc)
     TYPE(t_sea_ice_acc), INTENT(INOUT) :: p_acc
     p_acc%hi                        = 0.0_wp
@@ -2961,16 +2912,7 @@ CONTAINS
     p_acc%u                         = 0.0_wp
     p_acc%v                         = 0.0_wp
     p_acc%conc                      = 0.0_wp
-    p_acc%Qtop                      = 0.0_wp
-    p_acc%Qbot                      = 0.0_wp
-    p_acc%CondHeat                  = 0.0_wp
-    p_acc%HeatOceI                  = 0.0_wp
-    p_acc%HeatOceW                  = 0.0_wp
-    p_acc%zHeatOceI                 = 0.0_wp
-    p_acc%zUnderIce                 = 0.0_wp
-    p_acc%draftave                  = 0.0_wp
   END SUBROUTINE reset_ice_statistics
-
   SUBROUTINE finish_unless_allocate(ist, routine, tag)
     INTEGER :: ist
     CHARACTER(len=*) :: tag,routine

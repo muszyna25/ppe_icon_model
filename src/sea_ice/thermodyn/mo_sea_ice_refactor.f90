@@ -516,17 +516,6 @@ CONTAINS
 
     ! calculate heat flux from ocean to ice  (zHeatOceI) 
     SELECT CASE ( i_Qio_type )
-
-    CASE (0)
-
-!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, jc) SCHEDULE(dynamic)
-      DO jb = 1,p_patch%nblks_c
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c,i_endidx_c
-          zHeatOceI(jc,:,jb) = 0.0_wp
-        ENDDO
-      ENDDO
-
     CASE (1)
 !ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, k, jc) SCHEDULE(dynamic)
       DO jb = 1,p_patch%nblks_c

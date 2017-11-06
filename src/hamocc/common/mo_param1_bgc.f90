@@ -12,7 +12,7 @@ MODULE mo_param1_bgc
 
 
   ! advected tracers
-  INTEGER, PARAMETER :: i_base_adv = 16,              &
+  INTEGER, PARAMETER :: i_base_adv = 15,              &
        &                isco212    = 1,               &
        &                ialkali    = 2,               &
        &                iphosph    = 3,               &
@@ -27,8 +27,7 @@ MODULE mo_param1_bgc
        &                ian2o      = 12,              &
        &                idet       = 13,              &         
        &                iiron      = 14,              &               
-       &                idms       = 15,              &
-       &                ih2s       = 16               
+       &                idms       = 15               
 
 
   ! total number of advected tracers
@@ -70,8 +69,7 @@ MODULE mo_param1_bgc
        &                ipowno3    = 6,               &
        &                ipowasi    = 7,               &
        &                ipowafe    = 8,               &
-       &                ipowh2s    = 9,               &
-       &                npowa_base = 9
+       &                npowa_base = 8
   
   INTEGER, PARAMETER :: npowtra=npowa_base
 
@@ -108,9 +106,7 @@ MODULE mo_param1_bgc
       &                 kcTlim    = 29,               &
       &                 kcPlim    = 30,               &
       &                 kcFlim    = 31,               &
-      &                 kh2sprod  = 32,               &
-      &                 kh2sloss  = 33,               &
-                        nbgctend  = 33 
+                        nbgctend  = 31 
  
   INTEGER, PARAMETER :: kcflux     = 1,               &
       &                 koflux     = 2,               &
