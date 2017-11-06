@@ -421,6 +421,7 @@ CONTAINS
     TYPE(t_nh_diag)          , POINTER :: diag
     TYPE(t_lnd_prog)         , POINTER :: p_lnd_prog
     TYPE(t_lnd_diag)         , POINTER :: p_lnd_diag
+    TYPE(t_cf_var)           , POINTER :: cf(:)
 
     diag       => p_nh_state%diag
     prog       => p_nh_state%prog(nnow(jg))
@@ -710,14 +711,18 @@ CONTAINS
 
     ! several variable indices, stored for convenience (when computing
     ! additional diagnostics):
-    mtgrm(jg)%i_T        = get_var("T"       , jg)
-    mtgrm(jg)%i_QV       = get_var("QV"      , jg)
-    mtgrm(jg)%i_REL_HUM  = get_var("REL_HUM" , jg)
-    mtgrm(jg)%i_PEXNER   = get_var("PEXNER"  , jg)
-    mtgrm(jg)%i_SWDIR_S  = get_sfcvar("SWDIR_S" , jg)
-    mtgrm(jg)%i_ALB      = get_sfcvar("ALB"     , jg)
-    mtgrm(jg)%i_SWDIFD_S = get_sfcvar("SWDIFD_S", jg)
-    mtgrm(jg)%i_SOBS     = get_sfcvar("SOBS"    , jg)
+    cf => &
+      mtgrm(jg)%meteogram_local_data%var_info(1:mtgrm(jg)%var_list%no_atmo_vars)%cf
+    mtgrm(jg)%i_T        = get_var("T"       , cf)
+    mtgrm(jg)%i_QV       = get_var("QV"      , cf)
+    mtgrm(jg)%i_REL_HUM  = get_var("REL_HUM" , cf)
+    mtgrm(jg)%i_PEXNER   = get_var("PEXNER"  , cf)
+    cf => &
+      mtgrm(jg)%meteogram_local_data%sfc_var_info(1:mtgrm(jg)%var_list%no_sfc_vars)%cf
+    mtgrm(jg)%i_SWDIR_S  = get_var("SWDIR_S" , cf)
+    mtgrm(jg)%i_ALB      = get_var("ALB"     , cf)
+    mtgrm(jg)%i_SWDIFD_S = get_var("SWDIFD_S", cf)
+    mtgrm(jg)%i_SOBS     = get_var("SOBS"    , cf)
 
   END SUBROUTINE meteogram_setup_variables
 
@@ -2646,19 +2651,19 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
-  FUNCTION get_var(zname, jg)
+  FUNCTION get_var(zname, cf)
     INTEGER :: get_var
     CHARACTER(LEN=*),  INTENT(IN) :: zname
-    INTEGER         ,  INTENT(IN) :: jg
+    TYPE(t_cf_var), INTENT(in) :: cf(:)
+
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":get_var"
-    TYPE(t_meteogram_data), POINTER :: meteogram_data
-    INTEGER :: ivar
+    INTEGER :: ivar, nvar
 
     get_var = -1 ! invalid result
-    meteogram_data => mtgrm(jg)%meteogram_local_data
-    VAR_LOOP : DO ivar=1,mtgrm(jg)%var_list%no_atmo_vars
-      IF (TRIM(meteogram_data%var_info(ivar)%cf%standard_name) == TRIM(zname)) THEN
+    nvar = SIZE(cf)
+    VAR_LOOP : DO ivar=1,nvar
+      IF (TRIM(cf(ivar)%standard_name) == zname) THEN
         get_var = ivar
         EXIT VAR_LOOP
       END IF
@@ -2669,40 +2674,9 @@ CONTAINS
     ! IF (get_var == -1)  CALL finish (routine, 'Invalid name: '//TRIM(zname))
   END FUNCTION get_var
 
-
-  !>
-  !! @return Index of (2d) surface variable with given name.
-  !!
-  !! @par Revision History
-  !! Initial implementation  by  F. Prill, DWD (2011-08-22)
-  !!
-  FUNCTION get_sfcvar(zname, jg)
-    INTEGER :: get_sfcvar
-    CHARACTER(LEN=*),  INTENT(IN) :: zname
-    INTEGER         ,  INTENT(IN) :: jg
-    ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//":get_sfcvar"
-    TYPE(t_meteogram_data), POINTER :: meteogram_data
-    INTEGER :: ivar
-
-    get_sfcvar = -1 ! invalid result
-    meteogram_data => mtgrm(jg)%meteogram_local_data
-    VAR_LOOP : DO ivar=1,mtgrm(jg)%var_list%no_sfc_vars
-      IF (TRIM(meteogram_data%sfc_var_info(ivar)%cf%standard_name) == TRIM(zname)) THEN
-        get_sfcvar = ivar
-        EXIT VAR_LOOP
-      END IF
-    END DO VAR_LOOP
-    ! the following consistency check is disabled (since the user may
-    ! use the namelist parameter "var_list"):
-    !
-    ! IF (get_sfcvar == -1)  CALL finish (routine, 'Invalid name!')
-  END FUNCTION get_sfcvar
-
 END MODULE mo_meteogram_output
 !
 ! Local Variables:
 ! f90-continuation-indent: 2
 ! End:
 !
-
