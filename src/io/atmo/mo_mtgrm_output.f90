@@ -2593,8 +2593,8 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":receive_var_info"
     INTEGER                 :: id, ivar
-    TYPE(t_cf_var), POINTER :: cf        => NULL()
-    INTEGER       , POINTER :: igroup_id => NULL()
+    TYPE(t_cf_var), POINTER :: cf
+    INTEGER       , POINTER :: igroup_id
 
     ! wait for messages to arrive:
     CALL p_wait()
