@@ -33,8 +33,9 @@ MODULE mo_vdiff_nml
   LOGICAL :: lsfc_mom_flux   !< switch on/off surface momentum flux
   LOGICAL :: lsfc_heat_flux  !< switch on/off surface heat flux
                              !< (sensible AND latent)
+  LOGICAL :: lsfc_co2_flux   !< switch on/off surface co2 flux
 
-  NAMELIST /vdiff_nml/ lsfc_mom_flux, lsfc_heat_flux
+  NAMELIST /vdiff_nml/ lsfc_mom_flux, lsfc_heat_flux, lsfc_co2_flux
 
 CONTAINS
   !>
@@ -50,6 +51,7 @@ CONTAINS
     !----------------------------------------------------------------
     lsfc_mom_flux  = .TRUE.
     lsfc_heat_flux = .TRUE.
+    lsfc_co2_flux  = .FALSE.
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -94,6 +96,7 @@ CONTAINS
     !-----------------------------------------------------
     vdiff_config%lsfc_mom_flux  = lsfc_mom_flux 
     vdiff_config%lsfc_heat_flux = lsfc_heat_flux 
+    vdiff_config%lsfc_co2_flux  = lsfc_co2_flux 
 
   END SUBROUTINE read_vdiff_namelist
 

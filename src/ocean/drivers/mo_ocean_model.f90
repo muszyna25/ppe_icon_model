@@ -204,7 +204,7 @@ MODULE mo_ocean_model
     ENDIF
 
     CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients, &
-      & ocean_state(1), v_sea_ice, ext_data(1), isRestart(), solverCoefficients_sp)
+      & ocean_state(1),p_as, v_sea_ice, ext_data(1), isRestart(), solverCoefficients_sp)
 
     !------------------------------------------------------------------
     ! write initial state

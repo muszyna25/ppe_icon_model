@@ -30,7 +30,7 @@ MODULE mo_echam_phy_init
     &                                t_stream_id, on_cells
 
   ! model configuration
-  USE mo_run_config,           ONLY: nlev, iqv, iqt, ico2, io3, &
+  USE mo_run_config,           ONLY: nlev, iqv, iqt, io3, &
     &                                ntracer, ltestcase, lart
   USE mo_vertical_coord_table, ONLY: vct
   USE mo_dynamics_config,      ONLY: iequations
@@ -92,7 +92,7 @@ MODULE mo_echam_phy_init
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, calculate_time_interpolation_weights
   USE mo_bc_sst_sic,             ONLY: read_bc_sst_sic, bc_sst_sic_time_interpolation
   USE mo_bc_greenhouse_gases,    ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
-    &                                bc_greenhouse_gases_file_read, ghg_co2mmr
+    &                                bc_greenhouse_gases_file_read
   ! Cariolle interactive ozone scheme
   USE mo_lcariolle_externals,  ONLY: read_bcast_real_3d_wrap, &
     &                                read_bcast_real_1d_wrap, &
@@ -400,14 +400,6 @@ CONTAINS
       ! the mid points of the current and preceding or following year, if the
       ! current date is in the 1st or 2nd half of the year, respectively.
       CALL bc_greenhouse_gases_time_interpolation(mtime_current)
-      !
-      ! IF a CO2 tracer exists, then copy the time interpolated scalar ghg_co2mmr
-      ! to the 3-dimensional tracer field.
-      IF ( iqt <= ico2 .AND. ico2 <= ntracer .AND. .NOT. lart) THEN
-        DO jg = 1,ndomain
-          prm_field(jg)%qtrc(:,:,:,ico2) = ghg_co2mmr
-        END DO
-      END IF
       !
     ENDIF
 

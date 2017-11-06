@@ -38,7 +38,7 @@
        
       USE mo_parallel_config,     ONLY: nproma
 
-      USE mo_hamocc_nml,         ONLY: io_stdo_bgc
+      USE mo_hamocc_nml,         ONLY: io_stdo_bgc, l_cpl_co2
 
 
       IMPLICIT NONE
@@ -81,15 +81,16 @@
 !================================================================================== 
     
       SUBROUTINE update_icon(start_idx, end_idx, &
-&             klevs, pddpo, ptracer)
+&             klevs, pddpo, ptracer,pco2flx)
 
-      USE mo_memory_bgc, ONLY: bgctra
-      USE mo_param1_bgc, ONLY: n_bgctra
+      USE mo_memory_bgc, ONLY: bgctra,bgcflux
+      USE mo_param1_bgc, ONLY: n_bgctra,kcflux
 
 
       REAL(wp)     :: ptracer(nproma,n_zlev,no_tracer+n_bgctra)    
       INTEGER, INTENT(in)::klevs(nproma)
       REAL(wp),INTENT(in) :: pddpo(nproma,n_zlev) !< size of scalar grid cell (3rd REAL) [m]
+      REAL(wp),INTENT(inout) :: pco2flx(nproma)
 
       INTEGER :: jc, jk, kpke
       INTEGER :: start_idx, end_idx
@@ -103,6 +104,7 @@
       DO jc=start_idx,end_idx 
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
+          pco2flx(jc)=bgcflux(jc,kcflux) * 44.011_wp
         DO jk =1,kpke
           DO itrac=no_tracer+1,no_tracer+n_bgctra
              ptracer(jc,jk,itrac) = bgctra(jc,jk,itrac-no_tracer)
@@ -116,23 +118,26 @@
 
 !================================================================================== 
       SUBROUTINE update_bgc(start_index, end_index, &
-&             klevs,pddpo,jb,ptracer,p_diag,p_sed,p_tend)
+&             klevs,pddpo,jb,ptracer,pco2mr,p_diag,p_sed,p_tend)
 
       USE mo_memory_bgc, ONLY: bgctra, co3, hi, bgctend, bgcflux, &
  &                         akw3,ak13,ak23,akb3,aksp,satoxy, &
- &                         satn2, satn2o, solco2,kbo,bolay
+ &                         satn2, satn2o, solco2,kbo,bolay,&
+&                          atm
       USE MO_PARAM1_BGC, ONLY: n_bgctra, issso12,         &
  &                             isssc12, issssil, issster, &
  &                             ipowaic, ipowaal, ipowaph, &
  &                             ipowaox, ipown2, ipowno3,  &
  &                             ipowasi, ipowafe, kn2b,    &
  &                             kh2ob, korginp, ksilinp,   &
-&                              kcalinp,keuexp
+&                              kcalinp,keuexp, ipowh2s, &
+&                              iatmco2 
 
 
       USE mo_sedmnt,  ONLY: pown2bud, powh2obud
 
       REAL(wp)     :: ptracer(nproma,n_zlev,no_tracer+n_bgctra)    
+      REAL(wp)     :: pco2mr(nproma)
       INTEGER, INTENT(in)::klevs(nproma), jb
       TYPE(t_hamocc_diag) :: p_diag
       TYPE(t_hamocc_sed) :: p_sed
@@ -151,7 +156,7 @@
       DO jc=start_index,end_index 
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
-
+          if(l_cpl_co2)atm(jc,iatmco2) = pco2mr(jc)
           satn2(jc)  = p_tend%satn2(jc,jb)    
           satn2o(jc) = p_tend%satn2o(jc,jb)    
           solco2(jc) = p_tend%solco2(jc,jb)    
@@ -193,6 +198,7 @@
              powtra(jc,jk,ipowafe) = p_sed%pwfe(jc,jk,jb) 
              powtra(jc,jk,ipown2)  = p_sed%pwn2(jc,jk,jb) 
              powtra(jc,jk,ipowno3) = p_sed%pwno3(jc,jk,jb) 
+             powtra(jc,jk,ipowh2s) = p_sed%pwh2s(jc,jk,jb) 
              sedhpl(jc,jk)         = p_sed%sedhi(jc,jk,jb) 
              powh2obud(jc,jk)    = p_sed%pwh2ob(jc,jk,jb) 
              pown2bud(jc,jk)     = p_sed%pwn2b(jc,jk,jb) 
@@ -210,7 +216,7 @@
     USE mo_param1_bgc, ONLY: isco212, ialkali, iphosph,iano3, igasnit, &
 &                            iphy, izoo, icya, ioxygen, isilica, idoc, &
 &                            ian2o, idet, iiron, icalc, iopal,&
-&                            idust, idms
+&                            idust, idms, ih2s
 
     INTEGER, INTENT(in) :: timelevel
     TYPE(t_hamocc_diag) :: p_diag
@@ -235,6 +241,7 @@
     p_diag%det(:,:,:)        =  p_prog%tracer(:,:,:,idet+no_tracer)
     p_diag%iron(:,:,:)       =  p_prog%tracer(:,:,:,iiron+no_tracer)
     p_diag%dms(:,:,:)        =  p_prog%tracer(:,:,:,idms+no_tracer)
+    p_diag%h2s(:,:,:)        =  p_prog%tracer(:,:,:,ih2s+no_tracer)
     p_diag%calc(:,:,:)       =  p_prog%tracer(:,:,:,icalc+no_tracer)
     p_diag%opal(:,:,:)       =  p_prog%tracer(:,:,:,iopal+no_tracer)
     p_diag%dust(:,:,:)       =  p_prog%tracer(:,:,:,idust+no_tracer)
@@ -247,7 +254,7 @@
       
       USE mo_memory_bgc, ONLY: bgctend, bgcflux, hi, co3, bgctra, sedfluxo, &
  &                         akw3, akb3, aksp, ak13, ak23, satoxy, satn2, &
- &                         satn2o, solco2, bolay
+ &                         satn2o, solco2, bolay,atm
 
       USE mo_param1_bgc, ONLY: kphosy, ksred, kremin, kdenit, &
  &                             kcflux, koflux, knflux, knfixd, &
@@ -266,7 +273,8 @@
 &                              kzdy, kpdy,kcoex1000,kcoex2000, &
 &                              kopex1000,kopex2000,kcalex1000,&
 &                              kcalex2000, kaou, kcTlim, kcLlim, &
-&                              kcPlim, kcFlim
+&                              kcPlim, kcFlim, ipowh2s,kh2sprod, &   
+&                              kh2sloss,iatmco2
   
       USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend, &
 &                           isremino, isreminn, isremins
@@ -288,6 +296,7 @@
 !HAMOCC_OMP_DO PRIVATE(jc,jk,kpke) HAMOCC_OMP_DEFAULT_SCHEDULE
       DO jc=start_idx,end_idx 
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
+        p_tend%co2mr(jc,jb) = atm(jc,iatmco2)
         p_tend%cflux(jc,jb) = bgcflux(jc,kcflux)
         p_tend%oflux(jc,jb) = bgcflux(jc,koflux)
         p_tend%nflux(jc,jb) = bgcflux(jc,knflux)
@@ -330,6 +339,8 @@
              p_tend%n2budget(jc,jk,jb) = bgctend(jc,jk,kn2b)
              p_tend%delsil(jc,jk,jb) = bgctend(jc,jk,kdelsil)
              p_tend%delcar(jc,jk,jb) = bgctend(jc,jk,kdelcar)
+             p_tend%h2sprod(jc,jk,jb) = bgctend(jc,jk,kh2sprod)
+             p_tend%h2sloss(jc,jk,jb) = bgctend(jc,jk,kh2sloss)
              p_tend%dmsprod(jc,jk,jb) = bgctend(jc,jk,kdmsprod)
              p_tend%dmsbac(jc,jk,jb) = bgctend(jc,jk,kdmsbac)
              p_tend%dmsuv(jc,jk,jb) = bgctend(jc,jk,kdmsuv)
@@ -369,6 +380,7 @@
         p_tend%sedflfe(jc,jb) = sedfluxo(jc,ipowafe) 
         p_tend%sedfln2(jc,jb) = sedfluxo(jc,ipown2) 
         p_tend%sedflno3(jc,jb) = sedfluxo(jc,ipowno3) 
+        p_tend%sedflh2s(jc,jb) = sedfluxo(jc,ipowh2s) 
         DO jk =1,ks
              ! Solid sediment
              p_sed%so12(jc,jk,jb) = sedlay(jc,jk,issso12)
@@ -384,6 +396,7 @@
              p_sed%pwfe(jc,jk,jb) = powtra(jc,jk,ipowafe)
              p_sed%pwn2(jc,jk,jb) = powtra(jc,jk,ipown2)
              p_sed%pwno3(jc,jk,jb) = powtra(jc,jk,ipowno3)
+             p_sed%pwh2s(jc,jk,jb) = powtra(jc,jk,ipowh2s)
              p_sed%sedhi(jc,jk,jb) = sedhpl(jc,jk)
              p_sed%pwh2ob(jc,jk,jb) = powh2obud(jc,jk)
              p_sed%pwn2b(jc,jk,jb) = pown2bud(jc,jk)
@@ -404,14 +417,15 @@
 !================================================================================== 
     
       SUBROUTINE initial_update_icon(start_index, end_index, &
-&             klevs,pddpo,jb,ptracer, p_sed,p_diag)
+&             klevs,pddpo,jb,ptracer, p_sed,p_diag,pco2flux)
 
-      USE mo_memory_bgc, ONLY: bgctra, hi, co3, kbo,bolay
+      USE mo_memory_bgc, ONLY: bgctra, hi, co3, kbo,bolay,bgcflux
       USE mo_param1_bgc, ONLY: n_bgctra, issso12, &
  &                             isssc12, issssil, issster, &
  &                             ipowaic, ipowaal, ipowaph, &
  &                             ipowaox, ipown2, ipowno3,  &
- &                             ipowasi, ipowafe
+ &                             ipowasi, ipowafe, ipowh2s, &
+ &                             kcflux
   
 
 
@@ -420,6 +434,7 @@
       TYPE(t_hamocc_sed) :: p_sed
       TYPE(t_hamocc_diag) :: p_diag
       REAL(wp),INTENT(in) :: pddpo(nproma,n_zlev) !< size of scalar grid cell (3rd REAL) [m]
+      REAL(wp),INTENT(inout)  :: pco2flux(nproma)
 
       INTEGER :: jc, jk, kpke,jb
       INTEGER :: start_index, end_index
@@ -433,6 +448,7 @@
       DO jc=start_index,end_index 
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
+         if(l_cpl_co2)pco2flux(jc)=bgcflux(jc,kcflux) * 44.011_wp
         DO jk =1,kpke
           DO itrac=no_tracer+1,no_tracer+n_bgctra
              ptracer(jc,jk,itrac) = bgctra(jc,jk,itrac-no_tracer)
@@ -443,7 +459,7 @@
         ! Sediment
         ! Burial layers
         p_sed%bo12(jc,jb) = burial(jc,issso12)
-        p_sed%bc12(jc,jb) = burial(jc,issso12)
+        p_sed%bc12(jc,jb) = burial(jc,isssc12)
         p_sed%bsil(jc,jb) = burial(jc,issssil)
         p_sed%bter(jc,jb) = burial(jc,issster) 
         p_sed%bolay(jc,jb) = bolay(jc)
@@ -463,6 +479,7 @@
              p_sed%pwfe(jc,jk,jb) = powtra(jc,jk,ipowafe)
              p_sed%pwn2(jc,jk,jb) = powtra(jc,jk,ipown2)
              p_sed%pwno3(jc,jk,jb) = powtra(jc,jk,ipowno3)
+             p_sed%pwh2s(jc,jk,jb) = powtra(jc,jk,ipowh2s)
              p_sed%sedhi(jc,jk,jb) = sedhpl(jc,jk)
         ENDDO
       ENDIF

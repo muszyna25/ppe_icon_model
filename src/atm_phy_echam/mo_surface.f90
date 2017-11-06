@@ -61,6 +61,7 @@ CONTAINS
                            & pu_stress_tile,   pv_stress_tile,  &! out
                            & plhflx_tile, pshflx_tile,          &! out
                            & pevap_tile,                        &! out
+                           & pco2nat,                           &! out
                            !! optional
                            & nblock,                            &! in
                            & lsm,                               &! in
@@ -69,6 +70,7 @@ CONTAINS
                            & pv,                                &! in
                            & ptemp,                             &! in
                            & pq,                                &! in
+                           & pco2,                              &! in
                            & prsfl,                             &! in
                            & prsfc,                             &! in
                            & pssfl,                             &! in
@@ -100,6 +102,7 @@ CONTAINS
                            & albvisdif_tile,                    &! inout
                            & albnirdif_tile,                    &! inout
                            & albedo, albedo_tile,               &! inout
+                           & pco2_flux_tile,                    &! inout
                            & ptsfc,                             &! out
                            & ptsfc_rad,                         &! out
                            & rsns_tile, rlns_tile,              &! out
@@ -155,6 +158,7 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(IN) :: pv        (kbdim)              ! meridional wind lowest level
     REAL(wp),OPTIONAL,INTENT(IN) :: ptemp     (kbdim)              ! temperature of lowest atmospheric level
     REAL(wp),OPTIONAL,INTENT(IN) :: pq        (kbdim)              ! humidity of lowest atmospheric level
+    REAL(wp),OPTIONAL,INTENT(IN) :: pco2      (kbdim)              ! co2 of lowest atmospheric level
     REAL(wp),OPTIONAL,INTENT(IN) :: prsfl     (kbdim)              ! rain large scale
     REAL(wp),OPTIONAL,INTENT(IN) :: prsfc     (kbdim)              ! rain convective
     REAL(wp),OPTIONAL,INTENT(IN) :: pssfl     (kbdim)              ! snow large scale
@@ -186,6 +190,8 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir(kbdim), albvisdif(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdir(kbdim), albnirdif(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albedo_tile(kbdim,ksfc_type)
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: pco2nat  (kbdim)
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: pco2_flux_tile(kbdim,ksfc_type)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc    (kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc_rad(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: rlus     (kbdim)           ! INOUT upward surface  longwave flux [W/m2]
@@ -237,7 +243,6 @@ CONTAINS
       & zalbedo_lwtr(kbdim), zalbedo_lice(kbdim)
 
     REAL(wp) :: zgrnd_hflx(kbdim,ksfc_type), zgrnd_hcap(kbdim,ksfc_type)
-    REAL(wp) :: co2_flux_tile(kbdim,ksfc_type)
 
     !REAL(wp) :: zt2s_conv(kbdim,ksfc_type)
 
@@ -330,7 +335,6 @@ CONTAINS
     z0h_lnd(:)       = 0._wp
     q_snocpymlt(:)   = 0._wp
     lake_ice_frc(:)  = 0._wp
-    co2_flux_tile(:,:) = 0._wp
 
     IF (idx_lnd <= ksfc_type) THEN
 
@@ -374,6 +378,7 @@ CONTAINS
           & pch               = MERGE(pch_tile(1:kproma,idx_lnd),1._wp,lsm(1:kproma)>0._wp),  & ! in
           & cos_zenith_angle  = pcosmu0(1:kproma),                                         & ! in
           & CO2_air           = SPREAD(mmr_co2, DIM=1, NCOPIES=kproma),                    & ! in
+          ! & CO2_air           = pco2(1:kproma),                                            & ! in
           & t_srf             = ztsfc_lnd(1:kproma),                                       & ! out (T_s^(n+1)) surface temp (filtered, if Asselin)
                                                                                              ! (filtered, if Asselin)
           & t_eff_srf         = ztsfc_lnd_eff(1:kproma),                                   & ! out (T_s^eff) surface temp (effective, for longwave rad)
@@ -394,7 +399,7 @@ CONTAINS
           & alb_nir_dir       = albnirdir_tile(1:kproma, idx_lnd),                         & ! out
           & alb_vis_dif       = albvisdif_tile(1:kproma, idx_lnd),                         & ! out
           & alb_nir_dif       = albnirdif_tile(1:kproma, idx_lnd),                         & ! out
-          & CO2_flux          = co2_flux_tile(1:kproma, idx_lnd),                          & ! out
+          & co2_flux          = pco2_flux_tile(1:kproma, idx_lnd),                         & ! out
           !
           & drag_wtr          = grav*pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_wtr),     & ! in
           & drag_ice          = grav*pfac_sfc(1:kproma) * pcfh_tile(1:kproma,idx_ice),     & ! in
@@ -441,6 +446,7 @@ CONTAINS
           & pch              = MERGE(pch_tile(1:kproma,idx_lnd),1._wp,lsm(1:kproma)>0._wp),  & ! in
           & cos_zenith_angle = pcosmu0(1:kproma),                                         & ! in
           & CO2_air          = SPREAD(mmr_co2, DIM=1, NCOPIES=kproma),                    & ! in
+          ! & CO2_air          = pco2(1:kproma),                                            & ! in
           & t_srf            = ztsfc_lnd(1:kproma),                                       & ! out (T_s^(n+1)) surface temp 
                                                                                             ! (filtered, if Asselin)
           & t_eff_srf        = ztsfc_lnd_eff(1:kproma),                                   & ! out (T_s^eff) surface temp 
@@ -461,9 +467,12 @@ CONTAINS
           & alb_nir_dir      = albnirdir_tile(1:kproma, idx_lnd),                         & ! out
           & alb_vis_dif      = albvisdif_tile(1:kproma, idx_lnd),                         & ! out
           & alb_nir_dif      = albnirdif_tile(1:kproma, idx_lnd),                         & ! out
-          & CO2_flux         = co2_flux_tile(1:kproma, idx_lnd)                           & ! out
+          & co2_flux         = pco2_flux_tile(1:kproma, idx_lnd)                          & ! out
         )
       END IF
+
+      ! preliminary, dummy values
+      pco2_flux_tile(1:kproma, idx_ice) =  0._wp
 
       ptsfc_tile(1:kproma,idx_lnd) = ztsfc_lnd(1:kproma)
       pcpt_tile (1:kproma,idx_lnd) = dry_static_energy(1:kproma)
@@ -647,6 +656,12 @@ CONTAINS
     !===================================================================
     ! AFTER CALLING land/ocean/ice model
     !===================================================================
+
+    ! calculate grid box mean surface of co2
+    pco2nat(:) = 0._wp
+    DO jsfc=1,ksfc_type
+      pco2nat(1:kproma) = pco2nat(1:kproma) + pfrc(1:kproma,jsfc) * pco2_flux_tile(1:kproma,jsfc)
+    ENDDO
     ! Turbulent transport of moisture and dry static energy:
     ! Get solution of the two variables on the lowest model level.
     !-------------------------------------------------------------------

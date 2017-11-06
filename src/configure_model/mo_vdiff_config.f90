@@ -29,6 +29,8 @@ MODULE mo_vdiff_config
     LOGICAL :: lsfc_heat_flux  !< switch on/off surface heat flux
                                !< (sensible AND latent)
 
+    LOGICAL :: lsfc_co2_flux   !< switch for coupled co2
+
   END TYPE t_vdiff_config
 
   !>

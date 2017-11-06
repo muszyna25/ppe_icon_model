@@ -8,7 +8,7 @@ MODULE mo_ini_bgc
   USE mo_kind, ONLY        : wp
   USE mo_memory_bgc, ONLY   : hi, co3, totarea, bgctra, atdifv, atm, &
        &                     atmacon, atmacmol,    &
-       &                     atcoa, ozkoa,    &
+       &                     atcoa, ozkoa,ralk, ro2ut_cya, cyamin,    &
        &                     wpoc, calcinp,orginp,silinp, &
        &                     phytomi, grami, remido, dyphy, zinges,        &
        &                     epsher, grazra, spemor, gammap, gammaz, ecan, &
@@ -22,7 +22,7 @@ MODULE mo_ini_bgc
        &                     dustd1, dustd2, dustsink, wdust, thresh_o2,   &
        &                     cycdec, pi_alpha_cya,cya_growth_max,          &
        &                     Topt_cya,T1_cya,T2_cya,bkcya_N, bkcya_P, bkcya_fe, &
-       &                     buoyancyspeed_cya, &
+       &                     buoyancyspeed_cya, bkh2sox, rh2sox, &
        &                     doccya_fac, thresh_aerob, thresh_sred, &
        &                     wopal, wcal, wcya, p2gtc, ro2bal, dmsp, prodn2o
 
@@ -51,7 +51,7 @@ MODULE mo_ini_bgc
        &                     ipowaph, ipowasi, ipown2, ipowno3,           &
        &                     isco212, isilica, isssc12, issso12, issssil, &
        &                     izoo, ipowafe, issster, &
-       &                     icya, iiron, idms
+       &                     icya, iiron, idms, ih2s, ipowh2s
 !  USE mo_planetary_constants, ONLY: g, rhoref_water
   IMPLICIT NONE
 
@@ -98,6 +98,8 @@ CONTAINS
     !
     phytomi  = 1.e-11_wp   ! i.e. 1e-5 mmol P/m3 minimum concentration of phytoplankton
     grami    = 1.e-11_wp   ! i.e. 1e-5 mmol P/m3 minimum concentration of zooplankton | test e-11 ->e-8 very slow decay
+    cyamin   = 1.e-11_wp   ! minimum cyanobacteria conc. (< initial value)
+
 
     remido   = 0.008_wp     ! KS, JS, EMR 12/07/2007
     dyphy    = 0.008_wp     ! 1/d -mortality rate of phytoplankton
@@ -121,12 +123,15 @@ CONTAINS
     bkphy  = 1.e-8_wp 
     bkzoo  = 4.e-8_wp
     bkopal = 1.e-6_wp 
+    bkh2sox = 5.e-7_wp ! i.e. 0.5 mmol O2 m-3 for H2S oxidation
+
 
 
     ! water column remineralisation constants
 
-    drempoc  = 0.025_wp     ! 1/d      ! 0.75/month. H3.1: 0.2/month k=1, 0.1/month k>1
+    drempoc  = 0.026_wp     ! 1/d      ! 0.75/month. H3.1: 0.2/month k=1, 0.1/month k>1
     dremopal = 0.01_wp 
+    rh2sox  = 0.93_wp ! 1/d  H2S oxidation rate
 
 ! ------ cyanobacteria
     buoyancyspeed_cya = 1._wp   ! daily buoyancy speed of cya  
@@ -136,8 +141,8 @@ CONTAINS
     Topt_cya          = 28._wp       ! deg C
     T1_cya            = 5.5_wp       ! deg C
     T2_cya            = 1._wp        ! deg C
-    bkcya_P           = 1.e-8_wp     ! kmol/m3  
-    bkcya_fe          = 90.e-8_wp     ! kmol/m3  
+    bkcya_P           = 5.e-8_wp     ! kmol/m3  
+    bkcya_fe          = 30.e-8_wp     ! kmol/m3  
     bkcya_N           = 1.e-9_wp     ! kmol/m3  
     doccya_fac        = 0.1_wp
 ! ------
@@ -150,7 +155,7 @@ CONTAINS
     n2_fixation = 0.005_wp
 
     ! total denitrification rate is a fraction of aerob remineralisation rate drempoc
-    denitrification = 0.05_wp   ! 1/d
+    denitrification = 0.07_wp   ! 1/d
 
 
     ! extended redfield ratio declaration
@@ -158,6 +163,7 @@ CONTAINS
     ! P:N:C:-O2 + 1:16:122:172
 
     ro2ut = 172._wp
+    ro2ut_cya = 148._wp ! ro2ut - 3 * rnit/rn2 = 172 - 3*16/2 = 148
     rcar  = 122._wp
     rnit  = 16._wp
     rnoi  = 1._wp/rnit
@@ -167,14 +173,16 @@ CONTAINS
                                           ! C -> CO2, N-> NO3, P -> PO4
                                           ! C[O2] = 1, N[O2] =1.5, P[O2]=2 
                                           ! total O2   = [O2]+[CO2]+2[PO4]+1.5[NO3] - ro2bal[OM]   
-
+    ralk = rnit + 1._wp                   ! for alkalinity updates during OM prod/loss
+                                          ! 16 H+ for NO3, 1 for P assim/release 
     p2gtc = rcar*12._wp*1.e-12_wp ! kmolP to GtC
     
 
     ! N consumption of denitrification corrected after Paulmier etal, 2009)
-    n2prod = 68.8_wp       ! N2 production for 1 mol P remineralized in suboxic water
-    nitdem = 2._wp*n2prod - rnit ! nitrate demand to remin. 1 mol P in suboxic water
-
+    nitdem = 137.6_wp          ! NO3 demand of denitrification
+    n2prod = nitdem * 0.5_wp   ! N2 production during denitrification
+ 
+ 
     rcalc = 35._wp ! iris 40 !calcium carbonate to organic phosphorous production ratio
     IF (l_cpl_co2) THEN
        rcalc = 20._wp ! emr !calcium carbonate to organic phosphorous production ratio
@@ -248,7 +256,8 @@ CONTAINS
     disso_op = disso_op * dtb
     disso_po = disso_po * dtb
     disso_cal = disso_cal * dtb
-
+    rh2sox  = rh2sox * dtb
+    cycdec  = cycdec * dtb
   END SUBROUTINE
 
   ! ---------------------------------------------------------------------
@@ -320,6 +329,7 @@ CONTAINS
                 bgctra(j,k,izoo)   = 1.e-8_wp
                 bgctra(j,k,idet)   = 1.e-8_wp
                 bgctra(j,k,icalc)  = 0._wp
+                bgctra(j,k,ih2s)  = 0._wp
                 bgctra(j,k,idms)   = 0._wp
                 bgctra(j,k,iopal)  = 1.e-8_wp
                 bgctra(j,k,idust)  = 0._wp
@@ -356,6 +366,7 @@ CONTAINS
                    bgctra(j,k,izoo)    = rmasko
                    bgctra(j,k,idet)    = rmasko
                    bgctra(j,k,icalc)   = rmasko
+                   bgctra(j,k,ih2s)    = rmasko
                    bgctra(j,k,iopal)   = rmasko
                    bgctra(j,k,ian2o)   = rmasko
                    bgctra(j,k,iiron)   = rmasko
@@ -393,6 +404,7 @@ CONTAINS
                 powtra(j,k,ipowaph) = bgctra(j,kbo(j),iphosph)
                 powtra(j,k,ipowaox) = bgctra(j,kbo(j),ioxygen)
                 powtra(j,k,ipown2)  = 0._wp
+                powtra(j,k,ipowh2s) = 0._wp
                 powtra(j,k,ipowno3) = bgctra(j,kbo(j),iano3)
                 powtra(j,k,ipowasi) = bgctra(j,kbo(j),isilica)
                 powtra(j,k,ipowafe) = bgctra(j,kbo(j),iiron)
@@ -407,6 +419,7 @@ CONTAINS
                 powtra(j,k,ipowaic) = rmasks
                 powtra(j,k,ipowaal) = rmasks
                 powtra(j,k,ipowaph) = rmasks
+                powtra(j,k,ipowh2s) = rmasks
                 powtra(j,k,ipowaox) = rmasks
                 powtra(j,k,ipowasi) = rmasks
                 powtra(j,k,ipowafe) = rmasks

@@ -378,9 +378,9 @@ CONTAINS
       iqm_max= 3     !! end index of water species mixing ratios
       iqt    = 4     !! starting index of non-water species
       io3    = 4     !! O3
-      ich4   = 5     !! CH4
-      in2o   = 6     !! N2O
-      ico2   = 7     !! CO2
+      ico2   = 5     !! CO2
+      ich4   = 6     !! CH4
+      in2o   = 7     !! N2O
       nqtendphy = 0  !! number of water species for which convective and turbulent
                      !! tendencies are stored
 

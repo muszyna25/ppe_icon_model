@@ -270,7 +270,7 @@ cat > ${atm_namelist} << EOF
  irad_co2         = 2           ! 2: global constant; 4: from greenhouse gas scenario
  irad_ch4         = 2           ! 2: global constant; 4: from greenhouse gas scenario
  irad_n2o         = 2           ! 2: global constant; 4: from greenhouse gas scenario
- irad_o3          = 8           ! 8: horizontally and vertically variable
+ irad_o3          = 0           ! 8: horizontally and vertically variable
  irad_o2          = 2           ! 2: horizontally and vertically constant
  irad_cfc11       = 0           ! 0: no cfc
  irad_cfc12       = 0           ! 0: no cfc
@@ -1203,9 +1203,9 @@ EOF
 # IV.4 xsd and xml files for yac
 # ------------------------------
 
-add_required_file ${basedir}/run/${cpl_xmlctrfn}  ./coupling.xml
-add_required_file ${basedir}/run/coupling.xsd  ./
-add_required_file ${basedir}/run/component.xsd ./
+add_required_file ${basedir}/run/${cpl_xmlctrfn}                  ./coupling.xml
+add_required_file ${basedir}/externals/yac/input/coupling.xsd.in  ./coupling.xsd
+add_required_file ${basedir}/externals/yac/input/component.xsd.in ./component.xsd
 
 # set grid filenames to undefined to avoid copy mechanism by exec.iconrun (not tested, change later):
 #atmo_dyn_grids=""

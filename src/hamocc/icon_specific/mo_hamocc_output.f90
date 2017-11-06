@@ -189,7 +189,7 @@
      
      CALL add_var(hamocc_default_list, 'no3',hamocc_state_diag%no3,    &
       & grid_unstructured_cell, za_depth_below_sea,&
-      & t_cf_var('no3','kmolP m-3','Nitrate concentration', DATATYPE_FLT32), &
+      & t_cf_var('no3','kmol N m-3','Nitrate concentration', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
       & loutput=.TRUE., lrestart=.FALSE.)
@@ -203,14 +203,14 @@
 
      CALL add_var(hamocc_default_list, 'n2',hamocc_state_diag%n2,    &
       & grid_unstructured_cell, za_depth_below_sea,&
-      & t_cf_var('n2','kmolP m-3','gaseous nitrogen concentration', DATATYPE_FLT32), &
+      & t_cf_var('n2','kmol N2 m-3','gaseous nitrogen concentration', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
      CALL add_var(hamocc_default_list, 'o2',hamocc_state_diag%o2,    &
       & grid_unstructured_cell, za_depth_below_sea,&
-      & t_cf_var('o2','kmolP m-3','oxygen concentration', DATATYPE_FLT32), &
+      & t_cf_var('o2','kmolP O2 m-3','oxygen concentration', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
       & loutput=.TRUE., lrestart=.FALSE.)
@@ -236,23 +236,30 @@
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
+      CALL add_var(hamocc_default_list, 'h2s',hamocc_state_diag%h2s,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('h2s','kmol m-3','H2S alkalinity concentration', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
      CALL add_var(hamocc_default_list, 'n2o',hamocc_state_diag%n2o,    &
       & grid_unstructured_cell, za_depth_below_sea,&
-      & t_cf_var('n2o','kmolP m-3','N2O concentration', DATATYPE_FLT32), &
+      & t_cf_var('n2o','kmol  m-3','N2O concentration', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
      CALL add_var(hamocc_default_list, 'calc',hamocc_state_diag%calc,    &
       & grid_unstructured_cell, za_depth_below_sea,&
-      & t_cf_var('calc','kmolP m-3','calcium carbonate shells', DATATYPE_FLT32), &
+      & t_cf_var('calc','kmol C m-3','calcium carbonate shells', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
      CALL add_var(hamocc_default_list, 'opal',hamocc_state_diag%opal,    &
       & grid_unstructured_cell, za_depth_below_sea,&
-      & t_cf_var('opal','kmolP m-3','opal shells', DATATYPE_FLT32), &
+      & t_cf_var('opal','kmol Si m-3','opal shells', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
       & loutput=.TRUE., lrestart=.FALSE.)
@@ -265,14 +272,14 @@
       & t_cf_var('hion','kmol m-3','hydrogen ion concentration', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
      CALL add_var(hamocc_restart_list, 'co3',hamocc_state_diag%co3,    &
       & grid_unstructured_cell, za_depth_below_sea,&
       & t_cf_var('co3','kmol m-3','carbonate ion concentration', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL message(TRIM(routine), 'construct diagnostic hamocc end')
   END SUBROUTINE 
@@ -346,6 +353,20 @@
       & grid_unstructured_cell, za_depth_below_sea,&
       & t_cf_var('dms_prod','kmol S m-3 s-1','DMS production', DATATYPE_FLT32), &
       & grib2_var(255, 255, 69, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_acc_list, 'h2s_prod',hamocc_state_acc%h2sprod,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('h2s_prod','kmol m-3 s-1','H2S production', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_acc_list, 'h2s_loss',hamocc_state_acc%h2sloss,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('h2s_loss','kmol m-3 s-1','H2S oxidation', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
@@ -426,6 +447,13 @@
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
+    CALL add_var(hamocc_acc_list, 'co2mr',hamocc_state_acc%co2mr,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('co2mr','ppm','co2 mixing ratio in the atmosphere', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 92, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
     CALL add_var(hamocc_acc_list, 'co2flux',hamocc_state_acc%cflux,    &
       & grid_unstructured_cell, za_surface,&
       & t_cf_var('co2flux','kmol C m-2 s-1','co2 flux', DATATYPE_FLT32), &
@@ -438,7 +466,7 @@
       & t_cf_var('orginp','check','accumulated organic input', DATATYPE_FLT32), &
       & grib2_var(255, 255, 204, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_acc_list, 'dmsflux',hamocc_state_acc%dmsflux,    &
       & grid_unstructured_cell, za_surface,&
@@ -452,14 +480,14 @@
       & t_cf_var('silinp','check','accumulated silicate input', DATATYPE_FLT32), &
       & grib2_var(255, 255, 205, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_acc_list, 'calinp',hamocc_state_acc%calinp,    &
       & grid_unstructured_cell, za_surface,&
       & t_cf_var('calinp','check','accumulated calc input', DATATYPE_FLT32), &
       & grib2_var(255, 255, 203, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_acc_list, 'delsil',hamocc_state_acc%delsil,    &
       & grid_unstructured_cell, za_depth_below_sea,&
@@ -1145,7 +1173,7 @@
       & t_cf_var('n2budget','kmol','N2 budget', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
-      & loutput=.FALSE., lrestart=.TRUE.)
+      & loutput=.FALSE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_tendency_list, 'grazing',hamocc_state_tend%graz,    &
       & grid_unstructured_cell, za_depth_below_sea,&
@@ -1213,6 +1241,20 @@
     CALL add_var(hamocc_tendency_list, 'dms_prod',hamocc_state_tend%dmsprod,    &
       & grid_unstructured_cell, za_depth_below_sea,&
       & t_cf_var('dms_prod','kmol S m-3 s-1','DMS production', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'h2s_prod',hamocc_state_tend%h2sprod,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('h2s_prod','kmol m-3 s-1','H2S production', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'h2s_loss',hamocc_state_tend%h2sloss,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('h2s_loss','kmol m-3 s-1','H2S oxidation', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.FALSE., lrestart=.FALSE.)
@@ -1310,6 +1352,14 @@
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'co2mr',hamocc_state_tend%co2mr,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('co2mr','ppm','co2 mixing ratio', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
 
     CALL add_var(hamocc_tendency_list, 'co2flux',hamocc_state_tend%cflux,    &
       & grid_unstructured_cell, za_surface,&
@@ -1508,6 +1558,12 @@
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
       & loutput=.FALSE., lrestart=.FALSE.)
 
+    CALL add_var(hamocc_sediment_list, 'sedflux_h2s',hamocc_state_tend%sedflh2s,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('sedflux_h2s','kmol m-2 s-1','sediment-ocean flux H2S', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
 
     CALL add_var(hamocc_sediment_list, 'sed_remino2',hamocc_state_tend%sedro2,    &
       & grid_unstructured_cell, za_surface,&
@@ -1629,133 +1685,140 @@
       & t_cf_var('SED_C12org','kmol P m-3 ','solid sediment C org', DATATYPE_FLT64), &
       & grib2_var(255, 255, 38, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'SED_C12',hamocc_state_sed%sc12,    &
       & grid_unstructured_cell, za_ocean_sediment,&
       & t_cf_var('SED_C12','kmol C m-3 ','solid sediment calcium carbonate', DATATYPE_FLT64), &
       & grib2_var(255, 255, 41, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'SED_Si',hamocc_state_sed%ssil,    &
       & grid_unstructured_cell, za_ocean_sediment,&
       & t_cf_var('SED_Si','kmol Si m-3','solid sediment opal', DATATYPE_FLT64), &
       & grib2_var(255, 255, 44, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'SED_clay',hamocc_state_sed%ster,    &
       & grid_unstructured_cell, za_ocean_sediment,&
       & t_cf_var('SED_clay','kmol m-3','solid sediment clay', DATATYPE_FLT64), &
       & grib2_var(255, 255, 45, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'POW_DIC',hamocc_state_sed%pwic,    &
       & grid_unstructured_cell, za_ocean_sediment,&
       & t_cf_var('POW_DIC','kmol C m -3','sediment pore water DIC', DATATYPE_FLT64), &
       & grib2_var(255, 255, 51, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'POW_alk',hamocc_state_sed%pwal,    &
       & grid_unstructured_cell, za_ocean_sediment,&
       & t_cf_var('POW_alk','kmol m-3','sediment pore water alkalinity', DATATYPE_FLT64), &
       & grib2_var(255, 255, 54, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'POW_phos',hamocc_state_sed%pwph,    &
       & grid_unstructured_cell, za_ocean_sediment,&
       & t_cf_var('POW_phos','kmol P m-3','sediment pore water phosphate', DATATYPE_FLT64), &
       & grib2_var(255, 255, 55, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'POW_o2',hamocc_state_sed%pwox,    &
       & grid_unstructured_cell, za_ocean_sediment,&
       & t_cf_var('POW_o2','kmol O2 m-3','sediment pore water oxygen', DATATYPE_FLT64), &
       & grib2_var(255, 255, 56, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'POW_si',hamocc_state_sed%pwsi,    &
       & grid_unstructured_cell, za_ocean_sediment,&
       & t_cf_var('POW_si','kmol Si m-3','sediment pore water silicate', DATATYPE_FLT64), &
       & grib2_var(255, 255, 59, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'POW_fe',hamocc_state_sed%pwfe,    &
       & grid_unstructured_cell, za_ocean_sediment,&
       & t_cf_var('POW_fe','kmol Fe m-3','sediment pore water iron', DATATYPE_FLT64), &
       & grib2_var(255, 255, 60, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'POW_n2',hamocc_state_sed%pwn2,    &
       & grid_unstructured_cell, za_ocean_sediment,&
       & t_cf_var('POW_n2','kmoll N2 m-3','sediment pore water N2', DATATYPE_FLT64), &
       & grib2_var(255, 255, 57, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'POW_no3',hamocc_state_sed%pwno3,    &
       & grid_unstructured_cell, za_ocean_sediment,&
       & t_cf_var('POW_no3','kmol N m-3','sediment pore water nitrate', DATATYPE_FLT64), &
       & grib2_var(255, 255, 58, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
+
+    CALL add_var(hamocc_sediment_list, 'POW_h2s',hamocc_state_sed%pwh2s,    &
+      & grid_unstructured_cell, za_ocean_sediment,&
+      & t_cf_var('POW_h2s','kmol m-3','sediment pore water H2S alkalinity', DATATYPE_FLT64), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'POW_n2b',hamocc_state_sed%pwn2b,    &
       & grid_unstructured_cell, za_ocean_sediment,&
       & t_cf_var('POW_n2b','kmol N m-3','sediment pore water n2 budget', DATATYPE_FLT64), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
-      & loutput=.FALSE., lrestart=.TRUE.)
+      & loutput=.FALSE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'POW_h2ob',hamocc_state_sed%pwh2ob,    &
       & grid_unstructured_cell, za_ocean_sediment,&
       & t_cf_var('POW_h2ob','kmol N m-3','sediment pore water h2o budget', DATATYPE_FLT64), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
-      & loutput=.FALSE., lrestart=.TRUE.)
+      & loutput=.FALSE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'sedhpl',hamocc_state_sed%sedhi,    &
       & grid_unstructured_cell, za_ocean_sediment,&
       & t_cf_var('sedhpl','kmol m-3','sediment hydrogen ion concentration', DATATYPE_FLT64), &
       & grib2_var(255, 255, 50, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'BUR_C12org',hamocc_state_sed%bo12,    &
       & grid_unstructured_cell, za_surface,&
       & t_cf_var('BUR_C12org','kmol P m-2 ','sediment burial C org', DATATYPE_FLT64), &
       & grib2_var(255, 255, 46, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'BUR_C12',hamocc_state_sed%bc12,    &
       & grid_unstructured_cell, za_surface,&
       & t_cf_var('BUR_C12','kmol C m-2 ','sediment burial calcium carbonate', DATATYPE_FLT32), &
       & grib2_var(255, 255, 47, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
-      & loutput=.TRUE., lrestart=.FALSE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'BUR_clay',hamocc_state_sed%bter,    &
       & grid_unstructured_cell, za_surface,&
       & t_cf_var('BUR_clay','kmol  m-2 ','sediment burial clay', DATATYPE_FLT32), &
       & grib2_var(255, 255, 49, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'BUR_si',hamocc_state_sed%bsil,    &
       & grid_unstructured_cell, za_surface,&
       & t_cf_var('BUR_si','kmol Si m-2 ','sediment burial opal', DATATYPE_FLT32), &
       & grib2_var(255, 255, 48, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
-      & loutput=.TRUE., lrestart=.TRUE.)
+      & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
   
    CALL add_var(hamocc_sediment_list, 'bolay',hamocc_state_sed%bolay,    &
       & grid_unstructured_cell, za_surface,&
