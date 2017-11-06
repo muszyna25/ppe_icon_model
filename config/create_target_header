@@ -543,6 +543,10 @@ set_run_target_bullx()
   set_default use_nproma 16
   set_default use_nodes 1
   set_default use_account_no "$(id -gn)"
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this buildbot, do not use job id
+    use_account_no="mh0156"
+  fi
   use_submit="$use_submit -N \${SLURM_JOB_NUM_NODES:-1}"
   use_OMP_SCHEDULE="dynamic,1"
   use_omp_stacksize=200M
@@ -645,6 +649,9 @@ set_run_target_bullx()
 # mistral batch job parameters
 #-----------------------------------------------------------------------------
 #SBATCH --account=$use_account_no
+$(if [[ "x$BB_SYSTEM" != 'x' ]]; then
+  printf '#SBATCH --qos=buildbot
+';fi)
 #SBATCH --job-name=$job_name
 #SBATCH --partition=$queue
 #SBATCH --workdir=$output_folder
@@ -701,7 +708,6 @@ set_run_target_mpipc()
   else
     set_default use_openmp_threads 1
   fi
-
 
   # create header
   start_header
@@ -863,8 +869,8 @@ set_run_target_daint_cpu()
   set_default use_nodes 1
   # use_OMP_SCHEDULE="static,1"
   use_OMP_SCHEDULE="static,12"
-  icon_data_rootFolder=${icon_data_rootFolder:=/scratch/snx1600/icontest/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/scratch/snx1600/icontest/pool/data/ICON}
+  icon_data_rootFolder=${icon_data_rootFolder:=/users/icontest/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/users/icontest/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -946,8 +952,8 @@ set_run_target_daint_gpu()
   set_default use_nproma 256
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,1"
-  icon_data_rootFolder=${icon_data_rootFolder:=/scratch/snx1600/icontest/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/scratch/snx1600/icontest/pool/data/ICON}
+  icon_data_rootFolder=${icon_data_rootFolder:=/users/icontest/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/users/icontest/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -1030,8 +1036,8 @@ set_run_target_dom_gpu()
   set_default use_nproma 256
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,1"
-  icon_data_rootFolder=${icon_data_rootFolder:=/scratch/snx1600/icontest}
-  icon_data_poolFolder=${icon_data_poolFolder:=/scratch/snx1600/icontest}
+  icon_data_rootFolder=${icon_data_rootFolder:=/users/icontest/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/users/icontest/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -1102,8 +1108,8 @@ set_run_target_tave_knl()
   set_default use_nproma 16
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,2"
-  icon_data_rootFolder=${icon_data_rootFolder:=/scratch/snx1600/icontest/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/scratch/snx1600/icontest/pool/data/ICON}
+  icon_data_rootFolder=${icon_data_rootFolder:=/users/icontest/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/users/icontest/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then

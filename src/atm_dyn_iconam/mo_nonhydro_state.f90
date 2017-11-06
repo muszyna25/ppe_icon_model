@@ -64,9 +64,10 @@ MODULE mo_nonhydro_state
   USE mo_initicon_config,      ONLY: init_mode, lcalc_avg_fg, iso8601_start_timedelta_avg_fg, &
     &                                iso8601_end_timedelta_avg_fg, iso8601_interval_avg_fg
   USE mo_linked_list,          ONLY: t_var_list
-  USE mo_var_list,             ONLY: default_var_list_settings, add_var,     &
-    &                                add_ref, new_var_list, delete_var_list, &
-    &                                add_var_list_reference, get_timelevel_string
+  USE mo_var_list,             ONLY: default_var_list_settings, add_var,           &
+    &                                add_ref, new_var_list, delete_var_list,       &
+    &                                add_var_list_reference, get_timelevel_string, &
+    &                                find_list_element
   USE mo_linked_list,          ONLY: t_list_element
   USE mo_var_metadata_types,   ONLY: t_var_metadata,t_var_metadata_dynamic,  &
     &                                MAX_GROUPS
@@ -452,7 +453,9 @@ MODULE mo_nonhydro_state
     INTEGER           :: ipassive        ! loop counter
     INTEGER           :: dummy_idx
 
-    CHARACTER(len=VNAME_LEN) :: tracer_name
+    CHARACTER(len=VNAME_LEN)      :: tracer_name
+    TYPE(t_list_element), POINTER :: target_element
+    INTEGER                       :: tracer_idx
 
     !**
     !--------------------------------------------------------------
@@ -584,6 +587,8 @@ MODULE mo_nonhydro_state
           &           lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
       ENDIF
 
+      ALLOCATE( p_prog%tracer_ptr(ntracer) )
+
       IF ( iforcing == inwp .OR. iforcing == iecham ) THEN
         
         ! Reference to individual tracer, for I/O and setting of additional metadata
@@ -601,7 +606,6 @@ MODULE mo_nonhydro_state
         ! used. Thus, make sure to use the right one when adding additional tracers.
         ! create_tracer_metadata[...] are described in more detail in mo_tracer_metadata.
         !
-        ALLOCATE( p_prog%tracer_ptr(ntracer) )
         !QV
         IF ( iqv /= 0 ) THEN
           CALL add_ref( p_prog_list, 'tracer',                                         &
@@ -614,6 +618,7 @@ MODULE mo_nonhydro_state
             &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
             &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
             &                       name        = TRIM(vname_prefix)//'qv'//suffix,    &
+            &                       lfeedback   = .TRUE.,                              &
             &                       ihadv_tracer=advconf%ihadv_tracer(iqv),            &
             &                       ivadv_tracer=advconf%ivadv_tracer(iqv)),           &
             &           hor_interp=create_hor_interp_metadata(                         &
@@ -645,6 +650,7 @@ MODULE mo_nonhydro_state
             &         tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
             &         tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
             &                     name        = TRIM(vname_prefix)//'qc'//suffix,    &
+            &                     lfeedback   = .TRUE.,                              &
             &                     ihadv_tracer=advconf%ihadv_tracer(iqc),            &
             &                     ivadv_tracer=advconf%ivadv_tracer(iqc)),           &
             &         vert_interp=create_vert_interp_metadata(                       &
@@ -669,6 +675,7 @@ MODULE mo_nonhydro_state
             &         tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
             &         tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
             &                     name        = TRIM(vname_prefix)//'qi'//suffix,    &
+            &                     lfeedback   = .TRUE.,                              &
             &                     ihadv_tracer=advconf%ihadv_tracer(iqi),            &
             &                     ivadv_tracer=advconf%ivadv_tracer(iqi)),           &
             &         vert_interp=create_vert_interp_metadata(                       &
@@ -733,7 +740,7 @@ MODULE mo_nonhydro_state
         END IF ! iqs
 
         !CO2
-        IF ( iqt <= ico2 .AND. ico2 <= ntracer ) THEN
+        IF ( iqt <= ico2 .AND. ico2 <= ntracer .AND. .NOT. lart) THEN
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(vname_prefix)//'qco2'//suffix, p_prog%tracer_ptr(ico2)%p_3d, &
             &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
@@ -753,7 +760,7 @@ MODULE mo_nonhydro_state
         END IF ! ico2
 
         !CH4
-        IF ( iqt <= ich4 .AND. ich4 <= ntracer ) THEN
+        IF ( iqt <= ich4 .AND. ich4 <= ntracer .AND. .NOT. lart ) THEN
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(vname_prefix)//'qch4'//suffix, p_prog%tracer_ptr(ich4)%p_3d, &
             &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
@@ -773,7 +780,7 @@ MODULE mo_nonhydro_state
         END IF ! ich4
 
         !N2O
-        IF ( iqt <= in2o .AND. in2o <= ntracer ) THEN
+        IF ( iqt <= in2o .AND. in2o <= ntracer .AND. .NOT. lart ) THEN
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(vname_prefix)//'qn2o'//suffix, p_prog%tracer_ptr(in2o)%p_3d, &
             &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
@@ -793,7 +800,7 @@ MODULE mo_nonhydro_state
         END IF ! in2o
 
         !O3
-        IF ( iqt <= io3 .AND. io3 <= ntracer ) THEN
+        IF ( iqt <= io3 .AND. io3 <= ntracer .AND. .NOT. lart) THEN
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(vname_prefix)//'qo3'//suffix, p_prog%tracer_ptr(io3)%p_3d, &
             &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
@@ -882,7 +889,7 @@ MODULE mo_nonhydro_state
         !CK<
  
  
-        !two moment scheme: be carefull to follow the order in which tracers (iqg,iqh,..)
+        !two moment scheme: be careful to follow the order in which tracers (iqg,iqh,..)
         !are listed in mo_nml_crosscheck.f90
         IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==4 &
              & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==5 &
@@ -1197,7 +1204,6 @@ MODULE mo_nonhydro_state
 
         ! add refs to tracers with generic name q1 ... qn
         ! (used for example with test cases)
-        ALLOCATE( p_prog%tracer_ptr(ntracer) )
 
         DO jt = 1, ntracer - advection_config(p_patch%id)%npassive_tracer
           tracer_name = 'q'//TRIM(advconf%tracer_names(jt))
@@ -1211,6 +1217,7 @@ MODULE mo_nonhydro_state
             & tlev_source=TLEV_NNOW_RCF,                                        &              ! output from nnow_rcf slice
             & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,             &
             &                       name        = TRIM(tracer_name)//suffix,    &
+            &                       lfeedback   = .TRUE.,                       &
             &                       ihadv_tracer=advconf%ihadv_tracer(jt),      &
             &                       ivadv_tracer=advconf%ivadv_tracer(jt)),     &
             & vert_interp=create_vert_interp_metadata(                          &
@@ -1225,23 +1232,35 @@ MODULE mo_nonhydro_state
 
       ! add references to additional passive tracers, if existing
       DO ipassive=1,advection_config(p_patch%id)%npassive_tracer
+
+        ! Determine index of the following tracer within the 4D tracer container.
+        ! We need this information, in order to pass some metadata from the configure 
+        ! state into the tracer_info metadata storage.
+        !
+        ! get pointer to target element (in this case 4D tracer container)
+        target_element => find_list_element (p_prog_list, 'tracer')
+        tracer_idx = target_element%field%info%ncontained+1
+
         WRITE(passive_tracer_suffix,'(I2)') ipassive
-        cf_desc    = t_cf_var('Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix)),   &
+        cf_desc    = t_cf_var('Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix)),     &
           &          'kg kg-1', 'passive tracer', datatype_flt)
         grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-        CALL add_tracer_ref( p_prog_list, 'tracer',                                &
+        CALL add_tracer_ref( p_prog_list, 'tracer',                                  &
           &                 'Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix))//suffix, &
-          &                  dummy_idx,                                            &
-          &                  p_prog%tracer_ptr(:),                                 &
-          &                  cf_desc, grib2_desc,                                  &
-          &                  advection_config(p_patch%id),                         &
-          &                  jg=p_patch%id,                                        &
-          &                  ldims=shape3d_c,                                      &
-          &                  loutput=.TRUE.,                                       &
-          &                  lrestart=.FALSE.,                                     &
-          &                  tlev_source=TLEV_NNOW_RCF,                            &  ! output from nnow_rcf slice
-          &                  tracer_info=create_tracer_metadata(lis_tracer=.TRUE., &
-          &                              name = 'Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix))//suffix) )
+          &                  dummy_idx,                                              &
+          &                  p_prog%tracer_ptr(:),                                   &
+          &                  cf_desc, grib2_desc,                                    &
+          &                  advection_config(p_patch%id),                           &
+          &                  jg=p_patch%id,                                          &
+          &                  ldims=shape3d_c,                                        &
+          &                  loutput=.TRUE.,                                         &
+          &                  lrestart=.FALSE.,                                       &
+          &                  tlev_source=TLEV_NNOW_RCF,                              &  ! output from nnow_rcf slice
+          &                  tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,   &
+          &                              name = 'Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix))//suffix, &
+          &                              lfeedback   = .TRUE.,                       &
+          &                              ihadv_tracer=advconf%ihadv_tracer(tracer_idx), &
+          &                              ivadv_tracer=advconf%ivadv_tracer(tracer_idx)) )
       ENDDO
 
     ENDIF ! allocation only if not extra_timelev

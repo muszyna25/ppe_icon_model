@@ -216,7 +216,7 @@ REAL (KIND = ireals) ::      &
 ! Gkdrag  = 0.30          , &   ! gw drag constant (Original ECMWF value)
   Gkdrag                  , &   ! gw drag constant (set in mo_nwp_tuning_nml)
   Gkwake                  , &   ! gw drag constant (set in mo_nwp_tuning_nml)
-  Grcrit  = 0.25_ireals   , &   ! critical Richardson number
+  Grcrit                  , &   ! critical Richardson number (set in mo_nwp_tuning_nml)
   Gfrcrit                 , &   ! critical Froude number (determines depth of blocking layer; set in mo_nwp_tuning_nml)
 
 ! Security constants
@@ -1506,10 +1506,11 @@ END SUBROUTINE gw_profil
   !! @par Revision History
   !! Initilai revision by Daniel Reinert, DWD (2014-09-25)
   !!
-  SUBROUTINE sso_cosmo_init_param (tune_gkwake, tune_gkdrag, tune_gfrcrit)
+  SUBROUTINE sso_cosmo_init_param (tune_gkwake, tune_gkdrag, tune_gfrcrit, tune_grcrit)
     REAL(KIND=ireals), INTENT(IN), OPTIONAL :: tune_gkwake   ! tuning parameter read from nml
     REAL(KIND=ireals), INTENT(IN), OPTIONAL :: tune_gkdrag   ! tuning parameter read from nml
     REAL(KIND=ireals), INTENT(IN), OPTIONAL :: tune_gfrcrit  ! tuning parameter read from nml
+    REAL(KIND=ireals), INTENT(IN), OPTIONAL :: tune_grcrit   ! tuning parameter read from nml
 
     IF (PRESENT(tune_gkwake)) THEN
       gkwake = tune_gkwake     !< low level wake drag constant (set in mo_nwp_tuning_nml)
@@ -1527,6 +1528,12 @@ END SUBROUTINE gw_profil
       gfrcrit = tune_gfrcrit    !< critical Froude number (set in mo_nwp_tuning_nml)
     ELSE
       gfrcrit = 0.4_ireals      !< COSMO default 0.5
+    ENDIF
+
+    IF (PRESENT(tune_grcrit)) THEN
+      grcrit = tune_grcrit    !< critical Froude number (set in mo_nwp_tuning_nml)
+    ELSE
+      grcrit = 0.25_ireals    !< COSMO default 0.25
     ENDIF
 
   END SUBROUTINE sso_cosmo_init_param

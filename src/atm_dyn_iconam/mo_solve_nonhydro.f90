@@ -84,6 +84,10 @@ MODULE mo_solve_nonhydro
 
   PUBLIC :: solve_nh
 
+#ifdef _CRAYFTN
+#define __CRAY_FTN_VERSION (_RELEASE_MAJOR * 100 + _RELEASE_MINOR)
+#endif
+
 #if defined( _OPENACC )
 #if defined(__SOLVE_NONHYDRO_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.

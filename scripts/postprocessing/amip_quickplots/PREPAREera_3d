@@ -10,7 +10,6 @@ TYP=$3
 #
 atm_RES=$4
 #
-WORKDIR=$5
 #
 #
 echo QUELLE path $QUELLE

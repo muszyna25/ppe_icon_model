@@ -20,7 +20,7 @@ MODULE mo_limarea_config
 
   USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: max_dom, MAX_CHAR_LENGTH
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_io_units,           ONLY: filename_max
   USE mo_util_string,        ONLY: t_keyword_list,                   &
                                    associate_keyword, with_keywords, &
@@ -37,8 +37,7 @@ MODULE mo_limarea_config
 
   PRIVATE
 
-  PUBLIC :: t_latbc_config, latbc_config, configure_latbc, generate_filename, &
-    &       generate_filename_mtime 
+  PUBLIC :: t_latbc_config, latbc_config, configure_latbc, generate_filename
   PUBLIC :: LATBC_TYPE_CONST, LATBC_TYPE_EXT, LATBC_TYPE_TEST
 
   !> module name string
@@ -151,47 +150,15 @@ CONTAINS
 
 
   !--------------------------------------------------------------------------------------
-  FUNCTION generate_filename(nroot, jlev, latbc_mtime) RESULT(result_str)
-    INTEGER,          INTENT(IN)                :: nroot, jlev
-    TYPE(datetime),   INTENT(IN)                :: latbc_mtime
-    CHARACTER(MAX_CHAR_LENGTH )                 :: result_str
+  FUNCTION generate_filename(nroot, jlev, latbc_mtime, opt_mtime_begin) RESULT(result_str)
+    CHARACTER(MAX_CHAR_LENGTH )                      :: result_str
+    INTEGER,          INTENT(IN)                     :: nroot, jlev
+    TYPE(datetime),   INTENT(IN)                     :: latbc_mtime
+    ! Optional: Start date, which a time span in the filename is related to.
+    TYPE(datetime),   INTENT(IN),  POINTER, OPTIONAL :: opt_mtime_begin
 
     ! Local variables
-    TYPE (t_keyword_list), POINTER              :: keywords => NULL()
-    CHARACTER(MAX_CHAR_LENGTH)                  :: str
-    CHARACTER(MAX_CHAR_LENGTH), PARAMETER       :: &
-      &  routine = 'mo_limarea_config::generate_filename_mtime:'
-    
-    WRITE(str,'(i4)')   latbc_mtime%date%year
-    CALL associate_keyword("<y>",         TRIM(str),                        keywords)
-    WRITE(str,'(i2.2)') latbc_mtime%date%month
-    CALL associate_keyword("<m>",         TRIM(str),                        keywords)
-    WRITE(str,'(i2.2)') latbc_mtime%date%day
-    CALL associate_keyword("<d>",         TRIM(str),                        keywords)
-    WRITE(str,'(i2.2)') latbc_mtime%time%hour
-    CALL associate_keyword("<h>",         TRIM(str),                        keywords)
-    WRITE(str,'(i2.2)') latbc_mtime%time%minute
-    CALL associate_keyword("<min>",       TRIM(str),                        keywords)
-    WRITE(str,'(i2.2)') latbc_mtime%time%second !FLOOR(latbc_mtime%time%second)
-    CALL associate_keyword("<sec>",       TRIM(str),                        keywords)
-      
-    CALL associate_keyword("<nroot>",     TRIM(int2string(nroot,'(i1)')),   keywords)
-    CALL associate_keyword("<nroot0>",    TRIM(int2string(nroot,'(i2.2)')), keywords)
-    CALL associate_keyword("<jlev>",      TRIM(int2string(jlev, '(i2.2)')), keywords)
-    CALL associate_keyword("<dom>",       TRIM(int2string(1,'(i2.2)')),     keywords)
-
-    ! replace keywords in latbc_filename
-    result_str = TRIM(with_keywords(keywords, TRIM(latbc_config%latbc_filename)))
-  END FUNCTION generate_filename
-  !--------------------------------------------------------------------------------------
-  FUNCTION generate_filename_mtime(nroot, jlev, latbc_mtime, mtime_begin) RESULT(result_str)
-    INTEGER,          INTENT(IN)                :: nroot, jlev
-    TYPE(datetime),   INTENT(IN)                :: latbc_mtime
-    TYPE(datetime),   INTENT(IN),  POINTER      :: mtime_begin
-    CHARACTER(MAX_CHAR_LENGTH )                 :: result_str
-
-    ! Local variables
-    CHARACTER(MAX_CHAR_LENGTH), PARAMETER       :: routine = modname//'::generate_filename_mtime:'
+    CHARACTER(MAX_CHAR_LENGTH), PARAMETER       :: routine = modname//'::generate_filename'
     TYPE (t_keyword_list), POINTER              :: keywords => NULL()
     CHARACTER(MAX_CHAR_LENGTH)                  :: str
     TYPE(timedelta), POINTER                    :: td
@@ -217,21 +184,23 @@ CONTAINS
     CALL associate_keyword("<jlev>",      TRIM(int2string(jlev, '(i2.2)')), keywords)
     CALL associate_keyword("<dom>",       TRIM(int2string(1,'(i2.2)')),     keywords)
     
-    td => newTimedelta("P01D")
-    td = latbc_mtime - mtime_begin
-    ! we convert the time delta to an ISO 8601 conforming string
-    ! (where, for convenience, the 'T' token has been erased)
-    WRITE (timedelta_str,'(4(i2.2,a))') td%day,    'D',  td%hour,   'H',   &
-      &                                 td%minute, 'M',  td%second, 'S'
-    td_seconds = getTotalSecondsTimeDelta(td, mtime_begin, errno)
-    IF (errno /= 0)  CALL finish(routine, "Internal error: "//TRIM(timedelta_str))
-    WRITE (timedelta_str,'(4(i2.2))') td_seconds/86400, td%hour, td%minute, td%second 
-    CALL associate_keyword("<ddhhmmss>",  TRIM(timedelta_str), keywords)
-    CALL deallocateTimedelta(td)
+    IF (PRESENT(opt_mtime_begin)) THEN
+      td => newTimedelta("P01D")
+      td = latbc_mtime - opt_mtime_begin
+      ! we convert the time delta to an ISO 8601 conforming string
+      ! (where, for convenience, the 'T' token has been erased)
+      WRITE (timedelta_str,'(4(i2.2,a))') td%day,    'D',  td%hour,   'H',   &
+        &                                 td%minute, 'M',  td%second, 'S'
+      td_seconds = getTotalSecondsTimeDelta(td, opt_mtime_begin, errno)
+      IF (errno /= 0)  CALL finish(routine, "Internal error: "//TRIM(timedelta_str))
+      WRITE (timedelta_str,'(4(i2.2))') td_seconds/86400, td%hour, td%minute, td%second 
+      CALL associate_keyword("<ddhhmmss>",  TRIM(timedelta_str), keywords)
+      CALL deallocateTimedelta(td)
+    END IF
 
     ! replace keywords in latbc_filename
     result_str = TRIM(with_keywords(keywords, TRIM(latbc_config%latbc_filename)))
-  END FUNCTION generate_filename_mtime
+  END FUNCTION generate_filename
   !--------------------------------------------------------------------------------------
 
 

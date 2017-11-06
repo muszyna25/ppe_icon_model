@@ -657,7 +657,7 @@ CONTAINS
     ENDDO
 
 !$OMP PARALLEL
-    IF ( atm_phy_nwp_config(jg)%lproc_on(itccov) ) THEN
+    IF ( atm_phy_nwp_config(jg)%lenabled(itccov) ) THEN
 
 !$OMP DO PRIVATE(jc,jk,jb,z_help,i_startidx,i_endidx,clearsky,ccmax,ccran,alpha) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
@@ -978,7 +978,7 @@ CONTAINS
         & i_startidx, i_endidx, rl_start, rl_end)
 
 
-      IF (atm_phy_nwp_config(jg)%lproc_on(itconv))THEN !convection parameterization switched on
+      IF (atm_phy_nwp_config(jg)%lenabled(itconv))THEN !convection parameterization switched on
         !
         ! height of convection base and top, hbas_con, htop_con
         ! 

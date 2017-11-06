@@ -61,7 +61,8 @@ MODULE mo_ocean_diagnostics
     &  t_ocean_region_areas, t_ocean_monitor
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text
-  USE mo_sea_ice_types,      ONLY: t_sfc_flx, t_sea_ice
+  USE mo_sea_ice_types,      ONLY: t_sea_ice
+  USE mo_ocean_surface_types,ONLY: t_ocean_surface
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_scalar_product,     ONLY: map_edges2cell_3d
@@ -718,11 +719,11 @@ CONTAINS
   ! @par Revision History
   ! Developed  by  Peter Korn, MPI-M (2010).
   !
-  SUBROUTINE calc_slow_oce_diagnostics(patch_3D, ocean_state, surfaceFlux, ice, &
+  SUBROUTINE calc_slow_oce_diagnostics(patch_3D, ocean_state, surface_fluxes, ice, &
     & timestep, this_datetime)
     TYPE(t_patch_3d ),TARGET, INTENT(in)    :: patch_3D
     TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
-    TYPE(t_sfc_flx),    INTENT(in)          :: surfaceFlux
+    TYPE(t_ocean_surface),    INTENT(in)    :: surface_fluxes
     TYPE (t_sea_ice),   INTENT(in)          :: ice
     INTEGER, INTENT(in) :: timestep
     TYPE(datetime), POINTER                 :: this_datetime
@@ -886,28 +887,28 @@ CONTAINS
           monitor%absolute_vertical_velocity = &
             & monitor%absolute_vertical_velocity + ABS(ocean_state%p_diag%w(jc,1,blockNo))*prism_area
           
-          monitor%HeatFlux_ShortWave   = monitor%HeatFlux_ShortWave   + surfaceFlux%HeatFlux_ShortWave(jc,blockNo)*prism_area
-          monitor%HeatFlux_LongWave    = monitor%HeatFlux_LongWave    + surfaceFlux%HeatFlux_LongWave (jc,blockNo)*prism_area
-          monitor%HeatFlux_Sensible    = monitor%HeatFlux_Sensible    + surfaceFlux%HeatFlux_Sensible (jc,blockNo)*prism_area
-          monitor%HeatFlux_Latent      = monitor%HeatFlux_Latent      + surfaceFlux%HeatFlux_Latent   (jc,blockNo)*prism_area
-          monitor%HeatFlux_Total       = monitor%HeatFlux_Total       + surfaceFlux%HeatFlux_Total    (jc,blockNo)*prism_area
+          monitor%HeatFlux_ShortWave   = monitor%HeatFlux_ShortWave   + surface_fluxes%HeatFlux_ShortWave(jc,blockNo)*prism_area
+          monitor%HeatFlux_LongWave    = monitor%HeatFlux_LongWave    + surface_fluxes%HeatFlux_LongWave (jc,blockNo)*prism_area
+          monitor%HeatFlux_Sensible    = monitor%HeatFlux_Sensible    + surface_fluxes%HeatFlux_Sensible (jc,blockNo)*prism_area
+          monitor%HeatFlux_Latent      = monitor%HeatFlux_Latent      + surface_fluxes%HeatFlux_Latent   (jc,blockNo)*prism_area
+          monitor%HeatFlux_Total       = monitor%HeatFlux_Total       + surface_fluxes%HeatFlux_Total    (jc,blockNo)*prism_area
           monitor%FrshFlux_Precipitation  = monitor%FrshFlux_Precipitation  + &
-            & surfaceFlux%FrshFlux_Precipitation(jc,blockNo)*prism_area
-          monitor%FrshFlux_SnowFall    = monitor%FrshFlux_SnowFall    + surfaceFlux%FrshFlux_SnowFall(jc,blockNo)*prism_area
+            & surface_fluxes%FrshFlux_Precipitation(jc,blockNo)*prism_area
+          monitor%FrshFlux_SnowFall    = monitor%FrshFlux_SnowFall    + surface_fluxes%FrshFlux_SnowFall(jc,blockNo)*prism_area
           monitor%FrshFlux_Evaporation    = monitor%FrshFlux_Evaporation    + &
-            & surfaceFlux%FrshFlux_Evaporation(jc,blockNo)*prism_area
-          monitor%FrshFlux_Runoff  = monitor%FrshFlux_Runoff  + surfaceFlux%FrshFlux_Runoff(jc,blockNo)*prism_area
-          monitor%FrshFlux_TotalSalt   = monitor%FrshFlux_TotalSalt   + surfaceFlux%FrshFlux_TotalSalt(jc,blockNo)*prism_area
+            & surface_fluxes%FrshFlux_Evaporation(jc,blockNo)*prism_area
+          monitor%FrshFlux_Runoff  = monitor%FrshFlux_Runoff  + surface_fluxes%FrshFlux_Runoff(jc,blockNo)*prism_area
+          monitor%FrshFlux_TotalSalt   = monitor%FrshFlux_TotalSalt   + surface_fluxes%FrshFlux_TotalSalt(jc,blockNo)*prism_area
           monitor%FrshFlux_TotalOcean    = monitor%FrshFlux_TotalOcean    + &
-            & surfaceFlux%FrshFlux_TotalOcean(jc,blockNo)*prism_area
-          monitor%FrshFlux_TotalIce    = monitor%FrshFlux_TotalIce    + surfaceFlux%FrshFlux_TotalIce(jc,blockNo)*prism_area
-          monitor%FrshFlux_VolumeIce   = monitor%FrshFlux_VolumeIce   + surfaceFlux%FrshFlux_VolumeIce (jc,blockNo)*prism_area
+            & surface_fluxes%FrshFlux_TotalOcean(jc,blockNo)*prism_area
+          monitor%FrshFlux_TotalIce    = monitor%FrshFlux_TotalIce    + surface_fluxes%FrshFlux_TotalIce(jc,blockNo)*prism_area
+          monitor%FrshFlux_VolumeIce   = monitor%FrshFlux_VolumeIce   + surface_fluxes%FrshFlux_VolumeIce (jc,blockNo)*prism_area
           monitor%FrshFlux_VolumeTotal  = monitor%FrshFlux_VolumeTotal  + &
-            & surfaceFlux%FrshFlux_VolumeTotal(jc,blockNo)*prism_area
-          monitor%HeatFlux_Relax = monitor%HeatFlux_Relax + surfaceFlux%HeatFlux_Relax(jc,blockNo)*prism_area
-          monitor%FrshFlux_Relax = monitor%FrshFlux_Relax + surfaceFlux%FrshFlux_Relax(jc,blockNo)*prism_area
-          monitor%TempFlux_Relax = monitor%TempFlux_Relax + surfaceFlux%TempFlux_Relax(jc,blockNo)*prism_area
-          monitor%SaltFlux_Relax = monitor%SaltFlux_Relax + surfaceFlux%SaltFlux_Relax(jc,blockNo)*prism_area
+            & surface_fluxes%FrshFlux_VolumeTotal(jc,blockNo)*prism_area
+          monitor%HeatFlux_Relax = monitor%HeatFlux_Relax + surface_fluxes%HeatFlux_Relax(jc,blockNo)*prism_area
+          monitor%FrshFlux_Relax = monitor%FrshFlux_Relax + surface_fluxes%FrshFlux_Relax(jc,blockNo)*prism_area
+          monitor%TempFlux_Relax = monitor%TempFlux_Relax + surface_fluxes%TempFlux_Relax(jc,blockNo)*prism_area
+          monitor%SaltFlux_Relax = monitor%SaltFlux_Relax + surface_fluxes%SaltFlux_Relax(jc,blockNo)*prism_area
           
           ! northern hemisphere
           IF (patch_2d%cells%center(jc,blockNo)%lat > equator) THEN
@@ -969,7 +970,7 @@ CONTAINS
     monitor%total_energy               = global_sum_array(monitor%total_energy)/monitor%volume
     monitor%total_salt                 = calc_total_salt_content(patch_2d, &
       &                                                          patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
-      &                                                          ice, ocean_state,surfaceFlux,ice%zUnderIce)
+      &                                                          ice, ocean_state,surface_fluxes,ice%zUnderIce)
     monitor%vorticity                  = global_sum_array(monitor%vorticity)
     monitor%enstrophy                  = global_sum_array(monitor%enstrophy)
     monitor%potential_enstrophy        = global_sum_array(monitor%potential_enstrophy)
@@ -1852,7 +1853,7 @@ CONTAINS
     REAL(wp),DIMENSION(nproma,n_zlev,patch_2d%alloc_cell_blocks),INTENT(IN) :: thickness
     TYPE (t_sea_ice),       INTENT(IN)                    :: ice
     TYPE(t_hydro_ocean_state)                             :: ocean_state
-    TYPE(t_sfc_flx)                                       :: surface_fluxes
+    TYPE(t_ocean_surface)                                 :: surface_fluxes
     INTEGER,INTENT(IN), OPTIONAL                          :: computation_type
     REAL(wp)                                              :: total_salt_content
 
@@ -1870,7 +1871,7 @@ CONTAINS
     REAL(wp),DIMENSION(nproma,n_zlev,patch_2d%alloc_cell_blocks),INTENT(IN) :: thickness
     TYPE (t_sea_ice),       INTENT(IN)                    :: ice
     TYPE(t_hydro_ocean_state)                             :: ocean_state
-    TYPE(t_sfc_flx)                                       :: surface_fluxes
+    TYPE(t_ocean_surface)                                 :: surface_fluxes
     INTEGER,INTENT(IN), OPTIONAL                          :: computation_type
 
     ! locals

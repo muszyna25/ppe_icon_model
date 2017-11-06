@@ -48,6 +48,9 @@ AS_CASE([$ac_hostname],
         [ic2*],      
         [ac_sitename=kit.edu;
          fqdn=$ac_hostname.$ac_sitename],         
+        [uc1*],      
+        [ac_sitename=kit.edu;
+         fqdn=$ac_hostname.$ac_sitename],         
         [fh2*],      
         [ac_sitename=kit.edu;
          fqdn=$ac_hostname.$ac_sitename],         
@@ -100,6 +103,15 @@ AC_ARG_ENABLE([ocean],
 AC_ARG_ENABLE([testbed],
               AS_HELP_STRING([--enable-testbed],[Use testbed component.]),
               [],[enable_testbed=no])
+
+dnl ######################################################################
+dnl usage of mh-file
+
+AC_ARG_ENABLE([mh-file],
+              [AS_HELP_STRING([--disable-mh-file],
+                              [disable machine file usage])],
+              [use_mh_file=no],
+              [use_mh_file=yes])
 
 dnl ######################################################################
 dnl features
@@ -176,7 +188,9 @@ AC_ARG_WITH([art],
 
 AS_IF([test "x$with_art" = "xyes"],
       [use_art="yes"],
-      [use_art="no"])
+      [use_art="no"],
+
+)
 
 dnl ######################################################################
 dnl work around for linking problems with GCC
@@ -206,15 +220,16 @@ AS_CASE([$host],
          m4_define([line2], [Please set a valid config/mh-* file up.])
          AC_MSG_ERROR([line1 line2], [1])])
 
-ACX_GET_MODULES_TO_LOAD([$host_frag])
-AS_IF([test ! -z "$load_profile" ],
-      [. "$load_profile"])
+AS_IF([test $use_mh_file = yes],
+      [ACX_GET_MODULES_TO_LOAD([$host_frag])
+       AS_IF([test ! -z "$load_profile" ],
+             [. "$load_profile"])
 
-ACX_GET_PROFILE_TO_LOAD([$host_frag])
-AS_IF([test ! -z "$load_modules" ],
-      [ACX_SWAP_MODULES(["$load_modules"])])
+       ACX_GET_PROFILE_TO_LOAD([$host_frag])
+       AS_IF([test ! -z "$load_modules" ],
+             [ACX_SWAP_MODULES(["$load_modules"])])
 
-ACX_GET_MH($host_frag)
+       ACX_GET_MH($host_frag)])
 
 dnl ######################################################################
 dnl if not set, select make for making (cannot use anything else anyway)
@@ -320,8 +335,6 @@ dnl Checks for program properties
 dnl ######################################################################
 dnl Checks for XML2.
 
-if test x$use_yac = xyes ; then
-
 XML2_LIB=""
 XML2_INCLUDE=""
 
@@ -369,8 +382,6 @@ AC_ARG_WITH([xml2],
     echo "         set XML2ROOT to the xml2 root directory"
 
   fi
-
-fi
 
 dnl ######################################################################
 dnl Checks for LAPACK/BLAS
@@ -677,10 +688,12 @@ AS_IF(
 export CDIROOT	#inform config/createMakefiles.pl whether it should include cdilib.c in the support/Makefile .
 
 dnl ######################################################################
-dnl Checks for grib_api.
+dnl Checks for grib_api/eccodes.
 
 GRIBAPI_LIB=""
 GRIBAPI_INCLUDE=""
+
+LIB_GRIB_API_ROOT="grib_api"
 
 AC_ARG_WITH([grib_api],
             [AC_HELP_STRING([--with-grib_api=DIR],
@@ -688,31 +701,51 @@ AC_ARG_WITH([grib_api],
                             [],
                             with_grib_api=yes)
 
+
+AC_ARG_ENABLE([eccodes],
+            [AC_HELP_STRING([--enable-eccodes=DIR],
+                            [Update GRIB_API setup to successor ECCODES package])],
+                            [],
+                            enable_eccodes=no)
+
+AS_CASE([$enable_eccodes],
+        [no],
+        [],
+        [yes],
+        [AC_MSG_ERROR([--enable-eccodes requires an installation directory.])],
+        [GRIBAPIROOT=$enable_eccodes
+         with_grib_api=yes
+         LIB_GRIB_API_ROOT="eccodes"])
+
 AS_CASE([$with_grib_api],
         [no],
         [AC_MSG_CHECKING([for grib_api library])
          AC_MSG_RESULT([suppressed])],
         [yes],
-        [#AS_IF([test -f "$GRIBAPIROOT/lib/libgrib_api.a"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
-         AS_IF([test -f "$GRIBAPIROOT/include/grib_api.h"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h]))],
+        [AS_IF([test -f "$GRIBAPIROOT/include/grib_api.h"],
+               [],
+               [AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h])])],
         [GRIBAPIROOT=$with_grib_api
-         #AS_IF([test -f "$GRIBAPIROOT/lib/libgrib_api.a"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
-         AS_IF([test -f "$GRIBAPIROOT/include/grib_api.h"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h]))])
+         AS_IF([test -f "$GRIBAPIROOT/include/grib_api.h"],
+               [],
+               [AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h])])])
 
 AS_IF([test -n "$GRIBAPIROOT"],
-      [AS_IF([test -r "$GRIBAPIROOT/lib/libgrib_api.a" || test -r "$GRIBAPIROOT/lib/libgrib_api.dylib" || test -r "$GRIBAPIROOT/lib/libgrib_api.so"],
-             [GRIBAPI_LIB='-L$(GRIBAPIROOT)/lib -lgrib_api'],
-             [AC_MSG_ERROR([cannot read $GRIBAPIROOT/lib/libgrib_api.a])])
+      [AS_IF([test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.a" || test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.dylib" || test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.so"],
+             [GRIBAPI_LIB="-L\$(GRIBAPIROOT)/lib -l${LIB_GRIB_API_ROOT}"],
+             [AC_MSG_ERROR([cannot read $GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.a])])
        AS_IF([test -d "$GRIBAPIROOT/include"],
              [GRIBAPI_INCLUDE='-I$(GRIBAPIROOT)/include'],
              [AC_MSG_ERROR([cannot find $GRIBAPIROOT/include])])  
        FFLAGS="${FFLAGS} ${DEFOPT}HAVE_LIBGRIB ${DEFOPT}HAVE_LIBGRIB_API"
        CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_LIBGRIB ${DEFCOPT}HAVE_LIBGRIB_API"
        AS_CASE([$ac_hostname],
-               [mlogin*|btc*],
+               [mlogin*|btc*|daint*],
                [AS_CASE([$FC],
                         [nagfor],
                         [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
+			[cray],
+                        [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -dynamic -Wl,-rpath,\2!g')],
                         [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])],
                [])],
       [])
@@ -756,6 +789,14 @@ if test -n "$SCTROOT" ; then
 
   FFLAGS="${FFLAGS} ${DEFOPT}__SCT__"
   CFLAGS="${CFLAGS} ${DEFCOPT}__SCT__"
+
+  AS_CASE([$ac_hostname],
+          [mlogin*|btc*],
+          [AS_CASE([$FC],
+                   [nagfor],
+                   [SCT_LIB=$(echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
+                   [SCT_LIB=$(echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])],
+          [])
 
 dnl checks for additional libs needed for sct, eg. papi
 
@@ -945,7 +986,7 @@ if [[ "x$LAPACKROOT" = xlocal ]] ; then
     LAPACKROOT=""
 fi
 
-my_srcdirs="externals/self/src externals/mtime/src ${my_srcdirs}"
+my_srcdirs="externals/self/src externals/mtime/src externals/tixi/src ${my_srcdirs}"
 
 if [[ "x$use_yac" = xyes ]] ; then
     my_srcdirs="externals/yac/src ${my_srcdirs}"
@@ -965,13 +1006,17 @@ if [[ "x$use_messy" = xyes ]] ; then
 fi
 
 if [[ "x$use_art" = xyes ]] ; then
-    FFLAGS="${FFLAGS} ${ART_FFLAGS}"
+    ART_FFLAGS="${DEFOPT}__ICON_ART ${DEFOPT}__ART_TMP_IFDEF"
+    FFLAGS="${FFLAGS} $ART_FFLAGS"
     # ATTENTION: only temporary until chemistry part of ICON-ART is Fortran 2003 conform !!!
     if [[ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ]] ; then
         FFLAGS="`echo ${FFLAGS} | sed -e s/-std=f2003/-std=gnu/`"
     fi
 fi
 
+if [[ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ]] ; then
+    FFLAGS="${FFLAGS} -fall-intrinsics"
+fi
 ac_srcdirs=$my_srcdirs
 
 if test "$use_mpcc_r" = yes ; then
@@ -1145,7 +1190,7 @@ AC_SUBST(FFLAGS,$FFLAGS)
 AC_SUBST(FlibFLAGS,$FlibFLAGS)
 AC_SUBST(F77FLAGS,$F77FLAGS)
 
-ac_libs="${ac_libs} -lmtime -lself"
+ac_libs="${ac_libs} -ltixi -lmtime -lself"
 
 AC_SUBST(LIB,$ac_libs)
 
@@ -1414,4 +1459,5 @@ echo ""
 AS_IF([test "x$enable_atmo" = "xyes" && test "x$enable_ocean" = "xno"],
       [AC_MSG_WARN([In order to use ECHAM physics, you need to enable ocean!])
        echo ""])
+
 

@@ -753,7 +753,7 @@ CONTAINS
     INTEGER :: iidx,jc,jb,jk,i_endidx,dim3
     LOGICAL :: lcatch_zeros
 
-    lcatch_zeros = .FALSE.
+    lcatch_zeros = .TRUE.
     IF (PRESENT(opt_lcatch_zeros))  lcatch_zeros = opt_lcatch_zeros
 
     IF ((idim_nproma == 1) .AND. (idim_blks==2)) THEN

@@ -158,8 +158,8 @@ REAL (KIND=ireals)     ::     &
   ! Minimal diffusion coefficients in [m^2/s] for vertical
   tkhmin     =  0.75_ireals,  & ! scalar (heat) transport
   tkmmin     =  0.75_ireals,  & ! momentum transport
-  tkhmin_strat = 5.0_ireals,  & ! scalar (heat) transport, enhanced value for stratosphere
-  tkmmin_strat = 5.0_ireals,  & ! momentum transport,      enhanced value for stratosphere
+  tkhmin_strat = 0.75_ireals, & ! scalar (heat) transport, enhanced value for stratosphere
+  tkmmin_strat = 4.0_ireals,  & ! momentum transport,      enhanced value for stratosphere
 
   ditsmot    =  0.00_ireals,  & ! smoothing factor for direct time-step iteration
 

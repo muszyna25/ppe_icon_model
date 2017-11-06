@@ -23,7 +23,7 @@ MODULE mo_echam_phy_init
 
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: finish, message_text
-  USE mtime,                   ONLY: datetime
+  USE mtime,                   ONLY: datetime, OPERATOR(>)
 
   USE mo_io_config,            ONLY: default_read_method
   USE mo_read_interface,       ONLY: openInputFile, closeFile, read_2D, &
@@ -31,13 +31,14 @@ MODULE mo_echam_phy_init
 
   ! model configuration
   USE mo_run_config,           ONLY: nlev, iqv, iqt, ico2, io3, &
-    &                                ntracer, ltestcase
-  USE mo_parallel_config,      ONLY: nproma
+    &                                ntracer, ltestcase, lart
   USE mo_vertical_coord_table, ONLY: vct
   USE mo_dynamics_config,      ONLY: iequations
   USE mo_impl_constants,       ONLY: inh_atmosphere, max_char_length
-  USE mo_echam_phy_config,     ONLY: phy_config => echam_phy_config, &
-    &                                configure_echam_phy
+
+  USE mo_mpi_phy_config,       ONLY: eval_mpi_phy_config, eval_mpi_phy_tc, print_mpi_phy_config, &
+    &                                mpi_phy_config, mpi_phy_tc, dt_zero
+  USE mo_mpi_sso_config,       ONLY: eval_mpi_sso_config, print_mpi_sso_config
   USE mo_echam_conv_config,    ONLY: configure_echam_convection
   USE mo_echam_cloud_config,   ONLY: configure_echam_cloud
 
@@ -73,9 +74,6 @@ MODULE mo_echam_phy_init
   ! air-sea-land interface
   USE mo_echam_sfc_indices,    ONLY: nsfc_type, iwtr, iice, ilnd, init_sfc_indices
 
-  ! subgrid scale orography
-  USE mo_ssodrag,              ONLY: sugwd
-
   ! domain and indices
   USE mo_model_domain,         ONLY: t_patch
   USE mo_loopindices,          ONLY: get_indices_c
@@ -95,10 +93,13 @@ MODULE mo_echam_phy_init
   USE mo_bc_sst_sic,             ONLY: read_bc_sst_sic, bc_sst_sic_time_interpolation
   USE mo_bc_greenhouse_gases,    ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
     &                                bc_greenhouse_gases_file_read, ghg_co2mmr
+  ! Cariolle interactive ozone scheme
   USE mo_lcariolle_externals,  ONLY: read_bcast_real_3d_wrap, &
     &                                read_bcast_real_1d_wrap, &
     &                                closeFile_wrap, openInputFile_wrap, &
     &                                get_constants
+  ! water vapour production by methane oxidation
+  USE mo_methox,               ONLY: init_methox
   ! for aeorosols in simple plumes
   USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
 
@@ -132,7 +133,7 @@ CONTAINS
     TYPE(datetime),  INTENT(in), POINTER    :: mtime_current !< Date and time information
 
     INTEGER :: khydromet, ktrac
-    INTEGER :: jg, ndomain
+    INTEGER :: jd, ndom, jg, ndomain
     TYPE(t_stream_id) :: stream_id
 
     CHARACTER(len=*), PARAMETER :: land_frac_fn = 'bc_land_frac.nc'
@@ -141,18 +142,31 @@ CONTAINS
 
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
 
+    LOGICAL :: lany
+
     IF (timers_level > 1) CALL timer_start(timer_prep_echam_phy)
 
     !-------------------------------------------------------------------
     ! Initialize parameters and lookup tables
     !-------------------------------------------------------------------
-    ! Main switches (phy_config%lrad, phy_config%lcond, etc.)
+    ! Evaluate the MPI physics configuration variables mpi_phy_config(:)
+    ! and the derived time control variables mpi_phy_tc(:) on all grids
+    ! and for all controled processes.
 
-    CALL configure_echam_phy
+    CALL  eval_mpi_phy_config
+    CALL  eval_mpi_phy_tc
+    CALL print_mpi_phy_config
 
+    ndom = SIZE(mpi_phy_tc)
+    
     ! For radiation:
 
-    IF (phy_config%lrad) THEN
+    lany=.FALSE.
+    DO jd = 1,ndom
+       lany = lany .OR. (mpi_phy_tc(jd)%dt_rad > dt_zero)
+    END DO
+    IF (lany) THEN
+      !
       SELECT CASE (isolrad)
       CASE (0)
         ssi_radt(:) = ssi_default(:)
@@ -187,20 +201,44 @@ CONTAINS
              'isolrad = ', isolrad, ' in radiation_nml namelist is not supported'
         CALL finish('init_echam_phy', message_text)
       END SELECT
+      !
       CALL setup_srtm
+      !
+    END IF
+
+    lany=.FALSE.
+    DO jd = 1,ndom
+       lany = lany .OR. (mpi_phy_tc(jd)%dt_rad > dt_zero)
+    END DO
+    IF (lany) THEN
       CALL lrtm_setup('rrtmg_lw.nc')
+    END IF
+
+    lany=.FALSE.
+    DO jd = 1,ndom
+       lany = lany .OR. (mpi_phy_tc(jd)%dt_rad > dt_zero)
+    END DO
+    IF (lany) THEN
       CALL setup_newcld_optics('ECHAM6_CldOptProps.nc')
     END IF
 
     ! For cumulus convection:
     ! - assign value to echam_conv_config%nmctop;
     ! - allocate echam_conv_config%cevapcu(:) and assign values.
-
-    IF (phy_config%lconv) THEN
+    !
+    lany=.FALSE.
+    DO jd = 1,ndom
+       lany = lany .OR. (mpi_phy_tc(jd)%dt_cnv > dt_zero)
+    END DO
+    IF (lany) THEN
       CALL configure_echam_convection(nlev, vct_a, vct_b)
-    END IF ! lconv
+    END IF
 
-    IF (phy_config%lcond) THEN
+    lany=.FALSE.
+    DO jd = 1,ndom
+       lany = lany .OR. (mpi_phy_tc(jd)%dt_cld > dt_zero)
+    END DO
+    IF (lany) THEN
       CALL configure_echam_cloud
     END IF ! lcond
 
@@ -213,8 +251,12 @@ CONTAINS
     ! For turbulent mixing:
     ! Allocate memory for the tri-diagonal solver needed by the implicit
     ! time stepping scheme; Compute time-independent parameters.
-
-    IF (phy_config%lvdiff) THEN
+    !
+    lany=.FALSE.
+    DO jd = 1,ndom
+       lany = lany .OR. (mpi_phy_tc(jd)%dt_vdf > dt_zero)
+    END DO
+    IF (lany) THEN
       ! Currently the tracer indices are sorted such that we count
       ! the water substances first, and then other species like
       ! aerosols and their precursors. "ntracer" is the total number
@@ -222,25 +264,36 @@ CONTAINS
       ! "iqt" is the starting index for non-water species.
       ! Before more sophisticated meta-data structure becomes available,
       ! it is assumed here that all tracers are subject to turbulent mixing.
-
+      !
       khydromet = iqt - 2        ! # of hydrometeors
       ktrac = ntracer - iqt + 1  ! # of non-water species
-
+      !
       CALL init_vdiff_solver( khydromet, ktrac, nlev )
       CALL init_vdiff_params( nlev, nlev+1, nlev+1, vct )
     ENDIF
 
     ! Lookup tables for saturation vapour pressure
-
-    IF (phy_config%lconv.OR.phy_config%lcond.OR.phy_config%lvdiff) THEN
+    !
+    lany=.FALSE.
+    DO jd = 1,ndom
+       lany = lany .OR. (mpi_phy_tc(jd)%dt_cnv > dt_zero)
+       lany = lany .OR. (mpi_phy_tc(jd)%dt_cld > dt_zero)
+       lany = lany .OR. (mpi_phy_tc(jd)%dt_vdf > dt_zero)
+    END DO
+    IF (lany) THEN
        CALL init_convect_tables
        CALL init_echam_convect_tables 
     END IF
 
     ! For subgrid scale orography scheme
-
-    IF (phy_config%lssodrag) THEN
-      CALL sugwd(nlev)
+    !
+    lany=.FALSE.
+    DO jd = 1,ndom
+       lany = lany .OR. (mpi_phy_tc(jd)%dt_sso > dt_zero)
+    END DO
+    IF (lany) THEN
+       CALL  eval_mpi_sso_config
+       CALL print_mpi_sso_config
     END IF
 
 
@@ -251,18 +304,14 @@ CONTAINS
 
     ndomain = SIZE(p_patch)
 
-    IF ( ndomain /= 1 ) THEN
-      CALL finish('','ndomain /=1 is not supported yet')
-    END IF
-
     DO jg= 1,ndomain
 
       IF (ilnd <= nsfc_type) THEN
 
-         ! read time-constant boundary conditions from files
-      
-         ! land, glacier and lake masks
-         stream_id = openInputFile(land_frac_fn, p_patch(jg), default_read_method)
+        ! read time-constant boundary conditions from files
+
+        ! land, glacier and lake masks
+        stream_id = openInputFile(land_frac_fn, p_patch(jg), default_read_method)
         CALL read_2D(stream_id=stream_id, location=on_cells,&
              &          variable_name='land',               &
              &          fill_array=prm_field(jg)%lsmask(:,:))
@@ -274,26 +323,36 @@ CONTAINS
              &          fill_array=prm_field(jg)% alake(:,:))
         CALL closeFile(stream_id)
         !
-        ! add lake mask to land sea mask to remove lakes again
-        prm_field(jg)%lsmask(:,:) = prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:)
+        ! At this point, %lsmask is the fraction of land (incl. glacier, but not lakes) in the grid box.
+        ! If running without lakes, add lake mask to %lsmask to remove lakes and set %alake to zero.
+        IF (.NOT. mpi_phy_config(jg)%llake) THEN
+          prm_field(jg)%lsmask(:,:) = prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:)
+          prm_field(jg)%alake (:,:) = 0._wp
+        END IF
 
         ! roughness length and background albedo
         stream_id = openInputFile(land_phys_fn, p_patch(jg), default_read_method)
 
-        IF (phy_config%lvdiff) THEN
+        IF (mpi_phy_tc(jg)%dt_vdf > dt_zero) THEN
           CALL read_2D(stream_id=stream_id, location=on_cells, &
-                &       variable_name='z0',                    &
+                &       variable_name='roughness_length',      &
                 &       fill_array=prm_field(jg)% z0m(:,:))
         END IF
 
-        CALL read_2D(stream_id=stream_id, location=on_cells, &
-             &       variable_name='albedo',                &
-             &       fill_array=prm_field(jg)% alb(:,:))
-
+        IF (mpi_phy_tc(jg)%dt_rad > dt_zero) THEN
+          CALL read_2D(stream_id=stream_id, location=on_cells, &
+               &       variable_name='albedo',                &
+               &       fill_array=prm_field(jg)% alb(:,:))
+        END IF
+     
         CALL closeFile(stream_id)
-         
+
         ! orography
-        IF (phy_config%lssodrag) THEN
+        lany=.FALSE.
+        DO jd = 1,ndom
+           lany = lany .OR. (mpi_phy_tc(jd)%dt_sso > dt_zero)
+        END DO
+        IF (lany) THEN
           stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
           CALL read_2D(stream_id=stream_id, location=on_cells, &
                &       variable_name='oromea',                &
@@ -319,7 +378,13 @@ CONTAINS
           CALL closeFile(stream_id)
         END IF
 
-      END IF
+      ELSE
+
+        prm_field(jg)%lsmask(:,:) = 0._wp
+        prm_field(jg)%glac  (:,:) = 0._wp
+        prm_field(jg)%alake (:,:) = 0._wp
+
+      END IF ! (ilnd <= nsfc_type)
 
     END DO ! jg
 
@@ -338,7 +403,7 @@ CONTAINS
       !
       ! IF a CO2 tracer exists, then copy the time interpolated scalar ghg_co2mmr
       ! to the 3-dimensional tracer field.
-      IF ( iqt <= ico2 .AND. ico2 <= ntracer ) THEN
+      IF ( iqt <= ico2 .AND. ico2 <= ntracer .AND. .NOT. lart) THEN
         DO jg = 1,ndomain
           prm_field(jg)%qtrc(:,:,:,ico2) = ghg_co2mmr
         END DO
@@ -372,47 +437,70 @@ CONTAINS
 
       ! Read AMIP SST and SIC data
       ! Note: For coupled runs, this is only used for initialization of surface temperatures
-      IF (phy_config%lamip .OR.                   &
+      IF (mpi_phy_config(jg)%lamip .OR.                   &
           (is_coupled_run() .AND. .NOT. ltestcase) ) THEN
         !
         ! sea surface temperature, sea ice concentration and depth
         CALL read_bc_sst_sic(mtime_current%date%year, p_patch(1))
         !
         CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights, &
-             &                             prm_field(jg)%lsmask(:,:)         , &
+             &                             prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:) > 1._wp - 10._wp*EPSILON(1._wp), &
              &                             prm_field(jg)%ts_tile(:,:,iwtr)   , &
              &                             prm_field(jg)%seaice(:,:)         , &
              &                             prm_field(jg)%siced(:,:)          , &
              &                             p_patch(1)                        )
         !
+
+      ELSE
+
+        prm_field(jg)%seaice(:,:) = 0._wp
+
       END IF
 
-    END DO
+    END DO ! jg
 
-    IF (phy_config%lcariolle) THEN
+    lany=.FALSE.
+    DO jd = 1,ndom
+       lany = lany .OR. (mpi_phy_tc(jd)%dt_car > dt_zero)
+    END DO
+    IF (lany) THEN
       IF(io3 > ntracer) THEN
         CALL finish('init_echam_phy: mo_echam_phy_init.f90', &
                    &'cannot find an ozone tracer - abort')
       END IF
+      IF(jg > 1) THEN
+        CALL finish('init_echam_phy: mo_echam_phy_init.f90', &
+                   &'Cariolle initialization not ready for jg>1')
+      END IF
       CALL lcariolle_init(                                     &
          & openInputFile_wrap,       closeFile_wrap,           &
          & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap,  &
-         & get_constants,            nproma,                   &
-         & nlev                                                )
+         & get_constants                                       )
     END IF
 
+    ! water vapour production by methane oxidation
+    lany=.FALSE.
+    DO jd = 1,ndom
+      lany = lany .OR. (mpi_phy_tc(jd)%dt_mox > dt_zero)
+    END DO
+    IF (lany) THEN
+      CALL init_methox
+    END IF
+   
 #ifndef __NO_JSBACH__
-    IF (ilnd <= nsfc_type .AND. phy_config%ljsbach) THEN
+    IF (ilnd <= nsfc_type .AND. ANY(mpi_phy_config(:)%ljsb)) THEN
 
       ! Do basic initialization of JSBACH
       CALL jsbach_init_base(master_namelist_filename)
 
       ! Now continue initialization of JSBACH for the different grids
       DO jg=1,ndomain
-        CALL jsbach_init_model( jg, p_patch(jg))                             !< in
+        IF (mpi_phy_config(jg)%ljsb) THEN 
+          CALL jsbach_init_model( jg, p_patch(jg)) !< in
+        END IF
       END DO ! jg
 
-    END IF ! phy_config%ljsbach
+    END IF ! 
 #endif
 
 
@@ -503,7 +591,7 @@ CONTAINS
         field% ocv   (:,:)   = 0._wp
 !$OMP END PARALLEL WORKSHARE
 
-      IF (phy_config%lvdiff) THEN
+      IF (mpi_phy_tc(jg)%dt_vdf > dt_zero) THEN
         IF (iwtr<=nsfc_type) field% z0m_tile(:,:,iwtr) = 1e-3_wp !see init_surf in echam (or z0m_oce?)
         IF (iice<=nsfc_type) field% z0m_tile(:,:,iice) = 1e-3_wp !see init_surf in echam (or z0m_ice?)
         IF (ilnd<=nsfc_type) THEN
@@ -525,7 +613,7 @@ CONTAINS
 
       IF (ilnd <= nsfc_type) THEN
 
-        IF (phy_config%lamip .OR. (is_coupled_run() .AND. .NOT. ltestcase)) THEN
+        IF (mpi_phy_config(jg)%lamip .OR. (is_coupled_run() .AND. .NOT. ltestcase)) THEN
           prm_field(jg)%ts_tile(:,:,ilnd) = prm_field(jg)%ts_tile(:,:,iwtr)
         END IF
 
@@ -587,6 +675,7 @@ CONTAINS
             field% ts_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
           END DO
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
         END DO
@@ -604,6 +693,7 @@ CONTAINS
             field% ts_tile(jc,jb,iwtr) = th_cbl(1)
           END DO
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
         END DO
@@ -638,6 +728,7 @@ CONTAINS
             ENDIF
           END DO
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
         END DO
 !$OMP END PARALLEL DO
@@ -667,6 +758,7 @@ CONTAINS
             field%seaice(jc,  jb) = field%conc(jc,1,jb)
           END DO
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
         END DO
 !$OMP END PARALLEL DO
@@ -681,6 +773,7 @@ CONTAINS
         DO jb = jbs,nblks_c
           CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
           field% lsmask(jcs:jce,jb) = 1._wp   ! land fraction = 1
+          field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
 
@@ -702,6 +795,7 @@ CONTAINS
           field% ts_tile(jcs:jce,jb,iwtr) = temp(jcs:jce,nlev,jb)
 
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
         END DO
@@ -715,12 +809,12 @@ CONTAINS
       DO jb = jbs,nblks_c
         CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
 
-        ! Initialize the flag lfland (.TRUE. if the fraction of land in
+        ! Initialize the flag lfland (.TRUE. if the fraction of land+lake in
         ! a grid box is larger than zero). In ECHAM a local array
         ! is initialized in each call of the subroutine "physc"
         DO jc = jcs,jce
-          field%lfland(jc,jb) = field%lsmask(jc,jb).GT.0._wp
-          field%lfglac(jc,jb) = field%glac  (jc,jb).GT.0._wp
+          field%lfland(jc,jb) = (field%lsmask(jc,jb) + field%alake(jc,jb)) > 0._wp
+          field%lfglac(jc,jb) = field%glac  (jc,jb) > 0._wp
         END DO
 
       END DO      !jb
@@ -814,13 +908,14 @@ CONTAINS
               field% ts     (jc,     jb) = field% ts_tile(jc,jb,iwtr)
             END DO
             field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+            field% alake (jcs:jce,jb) = 0._wp   ! zero lake fraction
             field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
             field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
 
           END SELECT
 
         !--------------------------------------------------------------------
-        ! Initialize the flag lfland (.TRUE. if the fraction of land in
+        ! Initialize the flag lfland (.TRUE. if the fraction of land+lake in
         ! a grid box is larger than zero). In ECHAM a local array
         ! is initialized in each call of the subroutine "physc".
         ! Note that this initialization is needed for all resumed integrations
@@ -829,8 +924,8 @@ CONTAINS
         !--------------------------------------------------------------------
 
         DO jc = jcs,jce
-          field%lfland(jc,jb) = field%lsmask(jc,jb).GT.0._wp
-          field%lfglac(jc,jb) = field%glac  (jc,jb).GT.0._wp
+          field%lfland(jc,jb) = (field%lsmask(jc,jb) + field%alake(jc,jb)) > 0._wp
+          field%lfglac(jc,jb) = field%glac  (jc,jb) > 0._wp
         ENDDO !jc
       ENDDO   !jb
 !$OMP END DO NOWAIT

@@ -1,5 +1,3 @@
-\svnInfo $Id$
-
 
 In order to facilitate the selection and interpretation of fields and to guard against possible mis-interpretation or mis-usage, the following section provides a more thorough 
 description of the available output fields.
@@ -178,20 +176,36 @@ is not correctly taken into account.
  \item [RUNOFF\_S] Surface water runoff from interception and snow reservoir and from limited infiltration rate. Sum over forecast.
 
  \item [SOILTYP] Characterizes the dominant soiltype in a grid cell. The soiltype is assumed to be the same for all 
-                 soil levels. Currently 9 soiltypes are distinguished and encoded by 1-digit integers 1-9:
-                 \begin{tabbing}
-                   \hspace{0.23\textwidth} \= \hspace{0.23\textwidth} \= \hspace{0.23\textwidth} \kill
-                   1: ice  \>
-                   2: rock \>
-                   3: sand \\
-                   4: sandyloam \>
-                   5: loam  \>
-                   6: clayloam \\
-                   7: clay  \>
-                   8: peat  \>
-                   9: sea water
-                 \end{tabbing}
-        
+                 soil levels. Currently 9 soiltypes are distinguished and encoded by 1-digit integers 1-9. 
+                 The mapping between these integer numbers and soiltype short names is given in Table~\ref{table_soiltyp}, 
+                 together with some soil-dependent hydraulic parameters. For the full list of hydraulic and 
+                 thermal parameters, the reader is referred to \cite{Doms2011}.
+                 
+                 \begin{minipage}[b]{\linewidth}
+                   \centering
+                   \captionof{table}{Mapping between the the soiltype index stored in the field \texttt{SOILTYP} 
+                                     and soiltype short names. The hydraulic parameters \emph{porosity} and 
+                                     \emph{field capacity}, currently used by ICON, are given in terms 
+                                     of volume fractions.}
+                   \label{table_soiltyp}
+                  \begin{tabularx}{\linewidth}{llll@{}}
+                    \toprule
+                    \textbf{index} & \textbf{soiltype} & porosity & field capacity \\
+                    \midrule
+                    \textbf{1} & \textbf{ice}       &     --  & -- \\
+                    \textbf{2} & \textbf{rock}      &     --  & -- \\
+                    \textbf{3} & \textbf{sand}      &  0.364  & 0.196 \\
+                    \textbf{4} & \textbf{sandyloam} &  0.445  & 0.260 \\
+                    \textbf{5} & \textbf{loam}      &  0.455  & 0.340 \\
+                    \textbf{6} & \textbf{clayloam}  &  0.475  & 0.370 \\
+                    \textbf{7} & \textbf{clay}      &  0.507  & 0.463 \\
+                    \textbf{8} & \textbf{peat}      &  0.863  & 0.763 \\
+                    \textbf{9} & \textbf{sea water} &     --  & -- \\                
+                    \bottomrule
+                  \end{tabularx}
+                 \end{minipage}
+                 \newline
+                 
  \item [T\_SO] Temperature of the soil and earth surface (uppermost level). The soil full level depths at which the 
                the soil temperature is defined are given in Table \ref{tab_soillayer}. The temperature at the uppermost 
                level \texttt{T\_SO(0)} is not prognostic. It is rather set equal to the temperature at the first prognostic 

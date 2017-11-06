@@ -176,7 +176,7 @@ CONTAINS
     output(:) = " "
     output(1) = "default"
 
-    restart_filename = "<gridfile>_restart_<mtype>_<rsttime>.nc"
+    restart_filename = "<gridfile>_restart_<mtype>_<rsttime>.<extension>"
     profiling_output = config_profiling_output
     check_uuid_gracefully = .FALSE.
 

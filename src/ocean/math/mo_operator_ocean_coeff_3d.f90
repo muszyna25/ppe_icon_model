@@ -30,7 +30,6 @@ MODULE mo_operator_ocean_coeff_3d
     &                               max_char_length, beta_plane_coriolis,full_coriolis, &
     &                               SEA_BOUNDARY, BOUNDARY, SEA, min_dolic
   USE mo_math_constants,      ONLY: deg2rad, pi!, rad2deg
-  USE mo_physical_constants,  ONLY: earth_radius
   USE mo_math_utilities,      ONLY: gc2cc, cc2gc, t_cartesian_coordinates,      &
     &  t_geographical_coordinates, vector_product, &
     &  arc_length, cvec2gvec
@@ -1566,7 +1565,7 @@ CONTAINS
           dist_vector_basic = distance_vector( edge_center, cell_center, patch_2D%geometry_info)
 
           dist_edge_cell_basic  = SQRT(SUM( dist_vector_basic%x * dist_vector_basic%x))
-          dist_vector_basic%x = dist_vector_basic%x/dist_edge_cell_basic
+          dist_vector_basic%x = dist_vector_basic%x / dist_edge_cell_basic
 
           orientation = DOT_PRODUCT(dist_vector_basic%x, &
           & patch_2D%edges%primal_cart_normal(edge_index,edge_block)%x)
@@ -1588,8 +1587,8 @@ CONTAINS
               & patch_2D%geometry_info)
 
             dist_edge_cell  = SQRT(SUM( dist_vector%x * dist_vector%x))
-            dist_vector%x = dist_vector%x/dist_edge_cell
-            dist_vector%x = dist_vector%x*patch_2D%cells%edge_orientation(cell_index,cell_block,cell_edge)
+            dist_vector%x = dist_vector%x / dist_edge_cell
+            dist_vector%x = dist_vector%x * patch_2D%cells%edge_orientation(cell_index,cell_block,cell_edge)
 
             !This is the cosine of the angle between vectors from cell center
             !to cell edges
@@ -1603,11 +1602,11 @@ CONTAINS
 
             !multiply the cosine by length and orientation and divide by
             !dual length
-            edge2edge_viacell_coeff_2D(edge_index,edge_block,ictr)=        &
-              &edge2edge_viacell_coeff_2D(edge_index,edge_block,ictr)        &
-              &*prime_edge_length(edge_index_cell,edge_block_cell)        &
-              &* dist_edge_cell *dist_edge_cell_basic                     &
-              &/dual_edge_length(edge_index, edge_block)
+            edge2edge_viacell_coeff_2D(edge_index,edge_block,ictr)=       &
+              &  edge2edge_viacell_coeff_2D(edge_index,edge_block,ictr)   &
+              &* prime_edge_length(edge_index_cell,edge_block_cell)       &
+              &* dist_edge_cell * dist_edge_cell_basic                    &
+              &/ dual_edge_length(edge_index, edge_block)
 
 ! IF(edge_index==1.and.edge_block==1)THEN
 ! write(123,*)'actual angle',neigbor, edge_index_cell, edge_block_cell,ictr,&
@@ -1903,7 +1902,7 @@ CONTAINS
 !                & patch_2D%edges%primal_cart_normal(edge_index_cell, edge_block_cell)%x)
 !             ! orientation should not be 0, since this would mean that the prime and dual are parallel
 !             ! overall this calculation should be derived from the verts%edge_orientation
-!             ! orientation will recieve a value -1, or 1 based on the previous,
+!             ! orientation will receive a value -1, or 1 based on the previous,
 !             ! then multuplied by -1 if neigbor=2, otherwise unchanged
 !             orientation = SIGN(1.0_wp,orientation) * (3.0_wp - 2.0_wp * REAL(neigbor,wp))
 ! 
@@ -2210,7 +2209,7 @@ CONTAINS
     END DO 
 
     !-------------------------------------------------------------
-    ! Normalize "edge2edge_viacell_coeff" are set to zero
+    ! Normalize "edge2edge_viacell_coeff" 
     DO block = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, block, edges_startidx, edges_endidx)
       DO jk = 1, n_zlev

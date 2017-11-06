@@ -1824,7 +1824,7 @@ END SUBROUTINE message
 
 
 ! In debugging mode and if transfer coefficient occured for at least one grid point
-  IF (m_limit > 0 .AND. ldebug .AND. msg_level >= 19) THEN
+  IF (m_limit > 0 .AND. ldebug .AND. msg_level >= 20) THEN
     WRITE(*,'(1X,A,/,2(1X,A,F10.2,A,/),1X,A,F10.2,/,1X,A,F10.3,/)')                  &
            'terra1: transfer coefficient had to be constrained',                     &
            'model time step                                 :', zdt     ,' seconds', &
@@ -3683,12 +3683,14 @@ ELSE   IF (itype_interception == 2) THEN
         zsprs  (i) = 0.0_ireals
         ! thawing of snow falling on soil with Ts > T0
         IF (ztsnow_pm(i)*zrs(i) > 0.0_ireals) THEN
-          ! snow fall on soil with T>T0, snow water content increases
-          ! interception store water content
-          zsprs  (i) = - lh_f*zrs(i)
-          zdwidt (i) = zdwidt (i) + zrs(i)
-          zdwsndt(i) = zdwsndt(i) - zrs(i)
-
+          ! snow fall on soil with T>T0, snow water content increases interception store water content
+          ! melting rate is limited such that the two upper soil levels are not cooled significantly below the freezing point
+          zzz = t0_melt-0.25_ireals 
+          zd  = (t_so_now(i,1)-zzz)*zroc(i,1)*zdzhs(1) + MAX(0._ireals,t_so_now(i,2)-zzz)*zroc(i,2)*zdzhs(2)
+          zfr_melt = MIN(1._ireals,zd/(zdt*lh_f*zrs(i)))
+          zsprs  (i) = - lh_f*zrs(i)*zfr_melt
+          zdwidt (i) = zdwidt (i) + zrs(i)*zfr_melt
+          zdwsndt(i) = zdwsndt(i) - zrs(i)*zfr_melt
           ! avoid overflow of interception store, add possible excess to
           ! surface run-off
           zwinstr(i) = zwin(i) + zdwidt(i)*zdtdrhw
@@ -3736,7 +3738,7 @@ ELSE   IF (itype_interception == 2) THEN
 !      END IF          ! land-points only
     END DO
 
-IF (msg_level >= 19) THEN
+IF (msg_level >= 20) THEN
   DO i = istarts, iends
   IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
     IF ( ABS( zshfl_s(i) )  >  500.0_ireals  .OR. &
@@ -4188,7 +4190,7 @@ ENDIF
 !      END IF          ! land-points only
   END DO
 
-IF (msg_level >= 19) THEN
+IF (msg_level >= 20) THEN
   DO i = istarts, iends
   IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
     IF ( ABS( zshfl_snow(i) )  >  500.0_ireals  .OR. &

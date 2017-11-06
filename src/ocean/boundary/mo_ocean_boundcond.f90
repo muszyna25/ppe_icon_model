@@ -38,9 +38,8 @@ MODULE mo_ocean_boundcond
   USE mo_ocean_types,          ONLY: t_hydro_ocean_state
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_scalar_product,     ONLY: map_cell2edges_3D
-  USE mo_sea_ice_types,      ONLY: t_sfc_flx
+  USE mo_ocean_surface_types,ONLY: t_ocean_surface
   USE mo_ocean_physics_types,ONLY: t_ho_params, v_params
-!   USE mo_ocean_math_operators, ONLY: grad_fd_norm_oce_2d_3d, div_oce_3D
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   USE mo_sync,               ONLY: SYNC_E, sync_patch_array
@@ -67,19 +66,19 @@ MODULE mo_ocean_boundcond
 
 CONTAINS
   
-  SUBROUTINE top_bound_cond_horz_veloc( patch_3D, ocean_state, p_op_coeff, p_sfc_flx)
+  SUBROUTINE top_bound_cond_horz_veloc( patch_3D, ocean_state, p_op_coeff, p_oce_sfc)
     !
     TYPE(t_patch_3D ),TARGET, INTENT(IN):: patch_3D
     TYPE(t_hydro_ocean_state), INTENT(inout)   :: ocean_state            ! ocean state variable
     TYPE(t_operator_coeff), INTENT(IN)         :: p_op_coeff
-    TYPE(t_sfc_flx)                            :: p_sfc_flx       ! external data
+    TYPE(t_ocean_surface)                      :: p_oce_sfc       ! external data
 
     IF (forcing_windstress_u_type > 100 .OR. forcing_windstress_u_type == 0) THEN
       ! analytic wind
       CALL top_bound_cond_horz_veloc_onEdges( patch_3D, ocean_state, p_op_coeff)
     ELSE
       ! OMIP wind
-      CALL top_bound_cond_horz_veloc_fromCells( patch_3D, ocean_state, p_op_coeff, p_sfc_flx)
+      CALL top_bound_cond_horz_veloc_fromCells( patch_3D, ocean_state, p_op_coeff, p_oce_sfc)
     ENDIF
 
   END SUBROUTINE top_bound_cond_horz_veloc
@@ -188,13 +187,13 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !<Optimize:inUse>
-  SUBROUTINE top_bound_cond_horz_veloc_fromCells( patch_3D, ocean_state, p_op_coeff, p_sfc_flx)  !  , &
+  SUBROUTINE top_bound_cond_horz_veloc_fromCells( patch_3D, ocean_state, p_op_coeff, p_oce_sfc)  !  , &
  !  & top_bc_u_c, top_bc_v_c, top_bc_u_cc )
     !
     TYPE(t_patch_3D ),TARGET, INTENT(IN)       :: patch_3D
     TYPE(t_hydro_ocean_state), INTENT(inout)   :: ocean_state            ! ocean state variable
     TYPE(t_operator_coeff), INTENT(IN)         :: p_op_coeff
-    TYPE(t_sfc_flx)                            :: p_sfc_flx       ! external data
+    TYPE(t_ocean_surface)                      :: p_oce_sfc       ! external data
  !  REAL(wp)                                   :: top_bc_u_c(:,:) ! Top boundary condition
  !  REAL(wp)                                   :: top_bc_v_c(:,:) ! dim: (nproma,alloc_cell_blocks)
  !  TYPE(t_cartesian_coordinates), INTENT(inout) :: top_bc_u_cc(:,:)
@@ -262,7 +261,7 @@ CONTAINS
      END DO
 !ICON_OMP_END_DO
 
-    CASE (1) ! Forced by wind stress stored in p_sfc_flx
+    CASE (1) ! Forced by wind stress stored in p_oce_sfc
 
       ! CALL message (TRIM(routine),'(1) top velocity boundary condition: use surface wind stress')
 !ICON_OMP_DO PRIVATE(start_index, end_index, jc, stress_coeff) ICON_OMP_DEFAULT_SCHEDULE
@@ -271,15 +270,15 @@ CONTAINS
         DO jc = start_index, end_index
           IF (patch_3d%p_patch_1d(1)%dolic_c(jc, jb) > 0) THEN
             stress_coeff = z_scale(jc,jb)
-            ocean_state%p_aux%bc_top_u(jc,jb)          = p_sfc_flx%topBoundCond_windStress_u(jc,jb)    * stress_coeff
-            ocean_state%p_aux%bc_top_v(jc,jb)          = p_sfc_flx%topBoundCond_windStress_v(jc,jb)    * stress_coeff
-            ocean_state%p_aux%bc_top_veloc_cc(jc,jb)%x = p_sfc_flx%topBoundCond_windStress_cc(jc,jb)%x * stress_coeff
+            ocean_state%p_aux%bc_top_u(jc,jb)          = p_oce_sfc%TopBC_WindStress_u(jc,jb)    * stress_coeff
+            ocean_state%p_aux%bc_top_v(jc,jb)          = p_oce_sfc%TopBC_WindStress_v(jc,jb)    * stress_coeff
+            ocean_state%p_aux%bc_top_veloc_cc(jc,jb)%x = p_oce_sfc%TopBC_WindStress_cc(jc,jb)%x * stress_coeff
           ENDIF
         END DO
       END DO
 !ICON_OMP_END_DO
 
- !  CASE (2) ! Forced by difference between wind velocity stored in p_sfc_flx and ocean velocity at top layer
+ !  CASE (2) ! Forced by difference between wind velocity stored in p_oce_sfc and ocean velocity at top layer
  !    ! TODO: topBoundCond_windStress_u is not a velocity, but boundary condition for diffusion
  !    !       to subtract velocity from wind stress is unphysical - to be checked
  !    !  option disabled (#slo#, 2014-04)
@@ -289,17 +288,17 @@ CONTAINS
  !      CALL get_index_range(all_cells, jb, start_index, end_index)
  !      DO jc = start_index, end_index
  !        IF(patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
- !        top_bc_u_c(jc,jb)    = ( p_sfc_flx%topBoundCond_windStress_u(jc,jb)   &
+ !        top_bc_u_c(jc,jb)    = ( p_oce_sfc%TopBC_WindStress_u(jc,jb)   &
  !          & - ocean_state%p_diag%u(jc,1,jb) ) / z_scale(jc,jb)
- !        top_bc_v_c(jc,jb)    = ( p_sfc_flx%topBoundCond_windStress_v(jc,jb)   &
+ !        top_bc_v_c(jc,jb)    = ( p_oce_sfc%TopBC_WindStress_v(jc,jb)   &
  !          & - ocean_state%p_diag%v(jc,1,jb) ) / z_scale(jc,jb)
- !        top_bc_u_cc(jc,jb)%x = ( p_sfc_flx%topBoundCond_windStress_cc(jc,jb)%x &
+ !        top_bc_u_cc(jc,jb)%x = ( p_oce_sfc%TopBC_WindStress_cc(jc,jb)%x &
  !          & - ocean_state%p_diag%p_vn(jc,1,jb)%x)/z_scale(jc,jb)
  !        ENDIF
  !      END DO
  !    END DO
 
- !  CASE (3) ! Forced by difference between wind velocity stored in p_sfc_flx and ocean velocity at top layer as in 2
+ !  CASE (3) ! Forced by difference between wind velocity stored in p_oce_sfc and ocean velocity at top layer as in 2
  !           ! but gradually increase the for forcing_smooth_steps
  !    ! TODO: topBoundCond_windStress_u is not a velocity, but boundary condition for diffusion
  !    !       to subtract velocity from wind stress is unphysical - to be checked
@@ -317,14 +316,14 @@ CONTAINS
  !      CALL get_index_range(all_cells, jb, start_index, end_index)
  !      DO jc = start_index, end_index
  !        IF(patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
- !          u_diff = p_sfc_flx%topBoundCond_windStress_u(jc,jb) - ocean_state%p_diag%u(jc,1,jb)
- !          v_diff = p_sfc_flx%topBoundCond_windStress_v(jc,jb) - ocean_state%p_diag%v(jc,1,jb)
+ !          u_diff = p_oce_sfc%TopBC_WindStress_u(jc,jb) - ocean_state%p_diag%u(jc,1,jb)
+ !          v_diff = p_oce_sfc%TopBC_WindStress_v(jc,jb) - ocean_state%p_diag%v(jc,1,jb)
 
  !          stress_coeff = smooth_coeff / z_scale(jc,jb)
 
  !          top_bc_u_c(jc,jb)    = u_diff * stress_coeff
  !          top_bc_v_c(jc,jb)    = v_diff * stress_coeff
- !          top_bc_u_cc(jc,jb)%x = ( p_sfc_flx%topBoundCond_windStress_cc(jc,jb)%x &
+ !          top_bc_u_cc(jc,jb)%x = ( p_oce_sfc%TopBC_WindStress_cc(jc,jb)%x &
  !            & - ocean_state%p_diag%p_vn(jc,1,jb)%x) * stress_coeff
  !        ENDIF
  !      END DO
@@ -341,9 +340,9 @@ CONTAINS
 
             stress_coeff = smooth_coeff * z_scale(jc,jb) * forcing_windStress_weight
 
-            ocean_state%p_aux%bc_top_u(jc,jb)          = p_sfc_flx%topBoundCond_windStress_u(jc,jb)    * stress_coeff
-            ocean_state%p_aux%bc_top_v(jc,jb)          = p_sfc_flx%topBoundCond_windStress_v(jc,jb)    * stress_coeff
-            ocean_state%p_aux%bc_top_veloc_cc(jc,jb)%x = p_sfc_flx%topBoundCond_windStress_cc(jc,jb)%x * stress_coeff
+            ocean_state%p_aux%bc_top_u(jc,jb)          = p_oce_sfc%TopBC_WindStress_u(jc,jb)    * stress_coeff
+            ocean_state%p_aux%bc_top_v(jc,jb)          = p_oce_sfc%TopBC_WindStress_v(jc,jb)    * stress_coeff
+            ocean_state%p_aux%bc_top_veloc_cc(jc,jb)%x = p_oce_sfc%TopBC_WindStress_cc(jc,jb)%x * stress_coeff
 
          ENDIF
        END DO
@@ -833,12 +832,12 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
 !<Optimize:inUse>
-  SUBROUTINE top_bound_cond_tracer( patch_2D, pstate_oce, tracer_id, p_sfc_flx, top_bc_tracer)
+  SUBROUTINE top_bound_cond_tracer( patch_2D, pstate_oce, tracer_id, p_oce_sfc, top_bc_tracer)
     
     TYPE(t_patch)    , TARGET, INTENT(in) :: patch_2D             ! patch on which computation is performed
     TYPE(t_hydro_ocean_state), INTENT(in) :: pstate_oce          ! ocean state variable
     INTEGER, INTENT(in)                   :: tracer_id
-    TYPE(t_sfc_flx), INTENT(in)           :: p_sfc_flx
+    TYPE(t_ocean_surface), INTENT(in)     :: p_oce_sfc
     REAL(wp), INTENT(inout)               :: top_bc_tracer(:,:,:) !Top boundary condition at cells for all tracers
     !
     !Local variables
@@ -857,7 +856,7 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_index, end_index)
         DO jc = start_index, end_index
-          top_bc_tracer(jc,jb, tracer_id) = p_sfc_flx%topBoundCond_Temp_vdiff(jc,jb)
+          top_bc_tracer(jc,jb, tracer_id) = p_oce_sfc%TopBC_Temp_vdiff(jc,jb)
         END DO
       END DO
 !ICON_OMP_END_PARALLEL_DO
@@ -869,7 +868,7 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_index, end_index)
         DO jc = start_index, end_index
-          top_bc_tracer(jc,jb, tracer_id) = p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb)
+          top_bc_tracer(jc,jb, tracer_id) = p_oce_sfc%TopBC_Salt_vdiff(jc,jb)
         END DO
       END DO
 !ICON_OMP_END_PARALLEL_DO
@@ -880,7 +879,7 @@ CONTAINS
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_index, end_index)
         DO jc = start_index, end_index
-          top_bc_tracer(jc,jb, tracer_id) = 0.0_wp!p_sfc_flx%topBoundCond_Temp_vdiff(jc,jb)
+          top_bc_tracer(jc,jb, tracer_id) = 0.0_wp!p_oce_sfc%TopBC_Temp_vdiff(jc,jb)
         END DO
       END DO
 !ICON_OMP_END_PARALLEL_DO    

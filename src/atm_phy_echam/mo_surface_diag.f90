@@ -33,14 +33,16 @@ CONTAINS
   SUBROUTINE surface_fluxes( kproma, kbdim, ksfc_type,             &! in
                            & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
                            & psteplen,                             &! in
-                           & pfrc, pcfh_tile, pfac_sfc,            &! in
+                           & pfrc, alake, pcfh_tile, pfac_sfc,     &! in
                            & pcptv_tile, pqsat_tile,               &! in
                            & pca, pcs, bb_btm,                     &! in
+                           & plhflx_lnd, plhflx_lwtr, plhflx_lice, &! in for JSBACH land and lakes
+                           & pshflx_lnd, pshflx_lwtr, pshflx_lice, &! in for JSBACH land and lakes
+                           & pevap_lnd, pevap_lwtr, pevap_lice,    &! in for JSBACH land and lakes 
                            & plhflx_gbm, pshflx_gbm,               &! out
                            & pevap_gbm,                            &! out
-                           & plhflx_tile, pshflx_tile,             &! inout for JSBACH land
-                           & pevap_tile,                           &! out
-                           & evapotranspiration)
+                           & plhflx_tile, pshflx_tile,             &! out
+                           & pevap_tile )                           ! out
 
     REAL(wp),INTENT(IN) :: psteplen
     INTEGER, INTENT(IN) :: kproma, kbdim, ksfc_type
@@ -48,6 +50,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: ih, iqv
 
     REAL(wp),INTENT(IN) :: pfrc      (kbdim,ksfc_type)
+    REAL(wp),INTENT(IN) :: alake     (kbdim)
     REAL(wp),INTENT(IN) :: pcfh_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(IN) :: pfac_sfc  (kbdim)
     REAL(wp),INTENT(IN) :: pcptv_tile(kbdim,ksfc_type)
@@ -61,11 +64,14 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pshflx_gbm(kbdim)
     REAL(wp),INTENT(OUT) :: pevap_gbm(kbdim)
 
-    REAL(wp),INTENT(INOUT) :: plhflx_tile(kbdim,ksfc_type) ! INOUT due to JSBACH land
-    REAL(wp),INTENT(INOUT) :: pshflx_tile(kbdim,ksfc_type) ! INOUT due to JSBACH land
+    REAL(wp),INTENT(OUT)   :: plhflx_tile(kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT)   :: pshflx_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(OUT)   :: pevap_tile(kbdim,ksfc_type)
 
-    REAL(wp),OPTIONAL,INTENT(IN)    :: evapotranspiration(kbdim) ! present for JSBACH land
+    ! Input for JSBACH land and lakes
+    REAL(wp),INTENT(IN)    :: plhflx_lnd(kbdim), plhflx_lwtr(kbdim), plhflx_lice(kbdim), &
+      &                       pshflx_lnd(kbdim), pshflx_lwtr(kbdim), pshflx_lice(kbdim), &
+      &                       pevap_lnd (kbdim), pevap_lwtr (kbdim), pevap_lice (kbdim)
 
     INTEGER  :: jsfc
     REAL(wp) :: zconst, zdqv(kbdim), zdcptv(kbdim)
@@ -75,12 +81,14 @@ CONTAINS
     ! corresponding values to zero and return to the calling subroutine.
     !===================================================================
 
-    DO jsfc = 1,ksfc_type
-      IF (jsfc /= idx_lnd .OR. .NOT. PRESENT(evapotranspiration)) THEN  ! for JSBACH land, the fluxes are already in these arrays
-        plhflx_tile(1:kproma,jsfc) = 0._wp
-        pshflx_tile(1:kproma,jsfc) = 0._wp
-      END IF
-    END DO
+    plhflx_tile(:,:) = 0._wp
+    pshflx_tile(:,:) = 0._wp
+    ! DO jsfc = 1,ksfc_type
+    !   IF (jsfc /= idx_lnd) THEN  ! for JSBACH land, the fluxes are already in these arrays
+    !     plhflx_tile(1:kproma,jsfc) = 0._wp
+    !     pshflx_tile(1:kproma,jsfc) = 0._wp
+    !   END IF
+    ! END DO
 
     !===================================================================
     ! Otherwise compute diagnostics
@@ -115,12 +123,27 @@ CONTAINS
       !                     *(tpfac1)**(-1)*( qv_{tavg,klev} - qs_tile ) ]
 
       IF (jsfc == idx_lnd) THEN
-        pevap_tile(1:kproma,jsfc) = evapotranspiration(1:kproma)
-      ELSE
-        pevap_tile(1:kproma,jsfc) =  zconst*pfac_sfc(1:kproma) &
-                                  & *pcfh_tile(1:kproma,jsfc)  &
-                                  & *zdqv(1:kproma)
+        pevap_tile(1:kproma,jsfc) = pevap_lnd(1:kproma)
       END IF
+      IF (jsfc == idx_wtr) THEN
+        WHERE (alake(1:kproma) > 0._wp)
+          pevap_tile(1:kproma,idx_wtr) = pevap_lwtr(1:kproma)
+        ELSE WHERE
+          pevap_tile(1:kproma,idx_wtr) =  zconst*pfac_sfc(1:kproma)   &
+                                       & *pcfh_tile(1:kproma,idx_wtr) &
+                                       & *zdqv(1:kproma)
+        END WHERE
+      END IF
+      IF (jsfc == idx_ice) THEN
+        WHERE (alake(1:kproma) > 0._wp)
+          pevap_tile(1:kproma,idx_ice) = pevap_lice(1:kproma)
+        ELSE WHERE
+          pevap_tile(1:kproma,idx_ice) =  zconst*pfac_sfc(1:kproma)   &
+                                       & *pcfh_tile(1:kproma,idx_ice) &
+                                       & *zdqv(1:kproma)
+        END WHERE
+      END IF
+
     ENDDO
 
     ! Compute grid box mean and time integral
@@ -139,13 +162,23 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Instantaneous values
 
-    ! Note: latent heat flux from land is already in plhflx_tile(:,idx_lnd)
-
-    IF (idx_ice<=ksfc_type) &
-    plhflx_tile(1:kproma,idx_ice) = als*pevap_tile(1:kproma,idx_ice)
-
-    IF (idx_wtr<=ksfc_type) &
-    plhflx_tile(1:kproma,idx_wtr) = alv*pevap_tile(1:kproma,idx_wtr)
+    IF (idx_lnd <= ksfc_type) THEN
+      plhflx_tile(1:kproma,idx_lnd) = plhflx_lnd(1:kproma)
+    END IF
+    IF (idx_wtr <= ksfc_type) THEN
+      WHERE (alake(1:kproma) > 0._wp)
+        plhflx_tile(1:kproma,idx_wtr) = plhflx_lwtr(1:kproma)
+      ELSE WHERE
+        plhflx_tile(1:kproma,idx_wtr) = alv*pevap_tile(1:kproma,idx_wtr)
+      END WHERE
+    END IF
+    IF (idx_ice <= ksfc_type) THEN
+      WHERE (alake(1:kproma) > 0._wp)
+        plhflx_tile(1:kproma,idx_ice) = plhflx_lice(1:kproma)
+      ELSE WHERE
+        plhflx_tile(1:kproma,idx_ice) = als*pevap_tile(1:kproma,idx_ice)
+      END WHERE
+    END IF
 
     ! Accumulated grid box mean
 
@@ -163,11 +196,6 @@ CONTAINS
 
     DO jsfc = 1,ksfc_type
 
-      ! Note: sensible heat flux from land is already in pshflx_tile(:,idx_lnd)
-      IF (jsfc == idx_lnd) THEN
-        ! COMMENT: already done at begin of routine
-      ELSE
-
       ! Vertical gradient of dry static energy.
       ! (Formula translated from ECHAM. Question: why using the blended
       ! dry static energy, not the value on individual surface?)
@@ -178,14 +206,29 @@ CONTAINS
 
       ! Flux of dry static energy
 
-        pshflx_tile(1:kproma,jsfc) =  zconst*pfac_sfc(1:kproma) &
-                                   & *pcfh_tile(1:kproma,jsfc)  &
-                                   & *zdcptv(1:kproma)
-
+      IF (jsfc == idx_lnd) THEN
+        pshflx_tile(1:kproma,jsfc) = pshflx_lnd(1:kproma)
+      END IF
+      IF (jsfc == idx_wtr) THEN
+        WHERE (alake(1:kproma) > 0._wp)
+          pshflx_tile(1:kproma,jsfc) = pshflx_lwtr(1:kproma)
+        ELSE WHERE
+          pshflx_tile(1:kproma,jsfc) =  zconst*pfac_sfc(1:kproma) &
+                                     & *pcfh_tile(1:kproma,jsfc)  &
+                                     & *zdcptv(1:kproma)
+        END WHERE
+      END IF
+      IF (jsfc == idx_ice) THEN
+        WHERE (alake(1:kproma) > 0._wp)
+          pshflx_tile(1:kproma,jsfc) = pshflx_lice(1:kproma)
+        ELSE WHERE
+         pshflx_tile(1:kproma,jsfc) =  zconst*pfac_sfc(1:kproma) &
+                                     & *pcfh_tile(1:kproma,jsfc)  &
+                                     & *zdcptv(1:kproma)
+        END WHERE
       END IF
 
     ENDDO
-
 
     ! grid box mean
 
