@@ -128,7 +128,9 @@ run_scripts_submit()
     fi
     if [[ "$batch_system" = "slurm" ]]
     then
-        job_submitted["$EXP_FILE"]=`squeue -u ${slurm_user} -h -o '%i' -S '-i' | awk 'NR==1{print $1}'`
+        sleep 2
+        jobid=`squeue -u ${slurm_user} -h -o '%i' -S '-i' | awk 'NR==1{print $1}'`
+        job_submitted["$EXP_FILE"]=$jobid
     fi
   done
 
@@ -157,13 +159,13 @@ run_scripts_submit()
       if [[ "$batch_system" = "slurm" ]]
       then
           slurm_jobid=${job_submitted["$EXP_FILE"]}
-          job_state=`sacct -j ${slurm_jobid} -o jobid,state,exitcode | awk 'NR==1{print $2}'`
+          job_state=`sacct -j ${slurm_jobid} -n -o jobid,state,exitcode | awk 'NR==1{print $2}'`
           case "$job_state" in
               TIMEOUT)
                   echo 127 > ${EXP_FILE}.status
               ;;
               COMPLETED)
-                  # all did run fine
+                  echo 0 > ${EXP_FILE}.status
               ;;
               *)
                   echo 191 > ${EXP_FILE}.status                  
