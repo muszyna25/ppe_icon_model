@@ -1066,9 +1066,8 @@ CONTAINS
         CALL p_send_packed(mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%process_mpi_all_collector_id, &
           &                TAG_VARLIST, mtgrm(jg)%vbuf_pos)
       END IF
-    ELSE
-      IF (mtgrm(jg)%l_is_collecting_pe) &
-        CALL receive_var_info(mtgrm(jg)%meteogram_local_data, jg)
+    ELSE IF (mtgrm(jg)%l_is_collecting_pe) THEN
+      CALL receive_var_info(mtgrm(jg)%meteogram_local_data, jg)
     END IF
 
     IF ( mtgrm(jg)%l_is_varlist_sender .OR. &
