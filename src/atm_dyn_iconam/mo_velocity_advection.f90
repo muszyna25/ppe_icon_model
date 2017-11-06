@@ -67,10 +67,10 @@ MODULE mo_velocity_advection
   LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #define __COLLAPSE_2_LOOPS !$ACC LOOP VECTOR COLLAPSE(2)
 #else
-#if defined(_INTEL_COMPILER)  
+#if __CRAY_FTN_VERSION > 850
 #define __COLLAPSE_2_LOOPS !$OMP SIMD
 #else
-#define __COLLAPSE_2_LOOPS !NO LOOP COLLAPSE DIRECTIVE AVAILABLE
+#define __COLLAPSE_2_LOOPS !SIMD not supported
 #endif
 #endif
 

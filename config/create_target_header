@@ -863,8 +863,8 @@ set_run_target_daint_cpu()
   set_default use_nodes 1
   # use_OMP_SCHEDULE="static,1"
   use_OMP_SCHEDULE="static,12"
-  icon_data_rootFolder=${icon_data_rootFolder:=/users/icontest/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/users/icontest/pool/data/ICON}
+  icon_data_rootFolder=${icon_data_rootFolder:=/scratch/snx3000/icontest/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/scratch/snx3000/icontest/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -946,8 +946,8 @@ set_run_target_daint_gpu()
   set_default use_nproma 256
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,1"
-  icon_data_rootFolder=${icon_data_rootFolder:=/users/icontest/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/users/icontest/pool/data/ICON}
+  icon_data_rootFolder=${icon_data_rootFolder:=/scratch/snx3000/icontest/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/scratch/snx3000/icontest/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -1030,8 +1030,8 @@ set_run_target_dom_gpu()
   set_default use_nproma 256
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,1"
-  icon_data_rootFolder=${icon_data_rootFolder:=/users/icontest/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/users/icontest/pool/data/ICON}
+  icon_data_rootFolder=${icon_data_rootFolder:=/scratch/snx3000/icontest}
+  icon_data_poolFolder=${icon_data_poolFolder:=/scratch/snx3000/icontest}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -1102,8 +1102,8 @@ set_run_target_tave_knl()
   set_default use_nproma 16
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,2"
-  icon_data_rootFolder=${icon_data_rootFolder:=/users/icontest/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/users/icontest/pool/data/ICON}
+  icon_data_rootFolder=${icon_data_rootFolder:=/scratch/snx3000/icontest/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/scratch/snx3000/icontest/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then

@@ -37,9 +37,9 @@ unset OMPI_MCA_coll_fca_priority
 
 # overwrite the default setting with the new path and handle daint (CSCS)
 
-if [ -d /users/icontest ]
+if [ -d /scratch/snx3000/icontest ]
 then
-    poolFolder_prefix=/users/icontest
+    poolFolder_prefix=/scratch/snx3000/icontest
 else
     poolFolder_prefix=
 fi
