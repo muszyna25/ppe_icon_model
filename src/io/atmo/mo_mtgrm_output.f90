@@ -42,7 +42,7 @@
 !! of output PEs (i.e. asynchronous or synchronous I/O mode) the MPI
 !! tasks have the following functions:
 !!
-!! 1) num_io_procs == 0 (synchronous I/O)
+!! 1) use_async_name_list_io == .FALSE. (synchronous I/O)
 !!    1a) ldistributed == .TRUE.
 !!        All MPI tasks are writing their own files, the global
 !!        meteogram buffer "meteogram_global_data" is not necessary.
@@ -55,7 +55,7 @@
 !!        closes the NetCDF file. The MPI rank of this PE is
 !!        "process_mpi_all_workroot_id", this PE has the flag
 !!        "l_is_collecting_pe" enabled.
-!! 2) num_io_procs > 0 (asynchronous I/O)
+!! 2) use_async_name_list_io == .TRUE. => num_io_procs > 0 (asynchronous I/O)
 !!    2a) ldistributed == .TRUE.
 !!        Invalid case, caught by namelist cross checks
 !!    2b) ldistributed == .FALSE.
@@ -120,7 +120,6 @@ MODULE mo_meteogram_output
     &                                 my_process_is_mpi_test,             &
     &                                 p_real_dp_byte,                     &
     &                                 MPI_ANY_SOURCE,                     &
-    &                                 process_mpi_io_size,                &
     &                                 p_barrier, p_comm_work_io,          &
     &                                 p_comm_io, p_comm_rank, p_comm_size
   USE mo_model_domain,          ONLY: t_patch
@@ -151,6 +150,7 @@ MODULE mo_meteogram_output
                                       iqg, iqh
   USE mo_meteogram_config,      ONLY: t_meteogram_output_config, t_station_list, &
     &                                 FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
+  USE mo_name_list_output_config, ONLY: use_async_name_list_io
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_name_list_output_types,ONLY: msg_io_meteogram_flush
   USE mo_util_phys,             ONLY: rel_hum, swdir_s
@@ -856,15 +856,14 @@ CONTAINS
 
     ! PE collecting variable info to send it to pure I/O PEs.
     ! (only relevant if pure I/O PEs exist)
-    mtgrm(jg)%l_is_varlist_sender = (process_mpi_io_size > 0)    .AND.  &
-      &                   my_process_is_work() .AND. &
-      &                   is_mpi_workroot
+    mtgrm(jg)%l_is_varlist_sender &
+      = use_async_name_list_io .AND. my_process_is_work() .AND. is_mpi_workroot
 
     ! Flag. True, if this PE is a pure I/O PE without own patch data:
-    mtgrm(jg)%l_pure_io_pe        = (process_mpi_io_size > 0) .AND. is_io
+    mtgrm(jg)%l_pure_io_pe        = use_async_name_list_io .AND. is_io
 
     io_collector_rank = -1
-    IF (process_mpi_io_size > 0) THEN
+    IF (use_async_name_list_io) THEN
 
       ! determine rank of last I/O PE
       IF (is_io) THEN
@@ -881,15 +880,15 @@ CONTAINS
     ! Flag. True, if this PE collects data from (other) working PEs
     mtgrm(jg)%l_is_collecting_pe                                             &
       &    =       (.NOT. meteogram_output_config%ldistributed)              &
-      &      .AND. (.NOT. is_mpi_test)                          &
-      &      .AND. (     ((process_mpi_io_size == 0)                         &
+      &      .AND. (.NOT. is_mpi_test)                                       &
+      &      .AND. (     ((.NOT. use_async_name_list_io)                     &
       &                   .AND. is_mpi_workroot                              &
       &                   .AND. (p_n_work > 1) )                             &
       &             .OR. (mtgrm(jg)%l_pure_io_pe                             &
       &                   .AND. (world_rank == io_collector_rank)))
 
     IF (.NOT. meteogram_output_config%ldistributed) THEN
-      IF (process_mpi_io_size == 0) THEN
+      IF (.NOT. use_async_name_list_io) THEN
         mtgrm(jg)%process_mpi_all_collector_id = get_mpi_all_workroot_id()
       ELSE
         mtgrm(jg)%process_mpi_all_collector_id = io_collector_rank
@@ -960,8 +959,7 @@ CONTAINS
 
       DO jb=1,nblks
         i_startidx = 1
-        i_endidx   = nproma
-        IF (jb == nblks) i_endidx = npromz
+        i_endidx   = MERGE(nproma, npromz, jb /= nblks)
 
         DO jc=i_startidx,i_endidx
 !          in_points(jc,jb,:) = &
