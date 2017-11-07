@@ -1108,7 +1108,6 @@ CONTAINS
     REAL(wp), ALLOCATABLE              :: hlevels(:)
     TYPE(t_meteogram_data)   , POINTER :: meteogram_data
     TYPE(t_meteogram_station), POINTER :: p_station
-    TYPE(t_cf_global)        , POINTER :: cf  !< meta info
     TYPE(t_gnat_tree)                  :: gnat
     INTEGER                            :: max_time_stamps
     INTEGER                            :: io_collector_rank
@@ -1200,13 +1199,8 @@ CONTAINS
     mtgrm(jg)%silent_flush = meteogram_output_config%silent_flush
 
     ! set meta data (appears in NetCDF output file)
-    cf => mtgrm(jg)%meteogram_file_info%cf
-    cf%title       = 'ICON Meteogram File'
-    cf%institution = cf_global_info%institution
-    cf%source      = cf_global_info%source
-    cf%history     = cf_global_info%history
-    cf%references  = cf_global_info%references
-    cf%comment     = cf_global_info%comment
+    mtgrm(jg)%meteogram_file_info%cf       = cf_global_info
+    mtgrm(jg)%meteogram_file_info%cf%title = 'ICON Meteogram File'
 
     mtgrm(jg)%meteogram_file_info%ldistributed = meteogram_output_config%ldistributed
     CALL uuid_unparse(grid_uuid, mtgrm(jg)%meteogram_file_info%uuid_string)
