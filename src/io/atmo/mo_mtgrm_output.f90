@@ -63,7 +63,7 @@
 !!        the NetCDF output. Thus, this PE has "l_is_collecting_pe" and
 !!        "l_is_writer" enabled.  Since this output PE has no
 !!        information on variable (levels) and patches, it has also
-!!        the flag "l_pure_io_pe" enabled and receives this setup from
+!!        the flag "is_pure_io_pe" enabled and receives this setup from
 !!        a dedicated working PE (workroot). The latter has
 !!        "l_is_varlist_sender" enabled.
 !!
@@ -381,7 +381,7 @@ MODULE mo_meteogram_output
 
     ! different roles in communication:
     LOGICAL                 :: l_is_sender, l_is_writer,         &
-      &                        l_pure_io_pe, l_is_collecting_pe, &
+      &                        l_is_collecting_pe, &
       &                        l_is_varlist_sender
     INTEGER                 :: process_mpi_all_collector_id     !< rank of PE which gathers data
     INTEGER                 :: global_idx(MAX_NUM_STATIONS)     !< rank of sender PE for each station
@@ -1112,7 +1112,7 @@ CONTAINS
     TYPE(t_gnat_tree)                  :: gnat
     INTEGER                            :: max_time_stamps
     INTEGER                            :: io_collector_rank
-    LOGICAL                            :: is_io, is_mpi_workroot, is_mpi_test
+    LOGICAL :: is_io, is_mpi_workroot, is_mpi_test, is_pure_io_pe
     INTEGER                            :: world_rank
 
     is_io = my_process_is_io()
@@ -1129,7 +1129,7 @@ CONTAINS
       = use_async_name_list_io .AND. my_process_is_work() .AND. is_mpi_workroot
 
     ! Flag. True, if this PE is a pure I/O PE without own patch data:
-    mtgrm(jg)%l_pure_io_pe        = use_async_name_list_io .AND. is_io
+    is_pure_io_pe = use_async_name_list_io .AND. is_io
 
     io_collector_rank = -1
     IF (use_async_name_list_io) THEN
@@ -1153,7 +1153,7 @@ CONTAINS
       &      .AND. (     ((.NOT. use_async_name_list_io)                     &
       &                   .AND. is_mpi_workroot                              &
       &                   .AND. (p_n_work > 1) )                             &
-      &             .OR. (mtgrm(jg)%l_pure_io_pe                             &
+      &             .OR. (is_pure_io_pe                             &
       &                   .AND. (world_rank == io_collector_rank)))
 
     IF (.NOT. meteogram_output_config%ldistributed) THEN
@@ -1166,7 +1166,7 @@ CONTAINS
 
     ! Consistency check I: If this is NOT a pure I/O PE, then patch data
     ! must be available:
-    IF (.NOT. mtgrm(jg)%l_pure_io_pe .AND. &
+    IF (.NOT. is_pure_io_pe .AND. &
       & ((.NOT. PRESENT(ptr_patch))   .OR.  (.NOT. PRESENT(ext_data))    .OR.  &
       &  (.NOT. PRESENT(p_nh_state))  .OR.                                     &
       &  (.NOT. PRESENT(p_lnd_state)) .OR.  (.NOT. PRESENT(iforcing))   .OR.  &    
@@ -1176,7 +1176,7 @@ CONTAINS
 
     ! Consistency check II: If this is a pure I/O PE, then number_of_grid_used
     ! and grid_uuid must be available.
-    IF (mtgrm(jg)%l_pure_io_pe .AND. &
+    IF (is_pure_io_pe .AND. &
       & ( (.NOT. PRESENT(number_of_grid_used) .OR. &
       &   (.NOT. PRESENT(grid_uuid)) ) ) ) THEN
       CALL finish (routine, 'I/O PE Missing argument(s)!')
@@ -1218,7 +1218,7 @@ CONTAINS
     ! ------------------------------------------------------------
 
     mtgrm(jg)%meteogram_local_data%pstation(:) = -1
-    IF (.NOT. mtgrm(jg)%l_pure_io_pe) THEN
+    IF (.NOT. is_pure_io_pe) THEN
 
       ! build an array of geographical coordinates from station list:
       ! in_points(...)
@@ -1295,13 +1295,13 @@ CONTAINS
     ! Here, they get it from working PE#0 which has collected it in
     ! "msg_varlist_buffer" during the add_xxx_var calls
     IF ( mtgrm(jg)%l_is_varlist_sender .OR. &
-      & (mtgrm(jg)%l_pure_io_pe .AND. mtgrm(jg)%l_is_collecting_pe)) THEN
+      & (is_pure_io_pe .AND. mtgrm(jg)%l_is_collecting_pe)) THEN
       ALLOCATE(pack_buf%msg_varlist(max_varlist_buf_size), stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
         CALL finish (routine, 'ALLOCATE of MPI buffer failed.')
       pack_buf%pos = 0
 
-      IF (mtgrm(jg)%l_pure_io_pe) THEN
+      IF (is_pure_io_pe) THEN
         ! launch message receive call
         CALL p_irecv_packed(pack_buf%msg_varlist(:), get_mpi_all_workroot_id(), TAG_VARLIST, &
           &                 max_varlist_buf_size)
@@ -1324,7 +1324,7 @@ CONTAINS
     ENDIF
 
     ! set up list of variables:
-    IF (.NOT. mtgrm(jg)%l_pure_io_pe) THEN
+    IF (.NOT. is_pure_io_pe) THEN
       CALL meteogram_setup_variables(meteogram_output_config, ext_data, &
         &                            p_nh_state, prm_diag, p_lnd_state, &
         &                            prm_nwp_tend, &
@@ -1341,7 +1341,7 @@ CONTAINS
     END IF
 
     IF ( mtgrm(jg)%l_is_varlist_sender .OR. &
-      & (mtgrm(jg)%l_pure_io_pe .AND. mtgrm(jg)%l_is_collecting_pe)) THEN
+      & (is_pure_io_pe .AND. mtgrm(jg)%l_is_collecting_pe)) THEN
       ! deallocate buffer
       DEALLOCATE(pack_buf%msg_varlist, stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
@@ -1368,7 +1368,7 @@ CONTAINS
     END DO
 
     ! set up list of local stations:
-    IF (.NOT. mtgrm(jg)%l_pure_io_pe) THEN
+    IF (.NOT. is_pure_io_pe) THEN
 
       ALLOCATE(meteogram_data%station(nproma, nblks), stat=ierrstat)
       IF (ierrstat /= SUCCESS) THEN
@@ -1762,14 +1762,15 @@ CONTAINS
     INTEGER                     :: ierrstat, jb, jc, i_startidx, i_endidx, &
       &                            nvars, nsfcvars, ivar
     TYPE(t_meteogram_data), POINTER :: meteogram_data
+    LOGICAL :: is_pure_io_pe
 
     ! ------------------------------------------------------------
     ! If this is the IO PE: close NetCDF file
     ! ------------------------------------------------------------
 
     CALL meteogram_close_file(jg)
-
-    IF (.NOT. mtgrm(jg)%l_pure_io_pe) THEN
+    is_pure_io_pe = use_async_name_list_io .AND. my_process_is_io()
+    IF (.NOT. is_pure_io_pe) THEN
       meteogram_data => mtgrm(jg)%meteogram_local_data
       DEALLOCATE(meteogram_data%time_stamp, stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
@@ -1912,6 +1913,7 @@ CONTAINS
     TYPE(t_meteogram_data),    POINTER :: meteogram_data
     TYPE(t_meteogram_station), POINTER :: p_station
     INTEGER :: world_rank
+    LOGICAL :: is_pure_io_pe
 
     IF (dbg_level > 5)  WRITE (*,*) routine, " Enter (collecting PE=", mtgrm(jg)%l_is_collecting_pe, ")"
 
@@ -1920,6 +1922,8 @@ CONTAINS
     ! global time stamp index
     ! Note: We assume that this value is identical for all PEs
     icurrent = meteogram_data%icurrent
+
+    is_pure_io_pe = use_async_name_list_io .AND. my_process_is_io()
 
     world_rank = get_my_mpi_all_id()
     ! -- RECEIVER CODE --
@@ -1952,7 +1956,7 @@ CONTAINS
           CYCLE
         END IF
 
-        IF ((iowner /= world_rank) .OR. mtgrm(jg)%l_pure_io_pe) THEN
+        IF ((iowner /= world_rank) .OR. is_pure_io_pe) THEN
           position = 0
 
           !-- unpack global time stamp index
