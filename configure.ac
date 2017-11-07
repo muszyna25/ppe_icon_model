@@ -973,7 +973,10 @@ dnl Check for byte ordering
 
 dnl Check for Fortran naming convention
 
+dnl  the m4_pushdef of lSystem inserts a hack by Cray also with stock autoconf
+   m4_pushdef([lSystem],[lSy[]stem | -ltcmalloc | -ltcmalloc_minimal])dnl
    AC_FC_WRAPPERS
+   m4_popdef([lSystem])dnl
 
 fi # ! CROSS
 
