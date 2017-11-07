@@ -173,7 +173,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! 3. Read user's (new) specifications (Done so far by all MPI processes)
     !-------------------------------------------------------------------------
-    CALL open_nml(TRIM(filename))
+    CALL open_nml(filename)
     CALL position_nml ('meteogram_output_nml', status=istat)
     IF (my_process_is_stdio()) THEN
       iunit = temp_defaults()
