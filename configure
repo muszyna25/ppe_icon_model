@@ -5846,8 +5846,8 @@ fi
 fi
 	  ;;
 	  # Ignore these flags.
-	-lang* | -lcrt*.o | -lc | -lgcc* | -lSystem | -libmil | -little \
-	  |-LANG:=* | -LIST:* | -LNO:* | -link | -ltcmalloc | -ltcmalloc_minimal)
+	-lang* | -lcrt*.o | -lc | -lgcc* | -lSystem | -ltcmalloc | -ltcmalloc_minimal | -libmil | -little \
+	  |-LANG:=* | -LIST:* | -LNO:* | -link)
 	  ;;
 	-lkernel32)
 	  case $host_os in
