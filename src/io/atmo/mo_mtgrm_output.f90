@@ -1202,11 +1202,11 @@ CONTAINS
     ! set meta data (appears in NetCDF output file)
     cf => mtgrm(jg)%meteogram_file_info%cf
     cf%title       = 'ICON Meteogram File'
-    cf%institution = TRIM(cf_global_info%institution)
-    cf%source      = TRIM(cf_global_info%source)
-    cf%history     = TRIM(cf_global_info%history)
-    cf%references  = TRIM(cf_global_info%references)
-    cf%comment     = TRIM(cf_global_info%comment)
+    cf%institution = cf_global_info%institution
+    cf%source      = cf_global_info%source
+    cf%history     = cf_global_info%history
+    cf%references  = cf_global_info%references
+    cf%comment     = cf_global_info%comment
 
     mtgrm(jg)%meteogram_file_info%ldistributed = meteogram_output_config%ldistributed
     CALL uuid_unparse(grid_uuid, mtgrm(jg)%meteogram_file_info%uuid_string)
@@ -1701,7 +1701,7 @@ CONTAINS
     meteogram_data%icurrent = i_tstep
     meteogram_data%time_stamp(i_tstep)%istep = cur_step
     CALL datetimeToPosixString(cur_datetime, zdate, "%Y%m%dT%H%M%SZ")
-    meteogram_data%time_stamp(i_tstep)%zdate = TRIM(zdate)
+    meteogram_data%time_stamp(i_tstep)%zdate = zdate
     
     ! fill time step with values
     DO jb=1,meteogram_data%nblks
@@ -2185,7 +2185,7 @@ CONTAINS
       &        var_level_dims(2), time_string_dims(2), &
       &        var_dims(4),  sfcvar_dims(3),           &
       &        height_level_dims(3),                   &
-      &        istart2(2), icount2(2), iowner
+      &        istart2(2), icount2(2), iowner, tlen
     INTEGER :: jb, jc, i_startidx, i_endidx, old_mode, ncfile, &
       &        istation, ivar, nvars, nsfcvars, nlevs
     TYPE(t_station_list)  , POINTER :: this_station
@@ -2204,9 +2204,11 @@ CONTAINS
     CALL put_global_txt_att('source', TRIM(cf%source))
     CALL put_global_txt_att('comment', TRIM(cf%comment))
     CALL put_global_txt_att('references', TRIM(cf%references))
-    CALL put_global_txt_att('uuidOfHGrid', TRIM(meteogram_file_info%uuid_string))
-    CALL nf(nf_put_att_int (ncfile, NF_GLOBAL, 'numberOfGridUsed',  &
-      &                     nf_int,  1, meteogram_file_info%number_of_grid_used), routine)
+    CALL put_global_txt_att('uuidOfHGrid', meteogram_file_info%uuid_string)
+    CALL nf(nf_put_att_int(ncfile, NF_GLOBAL, 'numberOfGridUsed',  &
+      &                    nf_int, 1, &
+      &                    mtgrm(jg)%meteogram_file_info%number_of_grid_used), &
+      &     routine)
 
 
     ! for the definition of a character-string variable define
@@ -2341,15 +2343,19 @@ CONTAINS
     IF (dbg_level > 7)  WRITE (*,*) routine, " : End of definition mode"
 
     DO ivar=1,nvars
+      tlen = LEN_TRIM(meteogram_data%var_info(ivar)%cf%standard_name)
       CALL nf(nf_put_vara_text(ncfile, ncid%var_name, (/ 1, ivar /), &
-        &        (/ LEN_TRIM(meteogram_data%var_info(ivar)%cf%standard_name), 1 /), &
-        &        TRIM(meteogram_data%var_info(ivar)%cf%standard_name)), routine)
+        &        (/ tlen, 1 /), &
+        &        meteogram_data%var_info(ivar)%cf%standard_name(1:tlen)), &
+        &     routine)
+      tlen = LEN_TRIM(meteogram_data%var_info(ivar)%cf%long_name)
       CALL nf(nf_put_vara_text(ncfile, ncid%var_longname, (/ 1, ivar /), &
-        &        (/ LEN_TRIM(meteogram_data%var_info(ivar)%cf%long_name), 1 /), &
-        &        TRIM(meteogram_data%var_info(ivar)%cf%long_name)), routine)
+        &        (/ tlen, 1 /), &
+        &        meteogram_data%var_info(ivar)%cf%long_name(1:tlen)), routine)
+      tlen = LEN_TRIM(meteogram_data%var_info(ivar)%cf%units)
       CALL nf(nf_put_vara_text(ncfile, ncid%var_unit, (/ 1, ivar /), &
-        &        (/ LEN_TRIM(meteogram_data%var_info(ivar)%cf%units), 1 /), &
-        &        TRIM(meteogram_data%var_info(ivar)%cf%units)), routine)
+        &        (/ tlen, 1 /), &
+        &        meteogram_data%var_info(ivar)%cf%units(1:tlen)), routine)
       CALL nf(nf_put_vara_int(ncfile, ncid%var_group_id, ivar, 1, &
         &        meteogram_data%var_info(ivar)%igroup_id), routine)
       CALL nf(nf_put_vara_int(ncfile, ncid%var_nlevs, ivar, 1, &
@@ -2361,15 +2367,20 @@ CONTAINS
     END DO
 
     DO ivar=1,nsfcvars
+      tlen = LEN_TRIM(meteogram_data%sfc_var_info(ivar)%cf%standard_name)
       CALL nf(nf_put_vara_text(ncfile, ncid%sfcvar_name, (/ 1, ivar /), &
-        &        (/ LEN_TRIM(meteogram_data%sfc_var_info(ivar)%cf%standard_name), 1 /), &
-        &        TRIM(meteogram_data%sfc_var_info(ivar)%cf%standard_name)), routine)
+        &        (/ tlen, 1 /), &
+        &        meteogram_data%sfc_var_info(ivar)%cf%standard_name(1:tlen)), &
+        &     routine)
+      tlen = LEN_TRIM(meteogram_data%sfc_var_info(ivar)%cf%long_name)
       CALL nf(nf_put_vara_text(ncfile, ncid%sfcvar_longname, (/ 1, ivar /), &
-        &        (/ LEN_TRIM(meteogram_data%sfc_var_info(ivar)%cf%long_name), 1 /), &
-        &        TRIM(meteogram_data%sfc_var_info(ivar)%cf%long_name)), routine)
+        &        (/ tlen, 1 /), &
+        &        meteogram_data%sfc_var_info(ivar)%cf%long_name(1:tlen)), &
+        &     routine)
+      tlen = LEN_TRIM(meteogram_data%sfc_var_info(ivar)%cf%units)
       CALL nf(nf_put_vara_text(ncfile, ncid%sfcvar_unit, (/ 1, ivar /), &
-        &        (/ LEN_TRIM(meteogram_data%sfc_var_info(ivar)%cf%units), 1 /), &
-        &        TRIM(meteogram_data%sfc_var_info(ivar)%cf%units)), routine)
+        &        (/ tlen, 1 /), &
+        &        meteogram_data%sfc_var_info(ivar)%cf%units(1:tlen)), routine)
       CALL nf(nf_put_vara_int(ncfile, ncid%sfcvar_group_id, ivar, 1, &
         &        meteogram_data%sfc_var_info(ivar)%igroup_id), routine)
     END DO
@@ -2387,9 +2398,10 @@ CONTAINS
           this_station => meteogram_output_config%station_list(           &
             &               meteogram_data%station(jc,jb)%station_idx(1), &
             &               meteogram_data%station(jc,jb)%station_idx(2))
+          tlen = LEN_TRIM(this_station%zname)
           CALL nf(nf_put_vara_text(ncfile, ncid%station_name, (/ 1, istation /), &
-            &                      (/ LEN_TRIM(this_station%zname), 1 /), &
-            &                      TRIM(this_station%zname)), routine)
+            &                      (/ tlen, 1 /), &
+            &                      this_station%zname(1:tlen)), routine)
           CALL nf(nf_put_vara_double(ncfile, ncid%station_lon, istation, 1, &
             &                        this_station%location%lon), routine)
           CALL nf(nf_put_vara_double(ncfile, ncid%station_lat, istation, 1, &
@@ -2528,7 +2540,7 @@ CONTAINS
       &                            nvars, nsfcvars
     TYPE(t_meteogram_data), POINTER :: meteogram_data
     TYPE(t_ncid)          , POINTER :: ncid
-    INTEGER                         :: istart4(4), icount4(4)
+    INTEGER                         :: istart4(4), icount4(4), tlen
 
     IF (dbg_level > 5)  WRITE (*,*) routine, " Enter"
 
@@ -2563,13 +2575,14 @@ CONTAINS
       ! write time stamp info:
       DO itime=1,meteogram_data%icurrent
 
+        tlen = LEN_TRIM(meteogram_data%time_stamp(itime)%zdate)
         CALL nf(nf_put_vara_text(ncfile, ncid%dateid, (/ 1, totaltime+itime /), &
-             &                      (/ LEN_TRIM(meteogram_data%time_stamp(itime)%zdate), 1 /), &
-             &                      meteogram_data%time_stamp(itime)%zdate), &
-             &                      modname)
+          &                      (/ tlen, 1 /), &
+          &                      meteogram_data%time_stamp(itime)%zdate), &
+          &                      modname)
         CALL nf(nf_put_vara_int(ncfile, ncid%time_step, totaltime+itime, 1, &
-             &                     meteogram_data%time_stamp(itime)%istep),    &
-             &                     modname)
+          &                     meteogram_data%time_stamp(itime)%istep),    &
+          &                     modname)
 
         ! write meteogram buffer:
         istation = 1
@@ -2862,7 +2875,7 @@ CONTAINS
     ! Local variables
     INTEGER                 :: isource_idx, nidx
 
-    IF (TRIM(meteogram_config%var_list(1)) /= "") THEN
+    IF (LEN_TRIM(meteogram_config%var_list(1)) /= 0) THEN
       ! If the user has specified a list of variable names to be
       ! included in the meteogram, check if this variable is contained
       ! in the list:
