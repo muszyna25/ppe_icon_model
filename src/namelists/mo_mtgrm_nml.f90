@@ -33,15 +33,6 @@ MODULE mo_meteogram_nml
   IMPLICIT NONE
   PUBLIC :: read_meteogram_namelist
 
-  !-------------------------------------------------------------------------
-  ! Namelist variables
-  !-------------------------------------------------------------------------
-
-  TYPE t_list_of_stations
-    REAL(wp)              :: lat, lon
-    CHARACTER (LEN=48)    :: zname
-  END TYPE t_list_of_stations
-
 CONTAINS
   !>
   !! Read Namelist for meteogram output.
@@ -69,13 +60,29 @@ CONTAINS
       &                               jb, jc, nblks, npromz, nstations, idx
     INTEGER                        :: iunit
 
-    LOGICAL                         :: lmeteogram_enabled(max_dom)  !> Flag. True, if meteogram output is enabled
-    CHARACTER (len=MAX_NAME_LENGTH) :: zprefix(max_dom)         !> string with file name prefix for output file
-    INTEGER                         :: ftype(max_dom)           !< file type (NetCDF, ...)
-    LOGICAL                         :: ldistributed(max_dom)    !< Flag. Separate files for each PE
-    INTEGER                         :: n0_mtgrm(max_dom)        !> intitial time step for meteogram output
-    INTEGER                         :: ninc_mtgrm(max_dom)      !> output interval (in time steps)
-    LOGICAL                         :: loutput_tiles            !> activate tile specific output
+    !-------------------------------------------------------------------------
+    ! Namelist variables
+    !-------------------------------------------------------------------------
+
+    TYPE t_list_of_stations
+      REAL(wp)              :: lat, lon
+      CHARACTER (LEN=48)    :: zname
+    END TYPE t_list_of_stations
+
+    !> Flag. True, if meteogram output is enabled
+    LOGICAL                         :: lmeteogram_enabled(max_dom)
+    !> string with file name prefix for output file
+    CHARACTER (len=MAX_NAME_LENGTH) :: zprefix(max_dom)
+    !> file type (NetCDF, ...)
+    INTEGER                         :: ftype(max_dom)
+    !> Flag. Separate files for each PE
+    LOGICAL                         :: ldistributed(max_dom)
+    !> initial time step for meteogram output
+    INTEGER                         :: n0_mtgrm(max_dom)
+    !> output interval (in time steps)
+    INTEGER                         :: ninc_mtgrm(max_dom)
+    !> activate tile specific output
+    LOGICAL                         :: loutput_tiles
 
     ! same for all patches:
     !> list of meteogram stations
