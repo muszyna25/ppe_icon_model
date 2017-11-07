@@ -254,7 +254,7 @@ rbf_vec_scale_e   = -1, -1
                       52.92,   6.41, 'TEST23N'
  lmeteogram_enabled= .TRUE.
  n0_mtgrm          = 0             ! meteogram initial time step (0 is first step!)
- ninc_mtgrm        = 5            ! meteogram output interval (steps)
+ ninc_mtgrm        = 2            ! meteogram output interval (steps)
  ldistributed      = .false.
 /
 &output_nml
