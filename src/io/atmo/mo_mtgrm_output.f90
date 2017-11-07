@@ -347,6 +347,18 @@ MODULE mo_meteogram_output
 
   ! -------------------------------------------------------------------------------------------
 
+  !> Holds indices into meteogram_(local|global)_data%station%(sfc_)var
+  TYPE meteogram_diag_var_indices
+    ! several variable indices, stored for convenience (when computing additional diagnostics)
+    INTEGER                 :: i_T        = -1,  &
+      &                        i_REL_HUM  = -1,  &
+      &                        i_QV       = -1,  &
+      &                        i_PEXNER   = -1,  &
+      &                        i_SWDIR_S  = -1,  &
+      &                        i_ALB      = -1,  &
+      &                        i_SWDIFD_S = -1,  &
+      &                        i_SOBS     = -1
+  END TYPE meteogram_diag_var_indices
   !>
   !! Data structure containing meteogram buffers and other data.
   !!
@@ -374,15 +386,7 @@ MODULE mo_meteogram_output
     INTEGER                 :: process_mpi_all_collector_id     !< rank of PE which gathers data
     INTEGER                 :: global_idx(MAX_NUM_STATIONS)     !< rank of sender PE for each station
 
-    ! several variable indices, stored for convenience (when computing additional diagnostics)
-    INTEGER                 :: i_T        = -1,  &
-      &                        i_REL_HUM  = -1,  &
-      &                        i_QV       = -1,  &
-      &                        i_PEXNER   = -1,  &
-      &                        i_SWDIR_S  = -1,  &
-      &                        i_ALB      = -1,  &
-      &                        i_SWDIFD_S = -1,  &
-      &                        i_SOBS     = -1
+    TYPE(meteogram_diag_var_indices) :: diag_var_indices
   END TYPE t_buffer_state
 
   TYPE mtgrm_pack_buf
@@ -439,11 +443,11 @@ CONTAINS
     p_lnd_prog => p_lnd_state%prog_lnd(nnow)
     p_lnd_diag => p_lnd_state%diag_lnd
 
-    mtgrm%i_REL_HUM  = -1
-    mtgrm%i_SWDIR_S  = -1
-    mtgrm%i_ALB      = -1
-    mtgrm%i_SWDIFD_S = -1
-    mtgrm%i_SOBS     = -1
+    mtgrm%diag_var_indices%i_REL_HUM  = -1
+    mtgrm%diag_var_indices%i_SWDIR_S  = -1
+    mtgrm%diag_var_indices%i_ALB      = -1
+    mtgrm%diag_var_indices%i_SWDIFD_S = -1
+    mtgrm%diag_var_indices%i_SOBS     = -1
 
     ! -- atmosphere
 
@@ -959,16 +963,16 @@ CONTAINS
     ! additional diagnostics):
     cf => &
       mtgrm%meteogram_local_data%var_info(1:mtgrm%var_list%no_atmo_vars)%cf
-    mtgrm%i_T        = get_var("T"       , cf)
-    mtgrm%i_QV       = get_var("QV"      , cf)
-    mtgrm%i_REL_HUM  = get_var("REL_HUM" , cf)
-    mtgrm%i_PEXNER   = get_var("PEXNER"  , cf)
+    mtgrm%diag_var_indices%i_T        = get_var("T"       , cf)
+    mtgrm%diag_var_indices%i_QV       = get_var("QV"      , cf)
+    mtgrm%diag_var_indices%i_REL_HUM  = get_var("REL_HUM" , cf)
+    mtgrm%diag_var_indices%i_PEXNER   = get_var("PEXNER"  , cf)
     cf => &
       mtgrm%meteogram_local_data%sfc_var_info(1:mtgrm%var_list%no_sfc_vars)%cf
-    mtgrm%i_SWDIR_S  = get_var("SWDIR_S" , cf)
-    mtgrm%i_ALB      = get_var("ALB"     , cf)
-    mtgrm%i_SWDIFD_S = get_var("SWDIFD_S", cf)
-    mtgrm%i_SOBS     = get_var("SOBS"    , cf)
+    mtgrm%diag_var_indices%i_SWDIR_S  = get_var("SWDIR_S" , cf)
+    mtgrm%diag_var_indices%i_ALB      = get_var("ALB"     , cf)
+    mtgrm%diag_var_indices%i_SWDIFD_S = get_var("SWDIFD_S", cf)
+    mtgrm%diag_var_indices%i_SOBS     = get_var("SOBS"    , cf)
 
   END SUBROUTINE meteogram_setup_variables
 
@@ -979,9 +983,11 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-11-25)
   !!
-  SUBROUTINE compute_diagnostics(station, jg, i_tstep)
+  SUBROUTINE compute_diagnostics(station, diag_var_indices, var_info, i_tstep)
     TYPE(t_meteogram_station), INTENT(INOUT) :: station
-    INTEGER, INTENT(IN) :: jg, i_tstep   ! patch, time step index
+    TYPE(meteogram_diag_var_indices), INTENT(in) :: diag_var_indices
+    TYPE(t_var_info), INTENT(in) :: var_info(:)
+    INTEGER, INTENT(IN) :: i_tstep   ! time step index
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":compute_diagnostics"
     INTEGER                         :: ilev, nlevs
@@ -990,19 +996,19 @@ CONTAINS
     REAL(wp)                        :: temp, qv, p_ex
     REAL(wp)                        :: albedo, swdifd_s, sobs
 
-    IF (mtgrm(jg)%i_REL_HUM == 0) RETURN
+    IF (diag_var_indices%i_REL_HUM == 0) RETURN
 
     ! TODO[FP] : In some cases, values (slightly) greater than 100%
     !            are computed for relative humidity.
 
-    i_REL_HUM = mtgrm(jg)%i_REL_HUM
+    i_REL_HUM = diag_var_indices%i_REL_HUM
     IF (i_REL_HUM /= -1) THEN
-      i_T = mtgrm(jg)%i_T
-      i_QV = mtgrm(jg)%i_QV
-      i_PEXNER = mtgrm(jg)%i_PEXNER
+      i_T = diag_var_indices%i_T
+      i_QV = diag_var_indices%i_QV
+      i_PEXNER = diag_var_indices%i_PEXNER
 
       IF (i_T /= -1 .AND. i_QV /= -1 .AND. i_PEXNER  /= -1) THEN
-        nlevs = mtgrm(jg)%meteogram_local_data%var_info(i_REL_HUM)%nlevs
+        nlevs = var_info(i_REL_HUM)%nlevs
         DO ilev=1,nlevs
           ! get values for temperature, etc.:
           temp = station%var(i_T)%values(ilev, i_tstep)
@@ -1020,11 +1026,11 @@ CONTAINS
     END IF
 
     ! compute shortwave direct downward flux at surface
-    i_SWDIR_S = mtgrm(jg)%i_SWDIR_S
+    i_SWDIR_S = diag_var_indices%i_SWDIR_S
     IF (i_SWDIR_S /= -1) THEN
-      i_ALB = mtgrm(jg)%i_ALB
-      i_SWDIFD_S = mtgrm(jg)%i_SWDIFD_S
-      i_SOBS = mtgrm(jg)%i_SOBS
+      i_ALB = diag_var_indices%i_ALB
+      i_SWDIFD_S = diag_var_indices%i_SWDIFD_S
+      i_SOBS = diag_var_indices%i_SOBS
       IF (i_ALB /= -1 .AND. i_SWDIFD_S /= -1 .AND. i_SOBS /= -1) THEN
         albedo   = station%sfc_var(i_ALB)%values(i_tstep)
         swdifd_s = station%sfc_var(i_SWDIFD_S)%values(i_tstep)
@@ -1265,8 +1271,7 @@ CONTAINS
       istation = 0
       DO jb=1,meteogram_data%nblks
         i_startidx = 1
-        i_endidx   = nproma
-        IF (jb == meteogram_data%nblks) i_endidx = meteogram_data%npromz
+        i_endidx   = MERGE(nproma, meteogram_data%npromz, jb /= meteogram_data%nblks)
 
         DO jc=i_startidx,i_endidx
           istation = istation + 1
@@ -1733,7 +1738,8 @@ CONTAINS
         END DO SFCVAR_LOOP
 
         ! compute additional diagnostic quantities:
-        CALL compute_diagnostics(meteogram_data%station(jc,jb), jg, i_tstep)
+        CALL compute_diagnostics(meteogram_data%station(jc,jb), &
+          mtgrm(jg)%diag_var_indices, meteogram_data%var_info, i_tstep)
 
       END DO
     END DO
