@@ -287,9 +287,11 @@ MODULE mo_meteogram_output
     REAL(wp), ALLOCATABLE           :: tile_frac(:)    !< tile fractions
     INTEGER , ALLOCATABLE           :: tile_luclass(:) !< tile specific landuse classes
 
-    ! Buffer for currently stored meteogram values.
-    TYPE(t_var_buffer),     POINTER :: var(:)           !< sampled data (1:nvars)
-    TYPE(t_sfc_var_buffer), POINTER :: sfc_var(:)       !< sampled data (1:nsfcvars)
+    ! Buffers for currently stored meteogram values.
+    !> sampled data (1:nvars)
+    TYPE(t_var_buffer), ALLOCATABLE :: var(:)
+    !> sampled data (1:nsfcvars)
+    TYPE(t_sfc_var_buffer), ALLOCATABLE :: sfc_var(:)
   END TYPE t_meteogram_station
 
   !>
@@ -298,17 +300,27 @@ MODULE mo_meteogram_output
   !!
   TYPE t_meteogram_data
     ! variable info:
-    INTEGER                         :: nvars, nsfcvars  !< number of sampled variables and surface variables
-    INTEGER                         :: max_nlevs        !< maximum no. of levels for variables
-    TYPE(t_var_info),     POINTER   :: var_info(:)      !< info for each variable (1:nvars)
-    TYPE(t_sfc_var_info), POINTER   :: sfc_var_info(:)  !< info for each surface variable (1:nsfcvars)
+    !> number of sampled atmospheric variables
+    INTEGER                         :: nvars
+    !> number of sampled surface variables
+    INTEGER                         :: nsfcvars
+    !> maximum no. of levels for variables
+    INTEGER                         :: max_nlevs
+    !> info for each variable (1:nvars)
+    TYPE(t_var_info), POINTER :: var_info(:)
+    !> info for each surface variable (1:nsfcvars)
+    TYPE(t_sfc_var_info), POINTER :: sfc_var_info(:)
     ! time stamp info:
-    INTEGER                         :: icurrent         !< current time stamp index
-    TYPE(t_time_stamp),   POINTER   :: time_stamp(:)    !< info on sample times (1:time)
+    !> current time stamp index
+    INTEGER                         :: icurrent
+    !> info on sample times (1:time)
+    TYPE(t_time_stamp), POINTER :: time_stamp(:)
     ! value buffers:
-    TYPE(t_meteogram_station), POINTER :: station(:,:)  !< meteogram data and meta info for each station (idx,blk).
+    !> meteogram data and meta info for each station (idx,blk).
+    TYPE(t_meteogram_station), ALLOCATABLE :: station(:,:)
     INTEGER                         :: nstations, nblks, npromz
-    INTEGER                         :: pstation(MAX_NUM_STATIONS)       !< "owner" PE for this station
+    !> "owner" PE for this station
+    INTEGER                         :: pstation(MAX_NUM_STATIONS)
   END TYPE t_meteogram_data
 
   !>
