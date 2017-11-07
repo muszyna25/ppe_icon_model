@@ -984,46 +984,53 @@ CONTAINS
     INTEGER, INTENT(IN) :: jg, i_tstep   ! patch, time step index
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":compute_diagnostics"
-    TYPE(t_meteogram_data), POINTER :: meteogram_data
-    INTEGER                         :: ilev
+    INTEGER                         :: ilev, nlevs
+    INTEGER                         :: i_REL_HUM, i_T, i_QV, i_PEXNER, &
+      &                                i_SWDIR_S, i_ALB, i_SWDIFD_S, i_SOBS
     REAL(wp)                        :: temp, qv, p_ex
     REAL(wp)                        :: albedo, swdifd_s, sobs
 
     IF (mtgrm(jg)%i_REL_HUM == 0) RETURN
 
-    meteogram_data => mtgrm(jg)%meteogram_local_data
-
     ! TODO[FP] : In some cases, values (slightly) greater than 100%
     !            are computed for relative humidity.
 
-    IF (mtgrm(jg)%i_REL_HUM /= -1) THEN
-      DO ilev=1,meteogram_data%var_info(mtgrm(jg)%i_REL_HUM)%nlevs
-        IF ((mtgrm(jg)%i_T       /= -1) .AND. &
-          & (mtgrm(jg)%i_QV      /= -1) .AND. &
-          & (mtgrm(jg)%i_PEXNER  /= -1)) THEN
+    i_REL_HUM = mtgrm(jg)%i_REL_HUM
+    IF (i_REL_HUM /= -1) THEN
+      i_T = mtgrm(jg)%i_T
+      i_QV = mtgrm(jg)%i_QV
+      i_PEXNER = mtgrm(jg)%i_PEXNER
+
+      IF (i_T /= -1 .AND. i_QV /= -1 .AND. i_PEXNER  /= -1) THEN
+        nlevs = mtgrm(jg)%meteogram_local_data%var_info(i_REL_HUM)%nlevs
+        DO ilev=1,nlevs
           ! get values for temperature, etc.:
-          temp = station%var(mtgrm(jg)%i_T)%values(ilev, i_tstep)
-          qv   = station%var(mtgrm(jg)%i_QV)%values(ilev, i_tstep)
-          p_ex = station%var(mtgrm(jg)%i_PEXNER)%values(ilev, i_tstep)
+          temp = station%var(i_T)%values(ilev, i_tstep)
+          qv   = station%var(i_QV)%values(ilev, i_tstep)
+          p_ex = station%var(i_PEXNER)%values(ilev, i_tstep)
           !-- compute relative humidity as r = e/e_s:
 !CDIR NEXPAND
-          station%var(mtgrm(jg)%i_REL_HUM)%values(ilev, i_tstep) = rel_hum(temp, qv, p_ex)
-        ELSE
-          WRITE(message_text,*) ">>> meteogram: REL_HUM could not be computed (T, QV, and/or PEXNER missing)"
-          CALL message(routine, TRIM(message_text))
-        END IF
-      END DO
+          station%var(i_REL_HUM)%values(ilev, i_tstep) &
+            = rel_hum(temp, qv, p_ex)
+        END DO
+      ELSE
+        WRITE(message_text,*) ">>> meteogram: REL_HUM could not be computed (T, QV, and/or PEXNER missing)"
+        CALL message(routine, TRIM(message_text))
+      END IF
     END IF
 
     ! compute shortwave direct downward flux at surface
-    IF (mtgrm(jg)%i_SWDIR_S /= -1) THEN
-      IF ((mtgrm(jg)%i_ALB      /= -1) .AND. &
-        & (mtgrm(jg)%i_SWDIFD_S /= -1) .AND. &
-        & (mtgrm(jg)%i_SOBS     /= -1)) THEN
-        albedo   = station%sfc_var(mtgrm(jg)%i_ALB)%values(i_tstep)
-        swdifd_s = station%sfc_var(mtgrm(jg)%i_SWDIFD_S)%values(i_tstep)
-        sobs     = station%sfc_var(mtgrm(jg)%i_SOBS)%values(i_tstep)
-        station%sfc_var(mtgrm(jg)%i_SWDIR_S)%values(i_tstep) = swdir_s(albedo, swdifd_s, sobs)
+    i_SWDIR_S = mtgrm(jg)%i_SWDIR_S
+    IF (i_SWDIR_S /= -1) THEN
+      i_ALB = mtgrm(jg)%i_ALB
+      i_SWDIFD_S = mtgrm(jg)%i_SWDIFD_S
+      i_SOBS = mtgrm(jg)%i_SOBS
+      IF (i_ALB /= -1 .AND. i_SWDIFD_S /= -1 .AND. i_SOBS /= -1) THEN
+        albedo   = station%sfc_var(i_ALB)%values(i_tstep)
+        swdifd_s = station%sfc_var(i_SWDIFD_S)%values(i_tstep)
+        sobs     = station%sfc_var(i_SOBS)%values(i_tstep)
+        station%sfc_var(i_SWDIR_S)%values(i_tstep) &
+          = swdir_s(albedo, swdifd_s, sobs)
       ELSE
         WRITE(message_text,*) ">>> meteogram: SWDIR_S could not be computed (ALB, SWDIFD_S, and/or SOBS missing)"
         CALL message(routine, TRIM(message_text))
