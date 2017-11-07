@@ -1014,8 +1014,8 @@ CONTAINS
             = rel_hum(temp, qv, p_ex)
         END DO
       ELSE
-        WRITE(message_text,*) ">>> meteogram: REL_HUM could not be computed (T, QV, and/or PEXNER missing)"
-        CALL message(routine, TRIM(message_text))
+        CALL message(routine, ">>> meteogram: REL_HUM could not be computed&
+          & (T, QV, and/or PEXNER missing)")
       END IF
     END IF
 
@@ -1032,8 +1032,8 @@ CONTAINS
         station%sfc_var(i_SWDIR_S)%values(i_tstep) &
           = swdir_s(albedo, swdifd_s, sobs)
       ELSE
-        WRITE(message_text,*) ">>> meteogram: SWDIR_S could not be computed (ALB, SWDIFD_S, and/or SOBS missing)"
-        CALL message(routine, TRIM(message_text))
+        CALL message(routine, ">>> meteogram: SWDIR_S could not be computed&
+          & (ALB, SWDIFD_S, and/or SOBS missing)")
       END IF
     END IF
 
