@@ -395,7 +395,8 @@ MODULE mo_meteogram_output
     LOGICAL                 :: l_is_sender, l_is_writer,         &
       &                        l_is_collecting_pe, &
       &                        l_is_varlist_sender
-    INTEGER                 :: process_mpi_all_collector_id     !< rank of PE which gathers data
+    !> rank of PE which gathers data
+    INTEGER                 :: io_collector_rank
     INTEGER                 :: global_idx(MAX_NUM_STATIONS)     !< rank of sender PE for each station
 
     TYPE(meteogram_diag_var_indices) :: diag_var_indices
@@ -1169,9 +1170,9 @@ CONTAINS
 
     IF (.NOT. meteogram_output_config%ldistributed) THEN
       IF (.NOT. use_async_name_list_io) THEN
-        mtgrm(jg)%process_mpi_all_collector_id = get_mpi_all_workroot_id()
+        mtgrm(jg)%io_collector_rank = get_mpi_all_workroot_id()
       ELSE
-        mtgrm(jg)%process_mpi_all_collector_id = io_collector_rank
+        mtgrm(jg)%io_collector_rank = io_collector_rank
       END IF
     END IF
 
@@ -1339,7 +1340,7 @@ CONTAINS
 
       IF (mtgrm(jg)%l_is_varlist_sender) THEN
         CALL p_pack_int(FLAG_VARLIST_END, pack_buf%msg_varlist(:), pack_buf%pos)
-        CALL p_send_packed(pack_buf%msg_varlist(:), mtgrm(jg)%process_mpi_all_collector_id, &
+        CALL p_send_packed(pack_buf%msg_varlist(:), mtgrm(jg)%io_collector_rank, &
           &                TAG_VARLIST, pack_buf%pos)
       END IF
     ELSE IF (mtgrm(jg)%l_is_collecting_pe) THEN
@@ -1697,7 +1698,7 @@ CONTAINS
            .AND. p_pe_work==0) THEN
         msg(1) = msg_io_meteogram_flush
         msg(2) = jg
-        CALL p_send(msg, mtgrm(jg)%process_mpi_all_collector_id, 0)
+        CALL p_send(msg, mtgrm(jg)%io_collector_rank, 0)
       END IF
 
       CALL meteogram_flush_file(jg)
@@ -2101,7 +2102,7 @@ CONTAINS
 
           ! (blocking) send of packed station data to IO PE:
           istation = nproma*(p_station%station_idx(2) - 1) + p_station%station_idx(1)
-          CALL p_send_packed(mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%process_mpi_all_collector_id, &
+          CALL p_send_packed(mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%io_collector_rank, &
             &                TAG_MTGRM_MSG + (jg-1)*TAG_DOMAIN_SHIFT + istation, position)
           IF (dbg_level > 0) &
             WRITE (*,*) "Sending ", icurrent, " time slices, station ", istation
