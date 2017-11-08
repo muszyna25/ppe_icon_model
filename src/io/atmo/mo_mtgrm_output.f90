@@ -2385,13 +2385,13 @@ CONTAINS
     CHARACTER(len=3+10) :: dist_prefix
 
     IF (meteogram_output_config%ldistributed) THEN
+      my_id = get_my_mpi_all_id()
       WRITE(dist_prefix, '(a,i3.3,a)') "PE", my_id, "_"
       dist_prefix_len = LEN_TRIM(dist_prefix)
     ELSE
       dist_prefix = ''
       dist_prefix_len = 0
     END IF
-    my_id = get_my_mpi_all_id()
 
     SELECT CASE (meteogram_output_config%ftype)
     CASE (FTYPE_NETCDF)
