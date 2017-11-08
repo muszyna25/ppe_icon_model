@@ -1199,7 +1199,9 @@ END SUBROUTINE message
     zdlam    (ie)      , & ! heat conductivity parameter
     zdw      (ie,ke_soil+1)      , & ! hydrological diff.parameter
     zdw1     (ie,ke_soil+1)      , & ! hydrological diff.parameter
-    zkw      (ie,ke_soil+1)      , & ! hydrological cond.parameter
+    zkw0     (ie)                , & ! hydrological cond.parameter at surface
+    zkw      (ie,ke_soil+1)      , & ! hydrological cond.parameter (interface levels)
+    zkwm     (ie,ke_soil+1)      , & ! hydrological cond.parameter (main levels)
     zkw1     (ie,ke_soil+1)      , & ! hydrological cond.parameter
     zik2     (ie)      , & ! minimum infiltration rate
     zpwp     (ie,ke_soil+1)      , & ! plant wilting point  (fraction of volume)
@@ -1438,6 +1440,7 @@ END SUBROUTINE message
     zdw   (i,:)  = cdw0  (mstyp)
     zdw1  (i,:)  = cdw1  (mstyp)
     zkw   (i,:)  = ckw0  (mstyp)
+    zkwm  (i,:)  = ckw0  (mstyp)
     zkw1  (i,:)  = ckw1  (mstyp)
     zik2  (i)  = cik2  (mstyp)
     zporv(i,:)  = cporv(mstyp)              ! pore volume
@@ -1484,12 +1487,20 @@ END SUBROUTINE message
     zw_m_org(i) = zd4
   ENDDO
 
+  ! zkw0 will not be needed anymore if 'itype_interception = 2' is removed
+  IF (itype_interception == 2) THEN
+    DO i = istarts, iends
+      !fc=2 1/m Exponential Ksat-profile decay parameter,see Decharme et al. (2006)
+      zkw0   (i) = zkw   (i,1)*EXP(2._ireals*rootdp(i))
+    END DO
+  ENDIF
 
   ! Set three-dimensional variables
   DO kso = 1, ke_soil
       DO i = istarts, iends
         !fc=2 1/m Exponential Ksat-profile decay parameter,see Decharme et al. (2006)
-        zkw   (i,kso) = zkw   (i,kso)*EXP(-2._ireals*(zmls(kso)-rootdp(i)))
+        zkw   (i,kso) = zkw   (i,kso)*EXP(-2._ireals*(zzhls(kso)-rootdp(i)))
+        zkwm  (i,kso) = zkwm  (i,kso)*EXP(-2._ireals*(zmls(kso)-rootdp(i)))
 
         ! Scale soil heat capacity with organic fraction -> Chadburn et al., 2015
         IF(zmls(kso) < rootdp(i)) THEN
@@ -2774,29 +2785,10 @@ ELSE          IF (itype_interception == 2) THEN
 
         ! infiltration and surface run-off
 
-        ! ice free fraction of first soil layer scaled by pore volume
-        ! is used as reduction factor for infiltration rate
-        zfr_ice_free     = 1._ireals-ziw_fr(i,1)/zporv(i,1)
-
         ! subtract evaporation from interception store to avoid negative
         ! values due to sum of evaporation+infiltration
         zwinstr(i) = zwin(i) + zdwidt(i)*zdtdrhw
         zwinstr(i) = MAX(0.0_ireals,zwinstr(i))
-
-        ! maximum infiltration rate of the soil (rock/ice/water-exclusion
-   !     zinfmx(i) = zrock(i)*zfr_ice_free*csvoro &
-   !              *( cik1*MAX(0.5_ireals,plcov(i))*MAX(0.0_ireals,           &
-   !              zporv(i,1)-zw_fr(i,1))/zporv(i,1) + zik2(i) )
-
-        zinfmx(i) = zrock(i)*zfr_ice_free*csvoro*zkw(i,1)*rho_w
-
-
-        ! to avoid pore volume water excess of the uppermost layer by
-        ! infiltration
-        zinfmx(i) = MIN(zinfmx(i), (zporv(i,1) - zw_fr(i,1))*zdzhs(1)*zrhwddt)
-
-        ! to avoid infiltration at snow covered parts of soil surface
-        zinfmx(i) = zinfmx(i)*(1._ireals - zf_snow(i))
 
         zwimax(i) = cwimax_ml*(1._ireals+ztfunc(i))*MAX(ztfunc(i), zepsi, tai(i))
         zalf   = SQRT(MAX(0.0_ireals,1.0_ireals - zwinstr(i)/zwimax(i)))
@@ -2846,7 +2838,14 @@ ELSE          IF (itype_interception == 2) THEN
 
         ! add rain contribution to water supply for infiltration
         ! surface runoff is evaluated after the calculation of infiltration
-        zinfil(i) = zinf + (1._ireals - zalf)*zrr(i) + (1._ireals-conv_frac(i))*zalf*prr_con(i)
+        zvers(i) = zinf + (1._ireals - zalf)*zrr(i) + (1._ireals-conv_frac(i))*zalf*prr_con(i)
+
+        ! Avoid infiltration for rock, ice and snow-covered surfaces
+        zinfil(i) = zvers(i)*zrock(i)*(1._ireals - zf_snow(i))
+
+        ! Add difference to surface runoff
+        zro_inf = zvers(i) - zinfil(i)
+        runoff_s(i) = runoff_s(i) + zro_inf*zroffdt
 
         ! change of snow water and interception water store
         ! (negligible residuals are added to the run-off)
@@ -2969,7 +2968,7 @@ ELSE   IF (itype_interception == 2) THEN
   !       *( cik1*MAX(0.5_ireals,plcov(i))*MAX(0.0_ireals,           &
   !          zporv(i,1)-zw_fr(i,1))/zporv(i,1) + zik2(i) )
 
-        zinfmx(i) = zrock(i)*zfr_ice_free*csvoro*zkw(i,1)*rho_w
+        zinfmx(i) = zrock(i)*zfr_ice_free*csvoro*zkw0(i)*rho_w
 
 !       to avoid pore volume water excess of the uppermost layer by infiltration
         zinfmx(i) = MIN(zinfmx(i), (zporv(i,1) - zw_fr(i,1))*zdzhs(1)*zrhwddt)
@@ -3034,6 +3033,13 @@ ELSE   IF (itype_interception == 2) THEN
       !       by a reduction factor depending on the maximum ice fraction of the
       !       adjacent layers in order to avoid the transport of liquid water
       !       in to the frozen part of the adjacent layer
+      !
+      ! GZ, 2017-11-07:
+      ! I wonder if this is sufficient to describe the reduction of water transport in frozen soils.
+      ! Certainly, the hydraulic conductivity does not drop abruptly to zero once first ice crystals form in the soil,
+      ! but if rain falls after a longer-term frost period without snow cover, ponds form even if the soil surface
+      ! has already thawed. Should the hydraulic conductivity include a term like ...*(1-tuning_factor*ziw_fr/zporv)?
+      !
           zice_fr_kso   = ziw_fr(i,1)
           zice_fr_ksop1 = ziw_fr(i,2)
           zlw_fr_kso    = zlw_fr(i,1)
@@ -3111,7 +3117,7 @@ ELSE   IF (itype_interception == 2) THEN
             zdlw_fr_ksop05= zredp05*watrdiff_RT(zdw(i,kso),zlw_fr_ksop05,&
                                   zdw1(i,kso),zporv(i,kso),zadp(i,kso))
 
-            zklw_fr_ksom05= zredm05*watrcon_RT(zkw(i,kso),zlw_fr_ksom05,zkw1(i,kso),zporv(i,kso),zadp(i,kso))
+            zklw_fr_ksom05= zredm05*watrcon_RT(zkw(i,kso-1),zlw_fr_ksom05,zkw1(i,kso),zporv(i,kso),zadp(i,kso))
 
             zklw_fr_ksop05= zredp05*watrcon_RT(zkw(i,kso),zlw_fr_ksop05,zkw1(i,kso),zporv(i,kso),zadp(i,kso))
 
@@ -3173,7 +3179,7 @@ ELSE   IF (itype_interception == 2) THEN
 !!$               (zporv(i,ke_soil_hy)-zlw_fr_ksom05)/(zporv(i,ke_soil_hy)-zadp(i,ke_soil_hy)) )
 !!$
 
-          zklw_fr_ksom05= zredm05*watrcon_RT(zkw(i,ke_soil_hy),zlw_fr_ksom05,&
+          zklw_fr_ksom05= zredm05*watrcon_RT(zkw(i,ke_soil_hy-1),zlw_fr_ksom05,&
                zkw1(i,ke_soil_hy),zporv(i,ke_soil_hy),zadp(i,ke_soil_hy))
 
           zaga(i,ke_soil_hy) = -zalfa* zgam2m05*z1dgam1
@@ -3294,7 +3300,7 @@ ELSE   IF (itype_interception == 2) THEN
            zdlw_fr_ksom05= zredm05*watrdiff_RT(zdw(i,kso),zlw_fr_ksom05,&
                                   zdw1(i,kso),zporv(i,kso),zadp(i,kso))
 
-           zklw_fr_ksom05= zredm05*watrcon_RT(zkw(i,kso),zlw_fr_ksom05,zkw1(i,kso),&
+           zklw_fr_ksom05= zredm05*watrcon_RT(zkw(i,kso-1),zlw_fr_ksom05,zkw1(i,kso),&
                              zporv(i,kso),zadp(i,kso))
 
 
@@ -3310,7 +3316,7 @@ ELSE   IF (itype_interception == 2) THEN
 !!$            zklw_fr_kso_new = zredm*zkw(i,kso) * EXP(zkw1(i,kso)* &
 !!$                              (zporv(i,kso) - zlw_fr_kso_new)/(zporv(i,kso) - zadp(i,kso)) )
 
-            zklw_fr_kso_new = zredm*watrcon_RT(zkw(i,kso),&
+            zklw_fr_kso_new = zredm*watrcon_RT(zkwm(i,kso),&
                  zlw_fr_kso_new,zkw1(i,kso),zporv(i,kso),zadp(i,kso))
 
             ! actual gravitation water flux
@@ -3330,11 +3336,14 @@ ELSE   IF (itype_interception == 2) THEN
 !!$               zklw_fr_ksom1 = zredm05*zkw(i,kso) * EXP(zkw1(i,kso)* &
 !!$                    (zporv(i,kso)-zlw_fr_ksom1_new)/(zporv(i,kso)-zadp(i,kso)) )
 
+           ! GZ, 2017-11-07: The variable staggering in the following expressions needs to be checked
+           !   zredm05 is used for interface levels kso and kso-1; logically, "zredp05" would be needed in the first two expressions
+           !   in addition, the indexing of zkw1 would be incorrect if this parameter is made level-dependent
                zdlw_fr_kso = zredm05*watrdiff_RT(zdw(i,kso),zlw_fr_kso_new,&
                                   zdw1(i,kso),zporv(i,kso),zadp(i,kso))
                zklw_fr_kso = zredm05*watrcon_RT(zkw(i,kso),&
                  zlw_fr_kso_new,zkw1(i,kso),zporv(i,kso),zadp(i,kso))
-               zklw_fr_ksom1 = zredm05*watrcon_RT(zkw(i,kso),&
+               zklw_fr_ksom1 = zredm05*watrcon_RT(zkw(i,kso-1),&
                  zlw_fr_ksom1_new,zkw1(i,kso),zporv(i,kso),zadp(i,kso))
 
                zdhydcond_dlwfr=( zklw_fr_kso - zklw_fr_ksom1 ) / zdelta_sm
@@ -3739,7 +3748,11 @@ ELSE   IF (itype_interception == 2) THEN
           IF (zwinstr(i) > zwimax(i)) THEN  ! overflow of interception store
             zro         = (zwinstr(i) - zwimax(i))*zrhwddt
             zdwidt(i)   = zdwidt(i) - zro
-            runoff_s(i) = runoff_s(i) + zro*zroffdt
+            zdwgdt(i,1) = zdwgdt(i,1) + zro
+            ! check for pore volume overflow and add the remainder to surface runoff
+            zw_ovpv = MAX(0._ireals, (zw_fr(i,1)-zporv(i,1))*zdzhs(1)*zrhwddt + zdwgdt(i,1) )
+            zdwgdt(i,1)= zdwgdt(i,1) - zw_ovpv
+            runoff_s(i) = runoff_s(i) + zw_ovpv*zroffdt
           ENDIF                       ! overflow of interception store
 
         ! freezing of rain falling on soil with Ts < T0  (black-ice !!!)
@@ -4298,7 +4311,19 @@ ENDIF
               meltrate(i)  = - zdwsnm(i)
               ztsnownew    = t0_melt - zepsi
               zdtsnowdt(i) = zdtsnowdt(i) + (ztsnownew - ztsnown(i))*z1d2dt
-              runoff_s (i) = runoff_s(i) - zdwsnm(i)*zroffdt
+              ! decide which parts of the meltwater are passed to w_so and runoff, respectively
+              zfr_ice_free = 1._ireals-ziw_fr(i,1)/zporv(i,1)
+              zdwgme       = zfr_ice_free*meltrate(i)*zrock(i)       ! contribution to w_so
+              zredfu       = MAX( 0.0_ireals,  MIN( 1.0_ireals, (zw_fr(i,1) -  &
+                             zfcap(i,1))/MAX(zporv(i,1)-zfcap(i,1), zepsi)))
+              zdwgdt(i,1)  = zdwgdt(i,1) + zdwgme*(1._ireals - zredfu)
+              zro          = meltrate(i) - zdwgme*(1._ireals - zredfu)
+
+              ! zro-, zdw_so_dt-correction in case of pore volume overshooting
+              zw_ovpv = MAX(0._ireals, (zw_fr(i,1)-zporv(i,1))*zdzhs(1)*zrhwddt + zdwgdt(i,1) )
+              zro = zro + zw_ovpv
+              zdwgdt(i,1)= zdwgdt(i,1) - zw_ovpv
+              runoff_s (i)= runoff_s(i) + zro*zroffdt
             ENDIF ! melting from above
 
             IF (t_so_new(i,1) >= t0_melt) THEN
@@ -4884,45 +4909,15 @@ ENDIF
 
 
 
-  DO i = istarts, iends
-!!$!GZ:    ! *** Provisional fix for numerical instabilities in the presence of very
-!!$        !     small amounts of snow *** !
-!!$        ! melting-point adjustment of snow: if snow temp is above freezing and a non-negligible
-!!$        ! amount of snow is available, then melt as much snow as needed to get snow temp
-!!$        ! back to t0_melt while conserving energy
-!!$        IF (t_snow_new(i) > t0_melt .AND. w_snow_new(i) > zepsi) THEN
-!!$          w_snow_new(i) = MAX(w_snow_new(i)*(1._ireals-(t_snow_new(i)-t0_melt) &
-!!$            *chc_i/lh_f), 0.0_ireals)
-!!$          t_snow_new(i) = t0_melt
-!!$        ELSE IF (w_snow_new(i) <= zepsi .OR. w_snow_new(i) > zepsi .AND. t_s_new(i) > t0_melt+15.0_ireals .AND. &
-!!$          t(i) > t0_melt+15.0_ireals .AND. t_so_new(i,2) > t0_melt+15.0_ireals) THEN
-!!$          ! if the amount of snow is negligible, or the environment is very warm, then just remove it
-!!$          w_snow_new(i) = 0.0_ireals
-!!$          ! If the snow has just melted, limit soil temperature increment to 2.5 deg C
-!!$          ! in order to avoid nonsensically large temperature jumps
-!!$
-!!$          IF (w_snow_now(i) > zepsi) THEN
-!!$!CDIR BEGIN EXPAND=7
-!!$            t_so_new(i,1:7) = MIN(t_so_now(i,1:7)+2.5_ireals,t_so_new(i,1:7))
-!!$            t_so_new(i,1:7) = MAX(t_so_now(i,1:7)-2.5_ireals,t_so_new(i,1:7))
-!!$!CDIR END
-!!$            t_so_new(i,0) = t_so_new(i,1)
-!!$            t_s_new(i)    = t_so_new(i,1)
-!!$          ENDIF
-!!$          t_snow_new(i) = t_so_new(i,0)
-!!$       ENDIF
-!!$        ! *** End of provisional stability fix *** !
-        !
+     DO i = istarts, iends
 
-        ! *** original code *** !
          IF (w_snow_new(i) <= zepsi) THEN
            w_i_new(i)    = w_i_new(i) + w_snow_new(i)
            w_snow_new(i) = 0.0_ireals
            t_snow_new(i) = t_so_new(i,0)
          ENDIF
-        IF (w_i_new(i) <= 1.e-4_ireals*zepsi) w_i_new(i) = 0.0_ireals
-     end DO
-!<JH
+         IF (w_i_new(i) <= 1.e-4_ireals*zepsi) w_i_new(i) = 0.0_ireals
+     END DO
 
 
   ! Eliminate snow for multi-layer snow model, if w_snow = 0

@@ -57,7 +57,7 @@ MODULE mo_initicon
     &                               frlake_thrhld, lprog_albsi
   USE mo_seaice_nwp,          ONLY: frsi_min
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
-  USE mo_phyparam_soil,       ONLY: cporv, cadp, crhosmaxf, crhosmin_ml, crhosmax_ml
+  USE mo_phyparam_soil,       ONLY: cporv, cadp, cpwp, cfcap, crhosmaxf, crhosmin_ml, crhosmax_ml
   USE mo_nwp_soil_init,       ONLY: get_wsnow
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
@@ -1531,6 +1531,7 @@ MODULE mo_initicon
     TYPE(t_lnd_diag), POINTER :: lnd_diag          ! shortcut to diagnostic land state
 
     REAL(wp) :: h_snow_t_fg(nproma,ntiles_total)   ! intermediate storage of h_snow first guess
+    REAL(wp) :: wso_inc(nproma,nlev_soil)          ! local copy of w_so increment
     REAL(wp) :: snowfrac_lim
 
     REAL(wp), PARAMETER :: min_hsnow_inc=0.001_wp  ! minimum hsnow increment (1mm absolute value)
@@ -1554,7 +1555,7 @@ MODULE mo_initicon
       lnd_diag     =>p_lnd_state(jg)%diag_lnd
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jk,ic,jc,i_startidx,i_endidx,lerr,h_snow_t_fg,snowfrac_lim,ist)
+!$OMP DO PRIVATE(jb,jt,jk,ic,jc,i_startidx,i_endidx,lerr,h_snow_t_fg,snowfrac_lim,ist,wso_inc)
       DO jb = 1, nblks_c
 
         ! (re)-initialize error flag
@@ -1568,6 +1569,27 @@ MODULE mo_initicon
         !
         DO jt = 1, ntiles_total
 
+          wso_inc(:,:) = initicon(jg)%sfc_inc%w_so(:,:,jb)
+
+          ! Impose physical limits on w_so increments from SMA:
+          ! - no removal of water in soil layers 3-5 if soil moisture is already below wilting point
+          ! - no addition of water in soil layers 3-5 if soil moisture is already above field capacity
+
+          DO jk = 3, 5
+            DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+              ist = ext_data(jg)%atm%soiltyp(jc,jb)
+              SELECT CASE(ist)
+                CASE (3,4,5,6,7,8) ! soil types with non-zero water content
+                IF (lnd_prog_now%w_so_t(jc,jk,jb,jt) <= dzsoil_icon(jk)*cpwp(ist)) THEN
+                  wso_inc(jc,jk) = MAX(0._wp,wso_inc(jc,jk))
+                ELSE IF (lnd_prog_now%w_so_t(jc,jk,jb,jt) >= dzsoil_icon(jk)*cfcap(ist)) THEN
+                  wso_inc(jc,jk) = MIN(0._wp,wso_inc(jc,jk))
+                ENDIF
+              END SELECT
+            ENDDO
+          ENDDO
+
           DO jk = 1, nlev_soil
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
@@ -1578,8 +1600,7 @@ MODULE mo_initicon
                 ! set soil water content to 50% of pore volume on newly appeared (non-dominant) land points
                 lnd_prog_now%w_so_t(jc,jk,jb,jt) = 0.5_wp*cporv(ext_data(jg)%atm%soiltyp(jc,jb))*dzsoil_icon(jk)
               ELSE ! add w_so increment from SMA
-                lnd_prog_now%w_so_t(jc,jk,jb,jt) = lnd_prog_now%w_so_t(jc,jk,jb,jt)  &
-                   &                              + initicon(jg)%sfc_inc%w_so(jc,jk,jb)
+                lnd_prog_now%w_so_t(jc,jk,jb,jt) = lnd_prog_now%w_so_t(jc,jk,jb,jt) + wso_inc(jc,jk)
               ENDIF
 
               ! Safety limits:  min=air dryness point, max=pore volume
