@@ -103,9 +103,9 @@ MODULE mo_meteogram_output
   USE mtime,                    ONLY: datetime, datetimeToPosixString,    &
        &                              MAX_DATETIME_STR_LEN  
   USE mo_exception,             ONLY: message, message_text, finish
-  USE mo_mpi,                   ONLY: p_n_work, p_max,                    &
+  USE mo_mpi,                   ONLY: p_n_work, p_allreduce_max,          &
     &                                 get_my_mpi_all_id, p_wait,          &
-    &                                 p_send, p_pe_work,                  &
+    &                                 p_send, p_irecv, p_pe_work,         &
     &                                 p_send_packed, p_irecv_packed,      &
     &                                 p_pack_int,    p_pack_real,         &
     &                                 p_pack_int_1d, p_pack_real_1d,      &
@@ -113,15 +113,13 @@ MODULE mo_meteogram_output
     &                                 p_unpack_int,    p_unpack_real,     &
     &                                 p_unpack_int_1d, p_unpack_real_1d,  &
     &                                 p_unpack_string, p_unpack_real_2d,  &
-    &                                 get_mpi_all_workroot_id,            &
     &                                 my_process_is_mpi_workroot,         &
     &                                 my_process_is_io,                   &
     &                                 my_process_is_work,                 &
     &                                 my_process_is_mpi_test,             &
     &                                 p_real_dp_byte,                     &
-    &                                 MPI_ANY_SOURCE,                     &
-    &                                 p_barrier, p_comm_work_io,          &
-    &                                 p_comm_io, p_comm_rank, p_comm_size
+    &                                 p_comm_work, p_comm_work_2_io,      &
+    &                                 process_mpi_io_size
   USE mo_model_domain,          ONLY: t_patch
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_impl_constants,        ONLY: inwp, max_dom, SUCCESS
@@ -182,7 +180,8 @@ MODULE mo_meteogram_output
 
   INTEGER, PARAMETER :: TAG_VARLIST          =   99  !< MPI tag for communication of variable info
   INTEGER, PARAMETER :: TAG_MTGRM_MSG        = 77777 !< MPI tag (base) for communication of meteogram data
-  INTEGER, PARAMETER :: TAG_DOMAIN_SHIFT     = 10000 !< separating of tag IDs for different domains
+  !> separating of tag IDs for different domains
+  INTEGER, PARAMETER :: tag_domain_shift     = max_num_stations
   ! flags for communication of variable info
   INTEGER, PARAMETER :: FLAG_VARLIST_ATMO    =    0
   INTEGER, PARAMETER :: FLAG_VARLIST_SFC     =    1
@@ -393,6 +392,8 @@ MODULE mo_meteogram_output
     ! different roles in communication:
     LOGICAL                 :: l_is_sender, l_is_writer,         &
       &                        l_is_collecting_pe
+    !> communicator to use in collection of data
+    INTEGER                 :: io_collect_comm
     !> rank of PE which gathers data
     INTEGER                 :: io_collector_rank
     INTEGER                 :: global_idx(MAX_NUM_STATIONS)     !< rank of sender PE for each station
@@ -1144,16 +1145,8 @@ CONTAINS
 
     io_collector_rank = -1
     IF (use_async_name_list_io) THEN
-
-      ! determine rank of last I/O PE
-      IF (is_io) THEN
-        IF (p_comm_rank(p_comm_io) == p_comm_size(p_comm_io) - 1) THEN
-          io_collector_rank = world_rank
-        END IF
-      END IF
-
-      ! distribute rank of last I/O PE
-      io_collector_rank = p_max(io_collector_rank, comm=p_comm_work_io)
+      io_collector_rank &
+        = process_mpi_io_size - 1 - MOD(jg - 1, process_mpi_io_size)
     END IF
     meteogram_output_config%io_proc_id = io_collector_rank
 
@@ -1165,12 +1158,13 @@ CONTAINS
       &                   .AND. is_mpi_workroot                              &
       &                   .AND. (p_n_work > 1) )                             &
       &             .OR. (is_pure_io_pe                             &
-      &                   .AND. (world_rank == io_collector_rank)))
-
+      &                   .AND. (p_pe_work == io_collector_rank)))
     IF (.NOT. meteogram_output_config%ldistributed) THEN
       IF (.NOT. use_async_name_list_io) THEN
-        mtgrm(jg)%io_collector_rank = get_mpi_all_workroot_id()
+        mtgrm(jg)%io_collect_comm = p_comm_work
+        mtgrm(jg)%io_collector_rank = 0
       ELSE
+        mtgrm(jg)%io_collect_comm = p_comm_work_2_io
         mtgrm(jg)%io_collector_rank = io_collector_rank
       END IF
     END IF
@@ -1282,19 +1276,25 @@ CONTAINS
 
         DO jc=i_startidx,i_endidx
           istation = istation + 1
-          mtgrm(jg)%meteogram_local_data%pstation( mtgrm(jg)%global_idx(istation) ) = world_rank
+          mtgrm(jg)%meteogram_local_data%pstation( mtgrm(jg)%global_idx(istation) ) = p_pe_work
         END DO
       END DO
+      ! All-to-all communicate the located stations to find out if
+      ! some stations are "owned" by no PE at all (in the case of
+      ! regional nests):
+      CALL p_allreduce_max(mtgrm(jg)%meteogram_local_data%pstation, &
+        &                  comm=p_comm_work)
+      IF (use_async_name_list_io .AND. is_mpi_workroot) THEN
+        CALL p_send(mtgrm(jg)%meteogram_local_data%pstation, &
+          &         mtgrm(jg)%io_collector_rank, TAG_MTGRM_MSG, &
+          &         comm=mtgrm(jg)%io_collect_comm)
+      END IF
 
+    ELSE IF (is_io .AND. io_collector_rank == p_pe_work) THEN
+      CALL p_irecv(mtgrm(jg)%meteogram_local_data%pstation, &
+        &          0, TAG_MTGRM_MSG, &
+        &          comm=mtgrm(jg)%io_collect_comm)
     END IF
-
-    ! All-to-all communicate the located stations to find out if
-    ! some stations are "owned" by no PE at all (in the case of
-    ! regional nests):
-    mtgrm(jg)%meteogram_local_data%pstation = p_max(mtgrm(jg)%meteogram_local_data%pstation, &
-      &                                             comm=p_comm_work_io)
-
-    CALL p_barrier(comm=p_comm_work_io)
 
     ! Pure I/O PEs must receive all variable info from elsewhere.
     ! Here, they get it from working PE#0 which has collected it in
@@ -1308,8 +1308,9 @@ CONTAINS
 
       IF (is_pure_io_pe) THEN
         ! launch message receive call
-        CALL p_irecv_packed(pack_buf%msg_varlist(:), get_mpi_all_workroot_id(), TAG_VARLIST, &
-          &                 max_varlist_buf_size)
+        CALL p_irecv_packed(pack_buf%msg_varlist(:), 0, TAG_VARLIST, &
+          &                 max_varlist_buf_size, &
+          &                 comm=mtgrm(jg)%io_collect_comm)
       END IF
     END IF
 
@@ -1338,8 +1339,9 @@ CONTAINS
 
       IF (pack_buf%l_is_varlist_sender) THEN
         CALL p_pack_int(FLAG_VARLIST_END, pack_buf%msg_varlist(:), pack_buf%pos)
-        CALL p_send_packed(pack_buf%msg_varlist(:), mtgrm(jg)%io_collector_rank, &
-          &                TAG_VARLIST, pack_buf%pos)
+        CALL p_send_packed(pack_buf%msg_varlist, mtgrm(jg)%io_collector_rank, &
+          &                TAG_VARLIST, pack_buf%pos, &
+          &                comm=mtgrm(jg)%io_collect_comm)
       END IF
     ELSE IF (mtgrm(jg)%l_is_collecting_pe) THEN
       CALL receive_var_info(mtgrm(jg)%meteogram_local_data, mtgrm(jg), pack_buf)
@@ -1662,7 +1664,8 @@ CONTAINS
            .AND. p_pe_work==0) THEN
         msg(1) = msg_io_meteogram_flush
         msg(2) = jg
-        CALL p_send(msg, mtgrm(jg)%io_collector_rank, 0)
+        CALL p_send(msg, mtgrm(jg)%io_collector_rank, 0, &
+          comm=mtgrm(jg)%io_collect_comm)
       END IF
 
       CALL meteogram_flush_file(jg)
@@ -1877,7 +1880,7 @@ CONTAINS
     !> MPI buffer for station data
     CHARACTER, ALLOCATABLE  :: msg_buffer(:,:)
 
-    INTEGER :: world_rank, ierror
+    INTEGER :: ierror
     LOGICAL :: is_pure_io_pe
     INTEGER :: max_var_size, max_sfcvar_size, max_time_stamps
 
@@ -1890,7 +1893,6 @@ CONTAINS
     icurrent = meteogram_data%icurrent
 
     is_pure_io_pe = use_async_name_list_io .AND. my_process_is_io()
-    world_rank = get_my_mpi_all_id()
     IF (mtgrm(jg)%l_is_collecting_pe .NEQV. mtgrm(jg)%l_is_sender) THEN
       max_time_stamps = mtgrm(jg)%max_time_stamps
       ALLOCATE(msg_buffer(mtgrm(jg)%max_buf_size, &
@@ -1923,9 +1925,10 @@ CONTAINS
       ! launch MPI message requests for station data on foreign PEs
       DO istation=1,mtgrm(jg)%meteogram_global_data%nstations
         iowner = mtgrm(jg)%meteogram_global_data%pstation(istation)
-        IF ((iowner /= world_rank) .AND. (iowner >= 0)) THEN
-          CALL p_irecv_packed(msg_buffer(:,istation), MPI_ANY_SOURCE, &
-            &                 TAG_MTGRM_MSG + (jg-1)*TAG_DOMAIN_SHIFT + istation, mtgrm(jg)%max_buf_size)
+        IF ((is_pure_io_pe .OR. iowner /= p_pe_work) .AND. (iowner >= 0)) THEN
+          CALL p_irecv_packed(msg_buffer(:,istation), iowner, &
+            &    tag_mtgrm_msg + (jg-1)*tag_domain_shift + istation, &
+            &    mtgrm(jg)%max_buf_size, comm=mtgrm(jg)%io_collect_comm)
         END IF
       END DO
 
@@ -1943,12 +1946,11 @@ CONTAINS
           WRITE (*,*) "Receiver side: Station ", istation
         iowner = mtgrm(jg)%meteogram_global_data%pstation(istation)
         IF (iowner < 0) THEN
-          IF (dbg_level > 5) &
-            WRITE (*,*) "skipping station!"
+          IF (dbg_level > 5) WRITE (*,*) "skipping station!"
           CYCLE
         END IF
 
-        IF ((iowner /= world_rank) .OR. is_pure_io_pe) THEN
+        IF (iowner /= p_pe_work .OR. is_pure_io_pe) THEN
           position = 0
 
           !-- unpack global time stamp index
@@ -2087,8 +2089,9 @@ CONTAINS
 
           ! (blocking) send of packed station data to IO PE:
           istation = nproma*(p_station%station_idx(2) - 1) + p_station%station_idx(1)
-          CALL p_send_packed(msg_buffer(:,1), mtgrm(jg)%io_collector_rank, &
-            &                TAG_MTGRM_MSG + (jg-1)*TAG_DOMAIN_SHIFT + istation, position)
+          CALL p_send_packed(msg_buffer, mtgrm(jg)%io_collector_rank, &
+            &    TAG_MTGRM_MSG + (jg-1)*TAG_DOMAIN_SHIFT + istation, &
+            &    position, comm=mtgrm(jg)%io_collect_comm)
           IF (dbg_level > 0) &
             WRITE (*,*) "Sending ", icurrent, " time slices, station ", istation
         END DO

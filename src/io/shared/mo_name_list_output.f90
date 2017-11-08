@@ -2662,6 +2662,7 @@ CONTAINS
             END IF
           END IF
         ELSE IF (action == msg_io_meteogram_flush) THEN
+          ! in this case, jstep actually holds the domain number to write
           CALL meteogram_flush_file(jstep)
         END IF
 

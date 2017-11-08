@@ -719,6 +719,11 @@ MODULE mo_mpi
      MODULE PROCEDURE p_sendrecv_char_array
   END INTERFACE
 
+  INTERFACE p_send_packed
+    MODULE PROCEDURE p_send_packed
+    MODULE PROCEDURE p_send_packed_2d
+  END INTERFACE p_send_packed
+
   INTERFACE p_bcast
      MODULE PROCEDURE p_bcast_real
      MODULE PROCEDURE p_bcast_real_single
@@ -6739,6 +6744,35 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_send_packed
+
+  SUBROUTINE p_send_packed_2d(t_buffer, p_destination, p_tag, p_count, comm)
+
+    CHARACTER, INTENT(in) :: t_buffer(:,:)
+    INTEGER,   INTENT(in) :: p_destination, p_tag
+    INTEGER,   INTENT(in) :: p_count
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+    CALL MPI_SEND (t_buffer, p_count, MPI_PACKED, p_destination, p_tag, &
+      p_comm, p_error)
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
+            ' to ', p_destination, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_send_packed_2d
 
   SUBROUTINE p_bcast_packed (t_buffer, p_source, p_count, comm)
     CHARACTER, INTENT(inout) :: t_buffer(:)
