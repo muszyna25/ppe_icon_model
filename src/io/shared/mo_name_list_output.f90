@@ -123,7 +123,8 @@ MODULE mo_name_list_output
     &                                     t_var_desc, t_output_name_list
   USE mo_output_event_types,        ONLY: t_sim_step_info, t_par_output_event
   ! parallelization
-  USE mo_communication,             ONLY: exchange_data, t_comm_gather_pattern, idx_no, blk_no
+  USE mo_communication,             ONLY: exchange_data, t_comm_gather_pattern,&
+       idx_no, blk_no
   USE mo_mpi,                       ONLY: p_send, p_recv, p_barrier, stop_mpi,                      &
     &                                     p_mpi_wtime, p_irecv, p_wait, p_test, p_isend,            &
     &                                     p_comm_work, p_real_dp, p_real_sp, p_int,                 &
@@ -131,7 +132,7 @@ MODULE mo_name_list_output
     &                                     my_process_is_mpi_workroot, my_process_is_work,           &
     &                                     my_process_is_io, my_process_is_mpi_ioroot,               &
     &                                     process_mpi_all_test_id, process_mpi_all_workroot_id,     &
-    &                                     num_work_procs, p_pe, p_pe_work,                          &
+    &                                     num_work_procs, p_pe, p_pe_work,    &
     &                                     p_max, p_comm_work_2_io, mpi_request_null
 #ifdef _OPENACC
   USE mo_mpi,                       ONLY: i_am_accel_node
@@ -139,7 +140,8 @@ MODULE mo_name_list_output
 #endif
   ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime, OPERATOR(-),   &
-    &                                     timedelta, max_datetime_str_len, datetimeToString
+    &                                     timedelta, max_datetime_str_len, &
+    &                                     datetimeToString
   ! output scheduling
   USE mo_output_event_handler,      ONLY: is_output_step, check_open_file, check_close_file,        &
     &                                     pass_output_step, get_current_filename,                   &
@@ -268,7 +270,7 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::open_output_file"
     CHARACTER(LEN=filename_max)    :: filename
-    INTEGER                        :: tsID, name_len, part_idx
+    INTEGER                        :: name_len, part_idx
     LOGICAL                        :: lexist, lappend
 
     ! open/append file: as this is a preliminary solution only, I do not try to
@@ -479,7 +481,7 @@ CONTAINS
     LOGICAL, OPTIONAL, INTENT(OUT)  :: opt_lhas_output
     ! local variables
     CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::write_name_list_output"
-    INTEGER                           :: i, j, idate, itime, iret
+    INTEGER                           :: i, idate, itime, iret
     TYPE(datetime) :: io_datetime
     CHARACTER(LEN=filename_max+100)   :: text
     TYPE(t_par_output_event), POINTER :: ev
@@ -842,7 +844,7 @@ CONTAINS
     INTEGER :: ipost_op_type, alloc_shape(3), alloc_shape_op(3)
     LOGICAL :: post_op_apply
 
-    LOGICAL :: is_mpi_test, is_stdio
+    LOGICAL :: is_test, is_stdio
 #ifndef NOMPI
     LOGICAL :: participate_in_async_io, lasync_io_metadata_prepare
     LOGICAL :: is_mpi_workroot
@@ -857,12 +859,12 @@ CONTAINS
 
     tl = 0 ! to prevent warning
 
-    is_mpi_test = my_process_is_mpi_test()
+    is_test = my_process_is_mpi_test()
     is_stdio = my_process_is_stdio()
 #ifndef NOMPI
     is_mpi_workroot = my_process_is_mpi_workroot()
     participate_in_async_io &
-      = use_async_name_list_io .AND. .NOT. is_mpi_test
+      = use_async_name_list_io .AND. .NOT. is_test
     lasync_io_metadata_prepare &
       = participate_in_async_io .AND. is_mpi_workroot
     ! In case of async IO: Lock own window before writing to it
@@ -1096,12 +1098,12 @@ CONTAINS
       END SELECT
 
 #ifdef HAVE_CDI_PIO
-      IF (pio_type == pio_type_cdipio .AND. .NOT. is_mpi_test) THEN
+      IF (pio_type == pio_type_cdipio .AND. .NOT. is_test) THEN
         CALL data_write_cdipio(of, idata_type, r_ptr, s_ptr, i_ptr, iv, &
              nlevs, var_ignore_level_selection, p_ri, info, i_log_dom)
       ELSE
 #endif
-        IF (.NOT.use_async_name_list_io .OR. is_mpi_test) THEN
+        IF (.NOT.use_async_name_list_io .OR. is_test) THEN
           CALL gather_on_workroot_and_write(of, idata_type, r_ptr, s_ptr, &
             i_ptr, ri_n_glb, iv, last_bdry_index, &
             nlevs, var_ignore_level_selection, p_pat, info)
@@ -1358,12 +1360,12 @@ CONTAINS
 
     INTEGER :: lev, lev_idx, i, n_points, nmiss
     LOGICAL :: l_error, have_grib, lwrite_single_precision
-    LOGICAL :: is_mpi_test, is_mpi_workroot
+    LOGICAL :: is_test, is_mpi_workroot
     LOGICAL :: make_level_selection
 
     is_mpi_workroot = my_process_is_mpi_workroot()
 
-    is_mpi_test = my_process_is_mpi_test()
+    is_test = my_process_is_mpi_test()
 
     IF (info%hgrid == GRID_LONLAT) THEN
       n_points = 1
@@ -1391,14 +1393,14 @@ CONTAINS
 
     IF(is_mpi_workroot) THEN
 
-      IF (is_mpi_test) THEN
+      IF (is_test) THEN
 
         IF (p_test_run .AND. use_dp_mpi2io) ALLOCATE(r_out_recv(n_points))
 
       ELSE
 
         CALL set_time_varying_metadata(of, info, of%var_desc(iv)%info_ptr)
-      END IF ! is_mpi_test
+      END IF ! is_test
     END IF ! is_mpi_workroot
 
 
@@ -1534,7 +1536,7 @@ CONTAINS
         IF (p_test_run  .AND.  use_dp_mpi2io) THEN
           ! Currently we don't do the check for REAL*4, we would need
           ! p_send/p_recv for this type
-          IF (.NOT. is_mpi_test) THEN
+          IF (.NOT. is_test) THEN
             ! Send to test PE
             CALL p_send(r_out_dp, process_mpi_all_test_id, 1)
           ELSE IF (p_pe == process_mpi_all_test_id) THEN
@@ -1561,7 +1563,7 @@ CONTAINS
         ! ----------
         ! write data
         ! ----------
-        IF (.NOT. is_mpi_test) THEN
+        IF (.NOT. is_test) THEN
           IF (.NOT. lwrite_single_precision) THEN
             CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), nmiss)
           ELSE
@@ -2562,11 +2564,10 @@ CONTAINS
 
 #ifndef __NO_ICON_ATMO__
     LOGICAL             :: l_complete, lhas_output, &
-      &                    lset_timers_for_idle_pe, is_mpi_test, is_io_root
-    INTEGER             :: jg, jstep, i, action
+      &                    lset_timers_for_idle_pe, is_io_root
+    INTEGER             :: jg, jstep, action
     TYPE(t_par_output_event), POINTER :: ev
 
-    is_mpi_test = my_process_is_mpi_test()
     is_io_root = my_process_is_mpi_ioroot()
 
     ! define initial time stamp used as reference for output statistics
@@ -3285,7 +3286,7 @@ CONTAINS
   SUBROUTINE compute_wait_for_async_io(jstep)
     INTEGER, INTENT(IN) :: jstep         !< model step
     ! local variables
-    INTEGER :: i,j, nwait_list, io_proc_id
+    INTEGER :: i, nwait_list, io_proc_id
     INTEGER :: msg(num_io_procs), wait_list(num_io_procs), reqs(num_io_procs)
     CHARACTER(len=*), PARAMETER :: &
       routine = modname//'::compute_wait_for_async_io'
