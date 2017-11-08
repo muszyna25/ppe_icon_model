@@ -268,7 +268,6 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::open_output_file"
     CHARACTER(LEN=filename_max)    :: filename
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
     INTEGER                        :: tsID, name_len, part_idx
     LOGICAL                        :: lexist, lappend
 
