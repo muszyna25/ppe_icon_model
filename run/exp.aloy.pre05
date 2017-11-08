@@ -630,7 +630,7 @@ if [[ "$output_lnd_min" == "yes" ]] || [[ "${output_lnd_full}" == "yes" ]]; then
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
- output_end       = "${end_date}"
+ output_end       = "${start_date}"
  output_interval  = "${lnd_output_interval}"
  file_interval    = "${lnd_file_interval}"
  include_last     = .FALSE.
