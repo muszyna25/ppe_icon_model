@@ -383,7 +383,6 @@ MODULE mo_meteogram_output
     TYPE(t_var)             :: var_list                         !< internal indices of variables
 
     !! -- data for distributed meteogram sampling (MPI) --
-    CHARACTER, ALLOCATABLE  :: msg_buffer(:,:)                  !< MPI buffer for station data
     INTEGER                 :: max_buf_size                     !< max buffer size for MPI messages
 
     !> maximum number of time stamps stored before flush
@@ -1296,8 +1295,6 @@ CONTAINS
 
     CALL p_barrier(comm=p_comm_work_io)
 
-    ! Allocate a buffer for var list communication
-
     ! Pure I/O PEs must receive all variable info from elsewhere.
     ! Here, they get it from working PE#0 which has collected it in
     ! "msg_varlist_buffer" during the add_xxx_var calls
@@ -1592,40 +1589,6 @@ CONTAINS
         &               + meteogram_data%nsfcvars*max_sfcvar_size
 
       ! allocate buffer:
-      IF (mtgrm(jg)%l_is_collecting_pe .AND. (.NOT. ALLOCATED(mtgrm(jg)%msg_buffer))) THEN
-        ALLOCATE(mtgrm(jg)%msg_buffer(mtgrm(jg)%max_buf_size, MAX_NUM_STATIONS), stat=ierrstat)
-        IF (ierrstat /= SUCCESS) THEN
-          WRITE (0,*) "jg = ", jg, " : message buffer: mtgrm(jg)%max_buf_size = ", &
-            & mtgrm(jg)%max_buf_size, "; MAX_NUM_STATIONS = ", MAX_NUM_STATIONS
-          WRITE (0,*) "MAX_HEADER_SIZE         = ", MAX_HEADER_SIZE
-          WRITE (0,*) "p_real_dp_byte          = ", p_real_dp_byte
-          WRITE (0,*) "max_time_stamps         = ", max_time_stamps
-          WRITE (0,*) "MAX_DATE_LEN            = ", MAX_DATE_LEN
-          WRITE (0,*) "meteogram_data%nvars    = ", meteogram_data%nvars
-          WRITE (0,*) "max_var_size            = ", max_var_size
-          WRITE (0,*) "meteogram_data%nsfcvars = ", meteogram_data%nsfcvars
-          WRITE (0,*) "max_sfcvar_size         = ", max_sfcvar_size
-          CALL finish (routine, 'ALLOCATE of meteogram message buffer failed (collector)')
-        END IF
-        mtgrm(jg)%msg_buffer(:,:) = ' '
-      ELSE IF  (.NOT. ALLOCATED(mtgrm(jg)%msg_buffer)) THEN
-        ! allocate buffer:
-        ALLOCATE(mtgrm(jg)%msg_buffer(mtgrm(jg)%max_buf_size, 1), stat=ierrstat)
-        IF (ierrstat /= SUCCESS) THEN
-          WRITE (0,*) "jg = ", jg, " : message buffer: mtgrm(jg)%max_buf_size = ", mtgrm(jg)%max_buf_size
-          WRITE (0,*) "MAX_HEADER_SIZE         = ", MAX_HEADER_SIZE
-          WRITE (0,*) "p_real_dp_byte          = ", p_real_dp_byte
-          WRITE (0,*) "max_time_stamps         = ", max_time_stamps
-          WRITE (0,*) "MAX_DATE_LEN            = ", MAX_DATE_LEN
-          WRITE (0,*) "meteogram_data%nvars    = ", meteogram_data%nvars
-          WRITE (0,*) "max_var_size            = ", max_var_size
-          WRITE (0,*) "meteogram_data%nsfcvars = ", meteogram_data%nsfcvars
-          WRITE (0,*) "max_sfcvar_size         = ", max_sfcvar_size
-          CALL finish (routine, 'ALLOCATE of meteogram message buffer failed (dummy)')
-        END IF
-        mtgrm(jg)%msg_buffer(:,:) = ' '
-      END IF
-
     END IF
 
     ! ------------------------------------------------------------
@@ -1841,15 +1804,6 @@ CONTAINS
       meteogram_data%nstations = 0
     END IF
 
-    ! deallocate MPI buffer
-    IF (.NOT. mtgrm(jg)%meteogram_file_info%ldistributed) THEN
-      IF (ALLOCATED(mtgrm(jg)%msg_buffer)) THEN
-        DEALLOCATE(mtgrm(jg)%msg_buffer, stat=ierrstat)
-        IF (ierrstat /= SUCCESS) &
-          CALL finish (routine, 'DEALLOCATE of MPI message buffer failed')
-      END IF
-    END IF
-
     ! deallocate global meteogram data
 
     IO_PE : IF (mtgrm(jg)%l_is_collecting_pe) THEN
@@ -1919,8 +1873,12 @@ CONTAINS
     CHARACTER(LEN=MAX_DATE_LEN) :: zdate_sndrcv
     TYPE(t_meteogram_data),    POINTER :: meteogram_data
     TYPE(t_meteogram_station), POINTER :: p_station
-    INTEGER :: world_rank
+    !> MPI buffer for station data
+    CHARACTER, ALLOCATABLE  :: msg_buffer(:,:)
+
+    INTEGER :: world_rank, ierror
     LOGICAL :: is_pure_io_pe
+    INTEGER :: max_var_size, max_sfcvar_size, max_time_stamps
 
     IF (dbg_level > 5)  WRITE (*,*) routine, " Enter (collecting PE=", mtgrm(jg)%l_is_collecting_pe, ")"
 
@@ -1931,15 +1889,41 @@ CONTAINS
     icurrent = meteogram_data%icurrent
 
     is_pure_io_pe = use_async_name_list_io .AND. my_process_is_io()
-
     world_rank = get_my_mpi_all_id()
+    IF (mtgrm(jg)%l_is_collecting_pe .NEQV. mtgrm(jg)%l_is_sender) THEN
+      max_time_stamps = mtgrm(jg)%max_time_stamps
+      ALLOCATE(msg_buffer(mtgrm(jg)%max_buf_size, &
+        MERGE(max_num_stations, 1, mtgrm(jg)%l_is_collecting_pe)), &
+        stat=ierror)
+      IF (ierror /= SUCCESS) THEN
+        max_var_size    = (max_time_stamps+1)*p_real_dp_byte*meteogram_data%max_nlevs
+        max_sfcvar_size = max_time_stamps*p_real_dp_byte
+
+        WRITE (0,*) "jg = ", jg, " : message buffer: mtgrm(jg)%max_buf_size = ", &
+          & mtgrm(jg)%max_buf_size, "; MAX_NUM_STATIONS = ", MAX_NUM_STATIONS
+        WRITE (0,*) "MAX_HEADER_SIZE         = ", MAX_HEADER_SIZE
+        WRITE (0,*) "p_real_dp_byte          = ", p_real_dp_byte
+        WRITE (0,*) "max_time_stamps         = ", max_time_stamps
+        WRITE (0,*) "MAX_DATE_LEN            = ", MAX_DATE_LEN
+        WRITE (0,*) "meteogram_data%nvars    = ", meteogram_data%nvars
+        WRITE (0,*) "max_var_size            = ", max_var_size
+        WRITE (0,*) "meteogram_data%nsfcvars = ", meteogram_data%nsfcvars
+        WRITE (0,*) "max_sfcvar_size         = ", max_sfcvar_size
+        WRITE (message_text, '(3a)') &
+          'ALLOCATE of meteogram message buffer failed (', &
+          MERGE('collector', 'sender   ', mtgrm(jg)%l_is_collecting_pe), ')'
+        CALL finish(routine, message_text)
+      END IF
+      msg_buffer(:,:) = ''
+    END IF
+
     ! -- RECEIVER CODE --
     RECEIVER : IF (mtgrm(jg)%l_is_collecting_pe) THEN
       ! launch MPI message requests for station data on foreign PEs
       DO istation=1,mtgrm(jg)%meteogram_global_data%nstations
         iowner = mtgrm(jg)%meteogram_global_data%pstation(istation)
         IF ((iowner /= world_rank) .AND. (iowner >= 0)) THEN
-          CALL p_irecv_packed(mtgrm(jg)%msg_buffer(:,istation), MPI_ANY_SOURCE, &
+          CALL p_irecv_packed(msg_buffer(:,istation), MPI_ANY_SOURCE, &
             &                 TAG_MTGRM_MSG + (jg-1)*TAG_DOMAIN_SHIFT + istation, mtgrm(jg)%max_buf_size)
         END IF
       END DO
@@ -1967,7 +1951,7 @@ CONTAINS
           position = 0
 
           !-- unpack global time stamp index
-          CALL p_unpack_int(mtgrm(jg)%msg_buffer(:,istation), position, icurrent_recv)
+          CALL p_unpack_int(msg_buffer(:,istation), position, icurrent_recv)
           ! consistency check
           ! Note: We only check the number of received time stamps, not the
           !       exact sample dates themselves
@@ -1983,37 +1967,37 @@ CONTAINS
             WRITE (*,'(3(a,i0))') "Receiving ", icurrent, " time slices from station ", istation, "/", &
             &           mtgrm(jg)%meteogram_global_data%nstations
           ! unpack time stamp info
-          CALL p_unpack_int_1d(mtgrm(jg)%msg_buffer(:,istation), position, istep_sndrcv(:), icurrent)
+          CALL p_unpack_int_1d(msg_buffer(:,istation), position, istep_sndrcv(:), icurrent)
           mtgrm(jg)%meteogram_global_data%time_stamp(1:icurrent)%istep = istep_sndrcv(1:icurrent)
           DO itime=1,icurrent
-            CALL p_unpack_string(mtgrm(jg)%msg_buffer(:,istation), position, zdate_sndrcv)
+            CALL p_unpack_string(msg_buffer(:,istation), position, zdate_sndrcv)
             mtgrm(jg)%meteogram_global_data%time_stamp(itime)%zdate = zdate_sndrcv
           END DO
 
           !-- unpack station header information
-          CALL p_unpack_int_1d(mtgrm(jg)%msg_buffer(:,istation), position, station_idx(:),2)
+          CALL p_unpack_int_1d(msg_buffer(:,istation), position, station_idx(:),2)
           p_station => mtgrm(jg)%meteogram_global_data%station(station_idx(1), station_idx(2))
           p_station%station_idx(1:2) = station_idx(1:2)
-          CALL p_unpack_int_1d(mtgrm(jg)%msg_buffer(:,istation), position, p_station%tri_idx(:),2)
-          CALL p_unpack_int_1d(mtgrm(jg)%msg_buffer(:,istation), position, p_station%tri_idx_local(:),2)
-          CALL p_unpack_int(mtgrm(jg)%msg_buffer(:,istation), position, p_station%owner)
-          CALL p_unpack_real(mtgrm(jg)%msg_buffer(:,istation), position, p_station%hsurf)
-          CALL p_unpack_real(mtgrm(jg)%msg_buffer(:,istation), position, p_station%frland)
-          CALL p_unpack_real(mtgrm(jg)%msg_buffer(:,istation), position, p_station%fc)
-          CALL p_unpack_int(mtgrm(jg)%msg_buffer(:,istation), position, p_station%soiltype)
+          CALL p_unpack_int_1d(msg_buffer(:,istation), position, p_station%tri_idx(:),2)
+          CALL p_unpack_int_1d(msg_buffer(:,istation), position, p_station%tri_idx_local(:),2)
+          CALL p_unpack_int(msg_buffer(:,istation), position, p_station%owner)
+          CALL p_unpack_real(msg_buffer(:,istation), position, p_station%hsurf)
+          CALL p_unpack_real(msg_buffer(:,istation), position, p_station%frland)
+          CALL p_unpack_real(msg_buffer(:,istation), position, p_station%fc)
+          CALL p_unpack_int(msg_buffer(:,istation), position, p_station%soiltype)
 
-          CALL p_unpack_real_1d(mtgrm(jg)%msg_buffer(:,istation), position, p_station%tile_frac(:), ntiles_mtgrm)
-          CALL p_unpack_int_1d (mtgrm(jg)%msg_buffer(:,istation), position, p_station%tile_luclass(:), ntiles_mtgrm)
+          CALL p_unpack_real_1d(msg_buffer(:,istation), position, p_station%tile_frac(:), ntiles_mtgrm)
+          CALL p_unpack_int_1d (msg_buffer(:,istation), position, p_station%tile_luclass(:), ntiles_mtgrm)
 
 
           !-- unpack heights and meteogram data:
           DO ivar=1,meteogram_data%nvars
             nlevs = meteogram_data%var_info(ivar)%nlevs
-            CALL p_unpack_real_1d(mtgrm(jg)%msg_buffer(:,istation), position, p_station%var(ivar)%heights(:), nlevs)
-            CALL p_unpack_real_2d(mtgrm(jg)%msg_buffer(:,istation), position, p_station%var(ivar)%values(:,:), nlevs*icurrent)
+            CALL p_unpack_real_1d(msg_buffer(:,istation), position, p_station%var(ivar)%heights(:), nlevs)
+            CALL p_unpack_real_2d(msg_buffer(:,istation), position, p_station%var(ivar)%values(:,:), nlevs*icurrent)
           END DO
           DO ivar=1,meteogram_data%nsfcvars
-            CALL p_unpack_real_1d(mtgrm(jg)%msg_buffer(:,istation), position, p_station%sfc_var(ivar)%values(:), icurrent)
+            CALL p_unpack_real_1d(msg_buffer(:,istation), position, p_station%sfc_var(ivar)%values(:), icurrent)
           END DO
         ELSE
           ! this PE is both sender and receiver - direct copy:
@@ -2067,42 +2051,42 @@ CONTAINS
           position = 0
 
           !-- pack global time stamp index
-          CALL p_pack_int (icurrent, mtgrm(jg)%msg_buffer(:,1), position)
+          CALL p_pack_int (icurrent, msg_buffer(:,1), position)
           ! pack time stamp info
           istep_sndrcv(1:icurrent) = meteogram_data%time_stamp(1:icurrent)%istep
-          CALL p_pack_int_1d(istep_sndrcv(:), icurrent, mtgrm(jg)%msg_buffer(:,1), position)
+          CALL p_pack_int_1d(istep_sndrcv(:), icurrent, msg_buffer(:,1), position)
           DO itime=1,icurrent
             zdate_sndrcv = meteogram_data%time_stamp(itime)%zdate
-            CALL p_pack_string(zdate_sndrcv(:), mtgrm(jg)%msg_buffer(:,1), position)
+            CALL p_pack_string(zdate_sndrcv(:), msg_buffer(:,1), position)
           END DO
 
           !-- pack meteogram header (information on location, ...)
-          CALL p_pack_int_1d(p_station%station_idx(:), 2, mtgrm(jg)%msg_buffer(:,1), position)
-          CALL p_pack_int_1d(p_station%tri_idx(:), 2, mtgrm(jg)%msg_buffer(:,1), position)
-          CALL p_pack_int_1d(p_station%tri_idx_local(:), 2, mtgrm(jg)%msg_buffer(:,1), position)
-          CALL p_pack_int (p_station%owner, mtgrm(jg)%msg_buffer(:,1), position)
-          CALL p_pack_real(p_station%hsurf, mtgrm(jg)%msg_buffer(:,1), position)
-          CALL p_pack_real(p_station%frland, mtgrm(jg)%msg_buffer(:,1), position)
-          CALL p_pack_real(p_station%fc, mtgrm(jg)%msg_buffer(:,1), position)
-          CALL p_pack_int (p_station%soiltype, mtgrm(jg)%msg_buffer(:,1), position)
+          CALL p_pack_int_1d(p_station%station_idx(:), 2, msg_buffer(:,1), position)
+          CALL p_pack_int_1d(p_station%tri_idx(:), 2, msg_buffer(:,1), position)
+          CALL p_pack_int_1d(p_station%tri_idx_local(:), 2, msg_buffer(:,1), position)
+          CALL p_pack_int (p_station%owner, msg_buffer(:,1), position)
+          CALL p_pack_real(p_station%hsurf, msg_buffer(:,1), position)
+          CALL p_pack_real(p_station%frland, msg_buffer(:,1), position)
+          CALL p_pack_real(p_station%fc, msg_buffer(:,1), position)
+          CALL p_pack_int (p_station%soiltype, msg_buffer(:,1), position)
 
-          CALL p_pack_real_1d(p_station%tile_frac(:), ntiles_mtgrm, mtgrm(jg)%msg_buffer(:,1), position)
-          CALL p_pack_int_1d (p_station%tile_luclass(:), ntiles_mtgrm, mtgrm(jg)%msg_buffer(:,1), position)
+          CALL p_pack_real_1d(p_station%tile_frac(:), ntiles_mtgrm, msg_buffer(:,1), position)
+          CALL p_pack_int_1d (p_station%tile_luclass(:), ntiles_mtgrm, msg_buffer(:,1), position)
 
 
           !-- pack heights and meteogram data:
           DO ivar=1,meteogram_data%nvars
             nlevs = meteogram_data%var_info(ivar)%nlevs
-            CALL p_pack_real_1d(p_station%var(ivar)%heights(:), nlevs, mtgrm(jg)%msg_buffer(:,1), position)
-            CALL p_pack_real_2d(p_station%var(ivar)%values(:,:), nlevs*icurrent, mtgrm(jg)%msg_buffer(:,1), position)
+            CALL p_pack_real_1d(p_station%var(ivar)%heights(:), nlevs, msg_buffer(:,1), position)
+            CALL p_pack_real_2d(p_station%var(ivar)%values(:,:), nlevs*icurrent, msg_buffer(:,1), position)
           END DO
           DO ivar=1,meteogram_data%nsfcvars
-            CALL p_pack_real_1d(p_station%sfc_var(ivar)%values(:), icurrent, mtgrm(jg)%msg_buffer(:,1), position)
+            CALL p_pack_real_1d(p_station%sfc_var(ivar)%values(:), icurrent, msg_buffer(:,1), position)
           END DO
 
           ! (blocking) send of packed station data to IO PE:
           istation = nproma*(p_station%station_idx(2) - 1) + p_station%station_idx(1)
-          CALL p_send_packed(mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%io_collector_rank, &
+          CALL p_send_packed(msg_buffer(:,1), mtgrm(jg)%io_collector_rank, &
             &                TAG_MTGRM_MSG + (jg-1)*TAG_DOMAIN_SHIFT + istation, position)
           IF (dbg_level > 0) &
             WRITE (*,*) "Sending ", icurrent, " time slices, station ", istation
