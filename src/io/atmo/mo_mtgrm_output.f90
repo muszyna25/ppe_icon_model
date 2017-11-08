@@ -392,8 +392,7 @@ MODULE mo_meteogram_output
 
     ! different roles in communication:
     LOGICAL                 :: l_is_sender, l_is_writer,         &
-      &                        l_is_collecting_pe, &
-      &                        l_is_varlist_sender
+      &                        l_is_collecting_pe
     !> rank of PE which gathers data
     INTEGER                 :: io_collector_rank
     INTEGER                 :: global_idx(MAX_NUM_STATIONS)     !< rank of sender PE for each station
@@ -406,6 +405,7 @@ MODULE mo_meteogram_output
     CHARACTER, ALLOCATABLE  :: msg_varlist(:)
     !> current position when buffering
     INTEGER :: pos
+    LOGICAL :: l_is_varlist_sender
   END TYPE mtgrm_pack_buf
 
   !! -- module data: --
@@ -1136,7 +1136,7 @@ CONTAINS
 
     ! PE collecting variable info to send it to pure I/O PEs.
     ! (only relevant if pure I/O PEs exist)
-    mtgrm(jg)%l_is_varlist_sender &
+    pack_buf%l_is_varlist_sender &
       = use_async_name_list_io .AND. my_process_is_work() .AND. is_mpi_workroot
 
     ! Flag. True, if this PE is a pure I/O PE without own patch data:
@@ -1277,7 +1277,8 @@ CONTAINS
       istation = 0
       DO jb=1,meteogram_data%nblks
         i_startidx = 1
-        i_endidx   = MERGE(nproma, meteogram_data%npromz, jb /= meteogram_data%nblks)
+        i_endidx   = MERGE(nproma, meteogram_data%npromz, &
+          &                jb /= meteogram_data%nblks)
 
         DO jc=i_startidx,i_endidx
           istation = istation + 1
@@ -1298,8 +1299,8 @@ CONTAINS
     ! Pure I/O PEs must receive all variable info from elsewhere.
     ! Here, they get it from working PE#0 which has collected it in
     ! "msg_varlist_buffer" during the add_xxx_var calls
-    IF ( mtgrm(jg)%l_is_varlist_sender .OR. &
-      & (is_pure_io_pe .AND. mtgrm(jg)%l_is_collecting_pe)) THEN
+    IF (     pack_buf%l_is_varlist_sender &
+      & .OR. (is_pure_io_pe .AND. mtgrm(jg)%l_is_collecting_pe)) THEN
       ALLOCATE(pack_buf%msg_varlist(max_varlist_buf_size), stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
         CALL finish (routine, 'ALLOCATE of MPI buffer failed.')
@@ -1335,7 +1336,7 @@ CONTAINS
         &                            atm_phy_nwp_config(jg), nnow(jg), &
         &                            mtgrm(jg), pack_buf)
 
-      IF (mtgrm(jg)%l_is_varlist_sender) THEN
+      IF (pack_buf%l_is_varlist_sender) THEN
         CALL p_pack_int(FLAG_VARLIST_END, pack_buf%msg_varlist(:), pack_buf%pos)
         CALL p_send_packed(pack_buf%msg_varlist(:), mtgrm(jg)%io_collector_rank, &
           &                TAG_VARLIST, pack_buf%pos)
@@ -1344,8 +1345,8 @@ CONTAINS
       CALL receive_var_info(mtgrm(jg)%meteogram_local_data, mtgrm(jg), pack_buf)
     END IF
 
-    IF ( mtgrm(jg)%l_is_varlist_sender .OR. &
-      & (is_pure_io_pe .AND. mtgrm(jg)%l_is_collecting_pe)) THEN
+    IF (     pack_buf%l_is_varlist_sender &
+      & .OR. (is_pure_io_pe .AND. mtgrm(jg)%l_is_collecting_pe)) THEN
       ! deallocate buffer
       DEALLOCATE(pack_buf%msg_varlist, stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
@@ -2747,7 +2748,7 @@ CONTAINS
 
     ! collect variable info for pure I/O PEs
 #ifndef NOMPI
-    IF (mtgrm%l_is_varlist_sender) THEN
+    IF (pack_buf%l_is_varlist_sender) THEN
       IF (dbg_level > 0) &
         CALL message(routine, "collect variable info for pure I/O PEs")
 
@@ -2834,7 +2835,7 @@ CONTAINS
 
     ! collect variable info for pure I/O PEs
 #ifndef NOMPI
-    IF (mtgrm%l_is_varlist_sender) THEN
+    IF (pack_buf%l_is_varlist_sender) THEN
       IF (dbg_level > 0) &
         CALL message(routine, "collect surface variable info for pure I/O PEs")
 
