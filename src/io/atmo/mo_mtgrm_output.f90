@@ -276,7 +276,6 @@ MODULE mo_meteogram_output
     INTEGER                         :: station_idx(2)   !< (idx,block) of station specification
     INTEGER                         :: tri_idx(2)       !< triangle index (global idx,block)
     INTEGER                         :: tri_idx_local(2) !< triangle index (idx,block)
-    INTEGER                         :: owner            !< proc ID where station is located.
     REAL(wp)                        :: hsurf            !< surface height
     REAL(wp)                        :: frland           !< fraction of land
     REAL(wp)                        :: fc               !< Coriolis parameter
@@ -1104,7 +1103,7 @@ CONTAINS
       &             nstations, ierrstat,              &
       &             jb, jc, glb_index, i_startidx,    &
       &             i_endidx, jc_station, jb_station, &
-      &             istation, my_id, ivar, nlevs,     &
+      &             istation, ivar, nlevs,     &
       &             nblks_global, npromz_global, ilev,&
       &             istation_glb
     REAL(gk)     :: in_points(nproma,meteogram_output_config%nblks,2) !< geographical locations
@@ -1125,12 +1124,10 @@ CONTAINS
     INTEGER                            :: max_time_stamps
     INTEGER                            :: io_collector_rank
     LOGICAL :: is_io, is_mpi_workroot, is_mpi_test, is_pure_io_pe
-    INTEGER                            :: world_rank
 
     is_io = my_process_is_io()
     is_mpi_workroot = my_process_is_mpi_workroot()
     is_mpi_test = my_process_is_mpi_test()
-    world_rank = get_my_mpi_all_id()
     !-- define the different roles in the MPI communication inside
     !-- this module
 
@@ -1382,7 +1379,6 @@ CONTAINS
         CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 3)')
       ENDIF
 
-      my_id = world_rank
       istation = 0
       DO jb=1,nblks
         i_startidx = 1
@@ -1396,8 +1392,6 @@ CONTAINS
           jc_station = istation_glb - (jb_station-1)*nproma
           meteogram_data%station(jc,jb)%station_idx = (/ jc_station, jb_station /)
 
-          ! set owner ID:
-          meteogram_data%station(jc,jb)%owner = my_id
           ! set local triangle index, block:
           meteogram_data%station(jc,jb)%tri_idx_local(1:2) = tri_idx(1:2,jc,jb)
           ! translate local index to global index:
@@ -1983,7 +1977,6 @@ CONTAINS
           p_station%station_idx(1:2) = station_idx(1:2)
           CALL p_unpack_int_1d(msg_buffer(:,istation), position, p_station%tri_idx(:),2)
           CALL p_unpack_int_1d(msg_buffer(:,istation), position, p_station%tri_idx_local(:),2)
-          CALL p_unpack_int(msg_buffer(:,istation), position, p_station%owner)
           CALL p_unpack_real(msg_buffer(:,istation), position, p_station%hsurf)
           CALL p_unpack_real(msg_buffer(:,istation), position, p_station%frland)
           CALL p_unpack_real(msg_buffer(:,istation), position, p_station%fc)
@@ -2015,7 +2008,6 @@ CONTAINS
           p_station%station_idx(1:2)      = meteogram_data%station(jc,jb)%station_idx(1:2)
           p_station%tri_idx(1:2)          = meteogram_data%station(jc,jb)%tri_idx(1:2)
           p_station%tri_idx_local(1:2)    = meteogram_data%station(jc,jb)%tri_idx_local(1:2)
-          p_station%owner                 = meteogram_data%station(jc,jb)%owner
           p_station%hsurf                 = meteogram_data%station(jc,jb)%hsurf
           p_station%frland                = meteogram_data%station(jc,jb)%frland
           p_station%fc                    = meteogram_data%station(jc,jb)%fc
@@ -2067,7 +2059,6 @@ CONTAINS
           CALL p_pack_int_1d(p_station%station_idx(:), 2, msg_buffer(:,1), position)
           CALL p_pack_int_1d(p_station%tri_idx(:), 2, msg_buffer(:,1), position)
           CALL p_pack_int_1d(p_station%tri_idx_local(:), 2, msg_buffer(:,1), position)
-          CALL p_pack_int (p_station%owner, msg_buffer(:,1), position)
           CALL p_pack_real(p_station%hsurf, msg_buffer(:,1), position)
           CALL p_pack_real(p_station%frland, msg_buffer(:,1), position)
           CALL p_pack_real(p_station%fc, msg_buffer(:,1), position)
