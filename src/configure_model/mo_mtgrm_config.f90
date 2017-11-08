@@ -69,7 +69,7 @@ MODULE mo_meteogram_config
     ! Specification of meteogram stations.
     ! Note: This info is the same for all patches.
     INTEGER                           :: nstations
-    TYPE(t_station_list), POINTER     :: station_list(:,:) !< (idx, block)
+    TYPE(t_station_list), ALLOCATABLE :: station_list(:,:) !< (idx, block)
     INTEGER                           :: nblks, npromz
 
     ! Positive-list of variables (optional). Only variables contained
