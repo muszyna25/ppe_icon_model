@@ -44,7 +44,7 @@
     USE mo_loopindices,         ONLY: get_indices_c
     USE mo_intp_lonlat_types,   ONLY: t_lon_lat_intp, dbg_level
     USE mo_mpi,                 ONLY: get_my_mpi_work_id, p_io, p_comm_work,                &
-      &                               my_process_is_stdio, p_n_work, p_bcast
+      &                               my_process_is_stdio, p_n_work, p_bcast, p_barrier
     USE mo_communication,       ONLY: idx_1d, blk_no, idx_no
     USE mo_delaunay_types,      ONLY: t_point_list, point_list, point, t_spherical_cap,     &
       &                               spherical_cap, OPERATOR(/), t_triangulation,          &
@@ -353,8 +353,11 @@
 
       ! --- plotting for debugging purposes:
       !
-      IF (my_process_is_stdio() .AND. (dbg_level > 20)) THEN
-        CALL tri_global%write_vtk("tri_global.vtk", p_global, .FALSE.)
+      IF (dbg_level > 20) THEN
+        IF (my_process_is_stdio()) THEN
+          CALL tri_global%write_vtk("tri_global.vtk", p_global, .FALSE.)
+        END IF
+        CALL p_barrier(p_comm_work)
       END IF
 
     END SUBROUTINE compute_triangulation_repartition
@@ -712,7 +715,7 @@
       CHARACTER(*), PARAMETER :: routine = modname//"::compute_barycentric_coordinates"
       ! we use the barycentric coords for the "point in triangle
       ! test"; this is the threshold for this test
-      REAL(wp),     PARAMETER :: INSIDETEST_TOL = 1.e-6
+      REAL(wp),     PARAMETER :: INSIDETEST_TOL = 1.e-4
       ! max. no. of triangles (bounding boxes) containing a single lat-lon point.
       INTEGER,      PARAMETER :: NMAX_HITS = 99
       ! local variables
@@ -837,6 +840,7 @@
           IF (last_idx1(1) == -1) THEN
 
             IF (lcheck_locality) THEN
+              WRITE (0,*) "point ", ll_point_c%x, " hits ", nobjects, " objects."
               CALL finish(routine, "Internal error: no triangle was matching!")
             END IF
             ptr_int_lonlat%baryctr%coeff(1:3,jc,jb) = 0._wp
@@ -911,7 +915,7 @@
         ELSE
           CALL tri_global%initialize()
         END IF
-        CALL tri_global%sync() ! this is essentially a broadcast
+        CALL tri_global%bcast(0,p_comm_work)
 
         ! --- create an array-like data structure containing the mass points
         CALL create_global_pointlist(ptr_patch, p_global, ldisturb=.FALSE.)

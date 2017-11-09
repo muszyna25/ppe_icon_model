@@ -140,6 +140,7 @@ MODULE mo_delaunay_types
     PROCEDURE :: resize     => resize_point_list
     PROCEDURE :: push_back  => push_back_point_list
     PROCEDURE :: sync       => sync_point_list
+    PROCEDURE, PUBLIC :: quicksort  => quicksort_point_list
   END TYPE t_point_list
 
   !> type declaration: list of triangles
@@ -153,6 +154,7 @@ MODULE mo_delaunay_types
     PROCEDURE :: resize       => resize_triangulation
     PROCEDURE :: push_back    => push_back_triangulation
     PROCEDURE :: sync         => sync_triangulation
+    PROCEDURE :: bcast        => bcast_triangulation
 
     PROCEDURE :: write_vtk    => write_vtk_triangulation
     PROCEDURE :: write_netcdf => write_netcdf_triangulation
@@ -966,6 +968,57 @@ CONTAINS
 
 
   ! --------------------------------------------------------------------
+  !> Simple recursive implementation of Hoare's QuickSort algorithm
+  !  for a 1D array of INTEGER values.
+  ! 
+  !  Ordering after the sorting process: smallest...largest.
+  !
+  RECURSIVE SUBROUTINE quicksort_point_list(this, in_l, in_r)
+    CLASS(t_point_list) :: this
+    INTEGER, INTENT(IN), OPTIONAL :: in_l,in_r     !< left, right partition indices
+    ! local variables
+    INTEGER :: i,j,m,l,r
+
+    l = 0
+    r = this%nentries-1
+    IF (PRESENT(in_l))  l=in_l
+    IF (PRESENT(in_r))  r=in_r
+
+    IF (r>l) THEN
+      ! median-of-three selection of partitioning element
+      IF ((r-l) > 3) THEN 
+        m = (l+r)/2
+
+        IF (this%a(m) < this%a(l)) CALL swap_point_list(this,l,m)
+        IF (this%a(r) < this%a(l)) THEN
+          CALL swap_point_list(this,l,r)
+        ELSE IF (this%a(m) < this%a(r)) THEN
+          CALL swap_point_list(this,r,m)
+        END IF
+      END IF
+      i = l-1
+      j = r
+      LOOP : DO
+        CNTLOOP1 : DO
+          i = i+1
+          IF (.NOT. (this%a(i) < this%a(r))) EXIT CNTLOOP1
+        END DO CNTLOOP1
+        CNTLOOP2 : DO
+          j = j-1
+          IF (.NOT. (this%a(r) < this%a(j)) .OR. (j==0)) EXIT CNTLOOP2
+        END DO CNTLOOP2
+        CALL swap_point_list(this,i,j)
+        IF (j <= i) EXIT LOOP
+      END DO LOOP
+      CALL swap_point_list(this,i,j) ! undo extra exchange
+      CALL swap_point_list(this,i,r) ! put partitioning element into position
+      CALL this%quicksort(l,i-1)
+      CALL this%quicksort(i+1,r)
+    END IF
+  END SUBROUTINE quicksort_point_list
+
+
+  ! --------------------------------------------------------------------
   !> Synchronizes a point list between different processors with MPI.
   !
   !  Duplicate points are NOT removed.
@@ -1379,6 +1432,77 @@ CONTAINS
     CALL MPI_TYPE_FREE(mpi_t_triangle, ierr) 
 #endif
   END SUBROUTINE sync_triangulation
+
+
+  ! --------------------------------------------------------------------
+  !> Synchronizes a triangulation between different processors with MPI.
+  !
+  !  Duplicate triangles are removed.
+  !
+  !  First, this subroutine first calls itself recursively with a
+  !  split MPI communicator, followed by a second call with the
+  !  communicator that contains all worker PEs. This way, the gather
+  !  process is processed in two stages which reqires smaller MPI
+  !  buffers.
+  !
+  SUBROUTINE bcast_triangulation(this, root, mpi_comm)
+    CLASS(t_triangulation) :: this
+    INTEGER, INTENT(IN) :: root, mpi_comm
+#if (!defined(NOMPI))
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = modname//":bcast_triangulation"
+    INTEGER                           :: ierr, irank, mpi_t_triangle, oldtypes(2), &
+      &                                  blockcounts(2), alloc_size
+    INTEGER(MPI_ADDRESS_KIND)         :: offsets(2)
+    TYPE(t_mpi_triangle), ALLOCATABLE :: tmp(:)
+
+    IF (mpi_comm == MPI_COMM_NULL)  RETURN
+
+    ! determine this worker's rank
+    CALL MPI_COMM_RANK (mpi_comm, irank, ierr)
+    IF ((irank /= root) .AND. (this%nentries > 0)) THEN
+      CALL finish(routine, "Triangulation broadcast failed, non-empty receive buffer!")
+    END IF
+
+    ! broadcast buffer size from root PE
+    alloc_size = this%nentries
+    CALL MPI_BCAST(alloc_size, 1, MPI_INTEGER, root, mpi_comm, ierr)
+
+    ! create an MPI type for a single triangle
+    offsets(1)     = 0_MPI_ADDRESS_KIND
+    oldtypes(1)    = MPI_INTEGER
+    blockcounts(1) = 3
+    CALL MPI_TYPE_CREATE_STRUCT(1, blockcounts, offsets, oldtypes, mpi_t_triangle, ierr) 
+    CALL MPI_TYPE_COMMIT(mpi_t_triangle, ierr) 
+
+    ! create an MPI-sendable copy of the triangle list
+    ALLOCATE(tmp(0:(alloc_size-1)), STAT=ierr)
+    IF (ierr /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+    IF ((irank == root) .AND. (alloc_size > 0)) THEN
+      tmp(0:(alloc_size-1))%p(0) = this%a(0:(alloc_size-1))%p(0)
+      tmp(0:(alloc_size-1))%p(1) = this%a(0:(alloc_size-1))%p(1)
+      tmp(0:(alloc_size-1))%p(2) = this%a(0:(alloc_size-1))%p(2)
+    END IF
+
+    ! broadcast data
+    CALL MPI_BCAST(tmp, alloc_size, mpi_t_triangle, root, mpi_comm, ierr)
+
+    ! copy-back of received triangle data
+    IF (irank /= root) THEN
+      CALL this%resize(alloc_size)
+      IF (this%nentries > 0) THEN
+        this%a(0:(this%nentries-1))%p(0) = tmp(0:(this%nentries-1))%p(0)
+        this%a(0:(this%nentries-1))%p(1) = tmp(0:(this%nentries-1))%p(1)
+        this%a(0:(this%nentries-1))%p(2) = tmp(0:(this%nentries-1))%p(2)
+      END IF
+    END IF
+
+    ! clean up
+    CALL MPI_TYPE_FREE(mpi_t_triangle, ierr) 
+    DEALLOCATE(tmp, STAT=ierr)
+    IF (ierr /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+#endif
+  END SUBROUTINE bcast_triangulation
 
 
   ! --------------------------------------------------------------------
