@@ -57,7 +57,7 @@ CONTAINS
       &  routine = 'mo_mtgrm_nml::read_meteogram_namelist'
 
     INTEGER                        :: istat, funit, idom, istation, &
-      &                               jb, jc, nblks, npromz, nstations, idx
+      &                               nstations, idx
     INTEGER                        :: iunit
 
     !-------------------------------------------------------------------------
@@ -218,28 +218,14 @@ CONTAINS
       meteogram_output_config(idom)%silent_flush = silent_flush(idom)
       meteogram_output_config(idom)%append_if_exists = append_if_exists(idom)
 
-      nblks   = nstations/nproma + 1
-      npromz  = nstations - nproma*(nblks-1)
-      meteogram_output_config(idom)%nblks   = nblks
-      meteogram_output_config(idom)%npromz  = npromz
+      ALLOCATE(meteogram_output_config(idom)%station_list(nstations))
 
-      ALLOCATE(meteogram_output_config(idom)%station_list(nproma,nblks))
-
-      jc = 0
-      jb = 1
-      DO istation=1,nstations
-        jc = jc + 1
-        IF (jc>nproma) THEN
-          jc = 1
-          jb = jb + 1
-        END IF
-        meteogram_output_config(idom)%station_list(jc,jb)%zname        = &
-          &  stationlist_tot(istation)%zname
-        meteogram_output_config(idom)%station_list(jc,jb)%location%lat = &
-          &  stationlist_tot(istation)%lat
-        meteogram_output_config(idom)%station_list(jc,jb)%location%lon = &
-          &  stationlist_tot(istation)%lon
-      END DO
+      meteogram_output_config(idom)%station_list(:)%zname        = &
+        &  stationlist_tot(1:nstations)%zname
+      meteogram_output_config(idom)%station_list(:)%location%lon = &
+        &  stationlist_tot(1:nstations)%lon
+      meteogram_output_config(idom)%station_list(:)%location%lat = &
+        &  stationlist_tot(1:nstations)%lat
 
     END DO
 
