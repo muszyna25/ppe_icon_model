@@ -222,7 +222,6 @@ MODULE mo_meteogram_output
     TYPE(t_cf_var)        :: cf              !< variable name, unit
     INTEGER               :: igroup_id       !< variable group (surface vars, soil temperatures, ...)
     INTEGER               :: nlevs           !< number of levels for this variable
-    INTEGER,  POINTER     :: levels(:)       !< level indices (1:nlevs)
     REAL(wp), POINTER     :: p_source(:,:,:) !< pointer to source array  (nproma, nlev, nblk)
   END TYPE t_var_info
 
@@ -342,7 +341,7 @@ MODULE mo_meteogram_output
       &         station_idx, station_blk, station_hsurf, station_frland, station_fc,      &
       &         station_soiltype, station_tile_frac, station_tile_luclass,                &
       &         nsfcvars, var_name, var_unit, sfcvar_name, sfcvar_unit,                   &
-      &         var_group_id, sfcvar_group_id, var_nlevs, max_nlevs, var_levels, timeid,  &
+      &         var_group_id, sfcvar_group_id, var_nlevs, max_nlevs, timeid,  &
       &         time_step, dateid, var_values, sfcvar_values, var_heights, var_longname,  &
       &         sfcvar_longname
   END TYPE t_ncid
@@ -1104,7 +1103,7 @@ CONTAINS
       &             jb, jc, glb_index, i_startidx,    &
       &             i_endidx, jc_station, jb_station, &
       &             istation, ivar, nlevs,     &
-      &             nblks_global, npromz_global, ilev,&
+      &             nblks_global, npromz_global,&
       &             istation_glb
     REAL(gk)     :: in_points(nproma,meteogram_output_config%nblks,2) !< geographical locations
     REAL(gk)     :: min_dist(nproma,meteogram_output_config%nblks)    !< minimal distance
@@ -1117,7 +1116,6 @@ CONTAINS
     INTEGER      :: tri_idx(2,nproma,meteogram_output_config%nblks)
     INTEGER      :: max_var_size, max_sfcvar_size
     REAL(wp)     :: grid_sphere_radius_mtg
-    REAL(wp), ALLOCATABLE              :: hlevels(:)
     TYPE(t_meteogram_data)   , POINTER :: meteogram_data
     TYPE(t_meteogram_station), POINTER :: p_station
     TYPE(t_gnat_tree)                  :: gnat
@@ -1357,20 +1355,6 @@ CONTAINS
     meteogram_data%max_nlevs = &
       & MAX(0, MAXVAL(meteogram_data%var_info(1:meteogram_data%nvars)%nlevs))
 
-    ! set up list of level indices
-    ! (Note: For the time being, level indices are simply:
-    !        ilev=1,nlevs.  Still, this index array would also allow
-    !        to pick only certain column values of a special
-    !        variable.)
-    DO ivar=1,meteogram_data%nvars
-      nlevs = meteogram_data%var_info(ivar)%nlevs
-      ALLOCATE(meteogram_data%var_info(ivar)%levels(nlevs),                            &
-        &      stat=ierrstat)
-      IF (ierrstat /= SUCCESS) &
-        CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 2)')
-      meteogram_data%var_info(ivar)%levels = (/ (ilev, ilev=1,nlevs) /)
-    END DO
-
     ! set up list of local stations:
     IF (.NOT. is_pure_io_pe) THEN
 
@@ -1440,7 +1424,6 @@ CONTAINS
           END SELECT
           ! initialize value buffer and set level heights:
           ALLOCATE(meteogram_data%station(jc,jb)%var(meteogram_data%nvars),    &
-            &      hlevels(mtgrm(jg)%meteogram_local_data%max_nlevs),                &
             &      stat=ierrstat)
           IF (ierrstat /= SUCCESS) &
             CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 4)')
@@ -1456,30 +1439,25 @@ CONTAINS
             SELECT CASE(IBCLR(meteogram_data%var_info(ivar)%igroup_id, FLAG_DIAG))
             CASE(VAR_GROUP_ATMO_ML)
               ! model level heights
-              hlevels(1:nlevs) = &
-                &  p_nh_state%metrics%z_mc(tri_idx(1,jc,jb), 1:nlevs, tri_idx(2,jc,jb))
+              meteogram_data%station(jc,jb)%var(ivar)%heights(1:nlevs) &
+                = p_nh_state%metrics%z_mc(tri_idx(1,jc,jb), 1:nlevs, tri_idx(2,jc,jb))
             CASE(VAR_GROUP_ATMO_HL)
               ! half level heights
-              hlevels(1:nlevs) = &
-                &  p_nh_state%metrics%z_ifc(tri_idx(1,jc,jb), 1:nlevs, tri_idx(2,jc,jb))
+              meteogram_data%station(jc,jb)%var(ivar)%heights(1:nlevs) &
+                = p_nh_state%metrics%z_ifc(tri_idx(1,jc,jb), 1:nlevs, tri_idx(2,jc,jb))
             CASE(VAR_GROUP_SOIL_ML)
               ! soil half level heights
-              hlevels(1:nlevs) = zml_soil(1:nlevs)
+              meteogram_data%station(jc,jb)%var(ivar)%heights(1:nlevs) &
+                = zml_soil(1:nlevs)
             CASE(VAR_GROUP_SOIL_MLp2)
               ! soil half level heights PLUS surface level
-              hlevels(1)       = 0._wp
-              hlevels(2:nlevs) = zml_soil(1:(nlevs-1))
+              meteogram_data%station(jc,jb)%var(ivar)%heights(1) = 0._wp
+              meteogram_data%station(jc,jb)%var(ivar)%heights(2:nlevs) &
+                = zml_soil(1:(nlevs-1))
             CASE DEFAULT
               CALL finish (routine, 'Invalid group ID.')
             END SELECT
-            DO ilev = 1,nlevs
-              meteogram_data%station(jc,jb)%var(ivar)%heights(ilev) =    &
-                &  hlevels(meteogram_data%var_info(ivar)%levels(ilev))
-            END DO
           END DO
-          DEALLOCATE(hlevels, stat=ierrstat)
-          IF (ierrstat /= SUCCESS) &
-            CALL finish (routine, 'DEALLOCATE of helper variable failed.')
           ! initialize value buffer for surface variables:
           ALLOCATE(meteogram_data%station(jc,jb)%sfc_var(meteogram_data%nsfcvars), &
             &      stat=ierrstat)
@@ -1632,7 +1610,7 @@ CONTAINS
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":meteogram_sample_vars"
-    INTEGER :: jb, jc, i_startidx, i_endidx, ilev, ivar,  &
+    INTEGER :: jb, jc, i_startidx, i_endidx, ivar,  &
       &        i_tstep, iidx, iblk, max_time_stamps
     CHARACTER(len=MAX_DATETIME_STR_LEN) :: zdate
     TYPE(t_meteogram_data), POINTER :: meteogram_data
@@ -1687,11 +1665,8 @@ CONTAINS
             & CYCLE VAR_LOOP
 
           IF (ASSOCIATED(meteogram_data%var_info(ivar)%p_source)) THEN
-            DO ilev=1,meteogram_data%var_info(ivar)%nlevs
-              meteogram_data%station(jc,jb)%var(ivar)%values(ilev, i_tstep) = &
-                &  meteogram_data%var_info(ivar)%p_source(                    &
-                &       iidx, meteogram_data%var_info(ivar)%levels(ilev), iblk )
-            END DO
+            meteogram_data%station(jc,jb)%var(ivar)%values(:, i_tstep) = &
+              &  meteogram_data%var_info(ivar)%p_source(iidx, :, iblk)
           ELSE
             CALL finish (routine, "Source array not associated: "//&
               &TRIM(meteogram_data%var_info(ivar)%cf%standard_name)//"!")
@@ -1702,7 +1677,7 @@ CONTAINS
           IF (BTEST(meteogram_data%sfc_var_info(ivar)%igroup_id, FLAG_DIAG)) &
             & CYCLE SFCVAR_LOOP
           meteogram_data%station(jc,jb)%sfc_var(ivar)%values(i_tstep) =  &
-            &  meteogram_data%sfc_var_info(ivar)%p_source( iidx, iblk )
+            &  meteogram_data%sfc_var_info(ivar)%p_source(iidx, iblk)
         END DO SFCVAR_LOOP
 
         ! compute additional diagnostic quantities:
@@ -1746,13 +1721,6 @@ CONTAINS
 
       nvars    = meteogram_data%nvars
       nsfcvars = meteogram_data%nsfcvars
-      DO ivar=1,nvars
-        IF (ASSOCIATED(meteogram_data%var_info(ivar)%levels)) THEN
-          DEALLOCATE(meteogram_data%var_info(ivar)%levels, stat=ierrstat)
-          IF (ierrstat /= SUCCESS) &
-            CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-        END IF
-      END DO
       DEALLOCATE(meteogram_data%var_info, meteogram_data%sfc_var_info, stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
         CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
@@ -2272,11 +2240,6 @@ CONTAINS
     CALL nf(nf_def_var(ncfile, "var_nlevs", NF_INT, 1, ncid%nvars, &
       &                ncid%var_nlevs), routine)
     CALL nf_add_descr("No. of levels for volume variable", ncfile, ncid%var_nlevs)
-    var_level_dims = (/ ncid%max_nlevs, ncid%nvars /)
-    CALL nf(nf_def_var(ncfile, "var_levels", NF_DOUBLE, 2, var_level_dims(:), &
-      &                ncid%var_levels), routine)
-    CALL nf_add_descr("Volume variable levels (indices)", ncfile, ncid%var_levels)
-
     ! surface variables:
     IF (meteogram_data%nsfcvars > 0) THEN
       var_name_dims = (/ ncid%charid, ncid%nsfcvars /)
@@ -2346,10 +2309,6 @@ CONTAINS
         &        meteogram_data%var_info(ivar)%igroup_id), routine)
       CALL nf(nf_put_vara_int(ncfile, ncid%var_nlevs, ivar, 1, &
         &        meteogram_data%var_info(ivar)%nlevs), routine)
-      istart2 = (/ 1, ivar /)
-      icount2 = (/ meteogram_data%var_info(ivar)%nlevs, 1 /)
-      CALL nf(nf_put_vara_int(ncfile, ncid%var_levels, istart2, icount2, &
-        &                     meteogram_data%var_info(ivar)%levels(:)), routine)
     END DO
 
     DO ivar=1,nsfcvars
@@ -2483,7 +2442,6 @@ CONTAINS
     CALL nf(nf_inq_varid(ncfile, "var_unit", ncid%var_unit), routine)
     CALL nf(nf_inq_varid(ncfile, "var_group_id", ncid%var_group_id), routine)
     CALL nf(nf_inq_varid(ncfile, "var_nlevs", ncid%var_nlevs), routine)
-    CALL nf(nf_inq_varid(ncfile, "var_levels", ncid%var_levels), routine)
     ! surface variables:
     IF (meteogram_data%nsfcvars > 0) THEN
       CALL nf(nf_inq_varid(ncfile, "sfcvar_name", ncid%sfcvar_name), routine)
