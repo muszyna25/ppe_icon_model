@@ -94,7 +94,8 @@ CONTAINS
   SUBROUTINE check_meteogram_configuration(num_io_procs)
     INTEGER, INTENT(IN) :: num_io_procs
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mtgrm_config:check_meteogram_configuration")
+    CHARACTER(*), PARAMETER :: routine &
+         = "mo_mtgrm_config:check_meteogram_configuration"
     INTEGER :: idom
 
     ! Asynchronous output does not work with distributed meteogram
