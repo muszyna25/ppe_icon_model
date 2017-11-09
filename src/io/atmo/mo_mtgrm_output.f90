@@ -272,7 +272,7 @@ MODULE mo_meteogram_output
   !!
   TYPE t_meteogram_station
     ! Meteogram header (information on location, ...)
-    !> (idx,block) of station specification
+    !> global index of station specification
     INTEGER                         :: station_idx
     INTEGER                         :: tri_idx(2)       !< triangle index (global idx,block)
     INTEGER                         :: tri_idx_local(2) !< triangle index (idx,block)
@@ -1780,14 +1780,12 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = modname//":meteogram_collect_buffers"
     INTEGER     :: station_idx, position, icurrent,   &
       &            isl, nstations,         &
-      &            istation, ivar, nlevs, icurrent_recv, &
-      &            itime, iowner
-    INTEGER     :: istep_sndrcv(mtgrm(jg)%max_time_stamps)
-    CHARACTER(LEN=MAX_DATE_LEN) :: zdate_sndrcv
+      &            istation, &
+      &            iowner
     TYPE(t_meteogram_data),    POINTER :: meteogram_data
     TYPE(t_meteogram_station), POINTER :: p_station
     !> MPI buffer for station data
-    CHARACTER, ALLOCATABLE  :: msg_buffer(:,:)
+    CHARACTER, ALLOCATABLE :: msg_buffer(:,:)
 
     INTEGER :: ierror
     LOGICAL :: is_pure_io_pe
@@ -1860,83 +1858,18 @@ CONTAINS
         END IF
 
         IF (iowner /= p_pe_work .OR. is_pure_io_pe) THEN
-          position = 0
-
-          !-- unpack global time stamp index
-          CALL p_unpack_int(msg_buffer(:,istation), position, icurrent_recv)
-          ! consistency check
-          ! Note: We only check the number of received time stamps, not the
-          !       exact sample dates themselves
-          IF (istation > 1) THEN
-            IF (icurrent_recv /= icurrent) &
-              CALL finish(routine, "Received inconsistent time slice data!")
-          ELSE
-            icurrent = icurrent_recv
-          END IF
-          meteogram_data%icurrent = icurrent
-          mtgrm(jg)%meteogram_global_data%icurrent = icurrent
-          IF (dbg_level > 0) &
-            WRITE (*,'(3(a,i0))') "Receiving ", icurrent, &
-            & " time slices from station ", istation, "/", nstations
-          ! unpack time stamp info
-          CALL p_unpack_int_1d(msg_buffer(:,istation), position, istep_sndrcv(:), icurrent)
-          mtgrm(jg)%meteogram_global_data%time_stamp(1:icurrent)%istep = istep_sndrcv(1:icurrent)
-          DO itime=1,icurrent
-            CALL p_unpack_string(msg_buffer(:,istation), position, zdate_sndrcv)
-            mtgrm(jg)%meteogram_global_data%time_stamp(itime)%zdate = zdate_sndrcv
-          END DO
-
-          !-- unpack station header information
-          CALL p_unpack_int(msg_buffer(:,istation), position, station_idx)
-          p_station => mtgrm(jg)%meteogram_global_data%station(station_idx)
-          p_station%station_idx = station_idx
-          CALL p_unpack_int_1d(msg_buffer(:,istation), position, p_station%tri_idx(:),2)
-          CALL p_unpack_int_1d(msg_buffer(:,istation), position, p_station%tri_idx_local(:),2)
-          CALL p_unpack_real(msg_buffer(:,istation), position, p_station%hsurf)
-          CALL p_unpack_real(msg_buffer(:,istation), position, p_station%frland)
-          CALL p_unpack_real(msg_buffer(:,istation), position, p_station%fc)
-          CALL p_unpack_int(msg_buffer(:,istation), position, p_station%soiltype)
-
-          CALL p_unpack_real_1d(msg_buffer(:,istation), position, p_station%tile_frac(:), ntiles_mtgrm)
-          CALL p_unpack_int_1d (msg_buffer(:,istation), position, p_station%tile_luclass(:), ntiles_mtgrm)
-
-
-          !-- unpack heights and meteogram data:
-          DO ivar=1,meteogram_data%nvars
-            nlevs = meteogram_data%var_info(ivar)%nlevs
-            CALL p_unpack_real_1d(msg_buffer(:,istation), position, p_station%var(ivar)%heights(:), nlevs)
-            CALL p_unpack_real_2d(msg_buffer(:,istation), position, p_station%var(ivar)%values(:,:), nlevs*icurrent)
-          END DO
-          DO ivar=1,meteogram_data%nsfcvars
-            CALL p_unpack_real_1d(msg_buffer(:,istation), position, p_station%sfc_var(ivar)%values(:), icurrent)
-          END DO
+          CALL unpack_station_sample(mtgrm(jg)%meteogram_local_data, &
+            mtgrm(jg)%meteogram_global_data%time_stamp, &
+            mtgrm(jg)%meteogram_global_data%station(istation), &
+            msg_buffer(:,istation), istation, nstations, icurrent, &
+            mtgrm(jg)%max_time_stamps)
         ELSE
           ! this PE is both sender and receiver - direct copy:
           ! (note: copy of time stamp info is not necessary)
           isl = isl + 1
-          p_station => mtgrm(jg)%meteogram_global_data%station(istation)
-          p_station%station_idx      = meteogram_data%station(isl)%station_idx
-          p_station%tri_idx(1:2)          = meteogram_data%station(isl)%tri_idx(1:2)
-          p_station%tri_idx_local(1:2)    = meteogram_data%station(isl)%tri_idx_local(1:2)
-          p_station%hsurf                 = meteogram_data%station(isl)%hsurf
-          p_station%frland                = meteogram_data%station(isl)%frland
-          p_station%fc                    = meteogram_data%station(isl)%fc
-          p_station%soiltype              = meteogram_data%station(isl)%soiltype
-          p_station%tile_frac             = meteogram_data%station(isl)%tile_frac
-          p_station%tile_luclass          = meteogram_data%station(isl)%tile_luclass
-
-          ! copy heights and meteogram data
-          DO ivar=1,meteogram_data%nvars
-            nlevs = meteogram_data%var_info(ivar)%nlevs
-            p_station%var(ivar)%heights(1:nlevs) =  &
-              &  meteogram_data%station(isl)%var(ivar)%heights(1:nlevs)
-            p_station%var(ivar)%values(1:nlevs, 1:icurrent) =  &
-              &  meteogram_data%station(isl)%var(ivar)%values(1:nlevs, 1:icurrent)
-          END DO
-          DO ivar=1,meteogram_data%nsfcvars
-            p_station%sfc_var(ivar)%values(1:icurrent) =  &
-              &  meteogram_data%station(isl)%sfc_var(ivar)%values(1:icurrent)
-          END DO
+          CALL copy_station_sample(&
+            mtgrm(jg)%meteogram_global_data%station(istation), &
+            mtgrm(jg)%meteogram_local_data%station(isl), icurrent)
         END IF
       END DO
       mtgrm(jg)%meteogram_global_data%icurrent = icurrent
@@ -1948,41 +1881,10 @@ CONTAINS
       ! pack station into buffer; send it
       DO istation=1,meteogram_data%nstations
         p_station => meteogram_data%station(istation)
-        position = 0
-
-        !-- pack global time stamp index
-        CALL p_pack_int (icurrent, msg_buffer(:,1), position)
-        ! pack time stamp info
-        istep_sndrcv(1:icurrent) = meteogram_data%time_stamp(1:icurrent)%istep
-        CALL p_pack_int_1d(istep_sndrcv(:), icurrent, msg_buffer(:,1), position)
-        DO itime=1,icurrent
-          zdate_sndrcv = meteogram_data%time_stamp(itime)%zdate
-          CALL p_pack_string(zdate_sndrcv(:), msg_buffer(:,1), position)
-        END DO
-
-        !-- pack meteogram header (information on location, ...)
-        CALL p_pack_int(p_station%station_idx, msg_buffer(:,1), position)
-        CALL p_pack_int_1d(p_station%tri_idx(:), 2, msg_buffer(:,1), position)
-        CALL p_pack_int_1d(p_station%tri_idx_local(:), 2, msg_buffer(:,1), position)
-        CALL p_pack_real(p_station%hsurf, msg_buffer(:,1), position)
-        CALL p_pack_real(p_station%frland, msg_buffer(:,1), position)
-        CALL p_pack_real(p_station%fc, msg_buffer(:,1), position)
-        CALL p_pack_int (p_station%soiltype, msg_buffer(:,1), position)
-
-        CALL p_pack_real_1d(p_station%tile_frac(:), ntiles_mtgrm, msg_buffer(:,1), position)
-        CALL p_pack_int_1d (p_station%tile_luclass(:), ntiles_mtgrm, msg_buffer(:,1), position)
-
-
-        !-- pack heights and meteogram data:
-        DO ivar=1,meteogram_data%nvars
-          nlevs = meteogram_data%var_info(ivar)%nlevs
-          CALL p_pack_real_1d(p_station%var(ivar)%heights(:), nlevs, msg_buffer(:,1), position)
-          CALL p_pack_real_2d(p_station%var(ivar)%values(:,:), nlevs*icurrent, msg_buffer(:,1), position)
-        END DO
-        DO ivar=1,meteogram_data%nsfcvars
-          CALL p_pack_real_1d(p_station%sfc_var(ivar)%values(:), icurrent, msg_buffer(:,1), position)
-        END DO
-
+        CALL pack_station_sample(msg_buffer(:,1), position, icurrent, &
+          mtgrm(jg)%max_time_stamps, &
+          mtgrm(jg)%meteogram_local_data%time_stamp, &
+          mtgrm(jg)%meteogram_local_data%station(istation))
         ! (blocking) send of packed station data to IO PE:
         CALL p_send_packed(msg_buffer, mtgrm(jg)%io_collector_rank, &
           &    TAG_MTGRM_MSG + (jg-1)*TAG_DOMAIN_SHIFT + p_station%station_idx,&
@@ -1990,6 +1892,7 @@ CONTAINS
         IF (dbg_level > 0) &
           WRITE (*,*) "Sending ", icurrent, " time slices, station ", &
           p_station%station_idx
+
       END DO
 
       ! reset buffer on sender side
@@ -2003,7 +1906,155 @@ CONTAINS
 
   END SUBROUTINE meteogram_collect_buffers
 
+  SUBROUTINE unpack_station_sample(meteogram_local_data, &
+      time_stamp, station, sttn_buffer, istation, nstations, icurrent, &
+      max_time_stamps)
+    TYPE(t_meteogram_data), INTENT(inout) :: meteogram_local_data
+    TYPE(t_time_stamp), INTENT(out) :: time_stamp(:)
+    TYPE(t_meteogram_station), INTENT(inout) :: station
+    CHARACTER, INTENT(in) :: sttn_buffer(:)
+    INTEGER, INTENT(in) :: istation, nstations, max_time_stamps
+    INTEGER, INTENT(inout) :: icurrent
 
+    INTEGER :: istep_sndrcv(max_time_stamps)
+    INTEGER :: icurrent_recv, position, itime, ivar, nlevs
+    CHARACTER(len=*), PARAMETER :: routine = modname//"::unpack_station_sample"
+
+    position = 0
+
+    !-- unpack global time stamp index
+    CALL p_unpack_int(sttn_buffer, position, icurrent_recv)
+    ! consistency check
+    ! Note: We only check the number of received time stamps, not the
+    !       exact sample dates themselves
+    IF (istation > 1) THEN
+      IF (icurrent_recv /= icurrent) &
+        CALL finish(routine, "Received inconsistent time slice data!")
+    ELSE
+      icurrent = icurrent_recv
+    END IF
+    meteogram_local_data%icurrent = icurrent
+    IF (dbg_level > 0) &
+      WRITE (*,'(3(a,i0))') "Receiving ", icurrent, &
+      & " time slices from station ", istation, "/", nstations
+    ! unpack time stamp info
+    CALL p_unpack_int_1d(sttn_buffer, position, istep_sndrcv, icurrent)
+    time_stamp(1:icurrent)%istep = istep_sndrcv(1:icurrent)
+    DO itime=1,icurrent
+      CALL p_unpack_string(sttn_buffer, position, time_stamp(itime)%zdate)
+    END DO
+
+    !-- unpack station header information
+    CALL p_unpack_int(sttn_buffer, position, station%station_idx)
+    CALL p_unpack_int_1d(sttn_buffer, position, station%tri_idx(:),2)
+    CALL p_unpack_int_1d(sttn_buffer, position, station%tri_idx_local(:),2)
+    CALL p_unpack_real(sttn_buffer, position, station%hsurf)
+    CALL p_unpack_real(sttn_buffer, position, station%frland)
+    CALL p_unpack_real(sttn_buffer, position, station%fc)
+    CALL p_unpack_int(sttn_buffer, position, station%soiltype)
+
+    CALL p_unpack_real_1d(sttn_buffer, position, station%tile_frac(:), &
+      &                   ntiles_mtgrm)
+    CALL p_unpack_int_1d (sttn_buffer, position, station%tile_luclass(:), &
+      &                   ntiles_mtgrm)
+
+    !-- unpack heights and meteogram data:
+    DO ivar=1,meteogram_local_data%nvars
+      nlevs = meteogram_local_data%var_info(ivar)%nlevs
+      CALL p_unpack_real_1d(sttn_buffer, position, &
+        &                   station%var(ivar)%heights, nlevs)
+      CALL p_unpack_real_2d(sttn_buffer, position, &
+        &                   station%var(ivar)%values, nlevs*icurrent)
+    END DO
+    DO ivar=1,meteogram_local_data%nsfcvars
+      CALL p_unpack_real_1d(sttn_buffer, position, &
+        &                   station%sfc_var(ivar)%values(:), icurrent)
+    END DO
+
+  END SUBROUTINE unpack_station_sample
+
+  SUBROUTINE pack_station_sample(sttn_buffer, pos, &
+    icurrent, max_time_stamps, time_stamp, station)
+    CHARACTER, INTENT(out) :: sttn_buffer(:)
+    INTEGER, INTENT(in) :: icurrent, max_time_stamps
+    INTEGER, INTENT(out) :: pos
+    TYPE(t_time_stamp), INTENT(in) :: time_stamp(:)
+    TYPE(t_meteogram_station), INTENT(in) :: station
+
+    INTEGER :: istep_sndrcv(max_time_stamps)
+    INTEGER :: itime, ivar, nvars, nlevs
+    pos = 0
+
+    !-- pack global time stamp index
+    CALL p_pack_int (icurrent, sttn_buffer, pos)
+    ! pack time stamp info
+    istep_sndrcv(1:icurrent) = time_stamp(1:icurrent)%istep
+    CALL p_pack_int_1d(istep_sndrcv(:), icurrent, sttn_buffer, pos)
+    DO itime=1,icurrent
+      CALL p_pack_string(time_stamp(itime)%zdate, sttn_buffer, pos)
+    END DO
+
+    !-- pack meteogram header (information on location, ...)
+    CALL p_pack_int(station%station_idx, sttn_buffer, pos)
+    CALL p_pack_int_1d(station%tri_idx(:), 2, sttn_buffer, pos)
+    CALL p_pack_int_1d(station%tri_idx_local(:), 2, sttn_buffer, pos)
+    CALL p_pack_real(station%hsurf, sttn_buffer, pos)
+    CALL p_pack_real(station%frland, sttn_buffer, pos)
+    CALL p_pack_real(station%fc, sttn_buffer, pos)
+    CALL p_pack_int (station%soiltype, sttn_buffer, pos)
+
+    CALL p_pack_real_1d(station%tile_frac(:), ntiles_mtgrm, sttn_buffer, pos)
+    CALL p_pack_int_1d (station%tile_luclass(:), ntiles_mtgrm, sttn_buffer, pos)
+
+
+    !-- pack heights and meteogram data:
+    nvars = SIZE(station%var)
+    DO ivar = 1, nvars
+      nlevs = SIZE(station%var(ivar)%heights)
+      CALL p_pack_real_1d(station%var(ivar)%heights, nlevs, &
+        &                 sttn_buffer, pos)
+      CALL p_pack_real_2d(station%var(ivar)%values, nlevs*icurrent, &
+        &                 sttn_buffer, pos)
+    END DO
+    nvars = SIZE(station%sfc_var)
+    DO ivar = 1, nvars
+      CALL p_pack_real_1d(station%sfc_var(ivar)%values, icurrent, &
+        &                 sttn_buffer, pos)
+    END DO
+
+  END SUBROUTINE pack_station_sample
+
+  SUBROUTINE copy_station_sample(station, station_sample, icurrent)
+    TYPE(t_meteogram_station), INTENT(inout) :: station
+    TYPE(t_meteogram_station), INTENT(in) :: station_sample
+    INTEGER, INTENT(in) :: icurrent
+
+    INTEGER :: ivar, nvars
+
+    station%station_idx           = station_sample%station_idx
+    station%tri_idx               = station_sample%tri_idx
+    station%tri_idx_local         = station_sample%tri_idx_local
+    station%hsurf                 = station_sample%hsurf
+    station%frland                = station_sample%frland
+    station%fc                    = station_sample%fc
+    station%soiltype              = station_sample%soiltype
+    station%tile_frac             = station_sample%tile_frac
+    station%tile_luclass          = station_sample%tile_luclass
+
+    ! copy heights and meteogram data
+    nvars = SIZE(station%var)
+    DO ivar=1,nvars
+      station%var(ivar)%heights = station_sample%var(ivar)%heights
+      station%var(ivar)%values(:, 1:icurrent) =  &
+        &  station_sample%var(ivar)%values(:, 1:icurrent)
+    END DO
+    nvars = SIZE(station%sfc_var)
+    DO ivar=1,nvars
+      station%sfc_var(ivar)%values(1:icurrent) =  &
+        &  station_sample%sfc_var(ivar)%values(1:icurrent)
+    END DO
+
+  END SUBROUTINE copy_station_sample
   !>
   !! The IO PE creates and opens a disk file for output.
   !! For gathered NetCDF output, this is a collective operation,
