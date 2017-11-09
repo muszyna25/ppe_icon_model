@@ -2103,7 +2103,8 @@ CONTAINS
 
     ! for the definition of a character-string variable define
     ! character-position dimension for strings
-    CALL nf(nf_def_dim(ncfile, "stringlen",  MAX_DESCR_LENGTH, ncid%charid), routine)
+    CALL nf(nf_def_dim(ncfile, "stringlen",  MAX_DESCR_LENGTH, ncid%charid), &
+      &     routine)
     ! station header:
     CALL nf(nf_def_dim(ncfile, 'nstations',  meteogram_data%nstations, ncid%nstations), &
       &     routine)
@@ -2151,10 +2152,10 @@ CONTAINS
     CALL nf_add_descr("Meteogram station soil type", ncfile, ncid%station_soiltype)
 
     CALL nf(nf_def_var(ncfile, "station_tile_frac", NF_DOUBLE, 2, (/ncid%ntiles, ncid%nstations/), &
-      &                ncid%station_tile_frac), modname)
+      &                ncid%station_tile_frac), routine)
     CALL nf_add_descr("Meteogram station tile fractions", ncfile, ncid%station_tile_frac)
     CALL nf(nf_def_var(ncfile, "station_tile_luclass", NF_INT, 2, (/ncid%ntiles, ncid%nstations/), &
-      &                ncid%station_tile_luclass), modname)
+      &                ncid%station_tile_luclass), routine)
     CALL nf_add_descr("Meteogram station tile specific land-use classes", ncfile, ncid%station_tile_luclass)
 
 
@@ -2438,7 +2439,7 @@ CONTAINS
       END IF
 
       ! inquire about current number of records in file:
-      CALL nf(nf_inq_dimlen(ncfile, ncid%timeid, totaltime), modname)
+      CALL nf(nf_inq_dimlen(ncfile, ncid%timeid, totaltime), routine)
 
       IF (dbg_level > 0) &
            WRITE (*,'(a,i0,a)') "Writing ", meteogram_data%icurrent, " time slices to disk."
@@ -2450,10 +2451,10 @@ CONTAINS
         CALL nf(nf_put_vara_text(ncfile, ncid%dateid, (/ 1, totaltime+itime /), &
           &                      (/ tlen, 1 /), &
           &                      meteogram_data%time_stamp(itime)%zdate), &
-          &                      modname)
+          &                      routine)
         CALL nf(nf_put_vara_int(ncfile, ncid%time_step, totaltime+itime, 1, &
           &                     meteogram_data%time_stamp(itime)%istep),    &
-          &                     modname)
+          &                     routine)
 
         ! write meteogram buffer:
         DO istation=1,meteogram_data%nstations
@@ -2466,7 +2467,7 @@ CONTAINS
             CALL nf(nf_put_vara_double(ncfile, ncid%var_values,             &
               &     istart4, icount4,                                       &
               &     meteogram_data%station(istation)%var(ivar)%values(1:nlevs, &
-              &     itime)), modname )
+              &     itime)), routine)
           END DO
           ! surface variables:
           DO ivar=1,nsfcvars
@@ -2474,11 +2475,11 @@ CONTAINS
               &     (/ istation, ivar, totaltime+itime /),                      &
               &     (/ 1, 1, 1 /),                                              &
               &     meteogram_data%station(istation)%sfc_var(ivar)%values(itime)), &
-              &     modname)
+              &     routine)
           END DO
         END DO
       END DO
-      CALL nf(nf_sync(ncfile), modname)
+      CALL nf(nf_sync(ncfile), routine)
       meteogram_data%icurrent = 0
     END IF
 
@@ -2502,13 +2503,15 @@ CONTAINS
   SUBROUTINE meteogram_close_file(jg)
     INTEGER, INTENT(IN)  :: jg    !< patch index
 
+    CHARACTER(len=*), PARAMETER :: routine=modname//"::meteogram_close_file"
+
     ! write remaining buffers:
     CALL meteogram_flush_file(jg)
 
     ! Close NetCDF file
     ! skip routine, if this PE has nothing to do...
     IF (mtgrm(jg)%l_is_writer) THEN
-      CALL nf(nf_close(mtgrm(jg)%meteogram_file_info%file_id), modname)
+      CALL nf(nf_close(mtgrm(jg)%meteogram_file_info%file_id), routine)
     END IF
   END SUBROUTINE meteogram_close_file
 
