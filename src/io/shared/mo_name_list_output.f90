@@ -77,7 +77,7 @@ MODULE mo_name_list_output
 
   ! constants
   USE mo_kind,                      ONLY: wp, i4, i8, dp, sp
-  USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, MAX_CHAR_LENGTH,       &
+  USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS,       &
     &                                     ihs_ocean, BOUNDARY_MISSVAL
   USE mo_cdi_constants,             ONLY: GRID_REGULAR_LONLAT, GRID_UNSTRUCTURED_VERT,              &
     &                                     GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_ZONAL
