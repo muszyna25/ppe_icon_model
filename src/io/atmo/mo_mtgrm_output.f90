@@ -2828,13 +2828,13 @@ CONTAINS
       SELECT CASE(id)
       CASE(FLAG_VARLIST_ATMO)
         ! create new variable index
-        mtgrm%var_list%no_atmo_vars = mtgrm%var_list%no_atmo_vars + 1
-        ivar = mtgrm%var_list%no_atmo_vars
+        ivar = mtgrm%var_list%no_atmo_vars + 1
+        mtgrm%var_list%no_atmo_vars = ivar
         cf        => meteogram_data%var_info(ivar)%cf
         igroup_id => meteogram_data%var_info(ivar)%igroup_id
       CASE(FLAG_VARLIST_SFC)
-        mtgrm%var_list%no_sfc_vars = mtgrm%var_list%no_sfc_vars + 1
-        ivar = mtgrm%var_list%no_sfc_vars
+        ivar = mtgrm%var_list%no_sfc_vars + 1
+        mtgrm%var_list%no_sfc_vars = ivar
         cf        => meteogram_data%sfc_var_info(ivar)%cf
         igroup_id => meteogram_data%sfc_var_info(ivar)%igroup_id
       CASE DEFAULT
