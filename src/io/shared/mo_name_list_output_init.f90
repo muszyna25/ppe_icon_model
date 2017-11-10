@@ -135,8 +135,11 @@ MODULE mo_name_list_output_init
     &                                             generate_output_filenames
   USE mo_output_event_handler,              ONLY: new_parallel_output_event,                      &
     &                                             complete_event_setup, union_of_all_events,      &
-    &                                             print_output_event, trigger_output_step_irecv,  &
+    &                                             print_output_event,                             &
     &                                             set_event_to_simstep, strip_from_modifiers
+#ifndef NOMPI
+  USE mo_output_event_handler,              ONLY: trigger_output_step_irecv
+#endif
   ! name list output
   USE mo_name_list_output_types,            ONLY: l_output_phys_patch, t_output_name_list,        &
     &                                             t_output_file, t_var_desc,                      &
@@ -1785,7 +1788,6 @@ CONTAINS
     ! If async IO is used, initialize the memory window for communication
 #ifndef NOMPI
     IF(use_async_name_list_io) CALL init_memory_window
-#endif
 ! NOMPI
 
     ! Initial launch of non-blocking requests to all participating PEs
@@ -1801,6 +1803,7 @@ CONTAINS
         END DO HANDLE_COMPLETE_STEPS
       END IF
     END IF
+#endif
 
     CALL message(routine,'Done')
 
