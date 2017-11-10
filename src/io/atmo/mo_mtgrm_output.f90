@@ -1576,7 +1576,7 @@ CONTAINS
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":meteogram_sample_vars"
-    INTEGER :: istation, ivar, i_tstep, iidx, iblk
+    INTEGER :: istation, i_tstep
     CHARACTER(len=MAX_DATETIME_STR_LEN) :: zdate
     TYPE(t_meteogram_data), POINTER :: meteogram_data
     INTEGER :: msg(2)
@@ -1614,38 +1614,56 @@ CONTAINS
 
     ! fill time step with values
     DO istation=1,meteogram_data%nstations
-      iidx  = meteogram_data%station(istation)%tri_idx_local(1)
-      iblk  = meteogram_data%station(istation)%tri_idx_local(2)
-
-      ! sample 3D variables:
-      VAR_LOOP : DO ivar=1,mtgrm(jg)%var_list%no_atmo_vars
-        IF (BTEST(meteogram_data%var_info(ivar)%igroup_id, FLAG_DIAG)) &
-          & CYCLE VAR_LOOP
-
-        IF (ASSOCIATED(meteogram_data%var_info(ivar)%p_source)) THEN
-          meteogram_data%station(istation)%var(ivar)%values(:, i_tstep) = &
-            &  meteogram_data%var_info(ivar)%p_source(iidx, :, iblk)
-        ELSE
-          CALL finish (routine, "Source array not associated: "//&
-              &TRIM(meteogram_data%var_info(ivar)%cf%standard_name)//"!")
-        END IF
-      END DO VAR_LOOP
-      ! sample surface variables:
-      SFCVAR_LOOP : DO ivar=1,mtgrm(jg)%var_list%no_sfc_vars
-        IF (BTEST(meteogram_data%sfc_var_info(ivar)%igroup_id, FLAG_DIAG)) &
-          & CYCLE SFCVAR_LOOP
-        meteogram_data%station(istation)%sfc_var(ivar)%values(i_tstep) =  &
-          &  meteogram_data%sfc_var_info(ivar)%p_source(iidx, iblk)
-      END DO SFCVAR_LOOP
-
-      ! compute additional diagnostic quantities:
-      CALL compute_diagnostics(meteogram_data%station(istation), &
-        mtgrm(jg)%diag_var_indices, meteogram_data%var_info, i_tstep)
-
+      CALL sample_station_vars(meteogram_data%station(istation), &
+        meteogram_data%var_info(1:mtgrm(jg)%var_list%no_atmo_vars), &
+        meteogram_data%sfc_var_info(1:mtgrm(jg)%var_list%no_sfc_vars), &
+        mtgrm(jg)%diag_var_indices, i_tstep)
     END DO
 
   END SUBROUTINE meteogram_sample_vars
 
+  SUBROUTINE sample_station_vars(station, var_info, sfc_var_info, &
+    diag_var_indices, i_tstep)
+    TYPE(t_meteogram_station), INTENT(inout) :: station
+    TYPE(t_var_info), INTENT(in) :: var_info(:)
+    TYPE(t_sfc_var_info), INTENT(in) :: sfc_var_info(:)
+    TYPE(meteogram_diag_var_indices), INTENT(in) :: diag_var_indices
+    INTEGER, INTENT(in) :: i_tstep
+
+    INTEGER :: iidx, iblk, ivar, nvars
+    CHARACTER(len=*), PARAMETER :: routine &
+      = modname//'::sample_station_vars'
+
+    iidx  = station%tri_idx_local(1)
+    iblk  = station%tri_idx_local(2)
+
+    ! sample 3D variables:
+    nvars = SIZE(var_info)
+    VAR_LOOP : DO ivar=1,nvars
+      IF (.NOT. BTEST(var_info(ivar)%igroup_id, FLAG_DIAG)) THEN
+        IF (ASSOCIATED(var_info(ivar)%p_source)) THEN
+          station%var(ivar)%values(:, i_tstep) = &
+            &  var_info(ivar)%p_source(iidx, :, iblk)
+        ELSE
+          WRITE (message_text, '(3a)') 'Source array ', &
+            TRIM(var_info(ivar)%cf%standard_name), ' not associated!'
+          CALL finish (routine, message_text)
+        END IF
+      END IF
+    END DO VAR_LOOP
+    ! sample surface variables:
+    nvars = SIZE(sfc_var_info)
+    SFCVAR_LOOP : DO ivar=1,nvars
+      IF (.NOT. BTEST(sfc_var_info(ivar)%igroup_id, FLAG_DIAG)) THEN
+        station%sfc_var(ivar)%values(i_tstep) &
+          = sfc_var_info(ivar)%p_source(iidx, iblk)
+      END IF
+    END DO SFCVAR_LOOP
+
+    ! compute additional diagnostic quantities:
+    CALL compute_diagnostics(station, diag_var_indices, var_info, i_tstep)
+
+  END SUBROUTINE sample_station_vars
 
   !>
   !! Destroy meteogram data structure.
