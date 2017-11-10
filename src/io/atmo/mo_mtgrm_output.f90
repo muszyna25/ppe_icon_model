@@ -1102,7 +1102,7 @@ CONTAINS
     INTEGER      :: ithis_nlocal_pts, nblks, npromz,  &
       &             nstations, ierrstat,              &
       &             jb, jc, glb_index,                &
-      &             istation, ivar, nlevs,     &
+      &             istation, ivar, nvars, nlevs,     &
       &             istation_glb
     REAL(gk)     :: in_points(nproma,(meteogram_output_config%nstations+nproma-1)/nproma,2) !< geographical locations
     REAL(gk)     :: min_dist(nproma,(meteogram_output_config%nstations+nproma-1)/nproma)    !< minimal distance
@@ -1116,7 +1116,6 @@ CONTAINS
     INTEGER      :: max_var_size, max_sfcvar_size
     REAL(wp)     :: grid_sphere_radius_mtg
     TYPE(t_meteogram_data)   , POINTER :: meteogram_data
-    TYPE(t_meteogram_station), POINTER :: p_station
     TYPE(t_gnat_tree)                  :: gnat
     INTEGER                            :: max_time_stamps
     INTEGER                            :: io_collector_rank
@@ -1362,11 +1361,10 @@ CONTAINS
         meteogram_data%station(istation)%fc           =  &
           &  ptr_patch%cells%f_c(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
 
-        ALLOCATE(meteogram_data%station(istation)%tile_frac(ntiles_mtgrm),    &
-          &      meteogram_data%station(istation)%tile_luclass(ntiles_mtgrm), &
-          &      stat=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, &
-          'ALLOCATE of meteogram data structures failed (part 3b)')
+        CALL allocate_station_buffer(meteogram_data%station(istation), &
+          meteogram_data%var_info(1:meteogram_data%nvars), &
+          meteogram_data%sfc_var_info(1:meteogram_data%nsfcvars), &
+          max_time_stamps)
         !
         ! set station information on height, soil type etc.:
         SELECT CASE ( iforcing )
@@ -1393,18 +1391,8 @@ CONTAINS
 
         END SELECT
         ! initialize value buffer and set level heights:
-        ALLOCATE(meteogram_data%station(istation)%var(meteogram_data%nvars),    &
-          &      stat=ierrstat)
-        IF (ierrstat /= SUCCESS) &
-          CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 4)')
         DO ivar=1,meteogram_data%nvars
           nlevs = meteogram_data%var_info(ivar)%nlevs
-
-          ALLOCATE(meteogram_data%station(istation)%var(ivar)%values(nlevs, max_time_stamps), &
-            &      meteogram_data%station(istation)%var(ivar)%heights(nlevs),                 &
-            &      stat=ierrstat)
-          IF (ierrstat /= SUCCESS) &
-            CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 5)')
           ! initialize level heights:
           SELECT CASE(IBCLR(meteogram_data%var_info(ivar)%igroup_id, FLAG_DIAG))
           CASE(VAR_GROUP_ATMO_ML)
@@ -1428,17 +1416,6 @@ CONTAINS
             CALL finish (routine, 'Invalid group ID.')
           END SELECT
         END DO
-        ! initialize value buffer for surface variables:
-        ALLOCATE(meteogram_data%station(istation)%sfc_var(meteogram_data%nsfcvars), &
-          &      stat=ierrstat)
-        IF (ierrstat /= SUCCESS) &
-          CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 6)')
-        DO ivar=1,meteogram_data%nsfcvars
-          ALLOCATE(meteogram_data%station(istation)%sfc_var(ivar)%values(max_time_stamps), &
-            &      stat=ierrstat)
-          IF (ierrstat /= SUCCESS) &
-            CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 7)')
-        END DO
       END DO
     END IF
 
@@ -1453,11 +1430,17 @@ CONTAINS
       mtgrm(jg)%meteogram_global_data%pstation  =  mtgrm(jg)%meteogram_local_data%pstation
 
       ! Note: variable info is not duplicated
-      mtgrm(jg)%meteogram_global_data%nvars     =  mtgrm(jg)%meteogram_local_data%nvars
-      mtgrm(jg)%meteogram_global_data%nsfcvars  =  mtgrm(jg)%meteogram_local_data%nsfcvars
+      nvars = mtgrm(jg)%meteogram_local_data%nvars
+      mtgrm(jg)%meteogram_global_data%nvars     =  nvars
       mtgrm(jg)%meteogram_global_data%max_nlevs =  mtgrm(jg)%meteogram_local_data%max_nlevs
-      mtgrm(jg)%meteogram_global_data%var_info      =>  mtgrm(jg)%meteogram_local_data%var_info
-      mtgrm(jg)%meteogram_global_data%sfc_var_info  =>  mtgrm(jg)%meteogram_local_data%sfc_var_info
+      mtgrm(jg)%meteogram_global_data%var_info &
+        => mtgrm(jg)%meteogram_local_data%var_info(1:nvars)
+
+      nvars = mtgrm(jg)%meteogram_local_data%nsfcvars
+      mtgrm(jg)%meteogram_global_data%nsfcvars  =  nvars
+
+      mtgrm(jg)%meteogram_global_data%sfc_var_info &
+        =>  mtgrm(jg)%meteogram_local_data%sfc_var_info(1:nvars)
       mtgrm(jg)%meteogram_global_data%time_stamp    =>  mtgrm(jg)%meteogram_local_data%time_stamp
 
       ALLOCATE(mtgrm(jg)%meteogram_global_data%station(nstations), stat=ierrstat)
@@ -1465,34 +1448,11 @@ CONTAINS
         CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 8)')
 
       DO istation = 1, nstations
-        p_station => mtgrm(jg)%meteogram_global_data%station(istation)
-
-        ALLOCATE(p_station%tile_frac   (ntiles_mtgrm), &
-          &      p_station%tile_luclass(ntiles_mtgrm), &
-          &      stat=ierrstat)
-        IF (ierrstat /= SUCCESS) &
-          CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 3b)')
-
-        ALLOCATE(p_station%var(mtgrm(jg)%meteogram_global_data%nvars), stat=ierrstat)
-        IF (ierrstat /= SUCCESS) &
-          CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 9)')
-
-        DO ivar=1,mtgrm(jg)%meteogram_global_data%nvars
-          nlevs = meteogram_data%var_info(ivar)%nlevs
-          ALLOCATE(p_station%var(ivar)%values(nlevs, max_time_stamps), &
-            &      p_station%var(ivar)%heights(nlevs),                 &
-            &      stat=ierrstat)
-          IF (ierrstat /= SUCCESS) &
-            CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 10)')
-        END DO
-        ALLOCATE(p_station%sfc_var(mtgrm(jg)%meteogram_global_data%nsfcvars), stat=ierrstat)
-        IF (ierrstat /= SUCCESS) &
-          CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 11)')
-        DO ivar=1,mtgrm(jg)%meteogram_global_data%nsfcvars
-          ALLOCATE(p_station%sfc_var(ivar)%values(max_time_stamps), stat=ierrstat)
-          IF (ierrstat /= SUCCESS) &
-            CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 12)')
-        END DO
+        CALL allocate_station_buffer(&
+          mtgrm(jg)%meteogram_global_data%station(istation), &
+          mtgrm(jg)%meteogram_global_data%var_info, &
+          mtgrm(jg)%meteogram_global_data%sfc_var_info, &
+          max_time_stamps)
       END DO
 
     END IF IO_PE
@@ -1532,6 +1492,46 @@ CONTAINS
 
   END SUBROUTINE meteogram_init
 
+  SUBROUTINE allocate_station_buffer(station, var_info, sfc_var_info, &
+    max_time_stamps)
+    TYPE(t_meteogram_station), INTENT(inout) :: station
+    TYPE(t_var_info), INTENT(in) :: var_info(:)
+    TYPE(t_sfc_var_info), INTENT(in) :: sfc_var_info(:)
+    INTEGER, INTENT(in) :: max_time_stamps
+
+    INTEGER :: ivar, nvars, nlevs, ierror
+    CHARACTER(len=*), PARAMETER :: &
+      routine = modname//"::allocate_station_buffer"
+
+    ALLOCATE(station%tile_frac(ntiles_mtgrm),    &
+      &      station%tile_luclass(ntiles_mtgrm), stat=ierror)
+    IF (ierror /= SUCCESS) CALL finish(routine, &
+      'ALLOCATE of meteogram data structures failed (part 3b)')
+
+    nvars = SIZE(var_info)
+    ALLOCATE(station%var(nvars), stat=ierror)
+    IF (ierror /= SUCCESS) CALL finish(routine, &
+      'ALLOCATE of meteogram data structures failed (part 9)')
+    DO ivar = 1, nvars
+      nlevs = var_info(ivar)%nlevs
+      ALLOCATE(station%var(ivar)%values(nlevs, max_time_stamps), &
+        &      station%var(ivar)%heights(nlevs),                 &
+        &      stat=ierror)
+      IF (ierror /= SUCCESS) CALL finish(routine, &
+        'ALLOCATE of meteogram data structures failed (part 5)')
+    END DO
+
+    nvars = SIZE(sfc_var_info)
+    ALLOCATE(station%sfc_var(nvars), stat=ierror)
+    IF (ierror /= SUCCESS) CALL finish(routine, &
+      'ALLOCATE of meteogram data structures failed (part 11)')
+    DO ivar = 1, nvars
+      ALLOCATE(station%sfc_var(ivar)%values(max_time_stamps), stat=ierror)
+      IF (ierror /= SUCCESS) CALL finish(routine, &
+        'ALLOCATE of meteogram data structures failed (part 12)')
+    END DO
+
+  END SUBROUTINE allocate_station_buffer
 
   !>
   !! @return .TRUE. if meteogram data will be recorded for this step.
