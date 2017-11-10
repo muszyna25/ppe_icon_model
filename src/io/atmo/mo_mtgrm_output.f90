@@ -1174,9 +1174,8 @@ CONTAINS
 
     ! Consistency check II: If this is a pure I/O PE, then number_of_grid_used
     ! and grid_uuid must be available.
-    IF (is_pure_io_pe .AND. &
-      & ( (.NOT. PRESENT(number_of_grid_used) .OR. &
-      &   (.NOT. PRESENT(grid_uuid)) ) ) ) THEN
+    IF (is_pure_io_pe &
+      &.AND. .NOT. (PRESENT(number_of_grid_used) .AND. PRESENT(grid_uuid))) THEN
       CALL finish (routine, 'I/O PE Missing argument(s)!')
     ENDIF
 
