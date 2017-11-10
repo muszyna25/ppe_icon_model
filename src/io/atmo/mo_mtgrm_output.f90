@@ -1576,8 +1576,7 @@ CONTAINS
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":meteogram_sample_vars"
-    INTEGER :: istation, ivar,  &
-      &        i_tstep, iidx, iblk, max_time_stamps
+    INTEGER :: istation, ivar, i_tstep, iidx, iblk
     CHARACTER(len=MAX_DATETIME_STR_LEN) :: zdate
     TYPE(t_meteogram_data), POINTER :: meteogram_data
     INTEGER :: msg(2)
@@ -1590,9 +1589,7 @@ CONTAINS
     END IF
 
     ! increase time step counter
-    i_tstep = meteogram_data%icurrent + 1
-    max_time_stamps = mtgrm(jg)%max_time_stamps
-    IF (i_tstep > max_time_stamps) THEN
+    IF (meteogram_data%icurrent > mtgrm(jg)%max_time_stamps) THEN
       ! buffer full
       IF (.NOT. mtgrm(jg)%silent_flush) THEN
         CALL message(routine, 'WARNING: Intermediate meteogram flush. &
@@ -1607,8 +1604,8 @@ CONTAINS
       END IF
 
       CALL meteogram_flush_file(jg)
-      i_tstep = meteogram_data%icurrent + 1
     END IF
+    i_tstep = meteogram_data%icurrent + 1
 
     meteogram_data%icurrent = i_tstep
     meteogram_data%time_stamp(i_tstep)%istep = cur_step
