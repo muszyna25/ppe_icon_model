@@ -1782,8 +1782,6 @@ CONTAINS
       &            isl, nstations,         &
       &            istation, &
       &            iowner
-    TYPE(t_meteogram_data),    POINTER :: meteogram_data
-    TYPE(t_meteogram_station), POINTER :: p_station
     !> MPI buffer for station data
     CHARACTER, ALLOCATABLE :: msg_buffer(:,:)
 
@@ -1793,11 +1791,9 @@ CONTAINS
 
     IF (dbg_level > 5)  WRITE (*,*) routine, " Enter (collecting PE=", mtgrm(jg)%l_is_collecting_pe, ")"
 
-    meteogram_data => mtgrm(jg)%meteogram_local_data
-
     ! global time stamp index
     ! Note: We assume that this value is identical for all PEs
-    icurrent = meteogram_data%icurrent
+    icurrent = mtgrm(jg)%meteogram_local_data%icurrent
 
     is_pure_io_pe = use_async_name_list_io .AND. my_process_is_io()
     IF (mtgrm(jg)%l_is_collecting_pe .NEQV. mtgrm(jg)%l_is_sender) THEN
@@ -1806,7 +1802,7 @@ CONTAINS
         MERGE(max_num_stations, 1, mtgrm(jg)%l_is_collecting_pe)), &
         stat=ierror)
       IF (ierror /= SUCCESS) THEN
-        max_var_size    = (max_time_stamps+1)*p_real_dp_byte*meteogram_data%max_nlevs
+        max_var_size    = (max_time_stamps+1)*p_real_dp_byte*mtgrm(jg)%meteogram_local_data%max_nlevs
         max_sfcvar_size = max_time_stamps*p_real_dp_byte
 
         WRITE (0,*) "jg = ", jg, " : message buffer: mtgrm(jg)%max_buf_size = ", &
@@ -1815,9 +1811,9 @@ CONTAINS
         WRITE (0,*) "p_real_dp_byte          = ", p_real_dp_byte
         WRITE (0,*) "max_time_stamps         = ", max_time_stamps
         WRITE (0,*) "MAX_DATE_LEN            = ", MAX_DATE_LEN
-        WRITE (0,*) "meteogram_data%nvars    = ", meteogram_data%nvars
+        WRITE (0,*) "meteogram_data%nvars    = ", mtgrm(jg)%meteogram_local_data%nvars
         WRITE (0,*) "max_var_size            = ", max_var_size
-        WRITE (0,*) "meteogram_data%nsfcvars = ", meteogram_data%nsfcvars
+        WRITE (0,*) "meteogram_data%nsfcvars = ", mtgrm(jg)%meteogram_local_data%nsfcvars
         WRITE (0,*) "max_sfcvar_size         = ", max_sfcvar_size
         WRITE (message_text, '(3a)') &
           'ALLOCATE of meteogram message buffer failed (', &
@@ -1846,7 +1842,7 @@ CONTAINS
       IF (dbg_level > 5)  WRITE (*,*) routine, " :: p_wait call done."
 
       ! unpack received messages:
-      icurrent = meteogram_data%icurrent  ! pure I/O PEs: will be set below
+      icurrent = mtgrm(jg)%meteogram_local_data%icurrent  ! pure I/O PEs: will be set below
       isl = 0
       DO istation=1,nstations
         IF (dbg_level > 5) WRITE (*,*) "Receiver side: Station ", istation
@@ -1877,19 +1873,20 @@ CONTAINS
     ! -- SENDER CODE --
     SENDER : IF ((mtgrm(jg)%l_is_sender) .AND. (.NOT. mtgrm(jg)%l_is_collecting_pe)) THEN
       ! pack station into buffer; send it
-      DO istation=1,meteogram_data%nstations
-        p_station => meteogram_data%station(istation)
+      DO istation=1,mtgrm(jg)%meteogram_local_data%nstations
+        station_idx &
+          = mtgrm(jg)%meteogram_local_data%station(istation)%station_idx
         CALL pack_station_sample(msg_buffer(:,1), position, icurrent, &
           mtgrm(jg)%max_time_stamps, &
           mtgrm(jg)%meteogram_local_data%time_stamp, &
           mtgrm(jg)%meteogram_local_data%station(istation))
         ! (blocking) send of packed station data to IO PE:
         CALL p_send_packed(msg_buffer, mtgrm(jg)%io_collector_rank, &
-          &    TAG_MTGRM_MSG + (jg-1)*TAG_DOMAIN_SHIFT + p_station%station_idx,&
+          &    TAG_MTGRM_MSG + (jg-1)*TAG_DOMAIN_SHIFT + station_idx,&
           &    position, comm=mtgrm(jg)%io_collect_comm)
         IF (dbg_level > 0) &
           WRITE (*,*) "Sending ", icurrent, " time slices, station ", &
-          p_station%station_idx
+          station_idx
 
       END DO
 
