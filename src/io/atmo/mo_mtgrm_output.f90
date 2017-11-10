@@ -1849,27 +1849,25 @@ CONTAINS
       icurrent = meteogram_data%icurrent  ! pure I/O PEs: will be set below
       isl = 0
       DO istation=1,nstations
-        IF (dbg_level > 5) &
-          WRITE (*,*) "Receiver side: Station ", istation
+        IF (dbg_level > 5) WRITE (*,*) "Receiver side: Station ", istation
         iowner = mtgrm(jg)%meteogram_global_data%pstation(istation)
-        IF (iowner < 0) THEN
-          IF (dbg_level > 5) WRITE (*,*) "skipping station!"
-          CYCLE
-        END IF
-
-        IF (iowner /= p_pe_work .OR. is_pure_io_pe) THEN
-          CALL unpack_station_sample(mtgrm(jg)%meteogram_local_data, &
-            mtgrm(jg)%meteogram_global_data%time_stamp, &
-            mtgrm(jg)%meteogram_global_data%station(istation), &
-            msg_buffer(:,istation), istation, nstations, icurrent, &
-            mtgrm(jg)%max_time_stamps)
+        IF (iowner >= 0) THEN
+          IF (iowner /= p_pe_work .OR. is_pure_io_pe) THEN
+            CALL unpack_station_sample(mtgrm(jg)%meteogram_local_data, &
+              mtgrm(jg)%meteogram_global_data%time_stamp, &
+              mtgrm(jg)%meteogram_global_data%station(istation), &
+              msg_buffer(:,istation), istation, nstations, icurrent, &
+              mtgrm(jg)%max_time_stamps)
+          ELSE
+            ! this PE is both sender and receiver - direct copy:
+            ! (note: copy of time stamp info is not necessary)
+            isl = isl + 1
+            CALL copy_station_sample(&
+              mtgrm(jg)%meteogram_global_data%station(istation), &
+              mtgrm(jg)%meteogram_local_data%station(isl), icurrent)
+          END IF
         ELSE
-          ! this PE is both sender and receiver - direct copy:
-          ! (note: copy of time stamp info is not necessary)
-          isl = isl + 1
-          CALL copy_station_sample(&
-            mtgrm(jg)%meteogram_global_data%station(istation), &
-            mtgrm(jg)%meteogram_local_data%station(isl), icurrent)
+          IF (dbg_level > 5) WRITE (*,*) "skipping station!"
         END IF
       END DO
       mtgrm(jg)%meteogram_global_data%icurrent = icurrent
