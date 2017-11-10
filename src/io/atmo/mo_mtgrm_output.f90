@@ -1165,11 +1165,10 @@ CONTAINS
 
     ! Consistency check I: If this is NOT a pure I/O PE, then patch data
     ! must be available:
-    IF (.NOT. is_pure_io_pe .AND. &
-      & ((.NOT. PRESENT(ptr_patch))   .OR.  (.NOT. PRESENT(ext_data))    .OR.  &
-      &  (.NOT. PRESENT(p_nh_state))  .OR.                                     &
-      &  (.NOT. PRESENT(p_lnd_state)) .OR.  (.NOT. PRESENT(iforcing))   .OR.  &    
-      &  (.NOT. PRESENT(prm_nwp_tend))   )   )                THEN
+    IF (      .NOT. is_pure_io_pe                                        &
+      & .AND. .NOT. (      PRESENT(ptr_patch)    .AND. PRESENT(ext_data)   &
+      &              .AND. PRESENT(p_nh_state)   .AND. PRESENT(p_lnd_state)&
+      &              .AND. PRESENT(prm_nwp_tend) .AND. PRESENT(iforcing)) ) THEN
       CALL finish (routine, 'Missing argument(s)!')
     END IF
 
