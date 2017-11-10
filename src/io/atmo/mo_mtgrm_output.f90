@@ -1363,6 +1363,13 @@ CONTAINS
         ! set Coriolis parameter for station
         meteogram_data%station(istation)%fc           =  &
           &  ptr_patch%cells%f_c(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
+
+        ALLOCATE(meteogram_data%station(istation)%tile_frac(ntiles_mtgrm),    &
+          &      meteogram_data%station(istation)%tile_luclass(ntiles_mtgrm), &
+          &      stat=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, &
+          'ALLOCATE of meteogram data structures failed (part 3b)')
+        !
         ! set station information on height, soil type etc.:
         SELECT CASE ( iforcing )
         CASE ( inwp ) ! NWP physics
@@ -1373,12 +1380,6 @@ CONTAINS
           meteogram_data%station(istation)%soiltype =  &
             &  ext_data%atm%soiltyp(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
           !
-          ALLOCATE(meteogram_data%station(istation)%tile_frac(ntiles_mtgrm),    &
-            &      meteogram_data%station(istation)%tile_luclass(ntiles_mtgrm), &
-            &      stat=ierrstat)
-          IF (ierrstat /= SUCCESS) &
-            CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 3b)')
-          !
           meteogram_data%station(istation)%tile_frac(1:ntiles_mtgrm) = &
             &  ext_data%atm%lc_frac_t(tri_idx(1,jc,jb), tri_idx(2,jc,jb),1:ntiles_mtgrm)
           meteogram_data%station(istation)%tile_luclass(1:ntiles_mtgrm) = &
@@ -1388,12 +1389,6 @@ CONTAINS
           meteogram_data%station(istation)%hsurf    =  0._wp
           meteogram_data%station(istation)%frland   =  0._wp
           meteogram_data%station(istation)%soiltype =  0
-          !
-          ALLOCATE(meteogram_data%station(istation)%tile_frac(ntiles_mtgrm),    &
-            &      meteogram_data%station(istation)%tile_luclass(ntiles_mtgrm), &
-            &      stat=ierrstat)
-          IF (ierrstat /= SUCCESS) &
-            CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 3b)')
           !
           meteogram_data%station(istation)%tile_frac    = 0._wp
           meteogram_data%station(istation)%tile_luclass = 0
