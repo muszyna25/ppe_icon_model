@@ -1323,7 +1323,8 @@ CONTAINS
           &                comm=mtgrm(jg)%io_collect_comm)
       END IF
     ELSE IF (mtgrm(jg)%l_is_collecting_pe) THEN
-      CALL receive_var_info(mtgrm(jg)%meteogram_local_data, mtgrm(jg), pack_buf)
+      CALL receive_var_info(mtgrm(jg)%meteogram_local_data, mtgrm(jg)%var_list,&
+        pack_buf)
     END IF
 
     IF (     pack_buf%l_is_varlist_sender &
@@ -2818,9 +2819,9 @@ CONTAINS
   !!  Utility function.
   !!  Receive var list via MPI communication.
   !!
-  SUBROUTINE receive_var_info(meteogram_data, mtgrm, pack_buf)
-    TYPE(t_meteogram_data), INTENT(INOUT) :: meteogram_data
-    TYPE(t_buffer_state), INTENT(inout) :: mtgrm
+  SUBROUTINE receive_var_info(meteogram_data, var_list, pack_buf)
+    TYPE(t_meteogram_data), INTENT(inout) :: meteogram_data
+    TYPE(t_var), INTENT(inout) :: var_list
     TYPE(mtgrm_pack_buf), INTENT(inout) :: pack_buf
 
 #ifndef NOMPI
@@ -2840,13 +2841,13 @@ CONTAINS
       SELECT CASE(id)
       CASE(FLAG_VARLIST_ATMO)
         ! create new variable index
-        ivar = mtgrm%var_list%no_atmo_vars + 1
-        mtgrm%var_list%no_atmo_vars = ivar
+        ivar = var_list%no_atmo_vars + 1
+        var_list%no_atmo_vars = ivar
         cf        => meteogram_data%var_info(ivar)%cf
         igroup_id => meteogram_data%var_info(ivar)%igroup_id
       CASE(FLAG_VARLIST_SFC)
-        ivar = mtgrm%var_list%no_sfc_vars + 1
-        mtgrm%var_list%no_sfc_vars = ivar
+        ivar = var_list%no_sfc_vars + 1
+        var_list%no_sfc_vars = ivar
         cf        => meteogram_data%sfc_var_info(ivar)%cf
         igroup_id => meteogram_data%sfc_var_info(ivar)%igroup_id
       CASE DEFAULT
