@@ -107,6 +107,7 @@ MODULE mo_meteogram_output
     &                                 get_my_mpi_all_id, p_wait,          &
     &                                 p_send, p_irecv, p_pe_work,         &
     &                                 p_send_packed, p_irecv_packed,      &
+    &                                 p_int_byte,                         &
     &                                 p_pack_int,    p_pack_real,         &
     &                                 p_pack_int_1d, p_pack_real_1d,      &
     &                                 p_pack_string, p_pack_real_2d,      &
@@ -464,6 +465,12 @@ CONTAINS
     var_list%no_atmo_vars = 0
     var_list%no_sfc_vars = 0
 
+    ! dummy to be later overwritten with actual counts of variables
+    IF (pack_buf%l_is_varlist_sender) THEN
+      var_counts = 0
+      var_count_pos = pack_buf%pos
+      CALL p_pack_int_1d(var_counts, 2, pack_buf%msg_varlist, pack_buf%pos)
+    END IF
     ! -- atmosphere
 
     CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_ATMO_ML, &
@@ -975,6 +982,12 @@ CONTAINS
         &               diag%extra_3d(:,:,:,1:inextra_3d))
     END IF
 
+    IF (pack_buf%l_is_varlist_sender) THEN
+      var_counts(1) = var_list%no_atmo_vars
+      var_counts(2) = var_list%no_sfc_vars
+      CALL p_pack_int_1d(var_counts, 2, pack_buf%msg_varlist, var_count_pos)
+    END IF
+
     ! several variable indices, stored for convenience (when computing
     ! additional diagnostics):
     cf => meteogram_data%var_info(1:var_list%no_atmo_vars)%cf
@@ -1111,8 +1124,7 @@ CONTAINS
     ! list of triangles containing lon-lat grid points (first dim: index and block)
     TYPE(mtgrm_pack_buf) :: pack_buf
     !> buffer size for var list
-    INTEGER, PARAMETER :: max_varlist_buf_size &
-         = max_nvars*(3*max_descr_length+5*4)
+    INTEGER :: max_varlist_buf_size
 
     INTEGER      :: tri_idx(2,nproma,(meteogram_output_config%nstations+nproma-1)/nproma)
     INTEGER      :: max_var_size, max_sfcvar_size
@@ -1122,6 +1134,9 @@ CONTAINS
     INTEGER                            :: max_time_stamps
     INTEGER                            :: io_collector_rank
     LOGICAL :: is_io, is_mpi_workroot, is_mpi_test, is_pure_io_pe
+
+    max_varlist_buf_size &
+      = 2*p_int_byte + max_nvars*(3*max_descr_length+5*p_int_byte)
 
     is_io = my_process_is_io()
     is_mpi_workroot = my_process_is_mpi_workroot()
@@ -1298,16 +1313,17 @@ CONTAINS
     meteogram_data%icurrent  = 0 ! reset current sample index
     meteogram_data%max_nlevs = 1
 
-    ALLOCATE(meteogram_data%time_stamp(max_time_stamps), &
-      &      meteogram_data%sfc_var_info(MAX_NSFCVARS),  &
-      &      meteogram_data%var_info(MAX_NVARS),         &
-      &      stat=ierrstat)
-    IF (ierrstat /= SUCCESS) THEN
-      CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 1)')
-    ENDIF
+    ALLOCATE(meteogram_data%time_stamp(max_time_stamps), stat=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, &
+      'ALLOCATE of meteogram time stamp data structure failed')
 
     ! set up list of variables:
     IF (.NOT. is_pure_io_pe) THEN
+      ALLOCATE(meteogram_data%sfc_var_info(MAX_NSFCVARS),  &
+        &      meteogram_data%var_info(MAX_NVARS),         &
+        &      stat=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, &
+        'ALLOCATE of meteogram data structures failed (part 1)')
       CALL meteogram_setup_variables(meteogram_output_config, ext_data, &
         &                            p_nh_state, prm_diag, p_lnd_state, &
         &                            prm_nwp_tend, &
@@ -1315,6 +1331,8 @@ CONTAINS
         &                            mtgrm(jg)%meteogram_local_data, &
         &                            mtgrm(jg)%diag_var_indices, &
         &                            mtgrm(jg)%var_list, pack_buf)
+      CALL resize_var_lists(mtgrm(jg)%var_list, meteogram_data%var_info, &
+        &                   meteogram_data%sfc_var_info)
 
       IF (pack_buf%l_is_varlist_sender) THEN
         CALL p_pack_int(FLAG_VARLIST_END, pack_buf%msg_varlist(:), pack_buf%pos)
@@ -1325,6 +1343,8 @@ CONTAINS
     ELSE IF (mtgrm(jg)%l_is_collecting_pe) THEN
       CALL receive_var_info(mtgrm(jg)%meteogram_local_data, mtgrm(jg)%var_list,&
         pack_buf)
+    ELSE
+      RETURN
     END IF
 
     IF (     pack_buf%l_is_varlist_sender &
@@ -1367,8 +1387,7 @@ CONTAINS
           &  ptr_patch%cells%f_c(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
 
         CALL allocate_station_buffer(meteogram_data%station(istation), &
-          meteogram_data%var_info(1:meteogram_data%nvars), &
-          meteogram_data%sfc_var_info(1:meteogram_data%nsfcvars), &
+          meteogram_data%var_info, meteogram_data%sfc_var_info, &
           max_time_stamps)
         !
         ! set station information on height, soil type etc.:
@@ -1435,18 +1454,19 @@ CONTAINS
       mtgrm(jg)%meteogram_global_data%pstation  =  mtgrm(jg)%meteogram_local_data%pstation
 
       ! Note: variable info is not duplicated
-      nvars = mtgrm(jg)%meteogram_local_data%nvars
-      mtgrm(jg)%meteogram_global_data%nvars     =  nvars
-      mtgrm(jg)%meteogram_global_data%max_nlevs =  mtgrm(jg)%meteogram_local_data%max_nlevs
+      mtgrm(jg)%meteogram_global_data%nvars     &
+        = mtgrm(jg)%meteogram_local_data%nvars
+      mtgrm(jg)%meteogram_global_data%max_nlevs &
+        = mtgrm(jg)%meteogram_local_data%max_nlevs
       mtgrm(jg)%meteogram_global_data%var_info &
-        => mtgrm(jg)%meteogram_local_data%var_info(1:nvars)
+        => mtgrm(jg)%meteogram_local_data%var_info
 
-      nvars = mtgrm(jg)%meteogram_local_data%nsfcvars
-      mtgrm(jg)%meteogram_global_data%nsfcvars  =  nvars
-
+      mtgrm(jg)%meteogram_global_data%nsfcvars &
+        = mtgrm(jg)%meteogram_local_data%nsfcvars
       mtgrm(jg)%meteogram_global_data%sfc_var_info &
-        =>  mtgrm(jg)%meteogram_local_data%sfc_var_info(1:nvars)
-      mtgrm(jg)%meteogram_global_data%time_stamp    =>  mtgrm(jg)%meteogram_local_data%time_stamp
+        =>  mtgrm(jg)%meteogram_local_data%sfc_var_info
+      mtgrm(jg)%meteogram_global_data%time_stamp &
+        =>  mtgrm(jg)%meteogram_local_data%time_stamp
 
       ALLOCATE(mtgrm(jg)%meteogram_global_data%station(nstations), stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
@@ -2814,6 +2834,27 @@ CONTAINS
     END DO
   END SUBROUTINE add_sfc_var_3d
 
+  SUBROUTINE resize_var_lists(var_list, var_info, sfc_var_info)
+    TYPE(t_var), INTENT(in) :: var_list
+    TYPE(t_var_info), POINTER, INTENT(inout) :: var_info(:)
+    TYPE(t_sfc_var_info), POINTER, INTENT(inout) :: sfc_var_info(:)
+
+    TYPE(t_var_info), POINTER :: tmp_var_info(:)
+    TYPE(t_sfc_var_info), POINTER ::tmp_sfc_var_info(:)
+    INTEGER :: nvars
+
+    nvars = var_list%no_atmo_vars
+    ALLOCATE(tmp_var_info(nvars))
+    tmp_var_info = var_info(1:nvars)
+    DEALLOCATE(var_info)
+    var_info => tmp_var_info
+
+    nvars = var_list%no_sfc_vars
+    ALLOCATE(tmp_sfc_var_info(nvars))
+    tmp_sfc_var_info = sfc_var_info(1:nvars)
+    DEALLOCATE(sfc_var_info)
+    sfc_var_info => tmp_sfc_var_info
+  END SUBROUTINE resize_var_lists
 
   !>
   !!  Utility function.
@@ -2827,12 +2868,19 @@ CONTAINS
 #ifndef NOMPI
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":receive_var_info"
-    INTEGER                 :: id, ivar
+    INTEGER                 :: id, ivar, var_counts(2), ierror
     TYPE(t_cf_var), POINTER :: cf
     INTEGER       , POINTER :: igroup_id
 
     ! wait for messages to arrive:
     CALL p_wait()
+
+    CALL p_unpack_int_1d(pack_buf%msg_varlist, pack_buf%pos, var_counts, 2)
+    ALLOCATE(meteogram_data%var_info(var_counts(1)), &
+      &      meteogram_data%sfc_var_info(var_counts(2)), stat=ierror)
+    IF (ierror /= SUCCESS) &
+      CALL finish (routine, 'ALLOCATE of var_info arrays failed.')
+
 
     ! from the received message, unpack the atmosphere/surface
     ! variables one by one:
