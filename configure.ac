@@ -42,7 +42,7 @@ AS_CASE([$ac_hostname],
         [mlogin*|btlogin*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],
-        [daint*|tave*|santis*],
+        [daint*|tave*|santis*|kesch*],
         [ac_sitename=cscs.ch
          fqdn=$ac_hostname.$ac_sitename],
         [ic2*],      
@@ -740,7 +740,7 @@ AS_IF([test -n "$GRIBAPIROOT"],
        FFLAGS="${FFLAGS} ${DEFOPT}HAVE_LIBGRIB ${DEFOPT}HAVE_LIBGRIB_API"
        CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_LIBGRIB ${DEFCOPT}HAVE_LIBGRIB_API"
        AS_CASE([$ac_hostname],
-               [mlogin*|btlogin*|daint*],
+               [mlogin*|btlogin*|daint*|kesch*],
                [AS_CASE([$FC],
                         [nagfor],
                         [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
