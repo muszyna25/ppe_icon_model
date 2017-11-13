@@ -6366,7 +6366,7 @@ CONTAINS
 
     CALL MPI_PACK(t_var, 1, p_bool, t_buffer, SIZE(t_buffer), p_pos, p_comm, p_error)
 #ifdef DEBUG
-    IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_int", 'MPI call failed')
+    IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_bool", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_pack_bool
