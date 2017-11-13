@@ -385,6 +385,7 @@ CONTAINS
     ! not allowed:
     !
     DO jg =1,n_dom
+      IF (INT(start_time(jg)) <= 0)  CYCLE
       dtime_string = "PT"//TRIM(int2string(INT(start_time(jg)), '(i0)'))//"S"
       mtime_dom_start => newTimedelta(dtime_string)
       IF (mtime_dom_start == mtime_dt_checkpoint) THEN
