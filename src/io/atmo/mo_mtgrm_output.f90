@@ -259,6 +259,9 @@ MODULE mo_meteogram_output
   END TYPE t_time_stamp
 
 
+  !> number of time- and variable-invariant items per station
+  INTEGER, PARAMETER :: num_time_inv = 1
+
   !>
   !! Data structure containing meteogram data and meta info for a
   !! single station.
@@ -1443,7 +1446,7 @@ CONTAINS
       END DO
       IF (      .NOT. mtgrm(jg)%l_is_collecting_pe &
         & .AND. .NOT. meteogram_output_config%ldistributed) &
-        CALL send_heights(meteogram_data%var_info, meteogram_data%station, &
+        CALL send_time_invariants(meteogram_data%var_info, meteogram_data%station, &
         mtgrm(jg)%io_collector_rank, mtgrm(jg)%io_collect_comm)
     END IF
 
@@ -1486,7 +1489,7 @@ CONTAINS
 
       IF (.NOT. ALLOCATED(mtgrm(jg)%meteogram_local_data%station)) &
         ALLOCATE(mtgrm(jg)%meteogram_local_data%station(0))
-      CALL recv_heights(mtgrm(jg)%meteogram_global_data%var_info, &
+      CALL recv_time_invariants(mtgrm(jg)%meteogram_global_data%var_info, &
         mtgrm(jg)%meteogram_global_data%station, &
         mtgrm(jg)%meteogram_global_data%pstation, &
         mtgrm(jg)%io_collect_comm, is_pure_io_pe, &
@@ -1987,7 +1990,6 @@ CONTAINS
     CALL p_unpack_int(sttn_buffer, position, station%station_idx)
     CALL p_unpack_int_1d(sttn_buffer, position, station%tri_idx(:),2)
     CALL p_unpack_int_1d(sttn_buffer, position, station%tri_idx_local(:),2)
-    CALL p_unpack_real(sttn_buffer, position, station%hsurf)
     CALL p_unpack_real(sttn_buffer, position, station%frland)
     CALL p_unpack_real(sttn_buffer, position, station%fc)
     CALL p_unpack_int(sttn_buffer, position, station%soiltype)
@@ -2035,7 +2037,6 @@ CONTAINS
     CALL p_pack_int(station%station_idx, sttn_buffer, pos)
     CALL p_pack_int_1d(station%tri_idx(:), 2, sttn_buffer, pos)
     CALL p_pack_int_1d(station%tri_idx_local(:), 2, sttn_buffer, pos)
-    CALL p_pack_real(station%hsurf, sttn_buffer, pos)
     CALL p_pack_real(station%frland, sttn_buffer, pos)
     CALL p_pack_real(station%fc, sttn_buffer, pos)
     CALL p_pack_int (station%soiltype, sttn_buffer, pos)
@@ -2069,7 +2070,6 @@ CONTAINS
     station%station_idx           = station_sample%station_idx
     station%tri_idx               = station_sample%tri_idx
     station%tri_idx_local         = station_sample%tri_idx_local
-    station%hsurf                 = station_sample%hsurf
     station%frland                = station_sample%frland
     station%fc                    = station_sample%fc
     station%soiltype              = station_sample%soiltype
@@ -2926,32 +2926,32 @@ CONTAINS
 #endif
   END SUBROUTINE receive_var_info
 
-  SUBROUTINE send_heights(var_info, station, io_collector_rank, io_collect_comm)
+  SUBROUTINE send_time_invariants(var_info, station, io_collector_rank, io_collect_comm)
     TYPE(t_var_info), INTENT(in) :: var_info(:)
     TYPE(t_meteogram_station), INTENT(in) :: station(:)
     INTEGER, INTENT(in) :: io_collector_rank, io_collect_comm
 
-    REAL(wp), ALLOCATABLE :: height_buf(:,:)
+    REAL(wp), ALLOCATABLE :: buf(:,:)
 
     INTEGER :: ivar, nvars, nlevs, pos, istation, nstations
 
     nstations = SIZE(station)
-    ALLOCATE(height_buf(SUM(var_info%nlevs),nstations))
+    ALLOCATE(buf(num_time_inv + SUM(var_info%nlevs),nstations))
     nvars = SIZE(var_info)
     DO istation = 1, nstations
-      pos = 0
+      pos = num_time_inv
+      buf(1,istation) = station(istation)%hsurf
       DO ivar = 1, nvars
         nlevs = var_info(ivar)%nlevs
-        height_buf(pos+1:pos+nlevs,istation) &
-          = station(istation)%var(ivar)%heights
+        buf(pos+1:pos+nlevs,istation) = station(istation)%var(ivar)%heights
         pos = pos + nlevs
       END DO
-      CALL p_send(height_buf(:,istation), io_collector_rank, &
+      CALL p_send(buf(:,istation), io_collector_rank, &
         TAG_VARLIST+station(istation)%station_idx, comm=io_collect_comm)
     END DO
-  END SUBROUTINE send_heights
+  END SUBROUTINE send_time_invariants
 
-  SUBROUTINE recv_heights(var_info, station, pstation, &
+  SUBROUTINE recv_time_invariants(var_info, station, pstation, &
     io_collect_comm, is_pure_io_pe, local_station)
     TYPE(t_var_info), INTENT(in) :: var_info(:)
     TYPE(t_meteogram_station), INTENT(inout) :: station(:)
@@ -2959,21 +2959,22 @@ CONTAINS
     INTEGER, INTENT(in) :: io_collect_comm, pstation(:)
     LOGICAL, INTENT(in) :: is_pure_io_pe
 
-    REAL(wp), ALLOCATABLE :: height_buf(:,:)
+    REAL(wp), ALLOCATABLE :: buf(:,:)
     INTEGER :: ivar, nvars, nlevs, pos, istation, nstations, istation_local, &
       iowner
 
     nstations = SIZE(station)
-    ALLOCATE(height_buf(SUM(var_info%nlevs),nstations))
+    ALLOCATE(buf(num_time_inv + SUM(var_info%nlevs),nstations))
     nvars = SIZE(var_info)
     istation_local = 0
     DO istation = 1, nstations
       iowner = pstation(istation)
       IF ((is_pure_io_pe .OR. iowner /= p_pe_work) .AND. iowner >= 0) THEN
-        CALL p_irecv(height_buf(:,istation), pstation(istation), &
+        CALL p_irecv(buf(:,istation), pstation(istation), &
           TAG_VARLIST+istation, comm=io_collect_comm)
       ELSE IF (iowner == p_pe_work) THEN
         istation_local = istation_local + 1
+        station(istation)%hsurf = local_station(istation_local)%hsurf
         DO ivar = 1, nvars
           station(istation)%var(ivar)%heights &
             = local_station(istation_local)%var(ivar)%heights
@@ -2984,16 +2985,16 @@ CONTAINS
     DO istation = 1, nstations
       iowner = pstation(istation)
       IF ((is_pure_io_pe .OR. iowner /= p_pe_work) .AND. iowner >= 0) THEN
-        pos = 0
+        pos = num_time_inv
+        station(istation)%hsurf = buf(1,istation)
         DO ivar = 1, nvars
           nlevs = var_info(ivar)%nlevs
-          station(istation)%var(ivar)%heights &
-            = height_buf(pos+1:pos+nlevs,istation)
+          station(istation)%var(ivar)%heights = buf(pos+1:pos+nlevs,istation)
           pos = pos + nlevs
         END DO
       END IF
     END DO
-  END SUBROUTINE recv_heights
+  END SUBROUTINE recv_time_invariants
 
   !>
   !! @return Index of (3d) variable with given name.
