@@ -2269,11 +2269,11 @@ CONTAINS
       meteogram_data => mtgrm(jg)%meteogram_local_data
     ELSE
       CALL meteogram_collect_buffers(jg)
+      meteogram_data => mtgrm(jg)%meteogram_global_data
     END IF
 
     IF (mtgrm(jg)%l_is_writer) THEN
 
-      meteogram_data => mtgrm(jg)%meteogram_global_data
       nvars    = meteogram_data%nvars
       nsfcvars = meteogram_data%nsfcvars
 
