@@ -1483,6 +1483,7 @@ CONTAINS
         CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 8)')
 
       DO istation = 1, nstations
+        mtgrm(jg)%meteogram_global_data%station(istation)%station_idx = istation
         CALL allocate_station_buffer(&
           mtgrm(jg)%meteogram_global_data%station(istation), &
           mtgrm(jg)%meteogram_global_data%var_info, &
@@ -1970,7 +1971,7 @@ CONTAINS
     INTEGER, INTENT(inout) :: icurrent
 
     INTEGER :: istep_sndrcv(max_time_stamps)
-    INTEGER :: icurrent_recv, position, itime, ivar, nlevs
+    INTEGER :: icurrent_recv, position, itime, ivar, nlevs, station_idx
     CHARACTER(len=*), PARAMETER :: routine = modname//"::unpack_station_sample"
 
     position = 0
@@ -1998,7 +1999,9 @@ CONTAINS
     END DO
 
     !-- unpack station header information
-    CALL p_unpack_int(sttn_buffer, position, station%station_idx)
+    CALL p_unpack_int(sttn_buffer, position, station_idx)
+    IF (station%station_idx /= station_idx) &
+      CALL finish(routine, "non-matching global indices")
 
     !-- unpack meteogram data:
     DO ivar=1,meteogram_local_data%nvars
@@ -2057,7 +2060,13 @@ CONTAINS
     TYPE(t_meteogram_station), INTENT(in) :: station_sample
     INTEGER, INTENT(in) :: icurrent
 
+    CHARACTER(len=*), PARAMETER :: &
+      routine = modname//'::copy_station_sample'
+
     INTEGER :: ivar, nvars
+
+    IF (station%station_idx /= station_sample%station_idx) &
+      CALL finish(routine, "non-matching global indices")
 
     ! copy meteogram data
     nvars = SIZE(station%var)
