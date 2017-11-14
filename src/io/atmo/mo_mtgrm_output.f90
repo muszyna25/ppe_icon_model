@@ -2136,7 +2136,7 @@ CONTAINS
       CALL meteogram_create_file(meteogram_output_config, mtgrm(jg)%ncid_list, &
         mtgrm(jg)%meteogram_file_info%cf, mtgrm(jg)%meteogram_file_info, &
         MERGE(mtgrm(jg)%meteogram_global_data, mtgrm(jg)%meteogram_local_data, &
-        &     .NOT. meteogram_output_config%ldistributed), jg)
+        &     .NOT. meteogram_output_config%ldistributed))
     ELSE
       CALL meteogram_append_file(mtgrm(jg)%ncid_list, &
         mtgrm(jg)%meteogram_file_info, &
@@ -2148,14 +2148,13 @@ CONTAINS
   END SUBROUTINE meteogram_open_file
 
   SUBROUTINE meteogram_create_file(meteogram_output_config, ncid, cf, &
-       meteogram_file_info, meteogram_data, jg)
+       meteogram_file_info, meteogram_data)
     TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: &
          meteogram_output_config
     TYPE(t_ncid), INTENT(out) :: ncid
     TYPE(t_cf_global), INTENT(in) :: cf
     TYPE(t_meteogram_file), INTENT(in) :: meteogram_file_info
     TYPE(t_meteogram_data), INTENT(in) :: meteogram_data
-    INTEGER, INTENT(in) :: jg
     INTEGER :: station_name_dims(2), var_name_dims(2), &
       &        time_string_dims(2), &
       &        var_dims(4),  sfcvar_dims(3),           &
@@ -2182,7 +2181,7 @@ CONTAINS
     CALL put_global_txt_att('uuidOfHGrid', meteogram_file_info%uuid_string)
     CALL nf(nf_put_att_int(ncfile, NF_GLOBAL, 'numberOfGridUsed',  &
       &                    nf_int, 1, &
-      &                    mtgrm(jg)%meteogram_file_info%number_of_grid_used), &
+      &                    meteogram_file_info%number_of_grid_used), &
       &     routine)
 
 
@@ -2355,7 +2354,7 @@ CONTAINS
     DO istation=1,meteogram_data%nstations
       IF (dbg_level > 5)  WRITE (*,*) "station ", istation
 
-      iowner = mtgrm(jg)%meteogram_global_data%pstation(istation)
+      iowner = meteogram_data%pstation(istation)
       IF (iowner >= 0) THEN
         this_station => meteogram_output_config%station_list(           &
           &               meteogram_data%station(istation)%station_idx)
