@@ -107,6 +107,8 @@ CONTAINS
          &                         var_list, max_time_stamps, silent_flush,   &
          &                         append_if_exists
 
+    CHARACTER(len=*), PARAMETER :: &
+         nml_name = 'meteogram_output_nml'
 
     !-----------------------
     ! 1. default settings
@@ -165,7 +167,7 @@ CONTAINS
     !    by values used in the previous integration.
     !------------------------------------------------------------------
     IF (use_restart_namelists()) THEN
-      funit = open_and_restore_namelist('meteogram_output_nml')
+      funit = open_and_restore_namelist(nml_name)
       READ(funit,NML=meteogram_output_nml)
       CALL close_tmpfile(funit)
     END IF
@@ -174,7 +176,7 @@ CONTAINS
     ! 3. Read user's (new) specifications (Done so far by all MPI processes)
     !-------------------------------------------------------------------------
     CALL open_nml(filename)
-    CALL position_nml ('meteogram_output_nml', status=istat)
+    CALL position_nml (nml_name, status=istat)
     IF (my_process_is_stdio()) THEN
       iunit = temp_defaults()
       WRITE(iunit, meteogram_output_nml)   ! write defaults to temporary text file
@@ -250,7 +252,7 @@ CONTAINS
     IF(my_process_is_stdio())  THEN
       funit = open_tmpfile()
       WRITE(funit,NML=meteogram_output_nml)
-      CALL store_and_close_namelist(funit, 'meteogram_output_nml')
+      CALL store_and_close_namelist(funit, nml_name)
     ENDIF
 
     !-----------------------------------------------------
