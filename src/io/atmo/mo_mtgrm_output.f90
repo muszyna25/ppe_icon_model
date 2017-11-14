@@ -260,7 +260,7 @@ MODULE mo_meteogram_output
 
 
   !> number of time- and variable-invariant items per station
-  INTEGER, PARAMETER :: num_time_inv = 1
+  INTEGER, PARAMETER :: num_time_inv = 3
 
   !>
   !! Data structure containing meteogram data and meta info for a
@@ -1990,8 +1990,6 @@ CONTAINS
     CALL p_unpack_int(sttn_buffer, position, station%station_idx)
     CALL p_unpack_int_1d(sttn_buffer, position, station%tri_idx(:),2)
     CALL p_unpack_int_1d(sttn_buffer, position, station%tri_idx_local(:),2)
-    CALL p_unpack_real(sttn_buffer, position, station%frland)
-    CALL p_unpack_real(sttn_buffer, position, station%fc)
     CALL p_unpack_int(sttn_buffer, position, station%soiltype)
 
     CALL p_unpack_real_1d(sttn_buffer, position, station%tile_frac(:), &
@@ -2037,8 +2035,6 @@ CONTAINS
     CALL p_pack_int(station%station_idx, sttn_buffer, pos)
     CALL p_pack_int_1d(station%tri_idx(:), 2, sttn_buffer, pos)
     CALL p_pack_int_1d(station%tri_idx_local(:), 2, sttn_buffer, pos)
-    CALL p_pack_real(station%frland, sttn_buffer, pos)
-    CALL p_pack_real(station%fc, sttn_buffer, pos)
     CALL p_pack_int (station%soiltype, sttn_buffer, pos)
 
     CALL p_pack_real_1d(station%tile_frac(:), ntiles_mtgrm, sttn_buffer, pos)
@@ -2070,8 +2066,6 @@ CONTAINS
     station%station_idx           = station_sample%station_idx
     station%tri_idx               = station_sample%tri_idx
     station%tri_idx_local         = station_sample%tri_idx_local
-    station%frland                = station_sample%frland
-    station%fc                    = station_sample%fc
     station%soiltype              = station_sample%soiltype
     station%tile_frac             = station_sample%tile_frac
     station%tile_luclass          = station_sample%tile_luclass
@@ -2941,6 +2935,8 @@ CONTAINS
     DO istation = 1, nstations
       pos = num_time_inv
       buf(1,istation) = station(istation)%hsurf
+      buf(2,istation) = station(istation)%frland
+      buf(3,istation) = station(istation)%fc
       DO ivar = 1, nvars
         nlevs = var_info(ivar)%nlevs
         buf(pos+1:pos+nlevs,istation) = station(istation)%var(ivar)%heights
@@ -2975,6 +2971,8 @@ CONTAINS
       ELSE IF (iowner == p_pe_work) THEN
         istation_local = istation_local + 1
         station(istation)%hsurf = local_station(istation_local)%hsurf
+        station(istation)%frland = local_station(istation_local)%frland
+        station(istation)%fc = local_station(istation_local)%fc
         DO ivar = 1, nvars
           station(istation)%var(ivar)%heights &
             = local_station(istation_local)%var(ivar)%heights
@@ -2987,6 +2985,8 @@ CONTAINS
       IF ((is_pure_io_pe .OR. iowner /= p_pe_work) .AND. iowner >= 0) THEN
         pos = num_time_inv
         station(istation)%hsurf = buf(1,istation)
+        station(istation)%frland = buf(2,istation)
+        station(istation)%fc = buf(3,istation)
         DO ivar = 1, nvars
           nlevs = var_info(ivar)%nlevs
           station(istation)%var(ivar)%heights = buf(pos+1:pos+nlevs,istation)
