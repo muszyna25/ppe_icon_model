@@ -239,7 +239,7 @@ MODULE mo_meteogram_output
   !! Value buffer for a single variable of a station.
   !!
   TYPE t_var_buffer
-    REAL(wp), POINTER     :: heights(:)     !< level heights
+    REAL(wp), ALLOCATABLE :: heights(:)     !< level heights
     REAL(wp), POINTER     :: values(:,:)    !< sampled data for different levels (1:nlevs,time)
   END TYPE t_var_buffer
 
@@ -1441,6 +1441,10 @@ CONTAINS
           END SELECT
         END DO
       END DO
+      IF (      .NOT. mtgrm(jg)%l_is_collecting_pe &
+        & .AND. .NOT. meteogram_output_config%ldistributed) &
+        CALL send_heights(meteogram_data%var_info, meteogram_data%station, &
+        mtgrm(jg)%io_collector_rank, mtgrm(jg)%io_collect_comm)
     END IF
 
     ! ------------------------------------------------------------
@@ -1480,6 +1484,13 @@ CONTAINS
           max_time_stamps)
       END DO
 
+      IF (.NOT. ALLOCATED(mtgrm(jg)%meteogram_local_data%station)) &
+        ALLOCATE(mtgrm(jg)%meteogram_local_data%station(0))
+      CALL recv_heights(mtgrm(jg)%meteogram_global_data%var_info, &
+        mtgrm(jg)%meteogram_global_data%station, &
+        mtgrm(jg)%meteogram_global_data%pstation, &
+        mtgrm(jg)%io_collect_comm, is_pure_io_pe, &
+        mtgrm(jg)%meteogram_local_data%station)
     END IF IO_PE
 
     ! ------------------------------------------------------------
@@ -1500,7 +1511,7 @@ CONTAINS
     IF (.NOT. meteogram_output_config%ldistributed) THEN
       ! compute maximum buffer size for MPI messages:
       ! (max_var_size: contains also height levels)
-      max_var_size    = (max_time_stamps+1)*p_real_dp_byte*meteogram_data%max_nlevs
+      max_var_size    = max_time_stamps*p_real_dp_byte*meteogram_data%max_nlevs
       max_sfcvar_size = max_time_stamps*p_real_dp_byte
       mtgrm(jg)%max_buf_size    = MAX_HEADER_SIZE*p_real_dp_byte            & ! header size
         &               + max_time_stamps*(MAX_DATE_LEN+4)        & ! time stamp info
@@ -1986,11 +1997,9 @@ CONTAINS
     CALL p_unpack_int_1d (sttn_buffer, position, station%tile_luclass(:), &
       &                   ntiles_mtgrm)
 
-    !-- unpack heights and meteogram data:
+    !-- unpack meteogram data:
     DO ivar=1,meteogram_local_data%nvars
       nlevs = meteogram_local_data%var_info(ivar)%nlevs
-      CALL p_unpack_real_1d(sttn_buffer, position, &
-        &                   station%var(ivar)%heights, nlevs)
       CALL p_unpack_real_2d(sttn_buffer, position, &
         &                   station%var(ivar)%values, nlevs*icurrent)
     END DO
@@ -2035,12 +2044,10 @@ CONTAINS
     CALL p_pack_int_1d (station%tile_luclass(:), ntiles_mtgrm, sttn_buffer, pos)
 
 
-    !-- pack heights and meteogram data:
+    !-- pack meteogram data:
     nvars = SIZE(station%var)
     DO ivar = 1, nvars
       nlevs = SIZE(station%var(ivar)%heights)
-      CALL p_pack_real_1d(station%var(ivar)%heights, nlevs, &
-        &                 sttn_buffer, pos)
       CALL p_pack_real_2d(station%var(ivar)%values, nlevs*icurrent, &
         &                 sttn_buffer, pos)
     END DO
@@ -2069,10 +2076,9 @@ CONTAINS
     station%tile_frac             = station_sample%tile_frac
     station%tile_luclass          = station_sample%tile_luclass
 
-    ! copy heights and meteogram data
+    ! copy meteogram data
     nvars = SIZE(station%var)
     DO ivar=1,nvars
-      station%var(ivar)%heights = station_sample%var(ivar)%heights
       station%var(ivar)%values(:, 1:icurrent) =  &
         &  station_sample%var(ivar)%values(:, 1:icurrent)
     END DO
@@ -2921,6 +2927,74 @@ CONTAINS
 #endif
   END SUBROUTINE receive_var_info
 
+  SUBROUTINE send_heights(var_info, station, io_collector_rank, io_collect_comm)
+    TYPE(t_var_info), INTENT(in) :: var_info(:)
+    TYPE(t_meteogram_station), INTENT(in) :: station(:)
+    INTEGER, INTENT(in) :: io_collector_rank, io_collect_comm
+
+    REAL(wp), ALLOCATABLE :: height_buf(:,:)
+
+    INTEGER :: ivar, nvars, nlevs, pos, istation, nstations
+
+    nstations = SIZE(station)
+    ALLOCATE(height_buf(SUM(var_info%nlevs),nstations))
+    nvars = SIZE(var_info)
+    DO istation = 1, nstations
+      pos = 0
+      DO ivar = 1, nvars
+        nlevs = var_info(ivar)%nlevs
+        height_buf(pos+1:pos+nlevs,istation) &
+          = station(istation)%var(ivar)%heights
+        pos = pos + nlevs
+      END DO
+      CALL p_send(height_buf(:,istation), io_collector_rank, &
+        TAG_VARLIST+station(istation)%station_idx, comm=io_collect_comm)
+    END DO
+  END SUBROUTINE send_heights
+
+  SUBROUTINE recv_heights(var_info, station, pstation, &
+    io_collect_comm, is_pure_io_pe, local_station)
+    TYPE(t_var_info), INTENT(in) :: var_info(:)
+    TYPE(t_meteogram_station), INTENT(inout) :: station(:)
+    TYPE(t_meteogram_station), INTENT(in) :: local_station(:)
+    INTEGER, INTENT(in) :: io_collect_comm, pstation(:)
+    LOGICAL, INTENT(in) :: is_pure_io_pe
+
+    REAL(wp), ALLOCATABLE :: height_buf(:,:)
+    INTEGER :: ivar, nvars, nlevs, pos, istation, nstations, istation_local, &
+      iowner
+
+    nstations = SIZE(station)
+    ALLOCATE(height_buf(SUM(var_info%nlevs),nstations))
+    nvars = SIZE(var_info)
+    istation_local = 0
+    DO istation = 1, nstations
+      iowner = pstation(istation)
+      IF ((is_pure_io_pe .OR. iowner /= p_pe_work) .AND. iowner >= 0) THEN
+        CALL p_irecv(height_buf(:,istation), pstation(istation), &
+          TAG_VARLIST+istation, comm=io_collect_comm)
+      ELSE IF (iowner == p_pe_work) THEN
+        istation_local = istation_local + 1
+        DO ivar = 1, nvars
+          station(istation)%var(ivar)%heights &
+            = local_station(istation_local)%var(ivar)%heights
+        END DO
+      END IF
+    END DO
+    CALL p_wait()
+    DO istation = 1, nstations
+      iowner = pstation(istation)
+      IF ((is_pure_io_pe .OR. iowner /= p_pe_work) .AND. iowner >= 0) THEN
+        pos = 0
+        DO ivar = 1, nvars
+          nlevs = var_info(ivar)%nlevs
+          station(istation)%var(ivar)%heights &
+            = height_buf(pos+1:pos+nlevs,istation)
+          pos = pos + nlevs
+        END DO
+      END IF
+    END DO
+  END SUBROUTINE recv_heights
 
   !>
   !! @return Index of (3d) variable with given name.
