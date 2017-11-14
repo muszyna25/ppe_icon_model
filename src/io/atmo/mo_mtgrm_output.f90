@@ -1991,8 +1991,6 @@ CONTAINS
     !-- unpack station header information
     CALL p_unpack_int(sttn_buffer, position, station%station_idx)
 
-    CALL p_unpack_real_1d(sttn_buffer, position, station%tile_frac(:), &
-      &                   ntiles_mtgrm)
     CALL p_unpack_int_1d (sttn_buffer, position, station%tile_luclass(:), &
       &                   ntiles_mtgrm)
 
@@ -2033,7 +2031,6 @@ CONTAINS
     !-- pack meteogram header (information on location, ...)
     CALL p_pack_int(station%station_idx, sttn_buffer, pos)
 
-    CALL p_pack_real_1d(station%tile_frac(:), ntiles_mtgrm, sttn_buffer, pos)
     CALL p_pack_int_1d (station%tile_luclass(:), ntiles_mtgrm, sttn_buffer, pos)
 
 
@@ -2060,7 +2057,6 @@ CONTAINS
     INTEGER :: ivar, nvars
 
     station%station_idx           = station_sample%station_idx
-    station%tile_frac             = station_sample%tile_frac
     station%tile_luclass          = station_sample%tile_luclass
 
     ! copy meteogram data
@@ -2920,18 +2916,24 @@ CONTAINS
 
     REAL(wp), ALLOCATABLE :: buf(:,:)
 
-    INTEGER :: ivar, nvars, nlevs, pos, istation, nstations
+    INTEGER :: ivar, nvars, nlevs, pos, istation, nstations, ntiles
 
+    IF (ALLOCATED(tile_list%tile)) THEN
+      ntiles = ntiles_total + ntiles_water
+    ELSE
+      ntiles = 1
+    ENDIF
     nstations = SIZE(station)
-    ALLOCATE(buf(num_time_inv + SUM(var_info%nlevs),nstations))
+    ALLOCATE(buf(num_time_inv + ntiles + SUM(var_info%nlevs),nstations))
     nvars = SIZE(var_info)
     DO istation = 1, nstations
-      pos = num_time_inv
+      pos = num_time_inv + ntiles
       buf(1,istation) = station(istation)%hsurf
       buf(2,istation) = station(istation)%frland
       buf(3,istation) = station(istation)%fc
       buf(4,istation) = REAL(station(istation)%soiltype, wp)
       buf(5:6,istation) = REAL(station(istation)%tri_idx, wp)
+      buf(7:6+ntiles,istation) = station(istation)%tile_frac
       DO ivar = 1, nvars
         nlevs = var_info(ivar)%nlevs
         buf(pos+1:pos+nlevs,istation) = station(istation)%var(ivar)%heights
@@ -2952,10 +2954,15 @@ CONTAINS
 
     REAL(wp), ALLOCATABLE :: buf(:,:)
     INTEGER :: ivar, nvars, nlevs, pos, istation, nstations, istation_local, &
-      iowner
+      iowner, ntiles
 
+    IF (ALLOCATED(tile_list%tile)) THEN
+      ntiles = ntiles_total + ntiles_water
+    ELSE
+      ntiles = 1
+    ENDIF
     nstations = SIZE(station)
-    ALLOCATE(buf(num_time_inv + SUM(var_info%nlevs),nstations))
+    ALLOCATE(buf(num_time_inv + ntiles + SUM(var_info%nlevs),nstations))
     nvars = SIZE(var_info)
     istation_local = 0
     DO istation = 1, nstations
@@ -2970,6 +2977,7 @@ CONTAINS
         station(istation)%fc = local_station(istation_local)%fc
         station(istation)%soiltype = local_station(istation_local)%soiltype
         station(istation)%tri_idx = local_station(istation_local)%tri_idx
+        station(istation)%tile_frac = local_station(istation_local)%tile_frac
         DO ivar = 1, nvars
           station(istation)%var(ivar)%heights &
             = local_station(istation_local)%var(ivar)%heights
@@ -2980,12 +2988,13 @@ CONTAINS
     DO istation = 1, nstations
       iowner = pstation(istation)
       IF ((is_pure_io_pe .OR. iowner /= p_pe_work) .AND. iowner >= 0) THEN
-        pos = num_time_inv
+        pos = num_time_inv + ntiles
         station(istation)%hsurf = buf(1,istation)
         station(istation)%frland = buf(2,istation)
         station(istation)%fc = buf(3,istation)
         station(istation)%soiltype = INT(buf(4,istation))
         station(istation)%tri_idx = INT(buf(5:6,istation))
+        station(istation)%tile_frac = buf(7:6+ntiles,istation)
         DO ivar = 1, nvars
           nlevs = var_info(ivar)%nlevs
           station(istation)%var(ivar)%heights = buf(pos+1:pos+nlevs,istation)
