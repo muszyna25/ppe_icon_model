@@ -260,7 +260,7 @@ MODULE mo_meteogram_output
 
 
   !> number of time- and variable-invariant items per station
-  INTEGER, PARAMETER :: num_time_inv = 4
+  INTEGER, PARAMETER :: num_time_inv = 6
 
   !>
   !! Data structure containing meteogram data and meta info for a
@@ -278,8 +278,10 @@ MODULE mo_meteogram_output
     ! Meteogram header (information on location, ...)
     !> global index of station specification
     INTEGER                         :: station_idx
-    INTEGER                         :: tri_idx(2)       !< triangle index (global idx,block)
-    INTEGER                         :: tri_idx_local(2) !< triangle index (idx,block)
+    !> triangle index (global idx,block)
+    INTEGER                         :: tri_idx(2) = -1
+    !> triangle index (idx,block)
+    INTEGER                         :: tri_idx_local(2) = -1
     REAL(wp)                        :: hsurf            !< surface height
     REAL(wp)                        :: frland           !< fraction of land
     REAL(wp)                        :: fc               !< Coriolis parameter
@@ -1988,8 +1990,6 @@ CONTAINS
 
     !-- unpack station header information
     CALL p_unpack_int(sttn_buffer, position, station%station_idx)
-    CALL p_unpack_int_1d(sttn_buffer, position, station%tri_idx(:),2)
-    CALL p_unpack_int_1d(sttn_buffer, position, station%tri_idx_local(:),2)
 
     CALL p_unpack_real_1d(sttn_buffer, position, station%tile_frac(:), &
       &                   ntiles_mtgrm)
@@ -2032,8 +2032,6 @@ CONTAINS
 
     !-- pack meteogram header (information on location, ...)
     CALL p_pack_int(station%station_idx, sttn_buffer, pos)
-    CALL p_pack_int_1d(station%tri_idx(:), 2, sttn_buffer, pos)
-    CALL p_pack_int_1d(station%tri_idx_local(:), 2, sttn_buffer, pos)
 
     CALL p_pack_real_1d(station%tile_frac(:), ntiles_mtgrm, sttn_buffer, pos)
     CALL p_pack_int_1d (station%tile_luclass(:), ntiles_mtgrm, sttn_buffer, pos)
@@ -2062,8 +2060,6 @@ CONTAINS
     INTEGER :: ivar, nvars
 
     station%station_idx           = station_sample%station_idx
-    station%tri_idx               = station_sample%tri_idx
-    station%tri_idx_local         = station_sample%tri_idx_local
     station%tile_frac             = station_sample%tile_frac
     station%tile_luclass          = station_sample%tile_luclass
 
@@ -2935,6 +2931,7 @@ CONTAINS
       buf(2,istation) = station(istation)%frland
       buf(3,istation) = station(istation)%fc
       buf(4,istation) = REAL(station(istation)%soiltype, wp)
+      buf(5:6,istation) = REAL(station(istation)%tri_idx, wp)
       DO ivar = 1, nvars
         nlevs = var_info(ivar)%nlevs
         buf(pos+1:pos+nlevs,istation) = station(istation)%var(ivar)%heights
@@ -2972,6 +2969,7 @@ CONTAINS
         station(istation)%frland = local_station(istation_local)%frland
         station(istation)%fc = local_station(istation_local)%fc
         station(istation)%soiltype = local_station(istation_local)%soiltype
+        station(istation)%tri_idx = local_station(istation_local)%tri_idx
         DO ivar = 1, nvars
           station(istation)%var(ivar)%heights &
             = local_station(istation_local)%var(ivar)%heights
@@ -2987,6 +2985,7 @@ CONTAINS
         station(istation)%frland = buf(2,istation)
         station(istation)%fc = buf(3,istation)
         station(istation)%soiltype = INT(buf(4,istation))
+        station(istation)%tri_idx = INT(buf(5:6,istation))
         DO ivar = 1, nvars
           nlevs = var_info(ivar)%nlevs
           station(istation)%var(ivar)%heights = buf(pos+1:pos+nlevs,istation)
