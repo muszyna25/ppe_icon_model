@@ -105,7 +105,7 @@ MODULE mo_meteogram_output
   USE mo_exception,             ONLY: message, message_text, finish
   USE mo_mpi,                   ONLY: p_n_work, p_allreduce_max,          &
     &                                 get_my_mpi_all_id, p_wait,          &
-    &                                 p_send, p_irecv, p_pe_work,         &
+    &                                 p_send, p_isend, p_irecv, p_pe_work,&
     &                                 p_send_packed, p_irecv_packed,      &
     &                                 p_int_byte,                         &
     &                                 p_pack_int,    p_pack_real,         &
@@ -177,7 +177,7 @@ MODULE mo_meteogram_output
   INTEGER, PARAMETER :: MAX_DESCR_LENGTH     =  128  !< length of info strings (see cf_convention)
   INTEGER, PARAMETER :: MAX_DATE_LEN         =   16  !< length of iso8601 date strings
   ! arbitrarily chosen value for buffer size (somewhat large for safety reasons)
-  INTEGER, PARAMETER :: MAX_HEADER_SIZE      =  128  !< *p_real_dp_byte
+  INTEGER, PARAMETER :: mtgrm_pack_header_ints =  2  !< * p_int_byte
 
   INTEGER, PARAMETER :: TAG_VARLIST          =   99  !< MPI tag for communication of variable info
   INTEGER, PARAMETER :: TAG_MTGRM_MSG        = 77777 !< MPI tag (base) for communication of meteogram data
@@ -1419,6 +1419,7 @@ CONTAINS
           meteogram_data%station(istation)%tile_luclass = 0
 
         END SELECT
+
         ! initialize value buffer and set level heights:
         DO ivar=1,meteogram_data%nvars
           nlevs = meteogram_data%var_info(ivar)%nlevs
@@ -1518,10 +1519,11 @@ CONTAINS
       ! (max_var_size: contains also height levels)
       max_var_size    = max_time_stamps*p_real_dp_byte*meteogram_data%max_nlevs
       max_sfcvar_size = max_time_stamps*p_real_dp_byte
-      mtgrm(jg)%max_buf_size    = MAX_HEADER_SIZE*p_real_dp_byte            & ! header size
-        &               + max_time_stamps*(MAX_DATE_LEN+4)        & ! time stamp info
-        &               + meteogram_data%nvars*max_var_size       &
-        &               + meteogram_data%nsfcvars*max_sfcvar_size
+      mtgrm(jg)%max_buf_size                        &
+        =   mtgrm_pack_header_ints*p_int_byte       & ! header size
+        & + max_time_stamps*(MAX_DATE_LEN+4)        & ! time stamp info
+        & + meteogram_data%nvars*max_var_size       &
+        & + meteogram_data%nsfcvars*max_sfcvar_size
 
       ! allocate buffer:
     END IF
@@ -1856,8 +1858,9 @@ CONTAINS
 
         WRITE (0,*) "jg = ", jg, " : message buffer: mtgrm(jg)%max_buf_size = ", &
           & mtgrm(jg)%max_buf_size, "; MAX_NUM_STATIONS = ", MAX_NUM_STATIONS
-        WRITE (0,*) "MAX_HEADER_SIZE         = ", MAX_HEADER_SIZE
+        WRITE (0,*) "mtgrm_pack_header_ints  = ", mtgrm_pack_header_ints
         WRITE (0,*) "p_real_dp_byte          = ", p_real_dp_byte
+        WRITE (0,*) "p_int_byte              = ", p_real_dp_byte
         WRITE (0,*) "max_time_stamps         = ", max_time_stamps
         WRITE (0,*) "MAX_DATE_LEN            = ", MAX_DATE_LEN
         WRITE (0,*) "meteogram_data%nvars    = ", mtgrm(jg)%meteogram_local_data%nvars
@@ -1991,9 +1994,6 @@ CONTAINS
     !-- unpack station header information
     CALL p_unpack_int(sttn_buffer, position, station%station_idx)
 
-    CALL p_unpack_int_1d (sttn_buffer, position, station%tile_luclass(:), &
-      &                   ntiles_mtgrm)
-
     !-- unpack meteogram data:
     DO ivar=1,meteogram_local_data%nvars
       nlevs = meteogram_local_data%var_info(ivar)%nlevs
@@ -2031,9 +2031,6 @@ CONTAINS
     !-- pack meteogram header (information on location, ...)
     CALL p_pack_int(station%station_idx, sttn_buffer, pos)
 
-    CALL p_pack_int_1d (station%tile_luclass(:), ntiles_mtgrm, sttn_buffer, pos)
-
-
     !-- pack meteogram data:
     nvars = SIZE(station%var)
     DO ivar = 1, nvars
@@ -2055,9 +2052,6 @@ CONTAINS
     INTEGER, INTENT(in) :: icurrent
 
     INTEGER :: ivar, nvars
-
-    station%station_idx           = station_sample%station_idx
-    station%tile_luclass          = station_sample%tile_luclass
 
     ! copy meteogram data
     nvars = SIZE(station%var)
@@ -2924,24 +2918,27 @@ CONTAINS
       ntiles = 1
     ENDIF
     nstations = SIZE(station)
-    ALLOCATE(buf(num_time_inv + ntiles + SUM(var_info%nlevs),nstations))
+    ALLOCATE(buf(num_time_inv + 2*ntiles + SUM(var_info%nlevs),nstations))
     nvars = SIZE(var_info)
     DO istation = 1, nstations
-      pos = num_time_inv + ntiles
+      pos = num_time_inv + 2 * ntiles
       buf(1,istation) = station(istation)%hsurf
       buf(2,istation) = station(istation)%frland
       buf(3,istation) = station(istation)%fc
       buf(4,istation) = REAL(station(istation)%soiltype, wp)
       buf(5:6,istation) = REAL(station(istation)%tri_idx, wp)
       buf(7:6+ntiles,istation) = station(istation)%tile_frac
+      buf(7+ntiles:6+2*ntiles,istation) &
+        = REAL(station(istation)%tile_luclass, wp)
       DO ivar = 1, nvars
         nlevs = var_info(ivar)%nlevs
         buf(pos+1:pos+nlevs,istation) = station(istation)%var(ivar)%heights
         pos = pos + nlevs
       END DO
-      CALL p_send(buf(:,istation), io_collector_rank, &
+      CALL p_isend(buf(:,istation), io_collector_rank, &
         TAG_VARLIST+station(istation)%station_idx, comm=io_collect_comm)
     END DO
+    CALL p_wait
   END SUBROUTINE send_time_invariants
 
   SUBROUTINE recv_time_invariants(var_info, station, pstation, &
@@ -2962,7 +2959,7 @@ CONTAINS
       ntiles = 1
     ENDIF
     nstations = SIZE(station)
-    ALLOCATE(buf(num_time_inv + ntiles + SUM(var_info%nlevs),nstations))
+    ALLOCATE(buf(num_time_inv + 2*ntiles + SUM(var_info%nlevs),nstations))
     nvars = SIZE(var_info)
     istation_local = 0
     DO istation = 1, nstations
@@ -2978,6 +2975,8 @@ CONTAINS
         station(istation)%soiltype = local_station(istation_local)%soiltype
         station(istation)%tri_idx = local_station(istation_local)%tri_idx
         station(istation)%tile_frac = local_station(istation_local)%tile_frac
+        station(istation)%tile_luclass &
+          = local_station(istation_local)%tile_luclass
         DO ivar = 1, nvars
           station(istation)%var(ivar)%heights &
             = local_station(istation_local)%var(ivar)%heights
@@ -2988,13 +2987,14 @@ CONTAINS
     DO istation = 1, nstations
       iowner = pstation(istation)
       IF ((is_pure_io_pe .OR. iowner /= p_pe_work) .AND. iowner >= 0) THEN
-        pos = num_time_inv + ntiles
+        pos = num_time_inv + 2*ntiles
         station(istation)%hsurf = buf(1,istation)
         station(istation)%frland = buf(2,istation)
         station(istation)%fc = buf(3,istation)
         station(istation)%soiltype = INT(buf(4,istation))
         station(istation)%tri_idx = INT(buf(5:6,istation))
         station(istation)%tile_frac = buf(7:6+ntiles,istation)
+        station(istation)%tile_luclass = INT(buf(7+ntiles:6+2*ntiles,istation))
         DO ivar = 1, nvars
           nlevs = var_info(ivar)%nlevs
           station(istation)%var(ivar)%heights = buf(pos+1:pos+nlevs,istation)
