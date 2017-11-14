@@ -602,6 +602,20 @@ set_run_target_bullx()
       add_free_var OMPI_MCA_coll_fca_enable 1
       add_free_var OMPI_MCA_coll_fca_priority 95
       ;;
+    *openmpi*)
+      add_free_var OMPI_MCA_pml cm
+      add_free_var OMPI_MCA_mtl mxm
+      add_free_var OMPI_MCA_coll ^fca
+      add_free_var MXM_RDMA_PORTS 'mlx5_0:1'
+      add_free_var HCOLL_MAIN_IB 'mlx5_0:1'
+      add_free_var HCOLL_ML_DISABLE_BARRIER 1
+      add_free_var HCOLL_ML_DISABLE_IBARRIER 1
+      add_free_var HCOLL_ML_DISABLE_BCAST 1
+      add_free_var HCOLL_ENABLE_MCAST_ALL 1
+      add_free_var HCOLL_ENABLE_MCAST 1
+      add_free_var OMPI_MCA_coll_sync_barrier_after_alltoallv 1
+      add_free_var OMPI_MCA_coll_sync_barrier_after_alltoallw 1
+      ;;
     *intel*mpi*)
       add_free_var I_MPI_FABRICS shm:dapl
       add_free_var I_MPI_DAPL_UD enable
