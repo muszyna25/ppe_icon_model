@@ -350,107 +350,95 @@ case "$ac_sitename" in
                         FC = mpif90
                         F77= mpif90
                         config_target = kesch_cpu
-                        load_modules  = git/2.8.4 craype-haswell PrgEnv-gnu HDF5 netCDF netCDF-Fortran cray-libsci
-                        CFLAGS        = -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -cpp -std=c11 -DpgiFortran -DHAVE_LIBNETCDF
+                        FFLAGS        = -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -D__LOOP_EXCHANGE -DgFortran -cpp -O2
+                        CFLAGS        = -D_XOPEN_SOURCE=700 -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -cpp -std=c99 -DgFortran -DHAVE_LIBNETCDF
                         GRIBAPIROOT   = /project/c14/install/kesch/libgrib_api/v1.20.0.2/gnu/
-                        NETCDFROOT    = /apps/escha/UES/RH6.7/easybuild/software/netCDF/4.3.3.1-gmvolf-15.11
-                        NETCDFFROOT   = /apps/escha/UES/RH6.7/easybuild/software/netCDF-Fortran/4.4.2-gmvolf-15.11
-                        HDF5ROOT      = /apps/escha/UES/RH6.7/easybuild/software/HDF5/1.8.15-gmvolf-15.11
-                        LAPACKROOT    = /opt/cray/libsci/13.2.0/CRAY/8.3/x86_64
-                        LAPACK_LIB    = -lsci_cray
+                        case "$MCH_CONFIG" in
+                            tds)
+                                load_modules  = git craype-haswell PrgEnv-gnu hdf5 netcdf netcdf-fortran
+                                HDF5ROOT      = /apps/escha/UES/jenkins/RH7.3-gnu_PE17.02/easybuild/software/hdf5/1.8.18-gmvolf-17.02
+                                NETCDFROOT    = /apps/escha/UES/jenkins/RH7.3-gnu_PE17.02/easybuild/software/netcdf/4.4.1.1-gmvolf-17.02
+                                NETCDFFROOT   = /apps/escha/UES/jenkins/RH7.3-gnu_PE17.02/easybuild/software/netcdf-fortran/4.4.4-gmvolf-17.02
+                                ;;
+                            *)
+                                load_modules  = git/2.8.4 craype-haswell PrgEnv-gnu HDF5 netCDF netCDF-Fortran cray-libsci
+                                NETCDFROOT    = /apps/escha/UES/RH6.7/easybuild/software/netCDF/4.3.3.1-gmvolf-15.11
+                                NETCDFFROOT   = /apps/escha/UES/RH6.7/easybuild/software/netCDF-Fortran/4.4.2-gmvolf-15.11
+                                HDF5ROOT      = /apps/escha/UES/RH6.7/easybuild/software/HDF5/1.8.15-gmvolf-15.11
+                                LAPACKROOT    = /opt/cray/libsci/13.2.0/CRAY/8.3/x86_64
+                                LAPACK_LIB    = -lsci_cray
+                                ;;
+                        esac
                         ;;
                     pgi)
                         CC = mpicc
                         FC = mpif90
                         F77= mpif90
                         config_target = kesch_cpu
-                        load_modules  = git/2.8.4 craype-haswell GCC/4.9.3-binutils-2.25 PrgEnv-pgi
                         FFLAGS        = -Mpreprocess -Mrecursive -Mallocatable=03 -D__LOOP_EXCHANGE $INCLUDES
                         CFLAGS        = -c99 -DpgiFortran -DHAVE_LIBNETCDF
                         GRIBAPIROOT   = /project/c14/install/kesch/libgrib_api/v1.20.0.2/pgi/
                         NETCDFROOT    = /apps/escha/system/opt/pgi/linux86-64/2016/netcdf
+                        case "$MCH_CONFIG" in
+                            tds)
+                                load_modules  = git/2.8.4 craype-haswell GCC/4.9.3-binutils-2.25 PrgEnv-pgi
+                                ;;
+                            *)
+                                load_modules  = git/2.8.4 craype-haswell GCC/4.9.3-binutils-2.25 PrgEnv-pgi
+                                ;;
+                        esac
                         ;;
                     cray)
                         CC = cc
                         FC = ftn
                         F77= ftn
                         config_target = kesch_cpu
-                        load_modules  = git/2.8.4 craype-haswell PrgEnv-cray cray-netcdf cray-hdf5 cray-libsci
                         # FDEBUG        = -O0 -g -Rb -Rc -Rd -Rp #-Rs leads to ICE
                         FFLAGS        = -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv
                         # CDEBUG       = -O0 -g
                         CFLAGS        = -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -Df2cFortran -DHAVE_LIBNETCDF -O3 -DUSE_XML2
                         LDFLAGS       = -Wl,--allow-multiple-definition
                         GRIBAPIROOT   = /project/c14/install/kesch/libgrib_api/v1.20.0.2/cray/
-                        NETCDFROOT    = /opt/cray/netcdf/4.3.2/CRAY/83
-                        HDF5ROOT      = /opt/cray/hdf5/1.8.13/CRAY/83
                         OTHER_LIBS    = -L/project/c14/install/kesch/libjasper/lib -ljasper -dynamic -L/usr/lib64 -llzma
-                        LAPACKROOT    = /opt/cray/libsci/13.2.0/CRAY/8.3/x86_64
-                        LAPACK_LIB    = -lsci_cray
+                        case "$MCH_CONFIG" in
+                            tds)
+                                load_modules  = craype-haswell PrgEnv-cray HDF5 netCDF netCDF-Fortran
+                                NETCDFROOT    = /apps/escha/UES/jenkins/RH7.3-cray_PE17.06/easybuild/software/netCDF/4.4.1.1-CrayCCE-17.06
+                                NETCDFFROOT   = /apps/escha/UES/jenkins/RH7.3-cray_PE17.06/easybuild/software/netCDF-Fortran/4.4.4-CrayCCE-17.06/
+                                HDF5ROOT      = /apps/escha/UES/jenkins/RH7.3-cray_PE17.06/easybuild/software/HDF5/1.10.1-CrayCCE-17.06-parallel
+                                ;;
+                            *)
+                                load_modules  = git/2.8.4 craype-haswell PrgEnv-cray cray-netcdf cray-hdf5 cray-libsci
+                                NETCDFROOT    = /opt/cray/netcdf/4.3.2/CRAY/83
+                                HDF5ROOT      = /opt/cray/hdf5/1.8.13/CRAY/83
+                                LAPACKROOT    = /opt/cray/libsci/13.2.0/CRAY/8.3/x86_64
+                                LAPACK_LIB    = -lsci_cray
+                                ;;
+                        esac
                         ;;
                     cray_gpu)
                         CC = cc
                         FC = ftn
                         F77= ftn
                         config_target = kesch_gpu
-                        load_modules  = git/2.8.4 craype-haswell PrgEnv-cray craype-accel-nvidia35 cray-netcdf cray-hdf5
                         FFLAGS        = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hnoomp -hflex_mp=intolerant -hfp0 -hadd_paren -hacc_model=deep_copy -O1,cache0,ipa1 -r am -Ktrap=divz,ovf,inv
                         CFLAGS        = -Df2cFortran -DHAVE_LIBNETCDF -O3 -DUSE_XML2
                         GRIBAPIROOT   = /project/c14/install/kesch/libgrib_api/v1.20.0.2/cray/
-                        NETCDFROOT    = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
-			                  HDF5ROOT      = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
                         OTHER_LIBS    = -L/project/c14/install/kesch/libjasper/lib -ljasper -llzma
-                        LAPACKROOT    = /opt/cray/libsci/13.2.0/CRAY/8.3/x86_64
-                        LAPACK_LIB    = -lsci_cray
-                        ;;
-                    gcc_tds)
-                        CC = mpicc
-                        FC = mpif90
-                        F77= mpif90
-                        config_target = kesch_cpu
-                        load_modules  = git/2.8.4 craype-haswell PrgEnv-gnu hdf5 netCDF netCDF-Fortran
-                        CFLAGS        = -cpp -std=c11 -DpgiFortran -DHAVE_LIBNETCDF
-                        GRIBAPIROOT   = /project/c14/install/kesch/libgrib_api/v1.20.0.2/gnu/
-                        NETCDFROOT    = /apps/escha/system/opt/pgi/linux86-64/2016/netcdf/
-                        ;;
-                    pgi_tds)
-                        CC = mpicc
-                        FC = mpif90
-                        F77= mpif90
-                        config_target = kesch_cpu
-                        load_modules  = git/2.8.4 craype-haswell GCC/4.9.3-binutils-2.25 PrgEnv-pgi
-                        FFLAGS        = -Mpreprocess -Mrecursive -Mallocatable=03 -D__LOOP_EXCHANGE $INCLUDES
-                        CFLAGS        = -c99 -DpgiFortran -DHAVE_LIBNETCDF
-                        GRIBAPIROOT   = /project/c14/install/kesch/libgrib_api/v1.20.0.2/pgi/
-                        NETCDFROOT    = /apps/escha/system/opt/pgi/linux86-64/2016/netcdf
-                        ;;
-                    cray_tds)
-                        CC = cc
-                        FC = ftn
-                        F77= ftn
-                        config_target = kesch_cpu
-                        load_modules  = craype-haswell PrgEnv-cray HDF5 netCDF netCDF-Fortran
-                        FFLAGS        = -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv
-                        CFLAGS        = -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -Df2cFortran -DHAVE_LIBNETCDF -O3 -DUSE_XML2
-			                  LDFLAGS       = -Wl,--allow-multiple-definition
-                        GRIBAPIROOT   = /project/c14/install/kesch/libgrib_api/v1.20.0.2/cray/
-                        NETCDFROOT    = /apps/escha/UES/jenkins/RH7.3-cray_PE17.06/easybuild/software/netCDF/4.4.1.1-CrayCCE-17.06
-                        NETCDFFROOT   = /apps/escha/UES/jenkins/RH7.3-cray_PE17.06/easybuild/software/netCDF-Fortran/4.4.4-CrayCCE-17.06/
-			                  HDF5ROOT      = /apps/escha/UES/jenkins/RH7.3-cray_PE17.06/easybuild/software/HDF5/1.10.1-CrayCCE-17.06-parallel
-                        OTHER_LIBS    =  -L/project/c14/install/kesch/libjasper/lib -ljasper -dynamic -L/usr/lib64 -llzma
-                        ;;
-                    cray_gpu_tds)
-                        CC = cc
-                        FC = ftn
-                        F77= ftn
-                        config_target = kesch_gpu
-                        load_modules  = git/2.8.4 craype-haswell PrgEnv-cray craype-accel-nvidia35 HDF5 netCDF netCDF-Fortran
-                        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hnoomp -hflex_mp=intolerant -hfp0 -hadd_paren -hacc_model=deep_copy -O1,cache0,ipa1 -r am -Ktrap=divz,ovf,inv
-                        CFLAGS        = -Df2cFortran -DHAVE_LIBNETCDF -O3 -DUSE_XML2
-                        GRIBAPIROOT   = /project/c14/install/kesch/libgrib_api/v1.20.0.2/cray/
-                        NETCDFROOT    = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
-			                  HDF5ROOT    = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
-                        OTHER_LIBS    = -L/project/c14/install/kesch/libjasper/lib -ljasper -llzma
+                        case "$MCH_CONFIG" in
+                            tds)
+                                load_modules  = git/2.8.4 craype-haswell PrgEnv-cray craype-accel-nvidia35 HDF5 netCDF netCDF-Fortran
+                                NETCDFROOT    = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
+                                HDF5ROOT      = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
+                                ;;
+                            *)
+                                load_modules  = git/2.8.4 craype-haswell PrgEnv-cray craype-accel-nvidia35 cray-netcdf cray-hdf5
+                                NETCDFROOT    = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
+			                          HDF5ROOT      = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
+                                LAPACKROOT    = /opt/cray/libsci/13.2.0/CRAY/8.3/x86_64
+                                LAPACK_LIB    = -lsci_cray
+                                ;;
+                        esac
                         ;;
                     *)
                         echo
