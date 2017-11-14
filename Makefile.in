@@ -119,11 +119,10 @@ one:
 
 
 install:
-	@for DIR in $(OBJDIRS) ;\
-	  do \
-	  (cd $$DIR && $(MAKE) install ; if [ $$? != 0 ] ; then \
-	        echo "Exit status from make was $$?" ; exit 1 ; fi ;) ;\
-	  done
+	install -d ${prefix}/@config_target@/@config_compiler@/@config_tuning@/bin
+	install -d ${prefix}/@config_target@/@config_compiler@/@config_tuning@/lib
+	install ${bindir}/* ${prefix}/@config_target@/@config_compiler@/@config_tuning@/bin
+	install ${libdir}/* ${prefix}/@config_target@/@config_compiler@/@config_tuning@/lib
 
 clean:
 	@for DIR in $(OBJDIRS) ;\

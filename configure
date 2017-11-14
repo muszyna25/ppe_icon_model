@@ -639,6 +639,7 @@ use_mpi
 ac_sitename
 make_command
 load_modules
+config_tuning
 config_compiler
 config_target
 OBJDIRS
@@ -769,6 +770,7 @@ enable_testbed
 enable_mh_file
 with_fortran
 with_openmp
+with_tuning
 with_yac
 with_messy
 with_flags
@@ -1424,6 +1426,7 @@ Optional Packages:
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-fortran=COMPILER select_available compiler (see README.compiler)
   --with-openmp           enable OpenMP, if available for selected compiler
+  --with-tuning=TUNING    select additional tuning compiler
   --with-yac              enable use of yac
   --with-messy            enable Modular Earth Submodel System (MESSy)
                           interface
@@ -2651,6 +2654,20 @@ if test "${with_openmp+set}" = set; then :
 fi
 
 
+
+
+
+# Check whether --with-tuning was given.
+if test "${with_tuning+set}" = set; then :
+  withval=$with_tuning;
+fi
+
+
+if test -n "$with_tuning"; then :
+  config_tuning=$with_tuning
+else
+  config_tuning="default"
+fi
 
 
 
@@ -6772,6 +6789,8 @@ ac_config_commands="$ac_config_commands Makefiles"
 config_target=$config_target
 
 config_compiler=$config_compiler
+
+config_tuning=$config_tuning
 
 load_modules=$load_modules
 

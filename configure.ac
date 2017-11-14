@@ -146,6 +146,18 @@ dnl AS_IF([test x$with_setup != x],
 dnl       [mh_setup=$with_setup],
 dnl       [mh_setup=""])
 
+dnl Extra tuning
+
+AC_ARG_WITH([tuning],
+  [AS_HELP_STRING([--with-tuning=TUNING],
+    [select additional tuning compiler])],
+  [],
+  [])
+
+AS_IF([test -n "$with_tuning"],
+      [config_tuning=$with_tuning],
+      [config_tuning="default"])
+
 dnl YAC (coupler)
 
 AC_ARG_WITH([yac],
@@ -1407,6 +1419,7 @@ AC_CONFIG_COMMANDS([Makefiles],
 
 AC_SUBST(config_target,$config_target)
 AC_SUBST(config_compiler,$config_compiler)
+AC_SUBST(config_tuning,$config_tuning)
 AC_SUBST(load_modules,$load_modules)
 AC_SUBST(make_command,$make_command)
 

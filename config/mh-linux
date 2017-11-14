@@ -353,7 +353,15 @@ case "$ac_sitename" in
                         FFLAGS        = -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -D__LOOP_EXCHANGE -DgFortran -cpp -O2
                         CFLAGS        = -D_XOPEN_SOURCE=700 -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -cpp -std=c99 -DgFortran -DHAVE_LIBNETCDF
                         GRIBAPIROOT   = /project/c14/install/kesch/libgrib_api/v1.20.0.2/gnu/
-                        case "$MCH_CONFIG" in
+                        case "$config_tuning" in
+                            default)
+                                load_modules  = git/2.8.4 craype-haswell PrgEnv-gnu HDF5 netCDF netCDF-Fortran cray-libsci
+                                NETCDFROOT    = /apps/escha/UES/RH6.7/easybuild/software/netCDF/4.3.3.1-gmvolf-15.11
+                                NETCDFFROOT   = /apps/escha/UES/RH6.7/easybuild/software/netCDF-Fortran/4.4.2-gmvolf-15.11
+                                HDF5ROOT      = /apps/escha/UES/RH6.7/easybuild/software/HDF5/1.8.15-gmvolf-15.11
+                                LAPACKROOT    = /opt/cray/libsci/13.2.0/CRAY/8.3/x86_64
+                                LAPACK_LIB    = -lsci_cray
+                                ;;
                             tds)
                                 load_modules  = git craype-haswell PrgEnv-gnu hdf5 netcdf netcdf-fortran
                                 HDF5ROOT      = /apps/escha/UES/jenkins/RH7.3-gnu_PE17.02/easybuild/software/hdf5/1.8.18-gmvolf-17.02
@@ -361,12 +369,11 @@ case "$ac_sitename" in
                                 NETCDFFROOT   = /apps/escha/UES/jenkins/RH7.3-gnu_PE17.02/easybuild/software/netcdf-fortran/4.4.4-gmvolf-17.02
                                 ;;
                             *)
-                                load_modules  = git/2.8.4 craype-haswell PrgEnv-gnu HDF5 netCDF netCDF-Fortran cray-libsci
-                                NETCDFROOT    = /apps/escha/UES/RH6.7/easybuild/software/netCDF/4.3.3.1-gmvolf-15.11
-                                NETCDFFROOT   = /apps/escha/UES/RH6.7/easybuild/software/netCDF-Fortran/4.4.2-gmvolf-15.11
-                                HDF5ROOT      = /apps/escha/UES/RH6.7/easybuild/software/HDF5/1.8.15-gmvolf-15.11
-                                LAPACKROOT    = /opt/cray/libsci/13.2.0/CRAY/8.3/x86_64
-                                LAPACK_LIB    = -lsci_cray
+                                echo
+                                echo
+                                echo "Unknown tuning $config_tuning for $fortran_compiler selected."
+                                echo
+                                exit 1
                                 ;;
                         esac
                         ;;
@@ -379,12 +386,19 @@ case "$ac_sitename" in
                         CFLAGS        = -c99 -DpgiFortran -DHAVE_LIBNETCDF
                         GRIBAPIROOT   = /project/c14/install/kesch/libgrib_api/v1.20.0.2/pgi/
                         NETCDFROOT    = /apps/escha/system/opt/pgi/linux86-64/2016/netcdf
-                        case "$MCH_CONFIG" in
+                        case "$config_tuning" in
+                            default)
+                                load_modules  = git/2.8.4 craype-haswell GCC/4.9.3-binutils-2.25 PrgEnv-pgi
+                                ;;
                             tds)
                                 load_modules  = git/2.8.4 craype-haswell GCC/4.9.3-binutils-2.25 PrgEnv-pgi
                                 ;;
                             *)
-                                load_modules  = git/2.8.4 craype-haswell GCC/4.9.3-binutils-2.25 PrgEnv-pgi
+                                echo
+                                echo
+                                echo "Unknown tuning $config_tuning for $fortran_compiler selected."
+                                echo
+                                exit 1
                                 ;;
                         esac
                         ;;
@@ -400,7 +414,14 @@ case "$ac_sitename" in
                         LDFLAGS       = -Wl,--allow-multiple-definition
                         GRIBAPIROOT   = /project/c14/install/kesch/libgrib_api/v1.20.0.2/cray/
                         OTHER_LIBS    = -L/project/c14/install/kesch/libjasper/lib -ljasper -dynamic -L/usr/lib64 -llzma
-                        case "$MCH_CONFIG" in
+                        case "$config_tuning" in
+                            default)
+                                load_modules  = git/2.8.4 craype-haswell PrgEnv-cray cray-netcdf cray-hdf5 cray-libsci
+                                NETCDFROOT    = /opt/cray/netcdf/4.3.2/CRAY/83
+                                HDF5ROOT      = /opt/cray/hdf5/1.8.13/CRAY/83
+                                LAPACKROOT    = /opt/cray/libsci/13.2.0/CRAY/8.3/x86_64
+                                LAPACK_LIB    = -lsci_cray
+                                ;;
                             tds)
                                 load_modules  = craype-haswell PrgEnv-cray HDF5 netCDF netCDF-Fortran
                                 NETCDFROOT    = /apps/escha/UES/jenkins/RH7.3-cray_PE17.06/easybuild/software/netCDF/4.4.1.1-CrayCCE-17.06
@@ -408,11 +429,11 @@ case "$ac_sitename" in
                                 HDF5ROOT      = /apps/escha/UES/jenkins/RH7.3-cray_PE17.06/easybuild/software/HDF5/1.10.1-CrayCCE-17.06-parallel
                                 ;;
                             *)
-                                load_modules  = git/2.8.4 craype-haswell PrgEnv-cray cray-netcdf cray-hdf5 cray-libsci
-                                NETCDFROOT    = /opt/cray/netcdf/4.3.2/CRAY/83
-                                HDF5ROOT      = /opt/cray/hdf5/1.8.13/CRAY/83
-                                LAPACKROOT    = /opt/cray/libsci/13.2.0/CRAY/8.3/x86_64
-                                LAPACK_LIB    = -lsci_cray
+                                echo
+                                echo
+                                echo "Unknown tuning $config_tuning for $fortran_compiler selected."
+                                echo
+                                exit 1
                                 ;;
                         esac
                         ;;
@@ -425,18 +446,25 @@ case "$ac_sitename" in
                         CFLAGS        = -Df2cFortran -DHAVE_LIBNETCDF -O3 -DUSE_XML2
                         GRIBAPIROOT   = /project/c14/install/kesch/libgrib_api/v1.20.0.2/cray/
                         OTHER_LIBS    = -L/project/c14/install/kesch/libjasper/lib -ljasper -llzma
-                        case "$MCH_CONFIG" in
+                        case "$config_tuning" in
+                            default)
+                                load_modules  = git/2.8.4 craype-haswell PrgEnv-cray craype-accel-nvidia35 cray-netcdf cray-hdf5
+                                NETCDFROOT    = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
+			                          HDF5ROOT      = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
+                                LAPACKROOT    = /opt/cray/libsci/13.2.0/CRAY/8.3/x86_64
+                                LAPACK_LIB    = -lsci_cray
+                                ;;
                             tds)
                                 load_modules  = git/2.8.4 craype-haswell PrgEnv-cray craype-accel-nvidia35 HDF5 netCDF netCDF-Fortran
                                 NETCDFROOT    = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
                                 HDF5ROOT      = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
                                 ;;
                             *)
-                                load_modules  = git/2.8.4 craype-haswell PrgEnv-cray craype-accel-nvidia35 cray-netcdf cray-hdf5
-                                NETCDFROOT    = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
-			                          HDF5ROOT      = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
-                                LAPACKROOT    = /opt/cray/libsci/13.2.0/CRAY/8.3/x86_64
-                                LAPACK_LIB    = -lsci_cray
+                                echo
+                                echo
+                                echo "Unknown tuning $config_tuning for $fortran_compiler selected."
+                                echo
+                                exit 1
                                 ;;
                         esac
                         ;;
