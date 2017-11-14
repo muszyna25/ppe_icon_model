@@ -260,7 +260,7 @@ MODULE mo_meteogram_output
 
 
   !> number of time- and variable-invariant items per station
-  INTEGER, PARAMETER :: num_time_inv = 3
+  INTEGER, PARAMETER :: num_time_inv = 4
 
   !>
   !! Data structure containing meteogram data and meta info for a
@@ -1990,7 +1990,6 @@ CONTAINS
     CALL p_unpack_int(sttn_buffer, position, station%station_idx)
     CALL p_unpack_int_1d(sttn_buffer, position, station%tri_idx(:),2)
     CALL p_unpack_int_1d(sttn_buffer, position, station%tri_idx_local(:),2)
-    CALL p_unpack_int(sttn_buffer, position, station%soiltype)
 
     CALL p_unpack_real_1d(sttn_buffer, position, station%tile_frac(:), &
       &                   ntiles_mtgrm)
@@ -2035,7 +2034,6 @@ CONTAINS
     CALL p_pack_int(station%station_idx, sttn_buffer, pos)
     CALL p_pack_int_1d(station%tri_idx(:), 2, sttn_buffer, pos)
     CALL p_pack_int_1d(station%tri_idx_local(:), 2, sttn_buffer, pos)
-    CALL p_pack_int (station%soiltype, sttn_buffer, pos)
 
     CALL p_pack_real_1d(station%tile_frac(:), ntiles_mtgrm, sttn_buffer, pos)
     CALL p_pack_int_1d (station%tile_luclass(:), ntiles_mtgrm, sttn_buffer, pos)
@@ -2066,7 +2064,6 @@ CONTAINS
     station%station_idx           = station_sample%station_idx
     station%tri_idx               = station_sample%tri_idx
     station%tri_idx_local         = station_sample%tri_idx_local
-    station%soiltype              = station_sample%soiltype
     station%tile_frac             = station_sample%tile_frac
     station%tile_luclass          = station_sample%tile_luclass
 
@@ -2937,6 +2934,7 @@ CONTAINS
       buf(1,istation) = station(istation)%hsurf
       buf(2,istation) = station(istation)%frland
       buf(3,istation) = station(istation)%fc
+      buf(4,istation) = REAL(station(istation)%soiltype, wp)
       DO ivar = 1, nvars
         nlevs = var_info(ivar)%nlevs
         buf(pos+1:pos+nlevs,istation) = station(istation)%var(ivar)%heights
@@ -2973,6 +2971,7 @@ CONTAINS
         station(istation)%hsurf = local_station(istation_local)%hsurf
         station(istation)%frland = local_station(istation_local)%frland
         station(istation)%fc = local_station(istation_local)%fc
+        station(istation)%soiltype = local_station(istation_local)%soiltype
         DO ivar = 1, nvars
           station(istation)%var(ivar)%heights &
             = local_station(istation_local)%var(ivar)%heights
@@ -2987,6 +2986,7 @@ CONTAINS
         station(istation)%hsurf = buf(1,istation)
         station(istation)%frland = buf(2,istation)
         station(istation)%fc = buf(3,istation)
+        station(istation)%soiltype = INT(buf(4,istation))
         DO ivar = 1, nvars
           nlevs = var_info(ivar)%nlevs
           station(istation)%var(ivar)%heights = buf(pos+1:pos+nlevs,istation)
