@@ -2798,6 +2798,7 @@ EOF
 
           $SED -f confsed $host_frag > conftest
           export fortran_compiler
+          export config_tuning
           export ac_sitename
           export hostname
           export with_mpi
@@ -2860,6 +2861,7 @@ EOF
 
           $SED -f confsed $host_frag > conftest
           export fortran_compiler
+          export config_tuning
           export ac_sitename
           export hostname
           export with_mpi

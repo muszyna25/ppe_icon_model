@@ -276,10 +276,10 @@ case "$ac_sitename" in
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -llzma
 			;;
                     *)
-                        echo
-                        echo
-                        echo "No supported Fortran compiler selected."
-                        echo
+                        (>&6 echo "")
+                        (>&6 echo "")
+                        (>&6 echo "No supported Fortran compiler selected.")
+                        (>&6 echo "")
                         exit 1
                         ;;
                 esac
@@ -327,10 +327,10 @@ case "$ac_sitename" in
                         OTHER_LIBS  =
 			;;
                     *)
-                        echo
-                        echo
-                        echo "No supported Fortran compiler selected."
-                        echo
+                        (>&6 echo "")
+                        (>&6 echo "")
+                        (>&6 echo "No supported Fortran compiler selected.")
+                        (>&6 echo "")
                         exit 1
                         ;;
                 esac
@@ -355,7 +355,7 @@ case "$ac_sitename" in
                         GRIBAPIROOT   = /project/c14/install/kesch/libgrib_api/v1.20.0.2/gnu/
                         case "$config_tuning" in
                             default)
-                                load_modules  = git/2.8.4 craype-haswell PrgEnv-gnu HDF5 netCDF netCDF-Fortran cray-libsci
+                                load_modules  = git/2.8.4 craype-haswell PrgEnv-gnu GCC/5.3.0-binutils-2.25 HDF5 netCDF netCDF-Fortran cray-libsci
                                 NETCDFROOT    = /apps/escha/UES/RH6.7/easybuild/software/netCDF/4.3.3.1-gmvolf-15.11
                                 NETCDFFROOT   = /apps/escha/UES/RH6.7/easybuild/software/netCDF-Fortran/4.4.2-gmvolf-15.11
                                 HDF5ROOT      = /apps/escha/UES/RH6.7/easybuild/software/HDF5/1.8.15-gmvolf-15.11
@@ -369,11 +369,10 @@ case "$ac_sitename" in
                                 NETCDFFROOT   = /apps/escha/UES/jenkins/RH7.3-gnu_PE17.02/easybuild/software/netcdf-fortran/4.4.4-gmvolf-17.02
                                 ;;
                             *)
-                                echo
-                                echo
-                                echo "Unknown tuning $config_tuning for $fortran_compiler selected."
-                                echo
-                                exit 1
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "Unknown tuning $config_tuning for $fortran_compiler selected.")
+                                (>&6 echo "")
                                 ;;
                         esac
                         ;;
@@ -394,10 +393,10 @@ case "$ac_sitename" in
                                 load_modules  = git/2.8.4 craype-haswell GCC/4.9.3-binutils-2.25 PrgEnv-pgi
                                 ;;
                             *)
-                                echo
-                                echo
-                                echo "Unknown tuning $config_tuning for $fortran_compiler selected."
-                                echo
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "Unknown tuning $config_tuning for $fortran_compiler selected.")
+                                (>&6 echo "")
                                 exit 1
                                 ;;
                         esac
@@ -429,10 +428,10 @@ case "$ac_sitename" in
                                 HDF5ROOT      = /apps/escha/UES/jenkins/RH7.3-cray_PE17.06/easybuild/software/HDF5/1.10.1-CrayCCE-17.06-parallel
                                 ;;
                             *)
-                                echo
-                                echo
-                                echo "Unknown tuning $config_tuning for $fortran_compiler selected."
-                                echo
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "Unknown tuning $config_tuning for $fortran_compiler selected.")
+                                (>&6 echo "")
                                 exit 1
                                 ;;
                         esac
@@ -460,19 +459,19 @@ case "$ac_sitename" in
                                 HDF5ROOT      = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
                                 ;;
                             *)
-                                echo
-                                echo
-                                echo "Unknown tuning $config_tuning for $fortran_compiler selected."
-                                echo
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "Unknown tuning $config_tuning for $fortran_compiler selected.")
+                                (>&6 echo "")
                                 exit 1
                                 ;;
                         esac
                         ;;
                     *)
-                        echo
-                        echo
-                        echo "No supported Fortran compiler selected."
-                        echo
+                        (>&6 echo "")
+                        (>&6 echo "")
+                        (>&6 echo "No supported Fortran compiler selected.")
+                        (>&6 echo "")
                         exit 1
                         ;;
                 esac

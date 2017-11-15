@@ -143,6 +143,7 @@ EOF
           changequote([,])
           $SED -f confsed $1 > conftest
           export fortran_compiler
+          export config_tuning
           export ac_sitename
           export hostname
           export with_mpi
@@ -203,6 +204,7 @@ EOF
           changequote([,])
           $SED -f confsed $1 > conftest
           export fortran_compiler
+          export config_tuning
           export ac_sitename
           export hostname
           export with_mpi
