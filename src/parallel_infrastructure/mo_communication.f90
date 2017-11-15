@@ -402,7 +402,7 @@ CONTAINS
       num_rcv(np) = p_pat%recv_limits(np+1) - p_pat%recv_limits(np)
     ENDDO
 
-    CALL p_alltoall(num_rcv, icnt, p_pat%comm)
+    CALL p_alltoall(num_rcv, icnt, p_comm_work)
     ! Now send the global index of the points we need from PE np
     DO np = 0, p_n_work-1 ! loop over PEs where to send the data
 
