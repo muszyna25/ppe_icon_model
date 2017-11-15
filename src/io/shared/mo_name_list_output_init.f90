@@ -21,21 +21,21 @@ MODULE mo_name_list_output_init
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer, c_int64_t
 
   ! constants and global settings
-  USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate, cdiEncodeDate,          &
-                                                & cdiEncodeTime, institutInq, vlistCreate, cdiEncodeParam, vlistDefVar,          &
-                                                & TUNIT_MINUTE, CDI_UNDEFID, TAXIS_RELATIVE, taxisCreate, TAXIS_ABSOLUTE,        &
-                                                & GRID_UNSTRUCTURED, GRID_LONLAT, vlistDefVarDatatype, vlistDefVarName,          &
-                                                & gridDefPosition, vlistDefVarIntKey, gridDefXsize, gridDefXname, gridDefXunits, &
-                                                & gridDefYsize, gridDefYname, gridDefYunits, gridDefNumber, gridDefUUID,         &
-                                                & gridDefNvertex, vlistDefInstitut, vlistDefVarParam, vlistDefVarLongname,       &
-                                                & vlistDefVarStdname, vlistDefVarUnits, vlistDefVarMissval, gridDefXvals,        &
-                                                & gridDefYvals, gridDefXlongname, gridDefYlongname, taxisDefTunit,               &
-                                                & taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,                 &
-                                                & vlistDefAttTxt, CDI_GLOBAL, gridDefXpole, gridDefYpole
-  USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
-                                                & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_EDGE, GRID_CELL, &
-                                                & ZA_reference_half_hhl, ZA_reference_half, ZA_reference, ZA_hybrid_half_hhl, &
-                                                & ZA_hybrid_half, ZA_hybrid
+  USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate,     &
+    &                                             cdiEncodeDate, cdiEncodeTime, institutInq, vlistCreate,    &
+    &                                             cdiEncodeParam, vlistDefVar, TUNIT_MINUTE, CDI_UNDEFID,    &
+    &                                             TAXIS_RELATIVE, taxisCreate, TAXIS_ABSOLUTE,               &
+    &                                             GRID_UNSTRUCTURED, GRID_LONLAT, vlistDefVarDatatype,       &
+    &                                             vlistDefVarName, gridDefPosition, vlistDefVarIntKey,       &
+    &                                             gridDefXsize, gridDefXname, gridDefXunits, gridDefYsize,   &
+    &                                             gridDefYname, gridDefYunits, gridDefNumber, gridDefUUID,   &
+    &                                             gridDefNvertex, vlistDefInstitut, vlistDefVarParam,        &
+    &                                             vlistDefVarLongname, vlistDefVarStdname, vlistDefVarUnits, &
+    &                                             vlistDefVarMissval, gridDefXvals, gridDefYvals,            &
+    &                                             gridDefXlongname, gridDefYlongname, taxisDefTunit,         &
+    &                                             taxisDefCalendar, taxisDefRdate, taxisDefRtime,            &
+    &                                             vlistDefTaxis, vlistDefAttTxt, CDI_GLOBAL, gridDefXpole,   &
+    &                                             gridDefYpole
   USE mo_kind,                              ONLY: wp, i8, dp, sp
   USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS,                   &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il,   &
@@ -45,6 +45,9 @@ MODULE mo_name_list_output_init
     &                                             MAX_NZLEVS, MAX_NILEVS, BOUNDARY_MISSVAL,         &
     &                                             dtime_proleptic_gregorian => proleptic_gregorian, &
     &                                             dtime_cly360              => cly360
+  USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT,            &
+    &                                             GRID_UNSTRUCTURED_EDGE, GRID_REGULAR_LONLAT, GRID_VERTEX,  &
+    &                                             GRID_EDGE, GRID_CELL
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
   USE mo_master_config,                     ONLY: getModelBaseDir, isRestart
   USE mo_master_control,                    ONLY: my_process_is_ocean
@@ -151,6 +154,7 @@ MODULE mo_name_list_output_init
   USE mo_name_list_output_zaxes,            ONLY: setup_ml_axes_atmo, setup_pl_axis_atmo,         &
     &                                             setup_hl_axis_atmo, setup_il_axis_atmo,         &
     &                                             setup_zaxes_oce
+  USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxisList, t_verticalAxis
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
   USE mo_derived_variable_handling,         ONLY: process_mean_stream
   USE self_vector
@@ -182,6 +186,7 @@ MODULE mo_name_list_output_init
   PUBLIC :: init_name_list_output
   PUBLIC :: setup_output_vlist
   PUBLIC :: collect_requested_ipz_levels
+  PUBLIC :: create_vertical_axes
 
   !------------------------------------------------------------------------------------------------
 
@@ -1419,7 +1424,6 @@ CONTAINS
               p_of%cdiVertGridID   = CDI_UNDEFID
               p_of%cdiLonLatGridID = CDI_UNDEFID
               p_of%cdiTaxisID      = CDI_UNDEFID
-              p_of%cdiZaxisID(:)   = CDI_UNDEFID
               p_of%cdiVlistID      = CDI_UNDEFID
 
               p_of%npartitions     = npartitions
@@ -1797,10 +1801,51 @@ CONTAINS
         END DO HANDLE_COMPLETE_STEPS
       END IF
     END IF
-
+    
     CALL message(routine,'Done')
 
   END SUBROUTINE init_name_list_output
+
+
+  !------------------------------------------------------------------------------------------------
+  !> Create meta-data for vertical axes.
+  !
+  SUBROUTINE create_vertical_axes(output_file)
+    TYPE(t_output_file), TARGET, INTENT(INOUT) :: output_file(:)
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::create_vertical_axes"
+    INTEGER :: i
+    TYPE (t_output_file),      POINTER   :: p_of
+
+    DO i = 1, SIZE(output_file)
+      p_of  => output_file(i)
+      IF (p_of%io_proc_id /= p_pe) CYCLE
+
+      p_of%verticalAxisList = t_verticalAxisList()
+
+      IF (iequations/=ihs_ocean) THEN ! atm
+        SELECT CASE(p_of%ilev_type)
+        CASE (level_type_ml)
+          CALL setup_ml_axes_atmo(p_of%verticalAxisList, p_of%level_selection, p_of%log_patch_id)
+#ifndef __NO_ICON_ATMO__
+        CASE (level_type_pl)
+          CALL setup_pl_axis_atmo(p_of%verticalAxisList, nh_pzlev_config(p_of%log_patch_id)%plevels, &
+            &                     p_of%level_selection)
+        CASE (level_type_hl)
+          CALL setup_hl_axis_atmo(p_of%verticalAxisList, nh_pzlev_config(p_of%log_patch_id)%zlevels, &
+            &                     p_of%level_selection)
+        CASE (level_type_il)
+          CALL setup_il_axis_atmo(p_of%verticalAxisList, nh_pzlev_config(p_of%log_patch_id)%ilevels, &
+            &                     p_of%level_selection)
+#endif
+        CASE DEFAULT
+          CALL finish(routine, "Internal error!")
+        END SELECT
+      ELSE
+        CALL setup_zaxes_oce(p_of%verticalAxisList)
+      END IF
+    END DO
+  END SUBROUTINE create_vertical_axes
 
 
   !------------------------------------------------------------------------------------------------
@@ -2312,15 +2357,18 @@ CONTAINS
   !> Sets up the vlist for a t_output_file structure
   !
   SUBROUTINE setup_output_vlist(of)
-    TYPE(t_output_file), INTENT(INOUT) :: of
+    TYPE(t_output_file), INTENT(INOUT), TARGET :: of
+    ! local constants
+    CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::setup_output_vlist"
+    REAL(wp),         PARAMETER       :: ZERO_TOL = 1.e-15_wp
     ! local variables
-    CHARACTER(LEN=*), PARAMETER     :: routine = modname//"::setup_output_vlist"
-    INTEGER                         :: k, i_dom, ll_dim(2), gridtype, idate, itime, iret
-    TYPE(t_lon_lat_data), POINTER   :: lonlat
-    REAL(wp)                        :: pi_180
-    INTEGER                         :: max_cell_connectivity, max_vertex_connectivity
-    REAL(wp), ALLOCATABLE           :: p_lonlat(:)
-    REAL(wp), PARAMETER             :: ZERO_TOL = 1.e-15_wp
+    INTEGER                           :: k, i_dom, ll_dim(2), gridtype, idate, itime, iret
+    TYPE(t_lon_lat_data), POINTER     :: lonlat
+    REAL(wp)                          :: pi_180
+    INTEGER                           :: max_cell_connectivity, max_vertex_connectivity, &
+      &                                  cdiInstID
+    REAL(wp), ALLOCATABLE             :: p_lonlat(:)
+    TYPE(t_verticalAxisList), POINTER :: it
 
     pi_180 = ATAN(1._wp)/45._wp
 
@@ -2343,12 +2391,12 @@ CONTAINS
     !
     ! inquire the Institute ID from (center/subcenter)
     !
-    of%cdiInstID = institutInq(gribout_config(i_dom)%generatingCenter,          &
-      &                        gribout_config(i_dom)%generatingSubcenter, '', '')
+    cdiInstID = institutInq(gribout_config(i_dom)%generatingCenter,          &
+      &                     gribout_config(i_dom)%generatingSubcenter, '', '')
 
 
     ! define Institute
-    CALL vlistDefInstitut(of%cdiVlistID,of%cdiInstID)
+    CALL vlistDefInstitut(of%cdiVlistID,cdiInstID)
 
     iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'title',       &
          &                LEN_TRIM(cf_global_info%title),       TRIM(cf_global_info%title))
@@ -2528,22 +2576,14 @@ CONTAINS
     !
     ! 4. add vertical grid descriptions
 
-    IF (iequations/=ihs_ocean) THEN ! atm
-      SELECT CASE(of%ilev_type)
-      CASE (level_type_ml)
-        CALL setup_ml_axes_atmo(of)
-      CASE (level_type_pl)
-        CALL setup_pl_axis_atmo(of)
-      CASE (level_type_hl)
-        CALL setup_hl_axis_atmo(of)
-      CASE (level_type_il)
-        CALL setup_il_axis_atmo(of)
-      CASE DEFAULT
-        CALL finish(routine, "Internal error!")
-      END SELECT
-    ELSE
-      CALL setup_zaxes_oce(of)
-    END IF
+    ! generate the CDI IDs for the vertical axes in the list
+    it => of%verticalAxisList
+    DO
+      IF (.NOT. ASSOCIATED(it%axis)) CALL finish(routine, "Internal error!")
+      CALL it%axis%cdiZaxisCreate()
+      IF (.NOT. ASSOCIATED(it%next))  EXIT
+      it => it%next
+    END DO
 
     !
     ! 5. output does contain absolute time
@@ -2609,7 +2649,7 @@ CONTAINS
   !> define variables and attributes
   !
   SUBROUTINE add_variables_to_vlist(of)
-    TYPE (t_output_file), INTENT(IN), TARGET :: of
+    TYPE (t_output_file), INTENT(INOUT), TARGET :: of
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_variables_to_vlist"
     TYPE (t_var_metadata), POINTER :: info
@@ -2617,6 +2657,7 @@ CONTAINS
       &                               zaxisID, i
     CHARACTER(LEN=DICT_MAX_STRLEN) :: mapped_name
     TYPE(t_cf_var), POINTER        :: this_cf
+    TYPE(t_verticalAxis), POINTER  :: zaxis
 
     vlistID = of%cdiVlistID
 
@@ -2643,41 +2684,17 @@ CONTAINS
 
       gridID = info%cdiGridID
 
-
-
-      !
       ! set z axis ID
       !
-      IF (info%cdiZaxisID == CDI_UNDEFID) info%cdiZaxisID = of%cdiZaxisID(info%vgrid)
-      zaxisID = info%cdiZaxisID
-      IF (zaxisID /= CDI_UNDEFID) THEN
-
-!DR *********** FIXME *************
-        ! Re-set
-        ! ZA_HYBRID       -> ZA_REFERENCE
-        ! ZA_HYBRID_HALF  -> ZA_REFERENCE_HALF
-        ! as long as ZA_hybrid/ZA_hybrid_half is used throughout the code.
-        ! Should be replaced by ZA_reference/ZA_reference_half for the
-        ! nonhydrostatic model.
-        IF (zaxisID == of%cdiZaxisID(ZA_hybrid)) THEN
-          zaxisID = of%cdiZaxisID(ZA_reference)
-        ELSE IF (zaxisID == of%cdiZaxisID(ZA_hybrid_half)) THEN
-          zaxisID = of%cdiZaxisID(ZA_reference_half)
-        ELSE IF (zaxisID == of%cdiZaxisID(ZA_hybrid_half_hhl)) THEN
-          zaxisID = of%cdiZaxisID(ZA_reference_half_hhl)
-        ENDIF
-        info%cdiZaxisID = zaxisID
-!DR*********WILL BE REMOVED SOON**********
-
-      ELSE
-        WRITE (message_text,'(a,i3,a,i3)') &
-             &  'Zaxis Nr.: ',info%vgrid,' not defined. zaxisID= ',zaxisID
+      zaxis => of%verticalAxisList%getEntry(icon_zaxis_type=info%vgrid)
+      IF (.NOT. ASSOCIATED(zaxis)) THEN
+        WRITE (message_text,'(a,i0,a)') 'Zaxis no. ', info%vgrid,' undefined.'
         CALL finish(routine, message_text)
-      ENDIF
+      END IF
+      zaxisID = zaxis%cdi_id
 
       ! Search name mapping for name in NetCDF file
       IF (info%cf%short_name /= '') THEN
-!TODO   IF ( my_process_is_stdio() ) print *,'SHORTNAME gefunden!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
         mapped_name = dict_get(out_varnames_dict, info%cf%short_name, default=info%cf%short_name)
       ELSE
         mapped_name = dict_get(out_varnames_dict, info%name, default=info%name)
@@ -3042,7 +3059,8 @@ CONTAINS
     ENDIF
     ! broadcast
     DO ivgrid = 1,nvgrid
-      CALL p_bcast(vgrid_buffer(ivgrid)%uuid%DATA, SIZE(vgrid_buffer(ivgrid)%uuid%DATA, 1), bcast_root, p_comm_work_2_io)
+      CALL p_bcast(vgrid_buffer(ivgrid)%uuid%DATA, SIZE(vgrid_buffer(ivgrid)%uuid%DATA, 1), &
+        &          bcast_root, p_comm_work_2_io)
     ENDDO
 
   END SUBROUTINE replicate_data_on_io_procs

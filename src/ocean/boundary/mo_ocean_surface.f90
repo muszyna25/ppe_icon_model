@@ -40,7 +40,7 @@ MODULE mo_ocean_surface
   USE mo_ocean_state,         ONLY: ocean_restart_list, ocean_default_list
   USE mo_cf_convention
   USE mo_grib2
-  USE mo_cdi_constants
+  USE mo_zaxis_type
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, GRID_UNSTRUCTURED
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ocean_ext_data,      ONLY: ext_data
@@ -70,6 +70,7 @@ MODULE mo_ocean_surface
   USE mo_physical_constants,  ONLY: alv, tmelt, tf, clw, albedoW_sim, stbo, zemiss_def
   USE mo_physical_constants,  ONLY: rd, cpd, fr_fac, alf  ! cd_ia, used for omip bulk formula
   USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
+  USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
   USE mo_math_utilities,      ONLY: gvec2cvec
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean

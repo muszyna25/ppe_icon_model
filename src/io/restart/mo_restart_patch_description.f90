@@ -11,11 +11,10 @@
 !! headers of the routines.
 
 MODULE mo_restart_patch_description
-    USE mo_cdi_constants, ONLY: ZA_SURFACE, ZA_HYBRID, ZA_HYBRID_HALF, ZA_HEIGHT_2M, ZA_HEIGHT_10M, ZA_TOA, ZA_LAKE_BOTTOM, &
+    USE mo_zaxis_type, ONLY: ZA_SURFACE, ZA_HYBRID, ZA_HYBRID_HALF, ZA_HEIGHT_2M, ZA_HEIGHT_10M, ZA_TOA, ZA_LAKE_BOTTOM, &
                               & ZA_MIX_LAYER, ZA_LAKE_BOTTOM_HALF, ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_GENERIC_ICE, ZA_DEPTH_RUNOFF_S, &
                               & ZA_DEPTH_RUNOFF_G, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, ZA_SNOW, ZA_SNOW_HALF, &
-                              & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_OCEAN_SEDIMENT, ZA_COUNT, GRID_UNSTRUCTURED_CELL, &
-                              & GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
+                              & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_OCEAN_SEDIMENT, zaxisTypeList
     USE mo_cdi_ids, ONLY: set_vertical_grid, t_Vgrid
     USE mo_communication, ONLY: t_comm_gather_pattern
     USE mo_dynamics_config, ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf
@@ -23,6 +22,7 @@ MODULE mo_restart_patch_description
     USE mo_fortran_tools, ONLY: assign_if_present_allocatable
     USE mo_restart_attributes, ONLY: t_RestartAttributeList
     USE mo_impl_constants, ONLY: SUCCESS
+    USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
     USE mo_io_units, ONLY: filename_max
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: p_patch, t_patch
@@ -44,10 +44,15 @@ MODULE mo_restart_patch_description
 
     PUBLIC :: t_restart_patch_description
 
-    ! TYPE t_restart_patch_description contains all the DATA that describes a patch for restart purposes
+    ! TYPE t_restart_patch_description contains all the DATA that
+    ! describes a patch for restart purposes
+    !
+    ! @todo There does not seem to be a destructor routine for this
+    !       object?!
+    !
     TYPE t_restart_patch_description
         ! vertical grid definitions
-        TYPE(t_Vgrid) :: v_grid_defs(ZA_COUNT)
+        TYPE(t_Vgrid), ALLOCATABLE :: v_grid_defs(:)
         INTEGER :: v_grid_count
 
         ! logical patch id
@@ -134,6 +139,7 @@ CONTAINS
         me%cellGatherPattern => NULL()
         me%vertGatherPattern => NULL()
         me%edgeGatherPattern => NULL()
+        ALLOCATE(me%v_grid_defs(zaxisTypeList%za_count()))
 
         ! patch dependent info, p_patch IS NOT available on restart PEs
         IF(my_process_is_work()) THEN

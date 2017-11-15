@@ -76,8 +76,8 @@ USE mo_name_list_output_config,   ONLY: first_output_name_list, &
 USE mo_name_list_output_init, ONLY:  init_name_list_output,        &
   &                                  parse_variable_groups,        &
   &                                  collect_requested_ipz_levels, &
-  &                                  output_file
-USE mo_name_list_output_zaxes, ONLY: create_mipz_level_selections
+  &                                  output_file, create_vertical_axes
+USE mo_level_selection,     ONLY: create_mipz_level_selections
 USE mo_name_list_output,    ONLY: close_name_list_output
 USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 
@@ -502,6 +502,7 @@ CONTAINS
       END DO
 
       CALL create_mipz_level_selections(output_file)
+      CALL create_vertical_axes(output_file)
     END IF
 
 #ifdef MESSY

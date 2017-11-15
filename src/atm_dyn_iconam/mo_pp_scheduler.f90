@@ -164,6 +164,7 @@ MODULE mo_pp_scheduler
     &                                   vname_len, TASK_COMPUTE_OMEGA,                      &
     &                                   TLEV_NNOW, TLEV_NNOW_RCF, HINTP_TYPE_LONLAT_NNB,    &
     &                                   STR_HINTP_TYPE
+  USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT
   USE mo_model_domain,            ONLY: p_patch, p_phys_patch
   USE mo_var_list,                ONLY: add_var, nvar_lists, var_lists, get_var_name,       &
     &                                   get_var_timelevel, find_list_element
@@ -188,9 +189,7 @@ MODULE mo_pp_scheduler
     &                                   difference, toupper, tolower
   USE mo_cdi,                     ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16,    &
     &                                   GRID_UNSTRUCTURED
-  USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,     &
-    &                                   ZA_PRESSURE, GRID_REGULAR_LONLAT,                   &
-    &                                   is_2d_field, ZA_ISENTROPIC
+  USE mo_zaxis_type,              ONLY: ZA_ALTITUDE, ZA_PRESSURE, ZA_ISENTROPIC, zaxisTypeList
   USE mo_linked_list,             ONLY: t_var_list, t_list_element
   USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_ipzlev_setup, &
     &                                   pp_task_ipzlev, pp_task_compute_field,              &
@@ -695,10 +694,10 @@ CONTAINS
           ptr_int_lonlat => lonlat_grids%list(ll_vargrid(ivar))%intp(jg)
           nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
           var_shape      =  info%used_dimensions(:)
-          IF (is_2d_field(info%vgrid) .AND. (info%ndims /= 2)) THEN
+          IF (zaxisTypeList%is_2d(info%vgrid) .AND. (info%ndims /= 2)) THEN
             CALL finish(routine, "Inconsistent dimension info: "//TRIM(info%name)//"!")
           END IF
-          IF (is_2d_field(info%vgrid)) THEN
+          IF (zaxisTypeList%is_2d(info%vgrid)) THEN
             var_shape(2:3)   =  (/ 1, nblks_lonlat /)
           ELSE
             var_shape(3)     =  nblks_lonlat

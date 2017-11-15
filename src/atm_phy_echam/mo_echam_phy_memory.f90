@@ -39,6 +39,8 @@ MODULE mo_echam_phy_memory
     &                               VINTP_METHOD_PRES,         &
     &                               VINTP_METHOD_LIN,          &
     &                               VINTP_METHOD_LIN_NLEVP1
+  USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL,    &
+    &                               GRID_CELL
   USE mo_exception,           ONLY: message, finish
   USE mo_fortran_tools,       ONLY: t_ptr_2d, t_ptr_3d
   USE mo_parallel_config,     ONLY: nproma
@@ -62,8 +64,7 @@ MODULE mo_echam_phy_memory
     &                               TSTEP_INSTANT, TSTEP_CONSTANT,     &
     &                               TSTEP_MIN, TSTEP_MAX,              &
     &                               cdiInqMissval
-  USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL, &
-    &                               ZA_HYBRID, ZA_HYBRID_HALF,         &
+  USE mo_zaxis_type,          ONLY: ZA_HYBRID, ZA_HYBRID_HALF,         &
     &                               ZA_SURFACE, ZA_GENERIC_ICE
   USE mo_sea_ice_nml,         ONLY: kice
     !ART

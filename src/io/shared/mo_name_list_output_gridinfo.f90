@@ -17,7 +17,7 @@ MODULE mo_name_list_output_gridinfo
   USE mo_cdi,                               ONLY: DATATYPE_PACK16, TSTEP_CONSTANT, vlistDefVar, cdiEncodeParam, streamWriteVar, &
                                                 & vlistDefVarDatatype, vlistDefVarName, vlistDefVarTsteptype, vlistDefVarParam, &
                                                 & gridDefXvals, gridDefYvals, gridDefXbounds, gridDefYbounds, GRID_UNSTRUCTURED
-  USE mo_cdi_constants,                     ONLY: GRID_CELL, ZA_surface
+  USE mo_zaxis_type,                        ONLY: ZA_surface
   USE mo_kind,                              ONLY: wp
   USE mo_parallel_config,                   ONLY: nproma
   USE mo_exception,                         ONLY: finish
@@ -40,6 +40,7 @@ MODULE mo_name_list_output_gridinfo
   USE mo_math_constants,                    ONLY: pi_180, pi
   USE mo_impl_constants,                    ONLY: SUCCESS, min_rlcell_int, min_rledge_int,  &
     &                                             min_rlvert, vname_len
+  USE mo_cdi_constants,                     ONLY: GRID_CELL
   USE mo_mpi,                               ONLY: p_comm_work_2_io,                         &
     &                                             my_process_is_mpi_test, my_process_is_io, &
     &                                             my_process_is_mpi_workroot
@@ -51,6 +52,7 @@ MODULE mo_name_list_output_gridinfo
     &                                             REMAP_NONE, REMAP_REGULAR_LATLON,         &
     &                                             ILATLON, ICELL, IEDGE, IVERT, IRLAT,      &
     &                                             IRLON, GRB2_GRID_INFO_NAME
+  USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxis
   USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl, &
     &                                             level_type_il
   IMPLICIT NONE
@@ -571,6 +573,7 @@ CONTAINS
     CHARACTER(LEN=4), PARAMETER :: grid_coord_name(2) = (/ "RLON", "RLAT" /)
     TYPE (t_grib2_var) :: grid_coord_grib2(2)
     INTEGER :: igrid,i,vlistID,idx(3),gridID(3),zaxisID
+    TYPE(t_verticalAxis), POINTER  :: zaxis
 
     ! geographical longitude RLON
     grid_coord_grib2(1) = grib2_var(               0,   &  ! discipline
@@ -588,8 +591,10 @@ CONTAINS
       &                            GRID_UNSTRUCTURED,   &  ! gridtype
       &                                    GRID_CELL )     ! subgridtype
 
-    vlistID = of%cdiVlistID
-    zaxisID = of%cdiZaxisID(ZA_surface)
+    vlistID =  of%cdiVlistID
+    zaxis => of%verticalAxisList%getEntry(icon_zaxis_type=ZA_surface)
+    IF (.NOT. ASSOCIATED(zaxis))  CALL finish(routine, 'Zaxis undefined.')
+    zaxisID = zaxis%cdi_id
 
     SELECT CASE(of%name_list%remap)
     CASE (REMAP_NONE)

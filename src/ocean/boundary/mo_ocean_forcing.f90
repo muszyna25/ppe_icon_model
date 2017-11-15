@@ -49,6 +49,7 @@ MODULE mo_ocean_forcing
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_math_constants,      ONLY: pi, deg2rad, pi_2
   USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, success
+  USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
   USE mo_sea_ice_types,       ONLY: t_sfc_flx, t_atmos_fluxes
   USE mo_ocean_state,           ONLY: set_oce_tracer_info
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state
@@ -62,7 +63,7 @@ MODULE mo_ocean_forcing
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi,                ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, GRID_UNSTRUCTURED
-  USE mo_cdi_constants,      ONLY: GRID_CELL, GRID_UNSTRUCTURED_CELL, ZA_SURFACE
+  USE mo_zaxis_type,         ONLY: ZA_SURFACE
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_read_interface,     ONLY: openInputFile, closeFile, t_stream_id, &
     &                              on_cells, read_2D_1lev_1time

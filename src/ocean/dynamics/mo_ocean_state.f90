@@ -43,10 +43,13 @@ MODULE mo_ocean_state
     &                               t_hydro_ocean_aux ,t_hydro_ocean_acc, t_oce_config ,t_ocean_tracer
   USE mo_mpi,                 ONLY: get_my_global_mpi_id, global_mpi_barrier,my_process_is_mpi_test
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
-    &                               success, max_char_length, MIN_DOLIC,               &
-    &                               full_coriolis, beta_plane_coriolis,                &
+  USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,     &
+    &                               success, max_char_length, MIN_DOLIC,                  &
+    &                               full_coriolis, beta_plane_coriolis,                   &
     &                               f_plane_coriolis, zero_coriolis, halo_levels_ceiling
+  USE mo_cdi_constants,       ONLY: grid_cell, grid_edge, grid_unstructured_cell,         &
+    &                               grid_unstructured_edge, grid_unstructured_vert,       &
+    &                               grid_vertex
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch,t_patch_3d, t_grid_cells, t_grid_edges
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, grid_sphere_radius, grid_angular_velocity, &
@@ -65,8 +68,7 @@ MODULE mo_ocean_state
   USE mo_grib2,               ONLY: grib2_var, t_grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_INT8, DATATYPE_PACK16, &
     &                               tstep_constant, GRID_LONLAT, GRID_UNSTRUCTURED
-  USE mo_cdi_constants,       ONLY: grid_cell, grid_edge, grid_unstructured_cell, grid_unstructured_edge, &
-      &                             grid_unstructured_vert, grid_vertex, za_depth_below_sea, za_depth_below_sea_half, za_surface
+  USE mo_zaxis_type,          ONLY: za_depth_below_sea, za_depth_below_sea_half, za_surface
   !  USE mo_ocean_config,        ONLY: ignore_land_points
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
   

@@ -29,13 +29,14 @@ MODULE mo_cdi_ids
     &                              DATATYPE_INT32, zaxisDefVct, zaxisDefLbounds,                &
     &                              zaxisDefUbounds, zaxisDefUnits, streamClose, vlistDestroy,   &
     &                              taxisDestroy, gridDestroy, zaxisDestroy
-  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT
-  USE mo_cdi_constants,      ONLY: ZA_COUNT, ZA_HYBRID, ZA_HYBRID_HALF, ZA_LAKE_BOTTOM,           &
+  USE mo_zaxis_type,         ONLY: ZA_HYBRID, ZA_HYBRID_HALF, ZA_LAKE_BOTTOM,                     &
     &                              ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_SEDIMENT_BOTTOM_TW_HALF, &
-    &                              cdi_zaxis_types
+    &                              zaxisTypeList
   USE mtime,                 ONLY: datetime
   USE mo_exception,          ONLY: finish, message
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS, REAL_t, SINGLE_t, BOOL_t, INT_t
+  USE mo_cdi_constants,      only: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE,               &
+    &                              GRID_UNSTRUCTURED_VERT
   USE mo_kind,               ONLY: wp
   USE mo_util_cdi,           ONLY: cdiGetStringError
   USE mo_var_metadata_types, ONLY: t_var_metadata
@@ -56,7 +57,8 @@ MODULE mo_cdi_ids
 
     ! TYPE t_CdiIds IS just a simple container for all the different CDI IDs connected to a single restart file.
     TYPE t_CdiIds
-        INTEGER :: file, vlist, taxis, hgrids(3), vgrids(ZA_COUNT)
+        INTEGER :: file, vlist, taxis, hgrids(3)
+        INTEGER, ALLOCATABLE :: vgrids(:)
     CONTAINS
         PROCEDURE :: init => restartCdiIds_init
         PROCEDURE :: openRestartAndCreateIds => restartCdiIds_openRestartAndCreateIds
@@ -92,7 +94,7 @@ CONTAINS
     END FUNCTION defineVAxis
 
     SUBROUTINE createVgrids(axisIds, gridDescriptions, opt_vct)
-        INTEGER, INTENT(INOUT) :: axisIds(ZA_COUNT)
+        INTEGER, INTENT(INOUT) :: axisIds(:)
         TYPE(t_Vgrid), INTENT(IN) :: gridDescriptions(:)
         REAL(wp), OPTIONAL, INTENT(IN) :: opt_vct(:)
 
@@ -101,31 +103,32 @@ CONTAINS
 
         axisIds(:) = CDI_UNDEFID
         DO i = 1, SIZE(gridDescriptions, 1)
-            IF(cdi_zaxis_types(gridDescriptions(i)%TYPE) == CDI_UNDEFID) CALL finish(routine,"no CDI zaxis TYPE defined for vgrid")
+            IF(zaxisTypeList%cdi_zaxis_type(gridDescriptions(i)%TYPE) == CDI_UNDEFID) THEN
+              CALL finish(routine,"no CDI zaxis TYPE defined for vgrid")
+            END IF
 
-            gridId = defineVAxis(cdi_zaxis_types(gridDescriptions(i)%TYPE), gridDescriptions(i)%levels)
+            gridId = defineVAxis(zaxisTypeList%cdi_zaxis_type(gridDescriptions(i)%TYPE), gridDescriptions(i)%levels)
             IF(gridId == CDI_UNDEFID) CALL finish(routine, "defineVAxis() returned an error")
             axisIds(gridDescriptions(i)%TYPE) = gridId
 
-            SELECT CASE (gridDescriptions(i)%type)
-                CASE (ZA_HYBRID)
-                    IF(.NOT.PRESENT(opt_vct)) CYCLE
-                    nlevp1 = SIZE(gridDescriptions(i)%levels, 1) + 1
-                    CALL zaxisDefVct(gridId, 2*nlevp1, opt_vct(1:2*nlevp1))
-
-                CASE (ZA_HYBRID_HALF)
-                    IF(.NOT.PRESENT(opt_vct)) CYCLE
-                    nlevp1 = SIZE(gridDescriptions(i)%levels, 1)
-                    CALL zaxisDefVct(gridId, 2*nlevp1, opt_vct(1:2*nlevp1))
-
-                CASE (ZA_LAKE_BOTTOM, ZA_MIX_LAYER)
-                    CALL zaxisDefLbounds(gridId, [1._wp]) !necessary for GRIB2
-                    CALL zaxisDefUbounds(gridId, [0._wp]) !necessary for GRIB2
-                    CALL zaxisDefUnits  (gridId, "m")
-
-                CASE (ZA_LAKE_BOTTOM_HALF, ZA_SEDIMENT_BOTTOM_TW_HALF)
-                    CALL zaxisDefUnits(gridId, "m")
-            END SELECT
+            IF (gridDescriptions(i)%type == ZA_HYBRID) THEN
+              IF(.NOT.PRESENT(opt_vct)) CYCLE
+              nlevp1 = SIZE(gridDescriptions(i)%levels, 1) + 1
+              CALL zaxisDefVct(gridId, 2*nlevp1, opt_vct(1:2*nlevp1))
+            END IF
+            IF (gridDescriptions(i)%type == ZA_HYBRID_HALF) THEN
+              IF(.NOT.PRESENT(opt_vct)) CYCLE
+              nlevp1 = SIZE(gridDescriptions(i)%levels, 1)
+              CALL zaxisDefVct(gridId, 2*nlevp1, opt_vct(1:2*nlevp1))
+            END IF
+            IF (ANY(gridDescriptions(i)%type == [ZA_LAKE_BOTTOM, ZA_MIX_LAYER])) THEN
+              CALL zaxisDefLbounds(gridId, [1._wp]) !necessary for GRIB2
+              CALL zaxisDefUbounds(gridId, [0._wp]) !necessary for GRIB2
+              CALL zaxisDefUnits  (gridId, "m")
+            END IF
+            IF (ANY(gridDescriptions(i)%type == [ZA_LAKE_BOTTOM_HALF, ZA_SEDIMENT_BOTTOM_TW_HALF])) THEN
+              CALL zaxisDefUnits(gridId, "m")
+            END IF
         ENDDO
     END SUBROUTINE createVgrids
 
@@ -136,6 +139,8 @@ CONTAINS
         me%vlist = CDI_UNDEFID
         me%taxis = CDI_UNDEFID
         me%hgrids(:) = CDI_UNDEFID
+
+        ALLOCATE(me%vgrids(zaxisTypeList%za_count()))
         me%vgrids(:) = CDI_UNDEFID
     END SUBROUTINE restartCdiIds_init
 
@@ -264,7 +269,7 @@ CONTAINS
         CHARACTER(*), PARAMETER :: routine = modname//":restartCdiIds_defineVariableSimple"
 
         IF(hgrid <= 0 .OR. hgrid > 3) CALL finish(routine, "assertion failed: invalid hgrid argument")
-        IF(vgrid <= 0 .OR. vgrid > ZA_COUNT) CALL finish(routine, "assertion failed: invalid vgrid argument")
+        IF(vgrid <= 0 .OR. vgrid > SIZE(me%vgrids)) CALL finish(routine, "assertion failed: invalid vgrid argument")
 
         gridId = me%hgrids(hgrid)
         zaxisId = me%vgrids(vgrid)
@@ -279,22 +284,8 @@ CONTAINS
         CLASS(t_CdiIds), INTENT(IN) :: me
         TYPE(t_var_metadata), INTENT(INOUT) :: info
 
-        INTEGER :: varId, gridId, zaxisId, cdiDatatype
+        INTEGER :: varId, gridId, zaxisId
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartCdiIds_defineVariable"
-
-        ! determine the correct CDI datatype
-        SELECT CASE(info%data_type)
-            CASE(REAL_t)
-                cdiDatatype = DATATYPE_FLT64
-            CASE(SINGLE_t)
-                cdiDatatype = DATATYPE_FLT32
-            CASE(INT_t)
-              ! Note: Arrays of INTEGER data type is implicitly copied
-              ! to double precision array:
-              cdiDatatype = DATATYPE_FLT64
-            CASE(BOOL_t)
-                CALL finish(routine, "fatal error: CDI does not support writing of bool or integer data")
-        END SELECT
 
         ! get the horizontal grid ID
         gridId = info%cdiGridID
@@ -348,6 +339,7 @@ CONTAINS
             IF(me%vgrids(i) /= CDI_UNDEFID) CALL zaxisDestroy(me%vgrids(i))
         END DO
 
+        DEALLOCATE(me%vgrids)
         ! reset the IDs
         CALL me%init()
     END SUBROUTINE restartCdiIds_closeAndDestroyIds

@@ -25,6 +25,9 @@
 MODULE mo_icoham_dyn_memory
 
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, VNAME_LEN, MAX_NTRACER
+  USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_CELL,   &
+    &                               GRID_EDGE, GRID_CELL, GRID_VERTEX,                &
+    &                               GRID_UNSTRUCTURED_VERT
   USE mo_exception,           ONLY: message,finish
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm, t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_model_domain,        ONLY: t_patch
@@ -39,9 +42,7 @@ MODULE mo_icoham_dyn_memory
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64, GRID_UNSTRUCTURED
-  USE mo_cdi_constants,       ONLY: ZA_SURFACE, ZA_HYBRID, GRID_UNSTRUCTURED_EDGE, &
-    &                               GRID_UNSTRUCTURED_CELL, GRID_EDGE, GRID_CELL,  &
-    &                               ZA_HYBRID_HALF, GRID_VERTEX, GRID_UNSTRUCTURED_VERT
+  USE mo_zaxis_type,          ONLY: ZA_SURFACE, ZA_HYBRID, ZA_HYBRID_HALF
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
 
   IMPLICIT NONE

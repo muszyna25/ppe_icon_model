@@ -50,6 +50,7 @@ MODULE mo_nwp_lnd_state
   USE mo_kind,                 ONLY: wp
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, HINTP_TYPE_LONLAT_NNB, &
     &                                TLEV_NNOW_RCF, ALB_SI_MISSVAL, TASK_COMPUTE_SMI
+  USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
   USE mo_parallel_config,      ONLY: nproma
   USE mo_nwp_lnd_types,        ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_exception,            ONLY: message, finish
@@ -73,8 +74,7 @@ MODULE mo_nwp_lnd_state
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var, t_grib2_int_key, OPERATOR(+)
   USE mo_cdi,                  ONLY: DATATYPE_PACK16, DATATYPE_PACK24, DATATYPE_FLT32, &
     &                                TSTEP_ACCUM, GRID_UNSTRUCTURED, DATATYPE_FLT64
-  USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL,                     & 
-    &                                GRID_CELL, ZA_SURFACE, ZA_SNOW,             &
+  USE mo_zaxis_type,           ONLY: ZA_SURFACE, ZA_SNOW,                        &
     &                                ZA_SNOW_HALF, ZA_DEPTH_BELOW_LAND,          &
     &                                ZA_DEPTH_BELOW_LAND_P1,                     &
     &                                ZA_DEPTH_RUNOFF_S, ZA_DEPTH_RUNOFF_G,       &

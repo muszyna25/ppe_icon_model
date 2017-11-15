@@ -59,9 +59,9 @@ MODULE mo_pp_tasks
   USE mo_nh_pzlev_config,         ONLY: t_nh_pzlev_config
   USE mo_parallel_config,         ONLY: nproma
   USE mo_dynamics_config,         ONLY: nnow
+  USE mo_zaxis_type,              ONLY: zaxisTypeList
   USE mo_cdi_constants,           ONLY: GRID_UNSTRUCTURED_CELL,                  &
-    &                                   GRID_UNSTRUCTURED_EDGE,                  &
-    &                                   is_2d_field
+    &                                   GRID_UNSTRUCTURED_EDGE
   USE mo_sync,                    ONLY: sync_patch_array,                        &
     &                                   SYNC_C, SYNC_E,                          &
     &                                   cumulative_sync_patch_array,             &
@@ -276,7 +276,7 @@ CONTAINS
       IF (out_var_2%info%lcontained) out_var_idx_2 = out_var_2%info%ncontained
     END IF
 
-    IF (is_2d_field(p_info%vgrid) .AND. (p_info%ndims /= 2)) THEN
+    IF (zaxisTypeList%is_2d(p_info%vgrid) .AND. (p_info%ndims /= 2)) THEN
       CALL finish(routine, "Inconsistent dimension info!")
     END IF
 
@@ -288,7 +288,7 @@ CONTAINS
         ! REAL fields
         ! -----------
 
-        IF (is_2d_field(p_info%vgrid)) THEN
+        IF (zaxisTypeList%is_2d(p_info%vgrid)) THEN
           ! For 2D variables (nproma, nblks) we first copy this to 1-level
           ! 3D variable (nproma, nlevs, nblks). This requires a temporary
           ! variable:
@@ -351,7 +351,7 @@ CONTAINS
         ! INTEGER fields
         ! --------------
 
-        IF (is_2d_field(p_info%vgrid)) THEN
+        IF (zaxisTypeList%is_2d(p_info%vgrid)) THEN
           ! For 2D variables (nproma, nblks) we first copy this to 1-level
           ! 3D variable (nproma, nlevs, nblks). This requires a temporary
           ! variable:
@@ -418,7 +418,7 @@ CONTAINS
         CALL finish(routine, TRIM(p_info%name)//": Interpolation not implemented.")
       END IF
 
-      IF (is_2d_field(p_info%vgrid)) THEN
+      IF (zaxisTypeList%is_2d(p_info%vgrid)) THEN
         ! For 2D variables (nproma, nblks) we first copy this to 1-level
         ! 3D variable (nproma, nlevs, nblks). This requires a temporary
         ! variable:
@@ -530,7 +530,7 @@ CONTAINS
           in_var_idx  =  1
           IF (in_var%info%lcontained) in_var_idx = in_var%info%ncontained
 
-          IF (is_2d_field(p_info%vgrid) .AND. (p_info%ndims /= 2)) &
+          IF (zaxisTypeList%is_2d(p_info%vgrid) .AND. (p_info%ndims /= 2)) &
             &  CALL finish(routine, "Inconsistent dimension info!")
 
           IF (dbg_level >= 10) & 
@@ -545,7 +545,7 @@ CONTAINS
             CALL finish(routine, 'Unknown grid type.')
           END SELECT
 
-          IF (is_2d_field(p_info%vgrid)) THEN
+          IF (zaxisTypeList%is_2d(p_info%vgrid)) THEN
             var_ref_pos = 3
             IF (in_var%info%lcontained)  var_ref_pos = in_var%info%var_ref_pos
             IF (ASSOCIATED(in_var%r_ptr)) THEN
@@ -1183,7 +1183,7 @@ CONTAINS
 
     ! Consistency check: We make the following assumptions:
     ! - This is a 3D variable
-    IF (is_2d_field(p_info%vgrid))  CALL finish(routine, "Internal error!")
+    IF (zaxisTypeList%is_2d(p_info%vgrid))  CALL finish(routine, "Internal error!")
     ! - We have two output components:
     IF (.NOT. ASSOCIATED(ptr_task%data_output%var) .OR.  &
       & .NOT. ASSOCIATED(ptr_task%data_output%var_2)) THEN

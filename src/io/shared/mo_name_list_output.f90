@@ -78,17 +78,17 @@ MODULE mo_name_list_output
   ! constants
   USE mo_kind,                      ONLY: wp, i8, dp, sp
   USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, MAX_CHAR_LENGTH,       &
-    &                                     ihs_ocean, BOUNDARY_MISSVAL 
+    &                                     ihs_ocean, BOUNDARY_MISSVAL
+  USE mo_cdi_constants,             ONLY: GRID_REGULAR_LONLAT, GRID_UNSTRUCTURED_VERT,              &
+    &                                     GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
   USE mo_impl_constants_grf,        ONLY: grf_bdywidth_c
   USE mo_dynamics_config,           ONLY: iequations
   USE mo_cdi,                       ONLY: streamOpenWrite, FILETYPE_GRB2, streamDefTimestep, cdiEncodeTime, cdiEncodeDate, &
-      &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, zaxisDestroy, gridDestroy, &
+      &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, gridDestroy, &
       &                                   vlistDestroy, streamClose, streamWriteVarSlice, streamWriteVarSliceF, streamDefVlist, &
       &                                   streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT, &
       &                                   streamOpenAppend, streamInqVlist, vlistInqTaxis, vlistNtsteps
   USE mo_util_cdi,                  ONLY: cdiGetStringError
-  USE mo_cdi_constants,             ONLY: GRID_REGULAR_LONLAT, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL, &
-      &                                   GRID_UNSTRUCTURED_EDGE
   ! utility functions
   USE mo_io_units,                  ONLY: FILENAME_MAX, find_next_free_unit
   USE mo_exception,                 ONLY: finish, message, message_text
@@ -140,10 +140,10 @@ MODULE mo_name_list_output
   USE mo_name_list_output_init,     ONLY: init_name_list_output, setup_output_vlist,                &
     &                                     varnames_dict, out_varnames_dict,                         &
     &                                     output_file, patch_info, lonlat_info,                     &
-    &                                     collect_requested_ipz_levels
+    &                                     collect_requested_ipz_levels, create_vertical_axes
   USE mo_name_list_output_metadata, ONLY: metainfo_write_to_memwin, metainfo_get_from_memwin,       &
     &                                     metainfo_get_size, metainfo_get_timelevel
-  USE mo_name_list_output_zaxes,    ONLY: deallocate_level_selection, create_mipz_level_selections
+  USE mo_level_selection,           ONLY: create_mipz_level_selections
   USE mo_grib2_util,                ONLY: set_GRIB2_timedep_keys, set_GRIB2_timedep_local_keys
   ! model domain
   USE mo_model_domain,              ONLY: t_patch, p_patch
@@ -326,11 +326,16 @@ CONTAINS
         IF (output_file(i)%cdiFileID >= 0) THEN
           ! clean up level selection (if there is one):
           IF (ASSOCIATED(output_file(i)%level_selection)) THEN
-            CALL deallocate_level_selection(output_file(i)%level_selection)
+            CALL output_file(i)%level_selection%finalize()
+            DEALLOCATE(output_file(i)%level_selection)
+            output_file(i)%level_selection => NULL()
           END IF
           CALL close_output_file(output_file(i))
           CALL destroy_output_vlist(output_file(i))
         END IF
+
+        ! destroy vertical axes meta-data:
+        CALL output_file(i)%verticalAxisList%finalize()
       ENDDO
 #ifndef NOMPI
 #ifndef __NO_ICON_ATMO__
@@ -396,9 +401,6 @@ CONTAINS
       IF(of%cdiVertGridID   /= CDI_UNDEFID) CALL gridDestroy(of%cdiVertGridID)
       IF(of%cdiLonLatGridID /= CDI_UNDEFID) CALL gridDestroy(of%cdiLonLatGridID)
       IF(of%cdiTaxisID      /= CDI_UNDEFID) CALL taxisDestroy(of%cdiTaxisID)
-      DO j = 1, SIZE(of%cdiZaxisID)
-        IF(of%cdiZaxisID(j) /= CDI_UNDEFID) CALL zaxisDestroy(of%cdiZaxisID(j))
-      ENDDO
       CALL vlistDestroy(vlistID)
     ENDIF
 
@@ -408,7 +410,6 @@ CONTAINS
     of%cdiVertGridID   = CDI_UNDEFID
     of%cdiLonLatGridID = CDI_UNDEFID
     of%cdiTaxisID      = CDI_UNDEFID
-    of%cdiZaxisID(:)   = CDI_UNDEFID
 
   END SUBROUTINE destroy_output_vlist
 
@@ -1556,6 +1557,7 @@ CONTAINS
     IF (iequations/=ihs_ocean) THEN ! atm
       CALL create_mipz_level_selections(output_file)
     END IF
+    CALL create_vertical_axes(output_file)
 
     ! Tell the compute PEs that we are ready to work
     IF (ANY(output_file(:)%io_proc_id == p_pe)) THEN

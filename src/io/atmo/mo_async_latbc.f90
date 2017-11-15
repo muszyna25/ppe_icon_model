@@ -102,6 +102,7 @@ MODULE mo_async_latbc
          &                                  async_pref_send_handshake,  async_pref_wait_for_start, &
          &                                  allocate_pref_latbc_data
     USE mo_impl_constants,            ONLY: SUCCESS, MAX_CHAR_LENGTH
+    USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_communication,             ONLY: idx_no, blk_no
     USE mo_nonhydro_state,            ONLY: p_nh_state
     USE mo_intp_data_strc,            ONLY: p_int_state
@@ -119,7 +120,6 @@ MODULE mo_async_latbc
          &                                  vlistNvars, zaxisInqSize, vlistInqVarName,         &
          &                                  streamClose, streamInqFiletype,                    &
          &                                  FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2
-    USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_read_interface,            ONLY: nf
     USE mo_io_units,                  ONLY: filename_max
     USE mo_io_util,                   ONLY: read_netcdf_int_1d, t_netcdf_att_int

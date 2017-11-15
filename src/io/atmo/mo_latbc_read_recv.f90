@@ -27,13 +27,13 @@ MODULE mo_latbc_read_recv
   USE mo_kind,               ONLY: sp, i8
   USE mo_exception,          ONLY: finish, message, message_text
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS
+  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
   USE mo_mpi,                ONLY: p_pe_work,  &
     &                              num_work_procs, p_real_sp               
   USE mo_util_cdi,           ONLY: get_cdi_varID
   USE mo_async_latbc_types,  ONLY: t_patch_data, t_reorder_data, t_latbc_data
   USE mo_cdi,                ONLY: streamInqVlist, vlistInqVarZaxis, vlistInqVarGrid, gridInqSize, zaxisInqSize, &
                                  & streamReadVarSliceF
-  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
   USE mo_limarea_config,     ONLY: latbc_config
   
   IMPLICIT NONE

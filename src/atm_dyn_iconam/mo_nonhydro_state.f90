@@ -32,17 +32,20 @@
 MODULE mo_nonhydro_state
 
   USE mo_kind,                 ONLY: wp, vp
-  USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, VNAME_LEN,  &
-    &                                INWP, IECHAM,                         &
-    &                                VINTP_METHOD_VN,                      &
-    &                                VINTP_METHOD_QV, VINTP_METHOD_PRES,   &
-    &                                VINTP_METHOD_LIN,                     &
-    &                                VINTP_METHOD_LIN_NLEVP1,              &
-    &                                TASK_INTP_MSL, HINTP_TYPE_NONE,       &
-    &                                iedmf, MODE_IAU, MODE_IAU_OLD,        &
-    &                                TASK_COMPUTE_OMEGA, TLEV_NNOW_RCF,    &
-    &                                MODE_ICONVREMAP,HINTP_TYPE_LONLAT_RBF,&
+  USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, VNAME_LEN,            &
+    &                                INWP, IECHAM,                                   &
+    &                                VINTP_METHOD_VN,                                &
+    &                                VINTP_METHOD_QV, VINTP_METHOD_PRES,             &
+    &                                VINTP_METHOD_LIN,                               &
+    &                                VINTP_METHOD_LIN_NLEVP1,                        &
+    &                                TASK_INTP_MSL, HINTP_TYPE_NONE,                 &
+    &                                iedmf, MODE_IAU, MODE_IAU_OLD,                  &
+    &                                TASK_COMPUTE_OMEGA, TLEV_NNOW_RCF,              &
+    &                                MODE_ICONVREMAP,HINTP_TYPE_LONLAT_RBF,          &
     &                                HINTP_TYPE_LONLAT_BCTR
+  USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
+    &                                GRID_UNSTRUCTURED_VERT, GRID_CELL, GRID_EDGE,   &
+    &                                GRID_VERTEX
   USE mo_exception,            ONLY: message, finish
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_state_lists,       &
@@ -83,9 +86,7 @@ MODULE mo_nonhydro_state
   USE mo_gribout_config,       ONLY: gribout_config
   USE mo_art_tracer_interface, ONLY: art_tracer_interface
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
-    &                                GRID_UNSTRUCTURED_VERT, GRID_CELL, GRID_EDGE,   &
-    &                                GRID_VERTEX, ZA_HYBRID, ZA_HYBRID_HALF,         &
+  USE mo_zaxis_type,           ONLY: ZA_HYBRID, ZA_HYBRID_HALF,                      &
     &                                ZA_HYBRID_HALF_HHL, ZA_SURFACE, ZA_MEANSEA
   USE mo_cdi,                  ONLY: DATATYPE_FLT32, DATATYPE_FLT64,                 &
     &                                DATATYPE_PACK16, DATATYPE_PACK24,               &

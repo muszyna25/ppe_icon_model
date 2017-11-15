@@ -25,6 +25,7 @@ MODULE mo_psrad_memory
 
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
+  USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
   USE mo_exception,           ONLY: message, finish
   USE mo_parallel_config,     ONLY: nproma
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
@@ -41,8 +42,7 @@ MODULE mo_psrad_memory
   USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_PACK24,  &
     &                               DATATYPE_FLT32,  DATATYPE_FLT64,   &
     &                               GRID_UNSTRUCTURED
-  USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL, &
-    &                               ZA_HYBRID, ZA_HYBRID_HALF,         &
+  USE mo_zaxis_type,          ONLY: ZA_HYBRID, ZA_HYBRID_HALF,         &
     &                               ZA_SURFACE
   USE mo_radiation_config,    ONLY: lradforcing
   IMPLICIT NONE

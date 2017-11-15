@@ -36,6 +36,7 @@ MODULE mo_atmo_model
   USE mo_impl_constants,          ONLY: SUCCESS,                                              &
     &                                   ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
     &                                   ishallow_water, inwp
+  USE mo_zaxis_type,              ONLY: zaxisTypeList, t_zaxisTypeList
   USE mo_load_restart,            ONLY: read_restart_header
   USE mo_restart_attributes,      ONLY: t_RestartAttributeList, getAttributesForRestarting
 
@@ -269,6 +270,13 @@ CONTAINS
 
     ! create an event manager, ie. a collection of different events
     CALL initEventManager(time_config%tc_exp_refdate)
+
+
+    !-------------------------------------------------------------------
+    ! initialize dynamic list of vertical axes
+    !-------------------------------------------------------------------
+
+    zaxisTypeList = t_zaxisTypeList()
 
 
     !-------------------------------------------------------------------

@@ -38,6 +38,7 @@
       &                               HINTP_TYPE_LONLAT_RBF,                                  &
       &                               HINTP_TYPE_LONLAT_NNB, HINTP_TYPE_LONLAT_BCTR,          &
       &                               SCALE_MODE_TABLE, SCALE_MODE_AUTO, SCALE_MODE_PRESET
+    USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_CELL
     USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
     USE mo_model_domain,        ONLY: t_patch
     USE mo_run_config,          ONLY: ltimer

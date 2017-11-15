@@ -59,6 +59,8 @@ USE mo_impl_constants,      ONLY: success, max_char_length,           &
   &                               RTTOV_RAD_CL, RTTOV_RAD_CS,         &
   &                               TLEV_NNOW_RCF, iss, iorg, ibc, iso4,&
   &                               idu, nclass_aero
+USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL,             &
+  &                               GRID_CELL
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, lart
 USE mo_exception,           ONLY: message, finish !,message_text
@@ -83,8 +85,7 @@ USE mo_io_config,           ONLY: lflux_avg
 USE mo_cdi,                 ONLY: TSTEP_MIN, TSTEP_MAX, TSTEP_INSTANT, TSTEP_CONSTANT, &
     &                             TSTEP_AVG, TSTEP_ACCUM, DATATYPE_PACK16,             &
     &                             DATATYPE_FLT32, DATATYPE_FLT64, GRID_UNSTRUCTURED
-USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL,                        &
-  &                               GRID_CELL, ZA_HYBRID, ZA_HYBRID_HALF,          &
+USE mo_zaxis_type,          ONLY: ZA_HYBRID, ZA_HYBRID_HALF,          &
   &                               ZA_SURFACE, ZA_HEIGHT_2M, ZA_HEIGHT_10M,       &
   &                               ZA_HEIGHT_2M_LAYER, ZA_TOA, ZA_DEPTH_BELOW_LAND,   &
   &                               ZA_PRESSURE_0, ZA_PRESSURE_400,&
