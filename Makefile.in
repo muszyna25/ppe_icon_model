@@ -119,10 +119,16 @@ one:
 
 
 install:
-	install -d ${prefix}/@config_target@/@config_compiler@/@config_tuning@/bin
-	install -d ${prefix}/@config_target@/@config_compiler@/@config_tuning@/lib
+	install --group=c15 -d ${prefix}/@config_target@
+	install --group=c15 -d ${prefix}/@config_target@/@config_compiler@
+	install --group=c15 -d ${prefix}/@config_target@/@config_compiler@/@config_tuning@
+	install --group=c15 -d ${prefix}/@config_target@/@config_compiler@/@config_tuning@/bin
+	install --group=c15 -d ${prefix}/@config_target@/@config_compiler@/@config_tuning@/lib
+	install --group=c15 -d ${prefix}/@config_target@/@config_compiler@/@config_tuning@/run
 	install ${bindir}/* ${prefix}/@config_target@/@config_compiler@/@config_tuning@/bin
 	install ${libdir}/* ${prefix}/@config_target@/@config_compiler@/@config_tuning@/lib
+	./make_runscripts >& /dev/null
+	install --group=c15 ${srcdir}/run/exp.nh35_tri_jws.run ${prefix}/@config_target@/@config_compiler@/@config_tuning@/run
 
 clean:
 	@for DIR in $(OBJDIRS) ;\
