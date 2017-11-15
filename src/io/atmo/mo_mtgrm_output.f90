@@ -1531,7 +1531,7 @@ CONTAINS
     ! ------------------------------------------------------------
     ! If this is the IO PE: open NetCDF file
     ! ------------------------------------------------------------
-    CALL meteogram_open_file(meteogram_output_config, jg)
+    CALL meteogram_open_file(meteogram_output_config, mtgrm(jg), jg)
 
   END SUBROUTINE meteogram_init
 
@@ -2074,11 +2074,14 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
-  SUBROUTINE meteogram_open_file(meteogram_output_config, jg)
-    ! station data from namelist
+  SUBROUTINE meteogram_open_file(meteogram_output_config, mtgrm, jg)
+    !> station data from namelist
     TYPE(t_meteogram_output_config), INTENT(IN) :: meteogram_output_config
-    ! patch index
-    INTEGER,                             INTENT(IN) :: jg
+    !> patch index
+    INTEGER,                             INTENT(in) :: jg
+    !> patch buffer
+    TYPE(t_buffer_state), INTENT(inout) :: mtgrm
+
     ! local variables:
     CHARACTER(len=*), PARAMETER :: &
       &  routine = "mo_meteogram_output:meteogram_open_file"
@@ -2097,7 +2100,7 @@ CONTAINS
       CALL meteogram_collect_buffers(jg)
     END IF
     ! skip routine, if this PE has nothing to do...
-    IF  (.NOT. mtgrm(jg)%l_is_writer) RETURN
+    IF  (.NOT. mtgrm%l_is_writer) RETURN
 
     IF (dbg_level > 5)  WRITE (*,*) routine, " Enter"
 
@@ -2106,18 +2109,18 @@ CONTAINS
 
     ! create NetCDF file:
     CALL nf(nf_set_default_format(nf_format_64bit, old_mode), routine)
-    INQUIRE(file=TRIM(mtgrm(jg)%meteogram_file_info%zname), &
+    INQUIRE(file=TRIM(mtgrm%meteogram_file_info%zname), &
       exist=mtgrm_file_exists)
     IF (.NOT. mtgrm_file_exists .OR. &
       .NOT. meteogram_output_config%append_if_exists) THEN
-      CALL meteogram_create_file(meteogram_output_config, mtgrm(jg)%ncid_list, &
-        mtgrm(jg)%meteogram_file_info%cf, mtgrm(jg)%meteogram_file_info, &
-        MERGE(mtgrm(jg)%meteogram_global_data, mtgrm(jg)%meteogram_local_data, &
+      CALL meteogram_create_file(meteogram_output_config, mtgrm%ncid_list, &
+        mtgrm%meteogram_file_info%cf, mtgrm%meteogram_file_info, &
+        MERGE(mtgrm%meteogram_global_data, mtgrm%meteogram_local_data, &
         &     .NOT. meteogram_output_config%ldistributed))
     ELSE
-      CALL meteogram_append_file(mtgrm(jg)%ncid_list, &
-        mtgrm(jg)%meteogram_file_info, &
-        MERGE(mtgrm(jg)%meteogram_global_data, mtgrm(jg)%meteogram_local_data, &
+      CALL meteogram_append_file(mtgrm%ncid_list, &
+        mtgrm%meteogram_file_info, &
+        MERGE(mtgrm%meteogram_global_data, mtgrm%meteogram_local_data, &
         &     .NOT. meteogram_output_config%ldistributed))
     END IF
     IF (dbg_level > 5)  WRITE (*,*) routine, " Leave"
