@@ -1834,7 +1834,8 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":meteogram_collect_buffers"
     INTEGER     :: station_idx, position, icurrent,   &
-      &            isl, nstations,         &
+      &            isl, nstations, &
+      &            icurrent_recv(mtgrm%meteogram_global_data%nstations), &
       &            istation, &
       &            iowner
     !> MPI buffer for station data
@@ -1845,10 +1846,6 @@ CONTAINS
     INTEGER :: max_var_size, max_sfcvar_size, max_time_stamps
 
     IF (dbg_level > 5)  WRITE (*,*) routine, " Enter (collecting PE=", mtgrm%l_is_collecting_pe, ")"
-
-    ! global time stamp index
-    ! Note: We assume that this value is identical for all PEs
-    icurrent = mtgrm%meteogram_local_data%icurrent
 
     is_pure_io_pe = use_async_name_list_io .AND. my_process_is_io()
     IF (mtgrm%l_is_collecting_pe .NEQV. mtgrm%l_is_sender) THEN
@@ -1898,8 +1895,8 @@ CONTAINS
       IF (dbg_level > 5)  WRITE (*,*) routine, " :: p_wait call done."
 
       ! unpack received messages:
-      icurrent = mtgrm%meteogram_local_data%icurrent  ! pure I/O PEs: will be set below
       isl = 0
+      icurrent = -1
       DO istation=1,nstations
         IF (dbg_level > 5) WRITE (*,*) "Receiver side: Station ", istation
         iowner = mtgrm%meteogram_global_data%pstation(istation)
@@ -1908,20 +1905,34 @@ CONTAINS
             CALL unpack_station_sample(mtgrm%meteogram_local_data, &
               mtgrm%meteogram_global_data%time_stamp, &
               mtgrm%meteogram_global_data%station(istation), &
-              msg_buffer(:,istation), istation, nstations, icurrent, &
+              msg_buffer(:,istation), istation, nstations, &
+              icurrent_recv(istation), &
               mtgrm%max_time_stamps)
+            icurrent = icurrent_recv(istation)
           ELSE
             ! this PE is both sender and receiver - direct copy:
             ! (note: copy of time stamp info is not necessary)
             isl = isl + 1
+            icurrent = mtgrm%meteogram_local_data%icurrent
+            icurrent_recv(istation) = icurrent
             CALL copy_station_sample(&
               mtgrm%meteogram_global_data%station(istation), &
-              mtgrm%meteogram_local_data%station(isl), icurrent)
+              mtgrm%meteogram_local_data%station(isl), &
+              icurrent_recv(istation))
           END IF
         ELSE
+          icurrent_recv(istation) = -2
           IF (dbg_level > 5) WRITE (*,*) "skipping station!"
         END IF
       END DO
+
+      ! consistency check
+      ! Note: We only check the number of received time stamps, not the
+      !       exact sample dates themselves
+      IF (ANY(icurrent_recv /= icurrent &
+        &     .AND. mtgrm%meteogram_global_data%pstation(1:nstations) /= -1)) &
+        CALL finish(routine, "Received inconsistent time slice data!")
+      mtgrm%meteogram_local_data%icurrent = icurrent
       mtgrm%meteogram_global_data%icurrent = icurrent
 
     END IF RECEIVER
@@ -1932,7 +1943,8 @@ CONTAINS
       DO istation=1,mtgrm%meteogram_local_data%nstations
         station_idx &
           = mtgrm%meteogram_local_data%station(istation)%station_idx
-        CALL pack_station_sample(msg_buffer(:,1), position, icurrent, &
+        CALL pack_station_sample(msg_buffer(:,1), position, &
+          mtgrm%meteogram_local_data%icurrent, &
           mtgrm%max_time_stamps, &
           mtgrm%meteogram_local_data%time_stamp, &
           mtgrm%meteogram_local_data%station(istation))
@@ -1965,26 +1977,16 @@ CONTAINS
     TYPE(t_meteogram_station), INTENT(inout) :: station
     CHARACTER, INTENT(in) :: sttn_buffer(:)
     INTEGER, INTENT(in) :: istation, nstations, max_time_stamps
-    INTEGER, INTENT(inout) :: icurrent
+    INTEGER, INTENT(out) :: icurrent
 
     INTEGER :: istep_sndrcv(max_time_stamps)
-    INTEGER :: icurrent_recv, position, itime, ivar, nlevs, station_idx
+    INTEGER :: position, itime, ivar, nlevs, station_idx
     CHARACTER(len=*), PARAMETER :: routine = modname//"::unpack_station_sample"
 
     position = 0
 
     !-- unpack global time stamp index
-    CALL p_unpack_int(sttn_buffer, position, icurrent_recv)
-    ! consistency check
-    ! Note: We only check the number of received time stamps, not the
-    !       exact sample dates themselves
-    IF (istation > 1) THEN
-      IF (icurrent_recv /= icurrent) &
-        CALL finish(routine, "Received inconsistent time slice data!")
-    ELSE
-      icurrent = icurrent_recv
-    END IF
-    meteogram_local_data%icurrent = icurrent
+    CALL p_unpack_int(sttn_buffer, position, icurrent)
     IF (dbg_level > 0) &
       WRITE (*,'(3(a,i0))') "Receiving ", icurrent, &
       & " time slices from station ", istation, "/", nstations
