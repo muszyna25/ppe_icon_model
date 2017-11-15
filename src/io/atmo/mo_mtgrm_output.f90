@@ -1531,6 +1531,9 @@ CONTAINS
     ! ------------------------------------------------------------
     ! If this is the IO PE: open NetCDF file
     ! ------------------------------------------------------------
+    IF (.NOT. meteogram_output_config%ldistributed) THEN
+      CALL meteogram_collect_buffers(mtgrm(jg), jg)
+    END IF
     CALL meteogram_open_file(meteogram_output_config, mtgrm(jg), jg)
 
   END SUBROUTINE meteogram_init
@@ -1823,8 +1826,11 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-09-10)
   !!
-  SUBROUTINE meteogram_collect_buffers(jg)
-    INTEGER, INTENT(IN)  :: jg       !< patch index
+  SUBROUTINE meteogram_collect_buffers(mtgrm, jg)
+    ! patch buffer
+    TYPE(t_buffer_state), INTENT(inout) :: mtgrm
+    INTEGER, INTENT(in) :: jg
+
 
 #ifndef NOMPI
     ! local variables
@@ -1840,51 +1846,51 @@ CONTAINS
     LOGICAL :: is_pure_io_pe
     INTEGER :: max_var_size, max_sfcvar_size, max_time_stamps
 
-    IF (dbg_level > 5)  WRITE (*,*) routine, " Enter (collecting PE=", mtgrm(jg)%l_is_collecting_pe, ")"
+    IF (dbg_level > 5)  WRITE (*,*) routine, " Enter (collecting PE=", mtgrm%l_is_collecting_pe, ")"
 
     ! global time stamp index
     ! Note: We assume that this value is identical for all PEs
-    icurrent = mtgrm(jg)%meteogram_local_data%icurrent
+    icurrent = mtgrm%meteogram_local_data%icurrent
 
     is_pure_io_pe = use_async_name_list_io .AND. my_process_is_io()
-    IF (mtgrm(jg)%l_is_collecting_pe .NEQV. mtgrm(jg)%l_is_sender) THEN
-      max_time_stamps = mtgrm(jg)%max_time_stamps
-      ALLOCATE(msg_buffer(mtgrm(jg)%max_buf_size, &
-        MERGE(max_num_stations, 1, mtgrm(jg)%l_is_collecting_pe)), &
+    IF (mtgrm%l_is_collecting_pe .NEQV. mtgrm%l_is_sender) THEN
+      max_time_stamps = mtgrm%max_time_stamps
+      ALLOCATE(msg_buffer(mtgrm%max_buf_size, &
+        MERGE(max_num_stations, 1, mtgrm%l_is_collecting_pe)), &
         stat=ierror)
       IF (ierror /= SUCCESS) THEN
-        max_var_size    = (max_time_stamps+1)*p_real_dp_byte*mtgrm(jg)%meteogram_local_data%max_nlevs
+        max_var_size    = (max_time_stamps+1)*p_real_dp_byte*mtgrm%meteogram_local_data%max_nlevs
         max_sfcvar_size = max_time_stamps*p_real_dp_byte
 
-        WRITE (0,*) "jg = ", jg, " : message buffer: mtgrm(jg)%max_buf_size = ", &
-          & mtgrm(jg)%max_buf_size, "; MAX_NUM_STATIONS = ", MAX_NUM_STATIONS
+        WRITE (0,*) "jg = ", jg, " : message buffer: mtgrm%max_buf_size = ", &
+          & mtgrm%max_buf_size, "; MAX_NUM_STATIONS = ", MAX_NUM_STATIONS
         WRITE (0,*) "mtgrm_pack_header_ints  = ", mtgrm_pack_header_ints
         WRITE (0,*) "p_real_dp_byte          = ", p_real_dp_byte
         WRITE (0,*) "p_int_byte              = ", p_real_dp_byte
         WRITE (0,*) "max_time_stamps         = ", max_time_stamps
         WRITE (0,*) "MAX_DATE_LEN            = ", MAX_DATE_LEN
-        WRITE (0,*) "meteogram_data%nvars    = ", mtgrm(jg)%meteogram_local_data%nvars
+        WRITE (0,*) "meteogram_data%nvars    = ", mtgrm%meteogram_local_data%nvars
         WRITE (0,*) "max_var_size            = ", max_var_size
-        WRITE (0,*) "meteogram_data%nsfcvars = ", mtgrm(jg)%meteogram_local_data%nsfcvars
+        WRITE (0,*) "meteogram_data%nsfcvars = ", mtgrm%meteogram_local_data%nsfcvars
         WRITE (0,*) "max_sfcvar_size         = ", max_sfcvar_size
         WRITE (message_text, '(3a)') &
           'ALLOCATE of meteogram message buffer failed (', &
-          MERGE('collector', 'sender   ', mtgrm(jg)%l_is_collecting_pe), ')'
+          MERGE('collector', 'sender   ', mtgrm%l_is_collecting_pe), ')'
         CALL finish(routine, message_text)
       END IF
       msg_buffer(:,:) = ''
     END IF
 
     ! -- RECEIVER CODE --
-    RECEIVER : IF (mtgrm(jg)%l_is_collecting_pe) THEN
+    RECEIVER : IF (mtgrm%l_is_collecting_pe) THEN
       ! launch MPI message requests for station data on foreign PEs
-      nstations = mtgrm(jg)%meteogram_global_data%nstations
+      nstations = mtgrm%meteogram_global_data%nstations
       DO istation=1,nstations
-        iowner = mtgrm(jg)%meteogram_global_data%pstation(istation)
+        iowner = mtgrm%meteogram_global_data%pstation(istation)
         IF ((is_pure_io_pe .OR. iowner /= p_pe_work) .AND. (iowner >= 0)) THEN
           CALL p_irecv_packed(msg_buffer(:,istation), iowner, &
             &    tag_mtgrm_msg + (jg-1)*tag_domain_shift + istation, &
-            &    mtgrm(jg)%max_buf_size, comm=mtgrm(jg)%io_collect_comm)
+            &    mtgrm%max_buf_size, comm=mtgrm%io_collect_comm)
         END IF
       END DO
 
@@ -1894,48 +1900,48 @@ CONTAINS
       IF (dbg_level > 5)  WRITE (*,*) routine, " :: p_wait call done."
 
       ! unpack received messages:
-      icurrent = mtgrm(jg)%meteogram_local_data%icurrent  ! pure I/O PEs: will be set below
+      icurrent = mtgrm%meteogram_local_data%icurrent  ! pure I/O PEs: will be set below
       isl = 0
       DO istation=1,nstations
         IF (dbg_level > 5) WRITE (*,*) "Receiver side: Station ", istation
-        iowner = mtgrm(jg)%meteogram_global_data%pstation(istation)
+        iowner = mtgrm%meteogram_global_data%pstation(istation)
         IF (iowner >= 0) THEN
           IF (iowner /= p_pe_work .OR. is_pure_io_pe) THEN
-            CALL unpack_station_sample(mtgrm(jg)%meteogram_local_data, &
-              mtgrm(jg)%meteogram_global_data%time_stamp, &
-              mtgrm(jg)%meteogram_global_data%station(istation), &
+            CALL unpack_station_sample(mtgrm%meteogram_local_data, &
+              mtgrm%meteogram_global_data%time_stamp, &
+              mtgrm%meteogram_global_data%station(istation), &
               msg_buffer(:,istation), istation, nstations, icurrent, &
-              mtgrm(jg)%max_time_stamps)
+              mtgrm%max_time_stamps)
           ELSE
             ! this PE is both sender and receiver - direct copy:
             ! (note: copy of time stamp info is not necessary)
             isl = isl + 1
             CALL copy_station_sample(&
-              mtgrm(jg)%meteogram_global_data%station(istation), &
-              mtgrm(jg)%meteogram_local_data%station(isl), icurrent)
+              mtgrm%meteogram_global_data%station(istation), &
+              mtgrm%meteogram_local_data%station(isl), icurrent)
           END IF
         ELSE
           IF (dbg_level > 5) WRITE (*,*) "skipping station!"
         END IF
       END DO
-      mtgrm(jg)%meteogram_global_data%icurrent = icurrent
+      mtgrm%meteogram_global_data%icurrent = icurrent
 
     END IF RECEIVER
 
     ! -- SENDER CODE --
-    SENDER : IF ((mtgrm(jg)%l_is_sender) .AND. (.NOT. mtgrm(jg)%l_is_collecting_pe)) THEN
+    SENDER : IF ((mtgrm%l_is_sender) .AND. (.NOT. mtgrm%l_is_collecting_pe)) THEN
       ! pack station into buffer; send it
-      DO istation=1,mtgrm(jg)%meteogram_local_data%nstations
+      DO istation=1,mtgrm%meteogram_local_data%nstations
         station_idx &
-          = mtgrm(jg)%meteogram_local_data%station(istation)%station_idx
+          = mtgrm%meteogram_local_data%station(istation)%station_idx
         CALL pack_station_sample(msg_buffer(:,1), position, icurrent, &
-          mtgrm(jg)%max_time_stamps, &
-          mtgrm(jg)%meteogram_local_data%time_stamp, &
-          mtgrm(jg)%meteogram_local_data%station(istation))
+          mtgrm%max_time_stamps, &
+          mtgrm%meteogram_local_data%time_stamp, &
+          mtgrm%meteogram_local_data%station(istation))
         ! (blocking) send of packed station data to IO PE:
-        CALL p_send_packed(msg_buffer, mtgrm(jg)%io_collector_rank, &
+        CALL p_send_packed(msg_buffer, mtgrm%io_collector_rank, &
           &    TAG_MTGRM_MSG + (jg-1)*TAG_DOMAIN_SHIFT + station_idx,&
-          &    position, comm=mtgrm(jg)%io_collect_comm)
+          &    position, comm=mtgrm%io_collect_comm)
         IF (dbg_level > 0) &
           WRITE (*,*) "Sending ", icurrent, " time slices, station ", &
           station_idx
@@ -1943,11 +1949,11 @@ CONTAINS
       END DO
 
       ! reset buffer on sender side
-      mtgrm(jg)%meteogram_local_data%icurrent = 0
+      mtgrm%meteogram_local_data%icurrent = 0
 
     END IF SENDER
 
-    IF (dbg_level > 5)  WRITE (*,*) routine, " Leave (collecting PE=", mtgrm(jg)%l_is_collecting_pe, ")"
+    IF (dbg_level > 5)  WRITE (*,*) routine, " Leave (collecting PE=", mtgrm%l_is_collecting_pe, ")"
 
 #endif
 
@@ -2096,9 +2102,6 @@ CONTAINS
     ! Note that info on variables is not copied to the global data set
     ! (we use the local meteogram_data there).
 
-    IF (.NOT. meteogram_output_config%ldistributed) THEN
-      CALL meteogram_collect_buffers(jg)
-    END IF
     ! skip routine, if this PE has nothing to do...
     IF  (.NOT. mtgrm%l_is_writer) RETURN
 
@@ -2488,7 +2491,7 @@ CONTAINS
     IF (mtgrm(jg)%meteogram_file_info%ldistributed) THEN
       meteogram_data => mtgrm(jg)%meteogram_local_data
     ELSE
-      CALL meteogram_collect_buffers(jg)
+      CALL meteogram_collect_buffers(mtgrm(jg), jg)
       meteogram_data => mtgrm(jg)%meteogram_global_data
     END IF
 
