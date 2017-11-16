@@ -120,7 +120,7 @@ MODULE mo_output_event_handler
 
   USE mo_kind,                   ONLY: i8
   USE mo_impl_constants,         ONLY: SUCCESS, MAX_TIME_INTERVALS
-  USE mo_exception,              ONLY: finish, message
+  USE mo_exception,              ONLY: finish
   USE mo_io_units,               ONLY: FILENAME_MAX, find_next_free_unit
   USE mo_util_string,            ONLY: int2string, remove_whitespace
   USE mo_mpi,                    ONLY: p_int,                                               &

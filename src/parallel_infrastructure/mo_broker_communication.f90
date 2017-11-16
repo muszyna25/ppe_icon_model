@@ -18,9 +18,11 @@ MODULE mo_broker_communication
 
     PUBLIC :: t_BrokerCommunicationPattern
 
-    ! This TYPE holds all the DATA that's necessary to communicate DATA from a given domain decomposition to a simple broker decomposition AND back.
-    ! Effectively, this behaves like a permutation that crosses process boundaries.
-    ! The communication IS performed via MPI_Alltoall() AND MPI_Alltoallv().
+    ! This TYPE holds all the DATA that's necessary to communicate
+    ! DATA from a given domain decomposition to a simple broker
+    ! decomposition AND back.  Effectively, this behaves like a
+    ! permutation that crosses process boundaries.  The communication
+    ! IS performed via MPI_Alltoall() AND MPI_Alltoallv().
     TYPE t_BrokerCommunicationPattern
         INTEGER :: localPoints, brokerPoints
         TYPE(t_Permutation) :: localToBufferPerm, bufferToBrokerPerm
@@ -92,16 +94,21 @@ CONTAINS
         END DO
     END FUNCTION countsToDisplacements
 
-    ! Sets up a communication pattern so that calling `communicateToBroker(myGlobalIndices, resultBuffer)`
-    ! results IN `resultBuffer == [(i, i = brokerBounds(myRank) + 1, brokerBounds(myRank + 1))]` on process `myRank`.
+    ! Sets up a communication pattern so that calling
+    ! `communicateToBroker(myGlobalIndices, resultBuffer)` results IN
+    ! `resultBuffer == [(i, i = brokerBounds(myRank) + 1,
+    ! brokerBounds(myRank + 1))]` on process `myRank`.
     !
-    ! To this END, the myGlobalIndices arrays on the different processes must completely AND uniquely fill the range defined by the brokerBounds array.
-    ! brokerBounds must have one more entries than there are processes, AND must be identical on all processes.
+    ! To this END, the myGlobalIndices arrays on the different
+    ! processes must completely AND uniquely fill the range defined by
+    ! the brokerBounds array.  brokerBounds must have one more entries
+    ! than there are processes, AND must be identical on all
+    ! processes.
     SUBROUTINE brokerCommunicationPattern_construct(me, myGlobalIndices, brokerBounds)
         CLASS(t_BrokerCommunicationPattern), INTENT(INOUT) :: me
         INTEGER, INTENT(IN) :: myGlobalIndices(:), brokerBounds(:)
 
-        INTEGER :: i, procCount, myRank, error
+        INTEGER :: procCount, myRank, error
         CHARACTER(*), PARAMETER :: routine = modname//":brokerCommunicationPattern_construct"
 
         procCount = p_comm_size(p_comm_work)
@@ -120,7 +127,9 @@ CONTAINS
         ALLOCATE(me%localBuffer(me%localPoints), STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
 
-        ! providers compute a permutation to sort their points into the buffer ready to be sent to the brokers AND fill the buffer with their provided points
+        ! providers compute a permutation to sort their points into
+        ! the buffer ready to be sent to the brokers AND fill the
+        ! buffer with their provided points
         CALL me%localToBufferPerm%construct(myGlobalIndices)
 
         ! providers determine how many points they have for each PE IN the broker decomposition
@@ -131,7 +140,9 @@ CONTAINS
         CALL p_alltoall(me%toBrokerCounts, me%fromProcessCounts, p_comm_work)
 
         ! ALLOCATE the broker buffer
-        ! this may be larger than the range expected from our broker range due to the possibility that processes request the same points several times (halo points!)
+        ! this may be larger than the range expected from our broker
+        ! range due to the possibility that processes request the same
+        ! points several times (halo points!)
         ALLOCATE(me%brokerBuffer(SUM(me%fromProcessCounts)), STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
 

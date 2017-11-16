@@ -51,8 +51,8 @@ MODULE mo_name_list_output_zaxes
   USE ISO_C_BINDING,                        ONLY: C_SIGNED_CHAR
   USE mo_kind,                              ONLY: wp, dp
   USE mo_impl_constants,                    ONLY: zml_soil, SUCCESS
-  USE mo_exception,                         ONLY: finish, message
-  USE mo_zaxis_type,                        ONLY: t_zaxisType, zaxisTypeList,                                    &
+  USE mo_exception,                         ONLY: finish
+  USE mo_zaxis_type,                        ONLY: zaxisTypeList,                                                 &
     &                                             ZA_depth_below_sea, ZA_depth_below_sea_half, ZA_GENERIC_ICE,   &
     &                                             ZA_surface, ZA_isentropic, ZA_altitude, ZA_pressure,           &
     &                                             ZA_cloud_base, ZA_cloud_top, ZA_depth_below_land,              &

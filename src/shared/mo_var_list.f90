@@ -16,11 +16,7 @@ MODULE mo_var_list
 #endif
 
   USE mo_kind,             ONLY: wp, i8, sp
-  USE mo_cdi,              ONLY: DATATYPE_FLT64,                    &
-       &                         DATATYPE_FLT32,                    &
-       &                         DATATYPE_INT32,                    &
-       &                         DATATYPE_INT8,                     &
-       &                         TSTEP_INSTANT,                     &
+  USE mo_cdi,              ONLY: TSTEP_INSTANT,                     &
        &                         CDI_UNDEFID
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var, grib2_var

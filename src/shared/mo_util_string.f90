@@ -829,7 +829,7 @@ CONTAINS
   FUNCTION charArray_dup(charArray) RESULT(resultVar)
     CHARACTER(KIND = C_CHAR), INTENT(IN) :: charArray(:)
     CHARACTER(KIND = C_CHAR), POINTER :: resultVar(:)
-    INTEGER :: i, error
+    INTEGER :: error
 
     CHARACTER(LEN = *), PARAMETER :: routine = modName//":charArray_dup"
 

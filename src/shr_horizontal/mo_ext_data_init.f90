@@ -37,12 +37,11 @@ MODULE mo_ext_data_init
   USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape,                     &
-    &                              ihs_atm_temp, ihs_atm_theta, inh_atmosphere,                     &
     &                              max_char_length, min_rlcell_int, min_rlcell,                     &
     &                              MODIS, GLOBCOVER2009, GLC2000, SUCCESS, SSTICE_ANA_CLINC,        &
     &                              SSTICE_CLIM
   USE mo_math_constants,     ONLY: dbl_eps, rad2deg
-  USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def, tmelt
+  USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
   USE mo_run_config,         ONLY: msg_level, iforcing, check_uuid_gracefully
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
@@ -53,7 +52,6 @@ MODULE mo_ext_data_init
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, &
     &                              generate_td_filename, extpar_varnames_map_file, &
     &                              n_iter_smooth_topo, i_lctype, nclass_lu, nmonths_ext
-  USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
   USE mo_mpi_phy_config,     ONLY: mpi_phy_config
   USE mo_smooth_topo,        ONLY: smooth_topo_real_data
@@ -93,7 +91,7 @@ MODULE mo_ext_data_init
     &                              vlistInqVarIntKey, CDI_GLOBAL, gridInqUUID, &
     &                              streamClose, cdiStringError
   USE mo_math_gradients,     ONLY: grad_fe_cell
-  USE mo_fortran_tools,      ONLY: var_scale, var_add
+  USE mo_fortran_tools,      ONLY: var_scale
   USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime,        &
     &                              MAX_DATETIME_STR_LEN, datetimetostring,           &
     &                              OPERATOR(+)

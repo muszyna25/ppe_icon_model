@@ -26,7 +26,6 @@
 MODULE mo_initicon_types
 
   USE mo_kind,                 ONLY: wp
-  USE mo_impl_constants,       ONLY: SUCCESS
   USE mo_var_metadata_types,   ONLY: VARNAME_LEN
   USE mo_dictionary,           ONLY: t_dictionary
   USE mo_ifs_coord,            ONLY: t_vct

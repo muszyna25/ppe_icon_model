@@ -17,8 +17,7 @@ MODULE mo_nh_diagnose_pmsl
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message_text, finish
-  USE mo_impl_constants,      ONLY: PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS, &
-    &                               PRES_MSL_METHOD_DWD, PRES_MSL_METHOD_IFS_CORR
+  USE mo_impl_constants,      ONLY: PRES_MSL_METHOD_IFS
   USE mo_physical_constants,  ONLY: rd, grav, dtdz_standardatm
   USE mo_parallel_config,     ONLY: nproma
   USE mo_initicon_config,     ONLY: zpbl1, zpbl2

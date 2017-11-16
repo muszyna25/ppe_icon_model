@@ -32,8 +32,7 @@ MODULE mo_nml_crosscheck
   USE mo_time_config,        ONLY: time_config, dt_restart
   USE mo_extpar_config,      ONLY: itopo                                             
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
-    &                              lnetcdf_flt64_output, kAsyncRestartModule,        &
-    &                              restartWritingParameters
+    &                              lnetcdf_flt64_output
   USE mo_parallel_config,    ONLY: check_parallel_configuration,                &
     &                              num_io_procs, itype_comm, num_restart_procs, &
     &                              num_prefetch_proc, use_dp_mpi2io
@@ -870,7 +869,6 @@ CONTAINS
 
   !---------------------------------------------------------------------------------------
   SUBROUTINE land_crosscheck
-    INTEGER :: restartModule
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
 
 #ifdef __NO_JSBACH__

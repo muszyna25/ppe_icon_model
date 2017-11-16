@@ -142,7 +142,8 @@
 !!    not use the io process (the third part). This will be different from using
 !!    the stdio process only in the case of p_test
 
-!This IS a small helper to avoid a full #ifdef ... #ELSE ... #endif sequence where we can just replace the MPI symbol with something constant.
+!This IS a small helper to avoid a full #ifdef ... #ELSE ... #endif sequence where we 
+!can just replace the MPI symbol with something constant.
 #ifdef NOMPI
 #define MERGE_HAVE_MPI(mpiVariant, noMpiVariant) noMpiVariant
 #else
@@ -10271,7 +10272,9 @@ CONTAINS
     prevProc = myProc - 1
     IF(prevProc == -1) prevProc = commSize - 1
 
-    !Do a cyclic exchange of the strings, compare the local string to the one passed IN from the prevProc, AND reduce whether all strings compared equal.
+    !Do a cyclic exchange of the strings, compare the local string to
+    !the one passed IN from the prevProc, AND reduce whether all
+    !strings compared equal.
     CALL p_sendrecv_char_array(charArray, nextProc, prevArray, prevProc, 0, comm = p_comm)
     stringsEqual = .TRUE.
     DO i = 1, SIZE(charArray, 1)

@@ -34,30 +34,26 @@
    USE mo_kind,                ONLY: wp
    USE mo_physical_constants,  ONLY: rd_o_cpd, p0ref, grav, tmelt,  &
                                    & cvd_o_rd, cpd ,     &
-                                     vtmpc1 , rdv,  rd            
+                                     vtmpc1 , rd            
                                      
-   USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
+   USE mo_math_constants,      ONLY: pi, deg2rad
    USE mo_model_domain,        ONLY: t_patch
    USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-   USE mo_run_config,          ONLY: iforcing, iqv,iqc, ntracer, msg_level 
-   USE mo_impl_constants,      ONLY: inwp, MAX_CHAR_LENGTH, min_rlcell_int
-   USE mo_parallel_config,     ONLY: nproma, p_test_run
+   USE mo_run_config,          ONLY: iforcing, iqv,msg_level 
+   USE mo_impl_constants,      ONLY: inwp, MAX_CHAR_LENGTH
+   USE mo_parallel_config,     ONLY: nproma
    USE mo_satad,               ONLY:  sat_pres_water, &  !! saturation vapor pressure w.r.t. water
             &                         sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
             &                         spec_humi          !! Specific humidity
    USE mo_exception,           ONLY: message, finish, message_text
-   USE mo_advection_config,    ONLY: advection_config
    USE mo_intp_data_strc,      ONLY: t_int_state
-   USE mo_intp,                ONLY: cells2edges_scalar, edges2cells_scalar
-   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
+   USE mo_intp,                ONLY: cells2edges_scalar
    USE mo_loopindices,         ONLY: get_indices_e
    USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
    USE mo_extpar_config,        ONLY: itopo
-   USE mo_sync,                 ONLY: sync_patch_array,  sync_patch_array_mult, &
-                                   &  SYNC_C, SYNC_E, SYNC_V
+   USE mo_sync,                 ONLY: sync_patch_array,  SYNC_C, SYNC_E
    USE mo_nh_init_utils,        ONLY: init_w, hydro_adjust, convert_thdvars
-   USE mo_vertical_coord_table, ONLY: vct_a
-    USE mo_grid_config,         ONLY: grid_sphere_radius
+   USE mo_grid_config,         ONLY: grid_sphere_radius
 
    IMPLICIT NONE
 

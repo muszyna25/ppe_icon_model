@@ -18,7 +18,7 @@
 MODULE mo_read_netcdf_distributed
 
   USE mo_kind, ONLY: wp
-  USE mo_exception, ONLY: finish, message, em_warn, message_text
+  USE mo_exception, ONLY: finish, message, em_warn
   USE mo_mpi, ONLY: p_n_work, p_pe_work, p_bcast, p_comm_work
   USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, &
     & t_glb2loc_index_lookup, &

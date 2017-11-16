@@ -47,10 +47,10 @@ MODULE mo_opt_diagnostics
     &                                ZA_MEANSEA
   USE mo_var_list,             ONLY: default_var_list_settings
   USE mo_cdi,                  ONLY: DATATYPE_FLT32, DATATYPE_PACK16,                  &
-    &                                DATATYPE_PACK24, TSTEP_INSTANT,                   & 
+    &                                DATATYPE_PACK24,                                  & 
     &                                DATATYPE_FLT64, GRID_UNSTRUCTURED,                &
     &                                TSTEP_CONSTANT
-  USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,           &
+  USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL,                           &
     &                                GRID_CELL, GRID_REGULAR_LONLAT
   USE mo_nonhydro_state,       ONLY: p_nh_state_lists
   USE mo_var_list,             ONLY: default_var_list_settings,                        &

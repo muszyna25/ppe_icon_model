@@ -34,7 +34,7 @@ MODULE mo_cdi_ids
     &                              zaxisTypeList
   USE mtime,                 ONLY: datetime
   USE mo_exception,          ONLY: finish, message
-  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS, REAL_t, SINGLE_t, BOOL_t, INT_t
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS, REAL_t, SINGLE_t, INT_t
   USE mo_cdi_constants,      only: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE,               &
     &                              GRID_UNSTRUCTURED_VERT
   USE mo_kind,               ONLY: wp
