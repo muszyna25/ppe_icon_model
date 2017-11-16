@@ -1159,19 +1159,20 @@ CONTAINS
     shape3d_c   = (/ nproma, nblks_c, nmonths_ext(jg)  /)
     shape4d_c   = (/ nproma, nlev_o3, nblks_c, nmonths /)
 
-    SELECT CASE (sstice_mode)
-      CASE(SSTICE_ANA)
-        ! nothing to do
-      CASE(SSTICE_ANA_CLINC, SSTICE_CLIM)
-        shape3d_sstice = (/ nproma, nblks_c, 12 /)
-      CASE(SSTICE_AVG_MONTHLY)
-        shape3d_sstice = (/ nproma, nblks_c,  2 /)
-      CASE(SSTICE_AVG_DAILY)
-        CALL finish (TRIM(routine), 'sstice_mode=4  not implemented!')
-      CASE DEFAULT
-        CALL finish (TRIM(routine), 'sstice_mode not valid!')
-    END SELECT
- 
+    IF (iforcing == inwp) THEN
+      SELECT CASE (sstice_mode)
+        CASE(SSTICE_ANA)
+          ! nothing to do
+        CASE(SSTICE_ANA_CLINC, SSTICE_CLIM)
+          shape3d_sstice = (/ nproma, nblks_c, 12 /)
+        CASE(SSTICE_AVG_MONTHLY)
+          shape3d_sstice = (/ nproma, nblks_c,  2 /)
+        CASE(SSTICE_AVG_DAILY)
+          CALL finish (TRIM(routine), 'sstice_mode=4  not implemented!')
+        CASE DEFAULT
+          CALL finish (TRIM(routine), 'sstice_mode not valid!')
+      END SELECT
+    END IF
 
     !
     ! Register a field list and apply default settings

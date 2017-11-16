@@ -86,17 +86,14 @@ MODULE mo_ocean_model
   USE mo_hydro_ocean_run,     ONLY: perform_ho_stepping, &
     & prepare_ho_stepping, write_initial_ocean_timestep, &
     & end_ho_stepping
-  USE mo_sea_ice_nml,         ONLY: i_ice_dyn
-  USE mo_sea_ice_types,       ONLY: t_atmos_fluxes, t_atmos_for_ocean, &
-    & v_sfc_flx, v_sea_ice, t_sfc_flx, t_sea_ice
-  USE mo_sea_ice,             ONLY: ice_init, &
-    & construct_atmos_for_ocean, construct_atmos_fluxes, construct_sea_ice, &
-    & destruct_atmos_for_ocean, destruct_sea_ice
-  USE mo_ice_fem_init,       ONLY: ice_fem_init_vel
-  USE mo_ocean_surface_types, ONLY: t_ocean_surface, v_oce_sfc
-  USE mo_ocean_surface,       ONLY: construct_ocean_surface
+  USE mo_sea_ice_types,       ONLY: t_atmos_fluxes, t_sea_ice, v_sea_ice
+  USE mo_ice_init_thermo,     ONLY: ice_init, construct_sea_ice, &
+                                    &  construct_atmos_fluxes, destruct_sea_ice
+  USE mo_ocean_surface_types, ONLY: t_ocean_surface, v_oce_sfc, t_atmos_for_ocean
 
-  USE mo_ocean_forcing,         ONLY: construct_ocean_forcing, init_ocean_forcing, destruct_ocean_forcing
+  USE mo_ocean_forcing,       ONLY: construct_ocean_surface, destruct_ocean_forcing, &
+                                    & construct_atmos_for_ocean, destruct_atmos_for_ocean
+  USE mo_ocean_forcing,       ONLY: init_ocean_forcing
   USE mo_impl_constants,      ONLY: success
 
   USE mo_alloc_patches,       ONLY: destruct_patches
@@ -130,7 +127,7 @@ MODULE mo_ocean_model
     TYPE(t_patch_3d), POINTER                       :: ocean_patch_3d
     TYPE(t_atmos_for_ocean)                         :: p_as
     TYPE(t_atmos_fluxes)                            :: atmos_fluxes
-    TYPE(t_operator_coeff), TARGET                  :: operators_coefficients
+    TYPE(t_operator_coeff)                          :: operators_coefficients
     TYPE(t_solverCoeff_singlePrecision)             :: solverCoefficients_sp
     TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET  :: ocean_state(:)
     
@@ -216,24 +213,20 @@ MODULE mo_ocean_model
     ENDIF
 
     CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients, &
-      & ocean_state(1), ext_data(1), isRestart(), solverCoefficients_sp)
-    IF (isRestart() .AND. (i_ice_dyn == 1)) THEN
-        ! Initialize u_ice, v_ice with p_ice vals read from the restart file
-        CALL ice_fem_init_vel(ocean_patch_3d%p_patch_2D(1), v_sea_ice)
-    END IF
+      & ocean_state(1), v_sea_ice, ext_data(1), isRestart(), solverCoefficients_sp)
+
     !------------------------------------------------------------------
     ! write initial state
     !------------------------------------------------------------------
     IF (output_mode%l_nml .and. .true.) THEN
-      CALL write_initial_ocean_timestep(ocean_patch_3d,ocean_state(1),v_sfc_flx,v_sea_ice,hamocc_state, operators_coefficients)
+      CALL write_initial_ocean_timestep(ocean_patch_3d,ocean_state(1),v_oce_sfc,v_sea_ice,hamocc_state, operators_coefficients)
     ENDIF
     !------------------------------------------------------------------
     SELECT CASE (test_mode)
       CASE (0)  !  ocean model
         CALL perform_ho_stepping( ocean_patch_3d, ocean_state, &
           & ext_data, time_config%tc_current_date,             &
-          & v_sfc_flx, v_oce_sfc,                              &
-          & v_params, p_as, atmos_fluxes,v_sea_ice,            &
+          & v_oce_sfc, v_params, p_as, atmos_fluxes,v_sea_ice, &
           & hamocc_state,                                      &
           & operators_coefficients,                            &
           & solverCoefficients_sp)
@@ -242,16 +235,15 @@ MODULE mo_ocean_model
         CALL ocean_testbed( oce_namelist_filename,shr_namelist_filename,   &
           & ocean_patch_3d, ocean_state,                                   &
           & ext_data, time_config%tc_current_date,                         &
-          & v_sfc_flx, v_oce_sfc, v_params, p_as, atmos_fluxes, v_sea_ice, &
+          & v_oce_sfc, v_params, p_as, atmos_fluxes, v_sea_ice,            &
           & operators_coefficients,                                        &
           & solverCoefficients_sp)
 
       CASE (2000 : 3999) !
         CALL ocean_postprocess( oce_namelist_filename,shr_namelist_filename, &
-          & ocean_patch_3d, ocean_state,                    &
-          & ext_data,                                       &
-          & v_sfc_flx,  p_as, atmos_fluxes,v_sea_ice,       &
-          & operators_coefficients,                         &
+          & ocean_patch_3d, ocean_state,                                     &
+          & ext_data,                                                        &
+          & operators_coefficients,                                          &
           & solverCoefficients_sp)
 
       CASE DEFAULT
@@ -292,12 +284,12 @@ MODULE mo_ocean_model
     ! destruct ocean state is in control_model
     !------------------------------------------------------------------
 !    CALL finalise_ho_integration(ocean_state, v_params, &
-!      & p_as, atmos_fluxes, v_sea_ice, v_sfc_flx)
+!      & p_as, atmos_fluxes, v_sea_ice, v_oce_sfc)
     CALL destruct_hydro_ocean_state(ocean_state)
     !CALL destruct_hydro_ocean_base(v_base)
     CALL destruct_ho_params(v_params)
 
-    IF(no_tracer>0) CALL destruct_ocean_forcing(v_sfc_flx)
+    IF(no_tracer>0) CALL destruct_ocean_forcing(v_oce_sfc)
     CALL destruct_sea_ice(v_sea_ice)
 
     IF(lhamocc) CALL destruct_hamocc_state(hamocc_state)
@@ -456,7 +448,7 @@ MODULE mo_ocean_model
 
     !---------------------------------------------------------------------
     ! Prepare time integration
-    CALL construct_ocean_states(ocean_patch_3d, ocean_state, ext_data, v_sfc_flx, &
+    CALL construct_ocean_states(ocean_patch_3d, ocean_state, ext_data, &
       & v_params, p_as, atmos_fluxes, v_sea_ice, v_oce_sfc, operators_coefficients, solverCoefficients_sp)!,p_int_state(1:))
 
     !---------------------------------------------------------------------
@@ -476,12 +468,11 @@ MODULE mo_ocean_model
     CALL init_ocean_forcing(ocean_patch_3d%p_patch_2d(1),  &
       &                     ocean_patch_3d,                &
       &                     ocean_state(1),         &
-      &                     atmos_fluxes,            &
+      &                     v_oce_sfc,            &
       &                     p_as%fu10)
       
     IF (i_sea_ice >= 1) &
-      &   CALL ice_init(ocean_patch_3D, ocean_state(1), v_sea_ice, atmos_fluxes%cellThicknessUnderIce)
-
+      &   CALL ice_init(ocean_patch_3D, ocean_state(1), v_sea_ice, v_oce_sfc%cellThicknessUnderIce)
 
   END SUBROUTINE construct_ocean_model
   !--------------------------------------------------------------------------
@@ -493,19 +484,18 @@ MODULE mo_ocean_model
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
 !<Optimize:inUse>
-  SUBROUTINE construct_ocean_states(patch_3d, ocean_state, external_data, p_sfc_flx, &
+  SUBROUTINE construct_ocean_states(patch_3d, ocean_state, external_data, &
     & p_phys_param, p_as,&
-    & atmos_fluxes, p_ice, p_sfc, operators_coefficients, solverCoeff_sp)
+    & atmos_fluxes, p_ice, p_oce_sfc, operators_coefficients, solverCoeff_sp)
 
     TYPE(t_patch_3d ),TARGET,   INTENT(inout)  :: patch_3d
     TYPE(t_hydro_ocean_state),  INTENT(inout)  :: ocean_state(n_dom)
     TYPE(t_external_data),      INTENT(inout)  :: external_data(n_dom)
-    TYPE(t_sfc_flx),            INTENT(inout)  :: p_sfc_flx
     TYPE(t_ho_params),          INTENT(inout)  :: p_phys_param
     TYPE(t_atmos_for_ocean ),   INTENT(inout)  :: p_as
     TYPE(t_atmos_fluxes ),      INTENT(inout)  :: atmos_fluxes
     TYPE(t_sea_ice),            INTENT(inout)  :: p_ice
-    TYPE(t_ocean_surface),      INTENT(inout)  :: p_sfc
+    TYPE(t_ocean_surface),      INTENT(inout)  :: p_oce_sfc
     TYPE(t_operator_coeff),     INTENT(inout), TARGET  :: operators_coefficients
     TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
 
@@ -563,9 +553,8 @@ MODULE mo_ocean_model
     CALL construct_sea_ice(patch_3d, p_ice, kice)
     CALL construct_atmos_for_ocean(patch_3d%p_patch_2d(1), p_as)
     CALL construct_atmos_fluxes(patch_3d%p_patch_2d(1), atmos_fluxes, kice)
-    CALL construct_ocean_surface(patch_3d, p_sfc)
 
-    CALL construct_ocean_forcing(patch_3d%p_patch_2d(1),p_sfc_flx, ocean_default_list)
+    CALL construct_ocean_surface(patch_3d, p_oce_sfc)
     CALL construct_ocean_coupling(ocean_patch_3d)
 
     !------------------------------------------------------------------

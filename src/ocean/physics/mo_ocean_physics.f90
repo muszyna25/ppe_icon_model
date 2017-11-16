@@ -79,7 +79,6 @@ MODULE mo_ocean_physics
   USE mo_physical_constants,  ONLY: grav, sitodbar,sal_ref
   USE mo_math_constants,      ONLY: dbl_eps, pi, rad2deg
   USE mo_dynamics_config,     ONLY: nold!, nnew
-  USE mo_sea_ice_types,       ONLY: t_sfc_flx
   USE mo_run_config,          ONLY: dtime
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &

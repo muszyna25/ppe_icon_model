@@ -1,7 +1,8 @@
 ;
-; Hui Wan ( MPI, Aug 2006 )
-; Hui Wan ( MPI, Nov 2008 )
+; Hui Wan ( MPI-M, Aug 2006 )
+; Hui Wan ( MPI-M, Nov 2008 )
 ; Pilar Ripodas ( DWD, Oct 2010)
+; Marco Giorgetta (MPI-M, 2017-04-26)
 ;---------------------------
  load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_code.ncl"
  load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_csm.ncl"
@@ -11,63 +12,42 @@
  begin
 
     PlotFormat = getenv("plot_file_format") 
-    Model      = getenv("Model")
     DataPath   = getenv("DataPath")
     DataID     = getenv("DataID")
     DataGrid   = getenv("trunc")
     PlotPath   = getenv("PlotPath")
     ConfigStr  = getenv("ConfigStr")
-    Resolution = getenv("Resolution")
-    CellType   = getenv("cell_type")
-
-
-    if (CellType .eq. 3) then
-      cell_type=" triangles"
-    end if
-
-    if (CellType .eq. 6) then
-      cell_type=" hexagons"
-    end if
+    PlotTop    = getenv("PlotTop")
 ;------
 
- if (Model.eq."ICOHDC" .or. Model.eq."ICONAM" ) then
+    suffix     = "_t"+DataGrid+"grid.nc"
 
-    suffix     = ".T"+DataGrid+".nc"
-
-    varNameF   = (/"U.zmta","T.zmta","UpVp.zmta","TpVp.zmta","eddy-KE.zmta","TpTp.zmta"/) 
-    varName    = (/"U",     "T",     "U",        "T",        "U",      "T"/)
-
-    ;apzero     = 101325.  ; ECHAM5 default (ncar 2008: apzero= 1.e5)
-    apzero     = 1.e5
+    varNameF   = (/"ta_ta","ta_tv","tapvap_ta","ua_ta","ua_tv","eke_ta","va_ta","va_tv","uapvap_ta","wa_ta","wa_tv","uapwap_ta"/) 
+    varName    = (/"ta"   ,"ta"   ,"ta"       ,"ua"   ,"ua"   ,"ua"    ,"va"   ,"va"   ,"ua"       ,"wa"   ,"wa"   ,"ua"       /)
 
 ;------
- else
 
- ;  suffix     = ".hyb.nc"
-
- ;  varNameF   = (/"ensavg.U","ensavg.T","ensavg.VpUp","ensavg.VpTp","ensavg.KE","ensavg.TT"/) 
- ;  varName    = (/"u",       "st",      "u",          "st",         "u",      "st"/)
-
- ;  apzero     = 101325.
-
- end if
-;------
-
- LeftString = (/"(a) u-wind (ms~S~-1~N~)",      \
-                "(b) temperature (K)", \
-                "(c) eddy momentum flux (m~S~2~N~s~S~-2~N~)",    \
-                "(d) eddy heat flux (Kms~S~-1~N~)",        \
-                "(e) eddy kinetic energy (m~S~2~N~s~S~-2~N~)",   \
-                "(f) temperature variance (K~S~2~N~)"/)
+ LeftString = (/"(a) temperature T (K)",                                                 \
+                "(b) temperature variance <T'~S~2~N~> (K~S~2~N~)",                       \
+                "(c) merid. eddy heat flux <T'v'> (Kms~S~-1~N~)",                        \
+                "(d) zonal wind u (ms~S~-1~N~)",                                         \
+                "(e) zonal wind variance <u'~S~2~N~> (m~S~2~N~s~S~-2~N~)",               \
+                "(f) eddy kinetic energy <(u'~S~2~N~+v'~S~2~N~)/2> (m~S~2~N~s~S~-2~N~)", \
+                "(g) merid. wind v (ms~S~-1~N~)",                                        \
+                "(h) merid. wind variance <v'~S~2~N~> (m~S~2~N~s~S~-2~N~)",              \
+                "(i) merid. eddy momentum flux <u'v'> (m~S~2~N~s~S~-2~N~)",              \
+                "(j) vertical wind w (1e-2 ms~S~-1~N~)",                                 \
+                "(k) vertical wind variance <w'~S~2~N~> (1e-4 m~S~2~N~s~S~-2~N~)",       \
+                "(l) vertical eddy momentum flux <u'w'> (1e-2 m~S~2~N~s~S~-2~N~)"        /)
 
  nvar = dimsizes(LeftString)
+ 
+ Min = (/ 190,   4, -24, -32,  40,  40, -0.80,  40, -64, -0.25, 0.4, -2.5 /)
+ Max = (/ 305,  52,  24,  32, 480, 480,  0.80, 480,  64,  0.25, 4.0,  2.5 /)
+ Int = (/   5,   4,   3,   4,  40,  40,  0.08,  40,   8,  0.05, 0.4,  0.5 /)
 
- Min = (/ -12, 190., -90., -24,   0,  0/)
- Max = (/  32, 305.,  90.,  24, 480, 52/)
- Int = (/   4,   5,  15.,   3,  40,  4/)
-
- colorStart = (/  3,   3, 102, 102,   5,   5/)
- colorEnd   = (/101, 101, 201, 201, 101, 101/)
+ colorStart = (/  2,   2, 102, 102,   2,   2, 102,   2, 102, 102,   2, 102/)
+ colorEnd   = (/101, 101, 201, 201, 101, 101, 201, 101, 201, 201, 101, 201/)
 
  nlev4plot = 101
 
@@ -75,8 +55,10 @@
 ; make plots
 ;---------------------------------------------------------
 
-    wks = gsn_open_wks( PlotFormat,PlotPath+DataID+"_T"+DataGrid+"_climate")
-    gsn_merge_colormaps( wks,"WhBlGrYeRe","testcmapshort")
+    wks = gsn_open_wks( PlotFormat,PlotPath+DataID+"t"+DataGrid+"grid_climate"+PlotTop+"km")
+    gsn_merge_colormaps( wks,"WhBlGrYeRe","ViBlGrWhYeOrRe")
+    ;gsn_define_colormap( wks,Col(2))
+
 
     contour = new( nvar,graphic )
 
@@ -85,12 +67,7 @@
      ResC@gsnDraw  = False
      ResC@gsnFrame = False
 
-     if (Model .eq."ICOHDC") then
-      ResC@tiYAxisString          = "Hybrid coordinate ~F8~h~F~" 
-     end if
-     if (Model .eq."ICONAM") then
-      ResC@tiYAxisString          = "Height Km" 
-     end if     
+     ResC@tiYAxisString          = "Height Km" 
 
      FontHeight = 0.02
 
@@ -100,7 +77,7 @@
      ResC@tmYLLabelFontHeightF      = FontHeight
      ResC@gsnLeftStringFontHeightF  = FontHeight + 0.003
     ;ResC@gsnCenterStringFontHeightF= FontHeight + 0.004
-     ResC@gsnRightStringFontHeightF = FontHeight + 0.002
+    ;ResC@gsnRightStringFontHeightF = FontHeight + 0.002
 
      ResC@lbLabelBarOn             = True
      ResC@pmLabelBarHeightF        = 0.1
@@ -109,33 +86,19 @@
      ResC@pmLabelBarOrthogonalPosF = 0.01
      ResC@lbLabelFontHeightF       = FontHeight 
 
-     ;ResC@trYLog        = False
      ResC@tmYRMode      = "Automatic"
-     if (Model .eq."ICOHDC") then     
-      ResC@trYReverse    = True
-      ResC@trYMaxF       = 1.
-      ResC@trYMinF       = 0.
-     end if
-     if (Model .eq."ICONAM") then 
-      ;ResC@trGridType="LogLin"
-      ;ResC@trYAxisType="LogAxis"
-      ;ResC@trYLog        = True    
-      ResC@trYReverse    = False
-      ResC@trYMaxF       = 22.
-      ResC@trYMinF       = 0.
-      ;ResC@trYLog=True
-      ;ResC@tmYLMinorPerMajor=8
-     end if 
+     ResC@trYReverse    = False
+     ResC@trYMaxF       = todouble(PlotTop)
+     ResC@trYMinF       = 0.
 
      ResC@cnInfoLabelOn                = False
-   ; ResC@cnLineThicknessF             = 1.2
-     ResC@cnLinesOn            = True
+     ResC@cnLinesOn                    = True
      ResC@gsnContourZeroLineThicknessF = 1.5
      ResC@gsnContourNegLineDashPattern = 2
 
      ResC@cnFillOn                     = True
      ResC@gsnSpreadColors              = True
-    ;ResC@cnLineLabelsOn  = True
+    ;ResC@cnLineLabelsOn               = True
     ;ResC@cnLineLabelPlacementMode     = "Computed"
     ;ResC@cnLineLabelInterval          = 4
     ;ResC@cnLineLabelAngleF            = 0.0
@@ -143,7 +106,7 @@
     ;ResC@cnLineLabelFontColor         = "black"
     ;ResC@cnLabelMasking               = True
     ;ResC@cnLineLabelBackgroundColor   = "transparent"
-    ;ResC@cnLineLabelFormat          = "0@*+^.2g"
+    ;ResC@cnLineLabelFormat            = "0@*+^.2g"
 
 
 
@@ -152,21 +115,14 @@
 ;---------------------------------------------------------
 
  do ivar=0,nvar-1
-    File = addfile( DataPath + DataID +"." + varNameF(ivar) +suffix, "r" )
+    File = addfile( DataPath + DataID + varNameF(ivar) +suffix, "r" )
     var = (/File->$varName(ivar)$(0,:,:,0)/)  ;(time,lev,cell,lon)
 
     if (ivar.eq.0) then
-      if (Model .eq. "ICOHDC") then
-       vertc = (File->hyam)/apzero + File->hybm ; eta as vertical coordinate
-       vertc_t = 0.
-       vertc_sfc = 1.
-      end if
-      if (Model .eq. "ICONAM") then
-       height = (File->hyam)      ; orography ist 0. in this test case
-       vertc =  height/1000.      ; height in km as vertical coordinate
-       vertc_t = 22.
-       vertc_sfc = 0.
-      end if
+      height = (File->alt)       ; altitude, orography ist 0. in this test case
+      vertc =  height/1000.      ; height in km as vertical coordinate
+      vertc_t = todouble(PlotTop)
+      vertc_sfc = 0.
     end if
 
     var!0   = "vertc"
@@ -187,7 +143,7 @@
      ResC@cnLevelSpacingF       =  Int(ivar)
 
      ResC@gsnLeftString  = LeftString(ivar)
-     ResC@gsnRightString = Resolution ;ConfigStr
+     ;ResC@gsnRightString = ConfigStr
 
      ResC@gsnSpreadColorStart = colorStart(ivar)
      ResC@gsnSpreadColorEnd   = colorEnd(ivar)
@@ -200,9 +156,9 @@
    ; ResP@gsnPaperMargin             = 0.2
      ResP@gsnPanelXWhiteSpacePercent = 5
      ResP@gsnPanelYWhiteSpacePercent = 5
-     ResP@txString = DataID+cell_type
+     ResP@txString = "Held-Suarez experiment"
      ResP@txFontHeightF  = 0.01
 
-     gsn_panel (wks, contour, (/3,2/),ResP)
+     gsn_panel (wks, contour, (/4,3/),ResP)
 
  end

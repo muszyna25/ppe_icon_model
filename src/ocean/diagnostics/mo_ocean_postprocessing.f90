@@ -28,7 +28,7 @@ MODULE mo_ocean_postprocessing
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state, t_solverCoeff_singlePrecision, t_operator_coeff
   USE mo_ocean_physics_types, ONLY: t_ho_params
-  USE mo_sea_ice_types,       ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, t_sea_ice
+  USE mo_sea_ice_types,       ONLY: t_sea_ice
   USE mo_ocean_nml
   USE mo_ocean_thermodyn,     ONLY: calculate_density, calc_internal_press
   USE mo_dynamics_config,     ONLY: nold, nnew
@@ -61,10 +61,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE ocean_postprocess( namelist_filename, shr_namelist_filename,             &
-    & patch_3d, ocean_state, external_data,                                           &
-    & surface_fluxes,                                                                 &
-    & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients, &
-    & solverCoeff_sp)
+    & patch_3d, ocean_state, external_data, operators_coefficients, solverCoeff_sp)
 
     CHARACTER(LEN=*), INTENT(in) :: namelist_filename
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
@@ -72,10 +69,6 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(t_external_data), TARGET, INTENT(in)        :: external_data(n_dom)
-    TYPE(t_sfc_flx)                                  :: surface_fluxes
-    TYPE(t_atmos_for_ocean),  INTENT(inout)          :: oceans_atmosphere
-    TYPE(t_atmos_fluxes ),    INTENT(inout)          :: oceans_atmosphere_fluxes
-    TYPE (t_sea_ice),         INTENT(inout)          :: ocean_ice
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
 

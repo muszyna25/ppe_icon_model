@@ -76,9 +76,7 @@ MODULE mo_radiation
   USE mo_srtm_config,          ONLY: jpsw, jpinpx
   USE mo_srtm,                 ONLY: srtm_srtm_224gp
   USE mo_psrad_srtm_driver,    ONLY: psrad_srtm => srtm
-  USE mo_psrad_spec_sampling,  ONLY: get_num_gpoints
-  USE mo_psrad_interface,      ONLY: lw_strat, sw_strat
-  USE mo_psrad_radiation_parameters, ONLY: psctm
+  USE mo_psrad_solar_parameters, ONLY: psctm
   USE mo_timer,                ONLY: ltimer, timer_start, timer_stop,  &
     &                                timer_radiation,                  &
     &                                timer_rrtm_prep, timer_rrtm_post, &
@@ -612,7 +610,7 @@ CONTAINS
     REAL(wp), INTENT(out) ::           &
       &  cld_cvr(kbdim),               & !< Cloud cover in a column
       &  flx_lw_net_clr(kbdim,klevp1), & !< Net clear-sky longwave radiative flux [W/m**2] (positive downward)
-      &  trm_sw_net_clr(kbdim,klevp1), & !< Net clear-sky solar transmissivity (= net clear-sky shortwave radiative flux normalized by irradiance)
+      &  trm_sw_net_clr(kbdim,klevp1), & !< Net clear-sky solar transmissivity  (= net clear-sky shortwave radiative flux normalized by irradiance)
       &  flx_lw_net(kbdim,klevp1),     & !< Net longwave radiative flux [W/m**2] (positive downward)
       &  trm_sw_net(kbdim,klevp1)        !< Net solar transmissivity (= net shortwave radiative flux normalized by irradiance)
     REAL(wp), OPTIONAL, INTENT(out) :: &
@@ -1333,11 +1331,11 @@ CONTAINS
          re_drop   (kbdim,klev),       & !< effective radius of liquid
          re_cryst  (kbdim,klev),       & !< effective radius of ice
          aux_out   (kbdim,9),          &
-         zmu0      (kbdim)
+         zmu0      (kbdim),            &
+         zdayfrc   (kbdim)
 
     INTEGER, PARAMETER    :: rng_seed_size = 4
     INTEGER :: rnseeds(kbdim,rng_seed_size)
-    INTEGER :: n_gpts_ts
 
     ! Initialize output variables
     flx_lw_net(:,:)     = 0._wp
@@ -1582,12 +1580,11 @@ CONTAINS
       ENDDO
       CALL psrad_cloud_optics(                                          &
          & laglac        ,laland        ,jce           ,kbdim          ,& 
-         & klev          , ktype        ,jpband        ,jpsw           ,&
+         & klev          , ktype        ,&
          & icldlyr       ,zlwp_vr       ,ziwp_vr       ,zlwc_vr        ,&
          & ziwc_vr       ,cdnc_vr       ,cld_tau_lw_vr ,cld_tau_sw_vr  ,&
          & cld_piz_sw_vr ,cld_cg_sw_vr  ,re_drop       ,re_cryst    )  
     ENDIF
-
 
     IF (ltimer) CALL timer_stop(timer_rrtm_prep)
 
@@ -1609,15 +1606,12 @@ CONTAINS
       !
       rnseeds(1:jce,1:rng_seed_size) = (pm_fl_vr(1:jce,1:rng_seed_size) -  &
          int(pm_fl_vr(1:jce,1:rng_seed_size)))* 1E9
-      n_gpts_ts = get_num_gpoints(lw_strat)
-      !
       CALL psrad_lrtm(jce                                                       ,&
            & kbdim           ,klev            ,pm_fl_vr        ,pm_sfc          ,&
            & tk_fl_vr        ,tk_hl_vr        ,tk_sfc          ,wkl_vr          ,&
            & wx_vr           ,col_dry_vr      ,zsemiss         ,cld_frc_vr      ,&
-           & cld_tau_lw_vr   ,aer_tau_lw_vr   ,rnseeds         ,lw_strat        ,&
-           & n_gpts_ts       ,flx_uplw_vr     ,flx_dnlw_vr     ,flx_uplw_clr_vr ,&
-           & flx_dnlw_clr_vr )
+           & cld_tau_lw_vr   ,aer_tau_lw_vr   ,rnseeds         ,flx_uplw_vr     ,&     
+           & flx_dnlw_vr     ,flx_uplw_clr_vr ,flx_dnlw_clr_vr )
     ENDIF
     IF (ltimer) CALL timer_stop(timer_lrtm)
 
@@ -1647,20 +1641,24 @@ CONTAINS
       !
       rnseeds(1:jce,1:rng_seed_size) = (pm_fl_vr(1:jce,rng_seed_size:1:-1) - &
          int(pm_fl_vr(1:jce,rng_seed_size:1:-1)))* 1E9
-      n_gpts_ts = get_num_gpoints(sw_strat)
+      WHERE (pmu0(1:jce) > 0.0_wp)
+         zdayfrc(1:jce) = 1.0_wp
+      ELSEWHERE
+         zdayfrc(1:jce) = 0.0_wp
+      END WHERE
       zmu0(1:jce) = MAX(pmu0(1:jce),0.05_wp)
+      
       !
       CALL psrad_srtm(jce                                                      , & 
          &  kbdim           ,klev            ,pm_fl_vr        ,tk_fl_vr        , &
          &  wkl_vr          ,col_dry_vr      ,alb_vis_dir     ,alb_vis_dif     , &
-         &  alb_nir_dir     ,alb_nir_dif     ,zmu0            ,ssi_radt/psctm  , &
+         &  alb_nir_dir     ,alb_nir_dif     ,zmu0, zdayfrc   ,ssi_radt/psctm  , &
          &  psctm           ,cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    , &
          &  cld_piz_sw_vr   ,aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr   , & 
-         &  rnseeds         ,sw_strat        ,n_gpts_ts       ,flx_dnsw        , &
-         &  flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr                     , &
-         &  aux_out(:,1)    ,aux_out(:,2)    ,aux_out(:,3)                     , &
-         &  aux_out(:,4)    ,aux_out(:,5)    ,aux_out(:,6)                     , &
-         &  aux_out(:,7)    ,aux_out(:,8)    ,aux_out(:,9)                     )
+         &  rnseeds         ,flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    , &
+         & flx_upsw_clr     ,aux_out(:,1)    ,aux_out(:,2)    ,aux_out(:,3)    , &
+         &  aux_out(:,4)    ,aux_out(:,5)    ,aux_out(:,6)    ,aux_out(:,7)    , &
+         aux_out(:,8)    ,aux_out(:,9) )
 
       !   dnpar_sfc        = dnpar_sfc_dir    + dnpar_sfc_dif                 
       flx_dnpar_sfc(1:jce) = aux_out(1:jce,2) + aux_out(1:jce,5)

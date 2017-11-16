@@ -73,7 +73,7 @@ MODULE mo_time_management
 
 #ifndef __NO_ICON_ATMO__
   USE mo_nonhydrostatic_config,    ONLY: divdamp_order
-  USE mo_echam_phy_config,         ONLY: echam_phy_config
+!!$  USE mo_echam_phy_config,         ONLY: echam_phy_config
   USE mo_atm_phy_nwp_config,       ONLY: atm_phy_nwp_config
 #endif
 
@@ -154,8 +154,8 @@ CONTAINS
 
 #ifndef __NO_ICON_ATMO__
       IF (get_my_process_type() == atmo_process) THEN
-        echam_phy_config%dt_rad = &
-          & echam_phy_config%dt_rad * grid_rescale_factor
+!!$        echam_phy_config%dt_rad = &
+!!$          & echam_phy_config%dt_rad * grid_rescale_factor
         
         DO jg=1,max_dom
           atm_phy_nwp_config(jg)%dt_conv = &

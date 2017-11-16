@@ -21,7 +21,7 @@ MODULE mo_vdiff_solver
   USE mo_physical_constants,ONLY: rgrav, cpd, cpv
   USE mo_echam_vdiff_params,ONLY: tke_min, &
     &                             tpfac1, tpfac2, tpfac3, cchar, z0m_min
-  USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config, get_lebudget
+  USE mo_mpi_phy_config,    ONLY: mpi_phy_config
 
   IMPLICIT NONE
   PRIVATE
@@ -596,14 +596,14 @@ CONTAINS
   !! Prepare the Richtmyer-Morton coeffcients for dry static energy and 
   !! moisture, to be used by the surface models (ocean, sea-ice, land).
   !!
-  SUBROUTINE matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
-                                      & aa, bb,                                  &! in
-                                      & aa_btm, bb_btm,                          &! inout
-                                      & pen_h, pfn_h, pen_qv, pfn_qv,            &! out
-                                      & pcair,                                   &! in
-                                      & pcsat)                                    ! in
+  SUBROUTINE matrix_to_richtmyer_coeff( jg, kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
+                                      & aa, bb,                                      &! in
+                                      & aa_btm, bb_btm,                              &! inout
+                                      & pen_h, pfn_h, pen_qv, pfn_qv,                &! out
+                                      & pcair,                                       &! in
+                                      & pcsat)                                        ! in
 
-    INTEGER,INTENT(IN)     :: kproma, kbdim, klev, ksfc_type, idx_lnd
+    INTEGER,INTENT(IN)     :: jg, kproma, kbdim, klev, ksfc_type, idx_lnd
     REAL(wp),INTENT(IN)    :: aa    (kbdim,klev,3,imh:imqv)
     REAL(wp),INTENT(IN)    :: bb    (kbdim,klev,ih:iqv)
     REAL(wp),INTENT(INOUT) :: aa_btm(kbdim,3,ksfc_type,imh:imqv)
@@ -626,7 +626,7 @@ CONTAINS
     !---------------------------------------------------------
     ! Evapotranspiration has to be considered over land 
 
-    IF (phy_config%ljsbach .AND. idx_lnd<=ksfc_type) THEN
+    IF (mpi_phy_config(jg)%ljsb .AND. idx_lnd<=ksfc_type) THEN
 
       jsfc = idx_lnd
 
@@ -880,19 +880,20 @@ CONTAINS
       END DO
     END DO
 
-    IF ( get_lebudget() ) THEN
-      psh_vdiff(:) = 0._wp
-      pqv_vdiff(:) = 0._wp
-      DO jk=itop,klev
-        ! compute heat budget diagnostic
-        psh_vdiff(1:kproma) = psh_vdiff(1:kproma) + pmdry(1:kproma,jk) * &
-        & (bb(1:kproma,jk,ih)  + (tpfac3 - 1._wp)*pcptgz(1:kproma,jk)) * zrdt
-        ! compute moisture budget diagnostic
-        ! ? zdis appears to be dissipation, probably we don't need this for qv??
-        pqv_vdiff(1:kproma) = pqv_vdiff(1:kproma) + pmdry(1:kproma,jk)* &
-        & (bb(1:kproma,jk,iqv) + (tpfac3 - 1._wp)*pqm1(1:kproma,jk)) * zrdt
-      END DO
-    END IF
+!!$    IF ( get_lebudget() ) THEN
+!!$      psh_vdiff(:) = 0._wp
+!!$      pqv_vdiff(:) = 0._wp
+!!$      DO jk=itop,klev
+!!$        ! compute heat budget diagnostic
+!!$        psh_vdiff(1:kproma) = psh_vdiff(1:kproma) + pmdry(1:kproma,jk) * &
+!!$        & (bb(1:kproma,jk,ih)  + (tpfac3 - 1._wp)*pcptgz(1:kproma,jk)) * zrdt
+!!$        ! compute moisture budget diagnostic
+!!$        ! ? zdis appears to be dissipation, probably we don't need this for qv??
+!!$        pqv_vdiff(1:kproma) = pqv_vdiff(1:kproma) + pmdry(1:kproma,jk)* &
+!!$        & (bb(1:kproma,jk,iqv) + (tpfac3 - 1._wp)*pqm1(1:kproma,jk)) * zrdt
+!!$      END DO
+!!$   END IF
+   
     !-------------------------------------------------------------
     ! Tendency of tracers
     !-------------------------------------------------------------

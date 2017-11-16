@@ -89,6 +89,8 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_diagnosis,           ONLY: nwp_statistics, nwp_diag_output_1, nwp_diag_output_2
   USE mo_icon_comm_lib,           ONLY: new_icon_comm_variable,                               &
     &                                   icon_comm_sync_all, is_ready, until_sync
+  USE mo_art_diagnostics_interface,ONLY: art_diagnostics_interface
+
   USE mo_art_washout_interface,   ONLY: art_washout_interface
   USE mo_art_reaction_interface,  ONLY: art_reaction_interface
   USE mo_linked_list,             ONLY: t_var_list
@@ -1649,6 +1651,15 @@ CONTAINS
                         & pt_prog, pt_prog_rcf,          & !in
                         & pt_diag,                       & !inout
                         & prm_diag                       ) !inout
+
+    ! Call the ART diagnostics
+    CALL art_diagnostics_interface(pt_patch,               &
+      &                            pt_prog%rho,            &
+      &                            pt_diag%pres,           &
+      &                            pt_prog_now_rcf%tracer, &
+      &                            p_metrics%ddqz_z_full,  &
+      &                            p_metrics%z_mc, jg,     &
+      &                            dt_phy_jg, p_sim_time)
 
     IF (ltimer) CALL timer_stop(timer_physics)
 

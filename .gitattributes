@@ -1958,6 +1958,12 @@ src/sea_ice/dynamics_fem/mo_ice_init.f90 -text
 src/sea_ice/dynamics_fem/mo_ice_mesh.f90 -text
 src/sea_ice/dynamics_fem/mo_ice_parsup.f90 -text
 src/sea_ice/dynamics_fem/mo_icon_to_fem_interpolation.f90 -text
+src/sea_ice/thermo/mo_ice_refactor.f90 -text
+src/sea_ice/thermo/mo_ice_shared_sr.f90 -text
+src/sea_ice/thermo/mo_ice_thermo.f90 -text
+src/sea_ice/thermo/mo_ice_types.f90 -text
+src/sea_ice/thermo/mo_ice_winton.f90 -text
+src/sea_ice/thermo/mo_ice_zerolayer.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice_refactor.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90 -text

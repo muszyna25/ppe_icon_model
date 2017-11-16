@@ -27,13 +27,12 @@ MODULE mo_art_clouds_interface
   USE mo_model_domain,                  ONLY: t_patch
   USE mo_exception,                     ONLY: finish
   USE mo_run_config,                    ONLY: lart
+  USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
+                                          &   timer_art, timer_art_cldInt
 #ifdef __ICON_ART
   USE mo_art_config,                    ONLY: art_config
   USE mo_art_2mom_driver,               ONLY: art_2mom_mcrph,               &
                                           &   art_2mom_mcrph_init
-  USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
-  USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
-                                          &   t_fields_volc
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_prepare_aerosol,           ONLY: art_prepare_dust_KL06
 #endif
@@ -92,6 +91,9 @@ SUBROUTINE art_clouds_interface_2mom(isize, ke, jg, jb, is, ie, ks, dt, &
 #ifdef __ICON_ART
   
   IF (lart) THEN
+    IF (timers_level > 3) CALL timer_start(timer_art)
+    IF (timers_level > 3) CALL timer_start(timer_art_cldInt)
+
     
     ! ----------------------------------
     ! --- Call of the coupled ART-twomoment microphysics
@@ -103,6 +105,9 @@ SUBROUTINE art_clouds_interface_2mom(isize, ke, jg, jb, is, ie, ks, dt, &
                         & dz, rho, pres, tke, p_trac(:,:,:), tk,    &
                         & w, prec_r, prec_i, prec_s,         &
                         & prec_g, prec_h, tkvh, msg_level, l_cv)
+
+    IF (timers_level > 3) CALL timer_stop(timer_art_cldInt)
+    IF (timers_level > 3) CALL timer_stop(timer_art)
   ELSE
     call finish('mo_art_clouds_interface:art_clouds_interface_2mom', &
          &      'Two moment micophysics with ART aerosol chosen (inwp_gscp=6), but lart=.FALSE.')

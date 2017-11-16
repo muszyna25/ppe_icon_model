@@ -14,3 +14,6 @@
 	url = git@git.mpimet.mpg.de:libself.git
 	branch = libself-icon_derived_variables
 
+[submodule "externals/tixi"]
+	path = externals/tixi
+	url = git@git.mpimet.mpg.de:libtixi.git
