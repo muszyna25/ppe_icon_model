@@ -615,6 +615,8 @@ set_run_target_bullx()
       add_free_var HCOLL_ENABLE_MCAST 1
       add_free_var OMPI_MCA_coll_sync_barrier_after_alltoallv 1
       add_free_var OMPI_MCA_coll_sync_barrier_after_alltoallw 1
+      add_free_var MXM_HANDLE_ERRORS bt
+      add_free_var UCX_HANDLE_ERRORS bt
       ;;
     *intel*mpi*)
       add_free_var I_MPI_FABRICS shm:dapl
