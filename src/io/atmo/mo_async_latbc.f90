@@ -824,7 +824,7 @@ MODULE mo_async_latbc
          ELSE IF (test_cdi_varID(fileID_latbc, 'GEOP_ML', latbc_dict) /= -1) THEN
             lhave_geop  = .TRUE.
             latbc%buffer%geop_ml_var = 'GEOP_ML'
-         ELSE IF (.NOT. latbc%buffer%lhave_theta_rho .AND. .NOT. latbc%buffer%lhave_hhl) THEN
+         ELSE IF (.NOT. lhave_theta_rho .AND. .NOT. lhave_hhl) THEN
             CALL finish(routine,'Could not find model-level sfc geopotential')
          ENDIF
          lhave_ps_geop = (lhave_ps .and. lhave_geop)
