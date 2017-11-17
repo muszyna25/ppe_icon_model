@@ -222,10 +222,10 @@ case "$ac_sitename" in
     cscs.ch)
         case "$HOST" in
             *daint*|*dom*)
-                make_command="make" "-j" "8"
-                load_profile="/opt/modules/default/etc/modules.sh"
-                submit="sbatch"
-                sync_submit="sbatch_synced"
+                make_command = make -j 8
+                load_profile = /opt/modules/default/etc/modules.sh
+                submit       = sbatch
+                sync_submit  = sbatch --wait
                 CC = cc
                 FC = ftn
                 F77= ftn
@@ -283,13 +283,12 @@ case "$ac_sitename" in
                         exit 1
                         ;;
                 esac
-                mpi_startrun="srun" "-n" "\$mpi_total_procs" "--ntasks-per-node" "\$mpi_procs_pernode" "--threads-per-core=1" "--cpus-per-task" "\$OMP_NUM_THREADS"
+                mpi_startrun = srun -n \$mpi_total_procs --ntasks-per-node \$mpi_procs_pernode --threads-per-core=1 --cpus-per-task \$OMP_NUM_THREADS
                 ;;
             *tave*)
-                make_command="make" "-j" "8"
-                load_profile="/opt/modules/default/etc/modules.sh"
-                submit="sbatch"
-                sync_submit="sbatch"
+                make_command = make -j 8
+                load_profile = /opt/modules/default/etc/modules.sh
+                submit       = sbatch
                 CC = cc
                 FC = ftn
                 F77= ftn
@@ -300,7 +299,7 @@ case "$ac_sitename" in
                         config_target=tave_knl
                         load_modules =PrgEnv-gnu cray-netcdf cray-mpich craype-mic-knl
                         CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF
-                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
+                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
 			;;
                     intel)
                         config_target=tave_knl
@@ -309,7 +308,7 @@ case "$ac_sitename" in
                         STD_FLAGS   = -O2 -mavx -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
                         FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/INTEL/15.0
-                        F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
+                        F77FLAGS    = $FFLAGS $STD_FLAGS
                         MODDIR      = -I
 			;;
                     pgi)
@@ -335,7 +334,7 @@ case "$ac_sitename" in
                         exit 1
                         ;;
                 esac
-                mpi_startrun="srun" "-n" "\$mpi_total_procs" "--ntasks-per-node" "\$mpi_procs_pernode" "--threads-per-core=1" "--cpus-per-task" "\$OMP_NUM_THREADS"
+                mpi_startrun = srun -n \$mpi_total_procs --ntasks-per-node \$mpi_procs_pernode --threads-per-core=1 --cpus-per-task \$OMP_NUM_THREADS
                 ;;
         esac
         ;;
@@ -379,20 +378,20 @@ case "$ac_sitename" in
                 ;;
             lc*)
                 NETCDFROOT = ${NETCDF_DIR}
-                make_command="make" "-j" "8"
+                make_command = make -j 8
                 case "$fortran_compiler" in
                     intel*)
-                      load_modules    = "netcdf" "${load_modules}"
+                      load_modules    = netcdf ${load_modules}
                       CFLAGS          = -DHAVE_LIBNETCDF ${CFLAGS}
                       STD_FLAGS       = -O2 -xAVX -fltconsistency -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
                       FFLAGS          = ${FFLAGS}
-                      F77FLAGS        = "$FFLAGS" "$STD_FLAGS"
+                      F77FLAGS        = ${FFLAGS} ${STD_FLAGS}
                       LIBS            = ${LIBS}
                       FC              = ifort
                       CC              = icc
                       ;;
                     default|gcc)
-                      load_modules    = "netcdf" "${load_modules}"
+                      load_modules    = netcdf ${load_modules}
                       FFLAGS          = ${FFLAGS}
                       FC              = gfortran
                       CC              = gcc
@@ -425,14 +424,14 @@ case "$ac_sitename" in
 
     dkrz.de|bullx)
         case "$(hostname)" in
-            btc*|mlogin*)
+            btlogin*|mlogin*)
                 load_modules  = ncl/6.2.1-gccsys cdo/default svn/1.8.13 ${load_modules}
-                load_profile  = "/etc/profile"
+                load_profile  = /etc/profile
                 software_tree = /sw/rhel6-x64
                 config_target = bullx
-                make_command  = make -j8
+                make_command  = make -j 8
                 submit        = sbatch
-                sync_submit   = srunjob
+                sync_submit   = sbatch --wait
                 queue         = compute
                 case "$fortran_compiler" in
                     intel*)
@@ -452,7 +451,7 @@ case "$ac_sitename" in
                         esac
                         config_compiler = intel
                         CC          = icc
-                        CFLAGS      = -std=gnu99 -g -O3 -ftz -march=native -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2 -DHAVE_LIBSZ -DgFortran
+                        CFLAGS      = -std=gnu99 -g -O3 -qno-opt-dynamic-align -ftz -march=native -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2 -DHAVE_LIBSZ -DgFortran
                         ccversion   = $(icc --version 2>&1 | awk 'NR==1')
                         F77         = ifort
                         FC          = ifort
@@ -730,7 +729,7 @@ case "$ac_sitename" in
         software_tree = /sw/${dist_codename}-x64
         case "$host" in
             x86_64-*-linux-*)        # 64 bit squeeze, wheezy, jessie MPI/ZMAW workstation
-                load_profile  = "/client/etc/profile.zmaw"
+                load_profile  = /client/etc/profile.zmaw
                 config_target = mpipc
                 make_command  = make -j 2
                 submit        =

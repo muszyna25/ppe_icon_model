@@ -58,7 +58,7 @@ atmo_namelist=NAMELIST_${EXPNAME}_atmo
 # global timing
 #
 start_date="2000-01-01T00:00:00Z"
-  end_date="2000-01-03T00:00:00Z"
+  end_date="2000-01-01T12:00:00Z"
 # global resolution
 #
 R=2   # nroot
@@ -77,10 +77,10 @@ restart_units=2
 (( dt_checkpoint = restart_units * day ))
 (( dt_restart    = restart_units * day ))
 #
-atmo_output_interval="PT6H"
-atmo_file_interval="P02D"    # 1 month
-ocean_output_interval="PT12H"
-ocean_file_interval="P02D"   # 1 month
+atmo_output_interval="PT3H"
+atmo_file_interval="PT6H"    # 1 month
+ocean_output_interval="PT6H"
+ocean_file_interval="PT6H"   # 1 month
 #
 #-----------------------------------------------------------------------------
 # model parameters
