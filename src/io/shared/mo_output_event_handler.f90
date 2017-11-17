@@ -2518,7 +2518,9 @@ CONTAINS
     ev => event
     DO
       IF (.NOT. ASSOCIATED(ev)) EXIT
-      ev%irecv_req(:) = MPI_REQUEST_NULL
+      IF (ALLOCATED(ev%irecv_req)) THEN
+        ev%irecv_req(:) = MPI_REQUEST_NULL
+      END IF
       ev => ev%next
     END DO
 #endif
