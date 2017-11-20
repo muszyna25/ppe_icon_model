@@ -260,7 +260,7 @@ case "$ac_sitename" in
                     cray)
                         config_target=daint_cpu
                         load_modules = modules craype daint-gpu PrgEnv-cray cdt/16.11 cray-netcdf
-        		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv
+        		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv -O ipa1
                         CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -O3 -DUSE_XML2
 			LDFLAGS     = -Wl,--allow-multiple-definition
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
