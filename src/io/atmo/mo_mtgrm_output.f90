@@ -1227,6 +1227,7 @@ CONTAINS
     ! ------------------------------------------------------------
 
     nstations = meteogram_output_config%nstations
+    ithis_nlocal_pts = 0
 
     IF (.NOT. is_pure_io_pe) THEN
 
@@ -1341,12 +1342,9 @@ CONTAINS
     meteogram_data%icurrent  = 0 ! reset current sample index
     meteogram_data%max_nlevs = 1
 
-    ALLOCATE(meteogram_data%time_stamp(max_time_stamps), stat=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, &
-      'ALLOCATE of meteogram time stamp data structure failed')
-
     ! set up list of variables:
-    IF (.NOT. is_pure_io_pe) THEN
+    IF (     ithis_nlocal_pts > 0 &
+      & .OR. (.NOT. use_async_name_list_io .AND. is_mpi_workroot)) THEN
       ALLOCATE(meteogram_data%sfc_var_info(MAX_NSFCVARS),  &
         &      meteogram_data%var_info(MAX_NVARS),         &
         &      stat=ierrstat)
@@ -1382,6 +1380,10 @@ CONTAINS
       IF (ierrstat /= SUCCESS) &
         CALL finish (routine, 'DEALLOCATE of MPI buffer failed.')
     END IF
+
+    ALLOCATE(meteogram_data%time_stamp(max_time_stamps), stat=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, &
+      'ALLOCATE of meteogram time stamp data structure failed')
 
     meteogram_data%nsfcvars  = mtgrm(jg)%var_list%no_sfc_vars
     meteogram_data%nvars     = mtgrm(jg)%var_list%no_atmo_vars
@@ -1696,18 +1698,19 @@ CONTAINS
     i_tstep = meteogram_data%icurrent + 1
     meteogram_data%icurrent = i_tstep
 
-    meteogram_data%time_stamp(i_tstep)%istep = cur_step
-    CALL datetimeToPosixString(cur_datetime, zdate, "%Y%m%dT%H%M%SZ")
-    meteogram_data%time_stamp(i_tstep)%zdate = zdate
+    IF (meteogram_data%nstations > 0) THEN
+      meteogram_data%time_stamp(i_tstep)%istep = cur_step
+      CALL datetimeToPosixString(cur_datetime, zdate, "%Y%m%dT%H%M%SZ")
+      meteogram_data%time_stamp(i_tstep)%zdate = zdate
 
-    ! fill time step with values
-    DO istation=1,meteogram_data%nstations
-      CALL sample_station_vars(meteogram_data%station(istation), &
-        meteogram_data%var_info(1:mtgrm(jg)%var_list%no_atmo_vars), &
-        meteogram_data%sfc_var_info(1:mtgrm(jg)%var_list%no_sfc_vars), &
-        mtgrm(jg)%diag_var_indices, i_tstep)
-    END DO
-
+      ! fill time step with values
+      DO istation=1,meteogram_data%nstations
+        CALL sample_station_vars(meteogram_data%station(istation), &
+          meteogram_data%var_info(1:mtgrm(jg)%var_list%no_atmo_vars), &
+          meteogram_data%sfc_var_info(1:mtgrm(jg)%var_list%no_sfc_vars), &
+          mtgrm(jg)%diag_var_indices, i_tstep)
+      END DO
+    END IF
   END SUBROUTINE meteogram_sample_vars
 
   SUBROUTINE sample_station_vars(station, var_info, sfc_var_info, &
@@ -1768,15 +1771,17 @@ CONTAINS
     INTEGER                     :: ierrstat, istation, &
       &                            nvars, nsfcvars, ivar
     TYPE(t_meteogram_data), POINTER :: meteogram_data
-    LOGICAL :: is_pure_io_pe
+    LOGICAL :: is_mpi_workroot
 
     ! ------------------------------------------------------------
     ! If this is the IO PE: close NetCDF file
     ! ------------------------------------------------------------
 
     CALL meteogram_close_file(jg)
-    is_pure_io_pe = use_async_name_list_io .AND. my_process_is_io()
-    IF (.NOT. is_pure_io_pe) THEN
+    is_mpi_workroot = my_process_is_mpi_workroot()
+    IF (     mtgrm(jg)%meteogram_local_data%nstations > 0 &
+      & .OR. (.NOT. use_async_name_list_io .AND. is_mpi_workroot) &
+      & .OR. mtgrm(jg)%l_is_collecting_pe) THEN
       meteogram_data => mtgrm(jg)%meteogram_local_data
       DEALLOCATE(meteogram_data%time_stamp, stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
