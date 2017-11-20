@@ -164,9 +164,9 @@ CONTAINS
     ! ZA_HYBRID                  = za_list%register(cdi_zaxis_type=ZAXIS_HYBRID             , is_2D=.FALSE.)
     ! ZA_HYBRID_HALF             = za_list%register(cdi_zaxis_type=ZAXIS_HYBRID_HALF        , is_2D=.FALSE.)
     ! ZA_HYBRID_HALF_HHL         = za_list%register(cdi_zaxis_type=ZAXIS_HYBRID_HALF        , is_2D=.FALSE.)
-    ZA_HYBRID                  = za_list%register(cdi_zaxis_type=ZAXIS_REFERENCE          , is_2D=.FALSE.)
-    ZA_HYBRID_HALF             = za_list%register(cdi_zaxis_type=ZAXIS_REFERENCE          , is_2D=.FALSE.)
-    ZA_HYBRID_HALF_HHL         = za_list%register(cdi_zaxis_type=ZAXIS_REFERENCE          , is_2D=.FALSE.)
+    ZA_HYBRID                  = ZA_REFERENCE
+    ZA_HYBRID_HALF             = ZA_REFERENCE_HALF
+    ZA_HYBRID_HALF_HHL         = ZA_REFERENCE_HALF_HHL
     !DR*********WILL BE REMOVED SOON**********
 
     ZA_DEPTH_BELOW_LAND        = za_list%register(cdi_zaxis_type=ZAXIS_DEPTH_BELOW_LAND   , is_2D=.FALSE.)
