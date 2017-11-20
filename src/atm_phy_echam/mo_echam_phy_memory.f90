@@ -2174,7 +2174,7 @@ CONTAINS
     !---------------------------
 
     CALL add_var( field_list, prefix//'cpair', field%cpair,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                              &
                 & t_cf_var('cpair', 'J/kg/K',                                     &
                 &          'specific heat of air at constant pressure',           &
                 &          datatype_flt),                                         &
@@ -2186,7 +2186,7 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN ) )
 
     CALL add_var( field_list, prefix//'cvair', field%cvair,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                              &
                 & t_cf_var('cvair', 'J/kg/K',                                     &
                 &          'specific heat of air at constant colume',             &
                 &          datatype_flt),                                         &
@@ -2198,7 +2198,7 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN ) )
 
     CALL add_var( field_list, prefix//'qconv', field%qconv,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                              &
                 & t_cf_var('qconv', '(K/s)/(W/m2)',                               &
                 &          'conv. factor layer heating to temp. tendency',        &
                 &          datatype_flt),                                         &
@@ -2210,7 +2210,7 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN ) )
 
     CALL add_var( field_list, prefix//'q_phy', field%q_phy,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                              &
                 & t_cf_var('q_phy', 'W m-2',                                      &
                 &          'layer heating by physics',                            &
                 &          datatype_flt),                                         &
@@ -2231,7 +2231,7 @@ CONTAINS
                 & lrestart = .FALSE. )
 
     CALL add_var( field_list, prefix//'q_rlw', field%q_rlw,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                              &
                 & t_cf_var('q_rlw', 'W m-2',                                      &
                 &          'layer heating by LW radiation',                       &
                 &          datatype_flt),                                         &
@@ -2252,7 +2252,7 @@ CONTAINS
                 & lrestart = .FALSE. )
 
     CALL add_var( field_list, prefix//'q_rsw', field%q_rsw,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                              &
                 & t_cf_var('q_rsw', 'W m-2',                                      &
                 &          'layer heating by SW radiation',                       &
                 &          datatype_flt),                                         &
@@ -2273,7 +2273,7 @@ CONTAINS
                 & lrestart = .FALSE. )
 
     CALL add_var( field_list, prefix//'q_vdf', field%q_vdf,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                              &
                 & t_cf_var('q_vdf', 'W m-2',                                      &
                 &          'layer heating by vertical diffusion',                 &
                 &          datatype_flt),                                         &
@@ -2294,7 +2294,7 @@ CONTAINS
                 & lrestart = .FALSE. )
 
     CALL add_var( field_list, prefix//'q_cnv', field%q_cnv,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                              &
                 & t_cf_var('q_cnv', 'W m-2',                                      &
                 &          'layer heating by vertical diffusion',                 &
                 &          datatype_flt),                                         &
@@ -2315,7 +2315,7 @@ CONTAINS
                 & lrestart = .FALSE. )
 
     CALL add_var( field_list, prefix//'q_cld', field%q_cld,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                              &
                 & t_cf_var('q_cld', 'W m-2',                                      &
                 &          'layer heating by vertical diffusion',                 &
                 &          datatype_flt),                                         &
@@ -2336,7 +2336,7 @@ CONTAINS
                 & lrestart = .FALSE. )
 
     CALL add_var( field_list, prefix//'q_gwd', field%q_gwd,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                              &
                 & t_cf_var('q_gwd', 'W m-2',                                      &
                 &          'layer heating by atm. gravity wave drag',             &
                 &          datatype_flt),                                         &
@@ -2357,7 +2357,7 @@ CONTAINS
                 & lrestart = .FALSE. )
 
     CALL add_var( field_list, prefix//'q_sso', field%q_sso,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                              &
                 & t_cf_var('q_sso', 'W m-2',                                      &
                 &          'layer heating by atm. gravity wave drag',             &
                 &          datatype_flt),                                         &
@@ -3727,7 +3727,7 @@ CONTAINS
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
 
     CALL add_var( tend_list, prefix//'qtrc_mox', tend%qtrc_mox,                &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
                 & t_cf_var('tend_qtrc_mox', 'kg kg-1 s-1',                     &
                 &          'tendency of mass mixing ratio of tracers '//       &
                 &          'due to methane ox. and H2O photolysis',            &
@@ -3856,7 +3856,7 @@ CONTAINS
 
       CALL add_ref( tend_list, prefix//'qtrc_mox',                                        &
                   & prefix//'q'//TRIM(ctracer(jtrc))//'_mox', tend%qtrc_mox_ptr(jtrc)%p,  &
-                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                                    &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                    &
                   & t_cf_var('tend_q'//TRIM(ctracer(jtrc))//'_mox', 'kg kg-1 s-1',        &
                   &          'tendency of mass mixing ratio of tracer '//                 &
                   &          TRIM(ctracer(jtrc))//                                        &
