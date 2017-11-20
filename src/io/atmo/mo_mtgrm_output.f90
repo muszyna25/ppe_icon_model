@@ -1599,6 +1599,35 @@ CONTAINS
 
   END SUBROUTINE allocate_station_buffer
 
+  SUBROUTINE deallocate_station_buffer(station)
+    TYPE(t_meteogram_station), INTENT(inout) :: station
+
+    INTEGER :: ivar, nvars, ierror
+    CHARACTER(len=*), PARAMETER :: routine &
+      = modname//'::deallocate_station_buffer'
+
+    nvars = SIZE(station%var)
+    DO ivar=1,nvars
+      DEALLOCATE(station%var(ivar)%values, station%var(ivar)%heights, &
+        &        stat=ierror)
+      IF (ierror /= SUCCESS) &
+        CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
+    END DO
+    nvars = SIZE(station%sfc_var)
+    DO ivar=1,nvars
+      DEALLOCATE(station%sfc_var(ivar)%values, stat=ierror)
+      IF (ierror /= SUCCESS) &
+        CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
+    END DO
+    DEALLOCATE(station%sfc_var, station%var, stat=ierror)
+    IF (ierror /= SUCCESS) &
+      CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
+
+    DEALLOCATE(station%tile_frac, station%tile_luclass, stat=ierror)
+    IF (ierror /= SUCCESS) &
+      CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
+
+  END SUBROUTINE deallocate_station_buffer
   !>
   !! @return .TRUE. if meteogram data will be recorded for this step.
   !!
@@ -1665,8 +1694,8 @@ CONTAINS
       CALL meteogram_flush_file(jg)
     END IF
     i_tstep = meteogram_data%icurrent + 1
-
     meteogram_data%icurrent = i_tstep
+
     meteogram_data%time_stamp(i_tstep)%istep = cur_step
     CALL datetimeToPosixString(cur_datetime, zdate, "%Y%m%dT%H%M%SZ")
     meteogram_data%time_stamp(i_tstep)%zdate = zdate
@@ -1753,39 +1782,13 @@ CONTAINS
       IF (ierrstat /= SUCCESS) &
         CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
 
-      nvars    = meteogram_data%nvars
-      nsfcvars = meteogram_data%nsfcvars
       DEALLOCATE(meteogram_data%var_info, meteogram_data%sfc_var_info, stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
         CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
 
       DO istation = 1, meteogram_data%nstations
-        DO ivar=1,nvars
-          DEALLOCATE(meteogram_data%station(istation)%var(ivar)%values,  &
-            &        meteogram_data%station(istation)%var(ivar)%heights, &
-            &        stat=ierrstat)
-          IF (ierrstat /= SUCCESS) &
-            CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-        END DO
-        DEALLOCATE(meteogram_data%station(istation)%var, stat=ierrstat)
-        IF (ierrstat /= SUCCESS) &
-          CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-        DO ivar=1,nsfcvars
-          DEALLOCATE(meteogram_data%station(istation)%sfc_var(ivar)%values, &
-            &        stat=ierrstat)
-          IF (ierrstat /= SUCCESS) &
-            CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-        END DO
-        DEALLOCATE(meteogram_data%station(istation)%sfc_var, stat=ierrstat)
-        IF (ierrstat /= SUCCESS) &
-          CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-
-        DEALLOCATE(meteogram_data%station(istation)%tile_frac,    &
-          &        meteogram_data%station(istation)%tile_luclass, &
-          &        stat=ierrstat)
-        IF (ierrstat /= SUCCESS) &
-          CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-
+        CALL deallocate_station_buffer(&
+          &        mtgrm(jg)%meteogram_local_data%station(istation))
       END DO
 
       DEALLOCATE(meteogram_data%station, stat=ierrstat)
@@ -1805,27 +1808,8 @@ CONTAINS
       nsfcvars = mtgrm(jg)%meteogram_global_data%nsfcvars
 
       DO istation=1,mtgrm(jg)%meteogram_global_data%nstations
-        DO ivar=1,nvars
-          DEALLOCATE(mtgrm(jg)%meteogram_global_data%station(istation)%var(ivar)%values,  &
-            &        mtgrm(jg)%meteogram_global_data%station(istation)%var(ivar)%heights, &
-            &        stat=ierrstat)
-          IF (ierrstat /= SUCCESS) &
-            CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-        END DO
-        DEALLOCATE(mtgrm(jg)%meteogram_global_data%station(istation)%var, stat=ierrstat)
-        IF (ierrstat /= SUCCESS) &
-          CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-
-        DO ivar=1,nsfcvars
-          DEALLOCATE(mtgrm(jg)%meteogram_global_data%station(istation)%sfc_var(ivar)%values, &
-            &        stat=ierrstat)
-          IF (ierrstat /= SUCCESS) &
-            CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-        END DO
-        DEALLOCATE(mtgrm(jg)%meteogram_global_data%station(istation)%sfc_var, stat=ierrstat)
-        IF (ierrstat /= SUCCESS) &
-          CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-
+        CALL deallocate_station_buffer(&
+          mtgrm(jg)%meteogram_global_data%station(istation))
       END DO
       DEALLOCATE(mtgrm(jg)%meteogram_global_data%station, stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
