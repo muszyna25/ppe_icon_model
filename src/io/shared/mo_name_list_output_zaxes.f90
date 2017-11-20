@@ -57,8 +57,7 @@ MODULE mo_name_list_output_zaxes
     &                                             ZA_surface, ZA_isentropic, ZA_altitude, ZA_pressure,           &
     &                                             ZA_cloud_base, ZA_cloud_top, ZA_depth_below_land,              &
     &                                             ZA_depth_below_land_p1, ZA_depth_runoff_g, ZA_depth_runoff_s,  &
-    &                                             ZA_height_10m, ZA_height_2m, ZA_hybrid, ZA_hybrid_half,        &
-    &                                             ZA_hybrid_half_hhl, ZA_isotherm_zero, ZA_lake_bottom,          &
+    &                                             ZA_height_10m, ZA_height_2m, ZA_isotherm_zero, ZA_lake_bottom, &
     &                                             ZA_lake_bottom_half, ZA_meansea, ZA_mix_layer, ZA_pressure_0,  &
     &                                             ZA_pressure_400, ZA_pressure_800, ZA_ATMOSPHERE,               &
     &                                             ZA_PRES_FL_SFC_200, ZA_PRES_FL_200_350, ZA_PRES_FL_350_550,    &
@@ -240,37 +239,6 @@ CONTAINS
       &                           opt_uuid              = vgrid_buffer(log_patch_id)%uuid%DATA, &
       &                           opt_nlevref           = nlevp1 ))
 
-    ! --------------------------------------------------------------------------------------
-    ! Definitions for hybrid z-axes (ZAXIS_HYBRID) -----------------------------------------
-    ! --------------------------------------------------------------------------------------
-
-    ! HYBRID_LAYER
-    !
-    CALL verticalAxisList%append(vertical_axis(ZA_hybrid, nlev,                         &
-      &                          levels          = (/ ( REAL(k,dp),   k=1,nlevp1 ) /),  &
-      &                          level_selection = level_selection,                     &
-      &                          opt_set_bounds  = .TRUE.,                              &
-      &                          opt_vct         = vct(1:2*nlevp1)))
-
-    ! HYBRID
-    !
-    ! Note: "ZAXIS_HYBRID_HALF" is deprecated and will soon be
-    ! removed from the CDI (in principle its use should be simply
-    ! replaced by ZAXIS_HALF, as long as lbounds and ubounds are set
-    ! correctly).
-    CALL verticalAxisList%append(vertical_axis(ZA_hybrid_half, nlevp1,                  &
-      &                          levels          = (/ ( REAL(k,dp),   k=1,nlevp1 ) /),  &
-      &                          level_selection = level_selection,                     &
-      &                          opt_vct         = vct(1:2*nlevp1)))
-
-    ! HYBRID (special version for HHL)
-    !
-    CALL verticalAxisList%append(vertical_axis(ZA_hybrid_half_hhl, nlevp1,                    &
-      &                          levels                = (/ ( REAL(k,dp),   k=1,nlevp1 ) /),  &
-      &                          level_selection       = level_selection,                     &
-      &                          opt_set_bounds        = .TRUE.,                              &
-      &                          opt_set_ubounds_value = 0._dp,                               &
-      &                          opt_vct               = vct(1:2*nlevp1)))
 
     ! --------------------------------------------------------------------------------------
     ! Axes for soil model (ZAXIS_DEPTH_BELOW_LAND) -----------------------------------------

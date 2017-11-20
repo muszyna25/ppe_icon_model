@@ -43,7 +43,7 @@ MODULE mo_opt_diagnostics
   USE mo_grid_config,          ONLY: n_dom
   USE mo_run_config,           ONLY: ntracer,iqv,iqc,iqi
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
-  USE mo_zaxis_type,           ONLY: ZA_HYBRID, ZA_HYBRID_HALF, ZA_SURFACE, &
+  USE mo_zaxis_type,           ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF, ZA_SURFACE, &
     &                                ZA_MEANSEA
   USE mo_var_list,             ONLY: default_var_list_settings
   USE mo_cdi,                  ONLY: DATATYPE_FLT32, DATATYPE_PACK16,                  &
@@ -324,7 +324,7 @@ CONTAINS
        cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'Zonal wind (time mean)', datatype_flt)
        grib2_desc = grib2_var(0, 2, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( list, 'ua_m', p_acc%u,                                        &
-                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,       &
                    & ldims=shape3d_c,                                              &
                    & vert_interp=create_vert_interp_metadata(                      &
                    &   vert_intp_type=vintp_types("P","Z","I") ),                  &
@@ -337,7 +337,7 @@ CONTAINS
        cf_desc    = t_cf_var('northward_wind', 'm s-1', 'Meridional wind (time mean)', datatype_flt)
        grib2_desc = grib2_var(0, 2, 3, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( list, 'va_m', p_acc%v,                                        &
-                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,       &
                    & ldims=shape3d_c,                                              &
                    & vert_interp=create_vert_interp_metadata(                      &
                    &   vert_intp_type=vintp_types("P","Z","I") ),                  &
@@ -350,7 +350,7 @@ CONTAINS
        cf_desc    = t_cf_var('upward_air_velocity', 'm s-1', 'Vertical velocity (time mean)', datatype_flt)
        grib2_desc = grib2_var(0, 2, 9, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( list, 'wa_m', p_acc%w,                                        &
-                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,  &
                    & ldims=shape3d_chalf,                                          &
                    & vert_interp=create_vert_interp_metadata(                      &
                    &   vert_intp_type=vintp_types("P","Z","I"),                    &
@@ -364,7 +364,7 @@ CONTAINS
        cf_desc    = t_cf_var('air_density', 'kg m-3', 'density (time mean)', datatype_flt)
        grib2_desc = grib2_var(0, 3, 10, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( list, 'rho_m', p_acc%rho,                                     &
-                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,       &
                    & ldims=shape3d_c,                                              &
                    & vert_interp=create_vert_interp_metadata(                      &
                    &   vert_intp_type=vintp_types("P","Z","I"),                    &
@@ -378,7 +378,7 @@ CONTAINS
        cf_desc    = t_cf_var('air temperature', 'K', 'Temperature', datatype_flt)
        grib2_desc = grib2_var(0, 0, 0, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( list, 'ta_m', p_acc%temp,                                     &
-                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,       &
                    & ldims=shape3d_c,                                              &
                    & vert_interp=create_vert_interp_metadata(                      &
                    &             vert_intp_type=vintp_types("P","Z","I"),          &
@@ -415,7 +415,7 @@ CONTAINS
        cf_desc    = t_cf_var('air_pressure', 'Pa', 'pressure at full level (time mean)', datatype_flt)
        grib2_desc = grib2_var(0, 3, 0, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( list, 'pfull_m', p_acc%pres,                                  &
-                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,       &
                    & ldims=shape3d_c, lrestart=.FALSE. ,                           &
                    & vert_interp=create_vert_interp_metadata(                      &
                    &             vert_intp_type=vintp_types("P","Z","I"),          &
@@ -429,7 +429,7 @@ CONTAINS
        cf_desc    = t_cf_var('air_pressure', 'Pa', 'pressure at half level (time mean)', datatype_flt)
        grib2_desc = grib2_var(0, 3, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( list, 'phalf_m', p_acc%pres_ifc,                              &
-                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,  &
                    & ldims=shape3d_chalf, lrestart=.FALSE.,                        &
                    & vert_interp=create_vert_interp_metadata(                      &
                    &             vert_intp_type=vintp_types("P","Z","I"),          &
@@ -443,7 +443,7 @@ CONTAINS
        cf_desc    = t_cf_var('omega', 'Pa/s', 'vertical velocity (time mean)', datatype_flt)
        grib2_desc = grib2_var(0, 2, 8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( list,"wap_m", p_acc%omega,                                    &
-                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                            &
                    & cf_desc, grib2_desc,                                          &
                    & ldims=shape3d_c,                                              &
                    & vert_interp=create_vert_interp_metadata(                      &
@@ -465,7 +465,7 @@ CONTAINS
           cf_desc    = t_cf_var('tracer', 'kg kg-1', 'air tracer (time mean)', datatype_flt)
           grib2_desc = grib2_var(0,20,2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
           CALL add_var( list, 'tracer_m', p_acc%tracer,                         &
-                      & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, &
+                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
                       & ldims=shape4d_c ,                                       &
                       & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
@@ -473,7 +473,7 @@ CONTAINS
           DO jt=1,ntracer
              IF (jt == iqv ) CALL add_ref(                                          &
                   &  list, 'tracer_m', 'hus_m', p_acc%tracer_ptr(jt)%p,             &
-                  &  GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                  &  GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
                   &  t_cf_var('specific_humidity', 'kg kg-1',                       &
                   &           'specific_humidity (time mean)', datatype_flt),       &
                   &  grib2_var( 0, 1, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL),         &
@@ -492,7 +492,7 @@ CONTAINS
 
              IF ( jt == iqc )  CALL add_ref(                                        &
                   &  list, 'tracer_m', 'clw_m', p_acc%tracer_ptr(jt)%p,             &
-                  &  GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                  &  GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
                   &  t_cf_var('specific_cloud_water_content', 'kg kg-1',            &
                   &           'specific_cloud_water_content (time mean)',datatype_flt), &
                   &  grib2_var(0, 1, 22, ibits, GRID_UNSTRUCTURED, GRID_CELL),         &
@@ -512,7 +512,7 @@ CONTAINS
 
              IF ( jt == iqi ) CALL add_ref(                                         &
                   &  list, 'tracer_m', 'cli_m', p_acc%tracer_ptr(jt)%p,             &
-                  &  GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                  &  GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
                   &  t_cf_var('specific_cloud_ice_content', 'kg kg-1',              &
                   &           'specific_cloud_ice_content (time mean)', datatype_flt),  &
                   &  grib2_var(0, 1, 82, ibits, GRID_UNSTRUCTURED, GRID_CELL),         &

@@ -777,7 +777,7 @@ MODULE mo_async_latbc
          latbc%buffer%lread_qr = (test_cdi_varID(fileID_latbc, 'QR', latbc_dict) /= -1)
 
          ! Check if snow water (QS) is provided as input
-         latbc%buffer%lread_qs = (test_cdi_varID(fileID_latbc, 'QR', latbc_dict) /= -1)
+         latbc%buffer%lread_qs = (test_cdi_varID(fileID_latbc, 'QS', latbc_dict) /= -1)
 
 
          ! --- CHECK WHICH VARIABLES ARE AVAILABLE IN THE DATA SET ---
@@ -826,7 +826,7 @@ MODULE mo_async_latbc
          ELSE IF (test_cdi_varID(fileID_latbc, 'GEOP_ML', latbc_dict) /= -1) THEN
             lhave_geop  = .TRUE.
             latbc%buffer%geop_ml_var = 'GEOP_ML'
-         ELSE IF (.NOT. latbc%buffer%lread_theta_rho .AND. .NOT. latbc%buffer%lread_hhl) THEN
+         ELSE IF (.NOT. lhave_theta_rho .AND. .NOT. lhave_hhl) THEN
             CALL finish(routine,'Could not find model-level sfc geopotential')
          ENDIF
          lhave_ps_geop = (lhave_ps .and. lhave_geop)
