@@ -329,19 +329,6 @@ MODULE mo_meteogram_output
   END TYPE t_meteogram_data
 
   !>
-  !! Data structure specifying output file for meteogram data.
-  !!
-  TYPE t_meteogram_file
-    INTEGER                          :: ftype         !< file type (NetCDF, ...)
-    LOGICAL                          :: ldistributed  !< Flag. Separate files for each PE
-    CHARACTER(len=MAX_NAME_LENGTH)   :: zname         !< file name string
-    INTEGER                          :: file_id       !< meteogram file ID
-    CHARACTER(len=uuid_string_length):: uuid_string   !< unparsed grid UUID
-    INTEGER                          :: number_of_grid_used  !< as it says
-    TYPE(t_cf_global)                :: cf            !< meta info
-  END TYPE t_meteogram_file
-
-  !>
   !! Data structure specifying NetCDF IDs
   !!
   TYPE t_ncid
@@ -353,6 +340,21 @@ MODULE mo_meteogram_output
       &         time_step, dateid, var_values, sfcvar_values, var_heights, var_longname,  &
       &         sfcvar_longname
   END TYPE t_ncid
+
+  !>
+  !! Data structure specifying output file for meteogram data.
+  !!
+  TYPE t_meteogram_file
+    INTEGER                          :: ftype         !< file type (NetCDF, ...)
+    LOGICAL                          :: ldistributed  !< Flag. Separate files for each PE
+    CHARACTER(len=MAX_NAME_LENGTH)   :: zname         !< file name string
+    INTEGER                          :: file_id       !< meteogram file ID
+    CHARACTER(len=uuid_string_length):: uuid_string   !< unparsed grid UUID
+    INTEGER                          :: number_of_grid_used  !< as it says
+    TYPE(t_cf_global)                :: cf            !< meta info
+    !> NetCDF dimension IDs
+    TYPE(t_ncid)                     :: ncid
+  END TYPE t_meteogram_file
 
   !>
   !! Data structure containing internal indices for variables
@@ -384,7 +386,6 @@ MODULE mo_meteogram_output
     TYPE(t_meteogram_data)  :: meteogram_global_data            !< collected buffers (on IO PE)
     TYPE(t_meteogram_file)  :: meteogram_file_info              !< meteogram file handle etc.
 
-    TYPE(t_ncid)            :: ncid_list                        !< NetCDF dimension IDs
     TYPE(t_var)             :: var_list                         !< internal indices of variables
 
     !! -- data for distributed meteogram sampling (MPI) --
@@ -1768,8 +1769,7 @@ CONTAINS
     INTEGER, INTENT(IN)         :: jg    !< patch index
     ! local variables:
     CHARACTER(*), PARAMETER     :: routine = modname//":meteogram_finalize"
-    INTEGER                     :: ierrstat, istation, &
-      &                            nvars, nsfcvars, ivar
+    INTEGER                     :: ierrstat, istation
     TYPE(t_meteogram_data), POINTER :: meteogram_data
     LOGICAL :: is_mpi_workroot
 
@@ -1808,9 +1808,6 @@ CONTAINS
     ! deallocate global meteogram data
 
     IO_PE : IF (mtgrm(jg)%l_is_collecting_pe) THEN
-
-      nvars    = mtgrm(jg)%meteogram_global_data%nvars
-      nsfcvars = mtgrm(jg)%meteogram_global_data%nsfcvars
 
       DO istation=1,mtgrm(jg)%meteogram_global_data%nstations
         CALL deallocate_station_buffer(&
@@ -2135,13 +2132,12 @@ CONTAINS
       exist=mtgrm_file_exists)
     IF (.NOT. mtgrm_file_exists .OR. &
       .NOT. meteogram_output_config%append_if_exists) THEN
-      CALL meteogram_create_file(meteogram_output_config, mtgrm%ncid_list, &
-        mtgrm%meteogram_file_info%cf, mtgrm%meteogram_file_info, &
+      CALL meteogram_create_file(meteogram_output_config, &
+        mtgrm%meteogram_file_info, &
         MERGE(mtgrm%meteogram_global_data, mtgrm%meteogram_local_data, &
         &     .NOT. meteogram_output_config%ldistributed))
     ELSE
-      CALL meteogram_append_file(mtgrm%ncid_list, &
-        mtgrm%meteogram_file_info, &
+      CALL meteogram_append_file(mtgrm%meteogram_file_info, &
         MERGE(mtgrm%meteogram_global_data, mtgrm%meteogram_local_data, &
         &     .NOT. meteogram_output_config%ldistributed))
     END IF
@@ -2149,164 +2145,200 @@ CONTAINS
 
   END SUBROUTINE meteogram_open_file
 
-  SUBROUTINE meteogram_create_file(meteogram_output_config, ncid, cf, &
-       meteogram_file_info, meteogram_data)
-    TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: &
-         meteogram_output_config
-    TYPE(t_ncid), INTENT(out) :: ncid
-    TYPE(t_cf_global), INTENT(in) :: cf
-    TYPE(t_meteogram_file), INTENT(in) :: meteogram_file_info
+  SUBROUTINE meteogram_create_file(output_config, file_info, meteogram_data)
+    TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: output_config
+    TYPE(t_meteogram_file), INTENT(inout) :: file_info
     TYPE(t_meteogram_data), INTENT(in) :: meteogram_data
     INTEGER :: station_name_dims(2), var_name_dims(2), &
-      &        time_string_dims(2), &
+      &        time_string_dims(2), tile_dims(2),      &
       &        var_dims(4),  sfcvar_dims(3),           &
       &        height_level_dims(3),                   &
-      &        iowner, tlen
+      &        iowner, tlen, station_idx, istart(2), icount(2)
     INTEGER :: old_mode, ncfile, &
-      &        istation, ivar, nvars, nsfcvars, nlevs
-    TYPE(t_station_list)  , POINTER :: this_station
+      &        istation, ivar, nvars, nsfcvars
     CHARACTER(len=*), PARAMETER :: routine = modname//":meteogram_create_file"
 
     nvars    = meteogram_data%nvars
     nsfcvars = meteogram_data%nsfcvars
 
-    CALL nf(nf_create(TRIM(meteogram_file_info%zname), nf_clobber, &
-      &               meteogram_file_info%file_id), routine)
-    ncfile = meteogram_file_info%file_id
+    CALL nf(nf_create(TRIM(file_info%zname), nf_clobber, &
+      &               file_info%file_id), routine)
+    ncfile = file_info%file_id
     CALL nf(nf_set_fill(ncfile, nf_nofill, old_mode), routine)
-    CALL put_global_txt_att('title', TRIM(cf%title))
-    CALL put_global_txt_att('history', TRIM(cf%history))
-    CALL put_global_txt_att('institution', TRIM(cf%institution))
-    CALL put_global_txt_att('source', TRIM(cf%source))
-    CALL put_global_txt_att('comment', TRIM(cf%comment))
-    CALL put_global_txt_att('references', TRIM(cf%references))
-    CALL put_global_txt_att('uuidOfHGrid', meteogram_file_info%uuid_string)
+    CALL put_global_txt_att('title', TRIM(file_info%cf%title))
+    CALL put_global_txt_att('history', TRIM(file_info%cf%history))
+    CALL put_global_txt_att('institution', TRIM(file_info%cf%institution))
+    CALL put_global_txt_att('source', TRIM(file_info%cf%source))
+    CALL put_global_txt_att('comment', TRIM(file_info%cf%comment))
+    CALL put_global_txt_att('references', TRIM(file_info%cf%references))
+    CALL put_global_txt_att('uuidOfHGrid', file_info%uuid_string)
     CALL nf(nf_put_att_int(ncfile, NF_GLOBAL, 'numberOfGridUsed',  &
       &                    nf_int, 1, &
-      &                    meteogram_file_info%number_of_grid_used), &
+      &                    file_info%number_of_grid_used), &
       &     routine)
 
 
     ! for the definition of a character-string variable define
     ! character-position dimension for strings
-    CALL nf(nf_def_dim(ncfile, "stringlen",  MAX_DESCR_LENGTH, ncid%charid), &
-      &     routine)
+    CALL nf(nf_def_dim(ncfile, "stringlen",  MAX_DESCR_LENGTH, &
+      &     file_info%ncid%charid), routine)
     ! station header:
-    CALL nf(nf_def_dim(ncfile, 'nstations',  meteogram_data%nstations, ncid%nstations), &
-      &     routine)
+    CALL nf(nf_def_dim(ncfile, 'nstations',  meteogram_data%nstations, &
+      &     file_info%ncid%nstations), routine)
     ! write variables:
-    CALL nf(nf_def_dim(ncfile, 'nvars',      meteogram_data%nvars, ncid%nvars), routine)
-    CALL nf(nf_def_dim(ncfile, 'ntiles',     ntiles_mtgrm, ncid%ntiles), routine)
+    CALL nf(nf_def_dim(ncfile, 'nvars',      meteogram_data%nvars, &
+      &     file_info%ncid%nvars), routine)
+    CALL nf(nf_def_dim(ncfile, 'ntiles',     ntiles_mtgrm, &
+      &     file_info%ncid%ntiles), routine)
     IF (meteogram_data%nsfcvars > 0) &
-      CALL nf(nf_def_dim(ncfile, 'nsfcvars', meteogram_data%nsfcvars,  ncid%nsfcvars), &
-        &     routine)
-    CALL nf(nf_def_dim(ncfile, 'max_nlevs',  meteogram_data%max_nlevs, ncid%max_nlevs), &
-      &     routine)
+      CALL nf(nf_def_dim(ncfile, 'nsfcvars', meteogram_data%nsfcvars,  &
+      &       file_info%ncid%nsfcvars), routine)
+    CALL nf(nf_def_dim(ncfile, 'max_nlevs',  meteogram_data%max_nlevs, &
+      &     file_info%ncid%max_nlevs), routine)
     ! create time dimension:
-    CALL nf(nf_def_dim(ncfile, 'time', NF_UNLIMITED, ncid%timeid), routine)
+    CALL nf(nf_def_dim(ncfile, 'time', NF_UNLIMITED, &
+      &     file_info%ncid%timeid), routine)
 
     ! create station variables:
-    station_name_dims = (/ ncid%charid, ncid%nstations /)
-    CALL nf(nf_def_var(ncfile, "station_name", NF_CHAR, 2, station_name_dims(:), &
-      &                ncid%station_name), routine)
-    CALL nf_add_descr("Station name (character string)", ncfile, ncid%station_name)
-    CALL nf(nf_def_var(ncfile, "station_lon", NF_DOUBLE, 1, ncid%nstations, &
-      &                ncid%station_lon), routine)
-    CALL nf_add_descr("Longitude of meteogram station", ncfile, ncid%station_lon)
-    CALL nf(nf_def_var(ncfile, "station_lat", NF_DOUBLE, 1, ncid%nstations, &
-      &                ncid%station_lat), routine)
-    CALL nf_add_descr("Latitude of meteogram station", ncfile, ncid%station_lat)
-    CALL nf(nf_def_var(ncfile, "station_idx", NF_INT, 1, ncid%nstations, &
-      &                ncid%station_idx), routine)
+    station_name_dims = (/ file_info%ncid%charid, &
+      &     file_info%ncid%nstations /)
+    CALL nf(nf_def_var(ncfile, "station_name", NF_CHAR, 2, station_name_dims, &
+      &                file_info%ncid%station_name), routine)
+    CALL nf_add_descr("Station name (character string)", ncfile, &
+      &               file_info%ncid%station_name)
+    CALL nf(nf_def_var(ncfile, "station_lon", NF_DOUBLE, 1, &
+      &     file_info%ncid%nstations, file_info%ncid%station_lon), routine)
+    CALL nf_add_descr("Longitude of meteogram station", ncfile, &
+      &     file_info%ncid%station_lon)
+    CALL nf(nf_def_var(ncfile, "station_lat", NF_DOUBLE, 1, &
+      &     file_info%ncid%nstations, file_info%ncid%station_lat), routine)
+    CALL nf_add_descr("Latitude of meteogram station", ncfile, &
+      &     file_info%ncid%station_lat)
+    CALL nf(nf_def_var(ncfile, "station_idx", NF_INT, 1, &
+      &     file_info%ncid%nstations, file_info%ncid%station_idx), routine)
     CALL nf_add_descr("Global triangle adjacent to meteogram station (index)", &
-      &               ncfile, ncid%station_idx)
-    CALL nf(nf_def_var(ncfile, "station_blk", NF_INT, 1, ncid%nstations, &
-      &                ncid%station_blk), routine)
+      &               ncfile, file_info%ncid%station_idx)
+    CALL nf(nf_def_var(ncfile, "station_blk", NF_INT, 1, &
+      &     file_info%ncid%nstations, file_info%ncid%station_blk), routine)
     CALL nf_add_descr("Global triangle adjacent to meteogram station (block)", &
-      &               ncfile, ncid%station_blk)
-    CALL nf(nf_def_var(ncfile, "station_hsurf", NF_DOUBLE, 1, ncid%nstations, &
-      &                ncid%station_hsurf), routine)
-    CALL nf_add_descr("Meteogram station surface height", ncfile, ncid%station_hsurf)
-    CALL nf(nf_def_var(ncfile, "station_frland", NF_DOUBLE, 1, ncid%nstations, &
-      &                ncid%station_frland), routine)
-    CALL nf_add_descr("Meteogram station land fraction", ncfile, ncid%station_frland)
-    CALL nf(nf_def_var(ncfile, "station_fc", NF_DOUBLE, 1, ncid%nstations, &
-      &                ncid%station_fc), routine)
-    CALL nf_add_descr("Meteogram station Coriolis parameter", ncfile, ncid%station_fc)
-    CALL nf(nf_def_var(ncfile, "station_soiltype", NF_INT, 1, ncid%nstations, &
-      &                ncid%station_soiltype), routine)
-    CALL nf_add_descr("Meteogram station soil type", ncfile, ncid%station_soiltype)
+      &               ncfile, file_info%ncid%station_blk)
+    CALL nf(nf_def_var(ncfile, "station_hsurf", NF_DOUBLE, 1, &
+      &     file_info%ncid%nstations, file_info%ncid%station_hsurf), routine)
+    CALL nf_add_descr("Meteogram station surface height", ncfile, &
+      &     file_info%ncid%station_hsurf)
+    CALL nf(nf_def_var(ncfile, "station_frland", NF_DOUBLE, 1, &
+      &     file_info%ncid%nstations, file_info%ncid%station_frland), routine)
+    CALL nf_add_descr("Meteogram station land fraction", ncfile, &
+      &     file_info%ncid%station_frland)
+    CALL nf(nf_def_var(ncfile, "station_fc", NF_DOUBLE, 1, &
+      &     file_info%ncid%nstations, file_info%ncid%station_fc), routine)
+    CALL nf_add_descr("Meteogram station Coriolis parameter", ncfile, &
+      &     file_info%ncid%station_fc)
+    CALL nf(nf_def_var(ncfile, "station_soiltype", NF_INT, 1, &
+      &     file_info%ncid%nstations, file_info%ncid%station_soiltype), routine)
+    CALL nf_add_descr("Meteogram station soil type", ncfile, &
+      &     file_info%ncid%station_soiltype)
 
-    CALL nf(nf_def_var(ncfile, "station_tile_frac", NF_DOUBLE, 2, (/ncid%ntiles, ncid%nstations/), &
-      &                ncid%station_tile_frac), routine)
-    CALL nf_add_descr("Meteogram station tile fractions", ncfile, ncid%station_tile_frac)
-    CALL nf(nf_def_var(ncfile, "station_tile_luclass", NF_INT, 2, (/ncid%ntiles, ncid%nstations/), &
-      &                ncid%station_tile_luclass), routine)
-    CALL nf_add_descr("Meteogram station tile specific land-use classes", ncfile, ncid%station_tile_luclass)
+    tile_dims(1) = file_info%ncid%ntiles
+    tile_dims(2) = file_info%ncid%nstations
+    CALL nf(nf_def_var(ncfile, "station_tile_frac", NF_DOUBLE, 2, tile_dims, &
+      &                file_info%ncid%station_tile_frac), routine)
+    CALL nf_add_descr("Meteogram station tile fractions", ncfile, &
+      &               file_info%ncid%station_tile_frac)
+    CALL nf(nf_def_var(ncfile, "station_tile_luclass", NF_INT, 2, tile_dims, &
+      &                file_info%ncid%station_tile_luclass), routine)
+    CALL nf_add_descr("Meteogram station tile specific land-use classes", &
+      &               ncfile, file_info%ncid%station_tile_luclass)
 
 
     ! create variable info fields:
     ! volume variables
-    var_name_dims = (/ ncid%charid, ncid%nvars /)
+    var_name_dims = (/ file_info%ncid%charid, &
+      &     file_info%ncid%nvars /)
     CALL nf(nf_def_var(ncfile, "var_name", NF_CHAR, 2, var_name_dims(:), &
-      &                ncid%var_name), routine)
-    CALL nf_add_descr("Variable name (character string)", ncfile, ncid%var_name)
+      &                file_info%ncid%var_name), routine)
+    CALL nf_add_descr("Variable name (character string)", ncfile, &
+      &     file_info%ncid%var_name)
     CALL nf(nf_def_var(ncfile, "var_long_name", NF_CHAR, 2, var_name_dims(:), &
-      &                ncid%var_longname), routine)
-    CALL nf_add_descr("Variable name (long, character string)", ncfile, ncid%var_longname)
+      &                file_info%ncid%var_longname), routine)
+    CALL nf_add_descr("Variable name (long, character string)", ncfile, &
+      &     file_info%ncid%var_longname)
     CALL nf(nf_def_var(ncfile, "var_unit", NF_CHAR, 2, var_name_dims(:), &
-      &                ncid%var_unit), routine)
-    CALL nf_add_descr("Variable unit (character string)", ncfile, ncid%var_unit)
-    CALL nf(nf_def_var(ncfile, "var_group_id", NF_INT, 1, ncid%nvars, &
-      &                ncid%var_group_id), routine)
-    CALL nf_add_descr("Variable group ID", ncfile, ncid%var_group_id)
-    CALL nf(nf_def_var(ncfile, "var_nlevs", NF_INT, 1, ncid%nvars, &
-      &                ncid%var_nlevs), routine)
-    CALL nf_add_descr("No. of levels for volume variable", ncfile, ncid%var_nlevs)
+      &                file_info%ncid%var_unit), routine)
+    CALL nf_add_descr("Variable unit (character string)", ncfile, &
+      &     file_info%ncid%var_unit)
+    CALL nf(nf_def_var(ncfile, "var_group_id", NF_INT, 1, &
+      &     file_info%ncid%nvars, file_info%ncid%var_group_id), routine)
+    CALL nf_add_descr("Variable group ID", ncfile, &
+      &     file_info%ncid%var_group_id)
+    CALL nf(nf_def_var(ncfile, "var_nlevs", NF_INT, 1, &
+      &     file_info%ncid%nvars, file_info%ncid%var_nlevs), routine)
+    CALL nf_add_descr("No. of levels for volume variable", ncfile, &
+      &     file_info%ncid%var_nlevs)
     ! surface variables:
     IF (meteogram_data%nsfcvars > 0) THEN
-      var_name_dims = (/ ncid%charid, ncid%nsfcvars /)
+      var_name_dims = (/ file_info%ncid%charid, &
+      &     file_info%ncid%nsfcvars /)
       CALL nf(nf_def_var(ncfile, "sfcvar_name", NF_CHAR, 2, var_name_dims(:), &
-        &                ncid%sfcvar_name), routine)
-      CALL nf_add_descr("Surface variable name (character string)", ncfile, ncid%sfcvar_name)
+        &                file_info%ncid%sfcvar_name), routine)
+      CALL nf_add_descr("Surface variable name (character string)", ncfile, &
+      &     file_info%ncid%sfcvar_name)
       CALL nf(nf_def_var(ncfile, "sfcvar_long_name", NF_CHAR, 2, var_name_dims(:), &
-        &                ncid%sfcvar_longname), routine)
+        &                file_info%ncid%sfcvar_longname), routine)
       CALL nf_add_descr("Surface variable name (long, character string)", &
-        &               ncfile, ncid%sfcvar_longname)
+        &               ncfile, &
+      &     file_info%ncid%sfcvar_longname)
       CALL nf(nf_def_var(ncfile, "sfcvar_unit", NF_CHAR, 2, var_name_dims(:), &
-        &                ncid%sfcvar_unit), routine)
-      CALL nf_add_descr("Surface variable unit (character string)", ncfile, ncid%sfcvar_unit)
-      CALL nf(nf_def_var(ncfile, "sfcvar_group_id", NF_INT, 1, ncid%nsfcvars, &
-        &                ncid%sfcvar_group_id), routine)
-      CALL nf_add_descr("Surface variable group ID", ncfile, ncid%sfcvar_group_id)
+        &                file_info%ncid%sfcvar_unit), routine)
+      CALL nf_add_descr("Surface variable unit (character string)", ncfile, &
+      &     file_info%ncid%sfcvar_unit)
+      CALL nf(nf_def_var(ncfile, "sfcvar_group_id", NF_INT, 1, &
+      &     file_info%ncid%nsfcvars, &
+        &                file_info%ncid%sfcvar_group_id), routine)
+      CALL nf_add_descr("Surface variable group ID", ncfile, &
+      &     file_info%ncid%sfcvar_group_id)
     END IF
 
     ! create variables for time slice info:
-    CALL nf(nf_def_var(ncfile, "time_step", NF_INT, 1, ncid%timeid, &
-      &                ncid%time_step), routine)
-    CALL nf_add_descr("Time step indices", ncfile, ncid%time_step)
-    time_string_dims = (/ ncid%charid, ncid%timeid /)
+    CALL nf(nf_def_var(ncfile, "time_step", NF_INT, 1, &
+      &     file_info%ncid%timeid, &
+      &                file_info%ncid%time_step), routine)
+    CALL nf_add_descr("Time step indices", ncfile, &
+      &     file_info%ncid%time_step)
+    time_string_dims = (/ file_info%ncid%charid, &
+      &     file_info%ncid%timeid /)
     CALL nf(nf_def_var(ncfile, "date", NF_CHAR, 2, time_string_dims(:), &
-      &                ncid%dateid), routine)
-    CALL nf_add_descr("Sample dates (character string)", ncfile, ncid%dateid)
+      &                file_info%ncid%dateid), routine)
+    CALL nf_add_descr("Sample dates (character string)", ncfile, &
+      &     file_info%ncid%dateid)
 
     ! height levels
-    height_level_dims = (/ ncid%nstations, ncid%nvars, ncid%max_nlevs /)
+    height_level_dims = (/ file_info%ncid%nstations, &
+      &     file_info%ncid%nvars, &
+      &     file_info%ncid%max_nlevs /)
     CALL nf(nf_def_var(ncfile, "heights", NF_DOUBLE, 3, height_level_dims(:), &
-      &                ncid%var_heights), routine)
-    CALL nf_add_descr("level heights for volume variables", ncfile, ncid%var_heights)
+      &                file_info%ncid%var_heights), routine)
+    CALL nf_add_descr("level heights for volume variables", ncfile, &
+      &     file_info%ncid%var_heights)
 
     ! add value buffer for volume variables:
-    var_dims = (/ ncid%nstations, ncid%nvars, ncid%max_nlevs, ncid%timeid /)
+    var_dims = (/ file_info%ncid%nstations, &
+      &     file_info%ncid%nvars, &
+      &     file_info%ncid%max_nlevs, &
+      &     file_info%ncid%timeid /)
     CALL nf(nf_def_var(ncfile, "values", NF_DOUBLE, 4, var_dims(:), &
-      &                ncid%var_values), routine)
-    CALL nf_add_descr("value buffer for volume variables", ncfile, ncid%var_values)
+      &                file_info%ncid%var_values), routine)
+    CALL nf_add_descr("value buffer for volume variables", ncfile, &
+      &     file_info%ncid%var_values)
     ! add value buffer for surface variables:
     IF (meteogram_data%nsfcvars > 0) THEN
-      sfcvar_dims = (/ ncid%nstations, ncid%nsfcvars, ncid%timeid /)
+      sfcvar_dims = (/ file_info%ncid%nstations, &
+      &     file_info%ncid%nsfcvars, &
+      &     file_info%ncid%timeid /)
       CALL nf(nf_def_var(ncfile, "sfcvalues", NF_DOUBLE, 3, sfcvar_dims(:), &
-        &                ncid%sfcvar_values), routine)
-      CALL nf_add_descr("value buffer for surface variables", ncfile, ncid%sfcvar_values)
+        &                file_info%ncid%sfcvar_values), routine)
+      CALL nf_add_descr("value buffer for surface variables", ncfile, &
+      &     file_info%ncid%sfcvar_values)
     END IF
 
     ! ----------------------
@@ -2314,42 +2346,50 @@ CONTAINS
     CALL nf(nf_enddef(ncfile), routine)
     IF (dbg_level > 7)  WRITE (*,*) routine, " : End of definition mode"
 
+    istart(1) = 1
+    icount(2) = 1
     DO ivar=1,nvars
+      istart(2) = ivar
       tlen = LEN_TRIM(meteogram_data%var_info(ivar)%cf%standard_name)
-      CALL nf(nf_put_vara_text(ncfile, ncid%var_name, (/ 1, ivar /), &
-        &        (/ tlen, 1 /), &
+      icount(1) = tlen
+      CALL nf(nf_put_vara_text(ncfile, file_info%ncid%var_name, istart, icount, &
         &        meteogram_data%var_info(ivar)%cf%standard_name(1:tlen)), &
         &     routine)
       tlen = LEN_TRIM(meteogram_data%var_info(ivar)%cf%long_name)
-      CALL nf(nf_put_vara_text(ncfile, ncid%var_longname, (/ 1, ivar /), &
-        &        (/ tlen, 1 /), &
+      icount(1) = tlen
+      CALL nf(nf_put_vara_text(ncfile, file_info%ncid%var_longname, &
+        &        istart, icount, &
         &        meteogram_data%var_info(ivar)%cf%long_name(1:tlen)), routine)
       tlen = LEN_TRIM(meteogram_data%var_info(ivar)%cf%units)
-      CALL nf(nf_put_vara_text(ncfile, ncid%var_unit, (/ 1, ivar /), &
-        &        (/ tlen, 1 /), &
+      icount(1) = tlen
+      CALL nf(nf_put_vara_text(ncfile, file_info%ncid%var_unit, istart, icount, &
         &        meteogram_data%var_info(ivar)%cf%units(1:tlen)), routine)
-      CALL nf(nf_put_vara_int(ncfile, ncid%var_group_id, ivar, 1, &
+      CALL nf(nf_put_vara_int(ncfile, file_info%ncid%var_group_id, ivar, 1, &
         &        meteogram_data%var_info(ivar)%igroup_id), routine)
-      CALL nf(nf_put_vara_int(ncfile, ncid%var_nlevs, ivar, 1, &
+      CALL nf(nf_put_vara_int(ncfile, file_info%ncid%var_nlevs, ivar, 1, &
         &        meteogram_data%var_info(ivar)%nlevs), routine)
     END DO
 
     DO ivar=1,nsfcvars
+      istart(2) = ivar
       tlen = LEN_TRIM(meteogram_data%sfc_var_info(ivar)%cf%standard_name)
-      CALL nf(nf_put_vara_text(ncfile, ncid%sfcvar_name, (/ 1, ivar /), &
-        &        (/ tlen, 1 /), &
+      icount(1) = tlen
+      CALL nf(nf_put_vara_text(ncfile, file_info%ncid%sfcvar_name, &
+        &        istart, icount, &
         &        meteogram_data%sfc_var_info(ivar)%cf%standard_name(1:tlen)), &
         &     routine)
       tlen = LEN_TRIM(meteogram_data%sfc_var_info(ivar)%cf%long_name)
-      CALL nf(nf_put_vara_text(ncfile, ncid%sfcvar_longname, (/ 1, ivar /), &
-        &        (/ tlen, 1 /), &
+      icount(1) = tlen
+      CALL nf(nf_put_vara_text(ncfile, file_info%ncid%sfcvar_longname, &
+        &        istart, icount, &
         &        meteogram_data%sfc_var_info(ivar)%cf%long_name(1:tlen)), &
         &     routine)
       tlen = LEN_TRIM(meteogram_data%sfc_var_info(ivar)%cf%units)
-      CALL nf(nf_put_vara_text(ncfile, ncid%sfcvar_unit, (/ 1, ivar /), &
-        &        (/ tlen, 1 /), &
+      icount(1) = tlen
+      CALL nf(nf_put_vara_text(ncfile, file_info%ncid%sfcvar_unit, &
+        &        istart, icount, &
         &        meteogram_data%sfc_var_info(ivar)%cf%units(1:tlen)), routine)
-      CALL nf(nf_put_vara_int(ncfile, ncid%sfcvar_group_id, ivar, 1, &
+      CALL nf(nf_put_vara_int(ncfile, file_info%ncid%sfcvar_group_id, ivar, 1, &
         &        meteogram_data%sfc_var_info(ivar)%igroup_id), routine)
     END DO
 
@@ -2358,54 +2398,10 @@ CONTAINS
 
       iowner = meteogram_data%pstation(istation)
       IF (iowner >= 0) THEN
-        this_station => meteogram_output_config%station_list(           &
-          &               meteogram_data%station(istation)%station_idx)
-        tlen = LEN_TRIM(this_station%zname)
-        CALL nf(nf_put_vara_text(ncfile, ncid%station_name, (/ 1, istation /), &
-          &                      (/ tlen, 1 /), &
-          &                      this_station%zname(1:tlen)), routine)
-        CALL nf(nf_put_vara_double(ncfile, ncid%station_lon, istation, 1, &
-          &                        this_station%location%lon), routine)
-        CALL nf(nf_put_vara_double(ncfile, ncid%station_lat, istation, 1, &
-          &                        this_station%location%lat), routine)
-        CALL nf(nf_put_vara_int(ncfile, ncid%station_idx, istation, 1, &
-          &                     meteogram_data%station(istation)%tri_idx(1)), &
-          &                     routine)
-        CALL nf(nf_put_vara_int(ncfile, ncid%station_blk, istation, 1, &
-          &                     meteogram_data%station(istation)%tri_idx(2)), &
-          &                     routine)
-        CALL nf(nf_put_vara_double(ncfile, ncid%station_hsurf, istation, 1, &
-          &                        meteogram_data%station(istation)%hsurf),    &
-          &                        routine)
-        CALL nf(nf_put_vara_double(ncfile, ncid%station_frland, istation, 1, &
-          &                        meteogram_data%station(istation)%frland),    &
-          &                        routine)
-        CALL nf(nf_put_vara_double(ncfile, ncid%station_fc, istation, 1, &
-          &                        meteogram_data%station(istation)%fc),    &
-          &                        routine)
-        CALL nf(nf_put_vara_int(ncfile, ncid%station_soiltype, istation, 1, &
-          &                     meteogram_data%station(istation)%soiltype),    &
-          &                     routine)
-        CALL nf(nf_put_vara_double(ncfile, ncid%station_tile_frac,           &
-          &                       (/                         1, istation /), &
-          &                       (/ ntiles_mtgrm, 1 /),                     &
-          &                        meteogram_data%station(istation)%tile_frac), &
-          &                        routine)
-        CALL nf(nf_put_vara_int(ncfile, ncid%station_tile_luclass,        &
-          &                    (/                         1, istation /), &
-          &                    (/ ntiles_mtgrm, 1 /),                     &
-          &                     meteogram_data%station(istation)%tile_luclass), &
-          &                     routine)
-
-        ! model level heights
-        DO ivar=1,nvars
-          nlevs = meteogram_data%var_info(ivar)%nlevs
-          CALL nf(nf_put_vara_double(ncfile, ncid%var_heights,     &
-            &    (/ istation, ivar,     1 /),                      &
-            &    (/        1,    1, nlevs /),                      &
-            &    meteogram_data%station(istation)%var(ivar)%heights(1:nlevs)), &
-            &    routine)
-        END DO
+        station_idx = meteogram_data%station(istation)%station_idx
+        CALL put_station_invariants(file_info, istation, &
+          output_config%station_list(station_idx), &
+          meteogram_data%station(istation), meteogram_data%var_info)
       ELSE IF (dbg_level > 5) THEN
         WRITE (*,*) "skipping station!"
       END IF
@@ -2419,64 +2415,155 @@ CONTAINS
     END SUBROUTINE put_global_txt_att
   END SUBROUTINE meteogram_create_file
 
+  SUBROUTINE put_station_invariants(file_info, istation, station_cfg, station, &
+    var_info)
+    TYPE(t_meteogram_file), INTENT(in) :: file_info
+    INTEGER, INTENT(in) :: istation
+    TYPE(t_station_list), INTENT(in) :: station_cfg
+    TYPE(t_meteogram_station), INTENT(in) :: station
+    TYPE(t_var_info), INTENT(in) :: var_info(:)
 
-  SUBROUTINE meteogram_append_file(ncid, &
-       meteogram_file_info, meteogram_data)
-    TYPE(t_ncid), INTENT(out) :: ncid
-    TYPE(t_meteogram_file), INTENT(in) :: meteogram_file_info
+    INTEGER :: tlen, ncfile, ivar, nvars, nlevs
+    INTEGER :: istart(3), icount(3)
+    CHARACTER(len=*), PARAMETER :: routine = modname//"::put_station_invariants"
+
+    ncfile = file_info%file_id
+    tlen = LEN_TRIM(station_cfg%zname)
+    istart(1) = 1
+    istart(2) = istation
+    icount(1) = tlen
+    icount(2) = 1
+    CALL nf(nf_put_vara_text(ncfile, file_info%ncid%station_name, istart(1:2), &
+      &                      icount(1:2), station_cfg%zname(1:tlen)), routine)
+    CALL nf(nf_put_vara_double(ncfile, file_info%ncid%station_lon, istation, 1,&
+      &                        station_cfg%location%lon), routine)
+    CALL nf(nf_put_vara_double(ncfile, file_info%ncid%station_lat, istation, 1,&
+      &                        station_cfg%location%lat), routine)
+    CALL nf(nf_put_vara_int(ncfile, file_info%ncid%station_idx, istation, 1, &
+      &                     station%tri_idx(1)), routine)
+    CALL nf(nf_put_vara_int(ncfile, file_info%ncid%station_blk, istation, 1, &
+      &                     station%tri_idx(2)), routine)
+    CALL nf(nf_put_vara_double(ncfile, file_info%ncid%station_hsurf, &
+      &                        istation, 1, &
+      &                        station%hsurf), routine)
+    CALL nf(nf_put_vara_double(ncfile, file_info%ncid%station_frland, &
+      &                        istation, 1, &
+      &                        station%frland), routine)
+    CALL nf(nf_put_vara_double(ncfile, file_info%ncid%station_fc, &
+      &                        istation, 1, &
+      &                        station%fc), routine)
+    CALL nf(nf_put_vara_int(ncfile, file_info%ncid%station_soiltype, &
+      &                     istation, 1, &
+      &                     station%soiltype), routine)
+    icount(1) = ntiles_mtgrm
+    CALL nf(nf_put_vara_double(ncfile, file_info%ncid%station_tile_frac, &
+      &                        istart(1:2), icount(1:2), &
+      &                        station%tile_frac), routine)
+    CALL nf(nf_put_vara_int(ncfile, file_info%ncid%station_tile_luclass, &
+      &                     istart(1:2), icount(1:2), &
+      &                     station%tile_luclass), routine)
+
+    ! model level heights
+    istart(1) = istation
+    istart(3) = 1
+    icount(1) = 1
+    nvars = SIZE(var_info)
+    DO ivar=1,nvars
+      istart(2) = ivar
+      nlevs = var_info(ivar)%nlevs
+      icount(3) = nlevs
+      CALL nf(nf_put_vara_double(ncfile, file_info%ncid%var_heights,     &
+        &     istart, icount, &
+        &     station%var(ivar)%heights(1:nlevs)), routine)
+    END DO
+
+  END SUBROUTINE put_station_invariants
+
+
+  SUBROUTINE meteogram_append_file(file_info, meteogram_data)
+    TYPE(t_meteogram_file), INTENT(inout) :: file_info
     TYPE(t_meteogram_data), INTENT(in) :: meteogram_data
 
     CHARACTER(len=*), PARAMETER :: routine = modname//":meteogram_append_file"
     INTEGER :: old_mode, ncfile
 
-    CALL nf(nf_open(TRIM(meteogram_file_info%zname), nf_write, &
-      &             meteogram_file_info%file_id), routine)
-    ncfile = meteogram_file_info%file_id
+    CALL nf(nf_open(TRIM(file_info%zname), nf_write, &
+      &             file_info%file_id), routine)
+    ncfile = file_info%file_id
     CALL nf(nf_set_fill(ncfile, nf_nofill, old_mode), routine)
-    CALL nf(nf_inq_dimid(ncfile, "stringlen", ncid%charid), routine)
-    CALL nf(nf_inq_dimid(ncfile, 'nstations', ncid%nstations), routine)
-    CALL nf(nf_inq_dimid(ncfile, 'nvars', ncid%nvars), routine)
+    CALL nf(nf_inq_dimid(ncfile, "stringlen", file_info%ncid%charid), &
+      &     routine)
+    CALL nf(nf_inq_dimid(ncfile, 'nstations', file_info%ncid%nstations), &
+      &     routine)
+    CALL nf(nf_inq_dimid(ncfile, 'nvars', file_info%ncid%nvars), &
+      &     routine)
     IF (meteogram_data%nsfcvars > 0) &
-      CALL nf(nf_inq_dimid(ncfile, 'nsfcvars', ncid%nsfcvars), routine)
-    CALL nf(nf_inq_dimid(ncfile, 'max_nlevs', ncid%max_nlevs), routine)
-    CALL nf(nf_inq_dimid(ncfile, 'time', ncid%timeid), routine)
-    CALL nf(nf_inq_varid(ncfile, "station_name", ncid%station_name), routine)
-    CALL nf(nf_inq_varid(ncfile, "station_lon", ncid%station_lon), routine)
-    CALL nf(nf_inq_varid(ncfile, "station_lat", ncid%station_lat), routine)
-    CALL nf(nf_inq_varid(ncfile, "station_idx", ncid%station_idx), routine)
-    CALL nf(nf_inq_varid(ncfile, "station_blk", ncid%station_blk), routine)
-    CALL nf(nf_inq_varid(ncfile, "station_hsurf", ncid%station_hsurf), routine)
-    CALL nf(nf_inq_varid(ncfile, "station_frland", ncid%station_frland), routine)
-    CALL nf(nf_inq_varid(ncfile, "station_fc", ncid%station_fc), routine)
-    CALL nf(nf_inq_varid(ncfile, "station_soiltype", ncid%station_soiltype), routine)
+      CALL nf(nf_inq_dimid(ncfile, 'nsfcvars', file_info%ncid%nsfcvars), &
+      &       routine)
+    CALL nf(nf_inq_dimid(ncfile, 'max_nlevs', file_info%ncid%max_nlevs), &
+      &     routine)
+    CALL nf(nf_inq_dimid(ncfile, 'time', file_info%ncid%timeid), &
+      &     routine)
+    CALL nf(nf_inq_varid(ncfile, "station_name", file_info%ncid%station_name), &
+      &     routine)
+    CALL nf(nf_inq_varid(ncfile, "station_lon", file_info%ncid%station_lon), &
+      &     routine)
+    CALL nf(nf_inq_varid(ncfile, "station_lat", file_info%ncid%station_lat), &
+      &     routine)
+    CALL nf(nf_inq_varid(ncfile, "station_idx", file_info%ncid%station_idx), &
+      &     routine)
+    CALL nf(nf_inq_varid(ncfile, "station_blk", file_info%ncid%station_blk), &
+      &     routine)
+    CALL nf(nf_inq_varid(ncfile, "station_hsurf", file_info%ncid%station_hsurf), &
+      &      routine)
+    CALL nf(nf_inq_varid(ncfile, "station_frland", file_info%ncid%station_frland), &
+      &     routine)
+    CALL nf(nf_inq_varid(ncfile, "station_fc", file_info%ncid%station_fc), &
+      &      routine)
+    CALL nf(nf_inq_varid(ncfile, "station_soiltype", file_info%ncid%station_soiltype), &
+      &     routine)
 
     ! inquire variable info fields:
     ! volume variables
-    CALL nf(nf_inq_varid(ncfile, "var_name", ncid%var_name), routine)
-    CALL nf(nf_inq_varid(ncfile, "var_long_name", ncid%var_longname), routine)
-    CALL nf(nf_inq_varid(ncfile, "var_unit", ncid%var_unit), routine)
-    CALL nf(nf_inq_varid(ncfile, "var_group_id", ncid%var_group_id), routine)
-    CALL nf(nf_inq_varid(ncfile, "var_nlevs", ncid%var_nlevs), routine)
+    CALL nf(nf_inq_varid(ncfile, "var_name", file_info%ncid%var_name), &
+      &     routine)
+    CALL nf(nf_inq_varid(ncfile, "var_long_name", file_info%ncid%var_longname), &
+      &     routine)
+    CALL nf(nf_inq_varid(ncfile, "var_unit", file_info%ncid%var_unit), &
+      &     routine)
+    CALL nf(nf_inq_varid(ncfile, "var_group_id", file_info%ncid%var_group_id), &
+      &     routine)
+    CALL nf(nf_inq_varid(ncfile, "var_nlevs", file_info%ncid%var_nlevs), &
+      &     routine)
     ! surface variables:
     IF (meteogram_data%nsfcvars > 0) THEN
-      CALL nf(nf_inq_varid(ncfile, "sfcvar_name", ncid%sfcvar_name), routine)
-      CALL nf(nf_inq_varid(ncfile, "sfcvar_long_name", ncid%sfcvar_longname), routine)
-      CALL nf(nf_inq_varid(ncfile, "sfcvar_unit", ncid%sfcvar_unit), routine)
-      CALL nf(nf_inq_varid(ncfile, "sfcvar_group_id", ncid%sfcvar_group_id), routine)
+      CALL nf(nf_inq_varid(ncfile, "sfcvar_name", file_info%ncid%sfcvar_name), &
+        &     routine)
+      CALL nf(nf_inq_varid(ncfile, "sfcvar_long_name", file_info%ncid%sfcvar_longname), &
+        &     routine)
+      CALL nf(nf_inq_varid(ncfile, "sfcvar_unit", file_info%ncid%sfcvar_unit), &
+        &     routine)
+      CALL nf(nf_inq_varid(ncfile, "sfcvar_group_id", file_info%ncid%sfcvar_group_id), &
+        &     routine)
     END IF
 
     ! create variables for time slice info:
-    CALL nf(nf_inq_varid(ncfile, "time_step", ncid%time_step), routine)
-    CALL nf(nf_inq_varid(ncfile, "date", ncid%dateid), routine)
+    CALL nf(nf_inq_varid(ncfile, "time_step", file_info%ncid%time_step), &
+      &     routine)
+    CALL nf(nf_inq_varid(ncfile, "date", file_info%ncid%dateid), &
+      &     routine)
 
     ! height levels
-    CALL nf(nf_inq_varid(ncfile, "heights", ncid%var_heights), routine)
+    CALL nf(nf_inq_varid(ncfile, "heights", file_info%ncid%var_heights), &
+      &     routine)
 
     ! add value buffer for volume variables:
-    CALL nf(nf_inq_varid(ncfile, "values", ncid%var_values), routine)
+    CALL nf(nf_inq_varid(ncfile, "values", file_info%ncid%var_values), &
+      &     routine)
     ! add value buffer for surface variables:
     IF (meteogram_data%nsfcvars > 0) THEN
-      CALL nf(nf_inq_varid(ncfile, "sfcvalues", ncid%sfcvar_values), routine)
+      CALL nf(nf_inq_varid(ncfile, "sfcvalues", file_info%ncid%sfcvar_values), &
+        &     routine)
     END IF
 
   END SUBROUTINE meteogram_append_file
@@ -2494,7 +2581,6 @@ CONTAINS
     INTEGER, INTENT(IN)         :: jg       !< patch index
     ! local variables:
     CHARACTER(len=*), PARAMETER :: routine = modname//":meteogram_flush_file"
-    TYPE(t_meteogram_data), POINTER :: meteogram_data
 
     IF (dbg_level > 5)  WRITE (*,*) routine, " Enter"
 
@@ -2505,13 +2591,13 @@ CONTAINS
       IF (mtgrm(jg)%l_is_writer) &
         CALL disk_flush(mtgrm(jg)%meteogram_local_data, &
         &               mtgrm(jg)%meteogram_file_info%file_id, &
-        &               mtgrm(jg)%ncid_list)
+        &               mtgrm(jg)%meteogram_file_info%ncid)
     ELSE
       CALL meteogram_collect_buffers(mtgrm(jg), jg)
       IF (mtgrm(jg)%l_is_writer) &
         CALL disk_flush(mtgrm(jg)%meteogram_global_data, &
         &               mtgrm(jg)%meteogram_file_info%file_id, &
-        &               mtgrm(jg)%ncid_list)
+        &               mtgrm(jg)%meteogram_file_info%ncid)
     END IF
 
 
