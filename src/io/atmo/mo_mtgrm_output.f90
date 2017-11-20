@@ -339,6 +339,7 @@ MODULE mo_meteogram_output
       &         var_group_id, sfcvar_group_id, var_nlevs, max_nlevs, timeid,  &
       &         time_step, dateid, var_values, sfcvar_values, var_heights, var_longname,  &
       &         sfcvar_longname
+    INTEGER                          :: file_id       !< meteogram file ID
   END TYPE t_ncid
 
   !>
@@ -348,7 +349,6 @@ MODULE mo_meteogram_output
     INTEGER                          :: ftype         !< file type (NetCDF, ...)
     LOGICAL                          :: ldistributed  !< Flag. Separate files for each PE
     CHARACTER(len=MAX_NAME_LENGTH)   :: zname         !< file name string
-    INTEGER                          :: file_id       !< meteogram file ID
     CHARACTER(len=uuid_string_length):: uuid_string   !< unparsed grid UUID
     INTEGER                          :: number_of_grid_used  !< as it says
     TYPE(t_cf_global)                :: cf            !< meta info
@@ -2162,8 +2162,8 @@ CONTAINS
     nsfcvars = meteogram_data%nsfcvars
 
     CALL nf(nf_create(TRIM(file_info%zname), nf_clobber, &
-      &               file_info%file_id), routine)
-    ncfile = file_info%file_id
+      &               file_info%ncid%file_id), routine)
+    ncfile = file_info%ncid%file_id
     CALL nf(nf_set_fill(ncfile, nf_nofill, old_mode), routine)
     CALL put_global_txt_att('title', TRIM(file_info%cf%title))
     CALL put_global_txt_att('history', TRIM(file_info%cf%history))
@@ -2399,7 +2399,7 @@ CONTAINS
       iowner = meteogram_data%pstation(istation)
       IF (iowner >= 0) THEN
         station_idx = meteogram_data%station(istation)%station_idx
-        CALL put_station_invariants(file_info, istation, &
+        CALL put_station_invariants(file_info%ncid, istation, &
           output_config%station_list(station_idx), &
           meteogram_data%station(istation), meteogram_data%var_info)
       ELSE IF (dbg_level > 5) THEN
@@ -2415,9 +2415,9 @@ CONTAINS
     END SUBROUTINE put_global_txt_att
   END SUBROUTINE meteogram_create_file
 
-  SUBROUTINE put_station_invariants(file_info, istation, station_cfg, station, &
+  SUBROUTINE put_station_invariants(ncid, istation, station_cfg, station, &
     var_info)
-    TYPE(t_meteogram_file), INTENT(in) :: file_info
+    TYPE(t_ncid), INTENT(in) :: ncid
     INTEGER, INTENT(in) :: istation
     TYPE(t_station_list), INTENT(in) :: station_cfg
     TYPE(t_meteogram_station), INTENT(in) :: station
@@ -2427,39 +2427,35 @@ CONTAINS
     INTEGER :: istart(3), icount(3)
     CHARACTER(len=*), PARAMETER :: routine = modname//"::put_station_invariants"
 
-    ncfile = file_info%file_id
+    ncfile = ncid%file_id
     tlen = LEN_TRIM(station_cfg%zname)
     istart(1) = 1
     istart(2) = istation
     icount(1) = tlen
     icount(2) = 1
-    CALL nf(nf_put_vara_text(ncfile, file_info%ncid%station_name, istart(1:2), &
+    CALL nf(nf_put_vara_text(ncfile, ncid%station_name, istart(1:2), &
       &                      icount(1:2), station_cfg%zname(1:tlen)), routine)
-    CALL nf(nf_put_vara_double(ncfile, file_info%ncid%station_lon, istation, 1,&
+    CALL nf(nf_put_vara_double(ncfile, ncid%station_lon, istation, 1,&
       &                        station_cfg%location%lon), routine)
-    CALL nf(nf_put_vara_double(ncfile, file_info%ncid%station_lat, istation, 1,&
+    CALL nf(nf_put_vara_double(ncfile, ncid%station_lat, istation, 1,&
       &                        station_cfg%location%lat), routine)
-    CALL nf(nf_put_vara_int(ncfile, file_info%ncid%station_idx, istation, 1, &
+    CALL nf(nf_put_vara_int(ncfile, ncid%station_idx, istation, 1, &
       &                     station%tri_idx(1)), routine)
-    CALL nf(nf_put_vara_int(ncfile, file_info%ncid%station_blk, istation, 1, &
+    CALL nf(nf_put_vara_int(ncfile, ncid%station_blk, istation, 1, &
       &                     station%tri_idx(2)), routine)
-    CALL nf(nf_put_vara_double(ncfile, file_info%ncid%station_hsurf, &
-      &                        istation, 1, &
-      &                        station%hsurf), routine)
-    CALL nf(nf_put_vara_double(ncfile, file_info%ncid%station_frland, &
-      &                        istation, 1, &
-      &                        station%frland), routine)
-    CALL nf(nf_put_vara_double(ncfile, file_info%ncid%station_fc, &
-      &                        istation, 1, &
-      &                        station%fc), routine)
-    CALL nf(nf_put_vara_int(ncfile, file_info%ncid%station_soiltype, &
-      &                     istation, 1, &
-      &                     station%soiltype), routine)
+    CALL nf(nf_put_vara_double(ncfile, ncid%station_hsurf, &
+      &                        istation, 1, station%hsurf), routine)
+    CALL nf(nf_put_vara_double(ncfile, ncid%station_frland, &
+      &                        istation, 1, station%frland), routine)
+    CALL nf(nf_put_vara_double(ncfile, ncid%station_fc, &
+      &                        istation, 1, station%fc), routine)
+    CALL nf(nf_put_vara_int(ncfile, ncid%station_soiltype, &
+      &                     istation, 1, station%soiltype), routine)
     icount(1) = ntiles_mtgrm
-    CALL nf(nf_put_vara_double(ncfile, file_info%ncid%station_tile_frac, &
+    CALL nf(nf_put_vara_double(ncfile, ncid%station_tile_frac, &
       &                        istart(1:2), icount(1:2), &
       &                        station%tile_frac), routine)
-    CALL nf(nf_put_vara_int(ncfile, file_info%ncid%station_tile_luclass, &
+    CALL nf(nf_put_vara_int(ncfile, ncid%station_tile_luclass, &
       &                     istart(1:2), icount(1:2), &
       &                     station%tile_luclass), routine)
 
@@ -2472,9 +2468,8 @@ CONTAINS
       istart(2) = ivar
       nlevs = var_info(ivar)%nlevs
       icount(3) = nlevs
-      CALL nf(nf_put_vara_double(ncfile, file_info%ncid%var_heights,     &
-        &     istart, icount, &
-        &     station%var(ivar)%heights(1:nlevs)), routine)
+      CALL nf(nf_put_vara_double(ncfile, ncid%var_heights,     &
+        &     istart, icount, station%var(ivar)%heights(1:nlevs)), routine)
     END DO
 
   END SUBROUTINE put_station_invariants
@@ -2488,8 +2483,8 @@ CONTAINS
     INTEGER :: old_mode, ncfile
 
     CALL nf(nf_open(TRIM(file_info%zname), nf_write, &
-      &             file_info%file_id), routine)
-    ncfile = file_info%file_id
+      &             file_info%ncid%file_id), routine)
+    ncfile = file_info%ncid%file_id
     CALL nf(nf_set_fill(ncfile, nf_nofill, old_mode), routine)
     CALL nf(nf_inq_dimid(ncfile, "stringlen", file_info%ncid%charid), &
       &     routine)
@@ -2590,13 +2585,11 @@ CONTAINS
     IF (mtgrm(jg)%meteogram_file_info%ldistributed) THEN
       IF (mtgrm(jg)%l_is_writer) &
         CALL disk_flush(mtgrm(jg)%meteogram_local_data, &
-        &               mtgrm(jg)%meteogram_file_info%file_id, &
         &               mtgrm(jg)%meteogram_file_info%ncid)
     ELSE
       CALL meteogram_collect_buffers(mtgrm(jg), jg)
       IF (mtgrm(jg)%l_is_writer) &
         CALL disk_flush(mtgrm(jg)%meteogram_global_data, &
-        &               mtgrm(jg)%meteogram_file_info%file_id, &
         &               mtgrm(jg)%meteogram_file_info%ncid)
     END IF
 
@@ -2608,17 +2601,17 @@ CONTAINS
 
   END SUBROUTINE meteogram_flush_file
 
-  SUBROUTINE disk_flush(meteogram_data, ncfile, ncid)
+  SUBROUTINE disk_flush(meteogram_data, ncid)
     TYPE(t_meteogram_data), INTENT(inout) :: meteogram_data
-    INTEGER, INTENT(in) :: ncfile
     TYPE(t_ncid), INTENT(in) :: ncid
 
     INTEGER :: totaltime, itime, istation, ivar, nlevs, nvars, nsfcvars
-    INTEGER :: istart(4), icount(4), tlen
+    INTEGER :: istart(4), icount(4), tlen, ncfile
     CHARACTER(len=*), PARAMETER :: routine = modname//"::disk_flush"
 
     nvars    = meteogram_data%nvars
     nsfcvars = meteogram_data%nsfcvars
+    ncfile   = ncid%file_id
 
     IF (dbg_level > 0) THEN
       WRITE(message_text,*) "Meteogram"
@@ -2698,7 +2691,7 @@ CONTAINS
     ! Close NetCDF file
     ! skip routine, if this PE has nothing to do...
     IF (mtgrm(jg)%l_is_writer) THEN
-      CALL nf(nf_close(mtgrm(jg)%meteogram_file_info%file_id), routine)
+      CALL nf(nf_close(mtgrm(jg)%meteogram_file_info%ncid%file_id), routine)
     END IF
   END SUBROUTINE meteogram_close_file
 
