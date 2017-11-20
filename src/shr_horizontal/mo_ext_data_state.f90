@@ -67,7 +67,7 @@ MODULE mo_ext_data_state
   USE mo_cdi,                ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64, &
     &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG,            &
     &                              GRID_UNSTRUCTURED
-  USE mo_zaxis_type,         ONLY: ZA_HYBRID, ZA_LAKE_BOTTOM, ZA_SURFACE, &
+  USE mo_zaxis_type,         ONLY: ZA_REFERENCE, ZA_LAKE_BOTTOM, ZA_SURFACE, &
     &                              ZA_HEIGHT_2M, ZA_PRESSURE
 
   IMPLICIT NONE
@@ -352,7 +352,7 @@ CONTAINS
       &                   'ozone mixing ratio', datatype_flt)
     grib2_desc = grib2_var( 0, 14, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'o3', p_ext_atm%o3,                      &
-      &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc,              &
+      &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,              &
       &           grib2_desc, ldims=shape3d_c, loutput=.TRUE. )
 
 
@@ -1200,7 +1200,7 @@ CONTAINS
         &                   'ozone geometric height level', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'O3_zf', p_ext_atm_td%zf,  &
-        &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc,   &
+        &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,   &
         &           grib2_desc, ldims=(/nlev_o3/), loutput=.FALSE.  )
 
       ! o3  main pressure level from read-in file

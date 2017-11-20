@@ -11,7 +11,7 @@
 !! headers of the routines.
 
 MODULE mo_restart_patch_description
-    USE mo_zaxis_type, ONLY: ZA_SURFACE, ZA_HYBRID, ZA_HYBRID_HALF, ZA_HEIGHT_2M, ZA_HEIGHT_10M, ZA_TOA, ZA_LAKE_BOTTOM, &
+    USE mo_zaxis_type, ONLY: ZA_SURFACE, ZA_REFERENCE, ZA_REFERENCE_HALF, ZA_HEIGHT_2M, ZA_HEIGHT_10M, ZA_TOA, ZA_LAKE_BOTTOM, &
                               & ZA_MIX_LAYER, ZA_LAKE_BOTTOM_HALF, ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_GENERIC_ICE, ZA_DEPTH_RUNOFF_S, &
                               & ZA_DEPTH_RUNOFF_G, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, ZA_SNOW, ZA_SNOW_HALF, &
                               & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_OCEAN_SEDIMENT, zaxisTypeList
@@ -306,8 +306,8 @@ CONTAINS
 
         ! set vertical grid definitions
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_SURFACE, 0._wp)
-        CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_HYBRID, me%nlev)
-        CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_HYBRID_HALF, me%nlev+1)
+        CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_REFERENCE, me%nlev)
+        CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_REFERENCE_HALF, me%nlev+1)
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_HEIGHT_2M, 2._wp)
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_HEIGHT_10M, 10._wp)
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_TOA, 1._wp)

@@ -29,7 +29,7 @@ MODULE mo_cdi_ids
     &                              DATATYPE_INT32, zaxisDefVct, zaxisDefLbounds,                &
     &                              zaxisDefUbounds, zaxisDefUnits, streamClose, vlistDestroy,   &
     &                              taxisDestroy, gridDestroy, zaxisDestroy
-  USE mo_zaxis_type,         ONLY: ZA_HYBRID, ZA_HYBRID_HALF, ZA_LAKE_BOTTOM,                     &
+  USE mo_zaxis_type,         ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF, ZA_LAKE_BOTTOM,                     &
     &                              ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_SEDIMENT_BOTTOM_TW_HALF, &
     &                              zaxisTypeList
   USE mtime,                 ONLY: datetime
@@ -111,12 +111,12 @@ CONTAINS
             IF(gridId == CDI_UNDEFID) CALL finish(routine, "defineVAxis() returned an error")
             axisIds(gridDescriptions(i)%TYPE) = gridId
 
-            IF (gridDescriptions(i)%type == ZA_HYBRID) THEN
+            IF (gridDescriptions(i)%type == ZA_REFERENCE) THEN
               IF(.NOT.PRESENT(opt_vct)) CYCLE
               nlevp1 = SIZE(gridDescriptions(i)%levels, 1) + 1
               CALL zaxisDefVct(gridId, 2*nlevp1, opt_vct(1:2*nlevp1))
             END IF
-            IF (gridDescriptions(i)%type == ZA_HYBRID_HALF) THEN
+            IF (gridDescriptions(i)%type == ZA_REFERENCE_HALF) THEN
               IF(.NOT.PRESENT(opt_vct)) CYCLE
               nlevp1 = SIZE(gridDescriptions(i)%levels, 1)
               CALL zaxisDefVct(gridId, 2*nlevp1, opt_vct(1:2*nlevp1))
