@@ -107,7 +107,7 @@ MODULE mo_meteogram_output
     &                                 get_my_mpi_all_id, p_wait,          &
     &                                 p_send, p_isend, p_irecv, p_pe_work,&
     &                                 p_send_packed, p_irecv_packed,      &
-    &                                 p_int_byte,                         &
+    &                                 p_int_byte, mpi_any_source,         &
     &                                 p_pack_int,    p_pack_real,         &
     &                                 p_pack_int_1d, p_pack_real_1d,      &
     &                                 p_pack_string, p_pack_real_2d,      &
@@ -120,7 +120,8 @@ MODULE mo_meteogram_output
     &                                 my_process_is_mpi_test,             &
     &                                 p_real_dp_byte,                     &
     &                                 p_comm_work, p_comm_work_2_io,      &
-    &                                 process_mpi_io_size
+    &                                 process_mpi_io_size,                &
+    &                                 p_comm_remote_size
   USE mo_model_domain,          ONLY: t_patch
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_impl_constants,        ONLY: inwp, max_dom, SUCCESS
@@ -1137,7 +1138,8 @@ CONTAINS
     TYPE(t_meteogram_data)   , POINTER :: meteogram_data
     TYPE(t_gnat_tree)                  :: gnat
     INTEGER                            :: max_time_stamps
-    INTEGER                            :: io_collector_rank
+    INTEGER                            :: io_collector_rank, iowner, &
+      varlist_sender_rank
     LOGICAL :: is_io, is_mpi_workroot, is_mpi_test, is_pure_io_pe
 
     max_varlist_buf_size &
@@ -1148,12 +1150,6 @@ CONTAINS
     is_mpi_test = my_process_is_mpi_test()
     !-- define the different roles in the MPI communication inside
     !-- this module
-
-
-    ! PE collecting variable info to send it to pure I/O PEs.
-    ! (only relevant if pure I/O PEs exist)
-    pack_buf%l_is_varlist_sender &
-      = use_async_name_list_io .AND. my_process_is_work() .AND. is_mpi_workroot
 
     ! Flag. True, if this PE is a pure I/O PE without own patch data:
     is_pure_io_pe = use_async_name_list_io .AND. is_io
@@ -1230,11 +1226,12 @@ CONTAINS
     ! this PE:
     ! ------------------------------------------------------------
 
+    nstations = meteogram_output_config%nstations
+
     IF (.NOT. is_pure_io_pe) THEN
 
       ! build an array of geographical coordinates from station list:
       ! in_points(...)
-      nstations = meteogram_output_config%nstations
 
       DO istation=1,nstations
         jc = MOD(istation-1,nproma)+1
@@ -1281,16 +1278,33 @@ CONTAINS
       ! regional nests):
       CALL p_allreduce_max(mtgrm(jg)%meteogram_local_data%pstation, &
         &                  comm=p_comm_work)
-      IF (use_async_name_list_io .AND. is_mpi_workroot) THEN
-        CALL p_send(mtgrm(jg)%meteogram_local_data%pstation, &
-          &         mtgrm(jg)%io_collector_rank, TAG_MTGRM_MSG, &
-          &         comm=mtgrm(jg)%io_collect_comm)
+      IF (use_async_name_list_io) THEN
+        varlist_sender_rank = p_n_work - 1
+        DO istation = nstations, 1, -1
+          iowner = mtgrm(jg)%meteogram_local_data%pstation(istation)
+          IF (iowner /= -1) THEN
+            ! PE collecting variable info to send it to pure I/O PEs.
+            ! (only relevant if pure I/O PEs exist)
+            varlist_sender_rank = iowner
+            EXIT
+          END IF
+        END DO
+        pack_buf%l_is_varlist_sender = p_pe_work == varlist_sender_rank
+        IF (pack_buf%l_is_varlist_sender) THEN
+          CALL p_send(mtgrm(jg)%meteogram_local_data%pstation, &
+            &         mtgrm(jg)%io_collector_rank, TAG_MTGRM_MSG, &
+            &         comm=mtgrm(jg)%io_collect_comm)
+        END IF
+      ELSE
+        pack_buf%l_is_varlist_sender = .FALSE.
       END IF
-
-    ELSE IF (is_io .AND. io_collector_rank == p_pe_work) THEN
-      CALL p_irecv(mtgrm(jg)%meteogram_local_data%pstation, &
-        &          0, TAG_MTGRM_MSG, &
-        &          comm=mtgrm(jg)%io_collect_comm)
+    ELSE
+      pack_buf%l_is_varlist_sender = .FALSE.
+      IF (is_io .AND. io_collector_rank == p_pe_work) THEN
+        CALL p_irecv(mtgrm(jg)%meteogram_local_data%pstation, &
+          &          MPI_ANY_SOURCE, TAG_MTGRM_MSG, &
+          &          comm=mtgrm(jg)%io_collect_comm)
+      END IF
     END IF
 
     ! Pure I/O PEs must receive all variable info from elsewhere.
@@ -1304,9 +1318,18 @@ CONTAINS
       pack_buf%pos = 0
 
       IF (is_pure_io_pe) THEN
+        varlist_sender_rank = p_comm_remote_size(mtgrm(jg)%io_collect_comm) - 1
+        CALL p_wait()
+        DO istation = nstations, 1, -1
+          iowner = mtgrm(jg)%meteogram_local_data%pstation(istation)
+          IF (iowner /= -1) THEN
+            varlist_sender_rank = iowner
+            EXIT
+          END IF
+        END DO
         ! launch message receive call
-        CALL p_irecv_packed(pack_buf%msg_varlist(:), 0, TAG_VARLIST, &
-          &                 max_varlist_buf_size, &
+        CALL p_irecv_packed(pack_buf%msg_varlist(:), varlist_sender_rank, &
+          &                 TAG_VARLIST, max_varlist_buf_size, &
           &                 comm=mtgrm(jg)%io_collect_comm)
       END IF
     END IF
@@ -1459,7 +1482,6 @@ CONTAINS
 
     IO_PE : IF (mtgrm(jg)%l_is_collecting_pe) THEN
 
-      nstations = meteogram_output_config%nstations
       mtgrm(jg)%meteogram_global_data%nstations =  nstations
       mtgrm(jg)%meteogram_global_data%pstation  =  mtgrm(jg)%meteogram_local_data%pstation
 
