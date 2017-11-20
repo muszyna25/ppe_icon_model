@@ -2494,79 +2494,24 @@ CONTAINS
     INTEGER, INTENT(IN)         :: jg       !< patch index
     ! local variables:
     CHARACTER(len=*), PARAMETER :: routine = modname//":meteogram_flush_file"
-    INTEGER                     :: ncfile,  totaltime, itime, istation, ivar, &
-      &                            nlevs, nvars, nsfcvars
     TYPE(t_meteogram_data), POINTER :: meteogram_data
-    TYPE(t_ncid)          , POINTER :: ncid
-    INTEGER                         :: istart4(4), icount4(4), tlen
 
     IF (dbg_level > 5)  WRITE (*,*) routine, " Enter"
 
-    ncid => mtgrm(jg)%ncid_list
-    ncfile = mtgrm(jg)%meteogram_file_info%file_id
 
     ! In "non-distributed" mode, station data is gathered by PE #0
     ! which writes a single file:
     IF (mtgrm(jg)%meteogram_file_info%ldistributed) THEN
-      meteogram_data => mtgrm(jg)%meteogram_local_data
+      IF (mtgrm(jg)%l_is_writer) &
+        CALL disk_flush(mtgrm(jg)%meteogram_local_data, &
+        &               mtgrm(jg)%meteogram_file_info%file_id, &
+        &               mtgrm(jg)%ncid_list)
     ELSE
       CALL meteogram_collect_buffers(mtgrm(jg), jg)
-      meteogram_data => mtgrm(jg)%meteogram_global_data
-    END IF
-
-    IF (mtgrm(jg)%l_is_writer) THEN
-
-      nvars    = meteogram_data%nvars
-      nsfcvars = meteogram_data%nsfcvars
-
-      IF (dbg_level > 0) THEN
-        WRITE(message_text,*) "Meteogram"
-        CALL message(routine, TRIM(message_text))
-      END IF
-
-      ! inquire about current number of records in file:
-      CALL nf(nf_inq_dimlen(ncfile, ncid%timeid, totaltime), routine)
-
-      IF (dbg_level > 0) &
-           WRITE (*,'(a,i0,a)') "Writing ", meteogram_data%icurrent, " time slices to disk."
-
-      ! write time stamp info:
-      DO itime=1,meteogram_data%icurrent
-
-        tlen = LEN_TRIM(meteogram_data%time_stamp(itime)%zdate)
-        CALL nf(nf_put_vara_text(ncfile, ncid%dateid, (/ 1, totaltime+itime /), &
-          &                      (/ tlen, 1 /), &
-          &                      meteogram_data%time_stamp(itime)%zdate), &
-          &                      routine)
-        CALL nf(nf_put_vara_int(ncfile, ncid%time_step, totaltime+itime, 1, &
-          &                     meteogram_data%time_stamp(itime)%istep),    &
-          &                     routine)
-
-        ! write meteogram buffer:
-        DO istation=1,meteogram_data%nstations
-
-          ! volume variables:
-          DO ivar=1,nvars
-            nlevs = meteogram_data%var_info(ivar)%nlevs
-            istart4 = (/ istation, ivar, 1, totaltime+itime /)
-            icount4 = (/ 1, 1, nlevs, 1 /)
-            CALL nf(nf_put_vara_double(ncfile, ncid%var_values,             &
-              &     istart4, icount4,                                       &
-              &     meteogram_data%station(istation)%var(ivar)%values(1:nlevs, &
-              &     itime)), routine)
-          END DO
-          ! surface variables:
-          DO ivar=1,nsfcvars
-            CALL nf(nf_put_vara_double(ncfile, ncid%sfcvar_values,              &
-              &     (/ istation, ivar, totaltime+itime /),                      &
-              &     (/ 1, 1, 1 /),                                              &
-              &     meteogram_data%station(istation)%sfc_var(ivar)%values(itime)), &
-              &     routine)
-          END DO
-        END DO
-      END DO
-      CALL nf(nf_sync(ncfile), routine)
-      meteogram_data%icurrent = 0
+      IF (mtgrm(jg)%l_is_writer) &
+        CALL disk_flush(mtgrm(jg)%meteogram_global_data, &
+        &               mtgrm(jg)%meteogram_file_info%file_id, &
+        &               mtgrm(jg)%ncid_list)
     END IF
 
 
@@ -2576,6 +2521,76 @@ CONTAINS
     IF (dbg_level > 5)  WRITE (*,*) routine, " Leave"
 
   END SUBROUTINE meteogram_flush_file
+
+  SUBROUTINE disk_flush(meteogram_data, ncfile, ncid)
+    TYPE(t_meteogram_data), INTENT(inout) :: meteogram_data
+    INTEGER, INTENT(in) :: ncfile
+    TYPE(t_ncid), INTENT(in) :: ncid
+
+    INTEGER :: totaltime, itime, istation, ivar, nlevs, nvars, nsfcvars
+    INTEGER :: istart(4), icount(4), tlen
+    CHARACTER(len=*), PARAMETER :: routine = modname//"::disk_flush"
+
+    nvars    = meteogram_data%nvars
+    nsfcvars = meteogram_data%nsfcvars
+
+    IF (dbg_level > 0) THEN
+      WRITE(message_text,*) "Meteogram"
+      CALL message(routine, TRIM(message_text))
+    END IF
+
+    ! inquire about current number of records in file:
+    CALL nf(nf_inq_dimlen(ncfile, ncid%timeid, totaltime), routine)
+
+    IF (dbg_level > 0) &
+      WRITE (*,'(a,i0,a)') "Writing ", meteogram_data%icurrent, " time slices to disk."
+
+    icount = 1
+    ! write time stamp info:
+    DO itime=1,meteogram_data%icurrent
+
+      istart(4) = totaltime+itime
+      tlen = LEN_TRIM(meteogram_data%time_stamp(itime)%zdate)
+      CALL nf(nf_put_vara_text(ncfile, ncid%dateid, (/ 1, totaltime+itime /), &
+        &                      (/ tlen, 1 /), &
+        &                      meteogram_data%time_stamp(itime)%zdate), &
+        &                      routine)
+      CALL nf(nf_put_vara_int(ncfile, ncid%time_step, totaltime+itime, 1, &
+        &                     meteogram_data%time_stamp(itime)%istep),    &
+        &                     routine)
+
+      ! write meteogram buffer:
+      DO istation=1,meteogram_data%nstations
+
+        istart(1) = istation
+        istart(3) = 1
+        ! volume variables:
+        DO ivar=1,nvars
+          nlevs = meteogram_data%var_info(ivar)%nlevs
+          istart(2) = ivar
+          icount(3) = nlevs
+          CALL nf(nf_put_vara_double(ncfile, ncid%var_values,             &
+            &     istart, icount,                                       &
+            &     meteogram_data%station(istation)%var(ivar)%values(1:nlevs, &
+            &     itime)), routine)
+        END DO
+        ! surface variables:
+        icount(3) = 1
+        istart(3) = totaltime+itime
+
+        DO ivar=1,nsfcvars
+          istart(2) = ivar
+          CALL nf(nf_put_vara_double(ncfile, ncid%sfcvar_values,              &
+            &     istart(1:3), icount(1:3),                                   &
+            &     meteogram_data%station(istation)%sfc_var(ivar)%values(itime)), &
+            &     routine)
+        END DO
+      END DO
+    END DO
+    CALL nf(nf_sync(ncfile), routine)
+    meteogram_data%icurrent = 0
+
+  END SUBROUTINE disk_flush
 
 
   !>
