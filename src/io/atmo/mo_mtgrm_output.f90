@@ -302,13 +302,11 @@ MODULE mo_meteogram_output
     ! variable info:
     !> number of sampled atmospheric variables
     INTEGER                         :: nvars
-    !> number of sampled surface variables
-    INTEGER                         :: nsfcvars
     !> maximum no. of levels for variables
     INTEGER                         :: max_nlevs
     !> info for each variable (1:nvars)
     TYPE(t_var_info), POINTER :: var_info(:)
-    !> info for each surface variable (1:nsfcvars)
+    !> info for each surface variable
     TYPE(t_sfc_var_info), POINTER :: sfc_var_info(:)
     ! time stamp info:
     !> current time stamp index
@@ -1327,7 +1325,6 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish(routine, &
       'ALLOCATE of meteogram time stamp data structure failed')
 
-    meteogram_data%nsfcvars  = var_list%no_sfc_vars
     meteogram_data%nvars     = var_list%no_atmo_vars
     meteogram_data%max_nlevs = &
       & MAX(0, MAXVAL(meteogram_data%var_info(1:meteogram_data%nvars)%nlevs))
@@ -1439,8 +1436,6 @@ CONTAINS
       mtgrm(jg)%meteogram_global_data%var_info &
         => mtgrm(jg)%meteogram_local_data%var_info
 
-      mtgrm(jg)%meteogram_global_data%nsfcvars &
-        = mtgrm(jg)%meteogram_local_data%nsfcvars
       mtgrm(jg)%meteogram_global_data%sfc_var_info &
         =>  mtgrm(jg)%meteogram_local_data%sfc_var_info
       mtgrm(jg)%meteogram_global_data%istep &
@@ -1494,7 +1489,7 @@ CONTAINS
         =   mtgrm_pack_header_ints*p_int_byte       & ! header size
         & + max_time_stamps*(MAX_DATE_LEN+4)        & ! time stamp info
         & + meteogram_data%nvars*max_var_size       &
-        & + meteogram_data%nsfcvars*max_sfcvar_size
+        & + var_list%no_sfc_vars*max_sfcvar_size
 
       ! allocate buffer:
     END IF
@@ -1834,7 +1829,6 @@ CONTAINS
         CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
 
       meteogram_data%nvars     = 0
-      meteogram_data%nsfcvars  = 0
       meteogram_data%nstations = 0
     END IF
 
@@ -1907,7 +1901,6 @@ CONTAINS
         WRITE (0,*) "MAX_DATE_LEN            = ", MAX_DATE_LEN
         WRITE (0,*) "meteogram_data%nvars    = ", mtgrm%meteogram_local_data%nvars
         WRITE (0,*) "max_var_size            = ", max_var_size
-        WRITE (0,*) "meteogram_data%nsfcvars = ", mtgrm%meteogram_local_data%nsfcvars
         WRITE (0,*) "max_sfcvar_size         = ", max_sfcvar_size
         WRITE (message_text, '(3a)') &
           'ALLOCATE of meteogram message buffer failed (', &
@@ -2191,7 +2184,7 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: routine = modname//":meteogram_create_file"
 
     nvars    = meteogram_data%nvars
-    nsfcvars = meteogram_data%nsfcvars
+    nsfcvars = SIZE(meteogram_data%sfc_var_info)
 
     CALL nf(nf_create(TRIM(file_info%zname), nf_clobber, &
       &               file_info%ncid%file_id), routine)
@@ -2206,8 +2199,7 @@ CONTAINS
     CALL put_global_txt_att('uuidOfHGrid', file_info%uuid_string)
     CALL nf(nf_put_att_int(ncfile, NF_GLOBAL, 'numberOfGridUsed',  &
       &                    nf_int, 1, &
-      &                    file_info%number_of_grid_used), &
-      &     routine)
+      &                    file_info%number_of_grid_used), routine)
 
 
     ! for the definition of a character-string variable define
@@ -2222,9 +2214,9 @@ CONTAINS
       &     file_info%ncid%nvars), routine)
     CALL nf(nf_def_dim(ncfile, 'ntiles',     ntiles_mtgrm, &
       &     file_info%ncid%ntiles), routine)
-    IF (meteogram_data%nsfcvars > 0) &
-      CALL nf(nf_def_dim(ncfile, 'nsfcvars', meteogram_data%nsfcvars,  &
-      &       file_info%ncid%nsfcvars), routine)
+    IF (nsfcvars > 0) &
+      CALL nf(nf_def_dim(ncfile, 'nsfcvars', nsfcvars, &
+      &                  file_info%ncid%nsfcvars), routine)
     CALL nf(nf_def_dim(ncfile, 'max_nlevs',  meteogram_data%max_nlevs, &
       &     file_info%ncid%max_nlevs), routine)
     ! create time dimension:
@@ -2308,24 +2300,23 @@ CONTAINS
     CALL nf_add_descr("No. of levels for volume variable", ncfile, &
       &     file_info%ncid%var_nlevs)
     ! surface variables:
-    IF (meteogram_data%nsfcvars > 0) THEN
+    IF (nsfcvars > 0) THEN
       var_name_dims = (/ file_info%ncid%charid, &
-      &     file_info%ncid%nsfcvars /)
-      CALL nf(nf_def_var(ncfile, "sfcvar_name", NF_CHAR, 2, var_name_dims(:), &
+        &     file_info%ncid%nsfcvars /)
+      CALL nf(nf_def_var(ncfile, "sfcvar_name", NF_CHAR, 2, var_name_dims, &
         &                file_info%ncid%sfcvar_name), routine)
       CALL nf_add_descr("Surface variable name (character string)", ncfile, &
-      &     file_info%ncid%sfcvar_name)
-      CALL nf(nf_def_var(ncfile, "sfcvar_long_name", NF_CHAR, 2, var_name_dims(:), &
+        &     file_info%ncid%sfcvar_name)
+      CALL nf(nf_def_var(ncfile, "sfcvar_long_name", NF_CHAR, 2, var_name_dims,&
         &                file_info%ncid%sfcvar_longname), routine)
       CALL nf_add_descr("Surface variable name (long, character string)", &
-        &               ncfile, &
-      &     file_info%ncid%sfcvar_longname)
+        &               ncfile, file_info%ncid%sfcvar_longname)
       CALL nf(nf_def_var(ncfile, "sfcvar_unit", NF_CHAR, 2, var_name_dims(:), &
         &                file_info%ncid%sfcvar_unit), routine)
       CALL nf_add_descr("Surface variable unit (character string)", ncfile, &
-      &     file_info%ncid%sfcvar_unit)
+        &               file_info%ncid%sfcvar_unit)
       CALL nf(nf_def_var(ncfile, "sfcvar_group_id", NF_INT, 1, &
-      &     file_info%ncid%nsfcvars, &
+        &                file_info%ncid%nsfcvars, &
         &                file_info%ncid%sfcvar_group_id), routine)
       CALL nf_add_descr("Surface variable group ID", ncfile, &
       &     file_info%ncid%sfcvar_group_id)
@@ -2363,7 +2354,7 @@ CONTAINS
     CALL nf_add_descr("value buffer for volume variables", ncfile, &
       &     file_info%ncid%var_values)
     ! add value buffer for surface variables:
-    IF (meteogram_data%nsfcvars > 0) THEN
+    IF (nsfcvars > 0) THEN
       sfcvar_dims = (/ file_info%ncid%nstations, &
       &     file_info%ncid%nsfcvars, &
       &     file_info%ncid%timeid /)
@@ -2512,8 +2503,9 @@ CONTAINS
     TYPE(t_meteogram_data), INTENT(in) :: meteogram_data
 
     CHARACTER(len=*), PARAMETER :: routine = modname//":meteogram_append_file"
-    INTEGER :: old_mode, ncfile
+    INTEGER :: old_mode, ncfile, nsfcvars
 
+    nsfcvars = SIZE(meteogram_data%sfc_var_info)
     CALL nf(nf_open(TRIM(file_info%zname), nf_write, &
       &             file_info%ncid%file_id), routine)
     ncfile = file_info%ncid%file_id
@@ -2524,7 +2516,7 @@ CONTAINS
       &     routine)
     CALL nf(nf_inq_dimid(ncfile, 'nvars', file_info%ncid%nvars), &
       &     routine)
-    IF (meteogram_data%nsfcvars > 0) &
+    IF (nsfcvars > 0) &
       CALL nf(nf_inq_dimid(ncfile, 'nsfcvars', file_info%ncid%nsfcvars), &
       &       routine)
     CALL nf(nf_inq_dimid(ncfile, 'max_nlevs', file_info%ncid%max_nlevs), &
@@ -2563,7 +2555,7 @@ CONTAINS
     CALL nf(nf_inq_varid(ncfile, "var_nlevs", file_info%ncid%var_nlevs), &
       &     routine)
     ! surface variables:
-    IF (meteogram_data%nsfcvars > 0) THEN
+    IF (nsfcvars > 0) THEN
       CALL nf(nf_inq_varid(ncfile, "sfcvar_name", file_info%ncid%sfcvar_name), &
         &     routine)
       CALL nf(nf_inq_varid(ncfile, "sfcvar_long_name", file_info%ncid%sfcvar_longname), &
@@ -2588,7 +2580,7 @@ CONTAINS
     CALL nf(nf_inq_varid(ncfile, "values", file_info%ncid%var_values), &
       &     routine)
     ! add value buffer for surface variables:
-    IF (meteogram_data%nsfcvars > 0) THEN
+    IF (nsfcvars > 0) THEN
       CALL nf(nf_inq_varid(ncfile, "sfcvalues", file_info%ncid%sfcvar_values), &
         &     routine)
     END IF
@@ -2642,7 +2634,7 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: routine = modname//"::disk_flush"
 
     nvars    = meteogram_data%nvars
-    nsfcvars = meteogram_data%nsfcvars
+    nsfcvars = SIZE(meteogram_data%sfc_var_info)
     ncfile   = ncid%file_id
 
     IF (dbg_level > 0) THEN
