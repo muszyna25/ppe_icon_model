@@ -300,8 +300,6 @@ MODULE mo_meteogram_output
   !!
   TYPE t_meteogram_data
     ! variable info:
-    !> number of sampled atmospheric variables
-    INTEGER                         :: nvars
     !> maximum no. of levels for variables
     INTEGER                         :: max_nlevs
     !> info for each variable (1:nvars)
@@ -1127,7 +1125,7 @@ CONTAINS
     INTEGER      :: ithis_nlocal_pts, nblks,          &
       &             nstations, ierrstat,              &
       &             jb, jc, glb_index,                &
-      &             istation, ivar, nvars, nlevs,     &
+      &             istation, ivar, nlevs,            &
       &             istation_glb
     ! list of triangles containing lon-lat grid points (first dim: index and block)
     TYPE(mtgrm_pack_buf) :: pack_buf
@@ -1325,9 +1323,8 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish(routine, &
       'ALLOCATE of meteogram time stamp data structure failed')
 
-    meteogram_data%nvars     = var_list%no_atmo_vars
     meteogram_data%max_nlevs = &
-      & MAX(0, MAXVAL(meteogram_data%var_info(1:meteogram_data%nvars)%nlevs))
+      & MAX(0, MAXVAL(meteogram_data%var_info(1:var_list%no_atmo_vars)%nlevs))
 
     ! set up list of local stations:
     IF (.NOT. is_pure_io_pe) THEN
@@ -1387,7 +1384,7 @@ CONTAINS
         END SELECT
 
         ! initialize value buffer and set level heights:
-        DO ivar=1,meteogram_data%nvars
+        DO ivar=1,var_list%no_atmo_vars
           nlevs = meteogram_data%var_info(ivar)%nlevs
           ! initialize level heights:
           SELECT CASE(IBCLR(meteogram_data%var_info(ivar)%igroup_id, FLAG_DIAG))
@@ -1429,8 +1426,6 @@ CONTAINS
       mtgrm(jg)%meteogram_global_data%pstation  =  mtgrm(jg)%meteogram_local_data%pstation
 
       ! Note: variable info is not duplicated
-      mtgrm(jg)%meteogram_global_data%nvars     &
-        = mtgrm(jg)%meteogram_local_data%nvars
       mtgrm(jg)%meteogram_global_data%max_nlevs &
         = mtgrm(jg)%meteogram_local_data%max_nlevs
       mtgrm(jg)%meteogram_global_data%var_info &
@@ -1488,7 +1483,7 @@ CONTAINS
       mtgrm(jg)%max_buf_size                        &
         =   mtgrm_pack_header_ints*p_int_byte       & ! header size
         & + max_time_stamps*(MAX_DATE_LEN+4)        & ! time stamp info
-        & + meteogram_data%nvars*max_var_size       &
+        & + var_list%no_atmo_vars*max_var_size      &
         & + var_list%no_sfc_vars*max_sfcvar_size
 
       ! allocate buffer:
@@ -1828,7 +1823,6 @@ CONTAINS
       IF (ierrstat /= SUCCESS) &
         CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
 
-      meteogram_data%nvars     = 0
       meteogram_data%nstations = 0
     END IF
 
@@ -1899,7 +1893,6 @@ CONTAINS
         WRITE (0,*) "p_int_byte              = ", p_real_dp_byte
         WRITE (0,*) "max_time_stamps         = ", max_time_stamps
         WRITE (0,*) "MAX_DATE_LEN            = ", MAX_DATE_LEN
-        WRITE (0,*) "meteogram_data%nvars    = ", mtgrm%meteogram_local_data%nvars
         WRITE (0,*) "max_var_size            = ", max_var_size
         WRITE (0,*) "max_sfcvar_size         = ", max_sfcvar_size
         WRITE (message_text, '(3a)') &
@@ -2183,7 +2176,7 @@ CONTAINS
       &        istation, ivar, nvars, nsfcvars
     CHARACTER(len=*), PARAMETER :: routine = modname//":meteogram_create_file"
 
-    nvars    = meteogram_data%nvars
+    nvars    = SIZE(meteogram_data%var_info)
     nsfcvars = SIZE(meteogram_data%sfc_var_info)
 
     CALL nf(nf_create(TRIM(file_info%zname), nf_clobber, &
@@ -2204,14 +2197,13 @@ CONTAINS
 
     ! for the definition of a character-string variable define
     ! character-position dimension for strings
-    CALL nf(nf_def_dim(ncfile, "stringlen",  MAX_DESCR_LENGTH, &
+    CALL nf(nf_def_dim(ncfile, "stringlen", MAX_DESCR_LENGTH, &
       &     file_info%ncid%charid), routine)
     ! station header:
     CALL nf(nf_def_dim(ncfile, 'nstations',  meteogram_data%nstations, &
       &     file_info%ncid%nstations), routine)
     ! write variables:
-    CALL nf(nf_def_dim(ncfile, 'nvars',      meteogram_data%nvars, &
-      &     file_info%ncid%nvars), routine)
+    CALL nf(nf_def_dim(ncfile, 'nvars', nvars, file_info%ncid%nvars), routine)
     CALL nf(nf_def_dim(ncfile, 'ntiles',     ntiles_mtgrm, &
       &     file_info%ncid%ntiles), routine)
     IF (nsfcvars > 0) &
@@ -2277,8 +2269,7 @@ CONTAINS
 
     ! create variable info fields:
     ! volume variables
-    var_name_dims = (/ file_info%ncid%charid, &
-      &     file_info%ncid%nvars /)
+    var_name_dims = (/ file_info%ncid%charid, file_info%ncid%nvars /)
     CALL nf(nf_def_var(ncfile, "var_name", NF_CHAR, 2, var_name_dims(:), &
       &                file_info%ncid%var_name), routine)
     CALL nf_add_descr("Variable name (character string)", ncfile, &
@@ -2375,7 +2366,7 @@ CONTAINS
       istart(2) = ivar
       tlen = LEN_TRIM(meteogram_data%var_info(ivar)%cf%standard_name)
       icount(1) = tlen
-      CALL nf(nf_put_vara_text(ncfile, file_info%ncid%var_name, istart, icount, &
+      CALL nf(nf_put_vara_text(ncfile, file_info%ncid%var_name, istart, icount,&
         &        meteogram_data%var_info(ivar)%cf%standard_name(1:tlen)), &
         &     routine)
       tlen = LEN_TRIM(meteogram_data%var_info(ivar)%cf%long_name)
@@ -2385,8 +2376,9 @@ CONTAINS
         &        meteogram_data%var_info(ivar)%cf%long_name(1:tlen)), routine)
       tlen = LEN_TRIM(meteogram_data%var_info(ivar)%cf%units)
       icount(1) = tlen
-      CALL nf(nf_put_vara_text(ncfile, file_info%ncid%var_unit, istart, icount, &
-        &        meteogram_data%var_info(ivar)%cf%units(1:tlen)), routine)
+      CALL nf(nf_put_vara_text(ncfile, file_info%ncid%var_unit, istart, icount,&
+        &                      meteogram_data%var_info(ivar)%cf%units(1:tlen)),&
+        &                      routine)
       CALL nf(nf_put_vara_int(ncfile, file_info%ncid%var_group_id, ivar, 1, &
         &        meteogram_data%var_info(ivar)%igroup_id), routine)
       CALL nf(nf_put_vara_int(ncfile, file_info%ncid%var_nlevs, ivar, 1, &
@@ -2633,7 +2625,7 @@ CONTAINS
     INTEGER :: istart(4), icount(4), tlen, ncfile
     CHARACTER(len=*), PARAMETER :: routine = modname//"::disk_flush"
 
-    nvars    = meteogram_data%nvars
+    nvars    = SIZE(meteogram_data%var_info)
     nsfcvars = SIZE(meteogram_data%sfc_var_info)
     ncfile   = ncid%file_id
 
