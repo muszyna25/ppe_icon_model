@@ -1134,6 +1134,7 @@ CONTAINS
     INTEGER :: max_varlist_buf_size
 
     INTEGER      :: tri_idx(2,nproma,(meteogram_output_config%nstations+nproma-1)/nproma)
+    INTEGER      :: tri_idx1, tri_idx2
     INTEGER      :: max_var_size, max_sfcvar_size
     REAL(wp)     :: grid_sphere_radius_mtg
     TYPE(t_meteogram_data)   , POINTER :: meteogram_data
@@ -1406,16 +1407,18 @@ CONTAINS
         meteogram_data%station(istation)%station_idx = istation_glb
 
         ! set local triangle index, block:
-        meteogram_data%station(istation)%tri_idx_local(1:2) = tri_idx(1:2,jc,jb)
+        tri_idx1 = tri_idx(1,jc,jb)
+        tri_idx2 = tri_idx(2,jc,jb)
+        meteogram_data%station(istation)%tri_idx_local(1) = tri_idx1
+        meteogram_data%station(istation)%tri_idx_local(2) = tri_idx2
         ! translate local index to global index:
         glb_index &
-          = ptr_patch%cells%decomp_info%glb_index(idx_1d(tri_idx(1,jc,jb), &
-          &                                       tri_idx(2,jc,jb)))
-        meteogram_data%station(istation)%tri_idx(1:2) =  &
-            &  (/ idx_no(glb_index), blk_no(glb_index) /)
+          = ptr_patch%cells%decomp_info%glb_index(idx_1d(tri_idx1, tri_idx2))
+        meteogram_data%station(istation)%tri_idx(1) = idx_no(glb_index)
+        meteogram_data%station(istation)%tri_idx(2) = blk_no(glb_index)
         ! set Coriolis parameter for station
         meteogram_data%station(istation)%fc           =  &
-          &  ptr_patch%cells%f_c(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
+          &  ptr_patch%cells%f_c(tri_idx1, tri_idx2)
 
         CALL allocate_station_buffer(meteogram_data%station(istation), &
           meteogram_data%var_info, meteogram_data%sfc_var_info, &
@@ -1425,16 +1428,16 @@ CONTAINS
         SELECT CASE ( iforcing )
         CASE ( inwp ) ! NWP physics
           meteogram_data%station(istation)%hsurf    =  &
-            &  ext_data%atm%topography_c(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
+            &  ext_data%atm%topography_c(tri_idx1, tri_idx2)
           meteogram_data%station(istation)%frland   =  &
-            &  ext_data%atm%fr_land(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
+            &  ext_data%atm%fr_land(tri_idx1, tri_idx2)
           meteogram_data%station(istation)%soiltype =  &
-            &  ext_data%atm%soiltyp(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
+            &  ext_data%atm%soiltyp(tri_idx1, tri_idx2)
           !
           meteogram_data%station(istation)%tile_frac(1:ntiles_mtgrm) = &
-            &  ext_data%atm%lc_frac_t(tri_idx(1,jc,jb), tri_idx(2,jc,jb),1:ntiles_mtgrm)
+            &  ext_data%atm%lc_frac_t(tri_idx1, tri_idx2,1:ntiles_mtgrm)
           meteogram_data%station(istation)%tile_luclass(1:ntiles_mtgrm) = &
-            &  ext_data%atm%lc_class_t(tri_idx(1,jc,jb), tri_idx(2,jc,jb),1:ntiles_mtgrm)
+            &  ext_data%atm%lc_class_t(tri_idx1, tri_idx2,1:ntiles_mtgrm)
 
         CASE DEFAULT
           meteogram_data%station(istation)%hsurf    =  0._wp
@@ -1454,11 +1457,11 @@ CONTAINS
           CASE(VAR_GROUP_ATMO_ML)
             ! model level heights
             meteogram_data%station(istation)%var(ivar)%heights(1:nlevs) &
-              = p_nh_state%metrics%z_mc(tri_idx(1,jc,jb), 1:nlevs, tri_idx(2,jc,jb))
+              = p_nh_state%metrics%z_mc(tri_idx1, 1:nlevs, tri_idx2)
           CASE(VAR_GROUP_ATMO_HL)
             ! half level heights
             meteogram_data%station(istation)%var(ivar)%heights(1:nlevs) &
-              = p_nh_state%metrics%z_ifc(tri_idx(1,jc,jb), 1:nlevs, tri_idx(2,jc,jb))
+              = p_nh_state%metrics%z_ifc(tri_idx1, 1:nlevs, tri_idx2)
           CASE(VAR_GROUP_SOIL_ML)
             ! soil half level heights
             meteogram_data%station(istation)%var(ivar)%heights(1:nlevs) &
