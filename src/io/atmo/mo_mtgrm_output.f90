@@ -122,13 +122,14 @@ MODULE mo_meteogram_output
     &                                 p_comm_work, p_comm_work_2_io,      &
     &                                 process_mpi_io_size,                &
     &                                 p_comm_remote_size
-  USE mo_model_domain,          ONLY: t_patch
+  USE mo_model_domain,          ONLY: t_patch, t_grid_cells
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_impl_constants,        ONLY: inwp, max_dom, SUCCESS
   USE mo_math_constants,        ONLY: pi, pi_180
   USE mo_communication,         ONLY: idx_1d, blk_no, idx_no
-  USE mo_ext_data_types,        ONLY: t_external_data
-  USE mo_nonhydro_types,        ONLY: t_nh_state, t_nh_prog, t_nh_diag
+  USE mo_ext_data_types,        ONLY: t_external_data, t_external_atmos
+  USE mo_nonhydro_types,        ONLY: t_nh_state, t_nh_prog, t_nh_diag, &
+    &                                 t_nh_metrics
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_nwp_lnd_types,         ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag
   USE mo_cf_convention,         ONLY: t_cf_var, t_cf_global, cf_global_info
@@ -1124,9 +1125,7 @@ CONTAINS
 
     INTEGER      :: ithis_nlocal_pts, nblks,          &
       &             nstations, ierrstat,              &
-      &             jb, jc, glb_index,                &
-      &             istation, ivar, nlevs,            &
-      &             istation_glb
+      &             jb, jc, istation
     ! list of triangles containing lon-lat grid points (first dim: index and block)
     TYPE(mtgrm_pack_buf) :: pack_buf
     !> buffer size for var list
@@ -1134,7 +1133,6 @@ CONTAINS
 
     TYPE(t_var) :: var_list
     INTEGER      :: tri_idx(2,nproma,(meteogram_output_config%nstations+nproma-1)/nproma)
-    INTEGER      :: tri_idx1, tri_idx2
     INTEGER      :: max_var_size, max_sfcvar_size
     TYPE(t_meteogram_data)   , POINTER :: meteogram_data
     INTEGER                            :: max_time_stamps
@@ -1335,80 +1333,13 @@ CONTAINS
       ENDIF
 
       DO istation=1,meteogram_data%nstations
-        istation_glb = mtgrm(jg)%global_idx(istation)
         jb = (istation-1)/nproma + 1
         jc = MOD(istation-1, nproma)+1
-        meteogram_data%station(istation)%station_idx = istation_glb
-
-        ! set local triangle index, block:
-        tri_idx1 = tri_idx(1,jc,jb)
-        tri_idx2 = tri_idx(2,jc,jb)
-        meteogram_data%station(istation)%tri_idx_local(1) = tri_idx1
-        meteogram_data%station(istation)%tri_idx_local(2) = tri_idx2
-        ! translate local index to global index:
-        glb_index &
-          = ptr_patch%cells%decomp_info%glb_index(idx_1d(tri_idx1, tri_idx2))
-        meteogram_data%station(istation)%tri_idx(1) = idx_no(glb_index)
-        meteogram_data%station(istation)%tri_idx(2) = blk_no(glb_index)
-        ! set Coriolis parameter for station
-        meteogram_data%station(istation)%fc           =  &
-          &  ptr_patch%cells%f_c(tri_idx1, tri_idx2)
-
-        CALL allocate_station_buffer(meteogram_data%station(istation), &
+        CALL sample_station_init(meteogram_data%station(istation), &
+          mtgrm(jg)%global_idx(istation), tri_idx(:,jc,jb), &
+          ptr_patch%cells, ext_data%atm, iforcing, p_nh_state%metrics, &
           meteogram_data%var_info, meteogram_data%sfc_var_info, &
-          max_time_stamps)
-        !
-        ! set station information on height, soil type etc.:
-        SELECT CASE ( iforcing )
-        CASE ( inwp ) ! NWP physics
-          meteogram_data%station(istation)%hsurf    =  &
-            &  ext_data%atm%topography_c(tri_idx1, tri_idx2)
-          meteogram_data%station(istation)%frland   =  &
-            &  ext_data%atm%fr_land(tri_idx1, tri_idx2)
-          meteogram_data%station(istation)%soiltype =  &
-            &  ext_data%atm%soiltyp(tri_idx1, tri_idx2)
-          !
-          meteogram_data%station(istation)%tile_frac(1:ntiles_mtgrm) = &
-            &  ext_data%atm%lc_frac_t(tri_idx1, tri_idx2, 1:ntiles_mtgrm)
-          meteogram_data%station(istation)%tile_luclass(1:ntiles_mtgrm) = &
-            &  ext_data%atm%lc_class_t(tri_idx1, tri_idx2, 1:ntiles_mtgrm)
-
-        CASE DEFAULT
-          meteogram_data%station(istation)%hsurf    =  0._wp
-          meteogram_data%station(istation)%frland   =  0._wp
-          meteogram_data%station(istation)%soiltype =  0
-          !
-          meteogram_data%station(istation)%tile_frac    = 0._wp
-          meteogram_data%station(istation)%tile_luclass = 0
-
-        END SELECT
-
-        ! initialize value buffer and set level heights:
-        DO ivar=1,var_list%no_atmo_vars
-          nlevs = meteogram_data%var_info(ivar)%nlevs
-          ! initialize level heights:
-          SELECT CASE(IBCLR(meteogram_data%var_info(ivar)%igroup_id, FLAG_DIAG))
-          CASE(VAR_GROUP_ATMO_ML)
-            ! model level heights
-            meteogram_data%station(istation)%var(ivar)%heights(1:nlevs) &
-              = p_nh_state%metrics%z_mc(tri_idx1, 1:nlevs, tri_idx2)
-          CASE(VAR_GROUP_ATMO_HL)
-            ! half level heights
-            meteogram_data%station(istation)%var(ivar)%heights(1:nlevs) &
-              = p_nh_state%metrics%z_ifc(tri_idx1, 1:nlevs, tri_idx2)
-          CASE(VAR_GROUP_SOIL_ML)
-            ! soil half level heights
-            meteogram_data%station(istation)%var(ivar)%heights(1:nlevs) &
-              = zml_soil(1:nlevs)
-          CASE(VAR_GROUP_SOIL_MLp2)
-            ! soil half level heights PLUS surface level
-            meteogram_data%station(istation)%var(ivar)%heights(1) = 0._wp
-            meteogram_data%station(istation)%var(ivar)%heights(2:nlevs) &
-              = zml_soil(1:(nlevs-1))
-          CASE DEFAULT
-            CALL finish (routine, 'Invalid group ID.')
-          END SELECT
-        END DO
+          meteogram_output_config%max_time_stamps)
       END DO
       IF (      .NOT. mtgrm(jg)%l_is_collecting_pe &
         & .AND. .NOT. meteogram_output_config%ldistributed) &
@@ -1584,6 +1515,93 @@ CONTAINS
     END IF
 
   END SUBROUTINE mtgrm_station_owners
+
+  SUBROUTINE sample_station_init(station, istation_glb, tri_idx, &
+    cells, atm, iforcing, metrics, var_info, sfc_var_info, max_time_stamps)
+    TYPE(t_meteogram_station), INTENT(inout) :: station
+    INTEGER, INTENT(in) :: istation_glb
+    INTEGER, INTENT(in) :: tri_idx(2)
+    TYPE(t_grid_cells), INTENT(in) :: cells
+    TYPE(t_external_atmos), INTENT(in) :: atm
+    !> parameterized forcing (right hand side) of dynamics, affects
+    !! topography specification, see "mo_extpar_config"
+    INTEGER, INTENT(IN) :: iforcing
+    ! nonhydrostatic state
+    TYPE(t_nh_metrics), INTENT(IN) :: metrics
+    TYPE(t_var_info), INTENT(in) :: var_info(:)
+    TYPE(t_sfc_var_info), INTENT(in) :: sfc_var_info(:)
+    INTEGER, INTENT(in) :: max_time_stamps
+
+
+    INTEGER :: tri_idx1, tri_idx2, glb_index, ivar, nvars, nlevs
+    CHARACTER(len=*), PARAMETER :: routine = modname//"::sample_station_init"
+
+    station%station_idx = istation_glb
+
+    ! set local triangle index, block:
+    tri_idx1 = tri_idx(1)
+    tri_idx2 = tri_idx(2)
+    station%tri_idx_local(1) = tri_idx1
+    station%tri_idx_local(2) = tri_idx2
+    ! translate local index to global index:
+    glb_index = cells%decomp_info%glb_index(idx_1d(tri_idx1, tri_idx2))
+    station%tri_idx(1) = idx_no(glb_index)
+    station%tri_idx(2) = blk_no(glb_index)
+    ! set Coriolis parameter for station
+    station%fc = cells%f_c(tri_idx1, tri_idx2)
+
+    CALL allocate_station_buffer(station, var_info, sfc_var_info, &
+      max_time_stamps)
+    !
+    ! set station information on height, soil type etc.:
+    SELECT CASE ( iforcing )
+    CASE ( inwp ) ! NWP physics
+      station%hsurf    =  atm%topography_c(tri_idx1, tri_idx2)
+      station%frland   =  atm%fr_land(tri_idx1, tri_idx2)
+      station%soiltype =  atm%soiltyp(tri_idx1, tri_idx2)
+      !
+      station%tile_frac(1:ntiles_mtgrm) &
+        &              = atm%lc_frac_t(tri_idx1, tri_idx2, 1:ntiles_mtgrm)
+      station%tile_luclass(1:ntiles_mtgrm) &
+        &              = atm%lc_class_t(tri_idx1, tri_idx2, 1:ntiles_mtgrm)
+
+    CASE DEFAULT
+      station%hsurf    =  0._wp
+      station%frland   =  0._wp
+      station%soiltype =  0
+      !
+      station%tile_frac    = 0._wp
+      station%tile_luclass = 0
+    END SELECT
+
+    ! initialize value buffer and set level heights:
+    nvars = SIZE(var_info)
+    DO ivar = 1, nvars
+      nlevs = var_info(ivar)%nlevs
+      ! initialize level heights:
+      SELECT CASE(IBCLR(var_info(ivar)%igroup_id, FLAG_DIAG))
+      CASE(VAR_GROUP_ATMO_ML)
+        ! model level heights
+        station%var(ivar)%heights(1:nlevs) &
+          = metrics%z_mc(tri_idx1, 1:nlevs, tri_idx2)
+      CASE(VAR_GROUP_ATMO_HL)
+        ! half level heights
+        station%var(ivar)%heights(1:nlevs) &
+          = metrics%z_ifc(tri_idx1, 1:nlevs, tri_idx2)
+      CASE(VAR_GROUP_SOIL_ML)
+        ! soil half level heights
+        station%var(ivar)%heights(1:nlevs) &
+          = zml_soil(1:nlevs)
+      CASE(VAR_GROUP_SOIL_MLp2)
+        ! soil half level heights PLUS surface level
+        station%var(ivar)%heights(1) = 0._wp
+        station%var(ivar)%heights(2:nlevs) = zml_soil(1:nlevs-1)
+      CASE DEFAULT
+        CALL finish (routine, 'Invalid group ID.')
+      END SELECT
+    END DO
+
+  END SUBROUTINE sample_station_init
 
   SUBROUTINE allocate_station_buffer(station, var_info, sfc_var_info, &
     max_time_stamps)
