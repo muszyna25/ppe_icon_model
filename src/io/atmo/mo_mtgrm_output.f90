@@ -2020,7 +2020,7 @@ CONTAINS
     INTEGER, INTENT(in) :: istation, nstations
     INTEGER, INTENT(out) :: icurrent
 
-    INTEGER :: position, itime, ivar, nlevs, station_idx
+    INTEGER :: position, itime, ivar, nvars, nlevs, station_idx
     CHARACTER(len=*), PARAMETER :: routine = modname//"::unpack_station_sample"
 
     position = 0
@@ -2042,12 +2042,14 @@ CONTAINS
       CALL finish(routine, "non-matching global indices")
 
     !-- unpack meteogram data:
-    DO ivar=1,meteogram_local_data%nvars
+    nvars = SIZE(meteogram_local_data%var_info)
+    DO ivar = 1, nvars
       nlevs = meteogram_local_data%var_info(ivar)%nlevs
       CALL p_unpack_real_2d(sttn_buffer, position, &
         &                   station%var(ivar)%values, nlevs*icurrent)
     END DO
-    DO ivar=1,meteogram_local_data%nsfcvars
+    nvars = SIZE(station%sfc_var)
+    DO ivar = 1, nvars
       CALL p_unpack_real_1d(sttn_buffer, position, &
         &                   station%sfc_var(ivar)%values(:), icurrent)
     END DO
