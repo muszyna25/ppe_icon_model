@@ -329,7 +329,7 @@ CONTAINS
     grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'grad_topo', p_ext_atm%grad_topo,        &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
-      &           grib2_desc, ldims=(/2,nproma,nblks_c/), loutput=.TRUE.,  &
+      &           grib2_desc, ldims=(/2,nproma,nblks_c/), loutput=.FALSE.,  &
       &           isteptype=TSTEP_CONSTANT )
 
 
