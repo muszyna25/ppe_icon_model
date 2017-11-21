@@ -1101,39 +1101,38 @@ CONTAINS
     &                       ptr_patch, ext_data, p_nh_state, &
     &                       prm_diag, p_lnd_state, prm_nwp_tend, iforcing, &
     &                       grid_uuid, number_of_grid_used)
-    ! station data from namelist
+    !> station data from namelist
     TYPE(t_meteogram_output_config), INTENT(INOUT) :: meteogram_output_config
-    ! patch index
+    !> patch index
     INTEGER,                   INTENT(IN) :: jg
-    ! data structure containing grid info:
+    !> data structure containing grid info:
     TYPE(t_patch),             INTENT(IN), OPTIONAL :: ptr_patch
-    ! atmosphere external data
+    !> atmosphere external data
     TYPE(t_external_data),     INTENT(IN), OPTIONAL :: ext_data
-    ! nonhydrostatic state
+    !> nonhydrostatic state
     TYPE(t_nh_state), TARGET,  INTENT(IN), OPTIONAL  :: p_nh_state
-    ! physical model state and other auxiliary variables
+    !> physical model state and other auxiliary variables
     TYPE(t_nwp_phy_diag),      INTENT(IN), OPTIONAL  :: prm_diag
-    ! model state for the NWP land physics
+    !> model state for the NWP land physics
     TYPE(t_lnd_state), TARGET, INTENT(IN), OPTIONAL  :: p_lnd_state
     ! model state for physics tendencies
-    TYPE(t_nwp_phy_tend),      INTENT(IN), OPTIONAL :: prm_nwp_tend 
-    ! parameterized forcing (right hand side) of dynamics, affects
-    ! topography specification, see "mo_extpar_config"
+    TYPE(t_nwp_phy_tend),      INTENT(IN), OPTIONAL :: prm_nwp_tend
+    !> parameterized forcing (right hand side) of dynamics, affects
+    !! topography specification, see "mo_extpar_config"
     INTEGER,                   INTENT(IN), OPTIONAL :: iforcing
+
     TYPE(t_uuid),              INTENT(IN), OPTIONAL :: grid_uuid
-    ! number of grid used
+    !> number of grid used
     INTEGER,                   INTENT(IN), OPTIONAL :: number_of_grid_used
 
     ! local variables:
     CHARACTER(*), PARAMETER :: routine = modname//":meteogram_init"
 
-    INTEGER      :: ithis_nlocal_pts, nblks, npromz,  &
+    INTEGER      :: ithis_nlocal_pts, nblks,          &
       &             nstations, ierrstat,              &
       &             jb, jc, glb_index,                &
       &             istation, ivar, nvars, nlevs,     &
       &             istation_glb
-    REAL(gk)     :: in_points(nproma,(meteogram_output_config%nstations+nproma-1)/nproma,2) !< geographical locations
-    REAL(gk)     :: min_dist(nproma,(meteogram_output_config%nstations+nproma-1)/nproma)    !< minimal distance
     ! list of triangles containing lon-lat grid points (first dim: index and block)
     TYPE(mtgrm_pack_buf) :: pack_buf
     !> buffer size for var list
@@ -1142,9 +1141,7 @@ CONTAINS
     INTEGER      :: tri_idx(2,nproma,(meteogram_output_config%nstations+nproma-1)/nproma)
     INTEGER      :: tri_idx1, tri_idx2
     INTEGER      :: max_var_size, max_sfcvar_size
-    REAL(wp)     :: grid_sphere_radius_mtg
     TYPE(t_meteogram_data)   , POINTER :: meteogram_data
-    TYPE(t_gnat_tree)                  :: gnat
     INTEGER                            :: max_time_stamps
     INTEGER                            :: io_collector_rank, iowner, &
       varlist_sender_rank
@@ -1235,79 +1232,16 @@ CONTAINS
     ! ------------------------------------------------------------
 
     nstations = meteogram_output_config%nstations
-    ithis_nlocal_pts = 0
 
     IF (.NOT. is_pure_io_pe) THEN
-
-      ! build an array of geographical coordinates from station list:
-      ! in_points(...)
-
-      DO istation=1,nstations
-        jc = MOD(istation-1,nproma)+1
-        jb = (istation+nproma-1)/nproma
-        in_points(jc,jb,1) &
-          = meteogram_output_config%station_list(istation)%location%lon * pi_180
-        in_points(jc,jb,2) &
-          = meteogram_output_config%station_list(istation)%location%lat * pi_180
-      END DO
-
-      ! build GNAT data structure
-      CALL gnat_init_grid(gnat, ptr_patch)
-      ! perform proximity query
-
-      IF (is_plane_torus) THEN
-        grid_sphere_radius_mtg = ptr_patch%geometry_info%domain_length / (2*pi)
-      ELSE
-        grid_sphere_radius_mtg = grid_sphere_radius
-      END IF
-
       nblks = (nstations+nproma-1)/nproma
-      npromz = MOD(nstations-1,nproma)+1
-      CALL gnat_query_containing_triangles(gnat, ptr_patch, in_points(:,:,:),             &
-        &                                  nproma, nblks, npromz, grid_sphere_radius_mtg, &
-        &                                  p_test_run, tri_idx(:,:,:), min_dist(:,:))
-
-      CALL gnat_merge_distributed_queries(ptr_patch, nstations, nproma, nblks, min_dist,  &
-        &                                 tri_idx(:,:,:), in_points(:,:,:),               &
-        &                                 mtgrm(jg)%global_idx(:), ithis_nlocal_pts)
-
-      meteogram_data%nstations = ithis_nlocal_pts
-
-      ! clean up
-      CALL gnat_destroy(gnat)
-
-      ! build a list of "owner" PEs for the stations:
-      mtgrm(jg)%meteogram_local_data%pstation(:) = -1
-      DO istation = 1, ithis_nlocal_pts
-        mtgrm(jg)%meteogram_local_data%pstation(mtgrm(jg)%global_idx(istation))&
-          = p_pe_work
-      END DO
-      ! All-to-all communicate the located stations to find out if
-      ! some stations are "owned" by no PE at all (in the case of
-      ! regional nests):
-      CALL p_allreduce_max(mtgrm(jg)%meteogram_local_data%pstation, &
-        &                  comm=p_comm_work)
-      IF (use_async_name_list_io) THEN
-        varlist_sender_rank = p_n_work - 1
-        DO istation = nstations, 1, -1
-          iowner = mtgrm(jg)%meteogram_local_data%pstation(istation)
-          IF (iowner /= -1) THEN
-            ! PE collecting variable info to send it to pure I/O PEs.
-            ! (only relevant if pure I/O PEs exist)
-            varlist_sender_rank = iowner
-            EXIT
-          END IF
-        END DO
-        pack_buf%l_is_varlist_sender = p_pe_work == varlist_sender_rank
-        IF (pack_buf%l_is_varlist_sender) THEN
-          CALL p_send(mtgrm(jg)%meteogram_local_data%pstation, &
-            &         mtgrm(jg)%io_collector_rank, TAG_MTGRM_MSG, &
-            &         comm=mtgrm(jg)%io_collect_comm)
-        END IF
-      ELSE
-        pack_buf%l_is_varlist_sender = .FALSE.
-      END IF
+      CALL mtgrm_station_owners(meteogram_data, meteogram_output_config, &
+        nblks, ptr_patch, mtgrm(jg)%io_collector_rank, &
+        mtgrm(jg)%io_collect_comm, tri_idx, mtgrm(jg)%global_idx, &
+        pack_buf%l_is_varlist_sender)
+      ithis_nlocal_pts = meteogram_data%nstations
     ELSE
+      ithis_nlocal_pts = 0
       pack_buf%l_is_varlist_sender = .FALSE.
       IF (is_io .AND. io_collector_rank == p_pe_work) THEN
         CALL p_irecv(mtgrm(jg)%meteogram_local_data%pstation, &
@@ -1352,6 +1286,7 @@ CONTAINS
 
     ! set up list of variables:
     IF (     ithis_nlocal_pts > 0 &
+      & .OR. pack_buf%l_is_varlist_sender &
       & .OR. (.NOT. use_async_name_list_io .AND. is_mpi_workroot)) THEN
       ALLOCATE(meteogram_data%sfc_var_info(MAX_NSFCVARS),  &
         &      meteogram_data%var_info(MAX_NVARS),         &
@@ -1572,6 +1507,95 @@ CONTAINS
     CALL meteogram_open_file(meteogram_output_config, mtgrm(jg), jg)
 
   END SUBROUTINE meteogram_init
+
+  SUBROUTINE mtgrm_station_owners(meteogram_data, output_config, nblks, &
+    ptr_patch, io_collector_rank, io_collect_comm, tri_idx, &
+    global_idx, l_is_varlist_sender)
+    TYPE(t_meteogram_data), INTENT(inout) :: meteogram_data
+    !> station data from namelist
+    TYPE(t_meteogram_output_config), INTENT(in) :: output_config
+    INTEGER, INTENT(in) :: nblks, io_collector_rank, io_collect_comm
+    INTEGER, INTENT(out) :: tri_idx(2,nproma,nblks), global_idx(:)
+    LOGICAL, INTENT(out) :: l_is_varlist_sender
+    !> data structure containing grid info:
+    TYPE(t_patch), INTENT(in) :: ptr_patch
+
+    INTEGER :: istation, nstations, ithis_nlocal_pts, iowner, &
+      varlist_sender_rank
+    INTEGER :: jc, jb, npromz
+    !> minimal distance
+    REAL(gk) :: min_dist(nproma,nblks)
+    !> geographical locations
+    REAL(gk) :: in_points(nproma,nblks,2)
+    REAL(wp) :: grid_sphere_radius_mtg
+    TYPE(t_gnat_tree) :: gnat
+
+    ! build an array of geographical coordinates from station list:
+    ! in_points(...)
+    nstations = output_config%nstations
+    DO istation=1,nstations
+      jc = MOD(istation-1,nproma)+1
+      jb = (istation+nproma-1)/nproma
+      in_points(jc,jb,1) &
+        = output_config%station_list(istation)%location%lon * pi_180
+      in_points(jc,jb,2) &
+        = output_config%station_list(istation)%location%lat * pi_180
+    END DO
+
+    ! build GNAT data structure
+    CALL gnat_init_grid(gnat, ptr_patch)
+    ! perform proximity query
+
+    IF (is_plane_torus) THEN
+      grid_sphere_radius_mtg = ptr_patch%geometry_info%domain_length / (2*pi)
+    ELSE
+      grid_sphere_radius_mtg = grid_sphere_radius
+    END IF
+
+    npromz = MOD(nstations-1,nproma)+1
+    CALL gnat_query_containing_triangles(gnat, ptr_patch, in_points(:,:,:),             &
+      &                                  nproma, nblks, npromz, grid_sphere_radius_mtg, &
+      &                                  p_test_run, tri_idx(:,:,:), min_dist(:,:))
+
+    CALL gnat_merge_distributed_queries(ptr_patch, nstations, nproma, nblks, min_dist,  &
+      &                                 tri_idx(:,:,:), in_points(:,:,:),               &
+      &                                 global_idx(:), ithis_nlocal_pts)
+
+    meteogram_data%nstations = ithis_nlocal_pts
+
+    ! clean up
+    CALL gnat_destroy(gnat)
+
+    ! build a list of "owner" PEs for the stations:
+    meteogram_data%pstation(:) = -1
+    DO istation = 1, ithis_nlocal_pts
+      meteogram_data%pstation(global_idx(istation)) = p_pe_work
+    END DO
+    ! All-to-all communicate the located stations to find out if
+    ! some stations are "owned" by no PE at all (in the case of
+    ! regional nests):
+    CALL p_allreduce_max(meteogram_data%pstation, comm=p_comm_work)
+    IF (use_async_name_list_io) THEN
+      varlist_sender_rank = p_n_work - 1
+      DO istation = nstations, 1, -1
+        iowner = meteogram_data%pstation(istation)
+        IF (iowner /= -1) THEN
+          ! PE collecting variable info to send it to pure I/O PEs.
+          ! (only relevant if pure I/O PEs exist)
+          varlist_sender_rank = iowner
+          EXIT
+        END IF
+      END DO
+      l_is_varlist_sender = varlist_sender_rank == p_pe_work
+      IF (l_is_varlist_sender) THEN
+        CALL p_send(meteogram_data%pstation, &
+          &         io_collector_rank, TAG_MTGRM_MSG, comm=io_collect_comm)
+      END IF
+    ELSE
+      l_is_varlist_sender = .FALSE.
+    END IF
+
+  END SUBROUTINE mtgrm_station_owners
 
   SUBROUTINE allocate_station_buffer(station, var_info, sfc_var_info, &
     max_time_stamps)
