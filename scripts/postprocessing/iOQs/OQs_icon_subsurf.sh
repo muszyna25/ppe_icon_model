@@ -44,13 +44,13 @@ do
     $CDO -f nc -zonmean -remapnn,r720x360 -ifthen mask_$basin.nc -selvar,t_acc  $infile  thetao_${basin}.$infile
     $BINDIR/plotsec_ncl --title="Sea_water_potential_temperature_${basin}" --cstring="thetao_${basin}" --lstring="[C]" --rstring="${Y1}-${Y2}" --var=t_acc --min=-2 --max=30 --inc=2 --pal=GMT_haxby  thetao_${basin}.$infile
 
-    $CDO -f nc -zonmean -remapnn,r720x360 -ifthen mask_$basin.nc -sub -selvar,t_acc  $infile -selcode,2 $ref_TEM thetao-ano_${basin}.$infile
+    $CDO -f nc -zonmean -remapnn,r720x360 -ifthen mask_$basin.nc -sub -selvar,t_acc  $infile -selvar,T $ref_TEM thetao-ano_${basin}.$infile
     $BINDIR/plotsec_ncl --title="Sea_water_potential_temperature_bias_${basin}" --cstring="thetao_${basin}" --lstring="[C]" --rstring="${Y1}-${Y2}" --var=t_acc --min=-5 --max=5 --inc=0.5 --pal=BlueWhiteOrangeRed thetao-ano_${basin}.$infile
 
     $CDO -f nc -zonmean -remapnn,r720x360 -ifthen mask_$basin.nc -selvar,s_acc $infile  so_${basin}.$infile
     $BINDIR/plotsec_ncl --title="Sea_water_salinity_${basin}" --cstring="so_${basin}" --lstring="[1e-3]" --rstring="${Y1}-${Y2}" --var=s_acc --min=32 --max=37 --inc=0.25 --pal=GMT_haxby so_${basin}.$infile
 
-    $CDO -f nc -zonmean -remapnn,r720x360 -ifthen mask_$basin.nc -sub -selvar,s_acc $infile  -selcode,5 $ref_SAL so-ano_${basin}.$infile
+    $CDO -f nc -zonmean -remapnn,r720x360 -ifthen mask_$basin.nc -sub -selvar,s_acc $infile  -selvar,S $ref_SAL so-ano_${basin}.$infile
     $BINDIR/plotsec_ncl --title="Sea_water_salinity_bias_${basin}" --cstring="so_${basin}" --lstring="[1e-3]" --rstring="${Y1}-${Y2}" --var=s_acc --min=-1 --max=1 --inc=0.1 --pal=BlueWhiteOrangeRed so-ano_${basin}.$infile
 done
 

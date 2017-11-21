@@ -14,6 +14,7 @@ export GRID=$GRID
 export LEV=$LEV
 export POOL=$POOL
 export BINDIR=$(dirname $0)
+export PLOTGRID_2D=${PLOTGRID_2D:-r720x360}
 
 run_bg () {(
     trap 'status=$?; [ $status != 0 ] && echo $1 $status >> status' EXIT
