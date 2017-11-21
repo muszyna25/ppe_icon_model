@@ -251,15 +251,6 @@ MODULE mo_meteogram_output
     REAL(wp), POINTER     :: values(:)      !< sampled data (1:time)
   END TYPE t_sfc_var_buffer
 
-  !>
-  !! Data structure containing time slice info.
-  !!
-  TYPE t_time_stamp
-    INTEGER                     :: istep    !< iteration step of model
-    CHARACTER(len=MAX_DATE_LEN) :: zdate    !< date and time of point sample (iso8601)
-  END TYPE t_time_stamp
-
-
   !> number of time- and variable-invariant items per station
   INTEGER, PARAMETER :: num_time_inv = 6
 
@@ -299,6 +290,10 @@ MODULE mo_meteogram_output
     TYPE(t_sfc_var_buffer), ALLOCATABLE :: sfc_var(:)
   END TYPE t_meteogram_station
 
+  ! the nag compiler cannot handle contiguous components here but does not define a distinctive symbol
+#ifdef NAGFOR
+#undef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#endif
   !>
   !! Storage for information on the set of collected variables for
   !! several stations.
@@ -318,8 +313,19 @@ MODULE mo_meteogram_output
     ! time stamp info:
     !> current time stamp index
     INTEGER                         :: icurrent
-    !> info on sample times (1:time)
-    TYPE(t_time_stamp), POINTER :: time_stamp(:)
+    !> info on sample times (1:icurrent)
+    !! iteration step of model
+    INTEGER, &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      CONTIGUOUS, &
+#endif
+      POINTER                       :: istep(:)
+    !> date and time of point sample (iso8601)
+    CHARACTER(len=MAX_DATE_LEN), &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      CONTIGUOUS, &
+#endif
+      POINTER                       :: zdate(:)
     ! value buffers:
     !> meteogram data and meta info for each station (idx,blk).
     TYPE(t_meteogram_station), ALLOCATABLE :: station(:)
@@ -1383,7 +1389,8 @@ CONTAINS
         CALL finish (routine, 'DEALLOCATE of MPI buffer failed.')
     END IF
 
-    ALLOCATE(meteogram_data%time_stamp(max_time_stamps), stat=ierrstat)
+    ALLOCATE(meteogram_data%istep(max_time_stamps), &
+      meteogram_data%zdate(max_time_stamps), stat=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, &
       'ALLOCATE of meteogram time stamp data structure failed')
 
@@ -1435,9 +1442,9 @@ CONTAINS
             &  ext_data%atm%soiltyp(tri_idx1, tri_idx2)
           !
           meteogram_data%station(istation)%tile_frac(1:ntiles_mtgrm) = &
-            &  ext_data%atm%lc_frac_t(tri_idx1, tri_idx2,1:ntiles_mtgrm)
+            &  ext_data%atm%lc_frac_t(tri_idx1, tri_idx2, 1:ntiles_mtgrm)
           meteogram_data%station(istation)%tile_luclass(1:ntiles_mtgrm) = &
-            &  ext_data%atm%lc_class_t(tri_idx1, tri_idx2,1:ntiles_mtgrm)
+            &  ext_data%atm%lc_class_t(tri_idx1, tri_idx2, 1:ntiles_mtgrm)
 
         CASE DEFAULT
           meteogram_data%station(istation)%hsurf    =  0._wp
@@ -1503,8 +1510,10 @@ CONTAINS
         = mtgrm(jg)%meteogram_local_data%nsfcvars
       mtgrm(jg)%meteogram_global_data%sfc_var_info &
         =>  mtgrm(jg)%meteogram_local_data%sfc_var_info
-      mtgrm(jg)%meteogram_global_data%time_stamp &
-        =>  mtgrm(jg)%meteogram_local_data%time_stamp
+      mtgrm(jg)%meteogram_global_data%istep &
+        =>  mtgrm(jg)%meteogram_local_data%istep
+      mtgrm(jg)%meteogram_global_data%zdate &
+        =>  mtgrm(jg)%meteogram_local_data%zdate
 
       ALLOCATE(mtgrm(jg)%meteogram_global_data%station(nstations), stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
@@ -1703,9 +1712,9 @@ CONTAINS
     meteogram_data%icurrent = i_tstep
 
     IF (meteogram_data%nstations > 0) THEN
-      meteogram_data%time_stamp(i_tstep)%istep = cur_step
+      meteogram_data%istep(i_tstep) = cur_step
       CALL datetimeToPosixString(cur_datetime, zdate, "%Y%m%dT%H%M%SZ")
-      meteogram_data%time_stamp(i_tstep)%zdate = zdate
+      meteogram_data%zdate(i_tstep) = zdate
 
       ! fill time step with values
       DO istation=1,meteogram_data%nstations
@@ -1785,7 +1794,7 @@ CONTAINS
       & .OR. (.NOT. use_async_name_list_io .AND. is_mpi_workroot) &
       & .OR. mtgrm(jg)%l_is_collecting_pe) THEN
       meteogram_data => mtgrm(jg)%meteogram_local_data
-      DEALLOCATE(meteogram_data%time_stamp, stat=ierrstat)
+      DEALLOCATE(meteogram_data%istep, meteogram_data%zdate, stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
         CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
 
@@ -1913,11 +1922,11 @@ CONTAINS
         IF (iowner >= 0) THEN
           IF (iowner /= p_pe_work .OR. is_pure_io_pe) THEN
             CALL unpack_station_sample(mtgrm%meteogram_local_data, &
-              mtgrm%meteogram_global_data%time_stamp, &
+              mtgrm%meteogram_global_data%istep, &
+              mtgrm%meteogram_global_data%zdate, &
               mtgrm%meteogram_global_data%station(istation), &
               msg_buffer(:,istation), istation, nstations, &
-              icurrent_recv(istation), &
-              mtgrm%max_time_stamps)
+              icurrent_recv(istation))
             icurrent = icurrent_recv(istation)
           ELSE
             ! this PE is both sender and receiver - direct copy:
@@ -1955,8 +1964,8 @@ CONTAINS
           = mtgrm%meteogram_local_data%station(istation)%station_idx
         CALL pack_station_sample(msg_buffer(:,1), position, &
           mtgrm%meteogram_local_data%icurrent, &
-          mtgrm%max_time_stamps, &
-          mtgrm%meteogram_local_data%time_stamp, &
+          mtgrm%meteogram_local_data%istep, &
+          mtgrm%meteogram_local_data%zdate, &
           mtgrm%meteogram_local_data%station(istation))
         ! (blocking) send of packed station data to IO PE:
         CALL p_send_packed(msg_buffer, mtgrm%io_collector_rank, &
@@ -1980,16 +1989,15 @@ CONTAINS
   END SUBROUTINE meteogram_collect_buffers
 
   SUBROUTINE unpack_station_sample(meteogram_local_data, &
-      time_stamp, station, sttn_buffer, istation, nstations, icurrent, &
-      max_time_stamps)
+      istep, zdate, station, sttn_buffer, istation, nstations, icurrent)
     TYPE(t_meteogram_data), INTENT(inout) :: meteogram_local_data
-    TYPE(t_time_stamp), INTENT(out) :: time_stamp(:)
+    INTEGER, INTENT(out) :: istep(:)
+    CHARACTER(len=max_date_len), INTENT(out) :: zdate(:)
     TYPE(t_meteogram_station), INTENT(inout) :: station
     CHARACTER, INTENT(in) :: sttn_buffer(:)
-    INTEGER, INTENT(in) :: istation, nstations, max_time_stamps
+    INTEGER, INTENT(in) :: istation, nstations
     INTEGER, INTENT(out) :: icurrent
 
-    INTEGER :: istep_sndrcv(max_time_stamps)
     INTEGER :: position, itime, ivar, nlevs, station_idx
     CHARACTER(len=*), PARAMETER :: routine = modname//"::unpack_station_sample"
 
@@ -2001,10 +2009,9 @@ CONTAINS
       WRITE (*,'(3(a,i0))') "Receiving ", icurrent, &
       & " time slices from station ", istation, "/", nstations
     ! unpack time stamp info
-    CALL p_unpack_int_1d(sttn_buffer, position, istep_sndrcv, icurrent)
-    time_stamp(1:icurrent)%istep = istep_sndrcv(1:icurrent)
+    CALL p_unpack_int_1d(sttn_buffer, position, istep, icurrent)
     DO itime=1,icurrent
-      CALL p_unpack_string(sttn_buffer, position, time_stamp(itime)%zdate)
+      CALL p_unpack_string(sttn_buffer, position, zdate(itime))
     END DO
 
     !-- unpack station header information
@@ -2026,24 +2033,23 @@ CONTAINS
   END SUBROUTINE unpack_station_sample
 
   SUBROUTINE pack_station_sample(sttn_buffer, pos, &
-    icurrent, max_time_stamps, time_stamp, station)
+    icurrent, istep, zdate, station)
     CHARACTER, INTENT(out) :: sttn_buffer(:)
-    INTEGER, INTENT(in) :: icurrent, max_time_stamps
+    INTEGER, INTENT(in) :: icurrent
     INTEGER, INTENT(out) :: pos
-    TYPE(t_time_stamp), INTENT(in) :: time_stamp(:)
+    INTEGER, INTENT(in) :: istep(:)
+    CHARACTER(len=max_date_len), INTENT(in) :: zdate(:)
     TYPE(t_meteogram_station), INTENT(in) :: station
 
-    INTEGER :: istep_sndrcv(max_time_stamps)
     INTEGER :: itime, ivar, nvars, nlevs
     pos = 0
 
     !-- pack global time stamp index
     CALL p_pack_int (icurrent, sttn_buffer, pos)
     ! pack time stamp info
-    istep_sndrcv(1:icurrent) = time_stamp(1:icurrent)%istep
-    CALL p_pack_int_1d(istep_sndrcv(:), icurrent, sttn_buffer, pos)
+    CALL p_pack_int_1d(istep, icurrent, sttn_buffer, pos)
     DO itime=1,icurrent
-      CALL p_pack_string(time_stamp(itime)%zdate, sttn_buffer, pos)
+      CALL p_pack_string(zdate(itime), sttn_buffer, pos)
     END DO
 
     !-- pack meteogram header (information on location, ...)
@@ -2630,15 +2636,14 @@ CONTAINS
     ! write time stamp info:
     DO itime=1,meteogram_data%icurrent
 
+      istart(3) = 1
       istart(4) = totaltime+itime
-      tlen = LEN_TRIM(meteogram_data%time_stamp(itime)%zdate)
-      CALL nf(nf_put_vara_text(ncfile, ncid%dateid, (/ 1, totaltime+itime /), &
+      tlen = LEN_TRIM(meteogram_data%zdate(itime))
+      CALL nf(nf_put_vara_text(ncfile, ncid%dateid, istart(3:4), &
         &                      (/ tlen, 1 /), &
-        &                      meteogram_data%time_stamp(itime)%zdate), &
-        &                      routine)
+        &                      meteogram_data%zdate(itime)), routine)
       CALL nf(nf_put_vara_int(ncfile, ncid%time_step, totaltime+itime, 1, &
-        &                     meteogram_data%time_stamp(itime)%istep),    &
-        &                     routine)
+        &                     meteogram_data%istep(itime)), routine)
 
       ! write meteogram buffer:
       DO istation=1,meteogram_data%nstations
