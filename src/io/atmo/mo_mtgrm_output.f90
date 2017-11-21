@@ -392,8 +392,6 @@ MODULE mo_meteogram_output
     TYPE(t_meteogram_data)  :: meteogram_global_data            !< collected buffers (on IO PE)
     TYPE(t_meteogram_file)  :: meteogram_file_info              !< meteogram file handle etc.
 
-    TYPE(t_var)             :: var_list                         !< internal indices of variables
-
     !! -- data for distributed meteogram sampling (MPI) --
     INTEGER                 :: max_buf_size                     !< max buffer size for MPI messages
 
@@ -1138,6 +1136,7 @@ CONTAINS
     !> buffer size for var list
     INTEGER :: max_varlist_buf_size
 
+    TYPE(t_var) :: var_list
     INTEGER      :: tri_idx(2,nproma,(meteogram_output_config%nstations+nproma-1)/nproma)
     INTEGER      :: tri_idx1, tri_idx2
     INTEGER      :: max_var_size, max_sfcvar_size
@@ -1211,9 +1210,6 @@ CONTAINS
 
     meteogram_data => mtgrm(jg)%meteogram_local_data
 
-    mtgrm(jg)%var_list%no_atmo_vars = 0
-    mtgrm(jg)%var_list%no_sfc_vars  = 0
-
     max_time_stamps = meteogram_output_config%max_time_stamps
     mtgrm(jg)%max_time_stamps = max_time_stamps
     mtgrm(jg)%silent_flush = meteogram_output_config%silent_flush
@@ -1285,6 +1281,8 @@ CONTAINS
     meteogram_data%max_nlevs = 1
 
     ! set up list of variables:
+    var_list%no_atmo_vars = 0
+    var_list%no_sfc_vars  = 0
     IF (     ithis_nlocal_pts > 0 &
       & .OR. pack_buf%l_is_varlist_sender &
       & .OR. (.NOT. use_async_name_list_io .AND. is_mpi_workroot)) THEN
@@ -1299,8 +1297,8 @@ CONTAINS
         &                            atm_phy_nwp_config(jg), nnow(jg), &
         &                            mtgrm(jg)%meteogram_local_data, &
         &                            mtgrm(jg)%diag_var_indices, &
-        &                            mtgrm(jg)%var_list, pack_buf)
-      CALL resize_var_lists(mtgrm(jg)%var_list, meteogram_data%var_info, &
+        &                            var_list, pack_buf)
+      CALL resize_var_lists(var_list, meteogram_data%var_info, &
         &                   meteogram_data%sfc_var_info)
 
       IF (pack_buf%l_is_varlist_sender) THEN
@@ -1310,7 +1308,7 @@ CONTAINS
           &                comm=mtgrm(jg)%io_collect_comm)
       END IF
     ELSE IF (mtgrm(jg)%l_is_collecting_pe) THEN
-      CALL receive_var_info(mtgrm(jg)%meteogram_local_data, mtgrm(jg)%var_list,&
+      CALL receive_var_info(mtgrm(jg)%meteogram_local_data, var_list,&
         pack_buf)
     ELSE
       RETURN
@@ -1329,8 +1327,8 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish(routine, &
       'ALLOCATE of meteogram time stamp data structure failed')
 
-    meteogram_data%nsfcvars  = mtgrm(jg)%var_list%no_sfc_vars
-    meteogram_data%nvars     = mtgrm(jg)%var_list%no_atmo_vars
+    meteogram_data%nsfcvars  = var_list%no_sfc_vars
+    meteogram_data%nvars     = var_list%no_atmo_vars
     meteogram_data%max_nlevs = &
       & MAX(0, MAXVAL(meteogram_data%var_info(1:meteogram_data%nvars)%nlevs))
 
