@@ -1707,8 +1707,7 @@ CONTAINS
       ! fill time step with values
       DO istation=1,meteogram_data%nstations
         CALL sample_station_vars(meteogram_data%station(istation), &
-          meteogram_data%var_info(1:mtgrm(jg)%var_list%no_atmo_vars), &
-          meteogram_data%sfc_var_info(1:mtgrm(jg)%var_list%no_sfc_vars), &
+          meteogram_data%var_info, meteogram_data%sfc_var_info, &
           mtgrm(jg)%diag_var_indices, i_tstep)
       END DO
     END IF
