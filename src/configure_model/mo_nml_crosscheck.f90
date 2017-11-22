@@ -32,10 +32,9 @@ MODULE mo_nml_crosscheck
   USE mo_time_config,        ONLY: time_config, dt_restart
   USE mo_extpar_config,      ONLY: itopo                                             
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
-    &                              lnetcdf_flt64_output, kAsyncRestartModule,        &
-    &                              restartWritingParameters
+    &                              lnetcdf_flt64_output
   USE mo_parallel_config,    ONLY: check_parallel_configuration,                &
-    &                              num_io_procs, itype_comm,                    &
+    &                              num_io_procs, itype_comm, num_restart_procs, &
     &                              num_prefetch_proc, use_dp_mpi2io
   USE mo_limarea_config,     ONLY: latbc_config
   USE mo_master_config,      ONLY: isRestart
@@ -57,7 +56,7 @@ MODULE mo_nml_crosscheck
   USE mo_diffusion_config,   ONLY: diffusion_config
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
   USE mo_lnd_nwp_config,     ONLY: ntiles_lnd, lsnowtile
-  USE mo_echam_phy_config,   ONLY: echam_phy_config
+  USE mo_mpi_phy_config,     ONLY: mpi_phy_config
   USE mo_radiation_config
   USE mo_turbdiff_config,    ONLY: turbdiff_config
   USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift,     &
@@ -66,12 +65,13 @@ MODULE mo_nml_crosscheck
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
   USE mo_meteogram_config,   ONLY: check_meteogram_configuration
-  USE mo_grid_config,        ONLY: lplane, n_dom, init_grid_configuration, l_limited_area, start_time
+  USE mo_grid_config,        ONLY: lplane, n_dom, l_limited_area, start_time
 
   USE mo_art_config,         ONLY: art_config
   USE mo_time_management,    ONLY: compute_timestep_settings,                        &
     &                              compute_restart_settings,                         &
     &                              compute_date_settings
+  USE mo_event_manager,      ONLY: initEventManager
   USE mtime,                 ONLY: getTotalMilliSecondsTimeDelta, datetime,          &
     &                              newDatetime, deallocateDatetime
   USE mo_gridref_config
@@ -101,6 +101,7 @@ CONTAINS
     
     !--------------------------------------------------------------------
     ! Compute date/time/time step settings
+    ! and initialize the event manager
     !--------------------------------------------------------------------
     !
     ! Note that the ordering of the following three calls must not be
@@ -109,7 +110,10 @@ CONTAINS
     CALL compute_timestep_settings()
     CALL compute_restart_settings()
     CALL compute_date_settings("atm", dt_restart, nsteps)
-
+    !
+    ! Create an event manager, ie. a collection of different events
+    !
+    CALL initEventManager(time_config%tc_exp_refdate)
 
     !--------------------------------------------------------------------
     ! Parallelization
@@ -121,9 +125,6 @@ CONTAINS
     ! Grid and dynamics
     !--------------------------------------------------------------------
 
-    ! check the configuration
-    CALL init_grid_configuration()
-    
     IF (lplane) CALL finish( TRIM(method_name),&
       'Currently a plane version is not available')
 
@@ -296,7 +297,7 @@ CONTAINS
 
         ! check radiation scheme in relation to chosen ozone and irad_aero=6 to itopo
 
-        IF ( (atm_phy_nwp_config(jg)%inwp_radiation > 0).OR.(echam_phy_config%lrad) )  THEN
+        IF ( (atm_phy_nwp_config(jg)%inwp_radiation > 0) )  THEN
 
           SELECT CASE (irad_o3)
           CASE (0) ! ok
@@ -317,8 +318,9 @@ CONTAINS
             CALL finish(TRIM(method_name),'irad_aero=6 requires itopo=1')
           ENDIF
 
-          IF ( irad_aero /= 6 .AND. (atm_phy_nwp_config(jg)%icpl_aero_gscp > 0 .OR. icpl_aero_conv > 0)) THEN
-            CALL finish(TRIM(method_name),'aerosol-precipitation coupling requires irad_aero=6')
+          IF ( ( irad_aero /= 6 .AND. irad_aero /= 9 ) .AND.  &
+            &  ( atm_phy_nwp_config(jg)%icpl_aero_gscp > 0 .OR. icpl_aero_conv > 0 ) ) THEN
+            CALL finish(TRIM(method_name),'aerosol-precipitation coupling requires irad_aero=6 or =9')
           ENDIF
         ELSE
 
@@ -638,16 +640,16 @@ CONTAINS
 
           ENDIF
 
-
-        CASE (inoforcing, iheldsuarez, iecham, ildf_dry, ildf_echam)
-        !...........................................................
-        ! Other types of adiabatic forcing
-        !...........................................................
-
-          IF (echam_phy_config%lrad) THEN
-            IF ( izenith > 5)  &
-              CALL finish(TRIM(method_name), 'Choose a valid case for rad_nml: izenith.')
-          ENDIF
+!
+!        CASE (inoforcing, iheldsuarez, iecham, ildf_dry, ildf_echam)
+!        !...........................................................
+!        ! Other types of adiabatic forcing
+!        !...........................................................
+!
+!          IF (echam_phy_config%lrad) THEN
+!            IF ( izenith > 5)  &
+!              CALL finish(TRIM(method_name), 'Choose a valid case for rad_nml: izenith.')
+!          ENDIF
         END SELECT ! iforcing
 
       END DO ! jg = 1,n_dom
@@ -858,7 +860,8 @@ CONTAINS
     ! check meteogram configuration
     CALL check_meteogram_configuration(num_io_procs)
 
-    CALL land_crosscheck()
+    IF (iforcing==iecham) CALL land_crosscheck()
+
     CALL art_crosscheck()
 
   END  SUBROUTINE atm_crosscheck
@@ -866,28 +869,23 @@ CONTAINS
 
   !---------------------------------------------------------------------------------------
   SUBROUTINE land_crosscheck
-    INTEGER :: restartModule
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
 
 #ifdef __NO_JSBACH__
-    IF (echam_phy_config% ljsbach) THEN
-      CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__, or set ljsbach=.FALSE.")
+    IF (ANY(mpi_phy_config(:)%ljsb)) THEN
+      CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__, or set ljsb=.FALSE.")
     ENDIF
-    echam_phy_config% ljsbach   = .FALSE.
-    echam_phy_config% llake     = .FALSE.     
 #else
-    IF (echam_phy_config% ljsbach) THEN
-      CALL restartWritingParameters(opt_restartModule = restartModule)
-      IF (restartModule == kAsyncRestartModule) THEN
-        CALL finish(method_name, "JSBACH currently doesn't work with asynchronous restart. &
-                                 &Set num_restart_procs=0 or use multifile restart!")
+    IF (ANY(mpi_phy_config(:)%ljsb)) THEN
+      IF (num_restart_procs > 0) THEN
+        CALL finish(method_name, "JSBACH currently doesn't work with asynchronous restart. Set num_restart_procs=0 !")
       END IF
       IF (num_io_procs > 0) THEN
         CALL finish(method_name, "JSBACH currently doesn't work with asynchronous IO. Set num_io_procs=0 !")
       END IF
-    ELSE IF (echam_phy_config%llake) THEN
-      CALL message(TRIM(method_name), 'Setting llake = .FALSE. since ljsbach = .FALSE.')
-      echam_phy_config%llake = .FALSE.
+    ELSE IF (ANY(mpi_phy_config(:)%llake)) THEN
+      CALL message(TRIM(method_name), 'Setting llake = .FALSE. since ljsb = .FALSE.')
+      mpi_phy_config(:)%llake = .FALSE.
     END IF
 #endif
 
@@ -934,10 +932,6 @@ CONTAINS
         CALL finish(TRIM(method_name),'iart_ari > 0 requires irad_aero=9')
       ENDIF
     ENDDO
-    
-    IF(art_config(jg)%lart_pntSrc .AND. .NOT. art_config(jg)%lart_passive) THEN
-      CALL finish(TRIM(method_name),'lart_pntSrc needs lart_passive to be .true.')
-    ENDIF
     
     ! XML specification checks
     

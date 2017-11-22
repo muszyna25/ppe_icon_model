@@ -40,6 +40,21 @@ MODULE mo_radiation_config
     LOGICAL :: ldiur        !< .TRUE. : with diurnal cycle
     !                       !< .FALSE.: zonally averaged irradiation
     !
+    !                       ! PROVISIONAL - ONLY BEST METHOD WILL BE KEPT ("0" or "3")
+    INTEGER :: icosmu0      !< selects method for the definition of cosmu0_rt in the extended
+    !                       !  sunlit area, as needed if solar fluxes are adjusted to the
+    !                       !  current time between radiation time steps.
+    !                       !  0: no adjustment, the original cosmu0 is used for the rad. transfer
+    !                       !     Has small effects on land temperture (less smooth intraday time series)
+    !                       !  1: MAX(0.1,cosmu0), as used in ECHAM6 and icon-aes-1.0 and -1.1.
+    !                       !  2: (cosmu0+dcosmu0)/(1+dcosmu0), dcosmu0 = SIN(dmu0), dmu0=pi*dt_rad/86400s
+    !                       !     DO NOT USE! Strong effects on MA temp. and wind and land surface temp.
+    !                       !  3: 0.5*SIN(dmu0)*(1+(pi/2-mu0)/dmu0), dmu0=pi*dt_rad/86400s
+    !                       !     Has small effects on the MA temp. and wind and the land surface temp.
+    !                       !  4: sin(mu0s)*(pi/2+dmu0-mu0), , dmu0=pi*dt_rad/86400s, mu0s = tangent point
+    !                       !     Has moderate effects on the MA temp. and wind and the land surface temp.
+    !              
+    !
     ! -- Switches for Earth orbit
     !
     INTEGER :: nmonth       !< i=0    : Earth circles on orbit, i.e. with annual cycle
@@ -157,12 +172,6 @@ MODULE mo_radiation_config
     !     rates)
     !
     REAL(wp) :: tsi
-    !
-    ! --- other parameters
-    !
-    !  REAL(wp) :: flx_ratio_cur
-    !  REAL(wp) :: flx_ratio_rad
-    !  REAL(wp) :: decl_sun_cur                  !< solar declination at current time step
     !
   
   !END TYPE t_radiation_config

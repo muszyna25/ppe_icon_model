@@ -147,6 +147,12 @@ CONTAINS
 !! @file settling.f90
 !! @brief compute settling of debris
       SUBROUTINE settling_pdm (klev,start_idx, end_idx,pddpo,za)
+  ! using explicit P2-PDM limiter scheme (=ULTIMATE QUICKEST in Leonard 1991:
+  ! The ULTIMATE conservative difference scheme applied to unsteady
+  ! one-dimensional advection.
+  ! see also Pietrzak 1998: The use of TVD limiters for forward-in-time
+  ! upstream-biased advection schemes in ocean modeling, there described as
+  ! P2-PDM)
 
       USE mo_param1_bgc, ONLY     : icalc, iopal, kopex90,   &
        &                            idet, kcalex90, &
@@ -184,12 +190,12 @@ CONTAINS
 
       REAL(wp) :: det_flux(bgc_zlevs+1), calc_flux(bgc_zlevs+1)
       REAL(wp) :: opal_flux(bgc_zlevs+1), dust_flux(bgc_zlevs+1)
-      REAL(wp) :: cn_det, cn_calc, cn_opal, cn_dust 
+      REAL(wp) :: cn_det, cn_calc, cn_opal, cn_dust, maxflux 
       REAL(wp) :: det_plim, calc_plim, opal_plim, dust_plim
 
 
 !HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(j,kpke,k,cn_det,cn_calc,cn_opal,cn_dust,&
+!HAMOCC_OMP_DO PRIVATE(j,kpke,k,cn_det,cn_calc,cn_opal,cn_dust, maxflux,&
 !HAMOCC_OMP            det_plim, calc_plim, opal_plim, dust_plim,&
 !HAMOCC_OMP            det_flux, calc_flux, opal_flux, dust_flux ) HAMOCC_OMP_DEFAULT_SCHEDULE
 
@@ -226,26 +232,36 @@ CONTAINS
             opal_plim   = 0._wp
             dust_plim   = 0._wp
 
-            CALL plimiter(det_plim,  cn_det,  bgctra(j,k,idet), bgctra(j,k-1,idet),   0._wp)
-            CALL plimiter(calc_plim, cn_calc, bgctra(j,k,icalc), bgctra(j,k-1,icalc),  0._wp)
-            CALL plimiter(opal_plim, cn_opal, bgctra(j,k,iopal), bgctra(j,k-1,iopal),  0._wp)
-            CALL plimiter(dust_plim, cn_dust, bgctra(j,k,idust),bgctra(j,k-1,idust), 0._wp)
+            CALL plimiter(det_plim,  cn_det,  bgctra(j,k,idet),  bgctra(j,k-1,idet),  bgctra(j,k-1,idet))
+            CALL plimiter(calc_plim, cn_calc, bgctra(j,k,icalc), bgctra(j,k-1,icalc), bgctra(j,k-1,icalc))
+            CALL plimiter(opal_plim, cn_opal, bgctra(j,k,iopal), bgctra(j,k-1,iopal), bgctra(j,k-1,iopal))
+            CALL plimiter(dust_plim, cn_dust, bgctra(j,k,idust), bgctra(j,k-1,idust), bgctra(j,k-1,idust))
 
             det_flux(k)  = wpoc(k-1) * (bgctra(j,k-1,idet)                    &
                               & + 0.5_wp * det_plim * (1._wp-cn_det)            &
                               & * (bgctra(j,k,idet) - bgctra(j,k-1,idet))) 
+            maxflux      = max(bgctra(j,k-1,idet) - EPSILON(1._wp),0._wp) * pddpo(j,k-1)  
+            det_flux(k)  = min(det_flux(k), maxflux)
 
             calc_flux(k) = wcal      * (bgctra(j,k-1,icalc)                   &
                               & + 0.5_wp * calc_plim * (1._wp-cn_calc)          &
                               & * (bgctra(j,k,icalc) - bgctra(j,k-1,icalc)))
+            maxflux      = max(bgctra(j,k-1,icalc) - EPSILON(1._wp),0._wp) * pddpo(j,k-1)  
+            calc_flux(k) = min(calc_flux(k), maxflux)
 
             opal_flux(k) = wopal     * (bgctra(j,k-1,iopal)                   &
                               & + 0.5_wp * opal_plim * (1._wp-cn_opal)          &
                               & * (bgctra(j,k,iopal) - bgctra(j,k-1,iopal)))
+            maxflux      = max(bgctra(j,k-1,iopal) - EPSILON(1._wp),0._wp) * pddpo(j,k-1)
+            opal_flux(k) = min(opal_flux(k), maxflux)
+            
 
             dust_flux(k) = wdust * (bgctra(j,k-1,idust)                      &
                               & + 0.5_wp * dust_plim * (1._wp-cn_dust)          &
                             & * (bgctra(j,k,idust) - bgctra(j,k-1,idust)))
+            maxflux      = max(bgctra(j,k-1,idust) - EPSILON(1._wp),0._wp) * pddpo(j,k-1) 
+            dust_flux(k) = min(dust_flux(k), maxflux)
+            
         
             DO k = 3, kbo(j) ! water column
 
@@ -259,7 +275,7 @@ CONTAINS
               opal_plim   = 0._wp
               dust_plim   = 0._wp
 
-              CALL plimiter(det_plim, cn_det, bgctra(j,k,idet), bgctra(j,k-1,idet), bgctra(j,k-2,idet))
+              CALL plimiter(det_plim,  cn_det,  bgctra(j,k,idet),  bgctra(j,k-1,idet),  bgctra(j,k-2,idet))
               CALL plimiter(calc_plim, cn_calc, bgctra(j,k,icalc), bgctra(j,k-1,icalc), bgctra(j,k-2,icalc))
               CALL plimiter(opal_plim, cn_opal, bgctra(j,k,iopal), bgctra(j,k-1,iopal), bgctra(j,k-2,iopal))
               CALL plimiter(dust_plim, cn_dust, bgctra(j,k,idust), bgctra(j,k-1,idust), bgctra(j,k-2,idust))
@@ -267,18 +283,26 @@ CONTAINS
               det_flux(k)  = wpoc(k-1) * (bgctra(j,k-1,idet)                  &
                                & + 0.5_wp * det_plim  * (1._wp-cn_det)          &
                                & * (bgctra(j,k,idet) - bgctra(j,k-1,idet))) 
+              maxflux      = max(bgctra(j,k-1,idet) - EPSILON(1._wp),0._wp) * pddpo(j,k-1) ! 
+              det_flux(k)  = min(det_flux(k), maxflux)
 
               calc_flux(k) = wcal      * (bgctra(j,k-1,icalc)                 &
                                & + 0.5_wp * calc_plim * (1._wp-cn_calc)         &
                               & * (bgctra(j,k,icalc) - bgctra(j,k-1,icalc)))
+              maxflux      = max(bgctra(j,k-1,icalc) - EPSILON(1._wp),0._wp) * pddpo(j,k-1) 
+              calc_flux(k) = min(calc_flux(k), maxflux)
 
               opal_flux(k) = wopal     * (bgctra(j,k-1,iopal)                 &
                                & + 0.5_wp * opal_plim * (1._wp-cn_opal)         &
                               & * (bgctra(j,k,iopal) - bgctra(j,k-1,iopal)))
+              maxflux      = max(bgctra(j,k-1,iopal) - EPSILON(1._wp),0._wp) * pddpo(j,k-1) 
+              opal_flux(k) = min(opal_flux(k), maxflux)
 
               dust_flux(k) = wdust * (bgctra(j,k-1,idust)                    &
                               & + 0.5_wp * dust_plim * (1._wp-cn_dust)          &
-                            & * (bgctra(j,k,idust) - bgctra(j,k-1,idust)))
+                             & * (bgctra(j,k,idust) - bgctra(j,k-1,idust)))
+              maxflux      = max(bgctra(j,k-1,idust) - EPSILON(1._wp),0._wp) * pddpo(j,k-1) 
+              dust_flux(k) = min(dust_flux(k), maxflux)
 
             ENDDO
          ENDIF !kbo > 1?
@@ -288,11 +312,11 @@ CONTAINS
          calc_flux(k) = wcal      * bgctra(j,k-1,icalc)
          opal_flux(k) = wopal     * bgctra(j,k-1,iopal)
          dust_flux(k) = wdust     * bgctra(j,k-1,idust)
-          
+            
         
          ! calculating change of concentrations water column:
          DO k = 1,kbo(j)
-             bgctra(j,k,idet) = bgctra(j,k,idet) + (det_flux(k) - det_flux(k+1))/pddpo(j,k)
+             bgctra(j,k,idet)  = bgctra(j,k,idet)  + (det_flux(k)  - det_flux(k+1))/pddpo(j,k)
              bgctra(j,k,icalc) = bgctra(j,k,icalc) + (calc_flux(k) - calc_flux(k+1))/pddpo(j,k)
              bgctra(j,k,iopal) = bgctra(j,k,iopal) + (opal_flux(k) - opal_flux(k+1))/pddpo(j,k)
              bgctra(j,k,idust) = bgctra(j,k,idust) + (dust_flux(k) - dust_flux(k+1))/pddpo(j,k)

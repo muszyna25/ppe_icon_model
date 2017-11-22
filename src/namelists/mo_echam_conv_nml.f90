@@ -16,7 +16,6 @@ MODULE mo_echam_conv_nml
 
   USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message_text,finish
   USE mo_io_units,            ONLY: nnml
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_master_control,      ONLY: use_restart_namelists
@@ -88,8 +87,8 @@ CONTAINS
     entrpen  = 2.0e-4_wp
     entrdd   = 4.0e-4_wp
     !
-    cprcon   = 1.5e-4_wp
-    cmfctop  = 0.23_wp
+    cprcon   = 2.5e-4_wp
+    cmfctop  = 0.2_wp
     cmfdeps  = 0.3_wp
     !
     cminbuoy = 0.2_wp

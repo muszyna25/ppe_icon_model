@@ -154,7 +154,6 @@ MODULE mo_meteogram_output
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_util_phys,             ONLY: rel_hum, swdir_s
   USE mo_grid_config,           ONLY: grid_sphere_radius, is_plane_torus
-  USE mo_les_config,            ONLY: les_config
 
   IMPLICIT NONE
 

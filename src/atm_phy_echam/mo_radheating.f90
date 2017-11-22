@@ -75,6 +75,7 @@ CONTAINS
        !
        & rsdt0      ,&
        & cosmu0     ,&
+       & daylght_frc,&
        !
        & emiss      ,&
        & tsr        ,&
@@ -140,6 +141,7 @@ CONTAINS
     REAL(wp), INTENT(in)  ::        &
          &  rsdt0                  ,&! indicent SW flux for sun in zenith
          &  cosmu0(kbdim)          ,&! cosine of solar zenith angle at current time
+         &  daylght_frc(kbdim)     ,&! daylight fraction; with diurnal cycle 0 or 1, with zonal mean [0,1]
          &  emiss (kbdim)          ,&! lw sfc emissivity
          &  tsr   (kbdim)          ,&! radiative surface temperature at current   time [K]
          &  tsr_rt(kbdim)          ,&! radiative surface temperature at radiation time [K]
@@ -216,7 +218,7 @@ CONTAINS
     ! - scaling ratio for fluxes at current time: xsdt    = rsdt / rsdt_rt
     !
     ! top of atmophere
-    rsdt  (jcs:jce)   = rsdt0*MAX(0._wp,cosmu0(jcs:jce))
+    rsdt  (jcs:jce)   = rsdt0*cosmu0(jcs:jce)*daylght_frc(jcs:jce)
     WHERE (rsd_rt(jcs:jce,1) > 0.0_wp)
        xsdt  (jcs:jce)   = rsdt  (jcs:jce) / rsd_rt(jcs:jce,1)
     ELSEWHERE

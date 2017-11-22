@@ -50,7 +50,6 @@ MODULE mo_initicon_types
   PUBLIC :: ana_varnames_dict
 
 
-
   ! atmospheric input variables
   TYPE :: t_pi_atm_in ! surface geopotential is regarded as
                       ! atmospheric variable here because the atmospheric fields cannot be processed without it
@@ -236,7 +235,6 @@ MODULE mo_initicon_types
 
 
 CONTAINS
-
 
   ! FINALIZE ROUTINES
 

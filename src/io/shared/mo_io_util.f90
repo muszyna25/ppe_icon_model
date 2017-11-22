@@ -127,7 +127,7 @@ CONTAINS
     TYPE(t_netcdf_att_int), OPTIONAL, INTENT(INOUT) :: opt_att(:)   ! optional attribute values
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine    = "read_netcdf_int_1d"
-    INTEGER :: dimID, varid, ndims, dimids(1), dimlen, ncfileID, dim_aux, i, iret
+    INTEGER :: varid, ndims, dimids(1), dimlen, ncfileID, dim_aux, i, iret
     LOGICAL :: l_exist
 
     ! consistency checks

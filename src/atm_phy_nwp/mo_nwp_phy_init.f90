@@ -32,7 +32,7 @@ MODULE mo_nwp_phy_init
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ext_data_state,      ONLY: nlev_o3, nmonths
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_exception,           ONLY: message, finish, message_text
+  USE mo_exception,           ONLY: message, finish !, message_text
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape,  &
@@ -62,11 +62,8 @@ MODULE mo_nwp_phy_init
   USE mo_o3_util,             ONLY: o3_pl2ml!, o3_zl2ml
   USE mo_psrad_lrtm_setup,    ONLY: setup_lrtm
   USE mo_psrad_srtm_setup,    ONLY: setup_srtm_psrad => setup_srtm
-  USE mo_psrad_spec_sampling, ONLY: set_spec_sampling_lw, set_spec_sampling_sw
   USE mo_psrad_cloud_optics,  ONLY: setup_cloud_optics  
-  USE mo_psrad_interface,     ONLY: setup_psrad, lw_strat, sw_strat
-  USE mo_rrtm_params,         ONLY: nbndsw
-  USE mo_psrad_radiation_parameters, ONLY: nb_sw 
+  USE mo_psrad_interface,     ONLY: setup_psrad
 
   ! microphysics
   USE gscp_data,              ONLY: gscp_set_coefficients
@@ -739,9 +736,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       CALL setup_newcld_optics(cldopt_filename)
     ELSE   ! PSRAD init
       CALL setup_psrad
-      nb_sw = nbndsw
-      lw_strat = set_spec_sampling_lw(1, 1) 
-      sw_strat = set_spec_sampling_sw(1, 1)
       CALL setup_cloud_optics
       CALL setup_lrtm
       CALL lrtm_setup(lrtm_filename) ! ** necessary because of incorrect USE statements in mo_psrad_lrtm_gas_optics **
@@ -1524,7 +1518,7 @@ END SUBROUTINE init_nwp_phy
     jg = p_patch%id
     nlev = p_patch%nlev
 
-    IF (irad_aero /= 6) RETURN
+    IF (irad_aero /= 6 .AND. irad_aero /= 9) RETURN
     IF (atm_phy_nwp_config(jg)%icpl_aero_gscp /= 1 .AND. icpl_aero_conv /= 1) RETURN
 
     

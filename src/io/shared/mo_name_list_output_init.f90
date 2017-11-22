@@ -35,7 +35,7 @@ MODULE mo_name_list_output_init
     &                                             gridDefXlongname, gridDefYlongname, taxisDefTunit,         &
     &                                             taxisDefCalendar, taxisDefRdate, taxisDefRtime,            &
     &                                             vlistDefTaxis, vlistDefAttTxt, CDI_GLOBAL, gridDefXpole,   &
-    &                                             gridDefYpole
+    &                                             gridDefYpole, vlistDefVarDblKey
   USE mo_kind,                              ONLY: wp, i8, dp, sp
   USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS,                   &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il,   &
@@ -58,8 +58,7 @@ MODULE mo_name_list_output_init
   USE mo_fortran_tools,                     ONLY: assign_if_present
   USE mo_grib2_util,                        ONLY: set_GRIB2_additional_keys, set_GRIB2_tile_keys, &
     &                                             set_GRIB2_ensemble_keys, set_GRIB2_local_keys,  &
-    &                                             set_GRIB2_synsat_keys, set_GRIB2_chem_keys,     &
-    &                                             set_GRIB2_art_keys
+    &                                             set_GRIB2_synsat_keys, set_GRIB2_chem_keys
   USE mo_io_util,                           ONLY: get_file_extension
   USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
     &                                             with_keywords, insert_group,                    &
@@ -136,8 +135,11 @@ MODULE mo_name_list_output_init
     &                                             generate_output_filenames
   USE mo_output_event_handler,              ONLY: new_parallel_output_event,                      &
     &                                             complete_event_setup, union_of_all_events,      &
-    &                                             print_output_event, trigger_output_step_irecv,  &
+    &                                             print_output_event,                             &
     &                                             set_event_to_simstep, strip_from_modifiers
+#ifndef NOMPI
+  USE mo_output_event_handler,              ONLY: trigger_output_step_irecv
+#endif
   ! name list output
   USE mo_name_list_output_types,            ONLY: l_output_phys_patch, t_output_name_list,        &
     &                                             t_output_file, t_var_desc,                      &
@@ -1785,7 +1787,6 @@ CONTAINS
     ! If async IO is used, initialize the memory window for communication
 #ifndef NOMPI
     IF(use_async_name_list_io) CALL init_memory_window
-#endif
 ! NOMPI
 
     ! Initial launch of non-blocking requests to all participating PEs
@@ -1801,7 +1802,8 @@ CONTAINS
         END DO HANDLE_COMPLETE_STEPS
       END IF
     END IF
-    
+#endif
+
     CALL message(routine,'Done')
 
   END SUBROUTINE init_name_list_output
@@ -2762,17 +2764,6 @@ CONTAINS
         ! (i.e. for Ensemble output), that the surface-type information is lost again, if
         ! these settings are performed prior to "productDefinitionTemplateNumber"
 
-        DO i=1,info%grib2%additional_keys%nint_keys
-! JF:           WRITE(message_text,'(a,i4,a,i4,a,a,a,i2,a,a,a,i4)')        &
-! JF:             &  'vlistID = ', vlistID, '  varID = ', varID,           &
-! JF:             &  '  tracer_class = ', TRIM(info%tracer%tracer_class),  &
-! JF:             &  '  key(', i, ') : ', info%grib2%additional_keys%int_key(i)%key, ' = ',  &
-! JF:             &  info%grib2%additional_keys%int_key(i)%val
-! JF:           CALL message(' ==> add_variables_to_vlist :',TRIM(message_text),0,5,.TRUE.)
-          CALL vlistDefVarIntKey(vlistID, varID, TRIM(info%grib2%additional_keys%int_key(i)%key), &
-            &                    info%grib2%additional_keys%int_key(i)%val)
-        END DO
-
         ! GRIB2 Quick hack: Set additional GRIB2 keys
         CALL set_GRIB2_additional_keys(vlistID, varID, gribout_config(of%phys_patch_id))
 
@@ -2793,8 +2784,17 @@ CONTAINS
         CALL set_GRIB2_tile_keys(vlistID, varID, info, i_lctype(of%phys_patch_id))
 #endif
 
-        ! Set ART-specific GRIB2 keys (if applicable)
-        CALL set_GRIB2_art_keys(vlistID, varID, info)
+        ! Set further additional integer keys
+        DO i=1,info%grib2%additional_keys%nint_keys
+          CALL vlistDefVarIntKey(vlistID, varID, TRIM(info%grib2%additional_keys%int_key(i)%key), &
+            &                    info%grib2%additional_keys%int_key(i)%val)
+        END DO
+
+        ! Set further additional double keys
+        DO i=1,info%grib2%additional_keys%ndbl_keys
+          CALL vlistDefVarDblKey(vlistID, varID, TRIM(info%grib2%additional_keys%dbl_key(i)%key), &
+            &                    info%grib2%additional_keys%dbl_key(i)%val)
+        END DO
 
       ELSE ! NetCDF
         CALL vlistDefVarDatatype(vlistID, varID, this_cf%datatype)

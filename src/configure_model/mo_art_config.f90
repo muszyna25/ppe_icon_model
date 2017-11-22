@@ -38,9 +38,9 @@ MODULE mo_art_config
   PUBLIC :: art_config
   PUBLIC :: configure_art
   PUBLIC :: IART_PATH_LEN
-  
+
   PUBLIC :: ctracer_art                                                  !generic tracer list, contains name of tracer
-  
+
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ICON-ART
   !!--------------------------------------------------------------------------
@@ -63,6 +63,7 @@ MODULE mo_art_config
     INTEGER :: iart_init_passive         !< Initialization of passive species
     LOGICAL :: lart_diag_out             !< Enable output of diagnostic fields
     LOGICAL :: lart_pntSrc               !< Enables point sources
+    LOGICAL :: lart_emiss_turbdiff       !< Switch if emission should be included as surface flux condition
     CHARACTER(LEN=20) :: cart_io_suffix  !< user given suffix instead of automatically generated grid number 
                                          !  in ICON-ART input filename convention: 
                                          !  ART_iconR<n>B<kk>-grid-<yyyy-mm-dd-hh>_<grid_suffix>.nc
@@ -71,6 +72,7 @@ MODULE mo_art_config
     LOGICAL :: lart_chem               !< Main switch to enable chemistry
     LOGICAL :: lart_passive            !< Main switch to enable chemistry
     INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
+    INTEGER :: iart_psc                !< integer which indicates how to compute PSCs (0: no PSCs, 1: climatology, 2: online)
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_emiss_xml_file          !< Path and file name of the xml file containing meta information of the emissions.
     CHARACTER(LEN=IART_PATH_LEN) :: &
@@ -92,6 +94,8 @@ MODULE mo_art_config
       &  cart_modes_xml               !< Path to XML file for modes
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_pntSrc_xml              !< Path to XML file for point sources
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_diagnostics_xml         !< Path to XML file for aerosol diagnostics (GRIB2 meta data)
 
     ! Atmospheric Aerosol (Details: cf. Tab. 2.4 ICON-ART User Guide)
     LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
@@ -100,6 +104,7 @@ MODULE mo_art_config
     INTEGER :: iart_anthro             !< Treatment of anthropogenic aerosol
     INTEGER :: iart_fire               !< Treatment of wildfire aerosol
     INTEGER :: iart_volcano            !< Treatment of volcanic ash aerosol
+    INTEGER :: iart_nonsph             !< Treatment of nonspherical particles
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_volcano_file             !< Absolute path + filename of input file for volcanoes
     INTEGER :: iart_radioact           !< Treatment of radioactive particles

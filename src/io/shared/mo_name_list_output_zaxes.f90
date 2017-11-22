@@ -51,8 +51,8 @@ MODULE mo_name_list_output_zaxes
   USE ISO_C_BINDING,                        ONLY: C_SIGNED_CHAR
   USE mo_kind,                              ONLY: wp, dp
   USE mo_impl_constants,                    ONLY: zml_soil, SUCCESS
-  USE mo_exception,                         ONLY: finish, message
-  USE mo_zaxis_type,                        ONLY: t_zaxisType, zaxisTypeList,                                    &
+  USE mo_exception,                         ONLY: finish
+  USE mo_zaxis_type,                        ONLY: zaxisTypeList,                                                 &
     &                                             ZA_depth_below_sea, ZA_depth_below_sea_half, ZA_GENERIC_ICE,   &
     &                                             ZA_surface, ZA_isentropic, ZA_altitude, ZA_pressure,           &
     &                                             ZA_cloud_base, ZA_cloud_top, ZA_depth_below_land,              &
@@ -275,27 +275,29 @@ CONTAINS
     ! Axes for multi-layer snow model (ZAXIS_SNOW) -----------------------------------------
     ! --------------------------------------------------------------------------------------
 
-    ! SNOW-layer axis (for multi-layer snow model)
-    ALLOCATE(levels(nlev_snow), lbounds(nlev_snow), ubounds(nlev_snow))
-    DO k = 1, nlev_snow
-      lbounds(k) = REAL(k,dp)
-      levels(k)  = REAL(k,dp)
-    ENDDO
-    DO k = 1, nlev_snow
-      ubounds(k) = REAL(k+1,dp)
-    ENDDO
-    CALL verticalAxisList%append(t_verticalAxis(zaxisTypeList%getEntry(ZA_SNOW), nlev_snow, &
-      &                                         zaxisLevels=levels, zaxisLbounds=lbounds,     &
-      &                                         zaxisUbounds=ubounds))
-    DEALLOCATE(levels, lbounds, ubounds)
+    IF (nlev_snow > 0) THEN
+      ! SNOW-layer axis (for multi-layer snow model)
+      ALLOCATE(levels(nlev_snow), lbounds(nlev_snow), ubounds(nlev_snow))
+      DO k = 1, nlev_snow
+        lbounds(k) = REAL(k,dp)
+        levels(k)  = REAL(k,dp)
+      ENDDO
+      DO k = 1, nlev_snow
+        ubounds(k) = REAL(k+1,dp)
+      ENDDO
+      CALL verticalAxisList%append(t_verticalAxis(zaxisTypeList%getEntry(ZA_SNOW), nlev_snow, &
+        &                                         zaxisLevels=levels, zaxisLbounds=lbounds,     &
+        &                                         zaxisUbounds=ubounds))
+      DEALLOCATE(levels, lbounds, ubounds)
 
-    ALLOCATE(levels(nlev_snow+1))
-    DO k = 1, nlev_snow+1
-      levels(k) = REAL(k,dp)
-    END DO
-    CALL verticalAxisList%append(t_verticalAxis(zaxisTypeList%getEntry(ZA_SNOW_HALF),  &
-      &                                         nlev_snow+1, zaxisLevels=levels))
-    DEALLOCATE(levels)
+      ALLOCATE(levels(nlev_snow+1))
+      DO k = 1, nlev_snow+1
+        levels(k) = REAL(k,dp)
+      END DO
+      CALL verticalAxisList%append(t_verticalAxis(zaxisTypeList%getEntry(ZA_SNOW_HALF),  &
+        &                                         nlev_snow+1, zaxisLevels=levels))
+      DEALLOCATE(levels)
+    END IF
 
 #endif
     ! #ifndef __NO_ICON_ATMO__

@@ -37,12 +37,11 @@ MODULE mo_ext_data_init
   USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape,                     &
-    &                              ihs_atm_temp, ihs_atm_theta, inh_atmosphere,                     &
     &                              max_char_length, min_rlcell_int, min_rlcell,                     &
     &                              MODIS, GLOBCOVER2009, GLC2000, SUCCESS, SSTICE_ANA_CLINC,        &
     &                              SSTICE_CLIM
   USE mo_math_constants,     ONLY: dbl_eps, rad2deg
-  USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def, tmelt
+  USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
   USE mo_run_config,         ONLY: msg_level, iforcing, check_uuid_gracefully
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
@@ -53,9 +52,8 @@ MODULE mo_ext_data_init
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, &
     &                              generate_td_filename, extpar_varnames_map_file, &
     &                              n_iter_smooth_topo, i_lctype, nclass_lu, nmonths_ext
-  USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
-  USE mo_echam_phy_config,   ONLY: echam_phy_config
+  USE mo_mpi_phy_config,     ONLY: mpi_phy_config
   USE mo_smooth_topo,        ONLY: smooth_topo_real_data
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
@@ -93,7 +91,7 @@ MODULE mo_ext_data_init
     &                              vlistInqVarIntKey, CDI_GLOBAL, gridInqUUID, &
     &                              streamClose, cdiStringError
   USE mo_math_gradients,     ONLY: grad_fe_cell
-  USE mo_fortran_tools,      ONLY: var_scale, var_add
+  USE mo_fortran_tools,      ONLY: var_scale
   USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime,        &
     &                              MAX_DATETIME_STR_LEN, datetimetostring,           &
     &                              OPERATOR(+)
@@ -204,7 +202,9 @@ CONTAINS
 
     SELECT CASE(itopo)
 
-    CASE(0) ! itopo, do not read external data except in some cases (see below)
+    CASE(0) ! itopo, do not read external data
+      !
+      CALL message( TRIM(routine),'Running with analytical topography' )
       !
       ! initalize external data with meaningful data, in the case that they
       ! are not read in from file.
@@ -236,15 +236,7 @@ CONTAINS
       END IF
 
       ! call read_ext_data_atm to read O3
-      ! topography is used from analytical functions, except for ljsbach=.TRUE. in which case
-      ! elevation of cell centers is read in and the topography is "grown" gradually to this elevation
-      IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape .OR. sstice_mode == SSTICE_CLIM .OR. &
-         & echam_phy_config%ljsbach) THEN
-        IF ( echam_phy_config%ljsbach .AND. (iequations /= inh_atmosphere) ) THEN
-          CALL message( TRIM(routine),'topography is grown to elevation' )
-        ELSE
-          CALL message( TRIM(routine),'Running with analytical topography' )
-        END IF
+      IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape .OR. sstice_mode == SSTICE_CLIM ) THEN
         CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, &
           &                     extpar_varnames_dict)
         CALL message( TRIM(routine),'read_ext_data_atm completed' )
@@ -711,6 +703,8 @@ CONTAINS
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':read_ext_data_atm'
+    ! input file for topography_c for mpi-physics
+    CHARACTER(len=max_char_length), PARAMETER :: land_sso_fn  = 'bc_land_sso.nc'
 
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
     CHARACTER(filename_max) :: sst_td_file !< file name for reading in
@@ -877,43 +871,30 @@ CONTAINS
 
     IF ( itopo == 1 .AND. ( iforcing == iecham .OR. iforcing == ildf_echam ) ) THEN
 
-      ! Read elevation of grid cells centers from grid file; this is then used to dynamically "grow" a topography for
-      ! the hydrostatic model (in mo_ha_diag_util). This should be removed once the echam atmosphere is realistically
-      ! initialized and uses a real topography.
-
       DO jg = 1,n_dom
-
-        stream_id = openInputFile(p_patch(jg)%grid_filename, p_patch(jg), &
-          &                       default_read_method)
 
         ! get land-sea-mask on cells, integer marks are:
         ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
         ! boundary land (1, cells and vertices), inner land (2)
+
+        stream_id = openInputFile(p_patch(jg)%grid_filename, p_patch(jg), &
+          &                       default_read_method)
+
         CALL read_2D_int(stream_id, on_cells, 'cell_sea_land_mask', &
           &              ext_data(jg)%atm%lsm_ctr_c)
 
+        CALL closeFile(stream_id)
+
         ! get topography [m]
-        ! - The hydrostatic AMIP setup grows the topography form zero to the elevation
-        !   read from the grid file. Therefore the read in topography is stored in
-        !   'elevation_c' and the actual 'topography_c' is computed later.
         ! - The non-hydrostatic AMIP setup starts directly from the topography read from
-        !   the grid file. Hence the read in topography is stored in 'topography_c'.
-        SELECT CASE (iequations)
-        CASE (ihs_atm_temp,ihs_atm_theta) ! iequations
-          ! Read topography
-          CALL read_2D(stream_id, on_cells, 'cell_elevation', &
-            &          ext_data(jg)%atm%elevation_c)
-          ! Mask out ocean
-          ext_data(jg)%atm%elevation_c(:,:) = MERGE(ext_data(jg)%atm%elevation_c(:,:), 0._wp, &
-            &                                       ext_data(jg)%atm%lsm_ctr_c(:,:)  > 0     )
-        CASE (inh_atmosphere) ! iequations
-          ! Read topography
-          CALL read_2D(stream_id, on_cells, 'cell_elevation', &
-            &          ext_data(jg)%atm%topography_c)
-          ! Mask out ocean
-          ext_data(jg)%atm%topography_c(:,:) = MERGE(ext_data(jg)%atm%topography_c(:,:), 0._wp, &
-            &                                        ext_data(jg)%atm%lsm_ctr_c(:,:)   > 0     )
-        END SELECT ! iequations
+        !   the elevation stored in the land_sso file. Hence the read in elevation is 
+        !   stored in 'topography_c'.
+
+        ! Read topography
+
+        stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
+        CALL read_2D(stream_id, on_cells, 'elevation', &
+          &          ext_data(jg)%atm%topography_c)
 
         CALL closeFile(stream_id)
 
@@ -929,19 +910,23 @@ CONTAINS
     END IF
 
     ! Open/Read slm for HDmodel in configuration with jsbach, used in yac-coupler
-    IF ( is_coupled_run() .AND. echam_phy_config%ljsbach) THEN
+    IF ( iforcing == iecham .AND. is_coupled_run() ) THEN
 
       DO jg = 1,n_dom
 
-        stream_id = openInputFile('hd_mask.nc', p_patch(jg), default_read_method)
-     
-        ! get land-sea-mask on cells, integer marks are:
-        ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
-        ! boundary land (1, cells and vertices), inner land (2)
-        CALL read_2D_int(stream_id, on_cells, 'cell_sea_land_mask', &
-          &              ext_data(jg)%atm%lsm_hd_c)
+        IF ( mpi_phy_config(jg)%ljsb ) THEN
 
-        CALL closeFile(stream_id)
+          stream_id = openInputFile('hd_mask.nc', p_patch(jg), default_read_method)
+     
+          ! get land-sea-mask on cells, integer marks are:
+          ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
+          ! boundary land (1, cells and vertices), inner land (2)
+          CALL read_2D_int(stream_id, on_cells, 'cell_sea_land_mask', &
+            &              ext_data(jg)%atm%lsm_hd_c)
+
+          CALL closeFile(stream_id)
+
+        END IF
 
       END DO
 

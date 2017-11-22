@@ -94,7 +94,7 @@ MODULE mo_sea_ice_nml
 !  REAL(wp),PUBLIC :: alpha_evp        ! Parameters  of modified EVP formulation in Bouillon (2013)
 !  REAL(wp),PUBLIC :: beta_evp
   ! Motion
-  INTEGER ,PUBLIC :: ice_advection         ! type of ice advection
+  INTEGER ,PUBLIC :: i_ice_advec     ! type of ice advection: 0 -- upwind on ICON grid; 1 -- FCT advection on FE grid
   REAL(wp),PUBLIC :: theta_io          ! ice/ocean rotation angle. Implemented in EVP, can beadded to VP
 
   INTEGER         :: iunit
@@ -132,7 +132,7 @@ MODULE mo_sea_ice_nml
     &  Tevp_inv, &
 !    &  alpha_evp, &
 !    &  beta_evp, &
-    &  ice_advection, &
+    &  i_ice_advec, &
     &  theta_io
 
 CONTAINS
@@ -169,8 +169,8 @@ CONTAINS
     !    Tevp_inv     = 3.0_wp/dtime
 !    alpha_evp=500            ! Parameters  of modified EVP formulation in Bouillon (2013)
 !    beta_evp=1000
-    ice_advection=1           ! 1 switches on FCT advection, and
-                                  ! 0 switches on Backward Euler advection
+    i_ice_advec=0           ! 1 switches on FCT advection, and
+                              ! 0 switches on Backward Euler advection
     theta_io=0._wp    !0.436
 
     !------------------------------------------------------------------

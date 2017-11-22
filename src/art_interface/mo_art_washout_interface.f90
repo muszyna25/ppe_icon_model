@@ -33,12 +33,14 @@ MODULE mo_art_washout_interface
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
   USE mo_run_config,                    ONLY: lart,iqr,iqnr,iqs
   USE mo_nonhydro_types,                ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+  USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
+                                          &   timer_art, timer_art_washoutInt
 
 #ifdef __ICON_ART
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
-                                          &   t_fields_volc
+                                          &   t_fields_pollen, t_fields_volc
   USE mo_art_config,                    ONLY: art_config
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_aerosol_utilities,         ONLY: art_air_properties
@@ -91,7 +93,8 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
     &  istart, iend,         & !< Start and end of nproma loop
     &  i_rlstart, i_rlend,   & !< Relaxation start and end
     &  i_nchdom,             & !< Number of child domains
-    &  nlev                    !< Number of levels (equals index of lowest full level)
+    &  nlev,                 & !< Number of levels (equals index of lowest full level)
+    &  num_radioact            !< counter for number of radionuclides
   REAL(wp),POINTER        :: &
     &  rho(:,:,:)              !< Pointer to air density [kg m-3]
   REAL(wp),ALLOCATABLE    :: &
@@ -113,6 +116,9 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
   i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
   
   IF(lart) THEN 
+    IF (timers_level > 3) CALL timer_start(timer_art)
+    IF (timers_level > 3) CALL timer_start(timer_art_washoutInt)
+
     IF (art_config(jg)%lart_aerosol) THEN
       ALLOCATE(wash_rate_m0(nproma,nlev))
       ALLOCATE(wash_rate_m3(nproma,nlev))
@@ -123,6 +129,8 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
           &                     istart,iend,1,nlev,jb,p_art_data(jg))
       ENDDO
       
+      num_radioact = 0
+
       this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
      
       DO WHILE(ASSOCIATED(this_mode))
@@ -166,6 +174,17 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
             ENDDO
 !$omp end parallel do
               
+          CLASS IS (t_fields_pollen)
+            DO jb = i_startblk, i_endblk
+              CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                &                istart, iend, i_rlstart, i_rlend)
+              ! CAREFUL: For the time being we are using this washout routine designed for 1-moment volcanic ash
+              !          in order to calculate pollen washout. We need to replace this routine by the proper
+              !          pollen washout routine from COSMO-ART (see issue #18 in ICON-ART redmine)
+              CALL art_washout_volc(dtime,istart, iend, nlev, tracer(:,:,jb,iqr), prm_diag%rain_gsp_rate(:,jb), &
+                &                   prm_diag%rain_con_rate(:,jb), prm_diag%rain_con_rate_3d(:,:,jb),            &
+                &                   tracer(:,:,jb,fields%itr))
+            ENDDO
           CLASS IS (t_fields_volc)
             DO jb = i_startblk, i_endblk
               CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -175,17 +194,18 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
                 &                   tracer(:,:,jb,fields%itr))
             ENDDO
           CLASS IS (t_fields_radio)
+            num_radioact = num_radioact+1
             DO jb = i_startblk, i_endblk
               CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                 &                istart, iend, i_rlstart, i_rlend)
-              CALL art_washout_radioact(rho(:,:,jb), p_metrics%ddqz_z_full(:,:,jb),                 &
-                &                       tracer(:,:,jb,iqr),tracer(:,:,jb,iqs),                      &
-                &                       prm_diag%rain_gsp_rate(:,jb), prm_diag%rain_con_rate(:,jb), &
-                &                       prm_diag%rain_con_rate_3d(:,:,jb),                          &
-                &                       prm_diag%snow_gsp_rate(:,jb), prm_diag%snow_con_rate(:,jb), &
-                &                       prm_diag%snow_con_rate_3d(:,:,jb),                          &
-                &                       fields%itr, fields%imis, istart, iend, nlev, jb, dtime,     &
-                &                       tracer(:,:,jb,fields%itr),p_art_data(jg))
+              CALL art_washout_radioact(rho(:,:,jb), p_metrics%ddqz_z_full(:,:,jb),                          &
+                &                       tracer(:,:,jb,iqr),tracer(:,:,jb,iqs),                               &
+                &                       prm_diag%rain_gsp_rate(:,jb), prm_diag%rain_con_rate(:,jb),          &
+                &                       prm_diag%rain_con_rate_3d(:,:,jb),                                   &
+                &                       prm_diag%snow_gsp_rate(:,jb), prm_diag%snow_con_rate(:,jb),          &
+                &                       prm_diag%snow_con_rate_3d(:,:,jb), num_radioact,                     &
+                &                       fields%fac_wetdep, fields%exp_wetdep, istart, iend, nlev, jb, dtime, &
+                &                       tracer(:,:,jb,fields%itr), p_art_data(jg))
             ENDDO
           CLASS DEFAULT
             CALL finish('mo_art_washout_interface:art_washout_interface', &
@@ -209,6 +229,9 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
       DEALLOCATE(wash_rate_m0)
       DEALLOCATE(wash_rate_m3)
     ENDIF !lart_aerosol
+
+    IF (timers_level > 3) CALL timer_stop(timer_art_washoutInt)
+    IF (timers_level > 3) CALL timer_stop(timer_art)
   ENDIF !lart
 #endif
 
