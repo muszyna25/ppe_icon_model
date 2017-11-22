@@ -191,6 +191,9 @@ CONTAINS
 
     REAL(wp) :: zsct ! solar constant (at time of year)
     REAL(wp) :: zcosmu0 (nproma,pt_patch%nblks_c), cosmu0_slope(nproma,pt_patch%nblks_c)
+#ifdef __CRAY8_5_5_WORKAROUND
+    REAL(wp) :: pqv(nproma,pt_patch%nlev)
+#endif
 
     REAL(wp) :: z_qsum(nproma,pt_patch%nlev)  !< summand of virtual increment
     REAL(wp) :: z_ddt_qsum                    !< summand of tendency of virtual increment
@@ -921,8 +924,13 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
       IF (timers_level > 2) CALL timer_start(timer_radheat)
+#ifdef __CRAY8_5_5_WORKAROUND
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,pqv) ICON_OMP_DEFAULT_SCHEDULE
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#endif
 !
       DO jb = i_startblk, i_endblk
         !
@@ -940,6 +948,11 @@ CONTAINS
         prm_diag%swflxsfc (:,jb)=0._wp
         prm_diag%lwflxsfc (:,jb)=0._wp
         prm_diag%swflxtoa (:,jb)=0._wp
+
+#ifdef __CRAY8_5_5_WORKAROUND
+        ! workaround for Cray Fortran 8.5.5
+        pqv=prm_diag%tot_cld(:,:,jb,iqv)
+#endif
 
         IF (atm_phy_nwp_config(jg)%inwp_surface >= 1) THEN
 
@@ -959,7 +972,12 @@ CONTAINS
           & ntiles=ntiles_total                    ,&! in     number of tiles of sfc flux fields
           & ntiles_wtr=ntiles_water                ,&! in     number of extra tiles for ocean and lakes
           & pmair=pt_diag%airmass_new(:,:,jb)      ,&! in     layer air mass             [kg/m2]
+#ifdef __CRAY8_5_5_WORKAROUND
+          & pqv=pqv                                ,&! in     specific moisture           [kg/kg]
+#else
           & pqv=prm_diag%tot_cld(:,:,jb,iqv)       ,&! in     specific moisture           [kg/kg]
+#endif
+
           & pcd=cvd                                ,&! in     specific heat of dry air  [J/kg/K]
           & pcv=cvv                                ,&! in     specific heat of vapor    [J/kg/K]
           & pi0=prm_diag%flxdwswtoa(:,jb)          ,&! in     solar incoming flux at TOA  [W/m2]
@@ -1023,7 +1041,11 @@ CONTAINS
           & ntiles=1                               ,&! in     number of tiles of sfc flux fields
           & ntiles_wtr=0                           ,&! in     number of extra tiles for ocean and lakes
           & pmair=pt_diag%airmass_new(:,:,jb)      ,&! in     layer air mass             [kg/m2]
+#ifdef __CRAY8_5_5_WORKAROUND
+          & pqv=pqv                                ,&! in     specific moisture           [kg/kg]
+#else
           & pqv=prm_diag%tot_cld(:,:,jb,iqv)       ,&! in     specific moisture           [kg/kg]
+#endif
           & pcd=cvd                                ,&! in     specific heat of dry air  [J/kg/K]
           & pcv=cvv                                ,&! in     specific heat of vapor    [J/kg/K]
           & pi0=prm_diag%flxdwswtoa(:,jb)          ,&! in     solar incoming flux at TOA  [W/m2]
