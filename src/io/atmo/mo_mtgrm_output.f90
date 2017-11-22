@@ -1811,37 +1811,18 @@ CONTAINS
     ! local variables:
     CHARACTER(*), PARAMETER     :: routine = modname//":meteogram_finalize"
     INTEGER                     :: ierrstat, istation
-    TYPE(t_meteogram_data), POINTER :: meteogram_data
     LOGICAL :: is_mpi_workroot
 
     ! ------------------------------------------------------------
-    ! If this is the IO PE: close NetCDF file
+    ! flush, and if this is the IO PE, close NetCDF file
     ! ------------------------------------------------------------
-
     CALL meteogram_close_file(jg)
+
     is_mpi_workroot = my_process_is_mpi_workroot()
     IF (     mtgrm(jg)%meteogram_local_data%nstations > 0 &
       & .OR. (.NOT. use_async_name_list_io .AND. is_mpi_workroot) &
       & .OR. mtgrm(jg)%l_is_collecting_pe) THEN
-      meteogram_data => mtgrm(jg)%meteogram_local_data
-      DEALLOCATE(meteogram_data%istep, meteogram_data%zdate, stat=ierrstat)
-      IF (ierrstat /= SUCCESS) &
-        CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-
-      DEALLOCATE(meteogram_data%var_info, meteogram_data%sfc_var_info, stat=ierrstat)
-      IF (ierrstat /= SUCCESS) &
-        CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-
-      DO istation = 1, meteogram_data%nstations
-        CALL deallocate_station_buffer(&
-          &        mtgrm(jg)%meteogram_local_data%station(istation))
-      END DO
-
-      DEALLOCATE(meteogram_data%station, stat=ierrstat)
-      IF (ierrstat /= SUCCESS) &
-        CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-
-      meteogram_data%nstations = 0
+      CALL deallocate_mtgrm_sample_buffer(mtgrm(jg)%meteogram_local_data)
     END IF
 
     ! deallocate global meteogram data
@@ -1860,6 +1841,24 @@ CONTAINS
 
   END SUBROUTINE meteogram_finalize
 
+  SUBROUTINE deallocate_mtgrm_sample_buffer(meteogram_data)
+    TYPE(t_meteogram_data), INTENT(inout) :: meteogram_data
+    INTEGER :: ierror, istation
+    CHARACTER(len=*), PARAMETER :: &
+      routine = modname//"deallocate_mtgrm_sample_buffer"
+
+    DO istation = 1, meteogram_data%nstations
+      CALL deallocate_station_buffer(meteogram_data%station(istation))
+    END DO
+    meteogram_data%nstations = 0
+
+    DEALLOCATE(meteogram_data%istep, meteogram_data%zdate, &
+      meteogram_data%station, meteogram_data%var_info, &
+      meteogram_data%sfc_var_info, stat=ierror)
+    IF (ierror /= SUCCESS) &
+      CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
+
+  END SUBROUTINE deallocate_mtgrm_sample_buffer
 
   !>
   !! IO PE gathers all buffer information from working PEs and copies
