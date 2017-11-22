@@ -32,6 +32,14 @@
 #include "omp_definitions.inc"
 !----------------------------
 
+! Workaround note: With Cray Fortran 8.5.5, a segmentation fault occurred in
+! the SUBROUTINE radheat (source line 1892) when accessing the dummy array
+! "pqv".  the workaround here is to copy the "pqv" dummy array to a temporary
+! pqv=prm_diag%tot_cld(:,:,jb,iqv)
+#if _CRAYFTN == 1 && ( _RELEASE == 8 && _RELEASE_MINOR == 5)
+#define __CRAY8_5_5_WORKAROUND
+#endif
+
 MODULE mo_nh_interface_nwp
 
   USE mtime,                      ONLY: datetime, timeDelta, newTimedelta,             &
