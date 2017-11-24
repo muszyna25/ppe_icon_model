@@ -1532,9 +1532,6 @@ CONTAINS
     ! ------------------------------------------------------------
     ! If this is the IO PE: open NetCDF file
     ! ------------------------------------------------------------
-    IF (.NOT. meteogram_output_config%ldistributed) THEN
-      CALL meteogram_collect_buffers(mtgrm(jg), jg)
-    END IF
     CALL meteogram_open_file(meteogram_output_config, mtgrm(jg), jg)
 
   END SUBROUTINE meteogram_init
