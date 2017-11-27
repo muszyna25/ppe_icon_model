@@ -434,7 +434,7 @@ MODULE mo_initicon_io
       !
       ! open file (NetCDF file!)
       !
-      stream_id = openInputFile(ifs2icon_file(jg), p_patch(jg), &
+      CALL openInputFile(stream_id, ifs2icon_file(jg), p_patch(jg), &
         &                       default_read_method)
 
       itemp(1) = nlev_in
@@ -789,7 +789,7 @@ MODULE mo_initicon_io
       !
       ! open file
       !
-      stream_id = openInputFile(ifs2icon_file(jg), p_patch(jg), &
+      CALL openInputFile(stream_id, ifs2icon_file(jg), p_patch(jg), &
         &                       default_read_method)
 
       CALL p_bcast(l_sst_in, p_io, p_comm_work)

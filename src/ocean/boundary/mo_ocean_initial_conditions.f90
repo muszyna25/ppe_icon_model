@@ -167,9 +167,9 @@ CONTAINS
     all_cells => patch_2d%cells%ALL
 
 
-    CALL message (TRIM(method_name), TRIM(name)//"...")
+    CALL message (method_name, TRIM(name)//"...")
     ! read temperature
-    stream_id = openInputFile(initialState_InputFileName, patch_2d)
+    CALL openInputFile(stream_id, initialState_InputFileName, patch_2d)
 
     CALL read_3D_1Time( stream_id=stream_id, location=on_cells, &
       & variable_name=name, fill_array=variable,               &
@@ -222,8 +222,8 @@ CONTAINS
     !  - 2011-11-01, >r7005: read one data set, annual mean only
     !  - "T": annual mean temperature
     ! ram: the input has to be POTENTIAL TEMPERATURE!
-    stream_id = openInputFile(initialState_InputFileName, patch_2d, &
-      &                       read_netcdf_broadcast_method)
+    CALL openinputfile(stream_id, initialState_InputFileName, patch_2d, &
+      &                read_netcdf_broadcast_method)
     
     CALL read_2D_1Time( stream_id=stream_id, location=on_cells, &
       & variable_name=name, fill_array=variable,               &
@@ -272,7 +272,7 @@ CONTAINS
 
     CALL message (TRIM(method_name), TRIM(name)//"...")
     ! read temperature
-    stream_id = openInputFile(initialState_InputFileName, patch_2d)
+    CALL openInputFile(stream_id, initialState_InputFileName, patch_2d)
 
     CALL read_3D_1time( stream_id=stream_id, location=on_edges, &
       & variable_name=name, fill_array=variable,               &
@@ -613,7 +613,7 @@ CONTAINS
      CASE (216)
 
       CALL temperature_front(patch_3d, ocean_temperature)
-	  
+          
     CASE (217)
       CALL SST_LinearMeridional(patch_3d, ocean_temperature)
       CALL increaseTracerLevelsLinearly(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
@@ -1601,7 +1601,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
       
          point_lon = patch_2d%edges%center(edge_index,edge_block)%lon* rad2deg
          point_lat = patch_2d%edges%center(edge_index,edge_block)%lat* rad2deg
-!          IF(point_lat>=basin_center_lat)THEN	 
+!          IF(point_lat>=basin_center_lat)THEN   
 !            !uu=tanh((point_lat-0.025)*300.0_wp) 
 !            uu=tanh((point_lat-shear_depth)*300.0_wp) 
 !          ELSEIF(point_lat<basin_center_lat)THEN
@@ -1801,7 +1801,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 ! 
 !       END DO
 !     END DO
-! 	
+!       
 !   END SUBROUTINE temperature_AddSinusoidalPerturbation
 !   !-------------------------------------------------------------------------------
 
@@ -4106,13 +4106,13 @@ stop
           ! level=3: 1250m  T= 20 - 4.6875 = 15.3125
           ! level=4: 1750m  T= 20 - 6.5625 = 13.4375
           ocean_temperature(idx,1:levels,block) = 20.0_wp
-		  !stratification
+                  !stratification
           DO level = 1, levels
             ocean_temperature(idx,level,block) =          &
               & ocean_temperature(idx,level,block)-0.5_wp*level          
           END DO
-		  
-		  
+                  
+                  
           distan = SQRT((cell_center(idx,block)%lat - perturbation_lat * deg2rad)**2 + &
             & (cell_center(idx,block)%lon - perturbation_lon * deg2rad)**2)
 
@@ -4124,7 +4124,7 @@ stop
                 & - max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2) !&
              !                &   * sin(pi*v_base%zlev_m(level)/4000.0_wp)!&
              !   & * SIN(pi*patch_3d%p_patch_1d(1)%zlev_m(level) / patch_3d%p_patch_1d(1)%zlev_i(levels+1))
-!write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2)			 
+!write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2)                   
             END DO
           ENDIF !Local hot perturbation
 
@@ -5949,7 +5949,7 @@ stop
       FUNCTION func(p_lat) RESULT(p_vv)  
 
         USE mo_kind, ONLY: wp
-	       
+               
         REAL(wp), INTENT(in) :: p_lat
         REAL(wp)             :: p_vv
 

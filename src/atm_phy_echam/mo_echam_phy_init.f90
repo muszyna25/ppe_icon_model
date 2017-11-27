@@ -609,7 +609,7 @@ CONTAINS
         WRITE(message_text,'(2a)') 'Read notsea, glac and lake from file ', TRIM(land_frac_fn)
         CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
         !
-        stream_id = openInputFile(land_frac_fn, p_patch(jg), default_read_method)
+        CALL openInputFile(stream_id, land_frac_fn, p_patch(jg))
         CALL read_2D(stream_id=stream_id, location=on_cells,&
              &          variable_name='notsea',               &
              &          fill_array=prm_field(jg)%lsmask(:,:))
@@ -648,7 +648,7 @@ CONTAINS
         !
         IF (echam_phy_tc(jg)%dt_vdf > dt_zero .OR. echam_phy_tc(jg)%dt_rad > dt_zero) THEN
           !
-          stream_id = openInputFile(land_phys_fn, p_patch(jg), default_read_method)
+          CALL openInputFile(stream_id, land_phys_fn, p_patch(jg))
           !
           IF (echam_phy_tc(jg)%dt_vdf > dt_zero) THEN
             !
@@ -690,7 +690,7 @@ CONTAINS
           WRITE(message_text,'(2a)') 'Read oroxyz from file: ', TRIM(land_sso_fn)
           CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
           !
-          stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
+          CALL openInputFile(stream_id, land_sso_fn, p_patch(jg))
           CALL read_2D(stream_id=stream_id, location=on_cells, &
                &       variable_name='oromea',                &
                &       fill_array=prm_field(jg)% oromea(:,:))

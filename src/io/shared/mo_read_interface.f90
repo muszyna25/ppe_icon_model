@@ -1689,8 +1689,9 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  TYPE(t_stream_id) FUNCTION openInputFile_dist_multivar(filename, patches, &
-    &                                                    input_method)
+  SUBROUTINE openInputFile_dist_multivar(stream_id, filename, &
+       patches, input_method)
+    TYPE(t_stream_id), INTENT(out) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: filename
     TYPE(p_t_patch), TARGET, INTENT(IN) :: patches(:)
     INTEGER, OPTIONAL, INTENT(IN) :: input_method
@@ -1705,12 +1706,12 @@ CONTAINS
     IF (n_var < 1) CALL finish(method_name, "invalid number of patches")
 
     IF (PRESENT(input_method)) THEN
-      openInputFile_dist_multivar%input_method = input_method
+      stream_id%input_method = input_method
     ELSE
-      openInputFile_dist_multivar%input_method = default_read_method
+      stream_id%input_method = default_read_method
     END IF
 
-    ALLOCATE(openInputFile_dist_multivar%read_info(3, n_var))
+    ALLOCATE(stream_id%read_info(3, n_var))
 
     DO i = 1, n_var
 
@@ -1719,63 +1720,64 @@ CONTAINS
           (patches(1)%p%n_patch_verts_g /= patches(i)%p%n_patch_verts_g))     &
         CALL finish(method_name, "patches do not match")
 
-      openInputFile_dist_multivar%read_info(on_cells, i)%n_g = &
+      stream_id%read_info(on_cells, i)%n_g = &
         patches(i)%p%n_patch_cells_g
-      openInputFile_dist_multivar%read_info(on_edges, i)%n_g = &
+      stream_id%read_info(on_edges, i)%n_g = &
         patches(i)%p%n_patch_edges_g
-      openInputFile_dist_multivar%read_info(on_vertices, i)%n_g = &
+      stream_id%read_info(on_vertices, i)%n_g = &
         patches(i)%p%n_patch_verts_g
 
-      openInputFile_dist_multivar%read_info(on_cells, i)%n_l = &
+      stream_id%read_info(on_cells, i)%n_l = &
         patches(i)%p%n_patch_cells
-      openInputFile_dist_multivar%read_info(on_edges, i)%n_l = &
+      stream_id%read_info(on_edges, i)%n_l = &
         patches(i)%p%n_patch_edges
-      openInputFile_dist_multivar%read_info(on_vertices, i)%n_l = &
+      stream_id%read_info(on_vertices, i)%n_l = &
         patches(i)%p%n_patch_verts
     END DO
 
-    SELECT CASE(openInputFile_dist_multivar%input_method)
+    SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
 
-      openInputFile_dist_multivar%file_id = netcdf_open_input(filename)
+      stream_id%file_id = netcdf_open_input(filename)
 
       DO i = 1, n_var
-        openInputFile_dist_multivar%read_info(on_cells, i)%scatter_pattern => &
+        stream_id%read_info(on_cells, i)%scatter_pattern => &
           patches(i)%p%comm_pat_scatter_c
-        NULLIFY(openInputFile_dist_multivar%read_info(on_cells, i)%dist_read_info)
-        openInputFile_dist_multivar%read_info(on_edges, i)%scatter_pattern => &
+        NULLIFY(stream_id%read_info(on_cells, i)%dist_read_info)
+        stream_id%read_info(on_edges, i)%scatter_pattern => &
           patches(i)%p%comm_pat_scatter_e
-        NULLIFY(openInputFile_dist_multivar%read_info(on_edges, i)%dist_read_info)
-        openInputFile_dist_multivar%read_info(on_vertices, i)%scatter_pattern => &
+        NULLIFY(stream_id%read_info(on_edges, i)%dist_read_info)
+        stream_id%read_info(on_vertices, i)%scatter_pattern => &
           patches(i)%p%comm_pat_scatter_v
-        NULLIFY(openInputFile_dist_multivar%read_info(on_vertices, i)%dist_read_info)
+        NULLIFY(stream_id%read_info(on_vertices, i)%dist_read_info)
       END DO
 
     CASE (read_netcdf_distribute_method)
 
-      openInputFile_dist_multivar%file_id = distrib_nf_open(TRIM(filename))
+      stream_id%file_id = distrib_nf_open(TRIM(filename))
 
       DO i = 1, n_var
-        openInputFile_dist_multivar%read_info(on_cells, i)%dist_read_info => &
+        stream_id%read_info(on_cells, i)%dist_read_info => &
           patches(i)%p%cells%dist_io_data
-        NULLIFY(openInputFile_dist_multivar%read_info(on_cells, i)%scatter_pattern)
-        openInputFile_dist_multivar%read_info(on_vertices, i)%dist_read_info => &
+        NULLIFY(stream_id%read_info(on_cells, i)%scatter_pattern)
+        stream_id%read_info(on_vertices, i)%dist_read_info => &
           patches(i)%p%verts%dist_io_data
-        NULLIFY(openInputFile_dist_multivar%read_info(on_vertices, i)%scatter_pattern)
-        openInputFile_dist_multivar%read_info(on_edges, i)%dist_read_info => &
+        NULLIFY(stream_id%read_info(on_vertices, i)%scatter_pattern)
+        stream_id%read_info(on_edges, i)%dist_read_info => &
           patches(i)%p%edges%dist_io_data
-        NULLIFY(openInputFile_dist_multivar%read_info(on_edges, i)%scatter_pattern)
+        NULLIFY(stream_id%read_info(on_edges, i)%scatter_pattern)
       END DO
 
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
 
-  END FUNCTION openInputFile_dist_multivar
+  END SUBROUTINE openInputFile_dist_multivar
 
   !-------------------------------------------------------------------------
   !>
-  TYPE(t_stream_id) FUNCTION openInputFile_dist(filename, patch, input_method)
+  SUBROUTINE openInputFile_dist(stream_id, filename, patch, input_method)
+    TYPE(t_stream_id), INTENT(out) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: filename
     TYPE(t_patch), TARGET, INTENT(IN) :: patch
     INTEGER, OPTIONAL, INTENT(IN) :: input_method
@@ -1787,23 +1789,23 @@ CONTAINS
 
     patch_(1)%p => patch
 
-    openInputFile_dist = &
-      openInputFile_dist_multivar(filename, patch_, input_method)
+    CALL openInputFile_dist_multivar(stream_id, filename, patch_, input_method)
 
-  END FUNCTION openInputFile_dist
+  END SUBROUTINE openInputFile_dist
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
   !>
-  INTEGER FUNCTION openInputFile_bcast(filename)
+  SUBROUTINE openInputFile_bcast(stream_id, filename)
 
+    INTEGER, INTENT(out) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: filename
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:openInputFile_bcast'
 
-    openInputFile_bcast = netcdf_open_input(filename)
+    stream_id = netcdf_open_input(filename)
 
-  END FUNCTION openInputFile_bcast
+  END SUBROUTINE openInputFile_bcast
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

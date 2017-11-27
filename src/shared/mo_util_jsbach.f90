@@ -850,8 +850,8 @@ CONTAINS
     netcdf_open_input_generic%filename = TRIM(filename)
 
     netcdf_open_input_generic%type      = 1
-    ! netcdf_open_input%stream_id = openInputFile(TRIM(filename), patch, read_netcdf_broadcast_method)
-    netcdf_open_input_generic%file_id = openInputFile(TRIM(filename))
+    ! CALL openInputFile(netcdf_open_input%stream_id, TRIM(filename), patch, read_netcdf_broadcast_method)
+    CALL openInputFile(netcdf_open_input_generic%file_id, TRIM(filename))
     netcdf_open_input_generic%is_open = netcdf_open_input_generic%file_id > 0
 
   END FUNCTION netcdf_open_input_generic
@@ -867,8 +867,8 @@ CONTAINS
 
     IF (patch%id > 0) THEN
       netcdf_open_input_patch%type      = 1
-      ! netcdf_open_input_patch%stream_id = openInputFile(TRIM(filename), patch, read_netcdf_broadcast_method)
-      netcdf_open_input_patch%stream_id = openInputFile(TRIM(filename), patch)
+      ! CALL openInputFile(netcdf_open_input_patch%stream_id, TRIM(filename), patch, read_netcdf_broadcast_method)
+      CALL openInputFile(netcdf_open_input_patch%stream_id, TRIM(filename), patch)
       netcdf_open_input_patch%file_id   = netcdf_open_input_patch%stream_id%file_id
       netcdf_open_input_patch%is_open   = netcdf_open_input_patch%file_id > 0
     ELSE

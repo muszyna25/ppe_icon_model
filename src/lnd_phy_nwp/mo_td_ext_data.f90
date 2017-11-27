@@ -415,7 +415,7 @@ CONTAINS
       &                                m1,y1                   )
 
     CALL message  (routine, TRIM(extpar_file))
-    stream_id = openInputFile(extpar_file, p_patch, default_read_method)
+    call openInputFile(stream_id, extpar_file, p_patch, default_read_method)
     CALL read_2D_1time(stream_id, on_cells, 'SST', &
       &          ext_data%atm_td%sst_m(:,:,1))
     CALL closeFile(stream_id)
@@ -425,7 +425,7 @@ CONTAINS
       &                                TRIM(p_patch%grid_filename),   &
       &                                m2, y2                   )
     CALL message  (routine, TRIM(extpar_file))
-    stream_id = openInputFile(extpar_file, p_patch, default_read_method)
+    call openInputFile(stream_id, extpar_file, p_patch, default_read_method)
     CALL read_2D_1time(stream_id, on_cells, 'SST', &
       &          ext_data%atm_td%sst_m(:,:,2))
     CALL closeFile(stream_id)
@@ -437,7 +437,7 @@ CONTAINS
       &                                TRIM(p_patch%grid_filename),   &
       &                                m1,y1                   )
     CALL message  (routine, TRIM(extpar_file))
-    stream_id = openInputFile(extpar_file, p_patch, default_read_method)
+    call openInputFile(stream_id, extpar_file, p_patch, default_read_method)
     CALL read_2D_1time(stream_id, on_cells, 'CI', &
       &          ext_data%atm_td%fr_ice_m(:,:,1))
     CALL closeFile(stream_id)
@@ -447,7 +447,7 @@ CONTAINS
       &                             TRIM(p_patch%grid_filename),      &
       &                             m2,y2                   )
     CALL message  (routine, TRIM(extpar_file))
-    stream_id = openInputFile(extpar_file, p_patch, default_read_method)
+    call openInputFile(stream_id, extpar_file, p_patch, default_read_method)
     CALL read_2D_1time(stream_id, on_cells, 'CI', &
       &          ext_data%atm_td%fr_ice_m(:,:,2))
     CALL closeFile(stream_id)

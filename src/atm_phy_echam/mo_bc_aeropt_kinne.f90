@@ -582,7 +582,7 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   ! we assume here that delta_z (aka dz_clim) does not vary over the files
   ! thus it does not matter from which file we get these values:
 
-  ifile_id = openInputFile(cfnameyear)
+  CALL openInputFile(ifile_id, cfnameyear)
   dz_clim = read_0D_real (file_id=ifile_id, variable_name=cdz_clim)
   CALL closeFile(ifile_id)
 
@@ -601,7 +601,7 @@ END SUBROUTINE read_months_bc_aeropt_kinne
 
     CALL message ('read_months_bc_aeropt_kinne of mo_bc_aeropt_kinne', &
      &            'reading from file '//TRIM(ADJUSTL(cfnameyear)))
-    stream_id=openInputFile(cfnameyear, p_patch, default_read_method)
+    CALL openInputFile(stream_id, cfnameyear, p_patch, default_read_method)
 
     CALL read_3D_time(stream_id=stream_id, location=on_cells, &
            &          variable_name=caod, fill_array=zaod, &
