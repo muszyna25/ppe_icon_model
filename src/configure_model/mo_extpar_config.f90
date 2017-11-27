@@ -143,7 +143,7 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH) :: result_str
     TYPE(t_keyword_list), POINTER :: keywords
     LOGICAL :: lclim
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(len=*), PARAMETER :: &
     &  routine = modname//':generate_td_filename:'
 
     lclim = .FALSE.
