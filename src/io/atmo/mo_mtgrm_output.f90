@@ -131,7 +131,9 @@ MODULE mo_meteogram_output
   USE mo_nonhydro_types,        ONLY: t_nh_state, t_nh_prog, t_nh_diag, &
     &                                 t_nh_metrics
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE mo_nwp_lnd_types,         ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag
+  USE mo_nwp_lnd_types,         ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, &
+    &                                 t_wtr_prog
+
   USE mo_cf_convention,         ONLY: t_cf_var, t_cf_global, cf_global_info
   USE mo_util_string,           ONLY: int2string, one_of
   USE mo_util_uuid_types,       ONLY: t_uuid, uuid_string_length
@@ -429,25 +431,27 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-11-09)
   !!
-  SUBROUTINE meteogram_setup_variables(meteogram_config, ext_data, p_nh_state, &
-    &                                  prm_diag, p_lnd_state, prm_nwp_tend, &
-    &                                  atm_phy_nwp_config, nnow, var_info, &
+  SUBROUTINE meteogram_setup_variables(meteogram_config, ext_data, prog, diag, &
+    &                                  prm_diag, lnd_prog, lnd_diag, prog_wtr, &
+    &                                  prm_nwp_tend, &
+    &                                  atm_phy_nwp_config, var_info, &
     &                                  sfc_var_info, diag_var_indices, &
     &                                  var_list, pack_buf)
     ! station data from namelist
     TYPE(t_meteogram_output_config),     INTENT(IN) :: meteogram_config
     ! atmosphere external data
     TYPE(t_external_data),               INTENT(IN) :: ext_data
-    ! nonhydrostatic state
-    TYPE(t_nh_state), TARGET,            INTENT(IN) :: p_nh_state
     ! physical model state and other auxiliary variables
-    TYPE(t_nwp_phy_diag), INTENT(IN), OPTIONAL      :: prm_diag
-    ! model state for the NWP land physics
-    TYPE(t_lnd_state), TARGET,           INTENT(IN) :: p_lnd_state
+    TYPE(t_nwp_phy_diag),                INTENT(IN) :: prm_diag
+    !> model state for the NWP land physics, prognostic variables
+    TYPE(t_nh_prog),                     INTENT(in) :: prog
+    !> model state for the NWP land physics, diagnostic variables
+    TYPE(t_nh_diag),                     INTENT(in) :: diag
+    TYPE(t_lnd_prog),                   INTENT(IN) :: lnd_prog
+    TYPE(t_lnd_diag),                   INTENT(IN) :: lnd_diag
+    TYPE(t_wtr_prog),                   INTENT(IN) :: prog_wtr
     ! model state of physics tendencies
-    TYPE(t_nwp_phy_tend),                INTENT(IN) :: prm_nwp_tend 
-    ! patch index
-    INTEGER,                             INTENT(IN) :: nnow
+    TYPE(t_nwp_phy_tend),                INTENT(IN) :: prm_nwp_tend
     TYPE(t_atm_phy_nwp_config), INTENT(in) :: atm_phy_nwp_config
     !> list of atmospheric variables to setup
     TYPE(t_var_info), TARGET, INTENT(inout) :: var_info(:)
@@ -461,16 +465,7 @@ CONTAINS
     TYPE(meteogram_diag_var_indices), INTENT(out) :: diag_var_indices
 
     INTEGER :: var_counts(2), var_count_pos
-    TYPE(t_nh_prog)          , POINTER :: prog
-    TYPE(t_nh_diag)          , POINTER :: diag
-    TYPE(t_lnd_prog)         , POINTER :: p_lnd_prog
-    TYPE(t_lnd_diag)         , POINTER :: p_lnd_diag
     TYPE(t_cf_var)           , POINTER :: cf(:)
-
-    diag       => p_nh_state%diag
-    prog       => p_nh_state%prog(nnow)
-    p_lnd_prog => p_lnd_state%prog_lnd(nnow)
-    p_lnd_diag => p_lnd_state%diag_lnd
 
     var_list%no_atmo_vars = 0
     var_list%no_sfc_vars = 0
@@ -648,16 +643,16 @@ CONTAINS
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_SOIL_MLp2, &
         &               "T_SO", "K", "soil temperature", &
         &               var_info, pack_buf, &
-        &               p_lnd_diag%t_so(:,:,:))
+        &               lnd_diag%t_so(:,:,:))
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_SOIL_ML, &
         &               "W_SO", "m H2O", &
         &               "total water content (ice + liquid water)", &
         &               var_info, pack_buf, &
-        &               p_lnd_diag%w_so(:,:,:))
+        &               lnd_diag%w_so(:,:,:))
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_SOIL_ML, &
         &               "W_SO_ICE", "m H2O", "ice content", &
         &               var_info, pack_buf, &
-        &               p_lnd_diag%w_so_ice(:,:,:))
+        &               lnd_diag%w_so_ice(:,:,:))
 
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "PL_COV", "-", "ground fraction covered by plants", &
@@ -678,54 +673,54 @@ CONTAINS
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "QV_S", "kg/kg", "specific humidity at the surface", &
         &              sfc_var_info, pack_buf, &
-        &              p_lnd_diag%qv_s(:,:))
+        &              lnd_diag%qv_s(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "W_I", "m H2O", "water content of interception water", &
         &              sfc_var_info, pack_buf, &
-        &              p_lnd_diag%w_i(:,:))
+        &              lnd_diag%w_i(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "W_SNOW", "m H2O", "water content of snow", &
         &              sfc_var_info, pack_buf, &
-        &              p_lnd_diag%w_snow(:,:))
+        &              lnd_diag%w_snow(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "RUNOFF_S", "kg/m2", &
         &              "surface water runoff; sum over forecast", &
         &              sfc_var_info, pack_buf, &
-        &              p_lnd_diag%runoff_s(:,:))
+        &              lnd_diag%runoff_s(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "RUNOFF_G", "kg/m2", &
         &              "soil water runoff; sum over forecast", &
         &              sfc_var_info, pack_buf, &
-        &              p_lnd_diag%runoff_g(:,:))
+        &              lnd_diag%runoff_g(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "T_SNOW", "K", "temperature of the snow-surface", &
         &              sfc_var_info, pack_buf, &
-        &              p_lnd_diag%t_snow(:,:))
+        &              lnd_diag%t_snow(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "T_S", "K", "temperature of the ground surface", &
         &              sfc_var_info, pack_buf, &
-        &              p_lnd_diag%t_s(:,:))
+        &              lnd_diag%t_s(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "T_G", "K", "weighted surface temperature", &
         &              sfc_var_info, pack_buf, &
-        &              p_lnd_prog%t_g(:,:))
+        &              lnd_prog%t_g(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "FRESHSNW", "-", &
         &              "indicator for age of snow in top of snow layer", &
         &              sfc_var_info, pack_buf, &
-        &              p_lnd_diag%freshsnow(:,:))
+        &              lnd_diag%freshsnow(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "RHO_SNOW", "kg/m**3", "snow density", &
         &              sfc_var_info, pack_buf, &
-        &              p_lnd_diag%rho_snow(:,:))
+        &              lnd_diag%rho_snow(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "H_SNOW", "m", "snow height", &
         &              sfc_var_info, pack_buf, &
-        &              p_lnd_diag%h_snow(:,:))
+        &              lnd_diag%h_snow(:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "FR_SEAICE", "-", "fraction of sea ice", &
         &              sfc_var_info, pack_buf, &
-        &              p_lnd_diag%fr_seaice(:,:))
+        &              lnd_diag%fr_seaice(:,:))
     ENDIF
 
     ! -- single level variables
@@ -834,7 +829,7 @@ CONTAINS
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "H_ICE", "m", "sea ice depth", &
       &              sfc_var_info, pack_buf, &
-      &              p_lnd_state%prog_wtr(nnow)%h_ice(:,:))
+      &              prog_wtr%h_ice(:,:))
 
     CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
       &              "CLCT", "-", "total cloud cover", &
@@ -897,15 +892,15 @@ CONTAINS
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_SOIL_ML, &
         &               "W_SO_T", "m H2O", "soil water content", &
         &               var_info, pack_buf, &
-        &               p_lnd_prog%w_so_t(:,:,:,:))
+        &               lnd_prog%w_so_t(:,:,:,:))
       CALL add_atmo_var(meteogram_config, var_list, VAR_GROUP_SOIL_MLp2, &
         &               "T_SO_T", "K", "soil temperature", &
         &               var_info, pack_buf, &
-        &               p_lnd_prog%t_so_t(:,:,:,:))
+        &               lnd_prog%t_so_t(:,:,:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "T_G_T", "K", "surface temperature", &
         &              sfc_var_info, pack_buf, &
-        &              p_lnd_prog%t_g_t(:,:,:))
+        &              lnd_prog%t_g_t(:,:,:))
       CALL add_sfc_var(meteogram_config, var_list, VAR_GROUP_SURFACE, &
         &              "SHFL_T", "W/m2", "sensible heat flux (surface)", &
         &              sfc_var_info, pack_buf, &
@@ -930,7 +925,7 @@ CONTAINS
         &              "snowfrac_t", "%", &
         &              "local tile-based snow-cover fraction", &
         &              sfc_var_info, pack_buf, &
-        &              p_lnd_diag%snowfrac_t(:,:,:))
+        &              lnd_diag%snowfrac_t(:,:,:))
     ENDIF
 
     ! -- vertical integrals
@@ -1107,11 +1102,11 @@ CONTAINS
     !> atmosphere external data
     TYPE(t_external_data),     INTENT(IN), OPTIONAL :: ext_data
     !> nonhydrostatic state
-    TYPE(t_nh_state), TARGET,  INTENT(IN), OPTIONAL  :: p_nh_state
+    TYPE(t_nh_state), TARGET,  INTENT(IN), OPTIONAL :: p_nh_state
     !> physical model state and other auxiliary variables
-    TYPE(t_nwp_phy_diag),      INTENT(IN), OPTIONAL  :: prm_diag
+    TYPE(t_nwp_phy_diag),      INTENT(IN), OPTIONAL :: prm_diag
     !> model state for the NWP land physics
-    TYPE(t_lnd_state), TARGET, INTENT(IN), OPTIONAL  :: p_lnd_state
+    TYPE(t_lnd_state),         INTENT(IN), OPTIONAL :: p_lnd_state
     ! model state for physics tendencies
     TYPE(t_nwp_phy_tend),      INTENT(IN), OPTIONAL :: prm_nwp_tend
     !> parameterized forcing (right hand side) of dynamics, affects
@@ -1288,9 +1283,13 @@ CONTAINS
       IF (ierrstat /= SUCCESS) CALL finish(routine, &
         'ALLOCATE of meteogram data structures failed (part 1)')
       CALL meteogram_setup_variables(meteogram_output_config, ext_data, &
-        &                            p_nh_state, prm_diag, p_lnd_state, &
+        &                            p_nh_state%prog(nnow(jg)), &
+        &                            p_nh_state%diag, prm_diag, &
+        &                            p_lnd_state%prog_lnd(nnow(jg)), &
+        &                            p_lnd_state%diag_lnd, &
+        &                            p_lnd_state%prog_wtr(nnow(jg)), &
         &                            prm_nwp_tend, &
-        &                            atm_phy_nwp_config(jg), nnow(jg), &
+        &                            atm_phy_nwp_config(jg), &
         &                            mtgrm(jg)%meteogram_local_data%var_info, &
         &                            mtgrm(jg)%meteogram_local_data%sfc_var_info, &
         &                            mtgrm(jg)%diag_var_indices, &
