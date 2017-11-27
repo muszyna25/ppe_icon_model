@@ -1,4 +1,4 @@
-#! /bin/ksh
+#!/bin/sh
 #-----------------------------------------------------------------------------
 #PBS -q xc_norm_b
 #PBS -l select=12:ompthreads=4
@@ -24,6 +24,8 @@ export MPICH_RMA_OVER_DMAPP=1
 export RLIMIT_CORE=0
 export ATP_MAX_CORES=0
 
+module load grib_api
+module load craype-hugepages2M
 
 # ----------------------------------------------------------------------
 # path definitions
@@ -108,7 +110,6 @@ nsteps=480
 atmo_dyn_grids="iconR2B06_DOM01.nc iconR2B07_DOM02.nc"
 atmo_rad_grids="iconR2B05_DOM00.nc"
 
-module load craype-hugepages2M
 cp -p $MODEL icon
 
 
@@ -812,3 +813,21 @@ EOF3
  aprun  -n 216 -N 18 -j 2 -d 4 -m 3g icon
 
 
+
+# ----------------------------------------------------------------------
+# EPILOGUE: Compare the GRIB2 meta-data to a given reference
+# ----------------------------------------------------------------------
+
+echo " "
+echo " "
+echo "----------------------------------------------------------"
+echo "EPILOGUE: Compare the GRIB2 meta-data to a given reference"
+echo "----------------------------------------------------------"
+echo " "
+
+# note: 
+# - by filtering out "localCreationDate" we omit differences due to the current date
+# - we restrict ourselves to "key=value" lines (doing so we also skip the "values" part)
+this_file=igfff00000000MLv01
+grib_dump -OtaH  $this_file.grb | grep  "=" | grep -v "localCreationDate" > $this_file.grib_dump
+diff $this_file.grib_dump $DATAROOT/$this_file.grib_dump.reference
