@@ -454,9 +454,9 @@ CONTAINS
     TYPE(t_nwp_phy_tend),                INTENT(IN) :: prm_nwp_tend
     TYPE(t_atm_phy_nwp_config), INTENT(in) :: atm_phy_nwp_config
     !> list of atmospheric variables to setup
-    TYPE(t_var_info), TARGET, INTENT(inout) :: var_info(:)
+    TYPE(t_var_info), INTENT(inout) :: var_info(:)
     !> list of surface variables to setup
-    TYPE(t_sfc_var_info), TARGET, INTENT(inout) :: sfc_var_info(:)
+    TYPE(t_sfc_var_info), INTENT(inout) :: sfc_var_info(:)
     !> and corresponding packed description for remote receivers
     TYPE(mtgrm_pack_buf), INTENT(inout) :: pack_buf
     !> sizes of (surface) variable lists
@@ -465,7 +465,6 @@ CONTAINS
     TYPE(meteogram_diag_var_indices), INTENT(out) :: diag_var_indices
 
     INTEGER :: var_counts(2), var_count_pos
-    TYPE(t_cf_var)           , POINTER :: cf(:)
 
     var_list%no_atmo_vars = 0
     var_list%no_sfc_vars = 0
@@ -995,18 +994,26 @@ CONTAINS
 
     ! several variable indices, stored for convenience (when computing
     ! additional diagnostics):
-    cf => var_info(1:var_list%no_atmo_vars)%cf
-    diag_var_indices%i_T        = get_var("T"       , cf)
-    diag_var_indices%i_QV       = get_var("QV"      , cf)
-    diag_var_indices%i_REL_HUM  = get_var("REL_HUM" , cf)
-    diag_var_indices%i_PEXNER   = get_var("PEXNER"  , cf)
-    cf => sfc_var_info(1:var_list%no_sfc_vars)%cf
-    diag_var_indices%i_SWDIR_S  = get_var("SWDIR_S" , cf)
-    diag_var_indices%i_ALB      = get_var("ALB"     , cf)
-    diag_var_indices%i_SWDIFD_S = get_var("SWDIFD_S", cf)
-    diag_var_indices%i_SOBS     = get_var("SOBS"    , cf)
+    CALL setup_diag_var_indices(diag_var_indices, &
+      var_info(1:var_list%no_atmo_vars)%cf, &
+      sfc_var_info(1:var_list%no_sfc_vars)%cf)
 
   END SUBROUTINE meteogram_setup_variables
+
+  SUBROUTINE setup_diag_var_indices(diag_var_indices, cf_atmo, cf_lnd)
+    !> indices at which to find variables for compute_diagnostics
+    TYPE(meteogram_diag_var_indices), INTENT(out) :: diag_var_indices
+    TYPE(t_cf_var), INTENT(in) :: cf_atmo(:), cf_lnd(:)
+
+    diag_var_indices%i_T        = get_var("T"       , cf_atmo)
+    diag_var_indices%i_QV       = get_var("QV"      , cf_atmo)
+    diag_var_indices%i_REL_HUM  = get_var("REL_HUM" , cf_atmo)
+    diag_var_indices%i_PEXNER   = get_var("PEXNER"  , cf_atmo)
+    diag_var_indices%i_SWDIR_S  = get_var("SWDIR_S" , cf_lnd)
+    diag_var_indices%i_ALB      = get_var("ALB"     , cf_lnd)
+    diag_var_indices%i_SWDIFD_S = get_var("SWDIFD_S", cf_lnd)
+    diag_var_indices%i_SOBS     = get_var("SOBS"    , cf_lnd)
+  END SUBROUTINE setup_diag_var_indices
 
 
   !>
@@ -1102,7 +1109,7 @@ CONTAINS
     !> atmosphere external data
     TYPE(t_external_data),     INTENT(IN), OPTIONAL :: ext_data
     !> nonhydrostatic state
-    TYPE(t_nh_state), TARGET,  INTENT(IN), OPTIONAL :: p_nh_state
+    TYPE(t_nh_state),          INTENT(IN), OPTIONAL :: p_nh_state
     !> physical model state and other auxiliary variables
     TYPE(t_nwp_phy_diag),      INTENT(IN), OPTIONAL :: prm_diag
     !> model state for the NWP land physics
