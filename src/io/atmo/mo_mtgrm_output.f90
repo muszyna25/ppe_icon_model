@@ -1712,9 +1712,12 @@ CONTAINS
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
   SUBROUTINE meteogram_sample_vars(jg, cur_step, cur_datetime)
-    INTEGER,          INTENT(IN)  :: jg           !< patch index
-    INTEGER,          INTENT(IN)  :: cur_step     !< current model iteration step
-    TYPE(datetime),   INTENT(IN), POINTER :: cur_datetime !< date and time of point sample
+    !> patch index
+    INTEGER,          INTENT(IN)  :: jg
+    !> current model iteration step
+    INTEGER,          INTENT(IN)  :: cur_step
+    !> date and time of point sample
+    TYPE(datetime), INTENT(IN) :: cur_datetime
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":meteogram_sample_vars"
