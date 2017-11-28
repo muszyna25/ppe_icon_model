@@ -1786,14 +1786,8 @@ CONTAINS
     nvars = SIZE(var_info)
     VAR_LOOP : DO ivar=1,nvars
       IF (.NOT. BTEST(var_info(ivar)%igroup_id, FLAG_DIAG)) THEN
-        IF (ASSOCIATED(var_info(ivar)%p_source)) THEN
-          station%var(ivar)%values(:, i_tstep) = &
-            &  var_info(ivar)%p_source(iidx, :, iblk)
-        ELSE
-          WRITE (message_text, '(3a)') 'Source array ', &
-            TRIM(var_info(ivar)%cf%standard_name), ' not associated!'
-          CALL finish (routine, message_text)
-        END IF
+        station%var(ivar)%values(:, i_tstep) = &
+          &  var_info(ivar)%p_source(iidx, :, iblk)
       END IF
     END DO VAR_LOOP
     ! sample surface variables:
@@ -2845,6 +2839,12 @@ CONTAINS
     var_info(ivar)%igroup_id        = igroup_id
     var_info(ivar)%nlevs            = nlev
     var_info(ivar)%p_source => source
+
+    IF (.NOT. ASSOCIATED(var_info(ivar)%p_source)) THEN
+      WRITE (message_text, '(3a)') 'Source array ', &
+        TRIM(var_info(ivar)%cf%standard_name), ' not associated!'
+      CALL finish(routine, message_text)
+    END IF
 
     ! collect variable info for pure I/O PEs
 #ifndef NOMPI
