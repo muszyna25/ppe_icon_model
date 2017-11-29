@@ -118,10 +118,13 @@ MODULE mo_meteogram_output
     &                                 my_process_is_io,                   &
     &                                 my_process_is_work,                 &
     &                                 my_process_is_mpi_test,             &
-    &                                 p_real_dp_byte,                     &
+    &                                 p_real_dp_byte, p_int,              &
     &                                 p_comm_work, p_comm_work_2_io,      &
     &                                 process_mpi_io_size,                &
     &                                 p_comm_remote_size
+#ifndef NOMPI
+  USE mpi
+#endif
   USE mo_model_domain,          ONLY: t_patch, t_grid_cells
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_impl_constants,        ONLY: inwp, max_dom, SUCCESS
@@ -1260,7 +1263,7 @@ CONTAINS
       mtgrm(jg)%l_is_sender = .FALSE.
       IF (is_io .AND. io_collector_rank == p_pe_work) THEN
         CALL p_irecv(mtgrm(jg)%meteogram_local_data%pstation, &
-          &          MPI_ANY_SOURCE, TAG_MTGRM_MSG, &
+          &          MPI_ANY_SOURCE, tag_mtgrm_msg+jg-1, &
           &          comm=mtgrm(jg)%io_collect_comm)
       ELSE
         RETURN
@@ -1456,7 +1459,6 @@ CONTAINS
       max_sfcvar_size = max_time_stamps*p_real_dp_byte
       mtgrm(jg)%max_buf_size                        &
         =   mtgrm_pack_header_ints*p_int_byte       & ! header size
-        & + max_time_stamps*(MAX_DATE_LEN+4)        & ! time stamp info
         & + var_list%no_atmo_vars*max_var_size      &
         & + var_list%no_sfc_vars*max_sfcvar_size
 
@@ -1558,7 +1560,8 @@ CONTAINS
       END IF
       IF (io_invar_send_rank == p_pe_work) THEN
         CALL p_send(meteogram_data%pstation, &
-          &         io_collector_rank, TAG_MTGRM_MSG, comm=io_collect_comm)
+          &         io_collector_rank, tag_mtgrm_msg+ptr_patch%id-1, &
+          &         comm=io_collect_comm)
       END IF
     END IF
 
@@ -1811,8 +1814,7 @@ CONTAINS
         CALL message(routine, 'WARNING: Intermediate meteogram flush. &
              &Is the sampling buffer too small?')
       ENDIF
-      IF (.NOT. mtgrm(jg)%meteogram_file_info%ldistributed &
-           .AND. p_pe_work==0) THEN
+      IF (use_async_name_list_io .AND. p_pe_work == 0) THEN
         msg(1) = msg_io_meteogram_flush
         msg(2) = jg
         CALL p_send(msg, mtgrm(jg)%io_collector_rank, 0, &
@@ -1824,7 +1826,7 @@ CONTAINS
     i_tstep = meteogram_data%icurrent + 1
     meteogram_data%icurrent = i_tstep
 
-    IF (meteogram_data%nstations > 0) THEN
+    IF (meteogram_data%nstations > 0 .OR. mtgrm(jg)%l_is_collecting_pe) THEN
       meteogram_data%istep(i_tstep) = cur_step
       CALL datetimeToPosixString(cur_datetime, zdate, "%Y%m%dT%H%M%SZ")
       meteogram_data%zdate(i_tstep) = zdate
@@ -1963,7 +1965,8 @@ CONTAINS
     !> MPI buffer for station data
     CHARACTER, ALLOCATABLE :: msg_buffer(:,:)
 
-    INTEGER :: ierror
+    INTEGER :: ierror, req(2+max_num_stations), &
+      stati(mpi_status_size, 2+max_num_stations)
     LOGICAL :: is_pure_io_pe
     INTEGER :: max_var_size, max_sfcvar_size, max_time_stamps
 
@@ -2000,18 +2003,36 @@ CONTAINS
     RECEIVER : IF (mtgrm%l_is_collecting_pe) THEN
       ! launch MPI message requests for station data on foreign PEs
       nstations = mtgrm%meteogram_global_data%nstations
+      IF (is_pure_io_pe) THEN
+        CALL p_irecv(mtgrm%meteogram_global_data%istep, &
+          &          mtgrm%io_invar_send_rank, &
+          &          tag_mtgrm_msg+max_dom+2*jg-2, comm=mtgrm%io_collect_comm,&
+          &          request=req(1))
+        CALL p_irecv(mtgrm%meteogram_global_data%zdate, &
+          &          mtgrm%io_invar_send_rank, &
+          &          tag_mtgrm_msg+max_dom+2*jg-1, comm=mtgrm%io_collect_comm, &
+          &          request=req(2))
+      ELSE
+        mtgrm%meteogram_global_data%istep = mtgrm%meteogram_local_data%istep
+        mtgrm%meteogram_global_data%zdate = mtgrm%meteogram_local_data%zdate
+        req(1) = mpi_request_null
+        req(2) = mpi_request_null
+      END IF
       DO istation=1,nstations
         iowner = mtgrm%meteogram_global_data%pstation(istation)
         IF ((is_pure_io_pe .OR. iowner /= p_pe_work) .AND. (iowner >= 0)) THEN
           CALL p_irecv_packed(msg_buffer(:,istation), iowner, &
-            &    tag_mtgrm_msg + (jg-1)*tag_domain_shift + istation, &
-            &    mtgrm%max_buf_size, comm=mtgrm%io_collect_comm)
+            &    tag_mtgrm_msg+3*max_dom + (jg-1)*tag_domain_shift + istation, &
+            &    mtgrm%max_buf_size, comm=mtgrm%io_collect_comm, &
+            &    request=req(2+istation))
+        ELSE
+          req(2+istation) = mpi_request_null
         END IF
       END DO
 
       ! wait for messages to arrive:
       IF (dbg_level > 5)  WRITE (*,*) routine, " :: call p_wait"
-      CALL p_wait()
+      CALL p_wait(req(:2+nstations), stati)
       IF (dbg_level > 5)  WRITE (*,*) routine, " :: p_wait call done."
 
       ! unpack received messages:
@@ -2021,21 +2042,23 @@ CONTAINS
         IF (iowner >= 0) THEN
           IF (iowner /= p_pe_work .OR. is_pure_io_pe) THEN
             CALL unpack_station_sample(mtgrm%meteogram_local_data, &
-              mtgrm%meteogram_global_data%istep, &
-              mtgrm%meteogram_global_data%zdate, &
               mtgrm%meteogram_global_data%station(istation), &
               msg_buffer(:,istation), istation, nstations, &
               icurrent_recv(istation))
-            icurrent = icurrent_recv(istation)
           ELSE
-            icurrent = mtgrm%meteogram_local_data%icurrent
-            icurrent_recv(istation) = icurrent
+            icurrent_recv(istation) = mtgrm%meteogram_local_data%icurrent
           END IF
         ELSE
           icurrent_recv(istation) = -2
           IF (dbg_level > 5) WRITE (*,*) "skipping station!"
         END IF
       END DO
+
+      IF (is_pure_io_pe) THEN
+        CALL mpi_get_count(stati(:,1), p_int, icurrent, ierror)
+      ELSE
+        icurrent = mtgrm%meteogram_local_data%icurrent
+      END IF
 
       ! consistency check
       ! Note: We only check the number of received time stamps, not the
@@ -2049,26 +2072,36 @@ CONTAINS
     END IF RECEIVER
 
     ! -- SENDER CODE --
-    SENDER : IF ((mtgrm%l_is_sender) .AND. (.NOT. mtgrm%l_is_collecting_pe)) THEN
+    SENDER : IF (mtgrm%l_is_sender) THEN
+      IF (p_pe_work == mtgrm%io_invar_send_rank) THEN
+        CALL p_isend(mtgrm%meteogram_local_data%istep, &
+          &          mtgrm%io_collector_rank, &
+          &          tag_mtgrm_msg+max_dom+2*jg-2, &
+          &          p_count=mtgrm%meteogram_local_data%icurrent, &
+          &          comm=mtgrm%io_collect_comm)
+        CALL p_isend(mtgrm%meteogram_local_data%zdate, &
+          &          mtgrm%io_collector_rank, &
+          &          tag_mtgrm_msg+max_dom+2*jg-1, &
+          &          p_count=mtgrm%meteogram_local_data%icurrent, &
+          &          comm=mtgrm%io_collect_comm)
+      END IF
       ! pack station into buffer; send it
       DO istation=1,mtgrm%meteogram_local_data%nstations
         station_idx &
           = mtgrm%meteogram_local_data%station(istation)%station_idx
         CALL pack_station_sample(msg_buffer(:,1), position, &
           mtgrm%meteogram_local_data%icurrent, &
-          mtgrm%meteogram_local_data%istep, &
-          mtgrm%meteogram_local_data%zdate, &
           mtgrm%meteogram_local_data%station(istation))
         ! (blocking) send of packed station data to IO PE:
         CALL p_send_packed(msg_buffer, mtgrm%io_collector_rank, &
-          &    TAG_MTGRM_MSG + (jg-1)*TAG_DOMAIN_SHIFT + station_idx,&
+          &    tag_mtgrm_msg+3*max_dom + (jg-1)*tag_domain_shift + station_idx,&
           &    position, comm=mtgrm%io_collect_comm)
         IF (dbg_level > 0) &
           WRITE (*,*) "Sending ", icurrent, " time slices, station ", &
           station_idx
 
       END DO
-
+      IF (p_pe_work == mtgrm%io_invar_send_rank) CALL p_wait()
       ! reset buffer on sender side
       mtgrm%meteogram_local_data%icurrent = 0
 
@@ -2081,16 +2114,14 @@ CONTAINS
   END SUBROUTINE meteogram_collect_buffers
 
   SUBROUTINE unpack_station_sample(meteogram_local_data, &
-      istep, zdate, station, sttn_buffer, istation, nstations, icurrent)
+      station, sttn_buffer, istation, nstations, icurrent)
     TYPE(t_meteogram_data), INTENT(inout) :: meteogram_local_data
-    INTEGER, INTENT(out) :: istep(:)
-    CHARACTER(len=max_date_len), INTENT(out) :: zdate(:)
     TYPE(t_meteogram_station), INTENT(inout) :: station
     CHARACTER, INTENT(in) :: sttn_buffer(:)
     INTEGER, INTENT(in) :: istation, nstations
     INTEGER, INTENT(out) :: icurrent
 
-    INTEGER :: position, itime, ivar, nvars, nlevs, station_idx
+    INTEGER :: position, ivar, nvars, nlevs, station_idx
     CHARACTER(len=*), PARAMETER :: routine = modname//"::unpack_station_sample"
 
     position = 0
@@ -2100,11 +2131,6 @@ CONTAINS
     IF (dbg_level > 0) &
       WRITE (*,'(3(a,i0))') "Receiving ", icurrent, &
       & " time slices from station ", istation, "/", nstations
-    ! unpack time stamp info
-    CALL p_unpack_int_1d(sttn_buffer, position, istep, icurrent)
-    DO itime=1,icurrent
-      CALL p_unpack_string(sttn_buffer, position, zdate(itime))
-    END DO
 
     !-- unpack station header information
     CALL p_unpack_int(sttn_buffer, position, station_idx)
@@ -2127,24 +2153,17 @@ CONTAINS
   END SUBROUTINE unpack_station_sample
 
   SUBROUTINE pack_station_sample(sttn_buffer, pos, &
-    icurrent, istep, zdate, station)
+    icurrent, station)
     CHARACTER, INTENT(out) :: sttn_buffer(:)
     INTEGER, INTENT(in) :: icurrent
     INTEGER, INTENT(out) :: pos
-    INTEGER, INTENT(in) :: istep(:)
-    CHARACTER(len=max_date_len), INTENT(in) :: zdate(:)
     TYPE(t_meteogram_station), INTENT(in) :: station
 
-    INTEGER :: itime, ivar, nvars, nlevs
+    INTEGER :: ivar, nvars, nlevs
     pos = 0
 
     !-- pack global time stamp index
     CALL p_pack_int (icurrent, sttn_buffer, pos)
-    ! pack time stamp info
-    CALL p_pack_int_1d(istep, icurrent, sttn_buffer, pos)
-    DO itime=1,icurrent
-      CALL p_pack_string(zdate(itime), sttn_buffer, pos)
-    END DO
 
     !-- pack meteogram header (information on location, ...)
     CALL p_pack_int(station%station_idx, sttn_buffer, pos)
@@ -2682,8 +2701,8 @@ CONTAINS
     TYPE(t_mtgrm_out_buffer), INTENT(in) :: out_buf
     TYPE(t_ncid), INTENT(in) :: ncid
 
-    INTEGER :: totaltime, itime, istation, nstations, ivar, nlevs, nvars, nsfcvars
-    INTEGER :: istart(4), icount(4), tlen, ncfile
+    INTEGER :: totaltime, itime, nstations, ivar, nlevs, nvars, nsfcvars
+    INTEGER :: istart(4), icount(4), ncfile
     CHARACTER(len=*), PARAMETER :: routine = modname//"::disk_flush"
 
     nvars    = SIZE(meteogram_data%var_info)
