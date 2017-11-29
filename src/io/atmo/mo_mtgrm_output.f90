@@ -422,6 +422,9 @@ MODULE mo_meteogram_output
     INTEGER                 :: io_collect_comm
     !> rank of PE which gathers data
     INTEGER                 :: io_collector_rank
+    !> rank of PE which sends invariants (either identical for all
+    !! stations or all time stamps)
+    INTEGER                 :: io_invar_send_rank
     INTEGER                 :: global_idx(MAX_NUM_STATIONS)     !< rank of sender PE for each station
 
     TYPE(meteogram_diag_var_indices) :: diag_var_indices
@@ -1157,7 +1160,7 @@ CONTAINS
     TYPE(t_meteogram_data)   , POINTER :: meteogram_data
     INTEGER                            :: max_time_stamps
     INTEGER                            :: io_collector_rank, iowner, &
-      varlist_sender_rank
+      io_invar_send_rank
     LOGICAL :: is_io, is_mpi_workroot, is_mpi_test, is_pure_io_pe
 
     max_varlist_buf_size &
@@ -1248,15 +1251,19 @@ CONTAINS
       CALL mtgrm_station_owners(meteogram_data, meteogram_output_config, &
         nblks, ptr_patch, mtgrm(jg)%io_collector_rank, &
         mtgrm(jg)%io_collect_comm, tri_idx, mtgrm(jg)%global_idx, &
-        pack_buf%l_is_varlist_sender)
+        mtgrm(jg)%io_invar_send_rank)
+      pack_buf%l_is_varlist_sender = mtgrm(jg)%io_invar_send_rank == p_pe_work
       ithis_nlocal_pts = meteogram_data%nstations
     ELSE
       ithis_nlocal_pts = 0
       pack_buf%l_is_varlist_sender = .FALSE.
+      mtgrm(jg)%l_is_sender = .FALSE.
       IF (is_io .AND. io_collector_rank == p_pe_work) THEN
         CALL p_irecv(mtgrm(jg)%meteogram_local_data%pstation, &
           &          MPI_ANY_SOURCE, TAG_MTGRM_MSG, &
           &          comm=mtgrm(jg)%io_collect_comm)
+      ELSE
+        RETURN
       END IF
     END IF
 
@@ -1271,17 +1278,18 @@ CONTAINS
       pack_buf%pos = 0
 
       IF (is_pure_io_pe) THEN
-        varlist_sender_rank = p_comm_remote_size(mtgrm(jg)%io_collect_comm) - 1
+        io_invar_send_rank = p_comm_remote_size(mtgrm(jg)%io_collect_comm) - 1
         CALL p_wait()
         DO istation = nstations, 1, -1
           iowner = mtgrm(jg)%meteogram_local_data%pstation(istation)
           IF (iowner /= -1) THEN
-            varlist_sender_rank = iowner
+            io_invar_send_rank = iowner
             EXIT
           END IF
         END DO
+        mtgrm(jg)%io_invar_send_rank = io_invar_send_rank
         ! launch message receive call
-        CALL p_irecv_packed(pack_buf%msg_varlist(:), varlist_sender_rank, &
+        CALL p_irecv_packed(pack_buf%msg_varlist, mtgrm(jg)%io_invar_send_rank,&
           &                 TAG_VARLIST, max_varlist_buf_size, &
           &                 comm=mtgrm(jg)%io_collect_comm)
       END IF
@@ -1298,7 +1306,7 @@ CONTAINS
     var_list%no_atmo_vars = 0
     var_list%no_sfc_vars  = 0
     IF (     ithis_nlocal_pts > 0 &
-      & .OR. pack_buf%l_is_varlist_sender &
+      & .OR. mtgrm(jg)%io_invar_send_rank == p_pe_work &
       & .OR. (.NOT. use_async_name_list_io .AND. is_mpi_workroot)) THEN
       ALLOCATE(meteogram_data%sfc_var_info(MAX_NSFCVARS),  &
         &      meteogram_data%var_info(MAX_NVARS),         &
@@ -1430,7 +1438,10 @@ CONTAINS
     ! Flag. True, if this PE sends data to a collector via MPI
     mtgrm(jg)%l_is_sender   = .NOT. meteogram_output_config%ldistributed &
       &                 .AND. .NOT. mtgrm(jg)%l_is_collecting_pe         &
-      &                 .AND. .NOT. is_mpi_test
+      &                 .AND. .NOT. is_mpi_test                          &
+      &                 .AND. (ANY(mtgrm(jg)%meteogram_local_data%pstation &
+      &                            == p_pe_work)                           &
+      &                        .OR. pack_buf%l_is_varlist_sender)
 
     ! Flag. True, if this PE writes data to file
     mtgrm(jg)%l_is_writer &
@@ -1461,13 +1472,13 @@ CONTAINS
 
   SUBROUTINE mtgrm_station_owners(meteogram_data, output_config, nblks, &
     ptr_patch, io_collector_rank, io_collect_comm, tri_idx, &
-    global_idx, l_is_varlist_sender)
+    global_idx, io_invar_send_rank)
     TYPE(t_meteogram_data), INTENT(inout) :: meteogram_data
     !> station data from namelist
     TYPE(t_meteogram_output_config), INTENT(in) :: output_config
     INTEGER, INTENT(in) :: nblks, io_collector_rank, io_collect_comm
-    INTEGER, INTENT(out) :: tri_idx(2,nproma,nblks), global_idx(:)
-    LOGICAL, INTENT(out) :: l_is_varlist_sender
+    INTEGER, INTENT(out) :: tri_idx(2,nproma,nblks), global_idx(:), &
+      io_invar_send_rank
     !> data structure containing grid info:
     TYPE(t_patch), INTENT(in) :: ptr_patch
 
@@ -1526,24 +1537,29 @@ CONTAINS
     ! some stations are "owned" by no PE at all (in the case of
     ! regional nests):
     CALL p_allreduce_max(meteogram_data%pstation, comm=p_comm_work)
+    io_invar_send_rank = -1
     IF (use_async_name_list_io) THEN
-      varlist_sender_rank = p_n_work - 1
+      io_invar_send_rank = -1
       DO istation = nstations, 1, -1
         iowner = meteogram_data%pstation(istation)
         IF (iowner /= -1) THEN
           ! PE collecting variable info to send it to pure I/O PEs.
           ! (only relevant if pure I/O PEs exist)
-          varlist_sender_rank = iowner
+          io_invar_send_rank = iowner
           EXIT
         END IF
       END DO
-      l_is_varlist_sender = varlist_sender_rank == p_pe_work
-      IF (l_is_varlist_sender) THEN
+      IF (io_invar_send_rank == -1) THEN
+        io_invar_send_rank = p_n_work - 1
+        IF (io_invar_send_rank == p_pe_work) &
+          WRITE (0, *) &
+          'warning: potential problem in meteogram output of patch ', &
+          ptr_patch%id, ': no station found to be in grid'
+      END IF
+      IF (io_invar_send_rank == p_pe_work) THEN
         CALL p_send(meteogram_data%pstation, &
           &         io_collector_rank, TAG_MTGRM_MSG, comm=io_collect_comm)
       END IF
-    ELSE
-      l_is_varlist_sender = .FALSE.
     END IF
 
   END SUBROUTINE mtgrm_station_owners
@@ -1746,7 +1762,8 @@ CONTAINS
     LOGICAL :: meteogram_is_sample_step
     ! station data from namelist
     TYPE(t_meteogram_output_config), INTENT(IN) :: meteogram_output_config
-    INTEGER,          INTENT(IN)  :: cur_step     !< current model iteration step
+    !> current model iteration step
+    INTEGER,          INTENT(IN)  :: cur_step
 
     meteogram_is_sample_step = &
       &  meteogram_output_config%lenabled               .AND. &
