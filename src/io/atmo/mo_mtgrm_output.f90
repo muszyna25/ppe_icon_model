@@ -158,7 +158,6 @@ MODULE mo_meteogram_output
   USE mo_name_list_output_types,ONLY: msg_io_meteogram_flush
   USE mo_util_phys,             ONLY: rel_hum, swdir_s
   USE mo_grid_config,           ONLY: grid_sphere_radius, is_plane_torus
-
   IMPLICIT NONE
 
   PRIVATE
@@ -256,6 +255,20 @@ MODULE mo_meteogram_output
 
   !> number of time- and variable-invariant items per station
   INTEGER, PARAMETER :: num_time_inv = 6
+
+  TYPE t_a_2d
+    REAL(wp), ALLOCATABLE :: a(:,:)
+  END TYPE t_a_2d
+
+  TYPE t_a_3d
+    REAL(wp), ALLOCATABLE :: a(:,:,:)
+  END TYPE t_a_3d
+
+  TYPE t_mtgrm_out_buffer
+    TYPE(t_a_3d), ALLOCATABLE :: atmo_vars(:)
+    TYPE(t_a_2d), ALLOCATABLE :: sfc_vars(:)
+  END TYPE t_mtgrm_out_buffer
+
 
   !>
   !! Data structure containing meteogram data and meta info for a
@@ -383,6 +396,7 @@ MODULE mo_meteogram_output
       &                        i_SWDIFD_S = -1,  &
       &                        i_SOBS     = -1
   END TYPE meteogram_diag_var_indices
+
   !>
   !! Data structure containing meteogram buffers and other data.
   !!
@@ -390,6 +404,8 @@ MODULE mo_meteogram_output
     TYPE(t_meteogram_data)  :: meteogram_local_data             !< meteogram data local to this PE
     TYPE(t_meteogram_data)  :: meteogram_global_data            !< collected buffers (on IO PE)
     TYPE(t_meteogram_file)  :: meteogram_file_info              !< meteogram file handle etc.
+
+    TYPE(t_mtgrm_out_buffer) :: out_buf
 
     !! -- data for distributed meteogram sampling (MPI) --
     INTEGER                 :: max_buf_size                     !< max buffer size for MPI messages
@@ -1129,7 +1145,7 @@ CONTAINS
 
     INTEGER      :: ithis_nlocal_pts, nblks,          &
       &             nstations, ierrstat,              &
-      &             jb, jc, istation
+      &             jb, jc, istation, istation_buf
     ! list of triangles containing lon-lat grid points (first dim: index and block)
     TYPE(mtgrm_pack_buf) :: pack_buf
     !> buffer size for var list
@@ -1325,6 +1341,12 @@ CONTAINS
         CALL finish (routine, 'DEALLOCATE of MPI buffer failed.')
     END IF
 
+    CALL allocate_out_buf(mtgrm(jg)%out_buf, &
+      mtgrm(jg)%meteogram_local_data%var_info, &
+      mtgrm(jg)%meteogram_local_data%sfc_var_info, &
+      max_time_stamps, MERGE(nstations, &
+      mtgrm(jg)%meteogram_local_data%nstations, mtgrm(jg)%l_is_collecting_pe))
+
     ALLOCATE(meteogram_data%istep(max_time_stamps), &
       meteogram_data%zdate(max_time_stamps), stat=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, &
@@ -1344,11 +1366,13 @@ CONTAINS
       DO istation=1,meteogram_data%nstations
         jb = (istation-1)/nproma + 1
         jc = MOD(istation-1, nproma)+1
+        istation_buf = MERGE(mtgrm(jg)%global_idx(istation), istation, &
+          mtgrm(jg)%l_is_collecting_pe)
         CALL sample_station_init(meteogram_data%station(istation), &
-          mtgrm(jg)%global_idx(istation), tri_idx(:,jc,jb), &
+          mtgrm(jg)%global_idx(istation), istation_buf, tri_idx(:,jc,jb), &
           ptr_patch%cells, ext_data%atm, iforcing, p_nh_state%metrics, &
           meteogram_data%var_info, meteogram_data%sfc_var_info, &
-          meteogram_output_config%max_time_stamps)
+          meteogram_output_config%max_time_stamps, mtgrm(jg)%out_buf)
       END DO
       IF (      .NOT. mtgrm(jg)%l_is_collecting_pe &
         & .AND. .NOT. meteogram_output_config%ldistributed) &
@@ -1381,14 +1405,13 @@ CONTAINS
       ALLOCATE(mtgrm(jg)%meteogram_global_data%station(nstations), stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
         CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 8)')
-
       DO istation = 1, nstations
         mtgrm(jg)%meteogram_global_data%station(istation)%station_idx = istation
         CALL allocate_station_buffer(&
           mtgrm(jg)%meteogram_global_data%station(istation), &
           mtgrm(jg)%meteogram_global_data%var_info, &
           mtgrm(jg)%meteogram_global_data%sfc_var_info, &
-          max_time_stamps)
+          max_time_stamps, mtgrm(jg)%out_buf, istation)
       END DO
 
       IF (.NOT. ALLOCATED(mtgrm(jg)%meteogram_local_data%station)) &
@@ -1525,13 +1548,15 @@ CONTAINS
 
   END SUBROUTINE mtgrm_station_owners
 
-  SUBROUTINE sample_station_init(station, istation_glb, tri_idx, &
-    cells, atm, iforcing, metrics, var_info, sfc_var_info, max_time_stamps)
+  SUBROUTINE sample_station_init(station, istation_glb, istation_buf, tri_idx, &
+    cells, atm, iforcing, metrics, var_info, sfc_var_info, max_time_stamps, &
+    out_buf)
     TYPE(t_meteogram_station), INTENT(inout) :: station
-    INTEGER, INTENT(in) :: istation_glb
+    INTEGER, INTENT(in) :: istation_glb, istation_buf
     INTEGER, INTENT(in) :: tri_idx(2)
     TYPE(t_grid_cells), INTENT(in) :: cells
     TYPE(t_external_atmos), INTENT(in) :: atm
+    TYPE(t_mtgrm_out_buffer), TARGET, INTENT(in) :: out_buf
     !> parameterized forcing (right hand side) of dynamics, affects
     !! topography specification, see "mo_extpar_config"
     INTEGER, INTENT(IN) :: iforcing
@@ -1560,7 +1585,7 @@ CONTAINS
     station%fc = cells%f_c(tri_idx1, tri_idx2)
 
     CALL allocate_station_buffer(station, var_info, sfc_var_info, &
-      max_time_stamps)
+      max_time_stamps, out_buf, istation_buf)
     !
     ! set station information on height, soil type etc.:
     SELECT CASE ( iforcing )
@@ -1612,12 +1637,45 @@ CONTAINS
 
   END SUBROUTINE sample_station_init
 
+  SUBROUTINE allocate_out_buf(out_buf, var_info, sfc_var_info, &
+    max_time_stamps, nstations)
+    TYPE(t_mtgrm_out_buffer), INTENT(inout) :: out_buf
+    TYPE(t_var_info), INTENT(in) :: var_info(:)
+    TYPE(t_sfc_var_info), INTENT(in) :: sfc_var_info(:)
+    INTEGER, INTENT(in) :: max_time_stamps, nstations
+
+    INTEGER :: ivar, nvars_atmo, nvars_sfc, nlevs, ierror
+    CHARACTER(len=*), PARAMETER :: &
+      routine = modname//"::allocate_out_buf"
+
+    nvars_atmo = SIZE(var_info)
+    nvars_sfc = SIZE(sfc_var_info)
+    ALLOCATE(out_buf%atmo_vars(nvars_atmo), out_buf%sfc_vars(nvars_sfc), &
+      stat=ierror)
+    IF (ierror == success) THEN
+      DO ivar = 1, nvars_atmo
+        nlevs = var_info(ivar)%nlevs
+        ALLOCATE(out_buf%atmo_vars(ivar)%a(nstations,nlevs,max_time_stamps))
+        IF (ierror /= success) EXIT
+      END DO
+    END IF
+    IF (ierror == success) THEN
+      DO ivar = 1, nvars_sfc
+        ALLOCATE(out_buf%sfc_vars(ivar)%a(nstations,max_time_stamps))
+        IF (ierror /= success) EXIT
+      END DO
+    END IF
+    IF (ierror /= SUCCESS) CALL finish(routine, &
+      'ALLOCATE of meteogram data structures failed')
+  END SUBROUTINE allocate_out_buf
+
   SUBROUTINE allocate_station_buffer(station, var_info, sfc_var_info, &
-    max_time_stamps)
+    max_time_stamps, out_buf, istation_buf)
     TYPE(t_meteogram_station), INTENT(inout) :: station
     TYPE(t_var_info), INTENT(in) :: var_info(:)
     TYPE(t_sfc_var_info), INTENT(in) :: sfc_var_info(:)
-    INTEGER, INTENT(in) :: max_time_stamps
+    INTEGER, INTENT(in) :: max_time_stamps, istation_buf
+    TYPE(t_mtgrm_out_buffer), TARGET, INTENT(in) :: out_buf
 
     INTEGER :: ivar, nvars, nlevs, ierror
     CHARACTER(len=*), PARAMETER :: &
@@ -1634,11 +1692,11 @@ CONTAINS
       'ALLOCATE of meteogram data structures failed (part 9)')
     DO ivar = 1, nvars
       nlevs = var_info(ivar)%nlevs
-      ALLOCATE(station%var(ivar)%values(nlevs, max_time_stamps), &
-        &      station%var(ivar)%heights(nlevs),                 &
-        &      stat=ierror)
+      ALLOCATE(station%var(ivar)%heights(nlevs), stat=ierror)
       IF (ierror /= SUCCESS) CALL finish(routine, &
         'ALLOCATE of meteogram data structures failed (part 5)')
+      station%var(ivar)%values &
+        => out_buf%atmo_vars(ivar)%a(istation_buf, :, :)
     END DO
 
     nvars = SIZE(sfc_var_info)
@@ -1646,11 +1704,9 @@ CONTAINS
     IF (ierror /= SUCCESS) CALL finish(routine, &
       'ALLOCATE of meteogram data structures failed (part 11)')
     DO ivar = 1, nvars
-      ALLOCATE(station%sfc_var(ivar)%values(max_time_stamps), stat=ierror)
-      IF (ierror /= SUCCESS) CALL finish(routine, &
-        'ALLOCATE of meteogram data structures failed (part 12)')
+      station%sfc_var(ivar)%values &
+        => out_buf%sfc_vars(ivar)%a(istation_buf, :)
     END DO
-
   END SUBROUTINE allocate_station_buffer
 
   SUBROUTINE deallocate_station_buffer(station)
@@ -1662,16 +1718,14 @@ CONTAINS
 
     nvars = SIZE(station%var)
     DO ivar=1,nvars
-      DEALLOCATE(station%var(ivar)%values, station%var(ivar)%heights, &
-        &        stat=ierror)
+      DEALLOCATE(station%var(ivar)%heights, stat=ierror)
       IF (ierror /= SUCCESS) &
         CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
+      NULLIFY(station%var(ivar)%values)
     END DO
     nvars = SIZE(station%sfc_var)
     DO ivar=1,nvars
-      DEALLOCATE(station%sfc_var(ivar)%values, stat=ierror)
-      IF (ierror /= SUCCESS) &
-        CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
+      NULLIFY(station%sfc_var(ivar)%values)
     END DO
     DEALLOCATE(station%sfc_var, station%var, stat=ierror)
     IF (ierror /= SUCCESS) &
@@ -1886,9 +1940,8 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":meteogram_collect_buffers"
     INTEGER     :: station_idx, position, icurrent,   &
-      &            isl, nstations, &
       &            icurrent_recv(mtgrm%meteogram_global_data%nstations), &
-      &            istation, &
+      &            istation, nstations, &
       &            iowner
     !> MPI buffer for station data
     CHARACTER, ALLOCATABLE :: msg_buffer(:,:)
@@ -1945,8 +1998,6 @@ CONTAINS
       IF (dbg_level > 5)  WRITE (*,*) routine, " :: p_wait call done."
 
       ! unpack received messages:
-      isl = 0
-      icurrent = -1
       DO istation=1,nstations
         IF (dbg_level > 5) WRITE (*,*) "Receiver side: Station ", istation
         iowner = mtgrm%meteogram_global_data%pstation(istation)
@@ -1960,15 +2011,8 @@ CONTAINS
               icurrent_recv(istation))
             icurrent = icurrent_recv(istation)
           ELSE
-            ! this PE is both sender and receiver - direct copy:
-            ! (note: copy of time stamp info is not necessary)
-            isl = isl + 1
             icurrent = mtgrm%meteogram_local_data%icurrent
             icurrent_recv(istation) = icurrent
-            CALL copy_station_sample(&
-              mtgrm%meteogram_global_data%station(istation), &
-              mtgrm%meteogram_local_data%station(isl), &
-              icurrent_recv(istation))
           END IF
         ELSE
           icurrent_recv(istation) = -2
@@ -2103,32 +2147,6 @@ CONTAINS
 
   END SUBROUTINE pack_station_sample
 
-  SUBROUTINE copy_station_sample(station, station_sample, icurrent)
-    TYPE(t_meteogram_station), INTENT(inout) :: station
-    TYPE(t_meteogram_station), INTENT(in) :: station_sample
-    INTEGER, INTENT(in) :: icurrent
-
-    CHARACTER(len=*), PARAMETER :: &
-      routine = modname//'::copy_station_sample'
-
-    INTEGER :: ivar, nvars
-
-    IF (station%station_idx /= station_sample%station_idx) &
-      CALL finish(routine, "non-matching global indices")
-
-    ! copy meteogram data
-    nvars = SIZE(station%var)
-    DO ivar=1,nvars
-      station%var(ivar)%values(:, 1:icurrent) =  &
-        &  station_sample%var(ivar)%values(:, 1:icurrent)
-    END DO
-    nvars = SIZE(station%sfc_var)
-    DO ivar=1,nvars
-      station%sfc_var(ivar)%values(1:icurrent) =  &
-        &  station_sample%sfc_var(ivar)%values(1:icurrent)
-    END DO
-
-  END SUBROUTINE copy_station_sample
   !>
   !! The IO PE creates and opens a disk file for output.
   !! For gathered NetCDF output, this is a collective operation,
