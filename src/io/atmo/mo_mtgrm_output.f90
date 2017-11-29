@@ -1411,7 +1411,7 @@ CONTAINS
           mtgrm(jg)%meteogram_global_data%station(istation), &
           mtgrm(jg)%meteogram_global_data%var_info, &
           mtgrm(jg)%meteogram_global_data%sfc_var_info, &
-          max_time_stamps, mtgrm(jg)%out_buf, istation)
+          mtgrm(jg)%out_buf, istation)
       END DO
 
       IF (.NOT. ALLOCATED(mtgrm(jg)%meteogram_local_data%station)) &
@@ -1585,7 +1585,7 @@ CONTAINS
     station%fc = cells%f_c(tri_idx1, tri_idx2)
 
     CALL allocate_station_buffer(station, var_info, sfc_var_info, &
-      max_time_stamps, out_buf, istation_buf)
+      out_buf, istation_buf)
     !
     ! set station information on height, soil type etc.:
     SELECT CASE ( iforcing )
@@ -1670,11 +1670,11 @@ CONTAINS
   END SUBROUTINE allocate_out_buf
 
   SUBROUTINE allocate_station_buffer(station, var_info, sfc_var_info, &
-    max_time_stamps, out_buf, istation_buf)
+    out_buf, istation_buf)
     TYPE(t_meteogram_station), INTENT(inout) :: station
     TYPE(t_var_info), INTENT(in) :: var_info(:)
     TYPE(t_sfc_var_info), INTENT(in) :: sfc_var_info(:)
-    INTEGER, INTENT(in) :: max_time_stamps, istation_buf
+    INTEGER, INTENT(in) :: istation_buf
     TYPE(t_mtgrm_out_buffer), TARGET, INTENT(in) :: out_buf
 
     INTEGER :: ivar, nvars, nlevs, ierror
@@ -2642,11 +2642,13 @@ CONTAINS
     IF (mtgrm(jg)%meteogram_file_info%ldistributed) THEN
       IF (mtgrm(jg)%l_is_writer) &
         CALL disk_flush(mtgrm(jg)%meteogram_local_data, &
+        &               mtgrm(jg)%out_buf, &
         &               mtgrm(jg)%meteogram_file_info%ncid)
     ELSE
       CALL meteogram_collect_buffers(mtgrm(jg), jg)
       IF (mtgrm(jg)%l_is_writer) &
         CALL disk_flush(mtgrm(jg)%meteogram_global_data, &
+        &               mtgrm(jg)%out_buf, &
         &               mtgrm(jg)%meteogram_file_info%ncid)
     END IF
 
@@ -2658,11 +2660,12 @@ CONTAINS
 
   END SUBROUTINE meteogram_flush_file
 
-  SUBROUTINE disk_flush(meteogram_data, ncid)
+  SUBROUTINE disk_flush(meteogram_data, out_buf, ncid)
     TYPE(t_meteogram_data), INTENT(inout) :: meteogram_data
+    TYPE(t_mtgrm_out_buffer), INTENT(in) :: out_buf
     TYPE(t_ncid), INTENT(in) :: ncid
 
-    INTEGER :: totaltime, itime, istation, ivar, nlevs, nvars, nsfcvars
+    INTEGER :: totaltime, itime, istation, nstations, ivar, nlevs, nvars, nsfcvars
     INTEGER :: istart(4), icount(4), tlen, ncfile
     CHARACTER(len=*), PARAMETER :: routine = modname//"::disk_flush"
 
@@ -2681,34 +2684,42 @@ CONTAINS
     IF (dbg_level > 0) &
       WRITE (*,'(a,i0,a)') "Writing ", meteogram_data%icurrent, " time slices to disk."
 
-    icount = 1
     ! write time stamp info:
+    istart(1) = totaltime+1
+    icount(1) = meteogram_data%icurrent
+    CALL nf(nf_put_vara_int(ncfile, ncid%time_step, istart(1), icount(1), &
+      &                     meteogram_data%istep), routine)
+    ! volume variables:
+    IF (nvars > 0) THEN
+      nstations = SIZE(out_buf%atmo_vars(1)%a, 1)
+      istart(1) = 1
+      icount(1) = nstations
+      icount(2) = 1 ! 1 variable at a time
+      istart(3) = 1 ! always start at ilev=1
+      istart(4) = 1
+      icount(4) = meteogram_data%icurrent
+      DO ivar=1,nvars
+        nlevs = meteogram_data%var_info(ivar)%nlevs
+        istart(2) = ivar
+        icount(3) = nlevs
+        CALL nf(nf_put_vara_double(ncfile, ncid%var_values,           &
+          &     istart, icount, out_buf%atmo_vars(ivar)%a), routine)
+      END DO
+    END IF
+    icount = 1
     DO itime=1,meteogram_data%icurrent
-
       istart(3) = 1
       istart(4) = totaltime+itime
       tlen = LEN_TRIM(meteogram_data%zdate(itime))
       CALL nf(nf_put_vara_text(ncfile, ncid%dateid, istart(3:4), &
         &                      (/ tlen, 1 /), &
         &                      meteogram_data%zdate(itime)), routine)
-      CALL nf(nf_put_vara_int(ncfile, ncid%time_step, totaltime+itime, 1, &
-        &                     meteogram_data%istep(itime)), routine)
 
       ! write meteogram buffer:
       DO istation=1,meteogram_data%nstations
 
         istart(1) = istation
         istart(3) = 1
-        ! volume variables:
-        DO ivar=1,nvars
-          nlevs = meteogram_data%var_info(ivar)%nlevs
-          istart(2) = ivar
-          icount(3) = nlevs
-          CALL nf(nf_put_vara_double(ncfile, ncid%var_values,             &
-            &     istart, icount,                                       &
-            &     meteogram_data%station(istation)%var(ivar)%values(1:nlevs, &
-            &     itime)), routine)
-        END DO
         ! surface variables:
         icount(3) = 1
         istart(3) = totaltime+itime
