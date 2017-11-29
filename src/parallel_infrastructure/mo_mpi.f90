@@ -638,6 +638,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_isend_sreal
      MODULE PROCEDURE p_isend_int
      MODULE PROCEDURE p_isend_bool
+     MODULE PROCEDURE p_isend_char_1d
      MODULE PROCEDURE p_isend_real_1d
      MODULE PROCEDURE p_isend_sreal_1d
      MODULE PROCEDURE p_isend_int_1d
@@ -684,6 +685,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_irecv_sreal
      MODULE PROCEDURE p_irecv_int
      MODULE PROCEDURE p_irecv_bool
+     MODULE PROCEDURE p_irecv_char_1d
      MODULE PROCEDURE p_irecv_real_1d
      MODULE PROCEDURE p_irecv_sreal_1d
      MODULE PROCEDURE p_irecv_int_1d
@@ -4707,6 +4709,53 @@ CONTAINS
 
   END SUBROUTINE p_recv_sreal
 
+  SUBROUTINE p_isend_char_1d(t_buffer, p_destination, p_tag, p_count, comm)
+    CHARACTER(len=*),  INTENT(inout) :: t_buffer(:)
+    INTEGER,           INTENT(in) :: p_destination, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+
+#ifndef NOMPI
+    INTEGER :: p_comm, icount
+
+    IF (PRESENT(comm)) THEN
+      p_comm = comm
+    ELSE
+      p_comm = process_mpi_all_comm
+    ENDIF
+    IF (PRESENT(p_count)) THEN
+      icount = p_count
+    ELSE IF (SIZE(t_buffer) > 0) THEN
+      icount = LEN(t_buffer(1))
+    ELSE
+      icount = 0
+    END IF
+    icount = icount * SIZE(t_buffer)
+
+#ifdef __USE_G2G
+!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+#endif
+
+    CALL p_inc_request
+    CALL mpi_isend(t_buffer, icount, p_char, p_destination, p_tag, &
+         p_comm, p_request(p_irequest), p_error)
+
+#ifdef __USE_G2G
+!$ACC END HOST_DATA
+!$ACC END DATA
+#endif
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
+            ' to ', p_destination, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+  END SUBROUTINE p_isend_char_1d
+
   SUBROUTINE p_recv_real_1d (t_buffer, p_source, p_tag, p_count, comm, displs)
 
     REAL (dp), INTENT(out) :: t_buffer(:)
@@ -5494,9 +5543,7 @@ CONTAINS
     IF (PRESENT(p_count)) THEN
       icount = p_count
     ELSE
-      ! FIXME: this should probably be LEN(t_buffer) instead of 1 as
-      ! in p_recv_char
-      icount = 1
+      icount = LEN(t_buffer)
     END IF
 
 #ifdef __USE_G2G
@@ -5522,6 +5569,52 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_irecv_char
+
+  SUBROUTINE p_irecv_char_1d(t_buffer, p_source, p_tag, p_count, comm)
+    CHARACTER(len=*), INTENT(inout) :: t_buffer(:)
+    INTEGER,   INTENT(in) :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+#ifndef NOMPI
+    INTEGER :: p_comm, icount
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    IF (PRESENT(p_count)) THEN
+      icount = p_count
+    ELSE
+      icount = SIZE(t_buffer)
+    END IF
+    icount = icount * LEN(t_buffer(1))
+
+#ifdef __USE_G2G
+!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+#endif
+
+    CALL p_inc_request
+    CALL mpi_irecv(t_buffer, icount, p_char, p_source, p_tag, &
+         p_comm, p_request(p_irequest), p_error)
+
+#ifdef __USE_G2G
+!$ACC END HOST_DATA
+!$ACC END DATA
+#endif
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+  END SUBROUTINE p_irecv_char_1d
+
   !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
