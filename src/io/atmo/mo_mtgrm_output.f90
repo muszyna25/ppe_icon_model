@@ -2696,7 +2696,7 @@ CONTAINS
       icount(1) = nstations
       icount(2) = 1 ! 1 variable at a time
       istart(3) = 1 ! always start at ilev=1
-      istart(4) = 1
+      istart(4) = totaltime+1
       icount(4) = meteogram_data%icurrent
       DO ivar=1,nvars
         nlevs = meteogram_data%var_info(ivar)%nlevs
@@ -2706,32 +2706,29 @@ CONTAINS
           &     istart, icount, out_buf%atmo_vars(ivar)%a), routine)
       END DO
     END IF
+    ! surface variables:
+    IF (nsfcvars > 0) THEN
+      nstations = SIZE(out_buf%sfc_vars(1)%a, 1)
+      istart(1) = 1
+      icount(1) = nstations
+      icount(2) = 1 ! 1 variable at a time
+      istart(3) = totaltime+1
+      icount(3) = meteogram_data%icurrent
+      DO ivar=1,nsfcvars
+        istart(2) = ivar
+        CALL nf(nf_put_vara_double(ncfile, ncid%sfcvar_values,              &
+          &     istart(1:3), icount(1:3), out_buf%sfc_vars(ivar)%a), routine)
+      END DO
+    END IF
+
     icount = 1
     DO itime=1,meteogram_data%icurrent
       istart(3) = 1
+      icount(3) = LEN_TRIM(meteogram_data%zdate(itime))
       istart(4) = totaltime+itime
-      tlen = LEN_TRIM(meteogram_data%zdate(itime))
-      CALL nf(nf_put_vara_text(ncfile, ncid%dateid, istart(3:4), &
-        &                      (/ tlen, 1 /), &
+      icount(4) = 1
+      CALL nf(nf_put_vara_text(ncfile, ncid%dateid, istart(3:4), icount(3:4), &
         &                      meteogram_data%zdate(itime)), routine)
-
-      ! write meteogram buffer:
-      DO istation=1,meteogram_data%nstations
-
-        istart(1) = istation
-        istart(3) = 1
-        ! surface variables:
-        icount(3) = 1
-        istart(3) = totaltime+itime
-
-        DO ivar=1,nsfcvars
-          istart(2) = ivar
-          CALL nf(nf_put_vara_double(ncfile, ncid%sfcvar_values,              &
-            &     istart(1:3), icount(1:3),                                   &
-            &     meteogram_data%station(istation)%sfc_var(ivar)%values(itime)), &
-            &     routine)
-        END DO
-      END DO
     END DO
     CALL nf(nf_sync(ncfile), routine)
     meteogram_data%icurrent = 0
