@@ -31,6 +31,7 @@ MODULE mo_limarea_config
     &                              newTimedelta, OPERATOR(-),        &
     &                              getTotalSecondsTimeDelta,         &
     &                              MAX_DATETIME_STR_LEN
+  USE mo_util_mtime,         ONLY: mtime_utils, FMT_DDDHH, FMT_DDHHMMSS
   USE mo_parallel_config,    ONLY: num_prefetch_proc
 
   IMPLICIT NONE
@@ -185,17 +186,12 @@ CONTAINS
     CALL associate_keyword("<dom>",       TRIM(int2string(1,'(i2.2)')),     keywords)
     
     IF (PRESENT(opt_mtime_begin)) THEN
-      td => newTimedelta("P01D")
-      td = latbc_mtime - opt_mtime_begin
-      ! we convert the time delta to an ISO 8601 conforming string
-      ! (where, for convenience, the 'T' token has been erased)
-      WRITE (timedelta_str,'(4(i2.2,a))') td%day,    'D',  td%hour,   'H',   &
-        &                                 td%minute, 'M',  td%second, 'S'
-      td_seconds = getTotalSecondsTimeDelta(td, opt_mtime_begin, errno)
-      IF (errno /= 0)  CALL finish(routine, "Internal error: "//TRIM(timedelta_str))
-      WRITE (timedelta_str,'(4(i2.2))') td_seconds/86400, td%hour, td%minute, td%second 
-      CALL associate_keyword("<ddhhmmss>",  TRIM(timedelta_str), keywords)
-      CALL deallocateTimedelta(td)
+      CALL associate_keyword("<ddhhmmss>", &
+        &                    TRIM(mtime_utils%ddhhmmss(opt_mtime_begin, latbc_mtime, FMT_DDHHMMSS)), &
+        &                    keywords)
+      CALL associate_keyword("<dddhh>",    &
+        &                    TRIM(mtime_utils%ddhhmmss(opt_mtime_begin, latbc_mtime, FMT_DDDHH)),    &
+        &                    keywords)
     END IF
 
     ! replace keywords in latbc_filename

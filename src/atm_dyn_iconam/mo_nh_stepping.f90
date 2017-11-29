@@ -130,6 +130,7 @@ MODULE mo_nh_stepping
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
   USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, p_comm_work
+  USE mo_util_mtime,               ONLY: mtime_utils, FMT_DDHHMMSS_DAYSEP
 
 #ifdef NOMPI
   USE mo_mpi,                      ONLY: my_process_is_mpi_all_seq
@@ -569,9 +570,6 @@ MODULE mo_nh_stepping
   INTEGER                              :: jstep_shift ! start counter for time loop
   INTEGER, ALLOCATABLE                 :: output_jfile(:)
 
-  TYPE(timedelta), POINTER             :: forecast_delta
-  CHARACTER(LEN=128)                   :: forecast_delta_str
-
   TYPE(timedelta), POINTER             :: model_time_step => NULL()
 
   TYPE(datetime), POINTER              :: eventRefDate      => NULL(), &
@@ -805,26 +803,6 @@ MODULE mo_nh_stepping
     lprint_timestep = lprint_timestep .OR. (jstep == jstep0+1) .OR. (jstep == jstep0+nsteps)
 
     IF (lprint_timestep) THEN
-      ! compute current forecast time (delta):
-      forecast_delta => newTimedelta("P01D")
-      forecast_delta = mtime_current - time_config%tc_exp_startdate
-      ! we append the forecast time delta as an ISO 8601 conforming
-      ! string (where, for convenience, the 'T' token has been
-      ! replaced by a blank character)
-      IF (forecast_delta%ms /= 0) THEN
-        WRITE (forecast_delta_str,'(i0,a,3(i2.2,a),i3.3,a)') &
-             &                                   forecast_delta%day, 'D ',   &
-             &                                   forecast_delta%hour, 'H',   &
-             &                                   forecast_delta%minute, 'M', &
-             &                                   forecast_delta%second, '.', &
-             &                                   forecast_delta%ms, 'S'
-      ELSE
-        WRITE (forecast_delta_str,'(i0,a,3(i2.2,a))') &
-             &                                   forecast_delta%day, 'D ',   &
-             &                                   forecast_delta%hour, 'H',   &
-             &                                   forecast_delta%minute, 'M', &
-             &                                   forecast_delta%second, 'S'
-      ENDIF
 
       IF (iforcing == inwp) THEN
         WRITE(message_text,'(a,i8,a,i0,a,5(i2.2,a),i3.3,a,a)') &
@@ -832,7 +810,9 @@ MODULE mo_nh_stepping
              &             mtime_current%date%year,   '-', mtime_current%date%month,    '-',    &
              &             mtime_current%date%day,    ' ', mtime_current%time%hour,     ':',    &
              &             mtime_current%time%minute, ':', mtime_current%time%second,   '.',    &
-             &             mtime_current%time%ms, ' forecast time ', TRIM(forecast_delta_str)
+             &             mtime_current%time%ms, ' forecast time ',                            &
+             &             TRIM(mtime_utils%ddhhmmss(time_config%tc_exp_startdate, &
+             &                                       mtime_current, FMT_DDHHMMSS_DAYSEP))
       ELSE
         WRITE(message_text,'(a,i8,a,i0,a,4(i2.2,a),i2.2)') &
              &             'Time step: ', jstep, ' model time ',                                &
@@ -843,7 +823,6 @@ MODULE mo_nh_stepping
 
       CALL message('',message_text)
 
-      CALL deallocateTimedelta(forecast_delta)
     ENDIF
 
     ! Update the following surface fields, if a new day is coming

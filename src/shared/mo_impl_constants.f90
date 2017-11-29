@@ -42,7 +42,6 @@ MODULE mo_impl_constants
 !
 !
   USE mo_kind,               ONLY: wp
-  USE mtime,                 ONLY: MAX_TIMEDELTA_STR_LEN
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
 
   IMPLICIT NONE

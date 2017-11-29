@@ -2475,15 +2475,9 @@ the \texttt{latbc\_path} directory.
 Default:\\
 ''\texttt{prepiconR<nroot>B<jlev>\_<y><m><d><h>.nc}''.
 %
-The keyword tokens \texttt{<y>}, \texttt{<m>}, \texttt{<d>}, and
-\texttt{<h>} will be automatically replaced during the run-time (year,
-month, day, hour).
-%
-In case the time span between two consecutive boundary data is less
-than 1 hour, one can use \texttt{<min>} and \texttt{<sec>}.
-%
-The keyword \texttt{<ddhhmmss>} is replaced by a \emph{relative}
-day-hour-minute-second string.
+The filename may contain keyword tokens (day, hour, etc.) which
+will be automatically replaced during the run-time.
+See the table below for a list of allowed keywords.
 %
 &
 itype\_latbc $\ge$ 1
@@ -2535,6 +2529,22 @@ file dict.latbc in run folder.
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_limarea_nml.f90+
+
+
+\paragraph{Keyword substitution in boundary data filename (\texttt{latbc\_filename}):}
+\begin{tabbing}
+\hspace*{0.4\textwidth} \= \kill
+\texttt{<y>}         \> substituted by year (four digits) \\
+\texttt{<m>}         \> substituted by month (two digits) \\
+\texttt{<d>}         \> substituted by day (two digits) \\
+\texttt{<h>}         \> substituted by hour (two digits) \\
+\texttt{<min>}       \> substituted by minute (two digits) \\
+\texttt{<sec>}       \> substituted by seconds (two digits) \\
+\texttt{<ddhhmmss>}  \> substituted by a \emph{relative} day-hour-minute-second string.\\
+\texttt{<dddhh>}     \> substituted by a \emph{relative} (three-digit) day-hour string.
+\end{tabbing}
+
+
 
 
 %------------------------------------------------------------------------------
@@ -4190,8 +4200,8 @@ See namelist parameter \texttt{pe\_placement\_ml} for further details.
  with name \texttt{ready\_file}.
  Different \texttt{output\_nml}'s may be joined together to form a single ready file event.
  The setting of \texttt{ready\_file = "default"} does not create a ready file.
- The ready file name may contain string tokens \texttt{<path>}, \texttt{<datetime>}, \texttt{<ddhhmmss>}
- which are substituted as described for the namelist parameter \texttt{filename\_format}.
+ The ready file name may contain string tokens \texttt{<path>}, \texttt{<datetime>}, \texttt{<ddhhmmss>},
+ \texttt{<dddhhmmss>} which are substituted as described for the namelist parameter \texttt{filename\_format}.
 &
 \tabularnewline
 
@@ -4447,6 +4457,7 @@ variable rather than the name of the corresponding tile container (i.e.\ in the 
 \texttt{datetime2}         \>  substituted by ISO-8601 date-time stamp in format \texttt{YYYYMMDDThhmmssZ}         \\
 \texttt{datetime3}         \>  substituted by ISO-8601 date-time stamp in format \texttt{YYYYMMDDThhmmss.sssZ}     \\
 \texttt{ddhhmmss}          \>  substituted by \emph{relative} day-hour-minute-second string \\
+\texttt{dddhhmmss}         \>  substituted by \emph{relative} three-digit day-hour-minute-second string \\
 \texttt{hhhmmss}           \>  substituted by \emph{relative} hour-minute-second string     \\
 \texttt{npartitions}       \>  If namelist is split into concurrent files: number of stream partitions.           \\
 \texttt{ifile\_partition}  \>  If namelist is split into concurrent files: stream partition index of this file.   \\
