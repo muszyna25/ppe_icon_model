@@ -1764,12 +1764,9 @@ CONTAINS
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":meteogram_sample_vars"
-    INTEGER :: istation, i_tstep
+    INTEGER :: istation, ithis_nlocal_pts, i_tstep
     CHARACTER(len=MAX_DATETIME_STR_LEN) :: zdate
-    TYPE(t_meteogram_data), POINTER :: meteogram_data
     INTEGER :: msg(2)
-
-    meteogram_data => mtgrm(jg)%meteogram_local_data
 
     IF (dbg_level > 0) THEN
       WRITE(message_text,*) "Sampling at step=", cur_step
@@ -1795,14 +1792,16 @@ CONTAINS
     i_tstep = mtgrm(jg)%icurrent + 1
     mtgrm(jg)%icurrent = i_tstep
 
-    IF (meteogram_data%nstations > 0 .OR. mtgrm(jg)%l_is_collecting_pe) THEN
+    ithis_nlocal_pts = mtgrm(jg)%meteogram_local_data%nstations
+    IF (ithis_nlocal_pts > 0 .OR. mtgrm(jg)%l_is_collecting_pe) THEN
       mtgrm(jg)%istep(i_tstep) = cur_step
       CALL datetimeToPosixString(cur_datetime, zdate, "%Y%m%dT%H%M%SZ")
       mtgrm(jg)%zdate(i_tstep) = zdate
 
       ! fill time step with values
-      DO istation=1,meteogram_data%nstations
-        CALL sample_station_vars(meteogram_data%station(istation), &
+      DO istation = 1, ithis_nlocal_pts
+        CALL sample_station_vars(&
+          mtgrm(jg)%meteogram_local_data%station(istation), &
           mtgrm(jg)%var_info, mtgrm(jg)%sfc_var_info, &
           mtgrm(jg)%diag_var_indices, i_tstep)
       END DO
