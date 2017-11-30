@@ -3881,8 +3881,9 @@ CONTAINS
   !> Loops over all variables and collects the variables names
   !  corresponding to the group @p grp_name
   !
-  SUBROUTINE collect_group(grp_name, var_name, nvars, &
-    &                      loutputvars_only, lremap_lonlat, opt_vlevel_type)
+  SUBROUTINE collect_group(grp_name, var_name, nvars,       &
+    &                      loutputvars_only, lremap_lonlat, &
+    &                      opt_vlevel_type, opt_dom_id)
     CHARACTER(LEN=*),           INTENT(IN)    :: grp_name
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: var_name(:)
     INTEGER,                    INTENT(OUT)   :: nvars
@@ -3895,9 +3896,11 @@ CONTAINS
 
     ! 1: model levels, 2: pressure levels, 3: height level
     INTEGER, OPTIONAL,          INTENT(IN)    :: opt_vlevel_type
+    ! (optional:) domain id
+    INTEGER, OPTIONAL,          INTENT(IN)    :: opt_dom_id
 
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_var_list:collect_group")
+    CHARACTER(*), PARAMETER :: routine = modname//":collect_group"
     INTEGER :: i, grp_id
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_metadata), POINTER :: info
@@ -3913,6 +3916,10 @@ CONTAINS
       IF (PRESENT(opt_vlevel_type)) THEN
         IF (var_lists(i)%p%vlevel_type /= opt_vlevel_type) CYCLE
       ENDIF
+      IF (PRESENT(opt_dom_id)) THEN
+        ! do not inspect variable list if its domain does not match:
+        IF (var_lists(i)%p%patch_id /= opt_dom_id)  CYCLE
+      END IF
 
       LOOPVAR : DO
         IF(.NOT.ASSOCIATED(element)) THEN

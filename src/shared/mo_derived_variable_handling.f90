@@ -139,7 +139,7 @@ CONTAINS
 
     abort = .FALSE.
 
-    IF (MAXVAL(p_onl%dom) > 1) abort = .TRUE.
+    IF (p_onl%dom > 1) abort = .TRUE.
 
     IF (  p_onl%stream_partitions_ml > 1 .OR. &
       &   p_onl%stream_partitions_pl > 1 .OR. &

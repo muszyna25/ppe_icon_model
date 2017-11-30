@@ -220,7 +220,7 @@ MODULE mo_name_list_output_types
     ! --------------------
 
     INTEGER                               :: mode              ! 1 = forecast mode, 2 = climate mode
-    INTEGER                               :: dom(max_phys_dom) ! domains for which this namelist is used, ending with -1
+    INTEGER                               :: dom               ! domain for which this namelist is used
     INTEGER                               :: steps_per_file    ! Max number of output steps in one output file
     LOGICAL                               :: steps_per_file_inclfirst !< Flag. Do not count first step in files count
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: file_interval     ! length of a file (ISO8601 duration)

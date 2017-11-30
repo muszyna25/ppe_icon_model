@@ -229,7 +229,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER       :: routine = modname//'::read_name_list_output_namelists'
 
-    INTEGER                               :: istat, i, j
+    INTEGER                               :: istat, i, j, idom
     TYPE(t_output_name_list), POINTER     :: p_onl
     INTEGER                               :: nnamelists
     LOGICAL                               :: lrewind
@@ -511,7 +511,7 @@ CONTAINS
           lonlat%l_dom(:) = .TRUE.
         ELSE
           DOM_LOOP : DO i = 1, max_dom
-            IF (dom(i) < 0) exit DOM_LOOP
+            IF (dom(i) < 0) EXIT DOM_LOOP
             lonlat%l_dom( dom(i) ) = .TRUE.
           ENDDO DOM_LOOP
         END IF
@@ -519,160 +519,177 @@ CONTAINS
 #endif
 ! #ifndef __NO_ICON_ATMO__
 
-      ! -- Allocate next output_name_list
-
-      IF(.NOT.ASSOCIATED(first_output_name_list)) THEN
-        ! Allocate first name_list
-        ALLOCATE(first_output_name_list)
-        p_onl => first_output_name_list
-      ELSE
-        ! This is not the first one, p_onl points to the last one which was created
-        ALLOCATE(p_onl%next)
-        p_onl => p_onl%next
-      ENDIF
-
-      ! -- Set next output_name_list from values read
-
-      p_onl%filetype                 = filetype
-      p_onl%mode                     = mode
-      p_onl%taxis_tunit              = taxis_tunit
-      p_onl%dom(:)                   = dom(:)
-      p_onl%steps_per_file           = steps_per_file
-      ! conditional default: steps_per_file_inclfirst=.FALSE. for GRIB output
-      p_onl%steps_per_file_inclfirst = steps_per_file_inclfirst .AND. (filetype /= FILETYPE_GRB2)
-      p_onl%file_interval            = file_interval
-      p_onl%include_last             = include_last
-      p_onl%output_grid              = output_grid
-      p_onl%output_filename          = output_filename
-      p_onl%filename_format          = filename_format
-      p_onl%filename_extn            = filename_extn
-      p_onl%ml_varlist(:)            = ml_varlist(:)
-      p_onl%pl_varlist(:)            = pl_varlist(:)
-      p_onl%hl_varlist(:)            = hl_varlist(:)
-      p_onl%il_varlist(:)            = il_varlist(:)
-      p_onl%m_levels                 = m_levels
-      p_onl%p_levels                 = p_levels
-      p_onl%z_levels                 = h_levels
-      p_onl%i_levels                 = i_levels
-      p_onl%remap                    = remap
-      p_onl%operation                = operation
-      p_onl%lonlat_id                = -1
-      p_onl%output_start(:)          = output_start(:)
-      p_onl%output_end(:)            = output_end
-      p_onl%output_interval(:)       = output_interval
-      p_onl%output_bounds(:)         = output_bounds(:)
-      p_onl%ready_file               = ready_file
-      p_onl%lonlat_id                = lonlat_id
-      p_onl%stream_partitions_ml     = stream_partitions_ml
-      p_onl%stream_partitions_pl     = stream_partitions_pl
-      p_onl%stream_partitions_hl     = stream_partitions_hl
-      p_onl%stream_partitions_il     = stream_partitions_il
-      p_onl%pe_placement_ml(:)       = pe_placement_ml(:)
-      p_onl%pe_placement_pl(:)       = pe_placement_pl(:)
-      p_onl%pe_placement_hl(:)       = pe_placement_hl(:)
-      p_onl%pe_placement_il(:)       = pe_placement_il(:)
-
-      ! -- translate variables names according to variable name
-      !    dictionary:
-      DO i=1,max_var_ml
-        p_onl%ml_varlist(i) = dict_get(varnames_dict, p_onl%ml_varlist(i), &
-          &                            default=p_onl%ml_varlist(i))
-      END DO
-      DO i=1,max_var_pl
-        p_onl%pl_varlist(i) = dict_get(varnames_dict, p_onl%pl_varlist(i), &
-          &                            default=p_onl%pl_varlist(i))
-      END DO
-      DO i=1,max_var_hl
-        p_onl%hl_varlist(i) = dict_get(varnames_dict, p_onl%hl_varlist(i), &
-          &                            default=p_onl%hl_varlist(i))
-      END DO
-      DO i=1,max_var_il
-        p_onl%il_varlist(i) = dict_get(varnames_dict, p_onl%il_varlist(i), &
-          &                            default=p_onl%il_varlist(i))
-      END DO
-
-     ! allow case-insensitive variable names:
-     DO i=1,max_var_ml
-       p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
-     END DO
-     DO i=1,max_var_pl
-       p_onl%pl_varlist(i) = tolower(p_onl%pl_varlist(i))
-     END DO
-     DO i=1,max_var_hl
-       p_onl%hl_varlist(i) = tolower(p_onl%hl_varlist(i))
-     END DO
-     DO i=1,max_var_il
-       p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
-     END DO
-
-      p_onl%next => NULL()
-
-      ! -- if the namelist switch "output_grid" has been enabled: add
-      !    "clon, "clat", "elon", "elat", etc. to the list of
-      !    variables:
+      ! loop over domains and generate a separare copy of the namelist
+      ! settings for each chosen domain.
       !
-      IF (p_onl%output_grid) THEN
-        ! model levels
-        IF (TRIM(p_onl%ml_varlist(1)) /=  "") THEN
-          SELECT CASE(p_onl%remap)
-          CASE (REMAP_NONE)
-            DO i=1,3
-              DO j=1,2
-                CALL append_varname(p_onl%ml_varlist, GRB2_GRID_INFO_NAME(i,j))
-              END DO
-            END DO
-          CASE (REMAP_REGULAR_LATLON)
-            DO j=1,2
-              CALL append_varname(p_onl%ml_varlist, GRB2_GRID_INFO_NAME(0,j))
-            END DO
-          END SELECT
+      DOM_LOOP2 : DO idom = 1, max_dom
+        IF ((dom(idom) < 0) .AND. (dom(1) >= 0)) EXIT DOM_LOOP2
+        
+        ! -- Allocate next output_name_list
+        
+        IF(.NOT.ASSOCIATED(first_output_name_list)) THEN
+          ! Allocate first name_list
+          ALLOCATE(first_output_name_list)
+          p_onl => first_output_name_list
+        ELSE
+          ! This is not the first one, p_onl points to the last one which was created
+          ALLOCATE(p_onl%next)
+          p_onl => p_onl%next
+        ENDIF
+
+        ! -- Set next output_name_list from values read
+
+        p_onl%filetype                 = filetype
+        p_onl%mode                     = mode
+        p_onl%taxis_tunit              = taxis_tunit
+
+        ! If dom(:) was not specified in namelist input, it is set
+        ! completely to -1.  In this case all domains are wanted in
+        ! the output.
+        IF (dom(idom) < 0) THEN
+          p_onl%dom                    = idom
+        ELSE
+          p_onl%dom                    = dom(idom)
         END IF
-        ! pressure levels
-        IF (TRIM(p_onl%pl_varlist(1)) /=  "") THEN
-          SELECT CASE(p_onl%remap)
-          CASE (REMAP_NONE)
-            DO i=1,3
-              DO j=1,2
-                CALL append_varname(p_onl%pl_varlist, GRB2_GRID_INFO_NAME(i,j))
+
+        p_onl%steps_per_file           = steps_per_file
+        ! conditional default: steps_per_file_inclfirst=.FALSE. for GRIB output
+        p_onl%steps_per_file_inclfirst = steps_per_file_inclfirst .AND. (filetype /= FILETYPE_GRB2)
+        p_onl%file_interval            = file_interval
+        p_onl%include_last             = include_last
+        p_onl%output_grid              = output_grid
+        p_onl%output_filename          = output_filename
+        p_onl%filename_format          = filename_format
+        p_onl%filename_extn            = filename_extn
+        p_onl%ml_varlist(:)            = ml_varlist(:)
+        p_onl%pl_varlist(:)            = pl_varlist(:)
+        p_onl%hl_varlist(:)            = hl_varlist(:)
+        p_onl%il_varlist(:)            = il_varlist(:)
+        p_onl%m_levels                 = m_levels
+        p_onl%p_levels                 = p_levels
+        p_onl%z_levels                 = h_levels
+        p_onl%i_levels                 = i_levels
+        p_onl%remap                    = remap
+        p_onl%operation                = operation
+        p_onl%lonlat_id                = -1
+        p_onl%output_start(:)          = output_start(:)
+        p_onl%output_end(:)            = output_end
+        p_onl%output_interval(:)       = output_interval
+        p_onl%output_bounds(:)         = output_bounds(:)
+        p_onl%ready_file               = ready_file
+        p_onl%lonlat_id                = lonlat_id
+        p_onl%stream_partitions_ml     = stream_partitions_ml
+        p_onl%stream_partitions_pl     = stream_partitions_pl
+        p_onl%stream_partitions_hl     = stream_partitions_hl
+        p_onl%stream_partitions_il     = stream_partitions_il
+        p_onl%pe_placement_ml(:)       = pe_placement_ml(:)
+        p_onl%pe_placement_pl(:)       = pe_placement_pl(:)
+        p_onl%pe_placement_hl(:)       = pe_placement_hl(:)
+        p_onl%pe_placement_il(:)       = pe_placement_il(:)
+
+        ! -- translate variables names according to variable name
+        !    dictionary:
+        DO i=1,max_var_ml
+          p_onl%ml_varlist(i) = dict_get(varnames_dict, p_onl%ml_varlist(i), &
+            &                            default=p_onl%ml_varlist(i))
+        END DO
+        DO i=1,max_var_pl
+          p_onl%pl_varlist(i) = dict_get(varnames_dict, p_onl%pl_varlist(i), &
+            &                            default=p_onl%pl_varlist(i))
+        END DO
+        DO i=1,max_var_hl
+          p_onl%hl_varlist(i) = dict_get(varnames_dict, p_onl%hl_varlist(i), &
+            &                            default=p_onl%hl_varlist(i))
+        END DO
+        DO i=1,max_var_il
+          p_onl%il_varlist(i) = dict_get(varnames_dict, p_onl%il_varlist(i), &
+            &                            default=p_onl%il_varlist(i))
+        END DO
+
+        ! allow case-insensitive variable names:
+        DO i=1,max_var_ml
+          p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
+        END DO
+        DO i=1,max_var_pl
+          p_onl%pl_varlist(i) = tolower(p_onl%pl_varlist(i))
+        END DO
+        DO i=1,max_var_hl
+          p_onl%hl_varlist(i) = tolower(p_onl%hl_varlist(i))
+        END DO
+        DO i=1,max_var_il
+          p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
+        END DO
+
+        p_onl%next => NULL()
+
+        ! -- if the namelist switch "output_grid" has been enabled: add
+        !    "clon, "clat", "elon", "elat", etc. to the list of
+        !    variables:
+        !
+        IF (p_onl%output_grid) THEN
+          ! model levels
+          IF (TRIM(p_onl%ml_varlist(1)) /=  "") THEN
+            SELECT CASE(p_onl%remap)
+            CASE (REMAP_NONE)
+              DO i=1,3
+                DO j=1,2
+                  CALL append_varname(p_onl%ml_varlist, GRB2_GRID_INFO_NAME(i,j))
+                END DO
               END DO
-            END DO
-          CASE (REMAP_REGULAR_LATLON)
-            DO j=1,2
-              CALL append_varname(p_onl%pl_varlist, GRB2_GRID_INFO_NAME(0,j))
-            END DO
-          END SELECT
-        END IF
-        ! height levels
-        IF (TRIM(p_onl%hl_varlist(1)) /=  "") THEN
-          SELECT CASE(p_onl%remap)
-          CASE (REMAP_NONE)
-            DO i=1,3
+            CASE (REMAP_REGULAR_LATLON)
               DO j=1,2
-                CALL append_varname(p_onl%hl_varlist, GRB2_GRID_INFO_NAME(i,j))
+                CALL append_varname(p_onl%ml_varlist, GRB2_GRID_INFO_NAME(0,j))
               END DO
-            END DO
-          CASE (REMAP_REGULAR_LATLON)
-            DO j=1,2
-              CALL append_varname(p_onl%hl_varlist, GRB2_GRID_INFO_NAME(0,j))
-            END DO
-          END SELECT
-        END IF
-        ! isentropic levels
-        IF (TRIM(p_onl%il_varlist(1)) /=  "") THEN
-          SELECT CASE(p_onl%remap)
-          CASE (REMAP_NONE)
-            DO i=1,3
+            END SELECT
+          END IF
+          ! pressure levels
+          IF (TRIM(p_onl%pl_varlist(1)) /=  "") THEN
+            SELECT CASE(p_onl%remap)
+            CASE (REMAP_NONE)
+              DO i=1,3
+                DO j=1,2
+                  CALL append_varname(p_onl%pl_varlist, GRB2_GRID_INFO_NAME(i,j))
+                END DO
+              END DO
+            CASE (REMAP_REGULAR_LATLON)
               DO j=1,2
-                CALL append_varname(p_onl%il_varlist, GRB2_GRID_INFO_NAME(i,j))
+                CALL append_varname(p_onl%pl_varlist, GRB2_GRID_INFO_NAME(0,j))
               END DO
-            END DO
-          CASE (REMAP_REGULAR_LATLON)
-            DO j=1,2
-              CALL append_varname(p_onl%il_varlist, GRB2_GRID_INFO_NAME(0,j))
-            END DO
-          END SELECT
+            END SELECT
+          END IF
+          ! height levels
+          IF (TRIM(p_onl%hl_varlist(1)) /=  "") THEN
+            SELECT CASE(p_onl%remap)
+            CASE (REMAP_NONE)
+              DO i=1,3
+                DO j=1,2
+                  CALL append_varname(p_onl%hl_varlist, GRB2_GRID_INFO_NAME(i,j))
+                END DO
+              END DO
+            CASE (REMAP_REGULAR_LATLON)
+              DO j=1,2
+                CALL append_varname(p_onl%hl_varlist, GRB2_GRID_INFO_NAME(0,j))
+              END DO
+            END SELECT
+          END IF
+          ! isentropic levels
+          IF (TRIM(p_onl%il_varlist(1)) /=  "") THEN
+            SELECT CASE(p_onl%remap)
+            CASE (REMAP_NONE)
+              DO i=1,3
+                DO j=1,2
+                  CALL append_varname(p_onl%il_varlist, GRB2_GRID_INFO_NAME(i,j))
+                END DO
+              END DO
+            CASE (REMAP_REGULAR_LATLON)
+              DO j=1,2
+                CALL append_varname(p_onl%il_varlist, GRB2_GRID_INFO_NAME(0,j))
+              END DO
+            END SELECT
+          END IF
         END IF
-      END IF
+
+      END DO DOM_LOOP2
 
       ! -- write the contents of the namelist to an ASCII file
 
@@ -735,7 +752,7 @@ CONTAINS
         log_patch_id = jp
         IF(l_output_phys_patch)  log_patch_id = p_phys_patch(jp)%logical_id
 
-        IF ((p_onl%dom(1) <= 0) .OR. (ANY(p_onl%dom(:) == log_patch_id))) THEN
+        IF (p_onl%dom == log_patch_id) THEN
 
           ! pressure levels
           !
@@ -860,10 +877,11 @@ CONTAINS
             grp_name(len_trim(grp_name)+1:len_trim(grp_name)+3) ="_t"
             ! loop over all variables and collects the variables names
             ! corresponding to the group "grp_name"
-            CALL collect_group(grp_name, grp_vars, ngrp_vars, &
-              &               loutputvars_only=.TRUE.,        &
-              &               lremap_lonlat=(p_onl%remap == REMAP_REGULAR_LATLON), &
-              &               opt_vlevel_type=i_typ)
+            CALL collect_group(grp_name, grp_vars, ngrp_vars,                           &
+              &               loutputvars_only = .TRUE.,                                &
+              &               lremap_lonlat    = (p_onl%remap == REMAP_REGULAR_LATLON), &
+              &               opt_vlevel_type  = i_typ,                                 &
+              &               opt_dom_id       = p_onl%dom)
             DO i=1,ngrp_vars
               grp_vars(i) = tolower(grp_vars(i))
             END DO
@@ -888,10 +906,11 @@ CONTAINS
             grp_name = vname((LEN(TRIM(GRP_PREFIX))+1) : LEN(vname))
             ! loop over all variables and collects the variables names
             ! corresponding to the group "grp_name"
-            CALL collect_group(grp_name, grp_vars, ngrp_vars, &
-              &               loutputvars_only=.TRUE.,        &
-              &               lremap_lonlat=(p_onl%remap == REMAP_REGULAR_LATLON), &
-              &               opt_vlevel_type=i_typ)
+            CALL collect_group(grp_name, grp_vars, ngrp_vars,                           &
+              &               loutputvars_only = .TRUE.,                                &
+              &               lremap_lonlat    = (p_onl%remap == REMAP_REGULAR_LATLON), &
+              &               opt_vlevel_type  = i_typ,                                 &
+              &               opt_dom_id       = p_onl%dom)
             DO i=1,ngrp_vars
               grp_vars(i) = tolower(grp_vars(i))
             END DO
@@ -1104,25 +1123,6 @@ CONTAINS
 
     ! ---------------------------------------------------------------------------
 
-    ! If dom(:) was not specified in namelist input, it is set
-    ! completely to -1.  In this case all domains are wanted in the
-    ! output, so set it here appropriately - this cannot be done
-    ! during reading of the namelists since the number of physical
-    ! domains is not known there.
-    p_onl => first_output_name_list
-    ! Loop over all "output_nml" namelists:
-    DO
-      IF(.NOT.ASSOCIATED(p_onl)) EXIT
-      IF(p_onl%dom(1) <= 0) THEN
-        DO i = 1, n_dom_out
-          p_onl%dom(i) = i
-        ENDDO
-      ENDIF
-      p_onl => p_onl%next
-    ENDDO
-
-    ! ---------------------------------------------------------------------------
-
     ! Set number of global cells/edges/verts and logical patch ID
     DO jp = 1, n_dom_out
       IF(l_output_phys_patch) THEN
@@ -1163,28 +1163,24 @@ CONTAINS
     DO
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
 
-      ! Loop over all domains for which this name list should be used
-      DO i = 1, SIZE(p_onl%dom)
-        IF(p_onl%dom(i) <= 0) EXIT ! Last one was reached
-        idom = p_onl%dom(i)
-        ! non-existent domains are simply ignored:
-        IF(p_onl%dom(i) > n_dom_out)  CYCLE
+      idom = p_onl%dom ! domain for which this name list should be used
 
-        IF (p_onl%output_grid) THEN
-          grid_info_mode = GRID_INFO_BCAST
-          ! For hexagons, we still copy grid info from file; for
-          ! triangular grids we have a faster method without file access
-          ! IF (max_cell_connectivity == 6)  grid_info_mode = GRID_INFO_FILE
-          IF (PRESENT(opt_l_is_ocean)) THEN
-            IF (opt_l_is_ocean) grid_info_mode = GRID_INFO_BCAST
-          ENDIF
-          IF (p_onl%remap==REMAP_REGULAR_LATLON) THEN
-            lonlat_info(p_onl%lonlat_id,patch_info(idom)%log_patch_id)%grid_info_mode = grid_info_mode
-          ELSE
-            patch_info(idom)%grid_info_mode = grid_info_mode
-          END IF
+      ! non-existent domains are simply ignored:
+      IF (p_onl%output_grid .AND. (idom <= n_dom_out)) THEN
+        grid_info_mode = GRID_INFO_BCAST
+        ! For hexagons, we still copy grid info from file; for
+        ! triangular grids we have a faster method without file access
+        ! IF (max_cell_connectivity == 6) grid_info_mode =
+        ! GRID_INFO_FILE
+        IF (PRESENT(opt_l_is_ocean)) THEN
+          IF (opt_l_is_ocean) grid_info_mode = GRID_INFO_BCAST
+        ENDIF
+        IF (p_onl%remap==REMAP_REGULAR_LATLON) THEN
+          lonlat_info(p_onl%lonlat_id,patch_info(idom)%log_patch_id)%grid_info_mode = grid_info_mode
+        ELSE
+          patch_info(idom)%grid_info_mode = grid_info_mode
         END IF
-      ENDDO ! i=1,ndom
+      END IF
 
       p_onl => p_onl%next
     ENDDO
@@ -1312,11 +1308,8 @@ CONTAINS
 
       IF(.NOT.ASSOCIATED(p_onl))  EXIT
 
-      DO i = 1, SIZE(p_onl%dom)
-        IF(p_onl%dom(i) <= 0) EXIT ! Last one was reached
-        ! non-existent domains are simply ignored:
-        IF(p_onl%dom(i) > n_dom_out)  CYCLE
-
+      ! non-existent domains are simply ignored:
+      IF (p_onl%dom <= n_dom_out) THEN
         DO i_typ = 1, 4
           ! Check if name_list has variables of corresponding type,
           ! then increase file counter.
@@ -1335,10 +1328,10 @@ CONTAINS
             nfiles = nfiles + p_onl%stream_partitions_il
           END SELECT
         ENDDO
-      ENDDO
+      END IF
 
       p_onl => p_onl%next
-
+      
     ENDDO
     WRITE(message_text,'(a,i4)') 'Number of name list output files: ',nfiles
     CALL message(routine,message_text)
@@ -1370,108 +1363,105 @@ CONTAINS
 
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
 
-      ! Loop over all domains for which this name list should be used
+      idom = p_onl%dom ! domain for which this name list should be used
+      ! non-existent domains are simply ignored:
+      IF(idom > n_dom_out) THEN
+        p_onl => p_onl%next
+        CYCLE
+      END IF
 
-      LOOP_DOM : DO i = 1, SIZE(p_onl%dom)
-        IF(p_onl%dom(i) <= 0) EXIT ! Last one was reached
-        idom = p_onl%dom(i)
-        ! non-existent domains are simply ignored:
-        IF(p_onl%dom(i) > n_dom_out)  CYCLE
+      ! Loop over model/pressure/height levels
 
-        ! Loop over model/pressure/height levels
+      DO i_typ = 1, 4
+        
+        ! Check if name_list has variables of corresponding type
+        SELECT CASE(i_typ)
+        CASE (level_type_ml)
+          IF (p_onl%ml_varlist(1) == ' ') CYCLE
+          npartitions     = p_onl%stream_partitions_ml
+          pe_placement(:) = p_onl%pe_placement_ml(:)
+        CASE (level_type_pl)
+          IF (p_onl%pl_varlist(1) == ' ') CYCLE
+          npartitions     = p_onl%stream_partitions_pl
+          pe_placement(:) = p_onl%pe_placement_pl(:)
+        CASE (level_type_hl)
+          IF (p_onl%hl_varlist(1) == ' ') CYCLE
+          npartitions     = p_onl%stream_partitions_hl
+          pe_placement(:) = p_onl%pe_placement_hl(:)
+        CASE (level_type_il)
+          IF (p_onl%il_varlist(1) == ' ') CYCLE
+          npartitions     = p_onl%stream_partitions_il
+          pe_placement(:) = p_onl%pe_placement_il(:)
+        END SELECT
+        
+        IF (npartitions > 1) THEN
+          WRITE(message_text,'(a,i4,a)') "Fork file into: ", npartitions, " concurrent parts."
+          CALL message(routine, message_text)
+        END IF
+        
+        ! Split one namelist into concurrent, alternating files:
+        DO ifile_partition = 1,npartitions
 
-        DO i_typ = 1, 4
+          ifile = ifile+1
+          p_of => output_file(ifile)
+          p_of%ilev_type = i_typ
+          
+          ! Fill data members of "t_output_file" data structures
+          p_of%filename_pref   = TRIM(p_onl%output_filename)
+          p_of%phys_patch_id   = idom
+          p_of%log_patch_id    = patch_info(idom)%log_patch_id
+          p_of%output_type     = p_onl%filetype
+          p_of%name_list       => p_onl
+          p_of%remap           = p_onl%remap
+          p_of%cdiCellGridID   = CDI_UNDEFID
+          p_of%cdiEdgeGridID   = CDI_UNDEFID
+          p_of%cdiVertGridID   = CDI_UNDEFID
+          p_of%cdiLonLatGridID = CDI_UNDEFID
+          p_of%cdiTaxisID      = CDI_UNDEFID
+          p_of%cdiVlistID      = CDI_UNDEFID
+          
+          p_of%npartitions     = npartitions
+          p_of%ifile_partition = ifile_partition
 
-          ! Check if name_list has variables of corresponding type
+          ! (optional:) explicitly specified I/O rank
+          p_of%io_proc_id      = -1 ! undefined MPI rank
+          p_of%pe_placement    = pe_placement(ifile_partition)
+
+          ! Select all var_lists which belong to current logical domain and i_typ
+          nvl = 0
+          DO j = 1, nvar_lists
+
+            IF(.NOT. var_lists(j)%p%loutput) CYCLE
+            ! patch_id in var_lists always corresponds to the LOGICAL domain
+            IF(var_lists(j)%p%patch_id /= patch_info(idom)%log_patch_id) CYCLE
+
+            IF(i_typ /= var_lists(j)%p%vlevel_type) CYCLE
+
+            nvl = nvl + 1
+            vl_list(nvl) = j
+
+          ENDDO
+
+          IF ( my_process_is_work() ) THEN ! avoid addidional io or restart processes
+            IF ( 1 == i ) THEN             ! use global domain, only
+              CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch(i))
+            ENDIF
+          ENDIF
+
           SELECT CASE(i_typ)
-          CASE (level_type_ml)
-            IF (p_onl%ml_varlist(1) == ' ') CYCLE
-            npartitions     = p_onl%stream_partitions_ml
-            pe_placement(:) = p_onl%pe_placement_ml(:)
-          CASE (level_type_pl)
-            IF (p_onl%pl_varlist(1) == ' ') CYCLE
-            npartitions     = p_onl%stream_partitions_pl
-            pe_placement(:) = p_onl%pe_placement_pl(:)
-          CASE (level_type_hl)
-            IF (p_onl%hl_varlist(1) == ' ') CYCLE
-            npartitions     = p_onl%stream_partitions_hl
-            pe_placement(:) = p_onl%pe_placement_hl(:)
-          CASE (level_type_il)
-            IF (p_onl%il_varlist(1) == ' ') CYCLE
-            npartitions     = p_onl%stream_partitions_il
-            pe_placement(:) = p_onl%pe_placement_il(:)
+          CASE(level_type_ml)
+            CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%ml_varlist)
+          CASE(level_type_pl)
+            CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%pl_varlist)
+          CASE(level_type_hl)
+            CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%hl_varlist)
+          CASE(level_type_il)
+            CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%il_varlist)
           END SELECT
 
-          IF (npartitions > 1) THEN
-            WRITE(message_text,'(a,i4,a)') "Fork file into: ", npartitions, " concurrent parts."
-            CALL message(routine, message_text)
-          END IF
+        END DO ! ifile_partition
 
-          ! Split one namelist into concurrent, alternating files:
-          DO ifile_partition = 1,npartitions
-
-              ifile = ifile+1
-              p_of => output_file(ifile)
-              p_of%ilev_type = i_typ
-
-              ! Fill data members of "t_output_file" data structures
-              p_of%filename_pref   = TRIM(p_onl%output_filename)
-              p_of%phys_patch_id   = idom
-              p_of%log_patch_id    = patch_info(idom)%log_patch_id
-              p_of%output_type     = p_onl%filetype
-              p_of%name_list       => p_onl
-              p_of%remap           = p_onl%remap
-              p_of%cdiCellGridID   = CDI_UNDEFID
-              p_of%cdiEdgeGridID   = CDI_UNDEFID
-              p_of%cdiVertGridID   = CDI_UNDEFID
-              p_of%cdiLonLatGridID = CDI_UNDEFID
-              p_of%cdiTaxisID      = CDI_UNDEFID
-              p_of%cdiVlistID      = CDI_UNDEFID
-
-              p_of%npartitions     = npartitions
-              p_of%ifile_partition = ifile_partition
-
-              ! (optional:) explicitly specified I/O rank
-              p_of%io_proc_id      = -1 ! undefined MPI rank
-              p_of%pe_placement    = pe_placement(ifile_partition)
-
-              ! Select all var_lists which belong to current logical domain and i_typ
-              nvl = 0
-              DO j = 1, nvar_lists
-
-                IF(.NOT. var_lists(j)%p%loutput) CYCLE
-                ! patch_id in var_lists always corresponds to the LOGICAL domain
-                IF(var_lists(j)%p%patch_id /= patch_info(idom)%log_patch_id) CYCLE
-
-                IF(i_typ /= var_lists(j)%p%vlevel_type) CYCLE
-
-                nvl = nvl + 1
-                vl_list(nvl) = j
-
-              ENDDO
-
-              IF ( my_process_is_work() ) THEN ! avoid addidional io or restart processes
-                IF ( 1 == i ) THEN             ! use global domain, only
-                  CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch(i))
-                ENDIF
-              ENDIF
-
-              SELECT CASE(i_typ)
-              CASE(level_type_ml)
-                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%ml_varlist)
-              CASE(level_type_pl)
-                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%pl_varlist)
-              CASE(level_type_hl)
-                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%hl_varlist)
-              CASE(level_type_il)
-                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%il_varlist)
-              END SELECT
-
-          END DO ! ifile_partition
-
-        ENDDO ! i_typ
-
-      ENDDO LOOP_DOM ! i=1,ndom
+      ENDDO ! i_typ
 
       p_onl => p_onl%next
 

@@ -853,7 +853,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine =  modname//"::collect_output_variables"
     TYPE (t_output_name_list), POINTER :: p_onl
     LOGICAL :: l_jg_active
-    INTEGER :: ivar, iphys_dom
+    INTEGER :: ivar
     CHARACTER(LEN=vname_len), POINTER :: nml_varlist(:)         !< varlist (hl/ml/pl/il) in output_nml namelist
 
     l_uv_vertical_intp = .FALSE.
@@ -876,15 +876,8 @@ CONTAINS
 
       IF (dbg_level >= 21)  WRITE (0,*) nml_varlist 
 
-      ! If dom(:) was not specified in namelist input, it is set
-      ! completely to -1.  In this case all domains are searched:
-      l_jg_active = (p_onl%dom(1) <= 0)
-      DO iphys_dom=1,max_phys_dom
-        IF (p_onl%dom(iphys_dom) > 0) THEN
-          l_jg_active = l_jg_active .OR. (jg == p_phys_patch(p_onl%dom(iphys_dom))%logical_id)
-        END IF
-      END DO
-
+      l_jg_active = (jg == p_phys_patch(p_onl%dom)%logical_id)
+      
       ! Selection criteria: 
       ! - domain is requested
       ! - "Z"/"P"/"I"-level interpolation is requested
