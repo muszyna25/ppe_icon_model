@@ -322,8 +322,6 @@ MODULE mo_meteogram_output
     !> meteogram data and meta info for each station (idx,blk).
     TYPE(t_meteogram_station), ALLOCATABLE :: station(:)
     INTEGER                         :: nstations
-    !> "owner" PE for this station
-    INTEGER                         :: pstation(MAX_NUM_STATIONS)
   END TYPE t_meteogram_data
 
   !>
@@ -424,6 +422,8 @@ MODULE mo_meteogram_output
     INTEGER                 :: global_idx(MAX_NUM_STATIONS)     !< rank of sender PE for each station
 
     TYPE(meteogram_diag_var_indices) :: diag_var_indices
+    !> "owner" PE for each station
+    INTEGER :: pstation(MAX_NUM_STATIONS)
   END TYPE t_buffer_state
 
   TYPE mtgrm_pack_buf
@@ -1244,19 +1244,19 @@ CONTAINS
 
     IF (.NOT. is_pure_io_pe) THEN
       nblks = (nstations+nproma-1)/nproma
-      CALL mtgrm_station_owners(meteogram_data, meteogram_output_config, &
+      CALL mtgrm_station_owners(mtgrm(jg)%pstation, &
+        mtgrm(jg)%meteogram_local_data%nstations, meteogram_output_config, &
         nblks, ptr_patch, mtgrm(jg)%io_collector_rank, &
         mtgrm(jg)%io_collect_comm, tri_idx, mtgrm(jg)%global_idx, &
         mtgrm(jg)%io_invar_send_rank)
       pack_buf%l_is_varlist_sender = mtgrm(jg)%io_invar_send_rank == p_pe_work
-      ithis_nlocal_pts = meteogram_data%nstations
+      ithis_nlocal_pts = mtgrm(jg)%meteogram_local_data%nstations
     ELSE
       ithis_nlocal_pts = 0
       pack_buf%l_is_varlist_sender = .FALSE.
       mtgrm(jg)%l_is_sender = .FALSE.
       IF (is_io .AND. io_collector_rank == p_pe_work) THEN
-        CALL p_irecv(mtgrm(jg)%meteogram_local_data%pstation, &
-          &          MPI_ANY_SOURCE, tag_mtgrm_msg+jg-1, &
+        CALL p_irecv(mtgrm(jg)%pstation, MPI_ANY_SOURCE, tag_mtgrm_msg+jg-1, &
           &          comm=mtgrm(jg)%io_collect_comm)
       ELSE
         RETURN
@@ -1277,7 +1277,7 @@ CONTAINS
         io_invar_send_rank = p_comm_remote_size(mtgrm(jg)%io_collect_comm) - 1
         CALL p_wait()
         DO istation = nstations, 1, -1
-          iowner = mtgrm(jg)%meteogram_local_data%pstation(istation)
+          iowner = mtgrm(jg)%pstation(istation)
           IF (iowner /= -1) THEN
             io_invar_send_rank = iowner
             EXIT
@@ -1389,7 +1389,6 @@ CONTAINS
     IO_PE : IF (mtgrm(jg)%l_is_collecting_pe) THEN
 
       mtgrm(jg)%meteogram_global_data%nstations =  nstations
-      mtgrm(jg)%meteogram_global_data%pstation  =  mtgrm(jg)%meteogram_local_data%pstation
 
       ALLOCATE(mtgrm(jg)%meteogram_global_data%station(nstations), stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
@@ -1406,8 +1405,7 @@ CONTAINS
         ALLOCATE(mtgrm(jg)%meteogram_local_data%station(0))
       CALL recv_time_invariants(mtgrm(jg)%var_info, &
         mtgrm(jg)%meteogram_global_data%station, &
-        mtgrm(jg)%meteogram_global_data%pstation, &
-        mtgrm(jg)%io_collect_comm, is_pure_io_pe, &
+        mtgrm(jg)%pstation, mtgrm(jg)%io_collect_comm, is_pure_io_pe, &
         mtgrm(jg)%meteogram_local_data%station)
     END IF IO_PE
 
@@ -1419,8 +1417,7 @@ CONTAINS
     mtgrm(jg)%l_is_sender   = .NOT. meteogram_output_config%ldistributed &
       &                 .AND. .NOT. mtgrm(jg)%l_is_collecting_pe         &
       &                 .AND. .NOT. is_mpi_test                          &
-      &                 .AND. (ANY(mtgrm(jg)%meteogram_local_data%pstation &
-      &                            == p_pe_work)                           &
+      &                 .AND. (ANY(mtgrm(jg)%pstation == p_pe_work)      &
       &                        .OR. pack_buf%l_is_varlist_sender)
 
     ! Flag. True, if this PE writes data to file
@@ -1449,10 +1446,10 @@ CONTAINS
 
   END SUBROUTINE meteogram_init
 
-  SUBROUTINE mtgrm_station_owners(meteogram_data, output_config, nblks, &
-    ptr_patch, io_collector_rank, io_collect_comm, tri_idx, &
+  SUBROUTINE mtgrm_station_owners(pstation, ithis_nlocal_pts, output_config, &
+    nblks, ptr_patch, io_collector_rank, io_collect_comm, tri_idx, &
     global_idx, io_invar_send_rank)
-    TYPE(t_meteogram_data), INTENT(inout) :: meteogram_data
+    INTEGER, INTENT(out) :: pstation(:), ithis_nlocal_pts
     !> station data from namelist
     TYPE(t_meteogram_output_config), INTENT(in) :: output_config
     INTEGER, INTENT(in) :: nblks, io_collector_rank, io_collect_comm
@@ -1461,8 +1458,7 @@ CONTAINS
     !> data structure containing grid info:
     TYPE(t_patch), INTENT(in) :: ptr_patch
 
-    INTEGER :: istation, nstations, ithis_nlocal_pts, iowner, &
-      varlist_sender_rank
+    INTEGER :: istation, nstations, iowner
     INTEGER :: jc, jb, npromz
     !> minimal distance
     REAL(gk) :: min_dist(nproma,nblks)
@@ -1502,25 +1498,23 @@ CONTAINS
       &                                 tri_idx(:,:,:), in_points(:,:,:),               &
       &                                 global_idx(:), ithis_nlocal_pts)
 
-    meteogram_data%nstations = ithis_nlocal_pts
-
     ! clean up
     CALL gnat_destroy(gnat)
 
     ! build a list of "owner" PEs for the stations:
-    meteogram_data%pstation(:) = -1
+    pstation(:) = -1
     DO istation = 1, ithis_nlocal_pts
-      meteogram_data%pstation(global_idx(istation)) = p_pe_work
+      pstation(global_idx(istation)) = p_pe_work
     END DO
     ! All-to-all communicate the located stations to find out if
     ! some stations are "owned" by no PE at all (in the case of
     ! regional nests):
-    CALL p_allreduce_max(meteogram_data%pstation, comm=p_comm_work)
+    CALL p_allreduce_max(pstation, comm=p_comm_work)
     io_invar_send_rank = -1
     IF (use_async_name_list_io) THEN
       io_invar_send_rank = -1
       DO istation = nstations, 1, -1
-        iowner = meteogram_data%pstation(istation)
+        iowner = pstation(istation)
         IF (iowner /= -1) THEN
           ! PE collecting variable info to send it to pure I/O PEs.
           ! (only relevant if pure I/O PEs exist)
@@ -1536,8 +1530,7 @@ CONTAINS
           ptr_patch%id, ': no station found to be in grid'
       END IF
       IF (io_invar_send_rank == p_pe_work) THEN
-        CALL p_send(meteogram_data%pstation, &
-          &         io_collector_rank, tag_mtgrm_msg+ptr_patch%id-1, &
+        CALL p_send(pstation, io_collector_rank, tag_mtgrm_msg+ptr_patch%id-1, &
           &         comm=io_collect_comm)
       END IF
     END IF
@@ -1994,7 +1987,7 @@ CONTAINS
         req(2) = mpi_request_null
       END IF
       DO istation=1,nstations
-        iowner = mtgrm%meteogram_global_data%pstation(istation)
+        iowner = mtgrm%pstation(istation)
         IF ((is_pure_io_pe .OR. iowner /= p_pe_work) .AND. (iowner >= 0)) THEN
           CALL p_irecv_packed(msg_buffer(:,istation), iowner, &
             &    tag_mtgrm_msg+3*max_dom + (jg-1)*tag_domain_shift + istation, &
@@ -2013,7 +2006,7 @@ CONTAINS
       ! unpack received messages:
       DO istation=1,nstations
         IF (dbg_level > 5) WRITE (*,*) "Receiver side: Station ", istation
-        iowner = mtgrm%meteogram_global_data%pstation(istation)
+        iowner = mtgrm%pstation(istation)
         IF (iowner >= 0) THEN
           IF (iowner /= p_pe_work .OR. is_pure_io_pe) THEN
             CALL unpack_station_sample(mtgrm%var_info, &
@@ -2039,7 +2032,7 @@ CONTAINS
       ! Note: We only check the number of received time stamps, not the
       !       exact sample dates themselves
       IF (ANY(icurrent_recv /= icurrent &
-        &     .AND. mtgrm%meteogram_global_data%pstation(1:nstations) /= -1)) &
+        &     .AND. mtgrm%pstation(1:nstations) /= -1)) &
         CALL finish(routine, "Received inconsistent time slice data!")
       mtgrm%icurrent = icurrent
 
@@ -2196,7 +2189,7 @@ CONTAINS
     IF (.NOT. mtgrm_file_exists .OR. &
       .NOT. meteogram_output_config%append_if_exists) THEN
       CALL meteogram_create_file(meteogram_output_config, &
-        mtgrm%meteogram_file_info, &
+        mtgrm%meteogram_file_info, mtgrm%pstation, &
         MERGE(mtgrm%meteogram_global_data, mtgrm%meteogram_local_data, &
         &     .NOT. meteogram_output_config%ldistributed), &
         mtgrm%var_info, mtgrm%sfc_var_info, mtgrm%max_nlevs)
@@ -2207,14 +2200,14 @@ CONTAINS
 
   END SUBROUTINE meteogram_open_file
 
-  SUBROUTINE meteogram_create_file(output_config, file_info, meteogram_data, &
-    var_info, sfc_var_info, max_nlevs)
-    TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: output_config
+  SUBROUTINE meteogram_create_file(output_config, file_info, pstation, &
+    meteogram_data, var_info, sfc_var_info, max_nlevs)
+    TYPE(t_meteogram_output_config), INTENT(IN) :: output_config
     TYPE(t_meteogram_file), INTENT(inout) :: file_info
     TYPE(t_meteogram_data), INTENT(in) :: meteogram_data
     TYPE(t_var_info), INTENT(in) :: var_info(:)
     TYPE(t_sfc_var_info), INTENT(in) :: sfc_var_info(:)
-    INTEGER, INTENT(in) :: max_nlevs
+    INTEGER, INTENT(in) :: pstation(:), max_nlevs
 
     INTEGER :: station_name_dims(2), var_name_dims(2), &
       &        time_string_dims(2), tile_dims(2),      &
@@ -2460,7 +2453,7 @@ CONTAINS
     DO istation=1,meteogram_data%nstations
       IF (dbg_level > 5)  WRITE (*,*) "station ", istation
 
-      iowner = meteogram_data%pstation(istation)
+      iowner = pstation(istation)
       IF (iowner >= 0) THEN
         station_idx = meteogram_data%station(istation)%station_idx
         CALL put_station_invariants(file_info%ncid, istation, &
