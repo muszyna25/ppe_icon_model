@@ -1153,7 +1153,6 @@ CONTAINS
     TYPE(t_var) :: var_list
     INTEGER      :: tri_idx(2,nproma,(meteogram_output_config%nstations+nproma-1)/nproma)
     INTEGER      :: max_var_size, max_sfcvar_size
-    TYPE(t_meteogram_data)   , POINTER :: meteogram_data
     INTEGER                            :: max_time_stamps
     INTEGER                            :: io_collector_rank, iowner, &
       io_invar_send_rank
@@ -1219,9 +1218,6 @@ CONTAINS
     ELSE
       ntiles_mtgrm = 1
     ENDIF
-
-
-    meteogram_data => mtgrm(jg)%meteogram_local_data
 
     max_time_stamps = meteogram_output_config%max_time_stamps
     mtgrm(jg)%max_time_stamps = max_time_stamps
@@ -1360,17 +1356,19 @@ CONTAINS
     ! set up list of local stations:
     IF (.NOT. is_pure_io_pe) THEN
 
-      ALLOCATE(meteogram_data%station(meteogram_data%nstations), stat=ierrstat)
+      ALLOCATE(mtgrm(jg)%meteogram_local_data%station(ithis_nlocal_pts), &
+        stat=ierrstat)
       IF (ierrstat /= SUCCESS) THEN
         CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 3)')
       ENDIF
 
-      DO istation=1,meteogram_data%nstations
+      DO istation=1,ithis_nlocal_pts
         jb = (istation-1)/nproma + 1
         jc = MOD(istation-1, nproma)+1
         istation_buf = MERGE(mtgrm(jg)%global_idx(istation), istation, &
           mtgrm(jg)%l_is_collecting_pe)
-        CALL sample_station_init(meteogram_data%station(istation), &
+        CALL sample_station_init(&
+          mtgrm(jg)%meteogram_local_data%station(istation), &
           mtgrm(jg)%global_idx(istation), istation_buf, tri_idx(:,jc,jb), &
           ptr_patch%cells, ext_data%atm, iforcing, p_nh_state%metrics, &
           mtgrm(jg)%var_info, mtgrm(jg)%sfc_var_info, &
@@ -1378,7 +1376,8 @@ CONTAINS
       END DO
       IF (      .NOT. mtgrm(jg)%l_is_collecting_pe &
         & .AND. .NOT. meteogram_output_config%ldistributed) &
-        CALL send_time_invariants(mtgrm(jg)%var_info, meteogram_data%station, &
+        CALL send_time_invariants(mtgrm(jg)%var_info, &
+        mtgrm(jg)%meteogram_local_data%station, &
         mtgrm(jg)%io_collector_rank, mtgrm(jg)%io_collect_comm)
     END IF
 
