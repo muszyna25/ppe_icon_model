@@ -325,9 +325,6 @@ MODULE mo_meteogram_output
     TYPE(t_var_info), POINTER :: var_info(:)
     !> info for each surface variable
     TYPE(t_sfc_var_info), POINTER :: sfc_var_info(:)
-    ! time stamp info:
-    !> current time stamp index
-    INTEGER                         :: icurrent
     ! value buffers:
     !> meteogram data and meta info for each station (idx,blk).
     TYPE(t_meteogram_station), ALLOCATABLE :: station(:)
@@ -405,6 +402,9 @@ MODULE mo_meteogram_output
     !! -- data for distributed meteogram sampling (MPI) --
     INTEGER                 :: max_buf_size                     !< max buffer size for MPI messages
 
+    ! time stamp info:
+    !> current time stamp index
+    INTEGER :: icurrent
     !> maximum number of time stamps stored before flush
     INTEGER :: max_time_stamps
     !> flush silently when time stamp buffer is exhausted or warn user?
@@ -1294,7 +1294,7 @@ CONTAINS
     ! Initialize local data structure, fill header
     ! ------------------------------------------------------------
 
-    meteogram_data%icurrent  = 0 ! reset current sample index
+    mtgrm(jg)%icurrent  = 0 ! reset current sample index
     meteogram_data%max_nlevs = 1
 
     ! set up list of variables:
@@ -1796,7 +1796,7 @@ CONTAINS
     END IF
 
     ! increase time step counter
-    IF (meteogram_data%icurrent > mtgrm(jg)%max_time_stamps) THEN
+    IF (mtgrm(jg)%icurrent > mtgrm(jg)%max_time_stamps) THEN
       ! buffer full
       IF (.NOT. mtgrm(jg)%silent_flush) THEN
         CALL message(routine, 'WARNING: Intermediate meteogram flush. &
@@ -1811,8 +1811,8 @@ CONTAINS
 
       CALL meteogram_flush_file(jg)
     END IF
-    i_tstep = meteogram_data%icurrent + 1
-    meteogram_data%icurrent = i_tstep
+    i_tstep = mtgrm(jg)%icurrent + 1
+    mtgrm(jg)%icurrent = i_tstep
 
     IF (meteogram_data%nstations > 0 .OR. mtgrm(jg)%l_is_collecting_pe) THEN
       mtgrm(jg)%istep(i_tstep) = cur_step
@@ -2032,7 +2032,7 @@ CONTAINS
               msg_buffer(:,istation), istation, nstations, &
               icurrent_recv(istation))
           ELSE
-            icurrent_recv(istation) = mtgrm%meteogram_local_data%icurrent
+            icurrent_recv(istation) = mtgrm%icurrent
           END IF
         ELSE
           icurrent_recv(istation) = -2
@@ -2043,7 +2043,7 @@ CONTAINS
       IF (is_pure_io_pe) THEN
         CALL mpi_get_count(stati(:,1), p_int, icurrent, ierror)
       ELSE
-        icurrent = mtgrm%meteogram_local_data%icurrent
+        icurrent = mtgrm%icurrent
       END IF
 
       ! consistency check
@@ -2052,8 +2052,7 @@ CONTAINS
       IF (ANY(icurrent_recv /= icurrent &
         &     .AND. mtgrm%meteogram_global_data%pstation(1:nstations) /= -1)) &
         CALL finish(routine, "Received inconsistent time slice data!")
-      mtgrm%meteogram_local_data%icurrent = icurrent
-      mtgrm%meteogram_global_data%icurrent = icurrent
+      mtgrm%icurrent = icurrent
 
     END IF RECEIVER
 
@@ -2062,11 +2061,11 @@ CONTAINS
       IF (p_pe_work == mtgrm%io_invar_send_rank) THEN
         CALL p_isend(mtgrm%istep, mtgrm%io_collector_rank, &
           &          tag_mtgrm_msg+max_dom+2*jg-2, &
-          &          p_count=mtgrm%meteogram_local_data%icurrent, &
+          &          p_count=mtgrm%icurrent, &
           &          comm=mtgrm%io_collect_comm)
         CALL p_isend(mtgrm%zdate, mtgrm%io_collector_rank, &
           &          tag_mtgrm_msg+max_dom+2*jg-1, &
-          &          p_count=mtgrm%meteogram_local_data%icurrent, &
+          &          p_count=mtgrm%icurrent, &
           &          comm=mtgrm%io_collect_comm)
       END IF
       ! pack station into buffer; send it
@@ -2074,7 +2073,7 @@ CONTAINS
         station_idx &
           = mtgrm%meteogram_local_data%station(istation)%station_idx
         CALL pack_station_sample(msg_buffer(:,1), position, &
-          mtgrm%meteogram_local_data%icurrent, &
+          mtgrm%icurrent, &
           mtgrm%meteogram_local_data%station(istation))
         ! (blocking) send of packed station data to IO PE:
         CALL p_send_packed(msg_buffer, mtgrm%io_collector_rank, &
@@ -2086,9 +2085,6 @@ CONTAINS
 
       END DO
       IF (p_pe_work == mtgrm%io_invar_send_rank) CALL p_wait()
-      ! reset buffer on sender side
-      mtgrm%meteogram_local_data%icurrent = 0
-
     END IF SENDER
 
     IF (dbg_level > 5)  WRITE (*,*) routine, " Leave (collecting PE=", mtgrm%l_is_collecting_pe, ")"
@@ -2136,8 +2132,7 @@ CONTAINS
 
   END SUBROUTINE unpack_station_sample
 
-  SUBROUTINE pack_station_sample(sttn_buffer, pos, &
-    icurrent, station)
+  SUBROUTINE pack_station_sample(sttn_buffer, pos, icurrent, station)
     CHARACTER, INTENT(out) :: sttn_buffer(:)
     INTEGER, INTENT(in) :: icurrent
     INTEGER, INTENT(out) :: pos
@@ -2147,7 +2142,7 @@ CONTAINS
     pos = 0
 
     !-- pack global time stamp index
-    CALL p_pack_int (icurrent, sttn_buffer, pos)
+    CALL p_pack_int(icurrent, sttn_buffer, pos)
 
     !-- pack meteogram header (information on location, ...)
     CALL p_pack_int(station%station_idx, sttn_buffer, pos)
@@ -2661,28 +2656,29 @@ CONTAINS
     ! which writes a single file:
     IF (mtgrm(jg)%meteogram_file_info%ldistributed) THEN
       IF (mtgrm(jg)%l_is_writer) &
-        CALL disk_flush(mtgrm(jg)%meteogram_local_data, &
-        &               mtgrm(jg)%out_buf, mtgrm(jg)%istep, mtgrm(jg)%zdate, &
+        CALL disk_flush(mtgrm(jg)%meteogram_local_data, mtgrm(jg)%out_buf, &
+        &               mtgrm(jg)%icurrent, mtgrm(jg)%istep, mtgrm(jg)%zdate, &
         &               mtgrm(jg)%meteogram_file_info%ncid)
     ELSE
       CALL meteogram_collect_buffers(mtgrm(jg), jg)
       IF (mtgrm(jg)%l_is_writer) &
-        CALL disk_flush(mtgrm(jg)%meteogram_global_data, &
-        &               mtgrm(jg)%out_buf, mtgrm(jg)%istep, mtgrm(jg)%zdate, &
+        CALL disk_flush(mtgrm(jg)%meteogram_global_data, mtgrm(jg)%out_buf, &
+        &               mtgrm(jg)%icurrent, mtgrm(jg)%istep, mtgrm(jg)%zdate, &
         &               mtgrm(jg)%meteogram_file_info%ncid)
     END IF
 
 
     ! finally, reset buffer counter for new data
-    mtgrm(jg)%meteogram_local_data%icurrent = 0
+    mtgrm(jg)%icurrent = 0
 
     IF (dbg_level > 5)  WRITE (*,*) routine, " Leave"
 
   END SUBROUTINE meteogram_flush_file
 
-  SUBROUTINE disk_flush(meteogram_data, out_buf, istep, zdate, ncid)
+  SUBROUTINE disk_flush(meteogram_data, out_buf, icurrent, istep, zdate, ncid)
     TYPE(t_meteogram_data), INTENT(inout) :: meteogram_data
     TYPE(t_mtgrm_out_buffer), INTENT(in) :: out_buf
+    INTEGER, INTENT(inout) :: icurrent
     INTEGER, INTENT(in) :: istep(:)
     CHARACTER(len=MAX_DATE_LEN), INTENT(in) :: zdate(:)
 
@@ -2705,11 +2701,11 @@ CONTAINS
     CALL nf(nf_inq_dimlen(ncfile, ncid%timeid, totaltime), routine)
 
     IF (dbg_level > 0) &
-      WRITE (*,'(a,i0,a)') "Writing ", meteogram_data%icurrent, " time slices to disk."
+      WRITE (*,'(a,i0,a)') "Writing ", icurrent, " time slices to disk."
 
     ! write time stamp info:
     istart(1) = totaltime+1
-    icount(1) = meteogram_data%icurrent
+    icount(1) = icurrent
     CALL nf(nf_put_vara_int(ncfile, ncid%time_step, istart(1), icount(1), &
       &                     istep), routine)
     ! volume variables:
@@ -2720,7 +2716,7 @@ CONTAINS
       icount(2) = 1 ! 1 variable at a time
       istart(3) = 1 ! always start at ilev=1
       istart(4) = totaltime+1
-      icount(4) = meteogram_data%icurrent
+      icount(4) = icurrent
       DO ivar=1,nvars
         nlevs = meteogram_data%var_info(ivar)%nlevs
         istart(2) = ivar
@@ -2736,7 +2732,7 @@ CONTAINS
       icount(1) = nstations
       icount(2) = 1 ! 1 variable at a time
       istart(3) = totaltime+1
-      icount(3) = meteogram_data%icurrent
+      icount(3) = icurrent
       DO ivar=1,nsfcvars
         istart(2) = ivar
         CALL nf(nf_put_vara_double(ncfile, ncid%sfcvar_values,              &
@@ -2745,7 +2741,7 @@ CONTAINS
     END IF
 
     icount = 1
-    DO itime=1,meteogram_data%icurrent
+    DO itime=1,icurrent
       istart(3) = 1
       icount(3) = LEN_TRIM(zdate(itime))
       istart(4) = totaltime+itime
@@ -2754,7 +2750,7 @@ CONTAINS
         &                      zdate(itime)), routine)
     END DO
     CALL nf(nf_sync(ncfile), routine)
-    meteogram_data%icurrent = 0
+    icurrent = 0
 
   END SUBROUTINE disk_flush
 
