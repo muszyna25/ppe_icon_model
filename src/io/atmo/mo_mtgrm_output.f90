@@ -328,19 +328,6 @@ MODULE mo_meteogram_output
     ! time stamp info:
     !> current time stamp index
     INTEGER                         :: icurrent
-    !> info on sample times (1:icurrent)
-    !! iteration step of model
-    INTEGER, &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      CONTIGUOUS, &
-#endif
-      POINTER                       :: istep(:)
-    !> date and time of point sample (iso8601)
-    CHARACTER(len=MAX_DATE_LEN), &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      CONTIGUOUS, &
-#endif
-      POINTER                       :: zdate(:)
     ! value buffers:
     !> meteogram data and meta info for each station (idx,blk).
     TYPE(t_meteogram_station), ALLOCATABLE :: station(:)
@@ -407,6 +394,11 @@ MODULE mo_meteogram_output
     TYPE(t_meteogram_data)  :: meteogram_local_data             !< meteogram data local to this PE
     TYPE(t_meteogram_data)  :: meteogram_global_data            !< collected buffers (on IO PE)
     TYPE(t_meteogram_file)  :: meteogram_file_info              !< meteogram file handle etc.
+    !> info on sample times (1:icurrent)
+    !! iteration step of model
+    INTEGER, ALLOCATABLE :: istep(:)
+    !> date and time of point sample (iso8601)
+    CHARACTER(len=MAX_DATE_LEN), ALLOCATABLE :: zdate(:)
 
     TYPE(t_mtgrm_out_buffer) :: out_buf
 
@@ -1358,8 +1350,8 @@ CONTAINS
       max_time_stamps, MERGE(nstations, &
       mtgrm(jg)%meteogram_local_data%nstations, mtgrm(jg)%l_is_collecting_pe))
 
-    ALLOCATE(meteogram_data%istep(max_time_stamps), &
-      meteogram_data%zdate(max_time_stamps), stat=ierrstat)
+    ALLOCATE(mtgrm(jg)%istep(max_time_stamps), &
+      mtgrm(jg)%zdate(max_time_stamps), stat=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, &
       'ALLOCATE of meteogram time stamp data structure failed')
 
@@ -1408,10 +1400,6 @@ CONTAINS
 
       mtgrm(jg)%meteogram_global_data%sfc_var_info &
         =>  mtgrm(jg)%meteogram_local_data%sfc_var_info
-      mtgrm(jg)%meteogram_global_data%istep &
-        =>  mtgrm(jg)%meteogram_local_data%istep
-      mtgrm(jg)%meteogram_global_data%zdate &
-        =>  mtgrm(jg)%meteogram_local_data%zdate
 
       ALLOCATE(mtgrm(jg)%meteogram_global_data%station(nstations), stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
@@ -1827,9 +1815,9 @@ CONTAINS
     meteogram_data%icurrent = i_tstep
 
     IF (meteogram_data%nstations > 0 .OR. mtgrm(jg)%l_is_collecting_pe) THEN
-      meteogram_data%istep(i_tstep) = cur_step
+      mtgrm(jg)%istep(i_tstep) = cur_step
       CALL datetimeToPosixString(cur_datetime, zdate, "%Y%m%dT%H%M%SZ")
-      meteogram_data%zdate(i_tstep) = zdate
+      mtgrm(jg)%zdate(i_tstep) = zdate
 
       ! fill time step with values
       DO istation=1,meteogram_data%nstations
@@ -1889,7 +1877,7 @@ CONTAINS
     INTEGER, INTENT(IN)         :: jg    !< patch index
     ! local variables:
     CHARACTER(*), PARAMETER     :: routine = modname//":meteogram_finalize"
-    INTEGER                     :: ierrstat, istation
+    INTEGER                     :: ierror, istation
     LOGICAL :: is_mpi_workroot
 
     ! ------------------------------------------------------------
@@ -1902,6 +1890,9 @@ CONTAINS
       & .OR. (.NOT. use_async_name_list_io .AND. is_mpi_workroot) &
       & .OR. mtgrm(jg)%l_is_collecting_pe) THEN
       CALL deallocate_mtgrm_sample_buffer(mtgrm(jg)%meteogram_local_data)
+      DEALLOCATE(mtgrm(jg)%istep, mtgrm(jg)%zdate, stat=ierror)
+      IF (ierror /= SUCCESS) &
+        CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
     END IF
 
     ! deallocate global meteogram data
@@ -1912,8 +1903,8 @@ CONTAINS
         CALL deallocate_station_buffer(&
           mtgrm(jg)%meteogram_global_data%station(istation))
       END DO
-      DEALLOCATE(mtgrm(jg)%meteogram_global_data%station, stat=ierrstat)
-      IF (ierrstat /= SUCCESS) &
+      DEALLOCATE(mtgrm(jg)%meteogram_global_data%station, stat=ierror)
+      IF (ierror /= SUCCESS) &
         CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
 
     END IF IO_PE
@@ -1931,8 +1922,7 @@ CONTAINS
     END DO
     meteogram_data%nstations = 0
 
-    DEALLOCATE(meteogram_data%istep, meteogram_data%zdate, &
-      meteogram_data%station, meteogram_data%var_info, &
+    DEALLOCATE(meteogram_data%station, meteogram_data%var_info, &
       meteogram_data%sfc_var_info, stat=ierror)
     IF (ierror /= SUCCESS) &
       CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
@@ -2004,17 +1994,13 @@ CONTAINS
       ! launch MPI message requests for station data on foreign PEs
       nstations = mtgrm%meteogram_global_data%nstations
       IF (is_pure_io_pe) THEN
-        CALL p_irecv(mtgrm%meteogram_global_data%istep, &
-          &          mtgrm%io_invar_send_rank, &
-          &          tag_mtgrm_msg+max_dom+2*jg-2, comm=mtgrm%io_collect_comm,&
+        CALL p_irecv(mtgrm%istep, mtgrm%io_invar_send_rank, &
+          &          tag_mtgrm_msg+max_dom+2*jg-2, comm=mtgrm%io_collect_comm, &
           &          request=req(1))
-        CALL p_irecv(mtgrm%meteogram_global_data%zdate, &
-          &          mtgrm%io_invar_send_rank, &
+        CALL p_irecv(mtgrm%zdate, mtgrm%io_invar_send_rank, &
           &          tag_mtgrm_msg+max_dom+2*jg-1, comm=mtgrm%io_collect_comm, &
           &          request=req(2))
       ELSE
-        mtgrm%meteogram_global_data%istep = mtgrm%meteogram_local_data%istep
-        mtgrm%meteogram_global_data%zdate = mtgrm%meteogram_local_data%zdate
         req(1) = mpi_request_null
         req(2) = mpi_request_null
       END IF
@@ -2074,13 +2060,11 @@ CONTAINS
     ! -- SENDER CODE --
     SENDER : IF (mtgrm%l_is_sender) THEN
       IF (p_pe_work == mtgrm%io_invar_send_rank) THEN
-        CALL p_isend(mtgrm%meteogram_local_data%istep, &
-          &          mtgrm%io_collector_rank, &
+        CALL p_isend(mtgrm%istep, mtgrm%io_collector_rank, &
           &          tag_mtgrm_msg+max_dom+2*jg-2, &
           &          p_count=mtgrm%meteogram_local_data%icurrent, &
           &          comm=mtgrm%io_collect_comm)
-        CALL p_isend(mtgrm%meteogram_local_data%zdate, &
-          &          mtgrm%io_collector_rank, &
+        CALL p_isend(mtgrm%zdate, mtgrm%io_collector_rank, &
           &          tag_mtgrm_msg+max_dom+2*jg-1, &
           &          p_count=mtgrm%meteogram_local_data%icurrent, &
           &          comm=mtgrm%io_collect_comm)
@@ -2678,13 +2662,13 @@ CONTAINS
     IF (mtgrm(jg)%meteogram_file_info%ldistributed) THEN
       IF (mtgrm(jg)%l_is_writer) &
         CALL disk_flush(mtgrm(jg)%meteogram_local_data, &
-        &               mtgrm(jg)%out_buf, &
+        &               mtgrm(jg)%out_buf, mtgrm(jg)%istep, mtgrm(jg)%zdate, &
         &               mtgrm(jg)%meteogram_file_info%ncid)
     ELSE
       CALL meteogram_collect_buffers(mtgrm(jg), jg)
       IF (mtgrm(jg)%l_is_writer) &
         CALL disk_flush(mtgrm(jg)%meteogram_global_data, &
-        &               mtgrm(jg)%out_buf, &
+        &               mtgrm(jg)%out_buf, mtgrm(jg)%istep, mtgrm(jg)%zdate, &
         &               mtgrm(jg)%meteogram_file_info%ncid)
     END IF
 
@@ -2696,9 +2680,12 @@ CONTAINS
 
   END SUBROUTINE meteogram_flush_file
 
-  SUBROUTINE disk_flush(meteogram_data, out_buf, ncid)
+  SUBROUTINE disk_flush(meteogram_data, out_buf, istep, zdate, ncid)
     TYPE(t_meteogram_data), INTENT(inout) :: meteogram_data
     TYPE(t_mtgrm_out_buffer), INTENT(in) :: out_buf
+    INTEGER, INTENT(in) :: istep(:)
+    CHARACTER(len=MAX_DATE_LEN), INTENT(in) :: zdate(:)
+
     TYPE(t_ncid), INTENT(in) :: ncid
 
     INTEGER :: totaltime, itime, nstations, ivar, nlevs, nvars, nsfcvars
@@ -2724,7 +2711,7 @@ CONTAINS
     istart(1) = totaltime+1
     icount(1) = meteogram_data%icurrent
     CALL nf(nf_put_vara_int(ncfile, ncid%time_step, istart(1), icount(1), &
-      &                     meteogram_data%istep), routine)
+      &                     istep), routine)
     ! volume variables:
     IF (nvars > 0) THEN
       nstations = SIZE(out_buf%atmo_vars(1)%a, 1)
@@ -2760,11 +2747,11 @@ CONTAINS
     icount = 1
     DO itime=1,meteogram_data%icurrent
       istart(3) = 1
-      icount(3) = LEN_TRIM(meteogram_data%zdate(itime))
+      icount(3) = LEN_TRIM(zdate(itime))
       istart(4) = totaltime+itime
       icount(4) = 1
       CALL nf(nf_put_vara_text(ncfile, ncid%dateid, istart(3:4), icount(3:4), &
-        &                      meteogram_data%zdate(itime)), routine)
+        &                      zdate(itime)), routine)
     END DO
     CALL nf(nf_sync(ncfile), routine)
     meteogram_data%icurrent = 0
