@@ -268,7 +268,9 @@ MODULE mo_meteogram_output
   END TYPE t_a_3d
 
   TYPE t_mtgrm_out_buffer
+    !> each element contains data for (nstations,nlevs,ntimestamps) of variable
     TYPE(t_a_3d), ALLOCATABLE :: atmo_vars(:)
+    !> each element contains data for (nstations,ntimestamps) of variable
     TYPE(t_a_2d), ALLOCATABLE :: sfc_vars(:)
   END TYPE t_mtgrm_out_buffer
 
