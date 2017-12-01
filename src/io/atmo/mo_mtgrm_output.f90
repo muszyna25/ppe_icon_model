@@ -3041,8 +3041,6 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":receive_var_info"
     INTEGER                 :: id, ivar, var_counts(2), ierror
-    TYPE(t_cf_var), POINTER :: cf
-    INTEGER       , POINTER :: igroup_id
 
     ! wait for messages to arrive:
     CALL p_wait()
@@ -3063,35 +3061,39 @@ CONTAINS
         ! create new variable index
         ivar = var_list%no_atmo_vars + 1
         var_list%no_atmo_vars = ivar
-        cf        => var_info(ivar)%cf
-        igroup_id => var_info(ivar)%igroup_id
+        CALL unpack_cf(var_info(ivar)%cf, pack_buf)
+        CALL p_unpack_int(pack_buf%msg_varlist, pack_buf%pos, &
+          &               var_info(ivar)%igroup_id)
+        CALL p_unpack_int(pack_buf%msg_varlist, pack_buf%pos, &
+          &               var_info(ivar)%nlevs)
+        NULLIFY(var_info(ivar)%p_source)
+        IF (dbg_level > 0) &
+          WRITE (*,*) "Added variable ", var_info(ivar)%cf%standard_name
       CASE(FLAG_VARLIST_SFC)
         ivar = var_list%no_sfc_vars + 1
         var_list%no_sfc_vars = ivar
-        cf        => sfc_var_info(ivar)%cf
-        igroup_id => sfc_var_info(ivar)%igroup_id
+        CALL unpack_cf(sfc_var_info(ivar)%cf, pack_buf)
+        CALL p_unpack_int(pack_buf%msg_varlist, pack_buf%pos, &
+          &               sfc_var_info(ivar)%igroup_id)
+        NULLIFY(sfc_var_info(ivar)%p_source)
+        IF (dbg_level > 0) &
+          WRITE (*,*) "Added variable ", sfc_var_info(ivar)%cf%standard_name
       CASE DEFAULT
         CALL finish(routine, "Unknown message flag!")
       END SELECT
 
-      CALL p_unpack_string(pack_buf%msg_varlist, pack_buf%pos, cf%standard_name)
-      CALL p_unpack_string(pack_buf%msg_varlist, pack_buf%pos, cf%long_name)
-      CALL p_unpack_string(pack_buf%msg_varlist, pack_buf%pos, cf%units)
-      CALL p_unpack_int   (pack_buf%msg_varlist, pack_buf%pos, igroup_id)
-      IF (id == FLAG_VARLIST_ATMO) THEN
-        CALL p_unpack_int   (pack_buf%msg_varlist, pack_buf%pos, &
-          &                  var_info(ivar)%nlevs)
-        var_info(ivar)%p_source     => NULL()
-      ELSE
-        sfc_var_info(ivar)%p_source => NULL()
-      END IF
-
-      IF (dbg_level > 0) &
-        WRITE (*,*) "Added variable ", cf%standard_name
       CALL p_unpack_int(pack_buf%msg_varlist, pack_buf%pos, id)
     END DO RCV_LOOP
 #endif
   END SUBROUTINE receive_var_info
+
+  SUBROUTINE unpack_cf(cf, pack_buf)
+    TYPE(t_cf_var), INTENT(out) :: cf
+    TYPE(mtgrm_pack_buf), INTENT(inout) :: pack_buf
+    CALL p_unpack_string(pack_buf%msg_varlist, pack_buf%pos, cf%standard_name)
+    CALL p_unpack_string(pack_buf%msg_varlist, pack_buf%pos, cf%long_name)
+    CALL p_unpack_string(pack_buf%msg_varlist, pack_buf%pos, cf%units)
+  END SUBROUTINE unpack_cf
 
   SUBROUTINE send_time_invariants(var_info, station, io_collector_rank, io_collect_comm)
     TYPE(t_var_info), INTENT(in) :: var_info(:)
