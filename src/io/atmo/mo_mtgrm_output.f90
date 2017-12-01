@@ -1032,6 +1032,34 @@ CONTAINS
     diag_var_indices%i_SOBS     = get_var("SOBS"    , cf_lnd)
   END SUBROUTINE setup_diag_var_indices
 
+  !>
+  !! @return Index of (3d) variable with given name.
+  !!
+  !! @par Revision History
+  !! Initial implementation  by  F. Prill, DWD (2011-08-22)
+  !!
+  FUNCTION get_var(zname, cf)
+    INTEGER :: get_var
+    CHARACTER(LEN=*),  INTENT(IN) :: zname
+    TYPE(t_cf_var), INTENT(in) :: cf(:)
+
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = modname//":get_var"
+    INTEGER :: ivar, nvar
+
+    get_var = -1 ! invalid result
+    nvar = SIZE(cf)
+    VAR_LOOP : DO ivar=1,nvar
+      IF (TRIM(cf(ivar)%standard_name) == zname) THEN
+        get_var = ivar
+        EXIT VAR_LOOP
+      END IF
+    END DO VAR_LOOP
+    ! the following consistency check is disabled (since the user may
+    ! use the namelist parameter "var_list"):
+    !
+    ! IF (get_var == -1)  CALL finish (routine, 'Invalid name: '//TRIM(zname))
+  END FUNCTION get_var
 
   !>
   !! Computation of additional diagnostic quantities for meteogram.
@@ -3184,35 +3212,6 @@ CONTAINS
       END IF
     END DO
   END SUBROUTINE recv_time_invariants
-
-  !>
-  !! @return Index of (3d) variable with given name.
-  !!
-  !! @par Revision History
-  !! Initial implementation  by  F. Prill, DWD (2011-08-22)
-  !!
-  FUNCTION get_var(zname, cf)
-    INTEGER :: get_var
-    CHARACTER(LEN=*),  INTENT(IN) :: zname
-    TYPE(t_cf_var), INTENT(in) :: cf(:)
-
-    ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//":get_var"
-    INTEGER :: ivar, nvar
-
-    get_var = -1 ! invalid result
-    nvar = SIZE(cf)
-    VAR_LOOP : DO ivar=1,nvar
-      IF (TRIM(cf(ivar)%standard_name) == zname) THEN
-        get_var = ivar
-        EXIT VAR_LOOP
-      END IF
-    END DO VAR_LOOP
-    ! the following consistency check is disabled (since the user may
-    ! use the namelist parameter "var_list"):
-    !
-    ! IF (get_var == -1)  CALL finish (routine, 'Invalid name: '//TRIM(zname))
-  END FUNCTION get_var
 
 END MODULE mo_meteogram_output
 !
