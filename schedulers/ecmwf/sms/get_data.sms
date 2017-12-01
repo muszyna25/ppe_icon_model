@@ -90,24 +90,27 @@ if [[ ${INI_IFS_ICON} -eq 1 ]] ; then
     ls -l ${IFSDATADIR2}/${IFS_FILENAME_NC}
   else
     if [[ %SIMMODE% -eq 3 ]] ; then
-          ${SCRIPTDIR}/preprocessing/mars4icon_smi_ERAinterim %YMD%%INIHOUR% 0  255 1/to/60 %SCPERMIII%/icon_input/slt-data
+          ${SCRIPTDIR}/preprocessing/mars4icon_smi -d %YMD%%INIHOUR% -s 0 -C ei -r 255 -l 1/to/60
     else
       if [[ %NENS% -gt 0 ]] ; then
-        if [ %YMD% -ge 20100126  -a  %RES% = "R02B07"  -o  %RES% = "R02B08"  -o  %RES% = "R02B09"  -o  %RES% = "R03B07" ] ; then
-          ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+_eda  %YMD%%INIHOUR% 0  639 1/to/${nlev} %NMEM%
+        if [ %RES% = "R02B07"  -o  %RES% = "R02B08"  -o  %RES% = "R02B09"  -o  %RES% = "R03B07" ] ; then
+          ${SCRIPTDIR}/preprocessing/mars4icon_smi  -d %YMD%%INIHOUR% -s 0  -r 639 -l 1/to/${nlev} -S eda:%NMEM%
         else
-          ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+_eda  %YMD%%INIHOUR% 0  399 1/to/${nlev} %NMEM%
+          ${SCRIPTDIR}/preprocessing/mars4icon_smi  -d %YMD%%INIHOUR% -s 0  -r 399 -l 1/to/${nlev} -S eda:%NMEM%
         fi
       else 
-        if [ %YMD% -ge 20100126  -a  %RES% = "R02B07"  -o  %RES% = "R02B08"  -o  %RES% = "R02B09"  -o  %RES% = "R03B07" ] ; then
-          ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+      %YMD%%INIHOUR% 0 1279 1/to/${nlev}
+        if [ %RES% = "R02B07"  -o  %RES% = "R02B08"  -o  %RES% = "R02B09"  -o  %RES% = "R03B07" ] ; then
+          ${SCRIPTDIR}/preprocessing/mars4icon_smi  -d %YMD%%INIHOUR% -s 0 -r 1279 -l 1/to/${nlev}
         else 
-          ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+      %YMD%%INIHOUR% 0  799 1/to/${nlev}
+          ${SCRIPTDIR}/preprocessing/mars4icon_smi  -d %YMD%%INIHOUR% -s 0  -r 799 -l 1/to/${nlev}
         fi
       fi
     fi
   fi
   ls -lrt ${IFSDATADIR}
+# mars4icon_smi [-C class_mars] [-d cymdg] [-D [-D]] [-l levelist]
+#               [-L lv_split] [-o grib_file] [-O|+O] [-r resolution]
+#               [-s step] [-S stream]
 
 
 ## ------------------------------------------------
