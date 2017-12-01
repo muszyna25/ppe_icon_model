@@ -220,11 +220,17 @@ CONTAINS
     END DO
   END SUBROUTINE insertion_sort_int
 
-  ! Constructs a permutation on the length of the supplied INTEGER array such that permutating that same array results IN a sorted array.
-  ! There IS no requirement on the supplied array itself: It may USE non-consecutive numbers AND/OR contain repetitions, AND the number range IS NOT restricted IN ANY way.
-  ! IF two OR more entries of the supplied array are equal, the resulting FUNCTION IS NOT injective:
-  !     permute() will ignore all but one of each input corresponding to the same order VALUE, AND its output array IS expected to be smaller than the input array.
-  !     reverse() will output more points than it has input by multiplexing each entry to all positions that correspond to its VALUE IN the order array.
+  ! Constructs a permutation on the length of the supplied INTEGER
+  ! array such that permutating that same array results IN a sorted
+  ! array.  There IS no requirement on the supplied array itself: It
+  ! may USE non-consecutive numbers AND/OR contain repetitions, AND
+  ! the number range IS NOT restricted IN ANY way.  IF two OR more
+  ! entries of the supplied array are equal, the resulting FUNCTION IS
+  ! NOT injective: permute() will ignore all but one of each input
+  ! corresponding to the same order VALUE, AND its output array IS
+  ! expected to be smaller than the input array.  reverse() will
+  ! output more points than it has input by multiplexing each entry to
+  ! all positions that correspond to its VALUE IN the order array.
   !     Thus, the sequence
   !         CALL permutation%reverse(a, b);
   !         CALL permutation%permute(b, c);

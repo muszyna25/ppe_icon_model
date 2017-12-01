@@ -50,7 +50,7 @@ MODULE mo_nh_init_utils
   USE mo_util_phys,             ONLY: virtual_temp
   USE mo_atm_phy_nwp_config,    ONLY: iprog_aero
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, l2lay_rho_snow, ntiles_water, lmulti_snow, &
-                                      nlev_soil, nlev_snow, lsnowtile, lprog_albsi
+                                      nlev_soil, nlev_snow, lsnowtile, lprog_albsi, itype_trvg
   USE mo_fortran_tools,         ONLY: init, copy
   USE mo_ifs_coord,             ONLY: geopot
 
@@ -887,6 +887,7 @@ CONTAINS
 
       IF (iprog_aero == 1) ALLOCATE (saveinit(jg)%aerosol(nproma,nclass_aero,nblks_c))
       IF (lprog_albsi)     ALLOCATE (saveinit(jg)%alb_si(nproma,nblks_c))
+      IF (itype_trvg == 3) ALLOCATE (saveinit(jg)%plantevap_t(nproma,nblks_c,ntl))
 
 !$OMP PARALLEL
       CALL copy(lnd_diag%fr_seaice, saveinit(jg)%fr_seaice)
@@ -942,6 +943,7 @@ CONTAINS
 
       IF (iprog_aero == 1)  CALL copy(prm_diag(jg)%aerosol, saveinit(jg)%aerosol)
       IF (lprog_albsi)      CALL copy(wtr_prog%alb_si, saveinit(jg)%alb_si)
+      IF (itype_trvg == 3)  CALL copy(lnd_diag%plantevap_t, saveinit(jg)%plantevap_t)
 !$OMP END PARALLEL
 
     ENDDO
@@ -1034,6 +1036,7 @@ CONTAINS
 
       IF (iprog_aero == 1)  CALL copy(saveinit(jg)%aerosol, prm_diag(jg)%aerosol)
       IF (lprog_albsi)      CALL copy(saveinit(jg)%alb_si, wtr_prog%alb_si)
+      IF (itype_trvg == 3)  CALL copy(saveinit(jg)%plantevap_t, lnd_diag%plantevap_t)
 
       ! Fields that need to be reset to zero in order to obtain identical results
       CALL init (p_nh(jg)%diag%ddt_vn_phy)
@@ -1076,6 +1079,7 @@ CONTAINS
 
       IF (iprog_aero == 1) DEALLOCATE (saveinit(jg)%aerosol)
       IF (lprog_albsi)     DEALLOCATE (saveinit(jg)%alb_si)
+      IF (itype_trvg == 3) DEALLOCATE (saveinit(jg)%plantevap_t)
     ENDDO
 
     DEALLOCATE(saveinit)

@@ -21,7 +21,9 @@ MODULE mo_grid_config
   USE mo_io_units,           ONLY: filename_max 
   USE mo_physical_constants, ONLY: earth_radius, earth_angular_velocity
   USE mo_parallel_config,    ONLY: division_method, division_file_name
+  USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_mpi,                ONLY: my_process_is_stdio
+  USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords
 
 #ifndef NOMPI
 ! The USE statement below lets this module use the routines from
@@ -50,6 +52,7 @@ USE mo_netcdf_parallel, ONLY:                     &
   PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,     &
     &       radiation_grid_filename, dynamics_radiation_grid_link
   PUBLIC :: vertical_grid_filename, create_vgrid
+  PUBLIC :: set_patches_grid_filename
 
 ! !   PUBLIC :: radiation_grid_distribution
   
@@ -274,6 +277,35 @@ CONTAINS
       CALL finish('mo_grid_config netCDF error', nf_strerror(status))
     ENDIF
   END SUBROUTINE nf
+  !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE set_patches_grid_filename( grid_filename, grid_filename_grfinfo )
+
+    CHARACTER(LEN=filename_max), INTENT(OUT) :: grid_filename(n_dom_start:)
+    CHARACTER(LEN=filename_max), INTENT(OUT) :: grid_filename_grfinfo(n_dom_start:)
+    ! local variables
+    INTEGER :: jg, iind
+    TYPE (t_keyword_list), POINTER :: keywords => NULL()
+    CHARACTER(LEN=filename_max) :: grid_name
+
+    !-----------------------------------------------------------------------
+    DO jg = n_dom_start, n_dom
+
+      CALL associate_keyword("<path>", TRIM(getModelBaseDir()), keywords)
+      grid_name = ""
+      IF (jg==0) THEN
+        grid_name = TRIM(with_keywords(keywords, radiation_grid_filename(1)))
+      ELSE
+        grid_name = TRIM(with_keywords(keywords, dynamics_grid_filename(jg)))
+      ENDIF
+      iind = INDEX(TRIM(grid_name),'.nc')
+      grid_filename(jg)         = grid_name
+      grid_filename_grfinfo(jg) = grid_name(1:iind-1)//"-grfinfo.nc"
+    ENDDO
+
+  END SUBROUTINE set_patches_grid_filename
   !-------------------------------------------------------------------------
 
 END MODULE mo_grid_config

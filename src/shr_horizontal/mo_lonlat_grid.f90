@@ -33,6 +33,7 @@ MODULE mo_lonlat_grid
   PUBLIC :: compute_lonlat_specs
   PUBLIC :: compute_lonlat_blocking
   PUBLIC :: bcast_lonlat_specs
+  PUBLIC :: OPERATOR(==)
   ! types and variables:
   PUBLIC :: t_lon_lat_grid
   PUBLIC :: threshold_delta_or_intvls
@@ -82,6 +83,10 @@ MODULE mo_lonlat_grid
     INTEGER  :: nblks, npromz             ! blocking info
     
   END TYPE t_lon_lat_grid
+
+  INTERFACE OPERATOR (==)
+    MODULE PROCEDURE lonlat_grid_compare
+  END INTERFACE OPERATOR(==)
 
   
 CONTAINS
@@ -392,5 +397,55 @@ CONTAINS
       area(k) = area(k)/tot_area
     END DO
   END SUBROUTINE latlon_compute_area_weights
+
+
+  !---------------------------------------------------------------
+  ! Test two floating point arrays for equality.
+  !
+  FUNCTION float_cmp(arr1, arr2, zero_tol)
+    LOGICAL :: float_cmp
+    REAL(wp), INTENT(IN) :: arr1(:), arr2(:)
+    REAL(wp), INTENT(IN) :: zero_tol
+    ! local variables
+    INTEGER :: i
+
+    float_cmp = .TRUE.
+    IF (SIZE(arr1) /= SIZE(arr2)) THEN
+      float_cmp = .FALSE.
+      RETURN
+    END IF
+    DO i=1,SIZE(arr1)
+      IF (ABS(arr1(i) - arr2(i)) > zero_tol) THEN
+        float_cmp = .FALSE.
+        RETURN
+      END IF
+    END DO
+  END FUNCTION float_cmp
+
+
+  !---------------------------------------------------------------
+  ! Test two lon-lat grid specifications for equality.
+  !
+  FUNCTION lonlat_grid_compare(grid1, grid2)
+    LOGICAL :: lonlat_grid_compare
+    TYPE(t_lon_lat_grid), INTENT(IN) :: grid1, grid2
+    ! local variables
+    REAL(wp), PARAMETER :: ZERO_TOL = 1.e-15_wp
+
+    lonlat_grid_compare = .TRUE.
+    IF  ( (grid1%total_dim    /= grid2%total_dim)                            .OR.  &
+      &   (grid1%nblks        /= grid2%nblks    )                            .OR.  &
+      &   (grid1%npromz       /= grid2%npromz   )                            .OR.  &
+      &   (grid1%lon_dim      /= grid2%lon_dim  )                            .OR.  &
+      &   (grid1%lat_dim      /= grid2%lat_dim  )                            .OR.  &
+      &   (grid1%reg_def_mode /= grid2%reg_def_mode  )                       .OR.  &
+      &   (.NOT. float_cmp(grid1%reg_lon_def, grid2%reg_lon_def , ZERO_TOL)) .OR.  &
+      &   (.NOT. float_cmp(grid1%reg_lat_def, grid2%reg_lat_def , ZERO_TOL)) .OR.  &
+      &   (.NOT. float_cmp(grid1%north_pole,  grid2%north_pole  , ZERO_TOL)) .OR.  &
+      &   (.NOT. float_cmp(grid1%delta,       grid2%delta       , ZERO_TOL)) .OR.  &
+      &   (.NOT. float_cmp(grid1%start_corner,grid2%start_corner, ZERO_TOL)) )  THEN
+      lonlat_grid_compare = .FALSE.
+    END IF
+  END FUNCTION lonlat_grid_compare
 
 END MODULE mo_lonlat_grid

@@ -1,9 +1,9 @@
-#!/bin/ksh
+#! /bin/ksh
 #------------------------------------------------------------------------------
 # This script is called on all buildbot slaves and should be used to run the runscripts
 #------------------------------------------------------------------------------
 
-#Define of the text which is written in case of a script fail or OK run
+# Define of the text which is written in case of a script fail or OK run
 
 TEXT_RUN_FAILED="FAILED"
 TEXT_RUN_OK="OK"
@@ -98,6 +98,17 @@ run_scripts_submit()
   cd run
   EXP_FILES=`cat runscripts_list`
 
+  case $submit in
+      sbatch*)
+          batch_system=slurm
+          slurm_user=`whoami`
+          typeset -A job_submitted
+      ;;
+      *)
+          batch_system=other
+      ;;
+  esac
+  
   for EXP_FILE in $EXP_FILES
   do 
     run_command="$submit ./$EXP_FILE"
@@ -110,10 +121,21 @@ run_scripts_submit()
         echo "---------------------------------------------------------"
 
         echo $run_command > submit.$EXP_FILE
+        if [ "_$submit" = "_qsub -Wblock=true" ] 
+        then
+            echo "echo \$? > ${EXP_FILE}.status.2" >> submit.$EXP_FILE
+        fi
         chmod +x submit.$EXP_FILE        
        ./submit.$EXP_FILE &    
+
+
     fi
-  
+    if [[ "$batch_system" = "slurm" ]]
+    then
+        sleep 2
+        jobid=`squeue -u ${slurm_user} -h -o '%i' -S '-i' | awk 'NR==1{print $1}'`
+        job_submitted["$EXP_FILE"]=$jobid
+    fi
   done
 
   # wait for all jobs to finish
@@ -138,10 +160,32 @@ run_scripts_submit()
       echo " "
       echo "---------------------------------------------------------"
 
+      if [[ "$batch_system" = "slurm" ]]
+      then
+          slurm_jobid=${job_submitted["$EXP_FILE"]}
+          job_state=`sacct -j ${slurm_jobid} -n -o jobid,state,exitcode | awk 'NR==1{print $2}'`
+          case "$job_state" in
+              TIMEOUT)
+                  echo 127 > ${EXP_FILE}.status
+              ;;
+              COMPLETED)
+                  echo 0 > ${EXP_FILE}.status
+              ;;
+              *)
+                  echo 191 > ${EXP_FILE}.status                  
+              ;;
+          esac    
+      fi
+            
       STATUS_IN_FILE=255
       if [ -r $EXP_FILE.status ]
       then
         STATUS_IN_FILE=`cat ${EXP_FILE}.status`
+      else
+        if [ -r $EXP_FILE.status.2 ]
+	then
+   	  STATUS_IN_FILE=`cat ${EXP_FILE}.status.2`
+        fi
       fi
 
       $stop_check 0 $EXP_FILE

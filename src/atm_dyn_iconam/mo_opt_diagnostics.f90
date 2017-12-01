@@ -36,31 +36,41 @@ MODULE mo_opt_diagnostics
     &                                VINTP_METHOD_QV,                    &
     &                                VINTP_METHOD_PRES,                  &
     &                                VINTP_METHOD_LIN,                   &
-    &                                VINTP_METHOD_LIN_NLEVP1
+    &                                VINTP_METHOD_LIN_NLEVP1,            &
+    &                                HINTP_TYPE_NONE
+  USE mo_physical_constants,   ONLY: earth_radius
   USE mo_exception,            ONLY: finish!!$, message, message_text
   USE mo_grid_config,          ONLY: n_dom
   USE mo_run_config,           ONLY: ntracer,iqv,iqc,iqi
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
-  USE mo_cdi,                  ONLY: DATATYPE_FLT32, DATATYPE_PACK16,                &
-    &                                DATATYPE_PACK24, TSTEP_INSTANT,                 &
-    &                                DATATYPE_FLT64
-  USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,          &
-    &                                GRID_CELL, ZA_HYBRID, ZA_HYBRID_HALF, ZA_SURFACE, &
+  USE mo_zaxis_type,           ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF, ZA_SURFACE, &
     &                                ZA_MEANSEA
-  USE mo_var_list,             ONLY: default_var_list_settings,     &
+  USE mo_var_list,             ONLY: default_var_list_settings
+  USE mo_cdi,                  ONLY: DATATYPE_FLT32, DATATYPE_PACK16,                  &
+    &                                DATATYPE_PACK24,                                  & 
+    &                                DATATYPE_FLT64, GRID_UNSTRUCTURED,                &
+    &                                TSTEP_CONSTANT
+  USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL,                           &
+    &                                GRID_CELL, GRID_REGULAR_LONLAT
+  USE mo_nonhydro_state,       ONLY: p_nh_state_lists
+  USE mo_var_list,             ONLY: default_var_list_settings,                        &
     &                                new_var_list, delete_var_list, add_var, add_ref
-  USE mo_var_list_element,     ONLY: level_type_ml, level_type_pl,  &
+  USE mo_var_list_element,     ONLY: level_type_ml, level_type_pl,                     &
     &                                level_type_hl, level_type_il
   USE mo_name_list_output_config,ONLY: first_output_name_list, is_variable_in_output
   USE mo_io_config,            ONLY: lnetcdf_flt64_output
   USE mo_gribout_config,       ONLY: gribout_config
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var
-  USE mo_var_metadata,         ONLY: create_vert_interp_metadata,            &
+  USE mo_var_metadata,         ONLY: create_vert_interp_metadata,                      &
+    &                                create_hor_interp_metadata,                       &
     &                                groups, vintp_types
   USE mo_tracer_metadata,      ONLY: create_tracer_metadata
   USE mo_statistics,           ONLY: add_fields
   USE mo_util_dbg_prnt,        ONLY: dbg_print
+  USE mo_lonlat_grid,          ONLY: t_lon_lat_grid, latlon_compute_area_weights
+  USE mo_intp_lonlat_types,    ONLY: t_lon_lat_intp, t_lon_lat_list
+  USE mo_linked_list,          ONLY: t_list_element
 
   IMPLICIT NONE
 
@@ -79,6 +89,10 @@ MODULE mo_opt_diagnostics
   PUBLIC :: construct_opt_diag
   PUBLIC :: destruct_opt_diag
   PUBLIC :: update_opt_acc, reset_opt_acc, calc_mean_opt_acc
+  PUBLIC :: compute_lonlat_area_weights
+
+  !> module name
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_opt_diagnostics'
 
   ! Sub-type of "t_vcoeff" containing linear interpolation
   ! coefficients
@@ -308,9 +322,9 @@ CONTAINS
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_ua_m
     IF (p_acc%l_ua_m) THEN
        cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'Zonal wind (time mean)', datatype_flt)
-       grib2_desc = grib2_var(0, 2, 2, ibits, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = grib2_var(0, 2, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( list, 'ua_m', p_acc%u,                                        &
-                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,       &
                    & ldims=shape3d_c,                                              &
                    & vert_interp=create_vert_interp_metadata(                      &
                    &   vert_intp_type=vintp_types("P","Z","I") ),                  &
@@ -321,9 +335,9 @@ CONTAINS
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_va_m
     IF (p_acc%l_va_m) THEN
        cf_desc    = t_cf_var('northward_wind', 'm s-1', 'Meridional wind (time mean)', datatype_flt)
-       grib2_desc = grib2_var(0, 2, 3, ibits, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = grib2_var(0, 2, 3, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( list, 'va_m', p_acc%v,                                        &
-                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,       &
                    & ldims=shape3d_c,                                              &
                    & vert_interp=create_vert_interp_metadata(                      &
                    &   vert_intp_type=vintp_types("P","Z","I") ),                  &
@@ -334,9 +348,9 @@ CONTAINS
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_wa_m
     IF (p_acc%l_wa_m) THEN
        cf_desc    = t_cf_var('upward_air_velocity', 'm s-1', 'Vertical velocity (time mean)', datatype_flt)
-       grib2_desc = grib2_var(0, 2, 9, ibits, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = grib2_var(0, 2, 9, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( list, 'wa_m', p_acc%w,                                        &
-                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,  &
                    & ldims=shape3d_chalf,                                          &
                    & vert_interp=create_vert_interp_metadata(                      &
                    &   vert_intp_type=vintp_types("P","Z","I"),                    &
@@ -348,9 +362,9 @@ CONTAINS
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_rho_m
     IF (p_acc%l_rho_m) THEN
        cf_desc    = t_cf_var('air_density', 'kg m-3', 'density (time mean)', datatype_flt)
-       grib2_desc = grib2_var(0, 3, 10, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = grib2_var(0, 3, 10, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( list, 'rho_m', p_acc%rho,                                     &
-                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,       &
                    & ldims=shape3d_c,                                              &
                    & vert_interp=create_vert_interp_metadata(                      &
                    &   vert_intp_type=vintp_types("P","Z","I"),                    &
@@ -362,9 +376,9 @@ CONTAINS
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_ta_m
     IF (p_acc%l_ta_m) THEN
        cf_desc    = t_cf_var('air temperature', 'K', 'Temperature', datatype_flt)
-       grib2_desc = grib2_var(0, 0, 0, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = grib2_var(0, 0, 0, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( list, 'ta_m', p_acc%temp,                                     &
-                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,       &
                    & ldims=shape3d_c,                                              &
                    & vert_interp=create_vert_interp_metadata(                      &
                    &             vert_intp_type=vintp_types("P","Z","I"),          &
@@ -376,7 +390,7 @@ CONTAINS
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_ps_m
     IF (p_acc%l_ps_m) THEN
        cf_desc    = t_cf_var('surface_air_pressure', 'Pa', 'surface pressure (time mean)', datatype_flt)
-       grib2_desc = grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = grib2_var(0, 3, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( list, 'ps_m', p_acc%pres_sfc,                                 &
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
                    & ldims=shape2d_c,                                              &
@@ -388,7 +402,7 @@ CONTAINS
     IF (p_acc%l_psl_m) THEN
        cf_desc    = t_cf_var('mean sea level pressure', 'Pa',                      &
          &                   'mean sea level pressure (time mean)', datatype_flt)
-       grib2_desc = grib2_var(0, 3, 1, ibits, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = grib2_var(0, 3, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( list, 'psl_m', p_acc%pres_msl,                                &
                    & GRID_UNSTRUCTURED_CELL, ZA_MEANSEA, cf_desc, grib2_desc,      &
                    & ldims=shape2d_c,                                              &
@@ -399,9 +413,9 @@ CONTAINS
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_pfull_m
     IF (p_acc%l_pfull_m) THEN
        cf_desc    = t_cf_var('air_pressure', 'Pa', 'pressure at full level (time mean)', datatype_flt)
-       grib2_desc = grib2_var(0, 3, 0, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = grib2_var(0, 3, 0, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( list, 'pfull_m', p_acc%pres,                                  &
-                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,       &
                    & ldims=shape3d_c, lrestart=.FALSE. ,                           &
                    & vert_interp=create_vert_interp_metadata(                      &
                    &             vert_intp_type=vintp_types("P","Z","I"),          &
@@ -413,9 +427,9 @@ CONTAINS
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_phalf_m
     IF (p_acc%l_phalf_m) THEN
        cf_desc    = t_cf_var('air_pressure', 'Pa', 'pressure at half level (time mean)', datatype_flt)
-       grib2_desc = grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = grib2_var(0, 3, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( list, 'phalf_m', p_acc%pres_ifc,                              &
-                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,  &
                    & ldims=shape3d_chalf, lrestart=.FALSE.,                        &
                    & vert_interp=create_vert_interp_metadata(                      &
                    &             vert_intp_type=vintp_types("P","Z","I"),          &
@@ -427,9 +441,9 @@ CONTAINS
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_wap_m
     IF (p_acc%l_wap_m) THEN
        cf_desc    = t_cf_var('omega', 'Pa/s', 'vertical velocity (time mean)', datatype_flt)
-       grib2_desc = grib2_var(0, 2, 8, ibits, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = grib2_var(0, 2, 8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( list,"wap_m", p_acc%omega,                                    &
-                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                            &
                    & cf_desc, grib2_desc,                                          &
                    & ldims=shape3d_c,                                              &
                    & vert_interp=create_vert_interp_metadata(                      &
@@ -449,9 +463,9 @@ CONTAINS
        p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tracer_m
        IF (p_acc%l_tracer_m) THEN
           cf_desc    = t_cf_var('tracer', 'kg kg-1', 'air tracer (time mean)', datatype_flt)
-          grib2_desc = grib2_var(0,20,2, ibits, GRID_REFERENCE, GRID_CELL)
+          grib2_desc = grib2_var(0,20,2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
           CALL add_var( list, 'tracer_m', p_acc%tracer,                         &
-                      & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, &
+                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
                       & ldims=shape4d_c ,                                       &
                       & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
@@ -459,10 +473,10 @@ CONTAINS
           DO jt=1,ntracer
              IF (jt == iqv ) CALL add_ref(                                          &
                   &  list, 'tracer_m', 'hus_m', p_acc%tracer_ptr(jt)%p,             &
-                  &  GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                  &  GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
                   &  t_cf_var('specific_humidity', 'kg kg-1',                       &
                   &           'specific_humidity (time mean)', datatype_flt),       &
-                  &  grib2_var( 0, 1, 0, ibits, GRID_REFERENCE, GRID_CELL),         &
+                  &  grib2_var( 0, 1, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL),         &
                   &  ldims=shape3d_c,                                               &
                   &  tlev_source=1,                                                 &
                   &  tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
@@ -478,10 +492,10 @@ CONTAINS
 
              IF ( jt == iqc )  CALL add_ref(                                        &
                   &  list, 'tracer_m', 'clw_m', p_acc%tracer_ptr(jt)%p,             &
-                  &  GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                  &  GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
                   &  t_cf_var('specific_cloud_water_content', 'kg kg-1',            &
                   &           'specific_cloud_water_content (time mean)',datatype_flt), &
-                  &  grib2_var(0, 1, 22, ibits, GRID_REFERENCE, GRID_CELL),         &
+                  &  grib2_var(0, 1, 22, ibits, GRID_UNSTRUCTURED, GRID_CELL),         &
                   &  ldims=shape3d_c,                                               &
                   &  tlev_source=1,                                                 &
                   &  tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
@@ -498,10 +512,10 @@ CONTAINS
 
              IF ( jt == iqi ) CALL add_ref(                                         &
                   &  list, 'tracer_m', 'cli_m', p_acc%tracer_ptr(jt)%p,             &
-                  &  GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                  &  GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
                   &  t_cf_var('specific_cloud_ice_content', 'kg kg-1',              &
                   &           'specific_cloud_ice_content (time mean)', datatype_flt),  &
-                  &  grib2_var(0, 1, 82, ibits, GRID_REFERENCE, GRID_CELL),         &
+                  &  grib2_var(0, 1, 82, ibits, GRID_UNSTRUCTURED, GRID_CELL),         &
                   &  ldims=shape3d_c,                                               &
                   &  tlev_source=1,                                                 &
                   &  tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
@@ -883,6 +897,87 @@ CONTAINS
 
     vcoeff%l_initialized = .FALSE.
   END SUBROUTINE vcoeff_deallocate
+
+
+  !---------------------------------------------------------------
+  !> Adds a special metrics variable containing the area weights of
+  !  the regular lon-lat grid.
+  !
+  !  @note This new variable is time-constant!
+  !
+  SUBROUTINE compute_lonlat_area_weights(lonlat_data)
+    TYPE (t_lon_lat_list), TARGET, INTENT(IN) :: lonlat_data
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = modname//"::compute_lonlat_area_weights"
+    TYPE(t_cf_var)       :: cf_desc
+    TYPE(t_grib2_var)    :: grib2_desc
+    INTEGER              :: var_shape(3), nblks_lonlat, i, jg, ierrstat, &
+      &                     i_lat, idx_glb, jc, jb, j, datatype_flt
+    TYPE (t_lon_lat_grid), POINTER :: grid
+    TYPE (t_lon_lat_intp), POINTER :: ptr_int_lonlat
+!DR      REAL(wp),              POINTER :: area_weights(:), p_dummy(:,:,:)
+!DR !!! Using the POINTER attribute for area_weights(:) mysteriously leads
+!DR !!! to a bus error on NEC SX9 (tested with compiler revision 450). However,
+!DR !!! using the ALLOCATABLE attribute, instead, works.
+    REAL(wp), ALLOCATABLE          :: area_weights(:)
+    REAL(wp),              POINTER :: p_dummy(:,:,:)
+    TYPE(t_list_element),  POINTER :: new_element
+
+    ! define NetCDF output precision
+    IF ( lnetcdf_flt64_output ) THEN
+      datatype_flt = DATATYPE_FLT64
+    ELSE
+      datatype_flt = DATATYPE_FLT32
+    ENDIF
+
+    ! Add area weights
+    DO i=1, lonlat_data%ngrids
+      DO jg=1,n_dom
+        IF (lonlat_data%list(i)%l_dom(jg)) THEN
+          
+          grid           => lonlat_data%list(i)%grid
+          ptr_int_lonlat => lonlat_data%list(i)%intp(jg)
+          
+          nblks_lonlat   =  ptr_int_lonlat%nblks_lonlat(nproma)
+          var_shape = (/ nproma, 1, nblks_lonlat /)
+          cf_desc    = t_cf_var('aw', '1', 'area weights for regular lat-lon grid', datatype_flt)
+          grib2_desc = grib2_var(0, 191, 193, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL)
+          
+          ALLOCATE(area_weights(grid%lat_dim), STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+          
+          CALL add_var( p_nh_state_lists(jg)%diag_list,                             &
+            &           "aw", p_dummy,                                        &
+            &           GRID_REGULAR_LONLAT, ZA_SURFACE, cf_desc, grib2_desc, &
+            &           ldims=var_shape, lrestart=.FALSE.,                    &
+            &           loutput=.TRUE., new_element=new_element,              &
+            &           hor_interp=create_hor_interp_metadata(                &
+            &             hor_intp_type=HINTP_TYPE_NONE ),                    &
+            &           isteptype=TSTEP_CONSTANT )
+          ! link this new variable to the lon-lat grid:
+          new_element%field%info%hor_interp%lonlat_id = i
+          ! compute area weights:
+!CDIR NOIEXPAND
+          CALL latlon_compute_area_weights(grid, earth_radius, area_weights)
+          ! for each local lon-lat point on this PE:
+          DO j=1, ptr_int_lonlat%nthis_local_pts
+            ! determine block, index
+            jb = (j-1)/nproma + 1
+            jc = j - (jb-1)*nproma
+            ! determine latitude index:
+            idx_glb = ptr_int_lonlat%global_idx(j)
+            i_lat   = (idx_glb-1)/grid%lon_dim + 1
+            ! set area weight:
+            p_dummy(jc,1,jb) = area_weights(i_lat)
+          END DO
+          
+          DEALLOCATE(area_weights, STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+        END IF
+      END DO
+    END DO
+  END SUBROUTINE compute_lonlat_area_weights
+    
 
 END MODULE mo_opt_diagnostics
 
