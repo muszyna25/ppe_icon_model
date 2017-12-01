@@ -273,7 +273,12 @@ MODULE mo_meteogram_output
     TYPE(t_a_2d), ALLOCATABLE :: sfc_vars(:)
   END TYPE t_mtgrm_out_buffer
 
-
+  TYPE t_mtgrm_invariants
+    !> height buffer for each variable
+    TYPE(t_a_2d), ALLOCATABLE :: heights(:)
+    !> tile fractions for each station and tile
+    REAL(wp), ALLOCATABLE :: tile_frac(:,:)
+  END TYPE t_mtgrm_invariants
   !>
   !! Data structure containing meteogram data and meta info for a
   !! single station.
@@ -300,7 +305,6 @@ MODULE mo_meteogram_output
     INTEGER                         :: soiltype         !< soil type
 
     ! Tile info
-    REAL(wp), ALLOCATABLE           :: tile_frac(:)    !< tile fractions
     INTEGER , ALLOCATABLE           :: tile_luclass(:) !< tile specific landuse classes
 
     ! Buffers for currently stored meteogram values.
@@ -1173,11 +1177,10 @@ CONTAINS
 
     INTEGER      :: ithis_nlocal_pts, nblks,          &
       &             nstations, ierrstat,              &
-      &             jb, jc, istation, istation_buf
+      &             jb, jc, istation, istation_buf, nstations_buf
     ! list of triangles containing lon-lat grid points (first dim: index and block)
     TYPE(mtgrm_pack_buf) :: pack_buf
-    !> height buffer for each variable
-    TYPE(t_a_2d), ALLOCATABLE :: heights(:)
+    TYPE(t_mtgrm_invariants) :: invariants
     !> buffer size for var list
     INTEGER :: max_varlist_buf_size
 
@@ -1370,13 +1373,14 @@ CONTAINS
         CALL finish (routine, 'DEALLOCATE of MPI buffer failed.')
     END IF
 
+    nstations_buf = MERGE(nstations, &
+      mtgrm(jg)%meteogram_local_data%nstations, mtgrm(jg)%l_is_collecting_pe)
     CALL allocate_out_buf(mtgrm(jg)%out_buf, &
       mtgrm(jg)%var_info, mtgrm(jg)%sfc_var_info, &
-      max_time_stamps, MERGE(nstations, &
-      mtgrm(jg)%meteogram_local_data%nstations, mtgrm(jg)%l_is_collecting_pe))
-    CALL allocate_heights(heights, mtgrm(jg)%var_info, MERGE(nstations, &
-      mtgrm(jg)%meteogram_local_data%nstations, mtgrm(jg)%l_is_collecting_pe))
+      max_time_stamps, nstations_buf)
+    CALL allocate_heights(invariants%heights, mtgrm(jg)%var_info, nstations_buf)
     ALLOCATE(mtgrm(jg)%istep(max_time_stamps), &
+      invariants%tile_frac(ntiles_mtgrm, nstations_buf), &
       mtgrm(jg)%zdate(max_time_stamps), stat=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, &
       'ALLOCATE of meteogram time stamp data structure failed')
@@ -1403,12 +1407,12 @@ CONTAINS
           ptr_patch%cells, ext_data%atm, iforcing, p_nh_state%metrics, &
           mtgrm(jg)%var_info, mtgrm(jg)%sfc_var_info, &
           meteogram_output_config%max_time_stamps, mtgrm(jg)%out_buf, &
-          heights)
+          invariants)
       END DO
       IF (      .NOT. mtgrm(jg)%l_is_collecting_pe &
         & .AND. .NOT. meteogram_output_config%ldistributed) &
         CALL send_time_invariants(mtgrm(jg)%var_info, &
-        mtgrm(jg)%meteogram_local_data%station, heights, &
+        mtgrm(jg)%meteogram_local_data%station, invariants, &
         mtgrm(jg)%io_collector_rank, mtgrm(jg)%io_collect_comm)
     END IF
 
@@ -1433,7 +1437,7 @@ CONTAINS
 
       IF (.NOT. ALLOCATED(mtgrm(jg)%meteogram_local_data%station)) &
         ALLOCATE(mtgrm(jg)%meteogram_local_data%station(0))
-      CALL recv_time_invariants(mtgrm(jg)%var_info, heights, &
+      CALL recv_time_invariants(mtgrm(jg)%var_info, invariants, &
         mtgrm(jg)%meteogram_global_data%station, &
         mtgrm(jg)%pstation, mtgrm(jg)%io_collect_comm, is_pure_io_pe, &
         mtgrm(jg)%meteogram_local_data%station)
@@ -1472,7 +1476,7 @@ CONTAINS
     ! ------------------------------------------------------------
     ! If this is the IO PE: open NetCDF file
     ! ------------------------------------------------------------
-    CALL meteogram_open_file(meteogram_output_config, mtgrm(jg), jg, heights)
+    CALL meteogram_open_file(meteogram_output_config, mtgrm(jg), jg, invariants)
 
   END SUBROUTINE meteogram_init
 
@@ -1569,14 +1573,14 @@ CONTAINS
 
   SUBROUTINE sample_station_init(station, istation_glb, istation_buf, tri_idx, &
     cells, atm, iforcing, metrics, var_info, sfc_var_info, max_time_stamps, &
-    out_buf, heights)
+    out_buf, invariants)
     TYPE(t_meteogram_station), INTENT(inout) :: station
     INTEGER, INTENT(in) :: istation_glb, istation_buf
     INTEGER, INTENT(in) :: tri_idx(2)
     TYPE(t_grid_cells), INTENT(in) :: cells
     TYPE(t_external_atmos), INTENT(in) :: atm
     TYPE(t_mtgrm_out_buffer), TARGET, INTENT(in) :: out_buf
-    TYPE(t_a_2d), TARGET, INTENT(inout) :: heights(:)
+    TYPE(t_mtgrm_invariants), TARGET, INTENT(inout) :: invariants
     !> parameterized forcing (right hand side) of dynamics, affects
     !! topography specification, see "mo_extpar_config"
     INTEGER, INTENT(IN) :: iforcing
@@ -1614,7 +1618,7 @@ CONTAINS
       station%frland   =  atm%fr_land(tri_idx1, tri_idx2)
       station%soiltype =  atm%soiltyp(tri_idx1, tri_idx2)
       !
-      station%tile_frac(1:ntiles_mtgrm) &
+      invariants%tile_frac(:, istation_buf) &
         &              = atm%lc_frac_t(tri_idx1, tri_idx2, 1:ntiles_mtgrm)
       station%tile_luclass(1:ntiles_mtgrm) &
         &              = atm%lc_class_t(tri_idx1, tri_idx2, 1:ntiles_mtgrm)
@@ -1624,7 +1628,7 @@ CONTAINS
       station%frland   =  0._wp
       station%soiltype =  0
       !
-      station%tile_frac    = 0._wp
+      invariants%tile_frac(:, istation_buf) = 0._wp
       station%tile_luclass = 0
     END SELECT
 
@@ -1632,7 +1636,7 @@ CONTAINS
     nvars = SIZE(var_info)
     DO ivar = 1, nvars
       nlevs = var_info(ivar)%nlevs
-      station_var_heights => heights(ivar)%a(istation_buf, :)
+      station_var_heights => invariants%heights(ivar)%a(istation_buf, :)
       ! initialize level heights:
       SELECT CASE(IBCLR(var_info(ivar)%igroup_id, FLAG_DIAG))
       CASE(VAR_GROUP_ATMO_ML)
@@ -1712,8 +1716,7 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: &
       routine = modname//"::allocate_station_buffer"
 
-    ALLOCATE(station%tile_frac(ntiles_mtgrm),    &
-      &      station%tile_luclass(ntiles_mtgrm), stat=ierror)
+    ALLOCATE(station%tile_luclass(ntiles_mtgrm), stat=ierror)
     IF (ierror /= SUCCESS) CALL finish(routine, &
       'ALLOCATE of meteogram data structures failed (part 3b)')
 
@@ -1755,7 +1758,7 @@ CONTAINS
     IF (ierror /= SUCCESS) &
       CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
 
-    DEALLOCATE(station%tile_frac, station%tile_luclass, stat=ierror)
+    DEALLOCATE(station%tile_luclass, stat=ierror)
     IF (ierror /= SUCCESS) &
       CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
 
@@ -2188,14 +2191,14 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
-  SUBROUTINE meteogram_open_file(meteogram_output_config, mtgrm, jg, heights)
+  SUBROUTINE meteogram_open_file(meteogram_output_config, mtgrm, jg, invariants)
     !> station data from namelist
     TYPE(t_meteogram_output_config), INTENT(IN) :: meteogram_output_config
     !> patch index
     INTEGER,                             INTENT(in) :: jg
     !> patch buffer
     TYPE(t_buffer_state), INTENT(inout) :: mtgrm
-    TYPE(t_a_2d), INTENT(in) :: heights(:)
+    TYPE(t_mtgrm_invariants), INTENT(in) :: invariants
 
     ! local variables:
     CHARACTER(len=*), PARAMETER :: &
@@ -2229,7 +2232,7 @@ CONTAINS
         mtgrm%meteogram_file_info, mtgrm%pstation, &
         MERGE(mtgrm%meteogram_global_data, mtgrm%meteogram_local_data, &
         &     .NOT. meteogram_output_config%ldistributed), &
-        mtgrm%var_info, mtgrm%sfc_var_info, mtgrm%max_nlevs, heights)
+        mtgrm%var_info, mtgrm%sfc_var_info, mtgrm%max_nlevs, invariants)
     ELSE
       CALL meteogram_append_file(mtgrm%meteogram_file_info, mtgrm%sfc_var_info)
     END IF
@@ -2238,14 +2241,14 @@ CONTAINS
   END SUBROUTINE meteogram_open_file
 
   SUBROUTINE meteogram_create_file(output_config, file_info, pstation, &
-    meteogram_data, var_info, sfc_var_info, max_nlevs, heights)
+    meteogram_data, var_info, sfc_var_info, max_nlevs, invariants)
     TYPE(t_meteogram_output_config), INTENT(IN) :: output_config
     TYPE(t_meteogram_file), INTENT(inout) :: file_info
     TYPE(t_meteogram_data), INTENT(in) :: meteogram_data
     TYPE(t_var_info), INTENT(in) :: var_info(:)
     TYPE(t_sfc_var_info), INTENT(in) :: sfc_var_info(:)
     INTEGER, INTENT(in) :: pstation(:), max_nlevs
-    TYPE(t_a_2d), INTENT(in) :: heights(:)
+    TYPE(t_mtgrm_invariants), INTENT(in) :: invariants
 
     INTEGER :: station_name_dims(2), var_name_dims(2), &
       &        time_string_dims(2), tile_dims(2),      &
@@ -2501,7 +2504,7 @@ CONTAINS
         WRITE (*,*) "skipping station!"
       END IF
     END DO
-    CALL put_invariants(file_info%ncid, var_info, heights)
+    CALL put_invariants(file_info%ncid, var_info, invariants)
   CONTAINS
     SUBROUTINE put_global_txt_att(attname, attval)
       CHARACTER(len=*), INTENT(in) :: attname, attval
@@ -2546,9 +2549,6 @@ CONTAINS
     CALL nf(nf_put_vara_int(ncfile, ncid%station_soiltype, &
       &                     istation, 1, station%soiltype), routine)
     icount(1) = ntiles_mtgrm
-    CALL nf(nf_put_vara_double(ncfile, ncid%station_tile_frac, &
-      &                        istart(1:2), icount(1:2), &
-      &                        station%tile_frac), routine)
     CALL nf(nf_put_vara_int(ncfile, ncid%station_tile_luclass, &
       &                     istart(1:2), icount(1:2), &
       &                     station%tile_luclass), routine)
@@ -2556,29 +2556,33 @@ CONTAINS
 
   END SUBROUTINE put_station_invariants
 
-  SUBROUTINE put_invariants(ncid, var_info, heights)
+  SUBROUTINE put_invariants(ncid, var_info, invariants)
     TYPE(t_ncid), INTENT(in) :: ncid
     TYPE(t_var_info), INTENT(in) :: var_info(:)
-    TYPE(t_a_2d), INTENT(in) :: heights(:)
+    TYPE(t_mtgrm_invariants), INTENT(in) :: invariants
 
     INTEGER :: ivar, nvars
     INTEGER :: istart(3), icount(3)
     CHARACTER(len=*), PARAMETER :: routine = modname//"::put_invariants"
 
+    istart = 1
     nvars = SIZE(var_info)
-    IF (nvars > 0) THEN
-      ! model level heights
-      istart(1) = 1
-      icount(1) = SIZE(heights(1)%a, 1)
-      icount(2) = 1
-      istart(3) = 1
-      DO ivar=1,nvars
-        istart(2) = ivar
-        icount(3) = var_info(ivar)%nlevs
-        CALL nf(nf_put_vara_double(ncid%file_id, ncid%var_heights,     &
-          &     istart, icount, heights(ivar)%a), routine)
-      END DO
-    END IF
+    ! nstations
+    icount(1) = SIZE(invariants%tile_frac, 2)
+    ! model level heights
+    icount(2) = 1
+    DO ivar=1,nvars
+      istart(2) = ivar
+      icount(3) = var_info(ivar)%nlevs
+      CALL nf(nf_put_vara_double(ncid%file_id, ncid%var_heights,     &
+        &     istart, icount, invariants%heights(ivar)%a), routine)
+    END DO
+    istart(2) = 1
+    icount(2) = icount(1)
+    icount(1) = ntiles_mtgrm
+    CALL nf(nf_put_vara_double(ncid%file_id, ncid%station_tile_frac, &
+      &                        istart(1:2), icount(1:2), invariants%tile_frac),&
+      &     routine)
   END SUBROUTINE put_invariants
 
   SUBROUTINE meteogram_append_file(file_info, sfc_var_info)
@@ -3134,11 +3138,11 @@ CONTAINS
     CALL p_unpack_string(pack_buf%msg_varlist, pack_buf%pos, cf%units)
   END SUBROUTINE unpack_cf
 
-  SUBROUTINE send_time_invariants(var_info, station, heights, &
+  SUBROUTINE send_time_invariants(var_info, station, invariants, &
     io_collector_rank, io_collect_comm)
     TYPE(t_var_info), INTENT(in) :: var_info(:)
     TYPE(t_meteogram_station), INTENT(in) :: station(:)
-    TYPE(t_a_2d), INTENT(inout) :: heights(:)
+    TYPE(t_mtgrm_invariants), INTENT(in) :: invariants
     INTEGER, INTENT(in) :: io_collector_rank, io_collect_comm
 
     REAL(wp), ALLOCATABLE :: buf(:,:)
@@ -3160,12 +3164,12 @@ CONTAINS
       buf(3,istation) = station(istation)%fc
       buf(4,istation) = REAL(station(istation)%soiltype, wp)
       buf(5:6,istation) = REAL(station(istation)%tri_idx, wp)
-      buf(7:6+ntiles,istation) = station(istation)%tile_frac
+      buf(7:6+ntiles,istation) = invariants%tile_frac(:,istation)
       buf(7+ntiles:6+2*ntiles,istation) &
         = REAL(station(istation)%tile_luclass, wp)
       DO ivar = 1, nvars
         nlevs = var_info(ivar)%nlevs
-        buf(pos+1:pos+nlevs,istation) = heights(ivar)%a(istation,:)
+        buf(pos+1:pos+nlevs,istation) = invariants%heights(ivar)%a(istation,:)
         pos = pos + nlevs
       END DO
       CALL p_isend(buf(:,istation), io_collector_rank, &
@@ -3174,10 +3178,10 @@ CONTAINS
     CALL p_wait
   END SUBROUTINE send_time_invariants
 
-  SUBROUTINE recv_time_invariants(var_info, heights, station, pstation, &
+  SUBROUTINE recv_time_invariants(var_info, invariants, station, pstation, &
     io_collect_comm, is_pure_io_pe, local_station)
     TYPE(t_var_info), INTENT(in) :: var_info(:)
-    TYPE(t_a_2d), INTENT(inout) :: heights(:)
+    TYPE(t_mtgrm_invariants), INTENT(inout) :: invariants
     TYPE(t_meteogram_station), INTENT(inout) :: station(:)
     INTEGER, INTENT(in) :: io_collect_comm, pstation(:)
     LOGICAL, INTENT(in) :: is_pure_io_pe
@@ -3208,7 +3212,6 @@ CONTAINS
         station(istation)%fc = local_station(istation_local)%fc
         station(istation)%soiltype = local_station(istation_local)%soiltype
         station(istation)%tri_idx = local_station(istation_local)%tri_idx
-        station(istation)%tile_frac = local_station(istation_local)%tile_frac
         station(istation)%tile_luclass &
           = local_station(istation_local)%tile_luclass
       END IF
@@ -3223,11 +3226,11 @@ CONTAINS
         station(istation)%fc = buf(3,istation)
         station(istation)%soiltype = INT(buf(4,istation))
         station(istation)%tri_idx = INT(buf(5:6,istation))
-        station(istation)%tile_frac = buf(7:6+ntiles,istation)
+        invariants%tile_frac(:,istation) = buf(7:6+ntiles,istation)
         station(istation)%tile_luclass = INT(buf(7+ntiles:6+2*ntiles,istation))
         DO ivar = 1, nvars
           nlevs = var_info(ivar)%nlevs
-          heights(ivar)%a(istation,:) = buf(pos+1:pos+nlevs,istation)
+          invariants%heights(ivar)%a(istation,:) = buf(pos+1:pos+nlevs,istation)
           pos = pos + nlevs
         END DO
       END IF
