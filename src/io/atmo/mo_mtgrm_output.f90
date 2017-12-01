@@ -1322,7 +1322,6 @@ CONTAINS
       CALL resize_var_info(var_list, mtgrm(jg)%var_info, mtgrm(jg)%sfc_var_info)
 
       IF (pack_buf%l_is_varlist_sender) THEN
-        CALL p_pack_int(FLAG_VARLIST_END, pack_buf%msg_varlist(:), pack_buf%pos)
         CALL p_send_packed(pack_buf%msg_varlist, mtgrm(jg)%io_collector_rank, &
           &                TAG_VARLIST, pack_buf%pos, &
           &                comm=mtgrm(jg)%io_collect_comm)
@@ -2879,7 +2878,6 @@ CONTAINS
       IF (dbg_level > 0) &
         CALL message(routine, "collect variable info for pure I/O PEs")
 
-      CALL p_pack_int   (FLAG_VARLIST_ATMO,               pack_buf%msg_varlist, pack_buf%pos)
       CALL p_pack_string(var_info(ivar)%cf%standard_name, pack_buf%msg_varlist, pack_buf%pos)
       CALL p_pack_string(var_info(ivar)%cf%long_name,     pack_buf%msg_varlist, pack_buf%pos)
       CALL p_pack_string(var_info(ivar)%cf%units,         pack_buf%msg_varlist, pack_buf%pos)
@@ -2965,7 +2963,6 @@ CONTAINS
       IF (dbg_level > 0) &
         CALL message(routine, "collect surface variable info for pure I/O PEs")
 
-      CALL p_pack_int   (FLAG_VARLIST_SFC,                    pack_buf%msg_varlist, pack_buf%pos)
       CALL p_pack_string(sfc_var_info(ivar)%cf%standard_name, pack_buf%msg_varlist, pack_buf%pos)
       CALL p_pack_string(sfc_var_info(ivar)%cf%long_name,     pack_buf%msg_varlist, pack_buf%pos)
       CALL p_pack_string(sfc_var_info(ivar)%cf%units,         pack_buf%msg_varlist, pack_buf%pos)
@@ -3042,7 +3039,7 @@ CONTAINS
 #ifndef NOMPI
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":receive_var_info"
-    INTEGER                 :: id, ivar, var_counts(2), ierror
+    INTEGER                 :: ivar, var_counts(2), ierror
 
     ! wait for messages to arrive:
     CALL p_wait()
@@ -3056,36 +3053,26 @@ CONTAINS
 
     ! from the received message, unpack the atmosphere/surface
     ! variables one by one:
-    CALL p_unpack_int(pack_buf%msg_varlist, pack_buf%pos, id)
-    RCV_LOOP : DO WHILE (id /= FLAG_VARLIST_END)
-      SELECT CASE(id)
-      CASE(FLAG_VARLIST_ATMO)
-        ! create new variable index
-        ivar = var_list%no_atmo_vars + 1
-        var_list%no_atmo_vars = ivar
-        CALL unpack_cf(var_info(ivar)%cf, pack_buf)
-        CALL p_unpack_int(pack_buf%msg_varlist, pack_buf%pos, &
-          &               var_info(ivar)%igroup_id)
-        CALL p_unpack_int(pack_buf%msg_varlist, pack_buf%pos, &
-          &               var_info(ivar)%nlevs)
-        NULLIFY(var_info(ivar)%p_source)
-        IF (dbg_level > 0) &
-          WRITE (*,*) "Added variable ", var_info(ivar)%cf%standard_name
-      CASE(FLAG_VARLIST_SFC)
-        ivar = var_list%no_sfc_vars + 1
-        var_list%no_sfc_vars = ivar
-        CALL unpack_cf(sfc_var_info(ivar)%cf, pack_buf)
-        CALL p_unpack_int(pack_buf%msg_varlist, pack_buf%pos, &
-          &               sfc_var_info(ivar)%igroup_id)
-        NULLIFY(sfc_var_info(ivar)%p_source)
-        IF (dbg_level > 0) &
-          WRITE (*,*) "Added variable ", sfc_var_info(ivar)%cf%standard_name
-      CASE DEFAULT
-        CALL finish(routine, "Unknown message flag!")
-      END SELECT
-
-      CALL p_unpack_int(pack_buf%msg_varlist, pack_buf%pos, id)
-    END DO RCV_LOOP
+    DO ivar = 1, var_counts(1)
+      CALL unpack_cf(var_info(ivar)%cf, pack_buf)
+      CALL p_unpack_int(pack_buf%msg_varlist, pack_buf%pos, &
+        &               var_info(ivar)%igroup_id)
+      CALL p_unpack_int(pack_buf%msg_varlist, pack_buf%pos, &
+        &               var_info(ivar)%nlevs)
+      NULLIFY(var_info(ivar)%p_source)
+      IF (dbg_level > 0) &
+        WRITE (*,*) "Added variable ", var_info(ivar)%cf%standard_name
+    END DO
+    DO ivar = 1, var_counts(2)
+      CALL unpack_cf(sfc_var_info(ivar)%cf, pack_buf)
+      CALL p_unpack_int(pack_buf%msg_varlist, pack_buf%pos, &
+        &               sfc_var_info(ivar)%igroup_id)
+      NULLIFY(sfc_var_info(ivar)%p_source)
+      IF (dbg_level > 0) &
+        WRITE (*,*) "Added variable ", sfc_var_info(ivar)%cf%standard_name
+    END DO
+    var_list%no_atmo_vars = var_counts(1)
+    var_list%no_sfc_vars = var_counts(2)
 #endif
   END SUBROUTINE receive_var_info
 
