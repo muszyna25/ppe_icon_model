@@ -1191,8 +1191,8 @@ set_run_target_kesch_cpu()
   set_default use_nodes 1
   # use_OMP_SCHEDULE="static,1"
   use_OMP_SCHEDULE="static,12"
-  icon_data_rootFolder=${icon_data_rootFolder:=/users/icontest/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/users/icontest/pool/data/ICON}
+  icon_data_rootFolder=${icon_data_rootFolder:=/project/c15/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/project/c15/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -1200,11 +1200,11 @@ set_run_target_kesch_cpu()
       set_default use_mpi_procs_pernode 2
       set_default use_openmp_threads 6
     else
-      set_default use_mpi_procs_pernode 12
+      set_default use_mpi_procs_pernode 24
     fi
   else
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 12
+      set_default use_openmp_threads 24
       set_default use_mpi_procs_pernode 1
      else
        is_serial_run="yes"
@@ -1225,10 +1225,12 @@ set_run_target_kesch_cpu()
     use_nodes=1
     tasks_per_node=1
     SBATCH_ntasks_per_node=""
+    SBATCH_cpus_per_task="SBATCH --cpus-per-task=1"
   else
     job_type=parallel
     tasks_per_node=$use_mpi_procs_pernode
     SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=${tasks_per_node}"
+    SBATCH_cpus_per_task="SBATCH --cpus-per-task=1"
   fi
 
   if [[ "x$BB_SYSTEM" != "x" ]]; then
@@ -1257,7 +1259,9 @@ set_run_target_kesch_cpu()
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
 #SBATCH --nodes=$use_nodes
+#SBATCH --ntasks-per-core=1
 #$SBATCH_ntasks_per_node
+#$SBATCH_cpus_per_task
 #$s_cpu_time
 #========================================
 EOF
