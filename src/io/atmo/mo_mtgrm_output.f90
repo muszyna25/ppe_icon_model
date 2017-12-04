@@ -276,8 +276,11 @@ MODULE mo_meteogram_output
   TYPE t_mtgrm_invariants
     !> height buffer for each variable
     TYPE(t_a_2d), ALLOCATABLE :: heights(:)
+    ! Tile info
     !> tile fractions for each station and tile
     REAL(wp), ALLOCATABLE :: tile_frac(:,:)
+    !> tile specific landuse classes
+    INTEGER, ALLOCATABLE :: tile_luclass(:,:)
   END TYPE t_mtgrm_invariants
   !>
   !! Data structure containing meteogram data and meta info for a
@@ -304,8 +307,6 @@ MODULE mo_meteogram_output
     REAL(wp)                        :: fc               !< Coriolis parameter
     INTEGER                         :: soiltype         !< soil type
 
-    ! Tile info
-    INTEGER , ALLOCATABLE           :: tile_luclass(:) !< tile specific landuse classes
 
     ! Buffers for currently stored meteogram values.
     !> sampled data (1:nvars)
@@ -1381,6 +1382,7 @@ CONTAINS
     CALL allocate_heights(invariants%heights, mtgrm(jg)%var_info, nstations_buf)
     ALLOCATE(mtgrm(jg)%istep(max_time_stamps), &
       invariants%tile_frac(ntiles_mtgrm, nstations_buf), &
+      invariants%tile_luclass(ntiles_mtgrm, nstations_buf), &
       mtgrm(jg)%zdate(max_time_stamps), stat=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, &
       'ALLOCATE of meteogram time stamp data structure failed')
@@ -1620,7 +1622,7 @@ CONTAINS
       !
       invariants%tile_frac(:, istation_buf) &
         &              = atm%lc_frac_t(tri_idx1, tri_idx2, 1:ntiles_mtgrm)
-      station%tile_luclass(1:ntiles_mtgrm) &
+      invariants%tile_luclass(:, istation_buf) &
         &              = atm%lc_class_t(tri_idx1, tri_idx2, 1:ntiles_mtgrm)
 
     CASE DEFAULT
@@ -1629,7 +1631,7 @@ CONTAINS
       station%soiltype =  0
       !
       invariants%tile_frac(:, istation_buf) = 0._wp
-      station%tile_luclass = 0
+      invariants%tile_luclass(:, istation_buf) = 0
     END SELECT
 
     ! initialize value buffer and set level heights:
@@ -1716,10 +1718,6 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: &
       routine = modname//"::allocate_station_buffer"
 
-    ALLOCATE(station%tile_luclass(ntiles_mtgrm), stat=ierror)
-    IF (ierror /= SUCCESS) CALL finish(routine, &
-      'ALLOCATE of meteogram data structures failed (part 3b)')
-
     nvars = SIZE(var_info)
     ALLOCATE(station%var(nvars), stat=ierror)
     IF (ierror /= SUCCESS) CALL finish(routine, &
@@ -1755,10 +1753,6 @@ CONTAINS
       NULLIFY(station%sfc_var(ivar)%values)
     END DO
     DEALLOCATE(station%sfc_var, station%var, stat=ierror)
-    IF (ierror /= SUCCESS) &
-      CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-
-    DEALLOCATE(station%tile_luclass, stat=ierror)
     IF (ierror /= SUCCESS) &
       CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
 
@@ -2548,12 +2542,6 @@ CONTAINS
       &                        istation, 1, station%fc), routine)
     CALL nf(nf_put_vara_int(ncfile, ncid%station_soiltype, &
       &                     istation, 1, station%soiltype), routine)
-    icount(1) = ntiles_mtgrm
-    CALL nf(nf_put_vara_int(ncfile, ncid%station_tile_luclass, &
-      &                     istart(1:2), icount(1:2), &
-      &                     station%tile_luclass), routine)
-
-
   END SUBROUTINE put_station_invariants
 
   SUBROUTINE put_invariants(ncid, var_info, invariants)
@@ -2582,6 +2570,9 @@ CONTAINS
     icount(1) = ntiles_mtgrm
     CALL nf(nf_put_vara_double(ncid%file_id, ncid%station_tile_frac, &
       &                        istart(1:2), icount(1:2), invariants%tile_frac),&
+      &     routine)
+    CALL nf(nf_put_vara_int(ncid%file_id, ncid%station_tile_luclass, &
+      &                     istart(1:2), icount(1:2), invariants%tile_luclass),&
       &     routine)
   END SUBROUTINE put_invariants
 
@@ -3166,7 +3157,7 @@ CONTAINS
       buf(5:6,istation) = REAL(station(istation)%tri_idx, wp)
       buf(7:6+ntiles,istation) = invariants%tile_frac(:,istation)
       buf(7+ntiles:6+2*ntiles,istation) &
-        = REAL(station(istation)%tile_luclass, wp)
+        = REAL(invariants%tile_luclass(:,istation), wp)
       DO ivar = 1, nvars
         nlevs = var_info(ivar)%nlevs
         buf(pos+1:pos+nlevs,istation) = invariants%heights(ivar)%a(istation,:)
@@ -3212,8 +3203,6 @@ CONTAINS
         station(istation)%fc = local_station(istation_local)%fc
         station(istation)%soiltype = local_station(istation_local)%soiltype
         station(istation)%tri_idx = local_station(istation_local)%tri_idx
-        station(istation)%tile_luclass &
-          = local_station(istation_local)%tile_luclass
       END IF
     END DO
     CALL p_wait()
@@ -3227,7 +3216,8 @@ CONTAINS
         station(istation)%soiltype = INT(buf(4,istation))
         station(istation)%tri_idx = INT(buf(5:6,istation))
         invariants%tile_frac(:,istation) = buf(7:6+ntiles,istation)
-        station(istation)%tile_luclass = INT(buf(7+ntiles:6+2*ntiles,istation))
+        invariants%tile_luclass(:,istation) &
+          = INT(buf(7+ntiles:6+2*ntiles,istation))
         DO ivar = 1, nvars
           nlevs = var_info(ivar)%nlevs
           invariants%heights(ivar)%a(istation,:) = buf(pos+1:pos+nlevs,istation)
