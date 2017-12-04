@@ -1129,7 +1129,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN  ! TERRA
     IF (linit_mode) THEN
       CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now, p_prog_lnd_new, &
-        &                   p_prog_wtr_now, p_prog_wtr_new, p_diag_lnd, p_diag)
+        &                   p_prog_wtr_now, p_prog_wtr_new, p_diag_lnd, p_diag, prm_diag)
     ELSE
       IF ( lsnowtile ) THEN ! restart mode with snowtiles
         CALL init_snowtile_lists(p_patch, ext_data, p_diag_lnd)

@@ -51,6 +51,7 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_box_liq   => tune_box_liq,       &  
     &                               config_tune_dust_abs  => tune_dust_abs,      &  
     &                               config_itune_albedo   => itune_albedo,       &
+    &                               config_lcalib_clcov   => lcalib_clcov,       &
     &                               config_max_freshsnow_inc => max_freshsnow_inc 
   
   IMPLICIT NONE
@@ -131,6 +132,9 @@ MODULE mo_nwp_tuning_nml
                                    ! 1: dimmed Sahara
                                    ! 2: dimmed Sahara and brighter Antarctica
 
+  LOGICAL :: &                     ! cloud cover calibration over land points
+    &  lcalib_clcov
+
   REAL(wp) :: &                    !< maximum allowed positive freshsnow increment
     &  max_freshsnow_inc
 
@@ -141,7 +145,7 @@ MODULE mo_nwp_tuning_nml
     &                      tune_rhebc_ocean, tune_rcucov, tune_texc,        &
     &                      tune_qexc, tune_minsnowfrac,tune_rhebc_land_trop,&
     &                      tune_rhebc_ocean_trop, tune_rcucov_trop,         &
-    &                      tune_dust_abs, tune_gfrcrit, tune_grcrit
+    &                      tune_dust_abs, tune_gfrcrit, tune_grcrit, lcalib_clcov
 
 CONTAINS
 
@@ -224,6 +228,7 @@ CONTAINS
     !
     ! cloud cover
     tune_box_liq    = 0.05_wp      ! box width scale of liquid clouds
+    lcalib_clcov    = .TRUE.       ! use calibration of layer-wise cloud cover diagnostics over land
 
     tune_dust_abs   = 0._wp        ! no tuning of LW absorption of mineral dust
     itune_albedo    = 0            ! original (measured) albedo
@@ -318,6 +323,7 @@ CONTAINS
     config_tune_box_liq          = tune_box_liq
     config_tune_dust_abs         = tune_dust_abs
     config_itune_albedo          = itune_albedo
+    config_lcalib_clcov          = lcalib_clcov
     config_max_freshsnow_inc     = max_freshsnow_inc
 
 

@@ -42,6 +42,7 @@ MODULE mo_nwp_sfc_interface
     &                               ntiles_lnd, lsnowtile, isub_water, isub_seaice,   &
     &                               isub_lake, itype_interception, l2lay_rho_snow,    &
     &                               lprog_albsi, itype_trvg
+  USe mo_extpar_config,       ONLY: itype_vegetation_cycle
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
@@ -49,7 +50,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_data_flake,          ONLY: h_Ice_min_flk
   USE mo_seaice_nwp,          ONLY: seaice_timestep_nwp
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
-  USE mo_physical_constants,  ONLY: tmelt
+  USE mo_physical_constants,  ONLY: tmelt, grav
 
   
   IMPLICIT NONE 
@@ -175,6 +176,7 @@ CONTAINS
     REAL(wp) :: rootdp_t  (nproma)
     REAL(wp) :: sai_t     (nproma)
     REAL(wp) :: tai_t     (nproma)
+    REAL(wp) :: laifac_t  (nproma)
     REAL(wp) :: eai_t     (nproma)
     REAL(wp) :: rsmin2d_t (nproma)
 
@@ -285,7 +287,7 @@ CONTAINS
 !$OMP   lhfl_bs_t,rstom_t,shfl_s_t,lhfl_s_t,qhfl_s_t,t_snow_mult_new_t,rho_snow_mult_new_t,      &
 !$OMP   wliq_snow_new_t,wtot_snow_new_t,dzh_snow_new_t,w_so_new_t,w_so_ice_new_t,lhfl_pl_t,      &
 !$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,graupel_gsp_rate,prg_gsp_t, &
-!$OMP   meltrate,h_snow_gp_t,conv_frac,tsnred,plevap_t,z0_t) ICON_OMP_GUIDED_SCHEDULE
+!$OMP   meltrate,h_snow_gp_t,conv_frac,tsnred,plevap_t,z0_t,laifac_t) ICON_OMP_GUIDED_SCHEDULE
  
     DO jb = i_startblk, i_endblk
 
@@ -448,6 +450,18 @@ CONTAINS
             plevap_t(ic)            =  0._wp
           ENDIF
 
+          IF (itype_vegetation_cycle == 2) THEN
+            laifac_t(ic)            =  ext_data%atm%laifac_t(jc,jb,isubs)
+          ELSE
+            laifac_t(ic)            =  1._wp
+          ENDIF
+
+          IF (isubs > ntiles_lnd) THEN
+            z0_t(ic)                =  prm_diag%gz0_t(jc,jb,isubs-ntiles_lnd)/grav
+          ELSE
+            z0_t(ic)                =  prm_diag%gz0_t(jc,jb,isubs)/grav
+          ENDIF
+
           runoff_s_t(ic)            =  lnd_diag%runoff_s_t(jc,jb,isubs) 
           runoff_g_t(ic)            =  lnd_diag%runoff_g_t(jc,jb,isubs)
           u_10m_t(ic)               =  prm_diag%u_10m_t(jc,jb,isubs)
@@ -466,7 +480,6 @@ CONTAINS
           tai_t(ic)                 =  ext_data%atm%tai_t(jc,jb,isubs)
           eai_t(ic)                 =  ext_data%atm%eai_t(jc,jb,isubs)
           rsmin2d_t(ic)             =  ext_data%atm%rsmin2d_t(jc,jb,isubs)
-          z0_t(ic)                  =  ext_data%atm%z0_lcc(lc_class_t(ic))
 
           t_so_now_t(ic,nlev_soil+1)= lnd_prog_now%t_so_t(jc,nlev_soil+1,jb,isubs)
 
@@ -559,6 +572,7 @@ CONTAINS
         &  rootdp       = rootdp_t               , & !IN depth of the roots                ( m  )
         &  sai          = sai_t                  , & !IN surface area index                  --
         &  tai          = tai_t                  , & !IN surface area index                  --
+        &  laifac       = laifac_t               , & !IN ratio between current LAI and laimax                 --
         &  eai          = eai_t                  , & !IN surface area index                  --
         &  rsmin2d      = rsmin2d_t              , & !IN minimum stomata resistance        ( s/m )
         &  z0           = z0_t                   , & !IN vegetation roughness length        ( m )
@@ -684,7 +698,7 @@ CONTAINS
           &  freshsnow = freshsnow_t       , & ! fresh snow fraction
           &  meltrate  = meltrate          , & ! snow melting rate
           &  sso_sigma = sso_sigma_t       , & ! sso stdev
-          &  tai       = tai_t             , & ! effective leaf area index
+          &  z0        = z0_t              , & ! vegetation roughness length
           &  snowfrac  = snowfrac_t        , & ! OUT: snow cover fraction
           &  t_g       = t_g_t               ) ! OUT: averaged ground temp
 

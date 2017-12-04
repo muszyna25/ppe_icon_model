@@ -45,6 +45,7 @@ MODULE mo_extpar_config
   PUBLIC :: l_emiss
   PUBLIC :: heightdiff_threshold
   PUBLIC :: lrevert_sea_height
+  PUBLIC :: itype_vegetation_cycle
   PUBLIC :: extpar_filename
   PUBLIC :: extpar_varnames_map_file
   PUBLIC :: i_lctype
@@ -76,6 +77,7 @@ MODULE mo_extpar_config
   LOGICAL  :: l_emiss     ! if true: read external emissivity map 
   REAL(wp) :: heightdiff_threshold(max_dom)
   LOGICAL  :: lrevert_sea_height  ! if true: bring sea points back to original height
+  INTEGER  :: itype_vegetation_cycle
 
   ! ExtPar input filename, may contain keywords, by default
   ! extpar_filename = "<path>extpar_<gridfile>"

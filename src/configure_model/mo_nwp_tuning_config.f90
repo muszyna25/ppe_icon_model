@@ -48,6 +48,7 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_box_liq
   PUBLIC :: tune_dust_abs
   PUBLIC :: itune_albedo
+  PUBLIC :: lcalib_clcov
   PUBLIC :: max_freshsnow_inc
 
 
@@ -125,6 +126,8 @@ MODULE mo_nwp_tuning_config
     &  itune_albedo                ! 1: dimmed Sahara
                                    ! 2: dimmed Sahara and brighter Antarctica
 
+  LOGICAL :: &                     ! cloud cover calibration over land points
+    &  lcalib_clcov
 
   REAL(wp) :: &                    !< maximum allowed positive freshsnow increment
     &  max_freshsnow_inc

@@ -54,7 +54,7 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_util_phys,            ONLY: nwp_dyn_gust
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases_nml,     ONLY: nh_test_name
-  USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, llake,  &
+  USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_lnd, ntiles_water, llake,  &
     &                                isub_lake, isub_seaice
 
   IMPLICIT NONE
@@ -250,6 +250,10 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           ! Modify roughness length depending on snow cover
           prm_diag%gz0_t(jc,jb,jt) = grav *( (1._wp-lnd_diag%snowfrac_t(jc,jb,jt)**2)*z0_mod + &
             lnd_diag%snowfrac_t(jc,jb,jt)**2*ext_data%atm%z0_lcc_min(lc_class) )
+          ! Set gz0 on empty snow-free tiles because this is used in the snow-cover fraction diagnosis
+          IF (jt > ntiles_lnd .AND. lnd_diag%snowfrac_lc_t(jc,jb,jt) > 0.999_wp) THEN
+            prm_diag%gz0_t(jc,jb,jt-ntiles_lnd) = grav*z0_mod
+          ENDIF
         ENDDO
         IF (atm_phy_nwp_config(jg)%itype_z0 == 3) THEN ! Add SSO contribution to tile-specific roughness length
           DO ic = 1, ext_data%atm%gp_count_t(jb,jt)

@@ -34,7 +34,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_exception,           ONLY: message, message_text
   USE mo_exception,           ONLY: finish
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_physical_constants,  ONLY: tmelt, tf_salt
+  USE mo_physical_constants,  ONLY: tmelt, tf_salt, grav
   USE mo_math_constants,      ONLY: dbl_eps, rad2deg
   USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, zml_soil, min_rlcell, dzsoil, &
     &                               MODE_IAU, SSTICE_ANA_CLINC, ALB_SI_MISSVAL
@@ -42,10 +42,11 @@ MODULE mo_nwp_sfc_utils
   USE mo_data_flake,          ONLY: tpl_T_r, C_T_min, rflk_depth_bs_ref
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_ext_data_init,       ONLY: diagnose_ext_aggr, interpol_monthly_mean
+  USE mo_ext_data_init,       ONLY: diagnose_ext_aggr, interpol_monthly_mean, vege_clim
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag, t_lnd_state
+  USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_parallel_config,     ONLY: nproma
-  USe mo_extpar_config,       ONLY: itopo
+  USe mo_extpar_config,       ONLY: itopo, itype_vegetation_cycle
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile, isub_water, isub_seaice, isub_lake,    &
@@ -110,9 +111,9 @@ CONTAINS
   !! - Call to "seaice_init_nwp" is modified with due regard for
   !!   prognostic treatment of the sea-ice albedo.
   !!
-  SUBROUTINE nwp_surface_init( p_patch, ext_data, p_prog_lnd_now, &
-    &                          p_prog_lnd_new, p_prog_wtr_now,    &
-    &                          p_prog_wtr_new, p_lnd_diag, p_diag )
+  SUBROUTINE nwp_surface_init( p_patch, ext_data, p_prog_lnd_now,           &
+    &                          p_prog_lnd_new, p_prog_wtr_now,              &
+    &                          p_prog_wtr_new, p_lnd_diag, p_diag, prm_diag )
 
 
 
@@ -122,7 +123,7 @@ CONTAINS
     TYPE(t_wtr_prog)     , INTENT(INOUT) :: p_prog_wtr_now, p_prog_wtr_new
     TYPE(t_lnd_diag)     , INTENT(INOUT) :: p_lnd_diag
     TYPE(t_nh_diag), TARGET,INTENT(inout):: p_diag        !< diag vars
-
+    TYPE(t_nwp_phy_diag),  INTENT(in)    :: prm_diag      !< atm phys vars
 
     ! Local array bounds:
 
@@ -159,7 +160,7 @@ CONTAINS
     INTEGER  :: soiltyp_t (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: rootdp_t  (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: plcov_t  (nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: tai_t     (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: z0_t     (nproma, p_patch%nblks_c, ntiles_total)
 
     REAL(wp) :: freshsnow_t(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: snowfrac_t (nproma, p_patch%nblks_c, ntiles_total)
@@ -318,8 +319,14 @@ CONTAINS
 
           soiltyp_t(ic,jb,isubs)             =  ext_data%atm%soiltyp_t(jc,jb,isubs)
           rootdp_t(ic,jb,isubs)              =  ext_data%atm%rootdp_t(jc,jb,isubs)
-          plcov_t(ic,jb,isubs)              =  ext_data%atm%plcov_t(jc,jb,isubs)
-          tai_t(ic,jb,isubs)                 =  ext_data%atm%tai_t(jc,jb,isubs)
+          plcov_t(ic,jb,isubs)               =  ext_data%atm%plcov_t(jc,jb,isubs)
+
+          IF (isubs > ntiles_lnd) THEN
+            z0_t(ic,jb,isubs)                =  prm_diag%gz0_t(jc,jb,isubs-ntiles_lnd)/grav
+          ELSE
+            z0_t(ic,jb,isubs)                =  prm_diag%gz0_t(jc,jb,isubs)/grav
+          ENDIF
+
         ENDDO
 
         IF(l2lay_rho_snow .OR. lmulti_snow) THEN
@@ -388,7 +395,7 @@ CONTAINS
             &  rho_snow  = rho_snow_now_t    (:,jb,isubs), & ! snow density
             &  freshsnow = freshsnow_t       (:,jb,isubs), & ! fresh snow fraction
             &  sso_sigma = sso_sigma_t       (:,jb,isubs), & ! sso stdev
-            &  tai       = tai_t             (:,jb,isubs), & ! effective leaf area index
+            &  z0        = z0_t              (:,jb,isubs), & ! vegetation roughness length
             &  snowfrac  = snowfrac_t        (:,jb,isubs), & ! OUT: snow cover fraction
             &  t_g       = t_g_t             (:,jb,isubs)  ) ! OUT: averaged ground temp
 
@@ -467,7 +474,7 @@ CONTAINS
             &  rho_snow  = rho_snow_now_t    (:,jb,isubs), & ! snow depth
             &  freshsnow = freshsnow_t       (:,jb,isubs), & ! fresh snow fraction
             &  sso_sigma = sso_sigma_t       (:,jb,isubs), & ! sso stdev
-            &  tai       = tai_t             (:,jb,isubs), & ! effective leaf area index
+            &  z0        = z0_t              (:,jb,isubs), & ! vegetation roughness length
             &  snowfrac  = snowfrac_t        (:,jb,isubs), & ! OUT: snow cover fraction
             &  t_g       = t_g_t             (:,jb,isubs)  ) ! OUT: averaged ground temp
 
@@ -1754,29 +1761,21 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   SUBROUTINE diag_snowfrac_tg(istart, iend, lc_class, i_lc_urban, t_snow, t_soiltop, w_snow, &
-    & rho_snow, freshsnow, sso_sigma, tai, snowfrac, t_g, meltrate)
+    & rho_snow, freshsnow, sso_sigma, z0, snowfrac, t_g, meltrate)
 
     INTEGER, INTENT (IN) :: istart, iend ! start and end-indices of the computation
 
     INTEGER, INTENT (IN) :: lc_class(:)  ! list of land-cover classes
     INTEGER, INTENT (IN) :: i_lc_urban   ! land-cover class index for urban / artificial surface
     REAL(wp), DIMENSION(:), INTENT(IN) :: t_snow, t_soiltop, w_snow, rho_snow, &
-      freshsnow, sso_sigma, tai
+      freshsnow, sso_sigma, z0
     REAL(wp), DIMENSION(:), INTENT(IN), OPTIONAL :: meltrate ! snow melting rate in kg/(m**2*s)
 
     REAL(wp), DIMENSION(:), INTENT(INOUT) :: snowfrac, t_g
 
     INTEGER  :: ic
-    REAL(wp) :: h_snow, snowdepth_fac, sso_fac, lc_fac, lc_limit, tai_mod(iend)
+    REAL(wp) :: h_snow, snowdepth_fac, sso_fac, lc_fac, lc_limit
 
-    ! Modified tai that is increased in urban areas
-    DO ic = istart, iend
-      IF (lc_class(ic) == i_lc_urban) THEN
-        tai_mod(ic) = MAX(3._wp,tai(ic))
-      ELSE
-        tai_mod(ic) = tai(ic)
-      ENDIF
-    ENDDO
 
     SELECT CASE (idiag_snowfrac)
     CASE (1) ! old parameterization depending on SWE only
@@ -1792,7 +1791,7 @@ CONTAINS
           h_snow = 1000._wp*w_snow(ic)/rho_snow(ic)  ! snow depth in m
           sso_fac = SQRT(0.025_wp*MAX(25._wp,sso_sigma(ic)*(1._wp-freshsnow(ic))))
           snowdepth_fac = h_snow*(17.5_wp*freshsnow(ic)+5._wp+5._wp/sso_fac*(1._wp-freshsnow(ic)))
-          lc_fac   = MAX(1._wp,SQRT(2.5_wp*tai_mod(ic)))
+          lc_fac   = MAX(1._wp,SQRT(10._wp*z0(ic)))
           IF (lc_class(ic) == i_lc_urban) THEN
             lc_limit = 0.875_wp ! this accounts for the effect of human activities on snow cover
           ELSE
@@ -1810,11 +1809,11 @@ CONTAINS
           h_snow = 1000._wp*w_snow(ic)/rho_snow(ic)  ! snow depth in m
           sso_fac = SQRT(0.025_wp*MAX(25._wp,sso_sigma(ic)*(1._wp-freshsnow(ic))))
           snowdepth_fac = h_snow*(17.5_wp*freshsnow(ic)+5._wp+5._wp/sso_fac*(1._wp-freshsnow(ic)))
-          lc_fac   = MAX(1._wp,SQRT(5.0_wp*tai_mod(ic)))
+          lc_fac   = MAX(1._wp,SQRT(15.0_wp*z0(ic)))
           IF (lc_class(ic) == i_lc_urban) THEN
             lc_limit = 0.8_wp ! this accounts for the effect of human activities on snow cover
           ELSE
-            lc_limit = MAX(0.925_wp,MIN(1._wp,1._wp/MAX(0.1_wp,2.5_wp*tai_mod(ic))**0.125_wp))
+            lc_limit = MAX(0.925_wp,MIN(1._wp,1._wp/MAX(0.1_wp,7.5_wp*z0(ic))**0.125_wp))
           ENDIF
           snowfrac(ic) = MIN(lc_limit,snowdepth_fac/lc_fac)
         ENDIF
@@ -1828,11 +1827,11 @@ CONTAINS
           h_snow = 1000._wp*w_snow(ic)/rho_snow(ic)  ! snow depth in m
           sso_fac = SQRT(0.025_wp*MAX(25._wp,sso_sigma(ic)*(1._wp-freshsnow(ic))))
           snowdepth_fac = h_snow*(17.5_wp*freshsnow(ic)+5._wp+5._wp/sso_fac*(1._wp-freshsnow(ic)))
-          lc_fac   = MAX(1._wp,SQRT(5.0_wp*tai_mod(ic)))
+          lc_fac   = MAX(1._wp,SQRT(15.0_wp*z0(ic)))
           IF (lc_class(ic) == i_lc_urban) THEN
             lc_limit = 0.8_wp ! this accounts for the effect of human activities on snow cover
           ELSE
-            lc_limit = MAX(0.85_wp,MIN(1._wp,1._wp/MAX(0.1_wp,2.5_wp*tai_mod(ic))**0.125_wp))
+            lc_limit = MAX(0.85_wp,MIN(1._wp,1._wp/MAX(0.1_wp,7.5_wp*z0(ic))**0.125_wp))
           ENDIF
           snowfrac(ic) = MIN(lc_limit,snowdepth_fac/lc_fac)
         ENDIF
@@ -1854,7 +1853,7 @@ CONTAINS
       ! cold bias in such situations
       IF (PRESENT(meltrate)) THEN
         DO ic = istart, iend
-          snowfrac(ic) = MIN(snowfrac(ic),MAX(tune_minsnowfrac,1._wp-9000._wp*tai_mod(ic)*meltrate(ic)))
+          snowfrac(ic) = MIN(snowfrac(ic),MAX(tune_minsnowfrac,1._wp-30000._wp*MAX(0._wp,z0(ic)-0.02_wp)*meltrate(ic)))
         ENDDO
       ENDIF
     END SELECT
@@ -2745,9 +2744,14 @@ CONTAINS
      ENDDO  !jb
 !$OMP END DO
 !$OMP END PARALLEL
+
     END DO !jg
 
-  CALL diagnose_ext_aggr (p_patch, ext_data)
+    IF (itype_vegetation_cycle == 2) THEN
+      CALL vege_clim (p_patch, ext_data)
+    ENDIF
+
+    CALL diagnose_ext_aggr (p_patch, ext_data)
 
   END SUBROUTINE update_ndvi
 

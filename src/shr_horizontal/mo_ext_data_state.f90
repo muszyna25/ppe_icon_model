@@ -63,7 +63,7 @@ MODULE mo_ext_data_state
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_water, llake, &
     &                              sstice_mode
   USE mo_radiation_config,   ONLY: irad_o3, albedo_type
-  USE mo_extpar_config,      ONLY: i_lctype, nclass_lu, nmonths_ext
+  USE mo_extpar_config,      ONLY: i_lctype, nclass_lu, nmonths_ext, itype_vegetation_cycle
   USE mo_cdi,                ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64, &
     &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG,            &
     &                              GRID_UNSTRUCTURED
@@ -236,6 +236,7 @@ CONTAINS
     !------------------------------
     NULLIFY(p_ext_atm%topography_c,    &
       &     p_ext_atm%grad_topo,       &
+      &     p_ext_atm%topo_t2mclim,    &
       &     p_ext_atm%fis,             &
       &     p_ext_atm%o3,              &
       &     p_ext_atm%llsm_atm_c,      &
@@ -265,6 +266,7 @@ CONTAINS
       &     p_ext_atm%sai_t,           &
       &     p_ext_atm%tai,             &
       &     p_ext_atm%tai_t,           &
+      &     p_ext_atm%laifac_t,        &
       &     p_ext_atm%eai,             &
       &     p_ext_atm%eai_t,           &
       &     p_ext_atm%rootdp,          &
@@ -332,6 +334,19 @@ CONTAINS
       &           grib2_desc, ldims=(/2,nproma,nblks_c/), loutput=.FALSE.,  &
       &           isteptype=TSTEP_CONSTANT )
 
+
+    IF (itype_vegetation_cycle > 1) THEN
+      ! interpolated topographic height for T2M climatology data
+      !
+      ! topo_t2mclim     p_ext_atm%topo_t2mclim(nproma,nblks_c)
+      cf_desc    = t_cf_var('surface_height_of_T2M_climatology', 'm', &
+        &                   'interpolated topographic height for T2M climatology data', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'topo_t2mclim', p_ext_atm%topo_t2mclim,  &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,             &
+        &           isteptype=TSTEP_CONSTANT )
+    ENDIF
 
     ! geopotential (s)
     !
@@ -693,6 +708,16 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
+      ! ratio between current LAI and laimax
+      !
+      ! laifac_t       p_ext_atm%laifac_t(nproma,nblks_c,ntiles_total)
+      cf_desc    = t_cf_var('lai_ratio', '-',&
+        &                   'ratio between current LAI and laimax', datatype_flt)
+      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'laifac_t', p_ext_atm%laifac_t,&
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+
 
       ! Evaporative area index (aggregated)
       !
@@ -990,6 +1015,26 @@ CONTAINS
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
         &           isteptype=TSTEP_CONSTANT )
 
+      IF (itype_vegetation_cycle > 1) THEN
+        ! t2m_clim         p_ext_atm%t2m_clim(nproma,nblks_c)
+        cf_desc    = t_cf_var('2m_temperature', 'K',                  &
+          &                   'T2M interpolated from monthly climatology', datatype_flt)
+        grib2_desc = grib2_var( 0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 't2m_clim', p_ext_atm%t2m_clim,   &
+          &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc,    &
+          &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
+          &           isteptype=TSTEP_CONSTANT )
+
+        ! t2m_climgrad         p_ext_atm%t2m_climgrad(nproma,nblks_c)
+        cf_desc    = t_cf_var('2m_temperature_gradient', 'K/month',      &
+          &                   'climatology T2M gradient', datatype_flt)
+        grib2_desc = grib2_var( 0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 't2m_climgrad', p_ext_atm%t2m_climgrad, &
+          &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc,    &
+          &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
+          &           isteptype=TSTEP_CONSTANT )
+
+      ENDIF
 
       ! longwave surface emissivity
       !
@@ -1355,6 +1400,16 @@ CONTAINS
 
     ENDIF  ! albedo_type
 
+
+    IF (itype_vegetation_cycle > 1) THEN
+      ! t2m_m     p_ext_atm_td%t2m_m(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('t2m_m', 'K', &
+        &                   '(monthly) 2-metre temperature ', datatype_flt)
+      grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 't2m_m', p_ext_atm_td%t2m_m, &
+        &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,&
+        &           ldims=shape3d_c, loutput=.FALSE. )
+    ENDIF
 
     !--------------------------------
     !SST and sea ice fraction

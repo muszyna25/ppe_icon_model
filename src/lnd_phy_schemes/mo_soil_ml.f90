@@ -471,6 +471,7 @@ END SUBROUTINE message
                   rootdp           , & ! depth of the roots                            ( m  )
                   sai              , & ! surface area index                              --
                   tai              , & ! transpiration area index                        --
+                  laifac           , & ! ratio between current LAI and laimax            --
                   eai              , & ! earth area (evaporative surface area) index     --
 !                 llandmask        , & ! landpoint mask                                  --
                   rsmin2d          , & ! minimum stomata resistance                    ( s/m )
@@ -608,7 +609,8 @@ END SUBROUTINE message
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
                  rsmin2d               ! minimum stomata resistance                    ( s/m )
   REAL    (KIND = ireals), DIMENSION(ie), OPTIONAL, INTENT(IN) :: &
-                  z0                   ! vegetation roughness length                    ( m )
+                  z0               , & ! vegetation roughness length                    ( m )
+                  laifac               ! ratio between current LAI and laimax
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
                   u                , & ! zonal wind speed                              ( m/s )
                   v                , & ! meridional wind speed                         ( m/s )
@@ -2107,7 +2109,7 @@ END SUBROUTINE message
 !      IF (llandmask(i)) THEN          ! land-points only
         ! snow and water covered fraction
 !em        zrss = MAX( 0.01_ireals, MIN(1.0_ireals,zwsnow(i)/cf_snow) )
-        zzz  = MAX(0.25*cf_w,0.4*cwimax_ml*tai(i))
+        zzz  = MAX(0.25_ireals*cf_w,0.4_ireals*cwimax_ml*MAX(2.5_ireals*plcov(i),tai(i)))
         zrww = MAX( 0.01_ireals, 1.0_ireals -                           &
                                  EXP(MAX( -5.0_ireals, - zwin(i)/zzz) ) )
 !em        zf_snow(i) = zrss*zsf_heav(zwsnow(i) - zepsi)
@@ -2456,7 +2458,7 @@ END SUBROUTINE message
               ! Radiation function
               IF (itype_trvg == 3) THEN
                 ! modification depending on accumulated plant evaporation in order to reduce evaporation in the evening
-                zxx      = 0.75_ireals*ABS(plevap(i))/MAX(0.2_ireals,plcov(i))
+                zxx      = 0.75_ireals*MAX(zepsi,ABS(plevap(i)))/MAX(0.2_ireals,plcov(i))
                 zzz      = MIN(3._ireals,MAX(1._ireals,zxx))
                 ! stronger limitation for non-forest vegetation classes
                 IF (z0(i) <= 0.4_ireals) zzz = MIN(2._ireals, zzz)
@@ -2504,9 +2506,7 @@ END SUBROUTINE message
                   ! Modification of rsmin depending on accumulated plant evaporation; the z0 dependency
                   ! is used to get a stronger effect for trees than for low vegetation
                   IF (z0(i) <= 0.4_ireals) zxx = MIN(1.25_ireals, zxx)
-                  zzz = MAX(0.5_ireals, EXP(SQRT(z0(i))*LOG(zxx)) )
-                  ! limit reduction of rsmin-factor below 1 at low temperatures
-                  zzz = MAX(zzz, MIN(1._ireals,(t0_melt+15._ireals-t(i))/15._ireals))
+                  zzz = MAX(0.5_ireals+MIN(0.5_ireals,1._ireals-laifac(i)), EXP(SQRT(z0(i))*LOG(zxx)) )
                 ELSE
                   zzz = 1._ireals
                 ENDIF
@@ -2790,7 +2790,8 @@ ELSE          IF (itype_interception == 2) THEN
         zwinstr(i) = zwin(i) + zdwidt(i)*zdtdrhw
         zwinstr(i) = MAX(0.0_ireals,zwinstr(i))
 
-        zwimax(i) = cwimax_ml*(1._ireals+ztfunc(i))*MAX(ztfunc(i), zepsi, tai(i))
+        zwimax(i) = cwimax_ml*(1._ireals+ztfunc(i))*MAX(ztfunc(i), zepsi, MAX(2.5_ireals*plcov(i),tai(i)))
+
         zalf   = SQRT(MAX(0.0_ireals,1.0_ireals - zwinstr(i)/zwimax(i)))
 
         ! water supply from interception store (if Ts above freezing)

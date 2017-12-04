@@ -65,6 +65,7 @@ MODULE mo_nwp_diagnosis
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_nwp_parameters,     ONLY: t_phy_params
   USE mo_time_config,        ONLY: time_config
+  USE mo_nwp_tuning_config,  ONLY: lcalib_clcov
 
   IMPLICIT NONE
 
@@ -812,17 +813,20 @@ CONTAINS
           ENDDO
 
           ! calibration of layer-wise cloud cover fields
-          DO jc = i_startidx, i_endidx
-            clcl_mod = MIN(4._wp*prm_diag%clcl(jc,jb), &
-              EXP((1._wp+prm_diag%clcl(jc,jb))/2._wp*LOG(MAX(eps_clc,prm_diag%clcl(jc,jb)))))
-            clcm_mod = MIN(3._wp*prm_diag%clcm(jc,jb), &
-              EXP((2._wp+prm_diag%clcm(jc,jb))/3._wp*LOG(MAX(eps_clc,prm_diag%clcm(jc,jb)))))
-            clct_fac = (clcl_mod+clcm_mod+prm_diag%clch(jc,jb)) /                        &
-              MAX(eps_clc,prm_diag%clcl(jc,jb)+prm_diag%clcm(jc,jb)+prm_diag%clch(jc,jb))
-            prm_diag%clct(jc,jb) = MIN(1._wp,clct_fac*prm_diag%clct(jc,jb))
-            prm_diag%clcm(jc,jb) = clcm_mod
-            prm_diag%clcl(jc,jb) = clcl_mod
-          ENDDO
+          IF (lcalib_clcov) THEN
+            DO jc = i_startidx, i_endidx
+              clcl_mod = MIN(4._wp*prm_diag%clcl(jc,jb), &
+                EXP((1._wp+prm_diag%clcl(jc,jb))/2._wp*LOG(MAX(eps_clc,prm_diag%clcl(jc,jb)))))
+              clcm_mod = MIN(3._wp*prm_diag%clcm(jc,jb), &
+                EXP((2._wp+prm_diag%clcm(jc,jb))/3._wp*LOG(MAX(eps_clc,prm_diag%clcm(jc,jb)))))
+              clct_fac = (clcl_mod+clcm_mod+prm_diag%clch(jc,jb)) /                        &
+                MAX(eps_clc,prm_diag%clcl(jc,jb)+prm_diag%clcm(jc,jb)+prm_diag%clch(jc,jb))
+              clct_fac = MIN(clct_fac, SQRT(1._wp/MAX(0.05_wp,prm_diag%clct(jc,jb))) )
+              prm_diag%clct(jc,jb) = clct_fac*prm_diag%clct(jc,jb)
+              prm_diag%clcm(jc,jb) = clcm_mod
+              prm_diag%clcl(jc,jb) = clcl_mod
+            ENDDO
+          ENDIF
 
         END SELECT
 

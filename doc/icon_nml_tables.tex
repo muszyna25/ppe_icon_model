@@ -3861,7 +3861,14 @@ Excess fraction of grid-scale QV used in test parcel ascent&
 run\_nml:iforcing = inwp
 \tabularnewline
 
-
+\hline
+lcalib\_clcov&
+L&
+.TRUE.&
+&
+Apply calibration of layer-wise cloud cover diagnostics&
+run\_nml:iforcing = inwp
+\tabularnewline
 
 
 \hline
@@ -6881,6 +6888,15 @@ I & 0& &
 0: analytical topography/ext. data \\
 1: topography/ext. data read from file&
 \tabularnewline
+
+
+itype\_vegetation\_cycle&
+I & 1& &
+1: annual cycle of LAI solely based on NDVI climatology \\
+2: additional use of monthly T2M climatology to get more realistic values in extratropics 
+(requires external parameter data contining this field) &
+\tabularnewline
+
 
 %\hline
 \textbf{n\_iter\_smooth\_topo} &

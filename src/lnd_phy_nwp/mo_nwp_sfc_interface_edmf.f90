@@ -307,6 +307,7 @@ CONTAINS
     REAL(wp) :: tch_t      (nproma, ntiles_total)
     REAL(wp) :: tcm_t      (nproma, ntiles_total)
     REAL(wp) :: tfv_t      (nproma, ntiles_total)
+    REAL(wp) :: z0_t       (nproma, ntiles_total)
 
     REAL(wp) :: sobs_t     (nproma, ntiles_total)
     REAL(wp) :: thbs_t     (nproma, ntiles_total)
@@ -537,6 +538,7 @@ CONTAINS
           tai_t         (ic,isubs) =  ext_data%atm%tai_t    (jc,jb,isubs)
           eai_t         (ic,isubs) =  ext_data%atm%eai_t    (jc,jb,isubs)
           rsmin2d_t     (ic,isubs) =  ext_data%atm%rsmin2d_t(jc,jb,isubs)
+          z0_t          (ic,isubs) =  ext_data%atm%z0_lcc(lc_class_t(ic,isubs))
 
           t_so_now_t(ic,nlev_soil+1,isubs) = t_so_ex(jc,nlev_soil+1,isubs)
 
@@ -754,7 +756,7 @@ if (.true.) then
           &  freshsnow = freshsnow_t       (:,isubs), & ! fresh snow fraction
           &  meltrate  = meltrate          (:),       & ! snow melting rate
           &  sso_sigma = sso_sigma_t       (:),       & ! sso stdev
-          &  tai       = tai_t             (:,isubs), & ! effective leaf area index
+          &  z0        = z0_t              (:,isubs), & ! vegetation roughness length
           &  snowfrac  = snowfrac_t        (:,isubs), & ! OUT: snow cover fraction
           &  t_g       = t_g_t             (:,isubs)  ) ! OUT: averaged ground temp
 endif

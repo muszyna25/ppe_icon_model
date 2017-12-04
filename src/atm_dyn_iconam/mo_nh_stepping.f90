@@ -89,7 +89,7 @@ MODULE mo_nh_stepping
   USE mo_nwp_lnd_state,            ONLY: p_lnd_state
   USE mo_ext_data_state,           ONLY: ext_data
   USE mo_ext_data_init,            ONLY: interpol_monthly_mean
-  USE mo_extpar_config,            ONLY: itopo
+  USE mo_extpar_config,            ONLY: itopo, itype_vegetation_cycle
   USE mo_limarea_config,           ONLY: latbc_config
   USE mo_model_domain,             ONLY: p_patch, t_patch
   USE mo_time_config,              ONLY: time_config
@@ -846,13 +846,18 @@ MODULE mo_nh_stepping
         DO jg=1, n_dom
           ! Note: here we can assume that hour=minute=second=0, due to
           ! the surrounding if-clause.
-          CALL interpol_monthly_mean(p_patch(jg), mtime_current,            &! in
-            &                        ext_data(jg)%atm_td%ndvi_mrat,         &! in
-            &                        ext_data(jg)%atm%ndviratio      )! out
+          CALL interpol_monthly_mean(p_patch(jg), mtime_current,         &! in
+            &                        ext_data(jg)%atm_td%ndvi_mrat,      &! in
+            &                        ext_data(jg)%atm%ndviratio          )! out
+          IF (itype_vegetation_cycle > 1) THEN
+            CALL interpol_monthly_mean(p_patch(jg), mtime_current,       &! in
+              &                        ext_data(jg)%atm_td%t2m_m,        &! in
+              &                        ext_data(jg)%atm%t2m_clim,        &! out
+              &                        ext_data(jg)%atm%t2m_climgrad     )! optional out
+          ENDIF
         ENDDO
 
-        ! after updating ndvi_mrat, probably plcov_t and tai_t have to be updated also.
-        ! So it is better not to update ndvi_mrat till this is clarified
+        ! Note: SR update_ndvi also updates plcov, tai and sai, which depend on ndvi
         CALL update_ndvi(p_patch(1:), ext_data)
       END IF
 

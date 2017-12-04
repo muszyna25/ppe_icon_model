@@ -49,9 +49,10 @@ MODULE mo_ext_data_init
                                    isub_seaice, isub_lake, sstice_mode, sst_td_filename,            &
                                    ci_td_filename, itype_lndtbl, c_soil, c_soil_urb
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
-  USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, &
-    &                              generate_td_filename, extpar_varnames_map_file, &
-    &                              n_iter_smooth_topo, i_lctype, nclass_lu, nmonths_ext
+  USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename,   &
+    &                              generate_td_filename, extpar_varnames_map_file,       &
+    &                              n_iter_smooth_topo, i_lctype, nclass_lu, nmonths_ext, &
+    &                              itype_vegetation_cycle
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
   USE mo_mpi_phy_config,     ONLY: mpi_phy_config
   USE mo_smooth_topo,        ONLY: smooth_topo_real_data
@@ -63,7 +64,7 @@ MODULE mo_ext_data_init
   USE mo_mpi,                ONLY: my_process_is_stdio, p_io, p_bcast, &
     &                              p_comm_work_test, p_comm_work, my_process_is_mpi_workroot
   USE mo_sync,               ONLY: global_sum_array
-  USE mo_parallel_config,    ONLY: p_test_run
+  USE mo_parallel_config,    ONLY: p_test_run, nproma
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_ext_data_state,     ONLY: construct_ext_data, levelname, cellname, o3name, o3unit, &
     &                              nlev_o3, nmonths
@@ -122,6 +123,7 @@ MODULE mo_ext_data_init
   PUBLIC :: init_index_lists
   PUBLIC :: interpol_monthly_mean
   PUBLIC :: diagnose_ext_aggr
+  PUBLIC :: vege_clim
 
 
 !-------------------------------------------------------------------------
@@ -301,6 +303,12 @@ CONTAINS
           CALL interpol_monthly_mean(p_patch(jg), this_datetime,         &! in
             &                        ext_data(jg)%atm_td%ndvi_mrat,      &! in
             &                        ext_data(jg)%atm%ndviratio          )! out
+          IF (itype_vegetation_cycle > 1) THEN
+            CALL interpol_monthly_mean(p_patch(jg), this_datetime,       &! in
+              &                        ext_data(jg)%atm_td%t2m_m,        &! in
+              &                        ext_data(jg)%atm%t2m_clim,        &! out
+              &                        ext_data(jg)%atm%t2m_climgrad     )! optional out
+          ENDIF
         ENDDO
 
         IF ( albedo_type == MODIS) THEN
@@ -769,7 +777,7 @@ CONTAINS
                  &   1.00_wp,  0.9_wp,  6.0_wp, 1.0_wp, 150.0_wp,  0.31_wp, 1._wp, & ! closed broadleaved deciduous forest
                  &   0.15_wp,  0.8_wp,  4.0_wp, 2.0_wp, 150.0_wp,  0.31_wp, 1._wp, & ! open broadleaved deciduous forest
                  &   1.00_wp,  0.8_wp,  5.0_wp, 0.6_wp, 150.0_wp,  0.27_wp, 1._wp, & ! closed needleleaved evergreen forest
-                 &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 150.0_wp,  0.33_wp, 1._wp, & ! open needleleaved deciduous forest
+                 &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 150.0_wp,  0.33_wp, 1._wp, & ! open needleleaved evergreen or deciduous forest
                  &   1.00_wp,  0.9_wp,  5.0_wp, 0.8_wp, 150.0_wp,  0.29_wp, 1._wp, & ! mixed broadleaved and needleleaved forest
                  &   0.20_wp,  0.8_wp,  2.5_wp, 1.0_wp, 150.0_wp,  0.60_wp, 1._wp, & ! mosaic shrubland (50-70%) - grassland (20-50%)
                  &   0.20_wp,  0.8_wp,  2.5_wp, 1.0_wp, 150.0_wp,  0.65_wp, 1._wp, & ! mosaic grassland (50-70%) - shrubland (20-50%)
@@ -794,7 +802,7 @@ CONTAINS
                    &   1.00_wp,  0.9_wp,  6.0_wp, 1.0_wp, 175.0_wp,  0.31_wp, 1._wp, & ! closed broadleaved deciduous forest
                    &   0.15_wp,  0.8_wp,  4.0_wp, 1.5_wp, 175.0_wp,  0.31_wp, 1._wp, & ! open broadleaved deciduous forest
                    &   1.00_wp,  0.8_wp,  5.0_wp, 0.6_wp, 250.0_wp,  0.27_wp, 1._wp, & ! closed needleleaved evergreen forest
-                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 250.0_wp,  0.33_wp, 1._wp, & ! open needleleaved deciduous forest
+                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 250.0_wp,  0.33_wp, 1._wp, & ! open needleleaved evergreen or deciduous forest
                    &   1.00_wp,  0.9_wp,  5.0_wp, 0.8_wp, 210.0_wp,  0.29_wp, 1._wp, & ! mixed broadleaved and needleleaved forest
                    &   0.20_wp,  0.8_wp,  2.5_wp, 1.0_wp, 150.0_wp,  0.60_wp, 1._wp, & ! mosaic shrubland (50-70%) - grassland (20-50%)
                    &   0.20_wp,  0.8_wp,  2.5_wp, 1.0_wp, 150.0_wp,  0.65_wp, 1._wp, & ! mosaic grassland (50-70%) - shrubland (20-50%)
@@ -819,7 +827,7 @@ CONTAINS
                    &   1.00_wp,  0.9_wp,  6.0_wp, 1.0_wp, 225.0_wp,  0.31_wp, 1._wp, & ! closed broadleaved deciduous forest
                    &   0.15_wp,  0.8_wp,  4.0_wp, 1.5_wp, 225.0_wp,  0.31_wp, 1._wp, & ! open broadleaved deciduous forest
                    &   1.00_wp,  0.8_wp,  5.0_wp, 0.6_wp, 300.0_wp,  0.27_wp, 1._wp, & ! closed needleleaved evergreen forest
-                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 300.0_wp,  0.33_wp, 1._wp, & ! open needleleaved deciduous forest
+                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 300.0_wp,  0.33_wp, 1._wp, & ! open needleleaved evergreen or deciduous forest
                    &   1.00_wp,  0.9_wp,  5.0_wp, 0.8_wp, 270.0_wp,  0.29_wp, 1._wp, & ! mixed broadleaved and needleleaved forest
                    &   0.20_wp,  0.8_wp,  2.5_wp, 0.8_wp, 200.0_wp,  0.60_wp, 1._wp, & ! mosaic shrubland (50-70%) - grassland (20-50%)
                    &   0.20_wp,  0.8_wp,  2.5_wp, 0.6_wp, 200.0_wp,  0.65_wp, 1._wp, & ! mosaic grassland (50-70%) - shrubland (20-50%)
@@ -841,11 +849,11 @@ CONTAINS
                    &   0.25_wp,  0.8_wp,  3.0_wp, 1.0_wp, 130.0_wp,  0.55_wp, 1._wp, & ! mosaic cropland (50-70%) - vegetation (20-50%)
                    &   0.07_wp,  0.9_wp,  3.5_wp, 1.0_wp, 120.0_wp,  0.72_wp, 1._wp, & ! mosaic vegetation (50-70%) - cropland (20-50%)
                    &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 250.0_wp,  0.38_wp, 1._wp, & ! closed broadleaved evergreen forest
-                   &   1.00_wp,  0.9_wp,  5.0_wp, 1.0_wp, 300.0_wp,  0.31_wp, 1._wp, & ! closed broadleaved deciduous forest
+                   &   1.00_wp,  0.9_wp,  5.0_wp,1.25_wp, 300.0_wp,  0.31_wp, 1._wp, & ! closed broadleaved deciduous forest
                    &   0.50_wp,  0.8_wp,  4.0_wp, 1.5_wp, 225.0_wp,  0.31_wp, 1._wp, & ! open broadleaved deciduous forest
-                   &   1.00_wp,  0.8_wp,  5.0_wp, 0.6_wp, 300.0_wp,  0.27_wp, 1._wp, & ! closed needleleaved evergreen forest
-                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 300.0_wp,  0.33_wp, 1._wp, & ! open needleleaved deciduous forest
-                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.8_wp, 270.0_wp,  0.29_wp, 1._wp, & ! mixed broadleaved and needleleaved forest
+                   &   1.00_wp,  0.8_wp,  5.0_wp,0.75_wp, 300.0_wp,  0.27_wp, 1._wp, & ! closed needleleaved evergreen forest
+                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 300.0_wp,  0.33_wp, 1._wp, & ! open needleleaved evergreen or deciduous forest
+                   &   1.00_wp,  0.9_wp,  5.0_wp, 1.0_wp, 270.0_wp,  0.29_wp, 1._wp, & ! mixed broadleaved and needleleaved forest
                    &   0.20_wp,  0.8_wp,  2.5_wp, 1.1_wp, 170.0_wp,  0.60_wp, 1._wp, & ! mosaic shrubland (50-70%) - grassland (20-50%)
                    &   0.20_wp,  0.8_wp,  2.5_wp, 0.9_wp, 170.0_wp,  0.65_wp, 1._wp, & ! mosaic grassland (50-70%) - shrubland (20-50%)
                    &   0.15_wp,  0.8_wp,  2.5_wp, 1.5_wp, 180.0_wp,  0.65_wp, 1._wp, & ! closed to open shrubland
@@ -1093,6 +1101,11 @@ CONTAINS
             CALL read_extdata('T_SEA', arr3d=ext_data(jg)%atm_td%sst_m)
           ENDIF
 
+          IF (itype_vegetation_cycle > 1) THEN
+            CALL read_extdata('T_2M_CLIM', arr3d=ext_data(jg)%atm_td%t2m_m)
+            CALL read_extdata('TOPO_CLIM',   ext_data(jg)%atm%topo_t2mclim)
+          ENDIF
+
           !--------------------------------
           ! If MODIS albedo is used
           !--------------------------------
@@ -1248,9 +1261,6 @@ CONTAINS
         ENDIF ! pe
 
         CALL p_bcast(zdummy_o3lev(:), p_io, mpi_comm)
-
-        !         SELECT CASE (iequations)
-        !         CASE(ihs_atm_temp,ihs_atm_theta)
 
         DO jk=1,nlev_o3
           ext_data(jg)%atm_td%pfoz(jk)=zdummy_o3lev(jk)
@@ -1938,6 +1948,9 @@ CONTAINS
 
     END DO  !jg
 
+    IF (itype_vegetation_cycle == 2) THEN
+      CALL vege_clim (p_patch, ext_data)
+    ENDIF
 
 
     ! Diagnose aggregated external parameter fields
@@ -2090,12 +2103,13 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2013-05-03)
   !! Generalization to arbitrary monthly mean climatologies
   !!
-  SUBROUTINE interpol_monthly_mean(p_patch, mtime_date, monthly_means, out_field)
+  SUBROUTINE interpol_monthly_mean(p_patch, mtime_date, monthly_means, out_field, out_diff)
 
     TYPE(datetime),   POINTER      :: mtime_date
     TYPE(t_patch),     INTENT(IN)  :: p_patch
     REAL(wp),          INTENT(IN)  :: monthly_means(:,:,:)  ! monthly mean climatology
     REAL(wp),          INTENT(OUT) :: out_field(:,:)        ! interpolated output field
+    REAL(wp), OPTIONAL,INTENT(OUT) :: out_diff(:,:)         ! difference between adjacent monthly means
 
     INTEGER                             :: jc, jb               !< loop index
     INTEGER                             :: i_startblk, i_endblk
@@ -2163,11 +2177,163 @@ CONTAINS
         out_field(jc,jb) = zw1*monthly_means(jc,jb,mo1) &
           &              + zw2*monthly_means(jc,jb,mo2)
       ENDDO
+      IF (PRESENT(out_diff)) THEN
+        DO jc = i_startidx, i_endidx
+          out_diff(jc,jb) = monthly_means(jc,jb,mo2) - monthly_means(jc,jb,mo1)
+        ENDDO
+      ENDIF
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
 
   END SUBROUTINE interpol_monthly_mean
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Improves specifiation of vegetation climatology based on monthly climatology
+  !! of 2m-temperature. In particular, a distinction between deciduous and evergreen
+  !! vegetation classes is made.
+  !!
+  !! @par Revision History
+  !! Initial revision by Guenther Zaengl, DWD (2017-10-30)
+  !!
+  SUBROUTINE vege_clim (p_patch, ext_data)
+
+    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
+
+    INTEGER  :: jg,jb,jt,ic,jc,i
+    INTEGER  :: rl_start, rl_end
+    INTEGER  :: i_startblk, i_endblk,i_startidx, i_endidx
+    INTEGER  :: i_count,ilu
+
+    REAL(wp) :: t2mclim_hc(nproma),t_asyfac(nproma),tdiff_norm,wfac,dtdz_clim,trans_width
+    REAL(wp), DIMENSION(num_lcc) :: laimin,threshold_temp,temp_asymmetry,rd_fac
+
+    INTEGER, PARAMETER :: nparam = 4  ! Number of parameters used in lookup table 
+
+    REAL(wp), DIMENSION(num_lcc*nparam), TARGET :: vege_table ! < lookup table with control parameter specifications
+
+    !-------------------------------------------------------------------------
+
+    !                 lai_min   T_thresh   T_asy    rd_fac
+    DATA vege_table /  0.5_wp,  282.0_wp,  2.0_wp,  5.0_wp,   & ! 1 - irrigated croplands
+                   &   0.5_wp,  282.0_wp,  2.0_wp,  5.0_wp,   & ! 2 - rainfed croplands
+                   &   0.7_wp,  280.0_wp,  1.0_wp,  4.0_wp,   & ! 3 - mosaic cropland (50-70%) - vegetation (20-50%)
+                   &   0.7_wp,  280.0_wp,  1.0_wp,  3.0_wp,   & ! 4 - mosaic vegetation (50-70%) - cropland (20-50%)
+                   &   5.0_wp,  281.0_wp,  0.0_wp,  1.0_wp,   & ! 5 - closed broadleaved evergreen forest
+                   &   0.5_wp,  281.0_wp,  1.5_wp,  1.0_wp,   & ! 6 - closed broadleaved deciduous forest
+                   &   0.5_wp,  281.0_wp,  1.0_wp,  1.0_wp,   & ! 7 - open broadleaved deciduous forest
+                   &   3.0_wp,  280.0_wp,  0.5_wp,  1.0_wp,   & ! 8 - closed needleleaved evergreen forest
+                   &   1.5_wp,  280.0_wp,  0.5_wp,  1.0_wp,   & ! 9 - open needleleaved evergreen or deciduous forest
+                   &   1.5_wp,  281.0_wp,  1.0_wp,  1.0_wp,   & ! 10- mixed broadleaved and needleleaved forest
+                   &   1.0_wp,  278.0_wp,  0.0_wp,  1.0_wp,   & ! 11- mosaic shrubland (50-70%) - grassland (20-50%)
+                   &   1.0_wp,  278.0_wp,  0.0_wp,  1.0_wp,   & ! 12- mosaic grassland (50-70%) - shrubland (20-50%)
+                   &   1.5_wp,  278.0_wp,  0.0_wp,  1.0_wp,   & ! 13- closed to open shrubland
+                   &   1.0_wp,  278.0_wp,  0.0_wp,  1.0_wp,   & ! 14- closed to open herbaceous vegetation
+                   &   0.3_wp,  278.0_wp,  0.0_wp,  1.0_wp,   & ! 15- sparse vegetation
+                   &   5.0_wp,  280.0_wp,  0.0_wp,  1.0_wp,   & ! 16- closed to open forest regulary flooded
+                   &   5.0_wp,  280.0_wp,  0.0_wp,  1.0_wp,   & ! 17- closed forest or shrubland permanently flooded
+                   &   1.0_wp,  278.0_wp,  0.0_wp,  1.0_wp,   & ! 18- closed to open grassland regularly flooded
+                   &   1.0_wp,  280.0_wp,  0.0_wp,  1.0_wp,   & ! 19- artificial surfaces
+                   &   0.2_wp,  280.0_wp,  0.0_wp,  1.0_wp,   & ! 20- bare areas
+                   &   0.0_wp,    0.0_wp,  0.0_wp,  1.0_wp,   & ! 21- water bodies
+                   &   0.0_wp,    0.0_wp,  0.0_wp,  1.0_wp,   & ! 22- permanent snow and ice
+                   &   0.0_wp,    0.0_wp,  0.0_wp,  1.0_wp    / ! 23- undefined
+
+    !-------------------------------------------------------------------------
+
+    CALL message('','Modify NDVI-based plant cover properties using T2M climatology')
+
+    ! store table values according to landuse class
+    ilu = 0
+    DO i = 1, num_lcc*nparam, nparam
+      ilu=ilu+1
+      laimin(ilu)         = vege_table(i)
+      threshold_temp(ilu) = vege_table(i+1)
+      temp_asymmetry(ilu) = vege_table(i+2)
+      rd_fac(ilu)         = vege_table(i+3)
+    ENDDO
+
+    ! climatological temperature gradient used for height correction of coarse input data
+    dtdz_clim = -5.e-3_wp  ! -5 K/km
+
+    ! transition width for temperature-dependent tai limitation
+    trans_width = 2.5_wp
+
+    DO jg = 1, n_dom
+
+      ! exclude the boundary interpolation zone of nested domains
+      rl_start = grf_bdywidth_c+1
+      rl_end   = min_rlcell_int
+
+      i_startblk = p_patch(jg)%cells%start_block(rl_start)
+      i_endblk   = p_patch(jg)%cells%end_block(rl_end)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jt,ic,i_startidx,i_endidx,i_count,jc,ilu,t2mclim_hc,t_asyfac,tdiff_norm,wfac)
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+          & i_startidx, i_endidx, rl_start, rl_end)
+
+        ! height-corrected climatological 2m-temperature
+        DO jc = i_startidx, i_endidx
+          t2mclim_hc(jc) = ext_data(jg)%atm%t2m_clim(jc,jb) + dtdz_clim * &
+            (ext_data(jg)%atm%topography_c(jc,jb) - ext_data(jg)%atm%topo_t2mclim(jc,jb))
+          t_asyfac(jc) = SIGN(MIN(1._wp,ABS(ext_data(jg)%atm%t2m_climgrad(jc,jb))/2.5_wp), &
+                             -1._wp*ext_data(jg)%atm%t2m_climgrad(jc,jb))
+        ENDDO
+
+        DO jt = 1, ntiles_total
+          i_count = ext_data(jg)%atm%lp_count_t(jb,jt)
+          IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
+
+          DO ic = 1, i_count
+            jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+
+            ilu = ext_data(jg)%atm%lc_class_t(jc,jb,jt)
+
+            ! modification of tai/sai
+            tdiff_norm = (t2mclim_hc(jc) - (threshold_temp(ilu)+t_asyfac(jc)*temp_asymmetry(ilu)) ) / trans_width
+            tdiff_norm = MIN(1._wp,MAX(-1._wp,tdiff_norm))
+
+            wfac = 0.5_wp*(1._wp + tdiff_norm) ! weighting factor of original ndvi-based tai specification
+
+            ext_data(jg)%atm%tai_t(jc,jb,jt) = MIN(ext_data(jg)%atm%tai_t(jc,jb,jt), &
+              wfac*ext_data(jg)%atm%tai_t(jc,jb,jt) + (1._wp-wfac)*laimin(ilu) )
+
+            ext_data(jg)%atm%laifac_t(jc,jb,jt) = &
+              (wfac*ext_data(jg)%atm%laimax_lcc(ilu) + (1._wp-wfac)*laimin(ilu))/MAX(0.01_wp,ext_data(jg)%atm%laimax_lcc(ilu))
+
+            ext_data(jg)%atm%sai_t(jc,jb,jt) = c_lnd+ext_data(jg)%atm%tai_t(jc,jb,jt)
+
+
+            ! modification of root depth
+            ext_data(jg)%atm%rootdp_t(jc,jb,jt) = ext_data(jg)%atm%rootdmax_lcc(ilu) ! reset to table-based value
+
+            IF (t2mclim_hc(jc) <= threshold_temp(ilu)-temp_asymmetry(ilu)) THEN
+              ext_data(jg)%atm%rootdp_t(jc,jb,jt) = ext_data(jg)%atm%rootdp_t(jc,jb,jt)/rd_fac(ilu)
+            ELSE IF (t2mclim_hc(jc) <= threshold_temp(ilu)+temp_asymmetry(ilu)+trans_width .AND. &
+                     ext_data(jg)%atm%t2m_climgrad(jc,jb) > 0._wp) THEN
+              wfac = (t2mclim_hc(jc)-(threshold_temp(ilu)-temp_asymmetry(ilu)))/(2._wp*temp_asymmetry(ilu)+trans_width)
+              ext_data(jg)%atm%rootdp_t(jc,jb,jt) = ext_data(jg)%atm%rootdp_t(jc,jb,jt)*(wfac + (1._wp-wfac)/rd_fac(ilu))
+            ELSE IF (t2mclim_hc(jc) <= threshold_temp(ilu)+trans_width .AND. &
+                     ext_data(jg)%atm%t2m_climgrad(jc,jb) <= 0._wp) THEN
+              wfac = (t2mclim_hc(jc)-(threshold_temp(ilu)-temp_asymmetry(ilu)))/(temp_asymmetry(ilu)+trans_width)
+              ext_data(jg)%atm%rootdp_t(jc,jb,jt) = ext_data(jg)%atm%rootdp_t(jc,jb,jt)*(wfac + (1._wp-wfac)/rd_fac(ilu))
+            ENDIF
+          ENDDO
+        ENDDO
+
+      ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+    ENDDO  !jg
+
+  END SUBROUTINE vege_clim
 
 END MODULE mo_ext_data_init
 
