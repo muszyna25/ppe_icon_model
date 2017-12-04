@@ -281,6 +281,14 @@ MODULE mo_meteogram_output
     REAL(wp), ALLOCATABLE :: tile_frac(:,:)
     !> tile specific landuse classes
     INTEGER, ALLOCATABLE :: tile_luclass(:,:)
+    !> soil type
+    INTEGER, ALLOCATABLE :: soiltype(:)
+    !> surface height
+    REAL(wp), ALLOCATABLE :: hsurf(:)
+    !> fraction of land
+    REAL(wp), ALLOCATABLE :: frland(:)
+    !> Coriolis parameter
+    REAL(wp), ALLOCATABLE :: fc(:)
   END TYPE t_mtgrm_invariants
   !>
   !! Data structure containing meteogram data and meta info for a
@@ -302,11 +310,6 @@ MODULE mo_meteogram_output
     INTEGER                         :: tri_idx(2) = -1
     !> triangle index (idx,block)
     INTEGER                         :: tri_idx_local(2) = -1
-    REAL(wp)                        :: hsurf            !< surface height
-    REAL(wp)                        :: frland           !< fraction of land
-    REAL(wp)                        :: fc               !< Coriolis parameter
-    INTEGER                         :: soiltype         !< soil type
-
 
     ! Buffers for currently stored meteogram values.
     !> sampled data (1:nvars)
@@ -1383,6 +1386,10 @@ CONTAINS
     ALLOCATE(mtgrm(jg)%istep(max_time_stamps), &
       invariants%tile_frac(ntiles_mtgrm, nstations_buf), &
       invariants%tile_luclass(ntiles_mtgrm, nstations_buf), &
+      invariants%soiltype(nstations_buf), &
+      invariants%fc(nstations_buf), &
+      invariants%frland(nstations_buf), &
+      invariants%hsurf(nstations_buf), &
       mtgrm(jg)%zdate(max_time_stamps), stat=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, &
       'ALLOCATE of meteogram time stamp data structure failed')
@@ -1608,7 +1615,7 @@ CONTAINS
     station%tri_idx(1) = idx_no(glb_index)
     station%tri_idx(2) = blk_no(glb_index)
     ! set Coriolis parameter for station
-    station%fc = cells%f_c(tri_idx1, tri_idx2)
+    invariants%fc(istation_buf) = cells%f_c(tri_idx1, tri_idx2)
 
     CALL allocate_station_buffer(station, var_info, sfc_var_info, &
       out_buf, istation_buf)
@@ -1616,9 +1623,11 @@ CONTAINS
     ! set station information on height, soil type etc.:
     SELECT CASE ( iforcing )
     CASE ( inwp ) ! NWP physics
-      station%hsurf    =  atm%topography_c(tri_idx1, tri_idx2)
-      station%frland   =  atm%fr_land(tri_idx1, tri_idx2)
-      station%soiltype =  atm%soiltyp(tri_idx1, tri_idx2)
+      invariants%hsurf(istation_buf) &
+        &              =  atm%topography_c(tri_idx1, tri_idx2)
+      invariants%frland(istation_buf) &
+        &              =  atm%fr_land(tri_idx1, tri_idx2)
+      invariants%soiltype(istation_buf) =  atm%soiltyp(tri_idx1, tri_idx2)
       !
       invariants%tile_frac(:, istation_buf) &
         &              = atm%lc_frac_t(tri_idx1, tri_idx2, 1:ntiles_mtgrm)
@@ -1626,9 +1635,9 @@ CONTAINS
         &              = atm%lc_class_t(tri_idx1, tri_idx2, 1:ntiles_mtgrm)
 
     CASE DEFAULT
-      station%hsurf    =  0._wp
-      station%frland   =  0._wp
-      station%soiltype =  0
+      invariants%hsurf(istation_buf)    =  0._wp
+      invariants%frland(istation_buf)   =  0._wp
+      invariants%soiltype(istation_buf) =  0
       !
       invariants%tile_frac(:, istation_buf) = 0._wp
       invariants%tile_luclass(:, istation_buf) = 0
@@ -2534,14 +2543,6 @@ CONTAINS
       &                     station%tri_idx(1)), routine)
     CALL nf(nf_put_vara_int(ncfile, ncid%station_blk, istation, 1, &
       &                     station%tri_idx(2)), routine)
-    CALL nf(nf_put_vara_double(ncfile, ncid%station_hsurf, &
-      &                        istation, 1, station%hsurf), routine)
-    CALL nf(nf_put_vara_double(ncfile, ncid%station_frland, &
-      &                        istation, 1, station%frland), routine)
-    CALL nf(nf_put_vara_double(ncfile, ncid%station_fc, &
-      &                        istation, 1, station%fc), routine)
-    CALL nf(nf_put_vara_int(ncfile, ncid%station_soiltype, &
-      &                     istation, 1, station%soiltype), routine)
   END SUBROUTINE put_station_invariants
 
   SUBROUTINE put_invariants(ncid, var_info, invariants)
@@ -2573,6 +2574,18 @@ CONTAINS
       &     routine)
     CALL nf(nf_put_vara_int(ncid%file_id, ncid%station_tile_luclass, &
       &                     istart(1:2), icount(1:2), invariants%tile_luclass),&
+      &     routine)
+    CALL nf(nf_put_vara_int(ncid%file_id, ncid%station_soiltype, &
+      &                     istart(2:2), icount(2:2), invariants%soiltype), &
+      &     routine)
+    CALL nf(nf_put_vara_double(ncid%file_id, ncid%station_hsurf, &
+      &                        istart(2:2), icount(2:2), invariants%hsurf), &
+      &     routine)
+    CALL nf(nf_put_vara_double(ncid%file_id, ncid%station_frland, &
+      &                        istart(2:2), icount(2:2), invariants%frland), &
+      &    routine)
+    CALL nf(nf_put_vara_double(ncid%file_id, ncid%station_fc, &
+      &                        istart(2:2), icount(2:2), invariants%fc), &
       &     routine)
   END SUBROUTINE put_invariants
 
@@ -3150,10 +3163,10 @@ CONTAINS
     nvars = SIZE(var_info)
     DO istation = 1, nstations
       pos = num_time_inv + 2 * ntiles
-      buf(1,istation) = station(istation)%hsurf
-      buf(2,istation) = station(istation)%frland
-      buf(3,istation) = station(istation)%fc
-      buf(4,istation) = REAL(station(istation)%soiltype, wp)
+      buf(1,istation) = invariants%hsurf(istation)
+      buf(2,istation) = invariants%frland(istation)
+      buf(3,istation) = invariants%fc(istation)
+      buf(4,istation) = REAL(invariants%soiltype(istation), wp)
       buf(5:6,istation) = REAL(station(istation)%tri_idx, wp)
       buf(7:6+ntiles,istation) = invariants%tile_frac(:,istation)
       buf(7+ntiles:6+2*ntiles,istation) &
@@ -3198,10 +3211,6 @@ CONTAINS
           TAG_VARLIST+istation, comm=io_collect_comm)
       ELSE IF (iowner == p_pe_work) THEN
         istation_local = istation_local + 1
-        station(istation)%hsurf = local_station(istation_local)%hsurf
-        station(istation)%frland = local_station(istation_local)%frland
-        station(istation)%fc = local_station(istation_local)%fc
-        station(istation)%soiltype = local_station(istation_local)%soiltype
         station(istation)%tri_idx = local_station(istation_local)%tri_idx
       END IF
     END DO
@@ -3210,10 +3219,10 @@ CONTAINS
       iowner = pstation(istation)
       IF ((is_pure_io_pe .OR. iowner /= p_pe_work) .AND. iowner >= 0) THEN
         pos = num_time_inv + 2*ntiles
-        station(istation)%hsurf = buf(1,istation)
-        station(istation)%frland = buf(2,istation)
-        station(istation)%fc = buf(3,istation)
-        station(istation)%soiltype = INT(buf(4,istation))
+        invariants%hsurf(istation) = buf(1,istation)
+        invariants%frland(istation) = buf(2,istation)
+        invariants%fc(istation) = buf(3,istation)
+        invariants%soiltype(istation) = INT(buf(4,istation))
         station(istation)%tri_idx = INT(buf(5:6,istation))
         invariants%tile_frac(:,istation) = buf(7:6+ntiles,istation)
         invariants%tile_luclass(:,istation) &
