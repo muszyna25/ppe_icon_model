@@ -20,6 +20,7 @@
 MODULE mo_nwp_tuning_config
 
   USE mo_kind,               ONLY: wp
+  USE mo_impl_constants,     ONLY: max_dom
 
 
   IMPLICIT NONE
@@ -58,16 +59,16 @@ MODULE mo_nwp_tuning_config
 
     ! namelist variables
   REAL(wp) :: &                    !< low level wake drag constant
-    &  tune_gkwake
+    &  tune_gkwake(max_dom)
 
   REAL(wp) :: &                    !< gravity wave drag constant
-    &  tune_gkdrag
+    &  tune_gkdrag(max_dom)
 
   REAL(wp) :: &                    !< critical Froude number in SSO scheme
-    &  tune_gfrcrit
+    &  tune_gfrcrit(max_dom)
 
   REAL(wp) :: &                    !< critical Richardson number in SSO scheme
-    &  tune_grcrit
+    &  tune_grcrit(max_dom)
 
   REAL(wp) :: &                    !< total launch momentum flux in each azimuth (rho_o x F_o)
     &  tune_gfluxlaun

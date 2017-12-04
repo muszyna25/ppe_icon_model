@@ -151,6 +151,7 @@ CONTAINS
           & ke1       =nlevp1                           ,  & !< in:  ke + 1
           & istart    =i_startidx                       ,  & !< in:  start index of calculation
           & iend      =i_endidx                         ,  & !< in:  end index of calculation
+          & params    =phy_params(jg)                   ,  & !< in:  level indices and tuning parameters
           & ppf       =p_diag%pres              (:,:,jb),  & !< in:  full level pressure
           & pph       =p_diag%pres_ifc          (:,:,jb),  & !< in:  half level pressure
           & pfif      =p_metrics%geopot_agl     (:,:,jb),  & !< in:  full level geopotential height
@@ -204,9 +205,7 @@ CONTAINS
           & klev      =nlev                             ,  & !< in:  actual array size
           & kidia     =i_startidx                       ,  & !< in:  start index of calculation
           & kfdia     =i_endidx                         ,  & !< in:  end index of calculation
-          & ngwdlim   =phy_params(jg)%ngwdlim           ,  & !< in:  SSO parameter: level for limit of tendencies
-          & ngwdtop   =phy_params(jg)%ngwdtop           ,  & !< in:  SSO parameter: Rayleigh friction level
-          & nktopg    =phy_params(jg)%nktopg            ,  & !< in:  SSO parameter: level to define low-level flow
+          & params    =phy_params(jg)                   ,  & !< in:  level indices and tuning parameters
           & papm1     =p_diag%pres              (:,:,jb),  & !< in:  full level pressure
           & paphm1    =p_diag%pres_ifc          (:,:,jb),  & !< in:  half level pressure
           & pgeom1    =p_metrics%geopot_agl     (:,:,jb),  & !< in:  full level geopotential height

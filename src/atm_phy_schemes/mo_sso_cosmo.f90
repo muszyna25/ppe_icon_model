@@ -184,6 +184,8 @@ USE mo_physical_constants , ONLY :   &
     cp_d  => cpd  , & ! specific heat of dry air at constant pressure
     g     => grav     ! acceleration due to gravity
 
+USE mo_nwp_parameters,  ONLY: t_phy_params
+
 ! end of mo_physical_constants
 
 #endif
@@ -200,7 +202,6 @@ PRIVATE
 !------------------------------------------------------------------------------
 
 PUBLIC :: sso
-PUBLIC :: sso_cosmo_init_param
 
 !==============================================================================
 
@@ -213,7 +214,6 @@ REAL (KIND = ireals) ::      &
 !
 ! Tunable parameters
 ! ------------------
-! Gkdrag  = 0.30          , &   ! gw drag constant (Original ECMWF value)
   Gkdrag                  , &   ! gw drag constant (set in mo_nwp_tuning_nml)
   Gkwake                  , &   ! gw drag constant (set in mo_nwp_tuning_nml)
   Grcrit                  , &   ! critical Richardson number (set in mo_nwp_tuning_nml)
@@ -348,7 +348,7 @@ SUBROUTINE sso (                                                       &
            ie     , ke     , ke1    ,  istart  , iend   ,              &
            ppf    , pph    , pfif   , pt       , pu , pv  , pfis     , &
            psso_stdh, psso_gamma, psso_theta, psso_sigma,              &
-           pdt    , mkenvh,                                            &
+           pdt    , mkenvh, params,                                    &
            ldebug ,                                                    &
            pdu_sso, pdv_sso, pdt_sso, pustr_sso, pvstr_sso, pvdis_sso  )
 
@@ -396,6 +396,9 @@ SUBROUTINE sso (                                                       &
       INTEGER, INTENT(IN) ::  &
       istart    ,    & ! start index for first (zonal) direction
       iend             ! end index for first (zonal) direction
+
+      ! Tuning parameters
+      TYPE(t_phy_params),INTENT(in)    :: params
 
 !     Grid scale variables
 !     --------------------
@@ -507,6 +510,13 @@ SUBROUTINE sso (                                                       &
 !     REAL(KIND=ireals) :: zust,zvst
 
       INTEGER j1,j3      ! loop indices
+
+!     Set tuning parameters
+      Gkdrag  = params%Gkdrag
+      Gkwake  = params%Gkwake
+      Grcrit  = params%Grcrit
+      Gfrcrit = params%Gfrcrit
+
 
 !     Timestep is already set for 2TL or 3TL scheme, respectively,
 !     in calling routine organize_sso.
@@ -1495,48 +1505,6 @@ SUBROUTINE gw_profil(                                    &
 
 END SUBROUTINE gw_profil
 
-
-  !>
-  !! Initialize tuning parameter for the SSO scheme
-  !!
-  !! Tuning parameter, which are read from Namelist are initialized here.
-  !! Others, which are not read from Namelist are initialized at the module 
-  !! top. 
-  !!
-  !! @par Revision History
-  !! Initilai revision by Daniel Reinert, DWD (2014-09-25)
-  !!
-  SUBROUTINE sso_cosmo_init_param (tune_gkwake, tune_gkdrag, tune_gfrcrit, tune_grcrit)
-    REAL(KIND=ireals), INTENT(IN), OPTIONAL :: tune_gkwake   ! tuning parameter read from nml
-    REAL(KIND=ireals), INTENT(IN), OPTIONAL :: tune_gkdrag   ! tuning parameter read from nml
-    REAL(KIND=ireals), INTENT(IN), OPTIONAL :: tune_gfrcrit  ! tuning parameter read from nml
-    REAL(KIND=ireals), INTENT(IN), OPTIONAL :: tune_grcrit   ! tuning parameter read from nml
-
-    IF (PRESENT(tune_gkwake)) THEN
-      gkwake = tune_gkwake     !< low level wake drag constant (set in mo_nwp_tuning_nml)
-    ELSE
-      gkwake = 1.5_ireals     !< COSMO default 0.5
-    ENDIF
-
-    IF (PRESENT(tune_gkdrag)) THEN
-      gkdrag = tune_gkdrag     !< gravity wave drag constant (set in mo_nwp_tuning_nml)
-    ELSE
-      gkdrag = 0.075_ireals    !< COSMO default 0.075
-    ENDIF
-
-    IF (PRESENT(tune_gfrcrit)) THEN
-      gfrcrit = tune_gfrcrit    !< critical Froude number (set in mo_nwp_tuning_nml)
-    ELSE
-      gfrcrit = 0.4_ireals      !< COSMO default 0.5
-    ENDIF
-
-    IF (PRESENT(tune_grcrit)) THEN
-      grcrit = tune_grcrit    !< critical Froude number (set in mo_nwp_tuning_nml)
-    ELSE
-      grcrit = 0.25_ireals    !< COSMO default 0.25
-    ENDIF
-
-  END SUBROUTINE sso_cosmo_init_param
 
 !------------------------------------------------------------------------------
 ! End of module mo_sso_cosmo

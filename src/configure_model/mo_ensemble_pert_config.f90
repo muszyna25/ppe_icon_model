@@ -168,11 +168,11 @@ MODULE mo_ensemble_pert_config
       CALL RANDOM_NUMBER(rnd_num)
       ! perturbations for gkwake and gfrcrit must be correlated
       ! (for gfrcrit, a higher value means a thinner blocking layer)
-      tune_gkwake  = tune_gkwake  + 2._wp*(rnd_num-0.5_wp)*range_gkwake
-      tune_gfrcrit = tune_gfrcrit + 2._wp*(rnd_num-0.5_wp)*range_gfrcrit
+      tune_gkwake(1:max_dom)  = tune_gkwake(1:max_dom)  + 2._wp*(rnd_num-0.5_wp)*range_gkwake
+      tune_gfrcrit(1:max_dom) = tune_gfrcrit(1:max_dom) + 2._wp*(rnd_num-0.5_wp)*range_gfrcrit
 
       CALL RANDOM_NUMBER(rnd_num)
-      tune_gkdrag = tune_gkdrag + 2._wp*(rnd_num-0.5_wp)*range_gkdrag
+      tune_gkdrag(1:max_dom) = tune_gkdrag(1:max_dom) + 2._wp*(rnd_num-0.5_wp)*range_gkdrag
 
       CALL RANDOM_NUMBER(rnd_num)
       ! perturbations for zvz0i and entrorg must be anticorrelated

@@ -22,6 +22,7 @@ MODULE mo_nwp_tuning_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_io_units,            ONLY: nnml, nnml_output
+  USE mo_impl_constants,      ONLY: max_dom
   USE mo_master_config,       ONLY: isRestart
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
@@ -63,16 +64,16 @@ MODULE mo_nwp_tuning_nml
   !-----------------------------------!
 
   REAL(wp) :: &                    !< low level wake drag constant
-    &  tune_gkwake
+    &  tune_gkwake(max_dom)
 
   REAL(wp) :: &                    !< gravity wave drag constant
-    &  tune_gkdrag
+    &  tune_gkdrag(max_dom)
 
   REAL(wp) :: &                    !< critical Froude number in SSO scheme
-    &  tune_gfrcrit
+    &  tune_gfrcrit(max_dom)
 
   REAL(wp) :: &                    !< critical Richardson number in SSO scheme
-    &  tune_grcrit
+    &  tune_grcrit(max_dom)
 
   REAL(wp) :: &                    !< total launch momentum flux in each azimuth (rho_o x F_o)
     &  tune_gfluxlaun
@@ -167,7 +168,9 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
-    INTEGER :: iunit
+    INTEGER :: iunit, jg
+
+    REAL(wp) :: gkwake_def, gkdrag_def, gfrcrit_def, grcrit_def
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_nwp_tuning_nml: read_tuning_namelist'
@@ -181,10 +184,15 @@ CONTAINS
     ! while the second one is the standard deviation. 
 
     ! SSO tuning
-    tune_gkwake     = 1.5_wp       ! original COSMO value 0.5
-    tune_gkdrag     = 0.075_wp     ! original COSMO value 0.075
-    tune_gfrcrit    = 0.4_wp       ! original COSMO value 0.5
-    tune_grcrit     = 0.25_wp      ! original COSMO value 0.25
+    gkwake_def  = 1.5_wp       ! original COSMO value 0.5
+    gkdrag_def  = 0.075_wp     ! original COSMO value 0.075
+    gfrcrit_def = 0.4_wp       ! original COSMO value 0.5
+    grcrit_def  = 0.25_wp      ! original COSMO value 0.25
+
+    tune_gkwake(:)  = gkwake_def
+    tune_gkdrag(:)  = gkdrag_def
+    tune_gfrcrit(:) = gfrcrit_def
+    tune_grcrit(:)  = grcrit_def
     !
     ! GWD tuning
     tune_gfluxlaun  = 2.50e-3_wp   ! original IFS value 3.75e-3
@@ -223,6 +231,10 @@ CONTAINS
     ! IAU increment tuning
     max_freshsnow_inc = 0.025_wp   ! maximum allowed positive freshsnow increment
 
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, nwp_tuning_nml)   ! write defaults to temporary text file
+    END IF
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -239,13 +251,32 @@ CONTAINS
     !--------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nwp_tuning_nml', STATUS=istat)
-    IF (my_process_is_stdio()) THEN
-      iunit = temp_defaults()
-      WRITE(iunit, nwp_tuning_nml)   ! write defaults to temporary text file
-    END IF
+
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, nwp_tuning_nml)             ! overwrite default settings
+
+      ! Set array parameters to dummy values to determine which ones are actively set in the namelist
+      tune_gkwake(:)  = -1._wp
+      tune_gkdrag(:)  = -1._wp
+      tune_gfrcrit(:) = -1._wp
+      tune_grcrit(:)  = -1._wp
+
+      READ (nnml, nwp_tuning_nml)    ! overwrite default settings
+
+      ! Reset first element to default values if not specified in the namelist
+      IF (tune_gkwake(1)  < 0._wp) tune_gkwake(1)  = gkwake_def
+      IF (tune_gkdrag(1)  < 0._wp) tune_gkdrag(1)  = gkdrag_def
+      IF (tune_gfrcrit(1) < 0._wp) tune_gfrcrit(1) = gfrcrit_def
+      IF (tune_grcrit(1)  < 0._wp) tune_grcrit(1)  = grcrit_def
+
+      ! Fill remaining array elements with entry of parent domain if not specified in the namelist
+      DO jg = 2, max_dom
+        IF (tune_gkwake(jg)  < 0._wp) tune_gkwake(jg)  = tune_gkwake(jg-1)
+        IF (tune_gkdrag(jg)  < 0._wp) tune_gkdrag(jg)  = tune_gkdrag(jg-1)
+        IF (tune_gfrcrit(jg) < 0._wp) tune_gfrcrit(jg) = tune_gfrcrit(jg-1)
+        IF (tune_grcrit(jg)  < 0._wp) tune_grcrit(jg)  = tune_grcrit(jg-1)
+      ENDDO
+
       IF (my_process_is_stdio()) THEN
         iunit = temp_settings()
         WRITE(iunit, nwp_tuning_nml)    ! write settings to temporary text file

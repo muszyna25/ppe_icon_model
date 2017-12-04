@@ -1933,7 +1933,7 @@ IF (lhook) CALL dr_hook('SUCUMF',1,zhook_handle)
 !------------------------------------------------------------------------------
 
 
-  SUBROUTINE SUGWD(KLEV,pmean,phy_params)
+  SUBROUTINE SUGWD(KLEV,pmean,phy_params,jg)
   
   !**** *SUGWD* INITIALIZE COMMON YOEGWD CONTROLLING GRAVITY WAVE DRAG
   
@@ -1992,6 +1992,7 @@ IF (lhook) CALL dr_hook('SUCUMF',1,zhook_handle)
 
   TYPE(t_phy_params), INTENT(inout) :: phy_params
   REAL(KIND=jprb)   , INTENT(in)    :: pmean(klev)
+  INTEGER           , INTENT(in)    :: jg
 
   !      ----------------------------------------------------------------
   
@@ -2047,17 +2048,11 @@ IF (lhook) CALL dr_hook('SUCUMF',1,zhook_handle)
     ENDIF
   ENDDO
   
-  !GKDRAG =0.3_JPRB
-  !GKWAKE =1._JPRB
-  !  Revised gwd parameter values
-  GKDRAG = tune_gkdrag
-  GKWAKE = tune_gkwake
-
-  !38r2
-  !GKWAKE =1.3_JPRB
-  
-  GRCRIT  = tune_grcrit
-  GFRCRIT = tune_gfrcrit
+  ! SSO tuning parameters
+  phy_params%gkdrag  = tune_gkdrag(jg)
+  phy_params%gkwake  = tune_gkwake(jg)
+  phy_params%grcrit  = tune_grcrit(jg)
+  phy_params%gfrcrit = tune_gfrcrit(jg)
   
   !      ----------------------------------------------------------------
   
