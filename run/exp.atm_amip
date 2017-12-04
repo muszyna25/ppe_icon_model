@@ -74,16 +74,17 @@ lnd_namelist=NAMELIST_${EXPNAME}_lnd
 
 # JSBACH settings
 run_jsbach=yes
-jsbach_with_hd=no
-jsbach_with_lakes=yes
 jsbach_usecase=jsbach_lite    # jsbach_lite or jsbach_pfts
+jsbach_with_lakes=yes
+jsbach_with_hd=no
+jsbach_with_carbon=no         # yes needs jsbach_pfts usecase
 jsbach_check_wbal=no          # check water balance
 output_lnd=min                # amount of output: min/full/no
 #
-[[ $jsbach_with_lakes == yes ]] || jsbach_usecase=${jsbach_usecase}_nolake
-[[ $jsbach_with_hd == yes ]] && jsbach_usecase=${jsbach_usecase}_with_hd
 ljsbach=$([ "${run_jsbach:=no}" == yes ] && echo .TRUE. || echo .FALSE. )
 llake=$([ "${jsbach_with_lakes:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
+lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
+
 if [[ $jsbach_usecase == *pfts* ]]
 then
   pft_file_tag="11pfts_"
@@ -221,6 +222,7 @@ EOF
 cat > ${lnd_namelist} << EOF
 &jsb_model_nml
   usecase         = "${jsbach_usecase}"
+  use_lakes       = ${llake}
   fract_filename  = "bc_land_frac.nc"
   l_compat401     = .TRUE.              ! TRUE: overwrites some of the settings below
 /
@@ -261,6 +263,21 @@ cat > ${lnd_namelist} << EOF
   scheme          = 'climatology'       ! scheme = logrop / climatology; use climatology for jsbach_lite
   bc_filename     = 'bc_land_phys.nc'
   ic_filename     = 'ic_land_soil.nc'
+/
+&jsb_carbon_nml
+  active                 = ${lcarbon}
+  bc_filename            = 'bc_land_carbon.nc'
+  ic_filename            = 'ic_land_carbon.nc'
+  read_cpools            = .FALSE.
+  fuel_algorithm         = 0
+/
+&jsb_disturb_nml
+  active                  = ${lcarbon}
+  ic_filename             = 'ic_land_soil.nc'
+  bc_filename             = 'bc_land_phys.nc'
+  fire_algorithm          = 1
+  windbreak_algorithm     = 1
+  lburn_pasture           = .FALSE.
 /
 EOF
 if [[ ${jsbach_with_hd} = yes ]]; then
