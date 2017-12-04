@@ -289,7 +289,10 @@ MODULE mo_meteogram_output
     REAL(wp), ALLOCATABLE :: frland(:)
     !> Coriolis parameter
     REAL(wp), ALLOCATABLE :: fc(:)
+    !> triangle index (global idx,block)
+    INTEGER, ALLOCATABLE :: tri_idx(:,:)
   END TYPE t_mtgrm_invariants
+
   !>
   !! Data structure containing meteogram data and meta info for a
   !! single station.
@@ -306,8 +309,6 @@ MODULE mo_meteogram_output
     ! Meteogram header (information on location, ...)
     !> global index of station specification
     INTEGER                         :: station_idx
-    !> triangle index (global idx,block)
-    INTEGER                         :: tri_idx(2) = -1
     !> triangle index (idx,block)
     INTEGER                         :: tri_idx_local(2) = -1
 
@@ -1390,6 +1391,7 @@ CONTAINS
       invariants%fc(nstations_buf), &
       invariants%frland(nstations_buf), &
       invariants%hsurf(nstations_buf), &
+      invariants%tri_idx(nstations_buf,2), &
       mtgrm(jg)%zdate(max_time_stamps), stat=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, &
       'ALLOCATE of meteogram time stamp data structure failed')
@@ -1448,8 +1450,7 @@ CONTAINS
         ALLOCATE(mtgrm(jg)%meteogram_local_data%station(0))
       CALL recv_time_invariants(mtgrm(jg)%var_info, invariants, &
         mtgrm(jg)%meteogram_global_data%station, &
-        mtgrm(jg)%pstation, mtgrm(jg)%io_collect_comm, is_pure_io_pe, &
-        mtgrm(jg)%meteogram_local_data%station)
+        mtgrm(jg)%pstation, mtgrm(jg)%io_collect_comm, is_pure_io_pe)
     END IF IO_PE
 
     ! ------------------------------------------------------------
@@ -1612,8 +1613,8 @@ CONTAINS
     station%tri_idx_local(2) = tri_idx2
     ! translate local index to global index:
     glb_index = cells%decomp_info%glb_index(idx_1d(tri_idx1, tri_idx2))
-    station%tri_idx(1) = idx_no(glb_index)
-    station%tri_idx(2) = blk_no(glb_index)
+    invariants%tri_idx(istation_buf, 1) = idx_no(glb_index)
+    invariants%tri_idx(istation_buf, 2) = blk_no(glb_index)
     ! set Coriolis parameter for station
     invariants%fc(istation_buf) = cells%f_c(tri_idx1, tri_idx2)
 
@@ -2501,8 +2502,7 @@ CONTAINS
       IF (iowner >= 0) THEN
         station_idx = meteogram_data%station(istation)%station_idx
         CALL put_station_invariants(file_info%ncid, istation, &
-          output_config%station_list(station_idx), &
-          meteogram_data%station(istation))
+          output_config%station_list(station_idx))
       ELSE IF (dbg_level > 5) THEN
         WRITE (*,*) "skipping station!"
       END IF
@@ -2517,11 +2517,10 @@ CONTAINS
     END SUBROUTINE put_global_txt_att
   END SUBROUTINE meteogram_create_file
 
-  SUBROUTINE put_station_invariants(ncid, istation, station_cfg, station)
+  SUBROUTINE put_station_invariants(ncid, istation, station_cfg)
     TYPE(t_ncid), INTENT(in) :: ncid
     INTEGER, INTENT(in) :: istation
     TYPE(t_station_list), INTENT(in) :: station_cfg
-    TYPE(t_meteogram_station), INTENT(in) :: station
 
     INTEGER :: tlen, ncfile
     INTEGER :: istart(2), icount(2)
@@ -2539,10 +2538,6 @@ CONTAINS
       &                        station_cfg%location%lon), routine)
     CALL nf(nf_put_vara_double(ncfile, ncid%station_lat, istation, 1,&
       &                        station_cfg%location%lat), routine)
-    CALL nf(nf_put_vara_int(ncfile, ncid%station_idx, istation, 1, &
-      &                     station%tri_idx(1)), routine)
-    CALL nf(nf_put_vara_int(ncfile, ncid%station_blk, istation, 1, &
-      &                     station%tri_idx(2)), routine)
   END SUBROUTINE put_station_invariants
 
   SUBROUTINE put_invariants(ncid, var_info, invariants)
@@ -2586,6 +2581,12 @@ CONTAINS
       &    routine)
     CALL nf(nf_put_vara_double(ncid%file_id, ncid%station_fc, &
       &                        istart(2:2), icount(2:2), invariants%fc), &
+      &     routine)
+    CALL nf(nf_put_vara_int(ncid%file_id, ncid%station_idx, &
+      &                     istart(2:2), icount(2:2), invariants%tri_idx(:,1)),&
+      &     routine)
+    CALL nf(nf_put_vara_int(ncid%file_id, ncid%station_blk, &
+      &                     istart(2:2), icount(2:2), invariants%tri_idx(:,2)),&
       &     routine)
   END SUBROUTINE put_invariants
 
@@ -3167,7 +3168,7 @@ CONTAINS
       buf(2,istation) = invariants%frland(istation)
       buf(3,istation) = invariants%fc(istation)
       buf(4,istation) = REAL(invariants%soiltype(istation), wp)
-      buf(5:6,istation) = REAL(station(istation)%tri_idx, wp)
+      buf(5:6,istation) = REAL(invariants%tri_idx(istation,:), wp)
       buf(7:6+ntiles,istation) = invariants%tile_frac(:,istation)
       buf(7+ntiles:6+2*ntiles,istation) &
         = REAL(invariants%tile_luclass(:,istation), wp)
@@ -3183,17 +3184,15 @@ CONTAINS
   END SUBROUTINE send_time_invariants
 
   SUBROUTINE recv_time_invariants(var_info, invariants, station, pstation, &
-    io_collect_comm, is_pure_io_pe, local_station)
+    io_collect_comm, is_pure_io_pe)
     TYPE(t_var_info), INTENT(in) :: var_info(:)
     TYPE(t_mtgrm_invariants), INTENT(inout) :: invariants
     TYPE(t_meteogram_station), INTENT(inout) :: station(:)
     INTEGER, INTENT(in) :: io_collect_comm, pstation(:)
     LOGICAL, INTENT(in) :: is_pure_io_pe
-    TYPE(t_meteogram_station), INTENT(in) :: local_station(:)
 
     REAL(wp), ALLOCATABLE :: buf(:,:)
-    INTEGER :: ivar, nvars, nlevs, pos, istation, nstations, istation_local, &
-      iowner, ntiles
+    INTEGER :: ivar, nvars, nlevs, pos, istation, nstations, iowner, ntiles
 
     IF (ALLOCATED(tile_list%tile)) THEN
       ntiles = ntiles_total + ntiles_water
@@ -3203,15 +3202,11 @@ CONTAINS
     nstations = SIZE(station)
     ALLOCATE(buf(num_time_inv + 2*ntiles + SUM(var_info%nlevs),nstations))
     nvars = SIZE(var_info)
-    istation_local = 0
     DO istation = 1, nstations
       iowner = pstation(istation)
       IF ((is_pure_io_pe .OR. iowner /= p_pe_work) .AND. iowner >= 0) THEN
         CALL p_irecv(buf(:,istation), pstation(istation), &
           TAG_VARLIST+istation, comm=io_collect_comm)
-      ELSE IF (iowner == p_pe_work) THEN
-        istation_local = istation_local + 1
-        station(istation)%tri_idx = local_station(istation_local)%tri_idx
       END IF
     END DO
     CALL p_wait()
@@ -3223,7 +3218,7 @@ CONTAINS
         invariants%frland(istation) = buf(2,istation)
         invariants%fc(istation) = buf(3,istation)
         invariants%soiltype(istation) = INT(buf(4,istation))
-        station(istation)%tri_idx = INT(buf(5:6,istation))
+        invariants%tri_idx(istation,:) = INT(buf(5:6,istation))
         invariants%tile_frac(:,istation) = buf(7:6+ntiles,istation)
         invariants%tile_luclass(:,istation) &
           = INT(buf(7+ntiles:6+2*ntiles,istation))
