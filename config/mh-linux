@@ -403,51 +403,31 @@ case "$ac_sitename" in
                                 ;;
                         esac
                         ;;
-                    cray_gpu*)
-                        CC = cc
-                        FC = ftn
-                        F77= ftn
-                        config_target = kesch_gpu
-                        FFLAGS        = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hnoomp -hflex_mp=intolerant -hfp0 -hadd_paren -hacc_model=deep_copy -O1,cache0,ipa1 -r am -Ktrap=divz,ovf,inv
-                        CFLAGS        = -Df2cFortran -DHAVE_LIBNETCDF -O3 -DUSE_XML2
-                        GRIBAPIROOT   = /project/c14/install/kesch/libgrib_api/v1.20.0.2/cray/
-                        OTHER_LIBS    = -L/project/c14/install/kesch/libjasper/lib -ljasper -llzma
-                        config_tuning = $(tmp=${fortran_compiler#'cray_gpu'};tmp=${tmp#-};tmp=${tmp:-default};echo $tmp)
-                        case "${config_tuning}" in
-                            default)
-                                load_modules  = git/2.8.4 craype-haswell PrgEnv-cray craype-accel-nvidia35 cray-netcdf cray-hdf5
-                                NETCDFROOT    = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
-			                          HDF5ROOT      = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
-                                LAPACKROOT    = /opt/cray/libsci/13.2.0/CRAY/8.3/x86_64
-                                LAPACK_LIB    = -lsci_cray
-                                ;;
-                            tds)
-                                load_modules  = git/2.8.4 craype-haswell PrgEnv-cray craype-accel-nvidia35 HDF5 netCDF netCDF-Fortran
-                                NETCDFROOT    = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
-                                HDF5ROOT      = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
-                                ;;
-                            *)
-                                (>&6 echo "")
-                                (>&6 echo "")
-                                (>&6 echo "Unknown tuning $config_tuning for $fortran_compiler selected.")
-                                (>&6 echo "")
-                                exit 1
-                                ;;
-                        esac
-                        ;;
                     cray*)
                         CC = cc
                         FC = ftn
                         F77= ftn
-                        config_target = kesch_cpu
                         # FDEBUG        = -O0 -g -Rb -Rc -Rd -Rp #-Rs leads to ICE
-                        FFLAGS        = -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv
+                        FFLAGS        = -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hadd_paren -r am -Ktrap=divz,ovf,inv
+                        GRIBAPIROOT   = /project/c14/install/kesch/libgrib_api/v1.20.0.2/cray/
+                        OTHER_LIBS    = -L/project/c14/install/kesch/libjasper/lib -ljasper -dynamic -L/usr/lib64 -llzma
                         # CDEBUG       = -O0 -g
                         CFLAGS        = -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -Df2cFortran -DHAVE_LIBNETCDF -O3 -DUSE_XML2
                         LDFLAGS       = -Wl,--allow-multiple-definition
-                        GRIBAPIROOT   = /project/c14/install/kesch/libgrib_api/v1.20.0.2/cray/
-                        OTHER_LIBS    = -L/project/c14/install/kesch/libjasper/lib -ljasper -dynamic -L/usr/lib64 -llzma
                         config_tuning = $(tmp=${fortran_compiler#'cray'};tmp=${tmp#-};tmp=${tmp:-default};echo $tmp)
+                        # Generic CPU/GPU setup
+                        case "${config_tuning}" in
+                            gpu*)
+                                config_target = kesch_gpu
+                                FFLAGS        = ${FFLAGS} -hnoomp -hflex_mp=intolerant -hfp0 -hacc_model=deep_copy -O1,cache0,ipa1
+                                ;;
+                            *)
+                                config_target = kesch_cpu
+                                FFLAGS        = ${FFLAGS} -hflex_mp=conservative -hfp1 -hnoacc -O1,cache0
+                                ;;
+                        esac
+                        ;;
+                        # Setup of specific version
                         case "${config_tuning}" in
                             default)
                                 load_modules  = git/2.8.4 craype-haswell PrgEnv-cray cray-netcdf cray-hdf5 cray-libsci
@@ -461,6 +441,18 @@ case "$ac_sitename" in
                                 NETCDFROOT    = /apps/escha/UES/jenkins/RH7.3-cray_PE17.06/easybuild/software/netCDF/4.4.1.1-CrayCCE-17.06
                                 NETCDFFROOT   = /apps/escha/UES/jenkins/RH7.3-cray_PE17.06/easybuild/software/netCDF-Fortran/4.4.4-CrayCCE-17.06/
                                 HDF5ROOT      = /apps/escha/UES/jenkins/RH7.3-cray_PE17.06/easybuild/software/HDF5/1.10.1-CrayCCE-17.06-parallel
+                                ;;
+                            gpu)
+                                load_modules  = git/2.8.4 craype-haswell PrgEnv-cray craype-accel-nvidia35 cray-netcdf cray-hdf5
+                                NETCDFROOT    = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
+			                          HDF5ROOT      = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
+                                LAPACKROOT    = /opt/cray/libsci/13.2.0/CRAY/8.3/x86_64
+                                LAPACK_LIB    = -lsci_cray
+                                ;;
+                            gpu-tds)
+                                load_modules  = git/2.8.4 craype-haswell PrgEnv-cray craype-accel-nvidia35 HDF5 netCDF netCDF-Fortran
+                                NETCDFROOT    = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
+                                HDF5ROOT      = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
                                 ;;
                             *)
                                 (>&6 echo "")
