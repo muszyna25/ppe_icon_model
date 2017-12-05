@@ -426,7 +426,6 @@ case "$ac_sitename" in
                                 FFLAGS        = ${FFLAGS} -hflex_mp=conservative -hfp1 -hnoacc -O1,cache0
                                 ;;
                         esac
-                        ;;
                         # Setup of specific version
                         case "${config_tuning}" in
                             default)
