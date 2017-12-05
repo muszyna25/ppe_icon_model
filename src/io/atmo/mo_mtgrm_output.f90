@@ -44,14 +44,14 @@
 !!
 !! 1) use_async_name_list_io == .FALSE. (synchronous I/O)
 !!    1a) ldistributed == .TRUE.
-!!        All MPI tasks are writing their own files, the global
-!!        meteogram buffer "meteogram_global_data" is not necessary.
+!!        All MPI tasks are writing their own files from their
+!!        individual out_buf.
 !!        Thus, all PEs have the flag "l_is_writer" enabled.
 !!    1b) ldistributed == .FALSE.
 !!        All PEs are sampling meteogram data and send it to a single
 !!        writing PE (all PEs have the flag "l_is_sender" enabled).
-!!        One of the working PEs is collecting all meteogram data in a
-!!        single buffer "meteogram_global_data", opens, writes, and
+!!        One of the working PEs is collecting all meteogram data in its
+!!        out_buf structure, opens, writes, and
 !!        closes the NetCDF file. The MPI rank of this PE is
 !!        "process_mpi_all_workroot_id", this PE has the flag
 !!        "l_is_collecting_pe" enabled.
@@ -392,7 +392,6 @@ MODULE mo_meteogram_output
   !!
   TYPE t_buffer_state
     TYPE(t_meteogram_data)  :: meteogram_local_data             !< meteogram data local to this PE
-    TYPE(t_meteogram_data)  :: meteogram_global_data            !< collected buffers (on IO PE)
     TYPE(t_meteogram_file)  :: meteogram_file_info              !< meteogram file handle etc.
     !> info on sample times (1:icurrent)
     !! iteration step of model
@@ -1440,20 +1439,9 @@ CONTAINS
     ! ------------------------------------------------------------
 
     IO_PE : IF (mtgrm(jg)%l_is_collecting_pe) THEN
-
-      mtgrm(jg)%meteogram_global_data%nstations =  nstations
-
-      ALLOCATE(mtgrm(jg)%meteogram_global_data%station(nstations), stat=ierrstat)
-      IF (ierrstat /= SUCCESS) &
-        CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 8)')
       DO istation = 1, nstations
         mtgrm(jg)%out_buf%station_idx(istation) = istation
-        CALL allocate_station_buffer(&
-          mtgrm(jg)%meteogram_global_data%station(istation), &
-          mtgrm(jg)%var_info, mtgrm(jg)%sfc_var_info, &
-          mtgrm(jg)%out_buf, istation)
       END DO
-
       IF (.NOT. ALLOCATED(mtgrm(jg)%meteogram_local_data%station)) &
         ALLOCATE(mtgrm(jg)%meteogram_local_data%station(0))
       CALL recv_time_invariants(mtgrm(jg)%var_info, invariants, &
@@ -1925,21 +1913,6 @@ CONTAINS
       IF (ierror /= SUCCESS) &
         CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
     END IF
-
-    ! deallocate global meteogram data
-
-    IO_PE : IF (mtgrm(jg)%l_is_collecting_pe) THEN
-
-      DO istation=1,mtgrm(jg)%meteogram_global_data%nstations
-        CALL deallocate_station_buffer(&
-          mtgrm(jg)%meteogram_global_data%station(istation))
-      END DO
-      DEALLOCATE(mtgrm(jg)%meteogram_global_data%station, stat=ierror)
-      IF (ierror /= SUCCESS) &
-        CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-
-    END IF IO_PE
-
   END SUBROUTINE meteogram_finalize
 
   SUBROUTINE deallocate_mtgrm_sample_buffer(meteogram_data)
