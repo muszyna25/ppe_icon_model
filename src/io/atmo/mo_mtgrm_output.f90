@@ -2282,8 +2282,8 @@ CONTAINS
       &     file_info%ncid%timeid), routine)
 
     ! create station variables:
-    station_name_dims = (/ file_info%ncid%charid, &
-      &     file_info%ncid%nstations /)
+    station_name_dims(1) = file_info%ncid%charid
+    station_name_dims(2) = file_info%ncid%nstations
     CALL nf(nf_def_var(ncfile, "station_name", NF_CHAR, 2, station_name_dims, &
       &                file_info%ncid%station_name), routine)
     CALL nf_add_descr("Station name (character string)", ncfile, &
@@ -2335,7 +2335,8 @@ CONTAINS
 
     ! create variable info fields:
     ! volume variables
-    var_name_dims = (/ file_info%ncid%charid, file_info%ncid%nvars /)
+    var_name_dims(1) = file_info%ncid%charid
+    var_name_dims(2) = file_info%ncid%nvars
     CALL nf(nf_def_var(ncfile, "var_name", NF_CHAR, 2, var_name_dims(:), &
       &                file_info%ncid%var_name), routine)
     CALL nf_add_descr("Variable name (character string)", ncfile, &
@@ -2358,8 +2359,8 @@ CONTAINS
       &     file_info%ncid%var_nlevs)
     ! surface variables:
     IF (nsfcvars > 0) THEN
-      var_name_dims = (/ file_info%ncid%charid, &
-        &     file_info%ncid%nsfcvars /)
+      var_name_dims(1) = file_info%ncid%charid
+      var_name_dims(2) = file_info%ncid%nsfcvars
       CALL nf(nf_def_var(ncfile, "sfcvar_name", NF_CHAR, 2, var_name_dims, &
         &                file_info%ncid%sfcvar_name), routine)
       CALL nf_add_descr("Surface variable name (character string)", ncfile, &
@@ -2385,36 +2386,36 @@ CONTAINS
       &                file_info%ncid%time_step), routine)
     CALL nf_add_descr("Time step indices", ncfile, &
       &     file_info%ncid%time_step)
-    time_string_dims = (/ file_info%ncid%charid, &
-      &     file_info%ncid%timeid /)
+    time_string_dims(1) = file_info%ncid%charid
+    time_string_dims(2) = file_info%ncid%timeid
     CALL nf(nf_def_var(ncfile, "date", NF_CHAR, 2, time_string_dims(:), &
       &                file_info%ncid%dateid), routine)
     CALL nf_add_descr("Sample dates (character string)", ncfile, &
       &     file_info%ncid%dateid)
 
     ! height levels
-    height_level_dims = (/ file_info%ncid%nstations, &
-      &     file_info%ncid%nvars, &
-      &     file_info%ncid%max_nlevs /)
+    height_level_dims(1) = file_info%ncid%nstations
+    height_level_dims(2) = file_info%ncid%nvars
+    height_level_dims(3) = file_info%ncid%max_nlevs
     CALL nf(nf_def_var(ncfile, "heights", NF_DOUBLE, 3, height_level_dims(:), &
       &                file_info%ncid%var_heights), routine)
     CALL nf_add_descr("level heights for volume variables", ncfile, &
       &     file_info%ncid%var_heights)
 
     ! add value buffer for volume variables:
-    var_dims = (/ file_info%ncid%nstations, &
-      &     file_info%ncid%nvars, &
-      &     file_info%ncid%max_nlevs, &
-      &     file_info%ncid%timeid /)
+    var_dims(1) = file_info%ncid%nstations
+    var_dims(2) = file_info%ncid%nvars
+    var_dims(3) = file_info%ncid%max_nlevs
+    var_dims(4) = file_info%ncid%timeid
     CALL nf(nf_def_var(ncfile, "values", NF_DOUBLE, 4, var_dims(:), &
       &                file_info%ncid%var_values), routine)
     CALL nf_add_descr("value buffer for volume variables", ncfile, &
       &     file_info%ncid%var_values)
     ! add value buffer for surface variables:
     IF (nsfcvars > 0) THEN
-      sfcvar_dims = (/ file_info%ncid%nstations, &
-      &     file_info%ncid%nsfcvars, &
-      &     file_info%ncid%timeid /)
+      sfcvar_dims(1) = file_info%ncid%nstations
+      sfcvar_dims(2) = file_info%ncid%nsfcvars
+      sfcvar_dims(3) = file_info%ncid%timeid
       CALL nf(nf_def_var(ncfile, "sfcvalues", NF_DOUBLE, 3, sfcvar_dims(:), &
         &                file_info%ncid%sfcvar_values), routine)
       CALL nf_add_descr("value buffer for surface variables", ncfile, &
