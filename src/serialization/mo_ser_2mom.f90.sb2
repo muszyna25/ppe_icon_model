@@ -1,0 +1,50 @@
+!--------------------------------------------------------------------
+!
+! Serialization routine for 2 moment microphysics using Serialbox2
+!
+!--------------------------------------------------------------------
+
+MODULE mo_ser_2mom
+
+  IMPLICIT NONE
+
+  CONTAINS
+
+  SUBROUTINE serialize_2mom(a)
+    IMPLICIT NONE
+    REAL(KIND=8), DIMENSION(:,:,:) :: a
+
+    !$ser init directory='.' prefix='Serialization_2mom'
+    !$ser savepoint sp1
+    !$ser mode write
+    !$ser data ser_a=a
+
+  END SUBROUTINE serialize_2mom
+
+  SUBROUTINE deserialize_2mom(a)
+    IMPLICIT NONE
+    REAL(KIND=8), DIMENSION(:,:,:) :: a
+
+    !$ser init directory='.' prefix='Serialization_2mom-output' prefix_ref='Serialization_2mom'
+    !$ser savepoint sp1
+    !$ser mode read
+    !$ser data ser_a=a
+    !$ser mode write
+    !$ser data ser_a=a
+
+  END SUBROUTINE deserialize_2mom
+
+  SUBROUTINE deserialize_with_perturb_2mom(a)
+    IMPLICIT NONE
+    REAL(KIND=8), DIMENSION(:,:,:) :: a
+    REAL(KIND=8) :: rprecision
+    rprecision = 10.0**(-PRECISION(1.0))
+
+    !$ser init directory='.' prefix='Serialization_2mom-output' prefix_ref='Serialization_2mom' rprecision=rprecision rperturb=1.0e-5_8
+    !$ser savepoint sp1
+    !$ser mode read-perturb
+    !$ser data ser_a=a
+
+  END SUBROUTINE deserialize_with_perturb_2mom
+
+END MODULE mo_ser_2mom
