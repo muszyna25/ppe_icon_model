@@ -237,7 +237,7 @@ cat > ${lnd_namelist} << EOF
   usecase         = "${jsbach_usecase}"
   use_lakes       = ${llake}
   fract_filename  = "bc_land_frac.nc"
-  l_compat401     = .FALSE.             ! TRUE: overwrites some of the settings below
+  l_compat401     = .TRUE.              ! TRUE: overwrites some of the settings below
   output_tiles    = ${output_tiles}     ! List of tiles to output
 /
 &jsb_seb_nml
