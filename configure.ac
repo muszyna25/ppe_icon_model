@@ -532,7 +532,7 @@ if test -n "$HDF5ROOT" ; then
      exit 1    
   fi
   case $ac_hostname in
-  mlogin*|btlogin*)  
+  mlogin*|btlogin*)
     case $FC in
     nagfor)
       HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -973,7 +973,8 @@ dnl Check for byte ordering
 
 dnl Check for Fortran naming convention
 
-   m4_pushdef([lSystem],[[lSystem] | -ltcmalloc_minimal])dnl
+dnl  the m4_pushdef of lSystem inserts a hack by Cray also with stock autoconf
+   m4_pushdef([lSystem],[lSy[]stem | -ltcmalloc | -ltcmalloc_minimal])dnl
    AC_FC_WRAPPERS
    m4_popdef([lSystem])dnl
 

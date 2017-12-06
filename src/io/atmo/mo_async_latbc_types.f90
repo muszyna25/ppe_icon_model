@@ -54,7 +54,7 @@ MODULE mo_async_latbc_types
 
   TYPE t_reorder_data
      INTEGER              :: n_glb ! Global number of points per physical patch
-     INTEGER              :: n_own ! Number of own points, only belonging to phyiscal patch
+     INTEGER              :: n_own ! Number of own points, only belonging to physical patch
      INTEGER, ALLOCATABLE :: reorder_index(:)
      ! Index how to reorder the contributions of all compute PEs
      ! into the global array (set on all PEs)
@@ -64,6 +64,15 @@ MODULE mo_async_latbc_types
      INTEGER, ALLOCATABLE :: pe_own(:)
      ! offset of contributions of PEs (set on all PEs)
      INTEGER, ALLOCATABLE :: pe_off(:)
+
+     ! logical mask, which local points are read from input file
+     LOGICAL, ALLOCATABLE :: read_mask(:,:)
+
+     ! flag: if .TRUE., then the corresponding PE is skipped in the MPI_PUT operation
+     LOGICAL              :: this_skip
+
+     ! flag: if .TRUE., then the corresponding PE is skipped in the MPI_PUT operation
+     LOGICAL, ALLOCATABLE :: pe_skip(:)
 
   CONTAINS
     PROCEDURE :: finalize => t_reorder_data_finalize   !< destructor
@@ -160,7 +169,7 @@ MODULE mo_async_latbc_types
      INTEGER :: n_patch_cells_g
      INTEGER :: n_patch_edges_g
 
-     ! number of points, corresponds to logical patch
+     ! number of blocks
      INTEGER :: nblks_c, nblks_e
 
    CONTAINS
@@ -253,11 +262,13 @@ CONTAINS
 
     !CALL message("", 't_reorder_data_finalize')
 
-    IF (ALLOCATED(reorder_data%reorder_index))  DEALLOCATE(reorder_data%reorder_index)
-    IF (ALLOCATED(reorder_data%own_idx))        DEALLOCATE(reorder_data%own_idx)
-    IF (ALLOCATED(reorder_data%own_blk))        DEALLOCATE(reorder_data%own_blk)
-    IF (ALLOCATED(reorder_data%pe_own))         DEALLOCATE(reorder_data%pe_own)
-    IF (ALLOCATED(reorder_data%pe_off))         DEALLOCATE(reorder_data%pe_off)
+    IF (ALLOCATED(reorder_data%reorder_index)) DEALLOCATE(reorder_data%reorder_index)
+    IF (ALLOCATED(reorder_data%own_idx))       DEALLOCATE(reorder_data%own_idx)
+    IF (ALLOCATED(reorder_data%own_blk))       DEALLOCATE(reorder_data%own_blk)
+    IF (ALLOCATED(reorder_data%pe_own))        DEALLOCATE(reorder_data%pe_own)
+    IF (ALLOCATED(reorder_data%pe_off))        DEALLOCATE(reorder_data%pe_off)
+    IF (ALLOCATED(reorder_data%read_mask))     DEALLOCATE(reorder_data%read_mask)
+    IF (ALLOCATED(reorder_data%pe_skip))       DEALLOCATE(reorder_data%pe_skip)
   END SUBROUTINE t_reorder_data_finalize
 
 

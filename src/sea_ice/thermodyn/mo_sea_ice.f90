@@ -39,6 +39,9 @@ MODULE mo_sea_ice
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D, t_patch_vert
   USE mo_exception,           ONLY: finish, message
   USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary
+  USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL,      &
+    &                               GRID_UNSTRUCTURED_VERT, GRID_VERTEX,    &
+    &                               GRID_UNSTRUCTURED_EDGE, GRID_EDGE
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, ki, ks, Tf, albi, albim, albsm, albs,   &
     &                               fr_fac, mu, alf, alv, albedoW_sim, clw, cpd, zemiss_def, rd, &
     &                               stbo, tmelt, ci, Cd_ia, sice, alb_sno_vis, alb_sno_nir,      &
@@ -59,13 +62,10 @@ MODULE mo_sea_ice
   USE mo_cf_convention
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, GRID_UNSTRUCTURED
-  USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL,                 &
-    &                               GRID_CELL, ZA_GENERIC_ICE, ZA_SURFACE,  &
-    &                               GRID_UNSTRUCTURED_VERT, GRID_VERTEX,    &
-    &                               GRID_UNSTRUCTURED_EDGE, GRID_EDGE
-  USE mo_ocean_surface_types, ONLY: t_ocean_surface, t_atmos_for_ocean
+  USE mo_zaxis_type,          ONLY: ZA_GENERIC_ICE, ZA_SURFACE
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes, &
     &                               t_sea_ice_acc, t_sea_ice_budgets
+  USE mo_ocean_surface_types, ONLY: t_ocean_surface, t_atmos_for_ocean
   USE mo_sea_ice_winton,      ONLY: ice_growth_winton, set_ice_temp_winton
   USE mo_sea_ice_zerolayer,   ONLY: ice_growth_zerolayer, set_ice_temp_zerolayer, set_ice_temp_zero_nogradients
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range

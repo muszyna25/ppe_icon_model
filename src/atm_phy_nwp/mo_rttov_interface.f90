@@ -39,7 +39,8 @@ MODULE mo_rttov_interface
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c
   USE mo_communication,       ONLY: exchange_data, exchange_data_mult
-  USE mo_nh_vert_interp,      ONLY: prepare_lin_intp, prepare_extrap, lin_intp, z_at_plevels
+  USE mo_nh_vert_interp,      ONLY: prepare_lin_intp, prepare_extrap, lin_intp
+  USE mo_nh_vert_interp_ipz,  ONLY: z_at_plevels
   USE mo_satad,               ONLY: qsat_rho
   USE mo_physical_constants,  ONLY: rd, vtmpc1, earth_radius, grav
   USE mo_cufunctions,         ONLY: foealfa

@@ -51,7 +51,6 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var
-  USE mo_cdi_constants
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_grid_geometry_info
   IMPLICIT NONE

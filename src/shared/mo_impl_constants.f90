@@ -644,5 +644,6 @@ MODULE mo_impl_constants
   ! (hard-coded in the torus grid generator)
   REAL(wp), PARAMETER :: TORUS_MAX_LAT = 4._wp / 18._wp * ATAN(1._wp)
 
+
 !--------------------------------------------------------------------
 END MODULE mo_impl_constants

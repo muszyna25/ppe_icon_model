@@ -116,13 +116,13 @@ cat > ${atmo_namelist} << EOF
 / 
 &initicon_nml
  init_mode              =  4 !4=cosmo, 2=ifs, 3=combined
- ana_varnames_map_file  = '$ICON_BASE_PATH/run/ana_varnames_map_file.txt'
+! ana_varnames_map_file  = '$ICON_BASE_PATH/run/ana_varnames_map_file.txt'
  nlevsoil_in            =  8
  lread_ana              = .false.
 /
 &run_nml
  num_lev     = 50,50,50    ! number of full levels of vertical grid
- lvert_nest = .false.
+ lvert_nest = .flase.
  dtime       = ${dtime}     ! [s] timestep in seconds
  ldynamics   = .TRUE.       ! dynamics
  ltestcase   = .FALSE.      ! testcase

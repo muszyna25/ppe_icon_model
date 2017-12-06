@@ -24,11 +24,13 @@
 echo "POST_PREPARE.SMS" 
 
 module load python
-module load cdo/1.7.0
-module swap grib_api grib_api/1.13.0
+module load cdo/1.7.2
+
+module unload eccodes
+module load grib_api/1.14.5 
 
 dwd_grib_api=/home/ms/de/dwd/grib_api
-export GRIB_DEFINITION_PATH="/usr/local/apps/grib_api/1.13.0/CRAY/82/share/grib_api/definitions:${dwd_grib_api}/definitions.edzw-1.13.0-4"
+export GRIB_DEFINITION_PATH="/usr/local/apps/grib_api/1.14.5/CRAY/82/share/grib_api/definitions:${dwd_grib_api}/definitions.edzw-1.14.5"
 
 lsplitdata=1
 lcpdata=1 

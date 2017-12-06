@@ -5,7 +5,7 @@ require 'cdo'
 require 'parallel'
 require 'colorize'
 require 'iconPlot'
-require 'unifiedPlot'
+#require 'unifiedPlot'
 #require 'gsl'
 begin
   require 'facets'

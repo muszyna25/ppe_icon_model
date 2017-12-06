@@ -22,21 +22,22 @@
 
 echo "INIT_SVN.SMS"
 
+# GIT UPDATE =================================
 
-#if [[ "%SVN_UPDATE%" -eq "1" ]]
-#then
+# branch info
 
-# SVN UPDATE =================================
+  cd %ECPERMIII%/%DEIA_ICON_DIR%
+  git status | grep -i branch
+  git log -1 | cat
 
-# requires previous check-out of a working copy
-# with 
-# svn co http://svn.zmaw.de/svn/icon/trunk/%DEIA_ICON_DIR%
+# update current branch on /perm/ms/de/deia/icon-nwp
 
-  svn=/usr/local/apps/subversion/1.8.9/bin/svn
-  $svn --version
-  $svn update %ECPERMIII%/%DEIA_ICON_DIR%
-  revision=`$svn info %ECPERMIII%/%DEIA_ICON_DIR% | grep Revision | awk '{print $2}'`
+  ssh %SCHOST% "cd %SCPERMIII%/%DEIA_ICON_DIR% ; git pull --quiet"
 
+# revison date of last git commit (e.g. 20170101)
+
+  revision=`git log -1 --date=iso | grep Date | awk '{print $2}' | sed 's/-//g'`
+ 
   smsevent svn_update
   
   smsmeter revision $revision

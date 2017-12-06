@@ -24,7 +24,6 @@ MODULE mo_async_restart
 #ifndef NOMPI
 
   USE mo_async_restart_comm_data,   ONLY: t_AsyncRestartCommData
-  USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
   USE mo_exception,                 ONLY: finish, message
   USE mo_fortran_tools,             ONLY: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int
   USE mo_kind,                      ONLY: wp, i8, dp, sp
@@ -32,6 +31,7 @@ MODULE mo_async_restart
   USE mo_io_units,                  ONLY: nerr
   USE mo_restart_attributes,        ONLY: t_RestartAttributeList, RestartAttributeList_make
   USE mo_impl_constants,            ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
+  USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
   USE mo_restart_file,              ONLY: t_RestartFile
 #ifdef DEBUG
   USE mo_restart_namelist,          ONLY: t_NamelistArchive, namelistArchive

@@ -23,13 +23,11 @@ MODULE mo_parallel_config
 
   PRIVATE
   ! Exported variables:
-  PUBLIC :: nproma, openmp_threads
-!   PUBLIC :: radiation_ompthreads, nh_stepping_ompthreads, parallel_radiation_omp
-  PUBLIC :: parallel_radiation_mode, test_parallel_radiation
+  PUBLIC :: nproma
 
   PUBLIC :: n_ghost_rows,                                     &
        &  div_geometric, division_method, division_file_name,       &
-       &  radiation_division_file_name, l_log_checks, l_fast_sum,   &
+       &  l_log_checks, l_fast_sum,   &
        &  ldiv_phys_dom, p_test_run, l_test_openmp,                 &
        &  pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
        &  num_restart_procs, num_prefetch_proc,                     &
@@ -51,16 +49,12 @@ MODULE mo_parallel_config
   ! Number of rows of ghost cells
   INTEGER :: n_ghost_rows = 1
 
-  INTEGER :: openmp_threads = -1 ! < 0 means this value is not used,
-                                 ! instead the system's value will be used
-
   ! Division method for area subdivision
   INTEGER, PARAMETER :: div_geometric = 1  ! Geometric subdivision
   INTEGER, PARAMETER :: ext_div_from_file = 201 ! Read from file
 
   INTEGER :: division_method(0:max_dom) = 1
   CHARACTER(LEN=filename_max) :: division_file_name(0:max_dom)! if ext_div_from_file
-  CHARACTER(LEN=filename_max) :: radiation_division_file_name(max_dom)! if parallel_radiation_mode = 1
   LOGICAL :: use_div_from_file = .FALSE. ! check for domain decomposition from file
                                          ! if file is not available use division_method
                                          ! to generate decomposition online
@@ -93,10 +87,6 @@ MODULE mo_parallel_config
   ! if l_test_openmp is set together with p_test_run, then the verification PE uses
   ! only 1 thread. This allows for verifying the OpenMP implementation
   LOGICAL :: l_test_openmp = .false.
-
-!   LOGICAL :: parallel_radiation_omp = .false.
-  INTEGER :: parallel_radiation_mode(max_dom) = 0
-  LOGICAL :: test_parallel_radiation = .false.
 
   LOGICAL :: use_icon_comm = .false.
   LOGICAL :: icon_comm_debug= .false.
@@ -136,9 +126,6 @@ MODULE mo_parallel_config
   ! 2 = isend, recv
   ! 3 = irecv, isend
   INTEGER :: iorder_sendrecv = 1
-
-!   INTEGER :: radiation_ompthreads   = 1
-!   INTEGER :: nh_stepping_ompthreads = 1
 
   ! Flag. Enable this flag if output fields shall be gathered in
   ! DOUBLE PRECISION. The resulting files are identical to the "normal"

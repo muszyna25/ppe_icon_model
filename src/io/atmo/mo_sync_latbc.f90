@@ -372,9 +372,7 @@ MODULE mo_sync_latbc
       !
       ! get number of vertical levels
       !
-      CALL height_or_lev(latbc_ncid, levstring)
-      CALL nf(nf_inq_dimid(latbc_ncid, TRIM(levstring), dimid), routine)
-      CALL nf(nf_inq_dimlen(latbc_ncid, dimid, no_levels), routine)
+      CALL height_or_lev(latbc_ncid, dimid, no_levels)
 
       ! consistency check
       IF (p_patch%nlev /= no_levels) THEN
@@ -535,9 +533,7 @@ MODULE mo_sync_latbc
       !
       ! get number of vertical levels
       !
-      CALL height_or_lev(latbc_ncid, levstring)
-      CALL nf(nf_inq_dimid(latbc_ncid, TRIM(levstring), dimid), routine)
-      CALL nf(nf_inq_dimlen(latbc_ncid, dimid, no_levels), routine)
+      CALL height_or_lev(latbc_ncid, dimid, no_levels)
 
       !
       ! check the number of cells
