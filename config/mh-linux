@@ -355,26 +355,19 @@ case "$ac_sitename" in
 
                 make_command=make -j 8
                 case "$fortran_compiler" in
-#                    intel*)
-#                      load_modules    = PrgEnv-intel netcdf cray-mpich ${load_modules}
-#                      CFLAGS          = -DHAVE_LIBNETCDF ${CFLAGS}
-#                      STD_FLAGS       = -O2 -xAVX -fltconsistency -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
-#                      FFLAGS          = ${FFLAGS}
-#                      F77FLAGS        = $FFLAGS $STD_FLAGS
-#                      OTHER_LIBS      = -lirng $OTHER_LIBS
-#                      ;;
                     cray)
-                      load_modules    = cray-netcdf cray-hdf5 grib_api
+                      load_modules    = cray-netcdf cray-hdf5 
+                      # if nothing is available: load grib_api module
+                      if test -z "$GRIB_API" -a -z "$ECCODES"; then
+                        load_modules    = $load_modules grib_api
+                      fi  
                       RTTOV_LIBS      = -L/usr/local/pkg/for0adm/lib -L/usr/local/pkg/for0adm/lib/unsupported -lradiance -lrttov10.2 -lhrit_tools
                       OTHER_LIBS      = $RTTOV_LIBS $OTHER_LIBS
                       STD_FLAGS       = -D__USE_RTTOV -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
                       FFLAGS          = ${FFLAGS} -I/usr/local/pkg/for0adm/include/radiance
-                      GRIBAPIROOT     = ${GRIB_API}
                       ;;
                     default|gcc)
-#                      load_modules    = grib_api
                       FFLAGS          = ${FFLAGS}
-                      GRIBAPIROOT     = ${GRIB_API}
                       OTHER_LIBS      = $OTHER_LIBS
                       ;;
                 esac

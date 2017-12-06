@@ -689,57 +689,167 @@ export CDIROOT	#inform config/createMakefiles.pl whether it should include cdili
 
 dnl ######################################################################
 dnl Checks for grib_api/eccodes.
+dnl
+dnl GRIB support is enabled if the configure option "---with-grib_api"
+dnl is either undefined or set to value (directory/"yes").
+dnl Then, the GRIB library is chosen according to the conditions in the
+dnl following list.
+dnl Here, the list ordering reflects the order of precedence.
+dnl
+dnl (1)  configure option "--with-eccodes=DIR"
+dnl      compile ICON with GRIB library located in DIR.
+dnl (2)  configure option "--with-grib_api=DIR"
+dnl      compile ICON with GRIB library located in DIR.
+dnl (3)  environment variable $ECCODES available
+dnl      compile ICON with GRIB library located in $ECCODES.
+dnl (4)  environment variable $GRIB_API available
+dnl      compile ICON with GRIB library located in $GRIB_API.
+dnl (5)  variable "$GRIBAPIROOT" is defined in config/mh-xxx.
+dnl      compile ICON with GRIB library located in "GRIBAPIROOT"
 
-GRIBAPI_LIB=""
-GRIBAPI_INCLUDE=""
-
-LIB_GRIB_API_ROOT="grib_api"
 
 AC_ARG_WITH([grib_api],
             [AC_HELP_STRING([--with-grib_api=DIR],
-                            [Optional GRIB2 package])],
+                            [Enable GRIB2 support via GRIB_API])],
                             [],
-                            with_grib_api=yes)
+                            with_grib_api=yes_default)
 
-
-AC_ARG_ENABLE([eccodes],
-            [AC_HELP_STRING([--enable-eccodes=DIR],
-                            [Update GRIB_API setup to successor ECCODES package])],
+AC_ARG_WITH([eccodes],
+            [AC_HELP_STRING([--with-eccodes=DIR],
+                            [Enable GRIB2 support via ECCODES (successor of GRIB_API)])],
                             [],
-                            enable_eccodes=no)
+                            with_eccodes=no_default)
 
-AS_CASE([$enable_eccodes],
-        [no],
-        [],
-        [yes],
-        [AC_MSG_ERROR([--enable-eccodes requires an installation directory.])],
-        [GRIBAPIROOT=$enable_eccodes
-         with_grib_api=yes
-         LIB_GRIB_API_ROOT="eccodes"])
+dnl GRIB_OPTION: "undefined" / "gribapi" / "eccodes" / "suppressed"
+GRIB_OPTION=undefined
+dnl GRIB_SETUP:  "option_setting" / "env_setting"
+GRIB_SETUP=env_setting
 
+
+dnl STEP 1: find out if the user actively suppressed ECCODES or GRIB_API, or if
+dnl         ECCODES or GRIBAPI were explicity chosen.
+dnl
 AS_CASE([$with_grib_api],
-        [no],
-        [AC_MSG_CHECKING([for grib_api library])
-         AC_MSG_RESULT([suppressed])],
         [yes],
-        [AS_IF([test -f "$GRIBAPIROOT/include/grib_api.h"],
-               [],
-               [AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h])])],
-        [GRIBAPIROOT=$with_grib_api
+        [GRIB_OPTION=gribapi],
+        [no],
+        [GRIB_SETUP=option_setting
+         GRIB_OPTION=suppressed],
+        [])
+AS_CASE([$with_eccodes],
+        [yes],
+        [GRIB_OPTION=eccodes],
+        [no],
+        [GRIB_SETUP=option_setting
+         GRIB_OPTION=suppressed],
+        [])
+
+
+dnl STEP 2: now, translate setting "yes/no_default" into "yes/no". afterwards,
+dnl         information is lost whether the user actively modified the option default.       
+dnl
+AS_CASE([$with_grib_api],
+        [yes_default], [with_grib_api=yes],
+        [no_default],  [with_grib_api=no])
+AS_CASE([$with_eccodes],
+        [yes_default], [with_eccodes=yes],
+        [no_default],  [with_eccodes=no])
+
+
+dnl STEP 3: test if GRIB-API or ECCODES were set explicitly by configure option
+dnl
+AS_CASE(["$GRIB_OPTION"],
+        [suppressed], [],
+         AS_CASE([$with_grib_api],
+                 [no],    [],
+                 [yes],   
+                 [GRIB_OPTION=gribapi],
+                 [GRIB_SETUP=option_setting
+                  GRIB_OPTION=gribapi
+                  GRIBAPIROOT=$with_grib_api])
+         AS_CASE([$with_eccodes],
+                 [no],    [],
+                 [yes],   
+                 [GRIB_OPTION=eccodes],
+                 [GRIB_SETUP=option_setting
+                  GRIB_OPTION=eccodes
+                  GRIBAPIROOT=$with_eccodes]))
+
+
+dnl STEP 4: test environment variables (if GRIB2 support not suppressed)
+dnl
+GRIBAPI_LIB=""
+GRIBAPI_INCLUDE=""
+AS_CASE(["$GRIB_OPTION"],
+        [suppressed], [],
+        [AS_CASE(["$GRIB_SETUP"],
+                 [env_setting],
+                 [AC_MSG_CHECKING([environment variable \$GRIB_API])
+                  AS_IF([test -n "$GRIB_API"],
+                        [AC_MSG_RESULT([$GRIB_API])
+                         GRIBAPIROOT=$GRIB_API
+                         AS_CASE(["$GRIB_OPTION"],
+                                 [eccodes],[AC_MSG_NOTICE([ECCODES explicitly chosen by config option.])],
+                                 [GRIB_OPTION=gribapi])],
+                        [AC_MSG_RESULT([undefined])
+                         dnl fallback: search for ECCODES:
+                         GRIB_OPTION=eccodes
+                        ])
+                  AC_MSG_CHECKING([environment variable \$ECCODES])
+                  AS_IF([test -n "$ECCODES"],
+                        [AC_MSG_RESULT([$ECCODES])
+                         GRIBAPIROOT=$ECCODES
+                         AS_CASE(["$GRIB_OPTION"],
+                                 [gribapi],[AC_MSG_NOTICE([GRIBAPI explicitly chosen by config option.])],
+                                 [GRIB_OPTION=eccodes])],
+                        [AC_MSG_RESULT([undefined])
+                         GRIB_OPTION=suppressed
+                        ])
+                  ])
+         ])
+
+dnl STEP 5: test if GRIB library directory is now properly defined.
+dnl
+AS_CASE(["$GRIB_OPTION"],
+        [suppressed], [],
+        [AC_MSG_CHECKING([for GRIB library])
          AS_IF([test -f "$GRIBAPIROOT/include/grib_api.h"],
                [],
-               [AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h])])])
+               [AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h])])
+         AC_MSG_RESULT([done.])
+        ])
 
-AS_IF([test -n "$GRIBAPIROOT"],
-      [AS_IF([test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.a" || test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.dylib" || test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.so"],
-             [GRIBAPI_LIB="-L\$(GRIBAPIROOT)/lib -l${LIB_GRIB_API_ROOT}"],
-             [AC_MSG_ERROR([cannot read $GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.a])])
-       AS_IF([test -d "$GRIBAPIROOT/include"],
-             [GRIBAPI_INCLUDE='-I$(GRIBAPIROOT)/include'],
-             [AC_MSG_ERROR([cannot find $GRIBAPIROOT/include])])  
-       FFLAGS="${FFLAGS} ${DEFOPT}HAVE_LIBGRIB ${DEFOPT}HAVE_LIBGRIB_API"
-       CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_LIBGRIB ${DEFCOPT}HAVE_LIBGRIB_API"
-       AS_CASE([$ac_hostname],
+
+dnl STEP 6: create LIB and include paths.
+dnl
+GRIBAPI_LIB=""
+GRIBAPI_INCLUDE=""
+AS_CASE(["$GRIB_OPTION"],
+        [eccodes],
+        [LIB_GRIB_API_ROOT="eccodes"],
+        [gribapi],
+        [LIB_GRIB_API_ROOT="grib_api"])
+
+AS_CASE(["$GRIB_OPTION"],
+        [suppressed], [],
+        [AS_IF([test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.a" || 
+                test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.dylib" || 
+                test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.so"],
+               [GRIBAPI_LIB="-L\$(GRIBAPIROOT)/lib -l${LIB_GRIB_API_ROOT}"],
+               [AC_MSG_ERROR([cannot read $GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.a])])
+         AS_IF([test -d "$GRIBAPIROOT/include"],
+               [GRIBAPI_INCLUDE='-I$(GRIBAPIROOT)/include'],
+               [AC_MSG_ERROR([cannot find $GRIBAPIROOT/include])])  
+         FFLAGS="${FFLAGS} ${DEFOPT}HAVE_LIBGRIB ${DEFOPT}HAVE_LIBGRIB_API"
+         CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_LIBGRIB ${DEFCOPT}HAVE_LIBGRIB_API"
+         AS_CASE([$GRIB_OPTION],
+                 [eccodes],
+                 [AS_IF([test -n "$AEC_DIR"],
+                        [GRIBAPI_LIB="$GRIBAPI_LIB -L\$(AEC_DIR)/lib -laec"
+                         AC_MSG_NOTICE([taking over environment variable $AEC_DIR])],
+                        [])],
+                 []) 
+         AS_CASE([$ac_hostname],
                [mlogin*|btlogin*|daint*],
                [AS_CASE([$FC],
                         [nagfor],
@@ -747,8 +857,29 @@ AS_IF([test -n "$GRIBAPIROOT"],
 			[cray],
                         [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -dynamic -Wl,-rpath,\2!g')],
                         [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])],
-               [])],
-      [])
+               [])])
+
+
+dnl print-out of chosen GRIB support
+dnl
+AS_CASE([$GRIB_OPTION],
+        [gribapi],
+        [AS_CASE([$GRIB_SETUP],
+                 [env_setting],
+                 [AC_MSG_NOTICE([GRIB support uses environment variable \$GRIB_API.])],
+                 [option_setting],
+                 [AC_MSG_NOTICE([GRIB support uses GRIB-API by configure option.])],
+                 [])],
+        [eccodes],
+        [AS_CASE([$GRIB_SETUP],
+                 [env_setting],
+                 [AC_MSG_NOTICE([GRIB support uses environment variable \$ECCODES.])],
+                 [option_setting],
+                 [AC_MSG_NOTICE([GRIB support uses ECCODES by configure option.])],
+                 [])],
+        [suppressed],
+        [AC_MSG_NOTICE([GRIB support disabled.])],
+        [])
 
         
 dnl ######################################################################
@@ -1351,6 +1482,11 @@ echo "    SCT    : none"
 else
 sct_version=$(grep "define SCT_VERSION" ${SCTROOT}/include/sct.h)
 echo "    SCT    : installation  ${SCTROOT}"
+fi
+if test x$GRIB_OPTION = xsuppressed; then
+echo "    GRIB   : none"
+else
+echo "    GRIB   : ${GRIBAPIROOT}"
 fi
 fi
 echo ""
