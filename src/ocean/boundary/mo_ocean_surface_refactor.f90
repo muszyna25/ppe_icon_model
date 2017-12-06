@@ -269,13 +269,6 @@ CONTAINS
             p_oce_sfc%sss(jc,jb)   = ( p_oce_sfc%sss(jc,jb) * p_oce_sfc%cellThicknessUnderIce(jc,jb) + &
              &                         p_oce_sfc%FrshFlux_IceSalt(jc,jb) * dtime ) / p_ice%zUnderIce(jc,jb)
 
-            ! (5e) HAMOCC tracer dilution
-            IF ( lhamocc .AND. p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)>0.5 ) THEN
-              DO i_bgc_tra = no_tracer+1, no_tracer+nbgctra
-                p_os%p_prog(nold(1))%tracer(jc,1,jb,i_bgc_tra) = p_os%p_prog(nold(1))%tracer(jc,1,jb,i_bgc_tra)  &
-                &                     * p_oce_sfc%cellThicknessUnderIce(jc,jb) / p_ice%zUnderIce(jc,jb)
-              ENDDO
-            ENDIF
 
             !! update cell thickness under ice in p_oce_sfc
             p_oce_sfc%cellThicknessUnderIce(jc,jb) = p_ice%zUnderIce(jc,jb)
@@ -326,7 +319,6 @@ CONTAINS
     REAL(wp)              :: zUnderIceOld(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp)              :: zUnderIceIni(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp)              :: zUnderIceArt(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp)              :: bgctra_inter(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks, nbgctra)
 
     REAL(wp) :: h_old_test
 
@@ -345,12 +337,6 @@ CONTAINS
     ! by construction, is stored in p_oce_sfc%cellThicknessUnderIce
     zUnderIceIni(:,:) = p_oce_sfc%cellThicknessUnderIce (:,:)
 
-    if(lhamocc)then
-    DO i_bgc_tra = no_tracer+1, no_tracer+nbgctra
-      ! for HAMOCC tracer dilution
-      bgctra_inter(:,:,i_bgc_tra-no_tracer)  = p_os%p_prog(nold(1))%tracer(:,1,:,i_bgc_tra)
-    ENDDO
-    endif
 
     !!  Provide total ocean forcing:
     !    - total heat fluxes are aggregated for ice/ocean in ice thermodynamics
@@ -414,31 +400,13 @@ CONTAINS
           zUnderIceArt(jc,jb)= p_ice%zUnderIce(jc,jb) - p_oce_sfc%FrshFlux_TotalIce(jc,jb)*dtime
           sss_inter(jc,jb)   = p_oce_sfc%sss(jc,jb) * zUnderIceArt(jc,jb) / p_ice%zUnderIce(jc,jb)
 
-          if(lhamocc.and.p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)>0.5)then
-          DO i_bgc_tra = no_tracer+1, no_tracer+nbgctra
-           ! for HAMOCC tracer dilution
-           ! #vla# 2017-04: zUnderIceArt/zUnderIce DOES NOT represent volume-dilution of tracers!!!!!!
-           !                only valid for salt change due to combination of snow and ice melt of different salinities
-             bgctra_inter(jc,jb,i_bgc_tra-no_tracer)  = p_os%p_prog(nold(1))%tracer(jc,1,jb,i_bgc_tra) &
-           &        * zUnderIceArt(jc,jb) / p_ice%zUnderIce(jc,jb)
-          ENDDO
-          endif
-
-          !******  (Thermodynamic Eq. 4)  ******
+              !******  (Thermodynamic Eq. 4)  ******
           !! Next, calculate salinity change caused by rain and runoff without snowfall by adding their freshwater to zUnderIce
           zUnderIceOld(jc,jb)    = p_ice%zUnderIce(jc,jb)
           p_ice%zUnderIce(jc,jb) = zUnderIceOld(jc,jb) + p_oce_sfc%FrshFlux_VolumeTotal(jc,jb) * dtime
           p_oce_sfc%SSS(jc,jb)   = sss_inter(jc,jb) * zUnderIceOld(jc,jb) / p_ice%zUnderIce(jc,jb)
 
-          if(lhamocc.and.p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)>0.5)then
-          DO i_bgc_tra = no_tracer+1, no_tracer+nbgctra
-           ! HAMOCC tracer dilution
-             p_os%p_prog(nold(1))%tracer(jc,1,jb,i_bgc_tra) =  bgctra_inter(jc,jb,i_bgc_tra-no_tracer)  &
-            & * zUnderIceOld(jc,jb)/  p_ice%zUnderIce(jc,jb)
-          ENDDO
-          endif
-
-          h_old_test=  (p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
+          h_old_test=  (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
 
 
           !******  (Thermodynamic Eq. 5)  ******
@@ -450,6 +418,16 @@ CONTAINS
           !! update zunderice
           p_ice%zUnderIce(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb) &
             &                    - p_ice%draftave(jc,jb)
+    
+          if(lhamocc.and. (p_os%p_prog(nold(1))%h(jc,jb)+ p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)) > 0._wp)then 
+          DO i_bgc_tra = no_tracer+1, no_tracer+nbgctra
+           ! for HAMOCC tracer dilution
+             p_os%p_prog(nold(1))%tracer(jc,1,jb,i_bgc_tra)  = p_os%p_prog(nold(1))%tracer(jc,1,jb,i_bgc_tra) &
+           &        * h_old_test/(p_os%p_prog(nold(1))%h(jc,jb) + p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb))
+          ENDDO
+          endif
+
+          
 
         ENDIF  !  dolic>0
       END DO
@@ -651,14 +629,15 @@ CONTAINS
     ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('aftAtmFluxUpd:atmflx%LWnetIce', atmos_fluxes%LWnet   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('aftAtmFluxUpd:atmflx%SensIce',  atmos_fluxes%sens    ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('aftAtmFluxUpd:atmflx%LatentIce',atmos_fluxes%lat     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('aftAtmFluxUpd:atmflx%dsensdT'  ,atmos_fluxes%dsensdT ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('aftAtmFluxUpd:atmflx%dlatdT'   ,atmos_fluxes%dlatdT  ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('aftAtmFluxUpd:atmflx%dLWdT'    ,atmos_fluxes%dLWdt   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('aftAtmFluxUpd:stress_x'        ,atmos_fluxes%stress_x,str_module,idt_src, in_subset=p_patch%cells%owned)
+    !idt_src=5  ! output print level (1-5, fix)
+    !  these fluxes are always zero - fluxes over ice-covered area are Qbot, Qtop only
+    !CALL dbg_print('aftAtmFluxUpd:atmflx%LWnetIce', atmos_fluxes%LWnet   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    !CALL dbg_print('aftAtmFluxUpd:atmflx%SensIce',  atmos_fluxes%sens    ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    !CALL dbg_print('aftAtmFluxUpd:atmflx%LatentIce',atmos_fluxes%lat     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    !CALL dbg_print('aftAtmFluxUpd:atmflx%dsensdT'  ,atmos_fluxes%dsensdT ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    !CALL dbg_print('aftAtmFluxUpd:atmflx%dlatdT'   ,atmos_fluxes%dlatdT  ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    !CALL dbg_print('aftAtmFluxUpd:atmflx%dLWdT'    ,atmos_fluxes%dLWdt   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    !CALL dbg_print('aftAtmFluxUpd:stress_x'        ,atmos_fluxes%stress_x,str_module,idt_src, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
     CALL dbg_print('aftAtmFluxUpd: Precipitation', p_oce_sfc%FrshFlux_Precipitation,str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('aftAtmFluxUpd: Evaporation'  , p_oce_sfc%FrshFlux_Evaporation  ,str_module, 3, in_subset=p_patch%cells%owned)
