@@ -1192,8 +1192,7 @@ CONTAINS
 
     TYPE(t_var) :: var_list
     INTEGER      :: tri_idx(2,nproma,(meteogram_output_config%nstations+nproma-1)/nproma)
-    INTEGER      :: max_var_size, max_sfcvar_size
-    INTEGER                            :: max_time_stamps
+    INTEGER      :: max_sfcvar_size, max_time_stamps
     INTEGER                            :: io_collector_rank, iowner, &
       io_invar_send_rank
     LOGICAL :: is_io, is_mpi_workroot, is_mpi_test, is_pure_io_pe
@@ -1383,7 +1382,7 @@ CONTAINS
       mtgrm(jg)%meteogram_local_data%nstations, mtgrm(jg)%l_is_collecting_pe)
     CALL allocate_out_buf(mtgrm(jg)%out_buf, &
       mtgrm(jg)%var_info, mtgrm(jg)%sfc_var_info, &
-      max_time_stamps, nstations_buf)
+      meteogram_output_config%max_time_stamps, nstations_buf)
     CALL allocate_heights(invariants%heights, mtgrm(jg)%var_info, nstations_buf)
     ALLOCATE(mtgrm(jg)%istep(max_time_stamps), &
       invariants%tile_frac(ntiles_mtgrm, nstations_buf), &
@@ -1467,12 +1466,12 @@ CONTAINS
 
     IF (.NOT. meteogram_output_config%ldistributed) THEN
       ! compute maximum buffer size for MPI messages:
-      ! (max_var_size: contains also height levels)
-      max_var_size    = max_time_stamps*p_real_dp_byte*mtgrm(jg)%max_nlevs
       max_sfcvar_size = max_time_stamps*p_real_dp_byte
-      mtgrm(jg)%max_buf_size                        &
-        =   mtgrm_pack_header_ints*p_int_byte       & ! header size
-        & + var_list%no_atmo_vars*max_var_size      &
+      mtgrm(jg)%max_buf_size                                   &
+        =   mtgrm_pack_header_ints*p_int_byte                  & ! header size
+        & + station_atmo_vars_max_pack_size(                   &
+        &        mtgrm(jg)%var_info,                           &
+        &        meteogram_output_config%max_time_stamps)      &
         & + var_list%no_sfc_vars*max_sfcvar_size
 
       ! allocate buffer:
@@ -1961,7 +1960,7 @@ CONTAINS
     INTEGER :: ierror, req(2+max_num_stations), &
       stati(mpi_status_size, 2+max_num_stations)
     LOGICAL :: is_pure_io_pe
-    INTEGER :: max_var_size, max_sfcvar_size, max_time_stamps
+    INTEGER :: max_sfc_var_pack_size, max_time_stamps
 
     IF (dbg_level > 5)  WRITE (*,*) routine, " Enter (collecting PE=", mtgrm%l_is_collecting_pe, ")"
 
@@ -1972,18 +1971,20 @@ CONTAINS
         MERGE(max_num_stations, 1, mtgrm%l_is_collecting_pe)), &
         stat=ierror)
       IF (ierror /= SUCCESS) THEN
-        max_var_size    = (max_time_stamps+1)*p_real_dp_byte*mtgrm%max_nlevs
-        max_sfcvar_size = max_time_stamps*p_real_dp_byte
+        max_sfc_var_pack_size = max_time_stamps*p_real_dp_byte
 
-        WRITE (0,*) "jg = ", jg, " : message buffer: mtgrm%max_buf_size = ", &
-          & mtgrm%max_buf_size, "; MAX_NUM_STATIONS = ", MAX_NUM_STATIONS
-        WRITE (0,*) "mtgrm_pack_header_ints  = ", mtgrm_pack_header_ints
-        WRITE (0,*) "p_real_dp_byte          = ", p_real_dp_byte
-        WRITE (0,*) "p_int_byte              = ", p_real_dp_byte
-        WRITE (0,*) "max_time_stamps         = ", max_time_stamps
-        WRITE (0,*) "MAX_DATE_LEN            = ", MAX_DATE_LEN
-        WRITE (0,*) "max_var_size            = ", max_var_size
-        WRITE (0,*) "max_sfcvar_size         = ", max_sfcvar_size
+        WRITE (0,'(a,i0)') "jg = ", jg, &
+          " : message buffer: mtgrm%max_buf_size = ", &
+          & mtgrm%max_buf_size, "; MAX_NUM_STATIONS = ", MAX_NUM_STATIONS, &
+          "mtgrm_pack_header_ints  = ", mtgrm_pack_header_ints, &
+          "p_real_dp_byte          = ", p_real_dp_byte, &
+          "p_int_byte              = ", p_real_dp_byte, &
+          "max_time_stamps         = ", max_time_stamps, &
+          "MAX_DATE_LEN            = ", MAX_DATE_LEN, &
+          "max_atm_var_pack_size   = ", &
+          station_atmo_vars_max_pack_size(mtgrm%var_info, &
+          &                               mtgrm%max_time_stamps), &
+          "max_sfc_var_pack_size   = ", max_sfc_var_pack_size
         WRITE (message_text, '(3a)') &
           'ALLOCATE of meteogram message buffer failed (', &
           MERGE('collector', 'sender   ', mtgrm%l_is_collecting_pe), ')'
@@ -2134,6 +2135,14 @@ CONTAINS
         &  out_buf%sfc_vars(ivar)%a(istation, :), icurrent)
     END DO
   END SUBROUTINE unpack_station_sample
+
+  FUNCTION station_atmo_vars_max_pack_size(var_info, max_time_stamps) &
+    RESULT(pack_size)
+    TYPE(t_var_info), INTENT(in) :: var_info(:)
+    INTEGER, INTENT(in) :: max_time_stamps
+    INTEGER :: pack_size
+    pack_size = SUM(var_info(:)%nlevs) * max_time_stamps * p_real_dp_byte
+  END FUNCTION station_atmo_vars_max_pack_size
 
   SUBROUTINE pack_station_sample(sttn_buffer, pos, icurrent, station, &
     var_info)
