@@ -104,6 +104,10 @@ AC_ARG_ENABLE([testbed],
               AS_HELP_STRING([--enable-testbed],[Use testbed component.]),
               [],[enable_testbed=no])
 
+AC_ARG_ENABLE([serialization],
+              AS_HELP_STRING([--enable-serialization],[Enable Serialbox2 serialization.]),
+              [],[enable_serialization=no])
+
 dnl ######################################################################
 dnl usage of mh-file
 
@@ -982,7 +986,10 @@ fi # ! CROSS
 
 test "x$exec_prefix" = xNONE && exec_prefix=build/${build_host}
 
-my_srcdirs="support src"
+AS_IF([test "x$enable_serialization" = "xyes"],
+    [my_iconsrcdir="pp"],
+    [my_iconsrcdir="src"])
+my_srcdirs="support ${my_iconsrcdir}"
 
 if [[ "x$LAPACKROOT" = xlocal ]] ; then
     my_srcdirs="blas lapack ${my_srcdirs}"
@@ -1386,11 +1393,17 @@ fi
 sync_submit=${sync_submit:=$submit}
 
 AC_CONFIG_COMMANDS([Makefiles],
-                   [AS_IF([test "x$enable_jsbach" = "xyes"],
-                          [AS_IF([test -d build/${build_host}/src],
+                   [AS_IF([test "x$enable_serialization" = "xyes"],
+                          [AS_IF([test -d build/${build_host}/pp],
                                  [],
-                                 [mkdir -p build/${build_host}/src])
-                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/src])
+                                 [mkdir -p build/${build_host}/pp])
+                          python ~/Documents/serialbox2/src/serialbox-python/pp_ser/pp_ser.py -r -d build/${build_host}/pp src
+                          ln -s build/${build_host}/pp pp])
+                    AS_IF([test "x$enable_jsbach" = "xyes"],
+                          [AS_IF([test -d build/${build_host}/${my_iconsrcdir}],
+                                 [],
+                                 [mkdir -p build/${build_host}/${my_iconsrcdir}])
+                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/${my_iconsrcdir}])
                     config/createMakefiles.pl \
                                               --target="${build_host}" \
                                               --srcdirs="${my_srcdirs}" \
@@ -1399,11 +1412,13 @@ AC_CONFIG_COMMANDS([Makefiles],
                                               --enable_jsbach="${enable_jsbach}" \
                                               --enable_testbed="${enable_testbed}"],
                    [build_host="${build_host}"
-                    my_srcdirs="$my_srcdirs"
+                    my_srcdirs="${my_srcdirs}"
+                    my_iconsrcdir="${my_iconsrcdir}"
                     enable_ocean="${enable_ocean}"
                     enable_atmo="${enable_atmo}"
                     enable_jsbach="${enable_jsbach}"
-                    enable_testbed="${enable_testbed}"])
+                    enable_testbed="${enable_testbed}"
+                    enable_serialization="${enable_serialization}"])
 
 AC_SUBST(config_target,$config_target)
 AC_SUBST(config_compiler,$config_compiler)

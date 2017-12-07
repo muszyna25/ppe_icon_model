@@ -766,6 +766,7 @@ enable_atmo
 enable_jsbach
 enable_ocean
 enable_testbed
+enable_serialization
 enable_mh_file
 with_fortran
 with_openmp
@@ -1416,6 +1417,7 @@ Optional Features:
   --enable-jsbach         Use jsbach model component.
   --enable-ocean          Use ocean model component.
   --enable-testbed        Use testbed component.
+  --enable-serialization  Enable Serialbox2 serialization.
   --disable-mh-file       disable machine file usage
   --enable-eccodes=DIR    Update GRIB_API setup to successor ECCODES package
 
@@ -2616,6 +2618,14 @@ if test "${enable_testbed+set}" = set; then :
   enableval=$enable_testbed;
 else
   enable_testbed=no
+fi
+
+
+# Check whether --enable-serialization was given.
+if test "${enable_serialization+set}" = set; then :
+  enableval=$enable_serialization;
+else
+  enable_serialization=no
 fi
 
 
@@ -6284,7 +6294,14 @@ fi # ! CROSS
 
 test "x$exec_prefix" = xNONE && exec_prefix=build/${build_host}
 
-my_srcdirs="support src"
+if test "x$enable_serialization" = "xyes"; then :
+  my_iconsrcdir="pp"
+else
+  my_iconsrcdir="src"
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: \"where are sources: ${my_iconsrcdir}\"" >&5
+$as_echo "$as_me: \"where are sources: ${my_iconsrcdir}\"" >&6;}
+my_srcdirs="support ${my_iconsrcdir}"
 
 if [ "x$LAPACKROOT" = xlocal ] ; then
     my_srcdirs="blas lapack ${my_srcdirs}"
@@ -6766,8 +6783,31 @@ fi
 
 sync_submit=${sync_submit:=$submit}
 
+{ $as_echo "$as_me:${as_lineno-$LINENO}: \"STILL SOURCES IN: ${my_iconsrcdir}\"" >&5
+$as_echo "$as_me: \"STILL SOURCES IN: ${my_iconsrcdir}\"" >&6;}
 ac_config_commands="$ac_config_commands Makefiles"
 
+
+#AC_CONFIG_COMMANDS([Makefiles],
+#                   [AS_IF([test "x$enable_jsbach" = "xyes"],
+#                          [AS_IF([test -d build/${build_host}/${my_iconsrcdir}],
+#                                 [],
+#                                 [mkdir -p build/${build_host}/${my_iconsrcdir}/banana])
+#                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/src])
+#                    config/createMakefiles.pl \
+#                                              --target="${build_host}" \
+#                                              --srcdirs="${my_srcdirs}" \
+#                                              --enable_ocean="${enable_ocean}" \
+#                                              --enable_atmo="${enable_atmo}" \
+#                                              --enable_jsbach="${enable_jsbach}" \
+#                                              --enable_testbed="${enable_testbed}"],
+#                   [build_host="${build_host}"
+#                    my_srcdirs="${my_srcdirs}"
+#                    my_iconsrcdir="${my_iconsrcdir}"
+#                    enable_ocean="${enable_ocean}"
+#                    enable_atmo="${enable_atmo}"
+#                    enable_jsbach="${enable_jsbach}"
+#                    enable_testbed="${enable_testbed}"])
 
 config_target=$config_target
 
@@ -7509,11 +7549,13 @@ cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
 # INIT-COMMANDS
 #
 build_host="${build_host}"
-                    my_srcdirs="$my_srcdirs"
+                    my_srcdirs="${my_srcdirs}"
+                    my_iconsrcdir="${my_iconsrcdir}"
                     enable_ocean="${enable_ocean}"
                     enable_atmo="${enable_atmo}"
                     enable_jsbach="${enable_jsbach}"
                     enable_testbed="${enable_testbed}"
+                    enable_serialization="${enable_serialization}"
 
 _ACEOF
 
@@ -8078,13 +8120,22 @@ $as_echo "$as_me: executing $ac_file commands" >&6;}
 
 
   case $ac_file$ac_mode in
-    "Makefiles":C) if test "x$enable_jsbach" = "xyes"; then :
-  if test -d build/${build_host}/src; then :
+    "Makefiles":C) if test "x$enable_serialization" = "xyes"; then :
+  if test -d build/${build_host}/pp; then :
 
 else
-  mkdir -p build/${build_host}/src
+  mkdir -p build/${build_host}/pp
 fi
-                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/src
+                          cp -r src/* build/${build_host}/pp
+                          ln -s build/${build_host}/pp pp
+fi
+                    if test "x$enable_jsbach" = "xyes"; then :
+  if test -d build/${build_host}/${my_iconsrcdir}; then :
+
+else
+  mkdir -p build/${build_host}/${my_iconsrcdir}
+fi
+                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/${my_iconsrcdir}
 fi
                     config/createMakefiles.pl \
                                               --target="${build_host}" \
