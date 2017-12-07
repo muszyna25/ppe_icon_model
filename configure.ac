@@ -803,7 +803,7 @@ AS_CASE(["$GRIB_OPTION"],
                                  [gribapi],[AC_MSG_NOTICE([GRIBAPI explicitly chosen by config option.])],
                                  [GRIB_OPTION=eccodes])],
                         [AC_MSG_RESULT([undefined])
-                         GRIB_OPTION=suppressed
+                         AS_IF([test -z "$GRIBAPIROOT"],[GRIB_OPTION=suppressed],[])
                         ])
                   ])
          ])

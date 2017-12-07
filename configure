@@ -4629,7 +4629,12 @@ esac
 else
   { $as_echo "$as_me:$LINENO: result: undefined" >&5
 $as_echo "undefined" >&6; }
-                         GRIB_OPTION=suppressed
+{ $as_echo "$as_me:$LINENO: $GRIBAPIROOT" >&5
+$as_echo "$as_me: $GRIBAPIROOT" >&6;}
+                         if test -z "$GRIBAPIROOT"; then
+  GRIB_OPTION=suppressed
+fi
+
 
 fi
 
