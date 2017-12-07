@@ -1893,7 +1893,7 @@ CONTAINS
     INTEGER, INTENT(IN)         :: jg    !< patch index
     ! local variables:
     CHARACTER(*), PARAMETER     :: routine = modname//":meteogram_finalize"
-    INTEGER                     :: ierror, istation
+    INTEGER                     :: ierror
     LOGICAL :: is_mpi_workroot
 
     ! ------------------------------------------------------------
