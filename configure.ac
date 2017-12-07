@@ -936,6 +936,26 @@ AS_IF([test x"$with_mpi" = xno],
    [MPI="${DEFOPT}NOMPI"
     MPI_LIB=""])])
 
+dnl ######################################################################
+dnl Checks for Serialbox2
+
+AS_IF([test "x$enable_serialization" = "xyes"],
+  [if test -n "${SERIALBOX2ROOT}" ; then
+    if test -f "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then
+      if test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then
+         SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
+       else
+         echo "pp_ser.py script from Serialbox2 is not executable"  
+         exit 1    
+      fi
+    else
+      echo "Cannot find pp_ser.py script from Serialbox2"  
+      exit 1    
+    fi
+  else
+    echo "Error: Serialization is enabled but SERIALBOX2ROOT is not defined"
+    exit 1
+  fi])
 
 dnl ######################################################################
 dnl Checks for IBM'S hpm
@@ -1397,7 +1417,7 @@ AC_CONFIG_COMMANDS([Makefiles],
                           [AS_IF([test -d build/${build_host}/pp],
                                  [],
                                  [mkdir -p build/${build_host}/pp])
-                          python ~/Documents/serialbox2/src/serialbox-python/pp_ser/pp_ser.py -r -d build/${build_host}/pp src
+                          ${SERIALBOX2_PPSER} -r -d build/${build_host}/pp src
                           ln -s build/${build_host}/pp pp])
                     AS_IF([test "x$enable_jsbach" = "xyes"],
                           [AS_IF([test -d build/${build_host}/${my_iconsrcdir}],
@@ -1418,7 +1438,8 @@ AC_CONFIG_COMMANDS([Makefiles],
                     enable_atmo="${enable_atmo}"
                     enable_jsbach="${enable_jsbach}"
                     enable_testbed="${enable_testbed}"
-                    enable_serialization="${enable_serialization}"])
+                    enable_serialization="${enable_serialization}"
+                    SERIALBOX2_PPSER="${SERIALBOX2_PPSER}"])
 
 AC_SUBST(config_target,$config_target)
 AC_SUBST(config_compiler,$config_compiler)

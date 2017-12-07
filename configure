@@ -4843,6 +4843,25 @@ fi
 fi
 
 
+if test "x$enable_serialization" = "xyes"; then :
+  if test -n "${SERIALBOX2ROOT}" ; then
+    if test -f "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then
+      if test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then
+         SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
+       else
+         echo "pp_ser.py script from Serialbox2 is not executable"
+         exit 1
+      fi
+    else
+      echo "Cannot find pp_ser.py script from Serialbox2"
+      exit 1
+    fi
+  else
+    echo "Error: Serialization is enabled but SERIALBOX2ROOT is not defined"
+    exit 1
+  fi
+fi
+
 
 PROFILE_LIB=""
 PROFILE_INCLUDE=""
@@ -6299,8 +6318,6 @@ if test "x$enable_serialization" = "xyes"; then :
 else
   my_iconsrcdir="src"
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: \"where are sources: ${my_iconsrcdir}\"" >&5
-$as_echo "$as_me: \"where are sources: ${my_iconsrcdir}\"" >&6;}
 my_srcdirs="support ${my_iconsrcdir}"
 
 if [ "x$LAPACKROOT" = xlocal ] ; then
@@ -6783,31 +6800,8 @@ fi
 
 sync_submit=${sync_submit:=$submit}
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: \"STILL SOURCES IN: ${my_iconsrcdir}\"" >&5
-$as_echo "$as_me: \"STILL SOURCES IN: ${my_iconsrcdir}\"" >&6;}
 ac_config_commands="$ac_config_commands Makefiles"
 
-
-#AC_CONFIG_COMMANDS([Makefiles],
-#                   [AS_IF([test "x$enable_jsbach" = "xyes"],
-#                          [AS_IF([test -d build/${build_host}/${my_iconsrcdir}],
-#                                 [],
-#                                 [mkdir -p build/${build_host}/${my_iconsrcdir}/banana])
-#                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/src])
-#                    config/createMakefiles.pl \
-#                                              --target="${build_host}" \
-#                                              --srcdirs="${my_srcdirs}" \
-#                                              --enable_ocean="${enable_ocean}" \
-#                                              --enable_atmo="${enable_atmo}" \
-#                                              --enable_jsbach="${enable_jsbach}" \
-#                                              --enable_testbed="${enable_testbed}"],
-#                   [build_host="${build_host}"
-#                    my_srcdirs="${my_srcdirs}"
-#                    my_iconsrcdir="${my_iconsrcdir}"
-#                    enable_ocean="${enable_ocean}"
-#                    enable_atmo="${enable_atmo}"
-#                    enable_jsbach="${enable_jsbach}"
-#                    enable_testbed="${enable_testbed}"])
 
 config_target=$config_target
 
@@ -7556,6 +7550,7 @@ build_host="${build_host}"
                     enable_jsbach="${enable_jsbach}"
                     enable_testbed="${enable_testbed}"
                     enable_serialization="${enable_serialization}"
+                    SERIALBOX2_PPSER="${SERIALBOX2_PPSER}"
 
 _ACEOF
 
@@ -8126,7 +8121,7 @@ $as_echo "$as_me: executing $ac_file commands" >&6;}
 else
   mkdir -p build/${build_host}/pp
 fi
-                          cp -r src/* build/${build_host}/pp
+                          ${SERIALBOX2_PPSER} -r -d build/${build_host}/pp src
                           ln -s build/${build_host}/pp pp
 fi
                     if test "x$enable_jsbach" = "xyes"; then :
