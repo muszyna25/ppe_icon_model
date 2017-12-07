@@ -202,10 +202,6 @@ MODULE mo_meteogram_output
   INTEGER, PARAMETER :: VAR_GROUP_SOIL_MLp2  =    5  !< height levels [0m, soil half levels, -14.58m]
   INTEGER, PARAMETER :: FLAG_DIAG            =    4  !< Flag bit: if set then this variable is a diagnostic
 
-  INTEGER :: ntiles_mtgrm          ! total number of tiles (ntiles_total + ntiles_water) 
-                                   ! if NWP tiles are set up
-                                   ! 1 otherwise
-
   !>
   !! Generic interface for adding atmospheric vars to list (required
   !! to cope with 4d vars, e.g. with tiles):
@@ -293,6 +289,9 @@ MODULE mo_meteogram_output
     REAL(wp), ALLOCATABLE :: fc(:)
     !> triangle index (global idx,block)
     INTEGER, ALLOCATABLE :: tri_idx(:,:)
+    !> notal number of tiles (ntiles_total+ntiles_water)
+    !! if NWP tiles are set up, 1 otherwise
+    INTEGER :: ntiles_mtgrm
   END TYPE t_mtgrm_invariants
 
   !>
@@ -1253,9 +1252,9 @@ CONTAINS
 
 
     IF (ALLOCATED(tile_list%tile)) THEN
-      ntiles_mtgrm = ntiles_total + ntiles_water
+      invariants%ntiles_mtgrm = ntiles_total + ntiles_water
     ELSE
-      ntiles_mtgrm = 1
+      invariants%ntiles_mtgrm = 1
     ENDIF
 
     max_time_stamps = meteogram_output_config%max_time_stamps
@@ -1385,8 +1384,8 @@ CONTAINS
       meteogram_output_config%max_time_stamps, nstations_buf)
     CALL allocate_heights(invariants%heights, mtgrm(jg)%var_info, nstations_buf)
     ALLOCATE(mtgrm(jg)%istep(max_time_stamps), &
-      invariants%tile_frac(ntiles_mtgrm, nstations_buf), &
-      invariants%tile_luclass(ntiles_mtgrm, nstations_buf), &
+      invariants%tile_frac(invariants%ntiles_mtgrm, nstations_buf), &
+      invariants%tile_luclass(invariants%ntiles_mtgrm, nstations_buf), &
       invariants%soiltype(nstations_buf), &
       invariants%fc(nstations_buf), &
       invariants%frland(nstations_buf), &
@@ -1619,15 +1618,15 @@ CONTAINS
     SELECT CASE ( iforcing )
     CASE ( inwp ) ! NWP physics
       invariants%hsurf(istation_buf) &
-        &              =  atm%topography_c(tri_idx1, tri_idx2)
+        &        =  atm%topography_c(tri_idx1, tri_idx2)
       invariants%frland(istation_buf) &
-        &              =  atm%fr_land(tri_idx1, tri_idx2)
+        &        =  atm%fr_land(tri_idx1, tri_idx2)
       invariants%soiltype(istation_buf) =  atm%soiltyp(tri_idx1, tri_idx2)
       !
       invariants%tile_frac(:, istation_buf) &
-        &              = atm%lc_frac_t(tri_idx1, tri_idx2, 1:ntiles_mtgrm)
+        &        = atm%lc_frac_t(tri_idx1, tri_idx2, 1:invariants%ntiles_mtgrm)
       invariants%tile_luclass(:, istation_buf) &
-        &              = atm%lc_class_t(tri_idx1, tri_idx2, 1:ntiles_mtgrm)
+        &        = atm%lc_class_t(tri_idx1, tri_idx2, 1:invariants%ntiles_mtgrm)
 
     CASE DEFAULT
       invariants%hsurf(istation_buf)    =  0._wp
@@ -2279,7 +2278,7 @@ CONTAINS
       &     file_info%ncid%nstations), routine)
     ! write variables:
     CALL nf(nf_def_dim(ncfile, 'nvars', nvars, file_info%ncid%nvars), routine)
-    CALL nf(nf_def_dim(ncfile, 'ntiles',     ntiles_mtgrm, &
+    CALL nf(nf_def_dim(ncfile, 'ntiles', invariants%ntiles_mtgrm, &
       &     file_info%ncid%ntiles), routine)
     IF (nsfcvars > 0) &
       CALL nf(nf_def_dim(ncfile, 'nsfcvars', nsfcvars, &
@@ -2552,7 +2551,7 @@ CONTAINS
     END DO
     istart(2) = 1
     icount(2) = icount(1)
-    icount(1) = ntiles_mtgrm
+    icount(1) = invariants%ntiles_mtgrm
     CALL nf(nf_put_vara_double(ncid%file_id, ncid%station_tile_frac, &
       &                        istart(1:2), icount(1:2), invariants%tile_frac),&
       &     routine)
@@ -3143,11 +3142,7 @@ CONTAINS
 
     INTEGER :: ivar, nvars, nlevs, pos, istation, nstations, ntiles
 
-    IF (ALLOCATED(tile_list%tile)) THEN
-      ntiles = ntiles_total + ntiles_water
-    ELSE
-      ntiles = 1
-    ENDIF
+    ntiles = invariants%ntiles_mtgrm
     nstations = SIZE(station)
     ALLOCATE(buf(num_time_inv + 2*ntiles + SUM(var_info%nlevs),nstations))
     nvars = SIZE(var_info)
@@ -3182,11 +3177,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: buf(:,:)
     INTEGER :: ivar, nvars, nlevs, pos, istation, nstations, iowner, ntiles
 
-    IF (ALLOCATED(tile_list%tile)) THEN
-      ntiles = ntiles_total + ntiles_water
-    ELSE
-      ntiles = 1
-    ENDIF
+    ntiles = invariants%ntiles_mtgrm
     nstations = SIZE(invariants%hsurf)
     ALLOCATE(buf(num_time_inv + 2*ntiles + SUM(var_info%nlevs),nstations))
     nvars = SIZE(var_info)
