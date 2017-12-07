@@ -745,38 +745,31 @@ AS_CASE([$with_eccodes],
         [])
 
 
-dnl STEP 2: now, translate setting "yes/no_default" into "yes/no". afterwards,
-dnl         information is lost whether the user actively modified the option default.       
-dnl
-AS_CASE([$with_grib_api],
-        [yes_default], [with_grib_api=yes],
-        [no_default],  [with_grib_api=no])
-AS_CASE([$with_eccodes],
-        [yes_default], [with_eccodes=yes],
-        [no_default],  [with_eccodes=no])
-
-
-dnl STEP 3: test if GRIB-API or ECCODES were set explicitly by configure option
+dnl STEP 2: test if GRIB-API or ECCODES were set explicitly by configure option
 dnl
 AS_CASE(["$GRIB_OPTION"],
         [suppressed], [],
          AS_CASE([$with_grib_api],
-                 [no],    [],
+                 [no],         [],
+                 [no_default], [],
                  [yes],   
                  [GRIB_OPTION=gribapi],
+                 [yes_default], [],
                  [GRIB_SETUP=option_setting
                   GRIB_OPTION=gribapi
                   GRIBAPIROOT=$with_grib_api])
          AS_CASE([$with_eccodes],
-                 [no],    [],
+                 [no],         [],
+                 [no_default], [],
                  [yes],   
                  [GRIB_OPTION=eccodes],
+                 [yes_default], [],
                  [GRIB_SETUP=option_setting
                   GRIB_OPTION=eccodes
                   GRIBAPIROOT=$with_eccodes]))
 
 
-dnl STEP 4: test environment variables (if GRIB2 support not suppressed)
+dnl STEP 3: test environment variables (if GRIB2 support not suppressed)
 dnl
 GRIBAPI_LIB=""
 GRIBAPI_INCLUDE=""
@@ -784,31 +777,54 @@ AS_CASE(["$GRIB_OPTION"],
         [suppressed], [],
         [AS_CASE(["$GRIB_SETUP"],
                  [env_setting],
-                 [AC_MSG_CHECKING([environment variable \$GRIB_API])
+                 [env_setting_found=no
+
+                  dnl consider $GRIBAPIROOT only if --with-grib_api is 
+                  dnl different from the default:
+                  AS_CASE([$with_grib_api],
+                          [yes_default], [],
+                          [AC_MSG_CHECKING([direct setting of \$GRIBAPIROOT])
+                           AS_IF([test -n "$GRIBAPIROOT"],
+                                 [AC_MSG_RESULT([$GRIBAPIROOT])
+                                  env_setting_found=yes
+                                  GRIB_OPTION=gribapi],
+                                 [AC_MSG_RESULT([undefined])])
+                          ])
+                  AC_MSG_CHECKING([environment variable \$GRIB_API])
                   AS_IF([test -n "$GRIB_API"],
                         [AC_MSG_RESULT([$GRIB_API])
                          GRIBAPIROOT=$GRIB_API
+                         env_setting_found=yes
+                         GRIB_OPTION=gribapi
                          AS_CASE(["$GRIB_OPTION"],
-                                 [eccodes],[AC_MSG_NOTICE([ECCODES explicitly chosen by config option.])],
-                                 [GRIB_OPTION=gribapi])],
+                                 [eccodes],[AC_MSG_ERROR([ECCODES explicitly chosen by config option.])],
+                                 [])],
                         [AC_MSG_RESULT([undefined])
                          dnl fallback: search for ECCODES:
-                         GRIB_OPTION=eccodes
+                         AS_CASE([env_setting_found],
+                                 [no],
+                                 [GRIB_OPTION=eccodes],
+                                 [])
                         ])
                   AC_MSG_CHECKING([environment variable \$ECCODES])
                   AS_IF([test -n "$ECCODES"],
                         [AC_MSG_RESULT([$ECCODES])
                          GRIBAPIROOT=$ECCODES
+                         env_setting_found=yes
                          AS_CASE(["$GRIB_OPTION"],
-                                 [gribapi],[AC_MSG_NOTICE([GRIBAPI explicitly chosen by config option.])],
+                                 [gribapi],[AC_MSG_ERROR([GRIBAPI explicitly chosen by config option.])],
                                  [GRIB_OPTION=eccodes])],
-                        [AC_MSG_RESULT([undefined])
-                         AS_IF([test -z "$GRIBAPIROOT"],[GRIB_OPTION=suppressed],[])
-                        ])
+                        [AC_MSG_RESULT([undefined])])
+
+                  AS_CASE([$env_setting_found],
+                          [no],
+                          [AC_MSG_NOTICE([no environment setting found.])
+                           GRIB_OPTION=suppressed],
+                          [])
                   ])
          ])
 
-dnl STEP 5: test if GRIB library directory is now properly defined.
+dnl STEP 4: test if GRIB library directory is now properly defined.
 dnl
 AS_CASE(["$GRIB_OPTION"],
         [suppressed], [],
@@ -820,7 +836,7 @@ AS_CASE(["$GRIB_OPTION"],
         ])
 
 
-dnl STEP 6: create LIB and include paths.
+dnl STEP 5: create LIB and include paths.
 dnl
 GRIBAPI_LIB=""
 GRIBAPI_INCLUDE=""
@@ -866,7 +882,7 @@ AS_CASE([$GRIB_OPTION],
         [gribapi],
         [AS_CASE([$GRIB_SETUP],
                  [env_setting],
-                 [AC_MSG_NOTICE([GRIB support uses environment variable \$GRIB_API.])],
+                 [AC_MSG_NOTICE([GRIB support uses environment variable \$GRIB_API / \$GRIBAPIROOT.])],
                  [option_setting],
                  [AC_MSG_NOTICE([GRIB support uses GRIB-API by configure option.])],
                  [])],

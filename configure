@@ -4556,23 +4556,13 @@ esac
 
 
 
-case $with_grib_api in
-  yes_default) with_grib_api=yes ;;
-  no_default) with_grib_api=no ;;
-esac
-
-case $with_eccodes in
-  yes_default) with_eccodes=yes ;;
-  no_default) with_eccodes=no ;;
-esac
-
-
-
 case "$GRIB_OPTION" in
   suppressed) : ;;
   *) case $with_grib_api in
   no) : ;;
+  no_default) : ;;
   yes) GRIB_OPTION=gribapi ;;
+  yes_default) : ;;
   *) GRIB_SETUP=option_setting
                   GRIB_OPTION=gribapi
                   GRIBAPIROOT=$with_grib_api ;;
@@ -4580,7 +4570,9 @@ esac
 
          case $with_eccodes in
   no) : ;;
+  no_default) : ;;
   yes) GRIB_OPTION=eccodes ;;
+  yes_default) : ;;
   *) GRIB_SETUP=option_setting
                   GRIB_OPTION=eccodes
                   GRIBAPIROOT=$with_eccodes ;;
@@ -4595,22 +4587,48 @@ GRIBAPI_INCLUDE=""
 case "$GRIB_OPTION" in
   suppressed) : ;;
   *) case "$GRIB_SETUP" in
-  env_setting) { $as_echo "$as_me:$LINENO: checking environment variable \$GRIB_API" >&5
+  env_setting) env_setting_found=no
+
+                                                      case $with_grib_api in
+  yes_default) : ;;
+  *) { $as_echo "$as_me:$LINENO: checking direct setting of \$GRIBAPIROOT" >&5
+$as_echo_n "checking direct setting of \$GRIBAPIROOT... " >&6; }
+                           if test -n "$GRIBAPIROOT"; then
+  { $as_echo "$as_me:$LINENO: result: $GRIBAPIROOT" >&5
+$as_echo "$GRIBAPIROOT" >&6; }
+                                  env_setting_found=yes
+                                  GRIB_OPTION=gribapi
+else
+  { $as_echo "$as_me:$LINENO: result: undefined" >&5
+$as_echo "undefined" >&6; }
+fi
+
+                           ;;
+esac
+
+                  { $as_echo "$as_me:$LINENO: checking environment variable \$GRIB_API" >&5
 $as_echo_n "checking environment variable \$GRIB_API... " >&6; }
                   if test -n "$GRIB_API"; then
   { $as_echo "$as_me:$LINENO: result: $GRIB_API" >&5
 $as_echo "$GRIB_API" >&6; }
                          GRIBAPIROOT=$GRIB_API
+                         env_setting_found=yes
+                         GRIB_OPTION=gribapi
                          case "$GRIB_OPTION" in
-  eccodes) { $as_echo "$as_me:$LINENO: ECCODES explicitly chosen by config option." >&5
-$as_echo "$as_me: ECCODES explicitly chosen by config option." >&6;} ;;
-  *) GRIB_OPTION=gribapi ;;
+  eccodes) { { $as_echo "$as_me:$LINENO: error: ECCODES explicitly chosen by config option." >&5
+$as_echo "$as_me: error: ECCODES explicitly chosen by config option." >&2;}
+   { (exit 1); exit 1; }; } ;;
+  *)  ;;
 esac
 
 else
   { $as_echo "$as_me:$LINENO: result: undefined" >&5
 $as_echo "undefined" >&6; }
-                                                  GRIB_OPTION=eccodes
+                                                  case env_setting_found in
+  no) GRIB_OPTION=eccodes ;;
+  *)  ;;
+esac
+
 
 fi
 
@@ -4620,23 +4638,26 @@ $as_echo_n "checking environment variable \$ECCODES... " >&6; }
   { $as_echo "$as_me:$LINENO: result: $ECCODES" >&5
 $as_echo "$ECCODES" >&6; }
                          GRIBAPIROOT=$ECCODES
+                         env_setting_found=yes
                          case "$GRIB_OPTION" in
-  gribapi) { $as_echo "$as_me:$LINENO: GRIBAPI explicitly chosen by config option." >&5
-$as_echo "$as_me: GRIBAPI explicitly chosen by config option." >&6;} ;;
+  gribapi) { { $as_echo "$as_me:$LINENO: error: GRIBAPI explicitly chosen by config option." >&5
+$as_echo "$as_me: error: GRIBAPI explicitly chosen by config option." >&2;}
+   { (exit 1); exit 1; }; } ;;
   *) GRIB_OPTION=eccodes ;;
 esac
 
 else
   { $as_echo "$as_me:$LINENO: result: undefined" >&5
 $as_echo "undefined" >&6; }
-{ $as_echo "$as_me:$LINENO: $GRIBAPIROOT" >&5
-$as_echo "$as_me: $GRIBAPIROOT" >&6;}
-                         if test -z "$GRIBAPIROOT"; then
-  GRIB_OPTION=suppressed
 fi
 
 
-fi
+                  case $env_setting_found in
+  no) { $as_echo "$as_me:$LINENO: no environment setting found." >&5
+$as_echo "$as_me: no environment setting found." >&6;}
+                           GRIB_OPTION=suppressed ;;
+  *)  ;;
+esac
 
                    ;;
 esac
@@ -4720,8 +4741,8 @@ esac
 
 case $GRIB_OPTION in
   gribapi) case $GRIB_SETUP in
-  env_setting) { $as_echo "$as_me:$LINENO: GRIB support uses environment variable \$GRIB_API." >&5
-$as_echo "$as_me: GRIB support uses environment variable \$GRIB_API." >&6;} ;;
+  env_setting) { $as_echo "$as_me:$LINENO: GRIB support uses environment variable \$GRIB_API / \$GRIBAPIROOT." >&5
+$as_echo "$as_me: GRIB support uses environment variable \$GRIB_API / \$GRIBAPIROOT." >&6;} ;;
   option_setting) { $as_echo "$as_me:$LINENO: GRIB support uses GRIB-API by configure option." >&5
 $as_echo "$as_me: GRIB support uses GRIB-API by configure option." >&6;} ;;
   *)  ;;
