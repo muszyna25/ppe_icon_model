@@ -308,8 +308,6 @@ MODULE mo_meteogram_output
   !!
   TYPE t_meteogram_station
     ! Meteogram header (information on location, ...)
-    !> global index of station specification
-    INTEGER                         :: station_idx
 
     ! Buffers for currently stored meteogram values.
     !> sampled data (1:nvars)
@@ -391,7 +389,8 @@ MODULE mo_meteogram_output
     TYPE(t_meteogram_data)  :: meteogram_local_data             !< meteogram data local to this PE
     !> triangle index (nstations,2)
     INTEGER, ALLOCATABLE    :: tri_idx_local(:,:)
-    TYPE(t_meteogram_file)  :: meteogram_file_info              !< meteogram file handle etc.
+    !> meteogram file handle etc.
+    TYPE(t_meteogram_file)  :: meteogram_file_info
     !> info on sample times (1:icurrent)
     !! iteration step of model
     INTEGER, ALLOCATABLE :: istep(:)
@@ -1417,7 +1416,7 @@ CONTAINS
         mtgrm(jg)%tri_idx_local(istation, :) = tri_idx(:,jc,jb)
         CALL sample_station_init(&
           mtgrm(jg)%meteogram_local_data%station(istation), &
-          mtgrm(jg)%global_idx(istation), istation_buf, tri_idx(:,jc,jb), &
+          istation_buf, tri_idx(:,jc,jb), &
           ptr_patch%cells, ext_data%atm, iforcing, p_nh_state%metrics, &
           mtgrm(jg)%var_info, mtgrm(jg)%sfc_var_info, &
           meteogram_output_config%max_time_stamps, mtgrm(jg)%out_buf, &
@@ -1427,7 +1426,8 @@ CONTAINS
         & .AND. .NOT. meteogram_output_config%ldistributed) &
         CALL send_time_invariants(mtgrm(jg)%var_info, &
         mtgrm(jg)%meteogram_local_data%station, invariants, &
-        mtgrm(jg)%io_collector_rank, mtgrm(jg)%io_collect_comm)
+        mtgrm(jg)%io_collector_rank, mtgrm(jg)%io_collect_comm, &
+        mtgrm(jg)%global_idx)
       IF (.NOT. mtgrm(jg)%l_is_collecting_pe) THEN
         DO istation=1,ithis_nlocal_pts
           mtgrm(jg)%out_buf%station_idx(istation) &
@@ -1578,11 +1578,11 @@ CONTAINS
 
   END SUBROUTINE mtgrm_station_owners
 
-  SUBROUTINE sample_station_init(station, istation_glb, istation_buf, tri_idx, &
+  SUBROUTINE sample_station_init(station, istation_buf, tri_idx, &
     cells, atm, iforcing, metrics, var_info, sfc_var_info, max_time_stamps, &
     out_buf, invariants)
     TYPE(t_meteogram_station), INTENT(inout) :: station
-    INTEGER, INTENT(in) :: istation_glb, istation_buf
+    INTEGER, INTENT(in) :: istation_buf
     INTEGER, INTENT(in) :: tri_idx(2)
     TYPE(t_grid_cells), INTENT(in) :: cells
     TYPE(t_external_atmos), INTENT(in) :: atm
@@ -1600,8 +1600,6 @@ CONTAINS
     REAL(wp), POINTER :: station_var_heights(:)
     INTEGER :: tri_idx1, tri_idx2, glb_index, ivar, nvars, nlevs
     CHARACTER(len=*), PARAMETER :: routine = modname//"::sample_station_init"
-
-    station%station_idx = istation_glb
 
     ! set local triangle index, block:
     tri_idx1 = tri_idx(1)
@@ -2085,11 +2083,11 @@ CONTAINS
       END IF
       ! pack station into buffer; send it
       DO istation=1,mtgrm%meteogram_local_data%nstations
-        station_idx &
-          = mtgrm%meteogram_local_data%station(istation)%station_idx
+        station_idx = mtgrm%global_idx(istation)
         CALL pack_station_sample(msg_buffer(:,1), position, &
           mtgrm%icurrent, &
-          mtgrm%meteogram_local_data%station(istation), mtgrm%var_info)
+          mtgrm%meteogram_local_data%station(istation), mtgrm%var_info, &
+          mtgrm%global_idx(istation))
         ! (blocking) send of packed station data to IO PE:
         CALL p_send_packed(msg_buffer, mtgrm%io_collector_rank, &
           &    tag_mtgrm_msg+3*max_dom + (jg-1)*tag_domain_shift + station_idx,&
@@ -2157,9 +2155,9 @@ CONTAINS
   END FUNCTION station_atmo_vars_max_pack_size
 
   SUBROUTINE pack_station_sample(sttn_buffer, pos, icurrent, station, &
-    var_info)
+    var_info, global_idx)
     CHARACTER, INTENT(out) :: sttn_buffer(:)
-    INTEGER, INTENT(in) :: icurrent
+    INTEGER, INTENT(in) :: icurrent, global_idx
     INTEGER, INTENT(out) :: pos
     TYPE(t_meteogram_station), INTENT(in) :: station
     TYPE(t_var_info), INTENT(in) :: var_info(:)
@@ -2171,7 +2169,7 @@ CONTAINS
     CALL p_pack_int(icurrent, sttn_buffer, pos)
 
     !-- pack meteogram header (information on location, ...)
-    CALL p_pack_int(station%station_idx, sttn_buffer, pos)
+    CALL p_pack_int(global_idx, sttn_buffer, pos)
 
     !-- pack meteogram data:
     nvars = SIZE(station%var)
@@ -3145,11 +3143,11 @@ CONTAINS
   END SUBROUTINE unpack_cf
 
   SUBROUTINE send_time_invariants(var_info, station, invariants, &
-    io_collector_rank, io_collect_comm)
+    io_collector_rank, io_collect_comm, global_idx)
     TYPE(t_var_info), INTENT(in) :: var_info(:)
     TYPE(t_meteogram_station), INTENT(in) :: station(:)
     TYPE(t_mtgrm_invariants), INTENT(in) :: invariants
-    INTEGER, INTENT(in) :: io_collector_rank, io_collect_comm
+    INTEGER, INTENT(in) :: io_collector_rank, io_collect_comm, global_idx(:)
 
     REAL(wp), ALLOCATABLE :: buf(:,:)
 
@@ -3175,7 +3173,7 @@ CONTAINS
         pos = pos + nlevs
       END DO
       CALL p_isend(buf(:,istation), io_collector_rank, &
-        TAG_VARLIST+station(istation)%station_idx, comm=io_collect_comm)
+        TAG_VARLIST+global_idx(istation), comm=io_collect_comm)
     END DO
     CALL p_wait
   END SUBROUTINE send_time_invariants
