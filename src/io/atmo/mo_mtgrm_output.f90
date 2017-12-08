@@ -1076,10 +1076,9 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-11-25)
   !!
-  SUBROUTINE compute_diagnostics(diag_var_indices, var_info, i_tstep, &
+  SUBROUTINE compute_diagnostics(diag_var_indices, i_tstep, &
     out_buf, istation_buf)
     TYPE(meteogram_diag_var_indices), INTENT(in) :: diag_var_indices
-    TYPE(t_var_info), INTENT(in) :: var_info(:)
     INTEGER, INTENT(IN) :: i_tstep   ! time step index
     TYPE(t_mtgrm_out_buffer), INTENT(inout) :: out_buf
     INTEGER, INTENT(in) :: istation_buf
@@ -1103,7 +1102,7 @@ CONTAINS
       i_PEXNER = diag_var_indices%i_PEXNER
 
       IF (i_T /= -1 .AND. i_QV /= -1 .AND. i_PEXNER  /= -1) THEN
-        nlevs = var_info(i_REL_HUM)%nlevs
+        nlevs = SIZE(out_buf%atmo_vars(i_T)%a, 2)
         DO ilev=1,nlevs
           ! get values for temperature, etc.:
           temp = out_buf%atmo_vars(i_T)%a(istation_buf, ilev, i_tstep)
@@ -1891,8 +1890,7 @@ CONTAINS
     END DO SFCVAR_LOOP
 
     ! compute additional diagnostic quantities:
-    CALL compute_diagnostics(diag_var_indices, var_info, i_tstep, &
-      out_buf, istation_buf)
+    CALL compute_diagnostics(diag_var_indices, i_tstep, out_buf, istation_buf)
 
   END SUBROUTINE sample_station_vars
 
