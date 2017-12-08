@@ -310,8 +310,6 @@ MODULE mo_meteogram_output
     ! Meteogram header (information on location, ...)
     !> global index of station specification
     INTEGER                         :: station_idx
-    !> triangle index (idx,block)
-    INTEGER                         :: tri_idx_local(2) = -1
 
     ! Buffers for currently stored meteogram values.
     !> sampled data (1:nvars)
@@ -391,6 +389,8 @@ MODULE mo_meteogram_output
   !!
   TYPE t_buffer_state
     TYPE(t_meteogram_data)  :: meteogram_local_data             !< meteogram data local to this PE
+    !> triangle index (nstations,2)
+    INTEGER, ALLOCATABLE    :: tri_idx_local(:,:)
     TYPE(t_meteogram_file)  :: meteogram_file_info              !< meteogram file handle etc.
     !> info on sample times (1:icurrent)
     !! iteration step of model
@@ -1404,6 +1404,7 @@ CONTAINS
     IF (.NOT. is_pure_io_pe) THEN
 
       ALLOCATE(mtgrm(jg)%meteogram_local_data%station(ithis_nlocal_pts), &
+        mtgrm(jg)%tri_idx_local(ithis_nlocal_pts, 2), &
         stat=ierrstat)
       IF (ierrstat /= SUCCESS) THEN
         CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 3)')
@@ -1413,6 +1414,7 @@ CONTAINS
         jc = MOD(istation-1, nproma)+1
         istation_buf = MERGE(mtgrm(jg)%global_idx(istation), istation, &
           mtgrm(jg)%l_is_collecting_pe)
+        mtgrm(jg)%tri_idx_local(istation, :) = tri_idx(:,jc,jb)
         CALL sample_station_init(&
           mtgrm(jg)%meteogram_local_data%station(istation), &
           mtgrm(jg)%global_idx(istation), istation_buf, tri_idx(:,jc,jb), &
@@ -1604,8 +1606,6 @@ CONTAINS
     ! set local triangle index, block:
     tri_idx1 = tri_idx(1)
     tri_idx2 = tri_idx(2)
-    station%tri_idx_local(1) = tri_idx1
-    station%tri_idx_local(2) = tri_idx2
     ! translate local index to global index:
     glb_index = cells%decomp_info%glb_index(idx_1d(tri_idx1, tri_idx2))
     invariants%tri_idx(istation_buf, 1) = idx_no(glb_index)
@@ -1847,7 +1847,7 @@ CONTAINS
       ! fill time step with values
       DO istation = 1, ithis_nlocal_pts
         CALL sample_station_vars(&
-          mtgrm(jg)%meteogram_local_data%station(istation), &
+          mtgrm(jg)%tri_idx_local(istation,:), &
           mtgrm(jg)%var_info, mtgrm(jg)%sfc_var_info, &
           mtgrm(jg)%diag_var_indices, i_tstep, &
           mtgrm(jg)%out_buf, buf_idx(istation))
@@ -1855,9 +1855,9 @@ CONTAINS
     END IF
   END SUBROUTINE meteogram_sample_vars
 
-  SUBROUTINE sample_station_vars(station, var_info, sfc_var_info, &
+  SUBROUTINE sample_station_vars(tri_idx_local, var_info, sfc_var_info, &
     diag_var_indices, i_tstep, out_buf, istation_buf)
-    TYPE(t_meteogram_station), INTENT(inout) :: station
+    INTEGER, INTENT(in) :: tri_idx_local(:)
     TYPE(t_var_info), INTENT(in) :: var_info(:)
     TYPE(t_sfc_var_info), INTENT(in) :: sfc_var_info(:)
     TYPE(meteogram_diag_var_indices), INTENT(in) :: diag_var_indices
@@ -1869,8 +1869,8 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: routine &
       = modname//'::sample_station_vars'
 
-    iidx  = station%tri_idx_local(1)
-    iblk  = station%tri_idx_local(2)
+    iidx  = tri_idx_local(1)
+    iblk  = tri_idx_local(2)
 
     ! sample 3D variables:
     nvars = SIZE(var_info)
