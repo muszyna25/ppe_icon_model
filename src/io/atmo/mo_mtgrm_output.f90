@@ -429,7 +429,8 @@ MODULE mo_meteogram_output
     !> rank of PE which sends invariants (either identical for all
     !! stations or all time stamps)
     INTEGER                 :: io_invar_send_rank
-    INTEGER                 :: global_idx(MAX_NUM_STATIONS)     !< rank of sender PE for each station
+    !> global rank of each station
+    INTEGER                 :: global_idx(MAX_NUM_STATIONS)
 
     TYPE(meteogram_diag_var_indices) :: diag_var_indices
     !> "owner" PE for each station
@@ -1803,6 +1804,7 @@ CONTAINS
     INTEGER :: istation, ithis_nlocal_pts, i_tstep
     CHARACTER(len=MAX_DATETIME_STR_LEN) :: zdate
     INTEGER :: msg(2)
+    INTEGER :: buf_idx(mtgrm(jg)%meteogram_local_data%nstations)
 
     IF (dbg_level > 0) THEN
       WRITE(message_text,*) "Sampling at step=", cur_step
@@ -1834,23 +1836,33 @@ CONTAINS
       CALL datetimeToPosixString(cur_datetime, zdate, "%Y%m%dT%H%M%SZ")
       mtgrm(jg)%zdate(i_tstep) = zdate
 
+      IF (mtgrm(jg)%l_is_collecting_pe) THEN
+        buf_idx = mtgrm(jg)%global_idx(1:ithis_nlocal_pts)
+      ELSE
+        DO istation = 1, ithis_nlocal_pts
+          buf_idx(istation) = istation
+        END DO
+      END IF
       ! fill time step with values
       DO istation = 1, ithis_nlocal_pts
         CALL sample_station_vars(&
           mtgrm(jg)%meteogram_local_data%station(istation), &
           mtgrm(jg)%var_info, mtgrm(jg)%sfc_var_info, &
-          mtgrm(jg)%diag_var_indices, i_tstep)
+          mtgrm(jg)%diag_var_indices, i_tstep, &
+          mtgrm(jg)%out_buf, buf_idx(istation))
       END DO
     END IF
   END SUBROUTINE meteogram_sample_vars
 
   SUBROUTINE sample_station_vars(station, var_info, sfc_var_info, &
-    diag_var_indices, i_tstep)
+    diag_var_indices, i_tstep, out_buf, istation_buf)
     TYPE(t_meteogram_station), INTENT(inout) :: station
     TYPE(t_var_info), INTENT(in) :: var_info(:)
     TYPE(t_sfc_var_info), INTENT(in) :: sfc_var_info(:)
     TYPE(meteogram_diag_var_indices), INTENT(in) :: diag_var_indices
     INTEGER, INTENT(in) :: i_tstep
+    TYPE(t_mtgrm_out_buffer), INTENT(inout) :: out_buf
+    INTEGER, INTENT(in) :: istation_buf
 
     INTEGER :: iidx, iblk, ivar, nvars
     CHARACTER(len=*), PARAMETER :: routine &
@@ -1863,15 +1875,15 @@ CONTAINS
     nvars = SIZE(var_info)
     VAR_LOOP : DO ivar=1,nvars
       IF (.NOT. BTEST(var_info(ivar)%igroup_id, FLAG_DIAG)) THEN
-        station%var(ivar)%values(:, i_tstep) = &
-          &  var_info(ivar)%p_source(iidx, :, iblk)
+        out_buf%atmo_vars(ivar)%a(istation_buf, :, i_tstep) &
+          = var_info(ivar)%p_source(iidx, :, iblk)
       END IF
     END DO VAR_LOOP
     ! sample surface variables:
     nvars = SIZE(sfc_var_info)
     SFCVAR_LOOP : DO ivar=1,nvars
       IF (.NOT. BTEST(sfc_var_info(ivar)%igroup_id, FLAG_DIAG)) THEN
-        station%sfc_var(ivar)%values(i_tstep) &
+        out_buf%sfc_vars(ivar)%a(istation_buf, i_tstep) &
           = sfc_var_info(ivar)%p_source(iidx, iblk)
       END IF
     END DO SFCVAR_LOOP
