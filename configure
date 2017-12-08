@@ -8122,7 +8122,7 @@ else
   mkdir -p build/${build_host}/pp
 fi
                           ${SERIALBOX2_PPSER} -r -d build/${build_host}/pp src
-                          ln -s build/${build_host}/pp pp
+                          ln -sf build/${build_host}/pp pp
 fi
                     if test "x$enable_jsbach" = "xyes"; then :
   if test -d build/${build_host}/${my_iconsrcdir}; then :

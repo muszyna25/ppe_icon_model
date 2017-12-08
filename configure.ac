@@ -1418,7 +1418,7 @@ AC_CONFIG_COMMANDS([Makefiles],
                                  [],
                                  [mkdir -p build/${build_host}/pp])
                           ${SERIALBOX2_PPSER} -r -d build/${build_host}/pp src
-                          ln -s build/${build_host}/pp pp])
+                          ln -sf build/${build_host}/pp pp])
                     AS_IF([test "x$enable_jsbach" = "xyes"],
                           [AS_IF([test -d build/${build_host}/${my_iconsrcdir}],
                                  [],
