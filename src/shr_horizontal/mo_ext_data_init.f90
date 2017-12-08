@@ -2143,7 +2143,7 @@ CONTAINS
       CALL finish(routine, "Error!")
     END IF
 
-    ! exclude the boundary interpolation zone of nested domains
+    ! include boundary interpolation zone and halo points 
     rl_start = 1
     rl_end   = min_rlcell
 
