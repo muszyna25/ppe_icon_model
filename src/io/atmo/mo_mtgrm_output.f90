@@ -1076,11 +1076,13 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-11-25)
   !!
-  SUBROUTINE compute_diagnostics(station, diag_var_indices, var_info, i_tstep)
-    TYPE(t_meteogram_station), INTENT(INOUT) :: station
+  SUBROUTINE compute_diagnostics(diag_var_indices, var_info, i_tstep, &
+    out_buf, istation_buf)
     TYPE(meteogram_diag_var_indices), INTENT(in) :: diag_var_indices
     TYPE(t_var_info), INTENT(in) :: var_info(:)
     INTEGER, INTENT(IN) :: i_tstep   ! time step index
+    TYPE(t_mtgrm_out_buffer), INTENT(inout) :: out_buf
+    INTEGER, INTENT(in) :: istation_buf
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":compute_diagnostics"
     INTEGER                         :: ilev, nlevs
@@ -1104,12 +1106,12 @@ CONTAINS
         nlevs = var_info(i_REL_HUM)%nlevs
         DO ilev=1,nlevs
           ! get values for temperature, etc.:
-          temp = station%var(i_T)%values(ilev, i_tstep)
-          qv   = station%var(i_QV)%values(ilev, i_tstep)
-          p_ex = station%var(i_PEXNER)%values(ilev, i_tstep)
+          temp = out_buf%atmo_vars(i_T)%a(istation_buf, ilev, i_tstep)
+          qv   = out_buf%atmo_vars(i_QV)%a(istation_buf, ilev, i_tstep)
+          p_ex = out_buf%atmo_vars(i_PEXNER)%a(istation_buf, ilev, i_tstep)
           !-- compute relative humidity as r = e/e_s:
 !CDIR NEXPAND
-          station%var(i_REL_HUM)%values(ilev, i_tstep) &
+          out_buf%atmo_vars(i_REL_HUM)%a(istation_buf, ilev, i_tstep) &
             = rel_hum(temp, qv, p_ex)
         END DO
       ELSE
@@ -1125,10 +1127,10 @@ CONTAINS
       i_SWDIFD_S = diag_var_indices%i_SWDIFD_S
       i_SOBS = diag_var_indices%i_SOBS
       IF (i_ALB /= -1 .AND. i_SWDIFD_S /= -1 .AND. i_SOBS /= -1) THEN
-        albedo   = station%sfc_var(i_ALB)%values(i_tstep)
-        swdifd_s = station%sfc_var(i_SWDIFD_S)%values(i_tstep)
-        sobs     = station%sfc_var(i_SOBS)%values(i_tstep)
-        station%sfc_var(i_SWDIR_S)%values(i_tstep) &
+        albedo   = out_buf%sfc_vars(i_ALB)%a(istation_buf, i_tstep)
+        swdifd_s = out_buf%sfc_vars(i_SWDIFD_S)%a(istation_buf, i_tstep)
+        sobs     = out_buf%sfc_vars(i_SOBS)%a(istation_buf, i_tstep)
+        out_buf%sfc_vars(i_SWDIR_S)%a(istation_buf, i_tstep) &
           = swdir_s(albedo, swdifd_s, sobs)
       ELSE
         CALL message(routine, ">>> meteogram: SWDIR_S could not be computed&
@@ -1889,7 +1891,8 @@ CONTAINS
     END DO SFCVAR_LOOP
 
     ! compute additional diagnostic quantities:
-    CALL compute_diagnostics(station, diag_var_indices, var_info, i_tstep)
+    CALL compute_diagnostics(diag_var_indices, var_info, i_tstep, &
+      out_buf, istation_buf)
 
   END SUBROUTINE sample_station_vars
 
