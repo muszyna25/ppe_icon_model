@@ -937,27 +937,6 @@ AS_IF([test x"$with_mpi" = xno],
     MPI_LIB=""])])
 
 dnl ######################################################################
-dnl Checks for Serialbox2
-
-AS_IF([test "x$enable_serialization" = "xyes"],
-  [if test -n "${SERIALBOX2ROOT}" ; then
-    if test -f "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then
-      if test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then
-         SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
-       else
-         echo "pp_ser.py script from Serialbox2 is not executable"  
-         exit 1    
-      fi
-    else
-      echo "Cannot find pp_ser.py script from Serialbox2"  
-      exit 1    
-    fi
-  else
-    echo "Error: Serialization is enabled but SERIALBOX2ROOT is not defined"
-    exit 1
-  fi])
-
-dnl ######################################################################
 dnl Checks for IBM'S hpm
 
 PROFILE_LIB=""
@@ -1151,6 +1130,28 @@ if [[ "x$target_os" = xsuperux ]] ; then
 else
     arch=$target_cpu
 fi
+
+dnl ######################################################################
+dnl Checks for Serialbox2
+
+AS_IF([test "x$enable_serialization" = "xyes"],
+  [if test -n "${SERIALBOX2ROOT}" ; then
+    if test -f "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then
+      if test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then
+         SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
+         make_command="${SERIALBOX2_PPSER} -r -d ${my_iconppdir} src;\n $make_command;"
+       else
+         echo "pp_ser.py script from Serialbox2 is not executable"  
+         exit 1
+      fi
+    else
+      echo "Cannot find pp_ser.py script from Serialbox2"  
+      exit 1
+    fi
+  else
+    echo "Error: Serialization is enabled but SERIALBOX2ROOT is not defined"
+    exit 1
+  fi])
 
 dnl ######################################################################
 dnl substitutions
