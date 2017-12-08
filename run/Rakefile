@@ -22,7 +22,7 @@ String.disable_colorization = ENV.has_key?('COLOR')
 
 $DEBUG = ENV.has_key?('DEBUG')
 $QUIET = ENV.has_key?('QUIET')
-$BUILDERS = ['THUNDER_gcc' ,'THUNDER_intel' ,'THUNDER_nag' ,'DAINT_CPU_cce' ,'MISTRAL_intel_hybrid' ,'MISTRAL_intel' ,'MISTRAL_intel_openmp' ,'MISTRAL_gcc' ,'MISTRAL_nag' ,'MISTRAL_nag_serial' ,'MISTRAL_nag_mtime']
+$BUILDERS = ['BREEZE_gcc' ,'BREEZE_intel' ,'BREEZE_nag' ,'DAINT_CPU_cce' ,'MISTRAL_intel_hybrid' ,'MISTRAL_intel' ,'MISTRAL_intel_openmp' ,'MISTRAL_gcc' ,'MISTRAL_nag' ,'MISTRAL_nag_serial' ,'MISTRAL_nag_mtime']
 
 CLEAN.include('*.run')
 #==============================================================================

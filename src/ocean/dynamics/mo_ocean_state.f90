@@ -62,6 +62,7 @@ MODULE mo_ocean_state
   USE mo_var_list,            ONLY: add_var,                  &
     &                               new_var_list,             &
     &                               delete_var_list,          &
+    &                               get_timelevel_string,     &
     &                               default_var_list_settings,&
     &                               add_ref
   USE mo_var_metadata,        ONLY: groups 
@@ -391,7 +392,7 @@ CONTAINS
     ENDIF
 
     !-------------------------------------------------------------------------
-    WRITE(var_suffix,'(a,i2.2)') '_TL',timelevel
+    var_suffix = get_timelevel_string(timelevel)
     
     !-------------------------------------------------------------------------
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
@@ -402,7 +403,7 @@ CONTAINS
       & grid_unstructured_cell, za_surface,    &
       & t_cf_var('h'//TRIM(var_suffix), 'm', 'surface elevation at cell center', DATATYPE_FLT64),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/))
+      & ldims=(/nproma,alloc_cell_blocks/))!TODO, tlev_source=TLEV_NNEW)
     
     !! normal velocity component
     CALL add_var(ocean_restart_list,'vn'//TRIM(var_suffix),ocean_state_prog%vn,grid_unstructured_edge, &
@@ -557,9 +558,9 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'enstrophy_Global', ocean_state_diag%monitor%enstrophy , &
+    CALL add_var(ocean_default_list, 'ssh_global', ocean_state_diag%monitor%ssh_global , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('enstrophy', '', 'enstrophy', datatype_flt),&
+      & t_cf_var('ssh_global', 'm', 'ssh_global', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 

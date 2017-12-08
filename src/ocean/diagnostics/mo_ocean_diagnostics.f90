@@ -70,7 +70,7 @@ MODULE mo_ocean_diagnostics
   USE mo_scalar_product,     ONLY: map_edges2cell_3d
   USE mo_io_units,           ONLY: find_next_free_unit
   USE mo_util_file,          ONLY: util_symlink, util_rename, util_islink, util_unlink
-  USE mo_statistics,         ONLY: subset_sum
+  USE mo_statistics,         ONLY: subset_sum, levels_horizontal_mean
   USE mo_fortran_tools,      ONLY: assign_if_present
   
   USE mo_linked_list,         ONLY: t_var_list
@@ -83,7 +83,9 @@ MODULE mo_ocean_diagnostics
   USE mo_cf_convention
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, GRID_UNSTRUCTURED
-  USE mo_zaxis_type,         ONLY: ZA_DEPTH_BELOW_SEA
+  USE mo_cdi_constants,       ONLY: GRID_EDGE, GRID_CELL, GRID_UNSTRUCTURED_EDGE, &
+    &                               GRID_UNSTRUCTURED_CELL
+  USE mo_zaxis_type,              ONLY: ZA_DEPTH_BELOW_SEA
   USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_sum
   USE mo_io_config,          ONLY: lnetcdf_flt64_output
 
@@ -722,7 +724,7 @@ CONTAINS
   !
   SUBROUTINE calc_slow_oce_diagnostics(patch_3D, ocean_state, surface_fluxes, ice, &
     & timestep, this_datetime)
-    TYPE(t_patch_3d ),TARGET, INTENT(in)    :: patch_3D
+    TYPE(t_patch_3D ),TARGET, INTENT(in)    :: patch_3D
     TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
     TYPE(t_ocean_surface),    INTENT(in)    :: surface_fluxes
     TYPE (t_sea_ice),   INTENT(in)          :: ice
@@ -737,7 +739,7 @@ CONTAINS
     INTEGER :: edge_2_of_cell_idx, edge_2_of_cell_blk
     INTEGER :: edge_3_of_cell_idx, edge_3_of_cell_blk
     INTEGER :: i_no_t, i
-    REAL(wp):: prism_vol, surface_height, prism_area, surface_area, z_w
+    REAL(wp):: prism_vol, surface_height, prism_area, surface_area, z_w, ssh_global_mean
     INTEGER :: reference_timestep
     TYPE(t_patch), POINTER :: patch_2d
     REAL(wp) :: sflux
@@ -844,7 +846,7 @@ CONTAINS
 
     fmtstr = '%Y-%m-%d %H:%M:%S'
     call datetimeToPosixString(this_datetime, datestring, fmtstr)
-    CALL reset_ocean_monitor(monitor)
+    !CALL reset_ocean_monitor(monitor)
    
     !cell loop to calculate cell based monitored fields volume, kinetic energy and tracer content
     SELECT CASE (iswm_oce)
@@ -973,7 +975,16 @@ CONTAINS
       &                                                          patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
       &                                                          ice, ocean_state,surface_fluxes,ice%zUnderIce)
     monitor%vorticity                  = global_sum_array(monitor%vorticity)
+
     monitor%enstrophy                  = global_sum_array(monitor%enstrophy)
+
+    ssh_global_mean = 0.0_wp
+    call levels_horizontal_mean( ocean_state%p_prog(nnew(1))%h(:,:), &
+      & patch_2d%cells%area(:,:), &
+      & owned_cells, &
+      & ssh_global_mean)
+    monitor%ssh_global = ssh_global_mean
+ 
     monitor%potential_enstrophy        = global_sum_array(monitor%potential_enstrophy)
     monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)/surface_area
     

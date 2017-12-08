@@ -43,7 +43,7 @@ MODULE mo_var_list
        &                         delete_list_element
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_util_hash,        ONLY: util_hashword
-  USE mo_util_string,      ONLY: remove_duplicates, toupper
+  USE mo_util_string,      ONLY: remove_duplicates, toupper, tolower
   USE mo_impl_constants,   ONLY: max_var_lists, vname_len,          &
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS,   &
     &                            TLEV_NNOW, REAL_T, SINGLE_T,       &
@@ -53,11 +53,15 @@ MODULE mo_var_list
   USE mo_fortran_tools,    ONLY: assign_if_present
   USE mo_action_types,     ONLY: t_var_action
   USE mo_io_config,        ONLY: restart_file_type
+#ifdef DEBUG_MVSTREAM
+  USE mo_mpi, ONLY: my_process_is_stdio
+#endif
   USE mo_packed_message,   ONLY: t_PackedMessage, kPackOp, kUnpackOp
 
   IMPLICIT NONE
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_list'
+  CHARACTER(LEN=3), PARAMETER :: TIMELEVEL_SUFFIX = '.TL'
 
   PRIVATE
 
@@ -82,6 +86,7 @@ MODULE mo_var_list
   PUBLIC :: get_var                   ! obtain reference to existing list entry
   PUBLIC :: get_all_var_names         ! obtain a list of variables names
 
+  PRIVATE:: TIMELEVEL_SUFFIX          ! separator for varname and time level
   PUBLIC :: get_var_name              ! return plain variable name (without timelevel)
   PUBLIC :: get_var_timelevel         ! return variable timelevel (or "-1")
   PUBLIC :: get_var_tileidx           ! return variable tile index
@@ -402,7 +407,7 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-  !> @return Plain variable name (i.e. without time level suffix ".TL")
+  !> @return Plain variable name (i.e. without TIMELEVEL_SUFFIX)
   !
   FUNCTION get_var_name(var)
     CHARACTER(LEN=VARNAME_LEN) :: get_var_name
@@ -410,7 +415,7 @@ CONTAINS
     ! local variable
     INTEGER :: idx
 
-    idx = INDEX(var%info%name,'.TL')
+    idx = INDEX(var%info%name,TIMELEVEL_SUFFIX)
     IF (idx==0) THEN
       get_var_name = TRIM(var%info%name)
     ELSE
@@ -438,11 +443,11 @@ CONTAINS
 
     CHARACTER(len=4) :: suffix
 
-    WRITE(suffix,'(".TL",i1)') timelevel
+    WRITE(suffix,'("'//TIMELEVEL_SUFFIX//'",i1)') timelevel
   END FUNCTION get_timelevel_string
 
   !------------------------------------------------------------------------------------------------
-  !> @return time level (extracted from time level suffix ".TL") or "-1"
+  !> @return time level (extracted from time level suffix) or "-1"
   !
   FUNCTION get_var_timelevel(info)
     INTEGER :: get_var_timelevel
@@ -451,7 +456,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_var_list:get_var_timelevel'
     INTEGER :: idx
 
-    idx = INDEX(info%name,'.TL')
+    idx = INDEX(info%name,TIMELEVEL_SUFFIX)
     IF (idx == 0) THEN
       get_var_timelevel = -1
       RETURN
@@ -4024,17 +4029,36 @@ CONTAINS
     y = x
   END SUBROUTINE assign_if_present_action_list
   !------------------------------------------------------------------------------------------------
+  LOGICAL FUNCTION elementFoundByName(key2look4,name2look4,element,opt_caseInsensitive)
+    INTEGER :: key2look4
+    CHARACTER(len=*),   INTENT(in) :: name2look4
+    TYPE(t_list_element) :: element
+    LOGICAL, OPTIONAL              :: opt_caseInsensitive
+
+    LOGICAL :: caseInsensitive
+    caseInsensitive = .FALSE.
+    CALL assign_if_present(caseInsensitive, opt_caseInsensitive)
+
+#ifdef DEBUG_MVSTREAM
+    IF (my_process_is_stdio()) write (0,*)'name2look4:',name2look4,'|elementname:',get_var_name(element%field)
+#endif
+    elementFoundByName = merge(tolower(name2look4) == tolower(get_var_name(element%field)), &
+        &                      key2look4 == element%field%info%key, &
+        &                      caseInsensitive)
+
+  END FUNCTION elementFoundByName
   !-----------------------------------------------------------------------------
   !
   ! Should be overloaded to be able to search for the different information 
   ! In the proposed structure for the linked list, in the example only
   ! A character string is used so it is straight forward only one find
   !
-  FUNCTION find_list_element (this_list, name, opt_hgrid) RESULT(this_list_element)
+  FUNCTION find_list_element (this_list, name, opt_hgrid, opt_caseInsensitive) RESULT(this_list_element)
     !
     TYPE(t_var_list),   INTENT(in) :: this_list
     CHARACTER(len=*),   INTENT(in) :: name
     INTEGER, OPTIONAL              :: opt_hgrid
+    LOGICAL, OPTIONAL              :: opt_caseInsensitive
     !
     TYPE(t_list_element), POINTER :: this_list_element
     INTEGER :: key,hgrid
@@ -4046,7 +4070,7 @@ CONTAINS
     !
     this_list_element => this_list%p%first_list_element
     DO WHILE (ASSOCIATED(this_list_element))
-      IF (key == this_list_element%field%info%key) THEN
+      IF ( elementFoundByName(key,name,this_list_element,opt_caseInsensitive) ) THEN
         IF (-1 == hgrid) THEN
           RETURN
         ELSE
@@ -4064,15 +4088,16 @@ CONTAINS
   !
   ! Find named list element accross all knows variable lists
   !
-  FUNCTION find_element_from_all (name, opt_hgrid) RESULT(this_list_element)
+  FUNCTION find_element_from_all (name, opt_hgrid,opt_caseInsensitive) RESULT(this_list_element)
     CHARACTER(len=*),   INTENT(in) :: name
     INTEGER, OPTIONAL              :: opt_hgrid
+    LOGICAL, OPTIONAL              :: opt_caseInsensitive
 
     TYPE(t_list_element), POINTER :: this_list_element
     INTEGER :: i
 
     DO i=1,nvar_lists
-      this_list_element => find_list_element(var_lists(i),name,opt_hgrid)
+      this_list_element => find_list_element(var_lists(i),name,opt_hgrid,opt_caseInsensitive)
       IF (ASSOCIATED (this_list_element)) RETURN
     END DO
   END FUNCTION! find_element_from_all_lists
