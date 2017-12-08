@@ -6314,9 +6314,11 @@ fi # ! CROSS
 test "x$exec_prefix" = xNONE && exec_prefix=build/${build_host}
 
 if test "x$enable_serialization" = "xyes"; then :
-  my_iconsrcdir="pp"
+  my_iconsrcdir="build/${build_host}/pp"
+     my_iconppdir="${my_iconsrcdir}"
 else
   my_iconsrcdir="src"
+     my_iconppdir="build/${build_host}/${my_iconsrcdir}"
 fi
 my_srcdirs="support ${my_iconsrcdir}"
 
@@ -6369,6 +6371,7 @@ fi
 
 ac_objdirs=""
 for dir in $my_srcdirs ; do
+    dir=${dir#${exec_prefix}\/}
     ac_objdirs="${ac_objdirs} ${exec_prefix}/$dir"
 done
 
@@ -7545,6 +7548,7 @@ cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
 build_host="${build_host}"
                     my_srcdirs="${my_srcdirs}"
                     my_iconsrcdir="${my_iconsrcdir}"
+                    my_iconppdir="${my_iconppdir}"
                     enable_ocean="${enable_ocean}"
                     enable_atmo="${enable_atmo}"
                     enable_jsbach="${enable_jsbach}"
@@ -8116,21 +8120,20 @@ $as_echo "$as_me: executing $ac_file commands" >&6;}
 
   case $ac_file$ac_mode in
     "Makefiles":C) if test "x$enable_serialization" = "xyes"; then :
-  if test -d build/${build_host}/pp; then :
+  if test -d ${my_iconppdir}; then :
 
 else
-  mkdir -p build/${build_host}/pp
+  mkdir -p ${my_iconppdir}
 fi
-                          ${SERIALBOX2_PPSER} -r -d build/${build_host}/pp src
-                          ln -sf build/${build_host}/pp pp
+                          ${SERIALBOX2_PPSER} -r -d ${my_iconppdir} src
 fi
                     if test "x$enable_jsbach" = "xyes"; then :
-  if test -d build/${build_host}/${my_iconsrcdir}; then :
+  if test -d ${my_iconppdir}; then :
 
 else
-  mkdir -p build/${build_host}/${my_iconsrcdir}
+  mkdir -p ${my_iconppdir}
 fi
-                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/${my_iconsrcdir}
+                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t ${my_iconppdir}
 fi
                     config/createMakefiles.pl \
                                               --target="${build_host}" \
@@ -8138,7 +8141,9 @@ fi
                                               --enable_ocean="${enable_ocean}" \
                                               --enable_atmo="${enable_atmo}" \
                                               --enable_jsbach="${enable_jsbach}" \
-                                              --enable_testbed="${enable_testbed}" ;;
+                                              --enable_testbed="${enable_testbed}" \
+                                              --iconsrcdir="${my_iconsrcdir}" \
+                                              --iconppdir="${my_iconppdir}" ;;
     "build_command":F) chmod +x build_command ;;
 
   esac

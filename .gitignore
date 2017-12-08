@@ -7,7 +7,6 @@
 .DS_Store
 /Makefile
 /build
-/pp
 /build_command
 /config/config.h
 config.log

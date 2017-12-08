@@ -1007,8 +1007,10 @@ fi # ! CROSS
 test "x$exec_prefix" = xNONE && exec_prefix=build/${build_host}
 
 AS_IF([test "x$enable_serialization" = "xyes"],
-    [my_iconsrcdir="pp"],
-    [my_iconsrcdir="src"])
+    [my_iconsrcdir="build/${build_host}/pp"
+     my_iconppdir="${my_iconsrcdir}"],
+    [my_iconsrcdir="src"
+     my_iconppdir="build/${build_host}/${my_iconsrcdir}"])
 my_srcdirs="support ${my_iconsrcdir}"
 
 if [[ "x$LAPACKROOT" = xlocal ]] ; then
@@ -1060,6 +1062,7 @@ fi
 
 ac_objdirs=""
 for dir in $my_srcdirs ; do
+    dir=${dir#${exec_prefix}\/}
     ac_objdirs="${ac_objdirs} ${exec_prefix}/$dir"
 done
 
@@ -1414,26 +1417,28 @@ sync_submit=${sync_submit:=$submit}
 
 AC_CONFIG_COMMANDS([Makefiles],
                    [AS_IF([test "x$enable_serialization" = "xyes"],
-                          [AS_IF([test -d build/${build_host}/pp],
+                          [AS_IF([test -d ${my_iconppdir}],
                                  [],
-                                 [mkdir -p build/${build_host}/pp])
-                          ${SERIALBOX2_PPSER} -r -d build/${build_host}/pp src
-                          ln -sf build/${build_host}/pp pp])
+                                 [mkdir -p ${my_iconppdir}])
+                          ${SERIALBOX2_PPSER} -r -d ${my_iconppdir} src])
                     AS_IF([test "x$enable_jsbach" = "xyes"],
-                          [AS_IF([test -d build/${build_host}/${my_iconsrcdir}],
+                          [AS_IF([test -d ${my_iconppdir}],
                                  [],
-                                 [mkdir -p build/${build_host}/${my_iconsrcdir}])
-                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/${my_iconsrcdir}])
+                                 [mkdir -p ${my_iconppdir}])
+                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t ${my_iconppdir}])
                     config/createMakefiles.pl \
                                               --target="${build_host}" \
                                               --srcdirs="${my_srcdirs}" \
                                               --enable_ocean="${enable_ocean}" \
                                               --enable_atmo="${enable_atmo}" \
                                               --enable_jsbach="${enable_jsbach}" \
-                                              --enable_testbed="${enable_testbed}"],
+                                              --enable_testbed="${enable_testbed}" \
+                                              --iconsrcdir="${my_iconsrcdir}" \
+                                              --iconppdir="${my_iconppdir}"],
                    [build_host="${build_host}"
                     my_srcdirs="${my_srcdirs}"
                     my_iconsrcdir="${my_iconsrcdir}"
+                    my_iconppdir="${my_iconppdir}"
                     enable_ocean="${enable_ocean}"
                     enable_atmo="${enable_atmo}"
                     enable_jsbach="${enable_jsbach}"

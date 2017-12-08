@@ -136,7 +136,6 @@ clean:
 	-rm -f ${exec_prefix}/module/*.mod  
 	-rm -f ${exec_prefix}/src/*.o   
 	-rm -rf html/[a-z]*
-	-rm -f pp
 
 distclean:
 	-rm -rf build
@@ -152,7 +151,6 @@ distclean:
 	-rm -rf html/[a-z]*
 	-rm -f src/messy_interface
 	-rm -f src/lnd_phy_jsbach 
-	-rm -f pp
 
 doc:
 	doxygen doc/resources/doxyfile_icon_html
