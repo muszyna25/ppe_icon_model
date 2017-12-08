@@ -25,7 +25,7 @@ MODULE mo_async_latbc_types
   USE mo_dictionary,            ONLY: DICT_MAX_STRLEN
   USE mtime,                    ONLY: event, datetime, timedelta, &
     &                                 deallocateTimedelta, deallocateEvent, deallocateDatetime
-  USE mo_initicon_types,        ONLY: t_initicon_state
+  USE mo_initicon_types,        ONLY: t_init_state, t_init_state_const
   USE mo_impl_constants,        ONLY: SUCCESS
   USE mo_exception,             ONLY: finish, message
 
@@ -54,7 +54,7 @@ MODULE mo_async_latbc_types
 
   TYPE t_reorder_data
      INTEGER              :: n_glb ! Global number of points per physical patch
-     INTEGER              :: n_own ! Number of own points, only belonging to phyiscal patch
+     INTEGER              :: n_own ! Number of own points, only belonging to physical patch
      INTEGER, ALLOCATABLE :: reorder_index(:)
      ! Index how to reorder the contributions of all compute PEs
      ! into the global array (set on all PEs)
@@ -64,6 +64,15 @@ MODULE mo_async_latbc_types
      INTEGER, ALLOCATABLE :: pe_own(:)
      ! offset of contributions of PEs (set on all PEs)
      INTEGER, ALLOCATABLE :: pe_off(:)
+
+     ! logical mask, which local points are read from input file
+     LOGICAL, ALLOCATABLE :: read_mask(:,:)
+
+     ! flag: if .TRUE., then the corresponding PE is skipped in the MPI_PUT operation
+     LOGICAL              :: this_skip
+
+     ! flag: if .TRUE., then the corresponding PE is skipped in the MPI_PUT operation
+     LOGICAL, ALLOCATABLE :: pe_skip(:)
 
   CONTAINS
     PROCEDURE :: finalize => t_reorder_data_finalize   !< destructor
@@ -95,13 +104,35 @@ MODULE mo_async_latbc_types
      INTEGER,                        ALLOCATABLE :: varID(:)           ! ID for variable to be read from file
      INTEGER,                        ALLOCATABLE :: hgrid(:)           ! CDI horizontal grid type (cell/edge)
      LOGICAL                                     :: lread_qr, lread_qs ! are qr, qs provided as input?
+
      LOGICAL                                     :: lread_vn           ! is vn provided as input?
+     LOGICAL                                     :: lread_u_v          ! is u,v provided as input?
+
+     ! If .FALSE., input levels are computed from sfc geopotential:
+     LOGICAL                                     :: lread_hhl
 
      ! are prognostic thermodynamic variables (= rho and theta_v) present in the input file?
-     LOGICAL                                     :: lthd_progvars      
+     LOGICAL                                     :: lread_theta_rho      
+
+     ! .TRUE., if pressure is read from input
+     LOGICAL                                     :: lread_pres
+
+     ! .TRUE., if temperature is read from input
+     LOGICAL                                     :: lread_temp
+
+     ! If .TRUE., surface pressure and geopotential are available in
+     ! the input file
+     LOGICAL                                     :: lread_ps_geop
+
+     ! .FALSE., if vertical component of velocity (W) is provided as input
+     LOGICAL                                     :: lconvert_omega2w
+
+     ! .TRUE., if heights are computed (hydrostatic model input):
+     LOGICAL                                     :: lcompute_hhl_pres
 
      CHARACTER(LEN=10)                           :: psvar
      CHARACTER(LEN=10)                           :: geop_ml_var        ! model level surface geopotential
+     CHARACTER(LEN=10)                           :: hhl_var
 
    CONTAINS
      PROCEDURE :: finalize => t_buffer_finalize   !< destructor
@@ -126,7 +157,8 @@ MODULE mo_async_latbc_types
      ! number of full and half levels
      INTEGER :: nlev
      INTEGER :: nlevp1
-     INTEGER :: level
+
+     INTEGER :: level     ! patch level (e.g. xx in R03Bxx)
      INTEGER :: num_vars  ! no of input prefetch variables
 
      ! number of cells and edges in the local patch
@@ -137,7 +169,7 @@ MODULE mo_async_latbc_types
      INTEGER :: n_patch_cells_g
      INTEGER :: n_patch_edges_g
 
-     ! number of points, corresponds to logical patch
+     ! number of blocks
      INTEGER :: nblks_c, nblks_e
 
    CONTAINS
@@ -171,8 +203,11 @@ MODULE mo_async_latbc_types
     ! time level indices for  latbc_data. can be 1 or 2.
     INTEGER :: new_latbc_tlev
 
+    ! storage for time-constant height level data
+    TYPE(t_init_state_const) :: latbc_data_const
+
     ! storage for two time-level boundary data
-    TYPE(t_initicon_state) :: latbc_data(2)
+    TYPE(t_init_state) :: latbc_data(2)
 
     ! raw buffer
     TYPE(t_buffer) :: buffer
@@ -227,11 +262,13 @@ CONTAINS
 
     !CALL message("", 't_reorder_data_finalize')
 
-    IF (ALLOCATED(reorder_data%reorder_index))  DEALLOCATE(reorder_data%reorder_index)
-    IF (ALLOCATED(reorder_data%own_idx))        DEALLOCATE(reorder_data%own_idx)
-    IF (ALLOCATED(reorder_data%own_blk))        DEALLOCATE(reorder_data%own_blk)
-    IF (ALLOCATED(reorder_data%pe_own))         DEALLOCATE(reorder_data%pe_own)
-    IF (ALLOCATED(reorder_data%pe_off))         DEALLOCATE(reorder_data%pe_off)
+    IF (ALLOCATED(reorder_data%reorder_index)) DEALLOCATE(reorder_data%reorder_index)
+    IF (ALLOCATED(reorder_data%own_idx))       DEALLOCATE(reorder_data%own_idx)
+    IF (ALLOCATED(reorder_data%own_blk))       DEALLOCATE(reorder_data%own_blk)
+    IF (ALLOCATED(reorder_data%pe_own))        DEALLOCATE(reorder_data%pe_own)
+    IF (ALLOCATED(reorder_data%pe_off))        DEALLOCATE(reorder_data%pe_off)
+    IF (ALLOCATED(reorder_data%read_mask))     DEALLOCATE(reorder_data%read_mask)
+    IF (ALLOCATED(reorder_data%pe_skip))       DEALLOCATE(reorder_data%pe_skip)
   END SUBROUTINE t_reorder_data_finalize
 
 

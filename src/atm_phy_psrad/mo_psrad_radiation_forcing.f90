@@ -27,7 +27,6 @@ MODULE mo_psrad_radiation_forcing
   USE mo_physical_constants,  ONLY: stbo
   USE mo_radiation_config,    ONLY: lradforcing
   USE mtime,                  ONLY: no_of_sec_in_a_day
-!!$  USE mo_psrad_radiation_parameters,ONLY: cemiss
 
   IMPLICIT NONE
   PRIVATE

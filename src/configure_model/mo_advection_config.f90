@@ -1,11 +1,7 @@
 !>
 !! @brief configuration setup for tracer transport
 !!
-!! configuration setup for tracer transport
-!! <Details of procedures are documented below with their definitions.>
-!! <Include any applicable external references inline as module::procedure,>
-!! <external_procedure(), or by using @see.>
-!! <Don't forget references to literature.>
+!! configuration setup for atmospheric tracer transport
 !!
 !! @author Daniel Reinert, DWD
 !!
@@ -24,24 +20,45 @@
 MODULE mo_advection_config
 
   USE mo_kind,                  ONLY: wp
-  USE mo_impl_constants,        ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,  &
-    &                                 MIURA, MIURA3, FFSL, FFSL_HYB, MCYCL,   &
-    &                                 MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL,  &
-    &                                 FFSL_HYB_MCYCL, ippm_vcfl, ippm_v,      &
-    &                                 ino_flx, izero_grad, iparent_flx, inwp, &
-    &                                 iecham, TRACER_ONLY, SUCCESS, VNAME_LEN
+  USE mo_impl_constants,        ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,   &
+    &                                 MIURA, MIURA3, FFSL, FFSL_HYB, MCYCL,    &
+    &                                 MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL,   &
+    &                                 FFSL_HYB_MCYCL, ippm_vcfl, ippm_v,       &
+    &                                 ino_flx, izero_grad, iparent_flx, inwp,  &
+    &                                 iecham, TRACER_ONLY, SUCCESS, VNAME_LEN, &
+    &                                 NO_HADV, NO_VADV
   USE mo_exception,             ONLY: message, message_text, finish
+  USE mo_mpi,                   ONLY: my_process_is_stdio
+  USE mo_run_config,            ONLY: msg_level
   USE mo_expression,            ONLY: expression
   USE mo_linked_list,           ONLY: t_var_list, t_list_element
   USE mo_var_list,              ONLY: fget_var_list_element_r3d
   USE mo_var_metadata_types,    ONLY: t_var_metadata
-  USE mo_tracer_metadata_types, ONLY: t_tracer_meta, t_hydro_meta 
+  USE mo_tracer_metadata_types, ONLY: t_tracer_meta, t_hydro_meta
+  USE mo_util_table,            ONLY: t_table, initialize_table, add_table_column, &
+    &                                 set_table_entry, print_table, finalize_table
+#ifdef _OPENACC
+  USE mo_mpi,                   ONLY: i_am_accel_node
+#endif
+
 
   IMPLICIT NONE
-  PUBLIC
 
+  PRIVATE
 
+  ! types
+  PUBLIC :: t_advection_config
+  PUBLIC :: t_trList
 
+  ! variables
+  PUBLIC :: advection_config
+  PUBLIC :: shape_func, shape_func_l
+  PUBLIC :: eta, eta_l, zeta, zeta_l
+  PUBLIC :: wgt_zeta, wgt_zeta_l, wgt_eta, wgt_eta_l
+  PUBLIC :: lcompute, lcleanup
+
+  ! subroutines
+  PUBLIC :: configure_advection
 
 
   ! Derived type to allow for the onetime computation and cleanup 
@@ -62,6 +79,22 @@ MODULE mo_advection_config
     !LOGICAL :: lcompute (MAX_NTRACER)
     !LOGICAL :: lcleanup (MAX_NTRACER)
   END TYPE t_scheme
+
+
+
+  ! Tracer ID lists 
+  ! Extracted from the full tracer var_list based on 
+  ! a specific selection criterium
+  TYPE :: t_trList
+    INTEGER, ALLOCATABLE :: list(:)
+    INTEGER              :: len
+  CONTAINS
+!!$    PRIVATE
+!!$    !
+!!$    FINAL                :: destruct_trList
+  END TYPE t_trList
+
+
 
 
   !!--------------------------------------------------------------------------
@@ -171,12 +204,17 @@ MODULE mo_advection_config
                                  !< .FALSE.: the majority of setup computations
                                  !<          is performed in the dycore.  
 
-    INTEGER, ALLOCATABLE :: &    ! list of tracer IDs for tracer group hydroMass 
-      &  ilist_hydroMass(:)      ! allocated and filled in 
-                                 ! create_idlist_hydroMass
+    TYPE(t_trList) ::       &    !< tracer sublist containing all tracer fields of  
+      &  trHydroMass             !< type hydroMass.
+    TYPE(t_trList) ::       &    !< tracer sublist containing all tracer fields   
+      &  trAdvect                !< which are advected.
+    TYPE(t_trList) ::       &    !< tracer sublist containing all tracer fields   
+      &  trNotAdvect             !< which are not advected.
+    TYPE(t_trList) ::       &    !< tracer sublist containing all tracer fields   
+      &  trFeedback              !< for which child-to-parent feedback is applied.
 
-    LOGICAL :: isAnyTypeMiura    ! TRUE if any tracer is to be advected with MIURA scheme
-    LOGICAL :: isAnyTypeMcycl    ! TRUE if any tracer is to be advected with subcycling
+    LOGICAL :: isAnyTypeMiura    !< TRUE if any tracer is to be advected with MIURA scheme
+    LOGICAL :: isAnyTypeMcycl    !< TRUE if any tracer is to be advected with subcycling
 
     ! scheme specific derived variables
     !
@@ -186,6 +224,11 @@ MODULE mo_advection_config
     TYPE(t_scheme) :: ffsl_h     !< horizontal FFSL scheme
     TYPE(t_scheme) :: ffsl_hyb_h !< horizontal hybrid FFSL/miura3 scheme
     TYPE(t_scheme) :: mcycl_h    !< horizontal miura scheme (linear) with subcycling
+
+
+  CONTAINS
+    PRIVATE
+    PROCEDURE :: print_setup   => advection_print_setup
   END TYPE t_advection_config
 
   !>
@@ -221,7 +264,6 @@ MODULE mo_advection_config
   REAL(wp) :: wgt_eta(4)       !< points (miura3 only) 
 
 
-
 CONTAINS
 
   !>
@@ -248,19 +290,22 @@ CONTAINS
     INTEGER, INTENT(IN) :: iqc, iqt     !< hydrometeor indices
     INTEGER, INTENT(IN) :: kstart_moist
     INTEGER, INTENT(IN) :: kend_qvsubstep
-    INTEGER, INTENT(IN) :: ntracer
+    INTEGER, INTENT(IN) :: ntracer      !< total number of tracers
     INTEGER, INTENT(IN) :: idiv_method
     INTEGER, INTENT(IN) :: itime_scheme
     LOGICAL, INTENT(IN) :: lvert_nest
     LOGICAL, INTENT(IN) :: l_open_ubc
-    TYPE(t_var_list), OPTIONAL, INTENT(IN) :: tracer_list(:)
+    TYPE(t_var_list), OPTIONAL, INTENT(IN) :: tracer_list(:) ! tracer var_list
     !
     CHARACTER(*), PARAMETER :: routine = "configure_advection"
     INTEGER :: jt          !< tracer loop index
     INTEGER :: jm          !< loop index for shape functions
+    INTEGER :: i           !< loop index
+    INTEGER :: ist
     INTEGER :: ivadv_tracer(MAX_NTRACER)
     INTEGER :: ihadv_tracer(MAX_NTRACER)
-
+    INTEGER, PARAMETER :: itime = 1    !< tracer_list time level
+                                       !< here it does not matter if we use 1 or 2
     !-----------------------------------------------------------------------
 
     !
@@ -629,13 +674,30 @@ CONTAINS
     END IF
 
 
+    !******************************************
+    ! Tracer-Sublist extraction
+    !******************************************
 
     IF ( PRESENT(tracer_list) ) THEN
 
-      ! initialize passive tracers, if required
+      ! create list of tracers which are to be advected
       !
-      IF (advection_config(jg)%npassive_tracer > 0) THEN 
-        CALL init_passive_tracer (tracer_list, advection_config(jg), ntl=1)
+      advection_config(jg)%trAdvect = subListExtract(from_list       = tracer_list(itime), &
+        &                                            extraction_rule = extraction_rule_advect)
+      !
+      IF (.NOT. ALLOCATED(advection_config(jg)%trAdvect%list)) THEN
+        CALL finish (TRIM(routine), 'trAdvect%list is not ALLOCATED')
+      ENDIF
+
+
+      ! create list of tracers which are not advected 
+      ! list is allowed to have zero size.
+      !
+      advection_config(jg)%trNotAdvect = subListExtract(from_list       = tracer_list(itime),         &
+        &                                               extraction_rule = extraction_rule_notAdvect)
+      !
+      IF (.NOT. ALLOCATED(advection_config(jg)%trNotAdvect%list)) THEN
+        CALL finish (TRIM(routine), 'trAdvect%list is not ALLOCATED')
       ENDIF
 
 
@@ -645,17 +707,247 @@ CONTAINS
       !
       IF ( iforcing == inwp .OR. iforcing == iecham ) THEN
         ! in these cases it is assured that the hydroMass group is not empty.
-        CALL create_idlist_hydroMass (tracer_list(1), advection_config(jg)%ilist_hydroMass)
+
+        advection_config(jg)%trHydroMass = subListExtract(from_list       = tracer_list(itime),         &
+          &                                               extraction_rule = extraction_rule_hydroMass)
         !
-        IF (.NOT. ALLOCATED(advection_config(jg)%ilist_hydroMass) &
-          & .OR. SIZE(advection_config(jg)%ilist_hydroMass) < 1 ) THEN
-          CALL finish (TRIM(routine), 'ilist_hydroMass is not ASSOCIATED')
+        IF (.NOT. ALLOCATED(advection_config(jg)%trHydroMass%list) &
+          & .OR. advection_config(jg)%trHydroMass%len < 1 ) THEN
+          CALL finish (TRIM(routine), 'trHydroMass%list is not ALLOCATED or empty')
+        ENDIF
+
+      ENDIF
+
+
+      ! create list of tracers for which child-to-parent feedback is applied
+      ! list is allowed to have zero size.
+      !
+      advection_config(jg)%trFeedback = subListExtract(from_list       = tracer_list(itime),         &
+        &                                              extraction_rule = extraction_rule_feedback)
+
+      !
+      IF (.NOT. ALLOCATED(advection_config(jg)%trFeedback%list)) THEN
+        CALL finish (TRIM(routine), 'trFeedback%list is not ALLOCATED')
+      ENDIF
+
+
+      ! initialize passive tracers, if required
+      !
+      IF (advection_config(jg)%npassive_tracer > 0) THEN 
+        CALL init_passive_tracer (tracer_list, advection_config(jg), ntl=1)
+      ENDIF
+
+      ! print setup
+      IF (msg_level >= 10) THEN
+        IF(my_process_is_stdio()) THEN
+          CALL advection_config(jg)%print_setup(tracer_list(itime))
         ENDIF
       ENDIF
+
+    ELSE  ! tracer_list not available (e.g. for hydrostatic model)
+
+      ALLOCATE(advection_config(jg)%trAdvect%list(ntracer), stat=ist)
+      IF(ist/=SUCCESS) THEN
+        CALL finish (TRIM(routine), 'allocation of trAdvect%list failed')
+      ENDIF
+      ! manually setup advection_config(jg)%trAdvect by simply adding all tracers
+      advection_config(jg)%trAdvect%len = ntracer
+      DO i=1,ntracer
+        advection_config(jg)%trAdvect%list(i) = i
+      ENDDO
+      !
+      ALLOCATE(advection_config(jg)%trNotAdvect%list(0), stat=ist)
+      IF(ist/=SUCCESS) THEN
+        CALL finish (TRIM(routine), 'allocation of trNotAdvect%list failed')
+      ENDIF
+      ! manually setup advection_config(jg)%trNotAdvect
+      advection_config(jg)%trNotAdvect%len = 0
+
 
     ENDIF
 
   END SUBROUTINE configure_advection
+
+
+
+  !-----------------------------------------------------------------------------
+  !>
+  !! Extract a sublist from var_list. The sublist will only contain the 
+  !! meta information <ncontained> from the info-state. This routine can be used, 
+  !! e.g. for creating a tracer sublist from the full tracer list. The 
+  !! extraction-rule(s) must be passed in terms of a function, which returns  
+  !! -999 in case that the field does not match the extraction-rule(s) and 
+  !! <ncontained> otherwise.
+  !
+  TYPE(t_trList) FUNCTION subListExtract (from_list, extraction_rule) RESULT(obj)
+    !
+    TYPE(t_var_list), INTENT(IN) :: from_list         !< variable list (metadata)
+    !
+    INTERFACE
+      INTEGER FUNCTION extraction_rule(info, tracer_info) RESULT(id)
+        IMPORT                            :: t_var_metadata, t_tracer_meta
+        !
+        TYPE (t_var_metadata), INTENT(IN) :: info             ! static info state
+        CLASS(t_tracer_meta) , INTENT(IN) :: tracer_info      ! dynamic (tracer) info state
+      END FUNCTION extraction_rule
+    END INTERFACE
+    !
+    ! local vars
+    CHARACTER(*), PARAMETER :: routine = "subListExtract"
+    TYPE(t_list_element) , POINTER :: this_list_element
+    TYPE(t_var_metadata) , POINTER :: info             ! static info state
+    CLASS(t_tracer_meta) , POINTER :: tracer_info      ! dynamic (tracer) info state
+    INTEGER, ALLOCATABLE :: tmp(:)                     ! temporary array
+    INTEGER :: ist                                     ! status flag
+    INTEGER :: id
+
+    ! allocate list with maximum size
+    ALLOCATE(obj%list(from_list%p%list_elements), stat=ist)
+    IF(ist/=SUCCESS) THEN
+      CALL finish (TRIM(routine), 'allocation of obj%list failed')
+    ENDIF
+    ! initialize
+    obj%len = 0
+
+    ! Sub-list extraction (IDs only)
+    this_list_element => from_list%p%first_list_element
+    DO WHILE (ASSOCIATED(this_list_element))
+      !
+      ! retrieve information from actual linked list element
+      !
+      info          => this_list_element%field%info
+      tracer_info   => this_list_element%field%info_dyn%tracer
+      !
+      ! extract sublist member
+      id = extraction_rule(info, tracer_info)
+      IF (id /= -999) THEN
+        obj%len           = obj%len+1
+        obj%list(obj%len) = id
+      ENDIF
+
+      this_list_element => this_list_element%next_list_element
+    ENDDO
+    !
+    NULLIFY (this_list_element)
+    !
+    ! contract list
+    ALLOCATE(tmp(obj%len), stat=ist)
+    IF(ist/=SUCCESS) THEN
+      CALL finish (TRIM(routine), 'allocation of array tmp failed')
+    ENDIF
+    tmp(1:obj%len) = obj%list(1:obj%len)
+    CALL move_alloc(tmp,obj%list)
+
+  END FUNCTION subListExtract
+
+  !-----------------------------------------------------------------------------
+  !>
+  !! If the tracer at hand is a member of the hydroMass ID 
+  !! list, this function gives back its respective ID. 
+  !! Otherwise, it gives back -999 
+  !!
+  INTEGER FUNCTION extraction_rule_hydroMass(info,tracer_info) RESULT(id)
+    !
+    TYPE(t_var_metadata), INTENT(IN)  :: info
+    CLASS(t_tracer_meta), INTENT(IN)  :: tracer_info
+
+    SELECT TYPE(tracer_info)
+    TYPE IS (t_hydro_meta)
+      id = info%ncontained 
+    CLASS default
+      id = -999
+    !
+    END SELECT      
+  END FUNCTION extraction_rule_hydroMass
+
+
+  !-----------------------------------------------------------------------------
+  !>
+  !! If the tracer at hand is advected (either horizontally or vertically) 
+  !! this function gives back its respective ID. 
+  !! Otherwise, it gives back -999 
+  !!
+  INTEGER FUNCTION extraction_rule_advect(info,tracer_info) RESULT(id)
+    !
+    TYPE(t_var_metadata), INTENT(IN)  :: info
+    CLASS(t_tracer_meta), INTENT(IN)  :: tracer_info
+    !
+    IF ((tracer_info%ihadv_tracer/=NO_HADV) .OR. (tracer_info%ivadv_tracer/=NO_VADV)) THEN
+      id = info%ncontained 
+    ELSE
+      id = -999
+    ENDIF
+  END FUNCTION extraction_rule_advect
+
+
+  !-----------------------------------------------------------------------------
+  !>
+  !! If the tracer at hand is not advected (neither horizontally nor vertically) 
+  !! this function gives back its respective ID. 
+  !! Otherwise, it gives back -999 
+  !!
+  INTEGER FUNCTION extraction_rule_notAdvect(info,tracer_info) RESULT(id)
+    !
+    TYPE(t_var_metadata), INTENT(IN)  :: info
+    CLASS(t_tracer_meta), INTENT(IN)  :: tracer_info
+    !
+    IF ((tracer_info%ihadv_tracer==NO_HADV) .AND. (tracer_info%ivadv_tracer==NO_VADV)) THEN
+      id = info%ncontained 
+    ELSE
+      id = -999
+    ENDIF
+  END FUNCTION extraction_rule_notAdvect
+
+
+  !-----------------------------------------------------------------------------
+  !>
+  !! If child-to-parent feedback should be applied  
+  !! this function gives back its respective ID. 
+  !! Otherwise, it gives back -999 
+  !!
+  INTEGER FUNCTION extraction_rule_feedback(info,tracer_info) RESULT(id)
+    !
+    TYPE(t_var_metadata), INTENT(IN)  :: info
+    CLASS(t_tracer_meta), INTENT(IN)  :: tracer_info
+    !
+    IF ( (tracer_info%lfeedback) ) THEN
+      id = info%ncontained 
+    ELSE
+      id = -999
+    ENDIF
+  END FUNCTION extraction_rule_feedback
+
+
+  ! ATTENTION: currently not used (see FINAL statement above)
+  !
+  !-------------------------------------------------------------------------
+  !>
+  !! Deallocate object components
+  !!
+  !! Deallocates all components of a class t_trList object
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2017-03-13)
+  !!
+  SUBROUTINE destruct_trList(obj)
+    TYPE(t_trList) :: obj
+    !
+    ! local
+    INTEGER :: ist
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_advection_config: destruct_trList'
+
+    !!$ACC EXIT DATA DELETE( obj%list ), IF (i_am_accel_node .AND. acc_on)
+
+    IF (ALLOCATED(obj%list)) THEN
+      DEALLOCATE(obj%list, STAT=ist)
+      IF (ist /= SUCCESS) THEN
+        CALL finish ( TRIM(routine), 'list deallocation failed' )
+      ELSE 
+        write(0,*) "deallocated obj%list"
+      ENDIF
+    ENDIF
+  END SUBROUTINE destruct_trList
 
 
 
@@ -725,71 +1017,124 @@ CONTAINS
 
 
 
-  !-----------------------------------------------------------------------------
+  !>
+  !! Screen print out of advection setup
+  !!
+  !! Screen print out of advection setup.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2017-03-30)
+  !!
+  SUBROUTINE advection_print_setup (config_obj, var_list_tracer)
+    !
+    CLASS(t_advection_config)             :: config_obj        !< object for which the setup will be printed
+    TYPE(t_var_list)         , INTENT(IN) :: var_list_tracer   !< variable list (metadata)
+
+    ! local variables
+    CLASS(t_tracer_meta), POINTER :: tracer_info
+    TYPE(t_table)   :: table
+    INTEGER         :: ivar            ! loop counter
+    INTEGER         :: irow            ! row to fill
+    !
+    CHARACTER(LEN=3) :: str_tracer_id
+    CHARACTER(LEN=3) :: str_flag
+    !--------------------------------------------------------------------------
+
+    ! could this be transformed into a table header?
+    write(0,*) "Tracer meta-information for patch ", var_list_tracer%p%patch_id
+
+    ! table-based output
+    CALL initialize_table(table)
+    ! the latter is no longer mandatory
+    CALL add_table_column(table, "VarName")
+    CALL add_table_column(table, "Tracer ID")
+    CALL add_table_column(table, "feedback")
+    CALL add_table_column(table, "in list trAdvect")
+    CALL add_table_column(table, "in list trNotAdvect")
+    CALL add_table_column(table, "in list trHydroMass")
+
+
+    irow = 0
+    ! print tracer meta-information
+    !
+    DO ivar=1,var_list_tracer%p%nvars
+
+      tracer_info => get_tracer_list_element_info (var_list_tracer, ivar)
+
+      irow = irow + 1
+      !
+      CALL set_table_entry(table,irow,"VarName", TRIM(tracer_info%name))
+      !
+      write(str_tracer_id,'(i3)')  ivar
+      CALL set_table_entry(table,irow,"Tracer ID", str_tracer_id)
+      !
+      str_flag = MERGE('X',' ',ANY(config_obj%trFeedback%list==ivar))
+      CALL set_table_entry(table,irow,"feedback", TRIM(str_flag))
+      !
+      str_flag = MERGE('X',' ',ANY(config_obj%trAdvect%list==ivar))
+      CALL set_table_entry(table,irow,"in list trAdvect", TRIM(str_flag))
+      !
+      str_flag = MERGE('X',' ',ANY(config_obj%trNotAdvect%list==ivar))
+      CALL set_table_entry(table,irow,"in list trNotAdvect", TRIM(str_flag))
+      !
+      ! iforcing == inwp/iecham
+      IF (ALLOCATED(config_obj%trHydroMass%list)) THEN
+        str_flag = MERGE('X',' ',ANY(config_obj%trHydroMass%list==ivar))
+        CALL set_table_entry(table,irow,"in list trHydroMass", TRIM(str_flag))
+      ENDIF
+    ENDDO
+
+    CALL print_table(table, opt_delimiter=' | ')
+    CALL finalize_table(table)
+
+    WRITE (0,*) " " ! newline
+  END SUBROUTINE advection_print_setup
+
+
+  !------------------------------------------------------------------------------------------------
   !
-  ! Create vector containing all IDs of tracers which are of type 
-  ! hydroMass. This list will be used to compute the water loading 
-  ! term.
+  ! Get a copy of the metadata concerning a tracer_list element
   !
-  SUBROUTINE create_idlist_hydroMass (tracer_list, idList)
+  FUNCTION get_tracer_list_element_info (tracer_list, tracer_ID) RESULT(tracer_info)
     !
-    TYPE(t_var_list)    , INTENT(IN)    :: tracer_list
-    INTEGER, ALLOCATABLE, INTENT(INOUT) :: idList(:)
+    TYPE(t_var_list),     INTENT(in)  :: tracer_list  ! list
+    INTEGER,              INTENT(IN)  :: tracer_ID    ! tracer ID
+    CLASS(t_tracer_meta), POINTER     :: tracer_info  ! variable meta data
     !
+    TYPE(t_list_element), POINTER :: element
     !
-    CHARACTER(*), PARAMETER :: routine = "create_idlist_HydroMass"
-    TYPE(t_list_element) , POINTER :: this_list_element
-    TYPE (t_var_metadata), POINTER :: info             ! static info state
-    CLASS(t_tracer_meta) , POINTER :: tracer_info      ! dynamic (tracer) info state
-
-    INTEGER, ALLOCATABLE :: tmp(:)     ! auxiliary array
-    INTEGER :: cnt                     ! counter
-    INTEGER :: ist                     ! status flag
-
-
-    ! allocate with maximum size
-    ALLOCATE(tmp(tracer_list%p%list_elements), stat=ist)
-    IF(ist/=SUCCESS) THEN
-      CALL finish (TRIM(routine), 'allocation of tmp failed')
+    element => find_tracer_list_element (tracer_list, tracer_ID)
+    IF (ASSOCIATED (element)) THEN
+      tracer_info => element%field%info_dyn%tracer
+    ELSE
+      WRITE(message_text,'(a,i3,a)') 'Element with tracer ID ', tracer_ID, ' not found.'
+      CALL finish (TRIM('get_tracer_list_element_info'), message_text)
     ENDIF
-
-    cnt = 0
     !
-    this_list_element => tracer_list%p%first_list_element
-    DO WHILE (ASSOCIATED(this_list_element))
-      !
-      ! retrieve information from actual linked list element
-      !
-      info          => this_list_element%field%info
-      tracer_info   => this_list_element%field%info_dyn%tracer
+  END FUNCTION get_tracer_list_element_info
 
-      ! build hydroMass ID list
-      SELECT TYPE(tracer_info)
-      TYPE IS (t_hydro_meta)
-        cnt = cnt+1
-        tmp(cnt) = info%ncontained 
-      CLASS default
-      !
-      END SELECT      
 
-      this_list_element => this_list_element%next_list_element
+  !
+  ! Find tracer list element from tracer ID 
+  !
+  FUNCTION find_tracer_list_element (tracer_list, ID) RESULT(tracer_list_element)
+    !
+    TYPE(t_var_list),   INTENT(in) :: tracer_list
+    INTEGER,            INTENT(in) :: ID
+    !
+    TYPE(t_list_element), POINTER :: tracer_list_element
+    !
+    tracer_list_element => tracer_list%p%first_list_element
+    DO WHILE (ASSOCIATED(tracer_list_element))
+      IF (ID == tracer_list_element%field%info%ncontained) THEN
+        RETURN
+      ENDIF
+      tracer_list_element => tracer_list_element%next_list_element
     ENDDO
     !
-    NULLIFY (this_list_element)
+    NULLIFY (tracer_list_element)
     !
-    ! copy from temporary array to output array
-    ALLOCATE(idList(cnt), stat=ist)
-    IF(ist/=SUCCESS) THEN
-      CALL finish (TRIM(routine), 'allocation of idlist failed')
-    ENDIF
-    idList(1:cnt) = tmp(1:cnt)
-    !
-    ! cleanup
-    DEALLOCATE(tmp, stat=ist)
-    IF(ist/=SUCCESS) THEN
-      CALL finish (TRIM(routine), 'deallocation of tmp failed')
-    ENDIF
-  END SUBROUTINE create_idlist_hydroMass
+  END FUNCTION find_tracer_list_element
 
 
 END MODULE mo_advection_config

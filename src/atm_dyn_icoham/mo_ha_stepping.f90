@@ -57,7 +57,7 @@ MODULE mo_ha_stepping
   USE mo_vertical_coord_table,ONLY: vct
   
   USE mo_icon_comm_lib,       ONLY: icon_comm_sync_all
-  USE mo_parallel_config,     ONLY: use_icon_comm, use_async_restart_output
+  USE mo_parallel_config,     ONLY: use_icon_comm
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
   USE mo_restart,             ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
   USE mo_restart_attributes,  ONLY: t_RestartAttributeList, getAttributesForRestarting

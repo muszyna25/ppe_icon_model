@@ -42,6 +42,7 @@ MODULE mo_ext_data_state
     &                              HINTP_TYPE_LONLAT_NNB, MAX_CHAR_LENGTH,         &
     &                              SSTICE_ANA, SSTICE_ANA_CLINC, SSTICE_CLIM,      &
     &                              SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY
+  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
   USE mo_exception,          ONLY: message, finish
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos_td, &
@@ -66,7 +67,7 @@ MODULE mo_ext_data_state
   USE mo_cdi,                ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64, &
     &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG,            &
     &                              GRID_UNSTRUCTURED
-  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL, ZA_HYBRID, ZA_LAKE_BOTTOM, ZA_SURFACE, &
+  USE mo_zaxis_type,         ONLY: ZA_REFERENCE, ZA_LAKE_BOTTOM, ZA_SURFACE, &
     &                              ZA_HEIGHT_2M, ZA_PRESSURE
 
   IMPLICIT NONE
@@ -328,7 +329,7 @@ CONTAINS
     grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'grad_topo', p_ext_atm%grad_topo,        &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
-      &           grib2_desc, ldims=(/2,nproma,nblks_c/), loutput=.TRUE.,  &
+      &           grib2_desc, ldims=(/2,nproma,nblks_c/), loutput=.FALSE.,  &
       &           isteptype=TSTEP_CONSTANT )
 
 
@@ -351,7 +352,7 @@ CONTAINS
       &                   'ozone mixing ratio', datatype_flt)
     grib2_desc = grib2_var( 0, 14, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'o3', p_ext_atm%o3,                      &
-      &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc,              &
+      &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,              &
       &           grib2_desc, ldims=shape3d_c, loutput=.TRUE. )
 
 
@@ -1158,19 +1159,20 @@ CONTAINS
     shape3d_c   = (/ nproma, nblks_c, nmonths_ext(jg)  /)
     shape4d_c   = (/ nproma, nlev_o3, nblks_c, nmonths /)
 
-    SELECT CASE (sstice_mode)
-      CASE(SSTICE_ANA)
-        ! nothing to do
-      CASE(SSTICE_ANA_CLINC, SSTICE_CLIM)
-        shape3d_sstice = (/ nproma, nblks_c, 12 /)
-      CASE(SSTICE_AVG_MONTHLY)
-        shape3d_sstice = (/ nproma, nblks_c,  2 /)
-      CASE(SSTICE_AVG_DAILY)
-        CALL finish (TRIM(routine), 'sstice_mode=4  not implemented!')
-      CASE DEFAULT
-        CALL finish (TRIM(routine), 'sstice_mode not valid!')
-    END SELECT
- 
+    IF (iforcing == inwp) THEN
+      SELECT CASE (sstice_mode)
+        CASE(SSTICE_ANA)
+          ! nothing to do
+        CASE(SSTICE_ANA_CLINC, SSTICE_CLIM)
+          shape3d_sstice = (/ nproma, nblks_c, 12 /)
+        CASE(SSTICE_AVG_MONTHLY)
+          shape3d_sstice = (/ nproma, nblks_c,  2 /)
+        CASE(SSTICE_AVG_DAILY)
+          CALL finish (TRIM(routine), 'sstice_mode=4  not implemented!')
+        CASE DEFAULT
+          CALL finish (TRIM(routine), 'sstice_mode not valid!')
+      END SELECT
+    END IF
 
     !
     ! Register a field list and apply default settings
@@ -1199,7 +1201,7 @@ CONTAINS
         &                   'ozone geometric height level', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'O3_zf', p_ext_atm_td%zf,  &
-        &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc,   &
+        &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,   &
         &           grib2_desc, ldims=(/nlev_o3/), loutput=.FALSE.  )
 
       ! o3  main pressure level from read-in file

@@ -133,7 +133,7 @@ IMPLICIT NONE
                & 0.0006_ireals , 0.0001_ireals , 0.0002_ireals , 0.0000_ireals , 0.0000_ireals   /
 
   DATA  ckw0   / 0.00_ireals   , 0.00_ireals   , 479.E-7_ireals, 943.E-8_ireals, 531.E-8_ireals, &
-               & 764.E-9_ireals,  17.E-9_ireals, 58.E-9_ireals , 0.00_ireals   , 0.00_ireals     /
+               & 764.E-9_ireals,  85.E-9_ireals, 58.E-9_ireals , 0.00_ireals   , 0.00_ireals     /
 
   DATA  ckw1   / 0.00_ireals   , 0.00_ireals   , -19.27_ireals , -20.86_ireals , -19.66_ireals , &
                & -18.52_ireals , -16.32_ireals , -16.48_ireals , 0.00_ireals   , 0.00_ireals     /

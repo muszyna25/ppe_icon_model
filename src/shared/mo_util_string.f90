@@ -66,7 +66,12 @@ MODULE mo_util_string
     MODULE PROCEDURE float2string
     MODULE PROCEDURE double2string
   END INTERFACE real2string
-  !
+
+  INTERFACE charArray_equal
+    MODULE PROCEDURE charArray_equal_array
+    MODULE PROCEDURE charArray_equal_char
+  END INTERFACE charArray_equal
+
   ! ANSI color sequences 
   !
   CHARACTER(len=1), PARAMETER :: esc = ACHAR(27)
@@ -824,7 +829,7 @@ CONTAINS
   FUNCTION charArray_dup(charArray) RESULT(resultVar)
     CHARACTER(KIND = C_CHAR), INTENT(IN) :: charArray(:)
     CHARACTER(KIND = C_CHAR), POINTER :: resultVar(:)
-    INTEGER :: i, error
+    INTEGER :: error
 
     CHARACTER(LEN = *), PARAMETER :: routine = modName//":charArray_dup"
 
@@ -834,7 +839,7 @@ CONTAINS
     resultVar(:) = charArray(:)
   END FUNCTION charArray_dup
 
-  LOGICAL FUNCTION charArray_equal(stringA, stringB) RESULT(resultVar)
+  LOGICAL FUNCTION charArray_equal_array(stringA, stringB) RESULT(resultVar)
     CHARACTER(KIND = C_CHAR), INTENT(IN) :: stringA(:), stringB(:)
     INTEGER :: i
 
@@ -844,7 +849,20 @@ CONTAINS
         IF(stringA(i) /= stringB(i)) RETURN
     END DO
     resultVar = .TRUE.
-  END FUNCTION charArray_equal
+  END FUNCTION charArray_equal_array
+
+  LOGICAL FUNCTION charArray_equal_char(stringA, stringB) RESULT(resultVar)
+    CHARACTER(KIND = C_CHAR), INTENT(IN) :: stringA(:)
+    CHARACTER(*), INTENT(IN) :: stringB
+    INTEGER :: i
+
+    resultVar = .FALSE.
+    IF(SIZE(stringA, 1) /= LEN_TRIM(stringB)) RETURN
+    DO i = 1, SIZE(stringA, 1)
+        IF(stringA(i) /= stringB(i:i)) RETURN
+    END DO
+    resultVar = .TRUE.
+  END FUNCTION charArray_equal_char
 
   SUBROUTINE charArray_toLower(string)
     CHARACTER(KIND = C_CHAR), INTENT(INOUT) :: string(:)

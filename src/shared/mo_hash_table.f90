@@ -8,7 +8,8 @@
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! A generic hash table
-! A container for any kind of objects that are stored under any kind of keys, with O(1) complexity for insertion, lookup, and removal.
+! A container for any kind of objects that are stored under any kind
+! of keys, with O(1) complexity for insertion, lookup, and removal.
 !
 ! Implementation note:
 ! The loops look more complex than they are:
@@ -59,7 +60,9 @@ MODULE mo_hash_table
     END TYPE
 
     ! provides sequential access to all entries of a hash table
-    ! <<< WARNING >>>: iterators are invalidated by setEntry(), removeEntry(), AND destruct() calls on the corresponding hash table
+    ! <<< WARNING >>>: iterators are invalidated by setEntry(),
+    ! removeEntry(), AND destruct() calls on the corresponding hash
+    ! table
     TYPE :: t_HashIterator
         PRIVATE
         TYPE(t_HashTable), POINTER :: table
@@ -74,7 +77,7 @@ MODULE mo_hash_table
         TYPE(t_HashEntry), POINTER :: ptr
     END TYPE
     TYPE :: t_HashEntry
-        CLASS(t_Destructible), POINTER :: key, value
+        CLASS(t_Destructible), POINTER :: key, val
         TYPE(t_HashEntryPtr) :: next
         INTEGER(C_INT32_T) :: hash
     END TYPE
@@ -181,8 +184,8 @@ CONTAINS
                     ! destroy the entry
                     CALL curEntry%key%destruct()
                     DEALLOCATE(curEntry%key)
-                    CALL curEntry%VALUE%destruct()
-                    DEALLOCATE(curEntry%value)
+                    CALL curEntry%val%destruct()
+                    DEALLOCATE(curEntry%val)
                     DEALLOCATE(curEntry)
                     CYCLE
                 END IF
@@ -191,10 +194,10 @@ CONTAINS
         END DO
     END SUBROUTINE hashTable_removeFromList
 
-    ! The hash table takes possession of both the key and the value and will DEALLOCATE() them eventually.
-    SUBROUTINE hashTable_setEntry(me, key, value)
+    ! The hash table takes possession of both the key and the val and will DEALLOCATE() them eventually.
+    SUBROUTINE hashTable_setEntry(me, key, val)
         CLASS(t_HashTable), INTENT(INOUT) :: me
-        CLASS(t_Destructible), POINTER, INTENT(IN) :: key, value
+        CLASS(t_Destructible), POINTER, INTENT(IN) :: key, val
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":hashTable_setEntry"
         TYPE(t_HashEntry), POINTER :: newEntry
@@ -205,7 +208,7 @@ CONTAINS
         ALLOCATE(newEntry, STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
         newEntry%key => key
-        newEntry%value => value
+        newEntry%val => val
         newEntry%hash = me%getHash(key)
         newEntry%next%ptr => NULL()
 
@@ -250,7 +253,7 @@ CONTAINS
         DO WHILE(ASSOCIATED(curEntry))
             IF(curEntry%hash == hash) THEN
                 IF(me%equalKeys(curEntry%key, key)) THEN
-                    resultVar => curEntry%value
+                    resultVar => curEntry%val
                     RETURN
                 END IF
             END IF
@@ -270,8 +273,8 @@ CONTAINS
                 nextEntry => curEntry%next%ptr
                 CALL curEntry%key%destruct()
                 DEALLOCATE(curEntry%key)
-                CALL curEntry%VALUE%destruct()
-                DEALLOCATE(curEntry%value)
+                CALL curEntry%val%destruct()
+                DEALLOCATE(curEntry%val)
                 DEALLOCATE(curEntry)
                 curEntry => nextEntry
             END DO
@@ -288,12 +291,12 @@ CONTAINS
         me%curEntry => NULL()
     END SUBROUTINE hashIterator_init
 
-    LOGICAL FUNCTION hashIterator_nextEntry(me, key, VALUE) RESULT(resultVar)
+    LOGICAL FUNCTION hashIterator_nextEntry(me, key, val) RESULT(resultVar)
         CLASS(t_HashIterator), INTENT(INOUT) :: me
-        CLASS(t_Destructible), POINTER, INTENT(INOUT) :: key, VALUE
+        CLASS(t_Destructible), POINTER, INTENT(INOUT) :: key, val
 
         key => NULL()
-        VALUE => NULL()
+        val => NULL()
         resultVar = .FALSE.
 
         ! try to ADVANCE within the current bin
@@ -304,7 +307,7 @@ CONTAINS
             ! check whether we have found the next entry
             IF(ASSOCIATED(me%curEntry)) THEN
                 key => me%curEntry%key
-                VALUE => me%curEntry%VALUE
+                val => me%curEntry%val
                 resultVar = .TRUE.
                 RETURN
             END IF

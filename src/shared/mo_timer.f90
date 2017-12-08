@@ -14,6 +14,10 @@
 !!
 MODULE mo_timer
 
+#if (defined(__GFORTRAN__) || defined(_CRAYFTN) || defined(__PGIF90__))
+  USE iso_fortran_env, ONLY: compiler_version, compiler_options
+#endif
+  
 #ifdef __SCT__
   USE sct, ONLY: new_timer     => sct_new_timer,             &
        &         timer_start   => sct_start,                 &
@@ -31,32 +35,32 @@ MODULE mo_timer
 
 #endif
 
-   USE mo_run_config, ONLY: ltimer, timers_level,  activate_sync_timers
-
+  USE mo_run_config, ONLY: ltimer, timers_level,  activate_sync_timers
+  
   IMPLICIT NONE
   PRIVATE
 
   PUBLIC :: ltimer, timers_level, activate_sync_timers
-  PUBLIC :: new_timer, timer_start, timer_stop  !< procedures imported from mo_real_timer
+  PUBLIC :: new_timer, timer_start, timer_stop                !< procedures imported from mo_real_timer
   PUBLIC :: print_timer, cleanup_timer, delete_timer          !< procedures imported and renamed
-  PUBLIC :: init_timer                          !< procedure of this module
+  PUBLIC :: init_timer                                        !< procedure of this module
 
   PUBLIC :: timer_total                         !< IDs of timers
   PUBLIC :: timer_exch_data, timer_exch_data_rv, timer_exch_data_async, timer_exch_data_wait
   PUBLIC :: timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
   PUBLIC :: timer_icon_comm_sync
-  PUBLIC :: timer_icon_comm_fillrecv, timer_icon_comm_wait, timer_icon_comm_isend, &
-    & timer_icon_comm_ircv, timer_icon_comm_fillsend, timer_icon_comm_fillandsend, &
-    & timer_icon_comm_barrier_2, timer_icon_comm_send
+  PUBLIC :: timer_icon_comm_fillrecv, timer_icon_comm_wait, timer_icon_comm_isend,       &
+       &    timer_icon_comm_ircv, timer_icon_comm_fillsend, timer_icon_comm_fillandsend, &
+       &    timer_icon_comm_barrier_2, timer_icon_comm_send
   PUBLIC :: timer_barrier
 
   PUBLIC :: timer_integrate_nh
   PUBLIC :: timer_solve_nh, timer_solve_nh_veltend, timer_solve_nh_cellcomp, timer_solve_nh_edgecomp, &
-    & timer_solve_nh_vnupd, timer_solve_nh_vimpl, timer_solve_nh_exch
+       &    timer_solve_nh_vnupd, timer_solve_nh_vimpl, timer_solve_nh_exch
   PUBLIC :: timer_physics
                         !< IDs of timers
   PUBLIC :: timer_radiaton_recv, timer_radiaton_comp, timer_radiaton_send, &
-    & timer_preradiaton, timer_synsat
+       &    timer_preradiaton, timer_synsat
 
   PUBLIC :: timer_div, timer_grad, timer_gmres, timer_lhs, timer_lhs_sp
   PUBLIC :: timer_corio, timer_intp
@@ -101,7 +105,7 @@ MODULE mo_timer
   PUBLIC :: timer_nwp_convection
   PUBLIC :: timer_nwp_radiation
   PUBLIC :: timer_pre_radiation_nwp
-  PUBLIC :: timer_phys_acc, timer_phys_acc_1,timer_phys_acc_2
+  PUBLIC :: timer_phys_acc, timer_phys_acc_1,timer_phys_acc_2, timer_phys_dpsdt
   PUBLIC :: timer_phys_sync_tracers
   PUBLIC :: timer_phys_sync_tempv
   PUBLIC :: timer_phys_acc_par
@@ -118,7 +122,6 @@ MODULE mo_timer
   PUBLIC :: timer_cover_koe
   PUBLIC :: timer_omp_radiation
   PUBLIC :: timer_lonlat_setup
-  PUBLIC :: timer_write_restart_file
   PUBLIC :: timer_write_output
   PUBLIC :: timer_model_init, timer_init_latbc
   PUBLIC :: timer_domain_decomp, timer_compute_coeffs, timer_ext_data, timer_init_icon, timer_read_restart
@@ -155,15 +158,28 @@ MODULE mo_timer
   PUBLIC :: timer_scalar_prod_veloc
 
   ! Timer IDs for sea ice
-  PUBLIC :: timer_ice_fast, timer_ice_slow, timer_ice_slow2, timer_ice_momentum,       &
-    &      timer_ice_interp, timer_ice_advection
+  PUBLIC :: timer_ice_fast, timer_ice_slow, timer_ice_slow2, timer_ice_momentum, &
+       &    timer_ice_interp, timer_ice_advection
 
   ! Timer IDs for HAMOCC
 
   PUBLIC :: timer_bgc_up_bgc, timer_bgc_swr, timer_bgc_wea, timer_bgc_depo, &
-    &        timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett, timer_bgc_cya,&
-    &        timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
-    &        timer_bgc_tend,timer_bgc_ini, timer_bgc_inv, timer_bgc_tot 
+       &    timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett, timer_bgc_cya,&
+       &    timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
+       &    timer_bgc_tend,timer_bgc_ini, timer_bgc_inv, timer_bgc_tot 
+
+  ! restart timers
+  PUBLIC :: timer_load_restart
+  PUBLIC :: timer_load_restart_io
+  PUBLIC :: timer_load_restart_comm_setup
+  PUBLIC :: timer_load_restart_communication
+  PUBLIC :: timer_load_restart_get_var_id
+  PUBLIC :: timer_write_restart
+  PUBLIC :: timer_write_restart_io
+  PUBLIC :: timer_write_restart_communication
+  PUBLIC :: timer_write_restart_setup
+  PUBLIC :: timer_restart_collector_setup
+  PUBLIC :: timer_restart_indices_setup
 
   PUBLIC :: timer_extra1,  timer_extra2,  timer_extra3,  timer_extra4,  timer_extra5,  &
             timer_extra6,  timer_extra7,  timer_extra8,  timer_extra9,  timer_extra10, &
@@ -173,6 +189,12 @@ MODULE mo_timer
             timer_extra26, timer_extra27, timer_extra28, timer_extra29, timer_extra30, &
             timer_extra31, timer_extra32, timer_extra33, timer_extra34, timer_extra35, &
             timer_extra36, timer_extra37, timer_extra38, timer_extra39, timer_extra40
+
+  ! ART timers of the interfaces
+  PUBLIC :: timer_art, timer_art_emissInt, timer_art_reacInt,                                  &
+            timer_art_cldInt, timer_art_diagInt, timer_art_sedInt, timer_art_toolInt,          &
+            timer_art_tracInt, timer_art_turbdiffInt, timer_art_washoutInt, timer_art_initInt, &
+            timer_art_radInt, timer_art_photo, timer_art_losschem
 
   ! low level timing routine
   PUBLIC :: tic, toc
@@ -188,8 +210,8 @@ MODULE mo_timer
   INTEGER :: timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
   INTEGER :: timer_icon_comm_sync
   INTEGER :: timer_icon_comm_fillrecv, timer_icon_comm_wait, timer_icon_comm_isend, &
-    & timer_icon_comm_ircv, timer_icon_comm_fillsend,timer_icon_comm_fillandsend,   &
-    & timer_icon_comm_barrier_2, timer_icon_comm_send
+       &     timer_icon_comm_ircv, timer_icon_comm_fillsend,timer_icon_comm_fillandsend,   &
+       &     timer_icon_comm_barrier_2, timer_icon_comm_send
   INTEGER :: timer_barrier
   INTEGER :: timer_gmres_p_sum
 
@@ -197,7 +219,7 @@ MODULE mo_timer
 
   INTEGER :: timer_integrate_nh
   INTEGER :: timer_solve_nh, timer_solve_nh_veltend, timer_solve_nh_cellcomp, timer_solve_nh_edgecomp, &
-    & timer_solve_nh_vnupd, timer_solve_nh_vimpl, timer_solve_nh_exch
+       &     timer_solve_nh_vnupd, timer_solve_nh_vimpl, timer_solve_nh_exch
   INTEGER :: timer_physics
   INTEGER :: timer_update_prog_phy
 
@@ -214,9 +236,9 @@ MODULE mo_timer
   INTEGER :: timer_nwp_radiation
   INTEGER :: timer_synsat
   INTEGER :: timer_radiaton_recv, timer_radiaton_comp, timer_radiaton_send, &
-    & timer_preradiaton
+       &     timer_preradiaton
   INTEGER :: timer_pre_radiation_nwp
-  INTEGER :: timer_phys_acc, timer_phys_acc_1,timer_phys_acc_2
+  INTEGER :: timer_phys_acc, timer_phys_acc_1,timer_phys_acc_2, timer_phys_dpsdt
   INTEGER :: timer_phys_sync_tracers
   INTEGER :: timer_phys_sync_tempv
   INTEGER :: timer_phys_acc_par
@@ -269,7 +291,6 @@ MODULE mo_timer
   INTEGER :: timer_lrtm, timer_srtm
 
   INTEGER :: timer_omp_radiation
-  INTEGER :: timer_write_restart_file
   INTEGER :: timer_write_output
   INTEGER :: timer_model_init, timer_init_latbc
   INTEGER :: timer_domain_decomp, timer_compute_coeffs, timer_ext_data, timer_init_icon, timer_read_restart
@@ -308,35 +329,59 @@ MODULE mo_timer
   INTEGER :: timer_scalar_prod_veloc
   ! Timer IDs for sea ice
   INTEGER :: timer_ice_fast, timer_ice_slow, timer_ice_slow2, timer_ice_momentum,       &
-    &      timer_ice_interp, timer_ice_advection
+       &     timer_ice_interp, timer_ice_advection
 
   ! Timer IDs HAMOCC
   INTEGER :: timer_bgc_up_bgc, timer_bgc_swr, timer_bgc_wea, timer_bgc_depo, &
-   &         timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett, timer_bgc_cya,&
-   &         timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
-   &         timer_bgc_tend, timer_bgc_ini, timer_bgc_inv, timer_bgc_tot
+       &     timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett, timer_bgc_cya,&
+       &     timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
+       &     timer_bgc_tend, timer_bgc_ini, timer_bgc_inv, timer_bgc_tot
+
+  ! restart timers
+  INTEGER :: timer_load_restart
+  INTEGER :: timer_load_restart_io
+  INTEGER :: timer_load_restart_comm_setup
+  INTEGER :: timer_load_restart_communication
+  INTEGER :: timer_load_restart_get_var_id
+  INTEGER :: timer_write_restart
+  INTEGER :: timer_write_restart_io
+  INTEGER :: timer_write_restart_communication
+  INTEGER :: timer_write_restart_setup
+  INTEGER :: timer_restart_collector_setup
+  INTEGER :: timer_restart_indices_setup
+
   ! The purpose of these "extra" timers is to have otherwise unused timers available for
   ! special-purpose measurements. Please do not remove them and do not use them permanently.
   INTEGER :: timer_extra1,  timer_extra2,  timer_extra3,  timer_extra4,  timer_extra5,  &
-             timer_extra6,  timer_extra7,  timer_extra8,  timer_extra9,  timer_extra10, &
-             timer_extra11, timer_extra12, timer_extra13, timer_extra14, timer_extra15, &
-             timer_extra16, timer_extra17, timer_extra18, timer_extra19, timer_extra20, &
-             timer_extra21, timer_extra22, timer_extra23, timer_extra24, timer_extra25, &
-             timer_extra26, timer_extra27, timer_extra28, timer_extra29, timer_extra30, &
-             timer_extra31, timer_extra32, timer_extra33, timer_extra34, timer_extra35, &
-             timer_extra36, timer_extra37, timer_extra38, timer_extra39, timer_extra40
+       &     timer_extra6,  timer_extra7,  timer_extra8,  timer_extra9,  timer_extra10, &
+       &     timer_extra11, timer_extra12, timer_extra13, timer_extra14, timer_extra15, &
+       &     timer_extra16, timer_extra17, timer_extra18, timer_extra19, timer_extra20, &
+       &     timer_extra21, timer_extra22, timer_extra23, timer_extra24, timer_extra25, &
+       &     timer_extra26, timer_extra27, timer_extra28, timer_extra29, timer_extra30, &
+       &     timer_extra31, timer_extra32, timer_extra33, timer_extra34, timer_extra35, &
+       &     timer_extra36, timer_extra37, timer_extra38, timer_extra39, timer_extra40
 
   INTEGER :: timer_ls_forcing
+
+  ! ART timers around the ART interfaces
+  INTEGER :: timer_art, timer_art_emissInt, timer_art_reacInt,                                  &
+             timer_art_cldInt, timer_art_diagInt, timer_art_sedInt, timer_art_toolInt,          &
+             timer_art_tracInt, timer_art_turbdiffInt, timer_art_washoutInt, timer_art_initInt, &
+             timer_art_radInt, timer_art_photo, timer_art_losschem
+
 CONTAINS
 
   SUBROUTINE print_timer
 #ifdef __SCT__
 
-    USE mo_util_sysinfo, ONLY: util_user_name, util_os_system, util_node_name
-    USE mo_util_vcs,     ONLY: util_repository_url, util_branch_name, util_revision_key
-    USE mo_time_config,  ONLY: time_config 
-    USE mtime,           ONLY: timedelta, newTimedelta, deallocateTimedelta, &
-         &                     OPERATOR(-), timedeltaToString, max_timedelta_str_len
+    USE mo_util_sysinfo,    ONLY: util_user_name, util_os_system, util_node_name
+    USE mo_util_vcs,        ONLY: util_repository_url, util_branch_name, util_revision_key
+    USE mtime,              ONLY: timedelta, newTimedelta, deallocateTimedelta, &
+         &                        OPERATOR(-), timedeltaToString, max_timedelta_str_len
+    USE mo_time_config,     ONLY: time_config 
+    USE mo_parallel_config, ONLY: get_nproma
+    USE mo_run_config,      ONLY: nlev
+    USE mo_grid_config,     ONLY: nroot, start_lev
     
     INTEGER :: istat
     
@@ -357,6 +402,8 @@ CONTAINS
 
     CHARACTER(len=max_timedelta_str_len) :: tdstring
     TYPE(timedelta), POINTER :: length_of_run
+
+    CHARACTER(len=6) :: gridstring
     
     nlen = 256
     call util_repository_url(repository, nlen)
@@ -385,12 +432,15 @@ CONTAINS
     CALL get_environment_variable('SCT_SUBMIT_DATE', submit_date, status=istat)         
     
     ! sct end date             missing, to be done in sct
-    ! model simulation time    tc_stopdate-tc_startdate
 
+    ! model simulation time    tc_stopdate-tc_startdate
     length_of_run => newTimedelta("PT0S")
     length_of_run = time_config%tc_stopdate-time_config%tc_startdate
     CALL timedeltaToString(length_of_run, tdstring)
+
+    write(gridstring,'(a,i2.2,a,i2.2)') 'R', nroot, 'B', start_lev
     
+    CALL sct_add_report_attribute('model',                 'icon')
     CALL sct_add_report_attribute('executable',            executable)
     CALL sct_add_report_attribute('repository',            repository)
     CALL sct_add_report_attribute('branch',                branch)
@@ -402,6 +452,16 @@ CONTAINS
     CALL sct_add_report_attribute('job name',              jobname)
     CALL sct_add_report_attribute('submit date',           submit_date)    
     CALL sct_add_report_attribute('run length',            tdstring)
+    CALL sct_add_report_attribute('vertical levels',       nlev)
+    CALL sct_add_report_attribute('horizontal grid',       gridstring)
+    CALL sct_add_report_attribute('nproma',                get_nproma())    
+#if (defined(__GFORTRAN__) || defined(_CRAYFTN) || defined(__PGIF90__))
+    CALL sct_add_report_attribute('compiler version',      compiler_version())
+    CALL sct_add_report_attribute('compiler options',      compiler_options())
+#else
+    CALL sct_add_report_attribute('compiler version',      'unknown')
+    CALL sct_add_report_attribute('compiler options',      'unknown')    
+#endif
     
     CALL sct_report()
 
@@ -443,7 +503,6 @@ CONTAINS
     timer_gmres_p_sum            = new_timer("gmres_p_sum")
 
     timer_write_output  = new_timer("wrt_output")
-    timer_write_restart_file = new_timer("wrt_restart")
 
     timer_integrate_nh      = new_timer  ("integrate_nh")
     timer_solve_nh          = new_timer  ("nh_solve")
@@ -531,6 +590,7 @@ CONTAINS
     timer_phys_exner = new_timer("phys_exner")
     timer_phys_acc_1 = new_timer("phys_acc_1")
     timer_phys_acc_2 = new_timer("phys_acc_2")
+    timer_phys_dpsdt = new_timer("phys_dpsdt")
     timer_phys_sync_tracers = new_timer("phys_sync_tracer")
     timer_phys_sync_tempv    = new_timer("phys_sync_tempv")
     timer_phys_acc_par  = new_timer("phys_acc_par")
@@ -625,7 +685,21 @@ CONTAINS
     timer_bgc_ini     = new_timer("hamocc_ini") 
     timer_bgc_inv     = new_timer("hamocc_inventories") 
     timer_bgc_tot     = new_timer("hamocc_total") 
-   
+
+    ! timers for restart writing/loading
+    timer_load_restart = new_timer("load_restart")
+    timer_load_restart_io = new_timer("load_restart_io")
+    timer_load_restart_comm_setup = new_timer("load_restart_comm_setup")
+    timer_load_restart_communication = new_timer("load_restart_communication")
+    timer_load_restart_get_var_id = new_timer("load_restart_get_var_id")
+    timer_write_restart = new_timer("write_restart")
+    timer_write_restart_io = new_timer("write_restart_io")
+    timer_write_restart_communication = new_timer("write_restart_communication")
+    timer_write_restart_setup = new_timer("write_restart_setup")
+    timer_restart_indices_setup = new_timer("write_restart_indices")
+    timer_restart_collector_setup = new_timer("write_restart_collectors")
+
+
   ! extra timers for on-demand (non-permanent) timings
     timer_extra1  = new_timer("extra1")
     timer_extra2  = new_timer("extra2")
@@ -669,7 +743,22 @@ CONTAINS
     timer_extra40 = new_timer("extra40")
 
     timer_ls_forcing = new_timer("ls_forcing")
-
+   
+    ! ART timers around the ART interfaces
+    timer_art = new_timer("ART")
+    timer_art_emissInt = new_timer("art_emissInt") 
+    timer_art_reacInt = new_timer("art_reacInt") 
+    timer_art_photo = new_timer("art_photo") 
+    timer_art_losschem = new_timer("art_losschem")
+    timer_art_cldInt = new_timer("art_cldInt") 
+    timer_art_diagInt = new_timer("art_diagInt") 
+    timer_art_initInt = new_timer("art_initInt")
+    timer_art_radInt = new_timer("art_radInt")
+    timer_art_sedInt = new_timer("art_sedInt") 
+    timer_art_toolInt = new_timer("art_toolInt")
+    timer_art_tracInt = new_timer("art_tracInt") 
+    timer_art_turbdiffInt = new_timer("art_turbdiffInt") 
+    timer_art_washoutInt = new_timer("art_washoutInt")
   END SUBROUTINE init_timer
 
 

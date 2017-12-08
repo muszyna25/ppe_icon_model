@@ -958,7 +958,8 @@ CONTAINS
     INTEGER  :: rl_start,rl_end,k375,k100,ktp
     REAL(wp) :: ztimi,zxtime,zjl,zlatint,zint,zadd_o3,tuneo3_1(nlev_gems),tuneo3_2(nlev_gems),&
                 o3_macc1,o3_macc2,o3_gems1,o3_gems2
-    REAL(wp) :: dzsum,dtdzavg,tpshp,wfac,wfac_lat(ilat),wfac_p(nlev_gems),wfac_tr(ilat),wfac_p_tr(nlev_gems)
+    REAL(wp) :: dzsum,dtdzavg,tpshp,wfac,wfac_lat(ilat),wfac_p(nlev_gems),wfac_tr(ilat),&
+                wfac_p_tr(nlev_gems),wfac_p_tr2(nlev_gems),trfac
     LOGICAL  :: lfound_all
 
 
@@ -1040,7 +1041,7 @@ CONTAINS
           zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
         ENDDO
       ENDDO
-    CASE (79) ! blending between GEMS and MACC
+    CASE (79,97) ! blending between GEMS and MACC
 
       ! Latitude-dependent weight for using MACC in the Antarctic region
       DO jl = 1, ilat
@@ -1053,18 +1054,22 @@ CONTAINS
         ENDIF
       ENDDO
 
-      ! Pressure-dependent weight for using MACC in the upper stratosphere and mesosphere
-      DO jk = 1, nlev_gems
-        IF (zrefp(jk) > 500._wp) THEN
-          wfac_p(jk) = 0._wp
-        ELSE IF (zrefp(jk) > 100._wp) THEN
-          wfac_p(jk) = 1._wp - (zrefp(jk)-100._wp)/400._wp
-        ELSE
-          wfac_p(jk) = 1._wp
-        ENDIF
-      ENDDO
+      IF (irad_o3 == 97) THEN
+        ! Pressure-dependent weight for using MACC in the upper stratosphere and mesosphere
+        DO jk = 1, nlev_gems
+          IF (zrefp(jk) > 500._wp) THEN
+            wfac_p(jk) = 0._wp
+          ELSE IF (zrefp(jk) > 100._wp) THEN
+            wfac_p(jk) = 1._wp - (zrefp(jk)-100._wp)/400._wp
+          ELSE
+            wfac_p(jk) = 1._wp
+          ENDIF
+        ENDDO
+      ELSE
+        wfac_p(:) = 0._wp
+      ENDIF
 
-      ! Latitude mask field for tropics (used for ozone enhancement in January and February)
+      ! Latitude mask field for tropics (used for ozone enhancement from January to May)
       DO jl = 1, ilat
         IF (ABS(zlat(jl))*rad2deg > 30._wp) THEN
           wfac_tr(jl) = 0._wp
@@ -1075,7 +1080,7 @@ CONTAINS
         ENDIF
       ENDDO
 
-      ! Pressure mask field for tropics (used for ozone enhancement in January and February)
+      ! Pressure mask field for tropics (used for ozone enhancement from January to May)
       DO jk = 1, nlev_gems
         IF (zrefp(jk) >= 5000._wp .AND. zrefp(jk) <= 10000._wp) THEN
           wfac_p_tr(jk) = 1._wp
@@ -1085,6 +1090,19 @@ CONTAINS
           wfac_p_tr(jk) = (15000._wp-zrefp(jk))/5000._wp
         ELSE
           wfac_p_tr(jk) = 0._wp
+        ENDIF
+      ENDDO
+
+      ! Pressure mask field for tropics (used for ozone shift from around 70 hPa to around 100 hPa)
+      DO jk = 1, nlev_gems
+        IF (zrefp(jk) <= 5000._wp .OR. zrefp(jk) >= 12500._wp) THEN
+          wfac_p_tr2(jk) = 0._wp
+        ELSE IF (zrefp(jk) <= 7000._wp) THEN
+          wfac_p_tr2(jk) = (zrefp(jk)-5000._wp)/2000._wp
+        ELSE IF (zrefp(jk) <= 10000._wp) THEN
+          wfac_p_tr2(jk) = (8500._wp-zrefp(jk))/1500._wp
+        ELSE
+          wfac_p_tr2(jk) = (zrefp(jk)-12500._wp)/2500._wp
         ENDIF
       ENDDO
 
@@ -1120,12 +1138,14 @@ CONTAINS
                      MAX(0._wp,RGHG7_MACC(JL,JK,12)-RGHG7_MACC(JL,JK,IM2)), 0._wp, im2==11)
 
           o3_gems1 = RGHG7(JL,JK,IM1) + MERGE(wfac_tr(jl)*wfac_p_tr(jk)*&
-                     MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM1)), 0._wp, im1==1 .OR. im1==2)
+                     MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM1)), 0._wp, im1>=1 .AND. im1<=5)
           o3_gems2 = RGHG7(JL,JK,IM2) + MERGE(wfac_tr(jl)*wfac_p_tr(jk)*&
-                     MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM2)), 0._wp, im2==1 .OR. im2==2)
+                     MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM2)), 0._wp, im2>=1 .AND. im2<=5)
 
-          zozn(JL,JK) = amo3/amd * ( wfac * (o3_macc2+ZTIMI*(o3_macc1-o3_macc2)) + &
-                              (1._wp-wfac)* (o3_gems2+ZTIMI*(o3_gems1-o3_gems2)) )
+          trfac    = 1._wp - 0.15_wp*wfac_tr(jl)*wfac_p_tr2(jk)
+
+          zozn(JL,JK) = amo3/amd * trfac* ( wfac * (o3_macc2+ZTIMI*(o3_macc1-o3_macc2)) + &
+                                     (1._wp-wfac)* (o3_gems2+ZTIMI*(o3_gems1-o3_gems2)) )
           zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
         ENDDO
       ENDDO
@@ -1261,7 +1281,7 @@ CONTAINS
 
         DO jc = i_startidx,i_endidx
           l_found(jc) = .FALSE.
-          IF (ABS(pt_patch%cells%center(jc,jb)%lat)*rad2deg > 30._wp) THEN
+          IF (ABS(pt_patch%cells%center(jc,jb)%lat)*rad2deg > 25._wp) THEN
             ! Determine thermal tropopause according to WMO definition
             DO jk = prm_diag%k850(jc,jb), 3, -1
               IF (p_diag%pres(jc,jk,jb) < 37500._wp .AND. p_diag%pres(jc,jk,jb) > 10000._wp) THEN
@@ -1276,11 +1296,11 @@ CONTAINS
                 ENDIF
               ENDIF
               IF (l_found(jc)) THEN
-                ! weighting factor; the latitude-dependent component increases from 0 to 1 between 30 and 40 deg lat,
+                ! weighting factor; the latitude-dependent component increases from 0 to 1 between 25 and 30 deg lat,
                 ! the component depending on the tropopause sharpness increases from 0 to 1 between 2.5 K/km and 7.5 K/km
                 ktp = jk
                 tpshp = 0.5_wp*(dtdz(jc,jk-1)+dtdz(jc,jk-2)) - 0.5_wp*(dtdz(jc,jk)+dtdz(jc,jk+1))
-                wfac = MIN(1._wp,0.1_wp*(ABS(pt_patch%cells%center(jc,jb)%lat)*rad2deg-30._wp)) * &
+                wfac = MIN(1._wp,0.2_wp*(ABS(pt_patch%cells%center(jc,jb)%lat)*rad2deg-25._wp)) * &
                   MIN(1._wp,200._wp*MAX(0._wp,tpshp-2.5e-3_wp))
                 EXIT
               ENDIF

@@ -266,6 +266,7 @@ MODULE mo_nwp_phy_types
       tvh(:,:)        ,    & !! factor of laminar transfer of scalars           --
       tkr(:,:)        ,    & !! turbulent reference surface diffusion coeff.  (m2/s) (Ustar*kap*z0)
       tkred_sfc(:,:)  ,    & !! reduction factor for minimum diffusion coefficients near the surface
+      pat_len(:,:)    ,    & !! length scale of sub-grid scale roughness elements (m)
       gz0(:,:),            & !! roughness length * g of the vertically not
                              !! resolved canopy                               (m2/s2)
       tkvm(:,:,:),         & !! turbulent diffusion coefficients for momentum (m/s2 )
@@ -375,7 +376,8 @@ MODULE mo_nwp_phy_types
       &  ktop_envel(:,:),   & !< level index of upper boundary of SSO envelope layer
       &  iww     (:,:)        !< significant weather
 
-    REAL(wp), POINTER :: tropics_mask(:,:) !< mask field that is 1 in the tropics and 0 in the extratropics
+    REAL(wp), POINTER :: tropics_mask(:,:)      !< mask field that is 1 in the tropics and 0 in the extratropics
+    REAL(wp), POINTER :: innertropics_mask(:,:) !< mask field that is 1 in the inner tropics and 0 elsewhere
 
     LOGICAL, POINTER        &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS

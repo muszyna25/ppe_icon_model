@@ -62,7 +62,7 @@ MODULE mo_radiation
     &                                irad_cfc11, vmr_cfc11,           &
     &                                irad_cfc12, vmr_cfc12,           &
     &                                irad_aero,  lrad_aero_diag,      &
-    &                                izenith, lradforcing
+    &                                izenith, lradforcing, islope_rad
   USE mo_lnd_nwp_config,       ONLY: isub_seaice, isub_lake
 
   USE mo_newcld_optics,        ONLY: newcld_optics
@@ -76,9 +76,7 @@ MODULE mo_radiation
   USE mo_srtm_config,          ONLY: jpsw, jpinpx
   USE mo_srtm,                 ONLY: srtm_srtm_224gp
   USE mo_psrad_srtm_driver,    ONLY: psrad_srtm => srtm
-  USE mo_psrad_spec_sampling,  ONLY: get_num_gpoints
-  USE mo_psrad_interface,      ONLY: lw_strat, sw_strat
-  USE mo_psrad_radiation_parameters, ONLY: psctm
+  USE mo_psrad_solar_parameters, ONLY: psctm
   USE mo_timer,                ONLY: ltimer, timer_start, timer_stop,  &
     &                                timer_radiation,                  &
     &                                timer_rrtm_prep, timer_rrtm_post, &
@@ -371,7 +369,7 @@ CONTAINS
 
   END SUBROUTINE pre_radiation_nwp_steps
 
-  SUBROUTINE pre_radiation_nwp(kbdim,p_inc_rad,p_sim_time,pt_patch,zsmu0,zsct)
+  SUBROUTINE pre_radiation_nwp(kbdim,p_inc_rad,p_sim_time,pt_patch,zsmu0,zsct,slope_ang,slope_azi,cosmu0_slp)
 
     INTEGER, INTENT(IN)   :: &
       & kbdim
@@ -384,6 +382,9 @@ CONTAINS
 
     REAL(wp), INTENT(OUT), OPTIONAL   :: zsct                  ! solar constant (at time of year)
     REAL(wp), INTENT(OUT)             :: zsmu0(kbdim,pt_patch%nblks_c)   ! Cosine of zenith angle
+    ! Optional fields for slope-dependent surface radiation: slope angle, slope azimuth, and slope-dependent cosine of zenith angle
+    REAL(wp), INTENT(IN),  OPTIONAL, DIMENSION(kbdim,pt_patch%nblks_c) :: slope_ang,slope_azi
+    REAL(wp), INTENT(OUT), OPTIONAL, DIMENSION(kbdim,pt_patch%nblks_c) :: cosmu0_slp
 
     REAL(wp) ::                     &
       & p_sim_time_rad,  &
@@ -393,10 +394,7 @@ CONTAINS
       & zsocof, zeit0 ,            &
       & zdeksin,zdekcos
 
-    REAL(wp) ::                     &
-      & zsinphi(kbdim,pt_patch%nblks_c) ,&
-      & zcosphi(kbdim,pt_patch%nblks_c) ,&
-      & zeitrad(kbdim,pt_patch%nblks_c)! ,&
+    REAL(wp), DIMENSION(kbdim) :: zsinphi, zcosphi, zeitrad, czra, szra, csang, ssang, csazi, ssazi
 
     INTEGER :: &
       & jj, itaja, jb, ie
@@ -406,7 +404,11 @@ CONTAINS
 
     TYPE(datetime), POINTER :: current => NULL()
     TYPE(timedelta), POINTER :: td => NULL()
-    CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: td_string 
+    CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: td_string
+
+    IF (islope_rad > 0 .AND. .NOT. (PRESENT(slope_ang) .AND. PRESENT(slope_azi) .AND. PRESENT(cosmu0_slp)) ) THEN
+      CALL finish('pre_radiation_nwp','I/O fields for slope-dependent radiation are missing')
+    ENDIF
 
     !First: cases izenith==0 to izenith==2 (no date and time needed)
     IF (izenith == 0) THEN
@@ -492,11 +494,23 @@ CONTAINS
 
       DO jb = 1, pt_patch%nblks_c
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
-        zsinphi(1:ie,jb)      = SIN (pt_patch%cells%center(1:ie,jb)%lat)
-        zcosphi(1:ie,jb)      = SQRT(1.0_wp - zsinphi(1:ie,jb)**2)
-        zeitrad(1:ie,jb)      = zeit0 + pt_patch%cells%center(1:ie,jb)%lon
-        zsmu0(1:ie,jb)        = zdeksin * zsinphi(1:ie,jb) + zdekcos * zcosphi(1:ie,jb) * &
-          COS(zeitrad(1:ie,jb))
+        zsinphi(1:ie)      = SIN (pt_patch%cells%center(1:ie,jb)%lat)
+        zcosphi(1:ie)      = SQRT(1.0_wp - zsinphi(1:ie)**2)
+        zeitrad(1:ie)      = zeit0 + pt_patch%cells%center(1:ie,jb)%lon
+        czra   (1:ie)      = COS(zeitrad(1:ie))
+        zsmu0(1:ie,jb)     = zdeksin * zsinphi(1:ie) + zdekcos * zcosphi(1:ie) * czra(1:ie)
+
+        IF (islope_rad > 0) THEN
+          szra(1:ie)  = SIN(zeitrad(1:ie))
+          csang(1:ie) = COS(slope_ang(1:ie,jb))
+          ssang(1:ie) = SIN(slope_ang(1:ie,jb))
+          csazi(1:ie) = COS(slope_azi(1:ie,jb))
+          ssazi(1:ie) = SIN(slope_azi(1:ie,jb))
+          cosmu0_slp(1:ie,jb) = zdeksin * ( zsinphi(1:ie)*csang(1:ie) - zcosphi(1:ie)*csazi(1:ie)*ssang(1:ie) ) + &
+            zdekcos * ( zcosphi(1:ie)*czra(1:ie)*csang(1:ie) + zsinphi(1:ie)*czra(1:ie)*csazi(1:ie)*ssang(1:ie) + &
+            szra(1:ie)*ssazi(1:ie)*ssang(1:ie) )
+          WHERE(cosmu0_slp(1:ie,jb) < 1.e-3_wp) cosmu0_slp(1:ie,jb) = 0._wp
+        ENDIF
 
       ENDDO
 
@@ -596,7 +610,7 @@ CONTAINS
     REAL(wp), INTENT(out) ::           &
       &  cld_cvr(kbdim),               & !< Cloud cover in a column
       &  flx_lw_net_clr(kbdim,klevp1), & !< Net clear-sky longwave radiative flux [W/m**2] (positive downward)
-      &  trm_sw_net_clr(kbdim,klevp1), & !< Net clear-sky solar transmissivity (= net clear-sky shortwave radiative flux normalized by irradiance)
+      &  trm_sw_net_clr(kbdim,klevp1), & !< Net clear-sky solar transmissivity  (= net clear-sky shortwave radiative flux normalized by irradiance)
       &  flx_lw_net(kbdim,klevp1),     & !< Net longwave radiative flux [W/m**2] (positive downward)
       &  trm_sw_net(kbdim,klevp1)        !< Net solar transmissivity (= net shortwave radiative flux normalized by irradiance)
     REAL(wp), OPTIONAL, INTENT(out) :: &
@@ -1317,11 +1331,11 @@ CONTAINS
          re_drop   (kbdim,klev),       & !< effective radius of liquid
          re_cryst  (kbdim,klev),       & !< effective radius of ice
          aux_out   (kbdim,9),          &
-         zmu0      (kbdim)
+         zmu0      (kbdim),            &
+         zdayfrc   (kbdim)
 
     INTEGER, PARAMETER    :: rng_seed_size = 4
     INTEGER :: rnseeds(kbdim,rng_seed_size)
-    INTEGER :: n_gpts_ts
 
     ! Initialize output variables
     flx_lw_net(:,:)     = 0._wp
@@ -1566,12 +1580,11 @@ CONTAINS
       ENDDO
       CALL psrad_cloud_optics(                                          &
          & laglac        ,laland        ,jce           ,kbdim          ,& 
-         & klev          , ktype        ,jpband        ,jpsw           ,&
+         & klev          , ktype        ,&
          & icldlyr       ,zlwp_vr       ,ziwp_vr       ,zlwc_vr        ,&
          & ziwc_vr       ,cdnc_vr       ,cld_tau_lw_vr ,cld_tau_sw_vr  ,&
          & cld_piz_sw_vr ,cld_cg_sw_vr  ,re_drop       ,re_cryst    )  
     ENDIF
-
 
     IF (ltimer) CALL timer_stop(timer_rrtm_prep)
 
@@ -1593,15 +1606,12 @@ CONTAINS
       !
       rnseeds(1:jce,1:rng_seed_size) = (pm_fl_vr(1:jce,1:rng_seed_size) -  &
          int(pm_fl_vr(1:jce,1:rng_seed_size)))* 1E9
-      n_gpts_ts = get_num_gpoints(lw_strat)
-      !
       CALL psrad_lrtm(jce                                                       ,&
            & kbdim           ,klev            ,pm_fl_vr        ,pm_sfc          ,&
            & tk_fl_vr        ,tk_hl_vr        ,tk_sfc          ,wkl_vr          ,&
            & wx_vr           ,col_dry_vr      ,zsemiss         ,cld_frc_vr      ,&
-           & cld_tau_lw_vr   ,aer_tau_lw_vr   ,rnseeds         ,lw_strat        ,&
-           & n_gpts_ts       ,flx_uplw_vr     ,flx_dnlw_vr     ,flx_uplw_clr_vr ,&
-           & flx_dnlw_clr_vr )
+           & cld_tau_lw_vr   ,aer_tau_lw_vr   ,rnseeds         ,flx_uplw_vr     ,&     
+           & flx_dnlw_vr     ,flx_uplw_clr_vr ,flx_dnlw_clr_vr )
     ENDIF
     IF (ltimer) CALL timer_stop(timer_lrtm)
 
@@ -1631,20 +1641,24 @@ CONTAINS
       !
       rnseeds(1:jce,1:rng_seed_size) = (pm_fl_vr(1:jce,rng_seed_size:1:-1) - &
          int(pm_fl_vr(1:jce,rng_seed_size:1:-1)))* 1E9
-      n_gpts_ts = get_num_gpoints(sw_strat)
+      WHERE (pmu0(1:jce) > 0.0_wp)
+         zdayfrc(1:jce) = 1.0_wp
+      ELSEWHERE
+         zdayfrc(1:jce) = 0.0_wp
+      END WHERE
       zmu0(1:jce) = MAX(pmu0(1:jce),0.05_wp)
+      
       !
       CALL psrad_srtm(jce                                                      , & 
          &  kbdim           ,klev            ,pm_fl_vr        ,tk_fl_vr        , &
          &  wkl_vr          ,col_dry_vr      ,alb_vis_dir     ,alb_vis_dif     , &
-         &  alb_nir_dir     ,alb_nir_dif     ,zmu0            ,ssi_radt/psctm  , &
+         &  alb_nir_dir     ,alb_nir_dif     ,zmu0, zdayfrc   ,ssi_radt/psctm  , &
          &  psctm           ,cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    , &
          &  cld_piz_sw_vr   ,aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr   , & 
-         &  rnseeds         ,sw_strat        ,n_gpts_ts       ,flx_dnsw        , &
-         &  flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr                     , &
-         &  aux_out(:,1)    ,aux_out(:,2)    ,aux_out(:,3)                     , &
-         &  aux_out(:,4)    ,aux_out(:,5)    ,aux_out(:,6)                     , &
-         &  aux_out(:,7)    ,aux_out(:,8)    ,aux_out(:,9)                     )
+         &  rnseeds         ,flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    , &
+         & flx_upsw_clr     ,aux_out(:,1)    ,aux_out(:,2)    ,aux_out(:,3)    , &
+         &  aux_out(:,4)    ,aux_out(:,5)    ,aux_out(:,6)    ,aux_out(:,7)    , &
+         aux_out(:,8)    ,aux_out(:,9) )
 
       !   dnpar_sfc        = dnpar_sfc_dir    + dnpar_sfc_dif                 
       flx_dnpar_sfc(1:jce) = aux_out(1:jce,2) + aux_out(1:jce,5)
@@ -1739,6 +1753,7 @@ CONTAINS
     &                 idx_lst_spi,     & ! optional: index list of seaice points
     &                 idx_lst_fp,      & ! optional: index list of (f)lake points
     &                 cosmu0,          & ! optional: cosine of zenith angle
+    &                 cosmu0_slp,      & ! optional: slope-dependent cosine of zenith angle
     &                 opt_nh_corr   ,  & ! optional: switch for applying corrections for NH model
     &                 use_trsolclr_sfc,& ! optional: use clear-sky surface transmissivity passed on input
     &                 jg            ,  & ! optional: domain index
@@ -1782,7 +1797,8 @@ CONTAINS
       &     pqi       (kbdim,klev),  & ! specific cloud ice                 [kg/kg]
       &     ppres_ifc (kbdim,klevp1),& ! pressure at interfaces             [Pa]
       &     ptsfc_t   (kbdim,ntiles+ntiles_wtr),& ! tile-specific surface temperature at t  [K]
-      &     cosmu0    (kbdim),       & ! cosine of solar zenith angle
+      &     cosmu0    (kbdim),       & ! cosine of solar zenith angle (w.r.t. plain surface)
+      &     cosmu0_slp(kbdim),       & ! slope-dependent cosine of solar zenith angle
       &     albedo    (kbdim),       & ! grid-box average albedo
       &     albedo_t  (kbdim,ntiles+ntiles_wtr), &   ! tile-specific albedo
       &     lwflx_up_sfc_rs(kbdim),& ! longwave upward flux at surface calculated at radiation time steps
@@ -1846,10 +1862,11 @@ CONTAINS
       &     dlwflxall_o_dtg(kbdim,klevp1)
     REAL(wp) :: dummy(kbdim,klevp1)
 
-    REAL(wp) :: swfac1(kbdim), swfac2(kbdim), dflxsw_o_dalb(kbdim), trsolclr(kbdim), logtqv(kbdim)
+    REAL(wp) :: swfac1(kbdim), swfac2(kbdim), dflxsw_o_dalb(kbdim), trsolclr(kbdim), logtqv(kbdim), &
+                slope_corr(kbdim)
 
     ! local scalars
-    REAL(wp) :: dpresg, pfaclw, intqctot, dlwflxclr_o_dtg
+    REAL(wp) :: dpresg, pfaclw, intqctot, dlwflxclr_o_dtg, solrad, angle_ratio
 
     REAL(wp), PARAMETER  :: pscal = 1._wp/4000._wp ! pressure scale for longwave correction
 
@@ -1874,6 +1891,9 @@ CONTAINS
     ! Conversion factor for heating rates
     zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(pcd+(pcv-pcd)*pqv(jcs:jce,1:klev)))
 
+    ! preset of slope correction factor for solar radiation
+    slope_corr(jcs:jce) = 1._wp
+
     ! lev == 1        => TOA
     ! lev in [2,klev] => Atmosphere
     ! lev == klevp1   => Surface
@@ -1894,12 +1914,20 @@ CONTAINS
 
     IF (l_nh_corr) THEN !
 
+      IF (islope_rad > 0) THEN
+        DO jc = jcs, jce
+          solrad = MAX(0.1_wp,ptrmsw(jc,klevp1)/(1._wp-albedo(jc)),trsol_dn_sfc_diff(jc))
+          angle_ratio = MIN(10._wp,cosmu0_slp(jc)/MAX(1.e-5_wp,cosmu0(jc)))
+          slope_corr(jc) = (trsol_dn_sfc_diff(jc) + (solrad-trsol_dn_sfc_diff(jc))*angle_ratio)/solrad
+        ENDDO
+      ENDIF
+
       ! Additional shortwave fluxes for NWP requirements
       DO jc = jcs, jce
         swflx_up_toa(jc)      = pi0(jc)*trsol_up_toa(jc)
-        swflx_up_sfc(jc)      = pi0(jc)*trsol_up_sfc(jc)
-        swflx_dn_sfc_diff(jc) = pi0(jc)*trsol_dn_sfc_diff(jc)
-        swflx_par_sfc(jc)     = pi0(jc)*trsol_par_sfc(jc)
+        swflx_up_sfc(jc)      = pi0(jc)*trsol_up_sfc(jc) * slope_corr(jc)
+        swflx_dn_sfc_diff(jc) = pi0(jc)*trsol_dn_sfc_diff(jc) * slope_corr(jc)
+        swflx_par_sfc(jc)     = pi0(jc)*trsol_par_sfc(jc) * slope_corr(jc)
       ENDDO
 
       ! Correction of longwave fluxes for changes in ground temperature
@@ -1967,7 +1995,7 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, gp_count_t(jt)
             jc = idx_lst_t(ic,jt)
-            pflxsfcsw_t(jc,jt) = MAX(0.1_wp*zflxsw(jc,klevp1), zflxsw(jc,klevp1) + &
+            pflxsfcsw_t(jc,jt) = slope_corr(jc) * MAX(0.1_wp*zflxsw(jc,klevp1), zflxsw(jc,klevp1) + &
                                  dflxsw_o_dalb(jc)*(albedo_t(jc,jt)-albedo(jc)))
             pflxsfclw_t(jc,jt) = zflxlw(jc,klevp1) + dlwflxall_o_dtg(jc,klevp1)* &
                                  (ptsfc_t(jc,jt)-ptsfc(jc))
@@ -2004,7 +2032,7 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, lp_count
           jc = idx_lst_lp(ic)
-          pflxsfcsw_t(jc,1) = zflxsw(jc,klevp1)
+          pflxsfcsw_t(jc,1) = slope_corr(jc) * zflxsw(jc,klevp1)
           pflxsfclw_t(jc,1) = zflxlw(jc,klevp1)
         ENDDO
 
@@ -2086,7 +2114,7 @@ CONTAINS
     !
     !     4.3 net fluxes at surface
     !
-    IF ( PRESENT(pflxsfcsw) ) pflxsfcsw(jcs:jce) = zflxsw(jcs:jce,klevp1)
+    IF ( PRESENT(pflxsfcsw) ) pflxsfcsw(jcs:jce) = slope_corr(jcs:jce) * zflxsw(jcs:jce,klevp1)
     IF ( PRESENT(pflxsfclw) ) pflxsfclw(jcs:jce) = zflxlw(jcs:jce,klevp1)
 
     !

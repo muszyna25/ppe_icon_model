@@ -64,6 +64,7 @@ MODULE mo_ocean_physics_types
   USE mo_parallel_config,     ONLY: nproma
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
   USE mo_impl_constants,      ONLY: success, max_char_length, min_dolic, sea
+  USE mo_cdi_constants,       ONLY: grid_cell, grid_edge, grid_unstructured_edge, grid_unstructured_cell
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_util_dbg_prnt,       ONLY: dbg_print, debug_print_MaxMinMean
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state, t_onEdges_Pointer_3d_wp, t_onCells_HalfLevels_Pointer_wp, t_operator_coeff
@@ -71,7 +72,6 @@ MODULE mo_ocean_physics_types
   USE mo_physical_constants,  ONLY: grav, sitodbar,sal_ref
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_dynamics_config,     ONLY: nold!, nnew
-  USE mo_sea_ice_types,       ONLY: t_sfc_flx
   USE mo_run_config,          ONLY: dtime
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &
@@ -84,8 +84,7 @@ MODULE mo_ocean_physics_types
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: datatype_pack16, DATATYPE_FLT32, DATATYPE_FLT64, filetype_nc2, &
     &                               GRID_UNSTRUCTURED
-  USE mo_cdi_constants,       ONLY: grid_cell, grid_edge,            &
-    & grid_unstructured_edge, grid_unstructured_cell, &
+  USE mo_zaxis_type,          ONLY: &
     & za_depth_below_sea, za_depth_below_sea_half, za_surface
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array, global_max, sync_patch_array_mult
@@ -250,13 +249,13 @@ CONTAINS
       & za_depth_below_sea_half, &
       & t_cf_var('A_veloc_v', 'kg/kg', 'vertical velocity diffusion', datatype_flt),&
       & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
-      & ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_physics","oce_default"))
+      & ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_physics","oce_diag"))
 
     CALL add_var(ocean_params_list, 'velocity_windMixing', params_oce%velocity_windMixing , grid_unstructured_edge,&
       & za_depth_below_sea_half, &
       & t_cf_var('velocity_windMixing', '', 'velocity_windMixing', datatype_flt),&
       & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
-      & ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_physics","oce_default"))
+      & ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_physics","oce_diag"))
 
 
     !! Tracers
@@ -285,7 +284,7 @@ CONTAINS
         & t_cf_var('tracer_windMixing', '', 'tracer_windMixing', datatype_flt),&
         & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
         & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/), &
-        & loutput=.TRUE., lrestart=.FALSE.,in_group=groups("oce_physics","oce_default"))
+        & loutput=.TRUE., lrestart=.FALSE.,in_group=groups("oce_physics","oce_diag"))
 
       ! Reference to individual tracer, for I/O
       ALLOCATE(params_oce%tracer_h_ptr(no_tracer))

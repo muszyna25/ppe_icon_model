@@ -44,10 +44,10 @@
 MODULE mo_psrad_srtm_solver
 
   USE mo_kind,           ONLY : wp
-  USE mo_psrad_fastmath, ONLY : expon, inv_expon, transmit
 
   IMPLICIT NONE
   
+#include "psrad_fastmath.inc"
   INTERFACE delta_scale
     MODULE PROCEDURE delta_scale_1d, delta_scale_2d
   END INTERFACE delta_scale
@@ -198,7 +198,7 @@ CONTAINS
 !IBM* ASSERT(NODEPS)
     DO jk = 1, klev
       jkr = klev+1-jk                       
-      zdbt(1:kproma,jk) = inv_expon(ptau(1:kproma,jkr)/prmu0(1:kproma), kproma)
+      INV_EXPON(ptau(1:kproma,jkr)/prmu0(1:kproma), zdbt(1:kproma,jk))
     END DO 
     zdbt(1:kproma,klev+1) = 0.0_wp
     
@@ -322,6 +322,8 @@ CONTAINS
     END DO
   END SUBROUTINE adding
 
+!GH: The following (large) chunk of code is dead!
+#if 0
   ! --------------------------------------------------------------------
 !>
 !! @brief Two-stream solutions to direct and diffuse reflectance and transmittance for a layer
@@ -549,7 +551,10 @@ CONTAINS
        gamma1_tau(i) = gamma1(i) * tau(i)
     END DO 
     
-    transDir(:) = transmit(tau_over_mu, kproma) ! 1. - exp(-tau/mu) 
+    ! TODO? transmit = 1. - exp(-tau/mu) 
+    EXPON(-tau_over_mu(1:kproma), transDir(1:kproma)) 
+    transDir(1:kproma) = 1 - transDir(1:kproma) 
+    
     
 !IBM* ASSERT(NODEPS)
     DO i = 1, kproma
@@ -597,8 +602,8 @@ CONTAINS
       tau_over_mu(i) = tau(i)/mu0(i)
     END DO 
     
-    exp_minus_tau_over_mu0(:) = inv_expon(MIN(tau_over_mu, 500._wp), kproma)
-    exp_ktau              (:) =     expon(MIN(k_tau,       500._WP), kproma)
+    INV_EXPON(MIN(tau_over_mu(1:kproma), 500._wp), exp_minus_tau_over_mu0(1:kproma))
+    EXPON(MIN(k_tau(1:kproma), 500._WP), exp_ktau(1:kproma))
         
 !IBM* ASSERT(NODEPS)
     DO i = 1, kproma
@@ -641,6 +646,7 @@ CONTAINS
 
     END DO 
   END SUBROUTINE two_stream_general
+#endif
 
 ! --------------------------------------------------------------------
   SUBROUTINE two_stream_ec(kproma, kbdim, klev, mu0, tau, w0, g, Rdir, Rdif, Tdir, Tdif, update)

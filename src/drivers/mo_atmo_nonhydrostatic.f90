@@ -43,6 +43,7 @@ USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, i
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time, end_time, is_plane_torus
 USE mo_intp_data_strc,       ONLY: p_int_state
+USE mo_intp_lonlat_types,    ONLY: lonlat_grids
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
 ! NH-namelist state
 USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc, &
@@ -54,7 +55,8 @@ USE mo_synsat_config,        ONLY: configure_synsat
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
   &                                construct_nh_state, destruct_nh_state
-USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag
+USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag,      &
+  &                                compute_lonlat_area_weights
 USE mo_nwp_phy_state,        ONLY: prm_diag, construct_nwp_phy_state,          &
   &                                destruct_nwp_phy_state
 USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
@@ -63,6 +65,7 @@ USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
 USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
 ! Initialization with real data
 USE mo_initicon,            ONLY: init_icon
+USE mo_initicon_config,     ONLY: timeshift
 USE mo_ext_data_state,      ONLY: ext_data
 USE mo_ext_data_init,       ONLY: init_index_lists
 ! meteogram output
@@ -73,11 +76,10 @@ USE mo_name_list_output_config,   ONLY: first_output_name_list, &
 USE mo_name_list_output_init, ONLY:  init_name_list_output,        &
   &                                  parse_variable_groups,        &
   &                                  collect_requested_ipz_levels, &
-  &                                  output_file
-USE mo_name_list_output_zaxes, ONLY: create_mipz_level_selections
+  &                                  output_file, create_vertical_axes
+USE mo_level_selection,     ONLY: create_mipz_level_selections
 USE mo_name_list_output,    ONLY: close_name_list_output
 USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
-USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
 
 ! LGS - for the implementation of ECHAM physics in iconam
 USE mo_echam_phy_init,      ONLY: init_echam_phy, initcond_echam_phy
@@ -146,6 +148,7 @@ CONTAINS
     LOGICAL :: l_omega(n_dom)    !< Flag. TRUE if computation of vertical velocity desired
     LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
     LOGICAL :: l_pv(n_dom)       !< Flag. TRUE if computation of potential vorticity desired
+    LOGICAL :: l_smi(n_dom)      !< Flag. TRUE if computation of soil moisture index desired
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
     INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
@@ -181,11 +184,13 @@ CONTAINS
     time_diff  => newTimedelta("PT0S")
     time_diff  =  getTimeDeltaFromDateTime(time_config%tc_current_date, time_config%tc_exp_startdate)
     sim_time   =  getTotalMillisecondsTimedelta(time_diff, time_config%tc_current_date)*1.e-3_wp
+    ! Account for IAU time shift if we are not in restart mode
+    IF (.NOT. isRestart()) sim_time = sim_time + timeshift%dt_shift
     CALL deallocateTimedelta(time_diff)
     
     DO jg=1, n_dom
       IF (jg > 1 .AND. start_time(jg) > sim_time .OR. end_time(jg) <= sim_time) THEN
-        p_patch(jg)%ldom_active = .FALSE. ! domain not active at restart time
+        p_patch(jg)%ldom_active = .FALSE. ! domain not active
       ELSE
         p_patch(jg)%ldom_active = .TRUE.
       ENDIF
@@ -232,15 +237,16 @@ CONTAINS
 
     IF(iforcing == inwp) THEN
       DO jg=1,n_dom
-        l_rh(jg) = is_variable_in_output(first_output_name_list, var_name="rh")
-        l_pv(jg) = is_variable_in_output(first_output_name_list, var_name="pv")
+        l_rh(jg)  = is_variable_in_output(first_output_name_list, var_name="rh")
+        l_pv(jg)  = is_variable_in_output(first_output_name_list, var_name="pv")
+        l_smi(jg) = is_variable_in_output(first_output_name_list, var_name="smi")
       END DO
     END IF
 
     IF (iforcing == inwp) THEN
       CALL construct_nwp_phy_state( p_patch(1:), l_rh, l_pv )
-      CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
-      CALL compute_ensemble_pert  ( p_patch(1:), ext_data, prm_diag)
+      CALL construct_nwp_lnd_state( p_patch(1:), p_lnd_state, l_smi, n_timelevels=2 )
+      CALL compute_ensemble_pert  ( p_patch(1:), ext_data, prm_diag, time_config%tc_current_date)
     END IF
 
 #ifdef MESSY
@@ -307,20 +313,13 @@ CONTAINS
       ! This is a resumed integration. Read model state from restart file(s).
 
       IF (timers_level > 5) CALL timer_start(timer_read_restart)
-#ifdef NOMPI
-      ! TODO : Non-MPI mode does not work for multiple domains
+
       DO jg = 1,n_dom
         IF (p_patch(jg)%ldom_active) THEN
           CALL read_restart_files( p_patch(jg), n_dom)
         ENDIF
       END DO
-#else
-      DO jg = 1,n_dom
-        IF (p_patch(jg)%ldom_active) THEN
-          CALL read_restart_files( p_patch(jg), n_dom )
-        ENDIF
-      END DO
-#endif
+
       CALL message(TRIM(routine),'normal exit from read_restart_files')
       IF (timers_level > 5) CALL timer_stop(timer_read_restart)
 
@@ -429,7 +428,7 @@ CONTAINS
 
     ! Add a special metrics variable containing the area weights of
     ! the regular lon-lat grid.
-    CALL compute_lonlat_area_weights()
+    CALL compute_lonlat_area_weights(lonlat_grids)
 
     ! Map the variable groups given in the output namelist onto the
     ! corresponding variable subsets:
@@ -503,6 +502,7 @@ CONTAINS
       END DO
 
       CALL create_mipz_level_selections(output_file)
+      CALL create_vertical_axes(output_file)
     END IF
 
 #ifdef MESSY
@@ -606,6 +606,9 @@ CONTAINS
     IF (iforcing == inwp) THEN
       CALL destruct_nwp_phy_state
       CALL destruct_nwp_lnd_state( p_lnd_state )
+      DO jg = 1, n_dom
+        CALL atm_phy_nwp_config(jg)%finalize()
+      ENDDO
     ENDIF
 
     IF (iforcing == iecham) THEN

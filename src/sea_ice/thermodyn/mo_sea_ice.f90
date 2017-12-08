@@ -39,6 +39,9 @@ MODULE mo_sea_ice
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D, t_patch_vert
   USE mo_exception,           ONLY: finish, message
   USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary
+  USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL,      &
+    &                               GRID_UNSTRUCTURED_VERT, GRID_VERTEX,    &
+    &                               GRID_UNSTRUCTURED_EDGE, GRID_EDGE
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, ki, ks, Tf, albi, albim, albsm, albs,   &
     &                               fr_fac, mu, alf, alv, albedoW_sim, clw, cpd, zemiss_def, rd, &
     &                               stbo, tmelt, ci, Cd_ia, sice, alb_sno_vis, alb_sno_nir,      &
@@ -59,20 +62,19 @@ MODULE mo_sea_ice
   USE mo_cf_convention
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, GRID_UNSTRUCTURED
-  USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL,                 &
-    &                               GRID_CELL, ZA_GENERIC_ICE, ZA_SURFACE,  &
-    &                               GRID_UNSTRUCTURED_VERT, GRID_VERTEX,    &
-    &                               GRID_UNSTRUCTURED_EDGE, GRID_EDGE
-  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, &
-    &                               t_atmos_for_ocean, t_sea_ice_acc, t_sea_ice_budgets
+  USE mo_zaxis_type,          ONLY: ZA_GENERIC_ICE, ZA_SURFACE
+  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes, &
+    &                               t_sea_ice_acc, t_sea_ice_budgets
+  USE mo_ocean_surface_types, ONLY: t_ocean_surface, t_atmos_for_ocean
   USE mo_sea_ice_winton,      ONLY: ice_growth_winton, set_ice_temp_winton
   USE mo_sea_ice_zerolayer,   ONLY: ice_growth_zerolayer, set_ice_temp_zerolayer, set_ice_temp_zero_nogradients
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_dbg_nml,             ONLY: idbg_mxmn, idbg_val
-  USE mo_ice_fem_utils,       ONLY: fem_ice_wrap, ice_advection, ice_advection_vla, ice_ocean_stress
-  USE mo_ice_fem_init,        ONLY: init_fem_wgts, destruct_fem_wgts, ice_fem_grid_init, ice_fem_grid_post
-  USE mo_ice_init,            ONLY: ice_init_fem
+  USE mo_ice_fem_interface,       ONLY: ice_fem_interface
+  USE mo_ice_advection,       ONLY: ice_advection_upwind, ice_advection_upwind_einar
+  USE mo_ice_fem_icon_init,        ONLY: init_fem_wgts, destruct_fem_wgts, ice_fem_grid_init, ice_fem_grid_post
+  USE mo_ice_fem_init,            ONLY: ice_init_fem
 !  USE mo_grid_config,         ONLY: n_dom   ! restrict sea-ice model to the global domain for the time being
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_fast, timer_ice_slow
@@ -92,9 +94,7 @@ MODULE mo_sea_ice
   ! public subroutines
   PUBLIC :: construct_sea_ice
   PUBLIC :: destruct_sea_ice
-  PUBLIC :: construct_atmos_for_ocean
   PUBLIC :: construct_atmos_fluxes
-  PUBLIC :: destruct_atmos_for_ocean
 
   PUBLIC :: ice_init
   PUBLIC :: ice_zero
@@ -105,6 +105,7 @@ MODULE mo_sea_ice
   PUBLIC :: ice_slow
   PUBLIC :: upper_ocean_TS
   PUBLIC :: ice_conc_change
+  PUBLIC :: ice_ocean_stress
   PUBLIC :: ice_clean_up_thd, ice_clean_up_dyn
   PUBLIC :: calc_bulk_flux_ice
   PUBLIC :: calc_bulk_flux_oce
@@ -440,6 +441,39 @@ CONTAINS
         &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("ice_diag"),&
         &          lrestart_cont=.FALSE.)
     ENDIF
+    ! more ice diagnostics
+    CALL add_var(ocean_default_list, 'Qtop_acc', p_ice%acc%Qtop ,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          t_cf_var('Qtop_acc', 'W/m^2', 'Energy flux available for surface melting', datatype_flt),&
+      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
+    CALL add_var(ocean_default_list, 'Qbot_acc', p_ice%acc%Qbot ,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          t_cf_var('Qbot_acc', 'W/m^2', 'Energy flux at ice-ocean interface', datatype_flt),&
+      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
+    CALL add_var(ocean_default_list, 'heatOceI_acc', p_ice%acc%heatOceI ,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          t_cf_var('heatOceI_acc', 'W/m^2', 'Heat flux to ocean from the ice growth', datatype_flt),&
+      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
+    CALL add_var(ocean_default_list, 'heatOceW_acc', p_ice%acc%heatOceW ,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          t_cf_var('heatOceW_acc', 'W/m^2', 'Heat flux to ocean from the atmosphere', datatype_flt),&
+      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+    CALL add_var(ocean_default_list, 'CondHeat_acc', p_ice%acc%CondHeat ,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          t_cf_var('CondHeat_acc', 'W/m^2', 'Conductive heat flux through ice', datatype_flt),&
+      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
+    CALL add_var(ocean_default_list, 'zHeatOceI_acc', p_ice%acc%zHeatOceI,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          t_cf_var('zHeatOceI_acc', 'W/m^2', 'Oceanic Heat flux', datatype_flt),&
+      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
+    CALL add_var(ocean_default_list, 'draftave_acc', p_ice%acc%draftave ,GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('draftave_acc', 'm', 'avrg. water equiv. of ice and snow on grid area', datatype_flt),&
+      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+    CALL add_var(ocean_default_list, 'zUnderIce_acc', p_ice%acc%zUnderIce ,GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('zUnderIce_acc', 'm', 'water in upper ocean grid cell below ice', datatype_flt),&
+      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
     CALL message(TRIM(routine), 'end' )
 
@@ -517,173 +551,7 @@ CONTAINS
 
   END SUBROUTINE destruct_sea_ice
 
-  !-------------------------------------------------------------------------
-  !
-  !>
-  !! Constructor of atmospheric reprsentation  in ocean.
-  !!
-  !! @par Revision History
-  !! Initial release by Peter Korn, MPI-M (2011-07)
-  !
-  SUBROUTINE construct_atmos_for_ocean(p_patch, p_as)
-    !
-    TYPE(t_patch),                INTENT(IN):: p_patch
-    TYPE(t_atmos_for_ocean ), INTENT(INOUT) :: p_as
 
-    ! Local variables
-    INTEGER :: alloc_cell_blocks, ist
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:construct_atmos_for_ocean'
-
-    !-------------------------------------------------------------------------
-    CALL message(TRIM(routine), 'start' )
-
-    alloc_cell_blocks = p_patch%alloc_cell_blocks
-
-    ALLOCATE(p_as%tafo(nproma,alloc_cell_blocks), STAT=ist)
-    CALL finish_unless_allocate(ist,routine,'tafo')
-
-    ALLOCATE(p_as%ftdew(nproma,alloc_cell_blocks), STAT=ist)
-    CALL finish_unless_allocate(ist,routine,'ftdew')
-
-    ALLOCATE(p_as%fclou(nproma,alloc_cell_blocks), STAT=ist)
-    CALL finish_unless_allocate(ist,routine,'fclou')
-
-    ALLOCATE(p_as%fu10(nproma,alloc_cell_blocks), STAT=ist)
-    CALL finish_unless_allocate(ist,routine,'fu10')
-
-    ALLOCATE(p_as%fswr(nproma,alloc_cell_blocks), STAT=ist)
-    CALL finish_unless_allocate(ist,routine,'fswr')
-
-    ALLOCATE(p_as%pao(nproma,alloc_cell_blocks), STAT=ist)
-    CALL finish_unless_allocate(ist,routine,'pao')
-
-    ALLOCATE(p_as%u(nproma,alloc_cell_blocks), STAT=ist)
-    CALL finish_unless_allocate(ist,routine,'u')
-
-    ALLOCATE(p_as%v(nproma,alloc_cell_blocks), STAT=ist)
-    CALL finish_unless_allocate(ist,routine,'v')
-
-    ALLOCATE(p_as%precip(nproma,alloc_cell_blocks), STAT=ist)
-    CALL finish_unless_allocate(ist,routine,'precip')
-
-    ALLOCATE(p_as%evap(nproma,alloc_cell_blocks), STAT=ist)
-    CALL finish_unless_allocate(ist,routine,'evap')
-
-    ALLOCATE(p_as%runoff(nproma,alloc_cell_blocks), STAT=ist)
-    CALL finish_unless_allocate(ist,routine,'runoff')
-
-    ALLOCATE(p_as%topBoundCond_windStress_u(nproma,alloc_cell_blocks), STAT=ist)
-    CALL finish_unless_allocate(ist,routine,'topBoundCond_windStress_u')
-
-    ALLOCATE(p_as%topBoundCond_windStress_v(nproma,alloc_cell_blocks), STAT=ist)
-    CALL finish_unless_allocate(ist,routine,'topBoundCond_windStress_v')
-
-    ALLOCATE(p_as%FrshFlux_Precipitation(nproma,alloc_cell_blocks), STAT=ist)
-    CALL finish_unless_allocate(ist,routine,'FrshFlux_Precipitation')
-
-    ALLOCATE(p_as%FrshFlux_Runoff(nproma,alloc_cell_blocks), STAT=ist)
-    CALL finish_unless_allocate(ist,routine,'FrshFlux_Runoff')
-
-    ALLOCATE(p_as%data_surfRelax_Temp(nproma,alloc_cell_blocks), STAT=ist)
-    CALL finish_unless_allocate(ist,routine,'data_surfRelax_Temp')
-
-    ALLOCATE(p_as%data_surfRelax_Salt(nproma,alloc_cell_blocks), STAT=ist)
-    CALL finish_unless_allocate(ist,routine,'data_surfRelax_Salt')
-
-    p_as%tafo  (:,:)                    = 0.0_wp
-    p_as%ftdew (:,:)                    = 0.0_wp
-    p_as%fclou (:,:)                    = 0.0_wp
-    p_as%fu10  (:,:)                    = 0.0_wp
-    p_as%fswr  (:,:)                    = 0.0_wp
-    p_as%pao   (:,:)                    = 0.0_wp
-    p_as%u     (:,:)                    = 0.0_wp
-    p_as%v     (:,:)                    = 0.0_wp
-    p_as%precip(:,:)                    = 0.0_wp
-    p_as%evap  (:,:)                    = 0.0_wp
-    p_as%runoff(:,:)                    = 0.0_wp
-    p_as%topBoundCond_windStress_u(:,:) = 0.0_wp
-    p_as%topBoundCond_windStress_v(:,:) = 0.0_wp
-    p_as%FrshFlux_Precipitation(:,:)    = 0.0_wp
-    p_as%FrshFlux_Runoff(:,:)           = 0.0_wp
-    p_as%data_surfRelax_Temp(:,:)       = 0.0_wp
-    p_as%data_surfRelax_Salt(:,:)       = 0.0_wp
-
-    CALL message(TRIM(routine), 'end')
-
-  END SUBROUTINE construct_atmos_for_ocean
-  !-------------------------------------------------------------------------
-  !
-  !>
-  !!  Destructor of atmospheric reprsentation  in ocean.
-  !!
-  !! @par Revision History
-  !! Initial release by Peter Korn, MPI-M (2011)
-  !
-  SUBROUTINE destruct_atmos_for_ocean(p_as)
-    !
-    TYPE(t_atmos_for_ocean ), INTENT(INOUT) :: p_as
-
-    ! Local variables
-    INTEGER :: ist
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:destruct_atmos_for_ocean'
-
-    !-------------------------------------------------------------------------
-    CALL message(TRIM(routine), 'start' )
-
-
-    DEALLOCATE(p_as%tafo, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for tafo failed')
-    END IF
-    DEALLOCATE(p_as%ftdew, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for ftdew failed')
-    END IF
-    DEALLOCATE(p_as%fclou, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for fclou failed')
-    END IF
-
-    DEALLOCATE(p_as%fu10, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for fu10 failed')
-    END IF
-
-    DEALLOCATE(p_as%fswr, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for fswr failed')
-    END IF
-
-    DEALLOCATE(p_as%pao, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for pao failed')
-    END IF
-
-    DEALLOCATE(p_as%u, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for u failed')
-    END IF
-    DEALLOCATE(p_as%v, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for v failed')
-    END IF
-
-    DEALLOCATE(p_as%precip, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for precip failed')
-    END IF
-    DEALLOCATE(p_as%evap, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for evap failed')
-    END IF
-    DEALLOCATE(p_as%runoff, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for runoff failed')
-    END IF
-
-    CALL message(TRIM(routine), 'end')
-
-  END SUBROUTINE destruct_atmos_for_ocean
   !-------------------------------------------------------------------------
   !
   !>
@@ -730,12 +598,6 @@ CONTAINS
       &          grib2_var(255, 255, 255, ibits          , GRID_UNSTRUCTURED, GRID_CELL),             &
       &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    CALL add_var(ocean_default_list, 'atmos_fluxes_LWout', atmos_fluxes%LWout,                        &
-      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
-      &          t_cf_var('atmos_fluxes_LWout', 'W/m2', 'atmos_fluxes_LWout', datatype_flt),        &
-      &          grib2_var(255, 255, 255, ibits          , GRID_UNSTRUCTURED, GRID_CELL),             &
-      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
-
     CALL add_var(ocean_default_list, 'atmos_fluxes_LWnet', atmos_fluxes%LWnet,                        &
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
       &          t_cf_var('atmos_fluxes_LWnet', 'W/m2', 'atmos_fluxes_LWnet', datatype_flt),        &
@@ -745,12 +607,6 @@ CONTAINS
     CALL add_var(ocean_default_list, 'atmos_fluxes_SWnet', atmos_fluxes%SWnet,                        &
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
       &          t_cf_var('atmos_fluxes_SWnet', 'W/m2', 'atmos_fluxes_SWnet', datatype_flt),        &
-      &          grib2_var(255, 255, 255, ibits          , GRID_UNSTRUCTURED, GRID_CELL),             &
-      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
-
-    CALL add_var(ocean_default_list, 'atmos_fluxes_bot', atmos_fluxes%bot,                            &
-      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
-      &          t_cf_var('atmos_fluxes_bot', 'W/m2', 'atmos_fluxes_bot', datatype_flt),            &
       &          grib2_var(255, 255, 255, ibits          , GRID_UNSTRUCTURED, GRID_CELL),             &
       &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
@@ -786,12 +642,6 @@ CONTAINS
       &          grib2_var(255, 255, 255, ibits          , GRID_UNSTRUCTURED, GRID_CELL),             &
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    CALL add_var(ocean_default_list, 'atmos_fluxes_LWoutw', atmos_fluxes%LWoutw,                      &
-      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
-      &          t_cf_var('atmos_fluxes_LWoutw', 'W/m2', 'atmos_fluxes_LWoutw', datatype_flt),      &
-      &          grib2_var(255, 255, 255, ibits          , GRID_UNSTRUCTURED, GRID_CELL),             &
-      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-
     CALL add_var(ocean_default_list, 'atmos_fluxes_LWnetw', atmos_fluxes%LWnetw,                      &
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
       &          t_cf_var('atmos_fluxes_LWnetw', 'W/m2', 'atmos_fluxes_LWnetw', datatype_flt),      &
@@ -801,12 +651,6 @@ CONTAINS
     CALL add_var(ocean_default_list, 'atmos_fluxes_SWnetw', atmos_fluxes%SWnetw,                      &
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
       &          t_cf_var('atmos_fluxes_SWnetw', 'W/m2', 'atmos_fluxes_SWnetw', datatype_flt),      &
-      &          grib2_var(255, 255, 255, ibits          , GRID_UNSTRUCTURED, GRID_CELL),             &
-      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-
-    CALL add_var(ocean_default_list, 'atmos_fluxes_LWin', atmos_fluxes%LWin,                          &
-      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                                  &
-      &          t_cf_var('atmos_fluxes_LWin', 'W/m2', 'atmos_fluxes_LWin', datatype_flt),          &
       &          grib2_var(255, 255, 255, ibits          , GRID_UNSTRUCTURED, GRID_CELL),             &
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
@@ -965,57 +809,57 @@ CONTAINS
       &          grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    ! relaxation fields {{{
-    !
-    ! forcing of temperature in vertical diffusion equation     [K*m/s]
-    CALL add_var(ocean_default_list,'topBoundCond_Temp_vdiff  ',atmos_fluxes%topBoundCond_Temp_vdiff ,     &
-      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &          t_cf_var('atmos_fluxes_topBC_Temp_vdiff', '', 'atmos_fluxes_topBoundCond_Temp_vdiff', datatype_flt),&
-      &          grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-
-    ! forcing of salinity in vertical diffusion equation        [psu*m/s]
-    CALL add_var(ocean_default_list,'topBoundCond_Salt_vdiff  ',atmos_fluxes%topBoundCond_Salt_vdiff ,     & 
-      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &          t_cf_var('atmos_fluxes_topBC_Salt_vdiff', '', 'atmos_fluxes_topBoundCond_Salt_vdiff', datatype_flt),&
-      &          grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-
-    ! contains data to which salinity is relaxed                [psu]
-    CALL add_var(ocean_default_list,'data_surfRelax_Salt      ',atmos_fluxes%data_surfRelax_Salt     ,     & 
-      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &          t_cf_var('atmos_fluxes_data_surfRelax_Salt', '', 'atmos_fluxes_data_surfRelax_Salt', datatype_flt),&
-      &          grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-
-    ! contains data to which temperature is relaxed             [K]
-    CALL add_var(ocean_default_list,'atmos_fluxes_data_surfRelax_Temp', atmos_fluxes%data_surfRelax_Temp,     &
-      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &          t_cf_var('atmos_fluxes_data_surfRelax_Temp', '', 'atmos_fluxes_data_surfRelax_Temp', datatype_flt),&
-      &          grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'atmos_fluxes_HeatFlux_Relax', atmos_fluxes%HeatFlux_Relax , &
-    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('atmos_fluxes_HeatFlux_Relax', 'W/m2', 'atmos_fluxes_HeatFlux_Relax', datatype_flt),&
-    &          grib2_var(255, 255, 255, ibits          , GRID_UNSTRUCTURED, GRID_CELL),&
-    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'atmos_fluxes_FrshFlux_Relax', atmos_fluxes%FrshFlux_Relax , &
-    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('atmos_fluxes_FrshFlux_Relax', 'm/s', 'atmos_fluxes_FrshFlux_Relax', datatype_flt),&
-    &          grib2_var(255, 255, 255, ibits          , GRID_UNSTRUCTURED, GRID_CELL),&
-    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'atmos_fluxes_TempFlux_Relax', atmos_fluxes%TempFlux_Relax , &
-    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('atmos_fluxes_TempFlux_Relax', 'K/s', 'atmos_fluxes_TempFlux_Relax', datatype_flt),&
-    &          grib2_var(255, 255, 255, ibits          , GRID_UNSTRUCTURED, GRID_CELL),&
-    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'atmos_fluxes_SaltFlux_Relax', atmos_fluxes%SaltFlux_Relax , &
-    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('atmos_fluxes_SaltFlux_Relax', 'psu/s', 'atmos_fluxes_SaltFlux_Relax', datatype_flt),&
-    &          grib2_var(255, 255, 255, ibits          , GRID_UNSTRUCTURED, GRID_CELL),&
-    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    ! }}}
-      
+!    ! relaxation fields {{{
+!    !
+!    ! forcing of temperature in vertical diffusion equation     [K*m/s]
+!    CALL add_var(ocean_default_list,'topBoundCond_Temp_vdiff  ',p_oce_sfc%TopBC_Temp_vdiff ,     &
+!      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+!      &          t_cf_var('atmos_fluxes_topBC_Temp_vdiff', '', 'atmos_fluxes_topBoundCond_Temp_vdiff', datatype_flt),&
+!      &          grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
+!      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+!
+!    ! forcing of salinity in vertical diffusion equation        [psu*m/s]
+!    CALL add_var(ocean_default_list,'topBoundCond_Salt_vdiff  ',p_oce_sfc%TopBC_Salt_vdiff ,     &
+!      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+!      &          t_cf_var('atmos_fluxes_topBC_Salt_vdiff', '', 'atmos_fluxes_topBoundCond_Salt_vdiff', datatype_flt),&
+!      &          grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
+!      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+!
+!    ! contains data to which salinity is relaxed                [psu]
+!    CALL add_var(ocean_default_list,'data_surfRelax_Salt      ',p_oce_sfc%data_surfRelax_Salt     ,     &
+!      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+!      &          t_cf_var('atmos_fluxes_data_surfRelax_Salt', '', 'atmos_fluxes_data_surfRelax_Salt', datatype_flt),&
+!      &          grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
+!      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+!
+!    ! contains data to which temperature is relaxed             [K]
+!    CALL add_var(ocean_default_list,'atmos_fluxes_data_surfRelax_Temp', p_oce_sfc%data_surfRelax_Temp,     &
+!      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+!      &          t_cf_var('atmos_fluxes_data_surfRelax_Temp', '', 'atmos_fluxes_data_surfRelax_Temp', datatype_flt),&
+!      &          grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
+!      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+!    CALL add_var(ocean_default_list, 'atmos_fluxes_HeatFlux_Relax', p_oce_sfc%HeatFlux_Relax , &
+!    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+!    &          t_cf_var('atmos_fluxes_HeatFlux_Relax', 'W/m2', 'atmos_fluxes_HeatFlux_Relax', datatype_flt),&
+!    &          grib2_var(255, 255, 255, ibits          , GRID_UNSTRUCTURED, GRID_CELL),&
+!    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+!    CALL add_var(ocean_default_list, 'atmos_fluxes_FrshFlux_Relax', p_oce_sfc%FrshFlux_Relax , &
+!    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+!    &          t_cf_var('atmos_fluxes_FrshFlux_Relax', 'm/s', 'atmos_fluxes_FrshFlux_Relax', datatype_flt),&
+!    &          grib2_var(255, 255, 255, ibits          , GRID_UNSTRUCTURED, GRID_CELL),&
+!    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+!    CALL add_var(ocean_default_list, 'atmos_fluxes_TempFlux_Relax', p_oce_sfc%TempFlux_Relax , &
+!    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+!    &          t_cf_var('atmos_fluxes_TempFlux_Relax', 'K/s', 'atmos_fluxes_TempFlux_Relax', datatype_flt),&
+!    &          grib2_var(255, 255, 255, ibits          , GRID_UNSTRUCTURED, GRID_CELL),&
+!    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+!    CALL add_var(ocean_default_list, 'atmos_fluxes_SaltFlux_Relax', p_oce_sfc%SaltFlux_Relax , &
+!    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+!    &          t_cf_var('atmos_fluxes_SaltFlux_Relax', 'psu/s', 'atmos_fluxes_SaltFlux_Relax', datatype_flt),&
+!    &          grib2_var(255, 255, 255, ibits          , GRID_UNSTRUCTURED, GRID_CELL),&
+!    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+!    ! }}}
+     
     ! Coupling fluxes must go into restart file:
     IF (is_coupled_run()) THEN
 
@@ -1173,11 +1017,11 @@ CONTAINS
       &          t_cf_var('atmos_fluxes_FrshFlux_VolumeTotal', '[m/s]', 'atmos_fluxes_FrshFlux_VolumeTotal', datatype_flt),&
       &          grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-   CALL add_var(ocean_default_list,'atmos_flux_cellThicknessUnderIce', atmos_fluxes%cellThicknessUnderIce, &
-     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-     &          t_cf_var('atmos_flux_cellThicknessUnderIce', 'm', 'atmos_flux_cellThicknessUnderIce', datatype_flt),&
-     &          grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
-     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+!   CALL add_var(ocean_default_list,'atmos_flux_cellThicknessUnderIce', atmos_fluxes%cellThicknessUnderIce, &
+!     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+!     &          t_cf_var('atmos_flux_cellThicknessUnderIce', 'm', 'atmos_flux_cellThicknessUnderIce', datatype_flt),&
+!     &          grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
+!     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
     CALL message(TRIM(routine), 'end' )
   END SUBROUTINE construct_atmos_fluxes
@@ -1593,9 +1437,9 @@ CONTAINS
 
     IF ( i_ice_dyn >= 1 ) THEN
       ! AWI FEM model wrapper
-      CALL fem_ice_wrap ( p_patch_3D, ice, p_os, atmos_fluxes, p_op_coeff, 1) ! not 1 but jstep should be passed to fem_ice_wrap as the last argument
+      CALL ice_fem_interface ( p_patch_3D, ice, p_os, atmos_fluxes, p_op_coeff)
                                                                               ! but it does not matter, usage is depreciated
-      ! #vla# 2015-05 - debugging ice_advection routine
+      ! #vla# 2015-05 - debugging ice advection routine
 !      CALL dbg_print('IceSlow: p_ice%u'           ,ice%u_prog,             str_module, 3, in_subset=p_patch%verts%owned)
 !      CALL dbg_print('IceSlow: p_ice%v'           ,ice%v_prog,             str_module, 3, in_subset=p_patch%verts%owned)
 !      CALL dbg_print('IceSlow: ice%vol bef.adv'     ,ice%vol,                 str_module, 3, in_subset=p_patch%cells%owned)
@@ -1617,8 +1461,8 @@ CONTAINS
 !      write(0,*) '-----------------------advection-------------------------'
 !      ENDIF
 
-!      CALL ice_advection( p_patch_3D, p_op_coeff, ice ) ! messy advection routine, bugs fixed; renamed as ice_advection_vla
-      CALL ice_advection_vla( p_patch_3D, p_op_coeff, ice )
+!      CALL ice_advection_upwind_einar( p_patch_3D, p_op_coeff, ice ) ! messy advection routine, bugs fixed; renamed as ice_advection_upwind
+      CALL ice_advection_upwind( p_patch_3D, p_op_coeff, ice )
 
 !      CALL dbg_print('IceSlow: ice%vol aft.adv'     ,ice%vol,                 str_module, 3, in_subset=p_patch%cells%owned)
 
@@ -1796,7 +1640,7 @@ CONTAINS
     ENDDO
 
     p_ice%concSum                           = SUM(p_ice%conc, 2)
-    atmos_fluxes%cellThicknessUnderIce(:,:) = p_ice%zUnderIce(:,:)
+!    atmos_fluxes%cellThicknessUnderIce(:,:) = p_ice%zUnderIce(:,:)
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('iceClUp: hi aft. limiter'     ,p_ice%hi       ,str_module, 3, in_subset=p_patch%cells%owned)
@@ -1864,13 +1708,13 @@ CONTAINS
     atmos_fluxesAve % sensw  (:,:)   = atmos_fluxesAve % sensw  (:,:)   + atmos_fluxes % sensw  (:,:)
     atmos_fluxesAve % lat    (:,:,:) = atmos_fluxesAve % lat    (:,:,:) + atmos_fluxes % lat    (:,:,:)
     atmos_fluxesAve % latw   (:,:)   = atmos_fluxesAve % latw   (:,:)   + atmos_fluxes % latw   (:,:)
-    atmos_fluxesAve % LWout  (:,:,:) = atmos_fluxesAve % LWout  (:,:,:) + atmos_fluxes % LWout  (:,:,:)
-    atmos_fluxesAve % LWoutw (:,:)   = atmos_fluxesAve % LWoutw (:,:)   + atmos_fluxes % LWoutw (:,:)
+!   atmos_fluxesAve % LWin   (:,:)   = atmos_fluxesAve % LWin   (:,:)   + atmos_fluxes % LWin   (:,:)
+!   atmos_fluxesAve % LWout  (:,:,:) = atmos_fluxesAve % LWout  (:,:,:) + atmos_fluxes % LWout  (:,:,:)
+!   atmos_fluxesAve % LWoutw (:,:)   = atmos_fluxesAve % LWoutw (:,:)   + atmos_fluxes % LWoutw (:,:)
     atmos_fluxesAve % LWnet  (:,:,:) = atmos_fluxesAve % LWnet  (:,:,:) + atmos_fluxes % LWnet  (:,:,:)
     atmos_fluxesAve % LWnetw (:,:)   = atmos_fluxesAve % LWnetw (:,:)   + atmos_fluxes % LWnetw (:,:)
     atmos_fluxesAve % SWnet  (:,:,:) = atmos_fluxesAve % SWnet  (:,:,:) + atmos_fluxes % SWnet  (:,:,:)
     atmos_fluxesAve % SWnetw (:,:)   = atmos_fluxesAve % SWnetw (:,:)   + atmos_fluxes % SWnetw (:,:)
-    atmos_fluxesAve % LWin   (:,:)   = atmos_fluxesAve % LWin   (:,:)   + atmos_fluxes % LWin   (:,:)
     atmos_fluxesAve % rprecw (:,:)   = atmos_fluxesAve % rprecw (:,:)   + atmos_fluxes % rprecw (:,:)
     atmos_fluxesAve % rpreci (:,:)   = atmos_fluxesAve % rpreci (:,:)   + atmos_fluxes % rpreci (:,:)
     atmos_fluxesAve % counter        = atmos_fluxesAve % counter + 1
@@ -1901,13 +1745,13 @@ CONTAINS
     atmos_fluxesAve% sensw  (:,:)   = atmos_fluxesAve% sensw (:,:)    / ctr
     atmos_fluxesAve% lat    (:,:,:) = atmos_fluxesAve% lat   (:,:,:)  / ctr
     atmos_fluxesAve% latw   (:,:)   = atmos_fluxesAve% latw  (:,:)    / ctr
-    atmos_fluxesAve% LWout  (:,:,:) = atmos_fluxesAve% LWout (:,:,:)  / ctr
-    atmos_fluxesAve% LWoutw (:,:)   = atmos_fluxesAve% LWoutw(:,:)    / ctr
+!    atmos_fluxesAve% LWout  (:,:,:) = atmos_fluxesAve% LWout (:,:,:)  / ctr
+!    atmos_fluxesAve% LWoutw (:,:)   = atmos_fluxesAve% LWoutw(:,:)    / ctr
     atmos_fluxesAve% LWnet  (:,:,:) = atmos_fluxesAve% LWnet (:,:,:)  / ctr
     atmos_fluxesAve% LWnetw (:,:)   = atmos_fluxesAve% LWnetw(:,:)    / ctr
     atmos_fluxesAve% SWnet  (:,:,:) = atmos_fluxesAve% SWnet (:,:,:)  / ctr
     atmos_fluxesAve% SWnetw (:,:)   = atmos_fluxesAve% SWnetw(:,:)    / ctr
-    atmos_fluxesAve% LWin   (:,:)   = atmos_fluxesAve% LWin  (:,:)    / ctr
+!    atmos_fluxesAve% LWin   (:,:)   = atmos_fluxesAve% LWin  (:,:)    / ctr
     atmos_fluxesAve% rprecw (:,:)   = atmos_fluxesAve% rprecw(:,:)    / ctr
     atmos_fluxesAve% rpreci (:,:)   = atmos_fluxesAve% rpreci(:,:)    / ctr
     ice    % Qbot   (:,:,:) = ice    % Qbot  (:,:,:)  / ctr
@@ -2258,7 +2102,7 @@ CONTAINS
         !  &                                    + dtime*(heatOceI + heatOceW) /               &
         !  &                                    (clw*rho_ref * ice%zUnderIce)
         ! TODO: should we also divide with ice%zUnderIce / ( v_base%del_zlev_m(1) +  p_os%p_prog(nold(1))%h(cell,block) ) ?
-        !atmos_fluxes%topBoundCond_Temp_vdiff = (heatOceI + heatOceW) / (clw*rho_ref)
+        !p_oce_sfc%TopBC_Temp_vdiff = (heatOceI + heatOceW) / (clw*rho_ref)
         atmos_fluxes%HeatFlux_Total(cell,block) = heatOceI(cell,block) + heatOceW(cell,block)
 
         ! TODO:
@@ -2375,6 +2219,89 @@ CONTAINS
     CALL dbg_print('UpperOceTS: h3       ', h3                             , str_module, 4, in_subset=p_patch%cells%owned)
 
   END SUBROUTINE upper_ocean_TS
+
+  !-------------------------------------------------------------------------
+  !
+  !> Calculate the stress the ocean sees because of the precence of ice
+  !! A future version of ths subroutine should also calculate the ice-atmosphere stresses (and have
+  !! a different name)
+  !!
+  !! @par Revision History
+  !! Developed by Einar Olason, MPI-M (2013-06-05)
+  !<Optimize:inUse>
+  SUBROUTINE ice_ocean_stress( p_patch, atmos_fluxes, p_ice, p_os )
+    USE mo_physical_constants,  ONLY:  rho_ref, Cd_io
+    USE mo_sea_ice_nml,         ONLY: stress_ice_zero
+
+    TYPE(t_patch), TARGET,    INTENT(IN)    :: p_patch
+    TYPE (t_atmos_fluxes),    INTENT(INOUT) :: atmos_fluxes
+    TYPE(t_sea_ice),          INTENT(IN)    :: p_ice
+    TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
+
+    ! Local variables
+    ! Ranges
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    ! Indexing
+    INTEGER  :: i_startidx_c, i_endidx_c, jc, jb
+
+    ! Temporary variables/buffers
+    REAL(wp) :: tau, delu, delv
+
+!--------------------------------------------------------------------------------------------------
+
+    all_cells => p_patch%cells%all
+
+!--------------------------------------------------------------------------------------------------
+! Modify oceanic stress
+!--------------------------------------------------------------------------------------------------
+
+!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, jc, delu, delv, tau) ICON_OMP_DEFAULT_SCHEDULE
+
+  ! wind-stress is either calculated in bulk-formula or from atmosphere via coupling;
+  ! it is stored in stress_xw for open water and stress_x for ice-covered area
+  ! ice velocities are calculated using stress_x in ice dynamics
+  ! difference of ice and ocean velocities determines ocean stress below sea ice
+  ! resulting stress on ocean surface is stored in atmos_fluxes%topBoundCond_windStress_u
+  DO jb = all_cells%start_block, all_cells%end_block
+    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+    DO jc = i_startidx_c, i_endidx_c
+      delu = p_ice%u(jc,jb) - p_os%p_diag%u(jc,1,jb)
+      delv = p_ice%v(jc,jb) - p_os%p_diag%v(jc,1,jb)
+      ! Ice with concentration lower than 0.01 simply flows with the speed of the ocean and does not alter drag
+      ! TODO: The ice-ocean drag coefficient should depend on the depth of the upper most ocean
+      ! velocity point: Cd_io = ( kappa/log(z/z0) )**2, with z0 ~= 0.4 cm
+      ! Should we multiply with concSum here?
+      !tau = p_ice%concSum(jc,jb)*rho_ref*Cd_io*SQRT( delu**2 + delv**2 )
+      ! #slo# - to avoid stress proportional to concSum**2 it is omitted here
+      tau = rho_ref*Cd_io*SQRT( delu**2 + delv**2 )
+      ! set ocean stress below sea ice to zero wrt concentration for forced runs without ice dynamics;
+      ! then ocean gets no stress (no deceleration) below sea ice
+      IF (stress_ice_zero) tau = 0.0_wp
+      atmos_fluxes%topBoundCond_windStress_u(jc,jb) = atmos_fluxes%stress_xw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
+        &               + p_ice%concSum(jc,jb)*tau*delu
+      atmos_fluxes%topBoundCond_windStress_v(jc,jb) = atmos_fluxes%stress_yw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
+        &               + p_ice%concSum(jc,jb)*tau*delv
+    ENDDO
+  ENDDO
+!ICON_OMP_END_PARALLEL_DO
+
+
+!   CALL sync_patch_array_mult(SYNC_C, p_patch, 2, atmos_fluxes%topBoundCond_windStress_u(:,:), &
+!     & atmos_fluxes%topBoundCond_windStress_v(:,:))
+!   CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_u(:,:))
+!   CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_v(:,:))
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('IO-Str: windStr-u', atmos_fluxes%topBoundCond_windStress_u, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-Str: stress_xw', atmos_fluxes%stress_xw,                 str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-Str: ice%u'    , p_ice%u,                                str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-Str: ice%concS', p_ice%concSum,                          str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-Str: diag%u'   , p_os%p_diag%u,                          str_module, 4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
+
+  END SUBROUTINE ice_ocean_stress
+
   !-------------------------------------------------------------------------------
   !
   !
@@ -2411,7 +2338,7 @@ CONTAINS
 
     ! This should not be needed
     ! TODO ram - remove all instances of p_patch%cells%area(:,:) and test
-    ! See also dynamics_fem/mo_ice_fem_utils.f90
+    ! See also dynamics_fem/mo_ice_fem_interface.f90
     DO k=1,ice%kice
       ice%vol (:,k,:) = ice%hi(:,k,:)*ice%conc(:,k,:)*p_patch%cells%area(:,:)
       ice%vols(:,k,:) = ice%hs(:,k,:)*ice%conc(:,k,:)*p_patch%cells%area(:,:)
@@ -2630,11 +2557,11 @@ CONTAINS
 
     ! NB: Lwinw and LWoutw is a misleading nomenclature in this case, since
     ! Berliand & Berliand ('52) calculate only LWnet
+!    atmos_fluxes%LWin(:,:) = 0._wp
+!    atmos_fluxes%LWout(:,:,:) = 0._wp
     humi    = 0.39_wp - 0.05_wp*SQRT(esta/100._wp)
     fakts   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
       &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * p_as%fclou**2
-    atmos_fluxes%LWin(:,:) = 0._wp
-    atmos_fluxes%LWout(:,:,:) = 0._wp
     !-----------------------------------------------------------------------
     !  Calculate bulk equations according to
     !      Kara, B. A., P. A. Rochford, and H. E. Hurlburt, 2002:
@@ -2783,7 +2710,7 @@ CONTAINS
   !   tracer(:,1,:,1)  :  SST
   !  OUTPUT variables:
   !   atmos_fluxes             :  heat fluxes, derivatives, wind stress
-   
+
   SUBROUTINE calc_bulk_flux_oce(p_patch, p_as, p_os, atmos_fluxes)
     TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
@@ -2880,8 +2807,8 @@ CONTAINS
       &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * p_as%fclou(:,:)**2
     ! NB: Lwin and LWoutw is a misleading nomenclature in this case, since
     ! Berliand & Berliand ('52) calculate only LWnetw
-    atmos_fluxes%LWin(:,:) = 0._wp
-    atmos_fluxes%LWoutw(:,:) = 0._wp
+!    atmos_fluxes%LWin(:,:) = 0._wp
+!    atmos_fluxes%LWoutw(:,:) = 0._wp
 
     ! #eoo# 2012-12-14: another bugfix
     ! #slo# #hha# 2012-12-13: bugfix, corrected form
@@ -3000,17 +2927,34 @@ CONTAINS
     CALL add_fields(p_acc%conc, p_ice%conc, subset , levels=p_ice%kice)
     CALL add_fields(p_acc%u   , p_ice%u   , subset)
     CALL add_fields(p_acc%v   , p_ice%v   , subset)
+    CALL add_fields(p_acc%HeatOceW , p_ice%HeatOceW , subset)
+    CALL add_fields(p_acc%zUnderIce, p_ice%zUnderIce, subset)
+    CALL add_fields(p_acc%draftave , p_ice%draftave , subset)
+    CALL add_fields(p_acc%Qtop     , p_ice%Qtop     , subset , levels=p_ice%kice)
+    CALL add_fields(p_acc%Qbot     , p_ice%Qbot     , subset , levels=p_ice%kice)
+    CALL add_fields(p_acc%CondHeat , p_ice%CondHeat , subset , levels=p_ice%kice)
+    CALL add_fields(p_acc%HeatOceI , p_ice%HeatOceI , subset , levels=p_ice%kice)
+    CALL add_fields(p_acc%zHeatOceI, p_ice%zHeatOceI, subset , levels=p_ice%kice)
   END SUBROUTINE update_ice_statistic
+
   SUBROUTINE compute_mean_ice_statistics(p_acc,nsteps_since_last_output)
     TYPE(t_sea_ice_acc), INTENT(INOUT) :: p_acc
     INTEGER,INTENT(IN)                 :: nsteps_since_last_output
-
-    p_acc%hi                        = p_acc%hi  /REAL(nsteps_since_last_output,wp)
-    p_acc%hs                        = p_acc%hs  /REAL(nsteps_since_last_output,wp)
-    p_acc%u                         = p_acc%u   /REAL(nsteps_since_last_output,wp)
-    p_acc%v                         = p_acc%v   /REAL(nsteps_since_last_output,wp)
-    p_acc%conc                      = p_acc%conc/REAL(nsteps_since_last_output,wp)
+    p_acc%hi                        = p_acc%hi       /REAL(nsteps_since_last_output,wp)
+    p_acc%hs                        = p_acc%hs       /REAL(nsteps_since_last_output,wp)
+    p_acc%u                         = p_acc%u        /REAL(nsteps_since_last_output,wp)
+    p_acc%v                         = p_acc%v        /REAL(nsteps_since_last_output,wp)
+    p_acc%conc                      = p_acc%conc     /REAL(nsteps_since_last_output,wp)
+    p_acc%Qtop                      = p_acc%Qtop     /REAL(nsteps_since_last_output,wp)
+    p_acc%Qbot                      = p_acc%Qbot     /REAL(nsteps_since_last_output,wp)
+    p_acc%CondHeat                  = p_acc%CondHeat /REAL(nsteps_since_last_output,wp)
+    p_acc%HeatOceI                  = p_acc%HeatOceI /REAL(nsteps_since_last_output,wp)
+    p_acc%HeatOceW                  = p_acc%HeatOceW /REAL(nsteps_since_last_output,wp)
+    p_acc%zHeatOceI                 = p_acc%zHeatOceI/REAL(nsteps_since_last_output,wp)
+    p_acc%zUnderIce                 = p_acc%zUnderIce/REAL(nsteps_since_last_output,wp)
+    p_acc%draftave                  = p_acc%draftave /REAL(nsteps_since_last_output,wp)
   END SUBROUTINE compute_mean_ice_statistics
+
   SUBROUTINE reset_ice_statistics(p_acc)
     TYPE(t_sea_ice_acc), INTENT(INOUT) :: p_acc
     p_acc%hi                        = 0.0_wp
@@ -3018,7 +2962,16 @@ CONTAINS
     p_acc%u                         = 0.0_wp
     p_acc%v                         = 0.0_wp
     p_acc%conc                      = 0.0_wp
+    p_acc%Qtop                      = 0.0_wp
+    p_acc%Qbot                      = 0.0_wp
+    p_acc%CondHeat                  = 0.0_wp
+    p_acc%HeatOceI                  = 0.0_wp
+    p_acc%HeatOceW                  = 0.0_wp
+    p_acc%zHeatOceI                 = 0.0_wp
+    p_acc%zUnderIce                 = 0.0_wp
+    p_acc%draftave                  = 0.0_wp
   END SUBROUTINE reset_ice_statistics
+
   SUBROUTINE finish_unless_allocate(ist, routine, tag)
     INTEGER :: ist
     CHARACTER(len=*) :: tag,routine
@@ -3033,7 +2986,7 @@ CONTAINS
       & INTENT(IN)                                        :: thickness,zUnderIceOld
     TYPE (t_sea_ice),       INTENT(INOUT)                 :: p_ice
     TYPE(t_hydro_ocean_state)                             :: p_os
-    TYPE(t_sfc_flx)                                       :: surface_fluxes
+    TYPE(t_ocean_surface)                                 :: surface_fluxes
     INTEGER,INTENT(IN), OPTIONAL                          :: computation_type
     CHARACTER(len=*) , OPTIONAL                           :: info
 

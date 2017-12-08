@@ -16,13 +16,8 @@ MODULE mo_var_list
 #endif
 
   USE mo_kind,             ONLY: wp, i8, sp
-  USE mo_cdi,              ONLY: DATATYPE_FLT64,                    &
-       &                         DATATYPE_FLT32,                    &
-       &                         DATATYPE_INT32,                    &
-       &                         DATATYPE_INT8,                     &
-       &                         TSTEP_INSTANT,                     &
+  USE mo_cdi,              ONLY: TSTEP_INSTANT,                     &
        &                         CDI_UNDEFID
-  USE mo_cdi_constants,    ONLY: GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var, grib2_var
   USE mo_var_metadata_types,ONLY: t_var_metadata, t_union_vals,     &
@@ -48,22 +43,21 @@ MODULE mo_var_list
        &                         delete_list_element
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_util_hash,        ONLY: util_hashword
-  USE mo_util_string,      ONLY: remove_duplicates, toupper, tolower
+  USE mo_util_string,      ONLY: remove_duplicates, toupper
   USE mo_impl_constants,   ONLY: max_var_lists, vname_len,          &
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS,   &
     &                            TLEV_NNOW, REAL_T, SINGLE_T,       &
-    &                            BOOL_T, INT_T
+    &                            BOOL_T, INT_T, SUCCESS
+  USE mo_cdi_constants,    ONLY: GRID_UNSTRUCTURED_CELL,            &
+    &                            GRID_REGULAR_LONLAT
   USE mo_fortran_tools,    ONLY: assign_if_present
   USE mo_action_types,     ONLY: t_var_action
   USE mo_io_config,        ONLY: restart_file_type
-#ifdef DEBUG_MVSTREAM
-  USE mo_mpi, ONLY: my_process_is_stdio
-#endif
+  USE mo_packed_message,   ONLY: t_PackedMessage, kPackOp, kUnpackOp
 
   IMPLICIT NONE
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_list'
-  CHARACTER(LEN=3), PARAMETER :: TIMELEVEL_SUFFIX = '.TL'
 
   PRIVATE
 
@@ -88,7 +82,6 @@ MODULE mo_var_list
   PUBLIC :: get_var                   ! obtain reference to existing list entry
   PUBLIC :: get_all_var_names         ! obtain a list of variables names
 
-  PRIVATE:: TIMELEVEL_SUFFIX          ! separator for varname and time level
   PUBLIC :: get_var_name              ! return plain variable name (without timelevel)
   PUBLIC :: get_var_timelevel         ! return variable timelevel (or "-1")
   PUBLIC :: get_var_tileidx           ! return variable tile index
@@ -107,6 +100,8 @@ MODULE mo_var_list
 
   PUBLIC :: find_list_element   ! find an element in the list
   PUBLIC :: find_element   ! find an element in the list
+
+  PUBLIC :: varlistPacker
 
   INTERFACE find_element
     MODULE PROCEDURE find_list_element
@@ -407,7 +402,7 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-  !> @return Plain variable name (i.e. without TIMELEVEL_SUFFIX)
+  !> @return Plain variable name (i.e. without time level suffix ".TL")
   !
   FUNCTION get_var_name(var)
     CHARACTER(LEN=VARNAME_LEN) :: get_var_name
@@ -415,7 +410,7 @@ CONTAINS
     ! local variable
     INTEGER :: idx
 
-    idx = INDEX(var%info%name,TIMELEVEL_SUFFIX)
+    idx = INDEX(var%info%name,'.TL')
     IF (idx==0) THEN
       get_var_name = TRIM(var%info%name)
     ELSE
@@ -443,11 +438,11 @@ CONTAINS
 
     CHARACTER(len=4) :: suffix
 
-    WRITE(suffix,'("'//TIMELEVEL_SUFFIX//'",i1)') timelevel
+    WRITE(suffix,'(".TL",i1)') timelevel
   END FUNCTION get_timelevel_string
 
   !------------------------------------------------------------------------------------------------
-  !> @return time level (extracted from time level suffix) or "-1"
+  !> @return time level (extracted from time level suffix ".TL") or "-1"
   !
   FUNCTION get_var_timelevel(info)
     INTEGER :: get_var_timelevel
@@ -456,7 +451,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_var_list:get_var_timelevel'
     INTEGER :: idx
 
-    idx = INDEX(info%name,TIMELEVEL_SUFFIX)
+    idx = INDEX(info%name,'.TL')
     IF (idx == 0) THEN
       get_var_timelevel = -1
       RETURN
@@ -658,10 +653,8 @@ CONTAINS
     this_info%tlev_source         = TLEV_NNOW
     !
     this_info%cdiVarID            = CDI_UNDEFID
-    this_info%cdiVarID_2          = CDI_UNDEFID
     this_info%cdiGridID           = CDI_UNDEFID
     this_info%cdiZaxisID          = CDI_UNDEFID
-    this_info%cdiDataType         = CDI_UNDEFID
     !
     this_info%vert_interp         = create_vert_interp_metadata()
     this_info%hor_interp          = create_hor_interp_metadata()
@@ -1029,22 +1022,18 @@ CONTAINS
       SELECT CASE(data_type)
       CASE (REAL_T)
         new_list_element%field%var_base_size    = 8
-        new_list_element%field%info%cdiDataType = DATATYPE_FLT64
         ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
         new_list_element%field%r_ptr(:,:,:,:,:) = 0._wp
       CASE (SINGLE_T)
         new_list_element%field%var_base_size    = 4
-        new_list_element%field%info%cdiDataType = DATATYPE_FLT32
         ALLOCATE(new_list_element%field%s_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
         new_list_element%field%s_ptr(:,:,:,:,:) = 0._sp
       CASE (INT_T)
         new_list_element%field%var_base_size    = 4
-        new_list_element%field%info%cdiDataType = DATATYPE_INT32
         ALLOCATE(new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
         new_list_element%field%i_ptr(:,:,:,:,:) = 0
       CASE (BOOL_T)
         new_list_element%field%var_base_size    = 4
-        new_list_element%field%info%cdiDataType = DATATYPE_INT8
         ALLOCATE(new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
         new_list_element%field%l_ptr(:,:,:,:,:) = .FALSE.
       END SELECT
@@ -3770,6 +3759,12 @@ CONTAINS
         IF (this_list_element%field%info_dyn%tracer%lis_tracer) THEN
           CALL message('', 'Tracer field                                : yes.')
 
+          IF (this_list_element%field%info_dyn%tracer%lfeedback) THEN
+            CALL message('', 'Child-to-parent feedback                  : yes.')
+          ELSE
+            CALL message('', 'Child-to-parent feedback                  : no.')
+          ENDIF
+
           WRITE (message_text,'(a,3i3)') &
              'Horizontal transport method                 : ', &
              this_list_element%field%info_dyn%tracer%ihadv_tracer
@@ -4029,36 +4024,17 @@ CONTAINS
     y = x
   END SUBROUTINE assign_if_present_action_list
   !------------------------------------------------------------------------------------------------
-  LOGICAL FUNCTION elementFoundByName(key2look4,name2look4,element,opt_caseInsensitive)
-    INTEGER :: key2look4
-    CHARACTER(len=*),   INTENT(in) :: name2look4
-    TYPE(t_list_element) :: element
-    LOGICAL, OPTIONAL              :: opt_caseInsensitive
-
-    LOGICAL :: caseInsensitive
-    caseInsensitive = .FALSE.
-    CALL assign_if_present(caseInsensitive, opt_caseInsensitive)
-
-#ifdef DEBUG_MVSTREAM
-    IF (my_process_is_stdio()) write (0,*)'name2look4:',name2look4,'|elementname:',get_var_name(element%field)
-#endif
-    elementFoundByName = merge(tolower(name2look4) == tolower(get_var_name(element%field)), &
-        &                      key2look4 == element%field%info%key, &
-        &                      caseInsensitive)
-
-  END FUNCTION elementFoundByName
   !-----------------------------------------------------------------------------
   !
   ! Should be overloaded to be able to search for the different information 
   ! In the proposed structure for the linked list, in the example only
   ! A character string is used so it is straight forward only one find
   !
-  FUNCTION find_list_element (this_list, name, opt_hgrid, opt_caseInsensitive) RESULT(this_list_element)
+  FUNCTION find_list_element (this_list, name, opt_hgrid) RESULT(this_list_element)
     !
     TYPE(t_var_list),   INTENT(in) :: this_list
     CHARACTER(len=*),   INTENT(in) :: name
     INTEGER, OPTIONAL              :: opt_hgrid
-    LOGICAL, OPTIONAL              :: opt_caseInsensitive
     !
     TYPE(t_list_element), POINTER :: this_list_element
     INTEGER :: key,hgrid
@@ -4070,7 +4046,7 @@ CONTAINS
     !
     this_list_element => this_list%p%first_list_element
     DO WHILE (ASSOCIATED(this_list_element))
-      IF ( elementFoundByName(key,name,this_list_element,opt_caseInsensitive) ) THEN
+      IF (key == this_list_element%field%info%key) THEN
         IF (-1 == hgrid) THEN
           RETURN
         ELSE
@@ -4088,17 +4064,126 @@ CONTAINS
   !
   ! Find named list element accross all knows variable lists
   !
-  FUNCTION find_element_from_all (name, opt_hgrid,opt_caseInsensitive) RESULT(this_list_element)
+  FUNCTION find_element_from_all (name, opt_hgrid) RESULT(this_list_element)
     CHARACTER(len=*),   INTENT(in) :: name
     INTEGER, OPTIONAL              :: opt_hgrid
-    LOGICAL, OPTIONAL              :: opt_caseInsensitive
 
     TYPE(t_list_element), POINTER :: this_list_element
     INTEGER :: i
 
     DO i=1,nvar_lists
-      this_list_element => find_list_element(var_lists(i),name,opt_hgrid,opt_caseInsensitive)
+      this_list_element => find_list_element(var_lists(i),name,opt_hgrid)
       IF (ASSOCIATED (this_list_element)) RETURN
     END DO
   END FUNCTION! find_element_from_all_lists
+
+  !-----------------------------------------------------------------------------
+  !
+  ! (Un)pack the var_lists
+  ! This IS needed for the restart modules that need to communicate the var_lists from the worker PEs to dedicated restart PEs.
+  !
+  SUBROUTINE varlistPacker(operation, packedMessage)
+    INTEGER, VALUE :: operation
+    TYPE(t_PackedMessage), INTENT(INOUT) :: packedMessage
+
+    INTEGER :: info_size, iv, nv, nelems, patch_id, restart_type, vlevel_type, n, ierrstat
+    INTEGER, ALLOCATABLE            :: info_storage(:)
+    TYPE(t_list_element), POINTER   :: element, newElement
+    TYPE(t_var_metadata)            :: info
+    TYPE(t_var_list)                :: p_var_list
+    CHARACTER(LEN=128)              :: var_list_name
+    CHARACTER(LEN=32)               :: model_type
+    LOGICAL                         :: lrestart
+
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':varlistPacker'
+
+    ! delete old var lists
+    IF(operation == kUnpackOp) CALL delete_var_lists
+
+    ! get the size - in default INTEGER words - which is needed to
+    ! hold the contents of TYPE(t_var_metadata)
+    info_size = SIZE(TRANSFER(info, (/ 0 /)))
+    ALLOCATE(info_storage(info_size), STAT=ierrstat)
+    IF(ierrstat /= SUCCESS) CALL finish(routine, "memory allocation failure")
+
+    ! get the number of var lists
+    nv = nvar_lists
+    CALL packedMessage%packer(operation, nv)
+
+    ! for each var list, get its components
+    DO iv = 1, nv
+        IF(operation == kPackOp) THEN
+            ! copy the values needed for the new_var_list() CALL to local variables
+            lrestart = var_lists(iv)%p%lrestart
+            var_list_name = var_lists(iv)%p%name
+            model_type = var_lists(iv)%p%model_type
+            patch_id = var_lists(iv)%p%patch_id
+            restart_type = var_lists(iv)%p%restart_type
+            vlevel_type = var_lists(iv)%p%vlevel_type
+
+            ! count the number of variable restart entries
+            element => var_lists(iv)%p%first_list_element
+            nelems = 0
+            DO
+                IF(.NOT.ASSOCIATED(element)) EXIT
+                IF(element%field%info%lrestart) nelems = nelems+1
+                element => element%next_list_element
+            END DO
+        END IF
+        CALL packedMessage%packer(operation, lrestart)
+        CALL packedMessage%packer(operation, var_list_name)
+        CALL packedMessage%packer(operation, model_type)
+        CALL packedMessage%packer(operation, patch_id)
+        CALL packedMessage%packer(operation, restart_type)
+        CALL packedMessage%packer(operation, vlevel_type)
+        CALL packedMessage%packer(operation, nelems)
+
+        IF(.NOT. lrestart) CYCLE  ! transfer only a restart var_list
+        IF(nelems == 0) CYCLE ! check if there are valid restart fields
+
+        IF(operation == kPackOp) THEN
+            element => var_lists(iv)%p%first_list_element
+            DO
+                IF(.NOT. ASSOCIATED(element)) EXIT
+                IF(element%field%info%lrestart) THEN
+                    info_storage = TRANSFER(element%field%info, (/ 0 /))
+                    CALL packedMessage%packer(operation, info_storage)
+                END IF
+                element => element%next_list_element
+            END DO
+        END IF
+
+        IF(operation == kUnpackOp) THEN
+            ! create var list
+            CALL new_var_list(p_var_list, var_list_name, patch_id=patch_id, restart_type=restart_type, vlevel_type=vlevel_type, &
+                             &lrestart=.TRUE.)
+            p_var_list%p%model_type = TRIM(model_type)
+
+            ! insert elements into var list
+            DO n = 1, nelems
+                ! ALLOCATE a new element
+                ALLOCATE(newElement, STAT=ierrstat)
+                IF(ierrstat /= SUCCESS) CALL finish(routine, "memory allocation failure")
+                IF(n == 1) THEN   ! the first element pointer needs to be stored IN a different variable than the later pointers (there are no double pointers IN FORTRAN...)
+                    p_var_list%p%first_list_element => newElement
+                ELSE
+                    element%next_list_element => newElement
+                END IF
+                element => newElement
+                element%next_list_element => NULL()
+
+                ! these pointers don't make sense on the restart PEs, NULLIFY them
+                NULLIFY(element%field%r_ptr, element%field%i_ptr, element%field%l_ptr)
+                element%field%var_base_size = 0 ! Unknown here
+
+                ! set info structure from binary representation in info_storage
+                CALL packedMessage%packer(operation, info_storage)
+                element%field%info = TRANSFER(info_storage, info)
+            END DO
+        END IF
+
+        DEALLOCATE(info_storage)
+    END DO
+  END SUBROUTINE varlistPacker
+
 END MODULE mo_var_list

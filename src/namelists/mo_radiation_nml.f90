@@ -23,7 +23,8 @@
 !!
 MODULE mo_radiation_nml
 
-    USE mo_radiation_config, ONLY: config_ldiur      => ldiur,       & 
+    USE mo_radiation_config, ONLY: config_ldiur      => ldiur,       &
+                                 & config_icosmu0    => icosmu0,     &
                                  & config_nmonth     => nmonth,      &
                                  & config_lyr_perp   => lyr_perp,    &
                                  & config_yr_perp    => yr_perp,     &
@@ -31,6 +32,7 @@ MODULE mo_radiation_nml
                                  & config_albedo_type=> albedo_type, &
                                  & config_direct_albedo => direct_albedo, &
                                  & config_icld_overlap => icld_overlap, &
+                                 & config_islope_rad => islope_rad,  &
                                  & config_irad_h2o   => irad_h2o,    &
                                  & config_irad_co2   => irad_co2,    &
                                  & config_irad_ch4   => irad_ch4,    &
@@ -86,6 +88,20 @@ MODULE mo_radiation_nml
   LOGICAL :: ldiur     !< .TRUE. : with diurnal cycle
   !                    !< .FALSE.: zonally averaged irradiation
   !
+  !                    ! PROVISIONAL - ONLY BEST METHOD WILL BE KEPT ("0" or "3")
+  INTEGER :: icosmu0   !< selects method for the definition of cosmu0_rt in the extended
+  !                    !  sunlit area, as needed if solar fluxes are adjusted to the
+  !                    !  current time between radiation time steps.
+  !                    !  0: no adjustment, the original cosmu0 is used for the rad. transfer
+  !                    !     Has small effects on land temperture (less smooth intraday time series)
+  !                    !  1: MAX(0.1,cosmu0), as used in ECHAM6 and icon-aes-1.0 and -1.1.
+  !                    !  2: (cosmu0+dcosmu0)/(1+dcosmu0), dcosmu0 = SIN(dmu0), dmu0=pi*dt_rad/86400s
+  !                    !     DO NOT USE! Strong effects on MA temp. and wind and land surface temp.
+  !                    !  3: 0.5*SIN(dmu0)*(1+(pi/2-mu0)/dmu0), dmu0=pi*dt_rad/86400s
+  !                    !     Has small effects on the MA temp. and wind and the land surface temp.
+  !                    !  4: sin(mu0s)*(pi/2+dmu0-mu0), , dmu0=pi*dt_rad/86400s, mu0s = tangent point
+  !                    !     Has moderate effects on the MA temp. and wind and the land surface temp.
+  !
   ! -- Switches for Earth orbit
   !
   INTEGER :: nmonth    !< i=0    : Earth circles on orbit, i.e. with annual cycle
@@ -119,6 +135,11 @@ MODULE mo_radiation_nml
                              ! 2: generalized overlap (Hogan, Illingworth, 2000)
                              ! 3: maximum overlap
                              ! 4: random overlap
+
+  INTEGER :: islope_rad      ! slope correction for surface radiation
+                             ! 0: none
+                             ! 1: slope correction for solar radiation without shading effects
+                             ! option 2 is reserved for slope-dependent radiation with shading (not yet implemented)
 
   ! --- Switches for radiative agents
   !     irad_x=0 : radiation uses tracer x = 0
@@ -180,7 +201,7 @@ MODULE mo_radiation_nml
   ! --- Different specifications of the zenith angle
   INTEGER  :: izenith
   !
-  NAMELIST /radiation_nml/ ldiur, nmonth,         &
+  NAMELIST /radiation_nml/ ldiur, icosmu0, nmonth,&
     &                      lyr_perp, yr_perp,     &
     &                      isolrad,               &
     &                      albedo_type,           &
@@ -198,7 +219,8 @@ MODULE mo_radiation_nml
     &                      ighg,                  &
     &                      fh2o, fco2, fch4, fn2o,&
     &                      fo3, fo2, fcfc,        &
-    &                      izenith, icld_overlap
+    &                      izenith, icld_overlap, &
+    &                      islope_rad
 
 CONTAINS
 
@@ -230,6 +252,7 @@ CONTAINS
     ! 1. default settings   
     !-----------------------
     ldiur          = .TRUE.
+    icosmu0        = 3
     nmonth         =  0   
     lyr_perp       = .FALSE.
     yr_perp        = -99999
@@ -238,6 +261,7 @@ CONTAINS
     albedo_type    = 1
     direct_albedo  = 4   ! Parameterization after Briegleb (1992)
     icld_overlap   = 2   ! generalized random overlap
+    islope_rad     = 0   ! no slope correction
 
     irad_h2o    = 1
     irad_co2    = 2
@@ -306,6 +330,7 @@ CONTAINS
     !----------------------------------------------------
 
     config_ldiur      = ldiur
+    config_icosmu0    = icosmu0
     config_nmonth     = nmonth
     config_lyr_perp   = lyr_perp
     config_yr_perp    = yr_perp
@@ -313,6 +338,7 @@ CONTAINS
     config_albedo_type= albedo_type
     config_direct_albedo = direct_albedo
     config_icld_overlap = icld_overlap
+    config_islope_rad = islope_rad
     config_irad_h2o   = irad_h2o
     config_irad_co2   = irad_co2
     config_irad_ch4   = irad_ch4

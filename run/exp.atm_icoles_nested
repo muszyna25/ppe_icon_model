@@ -109,7 +109,7 @@ cat > ${atmo_namelist} << EOF
 / 
 &initicon_nml
  init_mode              =  4 !4=cosmo, 2=ifs, 3=combined
- ana_varnames_map_file  = '$ICON_BASE_PATH/run/ana_varnames_map_file.txt'
+! ana_varnames_map_file  = '$ICON_BASE_PATH/run/ana_varnames_map_file.txt'
  nlevsoil_in            =  8
  lread_ana              = .false.
 /
@@ -164,6 +164,7 @@ inwp_surface    = 1,1
 latm_above_top  = .true.,.true.
 efdt_min_raylfric = 7200.
 itype_z0         = 2
+dt_conv          = 10.,10.   !DR Test
 dt_rad           = 60.,60.
 /
 &les_nml

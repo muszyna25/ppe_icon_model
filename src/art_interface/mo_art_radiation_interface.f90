@@ -24,6 +24,8 @@ MODULE mo_art_radiation_interface
   USE mo_kind,                          ONLY: wp
   USE mo_run_config,                    ONLY: lart
   USE mo_exception,                     ONLY: finish
+  USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
+                                          &   timer_art, timer_art_radInt
   ! ART Routines
 #ifdef __ICON_ART
   USE mo_art_radiation_aero,            ONLY: art_radiation_aero
@@ -69,6 +71,9 @@ SUBROUTINE art_rad_aero_interface(zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,    &
   
 #ifdef __ICON_ART
   if (lart) then
+    IF (timers_level > 3) CALL timer_start(timer_art)
+    IF (timers_level > 3) CALL timer_start(timer_art_radInt)
+
     if(art_config(jg)%iart_ari > 0) then
       CALL art_radiation_aero(zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,    &
             &                 zaea_rrtm,zaes_rrtm,zaeg_rrtm,    &
@@ -78,6 +83,9 @@ SUBROUTINE art_rad_aero_interface(zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,    &
             &                 aer_piz_sw_vr,                    &
             &                 aer_cg_sw_vr)
     end if
+
+    IF (timers_level > 3) CALL timer_stop(timer_art_radInt)
+    IF (timers_level > 3) CALL timer_stop(timer_art)
   end if
 #endif
 

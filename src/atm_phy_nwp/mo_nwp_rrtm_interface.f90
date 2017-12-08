@@ -29,7 +29,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_grid_config,          ONLY: l_limited_area
   USE mo_exception,            ONLY: message,  finish, message_text
   USE mo_ext_data_types,       ONLY: t_external_data
-  USE mo_parallel_config,      ONLY: nproma, p_test_run, test_parallel_radiation
+  USE mo_parallel_config,      ONLY: nproma, p_test_run
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
   USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape, nexlevs_rrg_vnest, &
                                      iss, iorg, ibc, iso4, idu, MAX_CHAR_LENGTH
@@ -49,10 +49,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_lrtm_par,             ONLY: nbndlw
   USE mo_sync,                 ONLY: global_max, global_min
 
-  USE mo_rrtm_data_interface,  ONLY: t_rrtm_data, recv_rrtm_input, send_rrtm_output
-  USE mo_timer,                ONLY: timer_start, timer_stop, timers_level,    &
-    &                                timer_radiaton_recv, timer_radiaton_comp, &
-    &                                timer_radiaton_send, timer_preradiaton
+  USE mo_timer,                ONLY: timer_start, timer_stop, timers_level, timer_preradiaton
   USE mtime,                     ONLY: datetime, newDatetime, deallocateDatetime
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
     &                                  calculate_time_interpolation_weights
@@ -68,7 +65,6 @@ MODULE mo_nwp_rrtm_interface
   PUBLIC :: nwp_ozon_aerosol
   PUBLIC :: nwp_rrtm_radiation
   PUBLIC :: nwp_rrtm_radiation_reduced
-  PUBLIC :: nwp_rrtm_radiation_repartition
 
 
   REAL(wp), PARAMETER::  &
@@ -179,7 +175,7 @@ CONTAINS
         & pt_patch   = pt_patch,                     & ! in
         & zvio3      = prm_diag%vio3,                & !inout
         & zhmo3      = prm_diag%hmo3  )                !inout
-    CASE (7,9,79)
+    CASE (7,9,79,97)
       CALL calc_o3_gems(pt_patch,mtime_datetime,pt_diag,prm_diag,ext_data)
     CASE(10)
       !CALL message('mo_nwp_rg_interface:irad_o3=10', &  
@@ -222,7 +218,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-        ! The routine aerdis is called to recieve some parameters for the vertical
+        ! The routine aerdis is called to receive some parameters for the vertical
         ! distribution of background aerosol.
         CALL aerdis ( &
           & kbdim  = nproma,      & !in
@@ -308,7 +304,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-        ! The routine aerdis is called to recieve some parameters for the vertical
+        ! The routine aerdis is called to receive some parameters for the vertical
         ! distribution of background aerosol.
         CALL aerdis ( &
           & kbdim  = nproma,      & !in
@@ -1154,340 +1150,6 @@ CONTAINS
   END SUBROUTINE nwp_rrtm_radiation_reduced
   !---------------------------------------------------------------------------------------
 
-  !---------------------------------------------------------------------------------------
-  !>
-  !! @par Revision History
-  !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
-  !!
-  SUBROUTINE nwp_rrtm_radiation_repartition (current_date, pt_patch, ext_data, &
-    &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, lnd_prog )
-
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
-      &  routine = modname//'::nwp_rrtm_radiation_repartition'
-
-    TYPE(datetime), POINTER, INTENT(in) :: current_date
-
-    TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
-    TYPE(t_external_data),INTENT(in)        :: ext_data
-
-    REAL(wp), INTENT(in) :: &
-      & zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c), &
-      & zaeq2(nproma,pt_patch%nlev,pt_patch%nblks_c), &
-      & zaeq3(nproma,pt_patch%nlev,pt_patch%nblks_c), &
-      & zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c), &
-      & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
-
-    TYPE(t_nh_diag), TARGET, INTENT(in)   :: pt_diag     !<the diagnostic variables
-    TYPE(t_nwp_phy_diag),    INTENT(inout):: prm_diag
-    TYPE(t_lnd_prog),        INTENT(inout):: lnd_prog
-
-    ! Local scalars:
-    INTEGER:: jc,jb
-    INTEGER:: jg                !domain id
-    INTEGER:: nlev, nlevp1      !< number of full and half levels
-
-    INTEGER:: rl_start, rl_end
-    INTEGER:: i_startblk, i_endblk    !> blocks
-    INTEGER:: i_startidx, i_endidx    !< slices
-    INTEGER:: i_nchdom                !< domain index
-
-    TYPE(t_rrtm_data), POINTER :: rrtm_data
-    INTEGER:: return_status
-    REAL(wp), POINTER :: &
-        & test_aclcov  (:,    :),  &
-        & test_lwflxclr(:, :, :),  &
-        & test_trsolclr(:, :, :),  &
-        & test_lwflxall(:, :, :),  &
-        & test_trsolall(:, :, :)
-    REAL(wp) :: check_diff
-
-    CHARACTER(*), PARAMETER :: method_name = "nwp_rrtm_radiation_repartition"
-
-    IF (timers_level > 3) CALL timer_start(timer_preradiaton)
-    !-------------------------------------------------------------------------
-    IF (msg_level >= 12) &
-      &  CALL message(routine, 'RRTM radiation on redistributed grid')
-
-    i_nchdom  = MAX(1,pt_patch%n_childdom)
-    jg        = pt_patch%id
-
-    ! number of vertical levels
-    nlev   = pt_patch%nlev
-    nlevp1 = pt_patch%nlevp1
-
-
-
-    !-------------------------------------------------------------------------
-    !> Radiation
-    !-------------------------------------------------------------------------
-
-    rl_start = grf_bdywidth_c+1
-    rl_end   = min_rlcell_int
-
-    i_startblk = pt_patch%cells%start_blk(rl_start,1)
-    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-    IF (test_parallel_radiation) THEN
-
-      ! allocate temp arrays for comparing the results
-      ! from the direct radiation call and the redistributed
-      ! radiation call
-      ALLOCATE( &
-        & test_aclcov  (nproma,         pt_patch%nblks_c),  &
-        & test_lwflxclr(nproma, nlevp1, pt_patch%nblks_c),  &
-        & test_trsolclr(nproma, nlevp1, pt_patch%nblks_c),  &
-        & test_lwflxall(nproma, nlevp1, pt_patch%nblks_c),  &
-        & test_trsolall(nproma, nlevp1, pt_patch%nblks_c),  &
-        & STAT=return_status)
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-          &                         i_startidx, i_endidx, rl_start, rl_end)
-
-
-
-        ! It may happen that an MPI patch contains only nest boundary points
-        ! In this case, no action is needed
-        IF (i_startidx > i_endidx) CYCLE
-
-        prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
-
-        CALL radiation(               &
-                                !
-                                ! input
-                                ! -----
-                                !
-          & current_date                     ,&!< in current date
-                                ! indices and dimensions
-          & jg         =jg                   ,&!< in domain index
-          & jb         =jb                   ,&!< in block index
-          & jce        =i_endidx             ,&!< in  end   index for loop over block
-          & kbdim      =nproma               ,&!< in  dimension of block over cells
-          & klev       =nlev                 ,&!< in  number of full levels = number of layers
-          & klevp1     =nlevp1               ,&!< in  number of half levels = number of layer ifcs
-                                !
-          & ktype      =prm_diag%ktype(:,jb) ,&!< in     type of convection
-                                !
-                                ! surface: albedo + temperature
-          & zland      =ext_data%atm%fr_land_smt(:,jb)   ,&!< in     land fraction
-          & zglac      =ext_data%atm%fr_glac_smt(:,jb)   ,&!< in     land glacier fraction
-                                !
-          & cos_mu0    =prm_diag%cosmu0  (:,jb) ,&!< in  cos of zenith angle mu0
-          & alb_vis_dir=prm_diag%albvisdir(:,jb) ,&!< in surface albedo for visible range, direct
-          & alb_nir_dir=prm_diag%albnirdir(:,jb) ,&!< in surface albedo for near IR range, direct
-          & alb_vis_dif=prm_diag%albvisdif(:,jb) ,&!< in surface albedo for visible range, diffuse
-          & alb_nir_dif=prm_diag%albnirdif(:,jb) ,&!< in surface albedo for near IR range, diffuse
-          & emis_rad=ext_data%atm%emis_rad(:,jb) ,&!< in longwave surface emissivity
-          & tk_sfc     =prm_diag%tsfctrad(:,jb)  ,&!< in surface temperature
-                                !
-                                ! atmosphere: pressure, tracer mixing ratios and temperature
-          & pp_hl      =pt_diag%pres_ifc  (:,:,jb)     ,&!< in  pres at half levels at t-dt [Pa]
-          & pp_fl      =pt_diag%pres      (:,:,jb)     ,&!< in  pres at full levels at t-dt [Pa]
-          & tk_fl      =pt_diag%temp      (:,:,jb)     ,&!< in  temperature at full level at t-dt
-          & qm_vap     =prm_diag%tot_cld  (:,:,jb,iqv) ,&!< in  water vapor mass mix ratio at t-dt
-          & qm_liq     =prm_diag%tot_cld  (:,:,jb,iqc) ,&!< in cloud water mass mix ratio at t-dt
-          & qm_ice     =prm_diag%tot_cld  (:,:,jb,iqi) ,&!< in cloud ice mass mixing ratio at t-dt
-          & qm_o3      =ext_data%atm%o3   (:,:,jb)     ,&!< in o3 mass mixing ratio at t-dt
-          & cdnc       =prm_diag%acdnc    (:,:,jb)     ,&!< in  cloud droplet numb conc. [1/m**3]
-          & cld_frc    =prm_diag%clc      (:,:,jb)     ,&!< in  cloud fraction [m2/m2]
-          & zaeq1      = zaeq1(:,:,jb)                 ,&!< in aerosol continental
-          & zaeq2      = zaeq2(:,:,jb)                 ,&!< in aerosol maritime
-          & zaeq3      = zaeq3(:,:,jb)                 ,&!< in aerosol urban
-          & zaeq4      = zaeq4(:,:,jb)                 ,&!< in aerosol volcano ashes
-          & zaeq5      = zaeq5(:,:,jb)                 ,&!< in aerosol stratospheric background
-          & dt_rad     = atm_phy_nwp_config(jg)%dt_rad ,&
-                                ! output
-                                ! ------
-                                !
-          & cld_cvr        = test_aclcov             (:,jb),&!< out cloud cover in a column [m2/m2]
-          & flx_lw_net_clr = test_lwflxclr(:,:,jb),&!< out terrestrial flux, clear sky, net down
-          & trm_sw_net_clr = test_trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
-          & flx_lw_net     = test_lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
-          & trm_sw_net     = test_trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
-          & opt_halo_cosmu0 = .FALSE. )
-
-      ENDDO ! blocks
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-    ENDIF !test_parallel_radiation
-
-
-    IF (timers_level > 3) THEN
-      CALL timer_stop(timer_preradiaton)
-      CALL timer_start(timer_radiaton_recv)
-    ENDIF
-
-    ! this maybe used, so we fill it while not an output of the radiation
-    prm_diag%tsfctrad(:,:) = lnd_prog%t_g(:,:)
-    CALL recv_rrtm_input( &
-          & ktype      =prm_diag%ktype(:,:)             ,&!< in     type of convection
-          & zland      =ext_data%atm%fr_land_smt(:,:)   ,&!< in     land fraction
-          & zglac      =ext_data%atm%fr_glac_smt(:,:)   ,&!< in     land glacier fraction
-                                !
-          & cos_mu0    =prm_diag%cosmu0  (:,:) ,&!< in  cos of zenith angle mu0
-          ! these are actualy computed from albvisdif
-!          & alb_vis_dir=albvisdir        (:,:) ,&!< in surface albedo for visible range, direct
-!          & alb_nir_dir=albnirdir        (:,:) ,&!< in surface albedo for near IR range, direct
-          & alb_vis_dif=prm_diag%albvisdif(:,:),&!< in surface albedo for visible range, diffuse
-!          & alb_nir_dif=prm_diag%albnirdif(:,:) ,&!< in surface albedo for near IR range, diffuse
-          & emis_rad=ext_data%atm%emis_rad(:,:),&!< in longwave surface emissivity
-          & tk_sfc     =prm_diag%tsfctrad(:,:) ,&!< in surface temperature
-                                !
-                                ! atmosphere: pressure, tracer mixing ratios and temperature
-          & pp_hl      =pt_diag%pres_ifc  (:,:,:)     ,&!< in  pres at half levels at t-dt [Pa]
-          & pp_fl      =pt_diag%pres      (:,:,:)     ,&!< in  pres at full levels at t-dt [Pa]
-          & tk_fl      =pt_diag%temp      (:,:,:)     ,&!< in  temperature at full level at t-dt
-          & qm_vap     =prm_diag%tot_cld  (:,:,:,iqv) ,&!< in  water vapor mass mix ratio at t-dt
-          & qm_liq     =prm_diag%tot_cld  (:,:,:,iqc) ,&!< in cloud water mass mix ratio at t-dt
-          & qm_ice     =prm_diag%tot_cld  (:,:,:,iqi) ,&!< in cloud ice mass mixing ratio at t-dt
-          & qm_o3      =ext_data%atm%o3   (:,:,:)     ,&!< in o3 mass mixing ratio at t-dt
-          & cdnc       =prm_diag%acdnc    (:,:,:)     ,&!< in  cloud droplet numb conc. [1/m**3]
-          & cld_frc    =prm_diag%clc      (:,:,:)     ,&!< in  cloud fraction [m2/m2]
-          & zaeq1      = zaeq1(:,:,:)                 ,&!< in aerosol continental
-          & zaeq2      = zaeq2(:,:,:)                 ,&!< in aerosol maritime
-          & zaeq3      = zaeq3(:,:,:)                 ,&!< in aerosol urban
-          & zaeq4      = zaeq4(:,:,:)                 ,&!< in aerosol volcano ashes
-          & zaeq5      = zaeq5(:,:,:)                 ,&!< in aerosol stratospheric background
-          & patch      = pt_patch                     ,&!< in
-          & rrtm_data  = rrtm_data)                     !< out, pointer to rrtm input values
-
-    IF (timers_level > 3) THEN
-      CALL timer_stop(timer_radiaton_recv)
-      CALL timer_start(timer_radiaton_comp)
-    ENDIF
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
-    DO jb = 1, rrtm_data%no_of_blocks
-
-      i_endidx = MERGE(rrtm_data%block_size, rrtm_data%end_index, &
-           jb /= rrtm_data%no_of_blocks)
-
-      !Calculate direct albedo from diffuse albedo and solar zenith angle
-      !formula as in Ritter-Geleyn's fesft
-      DO jc = 1, i_endidx
-        rrtm_data%albedo_vis_dir(jc,jb) =  ( 1.0_wp                                                           &
-          &  + 0.5_wp * (rrtm_data%cosmu0(jc,jb) * (1.0_wp/rrtm_data%albedo_vis_dif(jc,jb) - 1.0_wp))) &
-          & / (1.0_wp + (rrtm_data%cosmu0(jc,jb) * (1.0_wp/rrtm_data%albedo_vis_dif(jc,jb) - 1.0_wp)))**2
-      ENDDO
-!      IF (i_startidx > 1) albvisdir(1:i_startidx-1,jb) = albvisdir(i_startidx,jb)
-
-      ! no distiction between vis and nir albedo
-      rrtm_data%albedo_nir_dir(1:i_endidx,jb) = rrtm_data%albedo_vis_dir(1:i_endidx,jb)
-      rrtm_data%albedo_nir_dif(1:i_endidx,jb) = rrtm_data%albedo_vis_dif(1:i_endidx,jb)
-
-      CALL radiation(               &
-                              !
-                              ! input
-                              ! -----
-                              !
-        & current_date                       ,&!< in current date
-                              ! indices and dimensions 
-        & jg         =jg                     ,&!< in domain index
-        & jb         =jb                     ,&!< in block index
-        & jce        = i_endidx              ,&!< in  end   index for loop over block
-        & kbdim      = rrtm_data%block_size  ,&!< in  dimension of block over cells
-        & klev       = rrtm_data%full_levels ,&!< in  number of full levels =  number of layers
-        & klevp1     = rrtm_data%half_levels ,&!< in  number of half levels =  number of layer ifcs
-                              !
-        & ktype      = rrtm_data%convection_type(:,jb) ,&!< in     type of convection
-                              !
-                              ! surface: albedo + temperature
-        & zland      = rrtm_data%fr_land_smt(:,jb)     ,&!< in     land fraction
-        & zglac      = rrtm_data%fr_glac_smt(:,jb)     ,&!< in     land glacier fraction
-                              !
-        & cos_mu0    = rrtm_data%cosmu0         (:,jb) ,&!< in  cos of zenith angle mu0
-        & alb_vis_dir= rrtm_data%albedo_vis_dir (:,jb) ,&!< in surface albedo for visible range, direct
-        & alb_nir_dir= rrtm_data%albedo_nir_dir (:,jb) ,&!< in surface albedo for near IR range, direct
-        & alb_vis_dif= rrtm_data%albedo_vis_dif (:,jb) ,&!< in surface albedo for visible range, diffuse
-        & alb_nir_dif= rrtm_data%albedo_nir_dif (:,jb) ,&!< in surface albedo for near IR range, diffuse
-        & emis_rad   = rrtm_data%emis_rad       (:,jb) ,&!< in longwave surface emissivity
-        & tk_sfc     = rrtm_data%tsfctrad       (:,jb) ,&!< in surface temperature
-                              !
-                              ! atmosphere: pressure, tracer mixing ratios and temperature
-        & pp_hl      = rrtm_data%pres_ifc  (:,:,jb)    ,&!< in  pres at half levels at t-dt [Pa]
-        & pp_fl      = rrtm_data%pres      (:,:,jb)    ,&!< in  pres at full levels at t-dt [Pa]
-        & tk_fl      = rrtm_data%temp      (:,:,jb)    ,&!< in  temperature at full level at t-dt
-        & qm_vap     = rrtm_data%qm_vapor  (:,:,jb)    ,&!< in  water vapor mass mix ratio at t-dt
-        & qm_liq     = rrtm_data%qm_liquid (:,:,jb)    ,&!< in cloud water mass mix ratio at t-dt
-        & qm_ice     = rrtm_data%qm_ice    (:,:,jb)    ,&!< in cloud ice mass mixing ratio at t-dt
-        & qm_o3      = rrtm_data%qm_o3     (:,:,jb)    ,&!< in o3 mass mixing ratio at t-dt
-        & cdnc       = rrtm_data%acdnc     (:,:,jb)    ,&!< in  cloud droplet numb conc. [1/m**3]
-        & cld_frc    = rrtm_data%cld_frc   (:,:,jb)    ,&!< in  cloud fraction [m2/m2]
-        & zaeq1      = rrtm_data%zaeq1     (:,:,jb)    ,&!< in aerosol continental
-        & zaeq2      = rrtm_data%zaeq2     (:,:,jb)    ,&!< in aerosol maritime
-        & zaeq3      = rrtm_data%zaeq3     (:,:,jb)    ,&!< in aerosol urban
-        & zaeq4      = rrtm_data%zaeq4     (:,:,jb)    ,&!< in aerosol volcano ashes
-        & zaeq5      = rrtm_data%zaeq5     (:,:,jb)    ,&!< in aerosol stratospheric background
-        & dt_rad     = atm_phy_nwp_config(jg)%dt_rad   ,&
-                              ! output
-                              ! ------
-                              !
-        & cld_cvr        = rrtm_data%aclcov  (:,  jb),&!< out cloud cover in a column [m2/m2]
-        & flx_lw_net_clr = rrtm_data%lwflxclr(:,:,jb),&!< out terrestrial flux, clear sky, net down
-        & trm_sw_net_clr = rrtm_data%trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
-        & flx_lw_net     = rrtm_data%lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
-        & trm_sw_net     = rrtm_data%trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
-        & opt_halo_cosmu0 = .FALSE. )
-    ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-    IF (timers_level > 3) THEN
-      CALL timer_stop(timer_radiaton_comp)
-      CALL timer_start(timer_radiaton_send)
-    ENDIF
-
-    ! aclcov is also output but not used
-    CALL send_rrtm_output(        &
-      & rrtm_data               , &
-      & prm_diag%lwflxall(:,:,:), &!< out terrestrial flux, all sky, net down
-      & prm_diag%trsolall(:,:,:), &!< out sol. transmissivity, all sky, net down
-      & prm_diag%lwflxall(:,:,:), &!< out terrestrial flux, all sky, net down
-      & prm_diag%trsolall(:,:,:))  !< out solar transmissivity, all sky, net down
-
-    IF (timers_level > 3) &
-      & CALL timer_stop(timer_radiaton_send)
-
-
-    IF (test_parallel_radiation) THEN
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-          &                         i_startidx, i_endidx, rl_start, rl_end)
-
-        DO jc = i_startidx, i_endidx
-
-          check_diff = MAXVAL(ABS(prm_diag%lwflxall(jc,:,jb) - test_lwflxall(jc,:,jb)))
-          IF (check_diff > 0.0_wp) THEN
-            write(0,*) " jc,jb=", jc,jb
-            write(0,*) " prm_diag%lwflxall=", prm_diag%lwflxall(jc,:,jb)
-            write(0,*) " test_lwflxall=", test_lwflxall(jc,:,jb)
-            CALL finish(method_name,"lwflxall differs")
-          ENDIF
-
-          check_diff = MAXVAL(ABS(prm_diag%trsolall(jc,:,jb) - test_trsolall(jc,:,jb)))
-          IF (check_diff > 0.0_wp) THEN
-            write(0,*) " jc,jb=", jc,jb
-            write(0,*) " prm_diag%trsolall=", prm_diag%trsolall(jc,:,jb)
-            write(0,*) " test_trsolall=", test_trsolall(jc,:,jb)
-            CALL finish(method_name,"trsolall differs")
-          ENDIF
-
-       ENDDO
-     ENDDO
-
-     DEALLOCATE(test_aclcov, test_lwflxclr, test_trsolclr, test_lwflxall, test_trsolall)
-
-   ENDIF ! test_parallel_radiation
-
-
-  END SUBROUTINE nwp_rrtm_radiation_repartition
-  !---------------------------------------------------------------------------------------
 
 END MODULE mo_nwp_rrtm_interface
 

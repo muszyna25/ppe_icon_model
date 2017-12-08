@@ -44,14 +44,20 @@ MODULE mo_io_nml
                                  & config_restart_file_type       => restart_file_type      , &
                                  & config_write_initial_state     => write_initial_state    , &
                                  & config_write_last_restart      => write_last_restart     , &
-                                 & config_timeSteps_per_outputStep  => timeSteps_per_outputStep ,&
-                                 & config_lmask_boundary            => lmask_boundary
+                                 & config_timeSteps_per_outputStep  => timeSteps_per_outputStep, &
+                                 & config_lmask_boundary            => lmask_boundary          , &
+                                 & config_restart_write_mode        => restart_write_mode   , &
+                                 & config_nrestart_streams          => nrestart_streams  
 
   USE mo_exception,        ONLY: finish
+  USE mo_util_string,      ONLY: tolower
 
 
   IMPLICIT NONE
   PUBLIC :: read_io_namelist
+
+  ! module name
+  CHARACTER(*), PARAMETER :: modname = "mo_io_nml"
 
   
 CONTAINS
@@ -73,6 +79,8 @@ CONTAINS
   SUBROUTINE read_io_namelist( filename )
 
     CHARACTER(LEN=*), INTENT(IN)   :: filename
+
+    CHARACTER(*), PARAMETER :: routine = modname//":read_io_namelist"
     INTEGER                        :: istat, funit
     INTEGER                        :: iunit
 
@@ -119,15 +127,25 @@ CONTAINS
     INTEGER :: timeSteps_per_outputStep
 
     LOGICAL :: lmask_boundary ! flag: true, if interpolation zone should be masked *in output*
+
+    CHARACTER(LEN = 256) :: restart_write_mode
+
+    ! When using the restart write mode "dedicated proc mode", it is
+    ! possible to split the restart output into several files, as if
+    ! "nrestart_streams" * "num_io_procs" restart processes were
+    ! involved. This speeds up the read-in process, since all the
+    ! files may then be read in parallel.
+    INTEGER :: nrestart_streams
     
-    NAMELIST/io_nml/ lkeep_in_sync, dt_diag, dt_checkpoint,  &
-      &              inextra_2d, inextra_3d,                 &
-      &              lflux_avg, itype_pres_msl, itype_rh,    &
-      &              output_nml_dict, netcdf_dict,           &
-      &              lnetcdf_flt64_output,                   &
-      &              restart_file_type, write_initial_state, &
-      &              write_last_restart, timeSteps_per_outputStep, &
-      &              lmask_boundary, gust_interval
+    NAMELIST/io_nml/ lkeep_in_sync, dt_diag, dt_checkpoint,             &
+      &              inextra_2d, inextra_3d,                            &
+      &              lflux_avg, itype_pres_msl, itype_rh,               &
+      &              output_nml_dict, netcdf_dict,                      &
+      &              lnetcdf_flt64_output,                              &
+      &              restart_file_type, write_initial_state,            &
+      &              write_last_restart, timeSteps_per_outputStep,      &
+      &              lmask_boundary, gust_interval, restart_write_mode, &
+      &              nrestart_streams
 
     !-----------------------
     ! 1. default settings
@@ -156,6 +174,9 @@ CONTAINS
     timeSteps_per_outputStep        = config_timeSteps_per_outputStep
 
     lmask_boundary          = .FALSE.
+
+    restart_write_mode = ""
+    nrestart_streams   = 1
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -207,6 +228,16 @@ CONTAINS
     config_timeSteps_per_outputStep= timeSteps_per_outputStep
     config_write_last_restart      = write_last_restart
     config_lmask_boundary          = lmask_boundary
+    config_restart_write_mode      = tolower(restart_write_mode)
+    config_nrestart_streams        = nrestart_streams
+
+    ! --- consistency check:
+
+    ! Each work can send its data only to one restart PE. Therefore it
+    ! is not possible to have more restart files than source PEs.
+    IF ((nrestart_streams < 0) .OR. (nrestart_streams > p_n_work)) THEN
+      CALL finish(routine, "Invalid choice of parameter value: nrestart_streams!")
+    END IF
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

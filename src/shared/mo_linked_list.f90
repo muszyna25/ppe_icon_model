@@ -227,6 +227,7 @@ CONTAINS
     IF (.NOT. ASSOCIATED (this_list%p%first_list_element)) THEN
       CALL create_list_element (this_list, this_list%p%first_list_element)
       new_list_element => this_list%p%first_list_element
+      this_list%p%nvars = this_list%p%nvars + 1
       RETURN
     ENDIF
     !

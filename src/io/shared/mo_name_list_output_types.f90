@@ -35,12 +35,14 @@ MODULE mo_name_list_output_types
   USE mo_communication,         ONLY: t_comm_gather_pattern
   USE mtime,                    ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN
   USE mo_output_event_types,    ONLY: t_par_output_event, MAX_EVENT_NAME_STR_LEN
+  USE mo_level_selection_types, ONLY: t_level_selection
+  USE mo_name_list_output_zaxes_types,ONLY: t_verticalAxisList
 
   IMPLICIT NONE
 
   PRIVATE
   ! constants:
-  PUBLIC :: l_output_phys_patch,max_z_axes
+  PUBLIC :: l_output_phys_patch
   PUBLIC :: REMAP_NONE
   PUBLIC :: REMAP_REGULAR_LATLON
   PUBLIC :: msg_io_start
@@ -63,7 +65,6 @@ MODULE mo_name_list_output_types
   PUBLIC :: t_iptr_5d
   PUBLIC :: t_var_desc
   PUBLIC :: t_fname_metadata
-  PUBLIC :: t_level_selection
   PUBLIC :: t_output_file
   ! global variables
   PUBLIC :: all_events
@@ -100,8 +101,6 @@ MODULE mo_name_list_output_types
   ! and thus whether the domain number in output name lists pertains to physical
   ! or logical patches.
   LOGICAL, PARAMETER :: l_output_phys_patch = .TRUE. !** DO NOT CHANGE - needed for GRIB output **!
-
-  INTEGER, PARAMETER :: max_z_axes = 43
 
   ! Character-strings denoting the "special" GRIB2 output fields that
   ! describe the grid coordinates. These fields are ignored by most
@@ -363,24 +362,6 @@ MODULE mo_name_list_output_types
   END TYPE t_fname_metadata
 
 
-  TYPE t_level_selection
-    !> number of selected levels
-    INTEGER :: n_selected
-
-    !> level selection as input in the form of a LOGICAL array
-    !  s(1...N), where "s(i)=.TRUE." means that level "i" is selected:
-    LOGICAL, ALLOCATABLE :: s(:)
-
-    !> integer list idx(1...n_selected) containing the selected level
-    !  indices.
-    INTEGER, ALLOCATABLE :: global_idx(:)
-
-    !> local index in the list of selected level indices (i.e. an
-    !  integer number in the range 1...n_selected).
-    INTEGER, ALLOCATABLE :: local_idx(:)
-  END TYPE t_level_selection
-
-
   TYPE t_output_file
     ! The following data must be set before opening the output file:
 
@@ -415,6 +396,9 @@ MODULE mo_name_list_output_types
     ! Selection of vertical levels (not necessarily present)
     TYPE (t_level_selection), POINTER     :: level_selection => NULL()        !< selection of vertical levels
 
+    ! Vertical axis meta-data
+    TYPE(t_verticalAxisList)              :: verticalAxisList
+
     ! The following members are set during open
     INTEGER                               :: cdiFileId
     INTEGER                               :: cdiVlistId                       !< cdi vlist handler
@@ -424,11 +408,9 @@ MODULE mo_name_list_output_types
     INTEGER                               :: cdiVertGridID
     INTEGER                               :: cdiEdgeGridID
     INTEGER                               :: cdiLonLatGridID
-    INTEGER                               :: cdiZaxisID(max_z_axes)           !< All types of possible Zaxis ID's
     INTEGER                               :: cdiTaxisID
     INTEGER                               :: cdiTaxisID_orig
     INTEGER                               :: cdiTimeIndex
-    INTEGER                               :: cdiInstID                        !< output generating institute
     INTEGER                               :: cdi_grb2(3,2)                    !< geographical position: (GRID, latitude/longitude)
     LOGICAL                               :: appending = .FALSE.              !< the current file is appended (.true.), otherwise .false. 
 

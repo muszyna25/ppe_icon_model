@@ -44,11 +44,11 @@ METDIR=%ECPERM%/%USER_ICON_DIR%/scripts/postprocessing/tools/metview
 #-----------------------------------------------------------------------------
 # scores: plot comparison between this experiment and a reference experiment
 
-module load idl
+module load gdl
 cp ${METDIR}/scores.pro ${METDIR}/batch_scores.pro ${METDIR}/paperopenl.pro ${METDIR}/paperclose.pro .
-idl batch_scores -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUITE2%/%EXPNUM2%/$YYYYMM/metplots \
+gdl batch_scores.pro -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUITE2%/%EXPNUM2%/$YYYYMM/metplots \
   %SUITE%_%EXPNUM% %SUITE2%_%EXPNUM2% ${YYYYMM}01 24 ${DD}
-idl batch_scores -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUITE2%/%EXPNUM2%/$YYYYMM/metplots \
+gdl batch_scores.pro -args %ECTEMP%/%SUITE%/%EXPNUM%/$YYYYMM/metplots %ECTEMP%/%SUITE2%/%EXPNUM2%/$YYYYMM/metplots \
   %SUITE%_%EXPNUM% %SUITE2%_%EXPNUM2% ${YYYYMM}01 240 ${DD}
 
 # help: offline

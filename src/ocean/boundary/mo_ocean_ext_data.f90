@@ -36,6 +36,9 @@ MODULE mo_ocean_ext_data
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: max_char_length, LAND
+  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
+    &                              GRID_UNSTRUCTURED_VERT,                         &
+    &                              GRID_CELL, GRID_EDGE, GRID_VERTEX
   USE mo_math_constants,     ONLY: dbl_eps
   USE mo_ocean_nml,          ONLY: iforc_oce, &
     & forcing_timescale, &
@@ -70,10 +73,7 @@ MODULE mo_ocean_ext_data
     &                              associate_keyword, with_keywords
   USE mo_cdi,                ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, TSTEP_CONSTANT, &
     &                              TSTEP_MAX, TSTEP_AVG, GRID_UNSTRUCTURED
-  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
-    &                              GRID_UNSTRUCTURED_VERT,                         &
-    &                              GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_SURFACE,  &
-    &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M
+  USE mo_zaxis_type,         ONLY: ZA_SURFACE, ZA_REFERENCE, ZA_PRESSURE, ZA_HEIGHT_2M
 
   USE mo_master_config,      ONLY: isRestart
   USE mo_io_config,          ONLY: lnetcdf_flt64_output
@@ -570,7 +570,7 @@ CONTAINS
       IF ( use_omip_fluxes ) THEN
 
       ! Read complete OMIP data sets for focing ocean model
-      !  - names are used in type t_atmos_for_ocean in mo_se_ice_types
+      !  - names are used in type t_atmos_for_ocean in mo_ocean_surface_types
       !  4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
       !  5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
       !  6:  fu10(:,:) ,  &  ! 10 m wind speed                                  [m/s]

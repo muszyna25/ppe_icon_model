@@ -54,6 +54,10 @@ MODULE mo_velocity_advection
 
   PUBLIC :: velocity_tendencies
 
+#ifdef _CRAYFTN
+#define __CRAY_FTN_VERSION (_RELEASE_MAJOR * 100 + _RELEASE_MINOR)
+#endif
+
 #if defined( _OPENACC )
 #if defined(__VELOCITY_ADVECTION_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
@@ -61,6 +65,13 @@ MODULE mo_velocity_advection
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
   LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
+#define __COLLAPSE_2_LOOPS !$ACC LOOP VECTOR COLLAPSE(2)
+#else
+#if defined(_INTEL_COMPILER)  
+#define __COLLAPSE_2_LOOPS !$OMP SIMD
+#else
+#define __COLLAPSE_2_LOOPS !NO LOOP COLLAPSE DIRECTIVE AVAILABLE
+#endif
 #endif
 
   CONTAINS
@@ -185,17 +196,11 @@ MODULE mo_velocity_advection
 !$ACC DATA PCOPY( p_prog, p_diag, z_w_concorr_me, z_kin_hor_e, z_vt_ie ), &
 !$ACC CREATE( z_w_concorr_mc, z_w_con_c, cfl_clipping, vcflmax, z_w_con_c_full, z_v_grad_w, z_w_v, zeta, z_ekinh, levmask, levelmask ), &
 !$ACC IF ( i_am_accel_node .AND. acc_on )
-#ifdef _OPENACC
-    vn_tmp              => p_prog%vn
-    w_tmp               => p_prog%w
-    vt_tmp              => p_diag%vt
-    vn_ie_tmp           => p_diag%vn_ie
-    w_concorr_c_tmp     => p_diag%w_concorr_c
-    ddt_vn_adv_tmp      => p_diag%ddt_vn_adv
-    ddt_w_adv_tmp       => p_diag%ddt_w_adv
 
-!$ACC UPDATE DEVICE ( vn_tmp, w_tmp, vt_tmp, vn_ie_tmp, w_concorr_c_tmp, ddt_vn_adv_tmp, ddt_w_adv_tmp ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC UPDATE DEVICE ( z_w_concorr_me, z_kin_hor_e, z_vt_ie ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+#ifdef _OPENACC
+! In validation mode, update all the needed fields on the device
+    IF ( acc_validate .AND. acc_on .AND. i_am_accel_node ) &
+      CALL h2d_velocity_tendencies( p_prog, p_diag, z_w_concorr_me, z_kin_hor_e, z_vt_ie )
 #endif
 
     ! Limit on vertical CFL number for applying extra diffusion
@@ -242,7 +247,7 @@ MODULE mo_velocity_advection
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+__COLLAPSE_2_LOOPS
 #ifdef __LOOP_EXCHANGE
         DO je = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -261,7 +266,7 @@ MODULE mo_velocity_advection
         ENDDO
 
         ! Interpolate vn to interface levels and compute horizontal part of kinetic energy on edges
-!$ACC LOOP VECTOR COLLAPSE(2)
+__COLLAPSE_2_LOOPS
         DO jk = 2, nlev
 !DIR$ IVDEP
           DO je = i_startidx, i_endidx
@@ -273,7 +278,8 @@ MODULE mo_velocity_advection
         ENDDO
 
         IF (.NOT. lvn_only) THEN ! Interpolate also vt to interface levels
-!$ACC LOOP VECTOR COLLAPSE(2)
+
+__COLLAPSE_2_LOOPS
           DO jk = 2, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
@@ -287,7 +293,7 @@ MODULE mo_velocity_advection
         ! Compute contravariant correction for vertical velocity at interface levels
         ! (will be interpolated to cell centers below)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+__COLLAPSE_2_LOOPS
         DO jk = nflatlev_jg, nlev
 !DIR$ IVDEP
           DO je = i_startidx, i_endidx
@@ -361,7 +367,7 @@ MODULE mo_velocity_advection
 
         ! Compute v*grad w on edges (level nlevp1 is not needed because w(nlevp1) is diagnostic)
         ! Note: this implicitly includes a minus sign for the gradients, which is needed later on
-!$ACC LOOP VECTOR COLLAPSE(2)
+__COLLAPSE_2_LOOPS
 #ifdef __LOOP_EXCHANGE
         DO je = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -422,7 +428,7 @@ MODULE mo_velocity_advection
                          i_startidx, i_endidx, rl_start, rl_end)
 
       ! Interpolate horizontal kinetic energy to cell centers
-!$ACC LOOP VECTOR COLLAPSE(2)
+__COLLAPSE_2_LOOPS
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -443,7 +449,7 @@ MODULE mo_velocity_advection
       IF (istep == 1) THEN
 
         ! Interpolate contravariant correction to cell centers ...
-!$ACC LOOP VECTOR COLLAPSE(2)
+__COLLAPSE_2_LOOPS
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -464,7 +470,7 @@ MODULE mo_velocity_advection
         ! ... and to interface levels
         ! Remark: computation of w_concorr_c at nlevp1 is needed in solve_nh only
         ! because this serves solely for setting the lower boundary condition for w
-!$ACC LOOP VECTOR COLLAPSE(2)
+__COLLAPSE_2_LOOPS
         DO jk = nflatlev_jg+1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -480,7 +486,7 @@ MODULE mo_velocity_advection
       z_w_con_c(:,nlevp1) = 0._wp
 
       ! Contravariant vertical velocity on w points and interpolation to full levels
-!$ACC LOOP VECTOR COLLAPSE(2)
+__COLLAPSE_2_LOOPS
       DO jk = nlev, nflatlev_jg+1, -1
 !DIR$ IVDEP
         DO jc = i_startidx, i_endidx
@@ -498,6 +504,7 @@ MODULE mo_velocity_advection
       ENDDO
 
       maxvcfl = 0
+!WS:  TODO, investigate how to collapse this loop with reduction with OMP 4.5
 !$ACC LOOP VECTOR, COLLAPSE(2), REDUCTION( max:maxvcfl )
       DO jk = MAX(3,nrdmax_jg-2), nlev-3
         DO jc = i_startidx, i_endidx
@@ -519,7 +526,7 @@ MODULE mo_velocity_advection
       ENDDO
       vcflmax(jb) = maxvcfl
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+__COLLAPSE_2_LOOPS
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
           z_w_con_c_full(jc,jk,jb) = 0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk+1))
@@ -535,7 +542,7 @@ MODULE mo_velocity_advection
 
 
       ! Compute vertical derivative terms of vertical wind advection
-!$ACC LOOP VECTOR COLLAPSE(2)
+__COLLAPSE_2_LOOPS
       DO jk = 2, nlev
 !DIR$ IVDEP
         DO jc = i_startidx_2, i_endidx_2
@@ -547,7 +554,7 @@ MODULE mo_velocity_advection
       ENDDO
 
       ! Interpolate horizontal advection of w from edges to cells and add to advective tendency
-!$ACC LOOP VECTOR COLLAPSE(2)
+__COLLAPSE_2_LOOPS
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx_2, i_endidx_2
 !DIR$ IVDEP
@@ -633,7 +640,7 @@ MODULE mo_velocity_advection
                          i_startidx, i_endidx, rl_start, rl_end)
 
       ! Sum up terms of horizontal wind advection: grad(Ekin_h) + vt*(f+relvort_e) + wcon_e*dv/dz
-!$ACC LOOP VECTOR COLLAPSE(2)
+__COLLAPSE_2_LOOPS
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
 !DIR$ IVDEP, PREFERVECTOR
@@ -669,7 +676,6 @@ MODULE mo_velocity_advection
         ! Search for grid points for which w_con is close to or above the CFL stability limit
         ! At these points, additional diffusion is applied in order to prevent numerical instability
         ie = 0
-
 !$ACC LOOP WORKER
         DO jk = MAX(3,nrdmax_jg-2), nlev-4
           IF (levelmask(jk) .OR. levelmask(jk+1)) THEN
@@ -708,8 +714,11 @@ MODULE mo_velocity_advection
 !$OMP END PARALLEL
 #endif
 
-!$ACC UPDATE HOST( z_kin_hor_e, z_vt_ie, z_w_concorr_me, vt_tmp, vn_ie_tmp, w_concorr_c_tmp ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. (istep==1) )
-!$ACC UPDATE HOST( ddt_vn_adv_tmp, ddt_w_adv_tmp(:,:,:,ntnd) ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+#ifdef _OPENACC
+! In validation mode, update all the output fields on the host
+    IF ( acc_validate .AND. acc_on .AND. i_am_accel_node ) &
+      CALL d2h_velocity_tendencies( istep, ntnd, p_diag, z_w_concorr_me, z_kin_hor_e, z_vt_ie )
+#endif
 
     ! Save maximum vertical CFL number for substep number adaptation
     i_startblk = p_patch%cells%start_block(grf_bdywidth_c)

@@ -26,12 +26,12 @@ MODULE mo_grid_nml
   USE mo_io_units,           ONLY: nnml, nnml_output,filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
-  USE mo_impl_constants,     ONLY: max_dom, itri
+  USE mo_impl_constants,     ONLY: max_dom
   USE mo_math_constants,     ONLY: rad2deg
-  USE mo_master_control,     ONLY: use_restart_namelists
+!  USE mo_master_control,     ONLY: use_restart_namelists
   USE mo_physical_constants, ONLY: earth_angular_velocity
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,     &
-    &                               open_and_restore_namelist, close_tmpfile
+!  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,     &
+!    &                               open_and_restore_namelist, close_tmpfile
 
   USE mo_grid_config,        ONLY:                                          &
     & config_lfeedback                    => lfeedback,                     &
@@ -86,7 +86,8 @@ MODULE mo_grid_nml
   SUBROUTINE read_grid_namelist( filename )
     
     CHARACTER(LEN=*), INTENT(IN) :: filename                                           
-    INTEGER  :: i_status, i, funit
+    INTEGER  :: i_status, i
+!    INTEGER  :: funit
 
     LOGICAL    :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
     INTEGER    :: ifeedback_type           ! type of feedback (incremental or relaxation)

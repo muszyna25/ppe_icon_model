@@ -120,7 +120,7 @@ MODULE mo_output_event_handler
 
   USE mo_kind,                   ONLY: i8
   USE mo_impl_constants,         ONLY: SUCCESS, MAX_TIME_INTERVALS
-  USE mo_exception,              ONLY: finish, message
+  USE mo_exception,              ONLY: finish
   USE mo_io_units,               ONLY: FILENAME_MAX, find_next_free_unit
   USE mo_util_string,            ONLY: int2string, remove_whitespace
   USE mo_mpi,                    ONLY: p_int,                                               &
@@ -144,6 +144,7 @@ MODULE mo_output_event_handler
   USE mo_name_list_output_types, ONLY: t_fname_metadata
   USE mo_util_table,             ONLY: initialize_table, finalize_table, add_table_column,  &
     &                                  set_table_entry, print_table, t_table
+  USE mo_name_list_output_config,   ONLY: use_async_name_list_io
   IMPLICIT NONE
 
   ! public subroutines + functions:
@@ -176,7 +177,9 @@ MODULE mo_output_event_handler
   PUBLIC :: is_output_event_finished
   ! handshake routines (called after steps)
   PUBLIC :: pass_output_step
+#ifndef NOMPI
   PUBLIC :: trigger_output_step_irecv
+#endif
   ! auxiliary functions
   PUBLIC :: print_output_event
   PUBLIC :: set_event_to_simstep
@@ -819,21 +822,25 @@ CONTAINS
         n_event_steps_b = n_event_steps
         n_event_steps = 0      
         
-        CALL merge2SortedAndRemoveDuplicates(mtime_date_container_a, n_event_steps_a, &
-             &                               mtime_date_container_b, n_event_steps_b, &
-             &                               mtime_date_uniq, remaining_event_steps)
-      ENDIF
+        IF (n_event_steps_b > 0) THEN
+          CALL merge2SortedAndRemoveDuplicates(mtime_date_container_a, n_event_steps_a, &
+            &                               mtime_date_container_b, n_event_steps_b, &
+            &                               mtime_date_uniq, remaining_event_steps)
 
-      IF (remaining_event_steps > SIZE(mtime_date_container_a)) THEN
-        ALLOCATE(tmp(SIZE(mtime_date_container_a)), stat=ierrstat)
-        IF (ierrstat /= 0) STOP 'allocate failed'
-        tmp(1:remaining_event_steps) = mtime_date_uniq(1:remaining_event_steps)
-        CALL MOVE_ALLOC(tmp, mtime_date_container_a)
+          IF (remaining_event_steps > SIZE(mtime_date_container_a)) THEN
+            ALLOCATE(tmp(SIZE(mtime_date_container_a)), stat=ierrstat)
+            IF (ierrstat /= 0) STOP 'allocate failed'
+            tmp(1:remaining_event_steps) = mtime_date_uniq(1:remaining_event_steps)
+            CALL MOVE_ALLOC(tmp, mtime_date_container_a)
+          ELSE
+            mtime_date_container_a(1:remaining_event_steps) = mtime_date_uniq(1:remaining_event_steps)
+          ENDIF
+          
+          n_event_steps_a = remaining_event_steps
+          
+          DEALLOCATE(mtime_date_uniq)
+        END IF
       ENDIF
-      
-      n_event_steps_a = remaining_event_steps
-      
-      DEALLOCATE(mtime_date_uniq)
       
     END DO INTERVAL_LOOP
 
@@ -2341,11 +2348,16 @@ CONTAINS
     TYPE(t_par_output_event), POINTER :: event
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::pass_output_step"
+    LOGICAL :: step_is_not_finished
 #ifndef NOMPI
     INTEGER :: ierrstat, impi_status(MPI_STATUS_SIZE), istep, i_tag
+#endif
 
-    IF (.NOT. is_output_event_finished(event) .AND. &
-      & (event%icomm /= MPI_COMM_NULL)) THEN
+    step_is_not_finished = .NOT. is_output_event_finished(event)
+
+#ifndef NOMPI
+    IF (use_async_name_list_io .AND. step_is_not_finished &
+         .AND. (event%icomm /= MPI_COMM_NULL)) THEN
       ! wait for the last ISEND to be processed:
       IF (ldebug) WRITE (0,*) p_pe, ": waiting for request handle."
       CALL MPI_WAIT(event%isend_req, impi_status, ierrstat)
@@ -2369,15 +2381,16 @@ CONTAINS
           &         " )"
       END IF
     END IF
-
 #endif
-    IF (.NOT. is_output_event_finished(event)) THEN
+
+    IF (step_is_not_finished) THEN
       ! increment step counter
       event%output_event%i_event_step = event%output_event%i_event_step + 1
     END IF
   END SUBROUTINE pass_output_step
 
 
+#ifndef NOMPI
   !> Place MPI_IRECV calls, thereby asking all participating PEs for
   !> acknowledging the completion of the output step.
   !
@@ -2390,7 +2403,6 @@ CONTAINS
   SUBROUTINE trigger_output_step_irecv(event)
     TYPE(t_par_output_event), POINTER :: event
     ! local variables
-#ifndef NOMPI
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::trigger_output_step_irecv"
     INTEGER                     :: ierrstat, cur_step, i, i_pe, i_tag
     TYPE(t_event_step), POINTER :: event_step
@@ -2429,11 +2441,8 @@ CONTAINS
         IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_IRECV.')
       END DO
     END IF
-#else
-    ! increment event step counter:
-    event%output_event%i_event_step = event%output_event%i_event_step + 1
-#endif
   END SUBROUTINE trigger_output_step_irecv
+#endif
 
 
   !> Utility routine: blocking wait for pending "output completed"
@@ -2514,7 +2523,9 @@ CONTAINS
     ev => event
     DO
       IF (.NOT. ASSOCIATED(ev)) EXIT
-      ev%irecv_req(:) = MPI_REQUEST_NULL
+      IF (ALLOCATED(ev%irecv_req)) THEN
+        ev%irecv_req(:) = MPI_REQUEST_NULL
+      END IF
       ev => ev%next
     END DO
 #endif

@@ -17,24 +17,33 @@ MODULE mo_load_restart
       &                              vlistInqTaxis, vlistNvars,                                   &
       &                              vlistInqVarName, vlistInqVarGrid, vlistInqVarZaxis,          &
       &                              taxisInqVdate, taxisInqVtime, zaxisInqType, zaxisInqSize,    &
-      &                              gridInqSize, ZAXIS_SURFACE
+      &                              gridInqSize, ZAXIS_SURFACE, cdiStringError
+    USE mo_fortran_tools,      ONLY: t_alloc_character
+    USE mo_dictionary,         ONLY: t_dictionary, dict_size, dict_getKey, dict_set, dict_init,   &
+      &                              dict_finalize
+    USE mo_communication,      ONLY: t_ScatterPattern
+    USE mo_exception,          ONLY: message, finish, warning
+    USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SINGLE_T, REAL_T, INT_T, SUCCESS
     USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT,              &
       &                              GRID_UNSTRUCTURED_EDGE
-    USE mo_communication,      ONLY: t_ScatterPattern
-    USE mo_exception,          ONLY: message, finish
-    USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SINGLE_T, REAL_T, INT_T
+    USE mo_load_multifile_restart, ONLY: multifileReadPatch, multifileCheckRestartFiles
+    USE mo_load_singlefile_restart, ONLY: singlefileReadPatch, singlefileCheckRestartFiles
     USE mo_kind,               ONLY: dp, sp
     USE mo_linked_list,        ONLY: t_list_element
     USE mo_model_domain,       ONLY: t_patch
-    USE mo_mpi,                ONLY: p_comm_work, p_comm_rank, p_bcast, my_process_is_mpi_workroot
+    USE mo_mpi,                ONLY: p_comm_work, p_comm_rank, my_process_is_mpi_workroot, my_process_is_stdio
+    USE mo_multifile_restart_util, ONLY: multifileRestartLinkName, multifileAttributesPath
     USE mo_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make,           &
-      &                              setAttributesForRestarting
+      &                              setAttributesForRestarting, getAttributesForRestarting
     USE mo_restart_namelist,   ONLY: t_NamelistArchive, namelistArchive
-    USE mo_util_cdi,           ONLY: cdiGetStringError
-    USE mo_util_hash,          ONLY: util_hashword
-    USE mo_util_string,        ONLY: int2string, separator
-    USE mo_var_list,           ONLY: nvar_lists, var_lists, find_list_element
-    USE mo_var_metadata_types, ONLY: t_var_metadata
+    USE mo_restart_util,       ONLY: restartSymlinkName
+    USE mo_restart_var_data,   ONLY: t_restartVarData, createRestartVarData
+    USE mo_timer,              ONLY: timer_start, timer_stop, timer_load_restart, timer_load_restart_io, &
+                                   & timer_load_restart_comm_setup, timer_load_restart_communication, &
+                                   & timer_load_restart_get_var_id, timers_level
+    USE mo_util_string,        ONLY: int2string, separator, toCharacter
+    USE mo_var_list,           ONLY: nvar_lists, var_lists
+
     IMPLICIT NONE
 
     PUBLIC :: read_restart_files, read_restart_header
@@ -43,433 +52,235 @@ MODULE mo_load_restart
 
 CONTAINS
 
-  !------------------------------------------------------------------------------------------------
-  !> Reads attributes and namelists for all available domains from restart file.
-  !>
-  !> XXX: The code that I found READ the restart attributes from all the files,
-  !>      *appending* them to the list of attributes. Since all restart files contain the same attributes,
-  !>      this ONLY served to duplicate them. The current code just ignores the attributes IN all but the first file,
-  !>      just like the original code ignored the namelists IN all but the first file.
-  !>      However, it might be a good idea to add some consistency checking on the attributes/namelists of the other files.
-  SUBROUTINE read_restart_header(modeltype_str)
-    CHARACTER(LEN=*), INTENT(IN) :: modeltype_str
+  !Checks the existence of either a single- OR multifile restart
+  !symlink, throwing a warning IF both exist.  Returns the path to the
+  !symlink that IS to be used, out_lIsMultifile IS TRUE IF that
+  !symlink points to a multifile.
+  !
+  !The RESULT of the first CALL IS cached, so that this FUNCTION may
+  !be called several times without negative consequences.
+  FUNCTION findRestartFile(modelType, out_lIsMultifile) RESULT(linkname)
+    CHARACTER(:), ALLOCATABLE :: linkname
+    CHARACTER(*), INTENT(IN) :: modelType
+    LOGICAL, INTENT(OUT) :: out_lIsMultifile
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: rst_filename
-    LOGICAL :: lexists
-    INTEGER :: idom, total_dom, fileID, vlistID, myRank
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
-    INTEGER, PARAMETER :: root_pe = 0
-    TYPE(t_RestartAttributeList), SAVE, POINTER :: restartAttributes
+    LOGICAL, SAVE :: cache_isValid = .FALSE., cache_isMultifile
+    CHARACTER(:), ALLOCATABLE :: singlefileLinkName, multifileLinkName
+    LOGICAL :: haveSinglefileLink, haveMultifileLink
+    CHARACTER(*), PARAMETER :: routine = modname//":findRestartFile"
+
+    IF(modelType == '') CALL finish(routine, "assertion failed: invalid modelType")
+
+    IF(.NOT.cache_isValid) THEN
+        !get the two possible paths
+        singlefileLinkName = restartSymlinkName(modelType, 1)
+        multifileLinkName = multifileRestartLinkName(modelType)
+
+        !check whether the respective files exist
+        INQUIRE(file = singlefileLinkName, exist = haveSinglefileLink)
+#if defined (__INTEL_COMPILER)
+        INQUIRE(directory = multifileLinkName, exist = haveMultifileLink)
+#else
+        INQUIRE(file = multifileLinkName, exist = haveMultifileLink)
+#endif
+
+        !determine which path to USE
+        IF(haveSinglefileLink) THEN
+            IF(haveMultifileLink) THEN
+                CALL warning(routine, "both a singlefile and a multifile restart file are present, using the multifile restart")
+                cache_isMultifile = .TRUE.
+            ELSE
+                cache_isMultifile = .FALSE.
+            END IF
+        ELSE
+            IF(haveMultifileLink) THEN
+                cache_isMultifile = .TRUE.
+            ELSE
+              WRITE (0,*) "singlefileLinkName = ", singlefileLinkName
+              WRITE (0,*) "multifileLinkName = ", multifileLinkName
+                CALL finish(routine, "fatal error: could not locate the restart symlink to use")
+            END IF
+        END IF
+
+        cache_isValid = .TRUE.
+    END IF
+
+    out_lIsMultifile = cache_isMultifile
+    IF(cache_isMultifile) THEN
+        linkname = multifileRestartLinkName(modelType)
+    ELSE
+        linkname = restartSymlinkName(modelType, 1)
+    END IF
+  END FUNCTION findRestartFile
+
+  ! Read all namelists used in the previous run
+  ! and store them in a buffer. These values will overwrite the
+  ! model default, and will later be overwritten if the user has
+  ! specified something different for this integration.
+  !
+  ! Note: We read the namelists AND attributes only once and assume that these
+  !       are identical for all domains (which IS guaranteed by the way the restart files are written).
+  !
+  ! Collective across p_comm_work.
+  !
+  ! This IS used for both single- AND multifile restart files.
+  SUBROUTINE readRestartAttributeFile(attributeFile)
+    CHARACTER(*), INTENT(IN) :: attributeFile
+
+    INTEGER :: myRank, fileId, vlistId
     TYPE(t_NamelistArchive), POINTER :: namelists
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//":read_restart_header"
+    CHARACTER(:), POINTER :: cdiErrorText
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    CHARACTER(*), PARAMETER :: routine = modname//":readRestartAttributeFile"
 
-    ! rank of broadcast root PE
     myRank = p_comm_rank(p_comm_work)
 
-    idom = 1
-    rst_filename = "restart_"//TRIM(modeltype_str)//"_DOM"//TRIM(int2string(idom, "(i2.2)"))//".nc"
-
-    ! test if the domain-dependent restart file exists:
-    INQUIRE(file=TRIM(rst_filename), exist=lexists)
-    ! otherwise, give a warning and resort to the old naming scheme:
-    IF (.NOT. lexists) THEN
-        CALL finish(routine, "Restart file not found! Expected name: restart_<model_type>_DOM<2 digit domain number>.nc")
-    END IF
-
-    ! Read all namelists used in the previous run
-    ! and store them in a buffer. These values will overwrite the
-    ! model default, and will later be overwritten if the user has
-    ! specified something different for this integration.
-
-    ! Note: We read the namelists AND attributes only once and assume that these
-    !       are identical for all domains (which IS guaranteed by the way the restart files are written).
-
     namelists => namelistArchive()
-    IF (myRank == root_pe) THEN
-        fileID  = streamOpenRead(TRIM(rst_filename))
+    IF(myRank == 0) THEN
+        fileId  = streamOpenRead(attributeFile)
         ! check if the file could be opened
-        IF (fileID < 0) THEN
-            CALL cdiGetStringError(fileID, cdiErrorText)
-            CALL finish(routine, 'File '//TRIM(rst_filename)//' cannot be opened: '//TRIM(cdiErrorText))
-        ENDIF
+        IF(fileId < 0) THEN
+            cdiErrorText => toCharacter(cdiStringError(fileId))
+            CALL finish(routine, 'File '//attributeFile//' cannot be opened: '//cdiErrorText)
+        END IF
 
-        vlistID = streamInqVlist(fileID)
+        vlistId = streamInqVlist(fileId)
         CALL namelists%readFromFile(vlistId)
     END IF
-    CALL namelists%bcast(root_pe, p_comm_work)
-    restartAttributes => RestartAttributeList_make(vlistID, root_pe, p_comm_work)
+
+    CALL namelists%bcast(0, p_comm_work)
+    restartAttributes => RestartAttributeList_make(vlistId, 0, p_comm_work)
     CALL setAttributesForRestarting(restartAttributes)
-    IF (myRank == root_pe) CALL streamClose(fileID)
+    IF(myRank == 0) THEN
+        CALL streamClose(fileId)
 
-    CALL message(TRIM(routine), 'read namelists AND attributes from restart file')
+        WRITE(0,*) "restart: read namelists and attributes from restart file"
+    END IF
+  END SUBROUTINE readRestartAttributeFile
 
-    ! since we do not know about the total number of domains yet,
-    ! we have to ask the restart file for this information:
-    total_dom = restartAttributes%getInteger( 'n_dom' )
+  SUBROUTINE multifileReadRestartMetadata(filename)
+    CHARACTER(*), INTENT(IN) :: filename
 
-    ! check whether we have all the restart files we expect
-    IF (myRank == root_pe) THEN
-        DO idom = 2, total_dom
-            rst_filename = "restart_"//TRIM(modeltype_str)//"_DOM"//TRIM(int2string(idom, "(i2.2)"))//".nc"
-            IF (idom > 1) INQUIRE(file=TRIM(rst_filename), exist=lexists)
-            IF (lexists) THEN
-                CALL message(TRIM(routine), 'read global attributes from restart file')
-            ELSE
-                CALL message(TRIM(routine), 'Warning: domain not active at restart time')
-            ENDIF
-        END DO
+    CHARACTER(*), PARAMETER :: routine = modname//":multifileReadRestartMetadata"
+
+    CALL readRestartAttributeFile(multifileAttributesPath(filename))
+  END SUBROUTINE multifileReadRestartMetadata
+
+  ! Reads attributes and namelists for all available domains from restart file.
+  SUBROUTINE read_restart_header(modelType)
+    CHARACTER(LEN=*), INTENT(IN) :: modelType
+
+    CHARACTER(:), ALLOCATABLE :: filename
+    LOGICAL :: lIsMultifile
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//":read_restart_header"
+
+    ! Must NOT USE a timer here as the timers are NOT initialized yet,
+    ! AND I dare NOT to make such a significant order change within construct_atmo_model()
+    ! for fear of silently breaking the initialization of some other global variable.
+!   IF(timers_level >= 5) CALL timer_start(timer_load_restart)
+
+    filename = findRestartFile(modelType, lIsMultifile)
+    IF(lIsMultifile) THEN
+        CALL multifileReadRestartMetadata(filename)
+        IF(my_process_is_stdio()) CALL multifileCheckRestartFiles(filename)
+    ELSE
+        CALL readRestartAttributeFile(filename)
+        IF(my_process_is_stdio()) CALL singlefileCheckRestartFiles(modelType)
     END IF
 
+    ! See above.
+!   IF(timers_level >= 5) CALL timer_stop(timer_load_restart)
   END SUBROUTINE read_restart_header
+
+  !returns an array with all the different model types that are PRESENT IN var_lists
+  SUBROUTINE getModelTypes(domain, resultVar) 
+    TYPE(t_alloc_character), ALLOCATABLE, INTENT(INOUT) :: resultVar(:)
+    INTEGER, INTENT(IN) :: domain
+
+    TYPE(t_dictionary) :: modelTypes    !this dictionary IS actually used as a set, so the values are empty strings
+    INTEGER :: i, modelTypeCount, error
+    CHARACTER(*), PARAMETER :: routine = modname//":getModelTypes"
+
+    CALL dict_init(modelTypes, .TRUE.)
+
+    !insert all the model_type strings as keys into the dictionary
+    DO i = 1, nvar_lists
+        IF(var_lists(i)%p%patch_id == domain) THEN
+          CALL dict_set(modelTypes, var_lists(i)%p%model_type, "")
+        END IF
+    END DO
+
+    !convert the RESULT into an array
+    modelTypeCount = dict_size(modelTypes)
+    ALLOCATE(resultVar(modelTypeCount), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+    DO i = 1, modelTypeCount
+        resultVar(i)%a = TRIM(dict_getKey(modelTypes, i))
+    END DO
+
+    CALL dict_finalize(modelTypes)
+  END SUBROUTINE getModelTypes
 
   SUBROUTINE read_restart_files(p_patch, opt_ndom)
     TYPE(t_patch), INTENT(in) :: p_patch
-    INTEGER,       OPTIONAL, INTENT(in) :: opt_ndom
-    ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//"::read_restart_files"
+    INTEGER, OPTIONAL, INTENT(in) :: opt_ndom
 
-    TYPE model_search
-      CHARACTER(len=8) :: abbreviation
-      INTEGER          :: key
-    END type model_search
-    TYPE(model_search) :: abbreviations(nvar_lists)
+    CHARACTER(:), ALLOCATABLE :: restartPath
+    LOGICAL :: lIsMultifileRestart, lMultifileTimersInitialized
+    TYPE(t_alloc_character), ALLOCATABLE :: modelTypes(:)
+    INTEGER :: i, integerTrash
+    TYPE(t_restartVarData), POINTER :: varData(:)
 
-    TYPE (t_list_element), POINTER   :: element
-    TYPE (t_var_metadata), POINTER   :: info
-    CHARACTER(len=80)                :: restart_filename, name
-    INTEGER                          :: fileID, vlistID, gridID, zaxisID, taxisID, varID, idate, itime, ic, il, n, nfiles, i, &
-                                      & istat, key, vgrid, nindex, nmiss, nvars, root_pe, var_ref_pos, lev
-    CHARACTER(len=8)                 :: model_type
-    REAL(dp), POINTER                :: r1d_d(:), rptr2d_d(:,:), rptr3d_d(:,:,:)
-    REAL(sp), POINTER                :: r1d_s(:), rptr2d_s(:,:), rptr3d_s(:,:,:)
-    INTEGER, POINTER                 :: iptr2d(:,:), iptr3d(:,:,:)
-    CLASS(t_scatterPattern), POINTER :: scatter_pattern
-    LOGICAL                          :: flag_dp
+    IF(timers_level >= 5) CALL timer_start(timer_load_restart)
 
-    NULLIFY(r1d_d)
-    NULLIFY(r1d_s)
-
-    ! rank of broadcast root PE
-    root_pe = 0
-
-    IF (my_process_is_mpi_workroot()) THEN
-      WRITE(0,*) "read_restart_files, nvar_lists=", nvar_lists
+    ! Make sure that all the subcounters are recognized as subcounters on all work processes.
+    IF(timers_level >= 7) THEN
+        CALL timer_start(timer_load_restart_io)
+        CALL timer_stop(timer_load_restart_io)
+        CALL timer_start(timer_load_restart_communication)
+        CALL timer_stop(timer_load_restart_communication)
     END IF
-    abbreviations(1:nvar_lists)%key          = 0
-    abbreviations(1:nvar_lists)%abbreviation = ""
-    key = 0
-    n   = 1
-    for_all_model_types: DO i = 1, nvar_lists
-      ! skip var_list if it does not match the current patch ID
-      IF (var_lists(i)%p%patch_id /= p_patch%id) CYCLE
+    lMultifileTimersInitialized = .FALSE.
 
-      key = util_hashword(TRIM(var_lists(i)%p%model_type), LEN_TRIM(var_lists(i)%p%model_type), 0)
-      IF (.NOT. ANY(abbreviations(1:n)%key == key)) THEN
-        abbreviations(n)%abbreviation = var_lists(i)%p%model_type
-        abbreviations(n)%key = key
-        n = n+1
-      ENDIF
-    ENDDO for_all_model_types
+    IF(my_process_is_mpi_workroot()) THEN
+        WRITE(0,*) "restart: reading restart data for patch "//TRIM(int2string(p_patch%id))// &
+                 & ", nvar_lists = "//TRIM(int2string(nvar_lists))
+    END IF
 
-    ALLOCATE(r1d_d(1),STAT=istat)
-    IF (istat /= 0) THEN
-      CALL finish('','allocation of r1d_d failed ...')
-    ENDIF
+    ! get the list of all the different model types that we need to
+    ! consider:
+    CALL getModelTypes(p_patch%id, modelTypes)
 
-    nfiles = n-1
+    DO i = 1, SIZE(modelTypes)
+        varData => createRestartVarData(p_patch%id, modelTypes(i)%a, integerTrash)
 
-    for_all_files: DO n = 1, nfiles
-      model_type =TRIM(abbreviations(n)%abbreviation)
-      IF (PRESENT(opt_ndom)) THEN
-        IF (opt_ndom > 1) THEN
-          restart_filename = 'restart_'//TRIM(model_type)//"_DOM"//TRIM(int2string(p_patch%id, "(i2.2)"))//'.nc'
+        !determine whether we have a multifile to READ
+        restartPath = findRestartFile(modelTypes(i)%a, lIsMultifileRestart)
+        IF(lIsMultifileRestart) THEN
+            !multifile loading also uses these two timers
+            IF(timers_level >= 7 .AND..NOT.lMultifileTimersInitialized) THEN
+                CALL timer_start(timer_load_restart_comm_setup)
+                CALL timer_stop(timer_load_restart_comm_setup)
+                CALL timer_start(timer_load_restart_get_var_id)
+                CALL timer_stop(timer_load_restart_get_var_id)
+                lMultifileTimersInitialized = .TRUE.
+            END IF
+
+            !load the multifile
+            CALL multifileReadPatch(varData, p_patch, restartPath)
         ELSE
-          restart_filename = 'restart_'//TRIM(model_type)//'_DOM01.nc'
+            !can't USE restartPath here because the path IS patch dependent IN the single file CASE
+            CALL singlefileReadPatch(varData, modelTypes(i)%a, p_patch, opt_ndom)
         END IF
-      ELSE
-        restart_filename = 'restart_'//TRIM(model_type)//'_DOM01.nc'
-      END IF
-      name = TRIM(restart_filename)//CHAR(0)
 
-      IF (my_process_is_mpi_workroot()) THEN
-        WRITE(0,*) "streamOpenRead ", TRIM(restart_filename)
+        DEALLOCATE(varData)
+    END DO
 
-        fileID  = streamOpenRead(TRIM(name))
-        IF(fileID < 0) CALL finish(routine, "could not open file '"//TRIM(NAME)//"'")
-        vlistID = streamInqVlist(fileID)
-        taxisID = vlistInqTaxis(vlistID)
-
-        idate   = taxisInqVdate(taxisID)
-        itime   = taxisInqVtime(taxisID)
-      END IF
-      CALL message('read_restart_files', 'Read restart for: '//TRIM(int2string(idate))//'T'//TRIM(int2string(itime))//'Z '//&
-                                       & 'from '//TRIM(restart_filename))
-
-      IF (my_process_is_mpi_workroot()) THEN
-        nvars = vlistNvars(vlistID)
-      END IF
-      CALL p_bcast(nvars, root_pe, comm=p_comm_work)
-
-      for_all_vars: DO varID = 0, (nvars-1)
-
-        IF (my_process_is_mpi_workroot()) THEN
-          CALL vlistInqVarName(vlistID, varID, name)
-        END IF
-        CALL p_bcast(name, root_pe, comm=p_comm_work)
-
-        for_all_lists: DO i = 1, nvar_lists
-          ! skip var_list if it does not match the current patch ID
-          IF (var_lists(i)%p%patch_id   /= p_patch%id) CYCLE
-          IF (var_lists(i)%p%model_type /= model_type) CYCLE
-
-          element => find_list_element(var_lists(i), TRIM(name))
-          IF (ASSOCIATED(element)) THEN
-            IF (element%field%info%lrestart) THEN
-
-              info => element%field%info
-
-              ! allocate temporary global array on output processor
-              ! and gather field from other processors
-
-              NULLIFY(rptr2d_d)
-              NULLIFY(rptr3d_d)
-              NULLIFY(rptr2d_s)
-              NULLIFY(rptr3d_s)
-              NULLIFY(iptr2d)
-              NULLIFY(iptr3d)
-
-              ! set a flag which indicates if the current variable
-              ! uses a double precision buffer:
-              SELECT CASE(info%data_type)
-              CASE(REAL_T, INT_T)
-                ! Read-in of INTEGER fields: we read them as
-                ! REAL-valued arrays and transform them using NINT.
-                flag_dp = .TRUE.
-              CASE(SINGLE_T)
-                flag_dp = .FALSE.
-              CASE DEFAULT
-                CALL finish(routine, "Internal error! Variable "//TRIM(info%name))
-              END SELECT
-
-              IF (my_process_is_mpi_workroot()) THEN
-                gridID  = vlistInqVarGrid(vlistID, varID)
-                zaxisID = vlistInqVarZaxis(vlistID, varID)
-                vgrid   = zaxisInqType(zaxisID)
-                ic      = gridInqSize(gridID)
-
-                IF (flag_dp) THEN
-                  IF (SIZE(r1d_d, 1) /= ic) THEN
-                    IF (ASSOCIATED(r1d_d))  DEALLOCATE(r1d_d)
-                    ALLOCATE(r1d_d(ic),STAT=istat)
-                    IF (istat /= 0)  CALL finish('','allocation of r1d_d failed ...')
-                  END IF
-                ELSE
-                  IF (SIZE(r1d_s, 1) /= ic) THEN
-                    IF (ASSOCIATED(r1d_s))  DEALLOCATE(r1d_s)
-                    ALLOCATE(r1d_s(ic),STAT=istat)
-                    IF (istat /= 0)  CALL finish('','allocation of r1d_s failed ...')
-                  END IF
-                END IF
-
-                IF (vgrid == ZAXIS_SURFACE) THEN
-                  il = 1
-                ELSE
-                  il = zaxisInqSize(zaxisID)
-                ENDIF
-              END IF
-
-              CALL p_bcast(il, root_pe, comm=p_comm_work)
-
-              IF (info%lcontained) THEN
-                nindex = info%ncontained
-              ELSE
-                nindex = 1
-              ENDIF
-
-              SELECT CASE(info%ndims)
-              CASE (2)
-                var_ref_pos = 3
-                IF (info%lcontained)  var_ref_pos = info%var_ref_pos
-                SELECT CASE(info%data_type)
-                CASE(REAL_T)
-                  SELECT CASE(var_ref_pos)
-                  CASE (1)
-                    rptr2d_d => element%field%r_ptr(nindex,:,:,1,1)
-                  CASE (2)
-                    rptr2d_d => element%field%r_ptr(:,nindex,:,1,1)
-                  CASE (3)
-                    rptr2d_d => element%field%r_ptr(:,:,nindex,1,1)
-                  CASE default
-                    CALL finish(routine, "internal error!")
-                  END SELECT
-                  !
-                CASE(SINGLE_T)
-                  SELECT CASE(var_ref_pos)
-                  CASE (1)
-                    rptr2d_s => element%field%s_ptr(nindex,:,:,1,1)
-                  CASE (2)
-                    rptr2d_s => element%field%s_ptr(:,nindex,:,1,1)
-                  CASE (3)
-                    rptr2d_s => element%field%s_ptr(:,:,nindex,1,1)
-                  CASE default
-                    CALL finish(routine, "internal error!")
-                  END SELECT
-                  !
-                CASE(INT_T)
-                  !
-                  SELECT CASE(var_ref_pos)
-                  CASE (1)
-                    iptr2d => element%field%i_ptr(nindex,:,:,1,1)
-                  CASE (2)
-                    iptr2d => element%field%i_ptr(:,nindex,:,1,1)
-                  CASE (3)
-                    iptr2d => element%field%i_ptr(:,:,nindex,1,1)
-                  CASE default
-                    CALL finish(routine, "internal error!")
-                  END SELECT
-                  ! We use a REAL-valued buffer for read-in of INTEGER
-                  ! fields; allocate it here:
-                  !
-                  ALLOCATE(rptr2d_d(SIZE(iptr2d,1),SIZE(iptr2d,2)))
-                  rptr2d_d(:,:) = 0._dp
-                  !
-                END SELECT
-                !
-              CASE (3)
-                var_ref_pos = 4
-                IF (info%lcontained)  var_ref_pos = info%var_ref_pos
-                SELECT CASE(info%data_type)
-                CASE(REAL_T)
-                  SELECT CASE(var_ref_pos)
-                  CASE (1)
-                    rptr3d_d => element%field%r_ptr(nindex,:,:,:,1)
-                  CASE (2)
-                    rptr3d_d => element%field%r_ptr(:,nindex,:,:,1)
-                  CASE (3)
-                    rptr3d_d => element%field%r_ptr(:,:,nindex,:,1)
-                  CASE (4)
-                    rptr3d_d => element%field%r_ptr(:,:,:,nindex,1)
-                  CASE default
-                    CALL finish(routine, "internal error!")
-                  END SELECT
-                  !
-                CASE(SINGLE_T)
-                  SELECT CASE(var_ref_pos)
-                  CASE (1)
-                    rptr3d_s => element%field%s_ptr(nindex,:,:,:,1)
-                  CASE (2)
-                    rptr3d_s => element%field%s_ptr(:,nindex,:,:,1)
-                  CASE (3)
-                    rptr3d_s => element%field%s_ptr(:,:,nindex,:,1)
-                  CASE (4)
-                    rptr3d_s => element%field%s_ptr(:,:,:,nindex,1)
-                  CASE default
-                    CALL finish(routine, "internal error!")
-                  END SELECT
-                  !
-                CASE(INT_T)
-                  ! 
-                  SELECT CASE(var_ref_pos)
-                  CASE (1)
-                    iptr3d => element%field%i_ptr(nindex,:,:,:,1)
-                  CASE (2)
-                    iptr3d => element%field%i_ptr(:,nindex,:,:,1)
-                  CASE (3)
-                    iptr3d => element%field%i_ptr(:,:,nindex,:,1)
-                  CASE (4)
-                    iptr3d => element%field%i_ptr(:,:,:,nindex,1)
-                  CASE default
-                    CALL finish(routine, "internal error!")
-                  END SELECT
-                  ! We use a REAL-valued buffer for read-in of INTEGER
-                  ! fields; allocate it here:
-                  !
-                  ALLOCATE(rptr3d_d(SIZE(iptr3d,1),SIZE(iptr3d,2),SIZE(iptr3d,3)))
-                  rptr3d_d(:,:,:) = 0._dp
-                  !
-                END SELECT
-              CASE DEFAULT
-                CALL finish(routine, "internal error!")
-              END SELECT
-              
-              SELECT CASE (info%hgrid)
-              CASE (GRID_UNSTRUCTURED_CELL)
-                scatter_pattern => p_patch%comm_pat_scatter_c
-              CASE (GRID_UNSTRUCTURED_VERT)
-                scatter_pattern => p_patch%comm_pat_scatter_v
-              CASE (GRID_UNSTRUCTURED_EDGE)
-                scatter_pattern => p_patch%comm_pat_scatter_e
-              CASE default
-                CALL finish('out_stream','unknown grid type')
-              END SELECT
-
-              DO lev = 1, il
-                IF (my_process_is_mpi_workroot()) THEN
-                  IF (flag_dp) THEN
-                    CALL streamReadVarSlice(fileID, varID, lev-1, r1d_d, nmiss)
-                  ELSE
-                    CALL streamReadVarSliceF(fileID, varID, lev-1, r1d_s, nmiss)
-                  END IF
-                ENDIF
-                IF (info%ndims == 2) THEN
-                  IF (ASSOCIATED(rptr2d_d)) THEN
-                    CALL scatter_pattern%distribute(r1d_d, rptr2d_d, .FALSE.)
-                  END IF
-                  IF (ASSOCIATED(rptr2d_s)) THEN
-                    CALL scatter_pattern%distribute(r1d_s, rptr2d_s, .FALSE.)
-                  END IF
-                ELSE
-                  IF (ASSOCIATED(rptr3d_d)) THEN
-                    CALL scatter_pattern%distribute(r1d_d, rptr3d_d(:,lev,:), .FALSE.)
-                  END IF
-                  IF (ASSOCIATED(rptr3d_s)) THEN
-                    CALL scatter_pattern%distribute(r1d_s, rptr3d_s(:,lev,:), .FALSE.)
-                  END IF
-                ENDIF
-
-              END DO
-
-              ! Read-in of INTEGER fields: we read them as REAL-valued
-              ! arrays and transform them using NINT.
-              SELECT CASE(info%data_type)
-              CASE(INT_T)
-                IF (info%ndims == 2) THEN
-                  iptr2d(:,:)   = NINT(rptr2d_d(:,:))
-                ELSE
-                  iptr3d(:,:,:) = NINT(rptr3d_d(:,:,:))
-                END IF
-              END SELECT
-
-              ! deallocate temporary global arrays
-              IF (my_process_is_mpi_workroot()) THEN
-                WRITE (0,*) ' ... read ',TRIM(info%name)
-              ENDIF
-              CYCLE for_all_vars
-
-              ! clean up temporary buffer:
-              SELECT CASE(info%data_type)
-              CASE(INT_T)
-                IF (ASSOCIATED(rptr2d_d))  DEALLOCATE(rptr2d_d)
-                IF (ASSOCIATED(rptr3d_d))  DEALLOCATE(rptr3d_d)
-              END SELECT
-
-            ENDIF
-          ENDIF
-
-        ENDDO for_all_lists
-        CALL message('reading_restart_file','Variable '//TRIM(name)//' not defined.')
-      ENDDO for_all_vars
-
-      IF (my_process_is_mpi_workroot())  CALL streamClose(fileID)
-
-    ENDDO for_all_files
-
-    IF (ASSOCIATED(r1d_d))  DEALLOCATE (r1d_d)
-    IF (ASSOCIATED(r1d_s))  DEALLOCATE (r1d_s)
+    IF(timers_level >= 5) CALL timer_stop(timer_load_restart)
 
     CALL message('','')
     CALL message('',separator)
     CALL message('','')
-
   END SUBROUTINE read_restart_files
+
 END MODULE mo_load_restart

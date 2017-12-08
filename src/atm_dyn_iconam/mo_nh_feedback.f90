@@ -33,6 +33,7 @@ MODULE mo_nh_feedback
   USE mo_nonhydrostatic_config, ONLY: l_masscorr_nest
   USE mo_dynamics_config,     ONLY: nnow, nnew, nnow_rcf, nnew_rcf, nsav1, nsav2 
   USE mo_parallel_config,     ONLY: nproma, p_test_run
+  USE mo_advection_config,    ONLY: advection_config, t_trList
   USE mo_run_config,          ONLY: ltransport, iforcing, msg_level, ntracer
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
   USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlcell_int, min_rledge_int, &
@@ -48,6 +49,7 @@ MODULE mo_nh_feedback
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, lseaice
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, iprog_aero
+  USE mo_fortran_tools,       ONLY: t_ptr_3d
 
   IMPLICIT NONE
 
@@ -979,16 +981,17 @@ CONTAINS
     TYPE(t_patch),      POINTER     :: p_pc => NULL()
     TYPE(t_nwp_phy_diag), POINTER   :: prm_diagp => NULL()
     TYPE(t_nwp_phy_diag), POINTER   :: prm_diagc => NULL()
+    TYPE(t_trList),     POINTER     :: trFeedback => NULL()
 
     ! Indices
-    INTEGER :: jb, jc, jk, js, jt, je, jv, i_nchdom, i_chidx,  &
+    INTEGER :: jb, jc, jk, js, je, jv, i_nchdom, i_chidx,  &
       i_startblk, i_endblk, i_startidx, i_endidx, ic, &
       i_rlend_c, i_rlend_e, i_nchdom_p
+    INTEGER :: jt, nt             ! tracer loop indices
 
     INTEGER :: nlev_c            ! number of full levels (child dom)
     INTEGER :: nlev_p            ! number of full levels (parent dom)
     INTEGER :: nshift, nst_fbk
-    INTEGER :: ntracer_fbk
 
     REAL(vp), ALLOCATABLE, DIMENSION(:,:,:), TARGET :: feedback_rho, feedback_thv,        &
       feedback_vn, feedback_w
@@ -1000,12 +1003,16 @@ CONTAINS
 
     REAL(vp), DIMENSION(nproma,p_patch(jg)%nlev) :: diff_rho, diff_thv, diff_w
 
-    REAL(vp),DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_c,ntracer), TARGET :: &
-      parent_rhoqx
+    REAL(vp), TARGET :: &
+      parent_rhoqx(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_c,advection_config(jg)%trFeedback%len)
+
     REAL(vp),DIMENSION(nproma,nclass_aero,p_patch(jgp)%nblks_c) :: parent_aero
 
     REAL(vp), DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_e), TARGET :: &
       parent_vn, diff_vn
+
+    REAL(vp) :: &
+      rho_parent_sv(nproma,p_patch(jgp)%nlev)    !< stores rho at n+1 with feedback tendency excluded
 
 #ifdef __LOOP_EXCHANGE
     REAL(vp) :: rot_diff_vn(p_patch(jg)%nlev,nproma,p_patch(jgp)%nblks_v)
@@ -1027,6 +1034,11 @@ CONTAINS
     REAL(vp), DIMENSION(:,:,:,:), POINTER :: p_fbk_rhoqx
     REAL(wp), DIMENSION(:,:,:), POINTER :: p_fbkwgt, p_fbkwgt_e
 
+    REAL(wp) :: z_rho_corr       !< semi-empirical correction for density
+
+    ! for collecting all tracer fields which undergo feedback and thus
+    ! require synchronization
+    TYPE(t_ptr_3d) :: tracer_ptr(advection_config(jg)%trFeedback%len)
     !-----------------------------------------------------------------------
 
     ! write(0,*) "n_dom_start,n_dom, jg, jgp=", n_dom_start, n_dom, jg, jgp
@@ -1051,6 +1063,9 @@ CONTAINS
     p_gep  => p_patch_local_parent(jg)%edges
     p_pp   => p_patch_local_parent(jg)
 
+    trFeedback => advection_config(jg)%trFeedback
+
+
     nlev_c   = p_pc%nlev
 
     nlev_p   = p_pp%nlev
@@ -1066,11 +1081,6 @@ CONTAINS
       nst_fbk = 4
     ENDIF
 
-    IF (iforcing > 1) THEN  ! tracers represent moisture variables
-      ntracer_fbk = 3       ! take only QV, QC and QI
-    ELSE
-      ntracer_fbk = ntracer
-    ENDIF
 
     i_nchdom = MAX(1,p_pc%n_childdom)
     i_chidx  = p_pc%parent_child_index
@@ -1090,28 +1100,24 @@ CONTAINS
     dcoef_vec  = 1._wp/12._wp
 
     ! Allocation of storage fields
-    ! In parallel runs the lower bound of the feedback_* arrays must be 1 for use in exchange data,
-    ! the lower bound of the fbk_* arrays must be i_startblk for the use in global sum.
-
-    i_startblk = p_gcp%start_blk(grf_fbk_start_c,i_chidx)
-    i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
+    ! In parallel runs the lower bound of the feedback_* arrays must be 1 for use in exchange data.
 
     i_startblk = 1
+    i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
+
 
     ALLOCATE(feedback_thv(nproma, nlev_c, i_startblk:i_endblk),   &
       feedback_rho       (nproma, nlev_c, i_startblk:i_endblk),   &
       feedback_w         (nproma, nlev_c, i_startblk:i_endblk))
 
     IF(ltransport) &
-      ALLOCATE(feedback_rhoqx(nproma, nlev_c, i_startblk:i_endblk, ntracer_fbk))
+      ALLOCATE(feedback_rhoqx(nproma, nlev_c, i_startblk:i_endblk, trFeedback%len))
 
     IF(ltransport .AND. iprog_aero == 1) &
       ALLOCATE(feedback_aero(nproma, nclass_aero, i_startblk:i_endblk))
 
-    i_startblk = p_gep%start_blk(grf_fbk_start_e,i_chidx)
-    i_endblk   = p_gep%end_blk(min_rledge,i_chidx)
-
     i_startblk = 1
+    i_endblk   = p_gep%end_blk(min_rledge,i_chidx)
 
     ALLOCATE(feedback_vn(nproma, nlev_c, i_startblk:i_endblk))
 
@@ -1166,7 +1172,7 @@ CONTAINS
     i_startblk = p_gcp%start_blk(grf_fbk_start_c,i_chidx)
     i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt,z_fbk_rho) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt,nt,z_rho_corr,z_fbk_rho) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
@@ -1187,21 +1193,24 @@ CONTAINS
             theta_v_pr(iccidx(jc,jb,3),jk,iccblk(jc,jb,3))*p_grf%fbk_wgt_bln(jc,jb,3) + &
             theta_v_pr(iccidx(jc,jb,4),jk,iccblk(jc,jb,4))*p_grf%fbk_wgt_bln(jc,jb,4)
 
-          z_fbk_rho(jc,1,jk) =                                                   & 
-            p_child_prog%rho(iccidx(jc,jb,1),jk,iccblk(jc,jb,1))*p_fbkwgt(jc,jb,1)
-          z_fbk_rho(jc,2,jk) =                                                   &
-            p_child_prog%rho(iccidx(jc,jb,2),jk,iccblk(jc,jb,2))*p_fbkwgt(jc,jb,2)
-          z_fbk_rho(jc,3,jk) =                                                   &
-            p_child_prog%rho(iccidx(jc,jb,3),jk,iccblk(jc,jb,3))*p_fbkwgt(jc,jb,3)
-          z_fbk_rho(jc,4,jk) =                                                   &
-            p_child_prog%rho(iccidx(jc,jb,4),jk,iccblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
           ! The semi-empirical correction for density feedback is necessitated by the fact that
           ! increased orography resolution goes along with increased mass. This needs to be
           ! corrected for in order to avoid a systematic mass drift in two-way nesting
-          feedback_rho(jc,jk,jb) =                                                               &
-           (z_fbk_rho(jc,1,jk)+z_fbk_rho(jc,2,jk)+z_fbk_rho(jc,3,jk)+z_fbk_rho(jc,4,jk)) -       &
-           (1.05_wp-0.005_wp*feedback_thv(jc,jk,jb))*p_nh_state(jg)%metrics%rho_ref_corr(jc,jk,jb) 
+          z_rho_corr = (1.05_wp-0.005_wp*feedback_thv(jc,jk,jb)) &
+            &        * p_nh_state(jg)%metrics%rho_ref_corr(jc,jk,jb)
+
+          z_fbk_rho(jc,1,jk) = p_fbkwgt(jc,jb,1) *                            & 
+            (p_child_prog%rho(iccidx(jc,jb,1),jk,iccblk(jc,jb,1)) - z_rho_corr)
+          z_fbk_rho(jc,2,jk) = p_fbkwgt(jc,jb,2) *                            &
+            (p_child_prog%rho(iccidx(jc,jb,2),jk,iccblk(jc,jb,2)) - z_rho_corr)
+          z_fbk_rho(jc,3,jk) = p_fbkwgt(jc,jb,3) *                            &
+            (p_child_prog%rho(iccidx(jc,jb,3),jk,iccblk(jc,jb,3)) - z_rho_corr)
+          z_fbk_rho(jc,4,jk) = p_fbkwgt(jc,jb,4) *                            &
+            (p_child_prog%rho(iccidx(jc,jb,4),jk,iccblk(jc,jb,4)) - z_rho_corr)
+
+          feedback_rho(jc,jk,jb) =                                                     &
+           (z_fbk_rho(jc,1,jk)+z_fbk_rho(jc,2,jk)+z_fbk_rho(jc,3,jk)+z_fbk_rho(jc,4,jk))
 
           feedback_w(jc,jk,jb) =                                                            &
             p_child_prog%w(iccidx(jc,jb,1),jk,iccblk(jc,jb,1))*p_grf%fbk_wgt_bln(jc,jb,1) + &
@@ -1212,18 +1221,24 @@ CONTAINS
         ENDDO
       ENDDO
 
+
       IF (ltransport) THEN ! tracer mass feedback
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx, i_endidx
-          DO jt = 1, ntracer_fbk
+
+          DO nt = 1, trFeedback%len
+            jt = trFeedback%list(nt)
 !DIR$ IVDEP
             DO jk = 1, nlev_c
 #else
-        DO jt = 1, ntracer_fbk
+        DO nt = 1, trFeedback%len
+          jt = trFeedback%list(nt)
+
           DO jk = 1, nlev_c
             DO jc = i_startidx, i_endidx
 #endif
-              feedback_rhoqx(jc,jk,jb,jt) =                                       &
+
+              feedback_rhoqx(jc,jk,jb,nt) =                                       &
                 z_fbk_rho(jc,1,jk) *                                              &
                 p_child_prog_rcf%tracer(iccidx(jc,jb,1),jk,iccblk(jc,jb,1),jt) +  &
                 z_fbk_rho(jc,2,jk) *                                              &
@@ -1232,6 +1247,7 @@ CONTAINS
                 p_child_prog_rcf%tracer(iccidx(jc,jb,3),jk,iccblk(jc,jb,3),jt) +  &
                 z_fbk_rho(jc,4,jk) *                                              &
                 p_child_prog_rcf%tracer(iccidx(jc,jb,4),jk,iccblk(jc,jb,4),jt)
+
             ENDDO
           ENDDO
         ENDDO
@@ -1301,12 +1317,12 @@ CONTAINS
       RECV1_SP=parent_vn, SEND1_SP=feedback_vn )
 
     IF (ltransport .AND. iprog_aero == 1) THEN
-      CALL exchange_data_mult_mixprec(p_pp%comm_pat_loc_to_glb_c_fbk, 0, 0, ntracer_fbk+1, ntracer_fbk*nlev_c+nclass_aero, &
+      CALL exchange_data_mult_mixprec(p_pp%comm_pat_loc_to_glb_c_fbk, 0, 0, trFeedback%len+1, trFeedback%len*nlev_c+nclass_aero, &
         RECV1_SP=parent_aero,     SEND1_SP=feedback_aero,                    &
-        RECV4D_SP=parent_rhoqx(:,:,:,1:ntracer_fbk), SEND4D_SP=feedback_rhoqx)
+        RECV4D_SP=parent_rhoqx(:,:,:,1:trFeedback%len), SEND4D_SP=feedback_rhoqx)
     ELSE IF (ltransport) THEN
-      CALL exchange_data_mult_mixprec(p_pp%comm_pat_loc_to_glb_c_fbk, 0, 0, ntracer_fbk, ntracer_fbk*nlev_c, &
-        RECV4D_SP=parent_rhoqx(:,:,:,1:ntracer_fbk), SEND4D_SP=feedback_rhoqx)
+      CALL exchange_data_mult_mixprec(p_pp%comm_pat_loc_to_glb_c_fbk, 0, 0, trFeedback%len, trFeedback%len*nlev_c, &
+        RECV4D_SP=parent_rhoqx(:,:,:,1:trFeedback%len), SEND4D_SP=feedback_rhoqx)
     ENDIF
 #else
     CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 3, 3*nlev_c, &
@@ -1319,12 +1335,12 @@ CONTAINS
       RECV1=parent_vn, SEND1=feedback_vn )
 
     IF (ltransport .AND. iprog_aero == 1) THEN
-      CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, ntracer_fbk+1, ntracer_fbk*nlev_c+nclass_aero, &
+      CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, trFeedback%len+1, trFeedback%len*nlev_c+nclass_aero, &
         RECV1=parent_aero,     SEND1=feedback_aero,                    &
-        RECV4D=parent_rhoqx(:,:,:,1:ntracer_fbk), SEND4D=feedback_rhoqx)
+        RECV4D=parent_rhoqx(:,:,:,1:trFeedback%len), SEND4D=feedback_rhoqx)
     ELSE IF (ltransport) THEN
-      CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, ntracer_fbk, ntracer_fbk*nlev_c, &
-        RECV4D=parent_rhoqx(:,:,:,1:ntracer_fbk), SEND4D=feedback_rhoqx)
+      CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, trFeedback%len, trFeedback%len*nlev_c, &
+        RECV4D=parent_rhoqx(:,:,:,1:trFeedback%len), SEND4D=feedback_rhoqx)
     ENDIF
 #endif
 
@@ -1537,7 +1553,7 @@ CONTAINS
     i_startblk = p_patch(jgp)%cells%start_blk(1,1)
     i_endblk   = p_patch(jgp)%cells%end_blk(i_rlend_c,i_nchdom_p)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt,diff_rho,diff_thv,diff_w) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt,nt,diff_rho,diff_thv,diff_w,rho_parent_sv) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, i_rlend_c)
@@ -1573,48 +1589,7 @@ CONTAINS
 #endif
       ENDDO
 
-      ! Relaxation of tracer variables
-      IF (ltransport) THEN
-#ifdef __LOOP_EXCHANGE
-        DO jc = i_startidx,i_endidx
-          IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
-            DO jt = 1, ntracer_fbk
-!DIR$ IVDEP
-              DO jk = nshift+nst_fbk, nlev_p
-#else
-        DO jt = 1, ntracer_fbk
-          DO jk = nshift+nst_fbk, nlev_p
-            DO jc = i_startidx,i_endidx
-              IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
-#endif
-                p_parent_prog_rcf%tracer(jc,jk,jb,jt) = p_parent_prog_rcf%tracer(jc,jk,jb,jt) + &
-                  relfac * ( p_fbk_rhoqx(jc,jk-js,jb,jt) / ( p_parent_prog%rho(jc,jk,jb) +      &
-                  diff_rho(jc,jk-js) ) -  p_parent_prog_rcf%tracer(jc,jk,jb,jt) )
 
-#ifdef __LOOP_EXCHANGE
-              ENDDO
-            ENDDO
-          ENDIF
-#else
-              ENDIF
-            ENDDO
-          ENDDO
-#endif
-        ENDDO
-      ENDIF
-
-      IF (ltransport .AND. iprog_aero == 1) THEN
-
-        DO jt = 1, nclass_aero
-          DO jc = i_startidx,i_endidx
-            IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
-              prm_diagp%aerosol(jc,jt,jb) = prm_diagp%aerosol(jc,jt,jb) + relfac *  &
-                (parent_aero(jc,jt,jb) - prm_diagp%aerosol(jc,jt,jb))
-            ENDIF
-          ENDDO
-        ENDDO
-
-      ENDIF
 
       ! Relaxation of dynamical variables
 #ifdef __LOOP_EXCHANGE
@@ -1627,6 +1602,10 @@ CONTAINS
         DO jc = i_startidx,i_endidx
           IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
 #endif
+
+            ! store current density field (without feedback tendency)
+            ! for later use.
+            rho_parent_sv(jc,jk) = p_parent_prog%rho(jc,jk,jb)
 
             ! density
             p_parent_prog%rho(jc,jk,jb) = p_parent_prog%rho(jc,jk,jb) + relfac*diff_rho(jc,jk-js)
@@ -1650,6 +1629,58 @@ CONTAINS
 #endif
       ENDDO
 
+
+
+
+      ! Relaxation of tracer variables
+      IF (ltransport) THEN
+#ifdef __LOOP_EXCHANGE
+        DO jc = i_startidx,i_endidx
+          IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+
+            DO nt = 1, trFeedback%len
+              jt = trFeedback%list(nt)
+
+!DIR$ IVDEP
+              DO jk = nshift+nst_fbk, nlev_p
+#else
+        DO nt = 1, trFeedback%len
+          jt = trFeedback%list(nt)
+          DO jk = nshift+nst_fbk, nlev_p
+            DO jc = i_startidx,i_endidx
+              IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+#endif
+
+                p_parent_prog_rcf%tracer(jc,jk,jb,jt) = (rho_parent_sv(jc,jk) * p_parent_prog_rcf%tracer(jc,jk,jb,jt) &
+                  &                                   + relfac * ( p_fbk_rhoqx(jc,jk-js,jb,nt) -  &
+                  &                                   rho_parent_sv(jc,jk) * p_parent_prog_rcf%tracer(jc,jk,jb,jt) )) &
+                  &                                   / p_parent_prog%rho(jc,jk,jb)
+
+#ifdef __LOOP_EXCHANGE
+              ENDDO
+            ENDDO
+          ENDIF
+#else
+              ENDIF
+            ENDDO
+          ENDDO
+#endif
+        ENDDO
+
+        IF (iprog_aero == 1) THEN
+
+          DO jt = 1, nclass_aero
+            DO jc = i_startidx,i_endidx
+              IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+                prm_diagp%aerosol(jc,jt,jb) = prm_diagp%aerosol(jc,jt,jb) + relfac *  &
+                  (parent_aero(jc,jt,jb) - prm_diagp%aerosol(jc,jt,jb))
+              ENDIF
+            ENDDO
+          ENDDO
+
+        ENDIF  ! iprog_aero = 1
+      ENDIF  ! ltransport
+
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
@@ -1657,14 +1688,35 @@ CONTAINS
     CALL sync_patch_array(SYNC_E,p_patch(jgp),p_parent_prog%vn)
 
     IF (ltransport .AND. iprog_aero == 1) THEN
-      CALL sync_patch_array_mult(SYNC_C, p_patch(jgp), ntracer_fbk+4, p_parent_prog%rho, p_parent_prog%theta_v, &
-        p_parent_prog%w, prm_diagp%aerosol, f4din=p_parent_prog_rcf%tracer(:,:,:,1:ntracer_fbk))
+
+      DO nt = 1, trFeedback%len
+        jt = trFeedback%list(nt)
+        tracer_ptr(nt)%p => p_parent_prog_rcf%tracer(:,:,:,jt)
+      ENDDO
+      CALL sync_patch_array_mult(SYNC_C, p_patch(jgp), 4+SIZE(tracer_ptr), &
+        &                        f3din1=p_parent_prog%rho,                 &
+        &                        f3din2=p_parent_prog%theta_v,             &
+        &                        f3din3=p_parent_prog%w,                   &
+        &                        f3din4=prm_diagp%aerosol,                 &
+        &                        f3din_arr=tracer_ptr)
+
     ELSE IF (ltransport) THEN
-      CALL sync_patch_array_mult(SYNC_C, p_patch(jgp), ntracer_fbk+3, p_parent_prog%rho, p_parent_prog%theta_v, &
-        p_parent_prog%w, f4din=p_parent_prog_rcf%tracer(:,:,:,1:ntracer_fbk))
+
+      DO nt = 1, trFeedback%len
+        jt = trFeedback%list(nt)
+        tracer_ptr(nt)%p => p_parent_prog_rcf%tracer(:,:,:,jt)
+      ENDDO
+      CALL sync_patch_array_mult(SYNC_C, p_patch(jgp), 3+SIZE(tracer_ptr), &
+        &                        f3din1=p_parent_prog%rho,                 &
+        &                        f3din2=p_parent_prog%theta_v,             &
+        &                        f3din3=p_parent_prog%w,                   &
+        &                        f3din_arr=tracer_ptr)
+
     ELSE
-      CALL sync_patch_array_mult(SYNC_C,p_patch(jgp),3,p_parent_prog%rho,p_parent_prog%theta_v,   &
-        p_parent_prog%w)
+      CALL sync_patch_array_mult(SYNC_C,p_patch(jgp),3,        &
+        &                        f3din1=p_parent_prog%rho,     &
+        &                        f3din2=p_parent_prog%theta_v, &
+        &                        f3din3=p_parent_prog%w)
     ENDIF
 
     ! Recomputation of exner on halo points (saves communication of one field)

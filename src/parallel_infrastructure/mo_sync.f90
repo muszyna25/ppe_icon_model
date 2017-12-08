@@ -57,6 +57,7 @@ USE mo_communication,      ONLY: exchange_data, exchange_data_4de1,            &
 
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   & timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
+USE mo_fortran_tools,   ONLY: t_ptr_3d
 
 IMPLICIT NONE
 
@@ -334,13 +335,14 @@ END SUBROUTINE sync_patch_array_i2
 !-------------------------------------------------------------------------
 !>
 !! Does boundary exchange for up to 5 3D cell-based fields and/or a 4D field.
+!! The 4D field can alternatively be passed as an array of 3D fields.
 !!
 !! @par Revision History
 !! Optimized version by Guenther Zaengl, Apr 2010, based on routines
 !! developed by Rainer Johanni
 !!
 SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, &
-                                 f3din4, f3din5, f4din)
+                                 f3din4, f3din5, f4din, f3din_arr)
 
    INTEGER, INTENT(IN)             :: typ
    TYPE(t_patch), INTENT(IN), TARGET :: p_patch
@@ -348,6 +350,8 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
 
    REAL(wp), OPTIONAL, INTENT(INOUT) ::  f3din1(:,:,:), f3din2(:,:,:), f3din3(:,:,:), &
       &                                  f3din4(:,:,:), f3din5(:,:,:), f4din(:,:,:,:)
+
+   TYPE(t_ptr_3d), OPTIONAL, INTENT(INOUT) :: f3din_arr(:)
 
    REAL(wp), ALLOCATABLE :: arr3(:,:,:)
    TYPE(t_comm_pattern), POINTER :: p_pat
@@ -380,6 +384,13 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
 !$ACC END DATA
        DEALLOCATE(arr3)
      ENDIF
+
+     IF (PRESENT(f3din_arr)) THEN
+       DO i = 1, SIZE(f3din_arr)
+         CALL check_patch_array_3(typ, p_patch, f3din_arr(i)%p, 'sync')
+       ENDDO
+     ENDIF
+
      IF (PRESENT(f3din1)) CALL check_patch_array_3(typ, p_patch, f3din1, 'sync')
      IF (PRESENT(f3din2)) CALL check_patch_array_3(typ, p_patch, f3din2, 'sync')
      IF (PRESENT(f3din3)) CALL check_patch_array_3(typ, p_patch, f3din3, 'sync')
@@ -394,6 +405,11 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
      ELSE
        ndim2tot = 0
      ENDIF
+     IF (PRESENT(f3din_arr)) THEN
+       DO i = 1, SIZE(f3din_arr)
+         ndim2tot = ndim2tot + SIZE(f3din_arr(i)%p,2)
+       ENDDO
+     ENDIF
      IF (PRESENT(f3din1)) ndim2tot = ndim2tot+SIZE(f3din1,2)
      IF (PRESENT(f3din2)) ndim2tot = ndim2tot+SIZE(f3din2,2)
      IF (PRESENT(f3din3)) ndim2tot = ndim2tot+SIZE(f3din3,2)
@@ -401,10 +417,12 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
      IF (PRESENT(f3din5)) ndim2tot = ndim2tot+SIZE(f3din5,2)
 
      CALL exchange_data_mult(p_pat, nfields, ndim2tot, recv1=f3din1, recv2=f3din2, &
-       &                     recv3=f3din3, recv4=f3din4, recv5=f3din5, recv4d=f4din)
+       &                     recv3=f3din3, recv4=f3din4, recv5=f3din5, recv4d=f4din , &
+       &                     recv3d_arr=f3din_arr)
    ENDIF
 
 END SUBROUTINE sync_patch_array_mult
+
 
 !-------------------------------------------------------------------------
 !>

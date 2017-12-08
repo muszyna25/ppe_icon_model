@@ -271,13 +271,14 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 !
         &  dt_var=tcall_turb_jg, dt_tke=tcall_turb_jg,                                & !in
         &  nprv=1, ntur=1, ntim=1, trop_mask=prm_diag%tropics_mask(:,jb),             & !in
+        &  innertrop_mask=prm_diag%innertropics_mask(:,jb),                           & !in
         &  ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevcm,                                & !in
         &  i_st=i_startidx, i_en=i_endidx, i_stp=i_startidx, i_enp=i_endidx,          &
         &  l_hori=l_hori, hhl=p_metrics%z_ifc(:,:,jb),                                & !in
         &  dp0=p_diag%dpres_mc(:,:,jb),                                               & !in
         &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb),  & !in
         &  h_ice=wtr_prog_now%h_ice(:,jb),                                            & !in
-        &  sai=ext_data%atm%sai(:,jb), d_pat = ext_data%atm%sso_stdh_raw(:,jb),       &
+        &  sai=ext_data%atm%sai(:,jb), d_pat = prm_diag%pat_len(:,jb),                &
         &  tkred_sfc=prm_diag%tkred_sfc(:,jb),  gz0=prm_diag%gz0(:,jb),               & !inout 
         &  t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb),                      & !in
         &  ps=p_diag%pres_sfc(:,jb),                                                  & !in

@@ -24,39 +24,35 @@
 MODULE mo_alloc_patches
   !-------------------------------------------------------------------------
 
-  USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: success, &
-    & max_char_length,  &
-    & min_rlcell, max_rlcell, &
-    & min_rledge, max_rledge, &
-    & min_rlvert, max_rlvert
-  USE mo_exception,          ONLY: message, finish
-  USE mo_model_domain,       ONLY: t_patch, t_pre_patch, c_num_edges, &
-       c_parent, c_child, c_phys_id, c_neighbor, c_edge, c_vertex, c_center, &
-       c_refin_ctrl, e_parent, e_child, e_cell, e_refin_ctrl, &
-       v_cell, v_num_edges, v_vertex, v_refin_ctrl
-  USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
-    &                              init_glb2loc_index_lookup, &
-    &                              deallocate_glb2loc_index_lookup, &
-    &                              uniform_partition, &
-    &                              partidx_of_elem_uniform_deco
-  USE mo_parallel_config,    ONLY: nproma, num_dist_array_replicas
-  USE mo_grid_config,        ONLY: n_dom, n_dom_start, &
-    & dynamics_grid_filename,  &
-    & radiation_grid_filename
-  USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords
-  USE mo_master_config,      ONLY: getModelBaseDir
-  USE mo_mpi,                ONLY: p_pe_work, &
-    &                              p_comm_work, p_n_work
+  USE mo_kind,                    ONLY: wp
+  USE mo_impl_constants,          ONLY: success, max_char_length,                    &
+    &                                   min_rlcell, max_rlcell,                      &
+    &                                   min_rledge, max_rledge,                      &
+    &                                   min_rlvert, max_rlvert
+  USE mo_exception,               ONLY: message, finish
+  USE mo_model_domain,            ONLY: t_patch, t_pre_patch, c_num_edges,           &
+    &                                   c_parent, c_child, c_phys_id, c_neighbor,    &
+    &                                   c_edge, c_vertex, c_center,                  &
+    &                                   c_refin_ctrl, e_parent, e_child, e_cell,     &
+    &                                   e_refin_ctrl, v_cell, v_num_edges, v_vertex, &
+    &                                   v_refin_ctrl
+  USE mo_decomposition_tools,     ONLY: t_grid_domain_decomp_info,                   &
+    &                                   init_glb2loc_index_lookup,                   &
+    &                                   deallocate_glb2loc_index_lookup,             &
+    &                                   uniform_partition,                           &
+    &                                   partidx_of_elem_uniform_deco
+  USE mo_parallel_config,         ONLY: nproma, num_dist_array_replicas
+  USE mo_grid_config,             ONLY: n_dom_start
+  USE mo_mpi,                     ONLY: p_pe_work, p_comm_work, p_n_work
   USE mo_read_netcdf_distributed, ONLY: delete_distrib_read
-  USE ppm_distributed_array, ONLY: global_array_desc, &
-    &                              dist_mult_array_new, &
-    &                              dist_mult_array_delete, &
-    &                              ppm_int, ppm_real_dp
+  USE ppm_distributed_array,      ONLY: global_array_desc,                           &
+    &                                   dist_mult_array_new,                         &
+    &                                   dist_mult_array_delete,                      &
+    &                                   ppm_int, ppm_real_dp
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
-  USE ppm_distributed_array, ONLY: sync_mode_active_target
+  USE ppm_distributed_array,      ONLY: sync_mode_active_target
 #endif
-  USE ppm_extents,           ONLY: extent, extent_start, extent_size
+  USE ppm_extents,                ONLY: extent, extent_start, extent_size
 
   IMPLICIT NONE
 
@@ -69,38 +65,10 @@ MODULE mo_alloc_patches
   PUBLIC :: allocate_pre_patch
   PUBLIC :: deallocate_pre_patch
   PUBLIC :: allocate_remaining_patch
-  ! PUBLIC :: allocate_patch
-  PUBLIC :: set_patches_grid_filename
 
   !-------------------------------------------------------------------------
 
 CONTAINS
-
-
-  !-------------------------------------------------------------------------
-  SUBROUTINE set_patches_grid_filename( p_patch_pre )
-
-    TYPE(t_pre_patch), TARGET, INTENT(inout) :: p_patch_pre(n_dom_start:)
-
-    INTEGER :: jg, iind
-    TYPE (t_keyword_list), POINTER :: keywords => NULL()
-
-    !-----------------------------------------------------------------------
-    DO jg = n_dom_start, n_dom
-
-      CALL associate_keyword("<path>", TRIM(getModelBaseDir()), keywords)
-      IF (jg==0) THEN
-        p_patch_pre(jg)%grid_filename = TRIM(with_keywords(keywords, radiation_grid_filename(1)))
-      ELSE
-        p_patch_pre(jg)%grid_filename = TRIM(with_keywords(keywords, dynamics_grid_filename(jg)))
-      ENDIF
-      iind = INDEX(TRIM(p_patch_pre(jg)%grid_filename),'.nc')
-      p_patch_pre(jg)%grid_filename_grfinfo = p_patch_pre(jg)%grid_filename(1:iind-1)//"-grfinfo.nc"
-
-    ENDDO
-
-  END SUBROUTINE set_patches_grid_filename
-  !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------

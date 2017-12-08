@@ -19,14 +19,12 @@ MODULE mo_atmo_model
   USE mo_exception,               ONLY: message, finish
   USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
     &                                   set_mpi_work_communicators, process_mpi_io_size,      &
-    &                                   my_process_is_restart, process_mpi_restart_size,      &
     &                                   my_process_is_pref, process_mpi_pref_size  
   USE mo_timer,                   ONLY: init_timer, timer_start, timer_stop,                  &
     &                                   timers_level, timer_model_init,                       &
     &                                   timer_domain_decomp, timer_compute_coeffs,            &
     &                                   timer_ext_data, print_timer
   USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,              &
-    &                                   num_restart_procs, use_async_restart_output,          &
     &                                   num_prefetch_proc
   USE mo_master_config,           ONLY: isRestart
 #ifndef NOMPI
@@ -38,6 +36,7 @@ MODULE mo_atmo_model
   USE mo_impl_constants,          ONLY: SUCCESS,                                              &
     &                                   ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
     &                                   ishallow_water, inwp
+  USE mo_zaxis_type,              ONLY: zaxisTypeList, t_zaxisTypeList
   USE mo_load_restart,            ONLY: read_restart_header
   USE mo_restart_attributes,      ONLY: t_RestartAttributeList, getAttributesForRestarting
 
@@ -46,6 +45,7 @@ MODULE mo_atmo_model
   USE mo_nml_crosscheck,          ONLY: atm_crosscheck
   USE mo_nonhydrostatic_config,   ONLY: configure_nonhydrostatic
   USE mo_initicon_config,         ONLY: configure_initicon
+  USE mo_io_config,               ONLY: restartWritingParameters
   USE mo_lnd_nwp_config,          ONLY: configure_lnd_nwp
   USE mo_dynamics_config,         ONLY: configure_dynamics, iequations
   USE mo_run_config,              ONLY: configure_run,                                        &
@@ -83,7 +83,6 @@ MODULE mo_atmo_model
   ! external data, physics
   USE mo_ext_data_state,          ONLY: ext_data, destruct_ext_data
   USE mo_ext_data_init,           ONLY: init_ext_data 
-  USE mo_rrtm_data_interface,     ONLY: init_rrtm_model_repart, destruct_rrtm_model_repart
   USE mo_nwp_ww,                  ONLY: configure_ww
 
   USE mo_diffusion_config,        ONLY: configure_diffusion
@@ -96,18 +95,16 @@ MODULE mo_atmo_model
     &                                   destruct_2d_gridref_state, transfer_grf_state,        &
     &                                   create_grf_index_lists
   USE mo_intp_data_strc,          ONLY: p_int_state, p_int_state_local_parent
+  USE mo_intp_lonlat_types,       ONLY: lonlat_grids
   USE mo_grf_intp_data_strc,      ONLY: p_grf_state, p_grf_state_local_parent
-  USE mo_intp_lonlat,             ONLY: init_lonlat_grid_list, compute_lonlat_intp_coeffs,    &
-    &                                   destroy_lonlat_grid_list
+  USE mo_intp_lonlat,             ONLY: compute_lonlat_intp_coeffs
 
   ! coupling
   USE mo_coupling_config,         ONLY: is_coupled_run
   USE mo_interface_echam_ocean,   ONLY: construct_atmo_coupler, destruct_atmo_coupler
 
   ! I/O
-#ifndef NOMPI
-  USE mo_async_restart,           ONLY: restart_main_proc                                       ! main procedure for Restart PEs
-#endif
+  USE mo_restart,                 ONLY: detachRestartProcs
   USE mo_name_list_output,        ONLY: name_list_io_main_proc
   USE mo_name_list_output_config, ONLY: use_async_name_list_io
   USE mo_time_config,             ONLY: time_config      ! variable
@@ -208,12 +205,12 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
     ! local variables
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:construct_atmo_model"
-    INTEGER                 :: jg, jgp, jstep0, error_status
+    INTEGER                 :: jg, jgp, jstep0, error_status, dedicatedRestartProcs
     TYPE(t_sim_step_info)   :: sim_step_info  
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
     ! initialize global registry of lon-lat grids
-    CALL init_lonlat_grid_list()
+    CALL lonlat_grids%init()
 
     !---------------------------------------------------------------------
     ! 0. If this is a resumed or warm-start run...
@@ -260,7 +257,8 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
-    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, num_restart_procs, &
+    CALL restartWritingParameters(opt_dedicatedProcCount = dedicatedRestartProcs)
+    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, dedicatedRestartProcs, &
                &                    num_prefetch_proc)
 
     !-------------------------------------------------------------------
@@ -270,22 +268,18 @@ CONTAINS
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
     !-------------------------------------------------------------------
+    ! initialize dynamic list of vertical axes
+    !-------------------------------------------------------------------
+
+    zaxisTypeList = t_zaxisTypeList()
+
+
+    !-------------------------------------------------------------------
     ! 3.3 I/O initialization
     !-------------------------------------------------------------------
 
-    ! If we belong to the Restart PEs just call restart_main_proc before reading patches.
-    ! This routine will never return
-    IF (process_mpi_restart_size > 0) THEN
-#ifndef NOMPI
-      use_async_restart_output = .TRUE.
-      CALL message('','asynchronous restart output is enabled.')
-      IF (my_process_is_restart()) THEN
-        CALL restart_main_proc
-      ENDIF
-#else
-      CALL finish('', 'this executable was compiled without MPI support, hence asynchronous restart output is not available')
-#endif
-    ENDIF
+    ! This won't RETURN on dedicated restart PEs, starting their main loop instead.
+    CALL detachRestartProcs()
 
     ! If we belong to the prefetching PEs just call prefetch_main_proc before reading patches.
     ! This routine will never return
@@ -494,17 +488,11 @@ CONTAINS
         CALL configure_nonhydrostatic( jg, p_patch(jg)%nlev,     &
           &                            p_patch(jg)%nshift_total  )
         IF ( iforcing == inwp) THEN
-          CALL configure_ww( time_config%tc_startdate, jg, p_patch(jg)%nlev, p_patch(jg)%nshift_total)
+          CALL configure_ww( time_config%tc_startdate, jg, p_patch(jg)%nlev, p_patch(jg)%nshift_total, 'ICON')
         END IF
       ENDDO
     ENDIF
 
-
-
-    !------------------------------------------------------------------
-    ! 11. Repartitioning of radiation grid (Karteileiche?!)
-    !------------------------------------------------------------------
-    CALL init_rrtm_model_repart()
 
 #ifdef MESSY
     CALL messy_initialize(n_dom)
@@ -564,7 +552,7 @@ CONTAINS
     ENDIF
 
     ! Deallocate global registry for lon-lat grids
-    CALL destroy_lonlat_grid_list()
+    CALL lonlat_grids%finalize()
 
     ! Deallocate grid patches
     CALL destruct_patches( p_patch )
@@ -576,7 +564,6 @@ CONTAINS
       CALL finish(TRIM(routine),'deallocate for patch array failed')
     ENDIF
 
-    CALL destruct_rrtm_model_repart()
 !    IF (use_icon_comm) THEN
       CALL destruct_icon_communication()
 !    ENDIF

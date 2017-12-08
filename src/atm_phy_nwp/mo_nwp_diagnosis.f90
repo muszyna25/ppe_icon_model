@@ -621,7 +621,7 @@ CONTAINS
     INTEGER :: jt               ! tracer loop index
 
     REAL(wp):: clearsky(nproma)
-    REAL(wp):: ccmax, ccran, alpha(nproma,pt_patch%nlev)
+    REAL(wp):: ccmax, ccran, alpha(nproma,pt_patch%nlev), clcl_mod, clcm_mod, clct_fac
 
 
     REAL(wp), PARAMETER :: eps_clc = 1.e-7_wp
@@ -657,9 +657,9 @@ CONTAINS
     ENDDO
 
 !$OMP PARALLEL
-    IF ( atm_phy_nwp_config(jg)%lproc_on(itccov) ) THEN
+    IF ( atm_phy_nwp_config(jg)%lenabled(itccov) ) THEN
 
-!$OMP DO PRIVATE(jc,jk,jb,z_help,i_startidx,i_endidx,clearsky,ccmax,ccran,alpha) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jc,jk,jb,z_help,i_startidx,i_endidx,clearsky,ccmax,ccran,alpha,clcl_mod,clcm_mod,clct_fac)
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -809,6 +809,19 @@ CONTAINS
                        & ( prm_diag%clc(jc,jk,jb) * prm_diag%clcl(jc,jb) )
               prm_diag%clcl(jc,jb) = alpha(jc,jk) * ccmax + (1._wp-alpha(jc,jk)) * ccran
             ENDDO
+          ENDDO
+
+          ! calibration of layer-wise cloud cover fields
+          DO jc = i_startidx, i_endidx
+            clcl_mod = MIN(4._wp*prm_diag%clcl(jc,jb), &
+              EXP((1._wp+prm_diag%clcl(jc,jb))/2._wp*LOG(MAX(eps_clc,prm_diag%clcl(jc,jb)))))
+            clcm_mod = MIN(3._wp*prm_diag%clcm(jc,jb), &
+              EXP((2._wp+prm_diag%clcm(jc,jb))/3._wp*LOG(MAX(eps_clc,prm_diag%clcm(jc,jb)))))
+            clct_fac = (clcl_mod+clcm_mod+prm_diag%clch(jc,jb)) /                        &
+              MAX(eps_clc,prm_diag%clcl(jc,jb)+prm_diag%clcm(jc,jb)+prm_diag%clch(jc,jb))
+            prm_diag%clct(jc,jb) = MIN(1._wp,clct_fac*prm_diag%clct(jc,jb))
+            prm_diag%clcm(jc,jb) = clcm_mod
+            prm_diag%clcl(jc,jb) = clcl_mod
           ENDDO
 
         END SELECT
@@ -978,7 +991,7 @@ CONTAINS
         & i_startidx, i_endidx, rl_start, rl_end)
 
 
-      IF (atm_phy_nwp_config(jg)%lproc_on(itconv))THEN !convection parameterization switched on
+      IF (atm_phy_nwp_config(jg)%lenabled(itconv))THEN !convection parameterization switched on
         !
         ! height of convection base and top, hbas_con, htop_con
         ! 
@@ -1125,8 +1138,9 @@ CONTAINS
         CALL ww_diagnostics( nproma, nlev, nlevp1, i_startidx, i_endidx, jg,             &
             &                pt_diag%temp(:,:,jb), pt_prog_rcf%tracer(:,:,jb,iqv),       &
             &                pt_prog_rcf%tracer(:,:,jb,iqc),                             &
-            &                pt_diag%u   (:,:,jb), pt_diag%v       (:,:,jb),             &
-            &                pt_diag%pres(:,:,jb), pt_diag%pres_ifc(:,:,jb),             &
+            &                pt_diag%u   (:,:,jb), pt_diag%v         (:,:,jb),           &
+            &                prm_diag%clc(:,:,jb),                                       &
+            &                pt_diag%pres(:,:,jb), pt_diag%pres_ifc  (:,:,jb),           &
             &                prm_diag%t_2m     (:,jb), prm_diag%td_2m   (:,jb),          &
             &                p_prog_lnd_now%t_g(:,jb),                                   &
             &                prm_diag%clct     (:,jb), prm_diag%clcm    (:,jb),          &
@@ -1136,7 +1150,7 @@ CONTAINS
             &                prm_diag%snow_gsp0(:,jb), prm_diag%snow_gsp(:,jb),          &
             &                prm_diag%snow_con0(:,jb), prm_diag%snow_con(:,jb),          &
             &                prm_diag%mbas_con (:,jb), prm_diag%mtop_con(:,jb),          &
-            &                time_diff, 'ICON',         prm_diag%iww     (:,jb) )
+            &                time_diff, prm_diag%iww(:,jb) )
 !       Save precipitation and time until next call of ww_diagnostics
         DO jc = i_startidx, i_endidx
           prm_diag%rain_gsp0(jc,jb) = prm_diag%rain_gsp(jc,jb)

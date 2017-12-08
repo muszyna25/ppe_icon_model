@@ -11,23 +11,24 @@
 !! headers of the routines.
 
 MODULE mo_restart_patch_description
-    USE mo_cdi_constants, ONLY: ZA_SURFACE, ZA_HYBRID, ZA_HYBRID_HALF, ZA_HEIGHT_2M, ZA_HEIGHT_10M, ZA_TOA, ZA_LAKE_BOTTOM, &
+    USE mo_zaxis_type, ONLY: ZA_SURFACE, ZA_REFERENCE, ZA_REFERENCE_HALF, ZA_HEIGHT_2M, ZA_HEIGHT_10M, ZA_TOA, ZA_LAKE_BOTTOM, &
                               & ZA_MIX_LAYER, ZA_LAKE_BOTTOM_HALF, ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_GENERIC_ICE, ZA_DEPTH_RUNOFF_S, &
                               & ZA_DEPTH_RUNOFF_G, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, ZA_SNOW, ZA_SNOW_HALF, &
-                              & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_OCEAN_SEDIMENT, ZA_COUNT, GRID_UNSTRUCTURED_CELL, &
-                              & GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
-    USE mo_cdi_ids, ONLY: t_CdiIds, set_vertical_grid, t_Vgrid
+                              & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_OCEAN_SEDIMENT, zaxisTypeList
+    USE mo_cdi_ids, ONLY: set_vertical_grid, t_Vgrid
     USE mo_communication, ONLY: t_comm_gather_pattern
     USE mo_dynamics_config, ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf
     USE mo_exception, ONLY: finish
     USE mo_fortran_tools, ONLY: assign_if_present_allocatable
     USE mo_restart_attributes, ONLY: t_RestartAttributeList
     USE mo_impl_constants, ONLY: SUCCESS
+    USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
     USE mo_io_units, ONLY: filename_max
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: p_patch, t_patch
-    USE mo_mpi, ONLY: p_pe_work, my_process_is_work
-    USE mo_packed_message, ONLY: t_PackedMessage
+    USE mo_mpi, ONLY: p_pe_work, my_process_is_work, process_mpi_all_comm, p_pe_work, process_mpi_root_id, &
+                    & my_process_is_mpi_workroot
+    USE mo_packed_message, ONLY: t_PackedMessage, kPackOp, kUnpackOp
     USE mo_restart_util, ONLY: setDynamicPatchRestartAttributes, setPhysicsRestartAttributes
     USE mo_util_string, ONLY: int2string
 
@@ -43,10 +44,15 @@ MODULE mo_restart_patch_description
 
     PUBLIC :: t_restart_patch_description
 
-    ! TYPE t_restart_patch_description contains all the DATA that describes a patch for restart purposes
+    ! TYPE t_restart_patch_description contains all the DATA that
+    ! describes a patch for restart purposes
+    !
+    ! @todo There does not seem to be a destructor routine for this
+    !       object?!
+    !
     TYPE t_restart_patch_description
         ! vertical grid definitions
-        TYPE(t_Vgrid) :: v_grid_defs(ZA_COUNT)
+        TYPE(t_Vgrid), ALLOCATABLE :: v_grid_defs(:)
         INTEGER :: v_grid_count
 
         ! logical patch id
@@ -68,9 +74,6 @@ MODULE mo_restart_patch_description
         ! total # of vertices, # of vertices per dual cell
         INTEGER :: n_patch_verts_g
 
-        ! process id
-        INTEGER :: restart_proc_id
-
         ! id of PE0 of working group (/= 0 in case of processor splitting)
         INTEGER :: work_pe0_id
 
@@ -85,7 +88,6 @@ MODULE mo_restart_patch_description
                               & opt_ndom, opt_ocean_zlevels
 
         REAL(wp), ALLOCATABLE :: opt_pvct(:)
-        LOGICAL, ALLOCATABLE :: opt_lcall_phy(:)
         REAL(wp), ALLOCATABLE :: opt_t_elapsed_phy(:)
         REAL(wp), ALLOCATABLE :: opt_ocean_zheight_cellMiddle(:)
         REAL(wp), ALLOCATABLE :: opt_ocean_zheight_cellInterfaces(:)
@@ -94,10 +96,17 @@ MODULE mo_restart_patch_description
         TYPE(t_comm_gather_pattern), POINTER :: cellGatherPattern, vertGatherPattern, edgeGatherPattern
     CONTAINS
         PROCEDURE :: init => restartPatchDescription_init
-        PROCEDURE :: update => restartPatchDescription_update   ! called to set the DATA that may change from restart to restart
-        PROCEDURE :: setTimeLevels => restartPatchDescription_setTimeLevels ! set the time level fields (nold, ...) to match the respective global variables
+
+        ! called to set the DATA that may change from restart to restart
+        PROCEDURE :: update => restartPatchDescription_update
+
+        ! set the time level fields (nold, ...) to match the
+        ! respective global variables
+        PROCEDURE :: setTimeLevels => restartPatchDescription_setTimeLevels
+
         PROCEDURE :: packer => restartPatchDescription_packer
-        PROCEDURE :: defineVGrids => restartPatchDescription_defineVGrids
+        PROCEDURE :: updateOnMaster => restartPatchDescription_updateOnMaster
+        PROCEDURE :: updateVGrids => restartPatchDescription_updateVGrids
         PROCEDURE :: setRestartAttributes => restartPatchDescription_setRestartAttributes
         PROCEDURE :: getGatherPattern => restartPatchDescription_getGatherPattern
         PROCEDURE :: getGlobalGridSize => restartPatchDescription_getGlobalGridSize
@@ -122,7 +131,6 @@ CONTAINS
         me%n_patch_edges_g = -1
         me%v_grid_count = 0
         me%l_dom_active = .FALSE.
-        me%restart_proc_id = 0
         me%nold = nold(domain)
         me%nnow = nnow(domain)
         me%nnew = nnew(domain)
@@ -131,6 +139,7 @@ CONTAINS
         me%cellGatherPattern => NULL()
         me%vertGatherPattern => NULL()
         me%edgeGatherPattern => NULL()
+        ALLOCATE(me%v_grid_defs(zaxisTypeList%za_count()))
 
         ! patch dependent info, p_patch IS NOT available on restart PEs
         IF(my_process_is_work()) THEN
@@ -147,7 +156,7 @@ CONTAINS
         END IF
     END SUBROUTINE restartPatchDescription_init
 
-    SUBROUTINE restartPatchDescription_update(me, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, &
+    SUBROUTINE restartPatchDescription_update(me, patch, opt_pvct, opt_t_elapsed_phy, &
                                              &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
                                              &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
                                              &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
@@ -157,21 +166,23 @@ CONTAINS
                                        & opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels
         REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:), opt_t_elapsed_phy(:), opt_ocean_zheight_cellMiddle(:), &
              & opt_ocean_zheight_cellInterfaces(:)
-        LOGICAL, INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartPatchDescription_update"
 
         IF(me%id /= patch%id) CALL finish(routine, "assertion failed: wrong patch passed to update()")
 
-        ! update activity flag - this needs to be done on all compute PEs, otherwise starting a nest during runtime would lead to incomplete restart files
+        ! update activity flag - this needs to be done on all compute
+        ! PEs, otherwise starting a nest during runtime would lead to
+        ! incomplete restart files
         me%l_dom_active = patch%ldom_active
 
-        ! otherwise, only the patch master process needs the dynamic restart arguments, these will be communicated to the other processes anyway
+        ! otherwise, only the patch master process needs the dynamic
+        ! restart arguments, these will be communicated to the other
+        ! processes anyway
         IF(p_pe_work == 0 .OR. p_pe_work == me%work_pe0_id) THEN
             ! Patch-dependent attributes
             CALL assign_if_present_allocatable(me%opt_pvct, opt_pvct)
             CALL assign_if_present_allocatable(me%opt_t_elapsed_phy, opt_t_elapsed_phy)
-            CALL assign_if_present_allocatable(me%opt_lcall_phy, opt_lcall_phy)
             CALL assign_if_present_allocatable(me%opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellMiddle)
             CALL assign_if_present_allocatable(me%opt_ocean_zheight_cellInterfaces, opt_ocean_zheight_cellInterfaces)
             CALL assign_if_present_allocatable(me%opt_ndyn_substeps, opt_ndyn_substeps)
@@ -204,7 +215,7 @@ CONTAINS
     SUBROUTINE restartPatchDescription_packer(me, operation, packedMessage)
         INTEGER, VALUE :: operation
         CLASS(t_restart_patch_description), INTENT(INOUT) :: me
-        TYPE(t_PackedMessage), INTENT(INOUT) :: packedMessage
+        CLASS(t_PackedMessage), INTENT(INOUT) :: packedMessage
 
         ! patch id AND activity flag
         CALL packedMessage%packer(operation, me%id)
@@ -214,7 +225,6 @@ CONTAINS
         CALL packedMessage%packer(operation, me%n_patch_cells_g)
         CALL packedMessage%packer(operation, me%n_patch_edges_g)
         CALL packedMessage%packer(operation, me%n_patch_verts_g)
-        CALL packedMessage%packer(operation, me%restart_proc_id)
         CALL packedMessage%packer(operation, me%work_pe0_id)
         CALL packedMessage%packer(operation, me%base_filename)
 
@@ -236,18 +246,47 @@ CONTAINS
 
         ! optional parameter arrays
         CALL packedMessage%packer(operation, me%opt_pvct)
-        CALL packedMessage%packer(operation, me%opt_lcall_phy)
         CALL packedMessage%packer(operation, me%opt_t_elapsed_phy)
     END SUBROUTINE restartPatchDescription_packer
 
+    ! This ensures that the work master has complete up-to-date
+    ! knowledge of the patch description.  To this END, this calls
+    ! setTimeLevels() on the patchDescription, AND THEN sends the
+    ! description from the subset master to the work master.
+    SUBROUTINE restartPatchDescription_updateOnMaster(me)
+        CLASS(t_restart_patch_description), INTENT(INOUT) :: me
+
+        TYPE(t_PackedMessage) :: packedMessage
+
+        ! First ensure that the patch description IS up to date.
+        CALL me%setTimeLevels() ! copy the global variables (nold, ...) to the patch description
+
+        ! Then communicate it to the work master.
+        IF(me%work_pe0_id == process_mpi_root_id) RETURN   ! nothing to communicate IF PE0 IS already the subset master
+
+        CALL packedMessage%construct()
+
+        IF(my_process_is_mpi_workroot()) THEN
+            ! receive the package for this patch
+            CALL packedMessage%recv(me%work_pe0_id, 0, process_mpi_all_comm)
+            CALL me%packer(kUnpackOp, packedMessage)
+        ELSE IF (p_pe_work == me%work_pe0_id) THEN
+            ! send the time dependent DATA to process 0
+            CALL me%packer(kPackOp, packedMessage)
+            CALL packedMessage%send(process_mpi_root_id, 0, process_mpi_all_comm)
+        END IF
+
+        CALL packedMessage%destruct()
+    END SUBROUTINE restartPatchDescription_updateOnMaster
+
     !  Set vertical grid definition.
-    SUBROUTINE restartPatchDescription_defineVGrids(me)
+    SUBROUTINE restartPatchDescription_updateVGrids(me)
         CLASS(t_restart_patch_description), TARGET, INTENT(INOUT) :: me
 
         INTEGER :: nlev_soil, nlev_snow, nlev_ocean, nice_class
         INTEGER :: error
         REAL(wp), ALLOCATABLE :: levels(:), levels_sp(:)
-        CHARACTER(*), PARAMETER :: routine = modname//":restartPatchDescription_defineVGrids"
+        CHARACTER(*), PARAMETER :: routine = modname//":restartPatchDescription_updateVGrids"
 
         ! DEFAULT values for the level counts
         nlev_soil = 0
@@ -255,7 +294,8 @@ CONTAINS
         nlev_ocean = 0
         nice_class = 1
 
-        ! Reset counter for vertical axes (needed for writing checkpoint files at multiple times)
+        ! Reset counter for vertical axes (needed for writing
+        ! checkpoint files at multiple times)
         me%v_grid_count = 0
 
         ! replace DEFAULT values by the overrides provided IN the me
@@ -264,13 +304,10 @@ CONTAINS
         IF(ALLOCATED(me%opt_ocean_zlevels)) nlev_ocean = me%opt_ocean_zlevels
         IF(ALLOCATED(me%opt_nice_class)) nice_class = me%opt_nice_class
 
-        ! reset internal counter
-        me%v_grid_count = 0
-
         ! set vertical grid definitions
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_SURFACE, 0._wp)
-        CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_HYBRID, me%nlev)
-        CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_HYBRID_HALF, me%nlev+1)
+        CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_REFERENCE, me%nlev)
+        CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_REFERENCE_HALF, me%nlev+1)
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_HEIGHT_2M, 2._wp)
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_HEIGHT_10M, 10._wp)
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_TOA, 1._wp)
@@ -305,7 +342,7 @@ CONTAINS
             DEALLOCATE(levels, levels_sp)
         END IF
 #endif
-    END SUBROUTINE restartPatchDescription_defineVGrids
+    END SUBROUTINE restartPatchDescription_updateVGrids
 
     SUBROUTINE restartPatchDescription_setRestartAttributes(me, restartAttributes)
         CLASS(t_restart_patch_description), INTENT(IN) :: me
@@ -316,7 +353,8 @@ CONTAINS
         domainString = TRIM(int2string(me%id, '(i2.2)'))
 
         ! set time levels
-        CALL setDynamicPatchRestartAttributes(restartAttributes, me%id, me%nold, me%nnow, me%nnew, me%nnow_rcf, me%nnew_rcf)
+        CALL setDynamicPatchRestartAttributes(restartAttributes, me%id, me%nold, me%nnow, &
+          &                                   me%nnew, me%nnow_rcf, me%nnew_rcf)
 
         !-------------------------------------------------------------
         ! DR
@@ -331,9 +369,8 @@ CONTAINS
             CALL restartAttributes%setInteger('jstep_adv_marchuk_order_DOM'//domainString, me%opt_jstep_adv_marchuk_order)
         END IF
 
-        IF (ALLOCATED(me%opt_t_elapsed_phy) .AND. ALLOCATED(me%opt_lcall_phy)) THEN
-            CALL setPhysicsRestartAttributes(restartAttributes, me%id, me%opt_t_elapsed_phy, me%opt_lcall_phy)
-        END IF
+        CALL setPhysicsRestartAttributes(restartAttributes, me%id, me%opt_t_elapsed_phy)
+
     END SUBROUTINE restartPatchDescription_setRestartAttributes
 
     FUNCTION restartPatchDescription_getGatherPattern(me, gridType) RESULT(resultVar)

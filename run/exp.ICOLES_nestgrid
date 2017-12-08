@@ -116,7 +116,7 @@ cat > ${atmo_namelist} << EOF
 / 
 &initicon_nml
  init_mode              =  4 !4=cosmo, 2=ifs, 3=combined
- ana_varnames_map_file  = '$ICON_BASE_PATH/run/ana_varnames_map_file.txt'
+! ana_varnames_map_file  = '$ICON_BASE_PATH/run/ana_varnames_map_file.txt'
  latbc_varnames_map_file = '$ICON_BASE_PATH/run/dict.latbc'
  nlevsoil_in            =  8
  lread_ana              = .false.

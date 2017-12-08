@@ -78,17 +78,17 @@ MODULE mo_name_list_output
   ! constants
   USE mo_kind,                      ONLY: wp, i8, dp, sp
   USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, MAX_CHAR_LENGTH,       &
-    &                                     ihs_ocean, BOUNDARY_MISSVAL 
+    &                                     ihs_ocean, BOUNDARY_MISSVAL
+  USE mo_cdi_constants,             ONLY: GRID_REGULAR_LONLAT, GRID_UNSTRUCTURED_VERT,              &
+    &                                     GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
   USE mo_impl_constants_grf,        ONLY: grf_bdywidth_c
   USE mo_dynamics_config,           ONLY: iequations
   USE mo_cdi,                       ONLY: streamOpenWrite, FILETYPE_GRB2, streamDefTimestep, cdiEncodeTime, cdiEncodeDate, &
-      &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, zaxisDestroy, gridDestroy, &
+      &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, gridDestroy, &
       &                                   vlistDestroy, streamClose, streamWriteVarSlice, streamWriteVarSliceF, streamDefVlist, &
       &                                   streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT, &
       &                                   streamOpenAppend, streamInqVlist, vlistInqTaxis, vlistNtsteps
   USE mo_util_cdi,                  ONLY: cdiGetStringError
-  USE mo_cdi_constants,             ONLY: GRID_REGULAR_LONLAT, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL, &
-      &                                   GRID_UNSTRUCTURED_EDGE
   ! utility functions
   USE mo_io_units,                  ONLY: FILENAME_MAX, find_next_free_unit
   USE mo_exception,                 ONLY: finish, message, message_text
@@ -131,19 +131,22 @@ MODULE mo_name_list_output
   ! output scheduling
   USE mo_output_event_handler,      ONLY: is_output_step, check_open_file, check_close_file,        &
     &                                     pass_output_step, get_current_filename,                   &
-    &                                     get_current_date, trigger_output_step_irecv,              &
+    &                                     get_current_date,                                         &
     &                                     is_output_step_complete, is_output_event_finished,        &
     &                                     check_write_readyfile, blocking_wait_for_irecvs
+#ifndef NOMPI
+  USE mo_output_event_handler,      ONLY: trigger_output_step_irecv
+#endif
   USE mo_name_list_output_stats,    ONLY: set_reference_time, interval_start, interval_end,         &
     &                                     interval_write_psfile
   ! output initialization
   USE mo_name_list_output_init,     ONLY: init_name_list_output, setup_output_vlist,                &
     &                                     varnames_dict, out_varnames_dict,                         &
     &                                     output_file, patch_info, lonlat_info,                     &
-    &                                     collect_requested_ipz_levels
+    &                                     collect_requested_ipz_levels, create_vertical_axes
   USE mo_name_list_output_metadata, ONLY: metainfo_write_to_memwin, metainfo_get_from_memwin,       &
     &                                     metainfo_get_size, metainfo_get_timelevel
-  USE mo_name_list_output_zaxes,    ONLY: deallocate_level_selection, create_mipz_level_selections
+  USE mo_level_selection,           ONLY: create_mipz_level_selections
   USE mo_grib2_util,                ONLY: set_GRIB2_timedep_keys, set_GRIB2_timedep_local_keys
   ! model domain
   USE mo_model_domain,              ONLY: t_patch, p_patch
@@ -154,7 +157,7 @@ MODULE mo_name_list_output
   USE mo_post_op,                   ONLY: perform_post_op
   USE mo_meteogram_output,          ONLY: meteogram_init, meteogram_finalize
   USE mo_meteogram_config,          ONLY: meteogram_output_config
-  USE mo_intp_data_strc,            ONLY: lonlat_grid_list
+  USE mo_intp_lonlat_types,         ONLY: lonlat_grids
 #endif
 
   IMPLICIT NONE
@@ -326,11 +329,16 @@ CONTAINS
         IF (output_file(i)%cdiFileID >= 0) THEN
           ! clean up level selection (if there is one):
           IF (ASSOCIATED(output_file(i)%level_selection)) THEN
-            CALL deallocate_level_selection(output_file(i)%level_selection)
+            CALL output_file(i)%level_selection%finalize()
+            DEALLOCATE(output_file(i)%level_selection)
+            output_file(i)%level_selection => NULL()
           END IF
           CALL close_output_file(output_file(i))
           CALL destroy_output_vlist(output_file(i))
         END IF
+
+        ! destroy vertical axes meta-data:
+        CALL output_file(i)%verticalAxisList%finalize()
       ENDDO
 #ifndef NOMPI
 #ifndef __NO_ICON_ATMO__
@@ -396,9 +404,6 @@ CONTAINS
       IF(of%cdiVertGridID   /= CDI_UNDEFID) CALL gridDestroy(of%cdiVertGridID)
       IF(of%cdiLonLatGridID /= CDI_UNDEFID) CALL gridDestroy(of%cdiLonLatGridID)
       IF(of%cdiTaxisID      /= CDI_UNDEFID) CALL taxisDestroy(of%cdiTaxisID)
-      DO j = 1, SIZE(of%cdiZaxisID)
-        IF(of%cdiZaxisID(j) /= CDI_UNDEFID) CALL zaxisDestroy(of%cdiZaxisID(j))
-      ENDDO
       CALL vlistDestroy(vlistID)
     ENDIF
 
@@ -408,7 +413,6 @@ CONTAINS
     of%cdiVertGridID   = CDI_UNDEFID
     of%cdiLonLatGridID = CDI_UNDEFID
     of%cdiTaxisID      = CDI_UNDEFID
-    of%cdiZaxisID(:)   = CDI_UNDEFID
 
   END SUBROUTINE destroy_output_vlist
 
@@ -548,7 +552,6 @@ CONTAINS
       ! hand-shake protocol: step finished!
       ! -------------------------------------------------
       CALL pass_output_step(output_file(i)%out_event)
-
     ENDDO OUTFILE_LOOP
 
     ! If asynchronous I/O is enabled, the compute PEs can now start
@@ -567,18 +570,27 @@ CONTAINS
        IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
             & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
           ev => all_events
-          HANDLE_COMPLETE_STEPS : DO
-             IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
-             IF (.NOT. is_output_step_complete(ev) .OR.  &
-                  & is_output_event_finished(ev)) THEN
-                ev => ev%next
-                CYCLE HANDLE_COMPLETE_STEPS
-             END IF
-             !--- write ready file
-             IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
-             ! launch a non-blocking request to all participating PEs to
-             ! acknowledge the completion of the next output event
-             CALL trigger_output_step_irecv(ev)
+          HANDLE_COMPLETE_STEPS : DO WHILE (ASSOCIATED(ev))
+            IF (is_output_step_complete(ev) .AND.  &
+              & .NOT. is_output_event_finished(ev)) THEN
+              !--- write ready file
+              IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
+              ! launch a non-blocking request to all participating PEs to
+              ! acknowledge the completion of the next output event
+#ifndef NOMPI
+              IF (use_async_name_list_io) THEN
+                CALL trigger_output_step_irecv(ev)
+              ELSE
+#endif
+                ev%output_event%i_event_step = ev%output_event%i_event_step + 1
+#ifndef NOMPI
+              END IF
+#else
+              ev => ev%next
+#endif
+            ELSE
+              ev => ev%next
+            END IF
           END DO HANDLE_COMPLETE_STEPS
        END IF
     END IF
@@ -1108,7 +1120,7 @@ CONTAINS
       CASE (GRID_REGULAR_LONLAT)
         lonlat_id = info%hor_interp%lonlat_id
         p_ri  => lonlat_info(lonlat_id, i_log_dom)%ri
-        p_pat => lonlat_grid_list(lonlat_id)%p_pat(i_log_dom)
+        p_pat => lonlat_grids%list(lonlat_id)%p_pat(i_log_dom)
 #endif
       CASE default
         CALL finish(routine,'unknown grid type')
@@ -1559,6 +1571,7 @@ CONTAINS
     IF (iequations/=ihs_ocean) THEN ! atm
       CALL create_mipz_level_selections(output_file)
     END IF
+    CALL create_vertical_axes(output_file)
 
     ! Tell the compute PEs that we are ready to work
     IF (ANY(output_file(:)%io_proc_id == p_pe)) THEN
