@@ -237,20 +237,6 @@ MODULE mo_meteogram_output
     REAL(wp), POINTER     :: p_source(:,:)   !< pointer to source array
   END TYPE t_sfc_var_info
 
-  !>
-  !! Value buffer for a single variable of a station.
-  !!
-  TYPE t_var_buffer
-    REAL(wp), POINTER     :: values(:,:)    !< sampled data for different levels (1:nlevs,time)
-  END TYPE t_var_buffer
-
-  !>
-  !! Value buffer for a single surface variable of a station.
-  !!
-  TYPE t_sfc_var_buffer
-    REAL(wp), POINTER     :: values(:)      !< sampled data (1:time)
-  END TYPE t_sfc_var_buffer
-
   !> number of time- and variable-invariant items per station
   INTEGER, PARAMETER :: num_time_inv = 6
 
@@ -293,43 +279,6 @@ MODULE mo_meteogram_output
     !! if NWP tiles are set up, 1 otherwise
     INTEGER :: ntiles_mtgrm
   END TYPE t_mtgrm_invariants
-
-  !>
-  !! Data structure containing meteogram data and meta info for a
-  !! single station.
-  !!
-  !! Apart from header info, data structures of this type buffer point
-  !! values for a meteogram between file I/O.
-  !! The time slices and variables where the values are collected are
-  !! defined outside of this data structure in a record of type
-  !! t_meteogram_data.
-  !!
-  !! Note: This info is different for different patches.
-  !!
-  TYPE t_meteogram_station
-    ! Meteogram header (information on location, ...)
-
-    ! Buffers for currently stored meteogram values.
-    !> sampled data (1:nvars)
-    TYPE(t_var_buffer), ALLOCATABLE :: var(:)
-    !> sampled data (1:nsfcvars)
-    TYPE(t_sfc_var_buffer), ALLOCATABLE :: sfc_var(:)
-  END TYPE t_meteogram_station
-
-  ! the nag compiler cannot handle contiguous components here but does not define a distinctive symbol
-#ifdef NAGFOR
-#undef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-#endif
-  !>
-  !! Storage for information on the set of collected variables for
-  !! several stations.
-  !!
-  TYPE t_meteogram_data
-    ! value buffers:
-    !> meteogram data and meta info for each station (idx,blk).
-    TYPE(t_meteogram_station), ALLOCATABLE :: station(:)
-    INTEGER                         :: nstations
-  END TYPE t_meteogram_data
 
   !>
   !! Data structure specifying NetCDF IDs
@@ -386,7 +335,6 @@ MODULE mo_meteogram_output
   !! Data structure containing meteogram buffers and other data.
   !!
   TYPE t_buffer_state
-    TYPE(t_meteogram_data)  :: meteogram_local_data             !< meteogram data local to this PE
     !> triangle index (nstations,2)
     INTEGER, ALLOCATABLE    :: tri_idx_local(:,:)
     !> meteogram file handle etc.
@@ -432,6 +380,8 @@ MODULE mo_meteogram_output
     INTEGER                 :: global_idx(MAX_NUM_STATIONS)
 
     TYPE(meteogram_diag_var_indices) :: diag_var_indices
+    !> number of stations for which data is available on this MPI rank
+    INTEGER :: nstations_local
     !> "owner" PE for each station
     INTEGER :: pstation(MAX_NUM_STATIONS)
   END TYPE t_buffer_state
@@ -445,7 +395,7 @@ MODULE mo_meteogram_output
   END TYPE mtgrm_pack_buf
 
   !! -- module data: --
-  TYPE(t_buffer_state), SAVE, TARGET :: mtgrm(1:max_dom)
+  TYPE(t_buffer_state), SAVE :: mtgrm(1:max_dom)
 
 
 CONTAINS
@@ -1287,12 +1237,12 @@ CONTAINS
     IF (.NOT. is_pure_io_pe) THEN
       nblks = (nstations+nproma-1)/nproma
       CALL mtgrm_station_owners(mtgrm(jg)%pstation, &
-        mtgrm(jg)%meteogram_local_data%nstations, meteogram_output_config, &
+        mtgrm(jg)%nstations_local, meteogram_output_config, &
         nblks, ptr_patch, mtgrm(jg)%io_collector_rank, &
         mtgrm(jg)%io_collect_comm, tri_idx, mtgrm(jg)%global_idx, &
         mtgrm(jg)%io_invar_send_rank)
       pack_buf%l_is_varlist_sender = mtgrm(jg)%io_invar_send_rank == p_pe_work
-      ithis_nlocal_pts = mtgrm(jg)%meteogram_local_data%nstations
+      ithis_nlocal_pts = mtgrm(jg)%nstations_local
     ELSE
       ithis_nlocal_pts = 0
       pack_buf%l_is_varlist_sender = .FALSE.
@@ -1386,7 +1336,7 @@ CONTAINS
     END IF
 
     nstations_buf = MERGE(nstations, &
-      mtgrm(jg)%meteogram_local_data%nstations, mtgrm(jg)%l_is_collecting_pe)
+      mtgrm(jg)%nstations_local, mtgrm(jg)%l_is_collecting_pe)
     CALL allocate_out_buf(mtgrm(jg)%out_buf, &
       mtgrm(jg)%var_info, mtgrm(jg)%sfc_var_info, &
       meteogram_output_config%max_time_stamps, nstations_buf)
@@ -1409,8 +1359,7 @@ CONTAINS
     ! set up list of local stations:
     IF (.NOT. is_pure_io_pe) THEN
 
-      ALLOCATE(mtgrm(jg)%meteogram_local_data%station(ithis_nlocal_pts), &
-        mtgrm(jg)%tri_idx_local(ithis_nlocal_pts, 2), &
+      ALLOCATE(mtgrm(jg)%tri_idx_local(ithis_nlocal_pts, 2), &
         stat=ierrstat)
       IF (ierrstat /= SUCCESS) THEN
         CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 3)')
@@ -1421,20 +1370,15 @@ CONTAINS
         istation_buf = MERGE(mtgrm(jg)%global_idx(istation), istation, &
           mtgrm(jg)%l_is_collecting_pe)
         mtgrm(jg)%tri_idx_local(istation, :) = tri_idx(:,jc,jb)
-        CALL sample_station_init(&
-          mtgrm(jg)%meteogram_local_data%station(istation), &
-          istation_buf, tri_idx(:,jc,jb), &
+        CALL sample_station_init(istation_buf, tri_idx(:,jc,jb), &
           ptr_patch%cells, ext_data%atm, iforcing, p_nh_state%metrics, &
-          mtgrm(jg)%var_info, mtgrm(jg)%sfc_var_info, &
-          meteogram_output_config%max_time_stamps, mtgrm(jg)%out_buf, &
-          invariants)
+          mtgrm(jg)%var_info, mtgrm(jg)%sfc_var_info, invariants)
       END DO
       IF (      .NOT. mtgrm(jg)%l_is_collecting_pe &
         & .AND. .NOT. meteogram_output_config%ldistributed) &
-        CALL send_time_invariants(mtgrm(jg)%var_info, &
-        mtgrm(jg)%meteogram_local_data%station, invariants, &
+        CALL send_time_invariants(mtgrm(jg)%var_info, invariants, &
         mtgrm(jg)%io_collector_rank, mtgrm(jg)%io_collect_comm, &
-        mtgrm(jg)%global_idx)
+        mtgrm(jg)%global_idx(1:ithis_nlocal_pts))
       IF (.NOT. mtgrm(jg)%l_is_collecting_pe) THEN
         DO istation=1,ithis_nlocal_pts
           mtgrm(jg)%out_buf%station_idx(istation) &
@@ -1451,8 +1395,6 @@ CONTAINS
       DO istation = 1, nstations
         mtgrm(jg)%out_buf%station_idx(istation) = istation
       END DO
-      IF (.NOT. ALLOCATED(mtgrm(jg)%meteogram_local_data%station)) &
-        ALLOCATE(mtgrm(jg)%meteogram_local_data%station(0))
       CALL recv_time_invariants(mtgrm(jg)%var_info, invariants, &
         mtgrm(jg)%pstation, mtgrm(jg)%io_collect_comm, is_pure_io_pe)
     END IF IO_PE
@@ -1471,7 +1413,7 @@ CONTAINS
     ! Flag. True, if this PE writes data to file
     mtgrm(jg)%l_is_writer &
       & =      (      meteogram_output_config%ldistributed &
-      &         .AND. mtgrm(jg)%meteogram_local_data%nstations > 0) &
+      &         .AND. mtgrm(jg)%nstations_local > 0) &
       &   .OR. mtgrm(jg)%l_is_collecting_pe
 
     IF (.NOT. meteogram_output_config%ldistributed) THEN
@@ -1585,15 +1527,12 @@ CONTAINS
 
   END SUBROUTINE mtgrm_station_owners
 
-  SUBROUTINE sample_station_init(station, istation_buf, tri_idx, &
-    cells, atm, iforcing, metrics, var_info, sfc_var_info, max_time_stamps, &
-    out_buf, invariants)
-    TYPE(t_meteogram_station), INTENT(inout) :: station
+  SUBROUTINE sample_station_init(istation_buf, tri_idx, &
+    cells, atm, iforcing, metrics, var_info, sfc_var_info, invariants)
     INTEGER, INTENT(in) :: istation_buf
     INTEGER, INTENT(in) :: tri_idx(2)
     TYPE(t_grid_cells), INTENT(in) :: cells
     TYPE(t_external_atmos), INTENT(in) :: atm
-    TYPE(t_mtgrm_out_buffer), TARGET, INTENT(in) :: out_buf
     TYPE(t_mtgrm_invariants), TARGET, INTENT(inout) :: invariants
     !> parameterized forcing (right hand side) of dynamics, affects
     !! topography specification, see "mo_extpar_config"
@@ -1602,7 +1541,6 @@ CONTAINS
     TYPE(t_nh_metrics), INTENT(IN) :: metrics
     TYPE(t_var_info), INTENT(in) :: var_info(:)
     TYPE(t_sfc_var_info), INTENT(in) :: sfc_var_info(:)
-    INTEGER, INTENT(in) :: max_time_stamps
 
     REAL(wp), POINTER :: station_var_heights(:)
     INTEGER :: tri_idx1, tri_idx2, glb_index, ivar, nvars, nlevs
@@ -1618,8 +1556,6 @@ CONTAINS
     ! set Coriolis parameter for station
     invariants%fc(istation_buf) = cells%f_c(tri_idx1, tri_idx2)
 
-    CALL allocate_station_buffer(station, var_info, sfc_var_info, &
-      out_buf, istation_buf)
     !
     ! set station information on height, soil type etc.:
     SELECT CASE ( iforcing )
@@ -1716,57 +1652,6 @@ CONTAINS
     END DO
   END SUBROUTINE allocate_heights
 
-  SUBROUTINE allocate_station_buffer(station, var_info, sfc_var_info, &
-    out_buf, istation_buf)
-    TYPE(t_meteogram_station), INTENT(inout) :: station
-    TYPE(t_var_info), INTENT(in) :: var_info(:)
-    TYPE(t_sfc_var_info), INTENT(in) :: sfc_var_info(:)
-    INTEGER, INTENT(in) :: istation_buf
-    TYPE(t_mtgrm_out_buffer), TARGET, INTENT(in) :: out_buf
-
-    INTEGER :: ivar, nvars, ierror
-    CHARACTER(len=*), PARAMETER :: &
-      routine = modname//"::allocate_station_buffer"
-
-    nvars = SIZE(var_info)
-    ALLOCATE(station%var(nvars), stat=ierror)
-    IF (ierror /= SUCCESS) CALL finish(routine, &
-      'ALLOCATE of meteogram data structures failed (part 9)')
-    DO ivar = 1, nvars
-      station%var(ivar)%values &
-        => out_buf%atmo_vars(ivar)%a(istation_buf, :, :)
-    END DO
-
-    nvars = SIZE(sfc_var_info)
-    ALLOCATE(station%sfc_var(nvars), stat=ierror)
-    IF (ierror /= SUCCESS) CALL finish(routine, &
-      'ALLOCATE of meteogram data structures failed (part 11)')
-    DO ivar = 1, nvars
-      station%sfc_var(ivar)%values &
-        => out_buf%sfc_vars(ivar)%a(istation_buf, :)
-    END DO
-  END SUBROUTINE allocate_station_buffer
-
-  SUBROUTINE deallocate_station_buffer(station)
-    TYPE(t_meteogram_station), INTENT(inout) :: station
-
-    INTEGER :: ivar, nvars, ierror
-    CHARACTER(len=*), PARAMETER :: routine &
-      = modname//'::deallocate_station_buffer'
-
-    nvars = SIZE(station%var)
-    DO ivar=1,nvars
-      NULLIFY(station%var(ivar)%values)
-    END DO
-    nvars = SIZE(station%sfc_var)
-    DO ivar=1,nvars
-      NULLIFY(station%sfc_var(ivar)%values)
-    END DO
-    DEALLOCATE(station%sfc_var, station%var, stat=ierror)
-    IF (ierror /= SUCCESS) &
-      CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-
-  END SUBROUTINE deallocate_station_buffer
   !>
   !! @return .TRUE. if meteogram data will be recorded for this step.
   !!
@@ -1810,7 +1695,7 @@ CONTAINS
     INTEGER :: istation, ithis_nlocal_pts, i_tstep
     CHARACTER(len=MAX_DATETIME_STR_LEN) :: zdate
     INTEGER :: msg(2)
-    INTEGER :: buf_idx(mtgrm(jg)%meteogram_local_data%nstations)
+    INTEGER :: buf_idx(mtgrm(jg)%nstations_local)
 
     IF (dbg_level > 0) THEN
       WRITE(message_text,*) "Sampling at step=", cur_step
@@ -1836,7 +1721,7 @@ CONTAINS
     i_tstep = mtgrm(jg)%icurrent + 1
     mtgrm(jg)%icurrent = i_tstep
 
-    ithis_nlocal_pts = mtgrm(jg)%meteogram_local_data%nstations
+    ithis_nlocal_pts = mtgrm(jg)%nstations_local
     IF (ithis_nlocal_pts > 0 .OR. mtgrm(jg)%l_is_collecting_pe) THEN
       mtgrm(jg)%istep(i_tstep) = cur_step
       CALL datetimeToPosixString(cur_datetime, zdate, "%Y%m%dT%H%M%SZ")
@@ -1927,33 +1812,15 @@ CONTAINS
     CALL meteogram_close_file(jg)
 
     is_mpi_workroot = my_process_is_mpi_workroot()
-    IF (     mtgrm(jg)%meteogram_local_data%nstations > 0 &
+    IF (     mtgrm(jg)%nstations_local > 0 &
       & .OR. (.NOT. use_async_name_list_io .AND. is_mpi_workroot) &
       & .OR. mtgrm(jg)%l_is_collecting_pe) THEN
-      CALL deallocate_mtgrm_sample_buffer(mtgrm(jg)%meteogram_local_data)
       DEALLOCATE(mtgrm(jg)%istep, mtgrm(jg)%zdate, mtgrm(jg)%var_info, &
         mtgrm(jg)%sfc_var_info, stat=ierror)
       IF (ierror /= SUCCESS) &
         CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
     END IF
   END SUBROUTINE meteogram_finalize
-
-  SUBROUTINE deallocate_mtgrm_sample_buffer(meteogram_data)
-    TYPE(t_meteogram_data), INTENT(inout) :: meteogram_data
-    INTEGER :: ierror, istation
-    CHARACTER(len=*), PARAMETER :: &
-      routine = modname//"deallocate_mtgrm_sample_buffer"
-
-    DO istation = 1, meteogram_data%nstations
-      CALL deallocate_station_buffer(meteogram_data%station(istation))
-    END DO
-    meteogram_data%nstations = 0
-
-    DEALLOCATE(meteogram_data%station, stat=ierror)
-    IF (ierror /= SUCCESS) &
-      CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-
-  END SUBROUTINE deallocate_mtgrm_sample_buffer
 
   !>
   !! IO PE gathers all buffer information from working PEs and copies
@@ -2096,7 +1963,7 @@ CONTAINS
           &          comm=mtgrm%io_collect_comm)
       END IF
       ! pack station into buffer; send it
-      DO istation=1,mtgrm%meteogram_local_data%nstations
+      DO istation=1,mtgrm%nstations_local
         station_idx = mtgrm%global_idx(istation)
         CALL pack_station_sample(msg_buffer(:,1), position, &
           mtgrm%icurrent, &
@@ -2228,8 +2095,6 @@ CONTAINS
 
     ! In "non-distributed" mode, station data is gathered by PE #0
     ! which writes a single file.
-    ! Note that info on variables is not copied to the global data set
-    ! (we use the local meteogram_data there).
 
     ! skip routine, if this PE has nothing to do...
     IF  (.NOT. mtgrm%l_is_writer) RETURN
@@ -3156,10 +3021,9 @@ CONTAINS
     CALL p_unpack_string(pack_buf%msg_varlist, pack_buf%pos, cf%units)
   END SUBROUTINE unpack_cf
 
-  SUBROUTINE send_time_invariants(var_info, station, invariants, &
+  SUBROUTINE send_time_invariants(var_info, invariants, &
     io_collector_rank, io_collect_comm, global_idx)
     TYPE(t_var_info), INTENT(in) :: var_info(:)
-    TYPE(t_meteogram_station), INTENT(in) :: station(:)
     TYPE(t_mtgrm_invariants), INTENT(in) :: invariants
     INTEGER, INTENT(in) :: io_collector_rank, io_collect_comm, global_idx(:)
 
@@ -3168,7 +3032,7 @@ CONTAINS
     INTEGER :: ivar, nvars, nlevs, pos, istation, nstations, ntiles
 
     ntiles = invariants%ntiles_mtgrm
-    nstations = SIZE(station)
+    nstations = SIZE(global_idx)
     ALLOCATE(buf(num_time_inv + 2*ntiles + SUM(var_info%nlevs),nstations))
     nvars = SIZE(var_info)
     DO istation = 1, nstations
