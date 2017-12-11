@@ -1076,14 +1076,15 @@ CONTAINS
   !! Initial implementation  by  F. Prill, DWD (2011-11-25)
   !!
   SUBROUTINE compute_diagnostics(diag_var_indices, i_tstep, &
-    out_buf, istation_buf)
+    ithis_nlocal_pts, out_buf, buf_idx)
     TYPE(meteogram_diag_var_indices), INTENT(in) :: diag_var_indices
     INTEGER, INTENT(IN) :: i_tstep   ! time step index
     TYPE(t_mtgrm_out_buffer), INTENT(inout) :: out_buf
-    INTEGER, INTENT(in) :: istation_buf
+    INTEGER, INTENT(in) :: ithis_nlocal_pts
+    INTEGER, INTENT(in) :: buf_idx(ithis_nlocal_pts)
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":compute_diagnostics"
-    INTEGER                         :: ilev, nlevs
+    INTEGER                         :: ilev, nlevs, istation, istation_buf
     INTEGER                         :: i_REL_HUM, i_T, i_QV, i_PEXNER, &
       &                                i_SWDIR_S, i_ALB, i_SWDIFD_S, i_SOBS
     REAL(wp)                        :: temp, qv, p_ex
@@ -1103,14 +1104,17 @@ CONTAINS
       IF (i_T /= -1 .AND. i_QV /= -1 .AND. i_PEXNER  /= -1) THEN
         nlevs = SIZE(out_buf%atmo_vars(i_T)%a, 2)
         DO ilev=1,nlevs
-          ! get values for temperature, etc.:
-          temp = out_buf%atmo_vars(i_T)%a(istation_buf, ilev, i_tstep)
-          qv   = out_buf%atmo_vars(i_QV)%a(istation_buf, ilev, i_tstep)
-          p_ex = out_buf%atmo_vars(i_PEXNER)%a(istation_buf, ilev, i_tstep)
-          !-- compute relative humidity as r = e/e_s:
+          DO istation = 1, ithis_nlocal_pts
+            istation_buf = buf_idx(istation)
+            ! get values for temperature, etc.:
+            temp = out_buf%atmo_vars(i_T)%a(istation_buf, ilev, i_tstep)
+            qv   = out_buf%atmo_vars(i_QV)%a(istation_buf, ilev, i_tstep)
+            p_ex = out_buf%atmo_vars(i_PEXNER)%a(istation_buf, ilev, i_tstep)
+            !-- compute relative humidity as r = e/e_s:
 !CDIR NEXPAND
-          out_buf%atmo_vars(i_REL_HUM)%a(istation_buf, ilev, i_tstep) &
-            = rel_hum(temp, qv, p_ex)
+            out_buf%atmo_vars(i_REL_HUM)%a(istation_buf, ilev, i_tstep) &
+              = rel_hum(temp, qv, p_ex)
+          END DO
         END DO
       ELSE
         CALL message(routine, ">>> meteogram: REL_HUM could not be computed&
@@ -1125,11 +1129,14 @@ CONTAINS
       i_SWDIFD_S = diag_var_indices%i_SWDIFD_S
       i_SOBS = diag_var_indices%i_SOBS
       IF (i_ALB /= -1 .AND. i_SWDIFD_S /= -1 .AND. i_SOBS /= -1) THEN
-        albedo   = out_buf%sfc_vars(i_ALB)%a(istation_buf, i_tstep)
-        swdifd_s = out_buf%sfc_vars(i_SWDIFD_S)%a(istation_buf, i_tstep)
-        sobs     = out_buf%sfc_vars(i_SOBS)%a(istation_buf, i_tstep)
-        out_buf%sfc_vars(i_SWDIR_S)%a(istation_buf, i_tstep) &
-          = swdir_s(albedo, swdifd_s, sobs)
+        DO istation = 1, ithis_nlocal_pts
+          istation_buf = buf_idx(istation)
+          albedo   = out_buf%sfc_vars(i_ALB)%a(istation_buf, i_tstep)
+          swdifd_s = out_buf%sfc_vars(i_SWDIFD_S)%a(istation_buf, i_tstep)
+          sobs     = out_buf%sfc_vars(i_SOBS)%a(istation_buf, i_tstep)
+          out_buf%sfc_vars(i_SWDIR_S)%a(istation_buf, i_tstep) &
+            = swdir_s(albedo, swdifd_s, sobs)
+        END DO
       ELSE
         CALL message(routine, ">>> meteogram: SWDIR_S could not be computed&
           & (ALB, SWDIFD_S, and/or SOBS missing)")
@@ -1843,52 +1850,59 @@ CONTAINS
         END DO
       END IF
       ! fill time step with values
-      DO istation = 1, ithis_nlocal_pts
-        CALL sample_station_vars(&
-          mtgrm(jg)%tri_idx_local(istation,:), &
-          mtgrm(jg)%var_info, mtgrm(jg)%sfc_var_info, &
-          mtgrm(jg)%diag_var_indices, i_tstep, &
-          mtgrm(jg)%out_buf, buf_idx(istation))
-      END DO
+      CALL sample_station_vars(&
+        mtgrm(jg)%tri_idx_local, &
+        mtgrm(jg)%var_info, mtgrm(jg)%sfc_var_info, &
+        mtgrm(jg)%diag_var_indices, i_tstep, ithis_nlocal_pts, &
+        mtgrm(jg)%out_buf, buf_idx)
     END IF
   END SUBROUTINE meteogram_sample_vars
 
   SUBROUTINE sample_station_vars(tri_idx_local, var_info, sfc_var_info, &
-    diag_var_indices, i_tstep, out_buf, istation_buf)
-    INTEGER, INTENT(in) :: tri_idx_local(:)
+    diag_var_indices, i_tstep, ithis_nlocal_pts, out_buf, buf_idx)
+    INTEGER, INTENT(in) :: tri_idx_local(:,:)
     TYPE(t_var_info), INTENT(in) :: var_info(:)
     TYPE(t_sfc_var_info), INTENT(in) :: sfc_var_info(:)
     TYPE(meteogram_diag_var_indices), INTENT(in) :: diag_var_indices
-    INTEGER, INTENT(in) :: i_tstep
+    INTEGER, INTENT(in) :: i_tstep, ithis_nlocal_pts
     TYPE(t_mtgrm_out_buffer), INTENT(inout) :: out_buf
-    INTEGER, INTENT(in) :: istation_buf
+    INTEGER, INTENT(in) :: buf_idx(ithis_nlocal_pts)
 
-    INTEGER :: iidx, iblk, ivar, nvars
+    INTEGER :: iidx, iblk, ivar, nvars, istation, istation_buf
     CHARACTER(len=*), PARAMETER :: routine &
       = modname//'::sample_station_vars'
 
-    iidx  = tri_idx_local(1)
-    iblk  = tri_idx_local(2)
 
     ! sample 3D variables:
     nvars = SIZE(var_info)
     VAR_LOOP : DO ivar=1,nvars
       IF (.NOT. BTEST(var_info(ivar)%igroup_id, FLAG_DIAG)) THEN
-        out_buf%atmo_vars(ivar)%a(istation_buf, :, i_tstep) &
-          = var_info(ivar)%p_source(iidx, :, iblk)
+        DO istation = 1, ithis_nlocal_pts
+          istation_buf = buf_idx(istation)
+          iidx  = tri_idx_local(istation, 1)
+          iblk  = tri_idx_local(istation, 2)
+          out_buf%atmo_vars(ivar)%a(istation_buf, :, i_tstep) &
+            = var_info(ivar)%p_source(iidx, :, iblk)
+        END DO
       END IF
     END DO VAR_LOOP
     ! sample surface variables:
     nvars = SIZE(sfc_var_info)
     SFCVAR_LOOP : DO ivar=1,nvars
       IF (.NOT. BTEST(sfc_var_info(ivar)%igroup_id, FLAG_DIAG)) THEN
-        out_buf%sfc_vars(ivar)%a(istation_buf, i_tstep) &
-          = sfc_var_info(ivar)%p_source(iidx, iblk)
+        DO istation = 1, ithis_nlocal_pts
+          istation_buf = buf_idx(istation)
+          iidx  = tri_idx_local(istation, 1)
+          iblk  = tri_idx_local(istation, 2)
+          out_buf%sfc_vars(ivar)%a(istation_buf, i_tstep) &
+            = sfc_var_info(ivar)%p_source(iidx, iblk)
+        END DO
       END IF
     END DO SFCVAR_LOOP
 
     ! compute additional diagnostic quantities:
-    CALL compute_diagnostics(diag_var_indices, i_tstep, out_buf, istation_buf)
+    CALL compute_diagnostics(diag_var_indices, i_tstep, &
+      ithis_nlocal_pts, out_buf, buf_idx)
 
   END SUBROUTINE sample_station_vars
 
