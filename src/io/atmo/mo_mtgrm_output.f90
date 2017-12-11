@@ -382,6 +382,8 @@ MODULE mo_meteogram_output
     TYPE(meteogram_diag_var_indices) :: diag_var_indices
     !> number of stations for which data is available on this MPI rank
     INTEGER :: nstations_local
+    !> time dimension offset to use when writing
+    INTEGER :: time_offset
     !> "owner" PE for each station
     INTEGER :: pstation(MAX_NUM_STATIONS)
   END TYPE t_buffer_state
@@ -1173,6 +1175,7 @@ CONTAINS
     END IF
     meteogram_output_config%io_proc_id = io_collector_rank
 
+    mtgrm(jg)%time_offset = 0
     ! Flag. True, if this PE collects data from (other) working PEs
     mtgrm(jg)%l_is_collecting_pe                                             &
       &    =       (.NOT. meteogram_output_config%ldistributed)              &
@@ -2115,6 +2118,10 @@ CONTAINS
         mtgrm%var_info, mtgrm%sfc_var_info, mtgrm%max_nlevs, invariants)
     ELSE
       CALL meteogram_append_file(mtgrm%meteogram_file_info, mtgrm%sfc_var_info)
+      ! inquire about current number of records in file:
+      CALL nf(nf_inq_dimlen(mtgrm%meteogram_file_info%ncid%file_id, &
+        mtgrm%meteogram_file_info%ncid%timeid, mtgrm%time_offset), routine)
+
     END IF
     IF (dbg_level > 5)  WRITE (*,*) routine, " Leave"
 
@@ -2578,11 +2585,14 @@ CONTAINS
     ! which writes a single file:
     IF (.NOT. mtgrm(jg)%meteogram_file_info%ldistributed) &
       CALL meteogram_collect_buffers(mtgrm(jg), jg)
-    IF (mtgrm(jg)%l_is_writer) &
+    IF (mtgrm(jg)%l_is_writer) THEN
       CALL disk_flush(mtgrm(jg)%var_info, mtgrm(jg)%sfc_var_info, &
-      &               mtgrm(jg)%out_buf, &
+      &               mtgrm(jg)%out_buf, mtgrm(jg)%time_offset, &
       &               mtgrm(jg)%icurrent, mtgrm(jg)%istep, mtgrm(jg)%zdate, &
       &               mtgrm(jg)%meteogram_file_info%ncid)
+      mtgrm(jg)%time_offset = mtgrm(jg)%time_offset + mtgrm(jg)%icurrent
+      mtgrm(jg)%icurrent = 0
+    END IF
 
     ! finally, reset buffer counter for new data
     mtgrm(jg)%icurrent = 0
@@ -2592,17 +2602,16 @@ CONTAINS
   END SUBROUTINE meteogram_flush_file
 
   SUBROUTINE disk_flush(var_info, sfc_var_info, &
-    out_buf, icurrent, istep, zdate, ncid)
+    out_buf, time_offset, icurrent, istep, zdate, ncid)
     TYPE(t_var_info), INTENT(in) :: var_info(:)
     TYPE(t_sfc_var_info), INTENT(in) :: sfc_var_info(:)
     TYPE(t_mtgrm_out_buffer), INTENT(in) :: out_buf
-    INTEGER, INTENT(inout) :: icurrent
-    INTEGER, INTENT(in) :: istep(:)
+    INTEGER, INTENT(in) :: icurrent, istep(:), time_offset
     CHARACTER(len=MAX_DATE_LEN), INTENT(in) :: zdate(:)
 
     TYPE(t_ncid), INTENT(in) :: ncid
 
-    INTEGER :: totaltime, itime, nstations, ivar, nlevs, nvars, nsfcvars
+    INTEGER :: itime, nstations, ivar, nlevs, nvars, nsfcvars
     INTEGER :: istart(4), icount(4), ncfile
     CHARACTER(len=*), PARAMETER :: routine = modname//"::disk_flush"
 
@@ -2615,14 +2624,11 @@ CONTAINS
       CALL message(routine, TRIM(message_text))
     END IF
 
-    ! inquire about current number of records in file:
-    CALL nf(nf_inq_dimlen(ncfile, ncid%timeid, totaltime), routine)
-
     IF (dbg_level > 0) &
       WRITE (*,'(a,i0,a)') "Writing ", icurrent, " time slices to disk."
 
     ! write time stamp info:
-    istart(1) = totaltime+1
+    istart(1) = time_offset+1
     icount(1) = icurrent
     CALL nf(nf_put_vara_int(ncfile, ncid%time_step, istart(1), icount(1), &
       &                     istep), routine)
@@ -2633,7 +2639,7 @@ CONTAINS
       icount(1) = nstations
       icount(2) = 1 ! 1 variable at a time
       istart(3) = 1 ! always start at ilev=1
-      istart(4) = totaltime+1
+      istart(4) = time_offset+1
       icount(4) = icurrent
       DO ivar=1,nvars
         nlevs = var_info(ivar)%nlevs
@@ -2649,7 +2655,7 @@ CONTAINS
       istart(1) = 1
       icount(1) = nstations
       icount(2) = 1 ! 1 variable at a time
-      istart(3) = totaltime+1
+      istart(3) = time_offset+1
       icount(3) = icurrent
       DO ivar=1,nsfcvars
         istart(2) = ivar
@@ -2662,13 +2668,12 @@ CONTAINS
     DO itime=1,icurrent
       istart(3) = 1
       icount(3) = LEN_TRIM(zdate(itime))
-      istart(4) = totaltime+itime
+      istart(4) = time_offset+itime
       icount(4) = 1
       CALL nf(nf_put_vara_text(ncfile, ncid%dateid, istart(3:4), icount(3:4), &
         &                      zdate(itime)), routine)
     END DO
     CALL nf(nf_sync(ncfile), routine)
-    icurrent = 0
 
   END SUBROUTINE disk_flush
 
