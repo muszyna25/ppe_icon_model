@@ -38,7 +38,7 @@ dnl find site and hostname
 AS_CASE([$ac_hostname],
         [wizard*],
         [ac_sitename=dkrz.de
-         fqdn=$ac_hostname.$ac_sitename],  
+         fqdn=$ac_hostname.$ac_sitename],
         [mlogin*|btlogin*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],
@@ -47,13 +47,13 @@ AS_CASE([$ac_hostname],
          fqdn=$ac_hostname.$ac_sitename],
         [ic2*],      
         [ac_sitename=kit.edu;
-         fqdn=$ac_hostname.$ac_sitename],         
+         fqdn=$ac_hostname.$ac_sitename],
         [uc1*],      
         [ac_sitename=kit.edu;
-         fqdn=$ac_hostname.$ac_sitename],         
+         fqdn=$ac_hostname.$ac_sitename],
         [fh2*],      
         [ac_sitename=kit.edu;
-         fqdn=$ac_hostname.$ac_sitename],         
+         fqdn=$ac_hostname.$ac_sitename],
         [
          AS_IF([test "x$(hostname)" = "x$ac_hostname"],
                [fqdn=$(host -n $ac_hostname | $AWK '/has address/ {print $1}')],
@@ -1139,7 +1139,7 @@ AS_IF([test "x$enable_serialization" = "xyes"],
     if test -f "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then
       if test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then
          SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
-         make_command="${SERIALBOX2_PPSER} -r -d ${my_iconppdir} src;\n $make_command;"
+         make_command="${SERIALBOX2_PPSER} -r -d ${my_iconppdir} src;$make_command;"
        else
          echo "pp_ser.py script from Serialbox2 is not executable"  
          exit 1

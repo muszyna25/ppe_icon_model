@@ -97,6 +97,7 @@
 
 MODULE mo_2mom_mcrph_main
 
+  !$ser verbatim USE mo_ser_2mom,           ONLY: serialize_2mom
   USE mo_kind,               ONLY: sp, wp
   USE mo_exception,          ONLY: finish, message, txt => message_text
   USE mo_math_constants,     ONLY: pi, pi4 => pi_4
