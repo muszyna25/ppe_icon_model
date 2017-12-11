@@ -2100,7 +2100,7 @@ CONTAINS
         station_idx = mtgrm%global_idx(istation)
         CALL pack_station_sample(msg_buffer(:,1), position, &
           mtgrm%icurrent, &
-          mtgrm%meteogram_local_data%station(istation), mtgrm%var_info, &
+          mtgrm%out_buf, istation, mtgrm%var_info, &
           mtgrm%global_idx(istation))
         ! (blocking) send of packed station data to IO PE:
         CALL p_send_packed(msg_buffer, mtgrm%io_collector_rank, &
@@ -2168,12 +2168,12 @@ CONTAINS
     pack_size = SUM(var_info(:)%nlevs) * max_time_stamps * p_real_dp_byte
   END FUNCTION station_atmo_vars_max_pack_size
 
-  SUBROUTINE pack_station_sample(sttn_buffer, pos, icurrent, station, &
+  SUBROUTINE pack_station_sample(sttn_buffer, pos, icurrent, out_buf, istation,&
     var_info, global_idx)
     CHARACTER, INTENT(out) :: sttn_buffer(:)
-    INTEGER, INTENT(in) :: icurrent, global_idx
+    INTEGER, INTENT(in) :: icurrent, global_idx, istation
     INTEGER, INTENT(out) :: pos
-    TYPE(t_meteogram_station), INTENT(in) :: station
+    TYPE(t_mtgrm_out_buffer), INTENT(inout) :: out_buf
     TYPE(t_var_info), INTENT(in) :: var_info(:)
 
     INTEGER :: ivar, nvars, nlevs
@@ -2186,16 +2186,16 @@ CONTAINS
     CALL p_pack_int(global_idx, sttn_buffer, pos)
 
     !-- pack meteogram data:
-    nvars = SIZE(station%var)
+    nvars = SIZE(out_buf%atmo_vars)
     DO ivar = 1, nvars
       nlevs = var_info(ivar)%nlevs
-      CALL p_pack_real_2d(station%var(ivar)%values, nlevs*icurrent, &
-        &                 sttn_buffer, pos)
+      CALL p_pack_real_2d(out_buf%atmo_vars(ivar)%a(istation,:,1:icurrent), &
+        &                 nlevs*icurrent, sttn_buffer, pos)
     END DO
-    nvars = SIZE(station%sfc_var)
+    nvars = SIZE(out_buf%sfc_vars)
     DO ivar = 1, nvars
-      CALL p_pack_real_1d(station%sfc_var(ivar)%values, icurrent, &
-        &                 sttn_buffer, pos)
+      CALL p_pack_real_1d(out_buf%sfc_vars(ivar)%a(istation,1:icurrent), &
+        &                 icurrent, sttn_buffer, pos)
     END DO
 
   END SUBROUTINE pack_station_sample
