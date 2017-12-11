@@ -26,9 +26,6 @@
 MODULE mo_psrad_cloud_optics
 
   USE mo_psrad_general, ONLY: wp, finish, pi, rhoh2o
-#ifndef PSRAD_ONLY
-  USE mo_echam_cloud_config, ONLY: echam_cloud_config
-#endif
 
   USE mo_psrad_io, ONLY: psrad_io_open, psrad_io_close, &
     psrad_io_copy_double
@@ -58,16 +55,15 @@ MODULE mo_psrad_cloud_optics
     0.0030_wp, 0.0013_wp, 0.0005_wp, 0.0054_wp, &
     0.0052_wp, 0.0050_wp, 0.0048_wp, 0.0048_wp/)
 
-  LOGICAL, SAVE   :: l_variable_inhoml = .TRUE.
+  LOGICAL :: l_variable_inhoml = .TRUE.
 
-  !LOOKS LIKE A HACK...
-  real(wp), public, save :: & ! values for liquid-cloud inhomogeneity factor:
+  REAL(wp), PUBLIC :: & ! values for liquid-cloud inhomogeneity factor:
     zinhomi, & ! ice-cloud inhomogeneity factor
     zinhoml1, & ! without convection
     zinhoml2, & ! with shallow convection  
     zinhoml3, & ! deep/mid-level convection  
     zinpar ! exponent for variable lquid-cloud inhomogeneity
-  REAL (wp), SAVE :: &
+  REAL (wp) :: &
     wavenumber(n_mdl_bnds), & ! effective wavenumber for table band
     wavelength(n_mdl_bnds), & ! effective wavelength for table band
     re_droplet(n_sizes), & ! effective drop radius for table sizes
@@ -94,38 +90,17 @@ CONTAINS
   !>
   !! @brief sets resolution dependent parameters for cloud optics
   !
-#ifdef DUMP_COEFFS
-  SUBROUTINE dump
-    CALL dump_source("cloud_optics", "wavenumber", wavenumber)
-    CALL dump_source("cloud_optics", "wavelength", wavelength)
-    CALL dump_source("cloud_optics", "re_droplet", re_droplet)
-    CALL dump_source("cloud_optics", "re_crystal", re_crystal)
-    CALL dump_source("cloud_optics", "z_ext_l", z_ext_l)
-    CALL dump_source("cloud_optics", "z_coa_l", z_coa_l)
-    CALL dump_source("cloud_optics", "z_asy_l", z_asy_l)
-    CALL dump_source("cloud_optics", "z_ext_i", z_ext_i)
-    CALL dump_source("cloud_optics", "z_coa_i", z_coa_i)
-    CALL dump_source("cloud_optics", "z_asy_i", z_asy_i)
-  END SUBROUTINE
-#endif
 
-  SUBROUTINE setup_cloud_optics
-
+  SUBROUTINE setup_cloud_optics(zinhoml1_, zinhoml2_, &
+    zinhoml3_, zinhomi_)
+    REAL(wp), INTENT(IN) :: zinhoml1_, zinhoml2_, zinhoml3_, zinhomi_
     ! Variable liquid cloud inhomogeneity is not used:
     l_variable_inhoml = .FALSE.
 
-#ifdef PSRAD_ONLY
-    zinhoml1 = 0.6 ! 0.7
-    zinhoml2 = 0.6 ! 0.7 for nn=31 in mo_control...
-    zinhomi = 0.7
-    zinpar  = 0.10_wp
-#else
-    zinhoml1      = echam_cloud_config% cinhoml1
-    zinhoml2      = echam_cloud_config% cinhoml2
-    zinhoml3      = echam_cloud_config% cinhoml3
-    zinhomi       = echam_cloud_config% cinhomi
-#endif
-
+    zinhoml1 = zinhoml1_
+    zinhoml2 = zinhoml2_
+    zinhoml3 = zinhoml3_
+    zinhomi  = zinhomi_
 
 !!$    IF (p_parallel_io) THEN
 !!$      CALL io_open ('ECHAM6_CldOptProps.nc', optical_tbl, io_read)
@@ -158,10 +133,6 @@ CONTAINS
       (/1,1/), (/n_sizes,n_mdl_bnds/), z_asy_i)
 
     CALL psrad_io_close(fileid)
-#ifdef DUMP_COEFFS
-    call dump()
-#endif
-
     reimin = MINVAL(re_crystal)
     reimax = MAXVAL(re_crystal)
     del_rei= (re_crystal(2) - re_crystal(1))
@@ -226,31 +197,27 @@ CONTAINS
           zlwpt(jl) = zlwpt(jl)+zlwp(jl,jk)
         END DO
       END DO
+      zinhoml(1:kproma) = 1.0_wp
       WHERE (zlwpt(1:kproma) > 1.0_wp) 
         zinhoml(1:kproma) = zlwpt(1:kproma)**(-zinpar)
-      ELSEWHERE
-        zinhoml(1:kproma) = 1.0_wp
       END WHERE
     ELSE
       DO jl = 1, kproma
         IF(ktype(jl) .EQ. 0) THEN          !no convection; ktype=0
           zinhoml(jl) = zinhoml1
-#ifndef PSRAD_ONLY
-        ! BUG? Bjorn's version did not contain these lines!
         ELSE IF(ktype(jl) .NE. 4) THEN !convection; ktype=1,2,3
           zinhoml(jl) = zinhoml3
-#endif
         ELSE !shallow convection and clwprat>0.; ktype=4
           zinhoml(jl) = zinhoml2
         END IF
       END DO
     END IF
 
+    zkap(1:kproma) = zkap_mrtm! maritime breadth factor 
     WHERE (laland(1:kproma).AND.(.NOT.laglac(1:kproma))) 
-      zkap(1:kproma)=zkap_cont ! continental breadth factor
-    ELSEWHERE
-      zkap(1:kproma)=zkap_mrtm ! maritime breadth factor 
+      zkap(1:kproma) = zkap_cont ! continental breadth factor
     END WHERE
+
 
     ! Cloud Optical Properties by interpolating tables in effective radius
     zfact = 1.0e6_wp*(3.0e-9_wp/(4.0_wp*pi*rhoh2o))**(1.0_wp/3.0_wp) 
@@ -319,7 +286,6 @@ CONTAINS
         asy(jl,jk,1:nbndsw) = zasy(jl,jk,16:29)
       END DO
     END DO
-
   END SUBROUTINE cloud_optics
 
 END MODULE mo_psrad_cloud_optics

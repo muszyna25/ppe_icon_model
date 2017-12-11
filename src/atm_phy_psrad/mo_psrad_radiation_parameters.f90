@@ -35,7 +35,8 @@ IMPLICIT NONE
   PRIVATE
 
   PUBLIC :: rad_perm, rad_undef
-  PUBLIC :: i_overlap, l_do_sep_clear_sky
+  PUBLIC :: i_overlap
+  PUBLIC :: l_do_sep_clear_sky
   
   INTEGER :: rad_perm = 0                       ! Integer for perturbing random number seeds
 

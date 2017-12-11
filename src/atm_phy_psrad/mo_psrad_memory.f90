@@ -38,7 +38,7 @@ MODULE mo_psrad_memory
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
-  USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_PACK24,  &
+  USE mo_cdi,                 ONLY: DATATYPE_PACK16, &
     &                               DATATYPE_FLT32,  DATATYPE_FLT64,   &
     &                               GRID_UNSTRUCTURED
   USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL, &
@@ -230,12 +230,11 @@ CONTAINS
 
     INTEGER :: shape2d(2), shape3d(3), shape3d_layer_interfaces(3)
 !!$    INTEGER :: shape4d(4)
-    INTEGER :: ibits, iextbits
+    INTEGER :: ibits
     INTEGER :: datatype_flt
 !!$    INTEGER :: jsfc, jtrc
 
     ibits = DATATYPE_PACK16
-    iextbits = DATATYPE_PACK24
 
     IF ( lnetcdf_flt64_output ) THEN
       datatype_flt = DATATYPE_FLT64

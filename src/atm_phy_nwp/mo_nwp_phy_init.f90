@@ -60,10 +60,8 @@ MODULE mo_nwp_phy_init
     &                               zaef_rg, zaea_rg, zaes_rg, zaeg_rg,             &
     &                               zaea_rrtm, zaes_rrtm, zaeg_rrtm
   USE mo_o3_util,             ONLY: o3_pl2ml!, o3_zl2ml
-  USE mo_psrad_lrtm_setup,    ONLY: setup_lrtm
-  USE mo_psrad_srtm_setup,    ONLY: setup_srtm_psrad => setup_srtm
-  USE mo_psrad_cloud_optics,  ONLY: setup_cloud_optics  
-  USE mo_psrad_interface,     ONLY: setup_psrad
+  USE mo_psrad_setup    ,     ONLY: psrad_basic_setup
+  USE mo_echam_cloud_config,  ONLY: echam_cloud_config
 
   ! microphysics
   USE gscp_data,              ONLY: gscp_set_coefficients
@@ -729,11 +727,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       CALL lrtm_setup(lrtm_filename)
       CALL setup_newcld_optics(cldopt_filename)
     ELSE   ! PSRAD init
-      CALL setup_psrad
-      CALL setup_cloud_optics
-      CALL setup_lrtm
-      CALL lrtm_setup(lrtm_filename) ! ** necessary because of incorrect USE statements in mo_psrad_lrtm_gas_optics **
-      CALL setup_srtm_psrad
+      CALL psrad_basic_setup(.false., nlev, 1.0_wp, &
+        & echam_cloud_config% cinhoml1 ,echam_cloud_config% cinhoml2, &
+        & echam_cloud_config% cinhoml3 ,echam_cloud_config% cinhomi)
     ENDIF
 
     rl_start = 1  ! Initialization should be done for all points

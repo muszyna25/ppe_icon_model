@@ -33,8 +33,7 @@
 
 MODULE mo_psrad_cld_sampling 
 
-  USE mo_kind, ONLY          : wp
-  USE mo_exception, ONLY     : finish
+  USE mo_psrad_general, ONLY : wp, finish
   USE mo_psrad_random, ONLY: get_random
 
   IMPLICIT NONE
@@ -42,74 +41,76 @@ MODULE mo_psrad_cld_sampling
   PUBLIC :: sample_cld_state
 
 CONTAINS
-  !-----------------------------------------------------------------------------
-  !>
-  !! @brief Returns a sample of the cloud state
-  !!
-  !! @remarks  
-  !
-  SUBROUTINE sample_cld_state(kproma, kbdim, klev, ksamps, rnseeds, i_overlap, cld_frac, cldy)
 
-    INTEGER,  INTENT(IN)    :: kproma, kbdim, klev, ksamps !< numbers of columns, levels, samples 
-    INTEGER,  INTENT(INOUT) :: rnseeds(:, :)           !< Seeds for random number generator (kbdim, :) 
-    INTEGER,  INTENT(IN)    :: i_overlap               !< 1=max-ran, 2=maximum, 3=random 
-    REAL(wp), INTENT(IN)    :: cld_frac(kbdim,klev)    !< cloud fraction
-    LOGICAL, INTENT(OUT)    :: cldy(kbdim,klev,ksamps) !< Logical: cloud present? 
+  SUBROUTINE sample_cld_state(kproma, kbdim, klev, ksamps, &
+    rnseeds, mode, fraction, is_cloudy)
 
-    REAL(wp) :: rank(kbdim,klev,ksamps)
+    USE mo_psrad_general, ONLY : jTOA, jSFC, jINC
+
+    IMPLICIT NONE
+
+    INTEGER, INTENT(IN) :: &
+      kproma, kbdim, klev, &
+      ksamps, & ! number of samples 
+      mode !< 1=max-ran, 2=maximum, 3=random 
+    INTEGER, INTENT(INOUT) :: rnseeds(:,:)
+    REAL(wp), INTENT(IN) :: fraction(kbdim,klev) !cloud fraction
+    LOGICAL, INTENT(INOUT) :: is_cloudy(kbdim,klev,ksamps)
+
+    REAL(wp) :: rank(kbdim,klev,ksamps), one_minus(KBDIM,klev)
     INTEGER  :: jk, js 
 
-    ! Here cldy(:,:,1) indicates whether any cloud is present 
-    !
-    cldy(1:kproma,1:klev,1) = cld_frac(1:kproma,1:klev) > 0._wp
-    SELECT CASE(i_overlap) 
-    CASE(1) 
+    one_minus(1:kproma,:) = 1.0_wp - fraction(1:kproma,:)
+    ! Here is_cloudy(:,:,1) indicates whether any cloud is present 
+    is_cloudy(1:kproma,1:klev,1) = fraction(1:kproma,1:klev) > 0._wp
+    SELECT CASE(mode) 
       ! Maximum-random overlap
-      DO js = 1, ksamps
-        DO jk = 1, klev
-          ! mask means we compute random numbers only when cloud is present 
-          CALL get_random(kproma, kbdim, rnseeds, cldy(:,jk,1), rank(:,jk,js))
-        END DO 
-      END DO 
-      ! There may be a better way to structure this calculation...
-      DO jk = klev-1, 1, -1
+      CASE(1) 
         DO js = 1, ksamps
-          rank(1:kproma,jk,js) = MERGE(rank(1:kproma,jk+1,js),                                 & 
-                                     ! Max overlap... 
-                                     rank(1:kproma,jk,js) * (1._wp - cld_frac(1:kproma,jk+1)), & 
-                                     ! ... or random overlap in the clear sky portion,  
-                                     ! depending on whether or not you have cloud in the layer above 
-                                     rank(1:kproma,jk+1,js) > 1._wp - cld_frac(1:kproma,jk+1) ) 
-        END DO
-      END DO  
-    CASE(2) 
-      !
-      !  Max overlap means every cell in a column is identical 
-      ! 
-      DO js = 1, ksamps
-        CALL get_random(kproma, kbdim, rnseeds, rank(:, 1, js))
-        rank(1:kproma,2:klev,js) = SPREAD(rank(1:kproma,1,js), DIM=2, NCOPIES=(klev-1))
-      END DO 
-    CASE(3) 
-      !
-      !  Random overlap means every cell is independent
-      ! 
-      DO js = 1, ksamps
-        DO jk = 1, klev
-          ! mask means we compute random numbers only when cloud is present 
-          CALL get_random(kproma, kbdim, rnseeds, cldy(:,jk,1), rank(:,jk,js))
+          DO jk = jSFC, jTOA, jINC
+            ! mask means we compute random numbers only when cloud is present 
+            CALL get_random(kproma, kbdim, rnseeds, is_cloudy(:,jk,1), &
+                rank(:,jk,js))
+          END DO 
         END DO 
-      END DO 
-    CASE DEFAULT
-      CALL finish('In sample_cld_state: unknown overlap assumption') 
-    END SELECT
-    
+        ! There may be a better way to structure this calculation...
+        DO js = 1, ksamps
+          DO jk = jTOA-jINC, jSFC, -jINC
+            rank(1:kproma,jk,js) = MERGE( &
+              ! Max overlap:
+              rank(1:kproma,jk+jINC,js), & 
+              ! ... or random overlap in the clear sky portion:  
+              rank(1:kproma,jk,js) * one_minus(1:kproma,jk+jINC), & 
+              ! depending on whether or not you have cloud in the layer above 
+              rank(1:kproma,jk+jINC,js) > one_minus(1:kproma,jk+jINC) ) 
+          END DO
+        END DO
 
-    ! Now cldy indicates whether the sample (ks) is cloudy or not.    
+      ! Max overlap means every cell in a column is identical 
+      CASE(2) 
+        DO js = 1, ksamps
+          CALL get_random(kproma, kbdim, rnseeds, rank(:, 1, js))
+          rank(1:kproma,2:klev,js) = SPREAD(rank(1:kproma,1,js), &
+            DIM=2, NCOPIES=(klev-1))
+        END DO 
+
+      ! Random overlap means every cell is independent
+      CASE(3) 
+        DO js = 1, ksamps
+          DO jk = jSFC, jTOA, jINC
+            ! mask means we compute random numbers only when cloud is present 
+            CALL get_random(kproma, kbdim, rnseeds, is_cloudy(:,jk,1), &
+              rank(:,jk,js))
+          END DO 
+        END DO 
+      CASE DEFAULT
+        CALL finish('In sample_cld_state: unknown overlap assumption') 
+    END SELECT
+    ! Now is_cloudy indicates whether the sample (ks) is cloudy or not.    
     DO js = 1, ksamps
-      cldy(1:kproma,1:klev,js) = rank(1:kproma,1:klev,js) > (1. - cld_frac(1:kproma,1:klev))
+      is_cloudy(1:kproma,1:klev,js) = &
+        rank(1:kproma,1:klev,js) > one_minus(1:kproma,1:klev)
     END DO 
-  
   END SUBROUTINE sample_cld_state
 
 END MODULE mo_psrad_cld_sampling

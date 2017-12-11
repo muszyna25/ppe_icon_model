@@ -29,28 +29,25 @@ MODULE mo_bc_aeropt_splumes
                                    & read_bcast_real_2D, read_bcast_real_3D, &
                                    & closeFile
   USE mo_model_domain,         ONLY: p_patch
-  USE mo_psrad_srtm_setup,     ONLY: &
-      &  sw_wv1 => wavenum1     ,&     !< smallest wave number in each of the sw bands
-      &  sw_wv2 => wavenum2            !< largest wave number in each of the sw bands
+  USE mo_psrad_srtm_kgs,       ONLY: &
+      &  sw_wv1 => wavenum1,&     !< smallest wave number in each of the sw bands
+      &  sw_wv2 => wavenum2       !< largest wave number in each of the sw bands
   USE mo_math_constants,       ONLY: rad2deg
   USE mtime,                   ONLY: datetime, getDayOfYearFromDateTime, &
        &                             getNoOfSecondsElapsedInDayDateTime, &
        &                             getNoOfDaysInYearDateTime
   
-!!$, on_cells, &
-!!$    &                                t_stream_id, read_0D_real, read_3D_time
-
   IMPLICIT NONE
 
   PRIVATE
   PUBLIC                  :: setup_bc_aeropt_splumes, add_bc_aeropt_splumes
 
-  INTEGER, PARAMETER      ::     &
-       nplumes   = 9            ,& !< Number of plumes
-       nfeatures = 2            ,& !< Number of features per plume
-       ntimes    = 52           ,& !< Number of times resolved per year (52 => weekly resolution)
-       nyears    = 251             !< Number of years of available forcing
-  REAL(wp), POINTER ::                    &
+  INTEGER, PARAMETER  :: &
+       nplumes   = 9    ,& !< Number of plumes
+       nfeatures = 2    ,& !< Number of features per plume
+       ntimes    = 52   ,& !< Number of times resolved per year (52 => weekly resolution)
+       nyears    = 251     !< Number of years of available forcing
+  REAL(wp), POINTER ::   &
        plume_lat   (:)  ,& !< (nplumes) latitude where plume maximizes
        plume_lon   (:)  ,& !< (nplumes) longitude where plume maximizes
        beta_a      (:)  ,& !< (nplumes) parameter a for beta function 
@@ -75,8 +72,8 @@ MODULE mo_bc_aeropt_splumes
        theta       (:,:),& !< (nfeatures,nplumes) Rotation angle of feature
        ftr_weight  (:,:),& !< (nfeatures,nplumes) Feature weights = 
                            !< (nfeatures + 1) to account for BB background
-       year_weight (:,:)    ,& !< (nyear,nplumes) Yearly weight for plume
-       ann_cycle   (:,:,:)     !< (nfeatures,ntimes,nplumes) annual cycle for feature
+       year_weight (:,:),& !< (nyear,nplumes) Yearly weight for plume
+       ann_cycle   (:,:,:) !< (nfeatures,ntimes,nplumes) annual cycle for feature
   REAL(wp)                 :: &
        time_weight (nfeatures,nplumes), &    !< Time-weights to account for BB background
      & time_weight_bg (nfeatures,nplumes)    !< as time_wight but for natural background in Twomey effect
