@@ -248,7 +248,8 @@ MODULE mo_ensemble_pert_config
       turbdiff_config(1:max_dom)%alpha0_pert = (rnd_num-0.5_wp)*alpha0_sv*(range_charnock-1._wp)
 
       ! control output
-      WRITE(message_text,'(3f8.4,e11.4,f8.4,e11.4)') tune_gkwake, tune_gkdrag, tune_gfrcrit, tune_gfluxlaun, c_soil, cwimax_ml
+      WRITE(message_text,'(3f8.4,e11.4,f8.4,e11.4)') tune_gkwake(1), tune_gkdrag(1), tune_gfrcrit(1), &
+                                                     tune_gfluxlaun, c_soil, cwimax_ml
       CALL message('Perturbed values, gkwake, gkdrag, gfrcrit, gfluxlaun, c_soil, cwimax_ml', TRIM(message_text))
 
       WRITE(message_text,'(4f8.4,e11.4)') tune_box_liq, tune_minsnowfrac, tune_capdcfac_et, tune_zvz0i, tune_entrorg

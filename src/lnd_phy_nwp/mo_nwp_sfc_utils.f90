@@ -1797,7 +1797,7 @@ CONTAINS
           ELSE
             lc_limit = 1._wp
           ENDIF
-          snowfrac(ic) = MIN(lc_limit,snowdepth_fac/lc_fac)
+          snowfrac(ic) = MAX(0.05_wp,MIN(lc_limit,snowdepth_fac/lc_fac))
         ENDIF
         t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
       ENDDO

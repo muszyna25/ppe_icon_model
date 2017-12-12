@@ -973,10 +973,12 @@ CONTAINS
                   MAX(0.01_wp,lnd_diag%snowfrac_t(jc,jb,isubs_snow))
              ELSE
                ! Rescale SWE and snow depth according to changes in the snow cover fraction
-               lnd_prog_new%w_snow_t(jc,jb,isubs_snow) = lnd_prog_new%w_snow_t(jc,jb,isubs_snow) * &
-                 frac_snow_sv(jc)/MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow))
-               lnd_diag%h_snow_t(jc,jb,isubs_snow)     = lnd_diag%h_snow_t(jc,jb,isubs_snow) * &
-                 frac_snow_sv(jc)/MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow))
+               lnd_prog_new%w_snow_t(jc,jb,isubs_snow) = (lnd_prog_new%w_snow_t(jc,jb,isubs_snow) * &
+                 frac_snow_sv(jc) + lnd_prog_new%w_snow_t(jc,jb,isubs) * &
+                 frac_sv(jc) )/MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow))
+               lnd_diag%h_snow_t(jc,jb,isubs_snow)     = (lnd_diag%h_snow_t(jc,jb,isubs_snow) * &
+                 frac_snow_sv(jc) + lnd_diag%h_snow_t(jc,jb,isubs) * &
+                 frac_sv(jc) ) /MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow))
              ENDIF
 
              ! reset field for actual snow-cover for grid points / land-cover classes for which there
