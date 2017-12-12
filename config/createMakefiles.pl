@@ -172,6 +172,9 @@ foreach my $dir ( @directories ) {
     $print_path =~ s/$prefix\///;
     $dir =~ s/$print_path\///;
 
+    my $iconrelsrcdir = $iconsrcdir;
+    $iconrelsrcdir =~ s/$print_path\///;
+
     print "creating $print_path/$dir/Makefile\n";
 
     mkpath("$build_path/$dir");
@@ -183,7 +186,7 @@ foreach my $dir ( @directories ) {
     print MAKEFILE "\n";
 
     my $add_vpath_level = 0;
-    if ( "$dir" ne "src" ) {
+    if ( "$dir" ne "$iconrelsrcdir" ) {
 	if ( $dir =~ m/^externals/) {
 	    my @subdirs = split(/\//, $dir);
 	    print MAKEFILE "SHELL = /bin/bash\n\n";
@@ -290,7 +293,7 @@ foreach my $dir ( @directories ) {
     while ( my ($key, $value) = each(%target_programs) ) {
 	push @target_all, "../bin/$key";
     }
-    if ( "$dir" ne "src" ) {
+    if ( "$dir" ne "$iconrelsrcdir" ) {
 	if ( $dir =~ m/^externals/) {
 	    print MAKEFILE ".PHONY: \$(LIB)\n\n";
 	    print MAKEFILE "all: \$(LIB)\n\n";
@@ -305,7 +308,7 @@ foreach my $dir ( @directories ) {
     }
     print MAKEFILE "\n\n";
 
-    if ( "$dir" ne "src" ) {
+    if ( "$dir" ne "$iconrelsrcdir" ) {
 	if ( $dir =~ m/^externals/) {
         print MAKEFILE "../../../lib/lib\$(LIB).a: \$(OBJS)\n";
 	    print MAKEFILE "\t\$(AR) \$(ARFLAGS) ../../../lib/lib\$(LIB).a \$(OBJS)\n";
@@ -468,7 +471,7 @@ sub ScanDirectory {
         next if ($name eq "sw_options");
         next if (($enable_ocean eq "no") and (($name eq "ocean") or ($name eq "sea_ice") or ($name eq "hamocc")) );
         next if (($enable_jsbach eq "no") and ($name eq "lnd_phy_jsbach") );
-        next if (($enable_testbed eq "no") and ($name eq "testbed") and ($workpath eq "src") );
+        next if (($enable_testbed eq "no") and ($name eq "testbed") and ($workpath eq "$iconsrcdir") );
 
         if (-d $name){
             my $nextpath="$workpath/$name";

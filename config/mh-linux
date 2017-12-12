@@ -239,6 +239,7 @@ case "$ac_sitename" in
                         load_modules =modules craype daint-gpu PrgEnv-gnu cray-netcdf
                         CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
+                        SERIALBOX2ROOT = /scratch/snx3000/pmarti/ICON/serialbox2/install/gnu
 			;;
                     intel)
                         config_target=daint_cpu
@@ -255,16 +256,18 @@ case "$ac_sitename" in
                         load_modules = PrgEnv-pgi cray-netcdf
                         CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
+                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/pgi
 			;;
                     cray)
                         config_target=daint_cpu
-                        load_modules = modules craype daint-gpu PrgEnv-cray cdt/16.11 cray-netcdf
+                        load_modules = modules craype daint-gpu PrgEnv-cray cray-netcdf
         		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv
                         CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -O3 -DUSE_XML2
 			LDFLAGS     = -Wl,--allow-multiple-definition
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
 			HDF5ROOT    = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -dynamic -L/usr/lib64 -llzma
+                        SERIALBOX2ROOT = /scratch/snx3000/pmarti/ICON/serialbox2/install/cray
                         ;;
                     cray_gpu)
                         config_target=daint_gpu
@@ -274,6 +277,7 @@ case "$ac_sitename" in
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
 			HDF5ROOT    = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -llzma
+                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/cray
 			;;
                     *)
                         echo

@@ -658,6 +658,9 @@ PROFILE_LIB
 LAPACK_LIB
 LAPACK_LIB_PATH
 LAPACKROOT
+SERIALBOX2_INCLUDE
+SERIALBOX2_LIB
+SERIALBOX2ROOT
 MPI_INCLUDE
 MPI_LIB
 MPIROOT
@@ -6296,6 +6299,9 @@ test "x$exec_prefix" = xNONE && exec_prefix=build/${build_host}
 if test "x$enable_serialization" = "xyes"; then :
   my_iconsrcdir="build/${build_host}/pp"
      my_iconppdir="${my_iconsrcdir}"
+     FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE"
+     CFLAGS="${CFLAGS} ${DEFCOPT}SERIALIZE"
+
 else
   my_iconsrcdir="src"
      my_iconppdir="build/${build_host}/${my_iconsrcdir}"
@@ -6472,6 +6478,8 @@ fi
 
 if test "x$enable_serialization" = "xyes"; then :
   if test -n "${SERIALBOX2ROOT}" ; then
+    SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -lSerialboxFortran"
+    SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
     if test -f "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then
       if test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then
          SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
@@ -6485,6 +6493,9 @@ if test "x$enable_serialization" = "xyes"; then :
       exit 1
     fi
   else
+    SERIALBOX2ROOT=""
+    SERIALBOX2_INCLUDE=""
+    SERIALBOX2_LIB=""
     echo "Error: Serialization is enabled but SERIALBOX2ROOT is not defined"
     exit 1
   fi
@@ -6568,6 +6579,13 @@ MPIROOT=$MPIROOT
 MPI_LIB=$MPI_LIB
 
 MPI_INCLUDE=$MPI_INCLUDE
+
+
+SERIALBOX2ROOT=$SERIALBOX2ROOT
+
+SERIALBOX2_LIB=$SERIALBOX2_LIB
+
+SERIALBOX2_INCLUDE=$SERIALBOX2_INCLUDE
 
 
 LAPACKROOT=$LAPACKROOT

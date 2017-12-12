@@ -987,7 +987,10 @@ test "x$exec_prefix" = xNONE && exec_prefix=build/${build_host}
 
 AS_IF([test "x$enable_serialization" = "xyes"],
     [my_iconsrcdir="build/${build_host}/pp"
-     my_iconppdir="${my_iconsrcdir}"],
+     my_iconppdir="${my_iconsrcdir}"
+     FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE"
+     CFLAGS="${CFLAGS} ${DEFCOPT}SERIALIZE"
+     ],
     [my_iconsrcdir="src"
      my_iconppdir="build/${build_host}/${my_iconsrcdir}"])
 my_srcdirs="support ${my_iconsrcdir}"
@@ -1136,6 +1139,8 @@ dnl Checks for Serialbox2
 
 AS_IF([test "x$enable_serialization" = "xyes"],
   [if test -n "${SERIALBOX2ROOT}" ; then
+    SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -lSerialboxFortran"
+    SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
     if test -f "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then
       if test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then
          SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
@@ -1149,6 +1154,9 @@ AS_IF([test "x$enable_serialization" = "xyes"],
       exit 1
     fi
   else
+    SERIALBOX2ROOT=""
+    SERIALBOX2_INCLUDE=""
+    SERIALBOX2_LIB=""
     echo "Error: Serialization is enabled but SERIALBOX2ROOT is not defined"
     exit 1
   fi])
@@ -1200,6 +1208,10 @@ AC_SUBST(SCT_INCLUDE,$SCT_INCLUDE)
 AC_SUBST(MPIROOT,$MPIROOT)
 AC_SUBST(MPI_LIB,$MPI_LIB)
 AC_SUBST(MPI_INCLUDE,$MPI_INCLUDE)
+
+AC_SUBST(SERIALBOX2ROOT,$SERIALBOX2ROOT)
+AC_SUBST(SERIALBOX2_LIB,$SERIALBOX2_LIB)
+AC_SUBST(SERIALBOX2_INCLUDE,$SERIALBOX2_INCLUDE)
 
 AC_SUBST(LAPACKROOT,$LAPACKROOT)
 AC_SUBST(LAPACK_LIB_PATH,$LAPACK_LIB_PATH)

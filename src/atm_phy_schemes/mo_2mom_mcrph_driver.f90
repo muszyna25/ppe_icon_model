@@ -45,6 +45,7 @@ MODULE mo_mcrph_sb
 ! Microphysical constants and variables
 !------------------------------------------------------------------------------
 
+!$ser verbatim USE mo_ser_2mom,           ONLY: serialize_2mom
 USE mo_kind,                 ONLY: wp
 USE mo_math_constants,       ONLY: pi
 USE mo_vertical_coord_table, ONLY: vct_a
@@ -225,6 +226,8 @@ CONTAINS
     CLASS(particle_frozen), pointer :: ice, snow, graupel, hail
 
     INTEGER :: ik_slice(4)
+
+    !$ser verbatim CALL serialize_2mom(dz, rho, pres, w)
 
     IF (PRESENT(nccn)) THEN
        cloud_type = cloud_type_default_gscp5 + 10 * ccn_type

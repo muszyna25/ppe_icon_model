@@ -10,14 +10,14 @@ MODULE mo_ser_2mom
 
   CONTAINS
 
-  SUBROUTINE serialize_2mom(a)
+  SUBROUTINE serialize_2mom(dz, rho, pres, w)
     IMPLICIT NONE
-    REAL(KIND=8), DIMENSION(:,:,:) :: a
+    REAL(KIND=8), DIMENSION(:,:) :: dz, rho, pres, w
 
     !$ser init directory='.' prefix='Serialization_2mom'
     !$ser savepoint sp1
     !$ser mode write
-    !$ser data ser_a=a
+    !$ser data dz=dz rho=rho pres=pres w=w
 
   END SUBROUTINE serialize_2mom
 
