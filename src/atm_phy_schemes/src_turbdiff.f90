@@ -8,11 +8,12 @@
 !-------------------------------------------------------------------------------
 
 #ifdef __COSMO__
- MODULE turbulence_turbdiff
+#define PP_MO_TURBULENCE turbulence_turbdiff
 #endif
 #ifdef __ICON__
- MODULE src_turbdiff
+#define PP_MO_TURBULENCE src_turbdiff
 #endif
+ MODULE PP_MO_TURBULENCE
 
 !-------------------------------------------------------------------------------
 !
@@ -7943,9 +7944,5 @@ END SUBROUTINE bound_level_interp
 !********************************************************************************
 !********************************************************************************
 
-#ifdef __COSMO__
- END MODULE turbulence_turbdiff
-#endif
-#ifdef __ICON__
- END MODULE src_turbdiff
-#endif
+END MODULE PP_MO_TURBULENCE
+#undef PP_MO_TURBULENCE
