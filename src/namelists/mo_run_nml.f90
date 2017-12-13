@@ -310,39 +310,37 @@ CONTAINS
     ! local variables
     CHARACTER(len=*), PARAMETER :: routine = &
       &  modname//'::parse_output_mode'
-    CHARACTER(len=32) :: valid_names(4)
-    INTEGER :: i
+    CHARACTER(len=8), PARAMETER :: valid_names(4) &
+         = (/ "none    ", "nml     ", "totint  ", "maxwinds" /)
+    INTEGER, PARAMETER :: midx_none = 1, midx_nml = 2, midx_totint = 3, &
+         midx_maxwinds = 4
+    INTEGER :: i, match_idx(max_output_modes)
 
-    ! define a list of valid names, check if user input is valid:
-    valid_names(1) = "none"
-    valid_names(2) = "nml"
-    valid_names(3) = "totint"
-    valid_names(4) = "maxwinds"
+    ! check if user input is in list of valid names:
     DO i=1,max_output_modes
-      IF (TRIM(output(i)) /= "") THEN
-        IF (one_of(output(i), valid_names) == -1) THEN
+      IF (LEN_TRIM(output(i)) /= 0) THEN
+        match_idx(i) = one_of(output(i), valid_names)
+        IF  (match_idx(i) == -1) THEN
           CALL finish(routine, "Syntax error: unknown output mode.")
         END IF
+      ELSE
+        match_idx(i) = -1
       END IF
     END DO
 
     ! for each logical of type t_output_mode, check if the
     ! corresponding keyword is in the list of strings
-    om%l_none     = ( one_of("none",     output(:)) /= -1)
-    om%l_nml      = ( one_of("nml",      output(:)) /= -1)
-    om%l_totint   = ( one_of("totint",   output(:)) /= -1)
-    om%l_maxwinds = ( one_of("maxwinds", output(:)) /= -1)
+    om%l_nml      = ANY(match_idx == midx_nml)
+    om%l_totint   = ANY(match_idx == midx_totint)
+    om%l_maxwinds = ANY(match_idx == midx_maxwinds)
+    om%l_none     = ANY(match_idx == midx_none) &
+      .OR. .NOT. (om%l_nml .OR. om%l_totint .OR. om%l_maxwinds)
 
-    ! consistency checks:
-    !
-    IF (.NOT. (om%l_nml .OR. om%l_totint .OR. om%l_maxwinds)) THEN
-      om%l_none = .TRUE.
-    END IF
+    ! consistency check:
     ! error: "none" has been chosen in combination with others:
-    IF (om%l_none .AND. (om%l_nml .OR. om%l_totint .OR. om%l_maxwinds)) THEN
+    IF (om%l_none .AND. (om%l_nml .OR. om%l_totint .OR. om%l_maxwinds)) &
       CALL finish(routine, "Syntax error when setting output to 'none'.")
-    END IF
-    
+
   END SUBROUTINE parse_output_mode
 
 END MODULE mo_run_nml
