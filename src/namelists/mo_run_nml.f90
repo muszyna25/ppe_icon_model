@@ -62,86 +62,6 @@ MODULE mo_run_nml
   PRIVATE
   PUBLIC :: read_run_namelist
 
-  !------------------------------------------------------------------------
-  ! Namelist variables
-  !------------------------------------------------------------------------
-
-  LOGICAL :: ltestcase       ! if .TRUE. then
-                             ! - compute analytical initial state,
-                             !   depending on the specified test case,
-                             ! - compute analytical boundary conditions,
-                             ! - if applicable, compute analytical forcing
-
-  LOGICAL :: ldynamics       ! if .TRUE., switch on adiabatic dynamics
-  INTEGER :: iforcing        ! adiabatic forcing
-
-  LOGICAL :: ltransport      ! if .TRUE., switch on large-scale tracer transport
-  INTEGER :: ntracer         ! number of advected tracers
-  LOGICAL :: lart            ! switch for ICON-ART (Treatment of Aerosols and Trace Gases)
-  LOGICAL :: ldass_lhn         ! switch for assimilation of radar data using latent heat nudging
-
-  LOGICAL :: luse_radarfwo(max_dom)  !< switch for radar forward operator EMVORADO
-
-  LOGICAL :: lvert_nest         ! if .TRUE., switch on vertical nesting
-  INTEGER :: num_lev(max_dom)   ! number of full levels for each domain
-  INTEGER :: nshift (max_dom)   ! half level of parent domain which coincides 
-                                    ! with the upper boundary of the current domain jg
-
-  INTEGER  :: nsteps            ! number of time steps
-  REAL(wp) :: dtime             ! [s] length of a time step
-
-  LOGICAL :: ltimer        ! if .TRUE., wallclock timers are switched on
-  INTEGER :: timers_level  ! what level of timers to run
-  LOGICAL :: activate_sync_timers
-
-  LOGICAL :: logmaxrss     ! log maxrss for three mpi ranks
-  LOGICAL :: logmaxrss_all ! log maxrss for all mpi ranks
-  INTEGER :: msg_level     ! how much printout is generated during runtime
-
-  LOGICAL :: msg_timestamp ! If .TRUE.: Precede output messages by time stamp.
-
-
-  INTEGER :: test_mode  ! if =0 then run the standard version,
-                        ! otherwise special setup for (performance) tests, see Namelist_overview
-  INTEGER :: debug_check_level
-
-  CHARACTER(len=max_timedelta_str_len) :: modelTimeStep
-  
-  !> output mode (logicals)
-  !  one or multiple of "none", "nml", "totint"
-  CHARACTER(len=32) :: output(max_output_modes)
-
-  INTEGER :: profiling_output  !< switch defining the kind of timer output
-
-  LOGICAL :: check_uuid_gracefully !< Flag. If .TRUE. then we give only warnings for non-matching UUIDs
-
-  !> file name for restart/checkpoint files (containg keyword
-  !> substition patterns)
-  CHARACTER(len=MAX_CHAR_LENGTH) :: restart_filename
-
-  NAMELIST /run_nml/ ltestcase,    ldynamics,       &
-                     iforcing,     ltransport,      &
-                     ntracer,                       &
-                     lart,                          &
-                     ldass_lhn,                     &
-                     luse_radarfwo,                 &
-                     lvert_nest,                    &
-                     num_lev,      nshift,          &
-                     nsteps,       dtime,           &
-                     ltimer,       timers_level,    &
-                     activate_sync_timers,          &
-                     logmaxrss,                     &
-                     logmaxrss_all,                 &
-                     msg_level,                     &
-                     test_mode,                     &
-                     output,                        &
-                     msg_timestamp,                 &
-                     debug_check_level,             &
-                     restart_filename,              &
-                     profiling_output,              &
-                     check_uuid_gracefully,         &
-                     modelTimeStep
-
 CONTAINS
   !>
   !!
@@ -151,6 +71,75 @@ CONTAINS
     INTEGER :: istat, funit
     INTEGER :: iunit
     CHARACTER(len=*), PARAMETER :: routine = 'mo_run_nml:read_run_namelist'
+
+    !------------------------------------------------------------------------
+    ! Namelist variables
+    !------------------------------------------------------------------------
+
+    LOGICAL :: ltestcase       ! if .TRUE. then
+    ! - compute analytical initial state,
+    !   depending on the specified test case,
+    ! - compute analytical boundary conditions,
+    ! - if applicable, compute analytical forcing
+
+    LOGICAL :: ldynamics       ! if .TRUE., switch on adiabatic dynamics
+    INTEGER :: iforcing        ! adiabatic forcing
+
+    LOGICAL :: ltransport      ! if .TRUE., switch on large-scale tracer transport
+    INTEGER :: ntracer         ! number of advected tracers
+    !> switch for ICON-ART (Treatment of Aerosols and Trace Gases)
+    LOGICAL :: lart
+
+    !> switch for assimilation of radar data using latent heat nudging
+    LOGICAL :: ldass_lhn
+
+    LOGICAL :: luse_radarfwo(max_dom)  !< switch for radar forward operator EMVORADO
+    LOGICAL :: lvert_nest         ! if .TRUE., switch on vertical nesting
+    INTEGER :: num_lev(max_dom)   ! number of full levels for each domain
+    INTEGER :: nshift (max_dom)   ! half level of parent domain which coincides 
+    ! with the upper boundary of the current domain jg
+
+    INTEGER  :: nsteps            ! number of time steps
+    REAL(wp) :: dtime             ! [s] length of a time step
+
+    LOGICAL :: ltimer        ! if .TRUE., wallclock timers are switched on
+    INTEGER :: timers_level  ! what level of timers to run
+    LOGICAL :: activate_sync_timers
+
+    LOGICAL :: logmaxrss     ! log maxrss for three mpi ranks
+    LOGICAL :: logmaxrss_all ! log maxrss for all mpi ranks
+    
+    INTEGER :: msg_level     ! how much printout is generated during runtime
+    LOGICAL :: msg_timestamp ! If .TRUE.: Precede output messages by time stamp.
+
+
+    INTEGER :: test_mode  ! if =0 then run the standard version,
+    ! otherwise special setup for (performance) tests, see Namelist_overview
+    INTEGER :: debug_check_level
+
+    CHARACTER(len=max_timedelta_str_len) :: modelTimeStep
+
+    !> output mode (logicals)
+    !  one or multiple of "none", "nml", "totint"
+    CHARACTER(len=32) :: output(max_output_modes)
+
+    INTEGER :: profiling_output  !< switch defining the kind of timer output
+
+    LOGICAL :: check_uuid_gracefully !< Flag. If .TRUE. then we give only warnings for non-matching UUIDs
+
+    !> file name for restart/checkpoint files (containg keyword
+    !> substition patterns)
+    CHARACTER(len=MAX_CHAR_LENGTH) :: restart_filename
+
+    NAMELIST /run_nml/ ltestcase, ldynamics, iforcing, ltransport,     &
+      &                ntracer, lart, ldass_lhn, luse_radarfwo, ltimer,&
+      &                lvert_nest, num_lev, nshift, nsteps, dtime,     &
+      &                timers_level, activate_sync_timers, logmaxrss,  &
+      &                logmaxrss_all, msg_level, test_mode, output,    &
+      &                msg_timestamp, debug_check_level,               &
+      &                restart_filename, profiling_output,             &
+      &                check_uuid_gracefully, modelTimeStep
+
 
     !------------------------------------------------------------
     ! Default settings
