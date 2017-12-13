@@ -62,6 +62,8 @@ MODULE mo_run_nml
   PRIVATE
   PUBLIC :: read_run_namelist
 
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_run_nml'
+
 CONTAINS
   !>
   !!
@@ -70,7 +72,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: iunit
-    CHARACTER(len=*), PARAMETER :: routine = 'mo_run_nml:read_run_namelist'
+    CHARACTER(len=*), PARAMETER :: routine = modname//'::read_run_namelist'
 
     !------------------------------------------------------------------------
     ! Namelist variables
@@ -307,7 +309,7 @@ CONTAINS
     TYPE (t_output_mode), INTENT(OUT) :: om
     ! local variables
     CHARACTER(len=*), PARAMETER :: routine = &
-      &  TRIM('mo_run_nml:parse_output_mode')
+      &  modname//'::parse_output_mode'
     CHARACTER(len=32) :: valid_names(4)
     INTEGER :: i
 
