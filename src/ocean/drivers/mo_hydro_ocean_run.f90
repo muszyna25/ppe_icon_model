@@ -42,7 +42,6 @@ MODULE mo_hydro_ocean_run
        &                               cfl_write, surface_module
   USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
   USE mo_dynamics_config,        ONLY: nold, nnew
-  USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
   USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode, debug_check_level
   USE mo_exception,              ONLY: message, message_text, finish
   USE mo_ext_data_types,         ONLY: t_external_data
@@ -190,11 +189,11 @@ CONTAINS
     TYPE(t_external_data), TARGET, INTENT(in)        :: p_ext_data(n_dom)
     TYPE(datetime), POINTER                          :: this_datetime
     TYPE(t_ocean_surface)                            :: p_oce_sfc
-    TYPE (t_ho_params)                               :: p_phys_param
+    TYPE(t_ho_params)                                :: p_phys_param
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: p_atm_f
-    TYPE (t_sea_ice),         INTENT(inout)          :: sea_ice
-    TYPE(t_hamocc_state), INTENT(INOUT)                :: hamocc_state
+    TYPE(t_sea_ice),          INTENT(inout)          :: sea_ice
+    TYPE(t_hamocc_state), INTENT(INOUT)              :: hamocc_state
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
 
