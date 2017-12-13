@@ -73,19 +73,19 @@ MODULE mo_ocean_diagnostics
   USE mo_statistics,         ONLY: subset_sum, levels_horizontal_mean
   USE mo_fortran_tools,      ONLY: assign_if_present
   
-  USE mo_linked_list,         ONLY: t_var_list
-  USE mo_var_list,            ONLY: add_var,                  &
-    &                               new_var_list,             &
-    &                               delete_var_list,          &
-    &                               default_var_list_settings,&
-    &                               add_ref
-  USE mo_var_metadata,        ONLY: groups
+  USE mo_linked_list,        ONLY: t_var_list
+  USE mo_var_list,           ONLY: add_var,                  &
+    &                              new_var_list,             &
+    &                              delete_var_list,          &
+    &                              default_var_list_settings,&
+    &                              add_ref
+  USE mo_var_metadata,       ONLY: groups
   USE mo_cf_convention
-  USE mo_grib2,               ONLY: t_grib2_var, grib2_var
-  USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, GRID_UNSTRUCTURED
-  USE mo_cdi_constants,       ONLY: GRID_EDGE, GRID_CELL, GRID_UNSTRUCTURED_EDGE, &
-    &                               GRID_UNSTRUCTURED_CELL
-  USE mo_zaxis_type,              ONLY: ZA_DEPTH_BELOW_SEA
+  USE mo_grib2,              ONLY: t_grib2_var, grib2_var
+  USE mo_cdi,                ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, GRID_UNSTRUCTURED
+  USE mo_cdi_constants,      ONLY: GRID_EDGE, GRID_CELL, GRID_UNSTRUCTURED_EDGE, &
+    &                              GRID_UNSTRUCTURED_CELL
+  USE mo_zaxis_type,         ONLY: ZA_DEPTH_BELOW_SEA
   USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_sum
   USE mo_io_config,          ONLY: lnetcdf_flt64_output
 
@@ -98,7 +98,6 @@ MODULE mo_ocean_diagnostics
   CHARACTER(LEN=12)           :: str_module    = 'oceDiag     '  ! Output of module for 1 line debug
   INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
   
-  INTEGER :: diag_unit = -1 ! file handle for the global timeseries output
   INTEGER :: moc_unit  = -1 ! file handle for the global timeseries output
   CHARACTER(LEN=max_char_length) :: diag_fname, moc_fname
   INTEGER, PARAMETER :: linecharacters  = 2048
@@ -248,7 +247,6 @@ MODULE mo_ocean_diagnostics
   TYPE(t_ocean_region_areas),SAVE   :: ocean_region_areas
   PRIVATE                           :: ocean_region_areas
 
-  TYPE(t_oce_timeseries),POINTER :: oce_ts
 
   TYPE(t_var_list) :: horizontal_velocity_diagnostics
   ! addtional diagnostics
@@ -277,7 +275,6 @@ CONTAINS
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = ('mo_ocean_diagnostics:construct_oce_diagnostics')
     !-----------------------------------------------------------------------
-    CHARACTER(LEN=linecharacters) :: headerline
     INTEGER  :: nblks_e,blockNo,jc,jk, region_index,start_index,end_index
     REAL(wp) :: surface_area, surface_height, prism_vol, prism_area, column_volume
     
@@ -397,87 +394,6 @@ CONTAINS
     
     CALL message (TRIM(routine), 'start')
     
-    ALLOCATE(oce_ts)
-    
-    ALLOCATE(oce_ts%oce_diagnostics(0:nsteps))
-    
-    oce_ts%oce_diagnostics(0:nsteps)%volume                     = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%kin_energy                 = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%pot_energy                 = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%total_energy               = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%total_salt                 = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%vorticity                  = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%enstrophy                  = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%potential_enstrophy        = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%absolute_vertical_velocity = 0.0_wp
-
-    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_ShortWave         = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_LongWave          = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_Sensible          = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_Latent            = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_Total             = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_Precipitation     = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_SnowFall          = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_Evaporation       = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_Runoff            = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_TotalSalt         = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_TotalOcean        = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_TotalIce          = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_VolumeIce         = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_VolumeTotal       = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_Relax             = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_Relax             = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%TempFlux_Relax             = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%SaltFlux_Relax             = 0.0_wp
-
-    oce_ts%oce_diagnostics(0:nsteps)%ice_volume_nh              = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%ice_volume_sh              = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%ice_extent_nh              = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%ice_extent_sh              = 0.0_wp
-    ! ice transport through
-    oce_ts%oce_diagnostics(0:nsteps)%ice_framStrait             = 0.0_wp
-
-
-    ! through flows
-    oce_ts%oce_diagnostics(0:nsteps)%gibraltar                  = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%denmark_strait             = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%drake_passage              = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%indonesian_throughflow     = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%scotland_iceland           = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%mozambique                 = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%framStrait                 = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%beringStrait               = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%barentsOpening             = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%agulhas                    = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%agulhas_long               = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%agulhas_longer             = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%florida_strait             = 0.0_wp
-
-    oce_ts%oce_diagnostics(0:nsteps)%t_mean_na_200m             = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%t_mean_na_800m             = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%ice_ocean_heat_budget      = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%ice_ocean_salinity_budget  = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%ice_ocean_volume_budget    = 0.0_wp
-    
-  ! DO i=0,nsteps
-  !   ALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer))
-  !   oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer) = 0.0_wp
-  ! END DO
-    
-    ! open textfile for global timeseries
-    diag_fname = 'oce_diagnostics-'//TRIM(datestring)//'.txt'
-    diag_unit = find_next_free_unit(10,999)
-    OPEN (UNIT=diag_unit,FILE=diag_fname,IOSTAT=ist,Recl=linecharacters)
-    ! header of the text file
-    headerline = ''
-    ! * add timestep columns
-    WRITE(headerline,'(a)') 'step date time'
-    ! * add columne for each monitored variable
-    DO i=1,SIZE(oce_ts%names)
-      WRITE(headerline,'(a,a,a)')TRIM(headerline),' ',TRIM(oce_ts%names(i))
-    END DO
-    WRITE(diag_unit,'(a)')TRIM(headerline)
-
     ! CALL check_global_indexes(patch_2d)
    
     ! open file for MOC - extraordinary at this time
@@ -671,23 +587,6 @@ CONTAINS
     CALL delete_var_list(horizontal_velocity_diagnostics)
 
     IF (diagnostics_level <= 0) RETURN
-
-!     DO i=0,nsteps
-!       DEALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content)
-!     END DO
-    DEALLOCATE(oce_ts%oce_diagnostics)
-    DEALLOCATE(oce_ts)
-    ! close the global diagnostics text file and the SRV MOC file
-    CLOSE(UNIT=diag_unit)
-    CLOSE(UNIT=moc_unit)
-    ! create a link to the last diagnostics file
-    linkname = 'oce_diagnostics.txt'
-    IF (util_islink(TRIM(linkname))) THEN
-      iret = util_unlink(TRIM(linkname))
-    ENDIF
-    iret = util_symlink(TRIM(diag_fname),TRIM(linkname))
-    WRITE(message_text,'(t1,a,t50,a)') TRIM(diag_fname), TRIM(linkname)
-    CALL message('',message_text)
 
     CALL message (TRIM(routine), 'end')
   END SUBROUTINE destruct_oce_diagnostics
@@ -976,7 +875,6 @@ CONTAINS
       &                                                          ice, ocean_state,surface_fluxes,ice%zUnderIce)
     monitor%vorticity                  = global_sum_array(monitor%vorticity)
 
-    monitor%enstrophy                  = global_sum_array(monitor%enstrophy)
 
     ssh_global_mean = 0.0_wp
     call levels_horizontal_mean( ocean_state%p_prog(nnew(1))%h(:,:), &
@@ -1076,76 +974,6 @@ CONTAINS
 
     IF (my_process_is_stdio() .AND. idbg_val > 0) &
       & WRITE(0,*) "---------------  end fluxes ----------------------------"
-    
-    
-    IF (my_process_is_stdio()) THEN
-      ! write things to diagnostics output file
-      real_fmt   = 'es26.18'
-      ! * number of non-tracer diag. variables
-      WRITE(nvars,'(i3)') SIZE(oce_ts%names)-no_tracer+1
-      WRITE(fmt_string,'(a)') '(i15.15,1x,a,1x,'//TRIM(ADJUSTL(nvars))//TRIM(real_fmt)//')'
-      ! create date and time string
-      ! * non-tracer diags
-      WRITE(line,fmt_string) &
-        & timestep, &
-        & TRIM(datestring), &
-        & monitor%volume, &
-        & monitor%kin_energy, &
-        & monitor%pot_energy, &
-        & monitor%total_energy, &
-        & monitor%total_salt, &
-        & monitor%vorticity, &
-        & monitor%enstrophy, &
-        & monitor%potential_enstrophy, &
-        & monitor%absolute_vertical_velocity, &
-        & monitor%HeatFlux_ShortWave, &
-        & monitor%HeatFlux_LongWave , &
-        & monitor%HeatFlux_Sensible , &
-        & monitor%HeatFlux_Latent   , &
-        & monitor%HeatFlux_Total,     &
-        & monitor%FrshFlux_Precipitation, &
-        & monitor%FrshFlux_SnowFall, &
-        & monitor%FrshFlux_Evaporation, &
-        & monitor%FrshFlux_Runoff, &
-        & monitor%FrshFlux_TotalSalt, &
-        & monitor%FrshFlux_TotalOcean, &
-        & monitor%FrshFlux_TotalIce, &
-        & monitor%FrshFlux_VolumeIce, &
-        & monitor%FrshFlux_VolumeTotal, &
-        & monitor%HeatFlux_Relax, &
-        & monitor%FrshFlux_Relax, &
-        & monitor%TempFlux_Relax, &
-        & monitor%SaltFlux_Relax, &
-        & monitor%ice_volume_nh, &
-        & monitor%ice_volume_sh, &
-        & monitor%ice_extent_nh, &
-        & monitor%ice_extent_sh, &
-        & monitor%ice_framStrait, &
-        & monitor%gibraltar, &
-        & monitor%denmark_strait, &
-        & monitor%drake_passage,  &
-        & monitor%indonesian_throughflow, &
-        & monitor%scotland_iceland, &
-        & monitor%mozambique    , &
-        & monitor%framStrait    , &
-        & monitor%beringStrait  , &
-        & monitor%barentsOpening, &
-        & monitor%agulhas       , &
-        & monitor%agulhas_long  , &
-        & monitor%agulhas_longer, &
-        & monitor%t_mean_na_200m, &
-        & monitor%t_mean_na_800m, &
-        & monitor%ice_ocean_heat_budget, &
-        & monitor%ice_ocean_salinity_budget, &
-        & monitor%ice_ocean_volume_budget
-
-      ! * tracers
-     !DO i_no_t=1,no_tracer
-     !  WRITE(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%tracer_content(i_no_t)
-     !END DO
-
-      WRITE(diag_unit,'(a)') TRIM(line)
-    END IF
     
   END SUBROUTINE calc_slow_oce_diagnostics
   
