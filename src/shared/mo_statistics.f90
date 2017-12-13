@@ -1069,6 +1069,7 @@ CONTAINS
     TYPE(t_subset_range), TARGET :: in_subset
     REAL(wp), OPTIONAL   :: mean  ! in
 
+
     REAL(wp), ALLOCATABLE :: sum_value(:), sum_weight(:)
     REAL(wp):: total_sum, total_weight
     INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
@@ -1142,6 +1143,7 @@ CONTAINS
       ! Get average
       mean = total_sum / total_weight
     ENDIF
+    Sum_2D_2Dweights_InRange = total_sum
     
   END FUNCTION Sum_2D_2Dweights_InRange
   !-----------------------------------------------------------------------
