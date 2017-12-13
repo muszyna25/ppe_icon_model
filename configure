@@ -6478,7 +6478,7 @@ fi
 
 if test "x$enable_serialization" = "xyes"; then :
   if test -n "${SERIALBOX2ROOT}" ; then
-    SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -lSerialboxFortran"
+    SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
     SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
     if test -f "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then
       if test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then

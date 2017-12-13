@@ -230,7 +230,7 @@ case "$ac_sitename" in
                 FC = ftn
                 F77= ftn
                 GRIBAPIROOT = /apps/daint/UES/6.0.UP02/sandbox-ws/grib_api
-		XML2ROOT    = /apps/daint/UES/jenkins/6.0.UP02/gpu/easybuild/software/libxml2/2.9.3-CrayGNU-2016.11
+		            XML2ROOT    = /apps/daint/UES/jenkins/6.0.UP02/gpu/easybuild/software/libxml2/2.9.3-CrayGNU-2016.11
                 ZLIBROOT    = /usr
 
                 case "$fortran_compiler" in
@@ -239,7 +239,9 @@ case "$ac_sitename" in
                         load_modules =modules craype daint-gpu PrgEnv-gnu cray-netcdf
                         CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
+                        #SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/gnu
                         SERIALBOX2ROOT = /scratch/snx3000/pmarti/ICON/serialbox2/install/gnu
+                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/GNU/5.3.0/lib -ljasper -dynamic -L/usr/lib64 -llzma
 			;;
                     intel)
                         config_target=daint_cpu
@@ -267,6 +269,7 @@ case "$ac_sitename" in
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
 			HDF5ROOT    = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -dynamic -L/usr/lib64 -llzma
+                        #SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/cray
                         SERIALBOX2ROOT = /scratch/snx3000/pmarti/ICON/serialbox2/install/cray
                         ;;
                     cray_gpu)
@@ -277,7 +280,8 @@ case "$ac_sitename" in
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
 			HDF5ROOT    = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -llzma
-                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/cray
+                        #SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/cray
+                        SERIALBOX2ROOT = /scratch/snx3000/pmarti/ICON/serialbox2/install/cray
 			;;
                     *)
                         echo
