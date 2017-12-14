@@ -708,10 +708,16 @@ DO jn = 1, nfields
 
 !$OMP DO PRIVATE (jb) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
+
+    ! note: the following NOINLINE directive proved to be necessary
+    ! for Cray Fortran Version 8.4.1.
+
+!DIR$ NOINLINE
     CALL interpol_scal_nudging_core(ptr_pp, jb, i_startblk, i_endblk, &
       all_enabled, elev, ptr_coeff, ptr_dist, p_in(jn)%fld, &
       h_aux(:,:,:,jb,jn), iidx, iblk, l_enabled, js, &
       r_ovsht_fac, ovsht_fac)
+!DIR$ RESETINLINE
   ENDDO ! blocks
 !$OMP END DO
 ENDDO ! fields
