@@ -1420,7 +1420,8 @@ Optional Features:
   --enable-jsbach         Use jsbach model component.
   --enable-ocean          Use ocean model component.
   --enable-testbed        Use testbed component.
-  --enable-serialization  Enable Serialbox2 serialization.
+  --enable-serialization  Enable Serialbox2 serialization. Three modes are
+                          available: read (default), perturb, create
   --disable-mh-file       disable machine file usage
   --enable-eccodes=DIR    Update GRIB_API setup to successor ECCODES package
 
@@ -2624,6 +2625,7 @@ else
 fi
 
 
+
 # Check whether --enable-serialization was given.
 if test "${enable_serialization+set}" = set; then :
   enableval=$enable_serialization;
@@ -2631,6 +2633,24 @@ else
   enable_serialization=no
 fi
 
+
+if test "x$enable_serialization" = "xyes"; then :
+  enable_serialization="read"
+fi
+
+case "$enable_serialization" in #(
+  "read") :
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: \"Serialbox2 serialization is enabled in READ mode\"" >&5
+$as_echo "$as_me: WARNING: \"Serialbox2 serialization is enabled in READ mode\"" >&2;} ;; #(
+  "perturb") :
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: \"Serialbox2 serialization is enabled in READ & PERTURB mode\"" >&5
+$as_echo "$as_me: WARNING: \"Serialbox2 serialization is enabled in READ & PERTURB mode\"" >&2;} ;; #(
+  "create") :
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: \"Serialbox2 serialization is enabled in CREATE mode\"" >&5
+$as_echo "$as_me: WARNING: \"Serialbox2 serialization is enabled in CREATE mode\"" >&2;} ;; #(
+  *) :
+    as_fn_error $? "\"Serialbox2 serialization is enabled but UNKNOWN mode was requested\"" "$LINENO" 5 ;;
+esac
 
 
 # Check whether --enable-mh-file was given.
@@ -6296,16 +6316,29 @@ fi # ! CROSS
 
 test "x$exec_prefix" = xNONE && exec_prefix=build/${build_host}
 
-if test "x$enable_serialization" = "xyes"; then :
-  my_iconsrcdir="build/${build_host}/pp"
+if test "x$enable_serialization" != "xno"; then :
+
+     my_iconsrcdir="build/${build_host}/pp"
      my_iconppdir="${my_iconsrcdir}"
      FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE"
-     CFLAGS="${CFLAGS} ${DEFCOPT}SERIALIZE"
+     case "$enable_serialization" in #(
+  "read") :
+    FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_READ_REFERENCE" ;; #(
+  "perturb") :
+    FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_PERTURB_REFERENCE" ;; #(
+  "create") :
+    FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_CREATE_REFERENCE" ;; #(
+  *) :
+    as_fn_error $? "\"Serialbox2 serialization is enabled but UNKNOWN mode was requested\"" "$LINENO" 5 ;;
+esac
 
 else
-  my_iconsrcdir="src"
+
+     my_iconsrcdir="src"
      my_iconppdir="build/${build_host}/${my_iconsrcdir}"
+
 fi
+
 my_srcdirs="support ${my_iconsrcdir}"
 
 if [ "x$LAPACKROOT" = xlocal ] ; then
@@ -6476,29 +6509,45 @@ else
 fi
 
 
-if test "x$enable_serialization" = "xyes"; then :
-  if test -n "${SERIALBOX2ROOT}" ; then
-    SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
-    SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
-    if test -f "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then
-      if test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then
-         SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
-         make_command="${SERIALBOX2_PPSER} -r -d ${my_iconppdir} src;$make_command;"
-       else
-         echo "pp_ser.py script from Serialbox2 is not executable"
-         exit 1
-      fi
-    else
-      echo "Cannot find pp_ser.py script from Serialbox2"
-      exit 1
-    fi
-  else
-    SERIALBOX2ROOT=""
-    SERIALBOX2_INCLUDE=""
-    SERIALBOX2_LIB=""
-    echo "Error: Serialization is enabled but SERIALBOX2ROOT is not defined"
-    exit 1
-  fi
+if test "x$enable_serialization" != "xno"; then :
+
+       if test -n "${SERIALBOX2ROOT}"; then :
+
+              if test -f "${SERIALBOX2ROOT}/lib/libSerialboxFortran.a"; then :
+
+                     SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
+                     SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+
+else
+
+                     as_fn_error $? "\"Cannot find Serialbox2 libSerialboxFortran.a library\"" "$LINENO" 5
+
+fi
+              if test -f "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"; then :
+
+                     if test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"; then :
+
+                            SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
+                            make_command="${SERIALBOX2_PPSER} -r -d ${my_iconppdir} src;$make_command;"
+
+else
+
+                            as_fn_error $? "\"pp_ser.py script from Serialbox2 is not executable\"" "$LINENO" 5
+
+fi
+
+else
+
+                     as_fn_error $? "\"Cannot find pp_ser.py script from Serialbox2\"" "$LINENO" 5
+
+fi
+
+else
+
+              as_fn_error $? "\"Serialization is enabled but SERIALBOX2ROOT is not defined\"" "$LINENO" 5
+
+fi
+
 fi
 
 
@@ -7564,7 +7613,8 @@ cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
 #
 # INIT-COMMANDS
 #
-build_host="${build_host}"
+
+                    build_host="${build_host}"
                     my_srcdirs="${my_srcdirs}"
                     my_iconsrcdir="${my_iconsrcdir}"
                     my_iconppdir="${my_iconppdir}"
@@ -7574,6 +7624,7 @@ build_host="${build_host}"
                     enable_testbed="${enable_testbed}"
                     enable_serialization="${enable_serialization}"
                     SERIALBOX2_PPSER="${SERIALBOX2_PPSER}"
+
 
 _ACEOF
 
@@ -8138,21 +8189,26 @@ $as_echo "$as_me: executing $ac_file commands" >&6;}
 
 
   case $ac_file$ac_mode in
-    "Makefiles":C) if test "x$enable_serialization" = "xyes"; then :
-  if test -d ${my_iconppdir}; then :
+    "Makefiles":C)
+                    if test "x$enable_serialization" != "xno"; then :
 
-else
-  mkdir -p ${my_iconppdir}
+                           if ! test -d ${my_iconppdir}; then :
+
+                                  mkdir -p ${my_iconppdir}
+
 fi
-                          ${SERIALBOX2_PPSER} -r -d ${my_iconppdir} src
+                           ${SERIALBOX2_PPSER} -r -d ${my_iconppdir} src
+
 fi
                     if test "x$enable_jsbach" = "xyes"; then :
-  if test -d ${my_iconppdir}; then :
 
-else
-  mkdir -p ${my_iconppdir}
+                           if ! test -d ${my_iconppdir}; then :
+
+                                  mkdir -p ${my_iconppdir}
+
 fi
                            externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t ${my_iconppdir}
+
 fi
                     config/createMakefiles.pl \
                                               --target="${build_host}" \
@@ -8216,6 +8272,25 @@ if test -n "$CROSS" ; then
    fi
 fi
 
+
+if test "x$enable_serialization" != "xno"; then :
+
+       $as_echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+       $as_echo '!!                                                            !!'
+       case "$enable_serialization" in #(
+  "read") :
+    $as_echo "!!      Serialbox2 serialization is enabled in READ mode      !!" ;; #(
+  "perturb") :
+    $as_echo "!! Serialbox2 serialization is enabled in READ & PERTURB mode !!" ;; #(
+  "create") :
+    $as_echo "!!     Serialbox2 serialization is enabled in CREATE mode     !!" ;; #(
+  *) :
+     ;;
+esac
+       $as_echo '!!                                                            !!'
+       $as_echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+
+fi
 
 echo ""
 echo "Configuration done. Run GNU make to build ICON."

@@ -104,9 +104,22 @@ AC_ARG_ENABLE([testbed],
               AS_HELP_STRING([--enable-testbed],[Use testbed component.]),
               [],[enable_testbed=no])
 
+dnl ######################################################################
+dnl Serialbox2 serialization setup
+
 AC_ARG_ENABLE([serialization],
-              AS_HELP_STRING([--enable-serialization],[Enable Serialbox2 serialization.]),
+              AS_HELP_STRING([--enable-serialization],[Enable Serialbox2 serialization. Three modes are available: read (default), perturb, create]),
               [],[enable_serialization=no])
+
+AS_IF([test "x$enable_serialization" = "xyes"],
+      [enable_serialization="read"],
+      [])
+
+AS_CASE(["$enable_serialization"],
+        ["read"], [AC_MSG_WARN(["Serialbox2 serialization is enabled in READ mode"])],
+        ["perturb"], [AC_MSG_WARN(["Serialbox2 serialization is enabled in READ & PERTURB mode"])],
+        ["create"], [AC_MSG_WARN(["Serialbox2 serialization is enabled in CREATE mode"])],
+        [AC_MSG_ERROR(["Serialbox2 serialization is enabled but UNKNOWN mode was requested"])])
 
 dnl ######################################################################
 dnl usage of mh-file
@@ -985,14 +998,25 @@ fi # ! CROSS
 
 test "x$exec_prefix" = xNONE && exec_prefix=build/${build_host}
 
-AS_IF([test "x$enable_serialization" = "xyes"],
-    [my_iconsrcdir="build/${build_host}/pp"
+AS_IF([test "x$enable_serialization" != "xno"],
+    [
+     my_iconsrcdir="build/${build_host}/pp"
      my_iconppdir="${my_iconsrcdir}"
      FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE"
-     CFLAGS="${CFLAGS} ${DEFCOPT}SERIALIZE"
+     AS_CASE(["$enable_serialization"],
+             ["read"],
+                [FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_READ_REFERENCE"],
+             ["perturb"],
+                [FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_PERTURB_REFERENCE"],
+             ["create"],
+                [FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_CREATE_REFERENCE"],
+             [AC_MSG_ERROR(["Serialbox2 serialization is enabled but UNKNOWN mode was requested"])])
      ],
-    [my_iconsrcdir="src"
-     my_iconppdir="build/${build_host}/${my_iconsrcdir}"])
+    [
+     my_iconsrcdir="src"
+     my_iconppdir="build/${build_host}/${my_iconsrcdir}"
+     ])
+
 my_srcdirs="support ${my_iconsrcdir}"
 
 if [[ "x$LAPACKROOT" = xlocal ]] ; then
@@ -1137,29 +1161,37 @@ fi
 dnl ######################################################################
 dnl Checks for Serialbox2
 
-AS_IF([test "x$enable_serialization" = "xyes"],
-  [if test -n "${SERIALBOX2ROOT}" ; then
-    SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
-    SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
-    if test -f "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then
-      if test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py" ; then
-         SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
-         make_command="${SERIALBOX2_PPSER} -r -d ${my_iconppdir} src;$make_command;"
-       else
-         echo "pp_ser.py script from Serialbox2 is not executable"  
-         exit 1
-      fi
-    else
-      echo "Cannot find pp_ser.py script from Serialbox2"  
-      exit 1
-    fi
-  else
-    SERIALBOX2ROOT=""
-    SERIALBOX2_INCLUDE=""
-    SERIALBOX2_LIB=""
-    echo "Error: Serialization is enabled but SERIALBOX2ROOT is not defined"
-    exit 1
-  fi])
+AS_IF([test "x$enable_serialization" != "xno"],
+      [
+       AS_IF([test -n "${SERIALBOX2ROOT}"],
+             [
+              AS_IF([test -f "${SERIALBOX2ROOT}/lib/libSerialboxFortran.a"],
+                    [
+                     SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
+                     SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                     ],
+                    [
+                     AC_MSG_ERROR(["Cannot find Serialbox2 libSerialboxFortran.a library"])
+                     ])
+              AS_IF([test -f "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"],
+                    [
+                     AS_IF([test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"],
+                           [
+                            SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
+                            make_command="${SERIALBOX2_PPSER} -r -d ${my_iconppdir} src;$make_command;"
+                            ],
+                           [
+                            AC_MSG_ERROR(["pp_ser.py script from Serialbox2 is not executable"])
+                            ])
+                     ],
+                    [
+                     AC_MSG_ERROR(["Cannot find pp_ser.py script from Serialbox2"])
+                     ])
+              ],
+             [
+              AC_MSG_ERROR(["Serialization is enabled but SERIALBOX2ROOT is not defined"])
+              ])
+       ])
 
 dnl ######################################################################
 dnl substitutions
@@ -1429,16 +1461,23 @@ fi
 sync_submit=${sync_submit:=$submit}
 
 AC_CONFIG_COMMANDS([Makefiles],
-                   [AS_IF([test "x$enable_serialization" = "xyes"],
-                          [AS_IF([test -d ${my_iconppdir}],
-                                 [],
-                                 [mkdir -p ${my_iconppdir}])
-                          ${SERIALBOX2_PPSER} -r -d ${my_iconppdir} src])
+                   [
+                    AS_IF([test "x$enable_serialization" != "xno"],
+                          [
+                           AS_IF([! test -d ${my_iconppdir}],
+                                 [
+                                  mkdir -p ${my_iconppdir}
+                                  ])
+                           ${SERIALBOX2_PPSER} -r -d ${my_iconppdir} src
+                           ])
                     AS_IF([test "x$enable_jsbach" = "xyes"],
-                          [AS_IF([test -d ${my_iconppdir}],
-                                 [],
-                                 [mkdir -p ${my_iconppdir}])
-                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t ${my_iconppdir}])
+                          [
+                           AS_IF([! test -d ${my_iconppdir}],
+                                 [
+                                  mkdir -p ${my_iconppdir}
+                                  ])
+                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t ${my_iconppdir}
+                           ])
                     config/createMakefiles.pl \
                                               --target="${build_host}" \
                                               --srcdirs="${my_srcdirs}" \
@@ -1448,7 +1487,8 @@ AC_CONFIG_COMMANDS([Makefiles],
                                               --enable_testbed="${enable_testbed}" \
                                               --iconsrcdir="${my_iconsrcdir}" \
                                               --iconppdir="${my_iconppdir}"],
-                   [build_host="${build_host}"
+                   [
+                    build_host="${build_host}"
                     my_srcdirs="${my_srcdirs}"
                     my_iconsrcdir="${my_iconsrcdir}"
                     my_iconppdir="${my_iconppdir}"
@@ -1457,7 +1497,8 @@ AC_CONFIG_COMMANDS([Makefiles],
                     enable_jsbach="${enable_jsbach}"
                     enable_testbed="${enable_testbed}"
                     enable_serialization="${enable_serialization}"
-                    SERIALBOX2_PPSER="${SERIALBOX2_PPSER}"])
+                    SERIALBOX2_PPSER="${SERIALBOX2_PPSER}"
+                    ])
 
 AC_SUBST(config_target,$config_target)
 AC_SUBST(config_compiler,$config_compiler)
@@ -1507,6 +1548,21 @@ fi
 dnl echo ""
 dnl cat config/set-up.info
 dnl echo ""
+
+AS_IF([test "x$enable_serialization" != "xno"],
+      [
+       AS_ECHO(['!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'])
+       AS_ECHO(['!!                                                            !!'])
+       AS_CASE(["$enable_serialization"],
+               ["read"],
+                    [AS_ECHO(["!!      Serialbox2 serialization is enabled in READ mode      !!"])],
+               ["perturb"], 
+                    [AS_ECHO(["!! Serialbox2 serialization is enabled in READ & PERTURB mode !!"])],
+               ["create"],
+                    [AS_ECHO(["!!     Serialbox2 serialization is enabled in CREATE mode     !!"])])
+       AS_ECHO(['!!                                                            !!'])
+       AS_ECHO(['!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'])
+       ])
 
 echo ""
 echo "Configuration done. Run GNU make to build ICON."
