@@ -829,5 +829,6 @@ echo " "
 # - by filtering out "localCreationDate" we omit differences due to the current date
 # - we restrict ourselves to "key=value" lines (doing so we also skip the "values" part)
 this_file=igfff00000000MLv01
-grib_dump -OtaH  $this_file.grb | grep  "=" | grep -v "localCreationDate" > $this_file.grib_dump
+grib_dump -OtaH  $this_file.grb | grep  "=" | \
+grep -v -E "localCreationDate|ieeefloat referenceValue|signed binaryScaleFactor" > $this_file.grib_dump
 diff $this_file.grib_dump $DATAROOT/$this_file.grib_dump.reference
