@@ -148,8 +148,10 @@ MODULE mo_nh_diffusion
     REAL(vp), DIMENSION(:,:,:),   POINTER  :: vt_tmp
 #endif
 
+    !----------------------------------------------------------------------------------------
+    ! Serialbox2 input fields serialization placeholder
     !$ser verbatim call serialize_input(z_temp, z_nabla2_c, z_nabla2_e, z_nabla4_e)
-    !$ser verbatim call serialize_output(z_temp, z_nabla2_c, z_nabla2_e, z_nabla4_e)
+
     !--------------------------------------------------------------------------
 
     ! The diffusion is an intrinsic part of the NH solver, thus it is added to the timer
@@ -1616,6 +1618,10 @@ MODULE mo_nh_diffusion
 #endif
 
     IF (ltimer) CALL timer_stop(timer_nh_hdiffusion)
+
+    !----------------------------------------------------------------------------------------
+    ! Serialbox2 output fields serialization placeholder
+    !$ser verbatim call serialize_output(z_temp, z_nabla2_c, z_nabla2_e, z_nabla4_e)
 
   END SUBROUTINE diffusion
 

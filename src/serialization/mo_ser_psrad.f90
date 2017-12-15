@@ -17,7 +17,7 @@ MODULE mo_ser_psrad
 
   SUBROUTINE serialize_input(a)
     IMPLICIT NONE
-    REAL(KIND=8), DIMENSION(:,:) :: a
+    REAL(KIND=wp), DIMENSION(:,:) :: a
 
     !$ser verbatim call init()
     !$ser savepoint psrad-input
@@ -36,7 +36,7 @@ MODULE mo_ser_psrad
 
   SUBROUTINE serialize_output(a)
     IMPLICIT NONE
-    REAL(KIND=8), DIMENSION(:,:,:) :: a
+    REAL(KIND=wp), DIMENSION(:,:,:) :: a
 
     !$ser verbatim call init()
     !$ser savepoint psrad-output

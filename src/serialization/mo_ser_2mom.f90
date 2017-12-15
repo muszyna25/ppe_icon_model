@@ -17,7 +17,7 @@ MODULE mo_ser_2mom
 
   SUBROUTINE serialize_input(dz, rho, pres, w)
     IMPLICIT NONE
-    REAL(KIND=8), DIMENSION(:,:) :: dz, rho, pres, w
+    REAL(KIND=wp), DIMENSION(:,:) :: dz, rho, pres, w
 
     !$ser verbatim call init()
     !$ser savepoint 2mom-input
@@ -36,7 +36,7 @@ MODULE mo_ser_2mom
 
   SUBROUTINE serialize_output(dz, rho, pres, w)
     IMPLICIT NONE
-    REAL(KIND=8), DIMENSION(:,:) :: dz, rho, pres, w
+    REAL(KIND=wp), DIMENSION(:,:) :: dz, rho, pres, w
 
     !$ser verbatim call init()
     !$ser savepoint 2mom-output
