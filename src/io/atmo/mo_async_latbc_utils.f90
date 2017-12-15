@@ -31,13 +31,14 @@
     ! Processor numbers
     USE mo_mpi,                 ONLY: p_pref_pe0, p_pe_work, p_work_pe0, num_work_procs
     ! MPI Communication routines
-    USE mo_mpi,                 ONLY: p_isend, p_irecv, p_barrier, p_wait, &
+    USE mo_mpi,                 ONLY: p_isend, p_barrier, p_wait, &
          &                            p_send, p_recv
     USE mo_latbc_read_recv,     ONLY: prefetch_cdi_2d, prefetch_cdi_3d, compute_data_receive
 #endif
 
     USE mo_async_latbc_types,   ONLY: t_reorder_data, t_latbc_data
     USE mo_kind,                ONLY: wp, i8
+    USE mo_util_string,         ONLY: int2string
     USE mo_parallel_config,     ONLY: nproma
     USE mo_model_domain,        ONLY: t_patch
     USE mo_grid_config,         ONLY: nroot
@@ -109,7 +110,9 @@
     INTEGER, PARAMETER :: msg_pref_start    = 56984
     INTEGER, PARAMETER :: msg_pref_done     = 26884
     INTEGER, PARAMETER :: msg_pref_shutdown = 48965
-    INTEGER, PARAMETER :: msg_latbc_done    = 20883
+
+    INTEGER, PARAMETER :: TAG_PREFETCH2WORK = 2001
+    INTEGER, PARAMETER :: TAG_WORK2PREFETCH = 2002
 
 
   CONTAINS
@@ -1259,10 +1262,9 @@
       ! Simply send a message from Input prefetching PE 0 to work PE 0
       ! p_pe_work == 0 signifies processor 0 in Input prefetching PEs
       IF(p_pe_work == 0) THEN
-         !     CALL p_wait()
-
         msg = msg_pref_done
-        CALL p_isend(msg, p_work_pe0, 0)
+        CALL p_isend(msg, p_work_pe0, TAG_PREFETCH2WORK)
+        CALL p_wait()
       ENDIF
 #endif
     END SUBROUTINE async_pref_send_handshake
@@ -1276,14 +1278,16 @@
     SUBROUTINE compute_wait_for_async_pref()
 #ifndef NOMPI
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_wait_for_async_pref"
-      INTEGER :: msg, action_tag
+      INTEGER :: msg
 
       ! First compute PE receives message from input prefetching leader
       IF(p_pe_work==0) THEN
-         CALL p_recv(msg, p_pref_pe0, 0)
-         action_tag = msg
+         msg = 0
+         CALL p_recv(msg, p_pref_pe0, TAG_PREFETCH2WORK)
          ! Just for safety: Check if we got the correct tag
-         IF(action_tag /= msg_pref_done) CALL finish(routine, 'Compute PE: Got illegal prefetching tag')
+         IF(msg /= msg_pref_done) THEN
+           CALL finish(routine, 'Compute PE: Got illegal prefetching tag: '//int2string(msg,'(i0)'))
+         END IF
       ENDIF
       ! Wait in barrier until message is here
       CALL p_barrier(p_comm_work)
@@ -1310,10 +1314,7 @@
 
       ! Receive message that we may start transferring the prefetching data (or should finish)
       IF(p_pe_work == 0) THEN
-         ! launch non-blocking receive request
-         CALL p_wait()
-         CALL p_irecv(msg, p_work_pe0, 0)
-         CALL p_wait()
+         CALL p_recv(msg, p_work_pe0, TAG_WORK2PREFETCH)
       END IF
 
       SELECT CASE(msg)
@@ -1343,7 +1344,7 @@
 
       !   CALL p_barrier(comm=p_comm_work) ! make sure all are here
       msg = msg_pref_start
-      IF(p_pe_work==0) CALL p_send(msg, p_pref_pe0, 0)
+      IF(p_pe_work==0) CALL p_send(msg, p_pref_pe0, TAG_WORK2PREFETCH)
 #endif
     END SUBROUTINE compute_start_async_pref
 
@@ -1359,7 +1360,7 @@
 
       !  CALL p_barrier(comm=p_comm_work) ! make sure all are here
       msg = msg_pref_shutdown
-      IF(p_pe_work==0) CALL p_send(msg, p_pref_pe0, 0)
+      IF(p_pe_work==0) CALL p_send(msg, p_pref_pe0, TAG_WORK2PREFETCH)
 #endif
     END SUBROUTINE compute_shutdown_async_pref
 
