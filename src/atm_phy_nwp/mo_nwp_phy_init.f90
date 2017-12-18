@@ -31,6 +31,7 @@ MODULE mo_nwp_phy_init
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ext_data_state,      ONLY: nlev_o3, nmonths
+  USE mo_ext_data_init,       ONLY: diagnose_ext_aggr
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_exception,           ONLY: message, finish !, message_text
   USE mo_vertical_coord_table,ONLY: vct_a
@@ -271,6 +272,15 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   ! for both restart and non-restart runs. Could not be included into
   ! mo_ext_data_state/init_index_lists due to its dependence on p_diag_lnd.
   CALL init_sea_lists(p_patch, ext_data, p_diag_lnd, lseaice)
+
+
+  ! Diagnose aggregated external parameter fields
+  ! (mainly for output purposes)
+  ! aggregated sai needed below for organize_turbdiff
+  ! This routine is called after init_sea_lists, since 
+  ! in order to have all tile-related index lists available.
+  !
+  CALL diagnose_ext_aggr (p_patch, ext_data)
 
 
   ! mask field to distinguish between tropics and extratropics (needed for some tuning measures)

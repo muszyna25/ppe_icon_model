@@ -14,7 +14,7 @@ MODULE mo_util_mtime
   USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t
   USE mo_impl_constants,           ONLY: MAX_CHAR_LENGTH
   USE mtime,                       ONLY: datetime, timedelta, newTimeDelta, OPERATOR(-),   &
-    &                                    juliandelta, newJulianDelta,                      &
+    &                                    OPERATOR(+), juliandelta, newJulianDelta,         &
     &                                    timeDeltaToJulianDelta, deallocateJulianDelta,    &
     &                                    deallocateTimeDelta
   USE mo_util_string,              ONLY: t_keyword_list,                   &
@@ -27,6 +27,8 @@ MODULE mo_util_mtime
   PUBLIC :: t_mtime_utils, mtime_utils
   PUBLIC ::  FMT_DDHHMMSS_ANNOTATED, FMT_DDDHHMMSS_ANNOTATED, &
     &        FMT_DDHHMMSS, FMT_DDDHHMMSS, FMT_DDDHH, FMT_DDHHMMSS_DAYSEP
+  PUBLIC :: assumePrevMidnight
+  PUBLIC :: assumeNextMidnight
 
   PRIVATE
 
@@ -94,5 +96,54 @@ CONTAINS
     CALL deallocateTimeDelta(time_delta)
     CALL deallocateJulianDelta(julian_delta)
   END FUNCTION t_mtime_utils_ddhhmmss
+
+
+  !>
+  !! Returns previous 'midnight' datetime for given datetime
+  !!
+  !! Returns previous 'midnight' datetime for given datetime in datetime-format
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2017-12-01)
+  !!
+  TYPE(datetime) FUNCTION assumePrevMidnight(current_date)
+    TYPE(datetime), INTENT(IN) :: current_date
+
+    assumePrevMidnight = current_date
+    !
+    assumePrevMidnight%time%hour   = 0 
+    assumePrevMidnight%time%minute = 0
+    assumePrevMidnight%time%second = 0
+    assumePrevMidnight%time%ms     = 0
+
+  END FUNCTION assumePrevMidnight
+
+  !>
+  !! Returns nest 'midnight' datetime for given datetime
+  !!
+  !! Returns next 'midnight' datetime for given datetime in datetime-format
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2017-12-01)
+  !!
+  TYPE(datetime) FUNCTION assumeNextMidnight(current_date)
+    TYPE(datetime), INTENT(IN) :: current_date
+
+    ! local
+    TYPE(timedelta), POINTER :: td_1day  => NULL()
+    !---------------------------------------------------------
+
+    td_1day =>newTimedelta("P01D")
+    assumeNextMidnight = current_date + td_1day
+    !
+    assumeNextMidnight%time%hour   = 0 
+    assumeNextMidnight%time%minute = 0
+    assumeNextMidnight%time%second = 0
+    assumeNextMidnight%time%ms     = 0
+
+    CALL deallocateTimedelta(td_1day)
+
+  END FUNCTION assumeNextMidnight
+
 
 END MODULE mo_util_mtime

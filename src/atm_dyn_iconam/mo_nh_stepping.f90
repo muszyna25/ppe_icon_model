@@ -75,7 +75,6 @@ MODULE mo_nh_stepping
     &                                    output_mode, lart
   USE mo_mpi_phy_config,           ONLY: mpi_phy_config
   USE mo_advection_config,         ONLY: advection_config
-  USE mo_radiation_config,         ONLY: albedo_type
   USE mo_timer,                    ONLY: ltimer, timers_level, timer_start, timer_stop,   &
     &                                    timer_total, timer_model_init, timer_nudging,    &
     &                                    timer_bdy_interp, timer_feedback, timer_nesting, &
@@ -88,8 +87,6 @@ MODULE mo_nh_stepping
   USE mo_lnd_nwp_config,           ONLY: nlev_soil, nlev_snow, sstice_mode
   USE mo_nwp_lnd_state,            ONLY: p_lnd_state
   USE mo_ext_data_state,           ONLY: ext_data
-  USE mo_ext_data_init,            ONLY: interpol_monthly_mean
-  USE mo_extpar_config,            ONLY: itopo, itype_vegetation_cycle
   USE mo_limarea_config,           ONLY: latbc_config
   USE mo_model_domain,             ONLY: p_patch, t_patch
   USE mo_time_config,              ONLY: time_config
@@ -117,10 +114,10 @@ MODULE mo_nh_stepping
                                          prep_outer_bdy_nudging, save_progvars
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback
   USE mo_exception,                ONLY: message, message_text, finish
-  USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH,                                 &
-    &                                    inoforcing, iheldsuarez, inwp, iecham,                    &
-    &                                    MODE_IAU, MODE_IAU_OLD, MODIS, SSTICE_ANA_CLINC,          &
-    &                                    SSTICE_CLIM, SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY, max_dom
+  USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH,                          &
+    &                                    inoforcing, iheldsuarez, inwp, iecham,             &
+    &                                    MODE_IAU, MODE_IAU_OLD, SSTICE_CLIM,               &
+    &                                    SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY, max_dom
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
   USE mo_solve_nonhydro,           ONLY: solve_nh
   USE mo_update_dyn,               ONLY: add_slowphys
@@ -130,7 +127,7 @@ MODULE mo_nh_stepping
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
   USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, p_comm_work
-  USE mo_util_mtime,               ONLY: mtime_utils, FMT_DDHHMMSS_DAYSEP
+  USE mo_util_mtime,               ONLY: mtime_utils, assumePrevMidnight, FMT_DDHHMMSS_DAYSEP
 
 #ifdef NOMPI
   USE mo_mpi,                      ONLY: my_process_is_mpi_all_seq
@@ -157,11 +154,11 @@ MODULE mo_nh_stepping
   USE mo_art_sedi_interface,       ONLY: art_sedi_interface
   USE mo_art_tools_interface,      ONLY: art_tools_interface
 
-  USE mo_nwp_sfc_utils,            ONLY: aggregate_landvars, update_sstice, update_ndvi
+  USE mo_nwp_sfc_utils,            ONLY: aggregate_landvars
   USE mo_nh_init_nest_utils,       ONLY: initialize_nest
   USE mo_nh_init_utils,            ONLY: hydro_adjust_downward, compute_iau_wgt, save_initial_state, &
                                          restore_initial_state
-  USE mo_td_ext_data,              ONLY: set_actual_td_ext_data
+  USE mo_td_ext_data,              ONLY: update_nwp_phy_bcs, set_sst_and_seaice
   USE mo_initicon_config,          ONLY: init_mode, timeshift, init_mode_soil, is_avgFG_time, &
                                          iterate_iau, dt_iau
   USE mo_initicon_utils,           ONLY: average_first_guess, reinit_average_first_guess
@@ -353,8 +350,11 @@ MODULE mo_nh_stepping
     ! t_seasfc and fr_seaice have to be set again from the ext_td_data files;
     ! the values from the analysis have to be overwritten.
     ! In the case of a restart, the call is required to open the file and read the data
-    CALL set_actual_td_ext_data (.TRUE., mtime_current, mtime_current, sstice_mode,  &
-                                &  p_patch(1:), ext_data, p_lnd_state)
+    DO jg=1, n_dom
+      CALL set_sst_and_seaice (.TRUE., assumePrevMidnight(mtime_current),      &
+        &                      assumePrevMidnight(mtime_current), sstice_mode, &
+        &                      p_patch(jg), ext_data(jg), p_lnd_state(jg))
+    ENDDO
   END IF
 
   ! Save initial state if IAU iteration mode is chosen
@@ -599,6 +599,11 @@ MODULE mo_nh_stepping
   REAL(wp), ALLOCATABLE :: elapsedTime(:)  ! time elapsed since last call of 
                                            ! NWP physics routines. For restart purposes.
 
+  TYPE(datetime)                      :: target_datetime  ! target date for for update of clim. 
+                                                          ! lower boundary conditions in NWP mode
+  TYPE(datetime)                      :: ref_datetime     ! reference datetime for computing 
+                                                          ! climatological SST increments
+
 !!$  INTEGER omp_get_num_threads
 
 !-----------------------------------------------------------------------
@@ -825,81 +830,45 @@ MODULE mo_nh_stepping
 
     ENDIF
 
-    ! Update the following surface fields, if a new day is coming
-    !
-    ! - ndviratio, plcov_t, tai_t, sai_t
-    ! - SST, fr_seaice (depending on sstice_mode)
-    ! - MODIS albedo fields alb_dif, albuv_dif, albni_dif
-    !
 
-    ! The update is skipped in IAU iteration mode if the model is reset to the initial state at the
-    ! end of the current time step
-    IF ( (mtime_current%date%day /= mtime_old%date%day) .AND. .NOT. (jstep == 0 .AND. iau_iter == 1) ) THEN
+    ! ToDo:
+    ! * replace date comparison below by physics event (triggering daily)
+    ! * move call of update_nwp_phy_bcs to beginning of NWP physics interface
+    ! * instead of skipping the boundary condition upate after the first of 2 IAU iterations, 
+    !   do the update and fire a corresponding reset call. 
+    IF (iforcing == inwp) THEN
 
-      WRITE(message_text,'(a,i10,a,i10)') 'New day  day_old: ', mtime_old%date%day, &
-                &                 ' ,  day: ', mtime_current%date%day
-      CALL message(TRIM(routine),message_text)
+      ! Update the following surface fields, if a new day is coming
+      !
+      ! - ndviratio, plcov_t, tai_t, sai_t
+      ! - SST, fr_seaice (depending on sstice_mode)
+      ! - MODIS albedo fields alb_dif, albuv_dif, albni_dif
+      !
 
-      !Update ndvi normalized differential vegetation index
-      IF (itopo == 1 .AND. iforcing == inwp .AND.                  &
-        & ALL(atm_phy_nwp_config(1:n_dom)%inwp_surface >= 1)) THEN
+      ! The update is skipped in IAU iteration mode if the model is reset to the initial state at the
+      ! end of the current time step
+      IF ( (mtime_current%date%day /= mtime_old%date%day) .AND. .NOT. (jstep == 0 .AND. iau_iter == 1) ) THEN
+
+        ! assume midnight for climatological updates
+        target_datetime = assumePrevMidnight(mtime_current)
+        ! assume midnight for reference date which is used when computing climatological SST increments 
+        ref_datetime    = assumePrevMidnight(time_config%tc_exp_startdate)
+
         DO jg=1, n_dom
-          ! Note: here we can assume that hour=minute=second=0, due to
-          ! the surrounding if-clause.
-          CALL interpol_monthly_mean(p_patch(jg), mtime_current,         &! in
-            &                        ext_data(jg)%atm_td%ndvi_mrat,      &! in
-            &                        ext_data(jg)%atm%ndviratio          )! out
-          IF (itype_vegetation_cycle > 1) THEN
-            CALL interpol_monthly_mean(p_patch(jg), mtime_current,       &! in
-              &                        ext_data(jg)%atm_td%t2m_m,        &! in
-              &                        ext_data(jg)%atm%t2m_clim,        &! out
-              &                        ext_data(jg)%atm%t2m_climgrad     )! optional out
-          ENDIF
-        ENDDO
+          CALL update_nwp_phy_bcs (p_patch         = p_patch(jg),      &
+            &                      ext_data        = ext_data(jg),     &
+            &                      p_lnd_state     = p_lnd_state(jg),  &
+            &                      p_nh_state      = p_nh_state(jg),   &
+            &                      ref_datetime    = ref_datetime,     &
+            &                      target_datetime = target_datetime,  &
+            &                      mtime_old       = mtime_old         )
+        ENDDO  ! jg
 
-        ! Note: SR update_ndvi also updates plcov, tai and sai, which depend on ndvi
-        CALL update_ndvi(p_patch(1:), ext_data)
-      END IF
+        mtime_old = mtime_current
 
-      ! Check if the SST and Sea ice fraction have to be updated (sstice_mode 3,4,5)
-      IF ( ANY((/SSTICE_ANA_CLINC, SSTICE_CLIM,SSTICE_AVG_MONTHLY,SSTICE_AVG_DAILY/) == sstice_mode) &
-        &   .AND. iforcing == inwp  ) THEN
+      END IF ! end update of surface parameter fields
+    ENDIF  ! iforcing == inwp
 
-        CALL set_actual_td_ext_data (.FALSE., mtime_current, mtime_old, sstice_mode,  &
-                                  &  p_patch(1:), ext_data, p_lnd_state)
-
-        CALL update_sstice( p_patch(1:), ext_data, p_lnd_state,                    &
-          &                 p_nh_state, sstice_mode, time_config%tc_exp_startdate, &
-          &                 mtime_current )
-
-      END IF  !sstice_mode>1
-
-
-      ! Check if MODIS albedo needs to be updated
-      IF (iforcing == inwp .AND. albedo_type == MODIS) THEN
-        ! Note that here only an update of the external parameter fields is
-        ! performed. The actual update happens in mo_albedo.
-        !
-        ! Note: here we can assume that hour=minute=second=0, due to
-        ! the surrounding if-clause.
-        DO jg = 1, n_dom
-          CALL interpol_monthly_mean(p_patch(jg), mtime_current,            &! in
-            &                        ext_data(jg)%atm_td%alb_dif,           &! in
-            &                        ext_data(jg)%atm%alb_dif          )! out
-
-          CALL interpol_monthly_mean(p_patch(jg), mtime_current,            &! in
-            &                        ext_data(jg)%atm_td%albuv_dif,         &! in
-            &                        ext_data(jg)%atm%albuv_dif        )! out
-
-          CALL interpol_monthly_mean(p_patch(jg), mtime_current,            &! in
-            &                        ext_data(jg)%atm_td%albni_dif,         &! in
-            &                        ext_data(jg)%atm%albni_dif        )! out
-        ENDDO
-      ENDIF
-
-      mtime_old = mtime_current
-
-    END IF ! end update of surface parameter fields
 
 
     !--------------------------------------------------------------------------

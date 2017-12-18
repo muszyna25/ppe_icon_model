@@ -96,6 +96,7 @@ MODULE mo_ext_data_init
   USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime,        &
     &                              MAX_DATETIME_STR_LEN, datetimetostring,           &
     &                              OPERATOR(+)
+  USE mo_util_mtime,         ONLY: assumePrevMidnight
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
     &                                  calculate_time_interpolation_weights
   USE mo_coupling_config,    ONLY: is_coupled_run
@@ -294,17 +295,14 @@ CONTAINS
         END IF  ! isRestart
         
         ! always assume midnight
-        this_datetime%time%hour   = 0   
-        this_datetime%time%minute = 0
-        this_datetime%time%second = 0
-        this_datetime%time%ms     = 0
-
         DO jg = 1, n_dom
-          CALL interpol_monthly_mean(p_patch(jg), this_datetime,         &! in
+          CALL interpol_monthly_mean(p_patch(jg),                        &! in
+            &                        assumePrevMidnight(this_datetime),  &! in
             &                        ext_data(jg)%atm_td%ndvi_mrat,      &! in
             &                        ext_data(jg)%atm%ndviratio          )! out
           IF (itype_vegetation_cycle > 1) THEN
-            CALL interpol_monthly_mean(p_patch(jg), this_datetime,       &! in
+            CALL interpol_monthly_mean(p_patch(jg),                      &! in
+              &                        assumePrevMidnight(this_datetime),&! in
               &                        ext_data(jg)%atm_td%t2m_m,        &! in
               &                        ext_data(jg)%atm%t2m_clim,        &! out
               &                        ext_data(jg)%atm%t2m_climgrad     )! optional out
@@ -313,15 +311,18 @@ CONTAINS
 
         IF ( albedo_type == MODIS) THEN
           DO jg = 1, n_dom
-            CALL interpol_monthly_mean(p_patch(jg), this_datetime,       &! in
+            CALL interpol_monthly_mean(p_patch(jg),                      &! in
+              &                        assumePrevMidnight(this_datetime),&! in
               &                        ext_data(jg)%atm_td%alb_dif,      &! in
               &                        ext_data(jg)%atm%alb_dif          )! out
 
-            CALL interpol_monthly_mean(p_patch(jg), this_datetime,       &! in
+            CALL interpol_monthly_mean(p_patch(jg),                      &! in
+              &                        assumePrevMidnight(this_datetime),&! in
               &                        ext_data(jg)%atm_td%albuv_dif,    &! in
               &                        ext_data(jg)%atm%albuv_dif        )! out
 
-            CALL interpol_monthly_mean(p_patch(jg), this_datetime,       &! in
+            CALL interpol_monthly_mean(p_patch(jg),                      &! in
+              &                        assumePrevMidnight(this_datetime),&! in
               &                        ext_data(jg)%atm_td%albni_dif,    &! in
               &                        ext_data(jg)%atm%albni_dif        )! out
           ENDDO
@@ -1946,18 +1947,13 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+
+      IF (itype_vegetation_cycle == 2) THEN
+        CALL vege_clim (p_patch(jg), ext_data(jg))
+      ENDIF
+
+
     END DO  !jg
-
-    IF (itype_vegetation_cycle == 2) THEN
-      CALL vege_clim (p_patch, ext_data)
-    ENDIF
-
-
-    ! Diagnose aggregated external parameter fields
-    ! (mainly for output purposes)
-    !
-    CALL diagnose_ext_aggr (p_patch, ext_data)
-
 
   END SUBROUTINE init_index_lists
 
@@ -1978,14 +1974,13 @@ CONTAINS
   !!
   SUBROUTINE diagnose_ext_aggr (p_patch, ext_data)
 
-    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
-    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
+    TYPE(t_patch)        , INTENT(IN)    :: p_patch
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data
 
-    INTEGER  :: jg,jb,jt,ic,jc
+    INTEGER  :: jb,jt,ic,jc
     INTEGER  :: rl_start, rl_end
     INTEGER  :: i_startblk, i_endblk    !> blocks
     INTEGER  :: i_startidx, i_endidx
-    INTEGER  :: i_nchdom                !< domain index
     INTEGER  :: i_count
     REAL(wp) :: area_frac
 
@@ -1994,97 +1989,93 @@ CONTAINS
 
     !-------------------------------------------------------------------------
 
-    DO jg = 1, n_dom
 
-      i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
+    ! exclude the boundary interpolation zone of nested domains
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
 
-      ! exclude the boundary interpolation zone of nested domains
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
-      i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
-
-      ! Fill nest boundary points of sai with c_sea because the initial call of turbtran
-      ! may produce invalid operations otherwise
-      ext_data(jg)%atm%sai(:,1:i_startblk) = c_sea
+    ! Fill nest boundary points of sai with c_sea because the initial call of turbtran
+    ! may produce invalid operations otherwise
+    ext_data%atm%sai(:,1:i_startblk) = c_sea
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,ic,i_startidx,i_endidx,i_count,jc,area_frac)
-      DO jb = i_startblk, i_endblk
+    DO jb = i_startblk, i_endblk
 
-        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end)
-
-
-        ext_data(jg)%atm%plcov (i_startidx:i_endidx,jb) = 0._wp
-        ext_data(jg)%atm%rootdp(i_startidx:i_endidx,jb) = 0._wp
-        ext_data(jg)%atm%lai   (i_startidx:i_endidx,jb) = 0._wp
-        ext_data(jg)%atm%rsmin (i_startidx:i_endidx,jb) = 0._wp
-        ext_data(jg)%atm%tai   (i_startidx:i_endidx,jb) = 0._wp
-        ext_data(jg)%atm%eai   (i_startidx:i_endidx,jb) = 0._wp
-        ext_data(jg)%atm%sai   (i_startidx:i_endidx,jb) = 0._wp
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, rl_start, rl_end)
 
 
-
-        DO jt = 1, ntiles_total
-          i_count = ext_data(jg)%atm%gp_count_t(jb,jt)
-          IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
-
-          DO ic = 1, i_count
-            jc = ext_data(jg)%atm%idx_lst_t(ic,jb,jt)
-
-            ! note that frac_t must be re-scaled such that sum(frac_t(1:ntiles_lnd)) = 1
-            ! therefore we multiply by inv_frland_from_tiles
-            area_frac = ext_data(jg)%atm%frac_t(jc,jb,jt)           &
-              &       * ext_data(jg)%atm%inv_frland_from_tiles(jc,jb)
-
-            ! plant cover (aggregated)
-            ext_data(jg)%atm%plcov(jc,jb) = ext_data(jg)%atm%plcov(jc,jb)       &
-              &              + ext_data(jg)%atm%plcov_t(jc,jb,jt) * area_frac
-
-            ! root depth (aggregated)
-            ext_data(jg)%atm%rootdp(jc,jb) = ext_data(jg)%atm%rootdp(jc,jb)     &
-              &              + ext_data(jg)%atm%rootdp_t(jc,jb,jt) * area_frac
-
-            ! surface area index (aggregated)
-            ext_data(jg)%atm%lai(jc,jb) = ext_data(jg)%atm%lai(jc,jb)           &
-              &              + ( ext_data(jg)%atm%tai_t(jc,jb,jt)                &
-              &              /(ext_data(jg)%atm%plcov_t(jc,jb,jt)+dbl_eps) * area_frac )
-
-            ! evaporative soil area index (aggregated)
-            ext_data(jg)%atm%eai(jc,jb) = ext_data(jg)%atm%eai(jc,jb)           &
-              &              +  ext_data(jg)%atm%eai_t(jc,jb,jt) * area_frac
-
-            ! transpiration area index (aggregated)
-            ext_data(jg)%atm%tai(jc,jb) = ext_data(jg)%atm%tai(jc,jb)           &
-              &              +  ext_data(jg)%atm%tai_t(jc,jb,jt) * area_frac
-
-            ! minimal stomata resistance (aggregated)
-            ext_data(jg)%atm%rsmin(jc,jb) = ext_data(jg)%atm%rsmin(jc,jb)       &
-              &              + ext_data(jg)%atm%rsmin2d_t(jc,jb,jt) * area_frac
-
-          ENDDO  !ic
-        ENDDO  !jt
+      ext_data%atm%plcov (i_startidx:i_endidx,jb) = 0._wp
+      ext_data%atm%rootdp(i_startidx:i_endidx,jb) = 0._wp
+      ext_data%atm%lai   (i_startidx:i_endidx,jb) = 0._wp
+      ext_data%atm%rsmin (i_startidx:i_endidx,jb) = 0._wp
+      ext_data%atm%tai   (i_startidx:i_endidx,jb) = 0._wp
+      ext_data%atm%eai   (i_startidx:i_endidx,jb) = 0._wp
+      ext_data%atm%sai   (i_startidx:i_endidx,jb) = 0._wp
 
 
-        ! aggregate fields with water tiles
-        DO jt = 1,ntiles_total + ntiles_water
-          DO jc = i_startidx, i_endidx
 
-            area_frac = ext_data(jg)%atm%frac_t(jc,jb,jt)
+      DO jt = 1, ntiles_total
+        i_count = ext_data%atm%gp_count_t(jb,jt)
+        IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
 
-            ! surface area index (aggregated)
-            ext_data(jg)%atm%sai(jc,jb) = ext_data(jg)%atm%sai(jc,jb)           &
-              &             +  ext_data(jg)%atm%sai_t(jc,jb,jt) * area_frac
-          ENDDO  ! jc
-        ENDDO  !jt
+        DO ic = 1, i_count
+          jc = ext_data%atm%idx_lst_t(ic,jb,jt)
 
-      ENDDO  !jb
+          ! note that frac_t must be re-scaled such that sum(frac_t(1:ntiles_lnd)) = 1
+          ! therefore we multiply by inv_frland_from_tiles
+          area_frac = ext_data%atm%frac_t(jc,jb,jt)           &
+            &       * ext_data%atm%inv_frland_from_tiles(jc,jb)
+
+          ! plant cover (aggregated)
+          ext_data%atm%plcov(jc,jb) = ext_data%atm%plcov(jc,jb)       &
+            &              + ext_data%atm%plcov_t(jc,jb,jt) * area_frac
+
+          ! root depth (aggregated)
+          ext_data%atm%rootdp(jc,jb) = ext_data%atm%rootdp(jc,jb)     &
+            &              + ext_data%atm%rootdp_t(jc,jb,jt) * area_frac
+
+          ! surface area index (aggregated)
+          ext_data%atm%lai(jc,jb) = ext_data%atm%lai(jc,jb)           &
+            &              + ( ext_data%atm%tai_t(jc,jb,jt)                &
+            &              /(ext_data%atm%plcov_t(jc,jb,jt)+dbl_eps) * area_frac )
+
+          ! evaporative soil area index (aggregated)
+          ext_data%atm%eai(jc,jb) = ext_data%atm%eai(jc,jb)           &
+            &              +  ext_data%atm%eai_t(jc,jb,jt) * area_frac
+
+          ! transpiration area index (aggregated)
+          ext_data%atm%tai(jc,jb) = ext_data%atm%tai(jc,jb)           &
+            &              +  ext_data%atm%tai_t(jc,jb,jt) * area_frac
+
+          ! minimal stomata resistance (aggregated)
+          ext_data%atm%rsmin(jc,jb) = ext_data%atm%rsmin(jc,jb)       &
+            &              + ext_data%atm%rsmin2d_t(jc,jb,jt) * area_frac
+
+        ENDDO  !ic
+      ENDDO  !jt
+
+
+      ! aggregate fields with water tiles
+      DO jt = 1,ntiles_total + ntiles_water
+        DO jc = i_startidx, i_endidx
+
+          area_frac = ext_data%atm%frac_t(jc,jb,jt)
+
+          ! surface area index (aggregated)
+          ext_data%atm%sai(jc,jb) = ext_data%atm%sai(jc,jb)           &
+            &             +  ext_data%atm%sai_t(jc,jb,jt) * area_frac
+        ENDDO  ! jc
+      ENDDO  !jt
+
+    ENDDO  !jb
 !$OMP END DO
 !$OMP END PARALLEL
 
-    ENDDO  !jg
 
   END SUBROUTINE diagnose_ext_aggr
 
@@ -2105,8 +2096,8 @@ CONTAINS
   !!
   SUBROUTINE interpol_monthly_mean(p_patch, mtime_date, monthly_means, out_field, out_diff)
 
-    TYPE(datetime),   POINTER      :: mtime_date
-    TYPE(t_patch),     INTENT(IN)  :: p_patch
+    TYPE(datetime)   , INTENT(IN)  :: mtime_date
+    TYPE(t_patch)    , INTENT(IN)  :: p_patch
     REAL(wp),          INTENT(IN)  :: monthly_means(:,:,:)  ! monthly mean climatology
     REAL(wp),          INTENT(OUT) :: out_field(:,:)        ! interpolated output field
     REAL(wp), OPTIONAL,INTENT(OUT) :: out_diff(:,:)         ! difference between adjacent monthly means
@@ -2200,10 +2191,10 @@ CONTAINS
   !!
   SUBROUTINE vege_clim (p_patch, ext_data)
 
-    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
-    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
+    TYPE(t_patch), INTENT(IN)            :: p_patch
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data
 
-    INTEGER  :: jg,jb,jt,ic,jc,i
+    INTEGER  :: jb,jt,ic,jc,i
     INTEGER  :: rl_start, rl_end
     INTEGER  :: i_startblk, i_endblk,i_startidx, i_endidx
     INTEGER  :: i_count,ilu
@@ -2262,76 +2253,74 @@ CONTAINS
     ! transition width for temperature-dependent tai limitation
     trans_width = 2.5_wp
 
-    DO jg = 1, n_dom
 
-      ! exclude the boundary interpolation zone of nested domains
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int
+    ! exclude the boundary interpolation zone of nested domains
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
 
-      i_startblk = p_patch(jg)%cells%start_block(rl_start)
-      i_endblk   = p_patch(jg)%cells%end_block(rl_end)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,ic,i_startidx,i_endidx,i_count,jc,ilu,t2mclim_hc,t_asyfac,tdiff_norm,wfac)
-      DO jb = i_startblk, i_endblk
+    DO jb = i_startblk, i_endblk
 
-        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end)
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, rl_start, rl_end)
 
-        ! height-corrected climatological 2m-temperature
-        DO jc = i_startidx, i_endidx
-          t2mclim_hc(jc) = ext_data(jg)%atm%t2m_clim(jc,jb) + dtdz_clim * &
-            (ext_data(jg)%atm%topography_c(jc,jb) - ext_data(jg)%atm%topo_t2mclim(jc,jb))
-          t_asyfac(jc) = SIGN(MIN(1._wp,ABS(ext_data(jg)%atm%t2m_climgrad(jc,jb))/2.5_wp), &
-                             -1._wp*ext_data(jg)%atm%t2m_climgrad(jc,jb))
-        ENDDO
-
-        DO jt = 1, ntiles_total
-          i_count = ext_data(jg)%atm%lp_count_t(jb,jt)
-          IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
-
-          DO ic = 1, i_count
-            jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
-
-            ilu = ext_data(jg)%atm%lc_class_t(jc,jb,jt)
-
-            ! modification of tai/sai
-            tdiff_norm = (t2mclim_hc(jc) - (threshold_temp(ilu)+t_asyfac(jc)*temp_asymmetry(ilu)) ) / trans_width
-            tdiff_norm = MIN(1._wp,MAX(-1._wp,tdiff_norm))
-
-            wfac = 0.5_wp*(1._wp + tdiff_norm) ! weighting factor of original ndvi-based tai specification
-
-            ext_data(jg)%atm%tai_t(jc,jb,jt) = MIN(ext_data(jg)%atm%tai_t(jc,jb,jt), &
-              wfac*ext_data(jg)%atm%tai_t(jc,jb,jt) + (1._wp-wfac)*laimin(ilu) )
-
-            ext_data(jg)%atm%laifac_t(jc,jb,jt) = &
-              (wfac*ext_data(jg)%atm%laimax_lcc(ilu) + (1._wp-wfac)*laimin(ilu))/MAX(0.01_wp,ext_data(jg)%atm%laimax_lcc(ilu))
-
-            ext_data(jg)%atm%sai_t(jc,jb,jt) = c_lnd+ext_data(jg)%atm%tai_t(jc,jb,jt)
-
-
-            ! modification of root depth
-            ext_data(jg)%atm%rootdp_t(jc,jb,jt) = ext_data(jg)%atm%rootdmax_lcc(ilu) ! reset to table-based value
-
-            IF (t2mclim_hc(jc) <= threshold_temp(ilu)-temp_asymmetry(ilu)) THEN
-              ext_data(jg)%atm%rootdp_t(jc,jb,jt) = ext_data(jg)%atm%rootdp_t(jc,jb,jt)/rd_fac(ilu)
-            ELSE IF (t2mclim_hc(jc) <= threshold_temp(ilu)+temp_asymmetry(ilu)+trans_width .AND. &
-                     ext_data(jg)%atm%t2m_climgrad(jc,jb) > 0._wp) THEN
-              wfac = (t2mclim_hc(jc)-(threshold_temp(ilu)-temp_asymmetry(ilu)))/(2._wp*temp_asymmetry(ilu)+trans_width)
-              ext_data(jg)%atm%rootdp_t(jc,jb,jt) = ext_data(jg)%atm%rootdp_t(jc,jb,jt)*(wfac + (1._wp-wfac)/rd_fac(ilu))
-            ELSE IF (t2mclim_hc(jc) <= threshold_temp(ilu)+trans_width .AND. &
-                     ext_data(jg)%atm%t2m_climgrad(jc,jb) <= 0._wp) THEN
-              wfac = (t2mclim_hc(jc)-(threshold_temp(ilu)-temp_asymmetry(ilu)))/(temp_asymmetry(ilu)+trans_width)
-              ext_data(jg)%atm%rootdp_t(jc,jb,jt) = ext_data(jg)%atm%rootdp_t(jc,jb,jt)*(wfac + (1._wp-wfac)/rd_fac(ilu))
-            ENDIF
-          ENDDO
-        ENDDO
-
+      ! height-corrected climatological 2m-temperature
+      DO jc = i_startidx, i_endidx
+        t2mclim_hc(jc) = ext_data%atm%t2m_clim(jc,jb) + dtdz_clim * &
+          (ext_data%atm%topography_c(jc,jb) - ext_data%atm%topo_t2mclim(jc,jb))
+        t_asyfac(jc) = SIGN(MIN(1._wp,ABS(ext_data%atm%t2m_climgrad(jc,jb))/2.5_wp), &
+                             -1._wp*ext_data%atm%t2m_climgrad(jc,jb))
       ENDDO
+
+      DO jt = 1, ntiles_total
+        i_count = ext_data%atm%lp_count_t(jb,jt)
+        IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
+
+        DO ic = 1, i_count
+          jc = ext_data%atm%idx_lst_lp_t(ic,jb,jt)
+
+          ilu = ext_data%atm%lc_class_t(jc,jb,jt)
+
+          ! modification of tai/sai
+          tdiff_norm = (t2mclim_hc(jc) - (threshold_temp(ilu)+t_asyfac(jc)*temp_asymmetry(ilu)) ) / trans_width
+          tdiff_norm = MIN(1._wp,MAX(-1._wp,tdiff_norm))
+
+          wfac = 0.5_wp*(1._wp + tdiff_norm) ! weighting factor of original ndvi-based tai specification
+
+          ext_data%atm%tai_t(jc,jb,jt) = MIN(ext_data%atm%tai_t(jc,jb,jt), &
+            wfac*ext_data%atm%tai_t(jc,jb,jt) + (1._wp-wfac)*laimin(ilu) )
+
+          ext_data%atm%laifac_t(jc,jb,jt) = &
+            (wfac*ext_data%atm%laimax_lcc(ilu) + (1._wp-wfac)*laimin(ilu))/MAX(0.01_wp,ext_data%atm%laimax_lcc(ilu))
+
+          ext_data%atm%sai_t(jc,jb,jt) = c_lnd+ext_data%atm%tai_t(jc,jb,jt)
+
+
+          ! modification of root depth
+          ext_data%atm%rootdp_t(jc,jb,jt) = ext_data%atm%rootdmax_lcc(ilu) ! reset to table-based value
+
+          IF (t2mclim_hc(jc) <= threshold_temp(ilu)-temp_asymmetry(ilu)) THEN
+            ext_data%atm%rootdp_t(jc,jb,jt) = ext_data%atm%rootdp_t(jc,jb,jt)/rd_fac(ilu)
+          ELSE IF (t2mclim_hc(jc) <= threshold_temp(ilu)+temp_asymmetry(ilu)+trans_width .AND. &
+                   ext_data%atm%t2m_climgrad(jc,jb) > 0._wp) THEN
+            wfac = (t2mclim_hc(jc)-(threshold_temp(ilu)-temp_asymmetry(ilu)))/(2._wp*temp_asymmetry(ilu)+trans_width)
+            ext_data%atm%rootdp_t(jc,jb,jt) = ext_data%atm%rootdp_t(jc,jb,jt)*(wfac + (1._wp-wfac)/rd_fac(ilu))
+          ELSE IF (t2mclim_hc(jc) <= threshold_temp(ilu)+trans_width .AND. &
+                   ext_data%atm%t2m_climgrad(jc,jb) <= 0._wp) THEN
+            wfac = (t2mclim_hc(jc)-(threshold_temp(ilu)-temp_asymmetry(ilu)))/(temp_asymmetry(ilu)+trans_width)
+            ext_data%atm%rootdp_t(jc,jb,jt) = ext_data%atm%rootdp_t(jc,jb,jt)*(wfac + (1._wp-wfac)/rd_fac(ilu))
+          ENDIF
+        ENDDO
+      ENDDO
+
+    ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
 
-    ENDDO  !jg
 
   END SUBROUTINE vege_clim
 
