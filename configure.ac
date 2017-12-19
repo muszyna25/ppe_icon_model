@@ -1178,7 +1178,17 @@ AS_IF([test "x$enable_serialization" != "xno"],
                      AS_IF([test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"],
                            [
                             SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
-                            make_command="${SERIALBOX2_PPSER} -r -d ${my_iconppdir} src;$make_command;"
+                            read -d '' my_preprocess_command <<EOF
+( echo "Preprocessing files for serialization ...";
+  echo "";
+  PPFLAGS="`echo "${FFLAGS}" | ${EGREP} -o '\-D@<:@a-zA-Z0-9_@:>@*' | tr '\n' ' '`";
+  cd src/;
+  find ./ -type d -exec mkdir -p "../${my_iconppdir}/{}" \\\;
+  find ./ -type f \\\( -name "*.f90" -or -name "*.F90" \\\) -exec gfortran -I./include -cpp -C -E \$\{PPFLAGS\} "{}" -o "../${my_iconppdir}/{}" \\\;
+  find ./ -type f \\\( -name "*.inc" -or -name "*.incf" \\\) -exec cp "{}" "../${my_iconppdir}/{}" \\\; )
+find ${my_iconppdir} -type f -execdir ${SERIALBOX2_PPSER} -d ./ "{}" \\\+
+EOF
+                            make_command="${my_preprocess_command};$make_command;"
                             ],
                            [
                             AC_MSG_ERROR(["pp_ser.py script from Serialbox2 is not executable"])
@@ -1468,7 +1478,7 @@ AC_CONFIG_COMMANDS([Makefiles],
                                  [
                                   mkdir -p ${my_iconppdir}
                                   ])
-                           ${SERIALBOX2_PPSER} -r -d ${my_iconppdir} src
+                           eval "${my_preprocess_command}"
                            ])
                     AS_IF([test "x$enable_jsbach" = "xyes"],
                           [
@@ -1497,7 +1507,7 @@ AC_CONFIG_COMMANDS([Makefiles],
                     enable_jsbach="${enable_jsbach}"
                     enable_testbed="${enable_testbed}"
                     enable_serialization="${enable_serialization}"
-                    SERIALBOX2_PPSER="${SERIALBOX2_PPSER}"
+                    my_preprocess_command='${my_preprocess_command}'
                     ])
 
 AC_SUBST(config_target,$config_target)

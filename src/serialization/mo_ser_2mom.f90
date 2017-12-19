@@ -21,15 +21,15 @@ MODULE mo_ser_2mom
 
     !$ser verbatim call init()
     !$ser savepoint 2mom-input
-    !$ser verbatim #if defined SERIALIZE_CREATE_REFERENCE 
+#if defined SERIALIZE_CREATE_REFERENCE 
     !$ser mode write
-    !$ser verbatim #elif defined SERIALIZE_PERTURB_REFERENCE
+#elif defined SERIALIZE_PERTURB_REFERENCE
     !$ser mode read-perturb
-    !$ser verbatim #elif defined SERIALIZE_READ_REFERENCE
+#elif defined SERIALIZE_READ_REFERENCE
     !$ser mode read
-    !$ser verbatim #else
-    !$ser verbatim #error SERIALIZATION MODE IS NOT SET
-    !$ser verbatim #endif 
+#else
+#error SERIALIZATION MODE IS NOT SET
+#endif 
     !$ser data dz=dz rho=rho pres=pres w=w
 
   END SUBROUTINE serialize_input

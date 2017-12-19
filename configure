@@ -6528,7 +6528,17 @@ fi
                      if test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"; then :
 
                             SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
-                            make_command="${SERIALBOX2_PPSER} -r -d ${my_iconppdir} src;$make_command;"
+                            read -d '' my_preprocess_command <<EOF
+( echo "Preprocessing files for serialization ...";
+  echo "";
+  PPFLAGS="`echo "${FFLAGS}" | ${EGREP} -o '\-D[a-zA-Z0-9_]*' | tr '\n' ' '`";
+  cd src/;
+  find ./ -type d -exec mkdir -p "../${my_iconppdir}/{}" \\\;
+  find ./ -type f \\\( -name "*.f90" -or -name "*.F90" \\\) -exec gfortran -I./include -cpp -C -E \$\{PPFLAGS\} "{}" -o "../${my_iconppdir}/{}" \\\;
+  find ./ -type f \\\( -name "*.inc" -or -name "*.incf" \\\) -exec cp "{}" "../${my_iconppdir}/{}" \\\; )
+find ${my_iconppdir} -type f -execdir ${SERIALBOX2_PPSER} -d ./ "{}" \\\+
+EOF
+                            make_command="${my_preprocess_command};$make_command;"
 
 else
 
@@ -7623,7 +7633,7 @@ cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
                     enable_jsbach="${enable_jsbach}"
                     enable_testbed="${enable_testbed}"
                     enable_serialization="${enable_serialization}"
-                    SERIALBOX2_PPSER="${SERIALBOX2_PPSER}"
+                    my_preprocess_command='${my_preprocess_command}'
 
 
 _ACEOF
@@ -8197,7 +8207,7 @@ $as_echo "$as_me: executing $ac_file commands" >&6;}
                                   mkdir -p ${my_iconppdir}
 
 fi
-                           ${SERIALBOX2_PPSER} -r -d ${my_iconppdir} src
+                           eval "${my_preprocess_command}"
 
 fi
                     if test "x$enable_jsbach" = "xyes"; then :

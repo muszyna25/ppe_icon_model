@@ -26,15 +26,15 @@ MODULE mo_ser_nh_diffusion
     !$ser verbatim IF (writeIn) THEN
     !$ser verbatim call init()
     !$ser savepoint nh_diffusion-input
-    !$ser verbatim #if defined SERIALIZE_CREATE_REFERENCE 
+#if defined SERIALIZE_CREATE_REFERENCE 
     !$ser mode write
-    !$ser verbatim #elif defined SERIALIZE_PERTURB_REFERENCE
+#elif defined SERIALIZE_PERTURB_REFERENCE
     !$ser mode read-perturb
-    !$ser verbatim #elif defined SERIALIZE_READ_REFERENCE
+#elif defined SERIALIZE_READ_REFERENCE
     !$ser mode read
-    !$ser verbatim #else
-    !$ser verbatim #error SERIALIZATION MODE IS NOT SET
-    !$ser verbatim #endif 
+#else
+#error SERIALIZATION MODE IS NOT SET
+#endif 
     !$ser data z_temp=z_temp z_nabla2_c=z_nabla2_c &
     !$ser&     z_nabla2_e=z_nabla2_e z_nabla4_e=z_nabla4_e
     !$ser verbatim writeIn = .FALSE.

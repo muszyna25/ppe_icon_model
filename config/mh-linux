@@ -237,10 +237,9 @@ case "$ac_sitename" in
                     gcc)
                         config_target=daint_cpu
                         load_modules =modules craype daint-gpu PrgEnv-gnu cray-netcdf
-                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF
+                        CFLAGS      = -DgFortran -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
-                        #SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/gnu
-                        SERIALBOX2ROOT = /scratch/snx3000/pmarti/ICON/serialbox2/install/gnu
+                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/gnu
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/GNU/5.3.0/lib -ljasper -dynamic -L/usr/lib64 -llzma
 			;;
                     intel)
@@ -269,8 +268,7 @@ case "$ac_sitename" in
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
 			HDF5ROOT    = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -dynamic -L/usr/lib64 -llzma
-                        #SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/cray
-                        SERIALBOX2ROOT = /scratch/snx3000/pmarti/ICON/serialbox2/install/cray
+                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/cray
                         ;;
                     cray_gpu)
                         config_target=daint_gpu
@@ -280,8 +278,7 @@ case "$ac_sitename" in
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
 			HDF5ROOT    = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -llzma
-                        #SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/cray
-                        SERIALBOX2ROOT = /scratch/snx3000/pmarti/ICON/serialbox2/install/cray
+                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/cray
 			;;
                     *)
                         echo
