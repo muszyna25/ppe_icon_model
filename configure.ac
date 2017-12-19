@@ -1097,7 +1097,7 @@ else
     fi
     FFLAGS="${MODOPT}../module ${FFLAGS}"
 fi
-FFLAGS="${MODOPT}../src ${MODOPT}../support ${FFLAGS}"
+FFLAGS="${MODOPT}../$(basename $my_iconppdir) ${MODOPT}../support ${FFLAGS}"
 
 #------------------------
 if test x$with_flags = x; then
