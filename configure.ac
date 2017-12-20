@@ -1178,16 +1178,39 @@ AS_IF([test "x$enable_serialization" != "xno"],
                      AS_IF([test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"],
                            [
                             SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
-                            read -d '' my_preprocess_command <<EOF
+                            read -d '' my_pp_init <<EOF
 ( echo "Preprocessing files for serialization ...";
   echo "";
-  PPFLAGS="`echo "${FFLAGS}" | ${EGREP} -o '\-D@<:@a-zA-Z0-9_@:>@*' | tr '\n' ' '`";
   cd src/;
   find ./ -type d -exec mkdir -p "../${my_iconppdir}/{}" \\\;
-  find ./ -type f \\\( -name "*.f90" -or -name "*.F90" \\\) -exec gfortran -I./include -cpp -C -E \$\{PPFLAGS\} "{}" -o "../${my_iconppdir}/{}" \\\;
   find ./ -type f \\\( -name "*.inc" -or -name "*.incf" \\\) -exec cp "{}" "../${my_iconppdir}/{}" \\\; )
-find ${my_iconppdir} -type f -execdir ${SERIALBOX2_PPSER} -d ./ "{}" \\\+
 EOF
+                            AS_CASE([$fortran_compiler],
+                                    [gcc*],
+                            [read -d '' my_pp_command <<EOF
+( cd src/;
+  find ./ -type f \\\( -name "*.f90" -or -name "*.F90" \\\) -exec ${FC} -I./include -o "../${my_iconppdir}/{}" ${FFLAGS} -C -E "{}" \\\; )
+EOF
+],
+                            [cray*],
+                            [read -d '' my_pp_command <<EOF
+( cd src/;
+  my_abs_include="$(realpath src/include)"
+  find ./ -type f \\\( -name "*.f90" -or -name "*.F90" \\\) -execdir ${FC} -I\$\{my_abs_include\} ${FFLAGS} -eP "{}" \\\;
+  find ./ -type f \\\( -name "*.i" \\\) -exec mv "{}" "../${my_iconppdir}/{}" \\\; )
+( find ${my_iconppdir} -type f \\\( -name "*.i" \\\) -execdir rename .i .f90 "{}" \\\; )
+EOF
+],
+                            [pgi*],
+                            [read -d '' my_pp_command <<EOF
+( cd src/;
+  find ./ -type f \\\( -name "*.f90" -or -name "*.F90" \\\) -exec ${FC} ${FFLAGS} -I./include -o "../${my_iconppdir}/{}" -Mcpp "{}" \\\; )
+EOF
+])
+                            read -d '' my_pp_ser <<EOF
+  find ${my_iconppdir} -type f -execdir ${SERIALBOX2_PPSER} -d ./ "{}" \\\+
+EOF
+                            my_preprocess_command="${my_pp_init};${my_pp_command};${my_pp_ser}"
                             make_command="${my_preprocess_command};$make_command;"
                             ],
                            [
