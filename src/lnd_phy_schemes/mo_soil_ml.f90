@@ -4179,15 +4179,17 @@ ENDIF
                 IF (t_so_new(i,kso) > t0_melt .AND. w_so_ice_now(i,kso) > 0._ireals) THEN
                   ! melting point adjustment (time scale 30 min)
                   zdelwice = - MIN(w_so_ice_now(i,kso), zdwi_scal*(t_so_new(i,kso)-t0_melt)*zfak)
-                ELSE IF (zdelwice < 0.0_ireals) THEN
+                ELSE IF (zdelwice < 0.0_ireals) THEN ! this branch contains cases of melting and freezing
                   zdelwice = - MIN( - zdelwice,MIN(-zargu,w_so_ice_now(i,kso)))
                   ! limit latent heat consumption due to melting to half the temperature increase since last time step
-                  ! or 2.5 K within 30 min
+                  ! or 2.5 K within 30 min; the freezing rate is limited below
                   zdelwice = - MIN( - zdelwice,MAX(2.5_ireals*zdwi_scal,0.5_ireals*(t_so_new(i,kso)-t_so_now(i,kso)))*zfak)
                 ELSE
                   zdelwice = MIN(zdelwice,MAX(zargu,0.0_ireals))
-                  ! limit latent heat release due to freezing to half the differene from the melting point
-                  zdelwice = MIN(zdelwice,0.5_ireals*(t0_melt-t_so_new(i,kso))*zfak)
+                ENDIF
+                IF (zdelwice > 0._ireals) THEN
+                  ! limit latent heat release due to freezing to half the difference from the melting point
+                  zdelwice = MIN(zdelwice,0.5_ireals*MAX(0._ireals,(t0_melt-t_so_new(i,kso)))*zfak)
                 ENDIF
                 w_so_ice_new(i,kso) = w_so_ice_now(i,kso) + zdelwice
                 t_so_new(i,kso) = t_so_new(i,kso) + zdelwice/zfak

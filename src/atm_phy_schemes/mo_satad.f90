@@ -63,7 +63,8 @@ USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing t
                                  b2i   => c3ies , & !!               -- " --
                                  b4w   => c4les , & !!               -- " --
                                  b4i   => c4ies , & !!               -- " --
-                                 b234w => c5les     !!               -- " --
+                                 b234w => c5les , & !!               -- " --
+                                 b234i => c5ies     !!               -- " --
 
   IMPLICIT NONE
 
@@ -74,6 +75,7 @@ USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing t
   PUBLIC  :: sat_pres_water
   PUBLIC  :: sat_pres_ice
   PUBLIC  :: dqsatdT
+  PUBLIC  :: dqsatdT_ice
   PUBLIC  :: qsat_rho
 
 
@@ -458,6 +460,27 @@ ELEMENTAL  FUNCTION dqsatdT (zqsat, temp)
                              / (temp-b4w)**2
 
 END FUNCTION dqsatdT
+
+ELEMENTAL  FUNCTION dqsatdT_ice (zqsat, temp)
+
+    !-------------------------------------------------------------------------------
+    !>
+    !! Description:
+    !!   Partial derivative of the specific humidity at ice saturation with
+    !!   respect to the temperature
+    !-------------------------------------------------------------------------------
+
+  IMPLICIT NONE
+
+  ! input variables: specific saturation humidity [-], temperature [K]:
+  REAL (KIND=ireals)            :: dqsatdT_ice
+  REAL(kind=ireals), INTENT(in) :: zqsat, temp
+
+  dqsatdT_ice = b234i * ( 1.0_ireals + rvd_m_o*zqsat ) * zqsat &
+                             / (temp-b4i)**2
+
+END FUNCTION dqsatdT_ice
+
 
 END MODULE mo_satad
 

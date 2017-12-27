@@ -43,7 +43,7 @@ MODULE mo_nwp_sfc_interface
     &                               isub_lake, itype_interception, l2lay_rho_snow,    &
     &                               lprog_albsi, itype_trvg
   USe mo_extpar_config,       ONLY: itype_vegetation_cycle
-  USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi  
+  USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi, dqsatdT_ice
   USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
   USE mo_flake,               ONLY: flake_interface
@@ -210,7 +210,7 @@ CONTAINS
     REAL(wp) :: w_so_ice_new_t(nproma, nlev_soil)
 
     INTEGER  :: i_count, i_count_snow, ic, icount_init, is1, is2, init_list(nproma), it1(nproma), it2(nproma)
-    REAL(wp) :: tmp1, tmp2, tmp3
+    REAL(wp) :: tmp1, tmp2, tmp3, qsat1, dqsdt1, qsat2, dqsdt2
     REAL(wp) :: frac_sv(nproma), frac_snow_sv(nproma), fact1(nproma), fact2(nproma), tsnred(nproma)
     REAL(wp) :: rain_gsp_rate(nproma, ntiles_total)
     REAL(wp) :: snow_gsp_rate(nproma, ntiles_total)
@@ -287,7 +287,7 @@ CONTAINS
 !$OMP   lhfl_bs_t,rstom_t,shfl_s_t,lhfl_s_t,qhfl_s_t,t_snow_mult_new_t,rho_snow_mult_new_t,      &
 !$OMP   wliq_snow_new_t,wtot_snow_new_t,dzh_snow_new_t,w_so_new_t,w_so_ice_new_t,lhfl_pl_t,      &
 !$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,graupel_gsp_rate,prg_gsp_t, &
-!$OMP   meltrate,h_snow_gp_t,conv_frac,tsnred,plevap_t,z0_t,laifac_t) ICON_OMP_GUIDED_SCHEDULE
+!$OMP   meltrate,h_snow_gp_t,conv_frac,tsnred,plevap_t,z0_t,laifac_t,qsat1,dqsdt1,qsat2,dqsdt2) ICON_OMP_GUIDED_SCHEDULE
  
     DO jb = i_startblk, i_endblk
 
@@ -483,30 +483,6 @@ CONTAINS
 
           t_so_now_t(ic,nlev_soil+1)= lnd_prog_now%t_so_t(jc,nlev_soil+1,jb,isubs)
 
-          IF (isubs > ntiles_lnd) THEN 
-            ! compute temperature offset for reducing snow evaporation in vegetated areas,
-            ! parameterizing the temperature difference between the snow and the snow-vegetation-mixture
-            ! represented by the variable t_snow and the related snow albedo
-            tmp1 = spec_humi(sat_pres_ice(t_snow_now_t(ic)),p_diag%pres_sfc(jc,jb) )
-            tmp2 = 0.04_wp * sobs_t(ic) * (1._wp - MIN(1._wp,                                     &
-              (1._wp - (csalb_snow_min + freshsnow_t(ic)*(csalb_snow_max-csalb_snow_min))) /      &
-              (1._wp - prm_diag%albdif_t(jc,jb,isubs)) )) * lnd_diag%snowfrac_lc_t(jc,jb,isubs) * &
-              (0.15_wp + 1000._wp*MAX(1.5e-4_wp,tmp1-qv_t(ic)))
-            tsnred(ic) = MIN(10._wp, tmp2 - 0.045_wp*tmp2**2 + 1.e-3_wp*tmp2**3)
-          ELSE IF (lsnowtile) THEN
-            ! If there is at least 5 cm of snow on the corresponding snow tile, the bare soil evaporation
-            ! in TERRA is limited to the potential evaporation of snow at the melting point.
-            ! This is controlled by negative values of tsnred
-            IF (ext_data%atm%frac_t(jc,jb,isubs+ntiles_lnd) > 0._wp) THEN
-              tsnred(ic) = -1._wp*MIN(1._wp, 20._wp*lnd_diag%snowfrac_lc_t(jc,jb,isubs+ntiles_lnd)*&
-                                      lnd_diag%h_snow_t(jc,jb,isubs+ntiles_lnd) )
-            ELSE
-              tsnred(ic) = 0._wp
-            ENDIF
-          ELSE
-            tsnred(ic) = 0._wp
-          ENDIF
-
           IF(lmulti_snow) THEN
             t_snow_mult_now_t(ic,nlev_snow+1) = lnd_prog_now%t_snow_mult_t(jc,nlev_snow+1,jb,isubs)
           ENDIF
@@ -516,6 +492,40 @@ CONTAINS
           ENDIF
 
         ENDDO
+
+        IF (isubs > ntiles_lnd) THEN
+          ! compute temperature offset for reducing snow evaporation in vegetated areas,
+          ! parameterizing the temperature difference between the snow and the snow-vegetation-mixture
+          ! represented by the variable t_snow and the related snow albedo
+          DO ic = 1, i_count
+            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+            tmp1 = 0.06_wp * sobs_t(ic) * (1._wp - MIN(1._wp,                                     &
+              (1._wp - (csalb_snow_min + freshsnow_t(ic)*(csalb_snow_max-csalb_snow_min))) /      &
+              (1._wp - prm_diag%albdif_t(jc,jb,isubs)) )) * lnd_diag%snowfrac_lc_t(jc,jb,isubs)
+            qsat1 = spec_humi(sat_pres_ice(t_snow_now_t(ic)),ps_t(ic) )
+            dqsdt1 = dqsatdT_ice(qsat1,t_snow_now_t(ic))
+            tmp2 = tmp1 * (0.1_wp + 1000._wp*MAX(0._wp,qsat1-qv_t(ic))) / (1._wp + tmp1*1000._wp*dqsdt1)
+            qsat2 = spec_humi(sat_pres_ice(t_snow_now_t(ic)-tmp2),ps_t(ic) )
+            dqsdt2 = dqsatdT_ice(qsat2,t_snow_now_t(ic)-tmp2)
+            tmp2 = tmp1 * (0.1_wp + 1000._wp*MAX(0._wp,qsat1-qv_t(ic))) / (1._wp + tmp1*500._wp*(dqsdt1+dqsdt2))
+            tsnred(ic) = MIN(10._wp,tmp2) / (1._wp + 2.e-5_wp*sso_sigma_t(ic)**2)
+          ENDDO
+        ELSE IF (lsnowtile) THEN
+          ! If there is at least 5 cm of snow on the corresponding snow tile, the bare soil evaporation
+          ! in TERRA is limited to the potential evaporation of snow at the melting point.
+          ! This is controlled by negative values of tsnred
+          DO ic = 1, i_count
+            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+            IF (ext_data%atm%frac_t(jc,jb,isubs+ntiles_lnd) > 0._wp) THEN
+              tsnred(ic) = -1._wp*MIN(1._wp, 20._wp*lnd_diag%snowfrac_lc_t(jc,jb,isubs+ntiles_lnd)*&
+                                      lnd_diag%h_snow_t(jc,jb,isubs+ntiles_lnd) )
+            ELSE
+              tsnred(ic) = 0._wp
+            ENDIF
+          ENDDO
+        ELSE
+          tsnred(1:i_count) = 0._wp
+        ENDIF
 
        MSNOWI: IF(lmulti_snow) THEN
 
