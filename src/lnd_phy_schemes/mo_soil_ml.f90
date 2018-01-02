@@ -1770,18 +1770,19 @@ END SUBROUTINE message
         zshfl(i) = tch(i)*zuv*zrho_atm(i)*cp_d*zdt_atm(i)
         zlhfl(i) = tch(i)*zuv*zrho_atm(i)*lh_v*zdq_atm(i)
 
+!   net radiative fluxes at surface
+        zradfl(i) = sobs(i)+thbs(i)
+
+        zxx = MIN(500._ireals,200._ireals+0.5_ireals*ABS(zradfl(i)))
         IF (zshfl(i)*zlhfl(i) >= 0._ireals) THEN
           zthfl(i) = zshfl(i) + zlhfl(i)
         ELSE IF (ABS(zshfl(i)) > ABS(zlhfl(i))) THEN
-          zthfl(i) = zshfl(i) + SIGN(MIN(500._ireals,ABS(zlhfl(i))),zlhfl(i))
+          zthfl(i) = zshfl(i) + SIGN(MIN(zxx,ABS(zlhfl(i))),zlhfl(i))
         ELSE
-          zthfl(i) = zlhfl(i) + SIGN(MIN(500._ireals,ABS(zshfl(i))),zshfl(i))
+          zthfl(i) = zlhfl(i) + SIGN(MIN(zxx,ABS(zshfl(i))),zshfl(i))
         ENDIF
 
         IF (ABS(zthfl(i)) <= zepsi) zthfl(i)=SIGN(zepsi,zthfl(i))
-
-!   net radiative fluxes at surface
-        zradfl(i) = sobs(i)+thbs(i)
 
 !   unconstrained estimated energy budget of topmost soil layer
         zeb1(i) = zthfl(i)+zradfl(i)-zg1(i)
@@ -5233,8 +5234,10 @@ ENDIF
 !       i=melt_list(ic)
       DO i = istarts, iends
 
-        IF (t_snow_new(i) > 355._ireals .OR. t_s_now(i) > 355._ireals .OR. t_s_new(i) > 355._ireals .OR. &
-            t_snow_new(i) < 190._ireals .OR. t_s_now(i) < 200._ireals .OR. t_s_new(i) < 200._ireals) THEN
+        IF (ABS(t_s_now(i)-t_s_new(i)) > 25._ireals) THEN
+
+!        IF (t_snow_new(i) > 355._ireals .OR. t_s_now(i) > 355._ireals .OR. t_s_new(i) > 355._ireals .OR. &
+!            t_snow_new(i) < 190._ireals .OR. t_s_now(i) < 200._ireals .OR. t_s_new(i) < 200._ireals) THEN
 
 !        IF ((t_snow_new(i) > t0_melt .AND. w_snow_new(i) > zepsi).OR.&
 !   (w_snow_new(i) <= zepsi .OR. w_snow_new(i) > zepsi .AND. t_s_new(i) > t0_melt+15.0_ireals .AND. &
