@@ -278,6 +278,8 @@ MODULE mo_meteogram_output
     !> notal number of tiles (ntiles_total+ntiles_water)
     !! if NWP tiles are set up, 1 otherwise
     INTEGER :: ntiles_mtgrm
+    !> maximum no. of levels for variables
+    INTEGER :: max_nlevs
   END TYPE t_mtgrm_invariants
 
   !>
@@ -359,8 +361,6 @@ MODULE mo_meteogram_output
     LOGICAL :: silent_flush
 
     ! variable info:
-    !> maximum no. of levels for variables
-    INTEGER :: max_nlevs
     !> info for each variable (1:nvars)
     TYPE(t_var_info), ALLOCATABLE :: var_info(:)
     !> info for each surface variable
@@ -1291,7 +1291,7 @@ CONTAINS
     ! ------------------------------------------------------------
 
     mtgrm(jg)%icurrent  = 0 ! reset current sample index
-    mtgrm(jg)%max_nlevs = 1
+    invariants%max_nlevs = 1
 
     ! set up list of variables:
     var_list%no_atmo_vars = 0
@@ -1356,7 +1356,7 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish(routine, &
       'ALLOCATE of meteogram time stamp data structure failed')
 
-    mtgrm(jg)%max_nlevs = &
+    invariants%max_nlevs = &
       & MAX(0, MAXVAL(mtgrm(jg)%var_info(1:var_list%no_atmo_vars)%nlevs))
 
     ! set up list of local stations:
@@ -2115,7 +2115,7 @@ CONTAINS
       .NOT. meteogram_output_config%append_if_exists) THEN
       CALL meteogram_create_file(meteogram_output_config, &
         mtgrm%meteogram_file_info, mtgrm%pstation, mtgrm%out_buf, &
-        mtgrm%var_info, mtgrm%sfc_var_info, mtgrm%max_nlevs, invariants)
+        mtgrm%var_info, mtgrm%sfc_var_info, invariants)
     ELSE
       CALL meteogram_append_file(mtgrm%meteogram_file_info, mtgrm%sfc_var_info)
       ! inquire about current number of records in file:
@@ -2128,7 +2128,7 @@ CONTAINS
   END SUBROUTINE meteogram_open_file
 
   SUBROUTINE meteogram_create_file(output_config, file_info, pstation, &
-    out_buf, var_info, sfc_var_info, max_nlevs, invariants)
+    out_buf, var_info, sfc_var_info, invariants)
     TYPE(t_meteogram_output_config), INTENT(IN) :: output_config
     TYPE(t_meteogram_file), INTENT(inout) :: file_info
     TYPE(t_mtgrm_out_buffer), INTENT(in) :: out_buf
@@ -2180,7 +2180,7 @@ CONTAINS
     IF (nsfcvars > 0) &
       CALL nf(nf_def_dim(ncfile, 'nsfcvars', nsfcvars, &
       &                  file_info%ncid%nsfcvars), routine)
-    CALL nf(nf_def_dim(ncfile, 'max_nlevs',  max_nlevs, &
+    CALL nf(nf_def_dim(ncfile, 'max_nlevs',  invariants%max_nlevs, &
       &     file_info%ncid%max_nlevs), routine)
     ! create time dimension:
     CALL nf(nf_def_dim(ncfile, 'time', NF_UNLIMITED, &
