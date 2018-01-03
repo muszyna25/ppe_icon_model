@@ -115,11 +115,14 @@ AS_IF([test "x$enable_serialization" = "xyes"],
       [enable_serialization="read"],
       [])
 
-AS_CASE(["$enable_serialization"],
-        ["read"], [AC_MSG_WARN(["Serialbox2 serialization is enabled in READ mode"])],
-        ["perturb"], [AC_MSG_WARN(["Serialbox2 serialization is enabled in READ & PERTURB mode"])],
-        ["create"], [AC_MSG_WARN(["Serialbox2 serialization is enabled in CREATE mode"])],
-        [AC_MSG_ERROR(["Serialbox2 serialization is enabled but UNKNOWN mode was requested"])])
+AS_IF([test "x$enable_serialization" != "xno"],
+         [AS_CASE(["$enable_serialization"],
+                 ["read"], [AC_MSG_WARN(["Serialbox2 serialization is enabled in READ mode"])],
+                 ["perturb"], [AC_MSG_WARN(["Serialbox2 serialization is enabled in READ & PERTURB mode"])],
+                 ["create"], [AC_MSG_WARN(["Serialbox2 serialization is enabled in CREATE mode"])],
+                 [AC_MSG_ERROR(["Serialbox2 serialization is enabled but UNKNOWN mode was requested"])])
+         ],
+      [])
 
 dnl ######################################################################
 dnl usage of mh-file

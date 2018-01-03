@@ -2638,7 +2638,8 @@ if test "x$enable_serialization" = "xyes"; then :
   enable_serialization="read"
 fi
 
-case "$enable_serialization" in #(
+if test "x$enable_serialization" != "xno"; then :
+  case "$enable_serialization" in #(
   "read") :
     { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: \"Serialbox2 serialization is enabled in READ mode\"" >&5
 $as_echo "$as_me: WARNING: \"Serialbox2 serialization is enabled in READ mode\"" >&2;} ;; #(
@@ -2651,6 +2652,8 @@ $as_echo "$as_me: WARNING: \"Serialbox2 serialization is enabled in CREATE mode\
   *) :
     as_fn_error $? "\"Serialbox2 serialization is enabled but UNKNOWN mode was requested\"" "$LINENO" 5 ;;
 esac
+
+fi
 
 
 # Check whether --enable-mh-file was given.
