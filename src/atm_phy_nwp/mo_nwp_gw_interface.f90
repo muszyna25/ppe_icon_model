@@ -121,7 +121,7 @@ CONTAINS
       IF (zf <= 20000._vp) THEN
         ssolim(jk) = 0.05_vp
       ELSE
-        ssolim(jk) = 0.05_vp*EXP(-1.25e-4_vp*(zf-20000._vp))
+        ssolim(jk) = 0.05_vp*EXP(-1.e-4_vp*(zf-20000._vp))
       ENDIF
     ENDDO
 

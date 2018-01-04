@@ -1093,16 +1093,14 @@ CONTAINS
         ENDIF
       ENDDO
 
-      ! Pressure mask field for tropics (used for ozone shift from around 70 hPa to around 100 hPa)
+      ! Pressure mask field for tropics (used for ozone reduction around 70 hPa)
       DO jk = 1, nlev_gems
-        IF (zrefp(jk) <= 5000._wp .OR. zrefp(jk) >= 12500._wp) THEN
+        IF (zrefp(jk) <= 5000._wp .OR. zrefp(jk) >= 10000._wp) THEN
           wfac_p_tr2(jk) = 0._wp
         ELSE IF (zrefp(jk) <= 7000._wp) THEN
           wfac_p_tr2(jk) = (zrefp(jk)-5000._wp)/2000._wp
-        ELSE IF (zrefp(jk) <= 10000._wp) THEN
-          wfac_p_tr2(jk) = (8500._wp-zrefp(jk))/1500._wp
         ELSE
-          wfac_p_tr2(jk) = (zrefp(jk)-12500._wp)/2500._wp
+          wfac_p_tr2(jk) = (10000._wp-zrefp(jk))/3000._wp
         ENDIF
       ENDDO
 
