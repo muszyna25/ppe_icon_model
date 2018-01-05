@@ -630,7 +630,7 @@ MODULE mo_nonhydro_state
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_QV,                  &
             &                       l_satlimit=.FALSE.,                                &
-            &                       lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE. ), &
+            &                       lower_limit=2.5e-7_wp, l_restore_pbldev=.FALSE. ), &
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                           "dwd_fg_atm_vars","mode_dwd_ana_in",           &
             &                           "LATBC_PREFETCH_VARS","mode_iau_fg_in",        &

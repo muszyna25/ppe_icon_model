@@ -1133,8 +1133,8 @@ MODULE mo_initicon_utils
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, ext_data(jg)%atm%sp_count(jb)
           jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
-          IF ( l_sst_in .AND. initicon(jg)%sfc%sst(jc,jb) > 10._wp  ) THEN
-            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = initicon(jg)%sfc%sst(jc,jb)              
+          IF ( l_sst_in .AND. initicon(jg)%sfc%sst(jc,jb) > 270._wp  ) THEN
+            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = initicon(jg)%sfc%sst(jc,jb)
           ELSE
             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(303.15_wp,initicon(jg)%sfc%tskin(jc,jb))
           ENDIF

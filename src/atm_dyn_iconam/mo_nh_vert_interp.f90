@@ -431,7 +431,7 @@ CONTAINS
                   p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev,    &
                   wfac_lin, idx0_lin, bot_idx_lin, wfacpbl1, kpbl1,    &
                   wfacpbl2, kpbl2, l_loglin=.TRUE., l_extrapol=.TRUE., &
-                  l_pd_limit=.TRUE., lower_limit=2.5e-6_wp             )
+                  l_pd_limit=.TRUE., lower_limit=2.5e-7_wp             )
 
     ! Cloud and precipitation variables - linear interpolation only because cubic may
     ! cause negative values, and no-gradient condition for downward extrapolation
@@ -478,7 +478,7 @@ CONTAINS
                  coef1, coef2, coef3, wfac_lin,                             &
                  idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,              &
                  wfacpbl1, kpbl1, wfacpbl2, kpbl2, l_satlimit=.TRUE.,       &
-                 lower_limit=2.5e-6_wp, l_restore_pbldev=.TRUE.,            &
+                 lower_limit=2.5e-7_wp, l_restore_pbldev=.TRUE.,            &
                  opt_qc=initicon%atm%qc, opt_lmask=opt_lmask_c )
 
     ! Compute virtual temperature with final QV
@@ -2671,7 +2671,7 @@ CONTAINS
            (1._wp-wfacpbl2(jc,jb))*qv_in_lim(jc,kpbl2(jc,jb)+1)
 
         ! Vertical gradient between zpbl1 and zpbl2
-        dqvdz_up(jc) = (qv2(jc) - qv1(jc))/(zpbl2 - zpbl1)
+        dqvdz_up(jc) = MIN(5.e-6_wp, MAX(-5.e-6_wp, (qv2(jc) - qv1(jc))/(zpbl2 - zpbl1)))
       ENDDO
 
       DO jk1 = 1, nlevs_in
@@ -2683,6 +2683,8 @@ CONTAINS
           ! Modified QV with boundary-layer deviation from the extrapolated profile removed
           IF (zalml_in(jc,jk1) < zpbl1) THEN
             qv_mod(jc,jk1) = qv1(jc)+dqvdz_up(jc)*(zalml_in(jc,jk1)-zpbl1)
+            qv_mod(jc,jk1) = MIN(qv_mod(jc,jk1),1.25_wp*qv_in_lim(jc,jk1),qsat_in(jc,jk1))
+            qv_mod(jc,jk1) = MAX(qv_mod(jc,jk1),0.75_wp*qv_in_lim(jc,jk1))
           ELSE
             qv_mod(jc,jk1) = qv_in_lim(jc,jk1)
           ENDIF
