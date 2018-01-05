@@ -684,7 +684,7 @@ CONTAINS
       DEALLOCATE(gather_pattern%recv_buffer_reorder_fill)
     ALLOCATE(gather_pattern%recv_buffer_reorder_fill(num_recv_points))
     gather_pattern%recv_buffer_reorder_fill(:) = &
-      MOD(recv_buffer, num_points_per_coll)
+      MOD(recv_buffer-1, num_points_per_coll)+1
 
     IF (PRESENT(disable_consistency_check)) THEN
       consistency_check = .NOT. disable_consistency_check

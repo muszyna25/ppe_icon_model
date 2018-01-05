@@ -286,6 +286,7 @@ CONTAINS
 
     REAL(wp) :: h_snow_t   (nproma, ntiles_total)
     REAL(wp) :: meltrate   (nproma)
+    REAL(wp) :: tsnred     (nproma)
 
     REAL(wp) :: w_i_now_t  (nproma, ntiles_total)
     REAL(wp) :: w_i_new_t  (nproma, ntiles_total)
@@ -512,6 +513,7 @@ CONTAINS
             w_p_now_t   (ic,isubs) = 0._wp
             w_s_now_t   (ic,isubs) = 0._wp
           END IF
+          tsnred        (ic)       = 0._wp
           freshsnow_t   (ic,isubs) = freshsnow_ex(jc,isubs)
           snowfrac_lc_t (ic,isubs) = snowfrac_lc_ex (jc,isubs)
           snowfrac_t    (ic,isubs) = snowfrac_ex (jc,isubs)
@@ -638,6 +640,7 @@ IF ( .true. ) THEN
         &  h_snow        = h_snow_t(:,isubs)                 , & ! snow height
         &  h_snow_gp     = h_snow_t(:,isubs)                 , & ! snow height
         &  meltrate      = meltrate(:)                       , & ! snow melting rate
+        &  tsnred        = tsnred(:)                         , & ! temperature offset for computing snow evaporation
 !
         &  w_i_now       = w_i_now_t(:,isubs)                , & ! water content of interception water (m H2O)
         &  w_i_new       = w_i_new_t(:,isubs)                , & ! water content of interception water (m H2O)

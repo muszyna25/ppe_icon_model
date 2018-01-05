@@ -55,8 +55,8 @@ USE mo_model_domain,       ONLY: t_patch
 USE mo_dynamics_config,    ONLY: idiv_method,lshallow_water
 USE mo_io_config,          ONLY: l_outputtime, l_diagtime
 USE mo_parallel_config,    ONLY: nproma
-USE mo_intp_data_strc,     ONLY: t_int_state, &
-  &                              sick_a, sick_o
+USE mo_intp_data_strc,     ONLY: t_int_state
+USE mo_interpol_config,    ONLY: sick_a, sick_o
 USE mo_intp_rbf,           ONLY: rbf_vec_interpol_edge
 USE mo_intp,               ONLY: cells2verts_scalar,           &
   &                              edges2cells_scalar,           &

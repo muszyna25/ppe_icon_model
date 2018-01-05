@@ -27,12 +27,12 @@ MODULE mo_nml_crosscheck
     &                              MCYCL, MIURA_MCYCL, MIURA3_MCYCL,                 &
     &                              FFSL_MCYCL, FFSL_HYB_MCYCL, iecham,               &
     &                              RAYLEIGH_CLASSIC,                                 &
-    &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD
+    &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD, MODE_IFSANA
+  USE mo_cdi,                ONLY: FILETYPE_GRB2
   USE mo_time_config,        ONLY: time_config, dt_restart
   USE mo_extpar_config,      ONLY: itopo                                             
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
-    &                              lnetcdf_flt64_output, kAsyncRestartModule,        &
-    &                              restartWritingParameters
+    &                              lnetcdf_flt64_output
   USE mo_parallel_config,    ONLY: check_parallel_configuration,                &
     &                              num_io_procs, itype_comm, num_restart_procs, &
     &                              num_prefetch_proc, use_dp_mpi2io
@@ -59,12 +59,13 @@ MODULE mo_nml_crosscheck
   USE mo_mpi_phy_config,     ONLY: mpi_phy_config
   USE mo_radiation_config
   USE mo_turbdiff_config,    ONLY: turbdiff_config
-  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift
+  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift,     &
+    &                              ana_varnames_map_file, lread_ana, fgFiletype, anaFiletype
   USE mo_nh_testcases_nml,   ONLY: nh_test_name
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
   USE mo_meteogram_config,   ONLY: check_meteogram_configuration
-  USE mo_grid_config,        ONLY: lplane, n_dom, l_limited_area
+  USE mo_grid_config,        ONLY: lplane, n_dom, l_limited_area, start_time
 
   USE mo_art_config,         ONLY: art_config
   USE mo_time_management,    ONLY: compute_timestep_settings,                        &
@@ -439,8 +440,10 @@ CONTAINS
       ininact  = ntracer+100
 
       !
-      !
-      SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
+      ! Taking the 'highest' microphysics option in some cases allows using more
+      ! complex microphysics schemes in nested domains than in the global domain
+      ! However, a clean implementation would require a domain-dependent 'ntracer' dimension
+      SELECT CASE (MAXVAL(atm_phy_nwp_config(1:n_dom)%inwp_gscp))
         
 
       CASE(2)  ! COSMO-DE (3-cat ice: snow, cloud ice, graupel)
@@ -521,7 +524,7 @@ CONTAINS
       END SELECT ! microphysics schemes
 
 
-      IF (atm_phy_nwp_config(jg)%inwp_turb == iedmf) THEN ! EDMF turbulence
+      IF (atm_phy_nwp_config(1)%inwp_turb == iedmf) THEN ! EDMF turbulence
 
         iqtvar = iqt       !! qt variance
         iqt    = iqt + 1   !! start index of other tracers than hydrometeors
@@ -533,8 +536,8 @@ CONTAINS
 
       ENDIF
 
-      IF ( (advection_config(jg)%iadv_tke) > 0 ) THEN
-        IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
+      IF ( (advection_config(1)%iadv_tke) > 0 ) THEN
+        IF ( atm_phy_nwp_config(1)%inwp_turb == icosmo ) THEN
           iqtke = iqt        !! TKE
  
           ! Note that iqt is not increased, since TKE does not belong to the hydrometeor group.
@@ -546,7 +549,7 @@ CONTAINS
           CALL message(TRIM(method_name),message_text)
         ELSE
           WRITE(message_text,'(a,i2)') 'TKE advection not supported for inwp_turb= ', &
-            &                          atm_phy_nwp_config(jg)%inwp_turb
+            &                          atm_phy_nwp_config(1)%inwp_turb
           CALL finish(TRIM(method_name), TRIM(message_text) )
         ENDIF
       ENDIF
@@ -561,10 +564,10 @@ CONTAINS
 
       IF (lart) THEN
         
-        ntracer = ntracer + art_config(jg)%iart_ntracer
+        ntracer = ntracer + art_config(1)%iart_ntracer
         
         WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
-                                     'ntracer is increased by ',art_config(jg)%iart_ntracer, &
+                                     'ntracer is increased by ',art_config(1)%iart_ntracer, &
                                      ' to ',ntracer
         CALL message(TRIM(method_name),message_text)
 
@@ -785,6 +788,29 @@ CONTAINS
     ! Realcase runs
     !--------------------------------------------------------------------
 
+    ! mixed file formats are currently not foreseen.
+    ! check whether the analysis and first guess file have the same file format.
+    IF (lread_ana) THEN
+      IF (fgFiletype() /= anaFiletype()) THEN
+        CALL finish( TRIM(method_name),                         &
+          &  'first-guess and analysis file must be of the same filetype.')
+      ENDIF
+    ENDIF
+
+    ! Check whether a Map file for translating fileInputName<=>internalName is required
+    ! - a Map File is mandatory, if input is read in GRIB2-Format
+    ! - a Map File is optional, if input is read in NetCDF-Format
+    ! checking for fgFiletype is sufficient here, since we already ensured that the 
+    ! first-guess and analysis file have the same file format.
+    IF (.NOT. init_mode == MODE_IFSANA) THEN
+      IF (fgFiletype() == FILETYPE_GRB2) THEN
+        IF(TRIM(ana_varnames_map_file) == "") &
+        CALL finish( TRIM(method_name),                         &
+          &  'ana_varnames_map_file missing. It is required when trying to read data in GRIB format.')
+      END IF
+    ENDIF
+
+
     IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN  ! start from dwd analysis with incremental update
 
       ! check analysis update window
@@ -812,6 +838,13 @@ CONTAINS
         CALL finish('atm_crosscheck:', TRIM(message_text))
       ENDIF
 
+      DO jg = 2, n_dom
+        IF (start_time(jg) > timeshift%dt_shift .AND. start_time(jg) < dt_iau+timeshift%dt_shift) THEN
+          WRITE (message_text,'(a)') "Starting a nest is not allowed within the IAU phase"
+          CALL finish('atm_crosscheck:', TRIM(message_text))
+        ENDIF
+      ENDDO
+
       ! IAU modes MODE_IAU_OLD cannot be combined with snowtiles
       ! when performing snowtile warmstart.
       IF ((ntiles_lnd > 1) .AND. (.NOT. ltile_coldstart) .AND. (lsnowtile)) THEN
@@ -836,7 +869,6 @@ CONTAINS
 
   !---------------------------------------------------------------------------------------
   SUBROUTINE land_crosscheck
-    INTEGER :: restartModule
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
 
 #ifdef __NO_JSBACH__

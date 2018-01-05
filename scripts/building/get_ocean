@@ -67,7 +67,7 @@ link_source_list "src/io/" "shared restart"
 link_source_list "src/advection/" "mo_advection_utils.f90"
 
 link_source_list "src/configure_model/" "mo_dynamics_config.f90 mo_gribout_config.f90 mo_grid_config.f90 mo_io_config.f90 mo_name_list_output_config.f90 
-mo_parallel_config.f90 mo_run_config.f90 mo_time_config.f90 mo_coupling_config.f90 mo_master_config.f90" 
+mo_parallel_config.f90 mo_run_config.f90 mo_time_config.f90 mo_coupling_config.f90 mo_master_config.f90 mo_interpol_config.f90" 
 # mo_master_config.f90"
 
 link_source_list "src/drivers/" "icon.f90 mo_master_control.f90"
@@ -78,7 +78,7 @@ mo_master_nml.f90 mo_parallel_nml.f90 mo_run_nml.f90 mo_sea_ice_nml.f90 mo_time_
 
 link_source_list "src/shr_horizontal/" "mo_alloc_patches.f90 mo_ext_data_types.f90 mo_grid_geometry_info.f90 mo_grid_tools.f90 
 mo_intp_data_strc.f90 mo_lonlat_grid.f90 mo_model_domain.f90 mo_model_domimp_patches.f90 
-mo_model_domimp_setup.f90 mo_reorder_patches.f90 mo_icon_interpolation_scalar.f90"
+mo_model_domimp_setup.f90 mo_reorder_patches.f90 mo_icon_interpolation_scalar.f90 mo_intp_lonlat_types.f90"
          
 link_source_list "src/testcases/" "mo_ape_params.f90"
 

@@ -1,4 +1,4 @@
-!>
+!> 
 !! @brief configuration setup for output name lists
 !!
 !! Configuration setup for output name lists

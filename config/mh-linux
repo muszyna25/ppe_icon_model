@@ -160,9 +160,10 @@ case "$fortran_compiler" in
         CC          = cc
         FC          = ftn
         F77         = $FC
-        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc  -O cache0 -r am -Ktrap=divz,ovf,inv
-        CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -O3
+        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2              -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc  -O cache0 -r am -Ktrap=divz,ovf,inv
+        CFLAGS      = -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -O3
         F77FLAGS    = $FFLAGS
+        LDFLAGS     = -hflex_mp=conservative  -Ktrap=divz,ovf,inv
         FCLIBS      = 
         GEN_FLAGS   =
         FDEBUG      = -g -R abc
@@ -348,7 +349,9 @@ case "$ac_sitename" in
                 NETCDFROOT  = ${NETCDF_DIR}
                 CC          = cc
                 FC          = ftn
-                F77         = ftn 
+                F77         = ftn
+                submit      = qsub
+                sync_submit = qsub -Wblock=true
 
                 make_command=make -j 8
                 case "$fortran_compiler" in
@@ -407,8 +410,6 @@ case "$ac_sitename" in
                 MPI_INCLUDE           = /usr/lib64/mpi/gcc/openmpi/include
                 config_target         = oflws
                 make_command          = make -j8
-                submit                = qsub
-                sync_submit           = qsub -sync y
                 ;;
             *)                  # hpc
                 NETCDFROOT  = /usr/local/pkg
@@ -632,7 +633,7 @@ case "$ac_sitename" in
         esac
         ;;
 #===============================================
-    kfa-juelich.de|*jureca*)
+    kfa-juelich.de|fz-juelich.de|*jureca*)
         case "$(hostname)" in
             jrl*)
                 NETCDFROOT    = $EBROOTNETCDF
@@ -655,6 +656,7 @@ case "$ac_sitename" in
                 NETCDFROOT = /homeb/slmet/slmet027/opt/netcdf-c-4.3.2-parallel
                 NETCDFFROOT = /homeb/slmet/slmet027/opt/netcdf-fortran-4.4.0-parallel
                 HDF5ROOT = /bgsys/local/hdf5
+                GRIBAPIROOT = /homea/jjsc20/jjsc2003/opt/grib_api/grib_api-1.23-bgsys
                 SZIPROOT = /bgsys/local/szip
                 ZLIBROOT = /bgsys/local/zlib
                 CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2

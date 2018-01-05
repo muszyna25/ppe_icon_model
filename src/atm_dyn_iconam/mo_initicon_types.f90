@@ -26,11 +26,10 @@
 MODULE mo_initicon_types
 
   USE mo_kind,                 ONLY: wp
-  USE mo_impl_constants,       ONLY: SUCCESS
   USE mo_var_metadata_types,   ONLY: VARNAME_LEN
   USE mo_dictionary,           ONLY: t_dictionary
   USE mo_ifs_coord,            ONLY: t_vct
-  USE mo_fortran_tools,        ONLY: DO_DEALLOCATE
+  USE mo_fortran_tools,        ONLY: DO_DEALLOCATE, DO_PTR_DEALLOCATE
 
   IMPLICIT NONE
   PRIVATE
@@ -212,7 +211,7 @@ MODULE mo_initicon_types
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: theta_v, rho, exner, w, tke, vn,                                  &
                                                t_g_t, qv_s_t, freshsnow_t, snowfrac_t, snowfrac_lc_t, w_snow_t,  &
-                                               w_i_t, h_snow_t, t_snow_t, rho_snow_t, aerosol, frac_t
+                                               w_i_t, h_snow_t, t_snow_t, rho_snow_t, aerosol, frac_t, plantevap_t
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:,:) :: tracer,                                                            &
                                                  w_so_t, w_so_ice_t, t_so_t,                                        &
@@ -243,20 +242,20 @@ CONTAINS
     CLASS(t_pi_atm_in), INTENT(INOUT) :: atm_in
 
     atm_in%linitialized = .FALSE.
-    CALL DO_DEALLOCATE(atm_in%temp)
-    CALL DO_DEALLOCATE(atm_in%pres)
-    CALL DO_DEALLOCATE(atm_in%u)
-    CALL DO_DEALLOCATE(atm_in%v)
-    CALL DO_DEALLOCATE(atm_in%w)
-    CALL DO_DEALLOCATE(atm_in%vn)
-    CALL DO_DEALLOCATE(atm_in%qv)
-    CALL DO_DEALLOCATE(atm_in%qc)
-    CALL DO_DEALLOCATE(atm_in%qi)
-    CALL DO_DEALLOCATE(atm_in%qr)
-    CALL DO_DEALLOCATE(atm_in%qs)
-    CALL DO_DEALLOCATE(atm_in%rho)
-    CALL DO_DEALLOCATE(atm_in%theta_v)
-    CALL DO_DEALLOCATE(atm_in%tke)
+    CALL DO_PTR_DEALLOCATE(atm_in%temp)
+    CALL DO_PTR_DEALLOCATE(atm_in%pres)
+    CALL DO_PTR_DEALLOCATE(atm_in%u)
+    CALL DO_PTR_DEALLOCATE(atm_in%v)
+    CALL DO_PTR_DEALLOCATE(atm_in%w)
+    CALL DO_PTR_DEALLOCATE(atm_in%vn)
+    CALL DO_PTR_DEALLOCATE(atm_in%qv)
+    CALL DO_PTR_DEALLOCATE(atm_in%qc)
+    CALL DO_PTR_DEALLOCATE(atm_in%qi)
+    CALL DO_PTR_DEALLOCATE(atm_in%qr)
+    CALL DO_PTR_DEALLOCATE(atm_in%qs)
+    CALL DO_PTR_DEALLOCATE(atm_in%rho)
+    CALL DO_PTR_DEALLOCATE(atm_in%theta_v)
+    CALL DO_PTR_DEALLOCATE(atm_in%tke)
   END SUBROUTINE t_pi_atm_in_finalize
 
 
@@ -267,7 +266,7 @@ CONTAINS
 
     CALL const%vct%finalize()
 
-    CALL DO_DEALLOCATE(const%z_mc_in)
+    CALL DO_PTR_DEALLOCATE(const%z_mc_in)
 
     ! note: these pointers are not owned by this object
     NULLIFY(const%topography_c)
@@ -405,6 +404,7 @@ CONTAINS
     CALL DO_DEALLOCATE(saveinit_data%rho_snow_t)
     CALL DO_DEALLOCATE(saveinit_data%aerosol)
     CALL DO_DEALLOCATE(saveinit_data%frac_t)
+    CALL DO_DEALLOCATE(saveinit_data%plantevap_t)
     CALL DO_DEALLOCATE(saveinit_data%tracer)
     CALL DO_DEALLOCATE(saveinit_data%w_so_t)
     CALL DO_DEALLOCATE(saveinit_data%w_so_ice_t)
