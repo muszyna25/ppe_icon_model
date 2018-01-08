@@ -570,10 +570,13 @@ CONTAINS
       !> temperature and tracers have been updated by turbulence;
       !! an update of the pressure field is not needed because pressure
       !! is not needed at high accuracy in the microphysics scheme
+      !! note: after the microphysics the second call to SATAD is within 
+      !!       the nwp_microphysics routine (first one is above)
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_microphysics)
 
       CALL nwp_microphysics ( dt_phy_jg(itfastphy),             & !>input
+                            & lcall_phy_jg(itsatad),            & !>input
                             & pt_patch, p_metrics,              & !>input
                             & pt_prog,                          & !>inout
                             & pt_prog_rcf,                      & !>inout

@@ -213,7 +213,6 @@ USE prognostic_pp, ONLY : pi,gamma_fct, &
 
 USE mo_kind,               ONLY: ireals=>wp     , &
                                  iintegers=>i4
-USE mo_math_utilities    , ONLY: gamma_fct
 USE mo_math_constants    , ONLY: pi
 USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water vapour
                                  r_d   => rd    , & !! gas constant for dry air
@@ -232,16 +231,13 @@ USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water va
                                  g     => grav  , & !! acceleration due to gravity
                                  t0    => tmelt     !! melting temperature of ice/snow
 
-USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
-
 USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing the sat. vapour
                                  b2w   => c3les , & !! pressure over water (l) and ice (i)
                                  b2i   => c3ies , & !!               -- " --
                                  b4w   => c4les , & !!               -- " --
                                  b4i   => c4ies , & !!               -- " --
                                  b234w => c5les     !!               -- " --
-USE mo_satad,              ONLY: satad_v_3d,     &  !! new saturation adjustment
-                                 sat_pres_water, &  !! saturation vapor pressure w.r.t. water
+USE mo_satad,              ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
                                  sat_pres_ice!,   &  !! saturation vapor pressure w.r.t. ice
 !                                 spec_humi          !! Specific humidity 
 USE mo_exception,          ONLY: message, message_text
@@ -2025,44 +2021,6 @@ ENDDO loop_over_levels
 ! heating field: add temperature to model latent heating field
 IF (llhn .OR. llhnverif) &
  CALL get_gs_lheating ('inc',1,ke)
-#endif
-
-#ifdef __ICON__
-
-CALL satad_v_3d (                             &
-               & maxiter  = 10_iintegers ,& !> IN
-               & tol      = 1.e-3_ireals ,& !> IN
-               & te       = t            ,&
-               & qve      = qv           ,&
-               & qce      = qc           ,&
-               & rhotot   = rho          ,&
-               & idim     = nvec         ,&
-               & kdim     = ke           ,&
-               & ilo      = iv_start     ,&
-               & iup      = iv_end       ,&
-               & klo      = k_start      ,&
-               & kup      = ke            &
-               )
-
-
-!  CALL satad_v_3d (                             &
-!                & maxiter  = 10_iintegers ,& !> IN
-!                & tol      = 1.e-3_ireals ,& !> IN
-!                & te       = t  (1,1,1)   ,&
-!                & qve      = qv (1,1,1)   ,&
-!                & qce      = qc (1,1,1)   ,&
-!                & rhotot   = rho(1,1,1)   ,&
-!                & idim     = nvec         ,&
-!                & jdim     = 1            ,&
-!                & kdim     = ke           ,&
-!                & ilo      = iv_start     ,&
-!                & iup      = iv_end       ,&
-!                & jlo      = 1            ,&
-!                & jup      = 1            ,&
-!                & klo      = k_start      ,&
-!                & kup      = ke            &
-             !& count, errstat,
-!                )
 #endif
 
 !------------------------------------------------------------------------------

@@ -68,7 +68,7 @@ MODULE mo_interface_les
   USE mo_nwp_sfc_interface,  ONLY: nwp_surface
   USE mo_nwp_rad_interface,  ONLY: nwp_radiation
   USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, &
-                                   SYNC_C, SYNC_C1, global_sum_array
+                                   SYNC_C, SYNC_C1
   USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier
   USE mo_nwp_diagnosis,      ONLY: nwp_statistics, nwp_diag_output_1, nwp_diag_output_2
   USE mo_icon_comm_lib,      ONLY: new_icon_comm_variable, &
@@ -98,7 +98,7 @@ MODULE mo_interface_les
 
   PUBLIC :: les_phy_interface, init_les_phy_interface
 
-  CHARACTER(len=12)  :: str_module = 'les_interface'  ! Output of module for 1 line debug
+  CHARACTER(len=13)  :: str_module = 'les_interface'  ! Output of module for 1 line debug
 
 CONTAINS
   !
@@ -525,6 +525,8 @@ CONTAINS
       !> temperature and tracers have been updated by turbulence;
       !! an update of the pressure field is not needed because pressure
       !! is not needed at high accuracy in the microphysics scheme
+      !! note: after the microphysics the second call to SATAD is within 
+      !!       the nwp_microphysics routine (first one is above)
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_microphysics)
 
@@ -532,6 +534,7 @@ CONTAINS
       CALL copy(pt_diag%temp(:,:,:), z_temp_old(:,:,:)) 
 
       CALL nwp_microphysics ( dt_phy_jg(itfastphy),             & !>input
+                            & lcall_phy_jg(itsatad),            & !>input
                             & pt_patch, p_metrics,              & !>input
                             & pt_prog,                          & !>inout
                             & pt_prog_rcf,                      & !>inout

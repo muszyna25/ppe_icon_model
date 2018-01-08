@@ -72,6 +72,7 @@ MODULE mo_nwp_gscp_interface
   USE mo_cpl_aerosol_microphys,ONLY: specccn_segalkhain, ncn_from_tau_aerosol_speccnconst, &
                                      specccn_segalkhain_simple
   USE mo_grid_config,          ONLY: l_limited_area
+  USE mo_satad,                ONLY: satad_v_3D
 
   IMPLICIT NONE
 
@@ -85,7 +86,8 @@ CONTAINS
   !!
   !!-------------------------------------------------------------------------
   !!
-  SUBROUTINE nwp_microphysics( tcall_gscp_jg,                & !>input
+  SUBROUTINE nwp_microphysics(  tcall_gscp_jg,                & !>input
+                            &   lsatad,                       & !>input
                             &   p_patch,p_metrics,            & !>input
                             &   p_prog,                       & !>inout
                             &   p_prog_rcf,                   & !>inout
@@ -94,21 +96,22 @@ CONTAINS
 
 
 
-    TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !!<grid/patch info.
-    TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
-    TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog          !<the dyn prog vars
-    TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf      !<call freq
-    TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag          !<the dyn diag vars
-    TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !<the atm phys vars
+    TYPE(t_patch)          , INTENT(in)   :: p_patch        !!<grid/patch info.
+    TYPE(t_nh_metrics)     , INTENT(in)   :: p_metrics
+    TYPE(t_nh_prog)        , INTENT(inout):: p_prog          !<the dyn prog vars
+    TYPE(t_nh_prog)        , INTENT(inout):: p_prog_rcf      !<call freq
+    TYPE(t_nh_diag)        , INTENT(inout):: p_diag          !<the dyn diag vars
+    TYPE(t_nwp_phy_diag)   , INTENT(inout):: prm_diag        !<the atm phys vars
 
-    REAL(wp),                    INTENT(in)   :: tcall_gscp_jg   !< time interval for 
-                                                                 !< microphysics
+    REAL(wp)               , INTENT(in)   :: tcall_gscp_jg   !< time interval for 
+                                                             !< microphysics
+    LOGICAL                , INTENT(in)   :: lsatad          !< satad on/off
+
     ! Local array bounds:
 
     INTEGER :: nlev, nlevp1            !< number of full levels !CK<
     INTEGER :: i_startblk, i_endblk    !< blocks
     INTEGER :: i_startidx, i_endidx    !< slices
-    INTEGER :: i_nchdom                !< domain index
     INTEGER :: i_rlstart, i_rlend
 
     ! Local scalars:
@@ -121,7 +124,6 @@ CONTAINS
 
     ! local variables
     !
-    i_nchdom  = MAX(1,p_patch%n_childdom)
 
     ! number of vertical levels
     nlev   = p_patch%nlev
@@ -190,8 +192,8 @@ CONTAINS
     i_rlstart = grf_bdywidth_c+1
     i_rlend   = min_rlcell_int
 
-    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-    i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+    i_startblk = p_patch%cells%start_block(i_rlstart)
+    i_endblk   = p_patch%cells%end_block(i_rlend)
 
     ! Some run time diagnostics (can also be used for other schemes)
     IF (msg_level>14 .AND. ltwomoment) THEN
@@ -532,6 +534,29 @@ CONTAINS
            ENDDO
 
           END SELECT
+        ENDIF
+
+        ! saturation adjustment after microphysics
+        ! - this is the second satad call
+        ! - first satad in physics interface before microphysics
+
+        IF (lsatad) THEN
+
+          CALL satad_v_3d(                                 &           
+               & maxiter  = 10                            ,& !> IN
+               & tol      = 1.e-3_wp                      ,& !> IN
+               & te       = p_diag%temp       (:,:,jb)    ,& !> INOUT
+               & qve      = p_prog_rcf%tracer (:,:,jb,iqv),& !> INOUT
+               & qce      = p_prog_rcf%tracer (:,:,jb,iqc),& !> INOUT
+               & rhotot   = p_prog%rho        (:,:,jb)    ,& !> IN
+               & idim     = nproma                        ,& !> IN
+               & kdim     = nlev                          ,& !> IN
+               & ilo      = i_startidx                    ,& !> IN
+               & iup      = i_endidx                      ,& !> IN
+               & klo      = kstart_moist(jg)              ,& !> IN
+               & kup      = nlev                           & !> IN
+               )
+
         ENDIF
 
       ENDDO

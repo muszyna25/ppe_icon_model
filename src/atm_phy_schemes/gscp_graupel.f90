@@ -183,16 +183,13 @@ USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water va
 !                                g     => grav  , & !! acceleration due to gravity
                                  t0    => tmelt     !! melting temperature of ice/snow
 
-USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-
 USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing the sat. vapour
                                  b2w   => c3les , & !! pressure over water (l) and ice (i)
                                  b2i   => c3ies , & !!               -- " --
                                  b4w   => c4les , & !!               -- " --
                                  b4i   => c4ies , & !!               -- " --
                                  b234w => c5les     !!               -- " --
-USE mo_satad,              ONLY: satad_v_3d,     &  !! new saturation adjustment
-                                 sat_pres_water, &  !! saturation vapor pressure w.r.t. water
+USE mo_satad,              ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
                                  sat_pres_ice!,   &  !! saturation vapor pressure w.r.t. ice
 !                                 spec_humi          !! Specific humidity 
 USE mo_exception,          ONLY: message, message_text
@@ -1610,25 +1607,6 @@ SUBROUTINE graupel     (             &
 #endif
     ENDDO
   ENDDO
-#endif
-
-#ifdef __ICON__
-
-CALL satad_v_3d (                         &
-               & maxiter  = 10_i4        ,& !> IN
-               & tol      = 1.e-3_wp     ,& !> IN
-               & te       = t            ,&
-               & qve      = qv           ,&
-               & qce      = qc           ,&
-               & rhotot   = rho          ,&
-               & idim     = nvec         ,&
-               & kdim     = ke           ,&
-               & ilo      = iv_start     ,&
-               & iup      = iv_end       ,&
-               & klo      = k_start      ,&
-               & kup      = ke            &
-               )
-
 #endif
 
 !------------------------------------------------------------------------------
