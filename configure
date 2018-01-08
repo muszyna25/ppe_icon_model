@@ -6564,7 +6564,7 @@ EOF
      ;;
 esac
                             read -d '' my_pp_ser <<EOF
-  find ${my_iconppdir} -type f -execdir ${SERIALBOX2_PPSER} -d ./ "{}" \\\+
+  find ${my_iconppdir} -type f \\\( -name "*.f90" -or -name "*.F90" \\\) -execdir ${SERIALBOX2_PPSER} -d ./ "{}" \\\+
 EOF
                             my_preprocess_command="${my_pp_init};${my_pp_command};${my_pp_ser}"
                             make_command="${my_preprocess_command};$make_command;"
