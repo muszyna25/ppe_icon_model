@@ -1521,6 +1521,7 @@ AC_CONFIG_COMMANDS([Makefiles],
                                               --enable_atmo="${enable_atmo}" \
                                               --enable_jsbach="${enable_jsbach}" \
                                               --enable_testbed="${enable_testbed}" \
+                                              --enable_serialization="${enable_serialization}" \
                                               --iconsrcdir="${my_iconsrcdir}" \
                                               --iconppdir="${my_iconppdir}"],
                    [

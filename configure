@@ -8256,6 +8256,7 @@ fi
                                               --enable_atmo="${enable_atmo}" \
                                               --enable_jsbach="${enable_jsbach}" \
                                               --enable_testbed="${enable_testbed}" \
+                                              --enable_serialization="${enable_serialization}" \
                                               --iconsrcdir="${my_iconsrcdir}" \
                                               --iconppdir="${my_iconppdir}" ;;
     "build_command":F) chmod +x build_command ;;

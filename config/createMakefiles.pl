@@ -24,6 +24,7 @@ my $enable_atmo;
 my $enable_ocean;
 my $enable_jsbach;
 my $enable_testbed;
+my $enable_serialization;
 my $iconsrcdir = "src";
 my $iconppdir;
 
@@ -34,6 +35,7 @@ GetOptions(
             'enable_ocean=s' => \$enable_ocean,
             'enable_jsbach=s' => \$enable_jsbach,
             'enable_testbed=s' => \$enable_testbed,
+            'enable_serialization=s' => \$enable_serialization,
             'iconsrcdir=s' => \$iconsrcdir,
             'iconppdir=s' => \$iconppdir,
 	    ) or die "\n\nUsage: config/createMakefiles.pl --target=<OS_CPU> --srcdirs=< list of src directories>\n";  
@@ -470,6 +472,7 @@ sub ScanDirectory {
         next if ($name eq "sw_options");
         next if (($enable_ocean eq "no") and (($name eq "ocean") or ($name eq "sea_ice") or ($name eq "hamocc")) );
         next if (($enable_jsbach eq "no") and ($name eq "lnd_phy_jsbach") );
+        next if (($enable_serialization eq "no") and ($name eq "serialization") );
         next if (($enable_testbed eq "no") and ($name eq "testbed") and ($workpath eq "$iconsrcdir") );
 
         if (-d $name){
