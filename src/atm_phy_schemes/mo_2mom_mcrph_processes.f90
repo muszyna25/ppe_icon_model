@@ -169,7 +169,7 @@ MODULE mo_2mom_mcrph_processes
        &    na_dust    = 162.e3_wp,   & ! initial number density of dust [1/m³], Phillips08 value 162e3
        &    na_soot    =  15.e6_wp,   & ! initial number density of soot [1/m³], Phillips08 value 15e6
        &    na_orga    = 177.e6_wp,   & ! initial number density of organics [1/m3], Phillips08 value 177e6
-       &    ni_het_max = 50.0e3_wp,   & ! max number of IN between 1-10 per liter, i.e. 1d3-10d3
+       &    ni_het_max = 500.0e3_wp,  & ! max number of IN between 1-10 per liter, i.e. 1d3-10d3
        &    ni_hom_max = 5000.0e3_wp    ! number of liquid aerosols between 100-5000 per liter
 
   INTEGER, PARAMETER ::               & ! Look-up table for Phillips et al. nucleation
@@ -263,7 +263,7 @@ MODULE mo_2mom_mcrph_processes
   PUBLIC :: autoconversionKK, accretionKK
   PUBLIC :: rain_evaporation, evaporation
   PUBLIC :: cloud_freeze
-  PUBLIC :: ice_nucleation_homhet, ice_nucleation_homhet_philips, ice_nucleation_homhet_hdcp2
+  PUBLIC :: ice_nucleation_homhet
   PUBLIC :: vapor_dep_relaxation
   PUBLIC :: rain_freeze_gamlook
   PUBLIC :: setup_particle_coeffs, setup_cloud_autoconversion
@@ -1273,12 +1273,13 @@ CONTAINS
                    x_c = particle_meanmass(cloud, q_c,n_c)
 
                    !..Hom. freezing based on Jeffrey und Austin (1997), see also Cotton und Field (2001)
+                   !  (note that log in Cotton and Field is log10, not ln)
                    IF (T_c > -30.0_wp) THEN
                       j_hom = 1.0e6_wp/rho_w &
-                           &  * EXP(-7.63-2.996*(T_c+30.0))           !..J in 1/(m3 s)
+                           &  * 10**(-7.63-2.996*(T_c+30.0))           !..J in 1/(kg s)
                    ELSE
                       j_hom = 1.0e6_wp/rho_w &
-                           &  * EXP(-243.4-14.75*T_c-0.307*T_c**2-0.00287*T_c**3-0.0000102*T_c**4)
+                           &  * 10**(-243.4-14.75*T_c-0.307*T_c**2-0.00287*T_c**3-0.0000102*T_c**4)
                    ENDIF
 
                    fr_n  = j_hom * q_c *  dt
@@ -1307,7 +1308,7 @@ CONTAINS
   END SUBROUTINE cloud_freeze
 
   SUBROUTINE ice_nucleation_homhet(ik_slice, use_prog_in, &
-       atmo, cloud, ice, snow, n_inact, n_inpot)
+       atmo, cloud, ice, n_inact, n_inpot)
     !*******************************************************************************
     !                                                                              *
     ! Homogeneous and heterogeneous ice nucleation                                 *
@@ -1332,7 +1333,7 @@ CONTAINS
     LOGICAL, INTENT(in) :: use_prog_in
 
     TYPE(atmosphere), INTENT(inout) :: atmo
-    CLASS(particle), INTENT(inout) :: cloud, ice, snow
+    CLASS(particle), INTENT(inout)  :: cloud, ice
     REAL(wp), DIMENSION(:,:) :: n_inact
     REAL(wp), DIMENSION(:,:), OPTIONAL :: n_inpot
 
@@ -1443,7 +1444,7 @@ CONTAINS
              & 'Error in two_moment_mcrph: Invalid value nuc_typ in case of &
              &use_hdcp2_het=.true.')
       END IF
-      CALL ice_nucleation_homhet_hdcp2(ik_slice, atmo, ice, snow, cloud, &
+      CALL ice_nucleation_het_hdcp2(ik_slice, atmo, ice, cloud, &
            use_prog_in, hdcp2_nuc_coeffs(nuc_typ), n_inact, ndiag_mask, nuc_n_a)
     ELSE
       ! Heterogeneous nucleation using Phillips et al. scheme
@@ -1466,7 +1467,7 @@ CONTAINS
                & 'Error in two_moment_mcrph: Invalid value nuc_typ in case of use_hdcp2_het=.false.')
         END IF
       END IF
-      CALL ice_nucleation_homhet_philips(ik_slice, atmo, ice, snow, cloud, &
+      CALL ice_nucleation_het_philips(ik_slice, atmo, ice, cloud, &
            use_prog_in, n_inact, ndiag_mask, nuc_n_a, n_inpot)
     END IF
 
@@ -1558,13 +1559,13 @@ CONTAINS
 
   END SUBROUTINE ice_nucleation_homhet
 
-  SUBROUTINE ice_nucleation_homhet_philips(ik_slice, atmo, ice, snow, cloud, &
+  SUBROUTINE ice_nucleation_het_philips(ik_slice, atmo, ice, cloud, &
        use_prog_in, n_inact, ndiag_mask, nuc_n_a, n_inpot)
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
     TYPE(atmosphere), INTENT(inout) :: atmo
-    CLASS(particle), INTENT(in) :: ice, snow, cloud
+    CLASS(particle), INTENT(in) :: ice, cloud
     LOGICAL, INTENT(in) :: use_prog_in
     REAL(wp), INTENT(inout), DIMENSION(:,:) :: n_inact
     REAL(wp), INTENT(out) :: &
@@ -1576,6 +1577,7 @@ CONTAINS
     REAL(wp)             :: nuc_n, nuc_q
     REAL(wp)             :: T_a, ssi, e_si
     REAL(wp)             :: ndiag, ndiag_dust, ndiag_all
+    REAL(wp), PARAMETER  :: eps  = 1.0e-20_wp
     REAL(wp) :: infrac(3)
     LOGICAL :: lwrite_n_inpot
 
@@ -1600,13 +1602,13 @@ CONTAINS
         ssi  = atmo%qv(i,k) * R_d * T_a / e_si
 
         IF (T_a < T_nuc .AND. T_a > 180.0_wp .AND. ssi > 1.0_wp  &
-             & .AND. ( ice%n(i,k)+snow%n(i,k) < ni_het_max ) ) THEN
+             & .AND. ( n_inact(i,k) < ni_het_max ) ) THEN
 
           xt = (274.- REAL(atmo%T(i,k)))  / ttstep
           xt = MIN(xt,REAL(ttmax-1))
           tt = INT(xt)
 
-          IF (cloud%q(i,k) > 0.0_wp) THEN
+          IF (cloud%q(i,k) > eps) THEN
             ! immersion freezing at water saturation
             ! Phillips scheme
             ! immersion freezing at water saturation
@@ -1672,7 +1674,7 @@ CONTAINS
           atmo%qv(i,k) = atmo%qv(i,k) - nuc_q
           n_inact(i,k) = n_inact(i,k) + nuc_n
 
-          lwrite_n_inpot = use_prog_in .AND. ndiag .GT. 1d-12
+          lwrite_n_inpot = use_prog_in .AND. ndiag .GT. 1.0e-12_wp
           ndiag_mask(i, k) = lwrite_n_inpot
 
           IF (lwrite_n_inpot) THEN
@@ -1689,15 +1691,15 @@ CONTAINS
     END DO
 
 
-  END SUBROUTINE ice_nucleation_homhet_philips
+  END SUBROUTINE ice_nucleation_het_philips
 
-  SUBROUTINE ice_nucleation_homhet_hdcp2(ik_slice, atmo, ice, snow, cloud, &
+  SUBROUTINE ice_nucleation_het_hdcp2(ik_slice, atmo, ice, cloud, &
        use_prog_in, nuc_coeffs, n_inact, ndiag_mask, nuc_n_a)
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
     TYPE(atmosphere), INTENT(inout) :: atmo
-    CLASS(particle), INTENT(in) :: ice, snow, cloud
+    CLASS(particle), INTENT(in) :: ice, cloud
     LOGICAL, INTENT(in) :: use_prog_in
     TYPE(dep_imm_coeffs), INTENT(in) :: nuc_coeffs
     REAL(wp), INTENT(inout), DIMENSION(:,:) :: n_inact
@@ -1708,14 +1710,15 @@ CONTAINS
 
 
     ! parameters for deposition formula, Eq (2) of Hande et al.
-    REAL(wp), PARAMETER :: a_dep =  2.7626_wp
+    REAL(wp), PARAMETER :: a_dep =  2.7626_wp * 0.1_wp
     REAL(wp), PARAMETER :: b_dep =  6.2100_wp  ! 0.0621*100, because we use ssi instead of RHi
     REAL(wp), PARAMETER :: c_dep = -1.3107_wp
-    REAL(wp), PARAMETER :: d_dep =  2.6789_wp
+    REAL(wp), PARAMETER :: d_dep =  2.6789_wp * 0.1_wp
 
     REAL(wp)             :: nuc_n, nuc_q
     REAL(wp)             :: T_a, ssi, e_si
     REAL(wp)             :: ndiag
+    REAL(wp), PARAMETER  :: eps  = 1.0e-20_wp
 
     LOGICAL :: lwrite_n_inpot
 
@@ -1736,9 +1739,9 @@ CONTAINS
         ssi  = atmo%qv(i,k) * R_d * T_a / e_si
 
         IF (T_a < T_nuc .AND. T_a > 180.0_wp .AND. ssi > 1.0_wp  &
-             & .AND. ( ice%n(i,k)+snow%n(i,k) < ni_het_max ) ) THEN
+             & .AND. ( n_inact(i,k) < ni_het_max ) ) THEN
 
-          IF (cloud%q(i,k) > 0.0_wp) THEN
+          IF (cloud%q(i,k) > eps) THEN
             ! Hande et al. scheme, Eq. (1)
             T_a = MAX(T_a,237.1501_wp)
             IF (T_a.LT.261.15_wp) THEN
@@ -1769,7 +1772,7 @@ CONTAINS
           atmo%qv(i,k) = atmo%qv(i,k) - nuc_q
           n_inact(i,k) = n_inact(i,k) + nuc_n
 
-          lwrite_n_inpot = use_prog_in .AND. ndiag .GT. 1d-12
+          lwrite_n_inpot = use_prog_in .AND. ndiag .GT. 1.0e-12_wp
           ndiag_mask(i, k) = lwrite_n_inpot
 
           nuc_n_a(i, k) = nuc_n
@@ -1781,7 +1784,7 @@ CONTAINS
 
       END DO
     END DO
-  END SUBROUTINE ice_nucleation_homhet_hdcp2
+  END SUBROUTINE ice_nucleation_het_hdcp2
 
   SUBROUTINE vapor_dep_relaxation(ik_slice, dt_local, &
        &               ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs, &
@@ -1807,7 +1810,7 @@ CONTAINS
     REAL(wp)            :: D_vtp
     REAL(wp)            :: zdt,qvsidiff,Xi_i,Xfac
     REAL(wp)            :: tau_i_i,tau_s_i,tau_g_i,tau_h_i
-    REAL(wp), PARAMETER :: eps  = 1.d-20
+    REAL(wp), PARAMETER :: eps  = 1.0e-20_wp
     REAL(wp)            :: T_a
     REAL(wp)            :: e_si            !..saturation water pressure over ice
     REAL(wp)            :: e_d,p_a,dep_sum !,weight
@@ -2063,7 +2066,7 @@ CONTAINS
                    ! oder dem Graupel oder Hagel. Hierzu erfolgt eine partielle Integration des Spektrums von 0
                    ! bis zu einer ersten Trennmasse xmax_ice (--> Eis), von dort bis zu xmax_gr (--> Graupel)
                    ! und von xmax_gr bis unendlich (--> Hagel).
-                   IF (j_het >= 1d-20) THEN
+                   IF (j_het >= 1.0e-20_wp) THEN
                       fr_n  = j_het * q_r
                       fr_q  = j_het * q_r * x_r * rain_coeffs%c_z
 
@@ -4100,9 +4103,10 @@ CONTAINS
     INTEGER :: istart, iend, kstart, kend
 
     ! local variables
-    INTEGER            :: i,k,nuc_typ
-    REAL(wp)           :: n_c,q_c
-    REAL(wp)           :: nuc_n, nuc_q
+    INTEGER             :: i,k,nuc_typ
+    REAL(wp)            :: n_c,q_c
+    REAL(wp)            :: nuc_n, nuc_q
+    REAL(wp), PARAMETER :: eps  = 1.0e-20_wp
 
     ! for activation tables
     INTEGER, PARAMETER :: n_ncn=8, n_r2=3, n_lsigs=5, n_wcb=4
@@ -4175,7 +4179,7 @@ CONTAINS
           q_c   = cloud%q(i,k)
           wcb   = atmo%w(i,k)
 
-          if (q_c > 0.0_wp .and. wcb > 0.0_wp) then
+          if (q_c > eps .and. wcb > 0.0_wp) then
 
              ! hard upper limit for number conc that
              ! eliminates also unrealistic high value
@@ -4459,6 +4463,7 @@ CONTAINS
     REAL(wp)           :: n_c,q_c
     REAL(wp)           :: nuc_n,nuc_q
     REAL(wp)           :: wcb,pres
+    REAL(wp), PARAMETER :: eps = 1e-20_wp
 
     REAL(wp)           :: acoeff,bcoeff,ccoeff,dcoeff
     ! Data from HDCP2_CCN_params.txt for 20130417
@@ -4493,7 +4498,7 @@ CONTAINS
           pres  = atmo%p(i,k)
           wcb   = atmo%w(i,k)
 
-          if (q_c > 0.0_wp .and. wcb > 0.0_wp) then
+          if (q_c > eps .and. wcb > 0.0_wp) then
 
              ! Based on write-up of Luke Hande of 6 May 2015
 

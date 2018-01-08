@@ -43,6 +43,7 @@ USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, i
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time, end_time, is_plane_torus
 USE mo_intp_data_strc,       ONLY: p_int_state
+USE mo_intp_lonlat_types,    ONLY: lonlat_grids
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
 ! NH-namelist state
 USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc, &
@@ -54,7 +55,8 @@ USE mo_synsat_config,        ONLY: configure_synsat
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
   &                                construct_nh_state, destruct_nh_state
-USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag
+USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag,      &
+  &                                compute_lonlat_area_weights
 USE mo_nwp_phy_state,        ONLY: prm_diag, construct_nwp_phy_state,          &
   &                                destruct_nwp_phy_state
 USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
@@ -63,6 +65,7 @@ USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
 USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
 ! Initialization with real data
 USE mo_initicon,            ONLY: init_icon
+USE mo_initicon_config,     ONLY: timeshift
 USE mo_ext_data_state,      ONLY: ext_data
 USE mo_ext_data_init,       ONLY: init_index_lists
 ! meteogram output
@@ -73,11 +76,10 @@ USE mo_name_list_output_config,   ONLY: first_output_name_list, &
 USE mo_name_list_output_init, ONLY:  init_name_list_output,        &
   &                                  parse_variable_groups,        &
   &                                  collect_requested_ipz_levels, &
-  &                                  output_file
-USE mo_name_list_output_zaxes, ONLY: create_mipz_level_selections
+  &                                  output_file, create_vertical_axes
+USE mo_level_selection,     ONLY: create_mipz_level_selections
 USE mo_name_list_output,    ONLY: close_name_list_output
 USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
-USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
 
 ! LGS - for the implementation of ECHAM physics in iconam
 USE mo_echam_phy_init,      ONLY: init_echam_phy, initcond_echam_phy
@@ -182,11 +184,13 @@ CONTAINS
     time_diff  => newTimedelta("PT0S")
     time_diff  =  getTimeDeltaFromDateTime(time_config%tc_current_date, time_config%tc_exp_startdate)
     sim_time   =  getTotalMillisecondsTimedelta(time_diff, time_config%tc_current_date)*1.e-3_wp
+    ! Account for IAU time shift if we are not in restart mode
+    IF (.NOT. isRestart()) sim_time = sim_time + timeshift%dt_shift
     CALL deallocateTimedelta(time_diff)
     
     DO jg=1, n_dom
       IF (jg > 1 .AND. start_time(jg) > sim_time .OR. end_time(jg) <= sim_time) THEN
-        p_patch(jg)%ldom_active = .FALSE. ! domain not active at restart time
+        p_patch(jg)%ldom_active = .FALSE. ! domain not active
       ELSE
         p_patch(jg)%ldom_active = .TRUE.
       ENDIF
@@ -424,7 +428,7 @@ CONTAINS
 
     ! Add a special metrics variable containing the area weights of
     ! the regular lon-lat grid.
-    CALL compute_lonlat_area_weights()
+    CALL compute_lonlat_area_weights(lonlat_grids)
 
     ! Map the variable groups given in the output namelist onto the
     ! corresponding variable subsets:
@@ -498,6 +502,7 @@ CONTAINS
       END DO
 
       CALL create_mipz_level_selections(output_file)
+      CALL create_vertical_axes(output_file)
     END IF
 
 #ifdef MESSY

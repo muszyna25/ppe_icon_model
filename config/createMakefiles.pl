@@ -115,10 +115,9 @@ if ( -d "externals/yac/include" ) {
     }
 }
 
-# if ( -d ".git" and ($enable_jsbach eq "yes") and ! -d "$iconsrcdir/lnd_phy_jsbach" ) {
-#     symlink "../externals/jsbach/src", "$iconsrcdir/lnd_phy_jsbach"; 
-# }
-if ( ($enable_jsbach eq "yes") and ! -d "$iconsrcdir/lnd_phy_jsbach" ) {
+if ( ($enable_jsbach eq "yes")
+     and ! -d "$iconsrcdir/lnd_phy_jsbach"
+     and -d 'externals/jsbach/src' ) {
     symlink File::Spec->abs2rel("$prefix/externals/jsbach/src", "$iconsrcdir"), "$iconsrcdir/lnd_phy_jsbach"; 
 }
 

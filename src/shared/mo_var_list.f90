@@ -16,13 +16,8 @@ MODULE mo_var_list
 #endif
 
   USE mo_kind,             ONLY: wp, i8, sp
-  USE mo_cdi,              ONLY: DATATYPE_FLT64,                    &
-       &                         DATATYPE_FLT32,                    &
-       &                         DATATYPE_INT32,                    &
-       &                         DATATYPE_INT8,                     &
-       &                         TSTEP_INSTANT,                     &
+  USE mo_cdi,              ONLY: TSTEP_INSTANT,                     &
        &                         CDI_UNDEFID
-  USE mo_cdi_constants,    ONLY: GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var, grib2_var
   USE mo_var_metadata_types,ONLY: t_var_metadata, t_union_vals,     &
@@ -53,6 +48,8 @@ MODULE mo_var_list
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS,   &
     &                            TLEV_NNOW, REAL_T, SINGLE_T,       &
     &                            BOOL_T, INT_T, SUCCESS
+  USE mo_cdi_constants,    ONLY: GRID_UNSTRUCTURED_CELL,            &
+    &                            GRID_REGULAR_LONLAT
   USE mo_fortran_tools,    ONLY: assign_if_present
   USE mo_action_types,     ONLY: t_var_action
   USE mo_io_config,        ONLY: restart_file_type
@@ -656,10 +653,8 @@ CONTAINS
     this_info%tlev_source         = TLEV_NNOW
     !
     this_info%cdiVarID            = CDI_UNDEFID
-    this_info%cdiVarID_2          = CDI_UNDEFID
     this_info%cdiGridID           = CDI_UNDEFID
     this_info%cdiZaxisID          = CDI_UNDEFID
-    this_info%cdiDataType         = CDI_UNDEFID
     !
     this_info%vert_interp         = create_vert_interp_metadata()
     this_info%hor_interp          = create_hor_interp_metadata()
@@ -1027,22 +1022,18 @@ CONTAINS
       SELECT CASE(data_type)
       CASE (REAL_T)
         new_list_element%field%var_base_size    = 8
-        new_list_element%field%info%cdiDataType = DATATYPE_FLT64
         ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
         new_list_element%field%r_ptr(:,:,:,:,:) = 0._wp
       CASE (SINGLE_T)
         new_list_element%field%var_base_size    = 4
-        new_list_element%field%info%cdiDataType = DATATYPE_FLT32
         ALLOCATE(new_list_element%field%s_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
         new_list_element%field%s_ptr(:,:,:,:,:) = 0._sp
       CASE (INT_T)
         new_list_element%field%var_base_size    = 4
-        new_list_element%field%info%cdiDataType = DATATYPE_INT32
         ALLOCATE(new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
         new_list_element%field%i_ptr(:,:,:,:,:) = 0
       CASE (BOOL_T)
         new_list_element%field%var_base_size    = 4
-        new_list_element%field%info%cdiDataType = DATATYPE_INT8
         ALLOCATE(new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
         new_list_element%field%l_ptr(:,:,:,:,:) = .FALSE.
       END SELECT
@@ -4182,7 +4173,7 @@ CONTAINS
                 element%next_list_element => NULL()
 
                 ! these pointers don't make sense on the restart PEs, NULLIFY them
-                NULLIFY(element%field%r_ptr, element%field%i_ptr, element%field%l_ptr)
+                NULLIFY(element%field%r_ptr, element%field%s_ptr, element%field%i_ptr, element%field%l_ptr)
                 element%field%var_base_size = 0 ! Unknown here
 
                 ! set info structure from binary representation in info_storage
@@ -4191,7 +4182,6 @@ CONTAINS
             END DO
         END IF
 
-        DEALLOCATE(info_storage)
     END DO
   END SUBROUTINE varlistPacker
 

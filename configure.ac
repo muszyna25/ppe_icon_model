@@ -63,7 +63,7 @@ AS_CASE([$ac_hostname],
            [ac_sitename=])])
 
 AS_IF([ test -n "$fqdn" ],
-      [AS_IF([test -z ac_sitename],
+      [AS_IF([test -z "$ac_sitename"],
              [ac_sitename=local.net],
              [])],
       [AS_IF([ test -n "$PE_ENV" ],

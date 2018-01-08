@@ -1,7 +1,7 @@
-# Dictionary for mapping between internal names and GRIB2 shortNames
-# needed by GRIB2 read procedures.
+# Dictionary for mapping between internal names and GRIB2/Netcdf 
+# variable names, which is needed by ICON's read procedures.
 #
-# internal name     GRIB2 shortName
+# internal name     variable name (here GRIB2)
 theta_v             THETA_V
 rho                 DEN
 ddt_tke_pconv       DTKE_CON
@@ -53,6 +53,9 @@ t_b1_lk             T_B1_LK
 h_b1_lk             H_B1_LK
 rh                  RELHUM
 rh_2m               RELHUM_2M
+rh_2m_land          RELHUM_2M_L
+td_2m_land          TD_2M_L
+t_2m_land           T_2M_L
 albdif              ALB_RAD
 alb_si              ALB_SEAICE
 asodifd_s           ASWDIFD_S

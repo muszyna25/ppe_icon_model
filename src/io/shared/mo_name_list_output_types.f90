@@ -28,7 +28,6 @@ MODULE mo_name_list_output_types
     &                                 MAX_TIME_LEVELS, MAX_NUM_IO_PROCS,               &
     &                                 MAX_TIME_INTERVALS, MAX_CHAR_LENGTH, MAX_NPLEVS, &
     &                                 MAX_NZLEVS, MAX_NILEVS
-  USE mo_cdi_constants,         ONLY: ZA_COUNT
   USE mo_io_units,              ONLY: filename_max
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_util_uuid_types,       ONLY: t_uuid
@@ -36,6 +35,8 @@ MODULE mo_name_list_output_types
   USE mo_communication,         ONLY: t_comm_gather_pattern
   USE mtime,                    ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN
   USE mo_output_event_types,    ONLY: t_par_output_event, MAX_EVENT_NAME_STR_LEN
+  USE mo_level_selection_types, ONLY: t_level_selection
+  USE mo_name_list_output_zaxes_types,ONLY: t_verticalAxisList
 
   IMPLICIT NONE
 
@@ -45,6 +46,7 @@ MODULE mo_name_list_output_types
   PUBLIC :: REMAP_NONE
   PUBLIC :: REMAP_REGULAR_LATLON
   PUBLIC :: msg_io_start
+  PUBLIC :: msg_io_meteogram_flush
   PUBLIC :: msg_io_done
   PUBLIC :: msg_io_shutdown
   PUBLIC :: IRLON, IRLAT, ILATLON
@@ -64,7 +66,6 @@ MODULE mo_name_list_output_types
   PUBLIC :: t_iptr_5d
   PUBLIC :: t_var_desc
   PUBLIC :: t_fname_metadata
-  PUBLIC :: t_level_selection
   PUBLIC :: t_output_file
   ! global variables
   PUBLIC :: all_events
@@ -83,6 +84,7 @@ MODULE mo_name_list_output_types
 
   ! Tags for communication between compute PEs and I/O PEs
   INTEGER, PARAMETER :: msg_io_start    = 12345
+  INTEGER, PARAMETER :: msg_io_meteogram_flush = 23451
   INTEGER, PARAMETER :: msg_io_done     = 54321
   INTEGER, PARAMETER :: msg_io_shutdown = 99999
 
@@ -315,17 +317,24 @@ MODULE mo_name_list_output_types
 
 
   TYPE t_var_desc
-    REAL(wp), POINTER                     :: r_ptr(:,:,:,:,:)                 !< Pointer to time level independent REAL data (or NULL)
-    REAL(sp), POINTER                     :: s_ptr(:,:,:,:,:)                 !< Pointer to time level independent REAL(sp) data (or NULL)
-    INTEGER,  POINTER                     :: i_ptr(:,:,:,:,:)                 !< Pointer to time level independent INTEGER data (or NULL)
-    TYPE(t_rptr_5d)                       :: tlev_rptr(MAX_TIME_LEVELS)       !< Pointers to time level dependent REAL data
-    TYPE(t_sptr_5d)                       :: tlev_sptr(MAX_TIME_LEVELS)       !< Pointers to time level dependent REAL(sp) data
-    TYPE(t_iptr_5d)                       :: tlev_iptr(MAX_TIME_LEVELS)       !< Pointers to time level dependent INTEGER data
-    TYPE(t_var_metadata), POINTER         :: info_ptr                         !< Pointer to the info structure of the variable
+    !> Pointer to time level independent REAL data (or NULL)
+    REAL(wp), POINTER                     :: r_ptr(:,:,:,:,:)
+    !> Pointer to time level independent REAL(sp) data (or NULL)
+    REAL(sp), POINTER                     :: s_ptr(:,:,:,:,:)
+    !> Pointer to time level independent INTEGER data (or NULL)
+    INTEGER,  POINTER                     :: i_ptr(:,:,:,:,:)
+    !> Pointers to time level dependent REAL data
+    TYPE(t_rptr_5d)                       :: tlev_rptr(MAX_TIME_LEVELS)
+    !> Pointers to time level dependent REAL(sp) data
+    TYPE(t_sptr_5d)                       :: tlev_sptr(MAX_TIME_LEVELS)
+    !> Pointers to time level dependent INTEGER data
+    TYPE(t_iptr_5d)                       :: tlev_iptr(MAX_TIME_LEVELS)
+    !> Pointer to the info structure of the variable
+    TYPE(t_var_metadata), POINTER         :: info_ptr
 
     !> Info structure for variable: this is a modified copy of the
-    !> variable's "info" data object!
-    TYPE(t_var_metadata)                  :: info                             
+    !! variable's "info" data object!
+    TYPE(t_var_metadata)                  :: info
   END TYPE t_var_desc
 
 
@@ -362,24 +371,6 @@ MODULE mo_name_list_output_types
   END TYPE t_fname_metadata
 
 
-  TYPE t_level_selection
-    !> number of selected levels
-    INTEGER :: n_selected
-
-    !> level selection as input in the form of a LOGICAL array
-    !  s(1...N), where "s(i)=.TRUE." means that level "i" is selected:
-    LOGICAL, ALLOCATABLE :: s(:)
-
-    !> integer list idx(1...n_selected) containing the selected level
-    !  indices.
-    INTEGER, ALLOCATABLE :: global_idx(:)
-
-    !> local index in the list of selected level indices (i.e. an
-    !  integer number in the range 1...n_selected).
-    INTEGER, ALLOCATABLE :: local_idx(:)
-  END TYPE t_level_selection
-
-
   TYPE t_output_file
     ! The following data must be set before opening the output file:
 
@@ -389,7 +380,8 @@ MODULE mo_name_list_output_types
     INTEGER                               :: output_type                      !< CDI format
     INTEGER                               :: phys_patch_id                    !< ID of physical output patch
     INTEGER                               :: log_patch_id                     !< ID of logical output patch
-    INTEGER                               :: ilev_type                        !< level type: level_type_ml/level_type_pl/level_type_hl/level_type_il
+    !> level type: level_type_ml/level_type_pl/level_type_hl/level_type_il
+    INTEGER                               :: ilev_type
     INTEGER                               :: max_vars                         !< maximum number of variables allocated
     INTEGER                               :: num_vars                         !< number of variables in use
     TYPE(t_var_desc),ALLOCATABLE          :: var_desc(:)
@@ -408,11 +400,17 @@ MODULE mo_name_list_output_types
     !> MPI rank which were explicitly specified by the user:
     INTEGER                               :: pe_placement
 
+#ifndef NOMPI
     ! Used for async IO only
-    TYPE(t_mem_win)                       :: mem_win                          !< data structure containing variables for MPI memory window
+    !> data structure containing variables for MPI memory window
+    TYPE(t_mem_win)                       :: mem_win
+#endif
 
     ! Selection of vertical levels (not necessarily present)
     TYPE (t_level_selection), POINTER     :: level_selection => NULL()        !< selection of vertical levels
+
+    ! Vertical axis meta-data
+    TYPE(t_verticalAxisList)              :: verticalAxisList
 
     ! The following members are set during open
     INTEGER                               :: cdiFileId
@@ -423,11 +421,9 @@ MODULE mo_name_list_output_types
     INTEGER                               :: cdiVertGridID
     INTEGER                               :: cdiEdgeGridID
     INTEGER                               :: cdiLonLatGridID
-    INTEGER                               :: cdiZaxisID(ZA_COUNT)             !< All types of possible Zaxis ID's
     INTEGER                               :: cdiTaxisID
     INTEGER                               :: cdiTaxisID_orig
     INTEGER                               :: cdiTimeIndex
-    INTEGER                               :: cdiInstID                        !< output generating institute
     INTEGER                               :: cdi_grb2(3,2)                    !< geographical position: (GRID, latitude/longitude)
     LOGICAL                               :: appending = .FALSE.              !< the current file is appended (.true.), otherwise .false. 
 

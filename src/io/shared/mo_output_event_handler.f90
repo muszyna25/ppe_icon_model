@@ -120,7 +120,7 @@ MODULE mo_output_event_handler
 
   USE mo_kind,                   ONLY: i8
   USE mo_impl_constants,         ONLY: SUCCESS, MAX_TIME_INTERVALS
-  USE mo_exception,              ONLY: finish, message
+  USE mo_exception,              ONLY: finish
   USE mo_io_units,               ONLY: FILENAME_MAX, find_next_free_unit
   USE mo_util_string,            ONLY: int2string, remove_whitespace
   USE mo_mpi,                    ONLY: p_int,                                               &
@@ -2492,7 +2492,7 @@ CONTAINS
     nreq = 0
     DO
       IF (.NOT. ASSOCIATED(ev)) EXIT
-      nreq = nreq + ev%irecv_nreq
+      IF (ALLOCATED(ev%irecv_req)) nreq = nreq + ev%irecv_nreq
       ev => ev%next
     END DO
     IF (ldebug) THEN
@@ -2508,8 +2508,10 @@ CONTAINS
     ireq = 1
     DO
       IF (.NOT. ASSOCIATED(ev)) EXIT
-      irecv_req(ireq:(ireq+ev%irecv_nreq-1)) = ev%irecv_req(1:ev%irecv_nreq)
-      ireq = ireq + ev%irecv_nreq
+      IF (ALLOCATED(ev%irecv_req)) THEN
+        irecv_req(ireq:(ireq+ev%irecv_nreq-1)) = ev%irecv_req(1:ev%irecv_nreq)
+        ireq = ireq + ev%irecv_nreq
+      ENDIF
       ev => ev%next
     END DO
 
@@ -2523,7 +2525,9 @@ CONTAINS
     ev => event
     DO
       IF (.NOT. ASSOCIATED(ev)) EXIT
-      ev%irecv_req(:) = MPI_REQUEST_NULL
+      IF (ALLOCATED(ev%irecv_req)) THEN
+        ev%irecv_req(:) = MPI_REQUEST_NULL
+      END IF
       ev => ev%next
     END DO
 #endif

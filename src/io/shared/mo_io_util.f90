@@ -29,6 +29,7 @@ MODULE mo_io_util
   USE mo_exception,             ONLY: finish
   USE mo_cdi,                   ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4,         &
     &                                 FILETYPE_GRB, FILETYPE_GRB2
+  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH
   USE mo_util_string,           ONLY: tolower
   USE mo_read_interface,        ONLY: nf
 
@@ -41,9 +42,19 @@ MODULE mo_io_util
   PUBLIC :: get_filetype
   PUBLIC :: get_file_extension
   PUBLIC :: read_netcdf_int_1d
+  PUBLIC :: t_netcdf_att_int
 
   ! module name
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_io_util'
+
+  ! Derived data type for integer NetCDF attribute (variable-specific
+  ! or global)
+  !
+  TYPE t_netcdf_att_int
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: var_name  ! variable name (empty string=global attribute)
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: att_name  ! attribute name string
+    INTEGER, POINTER :: value ! (result) contains result value after read-in
+  END TYPE t_netcdf_att_int
 
 CONTAINS
 
@@ -106,28 +117,22 @@ CONTAINS
   !
   !  Note: opens and closes file and allocates output variables.
   !----------------------------------------------------------------
-  SUBROUTINE read_netcdf_int_1d(filename, varname1, var1, opt_varname2, opt_var2, &
-    &                           opt_attname, opt_attvar1, opt_attvar2) 
-    CHARACTER(len=*),                INTENT(IN)    :: filename      ! NetCDF file name
-    CHARACTER(len=*),                INTENT(IN)    :: varname1      ! variable name string
-    INTEGER, ALLOCATABLE,            INTENT(INOUT) :: var1(:)       ! output data
-    CHARACTER(len=*),     OPTIONAL,  INTENT(IN)    :: opt_varname2  ! variable name string
-    INTEGER, ALLOCATABLE, OPTIONAL,  INTENT(INOUT) :: opt_var2(:)   ! output data
-    CHARACTER(len=*),     OPTIONAL,  INTENT(IN)    :: opt_attname   ! optional variable attribute name
-    INTEGER,              OPTIONAL,  INTENT(INOUT) :: opt_attvar1   ! attribute value for variable 1
-    INTEGER,              OPTIONAL,  INTENT(INOUT) :: opt_attvar2   ! attribute value for variable 2
+  SUBROUTINE read_netcdf_int_1d(filename, varname1, var1, opt_varname2, opt_var2, opt_att) 
+
+    CHARACTER(len=*),                 INTENT(IN)    :: filename     ! NetCDF file name
+    CHARACTER(len=*),                 INTENT(IN)    :: varname1     ! variable name string
+    INTEGER, ALLOCATABLE,             INTENT(INOUT) :: var1(:)      ! output data
+    CHARACTER(len=*),       OPTIONAL, INTENT(IN)    :: opt_varname2 ! variable name string
+    INTEGER, ALLOCATABLE,   OPTIONAL, INTENT(INOUT) :: opt_var2(:)  ! output data
+    TYPE(t_netcdf_att_int), OPTIONAL, INTENT(INOUT) :: opt_att(:)   ! optional attribute values
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine    = "read_netcdf_int_1d"
-    INTEGER :: dimID, varid, ndims, dimids(1), dimlen, ncfileID, dim_aux
+    INTEGER :: varid, ndims, dimids(1), dimlen, ncfileID, dim_aux, i, iret
     LOGICAL :: l_exist
 
     ! consistency checks
     IF ((PRESENT(opt_var2) .AND. .NOT. PRESENT(opt_varname2)) .OR.  &
       & (PRESENT(opt_varname2) .AND. .NOT. PRESENT(opt_var2))) THEN
-      CALL finish(routine, "Internal error!")
-    END IF
-    IF ((PRESENT(opt_attvar1) .AND. .NOT. PRESENT(opt_attname)) .OR. &
-      & (PRESENT(opt_attvar2) .AND. .NOT. PRESENT(opt_attname))) THEN
       CALL finish(routine, "Internal error!")
     END IF
 
@@ -154,11 +159,6 @@ CONTAINS
     ALLOCATE(var1(dimlen))
     CALL nf(nf_get_var_int(ncfileID, varID, var1), routine)
 
-    ! --- optional: read integer attribute
-    IF (PRESENT(opt_attvar1)) THEN
-      CALL nf(nf_get_att_int(ncfileID, varID, TRIM(opt_attname), opt_attvar1), routine)
-    END IF
-
     ! -------------------------
     ! --- variable "opt_var2"
     ! -------------------------
@@ -177,10 +177,24 @@ CONTAINS
       ALLOCATE(opt_var2(dimlen))
       CALL nf(nf_get_var_int(ncfileID, varID, opt_var2), routine)
 
-      ! --- optional: read integer attribute
-      IF (PRESENT(opt_attvar2)) THEN
-        CALL nf(nf_get_att_int(ncfileID, varID, TRIM(opt_attname), opt_attvar2), routine)
-      END IF
+    END IF
+
+    ! -------------------------------------
+    ! --- optional: read integer attributes
+    ! -------------------------------------
+
+    IF (PRESENT(opt_att)) THEN
+
+      DO i=1,SIZE(opt_att)
+        IF (LEN_TRIM(opt_att(i)%var_name) > 0) THEN
+          CALL nf(nf_inq_varid(ncfileID, TRIM(opt_att(i)%var_name), varid), routine)
+        ELSE
+          varid = NF_GLOBAL
+        END IF
+        iret = nf_get_att_int(ncfileID, varID, TRIM(opt_att(i)%att_name), opt_att(i)%value)
+        ! note: we do not evaluate the return value, since the
+        ! attribute may not exist
+      END DO
 
     END IF
 

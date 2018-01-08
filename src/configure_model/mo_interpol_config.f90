@@ -13,7 +13,6 @@ MODULE mo_interpol_config
 
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: ln2
-  USE mo_intp_data_strc,      ONLY: t_lsq_set, sick_a, sick_o
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_exception,           ONLY: message, finish
   USE mo_grid_geometry_info,  ONLY: t_grid_geometry_info, planar_torus_geometry, &
@@ -35,6 +34,23 @@ MODULE mo_interpol_config
   PUBLIC :: support_baryctr_intp                                                !< variables
   PUBLIC :: lreduced_nestbdry_stencil                                           !< variables
   PUBLIC :: configure_interpolation                                             !< subroutine
+
+  PUBLIC :: t_lsq_set
+  PUBLIC :: sick_a, sick_o
+
+
+  TYPE t_lsq_set
+    LOGICAL :: l_consv            ! flag to determine whether the least squares
+                                  ! reconstruction should be conservative
+
+    INTEGER :: dim_c,        &    ! parameter determining the size of the lsq stencil
+      &        dim_unk            ! parameter determining the dimension of the solution
+                                  ! vector (== number of unknowns) of the lsq system
+
+    INTEGER :: wgt_exp            ! least squares weighting exponent
+  END TYPE t_lsq_set
+
+
   !>
   !!
   !TYPE :: t_interpol_config
@@ -136,6 +152,14 @@ MODULE mo_interpol_config
   !>
   !!
   !TYPE(t_interpol_config) :: interpol_config(max_dom)
+
+
+    REAL(wp) :: sick_a, sick_o      ! if i_cori_method >= 2: To avoid the SICK instability
+                                    ! (Symmetric Instability of Computational Kind or
+                                    !  Hollingsworth instability), an average of the kinetic
+                                    ! energy and thus of the mass flux must be defined.
+                                    ! sick_a is to be given in the namelist as the weight of
+                                    ! the fully averaged kinetic energy, sick_o=1-sick_a.
 
 CONTAINS
   !>

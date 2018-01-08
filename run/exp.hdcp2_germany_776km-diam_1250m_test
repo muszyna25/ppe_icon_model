@@ -87,7 +87,7 @@ done
 cat > ${atmo_namelist} << EOF
 &initicon_nml
  init_mode       = 4
- ana_varnames_map_file = '/e/uhome/sbrdar/icon-dev/run/ana_varnames_map_file.txt'
+! ana_varnames_map_file = '/e/uhome/sbrdar/icon-dev/run/ana_varnames_map_file.txt'
  nlevsoil_in     = 8
  lread_ana       = .false.
 /

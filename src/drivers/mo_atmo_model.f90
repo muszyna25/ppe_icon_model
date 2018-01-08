@@ -36,6 +36,7 @@ MODULE mo_atmo_model
   USE mo_impl_constants,          ONLY: SUCCESS,                                              &
     &                                   ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
     &                                   ishallow_water, inwp
+  USE mo_zaxis_type,              ONLY: zaxisTypeList, t_zaxisTypeList
   USE mo_load_restart,            ONLY: read_restart_header
   USE mo_restart_attributes,      ONLY: t_RestartAttributeList, getAttributesForRestarting
 
@@ -82,7 +83,6 @@ MODULE mo_atmo_model
   ! external data, physics
   USE mo_ext_data_state,          ONLY: ext_data, destruct_ext_data
   USE mo_ext_data_init,           ONLY: init_ext_data 
-  USE mo_rrtm_data_interface,     ONLY: init_rrtm_model_repart, destruct_rrtm_model_repart
   USE mo_nwp_ww,                  ONLY: configure_ww
 
   USE mo_diffusion_config,        ONLY: configure_diffusion
@@ -95,9 +95,9 @@ MODULE mo_atmo_model
     &                                   destruct_2d_gridref_state, transfer_grf_state,        &
     &                                   create_grf_index_lists
   USE mo_intp_data_strc,          ONLY: p_int_state, p_int_state_local_parent
+  USE mo_intp_lonlat_types,       ONLY: lonlat_grids
   USE mo_grf_intp_data_strc,      ONLY: p_grf_state, p_grf_state_local_parent
-  USE mo_intp_lonlat,             ONLY: init_lonlat_grid_list, compute_lonlat_intp_coeffs,    &
-    &                                   destroy_lonlat_grid_list
+  USE mo_intp_lonlat,             ONLY: compute_lonlat_intp_coeffs
 
   ! coupling
   USE mo_coupling_config,         ONLY: is_coupled_run
@@ -210,7 +210,7 @@ CONTAINS
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
     ! initialize global registry of lon-lat grids
-    CALL init_lonlat_grid_list()
+    CALL lonlat_grids%init()
 
     !---------------------------------------------------------------------
     ! 0. If this is a resumed or warm-start run...
@@ -266,6 +266,13 @@ CONTAINS
     !-------------------------------------------------------------------
     IF (ltimer) CALL init_timer
     IF (timers_level > 3) CALL timer_start(timer_model_init)
+
+    !-------------------------------------------------------------------
+    ! initialize dynamic list of vertical axes
+    !-------------------------------------------------------------------
+
+    zaxisTypeList = t_zaxisTypeList()
+
 
     !-------------------------------------------------------------------
     ! 3.3 I/O initialization
@@ -481,17 +488,11 @@ CONTAINS
         CALL configure_nonhydrostatic( jg, p_patch(jg)%nlev,     &
           &                            p_patch(jg)%nshift_total  )
         IF ( iforcing == inwp) THEN
-          CALL configure_ww( time_config%tc_startdate, jg, p_patch(jg)%nlev, p_patch(jg)%nshift_total)
+          CALL configure_ww( time_config%tc_startdate, jg, p_patch(jg)%nlev, p_patch(jg)%nshift_total, 'ICON')
         END IF
       ENDDO
     ENDIF
 
-
-
-    !------------------------------------------------------------------
-    ! 11. Repartitioning of radiation grid (Karteileiche?!)
-    !------------------------------------------------------------------
-    CALL init_rrtm_model_repart()
 
 #ifdef MESSY
     CALL messy_initialize(n_dom)
@@ -551,7 +552,7 @@ CONTAINS
     ENDIF
 
     ! Deallocate global registry for lon-lat grids
-    CALL destroy_lonlat_grid_list()
+    CALL lonlat_grids%finalize()
 
     ! Deallocate grid patches
     CALL destruct_patches( p_patch )
@@ -563,7 +564,6 @@ CONTAINS
       CALL finish(TRIM(routine),'deallocate for patch array failed')
     ENDIF
 
-    CALL destruct_rrtm_model_repart()
 !    IF (use_icon_comm) THEN
       CALL destruct_icon_communication()
 !    ENDIF
