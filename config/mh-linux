@@ -358,17 +358,9 @@ case "$ac_sitename" in
                         CFLAGS        = -D_XOPEN_SOURCE=700 -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -cpp -std=c99 -DgFortran -DHAVE_LIBNETCDF
                         GRIBAPIROOT    = /project/c14/install/kesch/libgrib_api/v1.20.0.2/gnu/
                         SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2/gnu/
-                        config_tuning = $(tmp=${fortran_compiler#'gcc'};tmp=${tmp#-};tmp=${tmp:-default};echo $tmp)
+                        config_tuning = $(tmp=${fortran_compiler#'gcc'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
                         case "${config_tuning}" in
                             default)
-                                load_modules  = git/2.14.1 craype-haswell PrgEnv-gnu netcdf netcdf-fortran hdf5 cray-libsci
-                                NETCDFROOT    = ${EBROOTNETCDF}
-                                NETCDFFROOT   = ${EBROOTNETCDFMINFORTRAN}
-                                HDF5ROOT      = ${EBROOTHDF5}
-                                LAPACKROOT    = ${CRAY_LIBSCI_PREFIX_DIR}
-                                LAPACK_LIB    = -lsci_cray
-                                ;;
-                            tds)
                                 load_modules  = git/2.14.1 craype-haswell PrgEnv-gnu netcdf netcdf-fortran hdf5 cray-libsci
                                 NETCDFROOT    = ${EBROOTNETCDF}
                                 NETCDFFROOT   = ${EBROOTNETCDFMINFORTRAN}
@@ -397,15 +389,9 @@ case "$ac_sitename" in
                         CFLAGS        = -c99 -DpgiFortran -DHAVE_LIBNETCDF
                         GRIBAPIROOT    = /project/c14/install/kesch/libgrib_api/v1.20.0.2/pgi/
                         SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2/pgi/
-                        config_tuning = $(tmp=${fortran_compiler#'pgi'};tmp=${tmp#-};tmp=${tmp:-default};echo $tmp)
+                        config_tuning = $(tmp=${fortran_compiler#'pgi'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
                         case "${config_tuning}" in
                             default)
-                                load_modules  = git/2.14.1 craype-haswell PrgEnv-gnu netcdf netcdf-fortran hdf5 cray-libsci
-                                NETCDFROOT    = ${EBROOTNETCDF}
-                                NETCDFFROOT   = ${EBROOTNETCDFMINFORTRAN}
-                                HDF5ROOT      = ${EBROOTHDF5}
-                                ;;
-                            tds)
                                 load_modules  = git/2.14.1 craype-haswell PrgEnv-gnu netcdf netcdf-fortran hdf5 cray-libsci
                                 NETCDFROOT    = ${EBROOTNETCDF}
                                 NETCDFFROOT   = ${EBROOTNETCDFMINFORTRAN}
@@ -435,16 +421,16 @@ case "$ac_sitename" in
                         LDFLAGS       = -Wl,--allow-multiple-definition
                         GRIBAPIROOT    = /project/c14/install/kesch/libgrib_api/v1.20.0.2/cray/
                         SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2/cray/
-                        config_tuning = $(tmp=${fortran_compiler#'cray'};tmp=${tmp#-};tmp=${tmp:-default};echo $tmp)
+                        config_tuning = $(tmp=${fortran_compiler#'cray'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
                         # Generic CPU/GPU setup
                         case "${config_tuning}" in
                             gpu*)
                                 config_target = kesch_gpu
-                                FFLAGS        = ${FFLAGS} -hnoomp -hflex_mp=intolerant -hfp0 -hacc_model=deep_copy -O1,cache0,ipa1
+                                FFLAGS        = ${FFLAGS} -hnoomp -hflex_mp=intolerant -hfp0 -hacc_model=deep_copy -Ocache0,ipa1
                                 ;;
                             *)
                                 config_target = kesch_cpu
-                                FFLAGS        = ${FFLAGS} -hflex_mp=conservative -hfp1 -hnoacc -O1,cache0
+                                FFLAGS        = ${FFLAGS} -hflex_mp=conservative -hfp1 -hnoacc -Ocache0
                                 ;;
                         esac
                         # Setup of specific version
@@ -457,24 +443,8 @@ case "$ac_sitename" in
                                 LAPACKROOT    = ${CRAY_LIBSCI_PREFIX_DIR}
                                 LAPACK_LIB    = -lsci_cray
                                 ;;
-                            tds)
-                                load_modules  = git/2.14.1 craype-haswell PrgEnv-cray netCDF netCDF-Fortran HDF5 cray-libsci
-                                NETCDFROOT    = ${EBROOTNETCDF}
-                                NETCDFFROOT   = ${EBROOTNETCDFMINFORTRAN}
-                                HDF5ROOT      = ${EBROOTHDF5}
-                                LAPACKROOT    = ${CRAY_LIBSCI_PREFIX_DIR}
-                                LAPACK_LIB    = -lsci_cray
-                                ;;
                             gpu)
-                                load_modules  = git/2.14.1 craype-haswell PrgEnv-cray netcdf netcdf-fortran HDF5 cray-libsci
-                                NETCDFROOT    = ${EBROOTNETCDF}
-                                NETCDFFROOT   = ${EBROOTNETCDFMINFORTRAN}
-                                HDF5ROOT      = ${EBROOTHDF5}
-                                LAPACKROOT    = ${CRAY_LIBSCI_PREFIX_DIR}
-                                LAPACK_LIB    = -lsci_cray
-                                ;;
-                            gpu-tds)
-                                load_modules  = git/2.8.4 craype-haswell PrgEnv-cray craype-accel-nvidia35 HDF5 netCDF netCDF-Fortran
+                                load_modules  = git/2.14.1 craype-haswell PrgEnv-cray craype-accel-nvidia35 netCDF netCDF-Fortran HDF5 cray-libsci
                                 NETCDFROOT    = ${EBROOTNETCDF}
                                 NETCDFFROOT   = ${EBROOTNETCDFMINFORTRAN}
                                 HDF5ROOT      = ${EBROOTHDF5}
