@@ -1254,14 +1254,16 @@ Note: vertical nesting requires option 2 to run numerically stable over longer t
 %\hline
 start\_time &
 R(n\_dom) & 0.   & s &
-Time when a nested domain starts to be active (namelist entry is ignored for the global domain)
+Time when a nested domain starts to be active. Relative time w.r.t.\ experiment start date (\texttt{ini\_datetime\_string} / \texttt{experimentStratDate}).\\
+(namelist entry is ignored for the global domain)
 & n\_dom$>$1
 \tabularnewline
 
 %\hline
 end\_time &
 R(n\_dom) & 1.E30  & s &
-Time when a nested domain terminates (namelist entry is ignored for the global domain)
+Time when a nested domain terminates. Relative time w.r.t.\ experiment start date (\texttt{ini\_datetime\_string} / \texttt{experimentStratDate}).\\ 
+(namelist entry is ignored for the global domain)
 & n\_dom$>$1
 \tabularnewline
 
@@ -1691,14 +1693,15 @@ the number of model levels does not yet work) &
 
 dt\_iau&
 R & 10800 & s &
-Time interval during which an incremental analysis update (IAU) is performed &
+Duration of incremental analysis update (IAU) procedure. Start time for IAU is the actual model start time (see below). &
 init\_mode=5,6
 \tabularnewline
 
 dt\_shift&
 R & 0 & s &
-Time by which the actual model start time is shifted ahead of the nominal date.
-Must be NEGATIVE, usually $- 0.5$ dt\_iau. &
+Time by which the actual model start time is shifted ahead of the nominal date. 
+The latter is given by either \texttt{ini\_datetime\_string} or \texttt{experimentStartDate}.
+\texttt{dt\_shift} must be NEGATIVE, usually $- 0.5$ dt\_iau. &
 init\_mode=5,6
 \tabularnewline
 
