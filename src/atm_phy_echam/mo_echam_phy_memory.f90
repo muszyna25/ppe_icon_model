@@ -58,6 +58,7 @@ MODULE mo_echam_phy_memory
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_PACK24,  &
     &                               DATATYPE_FLT32,  DATATYPE_FLT64,   &
+    &                               DATATYPE_INT,                      &
     &                               GRID_UNSTRUCTURED,                 &
     &                               TSTEP_INSTANT, TSTEP_CONSTANT,     &
     &                               TSTEP_MIN, TSTEP_MAX,              &
@@ -252,23 +253,28 @@ MODULE mo_echam_phy_memory
       & ssfc      (:,  :),  &!< sfc snow flux, convective  [kg m-2 s-1]
       & totprec   (:,  :)    !< total precipitation flux,[kg m-2 s-1]
 
-    REAL(wp),POINTER :: &
+    REAL(wp),POINTER ::     &
       & rintop (:,  :),     &!< low lever inversion, computed by "cover" (memory_g3b)
       & rtype  (:,  :),     &!< type of convection 0...3. (in memory_g3b in ECHAM)
-      & topmax (:,  :),     &!< maximum height of convective cloud tops [Pa] (memory_g3b)
+      & topmax (:,  :)       !< maximum height of convective cloud tops [Pa] (memory_g3b)
+    INTEGER ,POINTER ::     &
+      & ictop  (:,  :)       !< level index of cnovective cloud top
+
+    ! Vertical diffusion
+    REAL(wp),POINTER ::     &
       & thvsig (:,  :)       !< Std. dev. of virtual potential temperature at the upper
                              !< interface of the lowest model layer.
                              !< Computed in "vdiff" by getting the square root of
                              !< thvvar(:,nlev-1,:). Used by "cucall".
 
-    REAL(wp),POINTER :: &
+    REAL(wp),POINTER ::     &
       & siced  (:,  :),     &!< ice depth
       & alake  (:,  :),     &!< lake mask
       & alb    (:,  :),     &!< surface background albedo
       & seaice (:,  :)       !< sea ice as read in from amip input
 
     ! Energy and moisture budget related diagnostic variables
-    REAL(wp),POINTER :: &
+    REAL(wp),POINTER ::     &
       & cpair    (:,:,:),   &!< specific heat of air at constant pressure [J/kg/K]
       & cvair    (:,:,:),   &!< specific heat of air at constant volume   [J/kg/K]
       & qconv    (:,:,:),   &!< convert heating to temp tend. [(K/s)/(W/m^2)]
@@ -2146,6 +2152,15 @@ CONTAINS
                 & initval =  99999.0_wp, resetval =  99999.0_wp,           &
                 & isteptype=TSTEP_MIN,                                     &
                 & action_list=actions(new_action(ACTION_RESET,"P1D"))      )
+
+    ! &       field% ictop  (nproma,       nblks), &
+    cf_desc    = t_cf_var('ictop', '-', 'level index of convective cloud tops', &
+         &                datatype_int)
+    grib2_desc = grib2_var(0,6,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'ictop', field%ictop,                &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d,                       &
+                & isteptype=TSTEP_INSTANT )
 
     ! &       field% tke    (nproma,nlev  ,nblks), &
     cf_desc    = t_cf_var('turbulent_kinetic_energy', 'J kg-1', 'turbulent kinetic energy', &

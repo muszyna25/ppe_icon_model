@@ -18,93 +18,60 @@
 !! headers of the routines.
 !!
 
-!----------------------------
-#include "omp_definitions.inc"
-!----------------------------
 #if defined __xlC__ && !defined NOXLFPROCESS
 @PROCESS HOT
 @PROCESS SPILLSIZE(5000)
 #endif
 !OCL NOALIAS
 
-MODULE mo_interface_echam_radheating
+MODULE mo_interface_echam_rht
 
   USE mo_kind,                ONLY: wp
 
-  USE mo_model_domain        ,ONLY: t_patch
-  USE mo_loopindices         ,ONLY: get_indices_c
-
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_run_config,          ONLY: nlev, nlevp1
-  USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, t_echam_phy_tend
-  USE mo_ext_data_state,      ONLY: ext_data
 
-  USE mo_psrad_solar_parameters, ONLY: psctm
-  USE mo_radheating,          ONLY: radheating
+  USE mtime                  ,ONLY: datetime
+  USE mo_echam_phy_memory    ,ONLY: t_echam_phy_field, prm_field, &
+    &                               t_echam_phy_tend,  prm_tend
+  USE mo_ext_data_state,      ONLY: ext_data
 
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_radheat
 
+  USE mo_radheating,          ONLY: radheating
+  USE mo_psrad_solar_parameters, ONLY: psctm
+
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: interface_echam_radheating
+  PUBLIC :: echam_rht
 
 CONTAINS
 
   !-------------------------------------------------------------------
-  SUBROUTINE interface_echam_radheating(is_in_sd_ed_interval,    &
-       &                                patch, rl_start, rl_end, &
-       &                                field, tend              )
+  SUBROUTINE echam_rht(is_in_sd_ed_interval, &
+       &               is_active,            &
+       &               jg, jb,jcs,jce,       &
+       &               datetime_old,         &
+       &               pdtime                )
 
-    LOGICAL                 ,INTENT(in)    :: is_in_sd_ed_interval
-    TYPE(t_patch)   ,TARGET ,INTENT(in)    :: patch           !< grid/patch info
-    INTEGER                 ,INTENT(in)    :: rl_start, rl_end
-    TYPE(t_echam_phy_field) ,POINTER       :: field    
-    TYPE(t_echam_phy_tend)  ,POINTER       :: tend
+    LOGICAL                 ,INTENT(in) :: is_in_sd_ed_interval
+    LOGICAL                 ,INTENT(in) :: is_active           !< generic input, not used in echam_rht
+    INTEGER                 ,INTENT(in) :: jg
+    INTEGER                 ,INTENT(in) :: jb                  !< block index
+    INTEGER                 ,INTENT(in) :: jcs, jce            !< start/end column index within this block
+    TYPE(datetime)          ,POINTER    :: datetime_old        !< generic input, not used in echam_rht
+    REAL(wp)                ,INTENT(in) :: pdtime              !< generic input, not used in echam_rht
 
-    INTEGER  :: jg             
-    INTEGER  :: i_nchdom
-    INTEGER  :: i_startblk,i_endblk
-    INTEGER  :: jb             !< block index
-    INTEGER  :: jcs, jce       !< start/end column index within this block
-    
+    ! Local variables
+    !
+    TYPE(t_echam_phy_field) ,POINTER    :: field
+    TYPE(t_echam_phy_tend)  ,POINTER    :: tend
 
-    jg         = patch%id
-    i_nchdom   = MAX(1,patch%n_childdom)
-    i_startblk = patch%cells%start_blk(rl_start,1)
-    i_endblk   = patch%cells%end_blk(rl_end,i_nchdom)
-
-      
     IF (ltimer) CALL timer_start(timer_radheat)
-    !-------------------------------------------------------------------
-!$OMP PARALLEL DO PRIVATE(jcs,jce)
-    DO jb = i_startblk,i_endblk
-       !
-       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-       !
-       CALL echam_radheating(is_in_sd_ed_interval,          &
-            &                jg, jb,jcs,jce, nproma,        &
-            &                field, tend                    )
 
-    END DO
-!$OMP END PARALLEL DO 
-    !-------------------------------------------------------------------
-    IF (ltimer) CALL timer_stop(timer_radheat)
- 
-  END SUBROUTINE interface_echam_radheating
-  !-------------------------------------------------------------------
-
-  !-------------------------------------------------------------------
-  SUBROUTINE echam_radheating(is_in_sd_ed_interval,  &
-       &                      jg, jb,jcs,jce, nbdim, &
-       &                      field, tend            )
-
-    LOGICAL                 ,INTENT(in)    :: is_in_sd_ed_interval
-    INTEGER                 ,INTENT(in)    :: jg
-    INTEGER                 ,INTENT(in)    :: jb                  !< block index
-    INTEGER                 ,INTENT(in)    :: jcs, jce            !< start/end column index within this block
-    INTEGER                 ,INTENT(in)    :: nbdim               !< size of this block
-    TYPE(t_echam_phy_field) ,POINTER       :: field
-    TYPE(t_echam_phy_tend)  ,POINTER       :: tend
+    ! associate pointers
+    field => prm_field(jg)
+    tend  => prm_tend (jg)
 
     IF ( is_in_sd_ed_interval ) THEN
        !
@@ -115,7 +82,7 @@ CONTAINS
             !
             & jcs        = jcs                            ,&! loop start index
             & jce        = jce                            ,&! loop end index
-            & kbdim      = nbdim                          ,&! dimension size
+            & kbdim      = nproma                         ,&! dimension size
             & klev       = nlev                           ,&! vertical dimension size
             & klevp1     = nlevp1                         ,&! vertical dimension size
             !
@@ -201,8 +168,10 @@ CONTAINS
        tend%ta_rlw(jcs:jce,:,jb) = 0.0_wp
        !
     END IF
-    !
-  END SUBROUTINE echam_radheating
+
+    IF (ltimer) CALL timer_stop(timer_radheat)
+
+  END SUBROUTINE echam_rht
   !---------------------------------------------------------------------
 
-END MODULE mo_interface_echam_radheating
+END MODULE mo_interface_echam_rht

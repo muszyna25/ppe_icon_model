@@ -30,9 +30,6 @@ MODULE mo_cuadjust
   USE mo_kind,               ONLY: wp
   USE mo_physical_constants, ONLY: vtmpc1
   USE mo_echam_convect_tables,     ONLY: lookup_ua_list_spline, lookup_ubc_list
-#ifdef _PROFILE
-  USE mo_profile,        ONLY: trace_start, trace_stop
-#endif
 
   IMPLICIT NONE
   PRIVATE
@@ -66,9 +63,6 @@ CONTAINS
 
     !  Executable statements
 
-#ifdef _PROFILE
-    CALL trace_start ('cuadjtq', 32)
-#endif
     !
     !---------------------------------------------------------------------------------
     !
@@ -210,10 +204,6 @@ CONTAINS
       END IF
 
     END IF
-
-#ifdef _PROFILE
-    CALL trace_stop ('cuadjtq', 32)
-#endif
 
   END SUBROUTINE cuadjtq
 

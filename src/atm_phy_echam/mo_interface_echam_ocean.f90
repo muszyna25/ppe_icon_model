@@ -453,18 +453,17 @@ CONTAINS
   !! Note that each call of this subroutine deals with a single grid level
   !! rather than the entire grid tree.
 
-  SUBROUTINE interface_echam_ocean( jg      ,&! in
-    &                               p_patch ) ! in
+  SUBROUTINE interface_echam_ocean( p_patch ) ! in
 
     ! Arguments
 
-    INTEGER,               INTENT(IN)    :: jg            !< grid level/domain index
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
 
     ! Local variables
 
     LOGICAL               :: write_coupler_restart
     INTEGER               :: nbr_hor_cells  ! = inner and halo points
+    INTEGER               :: jg             ! grid index
     INTEGER               :: n              ! nproma loop count
     INTEGER               :: nn             ! block offset
     INTEGER               :: i_blk          ! block loop count
@@ -477,6 +476,8 @@ CONTAINS
     REAL(wp)              :: frac_oce
 
     IF ( .NOT. is_coupled_run() ) RETURN
+
+    jg = p_patch%id
 
     !-------------------------------------------------------------------------
     ! If running in atm-oce coupled mode, exchange information 
@@ -1061,9 +1062,8 @@ CONTAINS
 
   END SUBROUTINE construct_atmo_coupler
 
-  SUBROUTINE interface_echam_ocean ( jg, p_patch )
+  SUBROUTINE interface_echam_ocean ( p_patch )
 
-    INTEGER,               INTENT(IN)    :: jg
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
 
     IF ( is_coupled_run() ) THEN

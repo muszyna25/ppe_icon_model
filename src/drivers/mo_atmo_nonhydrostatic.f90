@@ -83,7 +83,6 @@ USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
 USE mo_echam_phy_init,      ONLY: init_echam_phy, initcond_echam_phy
 USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
 
-USE mo_vertical_coord_table,ONLY: vct_a, vct_b
 USE mo_nh_testcases_nml,    ONLY: nh_test_name
 
 USE mtime,                  ONLY: datetimeToString, timeDelta, newTimeDelta,               &
@@ -280,16 +279,14 @@ CONTAINS
 ! LGS
 !
     IF ( iforcing == iecham ) THEN
-      CALL init_echam_phy( p_patch(1:), nh_test_name, &
-        & nlev, vct_a, vct_b, time_config%tc_current_date )
+      CALL init_echam_phy( p_patch(1:), nh_test_name, nlev, time_config%tc_current_date )
       !! many of the initial conditions for the echam 'field' are set here
       !! Note: it is not certain that p_nh_state(jg)%diag%temp has been initialized at this point in time.
       !!       initcond_echam_phy should therefore not rely on the fact that this has been properly set.
       !!       It is the case for some testcases, but not e.g. for coupled or AMIP runs if the atmosphere
       !!       is initialized with IFS analyses.
       DO jg = 1,n_dom
-        CALL initcond_echam_phy( jg                                                 ,&
-          &                      p_patch(jg)                                        ,&
+        CALL initcond_echam_phy( p_patch(jg)                                        ,&
           &                      p_nh_state(jg)% metrics% z_ifc         (:,:,:)     ,&
           &                      p_nh_state(jg)% metrics% z_mc          (:,:,:)     ,&
           &                      p_nh_state(jg)% metrics% ddqz_z_full   (:,:,:)     ,&

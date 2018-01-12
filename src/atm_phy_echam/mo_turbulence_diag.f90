@@ -22,11 +22,10 @@ MODULE mo_turbulence_diag
   USE mo_kind,              ONLY: wp
   USE mo_convect_tables,    ONLY: prepare_ua_index_spline, lookup_ua_spline, &
     &                             compute_qsat
-  USE mo_vdiff_config,      ONLY: vdiff_config
+!!$  USE mo_echam_convect_tables, ONLY: prepare_ua_index_spline, lookup_ua_spline
+  USE mo_echam_vdf_config,  ONLY: echam_vdf_config
   USE mo_echam_vdiff_params,ONLY: ckap, cb,cc, chneu, da1,                  &
-    &                             eps_shear, eps_corio, tke_min, cons5,     &
-    &                             f_tau0, f_theta0, c_f, c_n, c_e, pr0,     &
-    &                             wmc,fsl,fbl 
+    &                             eps_shear, eps_corio, tke_min, cons5
   USE mo_physical_constants,ONLY: grav, rd, cpd, cpv, rd_o_cpd, rv,         &
     &                             vtmpc1, tmelt, alv, als, p0ref,           &
     &                             earth_angular_velocity
@@ -55,7 +54,8 @@ CONTAINS
   !! Separated from vdiff.f90 of ECHAM6 and re-organized by Hui Wan (2010-09).
   !!  updated to echam-6.3.01 by Monika Esch (2014-11)
   !!
-  SUBROUTINE atm_exchange_coeff( kproma, kbdim, klev, klevm1, klevp1,     &! in
+  SUBROUTINE atm_exchange_coeff( jg,                                      &! in
+                               & kproma, kbdim, klev, klevm1, klevp1,     &! in
                                & pdtime, pcoriol,                         &! in
                                & pghf, pghh,                              &! in
                                & pum1, pvm1, ptm1, ptvm1,                 &! in
@@ -71,6 +71,7 @@ CONTAINS
                                & pri, pmixlen                             )
     ! Arguments
 
+    INTEGER, INTENT(IN) :: jg
     INTEGER, INTENT(IN) :: kproma, kbdim
     INTEGER, INTENT(IN) :: klev, klevm1, klevp1
     REAL(wp),INTENT(IN) :: pdtime
@@ -151,6 +152,18 @@ CONTAINS
     REAL(wp) :: zucf, zusus1, zzb, ztvm
 
     REAL(wp) :: zonethird
+
+    ! Shortcuts to components of echam_vdf_config
+    !
+    REAL(wp), POINTER :: f_tau0, f_theta0, c_f, c_n, c_e, pr0, fbl
+    !
+    f_tau0   => echam_vdf_config(jg)% f_tau0
+    f_theta0 => echam_vdf_config(jg)% f_theta0
+    c_f      => echam_vdf_config(jg)% c_f
+    c_n      => echam_vdf_config(jg)% c_n
+    c_e      => echam_vdf_config(jg)% c_e
+    pr0      => echam_vdf_config(jg)% pr0
+    fbl      => echam_vdf_config(jg)% fbl
 
     !-------------------------------------
     ! 1. Some constants
@@ -448,7 +461,8 @@ CONTAINS
   !-------------
   !>
   !!
-  SUBROUTINE sfc_exchange_coeff( kproma, kbdim, ksfc_type,               &! in
+  SUBROUTINE sfc_exchange_coeff( jg,                                     &! in
+                               & kproma, kbdim, ksfc_type,               &! in
                                & idx_wtr, idx_ice, idx_lnd,              &! in
                                & pz0m, ptsfc,                            &! in
                                & pfrc, pghpbl,                           &! in
@@ -478,6 +492,7 @@ CONTAINS
                                & pcsat, pcair                            &! in, optional
                                & )
 
+    INTEGER, INTENT(IN) :: jg
     INTEGER, INTENT(IN) :: kproma, kbdim
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
 
@@ -556,21 +571,21 @@ CONTAINS
 
     ! Local variables
 
-    REAL(wp) :: zdu2   (kbdim,ksfc_type) !<
-    REAL(wp) :: zcfnch (kbdim,ksfc_type) !<
-    REAL(wp) :: zustar (kbdim,ksfc_type) !< friction velocity
-    REAL(wp) :: zqts   (kbdim,ksfc_type)
-    REAL(wp) :: zthetavmit (kbdim,ksfc_type) ! virtual potential temperature at half level
-    REAL(wp) :: zdthetal (kbdim,ksfc_type) !
-    REAL(wp) :: lmix (kbdim,ksfc_type)   !< mixing length
-    REAL(wp) :: e_kin (kbdim,ksfc_type)  !< turbulent kinetic energy
-    REAL(wp) :: e_pot (kbdim,ksfc_type)  !< turbulent potential energy
-    REAL(wp) :: f_tau (kbdim,ksfc_type)  !< stability finction for momentum
-    REAL(wp) :: f_theta (kbdim,ksfc_type)!< stability finction for heat
-    REAL(wp) :: z0h   (kbdim,ksfc_type)  !
+    REAL(wp) :: zdu2      (kbdim,ksfc_type) !<
+    REAL(wp) :: zcfnch    (kbdim,ksfc_type) !<
+    REAL(wp) :: zustar    (kbdim,ksfc_type) !< friction velocity
+    REAL(wp) :: zqts      (kbdim,ksfc_type)
+    REAL(wp) :: zthetavmit(kbdim,ksfc_type) ! virtual potential temperature at half level
+    REAL(wp) :: zdthetal  (kbdim,ksfc_type) !
+    REAL(wp) :: lmix      (kbdim,ksfc_type) !< mixing length
+    REAL(wp) :: e_kin     (kbdim,ksfc_type) !< turbulent kinetic energy
+    REAL(wp) :: e_pot     (kbdim,ksfc_type) !< turbulent potential energy
+    REAL(wp) :: f_tau     (kbdim,ksfc_type) !< stability finction for momentum
+    REAL(wp) :: f_theta   (kbdim,ksfc_type) !< stability finction for heat
+    REAL(wp) :: z0h       (kbdim,ksfc_type) !
  
-    INTEGER  :: loidx  (kbdim,ksfc_type) !< counter for masks
-    INTEGER  :: is     (ksfc_type)       !< counter for masks
+    INTEGER  :: loidx     (kbdim,ksfc_type) !< counter for masks
+    INTEGER  :: is        (ksfc_type)       !< counter for masks
 
     
     REAL(wp) :: zrdrv, zrvrd, zonethird, ztwothirds
@@ -583,6 +598,23 @@ CONTAINS
     REAL(wp) :: zust
     REAL(wp) :: lmc
     INTEGER  :: jsfc, jl, jls, js
+
+    ! Shortcuts to components of echam_vdf_config
+    !
+    LOGICAL , POINTER :: lsfc_mom_flux, lsfc_heat_flux
+    REAL(wp), POINTER :: f_tau0, f_theta0, c_f, c_n, pr0, wmc, fsl, fbl
+    !
+    lsfc_mom_flux  => echam_vdf_config(jg)% lsfc_mom_flux
+    lsfc_heat_flux => echam_vdf_config(jg)% lsfc_heat_flux
+    !
+    f_tau0   => echam_vdf_config(jg)% f_tau0
+    f_theta0 => echam_vdf_config(jg)% f_theta0
+    c_f      => echam_vdf_config(jg)% c_f
+    c_n      => echam_vdf_config(jg)% c_n
+    pr0      => echam_vdf_config(jg)% pr0
+    wmc      => echam_vdf_config(jg)% wmc
+    fsl      => echam_vdf_config(jg)% fsl
+    fbl      => echam_vdf_config(jg)% fbl
 
     !-------------------
     ! Some constants
@@ -630,8 +662,7 @@ CONTAINS
         ENDIF
       ENDDO
 
-      CALL compute_qsat( kproma, is(jsfc), loidx(1,jsfc), ppsfc, &
-                              ptsfc(1,jsfc), pqsat_tile(1,jsfc) )
+      CALL compute_qsat( kproma, is(jsfc), loidx(1,jsfc), ppsfc, ptsfc(1,jsfc), pqsat_tile(1,jsfc) )
 
      ! loop over mask only
      !
@@ -641,19 +672,18 @@ CONTAINS
         ! dry static energy pcpt_tile
         !
         IF(jsfc == idx_lnd) THEN
-          zqts(js,jsfc) = pcsat(js) * pqsat_tile(js,jsfc) + (1._wp - pcair(js))*pqm1_b(js) 
-                                                            ! q_total at land surface
+          zqts(js,jsfc) = pcsat(js) * pqsat_tile(js,jsfc) + (1._wp - pcair(js))*pqm1_b(js) ! q_total at land surface
         ELSE
-          zqts(js,jsfc) = pqsat_tile(js,jsfc)               ! q_total at surface
+          zqts(js,jsfc) = pqsat_tile(js,jsfc)                                              ! q_total at non-land surface
         END IF
         pcpt_tile(js,jsfc) = ptsfc(js,jsfc) * (cpd + (cpv - cpd) * zqts(js,jsfc))
 
         ztheta      = ptsfc(js,jsfc)*(p0ref/ppsfc(js))**rd_o_cpd
         zthetav     = ztheta*(1._wp+vtmpc1*zqts(js,jsfc))
 
-        zqtl       = pqm1_b(js) + pqxm1_b(js)              ! q_total at lowest model level
+        zqtl       = pqm1_b(js) + pqxm1_b(js)                     ! q_total at lowest model level
 
-        zqtmit     = 0.5_wp*( zqtl + zqts(js,jsfc) )       ! q_total, vertical average
+        zqtmit     = 0.5_wp*( zqtl + zqts(js,jsfc) )              ! q_total, vertical average
 
         zqsmit     = 0.5_wp*( pqsat_b  (js) + pqsat_tile(js,jsfc))! qs
         ztmit      = 0.5_wp*( ptm1_b   (js) + ptsfc    (js,jsfc)) ! temp.
@@ -690,7 +720,7 @@ CONTAINS
 
         IF(pri_tile(js,jsfc).GT.0._wp) THEN
            f_tau(js,jsfc)   = f_tau0*(0.25_wp+0.75_wp/(1._wp+4._wp*pri_tile(js,jsfc)))
-           f_theta(js,jsfc) = f_theta0/(1._wp+4._wp*pri_tile(js,jsfc))
+           f_theta(js,jsfc) = f_theta0               /(1._wp+4._wp*pri_tile(js,jsfc))
         ELSE
            f_tau(js,jsfc)   = f_tau0
            f_theta(js,jsfc) = f_theta0
@@ -699,15 +729,11 @@ CONTAINS
  ! diagnose turbulent kinetic and turbulent potential energy from total turb. energy
 
         IF(pri_tile(js,jsfc).GT.0._wp) THEN
-           e_kin(js,jsfc) = ptke_b(js)/(1._wp+pri_tile(js,jsfc)                           &
-                          & /(pr0+3._wp*pri_tile(js,jsfc)))
-           e_pot(js,jsfc) = e_kin(js,jsfc)*pri_tile(js,jsfc)                              &
-                          & /(pr0+3._wp*pri_tile(js,jsfc))
+           e_kin(js,jsfc) = ptke_b(js)/(1._wp+pri_tile(js,jsfc)/(pr0+3._wp*pri_tile(js,jsfc)))
+           e_pot(js,jsfc) = e_kin(js,jsfc)   *pri_tile(js,jsfc)/(pr0+3._wp*pri_tile(js,jsfc))
         ELSE
-           e_kin(js,jsfc) = ptke_b(js)/(1._wp+pri_tile(js,jsfc)                           &
-                          & /(2._wp*pri_tile(js,jsfc)-pr0))
-           e_pot(js,jsfc) = e_kin(js,jsfc)*pri_tile(js,jsfc)                              &
-                          & /(2._wp*pri_tile(js,jsfc)-pr0) 
+           e_kin(js,jsfc) = ptke_b(js)/(1._wp+pri_tile(js,jsfc)/(2._wp*pri_tile(js,jsfc)-pr0))
+           e_pot(js,jsfc) = e_kin(js,jsfc)   *pri_tile(js,jsfc)/(2._wp*pri_tile(js,jsfc)-pr0) 
         END IF
 
         pthvsig_b(js) =  zthetav/grav*SQRT(2.0_wp*e_pot(js,jsfc)*ABS(zbuoy))
@@ -715,15 +741,12 @@ CONTAINS
  !  compute mixing length 
 
         IF(pri_tile(js,jsfc).GT.0._wp) THEN
-           lmix(js,jsfc) =   1._wp/(ckap*fsl*pghf_b(js))                                  &
-                         & + 2._wp*earth_angular_velocity                                 &
-                         &   /(c_f*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))                   &
-                         & + SQRT(grav*zbuoy/(zthetavmit(js,jsfc)*pghf_b(js)))            &
-                         &   /(c_n*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))
+           lmix(js,jsfc) =   1._wp/(ckap*fsl*pghf_b(js))                                                                 &
+                         & + 2._wp*earth_angular_velocity                     /(c_f*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc))) &
+                         & + SQRT(grav*zbuoy/(zthetavmit(js,jsfc)*pghf_b(js)))/(c_n*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))
         ELSE
-           lmix(js,jsfc) =   1._wp/(ckap*fsl*pghf_b(js))                                  &
-                         & + 2._wp*earth_angular_velocity                                 &
-                         &   /(c_f*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))
+           lmix(js,jsfc) =   1._wp/(ckap*fsl*pghf_b(js))                                                                 &
+                         & + 2._wp*earth_angular_velocity                     /(c_f*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))
         END IF 
 
         lmix(js,jsfc) = 1._wp/lmix(js,jsfc)
@@ -731,8 +754,7 @@ CONTAINS
  !  convective BL mixing length formulation
 
         IF(pri_tile(js,jsfc).LT.0._wp) THEN
-           lmc = 1._wp/(ckap*fsl*pghf_b(js))+fbl                                          &
-               & /(ckap*(pghpbl(js)-fsl*pghf_b(js)))
+           lmc = 1._wp/(ckap*fsl*pghf_b(js))+fbl/(ckap*(pghpbl(js)-fsl*pghf_b(js)))
            lmc = 1._wp/lmc
            lmix(js,jsfc) = MAX(lmix(js,jsfc),lmc)
         END IF
@@ -750,8 +772,7 @@ CONTAINS
  !  this factor is included as "prefactor for the exchange coefficients" in
  !  subroutine matrix_setup_elim
 
- ! compute/extract roughness length for heat over each surface, currently                 &
- !  equal to z0m over ice
+ ! compute/extract roughness length for heat over each surface, currently equal to z0m over ice
 
         IF ( jsfc == idx_wtr ) THEN         ! over water
            z0h(js,jsfc)=pz0m(js,jsfc)*EXP(2._wp-86.276_wp*pz0m(js,jsfc)**0.375_wp)
@@ -777,7 +798,7 @@ CONTAINS
     ! for each type of surface
     !-------------------------------------------------------------------------
 
-    IF (vdiff_config%lsfc_mom_flux.OR.vdiff_config%lsfc_heat_flux) THEN  ! Surface flux is considered
+    IF (lsfc_mom_flux.OR.lsfc_heat_flux) THEN  ! Surface flux is considered
 
 !  preset values to zero
      pcfh_tile(:,:) = 0.0_wp
@@ -790,9 +811,8 @@ CONTAINS
           ! set index
           js=loidx(jls,jsfc)
           IF ( pri_tile(js,jsfc) > 0._wp ) THEN
-            pcfm_tile(js,jsfc) = pcfnc_tile (js,jsfc)*f_tau(js,jsfc)/f_tau0
-            pcfh_tile(js,jsfc) = zcfnch(js,jsfc)*f_theta(js,jsfc)/f_theta0               &
-                              & *SQRT(f_tau(js,jsfc)/f_tau0)  
+            pcfm_tile(js,jsfc) = pcfnc_tile(js,jsfc)*f_tau  (js,jsfc)/f_tau0
+            pcfh_tile(js,jsfc) = zcfnch    (js,jsfc)*f_theta(js,jsfc)/f_theta0*SQRT(f_tau(js,jsfc)/f_tau0)  
             pch_tile (js,jsfc) = pcfh_tile(js,jsfc)/zcfnch(js,jsfc)*pchn_tile(js,jsfc)   
           ENDIF
         
@@ -820,11 +840,11 @@ CONTAINS
     
     END IF  ! lsfc_mom_flux.OR.lsfc_heat_flux
 
-    IF (.NOT.vdiff_config%lsfc_mom_flux ) THEN  ! Surface momentum flux is switched off
+    IF (.NOT.lsfc_mom_flux ) THEN  ! Surface momentum flux is switched off
       pcfm_tile(1:kproma,1:ksfc_type) = 0._wp
     END IF
 
-    IF (.NOT.vdiff_config%lsfc_heat_flux) THEN  ! Surface heat flux is switched off
+    IF (.NOT.lsfc_heat_flux) THEN  ! Surface heat flux is switched off
       pcfh_tile(1:kproma,1:ksfc_type) = 0._wp
     END IF
 
@@ -845,9 +865,8 @@ CONTAINS
       js=loidx(jls,jsfc)
         pbn_tile(js,jsfc) = ckap / MAX(zepsec, SQRT(pcdn_tile(js,jsfc)))
         pbhn_tile(js,jsfc) = ckap / MAX(zepsec, SQRT(pchn_tile(js,jsfc)))
-        pbm_tile(js,jsfc) = MAX(zepsec, SQRT(pcfm_tile(js,jsfc)*pcdn_tile(js,jsfc) *  &
-                               zcons17 / pcfnc_tile(js,jsfc)))
-        pbh_tile(js,jsfc) = MAX(zepsec, pch_tile(js,jsfc)/pbm_tile(js,jsfc)*zcons17)
+        pbm_tile(js,jsfc) = MAX(zepsec, SQRT(pcfm_tile(js,jsfc)*pcdn_tile(js,jsfc)*zcons17 / pcfnc_tile(js,jsfc)))
+        pbh_tile(js,jsfc) = MAX(zepsec, pch_tile(js,jsfc)/pbm_tile(js,jsfc)       *zcons17)
         pbm_tile(js,jsfc) = 1._wp / pbm_tile(js,jsfc)
         pbh_tile(js,jsfc) = 1._wp / pbh_tile(js,jsfc)
       END DO
@@ -902,7 +921,7 @@ CONTAINS
     ! The grid-box mean is used in the next time step in subroutine
     ! "atm_exchange_coeff" for finding the PBL height.
     !-------------------------------------------------------------------------
-    IF (vdiff_config%lsfc_mom_flux) THEN  ! Surface momentum flux is switched on
+    IF (lsfc_mom_flux) THEN  ! Surface momentum flux is switched on
 
       DO jsfc = 1,ksfc_type
         DO jls = 1,is(jsfc)

@@ -60,27 +60,18 @@ MODULE mo_cloud
   USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline, lookup_ua_spline      &
                                     , lookup_uaw_spline, lookup_ubc                  &
                                     , lookup_ua_eor_uaw_spline
-  USE mo_echam_cloud_config,   ONLY : echam_cloud_config
-
-#ifdef _PROFILE
-  USE mo_profile,              ONLY : trace_start, trace_stop
-#endif
+  USE mo_echam_cld_config,     ONLY : echam_cld_config
 
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: cloud
 
-  ! to simplify access to components of echam_cloud_config
-  REAL(wp), POINTER :: cqtmin, cvtfall, crhosno, cn0s   , cthomi , csecfrl, cauloc, &
-       &               clmax , clmin  , ccraut , ceffmin, ceffmax, crhoi  ,         &
-       &               ccsaut, ccsacl , ccracl , ccwmin , clwprat
-
-
 CONTAINS
   !>
   !!
   !!
-  SUBROUTINE cloud (         kproma,       kbdim,        ktdia,        klev          &
+  SUBROUTINE cloud (         jg                                                      &
+                           , kproma,       kbdim,        klev                        &
                            , pdtime                                                  &
     ! - INPUT  1D .
                            , kctop                                                   &
@@ -110,7 +101,8 @@ CONTAINS
     !
     !
     !
-    INTEGER,  INTENT(IN)    :: kproma, kbdim, ktdia, klev
+    INTEGER,  INTENT(IN)    :: jg
+    INTEGER,  INTENT(IN)    :: kproma, kbdim, klev
     INTEGER,  INTENT(IN)    :: kctop(kbdim)
     INTEGER,  INTENT(INOUT) :: ktype(kbdim)
     REAL(wp), INTENT(IN)    :: pdtime
@@ -203,25 +195,32 @@ CONTAINS
 !!$      &        zmsnowacl(kbdim,klev)   ! Accretion rate of snow with cloud droplets
 !!$                                       ! in cloudy part of the grid box  [kg/kg]
 
-    ! to simplify access to components of echam_cloud_config
-    cqtmin   => echam_cloud_config% cqtmin
-    cvtfall  => echam_cloud_config% cvtfall
-    crhosno  => echam_cloud_config% crhosno
-    cn0s     => echam_cloud_config% cn0s
-    cthomi   => echam_cloud_config% cthomi
-    csecfrl  => echam_cloud_config% csecfrl
-    cauloc   => echam_cloud_config% cauloc
-    clmax    => echam_cloud_config% clmax
-    clmin    => echam_cloud_config% clmin
-    ccraut   => echam_cloud_config% ccraut
-    ceffmin  => echam_cloud_config% ceffmin
-    ceffmax  => echam_cloud_config% ceffmax
-    crhoi    => echam_cloud_config% crhoi
-    ccsaut   => echam_cloud_config% ccsaut
-    ccsacl   => echam_cloud_config% ccsacl
-    ccracl   => echam_cloud_config% ccracl
-    ccwmin   => echam_cloud_config% ccwmin
-    clwprat  => echam_cloud_config% clwprat
+    ! Shortcuts to components of echam_cld_config
+    !
+    INTEGER , POINTER :: jks
+    REAL(wp), POINTER :: cqtmin, cvtfall, crhosno, cn0s   , cthomi , csecfrl, cauloc, &
+         &               clmax , clmin  , ccraut , ceffmin, ceffmax, crhoi  ,         &
+         &               ccsaut, ccsacl , ccracl , ccwmin , clwprat
+    !
+    jks      => echam_cld_config(jg)% jks
+    cqtmin   => echam_cld_config(jg)% cqtmin
+    cvtfall  => echam_cld_config(jg)% cvtfall
+    crhosno  => echam_cld_config(jg)% crhosno
+    cn0s     => echam_cld_config(jg)% cn0s
+    cthomi   => echam_cld_config(jg)% cthomi
+    csecfrl  => echam_cld_config(jg)% csecfrl
+    cauloc   => echam_cld_config(jg)% cauloc
+    clmax    => echam_cld_config(jg)% clmax
+    clmin    => echam_cld_config(jg)% clmin
+    ccraut   => echam_cld_config(jg)% ccraut
+    ceffmin  => echam_cld_config(jg)% ceffmin
+    ceffmax  => echam_cld_config(jg)% ceffmax
+    crhoi    => echam_cld_config(jg)% crhoi
+    ccsaut   => echam_cld_config(jg)% ccsaut
+    ccsacl   => echam_cld_config(jg)% ccsacl
+    ccracl   => echam_cld_config(jg)% ccracl
+    ccwmin   => echam_cld_config(jg)% ccwmin
+    clwprat  => echam_cld_config(jg)% clwprat
 
     ! initialize output arrays
     !
@@ -246,11 +245,6 @@ CONTAINS
 !!$    zmsnowacl(:,:)= 0._wp
 
     ! Executable statements
-    !
-#ifdef _PROFILE
-    CALL trace_start ('cloud', 10)
-#endif
-
     !
     !   Security parameters
     !
@@ -277,7 +271,7 @@ CONTAINS
 111 END DO
 
     !
-    DO 831 jk = ktdia,klev  ! the big jk-loop
+    DO 831 jk = jks,klev  ! the big jk-loop
     !
     !       1.3   Air density
     !
@@ -289,7 +283,7 @@ CONTAINS
       zqrho_sqrt(1:kproma) = SQRT(zqrho(1:kproma))
       zpapm1_inv(1:kproma) = 1._wp/papm1(1:kproma,jk)
 
-      CALL prepare_ua_index_spline('cloud (1)',kproma,ptm1(1,jk),loidx(1),za(1))
+      CALL prepare_ua_index_spline(jg,'cloud (1)',kproma,ptm1(1,jk),loidx(1),za(1))
       CALL lookup_ua_spline(kproma,loidx(1),za(1),ua(1),dua(1))
       CALL lookup_uaw_spline(kproma,loidx(1),za(1),uaw(1),duaw(1))
       !
@@ -316,9 +310,6 @@ CONTAINS
       !       3.   Modification of incoming precipitation fluxes by
       !            melting, sublimation and evaporation
       !
-#ifdef _PROFILE
-      CALL trace_start ('cloud_loop_3', 13)
-#endif
       IF (jk .GT. 1) THEN
         !
         !       3.1   Melting of snow and ice
@@ -456,11 +447,6 @@ CONTAINS
         END DO
 
       END IF ! jk.GT.1
-      !
-#ifdef _PROFILE
-      CALL trace_stop ('cloud_loop_3', 13)
-      CALL trace_start ('cloud_loop_4', 14)
-#endif
       !
       !     --------------------------------------------------------------------------
       !       4.    Sedimentation of cloud ice from grid-mean values.
@@ -652,7 +638,7 @@ CONTAINS
       END DO
 
       CALL lookup_ubc(kproma,ztp1tmp(1),ub(1))
-      CALL prepare_ua_index_spline('cloud (2)',kproma,ztp1tmp(1),idx1(1),za(1)       &
+      CALL prepare_ua_index_spline(jg,'cloud (2)',kproma,ztp1tmp(1),idx1(1),za(1)       &
                                                ,ztmp1(1),nphase,zlo2(1),cond1(1))
       CALL lookup_ua_eor_uaw_spline(kproma,idx1(1),za(1),nphase,cond1(1),ua(1),dua(1))
       zpapp1i(1:kproma) = 1._wp/papm1(1:kproma,jk)
@@ -790,11 +776,6 @@ CONTAINS
     !!$              zxlb(jl)     = 0.0_wp
     !!$           END IF
     !!$  630     END DO
-    !
-#ifdef _PROFILE
-    CALL trace_stop ('cloud_loop_4', 14)
-    CALL trace_start ('cloud_loop_7', 17)
-#endif
     !
     !     ----------------------------------------------------------------------------
     !       7.  Cloud physics and precipitation fluxes at the surface
@@ -1107,10 +1088,6 @@ CONTAINS
       nclcpre = nclcpre - 1
     END IF
 
-#ifdef _PROFILE
-    CALL trace_stop ('cloud_loop_7', 17)
-    CALL trace_start ('cloud_loop_8', 18)
-#endif
     !     ----------------------------------------------------------------------------
     !       8.    Updating tendencies of t, q, xl, xi and final cloud cover
     !     ----------------------------------------------------------------------------
@@ -1167,15 +1144,8 @@ CONTAINS
 
 821 END DO
 
-#ifdef _PROFILE
-    CALL trace_stop ('cloud_loop_8', 18)
-#endif
     !
 831 END DO    ! Vertical loop
-!
-#ifdef _PROFILE
-    CALL trace_start ('cloud_loop_9', 19)
-#endif
     !
     !     ----------------------------------------------------------------------------
     !       9.    Wet chemistry and in-cloud scavenging
@@ -1217,7 +1187,7 @@ CONTAINS
        zxlvi(jl) = 0.0_wp
 931 END DO
     !
-    DO 933 jk     = ktdia,klev
+    DO 933 jk     = jks,klev
        DO 932 jl   = 1,kproma
           zxlvi(jl)  = zxlvi(jl)   + (pxlm1 (jl,jk)+pxlte_cld(jl,jk)*pdtime)*pmdry(jl,jk)
 932    END DO
@@ -1227,7 +1197,7 @@ CONTAINS
     DO 938 jl = 1,kproma
        zxlvitop(jl) = 0.0_wp
        klevtop = kctop(jl) - 1
-       DO 936 jk = ktdia, klevtop
+       DO 936 jk = jks, klevtop
           zxlvitop(jl) = zxlvitop(jl)+(pxlm1 (jl,jk)+pxlte_cld(jl,jk)*pdtime)*pmdry(jl,jk)
 936    END DO
 938 END DO
@@ -1239,11 +1209,6 @@ CONTAINS
           ktype(jl) = 4
        END IF
 940 END DO
-
-#ifdef _PROFILE
-    CALL trace_stop ('cloud_loop_9', 19)
-    CALL trace_stop ('cloud', 10)
-#endif
 
   END SUBROUTINE cloud
 

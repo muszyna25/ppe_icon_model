@@ -149,60 +149,60 @@ cat > ${atmo_namelist} << EOF
  itype_hlimit     = 3,4,4
  ihadv_tracer     = 52,2,2
 /
-&mpi_phy_nml
+&echam_phy_nml
 !
 ! domain 1
 ! --------
 !
 ! atmospheric phyiscs (""=never)
- mpi_phy_config(1)%dt_rad = "PT8M"
- mpi_phy_config(1)%dt_vdf = "PT4M"
- mpi_phy_config(1)%dt_cnv = "PT4M"
- mpi_phy_config(1)%dt_cld = "PT4M"
- mpi_phy_config(1)%dt_sso = ""
- mpi_phy_config(1)%dt_gwd = "PT4M"
+ echam_phy_config(1)%dt_rad = "PT8M"
+ echam_phy_config(1)%dt_vdf = "PT4M"
+ echam_phy_config(1)%dt_cnv = "PT4M"
+ echam_phy_config(1)%dt_cld = "PT4M"
+ echam_phy_config(1)%dt_sso = ""
+ echam_phy_config(1)%dt_gwd = "PT4M"
 !
 ! atmospheric chemistry (""=never)
- mpi_phy_config(1)%dt_mox = ""
- mpi_phy_config(1)%dt_car = ""
- mpi_phy_config(1)%dt_art = ""
+ echam_phy_config(1)%dt_mox = ""
+ echam_phy_config(1)%dt_car = ""
+ echam_phy_config(1)%dt_art = ""
 !
 ! surface (.TRUE. or .FALSE.)
- mpi_phy_config(1)%ljsb  = .FALSE
- mpi_phy_config(1)%lamip = .FALSE.
- mpi_phy_config(1)%lice  = .FALSE.
- mpi_phy_config(1)%lmlo  = .TRUE.
+ echam_phy_config(1)%ljsb   = .FALSE
+ echam_phy_config(1)%lamip  = .FALSE.
+ echam_phy_config(1)%lice   = .FALSE.
+ echam_phy_config(1)%lmlo   = .TRUE.
 !
 /
-&mpi_sso_nml
+&echam_rad_nml
+!
+! domain 1
+! --------
+!
+ echam_rad_config(1)%isolrad    =  5
+ echam_rad_config(1)%l_orbvsop87= .FALSE.
+ echam_rad_config(1)%cecc       = 0.0
+ echam_rad_config(1)%cobld      = 0.0
+ echam_rad_config(1)%ldiur      = .FALSE.
+ echam_rad_config(1)%l_sph_symm_irr = .TRUE.
+ echam_rad_config(1)%irad_h2o   =  1
+ echam_rad_config(1)%irad_co2   =  2
+ echam_rad_config(1)%irad_ch4   =  0
+ echam_rad_config(1)%irad_n2o   =  0
+ echam_rad_config(1)%irad_o3    =  4
+ echam_rad_config(1)%irad_o2    =  0
+ echam_rad_config(1)%irad_cfc11 =  0
+ echam_rad_config(1)%irad_cfc12 =  0
+ echam_rad_config(1)%irad_aero  =  0
+ echam_rad_config(1)%ighg       =  0
 /
-&radiation_nml
- irad_h2o         = 1           ! 1: prognostic vapor, liquid and ice
- irad_co2         = 2           ! 2: constant co2
- irad_ch4         = 0           ! 0: no ch4
- irad_n2o         = 0           ! 0: no n2o
- irad_o3          = 4           ! 4: RCE ozone (perpetual january of ozone file linked below)
- irad_o2          = 0           ! 0: no o2
- irad_cfc11       = 0           ! 0: no cfc11
- irad_cfc12       = 0           ! 0: no cfc12
- irad_aero        = 0           ! 0: no aerosol
- isolrad          = 5           ! 5: solar constant 433.3371 W/m^2 at 1 AE for RCE
- ldiur            = .FALSE.     ! no diurnal cycle, .TRUE. for diurnal cycle
+&echam_gwd_nml
 /
-&psrad_nml
-rad_perm          = 1           ! Integer for perturbing random number seeds
+&echam_vdf_nml
 /
-&psrad_orbit_nml
-cecc        = 0.0
-cobld       = 0.0
-l_orbvsop87 = .FALSE.
-l_sph_symm_irr = .TRUE.
+&echam_cnv_nml
 /
-&echam_conv_nml
-/
-&echam_cloud_nml
-/
-&gw_hines_nml
+&echam_cld_nml
 /
 EOF
 

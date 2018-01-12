@@ -16,28 +16,39 @@
 MODULE mo_surface
 
   USE mo_kind,              ONLY: wp
+#ifdef __NO_JSBACH__
   USE mo_exception,         ONLY: finish
-  USE mo_physical_constants,ONLY: grav, Tf, alf, albedoW, zemiss_def, stbo, tmelt, rhos!!$, rhoi
-  USE mo_mpi_phy_config,    ONLY: mpi_phy_config
+#endif
+#ifdef __NO_ICON_OCEAN__
+  USE mo_exception,         ONLY: finish
+#endif
+
+  USE mo_physical_constants,ONLY: amd, amco2, grav, Tf, alf, albedoW, zemiss_def, stbo, tmelt, rhos!!$, rhoi
+  USE mo_echam_phy_config,  ONLY: echam_phy_config
   USE mo_echam_phy_memory,  ONLY: cdimissval
+  USE mo_echam_vdf_config,  ONLY: echam_vdf_config
   USE mo_echam_vdiff_params,ONLY: tpfac2
-  USE mo_vdiff_config,      ONLY: vdiff_config
   USE mo_vdiff_solver,      ONLY: ih, iqv, iu, iv, imh, imqv, imuv, &
                                 & nmatrix, nvar_vdiff,              &
                                 & matrix_to_richtmyer_coeff
   USE mo_surface_diag,      ONLY: wind_stress, surface_fluxes
 #ifndef __NO_JSBACH__
   USE mo_jsb_interface,     ONLY: jsbach_interface
-  USE mo_radiation_config,  ONLY: mmr_co2      ! This should be here only temporarily
+  USE mo_echam_rad_config,  ONLY: echam_rad_config ! This should be here only temporarily
 #endif
   USE mo_echam_sfc_indices, ONLY: nsfc_type
 #ifndef __NO_ICON_OCEAN__
   USE mo_sea_ice,           ONLY: ice_fast
   USE mo_ml_ocean,          ONLY: ml_ocean
 #endif
+
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: update_surface
+
+  ! Shortcuts to components of echam_vdf_config
+  !
+  LOGICAL, POINTER :: lsfc_mom_flux, lsfc_heat_flux
 
 CONTAINS
   !>
@@ -244,11 +255,18 @@ CONTAINS
     REAL(wp) :: Tfw(kbdim)
     REAL(wp) :: swflx_ice(kbdim,kice), nonsolar_ice(kbdim,kice), dnonsolardT(kbdim,kice), conc_sum(kbdim)
 
+    REAL(wp) :: mmr_co2
+
     LOGICAL :: mask(kbdim)
 
    CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
 
-    ! check for masks
+   ! Shortcuts to components of echam_vdf_config
+   !
+   lsfc_mom_flux  => echam_vdf_config(jg)% lsfc_mom_flux
+   lsfc_heat_flux => echam_vdf_config(jg)% lsfc_heat_flux
+
+   ! check for masks
     !
     DO jsfc = 1,ksfc_type
       is(jsfc) = 0
@@ -272,7 +290,7 @@ CONTAINS
     ! At this point bb(:,klev,iu) = u_klev(t)/tpfac1 (= udif in echam)
     !               bb(:,klev,iv) = v_klev(t)/tpfac1 (= vdif in echam)
 
-    IF (vdiff_config%lsfc_mom_flux) THEN
+    IF (lsfc_mom_flux) THEN
        CALL wind_stress( kproma, kbdim, ksfc_type,            &! in
             &            pdtime,                              &! in
             &            pfrc, pcfm_tile, pfac_sfc,           &! in
@@ -349,7 +367,8 @@ CONTAINS
         frac_par_diffuse(1:kproma) = 0._wp
       END WHERE
 
-      IF (mpi_phy_config(jg)%llake) THEN
+      mmr_co2 = echam_rad_config(jg)%vmr_co2 * amco2/amd
+      IF (echam_phy_config(jg)%llake) THEN
         CALL jsbach_interface ( jg, nblock, 1, kproma, pdtime, pdtime,                     & ! in
           & t_air             = ptemp(1:kproma),                                           & ! in
           & q_air             = pq(1:kproma),                                              & ! in
@@ -372,12 +391,12 @@ CONTAINS
           & pch               = MERGE(pch_tile(1:kproma,idx_lnd),1._wp,lsm(1:kproma)>0._wp),  & ! in
           & cos_zenith_angle  = pcosmu0(1:kproma),                                         & ! in
           & CO2_air           = SPREAD(mmr_co2, DIM=1, NCOPIES=kproma),                    & ! in
-          & t_srf             = ztsfc_lnd(1:kproma),                                       & ! out (T_s^(n+1)) surface temp (filtered, if Asselin)
+          & t_srf             = ztsfc_lnd(1:kproma),                                       & ! out (T_s^(n+1)) surface temp
                                                                                              ! (filtered, if Asselin)
-          & t_eff_srf         = ztsfc_lnd_eff(1:kproma),                                   & ! out (T_s^eff) surface temp (effective, for longwave rad)
+          & t_eff_srf         = ztsfc_lnd_eff(1:kproma),                                   & ! out (T_s^eff) surface temp
                                                                                              ! (effective, for longwave rad)
           & qsat_srf          = sat_surface_specific_humidity(1:kproma),                   & ! out
-          & s_srf             = dry_static_energy(1:kproma),                               & ! out (s_s^star, for vertical diffusion scheme)
+          & s_srf             = dry_static_energy(1:kproma),                               & ! out (s_s^star, for vdiff. scheme)
           & fact_q_air        = pcair(1:kproma),                                           & ! out
           & fact_qsat_srf     = pcsat(1:kproma),                                           & ! out
           & evapotrans        = zevap_lnd(1:kproma),                                       & ! out
@@ -464,7 +483,7 @@ CONTAINS
       ptsfc_tile(1:kproma,idx_lnd) = ztsfc_lnd(1:kproma)
       pcpt_tile (1:kproma,idx_lnd) = dry_static_energy(1:kproma)
       pqsat_tile(1:kproma,idx_lnd) = sat_surface_specific_humidity(1:kproma)
-      IF (mpi_phy_config(jg)%llake) THEN
+      IF (echam_phy_config(jg)%llake) THEN
         IF (idx_wtr <= ksfc_type) THEN
           WHERE (alake(1:kproma) > 0._wp)
             ptsfc_tile    (1:kproma, idx_wtr) = ztsfc_lwtr   (1:kproma)
@@ -508,7 +527,7 @@ CONTAINS
       rsns(1:kproma)      = rsds(1:kproma) - rsus(1:kproma)
       rlns(1:kproma)      = rlds(1:kproma) - rlus(1:kproma)
 
-      IF (mpi_phy_config(jg)%lmlo) THEN
+      IF (echam_phy_config(jg)%lmlo) THEN
         CALL ml_ocean ( kbdim, 1, kproma, pdtime, &
           & pahflw=plhflx_tile(:,idx_wtr),        & ! dependency on kproma has to be checked
           & pahfsw=pshflx_tile(:,idx_wtr),        & ! dependency on kproma has to be checked
@@ -536,7 +555,7 @@ CONTAINS
     ! Sea-ice model (thermodynamic)
     !===========================================================================
 
-    IF (idx_ice <= ksfc_type .AND. mpi_phy_config(jg)%lice) THEN
+    IF (idx_ice <= ksfc_type .AND. echam_phy_config(jg)%lice) THEN
 
 #ifndef __NO_ICON_OCEAN__
       ! LL This is a temporary solution,
@@ -596,7 +615,7 @@ CONTAINS
       !      ENDDO
       !      hi(:,:) = max( hi(:,:), 0._wp )
       ! Let it snow in AMIP
-      IF ( mpi_phy_config(jg)%lamip ) THEN
+      IF ( echam_phy_config(jg)%lamip ) THEN
         DO k=1,kice
           ! Snowfall on ice - no ice => no snow
           WHERE ( hi(1:kproma,k) > 0._wp )
@@ -677,7 +696,7 @@ CONTAINS
         qv_sum(1:kproma) = qv_sum(1:kproma) + bb_btm(1:kproma,jsfc,iqv) * wgt(1:kproma)
     ENDDO
 
-    IF (vdiff_config%lsfc_heat_flux) THEN
+    IF (lsfc_heat_flux) THEN
       bb(1:kproma,klev,ih ) = se_sum(1:kproma)/wgt_sum(1:kproma)
       bb(1:kproma,klev,iqv) = qv_sum(1:kproma)/wgt_sum(1:kproma)
     ELSE
@@ -730,7 +749,7 @@ CONTAINS
    ! Various diagnostics
    !-------------------------------------------------------------------
 
-    IF (vdiff_config%lsfc_heat_flux) THEN
+    IF (lsfc_heat_flux) THEN
        CALL surface_fluxes( kproma, kbdim, ksfc_type,             &! in
             &               idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
             &               pdtime,                               &! in

@@ -18,27 +18,28 @@
 !! headers of the routines.
 !!
 
-!----------------------------
-#include "omp_definitions.inc"
-!----------------------------
 #if defined __xlC__ && !defined NOXLFPROCESS
 @PROCESS HOT
 @PROCESS SPILLSIZE(5000)
 #endif
 !OCL NOALIAS
 
-MODULE mo_interface_echam_vdiff_surface
+MODULE mo_interface_echam_vdf
 
   USE mo_kind                ,ONLY: wp
 
-  USE mo_model_domain        ,ONLY: t_patch
-  USE mo_loopindices         ,ONLY: get_indices_c
-
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_run_config          ,ONLY: ntracer, nlev, nlevm1, nlevp1, iqv, iqc, iqi, iqt
-  USE mo_mpi_phy_config      ,ONLY: mpi_phy_config
 
-  USE mo_echam_phy_memory    ,ONLY: t_echam_phy_field, t_echam_phy_tend
+  USE mtime                  ,ONLY: datetime
+  USE mo_echam_phy_memory    ,ONLY: t_echam_phy_field, prm_field, &
+    &                               t_echam_phy_tend,  prm_tend
+
+  USE mo_timer               ,ONLY: ltimer, timer_start, timer_stop,  &
+       &                            timer_vdiff_down, timer_vdiff_up, &
+       &                            timer_surface
+
+  USE mo_echam_phy_config    ,ONLY: echam_phy_config
   USE mo_echam_sfc_indices   ,ONLY: nsfc_type, iwtr, iice, ilnd
 
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
@@ -48,126 +49,79 @@ MODULE mo_interface_echam_vdiff_surface
   USE mo_surface             ,ONLY: update_surface
   USE mo_surface_diag        ,ONLY: nsurf_diag
 
-  USE mo_timer               ,ONLY: ltimer, timer_start, timer_stop,  &
-       &                            timer_vdiff_down, timer_vdiff_up, &
-       &                            timer_surface
   
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: interface_echam_vdiff_surface
+  PUBLIC :: echam_vdf
 
 CONTAINS
 
-  !-------------------------------------------------------------------
-  SUBROUTINE interface_echam_vdiff_surface(is_in_sd_ed_interval,    &
-       &                                   is_active,               &
-       &                                   patch, rl_start, rl_end, &
-       &                                   field, tend,             &
-       &                                   pdtime                   )
+  SUBROUTINE echam_vdf(is_in_sd_ed_interval, &
+       &               is_active,            &
+       &               jg, jb, jcs, jce,     &
+       &               datetime_old,         &
+       &               pdtime                )
 
-    LOGICAL                 ,INTENT(in)    :: is_in_sd_ed_interval
-    LOGICAL                 ,INTENT(in)    :: is_active
-    TYPE(t_patch)   ,TARGET ,INTENT(in)    :: patch
-    INTEGER                 ,INTENT(in)    :: rl_start, rl_end
-    TYPE(t_echam_phy_field) ,POINTER       :: field    
-    TYPE(t_echam_phy_tend)  ,POINTER       :: tend
-    REAL(wp)                ,INTENT(in)    :: pdtime
+    LOGICAL                 ,INTENT(in) :: is_in_sd_ed_interval
+    LOGICAL                 ,INTENT(in) :: is_active
+    INTEGER                 ,INTENT(in) :: jg             
+    INTEGER                 ,INTENT(in) :: jb                  !< block index
+    INTEGER                 ,INTENT(in) :: jcs, jce            !< start/end column index within this block
+    TYPE(datetime)          ,POINTER    :: datetime_old        !< generic input, not used in echam_sso
+    REAL(wp)                ,INTENT(in) :: pdtime
 
-    INTEGER  :: jg             
-    INTEGER  :: i_nchdom
-    INTEGER  :: i_startblk,i_endblk
-    INTEGER  :: jb             !< block index
-    INTEGER  :: jcs, jce       !< start/end column index within this block
-    
-    REAL(wp) :: zxt_emis(nproma,ntracer-iqt+1)  !< tracer tendency due to surface emission
-                                                !< and dry deposition. "zxtems" in ECHAM5
+    ! Local variables
+    !
+    TYPE(t_echam_phy_field) ,POINTER    :: field
+    TYPE(t_echam_phy_tend)  ,POINTER    :: tend
+    !
+    REAL(wp) :: zxt_emis(nproma,ntracer-iqt+1)   !< tracer tendency due to surface emission
 
-    jg         = patch%id
-    i_nchdom   = MAX(1,patch%n_childdom)
-    i_startblk = patch%cells%start_blk(rl_start,1)
-    i_endblk   = patch%cells%end_blk(rl_end,i_nchdom)
-
-    !-------------------------------------------------------------------
-!$OMP PARALLEL DO PRIVATE(jcs,jce, zxt_emis)
-    DO jb = i_startblk,i_endblk
-       !
-       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-       !
-!!$       ! Emission of aerosols or other tracers (not implemented yet)
-!!$       IF (ntrac>0) THEN
-!!$          CALL tracer_emission()
-!!$       ENDIF
-       zxt_emis(jcs:jce,:) = 0._wp
-       !
-!!$       ! Dry deposition of aerosols or other tracers (not implemented yet)
-!!$       CALL dry_deposition()
-       !
-       CALL echam_vdiff_down_surf_up(is_in_sd_ed_interval,          &
-            &                        is_active,                     &
-            &                        jg, jb,jcs,jce, nproma,        &
-            &                        field,  tend,                  &
-            &                        zxt_emis,                      &
-            &                        pdtime                         )
-       !
-    END DO
-!$OMP END PARALLEL DO 
-    !-------------------------------------------------------------------
-
-  END SUBROUTINE interface_echam_vdiff_surface
-  !-------------------------------------------------------------------
-
-  !-------------------------------------------------------------------
-  SUBROUTINE echam_vdiff_down_surf_up(is_in_sd_ed_interval,  &
-       &                              is_active,             &
-       &                              jg, jb,jcs,jce, nbdim, &
-       &                              field,  tend,          &
-       &                              zxt_emis,              &
-       &                              pdtime                 )
-
-    LOGICAL                 ,INTENT(in)    :: is_in_sd_ed_interval
-    LOGICAL                 ,INTENT(in)    :: is_active
-    INTEGER                 ,INTENT(in)    :: jg             
-    INTEGER                 ,INTENT(in)    :: jb                  !< block index
-    INTEGER                 ,INTENT(in)    :: jcs, jce            !< start/end column index within this block
-    INTEGER                 ,INTENT(in)    :: nbdim               !< size of this block
-    TYPE(t_echam_phy_field) ,POINTER       :: field
-    TYPE(t_echam_phy_tend)  ,POINTER       :: tend
-    REAL(wp)                ,INTENT(in)    :: zxt_emis(nbdim,ntracer-iqt+1)  !< tracer tendency due to surface emission
-    REAL(wp)                ,INTENT(in)    :: pdtime
-
-    ! local
-    REAL(wp) :: zcpt_sfc_tile(nbdim,nsfc_type)  !< dry static energy at surface
+    REAL(wp) :: zcpt_sfc_tile(nproma,nsfc_type)  !< dry static energy at surface
    
     ! Coefficient matrices and right-hand-side vectors for the turbulence solver
     ! _btm refers to the lowest model level (i.e., full level "klev", not the surface)
-    REAL(wp) :: zri_tile(nbdim,nsfc_type)           !< Richardson number
-    REAL(wp) :: zaa    (nbdim,nlev,3,nmatrix)       !< coeff. matrices, all variables
-    REAL(wp) :: zaa_btm(nbdim,3,nsfc_type,imh:imqv) !< last row of coeff. matrix of heat and moisture
-    REAL(wp) :: zbb    (nbdim,nlev,nvar_vdiff)              !< r.h.s., all variables
-    REAL(wp) :: zbb_btm(nbdim,nsfc_type,ih_vdiff:iqv_vdiff) !< last row of r.h.s. of heat and moisture
+    REAL(wp) :: zri_tile(nproma,nsfc_type)          !< Richardson number
+    REAL(wp) :: zaa    (nproma,nlev,3,nmatrix)      !< coeff. matrices, all variables
+    REAL(wp) :: zaa_btm(nproma,3,nsfc_type,imh:imqv)!< last row of coeff. matrix of heat and moisture
+    REAL(wp) :: zbb    (nproma,nlev,nvar_vdiff)             !< r.h.s., all variables
+    REAL(wp) :: zbb_btm(nproma,nsfc_type,ih_vdiff:iqv_vdiff)!< last row of r.h.s. of heat and moisture
 
     ! Temporary arrays used by VDIFF, JSBACH
-    REAL(wp) :: zfactor_sfc(nbdim)
+    REAL(wp) :: zfactor_sfc(nproma)
 
-    REAL(wp) :: zcptgz   (nbdim,nlev)        !< dry static energy
-    REAL(wp) :: zthvvar  (nbdim,nlev)        !< intermediate value of thvvar
-    REAL(wp) :: ztkevn   (nbdim,nlev)        !< intermediate value of tke
-    REAL(wp) :: zch_tile (nbdim,nsfc_type)   !< for "nsurf_diag"
-!!$    REAL(wp) :: zchn_tile(nbdim,nsfc_type)   !< for "nsurf_diag"
-!!$    REAL(wp) :: zcdn_tile(nbdim,nsfc_type)   !< for "nsurf_diag"
-!!$    REAL(wp) :: zcfnc_tile(nbdim,nsfc_type)  !< for "nsurf_diag"
-    REAL(wp) :: zbn_tile (nbdim,nsfc_type)   !< for "nsurf_diag"
-    REAL(wp) :: zbhn_tile(nbdim,nsfc_type)   !< for "nsurf_diag"
-    REAL(wp) :: zbm_tile (nbdim,nsfc_type)   !< for "nsurf_diag"
-    REAL(wp) :: zbh_tile (nbdim,nsfc_type)   !< for "nsurf_diag"
+    REAL(wp) :: zcptgz   (nproma,nlev)       !< dry static energy
+    REAL(wp) :: zthvvar  (nproma,nlev)       !< intermediate value of thvvar
+    REAL(wp) :: ztkevn   (nproma,nlev)       !< intermediate value of tke
+    REAL(wp) :: zch_tile (nproma,nsfc_type)  !< for "nsurf_diag"
+!!$    REAL(wp) :: zchn_tile(nproma,nsfc_type)  !< for "nsurf_diag"
+!!$    REAL(wp) :: zcdn_tile(nproma,nsfc_type)  !< for "nsurf_diag"
+!!$    REAL(wp) :: zcfnc_tile(nproma,nsfc_type) !< for "nsurf_diag"
+    REAL(wp) :: zbn_tile (nproma,nsfc_type)  !< for "nsurf_diag"
+    REAL(wp) :: zbhn_tile(nproma,nsfc_type)  !< for "nsurf_diag"
+    REAL(wp) :: zbm_tile (nproma,nsfc_type)  !< for "nsurf_diag"
+    REAL(wp) :: zbh_tile (nproma,nsfc_type)  !< for "nsurf_diag"
 
-    REAL(wp) :: zq_snocpymlt(nbdim)          !< heating by melting of snow on the canopy [W/m2]
+    REAL(wp) :: zq_snocpymlt(nproma)         !< heating by melting of snow on the canopy [W/m2]
     !                                        !  which warms the lowermost atmospheric layer (JSBACH)
 
     INTEGER  :: ntrac
 
+    ! associate pointers
+    field => prm_field(jg)
+    tend  => prm_tend (jg)
+
     ntrac = ntracer-iqt+1  !# of tracers excluding water vapour and hydrometeors
 
+!!$    ! Emission of aerosols or other tracers (not implemented yet)
+!!$    IF (ntrac>0) THEN
+!!$       CALL tracer_emission()
+!!$    ENDIF
+    zxt_emis(jcs:jce,:) = 0._wp
+    !
+!!$    ! Dry deposition of aerosols or other tracers (not implemented yet)
+!!$    CALL dry_deposition()
+       !
     IF ( is_in_sd_ed_interval ) THEN
        !
        IF ( is_active ) THEN
@@ -179,7 +133,8 @@ CONTAINS
           ! - build up the tridiagonal linear algebraic system;
           ! - downward sweep (Gaussian elimination from top till level nlev-1)
           !
-          CALL vdiff_down(jce, nbdim, nlev, nlevm1, nlevp1,&! in
+          CALL vdiff_down(jg,                              &! in
+               &          jce, nproma, nlev, nlevm1,nlevp1,&! in
                &          ntrac, nsfc_type,                &! in
                &          iwtr, iice, ilnd,                &! in, indices of different surface types
                &          pdtime,                          &! in, time step
@@ -256,7 +211,7 @@ CONTAINS
           !
           IF (ltimer) CALL timer_start(timer_surface)
           !
-          CALL update_surface(jg, jce, nbdim, field%kice,                     &! in
+          CALL update_surface(jg, jce, nproma, field%kice,                    &! in
                &              nlev, nsfc_type,                                &! in
                &              iwtr, iice, ilnd,                               &! in, indices of surface types
                &              pdtime,                                         &! in, time step
@@ -342,7 +297,7 @@ CONTAINS
           IF (ltimer) CALL timer_stop(timer_surface)
           !
           !
-          IF (mpi_phy_config(jg)%ljsb) THEN
+          IF (echam_phy_config(jg)%ljsb) THEN
              !
              ! heating accumulated
              ! zq_snocpymlt = heating for melting of snow on canopy
@@ -367,7 +322,7 @@ CONTAINS
           !
           IF (ltimer) CALL timer_start(timer_vdiff_up)
           !
-          CALL vdiff_up(jce, nbdim, nlev, nlevm1,        &! in
+          CALL vdiff_up(jce, nproma, nlev, nlevm1,       &! in
                &        ntrac, nsfc_type,                &! in
                &        iwtr,                            &! in, indices of different sfc types
                &        pdtime,                          &! in, time steps
@@ -444,7 +399,7 @@ CONTAINS
        ! Turbulent mixing, part III:
        ! - Further diagnostics.
        !
-       CALL nsurf_diag(jce, nbdim, nsfc_type,           &! in
+       CALL nsurf_diag(jce, nproma, nsfc_type,          &! in
             &          ilnd,                            &! in
             &          field%frac_tile(:,jb,:),         &! in
             &          field%  qtrc(:,nlev,jb,iqv),     &! in humidity qm1
@@ -560,7 +515,6 @@ CONTAINS
        !
     END IF
 
-  END SUBROUTINE echam_vdiff_down_surf_up
-  !-------------------------------------------------------------------
+  END SUBROUTINE echam_vdf
 
-END MODULE mo_interface_echam_vdiff_surface
+END MODULE mo_interface_echam_vdf

@@ -22,7 +22,7 @@
 #include "omp_definitions.inc"
 !----------------------------
 
-MODULE mo_interface_echam_radiation
+MODULE mo_interface_echam_rad
 
   USE mo_kind,                ONLY: wp
   USE mtime,                  ONLY: datetime, OPERATOR(<=), OPERATOR(>)
@@ -33,7 +33,7 @@ MODULE mo_interface_echam_radiation
 
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_run_config,          ONLY: nlev, nlevp1
-  USE mo_echam_phy_memory,    ONLY: t_echam_phy_field
+  USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field
 
   USE mo_psrad_radiation,     ONLY: psrad_radiation
 
@@ -41,29 +41,37 @@ MODULE mo_interface_echam_radiation
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: interface_echam_radiation
+  PUBLIC :: interface_echam_rad
 
 CONTAINS
 
   !-------------------------------------------------------------------
-  SUBROUTINE interface_echam_radiation(is_in_sd_ed_interval, &
-       &                                  is_active,         &
-       &                                  patch,             &
-       &                                  field,             &
-       &                                  this_datetime      )
+  SUBROUTINE interface_echam_rad(is_in_sd_ed_interval, &
+       &                         is_active,            &
+       &                         patch,                &
+       &                         this_datetime         )
 
     LOGICAL                 ,INTENT(in)    :: is_in_sd_ed_interval
     LOGICAL                 ,INTENT(in)    :: is_active
     TYPE(t_patch)   ,TARGET ,INTENT(in)    :: patch
-    TYPE(t_echam_phy_field) ,POINTER       :: field
     TYPE(datetime)          ,POINTER       :: this_datetime
 
-    INTEGER  :: itype(nproma,patch%nblks_c)              !< type of convection
-    LOGICAL  :: lglac(nproma,patch%nblks_c)
+    ! Local variables
+    !
+    TYPE(t_echam_phy_field) ,POINTER    :: field
+    INTEGER :: jg
+    INTEGER :: itype(nproma,patch%nblks_c)              !< type of convection
+    LOGICAL :: lglac(nproma,patch%nblks_c)
 
     IF (ltimer) CALL timer_start(timer_radiation)
-    !-------------------------------------------------------------------
-      IF ( is_in_sd_ed_interval ) THEN
+
+    ! grid index
+    jg = patch%id
+
+    ! associate pointers
+    field => prm_field(jg)
+
+    IF ( is_in_sd_ed_interval ) THEN
         !
         IF ( is_active ) THEN
           !
@@ -74,14 +82,14 @@ CONTAINS
           lglac(:,:) = field%lfland(:,:) .AND.field%glac(:,:).GT.0._wp
           itype(:,:) = NINT(field%rtype(:,:))
           !
-          CALL psrad_radiation(                              &
-              & patch                                      ,&
-              & klev           = nlev                      ,&!< in  number of full levels = number of layers
-              & klevp1         = nlevp1                    ,&!< in  number of half levels = number of layer interfaces
-              & ktype          = itype(:,:)                ,&!< in  type of convection
+          CALL psrad_radiation(                            &
+              & patch                                     ,&
+              & klev           = nlev                     ,&!< in  number of full levels = number of layers
+              & klevp1         = nlevp1                   ,&!< in  number of half levels = number of layer interfaces
+              & ktype          = itype(:,:)               ,&!< in  type of convection
               & loland         = field%lfland(:,:)        ,&!< in  land-sea mask. (logical)
-              & loglac         = lglac(:,:)                ,&!< in  glacier mask (logical)
-              & this_datetime  = this_datetime             ,&!< in  actual time step
+              & loglac         = lglac(:,:)               ,&!< in  glacier mask (logical)
+              & this_datetime  = this_datetime            ,&!< in  actual time step
               & pcos_mu0       = field%cosmu0_rt(:,:)     ,&!< in  solar zenith angle
               & daylght_frc    = field%daylght_frc_rt(:,:),&!in daylight fraction
               & alb_vis_dir    = field%albvisdir(:,:)     ,&!< in  surface albedo for visible range, direct
@@ -153,11 +161,11 @@ CONTAINS
           field%aclcov(:,:)      = 0.0_wp !< out  total cloud cover
           !
        !
-      END IF
-    !-------------------------------------------------------------------
-    IF (ltimer) CALL timer_stop(timer_radiation)
+       END IF
 
-  END SUBROUTINE interface_echam_radiation
+     IF (ltimer) CALL timer_stop(timer_radiation)
+
+  END SUBROUTINE interface_echam_rad
   !-------------------------------------------------------------------
 
-END MODULE mo_interface_echam_radiation
+END MODULE mo_interface_echam_rad

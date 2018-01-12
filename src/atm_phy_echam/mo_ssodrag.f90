@@ -13,14 +13,12 @@ MODULE mo_ssodrag
   USE mo_kind,                  ONLY: wp
   USE mo_math_constants,        ONLY: pi
   USE mo_physical_constants,    ONLY: grav, rd, cpd
-  USE mo_mpi_sso_config,        ONLY: mpi_sso_config,                 &
+  USE mo_echam_sso_config,      ONLY: echam_sso_config,               &
        &                              gfrcrit, grcrit, grahilo,       &
        &                              gsigcr , gssec , gtsec , gvsec
 
   IMPLICIT NONE
-
   PRIVATE
-
   PUBLIC :: ssodrag
 
 CONTAINS
@@ -127,6 +125,17 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
   REAL(wp) :: zdv_lif(kbdim,klev)   ! tendency due to MOUNTAIN LIFT(m/s)
   REAL(wp) :: zdis_lif(kbdim,klev)  ! energy dissipation due to MOUNTAIN LIFT(?)
 
+  ! Shortcuts to components of echam_sso_config
+  !
+  REAL(wp), POINTER :: gpicmea, gstd
+  REAL(wp), POINTER :: gkdrag, gkwake, gklift
+  !
+  gpicmea => echam_sso_config(jg)% gpicmea
+  gstd    => echam_sso_config(jg)% gstd
+  gkwake  => echam_sso_config(jg)% gkwake
+  gkdrag  => echam_sso_config(jg)% gkdrag
+  gklift  => echam_sso_config(jg)% gklift
+
   !
   !*         1.    initialization
   !                --------------
@@ -156,7 +165,7 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
   idx(:) = 0
   DO jl=1,kproma
      itest(jl)=0
-     IF (((ppic(jl)-pmea(jl)) > mpi_sso_config(jg)%gpicmea).AND.(pstd(jl) > mpi_sso_config(jg)%gstd)) THEN
+     IF (((ppic(jl)-pmea(jl)) > gpicmea).AND.(pstd(jl) > gstd)) THEN
         itest(jl)=1
         igwd=igwd+1
         idx(igwd)=jl
@@ -164,7 +173,7 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
   ENDDO
 
 
-  IF (.NOT.((mpi_sso_config(jg)%gkwake == 0.0_wp).AND.(mpi_sso_config(jg)%gkdrag == 0.0_wp))) THEN
+  IF (.NOT.((gkwake == 0.0_wp).AND.(gkdrag == 0.0_wp))) THEN
      !
      !*         2.    orographic gravity wave drag
      !                -----------------------------
@@ -181,7 +190,7 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
   END IF
 
 
-  IF (.NOT.(mpi_sso_config(jg)%gklift == 0.0_wp)) THEN
+  IF (.NOT.(gklift == 0.0_wp)) THEN
      !
      !*         3.    mountain lift
      !                --------------
@@ -304,6 +313,14 @@ SUBROUTINE orodrag( jg, kproma, kbdim,  klev,                        &
        &       zrho(kbdim,klev+1),  zri(kbdim,klev+1),    zpsi(kbdim,klev+1),  &
        &       zzdep(kbdim,klev),   pulow(kbdim),         pvlow(kbdim)
 
+  ! Shortcuts to components of echam_sso_config
+  !
+  REAL(wp), POINTER :: gkdrag, gkwake
+  !
+  gkdrag => echam_sso_config(jg)% gkdrag
+  gkwake => echam_sso_config(jg)% gkwake
+
+
   !  Executable statements
 
   !*         1.1   computational constants
@@ -328,7 +345,7 @@ SUBROUTINE orodrag( jg, kproma, kbdim,  klev,                        &
   !***********************************************************
 
 
-  IF (.NOT.(mpi_sso_config(jg)%gkdrag == 0.0_wp)) THEN
+  IF (.NOT.(gkdrag == 0.0_wp)) THEN
      !
      !*         3.      compute low level stresses using subcritical and
      !*                 supercritical forms.computes anisotropy coefficient
@@ -378,7 +395,7 @@ SUBROUTINE orodrag( jg, kproma, kbdim,  klev,                        &
         !  WAVE STRESS
         !-------------
         !
-        IF (.NOT.(mpi_sso_config(jg)%gkdrag == 0._wp)) THEN
+        IF (.NOT.(gkdrag == 0._wp)) THEN
            !
            ztemp     = -(ztau(ji,jk+1)-ztau(ji,jk))/(zvph(ji,klev+1)*pmair(ji,jk))
            zdudt(ji) = (pulow(ji)*zd1(ji)-pvlow(ji)*zd2(ji))*ztemp/zdmod(ji)
@@ -407,11 +424,11 @@ SUBROUTINE orodrag( jg, kproma, kbdim,  klev,                        &
         !
         IF(jk > ikenvh(ji)) THEN
            !
-           IF (.NOT.(mpi_sso_config(jg)%gkwake == 0._wp)) THEN
+           IF (.NOT.(gkwake == 0._wp)) THEN
               !
               zb    = 1.0_wp-0.18_wp*pgam(ji)-0.04_wp*pgam(ji)**2
               zc    =        0.48_wp*pgam(ji)+0.30_wp*pgam(ji)**2
-              zconb = 2._wp*pdtime*mpi_sso_config(jg)%gkwake*psig(ji)/(4._wp*pstd(ji))
+              zconb = 2._wp*pdtime*gkwake*psig(ji)/(4._wp*pstd(ji))
               zabsv = SQRT(pum1(ji,jk)**2+pvm1(ji,jk)**2)/2._wp
               zzd1  = zb*COS(zpsi(ji,jk))**2+zc*SIN(zpsi(ji,jk))**2
               ratio = (COS(zpsi(ji,jk))**2+pgam(ji)*SIN(zpsi(ji,jk))**2)/      &
@@ -583,7 +600,14 @@ SUBROUTINE orosetup                                           &
   REAL(wp) :: zhcrit(kbdim,klev), zvpf(kbdim,klev),   zdp(kbdim,klev)
   REAL(wp) :: zmair(kbdim), zmair_inv
   LOGICAL  :: ll1(kbdim,klev+1)
+
+  ! Shortcuts to components of echam_sso_config
   !
+  INTEGER , POINTER :: nktopg
+  !
+  nktopg => echam_sso_config(jg)% nktopg
+
+
   !     ------------------------------------------------------------------
   !*         1.1   computational constants
   !                -----------------------
@@ -665,9 +689,9 @@ SUBROUTINE orosetup                                           &
 !IBM* ASSERT(NODEPS)
   DO 2010 ji=1,kgwd
      jl = kdx(ji)
-     kknu (jl)=MIN(kknu (jl),mpi_sso_config(jg)%nktopg)
-     kknu2(jl)=MIN(kknu2(jl),mpi_sso_config(jg)%nktopg)
-     kknub(jl)=MIN(kknub(jl),mpi_sso_config(jg)%nktopg)
+     kknu (jl)=MIN(kknu (jl),nktopg)
+     kknu2(jl)=MIN(kknu2(jl),nktopg)
+     kknub(jl)=MIN(kknub(jl),nktopg)
      kknul(jl)=klev
 2010 END DO
   !
@@ -951,6 +975,12 @@ SUBROUTINE gwstress( jg, kbdim,  klev,              &
   INTEGER  :: jl, ji
   REAL(wp) :: zeff  ! effective height seen by the flow when there is blocking
 
+  ! Shortcuts to components of echam_sso_config
+  !
+  REAL(wp), POINTER :: gkdrag
+  !
+  gkdrag => echam_sso_config(jg)% gkdrag
+
   !
   !*         1.1     gravity wave stress.
   !
@@ -968,7 +998,7 @@ SUBROUTINE gwstress( jg, kbdim,  klev,              &
         zeff=MIN(gfrcrit*pvph(jl,klev+1)/SQRT(pstab(jl,klev+1)),zeff)
      ENDIF
 
-     ptau0(jl) = mpi_sso_config(jg)%gkdrag                 &
+     ptau0(jl) = gkdrag                                    &
           &     *prho(jl,klev+1)                           &
           &     *psig(jl)*pdmod(jl)/4._wp/pstd(jl)         &
           &     *pvph(jl,klev+1)*SQRT(pstab(jl,klev+1))    &
@@ -1031,6 +1061,13 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
 
   !  Local arrays:
   REAL(wp) :: zdz2 (kbdim,klev) , znorm(kbdim) , zoro(kbdim), ztau (kbdim,klev+1)
+
+  ! Shortcuts to components of echam_sso_config
+  !
+  INTEGER , POINTER :: ntop
+  !
+  ntop   => echam_sso_config(jg)% ntop
+
   !
   !  Executable statements
 
@@ -1128,7 +1165,7 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
   DO 530 ji=1,kgwd
      jl=kdx(ji)
      ztau(jl,kkcrith(jl))=ptau(jl,kkcrith(jl))
-     ztau(jl,mpi_sso_config(jg)%ntop)=ptau(jl,mpi_sso_config(jg)%ntop)
+     ztau(jl,ntop)=ptau(jl,ntop)
 530 END DO
 
   DO 531 jk=1,klev
@@ -1154,12 +1191,12 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
      DO 533 ji=1,kgwd
         jl=kdx(ji)
 
-        IF(jk < mpi_sso_config(jg)%ntop)THEN
+        IF (jk < ntop) THEN
 
-           !         zdelp =paphm1(jl,mpi_sso_config(jg)%ntop)
+           !         zdelp =paphm1(jl,ntop)
            !         zdelpt=paphm1(jl,jk)
-           !         ptau(jl,jk)=ztau(jl,mpi_sso_config(jg)%ntop)*zdelpt/zdelp
-           ptau(jl,jk)=ztau(jl,mpi_sso_config(jg)%ntop)
+           !         ptau(jl,jk)=ztau(jl,ntop)*zdelpt/zdelp
+           ptau(jl,jk)=ztau(jl,ntop)
 
         ENDIF
 
@@ -1242,6 +1279,14 @@ SUBROUTINE orolift( jg, kproma, kbdim, klev,  &
   REAL(wp) :: zhcrit(kbdim,klev)
   LOGICAL  :: ll1(kbdim,klev+1)
 
+  ! Shortcuts to components of echam_sso_config
+  !
+  REAL(wp), POINTER :: gklift
+  INTEGER , POINTER :: nktopg
+  !
+  nktopg => echam_sso_config(jg)% nktopg
+  gklift => echam_sso_config(jg)% gklift
+
   !-----------------------------------------------------------------------
   !
   !*         1.1  initialisations
@@ -1286,8 +1331,8 @@ SUBROUTINE orolift( jg, kproma, kbdim, klev,  &
      IF(ktest(jl) == 1) THEN
         iknub(jl)=MAX(iknub(jl),klev/2)
         iknul(jl)=MAX(iknul(jl),2*klev/3)
-        IF(iknub(jl) >  mpi_sso_config(jg)%nktopg) iknub(jl)=mpi_sso_config(jg)%nktopg
-        IF(iknub(jl) == mpi_sso_config(jg)%nktopg) iknul(jl)=klev
+        IF(iknub(jl) >  nktopg) iknub(jl)=nktopg
+        IF(iknub(jl) == nktopg) iknul(jl)=klev
         IF(iknub(jl) == iknul(jl)) iknub(jl)=iknul(jl)-1
      ENDIF
 2010 END DO
@@ -1333,16 +1378,16 @@ SUBROUTINE orolift( jg, kproma, kbdim, klev,  &
   !
   DO 301 jl=1,kproma
      IF(ktest(jl) == 1) THEN
-        ztau(jl,klev+1)= - mpi_sso_config(jg)%gklift  &
-             &          *zrho(jl,klev+1)*pcoriol(jl)  &
-            !&          *(2._wp*pstd(jl)+pmea(jl))    &
-             &          * 2._wp*pstd(jl)              &
-             &          * pvlow(jl)
-        ztav(jl,klev+1)=   mpi_sso_config(jg)%gklift  &
-             &          *zrho(jl,klev+1)*pcoriol(jl)  &
-            !&          *(2._wp*pstd(jl)+pmea(jl))    &
-             &          * 2._wp*pstd(jl)              &
-             &          * pulow(jl)
+        ztau(jl,klev+1)= - gklift                       &
+             &            *zrho(jl,klev+1)*pcoriol(jl)  &
+            !&            *(2._wp*pstd(jl)+pmea(jl))    &
+             &            * 2._wp*pstd(jl)              &
+             &            * pvlow(jl)
+        ztav(jl,klev+1)=   gklift                       &
+             &            *zrho(jl,klev+1)*pcoriol(jl)  &
+            !&            *(2._wp*pstd(jl)+pmea(jl))    &
+             &            * 2._wp*pstd(jl)              &
+             &            * pulow(jl)
      ELSE
         ztau(jl,klev+1)=0.0_wp
         ztav(jl,klev+1)=0.0_wp
@@ -1416,9 +1461,9 @@ SUBROUTINE orolift( jg, kproma, kbdim, klev,  &
      DO 601 jl=1,kproma
         IF(ktest(jl) == 1) THEN
            DO jk=klev,iknub(jl),-1
-              zbet = mpi_sso_config(jg)%gklift*pcoriol(jl)*pdtime*  &
-                   & (phgeo(jl,iknub(jl)-1)-phgeo(jl,  jk))/        &
-                   & (phgeo(jl,iknub(jl)-1)-phgeo(jl,klev))
+              zbet =  gklift*pcoriol(jl)*pdtime               &
+                   & *(phgeo(jl,iknub(jl)-1)-phgeo(jl,  jk))  &
+                   & /(phgeo(jl,iknub(jl)-1)-phgeo(jl,klev))
               zdudt(jl)=-pum1(jl,jk)/pdtime/(1+zbet**2)
               zdvdt(jl)=-pvm1(jl,jk)/pdtime/(1+zbet**2)
               pvom(jl,jk)= zbet**2*zdudt(jl) - zbet   *zdvdt(jl)

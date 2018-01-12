@@ -21,7 +21,7 @@
 MODULE mo_vdiff_downward_sweep
 
   USE mo_kind,               ONLY: wp
-  USE mo_echam_vdiff_params, ONLY: tpfac1, itop, eps_corio
+  USE mo_echam_vdiff_params, ONLY: tpfac1, itop
   USE mo_turbulence_diag,    ONLY: atm_exchange_coeff, sfc_exchange_coeff
   USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv, imh, imqv, &
                                  & matrix_setup_elim, rhs_setup, rhs_elim
@@ -34,7 +34,8 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE vdiff_down( kproma, kbdim, klev, klevm1, klevp1, ktrac,    &! in
+  SUBROUTINE vdiff_down( jg,                                            &! in
+                       & kproma, kbdim, klev, klevm1, klevp1, ktrac,    &! in
                        & ksfc_type, idx_wtr, idx_ice, idx_lnd,          &! in
                        & pdtime,  pcoriol,                              &! in
                        & pzf, pzh,                                      &! in
@@ -64,6 +65,7 @@ CONTAINS
                        & paz0lh)
 
 
+    INTEGER, INTENT(IN) :: jg
     INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1, klevp1, ktrac
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
     REAL(wp),INTENT(IN) :: pdtime
@@ -203,7 +205,8 @@ CONTAINS
     !    Get TKE and variance of theta_v at intermediate time step.
     !----------------------------------------------------------------------
 
-    CALL atm_exchange_coeff( kproma, kbdim, klev, klevm1, klevp1,     &! in
+    CALL atm_exchange_coeff( jg,                                      &! in
+                           & kproma, kbdim, klev, klevm1, klevp1,     &! in
                            & pdtime, pcoriol,                         &! in
                            & zghf, zghh,                              &! in
                            & pum1, pvm1, ptm1, ptvm1,                 &! in
@@ -226,7 +229,8 @@ CONTAINS
     !    Get boundary condition for TKE and variance of theta_v.
     !-----------------------------------------------------------------------
 
-    CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,              &! in
+    CALL sfc_exchange_coeff( jg,                                    &! in
+                           & kproma, kbdim, ksfc_type,              &! in
                            & idx_wtr, idx_ice, idx_lnd,             &! in
                            & pz0m_tile(:,:),  ptsfc_tile(:,:),      &! in
                            & pfrc(:,:),       pghpbl(:),            &! in

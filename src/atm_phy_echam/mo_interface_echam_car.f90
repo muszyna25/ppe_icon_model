@@ -22,20 +22,24 @@
 #include "omp_definitions.inc"
 !----------------------------
 
-MODULE mo_interface_echam_o3_cariolle
+MODULE mo_interface_echam_car
 
   USE mo_kind                ,ONLY: wp
-  USE mtime                  ,ONLY: datetime
-  USE mo_physical_constants  ,ONLY: amd, amo3
-
-  USE mo_model_domain        ,ONLY: t_patch
-  USE mo_loopindices         ,ONLY: get_indices_c
 
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_run_config          ,ONLY: nlev, io3
   
+  USE mtime                  ,ONLY: datetime
+  USE mo_echam_phy_memory    ,ONLY: t_echam_phy_field, prm_field, &
+    &                               t_echam_phy_tend,  prm_tend
+
+  USE mo_model_domain        ,ONLY: t_patch
+  USE mo_loopindices         ,ONLY: get_indices_c
+
   USE mo_echam_phy_memory    ,ONLY: t_echam_phy_field, t_echam_phy_tend
   
+  USE mo_physical_constants  ,ONLY: amd, amo3
+
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
        &                               calculate_time_interpolation_weights
 
@@ -43,47 +47,58 @@ MODULE mo_interface_echam_o3_cariolle
   
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: interface_echam_o3_cariolle
+  PUBLIC :: interface_echam_car
 
 CONTAINS
 
   !-------------------------------------------------------------------
-  SUBROUTINE interface_echam_o3_cariolle(is_in_sd_ed_interval,    &
-       &                                 is_active,               &
-       &                                 patch, rl_start, rl_end, &
-       &                                 field, tend,             &
-       &                                 this_datetime)
+  SUBROUTINE interface_echam_car(is_in_sd_ed_interval,    &
+       &                         is_active,               &
+       &                         patch, rl_start, rl_end, &
+       &                         this_datetime,           &
+       &                         pdtime                   )
 
-    LOGICAL                 ,INTENT(in)    :: is_in_sd_ed_interval
-    LOGICAL                 ,INTENT(in)    :: is_active
-    TYPE(t_patch)   ,TARGET ,INTENT(in)    :: patch
-    INTEGER                 ,INTENT(in)    :: rl_start, rl_end
-    TYPE(t_echam_phy_field) ,POINTER       :: field
-    TYPE(t_echam_phy_tend)  ,POINTER       :: tend
-    TYPE(datetime)          ,POINTER       :: this_datetime
+    LOGICAL                 ,INTENT(in) :: is_in_sd_ed_interval
+    LOGICAL                 ,INTENT(in) :: is_active
+    TYPE(t_patch)   ,TARGET ,INTENT(in) :: patch
+    INTEGER                 ,INTENT(in) :: rl_start, rl_end
+    TYPE(datetime)          ,POINTER    :: this_datetime
+    REAL(wp)                ,INTENT(in) :: pdtime
 
-     ! local
-    REAL(wp)                           :: do3dt(nproma,nlev)
-    TYPE(t_time_interpolation)         :: time_interpolation
-    TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
-    TYPE(t_avi)                        :: avi
+    ! Local variables
+    !
+    TYPE(t_echam_phy_field) ,POINTER    :: field
+    TYPE(t_echam_phy_tend)  ,POINTER    :: tend
+    !
+    REAL(wp)                            :: do3dt(nproma,nlev)
+    TYPE(t_time_interpolation)          :: time_interpolation
+    TYPE(t_time_interpolation_weights)  :: current_time_interpolation_weights
+    TYPE(t_avi)                         :: avi
 
     INTEGER  :: i_nchdom
     INTEGER  :: i_startblk,i_endblk
+    INTEGER  :: jg             !< grid index
     INTEGER  :: jb             !< block index
     INTEGER  :: jcs, jce       !< start/end column index within this block
  
     EXTERNAL     lcariolle_lat_intp_li, lcariolle_pres_intp_li
-
-    i_nchdom   = MAX(1,patch%n_childdom)
-    i_startblk = patch%cells%start_blk(rl_start,1)
-    i_endblk   = patch%cells%end_blk(rl_end,i_nchdom)
 
     current_time_interpolation_weights = calculate_time_interpolation_weights(this_datetime)
     time_interpolation% imonth1 = current_time_interpolation_weights% month1_index
     time_interpolation% imonth2 = current_time_interpolation_weights% month2_index
     time_interpolation% weight1 = current_time_interpolation_weights% weight1
     time_interpolation% weight2 = current_time_interpolation_weights% weight2
+
+    i_nchdom   = MAX(1,patch%n_childdom)
+    i_startblk = patch%cells%start_blk(rl_start,1)
+    i_endblk   = patch%cells%end_blk(rl_end,i_nchdom)
+
+    ! grid index
+    jg = patch%id
+
+    ! associate pointers
+    field => prm_field(jg)
+    tend  => prm_tend (jg)
 
     !-------------------------------------------------------------------
     !  NOTE: something is wrong with the avi dimensions; cannot be run in OpenMP
@@ -125,7 +140,7 @@ CONTAINS
 !$OMP END PARALLEL
     !-------------------------------------------------------------------
 
-  END SUBROUTINE interface_echam_o3_cariolle
+  END SUBROUTINE interface_echam_car
   !-------------------------------------------------------------------
 
-END MODULE mo_interface_echam_o3_cariolle
+END MODULE mo_interface_echam_car

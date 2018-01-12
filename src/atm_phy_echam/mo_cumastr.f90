@@ -50,10 +50,11 @@
 !! Where software is supplied by third parties, it is indicated in the headers of the routines.
 !!
 MODULE mo_cumastr
+
   USE mo_kind,                 ONLY: wp
   USE mo_echam_convect_tables, ONLY: prepare_ua_index_spline,lookup_ua_spline, lookup_ubc
   USE mo_physical_constants,   ONLY: grav, alv, als, tmelt, vtmpc1, rd
-  USE mo_echam_conv_config,    ONLY: echam_conv_config
+  USE mo_echam_cnv_config,     ONLY: echam_cnv_config, cevapcu
   USE mo_cuinitialize,         ONLY: cuini, cubase
   USE mo_cuascent,             ONLY: cuasc
   USE mo_cudescent,            ONLY: cudlfs, cuddraf
@@ -63,16 +64,12 @@ MODULE mo_cumastr
   PRIVATE
   PUBLIC :: cumastr
 
-  ! to simplify access to components of echam_conv_config
-  LOGICAL , POINTER :: lmfdd, lmfdudv
-  REAL(wp), POINTER :: entrpen, entrscv, cmfdeps, cmftau
-  REAL(wp), POINTER :: cevapcu(:)
-
-
 CONTAINS
   !>
   !!
-  SUBROUTINE cumastr(  kproma, kbdim, klev, klevp1, klevm1,               &
+  SUBROUTINE cumastr(  jg,                                                &
+    &                  kproma,   kbdim,                                   &
+    &                  klev,     klevp1,   klevm1,                        &
     &                  pdtime,                                            &
     &                  pzf,      pzh,                                     &
     &                  pmdry,                                             &
@@ -91,6 +88,7 @@ CONTAINS
     &                  pxtecl,   pxteci,                                  &
     &                  ptop                                               )
     !
+    INTEGER, INTENT(IN)   :: jg
     INTEGER, INTENT(IN)   :: kproma, kbdim, klev, klevp1, ktrac, klevm1
     REAL(wp),INTENT(IN)   :: pdtime
     REAL(wp),INTENT(IN)   :: pzf(kbdim,klev),         pzh(kbdim,klevp1)
@@ -169,14 +167,20 @@ CONTAINS
     !
     !  Executable statements
 
-    ! to simplify access to components of echam_conv_config
-    lmfdd    => echam_conv_config% lmfdd
-    lmfdudv  => echam_conv_config% lmfdudv
-    entrscv  => echam_conv_config% entrscv
-    entrpen  => echam_conv_config% entrpen
-    cmfdeps  => echam_conv_config% cmfdeps
-    cmftau   => echam_conv_config% cmftau
-    cevapcu  => echam_conv_config% cevapcu
+    ! Shortcuts to components of echam_cnv_config
+    !
+    LOGICAL , POINTER :: lmfdd, lmfdudv
+    REAL(wp), POINTER :: entrpen, entrscv, cmfdeps, cmftau
+    REAL(wp), POINTER :: zevapcu(:)
+    !
+    lmfdd   => echam_cnv_config(jg)% lmfdd
+    lmfdudv => echam_cnv_config(jg)% lmfdudv
+    entrscv => echam_cnv_config(jg)% entrscv
+    entrpen => echam_cnv_config(jg)% entrpen
+    cmfdeps => echam_cnv_config(jg)% cmfdeps
+    cmftau  => echam_cnv_config(jg)% cmftau
+    !
+    zevapcu(1:klev) => cevapcu(1:klev,jg)
 
     !-----------------------------------------------------------------------
     !
@@ -190,7 +194,8 @@ CONTAINS
     !*    2.           Initialize values at vertical grid points in 'cuini'
     !                  ---------------------------------------------------
     !
-    CALL cuini(kproma, kbdim, klev, klevp1, klevm1,                      &
+    CALL cuini(jg,                                                       &
+      &        kproma, kbdim, klev, klevp1, klevm1,                      &
       &        pten,     pqen,     zqsen,    pxen,     puen,     pven,   &
       &        ktrac,                                                    &
       &        pxten,    zxtenh,   zxtu,     zxtd,     zmfuxt,   zmfdxt, &
@@ -211,7 +216,8 @@ CONTAINS
     !*             (A) Determine cloud base values in 'cubase'
     !                  ---------------------------------------
     !
-    CALL cubase(kproma, kbdim, klev, klevp1, klevm1,                     &
+    CALL cubase(jg,                                                      &
+      &         kproma,   kbdim,    klev,     klevp1,    klevm1,         &
       &         ztenh,    zqenh,    pgeoh,    paphp1,    pthvsig,        &
       &         ptu,      pqu,      plu,                                 &
       &         puen,     pven,     zuu,      zvu,                       &
@@ -294,7 +300,7 @@ CONTAINS
       zcpcui(1:kproma,jk) = 1._wp/zcpcu(1:kproma,jk)
       IF (jk <= klevm1 .AND. jk >= 3) THEN
         ! mpuetz: too few instructions (FP dependencies)
-        CALL prepare_ua_index_spline('cumastr',kproma,ztenh(1,jk),loidx(1),za(1))
+        CALL prepare_ua_index_spline(jg,'cumastr',kproma,ztenh(1,jk),loidx(1),za(1))
         CALL lookup_ua_spline(kproma,loidx(1),za(1),ua(1),dua(1))
         CALL lookup_ubc(kproma,ztenh(1,jk),ub(1))
         zjk = REAL(jk,wp)
@@ -414,7 +420,8 @@ CONTAINS
     !*         (B) Do ascent in 'cuasc' in absence of downdrafts
     !              ---------------------------------------------
     !
-    CALL cuasc(kproma, kbdim, klev, klevp1, klevm1,                      &
+    CALL cuasc(jg,                                                       &
+      &        kproma, kbdim, klev, klevp1, klevm1,                      &
       &        pzf,      pzh,      pmdry,                                &
       &        ztenh,    zqenh,    puen,     pven,                       &
       &        ktrac,                                                    &
@@ -468,7 +475,8 @@ CONTAINS
       !
       !*             (A) Determine lfs in 'cudlfs'
       !                  -------------------------
-      CALL cudlfs(kproma,   kbdim,    klev,     klevp1,                 &
+      CALL cudlfs(jg,                                                   &
+        &         kproma,   kbdim,    klev,     klevp1,                 &
         &         ztenh,    zqenh,    puen,     pven,                   &
         &         ktrac,                                                &
         &         zxtenh,   zxtu,     zxtd,     zmfdxt,                 &
@@ -482,7 +490,8 @@ CONTAINS
       !
       !*            (B)  Determine downdraft t,q and fluxes in 'cuddraf'
       !                  -----------------------------------------------
-      CALL cuddraf(kproma,   kbdim,    klev,     klevp1,                &
+      CALL cuddraf(jg,                                                  &
+        &          kproma,   kbdim,    klev,     klevp1,                &
         &          pmdry,                                               &
         &          ztenh,    zqenh,    puen,     pven,                  &
         &          ktrac,                                               &
@@ -651,7 +660,8 @@ CONTAINS
     !*          and for mid-level convection (type=3).
     !           --------------------------------------------------
     !
-    CALL cuasc(kproma, kbdim, klev, klevp1, klevm1,                      &
+    CALL cuasc(jg,                                                       &
+      &        kproma, kbdim, klev, klevp1, klevm1,                      &
       &        pzf,      pzh,      pmdry,                                &
       &        ztenh,    zqenh,    puen,     pven,                       &
       &        ktrac,                                                    &
@@ -679,7 +689,7 @@ CONTAINS
       &        pqen,     zqsen,    ztenh,    zqenh,                      &
       &        ktrac,                                                    &
       &        pdtime,                                                   &
-      &        cevapcu,                                                  &
+      &        zevapcu,                                                  &
       &        zxtenh,   zmfuxt,   zmfdxt,                               &
       &        paphp1,   pgeoh,                                          &
       &        kcbot,    kctop,    idtop,                                &

@@ -156,64 +156,58 @@ cat > ${atmo_namelist} << EOF
  itype_hlimit     =   3,  4,  4,  3
  ihadv_tracer     =  52,  2,  2, 52
 /
-&mpi_phy_nml
+&echam_phy_nml
 !
 ! domain 1
 ! --------
 !
 ! atmospheric phyiscs (""=never)
- mpi_phy_config(1)%dt_rad = "PT8M"
- mpi_phy_config(1)%dt_vdf = "PT4M"
- mpi_phy_config(1)%dt_cnv = "PT4M"
- mpi_phy_config(1)%dt_cld = "PT4M"
- mpi_phy_config(1)%dt_gwd = "PT4M"
- mpi_phy_config(1)%dt_sso = "PT4M"
+ echam_phy_config(1)%dt_rad = "PT8M"
+ echam_phy_config(1)%dt_vdf = "PT4M"
+ echam_phy_config(1)%dt_cnv = "PT4M"
+ echam_phy_config(1)%dt_cld = "PT4M"
+ echam_phy_config(1)%dt_gwd = "PT4M"
+ echam_phy_config(1)%dt_sso = "PT4M"
 !
 ! atmospheric chemistry (""=never)
- mpi_phy_config(1)%dt_mox = "PT4M"
- mpi_phy_config(1)%dt_car = ""
- mpi_phy_config(1)%dt_art = ""
+ echam_phy_config(1)%dt_mox = "PT4M"
+ echam_phy_config(1)%dt_car = ""
+ echam_phy_config(1)%dt_art = ""
 !
 ! surface (.TRUE. or .FALSE.)
- mpi_phy_config(1)%ljsb  = ${ljsbach}
- mpi_phy_config(1)%lamip = .TRUE.
- mpi_phy_config(1)%lice  = .TRUE.
- mpi_phy_config(1)%lmlo  = .FALSE.
- mpi_phy_config(1)%llake  = ${llake}
+ echam_phy_config(1)%ljsb   = ${ljsbach}
+ echam_phy_config(1)%lamip  = .TRUE.
+ echam_phy_config(1)%lice   = .TRUE.
+ echam_phy_config(1)%lmlo   = .FALSE.
+ echam_phy_config(1)%llake  = ${llake}
 !
 /
-&mpi_sso_nml
+&echam_rad_nml
+!
+! domain 1
+! --------
+!
+ echam_rad_config(1)%isolrad    =  1
+ echam_rad_config(1)%irad_h2o   =  1
+ echam_rad_config(1)%irad_co2   =  4
+ echam_rad_config(1)%irad_ch4   =  4
+ echam_rad_config(1)%irad_n2o   =  4
+ echam_rad_config(1)%irad_o3    =  8
+ echam_rad_config(1)%irad_o2    =  2
+ echam_rad_config(1)%irad_cfc11 =  4
+ echam_rad_config(1)%irad_cfc12 =  4
+ echam_rad_config(1)%irad_aero  = 18
+ echam_rad_config(1)%ighg       =  1
 /
-&radiation_nml
- irad_h2o         = 1           ! 1: prognostic vapor, liquid and ice
- irad_co2         = 4           ! 4: from greenhouse gas scenario
- irad_ch4         = 4           ! 4: from greenhouse gas scenario
- irad_n2o         = 4           ! 4: from greenhouse gas scenario
- irad_o3          = 8           ! 1: prognostic ozone; 8: prescribed transient monthly mean ozone
- irad_o2          = 2           ! 2: horizontally and vertically constant
- irad_cfc11       = 4           ! 4: from greenhouse gas scenario
- irad_cfc12       = 4           ! 4: from greenhouse gas scenario
- irad_aero        = 18          ! 0: no aerosol
-                                !13: only Kinne\'s tropospheric aerosols 
-                                !14: only Stenchikov\'s volcanic aerosols
-                                !15: Kinne aerosol optics for troposphere
-                                !   +Stenchikov aerosol optics for stratosphere
-                                !18: Kinne background aerosols of 1865 (natural
-                                !    background + Stenchikov\'s volc. aerosols
-                                !    + simple plumes (anthropogenic)
- ighg             = 1           ! 1: transient well mixed greenhouse gas concentrations
- isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
+&echam_gwd_nml
 /
-&psrad_nml
- rad_perm         = 1           ! Integer for perturbing random number seeds
+&echam_sso_nml
 /
-&psrad_orbit_nml
+&echam_vdf_nml
 /
-&echam_conv_nml
+&echam_cnv_nml
 /
-&echam_cloud_nml
-/
-&gw_hines_nml
+&echam_cld_nml
 /
 &sea_ice_nml
 /

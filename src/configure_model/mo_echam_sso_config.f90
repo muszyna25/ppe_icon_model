@@ -1,16 +1,16 @@
 !>
 !! Configuration of the parameterization for sub-grid scale orographic effects,
-!! that is used in the MPI physics package.
+!! that is used in the ECHAM physics package.
 !!
 !! @author Marco Giorgetta, MPI-M
 !!
 !! @par Revision History
-!! First version by Marco Giorgetta, MPI (2017-04)
+!!     First version by Marco Giorgetta, MPI-M (2017-04)
 !!
 !! Based on earlier codes of:
-!!           Martin Miller, ECMWF, Jan 1990
-!!           Francois Lott, LMD,   Jul 1999  
-!!           Elisa Manzini, MPI,   Aug 2000
+!!     Martin Miller, ECMWF, Jan 1990
+!!     Francois Lott, LMD,   Jul 1999  
+!!     Elisa Manzini, MPI-M, Aug 2000
 !!
 !! References: 
 !!     Lott, 1999: Alleviation of stationary biases in a GCM through...
@@ -24,10 +24,11 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-MODULE mo_mpi_sso_config
+MODULE mo_echam_sso_config
 
-  USE mo_exception            ,ONLY: message, print_value, finish
+  USE mo_exception            ,ONLY: message, print_value
   USE mo_kind                 ,ONLY: wp
+  USE mo_impl_constants       ,ONLY: max_dom
   USE mo_grid_config          ,ONLY: n_dom
   USE mo_run_config           ,ONLY: nlev
   USE mo_vertical_coord_table ,ONLY: vct
@@ -36,21 +37,27 @@ MODULE mo_mpi_sso_config
 
   PRIVATE
 
+  PUBLIC ::                     name   !< name for this unit
+
   ! configuration
-  PUBLIC ::         mpi_sso_config   !< user specified configuration parameters
-  PUBLIC ::    init_mpi_sso_config   !< allocate and initialize mpi_sso_config
-  PUBLIC ::    eval_mpi_sso_config   !< evaluate mpi_sso_config
-  PUBLIC ::   print_mpi_sso_config   !< print out
-  PUBLIC :: dealloc_mpi_sso_config   !< deallocate
+  PUBLIC ::         echam_sso_config   !< user specified configuration parameters
+  PUBLIC ::    init_echam_sso_config   !< allocate and initialize echam_sso_config
+  PUBLIC ::    eval_echam_sso_config   !< evaluate echam_sso_config
+  PUBLIC ::   print_echam_sso_config   !< print out
 
   ! parameters
   PUBLIC :: gfrcrit, grcrit, grahilo
   PUBLIC :: gsigcr , gssec , gtsec , gvsec
 
   !>
-  !! Configuration type containing parameters and switches for the configuration of the MPI physics package
+  !! Name of this unit
   !!
-  TYPE t_mpi_sso_config
+  CHARACTER(LEN=*), PARAMETER :: name = 'echam_sso'
+  
+  !>
+  !! Configuration type containing parameters and switches for the configuration of the ECHAM subgrid scale orographic drag
+  !!
+  TYPE t_echam_sso_config
      !
      ! configuration parameters
      ! ------------------------
@@ -67,13 +74,14 @@ MODULE mo_mpi_sso_config
      ! parameters related to the vertical grid
      INTEGER  :: nktopg    ! Security value for blocked flow level
      INTEGER  :: ntop      ! An estimate to qualify the upper levels of the
-     !                     ! model where one wants to impose stress profiles
-  END TYPE t_mpi_sso_config
+     !                       model where one wants to impose stress profiles
+     !
+  END TYPE t_echam_sso_config
 
   !>
   !! Configuration state vectors, for multiple domains/grids.
   !!
-  TYPE(t_mpi_sso_config), ALLOCATABLE :: mpi_sso_config(:)
+  TYPE(t_echam_sso_config), TARGET :: echam_sso_config(max_dom)
   
   ! "tunable parameters" of the various SSO schemes, same for all domains
   !
@@ -95,41 +103,39 @@ CONTAINS
   !>
   !! Initialize the configuration state vector
   !!
-  SUBROUTINE init_mpi_sso_config
-
-    ! MPI SSO configuration
-    ! ---------------------
-
-    ALLOCATE(mpi_sso_config(n_dom))
-
+  SUBROUTINE init_echam_sso_config
+    !
+    ! ECHAM subgrid scale orographic drag configuration
+    ! -------------------------------------------------
+    !
     ! Define the mask for the SSO parameterization:
-    mpi_sso_config(:)% gpicmea = 40.0_wp ! only where  (peak - mean height) is typically > 1st layer depth
-    mpi_sso_config(:)% gstd    = 10.0_wp ! only where SSO slope, asymmetry and orientation are defined by EXTPAR
-
+    echam_sso_config(:)% gpicmea = 40.0_wp ! only where  (peak - mean height) is typically > 1st layer depth
+    echam_sso_config(:)% gstd    = 10.0_wp ! only where SSO slope, asymmetry and orientation are defined by EXTPAR
+    !
     ! Define the tuning parameters for SSO drag. These values depend on:
     ! (1) the resolution of the topography data used to compute the SSO parameters, and
     ! (2) the model resolution.
     ! A 0-value switches the relevant effect off.
-    mpi_sso_config(:)% gkdrag  = 0.10_wp
-    mpi_sso_config(:)% gkwake  = 0.01_wp
-    mpi_sso_config(:)% gklift  = 0.00_wp
-
+    echam_sso_config(:)% gkdrag  = 0.10_wp
+    echam_sso_config(:)% gkwake  = 0.01_wp
+    echam_sso_config(:)% gklift  = 0.00_wp
+    !
     ! parameters related to the vertical grid
-    mpi_sso_config(:)% ntop    = 1
-    mpi_sso_config(:)% nktopg  = 0 ! needs to be derived
-
-  END SUBROUTINE init_mpi_sso_config
+    echam_sso_config(:)% ntop    = 1
+    echam_sso_config(:)% nktopg  = 0 ! needs to be derived
+    !
+  END SUBROUTINE init_echam_sso_config
 
   !----
 
   !>
   !! Evaluate additional derived parameters
   !!
-  SUBROUTINE eval_mpi_sso_config
-
+  SUBROUTINE eval_echam_sso_config
+    !
     INTEGER          :: jk
     REAL(wp)         :: zsigt, zpm1r, zpr
-    
+    !
     ! height sigma grid
     !
     zpr   =  1950._wp ! m (800 hPa in International Standard Atmosphere)
@@ -142,34 +148,34 @@ CONTAINS
        !
        ! Find highest full level with zf(jk) <= zsigt 
        IF (zpm1r <= zsigt) THEN
-          mpi_sso_config(:)% nktopg = jk
+          echam_sso_config(:)% nktopg = jk
        END IF
        !
     END DO
-
-  END SUBROUTINE eval_mpi_sso_config
+    !
+  END SUBROUTINE eval_echam_sso_config
 
   !----
 
   !>
   !! Print out the user controlled configuration state
   !!
-  SUBROUTINE print_mpi_sso_config
-
+  SUBROUTINE print_echam_sso_config
+    !
     INTEGER           :: jg
     CHARACTER(LEN=2)  :: cg
-
+    !
     CALL message    ('','')
     CALL message    ('','========================================================================')
     CALL message    ('','')
-    CALL message    ('','MPI SSO configuration')
-    CALL message    ('','=====================')
+    CALL message    ('','ECHAM subgrid scale orographic drag configuration')
+    CALL message    ('','=================================================')
     CALL message    ('','')
-
+    !
     CALL print_value('    Critical Froude     number gfrcrit',gfrcrit )
     CALL print_value('    Critical Richardson number grcrit ',grcrit  )
     CALL message    ('','')
-
+    !
     DO jg = 1,n_dom
        !
        WRITE(cg,'(i0)') jg
@@ -178,39 +184,18 @@ CONTAINS
        CALL message    ('','------------')
        CALL message    ('','')
        CALL message    ('','Use SSO where peak-mean height > gpicmea and orostdh>gstd:')
-       CALL print_value('    mpi_sso_config('//TRIM(cg)//')% gpicmea  ',mpi_sso_config(jg)% gpicmea  )
-       CALL print_value('    mpi_sso_config('//TRIM(cg)//')% gstd     ',mpi_sso_config(jg)% gstd     )
+       CALL print_value('    echam_sso_config('//TRIM(cg)//')% gpicmea  ',echam_sso_config(jg)% gpicmea  )
+       CALL print_value('    echam_sso_config('//TRIM(cg)//')% gstd     ',echam_sso_config(jg)% gstd     )
        CALL message    ('','Coefficients for gravity wave drag, low level blocking and lift:')
-       CALL print_value('    mpi_sso_config('//TRIM(cg)//')% gkdrag   ',mpi_sso_config(jg)% gkdrag   )
-       CALL print_value('    mpi_sso_config('//TRIM(cg)//')% gkwake   ',mpi_sso_config(jg)% gkwake   )
-       CALL print_value('    mpi_sso_config('//TRIM(cg)//')% gklift   ',mpi_sso_config(jg)% gklift   )
+       CALL print_value('    echam_sso_config('//TRIM(cg)//')% gkdrag   ',echam_sso_config(jg)% gkdrag   )
+       CALL print_value('    echam_sso_config('//TRIM(cg)//')% gkwake   ',echam_sso_config(jg)% gkwake   )
+       CALL print_value('    echam_sso_config('//TRIM(cg)//')% gklift   ',echam_sso_config(jg)% gklift   )
        CALL message    ('','')
        !
     END DO
-
-  END SUBROUTINE print_mpi_sso_config
-
-  !----
-
-  !>
-  !! Deallocate the mpi_sso_config state
-  !!
-  SUBROUTINE dealloc_mpi_sso_config
-
-    CHARACTER(LEN=*),PARAMETER  :: method_name ='mo_mpi_sso_config:dealloc_mpi_sso_config'
-
-    DEALLOCATE(mpi_sso_config)
-
-    CALL message    ('','')
-    CALL message    ('','------------------------------------------------------------------------')
-    CALL message    ('','')
-    CALL message    (method_name,'MPI SSO configuration state deallocated')
-    CALL message    ('','')
-    CALL message    ('','------------------------------------------------------------------------')
-    CALL message    ('','')
-
-  END SUBROUTINE dealloc_mpi_sso_config
+    !
+  END SUBROUTINE print_echam_sso_config
 
   !----
 
-END MODULE mo_mpi_sso_config
+END MODULE mo_echam_sso_config

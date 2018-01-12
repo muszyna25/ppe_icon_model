@@ -55,7 +55,8 @@ MODULE mo_ext_data_init
     &                              n_iter_smooth_topo, i_lctype, nclass_lu, nmonths_ext
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
-  USE mo_mpi_phy_config,     ONLY: mpi_phy_config
+  USE mo_echam_rad_config,   ONLY: echam_rad_config
+  USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_smooth_topo,        ONLY: smooth_topo_real_data
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
@@ -238,7 +239,9 @@ CONTAINS
       END IF
 
       ! call read_ext_data_atm to read O3
-      IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape .OR. sstice_mode == SSTICE_CLIM ) THEN
+      IF (                              irad_o3 == io3_clim  .OR.                         irad_o3 == io3_ape  &
+         & .OR. ANY(echam_rad_config(:)%irad_o3 == io3_clim) .OR. ANY(echam_rad_config(:)%irad_o3 == io3_ape) &
+         & .OR. sstice_mode == SSTICE_CLIM) THEN
         CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, &
           &                     extpar_varnames_dict)
         CALL message( TRIM(routine),'read_ext_data_atm completed' )
@@ -602,9 +605,10 @@ CONTAINS
       nlev_o3 = 1
       nmonths   = 1
 
-      O3 : IF ((irad_o3 == io3_clim) .OR. (irad_o3 == io3_ape )) THEN
+      O3 : IF (                        irad_o3 == io3_clim .OR.                      irad_o3 == io3_ape &
+           & .OR. echam_rad_config(jg)%irad_o3 == io3_clim .OR. echam_rad_config(jg)%irad_o3 == io3_ape ) THEN
 
-        IF(irad_o3 == io3_ape ) THEN
+        IF(irad_o3 == io3_ape .OR. echam_rad_config(jg)%irad_o3 == io3_ape) THEN
           levelname = 'level'
           cellname  = 'ncells'
           o3name    = 'O3'
@@ -916,7 +920,7 @@ CONTAINS
 
       DO jg = 1,n_dom
 
-        IF ( mpi_phy_config(jg)%ljsb ) THEN
+        IF ( echam_phy_config(jg)%ljsb ) THEN
 
           stream_id = openInputFile('hd_mask.nc', p_patch(jg), default_read_method)
      
@@ -1232,7 +1236,8 @@ CONTAINS
     ! Read ozone
     !-------------------------------------------------------
 
-    IF((irad_o3 == io3_clim) .OR. (irad_o3 == io3_ape)) THEN
+    IF (                              irad_o3 == io3_clim  .OR.                         irad_o3 == io3_ape  &
+       & .OR. ANY(echam_rad_config(:)%irad_o3 == io3_clim) .OR. ANY(echam_rad_config(:)%irad_o3 == io3_ape) ) THEN
 
       DO jg = 1,n_dom
 
@@ -1285,7 +1290,7 @@ CONTAINS
         ! convert from ppmv to g/g only in case of APE ozone
         ! whether o3mr2gg or ppmv2gg is used to convert O3 to gg depends on the units of
         ! the incoming ozone file.  Often, the incoming units are not ppmv.
-        IF(irad_o3 == io3_ape) &
+        IF(irad_o3 == io3_ape .OR. echam_rad_config(jg)%irad_o3 == io3_ape) &
          ! &         ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*o3mr2gg
           &         ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*ppmv2gg
 

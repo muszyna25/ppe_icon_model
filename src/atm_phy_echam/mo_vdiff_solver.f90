@@ -21,7 +21,7 @@ MODULE mo_vdiff_solver
   USE mo_physical_constants,ONLY: rgrav, cpd, cpv
   USE mo_echam_vdiff_params,ONLY: tke_min, &
     &                             tpfac1, tpfac2, tpfac3, cchar, z0m_min
-  USE mo_mpi_phy_config,    ONLY: mpi_phy_config
+  USE mo_echam_phy_config,  ONLY: echam_phy_config
 
   IMPLICIT NONE
   PRIVATE
@@ -626,7 +626,7 @@ CONTAINS
     !---------------------------------------------------------
     ! Evapotranspiration has to be considered over land 
 
-    IF (mpi_phy_config(jg)%ljsb .AND. idx_lnd<=ksfc_type) THEN
+    IF (echam_phy_config(jg)%ljsb .AND. idx_lnd<=ksfc_type) THEN
 
       jsfc = idx_lnd
 

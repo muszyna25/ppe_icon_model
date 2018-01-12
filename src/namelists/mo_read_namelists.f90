@@ -42,21 +42,21 @@ MODULE mo_read_namelists
 
   USE mo_advection_nml       ,ONLY: read_transport_namelist
 
-  USE mo_mpi_phy_config      ,ONLY: init_mpi_phy_config
-  USE mo_mpi_phy_nml         ,ONLY: read_mpi_phy_namelist
-  USE mo_mpi_sso_config      ,ONLY: init_mpi_sso_config
-  USE mo_mpi_sso_nml         ,ONLY: read_mpi_sso_namelist
+  USE mo_echam_phy_nml       ,ONLY: process_echam_phy_nml
+  USE mo_echam_cld_nml       ,ONLY: process_echam_cld_nml
+  USE mo_echam_cnv_nml       ,ONLY: process_echam_cnv_nml
+  USE mo_echam_gwd_nml       ,ONLY: process_echam_gwd_nml
+  USE mo_echam_rad_nml       ,ONLY: process_echam_rad_nml
+  USE mo_echam_sso_nml       ,ONLY: process_echam_sso_nml
+  USE mo_echam_vdf_nml       ,ONLY: process_echam_vdf_nml
+  
   USE mo_nwp_phy_nml         ,ONLY: read_nwp_phy_namelist
   USE mo_nwp_tuning_nml      ,ONLY: read_nwp_tuning_namelist
   USE mo_ensemble_pert_nml   ,ONLY: read_ensemble_pert_namelist
   USE mo_radiation_nml       ,ONLY: read_radiation_namelist
   USE mo_psrad_radiation     ,ONLY: setup_psrad_radiation
   USE mo_synsat_nml          ,ONLY: read_synsat_namelist
-  USE mo_vdiff_nml           ,ONLY: read_vdiff_namelist
-  USe mo_turbdiff_nml        ,ONLY: read_turbdiff_namelist
-  USE mo_echam_conv_nml      ,ONLY: read_echam_conv_namelist
-  USE mo_echam_cloud_nml     ,ONLY: read_echam_cloud_namelist
-  USE mo_gw_hines_nml        ,ONLY: read_gw_hines_namelist
+  USE mo_turbdiff_nml        ,ONLY: read_turbdiff_namelist
   USE mo_lnd_nwp_nml         ,ONLY: read_nwp_lnd_namelist
   USE mo_art_nml             ,ONLY: read_art_namelist
 
@@ -150,19 +150,17 @@ CONTAINS
     SELECT CASE (iforcing)
     CASE (IECHAM, ILDF_ECHAM)
        !
-       ! MPI physics ...
-       CALL init_mpi_phy_config
-       CALL read_mpi_phy_namelist        (TRIM(atm_namelist_filename))
+       ! ECHAM physics ...
+       CALL process_echam_phy_nml        (TRIM(atm_namelist_filename))
        !
        ! ... and the employed parameterizations
-       CALL  init_mpi_sso_config
-       CALL  read_mpi_sso_namelist       (TRIM(atm_namelist_filename))
+       CALL process_echam_cld_nml        (TRIM(atm_namelist_filename))
+       CALL process_echam_cnv_nml        (TRIM(atm_namelist_filename))
+       CALL process_echam_gwd_nml        (TRIM(atm_namelist_filename))
+       CALL process_echam_rad_nml        (TRIM(atm_namelist_filename))
+       CALL process_echam_sso_nml        (TRIM(atm_namelist_filename))
+       CALL process_echam_vdf_nml        (TRIM(atm_namelist_filename))
        !
-       CALL read_radiation_namelist      (TRIM(atm_namelist_filename))
-       CALL read_vdiff_namelist          (TRIM(atm_namelist_filename))
-       CALL read_echam_cloud_namelist    (TRIM(atm_namelist_filename))
-       CALL read_echam_conv_namelist     (TRIM(atm_namelist_filename))
-       CALL read_gw_hines_namelist       (TRIM(atm_namelist_filename))
        CALL read_sea_ice_namelist        (TRIM(atm_namelist_filename))
        CALL read_art_namelist            (TRIM(atm_namelist_filename))
        ! setup_psrad_radiation depends on cloud_config

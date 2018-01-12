@@ -26,7 +26,7 @@ MODULE mo_echam_convect_tables
   USE mo_kind,      ONLY: wp
   USE mo_exception, ONLY: message_text, message, finish
   USE mo_physical_constants, ONLY: alv, als, rd, rv, tmelt, cpd
-  USE mo_echam_cloud_config, ONLY: echam_cloud_config
+  USE mo_echam_cld_config,   ONLY: echam_cld_config
 
   IMPLICIT NONE
 
@@ -191,9 +191,6 @@ MODULE mo_echam_convect_tables
   ! fused tables for splines
   REAL(wp) :: tlucu(1:2,lucupmin-2:lucupmax+1)     ! fused table
   REAL(wp) :: tlucuw(1:2,lucupmin-2:lucupmax+1)    ! fused table
-
-  ! to simplify access to components of echam_cloud_config
-  REAL(wp), POINTER :: csecfrl, cthomi
 
   !----------------------------------------------------------------------------
 CONTAINS
@@ -656,7 +653,8 @@ CONTAINS
 
   END SUBROUTINE lookup_uaw
   !----------------------------------------------------------------------------
-  SUBROUTINE prepare_ua_index_spline(name, size, temp, idx, zalpha, xi, nphase, zphase, iphase)
+  SUBROUTINE prepare_ua_index_spline(jg, name, size, temp, idx, zalpha, xi, nphase, zphase, iphase)
+    INTEGER,            INTENT(in)  :: jg
     CHARACTER(len=*),   INTENT(in)  :: name
     INTEGER,            INTENT(in)  :: size
     REAL(wp),           INTENT(in)  :: temp(size)
@@ -670,9 +668,12 @@ CONTAINS
     REAL(wp) :: ztt, ztshft, zinbounds, ztmin,ztmax,znphase,ztest
     INTEGER :: jl
 
-    ! to simplify access to components of echam_cloud_config
-    csecfrl  => echam_cloud_config% csecfrl
-    cthomi   => echam_cloud_config% cthomi
+    ! Shortcuts to components of echam_cld_config
+    !
+    REAL(wp), POINTER :: csecfrl, cthomi
+    !
+    csecfrl => echam_cld_config(jg)% csecfrl
+    cthomi  => echam_cld_config(jg)% cthomi
 
     zinbounds = 1._wp
     ztmin = flucupmin
@@ -712,7 +713,8 @@ CONTAINS
 
   END SUBROUTINE prepare_ua_index_spline
   !----------------------------------------------------------------------------
-  SUBROUTINE prepare_ua_index(name, size, temp, idx, xi, nphase, zphase, iphase)
+  SUBROUTINE prepare_ua_index(jg, name, size, temp, idx, xi, nphase, zphase, iphase)
+    INTEGER,            INTENT(in)  :: jg
     CHARACTER(len=*),   INTENT(in)  :: name
     INTEGER,            INTENT(in)  :: size
     REAL(wp),           INTENT(in)  :: temp(size)
@@ -725,9 +727,12 @@ CONTAINS
     REAL(wp) :: ztt, zinbounds, ztmin,ztmax,znphase,ztest
     INTEGER :: jl
 
-    ! to simplify access to components of echam_cloud_config
-    csecfrl  => echam_cloud_config% csecfrl
-    cthomi   => echam_cloud_config% cthomi
+    ! Shortcuts to components of echam_cld_config
+    !
+    REAL(wp), POINTER :: csecfrl, cthomi
+    !
+    csecfrl => echam_cld_config(jg)% csecfrl
+    cthomi  => echam_cld_config(jg)% cthomi
 
     ! first compute all lookup indices and check if they are all within allowed bounds
 

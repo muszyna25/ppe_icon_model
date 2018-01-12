@@ -26,7 +26,7 @@ MODULE mo_ha_diag_util
   USE mo_physical_constants, ONLY: grav, vtmpc1
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data_types,     ONLY: t_external_data
-  USE mo_mpi_phy_config,     ONLY: mpi_phy_config
+  USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_math_gradients,     ONLY: grad_fd_norm
   USE mo_math_divrot,        ONLY: div, div_avg, rot_vertex
   USE mo_dynamics_config,    ONLY: idiv_method, lshallow_water
@@ -632,7 +632,7 @@ CONTAINS
         IF (lgeop_wrt_sfc) THEN
           z_gzs(is:ie) = 0._wp
         ELSE
-          IF (mpi_phy_config(1)%lamip) THEN
+          IF (echam_phy_config(1)%lamip) THEN
             ! The following code snippet replaces the previous,
             ! "non-mtime" formulation
             !
