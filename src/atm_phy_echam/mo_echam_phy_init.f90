@@ -57,7 +57,7 @@ MODULE mo_echam_phy_init
   ! radiation
   USE mo_radiation_config,     ONLY: ssi_radt, tsi_radt, tsi, &
     &                                ighg, isolrad, irad_aero
-  USE mo_psrad_srtm_kgs,       ONLY: ssi_amip, ssi_default, &
+  USE mo_psrad_srtm_setup,     ONLY: setup_srtm, ssi_amip, ssi_default, &
     &                                ssi_preind, ssi_RCEdiurnOn, ssi_RCEdiurnOFF, &
     &                                ssi_cmip6_picontrol
   USE mo_lrtm_setup,           ONLY: lrtm_setup
@@ -201,6 +201,9 @@ CONTAINS
              'isolrad = ', isolrad, ' in radiation_nml namelist is not supported'
         CALL finish('init_echam_phy', message_text)
       END SELECT
+      !
+      CALL setup_srtm
+      !
     END IF
 
     lany=.FALSE.

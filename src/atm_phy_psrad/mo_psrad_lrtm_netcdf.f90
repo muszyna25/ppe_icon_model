@@ -7,12 +7,14 @@
 !!
 MODULE mo_psrad_lrtm_netcdf
 
+  USE mo_psrad_lrtm_kgs, ONLY : no, kmajor3_in, kmajor4_in, &
+    planck_fraction1_in, planck_fraction2_in, &
+    kgas2_in, kgas3_in, kgas2_list, kgas3_list, h2oref_in, cfc_in, &
+    npressure, nsp_species, nsp_fraction, cfc_list
   USE mo_psrad_general, ONLY: wp, finish, ngas, ncfc, nbndlw, &
-    ih2o, ico2, io3, in2o, io2, ich4, ico, ngpt_orig, npressure, &
-    cfc_offset, max_minor_species, ten20inv, ptr2, ptr3, ptr4
-  USE mo_psrad_io, ONLY: psrad_io_open, psrad_io_close, &
+    ih2o, ico2, io3, in2o, io2, ich4, ico!, in2
+  USE mo_psrad_io, ONLY: psrad_io_open, &
     read=>psrad_io_copy_double
-  USE mo_psrad_lrtm_kgs, ONLY : nsp, nsp_fraction, minor_species
 
   IMPLICIT NONE
 
@@ -38,18 +40,115 @@ MODULE mo_psrad_lrtm_netcdf
 
 CONTAINS 
 
-  SUBROUTINE lrtm_read(kmajor3_in, kmajor4_in, h2oref_in, kgas_in, &
-    planck_fraction2_in)
+  SUBROUTINE read_gases
+    CHARACTER(len=*), PARAMETER :: var_name(2) = (/ &
+      'AbsorptionCoefficientsLowerAtmos', &
+      'AbsorptionCoefficientsUpperAtmos'/)
+    INTEGER, PARAMETER :: key(2) = (/9, 5/)
+    INTEGER :: band, atm, igas, M
+    DO band = 1,nbndlw
+      DO igas = 1, ncfc
+        IF (cfc_list(igas,band) /= 0) THEN
+          CALL read(fileid,var_name(1), &
+            (/1,1,1,netcdf_cfc_idx(igas),band,gPointSetNumber/), &
+            (/1,1,no,1,1,1/), &
+            cfc_in(igas,band)%v)
+        END IF
+      END DO
+      DO atm = 1,2
+      DO igas = 1, ngas
+        M = kgas2_list(igas,atm,band)
+        IF (M /= 0) THEN
+          CALL read(fileid,var_name(atm), &
+            (/1,1,1,netcdf_idx(igas),band,gPointSetNumber/), &
+            (/1,T,no,1,1,1/), &
+            kgas2_in(igas,atm,band)%v)
+        ENDIF
+        M = kgas3_list(1,igas,atm,band)
+        IF (M /= 0) THEN
+          CALL read(fileid,var_name(atm), &
+            (/1,1,1,netcdf_idx(igas),band,gPointSetNumber/), &
+            (/key(atm),T,no,1,1,1/), &
+            kgas3_in(igas,atm,band)%v)
+        ENDIF
+      ENDDO
+      ENDDO
+    ENDDO
+  END SUBROUTINE read_gases
+
+  SUBROUTINE read_water
+    CHARACTER(len=*), PARAMETER :: var_name(2) = (/ &
+      'H20SelfAbsorptionCoefficients   ', &
+      'H20ForeignAbsorptionCoefficients'/)
+    INTEGER, PARAMETER :: key(2) = (/10, 4/)
+    INTEGER :: band, which
+    DO band = 1,nbndlw
+    DO which = 1,2
+      CALL read(fileid,trim(var_name(which)), &
+        (/1,1,band,gPointSetNumber/), &
+        (/key(which),no,1,1/), &
+        h2oref_in(1:key(which),:,which,band))
+    ENDDO
+    ENDDO
+  END SUBROUTINE read_water
+
+  SUBROUTINE read_planck_fraction
+    CHARACTER(len=*), PARAMETER :: var_name(2) = (/ &
+      'PlanckFractionLowerAtmos', &
+      'PlanckFractionUpperAtmos'/)
+    INTEGER :: band, atm, n
+    REAL(wp) :: linear(no*MAXVAL(nsp_fraction))
+    DO band = 1, nbndlw
+    DO atm = 1,2
+      n = nsp_fraction(atm,band)
+      IF (n /= 0) THEN
+        IF (n == 1) THEN
+          CALL read(fileid,var_name(atm), &
+            (/1,1,band,gPointSetNumber/), &
+            (/no,1,1,1/), &
+            planck_fraction1_in(:,atm,band))
+        ELSE
+          CALL read(fileid,var_name(atm), &
+            (/1,1,band,gPointSetNumber/), &
+            (/no,n,1,1/), &
+            linear)
+            planck_fraction2_in(atm,band)%v(1:n,:) = TRANSPOSE(RESHAPE(&
+              linear, SHAPE =(/no,n/)))
+        ENDIF
+      ENDIF
+    ENDDO
+    ENDDO
+  END SUBROUTINE read_planck_fraction
+
+  SUBROUTINE read_key_species
+    CHARACTER(len=*), PARAMETER :: var_name(2) = (/ &
+      'KeySpeciesAbsorptionCoefficientsLowerAtmos', &
+      'KeySpeciesAbsorptionCoefficientsUpperAtmos'/)
+    INTEGER :: band, atm, n
+    DO band = 1, nbndlw
+    DO atm = 1,2
+      n = nsp_species(atm,band)
+      IF (n /= 0) THEN
+        IF (n == 1) THEN
+          CALL read(fileid, var_name(atm), &
+            (/1,1,1,1,band,gPointSetNumber/), &
+            (/1,Tdiff,npressure(atm),no,1,1/), &
+            kmajor3_in(atm,band)%v)
+        ELSE
+          CALL read(fileid, var_name(atm), &
+            (/1,1,1,1,band,gPointSetNumber/), &
+            (/n,Tdiff,npressure(atm),no,1,1/), &
+            kmajor4_in(atm,band)%v)
+        ENDIF
+      ENDIF 
+    ENDDO
+    ENDDO
+  END SUBROUTINE read_key_species
+
+
+  SUBROUTINE lrtm_read
 
     USE mo_psrad_lrtm_kgs, ONLY: chi_mls, totplanck, totplanck16
-
-    TYPE(ptr3), DIMENSION(2,nbndlw), INTENT(INOUT) :: kmajor3_in
-    TYPE(ptr4), DIMENSION(2,nbndlw), INTENT(INOUT) :: kmajor4_in
-    TYPE(ptr2), DIMENSION(2,nbndlw), INTENT(INOUT) :: h2oref_in
-    TYPE(ptr3), DIMENSION(max_minor_species,2,nbndlw), &
-      INTENT(INOUT) :: kgas_in
-    TYPE(ptr2), DIMENSION(2,nbndlw), INTENT(INOUT) :: planck_fraction2_in
-
 
     CALL psrad_io_open('rrtmg_lw.nc', fileid)
     IF (fileid == 0) THEN
@@ -61,9 +160,7 @@ CONTAINS
       (/6, 1/), &
       (/7, 59 /), & ! TODO
       chi_mls(1:7,:))
-    !NOTE: scaling data instead of lots of runtime scaling/descalings
-    chi_mls((/ih2o, ico2, io3, in2o, io2, ich4, ico/),:) = &
-      ten20inv * chi_mls(1:7,:)
+    chi_mls((/ih2o, ico2, io3, in2o, io2, ich4, ico/),:) = chi_mls(1:7,:)
 
     CALL read(fileid, 'IntegratedPlanckFunction', &
       (/1, 1/), &
@@ -73,125 +170,11 @@ CONTAINS
       (/ 1 /), &
       (/SIZE(totplanck16)/), &
       totplanck16)
-    CALL read_gases(kgas_in)
-    CALL read_water(h2oref_in)
-    CALL read_planck_fraction(planck_fraction2_in)
-    CALL read_major_species(kmajor3_in, kmajor4_in)
-
-    CALL psrad_io_close(fileid)
+    CALL read_gases
+    CALL read_water
+    CALL read_planck_fraction
+    CALL read_key_species
 
   END SUBROUTINE lrtm_read 
-
-  SUBROUTINE read_major_species(kmajor3_in, kmajor4_in)
-    TYPE(ptr3), DIMENSION(2,nbndlw), INTENT(INOUT) :: kmajor3_in
-    TYPE(ptr4), DIMENSION(2,nbndlw), INTENT(INOUT) :: kmajor4_in
-
-    CHARACTER(len=*), PARAMETER :: var_name(2) = (/ &
-      'KeySpeciesAbsorptionCoefficientsLowerAtmos', &
-      'KeySpeciesAbsorptionCoefficientsUpperAtmos'/)
-    INTEGER :: band, atm, n
-    DO band = 1, nbndlw
-    DO atm = 1,2
-      n = nsp(atm,band)
-      IF (n /= 0) THEN
-        IF (n == 1) THEN
-          CALL read(fileid, var_name(atm), &
-            (/1,1,1,1,band,gPointSetNumber/), &
-            (/1,Tdiff,npressure(atm),ngpt_orig,1,1/), &
-            kmajor3_in(atm,band)%v)
-        ELSE
-          CALL read(fileid, var_name(atm), &
-            (/1,1,1,1,band,gPointSetNumber/), &
-            (/n,Tdiff,npressure(atm),ngpt_orig,1,1/), &
-            kmajor4_in(atm,band)%v)
-        ENDIF
-      ENDIF 
-    ENDDO
-    ENDDO
-  END SUBROUTINE read_major_species
-
-  SUBROUTINE read_water(h2oref_in)
-    TYPE(ptr2), DIMENSION(2,nbndlw), INTENT(INOUT) :: h2oref_in
-    CHARACTER(len=*), PARAMETER :: var_name(2) = (/ &
-      'H20SelfAbsorptionCoefficients   ', &
-      'H20ForeignAbsorptionCoefficients'/)
-    INTEGER, PARAMETER :: key(2) = (/10, 4/)
-    INTEGER :: band, which
-    DO band = 1,nbndlw
-    DO which = 1,2
-      CALL read(fileid,trim(var_name(which)), &
-        (/1,1,band,gPointSetNumber/), &
-        (/key(which),ngpt_orig,1,1/), &
-        h2oref_in(which,band)%v)
-    ENDDO
-    ENDDO
-  END SUBROUTINE read_water
-
-  SUBROUTINE read_gases(kgas_in)
-    TYPE(ptr3), DIMENSION(max_minor_species,2,nbndlw), &
-      INTENT(INOUT) :: kgas_in
-    CHARACTER(len=*), PARAMETER :: var_name(2) = (/ &
-      'AbsorptionCoefficientsLowerAtmos', &
-      'AbsorptionCoefficientsUpperAtmos'/)
-    INTEGER, PARAMETER :: key(2) = (/9, 5/)
-    INTEGER :: band, atm, i, gas, N
-    DO band = 1,nbndlw
-      DO atm = 1,2
-        DO i = 1, max_minor_species
-          gas = minor_species(i,atm,band)%gas
-          IF (gas == 0) EXIT
-          IF (gas <= ngas) THEN
-            N = minor_species(i,atm,band)%N
-            IF (N == 0) THEN
-              CALL read(fileid,var_name(atm), &
-                (/1,1,1,netcdf_idx(gas),band,gPointSetNumber/), &
-                (/1,T,ngpt_orig,1,1,1/), &
-                kgas_in(i,atm,band)%v(:,:,1))
-            ELSE
-              CALL read(fileid,var_name(atm), &
-                (/1,1,1,netcdf_idx(gas),band,gPointSetNumber/), &
-                (/key(atm),T,ngpt_orig,1,1,1/), &
-                kgas_in(i,atm,band)%v)
-            ENDIF
-          ELSEIF (atm == 1) THEN
-            gas = gas - cfc_offset
-            CALL read(fileid,var_name(1), &
-              (/1,1,1,netcdf_cfc_idx(gas),band,gPointSetNumber/), &
-              (/1,1,ngpt_orig,1,1,1/), &
-              kgas_in(i,1,band)%v(:,1,1))
-          ENDIF
-        ENDDO
-      ENDDO
-    ENDDO
-  END SUBROUTINE read_gases
-
-  SUBROUTINE read_planck_fraction(planck_fraction2_in)
-    TYPE(ptr2), DIMENSION(2,nbndlw), INTENT(INOUT) :: planck_fraction2_in
-    CHARACTER(len=*), PARAMETER :: var_name(2) = (/ &
-      'PlanckFractionLowerAtmos', &
-      'PlanckFractionUpperAtmos'/)
-    INTEGER :: band, atm, n
-    REAL(wp) :: linear(ngpt_orig*MAXVAL(nsp_fraction))
-    DO band = 1, nbndlw
-    DO atm = 1,2
-      n = nsp_fraction(atm,band)
-      IF (n /= 0) THEN
-        IF (n == 1) THEN
-          CALL read(fileid,var_name(atm), &
-            (/1,1,band,gPointSetNumber/), &
-            (/ngpt_orig,1,1,1/), &
-            planck_fraction2_in(atm,band)%v(1,:))
-        ELSE
-          CALL read(fileid,var_name(atm), &
-            (/1,1,band,gPointSetNumber/), &
-            (/ngpt_orig,n,1,1/), &
-            linear)
-            planck_fraction2_in(atm,band)%v(1:n,:) = TRANSPOSE(RESHAPE(&
-              linear, SHAPE =(/ngpt_orig,n/)))
-        ENDIF
-      ENDIF
-    ENDDO
-    ENDDO
-  END SUBROUTINE read_planck_fraction
 
 END MODULE mo_psrad_lrtm_netcdf

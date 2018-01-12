@@ -2,10 +2,19 @@ MODULE mo_psrad_io
 
   USE mo_psrad_general, ONLY : dp, finish
 
+#ifdef PSRAD_ONLY
+  INCLUDE "netcdf.inc"
+  INTEGER, PARAMETER :: nf_read = NF_NOWRITE
+#define p_nf_inq_varid nf_inq_varid
+#define p_nf_open nf_open
+#define p_nf_close nf_close
+#define p_nf_get_vara_double nf_get_vara_double 
+#else
   USE mo_netcdf_parallel, ONLY: p_nf_open, p_nf_close, &
     &                           p_nf_inq_varid,        &
     &                           p_nf_get_vara_double,  &
     &                           nf_read, nf_noerr
+#endif
 
   PUBLIC :: psrad_io_open, psrad_io_close, psrad_io_copy_double
 

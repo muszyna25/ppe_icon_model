@@ -3,14 +3,14 @@
 #define INV_EXPON(x,v) v = exp(-x)
 #else
 #if (defined HAVE_ACML)
-#define EXPON(x,v) call vrda_exp(kproma, x, v)
-#define INV_EXPON(x,v) call vrda_exp(kproma, -x, v)
+#define EXPON(x,v) call vrda_exp(n, x, v)
+#define INV_EXPON(x,v) call vrda_exp(n, -x, v)
 #elif (defined HAVE_MASS)
-#define EXPON(x,v) call vrda_exp(kproma, x, v)
-#define INV_EXPON(x,v) call vexp(v, -x, kproma)
+#define EXPON(x,v) call vrda_exp(n, x, v)
+#define INV_EXPON(x,v) call vexp(v, -x, n)
 #elif (defined HAVE_MKL)
-#define EXPON(x,v) call vrda_exp(kproma, x, v)
-#define INV_EXPON(x,v) call vrda_exp(kproma, -x, v)
+#define EXPON(x,v) call vrda_exp(n, x, v)
+#define INV_EXPON(x,v) call vdexp(n, -x, v)
 #endif
 #endif
 

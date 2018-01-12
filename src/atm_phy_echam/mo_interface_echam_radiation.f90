@@ -74,14 +74,14 @@ CONTAINS
           lglac(:,:) = field%lfland(:,:) .AND.field%glac(:,:).GT.0._wp
           itype(:,:) = NINT(field%rtype(:,:))
           !
-          CALL psrad_radiation(                            &
-              & patch                                     ,&
-              & klev           = nlev                     ,&!< in  number of full levels = number of layers
-              & klevp1         = nlevp1                   ,&!< in  number of half levels = number of layer interfaces
-              & ktype          = itype(:,:)               ,&!< in  type of convection
+          CALL psrad_radiation(                              &
+              & patch                                      ,&
+              & klev           = nlev                      ,&!< in  number of full levels = number of layers
+              & klevp1         = nlevp1                    ,&!< in  number of half levels = number of layer interfaces
+              & ktype          = itype(:,:)                ,&!< in  type of convection
               & loland         = field%lfland(:,:)        ,&!< in  land-sea mask. (logical)
-              & loglac         = lglac(:,:)               ,&!< in  glacier mask (logical)
-              & this_datetime  = this_datetime            ,&!< in  actual time step
+              & loglac         = lglac(:,:)                ,&!< in  glacier mask (logical)
+              & this_datetime  = this_datetime             ,&!< in  actual time step
               & pcos_mu0       = field%cosmu0_rt(:,:)     ,&!< in  solar zenith angle
               & daylght_frc    = field%daylght_frc_rt(:,:),&!in daylight fraction
               & alb_vis_dir    = field%albvisdir(:,:)     ,&!< in  surface albedo for visible range, direct

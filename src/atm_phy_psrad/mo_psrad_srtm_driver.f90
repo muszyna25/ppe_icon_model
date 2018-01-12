@@ -37,21 +37,19 @@
 !
 MODULE mo_psrad_srtm_driver
 
-  USE mo_psrad_general, ONLY : wp, nbndsw
-  USE mo_psrad_radiation_parameters, ONLY : i_overlap
-  USE mo_psrad_radiation_parameters, ONLY : l_do_sep_clear_sky, rad_undef
-  USE mo_psrad_srtm_kgs, ONLY : ngpt, wavenum2, ssi_default, delwave
-  USE mo_psrad_srtm_gas_optics, ONLY : gas_optics_sw
-  USE mo_psrad_srtm_solver, ONLY : srtm_solver_tr,  srtm_reftra_ec 
+  USE mo_psrad_general, ONLY : wp, nbndsw, ngptsw, ngas
+  USE mo_psrad_radiation_parameters, ONLY : i_overlap, l_do_sep_clear_sky, &
+    rad_undef
+  USE mo_psrad_srtm_setup, ONLY : ngb, wavenum2, ssi_default, delwave
+  USE mo_psrad_srtm_gas_optics, ONLY : gpt_taumol
+  USE mo_psrad_rrtm_coeffs, ONLY : srtm_coeffs
+  USE mo_psrad_srtm_solver, ONLY : srtm_solver, delta_scale, two_stream
   USE mo_psrad_cld_sampling, ONLY : sample_cld_state
-#ifdef PSRAD_TIMING
-  USE mo_timer, ONLY: ltimer, timer_start, timer_stop, &
-    timer_sample_cloud_sw, timer_gas_optics_sw
-#endif
+
   IMPLICIT NONE
 
   PRIVATE 
-  PUBLIC :: srtm, srtm_diags, srtm_diags_old
+  PUBLIC :: srtm
 
   REAL (wp), PARAMETER :: &
     nir_vis_boundary   = 14500._wp, &
@@ -68,296 +66,47 @@ MODULE mo_psrad_srtm_driver
 
 CONTAINS
 
-  SUBROUTINE srtm(kproma, kbdim, klev, &
-    albdir_vis_UV, albdif_vis_UV, albdir_NIR, albdif_NIR, &
-    cos_mu0, daylght_frc, ssi_factor, local_tsi, cld_frc, &
-    tau_cloud, asymm_cloud, omega_cloud, &
-    tau_aero_external, asymm_aero_external, omega_aero_external, rnseeds, &
-    laytrop, jp, iabs, gases, colmol, fac, &
-    h2o_factor, h2o_fraction, h2o_index, &
-    flux_dn, flux_up, flux_dn_clr, flux_up_clr, &
-    band_weight, per_band_flux)
-
-    USE mo_psrad_general, ONLY: ngptsw, jSFC, jBELOW
-
-    INTEGER, INTENT(IN) :: kproma, kbdim, klev
-    REAL(wp), INTENT(IN) :: &
-      local_tsi, & ! local solar constant
-      cos_mu0(:), & ! Solar zenith angle
-      daylght_frc(:),&!< daylight fraction; with diurnal cycle 0 or 1, with zonal mean in [0,1]
-      albdir_vis_UV(:), & ! UV/vis direct sfc albedo
-      albdir_NIR(:), & ! Near-IR direct sfc albedo
-      albdif_vis_UV(:), & ! UV/vis diffuse sfc albedo 
-      albdif_NIR(:), & ! Near-IR diffuse sfc albedo
-      ssi_factor(:), & ! solar constant factor
-      cld_frc(:,:), &
-      ! The following are given per band, are spread over correspondingly
-      ! named arrays with (:,:,ngptsw) without _per_band names
-      tau_cloud(:,:,:), &
-      asymm_cloud (:,:,:), &
-      omega_cloud(:,:,:), &
-      tau_aero_external(:,:,:), &
-      asymm_aero_external (:,:,:), &
-      omega_aero_external(:,:,:)
-
-    INTEGER, INTENT(IN) :: laytrop(KBDIM), & ! tropopause layer index
-      iabs(KBDIM,2,2,klev)
-    INTEGER, DIMENSION(:,:), INTENT(IN) :: jp
-    REAL(wp), DIMENSION(:,:,:), INTENT(IN) :: h2o_factor,h2o_fraction
-    INTEGER, DIMENSION(:,:,:), INTENT(IN) :: h2o_index
-    ! column amounts of basic gases: Bjorn, colmol?!
-    REAL(wp), DIMENSION(:,:), INTENT(IN) :: colmol
-    REAL(wp), INTENT(IN) :: fac(:,:,:,:)
-    REAL(wp), POINTER :: gases(:,:,:)
-
-
-    INTEGER, INTENT(INOUT) :: rnseeds(:,:)
-
-    REAL(WP), INTENT(INOUT) :: &
-      flux_dn(KBDIM,klev+1), & ! downward flux total sky
-      flux_dn_clr(KBDIM,klev+1), & ! downward flux clear sky
-      flux_up(KBDIM,klev+1), & ! upward flux total sky
-      flux_up_clr(KBDIM,klev+1) ! upward flux clear sky
-    ! All-sky per band fluxes [W/m2], 
-    !for computing spectrally-resolved surface fluxes
-    ! 1 - upward, 2 - downward, 3 - downward direct
-    REAL(WP), INTENT(INOUT) :: per_band_flux(KBDIM,nbndsw,3), &
-      band_weight(nbndsw) ! adjustment for current Earth/Sun distance
-    
-    INTEGER :: i, jk, &  ! level index
-      ig, &  ! cumulative g-point index
-      band, gpt_in
-
-    REAL(wp), DIMENSION(KBDIM) :: &
-      fixed_cos_mu0, & ! Cosine of solar zenith angle
-      inv_cos_mu0, &
-      albdir, & ! surface albedo, direct          
-      albdif ! surface albedo, diffuse         
-
-    ! Cloud, aerosol, and total optical properties per sample
-    REAL(wp), DIMENSION(KBDIM,klev) :: &
-      tau, & ! total optical depth
-      asymm, & ! total asymmetry parameter 
-      omega, & ! total single scattering albedo
-      pre_asymm_base, &
-      pre_omega_base, &
-      pre_asymm_cloud, &
-      pre_omega_cloud
-
-    ! When computing separate clear-sky fluxes, variables need to 
-    ! compute new optical properties for initally cloudy cells
-    REAL(wp), DIMENSION(KBDIM,klev+1) :: &
-      Rc, Rd, & ! Direct and diffuse reflectance, transmittance
-      Tc, Td, & ! from two-stream calculation
-      Tb
-    ! Narrow band (g-point, or gp) "gptflux_"es in [w/m2]
-    REAL(wp), DIMENSION(KBDIM,klev+1) :: &
-      gptflux_up, &
-      gptflux_dn
-    ! "directflux_"es in [w/m2]
-    REAL(wp), DIMENSION(KBDIM) :: &
-      directflux_dn
-
-    ! parameters from gas optics
-    REAL(wp), DIMENSION(KBDIM,klev,ngptsw) :: tau_gas, tau_aer_internal
-    REAL(wp) :: solar_flux(KBDIM,ngptsw)
-    REAL(wp) :: incident_flux(KBDIM)
-    LOGICAL :: cell_cloudy(KBDIM, klev, ngptsw), & ! cloud mask in each cell
-      column_cloudy(KBDIM, ngptsw)
-    LOGICAL :: true_mask(KBDIM,klev)
-    REAL(wp) :: tmp
-
-    true_mask = .true.
-
-    ! --- weight radiation within a band for the solar cycle ---
-    ! local_tsi contains TSI (the "solar constant") scaled with the
-    ! Sun-Earth distance. ssi_factor contains the relative contribution
-    ! of each band to TSI. ssi_default is the (originally only
-    ! implicitly defined) solar flux in the 14 bands.
-    !
-    band_weight(:) = local_tsi*ssi_factor(:) / ssi_default(:)
-
-    ! Cloud optical depth is only saved for the band associated with 
-    ! this g-point We sample clouds first because we may want to adjust 
-    ! water vapor based on presence/absence of clouds
-#ifdef PSRAD_TIMING
-    IF (ltimer) CALL timer_start(timer_sample_cloud_sw)
-#endif
-    CALL sample_cld_state(kproma, KBDIM, klev, ngptsw, &
-      rnseeds(:,:), i_overlap, cld_frc, cell_cloudy)
-    cell_cloudy(kproma+1:KBDIM,:,:) = .false.
-    IF (l_do_sep_clear_sky) THEN
-      column_cloudy = ANY(cell_cloudy, DIM=2)
-    ENDIF
-
-#ifdef PSRAD_TIMING
-    IF (ltimer) CALL timer_stop(timer_sample_cloud_sw)
-#endif
-
-    ! Loop over g-points calculating gas optical properties. 
-!IBM* ASSERT(NODEPS)
-#ifdef PSRAD_TIMING
-    IF (ltimer) CALL timer_start(timer_gas_optics_sw)
-#endif
-
-    CALL gas_optics_sw(kproma, KBDIM, klev, jp, fac, iabs, laytrop, &
-      gases, h2o_factor, h2o_fraction, h2o_index, colmol, &
-      solar_flux, tau_gas, tau_aer_internal)
-#ifdef PSRAD_TIMING
-    IF (ltimer) CALL timer_stop(timer_gas_optics_sw)
-#endif
-
-    ! Compute radiative transfer.
-    flux_up(1:kproma,1:klev+1) = 0.0
-    flux_dn(1:kproma,1:klev+1) = 0.0
-    flux_up_clr(1:kproma,1:klev+1) = 0.0
-    flux_dn_clr(1:kproma,1:klev+1) = 0.0
-    per_band_flux = 0.0
-
-    ! Solar illumination
-    ! SW computations are carried out with (minimal) cos_mu0 = 0.01
-    ! (even) for columns for which there is negligible sunlight
-    fixed_cos_mu0(1:kproma) = MAX(0.01_wp, cos_mu0(1:kproma)) 
-    inv_cos_mu0(1:kproma) = 1._wp / fixed_cos_mu0(1:kproma)
-
-    ! Compute fluxes for each set of samples in turn
-    ig = 0
-    DO band = 1, nbndsw
-      pre_omega_base(1:kproma,:) = &
-        tau_aero_external(1:kproma,:,band) * omega_aero_external(1:kproma,:,band)
-      pre_asymm_base(1:kproma,:) = asymm_aero_external(1:kproma,:,band) * &
-        pre_omega_base(1:kproma,:)
-      pre_omega_cloud(1:kproma,:) = tau_cloud(1:kproma,:,band) * omega_cloud(1:kproma,:,band)
-      pre_asymm_cloud(1:kproma,:) = asymm_cloud(1:kproma,:,band) * pre_omega_cloud(1:kproma,:)
-      DO i = 1, kproma
-        albdif(i) = albdif_vis_UV(i) * frc_vis(band) + &
-          albdif_NIR(i) * (1.0_wp - frc_vis(band))
-        albdir(i) = albdir_vis_UV(i) * frc_vis(band) + &
-          albdir_NIR(i) * (1.0_wp - frc_vis(band))
-      ENDDO
-      DO gpt_in = 1, ngpt(band)
-        ig = ig + 1
-      ! Combine optical properties of aerosols, clouds, &
-      ! gases (absorption + Rayleigh scattering)
-        DO i = 1, kproma
-          incident_flux(i) = band_weight(band) * &
-            solar_flux(i,ig) * fixed_cos_mu0(i) * daylght_frc(i)
-        ENDDO
-
-        DO jk = 1, klev
-        DO i = 1, kproma
-          tau(i,jk) = tau_aer_internal(i,jk,ig) + &
-            tau_aero_external(i,jk,band) + &
-            tau_gas(i,jk,ig)
-          tmp = tau_aer_internal(i,jk,ig) + pre_omega_base(i,jk)
-          asymm(i,jk) = pre_asymm_base(i,jk) / tmp
-          omega(i,jk) = tmp / tau(i,jk)
-        ENDDO
-        ENDDO
-
-        IF (l_do_sep_clear_sky) THEN
-          CALL srtm_reftra_ec(kproma, KBDIM, klev, .true., true_mask, &
-            fixed_cos_mu0, inv_cos_mu0, tau, asymm, omega, &
-            Rc, Rd, Tc, Td, Tb)
-          ! Compute fluxes using clear-sky optical properties
-          CALL srtm_solver_tr(kproma, KBDIM, klev, &
-            albdif, albdir, &
-            Rc, Rd, Tc, Td, Tb, &
-            gptflux_dn, gptflux_up, &
-            directflux_dn)
-          DO jk = 1,klev+1
-          DO i = 1, kproma
-            flux_up_clr(i,jk) = flux_up_clr(i,jk) + &
-              incident_flux(i) * gptflux_up(i,jk)
-            flux_dn_clr(i,jk) = flux_dn_clr(i,jk) + &
-              incident_flux(i) * gptflux_dn(i,jk)
-          ENDDO
-          ENDDO
-        END IF
-        DO jk = 1,klev
-        DO i = 1, kproma
-          IF (cell_cloudy(i,jk,ig)) THEN
-            tau(i,jk) = tau_aer_internal(i,jk,ig) + &
-              tau_aero_external(i,jk,band) + &
-              tau_gas(i,jk,ig) + tau_cloud(i,jk,band)
-            tmp = tau_aer_internal(i,jk,ig) + &
-            pre_omega_base(i,jk) + pre_omega_cloud(i,jk)
-            asymm(i,jk) = (pre_asymm_base(i,jk) + pre_asymm_cloud(i,jk)) /&
-              tmp
-            omega(i,jk) = tmp / tau(i,jk)
-          ENDIF
-        ENDDO
-        ENDDO
-
-        CALL srtm_reftra_ec(kproma, KBDIM, klev, &
-          .not. l_do_sep_clear_sky, cell_cloudy(:,:,ig), &
-          fixed_cos_mu0, inv_cos_mu0, tau, asymm, omega, &
-          Rc, Rd, Tc, Td, Tb)
-        CALL srtm_solver_tr(kproma, KBDIM, klev, &
-          albdif, albdir, &
-          Rc, Rd, Tc, Td, Tb, &
-          gptflux_dn, gptflux_up, directflux_dn)
-        
-        DO jk = 1,klev+1
-        DO i = 1, kproma
-          flux_up(i,jk) = flux_up(i,jk) + &
-            incident_flux(i) * gptflux_up(i,jk)
-          flux_dn(i,jk) = flux_dn(i,jk) + &
-            incident_flux(i) * gptflux_dn(i,jk)
-        ENDDO
-        ENDDO
-        DO i = 1, kproma
-          per_band_flux(i,band,1) = per_band_flux(i,band,1) + &
-            incident_flux(i) * gptflux_up(i,jSFC+jBELOW)
-          per_band_flux(i,band,2) = per_band_flux(i,band,2) + &
-            incident_flux(i) * gptflux_dn(i,jSFC+jBELOW)
-          per_band_flux(i,band,3) = per_band_flux(i,band,3) + &
-            incident_flux(i) * directflux_dn(i)
-        ENDDO
-
-        IF(.not. l_do_sep_clear_sky) THEN
-          ! Accumulate broadband (flx) clear-sky fluxes but here we exclude 
-          ! cloudy subcolumns and weight to account for smaller sample size
-          DO jk = 1, klev+1
-          DO i = 1, kproma
-            IF (.not. column_cloudy(i,ig)) THEN
-              flux_up_clr(i,jk) = flux_up_clr(i,jk) + &
-                  incident_flux(i) * gptflux_up(i,jk)
-              flux_dn_clr(i,jk) = flux_dn_clr(i,jk) + &
-                incident_flux(i) * gptflux_dn(i,jk)
-            ENDIF
-          END DO
-          END DO
-        END IF 
-      END DO
-    END DO
-
-    ! If computing clear-sky fluxes from samples, flag any columns where 
-    ! all samples were cloudy
-    IF(.not. l_do_sep_clear_sky) THEN 
-      DO i = 1, kproma
-        IF(ALL(column_cloudy(i,:))) THEN
-          flux_up_clr(i,1:klev+1) = rad_undef
-          flux_dn_clr(i,1:klev+1) = rad_undef
-        END IF
-      END DO
-    END IF
-  END SUBROUTINE srtm
-
-  ! Derived calculations - diagnostics and heating rates
-  ! Spectrally resolved fluxes of various kinds
-  SUBROUTINE srtm_diags(kproma, kbdim, per_band_flux, &
+  SUBROUTINE srtm(kproma, kbdim, klev, play, tlay, wkl, coldry, &
+    asdir, asdif, aldir, aldif, prmu0, daylght_frc, ssi_factor, psctm, &
+    cld_frc, cld_tau_sw, cld_cg_sw, cld_piz_sw, aer_tau_sw, aer_cg_sw, &
+    aer_piz_sw, rnseeds, flxd_sw, flxu_sw, flxd_sw_clr, flxu_sw_clr, &
     vis_dn_dir_sfc, par_dn_dir_sfc, nir_dn_dir_sfc, vis_dn_dff_sfc, &
     par_dn_dff_sfc, nir_dn_dff_sfc, vis_up_sfc, par_up_sfc, nir_up_sfc)
 
-    INTEGER, INTENT(IN) :: kproma, kbdim
+    INTEGER, INTENT(in) :: kproma, & ! Number of horizontal columns 
+    kbdim, & ! Maximum number of columns as declared in calling (sub)prog.
+    klev ! Number of model layers
 
-    ! All-sky per band fluxes [W/m2], 
-    !for computing spectrally-resolved surface fluxes
-    ! 1 - upward, 2 - downward, 3 - downward direct
-    REAL(WP), DIMENSION(KBDIM,nbndsw,3), INTENT(IN) :: per_band_flux
+    REAL(wp), INTENT(in) :: &
+      psctm, & ! local solar constant
+      play(KBDIM,klev), & ! Layer pressures [hPa, mb]
+      tlay(KBDIM,klev), & ! Layer temperatures [K]
+      prmu0(KBDIM), & ! Solar zenith angle
+      daylght_frc(kbdim),&!< daylight fraction; with diurnal cycle 0 or 1, with zonal mean in [0,1]
+      wkl(KBDIM,klev,ngas), & ! Gas volume mixing ratios [mol/frac]
+      coldry(KBDIM,klev), &  ! Column dry amount
+      asdir(KBDIM), & ! UV/vis direct sfc albedo
+      aldir(KBDIM), & ! Near-IR direct sfc albedo
+      asdif(KBDIM), & ! UV/vis diffuse sfc albedo 
+      aldif(KBDIM), & ! Near-IR diffuse sfc albedo
+      ssi_factor(nbndsw), & ! solar constant factor
+      cld_frc(KBDIM,klev), &
+      cld_tau_sw(KBDIM,klev,nbndsw), &
+      cld_cg_sw (KBDIM,klev,nbndsw), &
+      cld_piz_sw(KBDIM,klev,nbndsw), &
+      aer_tau_sw(KBDIM,klev,nbndsw), &
+      aer_cg_sw (KBDIM,klev,nbndsw), &
+      aer_piz_sw(KBDIM,klev,nbndsw)
 
-    REAL(WP), DIMENSION(KBDIM), INTENT(INOUT) :: &
+    INTEGER, INTENT(INOUT) :: &
+      rnseeds(:,:) ! Seeds for random number generator (KBDIM, :) 
+
+    REAL(WP), INTENT(OUT) :: &
+      flxd_sw(KBDIM,klev+1), & ! downward flux total sky
+      flxd_sw_clr(KBDIM,klev+1), & ! downward flux clear sky
+      flxu_sw(KBDIM,klev+1), & ! upward flux total sky
+      flxu_sw_clr(KBDIM,klev+1) ! upward flux clear sky
+    REAL(WP), DIMENSION(KBDIM), INTENT(OUT) :: &
       ! Fluxes at surface: 
       ! vis_* => Visible (250-680) fraction of net surface radiation
       ! par_* => Photosynthetically Active Radiation 
@@ -366,98 +115,312 @@ CONTAINS
       vis_dn_dir_sfc, par_dn_dir_sfc, nir_dn_dir_sfc, &
       vis_dn_dff_sfc, par_dn_dff_sfc, nir_dn_dff_sfc, &
       vis_up_sfc, par_up_sfc, nir_up_sfc
+
+    ! BUG: PACK wrongly used (below) - but variables are unused...
+    !LOGICAL :: sunUp(KBDIM) ! Mask for sunlit points
+    !INTEGER :: idxSunUp(KBDIM), & ! Indicies of sunlit points
+    INTEGER :: jl, &   ! column loop index
+      jk, &  ! level index
+      ib, &  ! band loop index (starting at 1)
+      jb, &  ! band loop index (starting at first solar band)
+      ig  ! cumulative g-point index
+
+    REAL(wp) :: cossza(KBDIM), & ! Cosine of solar zenith angle
+      adjflux(nbndsw), & ! adjustment for current Earth/Sun distance
+      albdir(KBDIM,ngptsw), & ! surface albedo, direct          
+      albdif(KBDIM,ngptsw) ! surface albedo, diffuse         
+
+    ! Variables for gas optics calculations
+    INTEGER :: laytrop(KBDIM), & ! 100 hPa layer index
+      iabs(KBDIM,2,2,klev)
+    INTEGER, DIMENSION(KBDIM,klev) :: jp, jp1, jt, jt1, indself, indfor
+
+    ! column amounts of basic gases: Bjorn, colmol?!
+    REAL(wp), DIMENSION(KBDIM,klev) :: colmol, selffac, selffrac, &
+      forfac, forfrac
+    REAL(wp) :: fac(KBDIM,2,2,klev), gases(KBDIM,klev,ngas), &
+      bnd_wght(nbndsw)
+
+
+    ! Cloud, aerosol, and total optical properties per sample
+    REAL(wp), DIMENSION(KBDIM,klev,ngptsw) :: &
+      ztauc, & ! cloud optical depth
+      zasyc, & ! cloud asymmetry parameter 
+      zomgc, & ! cloud single scattering albedo
+      ztaua, & ! total aerosol optical depth
+      zasya, & ! total aerosol asymmetry parameter 
+      zomga, & ! total aerosol single scattering albedo
+      ztaut, & ! total optical depth
+      zasyt, & ! total asymmetry parameter 
+      zomgt ! total single scattering albedo
+
+    ! When computing separate clear-sky fluxes, variables need to 
+    ! compute new optical properties for initally cloudy cells
+    REAL(wp), DIMENSION(KBDIM,klev) :: &
+      Rdir, Rdif, & ! Direct and diffuse reflectance, transmittance
+      Tdir, Tdif ! from two-stream calculation
+
+    ! Band-by-band fluxes, for computing spectrally-resolved surface fluxes
+    REAL(wp), DIMENSION(KBDIM,nbndsw) :: &
+      zbbfu, & ! All-sky   upward surface sw flux [w/m2]
+      zbbfd, & ! All-sky downward surface sw flux [w/m2]
+      zbbfddir! All-sky downward surface direct sw flux [w/m2]
+    
+    ! Narrow band (g-point, or gp) fluxes
+    REAL(wp), DIMENSION(KBDIM,klev+1) :: &
+      zgpfu, & ! Fullsky upward sw flux [w/m2]
+      zgpfd, & ! Fullsky downward sw flux [w/m2]
+      zgpcu, & ! Clearsky upward sw flux [w/m2]
+      zgpcd ! Clearsky downward sw flux [w/m2]
+    REAL(wp), DIMENSION(KBDIM) :: &
+      ztdbt, & ! Fullsky downward direct sw flux [w/m2]
+      ztdbtc ! Clearsky downward direct sw flux [w/m2]
+
+    ! parameters from gas optics
+    REAL(wp), DIMENSION(KBDIM,klev,ngptsw) :: ztaug, ztaur
+    REAL(wp) :: zsflxzen(KBDIM,ngptsw)
+
+    REAL(wp) :: zincflx(KBDIM)
     REAL(wp), DIMENSION(KBDIM,nbndsw) :: zfvis, zfnir, zfpar
 
-    zfvis = SPREAD(frc_vis, DIM=1, NCOPIES=kbdim)
-    zfnir = SPREAD(1.0_wp - frc_vis, DIM=1, NCOPIES=kbdim)
-    zfpar = SPREAD(frc_par_array, DIM=1, NCOPIES=kbdim)
+    LOGICAL :: colcldMask(KBDIM, ngptsw), &
+      cldMask(KBDIM, klev, ngptsw) ! cloud mask in each cell
 
-    vis_dn_dir_sfc(1:kproma) = SUM(zfvis(1:kproma,:) * per_band_flux(1:kproma,:,3), DIM = 2)
-    par_dn_dir_sfc(1:kproma) = SUM(zfpar(1:kproma,:) * per_band_flux(1:kproma,:,3), DIM = 2)
-    nir_dn_dir_sfc(1:kproma) = SUM(zfnir(1:kproma,:) * per_band_flux(1:kproma,:,3), DIM = 2)
+    ! --- weight radiation within a band for the solar cycle ---
+    ! psctm contains TSI (the "solar constant") scaled with the
+    ! Sun-Earth distance. ssi_factor contains the relative contribution
+    ! of each band to TSI. ssi_default is the (originally only
+    ! implicitly defined) solar flux in the 14 bands.
+    !
+    bnd_wght(:) = psctm*ssi_factor(:) / ssi_default(:)
+    DO jb = 1,nbndsw
+      adjflux(jb) = bnd_wght(jb)
+    ENDDO
 
-    vis_dn_dff_sfc(1:kproma) = SUM(zfvis(1:kproma,:) * &
-      (per_band_flux(1:kproma,:,2) - per_band_flux(1:kproma,:,3)), DIM = 2)
-    par_dn_dff_sfc(1:kproma) = SUM(zfpar(1:kproma,:) * &
-      (per_band_flux(1:kproma,:,2) - per_band_flux(1:kproma,:,3)), DIM = 2)
-    nir_dn_dff_sfc(1:kproma) = SUM(zfnir(1:kproma,:) * &
-      (per_band_flux(1:kproma,:,2) - per_band_flux(1:kproma,:,3)), DIM = 2)
+    ! Which input points are sunlit? 
+    !sunUp(1:kproma)    = prmu0(1:kproma) > 0._wp 
+    !BUG: BROKEN - length of idxSunUp/result of pack is COUNT(sunUp)
+    !idxSunUp(1:kproma) = PACK( (/ (jl, jl = 1, kproma) /), sunUp(1:kproma))
 
-    vis_up_sfc(1:kproma) = SUM(zfvis(1:kproma,:) * per_band_flux(1:kproma,:,1), DIM = 2)
-    par_up_sfc(1:kproma) = SUM(zfpar(1:kproma,:) * per_band_flux(1:kproma,:,1), DIM = 2)
-    nir_up_sfc(1:kproma) = SUM(zfnir(1:kproma,:) * per_band_flux(1:kproma,:,1), DIM = 2)
+    ! Cloud optical depth is only saved for the band associated with 
+    ! this g-point We sample clouds first because we may want to adjust 
+    ! water vapor based on presence/absence of clouds
+    CALL sample_cld_state(kproma, KBDIM, klev, ngptsw, rnseeds(:,:), &
+      i_overlap, cld_frc, cldMask)
 
-    vis_dn_dir_sfc(kproma+1:KBDIM) = 0.0_wp
-    par_dn_dir_sfc(kproma+1:KBDIM) = 0.0_wp
-    nir_dn_dir_sfc(kproma+1:KBDIM) = 0.0_wp
-    vis_dn_dff_sfc(kproma+1:KBDIM) = 0.0_wp
-    par_dn_dff_sfc(kproma+1:KBDIM) = 0.0_wp
-    nir_dn_dff_sfc(kproma+1:KBDIM) = 0.0_wp
-    vis_up_sfc(kproma+1:KBDIM) = 0.0_wp
-    par_up_sfc(kproma+1:KBDIM) = 0.0_wp
-    nir_up_sfc(kproma+1:KBDIM) = 0.0_wp
+!IBM* ASSERT(NODEPS)
+    DO ig = 1, ngptsw
+      DO jl = 1, kproma
+        ztauc(jl,:,ig) = &
+          MERGE(cld_tau_sw(jl,1:klev,ngb(ig)), 0._wp, cldMask(jl,:,ig)) 
+        zasyc(jl,:,ig) = &
+          MERGE(cld_cg_sw (jl,1:klev,ngb(ig)), 0._wp, cldMask(jl,:,ig)) 
+        zomgc(jl,:,ig) = &
+          MERGE(cld_piz_sw(jl,1:klev,ngb(ig)), 1._wp, cldMask(jl,:,ig))
+      END DO
+    END DO ! Loop over samples - done with cloud optical depth calculations 
 
-  END SUBROUTINE srtm_diags
 
-  SUBROUTINE srtm_diags_old(kproma, kbdim, klev, band_weight, &
-    per_band_flux, flux_dn, flux_up, vis_frc_sfc, par_dn_sfc, nir_dff_frc, &
-    vis_dff_frc, par_dff_frc)
+!IBM* ASSERT(NODEPS)
+    DO ig = 1, ngptsw
+      DO jl = 1, kproma  
+        ib = ngb(ig)
+        ! Aerosol optical properties
+        ztaua(jl,1:klev,ig) = aer_tau_sw(jl,1:klev,ib)
+        zasya(jl,1:klev,ig) = aer_cg_sw (jl,1:klev,ib)
+        zomga(jl,1:klev,ig) = aer_piz_sw(jl,1:klev,ib)
+        albdif(jl,ig) = asdif(jl)*frc_vis(ib) + &
+          aldif(jl)*(1.0_wp - frc_vis(ib))
+        albdir(jl,ig) = asdir(jl)*frc_vis(ib) + &
+          aldir(jl)*(1.0_wp - frc_vis(ib))
+      END DO
+    END DO
 
-    USE mo_psrad_general, ONLY : jSFC, jBELOW
 
-    IMPLICIT NONE
+    ! Cloud masks for sorting out clear skies - by cell and by column
+    ! These calculations are only needed if l_do_sep_clear_sky is false
+    IF(.not. l_do_sep_clear_sky) THEN 
+      ! Are any layers cloudy? 
+      colcldMask(1:kproma, :) = ANY(cldMask(1:kproma,:,:), DIM=2)
+    END IF
 
-    INTEGER, INTENT(IN) :: kproma, kbdim, klev
+    ! Calculate information needed by the radiative transfer routine
+    ! that is specific to this atmosphere, especially some of the 
+    ! coefficients and indices needed to compute the optical depths
+    ! by interpolating data from stored reference atmospheres. 
+    ! The coefficients are functions of temperature and pressure and 
+    ! remain the same for all g-point samples.
+    ! If gas concentrations, temperatures, or pressures vary with sample (ig) 
+!thecoefficientsneedtobecalculatedinsidetheloopoversamples
+    CALL srtm_coeffs(KBDIM, klev, play, tlay, coldry, wkl, laytrop, &
+      jp, jp1, jt, jt1, iabs, gases, colmol, fac, selffac, selffrac, &
+      indself, forfac, forfrac, indfor)
 
-    ! All-sky per band fluxes [W/m2], 
-    !for computing spectrally-resolved surface fluxes
-    ! 1 - upward, 2 - downward, 3 - downward direct
-    REAL(WP), INTENT(IN) :: per_band_flux(KBDIM,nbndsw,3), &
-      band_weight(nbndsw)
-    REAL(WP), INTENT(IN) :: &
-      flux_dn(KBDIM,klev+1), & ! downward flux total sky
-      flux_up(KBDIM,klev+1) ! upward flux total sky
-    REAL(WP), INTENT(INOUT) :: &
-      vis_frc_sfc(KBDIM), & ! Visible (250-680) fraction of 
-      !...net surface radiation
-      par_dn_sfc(KBDIM), & ! Downward Photosynthetically Active Radiation 
-      !...(PAR) at surface
-      nir_dff_frc(KBDIM), & ! Diffuse fraction of downward surface 
-      !...near-infrared radiation
-      vis_dff_frc(KBDIM), & ! Diffuse fraction of downward surface 
-      !...visible radiation 
-      par_dff_frc(KBDIM)! Diffuse fraction of downward surface PAR
+    ! Loop over g-points calculating gas optical properties. 
+!IBM* ASSERT(NODEPS)
+    CALL gpt_taumol(kproma, kbdim, klev, jp, jt, jt1, laytrop, &
+      indself, indfor, gases, colmol, fac, selffac, &
+      selffrac, forfac, forfrac, zsflxzen, ztaug, ztaur)
 
-    REAL(wp), DIMENSION(KBDIM,nbndsw) :: zfvis, zfnir, zfpar
+    ! Combine optical properties of aerosols, clouds, &
+    ! gases (absorption + Rayleigh scattering)
+    ztaut(1:kproma,:,:) = ztaur(1:kproma,:,:) + ztaua(1:kproma,:,:) + &
+      ztaug(1:kproma,:,:) + ztauc(1:kproma,:,:)
+    zomgt(1:kproma,:,:) = ztaur(1:kproma,:,:) * 1.0_wp + &
+      ztaua(1:kproma,:,:) * zomga(1:kproma,:,:) + &
+      ztauc(1:kproma,:,:) * zomgc(1:kproma,:,:) 
+    zasyt(1:kproma,:,:) = (&
+      zasya(1:kproma,:,:) * zomga(1:kproma,:,:) * ztaua(1:kproma,:,:) + &
+      zasyc(1:kproma,:,:) * zomgc(1:kproma,:,:) *  ztauc(1:kproma,:,:)) / &
+      zomgt(1:kproma,:,:)
+    zomgt(1:kproma,:,:) = zomgt(1:kproma,:,:) / ztaut(1:kproma,:,:)
 
-    zfvis = SPREAD(band_weight * frc_vis, DIM=1, NCOPIES=kbdim)
-    zfnir = SPREAD(band_weight * (1.0_wp - frc_vis), DIM=1, NCOPIES=kbdim)
-    zfpar = SPREAD(band_weight * frc_par_array, DIM=1, NCOPIES=kbdim)
+    ! Compute radiative transfer.
+    flxu_sw(1:kproma,1:klev+1) = 0.0_wp
+    flxd_sw(1:kproma,1:klev+1) = 0.0_wp
+    flxu_sw_clr(1:kproma,1:klev+1) = 0.0_wp
+    flxd_sw_clr(1:kproma,1:klev+1) = 0.0_wp
+    zbbfu(:,:) = 0.0_wp
+    zbbfd(:,:) = 0.0_wp
+    zbbfddir(:,:) = 0.0_wp
 
-    vis_frc_sfc(1:kproma) = SUM(zfvis(1:kproma,:) * &
-      (per_band_flux(1:kproma,:,2) - per_band_flux(1:kproma,:,1)), DIM=2) / &
-      (flux_dn(1:kproma,jSFC+jBELOW) - flux_up(1:kproma,jSFC+jBELOW) + zepsec)
-    vis_frc_sfc(kproma+1:kbdim) = 0
+    ! Solar illumination
+    cossza(1:kproma) = MAX(0.01_wp, prmu0(1:kproma))
+    ! The line above is required to compensate for improper input.
+    ! Namely, ICON will pass all data columns further down to the
+    ! SW radiation routines, regardless of there being sunlight.
+    ! The input data is correct, with a negative angle corresponding to
+    ! the sun below the horizon. Spuriously computed columns are simply
+    ! discarded higher up in the call chain.
 
-    par_dn_sfc(1:kproma) = &
-      SUM(zfpar(1:kproma,:)*(per_band_flux(1:kproma,:,2)), DIM=2) 
-    par_dn_sfc(kproma+1:kbdim) = 0
+    ! Compute fluxes for each set of samples in turn
+    DO ig = 1, ngptsw
+      zincflx(1:kproma) = adjflux(ngb(ig)) * &
+        zsflxzen(1:kproma,ig) * cossza(1:kproma) * daylght_frc(1:kproma)
+      !
+      ! All (or full) sky calculation 
+      IF(l_do_sep_clear_sky) THEN
+      ! Delta scale values of tau, g, w0 for solver. This scaling is done 
+      ! inside the solver when l_do_sep_clear_sky, so these variables have 
+      ! different values and the end of this if block depending on 
+      ! l_do_sep_clear_sky (they aren't used again, though) 
+        CALL delta_scale(kproma, KBDIM, klev, ztaut(:,:,ig), zasyt(:,:,ig), &
+          zomgt(:,:,ig)) 
+        CALL two_stream(kproma, KBDIM, klev, cossza, ztaut(:,:,ig), &
+          zomgt(:,:,ig), zasyt(:,:,ig), Rdir, Rdif, Tdir, Tdif)
+        CALL srtm_solver(kproma, KBDIM, klev, albdif(:,ig), albdir(:,ig), &
+          cossza, ztaut(:,:,ig), Rdir, Rdif, Tdir, Tdif, zgpfd, zgpfu, ztdbt)
+      ELSE
+        ! Compute fluxes directly from optical properties
+        CALL srtm_solver(kproma, KBDIM, klev, albdif(:,ig), albdir(:,ig), &
+          cossza, ztaut(:,:,ig), zasyt(:,:,ig), zomgt(:,:,ig), zgpfd(:,:), &
+          zgpfu, ztdbt)
+      END IF
+      ! Accumulate broadband (flx) clear-sky fluxes, and band-by-band (zbb) 
+      ! clear sky fluxes
+      flxu_sw(1:kproma,1:klev+1) = flxu_sw(1:kproma,1:klev+1) + &
+        SPREAD(zincflx(1:kproma),DIM=2, NCOPIES=klev+1) * &
+        zgpfu(1:kproma,:)
+      flxd_sw(1:kproma,1:klev+1) = flxd_sw(1:kproma,1:klev+1) + &
+        SPREAD(zincflx(1:kproma),DIM=2, NCOPIES=klev+1) * &
+        zgpfd(1:kproma,:)
 
-    nir_dff_frc(1:kproma) = SUM(zfnir(1:kproma,:) * &
-      (per_band_flux(1:kproma,:,2) - per_band_flux(1:kproma,:,3)), DIM = 2) / & 
-      (SUM(zfnir(1:kproma,:) * per_band_flux(1:kproma,:,2), DIM=2) + zepsec)
-    nir_dff_frc(kproma+1:kbdim) = 0
+!IBM* ASSERT(NODEPS)
+      DO jl = 1, kproma
+        ib = ngb(ig)
+        zbbfu(jl,ib) = zbbfu(jl,ib) + zincflx(jl) * &
+          zgpfu(jl,klev+1)
+        zbbfd(jl,ib) = zbbfd(jl,ib) + zincflx(jl) * &
+          zgpfd(jl,klev+1)
+        zbbfddir(jl,ib) = zbbfddir(jl,ib) + zincflx(jl) * &
+          ztdbt(jl) 
+      END DO
 
-    vis_dff_frc(1:kproma) = SUM(zfvis(1:kproma,:) * &
-      (per_band_flux(1:kproma,:,2) - per_band_flux(1:kproma,:,3)), DIM = 2) / &
-      (SUM(zfvis(1:kproma,:) * per_band_flux(1:kproma,:,2), DIM=2) + zepsec)
-    vis_dff_frc(kproma+1:kbdim) = 0
+      IF(l_do_sep_clear_sky) THEN
+        IF(ANY(cldMask(1:kproma,:,ig))) THEN 
+          WHERE(cldMask(1:kproma,:,ig))
+            ztaut(1:kproma,:,ig) = ztaur(1:kproma,:,ig) + &
+              ztaua(1:kproma,:,ig)+ ztaug(1:kproma,:,ig)
+            zomgt(1:kproma,:,ig) = ztaur(1:kproma,:,ig) * 1.0_wp + &
+              ztaua(1:kproma,:,ig) * zomga(1:kproma,:,ig)
+            zasyt(1:kproma,:,ig) =(zasya(1:kproma,:,ig) * &
+              zomga(1:kproma,:,ig) * ztaua(1:kproma,:,ig)) / &
+              zomgt(1:kproma,:,ig)
+            zomgt(1:kproma,:,ig) = zomgt(1:kproma,:,ig) / ztaut(1:kproma,:,ig)
+          END WHERE
 
-    par_dff_frc(1:kproma) = SUM(zfpar(1:kproma,:) * &
-      (per_band_flux(1:kproma,:,2) - per_band_flux(1:kproma,:,3)), DIM = 2) / & 
-      (SUM(zfpar(1:kproma,:) * per_band_flux(1:kproma,:,2), DIM=2) + zepsec) 
-    par_dff_frc(kproma+1:kbdim) = 0
+          CALL delta_scale(kproma, KBDIM, klev, ztaut(:,:,ig), &
+            zasyt(:,:,ig), zomgt(:,:,ig), update=cldMask(:,:,ig)) 
+          CALL two_stream(kproma, KBDIM, klev, cossza, ztaut(:,:,ig), &
+            zomgt(:,:,ig), zasyt(:,:,ig), Rdir, Rdif, Tdir, Tdif, &
+            update = cldMask(:,:,ig)) 
 
-  END SUBROUTINE srtm_diags_old
+          ! Compute fluxes using clear-sky optical properties
+          CALL srtm_solver(kproma, KBDIM, klev, albdif(:,ig), albdir(:,ig), &
+            cossza, ztaut(:,:,ig), Rdir, Rdif, Tdir, Tdif, zgpcd, zgpcu, &
+            ztdbtc)
+
+        ELSE 
+          !
+          ! Clear-sky and all-sky fluxes are the same
+          !
+          zgpcu(1:kproma,:) = zgpfu(1:kproma,:)
+          zgpcd(1:kproma,:) = zgpfd(1:kproma,:)
+        END IF
+        !
+        ! Accumulate broadband (flx) clear-sky fluxes
+        !
+        flxu_sw_clr(1:kproma,1:klev+1) = flxu_sw_clr(1:kproma,1:klev+1) + &
+          SPREAD(zincflx(1:kproma),DIM=2, NCOPIES=klev+1) * &
+          zgpcu(1:kproma,1:klev+1)
+        flxd_sw_clr(1:kproma,1:klev+1) = flxd_sw_clr(1:kproma,1:klev+1) + &
+          SPREAD(zincflx(1:kproma),DIM=2, NCOPIES=klev+1) * &
+          zgpcd(1:kproma,1:klev+1)
+      ELSE 
+        ! Accumulate broadband (flx) clear-sky fluxes but here we exclude 
+        ! cloudy subcolumns and weight to account for smaller sample size
+!IBM* ASSERT(NODEPS)
+        DO jk = 1, klev+1
+          flxu_sw_clr(1:kproma,jk) = flxu_sw_clr(1:kproma,jk) + MERGE(0.0_wp,&
+            zincflx(1:kproma) * zgpfu(1:kproma,jk),&
+            colCldMask(1:kproma,ig)) 
+          flxd_sw_clr(1:kproma,jk) = flxd_sw_clr(1:kproma,jk) + MERGE(0.0_wp,&
+            zincflx(1:kproma) * zgpfd(1:kproma,jk),&
+            colCldMask(1:kproma,ig)) 
+        END DO
+      END IF 
+    END DO
+
+    ! Derived calculations - diagnostics and heating rates
+    ! Spectrally resolved fluxes of various kinds
+    zfvis(1:kproma,1:nbndsw) = SPREAD(frc_vis(1:nbndsw), DIM=1, NCOPIES=kproma)
+    zfnir(1:kproma,1:nbndsw) = SPREAD(1.0_wp - frc_vis(1:nbndsw), DIM=1, NCOPIES=kproma)
+    zfpar(1:kproma,1:nbndsw) = SPREAD(frc_par_array(1:nbndsw), DIM=1, NCOPIES=kproma)
+
+    vis_dn_dir_sfc(1:kproma) = SUM( zfvis(1:kproma,1:nbndsw) * zbbfddir(1:kproma,1:nbndsw), DIM = 2)
+    par_dn_dir_sfc(1:kproma) = SUM( zfpar(1:kproma,1:nbndsw) * zbbfddir(1:kproma,1:nbndsw), DIM = 2)
+    nir_dn_dir_sfc(1:kproma) = SUM( zfnir(1:kproma,1:nbndsw) * zbbfddir(1:kproma,1:nbndsw), DIM = 2)
+
+    vis_dn_dff_sfc(1:kproma) = SUM( zfvis(1:kproma,1:nbndsw) * (zbbfd(1:kproma,1:nbndsw) - zbbfddir(1:kproma,1:nbndsw)), DIM = 2)
+    par_dn_dff_sfc(1:kproma) = SUM( zfpar(1:kproma,1:nbndsw) * (zbbfd(1:kproma,1:nbndsw) - zbbfddir(1:kproma,1:nbndsw)), DIM = 2)
+    nir_dn_dff_sfc(1:kproma) = SUM( zfnir(1:kproma,1:nbndsw) * (zbbfd(1:kproma,1:nbndsw) - zbbfddir(1:kproma,1:nbndsw)), DIM = 2)
+
+    vis_up_sfc    (1:kproma) = SUM( zfvis(1:kproma,1:nbndsw) * zbbfu(1:kproma,1:nbndsw), DIM = 2)
+    par_up_sfc    (1:kproma) = SUM( zfpar(1:kproma,1:nbndsw) * zbbfu(1:kproma,1:nbndsw), DIM = 2)
+    nir_up_sfc    (1:kproma) = SUM( zfnir(1:kproma,1:nbndsw) * zbbfu(1:kproma,1:nbndsw), DIM = 2)
+
+
+    ! If computing clear-sky fluxes from samples, flag any columns where 
+    ! all samples were cloudy
+    IF(.not. l_do_sep_clear_sky) THEN 
+!IBM* ASSERT(NODEPS)
+      DO jl = 1, kproma
+        IF(ALL(colCldMask(jl,:))) THEN
+          flxu_sw_clr(jl,1:klev+1) = rad_undef
+          flxd_sw_clr(jl,1:klev+1) = rad_undef
+        END IF
+      END DO
+    END IF
+  END SUBROUTINE srtm
 
 END MODULE mo_psrad_srtm_driver

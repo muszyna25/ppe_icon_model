@@ -71,12 +71,12 @@ MODULE mo_psrad_radiation
   USE mo_bc_ozone,            ONLY: o3_plev, nplev_o3, plev_full_o3, plev_half_o3
   USE mo_o3_util,             ONLY: o3_pl2ml, o3_timeint
   USE mo_mpi_phy_config,      ONLY: mpi_phy_config, mpi_phy_tc
-  USE mo_echam_cloud_config,  ONLY: echam_cloud_config
   USE mo_psrad_orbit,         ONLY: orbit_kepler, orbit_vsop87, &
                                   & get_orbit_times
   USE mo_psrad_orbit_nml,     ONLY: read_psrad_orbit_namelist
+  USE mo_psrad_cloud_optics,  ONLY: setup_cloud_optics  
   USE mo_bc_greenhouse_gases, ONLY: ghg_co2mmr, ghg_ch4mmr, ghg_n2ommr, ghg_cfcmmr
-  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqt, ico2, io3, nlev, ntracer
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqt, ico2, io3, ntracer
   USE mo_radiation_config,    ONLY: irad_h2o,             &
                                     irad_co2,             &
                                     irad_ch4,             &
@@ -106,18 +106,17 @@ MODULE mo_psrad_radiation
                                     yr_perp,              &
                                     tsi_radt,             &
                                     ssi_radt
-  USE mo_psrad_general,          ONLY: nbndsw, finish_cb, message_cb, warning_cb
-  USE mo_psrad_solar_parameters, ONLY:                    &
-                                    psctm,                &
-                                    ssi_factor,           &
-                                    solar_parameters
+  USE mo_psrad_general,       ONLY: nbndsw, finish_cb, message_cb, warning_cb
+  USE mo_psrad_solar_parameters, ONLY:                         &
+                                     psctm,                    &
+                                     ssi_factor,               &
+                                     solar_parameters
   USE mo_psrad_radiation_parameters, ONLY : rad_perm
 
 ! new to icon
-  USE mo_psrad_srtm_kgs,      ONLY : ssi_default, ssi_preind, ssi_amip,           &
+  USE mo_psrad_srtm_setup,    ONLY : ssi_default, ssi_preind, ssi_amip,           &
                                      ssi_RCEdiurnOn, ssi_RCEdiurnOff, ssi_cmip6_picontrol
-  USE mo_psrad_interface,     ONLY : psrad_interface, pressure_scale
-  USE mo_psrad_setup,         ONLY : psrad_basic_setup
+  USE mo_psrad_interface,     ONLY : setup_psrad, psrad_interface
   USE mo_psrad_orbit_config,  ONLY : psrad_orbit_config
 
   USE mtime, ONLY: datetime, getTotalSecondsTimeDelta
@@ -125,7 +124,7 @@ MODULE mo_psrad_radiation
   USE mo_run_config, ONLY: lart
   
   IMPLICIT NONE
-
+  
   PRIVATE
 
   PUBLIC :: pre_psrad_radiation, setup_psrad_radiation, psrad_radiation
@@ -192,17 +191,17 @@ MODULE mo_psrad_radiation
     ! the "orbit_date_rt".
     SELECT CASE (icosmu0)
     CASE (0)
-       CALL solar_parameters(decl_sun, time_of_day_rt,                     &
-            &                icosmu0,  dt_ext,                             &
-            &                ldiur,    psrad_orbit_config%l_sph_symm_irr,  &
-            &                p_patch,                                      &
-            &                amu0_x,   rdayl_x                             )
+       CALL solar_parameters(decl_sun,        time_of_day_rt,                     &
+            &                icosmu0,         dt_ext,                             &
+            &                ldiur,           psrad_orbit_config%l_sph_symm_irr,  &
+            &                p_patch,                                             &
+            &                amu0_x,          rdayl_x                             )
     CASE (1:4)
-       CALL solar_parameters(decl_sun, time_of_day,                        &
-            &                icosmu0,  dt_ext,                             &
-            &                ldiur,    psrad_orbit_config%l_sph_symm_irr,  &
-            &                p_patch,                                      &
-            &                amu0_x,   rdayl_x                             )
+       CALL solar_parameters(decl_sun,        time_of_day,                        &
+            &                icosmu0,         dt_ext,                             &
+            &                ldiur,           psrad_orbit_config%l_sph_symm_irr,  &
+            &                p_patch,                                             &
+            &                amu0_x,          rdayl_x                             )
     CASE DEFAULT
        CALL finish('mo_psrad_radiation/pre_psrad_radiation','invalid icosmu0, must be in 0:4')
     END SELECT
@@ -355,10 +354,7 @@ MODULE mo_psrad_radiation
       CALL message('','- AER RRTM Shortwave Model')
       CALL message('','')
       !
-      CALL psrad_basic_setup(.false.,  nlev,                        &
-        & pressure_scale,                                           &
-        & echam_cloud_config%cinhoml1, echam_cloud_config%cinhoml2, &
-        & echam_cloud_config%cinhoml3, echam_cloud_config%cinhomi   )
+      CALL setup_psrad
 
       CALL message('','')
       CALL message('','Sources of volume/mass mixing ratios used in radiation')
@@ -630,9 +626,7 @@ MODULE mo_psrad_radiation
       !
       ! --- resolution/run dependent cloud optical parameters (tuning)
       !
-      !CALL setup_cloud_optics( &
-      !  & echam_cloud_config%cinhoml1 ,echam_cloud_config%cinhoml2, &
-      !  & echam_cloud_config%cinhoml3 ,echam_cloud_config%cinhomi)
+      CALL setup_cloud_optics
       !
     ENDIF
     finish_cb => finish
@@ -783,18 +777,21 @@ MODULE mo_psrad_radiation
        
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
-      CALL calculate_temperatur_pressure ( &
-        & kproma = jce            ,&!< in  end index for loop over block
-        & klev   = klev           ,&!< in  number of full levels = number of layers
-        & klevp1 = klevp1         ,&!< in  number of half levels = number of layer interfaces
+      CALL calculate_temperatur_pressure (                &
+        & jg             = jg                     ,&!< in  domain index
+        & jb             = jb                     ,&!< in  block index
+        & kproma         = jce                    ,&!< in  end index for loop over block
+        & kbdim          = nproma                 ,&!< in  dimension of block over cells
+        & klev           = klev                   ,&!< in  number of full levels = number of layers
+        & klevp1         = klevp1                 ,&!< in  number of half levels = number of layer interfaces
         ! in 
-        & pp_hl  = pp_hl(:,:,jb)  ,&
-        & pp_fl  = pp_fl(:,:,jb)  ,&
-        & tk_fl  = tk_fl(:,:,jb)  ,&
-        & tk_sfc = tk_sfc(:,jb)   ,&
+        & pp_hl          = pp_hl(:,:,jb)          ,&
+        & pp_fl          = pp_fl(:,:,jb)          ,&
+        & tk_fl          = tk_fl(:,:,jb)          ,&
+        & tk_sfc         = tk_sfc(:,jb)           ,&
         !out      
-        & pp_sfc = pp_sfc(:,jb)   ,&
-        & tk_hl  = tk_hl(:,:,jb))         
+        & pp_sfc         = pp_sfc(:,jb)           ,&
+        & tk_hl          = tk_hl(:,:,jb))         
 
    END DO
 !$OMP END PARALLEL DO 
@@ -863,7 +860,10 @@ MODULE mo_psrad_radiation
 
   !---------------------------------------------------------------------
   SUBROUTINE calculate_temperatur_pressure (                &
+      & jg            ,&!< in  domain index
+      & jb            ,&!< in  block index
       & kproma        ,&!< in  end index for loop over block
+      & kbdim         ,&!< in  dimension of block over cells
       & klev          ,&!< in  number of full levels = number of layers
       & klevp1        ,&!< in  number of half levels = number of layer interfaces
       & pp_hl         ,&! in
@@ -875,7 +875,10 @@ MODULE mo_psrad_radiation
 
   
     INTEGER, INTENT(in) :: &
+      & jg          ,&
+      & jb          ,&
       & kproma      ,&
+      & kbdim       ,&
       & klev        ,&
       & klevp1
     ! in 
@@ -980,7 +983,7 @@ MODULE mo_psrad_radiation
     & xc_frc (:,:)                 ,&
     & cld_cvr(:)    
 
-    INTEGER              :: jk
+    INTEGER              :: jk, jl
     INTEGER              :: selmon  !< index to select a calendar month
 !!$    INTEGER              :: knwtrc  !< number of non-water tracers
 

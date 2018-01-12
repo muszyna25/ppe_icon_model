@@ -5,161 +5,195 @@
 !! file COPYING in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the headers of the routines.
 !!
-
-! Bands 16->29 renumbered 1->14
-! Band (gpt_range): wave number range (low key species; high key species)
-! 16/1 (1-6): 2600-3250 cm-1 (low - h2o,ch4; high - ch4)
-! 17/2 (7-18): 3250-4000 cm-1 (low - h2o,co2; high - h2o,co2)
-! 18/3 (19-26): 4000-4650 cm-1 (low - h2o,ch4; high - ch4)
-! 19/4 (27-34): 4650-5150 cm-1 (low - h2o,co2; high - co2)
-! 20/5 (35-44): 5150-6150 cm-1 (low - h2o; high - h2o)
-! 21/6 (45-54): 6150-7700 cm-1 (low - h2o,co2; high - h2o,co2)
-! 22/7 (55-56): 6150-7700 cm-1 (low - h2o,co2; high - h2o,co2)
-! In this band the ratio of total O2 band intensity (lines 
-! and Mate continuum) to O2 band intensity (line only) is 1.6 and is used
-! to adjust the optical depths since the k's include only lines.  This is
-! done by multiplying swght1 by 1.6 and abs_ab(:,2,:) by 1.6 to account for 
-! this difference in below and above 100 hPa respectively.  Also note that
-! the minor gas does not have a g-point dependent absorption because the
-! o2 abosrption is a continuum effect
-
-! 23/8 (57-66): 8050-12850 cm-1 (low - h2o; high - nothing)
-!  Average Giver et al. correction factor for this band is 1.029
-!  and is implemented by multiplying the abosrption coefficients
-
-! 24/9 (67-74): 12850-16000 cm-1 (low - h2o,o2; high - o2)
-! 25/10 (75-80): 16000-22650 cm-1 (low - h2o; high - nothing)
-! 26/11 (81-86): 22650-29000 cm-1 (low - nothing; high - nothing)
-! 27/12 (87-94):  29000-38000 cm-1 (low - o3; high - o3)
-! Kurucz solar source function
-! The values in sfluxref were obtained using the "low resolution"
-! version of the Kurucz solar source function.  For unknown reasons,
-! the total irradiance in this band differs from the corresponding
-! total in the "high-resolution" version of the Kurucz function.
-! Therefore, these values are scaled below by the factor SCALEKUR.
-
-! 28/13 (95-100): 38000-50000 cm-1 (low - o3,o2; high - o3,o2)
-! 29/14 (101-112): 820-2600 cm-1 (low - h2o; high - co2)
-
 MODULE mo_psrad_srtm_kgs
 
-  USE mo_psrad_general
-
+  USE mo_psrad_general, ONLY : wp, nbndsw
   IMPLICIT NONE
 
   PUBLIC
 
   INTEGER, PARAMETER :: &
-    ngpt(nbndsw) = (/6,12,8,8,10, 10,2,10,8,6, 6,8,6,12/), &
-    nsp(2,nbndsw) = RESHAPE((/& 
-      9,9,9,9,1, 9,9,1,9,1, 0,1,9,1, &
-      1,5,1,1,1, 5,1,0,1,0, 0,1,5,1/), &
-      SHAPE=(/2,nbndsw/), ORDER=(/2,1/)), &
-    fracs_mult(2,nbndsw) = MAX(0,nsp-1), &
-    minor_species(2,nbndsw) = RESHAPE((/ &
-      0,0,0,0,ich4, 0,io2,0,io3,io3, 0,0,0,ico2, &
-      0,0,0,0,ich4, 0,io2,0,io3,io3, 0,0,0,ih2o/), &
-      SHAPE=(/2,nbndsw/), ORDER=(/2,1/)), &
-    major_species(2,2,nbndsw) = RESHAPE((/& 
-      ih2o,ich4, ich4,0, & ! Band 1
-      ih2o,ico2, ih2o,ico2, & ! Band 2
-      ih2o,ich4, ich4,0, & ! Band 3
-      ih2o,ico2, ico2,0, & ! Band 4
-      ih2o,0, ih2o,0, & ! Band 5
-      ih2o,ico2, ih2o,ico2, & ! Band 6
-      ih2o,io2, io2,0, & ! Band 7
-      ih2o,0, 0,0, & ! Band 8
-      ih2o,io2, io2,0, & ! Band 9
-      ih2o,0, 0,0, & ! Band 10
-      0,0, 0,0, & ! Band 11
-      io3,0, io3,0, & ! Band 12
-      io3,io2, io3,io2, & ! Band 13
-      ih2o,0, ico2,0/), & ! Band 14
-      SHAPE=(/2,2,nbndsw/)), &
-    h2o_absorption_flag(2,nbndsw) = RESHAPE((/& 
-      1,1,1,1,1, 1,1,1,1,0, 0,0,0,1, &
-      0,1,0,0,1, 1,0,0,0,0, 0,0,0,0/), &
-      SHAPE=(/2,nbndsw/), ORDER=(/2,1/)), &
-    nh2oref(2,nbndsw) = RESHAPE((/& 
-      10,10,10,10,10, 10,10,10,10,0, 0,0,0,10, &
-      3,4,3,3,4,      4,3,3,3,0,     0,0,0,4/), &
-      SHAPE=(/2,nbndsw/), ORDER=(/2,1/)), &
-    nsfluxref(nbndsw) = (/1,5,9,9,1, 9,9,1,9,1, 1,1,5,1/), &
-    rayl_type(2,nbndsw) = RESHAPE((/ &
-      0,0,0,0,0, 0,0,1,9,1, 1,1,0,0, &
-      0,0,0,0,0, 0,0,1,1,1, 1,1,0,0/), &
-      SHAPE=(/2,nbndsw/), ORDER=(/2,1/)), &
-    minor_species_missing_data(2,nbndsw) = RESHAPE((/ &
-      0,0,0,0,0, 0,0,0,0,0, 0,0,0,0, &
-      0,0,0,0,1, 0,0,0,0,0, 0,0,0,0/), &
-      SHAPE=(/2,nbndsw/), ORDER=(/2,1/))
+    ng(nbndsw) = (/6, 12, 8, 8, 10, 10, 2, 10, 8, 6, 6, 8, 6, 12/), &
+    no(nbndsw) = &
+      (/16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16/)
 
-  ! Shortwave spectral band limits (wavenumbers)
-  REAL(wp), PARAMETER :: wavenum1(nbndsw) = (/ &
-       2600._wp, 3250._wp, 4000._wp, 4650._wp, 5150._wp, 6150._wp, 7700._wp, &
-       8050._wp,12850._wp,16000._wp,22650._wp,29000._wp,38000._wp,  820._wp/)
-  REAL(wp), PARAMETER :: wavenum2(nbndsw) = (/ &
-       3250., 4000., 4650., 5150., 6150., 7700., 8050., &
-       12850.,16000.,22650.,29000.,38000.,50000., 2600./), &
-    delwave(nbndsw)  = (/ &
-       650.,  750.,  650.,  500., 1000., 1550.,  350., &
-       4800., 3150., 6650., 6350., 9000.,12000., 1780./)
+  REAL(wp) :: kao16(9,5,13,no(1))
+  REAL(wp) :: kbo16(5,47,no(1))
+  REAL(wp) :: selfrefo16(10,no(1)), forrefo16(3,no(1))
+  REAL(wp) :: sfluxrefo16(no(1))
+  REAL(wp) :: rayl16
 
-  REAL(wp), PARAMETER :: &
-    ssi_default(14) =  (/ & !< SRTM default solar flux (W/m2) in 14 SW bands
-      12.1095682699999987_wp, 20.3650825429849398_wp, &
-      23.7297328613475429_wp, 22.4276934179066849_wp, &
-      55.6266126199999960_wp, 1.0293153082385436E+02_wp, &
-      24.2936128100154392_wp, 3.4574251380000004E+02_wp, &
-      2.1818712729860400E+02_wp, 3.4719231470000005E+02_wp, &
-      1.2949501812000000E+02_wp, 50.1522503011060650_wp, &
-      3.0799387010047838_wp, 12.8893773299999985_wp/), &
-      ! sum of 14 bands is: 1.3682223735968237E+03
-    ssi_amip(14) =  (/ & ! solar flux (W/m2) in 14 SW bands for AMIP-type 
-    !...CMIP5 simulation (average from 1979-1988)
-      11.95053_wp, 20.14766_wp, 23.40394_wp, 22.09458_wp, 55.41401_wp, &
-      102.5134_wp, 24.69814_wp, 347.5362_wp, 217.2925_wp, 343.4221_wp, &
-      129.403_wp, 47.14264_wp, 3.172126_wp, 13.18075_wp /), &
-    ! sum of 14 bands is: 1361.371
-    ssi_preind(14) =  (/ & !< solar flux (W/m2) in 14 SW bands for 
-    ! ... preindutrial CMIP5 simulation (average from 1944-1856)
-      11.95005_wp, 20.14612_wp, 23.40302_wp, 22.09443_wp, 55.41679_wp, &
-      102.512_wp , 24.69536_wp, 347.4719_wp, 217.2217_wp, 343.2816_wp, &
-      129.3001_wp, 47.07624_wp, 3.130199_wp, 13.17521_wp /), &
-    ! sum of 14 bands is: 1360.875
+  REAL(wp) :: ka16(9,5,13,ng(1)) , absa16(585,ng(1))
+  REAL(wp) :: kb16(5,47,ng(1)), absb16(235,ng(1))
+  REAL(wp) :: selfref16(10,ng(1)), forref16(3,ng(1))
+  REAL(wp) :: sfluxref16(ng(1))
 
-    ! ssi_RCEdiurnOn added (diurnal cycle on)
-    ssi_RCEdiurnOn(14) =  (/ & !< solar flux (W/m2) in 14 SW bands for
-    !... RCE simulations with diurnal cycle. global mean 
-    ! insolation = 340.3 W/m2
-      9.386766_wp,  15.82535_wp,  18.38306_wp,   17.3546_wp,  43.52597_wp,  &
-      80.52106_wp,  19.39961_wp,  272.9788_wp,  170.6764_wp,  269.7473_wp,  &
-      101.642_wp,   37.02906_wp,  2.491606_wp,  10.35307_wp/), &
-    ! sum of 14 bands is: 1069.315 for diurnal cycle on.
+  EQUIVALENCE (ka16(1,1,1,1),absa16(1,1)), (kb16(1,1,1),absb16(1,1))
 
-    ! ssi_RCEdiurnOFF added (diurnal cycle off)
-    ssi_RCEdiurnOFF(14) = (/ & !< solar flux (W/m2) in 14 SW bands for
-    ! ... RCE simulations with diurnal cycle switched off. global mean 
-    ! insolation = 340.3 W/m2 rescaled from ssi_amip above, with constant 
-    ! factor of app. 0.3183092
-      3.803964_wp,  6.413186_wp,  7.44969_wp,   7.032908_wp,  17.63879_wp, &
-      32.63096_wp,  7.861645_wp,  110.624_wp,   69.16621_wp,  109.3144_wp, &
-      41.19017_wp,  15.00594_wp, 1.009717_wp,   4.195554_wp  /), &
-    ! sum of 14 bands is: 433.3371
-    ssi_cmip6_picontrol(14) =  (/ & !< solar flux (W/m2) in 14 SW bands for
-    ! ...preindustrial CMIP6 simulation (average from 1850-1873)
-    & 12.02503_wp, 20.24537_wp, 23.69633_wp, 22.42093_wp, 55.91312_wp,  &
-    & 103.5685_wp, 24.46918_wp, 346.3545_wp, 217.1642_wp, 344.9984_wp,  &
-    & 127.7391_wp, 45.95287_wp, 2.957935_wp, 13.2384_wp /)
-    ! sum of 14 bands is: 1360.744
+  REAL(wp) :: kao17(9,5,13,no(2))
+  REAL(wp) :: kbo17(5,5,47,no(2))
+  REAL(wp) :: selfrefo17(10,no(2)), forrefo17(4,no(2))
+  REAL(wp) :: sfluxrefo17(no(2),5)
+  REAL(wp) :: rayl17
 
-  TYPE(ptr2), DIMENSION(2,nbndsw) :: kmajor
-  TYPE(ptr2), DIMENSION(2,nbndsw) :: h2oref
-  TYPE(ptr1), DIMENSION(2,nbndsw) :: kgas
-  REAL(wp) :: rayl0(nbndsw)
-  TYPE(ptr1) :: rayl1(nbndsw)
-  TYPE(ptr2) :: rayl2(2,nbndsw)
-  TYPE(ptr2), DIMENSION(nbndsw) :: sfluxref
+  REAL(wp) :: ka17(9,5,13,ng(2)) , absa17(585,ng(2))
+  REAL(wp) :: kb17(5,5,47,ng(2)), absb17(1175,ng(2))
+  REAL(wp) :: selfref17(10,ng(2)), forref17(4,ng(2))
+  REAL(wp) :: sfluxref17(ng(2),5)
+
+  EQUIVALENCE (ka17(1,1,1,1),absa17(1,1)), (kb17(1,1,1,1),absb17(1,1))
+
+  REAL(wp) :: kao18(9,5,13,no(3))
+  REAL(wp) :: kbo18(5,47,no(3))
+  REAL(wp) :: selfrefo18(10,no(3)), forrefo18(3,no(3))
+  REAL(wp) :: sfluxrefo18(no(3),9)
+  REAL(wp) :: rayl18
+
+  REAL(wp) :: ka18(9,5,13,ng(3)), absa18(585,ng(3))
+  REAL(wp) :: kb18(5,47,ng(3)), absb18(235,ng(3))
+  REAL(wp) :: selfref18(10,ng(3)), forref18(3,ng(3))
+  REAL(wp) :: sfluxref18(ng(3),9)
+
+  EQUIVALENCE (ka18(1,1,1,1),absa18(1,1)), (kb18(1,1,1),absb18(1,1))
+
+  REAL(wp) :: kao19(9,5,13,no(4))
+  REAL(wp) :: kbo19(5,47,no(4))
+  REAL(wp) :: selfrefo19(10,no(4)), forrefo19(3,no(4))
+  REAL(wp) :: sfluxrefo19(no(4),9)
+  REAL(wp) :: rayl19
+
+  REAL(wp) :: ka19(9,5,13,ng(4)), absa19(585,ng(4))
+  REAL(wp) :: kb19(5,47,ng(4)), absb19(235,ng(4))
+  REAL(wp) :: selfref19(10,ng(4)), forref19(3,ng(4))
+  REAL(wp) :: sfluxref19(ng(4),9)
+
+  EQUIVALENCE (ka19(1,1,1,1),absa19(1,1)), (kb19(1,1,1),absb19(1,1))
+
+  REAL(wp) :: kao20(5,13,no(5))
+  REAL(wp) :: kbo20(5,47,no(5))
+  REAL(wp) :: selfrefo20(10,no(5)), forrefo20(4,no(5))
+  REAL(wp) :: sfluxrefo20(no(5))
+  REAL(wp) :: absch4o20(no(5))
+
+  REAL(wp) :: rayl20
+
+  REAL(wp) :: ka20(5,13,ng(5)), absa20(65,ng(5))
+  REAL(wp) :: kb20(5,47,ng(5)), absb20(235,ng(5))
+  REAL(wp) :: selfref20(10,ng(5)), forref20(4,ng(5))
+  REAL(wp) :: sfluxref20(ng(5))
+  REAL(wp) :: absch420(ng(5))
+
+  EQUIVALENCE (ka20(1,1,1),absa20(1,1)), (kb20(1,1,1),absb20(1,1))
+
+  REAL(wp) :: kao21(9,5,13,no(6))
+  REAL(wp) :: kbo21(5,5,47,no(6))
+  REAL(wp) :: selfrefo21(10,no(6)), forrefo21(4,no(6))
+  REAL(wp) :: sfluxrefo21(no(6),9)
+  REAL(wp) :: rayl21
+
+  REAL(wp) :: ka21(9,5,13,ng(6)), absa21(585,ng(6))
+  REAL(wp) :: kb21(5,5,47,ng(6)), absb21(1175,ng(6))
+  REAL(wp) :: selfref21(10,ng(6)), forref21(4,ng(6))
+  REAL(wp) :: sfluxref21(ng(6),9)
+
+  EQUIVALENCE (ka21(1,1,1,1),absa21(1,1)), (kb21(1,1,1,1),absb21(1,1))
+
+  REAL(wp) :: kao22(9,5,13,no(7))
+  REAL(wp) :: kbo22(5,47,no(7))
+  REAL(wp) :: selfrefo22(10,no(7)), forrefo22(3,no(7))
+  REAL(wp) :: sfluxrefo22(no(7),9)
+
+  REAL(wp) :: rayl22
+
+  REAL(wp) :: ka22(9,5,13,ng(7)), absa22(585,ng(7))
+  REAL(wp) :: kb22(5,47,ng(7)), absb22(235,ng(7))
+  REAL(wp) :: selfref22(10,ng(7)), forref22(3,ng(7))
+  REAL(wp) :: sfluxref22(ng(7),9)
+
+  EQUIVALENCE (ka22(1,1,1,1),absa22(1,1)), (kb22(1,1,1),absb22(1,1))
+
+  REAL(wp) :: kao23(5,13,no(8))
+  REAL(wp) :: selfrefo23(10,no(8)), forrefo23(3,no(8))
+  REAL(wp) :: sfluxrefo23(no(8))
+  REAL(wp) :: raylo23(no(8))
+
+  REAL(wp) :: ka23(5,13,ng(8)), absa23(65,ng(8))
+  REAL(wp) :: selfref23(10,ng(8)), forref23(3,ng(8))
+  REAL(wp) :: sfluxref23(ng(8)), rayl23(ng(8))
+
+  EQUIVALENCE (ka23(1,1,1),absa23(1,1))
+
+  REAL(wp) :: kao24(9,5,13,no(9))
+  REAL(wp) :: kbo24(5,47,no(9))
+  REAL(wp) :: selfrefo24(10,no(9)), forrefo24(3,no(9))
+  REAL(wp) :: sfluxrefo24(no(9),9)
+  REAL(wp) :: abso3ao24(no(9)), abso3bo24(no(9))
+  REAL(wp) :: raylao24(no(9),9), raylbo24(no(9))
+
+  REAL(wp) :: ka24(9,5,13,ng(9)), absa24(585,ng(9))
+  REAL(wp) :: kb24(5,47,ng(9)), absb24(235,ng(9))
+  REAL(wp) :: selfref24(10,ng(9)), forref24(3,ng(9))
+  REAL(wp) :: sfluxref24(ng(9),9)
+  REAL(wp) :: abso3a24(ng(9)), abso3b24(ng(9))
+  REAL(wp) :: rayla24(ng(9),9), raylb24(ng(9))
+
+  EQUIVALENCE (ka24(1,1,1,1),absa24(1,1)), (kb24(1,1,1),absb24(1,1))
+
+  REAL(wp) :: kao25(5,13,no(10))
+  REAL(wp) :: sfluxrefo25(no(10))
+  REAL(wp) :: abso3ao25(no(10)), abso3bo25(no(10))
+  REAL(wp) :: raylo25(no(10))
+
+  REAL(wp) :: ka25(5,13,ng(10)), absa25(65,ng(10))
+  REAL(wp) :: sfluxref25(ng(10))
+  REAL(wp) :: abso3a25(ng(10)), abso3b25(ng(10))
+  REAL(wp) :: rayl25(ng(10))
+
+  EQUIVALENCE (ka25(1,1,1),absa25(1,1))
+
+  REAL(wp) :: sfluxrefo26(no(11))
+  REAL(wp) :: raylo26(no(11))
+
+  REAL(wp) :: sfluxref26(ng(11))
+  REAL(wp) :: rayl26(ng(11))
+
+  REAL(wp) :: kao27(5,13,no(12))
+  REAL(wp) :: kbo27(5,47,no(12))
+  REAL(wp) :: sfluxrefo27(no(12))
+  REAL(wp) :: raylo27(no(12))
+
+  REAL(wp) :: ka27(5,13,ng(12)), absa27(65,ng(12))
+  REAL(wp) :: kb27(5,47,ng(12)), absb27(235,ng(12))
+  REAL(wp) :: sfluxref27(ng(12))
+  REAL(wp) :: rayl27(ng(12))
+
+  EQUIVALENCE (ka27(1,1,1),absa27(1,1)), (kb27(1,1,1),absb27(1,1))
+
+  REAL(wp) :: kao28(9,5,13,no(13))
+  REAL(wp) :: kbo28(5,5,47,no(13))
+  REAL(wp) :: sfluxrefo28(no(13),5)
+  REAL(wp) :: rayl28
+
+  REAL(wp) :: ka28(9,5,13,ng(13)), absa28(585,ng(13))
+  REAL(wp) :: kb28(5,5,47,ng(13)), absb28(1175,ng(13))
+  REAL(wp) :: sfluxref28(ng(13),5)
+
+  EQUIVALENCE (ka28(1,1,1,1),absa28(1,1)), (kb28(1,1,1,1),absb28(1,1))
+
+  REAL(wp) :: kao29(5,13,no(14))
+  REAL(wp) :: kbo29(5,47,no(14))
+  REAL(wp) :: selfrefo29(10,no(14)), forrefo29(4,no(14))
+  REAL(wp) :: sfluxrefo29(no(14))
+  REAL(wp) :: absh2oo29(no(14)), absco2o29(no(14))
+  REAL(wp) :: rayl29
+
+  REAL(wp) :: ka29(5,13,ng(14)), absa29(65,ng(14))
+  REAL(wp) :: kb29(5,47,ng(14)), absb29(235,ng(14))
+  REAL(wp) :: selfref29(10,ng(14)), forref29(4,ng(14))
+  REAL(wp) :: sfluxref29(ng(14))
+  REAL(wp) :: absh2o29(ng(14)), absco229(ng(14))
+
+  EQUIVALENCE (ka29(1,1,1),absa29(1,1)), (kb29(1,1,1),absb29(1,1))
 
 END MODULE mo_psrad_srtm_kgs
 
