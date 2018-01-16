@@ -803,7 +803,7 @@ add_required_file ${basedir}/run/${dict_file}  ./
 # -------------------------
 #
 add_required_file ${basedir}/run/coupling.xml  ./
-add_required_file ${basedir}/run/coupling.xsd  ./
-add_required_file ${basedir}/run/component.xsd ./
+add_required_file ${basedir}/externals/yac/input/coupling.xsd.in  ./coupling.xsd
+add_required_file ${basedir}/externals/yac/input/component.xsd.in ./component.xsd
 #
 #-----------------------------------------------------------------------------

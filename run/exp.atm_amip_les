@@ -74,28 +74,40 @@ lnd_namelist=NAMELIST_${EXPNAME}_lnd
 
 # JSBACH settings
 run_jsbach=yes
-jsbach_with_hd=no
+jsbach_usecase=jsbach_pfts                # jsbach_lite/jsbach_pfts
 jsbach_with_lakes=yes
-jsbach_usecase=jsbach_pfts    # jsbach_lite or jsbach_pfts
-jsbach_check_wbal=no          # check water balance
-output_lnd=full               # amount of output: min/full
-#
-[[ $jsbach_with_lakes == yes ]] || jsbach_usecase=${jsbach_usecase}_nolake
-[[ $jsbach_with_hd == yes ]] && jsbach_usecase=${jsbach_usecase}_with_hd
-ljsbach=$([ "${run_jsbach:=no}" == yes ] && echo .TRUE. || echo .FALSE. )
-llake=$([ "${jsbach_with_lakes:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
-if [[ $jsbach_usecase == *pfts* ]]
-then
-  pft_file_tag="11pfts_"
-  nproma=64
-else
-  pft_file_tag=""
-fi
+jsbach_with_hd=no
+jsbach_with_carbon=yes                    # yes needs jsbach_pfts usecase
+jsbach_check_wbal=no                      # check water balance
+output_lnd=basic                          # amount of output: none/basic/medium/full
 
-lnd_datadir=${icon_data_poolFolder}/grids/private/mpim/icon_preprocessing/source/preliminary_land/${grid_name}/land
 #--------------------------------------------------------------------------------------------------
 
 # (3) Define the model configuration
+
+# Some further processing for land configuration
+# --------------------------------
+output_tiles="'box'"
+if [[ ${output_lnd} == "basic" ]]
+then
+  output_tiles="${output_tiles}, 'glac', 'veg'"
+fi
+if [[ $jsbach_with_lakes == yes ]]
+then
+  [[ ${output_lnd} == "full" ]] && output_tiles="${output_tiles}, 'lake', 'land'"
+fi
+ljsbach=$([ "${run_jsbach:=no}" == yes ] && echo .TRUE. || echo .FALSE. )
+llake=$([ "${jsbach_with_lakes:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
+lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
+if [[ $jsbach_usecase == *pfts* ]]
+then
+  nproma=48
+  pft_file_tag="11pfts_"
+  [[ ${output_lnd} == "full" ]] && \
+    output_tiles="${output_tiles}, 'pft01','pft02','pft03','pft04','pft05','pft06','pft07','pft08','pft09','pft10','pft11'"
+else
+  pft_file_tag=""
+fi
 
 # atmospheric dynamics and physics
 # --------------------------------
@@ -216,8 +228,10 @@ EOF
 cat > ${lnd_namelist} << EOF
 &jsb_model_nml
   usecase         = "${jsbach_usecase}"
+  use_lakes       = ${llake}
   fract_filename  = "bc_land_frac.nc"
-  l_compat401     = .FALSE.             ! TRUE: overwrites some of the settings below
+  l_compat401     = .TRUE.              ! TRUE: overwrites some of the settings below
+  output_tiles    = ${output_tiles}     ! List of tiles to output
 /
 &jsb_seb_nml
   bc_filename     = 'bc_land_phys.nc'
@@ -256,6 +270,30 @@ cat > ${lnd_namelist} << EOF
   scheme          = 'logrop'            ! scheme = logrop / climatology; use climatology for jsbach_lite
   bc_filename     = 'bc_land_phys.nc'
   ic_filename     = 'ic_land_soil.nc'
+/
+&jsb_carbon_nml
+  active                 = ${lcarbon}
+  bc_filename            = 'bc_land_carbon.nc'
+  ic_filename            = 'ic_land_carbon.nc'
+  read_cpools            = .FALSE.
+  fuel_algorithm         = 0
+  !fire_frac_wood_2_atmos = 0.2
+/
+&jsb_disturb_nml
+  active                  = .FALSE.
+  ic_filename             = 'ic_land_soil.nc'
+  bc_filename             = 'bc_land_phys.nc'
+  fire_algorithm          = 1
+  windbreak_algorithm     = 1
+  lburn_pasture           = .FALSE.
+  !fire_litter_threshold  = 16.67
+  !fire_rel_hum_threshold = 70.0
+  !fire_minimum_woody     = 0.002
+  !fire_minimum_grass     = 0.006
+  !fire_tau_woody         = 6.0
+  !fire_tau_grass         = 2.0
+  !wnd_threshold          = 2.25
+  !wnd_damage_scale       = 5.e-03
 /
 EOF
 if [[ ${jsbach_with_hd} = yes ]]; then
@@ -514,13 +552,13 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  ml_varlist       = 'ps'           , 'pfull'        ,
                     'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
-                    'tend_ta_vdf'  , 'tend_ta_gwh'  , 'tend_ta_sso'  ,
+                    'tend_ta_vdf'  , 'tend_ta_gwd'  , 'tend_ta_sso'  ,
                     'tend_ta_cnv'  , 'tend_ta_cld'  , 
                     'tend_ua'      , 'tend_ua_dyn'  , 'tend_ua_phy'  ,
-                    'tend_ua_vdf'  , 'tend_ua_gwh'  , 'tend_ua_sso'  ,
+                    'tend_ua_vdf'  , 'tend_ua_gwd'  , 'tend_ua_sso'  ,
                     'tend_ua_cnv'  , 
                     'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
-                    'tend_va_vdf'  , 'tend_va_gwh'  , 'tend_va_sso'  ,
+                    'tend_va_vdf'  , 'tend_va_gwd'  , 'tend_va_sso'  ,
                     'tend_va_cnv'  ,
                     'tend_qhus'    , 'tend_qhus_dyn', 'tend_qhus_phy',
                     'tend_qhus_cld', 'tend_qhus_cnv', 'tend_qhus_vdf',
@@ -530,58 +568,28 @@ fi
 
 
 #
-if [[ "$output_lnd" == "min" ]]; then
-   cat >> ${atmo_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_lnd"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
- remap            = 0
- operation        = 'mean'
- output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'fract_box'             ,
-                    'seb_t_box'             , 'seb_t_eff_box'               , 'seb_qsat_star_box'      ,
-                    'a2l_swvis_srf_down_box', 'a2l_swnir_srf_down_box'      , 'a2l_lw_srf_down_box'    ,
-                    'rad_alb_vis_box'       , 'rad_alb_nir_box'             ,
-                    'rad_rad_srf_net_box'   , 'rad_lw_srf_net_box'          , 'rad_sw_srf_net_box'     ,
-                    'seb_latent_hflx_box'   , 'seb_sensible_hflx_box'       , 'pheno_lai_box'          ,
-                    'hydro_q_snocpymlt_box' , 'hydro_w_skin_box'            , 'hydro_w_snow_box'       ,
-                    'hydro_snowmelt_box'    , 'hydro_evapotranspiration_box', 'hydro_w_soil_column_box'
-/
-EOF
-fi
-
-if [[ "$output_lnd" == "full" ]]; then
-  #
+# Currently, the JSBACH output_nml's need to be added to atmo_namelist, but this should 
+# eventually be handled by the lnd_namelist file. 
+# Available variable groups:
+#   jsb_all, jsb_<process>_all, jsb_all_<level>, jsb_<process>_<level>
+# where <process> is the process name and <level> is the output level (basic/medium/full)
+if [[ "$output_lnd" != "none" ]]; then
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_lnd_a2l"
+ output_filename  = "${EXPNAME}_lnd_fract"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
  remap            = 0
- operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
- output_end       = "${end_date}"
+ output_end       = "${start_date}"
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'fract_box',
-                    'a2l_t_air_box'         , 'a2l_q_air_box'          , 'a2l_rain_box'          , 'a2l_snow_box',
-                    'a2l_press_srf_box'     , 'a2l_drag_srf_box'       , 'a2l_pch_box'           ,
-                    'a2l_swvis_srf_down_box', 'a2l_swnir_srf_down_box' , 'a2l_swpar_srf_down_box',
-                    'a2l_lw_srf_down_box'   , 
-                    'turb_rough_m_box'      , 'turb_rough_h_box'       , 
+ ml_varlist       = 'group:jsb_tile_fractions'
 /
 &output_nml
- output_filename  = "${EXPNAME}_lnd_rad"
+ output_filename  = "${EXPNAME}_lnd_basic"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
  remap            = 0
  operation        = 'mean'
  output_grid      = .TRUE.
@@ -590,88 +598,48 @@ if [[ "$output_lnd" == "full" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'rad_alb_vis_box'     , 'rad_alb_nir_box'     , 'rad_rad_srf_net_box' ,
-                    'rad_lw_srf_net_box'  , 'rad_sw_srf_net_box'  ,
-                    'rad_alb_vis_veg'     , 'rad_alb_nir_veg'     , 'rad_alb_vis_snow_veg', 'rad_alb_nir_snow_veg',
-                    'rad_alb_vis_soil_veg', 'rad_alb_nir_soil_veg', 'rad_alb_vis_can_veg' , 'rad_alb_nir_can_veg',
-                    'rad_rad_srf_net_veg' , 'rad_lw_srf_net_veg'  , 'rad_sw_srf_net_veg'
-                    'rad_alb_vis_glac'    , 'rad_alb_nir_glac'    ,
-                    'rad_rad_srf_net_glac', 'rad_lw_srf_net_glac' , 'rad_sw_srf_net_glac'
-/
-&output_nml
- output_filename  = "${EXPNAME}_lnd_seb"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
- remap            = 0
- operation        = 'mean'
- output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'seb_t_box'             , 'seb_t_eff_box'          , 'seb_qsat_star_box'     ,
-                    'seb_latent_hflx_box'   , 'seb_sensible_hflx_box'  , 'seb_forc_hflx_box'
-/
-&output_nml
- output_filename  = "${EXPNAME}_lnd_sse"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
- remap            = 0
- operation        = 'mean'
- output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'sse_grnd_hflx_land'   , 'sse_hcap_grnd_land'   , 'sse_hcap_grnd_veg'    , 'sse_grnd_hflx_veg',
-                    'sse_hcap_grnd_glac'   , 'sse_grnd_hflx_glac'   ,
-                    'sse_t_soil_veg'       , 'sse_t_soil_acoef_veg' , 'sse_t_soil_bcoef_veg' ,
-                    'sse_t_snow_veg'       , 'sse_t_snow_acoef_veg' , 'sse_t_snow_bcoef_veg' ,
-                    'sse_t_soil_glac'      , 'sse_t_soil_acoef_glac', 'sse_t_soil_bcoef_glac',
-                    'sse_snow_depth_sl_veg', 'sse_thaw_depth_veg'
-/
-&output_nml
- output_filename  = "${EXPNAME}_lnd_hydro"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
- remap            = 0
- operation        = 'mean'
- output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'hydro_q_snocpymlt_box'        , 'hydro_w_skin_box'       , 'hydro_w_snow_box'             ,
-                    'hydro_snowmelt_box'           , 'hydro_w_soil_column_veg', 'hydro_w_soil_sl_veg'          , 
-                    'hydro_evapotranspiration_veg' , 'hydro_evapopot_veg'     , 'hydro_trans_veg'              ,
-                    'hydro_fract_water_veg'        , 'hydro_fract_snow_veg'   , 'hydro_w_skin_veg'             ,
-                    'hydro_w_snow_veg'             , 'hydro_q_snocpymlt_veg'  ,
-                    'hydro_fract_snow_soil_veg'    , 'hydro_w_snow_soil_veg'  , 'hydro_snow_accum_veg'         ,
-                    'hydro_fract_snow_can_veg'     , 'hydro_w_snow_can_veg'   ,
-                    'hydro_water_stress_veg'       , 'hydro_canopy_cond_veg'  , 'hydro_canopy_cond_limited_veg'
-                    'hydro_evapotranspiration_glac', 'hydro_evapopot_glac'    ,
-                    'hydro_snowmelt_glac'          , 'hydro_q_snocpymlt_glac'
-/
-&output_nml
- output_filename  = "${EXPNAME}_lnd_pheno"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
- remap            = 0
- operation        = 'mean'
- output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'pheno_lai_veg'          , 'pheno_fract_fpc_veg'   ,
-                    'pheno_fract_fpc_max_veg', 'pheno_fract_forest_veg'
+ ml_varlist       = 'group:jsb_all_basic'
 /
 EOF
 fi
+case "${output_lnd}" in
+  medium|full)
+    cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_lnd_medium"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'group:jsb_all_medium'
+/
+EOF
+    ;;
+esac
+case "${output_lnd}" in
+  full)
+    cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_lnd_full"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'group:jsb_all_full'
+/
+EOF
+    ;;
+esac
 
 if [[ "$jsbach_check_wbal" == "yes" ]]; then
   cat >> ${atmo_namelist} << EOF

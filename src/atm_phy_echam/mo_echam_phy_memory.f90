@@ -320,6 +320,13 @@ MODULE mo_echam_phy_memory
       & csat       (:,  :),  &!<
       & cair       (:,  :)    !<
 
+    ! CO2
+    REAL(wp),POINTER :: &
+      & co2_flux_tile   (:,:,:),  &!< CO2 flux on tiles (land, ocean)
+      & fco2nat         (:,  :)    !< Surface Carbon Mass Flux into the Atmosphere Due to Natural Sources
+
+    TYPE(t_ptr_2d),ALLOCATABLE :: co2_flux_tile_ptr(:)
+
     ! Sea ice.
     ! See also sea_ice/thermodyn/mo_sea_ice_types.f90
     INTEGER              :: kice  ! Number of ice-thickness classes
@@ -475,6 +482,11 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr_2d),ALLOCATABLE :: vas_tile_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: tas_tile_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: dew2_tile_ptr(:)
+
+    ! coupling to HAMOCC lcpl_co2_atmoce
+    REAL(wp),POINTER :: &
+      & co2mmr(:,:),   &  !< co2 mixing ratio
+      & co2flux(:,:)      !< co2 flux
 
   END TYPE t_echam_phy_field
 
@@ -1844,6 +1856,43 @@ CONTAINS
     !
     !------------------
     !
+    ! CO2
+
+    cf_desc = t_cf_var('fco2nat', 'kg m-2 s-1',                                &
+                & 'Surface Carbon Mass Flux into the Atmosphere Due to Natural Sources', datatype_flt)
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+
+    CALL add_var( field_list, prefix//'fco2nat', field%fco2nat,                &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,     &
+                & lrestart = .TRUE., initval =  0.0_wp, ldims=shape2d )
+
+    ! &       field% co2_flux_tile(nproma,nblks,nsfc_type), &
+    CALL add_var( field_list, prefix//'co2_flux_tile', field%co2_flux_tile,         &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                & t_cf_var('co2_flux_tile',  'kg m-2 s-1',                     &
+                & 'surface_upward_mass_flux_of_carbon_dioxide', datatype_flt), &
+                & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_CELL),&
+                & ldims=shapesfc, initval=0.0_wp,                              &
+                & lcontainer=.TRUE., lrestart=.FALSE.      )
+
+    ALLOCATE(field%co2_flux_tile_ptr(ksfc_type))
+
+    DO jsfc = 1,ksfc_type
+
+      CALL add_ref( field_list, prefix//'co2_flux_tile',                         &
+                  & prefix//'co2_flux_'//csfc(jsfc), field%co2_flux_tile_ptr(jsfc)%p,      &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                  & t_cf_var('co2_flux_'//csfc(jsfc), 'kg m-2 s-1',              &
+                  & 'surface_upward_mass_flux_of_carbon_dioxide', datatype_flt), &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_CELL),&
+                  & lrestart=.TRUE., ldims=shape2d,  initval=0.0_wp,             &
+                  & lmiss=.TRUE., missval=cdimissval )
+
+    END DO
+
+    !
+    !------------------
+    !
 
     ! Topography
     ! - resolved
@@ -2923,6 +2972,15 @@ CONTAINS
     ! Surface fluxes
     !---------------------------
     ! gridbox mean
+    CALL add_var( field_list, prefix//'co2flux', field%co2flux,              &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
+                & t_cf_var('co2flux', 'kg m-2 s-1', 'co2 flux',           &
+                & datatype_flt),                                          &
+                & grib2_var(255,255,255,iextbits, GRID_UNSTRUCTURED, GRID_CELL),&
+                & ldims=shape2d,                                          &
+                & lrestart = .FALSE.,                                     &
+                & isteptype=TSTEP_INSTANT                                 )
+
 
     CALL add_var( field_list, prefix//'evspsbl', field%evap,              &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
@@ -3143,6 +3201,15 @@ CONTAINS
     ! near surface diagnostics, grid box mean
     !-----------------------------------------
 
+    CALL add_var( field_list, prefix//'co2mmr', field%co2mmr,                   &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                & t_cf_var('CO2 MR','kg kg-1','co2 mixing ratio',               &
+                &          datatype_flt),                                       &
+                & grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
+                & ldims=shape2d,                                                &
+                & lrestart = .FALSE.,                                           &
+                & isteptype=TSTEP_INSTANT                                       )
+
     CALL add_var( field_list, prefix//'sfcwind', field%sfcwind,                 &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                 & t_cf_var('sfcwind','m s-1','10m windspeed',                   &
@@ -3259,6 +3326,7 @@ CONTAINS
                 & lcontainer=.TRUE., lrestart=.FALSE.,                          &
                 & isteptype=TSTEP_INSTANT                                       )
 
+
     ALLOCATE(field%sfcwind_tile_ptr(ksfc_type))
     ALLOCATE(field%uas_tile_ptr(ksfc_type))
     ALLOCATE(field%vas_tile_ptr(ksfc_type))
@@ -3316,6 +3384,7 @@ CONTAINS
                   & grib2_var(0,0,6, ibits, GRID_UNSTRUCTURED, GRID_CELL),          &
                   & lrestart=.FALSE., ldims=shape2d,                                &
                   & lmiss=.TRUE., missval=cdimissval )
+
     END DO
 
   END SUBROUTINE new_echam_phy_field_list

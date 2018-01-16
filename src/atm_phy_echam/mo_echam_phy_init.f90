@@ -31,8 +31,8 @@ MODULE mo_echam_phy_init
   USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
     &                                timer_prep_echam_phy
 
-  ! run configuration
-  USE mo_run_config,           ONLY: nlev, iqv, iqt, ico2, io3, &
+  ! model configuration
+  USE mo_run_config,           ONLY: nlev, iqv, iqt, io3, &
     &                                ntracer, ltestcase, lart
 
   ! horizontal grid and indices
@@ -78,6 +78,9 @@ MODULE mo_echam_phy_init
   USE mo_jsb_model_init,       ONLY: jsbach_init_model => init_model
 #endif
 
+  ! carbon cycle
+  USE mo_ccycle_config,        ONLY: print_ccycle_config
+
   ! cumulus convection
   USE mo_echam_cnv_config,     ONLY: alloc_echam_cnv_config, eval_echam_cnv_config, print_echam_cnv_config
   USE mo_convect_tables,       ONLY: init_convect_tables
@@ -106,7 +109,7 @@ MODULE mo_echam_phy_init
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, calculate_time_interpolation_weights
   USE mo_bc_sst_sic,           ONLY: read_bc_sst_sic, bc_sst_sic_time_interpolation
   USE mo_bc_greenhouse_gases,  ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
-    &                                bc_greenhouse_gases_file_read, ghg_co2mmr
+    &                                bc_greenhouse_gases_file_read
   USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
 
   ! radiative forcing diagnostics
@@ -274,6 +277,9 @@ CONTAINS
        CALL  eval_echam_sso_config
        CALL print_echam_sso_config
     END IF
+ 
+    ! carbon cycle
+    CALL print_ccycle_config
 
 
     !-------------------------------------------------------------------
@@ -373,14 +379,6 @@ CONTAINS
       ! the mid points of the current and preceding or following year, if the
       ! current date is in the 1st or 2nd half of the year, respectively.
       CALL bc_greenhouse_gases_time_interpolation(mtime_current)
-      !
-      ! IF a CO2 tracer exists, then copy the time interpolated scalar ghg_co2mmr
-      ! to the 3-dimensional tracer field.
-      IF ( iqt <= ico2 .AND. ico2 <= ntracer .AND. .NOT. lart) THEN
-        DO jg = 1,n_dom
-          prm_field(jg)%qtrc(:,:,:,ico2) = ghg_co2mmr
-        END DO
-      END IF
       !
     ENDIF
 
@@ -553,6 +551,9 @@ CONTAINS
  
       field% swflxsfc_tile(:,:,:) = 0._wp
       field% lwflxsfc_tile(:,:,:) = 0._wp
+
+      field% co2_flux_tile(:,:,:) = 0._wp
+      field% fco2nat(:,:)         = 0._wp
 
 !$OMP END WORKSHARE
 !$OMP END PARALLEL

@@ -27,9 +27,10 @@
 MODULE mo_interface_echam_vdf
 
   USE mo_kind                ,ONLY: wp
+  USE mo_exception           ,ONLY: finish, warning
 
   USE mo_parallel_config     ,ONLY: nproma
-  USE mo_run_config          ,ONLY: ntracer, nlev, nlevm1, nlevp1, iqv, iqc, iqi, iqt
+  USE mo_run_config          ,ONLY: ntracer, nlev, nlevm1, nlevp1, iqv, iqc, iqi, iqt, ico2
 
   USE mtime                  ,ONLY: datetime
   USE mo_echam_phy_memory    ,ONLY: t_echam_phy_field, prm_field, &
@@ -40,6 +41,11 @@ MODULE mo_interface_echam_vdf
        &                            timer_surface
 
   USE mo_echam_phy_config    ,ONLY: echam_phy_config
+  USE mo_ccycle_config       ,ONLY: ccycle_config
+
+  USE mo_physical_constants  ,ONLY: amco2, amd
+  USE mo_echam_rad_config    ,ONLY: echam_rad_config
+  USE mo_bc_greenhouse_gases ,ONLY: ghg_co2mmr
   USE mo_echam_sfc_indices   ,ONLY: nsfc_type, iwtr, iice, ilnd
 
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
@@ -89,6 +95,7 @@ CONTAINS
 
     ! Temporary arrays used by VDIFF, JSBACH
     REAL(wp) :: zfactor_sfc(nproma)
+    REAL(wp) :: zco2       (nproma)          !< co2 value passed on to jsbach
 
     REAL(wp) :: zcptgz   (nproma,nlev)       !< dry static energy
     REAL(wp) :: zthvvar  (nproma,nlev)       !< intermediate value of thvvar
@@ -104,24 +111,57 @@ CONTAINS
 
     REAL(wp) :: zq_snocpymlt(nproma)         !< heating by melting of snow on the canopy [W/m2]
     !                                        !  which warms the lowermost atmospheric layer (JSBACH)
+    REAL(wp) :: mmr_co2
 
     INTEGER  :: ntrac
+
+    ! Shortcuts to components of echam_rad_config
+    !
+    REAL(wp), POINTER :: vmr_co2
+    vmr_co2 => echam_rad_config(jg)%vmr_co2
 
     ! associate pointers
     field => prm_field(jg)
     tend  => prm_tend (jg)
 
-    ntrac = ntracer-iqt+1  !# of tracers excluding water vapour and hydrometeors
+    ntrac = ntracer-iqt+1  ! number of tracers excluding water vapour and hydrometeors
 
 !!$    ! Emission of aerosols or other tracers (not implemented yet)
 !!$    IF (ntrac>0) THEN
 !!$       CALL tracer_emission()
 !!$    ENDIF
+    !
+    ! default setting for all tracers
     zxt_emis(jcs:jce,:) = 0._wp
     !
+
+    ! set emissions of co2, if any (hardcoded, co2-tracer 5 eq. zxt_emis(:,2))
+
+    IF (ntrac>=2) THEN
+      IF (ccycle_config(jg)%iccy_co2conc .EQ. 3 .AND. ccycle_config(jg)%iccy_co2flux .EQ. 2) THEN
+        zxt_emis(jcs:jce,2) = field%fco2nat(jcs:jce,jb)
+      ELSE
+        CALL warning('echam_vdf','co2 emissions not possible in this setup. Please check your settings!')
+      END IF
+    END IF
 !!$    ! Dry deposition of aerosols or other tracers (not implemented yet)
 !!$    CALL dry_deposition()
-       !
+
+    !
+    ! setting of co2 for jsbach
+    !
+    mmr_co2 = vmr_co2   * amco2/amd
+
+    IF(ccycle_config(jg)%iccy_co2conc .EQ. 0) THEN   !  default
+      zco2(:) = SPREAD(mmr_co2, DIM=1, NCOPIES=nproma)
+    ELSE IF (ccycle_config(jg)%iccy_co2conc .EQ. 1 .OR. ccycle_config(jg)%iccy_co2conc .EQ. 2) THEN
+      zco2(:) = SPREAD(ghg_co2mmr, DIM=1, NCOPIES=nproma)
+    ELSE IF (ccycle_config(jg)%iccy_co2conc .EQ. 3) THEN
+      zco2(:) = field% qtrc(:,nlev,jb,ico2)
+    ELSE
+      CALL finish('echam_vdf: setting of co2 not recommended. Please check your setting!')
+    END IF
+
     IF ( is_in_sd_ed_interval ) THEN
        !
        IF ( is_active ) THEN
@@ -235,6 +275,7 @@ CONTAINS
                &              field% lhflx_tile    (:,jb,:),                  &! out
                &              field% shflx_tile    (:,jb,:),                  &! out
                &              field%  evap_tile    (:,jb,:),                  &! out
+               &              field%  fco2nat      (:,  jb),                  &! inout
                &              nblock = jb,                                    &! in
                &              lsm = field%lsmask(:,jb),                       &!< in, land-sea mask
                &              alake = field%alake(:,jb),                      &! in, lake fraction
@@ -242,6 +283,7 @@ CONTAINS
                &              pv    = field% va(:,nlev,jb),                   &! in, vm1
                &              ptemp = field% ta(:,nlev,jb),                   &! in, tm1
                &              pq = field% qtrc(:,nlev,jb,iqv),                &! in, qm1
+               &              pco2 = zco2,                                    &! in, co2, lowest level or fixed value
                &              prsfl = field% rsfl(:,jb),                      &! in, rain surface large scale (from cloud)
                &              prsfc = field% rsfc(:,jb),                      &! in, rain surface concective (from cucall)
                &              pssfl = field% ssfl(:,jb),                      &! in, snow surface large scale (from cloud)
@@ -276,6 +318,7 @@ CONTAINS
                &              albnirdif_tile = field% albnirdif_tile(:,jb,:), &! inout
                &              albedo         = field% albedo        (:,jb)  , &! inout
                &              albedo_tile    = field% albedo_tile(:,jb,:),    &! inout
+               &              pco2_flux_tile = field% co2_flux_tile(:,jb,:),  &! inout
                &              ptsfc     = field%ts    (:,jb),                 &! out
                &              ptsfc_rad = field%ts_rad(:,jb),                 &! out
                &              rlns_tile = field%lwflxsfc_tile(:,jb,:),        &! out (for coupling)
@@ -481,6 +524,7 @@ CONTAINS
        field% albnirdif_tile (jcs:jce,  jb,:) = 0.0_wp
        field% albedo         (jcs:jce,  jb  ) = 0.0_wp
        field% albedo_tile    (jcs:jce,  jb,:) = 0.0_wp
+       field% co2_flux_tile  (jcs:jce,  jb,:) = 0.0_wp
        field% ts             (jcs:jce,  jb  ) = 0.0_wp
        field% ts_rad         (jcs:jce,  jb  ) = 0.0_wp
        field% lwflxsfc_tile  (jcs:jce,  jb,:) = 0.0_wp
