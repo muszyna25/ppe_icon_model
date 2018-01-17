@@ -286,9 +286,7 @@ cat > ${atm_namelist} << EOF
  echam_rad_config(1)%irad_cfc11       = 0           ! 0: no cfc
  echam_rad_config(1)%irad_cfc12       = 0           ! 0: no cfc
  echam_rad_config(1)%irad_aero        = 0           ! 0: no aerosol
- echam_rad_config(1)%lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
  echam_rad_config(1)%ighg             = 0           ! 0: select default values; 1: transient well mixed greenhouse gas concentrations
- echam_rad_config(1)%izenith          = 4           ! 4: seasonal and diurnal cycle
  echam_rad_config(1)%isolrad          = 6           ! 6: pre-industrial CMIP6 solar constant
  echam_rad_config(1)%vmr_co2          = 284.317e-6  ! constant volume mixing ration
  echam_rad_config(1)%vmr_ch4          = 808.249e-9  ! constant volume mixing ration
@@ -311,8 +309,8 @@ cat > ${atm_namelist} << EOF
 ! domain 1
 ! --------
 !
- ccycle_config(1)%iccy_co2conc = 1
- ccycle_config(1)%iccy_co2flux = 2
+ ccycle_config(1)%iccy_co2conc = 1                  ! 1: co2 tracer
+ ccycle_config(1)%iccy_co2flux = 2                  ! 2: from ocean and land (needs HAMOCC and JSBACH)
 /
 EOF
 

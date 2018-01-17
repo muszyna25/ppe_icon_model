@@ -138,7 +138,7 @@ CONTAINS
     ! set emissions of co2, if any (hardcoded, co2-tracer 5 eq. zxt_emis(:,2))
 
     IF (ntrac>=2) THEN
-      IF (ccycle_config(jg)%iccy_co2conc .EQ. 3 .AND. ccycle_config(jg)%iccy_co2flux .EQ. 2) THEN
+      IF (ccycle_config(jg)%iccy_co2conc .EQ. 1 .AND. ccycle_config(jg)%iccy_co2flux .EQ. 2) THEN
         zxt_emis(jcs:jce,2) = field%fco2nat(jcs:jce,jb)
       ELSE
         CALL warning('echam_vdf','co2 emissions not possible in this setup. Please check your settings!')
@@ -154,9 +154,9 @@ CONTAINS
 
     IF(ccycle_config(jg)%iccy_co2conc .EQ. 0) THEN   !  default
       zco2(:) = SPREAD(mmr_co2, DIM=1, NCOPIES=nproma)
-    ELSE IF (ccycle_config(jg)%iccy_co2conc .EQ. 1 .OR. ccycle_config(jg)%iccy_co2conc .EQ. 2) THEN
+    ELSE IF (ccycle_config(jg)%iccy_co2conc .EQ. 2 .OR. ccycle_config(jg)%iccy_co2conc .EQ. 4) THEN
       zco2(:) = SPREAD(ghg_co2mmr, DIM=1, NCOPIES=nproma)
-    ELSE IF (ccycle_config(jg)%iccy_co2conc .EQ. 3) THEN
+    ELSE IF (ccycle_config(jg)%iccy_co2conc .EQ. 1) THEN
       zco2(:) = field% qtrc(:,nlev,jb,ico2)
     ELSE
       CALL finish('echam_vdf: setting of co2 not recommended. Please check your setting!')
