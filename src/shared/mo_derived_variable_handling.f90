@@ -35,7 +35,7 @@ MODULE mo_derived_variable_handling
   USE mtime_datetime, ONLY: datetimeToString
   USE mo_output_event_types,  ONLY: t_sim_step_info
   USE mo_time_config,         ONLY: time_config
-  USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64
+  USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, GRID_LONLAT
 
   IMPLICIT NONE
 
@@ -61,7 +61,7 @@ MODULE mo_derived_variable_handling
 
   !>
   ! wrapper for bind_c event type - needed because bind_c types are not allowed
-  ! in "select type"
+  ! in "select type" - this is kind of a hack
   type :: t_event_wrapper
     type(event), pointer :: this
   end type
@@ -161,7 +161,15 @@ CONTAINS
     
     CHARACTER(LEN=max_char_length) :: listname
     
+    ! main map for automatical mean value computation:
+    ! key: eventString
+    ! value: self-vector of t_list_elements objects that belong to that event
     meanMap            = map(verbose=.false.)
+
+    ! map for holding the events itself
+    ! since the events cannot be saved a keys for a map because they are only
+    ! C-pointers the same string representation of events is used as for
+    ! "meanMap"
     meanEvents         = map(verbose=.false.)
     meanEventsActivity = map(verbose=.false.)
     meanVarCounter     = map(verbose=.false.)
@@ -249,21 +257,28 @@ CONTAINS
       varlist((output_variables+1):ntotal_vars) = " "
       ! }}}
 
+      ! uniq identifier for an event based on output start/end/interval
       eventKey = get_event_key(p_onl)
+      ! this has the advantage that we can compute a uniq id without creating
+      ! the event itself
 
 #ifdef DEBUG_MVSTREAM
       if (my_process_is_stdio()) call print_summary('eventKey:'//trim(eventKey))
 #endif
 
+      ! fill main dictionary of variables for different events
       IF ( meanMap%has_key(eventKey) ) THEN
         myBuffer => meanMap%get(eventKey)
         select type (myBuffer)
         type is (vector_ref)
+          ! use exiting list
           meanVariables = myBuffer
         end select
       ELSE
+        ! create new variable list
         meanVariables = vector_ref()
 
+        ! wrap c-pointer for events into a fortran type - look weird, but does the trick
         event_wrapper = t_event_wrapper(this=newEvent(eventKey, &
           &                 p_onl%output_start(1), &
           &                 p_onl%output_start(1), &
@@ -271,35 +286,42 @@ CONTAINS
           &                 p_onl%output_interval(1) &
           &                ))
 
-
+        ! collect the new event
         call meanEvents%add(eventKey,event_wrapper)
       END IF
+      ! initialize all events as in-active
       call meanEventsActivity%add(eventKey,.false.)
 
       ! create adhoc copies of all variables for later accumulation
       DO i=1, output_variables
-        ! collect data variables only, there variables names like
-        ! 'grid:clon' which should be excluded
+        ! collect data variables only
+        ! variables names like 'grid:clon' which should be excluded
         IF ( INDEX(varlist(i),':') > 0) CYCLE
  
-        ! check for already create meanStream variable (maybe from another output_nml with the same output_interval)
+        ! check for already created meanStream variable (maybe from another output_nml with the same output_interval)
+        ! names consist of original spot-value names PLUS event information (start + interval of output)
+        ! TODO: unify with eventKey definition if possible
         dest_element_name = get_accumulation_varname(varlist(i),p_onl)
-
+        dest_element => find_list_element(mean_stream_list, trim(dest_element_name))
 #ifdef DEBUG_MVSTREAM
         if (my_process_is_stdio()) call print_summary('destination variable NAME:'//TRIM(dest_element_name),stderr=.true.)
 #endif
-
-        dest_element => find_list_element(mean_stream_list, trim(dest_element_name))
         IF (.not. ASSOCIATED(dest_element) ) THEN !not found -->> create a new on
-          ! find existing source variable on all possible ICON grids
+          ! find existing source variable on all possible ICON grids with the identical name
           src_element => find_element ( TRIM(varlist(i)),opt_hgrid=GRID_UNSTRUCTURED_CELL,opt_caseInsensitive=.true.)
           IF (.not. ASSOCIATED(src_element) ) &
               & src_element => find_element ( TRIM(varlist(i)),opt_hgrid=GRID_UNSTRUCTURED_EDGE,opt_caseInsensitive=.true.)
           IF (.not. ASSOCIATED(src_element) ) &
               & src_element => find_element ( TRIM(varlist(i)),opt_hgrid=GRID_UNSTRUCTURED_VERT,opt_caseInsensitive=.true.)
+          IF (.not. ASSOCIATED(src_element) ) &
+              & src_element => find_element ( TRIM(varlist(i)),opt_hgrid=GRID_LONLAT,opt_caseInsensitive=.true.)
 
+          ! if not found: maybe it is a prognostic variable, so it has the
+          ! time-level in its name
+          !
+          ! ATTENTION: this is only a placeholder, because it catches the first match
+          ! the correct pointer is the one with nnew(), but its value changes each timestep
           IF (.not. ASSOCIATED (src_element)) THEN
-            ! try to find timelevel variables 
             foundPrognostic = .false.
             timelevels = (/nold(1),nnow(1),nnew(1)/)
             do timelevel=1,3
@@ -310,18 +332,21 @@ CONTAINS
               src_element => find_element(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
               if ( ASSOCIATED(src_element) ) then
                 if ( .not. foundPrognostic ) then
+                  ! save the name of the original output variable if a prognosting version was found
                   call meanPrognostics%add(varlist(i))
                   foundPrognostic = .true.
                 end if
+                ! save the the pointers for all time levels of a prognostic variable
                 call meanPrognosticPointers%add(get_varname_with_timelevel(varlist(i),timelevels(timelevel)),src_element)
               end if
             end do
           END IF
+          ! in case nothing appropriate could be found, throw an error
           IF (.not. ASSOCIATED (src_element)) THEN
             call finish(routine,'Could not find source variable:'//TRIM(varlist(i)))
           END IF
 
-          ! add new variable, copy the meta-data from the existing variable
+          ! add new mean variable, copy the meta-data from the existing variable
           ! 1. copy the source variable to destination pointer
           dest_element => copy_var_to_list(mean_stream_list,dest_element_name,src_element, patch_2d)
 
@@ -338,15 +363,13 @@ CONTAINS
           ! set output to double precission if necessary
           dest_element%field%info%cf%datatype = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
 
-#ifdef DEBUG_MVSTREAM
-          if ( my_process_is_stdio()) write (0,*) 'copy_varr_to_list successfully CALLED'
-#endif
           ! 2. update the nc-shortname to internal name of the source variable
           dest_element%field%info%cf%short_name = get_var_name(src_element%field)
 
-          ! Collect variable pointers {{{
+          ! Collect variable pointers for source and destination in the same list {{{
           CALL meanVariables%add(src_element)
           CALL meanVariables%add(dest_element)
+          ! collect the counter for each destination in a separate list
           CALL meanVarCounter%add(dest_element%field%info%name,0)
 
         ! replace existince varname in output_nml with the meanStream Variable
@@ -368,6 +391,17 @@ CONTAINS
     END IF
 
 #ifdef DEBUG_MVSTREAM
+    if (my_process_is_stdio()) then
+        call var_print(meanVariables)
+      call print_routine(routine, 'meanMap%to_string()')
+      call print_routine(routine, meanMap%to_string())
+      call print_routine(routine, 'meanVariables%to_string()')
+
+      call print_routine(routine, meanPrognosticPointers%to_string())
+        call var_print(meanPrognosticPointers%values())
+      call print_routine(routine, 'meanPrognosticPointers%to_string()')
+      call print_routine(routine, meanPrognosticPointers%to_string())
+    endif
     if (my_process_is_stdio()) call print_routine(routine,'end',stderr=.true.)
 #endif
 
@@ -441,9 +475,9 @@ CONTAINS
     separator = '_'
     get_accumulation_varname = &
       &TRIM(varname)//separator//&
-      &trim(output_setup%operation)//separator//&
+      &TRIM(output_setup%operation)//separator//&
       &TRIM(output_setup%output_interval(1))//separator//&
-      &trim(output_setup%output_start(1))
+      &TRIM(output_setup%output_start(1))
 
   END FUNCTION get_accumulation_varname
 
