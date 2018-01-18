@@ -59,6 +59,7 @@ SUBROUTINE art_init_interface(n_dom,defcase)
     IF (timers_level > 3) CALL timer_start(timer_art_initInt)
 
     if (TRIM(defcase) == 'construct') then
+      CALL art_write_vcs_info
       CALL art_init_all_dom(n_dom)
     end if
       
@@ -133,4 +134,50 @@ END SUBROUTINE art_calc_number_of_art_tracers_xml
 !!
 !!-------------------------------------------------------------------------
 !!
+SUBROUTINE art_write_vcs_info
+#ifdef __ICON_ART
+
+!<
+! SUBROUTINE art_write_vcs_info                   
+! This subroutine writes information about repository
+! branch etc. used in the .out fie
+! Part of Module: mo_art_init_interface.f90
+! Author: Jennifer Schroeter, KIT
+! Initial Release: 2018-01-18                
+! Modifications:
+!>
+
+  USE mo_art_util_vcs,     ONLY: art_util_repository_url, art_util_branch_name, &
+                           & art_util_revision_key
+  USE mo_exception,    ONLY: message_text, message, finish
+  USE mo_mpi,          ONLY: my_process_is_global_root
+                       
+
+  CHARACTER(len=256) :: art_repository  = ''
+  CHARACTER(len=256) :: art_branch      = ''
+  CHARACTER(len=256) :: art_revision    = ''
+  
+
+  INTEGER :: nlen
+  nlen = 256
+  call art_util_repository_url(art_repository, nlen)
+  nlen = 256
+  call art_util_branch_name(art_branch, nlen)
+  nlen = 256
+  call art_util_revision_key(art_revision, nlen)
+  IF (my_process_is_global_root()) THEN
+
+
+  WRITE(message_text,'(a,a)') 'ART Repository: ', TRIM(art_repository)
+    CALL message('',message_text)
+  WRITE(message_text,'(a,a)') 'ART Branch    : ', TRIM(art_branch)
+    CALL message('',message_text)
+  WRITE(message_text,'(a,a)') 'ART Revision  : ', TRIM(art_revision)
+    CALL message('',message_text)
+  ENDIF
+#endif
+  
+END SUBROUTINE art_write_vcs_info
+
+
 END MODULE mo_art_init_interface
