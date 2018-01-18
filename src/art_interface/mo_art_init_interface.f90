@@ -55,21 +55,21 @@ SUBROUTINE art_init_interface(n_dom,defcase)
     &  defcase                      !< construction or destruction?
     
 #ifdef __ICON_ART
-  if (lart) then
+  IF (lart) THEN
     IF (timers_level > 3) CALL timer_start(timer_art_initInt)
 
-    if (TRIM(defcase) == 'construct') then
+    IF (TRIM(defcase) == 'construct') THEN
       CALL art_write_vcs_info
       CALL art_init_all_dom(n_dom)
-    end if
+    END IF
       
-    if (TRIM(defcase) == 'destruct') then
+    IF (TRIM(defcase) == 'destruct') THEN
       CALL art_clean_up(n_dom)
-    end if
+    END IF
 
     IF (timers_level > 3) CALL timer_stop(timer_art_initInt)
 
-  end if
+   END IF 
 #endif
 
 END SUBROUTINE art_init_interface
@@ -140,7 +140,7 @@ SUBROUTINE art_write_vcs_info
 !<
 ! SUBROUTINE art_write_vcs_info                   
 ! This subroutine writes information about repository
-! branch etc. used in the .out fie
+! branch etc. used in the .out file
 ! Part of Module: mo_art_init_interface.f90
 ! Author: Jennifer Schroeter, KIT
 ! Initial Release: 2018-01-18                
@@ -160,21 +160,22 @@ SUBROUTINE art_write_vcs_info
 
   INTEGER :: nlen
   nlen = 256
-  call art_util_repository_url(art_repository, nlen)
+  CALL art_util_repository_url(art_repository, nlen)
   nlen = 256
-  call art_util_branch_name(art_branch, nlen)
+  CALL art_util_branch_name(art_branch, nlen)
   nlen = 256
-  call art_util_revision_key(art_revision, nlen)
+  CALL art_util_revision_key(art_revision, nlen)
+
   IF (my_process_is_global_root()) THEN
 
+    WRITE(message_text,'(a,a)') 'ART Repository: ', TRIM(art_repository)
+      CALL message('',message_text)
+    WRITE(message_text,'(a,a)') 'ART Branch    : ', TRIM(art_branch)
+      CALL message('',message_text)
+    WRITE(message_text,'(a,a)') 'ART Revision  : ', TRIM(art_revision)
+      CALL message('',message_text)
 
-  WRITE(message_text,'(a,a)') 'ART Repository: ', TRIM(art_repository)
-    CALL message('',message_text)
-  WRITE(message_text,'(a,a)') 'ART Branch    : ', TRIM(art_branch)
-    CALL message('',message_text)
-  WRITE(message_text,'(a,a)') 'ART Revision  : ', TRIM(art_revision)
-    CALL message('',message_text)
-  ENDIF
+  END IF
 #endif
   
 END SUBROUTINE art_write_vcs_info
