@@ -48,8 +48,6 @@ USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e, grf_
                                   grf_fbk_start_c, grf_fbk_start_e, grf_bdywidth_c,               &
                                   grf_bdywidth_e
 USE mo_parallel_config,     ONLY: nproma
-  USE mo_mpi,                  ONLY: p_pe_work
-
 USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               setup_comm_pattern, delete_comm_pattern, &
   &                               exchange_data

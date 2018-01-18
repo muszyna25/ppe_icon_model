@@ -33,6 +33,8 @@ MODULE mo_ocean_diagnostics
   USE mo_impl_constants,     ONLY: sea_boundary,sea, &
     & min_rlcell, min_rledge, min_rlcell, &
     & max_char_length, min_dolic
+  USE mo_cdi_constants,      ONLY: GRID_EDGE, GRID_CELL, GRID_UNSTRUCTURED_EDGE, &
+    & GRID_UNSTRUCTURED_CELL
   USE mo_ocean_nml,          ONLY: n_zlev, no_tracer, &
     & gibraltar, &
     & denmark_strait, &
@@ -81,8 +83,7 @@ MODULE mo_ocean_diagnostics
   USE mo_cf_convention
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, GRID_UNSTRUCTURED
-  USE mo_cdi_constants,       ONLY: GRID_EDGE, GRID_CELL, GRID_UNSTRUCTURED_EDGE, &
-    &                               GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA
+  USE mo_zaxis_type,         ONLY: ZA_DEPTH_BELOW_SEA
   USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_sum
   USE mo_io_config,          ONLY: lnetcdf_flt64_output
 

@@ -37,8 +37,8 @@ MODULE mo_run_nml
                          & config_profiling_output => profiling_output, &
                          & config_check_uuid_gracefully => check_uuid_gracefully, &
                          & cfg_modelTimeStep => modelTimeStep
-  USE mo_kind,           ONLY: wp, i8
-  USE mo_exception,      ONLY: finish, message, message_text, &
+  USE mo_kind,           ONLY: wp
+  USE mo_exception,      ONLY: finish,  &
     &                      config_msg_timestamp   => msg_timestamp
   USE mo_impl_constants, ONLY: max_dom, max_ntracer, inoforcing, IHELDSUAREZ,     &
                                INWP,IECHAM,ILDF_ECHAM,IMPIOM,INOFORCING,ILDF_DRY, &

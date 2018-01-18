@@ -1501,7 +1501,6 @@ CONTAINS
 #endif
           p_diag%grf_tend_thv(jc,jk,jb) = p_latbc_const%theta_v(jc,jk,jb) - p_prog%theta_v(jc,jk,jb)
           p_diag%grf_tend_rho(jc,jk,jb) = p_latbc_const%rho    (jc,jk,jb) - p_prog%rho    (jc,jk,jb)
-          p_diag%grf_tend_w  (jc,jk,jb) = p_latbc_const%w      (jc,jk,jb) - p_prog%w      (jc,jk,jb)
 
         ENDDO
       ENDDO
@@ -1553,8 +1552,6 @@ CONTAINS
             wfac_new*p_latbc_new%theta_v(jc,jk,jb) - p_prog%theta_v(jc,jk,jb)
           p_diag%grf_tend_rho(jc,jk,jb) = wfac_old*p_latbc_old%rho(jc,jk,jb) +     &
             wfac_new*p_latbc_new%rho(jc,jk,jb)- p_prog%rho(jc,jk,jb)
-          p_diag%grf_tend_w(jc,jk,jb) = wfac_old*p_latbc_old%w(jc,jk,jb) +         &
-            wfac_new*p_latbc_new%w(jc,jk,jb) - p_prog%w(jc,jk,jb)
 
         ENDDO
       ENDDO
@@ -1680,10 +1677,6 @@ CONTAINS
 
         p_nh%prog(ntlev)%exner(jc,jk,jb) =                                  &
           EXP(rd_o_cvd*LOG(rd_o_p0ref*p_nh%prog(ntlev)%rho(jc,jk,jb)*p_nh%prog(ntlev)%theta_v(jc,jk,jb)))
-
-        p_nh%prog(ntlev)%w(jc,jk,jb) =                                      &
-          p_nh%prog(ntlev)%w(jc,jk,jb) + rcffac*p_int%nudgecoeff_c(jc,jb)*  &
-          p_nh%diag%grf_tend_w(jc,jk,jb)
 
         IF (ltransport) THEN ! execute also QV nudging
           p_nh%prog(ntlev_rcf)%tracer(jc,jk,jb,iqv) =                                     &

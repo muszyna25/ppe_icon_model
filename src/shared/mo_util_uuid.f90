@@ -21,7 +21,7 @@ MODULE mo_util_uuid
 
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_CHAR, C_SIGNED_CHAR, C_NULL_CHAR, &
     &                                    C_DOUBLE, C_INT, C_PTR, C_F_POINTER, C_LOC
-  USE mo_util_uuid_types, ONLY: t_uuid, UUID_STRING_LENGTH
+  USE mo_util_uuid_types, ONLY: t_uuid
 
 #ifndef NOMPI
   USE MPI

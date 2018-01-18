@@ -654,8 +654,8 @@ SUBROUTINE parturs( zsurf, z1  , u1   , v1     , t1   , qv1  ,   &
           lhfl_s(j1) = alv*lhfl_s(j1)
         END IF
 
-        umfl_s(j1) = -tcm(j1)*rho_s * u1(j1)
-        vmfl_s(j1) = -tcm(j1)*rho_s * v1(j1)
+        umfl_s(j1) = -ztcm(j1)*rho_s * u1(j1)
+        vmfl_s(j1) = -ztcm(j1)*rho_s * v1(j1)
         
  
       END DO

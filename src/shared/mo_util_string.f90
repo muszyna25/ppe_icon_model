@@ -72,11 +72,12 @@ MODULE mo_util_string
     MODULE PROCEDURE charArray_equal_char
   END INTERFACE charArray_equal
 
-  ! ANSI color sequences 
+  !
+  ! ANSI color sequences
   !
   CHARACTER(len=1), PARAMETER :: esc = ACHAR(27)
   CHARACTER(len=1), PARAMETER :: orb = ACHAR(91)
-  !  
+  !
   CHARACTER(len=5) :: normal = esc//orb//'22m'
   CHARACTER(len=4) :: bold   = esc//orb//'1m'
   !
@@ -169,7 +170,7 @@ CONTAINS
     offset = 0
     i      = 0
     i_max  = LEN_TRIM(string)
-    LOOP : DO 
+    LOOP : DO
       i = i + 1       ! current write pos
       IF ((i+offset) > i_max) EXIT LOOP
       lspaces = .FALSE.
@@ -268,25 +269,31 @@ CONTAINS
   END FUNCTION logical2string
 
 
-  !> Function for convenience 
+  !> Function for convenience
   !
   !  If "in_str" is matching one of the arguments "arg(i)" return the
   !  index "i". Returns "-1" if none of the strings matches.
-  !  
+  !
   FUNCTION one_of(in_str, arg)
     INTEGER :: one_of
     CHARACTER(len=*), INTENT(IN)           :: in_str    ! input string
     CHARACTER(len=*), INTENT(IN)           :: arg(:)
     ! local variables:
-    INTEGER :: i
-    
+    INTEGER :: i, in_str_tlen, arg_tlen
+
     one_of = -1
-    DO i=1,SIZE(arg)
-      IF (toupper(TRIM(in_str)) == toupper(TRIM(arg(i)))) THEN
-        one_of=i
-        EXIT
-      ENDIF
-    END DO
+    IF (SIZE(arg) > 0) THEN
+      in_str_tlen = LEN_TRIM(in_str)
+      DO i=1,SIZE(arg)
+        arg_tlen = LEN_TRIM(arg(i))
+        IF (arg_tlen == in_str_tlen) THEN
+          IF (toupper(in_str(1:in_str_tlen)) == toupper(arg(i)(1:arg_tlen))) THEN
+            one_of=i
+            EXIT
+          ENDIF
+        END IF
+      END DO
+    END IF
   END FUNCTION one_of
 
 
@@ -297,7 +304,7 @@ CONTAINS
   !  number of parts, the start indices and the respective
   !  lengths.
   !  Whitespace is ignored.
-  
+
   SUBROUTINE split_string(zline, n, pos, ilength)
 
     CHARACTER, PARAMETER :: delim = ',' ! delimiter
@@ -387,7 +394,7 @@ CONTAINS
     list_head%next    => tmp
 
   END SUBROUTINE keyword_list_push
-  
+
 
   !==============================================================================
   !+ Utility function: Get (keyword, substitution) pair from keyword list
@@ -400,7 +407,7 @@ CONTAINS
     ! Local parameters
     TYPE (t_keyword_list),   POINTER    :: tmp
     INTEGER                             :: errstat
-    
+
     IF (.NOT. ASSOCIATED(list_head)) THEN
       keyword = ""
       subst   = ""
@@ -415,7 +422,7 @@ CONTAINS
         & WRITE (0,*) "ERROR: keyword_list_pop: DEALLOCATE"
       list_head => tmp
     END IF
-    
+
   END SUBROUTINE keyword_list_pop
 
 
@@ -455,7 +462,7 @@ CONTAINS
         pos     = pos + 1
         out_pos = out_pos + 1
       END IF
-    END DO  
+    END DO
 
   END FUNCTION str_replace
 
@@ -471,9 +478,9 @@ CONTAINS
     ! local variables
     INTEGER :: iwrite, iread, nitems_old, i
     LOGICAL :: l_duplicate
-    
+
     nitems_old = nitems
-    
+
     iwrite = 1
     DO iread=1,nitems
       ! check if item already in string list (1:iwrite-1):
@@ -490,7 +497,7 @@ CONTAINS
       END IF
     END DO
     nitems = iwrite-1
-    
+
     ! clear the rest of the list
     DO iwrite=(nitems+1),nitems_old
       str_list(iwrite) = ' '
@@ -511,9 +518,9 @@ CONTAINS
     ! local variables
     INTEGER :: iwrite, iread, nitems_old, i
     LOGICAL :: l_duplicate
-    
+
     nitems_old = nitems1
-    
+
     iwrite = 1
     DO iread=1,nitems1
       ! check if item is in string list 2:
@@ -530,7 +537,7 @@ CONTAINS
       END IF
     END DO
     nitems1 = iwrite-1
-    
+
     ! clear the rest of the list
     DO iwrite=(nitems1+1),nitems_old
       str_list1(iwrite) = ' '
@@ -541,7 +548,7 @@ CONTAINS
 
 
   !==============================================================================
-  !+ Add entries from list 2 to list 1, if they are not already present 
+  !+ Add entries from list 2 to list 1, if they are not already present
   !+ in list 1.
   !
   ! @note This is a very crude implementation, quadratic complexity.
@@ -554,9 +561,9 @@ CONTAINS
     ! local variables
     INTEGER :: iread, i
     LOGICAL :: l_duplicate
-    
 
-    ! Loop over all items that should potentially be added    
+
+    ! Loop over all items that should potentially be added
     DO iread=1,nitems2
       ! check if item is already in string list 1:
       l_duplicate = .FALSE.
@@ -572,7 +579,7 @@ CONTAINS
         nitems1 = nitems1+1
       END IF
     END DO
-    
+
   END SUBROUTINE add_to_list
 
 
@@ -583,7 +590,7 @@ CONTAINS
   SUBROUTINE associate_keyword(keyword, subst, keyword_list)
     CHARACTER(len=*), INTENT(IN)   :: keyword, subst
     TYPE(t_keyword_list), POINTER  :: keyword_list
-    
+
     CALL keyword_list_push(keyword, subst, keyword_list)
   END SUBROUTINE associate_keyword
 
@@ -599,13 +606,13 @@ CONTAINS
   ! \endcode
   ! Then, by calling 'with_keywords(keywords, filename)',
   ! the filename is transformed into '/usr/local/bin/exp01_grid.nc'.
-  ! 
+  !
   !------------------------------------------------------------------------------
   FUNCTION with_keywords(keyword_list, in_str) RESULT(result_str)
     TYPE(t_keyword_list), POINTER  :: keyword_list
     CHARACTER(len=*), INTENT(IN)   :: in_str
     CHARACTER(len=MAX_CHAR_LENGTH) :: result_str, subst, keyword
-    
+
     ! note: we don't call "finish" to avoid circular dep
     IF (LEN_TRIM(in_str) > MAX_CHAR_LENGTH) &
       & WRITE (0,*) "ERROR: with_keywords: string too long"
@@ -626,13 +633,13 @@ CONTAINS
   ! then we can use this function to replace a keyword that denotes a
   ! whole group of variables (like "tracers"), for example by
   ! group_list="Q1", "Q2", etc.
-  ! 
+  !
   ! @param[in]  varlist    original array of strings (variable names)
   ! @param[in]  vname_len  length of each string
   ! @param[in]  n          length of list
   ! @param[in]  group_name substitution keyword (i.e. variable group name)
   ! @param[in]  group_list array of strings that will be inserted
-  ! 
+  !
   ! @return     contents of @p varlist where @p group_name has been replaced.
   !------------------------------------------------------------------------------
   SUBROUTINE insert_group(varlist, vname_len, n, group_name, group_list, result_list)
@@ -829,7 +836,7 @@ CONTAINS
   FUNCTION charArray_dup(charArray) RESULT(resultVar)
     CHARACTER(KIND = C_CHAR), INTENT(IN) :: charArray(:)
     CHARACTER(KIND = C_CHAR), POINTER :: resultVar(:)
-    INTEGER :: i, error
+    INTEGER :: error
 
     CHARACTER(LEN = *), PARAMETER :: routine = modName//":charArray_dup"
 

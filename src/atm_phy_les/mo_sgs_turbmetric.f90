@@ -856,7 +856,7 @@ MODULE mo_sgs_turbmetric
 !$OMP   vn_vert1i_p1,vn_vert2i_p1,vn_vert3i_p1,vn_vert4i_p1,vt_vert1i_p1,&
 !$OMP   vt_vert2i_p1,vt_vert3i, vt_vert3i_p1, vt_vert4i, vt_vert4i_p1,&
 !$OMP   dvt,jcn,jbn,flux_up_c,flux_dn_c,jvn,flux_up_v,flux_dn_v,&
-!$OMP   norm_metr,tang_metr)
+!$OMP   norm_metr,tang_metr,div_of_stress,div_of_stress_p1)
     DO jb = i_startblk,i_endblk
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
@@ -1056,7 +1056,7 @@ MODULE mo_sgs_turbmetric
                       visc_smag_ie(je,jk+1,jb) * (vn_vert2i_p1 - vn_vert1i_p1))) + &
                       p_patch%edges%inv_vert_vert_length(je,jb) * ( &
                       (visc_smag_ie(je,jk,jb) * (vt_vert4i - vt_vert3i) - &
-                      visc_smag_ie(je,jk+1,jb) * (vt_vert4i_p1 - vt_vert4i_p1))))
+                      visc_smag_ie(je,jk+1,jb) * (vt_vert4i_p1 - vt_vert3i_p1))))
 
          tot_tend(je,jk,jb) = ( (flux_up_c-flux_dn_c)*p_patch%edges%inv_dual_edge_length(je,jb) + &
                         p_patch%edges%tangent_orientation(je,jb) * (flux_up_v-flux_dn_v) * &
@@ -1251,7 +1251,7 @@ MODULE mo_sgs_turbmetric
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jkp1,je,i_startidx,i_endidx,a,b,c,rhs,var_new,&
-!$OMP    flux_dn_e,stress_c1t,stress_c2t,stress_c1n,stress_c2n,dwdn)
+!$OMP    flux_dn_e,stress_c1t,stress_c2t,stress_c1n,stress_c2n,dwdn,aje,cje)
       DO jb = i_startblk,i_endblk
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
@@ -1574,7 +1574,7 @@ MODULE mo_sgs_turbmetric
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk, ieidx, ieblk
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end, jg
-    INTEGER :: jk, jb, je, jkm1, jkp1, jc, jcn, jbn, jvn
+    INTEGER :: jk, jb, je, jkm1, jkp1, jc, jcn, jbn, jvn, jcb
     INTEGER  :: nlev
 
     IF (msg_level >= 18) &
@@ -1648,8 +1648,8 @@ MODULE mo_sgs_turbmetric
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,jkm1,jcn,jbn,dvn1,dvn2,flux_up_c,flux_dn_c,&
-!$OMP jvn,dvt1,dvt2,flux_up_v,flux_dn_v,norm_metr,tang_metr,w2mw1,w2mw1_p1)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,jkm1,jcn,jcb,dvn1,dvn2,flux_up_c,flux_dn_c,&
+!$OMP jvn,jbn,dvt1,dvt2,flux_up_v,flux_dn_v,norm_metr,tang_metr,w2mw1,w2mw1_p1)
     DO jb = i_startblk,i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1668,55 +1668,56 @@ MODULE mo_sgs_turbmetric
          !cell center
 
          jcn     = iecidx(je,jb,2)
-         jbn     = iecblk(je,jb,2)
+         jcb     = iecblk(je,jb,2)
 
-         dvn2  = p_nh_diag%u(jcn,jkm1,jbn)*p_patch%edges%primal_normal_cell(je,jb,2)%v1 + &
-                 p_nh_diag%v(jcn,jkm1,jbn)*p_patch%edges%primal_normal_cell(je,jb,2)%v2 - &
-                 p_nh_diag%u(jcn,jk,jbn)*p_patch%edges%primal_normal_cell(je,jb,2)%v1   - &
-                 p_nh_diag%v(jcn,jk,jbn)*p_patch%edges%primal_normal_cell(je,jb,2)%v2
+         dvn2  = p_nh_diag%u(jcn,jkm1,jcb)*p_patch%edges%primal_normal_cell(je,jb,2)%v1 + &
+                 p_nh_diag%v(jcn,jkm1,jcb)*p_patch%edges%primal_normal_cell(je,jb,2)%v2 - &
+                 p_nh_diag%u(jcn,jk,jcb)*p_patch%edges%primal_normal_cell(je,jb,2)%v1   - &
+                 p_nh_diag%v(jcn,jk,jcb)*p_patch%edges%primal_normal_cell(je,jb,2)%v2
 
-         flux_up_c = visc_smag_ic(jcn,jk,jbn) * (                    &
-                     dvn2*p_nh_metrics%inv_ddqz_z_half(jcn,jk,jbn) + &
+         flux_up_c = visc_smag_ic(jcn,jk,jcb) * (                    &
+                     dvn2*p_nh_metrics%inv_ddqz_z_half(jcn,jk,jcb) + &
                      (w_vert(ividx(je,jb,4),jk,ivblk(je,jb,4))-w_ie(je,jk,jb)) * &
                      p_patch%edges%inv_dual_edge_length(je,jb) - &
-                     0.5_wp*(p_nh_prog%w(jcn,jkm1,jbn)-p_nh_prog%w(jcn,jk+1,jbn)) * &
-                     p_nh_metrics%inv_ddqz_z_half(jcn,jk,jbn) * &
-                     p_nh_metrics%ddxn_z_half_c(jcn,jk,jbn) )
+                     0.5_wp*(p_nh_prog%w(jcn,jkm1,jcb)-p_nh_prog%w(jcn,jk+1,jcb)) * &
+                     p_nh_metrics%inv_ddqz_z_half(jcn,jk,jcb) * &
+                     p_nh_metrics%ddxn_z_half_c(jcn,jk,jcb) )
+
 
          jcn     = iecidx(je,jb,1)
-         jbn     = iecblk(je,jb,1)
+         jcb     = iecblk(je,jb,1)
 
-         dvn1  = p_nh_diag%u(jcn,jkm1,jbn)*p_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
-                 p_nh_diag%v(jcn,jkm1,jbn)*p_patch%edges%primal_normal_cell(je,jb,1)%v2 - &
-                 p_nh_diag%u(jcn,jk,jbn)*p_patch%edges%primal_normal_cell(je,jb,1)%v1   - &
-                 p_nh_diag%v(jcn,jk,jbn)*p_patch%edges%primal_normal_cell(je,jb,1)%v2
+         dvn1  = p_nh_diag%u(jcn,jkm1,jcb)*p_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
+                 p_nh_diag%v(jcn,jkm1,jcb)*p_patch%edges%primal_normal_cell(je,jb,1)%v2 - &
+                 p_nh_diag%u(jcn,jk,jcb)*p_patch%edges%primal_normal_cell(je,jb,1)%v1   - &
+                 p_nh_diag%v(jcn,jk,jcb)*p_patch%edges%primal_normal_cell(je,jb,1)%v2
 
 
-         flux_dn_c = visc_smag_ic(jcn,jk,jbn) * (                    &
-                     dvn1*p_nh_metrics%inv_ddqz_z_half(jcn,jk,jbn) + &
+         flux_dn_c = visc_smag_ic(jcn,jk,jcb) * (                    &
+                     dvn1*p_nh_metrics%inv_ddqz_z_half(jcn,jk,jcb) + &
                      (w_ie(je,jk,jb)-w_vert(ividx(je,jb,3),jk,ivblk(je,jb,3))) *  &
                      p_patch%edges%inv_vert_vert_length(je,jb)*2.0_wp - &
-                     0.5_wp*(p_nh_prog%w(jcn,jkm1,jbn)-p_nh_prog%w(jcn,jk+1,jbn)) * &
-                     p_nh_metrics%inv_ddqz_z_half(jcn,jk,jbn) * &
-                     p_nh_metrics%ddxn_z_half_c(jcn,jk,jbn) )
+                     0.5_wp*(p_nh_prog%w(jcn,jkm1,jcb)-p_nh_prog%w(jcn,jk+1,jcb)) * &
+                     p_nh_metrics%inv_ddqz_z_half(jcn,jk,jcb) * &
+                     p_nh_metrics%ddxn_z_half_c(jcn,jk,jcb) )
 
          ! visc_smag_c should be replaced with visc_smag_e
          jcn = iecidx(je,jb,2)
-         jbn = iecblk(je,jb,2)
+         jcb = iecblk(je,jb,2)
          w2mw1 = p_patch%edges%inv_vert_vert_length(je,jb) * &
-            visc_smag_c(jcn,jk-1,jbn)*(p_nh_prog%w(jcn,jk-1,jbn) + &
-            p_nh_prog%w(jcn,jk,jbn) - p_nh_prog%w(iecidx(je,jb,1),jk-1,iecblk(je,jb,1)) - &
+            visc_smag_c(jcn,jk-1,jcb)*(p_nh_prog%w(jcn,jk-1,jcb) + &
+            p_nh_prog%w(jcn,jk,jcb) - p_nh_prog%w(iecidx(je,jb,1),jk-1,iecblk(je,jb,1)) - &
             p_nh_prog%w(iecidx(je,jb,1),jk,iecblk(je,jb,1)))
          w2mw1_p1 = p_patch%edges%inv_vert_vert_length(je,jb) *&
-            visc_smag_c(jcn,jk,jbn)*(p_nh_prog%w(jcn,jk,jbn) + &
-            p_nh_prog%w(jcn,jk+1,jbn) - p_nh_prog%w(iecidx(je,jb,1),jk,iecblk(je,jb,1)) - &
+            visc_smag_c(jcn,jk,jcb)*(p_nh_prog%w(jcn,jk,jcb) + &
+            p_nh_prog%w(jcn,jk+1,jcb) - p_nh_prog%w(iecidx(je,jb,1),jk,iecblk(je,jb,1)) - &
             p_nh_prog%w(iecidx(je,jb,1),jk+1,iecblk(je,jb,1)))
 
          ! visc_smag_c should be replaced with visc_smag_e
          norm_metr = -p_nh_metrics%inv_ddqz_z_half_e(je,jk,jb) * p_nh_metrics%ddxn_z_half_e(je,jk,jb) *&
-                     (visc_smag_c(jcn,jk-1,jbn)*p_nh_metrics%inv_ddqz_z_full_e(je,jk-1,jb)* &
+                     (visc_smag_c(jcn,jk-1,jcb)*p_nh_metrics%inv_ddqz_z_full_e(je,jk-1,jb)* &
                      (vn_ie(je,jk-1,jb)-vn_ie(je,jk,jb)) - &
-                     visc_smag_c(jcn,jk,jbn)*p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)* &
+                     visc_smag_c(jcn,jk,jcb)*p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)* &
                      (vn_ie(je,jk,jb)-vn_ie(je,jk+1,jb)) + &
                      p_nh_metrics%inv_ddqz_z_half_e(je,jk,jb) * (w2mw1-w2mw1_p1))
 
@@ -1740,7 +1741,7 @@ MODULE mo_sgs_turbmetric
                      (w_vert(jvn,jk,jbn)-w_ie(je,jk,jb)) / &
                      p_patch%edges%edge_vert_length(je,jb,2) - & !check orig. code
                      0.5_wp*(w_vert(jvn,jkm1,jbn)-w_vert(jvn,jk+1,jbn)) * &
-                     p_nh_metrics%inv_ddqz_z_half_v(jcn,jkm1,jbn) * &
+                     p_nh_metrics%inv_ddqz_z_half_v(jvn,jkm1,jbn) * &
                      p_nh_metrics%ddxt_z_half_v(jvn,jk,jbn) &
                                                 )
 
@@ -1759,7 +1760,7 @@ MODULE mo_sgs_turbmetric
                      p_patch%edges%tangent_orientation(je,jb)*(w_ie(je,jk,jb)-w_vert(jvn,jk,jbn)) / &
                      p_patch%edges%edge_vert_length(je,jb,1) - & !check orig. code
                      0.5_wp*(w_vert(jvn,jkm1,jbn)-w_vert(jvn,jk+1,jbn)) * &
-                     p_nh_metrics%inv_ddqz_z_half_v(jcn,jk,jbn) * &
+                     p_nh_metrics%inv_ddqz_z_half_v(jvn,jk,jbn) * &
                      p_nh_metrics%ddxt_z_half_v(jvn,jk,jbn) )
 
          !w2mw1 = 0.5_wp*(w_vert(ividx(je,jb,2),jk-1,ivblk(je,jb,2)) - w_vert(ividx(je,jb,1),jk-1,ivblk(je,jb,1)) +&
@@ -1774,18 +1775,18 @@ MODULE mo_sgs_turbmetric
             p_patch%edges%tangent_orientation(je,jb) * &
             visc_smag_iv(jvn,jk-1,jbn)*(w_vert(jvn,jk-1,jbn) + &
             w_vert(jvn,jk,jbn) - w_vert(ividx(je,jb,1),jk-1,ivblk(je,jb,1)) - &
-            p_nh_prog%w(ividx(je,jb,1),jk,ivblk(je,jb,1)))
+            w_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)))
          w2mw1_p1 = 0.5_wp*p_patch%edges%inv_primal_edge_length(je,jb) * &
             p_patch%edges%tangent_orientation(je,jb) * &
             visc_smag_iv(jvn,jk,jbn)*(w_vert(jvn,jk,jbn) + &
-            p_nh_prog%w(jvn,jk+1,jbn) - w_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) - &
-            p_nh_prog%w(ividx(je,jb,1),jk+1,ivblk(je,jb,1)))
+            w_vert(jvn,jk+1,jbn) - w_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) - &
+            w_vert(ividx(je,jb,1),jk+1,ivblk(je,jb,1)))
 
          ! visc_smag_c should be replaced with visc_smag_e
          tang_metr = -p_nh_metrics%inv_ddqz_z_half_e(je,jk,jb) * p_nh_metrics%ddxt_z_half_e(je,jk,jb) *&
-                     (visc_smag_c(jcn,jk-1,jbn)*p_nh_metrics%inv_ddqz_z_full_e(je,jk-1,jb)* &
+                     (visc_smag_c(jcn,jk-1,jcb)*p_nh_metrics%inv_ddqz_z_full_e(je,jk-1,jb)* &
                      (vt_ie(je,jk-1,jb)-vt_ie(je,jk,jb)) - &
-                     visc_smag_c(jcn,jk,jbn)*p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)* &
+                     visc_smag_c(jcn,jk,jcb)*p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)* &
                      (vt_ie(je,jk,jb)-vt_ie(je,jk+1,jb)) &
                      -p_nh_metrics%inv_ddqz_z_half_e(je,jk,jb) * &
                      (w2mw1 - w2mw1_p1))
@@ -2177,7 +2178,7 @@ MODULE mo_sgs_turbmetric
 
     !4) Calculate var at interface for vertical diffusion
 
-    rl_start = grf_bdywidth_c+1
+    rl_start = grf_bdywidth_c
     rl_end   = min_rlcell_int-1
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
@@ -2523,14 +2524,14 @@ MODULE mo_sgs_turbmetric
 #endif
                 a(jc,jk)   = - diff_smag_ic(jc,jk,jb) * p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) *&
                   p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) * &
-                  (p_nh_metrics%ddxn_z_half_c(jc,jk,jb)*p_nh_metrics%ddxn_z_full(jc,jk,jb)+&
-                  p_nh_metrics%ddxt_z_half_c(jc,jk,jb)*p_nh_metrics%ddxt_z_full(jc,jk,jb)+1._wp) *&
+                  (p_nh_metrics%ddxn_z_half_c(jc,jk,jb)*p_nh_metrics%ddxn_z_full_c(jc,jk,jb)+&
+                  p_nh_metrics%ddxt_z_half_c(jc,jk,jb)*p_nh_metrics%ddxt_z_full_c(jc,jk,jb)+1._wp) *&
                   exner_ic(jc,jk,jb) * fac(jc,jk,jb)
 
                 c(jc,jk)   = - diff_smag_ic(jc,jk+1,jb) * p_nh_metrics%inv_ddqz_z_half(jc,jk+1,jb) *&
                   p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) * &
-                  (p_nh_metrics%ddxn_z_half_c(jc,jk+1,jb)*p_nh_metrics%ddxn_z_full(jc,jk,jb)+&
-                  p_nh_metrics%ddxt_z_half_c(jc,jk+1,jb)*p_nh_metrics%ddxt_z_full(jc,jk,jb)+1._wp) *&
+                  (p_nh_metrics%ddxn_z_half_c(jc,jk+1,jb)*p_nh_metrics%ddxn_z_full_c(jc,jk,jb)+&
+                  p_nh_metrics%ddxt_z_half_c(jc,jk+1,jb)*p_nh_metrics%ddxt_z_full_c(jc,jk,jb)+1._wp) *&
                   exner_ic(jc,jk+1,jb) * fac(jc,jk,jb)
 
                 b(jc,jk)   =  inv_dt - a(jc,jk) - c(jc,jk)
@@ -2546,8 +2547,8 @@ MODULE mo_sgs_turbmetric
            DO jc = i_startidx, i_endidx
              c(jc,1)   = - diff_smag_ic(jc,2,jb) * p_nh_metrics%inv_ddqz_z_half(jc,2,jb) *&
                p_nh_metrics%inv_ddqz_z_full(jc,1,jb) * &
-               (p_nh_metrics%ddxn_z_half_c(jc,2,jb)*p_nh_metrics%ddxn_z_full(jc,1,jb)+&
-               p_nh_metrics%ddxt_z_half_c(jc,2,jb)*p_nh_metrics%ddxt_z_full(jc,1,jb)+1._wp)*&
+               (p_nh_metrics%ddxn_z_half_c(jc,2,jb)*p_nh_metrics%ddxn_z_full_c(jc,1,jb)+&
+               p_nh_metrics%ddxt_z_half_c(jc,2,jb)*p_nh_metrics%ddxt_z_full_c(jc,1,jb)+1._wp)*&
                exner_ic(jc,2,jb) * fac(jc,1,jb)
 
              b(jc,1)   = inv_dt - c(jc,1)
@@ -2561,8 +2562,8 @@ MODULE mo_sgs_turbmetric
            DO jc = i_startidx, i_endidx
              a(jc,nlev)   = - diff_smag_ic(jc,nlev,jb) * p_nh_metrics%inv_ddqz_z_half(jc,nlev,jb) *&
                p_nh_metrics%inv_ddqz_z_full(jc,nlev,jb) * &
-               (p_nh_metrics%ddxn_z_half_c(jc,nlev,jb)*p_nh_metrics%ddxn_z_full(jc,nlev,jb)+&
-               p_nh_metrics%ddxt_z_half_c(jc,nlev,jb)*p_nh_metrics%ddxt_z_full(jc,nlev,jb)+1._wp) *&
+               (p_nh_metrics%ddxn_z_half_c(jc,nlev,jb)*p_nh_metrics%ddxn_z_full_c(jc,nlev,jb)+&
+               p_nh_metrics%ddxt_z_half_c(jc,nlev,jb)*p_nh_metrics%ddxt_z_full_c(jc,nlev,jb)+1._wp) *&
                exner_ic(jc,nlev,jb) * fac(jc,nlev,jb)
 
              b(jc,nlev)  = inv_dt - a(jc,nlev)
