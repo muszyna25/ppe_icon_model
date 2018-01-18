@@ -42,6 +42,7 @@ MODULE mo_hydro_ocean_run
        &                               cfl_write, surface_module
   USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
   USE mo_dynamics_config,        ONLY: nold, nnew
+  USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
   USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode, debug_check_level
   USE mo_exception,              ONLY: message, message_text, finish
   USE mo_ext_data_types,         ONLY: t_external_data
@@ -80,6 +81,7 @@ MODULE mo_hydro_ocean_run
   USE mo_util_dbg_prnt,          ONLY: dbg_print, debug_printValue
   USE mo_dbg_nml,                ONLY: idbg_mxmn
   USE mo_statistics
+  USE mo_var_list
   USE mo_ocean_statistics
   USE mo_hamocc_statistics,      ONLY: update_hamocc_statistics, reset_hamocc_statistics
   USE mo_hamocc_types,           ONLY: t_hamocc_state
@@ -637,6 +639,7 @@ CONTAINS
     ENDDO TIME_LOOP
     
     CALL timer_stop(timer_total)
+    call print_all_var_lists
   
   END SUBROUTINE perform_ho_stepping
   !-------------------------------------------------------------------------
