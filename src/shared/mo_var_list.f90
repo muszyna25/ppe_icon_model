@@ -71,6 +71,7 @@ MODULE mo_var_list
   PUBLIC :: get_var_list              ! get a pointer to an existing output var_list
   PUBLIC :: set_var_list              ! set default parameters of an output var_list
   PUBLIC :: print_var_list
+  PUBLIC :: print_all_var_lists
   PUBLIC :: print_memory_use
 
   PUBLIC :: default_var_list_settings ! set default settings for a whole list
