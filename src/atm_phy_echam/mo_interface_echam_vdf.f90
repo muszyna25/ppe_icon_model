@@ -99,7 +99,9 @@ CONTAINS
 
     REAL(wp) :: zcptgz   (nproma,nlev)       !< dry static energy
     REAL(wp) :: zthvvar  (nproma,nlev)       !< intermediate value of thvvar
-    REAL(wp) :: ztkevn   (nproma,nlev)       !< intermediate value of tke
+    REAL(wp) :: dummy    (nproma,nlev)       !< to replace thvvar
+    REAL(wp) :: dummyx   (nproma,nlev)       !< to replace xvar
+    REAL(wp) :: ztottevn (nproma,nlev)       !< intermediate value of TTE
     REAL(wp) :: zch_tile (nproma,nsfc_type)  !< for "nsurf_diag"
 !!$    REAL(wp) :: zchn_tile(nproma,nsfc_type)  !< for "nsurf_diag"
 !!$    REAL(wp) :: zcdn_tile(nproma,nsfc_type)  !< for "nsurf_diag"
@@ -165,6 +167,9 @@ CONTAINS
     IF ( is_in_sd_ed_interval ) THEN
        !
        IF ( is_active ) THEN
+          ! Set dummy values to zero to prevent invalid floating point operations:
+          dummy (:,:)=0._wp
+          dummyx(:,:)=0._wp 
           !
           IF (ltimer) CALL timer_start(timer_vdiff_down)
           !
@@ -201,15 +206,15 @@ CONTAINS
                &          field%   tv(:,:,jb),             &! in, virtual temperaturea
                &          field% aclc(:,:,jb),             &! in, cloud fraction
                &          zxt_emis,                        &! in, zxtems
-               &          field% thvvar(:,:,jb),           &! in, variance of theta_v at step t-dt
-               &          field%   xvar(:,:,jb),           &! in
+               &          dummy(:,:),                      &! in, variance of theta_v at step t-dt
+               &          dummyx(:,:),                     &! in
                &          field% z0m_tile(:,jb,:),         &! in
-               &          field%  tkem1(:,:,jb),           &! in, TKE at step t-dt
+               &          field%  tottem1(:,:,jb),         &! in, TTE at step t-dt
                &          field%  ustar(:,  jb),           &! inout
                &          field%  wstar(:,  jb),           &! out, convective velocity scale
                &          field%  wstar_tile(:,jb,:),      &! inout, convective velocity scale (each sfc type)
                &          field% qs_sfc_tile(:,jb,:),      &! out, sfc specific humidity at saturation
-               &          field%    ghpbl(:,jb),           &! out, for output
+               &          field%  hdtcbl(:,jb),            &! out, for output
                &          field%      ri (:,:,jb),         &! out, for output
                &          zri_tile (:,:),                  &! out, for nsurf_diag
                &          field%  mixlen (:,:,jb),         &! out, for output
@@ -218,7 +223,7 @@ CONTAINS
                &          field% cfh     (:,:,jb),         &! out, for output
                &          field% cfh_tile(:,jb,:),         &! out, for output and "vdiff_up"
                &          field% cfv     (:,:,jb),         &! out, for output
-               &          field% cftke   (:,:,jb),         &! out, for output
+               &          field% cftotte (:,:,jb),         &! out, for output
                &          field% cfthv   (:,:,jb),         &! out, for output
                &          zaa, zaa_btm, zbb, zbb_btm,      &! out, for "vdiff_up"
                &          zfactor_sfc(:),                  &! out, for "vdiff_up"
@@ -226,7 +231,7 @@ CONTAINS
                &          zcptgz(:,:),                     &! out, for "vdiff_up"
                &          zthvvar(:,:),                    &! out, for "vdiff_up"
                &          field%   thvsig(:,  jb),         &! out, for "cucall"
-               &          ztkevn (:,:),                    &! out, for "vdiff_up"
+               &          ztottevn (:,:),                  &! out, for "vdiff_up"
                &          zch_tile(:,:),                   &! out, for "nsurf_diag"
 !!$               &          zchn_tile(:,:),                  &! out, for "nsurf_diag"
 !!$               &          zcdn_tile(:,:),                  &! out, for "nsurf_diag"
@@ -383,10 +388,10 @@ CONTAINS
                &        field% qtrc(:,:,jb,iqi),         &! in, xim1
                &        field% qtrc(:,:,jb,iqt:),        &! in, xtm1
                &        field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
-               &             ztkevn(:,:),                &! in, tke at intermediate time step
+               &             ztottevn(:,:),              &! in, TTE at intermediate time step
                &        zbb,                             &! in
                &        zthvvar(:,:),                    &! inout
-               &        field%   xvar(:,:,jb),           &! inout
+               &        dummyx(:,:),                     &! inout
                &        field% z0m_tile(:,jb,:),         &! inout
                &        field% kedisp(:,  jb),           &! out, vert. integr. diss. kin. energy [W/m2]
                &         tend%   ua_vdf(:,:,jb),         &! out
@@ -397,8 +402,8 @@ CONTAINS
                &         tend% qtrc_vdf(:,:,jb,iqi),     &! out
                &         tend% qtrc_vdf(:,:,jb,iqt:),    &! out
                &        field%   z0m   (:,  jb),         &! out, for the next step
-               &        field%   thvvar(:,:,jb),         &! out, for the next step
-               &        field%      tke(:,:,jb),         &! out
+               &        dummy(:,:),                      &! 
+               &        field%      totte(:,:,jb),       &! out
                &        field%   sh_vdiff(:,  jb),       &! out, for energy diagnostic
                &        field%   qv_vdiff(:,  jb)        )! out, for energy diagnostic
           !
@@ -421,23 +426,8 @@ CONTAINS
        tend% qtrc_phy(jcs:jce,:,jb,iqi)  = tend% qtrc_phy(jcs:jce,:,jb,iqi)  + tend% qtrc_vdf(jcs:jce,:,jb,iqi)
        tend% qtrc_phy(jcs:jce,:,jb,iqt:) = tend% qtrc_phy(jcs:jce,:,jb,iqt:) + tend% qtrc_vdf(jcs:jce,:,jb,iqt:)
 
-!!$       ! TIME FILTER FOR TURBULENT KINETIC ENERGY
-!!$
-!!$       IF(.NOT.lstart) THEN
-!!$         zeps=eps
-!!$       ELSE
-!!$         zeps=0._wp
-!!$       END IF
-!!$       DO 397 jk=ktdia,klev
-!!$         DO 396 jl=1,kproma
-!!$           ptkem1(jl,jk)=ptkem(jl,jk)                                    &
-!!$                     +zeps*(ptkem1(jl,jk)-2._wp*ptkem(jl,jk)+ptke(jl,jk))
-!!$           ptkem(jl,jk)=ptke(jl,jk)
-!!$396      END DO
-!!$397    END DO
-
        ! 2-tl-scheme
-       field% tkem1(jcs:jce,:,jb) = field% tke  (jcs:jce,:,jb)
+       field% tottem1(jcs:jce,:,jb) = field% totte (jcs:jce,:,jb)
        !
        ! Turbulent mixing, part III:
        ! - Further diagnostics.
@@ -485,7 +475,7 @@ CONTAINS
        field% wstar          (jcs:jce,  jb  ) = 0.0_wp
        field% wstar_tile     (jcs:jce,  jb,:) = 0.0_wp
        field% qs_sfc_tile    (jcs:jce,  jb,:) = 0.0_wp
-       field% ghpbl          (jcs:jce,  jb  ) = 0.0_wp
+       field% hdtcbl         (jcs:jce,  jb  ) = 0.0_wp
        field% ri             (jcs:jce,:,jb  ) = 0.0_wp
        field% mixlen         (jcs:jce,:,jb  ) = 0.0_wp
        field% cfm            (jcs:jce,:,jb  ) = 0.0_wp
@@ -493,7 +483,7 @@ CONTAINS
        field% cfh            (jcs:jce,:,jb  ) = 0.0_wp
        field% cfh_tile       (jcs:jce,  jb,:) = 0.0_wp
        field% cfv            (jcs:jce,:,jb  ) = 0.0_wp
-       field% cftke          (jcs:jce,:,jb  ) = 0.0_wp
+       field% cftotte        (jcs:jce,:,jb  ) = 0.0_wp
        field% cfthv          (jcs:jce,:,jb  ) = 0.0_wp
        field% thvsig         (jcs:jce,  jb  ) = 0.0_wp
        !
@@ -543,9 +533,7 @@ CONTAINS
        tend% ta_sfc          (jcs:jce,  jb  ) = 0.0_wp
        !
        ! vdiff_up
-       field% tke            (jcs:jce,:,jb  ) = 0.0_wp
-       field% thvvar         (jcs:jce,:,jb  ) = 0.0_wp
-       field%   xvar         (jcs:jce,:,jb  ) = 0.0_wp
+       field% totte          (jcs:jce,:,jb  ) = 0.0_wp
        field% z0m            (jcs:jce,  jb  ) = 0.0_wp
        field% z0m_tile       (jcs:jce,  jb,:) = 0.0_wp
        field% kedisp         (jcs:jce,  jb  ) = 0.0_wp

@@ -547,7 +547,6 @@ CONTAINS
       !
       ! initial conditions
       field% qtrc (:,:,:,iqv) = qv(:,:,:)
-      field% xvar (:,:,:)     = qv(:,:,:)*0.1_wp
  
       field% swflxsfc_tile(:,:,:) = 0._wp
       field% lwflxsfc_tile(:,:,:) = 0._wp

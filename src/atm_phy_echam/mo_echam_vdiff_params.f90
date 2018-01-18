@@ -24,14 +24,15 @@ MODULE mo_echam_vdiff_params
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: clam, ckap, cchar, cb, cc, cfreec, cgam     !< parameters
-  PUBLIC :: eps_shear, eps_corio, tke_min, z0m_min      !< parameters
+  PUBLIC :: ckap, cchar, cb, cc                         !< parameters
+  PUBLIC :: eps_shear, eps_corio, totte_min, z0m_min    !< parameters
   PUBLIC :: z0m_ice, z0m_oce
   PUBLIC :: chneu, shn, smn, da1                        !< parameters
-  PUBLIC :: cons2, cons25, cons5                        !< parameters
+  PUBLIC :: cons5                                       !< parameters
   PUBLIC :: cvdifts, tpfac1, tpfac2, tpfac3, tpfac4     !< parameters
   PUBLIC :: itop, itopp1, ibl, iblm1, iblmin, iblmax    !< parameters
   
+  PUBLIC :: lmix_max
   PUBLIC :: init_vdiff_params                           !< subroutine
 
 
@@ -39,26 +40,21 @@ MODULE mo_echam_vdiff_params
   ! Module parameters
   !-------------------
 
-  REAL(wp),PARAMETER :: clam    = 150._wp      !< asymptotic mixing length for momentum
   REAL(wp),PARAMETER :: ckap    = 0.4_wp       !< karman constant.
   REAL(wp),PARAMETER :: cchar   = 0.018_wp     !< charnock constant.
   REAL(wp),PARAMETER :: cb      = 5._wp        !< stability parameter near neutrality.
   REAL(wp),PARAMETER :: cc      = 5._wp        !< stability parameter for unstable cases.
-! REAL(wp),PARAMETER :: cd      = 5._wp        !< stability parameter for stable cases.
-  REAL(wp),PARAMETER :: cfreec  = 0.001_wp     !< free convection parameter
-  REAL(wp),PARAMETER :: cgam    = 1.25_wp      !< free convection parameter
 
+  REAL(wp),PARAMETER :: lmix_max  = 1.e3_wp    !< maximum mixing length in neutral and stable conditions
   REAL(wp),PARAMETER :: eps_shear = 1.e-5_wp   !< zepshr in sbr. vdiff of ECHAM6
   REAL(wp),PARAMETER :: eps_corio = 5.e-5_wp   !< zepcor in sbr. vdiff of ECHAM6
-  REAL(wp),PARAMETER :: tke_min   = 1.e-10_wp  !< ztkemin in sbr. vdiff of ECHAM6
+  REAL(wp),PARAMETER :: totte_min = 1.e-10_wp  !< minimum total turbulent energy 
   REAL(wp),PARAMETER :: z0m_min   = 1.5e-5_wp  !< zepzzo in sbr. vdiff of ECHAM5
   REAL(wp),PARAMETER :: z0m_ice   = 1e-3_wp    !< cz0ice in sbr. vdiff of ECHAM5
   REAL(wp),PARAMETER :: z0m_oce   = 5e-4_wp    !< see mo_surface_ocean.f90 of ECHAM6
 
   REAL(wp),PARAMETER :: chneu  = 0.3_wp
 
-  REAL(wp),PARAMETER :: cons2  = 0.5_wp*ckap/grav
-  REAL(wp),PARAMETER :: cons25 = cons2/clam
   REAL(wp),PARAMETER :: cons5  = 3._wp*cb*cc
 
   ! Parameters related to time step weighting in *rhs* of *vdiff* and *scv*
@@ -95,6 +91,8 @@ CONTAINS
 
     INTEGER  :: jk
     REAL(wp) :: zph(klevp1), zp(klev), zh(klev)
+
+    !------------------
 
     itop   = 1
     itopp1 = itop + 1
