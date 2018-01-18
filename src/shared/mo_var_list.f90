@@ -758,14 +758,14 @@ CONTAINS
       info%ncontained   =  0
       info%var_ref_pos  = -1 ! UNDEFINED
     END IF
-    CALL struct_assign_if_present (info%resetval,resetval)
-    CALL assign_if_present (info%isteptype,     isteptype)
-    CALL assign_if_present (info%lmiss,         lmiss)
-    CALL struct_assign_if_present (info%missval,       missval)
-    CALL assign_if_present (info%lrestart,      lrestart)
-    CALL assign_if_present (info%lrestart_cont, lrestart_cont)
-    CALL struct_assign_if_present (info%initval,       initval)
-    CALL assign_if_present (info%tlev_source,   tlev_source)
+    CALL struct_assign_if_present(info%resetval,resetval)
+    CALL assign_if_present(info%isteptype, isteptype)
+    CALL assign_if_present(info%lmiss, lmiss)
+    CALL struct_assign_if_present(info%missval, missval)
+    CALL assign_if_present(info%lrestart, lrestart)
+    CALL assign_if_present(info%lrestart_cont, lrestart_cont)
+    CALL struct_assign_if_present(info%initval, initval)
+    CALL assign_if_present(info%tlev_source, tlev_source)
     !
     ! set flags concerning vertical interpolation
     CALL struct_assign_if_present (info%vert_interp,   vert_interp )
@@ -3612,7 +3612,9 @@ CONTAINS
     CHARACTER(len=32) :: dimension_text, dtext
     INTEGER :: i, igrp, ivintp_type
     CHARACTER(len=4) :: localMode = '----'
+    LOGICAL :: short = .FALSE.
 
+    CALL assign_if_present(short,lshort)
     CALL message('','')
     CALL message('','')
     CALL message('','Status of variable list '//TRIM(this_list%p%name)//':')
@@ -3622,7 +3624,7 @@ CONTAINS
     !
     DO WHILE (ASSOCIATED(this_list_element))
       !
-      IF (lshort) THEN
+      IF (short) THEN
 
         IF (this_list_element%field%info%name /= '' .AND. &
              .NOT. this_list_element%field%info%lcontainer) THEN
@@ -3866,6 +3868,16 @@ CONTAINS
   END SUBROUTINE print_var_list
   !------------------------------------------------------------------------------------------------
   !
+  ! print all var lists
+  !
+  SUBROUTINE print_all_var_lists
+    INTEGER :: i
+    DO i=1,nvar_lists
+      CALL print_var_list(var_lists(i))
+    END DO
+  END SUBROUTINE print_all_var_lists
+  !------------------------------------------------------------------------------------------------
+  !
   ! print current stat table
   !
   SUBROUTINE print_sinfo (this_list)
@@ -4040,9 +4052,7 @@ CONTAINS
     caseInsensitive = .FALSE.
     CALL assign_if_present(caseInsensitive, opt_caseInsensitive)
 
-#ifdef DEBUG_MVSTREAM
-    IF (my_process_is_stdio()) write (0,*)'name2look4:',name2look4,'|elementname:',get_var_name(element%field)
-#endif
+    !TODO: hashkey comparison is by definition CASE-INSENSITIVE
     elementFoundByName = merge(tolower(name2look4) == tolower(get_var_name(element%field)), &
         &                      key2look4 == element%field%info%key, &
         &                      caseInsensitive)
