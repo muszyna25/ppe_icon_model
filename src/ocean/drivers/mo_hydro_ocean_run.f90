@@ -639,7 +639,6 @@ CONTAINS
     ENDDO TIME_LOOP
     
     CALL timer_stop(timer_total)
-    call print_all_var_lists
   
   END SUBROUTINE perform_ho_stepping
   !-------------------------------------------------------------------------
