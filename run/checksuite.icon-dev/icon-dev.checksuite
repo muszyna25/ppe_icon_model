@@ -161,6 +161,9 @@ function diff_results
         wheezy)
             module load cdo/1.6.5.1
             ;;
+	jessie)
+	    eval `/usr/bin/tclsh /sw/share/Modules/modulecmd.tcl bash load cdo/1.8.0-gccsys`
+	    ;;
     esac
     #TYPES: defined in main script and used from main script 
     #DATES: defined in main script and used from main script 
