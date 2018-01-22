@@ -344,7 +344,7 @@ MODULE mo_nh_diffusion
 !$ACC PRESENT( z_nabla2_e, u_vert, v_vert, ividx, ivblk ), &
 !$ACC PRIVATE( vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt_norm, dvt_tang ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,vn_vert1,vn_vert2,vn_vert3,vn_vert4, &
 !$OMP            dvt_norm,dvt_tang), ICON_OMP_RUNTIME_SCHEDULE
@@ -487,7 +487,7 @@ MODULE mo_nh_diffusion
 !$ACC          z_vn_ie, z_vt_ie, dvndz, dvtdz, dwdz, dthvdz, dwdn, dwdt, kh_smag3d_e ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,vn_vert1,vn_vert2,vn_vert3,vn_vert4,dvt_norm,dvt_tang, &
 !$OMP            z_vn_ie,z_vt_ie,dvndz,dvtdz,dwdz,dthvdz,dwdn,dwdt,kh_smag3d_e), ICON_OMP_RUNTIME_SCHEDULE
@@ -683,7 +683,7 @@ MODULE mo_nh_diffusion
 !$ACC PRIVATE( vn_vert1, vn_vert2, vn_cell1, vn_cell2, dvt_norm, dvt_tang ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,vn_vert1,vn_vert2,vn_cell1,vn_cell2,&
 !$OMP             dvt_norm,dvt_tang), ICON_OMP_RUNTIME_SCHEDULE
@@ -802,7 +802,7 @@ MODULE mo_nh_diffusion
 !$ACC PRESENT( p_patch, p_int, p_nh_metrics, p_nh_prog, p_nh_diag, kh_smag_e, kh_smag_ec, diff_multfac_smag, ieidx, ieblk ), &
 !$ACC PRIVATE( kh_c, div ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx,kh_c,div), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -893,7 +893,7 @@ MODULE mo_nh_diffusion
 !$ACC PRESENT( p_patch, p_int, p_nh_prog, u_vert, v_vert, kh_smag_e, z_nabla2_e, diff_multfac_vn ), &
 !$ACC PRIVATE( z_nabla4_e2 ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,nabv_tang,nabv_norm,z_nabla4_e2), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -1003,7 +1003,7 @@ MODULE mo_nh_diffusion
       IF ( jg == 1 .AND. l_limited_area .OR. jg > 1 .AND. .NOT. lfeedback(jg)) THEN
 #ifdef _OPENACC
 !$ACC PARALLEL PRESENT( p_patch, p_int, p_nh_prog, kh_smag_e, z_nabla2_e ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -1030,7 +1030,7 @@ MODULE mo_nh_diffusion
       ELSE
 #ifdef _OPENACC
 !$ACC PARALLEL PRESENT( p_patch, p_nh_prog, kh_smag_e, z_nabla2_e ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -1059,7 +1059,7 @@ MODULE mo_nh_diffusion
 !$ACC PARALLEL &
 !$ACC PRESENT( p_patch, p_nh_prog, kh_smag_e, z_nabla2_e, z_nabla4_e, diff_multfac_vn ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -1093,7 +1093,7 @@ MODULE mo_nh_diffusion
 
 #ifdef _OPENACC
 !$ACC PARALLEL PRESENT( p_patch, p_nh_prog, z_nabla2_e ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -1133,7 +1133,7 @@ MODULE mo_nh_diffusion
 !$ACC PARALLEL &
 !$ACC PRESENT( p_patch, p_int, p_nh_prog, p_nh_diag, z_nabla2_c, turbdiff_config ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -1200,7 +1200,7 @@ MODULE mo_nh_diffusion
 !$ACC PARALLEL &
 !$ACC PRESENT( p_patch, p_int, p_nh_prog, z_nabla2_c, nrdmax, diff_multfac_n2w ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -1291,7 +1291,7 @@ MODULE mo_nh_diffusion
 !$ACC PARALLEL &
 !$ACC PRESENT( p_patch, p_nh_metrics, p_nh_prog, icidx, icblk, icount, iclist, iklist, tdlist ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jk,jc,jb,ic_capture,i_startidx,i_endidx,ic,tdiff,trefdiff), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -1379,7 +1379,7 @@ MODULE mo_nh_diffusion
 !$ACC PARALLEL &
 !$ACC PRESENT( p_patch, p_int, p_nh_prog, kh_smag_e, ieidx, ieblk ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -1427,7 +1427,7 @@ MODULE mo_nh_diffusion
 !$ACC PARALLEL &
 !$ACC PRESENT( p_patch, p_nh_prog, kh_smag_e, z_nabla2_e, iecidx, iecblk ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jk,je,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -1470,7 +1470,7 @@ MODULE mo_nh_diffusion
 !$ACC PARALLEL &
 !$ACC PRESENT( p_patch, p_int, z_nabla2_e, ieidx, ieblk ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -1551,7 +1551,7 @@ MODULE mo_nh_diffusion
 !$ACC PARALLEL &
 !$ACC PRESENT( p_patch, p_nh_prog ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx,z_theta) ICON_OMP_DEFAULT_SCHEDULE
 #endif
