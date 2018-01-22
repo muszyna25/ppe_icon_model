@@ -68,7 +68,8 @@ MODULE mo_psrad_radiation
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist
   USE mo_ext_data_types,      ONLY: t_external_atmos_td
   USE mo_ext_data_state,      ONLY: ext_data, nlev_o3
-  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqt, ico2, io3, ntracer, lart
+  USE mo_run_config,          ONLY: nlev, iqv, iqc, iqi, iqt, ico2, io3, &
+                                    ntracer, lart
   USE mo_echam_phy_config,    ONLY: echam_phy_config, echam_phy_tc
   USE mo_echam_rad_config,    ONLY: echam_rad_config
   USE mo_psrad_orbit,         ONLY: orbit_kepler, orbit_vsop87, get_orbit_times
@@ -87,7 +88,11 @@ MODULE mo_psrad_radiation
                                      ssi_cmip5_picontrol, ssi_cmip6_picontrol, &
                                      ssi_RCEdiurnOn, ssi_RCEdiurnOff,          &
                                      ssi_radt, tsi_radt
-  USE mo_psrad_interface,     ONLY : psrad_interface
+  USE mo_psrad_interface,     ONLY : psrad_interface, pressure_scale, &
+                                     droplet_scale
+  USE mo_psrad_setup,         ONLY : psrad_basic_setup
+  USE mo_echam_cld_config,    ONLY : echam_cld_config
+
 
   USE mtime, ONLY: datetime, getTotalSecondsTimeDelta
 
@@ -319,6 +324,9 @@ MODULE mo_psrad_radiation
     IF (my_process_is_stdio()) THEN
       WRITE(nnml_output,nml=psrad_nml)
     END IF
+    CALL psrad_basic_setup(.false., nlev, pressure_scale, droplet_scale, &
+     & echam_cld_config(1)%cinhoml1 ,echam_cld_config(1)%cinhoml2, &
+     & echam_cld_config(1)%cinhoml3 ,echam_cld_config(1)%cinhomi)
 
     finish_cb  => finish
     message_cb => warning
