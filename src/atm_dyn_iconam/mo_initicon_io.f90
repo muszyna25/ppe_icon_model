@@ -42,7 +42,7 @@ MODULE mo_initicon_io
     &                               lvert_remap_fg, aerosol_fg_present, nlevsoil_in
   USE mo_nh_init_nest_utils,  ONLY: interpolate_scal_increments, interpolate_sfcana
   USE mo_nh_init_utils,       ONLY: convert_omega2w, compute_input_pressure_and_height
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom,                           &
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom, MODE_ICONVREMAP,          &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
     &                               MODE_COSMO, iss, iorg, ibc, iso4, idu, SUCCESS
   USE mo_exception,           ONLY: message, finish, message_text
@@ -1423,7 +1423,7 @@ MODULE mo_initicon_io
             ! on the initialization mode. Checking grp_vars_fg takes care of this. In case
             ! that smi is read, it is lateron converted to w_so (see smi_to_wsoil)
             SELECT CASE(init_mode)
-                CASE(MODE_COMBINED,MODE_COSMO)
+                CASE(MODE_COMBINED,MODE_COSMO,MODE_ICONVREMAP)
                     CALL fetchTiled3dWithFallback(params          = params,         &
                       &                           varName         = 'smi' ,         &
                       &                           varNameFallback = 'w_so',         &
@@ -1432,7 +1432,12 @@ MODULE mo_initicon_io
                       &                           field           = lnd_prog%w_so_t )
                 CASE DEFAULT
                     CALL fetchTiled3d(params, 'w_so', jg, ntiles_total, lnd_prog%w_so_t)
-                    CALL fetchTiled3d(params, 'w_so_ice', jg, ntiles_total, lnd_prog%w_so_ice_t) ! w_so_ice is re-diagnosed in terra_multlay_init
+            END SELECT
+            SELECT CASE(init_mode)
+              CASE(MODE_COMBINED,MODE_COSMO)
+                ! no w_so_ice available
+              CASE DEFAULT
+                CALL fetchTiled3d(params, 'w_so_ice', jg, ntiles_total, lnd_prog%w_so_ice_t) ! w_so_ice is re-diagnosed in terra_multlay_init
             END SELECT
 
 
@@ -1538,7 +1543,7 @@ MODULE mo_initicon_io
             ! When starting from GME or COSMO soil (i.e. MODE_COMBINED or MODE_COSMODE).
             ! SMI is read if available, with W_SO being the fallback option. If SMI is 
             ! read, it is directly stored in w_so_t. Here, it is converted into w_so
-            IF (ANY((/MODE_COMBINED,MODE_COSMO/) == init_mode)) THEN
+            IF (ANY((/MODE_COMBINED,MODE_COSMO,MODE_ICONVREMAP/) == init_mode)) THEN
                 IF (inputInstructions(jg)%ptr%sourceOfVar('smi')==kInputSourceFg) THEN
                     DO jt=1, ntiles_total
                         CALL smi_to_wsoil(p_patch(jg), lnd_prog%w_so_t(:,:,:,jt))

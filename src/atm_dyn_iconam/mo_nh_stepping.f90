@@ -324,12 +324,6 @@ MODULE mo_nh_stepping
   ! Compute diagnostic dynamics fields for initial output and physics initialization
   CALL diag_for_output_dyn ()
 
-  IF (.NOT. isRestart()) THEN
-    IF (timeshift%dt_shift < 0._wp) THEN
-      ! add IAU time shift interval to current date (mtime):
-      mtime_current = mtime_current + timeshift%mtime_shift
-    ENDIF
-  ENDIF
 
   ! diagnose airmass from \rho(now) for both restart and non-restart runs
   ! airmass_new required by initial physics call (init_slowphysics)
@@ -1178,9 +1172,15 @@ MODULE mo_nh_stepping
 
     ! prefetch boundary data if necessary
     IF(num_prefetch_proc >= 1 .AND. latbc_config%itype_latbc > 0) THEN
-      CALL recv_latbc_data(latbc, p_patch(1), p_nh_state(1), p_int_state(1), &
-        &                  cur_datetime=mtime_current, lcheck_read=.TRUE., ltime_incr=.TRUE.,     &
-        &                  tlev=latbc%new_latbc_tlev)
+      CALL recv_latbc_data(latbc         = latbc,              &
+        &                  p_patch       = p_patch(1),         &
+        &                  p_nh_state    = p_nh_state(1),      &
+        &                  p_int         = p_int_state(1),     &
+        &                  cur_datetime  = mtime_current,      &
+        &                  lcheck_read   = .TRUE.,             &
+        &                  ltime_incr    = .TRUE.,             &
+        &                  time_incr     = latbc%delta_dtime,  &
+        &                  tlev          = latbc%new_latbc_tlev)
     ENDIF
 
     IF (mtime_current >= time_config%tc_stopdate) THEN

@@ -32,7 +32,7 @@
     USE mo_mpi,                 ONLY: p_pref_pe0, p_pe_work, p_work_pe0, num_work_procs
     ! MPI Communication routines
     USE mo_mpi,                 ONLY: p_isend, p_barrier, p_wait, &
-         &                            p_send, p_recv
+         &                            p_send, p_recv, p_bcast
     USE mo_latbc_read_recv,     ONLY: prefetch_cdi_2d, prefetch_cdi_3d, compute_data_receive
 #endif
 
@@ -61,11 +61,14 @@
          &                            isCurrentEventActive, deallocateDatetime,    &
          &                            MAX_DATETIME_STR_LEN,                        &
          &                            MAX_TIMEDELTA_STR_LEN, getPTStringFromMS,    &
+         &                            getTotalSecondsTimedelta,                    &
+         &                            datetimeToString, timedeltaToString,         &
          &                            OPERATOR(>=), OPERATOR(-), OPERATOR(>),      &
-         &                            OPERATOR(/=), datetimeToString,              &
-         &                            OPERATOR(+), OPERATOR(*)
+         &                            OPERATOR(/=), OPERATOR(+), OPERATOR(*),      &
+         &                            OPERATOR(<), getTriggerNextEventAtDateTime
     USE mo_time_config,         ONLY: time_config
     USE mo_limarea_config,      ONLY: latbc_config, generate_filename, LATBC_TYPE_EXT
+    USE mo_initicon_config,     ONLY: timeshift
     USE mo_ext_data_types,      ONLY: t_external_data
     USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, msg_level
     USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
@@ -113,7 +116,7 @@
 
     INTEGER, PARAMETER :: TAG_PREFETCH2WORK = 2001
     INTEGER, PARAMETER :: TAG_WORK2PREFETCH = 2002
-
+    INTEGER, PARAMETER :: TAG_VDATETIME = 2003
 
   CONTAINS
 
@@ -242,12 +245,14 @@
 
 #ifndef NOMPI
       ! local variables
-      REAL(wp)     :: delta_tstep_secs, delta_dtime_secs, seconds
-      TYPE(timedelta), POINTER :: delta_tstep
-      TYPE(datetime),  POINTER :: mtime_current
-      INTEGER       :: i, add_delta, prev_latbc_tlev
+      TYPE(datetime) :: nextActive          ! next trigger date for prefetch event
+      INTEGER        :: ierr
+      REAL(wp)       :: seconds
+      TYPE(timedelta), POINTER :: ptr_time_incr
+      INTEGER       :: prev_latbc_tlev
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_init_latbc_data"
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string
+
 
       IF (.NOT. my_process_is_work())  RETURN
 
@@ -261,41 +266,25 @@
       latbc%delta_dtime => newTimedelta(td_string)
 
       ! create prefetching event:
-      latbc%prefetchEvent => newEvent("Prefetch input", time_config%tc_startdate, &
-           time_config%tc_current_date, time_config%tc_stopdate, latbc%delta_dtime)
+      latbc%prefetchEvent => newEvent("Prefetch input", time_config%tc_exp_startdate, &
+           time_config%tc_exp_startdate, time_config%tc_stopdate, latbc%delta_dtime)
 
-      latbc%mtime_read  => newDatetime(time_config%tc_startdate)
+      latbc%mtime_read  => newDatetime(time_config%tc_current_date)
 
-      ! time interval delta_dtime_secs in seconds
-      delta_dtime_secs = 86400 *INT(latbc%delta_dtime%day)    &
-           &                  + 3600  *INT(latbc%delta_dtime%hour)   &
-           &                  + 60    *INT(latbc%delta_dtime%minute) &
-           &                  +        INT(latbc%delta_dtime%second)
 
       ! if there is lrestart flag then prefetch processor needs to start reading
       ! the data from the new date time of restart file. Below the time at which
-      ! restart file starts is calculated and added to mtime_read which is the
-      ! time step for reading the boundary data
+      ! reading of the lbc files starts (mtime_read) is calculated. Basically, we 
+      ! query the prefetch Event to deduce the last trigger datetime. This is exactly 
+      ! the time at which reading of the lbc files has to (re-)start.
       IF(isRestart()) THEN
-         mtime_current => newDatetime(time_config%tc_current_date)
-         delta_tstep => newTimedelta("PT0S")
-         delta_tstep = latbc%mtime_read - mtime_current
-
-         ! time interval delta_tstep_secs in seconds
-         delta_tstep_secs = 86400 *INT(delta_tstep%day)    &
-              &                  + 3600  *INT(delta_tstep%hour)   &
-              &                  + 60    *INT(delta_tstep%minute) &
-              &                  +        INT(delta_tstep%second)
-
-         add_delta = FLOOR(delta_tstep_secs / delta_dtime_secs)
-         ! no of times delta_dtime needs to be added to get the current time to
-         ! read the boundary data file
-         DO i = 1, add_delta
-            latbc%mtime_read = latbc%mtime_read + latbc%delta_dtime
-         ENDDO
-         ! deallocating mtime and deltatime
-         CALL deallocateTimedelta(delta_tstep)
-         CALL deallocateDatetime(mtime_current)
+        !
+        CALL getTriggerNextEventAtDateTime(latbc%prefetchEvent,time_config%tc_current_date,nextActive,ierr)
+        IF (nextActive > time_config%tc_current_date) THEN
+          latbc%mtime_read = nextActive + latbc%delta_dtime*(-1._wp)
+        ELSE
+          latbc%mtime_read = nextActive
+        ENDIF
       ENDIF
 
       ! prepare read/last indices
@@ -304,22 +293,51 @@
       ! read first two time steps
       IF (latbc_config%init_latbc_from_fg) THEN
 
+        CALL message(routine,'take lbc for initial time from fg')
+
         prev_latbc_tlev = 3 - tlev
         tlev            = prev_latbc_tlev
 
         ! allocate input data for lateral boundary nudging
         CALL copy_fg_to_latbc(latbc%latbc_data, p_nh_state, tlev)
+        ! set validity Datetime
+        latbc%latbc_data(tlev)%vDateTime = time_config%tc_current_date
 
       ELSE
-        CALL recv_latbc_data( latbc, p_patch, p_nh_state, p_int_state,            &
-          &                   time_config%tc_current_date, lcheck_read=.FALSE., ltime_incr=.FALSE., &
-          &                   tlev=tlev, opt_linitial_file=.TRUE.)
+        CALL recv_latbc_data( latbc             = latbc,                      &
+          &                   p_patch           = p_patch,                    &
+          &                   p_nh_state        = p_nh_state,                 &
+          &                   p_int             = p_int_state,                &
+          &                   cur_datetime      = time_config%tc_current_date,&
+          &                   lcheck_read       = .FALSE.,                    &
+          &                   ltime_incr        = .FALSE.,                    &
+          &                   time_incr         = latbc%delta_dtime,          &
+          &                   tlev              = tlev,                       &
+          &                   opt_linitial_file = .TRUE.                      )
       ENDIF
       ! (note: if we initialize from FG, then the following call is
       ! the first file read-in!)
-      CALL recv_latbc_data( latbc, p_patch, p_nh_state, p_int_state,           &
-        &                   time_config%tc_current_date, lcheck_read=.FALSE., ltime_incr=.TRUE., &
-        &                   tlev=tlev, opt_linitial_file=latbc_config%init_latbc_from_fg)
+      IF(.NOT. isRestart()) THEN
+        IF (timeshift%dt_shift < 0 ) THEN
+          ptr_time_incr => timeshift%mtime_absshift
+        ELSE
+          ptr_time_incr => latbc%delta_dtime
+        ENDIF
+      ELSE
+          ptr_time_incr => latbc%delta_dtime
+      ENDIF
+
+      CALL recv_latbc_data( latbc              = latbc,                           &
+        &                   p_patch            = p_patch,                         &
+        &                   p_nh_state         = p_nh_state,                      &
+        &                   p_int              = p_int_state,                     &
+        &                   cur_datetime       = time_config%tc_current_date,     &
+        &                   lcheck_read        = .FALSE.,                         &
+        &                   ltime_incr         = .TRUE. ,                         &
+        &                   time_incr          = ptr_time_incr,                   &
+        &                   tlev               = tlev,                            &
+        &                   opt_linitial_file  = latbc_config%init_latbc_from_fg  )
+
 
       CALL message(routine,'done')
 #endif
@@ -339,14 +357,14 @@
 
 #ifndef NOMPI
       ! local variables
-      REAL(wp)     :: delta_tstep_secs, delta_dtime_secs
-      TYPE(timedelta), POINTER :: delta_tstep
-      TYPE(datetime),  POINTER :: mtime_current
+      TYPE(datetime) :: nextActive             ! next trigger date for prefetch event
+      INTEGER        :: ierr
+      TYPE(timedelta), POINTER :: ptr_time_incr
       LOGICAL       :: done
-      INTEGER       :: i, add_delta
       REAL(wp)      :: seconds
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::async_init_latbc_data"
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string
+
 
       IF (.NOT. my_process_is_pref())  RETURN
 
@@ -361,46 +379,34 @@
 
       ! create prefetching event:
       latbc%prefetchEvent => newEvent("Prefetch input", time_config%tc_exp_startdate, &
-           time_config%tc_current_date, time_config%tc_stopdate, latbc%delta_dtime)
+           time_config%tc_exp_startdate, time_config%tc_stopdate, latbc%delta_dtime)
 
-      latbc%mtime_read  => newDatetime(time_config%tc_exp_startdate)
+      latbc%mtime_read  => newDatetime(time_config%tc_current_date)
 
-      ! time interval delta_dtime_secs in seconds
-      delta_dtime_secs = 86400 *INT(latbc%delta_dtime%day)    &
-           &                  + 3600  *INT(latbc%delta_dtime%hour)   &
-           &                  + 60    *INT(latbc%delta_dtime%minute) &
-           &                  +        INT(latbc%delta_dtime%second)
+
 
       ! if there is lrestart flag then prefetch processor needs to start reading
       ! the data from the new date time of restart file. Below the time at which
-      ! restart file starts is calculated and added to mtime_read which is the
-      ! time step for reading the boundary data
+      ! reading of the lbc files starts (mtime_read) is calculated. Basically, we 
+      ! query the prefetch Event to deduce the last trigger datetime. This is exactly 
+      ! the time at which reading of the lbc files has to (re-)start.
       IF(isRestart()) THEN
-         mtime_current => newDatetime(time_config%tc_current_date)
-         delta_tstep => newTimedelta("PT0S")
-         delta_tstep = latbc%mtime_read - mtime_current
-
-         ! time interval delta_tstep_secs in seconds
-         delta_tstep_secs = 86400 *INT(delta_tstep%day)    &
-              &                  + 3600  *INT(delta_tstep%hour)   &
-              &                  + 60    *INT(delta_tstep%minute) &
-              &                  +        INT(delta_tstep%second)
-
-         add_delta = FLOOR(delta_tstep_secs / delta_dtime_secs)
-         ! no of times delta_dtime needs to be added to get the current time to
-         ! read the boundary data file
-         DO i = 1, add_delta
-            latbc%mtime_read = latbc%mtime_read + latbc%delta_dtime
-         ENDDO
-         ! deallocating mtime and deltatime
-         CALL deallocateTimedelta(delta_tstep)
-         CALL deallocateDatetime(mtime_current)
+        !
+        CALL getTriggerNextEventAtDateTime(latbc%prefetchEvent,time_config%tc_current_date,nextActive,ierr)
+        IF (nextActive > time_config%tc_current_date) THEN
+          latbc%mtime_read = nextActive + latbc%delta_dtime*(-1._wp)
+        ELSE
+          latbc%mtime_read = nextActive
+        ENDIF
       ENDIF
 
       ! read first two time steps
       IF (.NOT. latbc_config%init_latbc_from_fg) THEN
 
-        CALL read_latbc_data(latbc, ltime_incr=.FALSE., opt_linitial_file=.TRUE.)
+        CALL read_latbc_data(latbc             = latbc,             &
+          &                  ltime_incr        = .FALSE.,           &
+          &                  time_incr         = latbc%delta_dtime, &
+          &                  opt_linitial_file = .TRUE.             )
 
         ! Inform compute PEs that we are done
         CALL async_pref_send_handshake()
@@ -408,11 +414,22 @@
         CALL async_pref_wait_for_start(done)
 
       ENDIF
-
+      IF(.NOT. isRestart()) THEN
+        IF (timeshift%dt_shift < 0 ) THEN
+          ptr_time_incr => timeshift%mtime_absshift
+        ELSE
+          ptr_time_incr => latbc%delta_dtime
+        ENDIF
+      ELSE
+          ptr_time_incr => latbc%delta_dtime
+      ENDIF
       ! (note: if we initialize from FG, then the following call is
       ! the first file read-in!)
-      CALL read_latbc_data(latbc, ltime_incr=.TRUE., &
-        &                  opt_linitial_file=latbc_config%init_latbc_from_fg)
+      CALL read_latbc_data(latbc            = latbc,                  &
+        &                  ltime_incr       = .TRUE.,                 &
+        &                  time_incr        = ptr_time_incr,          &
+        &                  opt_linitial_file= latbc_config%init_latbc_from_fg)
+
       ! Inform compute PEs that we are done
       CALL async_pref_send_handshake()
 
@@ -441,12 +458,15 @@
     !! Modified version by M. Pondkule, DWD (2014-02-11)
     !!
 
-    SUBROUTINE read_latbc_data(latbc, ltime_incr, opt_linitial_file)
+    SUBROUTINE read_latbc_data(latbc, ltime_incr, time_incr, opt_linitial_file)
 
-      TYPE(t_latbc_data), INTENT(IN)    :: latbc
+      TYPE(t_latbc_data), TARGET, INTENT(INOUT)    :: latbc
 
       ! flag to increment present datetime to next time level
-      LOGICAL,            INTENT(IN)    :: ltime_incr
+      LOGICAL                 , INTENT(IN) :: ltime_incr
+      ! timedelta to increment present datetime to next input time level.
+      ! present datetime is only incremented by time_incr if ltime_incr=.TRUE.
+      TYPE(timedelta), POINTER, INTENT(IN) :: time_incr
 
       ! flag: indicates if this is the first file (where we expect
       ! some constant data):
@@ -466,6 +486,8 @@
       CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: dstringA, dstringB
       TYPE(datetime), POINTER               :: mtime_vdate
       LOGICAL                               :: linitial_file
+      TYPE(datetime), POINTER               :: vDateTime_ptr  ! pointer to vDateTime
+      character(len=max_datetime_str_len)   :: vDateTime_str  ! vDateTime in String format
 
 
       linitial_file = .FALSE.
@@ -473,8 +495,9 @@
 
       ! Prepare the mtime_read for the next time level
       IF (ltime_incr) THEN
-         latbc%mtime_read = latbc%mtime_read + latbc%delta_dtime
+         latbc%mtime_read = latbc%mtime_read + time_incr
       ENDIF
+
 
       ! return if mtime_read is at least one full boundary data
       ! interval beyond the simulation end, implying that no further
@@ -518,6 +541,18 @@
         WRITE (0,*) "  read date: ", TRIM(dstringA)
         WRITE (0,*) "  file date: ", TRIM(dstringB)
       END IF
+
+
+      ! store validity datetime of current boundary data timeslice
+      latbc%buffer%vDateTime = mtime_vdate
+      ! send validity datetime of current boundary data timeslice from prefetch PE0 
+      ! to worker PE0
+      IF(p_pe_work == 0) THEN
+        vDateTime_ptr => latbc%buffer%vDateTime
+        CALL datetimeToString(vDateTime_ptr, vDateTime_str, errno)
+        CALL p_isend(vDateTime_str, p_work_pe0, TAG_VDATETIME)
+      ENDIF
+
       CALL deallocateDatetime(mtime_vdate)
 
       ! initializing the displacement array for each compute processor
@@ -603,8 +638,9 @@
     !! Modified version by M. Pondkule, DWD (2014-02-11)
     !!
 
-    SUBROUTINE recv_latbc_data(latbc, p_patch, p_nh_state, p_int, cur_datetime,&
-      &                        lcheck_read, ltime_incr, tlev, opt_linitial_file)
+    SUBROUTINE recv_latbc_data(latbc, p_patch, p_nh_state, p_int, cur_datetime, &
+      &                        lcheck_read, ltime_incr, time_incr, tlev,        &
+      &                        opt_linitial_file)
 
       TYPE(t_latbc_data),     INTENT(INOUT) :: latbc
       TYPE(t_patch),          INTENT(IN)    :: p_patch
@@ -618,7 +654,10 @@
       LOGICAL,      INTENT(IN)    :: lcheck_read
 
       ! flag to increment present datetime to next time level
-      LOGICAL,      INTENT(IN)    :: ltime_incr
+      LOGICAL                 , INTENT(IN) :: ltime_incr
+      ! timedelta to increment present datetime to next input time level.
+      ! present datetime is only incremented by time_incr if ltime_incr=.TRUE.
+      TYPE(timedelta), POINTER, INTENT(IN) :: time_incr
 
       ! flag: indicates if this is the first file (where we expect
       ! some constant data):
@@ -630,6 +669,9 @@
       LOGICAL                               :: isactive
       TYPE(timedelta), POINTER              :: my_duration_slack
       INTEGER                               :: prev_latbc_tlev
+      character(len=max_datetime_str_len)   :: vDateTime_str
+      TYPE(datetime), POINTER               :: vDateTime_ptr
+
 
       ! check for event been active
       my_duration_slack => newTimedelta("PT0S")
@@ -640,6 +682,18 @@
       ! do we need to read boundary data
       IF (lcheck_read .AND. (.NOT. isactive))  RETURN
 
+
+      ! Prepare the mtime_read for the next time level
+      IF (ltime_incr) THEN
+         latbc%mtime_read = latbc%mtime_read + time_incr
+      ENDIF
+
+      ! return if mtime_read is at least one full boundary data
+      ! interval beyond the simulation end, implying that no further
+      ! data are required for correct results
+      IF (latbc%mtime_read >= time_config%tc_stopdate + latbc%delta_dtime) RETURN
+
+
       ! compute processors wait for msg from
       ! prefetch processor that they can start
       ! reading latbc data from memory window
@@ -648,10 +702,17 @@
         CALL compute_wait_for_async_pref()
       END IF
 
-      ! Prepare the mtime_read for the next time level
-      IF (ltime_incr) THEN
-         latbc%mtime_read = latbc%mtime_read + latbc%delta_dtime
+
+      ! receive validity dateTime of current boundary data timeslice 
+      ! from prefetch PE0.
+      IF(p_pe_work==0) THEN
+         CALL p_recv(vDateTime_str, p_pref_pe0, TAG_VDATETIME)
+         vDateTime_ptr => newDatetime(vDateTime_str)
+         latbc%buffer%vDateTime = vDateTime_ptr
+         CALL deallocateDatetime(vDateTime_ptr)
       ENDIF
+      CALL p_bcast(latbc%buffer%vDateTime,0,p_comm_work)
+
 
       ! Adjust read/last indices
       !
@@ -871,6 +932,10 @@
       END IF
 
       p_ri => latbc%patch_data%cells
+
+
+      ! get validity DateTime of current boundary data timeslice
+      latbc%latbc_data(tlev)%vDateTime = latbc%buffer%vDateTime
 
       ! copying the variable values from prefetch buffer to the
       ! respective allocated variable
@@ -1149,15 +1214,36 @@
       ! Local variables
       INTEGER                         :: i_startblk, i_endblk, i_startidx, i_endidx,    &
         &                                jc, jk, jb, je, nlev, nlevp1, prev_latbc_tlev
-      REAL(wp)                        :: rdt
+      TYPE(timedelta)                 :: td
+      REAL(wp)                        :: dt, rdt
+      CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: vDateTime_str_cur, vDateTime_str_prev
+      CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_boundary_tendencies"
+
 
       prev_latbc_tlev = 3 - tlev
 
       nlev            = p_patch%nlev
       nlevp1          = p_patch%nlevp1
 
+      ! compute timedelta from validity times of consecutive boundary data timeslices.
+      td = latbc_data(tlev)%vDateTime - latbc_data(prev_latbc_tlev)%vDateTime
+      ! update frequency in s
+      dt = REAL(getTotalSecondsTimedelta(td, latbc_data(tlev)%vDateTime))
+
+
+      IF (msg_level >= 15) THEN
+        CALL message(routine, "")
+        CALL datetimeToString(latbc_data(tlev)%vDateTime, vDateTime_str_cur)
+        CALL datetimeToString(latbc_data(prev_latbc_tlev)%vDateTime, vDateTime_str_prev)
+        WRITE (message_text, '(a,a)')  "lbc vdate current : ", TRIM(vDateTime_str_cur)
+        CALL message("", message_text)
+        WRITE (message_text, '(a,a)')  "lbc vdate previous: ", TRIM(vDateTime_str_prev)
+        CALL message("", message_text)
+        WRITE (message_text, '(a,f9.2)')  "boundary update frequency: ", dt
+        CALL message("", message_text)
+      ENDIF
       ! Inverse value of boundary update frequency
-      rdt = 1._wp/latbc_config%dtime_latbc
+      rdt = 1._wp/dt      
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
@@ -1402,12 +1488,37 @@
       TYPE(t_latbc_data), INTENT(IN)    :: latbc
       TYPE(datetime),  POINTER  :: step_datetime
       TYPE(timedelta), POINTER  :: delta_tstep
+      REAL(wp)                  :: dtime_latbc      ! time delta between two consecutive 
+                                                    ! boundary forcing time slices
+      TYPE(timedelta)           :: td
 
-      CHARACTER(LEN=*), PARAMETER         :: routine = modname//"::update_lin_interpolation"
-
+      CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::update_lin_interpolation"
+      CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: vDateTime_str_cur, vDateTime_str_prev
+      CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN):: delta_tstep_str
 #ifndef NOMPI
+
+      ! compute boundary update timedelta
+      td = latbc%latbc_data(latbc%new_latbc_tlev)%vDateTime - latbc%latbc_data(latbc%prev_latbc_tlev())%vDateTime
+      dtime_latbc =  REAL(getTotalSecondsTimedelta(td, latbc%latbc_data(latbc%new_latbc_tlev)%vDateTime))
+
       delta_tstep => newTimedelta("PT0S")
-      delta_tstep = latbc%mtime_read - step_datetime
+      delta_tstep = latbc%latbc_data(latbc%new_latbc_tlev)%vDateTime - step_datetime
+
+
+      IF (msg_level >= 15) THEN
+        CALL message(routine, "")
+        CALL datetimeToString(latbc%latbc_data(latbc%prev_latbc_tlev())%vDateTime, vDateTime_str_prev)
+        CALL datetimeToString(latbc%latbc_data(latbc%new_latbc_tlev)%vDateTime, vDateTime_str_cur)
+        CALL timedeltaToString(delta_tstep, delta_tstep_str)
+        WRITE (message_text, '(a,a)')  "lbc vdate current : ", TRIM(vDateTime_str_cur)
+        CALL message("", message_text)
+        WRITE (message_text, '(a,a)')  "lbc vdate previous: ", TRIM(vDateTime_str_prev)
+        CALL message("", message_text)
+        WRITE (message_text, '(a,a)')  "delta_tstep_str: ", TRIM(delta_tstep_str)
+        CALL message("", message_text)
+      ENDIF
+
+
 
       IF(delta_tstep%month /= 0) &
            CALL finish(routine, "time difference for reading boundary data cannot be more than a month.")
@@ -1415,7 +1526,7 @@
       ! compute the number of "dtime_latbc" intervals fitting into the time difference "delta_tstep":
 
       latbc_config%lc1 = (delta_tstep%day * 86400._wp + delta_tstep%hour * 3600._wp +  &
-           delta_tstep%minute * 60._wp + delta_tstep%second) / latbc_config%dtime_latbc
+           delta_tstep%minute * 60._wp + delta_tstep%second) / dtime_latbc
       latbc_config%lc2 = 1._wp - latbc_config%lc1
 
       ! deallocating mtime and deltatime

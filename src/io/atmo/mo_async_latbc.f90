@@ -191,7 +191,7 @@ MODULE mo_async_latbc
          CALL async_pref_wait_for_start(done)
          IF(done) EXIT ! leave loop, we are done
          ! perform input prefetching
-         CALL read_latbc_data(latbc, ltime_incr=.TRUE.)
+         CALL read_latbc_data(latbc, ltime_incr=.TRUE., time_incr=latbc%delta_dtime)
          ! Inform compute PEs that we are done
          CALL async_pref_send_handshake()
       END DO
@@ -592,7 +592,7 @@ MODULE mo_async_latbc
 
       ! generate file name
       latbc_filename = generate_filename(nroot, latbc%patch_data%level, &
-        &                                time_config%tc_startdate, time_config%tc_exp_startdate)
+        &                                time_config%tc_exp_startdate, time_config%tc_exp_startdate)
       latbc_file = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
 
       IF(my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN
@@ -758,7 +758,7 @@ MODULE mo_async_latbc
       IF( my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
          ! generate file name
          latbc_filename = generate_filename(nroot, latbc%patch_data%level, &
-           &                                time_config%tc_startdate, time_config%tc_exp_startdate)
+           &                                time_config%tc_exp_startdate, time_config%tc_exp_startdate)
          latbc_file = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
          INQUIRE (FILE=latbc_file, EXIST=l_exist)
          IF (.NOT.l_exist) THEN

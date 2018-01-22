@@ -94,6 +94,7 @@ MODULE mo_initicon_config
   TYPE t_timeshift
     REAL(wp)                 :: dt_shift
     TYPE(timedelta), POINTER :: mtime_shift
+    TYPE(timedelta), POINTER :: mtime_absshift   ! absolute value
   END TYPE t_timeshift
 
   ! ----------------------------------------------------------------------------
@@ -225,12 +226,9 @@ CONTAINS
     !
     CHARACTER(len=*), PARAMETER :: routine = 'mo_initicon_config:configure_initicon'
     !
-    CHARACTER(len=max_timedelta_str_len) :: PTshift
     TYPE(timedelta), POINTER             :: td_start_time_avg_fg, td_end_time_avg_fg
     CHARACTER(len=max_timedelta_str_len) :: str_start_time_avg_fg, str_end_time_avg_fg
-    !
 
-    REAL(wp)                             :: zdt_shift            ! rounded dt_shift
     !
     !-----------------------------------------------------------------------
     !
@@ -247,39 +245,6 @@ CONTAINS
        init_mode_soil = 2  ! warmstart with full fields for h_snow from snow analysis
     ENDIF
 
-    !
-    ! timeshift-operations
-    !
-
-    ! Round dt_shift to the nearest integer multiple of the advection time step
-    !
-    IF (timeshift%dt_shift < 0._wp) THEN
-      zdt_shift = REAL(NINT(timeshift%dt_shift/dtime),wp)*dtime
-      IF (ABS((timeshift%dt_shift-zdt_shift)/zdt_shift) > 1.e-10_wp) THEN
-        WRITE(message_text,'(a,f10.3,a)') '*** WARNING: dt_shift adjusted to ', zdt_shift, &
-          &                               ' s in order to be a multiple of the advection time step ***'
-        CALL message('',message_text)
-      ENDIF
-      timeshift%dt_shift = zdt_shift
-    ELSE
-      iterate_iau = .FALSE. ! IAU iteration is meaningless if the model starts without backward time shift
-    END IF
-    !
-    ! transform timeshift to mtime-format
-    !
-    CALL getPTStringFromSeconds(timeshift%dt_shift, PTshift)
-    timeshift%mtime_shift => newTimedelta(TRIM(PTshift))
-    WRITE(message_text,'(a,a)') 'IAU time shift: ', TRIM(PTshift)
-    CALL message('',message_text)
-        
-    !*******************************************************
-    ! can be removed, once the new libmtime is available (timedeltaToString)
-    ! IF (TRIM(PTshift)=="-P00.000S") THEN
-    !   PTshift = "-PT00.000S"
-    ! ELSE IF (TRIM(PTshift)=="+P00.000S") THEN
-    !   PTshift = "+PT00.000S"
-    ! ENDIF 
-    !********************************************************
     
     ! Preparations for first guess averaging
     !

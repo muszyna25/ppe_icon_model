@@ -1123,7 +1123,11 @@ MODULE mo_nh_diffusion
     IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN ! add diffusion on vertical wind speed
                      ! remark: the surface level (nlevp1) is excluded because w is diagnostic there
 
-      rl_start = grf_bdywidth_c
+      IF (l_limited_area .AND. jg == 1) THEN
+        rl_start = grf_bdywidth_c+1
+      ELSE
+        rl_start = grf_bdywidth_c
+      ENDIF
       rl_end   = min_rlcell_int-1
 
       i_startblk = p_patch%cells%start_block(rl_start)
@@ -1190,7 +1194,11 @@ MODULE mo_nh_diffusion
 !$OMP END DO
 #endif
 
-      rl_start = grf_bdywidth_c+1
+      IF (l_limited_area .AND. jg == 1) THEN
+        rl_start = 0
+      ELSE
+        rl_start = grf_bdywidth_c+1
+      ENDIF
       rl_end   = min_rlcell_int
 
       i_startblk = p_patch%cells%start_block(rl_start)

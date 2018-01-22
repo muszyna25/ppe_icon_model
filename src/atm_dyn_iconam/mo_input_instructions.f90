@@ -275,6 +275,7 @@ CONTAINS
                     ! lump together fgGroup and anaGroup
                     CALL mergeAnaIntoFg(anaGroup, anaGroupSize, fgGroup, fgGroupSize, init_mode)
                 ENDIF
+                IF (init_mode == MODE_ICONVREMAP) CALL add_to_list(fgGroup, fgGroupSize, (/'smi'/) , 1)
 
             CASE(MODE_IAU, MODE_IAU_OLD)
                 ! in case of tile coldstart, we can omit snowfrac_lc

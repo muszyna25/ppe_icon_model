@@ -85,7 +85,6 @@ MODULE mo_ext_data_init
     &                              dict_loadfile
   USE mo_initicon_config,    ONLY: timeshift
   USE mo_nwp_tuning_config,  ONLY: itune_albedo
-  USE mo_master_config,      ONLY: isRestart
   USE mo_cdi,                ONLY: FILETYPE_GRB2, streamOpenRead, streamInqFileType, &
     &                              streamInqVlist, vlistInqVarZaxis, zaxisInqSize,   &
     &                              vlistNtsteps, vlistInqVarGrid, vlistInqAttTxt,    &
@@ -285,15 +284,10 @@ CONTAINS
         ! When restarting, the target interpolation time must be set to cur_datetime
         ! midnight.
         !
-        IF (.NOT. isRestart()) THEN
-          this_datetime => newDatetime(time_config%tc_startdate)
-          IF (timeshift%dt_shift < 0._wp) THEN
-            this_datetime = this_datetime + timeshift%mtime_shift
-          END IF
-        ELSE
-          this_datetime => newDatetime(time_config%tc_current_date)
-        END IF  ! isRestart
-        
+
+        this_datetime => newDatetime(time_config%tc_current_date)
+
+
         ! always assume midnight
         DO jg = 1, n_dom
           CALL interpol_monthly_mean(p_patch(jg),                        &! in

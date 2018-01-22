@@ -1478,8 +1478,8 @@ MODULE mo_nwp_lnd_state
       grib2_desc = grib2_var(2, 0, 198, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, vname_prefix//'plantevap', p_diag_lnd%plantevap,   &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,             &
-           & ldims=shape2d,in_group=groups("dwd_fg_sfc_vars", "mode_iau_fg_in"),  &
-           & lrestart=.FALSE., loutput=.TRUE. )
+           & ldims=shape2d,in_group=groups("dwd_fg_sfc_vars", "mode_iau_fg_in",   &
+           & "mode_dwd_fg_in"), lrestart=.FALSE., loutput=.TRUE. )
 
       ! & p_diag_lnd%plantevap_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('plantevap_t', 'kg m-2', &

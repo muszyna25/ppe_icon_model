@@ -340,6 +340,11 @@ CONTAINS
     CALL finish(TRIM(routine),message_text)
   ENDIF
 
+  ! IAU iteration is meaningless if the model starts without backward time shift
+  IF (dt_shift == 0._wp) THEN
+    iterate_iau = .FALSE.
+  END IF
+
   ! 
   WRITE(message_text,'(a)') &
     &  'Namelist switch l_sst_in is obsolete and will soon be removed!'

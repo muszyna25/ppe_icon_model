@@ -134,6 +134,9 @@ MODULE mo_async_latbc_types
      CHARACTER(LEN=10)                           :: geop_ml_var        ! model level surface geopotential
      CHARACTER(LEN=10)                           :: hhl_var
 
+     ! input data validity DateTime
+     TYPE(datetime)                              :: vDateTime          
+
    CONTAINS
      PROCEDURE :: finalize => t_buffer_finalize   !< destructor
   END TYPE t_buffer

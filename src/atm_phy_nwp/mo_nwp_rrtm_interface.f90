@@ -33,7 +33,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
   USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape, nexlevs_rrg_vnest, &
                                      iss, iorg, ibc, iso4, idu, MAX_CHAR_LENGTH
-  USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
+  USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c, grf_fbk_start_c
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog
@@ -801,24 +801,6 @@ CONTAINS
 
       ENDDO ! blocks
 
-      ! For limited-area radiation grids, tsfc needs to be filled with air temp along the nest boundary
-      ! because the surface scheme is not active on the boundary points
-      IF (jg == 1 .AND. l_limited_area) THEN
-        rl_start = 1
-        rl_end   = grf_bdywidth_c
-        i_startblk = pt_patch%cells%start_blk(rl_start,1)
-        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-        DO jb = i_startblk, i_endblk
-
-          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-            &                       i_startidx, i_endidx, rl_start, rl_end)
-
-          prm_diag%tsfctrad(i_startidx:i_endidx,jb) = pt_diag%temp(i_startidx:i_endidx,nlev,jb)
-
-        ENDDO ! blocks
-      ENDIF
-
       CALL upscale_rad_input(pt_patch%id, pt_par_patch%id,              &
         & nlev_rg, ext_data%atm%fr_land_smt, ext_data%atm%fr_glac_smt,  &
         & ext_data%atm%emis_rad, prm_diag%cosmu0,                       &
@@ -834,7 +816,11 @@ CONTAINS
         & zrg_aeq1, zrg_aeq2, zrg_aeq3, zrg_aeq4, zrg_aeq5,             &
         & zlp_pres_ifc, zlp_tot_cld, prm_diag%buffer_rrg)
 
-      rl_start = grf_ovlparea_start_c
+      IF (jg == 1 .AND. l_limited_area) THEN
+        rl_start = grf_fbk_start_c
+      ELSE
+        rl_start = grf_ovlparea_start_c
+      ENDIF
       rl_end   = min_rlcell_int
 
       i_startblk = ptr_pp%cells%start_blk(rl_start,i_chidx)

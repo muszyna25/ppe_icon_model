@@ -30,6 +30,7 @@ MODULE mo_initicon_types
   USE mo_dictionary,           ONLY: t_dictionary
   USE mo_ifs_coord,            ONLY: t_vct
   USE mo_fortran_tools,        ONLY: DO_DEALLOCATE
+  USE mtime,                   ONLY: datetime
 
   IMPLICIT NONE
   PRIVATE
@@ -186,6 +187,7 @@ MODULE mo_initicon_types
 
     TYPE (t_init_state_const), POINTER :: const => NULL()
 
+    TYPE (datetime)        :: vDateTime  ! validity DateTime
   CONTAINS
     PROCEDURE, PUBLIC :: finalize => t_init_state_finalize
   END TYPE t_init_state
