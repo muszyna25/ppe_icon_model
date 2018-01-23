@@ -3609,7 +3609,7 @@ CONTAINS
     LOGICAL, OPTIONAL :: lshort
     !
     TYPE(t_list_element), POINTER :: this_list_element
-    CHARACTER(len=32) :: dimension_text, dtext
+    CHARACTER(len=32) :: dimension_text, dtext,keytext
     INTEGER :: i, igrp, ivintp_type
     CHARACTER(len=4) :: localMode = '----'
     LOGICAL :: short = .FALSE.
@@ -3666,6 +3666,12 @@ CONTAINS
         WRITE (message_text,'(a,a)')       &
              'Table entry name                            : ', &
              TRIM(this_list_element%field%info%name)
+        CALL message('', message_text)
+        WRITE (keytext,'(i32.1)') this_list_element%field%info%key
+
+        WRITE (message_text,'(a,a)')       &
+             'Key entry                                   : ', &
+             TRIM(keytext)
         CALL message('', message_text)
         !
         IF (ASSOCIATED(this_list_element%field%r_ptr) .OR. &
@@ -4052,7 +4058,6 @@ CONTAINS
     caseInsensitive = .FALSE.
     CALL assign_if_present(caseInsensitive, opt_caseInsensitive)
 
-    !TODO: hashkey comparison is by definition CASE-INSENSITIVE
     elementFoundByName = merge(tolower(name2look4) == tolower(get_var_name(element%field)), &
         &                      key2look4 == element%field%info%key, &
         &                      caseInsensitive)
