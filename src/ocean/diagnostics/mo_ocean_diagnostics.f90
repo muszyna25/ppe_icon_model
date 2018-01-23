@@ -876,12 +876,12 @@ CONTAINS
     monitor%vorticity                  = global_sum_array(monitor%vorticity)
 
 
-    ssh_global_mean = 0.0_wp
-    call levels_horizontal_mean( ocean_state%p_prog(nnew(1))%h(:,:), &
-      & patch_2d%cells%area(:,:), &
-      & owned_cells, &
-      & ssh_global_mean)
-    monitor%ssh_global = ssh_global_mean
+  ! ssh_global_mean = 0.0_wp
+  ! call levels_horizontal_mean( ocean_state%p_prog(nnew(1))%h(:,:), &
+  !   & patch_2d%cells%area(:,:), &
+  !   & owned_cells, &
+  !   & ssh_global_mean)
+  ! monitor%ssh_global = ssh_global_mean
  
     monitor%potential_enstrophy        = global_sum_array(monitor%potential_enstrophy)
     monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)/surface_area
