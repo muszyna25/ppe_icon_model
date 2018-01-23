@@ -46,8 +46,7 @@ MODULE mo_ocean_output
   !USE mo_ocean_physics,            ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_ocean_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
-    & destruct_oce_diagnostics, t_oce_timeseries, &
-    & calc_moc, calc_psi
+    & destruct_oce_diagnostics, calc_moc, calc_psi
   USE mo_linked_list,            ONLY: t_list_element
   USE mo_var_list,               ONLY: print_var_list, find_list_element
   USE mo_mpi,                    ONLY: my_process_is_stdio
@@ -153,13 +152,13 @@ CONTAINS
 
     IF (diagnostics_level > 0 ) THEN
       IF (no_tracer>=2) THEN
-!         CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_diag%w(:,:,:), this_datetime)
+!       CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_diag%w(:,:,:), this_datetime)
         CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_acc%w(:,:,:), this_datetime)
       ENDIF
     ENDIF
 
    ! set the output variable pointer to the correct timelevel
-    CALL set_output_pointers(nnew(1), ocean_state(jg)%p_diag, ocean_state(jg)%p_prog(nnew(1)))
+!   CALL set_output_pointers(nnew(1), ocean_state(jg)%p_diag, ocean_state(jg)%p_prog(nnew(1)))
     IF(lhamocc)CALL set_bgc_output_pointers(nnew(1), hamocc%p_diag, ocean_state(jg)%p_prog(nnew(1)))
  
     IF (output_mode%l_nml) CALL write_name_list_output(out_step)
@@ -177,44 +176,5 @@ CONTAINS
         
   END SUBROUTINE output_ocean
   !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  SUBROUTINE set_output_pointers(timelevel,p_diag,p_prog)
-    INTEGER, INTENT(in) :: timelevel
-    TYPE(t_hydro_ocean_diag) :: p_diag
-    TYPE(t_hydro_ocean_prog) :: p_prog
-
-    TYPE(t_list_element), POINTER :: output_var => NULL()
-    TYPE(t_list_element), POINTER :: prog_var   => NULL()
-    CHARACTER(LEN=max_char_length) :: timelevel_str
-    !-------------------------------------------------------------------------
-    WRITE(timelevel_str,'(a,i2.2)') '_TL',timelevel
-    !write(0,*)'>>>>>>>>>>>>>>>> T timelevel_str:',TRIM(timelevel_str)
-
-    !CALL print_var_list(ocean_restart_list)
-    !prog_var               => find_list_element(ocean_restart_list,'h'//TRIM(timelevel_str))
-    !output_var             => find_list_element(ocean_restart_list,'h')
-    !output_var%field%r_ptr => prog_var%field%r_ptr
-    !p_diag%h               => prog_var%field%r_ptr(:,:,1,1,1)
-    p_diag%h               =  p_prog%h
-
-    !output_var             => find_list_element(ocean_restart_list,'vn')
-    !prog_var               => find_list_element(ocean_restart_list,'vn'//TRIM(timelevel_str))
-    !output_var%field%r_ptr => prog_var%field%r_ptr
-    !p_diag%vn              => prog_var%field%r_ptr(:,:,:,1,1)
-!     p_diag%vn(:,:,:)       =  p_prog%vn
-
-    !output_var             => find_list_element(ocean_restart_list,'t')
-    !prog_var               => find_list_element(ocean_restart_list,'t'//TRIM(timelevel_str))
-    !output_var%field%r_ptr => prog_var%field%r_ptr
-    !p_diag%t               => prog_var%field%r_ptr(:,:,:,1,1)
-    IF(no_tracer>0)p_diag%t(:,:,:)        =  p_prog%tracer(:,:,:,1)
-
-    !output_var             => find_list_element(ocean_restart_list,'s')
-    !prog_var               => find_list_element(ocean_restart_list,'s'//TRIM(timelevel_str))
-    !output_var%field%r_ptr => prog_var%field%r_ptr
-    !p_diag%s               => prog_var%field%r_ptr(:,:,:,1,1)
-     IF(no_tracer>1)p_diag%s(:,:,:)        =  p_prog%tracer(:,:,:,2)
-  END SUBROUTINE set_output_pointers
 
 END MODULE mo_ocean_output
