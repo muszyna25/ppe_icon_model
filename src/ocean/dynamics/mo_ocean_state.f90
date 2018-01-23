@@ -375,38 +375,21 @@ CONTAINS
     CHARACTER(LEN=max_char_length) :: var_suffix
     
     !-------------------------------------------------------------------------
-    
-    !-------------------------------------------------------------------------
-    REAL(wp), POINTER ::        &
-      & h(:,:)                ,& ! height of the free surface. Unit: [m]
-    ! dimension:(nproma, alloc_cell_blocks)
-      & vn(:,:,:)             ,& ! velocity component normal to cell edge. Unit [m/s]
-    ! dimension: (nproma, n_zlev, nblks_e)
-      & t(:,:,:),s(:,:,:)          ! tracer concentration.
-    INTEGER                       :: datatype_flt
-
-    IF ( lnetcdf_flt64_output ) THEN
-      datatype_flt = DATATYPE_FLT64
-    ELSE
-      datatype_flt = DATATYPE_FLT32
-    ENDIF
-
-    !-------------------------------------------------------------------------
     var_suffix = get_timelevel_string(timelevel)
-    
+
     !-------------------------------------------------------------------------
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
     nblks_e = patch_2d%nblks_e
     
     ! height
-    CALL add_var(ocean_restart_list, 'h'//TRIM(var_suffix), ocean_state_prog%h , &
-      & grid_unstructured_cell, za_surface,    &
-      & t_cf_var('h'//TRIM(var_suffix), 'm', 'surface elevation at cell center', DATATYPE_FLT64),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+    CALL add_var(ocean_restart_list, 'sea_surface_height'//TRIM(var_suffix), ocean_state_prog%h , &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,    &
+      & t_cf_var('ssh'//TRIM(var_suffix), 'm', 'surface elevation at cell center', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 1, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/))!TODO, tlev_source=TLEV_NNEW)
     
     !! normal velocity component
-    CALL add_var(ocean_restart_list,'vn'//TRIM(var_suffix),ocean_state_prog%vn,grid_unstructured_edge, &
+    CALL add_var(ocean_restart_list,'normal_velocity'//TRIM(var_suffix),ocean_state_prog%vn,grid_unstructured_edge, &
       & za_depth_below_sea, &
       & t_cf_var('vn'//TRIM(var_suffix), 'm/s', 'normal velocity on edge', DATATYPE_FLT64),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
@@ -446,7 +429,7 @@ CONTAINS
           & t_cf_var(TRIM(oce_tracer_names(jtrc))//TRIM(var_suffix), &
           & oce_tracer_units(jtrc), &
           & oce_tracer_longnames(jtrc), DATATYPE_FLT64), &
-          & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & grib2_var(255, 255, oce_tracer_codes(jtrc), DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/))
       END DO
       
@@ -561,7 +544,7 @@ CONTAINS
     CALL add_var(ocean_default_list, 'ssh_global', ocean_state_diag%monitor%ssh_global , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('ssh_global', 'm', 'ssh_global', datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_LONLAT),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'potential_enstrophy_Global', ocean_state_diag%monitor%potential_enstrophy , &
@@ -822,7 +805,7 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    
+    ! add 2d/3d diagnostic variables   
     CALL add_var(ocean_default_list, 'rho', ocean_state_diag%rho , grid_unstructured_cell,&
       & za_depth_below_sea, &
       & t_cf_var('rho', 'kg/m^3', 'insitu density', datatype_flt),&
@@ -1274,11 +1257,11 @@ CONTAINS
 !       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
 
     !--------------------------------------------------------------------------
-    !Add output pf prognostic variables with readable names
-    CALL add_var(ocean_default_list,'h',ocean_state_diag%h , &
+    !Add output of prognostic variables with readable names
+    CALL add_var(ocean_default_list,'zos',ocean_state_diag%h , &
       & grid_unstructured_cell, za_surface, &
-      & t_cf_var('h', 'm', 'surface elevation at cell center', datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & t_cf_var('sea_surface_height', 'm', 'surface elevation at cell center', datatype_flt,'zos'),&
+      & grib2_var(255, 255, 1, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_prog"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 !     CALL add_var(ocean_default_list,'vn',ocean_state_diag%vn, &
@@ -1287,16 +1270,17 @@ CONTAINS
 !       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
 !       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_prog"), &
 !       & loutput=.TRUE.,lrestart=.FALSE.)
-    CALL add_var(ocean_default_list, 't',ocean_state_diag%t,    &
+    CALL add_var(ocean_default_list, 'to',ocean_state_diag%t,    &
       & grid_unstructured_cell, za_depth_below_sea,&
-      & t_cf_var('t','degC','potential temperature', datatype_flt), &
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & t_cf_var('sea_water_potential_temperature','degC','potential temperature', datatype_flt,'to'), &
+      & grib2_var(255, 255, 2, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_prog"),&
       & loutput=.TRUE., lrestart=.FALSE.)
-    CALL add_var(ocean_default_list, 's',ocean_state_diag%s,    &
+
+    CALL add_var(ocean_default_list, 'so',ocean_state_diag%s,    &
       & grid_unstructured_cell, za_depth_below_sea,&
-      & t_cf_var('s','degC','salinity', datatype_flt), &
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & t_cf_var('sea_water_salinity','psu','sea water salinity', datatype_flt,'so'), &
+      & grib2_var(255, 255, 5, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_prog"),&
       & loutput=.TRUE., lrestart=.FALSE.)    
     
@@ -2353,21 +2337,21 @@ CONTAINS
     IF (PRESENT(suffix)) THEN
       !     write(0,*)'suffix:',suffix
     END IF
-    oce_tracer_names(1)     = 't'
+    oce_tracer_names(1)     = 'sea_water_potential_temperature'
     IF (PRESENT(suffix)) THEN
-      oce_tracer_names(1) = 't'//TRIM(suffix)
+      oce_tracer_names(1) = 'sea_water_potential_temperature'//TRIM(suffix)
     END IF
-    oce_tracer_longnames(1) = 'potential temperature'
+    oce_tracer_longnames(1) = 'sea water potential temperature'
     oce_tracer_units(1)     = 'deg C'
-    oce_tracer_codes(1)     = 200
-    
-    oce_tracer_names(2)     = 's'
+    oce_tracer_codes(1)     = 2
+   
+    oce_tracer_names(2)     = 'sea_water_salinity'
     IF (PRESENT(suffix)) THEN
-      oce_tracer_names(2) = 's'//TRIM(suffix)
+      oce_tracer_names(2) = 'sea_water_salinity'//TRIM(suffix)
     END IF
-    oce_tracer_longnames(2) = 'salinity'
+    oce_tracer_longnames(2) = 'sea water salinity'
     oce_tracer_units(2)     = 'psu'
-    oce_tracer_codes(2)     = 201
+    oce_tracer_codes(2)     = 5
     
   END SUBROUTINE
   !-------------------------------------------------------------------------
