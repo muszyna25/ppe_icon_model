@@ -74,7 +74,13 @@ MODULE mo_ocean_testbed_modules
   USE mo_ocean_tracer,           ONLY: advect_diffuse_tracer, advect_ocean_tracers
   USE mo_ocean_tracer_transport_horz, ONLY: diffuse_horz
   USE mo_hydro_ocean_run
-!  USE mo_ocean_physics
+  USE mo_var_list
+  USE mo_linked_list
+  USE mo_cdi
+  use mo_cdi_constants
+  use mo_zaxis_type
+  use mo_cf_convention
+  use mo_grib2
 
   USE mtime,                     ONLY: datetime, newDatetime, deallocateDatetime, datetimeToString, &
        &                               timedelta, newTimedelta, deallocateTimedelta,                &
@@ -176,6 +182,13 @@ CONTAINS
           & operators_coefficients, &
           & solvercoeff_sp)
 
+      CASE (13) ! check the handling to var_list entries wrt. the their output name
+        CALL checkVarlistsForOutput(patch_3d, ocean_state(1), &
+          & this_datetime, physics_parameters,                   &
+          & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_surface, ocean_ice, hamocc_state,operators_coefficients)
+
+      CASE (14)
+        CALL checkVarlistKeys(patch_3d%p_patch_2D(1))
       CASE DEFAULT
         CALL finish(method_name, "Unknown test_mode")
 
@@ -682,12 +695,12 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
         & patch_2d%edges%owned,&
         & patch_2d%verts%owned,&
         & n_zlev,p_phys_param=physics_parameters)
-      CALL calc_fast_oce_diagnostics( patch_2d,      &
-        & patch_3d%p_patch_1d(1)%dolic_c, &
-        & patch_3d%p_patch_1d(1)%prism_thick_c, &
-        & patch_3d%p_patch_1d(1)%zlev_m, &
-        & p_os(n_dom)%p_diag)
-      ! }}}
+!TODO     CALL calc_fast_oce_diagnostics( patch_2d,      &
+!TODO       & patch_3d%p_patch_1d(1)%dolic_c, &
+!TODO       & patch_3d%p_patch_1d(1)%prism_thick_c, &
+!TODO       & patch_3d%p_patch_1d(1)%zlev_m, &
+!TODO       & p_os(n_dom)%p_diag)
+!TODO     ! }}}
       CALL output_ocean( patch_3D,   &
         &                p_os(n_dom),&
         &                this_datetime,   &
@@ -1870,5 +1883,76 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
 
   END SUBROUTINE test_neutralcoeff
   !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE checkVarlistsForOutput(patch_3d, ocean_state, &
+    & this_datetime, physics_parameters, &
+    & p_as, atmos_fluxes, p_oce_sfc, p_ice, hamocc_state,operators_coefficients)
+
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state
+    TYPE(datetime), POINTER                          :: this_datetime
+    TYPE (t_ho_params)                               :: physics_parameters
+    TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
+    TYPE(t_atmos_fluxes ),    INTENT(inout)          :: atmos_fluxes
+    TYPE(t_ocean_surface),    INTENT(inout)          :: p_oce_sfc
+    TYPE(t_sea_ice),          INTENT(inout)          :: p_ice
+    TYPE(t_hamocc_state),          INTENT(inout)      ::hamocc_state
+    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+
+    IF (output_mode%l_nml) THEN
+      CALL write_initial_ocean_timestep(patch_3d,ocean_state, &
+          &  p_oce_sfc,p_ice,hamocc_state, operators_coefficients)
+    ENDIF
+  END SUBROUTINE checkVarlistsForOutput
   
+  SUBROUTINE checkVarlistKeys(patch_2d)
+    TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
+    
+    CHARACTER(LEN=max_char_length) :: listname
+    TYPE(t_var_list)     :: varnameCheckList
+    integer :: alloc_cell_blocks
+
+    REAL(wp), POINTER :: var0(:,:,:)
+    REAL(wp), POINTER :: var1(:,:,:)
+    REAL(wp), POINTER :: var2(:,:,:)
+    REAL(wp), POINTER :: var3(:,:,:)
+    
+    WRITE(listname,'(a)')  'varnameCheck_list'
+    CALL new_var_list(varnameCheckList, listname, patch_id=patch_2d%id)
+    CALL default_var_list_settings( varnameCheckList,  &
+      & lrestart=.TRUE.,loutput=.TRUE.,&
+      & model_type='oce' )
+
+    alloc_cell_blocks = patch_2d%alloc_cell_blocks
+    call add_var(varnamechecklist,'h',var0,grid_unstructured_cell, za_depth_below_sea_half, &
+        & t_cf_var('h','m','h',datatype_flt64,'ssh'),&
+        & grib2_var(255, 255, 255, datatype_pack16, grid_unstructured, grid_cell),&
+        & ldims=(/nproma, n_zlev, alloc_cell_blocks/))
+    call add_var(varnamechecklist,'H',var0,grid_unstructured_cell, za_depth_below_sea_half, &
+        & t_cf_var('h','m','h',datatype_flt64,'ssh'),&
+        & grib2_var(255, 255, 255, datatype_pack16, grid_unstructured, grid_cell),&
+        & ldims=(/nproma, n_zlev, alloc_cell_blocks/))
+    call add_var(varnameCheckList,'t',var1,grid_unstructured_cell, za_depth_below_sea_half, &
+        & t_cf_var('t','m','t',DATATYPE_FLT64,'t'),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+        & ldims=(/nproma, n_zlev, alloc_cell_blocks/))
+    call add_var(varnameCheckList,'s',var2,grid_unstructured_cell, za_depth_below_sea_half, &
+        & t_cf_var('s','m','s',DATATYPE_FLT64,'s'),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+        & ldims=(/nproma, n_zlev, alloc_cell_blocks/))
+    call add_var(varnameCheckList,'sS',var2,grid_unstructured_cell, za_depth_below_sea_half, &
+        & t_cf_var('s','m','s',DATATYPE_FLT64,'s'),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+        & ldims=(/nproma, n_zlev, alloc_cell_blocks/))
+    call add_var(varnameCheckList,'ss',var2,grid_unstructured_cell, za_depth_below_sea_half, &
+        & t_cf_var('s','m','s',DATATYPE_FLT64,'s'),&
+        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+        & ldims=(/nproma, n_zlev, alloc_cell_blocks/))
+
+
+    call print_var_list(varnameCheckList)
+    call delete_var_list(varnameCheckList)
+  END SUBROUTINE checkVarlistKeys
 END MODULE mo_ocean_testbed_modules
