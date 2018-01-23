@@ -146,7 +146,6 @@ MODULE mo_ocean_model
 
       CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:ocean_model"
 
-      INTEGER                             :: jg
       TYPE(t_sim_step_info)               :: sim_step_info
       INTEGER                             :: jstep0
       TYPE(t_RestartAttributeList), POINTER :: restartAttributes
