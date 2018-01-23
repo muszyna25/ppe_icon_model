@@ -142,10 +142,6 @@ CONTAINS
       &                             jstep-jstep0   , &
       &                             this_datetime) ! , &
           ! &                             oce_ts)
-    ! compute mean values for output interval
-    !TODO [ram] src/io/shared/mo_output_event_types.f90 for types to use
-    !TODO [ram] nsteps_since_last_output =
-    !TODO [ram] output_event%event_step(output_event%i_event_step)%i_sim_step - output_event%event_step(output_event%i_event_step-1)%i_sim_step
   
     CALL compute_mean_ocean_statistics(ocean_state(1)%p_acc,surface_fluxes,nsteps_since_last_output)
     CALL compute_mean_ice_statistics(sea_ice%acc,nsteps_since_last_output)
