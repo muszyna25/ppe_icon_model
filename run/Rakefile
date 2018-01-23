@@ -1148,6 +1148,22 @@ task :checkSuiteTemplates do
 #     end
   # check of the files can be found
 end
+
+desc "check names in output files"
+task :checkVarnames,:expName do |t,args|
+  pp args
+  pattern = "#{args.expName}*nc"
+  files    = Dir.glob("#{args.expName}*nc").sort
+  puts ('='*80).colorize(:green)
+  files.each {|file|
+    puts file.colorize(:blue)
+    puts @cdo.showname(input: file)
+    puts @cdo.infov(input: "-select,levidx=1 #{file}")
+    puts @cdo.showcode(input: "-select,levidx=1 #{file}").join.colorize(:orange)
+  }
+  puts ('='*80).colorize(:green)
+
+end
 task :showSubmit do
   require 'pp'
 
