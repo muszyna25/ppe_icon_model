@@ -15,6 +15,7 @@
 !!
 MODULE mo_surface
 
+  !$ser verbatim USE mo_ser_echam_surface,   ONLY: serialize_input, serialize_output
   USE mo_kind,              ONLY: wp
   USE mo_exception,         ONLY: finish
   USE mo_physical_constants,ONLY: grav, Tf, alf, albedoW, zemiss_def, stbo, tmelt, rhos!!$, rhoi
@@ -115,7 +116,6 @@ CONTAINS
                            & conc,                              &! in
                            & albvisdir_ice, albvisdif_ice,      &! inout
                            & albnirdir_ice, albnirdif_ice)       ! inout
-
     REAL(wp),INTENT(IN) :: pdtime
     INTEGER, INTENT(IN) :: jg
     INTEGER, INTENT(IN) :: kproma, kbdim
@@ -246,7 +246,20 @@ CONTAINS
 
     LOGICAL :: mask(kbdim)
 
-   CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
+    CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
+
+    !----------------------------------------------------------------------------------------
+    ! Serialbox2 input fields serialization
+    !$ser verbatim CALL serialize_input( pdtime, pfrc, pcfh_tile, pcfm_tile,   &
+    !$ser&        pfac_sfc, pocu, pocv, aa, aa_btm, bb, bb_btm, pcpt_tile,     &
+    !$ser&        pqsat_tile, ptsfc_tile, lsm, alake, pu, pv, ptemp, pq, prsfl,&
+    !$ser&        prsfc, pssfl, pssfc, rlds, rlus, rsds, rsus, rvds_dir,       &
+    !$ser&        rpds_dir, rnds_dir, rvds_dif, rpds_dif, rnds_dif, ps,        &
+    !$ser&        pcosmu0, pch_tile, pcsat, pcair, albvisdir, albnirdir,       &
+    !$ser&        albvisdif, albnirdif, albvisdir_tile, albnirdir_tile,        &
+    !$ser&        albvisdif_tile, albnirdif_tile, albedo, albedo_tile, Tsurf,  &
+    !$ser&        T1, T2, hi, hs, conc, albvisdir_ice, albvisdif_ice,          &
+    !$ser&        albnirdir_ice, albnirdif_ice)
 
     ! check for masks
     !
@@ -878,6 +891,17 @@ CONTAINS
         z0m_tile(1:kproma,idx_ice) = 1.e-3_wp
       ENDWHERE
     ENDIF
+
+    !---------------------------------------------------------------------------
+    ! Serialbox2 output fields serialization
+    !$ser verbatim call serialize_output( aa, aa_btm, bb, bb_btm, pcpt_tile,   &
+    !$ser&            pqsat_tile, ptsfc_tile, rlus, pcsat, pcair, q_snocpymlt, &
+    !$ser&            z0m_tile, z0h_lnd, albvisdir, albnirdir, albvisdif,      &
+    !$ser&            albnirdif, albvisdir_tile, albnirdir_tile,               &
+    !$ser&            albvisdif_tile, albnirdif_tile, albedo, albedo_tile,     &
+    !$ser&            ptsfc, ptsfc_rad, rsns_tile, rlns_tile, lake_ice_frc,    &
+    !$ser&            Tsurf, T2, hs, Qtop, Qbot, albvisdir_ice, albvisdif_ice, &
+    !$ser&            albnirdir_ice, albnirdif_ice)
 
   !---------------------------------------------------------------------------
   !
