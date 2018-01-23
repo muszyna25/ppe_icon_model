@@ -76,7 +76,6 @@ CONTAINS
     
     INTEGER :: jtrc,i
     
-    ! update ocean state accumulated values
     CALL add_fields(ocean_state%p_acc%h     , ocean_state%p_prog(nnew(1))%h, cells)
     CALL add_sqr_fields(ocean_state%p_acc%h_sqr , ocean_state%p_prog(nnew(1))%h, cells)
     CALL add_fields(ocean_state%p_acc%u     , ocean_state%p_diag%u         , cells)
@@ -148,29 +147,6 @@ CONTAINS
     TYPE(t_ocean_surface),         INTENT(inout) :: p_oce_sfc
     INTEGER,INTENT(in)                     :: nsteps_since_last_output
     
-    
-    !TODO [ram] trigger aoutput wrt to multiple output intervals
-    !TODO [ram] CALL collect_group(TRIM(grp_name), grp_vars_fg_sfc, ngrp_vars_fg_sfc,    &
-    !TODO [ram]       &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
-    
-    !TODO [ram]   IF (ALLOCATED(output_file)) THEN
-    !TODO [ram]      DO i = 1, nvar_lists
-    !TODO [ram]         element => var_lists(i)%p%first_list_element
-    !TODO [ram]         DO
-    !TODO [ram]           IF(.NOT. ASSOCIATED(element)) EXIT
-    !TODO [ram]           if (.not. element%isteptype==TSTEP_ACCUM) cycle
-    !TODO [ram]           DO i = 1, SIZE(output_file)
-    !TODO [ram]              if (istime4output*output_file(i)%out_event) then
-    !TODO [ram]                 if (one_of(element%name, output_file(i)%namelist%ml_varlist(1:output_file(i)%num_vars)) then
-    !TODO [ram]               ! do accumulation for variable varlist(j)
-    !TODO [ram]                   element%field%rptr = element%field%rptr /
-    !TODO [ram]            end if
-    !TODO [ram]         end if
-    !TODO [ram]      end DO
-    !TODO [ram]   end IF
-    
-
-      
 !ICON_OMP_PARALLEL
 !ICON_OMP_WORKSHARE
     p_acc%h                         = p_acc%h                        /REAL(nsteps_since_last_output,wp)
