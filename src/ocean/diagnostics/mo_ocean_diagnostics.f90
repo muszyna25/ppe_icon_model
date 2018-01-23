@@ -108,129 +108,10 @@ MODULE mo_ocean_diagnostics
   PUBLIC :: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics
   PUBLIC :: construct_oce_diagnostics
   PUBLIC :: destruct_oce_diagnostics
-  PUBLIC :: t_oce_monitor
-  PUBLIC :: t_oce_timeseries
   PUBLIC :: calc_moc
   PUBLIC :: calc_psi
 !   PUBLIC :: calc_psi_vn
   
-  TYPE t_oce_monitor
-    REAL(wp) :: volume
-    REAL(wp) :: kin_energy
-    REAL(wp) :: pot_energy
-    REAL(wp) :: total_energy
-    REAL(wp) :: total_salt
-    REAL(wp) :: vorticity
-    REAL(wp) :: enstrophy
-    REAL(wp) :: potential_enstrophy
-    REAL(wp) :: absolute_vertical_velocity
-    REAL(wp) :: HeatFlux_ShortWave
-    REAL(wp) :: HeatFlux_LongWave
-    REAL(wp) :: HeatFlux_Sensible
-    REAL(wp) :: HeatFlux_Latent
-    REAL(wp) :: HeatFlux_Total
-    REAL(wp) :: FrshFlux_Precipitation
-    REAL(wp) :: FrshFlux_SnowFall
-    REAL(wp) :: FrshFlux_Evaporation
-    REAL(wp) :: FrshFlux_Runoff
-    REAL(wp) :: FrshFlux_TotalSalt
-    REAL(wp) :: FrshFlux_TotalOcean
-    REAL(wp) :: FrshFlux_TotalIce
-    REAL(wp) :: FrshFlux_VolumeIce
-    REAL(wp) :: FrshFlux_VolumeTotal
-    REAL(wp) :: HeatFlux_Relax
-    REAL(wp) :: FrshFlux_Relax
-    REAL(wp) :: TempFlux_Relax
-    REAL(wp) :: SaltFlux_Relax
-    
-    REAL(wp) :: ice_volume_nh !                                                           [km3]
-    REAL(wp) :: ice_volume_sh !                                                           [km3]
-    REAL(wp) :: ice_extent_nh !                                                           [km2]
-    REAL(wp) :: ice_extent_sh !                                                           [km2]
-    ! ice transport through {{{
-    REAL(wp) :: ice_framStrait !                                                          [Sv]
-    ! }}}
-    ! through flows {{{
-    REAL(wp) :: gibraltar     ! though flow                                               [Sv]
-    REAL(wp) :: denmark_strait! though flow                                               [Sv]
-    REAL(wp) :: drake_passage ! though flow                                               [Sv]
-    REAL(wp) :: indonesian_throughflow !                                                  [Sv]
-    REAL(wp) :: scotland_iceland !                                                        [Sv]
-    REAL(wp) :: mozambique
-    REAL(wp) :: framStrait
-    REAL(wp) :: beringStrait
-    REAL(wp) :: barentsOpening
-    REAL(wp) :: agulhas
-    REAL(wp) :: agulhas_long
-    REAL(wp) :: agulhas_longer
-    REAL(wp) :: florida_strait! though flow                                               [Sv]
-    ! }}}
-    REAL(wp) :: t_mean_na_200m !                                                        [degC]
-    REAL(wp) :: t_mean_na_800m !                                                        [degC]
-    REAL(wp) :: ice_ocean_heat_budget
-    REAL(wp) :: ice_ocean_salinity_budget
-    REAL(wp) :: ice_ocean_volume_budget
-    REAL(wp), ALLOCATABLE :: tracer_content(:)
-    
-  END TYPE t_oce_monitor
-  
-  TYPE t_oce_timeseries
-    
-    TYPE(t_oce_monitor), ALLOCATABLE :: oce_diagnostics(:)    ! time array of diagnostic values
-    CHARACTER(LEN=40), DIMENSION(51)  :: names = (/ &
-      & "total_volume                            ", &
-      & "kin_energy                              ", &
-      & "pot_energy                              ", &
-      & "total_energy                            ", &
-      & "total_salt                              ", &
-      & "vorticity                               ", &
-      & "enstrophy                               ", &
-      & "potential_enstrophy                     ", &
-      & "absolute_vertical_velocity              ", &
-      & "HeatFlux_ShortWave                      ", &
-      & "HeatFlux_LongWave                       ", &
-      & "HeatFlux_Sensible                       ", &
-      & "HeatFlux_Latent                         ", &
-      & "HeatFlux_Total                          ", &
-      & "FrshFlux_Precipitation                  ", &
-      & "FrshFlux_SnowFall                       ", &
-      & "FrshFlux_Evaporation                    ", &
-      & "FrshFlux_Runoff                         ", &
-      & "FrshFlux_TotalSalt                      ", &
-      & "FrshFlux_TotalOcean                     ", &
-      & "FrshFlux_TotalIce                       ", &
-      & "FrshFlux_VolumeIce                      ", &
-      & "FrshFlux_VolumeTotal                    ", &
-      & "HeatFlux_Relax                          ", &
-      & "FrshFlux_Relax                          ", &
-      & "TempFlux_Relax                          ", &
-      & "SaltFlux_Relax                          ", &
-      & "ice_volume_nh                           ", &
-      & "ice_volume_sh                           ", &
-      & "ice_extent_nh                           ", &
-      & "ice_extent_sh                           ", &
-      & "ice_framStrait                          ", &
-      & "gibraltar                               ", &
-      & "denmark_strait                          ", &
-      & "drake_passage                           ", &
-      & "indonesian_throughflow                  ", &
-      & "scotland_iceland                        ", &
-      & "mozambique                              ", &
-      & "framStrait                              ", &
-      & "beringStrait                            ", &
-      & "barentsOpening                          ", &
-      & "agulhas                                 ", &
-      & "agulhas_long                            ", &
-      & "agulhas_longer                          ", &
-      & "t_mean_NA_200m                          ", &
-      & "t_mean_NA_800m                          ", &
-      & "ice_ocean_heat_budget                   ", &
-      & "ice_ocean_salinity_budget               ", &
-      & "ice_ocean_volume_budget                 ", &
-      & "total_temperature                       ", &
-      & "total_salinity                          "/)
-    
-  END TYPE t_oce_timeseries
   
   TYPE t_oce_section
     TYPE(t_subset_indexed) :: subset
@@ -978,20 +859,26 @@ CONTAINS
   END SUBROUTINE calc_slow_oce_diagnostics
   
 !<Optimize:inUse>
-  SUBROUTINE calc_fast_oce_diagnostics(patch_2d, dolic, prism_thickness,depths, p_diag)
+  SUBROUTINE calc_fast_oce_diagnostics(patch_2d, dolic, prism_thickness, depths, &
+          &  p_diag, sea_surface_height, tracers)
     TYPE(t_patch ),TARGET :: patch_2d
     INTEGER,  POINTER :: dolic(:,:)
     REAL(wp), POINTER :: prism_thickness(:,:,:)
     REAL(wp), INTENT(in)              :: depths(:)
     TYPE(t_hydro_ocean_diag), TARGET :: p_diag
+    REAL(wp), POINTER :: sea_surface_height(:,:)
+    REAL(wp), POINTER :: tracers(:,:,:,:)
     
     !Local variables
     INTEGER :: start_cell_index, end_cell_index!,i_startblk_c, i_endblk_c,
     INTEGER :: jk,jc,blockNo!,je
+    REAL(wp):: ssh_global_mean
     
     TYPE(t_subset_range), POINTER :: owned_cells
+    TYPE(t_ocean_monitor),  POINTER :: monitor
     !-----------------------------------------------------------------------
     owned_cells    => patch_2d%cells%owned
+    monitor        => p_diag%monitor
     
     !cell loop to calculate cell based monitored fields volume, kinetic energy and tracer content
     SELECT CASE (iswm_oce)
@@ -1009,6 +896,8 @@ CONTAINS
          !  & dolic(jc,blockNo), &
          !  & prism_thickness(jc,:,blockNo), &
          !  & depths(1))
+         ! 
+         ! compute mixed layer depth
           ! save the maximal mixed layer depth  - RESET TO 0 ECHT OUTPUT TIMESTEP
           p_diag%mld(jc,blockNo) = MAX(calc_mixed_layer_depth(p_diag%zgrad_rho(jc,:,blockNo),&
             & 0.125_wp, &
@@ -1016,9 +905,24 @@ CONTAINS
             & prism_thickness(jc,:,blockNo), &
             & depths(1)),p_diag%mld(jc,blockNo))
           p_diag%condep(jc,blockNo) = calc_condep(p_diag%zgrad_rho(jc,:,blockNo), dolic(jc,blockNo))
+
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO 
+     
+      ! update ocean state accumulated values
+      p_diag%h = sea_surface_height
+      p_diag%t = tracers(:,:,:,1)
+      p_diag%s = tracers(:,:,:,2)
+
+      ! compute global mean sea surface height
+      ssh_global_mean = 0.0_wp
+      call levels_horizontal_mean( sea_surface_height, &
+          & patch_2d%cells%area(:,:), &
+          & owned_cells, &
+          & ssh_global_mean)
+      monitor%ssh_global = ssh_global_mean
+
       CALL dbg_print('Diag: mld',p_diag%mld,str_module,4,in_subset=owned_cells)
     END SELECT
   END SUBROUTINE calc_fast_oce_diagnostics
