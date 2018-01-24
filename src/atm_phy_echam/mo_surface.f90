@@ -250,15 +250,16 @@ CONTAINS
 
     !----------------------------------------------------------------------------------------
     ! Serialbox2 input fields serialization
-    !$ser verbatim CALL serialize_input( pdtime, pfrc, pcfh_tile, pcfm_tile,   &
-    !$ser&        pfac_sfc, pocu, pocv, aa, aa_btm, bb, bb_btm, pcpt_tile,     &
-    !$ser&        pqsat_tile, ptsfc_tile, lsm, alake, pu, pv, ptemp, pq, prsfl,&
-    !$ser&        prsfc, pssfl, pssfc, rlds, rlus, rsds, rsus, rvds_dir,       &
-    !$ser&        rpds_dir, rnds_dir, rvds_dif, rpds_dif, rnds_dif, ps,        &
-    !$ser&        pcosmu0, pch_tile, pcsat, pcair, albvisdir, albnirdir,       &
-    !$ser&        albvisdif, albnirdif, albvisdir_tile, albnirdir_tile,        &
-    !$ser&        albvisdif_tile, albnirdif_tile, albedo, albedo_tile, Tsurf,  &
-    !$ser&        T1, T2, hi, hs, conc, albvisdir_ice, albvisdif_ice,          &
+    !$ser verbatim CALL serialize_input( pfrc, pcfh_tile, pcfm_tile,            &
+    !$ser&        pfac_sfc, pocu, pocv, aa, aa_btm, bb, bb_btm, pcpt_tile,      &
+    !$ser&        pqsat_tile, ptsfc_tile, plhflx_tile, pshflx_tile, lsm, alake, &
+    !$ser&        pu, pv, ptemp, pq, prsfl, prsfc, pssfl, pssfc, rlds, rlus,    &
+    !$ser&        rsds, rsus, rvds_dir, rpds_dir, rnds_dir, rvds_dif, rpds_dif, &
+    !$ser&        rnds_dif, ps, pcosmu0, pch_tile, pcsat, pcair, z0m_tile,      &
+    !$ser&        z0h_lnd, albvisdir, albnirdir, albvisdif, albnirdif,          &
+    !$ser&        albvisdir_tile, albnirdir_tile, albvisdif_tile,               &
+    !$ser&        albnirdif_tile, albedo, albedo_tile, Tsurf, T1, T2, hi, hs,   &
+    !$ser&        Qtop, Qbot, conc, albvisdir_ice, albvisdif_ice,               &
     !$ser&        albnirdir_ice, albnirdif_ice)
 
     ! check for masks
@@ -900,8 +901,8 @@ CONTAINS
     !$ser&            albnirdif, albvisdir_tile, albnirdir_tile,               &
     !$ser&            albvisdif_tile, albnirdif_tile, albedo, albedo_tile,     &
     !$ser&            ptsfc, ptsfc_rad, rsns_tile, rlns_tile, lake_ice_frc,    &
-    !$ser&            Tsurf, T2, hs, Qtop, Qbot, albvisdir_ice, albvisdif_ice, &
-    !$ser&            albnirdir_ice, albnirdif_ice)
+    !$ser&            Tsurf, T2, hi, hs, Qtop, Qbot, albvisdir_ice,            &
+    !$ser&            albvisdif_ice, albnirdir_ice, albnirdif_ice)
 
   !---------------------------------------------------------------------------
   !
