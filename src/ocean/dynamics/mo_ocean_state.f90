@@ -29,7 +29,7 @@ MODULE mo_ocean_state
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_impl_constants,      ONLY: success, max_char_length
+  USE mo_impl_constants,      ONLY: success, max_char_length, TLEV_NNEW
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, use_tracer_x_height, cfl_write,&
     &                               Cartesian_Mixing , &
     &                               k_tracer_dianeutral_parameter,                                &
@@ -131,7 +131,7 @@ CONTAINS
     WRITE(listname,'(a)')  'ocean_default_list'
     CALL new_var_list(ocean_default_list, listname, patch_id=patch_2d%id)
     CALL default_var_list_settings( ocean_default_list,            &
-      & lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
+      & lrestart=.FALSE.,model_type='oce',loutput=.TRUE.)
   END SUBROUTINE construct_ocean_var_lists
   !-------------------------------------------------------------------------
   
@@ -407,14 +407,14 @@ CONTAINS
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,    &
       & t_cf_var('ssh'//TRIM(var_suffix), 'm', 'surface elevation at cell center', DATATYPE_FLT64),&
       & grib2_var(255, 255, 1, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/))!TODO, tlev_source=TLEV_NNEW)
+      & ldims=(/nproma,alloc_cell_blocks/), tlev_source=TLEV_NNEW)!TODO, tlev_source=TLEV_NNEW)
     
     !! normal velocity component
     CALL add_var(ocean_restart_list,'normal_velocity'//TRIM(var_suffix),ocean_state_prog%vn,grid_unstructured_edge, &
       & za_depth_below_sea, &
       & t_cf_var('vn'//TRIM(var_suffix), 'm/s', 'normal velocity on edge', DATATYPE_FLT64),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/))
+      & ldims=(/nproma,n_zlev,nblks_e/), tlev_source=TLEV_NNEW)
     
     !! Tracers
     IF ( no_tracer > 0 ) THEN
@@ -451,7 +451,7 @@ CONTAINS
           & oce_tracer_units(jtrc), &
           & oce_tracer_longnames(jtrc), DATATYPE_FLT64), &
           & grib2_var(255, 255, oce_tracer_codes(jtrc), DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-          & ldims=(/nproma,n_zlev,alloc_cell_blocks/))
+          & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW)
       END DO
       
       ! use of the ocean_tracers structure
