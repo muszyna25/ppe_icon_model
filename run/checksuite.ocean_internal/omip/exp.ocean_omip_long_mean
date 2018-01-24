@@ -6,11 +6,11 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2030-01-01T00:00:00Z"  #  201 years to ensure write of restart at end
+  end_date="2100-01-01T00:00:00Z"  #  201 years to ensure write of restart at end
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
-restart_interval="P10Y"
+restart_interval="P20Y"
 checkpoint_interval="P10Y"
 #
 #-----------------------------------------------------------------------------
@@ -18,7 +18,7 @@ checkpoint_interval="P10Y"
 output_interval="P1M"                  # ocean model output interval in days
 daily="P1D"
 monthly="P1M"
-file_interval="P1Y"
+file_interval="P20Y"
 modelTimeStep="PT1H"
 autoPostProcessing="false"                         # submit postprocessing job
 #steps_per_file=610                               # assigned output intervals per file interval
@@ -66,12 +66,12 @@ cat > ${ocean_namelist} << EOF
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${monthly}"
-  file_interval="P1Y"
+  file_interval="${file_interval}"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
   output_grid      = .TRUE.
-  filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'group:oce_essentials', 'group:ice_default'
+  operation        = "mean"
+  ml_varlist       = 'u_vint','mld'
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
@@ -80,13 +80,12 @@ cat > ${ocean_namelist} << EOF
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${monthly}"
-  file_interval="P1Y"
+  file_interval    ="${file_interval}"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-  operation = "mean"
+  operation        = "mean"
   include_last     = .false.
   output_grid      = .TRUE.
-  filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'group:oce_diag'
+  ml_varlist       = 'u','v','to','so','zos'
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
@@ -95,20 +94,19 @@ cat > ${ocean_namelist} << EOF
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${daily}"
-  file_interval="P1Y"
-  operation = "mean"
+  file_interval    = "${file_interval}"
+  operation        = "mean"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
   output_grid      = .TRUE.
-  filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'group:oce_diag'
+  ml_varlist       = 'u','v','to','so','zos'
 /
 &output_nml
   output_start     = "${start_date}"
   output_end       = "${end_date}"
   output_interval  = "${monthly}"
   output_grid      = .true.
-  file_interval="P10Y"
+  file_interval="${file_interval}"
   output_filename  = "${EXPNAME}_oceanMonitor"
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'group:ocean_monitor'
@@ -118,7 +116,7 @@ cat > ${ocean_namelist} << EOF
   output_end       = "${end_date}"
   output_interval  = "${monthly}"
   output_grid      = .true.
-  file_interval="P10Y"
+  file_interval="${file_interval}"
   operation        = "mean"
   output_filename  = "${EXPNAME}_oceanMonitor_autoMean"
   filename_format  = "<output_filename>_<datetime2>"
