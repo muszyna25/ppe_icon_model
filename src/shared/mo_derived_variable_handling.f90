@@ -25,7 +25,7 @@ MODULE mo_derived_variable_handling
   USE mo_var_list, ONLY: new_var_list,&
        total_number_of_variables, &
        get_var_name, default_var_list_settings, add_var, find_element, find_list_element, &
-       & get_varname_with_timelevel, delete_var_list
+       & get_varname_with_timelevel, delete_var_list, print_all_var_lists
   USE mo_linked_list, ONLY: t_var_list, t_list_element
   USE mo_exception, ONLY: finish, message, message_text
   USE mtime, ONLY: MAX_DATETIME_STR_LEN, newEvent, event, isCurrentEventActive,&
@@ -318,7 +318,6 @@ CONTAINS
 
           ! if not found: maybe it is a prognostic variable, so it has the
           ! time-level in its name
-          !
           ! ATTENTION: this is only a placeholder, because it catches the first match
           ! the correct pointer is the one with nnew(), but its value changes each timestep
           IF (.not. ASSOCIATED (src_element)) THEN
@@ -331,13 +330,16 @@ CONTAINS
 #endif
               src_element => find_element(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
               if ( ASSOCIATED(src_element) ) then
+if (my_process_is_stdio()) write(0,*)'found prognostic:',TRIM(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
                 if ( .not. foundPrognostic ) then
                   ! save the name of the original output variable if a prognosting version was found
                   call meanPrognostics%add(varlist(i))
                   foundPrognostic = .true.
+                  if (my_process_is_stdio()) call print_error('meanPrognostics%add():'//varlist(i))
                 end if
                 ! save the the pointers for all time levels of a prognostic variable
                 call meanPrognosticPointers%add(get_varname_with_timelevel(varlist(i),timelevels(timelevel)),src_element)
+if (my_process_is_stdio()) write(0,*)'IS pROGNOSTIC:',TRIM(varlist(i))
               end if
             end do
           END IF
@@ -384,9 +386,11 @@ CONTAINS
       END DO
 
       call meanMap%add(eventKey,meanVariables)
+      if (my_process_is_stdio()) call print_error(routine//": meanPrognostics%to_string()")
+      if (my_process_is_stdio()) call print_error(meanPrognostics%to_string())
     ELSE
 #ifdef DEBUG_MVSTREAM
-      if (my_process_is_stdio()) call print_routine(routine,'NO "mean" operation found',stderr=.true.)
+      if (my_process_is_stdio()) call print_routine(routine,'NO "mean" operation found')
 #endif
     END IF
 
