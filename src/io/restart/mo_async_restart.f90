@@ -24,7 +24,7 @@ MODULE mo_async_restart
 #ifndef NOMPI
 
   USE mo_async_restart_comm_data,   ONLY: t_AsyncRestartCommData
-  USE mo_exception,                 ONLY: finish
+  USE mo_exception,                 ONLY: finish, message
   USE mo_fortran_tools,             ONLY: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int
   USE mo_kind,                      ONLY: wp, i8, dp, sp
   USE mtime,                        ONLY: datetime
@@ -216,6 +216,7 @@ CONTAINS
 
     INTEGER :: idx
     TYPE(t_restart_args) :: restart_args
+    TYPE(t_PackedMessage) :: packedMessage
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':asyncRestartDescriptor_writeRestart'
 
     IF(timers_level >= 5) CALL timer_start(timer_write_restart)
@@ -229,7 +230,7 @@ CONTAINS
 
     CALL compute_wait_for_restart()
     CALL restart_args%construct(this_datetime, jstep, me%modelType, opt_output_jfile)
-    CALL compute_start_restart(restart_args, me%patchData)
+    CALL compute_start_restart(restart_args, me%patchData, packedMessage)
     CALL restart_args%destruct()
 
     ! do the restart output
@@ -237,6 +238,12 @@ CONTAINS
       ! collective call to write the restart variables
       IF(me%patchData(idx)%description%l_dom_active) CALL compute_write_var_list(me%patchData(idx))
     END DO
+    ! make sure all buffers are ready
+    CALL p_barrier(comm=p_comm_work)
+    IF (p_pe_work == 0) THEN
+      CALL packedMessage%send(p_restart_pe0, 0, process_mpi_all_comm)
+      CALL packedMessage%destruct()
+    END IF
 
     IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
   END SUBROUTINE asyncRestartDescriptor_writeRestart
@@ -495,6 +502,7 @@ CONTAINS
 
     ! first compute PE receives message from restart leader
     IF(p_pe_work == 0) THEN
+      CALL message(routine, "Waiting for restart to finish (might take a while)")
       CALL p_recv(msg, p_restart_pe0, 0)
 #ifdef DEBUG
       WRITE (nerr,FORMAT_VALS7)routine,' p_pe=',p_pe, &
@@ -521,12 +529,12 @@ CONTAINS
   !! compute_start_restart: Send a message to restart PEs that they should start restart.
   !! The counterpart on the restart side is restart_wait_for_start.
   !
-  SUBROUTINE compute_start_restart(restart_args, patchData)
+  SUBROUTINE compute_start_restart(restart_args, patchData, packedMessage)
     TYPE(t_restart_args), INTENT(INOUT) :: restart_args
     CLASS(t_RestartPatchData), INTENT(INOUT) :: patchData(:)
+    TYPE(t_PackedMessage), INTENT(inout) :: packedMessage
 
     INTEGER :: i, trash
-    TYPE(t_PackedMessage) :: packedMessage
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':compute_start_restart'
 
 #ifdef DEBUG
@@ -534,9 +542,6 @@ CONTAINS
 #endif
 
     IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-
-    ! make sure all are here
-    CALL p_barrier(comm=p_comm_work)
 
     ! if processor splitting is applied, the time-dependent data need to be transferred
     ! from the subset master PE to PE0, from where they are communicated to the output PE(s)
@@ -549,7 +554,6 @@ CONTAINS
       ! send the DATA to the restart master
       CALL packedMessage%pack(MSG_RESTART_START)  ! set command id
       CALL restartMetadataPacker(kPackOp, restart_args, patchData, packedMessage)    ! all the other DATA
-      CALL packedMessage%send(p_restart_pe0, 0, process_mpi_all_comm)
     ENDIF
     ! broadcast a copy among the compute processes, so that all
     ! processes have a consistent view of the restart patch
@@ -558,7 +562,7 @@ CONTAINS
     CALL packedMessage%unpack(trash)  ! ignore the command id
     CALL restartMetadataPacker(kUnpackOp, restart_args, patchData, packedMessage)
 
-    CALL packedMessage%destruct()
+    IF (p_pe_work /= 0) CALL packedMessage%destruct()
 
     IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
   END SUBROUTINE compute_start_restart
