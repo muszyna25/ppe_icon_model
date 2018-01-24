@@ -99,7 +99,6 @@ MODULE mo_ocean_initialization
   PUBLIC :: init_coriolis_oce
   PUBLIC :: is_initial_timestep
   PUBLIC :: init_oce_config
-  PUBLIC :: construct_ocean_var_lists
   PUBLIC :: check_ocean_subsets
   
   PUBLIC :: init_patch_3d
@@ -107,26 +106,6 @@ MODULE mo_ocean_initialization
   
 CONTAINS
   
-  !-------------------------------------------------------------------------
-  !
-  !
-!<Optimize:inUse>
-  SUBROUTINE construct_ocean_var_lists(patch_2d)
-    TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
-    
-    CHARACTER(LEN=max_char_length) :: listname
-    
-    WRITE(listname,'(a)')  'ocean_restart_list'
-    CALL new_var_list(ocean_restart_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( ocean_restart_list,             &
-      & lrestart=.TRUE.,loutput=.TRUE.,&
-      & model_type='oce' )
-    WRITE(listname,'(a)')  'ocean_default_list'
-    CALL new_var_list(ocean_default_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( ocean_default_list,            &
-      & lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
-  END SUBROUTINE construct_ocean_var_lists
-  !-------------------------------------------------------------------------
   
 
   

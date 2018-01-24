@@ -87,6 +87,7 @@ MODULE mo_ocean_state
   PUBLIC :: destruct_hydro_ocean_state
   PUBLIC :: construct_patch_3d, destruct_patch_3d
   PUBLIC :: set_oce_tracer_info
+  PUBLIC :: construct_ocean_var_lists
   !
   
   PUBLIC :: ocean_restart_list
@@ -113,6 +114,26 @@ MODULE mo_ocean_state
   
 CONTAINS
   
+  !-------------------------------------------------------------------------
+  !
+  !
+!<Optimize:inUse>
+  SUBROUTINE construct_ocean_var_lists(patch_2d)
+    TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
+    
+    CHARACTER(LEN=max_char_length) :: listname
+    
+    WRITE(listname,'(a)')  'ocean_restart_list'
+    CALL new_var_list(ocean_restart_list, listname, patch_id=patch_2d%id)
+    CALL default_var_list_settings( ocean_restart_list,             &
+      & lrestart=.TRUE.,loutput=.TRUE.,&
+      & model_type='oce' )
+    WRITE(listname,'(a)')  'ocean_default_list'
+    CALL new_var_list(ocean_default_list, listname, patch_id=patch_2d%id)
+    CALL default_var_list_settings( ocean_default_list,            &
+      & lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
+  END SUBROUTINE construct_ocean_var_lists
+  !-------------------------------------------------------------------------
   
   !>
   !! Constructor for hydrostatic ocean state + diagnostic and auxiliary  states.

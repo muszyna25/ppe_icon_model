@@ -67,10 +67,11 @@ MODULE mo_ocean_model
   USE mo_ocean_state,           ONLY:  v_base, &
     & construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
     & construct_hydro_ocean_state, destruct_hydro_ocean_state, &
-    & construct_patch_3d, destruct_patch_3d, ocean_default_list, ocean_restart_list
+    & construct_patch_3d, destruct_patch_3d, &
+    & ocean_default_list, ocean_restart_list, construct_ocean_var_lists
   USE mo_ocean_initialization, ONLY: init_ho_base, &
     & init_ho_basins, init_coriolis_oce, init_oce_config,  init_patch_3d,   &
-    & init_patch_3d, construct_ocean_var_lists
+    & init_patch_3d
   USE mo_hamocc_output,        ONLY: construct_hamocc_var_lists, construct_hamocc_state, &
     &                                destruct_hamocc_state         
   USE mo_ocean_initial_conditions,  ONLY:  apply_initial_conditions, init_ocean_bathymetry
