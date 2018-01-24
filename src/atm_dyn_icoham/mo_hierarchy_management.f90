@@ -95,9 +95,8 @@ MODULE mo_hierarchy_management
   USE mtime,                  ONLY: datetime, timeDelta, MAX_DATETIME_STR_LEN, &
     &                               newTimeDelta, newDatetime, OPERATOR(*),    &
     &                               OPERATOR(+), deallocateDatetime,           &
-    &                               deallocateTimedelta, datetimeToString,     &
-    &                               getTimedeltaFromDatetime,                  &
-    &                               getTotalMillisecondsTimedelta
+    &                               deallocateTimedelta, datetimeToString
+  USE mo_util_mtime,          ONLY: getElapsedSimTimeInSeconds
   USE mo_time_config,         ONLY: time_config
 
   IMPLICIT NONE
@@ -192,14 +191,10 @@ CONTAINS
     INTEGER :: ist
     INTEGER, EXTERNAL :: util_cputime
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dstring
-    TYPE(timeDelta), POINTER            :: time_diff
     REAL(wp)                            :: sim_time     !< elapsed simulation time on this grid level
 
     ! calculate elapsed simulation time in seconds
-    time_diff  => newTimedelta("PT0S")
-    time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_startdate)
-    sim_time   =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
-    CALL deallocateTimedelta(time_diff)
+    sim_time = getElapsedSimTimeInSeconds(mtime_current, anchor_datetime=time_config%tc_startdate) 
 
     !---------------
 

@@ -26,9 +26,8 @@
 
 MODULE mo_interface_les
 
-  USE mtime,                 ONLY: datetime, timeDelta, newTimedelta,     &
-    &                              deallocateTimedelta, getTimedeltaFromDatetime, &
-    &                              getTotalMillisecondsTimedelta
+  USE mtime,                 ONLY: datetime
+  USE mo_util_mtime,         ONLY: getElapsedSimTimeInSeconds
   USE mo_time_config,        ONLY: time_config
   USE mo_kind,               ONLY: wp
   USE mo_timer
@@ -210,15 +209,12 @@ CONTAINS
     ! Required for computing the water loading term 
     INTEGER, POINTER :: condensate_list(:)
 
-    TYPE(timeDelta), POINTER            :: time_diff
     REAL(wp)                            :: p_sim_time     !< elapsed simulation time on this grid level
 
     ! calculate elapsed simulation time in seconds (local time for
     ! this domain!)
-    time_diff  => newTimedelta("PT0S")
-    time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_exp_startdate)
-    p_sim_time =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
-    CALL deallocateTimedelta(time_diff)
+    p_sim_time = getElapsedSimTimeInSeconds(mtime_current) 
+
 
     IF (ltimer) CALL timer_start(timer_physics)
 

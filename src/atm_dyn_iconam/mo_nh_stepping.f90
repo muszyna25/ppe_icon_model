@@ -127,7 +127,8 @@ MODULE mo_nh_stepping
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
   USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, p_comm_work
-  USE mo_util_mtime,               ONLY: mtime_utils, assumePrevMidnight, FMT_DDHHMMSS_DAYSEP
+  USE mo_util_mtime,               ONLY: mtime_utils, assumePrevMidnight, FMT_DDHHMMSS_DAYSEP, &
+    &                                    getElapsedSimTimeInSeconds
 
 #ifdef NOMPI
   USE mo_mpi,                      ONLY: my_process_is_mpi_all_seq
@@ -196,8 +197,7 @@ MODULE mo_nh_stepping
        &                                 ASSIGNMENT(=), OPERATOR(==), OPERATOR(>=), OPERATOR(/=),         &
        &                                 event, eventGroup, newEvent,                                     &
        &                                 addEventToEventGroup, isCurrentEventActive,                      &
-       &                                 getTotalMillisecondsTimedelta, getTotalSecondsTimedelta,     &
-       &                                 getTimedeltaFromDatetime
+       &                                 getTotalSecondsTimedelta, getTimedeltaFromDatetime
   USE mo_event_manager,            ONLY: addEventGroup, getEventGroup, printEventGroup
   USE mo_phy_events,               ONLY: mtime_ctrl_physics
   USE mo_derived_variable_handling, ONLY: perform_accumulation, reset_accumulation
@@ -578,7 +578,6 @@ MODULE mo_nh_stepping
   INTEGER                              :: checkpointEvents
   LOGICAL                              :: lret
   TYPE(t_datetime_ptr)                 :: datetime_current(max_dom) 
-  TYPE(timeDelta), POINTER             :: time_diff
   TYPE(t_RestartAttributeList), POINTER :: restartAttributes
   CLASS(t_RestartDescriptor), POINTER  :: restartDescriptor
 
@@ -605,9 +604,7 @@ MODULE mo_nh_stepping
   IF (ltimer) CALL timer_start(timer_total)
   
   ! calculate elapsed simulation time in seconds
-  time_diff  => newTimedelta("PT0S")
-  time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_exp_startdate)
-  sim_time   =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
+  sim_time = getElapsedSimTimeInSeconds(mtime_current) 
 
   IF (iterate_iau .AND. .NOT. isRestart()) THEN
     iau_iter = 1
@@ -1210,9 +1207,7 @@ MODULE mo_nh_stepping
      jstep = jstep + 1
     ENDIF
 
-    time_diff  = getTimeDeltaFromDateTime(mtime_current, time_config%tc_exp_startdate)
-    sim_time   = getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
-     
+    sim_time = getElapsedSimTimeInSeconds(mtime_current) 
   ENDDO TIME_LOOP
 
 #if defined( _OPENACC )
@@ -1235,7 +1230,6 @@ MODULE mo_nh_stepping
     IF (ierr /= SUCCESS)  CALL finish (routine, 'DEALLOCATE failed!')
   ENDIF
 
-  CALL deallocateTimedelta(time_diff)  
   CALL deallocateDatetime(mtime_old)
   DO jg=1,n_dom
     IF (ASSOCIATED(datetime_current(jg)%ptr)) &
@@ -1294,15 +1288,11 @@ MODULE mo_nh_stepping
 
     INTEGER, PARAMETER :: nsteps_nest=2 ! number of time steps executed in nested domain
 
-    TYPE(timeDelta), POINTER             :: time_diff
     REAL(wp)                             :: sim_time !< elapsed simulation time on this grid level
 
     ! calculate elapsed simulation time in seconds (local time for
     ! this domain!)
-    time_diff  => newTimedelta("PT0S")
-    time_diff  =  getTimeDeltaFromDateTime(datetime_local(jg)%ptr, time_config%tc_exp_startdate)
-    sim_time =  getTotalMillisecondsTimedelta(time_diff, datetime_local(jg)%ptr)*1.e-3_wp
-    CALL deallocateTimedelta(time_diff)
+    sim_time = getElapsedSimTimeInSeconds(datetime_local(jg)%ptr) 
 
     !--------------------------------------------------------------------------
     ! This timer must not be called in nested domain because the model crashes otherwise
@@ -1427,10 +1417,7 @@ MODULE mo_nh_stepping
       ! top-level patch, this is omitted, since the update has already
       ! happened in the calling subroutine.
       datetime_local(jg)%ptr = datetime_local(jg)%ptr + mtime_dt_loc
-      time_diff  => newTimedelta("PT0S")
-      time_diff  =  getTimeDeltaFromDateTime(datetime_local(jg)%ptr, time_config%tc_exp_startdate)
-      sim_time =  getTotalMillisecondsTimedelta(time_diff, datetime_local(jg)%ptr)*1.e-3_wp
-      CALL deallocateTimedelta(time_diff)
+      sim_time = getElapsedSimTimeInSeconds(datetime_local(jg)%ptr) 
 
       IF (itime_scheme == 1) THEN
         !------------------

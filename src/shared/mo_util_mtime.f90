@@ -12,15 +12,21 @@
 MODULE mo_util_mtime
 
   USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t
+  USE mo_kind,                     ONLY: wp
   USE mo_impl_constants,           ONLY: MAX_CHAR_LENGTH
   USE mtime,                       ONLY: datetime, timedelta, newTimeDelta, OPERATOR(-),   &
     &                                    OPERATOR(+), juliandelta, newJulianDelta,         &
     &                                    timeDeltaToJulianDelta, deallocateJulianDelta,    &
-    &                                    deallocateTimeDelta
+    &                                    deallocateTimeDelta, getTimeDeltaFromDateTime,    &
+    &                                    getTotalMillisecondsTimedelta
+  USE mo_time_config,              ONLY: time_config
   USE mo_util_string,              ONLY: t_keyword_list,                   &
                                          associate_keyword, with_keywords, &
                                          int2string
 
+!DR Test
+  USE mo_exception,                ONLY: message, message_text, finish
+!DR End Test
 
   IMPLICIT NONE
 
@@ -29,6 +35,7 @@ MODULE mo_util_mtime
     &        FMT_DDHHMMSS, FMT_DDDHHMMSS, FMT_DDDHH, FMT_DDHHMMSS_DAYSEP
   PUBLIC :: assumePrevMidnight
   PUBLIC :: assumeNextMidnight
+  PUBLIC :: getElapsedSimTimeInSeconds
 
   PRIVATE
 
@@ -144,6 +151,44 @@ CONTAINS
     CALL deallocateTimedelta(td_1day)
 
   END FUNCTION assumeNextMidnight
+
+
+  !>
+  !! Returns elapsed simulation time in seconds
+  !!
+  !! Elapsed simulation time is computed as the timedelta 
+  !! between the current datetime and the anchor  
+  !! datetime. Unless specified otherwise, the anchor date  
+  !! is set to the experiment start date time_config%tc_exp_startdate.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2017-12-01)
+  !!
+  REAL(wp) FUNCTION getElapsedSimTimeInSeconds(datetime_current, anchor_datetime) RESULT(sim_time)
+    !
+    TYPE(datetime)          , INTENT(IN) :: datetime_current
+    TYPE(datetime), OPTIONAL, INTENT(IN) :: anchor_datetime   ! anchor date
+    !
+    ! local
+    TYPE(timedelta), POINTER :: time_diff => NULL()
+    TYPE(datetime)           :: anchor                        ! anchor date for 
+                                                              ! timeDelta computation
+    !---------------------------------------------------------
+
+    If (PRESENT(anchor_datetime)) THEN
+      anchor = anchor_datetime
+    ELSE
+      ! set anchor date to experiment start date
+      anchor = time_config%tc_exp_startdate
+    ENDIF
+
+    time_diff  => newTimedelta("PT0S")
+    time_diff  =  getTimeDeltaFromDateTime(datetime_current, anchor)
+    sim_time   =  getTotalMillisecondsTimedelta(time_diff, datetime_current)*1.e-3_wp
+
+    CALL deallocateTimedelta(time_diff)
+
+  END FUNCTION getElapsedSimTimeInSeconds
 
 
 END MODULE mo_util_mtime

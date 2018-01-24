@@ -50,9 +50,8 @@ MODULE mo_turbulent_diagnostic
   USE mo_physical_constants, ONLY: cpd, grav, alv, vtmpc1
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_satad,              ONLY: sat_pres_water, spec_humi
-  USE mtime,                 ONLY: datetime, timeDelta, newTimedelta,             &
-    &                              deallocateTimedelta, getTimedeltaFromDatetime, &
-    &                              getTotalMillisecondsTimedelta
+  USE mtime,                 ONLY: datetime
+  USE mo_util_mtime,         ONLY: getElapsedSimTimeInSeconds
   USE mo_time_config,        ONLY: time_config
  
   IMPLICIT NONE
@@ -949,15 +948,12 @@ CONTAINS
     INTEGER                  :: nvar, n
     REAL(wp)                 :: inv_ncount
     REAL(wp)                 :: sim_time     !< elapsed simulation time on this grid level
-    TYPE(timeDelta), POINTER :: time_diff
 
     
     ! calculate elapsed simulation time in seconds
-    time_diff  => newTimedelta("PT0S")
-    time_diff  =  getTimeDeltaFromDateTime(this_datetime, time_config%tc_startdate)
-    sim_time   =  getTotalMillisecondsTimedelta(time_diff, this_datetime)*1.e-3_wp
-    CALL deallocateTimedelta(time_diff)
- 
+    sim_time = getElapsedSimTimeInSeconds(this_datetime, anchor_datetime=time_config%tc_startdate) 
+
+
     !Write profiles
       
     inv_ncount = 1._wp / REAL(ncount,wp)
@@ -996,13 +992,11 @@ CONTAINS
 
     INTEGER                  :: nvar, n
     REAL(wp)                 :: sim_time     !< elapsed simulation time on this grid level
-    TYPE(timeDelta), POINTER :: time_diff
+
     
     ! calculate elapsed simulation time in seconds
-    time_diff  => newTimedelta("PT0S")
-    time_diff  =  getTimeDeltaFromDateTime(this_datetime, time_config%tc_startdate)
-    sim_time   =  getTotalMillisecondsTimedelta(time_diff, this_datetime)*1.e-3_wp
-    CALL deallocateTimedelta(time_diff)
+    sim_time = getElapsedSimTimeInSeconds(this_datetime, anchor_datetime=time_config%tc_startdate) 
+
 
     !Write time series 
     nvar = SIZE(turb_tseries_list,1)
@@ -1046,14 +1040,11 @@ CONTAINS
    INTEGER :: n, nlev, nlevp1, nvar, jg
    REAL(wp) :: z_mc_avg(p_patch%nlev), z_ic_avg(p_patch%nlev+1)
    CHARACTER(len=*), PARAMETER :: routine = 'mo_turbulent_diagnostic:init_les_turbulent_output'
-   TYPE(timeDelta), POINTER            :: time_diff
    REAL(wp)                            :: p_sim_time     !< elapsed simulation time on this grid level
  
    ! calculate elapsed simulation time in seconds
-   time_diff  => newTimedelta("PT0S")
-   time_diff  =  getTimeDeltaFromDateTime(this_datetime, time_config%tc_startdate)
-   p_sim_time =  getTotalMillisecondsTimedelta(time_diff, this_datetime)*1.e-3_wp
-   CALL deallocateTimedelta(time_diff)
+   p_sim_time = getElapsedSimTimeInSeconds(this_datetime, anchor_datetime=time_config%tc_startdate) 
+
 
    jg = p_patch%id
 
