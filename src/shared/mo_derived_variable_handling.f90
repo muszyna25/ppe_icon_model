@@ -125,6 +125,8 @@ CONTAINS
     select type (dummy)
     type is (t_list_element)
       sourcePointer => dummy
+    class default
+      call finish(routine,"Cound not find pointer to prognostics variable for given timelevel!")
     end select
   end function get_prognostics_source_pointer
 
