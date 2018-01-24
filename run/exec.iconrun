@@ -137,6 +137,7 @@ fi
 #-----------------------------------------------------------------------------
 
 
+read_restart_namelists=${read_restart_namelists:=".true."}
 
 #-----------------------------------------------------------------------------
 #
@@ -170,6 +171,7 @@ fi
 cat > $master_namelist << EOF
 &master_nml
  lrestart            = $restart
+ read_restart_namelists = $read_restart_namelists
 /
 &master_time_control_nml
  calendar             = "$calendar"

@@ -417,9 +417,9 @@ tune_minsnowfrac = 0.3
   lsq_high_ord     = 3
   l_intp_c2l       = .true.
   l_mono_c2l       = .true.
-  rbf_vec_scale_c =  0.45, 0.3
-  rbf_vec_scale_v =  0.5, 0.4
-  rbf_vec_scale_e =  0.5, 0.45
+  rbf_vec_scale_c =  0.2, 0.1
+  rbf_vec_scale_v =  0.2, 0.1
+  rbf_vec_scale_e =  0.2, 0.1
 !  support_baryctr_intp = .true.
 /
 &gridref_nml

@@ -163,6 +163,8 @@ MODULE mo_initicon_io
   PUBLIC :: process_input_dwdana_atm
   PUBLIC :: process_input_dwdana_sfc
 
+  PUBLIC :: height_or_lev
+
 
   TYPE :: t_fetchParams
     TYPE(t_readInstructionListPtr), ALLOCATABLE :: inputInstructions(:)
@@ -172,6 +174,50 @@ MODULE mo_initicon_io
   END TYPE t_fetchParams
 
   CONTAINS
+
+
+  ! Hack to determine the dimension name for phase2 simulations.
+  ! We now also determine the number of height levels
+  SUBROUTINE height_or_lev (ncid, dimid, nlev)
+    INTEGER, INTENT(IN   ) :: ncid
+    INTEGER, INTENT(  OUT) :: dimid
+    INTEGER, INTENT(  OUT) :: nlev
+
+    INTEGER, PARAMETER :: max_n_height = 9
+    INTEGER :: nlevs(max_n_height)
+    INTEGER :: dimids(max_n_height)
+    INTEGER :: retval
+    INTEGER :: i
+    CHARACTER(len=23) :: dimstring
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//"height_or_lev"
+
+    retval = nf_inq_dimid(ncid, 'lev', dimid)
+
+    ! the "lev" branch
+    IF (retval == nf_noerr) THEN
+      CALL nf(nf_inq_dimlen(ncid, dimid, nlev), routine)
+    ! the "hate*" branch
+    ELSE
+      dimstring = "height"
+      DO i = 1, max_n_height
+        retval = nf_inq_dimid(ncid, TRIM(dimstring), dimids(i))
+        IF (retval == nf_noerr) THEN
+          CALL nf(nf_inq_dimlen(ncid, dimids(i), nlevs(i)), routine)
+        ELSE
+          nlevs(i) = HUGE(1)
+        ENDIF
+
+        WRITE(dimstring, "(A,I0)") "height_",i+1
+      ENDDO
+      i     = MINLOC(nlevs,1)
+      nlev  = nlevs(i)
+      dimid = dimids(i)
+    ENDIF
+
+  END SUBROUTINE height_or_lev
+
+
 
 
   !>
@@ -193,7 +239,7 @@ MODULE mo_initicon_io
     INTEGER :: jg, jlev, jc, jk, jb, i_endidx
     LOGICAL :: l_exist
 
-    INTEGER :: no_cells, no_levels, nlev_in, nhyi, nlev1, nlev2, nlev3
+    INTEGER :: no_cells, no_levels, nlev_in, nhyi
     INTEGER :: ncid, dimid, varid, mpi_comm, ierrstat
     TYPE(t_stream_id) :: stream_id
     INTEGER :: psvar_ndims, geopvar_ndims
@@ -254,16 +300,7 @@ MODULE mo_initicon_io
         !
         ! get number of vertical levels
         !
-        ! would be good, if we could come up with a unique name ...
-        IF (nf_inq_dimid(ncid, 'lev', dimid) == nf_noerr) THEN
-          CALL nf(nf_inq_dimlen(ncid, dimid, no_levels), routine)
-        ELSE ! try alternative names and take their minimum to ensure that we register the full-level dimension
-          nlev1 = 10000 ; nlev2 = 10000; nlev3 = 10000
-          IF (nf_inq_dimid(ncid, 'height', dimid) == nf_noerr)   CALL nf(nf_inq_dimlen(ncid, dimid, nlev1), routine)
-          IF (nf_inq_dimid(ncid, 'height_2', dimid) == nf_noerr) CALL nf(nf_inq_dimlen(ncid, dimid, nlev2), routine)
-          IF (nf_inq_dimid(ncid, 'height_3', dimid) == nf_noerr) CALL nf(nf_inq_dimlen(ncid, dimid, nlev3), routine)
-          no_levels = MIN(nlev1, nlev2, nlev3)
-        ENDIF
+        CALL height_or_lev(ncid, dimid, no_levels)
 
         !
         ! check the number of cells
@@ -628,8 +665,7 @@ MODULE mo_initicon_io
         !
         ! get number of vertical levels
         !
-        CALL nf(nf_inq_dimid(ncid, 'lev', dimid), routine)
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_levels), routine)
+        CALL height_or_lev(ncid, dimid, no_levels)
 
         !
         ! check the number of cells and vertical levels

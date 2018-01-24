@@ -357,6 +357,7 @@ CONTAINS
         CHARACTER(len=filename_max) :: filename
         CHARACTER(LEN = :), ALLOCATABLE :: nmlbuf
 
+!         write(0,*) ">>> Read restart namelist:", TRIM(name)
         archive => namelistArchive()
         CALL archive%getNamelist(name, nmlbuf)
 
