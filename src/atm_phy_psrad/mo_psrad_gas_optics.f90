@@ -451,9 +451,6 @@ CONTAINS
     INTEGER, DIMENSION(KBDIM,klev), INTENT(IN) :: index
     REAL(wp), INTENT(INOUT) :: tau(:,:,:)
     INTEGER :: lay, gpt_in, gpt, i, idx, ptr
-#ifdef PSRAD_DEVEL
-    REAL(wp) :: tau_inc(KBDIM)
-#endif
 
     ptr = ref_o
     gpt_in = 0
@@ -463,24 +460,13 @@ CONTAINS
         ! This loop is explicit to work around bug in NAG 6.1 Build 6106 
         DO i = 1,kproma
           idx = index(i,lay)
-#ifdef PSRAD_DEVEL
-          tau_inc(i) = &
-#else
           tau(i,lay+o,gpt) = tau(i,lay+o,gpt) + &
-#endif
             factor(i,lay) * (&
               flat_data(ptr+idx) + &
               fraction(i,lay) * &
               (flat_data(ptr+idx+1) - &
               flat_data(ptr+idx)))
-#ifdef PSRAD_DEVEL
-          tau(i,lay+o,gpt) = tau(i,lay+o,gpt) + tau_inc(i)
-#endif
         ENDDO
-#ifdef PSRAD_DEVEL
-        CALL save_tau_inc(kproma, KBDIM, laytrop, lay, atm, gpt, save_target, &
-          tau_inc)
-#endif
       ENDDO
       ptr = ptr + ref_s
     ENDDO
@@ -494,9 +480,6 @@ CONTAINS
     REAL(wp), INTENT(IN) :: gas(:,:)
     REAL(wp), INTENT(INOUT) :: tau(:,:,:)
     INTEGER :: gpt, gpt_in, i, lay, ptr
-#ifdef PSRAD_DEVEL
-    REAL(wp) :: tau_inc(KBDIM)
-#endif
 
     gpt_in = 0
     DO gpt = gpt_range(1),gpt_range(2)
@@ -504,18 +487,9 @@ CONTAINS
       ptr = ref_o + gpt_in
       DO lay = range(1),range(2)
         DO i = 1,kproma
-#ifdef PSRAD_DEVEL
-          tau_inc(i) = gas(i,lay) * flat_data(ptr)
-          tau(i,lay+o,gpt) = tau(i,lay+o,gpt) + tau_inc(i)
-#else
           tau(i,lay+o,gpt) = tau(i,lay+o,gpt) + &
             gas(i,lay) * flat_data(ptr)
-#endif
         ENDDO
-#ifdef PSRAD_DEVEL
-        CALL save_tau_inc(kproma, KBDIM, laytrop, lay, atm, gpt, save_target, &
-          tau_inc)
-#endif
       ENDDO
     ENDDO
   END SUBROUTINE get_tau_gas

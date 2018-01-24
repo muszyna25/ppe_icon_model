@@ -49,14 +49,6 @@ MODULE mo_psrad_lrtm_driver
   USE mo_timer, ONLY: ltimer, timer_start, timer_stop, &
     timer_sample_cloud_lw, timer_gas_optics_lw
 #endif
-#ifdef PSRAD_DEBUG
-  USE mo_psrad_matlab
-#endif
-#ifdef PSRAD_DEVEL
-#ifdef _OPENMP
-  USE omp_lib, ONLY: omp_get_thread_num
-#endif
-#endif
   IMPLICIT NONE
 
   PRIVATE
@@ -94,9 +86,7 @@ CONTAINS
     flux_up, flux_dn, flux_up_clr, flux_dn_clr)
 
     USE mo_psrad_general, ONLY: ngptlw, ngas, ih2o, jTOA, jSFC, jINC 
-#ifdef PSRAD_DEVEL
-    USE mo_psrad_dump, ONLY: store
-#endif
+
     IMPLICIT NONE
 
     INTEGER, INTENT(IN) :: &
@@ -179,14 +169,6 @@ CONTAINS
     ! We sample clouds first because we may want to adjust water vapor based 
     ! on presence/absence of clouds
     ! BUG: should pass icld flag instead of cldfr
-#ifdef PSRAD_DEVEL
-    INTEGER :: thread_id
-#ifdef _OPENMP
-    thread_id = omp_get_thread_num() + 1
-#else
-    thread_id = 1
-#endif
-#endif
 
 #ifdef PSRAD_TIMING
     IF (ltimer) CALL timer_start(timer_sample_cloud_lw)
@@ -195,12 +177,6 @@ CONTAINS
       ngptlw, rnseeds, i_overlap, cldfr, cld_mask)
 #ifdef PSRAD_TIMING
     IF (ltimer) CALL timer_stop(timer_sample_cloud_lw)
-#endif
-#ifdef PSRAD_DEVEL
-    store(thread_id)%cld_mask_lw = 0
-    WHERE(cld_mask(1:kproma,:,:))
-      store(thread_id)%cld_mask_lw(1:kproma,:,:) = 1
-    END WHERE
 #endif
 
     ! Cloud masks for sorting out clear skies - by cell and by column
@@ -230,14 +206,6 @@ CONTAINS
       minorfrac, scaleminor, scaleminorn2, indminor, fracs, taug)
 #ifdef PSRAD_TIMING
     IF (ltimer) CALL timer_stop(timer_gas_optics_lw)
-#endif
-#ifdef PSRAD_DEVEL
-    store(thread_id)%laytrop_lw(1:kproma) = laytrop(1:kproma)
-    store(thread_id)%laytrop_lw(kproma+1:kbdim) = 0
-    store(thread_id)%tau_lw(1:kproma,:,:) = taug(1:kproma,:,:)
-    store(thread_id)%tau_lw(kproma+1:kbdim,:,:) = 0.0
-    store(thread_id)%fracs_lw(1:kproma,:,:) = fracs(1:kproma,:,:)
-    store(thread_id)%fracs_lw(kproma+1:kbdim,:,:) = 0.0
 #endif
 
     ig = 0

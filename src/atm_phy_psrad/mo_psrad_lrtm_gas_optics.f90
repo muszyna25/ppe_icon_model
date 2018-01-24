@@ -19,10 +19,6 @@ MODULE mo_psrad_lrtm_gas_optics
     planck_fraction_interpolation_layer, planck_ratio, &
     pressure_dependent_tau_correction, stratosphere_fudge_idx, &
     minor_species_fudge, chi_mls, stratosphere_fudge
-#ifdef PSRAD_DEVEL
-  USE mo_psrad_dump, ONLY: toggle_lw_sw, save_tau_major, save_tau_inc, &
-    save_correction
-#endif
   USE mo_psrad_flat_data, ONLY: flat_data, lw_planck, lw_kmajor, lw_h2oref, &
     lw_kgas
   USE mo_psrad_gas_optics, ONLY: get_tau_major_combined, &
@@ -77,10 +73,6 @@ CONTAINS
     REAL(wp), TARGET :: actual_corrected_gas(KBDIM,klev)
     CHARACTER(len=128) :: msg
 
-#ifdef PSRAD_DEVEL
-    INTEGER :: dump_range(2)
-    CALL toggle_lw_sw(.true.)
-#endif
 
     merge_range = (/MINVAL(laytrop(1:kproma)), MAXVAL(laytrop(1:kproma))/)
     merge_size = merge_range(2) - merge_range(1)
@@ -118,26 +110,9 @@ CONTAINS
       merge_range(2) = merge_range(2) - 1
     ENDIF
 
-#ifdef PSRAD_DEVEL
-    IF (upwards) THEN
-      dump_range = (/1, merge_range(2)/)
-    ELSE
-      dump_range = (/merge_range(1), klev/)
-    ENDIF
-#endif
     CALL do_atmosphere(1, atm_range(:,1), tau_ret, fracs_ret, 0)
-#ifdef PSRAD_DEVEL
-    IF (upwards) THEN
-      dump_range = (/merge_range(2)+1, klev/)
-    ELSE
-      dump_range = (/1, merge_range(1)-1/)
-    ENDIF
-#endif
     CALL do_atmosphere(2, atm_range(:,2), tau_ret, fracs_ret, 0)
     IF (merge_size > 0) THEN
-#ifdef PSRAD_DEVEL
-      dump_range = merge_range
-#endif
       CALL do_atmosphere(2, merge_range, &
         tau_merge, fracs_merge, 1-merge_range(1))
       DO gpt = 1,ngptlw
@@ -219,9 +194,6 @@ CONTAINS
           ELSE
             tau(1:kproma,range(1)+o:range(2)+o, gpt_range(1):gpt_range(2)) = 0
           ENDIF
-#ifdef PSRAD_DEVEL
-          CALL save_tau_major(kproma, kbdim, laytrop, dump_range, atm, gpt_range, tau, o)
-#endif
           DO which = 1,2 ! self/foreign
             IF (h2o_absorption_flag(which,atm,band) == 1) THEN
               CALL get_tau_minor(kproma, kbdim, klev, laytrop, range, atm, &
@@ -358,19 +330,9 @@ CONTAINS
     REAL(wp), INTENT(INOUT) :: tau(:,:,:)
     INTEGER :: i, j, lay, gpt, ptr_base, js(KBDIM)
     REAL(wp) :: a, b, fs(KBDIM)
-#ifdef PSRAD_DEVEL
-    INTEGER :: gpt_in
-    REAL(wp) :: tau_inc(KBDIM)
-#endif
 
     ptr_base = ref_o
-#ifdef PSRAD_DEVEL
-    gpt_in = 0
-#endif
     DO gpt = gpt_range(1),gpt_range(2)
-#ifdef PSRAD_DEVEL
-      gpt_in = gpt_in+1
-#endif
       DO lay = range(1),range(2)
         CALL spec_index_1d(kproma, KBDIM, gas1(:,lay), ratio, gas2(:,lay), &
           m, js, fs)
@@ -380,17 +342,9 @@ CONTAINS
           a = flat_data(j) + fs(i) * (flat_data(j+1)- flat_data(j))
           j = j + (m+1)
           b = flat_data(j) + fs(i) * (flat_data(j+1)- flat_data(j))
-#ifdef PSRAD_DEVEL
-          tau_inc(i) = scale(i,lay) * (a + fraction(i,lay) * (b - a));
-          tau(i,lay+o,gpt) = tau(i,lay+o,gpt) + tau_inc(i)
-#else
           tau(i,lay+o,gpt) = tau(i,lay+o,gpt) + &
             scale(i,lay) * (a + fraction(i,lay) * (b - a));
-#endif
         END DO
-#ifdef PSRAD_DEVEL
-        CALL save_tau_inc(kproma, kbdim, laytrop, lay, atm, gpt, dump_index, tau_inc)
-#endif
       END DO
       ptr_base = ptr_base + ref_s
     END DO
@@ -406,33 +360,17 @@ CONTAINS
     REAL(wp), INTENT(IN) :: play(KBDIM,klev)
     REAL(wp), INTENT(INOUT) :: tau(:,:,:)
     INTEGER :: i, lay, gpt
-#ifdef PSRAD_DEVEL
-    REAL(wp) :: correction(KBDIM)
-#endif
 
     SELECT CASE(which)
       CASE(1)
       DO gpt = gpt_range(1),gpt_range(2)
       DO lay = range(1),range(2)
         DO i = 1, kproma
-#ifdef PSRAD_DEVEL
-          IF (play(i,lay) < pa2) THEN
-            correction(i) = 1._wp - &
-              pa1 * (pa2 - play(i,lay)) / pa3
-            tau(i,lay+o,gpt) = tau(i,lay+o,gpt) * correction(i)
-          ELSE
-            correction(i) = 1
-          ENDIF
-#else
           IF (play(i,lay) < pa2 ) THEN
             tau(i,lay+o,gpt) = tau(i,lay+o,gpt) * &
               (1._wp - pa1 * (pa2 - play(i,lay)) / pa3)
           ENDIF
-#endif
         ENDDO
-#ifdef PSRAD_DEVEL
-        CALL save_correction(kproma, kbdim, laytrop, (/lay,lay/), atm, gpt, correction)
-#endif
       ENDDO
       ENDDO
 
@@ -440,17 +378,9 @@ CONTAINS
       DO gpt = gpt_range(1),gpt_range(2)
       DO lay = range(1),range(2)
         DO i = 1, kproma
-#ifdef PSRAD_DEVEL
-          correction(i) = (1._wp - pb1 * (play(i,lay) / pb2))
-          tau(i,lay+o,gpt) = tau(i,lay+o,gpt) * correction(i)
-#else
           tau(i,lay+o,gpt) = tau(i,lay+o,gpt) * &
             (1._wp - pb1 * (play(i,lay) / pb2))
-#endif
         ENDDO
-#ifdef PSRAD_DEVEL
-        CALL save_correction(kproma, kbdim, laytrop, (/lay,lay/), atm, gpt, correction)
-#endif
       ENDDO
       ENDDO
 
@@ -458,18 +388,9 @@ CONTAINS
       DO gpt = gpt_range(1),gpt_range(2)
       DO lay = range(1),range(2)
         DO i = 1, kproma
-#ifdef PSRAD_DEVEL
-          correction(i) = &
-            (1._wp - pc1 * (play(i,lay) - pc2) / pc3)
-          tau(i,lay+o,gpt) = tau(i,lay+o,gpt) * correction(i)
-#else
           tau(i,lay+o,gpt) = tau(i,lay+o,gpt) * &
             (1._wp - pc1 * (play(i,lay) - pc2) / pc3)
-#endif
         ENDDO
-#ifdef PSRAD_DEVEL
-        CALL save_correction(kproma, kbdim, laytrop, (/lay,lay/), atm, gpt, correction)
-#endif
       ENDDO
       ENDDO
     END SELECT
@@ -481,17 +402,11 @@ CONTAINS
       range(2), gpt_range(2), o
     REAL(wp), INTENT(INOUT) :: tau(:,:,:)
     INTEGER :: gpt, gpt_in, idx
-#ifdef PSRAD_DEVEL
-    REAL(wp), DIMENSION(KBDIM) :: correction
-#endif
+
     gpt_in = 0
     idx = stratosphere_fudge_idx(band)
     DO gpt = gpt_range(1),gpt_range(2)
       gpt_in = gpt_in+1
-#ifdef PSRAD_DEVEL
-      correction(1:kproma) = stratosphere_fudge(gpt_in,idx)
-      CALL save_correction(kproma, kbdim, laytrop, range, atm, gpt, correction)
-#endif
       tau(1:kproma,range(1)+o:range(2)+o,gpt) = &
         tau(1:kproma,range(1)+o:range(2)+o,gpt) * &
         stratosphere_fudge(gpt_in,idx)

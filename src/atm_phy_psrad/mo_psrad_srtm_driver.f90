@@ -45,10 +45,6 @@ MODULE mo_psrad_srtm_driver
   USE mo_psrad_srtm_gas_optics, ONLY: gas_optics_sw
   USE mo_psrad_srtm_solver, ONLY: srtm_solver_tr,  srtm_reftra_ec 
   USE mo_psrad_cld_sampling, ONLY: sample_cld_state
-#ifdef PSRAD_DEVEL
-  USE mo_psrad_dump, ONLY: save_sw_solver_a, save_sw_solver_b, &
-    save_sw_solver_a_mask, store
-#endif
 #ifdef PSRAD_TIMING
   USE mo_timer, ONLY: ltimer, timer_start, timer_stop, &
     timer_sample_cloud_sw, timer_gas_optics_sw
@@ -214,27 +210,10 @@ CONTAINS
 #ifdef PSRAD_TIMING
     IF (ltimer) CALL timer_stop(timer_sample_cloud_sw)
 #endif
-#ifdef PSRAD_DEVEL
-    store(thread_id)%cld_mask_sw = 0
-    WHERE(cell_cloudy(1:kproma,:,:))
-      store(thread_id)%cld_mask_sw(1:kproma,:,:) = 1
-    END WHERE
-#endif
 
     ! Loop over g-points calculating gas optical properties. 
 #ifdef PSRAD_TIMING
     IF (ltimer) CALL timer_start(timer_gas_optics_sw)
-#endif
-#ifdef PSRAD_DEVEL
-    store(thread_id)%tau_major_sw = 0
-    store(thread_id)%tau_minor_sw = 0
-    store(thread_id)%tau_sw = 0
-    store(thread_id)%gpt_flux_dn_sw_a = 0
-    store(thread_id)%gpt_flux_up_sw_a = 0
-    store(thread_id)%direct_flux_dn_sw_a = 0
-    store(thread_id)%gpt_flux_dn_sw_b = 0
-    store(thread_id)%gpt_flux_up_sw_b = 0
-    store(thread_id)%direct_flux_dn_sw_b = 0
 #endif
 
     CALL gas_optics_sw(kproma, KBDIM, klev, jp, fac, iabs, laytrop, &
@@ -300,11 +279,6 @@ CONTAINS
             Rc, Rd, Tc, Td, Tb, &
             gptflux_dn, gptflux_up, &
             directflux_dn)
-#ifdef PSRAD_DEVEL
-          CALL save_sw_solver_a(kproma, klev, ig, &
-            tau, omega, asymm, &
-            Rc, Rd, Tc, Td, gptflux_dn, gptflux_up, directflux_dn)
-#endif
           DO jk = 1,klev+1
           DO i = 1, kproma
             flux_up_clr(i,jk) = flux_up_clr(i,jk) + &
@@ -337,11 +311,6 @@ CONTAINS
           albdif, albdir, &
           Rc, Rd, Tc, Td, Tb, &
           gptflux_dn, gptflux_up, directflux_dn)
-#ifdef PSRAD_DEVEL
-        CALL save_sw_solver_b(kproma, klev, ig, &
-            tau, omega, asymm, &
-          Rc, Rd, Tc, Td, gptflux_dn, gptflux_up, directflux_dn)
-#endif
 
         DO jk = 1,klev+1
         DO i = 1, kproma
@@ -363,13 +332,6 @@ CONTAINS
         IF(.not. l_do_sep_clear_sky) THEN
           ! Accumulate broadband (flx) clear-sky fluxes but here we exclude 
           ! cloudy subcolumns and weight to account for smaller sample size
-#ifdef PSRAD_DEVEL
-          !buggy = amask...
-          CALL save_sw_solver_a_mask(kproma, klev, ig, &
-            tau, omega, asymm, &
-            Rc, Rd, Tc, Td, gptflux_dn, gptflux_up, directflux_dn, &
-            .not. column_cloudy(:,ig))
-#endif
           DO jk = 1, klev+1
           DO i = 1, kproma
             IF (.not. column_cloudy(i,ig)) THEN

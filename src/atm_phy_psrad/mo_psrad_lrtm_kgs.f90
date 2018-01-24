@@ -267,11 +267,7 @@ MODULE mo_psrad_lrtm_kgs
   REAL(wp) :: pa1, pa2, pa3, pb1, pb2, pc1, pc2, pc3
 
   PUBLIC :: lrtm_count_flat
-#ifdef PSRAD_WITH_LEGACY
-  PUBLIC :: lrtm_pack_data
-#else
   PUBLIC :: lrtm_unpack_data
-#endif
 
 CONTAINS
 
@@ -282,42 +278,6 @@ CONTAINS
       ngas * ngas * 59 + & ! planck_ratio
       9 !  precipitable_vapor_factor, pa1, pa2, pa3, pb1, pb2, pc1, pc2, pc3
   END SUBROUTINE lrtm_count_flat
-
-#ifdef PSRAD_WITH_LEGACY
-
-  SUBROUTINE lrtm_pack_data(lrtm_data)
-    REAL(wp), INTENT(OUT) :: lrtm_data(:)
-    INTEGER :: offset, s, e, l
-    
-    offset = 0
-
-    l = ngas * 59
-    s = offset + 1
-    e = offset + l
-    lrtm_data(s:e) = RESHAPE(chi_mls, SHAPE = (/l/))
-    offset = offset + l
-
-    l = 181 * nbndlw
-    s = offset + 1
-    e = offset + l
-    lrtm_data(s:e) = RESHAPE(totplanck, SHAPE = (/l/))
-    offset = offset + l
-
-    l = ngas * ngas * 59
-    s = offset + 1
-    e = offset + l
-    lrtm_data(s:e) = RESHAPE(planck_ratio, SHAPE = (/l/))
-    offset = offset + l
-
-    l = 9
-    s = offset + 1
-    e = offset + l
-    lrtm_data(s:e) = (/precipitable_vapor_factor, &
-      pa1, pa2, pa3, pb1, pb2, pc1, pc2, pc3/)
-  
-  END SUBROUTINE lrtm_pack_data
-    
-#else
 
   SUBROUTINE lrtm_unpack_data(lrtm_data)
     REAL(wp), INTENT(IN) :: lrtm_data(:)
@@ -354,7 +314,5 @@ CONTAINS
     pc3 = lrtm_data(offset + 9)
   
   END SUBROUTINE lrtm_unpack_data
-
-#endif
 
 END MODULE mo_psrad_lrtm_kgs

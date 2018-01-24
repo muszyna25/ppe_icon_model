@@ -47,10 +47,6 @@ CONTAINS
     pressure_scale_, droplet_scale_, &
     zinhoml1_, zinhoml2_, zinhoml3_, zinhomi_)
     USE mo_psrad_cloud_optics, ONLY: setup_cloud_optics
-#ifdef PSRAD_WITH_LEGACY
-    USE mo_psrad_lrtm_setup, ONLY: setup_lrtm
-    USE mo_psrad_srtm_setup, ONLY: setup_srtm
-#endif
     USE mo_psrad_flat_data, ONLY: setup_flat_data
     USE mo_psrad_general, ONLY: finish_cb, default_finish, &
       dummy4, upwards, jTOA, jSFC, jINC, jABOVE, jBELOW
@@ -86,10 +82,6 @@ CONTAINS
 
     CALL setup_cloud_optics(droplet_scale, &
       zinhoml1_, zinhoml2_, zinhoml3_, zinhomi_)
-#ifdef PSRAD_WITH_LEGACY
-    CALL setup_lrtm(pressure_scale)
-    CALL setup_srtm
-#endif
     CALL setup_flat_data(pressure_scale, droplet_scale)
 
     stpfac = stpfac_orig / pressure_scale
