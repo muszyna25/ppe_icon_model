@@ -6532,42 +6532,47 @@ fi
 
                             SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
                             read -d '' my_pp_init <<EOF
-( echo "Preprocessing files for serialization ...";
-  echo "";
+( echo "";
+  echo "Preprocessing files for serialization ...";
   cd src/;
   find ./ -type d -exec mkdir -p "../${my_iconppdir}/{}" \\\;
-  find ./ -type f \\\( -name "*.inc" -or -name "*.incf" \\\) -exec cp "{}" "../${my_iconppdir}/{}" \\\; )
+  echo "Updating SHA1 ...";
+  find ./ -type f -regextype posix-egrep -regex \"\.\*\\\.(f90|inc|incf|F90)\$\" -exec sh -c "(test -e \\\"../${my_iconppdir}/{}.sha1\\\" && sha1sum --status -c \\\"../${my_iconppdir}/{}.sha1\\\") && rm -f \\\"../${my_iconppdir}/{}.modified\\\" || ( rm -f \\\"../${my_iconppdir}/{}.sha1\\\";sha1sum \\\"{}\\\" > \\\"../${my_iconppdir}/{}.modified\\\")" \\\;
+  echo "Updating headers ...";
+  find ./ -type f \\\( -name "*.inc" -o -name "*.incf" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( cp \\\"{}\\\" \\\"../${my_iconppdir}/{}\\\" && mv \\\"../${my_iconppdir}/{}.modified\\\" \\\"../${my_iconppdir}/{}.sha1\\\" )" \\\; )
 EOF
                             case $fortran_compiler in #(
   gcc*) :
     read -d '' my_pp_command <<EOF
 ( cd src/;
-  find ./ -type f \\\( -name "*.f90" -or -name "*.F90" \\\) -exec ${FC} -I./include -o "../${my_iconppdir}/{}" ${FFLAGS} -C -E "{}" \\\; )
+  echo "Preprocessing files (CPP) ...";
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec ${FC} -I./include -o "../${my_iconppdir}/{}" ${FFLAGS} -C -E "{}" \\\; )
 EOF
  ;; #(
   cray*) :
     read -d '' my_pp_command <<EOF
 ( cd src/;
+  echo "Preprocessing files (CPP) ...";
   my_abs_include="$(realpath src/include)"
-  find ./ -type f \\\( -name "*.f90" -or -name "*.F90" \\\) -execdir ${FC} -I\$\{my_abs_include\} ${FFLAGS} -eP "{}" \\\;
-  find ./ -type f \\\( -name "*.i" \\\) -exec mv "{}" "../${my_iconppdir}/{}" \\\; )
-( find ${my_iconppdir} -type f \\\( -name "*.i" \\\) -execdir rename .i .f90 "{}" \\\; )
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( pushd \\\\\`dirname \\\"{}\\\"\\\\\` > /dev/null;${FC} -I\$\{my_abs_include\} ${FFLAGS/ -e Z /} -eP \\\\\`basename \\\"{}\\\"\\\\\`;popd > /dev/null;mv \\\\\`echo \\\"{}\\\" | sed -e 's/.f90//I'\\\\\`.i \\\"../${my_iconppdir}/{}\\\")" \\\; )
 EOF
  ;; #(
   pgi*) :
     read -d '' my_pp_command <<EOF
 ( cd src/;
-  find ./ -type f \\\( -name "*.f90" -or -name "*.F90" \\\) -exec ${FC} ${FFLAGS} -I./include -o "../${my_iconppdir}/{}" -Mcpp "{}" \\\; )
+  echo "Preprocessing files (CPP) ...";
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec ${FC} ${FFLAGS} -I./include -o "../${my_iconppdir}/{}" -Mcpp "{}" \\\; )
 EOF
  ;; #(
   *) :
      ;;
 esac
                             read -d '' my_pp_ser <<EOF
-  find ${my_iconppdir} -type f \\\( -name "*.f90" -or -name "*.F90" \\\) -execdir ${SERIALBOX2_PPSER} -d ./ "{}" \\\+
+  echo "Preprocessing files (Serialbox2) ...";
+  find ${my_iconppdir} -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"{}.modified\\\" && ( ${SERIALBOX2_PPSER} -o \\\"{}\\\" \\\"{}\\\" && mv \\\"{}.modified\\\" \\\"{}.sha1\\\")" \\\;
 EOF
                             my_preprocess_command="${my_pp_init};${my_pp_command};${my_pp_ser}"
-                            make_command="${my_preprocess_command};$make_command;"
+                            make_command="${my_preprocess_command} ;$make_command;"
 
 else
 
