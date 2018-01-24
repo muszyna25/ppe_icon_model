@@ -86,6 +86,7 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
 #ifdef __ICON__
                        rhotot,                        & ! IN
 #endif
+                       qtvar,                         & ! IN optional
 #ifdef __COSMO__
                        qle, qie, p0e, ppe,            & ! IN
 #endif
@@ -148,27 +149,18 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
        ppe          ! Pressure deviation from reference pressure needed in COSMO
 #endif
 
-#ifdef __xlC__
-  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
-  REAL    (KIND=ireals),    INTENT (INOUT), DIMENSION(idim,kdim) ::  &  !  dim (idim,kdim)
-#else
   REAL    (KIND=ireals),    INTENT (INOUT), DIMENSION(:,:) ::  &  !  dim (idim,kdim)
-#endif
        te      , & ! Temperature on input/ouput
        qve     , & ! Specific humidity on input/output
        qce         ! Specific cloud water content on input/output
 
 #ifdef __ICON__
-#ifdef __xlC__
-  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
-  ! note: that these are actually intent(in)
-  !       declared as intent(inout) to avoid copying
-  REAL    (KIND=ireals),    DIMENSION(idim,kdim) ::  &  !  dim (idim,kdim)
-#else
   REAL    (KIND=ireals),    INTENT (IN),  DIMENSION(:,:) ::  &  !  dim (idim,kdim)
-#endif
        rhotot    ! density containing dry air and water constituents
 #endif
+
+  REAL    (KIND=ireals),    INTENT (IN), OPTIONAL, DIMENSION(:,:)       ::  &  !  dim (idim,kdim)
+       qtvar     ! total water variance - needed only for EDMF
 
 !KF error status temporarly set to optional
   INTEGER (KIND=iintegers), INTENT (OUT),  OPTIONAL  ::  &
@@ -204,6 +196,7 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
   REAL (KIND=ireals), PARAMETER :: cp_v = 1850._ireals ! specific heat of water vapor J
                                                        !at constant pressure
                                                        ! (Landolt-Bornstein)
+  LOGICAL :: ll_satad, lqtvar
 
 
   !------------ End of header ----------------------------------------------------
@@ -215,6 +208,12 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
   ! Initialization
 
   IF (PRESENT(errstat)) errstat = 0_iintegers
+
+  IF (PRESENT(qtvar)) THEN
+    lqtvar = .TRUE.
+  ELSE
+    lqtvar = .FALSE.
+  ENDIF
 
   zqwmin = 1.0E-20_ireals
 
@@ -257,6 +256,15 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
     DO k = klo, kup
       DO i = ilo , iup
 
+       ll_satad = .TRUE.
+       IF (lqtvar) THEN
+         IF ( qtvar(i,k) > 0.0001_ireals * (qve(i,k)+qce(i,k))**2 ) THEN ! satad not in EDMF boundary layer
+           ll_satad = .false.                                            ! sqrt(qtvar) > 0.001
+         ENDIF
+       ENDIF
+
+       IF ( ll_satad ) THEN
+
         IF (qw(i,k) <= qtest(i,k) ) THEN
           ! In this case, all the cloud water evaporates and there is still (sub)saturation.
           ! The resulting state depends only on the available cloud water and is
@@ -279,6 +287,8 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
           ! iteration below:
           tworkold(nsat) = twork(nsat) + 10.0_ireals
         END IF
+        
+       END IF
 
       END DO
     END DO

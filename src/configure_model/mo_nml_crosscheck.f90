@@ -268,11 +268,12 @@ CONTAINS
 
       DO jg =1,n_dom
 
-        IF( atm_phy_nwp_config(jg)%inwp_satad == 0       .AND. &
+        IF (atm_phy_nwp_config(1)%inwp_turb /= iedmf) THEN
+          IF( atm_phy_nwp_config(jg)%inwp_satad == 0       .AND. &
           & ((atm_phy_nwp_config(jg)%inwp_convection >0 ) .OR. &
           &  (atm_phy_nwp_config(jg)%inwp_gscp > 0      )    ) ) &
-        &  CALL finish( TRIM(method_name),'satad has to be switched on')
-
+          &  CALL finish( TRIM(method_name),'satad has to be switched on')
+        ENDIF
 
         IF( (atm_phy_nwp_config(jg)%inwp_gscp==0) .AND. &
           & (atm_phy_nwp_config(jg)%inwp_convection==0) .AND.&
@@ -531,7 +532,11 @@ CONTAINS
 
         ntracer = ntracer + 1  !! increase total number of tracers by 1
 
-        ntiles_lnd = 5     !! EDMF currently only works with 5 land tiles - consistent with TESSEL
+        DO jg =1,n_dom
+          turbdiff_config(jg)%ldiff_qi = .TRUE.  !! turbulent diffusion of QI on (by EDMF)
+        ENDDO
+
+!dmk    ntiles_lnd = 5     !! EDMF currently only works with 5 land tiles - consistent with TESSEL
                            !! even if the land model is inactive ntiles_lnd should be 5
 
       ENDIF

@@ -363,7 +363,8 @@ CASE( 1 )
   IF (inwp_turb == iedmf) THEN
     DO jk = kstart,klev
       DO jl = kidia,kfdia
-        IF (SQRT(qtvar(jl,jk)) / MAX(qv(jl,jk)+qc(jl,jk)+qi(jl,jk),0.000001_wp) > 0.01_wp) THEN
+!       IF (SQRT(qtvar(jl,jk)) / MAX(qv(jl,jk)+qc(jl,jk)+qi(jl,jk),0.000001_wp) > 0.01_wp) THEN
+        IF (SQRT(qtvar(jl,jk)) > 0.001_wp * (qv(jl,jk)+qc(jl,jk)+qi(jl,jk)) ) THEN
 ! for EDMF DUALM: take values written within EDMF - only done within high qtvar grid points
           cc_tot(jl,jk) = cc_tot(jl,jk)
           qc_tot(jl,jk) = qc_tot(jl,jk)

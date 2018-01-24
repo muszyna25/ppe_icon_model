@@ -47,11 +47,9 @@ SUBROUTINE SPPCFL(KIDIA, KFDIA, KLON &
 USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&           !yomcst  (& yos_exc)
       & RG       ,RD       ,RCPD     ,RETV     ,&           !yomcst  (& yos_cst)
-      & RLVTT    ,RLSTT    ,RTT      ,&                     ! -
+      & RTT      ,&                                         ! -
       & R2ES     ,R3LES    ,R4LES    ,RVTMP2   ,&           !yoethf (& yos_thf)
-      & RCHBA    ,RCHBB    ,RCHBD    ,RCHB23A  ,&           !yoevdfs (& yos_excs)
-      & RCHBBCD  ,RCHBCD   ,RCHETA   ,RCHETB   ,RCHBHDL ,&  ! -
-      & RCDHALF  ,RCDHPI2                                   ! -
+      & RCHBHDL                                             ! -
 USE mo_edmf_param   ,ONLY : &
       & PSIHU    ,PSIHS    ,PSIMU    ,PSIMS                 !fcsvdfs.h
 
@@ -151,7 +149,7 @@ INTEGER(KIND=JPIM) :: JL
 REAL(KIND=JPRB) :: Z10DNL, Z10M, Z10MP, Z2M, Z2MP,&
  & ZAPH2M, ZCPT2M, ZCVM3, ZCVM4, ZDL, &
  & ZF1, ZFRAC, ZHTQ, ZL, ZNLEV, ZPRH0, ZPRH1, &
- & ZPRH2, ZPRM0, ZPRM1, ZPRM10, ZPRM2, ZPRQ0, &
+ & ZPRH2, ZPRM0, ZPRM10, ZPRM2, ZPRQ0, &
  & ZWIND, ZZQM1  
 REAL(KIND=JPRB) :: ZHOOK_HANDLE
 
@@ -208,7 +206,6 @@ DO JL=KIDIA,KFDIA
 
     ZPRM2 =PSIMS(ZDL*ZWIND/ZNLEV)
     ZPRM10=PSIMS(ZDL*Z10MP/ZNLEV)
-    ZPRM1 =PSIMS(ZDL)
     ZPRM0 =PSIMS(ZDL*PZ0MM(JL)/ZNLEV)
   ELSE
     ZPRH2=PSIHU(ZDL*Z2MP/ZNLEV)
@@ -219,7 +216,6 @@ DO JL=KIDIA,KFDIA
 
     ZPRM2 =PSIMU(ZDL*ZWIND/ZNLEV)
     ZPRM10=PSIMU(ZDL*Z10MP/ZNLEV)
-    ZPRM1 =PSIMU(ZDL)
     ZPRM0 =PSIMU(ZDL*PZ0MM(JL)/ZNLEV)
   ENDIF
 

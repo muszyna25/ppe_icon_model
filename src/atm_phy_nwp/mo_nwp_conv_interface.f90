@@ -217,9 +217,9 @@ CONTAINS
         !> Convection
         !-------------------------------------------------------------------------
 
-        IF ( atm_phy_nwp_config(jg)%inwp_turb /= iedmf ) THEN ! DUALM is allow to turn of shallow convection
-          DO jc = i_startidx,i_endidx
-            prm_diag%ldshcv(jc,jb) = .TRUE.
+        IF ( atm_phy_nwp_config(jg)%inwp_turb /= iedmf ) THEN ! DUALM is allowed to turn off shallow convection
+          DO jc = i_startidx,i_endidx                         ! ldshcv is set in mo_nwp_turb_sfc_interface.f90
+            prm_diag%ldshcv(jc,jb) = .TRUE.                   ! here: option to overwrite DUALM choice
           ENDDO
         ENDIF
 

@@ -48,16 +48,16 @@ MODULE mo_nwp_gscp_interface
   USE mo_parallel_config,      ONLY: nproma
 
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_impl_constants,       ONLY: min_rlcell_int, iss, iorg, iso4, idu
+  USE mo_impl_constants,       ONLY: min_rlcell_int, iss, iorg, iso4, idu, iedmf
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
 
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydrostatic_config,ONLY: kstart_moist
-  USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
+  USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs,       &
                                      iqni, iqni_nuc, iqg, iqh, iqnr, iqns,     &
-                                     iqng, iqnh, iqnc, inccn, ininpot, ininact
+                                     iqng, iqnh, iqnc, inccn, ininpot, ininact, iqtvar
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, iprog_aero
   USE gscp_kessler,            ONLY: kessler
   USE gscp_cloudice,           ONLY: cloudice
@@ -92,7 +92,7 @@ CONTAINS
                             &   p_prog,                       & !>inout
                             &   p_prog_rcf,                   & !>inout
                             &   p_diag ,                      & !>inout
-                            &   prm_diag                      ) !>inout 
+                            &   prm_diag,prm_nwp_tend         ) !>inout 
 
 
 
@@ -102,6 +102,7 @@ CONTAINS
     TYPE(t_nh_prog)        , INTENT(inout):: p_prog_rcf      !<call freq
     TYPE(t_nh_diag)        , INTENT(inout):: p_diag          !<the dyn diag vars
     TYPE(t_nwp_phy_diag)   , INTENT(inout):: prm_diag        !<the atm phys vars
+    TYPE(t_nwp_phy_tend)   , TARGET, INTENT(inout):: prm_nwp_tend    !< atm tend vars
 
     REAL(wp)               , INTENT(in)   :: tcall_gscp_jg   !< time interval for 
                                                              !< microphysics
@@ -114,13 +115,17 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_rlstart, i_rlend
 
+    ! Variables for tendencies
+    REAL(wp), DIMENSION(nproma,p_patch%nlev) :: ddt_tend_t , ddt_tend_qv, ddt_tend_qc, &
+                                                ddt_tend_qi, ddt_tend_qr, ddt_tend_qs
+
     ! Local scalars:
 
     INTEGER :: jc,jb,jg,jk               !<block indices
 
     REAL(wp) :: zncn(nproma,p_patch%nlev),qnc(nproma,p_patch%nlev),qnc_s(nproma)
     LOGICAL  :: l_nest_other_micro
-    LOGICAL  :: ltwomoment
+    LOGICAL  :: ltwomoment, ldiag_ttend, ldiag_qtend
 
     ! local variables
     !
@@ -131,6 +136,18 @@ CONTAINS
 
     ! domain ID
     jg = p_patch%id
+
+
+    IF ( ASSOCIATED(prm_nwp_tend%ddt_temp_gscp)   ) THEN
+      ldiag_ttend = .TRUE.
+    ELSE
+      ldiag_ttend = .FALSE.
+    ENDIF
+    IF ( ASSOCIATED(prm_nwp_tend%ddt_tracer_gscp) ) THEN
+      ldiag_qtend = .TRUE.
+    ELSE
+      ldiag_qtend = .FALSE.
+    ENDIF
 
     ! logical for SB two-moment scheme
     ltwomoment = ( atm_phy_nwp_config(jg)%inwp_gscp==4 .OR. atm_phy_nwp_config(jg)%inwp_gscp==5 .OR. &
@@ -201,7 +218,9 @@ CONTAINS
     END IF
     
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,zncn,qnc,qnc_s) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,zncn,qnc,qnc_s,ddt_tend_t,ddt_tend_qv,        &
+!$OMP            ddt_tend_qc,ddt_tend_qi,ddt_tend_qr,ddt_tend_qs) ICON_OMP_GUIDED_SCHEDULE
+
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -272,6 +291,14 @@ CONTAINS
             & qnc    = qnc_s                           ,    & !< cloud number concentration
             & prr_gsp=prm_diag%rain_gsp_rate (:,jb)    ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%snow_gsp_rate (:,jb)    ,    & !< out: precipitation rate of snow
+            & ldiag_ttend = ldiag_ttend                ,    & !< in:  if temp. tendency shall be diagnosed
+            & ldiag_qtend = ldiag_qtend                ,    & !< in:  if moisture tendencies shall be diagnosed
+            & ddt_tend_t  = ddt_tend_t                 ,    & !< out: tendency temperature
+            & ddt_tend_qv = ddt_tend_qv                ,    & !< out: tendency QV
+            & ddt_tend_qc = ddt_tend_qc                ,    & !< out: tendency QC
+            & ddt_tend_qi = ddt_tend_qi                ,    & !< out: tendency QI
+            & ddt_tend_qr = ddt_tend_qr                ,    & !< out: tendency QR
+            & ddt_tend_qs = ddt_tend_qs                ,    & !< out: tendency QS
             & idbg=msg_level/2                         ,    &
             & l_cv=.TRUE. )
           
@@ -301,6 +328,14 @@ CONTAINS
             & prr_gsp=prm_diag%rain_gsp_rate (:,jb)     ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%snow_gsp_rate (:,jb)     ,    & !< out: precipitation rate of snow
             & prg_gsp=prm_diag%graupel_gsp_rate (:,jb)  ,    & !< out: precipitation rate of snow
+            & ldiag_ttend = ldiag_ttend                 ,    & !< in:  if temp. tendency shall be diagnosed
+            & ldiag_qtend = ldiag_qtend                 ,    & !< in:  if moisture tendencies shall be diagnosed
+            & ddt_tend_t  = ddt_tend_t                  ,    & !< out: tendency temperature
+            & ddt_tend_qv = ddt_tend_qv                 ,    & !< out: tendency QV
+            & ddt_tend_qc = ddt_tend_qc                 ,    & !< out: tendency QC
+            & ddt_tend_qi = ddt_tend_qi                 ,    & !< out: tendency QI
+            & ddt_tend_qr = ddt_tend_qr                 ,    & !< out: tendency QR
+            & ddt_tend_qs = ddt_tend_qs                 ,    & !< out: tendency QS
             & idbg=msg_level/2                          ,    &
             & l_cv=.TRUE. )
           
@@ -331,6 +366,14 @@ CONTAINS
             & qs     =p_prog_rcf%tracer (:,:,jb,iqs)    ,    & !< in:  snow
             & prr_gsp=prm_diag%rain_gsp_rate (:,jb)     ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%snow_gsp_rate (:,jb)     ,    & !< out: precipitation rate of snow
+            & ldiag_ttend = ldiag_ttend                 ,    & !< in:  if temp. tendency shall be diagnosed
+            & ldiag_qtend = ldiag_qtend                 ,    & !< in:  if moisture tendencies shall be diagnosed
+            & ddt_tend_t  = ddt_tend_t                  ,    & !< out: tendency temperature
+            & ddt_tend_qv = ddt_tend_qv                 ,    & !< out: tendency QV
+            & ddt_tend_qc = ddt_tend_qc                 ,    & !< out: tendency QC
+            & ddt_tend_qi = ddt_tend_qi                 ,    & !< out: tendency QI
+            & ddt_tend_qr = ddt_tend_qr                 ,    & !< out: tendency QR
+            & ddt_tend_qs = ddt_tend_qs                 ,    & !< out: tendency QS
             & idbg=msg_level/2                          ,    &
             & l_cv=.TRUE. )
 
@@ -455,15 +498,45 @@ CONTAINS
             & qc     =p_prog_rcf%tracer (:,:,jb,iqc)    ,    & ! in:  cloud water
             & qr     =p_prog_rcf%tracer (:,:,jb,iqr)    ,    & ! in:  rain water
             & prr_gsp=prm_diag%rain_gsp_rate (:,jb)     ,    & ! out: precipitation rate of rain
+            & ldiag_ttend = ldiag_ttend                 ,    & !< in:  if temp. tendency shall be diagnosed
+            & ldiag_qtend = ldiag_qtend                 ,    & !< in:  if moisture tendencies shall be diagnosed
+            & ddt_tend_t  = ddt_tend_t                  ,    & !< out: tendency temperature
+            & ddt_tend_qv = ddt_tend_qv                 ,    & !< out: tendency QV
+            & ddt_tend_qc = ddt_tend_qc                 ,    & !< out: tendency QC
+            & ddt_tend_qr = ddt_tend_qr                 ,    & !< out: tendency QR
             & idbg   =msg_level/2                       ,    &
             & l_cv    =.TRUE. )
 
+          IF (ldiag_qtend) THEN
+            ddt_tend_qi(:,:) = 0._wp
+            ddt_tend_qs(:,:) = 0._wp
+          ENDIF
 
         CASE DEFAULT
 
           CALL finish('mo_nwp_gscp_interface', 'Unknown cloud physics scheme [1-5].')
 
         END SELECT
+
+        IF (ldiag_ttend) THEN
+          DO jk = kstart_moist(jg), nlev
+            DO jc = i_startidx, i_endidx
+              prm_nwp_tend%ddt_temp_gscp(jc,jk,jb) = ddt_tend_t(jc,jk)   ! tendency temperature
+            ENDDO
+          ENDDO
+        ENDIF
+        IF (ldiag_qtend) THEN
+          DO jk = kstart_moist(jg), nlev
+            DO jc = i_startidx, i_endidx
+              prm_nwp_tend%ddt_tracer_gscp(jc,jk,jb,iqv) = ddt_tend_qv(jc,jk)  ! tendency QV
+              prm_nwp_tend%ddt_tracer_gscp(jc,jk,jb,iqc) = ddt_tend_qc(jc,jk)  ! tendency QC
+              prm_nwp_tend%ddt_tracer_gscp(jc,jk,jb,iqi) = ddt_tend_qi(jc,jk)  ! tendency QI
+              prm_nwp_tend%ddt_tracer_gscp(jc,jk,jb,iqr) = ddt_tend_qr(jc,jk)  ! tendency QR
+              prm_nwp_tend%ddt_tracer_gscp(jc,jk,jb,iqs) = ddt_tend_qs(jc,jk)  ! tendency QS
+            ENDDO
+          ENDDO
+        ENDIF
+
 
         !-------------------------------------------------------------------------
         !>
@@ -542,7 +615,27 @@ CONTAINS
 
         IF (lsatad) THEN
 
-          CALL satad_v_3d(                                 &           
+          IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN   ! EDMF DUALM: no satad in PBL
+ 
+            CALL satad_v_3d(                                 &           
+               & maxiter  = 10                            ,& !> IN
+               & tol      = 1.e-3_wp                      ,& !> IN
+               & te       = p_diag%temp       (:,:,jb)    ,& !> INOUT
+               & qve      = p_prog_rcf%tracer (:,:,jb,iqv),& !> INOUT
+               & qce      = p_prog_rcf%tracer (:,:,jb,iqc),& !> INOUT
+               & rhotot   = p_prog%rho        (:,:,jb)    ,& !> IN
+               & qtvar    = p_prog_rcf%tracer (:,:,jb,iqtvar) ,& !> IN
+               & idim     = nproma                        ,& !> IN
+               & kdim     = nlev                          ,& !> IN
+               & ilo      = i_startidx                    ,& !> IN
+               & iup      = i_endidx                      ,& !> IN
+               & klo      = kstart_moist(jg)              ,& !> IN
+               & kup      = nlev                           & !> IN
+               )
+
+          ELSE
+
+            CALL satad_v_3d(                                 &           
                & maxiter  = 10                            ,& !> IN
                & tol      = 1.e-3_wp                      ,& !> IN
                & te       = p_diag%temp       (:,:,jb)    ,& !> INOUT
@@ -556,6 +649,8 @@ CONTAINS
                & klo      = kstart_moist(jg)              ,& !> IN
                & kup      = nlev                           & !> IN
                )
+
+          ENDIF
 
         ENDIF
 

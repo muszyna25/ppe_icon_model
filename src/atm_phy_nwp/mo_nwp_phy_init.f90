@@ -1160,7 +1160,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
   ! initialize gz0 (roughness length * g)
   !
-  IF ( ANY( (/icosmo,igme,ismag/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. linit_mode ) THEN
+  IF ( ANY( (/icosmo,igme,ismag,iedmf/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. linit_mode ) THEN
 
 
     ! gz0 is initialized if we do not start from an own first guess
@@ -1237,7 +1237,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
   ENDIF
 
-  IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
+  IF ( ANY( (/icosmo,iedmf/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 
     ! allocate and init implicit weights for tridiagonal solver
     ALLOCATE( turbdiff_config(jg)%impl_weight(nlevp1), &
@@ -1265,7 +1265,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
   ! Initialize turbulence models
   !
-  IF ( (atm_phy_nwp_config(jg)%inwp_turb == icosmo) .AND. linit_mode ) THEN
+  IF ( ( ANY( (/icosmo,iedmf/)==atm_phy_nwp_config(jg)%inwp_turb ) ) .AND. linit_mode ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init COSMO turbulence')
 
@@ -1350,9 +1350,10 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       prm_diag%lhfl_s(i_startidx:i_endidx,jb) = &
         &  prm_diag%qhfl_s(i_startidx:i_endidx,jb) * lh_v
 
+      IF ( iedmf /= atm_phy_nwp_config(jg)%inwp_turb )  THEN
 
       ! turbdiff
-      CALL organize_turbdiff( &
+        CALL organize_turbdiff( &
         &  iini=1, lturatm=.TRUE. , ltursrf=.FALSE., lstfnct=.TRUE. ,         & !atmosph. turbulence and vertical diffusion
         &          lnsfdia=.FALSE., ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, & !but no surface-layer turbulence (turbtran)
         &  itnd=0, lum_dif=.TRUE. , lvm_dif=.TRUE. , lscadif=.TRUE. ,         & !and thus (implicitly) neither surface-layer diagn.
@@ -1389,6 +1390,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
         &  shfl_s=prm_diag%shfl_s(:,jb), qvfl_s=prm_diag%qhfl_s(:,jb), &
         &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
+      END IF
+
       ! preparation for concentration boundary condition. Usually inactive for standard ICON runs.
       IF ( .NOT. lsflcnd ) THEN
         prm_diag%lhfl_s(i_startidx:i_endidx,jb) = &
@@ -1414,6 +1417,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
         p_prog_now%tke(i_startidx:i_endidx,jk,jb)= 0.5_wp                        &
           &                                * (p_prog_now%tke(i_startidx:i_endidx,jk,jb))**2
       ENDDO
+
     ENDDO  ! jb
 !$OMP END DO
 
@@ -1464,7 +1468,10 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       !Default: Already set above
     END IF
 
-  ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN  !EDMF DUALM
+  END IF
+ 
+  IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf .AND. linit_mode ) THEN  !EDMF DUALM
+
     CALL suct0
     CALL su0phy
     CALL susekf

@@ -86,7 +86,6 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_gscp_interface,      ONLY: nwp_microphysics
   USE mo_nwp_turbtrans_interface, ONLY: nwp_turbtrans
   USE mo_nwp_turbdiff_interface,  ONLY: nwp_turbdiff
-  USE mo_nwp_turb_sfc_interface,  ONLY: nwp_turbulence_sfc
   USE mo_nwp_sfc_interface,       ONLY: nwp_surface
   USE mo_nwp_conv_interface,      ONLY: nwp_convection
   USE mo_nwp_rad_interface,       ONLY: nwp_radiation
@@ -106,6 +105,7 @@ MODULE mo_nh_interface_nwp
   USE mo_ls_forcing,              ONLY: apply_ls_forcing
   USE mo_advection_config,        ONLY: advection_config
   USE mo_o3_util,                 ONLY: calc_o3_gems
+  USE mo_edmf_param,              ONLY: edmf_conf
   USE mo_nh_supervise,            ONLY: compute_dpsdt
 
   IMPLICIT NONE
@@ -411,7 +411,26 @@ CONTAINS
 
       IF (lcall_phy_jg(itsatad)) THEN
 
-        CALL satad_v_3D( &
+        IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN   ! EDMF DUALM: no satad in PBL
+
+          CALL satad_v_3D( &
+               & maxiter  = 10                             ,& !> IN
+               & tol      = 1.e-3_wp                       ,& !> IN
+               & te       = pt_diag%temp       (:,:,jb)    ,& !> INOUT
+               & qve      = pt_prog_rcf%tracer (:,:,jb,iqv),& !> INOUT
+               & qce      = pt_prog_rcf%tracer (:,:,jb,iqc),& !> INOUT
+               & rhotot   = pt_prog%rho        (:,:,jb)    ,& !> IN
+               & qtvar    = pt_prog_rcf%tracer (:,:,jb,iqtvar) ,& !> IN
+               & idim     = nproma                         ,& !> IN
+               & kdim     = nlev                           ,& !> IN
+               & ilo      = i_startidx                     ,& !> IN
+               & iup      = i_endidx                       ,& !> IN
+               & klo      = kstart_moist(jg)               ,& !> IN
+               & kup      = nlev                            & !> IN
+               )
+        ELSE
+
+          CALL satad_v_3D( &
                & maxiter  = 10                             ,& !> IN
                & tol      = 1.e-3_wp                       ,& !> IN
                & te       = pt_diag%temp       (:,:,jb)    ,& !> INOUT
@@ -425,6 +444,8 @@ CONTAINS
                & klo      = kstart_moist(jg)               ,& !> IN
                & kup      = nlev                            & !> IN
                )
+
+        ENDIF
 
         DO jk = kstart_moist(jg), nlev
           DO jc = i_startidx, i_endidx
@@ -486,13 +507,32 @@ CONTAINS
     !!-------------------------------------------------------------------------
 
 
+    IF ( (lcall_phy_jg(itturb) .OR. linit) .AND. atm_phy_nwp_config(jg)%inwp_turb==iedmf ) THEN
+
+      IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
+
+      ! compute turbulent transfer coefficients (atmosphere-surface interface)
+      CALL nwp_turbtrans  ( dt_phy_jg(itfastphy),             & !>in
+                          & pt_patch, p_metrics,              & !>in
+                          & ext_data,                         & !>in
+                          & pt_prog_rcf,                      & !>inout
+                          & pt_diag,                          & !>inout
+                          & prm_diag,                         & !>inout
+                          & wtr_prog_now,                     & !>in
+                          & lnd_prog_now,                     & !>inout
+                          & lnd_diag                          ) !>inout
+
+      IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
+    ENDIF !lcall(itturb)
+
 
     !For turbulence schemes NOT including the call to the surface scheme.
     !nwp_surface must even be called in inwp_surface = 0 because the
     !the lower boundary conditions for the turbulence scheme
     !are not set otherwise
 
-    IF ( l_any_fastphys .AND. ANY( (/icosmo,igme/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
+    IF ( l_any_fastphys .AND. ( ANY( (/icosmo,igme/)==atm_phy_nwp_config(jg)%inwp_turb ) &
+                  & .OR. ( edmf_conf==2  .AND. iedmf==atm_phy_nwp_config(jg)%inwp_turb ) ) ) THEN
       IF (timers_level > 2) CALL timer_start(timer_nwp_surface)
 
        !> as pressure is needed only for an approximate adiabatic extrapolation
@@ -520,7 +560,7 @@ CONTAINS
       SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
 
       !Turbulence schemes NOT including the call to the surface scheme
-      CASE(icosmo,igme)
+      CASE(icosmo,igme,iedmf)
 
         ! compute turbulent diffusion (atmospheric column)
         CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
@@ -534,19 +574,6 @@ CONTAINS
                               & lnd_prog_now,                     & !>in
                               & lnd_diag                          ) !>in
 
-      !Turbulence schemes including the call to the surface scheme
-      CASE(iedmf)
-
-        CALL nwp_turbulence_sfc (  dt_phy_jg(itfastphy),              & !>input
-                                  & pt_patch, p_metrics,              & !>input
-                                  & ext_data,                         & !>input
-                                  & pt_prog,                          & !>inout
-                                  & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
-                                  & pt_diag ,                         & !>inout
-                                  & prm_diag, prm_nwp_tend,           & !>inout
-                                  & lnd_prog_now, lnd_prog_new,       & !>inout
-                                  & wtr_prog_now, wtr_prog_new,       & !>inout
-                                  & lnd_diag                          ) !>inout
 
       CASE DEFAULT
 
@@ -581,7 +608,7 @@ CONTAINS
                             & pt_prog,                          & !>inout
                             & pt_prog_rcf,                      & !>inout
                             & pt_diag ,                         & !>inout
-                            & prm_diag                          ) !>inout
+                            & prm_diag, prm_nwp_tend            ) !>inout
 
       IF (timers_level > 1) CALL timer_stop(timer_nwp_microphysics)
 

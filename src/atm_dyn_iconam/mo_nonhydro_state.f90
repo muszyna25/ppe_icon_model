@@ -1147,8 +1147,8 @@ MODULE mo_nonhydro_state
             &           grib2_var(192, 201, 39, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
             &           ldims=shape3d_c,                                               &
             &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata(                            &
-            &                       name = TRIM(vname_prefix)//'qtvar'//suffix)       ,&
+            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name = TRIM(vname_prefix)//'qtvar'//suffix),       &
             &           vert_interp=create_vert_interp_metadata(                       &
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_LIN,                 &

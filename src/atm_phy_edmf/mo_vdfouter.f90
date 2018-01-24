@@ -27,56 +27,38 @@ MODULE mo_vdfouter
 
 CONTAINS
 
-SUBROUTINE VDFOUTER   ( CDCONF, &
+SUBROUTINE VDFOUTER   ( &
  & KIDIA  , KFDIA  , KLON   , KLEV   , KLEVS  , KSTEP  , KTILES , &
- & KTRAC  , KLEVSN , KLEVI  , KDHVTLS, KDHFTLS, KDHVTSS, KDHFTSS, &
- & KDHVTTS, KDHFTTS, KDHVTIS, KDHFTIS, &
- & PTSPHY , KTVL   , KTVH   , KCNT   , PCVL   , PCVH   , PSIGFLT, &
- & PUM1   , PVM1   , PTM1   , PQM1   , PLM1   , PIM1   , PAM1   , PCM1   , &
- & PAPHM1 , PAPM1  , PGEOM1 , PGEOH  , PTSKM1M, PTSAM1M, PWSAM1M, &
+ & KTRAC  , KLEVSN , KLEVI  ,  &
+ & PTSPHY , PSIGFLT, &
+ & PUM1   , PVM1   , PTM1   , PQM1   , PLM1   , PIM1   , PAM1   , &
+ & PAPHM1 , PAPM1  , PGEOM1 , PGEOH  , PTSKM1M, &
  & PSSRFL , PSLRFL , PEMIS  , PHRLW  , PHRSW  , &
- & PTSNOW , PTICE  , &
- & PHLICE , PTLICE , PTLWML , &
- & PSST   , KSOTY  , PFRTI  , PALBTI , PWLMX  , &
- & PCHAR  , PUCURR , PVCURR , PTSKRAD, PCFLX  , &
+ & PTSNOW , &
+ & PCHAR  , PUCURR , PVCURR , PTSKRAD, &
  & PSOTEU , PSOTEV , PSOBETA, PVERVEL, &
  ! OUTPUT
  & PZ0M   , PZ0H   , &
- & PVDIS  , PVDISG , PDISGW3D,PAHFLEV, PAHFLSB, PFWSB  , PBIR   , PVAR   , &
- & PU10M  , PV10M  , PT2M   , PD2M   , PQ2M   , PZINV  , PBLH   , KHPBLN , KVARTOP , &
- & PSSRFLTI,PEVAPSNW,PGUST  , PWUAVG , LDNODECP,KPBLTYPE, PLDIFF,&
- & PFPLVL , PFPLVN , PFHPVL , PFHPVN , &
+ & PVAR   , &
+ & KHPBLN , KVARTOP, &
+ & KPBLTYPE,&
+ & PFPLVL , PFPLVN , &
  ! DIAGNOSTIC OUTPUT
- & PEXTR2 , KFLDX2 , PEXTRA , KLEVX  , KFLDX  , LLDIAG,&
+ & KFLDX2 , KLEVX  , KFLDX  , LLDIAG,&
  ! OUTPUT TENDENCIES
  & PTE    , PQE    , PLE    , PIE    , PAE    , PVOM   , PVOL   , &
- & PTENC  , PTSKE1 , &
  ! UPDATED FIELDS FOR TILES
  & PUSTRTI, PVSTRTI, PAHFSTI, PEVAPTI, PTSKTI , &
  ! OUTPUT FLUXES
- & PDIFTS , PDIFTQ , PDIFTL , PDIFTI , PSTRTU , PSTRTV , PTOFDU , PTOFDV, &
- & PSTRSOU, PSTRSOV, PKH    , &
-!amk
+ & PDIFTS , PDIFTQ , PDIFTL , PDIFTI , PSTRTU , PSTRTV , &
+ & PKH    , PKM    , &
  & LDLAND , &
-!xxx
-! DDH OUTPUTS
- & PDHTLS , PDHTSS , PDHTTS , PDHTIS &
+! surface fluxes from TERRA (tq) & TURBTRAN (uv) for EDMF atmospheric transport
+ & SHFL_S , LHFL_S , UMFL_S , VMFL_S , &
 ! TERRA data
- & , ext_data                                                           & !in
- & , jb, jg                                                             & ! -
- & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
- & , w_snow_ex                                                          & ! -
- & , rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex, w_p_ex, w_s_ex   & ! -
- & , t_so_ex, w_so_ex, w_so_ice_ex  &  !, t_2m_ex, u_10m_ex, v_10m_ex   & ! -
- & , freshsnow_ex, snowfrac_lc_ex, snowfrac_ex                          & ! -
- & , wliq_snow_ex, wtot_snow_ex, dzh_snow_ex                            & ! -
- & , prr_con_ex, prs_con_ex, prr_gsp_ex, prs_gsp_ex                     & !in
- & , tch_ex, tcm_ex, tfv_ex                                             & !inout
- & , sobs_ex, thbs_ex, pabs_ex                                          & !in
- & , runoff_s_ex, runoff_g_ex                                           & !inout
- & , t_g, qv_s                                                          & ! -
- & , t_ice, h_ice, t_snow_si, h_snow_si, alb_si                         & ! -
- & , fr_seaice                                                          ) !in
+ & frac_t , t_g_t  ,qv_s   , t_ice )
+
+
 !***
 
 !**   *VDFMAIN* - DOES THE VERTICAL EXCHANGE OF U,V,SLG,QT BY TURBULENCE.
@@ -140,20 +122,20 @@ SUBROUTINE VDFOUTER   ( CDCONF, &
 !    *KTRAC*        Number of tracers
 !    *KLEVSN*       Number of snow layers (diagnostics) 
 !    *KLEVI*        Number of sea ice layers (diagnostics)
-!    *KDHVTLS*      Number of variables for individual tiles
-!    *KDHFTLS*      Number of fluxes for individual tiles
-!    *KDHVTSS*      Number of variables for snow energy budget
-!    *KDHFTSS*      Number of fluxes for snow energy budget
-!    *KDHVTTS*      Number of variables for soil energy budget
-!    *KDHFTTS*      Number of fluxes for soil energy budget
-!    *KDHVTIS*      Number of variables for sea ice energy budget
-!    *KDHFTIS*      Number of fluxes for sea ice energy budget
+!!!  *KDHVTLS*      Number of variables for individual tiles
+!!!  *KDHFTLS*      Number of fluxes for individual tiles
+!!!  *KDHVTSS*      Number of variables for snow energy budget
+!!!  *KDHFTSS*      Number of fluxes for snow energy budget
+!!!  *KDHVTTS*      Number of variables for soil energy budget
+!!!  *KDHFTTS*      Number of fluxes for soil energy budget
+!!!  *KDHVTIS*      Number of variables for sea ice energy budget
+!!!  *KDHFTIS*      Number of fluxes for sea ice energy budget
 
-!    *KTVL*         VEGETATION TYPE FOR LOW VEGETATION FRACTION
-!    *KTVH*         VEGETATION TYPE FOR HIGH VEGETATION FRACTION
-!    *KSOTY*        SOIL TYPE                                    (1-7)
+!!!  *KTVL*         VEGETATION TYPE FOR LOW VEGETATION FRACTION
+!!!  *KTVH*         VEGETATION TYPE FOR HIGH VEGETATION FRACTION
+!!!  *KSOTY*        SOIL TYPE                                    (1-7)
 
-!    *KCNT*         Index of vdf sub steps.
+!!   *KCNT*         Index of vdf sub steps.
 
 !     INPUT PARAMETERS (LOGICAL)
 
@@ -187,12 +169,12 @@ SUBROUTINE VDFOUTER   ( CDCONF, &
 !    *PHRLW*        LONGWAVE HEATING RATE                         K/s
 !    *PHRSW*        SHORTWAVE HEATING RATE                        K/s
 !    *PTSNOW*       SNOW TEMPERATURE                              K
-!    *PTICE*        ICE TEMPERATURE (TOP SLAB)                    K
+!!   *PTICE*        ICE TEMPERATURE (TOP SLAB)                    K
 !    *PTLICE*       LAKE ICE TEMPERATURE                          K
 !    *PHLICE*       LAKE ICE THICKNESS                            m
 !    *PTLWML*       LAKE MEAN WATER TEMPERATURE                   K
-!    *PSST*         (OPEN) SEA SURFACE TEMPERATURE                K
-!    *PFRTI*        TILE FRACTIONS                                (0-1)
+!!!  *PSST*         (OPEN) SEA SURFACE TEMPERATURE                K
+!!!  *PFRTI*        TILE FRACTIONS                                (0-1)
 !            1 : WATER                  5 : SNOW ON LOW-VEG+BARE-SOIL
 !            2 : ICE                    6 : DRY SNOW-FREE HIGH-VEG
 !            3 : WET SKIN               7 : SNOW UNDER HIGH-VEG
@@ -230,7 +212,7 @@ SUBROUTINE VDFOUTER   ( CDCONF, &
 !    *PVOM*         MERIODINAL VELOCITY TENDENCY (DU/DT)          M/S2
 !    *PVOL*         LATITUDE TENDENCY            (DV/DT)          M/S2
 !    *PTENC*        TRACER TENDENCY                               KG/(KG S)
-!    *PTSKE1*       SKIN TEMPERATURE TENDENCY                     K/S
+!!   *PTSKE1*       SKIN TEMPERATURE TENDENCY                     K/S
 !    *PZ0M*         AERODYNAMIC ROUGHNESS LENGTH                  M
 !    *PZ0H*         ROUGHNESS LENGTH FOR HEAT                     M
 
@@ -276,13 +258,15 @@ SUBROUTINE VDFOUTER   ( CDCONF, &
 
 !    *PKH*          TURB. DIFF. COEFF. FOR HEAT ABOVE SURF. LAY.  (M2/S)
 !                   IN SURFACE LAYER: CH*U                        (M/S)
-!    *PDHTLS*       Diagnostic array for tiles (see module yomcdh)
-!                      (Wm-2 for energy fluxes, kg/(m2s) for water fluxes)
-!    *PDHTSS*       Diagnostic array for snow T (see module yomcdh)
-!                      (Wm-2 for fluxes)
-!    *PDHTTS*       Diagnostic array for soil T (see module yomcdh)
-!                      (Wm-2 for fluxes)
-!    *PDHTIS*       Diagnostic array for ice T (see module yomcdh)
+!    *PKM*          TURB. DIFF. COEFF. FOR MOM. ABOVE SURF. LAY.  (M2/S)
+!                   IN SURFACE LAYER: CH*U                        (M/S)
+!!!  *PDHTLS*       Diagnostic array for tiles (see module yomcdh)
+!!!                    (Wm-2 for energy fluxes, kg/(m2s) for water fluxes)
+!!!  *PDHTSS*       Diagnostic array for snow T (see module yomcdh)
+!!!                    (Wm-2 for fluxes)
+!!!  *PDHTTS*       Diagnostic array for soil T (see module yomcdh)
+!!!                    (Wm-2 for fluxes)
+!!!  *PDHTIS*       Diagnostic array for ice T (see module yomcdh)
 !                      (Wm-2 for fluxes)
 
 !     METHOD.
@@ -347,8 +331,6 @@ SUBROUTINE VDFOUTER   ( CDCONF, &
 USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters ,ONLY : lhook    ,dr_hook
 USE mo_edmf_param   ,ONLY : LVDFTRAC                              !yoephy
-USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water
-USE mo_ext_data_types,ONLY: t_external_data
 
 USE mo_vdfmain      ,ONLY : vdfmain 
 
@@ -364,25 +346,12 @@ INTEGER(KIND=JPIM),INTENT(IN)    :: KTILES
 INTEGER(KIND=JPIM),INTENT(IN)    :: KTRAC
 INTEGER(KIND=JPIM),INTENT(IN)    :: KLEVSN 
 INTEGER(KIND=JPIM),INTENT(IN)    :: KLEVI 
-INTEGER(KIND=JPIM),INTENT(IN)    :: KDHVTLS 
-INTEGER(KIND=JPIM),INTENT(IN)    :: KDHFTLS 
-INTEGER(KIND=JPIM),INTENT(IN)    :: KDHVTSS 
-INTEGER(KIND=JPIM),INTENT(IN)    :: KDHFTSS 
-INTEGER(KIND=JPIM),INTENT(IN)    :: KDHVTTS 
-INTEGER(KIND=JPIM),INTENT(IN)    :: KDHFTTS 
-INTEGER(KIND=JPIM),INTENT(IN)    :: KDHVTIS 
-INTEGER(KIND=JPIM),INTENT(IN)    :: KDHFTIS 
-CHARACTER(LEN=1)  ,INTENT(IN)    :: CDCONF 
 INTEGER(KIND=JPIM),INTENT(IN)    :: KIDIA
 INTEGER(KIND=JPIM),INTENT(IN)    :: KFDIA
 INTEGER(KIND=JPIM),INTENT(IN)    :: KSTEP 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PTSPHY 
-INTEGER(KIND=JPIM),INTENT(IN)    :: KTVL(:)                   !(KLON) 
-INTEGER(KIND=JPIM),INTENT(IN)    :: KTVH(:)                   !(KLON) 
-INTEGER(KIND=JPIM),INTENT(IN)    :: KSOTY(:)                  !(KLON) 
-INTEGER(KIND=JPIM),INTENT(INOUT) :: KCNT 
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PCVL(:)                   !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PCVH(:)                   !(KLON) 
+! REAL(KIND=JPRB) ,INTENT(IN)    :: PCVL(:)                   !(KLON) 
+! REAL(KIND=JPRB) ,INTENT(IN)    :: PCVH(:)                   !(KLON) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PSIGFLT(:)                !(KLON) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PUM1(:,:)                 !(KLON,KLEV) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PVM1(:,:)                 !(KLON,KLEV) 
@@ -391,65 +360,62 @@ REAL(KIND=JPRB)   ,INTENT(IN)    :: PQM1(:,:)                 !(KLON,KLEV)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PLM1(:,:)                 !(KLON,KLEV)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PIM1(:,:)                 !(KLON,KLEV)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PAM1(:,:)                 !(KLON,KLEV)
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PCM1(:,:,:)               !(KLON,KLEV,KTRAC) 
+! REAL(KIND=JPRB) ,INTENT(IN)    :: PCM1(:,:,:)               !(KLON,KLEV,KTRAC) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PAPHM1(:,0:)              !(KLON,0:KLEV)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PAPM1(:,:)                !(KLON,KLEV)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PGEOM1(:,:)               !(KLON,KLEV)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PGEOH(:,0:)               !(KLON,0:KLEV)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PTSKM1M(:)                !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PTSAM1M(:,:)              !(KLON,KLEVS) 
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PWSAM1M(:,:)              !(KLON,KLEVS) 
+! REAL(KIND=JPRB) ,INTENT(IN)    :: PTSAM1M(:,:)              !(KLON,KLEVS) 
+! REAL(KIND=JPRB) ,INTENT(IN)    :: PWSAM1M(:,:)              !(KLON,KLEVS) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PSSRFL(:)                 !(KLON) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PSLRFL(:)                 !(KLON) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PEMIS(:)                  !(KLON) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PHRLW(:,:)                !(KLON,KLEV) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PHRSW(:,:)                !(KLON,KLEV) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PTSNOW(:)                 !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PTICE(:)                  !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PHLICE(:)                 !(KLON)
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PTLICE(:)                 !(KLON)
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PTLWML(:)                 !(KLON)
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PSST(:)                   !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(INOUT) :: PFRTI(:,:)                !(KLON,KTILES) 
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PALBTI(:,:)               !(KLON,KTILES) 
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PWLMX(:)                  !(KLON) 
+! REAL(KIND=JPRB) ,INTENT(IN)    :: PHLICE(:)                 !(KLON)
+! REAL(KIND=JPRB) ,INTENT(IN)    :: PTLICE(:)                 !(KLON)
+! REAL(KIND=JPRB) ,INTENT(IN)    :: PTLWML(:)                 !(KLON)
+! REAL(KIND=JPRB) ,INTENT(IN)    :: PALBTI(:,:)               !(KLON,KTILES) 
+! REAL(KIND=JPRB) ,INTENT(IN)    :: PWLMX(:)                  !(KLON) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PCHAR(:)                  !(KLON) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PUCURR(:)                 !(KLON) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PVCURR(:)                 !(KLON) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PTSKRAD(:)                !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PCFLX(:,:)                !(KLON,KTRAC)
+! REAL(KIND=JPRB) ,INTENT(IN)    :: PCFLX(:,:)                !(KLON,KTRAC)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PSOTEU(:,:)               !(KLON,KLEV) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PSOTEV(:,:)               !(KLON,KLEV) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PSOBETA(:,:)              !(KLON,KLEV) 
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PZ0M(:)                   !(KLON) 
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PZ0H(:)                   !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PVDIS(:)                  !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PVDISG(:)                 !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PDISGW3D(:,:)             !(KLON,KLEV) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PAHFLEV(:)                !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PAHFLSB(:)                !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PFWSB(:)                  !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PBIR(:)                   !(KLON)
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PVDIS(:)                  !(KLON) 
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PVDISG(:)                 !(KLON) 
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PDISGW3D(:,:)             !(KLON,KLEV) 
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PAHFLEV(:)                !(KLON) 
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PAHFLSB(:)                !(KLON) 
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PFWSB(:)                  !(KLON) 
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PBIR(:)                   !(KLON)
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PVAR(:,:)                 !(KLON,KLEV)
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PU10M(:)                  !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PV10M(:)                  !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PT2M(:)                   !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PD2M(:)                   !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PQ2M(:)                   !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PZINV(:)                  !(KLON)
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PBLH(:)                   !(KLON) 
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PU10M(:)                  !(KLON) 
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PV10M(:)                  !(KLON) 
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PT2M(:)                   !(KLON) 
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PD2M(:)                   !(KLON) 
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PQ2M(:)                   !(KLON) 
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PZINV(:)                  !(KLON)
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PBLH(:)                   !(KLON) 
 INTEGER(KIND=JPIM),INTENT(OUT)   :: KHPBLN(:)                 !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(INOUT) :: PSSRFLTI(:,:)             !(KLON,KTILES) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PEVAPSNW(:)               !(KLON) 
+! REAL(KIND=JPRB) ,INTENT(INOUT) :: PSSRFLTI(:,:)             !(KLON,KTILES) 
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PEVAPSNW(:)               !(KLON) 
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PFPLVL(:,0:)              !(KLON,0:KLEV)
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PFPLVN(:,0:)              !(KLON,0:KLEV)
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PFHPVL(:,0:)              !(KLON,0:KLEV)
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PFHPVN(:,0:)              !(KLON,0:KLEV)
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PGUST(:)                  !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PWUAVG(:)                 !(KLON) 
-LOGICAL           ,INTENT(OUT)   :: LDNODECP(:)               !(KLON) 
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PFHPVL(:,0:)              !(KLON,0:KLEV)
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PFHPVN(:,0:)              !(KLON,0:KLEV)
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PGUST(:)                  !(KLON) 
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PWUAVG(:)                 !(KLON) 
+! LOGICAL         ,INTENT(OUT)   :: LDNODECP(:)               !(KLON) 
 INTEGER(KIND=JPIM),INTENT(OUT)   :: KPBLTYPE(:)               !(KLON)
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PLDIFF(:,:)               !(KLON,KLEV) 
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PLDIFF(:,:)               !(KLON,KLEV) 
 INTEGER(KIND=JPIM),INTENT(OUT)   :: KVARTOP(:)                !(KLON)
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PTE(:,:)                  !(KLON,KLEV) 
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PQE(:,:)                  !(KLON,KLEV) 
@@ -458,8 +424,7 @@ REAL(KIND=JPRB)   ,INTENT(INOUT) :: PIE(:,:)                  !(KLON,KLEV)
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PAE(:,:)                  !(KLON,KLEV) 
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PVOM(:,:)                 !(KLON,KLEV) 
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PVOL(:,:)                 !(KLON,KLEV) 
-REAL(KIND=JPRB)   ,INTENT(INOUT) :: PTENC(:,:,:)              !(KLON,KLEV,KTRAC)
-REAL(KIND=JPRB)   ,INTENT(INOUT) :: PTSKE1(:)                 !(KLON) 
+! REAL(KIND=JPRB) ,INTENT(INOUT) :: PTENC(:,:,:)              !(KLON,KLEV,KTRAC)
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PUSTRTI(:,:)              !(KLON,KTILES) 
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PVSTRTI(:,:)              !(KLON,KTILES) 
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PAHFSTI(:,:)              !(KLON,KTILES) 
@@ -471,67 +436,95 @@ REAL(KIND=JPRB)   ,INTENT(OUT)   :: PDIFTL(:,0:)              !(KLON,0:KLEV)
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PDIFTI(:,0:)              !(KLON,0:KLEV) 
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PSTRTU(:,0:)              !(KLON,0:KLEV) 
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PSTRTV(:,0:)              !(KLON,0:KLEV) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PTOFDU(:)                 !(KLON) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PTOFDV(:)                 !(KLON)
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PSTRSOU(:,0:)             !(KLON,0:KLEV) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PSTRSOV(:,0:)             !(KLON,0:KLEV) 
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PTOFDU(:)                 !(KLON) 
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PTOFDV(:)                 !(KLON)
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PSTRSOU(:,0:)             !(KLON,0:KLEV) 
+! REAL(KIND=JPRB) ,INTENT(OUT)   :: PSTRSOV(:,0:)             !(KLON,0:KLEV) 
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PKH(:,:)                  !(KLON,KLEV) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   ,optional :: PDHTLS(:,:,:)   !(KLON,KTILES,KDHVTLS+KDHFTLS) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   ,optional :: PDHTSS(:,:,:)   !(KLON,KLEVSN,KDHVTSS+KDHFTSS) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   ,optional :: PDHTTS(:,:,:)   !(KLON,KLEVS,KDHVTTS+KDHFTTS) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   ,optional :: PDHTIS(:,:,:)   !(KLON,KLEVI,KDHVTIS+KDHFTIS) 
+REAL(KIND=JPRB)   ,INTENT(OUT)   :: PKM(:,:)                  !(KLON,KLEV) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PVERVEL(:,:)              !(KLON,KLEV) 
-!amk
 LOGICAL                          :: LDLAND(:)                 !(KLON)
-!xxx
+REAL(KIND=JPRB)   ,INTENT(IN)    :: SHFL_S(:)                 !(KLON) sensible heat flux from TERRA
+REAL(KIND=JPRB)   ,INTENT(IN)    :: LHFL_S(:)                 !(KLON) latent   heat from from TERRA
+REAL(KIND=JPRB)   ,INTENT(IN)    :: UMFL_S(:)                 !(KLON) u-flux from TURBTRAN & SFCinterface
+REAL(KIND=JPRB)   ,INTENT(IN)    :: VMFL_S(:)                 !(KLON) v-flux from TURBTRAN & SFCinterface
 !          DIAGNOSTIC OUTPUT
 INTEGER(KIND=JPIM),INTENT(IN)    :: KFLDX2, KLEVX, KFLDX
-REAL(KIND=JPRB)   ,INTENT(INOUT) :: PEXTR2(:,:)               !(KLON,KFLDX2)
-REAL(KIND=JPRB)   ,INTENT(INOUT) :: PEXTRA(:,:,:)             !(KLON,KLEVX,KFLDX)
+! REAL(KIND=JPRB) ,INTENT(INOUT) :: PEXTR2(:,:)               !(KLON,KFLDX2)
+! REAL(KIND=JPRB) ,INTENT(INOUT) :: PEXTRA(:,:,:)             !(KLON,KLEVX,KFLDX)
 LOGICAL           ,INTENT(IN)    :: LLDIAG
 
-! TERRA data
+REAL(KIND=JPRB)   ,INTENT(IN)    :: frac_t (:,:)              !(KLON,ntiles_total)  tile fraction
+REAL(KIND=JPRB)   ,INTENT(IN)    :: t_g_t  (:,:)              !(KLON,ntiles_total)  tiled sfc temperature
+REAL(KIND=JPRB)   ,INTENT(IN)    :: qv_s   (:)                !(KLON)               mean  sfc qsat
+REAL(KIND=JPRB)   ,INTENT(IN)    :: t_ice  (:)                !(KLON)               ice temperature
 
-INTEGER          ,INTENT(IN)                                               :: &
-  jb             ,jg                 
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_snow,ntiles_total) :: &
-  t_snow_mult_ex 
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)   :: &
-  rho_snow_mult_ex  
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
-  t_g_ex         ,qv_s_ex  
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
-  t_snow_ex      ,t_s_ex         ,                                            & 
-  w_snow_ex      ,rho_snow_ex    ,h_snow_ex       ,                           &
-  w_i_ex         ,w_p_ex         ,w_s_ex
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_soil,ntiles_total) :: &
-  t_so_ex             
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil,ntiles_total)   :: &
-  w_so_ex        ,w_so_ice_ex          
-!REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                         :: &
-! u_10m_ex       ,v_10m_ex             
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
-  freshsnow_ex   ,snowfrac_lc_ex ,snowfrac_ex 
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)   :: &
-  wliq_snow_ex   ,wtot_snow_ex   ,dzh_snow_ex          
-REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON)                          :: &
-  prr_con_ex     ,prs_con_ex     ,prr_gsp_ex     ,prs_gsp_ex           
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
-  tch_ex         ,tcm_ex         ,tfv_ex               
-REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
-  sobs_ex        ,thbs_ex        ,pabs_ex              
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
-  runoff_s_ex    ,runoff_g_ex        
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
-  t_g            ,qv_s
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
-  t_ice          ,h_ice          ,t_snow_si      ,h_snow_si       ,alb_si
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
-  fr_seaice
-TYPE(t_external_data), INTENT(INOUT)                                       :: &
-  ext_data
+!--- dummy variables taken from argument list that are not used
+
+REAL(KIND=JPRB)                  :: PFRTI(KLON,KTILES) 
+REAL(KIND=JPRB)                  :: PTICE(KLON) 
+REAL(KIND=JPRB)                  :: PTSKE1(KLON) 
+REAL(KIND=JPRB)                  :: PSST(KLON) 
+INTEGER(KIND=JPIM)               :: KCNT 
+INTEGER(KIND=JPIM)               :: KSOTY(KLON) 
+INTEGER(KIND=JPIM)               :: KTVL(KLON) 
+INTEGER(KIND=JPIM)               :: KTVH(KLON) 
+INTEGER(KIND=JPIM)               :: KDHVTLS 
+INTEGER(KIND=JPIM)               :: KDHFTLS 
+INTEGER(KIND=JPIM)               :: KDHVTSS 
+INTEGER(KIND=JPIM)               :: KDHFTSS 
+INTEGER(KIND=JPIM)               :: KDHVTTS 
+INTEGER(KIND=JPIM)               :: KDHFTTS 
+INTEGER(KIND=JPIM)               :: KDHVTIS 
+INTEGER(KIND=JPIM)               :: KDHFTIS 
+CHARACTER(LEN=1)                 :: CDCONF 
+
 
 !*         0.2    LOCAL VARIABLES
+
+! added local variables of deleted arguments that are NOT used
+
+REAL(KIND=JPRB) :: PHLICE  (KLON)          ! lake ice thickness   
+REAL(KIND=JPRB) :: PTLICE  (KLON)          ! lake ice temperature
+REAL(KIND=JPRB) :: PTLWML  (KLON)          ! lake mean water T   
+REAL(KIND=JPRB) :: PCVL    (KLON)          ! low vegetation cover
+REAL(KIND=JPRB) :: PCVH    (KLON)          ! high vegetation cover
+REAL(KIND=JPRB) :: PWLMX   (KLON)          ! maximum skin reservoir capacity
+REAL(KIND=JPRB) :: PVDIS   (KLON)          ! turbulent dissipation
+REAL(KIND=JPRB) :: PVDISG  (KLON)          ! SO dissipation
+REAL(KIND=JPRB) :: PAHFLEV (KLON)          ! latent heat flux (snow/ice free part)
+REAL(KIND=JPRB) :: PAHFLSB (KLON)          ! latent heat flux (snow/ice covered part)
+REAL(KIND=JPRB) :: PFWSB   (KLON)          ! evaporation of snow
+REAL(KIND=JPRB) :: PBIR    (KLON)          ! BIR buoyancy flux integral ratio
+REAL(KIND=JPRB) :: PZINV   (KLON)          ! PBL HEIGHT (moist parcel, not for stable PBL)
+REAL(KIND=JPRB) :: PBLH    (KLON)          ! PBL HEIGHT (dry diagnostic based on Ri#)
+REAL(KIND=JPRB) :: PEVAPSNW(KLON)          ! evaporation from snow under forest
+REAL(KIND=JPRB) :: PGUST   (KLON)          ! 10m gust
+REAL(KIND=JPRB) :: PWUAVG  (KLON)          ! w,up averaged
+REAL(KIND=JPRB) :: PTOFDU  (KLON)          ! TOFD U flux
+REAL(KIND=JPRB) :: PTOFDV  (KLON)          ! TOFD V flux
+REAL(KIND=JPRB) :: PU10M   (KLON)          ! 10m U 
+REAL(KIND=JPRB) :: PV10M   (KLON)          ! 10m V
+REAL(KIND=JPRB) :: PT2M    (KLON)          ! 2m T
+REAL(KIND=JPRB) :: PD2M    (KLON)          ! 2m TD
+REAL(KIND=JPRB) :: PQ2M    (KLON)          ! 2m Q
+LOGICAL         :: LDNODECP(KLON)          ! no decoupling allowed
+REAL(KIND=JPRB) :: PDISGW3D(KLON,KLEV)     ! 3D stoch. phys. dissipation
+REAL(KIND=JPRB) :: PLDIFF  (KLON,KLEV)     ! contrib to PBL cond. by passive clouds
+REAL(KIND=JPRB) :: PFHPVL  (KLON,0:KLEV)   ! PBL rain enthalpy flux
+REAL(KIND=JPRB) :: PFHPVN  (KLON,0:KLEV)   ! PBL snow enthalpy flux
+REAL(KIND=JPRB) :: PSTRSOU (KLON,0:KLEV)   ! SSO U flux
+REAL(KIND=JPRB) :: PSTRSOV (KLON,0:KLEV)   ! SSO V flux
+REAL(KIND=JPRB) :: PTSAM1M (KLON,KLEVS)    ! T,soil      
+REAL(KIND=JPRB) :: PWSAM1M (KLON,KLEVS)    ! Q,soil
+REAL(KIND=JPRB) :: PALBTI  (KLON,KTILES)   ! tile albedo
+REAL(KIND=JPRB) :: PSSRFLTI(KLON,KTILES)   ! net SW sfc flux for each tile (use tile ablbedo)
+REAL(KIND=JPRB) :: PCM1    (KLON,KLEV,KTRAC) ! tracer - for VDF transport
+REAL(KIND=JPRB) :: PTENC   (KLON,KLEV,KTRAC) ! tracer tendency
+REAL(KIND=JPRB) :: PCFLX   (KLON,KTRAC)      ! surface tracer flux
+REAL(KIND=JPRB) :: PEXTR2  (KLON,KFLDX2)     ! 2D extra variable
+REAL(KIND=JPRB) :: PEXTRA  (KLON,KLEVX,KFLDX)! 3D extra variable
+
 
 REAL(KIND=JPRB) ::    ZUSTRTI(KLON,KTILES),ZVSTRTI(KLON,KTILES),&
  & ZAHFSTI(KLON,KTILES),ZEVAPTI(KLON,KTILES),&
@@ -557,15 +550,10 @@ REAL(KIND=JPRB) ::    ZT2M(KLON)       ,ZD2M(KLON)       ,ZQ2M(KLON)       ,&
  & ZGUST(KLON)  
 REAL(KIND=JPRB) ::    ZAHFLEV(KLON)    ,ZAHFLSB(KLON)
 REAL(KIND=JPRB) ::    ZFWSB(KLON)      ,ZEVAPSNW(KLON)
-REAL(KIND=JPRB) ::    ZKH(KLON,KLEV)
+REAL(KIND=JPRB) ::    ZKH(KLON,KLEV)   ,ZKM(KLON,KLEV)
 REAL(KIND=JPRB) ::    ZVDIS(KLON)      ,ZVDISG(KLON)
 
-REAL(KIND=JPRB) ::    ZDHTLS(KLON,KTILES,KDHVTLS+KDHFTLS)
-REAL(KIND=JPRB) ::    ZDHTSS(KLON,KLEVSN,KDHVTSS+KDHFTSS)
-REAL(KIND=JPRB) ::    ZDHTTS(KLON,KLEVS,KDHVTTS+KDHFTTS)
-REAL(KIND=JPRB) ::    ZDHTIS(KLON,KLEVI,KDHVTIS+KDHFTIS)
-
-INTEGER(KIND=JPIM) :: INVDF, JCNT, JROF, JLEV, J1, J2, JTR
+INTEGER(KIND=JPIM) :: INVDF, JCNT, JROF, JLEV, J1, JTR
 
 REAL(KIND=JPRB) ::    ZTSPHY, ZINVDF
 REAL(KIND=JPRB) ::    ZHOOK_HANDLE
@@ -595,7 +583,24 @@ INVDF = CEILING(PTSPHY/500.0_JPRB) !substeps always smaller than 500s
 
 ZINVDF = 1.0_JPRB/INVDF
 
-ZTSPHY=PTSPHY/INVDF
+ZTSPHY = PTSPHY/INVDF
+
+
+! setup of a few variables that are not used - default values
+
+DO JROF=KIDIA,KFDIA
+  PHLICE (JROF) = 0.0_jprb      ! lake ice thickness    (no lakes???)
+  PTLICE (JROF) = 273.0_jprb    ! lake ice temperature  (no lakes???)
+  PTLWML (JROF) = 273.0_jprb    ! lake mean water T     (no lakes???)
+  PCVL   (JROF) = 0.5_jprb      ! low vegetation cover
+  PCVH   (JROF) = 0.5_jprb      ! high vegetation cover
+  PWLMX  (JROF) = 1.0_jprb      ! maximum skin reservoir capacity (~1mm = 1kg/m2) ??? needs to be done physically by TERRA
+  DO J1=1,KLEVS
+    PTSAM1M (JROF,J1) = 0.0_jprb! T,soil (only used when TERRA called from EDMF)
+    PWSAM1M (JROF,J1) = 0.0_jprb! Q,soil (only used when TERRA called from EDMF)
+  ENDDO                         ! for TERRA from EDMF calls take dominant tile lnd_prog_now%t_so_t(jc,jk,jb,1) and w_so_t
+ENDDO
+
 
 !*         1.2    STORE STATE VARIABLES IN LOCAL ARRAYS
 !                 -------------------------------------
@@ -669,17 +674,31 @@ PEVAPTI(KIDIA:KFDIA,:)=0.0_JPRB
 !*         1.5A   INITIALIZE FOR DDH DIAGNOSTICS
 !                 ------------------------------
 
-if ( present(PDHTLS) ) then
-  PDHTLS(KIDIA:KFDIA,:,KDHVTLS+1:KDHVTLS+KDHFTLS)=0.0_JPRB
-  PDHTSS(KIDIA:KFDIA,:,KDHVTSS+1:KDHVTSS+4)=0.0_JPRB
-  PDHTTS(KIDIA:KFDIA,:,KDHVTTS+1:KDHVTTS+4)=0.0_JPRB
-  PDHTIS(KIDIA:KFDIA,:,KDHVTIS+1:KDHVTIS+4)=0.0_JPRB
-endif
+! unused - deleted
 
 PBIR(KIDIA:KFDIA) = 0.0_JPRB      ! initialize in absence of test vdfmain 
 LDNODECP(KIDIA:KFDIA) = .FALSE.   ! allow decoupling and 
                                   ! do not recalculate PBIR
 
+!*         1.5B   INITIALIZE DUMMY TESSEL VARIABLES
+!                 ---------------------------------
+
+DO JROF=KIDIA,KFDIA
+  KTVL  (JROF) = 0                                   ! KTVL: dummy default, not used
+  KTVH  (JROF) = 0                                   ! KTVH: dummy default, not used 
+  PTICE (JROF) = 0.0_JPRB                            ! only used in sfcexcdriver (deactivated)
+  PTSKE1(JROF) = 0.0_JPRB                            ! only used in sfcexcdriver (deactivated)
+  PSST  (JROF) = 0.0_JPRB                            ! SST: not used any more
+ENDDO
+KDHVTLS = 3                                          !  DDH dimensions
+KDHFTLS = 8                                          !   - " -
+KDHVTSS = 6                                          !   - " -
+KDHFTSS = 9                                          !   - " -
+KDHVTTS = 4                                          !   - " -
+KDHFTTS = 11                                         !   - " -
+KDHVTIS = 4                                          !   - " -
+KDHFTIS = 9                                          !   - " -
+CDCONF  = 'T'
 
 !  INNER TIME LOOP FOR VERTICAL DIFFUSION
 
@@ -762,28 +781,12 @@ ENDDO
    & ZUSTRTI, ZVSTRTI, ZAHFSTI, ZEVAPTI, ZTSKTI , &
    ! FLUX OUTPUTS
    & ZDIFTS , ZDIFTQ , ZDIFTL , ZDIFTI , ZSTRTU , ZSTRTV , PTOFDU , PTOFDV ,&
-   & ZSTRSOU, ZSTRSOV, ZKH    , &
-!amk
+   & ZSTRSOU, ZSTRSOV, ZKH    , ZKM    , &
    & LDLAND , &   
-!xxx
-   ! DDH OUTPUTS
-   & ZDHTLS , ZDHTSS , ZDHTTS , ZDHTIS &
+! surface fluxes from TERRA for EDMF atmospheric transport
+   & SHFL_S , LHFL_S , UMFL_S , VMFL_S , &
    ! TERRA data
-   & , ext_data                                                           & !in
-   & , jb, jg                                                             & ! -
-   & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
-   & , w_snow_ex                                                          & ! -
-   & , rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex, w_p_ex, w_s_ex   & ! -
-   & , t_so_ex, w_so_ex, w_so_ice_ex  &    !, t_2m_ex, u_10m_ex, v_10m_ex & ! -
-   & , freshsnow_ex, snowfrac_lc_ex, snowfrac_ex                          & ! -
-   & , wliq_snow_ex, wtot_snow_ex, dzh_snow_ex                            & ! -
-   & , prr_con_ex, prs_con_ex, prr_gsp_ex, prs_gsp_ex                     & !in
-   & , tch_ex, tcm_ex, tfv_ex                                             & !inout
-   & , sobs_ex, thbs_ex, pabs_ex                                          & !in
-   & , runoff_s_ex, runoff_g_ex                                           & !inout
-   & , t_g, qv_s                                                          & ! -
-   & , t_ice, h_ice, t_snow_si, h_snow_si, alb_si                         & ! -
-   & , fr_seaice                                                          ) !in
+   & frac_t , t_g_t  , qv_s   , t_ice )
 
 
 !*         3.0    UPDATE STATE VARIABLES
@@ -985,36 +988,7 @@ ENDDO
 !*         4.4    ACCUMULATE DDH DIAGNOSTICS
 !                 --------------------------
 
-  if ( present(PDHTLS) ) then
-  DO J2=KDHVTLS+1,KDHVTLS+KDHFTLS
-    DO J1=1,KTILES
-      DO JROF=KIDIA,KFDIA
-        PDHTLS(JROF,J1,J2)=PDHTLS(JROF,J1,J2)+ZDHTLS(JROF,J1,J2)*ZINVDF
-      ENDDO
-    ENDDO
-  ENDDO
-  DO J2=KDHVTSS+1,KDHVTSS+4
-    DO J1=1,KLEVSN
-      DO JROF=KIDIA,KFDIA
-        PDHTSS(JROF,J1,J2)=PDHTSS(JROF,J1,J2)+ZDHTSS(JROF,J1,J2)*ZINVDF
-      ENDDO
-    ENDDO
-  ENDDO
-  DO J2=KDHVTTS+1,KDHVTTS+4
-    DO J1=1,KLEVS
-      DO JROF=KIDIA,KFDIA
-        PDHTTS(JROF,J1,J2)=PDHTTS(JROF,J1,J2)+ZDHTTS(JROF,J1,J2)*ZINVDF
-      ENDDO
-    ENDDO
-  ENDDO
-  DO J2=KDHVTIS+1,KDHVTIS+4
-    DO J1=1,KLEVI
-      DO JROF=KIDIA,KFDIA
-        PDHTIS(JROF,J1,J2)=PDHTIS(JROF,J1,J2)+ZDHTIS(JROF,J1,J2)*ZINVDF
-      ENDDO
-    ENDDO
-  ENDDO
-  endif
+! unused - deleted
 
 !*         5.0    VARIABLES CLOSE TO INITIAL TIME
 !                 -------------------------------
@@ -1028,13 +1002,7 @@ ENDDO
     PBLH(KIDIA:KFDIA)=ZBLH(KIDIA:KFDIA)
     PGUST(KIDIA:KFDIA)=ZGUST(KIDIA:KFDIA)
     PKH(KIDIA:KFDIA,1:KLEV)=ZKH(KIDIA:KFDIA,1:KLEV)
-! DDH diagnostics
-    if ( present(PDHTLS) ) then
-    PDHTLS(KIDIA:KFDIA,:,1)=ZDHTLS(KIDIA:KFDIA,:,1)*ZINVDF
-    PDHTLS(KIDIA:KFDIA,:,2)=ZDHTLS(KIDIA:KFDIA,:,2)*ZINVDF
-    PDHTLS(KIDIA:KFDIA,:,3)=ZDHTLS(KIDIA:KFDIA,:,3)*ZINVDF
-    PDHTSS(KIDIA:KFDIA,:,6)=ZDHTSS(KIDIA:KFDIA,:,6)*ZINVDF
-    endif
+    PKM(KIDIA:KFDIA,1:KLEV)=ZKM(KIDIA:KFDIA,1:KLEV)
   ENDIF
 
 ENDDO INNER_TIME_LOOP
@@ -1067,14 +1035,6 @@ PEVAPTI(KIDIA:KFDIA,:)=PEVAPTI(KIDIA:KFDIA,:)*ZINVDF
 
 PTSKE1(KIDIA:KFDIA)=PTSKE1(KIDIA:KFDIA)+ZTSKE1A(KIDIA:KFDIA)*ZINVDF
 
-
-! DO JROF=KIDIA,KFDIA
-!   IF ( (SUM(PAHFSTI(JROF,:)) == 0.0) .or. (SUM(PEVAPTI(JROF,:)) == 0.0) .or. &
-!        (PDIFTS(JROF,KLEV)    == 0.0) .or. (PDIFTQ(JROF,KLEV)    == 0.0) ) THEN
-!     write(*,*) 'vdfouter5: ', PDIFTS(JROF,KLEV), PDIFTQ(JROF,KLEV), PAHFSTI(JROF,:), PEVAPTI(JROF,:), &
-!       & PFRTI(JROF,:)
-!   ENDIF
-! ENDDO
 
 
 IF (LHOOK) CALL DR_HOOK('VDFOUTER',1,ZHOOK_HANDLE)

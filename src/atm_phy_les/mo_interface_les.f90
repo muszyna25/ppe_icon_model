@@ -530,38 +530,13 @@ CONTAINS
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_microphysics)
 
-      !Copy temp to calculate its tendency next
-      CALL copy(pt_diag%temp(:,:,:), z_temp_old(:,:,:)) 
-
       CALL nwp_microphysics ( dt_phy_jg(itfastphy),             & !>input
                             & lcall_phy_jg(itsatad),            & !>input
                             & pt_patch, p_metrics,              & !>input
                             & pt_prog,                          & !>inout
                             & pt_prog_rcf,                      & !>inout
                             & pt_diag ,                         & !>inout
-                            & prm_diag                          ) !>inout
-
-      !Calculate temp tendency due to microphysics in interior points
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int
-
-      i_startblk = pt_patch%cells%start_blk(rl_start,1)
-      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx ) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end )
-         DO jk = kstart_moist(jg), nlev
-          DO jc =  i_startidx, i_endidx
-            prm_nwp_tend%ddt_temp_gscp(jc,jk,jb) =  &
-                 ( pt_diag%temp(jc,jk,jb) - z_temp_old(jc,jk,jb) ) * inv_dt_fastphy
-          END DO
-         END DO
-      END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+                            & prm_diag, prm_nwp_tend            ) !>inout
 
       IF (timers_level > 1) CALL timer_stop(timer_nwp_microphysics)
 

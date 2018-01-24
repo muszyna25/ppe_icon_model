@@ -1283,7 +1283,6 @@ END SUBROUTINE message
 
   LOGICAL     :: &
 !
-    ldebug                , & !
     limit_tch (ie)         ! indicator for flux limitation problem
 
   ! ground water as lower boundary of soil column
@@ -1734,7 +1733,6 @@ END SUBROUTINE message
 ! Initialisations and conversion of tch to tmch
 
   limit_tch(:) = .false.  !  preset problem indicator
-  ldebug       = .false.
 
   DO i = istarts, iends
 !      IF (llandmask(i)) THEN     ! for land-points only
@@ -1829,14 +1827,12 @@ END SUBROUTINE message
 
         ztchv(i)    = tch(i)*zuv  ! transfer coefficient * velocity
 
-        IF ( inwp_turb /= iedmf ) THEN
           LIM: IF (ztchv(i) > ztchv_max(i)) THEN
             tch(i)=ztchv_max(i)/MAX(zuv,1.E-06_ireals)
 !           IF (ntstep > 10) THEN          ! control print only after initial adaptation
 !                                          ! to analysis state
             limit_tch(i) = .true.          ! set switch for later use
           END IF LIM
-        ENDIF
 
         ztmch(i) = tch(i)*zuv*g*zrho_atm(i)
 !     ENDIF
@@ -1846,28 +1842,20 @@ END SUBROUTINE message
   m_limit = COUNT( limit_tch(:) )
 
 
-! In debugging mode and if transfer coefficient occured for at least one grid point
-  IF (m_limit > 0 .AND. ldebug .AND. msg_level >= 20) THEN
+! In debugging mode and if transfer coefficient limiter occured for at least one grid point
+  IF (m_limit > 0 .AND. msg_level >= 20) THEN
     WRITE(*,'(1X,A,/,2(1X,A,F10.2,A,/),1X,A,F10.2,/,1X,A,F10.3,/)')                  &
            'terra1: transfer coefficient had to be constrained',                     &
            'model time step                                 :', zdt     ,' seconds', &
            'max. temperature increment allowed per time step:',zlim_dtdt,' K',       &
            'upper soil model layer thickness                :', zdzhs(1)
-
-      DO i = istarts, iends
-#ifdef __ICON__
-      IF (limit_tch(i)) THEN
-        zuv        = SQRT (u(i)**2 + v(i)**2 )
-#else
-      im1 = MAX(1,i-1)
-      IF (limit_tch(i)) THEN
-        zuv        = 0.5_ireals*SQRT ( (u(i) + u(im1))**2 &
-                               +(v(i) + v(im1))**2 )
-#endif
-        yhc       ='COOLING'
-        IF (zeb1(i) > 0._ireals) Yhc='HEATING'
-        END IF
-      END DO
+     DO i = istarts, iends
+       IF ( limit_tch(i) ) THEN 
+         zuv        = SQRT ( u(i)**2 + v(i)**2 )
+         WRITE(*,*) 'TERRA flux limiter: TCH before and after, zshfl, zlhf, Tsfc, Tatm ', &
+                    ztchv(i)/zuv, tch(i), zshfl(i), zlhfl(i), t_g(i), t(i)
+       END IF
+     END DO
   ENDIF
 
 
@@ -2447,12 +2435,15 @@ END SUBROUTINE message
               zuv        = SQRT (u(i) **2 + v(i)**2 )
               zcatm      = tch(i)*zuv           ! Function CA
 
-              IF(icant == 1) THEN !additional laminar canopy resistance in case of Louis-transfer-scheme
-                zustar     = zuv*SQRT(tcm(i))
-                zrla       = 1.0_ireals/MAX(cdash*SQRT(zustar),zepsi)
-              ELSE !in case of Raschendorfer-transfer-scheme a laminar canopy resistance is already considered
-                zrla       = 0._ireals
-              ENDIF
+              SELECT CASE ( icant )
+                CASE (1)   ! Louis-transfer-scheme: additional laminar canopy resistance
+                  zustar = zuv*SQRT(tcm(i))
+                  zrla   = 1.0_ireals/MAX(cdash*SQRT(zustar),zepsi)
+                CASE (2)   ! Raschendorfer transfer scheme: laminar canopy resistance already considered
+                  zrla   = 0._ireals
+                CASE (3)   ! EDMF: additional laminar canopy resistance
+                  zrla   = 1.0_ireals/MAX(tch(i)*zuv,zepsi)
+              END SELECT
 
               ! to compute CV, first the stomatal resistance has to be determined
               ! this requires the determination of the F-functions:
@@ -3520,19 +3511,6 @@ ELSE   IF (itype_interception == 2) THEN
 !      END IF          ! land-points only
     END DO
 
-!!$IF (msg_level >= 14) THEN
-!!$  DO i = istarts, iends
-!!$  IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
-!!$    IF ( ABS( zshfl_snow(i) )  >  500.0  .OR. &
-!!$         ABS( zlhfl_snow(i) )  > 2000.0 ) THEN
-!!$      write(*,*) 'hello mo_soil_ml 1: ', zshfl_s(i),cp_d, zrhoch(i),zth_low(i),zts(i), &
-!!$        '  ......  ', zlhfl_s(i),zts_pm(i),lh_v,          lh_s,zverbo(i),zf_snow(i), &
-!!$        '  ......  ', tch(i), tcm(i)
-!!$    ENDIF
-!!$  ENDIF
-!!$  END DO
-!!$ENDIF
-
     DO ksn = 1,ke_snow
       DO i = istarts, iends
 !        IF (llandmask(i)) THEN          ! land-points only
@@ -3795,21 +3773,7 @@ ELSE   IF (itype_interception == 2) THEN
 !      END IF          ! land-points only
     END DO
 
-IF (msg_level >= 20) THEN
-  DO i = istarts, iends
-  IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
-    IF ( ABS( zshfl_s(i) )  >  500.0_ireals  .OR. &
-         ABS( zlhfl_s(i) )  > 2000.0_ireals ) THEN
-      write(*,*) 'hello mo_soil_ml 2: ', zshfl_s(i), zrhoch(i),zth_low(i),t(i),zts(i), &
-        '  ...LHF...  ',                 zlhfl_s(i), zts_pm(i),zverbo(i),zf_snow(i),qv(i),qv_s(i), &
-        '  ...CH,CM...  ', tch(i), tcm(i)
-    ENDIF
-  ENDIF
-  END DO
-ENDIF
-
   ENDIF ! lmulti_snow
-
 
 
 !------------------------------------------------------------------------------
@@ -4251,14 +4215,19 @@ ENDIF
 
 IF (msg_level >= 20) THEN
   DO i = istarts, iends
-  IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
-    IF ( ABS( zshfl_snow(i) )  >  500.0_ireals  .OR. &
-         ABS( zlhfl_snow(i) )  > 2000.0_ireals ) THEN
-      write(*,*) 'soil: ', zshfl_snow(i), zlhfl_snow(i), '....', &
-        zth_low(i), ztsnow(i), '....', &
-        zwsnow(i), zrr(i), zrs(i), zdwsndt(i)
+!   IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
+    IF ( ABS( zshfl_s(i)    * (1._ireals-zf_snow(i)) )  >  700.0_ireals  .OR. &
+         ABS( zlhfl_s(i)    * (1._ireals-zf_snow(i)) )  > 2000.0_ireals  ) THEN
+      write(*,*) 'soil soil: ', zshfl_s(i), zrhoch(i),zth_low(i),t(i),zts(i), &
+        '  ...LHF...  ',        zlhfl_s(i), zts_pm(i),zverbo(i),zf_snow(i),qv(i),qv_s(i), &
+        '  ...CH,CM...  ', tch(i), tcm(i)
     ENDIF
-  ENDIF
+    IF ( ABS( zshfl_snow(i) *            zf_snow(i)  )  >  700.0_ireals  .OR. &
+         ABS( zlhfl_snow(i) *            zf_snow(i)  )  > 2000.0_ireals  ) THEN
+      write(*,*) 'soil snow: shf lhf ... Tatm Tsnow ', zshfl_snow(i), zlhfl_snow(i), '....', &
+        zth_low(i), ztsnow(i), '....', zwsnow(i), zrr(i), zrs(i), zdwsndt(i)
+    ENDIF
+!   ENDIF
   END DO
 ENDIF
 
@@ -5259,6 +5228,7 @@ ENDIF
               write(0,*) "t_so_new",i,t_so_new(i,:)
               write(0,*) "w_so_now",i,w_so_now(i,:)
               write(0,*) "w_so_new",i,w_so_new(i,:)
+              write(0,*) "zf_snow,sn_frac",i,zf_snow(i),sn_frac(i)
               IF (lmulti_snow) THEN
                 write(0,*) "t_snow_mult",i,t_snow_mult_now(i,:),t_snow_mult_new(i,:)
                 write(0,*) "t_snow_mult_now",i,t_snow_mult_now(i,0),t_snow_mult_now(i,1),t_snow_mult_now(i,2)

@@ -33,10 +33,10 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message, finish
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_impl_constants,       ONLY: min_rlcell_int, icosmo, igme, ismag
+  USE mo_impl_constants,       ONLY: min_rlcell_int, icosmo, igme, ismag, iedmf
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
-  USE mo_physical_constants,   ONLY: rd_o_cpd, grav, lh_v=>alv, lh_s=>als
+  USE mo_physical_constants,   ONLY: rd_o_cpd, grav, lh_v=>alv, lh_s=>als, rd, cpd
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
@@ -55,7 +55,9 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases_nml,     ONLY: nh_test_name
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_lnd, ntiles_water, llake,  &
-    &                                isub_lake, isub_seaice
+    &                                isub_lake, isub_seaice, lseaice
+  USE mo_vupdz0_tile,          ONLY: vupdz0_tile
+  USE mo_vexcs,                ONLY: vexcs
 
   IMPLICIT NONE
 
@@ -140,6 +142,10 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
    t_2m_t, qv_2m_t, td_2m_t, rh_2m_t, u_10m_t, v_10m_t, t_g_t, qv_s_t, sai_t, shfl_s_t,  &
    lhfl_s_t, qhfl_s_t, umfl_s_t, vmfl_s_t
 
+  REAL(wp), DIMENSION(nproma) :: &
+   PGEOMLEV,PCPTGZLEV,PCPTSTI,PUCURR,PVCURR,ZCFMTI,PCFHTI,PCFQTI,ZKHLEV,ZBUOMTI,ZZDLTI,  &
+   ZZ0MTI,ZZ0HTI,ZZ0QTI
+  REAL(wp) :: rho_s
 
   INTEGER,  POINTER :: ilist(:)       ! pointer to tile index list
 
@@ -164,7 +170,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   i_endblk   = p_patch%cells%end_block(rl_end)
 
 
-  IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
+  IF ( ANY( (/icosmo,iedmf/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
      CALL get_turbdiff_param(jg)
   ENDIF
 
@@ -177,7 +183,9 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 !$OMP lc_class,z_tvs,z0_mod,gz0_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,tvm_t,tvh_t,tkr_t,l_hori,       &
 !$OMP t_g_t,qv_s_t,t_2m_t,qv_2m_t,td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,     &
 !$OMP temp_t,pres_t,qv_t,qc_t,tkvm_t,tkvh_t,z_ifc_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,  &
-!$OMP area_frac,shfl_s_t,lhfl_s_t,qhfl_s_t,umfl_s_t,vmfl_s_t,nlevcm,jk_gust) ICON_OMP_GUIDED_SCHEDULE
+!$OMP area_frac,shfl_s_t,lhfl_s_t,qhfl_s_t,umfl_s_t,vmfl_s_t,nlevcm,jk_gust,                    &
+!$OMP PGEOMLEV,PCPTGZLEV,PCPTSTI,PUCURR,PVCURR,ZCFMTI,PCFHTI,PCFQTI,ZKHLEV,ZBUOMTI,ZZDLTI,      &
+!$OMP ZZ0MTI,ZZ0HTI,ZZ0QTI,rho_s ) ICON_OMP_GUIDED_SCHEDULE
 !MR:>
 
   DO jb = i_startblk, i_endblk
@@ -200,7 +208,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ! check dry case
       IF( atm_phy_nwp_config(jg)%inwp_satad == 0) THEN
         lnd_diag%qv_s (:,jb) = 0._wp
-      ELSE IF ( ANY( (/icosmo,igme/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
+      ELSE IF ( ANY( (/icosmo,igme,iedmf/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
         IF ( ltestcase .AND. nh_test_name == 'wk82') THEN
 
 !DR Note that this must be re-checked, once turbtran is called at the very end
@@ -283,12 +291,14 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       jk_gust(:) = nlev
     ENDIF
 
-    IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
+    SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
+
+    CASE(icosmo)
 
 !-------------------------------------------------------------------------
 !< COSMO turbulence scheme by M. Raschendorfer
 !-------------------------------------------------------------------------
-
+ 
       ierrstat = 0
 
       nlevcm = 3
@@ -656,7 +666,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ENDIF
 
 
-    ELSE IF (  ANY( (/igme,ismag/)==atm_phy_nwp_config(jg)%inwp_turb) ) THEN
+    CASE(igme,ismag)
 
 !-------------------------------------------------------------------------
 !> GME turbulence scheme
@@ -732,7 +742,142 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ENDDO
 
 
-    ENDIF !inwp_turb
+    CASE(iedmf)
+
+!-------------------------------------------------------------------------
+!> EDMF surface layer
+!-------------------------------------------------------------------------
+
+!---------------------------------------------------------------------------------------
+! Notes on EDMF surface layer:
+!   - z0 should be different between momentum and heat/moisture (see chapter 11 ECMWF docu)
+!   - z0m for land points (not sea/seaice/lake) is calculated above: prm_diag%gz0_t(jc,jb,jt)
+!     note: TURBTRAN calculates z0h internally in a physical way (Matthias)
+!           GME Louis diagnoses z0h as z0h=min(z0m,10cm)
+!   - surface fluxes calculated as over ocean, other fluxes will be recalculated by TERRA
+!   - attention: SEAICE and LAKE need fluxes as input
+!---------------------------------------------------------------------------------------
+
+      DO jt = 1, ntiles_total+ntiles_water
+
+        DO jc = i_startidx, i_endidx
+          PGEOMLEV(jc)  = p_metrics%geopot_agl(jc,nlev,jb)   
+          PCPTGZLEV(jc) = p_metrics%geopot_agl(jc,nlev,jb)       + p_diag%temp(jc,nlev,jb)      * cpd
+          PCPTSTI(jc)   = p_metrics%geopot_agl_ifc(jc,nlevp1,jb) + lnd_prog_new%t_g_t(jc,jb,jt) * cpd
+          PUCURR(jc)    = 0.0_wp
+          PVCURR(jc)    = 0.0_wp
+          ZZ0MTI(jc)    = prm_diag%gz0_t(jc,jb,jt) / grav
+          ZZ0HTI(jc)    = prm_diag%gz0_t(jc,jb,jt) / grav            ! modified (/10) in vupdz0_tile
+          ZZ0QTI(jc)    = prm_diag%gz0_t(jc,jb,jt) / grav            ! same
+        ENDDO      
+      
+        CALL VUPDZ0_TILE(i_startidx, i_endidx, nproma, jt, 1, 1.5_wp, &    ! kstep=1 (no initialization)
+         & p_diag%u(:,nlev,jb), p_diag%v(:,nlev,jb),                  &
+         & p_diag%temp(:,nlev,jb), p_prog_rcf%tracer(:,nlev,jb,iqv),  &
+         & p_diag%pres_ifc(:,nlevp1,jb), PGEOMLEV,                    &
+         & prm_diag%umfl_s_t (:,jb,jt), prm_diag%vmfl_s_t(:,jb,jt),   &
+         & prm_diag%shfl_s_t (:,jb,jt), prm_diag%qhfl_s_t(:,jb,jt),   &
+         & wtr_prog_new%h_ice(:,jb),   lnd_prog_new%t_g_t(:,jb,jt),   &
+         & PUCURR, PVCURR, ZZ0MTI, ZZ0HTI, ZZ0QTI, ZBUOMTI, ZZDLTI)
+
+        CALL VEXCS(i_startidx, i_endidx, nproma, 3, 0, .true., 100.0_wp, 1.5_wp, &  ! tcall_turb_jgrvdifts
+         & p_diag%u(:,nlev,jb), p_diag%v(:,nlev,jb), p_diag%temp(:,nlev,jb),     &
+         & p_prog_rcf%tracer(:,nlev,jb,iqv), p_diag%pres_ifc(:,nlevp1,jb),       &
+         & PGEOMLEV, PCPTGZLEV, PCPTSTI, lnd_diag%qv_s_t(:,jb,jt),               &
+         & ZZ0MTI, ZZ0HTI, ZZ0QTI,                                               &
+         & ZZDLTI, ZBUOMTI, PUCURR, PVCURR, ZCFMTI, PCFHTI, PCFQTI,              &
+         & prm_diag%tkvm_s_t(:,jb,jt), prm_diag%tkvh_s_t(:,jb,jt),               &
+         & prm_diag%tcm_t   (:,jb,jt), prm_diag%tch_t   (:,jb,jt))                  ! K used in TERRA
+
+        DO jc = i_startidx, i_endidx
+          rho_s     = p_diag%pres_ifc(jc,nlevp1,jb) / ( rd * lnd_prog_new%t_g_t(jc,jb,jt) )
+  
+          prm_diag%shfl_s_t(jc,jb,jt) = prm_diag%tkvh_s_t(jc,jb,jt) * rho_s              &
+            & * ( cpd  * ( p_diag%temp(jc,nlev,jb)     - lnd_prog_new%t_g_t(jc,jb,jt)  ) &
+                + grav * ( p_metrics%z_mc (jc,nlev,jb) - p_metrics%z_ifc(jc,nlevp1,jb) ) )
+  
+          prm_diag%qhfl_s_t(jc,jb,jt) = prm_diag%tkvh_s_t(jc,jb,jt) * rho_s              &
+            & * ( p_prog_rcf%tracer(jc,nlev,jb,iqv) - lnd_diag%qv_s_t(jc,jb,jt) )
+  
+          IF ( lseaice .AND. ( wtr_prog_new%h_ice(jc,jb) > h_ice_min_flk ) ) THEN
+            prm_diag%lhfl_s_t(jc,jb,jt) = lh_s*prm_diag%qhfl_s_t(jc,jb,jt)
+          ELSE
+            prm_diag%lhfl_s_t(jc,jb,jt) = lh_v*prm_diag%qhfl_s_t(jc,jb,jt)
+          END IF
+  
+! --- momentum flux:
+          prm_diag%umfl_s_t(jc,jb,jt) = prm_diag%tkvm_s_t(jc,jb,jt) * rho_s * p_diag%u(jc,nlev,jb)
+          prm_diag%vmfl_s_t(jc,jb,jt) = prm_diag%tkvm_s_t(jc,jb,jt) * rho_s * p_diag%v(jc,nlev,jb)
+ 
+          prm_diag%gz0_t(jc,jb,jt) = ZZ0MTI(jc) * grav    ! arbitrary saving z0m in gz0
+        ENDDO
+
+      ENDDO ! tiles 
+
+      ! -- diagnostics taken from GME code
+
+      ! diagnose 2 m temperature, humidity, 10 m wind
+      CALL nearsfc( t=p_diag%temp(:,:,jb), qv=p_prog_rcf%tracer(:,:,jb,iqv),            & !in
+        &           u=p_diag%u(:,:,jb),    v=p_diag%v(:,:,jb),                          & !in
+        &           zf=p_metrics%z_mc(:,:,jb), ps=p_diag%pres_ifc(:,nlevp1,jb),         & !in
+        &           t_g=lnd_prog_new%t_g(:,jb),                                         & !in
+        &           tcm=prm_diag%tcm_t(:,jb,1), tch=prm_diag%tch_t(:,jb,1),             & !in
+        &           gz0=prm_diag%gz0_t(:,jb,1),                                         & !in
+        &           shfl_s=prm_diag%shfl_s_t(:,jb,1), lhfl_s=prm_diag%lhfl_s_t(:,jb,1), & !in
+        &           umfl_s=prm_diag%umfl_s_t(:,jb,1), vmfl_s=prm_diag%vmfl_s_t(:,jb,1), & !in
+        &           zsurf=p_metrics%z_ifc(:,nlevp1,jb),                                 & !in
+        &           fr_land=ext_data%atm%fr_land(:,jb), pf1=p_diag%pres(:,nlev,jb),     & !in
+        &           qv_s=lnd_diag%qv_s_t(:,jb,1), ie=nproma, ke=nlev,                   & !in
+        &           i_startidx=i_startidx, i_endidx=i_endidx,                           & !in
+        &           t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb),               & !out
+        &           td_2m=prm_diag%td_2m(:,jb), rh_2m=prm_diag%rh_2m(:,jb),             & !out
+        &           u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb)              ) !out
+
+      ! dynamic gusts
+      DO jc = i_startidx, i_endidx
+        prm_diag%dyn_gust(jc,jb) = nwp_dyn_gust(prm_diag%u_10m(jc,jb), prm_diag%v_10m(jc,jb), &
+          &  prm_diag%tcm(jc,jb), p_diag%u(jc,nlev,jb), p_diag%v(jc,nlev,jb),                 &
+          &  p_diag%u(jc,jk_gust(jc),jb), p_diag%v(jc,jk_gust(jc),jb),p_metrics%mask_mtnpoints_g(jc,jb) )
+      ENDDO
+
+      prm_diag%tmax_2m(i_startidx:i_endidx,jb) = MAX(prm_diag%t_2m(i_startidx:i_endidx,jb), &
+        &                                        prm_diag%tmax_2m(i_startidx:i_endidx,jb) )
+      prm_diag%tmin_2m(i_startidx:i_endidx,jb) = MIN(prm_diag%t_2m(i_startidx:i_endidx,jb), &
+        &                                        prm_diag%tmin_2m(i_startidx:i_endidx,jb) )
+
+      ! -- end GME code
+
+      ! Aggregate tile-based output fields over tiles - initialize to zero before summation
+      prm_diag%gz0 (i_startidx:i_endidx,jb)        = 0._wp
+      prm_diag%tcm (i_startidx:i_endidx,jb)        = 0._wp
+      prm_diag%tch (i_startidx:i_endidx,jb)        = 0._wp
+      prm_diag%tkvm(i_startidx:i_endidx,nlevp1,jb) = 0._wp
+      prm_diag%tkvh(i_startidx:i_endidx,nlevp1,jb) = 0._wp
+        
+      DO jt = 1, ntiles_total+ntiles_water
+        DO jc = i_startidx, i_endidx
+
+          ! Aggregate
+          area_frac = ext_data%atm%frac_t(jc,jb,jt)
+
+          prm_diag%gz0(jc,jb)         = prm_diag%gz0(jc,jb)        +prm_diag%gz0_t   (jc,jb,jt) * area_frac
+          prm_diag%tcm(jc,jb)         = prm_diag%tcm(jc,jb)        +prm_diag%tcm_t   (jc,jb,jt) * area_frac
+          prm_diag%tch(jc,jb)         = prm_diag%tch(jc,jb)        +prm_diag%tch_t   (jc,jb,jt) * area_frac
+          prm_diag%tkvm(jc,nlevp1,jb) = prm_diag%tkvm(jc,nlevp1,jb)+prm_diag%tkvm_s_t(jc,jb,jt) * area_frac
+          prm_diag%tkvh(jc,nlevp1,jb) = prm_diag%tkvh(jc,nlevp1,jb)+prm_diag%tkvh_s_t(jc,jb,jt) * area_frac
+
+          ! the EDMF turbulence scheme does not have tfv. Set tfv=1
+          prm_diag%tfv_t(jc,jb,jt)    = 1._wp    !   prm_diag%tfv(jc,jb)
+
+          ! Copy transfer u_10m/v_10m to tile-based variables, which are used in TERRA
+          prm_diag%u_10m_t(jc,jb,jt)  = prm_diag%u_10m(jc,jb)
+          prm_diag%v_10m_t(jc,jb,jt)  = prm_diag%v_10m(jc,jb)
+
+        ENDDO
+      ENDDO
+
+
+    END SELECT !inwp_turb
 
   ENDDO ! jb
 !$OMP END DO NOWAIT

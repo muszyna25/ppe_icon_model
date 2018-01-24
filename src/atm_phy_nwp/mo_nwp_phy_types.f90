@@ -424,7 +424,7 @@ MODULE mo_nwp_phy_types
       ddt_temp_radsw  (:,:,:)  ,& !! Temp-tendency from shortwave radiation
       ddt_temp_radlw  (:,:,:)  ,& !! Temp-tendency from longwave radiation
       ddt_temp_turb   (:,:,:)  ,& !! Temp-tendency from turbulence
-      ddt_temp_gscp   (:,:,:)  ,& !! Temp-tendency from microphysics (only for LES)
+      ddt_temp_gscp   (:,:,:)  ,& !! Temp-tendency from microphysics
       ddt_u_turb      (:,:,:)  ,& !! ZonalW-tendency from turbulence
       ddt_u_pconv     (:,:,:)  ,& !! ZonalW-tendency from convective prec
       ddt_v_turb      (:,:,:)  ,& !! MeridW-tendency from turbulence
@@ -443,6 +443,7 @@ MODULE mo_nwp_phy_types
       ::                        &
       ddt_temp_drag   (:,:,:)  ,& !! Temp-tendency from sso + gravity-wave drag + Rayleigh friction
       ddt_temp_pconv  (:,:,:)  ,& !! Temp-tendency from convective prec
+      ddt_tracer_gscp (:,:,:,:),& !! Hydromet-tendency from microphysics
       ddt_u_gwd       (:,:,:)  ,& !! ZonalW-tendency from gravity wave drag
       ddt_u_sso       (:,:,:)  ,& !! ZonalW-tendency from sso drag
       ddt_v_gwd       (:,:,:)  ,& !! MeridW-tendency from gravity wave drag
@@ -459,7 +460,8 @@ MODULE mo_nwp_phy_types
 
     TYPE(t_ptr_2d3d),ALLOCATABLE ::  &
       &  tracer_turb_ptr(:)    ,& !< pointer array: one pointer for each component
-      &  tracer_conv_ptr(:)       !< pointer array: one pointer for each component
+      &  tracer_conv_ptr(:)    ,& !< pointer array: one pointer for each component
+      &  tracer_gscp_ptr(:)       !< pointer array: one pointer for each component
 
     TYPE(t_ptr_tracer), ALLOCATABLE :: conv_tracer_tend(:,:) !< pointer for chemical tracer conv. tend.
 

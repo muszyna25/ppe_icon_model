@@ -264,11 +264,12 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
     ! canopy-type needed by TERRA:
-    IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
+    SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
+    CASE(icosmo,iedmf)
        icant=2 !canopy-treatment related to Raschendorfer-transfer-scheme
-    ELSE
+    CASE DEFAULT
        icant=1 !canopy-treatment related to Louis-transfer-scheme
-    END IF
+    END SELECT
 
     IF (msg_level >= 15) THEN
       CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')
@@ -322,8 +323,7 @@ CONTAINS
       ENDIF
 
 
-      IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 .and. &
-          & atm_phy_nwp_config(jg)%inwp_turb    /= iedmf ) THEN
+      IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
 
        IF (ext_data%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
 

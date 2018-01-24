@@ -293,6 +293,7 @@ SUBROUTINE cloudice (             &
   qrsflux,                           & !  total precipitation flux
 #endif
   l_cv,                              &
+  ldiag_ttend,     ldiag_qtend     , &
   ddt_tend_t     , ddt_tend_qv     , &
   ddt_tend_qc    , ddt_tend_qi     , & !> ddt_tend_xx are tendencies
   ddt_tend_qr    , ddt_tend_qs     , & !!    necessary for dynamics
@@ -346,14 +347,7 @@ SUBROUTINE cloudice (             &
     qi0,qc0          !> cloud ice/water threshold for autoconversion
 #endif
 
-#ifdef __xlC__
-  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
-  ! note: that these are actually intent(in)
-  !       declared as intent(inout) to avoid copying
-  REAL(KIND=wp), DIMENSION(nvec,ke), INTENT(IN) ::      &
-#else
   REAL(KIND=wp), DIMENSION(:,:), INTENT(IN) ::      &   ! (ie,ke)
-#endif
     dz              ,    & !> layer thickness of full levels                (  m  )
     rho             ,    & !! density of moist air                          (kg/m3)
     p                      !! pressure                                      ( Pa  )
@@ -361,12 +355,11 @@ SUBROUTINE cloudice (             &
   LOGICAL, INTENT(IN), OPTIONAL :: &
     l_cv                   !! if true, cv is used instead of cp
 
-#ifdef __xlC__
-  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
-  REAL(KIND=wp), DIMENSION(nvec,ke), INTENT(INOUT) ::   &
-#else
+  LOGICAL, INTENT(IN), OPTIONAL :: &
+    ldiag_ttend,         & ! if true, temperature tendency shall be diagnosed
+    ldiag_qtend            ! if true, moisture tendencies shall be diagnosed
+
   REAL(KIND=wp), DIMENSION(:,:), INTENT(INOUT) ::   &   ! dim (ie,ke)
-#endif
     t               ,    & !> temperature                                   (  K  )
     qv              ,    & !! specific water vapor content                  (kg/kg)
     qc              ,    & !! specific cloud water content                  (kg/kg)
@@ -388,24 +381,12 @@ SUBROUTINE cloudice (             &
        qrsflux(:,:)       ! total precipitation flux (nudg)
 #endif
 
-#ifdef __xlC__
-  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
-  REAL(KIND=wp), DIMENSION(nvec), INTENT(INOUT) ::   &
-#else
   REAL(KIND=wp), DIMENSION(:), INTENT(INOUT) ::   &   ! dim (ie)
-#endif
     prr_gsp,             & !> precipitation rate of rain, grid-scale        (kg/(m2*s))
     prs_gsp,             & !! precipitation rate of snow, grid-scale        (kg/(m2*s))
     qnc                    !! cloud number concentration
 
-#ifdef __xlC__
-  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
-  ! note: that these are actually intent(out)
-  !       declared as intent(inout) to avoid copying
-  REAL(KIND=wp), DIMENSION(nvec,ke), INTENT(OUT), OPTIONAL ::   &
-#else
-  REAL(KIND=wp), DIMENSION(:,:), INTENT(OUT), OPTIONAL ::   &     ! dim (ie,ke)
-#endif
+  REAL(KIND=wp), DIMENSION(:,:), INTENT(INOUT), OPTIONAL ::   &     ! dim (ie,ke)
     ddt_tend_t      , & !> tendency T                                       ( 1/s )
     ddt_tend_qv     , & !! tendency qv                                      ( 1/s )
     ddt_tend_qc     , & !! tendency qc                                      ( 1/s )
@@ -413,14 +394,7 @@ SUBROUTINE cloudice (             &
     ddt_tend_qr     , & !! tendency qr                                      ( 1/s )
     ddt_tend_qs         !! tendency qs                                      ( 1/s )
 
-#ifdef __xlC__
-  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
-  ! note: that these are actually intent(out)
-  !       declared as intent(inout) to avoid copying
-  REAL(KIND=wp), DIMENSION(nvec,ke), INTENT(OUT), OPTIONAL ::   &
-#else
   REAL(KIND=wp), DIMENSION(:,:), INTENT(OUT), OPTIONAL ::   &   ! dim (ie,ke)
-#endif
     ddt_diag_au     , & !> optional output autoconversion rate cloud to rain           ( 1/s )
     ddt_diag_ac     , & !! optional output accretion rate cloud to rain                ( 1/s )
     ddt_diag_ev     , & !! optional output evaporation of rain                         ( 1/s )
@@ -498,6 +472,8 @@ SUBROUTINE cloudice (             &
 
   LOGICAL :: &
     llqr,llqs,llqc,llqi  !   switch for existence of qr, qs, qc, qi
+
+  LOGICAL :: lldiag_ttend, lldiag_qtend
 
   REAL(KIND=wp), DIMENSION(nvec,ke) ::   &
     t_in               ,    & !> temperature                                   (  K  )
@@ -674,15 +650,6 @@ SUBROUTINE cloudice (             &
 
 ! Optional arguments
 
-  IF (PRESENT(ddt_tend_t)) THEN
-    ! save input arrays for final tendency calculation
-    t_in  = t
-    qv_in = qv
-    qc_in = qc
-    qi_in = qi
-    qr_in = qr
-    qs_in = qs
-  END IF
   IF (PRESENT(ivstart)) THEN
     iv_start = ivstart
   ELSE
@@ -703,7 +670,28 @@ SUBROUTINE cloudice (             &
   ELSE
     izdebug = 0
   END IF
+  IF (PRESENT(ldiag_ttend)) THEN
+    lldiag_ttend = ldiag_ttend
+  ELSE
+    lldiag_ttend = .FALSE.
+  ENDIF
+  IF (PRESENT(ldiag_qtend)) THEN
+    lldiag_qtend = ldiag_qtend
+  ELSE
+    lldiag_qtend = .FALSE.
+  ENDIF
 
+  ! save input arrays for final tendency calculation
+  IF (lldiag_ttend) THEN
+    t_in  = t
+  ENDIF
+  IF (lldiag_qtend) THEN
+    qv_in = qv
+    qc_in = qc
+    qi_in = qi
+    qr_in = qr
+    qs_in = qs
+  END IF
 
 ! timestep for calculations
   zdtr  = 1.0_wp / zdt
@@ -1591,23 +1579,27 @@ IF (llhn .OR. llhnverif) &
 ! be used to store the new values. Then we wont need the _in variables anymore.
 !------------------------------------------------------------------------------
 
-  IF (PRESENT(ddt_tend_t)) THEN
+! calculated pseudo-tendencies
 
+  IF ( lldiag_ttend ) THEN
     DO k=k_start,ke
-       DO iv=iv_start,iv_end
-
-          ! calculated pseudo-tendencies
-          ddt_tend_t (iv,k) = (t (iv,k) - t_in (iv,k))*zdtr
-          ddt_tend_qv(iv,k) = MAX(-qv_in(iv,k)*zdtr,(qv(iv,k) - qv_in(iv,k))*zdtr)
-          ddt_tend_qc(iv,k) = MAX(-qc_in(iv,k)*zdtr,(qc(iv,k) - qc_in(iv,k))*zdtr)
-          ddt_tend_qr(iv,k) = MAX(-qr_in(iv,k)*zdtr,(qr(iv,k) - qr_in(iv,k))*zdtr)
-          ddt_tend_qs(iv,k) = MAX(-qs_in(iv,k)*zdtr,(qs(iv,k) - qs_in(iv,k))*zdtr)
-          ddt_tend_qi(iv,k) = MAX(-qi_in(iv,k)*zdtr,(qi(iv,k) - qi_in(iv,k))*zdtr)
-
+      DO iv=iv_start,iv_end
+        ddt_tend_t (iv,k) = (t (iv,k) - t_in (iv,k))*zdtr
       END DO
     END DO
+  ENDIF
 
-  END IF
+  IF ( lldiag_qtend ) THEN
+    DO k=k_start,ke
+      DO iv=iv_start,iv_end
+        ddt_tend_qv(iv,k) = MAX(-qv_in(iv,k)*zdtr,(qv(iv,k) - qv_in(iv,k))*zdtr)
+        ddt_tend_qc(iv,k) = MAX(-qc_in(iv,k)*zdtr,(qc(iv,k) - qc_in(iv,k))*zdtr)
+        ddt_tend_qi(iv,k) = MAX(-qi_in(iv,k)*zdtr,(qi(iv,k) - qi_in(iv,k))*zdtr)
+        ddt_tend_qr(iv,k) = MAX(-qr_in(iv,k)*zdtr,(qr(iv,k) - qr_in(iv,k))*zdtr)
+        ddt_tend_qs(iv,k) = MAX(-qs_in(iv,k)*zdtr,(qs(iv,k) - qs_in(iv,k))*zdtr)
+      END DO
+    END DO
+  ENDIF
 
   IF (izdebug > 15) THEN
     CALL message('gscp_cloudice', 'UPDATED VARIABLES')
