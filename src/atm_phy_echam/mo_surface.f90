@@ -15,7 +15,6 @@
 !!
 MODULE mo_surface
 
-  !$ser verbatim USE mo_ser_echam_surface,   ONLY: serialize_input, serialize_output
   USE mo_kind,              ONLY: wp
   USE mo_exception,         ONLY: finish
   USE mo_physical_constants,ONLY: grav, Tf, alf, albedoW, zemiss_def, stbo, tmelt, rhos!!$, rhoi
@@ -247,20 +246,6 @@ CONTAINS
     LOGICAL :: mask(kbdim)
 
     CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
-
-    !----------------------------------------------------------------------------------------
-    ! Serialbox2 input fields serialization
-    !$ser verbatim CALL serialize_input( jg, pfrc, pcfh_tile, pcfm_tile,        &
-    !$ser&        pfac_sfc, pocu, pocv, aa, aa_btm, bb, bb_btm, pcpt_tile,      &
-    !$ser&        pqsat_tile, ptsfc_tile, plhflx_tile, pshflx_tile, nblock, lsm, alake, &
-    !$ser&        pu, pv, ptemp, pq, prsfl, prsfc, pssfl, pssfc, rlds, rlus,    &
-    !$ser&        rsds, rsus, rvds_dir, rpds_dir, rnds_dir, rvds_dif, rpds_dif, &
-    !$ser&        rnds_dif, ps, pcosmu0, pch_tile, pcsat, pcair, z0m_tile,      &
-    !$ser&        z0h_lnd, albvisdir, albnirdir, albvisdif, albnirdif,          &
-    !$ser&        albvisdir_tile, albnirdir_tile, albvisdif_tile,               &
-    !$ser&        albnirdif_tile, albedo, albedo_tile, rsns_tile, rlns_tile,    &
-    !$ser&        Tsurf, T1, T2, hi, hs, Qtop, Qbot, conc, albvisdir_ice,       &
-    !$ser&        albvisdif_ice, albnirdir_ice, albnirdif_ice )
 
     ! check for masks
     !
@@ -892,20 +877,6 @@ CONTAINS
         z0m_tile(1:kproma,idx_ice) = 1.e-3_wp
       ENDWHERE
     ENDIF
-
-    !---------------------------------------------------------------------------
-    ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_output( jg, aa, aa_btm, bb, bb_btm, pcpt_tile,   &
-    !$ser&            pqsat_tile, ptsfc_tile, pu_stress_gbm, pv_stress_gbm,    &
-    !$ser&            plhflx_gbm, pshlx_gbm, pevap_gdbm, pu_stess_tile,        &
-    !$ser&            pv_stress_tile, plhflx_tile, pshflx_tile, pevap_tile,    &
-    !$ser&            nblock, rlus, pcsat, pcair, q_snocpymlt, z0m_tile, z0h_lnd, &
-    !$ser&            albvisdir, albnirdir, albvisdif, albnirdif,              &
-    !$ser&            albvisdir_tile, albnirdir_tile, albvisdif_tile,          &
-    !$ser&            albnirdif_tile, albedo, albedo_tile, ptsfc, ptsfc_rad,   &
-    !$ser&            rsns_tile, rlns_tile, lake_ice_frc, Tsurf, T1, T2, hi,   &
-    !$ser&            hs, Qtop, Qbot, albvisdir_ice, albvisdif_ice,            &
-    !$ser&            albnirdir_ice, albnirdif_ice )
 
   !---------------------------------------------------------------------------
   !

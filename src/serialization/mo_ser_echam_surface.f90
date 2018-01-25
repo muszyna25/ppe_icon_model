@@ -20,137 +20,24 @@ MODULE mo_ser_echam_surface
 
   CONTAINS
 
-  SUBROUTINE serialize_input(                                   &
-                           & jg,                                &
-                           & pfrc,                              &
-                           & pcfh_tile, pcfm_tile,              &
-                           & pfac_sfc, pocu, pocv,              &
-                           & aa, aa_btm, bb, bb_btm,            &
-                           & pcpt_tile, pqsat_tile,             &
-                           & ptsfc_tile,                        &
-                           & plhflx_tile, pshflx_tile,          &
-                           !! optional
-                           & nblock,                            &
-                           & lsm,                               &
-                           & alake,                             &
-                           & pu,                                &
-                           & pv,                                &
-                           & ptemp,                             &
-                           & pq,                                &
-                           & prsfl,                             &
-                           & prsfc,                             &
-                           & pssfl,                             &
-                           & pssfc,                             &
-                           & rlds,                              &
-                           & rlus,                              &
-                           & rsds,                              &
-                           & rsus,                              &
-                           !
-                           & rvds_dir,                          &
-                           & rpds_dir,                          &
-                           & rnds_dir,                          &
-                           & rvds_dif,                          &
-                           & rpds_dif,                          &
-                           & rnds_dif,                          &
-                           !
-                           & ps,                                &
-                           & pcosmu0,                           &
-                           & pch_tile,                          &
-                           !! for JSBACH
-                           & pcsat,                             &
-                           & pcair,                             &
-                           !
-                           & z0m_tile, z0h_lnd,                 &
-                           & albvisdir, albnirdir, albvisdif, albnirdif, &
-                           & albvisdir_tile,                    &
-                           & albnirdir_tile,                    &
-                           & albvisdif_tile,                    &
-                           & albnirdif_tile,                    &
-                           & albedo, albedo_tile,               &
-                           & rsns_tile, rlns_tile,              &
-                           !! Sea ice
-                           & Tsurf,                             &
-                           & T1,                                &
-                           & T2,                                &
-                           & hi,                                &
-                           & hs,                                &
-                           & Qtop,                              &
-                           & Qbot,                              &
-                           & conc,                              &
-                           & albvisdir_ice, albvisdif_ice,      &
-                           & albnirdir_ice, albnirdif_ice)       
+  SUBROUTINE serialize_input(jg, kproma, kbdim, klev, ksfc_type, idx_wtr, &
+                             idx_ice, idx_lnd, pdtime, field, pfac_sfc,   &
+                             aa, aa_btm, bb, bb_btm, pcpt_tile, nblock,   &
+                             pch_tile)
     INTEGER, INTENT(IN) :: jg
-    REAL(wp),INTENT(IN) :: pfrc      (:,:)
-    REAL(wp),INTENT(IN) :: pcfh_tile (:,:)
-    REAL(wp),INTENT(IN) :: pcfm_tile (:,:)
-    REAL(wp),INTENT(IN) :: pfac_sfc  (:)
-    REAL(wp),INTENT(IN) :: pocu      (:)
-    REAL(wp),INTENT(IN) :: pocv      (:)
-    REAL(wp),INTENT(INOUT) :: aa     (:,:,:,:)
-    REAL(wp),INTENT(INOUT) :: aa_btm (:,:,:,:)
-    REAL(wp),INTENT(INOUT) :: bb     (:,:,:)
-    REAL(wp),INTENT(INOUT) :: bb_btm (:,:,:)
-    REAL(wp),INTENT(INOUT) :: pcpt_tile (:,:)
-    REAL(wp),INTENT(INOUT) :: pqsat_tile(:,:)
-    REAL(wp),INTENT(INOUT) :: ptsfc_tile (:,:)
-
-    REAL(wp),INTENT(INOUT) :: plhflx_tile (:,:)
-    REAL(wp),INTENT(INOUT) :: pshflx_tile (:,:)
-    !! JSBACH input
-    INTEGER, OPTIONAL,INTENT(IN) :: nblock
-    REAL(wp),OPTIONAL,INTENT(IN) :: lsm(:)
-    REAL(wp),OPTIONAL,INTENT(IN) :: alake(:)
-    REAL(wp),OPTIONAL,INTENT(IN) :: pu        (:)              ! zonal wind lowest level
-    REAL(wp),OPTIONAL,INTENT(IN) :: pv        (:)              ! meridional wind lowest level
-    REAL(wp),OPTIONAL,INTENT(IN) :: ptemp     (:)              ! temperature of lowest atmospheric level
-    REAL(wp),OPTIONAL,INTENT(IN) :: pq        (:)              ! humidity of lowest atmospheric level
-    REAL(wp),OPTIONAL,INTENT(IN) :: prsfl     (:)              ! rain large scale
-    REAL(wp),OPTIONAL,INTENT(IN) :: prsfc     (:)              ! rain convective
-    REAL(wp),OPTIONAL,INTENT(IN) :: pssfl     (:)              ! snow large scale
-    REAL(wp),OPTIONAL,INTENT(IN) :: pssfc     (:)              ! snow convective
-    REAL(wp),OPTIONAL,INTENT(IN) :: rlds      (:)              ! downward surface  longwave flux [W/m2]
-    REAL(wp),OPTIONAL,INTENT(IN) :: rsds      (:)              ! downward surface shortwave flux [W/m2]
-    
-    REAL(wp),INTENT(IN) :: rvds_dir(:)        ! all-sky   vis. dir. downward flux at current   time [W/m2]
-    REAL(wp),INTENT(IN) :: rpds_dir(:)        ! all-sky   par  dir. downward flux at current   time [W/m2]
-    REAL(wp),INTENT(IN) :: rnds_dir(:)        ! all-sky   nir  dir. downward flux at current   time [W/m2]
-    REAL(wp),INTENT(IN) :: rvds_dif(:)        ! all-sky   vis. dif. downward flux at current   time [W/m2]
-    REAL(wp),INTENT(IN) :: rpds_dif(:)        ! all-sky   par  dif. downward flux at current   time [W/m2]
-    REAL(wp),INTENT(IN) :: rnds_dif(:)        ! all-sky   nir  dif. downward flux at current   time [W/m2]
-
-    REAL(wp),OPTIONAL,INTENT(IN) :: ps        (:)              ! surface pressure
-    REAL(wp),OPTIONAL,INTENT(IN) :: pcosmu0   (:)              ! cos of zenith angle
-    REAL(wp),OPTIONAL,INTENT(IN) :: pch_tile  (:,:)
-    !! JSBACH output
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: pcsat(:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: pcair(:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: z0h_lnd(:), z0m_tile(:,:)  ! OUT
-    !
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir_tile(:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdir_tile(:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdif_tile(:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdif_tile(:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albedo(:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir(:), albvisdif(:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdir(:), albnirdif(:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albedo_tile(:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: rlus     (:)           ! INOUT upward surface  longwave flux [W/m2]
-    REAL(wp),OPTIONAL,INTENT(IN)    :: rsus     (:)           ! IN upward surface shortwave flux [W/m2]
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: rsns_tile(:,:) ! shortwave net flux at surface on tiles
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: rlns_tile(:,:) ! longwave net flux at surface on tiles
-    !! Sea ice
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: Tsurf(:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: T1   (:,:) ! for coupled ocean only
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: T2   (:,:) ! for coupled ocean only
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: hi   (:,:) ! for coupled ocean only
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: hs   (:,:) ! for coupled ocean only
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: Qtop (:,:) ! OUT
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: Qbot (:,:) ! OUT
-    REAL(wp),OPTIONAL,INTENT(IN)    :: conc (:,:) ! for coupled ocean only
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir_ice(:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdif_ice(:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdir_ice(:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdif_ice(:,:)
+    INTEGER, INTENT(IN) :: kproma, kbdim
+    INTEGER, INTENT(IN) :: klev, ksfc_type
+    INTEGER, INTENT(IN) :: idx_wtr, idx_ice, idx_lnd
+    REAL(wp),INTENT(IN) :: pdtime
+    TYPE(t_echam_phy_field) ,POINTER       :: field
+    REAL(wp),INTENT(IN) :: pfac_sfc  (kbdim)
+    REAL(wp),INTENT(INOUT) :: aa     (kbdim,klev,3,nmatrix)
+    REAL(wp),INTENT(INOUT) :: aa_btm (kbdim,3,ksfc_type,imh:imqv)
+    REAL(wp),INTENT(INOUT) :: bb     (kbdim,klev,nvar_vdiff)
+    REAL(wp),INTENT(INOUT) :: bb_btm (kbdim,ksfc_type,ih:iqv)
+    REAL(wp),INTENT(INOUT) :: pcpt_tile (kbdim,ksfc_type)
+    INTEGER, OPTIONAL,INTENT(IN)  :: nblock
+    REAL(wp),OPTIONAL,INTENT(IN)  :: pch_tile  (kbdim,ksfc_type)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
 
@@ -167,124 +54,104 @@ MODULE mo_ser_echam_surface
 #else
 #error SERIALIZATION MODE IS NOT SET
 #endif 
-    !$ser data pfrc=pfrc pcfh_tile=pcfh_tile pcfm_tile=pcfm_tile               &
-    !$ser&     pfac_sfc=pfac_sfc pocu=pocu pocv=pocv aa=aa aa_btm=aa_btm bb_bb &
-    !$ser&     bb_btm=bb_btm pcpt_tile=pcpt_tile pqsat_tile=pqsat_tile         &
-    !$ser&     ptsfc_tile=ptsfc_tile plhflx_tile=plhflx_tile                   &
-    !$ser&     pshflx_tile=pshflx_tile lsm=lsm alake=alake pu=pu pv=pv         &
-    !$ser&     ptemp=ptemp pq=pq prsfl=prsfl prsfc=prsfc pssfl=pssfl           &
-    !$ser&     pssfc=pssfc rlds=rlds rlus=rlus rsds=rsds rsus=rsus             &
-    !$ser&     rvds_dir=rvds_dir rpds_dir=rpds_dir rnds_dir=rnds_dir           &
-    !$ser&     rvds_dif=rvds_dif rpds_dif=rpds_dif rnds_dif=rnds_dif ps=ps     &
-    !$ser&     pcosmu0=pcosmu0 pch_tile=pch_tile pcsat=pcsat pcair=pcair       &
-    !$ser&     z0m_tile=z0m_tile z0h_lnd=z0h_lnd                               &
-    !$ser&     albvisdir=albvisdir albnirdir=albnirdir albvisdif=albvisdif     &
-    !$ser&     albnirdif=albnirdif albvisdir_tile=albvisdir_tile               &
-    !$ser&     albnirdir_tile=albnirdir_tile albvisdif_tile=albvisdif_tile     &
-    !$ser&     albnirdif_tile=albnirdif_tile albedo=albedo                     &
-    !$ser&     albedo_tile=albedo_tile Tsurf=Tsurf T1=T1 T2=T2 hi=hi hs=hs     &
-    !$ser&     Qtop=Qtop Qbot=Qbot conc=conc albvisdir_ice=albvisdir_ice       &
-    !$ser&     albvisdif_ice=albvisdif_ice albnirdir_ice=albnirdir_ice         &
-    !$ser&     albnirdif_ice=albnirdif_ice
+    !$ser data jg=jg                                &
+    !$ser&     kproma=kproma                        &
+    !$ser&     kbdim=kbdim                          &
+    !$ser&     kice=field%kice                      &
+    !$ser&     klev=klev                            &
+    !$ser&     ksfc_type=ksfc_type                  &
+    !$ser&     idx_wtr=idx_wtr                      &
+    !$ser&     idx_ice=idx_ice                      &
+    !$ser&     idx_lnd=idx_lnd                      &
+    !$ser&     pdtime=pdtime                        &
+    !$ser&     pfrc=field%frac_tile                 &
+    !$ser&     pcfh_tile=field%cfh_tile             &
+    !$ser&     pcfm_tile=field%cfm_tile             &
+    !$ser&     pfac_sfc=pfac_sfc                    &
+    !$ser&     pocu=field%ocu                       &
+    !$ser&     pocv=field%ocv                       &
+    !$ser&     aa=aa                                &
+    !$ser&     aa_btm=aa_btm                        &
+    !$ser&     bb=bb                                &
+    !$ser&     bb_btm=bb_btm                        &
+    !$ser&     pcpt_tile=pcpt_tile                  &
+    !$ser&     pqsat_tile=field%qs_sfc_tile         &
+    !$ser&     ptsfc_tile=field%ts_tile             &
+    !$ser&     plhflx_tile=field%lhflx_tile         &
+    !$ser&     pshflx_tile=field%shflx_tile         &
+    !$ser&     nblock=nblock                        &
+    !$ser&     lsm=field%lsmask                     &
+    !$ser&     alake%field%alake                    &
+    !$ser&     pu=field%ua                          &
+    !$ser&     pv=field%va                          &
+    !$ser&     ptemp=field%ta                       &
+    !$ser&     pq=field%qtrc                        &
+    !$ser&     prsfl=field%rsfl                     &
+    !$ser&     prsfc=field%rsfc                     &
+    !$ser&     pssfl=field%ssfl                     &
+    !$ser&     pssfc=field%ssfc                     &
+    !$ser&     rlds=field%rlds                      &
+    !$ser&     rlus=field%rlus                      &
+    !$ser&     rsds=field%rsds                      &
+    !$ser&     rsus=field%rsus                      &
+    !$ser&     rvds_dir=field%rvds_dir              &
+    !$ser&     rpds_dir=field%rpds_dir              &
+    !$ser&     rnds_dir=field%rnds_dir              &
+    !$ser&     rvds_dif=field%rvds_dif              &
+    !$ser&     rpds_dif=field%rpds_dif              &
+    !$ser&     rnds_dif=field%rnds_dif              &
+    !$ser&     ps=field%presi_old                   &
+    !$ser&     pcosmu0=field%cosmu0                 &
+    !$ser&     pch_tile=pch_tile                    &
+    !$ser&     pcsat=field%csat                     &
+    !$ser&     pcair=field%pcair                    &
+    !$ser&     z0m_tile=field%z0m_tile              &
+    !$ser&     z0h_lnd=field%z0h_lnd                &
+    !$ser&     albvisdir=field%albvisdir            &
+    !$ser&     albnirdir=field%albnirdir            &
+    !$ser&     albvisdif=field%albvisdif            &
+    !$ser&     albnirdif=field%albnirdif            &
+    !$ser&     albvisdir_tile=field%albvisdir_tile  &
+    !$ser&     albnirdir_tile=field%albnirdir_tile  &
+    !$ser&     albvisdif_tile=field%albvisdif_tile  &
+    !$ser&     albnirdif_tile=field%albnirdif_tile  &
+    !$ser&     albedo=field%albedo                  &
+    !$ser&     albedo_tile=field%albedo_tile        &
+    !$ser&     rsns_tile=field%swflxfc_tile         &
+    !$ser&     rlns_tile=field%lwflxsfc_tile        &
+    !$ser&     Tsurf=field%Tsurf                    &
+    !$ser&     T1=field%T1                          &
+    !$ser&     T2=field%T2                          &
+    !$ser&     hi=field%hi                          &
+    !$ser&     hs=field%hs                          &
+    !$ser&     Qtop=field%Qtop                      &
+    !$ser&     Qbot=field%Qbot                      &
+    !$ser&     conc=field%conc                      &
+    !$ser&     albvisdir_ice=field%albvisdir_ice    &
+    !$ser&     albvisdif_ice=field%albnirdir_ice    &
+    !$ser&     albnirdir_ice=field%albvisdif_ice    &
+    !$ser&     albnirdif_ice=field%albnirdif_ice
     !$ser verbatim writeIn = .FALSE.
     !$ser verbatim ENDIF
 
   END SUBROUTINE serialize_input
 
-  SUBROUTINE serialize_output(                                  &
-                           & jg,                                &
-                           & aa, aa_btm, bb, bb_btm,            &
-                           & pcpt_tile, pqsat_tile,             &
-                           & ptsfc_tile,                        &
-                           & pu_stress_gbm, pv_stress_gbm,      &
-                           & plhflx_gbm, pshflx_gbm,            &
-                           & pevap_gbm,                         &
-                           & pu_stress_tile,   pv_stress_tile,  &
-                           & plhflx_tile, pshflx_tile,          &
-                           & pevap_tile,                        &
-                           !! optional
-                           & nblock,                            &
-                           & rlus,                              &
-                           !! for JSBACH
-                           & pcsat,                             &
-                           & pcair,                             &
-                           & q_snocpymlt,                       &
-                           !
-                           & z0m_tile, z0h_lnd,                 &
-                           & albvisdir, albnirdir, albvisdif, albnirdif, &
-                           & albvisdir_tile,                    &
-                           & albnirdir_tile,                    &
-                           & albvisdif_tile,                    &
-                           & albnirdif_tile,                    &
-                           & albedo, albedo_tile,               &
-                           & ptsfc,                             &
-                           & ptsfc_rad,                         &
-                           & rsns_tile, rlns_tile,              &
-                           & lake_ice_frc,                      &
-                           !! Sea ice
-                           & Tsurf,                             &
-                           & T1,                                &
-                           & T2,                                &
-                           & hi,                                &
-                           & hs,                                &
-                           & Qtop,                              &
-                           & Qbot,                              &
-                           & albvisdir_ice, albvisdif_ice,      &
-                           & albnirdir_ice, albnirdif_ice)       
+  SUBROUTINE serialize_output(jg, kproma, kbdim, klev, ksfc_type, idx_wtr,     &
+                              idx_ice, idx_lnd, pdtime, field, aa, aa_btm, bb, &
+                              bb_btm, pcpt_tile, nblock, q_snocpymlt)
     INTEGER, INTENT(IN) :: jg
-    REAL(wp),INTENT(INOUT) :: aa     (:,:,:,:)
-    REAL(wp),INTENT(INOUT) :: aa_btm (:,:,:,:)
-    REAL(wp),INTENT(INOUT) :: bb     (:,:,:)
-    REAL(wp),INTENT(INOUT) :: bb_btm (:,:,:)
-    REAL(wp),INTENT(INOUT) :: pcpt_tile (:,:)
-    REAL(wp),INTENT(INOUT) :: pqsat_tile(:,:)
-    REAL(wp),INTENT(INOUT) :: ptsfc_tile (:,:)
-
-    REAL(wp),INTENT(OUT)   :: pu_stress_gbm (:)
-    REAL(wp),INTENT(OUT)   :: pv_stress_gbm (:)
-    REAL(wp),INTENT(OUT)   ::    plhflx_gbm (:)
-    REAL(wp),INTENT(OUT)   ::    pshflx_gbm (:)
-    REAL(wp),INTENT(OUT)   ::     pevap_gbm (:)
-
-    REAL(wp),INTENT(OUT)   :: pu_stress_tile (:,:)
-    REAL(wp),INTENT(OUT)   :: pv_stress_tile (:,:)
-    REAL(wp),INTENT(INOUT) :: plhflx_tile (:,:)   ! OUT
-    REAL(wp),INTENT(INOUT) :: pshflx_tile (:,:)   ! OUT
-    REAL(wp),INTENT(OUT)   :: pevap_tile (:,:)
-
-    !! JSBACH output
-    INTEGER, OPTIONAL,INTENT(IN) :: nblock
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: pcsat(:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: pcair(:)
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: q_snocpymlt(:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: z0h_lnd(:), z0m_tile(:,:)  ! OUT
-    !
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir_tile(:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdir_tile(:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdif_tile(:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdif_tile(:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albedo(:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir(:), albvisdif(:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdir(:), albnirdif(:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albedo_tile(:,:)
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc    (:)
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc_rad(:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: rlus     (:)           ! INOUT upward surface  longwave flux [W/m2]
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: rsns_tile(:,:) ! shortwave net flux at surface on tiles
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: rlns_tile(:,:) ! longwave net flux at surface on tiles
-    REAL(wp),OPTIONAL,INTENT(OUT)   :: lake_ice_frc(:)        ! fraction of ice on lakes
-    !! Sea ice
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: Tsurf(:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: T1   (:,:) ! for coupled ocean only
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: T2   (:,:) ! for coupled ocean only
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: hi   (:,:) ! for coupled ocean only
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: hs   (:,:) ! for coupled ocean only
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: Qtop (:,:) ! OUT
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: Qbot (:,:) ! OUT
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir_ice(:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdif_ice(:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdir_ice(:,:)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdif_ice(:,:)
+    INTEGER, INTENT(IN) :: kproma, kbdim
+    INTEGER, INTENT(IN) :: klev, ksfc_type
+    INTEGER, INTENT(IN) :: idx_wtr, idx_ice, idx_lnd
+    REAL(wp),INTENT(IN) :: pdtime
+    TYPE(t_echam_phy_field) ,POINTER       :: field
+    REAL(wp),INTENT(INOUT) :: aa     (kbdim,klev,3,nmatrix)
+    REAL(wp),INTENT(INOUT) :: aa_btm (kbdim,3,ksfc_type,imh:imqv)
+    REAL(wp),INTENT(INOUT) :: bb     (kbdim,klev,nvar_vdiff)
+    REAL(wp),INTENT(INOUT) :: bb_btm (kbdim,ksfc_type,ih:iqv)
+    REAL(wp),INTENT(INOUT) :: pcpt_tile (kbdim,ksfc_type)
+    INTEGER, OPTIONAL,INTENT(IN)  :: nblock
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: q_snocpymlt(kbdim)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
 
@@ -293,22 +160,66 @@ MODULE mo_ser_echam_surface
     !$ser verbatim call init()
     !$ser savepoint echam_surface-output jg=jg nblock=nblock date=date
     !$ser mode write
-    !$ser data aa=aa aa_btm=aa_btm bb=bb bb_btm=bb_btm pcpt_tile=pcpt_tile     &
-    !$ser&     pqsat_tile=pqsat_tile ptsfc_tile=ptsfc_tile                     &
-    !$ser&     pu_stress_gbm=pu_stress_gbm pv_stress_gbm=pv_stress_gbm         &
-    !$ser&     plhflx_tile=plhflx_tile pshflx_tile=pshflx_tile                 &
-    !$ser&     pevap_tile=pevap_tile rlus=rlus pcsat=pcsat pcair=pcair         &
-    !$ser&     q_snocpymlt=q_snocpymlt z0m_tile=z0m_tile z0h_lnd=z0h_lnd       &
-    !$ser&     albvisdir=albvisdir albnirdir=albnirdir albvisdif=albvisdif     &
-    !$ser&     albnirdif=albnirdif albvisdir_tile=albvisdir_tile               &
-    !$ser&     albnirdir_tile=albnirdir_tile albvisdif_tile=albvisdif_tile     &
-    !$ser&     albnirdif_tile=albnirdif_tile albedo=albedo                     &
-    !$ser&     albedo_tile=albedo_tile ptsfc=ptsfc ptsfc_rad=ptsfc_rad         &
-    !$ser&     rsns_tile=rsns_tile rlns_tile=rlns_tile                         &
-    !$ser&     lake_ice_frc=lake_ice_frc Tsurf=Tsurf T1=T1 T2=T2 hi=hi hs=hs   &
-    !$ser&     Qtop=Qtop Qbot=Qbot albvisdir_ice=albvisdir_ice                 &
-    !$ser&     albvisdif_ice=albvisdif_ice albnirdir_ice=albnirdir_ice         &
-    !$ser&     albnirdif_ice=albnirdif_ice
+    !$ser data jg=jg                                &
+    !$ser&     kproma=kproma                        &
+    !$ser&     kbdim=kbdim                          &
+    !$ser&     kice=field%kice                      &
+    !$ser&     klev=klev                            &
+    !$ser&     ksfc_type=ksfc_type                  &
+    !$ser&     idx_wtr=idx_wtr                      &
+    !$ser&     idx_ice=idx_ice                      &
+    !$ser&     idx_lnd=idx_lnd                      &
+    !$ser&     pdtime=pdtime                        &
+    !$ser&     aa=aa                                &
+    !$ser&     aa_btm=aa_btm                        &
+    !$ser&     bb=bb                                &
+    !$ser&     bb_btm=bb_btm                        &
+    !$ser&     pcpt_tile=pcpt_tile                  &
+    !$ser&     pqsat_tile=field%qs_sfc_tile         &
+    !$ser&     ptsfc_tile=field%ts_tile             &
+    !$ser&     pu_stress_gbm=field%u_stress         &
+    !$ser&     pv_stress_gbm=field%v_stress         &
+    !$ser&     plhflx_gbm=field%lhflx               &
+    !$ser&     pshflx_gbm=field%shflx               &
+    !$ser&     pevap_gbm=field%evap                 &
+    !$ser&     pu_stress_tile=field%u_stress_tile   &
+    !$ser&     pv_stress_tile=field%v_stress_tile   &
+    !$ser&     plhflx_tile=field%lhflx_tile         &
+    !$ser&     pshflx_tile=field%shflx_tile         &
+    !$ser&     pevap_tile=field%evap_tile           &
+    !$ser&     nblock=nblock                        &
+    !$ser&     rlus=field%rlus                      &
+    !$ser&     pcsat=field%csat                     &
+    !$ser&     pcair=field%pcair                    &
+    !$ser&     q_snocpymlt=q_snocpymlt              &
+    !$ser&     z0m_tile=field%z0m_tile              &
+    !$ser&     z0h_lnd=field%z0h_lnd                &
+    !$ser&     albvisdir=field%albvisdir            &
+    !$ser&     albnirdir=field%albnirdir            &
+    !$ser&     albvisdif=field%albvisdif            &
+    !$ser&     albnirdif=field%albnirdif            &
+    !$ser&     albvisdir_tile=field%albvisdir_tile  &
+    !$ser&     albnirdir_tile=field%albnirdir_tile  &
+    !$ser&     albvisdif_tile=field%albvisdif_tile  &
+    !$ser&     albnirdif_tile=field%albnirdif_tile  &
+    !$ser&     albedo=field%albedo                  &
+    !$ser&     albedo_tile=field%albedo_tile        &
+    !$ser&     ptsfc=field%ts                       &
+    !$ser&     ptsfc_rad=field%ts_rad               &
+    !$ser&     rsns_tile=field%swflxfc_tile         &
+    !$ser&     rlns_tile=field%lwflxsfc_tile        &
+    !$ser&     lake_ice_frc=field%lake_ice_frc      &
+    !$ser&     Tsurf=field%Tsurf                    &
+    !$ser&     T1=field%T1                          &
+    !$ser&     T2=field%T2                          &
+    !$ser&     hi=field%hi                          &
+    !$ser&     hs=field%hs                          &
+    !$ser&     Qtop=field%Qtop                      &
+    !$ser&     Qbot=field%Qbot                      &
+    !$ser&     albvisdir_ice=field%albvisdir_ice    &
+    !$ser&     albvisdif_ice=field%albnirdir_ice    &
+    !$ser&     albnirdir_ice=field%albvisdif_ice    &
+    !$ser&     albnirdif_ice=field%albnirdif_ice
     !$ser verbatim writeOut = .FALSE.
     !$ser verbatim endif
 
