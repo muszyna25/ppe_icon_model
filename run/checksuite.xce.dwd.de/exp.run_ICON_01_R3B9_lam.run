@@ -349,6 +349,9 @@ itune_albedo = 1
   lsq_high_ord     = 3
   l_intp_c2l       = .true.
   l_mono_c2l       = .true.
+  rbf_vec_scale_c =  0.3
+  rbf_vec_scale_v =  0.3
+  rbf_vec_scale_e =  0.3
 /
 &gridref_nml
  grf_intmethod_e  = 6
