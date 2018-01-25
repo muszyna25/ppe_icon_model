@@ -10,7 +10,7 @@ MODULE mo_ser_echam_surface
   USE mo_ser_common,         ONLY: init
   USE mtime,                 ONLY: datetimeToString, MAX_DATETIME_STR_LEN
   USE mo_time_config,        ONLY: time_config
-  USE mo_echam_phy_memor,    ONLY: t_echam_phy_fiel
+  USE mo_echam_phy_memory,    ONLY: t_echam_phy_field
   IMPLICIT NONE
 
   LOGICAL :: writeIn = .TRUE.
