@@ -14,21 +14,22 @@ MODULE mo_ser_common
 
   CONTAINS
 
-  SUBROUTINE init()
+  SUBROUTINE init(suffix)
     IMPLICIT NONE
+    CHARACTER(LEN=*), INTENT(IN) :: suffix
     REAL(KIND=8) :: rprecision
     rprecision = 10.0**(-PRECISION(1.0))
 
 #if defined SERIALIZE_CREATE_REFERENCE 
     !$ser init directory='./ser_data' &
-    !$ser&     prefix='reference' &
+    !$ser&     prefix='reference_'//TRIM(suffix) &
     !$ser&     mpi_rank=get_my_mpi_work_id() &
     !$ser&     rprecision=rprecision &
     !$ser&     rperturb=1.0e-5_8
 #else 
     !$ser init directory='./ser_data' &
-    !$ser&     prefix='current' &
-    !$ser&     prefix_ref='reference' &
+    !$ser&     prefix='current_'//TRIM(suffix) &
+    !$ser&     prefix_ref='reference_'//TRIM(suffix) &
     !$ser&     mpi_rank=get_my_mpi_work_id() &
     !$ser&     rprecision=rprecision &
     !$ser&     rperturb=1.0e-5_8

@@ -21,10 +21,11 @@ MODULE mo_ser_echam_surface
 
   CONTAINS
 
-  SUBROUTINE serialize_input(jg, kproma, kbdim, klev, ksfc_type, idx_wtr, &
+  SUBROUTINE serialize_input(jblock, jg, kproma, kbdim, klev, ksfc_type, idx_wtr, &
                              idx_ice, idx_lnd, pdtime, field, pfac_sfc,   &
                              aa, aa_btm, bb, bb_btm, pcpt_tile, nblock,   &
                              pch_tile)
+    INTEGER, INTENT(IN)              :: jblock
     INTEGER, INTENT(IN)              :: jg
     INTEGER, INTENT(IN)              :: kproma, kbdim
     INTEGER, INTENT(IN)              :: klev, ksfc_type
@@ -44,8 +45,8 @@ MODULE mo_ser_echam_surface
 
     !$ser verbatim IF (writeIn) THEN
     !$ser verbatim call datetimeToString(time_config%tc_current_date, date)
-    !$ser verbatim call init()
-    !$ser savepoint echam_surface-input jg=jg nblock=nblock date=date
+    !$ser verbatim call init('echam_surface')
+    !$ser savepoint echam_surface-input jblock=jblock date=TRIM(date)
 #if defined SERIALIZE_CREATE_REFERENCE 
     !$ser mode write
 #elif defined SERIALIZE_PERTURB_REFERENCE
@@ -132,14 +133,15 @@ MODULE mo_ser_echam_surface
     !$ser&     albvisdif_ice=field%albnirdir_ice    &
     !$ser&     albnirdir_ice=field%albvisdif_ice    &
     !$ser&     albnirdif_ice=field%albnirdif_ice
-    !$ser verbatim writeIn = .FALSE.
+    !NOser verbatim writeIn = .FALSE.
     !$ser verbatim ENDIF
 
   END SUBROUTINE serialize_input
 
-  SUBROUTINE serialize_output(jg, kproma, kbdim, klev, ksfc_type, idx_wtr,     &
+  SUBROUTINE serialize_output(jblock, jg, kproma, kbdim, klev, ksfc_type, idx_wtr,     &
                               idx_ice, idx_lnd, pdtime, field, aa, aa_btm, bb, &
                               bb_btm, pcpt_tile, nblock, q_snocpymlt)
+    INTEGER, INTENT(IN)              :: jblock
     INTEGER, INTENT(IN)              :: jg
     INTEGER, INTENT(IN)              :: kproma, kbdim
     INTEGER, INTENT(IN)              :: klev, ksfc_type
@@ -158,8 +160,8 @@ MODULE mo_ser_echam_surface
 
     !$ser verbatim if (writeOut) then
     !$ser verbatim call datetimeToString(time_config%tc_current_date, date)
-    !$ser verbatim call init()
-    !$ser savepoint echam_surface-output jg=jg nblock=nblock date=date
+    !$ser verbatim call init('echam_surface')
+    !$ser savepoint echam_surface-output jblock=jblock date=TRIM(date)
     !$ser mode write
     !$ser data jg=jg                                &
     !$ser&     kproma=kproma                        &
@@ -221,7 +223,7 @@ MODULE mo_ser_echam_surface
     !$ser&     albvisdif_ice=field%albnirdir_ice    &
     !$ser&     albnirdir_ice=field%albvisdif_ice    &
     !$ser&     albnirdif_ice=field%albnirdif_ice
-    !$ser verbatim writeOut = .FALSE.
+    !NOser verbatim writeOut = .FALSE.
     !$ser verbatim endif
 
   END SUBROUTINE serialize_output

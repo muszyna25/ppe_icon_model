@@ -29,7 +29,12 @@
 
 MODULE mo_interface_echam_vdiff_surface
 
-  !$ser verbatim USE mo_ser_echam_surface,   ONLY: serialize_input, serialize_output
+  !$ser verbatim USE mo_ser_echam_vdiff_down, ONLY: serialize_vdiff_down_input => serialize_input, &
+  !$ser&                                            serialize_vdiff_down_output => serialize_output
+  !$ser verbatim USE mo_ser_echam_vdiff_up, ONLY: serialize_vdiff_up_input => serialize_input, &
+  !$ser&                                            serialize_vdiff_up_output => serialize_output
+  !$ser verbatim USE mo_ser_echam_surface, ONLY: serialize_surface_input => serialize_input, &
+  !$ser&                                         serialize_surface_output => serialize_output
   USE mo_kind                ,ONLY: wp
 
   USE mo_model_domain        ,ONLY: t_patch
@@ -180,6 +185,12 @@ CONTAINS
           ! - build up the tridiagonal linear algebraic system;
           ! - downward sweep (Gaussian elimination from top till level nlev-1)
           !
+          !----------------------------------------------------------------------------------------
+          ! Serialbox2 input fields serialization
+          !$ser verbatim call serialize_vdiff_down_input(jb, jce, nbdim, nlev,&
+          !$ser verbatim   nlevm1, nlevp1, ntrac, nsfc_type, iwtr, iice, ilnd,&
+          !$ser verbatim   pdtime, field)
+          !
           CALL vdiff_down(jce, nbdim, nlev, nlevm1, nlevp1,&! in
                &          ntrac, nsfc_type,                &! in
                &          iwtr, iice, ilnd,                &! in, indices of different surface types
@@ -245,6 +256,12 @@ CONTAINS
                &          pcair = field% cair(:,jb),       &! in, optional, area fraction with wet land surface (air)
                &          paz0lh = field% z0h_lnd(:,jb))    ! in, optional, roughness length for heat over land
           !
+          !----------------------------------------------------------------------------------------
+          ! Serialbox2 output fields serialization
+          !$ser verbatim call serialize_vdiff_down_output(jb, jce, nbdim, nlev,&
+          !$ser verbatim   nlevm1, nlevp1, ntrac, nsfc_type, iwtr, iice, ilnd,&
+          !$ser verbatim   pdtime, field)
+          !
           IF (ltimer) CALL timer_stop(timer_vdiff_down)
           !
           !
@@ -259,7 +276,7 @@ CONTAINS
           !
           !----------------------------------------------------------------------------------------
           ! Serialbox2 input fields serialization
-          !$ser verbatim call serialize_input(jg, jce, nbdim, nlev, nsfc_type,&
+          !$ser verbatim call serialize_surface_input(jb, jg, jce, nbdim, nlev, nsfc_type,&
           !$ser verbatim   iwtr, iice, ilnd, pdtime, field, zfactor_sfc, zaa,&
           !$ser verbatim   zaa_btm, zbb, zbb_btm, zcpt_sfc_tile, nblock = jb,&
           !$ser verbatim   pch_tile = zch_tile)
@@ -349,7 +366,7 @@ CONTAINS
 
           !----------------------------------------------------------------------------------------
           ! Serialbox2 output fields serialization
-          !$ser verbatim call serialize_output(jg, jce, nbdim, nlev, nsfc_type,&
+          !$ser verbatim call serialize_surface_output(jb, jg, jce, nbdim, nlev, nsfc_type,&
           !$ser verbatim   iwtr, iice, ilnd, pdtime, field, zaa, zaa_btm, zbb,&
           !$ser verbatim   zbb_btm, zcpt_sfc_tile, nblock = jb,&
           !$ser verbatim   q_snocpymlt = zq_snocpymlt)
@@ -381,6 +398,11 @@ CONTAINS
           ! - Compute tendencies and additional diagnostics.
           !
           IF (ltimer) CALL timer_start(timer_vdiff_up)
+          !
+          !----------------------------------------------------------------------------------------
+          ! Serialbox2 input fields serialization
+          !$ser verbatim call serialize_vdiff_up_input(jb, jce, nbdim, nlev,&
+          !$ser verbatim   nlevm1, ntrac, nsfc_type, iwtr, pdtime, field)
           !
           CALL vdiff_up(jce, nbdim, nlev, nlevm1,        &! in
                &        ntrac, nsfc_type,                &! in
@@ -418,6 +440,11 @@ CONTAINS
                &        field%      tke(:,:,jb),         &! out
                &        field%   sh_vdiff(:,  jb),       &! out, for energy diagnostic
                &        field%   qv_vdiff(:,  jb)        )! out, for energy diagnostic
+          !
+          !----------------------------------------------------------------------------------------
+          ! Serialbox2 input fields serialization
+          !$ser verbatim call serialize_vdiff_up_output(jb, jce, nbdim, nlev,&
+          !$ser verbatim   nlevm1, ntrac, nsfc_type, iwtr, pdtime, field)
           !
           IF (ltimer) CALL timer_stop(timer_vdiff_up)
           !

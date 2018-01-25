@@ -26,7 +26,6 @@
 
 MODULE mo_nh_diffusion
 
-  !$ser verbatim USE mo_ser_nh_diffusion,   ONLY: serialize_input, serialize_output
   USE mo_kind,                ONLY: wp, vp
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_model_domain,        ONLY: t_patch
@@ -147,10 +146,6 @@ MODULE mo_nh_diffusion
     REAL(wp), DIMENSION(:,:,:),   POINTER  :: theta_v_ic_tmp, div_ic_tmp, hdef_ic_tmp, dwdx_tmp, dwdy_tmp
     REAL(vp), DIMENSION(:,:,:),   POINTER  :: vt_tmp
 #endif
-
-    !----------------------------------------------------------------------------------------
-    ! Serialbox2 input fields serialization placeholder
-    !$ser verbatim call serialize_input(z_temp, z_nabla2_c, z_nabla2_e, z_nabla4_e)
 
     !--------------------------------------------------------------------------
 
@@ -1618,10 +1613,6 @@ MODULE mo_nh_diffusion
 #endif
 
     IF (ltimer) CALL timer_stop(timer_nh_hdiffusion)
-
-    !----------------------------------------------------------------------------------------
-    ! Serialbox2 output fields serialization placeholder
-    !$ser verbatim call serialize_output(z_temp, z_nabla2_c, z_nabla2_e, z_nabla4_e)
 
   END SUBROUTINE diffusion
 
