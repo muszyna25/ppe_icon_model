@@ -6,10 +6,11 @@
 
 MODULE mo_ser_echam_surface
 
-  USE mo_kind,        ONLY: vp, wp
-  USE mo_ser_common,  ONLY: init
-  USE mtime,          ONLY: datetimeToString, MAX_DATETIME_STR_LEN
-  USE mo_time_config, ONLY: time_config
+  USE mo_kind,               ONLY: vp, wp
+  USE mo_ser_common,         ONLY: init
+  USE mtime,                 ONLY: datetimeToString, MAX_DATETIME_STR_LEN
+  USE mo_time_config,        ONLY: time_config
+  USE mo_echam_phy_memor,    ONLY: t_echam_phy_fiel
   IMPLICIT NONE
 
   LOGICAL :: writeIn = .TRUE.
@@ -24,20 +25,20 @@ MODULE mo_ser_echam_surface
                              idx_ice, idx_lnd, pdtime, field, pfac_sfc,   &
                              aa, aa_btm, bb, bb_btm, pcpt_tile, nblock,   &
                              pch_tile)
-    INTEGER, INTENT(IN) :: jg
-    INTEGER, INTENT(IN) :: kproma, kbdim
-    INTEGER, INTENT(IN) :: klev, ksfc_type
-    INTEGER, INTENT(IN) :: idx_wtr, idx_ice, idx_lnd
-    REAL(wp),INTENT(IN) :: pdtime
-    TYPE(t_echam_phy_field) ,POINTER       :: field
-    REAL(wp),INTENT(IN) :: pfac_sfc  (kbdim)
-    REAL(wp),INTENT(INOUT) :: aa     (kbdim,klev,3,nmatrix)
-    REAL(wp),INTENT(INOUT) :: aa_btm (kbdim,3,ksfc_type,imh:imqv)
-    REAL(wp),INTENT(INOUT) :: bb     (kbdim,klev,nvar_vdiff)
-    REAL(wp),INTENT(INOUT) :: bb_btm (kbdim,ksfc_type,ih:iqv)
-    REAL(wp),INTENT(INOUT) :: pcpt_tile (kbdim,ksfc_type)
-    INTEGER, OPTIONAL,INTENT(IN)  :: nblock
-    REAL(wp),OPTIONAL,INTENT(IN)  :: pch_tile  (kbdim,ksfc_type)
+    INTEGER, INTENT(IN)              :: jg
+    INTEGER, INTENT(IN)              :: kproma, kbdim
+    INTEGER, INTENT(IN)              :: klev, ksfc_type
+    INTEGER, INTENT(IN)              :: idx_wtr, idx_ice, idx_lnd
+    REAL(wp),INTENT(IN)              :: pdtime
+    TYPE(t_echam_phy_field) ,POINTER :: field
+    REAL(wp),INTENT(IN)              :: pfac_sfc(:)
+    REAL(wp),INTENT(INOUT)           :: aa(:,:,:,:)
+    REAL(wp),INTENT(INOUT)           :: aa_btm(:,:,:,:)
+    REAL(wp),INTENT(INOUT)           :: bb(:,:,:)
+    REAL(wp),INTENT(INOUT)           :: bb_btm(:,:,:)
+    REAL(wp),INTENT(INOUT)           :: pcpt_tile(:,:)
+    INTEGER, OPTIONAL,INTENT(IN)     :: nblock
+    REAL(wp),OPTIONAL,INTENT(IN)     :: pch_tile(:,:)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
 
@@ -139,19 +140,19 @@ MODULE mo_ser_echam_surface
   SUBROUTINE serialize_output(jg, kproma, kbdim, klev, ksfc_type, idx_wtr,     &
                               idx_ice, idx_lnd, pdtime, field, aa, aa_btm, bb, &
                               bb_btm, pcpt_tile, nblock, q_snocpymlt)
-    INTEGER, INTENT(IN) :: jg
-    INTEGER, INTENT(IN) :: kproma, kbdim
-    INTEGER, INTENT(IN) :: klev, ksfc_type
-    INTEGER, INTENT(IN) :: idx_wtr, idx_ice, idx_lnd
-    REAL(wp),INTENT(IN) :: pdtime
-    TYPE(t_echam_phy_field) ,POINTER       :: field
-    REAL(wp),INTENT(INOUT) :: aa     (kbdim,klev,3,nmatrix)
-    REAL(wp),INTENT(INOUT) :: aa_btm (kbdim,3,ksfc_type,imh:imqv)
-    REAL(wp),INTENT(INOUT) :: bb     (kbdim,klev,nvar_vdiff)
-    REAL(wp),INTENT(INOUT) :: bb_btm (kbdim,ksfc_type,ih:iqv)
-    REAL(wp),INTENT(INOUT) :: pcpt_tile (kbdim,ksfc_type)
-    INTEGER, OPTIONAL,INTENT(IN)  :: nblock
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: q_snocpymlt(kbdim)
+    INTEGER, INTENT(IN)              :: jg
+    INTEGER, INTENT(IN)              :: kproma, kbdim
+    INTEGER, INTENT(IN)              :: klev, ksfc_type
+    INTEGER, INTENT(IN)              :: idx_wtr, idx_ice, idx_lnd
+    REAL(wp),INTENT(IN)              :: pdtime
+    TYPE(t_echam_phy_field) ,POINTER :: field
+    REAL(wp),INTENT(INOUT)           :: aa(:,:,:,:)
+    REAL(wp),INTENT(INOUT)           :: aa_btm(:,:,:,:)
+    REAL(wp),INTENT(INOUT)           :: bb(:,:,:)
+    REAL(wp),INTENT(INOUT)           :: bb_btm(:,:,:)
+    REAL(wp),INTENT(INOUT)           :: pcpt_tile(:,:)
+    INTEGER, OPTIONAL,INTENT(IN)     :: nblock
+    REAL(wp),OPTIONAL,INTENT(INOUT)  :: q_snocpymlt(:)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
 

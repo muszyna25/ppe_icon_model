@@ -259,7 +259,7 @@ CONTAINS
           !
           !----------------------------------------------------------------------------------------
           ! Serialbox2 input fields serialization
-          !$ser verbatim call serialize_input jg, jce, nbdim, nlev, nsfc_type,&
+          !$ser verbatim call serialize_input(jg, jce, nbdim, nlev, nsfc_type,&
           !$ser verbatim   iwtr, iice, ilnd, pdtime, field, zfactor_sfc, zaa,&
           !$ser verbatim   zaa_btm, zbb, zbb_btm, zcpt_sfc_tile, nblock = jb,&
           !$ser verbatim   pch_tile = zch_tile)
