@@ -70,7 +70,7 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE cloud (         jg                                                      &
+  SUBROUTINE cloud (         jg,           jcs                                       &
                            , kproma,       kbdim,        klev                        &
                            , pdtime                                                  &
     ! - INPUT  1D .
@@ -102,7 +102,7 @@ CONTAINS
     !
     !
     INTEGER,  INTENT(IN)    :: jg
-    INTEGER,  INTENT(IN)    :: kproma, kbdim, klev
+    INTEGER,  INTENT(IN)    :: jcs, kproma, kbdim, klev
     INTEGER,  INTENT(IN)    :: kctop(kbdim)
     INTEGER,  INTENT(INOUT) :: ktype(kbdim)
     REAL(wp), INTENT(IN)    :: pdtime
@@ -261,9 +261,9 @@ CONTAINS
     !            height at half levels
     !            Set to zero precipitation fluxes etc.
     !
-    nclcpre = 0
+    nclcpre = jcs-1
 
-    DO 111 jl = 1,kproma
+    DO 111 jl = jcs,kproma
        zclcpre(jl)   = 0.0_wp
        zxiflux(jl)   = 0.0_wp
        zrfl(jl)      = 0.0_wp
@@ -276,23 +276,23 @@ CONTAINS
     !       1.3   Air density
     !
 !IBM* NOVECTOR
-      DO jl = 1,kproma
+      DO jl = jcs,kproma
          zqrho(jl)        = 1.3_wp/prho(jl,jk)
       END DO
 
-      zqrho_sqrt(1:kproma) = SQRT(zqrho(1:kproma))
-      zpapm1_inv(1:kproma) = 1._wp/papm1(1:kproma,jk)
+      zqrho_sqrt(jcs:kproma) = SQRT(zqrho(jcs:kproma))
+      zpapm1_inv(jcs:kproma) = 1._wp/papm1(jcs:kproma,jk)
 
-      CALL prepare_ua_index_spline(jg,'cloud (1)',kproma,ptm1(1,jk),loidx(1),za(1))
-      CALL lookup_ua_spline(kproma,loidx(1),za(1),ua(1),dua(1))
-      CALL lookup_uaw_spline(kproma,loidx(1),za(1),uaw(1),duaw(1))
+      CALL prepare_ua_index_spline(jg,'cloud (1)',jcs,kproma,ptm1(1,jk),loidx(1),za(1))
+      CALL lookup_ua_spline(jcs,kproma,loidx(1),za(1),ua(1),dua(1))
+      CALL lookup_uaw_spline(jcs,kproma,loidx(1),za(1),uaw(1),duaw(1))
       !
       !     --------------------------------------------------------------------------
       !       2.    Set to zero some local tendencies (increments)
       !     --------------------------------------------------------------------------
       !
 !IBM* NOVECTOR
-      DO 201 jl = 1,kproma
+      DO 201 jl = jcs,kproma
 
          zevp(jl)       = 0.0_wp
          zsub(jl)       = 0.0_wp
@@ -315,7 +315,7 @@ CONTAINS
         !       3.1   Melting of snow and ice
         !
 !IBM* NOVECTOR
-        DO 321 jl = 1,kproma
+        DO 321 jl = jcs,kproma
 
            zcons     = (pmdry(jl,jk)/pdtime)/(zlsdcp(jl)-zlvdcp(jl))
            ztdif     = MAX(0.0_wp,ptm1(jl,jk)-tmelt)
@@ -327,14 +327,14 @@ CONTAINS
            zimlt(jl) = FSEL(-ztdif,0.0_wp,zsnmlt)
 321     END DO
 
-        IF (nclcpre.GT.0) THEN
+        IF (nclcpre.GT.jcs-1) THEN
         ! equals old zclcpre.gt.0
         !
         !       3.2   Sublimation of snow and ice (Lin et al., 1983)
         !
 !IBM* ASSERT(NODEPS)
 !IBM* NOVECTOR
-          DO nl = 1,nclcpre
+          DO nl = jcs,nclcpre
              jl = jjclcpre(nl)
              zesi     = ua(jl)*zpapm1_inv(jl)
              zesi     = MIN(zesi,0.5_wp)
@@ -348,14 +348,14 @@ CONTAINS
           !
           ! definition of conditions for the sublimation of snow and ice
 !IBM* ASSERT(NODEPS)
-          DO nl = 1,nclcpre
+          DO nl = jcs,nclcpre
              jl = jjclcpre(nl)
              cond1(nl) = INT(FSEL(cqtmin-zsfl(jl)   ,0._wp,1._wp))
              cond2(nl) = INT(FSEL(cqtmin-zrfl(jl)   ,0._wp,1._wp))
           END DO
-          i1 = 1
-          i2 = 1
-          DO nl = 1,nclcpre
+          i1 = jcs
+          i2 = jcs
+          DO nl = jcs,nclcpre
              jl = jjclcpre(nl)
              idx1(i1) = jl
              i1 = i1 + cond1(nl)
@@ -366,21 +366,21 @@ CONTAINS
           i2 = i2 - 1
           !    old if(zsfl(jl).GT.ctqmin)
           !
-          IF (i1.GT.0) THEN
+          IF (i1.GT.jcs-1) THEN
 !IBM* ASSERT(NODEPS)
-            DO nl = 1,i1
+            DO nl = jcs,i1
                jl = idx1(nl)
                ztmp1(nl)    = zqrho_sqrt(jl)
                ztmp2(nl)    = zsfl(jl)*zclcpre_inv(jl)/cvtfall
             END DO
-            ztmp1(1:i1)   = SQRT(ztmp1(1:i1))
-            ztmp2(1:i1)   = ztmp2(1:i1)**(1._wp/1.16_wp)
-            ztmp2(1:i1)   = ztmp2(1:i1)/(pi*crhosno*cn0s)
-            ztmp2(1:i1)   = SQRT(ztmp2(1:i1))
-            ztmp3(1:i1)   = ztmp2(1:i1)**1.3125_wp
+            ztmp1(jcs:i1)   = SQRT(ztmp1(jcs:i1))
+            ztmp2(jcs:i1)   = ztmp2(jcs:i1)**(1._wp/1.16_wp)
+            ztmp2(jcs:i1)   = ztmp2(jcs:i1)/(pi*crhosno*cn0s)
+            ztmp2(jcs:i1)   = SQRT(ztmp2(jcs:i1))
+            ztmp3(jcs:i1)   = ztmp2(jcs:i1)**1.3125_wp
 !IBM* ASSERT(NODEPS)
 !IBM* NOVECTOR
-            DO nl = 1,i1
+            DO nl = jcs,i1
                jl = idx1(nl)
                zclcstar = zclcpre(jl)
                zcfac4c  = 0.78_wp*ztmp2(nl)+232.19_wp*ztmp1(nl)*ztmp3(nl)
@@ -399,10 +399,10 @@ CONTAINS
           !
           !    old if(zrfl(jl).gt.cqtmin)
           !
-          IF (i2.GT.0) THEN
+          IF (i2.GT.jcs-1) THEN
 !IBM* ASSERT(NODEPS)
 !IBM* NOVECTOR
-            DO nl = 1,i2
+            DO nl = jcs,i2
                jl = idx2(nl)
                zesw      = uaw(jl)*zpapm1_inv(jl)
                zesat     = uaw(jl)/rd
@@ -418,9 +418,9 @@ CONTAINS
                ztmp3(nl) = zqsw
                ztmp4(nl) = zsusatw
             END DO
-            ztmp2(1:i2) = ztmp2(1:i2)**0.61_wp
+            ztmp2(jcs:i2) = ztmp2(jcs:i2)**0.61_wp
 !IBM* ASSERT(NODEPS)
-            DO nl = 1,i2
+            DO nl = jcs,i2
                jl = idx2(nl)
                zqsw     = ztmp3(nl)
                zsusatw  = ztmp4(nl)
@@ -437,11 +437,11 @@ CONTAINS
           !
           !    end if(zrfl(jl).gt.cqtmin)
           !
-        END IF ! nclcpre.GT.0
+        END IF ! nclcpre.GT.0 (> jcs-1)
 
       ELSE
 
-        DO jl = 1,kproma
+        DO jl = jcs,kproma
            zimlt(jl)  = 0.0_wp
            zsmlt(jl)  = 0.0_wp
         END DO
@@ -458,7 +458,7 @@ CONTAINS
       !             Finally: In-cloud cloud water/ice.
       !
 
-      DO 401 jl = 1,kproma
+      DO 401 jl = jcs,kproma
         zxip1         = pxim1(jl,jk)-zimlt(jl)
       !  zxip1         = pxim1(jl,jk)+pxite(jl,jk)*pdtime-zimlt(jl)
         zxip1         = MAX(zxip1,EPSILON(1._wp))
@@ -466,19 +466,19 @@ CONTAINS
         ztmp2(jl)     = prho(jl,jk)*zxip1
 401   END DO
 
-      ztmp2(1:kproma) = ztmp2(1:kproma)**0.16_wp
+      ztmp2(jcs:kproma) = ztmp2(jcs:kproma)**0.16_wp
 
 !IBM* NOVECTOR
-      DO 402 jl = 1,kproma
+      DO 402 jl = jcs,kproma
         zxifall       = cvtfall*ztmp2(jl)
         zal1          = -zxifall*pdtime/pdz(jl,jk)
         ztmp3(jl)     = zal1
 402   END DO
 
-      ztmp3(1:kproma) = EXP(ztmp3(1:kproma))
+      ztmp3(jcs:kproma) = EXP(ztmp3(jcs:kproma))
 
 !IBM* NOVECTOR
-      DO 410 jl = 1,kproma
+      DO 410 jl = jcs,kproma
         zxitop        = zxiflux(jl)
         zxip1         = ztmp1(jl)
         zxifall       = cvtfall*ztmp2(jl)
@@ -495,9 +495,9 @@ CONTAINS
 !!$        zmrateps(jl,jk)=zmrateps(jl,jk)+(ztmp1(jl)-zxised(jl))
 !!$411   END DO
 
-      locnt = 0
-      nlocnt = 0
-      DO 420 jl = 1,kproma
+      locnt = jcs-1
+      nlocnt = jcs-1
+      DO 420 jl = jcs,kproma
         zclcaux(jl) = paclc(jl,jk)
         IF (zclcaux(jl) .GT. 0.0_wp) THEN    ! locc=T
            locnt = locnt + 1
@@ -515,7 +515,7 @@ CONTAINS
       !
       ! definition of lo2 (new zlo2(jl))
       !
-      DO 421 jl = 1,kproma
+      DO 421 jl = jcs,kproma
 
       !       IF ((ptm1(jl,jk).LT.cthomi).OR.
       !         (ptm1(jl,jk).LT.tmelt.AND.zxised(jl).GT.csecfrli                     &
@@ -539,7 +539,7 @@ CONTAINS
       !             In-cloud values are required for cloud microphysics.
       !
 !IBM* ASSERT(NODEPS)
-      DO 430 nl = 1,nlocnt
+      DO 430 nl = jcs,nlocnt
         jl = nloidx(nl)
         zxib(jl)     = 0.0_wp
         zxlb(jl)     = 0.0_wp
@@ -552,7 +552,7 @@ CONTAINS
 
 !IBM* ASSERT(NODEPS)
 !IBM* NOVECTOR
-      DO 431 nl = 1,locnt
+      DO 431 nl = jcs,locnt
         jl = loidx(nl)
         zclcauxi(jl) = 1._wp/zclcaux(jl)
         zxip1        = pxim1(jl,jk)-zimlt(jl)+zqsed(jl)
@@ -572,7 +572,7 @@ CONTAINS
       !             zdqsdt    = dq_sat / dT
       !
 !IBM* NOVECTOR
-      DO 500 jl = 1,kproma
+      DO 500 jl = jcs,kproma
         zlc         = FSEL(zlo2(jl),zlsdcp(jl),zlvdcp(jl))
         zua         = FSEL(zlo2(jl),ua(jl),uaw(jl))
         zdua        = FSEL(zlo2(jl),dua(jl),duaw(jl))
@@ -602,7 +602,7 @@ CONTAINS
         prelhum(jl,jk) = zrelhum
 500   END DO
       !
-      DO 520 jl = 1,kproma
+      DO 520 jl = jcs,kproma
         zdtdtstar = zdtdt(jl)+zstar1(jl)
         zdqsat    = zdtdtstar*zdqsat1(jl)
         zxilb     = zxib(jl)+zxlb(jl)
@@ -613,7 +613,7 @@ CONTAINS
 520   END DO
 
       i1 = 0
-      DO 530 jl = 1,kproma
+      DO 530 jl = jcs,kproma
         zqcdif = ztmp1(jl)
         IF (zqcdif .LT. 0.0_wp) THEN                 ! cloud dissipation
           zxilb    = zxib(jl)+zxlb(jl)
@@ -630,21 +630,21 @@ CONTAINS
       !
       !       5.4 Checking for supersaturation of whole grid-box
       !
-      DO jl = 1,kproma
+      DO jl = jcs,kproma
         ztp1tmp(jl) = ztp1(jl) + zlvdcp(jl)*zcnd(jl) + zlsdcp(jl)*zdep(jl)
         zqp1tmp(jl) = zqp1(jl) -            zcnd(jl) -            zdep(jl)
         zxip1       = MAX(pxim1(jl,jk)+zqsed(jl)-zimlt(jl)-zxievap(jl)+zgenti(jl)+zdep(jl),0.0_wp)
         ztmp1(jl)   = zxip1
       END DO
 
-      CALL lookup_ubc(kproma,ztp1tmp(1),ub(1))
-      CALL prepare_ua_index_spline(jg,'cloud (2)',kproma,ztp1tmp(1),idx1(1),za(1)       &
+      CALL lookup_ubc(jcs,kproma,ztp1tmp(1),ub(1))
+      CALL prepare_ua_index_spline(jg,'cloud (2)',jcs,kproma,ztp1tmp(1),idx1(1),za(1)       &
                                                ,ztmp1(1),nphase,zlo2(1),cond1(1))
-      CALL lookup_ua_eor_uaw_spline(kproma,idx1(1),za(1),nphase,cond1(1),ua(1),dua(1))
-      zpapp1i(1:kproma) = 1._wp/papm1(1:kproma,jk)
+      CALL lookup_ua_eor_uaw_spline(jcs,kproma,idx1(1),za(1),nphase,cond1(1),ua(1),dua(1))
+      zpapp1i(jcs:kproma) = 1._wp/papm1(jcs:kproma,jk)
 
 !IBM* NOVECTOR
-      DO 540 jl = 1,kproma
+      DO 540 jl = jcs,kproma
         zes         = ua(jl)*zpapp1i(jl)
         zes         = MIN(zes,0.5_wp)
         zcor        = 1._wp/(1._wp-vtmpc1*zes)
@@ -662,20 +662,20 @@ CONTAINS
 540   END DO
 
       ! mpuetz: ztmp2 holds inverse of zqsp1tmp
-      ztmp2(1:kproma) = 1._wp/ztmp2(1:kproma)
+      ztmp2(jcs:kproma) = 1._wp/ztmp2(jcs:kproma)
       !
       !       5.5 Change of in-cloud water due to deposition/sublimation and
       !           condensation/evaporation (input for cloud microphysics)
       !
 !IBM* ASSERT(NODEPS)
-      DO 551 nl = 1,locnt
+      DO 551 nl = jcs,locnt
         jl = loidx(nl)
         zxib(jl) = MAX(zxib(jl)+zdep(jl)*zclcauxi(jl),0.0_wp)
         zxlb(jl) = MAX(zxlb(jl)+zcnd(jl)*zclcauxi(jl),0.0_wp)
  551  END DO
 
 !IBM* ASSERT(NODEPS)
-      DO 552 nl = 1,nlocnt
+      DO 552 nl = jcs,nlocnt
         jl = nloidx(nl)
         zdepos           = MAX(zdep(jl)+zgenti(jl),0.0_wp)
         zcond            = MAX(zcnd(jl)+zgentl(jl),0.0_wp)
@@ -687,7 +687,7 @@ CONTAINS
         END IF
  552  END DO
 
-      DO 553 jl = 1,kproma
+      DO 553 jl = jcs,kproma
         ztp1tmp(jl) = ztp1(jl)+zlvdcp(jl)*zcnd(jl)+zlsdcp(jl)*zdep(jl)
 553   END DO
       !
@@ -696,7 +696,7 @@ CONTAINS
       !
       !       6.1   Freezing of cloud water for T < 238 K
       !
-      DO 610 jl = 1,kproma
+      DO 610 jl = jcs,kproma
         zlo = cthomi - ztp1tmp(jl)
         ! mpuetz: using compute & select is faster than branching
         ! mpuetz: initially zfrl() is zero ?
@@ -707,8 +707,8 @@ CONTAINS
       !
       !       6.2   Freezing of cloud water between 238 and 273 K
       !
-      locnt = 0
-      DO 620 jl = 1,kproma
+      locnt = jcs-1
+      DO 620 jl = jcs,kproma
         ! triple floating point compare + high predictability
         ! -> branched logic works best in SMT mode
         lo = ztp1tmp(jl).GT.cthomi.AND. &
@@ -721,18 +721,18 @@ CONTAINS
         END IF
 620   END DO
 
-      IF (locnt > 0) THEN
+      IF (locnt > jcs-1) THEN
 !IBM* ASSERT(NODEPS)
-        DO 621 nl = 1,locnt
+        DO 621 nl = jcs,locnt
           jl = loidx(nl)
           ztmp1(nl) = 0.66_wp*(tmelt-ztp1tmp(jl))
 621     END DO
 
-      ztmp1(1:locnt) = EXP(ztmp1(1:locnt))
+      ztmp1(jcs:locnt) = EXP(ztmp1(jcs:locnt))
 
 !IBM* ASSERT(NODEPS)
 !IBM* NOVECTOR
-      DO 622 nl = 1,locnt
+      DO 622 nl = jcs,locnt
         jl = loidx(nl)
         zfrho    = prho(jl,jk)/(rhoh2o*pacdnc(jl,jk))
         zfrl(jl) = 100._wp*(ztmp1(nl)-1._wp)*zfrho
@@ -744,11 +744,11 @@ CONTAINS
         ztmp1(nl)= 0.75_wp*zxlb(jl)*zfrho/pi
 622   END DO
 
-      ztmp1(1:locnt) = ztmp1(1:locnt)**(1._wp/3._wp)
+      ztmp1(jcs:locnt) = ztmp1(jcs:locnt)**(1._wp/3._wp)
 
 !IBM* ASSERT(NODEPS)
 !IBM* NOVECTOR
-      DO 623 nl = 1,locnt
+      DO 623 nl = jcs,locnt
         jl = loidx(nl)
         zradl    = ztmp1(nl)
         zval     = 4._wp*pi*zradl*pacdnc(jl,jk)*2.e5_wp*(tmelt-3._wp-ztp1tmp(jl))
@@ -781,32 +781,32 @@ CONTAINS
     !       7.  Cloud physics and precipitation fluxes at the surface
     !     ----------------------------------------------------------------------------
     !
-    zxlb(1:kproma) = MAX(zxlb(1:kproma),1.e-20_wp)
-    zxib(1:kproma) = MAX(zxib(1:kproma),1.e-20_wp)
+    zxlb(jcs:kproma) = MAX(zxlb(jcs:kproma),1.e-20_wp)
+    zxib(jcs:kproma) = MAX(zxib(jcs:kproma),1.e-20_wp)
 !!$    zmlwc(1:kproma,jk)=zxlb(1:kproma)
 !!$    zmiwc(1:kproma,jk)=zxib(1:kproma)
 
 !IBM* NOVECTOR
-    DO 701 jl = 1,kproma
+    DO 701 jl = jcs,kproma
       zauloc(jl) = cauloc*pdz(jl,jk)/5000._wp
       zauloc(jl) = MAX(MIN(zauloc(jl),clmax),clmin)
 701 END DO
 
-    zxrp1(1:kproma) = 0.0_wp
-    zxsp1(1:kproma) = 0.0_wp
+    zxrp1(jcs:kproma) = 0.0_wp
+    zxsp1(jcs:kproma) = 0.0_wp
     !
 !IBM* ASSERT(NODEPS)
-    DO 711 nl = 1,nclcpre
+    DO 711 nl = jcs,nclcpre
       jl = jjclcpre(nl)
       ztmp1(nl) = (zrfl(jl)*zclcpre_inv(jl))/(12.45_wp*zqrho_sqrt(jl))
       ztmp2(nl) = zsfl(jl)*zclcpre_inv(jl)/cvtfall
 711 END DO
 
-    ztmp1(1:nclcpre) = ztmp1(1:nclcpre)**(8._wp/9._wp)
-    ztmp2(1:nclcpre) = ztmp2(1:nclcpre)**(1._wp/1.16_wp)
+    ztmp1(jcs:nclcpre) = ztmp1(jcs:nclcpre)**(8._wp/9._wp)
+    ztmp2(jcs:nclcpre) = ztmp2(jcs:nclcpre)**(1._wp/1.16_wp)
 
 !IBM* ASSERT(NODEPS)
-    DO 712 nl = 1,nclcpre
+    DO 712 nl = jcs,nclcpre
       jl = jjclcpre(nl)
       zxrp1(jl) = ztmp1(nl)
       zxsp1(jl) = ztmp2(nl)
@@ -817,10 +817,10 @@ CONTAINS
     !             droplets by falling rain. Accretion of cloud droplets by
     !             falling snow (zsacl) is calculated under 7.2
     !
-    i1 = 0
-    i2 = 0
-    locnt = 0
-    DO 720 jl = 1,kproma
+    i1 = jcs-1
+    i2 = jcs-1
+    locnt = jcs-1
+    DO 720 jl = jcs,kproma
       zsacl(jl) = 0.0_wp
       zrpr(jl)  = 0.0_wp
       zspr(jl)  = 0.0_wp
@@ -830,30 +830,30 @@ CONTAINS
       END IF
 720 END DO
 
-    IF (locnt.GT.0) THEN
+    IF (locnt.GT.jcs-1) THEN
       zexm1    = 4.7_wp-1.0_wp
       zexp     = -1._wp/zexm1
 
 !IBM* ASSERT(NODEPS)
 !IBM* NOVECTOR
-      DO nl = 1,locnt
+      DO nl = jcs,locnt
          jl = loidx(nl)
          ztmp1(nl) = (ccraut*1.2e27_wp)/prho(jl,jk)
          ztmp2(nl) = pacdnc(jl,jk)*1.e-6_wp
          ztmp3(nl) = prho(jl,jk)  *1.e-3_wp
          ztmp4(nl) = zxlb(jl)
       END DO
-      ztmp2(1:locnt) = ztmp2(1:locnt)**(-3.3_wp)
-      ztmp3(1:locnt) = ztmp3(1:locnt)**4.7_wp
-      ztmp4(1:locnt) = ztmp4(1:locnt)**zexm1
-      DO nl = 1,locnt
+      ztmp2(jcs:locnt) = ztmp2(jcs:locnt)**(-3.3_wp)
+      ztmp3(jcs:locnt) = ztmp3(jcs:locnt)**4.7_wp
+      ztmp4(jcs:locnt) = ztmp4(jcs:locnt)**zexm1
+      DO nl = jcs,locnt
          zraut     = ztmp1(nl)*ztmp2(nl)*ztmp3(nl)
          ztmp4(nl) =  1._wp+zraut*pdtime*zexm1*ztmp4(nl)
       END DO
-      ztmp4(1:locnt) = ztmp4(1:locnt)**zexp
+      ztmp4(jcs:locnt) = ztmp4(jcs:locnt)**zexp
 
 !IBM* ASSERT(NODEPS)
-      DO nl = 1,locnt
+      DO nl = jcs,locnt
          jl = loidx(nl)
          zraut     = zxlb(jl)*(1._wp-ztmp4(nl))
          ztmp1(nl) = -ccracl*zxrp1(jl)*pdtime
@@ -861,13 +861,13 @@ CONTAINS
          ztmp3(nl) = zxib(jl)*prho(jl,jk)*1000._wp
          ztmp4(nl) = zraut
       END DO
-      ztmp1(1:locnt) = EXP(ztmp1(1:locnt))
-      ztmp2(1:locnt) = EXP(ztmp2(1:locnt))
-      ztmp3(1:locnt) = ztmp3(1:locnt)**0.216_wp
+      ztmp1(jcs:locnt) = EXP(ztmp1(jcs:locnt))
+      ztmp2(jcs:locnt) = EXP(ztmp2(jcs:locnt))
+      ztmp3(jcs:locnt) = ztmp3(jcs:locnt)**0.216_wp
 
 !IBM* NOVECTOR
 !IBM* ASSERT(NODEPS)
-      DO nl = 1,locnt
+      DO nl = jcs,locnt
          jl = loidx(nl)
          zraut = ztmp4(nl)
          zxlb(jl) = zxlb(jl)-zraut
@@ -889,7 +889,7 @@ CONTAINS
       !            Effective radius of ice crystals after Moss (1995)
       !
 !IBM* ASSERT(NODEPS)
-      DO nl = 1,locnt
+      DO nl = jcs,locnt
          jl = loidx(nl)
          zrieff    = 83.8_wp*ztmp3(nl)
          zrieff    = MIN(MAX(zrieff,ceffmin),ceffmax)
@@ -897,15 +897,15 @@ CONTAINS
          ztmp2(nl) = zqrho(jl)
          ztmp3(nl) = 0.025_wp*(ztp1tmp(jl)-tmelt)
       END DO
-      ztmp1(1:locnt) = SQRT(ztmp1(1:locnt))
-      ztmp1(1:locnt) = ztmp1(1:locnt)-2261._wp
-      ztmp1(1:locnt) = LOG10(ztmp1(1:locnt))
-      ztmp2(1:locnt) = ztmp2(1:locnt)**0.33_wp
-      ztmp3(1:locnt) = EXP(ztmp3(1:locnt))
+      ztmp1(jcs:locnt) = SQRT(ztmp1(jcs:locnt))
+      ztmp1(jcs:locnt) = ztmp1(jcs:locnt)-2261._wp
+      ztmp1(jcs:locnt) = LOG10(ztmp1(jcs:locnt))
+      ztmp2(jcs:locnt) = ztmp2(jcs:locnt)**0.33_wp
+      ztmp3(jcs:locnt) = EXP(ztmp3(jcs:locnt))
 
 !IBM* NOVECTOR
 !IBM* ASSERT(NODEPS)
-      DO 721 nl = 1,locnt
+      DO 721 nl = jcs,locnt
          jl = loidx(nl)
          zc1       = 17.5_wp*prho(jl,jk)/crhoi*ztmp2(nl)
          zdt2      = -6._wp/zc1*(ztmp1(nl)/3._wp-2._wp)
@@ -917,7 +917,7 @@ CONTAINS
 721   END DO
 
 !IBM* NOVECTOR
-      DO 722 nl = 1,locnt
+      DO 722 nl = jcs,locnt
          jl = loidx(nl)
          zsaut     = ztmp1(nl)
          zcolleffi = ztmp3(nl)
@@ -964,7 +964,7 @@ CONTAINS
 
 722   END DO
 
-    END IF ! locnt > 0
+    END IF ! locnt > 0 (> jcs-1)
 
     !
     !       7.3 Updating precipitation fluxes. In the lowest layer (klev),
@@ -975,12 +975,12 @@ CONTAINS
     !           the next layer
     !
     zcnt = 0._wp
-    nclcpre = 0
+    nclcpre = jcs-1
 
     IF (jk.EQ.klev) THEN
 
 !IBM* NOVECTOR
-      DO jl = 1,kproma
+      DO jl = jcs,kproma
          zzdrr       =  zrpr(jl)           *pmdry(jl,jk)/pdtime
          zzdrs       = (zspr(jl)+zsacl(jl))*pmdry(jl,jk)/pdtime
          zzdrs       = zzdrs+zxiflux(jl)
@@ -1034,7 +1034,7 @@ CONTAINS
     ELSE
 
 !IBM* NOVECTOR
-      DO jl = 1,kproma
+      DO jl = jcs,kproma
          zzdrr          =  zrpr(jl)           *pmdry(jl,jk)/pdtime
          zzdrs          = (zspr(jl)+zsacl(jl))*pmdry(jl,jk)/pdtime
          zpretot        = zrfl(jl)+zsfl(jl)
@@ -1080,8 +1080,8 @@ CONTAINS
     END IF
 
     IF (zcnt > 0._wp) THEN
-      nclcpre = 1
-      DO jl = 1,kproma
+      nclcpre = jcs
+      DO jl = jcs,kproma
          jjclcpre(nclcpre) = jl
          nclcpre = nclcpre + cond1(jl)
       END DO
@@ -1094,7 +1094,7 @@ CONTAINS
     !
 
 !IBM* NOVECTOR
-    DO 820 jl = 1,kproma
+    DO 820 jl = jcs,kproma
     !
     !       8.3   Tendencies of thermodynamic variables
     !
@@ -1117,7 +1117,7 @@ CONTAINS
 820 END DO
 
 !IBM* NOVECTOR
-    DO 821 jl = 1,kproma
+    DO 821 jl = jcs,kproma
 
        zxlp1        = pxlm1(jl,jk) + pxlte_cld(jl,jk)*pdtime
        zxip1        = pxim1(jl,jk) + pxite_cld(jl,jk)*pdtime
@@ -1156,7 +1156,7 @@ CONTAINS
     !
     !       10.1   Accumulated precipitation at the surface
     !
-    DO 911 jl    = 1,kproma
+    DO 911 jl    = jcs,kproma
        prsfl(jl) = zrfl(jl)
        pssfl(jl) = zsfl(jl)
 911 END DO
@@ -1164,37 +1164,37 @@ CONTAINS
     !
     !       10.2   Total cloud cover
     !
-    DO 921 jl    = 1,kproma
+    DO 921 jl    = jcs,kproma
        zclcov(jl) = 1.0_wp-paclc(jl,1)
 921 END DO
     !
     DO 923 jk      = 2,klev
 !IBM* NOVECTOR
-      DO 922 jl    = 1,kproma
+      DO 922 jl    = jcs,kproma
          zclcov(jl) = zclcov(jl) * ((1._wp-MAX(paclc(jl,jk),paclc(jl,jk-1)))         &
                                  / (1._wp-MIN(paclc(jl,jk-1),zxsec)))
 922   END DO
 923 END DO
 
-    DO 924 jl     = 1,kproma
+    DO 924 jl     = jcs,kproma
        zclcov(jl)  = 1.0_wp-zclcov(jl)
        paclcov(jl) = zclcov(jl)
 924 END DO
     !
     !      10.3 Vertical integrals of cloud water
     !
-    DO 931 jl   = 1,kproma
+    DO 931 jl   = jcs,kproma
        zxlvi(jl) = 0.0_wp
 931 END DO
     !
     DO 933 jk     = jks,klev
-       DO 932 jl   = 1,kproma
+       DO 932 jl   = jcs,kproma
           zxlvi(jl)  = zxlvi(jl)   + (pxlm1 (jl,jk)+pxlte_cld(jl,jk)*pdtime)*pmdry(jl,jk)
 932    END DO
 933 END DO
 
     ! compare liquid water path below and above convective cloud top
-    DO 938 jl = 1,kproma
+    DO 938 jl = jcs,kproma
        zxlvitop(jl) = 0.0_wp
        klevtop = kctop(jl) - 1
        DO 936 jk = jks, klevtop
@@ -1203,7 +1203,7 @@ CONTAINS
 938 END DO
 
     ! modify ktype where appropriate (to be used in mo_cloud_optics)
-    DO 940 jl = 1,kproma
+    DO 940 jl = jcs,kproma
        zxlvibot(jl) = zxlvi(jl) - zxlvitop(jl)
        IF (ktype(jl) .EQ. 2 .AND. zxlvibot(jl) .GT. clwprat * zxlvitop(jl)) THEN
           ktype(jl) = 4

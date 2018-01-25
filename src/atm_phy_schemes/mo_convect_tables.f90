@@ -332,7 +332,8 @@ CONTAINS
 
     !-------------------------------------------------------------------------
 
-    CALL prepare_ua_index_spline('setup2',jptlucu2-jptlucu1-2,ztemp(jptlucu1+1),tmp_idx(jptlucu1+1),za(jptlucu1+1))
+    CALL prepare_ua_index_spline('setup2',1,jptlucu2-jptlucu1-2,ztemp(jptlucu1+1), &
+         &                       tmp_idx(jptlucu1+1),za(jptlucu1+1))
     CALL lookup_ua_spline(jptlucu2-jptlucu1-2,tmp_idx(jptlucu1+1),za(jptlucu1+1),sa(jptlucu1+1), dsa(jptlucu1+1))
     CALL lookup_uaw_spline(jptlucu2-jptlucu1-2,tmp_idx(jptlucu1+1),za(jptlucu1+1),saw(jptlucu1+1),dsaw(jptlucu1+1))
 
@@ -464,9 +465,9 @@ CONTAINS
     END IF
   END SUBROUTINE lookup_ubc_list
 
-  SUBROUTINE fetch_ua_spline(size,idx,zalpha,table,ua,dua)
+  SUBROUTINE fetch_ua_spline(jcs,size,idx,zalpha,table,ua,dua)
 
-    INTEGER,            INTENT(in) :: size
+    INTEGER,            INTENT(in) :: jcs, size
     INTEGER,            INTENT(in) :: idx(size)
     REAL(wp),           INTENT(in) :: zalpha(size)
     REAL(wp),           INTENT(in) :: table(1:2,lucupmin-2:lucupmax+1)
@@ -478,7 +479,7 @@ CONTAINS
 
     IF (PRESENT(ua) .AND. .NOT. PRESENT(dua)) THEN
 
-      DO jl = 1,size
+      DO jl = jcs,size
 
         x = zalpha(jl)
 
@@ -502,7 +503,7 @@ CONTAINS
 
     ELSE IF (PRESENT(ua) .AND. PRESENT(dua)) THEN
 
-      DO jl = 1,size
+      DO jl = jcs,size
 
         x = zalpha(jl)
 
@@ -731,15 +732,15 @@ CONTAINS
   END SUBROUTINE lookup_ua_eor_uaw
 
 
-  SUBROUTINE lookup_ua_spline(size,idx,zalpha,ua,dua)
+  SUBROUTINE lookup_ua_spline(jcs,size,idx,zalpha,ua,dua)
 
-    INTEGER,            INTENT(in) :: size
+    INTEGER,            INTENT(in) :: jcs, size
     INTEGER,            INTENT(in) :: idx(size)
     REAL(wp),           INTENT(in) :: zalpha(size)
 
     REAL(wp), OPTIONAL, INTENT(out) :: ua(size), dua(size)
 
-    CALL fetch_ua_spline(size,idx,zalpha,tlucu,ua,dua)
+    CALL fetch_ua_spline(jcs,size,idx,zalpha,tlucu,ua,dua)
 
   END SUBROUTINE lookup_ua_spline
 
@@ -766,7 +767,7 @@ CONTAINS
 
     REAL(wp), OPTIONAL, INTENT(out) :: ua(size), dua(size)
 
-    CALL fetch_ua_spline(size,idx,zalpha,tlucuw,ua,dua)
+    CALL fetch_ua_spline(1,size,idx,zalpha,tlucuw,ua,dua)
 
   END SUBROUTINE lookup_uaw_spline
 
@@ -784,11 +785,13 @@ CONTAINS
   END SUBROUTINE lookup_uaw
 
 
-  SUBROUTINE prepare_ua_index_spline(name,size,temp,idx,zalpha,xi,nphase,zphase,iphase)
+  SUBROUTINE prepare_ua_index_spline(name,jcs,size,temp,idx,zalpha,xi,nphase,zphase,iphase)
+
+    USE mo_exception,  ONLY: message, message_text
 
     CHARACTER(len=*),   INTENT(in) :: name
 
-    INTEGER,            INTENT(in) :: size
+    INTEGER,            INTENT(in) :: jcs, size
     REAL(wp),           INTENT(in) :: temp(size)
     REAL(wp), OPTIONAL, INTENT(in) :: xi(size)
 
@@ -810,7 +813,7 @@ CONTAINS
 
       znphase = 0.0_wp
 
-      DO jl = 1,size
+      DO jl = jcs,size
 
         ztshft = FSEL(temp(jl)-tmelt,0._wp,1._wp)
         ztt = 20._wp*temp(jl)
@@ -839,7 +842,7 @@ CONTAINS
       nphase = INT(znphase)
 
     ELSE
-      DO jl = 1,size
+      DO jl = jcs,size
 
         ztshft = FSEL(temp(jl)-tmelt,0._wp,1._wp)
         ztt = 20._wp*temp(jl)
@@ -847,7 +850,16 @@ CONTAINS
         idx(jl) = INT(ztt-ztshft)
 
         zinbounds = FSEL(ztmin-ztt,0._wp,zinbounds)
+        IF (ztt .LE. ztmin) THEN
+          WRITE(message_text,'(a,f8.2)') 'ztt = ', ztt
+          CALL message('prepare_ua_index_spline',message_text)
+        END IF
+
         zinbounds = FSEL(ztt-ztmax,0._wp,zinbounds)
+        IF (ztt .GE. ztmax) THEN
+          WRITE(message_text,'(a,f8.2)') 'ztt = ', ztt
+          CALL message('prepare_ua_index_spline',message_text)
+        END IF
       END DO
     END IF
 
@@ -972,7 +984,7 @@ CONTAINS
 
     IF (zinbounds == 0._wp) CALL lookuperror(name)
 
-    CALL fetch_ua_spline(size,idx,zalpha,tlucu,ua,dua)
+    CALL fetch_ua_spline(1,size,idx,zalpha,tlucu,ua,dua)
 
   END SUBROUTINE lookup_ua_list_spline
 
@@ -1008,7 +1020,7 @@ CONTAINS
     END DO
     ! if one index was out of bounds -> print error and exit
     IF (zinbounds == 0.0_wp) CALL lookuperror(name)
-    CALL fetch_ua_spline(kidx, idx, zalpha, tlucu, ua, dua)
+    CALL fetch_ua_spline(1,kidx, idx, zalpha, tlucu, ua, dua)
 
   END SUBROUTINE lookup_ua_list_spline_2
 
@@ -1096,7 +1108,7 @@ CONTAINS
 
     IF (zinbounds == 0._wp) CALL lookuperror(name)
 
-    CALL fetch_ua_spline(size,idx,zalpha,tlucuw,uaw,duaw)
+    CALL fetch_ua_spline(1,size,idx,zalpha,tlucuw,uaw,duaw)
 
   END SUBROUTINE lookup_uaw_list_spline
 

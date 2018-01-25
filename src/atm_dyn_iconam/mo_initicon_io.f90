@@ -271,6 +271,8 @@ MODULE mo_initicon_io
       ifs2icon_file(jg) = generate_filename(ifs2icon_filename, getModelBaseDir(), &
         &                                   nroot, jlev, jg)
 
+      CALL message(routine,'ifs2icon_file = '//TRIM(ifs2icon_file(jg)))
+      
 
       ! Read in data from IFS2ICON
       !

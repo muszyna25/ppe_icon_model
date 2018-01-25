@@ -39,11 +39,11 @@ MODULE mo_psrad_srtm_gas_optics
 
 CONTAINS
 
-  SUBROUTINE gpt_taumol(kproma,kbdim, klev, jp, jt, jt1, laytrop, indself, indfor, &
+  SUBROUTINE gpt_taumol(jcs, kproma,kbdim, klev, jp, jt, jt1, laytrop, indself, indfor, &
     gases, colmol, fac, selffac, selffrac, forfac, &
     forfrac, sflx_zen, taug, taur)
 
-    INTEGER, INTENT(IN) :: kproma, kbdim, klev, jp(:,:), jt(:,:), jt1(:,:), laytrop(:), &
+    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, klev, jp(:,:), jt(:,:), jt1(:,:), laytrop(:), &
       indself(:,:), indfor(:,:)
 
     REAL(wp), INTENT(IN) :: colmol(:,:), gases(:,:,:), &
@@ -60,7 +60,7 @@ CONTAINS
 
     IF (.NOT.initialized) CALL setup_taumol(klev)
 
-    DO jl = 1,kproma
+    DO jl = jcs,kproma
     DO ig = 1,ngptsw
       js = 0
       ib = ngb(ig)

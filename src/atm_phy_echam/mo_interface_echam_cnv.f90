@@ -100,7 +100,7 @@ CONTAINS
           ! number of tracers excluding water vapour and hydrometeors
           ntrac = ntracer-iqt+1
           !
-          CALL cumastr(jg,                           &! in
+          CALL cumastr(jg, jcs,                      &! in
                &       jce, nproma,                  &! in
                &       nlev, nlevp1, nlevm1,         &! in
                &       pdtime,                       &! in

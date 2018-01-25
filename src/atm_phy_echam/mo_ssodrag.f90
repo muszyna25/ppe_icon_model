@@ -24,7 +24,8 @@ MODULE mo_ssodrag
 CONTAINS
 
 SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
-  &                  kproma        ,& ! in,  loop length in block of cells/columns
+  &                  jcs           ,& ! in,  start index
+  &                  kproma        ,& ! in,  end index in block of cells/columns
   &                  kbdim         ,& ! in,  dimension of block of cells/columns
   &                  klev          ,& ! in,  number of levels
   !
@@ -76,7 +77,7 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
 
   ! scalar arguments with intent(IN):
   INTEGER,  INTENT(in)    :: jg
-  INTEGER,  INTENT(in)    :: kproma, kbdim, klev
+  INTEGER,  INTENT(in)    :: jcs, kproma, kbdim, klev
   REAL(wp), INTENT(in)    :: pdtime               ! length oftimestep (s)
 
   ! array arguments with intent(IN):
@@ -163,7 +164,7 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
 
   igwd=0
   idx(:) = 0
-  DO jl=1,kproma
+  DO jl=jcs,kproma
      itest(jl)=0
      IF (((ppic(jl)-pmea(jl)) > gpicmea).AND.(pstd(jl) > gstd)) THEN
         itest(jl)=1
@@ -178,7 +179,7 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
      !*         2.    orographic gravity wave drag
      !                -----------------------------
      !
-     CALL orodrag( jg, kproma,  kbdim,   klev,                       &
+     CALL orodrag( jg, jcs, kproma,  kbdim,   klev,                  &
           &        pdtime,                                           &
           &        igwd,    idx,                                     &
           &        zhgeo,   paphm1,  papm1,                          &
@@ -194,7 +195,7 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
      !
      !*         3.    mountain lift
      !                --------------
-     CALL orolift( jg, kproma,  kbdim,   klev,                       &
+     CALL orolift( jg, jcs, kproma,  kbdim,   klev,                  &
           &        pcoriol,                                          &
           &        pdtime,                                           &
           &        itest,                                            &
@@ -233,7 +234,7 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
 
 END SUBROUTINE ssodrag
 
-SUBROUTINE orodrag( jg, kproma, kbdim,  klev,                        &
+SUBROUTINE orodrag( jg, jcs, kproma, kbdim,  klev,                    &
                     pdtime,                                          &
                     kgwd,   kdx,                                     &
                     phgeo,  paphm1, papm1,                           &
@@ -264,7 +265,7 @@ SUBROUTINE orodrag( jg, kproma, kbdim,  klev,                        &
   IMPLICIT NONE
 
   ! scalar arguments with intent(IN):
-  INTEGER,  INTENT(in)  :: jg, kproma, kbdim, klev
+  INTEGER,  INTENT(in)  :: jg, jcs, kproma, kbdim, klev
   INTEGER,  INTENT(in)  :: kgwd      ! Total points where oro scheme is active
   REAL(wp), INTENT(in)  :: pdtime
 
@@ -334,7 +335,7 @@ SUBROUTINE orodrag( jg, kproma, kbdim,  klev,                        &
   !*                low level wind, determine sector in which to take
   !*                the variance and set indicator for critical levels.
   !
-  CALL orosetup( jg, kproma, kbdim,  klev,   kgwd,   kdx,               &
+  CALL orosetup( jg, jcs, kproma, kbdim,  klev,   kgwd,   kdx,          &
        &         ikcrit, ikcrith,icrit,  ikenvh, iknu,   iknu2,         &
        &         paphm1, papm1,  pmair,  pum1,   pvm1,   ptm1,   phgeo, &
        &         zrho  , zri,    zstab,  ztau,   zvph,   zpsi,   zzdep, &
@@ -481,7 +482,7 @@ SUBROUTINE orodrag( jg, kproma, kbdim,  klev,                        &
 END SUBROUTINE orodrag
 
 SUBROUTINE orosetup                                           &
-     ( jg, kproma, kbdim, klev, kgwd, kdx                     &
+     ( jg, jcs, kproma, kbdim, klev, kgwd, kdx                &
      , kkcrit, kkcrith,kcrit                                  &
      , kkenvh, kknu  , kknu2                                  &
      , paphm1, papm1 , pmair , pum1  , pvm1  , ptm1  , phgeo  &
@@ -564,7 +565,7 @@ SUBROUTINE orosetup                                           &
   IMPLICIT NONE
 
   ! scalar arguments with intent(IN):
-  INTEGER, INTENT(in) :: jg, kproma, kbdim, klev, kgwd
+  INTEGER, INTENT(in) :: jg, jcs, kproma, kbdim, klev, kgwd
 
   INTEGER :: kkcrit(kbdim), kkcrith(kbdim), kcrit(kbdim),    &
        kdx(kbdim), kkenvh(kbdim)
@@ -622,7 +623,7 @@ SUBROUTINE orosetup                                           &
   !*                 low level wind, determine sector in which to take
   !*                 the variance and set indicator for critical levels.
   !
-  DO jl=1,kproma
+  DO jl=jcs,kproma
      kknu(jl)    =klev
      kknu2(jl)   =klev
      kknub(jl)   =klev
@@ -634,7 +635,7 @@ SUBROUTINE orosetup                                           &
   ! Ajouter une initialisation (L. Li, le 23fev99):
   !
   DO jk=klev,ilevh,-1
-     DO jl=1,kproma
+     DO jl=jcs,kproma
         ll1(jl,jk)= .TRUE.
      END DO
   END DO
@@ -1208,7 +1209,7 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
 
 END SUBROUTINE gwprofil
 
-SUBROUTINE orolift( jg, kproma, kbdim, klev,  &
+SUBROUTINE orolift( jg, jcs, kproma, kbdim, klev,  &
   &                 pcoriol,                  &
   &                 pdtime,                   &
   &                 ktest,                    &
@@ -1236,7 +1237,7 @@ SUBROUTINE orolift( jg, kproma, kbdim, klev,  &
   IMPLICIT NONE
 
   ! scalar arguments with intent(IN):
-  INTEGER,  INTENT(in)  :: jg, kproma, kbdim, klev
+  INTEGER,  INTENT(in)  :: jg, jcs, kproma, kbdim, klev
   REAL(wp), INTENT(in)  :: pdtime
 
   ! array arguments with intent(IN):
@@ -1316,7 +1317,7 @@ SUBROUTINE orolift( jg, kproma, kbdim, klev,  &
   !
 
   DO 2006 jk=klev,1,-1
-     DO 2007 jl=1,kproma
+     DO 2007 jl=jcs,kproma
         IF(ktest(jl) == 1) THEN
            zhcrit(jl,jk)=MAX(ppic(jl)-pmea(jl),100.0_wp)
            ll1(jl,jk)=(phgeo(jl,jk) > zhcrit(jl,jk))
@@ -1327,7 +1328,7 @@ SUBROUTINE orolift( jg, kproma, kbdim, klev,  &
 2007 END DO
 2006 END DO
 
-  DO 2010 jl=1,kproma
+  DO 2010 jl=jcs,kproma
      IF(ktest(jl) == 1) THEN
         iknub(jl)=MAX(iknub(jl),klev/2)
         iknul(jl)=MAX(iknul(jl),2*klev/3)
@@ -1338,7 +1339,7 @@ SUBROUTINE orolift( jg, kproma, kbdim, klev,  &
 2010 END DO
 
   DO 223 jk=klev,2,-1
-     DO 222 jl=1,kproma
+     DO 222 jl=jcs,kproma
         zrho(jl,jk)=2._wp*paphm1(jl,jk)*zcons1/(ptm1(jl,jk)+ptm1(jl,jk-1))
 222  END DO
 223 END DO
@@ -1349,7 +1350,7 @@ SUBROUTINE orolift( jg, kproma, kbdim, klev,  &
   !*     define low level flow
   !      -------------------
   DO 2115 jk=klev,1,-1
-     DO 2116 jl=1,kproma
+     DO 2116 jl=jcs,kproma
         IF(ktest(jl) == 1) THEN
            IF(jk >= iknub(jl).AND.jk <= iknul(jl)) THEN
               pulow(jl)        = pulow(jl)        + pum1(jl,jk)*pmair(jl,jk)
@@ -1361,7 +1362,7 @@ SUBROUTINE orolift( jg, kproma, kbdim, klev,  &
 2116 END DO
 2115 END DO
 
-  DO 2110 jl=1,kproma
+  DO 2110 jl=jcs,kproma
      IF(ktest(jl) == 1) THEN
         zmair_inv        = 1._wp/zmair(jl)
         pulow(jl)        = pulow(jl)        *zmair_inv
@@ -1376,7 +1377,7 @@ SUBROUTINE orolift( jg, kproma, kbdim, klev,  &
   !
   !*         3.      COMPUTE MOUNTAIN LIFT
   !
-  DO 301 jl=1,kproma
+  DO 301 jl=jcs,kproma
      IF(ktest(jl) == 1) THEN
         ztau(jl,klev+1)= - gklift                       &
              &            *zrho(jl,klev+1)*pcoriol(jl)  &
@@ -1399,7 +1400,7 @@ SUBROUTINE orolift( jg, kproma, kbdim, klev,  &
   !
 
   DO 401 jk=1,klev
-     DO 402 jl=1,kproma
+     DO 402 jl=jcs,kproma
         IF(ktest(jl) == 1) THEN
            ztau(jl,jk)=ztau(jl,klev+1)*paphm1(jl,jk)/paphm1(jl,klev+1)
            ztav(jl,jk)=ztav(jl,klev+1)*paphm1(jl,jk)/paphm1(jl,klev+1)
@@ -1420,7 +1421,7 @@ SUBROUTINE orolift( jg, kproma, kbdim, klev,  &
      !  EXPLICIT SOLUTION AT ALL LEVELS
      !
      DO 524 jk=1,klev
-        DO 523 jl=1,kproma
+        DO 523 jl=jcs,kproma
            IF(ktest(jl) == 1) THEN
               zmair_inv = 1._wp/pmair(jl,jk)
               zdudt(jl) = -(ztau(jl,jk+1)-ztau(jl,jk))*zmair_inv
@@ -1432,7 +1433,7 @@ SUBROUTINE orolift( jg, kproma, kbdim, klev,  &
      !  PROJECT PERPENDICULARLY TO U NOT TO DESTROY ENERGY
      !
      DO 530 jk=1,klev
-        DO 531 jl=1,kproma
+        DO 531 jl=jcs,kproma
            IF(ktest(jl) == 1) THEN
               zslow=SQRT(pulow(jl)**2+pvlow(jl)**2)
               zsqua=MAX(SQRT(pum1(jl,jk)**2+pvm1(jl,jk)**2),gvsec)
@@ -1458,7 +1459,7 @@ SUBROUTINE orolift( jg, kproma, kbdim, klev,  &
 
   ELSE
 
-     DO 601 jl=1,kproma
+     DO 601 jl=jcs,kproma
         IF(ktest(jl) == 1) THEN
            DO jk=klev,iknub(jl),-1
               zbet =  gklift*pcoriol(jl)*pdtime               &

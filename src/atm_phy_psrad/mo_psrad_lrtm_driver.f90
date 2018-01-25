@@ -76,13 +76,14 @@ CONTAINS
   !!    5) passes the necessary fluxes and cooling rates back to GCM
   !!
   !
-  SUBROUTINE lrtm(kproma, kbdim, klev, play, psfc, tlay, tlev, tsfc, &
+  SUBROUTINE lrtm(jcs, kproma, kbdim, klev, play, psfc, tlay, tlev, tsfc, &
     wkl, wx, coldry, emis, cldfr, taucld, tauaer, rnseeds, uflx, dflx, &
     uflxc, dflxc)
 
     use mo_psrad_general, only: ngptlw, ngas, nreact, &
       ih2o, ico2, io3, in2o, ich4, io2
     INTEGER, INTENT(in) :: &
+      jcs, & !< Maximum block length
       kbdim, & !< Maximum block length
       kproma, & !< Number of horizontal columns
       klev !< Number of model layers
@@ -162,32 +163,29 @@ CONTAINS
     ! We sample clouds first because we may want to adjust water vapor based 
     ! on presence/absence of clouds
     ! BUG: should pass icld flag instead of cldfr
-    CALL sample_cld_state(kproma, KBDIM, klev, ngptlw, rnseeds(:,:), &
+    CALL sample_cld_state(jcs, kproma, KBDIM, klev, ngptlw, rnseeds(:,:), &
       i_overlap, cldfr(:,:), cldMask(:,:,:))
 !IBM* ASSERT(NODEPS)
     DO ig = 1, ngptlw
       ib = ngb(ig)
-      DO jl = 1, kproma
+      DO jl = jcs, kproma
         smp_tau(jl,:,ig) = &
           MERGE(taucld(jl,:,ib), 0._wp, cldMask(jl,:,ig)) 
       END DO
     END DO
-    IF (kproma /= kbdim) THEN
-      smp_tau(kproma+1:kbdim,:,:) = 0
-    ENDIF
     
     ! Cloud masks for sorting out clear skies - by cell and by column
     IF(.not. l_do_sep_clear_sky) THEN
       ! Are any layers cloudy? 
-      colcldMask(:,1:ngptlw) = &
-        ANY(cldMask(:,:,1:ngptlw), DIM=2)
+      colcldMask(jcs:kproma,1:ngptlw) = &
+        ANY(cldMask(jcs:kproma,:,1:ngptlw), DIM=2)
       ! Clear-sky scaling is gpt_scaling/frac_clr or 0 if all samples 
       ! are cloudy 
       !clrSky_scaling(:) = gpt_scaling * MERGE( &
-      clrSky_scaling(:) = MERGE( &
+      clrSky_scaling(jcs:kproma) = MERGE( &
           REAL(ngptlw,KIND=wp) / &
-            REAL(ngptlw - COUNT(colCldMask(:,:),DIM=2),KIND=wp), &
-          0._wp, ANY(.not. colCldMask(:,:),DIM=2))
+            REAL(ngptlw - COUNT(colCldMask(jcs:kproma,:),DIM=2),KIND=wp), &
+          0._wp, ANY(.not. colCldMask(jcs:kproma,:),DIM=2))
     END IF
 
     ! Calculate information needed by the radiative transfer routine
@@ -201,9 +199,9 @@ CONTAINS
 
     ! Broadening gases -- the number of molecules per cm^2 of all gases 
     ! not specified explicitly (water is excluded) 
-    wbrodl(:,:) = coldry(:,:) - &
-      SUM(wkl(:,:,(/ico2,io3,in2o,ich4,io2/)), DIM=3)
-    CALL lrtm_coeffs(KBDIM, klev, play, tlay, coldry, wkl, wbrodl, &
+    wbrodl(jcs:kproma,:) = coldry(jcs:kproma,:) - &
+      SUM(wkl(jcs:kproma,:,(/ico2,io3,in2o,ich4,io2/)), DIM=3)
+    CALL lrtm_coeffs(jcs, kproma, KBDIM, klev, play, tlay, coldry, wkl, wbrodl, &
       laytrop, jp, jp1, jt, jt1, iabs, gases, colbrd, fac, ratio, &
       h2o_factor, h2o_fraction, h2o_index, minorfrac, &
       scaleminor, scaleminorn2, indminor)
@@ -211,14 +209,14 @@ CONTAINS
       !  Loop over g-points calculating gas optical properties. 
 !IBM* ASSERT(NODEPS)
     wx_loc(:,:,:) = 1.e-20_wp * wx(:,:,:)
-    CALL gas_optics_lw(kproma, KBDIM, klev, play, wx_loc, &
+    CALL gas_optics_lw(jcs, kproma, KBDIM, klev, play, wx_loc, &
       coldry, laytrop, jp1, iabs, gases, colbrd, fac, ratio, &
       h2o_factor, h2o_fraction, h2o_index, &
       minorfrac, scaleminor, scaleminorn2, indminor,fracs,taug)
 
     DO ig = 1, ngptlw
       ib   = ngb(ig) 
-      DO jl = 1, kbdim
+      DO jl = jcs, kproma
         ! Gas concentrations in colxx variables are normalized by 1.e-20_wp 
         ! in lrtm_coeffs; CFC gas concentrations (wx) need the same 
         ! normalization. Per Eli Mlawer the k values used in gas optics 
@@ -229,7 +227,7 @@ CONTAINS
       END DO
     END DO
     ! All-sky optical depth. Mask for 0 cloud optical depth? 
-    tautot(:,:,:) = taut(:,:,:) + smp_tau(:,:,:) 
+    tautot(jcs:kproma,:,:) = taut(jcs:kproma,:,:) + smp_tau(jcs:kproma,:,:) 
     
     ! Compute radiative transfer.
     !
@@ -241,49 +239,49 @@ CONTAINS
     ! Planck function in each band at layers and boundaries
 !IBM* ASSERT(NODEPS)
     DO ig = 1, nbndlw
-      planklay(:,:,ig) = planckFunction(tlay(:,:),ig) 
-      planklev(:,:,ig) = planckFunction(tlev(:,:),ig) 
-      plankbnd(:,ig) = planckFunction(tsfc(:),ig) 
+      planklay(jcs:kproma,:,ig) = planckFunction(tlay(jcs:kproma,:),ig) 
+      planklev(jcs:kproma,:,ig) = planckFunction(tlev(jcs:kproma,:),ig) 
+      plankbnd(jcs:kproma,ig) = planckFunction(tsfc(jcs:kproma),ig) 
     END DO
         
     ! Precipitable water vapor in each column - this can affect the 
     ! integration angle secdiff
-    pwvcm(:) = ((amw * SUM(wkl(:,:,ih2o), DIM=2)) / & 
-      (amd * SUM(coldry(:,:) + wkl(:,:,ih2o), DIM=2))) * & 
-      (1.e3_wp * psfc(:)) / (1.e2_wp * grav)
+    pwvcm(jcs:kproma) = ((amw * SUM(wkl(jcs:kproma,:,ih2o), DIM=2)) / & 
+      (amd * SUM(coldry(jcs:kproma,:) + wkl(jcs:kproma,:,ih2o), DIM=2))) * & 
+      (1.e3_wp * psfc(jcs:kproma)) / (1.e2_wp * grav)
 
     ! Compute radiative transfer for each set of samples
     DO ig = 1, ngptlw
       ib = ngb(ig)
-      secdiff(:) = find_secdiff(ib, pwvcm(:))
+      secdiff(jcs:kproma) = find_secdiff(ib, pwvcm(jcs:kproma))
       
       ! All sky fluxes
-      CALL lrtm_solver(KBDIM, klev, tautot(:,:,ig), &
+      CALL lrtm_solver(jcs, kproma, KBDIM, klev, tautot(:,:,ig), &
         planklay(:,:,ib), planklev(:,:,ib), fracs(:,:,ig), secdiff, &
         plankbnd(:,ib), emis(:,ib), zgpfu, zgpfd)
        
-      uflx(:,:) = uflx (:,:) + zgpfu(:,:)
-      dflx(:,:) = dflx (:,:) + zgpfd(:,:) 
-	                           
+      uflx(jcs:kproma,:) = uflx (jcs:kproma,:) + zgpfu(jcs:kproma,:)
+      dflx(jcs:kproma,:) = dflx (jcs:kproma,:) + zgpfd(jcs:kproma,:) 
+                           
       ! Clear-sky fluxes
       IF(l_do_sep_clear_sky) THEN
         ! Remove clouds and do second RT calculation
-        CALL lrtm_solver(KBDIM, klev, taut(:,:,ig), &
+        CALL lrtm_solver(jcs, kproma, KBDIM, klev, taut(:,:,ig), &
           planklay(:,:,ib), planklev(:,:,ib), fracs(:,:,ig), secdiff, &
           plankbnd(:,ib), emis(:,ib), zgpcu, zgpcd)
-        uflxc(:,:) = uflxc(:,:) + zgpcu(:,:) 
-        dflxc(:,:) = dflxc(:,:) + zgpcd(:,:) 
+        uflxc(jcs:kproma,:) = uflxc(jcs:kproma,:) + zgpcu(jcs:kproma,:) 
+        dflxc(jcs:kproma,:) = dflxc(jcs:kproma,:) + zgpcd(jcs:kproma,:) 
       ELSE
         ! Accumulate fluxes by excluding cloudy subcolumns, 
         ! weighting to account for smaller sample size
 !IBM* ASSERT(NODEPS)
         DO jk = 0, klev
-          uflxc(:,jk) = uflxc(:,jk) + MERGE(0._wp, &
-            zgpfu(:,jk) * clrSky_scaling(:), & 
-            colCldMask(:,ig))
-          dflxc(:,jk) = dflxc(:,jk) + MERGE(0._wp, & 
-            zgpfd(:,jk) * clrSky_scaling(:), & 
-            colCldMask(:,ig)) 
+          uflxc(jcs:kproma,jk) = uflxc(jcs:kproma,jk) + MERGE(0._wp, &
+            zgpfu(jcs:kproma,jk) * clrSky_scaling(jcs:kproma), & 
+            colCldMask(jcs:kproma,ig))
+          dflxc(jcs:kproma,jk) = dflxc(jcs:kproma,jk) + MERGE(0._wp, & 
+            zgpfd(jcs:kproma,jk) * clrSky_scaling(jcs:kproma), & 
+            colCldMask(jcs:kproma,ig)) 
         END DO 
       END IF 
     END DO
@@ -292,7 +290,7 @@ CONTAINS
     ! where all samples were cloudy
     IF(.not. l_do_sep_clear_sky) THEN 
 !IBM* ASSERT(NODEPS)
-       DO jl = 1, kproma
+       DO jl = jcs, kproma
           IF(ALL(colCldMask(jl,:))) THEN
              uflxc(jl,:) = rad_undef
              dflxc(jl,:) = rad_undef

@@ -178,7 +178,7 @@ CONTAINS
           ! - build up the tridiagonal linear algebraic system;
           ! - downward sweep (Gaussian elimination from top till level nlev-1)
           !
-          CALL vdiff_down(jg,                              &! in
+          CALL vdiff_down(jg, jcs,                         &! in
                &          jce, nproma, nlev, nlevm1,nlevp1,&! in
                &          ntrac, nsfc_type,                &! in
                &          iwtr, iice, ilnd,                &! in, indices of different surface types
@@ -256,7 +256,7 @@ CONTAINS
           !
           IF (ltimer) CALL timer_start(timer_surface)
           !
-          CALL update_surface(jg, jce, nproma, field%kice,                    &! in
+          CALL update_surface(jg, jcs, jce, nproma, field%kice,               &! in
                &              nlev, nsfc_type,                                &! in
                &              iwtr, iice, ilnd,                               &! in, indices of surface types
                &              pdtime,                                         &! in, time step
@@ -370,7 +370,7 @@ CONTAINS
           !
           IF (ltimer) CALL timer_start(timer_vdiff_up)
           !
-          CALL vdiff_up(jce, nproma, nlev, nlevm1,       &! in
+          CALL vdiff_up(jcs, jce, nproma, nlev, nlevm1,       &! in
                &        ntrac, nsfc_type,                &! in
                &        iwtr,                            &! in, indices of different sfc types
                &        pdtime,                          &! in, time steps
@@ -432,7 +432,7 @@ CONTAINS
        ! Turbulent mixing, part III:
        ! - Further diagnostics.
        !
-       CALL nsurf_diag(jce, nproma, nsfc_type,          &! in
+       CALL nsurf_diag(jcs, jce, nproma, nsfc_type,     &! in
             &          ilnd,                            &! in
             &          field%frac_tile(:,jb,:),         &! in
             &          field%  qtrc(:,nlev,jb,iqv),     &! in humidity qm1

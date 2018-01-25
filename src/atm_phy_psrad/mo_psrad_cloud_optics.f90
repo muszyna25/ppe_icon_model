@@ -187,12 +187,12 @@ CONTAINS
   !! @remarks  
   !!   Currently this model assumes four bands in the SW and maps these to the
   !!   six-band model of ECHAM5.
-  SUBROUTINE cloud_optics(laglac, laland, kproma, kbdim, klev, ktype, &
+  SUBROUTINE cloud_optics(laglac, laland, jcs, kproma, kbdim, klev, ktype, &
     icldlyr, zlwp, ziwp, zlwc, ziwc, zcdnc, tau_lw, tau_sw, omg, asy, &
     re_droplets2d, re_crystals2d)
 
     USE mo_psrad_general, ONLY : nbndsw, nbndlw
-    INTEGER, INTENT(IN) :: kproma, kbdim, klev, &
+    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, klev, &
       ktype(KBDIM), & ! type of convection
       icldlyr(KBDIM,klev)
     LOGICAL, DIMENSION(KBDIM), INTENT(IN) :: & 
@@ -232,19 +232,19 @@ CONTAINS
 
     ! Basic cloud properties
     IF (l_variable_inhoml) THEN
-      zlwpt(1:kproma) = 0.0_wp
+      zlwpt(jcs:kproma) = 0.0_wp
       DO jk = 1, klev
-        DO jl = 1, kproma
+        DO jl = jcs, kproma
           zlwpt(jl) = zlwpt(jl)+zlwp(jl,jk)
         END DO
       END DO
-      WHERE (zlwpt(1:kproma) > 1.0_wp) 
-        zinhoml(1:kproma) = zlwpt(1:kproma)**(-zinpar)
+      WHERE (zlwpt(jcs:kproma) > 1.0_wp) 
+        zinhoml(jcs:kproma) = zlwpt(jcs:kproma)**(-zinpar)
       ELSEWHERE
-        zinhoml(1:kproma) = 1.0_wp
+        zinhoml(jcs:kproma) = 1.0_wp
       END WHERE
     ELSE
-      DO jl = 1, kproma
+      DO jl = jcs, kproma
         IF(ktype(jl) .EQ. 0) THEN          !no convection; ktype=0
           zinhoml(jl) = zinhoml1
 #ifndef PSRAD_ONLY
@@ -258,16 +258,16 @@ CONTAINS
       END DO
     END IF
 
-    WHERE (laland(1:kproma).AND.(.NOT.laglac(1:kproma))) 
-      zkap(1:kproma)=zkap_cont ! continental breadth factor
+    WHERE (laland(jcs:kproma).AND.(.NOT.laglac(jcs:kproma))) 
+      zkap(jcs:kproma)=zkap_cont ! continental breadth factor
     ELSEWHERE
-      zkap(1:kproma)=zkap_mrtm ! maritime breadth factor 
+      zkap(jcs:kproma)=zkap_mrtm ! maritime breadth factor 
     END WHERE
 
     ! Cloud Optical Properties by interpolating tables in effective radius
     zfact = 1.0e6_wp*(3.0e-9_wp/(4.0_wp*pi*rhoh2o))**(1.0_wp/3.0_wp) 
     DO jk=1,klev
-      DO jl=1,kproma
+      DO jl=jcs,kproma
         IF (icldlyr(jl,jk)==1 .AND. (zlwp(jl,jk)+ziwp(jl,jk))>ccwmin) THEN
           
           re_crystals = MAX(reimin,&

@@ -28,6 +28,7 @@ MODULE mo_bc_ozone
   USE mo_mpi,                      ONLY: my_process_is_stdio, p_bcast, &
                                   &      p_comm_work_test, p_comm_work, p_io
   USE mo_physical_constants,       ONLY: amo3, amd
+  USE mo_grid_config,              ONLY: n_dom
   USE mo_echam_phy_config,         ONLY: echam_phy_config
 
   IMPLICIT NONE
@@ -55,8 +56,16 @@ CONTAINS
     TYPE(t_stream_id)                 :: stream_id
     CHARACTER(len=4)                  :: cyear
     CHARACTER(len=25)                 :: subprog_name
-    INTEGER                           :: ncid, varid, mpi_comm
+    INTEGER                           :: ncid, varid, mpi_comm, jg
     REAL(wp), POINTER                 :: zo3_plev(:,:,:,:)
+
+    jg    = p_patch%id
+
+      !WRITE(message_text,'(a,2i8)') 'year / pre_year = ', year, pre_year
+      !CALL message('read_bc_ozone', message_text)
+
+      !WRITE(message_text,'(a,2i2)') 'jg / n_dom = ', jg, n_dom
+      !CALL message('read_bc_ozone', message_text)
 
     IF (year > pre_year) THEN
 
@@ -166,7 +175,9 @@ CONTAINS
       plev_half_o3(2:nplev_o3)=0.5_wp*(plev_full_o3(1:nplev_o3-1)+plev_full_o3(2:nplev_o3))
       plev_half_o3(nplev_o3+1)=125000._wp
 
-      pre_year = year
+      ! VM: uncomment as soon as domain-dependent input of ozone climatologies is implemented!
+      !IF (jg==n_dom) pre_year = year
+      pre_year = year ! and delete this line...
 
     END IF
 

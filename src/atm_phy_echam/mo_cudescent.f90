@@ -47,7 +47,7 @@ MODULE mo_cudescent
 CONTAINS
   !>
   !!
-  SUBROUTINE cudlfs(   jg,                                                           &
+  SUBROUTINE cudlfs(   jg,       jcs,                                                &
     &        kproma,   kbdim,    klev,     klevp1,                                   &
     &        ptenh,    pqenh,    puen,     pven,                                     &
     &        ktrac,                                                                  &
@@ -61,7 +61,7 @@ CONTAINS
     &        kdtop,    lddraf                                                       )
     !
     INTEGER, INTENT (IN) :: jg
-    INTEGER, INTENT (IN) :: kbdim, klev, ktrac, kproma, klevp1
+    INTEGER, INTENT (IN) :: kbdim, klev, ktrac, jcs, kproma, klevp1
     REAL(wp) :: ptenh(kbdim,klev),       pqenh(kbdim,klev),                          &
       &         puen(kbdim,klev),        pven(kbdim,klev),                           &
       &         pgeoh(kbdim,klev),       paphp1(kbdim,klevp1),                       &
@@ -103,7 +103,7 @@ CONTAINS
     !     1.           Set default values for downdrafts
     !                  ---------------------------------
     !
-    DO jl = 1, kproma
+    DO jl = jcs, kproma
       lddraf(jl) = .FALSE.
       kdtop(jl) = klevp1
     END DO
@@ -128,8 +128,8 @@ CONTAINS
       !     2.1 Calculate wet-bulb temperature and moisture for environmental air
       !         -----------------------------------------------------------------
       !
-      is = 0
-      DO jl = 1, kproma
+      is = jcs-1
+      DO jl = jcs, kproma
         llo2(jl) = .FALSE.
         IF (ldcum(jl) .AND. prfl(jl) > 0.0_wp .AND. .NOT. lddraf(jl) .AND.           &
           &                         (jk < kcbot(jl) .AND. jk > kctop(jl))) THEN
@@ -138,8 +138,8 @@ CONTAINS
           llo2(jl) = .TRUE.
         ENDIF
       ENDDO
-      IF (is == 0) CYCLE level
-      DO jl=1,kproma
+      IF (is == jcs-1) CYCLE level
+      DO jl=jcs,kproma
         ztenwb(jl,jk)=ptenh(jl,jk)
         zqenwb(jl,jk)=pqenh(jl,jk)
         zph(jl)=paphp1(jl,jk)
@@ -147,7 +147,11 @@ CONTAINS
       !
       ik=jk
       icall=2
-      CALL cuadjtq( kproma, kbdim, klev, ik, zph, ztenwb, zqenwb, loidx, is, icall)
+
+      IF (is .GE. jcs) THEN
+        CALL cuadjtq( jcs, kproma, kbdim, klev, ik, zph, ztenwb, zqenwb, loidx, is, icall)
+      END IF
+
       !
       !     2.2 Do mixing of cumulus and environmental air and check for negative
       !         buoyancy. Then set values for downdraft at lfs.
@@ -155,7 +159,7 @@ CONTAINS
       !
 !DIR$ IVDEP
 !OCL NOVREC
-      DO jl=1,kproma
+      DO jl=jcs,kproma
         llo3(jl)=.FALSE.
         IF(llo2(jl)) THEN
           zttest=0.5_wp*(ptu(jl,jk)+ztenwb(jl,jk))
@@ -180,7 +184,7 @@ CONTAINS
       END DO
       !
       DO jt=1,ktrac
-        DO jl=1,kproma
+        DO jl=jcs,kproma
           IF(llo3(jl)) THEN
             pxtd(jl,jk,jt)=0.5_wp*(pxtu(jl,jk,jt)+pxtenh(jl,jk,jt))
             pmfdxt(jl,jk,jt)=pmfd(jl,jk)*pxtd(jl,jk,jt)
@@ -189,7 +193,7 @@ CONTAINS
       END DO
       !
       IF(lmfdudv) THEN
-        DO jl=1,kproma
+        DO jl=jcs,kproma
           IF(pmfd(jl,jk).LT.0._wp) THEN
             pud(jl,jk)=0.5_wp*(puu(jl,jk)+puen(jl,jk-1))
             pvd(jl,jk)=0.5_wp*(pvu(jl,jk)+pven(jl,jk-1))
@@ -202,7 +206,7 @@ CONTAINS
   END SUBROUTINE cudlfs
   !>
   !!
-  SUBROUTINE cuddraf(  jg,                                                           &
+  SUBROUTINE cuddraf(  jg,       jcs,                                                &
     &        kproma,   kbdim,    klev,     klevp1,                                   &
     &        pmdry,                                                                  &
     &        ptenh,    pqenh,    puen,     pven,                                     &
@@ -215,7 +219,7 @@ CONTAINS
     &        lddraf                                                                 )
     !
     INTEGER, INTENT (IN) :: jg
-    INTEGER, INTENT (IN) :: kbdim, klev, ktrac, kproma, klevp1
+    INTEGER, INTENT (IN) :: kbdim, klev, ktrac, jcs, kproma, klevp1
     !
     REAL(wp),INTENT (IN) :: pmdry(kbdim,klev)
     
@@ -263,8 +267,8 @@ CONTAINS
     !            -------------------------------------------------
     !
     level: DO jk = 3, klev
-      is = 0
-      DO jl = 1, kproma     
+      is = jcs-1
+      DO jl = jcs, kproma
         llo2(jl) = .FALSE.
         IF (lddraf(jl) .AND. pmfd(jl,jk-1) < 0.0_wp) THEN
           is = is+1
@@ -272,10 +276,10 @@ CONTAINS
           llo2(jl) = .TRUE.
         ENDIF
       ENDDO
-      DO jl = 1, kproma
+      DO jl = jcs, kproma
         zph(jl) = paphp1(jl,jk)
       END DO
-      DO jl=1,kproma
+      DO jl=jcs,kproma
         IF(llo2(jl)) THEN
           zentr=entrdd*pmfd(jl,jk-1)*rd*ptenh(jl,jk-1)/paphp1(jl,jk-1)*pmdry(jl,jk-1)
           zdmfen(jl)=zentr
@@ -284,7 +288,7 @@ CONTAINS
       END DO
       itopde=klev-2
       IF(jk.GT.itopde) THEN
-        DO jl=1,kproma
+        DO jl=jcs,kproma
           IF(llo2(jl)) THEN
             zdmfen(jl)=0._wp
             zdmfde(jl)=pmfd(jl,itopde)* pmdry(jl,jk-1)*grav/             &
@@ -292,7 +296,7 @@ CONTAINS
           END IF
         END DO
       END IF
-      DO jl=1,kproma
+      DO jl=jcs,kproma
         IF(llo2(jl)) THEN
           pmfd(jl,jk)=pmfd(jl,jk-1)+zdmfen(jl)-zdmfde(jl)
           zseen=(pcpcu(jl,jk-1)*ptenh(jl,jk-1)+pgeoh(jl,jk-1))*zdmfen(jl)
@@ -311,7 +315,7 @@ CONTAINS
       END DO
       !
       DO jt=1,ktrac
-        DO jl=1,kproma
+        DO jl=jcs,kproma
           IF(llo2(jl)) THEN
             zxteen=pxtenh(jl,jk-1,jt)*zdmfen(jl)
             zxtdde=pxtd(jl,jk-1,jt)*zdmfde(jl)
@@ -323,9 +327,11 @@ CONTAINS
       !
       ik=jk
       icall=2
-      CALL cuadjtq(kproma, kbdim, klev, ik, zph, ptd, pqd, loidx, is, icall) 
+      IF (is .GE. jcs) THEN
+        CALL cuadjtq(jcs, kproma, kbdim, klev, ik, zph, ptd, pqd, loidx, is, icall)
+      END IF
       !
-      DO jl=1,kproma
+      DO jl=jcs,kproma
         IF(llo2(jl)) THEN
           zcond(jl)=zcond(jl)-pqd(jl,jk)
           zbuo=ptd(jl,jk)*(1._wp+vtmpc1*pqd(jl,jk))-                                &
@@ -341,7 +347,7 @@ CONTAINS
       END DO
       !
       DO jt=1,ktrac
-        DO jl=1,kproma
+        DO jl=jcs,kproma
           IF(llo2(jl)) THEN
             pmfdxt(jl,jk,jt)=pxtd(jl,jk,jt)*pmfd(jl,jk)
           ENDIF
@@ -349,7 +355,7 @@ CONTAINS
       END DO
       !
       IF(lmfdudv) THEN
-        DO jl=1,kproma
+        DO jl=jcs,kproma
           IF(llo2(jl).AND.pmfd(jl,jk).LT.0._wp) THEN
             zmfduk=pmfd(jl,jk-1)*pud(jl,jk-1)+zdmfen(jl)*puen(jl,jk-1)-              &
               &                               zdmfde(jl)*pud(jl,jk-1)

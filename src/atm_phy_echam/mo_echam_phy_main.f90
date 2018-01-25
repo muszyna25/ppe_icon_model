@@ -523,7 +523,7 @@ CONTAINS
 
     itype(jcs:jce) = NINT(field%rtype(jcs:jce,jb))
       
-    CALL cover(    jg,                        &! in
+    CALL cover(    jg, jcs,                   &! in
          &         jce, nbdim,                &! in
          &         nlev, nlevp1,              &! in
          &         itype,                     &! zfrw, zfri,       &! in

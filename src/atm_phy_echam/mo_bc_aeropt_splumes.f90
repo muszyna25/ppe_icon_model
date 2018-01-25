@@ -224,13 +224,14 @@ MODULE mo_bc_aeropt_splumes
     RETURN
   END SUBROUTINE set_time_weight
   !
-  ! ------------------------------------------------------------------------------------------------------------------------
-  ! SP_AOP_PROFILE:  This subroutine calculates the simple plume aerosol and cloud active optical properites based on the
-  ! the simple plume fit to the MPI Aerosol Climatology (Version 2).  It sums over nplumes to provide a profile of aerosol
-  ! optical properties on a host models vertical grid. 
+  ! ---------------------------------------------------------------------------------------------
+  ! SP_AOP_PROFILE:  This subroutine calculates the simple plume aerosol and cloud active optical 
+  !                  properites based on the the simple plume fit to the MPI Aerosol Climatology
+  !                  (Version 2).  It sums over nplumes to provide a profile of aerosol
+  !                  optical properties on a host models vertical grid. 
   !
-  SUBROUTINE sp_aop_profile( &
-     & nlevels        ,ncol           ,ncol_max       ,lambda         ,oro            ,lon            , &
+  SUBROUTINE sp_aop_profile(           nlevels        ,&
+     & jcs            ,ncol           ,ncol_max       ,lambda         ,oro            ,lon            , &
      & lat            ,year_fr        ,z              ,dz             ,dNovrN         ,aod_prof       , &
      & ssa_prof       ,asy_prof       )
     !
@@ -238,8 +239,9 @@ MODULE mo_bc_aeropt_splumes
     !
     INTEGER, INTENT(IN)        :: &
        & nlevels,                 & !< number of levels
-       & ncol,                    & !< number of columns
-       & ncol_max                   !< first dimension of 2d-vars as declared in calling (sub)program
+       & jcs,                     & !< start index in block 
+       & ncol,                    & !< number of columns (end index)
+       & ncol_max                   !< first dimension of 2d-vars as declared in calling (sub)program [nproma]
 
     REAL(wp), INTENT(IN)       :: &
        & lambda,                  & !< wavelength
@@ -301,7 +303,7 @@ MODULE mo_bc_aeropt_splumes
     ! initialize variables, including output
     !
     DO k=1,nlevels
-      DO icol=1,ncol
+      DO icol=jcs,ncol
         aod_prof(icol,k) = 0.0_wp
         ssa_prof(icol,k) = 0.0_wp
         asy_prof(icol,k) = 0.0_wp
@@ -309,7 +311,7 @@ MODULE mo_bc_aeropt_splumes
         eta(icol,k)      = MAX(0.0_wp,MIN(1.0_wp,z(icol,k)/15000._wp))
       END DO
     END DO
-    DO icol=1,ncol
+    DO icol=jcs,ncol
       dNovrN(icol)   = 1.0_wp
       caod_sp(icol)  = 0.00_wp
       caod_bg(icol)  = 0.02_wp
@@ -321,17 +323,17 @@ MODULE mo_bc_aeropt_splumes
       !
       ! calculate vertical distribution function from parameters of beta distribution
       !
-      DO icol=1,ncol
+      DO icol=jcs,ncol
         beta_sum(icol) = 0._wp
       END DO
       DO k=1,nlevels
-        DO icol=1,ncol
+        DO icol=jcs,ncol
           prof(icol,k)   = (eta(icol,k)**(beta_a(iplume)-1._wp) * (1._wp-eta(icol,k))**(beta_b(iplume)-1._wp))*dz(icol,k)
           beta_sum(icol) = beta_sum(icol) + prof(icol,k)
         END DO
       END DO
       DO k=1,nlevels
-        DO icol=1,ncol
+        DO icol=jcs,ncol
           prof(icol,k)   = prof(icol,k) / beta_sum(icol) * z_beta(icol,k)
         END DO
       END DO
@@ -339,7 +341,7 @@ MODULE mo_bc_aeropt_splumes
       ! calculate plume weights
       !
 !PREVENT_INCONSISTENT_IFORT_FMA
-      DO icol=1,ncol
+      DO icol=jcs,ncol
         !
         ! get plume-center relative spatial parameters for specifying amplitude of plume at given lat and lon
         !
@@ -384,7 +386,7 @@ MODULE mo_bc_aeropt_splumes
       !      
       lfactor = EXP(-angstrom(iplume) * LOG(lambda/550.0_wp))
       DO k=1,nlevels
-        DO icol = 1,ncol
+        DO icol = jcs,ncol
           aod_550          = prof(icol,k)     * cw_an(icol)
           aod_lmd          = aod_550          * lfactor
           caod_sp(icol)    = caod_sp(icol)    + aod_550
@@ -399,34 +401,52 @@ MODULE mo_bc_aeropt_splumes
     ! complete optical depth weighting
     !
     DO k=1,nlevels
-      DO icol = 1,ncol
-        asy_prof(icol,k) = MERGE(asy_prof(icol,k)/ssa_prof(icol,k), 0.0_wp, ssa_prof(icol,k) > TINY(1._wp))
-        ssa_prof(icol,k) = MERGE(ssa_prof(icol,k)/aod_prof(icol,k), 1.0_wp, aod_prof(icol,k) > TINY(1._wp))
+      DO icol = jcs,ncol
+        !asy_prof(icol,k) = MERGE(asy_prof(icol,k)/ssa_prof(icol,k), 0.0_wp, ssa_prof(icol,k) > TINY(1._wp))
+        !ssa_prof(icol,k) = MERGE(ssa_prof(icol,k)/aod_prof(icol,k), 1.0_wp, aod_prof(icol,k) > TINY(1._wp))
+        ! VM: deleted MERGE which causes problems on cray if used in this manner
+        !asy_prof(icol,k) = MERGE(asy_prof(icol,k)/ssa_prof(icol,k), 0.0_wp, ssa_prof(icol,k) > TINY(1._wp))
+        !ssa_prof(icol,k) = MERGE(ssa_prof(icol,k)/aod_prof(icol,k), 1.0_wp, aod_prof(icol,k) > TINY(1._wp))
+        IF (ssa_prof(icol,k) > TINY(1._wp)) THEN
+          asy_prof(icol,k) = asy_prof(icol,k)/ssa_prof(icol,k)
+        ELSE
+          asy_prof(icol,k) = 0.0_wp
+        END IF
+
+        !vm test:
+        IF (aod_prof(icol,k) > TINY(1._wp)) THEN
+          ssa_prof(icol,k) = ssa_prof(icol,k)/aod_prof(icol,k)
+        ELSE
+          ssa_prof(icol,k) = 0.0_wp
+        END IF
       END DO
     END DO
     !
     ! calcuate effective radius normalization (divisor) factor
     !
-    DO icol=1,ncol
+    DO icol=jcs,ncol
       dNovrN(icol) = LOG((1000.0_wp * (caod_sp(icol) + caod_bg(icol))) + 1.0_wp)/LOG((1000.0_wp * caod_bg(icol)) + 1.0_wp)
     END DO
 
     RETURN
   END SUBROUTINE sp_aop_profile
-  ! ------------------------------------------------------------------------------------------------------------------------
-  ! ADD_BC_AEROPT_SPLUMES:  This subroutine provides the interface to simple plume (sp) fit to the MPI Aerosol Climatology (Version 2).
-  ! It does so by collecting or deriving spatio-temporal information and calling the simple plume aerosol subroutine and
-  ! incrementing the background aerosol properties (and effective radius) with the anthropogenic plumes.
+  ! -----------------------------------------------------------------------------------------------
+  ! ADD_BC_AEROPT_SPLUMES:  This subroutine provides the interface to simple plume (sp) fit to the
+  !                         MPI Aerosol Climatology (Version 2). It does so by collecting or 
+  !                         deriving spatio-temporal information and calling the simple plume
+  !                         aerosol subroutine and incrementing the background aerosol properties
+  !                         (and effective radius) with the anthropogenic plumes.
   !
   SUBROUTINE add_bc_aeropt_splumes                                                ( &
-     & jg             ,kproma         ,kbdim          ,klev           ,krow        ,&
+     & jg, jcs        ,kproma         ,kbdim          ,klev           ,krow        ,&
      & nb_sw          ,this_datetime  ,zf             ,dz             ,z_sfc       ,&
      & aod_sw_vr      ,ssa_sw_vr      ,asy_sw_vr      ,x_cdnc                      )
     !
     ! --- 0.1 Variables passed through argument list
     INTEGER, INTENT(IN) ::            &
          jg                          ,& !< domain index
-         kproma                      ,& !< number of elements in current block
+         jcs                         ,& !< start index in current block
+         kproma                      ,& !< end index in current block
          kbdim                       ,& !< block dimension (greater than or equal to kproma)
          klev                        ,& !< number of full levels
          krow                        ,& !< index for current block
@@ -476,13 +496,13 @@ MODULE mo_bc_aeropt_splumes
       !
       DO jk=1,klev
         jki=klev-jk+1
-        DO jl=1,kproma
+        DO jl=jcs,kproma
           dz_vr  (jl,jk) = dz(jl,jki)
           z_fl_vr(jl,jk) = zf(jl,jki)
         END DO
       END DO
-      lon_sp(1:kproma) = p_patch(jg)%cells%center(1:kproma,krow)%lon*rad2deg
-      lat_sp(1:kproma) = p_patch(jg)%cells%center(1:kproma,krow)%lat*rad2deg
+      lon_sp(jcs:kproma) = p_patch(jg)%cells%center(jcs:kproma,krow)%lon*rad2deg
+      lat_sp(jcs:kproma) = p_patch(jg)%cells%center(jcs:kproma,krow)%lat*rad2deg
       ! 
       ! --- 1.2 Aerosol Shortwave properties
       !
@@ -490,28 +510,41 @@ MODULE mo_bc_aeropt_splumes
       !
       DO jwl = 1,nb_sw
         lambda = 1.e7_wp/ (0.5_wp * (sw_wv1(jwl) + sw_wv2(jwl)))
-        CALL sp_aop_profile                                                                   ( &
-           & klev               ,kproma             ,kbdim               ,lambda              , &
+        CALL sp_aop_profile(                                              klev                , &
+           & jcs                ,kproma             ,kbdim               ,lambda              , &
            & z_sfc(:)           ,lon_sp(:)          ,lat_sp(:)           ,year_fr             , &
            & z_fl_vr(:,:)       ,dz_vr(:,:)         ,sp_xcdnc(:)         ,sp_aod_vr(:,:)      , &
            & sp_ssa_vr(:,:)     ,sp_asy_vr(:,:)                                               )
 
         DO jk=1,klev
-          DO jl=1,kproma
+          DO jl=jcs,kproma
             asy_sw_vr(jl,jk,jwl) = asy_sw_vr(jl,jk,jwl) * ssa_sw_vr(jl,jk,jwl) * aod_sw_vr(jl,jk,jwl)    &
                  + sp_asy_vr(jl,jk)   * sp_ssa_vr(jl,jk)    * sp_aod_vr(jl,jk)
             ssa_sw_vr(jl,jk,jwl) = ssa_sw_vr(jl,jk,jwl) * aod_sw_vr(jl,jk,jwl)                           &
                  + sp_ssa_vr(jl,jk)   * sp_aod_vr(jl,jk)
             aod_sw_vr(jl,jk,jwl) = aod_sw_vr(jl,jk,jwl) + sp_aod_vr(jl,jk)
-            asy_sw_vr(jl,jk,jwl) = MERGE(asy_sw_vr(jl,jk,jwl)/ssa_sw_vr(jl,jk,jwl),asy_sw_vr(jl,jk,jwl), &
-                 ssa_sw_vr(jl,jk,jwl) > TINY(1.0_wp))
-            ssa_sw_vr(jl,jk,jwl) = MERGE(ssa_sw_vr(jl,jk,jwl)/aod_sw_vr(jl,jk,jwl),ssa_sw_vr(jl,jk,jwl), &
-                 aod_sw_vr(jl,jk,jwl) > TINY(1.0_wp))
+
+            !asy_sw_vr(jl,jk,jwl) = MERGE(asy_sw_vr(jl,jk,jwl)/ssa_sw_vr(jl,jk,jwl),asy_sw_vr(jl,jk,jwl), &
+                 !ssa_sw_vr(jl,jk,jwl) > TINY(1.0_wp))
+            !ssa_sw_vr(jl,jk,jwl) = MERGE(ssa_sw_vr(jl,jk,jwl)/aod_sw_vr(jl,jk,jwl),ssa_sw_vr(jl,jk,jwl), &
+                 !aod_sw_vr(jl,jk,jwl) > TINY(1.0_wp))
+            IF (ssa_sw_vr(jl,jk,jwl) > TINY(1.0_wp)) THEN
+              asy_sw_vr(jl,jk,jwl) = asy_sw_vr(jl,jk,jwl)/ssa_sw_vr(jl,jk,jwl)
+            ELSE
+              asy_sw_vr(jl,jk,jwl) = asy_sw_vr(jl,jk,jwl)
+            END IF
+
+            IF (aod_sw_vr(jl,jk,jwl) > TINY(1.0_wp)) THEN
+              ssa_sw_vr(jl,jk,jwl) = ssa_sw_vr(jl,jk,jwl)/aod_sw_vr(jl,jk,jwl)
+            ELSE
+              ssa_sw_vr(jl,jk,jwl) = ssa_sw_vr(jl,jk,jwl)
+            END IF
+
           END DO
         END DO
       END DO
 
-      DO jl=1,kproma
+      DO jl=jcs,kproma
         x_cdnc(jl) = sp_xcdnc(jl)
       END DO
       RETURN

@@ -5,6 +5,7 @@
 #PBS -l place=scatter
 #PBS -l walltime=00:15:00
 #PBS -j oe
+#PBS -o LOG.exp.run_ICON_12_R3B08_lam_initmode4.run.run.o
 # ----------------------------------------------------------------------
 # ============================================================================
 # Basic CRAY batch script for the ICON model
@@ -40,7 +41,7 @@ export ATP_MAX_CORES=0
 # ----------------------------------------------------------------------
 
 # base directory for ICON sources and binary:
-ICONDIR=${PBS_O_WORKDIR}/../../
+ICONDIR=${PBS_O_WORKDIR}/../
 
 # Base directory containing input data
 DATADIR=/lustre2/rwork0/routfor/test/icon/Checksuite_data/ICON_LAM/
@@ -58,7 +59,8 @@ LBCDIR=${DATADIR}/forcing_mode4
 EXTPARDIR=${DATADIR}/input
 
 # absolute path to directory with plenty of space:
-EXPDIR=$TMPDIR/../experiments/exp12
+EDIR="exp12"
+EXPDIR=$TMPDIR/${EDIR}/
 
 # path to model binary, including the executable:
 MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/icon

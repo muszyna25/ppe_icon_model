@@ -60,14 +60,14 @@ MODULE mo_psrad_rrtm_coeffs
 
 CONTAINS
 ! --------------------------------------------------------------------------------------------
-  SUBROUTINE lrtm_coeffs(kbdim, klev, play, tlay, coldry, wkl, &
+  SUBROUTINE lrtm_coeffs(jcs, kproma, kbdim, klev, play, tlay, coldry, wkl, &
     wbroad, laytrop, jp, jp1, jt, jt1, iabs, gases, colbrd, fac, ratio, &
     h2o_factor, h2o_fraction, h2o_index, &
     minorfrac, scaleminor, scaleminorn2, indminor)
 
     use mo_psrad_general, only: ngas
 
-    INTEGER, INTENT(in) :: kbdim, klev
+    INTEGER, INTENT(in) :: jcs, kproma, kbdim, klev
     REAL(wp), INTENT(in) :: &
       play(KBDIM,klev), & ! layer pressures (mb) 
       tlay(KBDIM,klev), & ! layer temperatures (K)
@@ -90,55 +90,55 @@ CONTAINS
     INTEGER  :: r, jk
     REAL(wp) :: colmol(KBDIM,klev), factor(KBDIM,klev) 
 
-    CALL srtm_coeffs(KBDIM, klev, play, tlay, coldry, wkl, laytrop, &
+    CALL srtm_coeffs(jcs, kproma, KBDIM, klev, play, tlay, coldry, wkl, laytrop, &
       jp, jp1, jt, jt1, iabs, gases, colmol, fac, &
       h2o_factor(:,:,1), h2o_fraction(:,:,1), h2o_index(:,:,1), &
       h2o_factor(:,:,2), h2o_fraction(:,:,2), h2o_index(:,:,2))
     
-    colbrd(:,:) = 1.e-20_wp * wbroad(:,:)
-    gases(:,:,ico) = MERGE(1.e-20_wp * wkl(:,:,ico),  &
-                                    1.e-32_wp * coldry(:,:), &
-                                    wkl(:,:,ico) > 0._wp)
+    colbrd(jcs:kproma,:) = 1.e-20_wp * wbroad(jcs:kproma,:)
+    gases(jcs:kproma,:,ico) = MERGE(1.e-20_wp * wkl(jcs:kproma,:,ico),  &
+                                    1.e-32_wp * coldry(jcs:kproma,:), &
+                                    wkl(jcs:kproma,:,ico) > 0._wp)
     
     ! Water vapor continuum broadening factors are used differently 
     ! in LW and SW? 
-    h2o_factor(:,:,1) = h2o_factor(:,:,1) * gases(:,:,ih2o)
-    h2o_factor(:,:,2) = h2o_factor(:,:,2) * gases(:,:,ih2o)
+    h2o_factor(jcs:kproma,:,1) = h2o_factor(jcs:kproma,:,1) * gases(jcs:kproma,:,ih2o)
+    h2o_factor(jcs:kproma,:,2) = h2o_factor(jcs:kproma,:,2) * gases(jcs:kproma,:,ih2o)
     
     !  Setup reference ratio to be used in calculation of binary species 
     ! parameter.
-    ratio = 1e20
+    ratio = 1.e20
     DO r = 1,nreact
       DO jk = 1,klev
-        WHERE (chi_mls(reaction(3,r), jp(:,jk)) /= 0)
-          ratio(:,1,jk,reaction(1,r)) = chi_mls(reaction(2,r), jp(:,jk)) /&
-            chi_mls(reaction(3,r), jp(:,jk))
+        WHERE (chi_mls(reaction(3,r), jp(jcs:kproma,jk)) /= 0)
+          ratio(jcs:kproma,1,jk,reaction(1,r)) = chi_mls(reaction(2,r), jp(jcs:kproma,jk)) /&
+            chi_mls(reaction(3,r), jp(jcs:kproma,jk))
         ENDWHERE
-        WHERE (chi_mls(reaction(3,r), jp1(:,jk)) /= 0)
-          ratio(:,2,jk,reaction(1,r)) = chi_mls(reaction(2,r), jp1(:,jk)) /&
-            chi_mls(reaction(3,r), jp1(:,jk))
+        WHERE (chi_mls(reaction(3,r), jp1(jcs:kproma,jk)) /= 0)
+          ratio(jcs:kproma,2,jk,reaction(1,r)) = chi_mls(reaction(2,r), jp1(jcs:kproma,jk)) /&
+            chi_mls(reaction(3,r), jp1(jcs:kproma,jk))
         ENDWHERE
       END DO
     END DO
 
     !  Set up factors needed to separately include the minor gases
     !  in the calculation of absorption coefficient
-    scaleminor(:,:) = play(:,:) / &
-      tlay(:,:)
-    scaleminorn2(:,:) = scaleminor(:,:) * &
-      (wbroad(:,:) / &
-      (coldry(:,:)+wkl(:,:,ih2o)))
-    factor(:,:) = (tlay(:,:)-180.8_wp) / 7.2_wp
-    indminor(:,:) = MIN(18, MAX(1, INT(factor(:,:))))
-    minorfrac(:,:) = (tlay(:,:)-180.8_wp)/7.2_wp - &
-      FLOAT(indminor(:,:))
+    scaleminor(jcs:kproma,:) = play(jcs:kproma,:) / &
+      tlay(jcs:kproma,:)
+    scaleminorn2(jcs:kproma,:) = scaleminor(jcs:kproma,:) * &
+      (wbroad(jcs:kproma,:) / &
+      (coldry(jcs:kproma,:)+wkl(jcs:kproma,:,ih2o)))
+    factor(jcs:kproma,:) = (tlay(jcs:kproma,:)-180.8_wp) / 7.2_wp
+    indminor(jcs:kproma,:) = MIN(18, MAX(1, INT(factor(jcs:kproma,:))))
+    minorfrac(jcs:kproma,:) = (tlay(jcs:kproma,:)-180.8_wp)/7.2_wp - &
+      FLOAT(indminor(jcs:kproma,:))
 
   END SUBROUTINE lrtm_coeffs    
 
-  SUBROUTINE srtm_coeffs(kbdim, klev, play, tlay, coldry, wkl, &
+  SUBROUTINE srtm_coeffs(jcs, kproma, kbdim, klev, play, tlay, coldry, wkl, &
     laytrop, jp, jp1, jt, jt1, iabs, gases, colmol, fac, selffac, selffrac, &
     indself, forfac, forfrac, indfor)
-    INTEGER, INTENT(in) :: kbdim, klev
+    INTEGER, INTENT(in) :: jcs, kproma, kbdim, klev
     REAL(wp), INTENT(in) :: &
       play(KBDIM,klev), & ! layer pressures (mb) 
       tlay(KBDIM,klev), & ! layer temperatures (K)
@@ -161,10 +161,10 @@ CONTAINS
     !  layer pressure.  Store them in JP and JP1.  Store in FP the
     !  fraction of the difference (in ln(pressure)) between these
     !  two values that the layer pressure lies.
-    plog(:,:) = LOG(play(:,:))
-    jp (:,:) = MIN(58, &
-      MAX(1,INT(36._wp - 5*(plog(:,:)+0.04_wp))))
-    jp1(:,:) = jp(:,:) + 1
+    plog(jcs:kproma,:) = LOG(play(jcs:kproma,:))
+    jp (jcs:kproma,:) = MIN(58, &
+      MAX(1,INT(36._wp - 5*(plog(jcs:kproma,:)+0.04_wp))))
+    jp1(jcs:kproma,:) = jp(jcs:kproma,:) + 1
     !  Determine, for each reference pressure (JP and JP1), which
     !  reference temperature (these are different for each  
     !  reference pressure) is nearest the layer temperature but does
@@ -173,26 +173,26 @@ CONTAINS
     !  (JT1) and the next highest reference temperature that the 
     !  layer temperature falls.
     DO jk = 1, klev
-      jt(:,jk) = MIN(4,&
-        MAX(1,INT(3._wp + (tlay(:,jk) - tref(jp(:,jk)))/15._wp)))
-      jt1(:,jk) = MIN(4,&
-        MAX(1,INT(3._wp + (tlay(:,jk) - tref(jp1(:,jk)))/15._wp)))
+      jt(jcs:kproma,jk) = MIN(4,&
+        MAX(1,INT(3._wp + (tlay(jcs:kproma,jk) - tref(jp(jcs:kproma,jk)))/15._wp)))
+      jt1(jcs:kproma,jk) = MIN(4,&
+        MAX(1,INT(3._wp + (tlay(jcs:kproma,jk) - tref(jp1(jcs:kproma,jk)))/15._wp)))
     END DO 
     DO jk = 1, klev
-      ft(:,jk) = ((tlay(:,jk)-tref(jp(:,jk)))/15._wp) - &
-        float(jt(:,jk)-3)
-      ft1(:,jk) = ((tlay(:,jk)-tref(jp1(:,jk)))/15._wp) - &
-        float(jt1(:,jk)-3)
+      ft(jcs:kproma,jk) = ((tlay(jcs:kproma,jk)-tref(jp(jcs:kproma,jk)))/15._wp) - &
+        float(jt(jcs:kproma,jk)-3)
+      ft1(jcs:kproma,jk) = ((tlay(jcs:kproma,jk)-tref(jp1(jcs:kproma,jk)))/15._wp) - &
+        float(jt1(jcs:kproma,jk)-3)
     END DO 
 
-    iabs(:,1,1,:) = MIN(11,jp(:,:)-1)*5+(jt(:,:)-1)
-    iabs(:,2,1,:) = MIN(12,jp(:,:))*5+(jt1(:,:)-1)
-    iabs(:,1,2,:) = MAX(0,jp(:,:)-13)*5+(jt(:,:)-1)
-    iabs(:,2,2,:) = MAX(1,jp(:,:)-12)*5+(jt1(:,:)-1)
+    iabs(jcs:kproma,1,1,:) = MIN(11,jp(jcs:kproma,:)-1)*5+(jt(jcs:kproma,:)-1)
+    iabs(jcs:kproma,2,1,:) = MIN(12,jp(jcs:kproma,:))*5+(jt1(jcs:kproma,:)-1)
+    iabs(jcs:kproma,1,2,:) = MAX(0,jp(jcs:kproma,:)-13)*5+(jt(jcs:kproma,:)-1)
+    iabs(jcs:kproma,2,2,:) = MAX(1,jp(jcs:kproma,:)-12)*5+(jt1(jcs:kproma,:)-1)
 
-    water(:,:) = wkl(:,:,ih2o)/coldry(:,:)
-    scalefac(:,:) = play(:,:) * stpfac / &
-      tlay(:,:)
+    water(jcs:kproma,:) = wkl(jcs:kproma,:,ih2o)/coldry(jcs:kproma,:)
+    scalefac(jcs:kproma,:) = play(jcs:kproma,:) * stpfac / &
+      tlay(jcs:kproma,:)
 
     !  We have now isolated the layer ln pressure and temperature,
     !  between two reference pressures and two reference temperatures 
@@ -202,53 +202,53 @@ CONTAINS
     !  the optical depths (performed in routines TAUGBn for band n).`
     !
     do jk = 1, klev
-      fp(:) = 5._wp *(preflog(jp(:,jk)) - plog(:,jk))
-      fac(:,2,2,jk) = fp(:) * ft1(:,jk)
-      fac(:,1,2,jk) = fp(:) * (1._wp - ft1(:,jk))
-      fp(:) = 1. - fp(:)
-      fac(:,2,1,jk) = fp(:) * ft(:,jk)
-      fac(:,1,1,jk) = fp(:) * (1._wp - ft(:,jk))
+      fp(jcs:kproma) = 5._wp *(preflog(jp(jcs:kproma,jk)) - plog(jcs:kproma,jk))
+      fac(jcs:kproma,2,2,jk) = fp(jcs:kproma) * ft1(jcs:kproma,jk)
+      fac(jcs:kproma,1,2,jk) = fp(jcs:kproma) * (1._wp - ft1(jcs:kproma,jk))
+      fp(jcs:kproma) = 1. - fp(jcs:kproma)
+      fac(jcs:kproma,2,1,jk) = fp(jcs:kproma) * ft(jcs:kproma,jk)
+      fac(jcs:kproma,1,1,jk) = fp(jcs:kproma) * (1._wp - ft(jcs:kproma,jk))
     end do 
     
     ! Tropopause defined in terms of pressure (~100 hPa)
     ! We're looking for the first layer (counted from the bottom) at which 
     ! the pressure reaches or falls below this value
-    laytrop(:) = COUNT(plog(:,:) > 4.56_wp, DIM = 2) 
+    laytrop(jcs:kproma) = COUNT(plog(jcs:kproma,:) > 4.56_wp, DIM = 2) 
 
     ! Calculate needed column amounts. Only a few ratios are used in the 
     ! upper atmosphere but masking may be less efficient
     ! BUG: if size mismatch cannot be determined at compile time,
     ! no exception is thrown at runtime either!
-    gases(:,:,ih2o:in2o) = MERGE(1.e-20_wp * wkl(:,:,ih2o:in2o),  &
-      SPREAD(1.e-32_wp * coldry(:,:),3,in2o-ih2o+1), &
-      wkl(:,:,ih2o:in2o) > 0._wp)
-    colmol(:,:) = 1.e-20_wp * coldry(:,:) + gases(:,:,ih2o)
+    gases(jcs:kproma,:,ih2o:in2o) = MERGE(1.e-20_wp * wkl(jcs:kproma,:,ih2o:in2o),  &
+      SPREAD(1.e-32_wp * coldry(jcs:kproma,:),3,in2o-ih2o+1), &
+      wkl(jcs:kproma,:,ih2o:in2o) > 0._wp)
+    colmol(jcs:kproma,:) = 1.e-20_wp * coldry(jcs:kproma,:) + gases(jcs:kproma,:,ih2o)
 
     ! Interpolation coefficients 
-    forfac(:,:) = scalefac(:,:) / &
-      (1._wp+water(:,:))
+    forfac(jcs:kproma,:) = scalefac(jcs:kproma,:) / &
+      (1._wp+water(jcs:kproma,:))
     ! Set up factors needed to separately include the water vapor
     ! self-continuum in the calculation of absorption coefficient.
-    selffac(:,:)  = water(:,:) * &
-      forfac(:,:)
+    selffac(jcs:kproma,:)  = water(jcs:kproma,:) * &
+      forfac(jcs:kproma,:)
 
     ! If the pressure is less than ~100mb, perform a different set of species
     ! interpolations.
-    factor(:,:) = (332.0_wp-tlay(:,:)) / 36.0_wp
-    indfor(:,:) = MERGE(3, MIN(2, &
-      MAX(1, INT(factor(:,:)))), plog(:,:) <= 4.56_wp)
+    factor(jcs:kproma,:) = (332.0_wp-tlay(jcs:kproma,:)) / 36.0_wp
+    indfor(jcs:kproma,:) = MERGE(3, MIN(2, &
+      MAX(1, INT(factor(jcs:kproma,:)))), plog(jcs:kproma,:) <= 4.56_wp)
             
-    forfrac(:,:) = MERGE( &
-      (tlay(:,:)-188.0_wp)/36.0_wp - 1.0_wp, &
-      factor(:,:) - FLOAT(indfor(:,:)), &
-      plog(:,:) <= 4.56_wp)
+    forfrac(jcs:kproma,:) = MERGE( &
+      (tlay(jcs:kproma,:)-188.0_wp)/36.0_wp - 1.0_wp, &
+      factor(jcs:kproma,:) - FLOAT(indfor(jcs:kproma,:)), &
+      plog(jcs:kproma,:) <= 4.56_wp)
 
     ! In RRTMG code, this calculation is done only in the lower atmosphere 
     ! (plog > 4.56) 
-    factor(:,:) = (tlay(:,:)-188.0_wp)/7.2_wp
-    indself(:,:) = MIN(9, MAX(1, INT(factor(:,:))-7))
-    selffrac(:,:) = factor(:,:) - &
-      float(indself(:,:) + 7)
+    factor(jcs:kproma,:) = (tlay(jcs:kproma,:)-188.0_wp)/7.2_wp
+    indself(jcs:kproma,:) = MIN(9, MAX(1, INT(factor(jcs:kproma,:))-7))
+    selffrac(jcs:kproma,:) = factor(jcs:kproma,:) - &
+      float(indself(jcs:kproma,:) + 7)
   END SUBROUTINE srtm_coeffs
 END MODULE mo_psrad_rrtm_coeffs
 

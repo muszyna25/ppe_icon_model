@@ -1,0 +1,21 @@
+machine|dwd_cray|compute
+builder|DWD_cray|--with-fortran=cray|Active
+experiment|checksuite.xce.dwd.de/exp.atm_amip_test_mod.run|
+builder|DWD_cray_production|--with-fortran=cray|Inactive
+machine|breeze|
+builder|BREEZE_nag|--with-fortran=nag|Inactive
+builder|BREEZE_gcc_openmp|--with-fortran=gcc --with-openmp|Inactive
+builder|BREEZE_gcc|--with-fortran=gcc|Inactive
+builder|BREEZE_intel|--with-fortran=intel|Inactive
+builder|BREEZE_intel_openmp|--with-fortran=intel --with-openmp|Inactive
+machine|daint|
+builder|DAINT_CPU_cce|--with-fortran=cray --build=x86_64-cray-linux --host=x86_64-unknown-linux-gnu|Inactive
+builder|DAINT_GPU_cce|--with-fortran=cray_gpu --without-grib_api --disable-jsbach --disable-ocean --build=x86_64-cray-linux --host=x86_64-unknown-linux-gnu|Inactive
+machine|mistral|
+builder|MISTRAL_intel|--with-fortran=intel|Inactive
+builder|MISTRAL_intel_hybrid|--with-fortran=intel --with-openmp|Inactive
+builder|MISTRAL_intel_openmp|--with-fortran=intel --without-mpi --with-openmp --without-yac|Inactive
+builder|MISTRAL_nag_serial|--with-fortran=nag --without-mpi --without-yac|Inactive
+builder|MISTRAL_ocean|--with-fortran=intel --with-openmp --with-flags=ocean|Inactive
+builder|MISTRAL_gcc|--with-fortran=gcc|Inactive
+builder|MISTRAL_nag|--with-fortran=nag|Inactive

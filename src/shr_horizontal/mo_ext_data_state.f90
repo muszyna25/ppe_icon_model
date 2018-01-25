@@ -1172,6 +1172,10 @@ CONTAINS
         CASE DEFAULT
           CALL finish (TRIM(routine), 'sstice_mode not valid!')
       END SELECT
+ 
+    ELSE IF (iforcing == iecham) THEN
+      sstice_mode = SSTICE_AVG_MONTHLY
+      shape3d_sstice = (/ nproma, nblks_c, 14 /)
     END IF
 
     !
@@ -1356,9 +1360,13 @@ CONTAINS
 
     ENDIF  ! albedo_type
 
+    ENDIF ! inwp
 
     !--------------------------------
     !SST and sea ice fraction
+    !
+    ! for ECHAM physics, always create 3d-variables sst_m and fr_ice_m
+    ! [effectively, we always have sstice_mode = 4 (monthly mean values)]
     !--------------------------------
     SELECT CASE (sstice_mode)
       CASE (SSTICE_ANA_CLINC)  ! SST is read from analysis and is updated by climatological increments 
@@ -1396,8 +1404,6 @@ CONTAINS
         ! do nothing
         !
     END SELECT
-
-    ENDIF ! inwp
 
   END SUBROUTINE new_ext_data_atm_td_list
   !-------------------------------------------------------------------------

@@ -60,6 +60,7 @@ MODULE mo_cumastr
   USE mo_cudescent,            ONLY: cudlfs, cuddraf
   USE mo_cufluxdts,            ONLY: cuflx, cudtdq, cududv
 
+
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: cumastr
@@ -67,7 +68,7 @@ MODULE mo_cumastr
 CONTAINS
   !>
   !!
-  SUBROUTINE cumastr(  jg,                                                &
+  SUBROUTINE cumastr(  jg,       jcs,                                     &
     &                  kproma,   kbdim,                                   &
     &                  klev,     klevp1,   klevm1,                        &
     &                  pdtime,                                            &
@@ -89,7 +90,7 @@ CONTAINS
     &                  ptop                                               )
     !
     INTEGER, INTENT(IN)   :: jg
-    INTEGER, INTENT(IN)   :: kproma, kbdim, klev, klevp1, ktrac, klevm1
+    INTEGER, INTENT(IN)   :: jcs, kproma, kbdim, klev, klevp1, ktrac, klevm1
     REAL(wp),INTENT(IN)   :: pdtime
     REAL(wp),INTENT(IN)   :: pzf(kbdim,klev),         pzh(kbdim,klevp1)
     REAL(wp),INTENT(IN)   :: pmdry(kbdim,klev)
@@ -195,7 +196,7 @@ CONTAINS
     !                  ---------------------------------------------------
     !
     CALL cuini(jg,                                                       &
-      &        kproma, kbdim, klev, klevp1, klevm1,                      &
+      &        jcs, kproma, kbdim, klev, klevp1, klevm1,                 &
       &        pten,     pqen,     zqsen,    pxen,     puen,     pven,   &
       &        ktrac,                                                    &
       &        pxten,    zxtenh,   zxtu,     zxtd,     zmfuxt,   zmfdxt, &
@@ -217,7 +218,7 @@ CONTAINS
     !                  ---------------------------------------
     !
     CALL cubase(jg,                                                      &
-      &         kproma,   kbdim,    klev,     klevp1,    klevm1,         &
+      &         jcs, kproma,   kbdim,    klev,     klevp1,    klevm1,    &
       &         ztenh,    zqenh,    pgeoh,    paphp1,    pthvsig,        &
       &         ptu,      pqu,      plu,                                 &
       &         puen,     pven,     zuu,      zvu,                       &
@@ -228,17 +229,17 @@ CONTAINS
     !*                 then decide on type of cumulus convection
     !                  -----------------------------------------
     !
-    zkcbot(1:kproma) = REAL(kcbot(1:kproma),wp)
+    zkcbot(jcs:kproma) = REAL(kcbot(jcs:kproma),wp)
 
     jk=1
-    DO jl=1,kproma
+    DO jl=jcs,kproma
       zdqpbl(jl)=0.0_wp
       zdqcv(jl)=pqte(jl,jk)*pmdry(jl,jk)
       idtop(jl)=0
     END DO
     DO jk=2,klev
       zjk = REAL(jk,wp)
-      DO jl=1,kproma
+      DO jl=jcs,kproma
         zhelp      = pmdry(jl,jk)
         zdqcv(jl)  = zdqcv(jl)+pqte(jl,jk)*zhelp
         zdqpbl(jl) = zdqpbl(jl) + FSEL(zjk - zkcbot(jl),pqte(jl,jk),0._wp)*zhelp
@@ -253,14 +254,14 @@ CONTAINS
     !*                 at this stage
     !                  ---------------------------------------------------------------
     !
-    zldcum(1:kproma) = MERGE(1._wp,0._wp,ldcum(1:kproma))
+    zldcum(jcs:kproma) = MERGE(1._wp,0._wp,ldcum(jcs:kproma))
     ktype(:) = 0
 
 !DIR$ IVDEP
 !DIR$ CONCURRENT
 !IBM* ASSERT(NODEPS)
 !IBM* NOVECTOR
-    DO jl=1,kproma
+    DO jl=jcs,kproma
       ikb=kcbot(jl)
       zqumqe=pqu(jl,ikb)+plu(jl,ikb)-zqenh(jl,ikb)
       zdqmin=MAX(0.01_wp*zqenh(jl,ikb),1.e-10_wp)
@@ -278,7 +279,7 @@ CONTAINS
       PRINT '(A6,I3,I4,2 E18.10,I3,L3)','zmfub',ikb,jl,zmfub(jl),zentr(jl),ktype(jl),(zlo1==1._wp)
 #endif
     END DO
-    ldcum(1:kproma) = (zldcum(1:kproma).GT.0._wp)
+    ldcum(jcs:kproma) = (zldcum(jcs:kproma).GT.0._wp)
     !
     !-----------------------------------------------------------------------
     !*    4.0          Determine cloud ascent for entraining plume
@@ -290,22 +291,22 @@ CONTAINS
     !        -------------------------------------------------------------------------
     !
 !DIR$ IVDEP
-    DO jl=1,kproma
+    DO jl=jcs,kproma
       ikb=kcbot(jl)
       zalvs=FSEL(tmelt-ptu(jl,ikb),als,alv)
       zhcbase(jl) = zcpcu(jl,ikb)*ptu(jl,ikb) + pgeoh(jl,ikb) + zalvs*pqu(jl,ikb)
       zictop0(jl) = zkcbot(jl)-1._wp
     END DO
     DO jk=klev,1,-1
-      zcpcui(1:kproma,jk) = 1._wp/zcpcu(1:kproma,jk)
+      zcpcui(jcs:kproma,jk) = 1._wp/zcpcu(jcs:kproma,jk)
       IF (jk <= klevm1 .AND. jk >= 3) THEN
         ! mpuetz: too few instructions (FP dependencies)
-        CALL prepare_ua_index_spline(jg,'cumastr',kproma,ztenh(1,jk),loidx(1),za(1))
-        CALL lookup_ua_spline(kproma,loidx(1),za(1),ua(1),dua(1))
-        CALL lookup_ubc(kproma,ztenh(1,jk),ub(1))
+        CALL prepare_ua_index_spline(jg,'cumastr',jcs,kproma,ztenh(1,jk),loidx(1),za(1))
+        CALL lookup_ua_spline(jcs,kproma,loidx(1),za(1),ua(1),dua(1))
+        CALL lookup_ubc(jcs,kproma,ztenh(1,jk),ub(1))
         zjk = REAL(jk,wp)
 !IBM* NOVECTOR
-        DO jl=1,kproma
+        DO jl=jcs,kproma
           ! mpuetz: move some of these into the previous loop
           zalvs=FSEL(tmelt - ztenh(jl,jk),als,alv)
           zalvdcp=zalvs*zcpcui(jl,jk)
@@ -331,7 +332,7 @@ CONTAINS
         END DO
       END IF
     END DO
-    ictop0(1:kproma) = INT(zictop0(1:kproma))
+    ictop0(jcs:kproma) = INT(zictop0(jcs:kproma))
     !!
     !!     DEEP CONVECTION IF CLOUD DEPTH > 200 HPA, ELSE SHALLOW
     !!     (CLOUD DEPTH FROM NON-ENTRAINIG PLUME)
@@ -345,8 +346,8 @@ CONTAINS
     !              Find lowest possible org. detrainment level
     !              -------------------------------------------
     !
-    ldcnt = 0
-    DO jl=1,kproma
+    ldcnt = jcs-1
+    DO jl=jcs,kproma
       zhmin(jl)=0._wp
       zihmin(jl)=0._wp
       llo1=ldcum(jl).AND.ktype(jl).EQ.1
@@ -362,7 +363,7 @@ CONTAINS
       ! mpuetz: compute the update criterion
       zjk = REAL(jk,wp)
 !IBM* ASSERT(NODEPS)
-      DO nl = 1,ldcnt
+      DO nl = jcs,ldcnt
         jl = ldidx(nl)
         zlo1 = FSEL(zjk - zkcbot(jl),0._wp,1._wp)
         zlo1 = FSEL(zjk - zictop0(jl),zlo1,0._wp)
@@ -371,7 +372,7 @@ CONTAINS
       END DO
       ! mpuetz: compute the indices of elements to be updated
       locnt = 0
-      DO nl = 1,ldcnt
+      DO nl = jcs,ldcnt
         IF (ilo1(nl).GT.0) THEN
           locnt = locnt + 1
           loidx(locnt) = ldidx(nl)
@@ -407,7 +408,7 @@ CONTAINS
       ENDDO
     ENDDO
 !IBM* ASSERT(NODEPS)
-    DO nl=1,ldcnt
+    DO nl=jcs,ldcnt
       jl = ldidx(nl)
 #ifdef __ibmdbg__
       PRINT '(A6,I4,I4,I4)','ihmin',jl,INT(zihmin(jl)),ictop0(jl)
@@ -415,13 +416,13 @@ CONTAINS
       zihmin(jl) = FSEL(zihmin(jl)-zictop0(jl),zihmin(jl),zictop0(jl))
     !    IF(ihmin(jl).LT.ictop0(jl)) ihmin(jl)=ictop0(jl)
     ENDDO
-    ihmin(1:kproma) = INT(zihmin(1:kproma))
+    ihmin(jcs:kproma) = INT(zihmin(jcs:kproma))
     !
     !*         (B) Do ascent in 'cuasc' in absence of downdrafts
     !              ---------------------------------------------
     !
     CALL cuasc(jg,                                                       &
-      &        kproma, kbdim, klev, klevp1, klevm1,                      &
+      &        jcs, kproma, kbdim, klev, klevp1, klevm1,                 &
       &        pzf,      pzh,      pmdry,                                &
       &        ztenh,    zqenh,    puen,     pven,                       &
       &        ktrac,                                                    &
@@ -445,7 +446,7 @@ CONTAINS
     !          ---------------------------------------------------------
     !
 !DIR$ IVDEP
-    DO jl=1,kproma
+    DO jl=jcs,kproma
       zpbmpt=paphp1(jl,kcbot(jl))-paphp1(jl,kctop(jl))
       IF(ldcum(jl).AND.ktype(jl).EQ.1.AND.zpbmpt.LT.2.e4_wp) ktype(jl)=2  ! cloud thickness < 200hPa --> shallow conv.
       IF(ldcum(jl)) ictop0(jl)=kctop(jl)
@@ -453,13 +454,13 @@ CONTAINS
       zrfl(jl)=zdmfup(jl,1)
     END DO
     DO jk=2,klev
-      DO jl=1,kproma
+      DO jl=jcs,kproma
         zrfl(jl)=zrfl(jl)+zdmfup(jl,jk)
       END DO
     END DO
     ! mpuetz: must recompute ldidx() since ktype could have changed
-    ldcnt = 0
-    DO jl=1,kproma
+    ldcnt = jcs-1 
+    DO jl=jcs,kproma
       llo1=ldcum(jl).AND.ktype(jl).EQ.1
       IF(llo1) THEN
         ldcnt = ldcnt + 1
@@ -476,7 +477,7 @@ CONTAINS
       !*             (A) Determine lfs in 'cudlfs'
       !                  -------------------------
       CALL cudlfs(jg,                                                   &
-        &         kproma,   kbdim,    klev,     klevp1,                 &
+        &         jcs,     kproma,   kbdim,    klev,     klevp1,        &
         &         ztenh,    zqenh,    puen,     pven,                   &
         &         ktrac,                                                &
         &         zxtenh,   zxtu,     zxtd,     zmfdxt,                 &
@@ -491,7 +492,7 @@ CONTAINS
       !*            (B)  Determine downdraft t,q and fluxes in 'cuddraf'
       !                  -----------------------------------------------
       CALL cuddraf(jg,                                                  &
-        &          kproma,   kbdim,    klev,     klevp1,                &
+        &          jcs,     kproma,   kbdim,    klev,     klevp1,       &
         &          pmdry,                                               &
         &          ztenh,    zqenh,    puen,     pven,                  &
         &          ktrac,                                               &
@@ -510,9 +511,9 @@ CONTAINS
     !              -------------------------------------------------------------
     ! mpuetz: cuasc can modify kctop !!
     !
-    zkcbot(1:kproma) = REAL(kcbot(1:kproma),wp)
+    zkcbot(jcs:kproma) = REAL(kcbot(jcs:kproma),wp)
     !
-    DO jl=1,kproma
+    DO jl=jcs,kproma
       zheat(jl)=0._wp
       zcape(jl)=0._wp
       zmfub1(jl)=zmfub(jl)
@@ -522,14 +523,14 @@ CONTAINS
     DO jk=1,klev
       zjk = REAL(jk,wp)
 !IBM* ASSERT(NODEPS)
-      DO nl = 1,ldcnt
+      DO nl = jcs,ldcnt
         jl = ldidx(nl)
         zkctop = REAL(kctop(jl),wp)
         zlo1 = FSEL(zkcbot(jl) - zjk,1._wp,0._wp)* FSEL(zkctop - zjk,0._wp,1._wp)
         ilo1(nl) = INT(zlo1)
       END DO
       locnt = 0
-      DO nl = 1,ldcnt
+      DO nl = jcs,ldcnt
         jl = ldidx(nl)
         IF(jk.LE.kcbot(jl).AND.jk.GT.kctop(jl)) THEN
       !  IF (ilo1(nl).GT.0) THEN
@@ -572,7 +573,7 @@ CONTAINS
     !     ENDDO
     !     if (zhelp(jl).lt.0._wp) zhelp(jl)=0._wp
     !  ENDDO
-    DO jl=1,kproma
+    DO jl=jcs,kproma
       IF(ldcum(jl).AND.ktype(jl).EQ.1) THEN
         ikb=kcbot(jl)
         zmfub1(jl) = SWDIV_NOCHK((zcape(jl)*zmfub(jl)),(zheat(jl)*cmftau))
@@ -585,8 +586,8 @@ CONTAINS
     !*      Recalculate convective fluxes due to effect of downdrafts on boundary
     !*      layer moisture budget for shallow convection (ktype=2)
     !       ---------------------------------------------------------------------
-    ldcnt = 0
-    DO jl=1,kproma
+    ldcnt = jcs-1
+    DO jl=jcs,kproma
       llo1=ktype(jl).EQ.2
       IF(llo1) THEN
         ldcnt = ldcnt + 1
@@ -595,7 +596,7 @@ CONTAINS
     ENDDO
 !DIR$ IVDEP
 !IBM* ASSERT(NODEPS)
-    DO nl=1,ldcnt
+    DO nl=jcs,ldcnt
       jl = ldidx(nl)
       ikb=kcbot(jl)
       llo1=pmfd(jl,ikb).LT.0._wp.AND.loddraf(jl)
@@ -612,8 +613,8 @@ CONTAINS
       PRINT '(A6,I4,E18.10)','zmfub1',jl,zmfub1(jl)
 #endif
     END DO
-    ldcnt = 0
-    DO jl=1,kproma
+    ldcnt = jcs-1
+    DO jl=jcs,kproma
       IF (ldcum(jl)) THEN
         ldcnt = ldcnt + 1
         ldidx(ldcnt) = jl
@@ -621,7 +622,7 @@ CONTAINS
     ENDDO
     DO jk=1,klev
 !IBM* ASSERT(NODEPS)
-      DO nl=1,ldcnt
+      DO nl=jcs,ldcnt
         jl = ldidx(nl)
         ztmp1(nl) = SWDIV_NOCHK(zmfub1(jl),MAX(zmfub(jl),1.e-10_wp))
         zfac      = ztmp1(nl)
@@ -636,7 +637,7 @@ CONTAINS
 !IBM* unroll(4)
       DO jt=1,ktrac
 !IBM* ASSERT(NODEPS)
-        DO nl=1,ldcnt
+        DO nl=jcs,ldcnt
           jl = ldidx(nl)
           zfac             = ztmp1(nl)
           zmfdxt(jl,jk,jt) = zmfdxt(jl,jk,jt)*zfac
@@ -648,7 +649,7 @@ CONTAINS
     !*       New values of cloud base mass flux
     !        ----------------------------------
     !
-    DO nl=1,ldcnt
+    DO nl=jcs,ldcnt
       jl = ldidx(nl)
       zmfub(jl) = zmfub1(jl)
     END DO
@@ -661,7 +662,7 @@ CONTAINS
     !           --------------------------------------------------
     !
     CALL cuasc(jg,                                                       &
-      &        kproma, kbdim, klev, klevp1, klevm1,                      &
+      &        jcs, kproma, kbdim, klev, klevp1, klevm1,                 &
       &        pzf,      pzh,      pmdry,                                &
       &        ztenh,    zqenh,    puen,     pven,                       &
       &        ktrac,                                                    &
@@ -684,7 +685,7 @@ CONTAINS
     !*    7.0      Determine final convective fluxes in 'cuflx'
     !              --------------------------------------------
     !
-    CALL cuflx(kproma,   kbdim,    klev,     klevp1,                     &
+    CALL cuflx(jcs,      kproma,   kbdim,    klev,     klevp1,           &
       &        pmdry,                                                    &
       &        pqen,     zqsen,    ztenh,    zqenh,                      &
       &        ktrac,                                                    &
@@ -708,7 +709,7 @@ CONTAINS
     !*    8.0      Update tendencies for t and q in subroutine'cudtdq'
     !              ---------------------------------------------------
     !
-    CALL cudtdq(kproma, kbdim, klev, itopm2, ldcum, ktrac,               &
+    CALL cudtdq(jcs, kproma, kbdim, klev, itopm2, ldcum, ktrac,          &
       &         pmdry,    pten,                                          &
       &         zmfuxt,   zmfdxt,                                        &
       &         zmfus,    zmfds,    zmfuq,    zmfdq,                     &
@@ -725,7 +726,7 @@ CONTAINS
     !              ---------------------------------------------------
     !
     IF(lmfdudv) THEN
-      CALL cududv(kproma,   kbdim,    klev,     klevp1,                 &
+      CALL cududv(jcs,      kproma,   kbdim,    klev,     klevp1,       &
         &         itopm2,   ktype,    kcbot,    paphp1,   ldcum,        &
         &         pmdry,    puen,     pven,     pvom_cnv, pvol_cnv,     &
         &         zuu,      zud,      zvu,      zvd,                    &
@@ -738,12 +739,12 @@ CONTAINS
     !*   10.0      Pressure altitude of convective cloud tops
     !              ------------------------------------------
     !
-    DO jl=1,kproma
+    DO jl=jcs,kproma
       itopec2(jl)=klevp1
     END DO
     !
     DO jk=1,klev-4
-      DO jl=1,kproma
+      DO jl=jcs,kproma
         IF(ilab(jl,jk).EQ.2 .AND. itopec2(jl).EQ.klevp1) THEN
           itopec2(jl)=jk
         END IF
@@ -752,7 +753,7 @@ CONTAINS
     !
     ptop(:)=99999._wp
     !
-    DO jl=1,kproma
+    DO jl=jcs,kproma
       IF(itopec2(jl).EQ.1) THEN
         ptop(jl)=(paphp1(jl,1)+paphp1(jl,2))*0.5_wp
       ELSE IF(itopec2(jl).NE.klevp1) THEN

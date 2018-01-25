@@ -50,6 +50,12 @@ MODULE mo_echam_phy_bcs
   USE mo_bc_aeropt_kinne            ,ONLY: read_bc_aeropt_kinne
   USE mo_bc_aeropt_stenchikov       ,ONLY: read_bc_aeropt_stenchikov
 
+  USE mo_echam_phy_memory           ,ONLY: prm_field
+  USE mo_ext_data_types             ,ONLY: t_external_data
+  USE mo_grid_config                ,ONLY: n_dom
+
+  USE mo_exception             ,ONLY: message, message_text
+
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: echam_phy_bcs
@@ -72,12 +78,14 @@ CONTAINS
 
   SUBROUTINE echam_phy_bcs( mtime_old,    &
     &                       patch        ,&! in
+    &                       ext_dat      ,&! inout
     &                       dtadv_loc    ) ! out
 
     ! Arguments
 
     TYPE(datetime) , POINTER  ,INTENT(in)    :: mtime_old
     TYPE(t_patch)  , TARGET   ,INTENT(in)    :: patch          !< description of this grid
+    TYPE(t_external_data)     ,INTENT(inout) :: ext_dat        !< ext_dat for sst and sic
     REAL(wp)                  ,INTENT(in)    :: dtadv_loc      !< timestep of advection and physics on this grid
 
     ! Local variables
@@ -122,7 +130,7 @@ CONTAINS
     IF (echam_phy_config(patch%id)%lamip) THEN
       IF (iwtr <= nsfc_type .OR. iice <= nsfc_type) THEN
         IF (mtime_old%date%year /= get_current_bc_sst_sic_year()) THEN
-          CALL read_bc_sst_sic(mtime_old%date%year, patch)
+          CALL read_bc_sst_sic(mtime_old%date%year, patch, jg, ext_dat)
         END IF
         CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights    , &
           &                                prm_field(patch%id)%lsmask (:,:)        &
@@ -131,7 +139,8 @@ CONTAINS
           &                                prm_field(patch%id)%ts_tile(:,:,iwtr) , &
           &                                prm_field(patch%id)%seaice (:,:)      , &
           &                                prm_field(patch%id)%siced  (:,:)      , &
-          &                                patch                                  )
+          &                                patch                                 , &
+          &                                ext_dat                                )
 
         ! The ice model should be able to handle different thickness classes, 
         ! but for AMIP we only use one ice class.

@@ -47,7 +47,7 @@ MODULE mo_cuinitialize
 CONTAINS 
   !>
   !!
-  SUBROUTINE cuini(    jg,                                                           &
+  SUBROUTINE cuini(    jg,       jcs,                                                &
     &        kproma,   kbdim,    klev,     klevp1,   klevm1,                         &
     &        pten,     pqen,     pqsen,    pxen,     puen,     pven,                 &
     &        ktrac,                                                                  &
@@ -61,7 +61,7 @@ CONTAINS
     &        pcpen,    pcpcu,    palvsh,                                             &
     &        pdpmel,   plu,      plude,    pqude,    klab                            )
     INTEGER, INTENT (IN) :: jg
-    INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1, ktrac
+    INTEGER, INTENT (IN) :: jcs, kproma, kbdim, klev, klevp1, klevm1, ktrac
     REAL(wp):: pten(kbdim,klev),          pqen(kbdim,klev),                          &
       &        puen(kbdim,klev),          pven(kbdim,klev),                          &
       &        pqsen(kbdim,klev),         pverv(kbdim,klev),                         &
@@ -107,12 +107,12 @@ CONTAINS
     !
     DO jk=1,klev
 
-      CALL prepare_ua_index_spline(jg,'cuini',kproma,pten(1,jk),idx(1),za(1))
-      CALL lookup_ua_spline(kproma,idx(1),za(1),ua(1))
+      CALL prepare_ua_index_spline(jg,'cuini',jcs,kproma,pten(1,jk),idx(1),za(1))
+      CALL lookup_ua_spline(jcs,kproma,idx(1),za(1),ua(1))
 
 
 !IBM* NOVECTOR
-      DO jl=1,kproma
+      DO jl=jcs,kproma
 
         pqsen(jl,jk)=ua(jl)/papp1(jl,jk)
         pqsen(jl,jk)=MIN(0.5_wp,pqsen(jl,jk))
@@ -124,7 +124,7 @@ CONTAINS
     !
     DO jk=2,klev
 !IBM* NOVECTOR
-      DO jl=1,kproma
+      DO jl=jcs,kproma
         zcpm=(pcpen(jl,jk)+pcpen(jl,jk-1))*0.5_wp
         pcpcu(jl,jk)=zcpm
         ptenh(jl,jk)=(MAX(pcpen(jl,jk-1)*pten(jl,jk-1)+pgeo(jl,jk-1),                &
@@ -136,16 +136,17 @@ CONTAINS
       END DO
       !
       DO jt=1,ktrac
-        DO jl=1,kproma
+        DO jl=jcs,kproma
           pxtenh(jl,jk,jt)=(pxten(jl,jk,jt)+pxten(jl,jk-1,jt))*0.5_wp
         END DO
       END DO
       !
       ik=jk
       icall=0
-      CALL cuadjtq(kproma, kbdim, klev, ik, zph, ptenh, pqsenh, loidx, kproma, icall)
+
+      CALL cuadjtq(jcs, kproma, kbdim, klev, ik, zph, ptenh, pqsenh, loidx, kproma, icall)
       !
-      DO jl=1,kproma
+      DO jl=jcs,kproma
         pxenh(jl,jk)=(pxen(jl,jk)+pxen(jl,jk-1))*0.5_wp
         pqenh(jl,jk)=MIN(pqen(jl,jk-1),pqsen(jl,jk-1))+(pqsenh(jl,jk)-pqsen(jl,jk-1))
         pqenh(jl,jk)=MAX(pqenh(jl,jk),0._wp)
@@ -153,7 +154,7 @@ CONTAINS
     END DO
     !
 !IBM* NOVECTOR
-    DO jl=1,kproma
+    DO jl=jcs,kproma
       ptenh(jl,klev)=pcpen(jl,klev)*pten(jl,klev)+pgeo(jl,klev)-pgeoh(jl,klev)
       ptenh(jl,klev)=ptenh(jl,klev)/pcpen(jl,klev)
       pxenh(jl,klev)=pxen(jl,klev)
@@ -168,7 +169,7 @@ CONTAINS
     END DO
     !
     DO jt=1,ktrac
-      DO jl=1,kproma
+      DO jl=jcs,kproma
         pxtenh(jl,klev,jt)=pxten(jl,klev,jt)
         pxtenh(jl,1,jt)=pxten(jl,1,jt)
       END DO
@@ -176,7 +177,7 @@ CONTAINS
     !
     DO jk=klevm1,2,-1
 !IBM* NOVECTOR
-      DO jl=1,kproma
+      DO jl=jcs,kproma
         zzs=MAX(pcpcu(jl,jk)*ptenh(jl,jk)+pgeoh(jl,jk),                              &
           &           pcpcu(jl,jk+1)*ptenh(jl,jk+1)+pgeoh(jl,jk+1))
         ptenh(jl,jk)=(zzs-pgeoh(jl,jk))/pcpcu(jl,jk)
@@ -185,7 +186,7 @@ CONTAINS
     !
     DO jk=1,klev
 ! NOVECTOR ?
-      DO jl=1,kproma
+      DO jl=jcs,kproma
         llo1 = (ptenh(jl,jk)-tmelt) .GT. 0.0_wp
         palvsh(jl,jk) = MERGE(alv,als,llo1)
       END DO
@@ -194,7 +195,7 @@ CONTAINS
     DO jk=klev,3,-1
 !DIR$ IVDEP
 !OCL NOVREC
-      DO jl=1,kproma
+      DO jl=jcs,kproma
         IF(pverv(jl,jk).LT.zwmax(jl)) THEN
           zwmax(jl)=pverv(jl,jk)
           klwmin(jl)=jk
@@ -209,7 +210,7 @@ CONTAINS
     DO jk=1,klev
       ik=jk-1
       IF(jk.EQ.1) ik=1
-      DO jl=1,kproma
+      DO jl=jcs,kproma
         ptu(jl,jk)=ptenh(jl,jk)
         ptd(jl,jk)=ptenh(jl,jk)
         pqu(jl,jk)=pqenh(jl,jk)
@@ -233,7 +234,7 @@ CONTAINS
         klab(jl,jk)=0
       END DO
       DO jt=1,ktrac
-        DO jl=1,kproma
+        DO jl=jcs,kproma
           pxtu(jl,jk,jt)=pxtenh(jl,jk,jt)
           pxtd(jl,jk,jt)=pxtenh(jl,jk,jt)
           pmfuxt(jl,jk,jt)=0._wp
@@ -246,7 +247,7 @@ CONTAINS
   END SUBROUTINE cuini
   !>
   !!
-  SUBROUTINE cubase(   jg,                                                           &
+  SUBROUTINE cubase(   jg,       jcs,                                                &
     &        kproma,   kbdim,    klev,     klevp1, klevm1,                           &
     &        ptenh,    pqenh,    pgeoh,    paph,   pthvsig,                          &
     &        ptu,      pqu,      plu,                                                &
@@ -255,7 +256,7 @@ CONTAINS
     &        ldcum,    kcbot,    klab)
 
     INTEGER, INTENT (IN) :: jg
-    INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1
+    INTEGER, INTENT (IN) :: jcs, kproma, kbdim, klev, klevp1, klevm1
     REAL(wp):: ptenh(kbdim,klev),       pqenh(kbdim,klev),                           &
       &        pgeoh(kbdim,klev),       paph(kbdim,klevp1),                          &
       &        pthvsig(kbdim)
@@ -288,7 +289,7 @@ CONTAINS
     !     1.       Initialize values at lifting level
     !              ----------------------------------
     !
-    DO jl=1,kproma
+    DO jl=jcs,kproma
       klab(jl,klev)=1
       kcbot(jl)=klevm1
       ldcum(jl)=.FALSE.
@@ -303,17 +304,17 @@ CONTAINS
     !          buoyancy and set flags
     !          ----------------------------------------------------------------
     DO jk=klevm1,2,-1
-      is=0
-      DO jl=1,kproma
+      is=jcs-1
+      DO jl=jcs,kproma
         IF (klab(jl,jk+1).EQ.1) THEN
           is = is + 1
           loidx(is) = jl
         END IF
         zph(jl)=paph(jl,jk)
       END DO
-      IF(is.EQ.0) CYCLE !GOTO 290
+      IF(is.EQ.jcs-1) CYCLE !GOTO 290
 !IBM* ASSERT(NODEPS)
-      DO nl=1,is
+      DO nl=jcs,is
         jl = loidx(nl)
         zlift=MAX(cminbuoy,MIN(cmaxbuoy,pthvsig(jl)*cbfac))
         zlift=MIN(zlift,1.0_wp)
@@ -328,11 +329,13 @@ CONTAINS
       !
       ik=jk
       icall=1
-      CALL cuadjtq(kproma, kbdim, klev, ik, zph, ptu, pqu, loidx, is, icall)
+
+      ! call cuadjtq for level kk=ik
+      CALL cuadjtq(jcs, kproma, kbdim, klev, ik, zph, ptu, pqu, loidx, is, icall)
       !
 !DIR$ IVDEP
 !OCL NOVREC
-      DO nl=1,is
+      DO nl=jcs,is
         jl = loidx(nl)
         IF(pqu(jl,jk).LT.zqold(jl)) THEN
           klab(jl,jk)=2
@@ -352,7 +355,7 @@ CONTAINS
       !    be used to define cloud base values.
       !
       IF(lmfdudv) THEN
-        DO jl=1,kproma
+        DO jl=jcs,kproma
           IF(jk.GE.kcbot(jl)) THEN
             puu(jl,klev)=puu(jl,klev)+puen(jl,jk)*(paph(jl,jk+1)-paph(jl,jk))
             pvu(jl,klev)=pvu(jl,klev)+pven(jl,jk)*(paph(jl,jk+1)-paph(jl,jk))
@@ -364,7 +367,7 @@ CONTAINS
     !
     !
     IF(lmfdudv) THEN
-      DO jl=1,kproma
+      DO jl=jcs,kproma
         IF(ldcum(jl)) THEN
           ikb=kcbot(jl)
           zz=1._wp/(paph(jl,klevp1)-paph(jl,ikb))

@@ -72,11 +72,11 @@ CONTAINS
 !>
 !! @brief Solver using optical properties of each layer as input
 !!
-  SUBROUTINE srtm_solver_opt(kproma, kbdim, klev, &
+  SUBROUTINE srtm_solver_opt(jcs, kproma, kbdim, klev, &
                           &  palbd, palbp, prmu0, &
                           &  ptau,  pasy,  pomg,  &
                           &  zfd, zfu, ztdbt_sfc)
-    INTEGER,  INTENT(in) :: kproma, kbdim, klev
+    INTEGER,  INTENT(in) :: jcs, kproma, kbdim, klev
     REAL(wp), INTENT(in) :: palbd(kbdim)      !< surface albedo (diffuse)
     REAL(wp), INTENT(in) :: palbp(kbdim)      !< surface albedo (direct)
     REAL(wp), INTENT(in) :: prmu0(kbdim)      !< cosine of solar zenith angle
@@ -129,21 +129,21 @@ CONTAINS
     ! Delta-scale input properties
     !   (Doing this in line instead of calling the function below saves copying input arrays)
     DO jk = 1, klev
-      wf(1:kproma) = pomg(1:kproma,jk)*pasy(1:kproma,jk)*pasy(1:kproma,jk) ! w0*f with f = g**2
-      tau(1:kproma,jk) = (1.0_wp - wf(1:kproma)) * ptau(1:kproma, jk)
-      w0(1:kproma,jk) = (pomg(1:kproma,jk) - wf(1:kproma)) / (1.0_wp - wf(1:kproma))
+      wf(jcs:kproma) = pomg(jcs:kproma,jk)*pasy(jcs:kproma,jk)*pasy(jcs:kproma,jk) ! w0*f with f = g**2
+      tau(jcs:kproma,jk) = (1.0_wp - wf(jcs:kproma)) * ptau(jcs:kproma, jk)
+      w0(jcs:kproma,jk) = (pomg(jcs:kproma,jk) - wf(jcs:kproma)) / (1.0_wp - wf(jcs:kproma))
       ! g = (g - f) / (1 - f) ; f = g**w
-      g (1:kproma,jk) =  pasy(1:kproma,jk) / ( 1.0_wp + pasy(1:kproma,jk))
+      g (jcs:kproma,jk) =  pasy(jcs:kproma,jk) / ( 1.0_wp + pasy(jcs:kproma,jk))
     END DO 
 
-    CALL two_stream(kproma         ,kbdim    ,klev     ,           &
+    CALL two_stream(jcs, kproma         ,kbdim    ,klev     ,           &
                  &  prmu0(:)       ,tau      ,w0       ,g        , &
                  &  Rdir(:,:)      ,Rdif(:,:),Tdir(:,:),Tdif(:,:)  )
 
     !
     ! Boundary conditions and adding to get flux layer-by-layer
     !
-    CALL srtm_solver_tr(kproma, kbdim, klev,      &
+    CALL srtm_solver_tr(jcs, kproma, kbdim, klev,      &
                         palbp, palbd, prmu0, tau, &
                         Rdir, Rdif, Tdir, Tdif,   &
                         zfd, zfu, ztdbt_sfc)
@@ -154,11 +154,11 @@ CONTAINS
 !! @brief Solver using optical properties and pre-computed direct/diffuse
 !!   reflectanc/transmittance to compute fluxes layer-by-layer 
 !!
-  SUBROUTINE srtm_solver_tr(kproma, kbdim, klev,    &
+  SUBROUTINE srtm_solver_tr(jcs, kproma, kbdim, klev,    &
                       &  palbd, palbp, prmu0, ptau, &
                       &  Rdir, Rdif, Tdir, Tdif,    &
                       &  zfd, zfu, ztdbt_sfc)
-    INTEGER,  INTENT(in) :: kproma, kbdim, klev
+    INTEGER,  INTENT(in) :: jcs, kproma, kbdim, klev
     REAL(wp), INTENT(in) :: palbd(kbdim)      !< surface albedo (diffuse)
     REAL(wp), INTENT(in) :: palbp(kbdim)      !< surface albedo (direct)
     REAL(wp), INTENT(in) :: prmu0(kbdim)      !< cosine of solar zenith angle
@@ -182,35 +182,35 @@ CONTAINS
 
     ! Note: two-stream calculations proceed from top to bottom; 
     !   RRTMG_SW quantities are given bottom to top and are reversed here
-    zref (1:kproma,1:klev) = Rdir(1:kproma,klev:1:-1)
-    zrefd(1:kproma,1:klev) = Rdif(1:kproma,klev:1:-1)
-    ztra (1:kproma,1:klev) = Tdir(1:kproma,klev:1:-1)
-    ztrad(1:kproma,1:klev) = Tdif(1:kproma,klev:1:-1)
+    zref (jcs:kproma,1:klev) = Rdir(jcs:kproma,klev:1:-1)
+    zrefd(jcs:kproma,1:klev) = Rdif(jcs:kproma,klev:1:-1)
+    ztra (jcs:kproma,1:klev) = Tdir(jcs:kproma,klev:1:-1)
+    ztrad(jcs:kproma,1:klev) = Tdif(jcs:kproma,klev:1:-1)
 
 
     ! Surface values
-    zref (1:kproma,klev+1) = palbp(1:kproma)
-    zrefd(1:kproma,klev+1) = palbd(1:kproma)
-    ztra (1:kproma,klev+1) = 0.0_wp
-    ztrad(1:kproma,klev+1) = 0.0_wp
+    zref (jcs:kproma,klev+1) = palbp(jcs:kproma)
+    zrefd(jcs:kproma,klev+1) = palbd(jcs:kproma)
+    ztra (jcs:kproma,klev+1) = 0.0_wp
+    ztrad(jcs:kproma,klev+1) = 0.0_wp
     
     ! Direct beam transmission -- need to reverse vertical ordering of optical depth array
 !IBM* ASSERT(NODEPS)
     DO jk = 1, klev
       jkr = klev+1-jk                       
-      INV_EXPON(ptau(1:kproma,jkr)/prmu0(1:kproma), zdbt(1:kproma,jk))
+      INV_EXPON(ptau(jcs:kproma,jkr)/prmu0(jcs:kproma), zdbt(jcs:kproma,jk))
     END DO 
-    zdbt(1:kproma,klev+1) = 0.0_wp
+    zdbt(jcs:kproma,klev+1) = 0.0_wp
     
     ! Accumulated direct beam transmission 
-    ztdbt(1:kproma,1) = 1._wp
+    ztdbt(jcs:kproma,1) = 1._wp
     DO jk=1,klev
-      ztdbt(1:kproma,jk+1) = zdbt(1:kproma,jk)*ztdbt(1:kproma,jk)
+      ztdbt(jcs:kproma,jk+1) = zdbt(jcs:kproma,jk)*ztdbt(jcs:kproma,jk)
     ENDDO
-    ztdbt_sfc(1:kproma)  = ztdbt(1:kproma,klev+1)
+    ztdbt_sfc(jcs:kproma)  = ztdbt(jcs:kproma,klev+1)
 
     ! Vertical quadrature for cloudy fluxes
-    CALL adding (kproma, kbdim, klev, &
+    CALL adding (jcs, kproma, kbdim, klev, &
                 &  zref(:,:), zrefd(:,:), ztra(:,:), ztrad(:,:), &      
                 &  zdbt(:,:), ztdbt(:,:), palbp( :), palbd(  :), &
                 &  zfd (:,:), zfu  (:,:)) 
@@ -223,7 +223,7 @@ CONTAINS
 !!
 !! @ remarks Equations are developed in doi:10.1002/qj.49712555316. 
 
-  SUBROUTINE adding(kproma, kbdim, klev, &
+  SUBROUTINE adding(jcs, kproma, kbdim, klev, &
        pref, prefd, ptra, ptrad, &
        pdbt, ptdbt, palbp, palbd,&
        pfd, pfu)
@@ -238,7 +238,7 @@ CONTAINS
     ! Revision: Reformatted for consistency with rrtmg_lw: MJIacono, AER, Jul 2006
     !
     !-----------------------------------------------------------------------
-    INTEGER, INTENT (in) :: kproma, kbdim, klev  ! number of columns, max. number of col., model layers
+    INTEGER, INTENT (in) :: jcs, kproma, kbdim, klev  ! number of columns, max. number of col., model layers
 
     ! 
     ! All vectors are dimensioned kproma, klev+1; last value indicates surface
@@ -259,66 +259,68 @@ CONTAINS
     !-----------------------------------------------------------------------------
 
     ! Link lowest layer with surface
-    zrup (1:kproma,klev+1) = palbp(1:kproma)
-    zrupd(1:kproma,klev+1) = palbd(1:kproma)
+    zrup (jcs:kproma,klev+1) = palbp(jcs:kproma)
+    zrupd(jcs:kproma,klev+1) = palbd(jcs:kproma)
 
-    zreflect(1:kproma) = 1._wp / (1._wp - prefd(1:kproma,klev+1) * prefd(1:kproma,klev))
-    zrup (1:kproma,klev) = pref(1:kproma,klev)                                                    &
-                       & + (ptrad(1:kproma,klev) * ((ptra(1:kproma,klev) - pdbt(1:kproma,klev)) * & 
-                           prefd(1:kproma,klev+1)                                                 & 
-                       & + pdbt (1:kproma,klev) * pref(1:kproma,klev+1))) * zreflect(1:kproma)
-    zrupd(1:kproma,klev) = prefd(1:kproma,klev) &
-                       & + ptrad(1:kproma,klev) * ptrad(1:kproma,klev) * &
-                       &   prefd(1:kproma,klev+1) * zreflect(1:kproma)
+    zreflect(jcs:kproma) = 1._wp / (1._wp - prefd(jcs:kproma,klev+1) * prefd(jcs:kproma,klev))
+    zrup (jcs:kproma,klev) = pref(jcs:kproma,klev)                                                      &
+                       & + (ptrad(jcs:kproma,klev) * ((ptra(jcs:kproma,klev) - pdbt(jcs:kproma,klev)) * & 
+                           prefd(jcs:kproma,klev+1)                                                     &
+                       & + pdbt (jcs:kproma,klev) * pref(jcs:kproma,klev+1))) * zreflect(jcs:kproma)
+    zrupd(jcs:kproma,klev) = prefd(jcs:kproma,klev)                          &
+                       & + ptrad(jcs:kproma,klev) * ptrad(jcs:kproma,klev) * &
+                       &   prefd(jcs:kproma,klev+1) * zreflect(jcs:kproma)
 
     ! Pass from bottom to top 
 
     DO jk = 1,klev-1
       ikp = klev+1-jk                       
       ikx = ikp-1
-      zreflect(1:kproma) = 1._wp / (1._wp - zrupd(1:kproma,ikp) * prefd(1:kproma,ikx))
-      zrup(1:kproma,ikx) = pref(1:kproma,ikx)                                                &
-                       & + (ptrad(1:kproma,ikx) *                                            &
-                            ((ptra(1:kproma,ikx) - pdbt(1:kproma,ikx)) * zrupd(1:kproma,ikp) & 
-                       &   +  pdbt(1:kproma,ikx) * zrup(1:kproma,ikp))) * zreflect(1:kproma)
-      zrupd(1:kproma,ikx) = prefd(1:kproma,ikx) &
-                        & + ptrad(1:kproma,ikx) * ptrad(1:kproma,ikx) * zrupd(1:kproma,ikp) * &
-                            zreflect(1:kproma)
+      zreflect(jcs:kproma) = 1._wp / (1._wp - zrupd(jcs:kproma,ikp) * prefd(jcs:kproma,ikx))
+      zrup(jcs:kproma,ikx) = pref(jcs:kproma,ikx)                                                  &
+                       & + (ptrad(jcs:kproma,ikx) *                                                &
+                            ((ptra(jcs:kproma,ikx) - pdbt(jcs:kproma,ikx)) * zrupd(jcs:kproma,ikp) &
+                       &   +  pdbt(jcs:kproma,ikx) * zrup(jcs:kproma,ikp))) * zreflect(jcs:kproma)
+      zrupd(jcs:kproma,ikx) = prefd(jcs:kproma,ikx)                                                 &
+                        & + ptrad(jcs:kproma,ikx) * ptrad(jcs:kproma,ikx) * zrupd(jcs:kproma,ikp) * &
+                            zreflect(jcs:kproma)
     ENDDO
 
     ! Upper boundary conditions
 
-    ztdn (1:kproma,1) = 1._wp
-    zrdnd(1:kproma,1) = 0._wp
-    ztdn (1:kproma,2) = ptra(1:kproma,1)
-    zrdnd(1:kproma,2) = prefd(1:kproma,1)
+    ztdn (jcs:kproma,1) = 1._wp
+    zrdnd(jcs:kproma,1) = 0._wp
+    ztdn (jcs:kproma,2) = ptra(jcs:kproma,1)
+    zrdnd(jcs:kproma,2) = prefd(jcs:kproma,1)
 
     ! Pass from top to bottom
 
     DO jk = 2,klev
       ikp = jk+1
-      zreflect(1:kproma) = 1._wp / (1._wp - prefd(1:kproma,jk) * zrdnd(1:kproma,jk))
-      ztdn(1:kproma,ikp) = ptdbt(1:kproma,jk) * ptra(1:kproma,jk)                            &
-                       & + ( ptrad(1:kproma,jk) * ((ztdn(1:kproma,jk) - ptdbt(1:kproma,jk))  &
-                       &   + ptdbt(1:kproma,jk) * pref(1:kproma,jk) * zrdnd(1:kproma,jk))) * &
-                    &   zreflect(1:kproma)
-      zrdnd(1:kproma,ikp) = prefd(1:kproma,jk) &
-                          + ptrad(1:kproma,jk) * ptrad(1:kproma,jk) * zrdnd(1:kproma,jk) * &
-                            zreflect(1:kproma)
+      zreflect(jcs:kproma) = 1._wp / (1._wp - prefd(jcs:kproma,jk) * zrdnd(jcs:kproma,jk))
+      ztdn(jcs:kproma,ikp) = ptdbt(jcs:kproma,jk) * ptra(jcs:kproma,jk)                            &
+                       & + ( ptrad(jcs:kproma,jk) * ((ztdn(jcs:kproma,jk) - ptdbt(jcs:kproma,jk))  &
+                       &   + ptdbt(jcs:kproma,jk) * pref(jcs:kproma,jk) * zrdnd(jcs:kproma,jk))) * &
+                       & zreflect(jcs:kproma)
+      zrdnd(jcs:kproma,ikp) = prefd(jcs:kproma,jk)                                               &
+                          + ptrad(jcs:kproma,jk) * ptrad(jcs:kproma,jk) * zrdnd(jcs:kproma,jk) * &
+                       &    zreflect(jcs:kproma)
     ENDDO
 
     ! Up and down-welling fluxes at levels
 
 !IBM* ASSERT(NODEPS)
     DO jk = 1,klev+1
-      zreflect(1:kproma) = 1._wp / (1._wp - zrdnd(1:kproma,jk) * zrupd(1:kproma,jk))
-      pfu(1:kproma,jk) = (ptdbt(1:kproma,jk) * zrup(1:kproma,jk) &
-                     & + (ztdn(1:kproma,jk) - ptdbt(1:kproma,jk)) * zrupd(1:kproma,jk)) * & 
-                     &    zreflect(1:kproma)
-      pfd(1:kproma,jk) = ptdbt(1:kproma,jk) &
-                     & + (ztdn(1:kproma,jk) - ptdbt(1:kproma,jk) &
-                    &    + ptdbt(1:kproma,jk) * zrup(1:kproma,jk) * zrdnd(1:kproma,jk)) * &
-                         zreflect(1:kproma)
+      zreflect(jcs:kproma) = 1._wp / (1._wp - zrdnd(jcs:kproma,jk) * zrupd(jcs:kproma,jk))
+
+      pfu(jcs:kproma,jk) = (ptdbt(jcs:kproma,jk) * zrup(jcs:kproma,jk)                             &
+                     &      + (ztdn(jcs:kproma,jk) - ptdbt(jcs:kproma,jk)) * zrupd(jcs:kproma,jk)) &
+                     &   *  zreflect(jcs:kproma)
+
+      pfd(jcs:kproma,jk) = ptdbt(jcs:kproma,jk)                                                  &
+                     &   + (ztdn(jcs:kproma,jk) - ptdbt(jcs:kproma,jk)                           &
+                     &      + ptdbt(jcs:kproma,jk) * zrup(jcs:kproma,jk) * zrdnd(jcs:kproma,jk)) &
+                     &   * zreflect(jcs:kproma)
     END DO
   END SUBROUTINE adding
 
@@ -649,25 +651,28 @@ CONTAINS
 #endif
 
 ! --------------------------------------------------------------------
-  SUBROUTINE two_stream_ec(kproma, kbdim, klev, mu0, tau, w0, g, Rdir, Rdif, Tdir, Tdif, update)
-    INTEGER,  INTENT( IN) :: kproma, kbdim, klev            !< number of columns, max. number of col., number of levels
+  SUBROUTINE two_stream_ec(jcs, kproma, kbdim, klev, mu0, tau, w0, g, Rdir, Rdif, Tdir, Tdif, update)
+    INTEGER,  INTENT( IN) :: jcs, kproma, kbdim, klev    !< number of columns, max. number of col.,
+                                                         !  number of levels
     REAL(WP), INTENT( IN) :: mu0(kbdim),               & !< Cosine of solar zenith angle
-                             tau(kbdim,klev),             & !< Optical depth
-                             w0(kbdim,klev),              & !< Single scattering albedo
-                             g(kbdim,klev)                  !< Asymmetery parameter
-    REAL(WP), INTENT(INOUT) :: Rdir(kbdim,klev), Tdir(kbdim,klev), & !< Reflectance and transmittance for direct beam
-                             Rdif(kbdim,klev), Tdif(kbdim,klev)    !< Reflectance and transmittance for diffuse illumination
+                             tau(kbdim,klev),          & !< Optical depth
+                             w0(kbdim,klev),           & !< Single scattering albedo
+                             g(kbdim,klev)               !< Asymmetery parameter
+    REAL(WP), INTENT(INOUT) :: Rdir(kbdim,klev), Tdir(kbdim,klev), & !< Reflectance and transmittance
+                                                                     !  for direct beam
+                             Rdif(kbdim,klev), Tdif(kbdim,klev)      !< Reflectance and transmittance
+                                                                     !  for diffuse illumination
     LOGICAL,  INTENT( IN), OPTIONAL :: update(kbdim,klev)   !< Update this cell? 
     
     REAL(WP)             :: zrmu0(kbdim)
               
-    zrmu0(1:kproma)=1._wp/mu0(1:kproma)
+    zrmu0(jcs:kproma)=1._wp/mu0(jcs:kproma)
     IF(PRESENT(update)) THEN 
-      CALL srtm_reftra_ec(kproma, kbdim, klev,  &
+      CALL srtm_reftra_ec(jcs, kproma, kbdim, klev,  &
          &   g, mu0, zrmu0, tau, w0, &
          &   Rdir  , Rdif, Tdir , Tdif, update) 
     ELSE
-      CALL srtm_reftra_ec(kproma, kbdim, klev,  &
+      CALL srtm_reftra_ec(jcs, kproma, kbdim, klev,  &
          &   g, mu0, zrmu0, tau, w0, &
          &   Rdir  , Rdif, Tdir , Tdif) 
     END IF
@@ -676,7 +681,7 @@ CONTAINS
 
    ! -----------------
   SUBROUTINE srtm_reftra_ec &
-       & ( icount, kbdim, klev  ,            &
+       & ( jcs   , icount, kbdim, klev  ,    &
        &   pgg   , prmuz, prmuzi, ptau , pw, &
        &   pref  , prefd, ptra , ptrad , &
        &   ldrtchk &
@@ -743,7 +748,8 @@ CONTAINS
     !              ---------
 
 
-    INTEGER,INTENT(in)  :: icount
+    INTEGER,INTENT(in)  :: jcs    ! start index in block
+    INTEGER,INTENT(in)  :: icount ! end index in block
     INTEGER,INTENT(in)    :: kbdim
     INTEGER,INTENT(in)    :: klev 
     REAL(wp)   ,INTENT(in)    :: pgg(kbdim,klev) 
@@ -780,16 +786,16 @@ CONTAINS
     IF (.NOT.PRESENT(ldrtchk)) THEN
       ict = icount
       icf = 0
-      DO ic=1,icount
+      DO ic=jcs,icount
         idxt(ic) = ic
       END DO
     END IF
 
     DO jk=1,klev
       IF (PRESENT(ldrtchk)) THEN
-        ict = 0
+        ict = jcs-1
         icf = 0
-        DO ic=1,icount
+        DO ic=jcs,icount
           IF (ldrtchk(ic,jk)) THEN
             ict = ict + 1
             idxt(ict) = ic
@@ -803,7 +809,7 @@ CONTAINS
 
       IF (kmodts == 1) THEN
 !IBM* ASSERT(NODEPS)
-        DO jc = 1,ict
+        DO jc = jcs,ict
           ic = idxt(jc)
 
           zw  =pw(ic,jk)
@@ -818,7 +824,7 @@ CONTAINS
         END DO
       ELSEIF (kmodts == 2) THEN  
 !IBM* ASSERT(NODEPS)
-        DO jc = 1,ict
+        DO jc = jcs,ict
           ic = idxt(jc)
 
           zw  =pw(ic,jk)
@@ -833,7 +839,7 @@ CONTAINS
         END DO
       ELSEIF (kmodts == 3) THEN  
 !IBM* ASSERT(NODEPS)
-        DO jc = 1,ict
+        DO jc = jcs,ict
           ic = idxt(jc)
 
           zw  =pw(ic,jk)
@@ -848,10 +854,10 @@ CONTAINS
         END DO
       ENDIF
 
-      icc = 0
-      icn = 0
+      icc = jcs-1
+      icn = jcs-1
 !IBM* ASSERT(NODEPS)
-      DO jc = 1,ict
+      DO jc = jcs,ict
         ic = idxt(jc)
 
         !-- RECOMPUTE ORIGINAL S.S.A. TO TEST FOR CONSERVATIVE SOLUTION
@@ -870,22 +876,22 @@ CONTAINS
         END IF
       END DO
 
-      !-- conservative scattering
+      !-- conservative scattering (loop with idxc)
       !
       !-- Homogeneous reflectance and transmittance
 
 !IBM* ASSERT(NODEPS)
-      DO jc = 1,icc
+      DO jc = jcs,icc
         ic = idxc(jc)
         zem2(jc) = -MIN(ptau(ic,jk) * prmuzi(ic),500._wp)
       END DO
 
-      zem2(1:icc) = EXP(zem2(1:icc))
+      zem2(jcs:icc) = EXP(zem2(jcs:icc))
 
 
 !IBM* NOVECTOR
 !IBM* ASSERT(NODEPS)
-      DO jc = 1,icc
+      DO jc = jcs,icc
         ic = idxc(jc)
 
         za  = zgamma1(ic) * prmuz(ic) 
@@ -904,12 +910,12 @@ CONTAINS
         ptrad(ic,jk) = 1._wp - prefd(ic,jk)        
       END DO
 
-      !-- non-conservative scattering
+      !-- non-conservative scattering (loop with idxn)
 
       !-- Homogeneous reflectance and transmittance
 
 !IBM* ASSERT(NODEPS)
-      DO jc = 1,icn
+      DO jc = jcs,icn
         ic = idxn(jc)
         zzz = zgamma1(ic)**2 - zgamma2(ic)**2
         zrk(jc) = SQRT(MAX(zzz,replog))
@@ -918,13 +924,13 @@ CONTAINS
         zep2(jc) = MIN(ptau(ic,jk) * prmuzi(ic),500._wp)
       END DO
 
-      zep1(1:icn) = EXP(zep1(1:icn))
-      zep2(1:icn) = EXP(zep2(1:icn))
-      zem1(1:icn) = 1.0_wp/zep1(1:icn)
-      zem2(1:icn) = 1.0_wp/zep2(1:icn)
+      zep1(jcs:icn) = EXP(zep1(jcs:icn))
+      zep2(jcs:icn) = EXP(zep2(jcs:icn))
+      zem1(jcs:icn) = 1.0_wp/zep1(jcs:icn)
+      zem2(jcs:icn) = 1.0_wp/zep2(jcs:icn)
 
 !IBM* ASSERT(NODEPS)
-      DO jc = 1,icn
+      DO jc = jcs,icn
         ic = idxn(jc)
         zw  =pw(ic,jk)
 
@@ -970,14 +976,15 @@ CONTAINS
 
 !PREVENT_INCONSISTENT_IFORT_FMA
 !IBM* ASSERT(NODEPS)
-      DO jc = 1,icf
+      DO jc = 1,icf ! icf = 0
         ic=idxf(jc)
         pref(ic,jk) =0.0_wp
         ptra(ic,jk) =1.0_wp
         prefd(ic,jk)=0.0_wp
         ptrad(ic,jk)=1.0_wp
       END DO
-    ENDDO
+
+    ENDDO ! jk
 
     !     ------------------------------------------------------------------
   END SUBROUTINE srtm_reftra_ec
@@ -985,8 +992,9 @@ CONTAINS
 !>
 !! @brief Delta-scale optical properties
 !!
-  SUBROUTINE delta_scale_1d(kproma, kbdim, tau, g, w0)
-    INTEGER,  INTENT(IN   ) :: kproma                   ! number of columns
+  SUBROUTINE delta_scale_1d(jcs, kproma, kbdim, tau, g, w0)
+    INTEGER,  INTENT(IN   ) :: jcs                      ! number of columns (start index)
+    INTEGER,  INTENT(IN   ) :: kproma                   ! number of columns (end index)
     INTEGER,  INTENT(IN   ) :: kbdim                    ! max. number of col.
     REAL(WP), INTENT(INOUT) :: tau(kbdim), g(kbdim), w0(kbdim)
     
@@ -994,7 +1002,7 @@ CONTAINS
     INTEGER  :: i 
     
 !IBM* ASSERT(NODEPS)
-    DO i = 1, kproma
+    DO i = jcs, kproma
       wf(i) = w0(i) * g(i) * g(i) ! f = g**2
     
       tau(i) = (1.0_wp - wf(i)) * tau(i)
@@ -1004,8 +1012,8 @@ CONTAINS
     END DO 
   END SUBROUTINE delta_scale_1d
    ! -----------------
-  SUBROUTINE delta_scale_2d(kproma, kbdim, klev, tau, g, w0, update)
-    INTEGER,  INTENT(IN   ) :: kproma, klev          ! number of columns
+  SUBROUTINE delta_scale_2d(jcs, kproma, kbdim, klev, tau, g, w0, update)
+    INTEGER,  INTENT(IN   ) :: jcs, kproma, klev     ! number of columns
     INTEGER,  INTENT(IN   ) :: kbdim                 ! max number of col.
     REAL(WP), INTENT(INOUT) :: tau(kbdim,klev), g(kbdim,klev), w0(kbdim,klev)
     LOGICAL,  INTENT(IN   ), OPTIONAL :: update(kbdim,klev)
@@ -1015,13 +1023,13 @@ CONTAINS
     INTEGER :: k, i
 
     IF(PRESENT(update)) THEN
-      do_this(1:kproma,1:klev) = update(1:kproma,1:klev)
+      do_this(jcs:kproma,1:klev) = update(jcs:kproma,1:klev)
     ELSE
       do_this(:,:) = .true.
     END IF
 
     DO k = 1, klev
-      DO i = 1, kproma
+      DO i = jcs, kproma
         wf(i,k) = MERGE(w0(i,k) * g(i,k) * g(i,k), wf(i, k), &
              do_this(i, k)) ! f = g**2
         tau(i,k) = MERGE((1.0_wp - wf(i,k)) * tau(i,k), tau(i, k), &

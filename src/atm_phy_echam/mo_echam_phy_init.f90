@@ -38,6 +38,7 @@ MODULE mo_echam_phy_init
   ! horizontal grid and indices
   USE mo_model_domain,         ONLY: t_patch
   USE mo_loopindices,          ONLY: get_indices_c
+  USE mo_impl_constants,       ONLY: max_dom
   USE mo_grid_config,          ONLY: n_dom
 
   ! vertical grid
@@ -115,6 +116,8 @@ MODULE mo_echam_phy_init
   ! radiative forcing diagnostics
   USE mo_psrad_memory,         ONLY: construct_psrad_forcing_list
 
+  USE mo_ext_data_types,       ONLY: t_external_data
+
   IMPLICIT NONE
 
   PRIVATE
@@ -132,20 +135,50 @@ CONTAINS
   !! Initial version by Hui Wan, MPI-M (2010-07)
   !! name change to init_echam_phy by Levi Silvers
   !!
-  SUBROUTINE init_echam_phy( p_patch, ctest_name, nlev, mtime_current)
+  SUBROUTINE init_echam_phy( p_patch, ctest_name, nlev, mtime_current, ext_data)
 
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch(:)
     CHARACTER(LEN=*),INTENT(in) :: ctest_name
     INTEGER,         INTENT(in) :: nlev
     TYPE(datetime),  INTENT(in), POINTER    :: mtime_current !< Date and time information
+    TYPE(t_external_data), INTENT(inout) :: ext_data(:)
 
     INTEGER :: khydromet, ktrac
-    INTEGER :: jg
+    INTEGER :: jg, ndom
     TYPE(t_stream_id) :: stream_id
 
-    CHARACTER(len=*), PARAMETER :: land_frac_fn = 'bc_land_frac.nc'
-    CHARACTER(len=*), PARAMETER :: land_phys_fn = 'bc_land_phys.nc'
-    CHARACTER(len=*), PARAMETER :: land_sso_fn  = 'bc_land_sso.nc'
+    CHARACTER(len=*), PARAMETER :: land_frac_fn(max_dom) = (/'bc_land_frac_DOM01.nc', &
+                                                             'bc_land_frac_DOM02.nc', &
+                                                             'bc_land_frac_DOM03.nc', &
+                                                             'bc_land_frac_DOM04.nc', &
+                                                             'bc_land_frac_DOM05.nc', &
+                                                             'bc_land_frac_DOM06.nc', &
+                                                             'bc_land_frac_DOM07.nc', &
+                                                             'bc_land_frac_DOM08.nc', &
+                                                             'bc_land_frac_DOM09.nc', &
+                                                             'bc_land_frac_DOM10.nc' /)
+
+    CHARACTER(len=*), PARAMETER :: land_phys_fn(max_dom) = (/'bc_land_phys_DOM01.nc', &
+                                                             'bc_land_phys_DOM02.nc', &
+                                                             'bc_land_phys_DOM03.nc', &
+                                                             'bc_land_phys_DOM04.nc', &
+                                                             'bc_land_phys_DOM05.nc', &
+                                                             'bc_land_phys_DOM06.nc', &
+                                                             'bc_land_phys_DOM07.nc', &
+                                                             'bc_land_phys_DOM08.nc', &
+                                                             'bc_land_phys_DOM09.nc', &
+                                                             'bc_land_phys_DOM10.nc' /)
+
+    CHARACTER(len=*), PARAMETER :: land_sso_fn(max_dom)  = (/'bc_land_sso_DOM01.nc', &
+                                                             'bc_land_sso_DOM02.nc', &
+                                                             'bc_land_sso_DOM03.nc', &
+                                                             'bc_land_sso_DOM04.nc', &
+                                                             'bc_land_sso_DOM05.nc', &
+                                                             'bc_land_sso_DOM06.nc', &
+                                                             'bc_land_sso_DOM07.nc', &
+                                                             'bc_land_sso_DOM08.nc', &
+                                                             'bc_land_sso_DOM09.nc', &
+                                                             'bc_land_sso_DOM10.nc' /)
 
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
 
@@ -294,7 +327,7 @@ CONTAINS
         ! read time-constant boundary conditions from files
 
         ! land, glacier and lake masks
-        stream_id = openInputFile(land_frac_fn, p_patch(jg), default_read_method)
+        stream_id = openInputFile(land_frac_fn(jg), p_patch(jg), default_read_method)
         CALL read_2D(stream_id=stream_id, location=on_cells,&
              &          variable_name='land',               &
              &          fill_array=prm_field(jg)%lsmask(:,:))
@@ -314,7 +347,7 @@ CONTAINS
         END IF
 
         ! roughness length and background albedo
-        stream_id = openInputFile(land_phys_fn, p_patch(jg), default_read_method)
+        stream_id = openInputFile(land_phys_fn(jg), p_patch(jg), default_read_method)
 
         IF (echam_phy_tc(jg)%dt_vdf > dt_zero) THEN
           CALL read_2D(stream_id=stream_id, location=on_cells, &
@@ -332,7 +365,7 @@ CONTAINS
 
         ! orography
         IF (echam_phy_tc(jg)%dt_sso > dt_zero) THEN
-          stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
+          stream_id = openInputFile(land_sso_fn(jg), p_patch(jg), default_read_method)
           CALL read_2D(stream_id=stream_id, location=on_cells, &
                &       variable_name='oromea',                &
                &       fill_array=prm_field(jg)% oromea(:,:))
@@ -412,14 +445,15 @@ CONTAINS
           (is_coupled_run() .AND. .NOT. ltestcase) ) THEN
         !
         ! sea surface temperature, sea ice concentration and depth
-        CALL read_bc_sst_sic(mtime_current%date%year, p_patch(1))
+        CALL read_bc_sst_sic(mtime_current%date%year, p_patch(jg), jg, ext_data(jg))
         !
         CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights, &
              &                             prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:) > 1._wp - 10._wp*EPSILON(1._wp), &
              &                             prm_field(jg)%ts_tile(:,:,iwtr)   , &
              &                             prm_field(jg)%seaice(:,:)         , &
              &                             prm_field(jg)%siced(:,:)          , &
-             &                             p_patch(1)                        )
+             &                             p_patch(jg)                       , &
+             &                             ext_data(jg))
         !
 
       ELSE
@@ -823,6 +857,7 @@ CONTAINS
     TYPE(t_echam_phy_field),POINTER :: field => NULL()
 
 !!$    CHARACTER(LEN=*),PARAMETER :: routine = 'additional_restart_init'
+
 
     !-------------------------
     ! Loop over all domains

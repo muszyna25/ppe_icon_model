@@ -19,7 +19,7 @@ case "$ac_sitename" in
     enable_jsbach=no
     ;;
   *)
-    enable_jsbach=no
+    enable_jsbach=yes
     ;;
 esac
 #enable_ocean=no

@@ -40,7 +40,7 @@ MODULE mo_ext_data_init
     &                              ihs_atm_temp, ihs_atm_theta, inh_atmosphere,                     &
     &                              max_char_length, min_rlcell_int, min_rlcell,                     &
     &                              MODIS, GLOBCOVER2009, GLC2000, SUCCESS, SSTICE_ANA_CLINC,        &
-    &                              SSTICE_CLIM
+    &                              SSTICE_CLIM, max_dom
   USE mo_math_constants,     ONLY: dbl_eps, rad2deg
   USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def, tmelt
   USE mo_run_config,         ONLY: msg_level, iforcing, check_uuid_gracefully
@@ -710,7 +710,16 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':read_ext_data_atm'
     ! input file for topography_c for mpi-physics
-    CHARACTER(len=max_char_length), PARAMETER :: land_sso_fn  = 'bc_land_sso.nc'
+    CHARACTER(len=max_char_length), PARAMETER :: land_sso_fn(max_dom)  = (/'bc_land_sso_DOM01.nc', &
+                                                                           'bc_land_sso_DOM02.nc', &
+                                                                           'bc_land_sso_DOM03.nc', &
+                                                                           'bc_land_sso_DOM04.nc', &
+                                                                           'bc_land_sso_DOM05.nc', &
+                                                                           'bc_land_sso_DOM06.nc', &
+                                                                           'bc_land_sso_DOM07.nc', &
+                                                                           'bc_land_sso_DOM08.nc', &
+                                                                           'bc_land_sso_DOM09.nc', &
+                                                                           'bc_land_sso_DOM10.nc' /)
 
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
     CHARACTER(filename_max) :: sst_td_file !< file name for reading in
@@ -898,7 +907,7 @@ CONTAINS
 
         ! Read topography
 
-        stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
+        stream_id = openInputFile(land_sso_fn(jg), p_patch(jg), default_read_method)
         CALL read_2D(stream_id, on_cells, 'elevation', &
           &          ext_data(jg)%atm%topography_c)
 

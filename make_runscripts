@@ -305,6 +305,10 @@ do
       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
       memory_model="small" queue="$queue" ${define_grids_folder}
       ;;
+    *amip_europe*)
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun_nesting EXPNAME=${name}\
+      memory_model="large" omp_stacksize=$omp_stacksize ${define_grids_folder}
+      ;;
     *)
       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
       memory_model="large" omp_stacksize=$omp_stacksize ${define_grids_folder}

@@ -454,6 +454,7 @@ MODULE mo_nh_stepping
   CASE (iecham)
     IF (.NOT.isRestart()) THEN
       CALL init_slowphysics (mtime_current, 1, dtime)
+      !CALL fill_nestlatbc_phys ! VM: to be implemented (only important for output??)
     END IF
   END SELECT ! iforcing
 
@@ -1052,6 +1053,11 @@ MODULE mo_nh_stepping
         ENDDO!jg
 
       END IF !iforcing=inwp
+
+      ! VM: to be implemented (interpol_phys_grf has to be adapted)
+      !IF (iforcing == inwp .OR. iforcing==iecham) THEN
+      !  CALL fill_nestlatbc_phys
+      !END IF !iforcing=inwp
 
       IF (ntracer>0) THEN
          !
@@ -1854,6 +1860,7 @@ MODULE mo_nh_stepping
                 &                         ,p_patch(jg)                               & !in
                 &                         ,p_int_state(jg)                           & !in
                 &                         ,p_nh_state(jg)%metrics                    & !in
+                &                         ,ext_data(jg)                              & !inout
                 &                         ,p_nh_state(jg)%prog(nnow(jg))             & !in
                 &                         ,p_nh_state(jg)%prog(n_now_rcf)            & !in
                 &                         ,p_nh_state(jg)%prog(nnew(jg))             & !inout
@@ -2192,7 +2199,7 @@ MODULE mo_nh_stepping
       CALL messy_global_end(jg)
 #endif
 
-    ENDDO
+    ENDDO ! jstep
 
     IF (jg == 1 .AND. ltimer) CALL timer_stop(timer_integrate_nh)
 
@@ -2508,6 +2515,7 @@ MODULE mo_nh_stepping
             &                         ,p_patch(jg)                               & !in
             &                         ,p_int_state(jg)                           & !in
             &                         ,p_nh_state(jg)%metrics                    & !in
+            &                         ,ext_data(jg)                              & !inout
             &                         ,p_nh_state(jg)%prog(nnow(jg))             & !inout
             &                         ,p_nh_state(jg)%prog(n_now_rcf)            & !inout
             &                         ,p_nh_state(jg)%prog(nnow(jg))             & !inout

@@ -25,24 +25,44 @@ MODULE mo_bc_sst_sic
   USE mo_mpi,                ONLY: my_process_is_mpi_workroot
   USE mo_scatter,            ONLY: scatter_time_array
   USE mo_model_domain,       ONLY: t_patch
+  USE mo_impl_constants,     ONLY: max_dom
   USE mo_parallel_config,    ONLY: nproma
   USE mo_physical_constants, ONLY: tf_salt !, tmelt
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_cdi,                ONLY: streamOpenRead, streamInqVlist, gridInqSize,      &
     &                              vlistInqTaxis, streamInqTimestep, taxisInqVdate,  &
-    &                              vlistInqVarGrid, streamClose, streamReadVarslice
+    &                              vlistInqVarGrid, streamClose, streamReadVarSlice
   USE mo_util_cdi,           ONLY: cdiGetStringError
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights
+
+  USE mo_ext_data_types,     ONLY: t_external_data
+
 
   IMPLICIT NONE
 
   PRIVATE
   
-  REAL(dp), POINTER :: sst(:,:,:) => NULL()
-  REAL(dp), POINTER :: sic(:,:,:) => NULL()
-  
-  CHARACTER(len=*), PARAMETER :: sst_fn = 'bc_sst.nc'
-  CHARACTER(len=*), PARAMETER :: sic_fn = 'bc_sic.nc'
+  CHARACTER(len=*), PARAMETER :: sst_fn(max_dom) = (/'bc_sst_DOM01.nc', &
+                                                     'bc_sst_DOM02.nc', &
+                                                     'bc_sst_DOM03.nc', &
+                                                     'bc_sst_DOM04.nc', &
+                                                     'bc_sst_DOM05.nc', &
+                                                     'bc_sst_DOM06.nc', &
+                                                     'bc_sst_DOM07.nc', &
+                                                     'bc_sst_DOM08.nc', &
+                                                     'bc_sst_DOM09.nc', &
+                                                     'bc_sst_DOM10.nc' /)
+
+  CHARACTER(len=*), PARAMETER :: sic_fn(max_dom) = (/'bc_sic_DOM01.nc', &
+                                                     'bc_sic_DOM02.nc', &
+                                                     'bc_sic_DOM03.nc', &
+                                                     'bc_sic_DOM04.nc', &
+                                                     'bc_sic_DOM05.nc', &
+                                                     'bc_sic_DOM06.nc', &
+                                                     'bc_sic_DOM07.nc', &
+                                                     'bc_sic_DOM08.nc', &
+                                                     'bc_sic_DOM09.nc', &
+                                                     'bc_sic_DOM10.nc' /)
 
   PUBLIC :: read_bc_sst_sic
   PUBLIC :: bc_sst_sic_time_interpolation
@@ -52,60 +72,68 @@ MODULE mo_bc_sst_sic
 
 CONTAINS
   
-  SUBROUTINE read_bc_sst_sic(year, p_patch)
+  SUBROUTINE read_bc_sst_sic(year, p_patch, jg, ext_data)
 
     INTEGER(i8),   INTENT(in) :: year
+    INTEGER,       INTENT(in) :: jg
     TYPE(t_patch), INTENT(in) :: p_patch
+    TYPE(t_external_data), INTENT(inout) :: ext_data
    
-    REAL(dp), POINTER :: zin(:,:) => NULL()
+    REAL(dp), SAVE, POINTER :: zin(:,:) => NULL()
+    INTEGER :: zlen
     
     LOGICAL :: lexist
     
-    ! global
-    IF (.NOT. ASSOCIATED(zin)) ALLOCATE(zin(p_patch%n_patch_cells_g, 0:13))
+    ! global (i.e., read in data into an array of equivalent horizontal dims)
+    IF (.NOT. ASSOCIATED(zin)) ALLOCATE(zin(p_patch%n_patch_cells_g, 1:14))
 
     IF (my_process_is_mpi_workroot()) THEN
    
-      WRITE(message_text,'(a,a,a,i0)') &
-           'Read SST from ', sst_fn, ' for ', year
+      WRITE(message_text,'(a,a,a,i4)') &
+           'Read SST from ', sst_fn(jg), ' for ', year
       CALL message('',message_text)
       
-      INQUIRE (file=sst_fn, exist=lexist)
+      INQUIRE (file=sst_fn(jg), exist=lexist)
       IF (lexist) THEN
-        CALL read_sst_sic_data(sst_fn, year, zin)
+        CALL read_sst_sic_data(sst_fn(jg), year, zin)
+        zlen = SIZE(zin, 1)
       ELSE
-        WRITE (message_text,*) 'Could not open file ',sst_fn
+        WRITE (message_text,*) 'Could not open file ',sst_fn(jg)
         CALL message('',message_text)
         CALL finish ('mo_bc_sst_sic:read_bc_sst_sic', 'run terminated.')
       ENDIF
 
     ENDIF
 
-    ! local
-    IF (.NOT. ASSOCIATED(sst)) ALLOCATE (sst(nproma, p_patch%nblks_c, 0:13))
-    CALL scatter_time_array(zin, sst, p_patch%cells%decomp_info%glb_index)
+    ! local (i.e. cut SST-data into slices of length nproma)
+    CALL scatter_time_array(zin, ext_data%atm_td%sst_m, p_patch%cells%decomp_info%glb_index)
 
+    ! and the same for SIC (don't allocate zin again)
     IF (my_process_is_mpi_workroot()) THEN
 
-      WRITE(message_text,'(a,a,a,i0)') &
-           'Read sea ice from ', sic_fn, ' for ', year
+      WRITE(message_text,'(a,a,a,i4)') &
+           'Read sea ice from ', sic_fn(jg), ' for ', year
       CALL message('',message_text)
       
-      INQUIRE (file=sic_fn, exist=lexist)
+      INQUIRE (file=sic_fn(jg), exist=lexist)
       IF (lexist) THEN
-        CALL read_sst_sic_data(sic_fn, year, zin)
+
+        zin = 1.
+        CALL read_sst_sic_data(sic_fn(jg), year, zin)
+
+        zlen = SIZE(zin, 1)
+        
       ELSE
-        WRITE (message_text,*) 'Could not open file ', sic_fn
+        WRITE (message_text,*) 'Could not open file ', sic_fn(jg)
         CALL message('',message_text)
         CALL finish ('mo_bc_sst_sic:read_bc_sst_sic', 'run terminated.')
       ENDIF
       
     ENDIF
 
-    ! local
-    IF (.NOT. ASSOCIATED(sic)) ALLOCATE (sic(nproma, p_patch%nblks_c, 0:13))
-    CALL scatter_time_array(zin, sic, p_patch%cells%decomp_info%glb_index)
-    
+    ! local (i.e. cut SIC-data into slices of length nproma)
+    CALL scatter_time_array(zin, ext_data%atm_td%fr_ice_m, p_patch%cells%decomp_info%glb_index)
+
     IF (ASSOCIATED(zin)) DEALLOCATE(zin)
     
     current_year = year
@@ -116,7 +144,7 @@ CONTAINS
     
     CHARACTER(len=*), INTENT(in) :: fn
     INTEGER(i8), INTENT(in) :: y
-    REAL(dp), POINTER :: zin(:,:)
+    REAL(dp), POINTER       :: zin(:,:)
     
     INTEGER :: ngridsize
     INTEGER(i8) :: ym1, yp1
@@ -154,15 +182,16 @@ CONTAINS
       vdate = taxisInqVdate(taxisID)
       vyear = vdate/10000
       vmonth = (vdate/100)-vyear*100
+
       IF (INT(vyear,i8) == ym1 .AND. vmonth == 12) THEN
-        CALL streamReadVarslice(streamID, varID, 0, buffer, nmiss)
-        zin(:,0) = buffer(:)
+        CALL streamReadVarSlice(streamID, varID, 0, buffer, nmiss)
+        zin(:,1) = buffer(:)
       ELSE IF (INT(vyear,i8) == y) THEN
-        CALL streamReadVarslice(streamID, varID, 0, buffer, nmiss)
-        zin(:,vmonth) = buffer(:)
+        CALL streamReadVarSlice(streamID, varID, 0, buffer, nmiss)
+        zin(:,vmonth+1) = buffer(:)
       ELSE IF (INT(vyear,i8) == yp1 .AND. vmonth == 1) THEN
-        CALL streamReadVarslice(streamID, varID, 0, buffer, nmiss)
-        zin(:,13) = buffer(:)
+        CALL streamReadVarSlice(streamID, varID, 0, buffer, nmiss)
+        zin(:,14) = buffer(:)
         EXIT
       ENDIF
       tsID = tsID+1
@@ -174,7 +203,7 @@ CONTAINS
 
   END SUBROUTINE read_sst_sic_data
 
-  SUBROUTINE bc_sst_sic_time_interpolation(tiw, mask_lnd, tsw, seaice, siced, p_patch)
+  SUBROUTINE bc_sst_sic_time_interpolation(tiw, mask_lnd, tsw, seaice, siced, p_patch, ext_data)
     
     TYPE( t_time_interpolation_weights), INTENT(in) :: tiw
     LOGICAL        , INTENT(in)  :: mask_lnd(:,:)  !< logical land-sea mask, .TRUE. means there is no fraction of ocean/sea-ice 
@@ -182,12 +211,19 @@ CONTAINS
     REAL(dp)       , INTENT(out) :: seaice(:,:) 
     REAL(dp)       , INTENT(out) :: siced(:,:) 
     TYPE(t_patch)  , INTENT(in)  :: p_patch
+    TYPE(t_external_data), INTENT(in) :: ext_data
 
     REAL(dp) :: zts(SIZE(tsw,1),SIZE(tsw,2))
     REAL(dp) :: zic(SIZE(tsw,1),SIZE(tsw,2))
 
-    zts(:,:) = tiw%weight1 * sst(:,:,tiw%month1_index) + tiw%weight2 * sst(:,:,tiw%month2_index)
-    zic(:,:) = tiw%weight1 * sic(:,:,tiw%month1_index) + tiw%weight2 * sic(:,:,tiw%month2_index)
+    CALL message('bc_sst_sic_time_interpolation','start..')
+
+    !zts(:,:) = tiw%weight1 * sst(:,:,tiw%month1_index) + tiw%weight2 * sst(:,:,tiw%month2_index)
+    !zic(:,:) = tiw%weight1 * sic(:,:,tiw%month1_index) + tiw%weight2 * sic(:,:,tiw%month2_index)
+    zts(:,:) = tiw%weight1 * ext_data%atm_td%sst_m(:,:,tiw%month1_index+1)    & 
+      &        + tiw%weight2 * ext_data%atm_td%sst_m(:,:,tiw%month2_index+1)
+    zic(:,:) = tiw%weight1 * ext_data%atm_td%fr_ice_m(:,:,tiw%month1_index+1) &
+      &        + tiw%weight2 * ext_data%atm_td%fr_ice_m(:,:,tiw%month2_index+1)
 
     !TODO: missing siced needs to be added
 
@@ -216,8 +252,8 @@ CONTAINS
     ELSEWHERE
       siced(:,:) = 0._dp
     ENDWHERE
-
-    !CALL message('','Interpolated sea surface temperature and sea ice cover.')
+    
+    CALL message('','Interpolated sea surface temperature and sea ice cover.')
 
   END SUBROUTINE bc_sst_sic_time_interpolation
 

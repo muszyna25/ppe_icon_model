@@ -22,6 +22,7 @@ MODULE mo_surface_diag
   USE mo_echam_vdiff_params,ONLY: tpfac2
   USE mo_echam_phy_memory,  ONLY: cdimissval
 
+
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: wind_stress, surface_fluxes, nsurf_diag
@@ -30,7 +31,7 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE surface_fluxes( kproma, kbdim, ksfc_type,             &! in
+  SUBROUTINE surface_fluxes( jcs, kproma, kbdim, ksfc_type,        &! in
                            & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
                            & psteplen,                             &! in
                            & pfrc, alake, pcfh_tile, pfac_sfc,     &! in
@@ -45,7 +46,7 @@ CONTAINS
                            & pevap_tile )                           ! out
 
     REAL(wp),INTENT(IN) :: psteplen
-    INTEGER, INTENT(IN) :: kproma, kbdim, ksfc_type
+    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, ksfc_type
     INTEGER, INTENT(IN) :: idx_wtr, idx_ice, idx_lnd
     INTEGER, INTENT(IN) :: ih, iqv
 
@@ -115,32 +116,32 @@ CONTAINS
       ! bb was replaced by bb_btm (according to E. Roeckner), now not blended
       ! quantity used.
 
-      zdqv(1:kproma) =   bb_btm(1:kproma,jsfc,iqv)*pca(1:kproma,jsfc)          &
-                     & - tpfac2*pqsat_tile(1:kproma,jsfc)*pcs(1:kproma,jsfc)
+      zdqv(jcs:kproma) =   bb_btm(jcs:kproma,jsfc,iqv)*pca(jcs:kproma,jsfc)          &
+                     & - tpfac2*pqsat_tile(jcs:kproma,jsfc)*pcs(jcs:kproma,jsfc)
 
       ! Moisture flux ( = evaporation). Formula:
       ! (g*psteplen)**(-1)*[  tpfac1*g*psteplen*(air density)*(exchange coef)
       !                     *(tpfac1)**(-1)*( qv_{tavg,klev} - qs_tile ) ]
 
       IF (jsfc == idx_lnd) THEN
-        pevap_tile(1:kproma,jsfc) = pevap_lnd(1:kproma)
+        pevap_tile(jcs:kproma,jsfc) = pevap_lnd(jcs:kproma)
       END IF
       IF (jsfc == idx_wtr) THEN
-        WHERE (alake(1:kproma) > 0._wp)
-          pevap_tile(1:kproma,idx_wtr) = pevap_lwtr(1:kproma)
+        WHERE (alake(jcs:kproma) > 0._wp)
+          pevap_tile(jcs:kproma,idx_wtr) = pevap_lwtr(jcs:kproma)
         ELSE WHERE
-          pevap_tile(1:kproma,idx_wtr) =  zconst*pfac_sfc(1:kproma)   &
-                                       & *pcfh_tile(1:kproma,idx_wtr) &
-                                       & *zdqv(1:kproma)
+          pevap_tile(jcs:kproma,idx_wtr) =  zconst*pfac_sfc(jcs:kproma)   &
+                                       & *pcfh_tile(jcs:kproma,idx_wtr) &
+                                       & *zdqv(jcs:kproma)
         END WHERE
       END IF
       IF (jsfc == idx_ice) THEN
-        WHERE (alake(1:kproma) > 0._wp)
-          pevap_tile(1:kproma,idx_ice) = pevap_lice(1:kproma)
+        WHERE (alake(jcs:kproma) > 0._wp)
+          pevap_tile(jcs:kproma,idx_ice) = pevap_lice(jcs:kproma)
         ELSE WHERE
-          pevap_tile(1:kproma,idx_ice) =  zconst*pfac_sfc(1:kproma)   &
-                                       & *pcfh_tile(1:kproma,idx_ice) &
-                                       & *zdqv(1:kproma)
+          pevap_tile(jcs:kproma,idx_ice) =  zconst*pfac_sfc(jcs:kproma)   &
+                                       & *pcfh_tile(jcs:kproma,idx_ice) &
+                                       & *zdqv(jcs:kproma)
         END WHERE
       END IF
 
@@ -153,8 +154,8 @@ CONTAINS
     pevap_gbm(:) = 0._wp   ! "pqhfla" in echam
 
     DO jsfc = 1,ksfc_type
-      pevap_gbm(1:kproma) = pevap_gbm(1:kproma)                           &
-        &                 + pfrc(1:kproma,jsfc)*pevap_tile(1:kproma,jsfc)
+      pevap_gbm(jcs:kproma) = pevap_gbm(jcs:kproma)                           &
+        &                 + pfrc(jcs:kproma,jsfc)*pevap_tile(jcs:kproma,jsfc)
     ENDDO
 
     !-------------------------------------------------------------------
@@ -163,20 +164,20 @@ CONTAINS
     ! Instantaneous values
 
     IF (idx_lnd <= ksfc_type) THEN
-      plhflx_tile(1:kproma,idx_lnd) = plhflx_lnd(1:kproma)
+      plhflx_tile(jcs:kproma,idx_lnd) = plhflx_lnd(jcs:kproma)
     END IF
     IF (idx_wtr <= ksfc_type) THEN
-      WHERE (alake(1:kproma) > 0._wp)
-        plhflx_tile(1:kproma,idx_wtr) = plhflx_lwtr(1:kproma)
+      WHERE (alake(jcs:kproma) > 0._wp)
+        plhflx_tile(jcs:kproma,idx_wtr) = plhflx_lwtr(jcs:kproma)
       ELSE WHERE
-        plhflx_tile(1:kproma,idx_wtr) = alv*pevap_tile(1:kproma,idx_wtr)
+        plhflx_tile(jcs:kproma,idx_wtr) = alv*pevap_tile(jcs:kproma,idx_wtr)
       END WHERE
     END IF
     IF (idx_ice <= ksfc_type) THEN
-      WHERE (alake(1:kproma) > 0._wp)
-        plhflx_tile(1:kproma,idx_ice) = plhflx_lice(1:kproma)
+      WHERE (alake(jcs:kproma) > 0._wp)
+        plhflx_tile(jcs:kproma,idx_ice) = plhflx_lice(jcs:kproma)
       ELSE WHERE
-        plhflx_tile(1:kproma,idx_ice) = als*pevap_tile(1:kproma,idx_ice)
+        plhflx_tile(jcs:kproma,idx_ice) = als*pevap_tile(jcs:kproma,idx_ice)
       END WHERE
     END IF
 
@@ -185,8 +186,8 @@ CONTAINS
     plhflx_gbm(:) = 0.0_wp
 
     DO jsfc = 1,ksfc_type
-      plhflx_gbm(1:kproma) = plhflx_gbm(1:kproma)                           &
-        &                  + pfrc(1:kproma,jsfc)*plhflx_tile(1:kproma,jsfc)
+      plhflx_gbm(jcs:kproma) = plhflx_gbm(jcs:kproma)                           &
+        &                  + pfrc(jcs:kproma,jsfc)*plhflx_tile(jcs:kproma,jsfc)
     ENDDO
 
     !-------------------------------------------------------------------
@@ -202,29 +203,29 @@ CONTAINS
       ! bb was replaced by bb_btm (according to E. Roeckner), now not blended
       ! quantity used.
 
-        zdcptv(1:kproma) = bb_btm(1:kproma,jsfc,ih) - tpfac2*pcptv_tile(1:kproma,jsfc)
+        zdcptv(jcs:kproma) = bb_btm(jcs:kproma,jsfc,ih) - tpfac2*pcptv_tile(jcs:kproma,jsfc)
 
       ! Flux of dry static energy
 
       IF (jsfc == idx_lnd) THEN
-        pshflx_tile(1:kproma,jsfc) = pshflx_lnd(1:kproma)
+        pshflx_tile(jcs:kproma,jsfc) = pshflx_lnd(jcs:kproma)
       END IF
       IF (jsfc == idx_wtr) THEN
-        WHERE (alake(1:kproma) > 0._wp)
-          pshflx_tile(1:kproma,jsfc) = pshflx_lwtr(1:kproma)
+        WHERE (alake(jcs:kproma) > 0._wp)
+          pshflx_tile(jcs:kproma,jsfc) = pshflx_lwtr(jcs:kproma)
         ELSE WHERE
-          pshflx_tile(1:kproma,jsfc) =  zconst*pfac_sfc(1:kproma) &
-                                     & *pcfh_tile(1:kproma,jsfc)  &
-                                     & *zdcptv(1:kproma)
+          pshflx_tile(jcs:kproma,jsfc) =  zconst*pfac_sfc(jcs:kproma) &
+                                     & *pcfh_tile(jcs:kproma,jsfc)  &
+                                     & *zdcptv(jcs:kproma)
         END WHERE
       END IF
       IF (jsfc == idx_ice) THEN
-        WHERE (alake(1:kproma) > 0._wp)
-          pshflx_tile(1:kproma,jsfc) = pshflx_lice(1:kproma)
+        WHERE (alake(jcs:kproma) > 0._wp)
+          pshflx_tile(jcs:kproma,jsfc) = pshflx_lice(jcs:kproma)
         ELSE WHERE
-         pshflx_tile(1:kproma,jsfc) =  zconst*pfac_sfc(1:kproma) &
-                                     & *pcfh_tile(1:kproma,jsfc)  &
-                                     & *zdcptv(1:kproma)
+         pshflx_tile(jcs:kproma,jsfc) =  zconst*pfac_sfc(jcs:kproma) &
+                                     & *pcfh_tile(jcs:kproma,jsfc)  &
+                                     & *zdcptv(jcs:kproma)
         END WHERE
       END IF
 
@@ -235,8 +236,8 @@ CONTAINS
     pshflx_gbm(:) = 0.0_wp
 
     DO jsfc = 1,ksfc_type
-      pshflx_gbm(1:kproma) = pshflx_gbm(1:kproma)                           &
-        &                  + pfrc(1:kproma,jsfc)*pshflx_tile(1:kproma,jsfc)
+      pshflx_gbm(jcs:kproma) = pshflx_gbm(jcs:kproma)                           &
+        &                  + pfrc(jcs:kproma,jsfc)*pshflx_tile(jcs:kproma,jsfc)
     ENDDO
 
   END SUBROUTINE surface_fluxes
@@ -244,7 +245,7 @@ CONTAINS
   !!
   !! Compute wind stress over each surface type
   !!
-  SUBROUTINE wind_stress( kproma, kbdim, ksfc_type,             &! in
+  SUBROUTINE wind_stress( jcs, kproma, kbdim, ksfc_type,        &! in
                         & psteplen,                             &! in
                         & pfrc, pcfm_tile, pfac_sfc,            &! in
                         & pu_rtpfac1, pv_rtpfac1,               &! in
@@ -252,7 +253,7 @@ CONTAINS
                         & pu_stress_tile, pv_stress_tile        )! out
 
     REAL(wp),INTENT(IN)    :: psteplen
-    INTEGER, INTENT(IN)    :: kproma, kbdim, ksfc_type
+    INTEGER, INTENT(IN)    :: jcs, kproma, kbdim, ksfc_type
 
     REAL(wp),INTENT(IN)    :: pfrc            (kbdim,ksfc_type)
     REAL(wp),INTENT(IN)    :: pcfm_tile       (kbdim,ksfc_type)
@@ -291,7 +292,7 @@ CONTAINS
     !
     DO jsfc = 1,ksfc_type
        is(jsfc) = 0
-       DO jl = 1,kproma
+       DO jl = jcs,kproma
           IF(pfrc(jl,jsfc).GT.0.0_wp) THEN
              is(jsfc) = is(jsfc) + 1
              loidx(is(jsfc),jsfc) = jl
@@ -325,7 +326,7 @@ CONTAINS
   !! Compute diagnostics: 10m wind, u and v in 10m,
   !!                      temperature in 2m, dew point temperature in 2m
   !!
-  SUBROUTINE nsurf_diag( kproma, kbdim, ksfc_type,        &! in
+  SUBROUTINE nsurf_diag( jcs, kproma, kbdim, ksfc_type,   &! in
                        & idx_lnd,                         &! in
                        & pfrc,                            &! in
                        & pqm1,                            &! in humidity 
@@ -356,7 +357,7 @@ CONTAINS
                        & puas_tile,                       &! out zonal wind in 10m
                        & pvas_tile                        )! out meridional wind in 10m
 
-    INTEGER, INTENT(IN) :: kproma, kbdim, ksfc_type
+    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, ksfc_type
     INTEGER, INTENT(IN) :: idx_lnd
 
     REAL(wp),INTENT(IN) :: pfrc     (kbdim,ksfc_type) !< fraction of the grid box occupied by
@@ -417,8 +418,8 @@ CONTAINS
 
     ! check for masks
     !
-    is(jsfc) = 0
-     DO jl = 1,kproma
+    is(jsfc) = jcs-1
+     DO jl = jcs,kproma
        IF(pfrc(jl,jsfc).GT.0.0_wp) THEN
          is(jsfc) = is(jsfc) + 1
          loidx(is(jsfc),jsfc) = jl
@@ -428,6 +429,7 @@ CONTAINS
 
     !     Compute new t2m
     !
+
     DO jsfc = 1,ksfc_type
       IF ( jsfc == idx_lnd ) THEN
         ! land only
@@ -436,7 +438,7 @@ CONTAINS
         ! water and ice
         pbtile => pbn_tile
       END IF
-      DO jls=1,is(jsfc)
+      DO jls=jcs,is(jsfc)
        jl = loidx(jls,jsfc)
        zrat   = zhtq / (pzf(jl)-pzs(jl))
        zcbn   = LOG(1._wp + (EXP(pbtile(jl,jsfc)) - 1._wp) * zrat )
@@ -454,9 +456,9 @@ CONTAINS
 
     DO jsfc = 1,ksfc_type
 
-    CALL lookup_ua_list_spline('nsurf_diag(1)', kproma, is(jsfc), loidx(1,jsfc), ptm1(1), ua(1))
+    CALL lookup_ua_list_spline('nsurf_diag(1)', jcs, kproma, is(jsfc), loidx(:,jsfc), ptm1, ua)
 
-     DO jls=1,is(jsfc)
+     DO jls=jcs,is(jsfc)
       jl = loidx(jls,jsfc)
       zqs1(jl)      = ua(jls) / papm1(jl)
       zqs1(jl)      = zqs1(jl) / (1._wp- vtmpc1 * zqs1(jl))
@@ -466,17 +468,17 @@ CONTAINS
           (1._wp - zhtq*grav / ( rd * ptas_tile(jl,jsfc) * (1._wp + vtmpc1 * pqm1(jl) - pxm1(jl))))
      ENDDO
 
-     WHERE(ptas_tile(1:kproma,jsfc) .GT. tmelt)
-        zcvm3(1:kproma)   = zc3les
-        zcvm4(1:kproma)   = zc4les
+     WHERE(ptas_tile(jcs:kproma,jsfc) .GT. tmelt)
+        zcvm3(jcs:kproma)   = zc3les
+        zcvm4(jcs:kproma)   = zc4les
      ELSEWHERE
-        zcvm3(1:kproma)   = zc3ies
-        zcvm4(1:kproma)   = zc4ies
+        zcvm3(jcs:kproma)   = zc3ies
+        zcvm4(jcs:kproma)   = zc4ies
      ENDWHERE
 
-    CALL lookup_ua_list_spline('nsurf_diag(2)', kbdim, is(jsfc), loidx(1,jsfc), ptas_tile(1,jsfc), ua(1))
+    CALL lookup_ua_list_spline('nsurf_diag(2)', jcs, kbdim, is(jsfc), loidx(:,jsfc), ptas_tile(:,jsfc), ua)
 
-    DO jls=1,is(jsfc)
+    DO jls=jcs,is(jsfc)
       jl = loidx(jls,jsfc)
       zqs2(jl)      = ua(jls) / zaph2m(jl)
       zqs2(jl)      = zqs2(jl) / (1._wp- vtmpc1 * zqs2(jl))
@@ -490,7 +492,7 @@ CONTAINS
     !*          5.97   10M WIND COMPONENTS
     !
     DO jsfc = 1,ksfc_type
-       DO jls=1,is(jsfc)
+       DO jls=jcs,is(jsfc)
          jl = loidx(jls,jsfc)
            zrat   = zhuv / (pzf(jl)-pzs(jl))
            zcbn   = LOG(1._wp + (EXP (pbn_tile(jl,jsfc)) - 1._wp) * zrat )
@@ -515,7 +517,7 @@ CONTAINS
     pdew2_gbm    (:)   = 0._wp
     !
     DO jsfc = 1,ksfc_type
-      DO jls = 1,is(jsfc)
+      DO jls = jcs,is(jsfc)
 ! set index
       js=loidx(jls,jsfc)
         psfcWind_gbm(js) = psfcWind_gbm(js) + pfrc(js,jsfc)*psfcWind_tile(js,jsfc)
@@ -528,7 +530,7 @@ CONTAINS
 ! 
 ! find max and min values for 2m temperature
 !
-    DO jl=1,kproma
+    DO jl=jcs,kproma
         ptasmax  (jl) = MAX(ptasmax(jl),ptas_gbm(jl))
         ptasmin  (jl) = MIN(ptasmin(jl),ptas_gbm(jl))
     ENDDO
