@@ -105,7 +105,7 @@ MODULE mo_ser_echam_surface
     !$ser&     pcosmu0=field%cosmu0                 &
     !$ser&     pch_tile=pch_tile                    &
     !$ser&     pcsat=field%csat                     &
-    !$ser&     pcair=field%pcair                    &
+    !$ser&     pcair=field%cair                    &
     !$ser&     z0m_tile=field%z0m_tile              &
     !$ser&     z0h_lnd=field%z0h_lnd                &
     !$ser&     albvisdir=field%albvisdir            &
@@ -118,7 +118,7 @@ MODULE mo_ser_echam_surface
     !$ser&     albnirdif_tile=field%albnirdif_tile  &
     !$ser&     albedo=field%albedo                  &
     !$ser&     albedo_tile=field%albedo_tile        &
-    !$ser&     rsns_tile=field%swflxfc_tile         &
+    !$ser&     rsns_tile=field%swflxsfc_tile         &
     !$ser&     rlns_tile=field%lwflxsfc_tile        &
     !$ser&     Tsurf=field%Tsurf                    &
     !$ser&     T1=field%T1                          &
@@ -191,7 +191,7 @@ MODULE mo_ser_echam_surface
     !$ser&     nblock=nblock                        &
     !$ser&     rlus=field%rlus                      &
     !$ser&     pcsat=field%csat                     &
-    !$ser&     pcair=field%pcair                    &
+    !$ser&     pcair=field%cair                    &
     !$ser&     q_snocpymlt=q_snocpymlt              &
     !$ser&     z0m_tile=field%z0m_tile              &
     !$ser&     z0h_lnd=field%z0h_lnd                &
@@ -207,7 +207,7 @@ MODULE mo_ser_echam_surface
     !$ser&     albedo_tile=field%albedo_tile        &
     !$ser&     ptsfc=field%ts                       &
     !$ser&     ptsfc_rad=field%ts_rad               &
-    !$ser&     rsns_tile=field%swflxfc_tile         &
+    !$ser&     rsns_tile=field%swflxsfc_tile         &
     !$ser&     rlns_tile=field%lwflxsfc_tile        &
     !$ser&     lake_ice_frc=field%lake_ice_frc      &
     !$ser&     Tsurf=field%Tsurf                    &
