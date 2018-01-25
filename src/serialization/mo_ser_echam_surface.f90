@@ -8,6 +8,8 @@ MODULE mo_ser_echam_surface
 
   USE mo_kind,        ONLY: vp, wp
   USE mo_ser_common,  ONLY: init
+  USE mtime,          ONLY: datetimeToString, MAX_DATETIME_STR_LEN
+  USE mo_time_config, ONLY: time_config
   IMPLICIT NONE
 
   LOGICAL :: writeIn = .TRUE.
@@ -19,6 +21,7 @@ MODULE mo_ser_echam_surface
   CONTAINS
 
   SUBROUTINE serialize_input(                                   &
+                           & jg,                                &
                            & pfrc,                              &
                            & pcfh_tile, pcfm_tile,              &
                            & pfac_sfc, pocu, pocv,              &
@@ -27,6 +30,7 @@ MODULE mo_ser_echam_surface
                            & ptsfc_tile,                        &
                            & plhflx_tile, pshflx_tile,          &
                            !! optional
+                           & nblock,                            &
                            & lsm,                               &
                            & alake,                             &
                            & pu,                                &
@@ -75,6 +79,7 @@ MODULE mo_ser_echam_surface
                            & conc,                              &
                            & albvisdir_ice, albvisdif_ice,      &
                            & albnirdir_ice, albnirdif_ice)       
+    INTEGER, INTENT(IN) :: jg
     REAL(wp),INTENT(IN) :: pfrc      (:,:)
     REAL(wp),INTENT(IN) :: pcfh_tile (:,:)
     REAL(wp),INTENT(IN) :: pcfm_tile (:,:)
@@ -92,6 +97,7 @@ MODULE mo_ser_echam_surface
     REAL(wp),INTENT(INOUT) :: plhflx_tile (:,:)
     REAL(wp),INTENT(INOUT) :: pshflx_tile (:,:)
     !! JSBACH input
+    INTEGER, OPTIONAL,INTENT(IN) :: nblock
     REAL(wp),OPTIONAL,INTENT(IN) :: lsm(:)
     REAL(wp),OPTIONAL,INTENT(IN) :: alake(:)
     REAL(wp),OPTIONAL,INTENT(IN) :: pu        (:)              ! zonal wind lowest level
@@ -146,9 +152,12 @@ MODULE mo_ser_echam_surface
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdir_ice(:,:)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdif_ice(:,:)
 
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
+
     !$ser verbatim IF (writeIn) THEN
+    !$ser verbatim call datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim call init()
-    !$ser savepoint echam_surface-input
+    !$ser savepoint echam_surface-input jg=jg nblock=nblock date=date
 #if defined SERIALIZE_CREATE_REFERENCE 
     !$ser mode write
 #elif defined SERIALIZE_PERTURB_REFERENCE
@@ -183,6 +192,7 @@ MODULE mo_ser_echam_surface
   END SUBROUTINE serialize_input
 
   SUBROUTINE serialize_output(                                  &
+                           & jg,                                &
                            & aa, aa_btm, bb, bb_btm,            &
                            & pcpt_tile, pqsat_tile,             &
                            & ptsfc_tile,                        &
@@ -193,6 +203,7 @@ MODULE mo_ser_echam_surface
                            & plhflx_tile, pshflx_tile,          &
                            & pevap_tile,                        &
                            !! optional
+                           & nblock,                            &
                            & rlus,                              &
                            !! for JSBACH
                            & pcsat,                             &
@@ -220,6 +231,7 @@ MODULE mo_ser_echam_surface
                            & Qbot,                              &
                            & albvisdir_ice, albvisdif_ice,      &
                            & albnirdir_ice, albnirdif_ice)       
+    INTEGER, INTENT(IN) :: jg
     REAL(wp),INTENT(INOUT) :: aa     (:,:,:,:)
     REAL(wp),INTENT(INOUT) :: aa_btm (:,:,:,:)
     REAL(wp),INTENT(INOUT) :: bb     (:,:,:)
@@ -241,6 +253,7 @@ MODULE mo_ser_echam_surface
     REAL(wp),INTENT(OUT)   :: pevap_tile (:,:)
 
     !! JSBACH output
+    INTEGER, OPTIONAL,INTENT(IN) :: nblock
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcsat(:)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcair(:)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: q_snocpymlt(:)
@@ -273,9 +286,12 @@ MODULE mo_ser_echam_surface
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdir_ice(:,:)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdif_ice(:,:)
 
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
+
     !$ser verbatim if (writeOut) then
+    !$ser verbatim call datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim call init()
-    !$ser savepoint echam_surface-output
+    !$ser savepoint echam_surface-output jg=jg nblock=nblock date=date
     !$ser mode write
     !$ser data aa=aa aa_btm=aa_btm bb=bb bb_btm=bb_btm pcpt_tile=pcpt_tile     &
     !$ser&     pqsat_tile=pqsat_tile ptsfc_tile=ptsfc_tile                     &
