@@ -115,6 +115,7 @@ CONTAINS
                            & conc,                              &! in
                            & albvisdir_ice, albvisdif_ice,      &! inout
                            & albnirdir_ice, albnirdif_ice)       ! inout
+
     REAL(wp),INTENT(IN) :: pdtime
     INTEGER, INTENT(IN) :: jg
     INTEGER, INTENT(IN) :: kproma, kbdim
@@ -245,7 +246,7 @@ CONTAINS
 
     LOGICAL :: mask(kbdim)
 
-    CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
+     CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
 
     ! check for masks
     !

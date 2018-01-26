@@ -226,7 +226,6 @@ CONTAINS
 
     INTEGER :: ik_slice(4)
 
-
     IF (PRESENT(nccn)) THEN
        cloud_type = cloud_type_default_gscp5 + 10 * ccn_type
     ELSE
