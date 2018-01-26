@@ -246,7 +246,7 @@ CONTAINS
 
     LOGICAL :: mask(kbdim)
 
-     CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
+   CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
 
     ! check for masks
     !
