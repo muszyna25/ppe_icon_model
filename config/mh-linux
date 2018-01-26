@@ -262,27 +262,27 @@ case "$ac_sitename" in
 			;;
                     cray)
                         config_target=daint_cpu
-                        load_modules = modules craype daint-gpu PrgEnv-cray cdt/16.11 cray-netcdf
+                        load_modules = modules craype daint-gpu PrgEnv-cray cdt/16.11 cray-netcdf cray-hdf5
                         FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv
-                        CFLAGS      = -g -Df2cFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -O3 -DUSE_XML2
+                        CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -O3 -DUSE_XML2
                         LDFLAGS     = -Wl,--allow-multiple-definition
-                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
-                        HDF5ROOT    = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
-                        LAPACKROOT    = ${CRAY_LIBSCI_PREFIX_DIR}
-                        LAPACK_LIB    = -lsci_cray
+                        NETCDFROOT  = ${NETCDF_DIR}
+                        HDF5ROOT    = ${HDF5_DIR}
+                        LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
+                        LAPACK_LIB  = -lsci_cray
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -dynamic -L/usr/lib64 -llzma
                         #SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/cray
                         SERIALBOX2ROOT = /project/c14/install/daint/serialbox2_cce8.5.5
                         ;;
                     cray_gpu)
                         config_target=daint_gpu
-                        load_modules = modules craype daint-gpu PrgEnv-cray cdt/16.11 cray-netcdf craype-accel-nvidia60
+                        load_modules = modules craype daint-gpu PrgEnv-cray cdt/16.11 cray-netcdf cray-hdf5 craype-accel-nvidia60
                         FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=intolerant -hfp0 -hacc -hnoomp -hadd_paren -hacc_model=deep_copy -Ocache0,ipa1 -r am -Ktrap=divz,ovf,inv
                         CFLAGS      = -g -Df2cFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2 -O3 -DUSE_XML2
-                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
-                        HDF5ROOT    = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
-                        LAPACKROOT    = ${CRAY_LIBSCI_PREFIX_DIR}
-                        LAPACK_LIB    = -lsci_cray
+                        NETCDFROOT  = ${NETCDF_DIR}
+                        HDF5ROOT    = ${HDF5_DIR}
+                        LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
+                        LAPACK_LIB  = -lsci_cray
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -llzma
                         #SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/cray
                         SERIALBOX2ROOT = /project/c14/install/daint/serialbox2_cce8.5.5
