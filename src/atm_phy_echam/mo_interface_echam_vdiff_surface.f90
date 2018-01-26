@@ -276,10 +276,10 @@ CONTAINS
           !
           !----------------------------------------------------------------------------------------
           ! Serialbox2 input fields serialization
-          !$ser verbatim call serialize_surface_input(jb, jg, jce, nbdim, nlev, nsfc_type,&
-          !$ser verbatim   iwtr, iice, ilnd, pdtime, field, zfactor_sfc, zaa,&
-          !$ser verbatim   zaa_btm, zbb, zbb_btm, zcpt_sfc_tile, nblock = jb,&
-          !$ser verbatim   pch_tile = zch_tile)
+          !$ser verbatim call serialize_surface_input(jb, nlev, nlevp1, iqv, jg,&
+          !$ser verbatim   jce, nbdim, nlev, nsfc_type, iwtr, iice, ilnd, pdtime,&
+          !$ser verbatim   field, zfactor_sfc, zaa, zaa_btm, zbb, zbb_btm,&
+          !$ser verbatim   zcpt_sfc_tile, nblock = jb, pch_tile = zch_tile)
           !
           CALL update_surface(jg, jce, nbdim, field%kice,                     &! in
                &              nlev, nsfc_type,                                &! in
