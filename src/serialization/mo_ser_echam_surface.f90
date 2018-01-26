@@ -13,8 +13,8 @@ MODULE mo_ser_echam_surface
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field
   IMPLICIT NONE
 
-  LOGICAL :: writeIn = .TRUE.
-  LOGICAL :: writeOut = .TRUE.
+  LOGICAL :: writeIn = .FALSE.
+  LOGICAL :: writeOut = .FALSE.
 
   PUBLIC :: serialize_input
   PUBLIC :: serialize_output
