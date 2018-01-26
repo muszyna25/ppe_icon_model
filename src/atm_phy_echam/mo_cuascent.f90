@@ -61,7 +61,7 @@ MODULE mo_cuascent
 CONTAINS
   !>
   !!
-  SUBROUTINE cuasc(    jg,       jcs,                                                &
+  SUBROUTINE cuasc(    jg,                                                           &
     &        kproma,   kbdim,    klev,     klevp1,   klevm1,                         &
     &        pzf,      pzh,      pmdry,                                              &
     &        ptenh,    pqenh,    puen,     pven,                                     &
@@ -82,7 +82,7 @@ CONTAINS
     &        )
 
     INTEGER, INTENT (IN) :: jg
-    INTEGER, INTENT (IN) :: jcs, kproma, kbdim, klev, klevp1, klevm1, ktrac
+    INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1, ktrac
     INTEGER :: jl, jk, jt, ik, icall, ikb, ikt, n, locnt
     REAL(wp),INTENT (IN) :: pdtime
     REAL(wp),INTENT (IN) :: pzf(kbdim,klev),  pzh(kbdim,klevp1)
@@ -159,20 +159,20 @@ CONTAINS
     !                  ------------------
     !
     zcons=1._wp/pdtime
-    zqold(jcs:kproma) = 0.0_wp
+    zqold(1:kproma) = 0.0_wp
     !
     !---------------------------------------------------------------------------------
     !
     !     2.           Set default values
     !                  ------------------
     !
-    DO jl=jcs,kproma
+    DO jl=1,kproma
      zmfuu(jl)=0._wp
      zmfuv(jl)=0._wp
      IF(.NOT.ldcum(jl)) ktype(jl)=0
     END DO
     DO jk=1,klev
-      DO jl=jcs,kproma
+      DO jl=1,kproma
         plu(jl,jk)=0._wp
         pmfu(jl,jk)=0._wp
         pmfus(jl,jk)=0._wp
@@ -185,14 +185,14 @@ CONTAINS
         IF(jk.LT.kcbot(jl)) klab(jl,jk)=0
       END DO
       DO jt=1,ktrac
-        DO jl=jcs,kproma
+        DO jl=1,kproma
            pmfuxt(jl,jk,jt)=0._wp
         END DO
       END DO
       !
     END DO
     DO jk=1,klev
-      DO jl=jcs,kproma
+      DO jl=1,kproma
         zoentr(jl,jk)=0._wp
         zodetr(jl,jk)=0._wp
       ENDDO
@@ -203,7 +203,7 @@ CONTAINS
     !     3.0          Initialize values at lifting level
     !                  ----------------------------------
     !
-    DO jl=jcs,kproma
+    DO jl=1,kproma
       kctop(jl)=klevm1
       IF(.NOT.ldcum(jl)) THEN
         kcbot(jl)=klevm1
@@ -220,7 +220,7 @@ CONTAINS
     END DO
     !
     DO jt=1,ktrac
-      DO jl=jcs,kproma
+      DO jl=1,kproma
         IF(.NOT.ldcum(jl)) THEN
           pxtu(jl,klev,jt)=0._wp
         ENDIF
@@ -228,7 +228,7 @@ CONTAINS
       END DO
     END DO
     !
-    DO jl=jcs,kproma
+    DO jl=1,kproma
       ldcum(jl)=.FALSE.
     END DO
     !
@@ -237,7 +237,7 @@ CONTAINS
     !     3.5          Find organized entrainment at cloud base
     !                  ----------------------------------------
     !
-    DO jl=jcs,kproma
+    DO jl=1,kproma
       IF(ktype(jl).EQ.1) THEN
         ikb=kcbot(jl)
         zbuoy(jl)=grav*(ptu(jl,ikb)-ptenh(jl,ikb))/ptenh(jl,ikb) +                   &
@@ -270,7 +270,7 @@ CONTAINS
     !
       ik=jk
       IF(lmfmid.AND.ik.LT.klevm1.AND.ik.GT.nmctop) THEN
-        CALL cubasmc(jg,       jcs,                                                  &
+        CALL cubasmc(jg,                                                             &
           &          kproma,   kbdim,    klev,     ik,       klab,                   &
           &          pten,     pqen,     pqsen,    puen,     pven,                   &
           &          ktrac,                                                          &
@@ -283,8 +283,8 @@ CONTAINS
           &          zmfuv                                                           )
       ENDIF
       !
-      locnt = jcs-1
-      DO jl=jcs,kproma
+      locnt = 0
+      DO jl=1,kproma
         IF(klab(jl,jk+1).EQ.0) klab(jl,jk)=0
         IF(klab(jl,jk+1).GT.0) THEN
           locnt = locnt + 1
@@ -304,7 +304,7 @@ CONTAINS
         END IF
       END DO
       DO jt=1,ktrac
-        DO jl=jcs,kproma
+        DO jl=1,kproma
           IF(ktype(jl).EQ.3.AND.jk.EQ.kcbot(jl)) THEN
             zmfmax=pmdry(jl,jk-1)*zcons
             IF(pmfub(jl).GT.zmfmax) THEN
@@ -317,7 +317,7 @@ CONTAINS
       !
       ! Reset pmfub if necessary
       !
-      DO jl=jcs,kproma
+      DO jl=1,kproma
         IF(ktype(jl).EQ.3.AND.jk.EQ.kcbot(jl)) THEN
           zmfmax=pmdry(jl,jk-1)*zcons
           pmfub(jl)=MIN(pmfub(jl),zmfmax)
@@ -329,7 +329,7 @@ CONTAINS
       !    --------------------------------------------------------
       !
       ik=jk
-      CALL cuentr(    jg,  jcs,                                                       &
+      CALL cuentr(    jg,                                                             &
         &   kproma,   kbdim,    klev,     klevp1,   ik,                               &
         &   pzh,      pmdry,                                                          &
         &   ptenh,    pqenh,    pqte,     paphp1,                                     &
@@ -345,7 +345,7 @@ CONTAINS
       !     that are neutral compared to the environmental air are detrained
       !     ----------------------------------------------------------------
       !
-      DO n=jcs,locnt
+      DO n=1,locnt
         jl = loidx(n)
 
         IF(jk.LT.kcbot(jl)) THEN
@@ -412,7 +412,7 @@ CONTAINS
       !
       DO jt=1,ktrac
 !IBM* ASSERT(NODEPS)
-        DO n=jcs,locnt
+        DO n=1,locnt
           jl = loidx(n)
           zxteen=pxtenh(jl,jk+1,jt)*(zdmfen(jl)+zoentr(jl,jk))
           zxtude=pxtu(jl,jk+1,jt)*(zdmfde(jl)+zodetr(jl,jk))
@@ -426,17 +426,14 @@ CONTAINS
       !
       ik=jk
       icall=1
-
-      IF (locnt .GE. jcs) THEN
-      CALL cuadjtq(jcs, kproma, kbdim, klev, ik,                                     &
+      CALL cuadjtq(kproma, kbdim, klev, ik,                                          &
         &          zph,      ptu,      pqu,      loidx, locnt,  icall)
-      END IF
 
       !
 !DIR$ IVDEP
 !OCL NOVREC
 !IBM* ASSERT(NODEPS)
-      DO n=jcs,locnt
+      DO n=1,locnt
         jl = loidx(n)
         IF (pqu(jl,jk).LT.zqold(jl)) THEN
           klab(jl,jk)=2
@@ -463,7 +460,7 @@ CONTAINS
       END DO
 
 !IBM* ASSERT(NODEPS)
-      DO n=jcs,locnt
+      DO n=1,locnt
         jl = loidx(n)
         pmful(jl,jk)=plu(jl,jk)*pmfu(jl,jk)
         pmfus(jl,jk)=(pcpcu(jl,jk)*ptu(jl,jk)+pgeoh(jl,jk))*pmfu(jl,jk)
@@ -471,19 +468,19 @@ CONTAINS
       END DO
       DO jt=1,ktrac
 !IBM* ASSERT(NODEPS)
-        DO n=jcs,locnt
+        DO n=1,locnt
           jl = loidx(n)
           pmfuxt(jl,jk,jt)=pxtu(jl,jk,jt)*pmfu(jl,jk)
         END DO
       END DO
       !
       IF(lmfdudv) THEN
-        DO jl=jcs,kproma
+        DO jl=1,kproma
           zdmfen(jl)=zdmfen(jl)+zoentr(jl,jk)
           zdmfde(jl)=zdmfde(jl)+zodetr(jl,jk)
         ENDDO
 !IBM* ASSERT(NODEPS)
-        DO n=jcs,locnt
+        DO n=1,locnt
           jl = loidx(n)
           IF(ktype(jl).EQ.1.OR.ktype(jl).EQ.3) THEN
             zz=MERGE(3._wp,2._wp,zdmfen(jl).EQ.0._wp)
@@ -506,7 +503,7 @@ CONTAINS
       !   ---------------------------------------------------
       !
 !IBM* ASSERT(NODEPS)
-      DO n=jcs,locnt
+      DO n=1,locnt
         jl = loidx(n)
         IF(ktype(jl).EQ.1) THEN
           zbuoyz=grav*(ptu(jl,jk)-ptenh(jl,jk))/ptenh(jl,jk) +                       &
@@ -532,12 +529,12 @@ CONTAINS
     !               detrainment and are already known from previous calculations
     !               above
     !
-    DO jl=jcs,kproma
+    DO jl=1,kproma
       IF(kctop(jl).EQ.klevm1) ldcum(jl)=.FALSE.
       kcbot(jl)=MAX(kcbot(jl),kctop(jl))
     END DO
 !DIR$ IVDEP
-    DO jl=jcs,kproma
+    DO jl=1,kproma
       IF(ldcum(jl)) THEN
         jk=kctop(jl)-1
         zzdmf=cmfctop
@@ -559,7 +556,7 @@ CONTAINS
       END IF
     END DO
     DO jt=1,ktrac
-      DO jl=jcs,kproma
+      DO jl=1,kproma
         IF(ldcum(jl)) THEN
           jk=kctop(jl)-1
           pmfuxt(jl,jk,jt)=pxtu(jl,jk,jt)*pmfu(jl,jk)
@@ -569,7 +566,7 @@ CONTAINS
     !
     IF(lmfdudv) THEN
 !DIR$      IVDEP
-      DO jl=jcs,kproma
+      DO jl=1,kproma
         IF(ldcum(jl)) THEN
           jk=kctop(jl)-1
           puu(jl,jk)=puu(jl,jk+1)
@@ -582,7 +579,7 @@ CONTAINS
   END SUBROUTINE cuasc
   !!
   !!
-  SUBROUTINE cubasmc(  jg, jcs,                                                      &
+  SUBROUTINE cubasmc(  jg,                                                           &
     &        kproma,   kbdim,    klev,     kk,       klab,                           &
     &        pten,     pqen,     pqsen,    puen,     pven,                           &
     &        ktrac,                                                                  &
@@ -595,7 +592,7 @@ CONTAINS
     &        pmfuv                                                                 )
     !
     INTEGER, INTENT (IN) :: jg
-    INTEGER, INTENT (IN) :: kbdim, klev, ktrac, jcs, kproma, kk
+    INTEGER, INTENT (IN) :: kbdim, klev, ktrac, kproma, kk
     REAL(wp) :: pten(kbdim,klev),        pqen(kbdim,klev),                           &
       &         puen(kbdim,klev),        pven(kbdim,klev),                           &
       &         pqsen(kbdim,klev),       pverv(kbdim,klev),                          &
@@ -636,7 +633,7 @@ CONTAINS
     !
 !DIR$ IVDEP
 !OCL NOVREC
-    DO jl=jcs,kproma
+    DO jl=1,kproma
       llo3(jl)=.FALSE.
       IF(.NOT.ldcum(jl) .AND. klab(jl,kk+1) .EQ. 0                                   &
         &      .AND. pqen(jl,kk)    .GT. 0.90_wp*pqsen(jl,kk)                        &
@@ -670,7 +667,7 @@ CONTAINS
 !DIR$ IVDEP
 !OCL NOVREC
     DO jt=1,ktrac
-      DO jl=jcs,kproma
+      DO jl=1,kproma
         IF (llo3(jl)) THEN
           pxtu(jl,kk+1,jt)=pxten(jl,kk,jt)
           pmfuxt(jl,kk+1,jt)=pmfub(jl)*pxtu(jl,kk+1,jt)
@@ -681,7 +678,7 @@ CONTAINS
   END SUBROUTINE cubasmc
   !!
   !!
-  SUBROUTINE cuentr(   jg,       jcs,                                                &
+  SUBROUTINE cuentr(   jg,                                                           &
     &        kproma,   kbdim,    klev,     klevp1,   kk,                             &
     &        pzh,      pmdry,                                                        &
     &        ptenh,    pqenh,    pqte,     paphp1,                                   &
@@ -691,7 +688,7 @@ CONTAINS
     &        pdmfen,   pdmfde)
     !
     INTEGER, INTENT (IN) :: jg
-    INTEGER, INTENT (IN) :: kbdim, klev, klevp1, jcs, kproma, kk
+    INTEGER, INTENT (IN) :: kbdim, klev, klevp1, kproma, kk
     !
     REAL(wp),INTENT (IN) :: pzh(kbdim,klevp1), pmdry(kbdim,klev)
 
@@ -730,7 +727,7 @@ CONTAINS
     !           --------------------------------------------
     !
 !IBM* NOVECTOR
-    DO jl=jcs,kproma
+    DO jl=1,kproma
       ppbase(jl) = paphp1(jl,kcbot(jl))
       zrrho(jl)  = (rd*ptenh(jl,kk+1)*(1._wp+vtmpc1*pqenh(jl,kk+1)))/paphp1(jl,kk+1)
       zdprho(jl) = pmdry(jl,kk)
@@ -744,7 +741,7 @@ CONTAINS
     END DO
 
     ncnt = 0
-    DO jl=jcs,kproma
+    DO jl=1,kproma
       llo1=kk.LT.kcbot(jl).AND.ldcum(jl)
       IF (llo1) THEN
         ncnt = ncnt+1

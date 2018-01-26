@@ -221,21 +221,21 @@ cat > ${lnd_namelist} << EOF
 &jsb_model_nml
   usecase         = "${jsbach_usecase}"
   use_lakes       = ${llake}
-  fract_filename  = "bc_land_frac_DOM01.nc"
+  fract_filename  = "bc_land_frac.nc"
   l_compat401     = .TRUE.              ! TRUE: overwrites some of the settings below
 /
 &jsb_seb_nml
-  bc_filename     = 'bc_land_phys_DOM01.nc'
-  ic_filename     = 'ic_land_soil_DOM01.nc'
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
 /
 &jsb_rad_nml
   use_alb_veg_simple = .TRUE.           ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
-  bc_filename     = 'bc_land_phys_DOM01.nc'
-  ic_filename     = 'ic_land_soil_DOM01.nc'
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
 /
 &jsb_turb_nml
-  bc_filename     = 'bc_land_phys_DOM01.nc'
-  ic_filename     = 'ic_land_soil_DOM01.nc'
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
 /
 &jsb_sse_nml
   l_heat_cap_map  = .FALSE.
@@ -246,21 +246,21 @@ cat > ${lnd_namelist} << EOF
   l_dynsnow       = .TRUE.
   l_freeze        = .FALSE.
   l_supercool     = .FALSE.
-  bc_filename     = 'bc_land_soil_DOM01.nc'
-  ic_filename     = 'ic_land_soil_DOM01.nc'
+  bc_filename     = 'bc_land_soil.nc'
+  ic_filename     = 'ic_land_soil.nc'
 /
 &jsb_hydro_nml
-  bc_filename     = 'bc_land_soil_DOM01.nc'
-  ic_filename     = 'ic_land_soil_DOM01.nc'
-  bc_sso_filename = 'bc_land_sso_DOM01.nc'
+  bc_filename     = 'bc_land_soil.nc'
+  ic_filename     = 'ic_land_soil.nc'
+  bc_sso_filename = 'bc_land_sso.nc'
 /
 &jsb_assimi_nml
   active          = .FALSE.             ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
 /
 &jsb_pheno_nml
   scheme          = 'climatology'       ! scheme = logrop / climatology; use climatology for jsbach_lite
-  bc_filename     = 'bc_land_phys_DOM01.nc'
-  ic_filename     = 'ic_land_soil_DOM01.nc'
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
 /
 &jsb_carbon_nml
   active                 = ${lcarbon}
@@ -320,7 +320,7 @@ add_link_file $datadir/ifs2icon_1979010100_${resolution_a}_G.nc ./ifs2icon_${res
 #
 # - land: source?, date+time?
 datadir=${icon_data_poolFolder}/preliminary_land/${resolution_c}/land
-add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil_DOM01.nc
+add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
 # added in namelist, but not active and not yet available (2017-Dec-07)
 #add_link_file ${datadir}/ic_land_carbon_1976.nc                         ./ic_land_carbon.nc
 
@@ -383,8 +383,8 @@ done
 #
 # - sst and sic
 datadir=${icon_data_poolFolder}/sst_and_seaice/1.1.2
-add_link_file $datadir/sic_${resolution_a}.nc                           ./bc_sic_DOM01.nc
-add_link_file $datadir/sst_${resolution_a}.nc                           ./bc_sst_DOM01.nc
+add_link_file $datadir/sic_${resolution_a}.nc                           ./bc_sic.nc
+add_link_file $datadir/sst_${resolution_a}.nc                           ./bc_sst.nc
 #
 # - ssi and tsi
 datadir=${icon_data_poolFolder}/solar_radiation/3.2
@@ -392,10 +392,10 @@ add_link_file $datadir/swflux_14band_cmip6_1850-2299-v3.2.nc            ./bc_sol
 #
 # - land parameters
 datadir=${icon_data_poolFolder}/preliminary_land/${resolution_c}/land
-add_link_file $datadir/bc_land_frac_${pft_file_tag}1976.nc              ./bc_land_frac_DOM01.nc
-add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys_DOM01.nc
-add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil_DOM01.nc
-add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso_DOM01.nc
+add_link_file $datadir/bc_land_frac_${pft_file_tag}1976.nc              ./bc_land_frac.nc
+add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
+add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
+add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
 # added in namelist, but not active and not yet available (2017-Dec-07)
 #add_link_file $datadir/bc_land_carbon_1976.nc                           ./bc_land_carbon.nc
 # The following bc_land_hd-file is not yet available...

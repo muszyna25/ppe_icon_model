@@ -5,7 +5,6 @@
 #PBS -l place=scatter
 #PBS -l walltime=01:30:00
 #PBS -j oe
-#PBS -o LOG.exp.run_ICON_10_R3B7N8_oper_mfr.run.run.o
 # ----------------------------------------------------------------------
 # Basic CRAY batch script for the ICON model
 #
@@ -35,13 +34,13 @@ if [[ -n ${PBS_O_WORKDIR} ]] ; then
 fi
 
 # determine base directory
-ICONDIR=${PBS_O_WORKDIR}/../
+ICONDIR=${PBS_O_WORKDIR}/../../
 
 EXP="NWP"    # experiment identifier
 EDIR="exp10"  # working directory
 
 # absolute path to directory with plenty of space:
-EXPDIR=$TMPDIR/${EDIR}/
+EXPDIR=$TMPDIR/../experiments/${EDIR}
 
 # directory for grid and extpar files
  GRIDDIR=/e/rhome/routfox/routfox/icon/grids/public/edzw/

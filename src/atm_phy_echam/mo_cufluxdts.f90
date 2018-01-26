@@ -35,7 +35,7 @@ CONTAINS
   !!
   !!++mgs: zcucov and zdpevap now 1d vectors
   !!
-  SUBROUTINE cuflx(    jcs, kproma, kbdim, klev, klevp1,                             &
+  SUBROUTINE cuflx(    kproma, kbdim, klev, klevp1,                                  &
     &        pmdry,                                                                  &
     &        pqen,     pqsen,    ptenh,    pqenh,                                    &
     &        ktrac,                                                                  &
@@ -51,7 +51,7 @@ CONTAINS
     &        pcpcu,                                                                  &
     &        pten,     psfl,     pdpmel,   ktopm2                                   )
     !
-    INTEGER, INTENT (IN) :: jcs, kproma, kbdim, klev, klevp1, ktrac
+    INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktrac
     INTEGER, INTENT (OUT):: ktopm2
     REAL(wp),INTENT (IN) :: pdtime
     REAL(wp),INTENT (IN) :: cevapcu(klev)
@@ -91,7 +91,7 @@ CONTAINS
     !                  ---------------------------------
     !
     !  itop=klev
-    DO jl=jcs,kproma
+    DO jl=1,kproma
       ! itop=MIN(itop,kctop(jl))
       IF(.NOT.ldcum(jl).OR.kdtop(jl).LT.kctop(jl)) lddraf(jl)=.FALSE.
       IF(.NOT.ldcum(jl)) ktype(jl)=0
@@ -100,7 +100,7 @@ CONTAINS
     DO jk=ktopm2,klev
 !DIR$ IVDEP
 !OCL NOVREC
-      DO jl=jcs,kproma
+      DO jl=1,kproma
         IF(ldcum(jl).AND.jk.GE.kctop(jl)-1) THEN
           pmfus(jl,jk)=pmfus(jl,jk)-pmfu(jl,jk)*                                     &
             &                  (pcpcu(jl,jk)*ptenh(jl,jk)+pgeoh(jl,jk))
@@ -119,7 +119,7 @@ CONTAINS
       END DO
       !
       DO jt=1,ktrac
-        DO jl=jcs,kproma
+        DO jl=1,kproma
           IF(ldcum(jl).AND.jk.GE.kctop(jl)-1) THEN
             pmfuxt(jl,jk,jt)=pmfuxt(jl,jk,jt)-pmfu(jl,jk)*pxtenh(jl,jk,jt)
             IF(lddraf(jl).AND.jk.GE.kdtop(jl)) THEN
@@ -138,7 +138,7 @@ CONTAINS
     DO jk=ktopm2,klev
 !DIR$ IVDEP
 !OCL NOVREC
-      DO jl=jcs,kproma
+      DO jl=1,kproma
         IF(ldcum(jl).AND.jk.GT.kcbot(jl)) THEN
           ikb=kcbot(jl)
           zzp=((paphp1(jl,klevp1)-paphp1(jl,jk))/(paphp1(jl,klevp1)-paphp1(jl,ikb)))
@@ -153,7 +153,7 @@ CONTAINS
       DO jt=1,ktrac
 !DIR$ IVDEP
 !OCL NOVREC
-        DO jl=jcs,kproma
+        DO jl=1,kproma
           IF(ldcum(jl).AND.jk.GT.kcbot(jl)) THEN
             ikb=kcbot(jl)
             zzp=(paphp1(jl,klevp1)-paphp1(jl,jk))/(paphp1(jl,klevp1)-paphp1(jl,ikb))
@@ -173,7 +173,7 @@ CONTAINS
     psfl(:)=0._wp
       
     DO jk=ktopm2,klev
-      DO jl=jcs,kproma
+      DO jl=1,kproma
         IF(ldcum(jl)) THEN
           IF(pten(jl,jk).GT.tmelt) THEN
             prfl(jl)=prfl(jl)+pdmfup(jl,jk)+pdmfdp(jl,jk)
@@ -190,16 +190,16 @@ CONTAINS
         END IF
       END DO
     END DO
-    DO jl=jcs,kproma
+    DO jl=1,kproma
       prfl(jl)=MAX(prfl(jl),0._wp)
       psfl(jl)=MAX(psfl(jl),0._wp)
       zpsubcl(jl)=prfl(jl)+psfl(jl)
     END DO
     DO jk=ktopm2,klev
-      zdpevap(jcs:kproma) = 0._wp
-      zcucov(jcs:kproma) = 0.05_wp
+      zdpevap(1:kproma) = 0._wp
+      zcucov(1:kproma) = 0.05_wp
 
-      DO jl=jcs,kproma
+      DO jl=1,kproma
         IF(ldcum(jl).AND.jk.GE.kcbot(jl).AND.zpsubcl(jl).GT.1.e-20_wp) THEN
           zrfl=zpsubcl(jl)
           zrnew=(MAX(0._wp,SQRT(zrfl/zcucov(jl))-                                    &
@@ -219,7 +219,7 @@ CONTAINS
     END DO
 
     !!baustelle!! (?)
-    DO jl=jcs,kproma
+    DO jl=1,kproma
       zrsum=prfl(jl)+psfl(jl)
       zdpevap(jl)=zpsubcl(jl)-zrsum
       prfl(jl)=prfl(jl)+zdpevap(jl)*prfl(jl)*(1._wp/MAX(1.e-20_wp,zrsum))
@@ -229,7 +229,7 @@ CONTAINS
   END SUBROUTINE cuflx
   !>
   !!
-  SUBROUTINE cudtdq(jcs, kproma, kbdim, klev, ktopm2, ldcum, ktrac,                  &
+  SUBROUTINE cudtdq(kproma, kbdim, klev, ktopm2, ldcum, ktrac,                       &
     &               pmdry,    pten,                                                  &
     &               pmfuxt,   pmfdxt,                                                &
     &               pmfus,    pmfds,    pmfuq,    pmfdq,                             &
@@ -240,7 +240,7 @@ CONTAINS
     &               pq_cnv,   pqte_cnv, pxtte_cnv,                                   &
     &               pxtecl,   pxteci                                                )
     !
-    INTEGER, INTENT(IN)  :: jcs, kproma, kbdim, klev, ktopm2, ktrac
+    INTEGER, INTENT(IN)  :: kproma, kbdim, klev, ktopm2, ktrac
     LOGICAL ,INTENT(IN)  :: ldcum(kbdim)
     REAL(wp),INTENT(IN)  :: pmdry(kbdim,klev), pten(kbdim,klev)
     REAL(wp),INTENT(IN)  :: pmfuxt(kbdim,klev,ktrac),pmfdxt(kbdim,klev,ktrac)
@@ -284,7 +284,7 @@ CONTAINS
     DO jk=ktopm2,klev
       !
       IF(jk.LT.klev) THEN
-        DO jl=jcs,kproma
+        DO jl=1,kproma
           IF(ldcum(jl)) THEN
             llo1=(pten(jl,jk)-tmelt).GT.0._wp
             zalv=MERGE(alv,als,llo1)
@@ -312,7 +312,7 @@ CONTAINS
         END DO
         !
           DO jt=1,ktrac
-              DO jl=jcs,kproma
+              DO jl=1,kproma
                 IF(ldcum(jl)) THEN
                   pxtte_cnv(jl,jk,jt) = zrmdry(jl,jk)                               &
                     &                  *(pmfuxt(jl,jk+1,jt)-pmfuxt(jl,jk,jt)        &
@@ -322,7 +322,7 @@ CONTAINS
           END DO
       !
       ELSE
-        DO jl=jcs,kproma
+        DO jl=1,kproma
           IF(ldcum(jl)) THEN
             llo1=(pten(jl,jk)-tmelt).GT.0._wp
             zalv=MERGE(alv,als,llo1)
@@ -344,7 +344,7 @@ CONTAINS
         END DO
         !
           DO jt=1,ktrac
-              DO jl=jcs,kproma
+              DO jl=1,kproma
                 IF(ldcum(jl)) THEN
                   pxtte_cnv(jl,jk,jt) =-zrmdry(jl,jk)      &
                     &                  *(pmfuxt(jl,jk,jt)+pmfdxt(jl,jk,jt))
@@ -363,7 +363,7 @@ CONTAINS
     !
     ! do we need to account for the surface, or for the top 2 layers?
     DO jk=ktopm2,klev
-      DO jl=jcs,kproma
+      DO jl=1,kproma
         ! water vapor
         pcon_iqte(jl)=pcon_iqte(jl)+zqte_cnv(jl,jk)
         ! detrained liquid water
@@ -376,14 +376,14 @@ CONTAINS
   END SUBROUTINE cudtdq
   !>
   !!
-  SUBROUTINE cududv(   jcs,      kproma,   kbdim,    klev,     klevp1,               &
+  SUBROUTINE cududv(   kproma,   kbdim,    klev,     klevp1,                         &
     &        ktopm2,   ktype,    kcbot,    paphp1,   ldcum,                          &
     &        pmdry,    puen,     pven,                                               &
     &        pvom_cnv, pvol_cnv,                                                     &
     &        puu,      pud,      pvu,      pvd,                                      &
     &        pmfu,     pmfd)
     !
-    INTEGER ,INTENT(IN)  :: jcs, kproma, kbdim, klev, klevp1, ktopm2
+    INTEGER ,INTENT(IN)  :: kproma, kbdim, klev, klevp1, ktopm2
     INTEGER ,INTENT(IN)  :: ktype(kbdim),            kcbot(kbdim)
     LOGICAL ,INTENT(IN)  :: ldcum(kbdim)
     REAL(wp),INTENT(IN)  :: pmdry(kbdim,klev),       paphp1(kbdim,klevp1)
@@ -412,7 +412,7 @@ CONTAINS
     IF(ktopm2.EQ.1) THEN
       DO jk=2,klev
         ik=jk-1
-        DO jl=jcs,kproma
+        DO jl=1,kproma
           IF(ldcum(jl)) THEN
             zmfuu(jl,jk)=pmfu(jl,jk)*(puu(jl,jk)-puen(jl,ik))
             zmfuv(jl,jk)=pmfu(jl,jk)*(pvu(jl,jk)-pven(jl,ik))
@@ -421,7 +421,7 @@ CONTAINS
           END IF
         END DO
       END DO
-      DO jl=jcs,kproma
+      DO jl=1,kproma
         IF(ldcum(jl)) THEN
           zmfuu(jl,1)=zmfuu(jl,2)
           zmfuv(jl,1)=zmfuv(jl,2)
@@ -432,7 +432,7 @@ CONTAINS
     ELSE
       DO jk=ktopm2,klev
         ik=jk-1
-        DO jl=jcs,kproma
+        DO jl=1,kproma
           IF(ldcum(jl)) THEN
             zmfuu(jl,jk)=pmfu(jl,jk)*(puu(jl,jk)-puen(jl,ik))
             zmfuv(jl,jk)=pmfu(jl,jk)*(pvu(jl,jk)-pven(jl,ik))
@@ -445,7 +445,7 @@ CONTAINS
     DO jk=ktopm2,klev
 !DIR$ IVDEP
 !OCL NOVREC
-      DO jl=jcs,kproma
+      DO jl=1,kproma
         IF(ldcum(jl).AND.jk.GT.kcbot(jl)) THEN
           ikb=kcbot(jl)
           zzp=((paphp1(jl,klevp1)-paphp1(jl,jk))/(paphp1(jl,klevp1)-paphp1(jl,ikb)))
@@ -461,7 +461,7 @@ CONTAINS
     DO jk=ktopm2,klev
       !
       IF(jk.LT.klev) THEN
-        DO jl=jcs,kproma
+        DO jl=1,kproma
           IF(ldcum(jl)) THEN
             pvom_cnv(jl,jk)=zrmdry(jl,jk)*(zmfuu(jl,jk+1)-zmfuu(jl,jk)+zmfdu(jl,jk+1)-zmfdu(jl,jk))
             pvol_cnv(jl,jk)=zrmdry(jl,jk)*(zmfuv(jl,jk+1)-zmfuv(jl,jk)+zmfdv(jl,jk+1)-zmfdv(jl,jk))
@@ -469,7 +469,7 @@ CONTAINS
         END DO
         !
       ELSE
-        DO jl=jcs,kproma
+        DO jl=1,kproma
           IF(ldcum(jl)) THEN
             pvom_cnv(jl,jk)=-zrmdry(jl,jk)*(zmfuu(jl,jk)+zmfdu(jl,jk))
             pvol_cnv(jl,jk)=-zrmdry(jl,jk)*(zmfuv(jl,jk)+zmfdv(jl,jk))

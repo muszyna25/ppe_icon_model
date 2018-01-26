@@ -31,7 +31,6 @@ MODULE mo_cuadjust
   USE mo_physical_constants, ONLY: vtmpc1
   USE mo_echam_convect_tables,     ONLY: lookup_ua_list_spline, lookup_ubc_list
 
-
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: cuadjtq
@@ -39,16 +38,16 @@ MODULE mo_cuadjust
 CONTAINS
   !>
   !!
-  SUBROUTINE cuadjtq(  jcs, kproma, kbdim, klev, kk,                                  &
+  SUBROUTINE cuadjtq(  kproma, kbdim, klev, kk,                                      &
     &                   pp,       pt,       pq,       ldidx, ldcnt,  kcall)
 
     !  Scalar arguments with intent(In):
-    INTEGER,  INTENT (IN) :: kcall, kk, klev, jcs, kproma, kbdim
+    INTEGER,  INTENT (IN) :: kcall, kk, klev, kproma, kbdim
 
     !  Array arguments with intent(In):
     REAL(wp), INTENT (IN) :: pp(kbdim)
     INTEGER,  INTENT (IN) :: ldidx(kbdim)
-    INTEGER,  INTENT (IN) :: ldcnt ! = kproma in call from cuini, is in call from cubase
+    INTEGER,  INTENT (IN) :: ldcnt
 
     !  Array arguments with intent(InOut):
     REAL(wp), INTENT (INOUT) :: pq(kbdim,klev), pt(kbdim,klev)
@@ -73,14 +72,14 @@ CONTAINS
 
     IF (kcall >= 0.AND. kcall <= 2 ) THEN
 
-      CALL lookup_ubc_list(jcs,kproma,ldcnt,ldidx(1),pt(1,kk),ub(1),uc(1))
-      CALL lookup_ua_list_spline('cuadjtq (1)',jcs,kproma,ldcnt,ldidx(1),pt(1,kk),ua(1), &
+      CALL lookup_ubc_list(kproma,ldcnt,ldidx(1),pt(1,kk),ub(1),uc(1))
+      CALL lookup_ua_list_spline('cuadjtq (1)',kproma,ldcnt,ldidx(1),pt(1,kk),ua(1), &
         &                                                                     dua(1))
 
 !DIR$ IVDEP
 !OCL NOVREC
 !IBM* ASSERT(NODEPS)
-      DO nl=jcs,ldcnt
+      DO nl=1,ldcnt
         jl = ldidx(nl)
         zppi(jl)=1._wp/pp(jl)
       END DO
@@ -92,7 +91,7 @@ CONTAINS
 !DIR$ IVDEP
 !OCL NOVREC
 !IBM ASSERT(NODEPS)
-        DO nl=jcs,ldcnt
+        DO nl=1,ldcnt
           jl = ldidx(nl)
 
           zes  = ua(nl)*zppi(jl)
@@ -117,7 +116,7 @@ CONTAINS
 !DIR$ IVDEP
 !OCL NOVREC
 !IBM ASSERT(NODEPS)
-        DO nl=jcs,ldcnt
+        DO nl=1,ldcnt
           jl = ldidx(nl)
 
           zes  = ua(nl)*zppi(jl)
@@ -142,7 +141,7 @@ CONTAINS
 !DIR$ IVDEP
 !OCL NOVREC
 !IBM* ASSERT(NODEPS)
-        DO nl=jcs,ldcnt
+        DO nl=1,ldcnt
           jl = ldidx(nl)
 
           zes  = ua(nl)*zppi(jl)
@@ -164,8 +163,8 @@ CONTAINS
 
       END IF
 
-      nsum = jcs
-      DO nl=jcs,ldcnt
+      nsum = 1
+      DO nl=1,ldcnt
         idx(nsum) = ldidx(nl)
         nsum = nsum + ncond(nl)
       END DO
@@ -175,10 +174,10 @@ CONTAINS
       print *,'cuad(',kcall,')',ldcnt,nsum,ldcnt
 #endif
 
-      IF (nsum > jcs-1) THEN
+      IF (nsum > 0) THEN
 
-        CALL lookup_ubc_list(jcs,kproma,nsum,idx(1),pt(1,kk),ub(1),uc(1))
-        CALL lookup_ua_list_spline('cuadjtq (2)',jcs,kproma,nsum,idx(1),pt(1,kk),ua(1),  &
+        CALL lookup_ubc_list(kproma,nsum,idx(1),pt(1,kk),ub(1),uc(1))
+        CALL lookup_ua_list_spline('cuadjtq (2)',kproma,nsum,idx(1),pt(1,kk),ua(1),  &
           &                                                                   dua(1))
 
 !PREVENT_INCONSISTENT_IFORT_FMA
@@ -186,7 +185,7 @@ CONTAINS
 !OCL NOVREC
 !IBM* ASSERT(NODEPS)
 !IBM* UNROLL(3)
-        DO nl=jcs,nsum
+        DO nl=1,nsum
           jl = idx(nl)
 
           zes  = ua(nl)*zppi(jl)

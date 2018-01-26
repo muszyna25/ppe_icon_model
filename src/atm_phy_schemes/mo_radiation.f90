@@ -1321,9 +1321,6 @@ CONTAINS
     INTEGER, PARAMETER    :: rng_seed_size = 4
     INTEGER :: rnseeds(kbdim,rng_seed_size)
 
-    ! VM temporary fix:
-    INTEGER, PARAMETER    :: jcs = 1
-
     ! Initialize output variables
     flx_lw_net(:,:)     = 0._wp
     flx_lw_net_clr(:,:) = 0._wp
@@ -1498,7 +1495,7 @@ CONTAINS
         &                         aer_piz_sw_vr,                 &
         &                         aer_cg_sw_vr)
     CASE (13)
-      CALL set_bc_aeropt_kinne( current_date      ,jcs              ,&
+      CALL set_bc_aeropt_kinne( current_date                        ,&
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
         & p_nh_state(jg)% metrics% z_mc(:,:,jb)                     ,&
@@ -1511,7 +1508,7 @@ CONTAINS
       aer_tau_sw_vr(:,:,:) = 0.0_wp
       aer_piz_sw_vr(:,:,:) = 1.0_wp
       aer_cg_sw_vr(:,:,:)  = 0.0_wp
-      CALL add_bc_aeropt_stenchikov( current_date ,jg,           jcs,&
+      CALL add_bc_aeropt_stenchikov( current_date ,jg               ,&
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
@@ -1519,14 +1516,14 @@ CONTAINS
         & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
         & aer_tau_lw_vr                                              )
     CASE (15)
-      CALL set_bc_aeropt_kinne( current_date      ,jcs              ,&
+      CALL set_bc_aeropt_kinne( current_date                        ,&
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
         & p_nh_state(jg)% metrics% z_mc(:,:,jb)                     ,&
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
         & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
         & aer_tau_lw_vr                                              )
-      CALL add_bc_aeropt_stenchikov( current_date ,jg,           jcs,&
+      CALL add_bc_aeropt_stenchikov( current_date ,jg               ,&      
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
@@ -1538,10 +1535,9 @@ CONTAINS
       CALL finish ('rrtm_interface of mo_radition','irad_aero= '// &
                    TRIM(ADJUSTL(c_irad_aero))//' does not exist')
     END SELECT
-
     IF (lrad_aero_diag) THEN
-      CALL rad_aero_diag (                jg              , &
-      & jb              ,jcs             ,jce             , &
+      CALL rad_aero_diag (                                  &
+      & jg              ,jb              ,jce             , &
       & kbdim           ,klev            ,jpband          , &
       & jpsw            ,aer_tau_lw_vr   ,aer_tau_sw_vr   , &
       & aer_piz_sw_vr   ,aer_cg_sw_vr                       )
@@ -1566,9 +1562,9 @@ CONTAINS
           laglac(jl) = .FALSE.
         ENDIF
       ENDDO
-      CALL psrad_cloud_optics(                          laglac         ,&
-         & laland        ,jcs           ,jce           ,kbdim          ,& 
-         & klev          ,ktype                                        ,&
+      CALL psrad_cloud_optics(                                          &
+         & laglac        ,laland        ,jce           ,kbdim          ,& 
+         & klev          , ktype        ,&
          & icldlyr       ,zlwp_vr       ,ziwp_vr       ,zlwc_vr        ,&
          & ziwc_vr       ,cdnc_vr       ,cld_tau_lw_vr ,cld_tau_sw_vr  ,&
          & cld_piz_sw_vr ,cld_cg_sw_vr  ,re_drop       ,re_cryst    )  
@@ -1594,7 +1590,7 @@ CONTAINS
       !
       rnseeds(1:jce,1:rng_seed_size) = (pm_fl_vr(1:jce,1:rng_seed_size) -  &
          int(pm_fl_vr(1:jce,1:rng_seed_size)))* 1E9
-      CALL psrad_lrtm(jcs    ,jce                                               ,&
+      CALL psrad_lrtm(jce                                                       ,&
            & kbdim           ,klev            ,pm_fl_vr        ,pm_sfc          ,&
            & tk_fl_vr        ,tk_hl_vr        ,tk_sfc          ,wkl_vr          ,&
            & wx_vr           ,col_dry_vr      ,zsemiss         ,cld_frc_vr      ,&
@@ -1637,7 +1633,7 @@ CONTAINS
       zmu0(1:jce) = MAX(pmu0(1:jce),0.05_wp)
       
       !
-      CALL psrad_srtm(jcs   ,jce                                               , &
+      CALL psrad_srtm(jce                                                      , & 
          &  kbdim           ,klev            ,pm_fl_vr        ,tk_fl_vr        , &
          &  wkl_vr          ,col_dry_vr      ,alb_vis_dir     ,alb_vis_dif     , &
          &  alb_nir_dir     ,alb_nir_dif     ,zmu0, zdayfrc   ,ssi_radt/psctm  , &

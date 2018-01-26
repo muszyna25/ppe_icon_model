@@ -160,7 +160,7 @@ END SUBROUTINE read_bc_aeropt_stenchikov
 !! original source by J.S. Rast (2010-02-19)
 !! adapted to icon by J.S. Rast (2013-09-18)
 SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
-          & jcs, kproma,            kbdim,              klev,             &
+          & kproma,                 kbdim,              klev,             &
           & krow,                   nb_sw,              nb_lw,            &
           & dz,                     pp_fl,                                &
           & paer_tau_sw_vr,         paer_piz_sw_vr,     paer_cg_sw_vr,    &
@@ -169,8 +169,7 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
   ! !INPUT PARAMETERS
   TYPE(datetime), POINTER, INTENT(in) :: current_date
   INTEGER,INTENT(in)  :: jg,     &! domain index
-                         jcs,    &! actual block length (start)
-                         kproma, &! actual block length (end)
+                         kproma, &! actual block length
                          kbdim,  &! maximum block length
                          krow,   &! block index
                          klev,   &! number of vertical levels
@@ -217,12 +216,12 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
 
 ! 1. calculate for each icon gridbox the index of the data set layer 
 !     in which p_mid_icon is located and geometrical height of layers
-  CALL pressure_index(jcs, kproma,   kbdim,         klev,              &
+  CALL pressure_index(kproma,        kbdim,         klev,              &
                       pp_fl,         lev_clim,      p_lim_clim,        &
                       kindex)
   p_lat_shift=r_lat_shift
   p_rdeltalat=r_rdeltalat
-  CALL latitude_weights_li(jg                  ,jcs                             &
+  CALL latitude_weights_li(jg                                                   &
                         & ,kproma              ,kbdim            ,krow          &
                         & ,wgt1_lat            ,wgt2_lat         ,inmw1_lat     &
                         & ,inmw2_lat           ,p_lat_shift      ,p_rdeltalat   &
@@ -231,7 +230,7 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
 ! 2.1 interpolate optical properties solar radiation
   DO jwl=1,nb_sw
      DO jk=1,klev
-        DO jl=jcs,kproma
+        DO jl=1,kproma
            idx_lat_1=inmw1_lat(jl)
            idx_lat_2=inmw2_lat(jl)
            w1_lat=wgt1_lat(jl)
@@ -253,7 +252,7 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
      END DO
   END DO
   DO jwl=1,nb_sw
-     DO jl=jcs,kproma
+     DO jl=1,kproma
         idx_lat_1=inmw1_lat(jl)
         idx_lat_2=inmw2_lat(jl)
         w1_lat=wgt1_lat(jl)
@@ -270,50 +269,50 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
 !     independent of the height level. Generally, the aerosol composition
 !     depends on height, this leads to different ratios of the extinction
 !     between two given wavelengths at different heights.
-  zext_s_int(jcs:kproma,1:nb_sw)=0._wp
+  zext_s_int(1:kproma,1:nb_sw)=0._wp
   DO jwl=1,nb_sw
      DO jk=1,klev
-        zext_s_int(jcs:kproma,jwl)=zext_s_int(jcs:kproma,jwl) + &
-          zext_s(jcs:kproma,jk,jwl)*dz(jcs:kproma,jk)
+        zext_s_int(1:kproma,jwl)=zext_s_int(1:kproma,jwl) + &
+          zext_s(1:kproma,jk,jwl)*dz(1:kproma,jk)
      END DO
   END DO
-  WHERE (zext_s_int(jcs:kproma,1:nb_sw) > 0._wp) 
-     zfact_s(jcs:kproma,1:nb_sw)=zaod_s(jcs:kproma,1:nb_sw)/ &
-                              zext_s_int(jcs:kproma,1:nb_sw)
+  WHERE (zext_s_int(1:kproma,1:nb_sw) > 0._wp) 
+     zfact_s(1:kproma,1:nb_sw)=zaod_s(1:kproma,1:nb_sw)/ &
+                              zext_s_int(1:kproma,1:nb_sw)
   ELSEWHERE
-     zfact_s(jcs:kproma,1:nb_sw)=1._wp
+     zfact_s(1:kproma,1:nb_sw)=1._wp
   END WHERE
   DO jwl=1,nb_sw
      DO jk=1,klev
-        zext_s(jcs:kproma,jk,jwl)=zext_s(jcs:kproma,jk,jwl)* &
-             dz(jcs:kproma,jk)*zfact_s(jcs:kproma,jwl)
+        zext_s(1:kproma,jk,jwl)=zext_s(1:kproma,jk,jwl)* &
+             dz(1:kproma,jk)*zfact_s(1:kproma,jwl)
      END DO
   END DO
 ! 2.3 add optical parameters to the optical parameters of aerosols
 !     inverse height profile
   DO jk=1,klev
      jki=klev-jk+1
-     WHERE (zext_s(jcs:kproma,jki,1:nb_sw)>0._wp) 
-     paer_cg_sw_vr(jcs:kproma,jk,1:nb_sw)=paer_tau_sw_vr(jcs:kproma,jk,1:nb_sw)*&
-       paer_piz_sw_vr(jcs:kproma,jk,1:nb_sw)*paer_cg_sw_vr(jcs:kproma,jk,1:nb_sw)+&
-       zext_s(jcs:kproma,jki,1:nb_sw)*zomg_s(jcs:kproma,jki,1:nb_sw)*&
-       zasy_s(jcs:kproma,jki,1:nb_sw)
-     paer_piz_sw_vr(jcs:kproma,jk,1:nb_sw)=paer_tau_sw_vr(jcs:kproma,jk,1:nb_sw)*&
-       paer_piz_sw_vr(jcs:kproma,jk,1:nb_sw)+&
-       zext_s(jcs:kproma,jki,1:nb_sw)*zomg_s(jcs:kproma,jki,1:nb_sw)
-     paer_tau_sw_vr(jcs:kproma,jk,1:nb_sw)=paer_tau_sw_vr(jcs:kproma,jk,1:nb_sw)+&
-       zext_s(jcs:kproma,jki,1:nb_sw)
-     paer_piz_sw_vr(jcs:kproma,jk,1:nb_sw)=paer_piz_sw_vr(jcs:kproma,jk,1:nb_sw)/&
-          paer_tau_sw_vr(jcs:kproma,jk,1:nb_sw)
-     paer_cg_sw_vr(jcs:kproma,jk,1:nb_sw)=paer_cg_sw_vr(jcs:kproma,jk,1:nb_sw)/&
-          (paer_tau_sw_vr(jcs:kproma,jk,1:nb_sw)*paer_piz_sw_vr(jcs:kproma,jk,1:nb_sw))
+     WHERE (zext_s(1:kproma,jki,1:nb_sw)>0._wp) 
+     paer_cg_sw_vr(1:kproma,jk,1:nb_sw)=paer_tau_sw_vr(1:kproma,jk,1:nb_sw)*&
+       paer_piz_sw_vr(1:kproma,jk,1:nb_sw)*paer_cg_sw_vr(1:kproma,jk,1:nb_sw)+&
+       zext_s(1:kproma,jki,1:nb_sw)*zomg_s(1:kproma,jki,1:nb_sw)*&
+       zasy_s(1:kproma,jki,1:nb_sw)
+     paer_piz_sw_vr(1:kproma,jk,1:nb_sw)=paer_tau_sw_vr(1:kproma,jk,1:nb_sw)*&
+       paer_piz_sw_vr(1:kproma,jk,1:nb_sw)+&
+       zext_s(1:kproma,jki,1:nb_sw)*zomg_s(1:kproma,jki,1:nb_sw)
+     paer_tau_sw_vr(1:kproma,jk,1:nb_sw)=paer_tau_sw_vr(1:kproma,jk,1:nb_sw)+&
+       zext_s(1:kproma,jki,1:nb_sw)
+     paer_piz_sw_vr(1:kproma,jk,1:nb_sw)=paer_piz_sw_vr(1:kproma,jk,1:nb_sw)/&
+          paer_tau_sw_vr(1:kproma,jk,1:nb_sw)
+     paer_cg_sw_vr(1:kproma,jk,1:nb_sw)=paer_cg_sw_vr(1:kproma,jk,1:nb_sw)/&
+          (paer_tau_sw_vr(1:kproma,jk,1:nb_sw)*paer_piz_sw_vr(1:kproma,jk,1:nb_sw))
      END WHERE
   END DO
 ! 3. far infrared
 ! 2.1 interpolate optical properties solar radiation
   DO jwl=1,nb_lw
      DO jk=1,klev
-        DO jl=jcs,kproma
+        DO jl=1,kproma
            idx_lat_1=inmw1_lat(jl)
            idx_lat_2=inmw2_lat(jl)
            w1_lat=wgt1_lat(jl)
@@ -331,7 +330,7 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
      END DO
   END DO
   DO jwl=1,nb_lw
-     DO jl=jcs,kproma
+     DO jl=1,kproma
         idx_lat_1=inmw1_lat(jl)
         idx_lat_2=inmw2_lat(jl)
         w1_lat=wgt1_lat(jl)
@@ -348,34 +347,34 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
 !     independent of the height level. Generally, the aerosol composition
 !     depends on height, this leads to different ratios of the extinction
 !     between two given wavelengths at different heights.
-  zext_t_int(jcs:kproma,1:nb_lw)=0._wp
+  zext_t_int(1:kproma,1:nb_lw)=0._wp
   DO jwl=1,nb_lw
      DO jk=1,klev
-        zext_t_int(jcs:kproma,jwl)=zext_t_int(jcs:kproma,jwl) + &
-          zext_t(jcs:kproma,jk,jwl)*dz(jcs:kproma,jk)
+        zext_t_int(1:kproma,jwl)=zext_t_int(1:kproma,jwl) + &
+          zext_t(1:kproma,jk,jwl)*dz(1:kproma,jk)
      END DO
   END DO
-  WHERE (zext_t_int(jcs:kproma,1:nb_lw) > 0._wp) 
-     zfact_t(jcs:kproma,1:nb_lw)=zaod_t(jcs:kproma,1:nb_lw)/ &
-                              zext_t_int(jcs:kproma,1:nb_lw)
+  WHERE (zext_t_int(1:kproma,1:nb_lw) > 0._wp) 
+     zfact_t(1:kproma,1:nb_lw)=zaod_t(1:kproma,1:nb_lw)/ &
+                              zext_t_int(1:kproma,1:nb_lw)
   ELSEWHERE
-     zfact_t(jcs:kproma,1:nb_lw)=1._wp
+     zfact_t(1:kproma,1:nb_lw)=1._wp
   END WHERE
   DO jwl=1,nb_lw
      DO jk=1,klev
-        zext_t(jcs:kproma,jk,jwl)=zext_t(jcs:kproma,jk,jwl)* &
-             dz(jcs:kproma,jk)*zfact_t(jcs:kproma,jwl)
+        zext_t(1:kproma,jk,jwl)=zext_t(1:kproma,jk,jwl)* &
+             dz(1:kproma,jk)*zfact_t(1:kproma,jwl)
      END DO
   END DO
 ! 2.3 add optical parameters to the optical parameters of aerosols
 !     inverse height profile
   DO jk=1,klev
      jki=klev-jk+1
-!!$     paer_tau_lw_vr(jcs:kproma,jk,1:nb_lw)=paer_tau_lw_vr(jcs:kproma,jk,1:nb_lw) + &
-!!$          zext_t(jcs:kproma,jki,1:nb_lw)*(1._wp-zomg_t(jcs:kproma,jki,1:nb_lw))
+!!$     paer_tau_lw_vr(1:kproma,jk,1:nb_lw)=paer_tau_lw_vr(1:kproma,jk,1:nb_lw) + &
+!!$          zext_t(1:kproma,jki,1:nb_lw)*(1._wp-zomg_t(1:kproma,jki,1:nb_lw))
      ! use explicit DO loop to circumvent possible SXf90 compiler bug
      ! this should be equivalent to the formulation above.
-     DO jc = jcs,kproma
+     DO jc = 1,kproma
      paer_tau_lw_vr(jc,jk,1:nb_lw)=paer_tau_lw_vr(jc,jk,1:nb_lw) + &
           zext_t(jc,jki,1:nb_lw)*(1._wp-zomg_t(jc,jki,1:nb_lw))
      ENDDO
@@ -391,12 +390,12 @@ END SUBROUTINE add_bc_aeropt_stenchikov
 ! original source by J.S. Rast (2010-02-17)
 ! adapted to icon by J.S. Rast (2013-09-19)
 
-SUBROUTINE pressure_index(jcs, kproma,   kbdim,         klev,              &
+SUBROUTINE pressure_index(kproma,        kbdim,         klev,              &
                           pp_mid,        klevels,       pp_bound,          &
                           kindex)
 
 ! !INPUT PARAMETERS
-  INTEGER, INTENT(in)    :: kbdim, jcs, kproma, klev
+  INTEGER, INTENT(in)    :: kbdim, kproma, klev
   INTEGER, INTENT(in)    :: klevels !number of layers for indices are searched
   REAL(wp), INTENT(in)   :: pp_mid(kbdim,klev), & !echam midlevel pressures
                             pp_bound(klevels+1) !pressure at layer 
@@ -408,14 +407,14 @@ SUBROUTINE pressure_index(jcs, kproma,   kbdim,         klev,              &
   LOGICAL                :: lp(kproma), lrepeat
   INTEGER                :: jk,il,kidx(kbdim)
   
-  kidx(jcs:kproma)=2
+  kidx(1:kproma)=2
   DO jk=1,klev
 10   CONTINUE
      lrepeat=.FALSE.
-     DO il=jcs,kproma
+     DO il=1,kproma
         lp(il)=pp_mid(il,jk).GT.pp_bound(kidx(il)).AND.kidx(il).LE.klevels
      END DO
-     DO il=jcs,kproma
+     DO il=1,kproma
         IF (lp(il)) THEN
            kidx(il)=kidx(il)+1
            lrepeat=.TRUE.
@@ -424,7 +423,7 @@ SUBROUTINE pressure_index(jcs, kproma,   kbdim,         klev,              &
      IF (lrepeat) THEN
         GOTO 10
      ELSE
-        kindex(jcs:kproma,jk)=kidx(jcs:kproma)-1
+        kindex(1:kproma,jk)=kidx(1:kproma)-1
      END IF
   END DO
 END SUBROUTINE pressure_index

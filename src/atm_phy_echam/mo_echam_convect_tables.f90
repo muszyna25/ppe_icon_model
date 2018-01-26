@@ -331,8 +331,8 @@ CONTAINS
 
   END SUBROUTINE init_convect_tables
   !----------------------------------------------------------------------------
-  SUBROUTINE lookup_ubc(jcs,size, temp, ub, uc)
-    INTEGER,            INTENT(in)  :: jcs, size
+  SUBROUTINE lookup_ubc(size, temp, ub, uc)
+    INTEGER,            INTENT(in)  :: size
     REAL(wp),           INTENT(in)  :: temp(size)
     REAL(wp),           INTENT(out) :: ub(size)
     REAL(wp), OPTIONAL, INTENT(out) :: uc(size)
@@ -345,7 +345,7 @@ CONTAINS
 
     IF (PRESENT(uc)) THEN
 !IBM* NOVECTOR
-      DO jl = jcs, size
+      DO jl = 1, size
         zavm1 = FSEL(tmelt-temp(jl),cavi1,cavl1)
         zavm3 = FSEL(tmelt-temp(jl),cavi3,cavl3)
         zavm4 = FSEL(tmelt-temp(jl),cavi4,cavl4)
@@ -356,7 +356,7 @@ CONTAINS
       END DO
     ELSE
 !IBM* NOVECTOR
-      DO jl = jcs, size
+      DO jl = 1, size
         zavm1 = FSEL(tmelt-temp(jl),cavi1,cavl1)
         zavm3 = FSEL(tmelt-temp(jl),cavi3,cavl3)
         zavm4 = FSEL(tmelt-temp(jl),cavi4,cavl4)
@@ -368,8 +368,8 @@ CONTAINS
 
   END SUBROUTINE lookup_ubc
   !----------------------------------------------------------------------------
-  SUBROUTINE lookup_ubc_list(jcs, size, kidx, list, temp, ub, uc)
-    INTEGER,            INTENT(in)  :: jcs, size, kidx
+  SUBROUTINE lookup_ubc_list(size, kidx, list, temp, ub, uc)
+    INTEGER,            INTENT(in)  :: size, kidx
     INTEGER,            INTENT(in)  :: list(kidx)
     REAL(wp),           INTENT(in)  :: temp(size)
     REAL(wp),           INTENT(out) :: ub(size)
@@ -384,7 +384,7 @@ CONTAINS
     IF (PRESENT(uc)) THEN
 !IBM* NOVECTOR
 !IBM* ASSERT(NODEPS)
-      DO nl = jcs, kidx
+      DO nl = 1, kidx
         jl = list(nl)
         zavm1 = FSEL(tmelt-temp(jl),cavi1,cavl1)
         zavm3 = FSEL(tmelt-temp(jl),cavi3,cavl3)
@@ -397,7 +397,7 @@ CONTAINS
     ELSE
 !IBM* NOVECTOR
 !IBM* ASSERT(NODEPS)
-      DO nl = jcs, kidx
+      DO nl = 1, kidx
         jl = list(nl)
         zavm1 = FSEL(tmelt-temp(jl),cavi1,cavl1)
         zavm3 = FSEL(tmelt-temp(jl),cavi3,cavl3)
@@ -410,8 +410,8 @@ CONTAINS
 
   END SUBROUTINE lookup_ubc_list
   !----------------------------------------------------------------------------
-  SUBROUTINE fetch_ua_spline(jcs,size,idx,zalpha,table,ua,dua)
-    INTEGER,            INTENT(in)  :: jcs, size
+  SUBROUTINE fetch_ua_spline(size,idx,zalpha,table,ua,dua)
+    INTEGER,            INTENT(in)  :: size
     INTEGER,            INTENT(in)  :: idx(size)
     REAL(wp),           INTENT(in)  :: zalpha(size)
     REAL(wp),           INTENT(in)  :: table(1:2,lucupmin-2:lucupmax+1)
@@ -421,7 +421,7 @@ CONTAINS
     INTEGER :: jl
 
     IF (PRESENT(ua) .AND. .NOT. PRESENT(dua)) THEN
-      DO jl = jcs,size
+      DO jl = 1,size
         x = zalpha(jl)
         ! derivative and second derivative approximations (2 flops)
         dx   = table(1,idx(jl)+1) - table(1,idx(jl))
@@ -436,7 +436,7 @@ CONTAINS
         ua(jl) = d + x*(c + x*bxa)
       END DO
     ELSE IF (PRESENT(ua) .AND. PRESENT(dua)) THEN
-      DO jl = jcs,size
+      DO jl = 1,size
         x = zalpha(jl)
         ! derivate and second derivate approximations (2 flops)
         dx   = table(1,idx(jl)+1) - table(1,idx(jl))
@@ -469,9 +469,9 @@ CONTAINS
 
   END SUBROUTINE fetch_ua
   !----------------------------------------------------------------------------
-  SUBROUTINE fetch_ua_list_spline(size, kidx1, kidx2, store_idx, lookup_idx, zalpha, table, ua, dua)
-    INTEGER,            INTENT(in)    :: size, kidx1, kidx2
-    INTEGER,            INTENT(in)    :: store_idx(size), lookup_idx(size)
+  SUBROUTINE fetch_ua_list_spline(size, kidx, store_idx, lookup_idx, zalpha, table, ua, dua)
+    INTEGER,            INTENT(in)    :: size, kidx
+    INTEGER,            INTENT(in)    :: store_idx(kidx), lookup_idx(size)
     REAL(wp),           INTENT(in)    :: zalpha(size)
     REAL(wp),           INTENT(in)    :: table(1:2,lucupmin-2:lucupmax+1)
     REAL(wp), OPTIONAL, INTENT(inout) :: ua(size), dua(size)
@@ -481,7 +481,7 @@ CONTAINS
 
     IF (PRESENT(ua) .AND. .NOT. PRESENT(dua)) THEN
 !IBM* ASSERT(NODEPS)
-      DO nl = kidx1, kidx2
+      DO nl = 1, kidx
         jl = store_idx(nl)
         x = zalpha(jl)
         ! derivate and second derivate approximations (2 flops)
@@ -497,9 +497,8 @@ CONTAINS
         ua(jl) = d + x*(c + x*bxa)
       END DO
     ELSE IF (PRESENT(ua) .AND. PRESENT(dua)) THEN
-
 !IBM* ASSERT(NODEPS)
-      DO nl = kidx1, kidx2
+      DO nl = 1, kidx
         jl = store_idx(nl)
         x = zalpha(jl)
         ! derivate and second derivate approximations (2 flops)
@@ -535,8 +534,8 @@ CONTAINS
 
   END SUBROUTINE fetch_ua_list
   !----------------------------------------------------------------------------
-  SUBROUTINE lookup_ua_eor_uaw_spline(jcs, size, idx, zalpha, nphase, iphase, ua, dua)
-    INTEGER,            INTENT(in)  :: jcs, size, nphase
+  SUBROUTINE lookup_ua_eor_uaw_spline(size, idx, zalpha, nphase, iphase, ua, dua)
+    INTEGER,            INTENT(in)  :: size, nphase
     INTEGER,            INTENT(in)  :: idx(size), iphase(size)
     REAL(wp),           INTENT(in)  :: zalpha(size)
     REAL(wp), OPTIONAL, INTENT(out) :: ua(size), dua(size)
@@ -546,38 +545,31 @@ CONTAINS
 
 !    REAL(wp) :: ua1(size), dua1(size)
 
-    IF (nphase == 0) THEN ! temp > 0 for all indices
-      IF (PRESENT(dua)) THEN
-        CALL fetch_ua_spline(jcs, size, idx, zalpha, tlucuw, ua, dua)
-      ELSE
-        CALL fetch_ua_spline(jcs, size, idx, zalpha, tlucuw, ua)
-      END IF
-
-    ELSE IF (nphase == size-jcs+1) THEN ! temp < 0 for all indices
-      IF (PRESENT(dua)) THEN
-        CALL fetch_ua_spline(jcs, size, idx, zalpha, tlucu, ua, dua)
-      ELSE
-        CALL fetch_ua_spline(jcs, size, idx, zalpha, tlucu, ua)
-      END IF
-
+    IF (nphase == 0) THEN
+      CALL fetch_ua_spline(size, idx, zalpha, tlucuw, ua, dua)
+!      DO jl = 1, size
+!        tmpidx(jl) = jl
+!      END DO
+!      CALL fetch_ua_list_spline(size, size, tmpidx, idx, zalpha, tlucuw, ua1, dua1)
+    ELSE IF (nphase == size) THEN
+      CALL fetch_ua_spline(size, idx, zalpha, tlucu, ua, dua)
+!      DO jl = 1, size
+!        tmpidx(jl) = jl
+!      END DO
+!      CALL fetch_ua_list_spline(size, size, tmpidx, idx, zalpha, tlucu, ua1, dua1)
     ELSE
       ! mixed case, must build store index
-      iw = jcs    ! store indices with temp < tmelt at iw (iw = jcs:jcs+nphase-1)
-      inw = size  ! store indices with temp >= tmelt at inw (inw = jcs+nphase : size)
-      DO jl = jcs,size
+      iw = 1
+      inw = size
+      DO jl = 1,size
         tmpidx(iw)  = jl  ! lower part of tmpidx() filled with cond = .true.
         tmpidx(inw) = jl  ! upper part of tmpidx() filled with cond = .false.
-        iw = iw + iphase(jl)          ! iphase(jl)=1 if temp(jl) < tmelt, =0 if temp .ge. tmelt
+        iw = iw + iphase(jl)
         inw = inw - (1 - iphase(jl))
       END DO
       iw = iw - 1
-      IF (PRESENT(dua)) THEN
-        CALL fetch_ua_list_spline(size, jcs, iw+1, tmpidx, idx, zalpha, tlucu , ua=ua, dua=dua)
-        CALL fetch_ua_list_spline(size, iw+1, size, tmpidx, idx, zalpha, tlucuw, ua=ua, dua=dua)
-      ELSE
-        CALL fetch_ua_list_spline(size, jcs, iw+1, tmpidx, idx, zalpha, tlucu , ua=ua)
-        CALL fetch_ua_list_spline(size, iw+1, size, tmpidx, idx, zalpha, tlucuw, ua=ua)
-      END IF
+      CALL fetch_ua_list_spline(size, iw     , tmpidx(1)   , idx, zalpha, tlucu , ua, dua)
+      CALL fetch_ua_list_spline(size, size-iw, tmpidx(iw+1), idx, zalpha, tlucuw, ua, dua)
     END IF
 
   END SUBROUTINE lookup_ua_eor_uaw_spline
@@ -620,16 +612,13 @@ CONTAINS
 
   END SUBROUTINE lookup_ua_eor_uaw
   !----------------------------------------------------------------------------
-  SUBROUTINE lookup_ua_spline(jcs, size, idx, zalpha, ua, dua, name)
-    INTEGER,            INTENT(in)  :: jcs, size
+  SUBROUTINE lookup_ua_spline(size, idx, zalpha, ua, dua)
+    INTEGER,            INTENT(in)  :: size
     INTEGER,            INTENT(in)  :: idx(size)
     REAL(wp),           INTENT(in)  :: zalpha(size)
     REAL(wp), OPTIONAL, INTENT(out) :: ua(size), dua(size)
-    CHARACTER(len=*),OPTIONAL,INTENT(in)  :: name
- 
-    !IF (PRESENT(name)) CALL message('lookup_ua_spline',name)
- 
-    CALL fetch_ua_spline(jcs, size, idx, zalpha, tlucu, ua, dua)
+
+    CALL fetch_ua_spline(size, idx, zalpha, tlucu, ua, dua)
 
   END SUBROUTINE lookup_ua_spline
   !----------------------------------------------------------------------------
@@ -644,13 +633,13 @@ CONTAINS
 
   END SUBROUTINE lookup_ua
   !----------------------------------------------------------------------------
-  SUBROUTINE lookup_uaw_spline(jcs, size, idx, zalpha, ua, dua)
-    INTEGER,            INTENT(in)  :: jcs, size
+  SUBROUTINE lookup_uaw_spline(size, idx, zalpha, ua, dua)
+    INTEGER,            INTENT(in)  :: size
     INTEGER,            INTENT(in)  :: idx(size)
     REAL(wp),           INTENT(in)  :: zalpha(size)
     REAL(wp), OPTIONAL, INTENT(out) :: ua(size), dua(size)
 
-    CALL fetch_ua_spline(jcs, size,idx,zalpha,tlucuw,ua,dua)
+    CALL fetch_ua_spline(size,idx,zalpha,tlucuw,ua,dua)
 
   END SUBROUTINE lookup_uaw_spline
   !----------------------------------------------------------------------------
@@ -664,11 +653,10 @@ CONTAINS
 
   END SUBROUTINE lookup_uaw
   !----------------------------------------------------------------------------
-  SUBROUTINE prepare_ua_index_spline(jg, name, jcs, size, temp, idx, zalpha, xi, &
-                                     nphase, zphase, iphase)
+  SUBROUTINE prepare_ua_index_spline(jg, name, size, temp, idx, zalpha, xi, nphase, zphase, iphase)
     INTEGER,            INTENT(in)  :: jg
     CHARACTER(len=*),   INTENT(in)  :: name
-    INTEGER,            INTENT(in)  :: size, jcs ! start and end index of block
+    INTEGER,            INTENT(in)  :: size
     REAL(wp),           INTENT(in)  :: temp(size)
     INTEGER,            INTENT(out) :: idx(size)
     REAL(wp),           INTENT(out) :: zalpha(size)
@@ -692,14 +680,13 @@ CONTAINS
     ztmax = flucupmax
     IF (PRESENT(xi)) THEN
       znphase = 0.0_wp
-      DO jl = jcs,size
+      DO jl = 1,size
         ztshft = FSEL(tmelt-temp(jl),1.0_wp,0.0_wp)
         ztt = rsdeltat*temp(jl)
         zalpha(jl) = ztt - AINT(ztt)
         idx(jl) = INT(ztt-ztshft)
         zinbounds = FSEL(ztmin-ztt,0.0_wp,zinbounds)
         zinbounds = FSEL(ztt-ztmax,0.0_wp,zinbounds)
-
         ! check dual phase conditions:
         ! lo2 = (ptm1(jl,jk) < cthomi) .OR. (ptm1(jl,jk) < tmelt .AND. zxised > csecfrl)
         ztest = FSEL(temp(jl)-tmelt,0.0_wp,1.0_wp)
@@ -712,18 +699,17 @@ CONTAINS
       END DO
       nphase = INT(znphase)
     ELSE
-      DO jl = jcs, size
+      DO jl = 1,size
         ztshft = FSEL(tmelt-temp(jl),1.0_wp,0.0_wp)
         ztt = rsdeltat*temp(jl)
         zalpha(jl) = ztt - AINT(ztt)
         idx(jl) = INT(ztt-ztshft)
+        zinbounds = FSEL(ztmin-ztt,0.0_wp,zinbounds)
         zinbounds = FSEL(ztt-ztmax,0.0_wp,zinbounds)
       END DO
     END IF
     ! if one index was out of bounds -> print error and exit
-    IF (zinbounds == 0.0_wp) THEN
-       CALL lookuperror(name, 'prepare_ua_index_spline')
-    END IF
+    IF (zinbounds == 0.0_wp) CALL lookuperror(name)
 
   END SUBROUTINE prepare_ua_index_spline
   !----------------------------------------------------------------------------
@@ -780,17 +766,13 @@ CONTAINS
       END DO
     END IF
     ! if one index was out of bounds -> print error and exit
-    IF (zinbounds == 0.0_wp) CALL lookuperror(name, 'prepare_ua_index')
+    IF (zinbounds == 0.0_wp) CALL lookuperror(name)
 
   END SUBROUTINE prepare_ua_index
   !----------------------------------------------------------------------------
-  SUBROUTINE lookup_ua_list_spline(name, jcs, size, kidx, list, temp, ua, dua)
-
-  ! VM: called from within mo_cuadjust.f90 and mo_surface_diag.f90
-  ! include jcs in calls of lookup_ua_list_spline there later!!
-
+  SUBROUTINE lookup_ua_list_spline(name, size, kidx, list, temp, ua, dua)
     CHARACTER(len=*),   INTENT(in)  :: name
-    INTEGER,            INTENT(in)  :: jcs, size, kidx
+    INTEGER,            INTENT(in)  :: size, kidx
     INTEGER,            INTENT(in)  :: list(kidx)
     REAL(wp),           INTENT(in)  :: temp(size)
     REAL(wp), OPTIONAL, INTENT(out) :: ua(size), dua(size)
@@ -805,14 +787,10 @@ CONTAINS
     ztmin = flucupmin
     ztmax = flucupmax
 
-    !if (jcs .gt. 1) then
-    !   CALL message('lookup_ua_list_spline',name)
-    !end if
-
     ! first compute all lookup indices and check if they are all within allowed bounds
 
 !IBM* ASSERT(NODEPS)
-    DO nl = jcs, kidx
+    DO nl = 1, kidx
       jl = list(nl)
       ztshft = FSEL(tmelt-temp(jl),1.0_wp,0.0_wp)
       ztt = rsdeltat*temp(jl)
@@ -822,8 +800,8 @@ CONTAINS
       zinbounds = FSEL(ztt-ztmax,0.0_wp,zinbounds)
     END DO
     ! if one index was out of bounds -> print error and exit
-    IF (zinbounds == 0.0_wp) CALL lookuperror(name, 'lookup_ua_list_spline')
-    CALL fetch_ua_spline(jcs, kidx, idx, zalpha, tlucu, ua, dua)
+    IF (zinbounds == 0.0_wp) CALL lookuperror(name)
+    CALL fetch_ua_spline(kidx, idx, zalpha, tlucu, ua, dua)
 
   END SUBROUTINE lookup_ua_list_spline
   !----------------------------------------------------------------------------
@@ -861,9 +839,6 @@ CONTAINS
   END SUBROUTINE lookup_ua_list
   !----------------------------------------------------------------------------
   SUBROUTINE lookup_uaw_list_spline(name, size, list, temp, uaw, duaw)
-
-  ! VM: this SR is never called!
-
     CHARACTER(len=*),   INTENT(in)  :: name
     INTEGER,            INTENT(in)  :: size
     INTEGER,            INTENT(in)  :: list(size)
@@ -893,8 +868,8 @@ CONTAINS
       zinbounds = FSEL(ztt-ztmax,0.0_wp,zinbounds)
     END DO
     ! if one index was out of bounds -> print error and exit
-    IF (zinbounds == 0.0_wp) CALL lookuperror(name, 'lookup_uaw_list_spline')
-    CALL fetch_ua_spline(1, size, idx, zalpha, tlucuw, uaw, duaw)
+    IF (zinbounds == 0.0_wp) CALL lookuperror(name)
+    CALL fetch_ua_spline(size, idx, zalpha, tlucuw, uaw, duaw)
 
   END SUBROUTINE lookup_uaw_list_spline
   !----------------------------------------------------------------------------
@@ -925,23 +900,15 @@ CONTAINS
       zinbounds = FSEL(ztt-ztmax,0.0_wp,zinbounds)
     END DO
     ! if one index was out of bounds -> print error and exit
-    IF (zinbounds == 0.0_wp) CALL lookuperror(name, 'lookup_uaw_list')
+    IF (zinbounds == 0.0_wp) CALL lookuperror(name)
     CALL fetch_ua(size, idx, tlucuaw, uaw)
     IF (PRESENT(duaw)) CALL fetch_ua(size, idx, tlucuaw, duaw)
 
   END SUBROUTINE lookup_uaw_list
   !----------------------------------------------------------------------------
-  SUBROUTINE lookuperror(name, name2)
+  SUBROUTINE lookuperror(name)
     CHARACTER(len=*), INTENT(in) :: name
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name2
-
-    IF (PRESENT(name2)) THEN
-       WRITE(message_text, '(3a)') name, ': ', name2
-    ELSE
-       WRITE(message_text, '(a)') name
-    END IF
-
-    CALL finish (message_text, ' lookup table overflow (temp out of bounds)')
+    CALL finish (name, ' lookup table overflow')
   END SUBROUTINE lookuperror
   !----------------------------------------------------------------------------
 END MODULE mo_echam_convect_tables

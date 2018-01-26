@@ -48,9 +48,9 @@ CONTAINS
   !!
   !! @remarks  
   !
-  SUBROUTINE sample_cld_state(jcs, kproma, kbdim, klev, ksamps, rnseeds, i_overlap, cld_frac, cldy)
+  SUBROUTINE sample_cld_state(kproma, kbdim, klev, ksamps, rnseeds, i_overlap, cld_frac, cldy)
 
-    INTEGER,  INTENT(IN)    :: jcs, kproma, kbdim, klev, ksamps !< numbers of columns, levels, samples 
+    INTEGER,  INTENT(IN)    :: kproma, kbdim, klev, ksamps !< numbers of columns, levels, samples 
     INTEGER,  INTENT(INOUT) :: rnseeds(:, :)           !< Seeds for random number generator (kbdim, :) 
     INTEGER,  INTENT(IN)    :: i_overlap               !< 1=max-ran, 2=maximum, 3=random 
     REAL(wp), INTENT(IN)    :: cld_frac(kbdim,klev)    !< cloud fraction
@@ -61,7 +61,7 @@ CONTAINS
 
     ! Here cldy(:,:,1) indicates whether any cloud is present 
     !
-    cldy(jcs:kproma,1:klev,1) = cld_frac(jcs:kproma,1:klev) > 0._wp
+    cldy(1:kproma,1:klev,1) = cld_frac(1:kproma,1:klev) > 0._wp
     SELECT CASE(i_overlap) 
     CASE(1) 
       ! Maximum-random overlap
@@ -74,12 +74,12 @@ CONTAINS
       ! There may be a better way to structure this calculation...
       DO jk = klev-1, 1, -1
         DO js = 1, ksamps
-          rank(jcs:kproma,jk,js) = MERGE(rank(jcs:kproma,jk+1,js),                                 & 
+          rank(1:kproma,jk,js) = MERGE(rank(1:kproma,jk+1,js),                                 & 
                                      ! Max overlap... 
-                                     rank(jcs:kproma,jk,js) * (1._wp - cld_frac(jcs:kproma,jk+1)), & 
+                                     rank(1:kproma,jk,js) * (1._wp - cld_frac(1:kproma,jk+1)), & 
                                      ! ... or random overlap in the clear sky portion,  
                                      ! depending on whether or not you have cloud in the layer above 
-                                     rank(jcs:kproma,jk+1,js) > 1._wp - cld_frac(jcs:kproma,jk+1) ) 
+                                     rank(1:kproma,jk+1,js) > 1._wp - cld_frac(1:kproma,jk+1) ) 
         END DO
       END DO  
     CASE(2) 
@@ -88,7 +88,7 @@ CONTAINS
       ! 
       DO js = 1, ksamps
         CALL get_random(kproma, kbdim, rnseeds, rank(:, 1, js))
-        rank(jcs:kproma,2:klev,js) = SPREAD(rank(jcs:kproma,1,js), DIM=2, NCOPIES=(klev-1))
+        rank(1:kproma,2:klev,js) = SPREAD(rank(1:kproma,1,js), DIM=2, NCOPIES=(klev-1))
       END DO 
     CASE(3) 
       !
@@ -107,7 +107,7 @@ CONTAINS
 
     ! Now cldy indicates whether the sample (ks) is cloudy or not.    
     DO js = 1, ksamps
-      cldy(jcs:kproma,1:klev,js) = rank(jcs:kproma,1:klev,js) > (1. - cld_frac(jcs:kproma,1:klev))
+      cldy(1:kproma,1:klev,js) = rank(1:kproma,1:klev,js) > (1. - cld_frac(1:kproma,1:klev))
     END DO 
   
   END SUBROUTINE sample_cld_state

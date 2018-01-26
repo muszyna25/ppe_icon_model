@@ -135,7 +135,6 @@ clean:
 	-rm -f ${exec_prefix}/lib/*.a
 	-rm -f ${exec_prefix}/module/*.mod  
 	-rm -f ${exec_prefix}/src/*.o   
-	-rm -f ${exec_prefix}/src/*.f90
 	-rm -rf html/[a-z]*
 
 distclean:

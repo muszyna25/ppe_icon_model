@@ -45,7 +45,7 @@ MODULE mo_psrad_lrtm_solver
   PUBLIC :: lrtm_solver, find_secdiff
 
 CONTAINS
-  SUBROUTINE lrtm_solver(jcs, kproma, kbdim, klev, tau, layer_f, level_f, &
+  SUBROUTINE lrtm_solver(kbdim, klev, tau, layer_f, level_f, &
     weights, secant, surface_f, surface_eps, flux_up, flux_down)
 
     ! Compute IR (no scattering) radiative transfer for a set of columns 
@@ -53,7 +53,7 @@ CONTAINS
     ! Layers are ordered from botton to top (i.e. tau(1) is tau in lowest layer)
     ! Computes all-sky RT given a total optical thickness in each layer
     !
-    INTEGER,  INTENT(in) :: jcs, kproma, kbdim, klev
+    INTEGER,  INTENT(in) :: kbdim, klev
       
     REAL(wp), DIMENSION(KBDIM, klev), INTENT(in) :: &
       tau, & ! Longwave optical thickness
@@ -76,10 +76,10 @@ CONTAINS
     REAL(wp) :: &
       layer_transmissivity(KBDIM,klev), & ! Layer transmissivity
       tfn(KBDIM,klev), & ! TFN_TBL 
-                ! Tau transition function; i.e. the transition of the Planck
-                ! function from that for the mean layer temperature to that for
-                ! the layer boundary temperature as a function of optical depth.
-                ! The "linear in tau" method is used to make the table.
+		! Tau transition function; i.e. the transition of the Planck
+		! function from that for the mean layer temperature to that for
+		! the layer boundary temperature as a function of optical depth.
+		! The "linear in tau" method is used to make the table.
       tmp(KBDIM) 
 
     ! This secant and weight corresponds to the standard diffusivity 
@@ -96,9 +96,9 @@ CONTAINS
       !BUG? Bjorn: you set this to 0!
       !layer_effective_ir_optical_depth(:,jk) = max(1.e-9_wp,...
       !tmp == layer_effective_ir_optical_depth      
-      tmp(jcs:kproma) = max(0.0_wp, secant(jcs:kproma) * tau(jcs:kproma,jk))
-      tfn(jcs:kproma,jk) = tautrans(tmp(jcs:kproma), kproma-jcs+1)
-      layer_transmissivity(jcs:kproma,jk) = transmit(tmp(jcs:kproma), kproma-jcs+1)
+      tmp(:) = max(0.0_wp, secant(:) * tau(:,jk))
+      tfn(:,jk) = tautrans(tmp, kbdim)
+      layer_transmissivity(:,jk) = transmit(tmp(:), kbdim)
     END DO         
 
     ! Downward radiative transfer
@@ -106,30 +106,30 @@ CONTAINS
     flux_down(:, klev+1) = 0. ! Upper boundary condition - no downwelling IR
     DO jk = klev, 1, -1
       ! Interpolated downward emission 
-      tmp(jcs:kproma) = weights(jcs:kproma,jk) * &
-        (layer_f(jcs:kproma,jk) + (level_f(jcs:kproma,jk) - layer_f(jcs:kproma,jk)) * tfn(jcs:kproma,jk))
-      flux_down(jcs:kproma,jk) = flux_down(jcs:kproma,jk+1) + layer_transmissivity(jcs:kproma,jk) * &
-        (tmp(jcs:kproma) - flux_down(jcs:kproma,jk+1)) 
+      tmp(:) = weights(:,jk) * &
+        (layer_f(:,jk) + (level_f(:,jk) - layer_f(:,jk)) * tfn(:,jk))
+      flux_down(:,jk) = flux_down(:,jk+1) + layer_transmissivity(:,jk) * &
+        (tmp(:) - flux_down(:,jk+1)) 
     END DO 
 
     ! Surface contribution, including reflection
-    flux_up(jcs:kproma, 1) = weights(jcs:kproma, 1) * surface_eps(jcs:kproma) * surface_f(jcs:kproma) + &
-      (1._wp - surface_eps(jcs:kproma)) * flux_down(jcs:kproma, 1)
+    flux_up(:, 1) = weights(:, 1) * surface_eps(:) * surface_f(:) + &
+      (1._wp - surface_eps(:)) * flux_down(:, 1)
     
     ! Upward radiative transfer
     ! Radiance up at propagation angle
     DO jk = 1, klev
       ! Interpolated upward emission 
-      tmp(jcs:kproma) = weights(jcs:kproma,jk) * &
-        (layer_f(jcs:kproma,jk) + (level_f(jcs:kproma,jk+1) - layer_f(jcs:kproma,jk)) * tfn(jcs:kproma,jk))
-      flux_up(jcs:kproma,jk+1) = flux_up(jcs:kproma,jk) * &
-        (1._wp - layer_transmissivity(jcs:kproma,jk)) + &
-        layer_transmissivity(jcs:kproma,jk) * tmp(jcs:kproma)
+      tmp(:) = weights(:,jk) * &
+        (layer_f(:,jk) + (level_f(:,jk+1) - layer_f(:,jk)) * tfn(:,jk))
+      flux_up(:,jk+1) = flux_up(:,jk) * &
+        (1._wp - layer_transmissivity(:,jk)) + &
+        layer_transmissivity(:,jk) * tmp(:)
     END DO 
     
     ! Covert intensities at diffusivity angles (radiance) to fluxes
-    flux_up(jcs:kproma,:) = flux_up(jcs:kproma,:) * wtdiff * fudge
-    flux_down(jcs:kproma,:) = flux_down(jcs:kproma,:) * wtdiff * fudge
+    flux_up(:,:) = flux_up(:,:) * wtdiff * fudge
+    flux_down(:,:) = flux_down(:,:) * wtdiff * fudge
     
   END SUBROUTINE lrtm_solver
 

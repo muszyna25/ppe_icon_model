@@ -270,7 +270,7 @@ CONTAINS
     DO jk=1,nlev
 !IBM* novector
       DO jl=1,nc
-        pressg_inv = 1._wp/pressg(jl)
+        pressg_inv = 1._wp/pressg(jl+jcs-1)
         shj(jl,jk)=papm1(jl+jcs-1,jk)*pressg_inv
         sgj(jl,jk)=papm1(jl+jcs-1,jk)*pressg_inv
       END DO

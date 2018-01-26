@@ -226,7 +226,7 @@ CONTAINS
 
     !-------------------------------------------------------------------
       CALL psrad_interface_onBlock(            jg              ,jb                   ,&
-        & irad_aero       ,jcs, jce        ,nproma          ,klev                    ,& 
+        & irad_aero       ,jce             ,nproma          ,klev                    ,& 
         & ktype(:,jb)                                                                ,&
         & loland(:,jb)    ,loglac(:,jb)    ,this_datetime                            ,&
         & pcos_mu0(:,jb)  ,daylght_frc(:,jb)                                         ,&
@@ -279,7 +279,7 @@ CONTAINS
   ! psrad_general
 
   SUBROUTINE psrad_interface_onBlock(      jg              ,krow            ,&
-       & iaero           ,jcs, kproma     ,kbdim           ,klev            ,&
+       & iaero           ,kproma          ,kbdim           ,klev            ,&
 !!$       & ktrac                                                              ,&
        & ktype                                                              ,&
        & laland          ,laglac          ,this_datetime                    ,&
@@ -301,10 +301,9 @@ CONTAINS
 
     INTEGER,INTENT(IN)  ::             &
          jg,                           & !< domain index
-         krow,                         & !< block index
+         krow,                         & !< first dimension of 2-d arrays
          iaero,                        & !< aerosol control
-         jcs,                          & !< start and
-         kproma,                       & !< end index in block
+         kproma,                       & !< number of longitudes
          kbdim,                        & !< first dimension of 2-d arrays
          klev,                         & !< number of levels
 !!$         ktrac,                        & !< number of tracers
@@ -416,7 +415,7 @@ CONTAINS
 !IBM* ASSERT(NODEPS)
     DO jk = 1, klev
       jkb = klev+1-jk
-      DO jl = jcs, kproma
+      DO jl = 1, kproma
         !
         ! --- Cloud liquid and ice mass: [kg/m2 in cell] --> [g/m2 in cloud]
         !
@@ -428,18 +427,18 @@ CONTAINS
     !
     ! --- control for zero, infintesimal or negative cloud fractions
     !
-    WHERE (cld_frc_vr(jcs:kproma,:) > 2.0_wp*EPSILON(1.0_wp))
-      icldlyr(jcs:kproma,:) = 1
+    WHERE (cld_frc_vr(1:kproma,:) > 2.0_wp*EPSILON(1.0_wp))
+      icldlyr(1:kproma,:) = 1
     ELSEWHERE
-      icldlyr(jcs:kproma,:) = 0
-      ziwp_vr(jcs:kproma,:) = 0.0_wp
-      zlwp_vr(jcs:kproma,:) = 0.0_wp
+      icldlyr(1:kproma,:) = 0
+      ziwp_vr(1:kproma,:) = 0.0_wp
+      zlwp_vr(1:kproma,:) = 0.0_wp
     END WHERE
     !
     ! --- main constituent vertical reordering and unit conversion
     !
 !IBM* ASSERT(NODEPS)
-    DO jl = jcs, kproma
+    DO jl = 1, kproma
       tk_hl_vr(jl,klev+1) = tk_hl(jl,1)
       pm_sfc(jl)          = 0.01_wp*pp_sfc(jl)
     END DO
@@ -449,7 +448,7 @@ CONTAINS
     wx_vr = 0
     DO jk = 1, klev
       jkb = klev+1-jk
-      DO jl = jcs, kproma
+      DO jl = 1, kproma
         !
         ! --- thermodynamic arrays
         !
@@ -490,7 +489,7 @@ CONTAINS
     !
     ! 2.0 Surface Properties
     ! --------------------------------
-    zsemiss(jcs:kproma,:) = zemiss_def 
+    zsemiss(1:kproma,:) = zemiss_def 
 
     !
     ! 3.0 Particulate Optical Properties
@@ -510,7 +509,7 @@ CONTAINS
 ! iaero=13: only Kinne aerosols are used
 ! iaero=15: Kinne aerosols plus Stenchikov's volcanic aerosols are used
 ! iaero=18: Kinne background aerosols (of natural origin, 1850) are set
-      CALL set_bc_aeropt_kinne( this_datetime        ,jcs              ,&
+      CALL set_bc_aeropt_kinne( this_datetime                          ,&
            & kproma           ,kbdim                 ,klev             ,&
            & krow             ,nbndsw                ,nbndlw           ,&
            & zf               ,dz                                      ,&
@@ -523,7 +522,7 @@ CONTAINS
 ! iaero=18: Stenchikov's volcanic aerosols are added to Kinne background
 !           aerosols (of natural origin, 1850) 
       CALL add_bc_aeropt_stenchikov( this_datetime   ,jg               ,&
-           & jcs, kproma      ,kbdim                 ,klev             ,&
+           & kproma           ,kbdim                 ,klev             ,&
            & krow             ,nbndsw                ,nbndlw           ,&
            & dz               ,pp_fl                                   ,&
            & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
@@ -546,7 +545,7 @@ CONTAINS
    IF (iaero==18) THEN
 ! iaero=18: Simple plumes are added to Stenchikov's volcanic aerosols 
 !           and Kinne background aerosols (of natural origin, 1850) 
-     CALL add_bc_aeropt_splumes(jg                   ,jcs              ,&
+     CALL add_bc_aeropt_splumes(jg                                     ,&
            & kproma           ,kbdim                 ,klev             ,&
            & krow             ,nbndsw                ,this_datetime    ,&
            & zf               ,dz                    ,zh(:,klev+1)     ,&
@@ -554,14 +553,14 @@ CONTAINS
            & x_cdnc                                                     )
    END IF
 
-      CALL rad_aero_diag (                jg              , &
-      & krow            ,jcs             ,kproma          , &
+      CALL rad_aero_diag (                                  &
+      & jg              ,krow            ,kproma          , &
       & kbdim           ,klev            ,nbndlw          , &
       & nbndsw          ,aer_tau_lw_vr   ,aer_tau_sw_vr   , &
       & aer_piz_sw_vr   ,aer_cg_sw_vr                       )
 
-    CALL cloud_optics(                                  laglac         ,&
-         & laland        ,jcs           ,kproma        ,kbdim          ,& 
+    CALL cloud_optics(                                                  &
+         & laglac        ,laland        ,kproma        ,kbdim          ,& 
          & klev          , ktype,&       
          & icldlyr       ,zlwp_vr       ,ziwp_vr       ,zlwc_vr        ,&
          & ziwc_vr       ,cdnc_vr       ,cld_tau_lw_vr ,cld_tau_sw_vr  ,&
@@ -614,11 +613,28 @@ CONTAINS
     !
     ! Seeds for random numbers come from least significant digits of pressure field 
     !
-    rnseeds(jcs:kproma,1:rng_seed_size) = (pm_fl_vr(jcs:kproma,1:rng_seed_size) -  &
-         int(pm_fl_vr(jcs:kproma,1:rng_seed_size)))* 1E9 + rad_perm
+    rnseeds(1:kproma,1:rng_seed_size) = int((pm_fl_vr(1:kproma,1:rng_seed_size) -  &
+         int(pm_fl_vr(1:kproma,1:rng_seed_size)))* 1E9 + rad_perm)
 
+    !n_gpts_ts = get_num_gpts_lw()
+    IF (kproma /= kbdim) THEN
+      pm_fl_vr(kproma+1:kbdim,:) = 1.0_wp
+      tk_hl_vr(kproma+1:kbdim,:) = 1.0_wp
+      tk_fl_vr(kproma+1:kbdim,:) = 1.0_wp
+      cld_frc_vr(kproma+1:kbdim,:) = 0.0_wp
+      ziwp_vr(kproma+1:kbdim,:) = 0.0_wp
+      zlwp_vr(kproma+1:kbdim,:) = 0.0_wp
+      ziwc_vr(kproma+1:kbdim,:) = 0.0_wp
+      zlwc_vr(kproma+1:kbdim,:) = 0.0_wp
+      cdnc_vr(kproma+1:kbdim,:) = 0.0_wp
+      col_dry_vr(kproma+1:kbdim,:) = 1.0_wp
+      zsemiss(kproma+1:kbdim,:) = 0.0_wp
+      pm_sfc(kproma+1:kbdim) = 1.0_wp
+      aer_tau_lw_vr(kproma+1:kbdim,:,:) = 0.0_wp
+      cld_tau_lw_vr(kproma+1:kbdim,:,:) = 0.0_wp
+    ENDIF
     IF (ltimer) CALL timer_start(timer_lrtm)
-    CALL lrtm(              jcs             ,kproma                           ,&
+    CALL lrtm(kproma                                                          ,&
          & kbdim           ,klev            ,pm_fl_vr        ,pm_sfc          ,&
          & tk_fl_vr        ,tk_hl_vr        ,tk_sfc          ,wkl_vr          ,&
          & wx_vr           ,col_dry_vr      ,zsemiss         ,cld_frc_vr      ,&
@@ -629,14 +645,14 @@ CONTAINS
     !
     ! Reset random seeds so SW doesn't depend on what's happened in LW but is also independent
     !
-    rnseeds(jcs:kproma,1:rng_seed_size) = (pm_fl_vr(jcs:kproma,rng_seed_size:1:-1) - &
-         int(pm_fl_vr(jcs:kproma,rng_seed_size:1:-1)))* 1E9 + rad_perm
+    rnseeds(1:kproma,1:rng_seed_size) = int((pm_fl_vr(1:kproma,rng_seed_size:1:-1) - &
+         int(pm_fl_vr(1:kproma,rng_seed_size:1:-1)))* 1E9 + rad_perm)
 
     ! 
     ! Potential pitfall - we're passing every argument but some may not be present
     !
     IF (ltimer) CALL timer_start(timer_srtm)
-    CALL srtm(               jcs             ,kproma                           , & 
+    CALL srtm(kproma                                                           , & 
          &  kbdim           ,klev            ,pm_fl_vr        ,tk_fl_vr        , &
          &  wkl_vr          ,col_dry_vr                                        , &
          &  alb_vis_dir     ,alb_vis_dif     ,alb_nir_dir     ,alb_nir_dif     , &
@@ -655,10 +671,10 @@ CONTAINS
     !
     ! Lw fluxes are vertically reversed but SW fluxes are not
     !
-    flx_uplw    (jcs:kproma,1:klev+1) = flx_uplw_vr    (jcs:kproma,klev+1:1:-1) 
-    flx_uplw_clr(jcs:kproma,1:klev+1) = flx_uplw_clr_vr(jcs:kproma,klev+1:1:-1)
-    flx_dnlw    (jcs:kproma,1:klev+1) = flx_dnlw_vr    (jcs:kproma,klev+1:1:-1)
-    flx_dnlw_clr(jcs:kproma,1:klev+1) = flx_dnlw_clr_vr(jcs:kproma,klev+1:1:-1)
+    flx_uplw    (1:kproma,1:klev+1) = flx_uplw_vr    (1:kproma,klev+1:1:-1) 
+    flx_uplw_clr(1:kproma,1:klev+1) = flx_uplw_clr_vr(1:kproma,klev+1:1:-1)
+    flx_dnlw    (1:kproma,1:klev+1) = flx_dnlw_vr    (1:kproma,klev+1:1:-1)
+    flx_dnlw_clr(1:kproma,1:klev+1) = flx_dnlw_clr_vr(1:kproma,klev+1:1:-1)
 
 !!$    !
 !!$    ! 6.0 Interface for submodel diagnosics after radiation calculation:

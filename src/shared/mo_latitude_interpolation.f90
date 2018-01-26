@@ -37,7 +37,7 @@ MODULE mo_latitude_interpolation
 !> SUBROUTINE latitude_weights_li  -- calculate weights and indices for 
 !             linear latitude interpolation.
 
-  SUBROUTINE latitude_weights_li(jg                   ,jcs                            &
+  SUBROUTINE latitude_weights_li(jg                                                   &
                                & ,kproma              ,kbdim            ,krow         &
                                & ,wgt1_lat            ,wgt2_lat         ,inmw1_lat    &
                                & ,inmw2_lat           ,p_lat_shift      ,p_rdeltalat  &
@@ -46,8 +46,7 @@ MODULE mo_latitude_interpolation
     ! n_order=1 if latitudes of climatology are in ascending (S->N), -1 if 
     ! latitudes are in descending (N->S) order.
     INTEGER, INTENT(in)               :: jg,        & ! domain index
-                                       & jcs,       & ! actual block length (start)
-                                       & kproma,    & ! actual block length (end)
+                                       & kproma,    & ! actual block length
                                        & kbdim,     & ! maximal block length
                                        & krow,      & ! block index
                                        & n_order      ! =1 if latitudes in climatology are ordered S->N
@@ -64,11 +63,11 @@ MODULE mo_latitude_interpolation
     INTEGER                           :: jl
     REAL(wp)                          :: zlat(kbdim)
     
-    zlat(jcs:kproma)=p_patch(jg)%cells%center(jcs:kproma,krow)%lat
-    inmw1_lat(jcs:kproma)=MAX(INT(n_order*(zlat(jcs:kproma)-p_lat_shift)*p_rdeltalat+1),0)
-    inmw2_lat(jcs:kproma)=inmw1_lat(jcs:kproma)+1
-    wgt2_lat(jcs:kproma)=n_order*(zlat(jcs:kproma)-r_lat_clim(inmw1_lat(jcs:kproma)))*p_rdeltalat
-    wgt1_lat(jcs:kproma)=1.0_wp-wgt2_lat(jcs:kproma)
+    zlat(1:kproma)=p_patch(jg)%cells%center(1:kproma,krow)%lat
+    inmw1_lat(1:kproma)=MAX(INT(n_order*(zlat(1:kproma)-p_lat_shift)*p_rdeltalat+1),0)
+    inmw2_lat(1:kproma)=inmw1_lat(1:kproma)+1
+    wgt2_lat(1:kproma)=n_order*(zlat(1:kproma)-r_lat_clim(inmw1_lat(1:kproma)))*p_rdeltalat
+    wgt1_lat(1:kproma)=1.0_wp-wgt2_lat(1:kproma)
 !!$    write(0,*) '++++++++++++++++++++++++++++++'
 !!$    write(0,*) 'latitudes=',MAXVAL(zlat(1:kproma))
 !!$    write(0,*) 'p_lat_shift=',p_lat_shift, 'p_rdeltalat=',p_rdeltalat,'r_lat_clim=',r_lat_clim

@@ -349,9 +349,7 @@ case "$ac_sitename" in
                 NETCDFROOT  = ${NETCDF_DIR}
                 CC          = cc
                 FC          = ftn
-                F77         = ftn
-                submit      = qsub
-                sync_submit = qsub -Wblock=true
+                F77         = ftn 
 
                 make_command=make -j 8
                 case "$fortran_compiler" in
@@ -410,6 +408,8 @@ case "$ac_sitename" in
                 MPI_INCLUDE           = /usr/lib64/mpi/gcc/openmpi/include
                 config_target         = oflws
                 make_command          = make -j8
+                submit                = qsub
+                sync_submit           = qsub -sync y
                 ;;
             *)                  # hpc
                 NETCDFROOT  = /usr/local/pkg

@@ -140,13 +140,13 @@ MODULE mo_psrad_lrtm_gas_optics
 
 CONTAINS
 
-  SUBROUTINE gas_optics_lw(jcs, kproma, kbdim, klev, play, &
+  SUBROUTINE gas_optics_lw(kproma, kbdim, klev, play, &
     wx, coldry, laytrop, jp1, iabs, gases, colbrd, &
     fac, reaction_ratio, &
     h2o_factor, h2o_fraction, h2o_index, &
     minorfrac, scaleminor, scaleminorn2, indminor, fracs_ret, tau_ret)
 
-    INTEGER, INTENT(in) :: jcs, kproma, kbdim, klev 
+    INTEGER, INTENT(in) :: kproma, kbdim, klev 
     INTEGER, INTENT(in) :: laytrop(KBDIM), & ! tropopause layer index
       iabs(KBDIM,2,2,klev)
     REAL(wp), DIMENSION(KBDIM,klev,2), INTENT(IN) :: h2o_factor,h2o_fraction
@@ -156,7 +156,7 @@ CONTAINS
     REAL(wp), INTENT(IN) :: &
       wx(KBDIM,ncfc,klev) ! cross-section amounts (mol/cm2)
     REAL(wp), DIMENSION(KBDIM,klev), INTENT(IN) :: &
-      play, & ! (klev) layer pressures [mb]
+      play, & ! (klev) layer pressures [mb] 
       coldry, & ! (klev) column amount (dry air)
       colbrd, &
       minorfrac, &
@@ -171,10 +171,10 @@ CONTAINS
       tau_ret ! gaseous optical depth 
 
     INTEGER :: gpt, lay
-    INTEGER :: atm_range(2,2), merge_range(2), range2(2)
+    INTEGER :: atm_range(2,2), merge_range(2)
     LOGICAL :: must_merge
 
-    merge_range = (/minval(laytrop(jcs:kproma)), maxval(laytrop(jcs:kproma))/)
+    merge_range = (/minval(laytrop), maxval(laytrop)/)
     must_merge = merge_range(1) < merge_range(2)
     IF (must_merge) THEN
       atm_range = RESHAPE((/&
@@ -187,83 +187,29 @@ CONTAINS
         merge_range(1)+1, klev/), SHAPE=(/2,2/))
     END IF
 
-    !CALL do_atmosphere(1, atm_range(:,1), tau_ret, fracs_ret)
-    !CALL do_atmosphere(2, atm_range(:,2), tau_ret, fracs_ret)
-
-    range2(1) = atm_range(1,1)
-    range2(2) = atm_range(2,1)
-    CALL do_atmosphere(jcs, kproma, kbdim, klev, 1, range2, fac, gases, reaction_ratio, &
-         &             iabs, h2o_factor, h2o_fraction, h2o_index, jp1, indminor,                &
-         &             wx, play, coldry, colbrd, minorfrac, scaleminor, scaleminorn2,           &
-         &             tau_ret, fracs_ret)
-    !CALL do_atmosphere(jcs, kproma, kbdim, klev, 2, range2, fac, gases, reaction_ratio, &
-         !&             iabs, h2o_factor, h2o_fraction, h2o_index, jp1, indminor,                &
-         !&             wx, play, coldry, colbrd, minorfrac, scaleminor, scaleminorn2,           &
-         !&             tau_ret, fracs_ret)
-
-    range2(1) = atm_range(1,2)
-    range2(2) = atm_range(2,2)
-    !CALL do_atmosphere(jcs, kproma, kbdim, klev, 1, range2, fac, gases, reaction_ratio, &
-         !&             iabs, h2o_factor, h2o_fraction, h2o_index, jp1, indminor,                &
-         !&             wx, play, coldry, colbrd, minorfrac, scaleminor, scaleminorn2,           &
-         !&             tau_ret, fracs_ret)
-    CALL do_atmosphere(jcs, kproma, kbdim, klev, 2, range2, fac, gases, reaction_ratio, &
-         &             iabs, h2o_factor, h2o_fraction, h2o_index, jp1, indminor,                &
-         &             wx, play, coldry, colbrd, minorfrac, scaleminor, scaleminorn2,           &
-         &             tau_ret, fracs_ret)
-
-
+    CALL do_atmosphere(1, atm_range(:,1), tau_ret, fracs_ret)
+    CALL do_atmosphere(2, atm_range(:,2), tau_ret, fracs_ret)
     IF (must_merge) THEN
-      !CALL do_atmosphere(2, merge_range, tau_upper, fracs_upper)
-      CALL do_atmosphere(jcs, kproma, kbdim, klev, 2, merge_range, fac, gases, reaction_ratio, &
-         &               iabs, h2o_factor, h2o_fraction, h2o_index, jp1, indminor,             &
-         &               wx, play, coldry, colbrd, minorfrac, scaleminor, scaleminorn2,        &
-         &               tau_upper, fracs_upper)
+      CALL do_atmosphere(2, merge_range, tau_upper, fracs_upper)
       DO gpt = 1,ngptlw
       DO lay = merge_range(1),merge_range(2)
-        WHERE (laytrop(jcs:kproma) < lay)
-          tau_ret(jcs:kproma,lay,gpt) = tau_upper(jcs:kproma,lay,gpt)
-          fracs_ret(jcs:kproma,lay,gpt) = fracs_upper(jcs:kproma,lay,gpt)
+        WHERE (laytrop(1:kproma) < lay)
+          tau_ret(1:kproma,lay,gpt) = tau_upper(1:kproma,lay,gpt)
+          fracs_ret(1:kproma,lay,gpt) = fracs_upper(1:kproma,lay,gpt)
         END WHERE
       END DO
       END DO
     END IF
 
-  END SUBROUTINE gas_optics_lw
-    !CONTAINS
+    CONTAINS
 
-    !SUBROUTINE do_atmosphere(atm, range_in, tau, fracs)
-    SUBROUTINE do_atmosphere(jcs, kproma, kbdim, klev, atm, zrange_in, &
-                             fac, gases, reaction_ratio, iabs, h2o_factor, h2o_fraction, h2o_index, &
-                             jp1, indminor, &
-                             wx, play, coldry, colbrd, minorfrac, scaleminor, scaleminorn2, &
-                             tau, fracs)
-
-      INTEGER, INTENT(IN) :: jcs, kproma, kbdim, klev
-      INTEGER, INTENT(IN) :: atm, zrange_in(2)
-
-      REAL(wp), INTENT(IN) :: fac(KBDIM,2,2,klev), gases(KBDIM,klev,ngas), &
-                              reaction_ratio(KBDIM,2,klev,nreact)
-      REAL(wp), DIMENSION(KBDIM,klev,2), INTENT(IN) :: h2o_factor, h2o_fraction
-      INTEGER, INTENT(in) :: iabs(KBDIM,2,2,klev)
-      INTEGER, DIMENSION(KBDIM,klev,2), INTENT(IN) :: h2o_index
-      INTEGER, DIMENSION(KBDIM,klev), INTENT(in) :: jp1, indminor
-      REAL(wp), INTENT(IN) :: wx(KBDIM,ncfc,klev) ! cross-section amounts (mol/cm2)
-      REAL(wp), DIMENSION(KBDIM,klev), INTENT(IN) :: &
-                play, & ! (klev) layer pressures [mb]
-                coldry, & ! (klev) column amount (dry air)
-                colbrd, &
-                minorfrac, &
-                scaleminor, scaleminorn2
-
-      REAL(wp), DIMENSION(KBDIM,klev,ngptlw), INTENT(INOUT) :: fracs, tau
-
+    SUBROUTINE do_atmosphere(atm, range, tau, fracs)
+      INTEGER, INTENT(IN) :: atm, range(2)
+      REAL(wp), DIMENSION(KBDIM,klev,ngptlw), INTENT(INOUT) :: &
+        fracs, tau
       REAL(wp) :: minorscale(KBDIM,klev), ratio
       INTEGER :: gpt_low, gpt_high, gpt_in, &
-                 band, igas1, igas2, ireaction, gpt, which, igas_minor, zrange(2)
-
-      zrange(1) = min(max(zrange_in(1),1),klev)
-      zrange(2) = min(max(zrange_in(2),1),klev)
+        band, igas1, igas2, ireaction, gpt, which, igas_minor
 
       gpt_high = 0
       DO band = 1,nbndlw
@@ -271,14 +217,14 @@ CONTAINS
         gpt_high = ngs(band)
         !n_in_band = ngc(band)
         IF (skip_atmosphere(atm,band) /= 0) THEN
-          tau(:,zrange(1):zrange(2), gpt_low:gpt_high) = 0.
-          fracs(:,zrange(1):zrange(2), gpt_low:gpt_high) = 0.
+          tau(:,range(1):range(2), gpt_low:gpt_high) = 0
+          fracs(:,range(1):range(2), gpt_low:gpt_high) = 0
         ELSE
           IF (planck_fraction_interpolation_layer(atm,band) == 0) THEN
             gpt_in = 0
             DO gpt = gpt_low,gpt_high
               gpt_in = gpt_in+1
-              fracs(:,zrange(1):zrange(2), gpt) = &
+              fracs(:,range(1):range(2), gpt) = &
                 planck_fraction1(gpt_in,atm,band)
             END DO
           ELSE
@@ -286,43 +232,43 @@ CONTAINS
             igas2 = key_species(2,atm,band)
             ratio = planck_ratio(igas1, igas2, &
               planck_fraction_interpolation_layer(atm,band))
-            CALL get_planck_fractions_interp(jcs, kproma, kbdim, klev, &
+            CALL get_planck_fractions_interp(kbdim, klev, &
               gases(:,:,igas1), ratio, gases(:,:,igas2), &
               fracs(:,:,gpt_low:gpt_high), atm, band, &
-              zrange)
+              range)
           END IF
           IF (associated(kmajor(atm,band)%v)) THEN
             IF (key_species(2,atm,band) == 0) THEN
               igas1 = key_species(1,atm,band)
-              CALL get_tau_simple(jcs, kproma, kbdim, klev, atm, band, &
+              CALL get_tau_simple(kbdim, klev, atm, band, &
                 gpt_low, gpt_high, &
-                gases(:,:,igas1), fac, zrange, &
+                gases(:,:,igas1), fac, range, &
                 iabs, kmajor(atm,band)%v, tau)
             ELSE
               igas1 = key_species(1,atm,band)
               igas2 = key_species(2,atm,band)
               ireaction = reaction_table(igas1, igas2)
               IF (atm == 1) THEN
-                CALL get_tau_major_lower(jcs, kproma, kbdim, klev, atm, band, &
-                  zrange, gpt_low, gpt_high, &
+                CALL get_tau_major_lower(kbdim, klev, atm, band, &
+                  range, gpt_low, gpt_high, &
                   gases(:,:,igas1), reaction_ratio(:,:,:,ireaction), &
                   gases(:,:,igas2), &
                   fac, iabs, tau)
               ELSE
-                CALL get_tau_major_upper(jcs, kproma, kbdim, klev, atm, band, &
-                  zrange, gpt_low, gpt_high, &
+                CALL get_tau_major_upper(kbdim, klev, atm, band, &
+                  range, gpt_low, gpt_high, &
                   gases(:,:,igas1), reaction_ratio(:,:,:,ireaction), &
                   gases(:,:,igas2), &
                   fac, iabs, kmajor(atm,band)%v, tau)
               ENDIF
             END IF
           ELSE
-            tau(:,zrange(1):zrange(2), gpt_low:gpt_high) = 0
+            tau(:,range(1):range(2), gpt_low:gpt_high) = 0
           END IF
         END IF
         DO which = 1,2 ! self/foreign
           IF (h2o_absorption_flag(which,atm,band) == 1) THEN
-            CALL get_tau_minor(jcs, kproma, kbdim, klev, zrange, &
+            CALL get_tau_minor(kbdim, klev, range, &
               gpt_low, gpt_high, h2o_factor(:,:,which), &
               h2o_fraction(:,:,which), h2o_index(:,:,which), &
               10, &
@@ -339,19 +285,19 @@ CONTAINS
               ratio = planck_ratio(igas1, igas2, &
                 minor_species_interpolation_layer(which,atm,band))
             ENDIF
-            CALL fill_scale(jcs, kproma, kbdim, klev, which, zrange, atm, &
+            CALL fill_scale(kbdim, klev, which, range, atm, &
               band, gases, jp1, coldry, colbrd, scaleminor, &
               scaleminorn2, minorscale)
             IF (key_species(2,atm,band) == 0) THEN
-              CALL get_tau_minor(jcs, kproma, kbdim, klev, zrange, &
+              CALL get_tau_minor(kbdim, klev, range, &
                 gpt_low, gpt_high, minorscale, minorfrac, &
                 indminor, kgas2_list(igas_minor,atm,band), &
                 kgas2(igas_minor,atm,band)%v, &
                 kgas2_delta(igas_minor,atm,band)%v, &
                 tau)
             ELSE
-              CALL get_tau_minor_spec(jcs, kproma, kbdim, klev, &
-                zrange, gpt_low, gpt_high, &
+              CALL get_tau_minor_spec(kbdim, klev, &
+                range, gpt_low, gpt_high, &
                 fracs_mult(atm,band), &
                 kgas3_list(:,igas_minor,atm,band), &
                 gases(:,:,igas1), ratio, &
@@ -362,58 +308,58 @@ CONTAINS
             ENDIF
           ELSE !(igas_minor >= first_cfc)
             igas_minor = igas_minor - cfc_offset
-            CALL get_tau_cfc(jcs, kproma, kbdim, klev, zrange, &
+            CALL get_tau_cfc(kbdim, klev, range, &
               gpt_low, gpt_high, igas_minor, wx, &
               cfc(igas_minor,band)%v, tau)
           ENDIF
         ENDDO
         IF (pressure_dependent_tau_correction(atm,band) /= 0) THEN
-          CALL pressure_correct_tau(jcs, kproma, kbdim, klev, zrange, gpt_low, &
+          CALL pressure_correct_tau(kbdim, klev, range, gpt_low, &
             gpt_high, pressure_dependent_tau_correction(atm,band), &
             play, tau)
         END IF
         IF (atm == 2 .and. stratosphere_fudge_flag(band) /= 0) THEN
-          CALL stratosphere_correction(jcs, kproma, kbdim, klev, band, zrange, &
+          CALL stratosphere_correction(kbdim, klev, band, range, &
             gpt_low, gpt_high, tau)
         END IF
       END DO
     END SUBROUTINE do_atmosphere
 
-  !END SUBROUTINE gas_optics_lw
+  END SUBROUTINE gas_optics_lw
 
-  SUBROUTINE spec_index_1d(jcs, kproma, kbdim, gas1, ratio, gas2, m, &
+  SUBROUTINE spec_index_1d(kbdim, gas1, ratio, gas2, m, &
     parm, comb, js, fs)
-    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, m
+    INTEGER, INTENT(IN) :: kbdim, m
     REAL(wp), INTENT(IN) :: gas1(KBDIM), ratio, gas2(KBDIM)
     INTEGER, INTENT(OUT) :: js(KBDIM)
     REAL(wp), INTENT(OUT) :: parm(KBDIM), comb(KBDIM), fs(KBDIM)
     REAL(wp) :: mult(KBDIM)
 
-    comb(jcs:kproma) = gas1(jcs:kproma) + ratio * gas2(jcs:kproma)
-    parm(jcs:kproma) = MIN(oneminus, gas1(jcs:kproma)/comb(jcs:kproma))
-    mult(jcs:kproma) = m * parm(jcs:kproma)
-    js(jcs:kproma) = 1 + INT(mult(jcs:kproma))
-    fs(jcs:kproma) = MOD1(mult(jcs:kproma))
+    comb = gas1 + ratio * gas2
+    parm = MIN(oneminus, gas1/comb)
+    mult = m * parm
+    js = 1 + INT(mult)
+    fs = MOD1(mult)
   END SUBROUTINE spec_index_1d
 
-  SUBROUTINE spec_index_2d(jcs, kproma, kbdim, gas1, ratio, gas2, m, iabs, nsp, &
+  SUBROUTINE spec_index_2d(kbdim, gas1, ratio, gas2, m, iabs, nsp, &
     parm, comb, js, fs)
-    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, iabs(KBDIM), nsp, m
+    INTEGER, INTENT(IN) :: kbdim, iabs(KBDIM), nsp, m
     REAL(wp), INTENT(IN) :: gas1(KBDIM), ratio(KBDIM), gas2(KBDIM)
     INTEGER, INTENT(OUT) :: js(KBDIM)
     REAL(wp), INTENT(OUT) :: parm(KBDIM), comb(KBDIM), fs(KBDIM)
     REAL(wp) :: mult(KBDIM)
 
-    comb(jcs:kproma) = gas1(jcs:kproma) + ratio(jcs:kproma) * gas2(jcs:kproma)
-    parm(jcs:kproma) = MIN(oneminus, gas1(jcs:kproma)/comb(jcs:kproma))
-    mult(jcs:kproma) = m * parm(jcs:kproma)
-    js(jcs:kproma) = 1 + INT(mult(jcs:kproma)) + iabs(jcs:kproma) * nsp 
-    fs(jcs:kproma) = MOD1(mult(jcs:kproma))
+    comb = gas1 + ratio * gas2
+    parm = MIN(oneminus, gas1/comb)
+    mult = m * parm
+    js = 1 + INT(mult) + iabs * nsp 
+    fs = MOD1(mult)
   END SUBROUTINE spec_index_2d
 
-  SUBROUTINE pressure_correct_tau(jcs, kproma, kbdim, klev, zrange, gpt_low, gpt_high, &
+  SUBROUTINE pressure_correct_tau(kbdim, klev, range, gpt_low, gpt_high, &
     which, play, tau)
-    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, klev, zrange(2), gpt_low, gpt_high, which
+    INTEGER, INTENT(IN) :: kbdim, klev, range(2), gpt_low, gpt_high, which
     REAL(wp), INTENT(IN) :: play(KBDIM,klev)
     REAL(wp), INTENT(INOUT) :: tau(KBDIM,klev,ngptlw)
     INTEGER :: lay, gpt
@@ -421,34 +367,34 @@ CONTAINS
     SELECT CASE(which)
       CASE(1)
       DO gpt = gpt_low,gpt_high
-      DO lay = zrange(1),zrange(2)
-        WHERE(play(jcs:kproma,lay) .LT. 250._wp)
-          tau(jcs:kproma,lay,gpt) = tau(jcs:kproma,lay,gpt) * &
-            (1._wp - 0.15_wp * (250._wp-play(jcs:kproma,lay)) / 154.4_wp)
+      DO lay = range(1),range(2)
+        WHERE(play(:,lay) .LT. 250._wp)
+          tau(:,lay,gpt) = tau(:,lay,gpt) * &
+            (1._wp - 0.15_wp * (250._wp-play(:,lay)) / 154.4_wp)
         END WHERE
       ENDDO
       ENDDO
       CASE(2)
       DO gpt = gpt_low,gpt_high
-      DO lay = zrange(1),zrange(2)
-        tau(jcs:kproma,lay,gpt) = tau(jcs:kproma,lay,gpt) * &
-          (1._wp - 0.15_wp * (play(jcs:kproma,lay) / 95.6_wp))
+      DO lay = range(1),range(2)
+        tau(:,lay,gpt) = tau(:,lay,gpt) * &
+          (1._wp - 0.15_wp * (play(:,lay) / 95.6_wp))
       ENDDO
       ENDDO
       CASE(3)
       DO gpt = gpt_low,gpt_high
-      DO lay = zrange(1),zrange(2)
-        tau(jcs:kproma,lay,gpt) = tau(jcs:kproma,lay,gpt) * &
-          (1._wp - .05_wp * (play(jcs:kproma,lay) - 100._wp) / 900._wp)
+      DO lay = range(1),range(2)
+        tau(:,lay,gpt) = tau(:,lay,gpt) * &
+          (1._wp - .05_wp * (play(:,lay) - 100._wp) / 900._wp)
       ENDDO
       ENDDO
     END SELECT
   END SUBROUTINE pressure_correct_tau
 
 
-  SUBROUTINE get_tau_cfc(jcs, kproma, kbdim, klev, zrange, &
+  SUBROUTINE get_tau_cfc(kbdim, klev, range, &
     gpt_low, gpt_high, icfc, wx, ref, tau)
-    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, klev, zrange(2), &
+    INTEGER, INTENT(IN) :: kbdim, klev, range(2), &
       gpt_low, gpt_high, icfc
     REAL(wp), INTENT(IN) :: &
       wx(KBDIM,ncfc,klev), & ! cross-section amounts (mol/cm2)
@@ -458,30 +404,30 @@ CONTAINS
     gpt_in = 0
     DO gpt = gpt_low,gpt_high
       gpt_in = gpt_in+1
-      DO lay = zrange(1),zrange(2)
-        tau(jcs:kproma,lay,gpt) = tau(jcs:kproma,lay,gpt) + &
-          wx(jcs:kproma,icfc,lay) * ref(gpt_in)
+      DO lay = range(1),range(2)
+        tau(:,lay,gpt) = tau(:,lay,gpt) + &
+          wx(:,icfc,lay) * ref(gpt_in)
       END DO
     END DO
   END SUBROUTINE
 
-  SUBROUTINE stratosphere_correction(jcs, kproma, kbdim, klev, band, zrange, &
+  SUBROUTINE stratosphere_correction(kbdim, klev, band, range, &
     gpt_low, gpt_high, tau)
-    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, klev, band, zrange(2), gpt_low, gpt_high
+    INTEGER, INTENT(IN) :: kbdim, klev, band, range(2), gpt_low, gpt_high
     REAL(wp), INTENT(INOUT) :: tau(KBDIM,klev,ngptlw)
     INTEGER :: gpt, gpt_in
     gpt_in = 0
     DO gpt = gpt_low,gpt_high
       gpt_in = gpt_in+1
-      tau(jcs:kproma,zrange(1):zrange(2),gpt) = tau(jcs:kproma,zrange(1):zrange(2),gpt) * &
+      tau(:,range(1):range(2),gpt) = tau(:,range(1):range(2),gpt) * &
         stratosphere_fudge(gpt_in,band)
     ENDDO
   END SUBROUTINE stratosphere_correction
 
-  SUBROUTINE get_tau_minor_spec(jcs, kproma, kbdim, klev, zrange, &
+  SUBROUTINE get_tau_minor_spec(kbdim, klev, range, &
     gpt_low, gpt_high, m, dim, gas1, ratio, gas2, &
     scale, fraction, index, ref, delta, tau)
-    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, klev, zrange(2), &
+    INTEGER, INTENT(IN) :: kbdim, klev, range(2), &
       gpt_low, gpt_high, m, dim(2)
     REAL(wp), INTENT(IN) :: ratio
     REAL(wp), DIMENSION(KBDIM,klev), INTENT(IN) :: gas1, gas2, &
@@ -496,25 +442,24 @@ CONTAINS
     gpt_in = 0
     DO gpt = gpt_low,gpt_high
       gpt_in = gpt_in+1
-      DO lay = zrange(1),zrange(2)
-        CALL spec_index_1d(jcs, kproma, kbdim, gas1(:,lay), ratio, gas2(:,lay), m, &
+      DO lay = range(1),range(2)
+        CALL spec_index_1d(kbdim, gas1(:,lay), ratio, gas2(:,lay), m, &
           parm, comb, j, f)
-        DO k = jcs, kproma
+        DO k = 1, KBDIM
           a(k) = ref(j(k),index(k,lay),gpt_in) + &
             f(k) * delta(j(k),index(k,lay),gpt_in)
           b(k) = ref(j(k),index(k,lay)+1,gpt_in) + &
             f(k) * delta(j(k),index(k,lay)+1,gpt_in)
         END DO
-        tau(jcs:kproma,lay,gpt) = tau(jcs:kproma,lay,gpt) + &
-          scale(jcs:kproma,lay) * (a(jcs:kproma) + fraction(jcs:kproma,lay) * &
-          (b(jcs:kproma) - a(jcs:kproma)));
+        tau(:,lay,gpt) = tau(:,lay,gpt) + &
+          scale(:,lay) * (a + fraction(:,lay) * (b - a));
       END DO
     END DO
   END SUBROUTINE get_tau_minor_spec
 
-  SUBROUTINE fill_scale(jcs, kproma, kbdim, klev, which, zrange, atm, band, gases, &
+  SUBROUTINE fill_scale(kbdim, klev, which, range, atm, band, gases, &
     jp1, coldry, colbrd, scaleminor, scaleminorn2, minorscale)
-    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, klev, which, atm, band, zrange(2), &
+    INTEGER, INTENT(IN) :: kbdim, klev, which, atm, band, range(2), &
       jp1(KBDIM,klev)
     REAL(wp), DIMENSION(KBDIM,klev,ngas), INTENT(IN) :: gases
     REAL(wp), DIMENSION(KBDIM,klev), INTENT(IN) :: coldry, colbrd, &
@@ -526,19 +471,19 @@ CONTAINS
 
     SELECT CASE(minor_species_scale(which,atm,band))
       CASE(1)
-        minorscale(jcs:kproma,zrange(1):zrange(2)) = &
-          colbrd(jcs:kproma,zrange(1):zrange(2)) * scaleminorn2(jcs:kproma,zrange(1):zrange(2))
+        minorscale(:,range(1):range(2)) = &
+          colbrd(:,range(1):range(2)) * scaleminorn2(:,range(1):range(2)) 
       CASE(2)
         igas = minor_species(which,atm,band)
-        minorscale(jcs:kproma,zrange(1):zrange(2)) = &
-          gases(jcs:kproma,zrange(1):zrange(2),igas) * scaleminor(jcs:kproma,zrange(1):zrange(2))
+        minorscale(:,range(1):range(2)) = &
+          gases(:,range(1):range(2),igas) * scaleminor(:,range(1):range(2)) 
       CASE(3)
-        minorscale(jcs:kproma,zrange(1):zrange(2)) = &
-          colbrd(jcs:kproma,zrange(1):zrange(2)) * scaleminor(jcs:kproma,zrange(1):zrange(2))
+        minorscale(:,range(1):range(2)) = &
+          colbrd(:,range(1):range(2)) * scaleminor(:,range(1):range(2))
       CASE DEFAULT
         igas = minor_species(which,atm,band)
         IF (minor_species_fudge(1,which,atm,band) == 0) THEN
-           minorscale(jcs:kproma,zrange(1):zrange(2)) = gases(jcs:kproma,zrange(1):zrange(2),igas)
+           minorscale(:,range(1):range(2)) = gases(:,range(1):range(2),igas)
         ELSE
   !  In atmospheres where the amount of N2O/CO2 is too great to be considered
   !  a minor species, adjust the column amount by an empirical 
@@ -550,26 +495,25 @@ CONTAINS
           IF (ugly_hack /= 0) THEN
             chi = ugly_hack
           END IF
-          DO lay = zrange(1),zrange(2)
+          DO lay = range(1),range(2)
             IF (ugly_hack == 0) THEN
-              chi(jcs:kproma) = chi_mls(igas,jp1(jcs:kproma,lay))
+              chi = chi_mls(igas,jp1(:,lay))
             ENDIF
-            x(jcs:kproma) = fudge * (gases(jcs:kproma,lay,igas) / coldry(jcs:kproma,lay)) / &
-                            chi(jcs:kproma)
-            WHERE (x(jcs:kproma) > threshold)
-              minorscale(jcs:kproma,lay) = (a + (x(jcs:kproma)-a)**b) * &
-                chi(jcs:kproma) * fudgem1 * coldry(jcs:kproma,lay)
+            x = fudge * (gases(:,lay,igas) / coldry(:,lay)) / chi
+            WHERE (x > threshold)
+              minorscale(:,lay) = (a + (x-a)**b) * &
+                chi * fudgem1 * coldry(:,lay)
             ELSEWHERE
-              minorscale(jcs:kproma,lay) = gases(jcs:kproma,lay,igas)
+              minorscale(:,lay) = gases(:,lay,igas)
             END WHERE
           END DO
         END IF
     END SELECT
   END SUBROUTINE fill_scale
 
-  SUBROUTINE get_tau_minor(jcs, kproma, kbdim, klev, zrange, gpt_low, gpt_high, &
+  SUBROUTINE get_tau_minor(kbdim, klev, range, gpt_low, gpt_high, &
     factor, fraction, index, nref, ref, delta, tau)
-    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, klev, zrange(2), &
+    INTEGER, INTENT(IN) :: kbdim, klev, range(2), &
       gpt_low, gpt_high, nref
     REAL(wp), DIMENSION(KBDIM,klev), INTENT(IN) :: factor, fraction
     REAL(wp), DIMENSION(nref,maxperband), INTENT(IN) :: ref, delta
@@ -580,21 +524,21 @@ CONTAINS
     gpt_in = 0
     DO gpt = gpt_low, gpt_high
       gpt_in = gpt_in+1
-      DO lay = zrange(1),zrange(2)
-          ind(jcs:kproma) = index(jcs:kproma,lay)
-          tau(jcs:kproma,lay,gpt) = tau(jcs:kproma,lay,gpt) + &
-            factor(jcs:kproma,lay) * (&
-              ref(ind(jcs:kproma),gpt_in) + &
-              fraction(jcs:kproma,lay) * &
-              delta(ind(jcs:kproma),gpt_in))
+      DO lay = range(1),range(2)
+          ind = index(:,lay)
+          tau(:,lay,gpt) = tau(:,lay,gpt) + &
+            factor(:,lay) * (&
+              ref(ind,gpt_in) + &
+              fraction(:,lay) * &
+              delta(ind,gpt_in))
       END DO
     END DO
   END SUBROUTINE get_tau_minor
 
-  SUBROUTINE get_tau_major_lower(jcs, kproma, kbdim, klev, atm, band, &
-    zrange, gpt_low, gpt_high, &
+  SUBROUTINE get_tau_major_lower(kbdim, klev, atm, band, &
+    range, gpt_low, gpt_high, &
     gas1, reaction_ratio, gas2, fac, iabs, tau)
-    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, klev, atm, band, zrange(2), &
+    INTEGER, INTENT(IN) :: kbdim, klev, atm, band, range(2), &
       gpt_low, gpt_high, iabs(KBDIM,2,2,klev)
     REAL(wp), INTENT(IN) :: gas1(KBDIM,klev), reaction_ratio(KBDIM,2,klev), &
       gas2(KBDIM,klev), &
@@ -614,66 +558,66 @@ CONTAINS
     gpt_in = 0
     DO gpt = gpt_low, gpt_high
       gpt_in = gpt_in+1
-      DO lay = zrange(1),zrange(2)
+      DO lay = range(1),range(2)
         DO i = 1,2
-          CALL spec_index_2d(jcs, kproma, kbdim, gas1(:,lay), &
+          CALL spec_index_2d(kbdim, gas1(:,lay), &
             reaction_ratio(:,i,lay), gas2(:,lay), &
             8, iabs(:,i,atm,lay), nsp_species(atm,band), &
             specparm, speccomb, js, fs)
           mask = 0
-          WHERE (specparm(jcs:kproma) < 0.125_wp) mask(jcs:kproma) = -1
-          WHERE (specparm(jcs:kproma) > 0.875_wp) mask(jcs:kproma) = 1
-          WHERE (mask(jcs:kproma) == 0) 
-            acc(jcs:kproma) = fs(jcs:kproma) * fac(jcs:kproma,1,i,lay) * &
-              kmajor(atm,band)%v(js(jcs:kproma) + stencil_4(1),gpt_in)
-            acc(jcs:kproma) = acc(jcs:kproma) + fs(jcs:kproma) * fac(jcs:kproma,2,i,lay) * &
-              kmajor(atm,band)%v(js(jcs:kproma) + stencil_4(2),gpt_in)
-            fk(jcs:kproma) = 1._wp - fs(jcs:kproma)
-            acc(jcs:kproma) = acc(jcs:kproma) + fk(jcs:kproma) * fac(jcs:kproma,1,i,lay) * &
-              kmajor(atm,band)%v(js(jcs:kproma) + stencil_4(3),gpt_in)
-            acc(jcs:kproma) = acc(jcs:kproma) + fk(jcs:kproma) * fac(jcs:kproma,2,i,lay) * &
-              kmajor(atm,band)%v(js(jcs:kproma) + stencil_4(4),gpt_in)
+          WHERE (specparm < 0.125_wp) mask = -1
+          WHERE (specparm > 0.875_wp) mask = 1
+          WHERE (mask == 0) 
+            acc = fs * fac(:,1,i,lay) * &
+              kmajor(atm,band)%v(js + stencil_4(1),gpt_in)
+            acc = acc + fs * fac(:,2,i,lay) * &
+              kmajor(atm,band)%v(js + stencil_4(2),gpt_in)
+            fk = 1._wp - fs
+            acc = acc + fk * fac(:,1,i,lay) * &
+              kmajor(atm,band)%v(js + stencil_4(3),gpt_in)
+            acc = acc + fk * fac(:,2,i,lay) * &
+              kmajor(atm,band)%v(js + stencil_4(4),gpt_in)
           ENDWHERE
-          IF (ANY(mask(jcs:kproma) /= 0)) THEN
-            WHERE (mask(jcs:kproma) < 0)
-              j(jcs:kproma) = 1
-              p(jcs:kproma) = fs(jcs:kproma) - 1
+          IF (ANY(mask /= 0)) THEN
+            WHERE (mask < 0)
+              j = 1
+              p = fs - 1
             ELSEWHERE
-              j(jcs:kproma) = 2
-              p(jcs:kproma) = -fs(jcs:kproma) 
+              j = 2
+              p = -fs 
             ENDWHERE
-            WHERE (mask(jcs:kproma) /= 0)
-              p4(jcs:kproma) = p(jcs:kproma)**4
-              acc(jcs:kproma) = p4(jcs:kproma) * fac(jcs:kproma,1,i,lay) * &
-                kmajor(atm,band)%v(js(jcs:kproma) + stencil_6(1,j(jcs:kproma)),gpt_in)
-              acc(jcs:kproma) = acc(jcs:kproma) + p4(jcs:kproma) * fac(jcs:kproma,2,i,lay) * &
-                kmajor(atm,band)%v(js(jcs:kproma) + stencil_6(2,j(jcs:kproma)),gpt_in)
-              fk(jcs:kproma) = 1 - p(jcs:kproma) - 2.0_wp*p4(jcs:kproma)
-              acc(jcs:kproma) = acc(jcs:kproma) + fk(jcs:kproma) * fac(jcs:kproma,1,i,lay) * &
-                kmajor(atm,band)%v(js(jcs:kproma) + stencil_6(3,j(jcs:kproma)),gpt_in)
-              acc(jcs:kproma) = acc(jcs:kproma) + fk(jcs:kproma) * fac(jcs:kproma,2,i,lay) * &
-                kmajor(atm,band)%v(js(jcs:kproma) + stencil_6(4,j(jcs:kproma)),gpt_in)
-              fk(jcs:kproma) = p(jcs:kproma) + p4(jcs:kproma)
-              acc(jcs:kproma) = acc(jcs:kproma) + fk(jcs:kproma) * fac(jcs:kproma,1,i,lay) * &
-                kmajor(atm,band)%v(js(jcs:kproma) + stencil_6(5,j(jcs:kproma)),gpt_in)
-              acc(jcs:kproma) = acc(jcs:kproma) + fk(jcs:kproma) * fac(jcs:kproma,2,i,lay) * &
-                kmajor(atm,band)%v(js(jcs:kproma) + stencil_6(6,j(jcs:kproma)),gpt_in)
+            WHERE (mask /= 0)
+              p4 = p**4
+              acc = p4 * fac(:,1,i,lay) * &
+                kmajor(atm,band)%v(js + stencil_6(1,j),gpt_in)
+              acc = acc + p4 * fac(:,2,i,lay) * &
+                kmajor(atm,band)%v(js + stencil_6(2,j),gpt_in)
+              fk = 1 - p - 2.0_wp*p4
+              acc = acc + fk * fac(:,1,i,lay) * &
+                kmajor(atm,band)%v(js + stencil_6(3,j),gpt_in)
+              acc = acc + fk * fac(:,2,i,lay) * &
+                kmajor(atm,band)%v(js + stencil_6(4,j),gpt_in)
+              fk = p + p4
+              acc = acc + fk * fac(:,1,i,lay) * &
+                kmajor(atm,band)%v(js + stencil_6(5,j),gpt_in)
+              acc = acc + fk * fac(:,2,i,lay) * &
+                kmajor(atm,band)%v(js + stencil_6(6,j),gpt_in)
             ENDWHERE
           END IF
           IF (i == 1) THEN
-            tau(jcs:kproma,lay,gpt) = speccomb(jcs:kproma) * acc(jcs:kproma)
+            tau(:,lay,gpt) = speccomb * acc
           ELSE
-            tau(jcs:kproma,lay,gpt) = tau(jcs:kproma,lay,gpt) + speccomb(jcs:kproma) * acc(jcs:kproma)
+            tau(:,lay,gpt) = tau(:,lay,gpt) + speccomb * acc
           ENDIF
         END DO
       END DO
     END DO
   END SUBROUTINE get_tau_major_lower
 
-  SUBROUTINE get_tau_major_upper(jcs, kproma, kbdim, klev, atm, band, &
-    zrange, gpt_low, gpt_high, &
+  SUBROUTINE get_tau_major_upper(kbdim, klev, atm, band, &
+    range, gpt_low, gpt_high, &
     gas1, reaction_ratio, gas2, fac, iabs, ref, tau)
-    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, klev, atm, band, zrange(2), &
+    INTEGER, INTENT(IN) :: kbdim, klev, atm, band, range(2), &
       gpt_low, gpt_high, iabs(KBDIM,2,2,klev)
     REAL(wp), INTENT(IN) :: gas1(KBDIM,klev), reaction_ratio(KBDIM,2,klev), &
       gas2(KBDIM,klev), fac(KBDIM,2,2,klev), ref(:,:)
@@ -687,32 +631,32 @@ CONTAINS
     gpt_in = 0
     DO gpt = gpt_low, gpt_high
       gpt_in = gpt_in+1
-      DO lay = zrange(1),zrange(2)
+      DO lay = range(1),range(2)
         DO i = 1,2
-          CALL spec_index_2d(jcs, kproma, kbdim, gas1(:,lay), &
+          CALL spec_index_2d(kbdim, gas1(:,lay), &
             reaction_ratio(:,i,lay), gas2(:,lay), &
             4, iabs(:,i,atm,lay), nsp_species(atm,band), &
             specparm, speccomb, js, fs)
-          acc(jcs:kproma) = fs(jcs:kproma) * ( &
-              fac(jcs:kproma,1,i,lay) * ref(js(jcs:kproma) + stencil_4(1),gpt_in) + &
-              fac(jcs:kproma,2,i,lay) * ref(js(jcs:kproma) + stencil_4(2),gpt_in)) + &
-            (1._wp - fs(jcs:kproma)) * ( &
-              fac(jcs:kproma,1,i,lay) * ref(js(jcs:kproma) + stencil_4(3),gpt_in) + &
-              fac(jcs:kproma,2,i,lay) * ref(js(jcs:kproma) + stencil_4(4),gpt_in))
+          acc = fs * ( &
+              fac(:,1,i,lay) * ref(js + stencil_4(1),gpt_in) + &
+              fac(:,2,i,lay) * ref(js + stencil_4(2),gpt_in)) + &
+            (1._wp - fs) * ( &
+              fac(:,1,i,lay) * ref(js + stencil_4(3),gpt_in) + &
+              fac(:,2,i,lay) * ref(js + stencil_4(4),gpt_in))
           IF (i == 1) THEN
-            tau(jcs:kproma,lay,gpt) = speccomb(jcs:kproma) * acc(jcs:kproma)
+            tau(:,lay,gpt) = speccomb * acc
           ELSE
-            tau(jcs:kproma,lay,gpt) = tau(jcs:kproma,lay,gpt) + speccomb(jcs:kproma) * acc(jcs:kproma)
+            tau(:,lay,gpt) = tau(:,lay,gpt) + speccomb * acc
           ENDIF
         END DO
       END DO
     END DO
   END SUBROUTINE get_tau_major_upper
 
-  SUBROUTINE get_tau_simple(jcs, kproma, kbdim, klev, atm, band, &
+  SUBROUTINE get_tau_simple(kbdim, klev, atm, band, &
     gpt_low, gpt_high, &
-    gas, fac, zrange, iabs, ref, tau)
-    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, klev, atm, band, zrange(2), &
+    gas, fac, range, iabs, ref, tau)
+    INTEGER, INTENT(IN) :: kbdim, klev, atm, band, range(2), &
       iabs(KBDIM,2,2,klev), gpt_low, gpt_high
     REAL(wp), INTENT(IN) :: gas(KBDIM,klev), &
       fac(KBDIM,2,2,klev), ref(:,:)
@@ -723,21 +667,21 @@ CONTAINS
     gpt_in = 0
     DO gpt = gpt_low, gpt_high
       gpt_in = gpt_in+1
-      DO lay = zrange(1),zrange(2)
-        ind(jcs:kproma) = iabs(jcs:kproma,1,atm,lay) * nsp_species_broken_16(atm,band) + 1
-        acc(jcs:kproma) = fac(jcs:kproma,1,1,lay) * ref(ind(jcs:kproma),gpt_in)
-        acc(jcs:kproma) = acc(jcs:kproma) + fac(jcs:kproma,2,1,lay) * ref(ind(jcs:kproma)+1,gpt_in)
-        ind(jcs:kproma) = iabs(jcs:kproma,2,atm,lay) * nsp_species_broken_16(atm,band) + 1
-        acc(jcs:kproma) = acc(jcs:kproma) + fac(jcs:kproma,1,2,lay) * ref(ind(jcs:kproma),gpt_in)
-        acc(jcs:kproma) = acc(jcs:kproma) + fac(jcs:kproma,2,2,lay) * ref(ind(jcs:kproma)+1,gpt_in)
-        tau(jcs:kproma,lay,gpt) = gas(jcs:kproma,lay) * acc(jcs:kproma)
+      DO lay = range(1),range(2)
+        ind = iabs(:,1,atm,lay) * nsp_species_broken_16(atm,band) + 1
+        acc = fac(:,1,1,lay) * ref(ind,gpt_in)
+        acc = acc + fac(:,2,1,lay) * ref(ind+1,gpt_in)
+        ind = iabs(:,2,atm,lay) * nsp_species_broken_16(atm,band) + 1
+        acc = acc + fac(:,1,2,lay) * ref(ind,gpt_in)
+        acc = acc + fac(:,2,2,lay) * ref(ind+1,gpt_in)
+        tau(:,lay,gpt) = gas(:,lay) * acc
       END DO
     END DO
   END SUBROUTINE get_tau_simple
 
-  SUBROUTINE get_planck_fractions_interp(jcs, kproma, kbdim, klev, gas1, &
-    ratio, gas2, fracs, atm, band, zrange)
-    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, klev, atm, band, zrange(2)
+  SUBROUTINE get_planck_fractions_interp(kbdim, klev, gas1, &
+    ratio, gas2, fracs, atm, band, range)
+    INTEGER, INTENT(IN) :: kbdim, klev, atm, band, range(2)
     REAL(wp), INTENT(IN) :: gas1(KBDIM,klev), gas2(KBDIM,klev), &
       ratio
     REAL(wp), INTENT(INOUT) :: fracs(KBDIM,klev,ngc(band))
@@ -747,15 +691,15 @@ CONTAINS
     INTEGER :: jpl(KBDIM)
 
     DO gpt = 1, ngc(band)
-    DO lay = zrange(1),zrange(2)
-      speccomb_planck(jcs:kproma) = gas1(jcs:kproma,lay) + ratio * gas2(jcs:kproma,lay)
-      specparm_planck(jcs:kproma) = MIN(oneminus, gas1(jcs:kproma,lay)/speccomb_planck(jcs:kproma))
-      specmult_planck(jcs:kproma) = fracs_mult(atm,band) * specparm_planck(jcs:kproma)
-      jpl(jcs:kproma)= 1 + INT(specmult_planck(jcs:kproma))
-      fpl(jcs:kproma) = MOD1(specmult_planck(jcs:kproma))
-      fracs(jcs:kproma,lay,gpt) = &
-        planck_fraction2(atm,band)%v(jpl(jcs:kproma),gpt) + fpl(jcs:kproma) * &
-          planck_fraction2_delta(atm,band)%v(jpl(jcs:kproma),gpt)
+    DO lay = range(1),range(2)
+      speccomb_planck = gas1(:,lay) + ratio * gas2(:,lay)
+      specparm_planck = MIN(oneminus, gas1(:,lay)/speccomb_planck)
+      specmult_planck = fracs_mult(atm,band) * specparm_planck
+      jpl= 1 + INT(specmult_planck)
+      fpl = MOD1(specmult_planck)
+      fracs(:,lay,gpt) = &
+        planck_fraction2(atm,band)%v(jpl,gpt) + fpl * &
+          planck_fraction2_delta(atm,band)%v(jpl,gpt)
     END DO
     END DO
   END SUBROUTINE get_planck_fractions_interp

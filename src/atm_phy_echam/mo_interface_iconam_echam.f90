@@ -65,7 +65,7 @@
 MODULE mo_interface_iconam_echam
 
   USE mo_kind                  ,ONLY: wp
-  USE mo_exception             ,ONLY: message, finish
+  USE mo_exception             ,ONLY: finish
 
   USE mo_coupling_config       ,ONLY: is_coupled_run
   USE mo_parallel_config       ,ONLY: nproma
@@ -107,8 +107,6 @@ MODULE mo_interface_iconam_echam
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
 
-  USE mo_ext_data_types        ,ONLY: t_external_data 
-  USE mo_ext_data_state        ,ONLY: ext_data
   USE mo_lcariolle_types       ,ONLY: l_cariolle_initialized_o3, t_avi, t_time_interpolation
 #ifdef __ICON_ART
   USE mo_linked_list           ,ONLY: t_var_list
@@ -137,7 +135,6 @@ CONTAINS
     &                               ,patch           & !in
     &                               ,pt_int_state    & !in
     &                               ,p_metrics       & !in
-    &                               ,ext_dat         & !inout (in echam_phy_bcs: CALL read_bc_sst)
     &                               ,pt_prog_old     & !in
     &                               ,pt_prog_old_rcf & !in
     &                               ,pt_prog_new     & !inout
@@ -155,7 +152,6 @@ CONTAINS
     TYPE(datetime)        , POINTER               :: datetime_new    !< date and time at the end of this time step
 
     TYPE(t_patch)         , INTENT(in)   , TARGET :: patch           !< grid/patch info
-    TYPE(t_external_data) , INTENT(inout)         :: ext_dat         !< ext_dat for sst and sic
     TYPE(t_int_state)     , INTENT(in)   , TARGET :: pt_int_state    !< interpolation state
     TYPE(t_nh_metrics)    , INTENT(in)            :: p_metrics
 
@@ -629,7 +625,6 @@ CONTAINS
 
     CALL echam_phy_bcs( datetime_old ,&! in
       &                 patch        ,&! in
-      &                 ext_dat      ,&! inout (for call of read_bc_sst) 
       &                 dt_loc       ) ! out
 
     IF (ltimer) CALL timer_stop(timer_echam_bcs)
@@ -643,7 +638,6 @@ CONTAINS
     !     the land processes, which are vertically implicitly coupled
     !     to the parameterization of vertical turbulent fluxes.
     !
-    
 #ifndef __NO_JSBACH__
     IF (echam_phy_config(jg)%ljsb) THEN
       CALL jsbach_start_timestep(jg)

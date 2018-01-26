@@ -71,8 +71,11 @@ CONTAINS
        !
        IF ( is_active ) THEN
           !
+          ! number of cells/columns from index jcs to jce
+          nc = jce-jcs+1
+          !
           CALL ssodrag(jg                           ,& ! in,  grid index
-               &       jcs, jce                     ,& ! in,  start and end index
+               &       nc                           ,& ! in,  number of cells/columns in loop (jce-jcs+1)
                &       nproma                       ,& ! in,  dimension of block of cells/columns
                &       nlev                         ,& ! in,  number of levels
                !

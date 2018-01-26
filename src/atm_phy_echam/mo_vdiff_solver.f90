@@ -170,7 +170,7 @@ CONTAINS
   !! coefficients "cair" and "csat" are not yet available. Thus for this variable 
   !! elimination is performed only till level klev-1. 
   !! 
-  SUBROUTINE matrix_setup_elim( jcs, kproma, kbdim, klev, klevm1, &! in
+  SUBROUTINE matrix_setup_elim( kproma, kbdim, klev, klevm1,  &! in
                               & ksfc_type, itop,              &! in
                               & pcfm, pcfh, pcfh_tile, pcfv,  &! in
                               & pcftotte, pcfthv,             &! in
@@ -179,7 +179,7 @@ CONTAINS
                               & aa, aa_btm                    )! out
     ! Arguments
 
-    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, klev, klevm1, ksfc_type
+    INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1, ksfc_type
     INTEGER, INTENT(IN) :: itop
 
     REAL(wp),INTENT(IN) :: pcfm     (kbdim,klev)      !< exchange coeff. for u, v
@@ -211,17 +211,17 @@ CONTAINS
     ! For all prognostic variables: no turbulent flux at the upper boundary
     !-----------------------------------------------------------------------
 
-    zkstar(jcs:kproma,itop-1) = 0._wp
+    zkstar(1:kproma,itop-1) = 0._wp
 
     !-----------------------------------------------------------------------
     ! For momentum: surface flux is considered
     !-----------------------------------------------------------------------
     im = matrix_idx(iu)    ! also = matrix_idx(iv)
-    zkstar(jcs:kproma,itop:klev) = pprfac(jcs:kproma,itop:klev)  &
-                               &  *pcfm(jcs:kproma,itop:klev)
+    zkstar(1:kproma,itop:klev) = pprfac(1:kproma,itop:klev)  &
+                               &  *pcfm(1:kproma,itop:klev)
 
     DO jk = itop,klev
-      DO jc = jcs,kproma
+      DO jc = 1,kproma
         aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prmairm(jc,jk)  ! -K*_{k-1/2}/dm_k
         aa(jc,jk,3,im) = -zkstar(jc,jk  )*prmairm(jc,jk)  ! -K*_{k+1/2}/dm_k
         aa(jc,jk,2,im) = 1._wp - aa(jc,jk,1,im) - aa(jc,jk,3,im)
@@ -233,10 +233,10 @@ CONTAINS
     ! are handled separately. 
     !---------------------------------------------------------------------
     im = imh
-    zkstar(jcs:kproma,itop:klevm1) =  pprfac(jcs:kproma,itop:klevm1) &
-                                 &   *pcfh(jcs:kproma,itop:klevm1)
+    zkstar(1:kproma,itop:klevm1) =  pprfac(1:kproma,itop:klevm1) &
+                                 &   *pcfh(1:kproma,itop:klevm1)
     DO jk = itop,klevm1
-      DO jc = jcs,kproma
+      DO jc = 1,kproma
         aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prmairm(jc,jk)  ! -K*_{k-1/2}/dm_k
         aa(jc,jk,3,im) = -zkstar(jc,jk  )*prmairm(jc,jk)  ! -K*_{k+1/2}/dm_k
         aa(jc,jk,2,im) = 1._wp - aa(jc,jk,1,im) - aa(jc,jk,3,im)
@@ -248,7 +248,7 @@ CONTAINS
 
     jk = klev
     DO jsfc = 1,ksfc_type
-      DO jc = jcs,kproma
+      DO jc = 1,kproma
         aa_btm(jc,1,jsfc,im) = -zkstar(jc,jk-1)*prmairm(jc,jk)    ! -K*_{k-1/2}/dm_k
         aa_btm(jc,3,jsfc,im) = -pcfh_tile(jc,jsfc)*pprfac(jc,jk)*prmairm(jc,jk)
         aa_btm(jc,2,jsfc,im) = 1._wp - aa_btm(jc,1,jsfc,im) - aa_btm(jc,3,jsfc,im)
@@ -259,10 +259,10 @@ CONTAINS
     ! Moisture: different surface types are handled separately.
     !---------------------------------------------------------------------
     im = imqv
-    zkstar(jcs:kproma,itop:klevm1) =  pprfac(jcs:kproma,itop:klevm1) &
-                                 &   *pcfh(jcs:kproma,itop:klevm1)
+    zkstar(1:kproma,itop:klevm1) =  pprfac(1:kproma,itop:klevm1) &
+                                 &   *pcfh(1:kproma,itop:klevm1)
     DO jk = itop,klevm1
-      DO jc = jcs,kproma
+      DO jc = 1,kproma
         aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prmdrym(jc,jk)  ! -K*_{k-1/2}/dm_k
         aa(jc,jk,3,im) = -zkstar(jc,jk  )*prmdrym(jc,jk)  ! -K*_{k+1/2}/dm_k
         aa(jc,jk,2,im) = 1._wp - aa(jc,jk,1,im) - aa(jc,jk,3,im)
@@ -276,7 +276,7 @@ CONTAINS
 
     jk = klev
     DO jsfc = 1,ksfc_type
-      DO jc = jcs,kproma
+      DO jc = 1,kproma
         aa_btm(jc,1,jsfc,im) = -zkstar(jc,jk-1)*prmdrym(jc,jk)    ! -K*_{k-1/2}/dm_k
         aa_btm(jc,3,jsfc,im) = -pcfh_tile(jc,jsfc)*pprfac(jc,jk)*prmdrym(jc,jk)
         aa_btm(jc,2,jsfc,im) = 1._wp - aa_btm(jc,1,jsfc,im) - aa_btm(jc,3,jsfc,im)
@@ -288,10 +288,10 @@ CONTAINS
     ! the surface.
     !----------------------------------------------------------------------
     im = matrix_idx(ixl)
-    zkstar(jcs:kproma,klev) = 0._wp  ! lower boundary, no turbulent flux
+    zkstar(1:kproma,klev) = 0._wp  ! lower boundary, no turbulent flux
 
     DO jk = itop,klev
-      DO jc = jcs,kproma
+      DO jc = 1,kproma
         aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prmdrym(jc,jk)  ! -K*_{k-1/2}/dm_k
         aa(jc,jk,3,im) = -zkstar(jc,jk  )*prmdrym(jc,jk)  ! -K*_{k+1/2}/dm_k
         aa(jc,jk,2,im) = 1._wp - aa(jc,jk,1,im) - aa(jc,jk,3,im)
@@ -305,10 +305,10 @@ CONTAINS
     ! attention is needed here.
     !----------------------------------------------------------------------
     im = matrix_idx(ixv)
-    zkstar(jcs:kproma,itop:klev) = pprfac(jcs:kproma,itop:klev) &
-                               &  *pcfv(jcs:kproma,itop:klev)
+    zkstar(1:kproma,itop:klev) = pprfac(1:kproma,itop:klev) &
+                               &  *pcfv(1:kproma,itop:klev)
     DO jk = itop,klev
-      DO jc = jcs,kproma
+      DO jc = 1,kproma
         aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prmdrym(jc,jk)
         aa(jc,jk,3,im) = -zkstar(jc,jk  )*prmdrym(jc,jk)
         aa(jc,jk,2,im) = 1._wp - aa(jc,jk,1,im) - aa(jc,jk,3,im)
@@ -326,15 +326,15 @@ CONTAINS
     !------------------------------------------------------------------------
     im = matrix_idx(itotte)
 
-    zkstar(jcs:kproma,itop:klev) =  pprfac(jcs:kproma,itop:klev) &
-                               & *pcftotte(jcs:kproma,itop:klev)
+    zkstar(1:kproma,itop:klev) =  pprfac(1:kproma,itop:klev) &
+                               & *pcftotte(1:kproma,itop:klev)
     DO jk = itop,klevm1
-      zkh(jcs:kproma,jk) = 0.5_wp*(zkstar(jcs:kproma,jk)+zkstar(jcs:kproma,jk+1))
+      zkh(1:kproma,jk) = 0.5_wp*(zkstar(1:kproma,jk)+zkstar(1:kproma,jk+1))
     ENDDO
-    zkh(jcs:kproma,itop-1) = 0._wp  ! upper boundary, no flux
+    zkh(1:kproma,itop-1) = 0._wp  ! upper boundary, no flux
 
     DO jk = itop,klevm1
-      DO jc = jcs,kproma
+      DO jc = 1,kproma
         aa(jc,jk,1,im) = -zkh(jc,jk-1)*prmairh(jc,jk)
         aa(jc,jk,3,im) = -zkh(jc,jk  )*prmairh(jc,jk)
         aa(jc,jk,2,im) = 1._wp - aa(jc,jk,1,im) - aa(jc,jk,3,im)
@@ -345,14 +345,14 @@ CONTAINS
     ! For the variance of theta_v (similar to TTE)
     !------------------------------------------------
     im = matrix_idx(ithv)
-    zkstar(jcs:kproma,itop:klev) =  pprfac(jcs:kproma,itop:klev) &
-                               & *pcfthv(jcs:kproma,itop:klev)
+    zkstar(1:kproma,itop:klev) =  pprfac(1:kproma,itop:klev) &
+                               & *pcfthv(1:kproma,itop:klev)
     DO jk = itop,klevm1
-      zkh(jcs:kproma,jk) = 0.5_wp*(zkstar(jcs:kproma,jk)+zkstar(jcs:kproma,jk+1))
+      zkh(1:kproma,jk) = 0.5_wp*(zkstar(1:kproma,jk)+zkstar(1:kproma,jk+1))
     ENDDO
 
     DO jk = itop,klevm1
-      DO jc = jcs,kproma
+      DO jc = 1,kproma
         aa(jc,jk,1,im) = -zkh(jc,jk-1)*prmairh(jc,jk)
         aa(jc,jk,3,im) = -zkh(jc,jk  )*prmairh(jc,jk)
         aa(jc,jk,2,im) = 1._wp - aa(jc,jk,1,im) - aa(jc,jk,3,im)
@@ -366,14 +366,14 @@ CONTAINS
     !-----------------------------------------------------------------------------
 
     DO im = 1,nmatrix
-      aa(jcs:kproma,itop,3,im) = aa(jcs:kproma,itop,3,im)/aa(jcs:kproma,itop,2,im)
+      aa(1:kproma,itop,3,im) = aa(1:kproma,itop,3,im)/aa(1:kproma,itop,2,im)
 
       jmax = ibtm_mtrx(im) - 1
       DO jk = itop+1,jmax
         jkm1 = jk - 1
-        aa(jcs:kproma,jk,2,im) =  aa(jcs:kproma,jk,2,im)                       &
-                             & -aa(jcs:kproma,jk,1,im)*aa(jcs:kproma,jkm1,3,im)
-        aa(jcs:kproma,jk,3,im) =  aa(jcs:kproma,jk,3,im)/aa(jcs:kproma,jk,2,im)
+        aa(1:kproma,jk,2,im) =  aa(1:kproma,jk,2,im)                       &
+                             & -aa(1:kproma,jk,1,im)*aa(1:kproma,jkm1,3,im)
+        aa(1:kproma,jk,3,im) =  aa(1:kproma,jk,3,im)/aa(1:kproma,jk,2,im)
       ENDDO
     END DO
 
@@ -389,7 +389,7 @@ CONTAINS
 
   !--------------------------------------------------------------------------------
   !>
-  SUBROUTINE rhs_setup( jcs, kproma, kbdim, itop, klev, klevm1,&! in
+  SUBROUTINE rhs_setup( kproma, kbdim, itop, klev, klevm1,   &! in
                       & ksfc_type, ktrac, pdtime,            &! in
                       & pum1, pvm1, pcptgz, pqm1,            &! in
                       & pxlm1, pxim1, pxvar, pxtm1, pxt_emis,&! in
@@ -398,7 +398,7 @@ CONTAINS
 
     ! Arguments
 
-    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, itop, klev, klevm1
+    INTEGER, INTENT(IN) :: kproma, kbdim, itop, klev, klevm1
     INTEGER, INTENT(IN) :: ksfc_type, ktrac
     REAL(wp),INTENT(IN) :: pdtime
 
@@ -430,30 +430,30 @@ CONTAINS
     !-------------------------------------------------------------------
     ! u and v
 
-    bb(jcs:kproma,itop:klev,iu) = pum1(jcs:kproma,itop:klev)
-    bb(jcs:kproma,itop:klev,iv) = pvm1(jcs:kproma,itop:klev)
+    bb(1:kproma,itop:klev,iu) = pum1(1:kproma,itop:klev)
+    bb(1:kproma,itop:klev,iv) = pvm1(1:kproma,itop:klev)
 
     ! Hydrometeors and the variance of cloud droplets
 
-    bb(jcs:kproma,itop:klev,ixl) = pxlm1(jcs:kproma,itop:klev)
-    bb(jcs:kproma,itop:klev,ixi) = pxim1(jcs:kproma,itop:klev)
-    bb(jcs:kproma,itop:klev,ixv) = pxvar(jcs:kproma,itop:klev)
+    bb(1:kproma,itop:klev,ixl) = pxlm1(1:kproma,itop:klev)
+    bb(1:kproma,itop:klev,ixi) = pxim1(1:kproma,itop:klev)
+    bb(1:kproma,itop:klev,ixv) = pxvar(1:kproma,itop:klev)
 
     ! Other tracers
 
     DO jt = 1,ktrac
        irhs = jt - 1 + itrc_start
-       bb(jcs:kproma,itop:klev,irhs) =  pxtm1(jcs:kproma,itop:klev,jt)
+       bb(1:kproma,itop:klev,irhs) =  pxtm1(1:kproma,itop:klev,jt)
     ENDDO
 
     ! Heat and moisture
 
-    bb(jcs:kproma,itop:klevm1,ih ) = pcptgz(jcs:kproma,itop:klevm1)
-    bb(jcs:kproma,itop:klevm1,iqv) = pqm1  (jcs:kproma,itop:klevm1)
+    bb(1:kproma,itop:klevm1,ih ) = pcptgz(1:kproma,itop:klevm1)
+    bb(1:kproma,itop:klevm1,iqv) = pqm1  (1:kproma,itop:klevm1)
 
     DO jsfc = 1,ksfc_type
-       bb_btm(jcs:kproma,jsfc,ih)  = pcptgz(jcs:kproma,klev)
-       bb_btm(jcs:kproma,jsfc,iqv) =   pqm1(jcs:kproma,klev)
+       bb_btm(1:kproma,jsfc,ih)  = pcptgz(1:kproma,klev)
+       bb_btm(1:kproma,jsfc,iqv) =   pqm1(1:kproma,klev)
     ENDDO
 
     !-------------------------------------------------------------------
@@ -463,16 +463,16 @@ CONTAINS
     ! lower boundary. The linear solver only solves till index klevm1.
     !-------------------------------------------------------------------
     im = matrix_idx(itotte)
-    bb(jcs:kproma,itop:klevm1,itotte) =  ptottevn(jcs:kproma,itop:klevm1)
-    bb(jcs:kproma,     klevm1,itotte) =  bb(jcs:kproma,klevm1,itotte)   &
-                                    & -aa(jcs:kproma,klevm1,3,im)     &
-                                    & *ptottevn(jcs:kproma,klev)
+    bb(1:kproma,itop:klevm1,itotte) =  ptottevn(1:kproma,itop:klevm1)
+    bb(1:kproma,     klevm1,itotte) =  bb(1:kproma,klevm1,itotte)   &
+                                    & -aa(1:kproma,klevm1,3,im)     &
+                                    & *ptottevn(1:kproma,klev)
 
     im = matrix_idx(ithv)
-    bb(jcs:kproma,itop:klevm1,ithv) =  pzthvvar(jcs:kproma,itop:klevm1)
-    bb(jcs:kproma,     klevm1,ithv) =  bb(jcs:kproma,klevm1,ithv)     &
-                                  & -aa(jcs:kproma,klevm1,3,im)     &
-                                  & *pzthvvar(jcs:kproma,klev)
+    bb(1:kproma,itop:klevm1,ithv) =  pzthvvar(1:kproma,itop:klevm1)
+    bb(1:kproma,     klevm1,ithv) =  bb(1:kproma,klevm1,ithv)     &
+                                  & -aa(1:kproma,klevm1,3,im)     &
+                                  & *pzthvvar(1:kproma,klev)
 
     !--------------------------------------------------------------------
     ! Apply the implicitness factor
@@ -480,14 +480,14 @@ CONTAINS
     !bb     = tpfac2*bb
     !bb_btm = tpfac2*bb_btm
 
-     bb(jcs:kproma,1:klev,  1:itotte-1) = tpfac2*bb(jcs:kproma,1:klev,  1:itotte-1)
-     bb(jcs:kproma,1:klevm1,itotte:iqv) = tpfac2*bb(jcs:kproma,1:klevm1,itotte:iqv)
+     bb(1:kproma,1:klev,  1:itotte-1) = tpfac2*bb(1:kproma,1:klev,  1:itotte-1)
+     bb(1:kproma,1:klevm1,itotte:iqv) = tpfac2*bb(1:kproma,1:klevm1,itotte:iqv)
 
      IF (ktrac>0) THEN
-       bb(jcs:kproma,1:klev,itrc_start:) = tpfac2*bb(jcs:kproma,1:klev,itrc_start:)
+       bb(1:kproma,1:klev,itrc_start:) = tpfac2*bb(1:kproma,1:klev,itrc_start:)
      ENDIF
 
-     bb_btm(jcs:kproma,:,:) = tpfac2*bb_btm(jcs:kproma,:,:)
+     bb_btm(1:kproma,:,:) = tpfac2*bb_btm(1:kproma,:,:)
 
     !--------------------------------------------------------------------
     ! Add tracer emissions
@@ -495,13 +495,13 @@ CONTAINS
     ! Currently we follow ECHAM in which only the surface emission
     ! is treated in "vdiff".
 
-    ztmp(jcs:kproma,klev) = prmdrym(jcs:kproma,klev)*pdtime
+    ztmp(1:kproma,klev) = prmdrym(1:kproma,klev)*pdtime
 
     DO jt = 1,ktrac
        irhs = jt - 1 + itrc_start
-       bb(jcs:kproma,klev,irhs) =         bb(jcs:kproma,klev,irhs) &
-                              & + pxt_emis(jcs:kproma,jt)        &
-                              &      *ztmp(jcs:kproma,klev)
+       bb(1:kproma,klev,irhs) =         bb(1:kproma,klev,irhs) &
+                              & + pxt_emis(1:kproma,jt)        &
+                              &      *ztmp(1:kproma,klev)
     ENDDO
 
     ! Later we may consider treating emission on all vertical levels
@@ -533,10 +533,10 @@ CONTAINS
   !! It is used in this subroutine to convert the variable bb 
   !! into the Richtmyer coeff B (cf Eqn. 19 of Polcher et al 1998).
   !!
-  SUBROUTINE rhs_elim( jcs, kproma, kbdim, itop, klev, klevm1, &! in
+  SUBROUTINE rhs_elim( kproma, kbdim, itop, klev, klevm1, &! in
                      & aa, bb                             )! in, inout
 
-    INTEGER, INTENT(IN)    :: jcs, kproma, kbdim, itop, klev, klevm1
+    INTEGER, INTENT(IN)    :: kproma, kbdim, itop, klev, klevm1
     REAL(wp),INTENT(IN)    :: aa(kbdim,klev,3,nmatrix)
     REAL(wp),INTENT(INOUT) :: bb(kbdim,klev,nvar_vdiff)
 
@@ -548,14 +548,14 @@ CONTAINS
 
     DO jvar = 1,nvar_vdiff
       im = matrix_idx(jvar)  ! Index of coefficient matrix
-      bb(jcs:kproma,itop,jvar) =  bb(jcs:kproma,itop,jvar)/aa(jcs:kproma,itop,2,im)
+      bb(1:kproma,itop,jvar) =  bb(1:kproma,itop,jvar)/aa(1:kproma,itop,2,im)
 
       jmax = ibtm_var(jvar) - 1
       DO jk = itop+1,jmax
          jkm1 = jk - 1
-         znum(jcs:kproma) =  bb(jcs:kproma,jk  ,jvar)                     &
-                        & -bb(jcs:kproma,jkm1,jvar)*aa(jcs:kproma,jk,1,im)
-         bb(jcs:kproma,jk,jvar) = znum(jcs:kproma)/aa(jcs:kproma,jk,2,im)
+         znum(1:kproma) =  bb(1:kproma,jk  ,jvar)                     &
+                        & -bb(1:kproma,jkm1,jvar)*aa(1:kproma,jk,1,im)
+         bb(1:kproma,jk,jvar) = znum(1:kproma)/aa(1:kproma,jk,2,im)
       ENDDO
     ENDDO !jvar: variable loop
 
@@ -572,11 +572,11 @@ CONTAINS
         im   = matrix_idx(jvar)  ! Index of coefficient matrix
         jk   = ibtm_var(jvar)    ! Bottom level index
         jkm1 = jk - 1
-        zden(jcs:kproma) =  aa(jcs:kproma,jk,2,im)                      &
-                       & -aa(jcs:kproma,jk,1,im)*aa(jcs:kproma,jkm1,3,im)
-        znum(jcs:kproma) =  bb(jcs:kproma,jk,jvar)                      &
-                       & -aa(jcs:kproma,jk,1,im)*bb(jcs:kproma,jkm1,jvar)
-        bb(jcs:kproma,jk,jvar) = znum(jcs:kproma)/zden(jcs:kproma)
+        zden(1:kproma) =  aa(1:kproma,jk,2,im)                      &
+                       & -aa(1:kproma,jk,1,im)*aa(1:kproma,jkm1,3,im)
+        znum(1:kproma) =  bb(1:kproma,jk,jvar)                      &
+                       & -aa(1:kproma,jk,1,im)*bb(1:kproma,jkm1,jvar)
+        bb(1:kproma,jk,jvar) = znum(1:kproma)/zden(1:kproma)
 
       END IF
     ENDDO !jvar: variable loop
@@ -585,7 +585,7 @@ CONTAINS
     ! level above surface. Now set boundary condition for the variance 
     ! of theta_v.
 
-    bb(jcs:kproma,klev,ithv) = bb(jcs:kproma,klevm1,ithv)
+    bb(1:kproma,klev,ithv) = bb(1:kproma,klevm1,ithv)
 
   END SUBROUTINE rhs_elim
   !--------------------------------------------------------------------------------
@@ -596,14 +596,14 @@ CONTAINS
   !! Prepare the Richtmyer-Morton coeffcients for dry static energy and 
   !! moisture, to be used by the surface models (ocean, sea-ice, land).
   !!
-  SUBROUTINE matrix_to_richtmyer_coeff( jg, jcs, kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
+  SUBROUTINE matrix_to_richtmyer_coeff( jg, kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
                                       & aa, bb,                                      &! in
                                       & aa_btm, bb_btm,                              &! inout
                                       & pen_h, pfn_h, pen_qv, pfn_qv,                &! out
                                       & pcair,                                       &! in
                                       & pcsat)                                        ! in
 
-    INTEGER,INTENT(IN)     :: jg, jcs, kproma, kbdim, klev, ksfc_type, idx_lnd
+    INTEGER,INTENT(IN)     :: jg, kproma, kbdim, klev, ksfc_type, idx_lnd
     REAL(wp),INTENT(IN)    :: aa    (kbdim,klev,3,imh:imqv)
     REAL(wp),INTENT(IN)    :: bb    (kbdim,klev,ih:iqv)
     REAL(wp),INTENT(INOUT) :: aa_btm(kbdim,3,ksfc_type,imh:imqv)
@@ -630,9 +630,9 @@ CONTAINS
 
       jsfc = idx_lnd
 
-      aa_btm(jcs:kproma,2,jsfc,imqv) =           1._wp - aa_btm(jcs:kproma,1,jsfc,imqv) &
-                                   & - pcair(jcs:kproma)*aa_btm(jcs:kproma,3,jsfc,imqv)
-      aa_btm(jcs:kproma,3,jsfc,imqv) =   pcsat(jcs:kproma)*aa_btm(jcs:kproma,3,jsfc,imqv)
+      aa_btm(1:kproma,2,jsfc,imqv) =           1._wp - aa_btm(1:kproma,1,jsfc,imqv) &
+                                   & - pcair(1:kproma)*aa_btm(1:kproma,3,jsfc,imqv)
+      aa_btm(1:kproma,3,jsfc,imqv) =   pcsat(1:kproma)*aa_btm(1:kproma,3,jsfc,imqv)
 
     END IF ! ljsbach
 
@@ -640,17 +640,17 @@ CONTAINS
 
     DO jsfc = 1,ksfc_type
 
-      aa_btm(jcs:kproma,2,jsfc,imqv) =  aa_btm(jcs:kproma,2,jsfc,imqv)  &
-                                   & -aa_btm(jcs:kproma,1,jsfc,imqv)  &
-                                   & *aa    (jcs:kproma,klevm1,3,imqv)
+      aa_btm(1:kproma,2,jsfc,imqv) =  aa_btm(1:kproma,2,jsfc,imqv)  &
+                                   & -aa_btm(1:kproma,1,jsfc,imqv)  &
+                                   & *aa    (1:kproma,klevm1,3,imqv)
 
-      aa_btm(jcs:kproma,3,jsfc,imqv) =  aa_btm(jcs:kproma,3,jsfc,imqv)  &
-                                   & /aa_btm(jcs:kproma,2,jsfc,imqv)
+      aa_btm(1:kproma,3,jsfc,imqv) =  aa_btm(1:kproma,3,jsfc,imqv)  &
+                                   & /aa_btm(1:kproma,2,jsfc,imqv)
 
-      bb_btm(jcs:kproma,jsfc,iqv)    = (bb_btm(jcs:kproma,jsfc,iqv)    &          
-                                   & -aa_btm(jcs:kproma,1,jsfc,imqv) &
-                                   & *bb    (jcs:kproma,klevm1,iqv) )&
-                                   & /aa_btm(jcs:kproma,2,jsfc,imqv)
+      bb_btm(1:kproma,jsfc,iqv)    = (bb_btm(1:kproma,jsfc,iqv)    &          
+                                   & -aa_btm(1:kproma,1,jsfc,imqv) &
+                                   & *bb    (1:kproma,klevm1,iqv) )&
+                                   & /aa_btm(1:kproma,2,jsfc,imqv)
     END DO
 
     !---------------------------------------------------------
@@ -658,28 +658,28 @@ CONTAINS
     !---------------------------------------------------------
     DO jsfc = 1,ksfc_type
 
-      aa_btm(jcs:kproma,2,jsfc,imh) =  aa_btm(jcs:kproma,2,jsfc,imh) &
-                                  & -aa_btm(jcs:kproma,1,jsfc,imh) &
-                                  & *aa    (jcs:kproma,klevm1,3,imh)
+      aa_btm(1:kproma,2,jsfc,imh) =  aa_btm(1:kproma,2,jsfc,imh) &
+                                  & -aa_btm(1:kproma,1,jsfc,imh) &
+                                  & *aa    (1:kproma,klevm1,3,imh)
 
-      aa_btm(jcs:kproma,3,jsfc,imh) =  aa_btm(jcs:kproma,3,jsfc,imh) &
-                                  & /aa_btm(jcs:kproma,2,jsfc,imh)
+      aa_btm(1:kproma,3,jsfc,imh) =  aa_btm(1:kproma,3,jsfc,imh) &
+                                  & /aa_btm(1:kproma,2,jsfc,imh)
 
-      bb_btm(jcs:kproma,jsfc,ih)    = (bb_btm(jcs:kproma,jsfc,ih)    &          
-                                  & -aa_btm(jcs:kproma,1,jsfc,imh) &
-                                  & *bb    (jcs:kproma,klevm1,ih) )&
-                                  & /aa_btm(jcs:kproma,2,jsfc,imh)
+      bb_btm(1:kproma,jsfc,ih)    = (bb_btm(1:kproma,jsfc,ih)    &          
+                                  & -aa_btm(1:kproma,1,jsfc,imh) &
+                                  & *bb    (1:kproma,klevm1,ih) )&
+                                  & /aa_btm(1:kproma,2,jsfc,imh)
     END DO
 
     !---------------------------------------------------------
     ! Convert matrix entries to Richtmyer-Morton coefficients
     !---------------------------------------------------------
 
-    pen_h (jcs:kproma,1:ksfc_type) = -aa_btm(jcs:kproma,3,1:ksfc_type,imh)
-    pen_qv(jcs:kproma,1:ksfc_type) = -aa_btm(jcs:kproma,3,1:ksfc_type,imqv)
+    pen_h (1:kproma,1:ksfc_type) = -aa_btm(1:kproma,3,1:ksfc_type,imh)
+    pen_qv(1:kproma,1:ksfc_type) = -aa_btm(1:kproma,3,1:ksfc_type,imqv)
 
-    pfn_h (jcs:kproma,1:ksfc_type) =  bb_btm(jcs:kproma,1:ksfc_type,ih )*tpfac1
-    pfn_qv(jcs:kproma,1:ksfc_type) =  bb_btm(jcs:kproma,1:ksfc_type,iqv)*tpfac1
+    pfn_h (1:kproma,1:ksfc_type) =  bb_btm(1:kproma,1:ksfc_type,ih )*tpfac1
+    pfn_qv(1:kproma,1:ksfc_type) =  bb_btm(1:kproma,1:ksfc_type,iqv)*tpfac1
 
   END SUBROUTINE matrix_to_richtmyer_coeff
   !--------------------------------------------------------------------------------
@@ -700,9 +700,9 @@ CONTAINS
   !! in contrast to Polcher et al (1998). Thus the solution is 
   !! not yet the new value at time step t+dt. 
   !!
-  SUBROUTINE rhs_bksub( jcs, kproma, kbdim, itop, klev, aa, bb )
+  SUBROUTINE rhs_bksub( kproma, kbdim, itop, klev, aa, bb )
 
-    INTEGER, INTENT(IN)   :: jcs, kproma, kbdim, itop, klev
+    INTEGER, INTENT(IN)   :: kproma, kbdim, itop, klev
     REAL(wp),INTENT(IN)   :: aa(kbdim,klev,3,nmatrix)
     REAL(wp),INTENT(INOUT):: bb(kbdim,klev,nvar_vdiff)
 
@@ -712,9 +712,9 @@ CONTAINS
       im = matrix_idx(jvar)
       DO jk = ibtm_var(jvar)-1,itop,-1
          jkp1 = jk + 1
-         bb(jcs:kproma,jk,jvar) =  bb(jcs:kproma,jk  ,jvar) &
-                              & -bb(jcs:kproma,jkp1,jvar) &
-                              & *aa(jcs:kproma,jk  ,3,im)
+         bb(1:kproma,jk,jvar) =  bb(1:kproma,jk  ,jvar) &
+                              & -bb(1:kproma,jkp1,jvar) &
+                              & *aa(1:kproma,jk  ,3,im)
       ENDDO
     ENDDO
 
@@ -722,7 +722,7 @@ CONTAINS
   !-------------
   !>
   !!
-  SUBROUTINE vdiff_tendencies( jcs, kproma, kbdim, itop, klev, klevm1,     &! in
+  SUBROUTINE vdiff_tendencies( kproma, kbdim, itop, klev, klevm1,          &! in
                              & ktrac, ksfc_type, idx_wtr,                  &! in
                              & pdtime,                                     &! in
                              & pum1, pvm1, ptm1,                           &! in
@@ -738,7 +738,7 @@ CONTAINS
                              & pz0m, ptotte, pthvvar,                      &! out
                              & psh_vdiff,pqv_vdiff                         )! out
 
-    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, itop, klev, klevm1, ktrac !!$, klevp1
+    INTEGER, INTENT(IN) :: kproma, kbdim, itop, klev, klevm1, ktrac !!$, klevp1
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr
     REAL(wp),INTENT(IN) :: pdtime
 
@@ -807,7 +807,7 @@ CONTAINS
 
     DO jk = itop,klevm1
       ztest = 0._wp
-      DO jl = jcs,kproma
+      DO jl = 1,kproma
         ptotte(jl,jk) = bb(jl,jk,itotte) + tpfac3*pztottevn(jl,jk)
         ztest = ztest+MERGE(1._wp,0._wp,ptotte(jl,jk)<0._wp)
       END DO
@@ -818,14 +818,14 @@ CONTAINS
         CALL finish('vdiff_tendencies','TTE IS NEGATIVE')
       ENDIF
     END DO
-    ptotte(jcs:kproma,klev) = pztottevn(jcs:kproma,klev)
+    ptotte(1:kproma,klev) = pztottevn(1:kproma,klev)
 
 
     !-------------------------------------------------------------
     ! Variance of virtual potential temperature
     !-------------------------------------------------------------
     DO jk = itop,klev
-      DO jl = jcs,kproma
+      DO jl = 1,kproma
         pthvvar(jl,jk) = bb(jl,jk,ithv) + tpfac3*pzthvvar(jl,jk)
         pthvvar(jl,jk) = MAX(totte_min,pthvvar(jl,jk))
       END DO
@@ -837,7 +837,7 @@ CONTAINS
     pkedisp(:) = 0._wp   ! initilize the vertical integral
 
     DO jk = itop,klev
-      DO jl = jcs,kproma
+      DO jl = 1,kproma
         pute_vdf(jl,jk) = (bb(jl,jk,iu)-tpfac2*pum1(jl,jk))*zrdt
         pvte_vdf(jl,jk) = (bb(jl,jk,iv)-tpfac2*pvm1(jl,jk))*zrdt
 
@@ -854,7 +854,7 @@ CONTAINS
     ! Tendency of T and qv, ql, qi; xvar at the new time step
     !-------------------------------------------------------------
     DO jk=itop,klev
-      DO jl=jcs,kproma
+      DO jl=1,kproma
 
         zqnew = bb(jl,jk,iqv) + tpfac3*pqm1(jl,jk)
         pqte_vdf(jl,jk) = (zqnew-pqm1(jl,jk))*zrdt
@@ -885,14 +885,15 @@ CONTAINS
 !!$      pqv_vdiff(:) = 0._wp
 !!$      DO jk=itop,klev
 !!$        ! compute heat budget diagnostic
-!!$        psh_vdiff(jcs:kproma) = psh_vdiff(jcs:kproma) + pmdry(jcs:kproma,jk) * &
-!!$        & (bb(jcs:kproma,jk,ih)  + (tpfac3 - 1._wp)*pcptgz(jcs:kproma,jk)) * zrdt
+!!$        psh_vdiff(1:kproma) = psh_vdiff(1:kproma) + pmdry(1:kproma,jk) * &
+!!$        & (bb(1:kproma,jk,ih)  + (tpfac3 - 1._wp)*pcptgz(1:kproma,jk)) * zrdt
 !!$        ! compute moisture budget diagnostic
 !!$        ! ? zdis appears to be dissipation, probably we don't need this for qv??
-!!$        pqv_vdiff(jcs:kproma) = pqv_vdiff(jcs:kproma) + pmdry(jcs:kproma,jk)* &
-!!$        & (bb(jcs:kproma,jk,iqv) + (tpfac3 - 1._wp)*pqm1(jcs:kproma,jk)) * zrdt
+!!$        pqv_vdiff(1:kproma) = pqv_vdiff(1:kproma) + pmdry(1:kproma,jk)* &
+!!$        & (bb(1:kproma,jk,iqv) + (tpfac3 - 1._wp)*pqm1(1:kproma,jk)) * zrdt
 !!$      END DO
-!!$    END IF
+!!$   END IF
+   
     !-------------------------------------------------------------
     ! Tendency of tracers
     !-------------------------------------------------------------
@@ -902,7 +903,7 @@ CONTAINS
           irhs = itrc_start + jt - 1
 !         IF (trlist% ti(jt)% nvdiff /= 1) CYCLE  ! ECHAM
           DO jk = itop,klev
-            DO jl = jcs,kproma
+            DO jl = 1,kproma
               pxtte_vdf(jl,jk,jt) = (bb(jl,jk,irhs)-tpfac2*pxtm1(jl,jk,jt))*zrdt
             ENDDO
           ENDDO
@@ -915,7 +916,7 @@ CONTAINS
     !----------------------------------------------------------------------------
     IF (idx_wtr<=ksfc_type) THEN  ! water surface exists in the simulation
       pz0m_tile(:,idx_wtr) = 1.E-3_wp
-      DO jl = jcs,kproma
+      DO jl = 1,kproma
         IF(pfrc(jl,idx_wtr).GT.0._wp) THEN
           pz0m_tile(jl,idx_wtr) = tpfac1*SQRT( bb(jl,klev,iu)**2+bb(jl,klev,iv)**2 ) &
                                 & *pcfm_tile(jl,idx_wtr)*cchar*rgrav
@@ -928,7 +929,7 @@ CONTAINS
 
     pz0m(:) = 0._wp
     DO jsfc = 1,ksfc_type
-       pz0m(jcs:kproma) = pz0m(jcs:kproma) + pfrc(jcs:kproma,jsfc)*pz0m_tile(jcs:kproma,jsfc)
+       pz0m(1:kproma) = pz0m(1:kproma) + pfrc(1:kproma,jsfc)*pz0m_tile(1:kproma,jsfc)
     ENDDO
 
   END SUBROUTINE vdiff_tendencies

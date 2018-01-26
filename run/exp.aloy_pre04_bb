@@ -312,41 +312,41 @@ cat > ${lnd_namelist} <<EOF
 &jsb_model_nml
   usecase         = "${jsbach_usecase}"
   use_lakes       = ${llake}
-  fract_filename  = "bc_land_frac_DOM01.nc"
+  fract_filename  = "bc_land_frac.nc"
   l_compat401     = .TRUE.              ! TRUE: overwrites some of the settings below
 /
 &jsb_seb_nml
-  bc_filename     = 'bc_land_phys_DOM01.nc'
-  ic_filename     = 'ic_land_soil_DOM01.nc'
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
 /
 &jsb_rad_nml
   use_alb_veg_simple = .TRUE.          ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
-  bc_filename     = 'bc_land_phys_DOM01.nc'
-  ic_filename     = 'ic_land_soil_DOM01.nc'
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
 /
 &jsb_turb_nml
-  bc_filename     = 'bc_land_phys_DOM01.nc'
-  ic_filename     = 'ic_land_soil_DOM01.nc'
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
 /
 &jsb_sse_nml
   l_dynsnow       = .TRUE.
   l_freeze        = .FALSE.
   l_supercool     = .FALSE.
-  bc_filename     = 'bc_land_soil_DOM01.nc'
-  ic_filename     = 'ic_land_soil_DOM01.nc'
+  bc_filename     = 'bc_land_soil.nc'
+  ic_filename     = 'ic_land_soil.nc'
 /
 &jsb_hydro_nml
-  bc_filename     = 'bc_land_soil_DOM01.nc'
-  ic_filename     = 'ic_land_soil_DOM01.nc'
-  bc_sso_filename = 'bc_land_sso_DOM01.nc'
+  bc_filename     = 'bc_land_soil.nc'
+  ic_filename     = 'ic_land_soil.nc'
+  bc_sso_filename = 'bc_land_sso.nc'
 /
 &jsb_assimi_nml
   active          = .FALSE.             ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
 /
 &jsb_pheno_nml
   scheme          = 'climatology'       ! scheme = logrop / climatology; use climatology for jsbach_lite
-  bc_filename     = 'bc_land_phys_DOM01.nc'
-  ic_filename     = 'ic_land_soil_DOM01.nc'
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
 /
 EOF
 if [[ ${jsbach_with_hd} = yes ]]; then
@@ -404,7 +404,7 @@ add_link_file $datadir/ifs_remap_r2b4_amip_2012010100_setyear1979.nc ./ifs2icon_
 #
 # - land: source?, date+time?
 datadir=$grids_folder/Land
-add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil_DOM01.nc
+add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
 
 # II.2.5 Boundary conditions
 # --------------------------
@@ -426,15 +426,15 @@ add_link_file $datadir/bc_ozone.pre04.ff.nc                             ./bc_ozo
 
 # - sst and sic
 datadir=$grids_folder
-add_link_file $datadir/bc_sic.pre04.ff.nc                               ./bc_sic_DOM01.nc
-add_link_file $datadir/bc_sst.pre04.ff.nc                               ./bc_sst_DOM01.nc
+add_link_file $datadir/bc_sic.pre04.ff.nc                               ./bc_sic.nc
+add_link_file $datadir/bc_sst.pre04.ff.nc                               ./bc_sst.nc
 
 # - land parameters
 datadir=$grids_folder/Land
-add_link_file $datadir/bc_land_frac_${pft_file_tag}1976.nc              ./bc_land_frac_DOM01.nc
-add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys_DOM01.nc
-add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil_DOM01.nc
-add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso_DOM01.nc
+add_link_file $datadir/bc_land_frac_${pft_file_tag}1976.nc              ./bc_land_frac.nc
+add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
+add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
+add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
 datadir=$grids_folder
 add_link_file $datadir/hd_para_icon_r2b4_pre04_ff_vs1_7.nc              ./bc_land_hd.nc
 #

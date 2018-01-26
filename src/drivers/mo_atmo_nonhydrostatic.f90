@@ -281,7 +281,7 @@ CONTAINS
 ! LGS
 !
     IF ( iforcing == iecham ) THEN
-      CALL init_echam_phy( p_patch(1:), nh_test_name, nlev, time_config%tc_current_date, ext_data )
+      CALL init_echam_phy( p_patch(1:), nh_test_name, nlev, time_config%tc_current_date )
       !! many of the initial conditions for the echam 'field' are set here
       !! Note: it is not certain that p_nh_state(jg)%diag%temp has been initialized at this point in time.
       !!       initcond_echam_phy should therefore not rely on the fact that this has been properly set.

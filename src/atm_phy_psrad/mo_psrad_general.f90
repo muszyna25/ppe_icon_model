@@ -118,7 +118,7 @@ module mo_psrad_general
   
   end interface
 
-  public :: message_psrad, finish, warning, default_finish
+  public :: message, finish, warning, default_finish 
 
   procedure(t_finish_cb), pointer :: finish_cb
   procedure(t_message_cb), pointer :: warning_cb => null(), &
@@ -150,7 +150,7 @@ contains
       call warning_cb(name, text)
     endif
   end subroutine
-  subroutine message_psrad(name, text)
+  subroutine message(name, text)
     character(len=*), intent(in) :: name, text
     if (associated(message_cb)) then
       call message_cb(name, text)
