@@ -10,11 +10,16 @@ MODULE mo_ser_echam_surface
   USE mo_ser_common,         ONLY: init
   USE mtime,                 ONLY: datetimeToString, MAX_DATETIME_STR_LEN
   USE mo_time_config,        ONLY: time_config
-  USE mo_echam_phy_memory,    ONLY: t_echam_phy_field
+  USE mo_echam_phy_memory,   ONLY: t_echam_phy_field
   IMPLICIT NONE
 
   LOGICAL :: writeIn = .FALSE.
   LOGICAL :: writeOut = .FALSE.
+  LOGICAL :: serializeStepIn = .TRUE.
+  LOGICAL :: serializeStepOut = .TRUE.
+  LOGICAL, PARAMETER :: singleStepIn = .TRUE.
+  LOGICAL, PARAMETER :: singleStepOut = .TRUE.
+  INTEGER, PARAMETER :: singleBlock = 7
 
   PUBLIC :: serialize_input
   PUBLIC :: serialize_output
@@ -46,9 +51,13 @@ MODULE mo_ser_echam_surface
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
 
-    !$ser verbatim IF (writeIn) THEN
-    !$ser verbatim call datetimeToString(time_config%tc_current_date, date)
-    !$ser verbatim call init('echam_surface')
+
+    !$ser verbatim IF (singleBlock < 0 .OR. jb == singleBlock) THEN
+    !$ser verbatim   writeIn = .TRUE.
+    !$ser verbatim ENDIF
+    !$ser verbatim IF (serializeStepIn .and. writeIn) THEN
+    !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
+    !$ser verbatim   CALL init('echam_surface')
     !$ser savepoint echam_surface-input jb=jb nlev=nlev nlevp1=nlevp1 iqv=iqv &
     !$ser&          date=TRIM(date)
 #if defined SERIALIZE_CREATE_REFERENCE 
@@ -137,7 +146,10 @@ MODULE mo_ser_echam_surface
     !$ser&     albvisdif_ice=field%albnirdir_ice(:,:,jb)    &
     !$ser&     albnirdir_ice=field%albvisdif_ice(:,:,jb)   &
     !$ser&     albnirdif_ice=field%albnirdif_ice(:,:,jb)
-    !NOser verbatim writeIn = .FALSE.
+    !$ser verbatim writeIn = .FALSE.
+    !$ser verbatim IF (singleStepIn) THEN
+    !$ser verbatim   serializeStepIn = .FALSE.
+    !$ser verbatim END IF
     !$ser verbatim ENDIF
 
   END SUBROUTINE serialize_input
@@ -162,9 +174,12 @@ MODULE mo_ser_echam_surface
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
 
-    !$ser verbatim if (writeOut) then
-    !$ser verbatim call datetimeToString(time_config%tc_current_date, date)
-    !$ser verbatim call init('echam_surface')
+    !$ser verbatim IF (singleBlock < 0 .OR. jb == singleBlock) THEN
+    !$ser verbatim   writeOut = .TRUE.
+    !$ser verbatim ENDIF
+    !$ser verbatim IF (serializeStepOut .and. writeOut) THEN
+    !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
+    !$ser verbatim   CALL init('echam_surface')
     !$ser savepoint echam_surface-output jb=jb date=TRIM(date)
     !$ser mode write
     !$ser data jg=jg                                        &
@@ -227,8 +242,11 @@ MODULE mo_ser_echam_surface
     !$ser&     albvisdif_ice=field%albnirdir_ice(:,:,jb)    &
     !$ser&     albnirdir_ice=field%albvisdif_ice(:,:,jb)    &
     !$ser&     albnirdif_ice=field%albnirdif_ice(:,:,jb)
-    !NOser verbatim writeOut = .FALSE.
-    !$ser verbatim endif
+    !$ser verbatim writeOut = .FALSE.
+    !$ser verbatim IF (singleStepOut) THEN
+    !$ser verbatim   serializeStepOut = .FALSE.
+    !$ser verbatim END IF
+    !$ser verbatim ENDIF
 
   END SUBROUTINE serialize_output
 
