@@ -56,8 +56,8 @@ MODULE mo_nml_crosscheck
   USE mo_diffusion_config,   ONLY: diffusion_config
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
   USE mo_lnd_nwp_config,     ONLY: ntiles_lnd, lsnowtile
-  USE mo_mpi_phy_config,     ONLY: mpi_phy_config
-  USE mo_radiation_config
+  USE mo_echam_phy_config,   ONLY: echam_phy_config
+  USE mo_radiation_config,   ONLY: irad_o3, irad_aero
   USE mo_turbdiff_config,    ONLY: turbdiff_config
   USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift
   USE mo_nh_testcases_nml,   ONLY: nh_test_name
@@ -637,16 +637,6 @@ CONTAINS
 
           ENDIF
 
-!
-!        CASE (inoforcing, iheldsuarez, iecham, ildf_dry, ildf_echam)
-!        !...........................................................
-!        ! Other types of adiabatic forcing
-!        !...........................................................
-!
-!          IF (echam_phy_config%lrad) THEN
-!            IF ( izenith > 5)  &
-!              CALL finish(TRIM(method_name), 'Choose a valid case for rad_nml: izenith.')
-!          ENDIF
         END SELECT ! iforcing
 
       END DO ! jg = 1,n_dom
@@ -836,24 +826,23 @@ CONTAINS
 
   !---------------------------------------------------------------------------------------
   SUBROUTINE land_crosscheck
-    INTEGER :: restartModule
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
 
 #ifdef __NO_JSBACH__
-    IF (ANY(mpi_phy_config(:)%ljsb)) THEN
+    IF (ANY(echam_phy_config(:)%ljsb)) THEN
       CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__, or set ljsb=.FALSE.")
     ENDIF
 #else
-    IF (ANY(mpi_phy_config(:)%ljsb)) THEN
+    IF (ANY(echam_phy_config(:)%ljsb)) THEN
       IF (num_restart_procs > 0) THEN
         CALL finish(method_name, "JSBACH currently doesn't work with asynchronous restart. Set num_restart_procs=0 !")
       END IF
       IF (num_io_procs > 0) THEN
         CALL finish(method_name, "JSBACH currently doesn't work with asynchronous IO. Set num_io_procs=0 !")
       END IF
-    ELSE IF (ANY(mpi_phy_config(:)%llake)) THEN
+    ELSE IF (ANY(echam_phy_config(:)%llake)) THEN
       CALL message(TRIM(method_name), 'Setting llake = .FALSE. since ljsb = .FALSE.')
-      mpi_phy_config(:)%llake = .FALSE.
+      echam_phy_config(:)%llake = .FALSE.
     END IF
 #endif
 

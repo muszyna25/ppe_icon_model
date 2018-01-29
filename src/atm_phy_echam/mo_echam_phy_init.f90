@@ -21,86 +21,95 @@
 
 MODULE mo_echam_phy_init
 
+  ! infrastructure
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: finish, message_text
+  USE mo_exception,            ONLY: finish
   USE mtime,                   ONLY: datetime, OPERATOR(>)
-
   USE mo_io_config,            ONLY: default_read_method
   USE mo_read_interface,       ONLY: openInputFile, closeFile, read_2D, &
     &                                t_stream_id, on_cells
+  USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
+    &                                timer_prep_echam_phy
 
   ! model configuration
   USE mo_run_config,           ONLY: nlev, iqv, iqt, io3, &
     &                                ntracer, ltestcase, lart
-  USE mo_vertical_coord_table, ONLY: vct
-  USE mo_dynamics_config,      ONLY: iequations
-  USE mo_impl_constants,       ONLY: inh_atmosphere, max_char_length
 
-  USE mo_mpi_phy_config,       ONLY: eval_mpi_phy_config, eval_mpi_phy_tc, print_mpi_phy_config, &
-    &                                mpi_phy_config, mpi_phy_tc, dt_zero
-  USE mo_mpi_sso_config,       ONLY: eval_mpi_sso_config, print_mpi_sso_config
-  USE mo_echam_conv_config,    ONLY: configure_echam_convection
-  USE mo_echam_cloud_config,   ONLY: configure_echam_cloud
+  ! horizontal grid and indices
+  USE mo_model_domain,         ONLY: t_patch
+  USE mo_loopindices,          ONLY: get_indices_c
+  USE mo_grid_config,          ONLY: n_dom
+
+  ! vertical grid
+  USE mo_vertical_coord_table, ONLY: vct
+  
+  ! test cases
+  USE mo_nh_testcases_nml,     ONLY: ape_sst_case, th_cbl, tpe_temp
+  USE mo_ape_params,           ONLY: ape_sst
+  USE mo_physical_constants,   ONLY: tmelt, Tf, albi, albedoW
+
+  ! echam phyiscs
+  USE mo_echam_phy_config,     ONLY: eval_echam_phy_config, eval_echam_phy_tc, print_echam_phy_config, &
+    &                                echam_phy_config, echam_phy_tc, dt_zero
+  USE mo_echam_phy_memory,     ONLY: construct_echam_phy_state,    &
+    &                                prm_field, t_echam_phy_field, &
+    &                                prm_tend,  t_echam_phy_tend
+
+  ! radiation
+  USE mo_echam_rad_config,     ONLY: eval_echam_rad_config, print_echam_rad_config, echam_rad_config
+  USE mo_psrad_interface,      ONLY: setup_psrad
+  USE mo_psrad_cloud_optics,   ONLY: setup_cloud_optics  
+
+  ! subgrid scale orographic effects
+  USE mo_echam_sso_config,     ONLY: eval_echam_sso_config, print_echam_sso_config
+
+  ! atmospheric gravity wave drag
+  USE mo_echam_gwd_config,     ONLY: eval_echam_gwd_config, print_echam_gwd_config
+
+  ! vertical diffusion
+  USE mo_echam_vdf_config,     ONLY: eval_echam_vdf_config, print_echam_vdf_config
+  USE mo_echam_vdiff_params,   ONLY: init_vdiff_params
+  USE mo_vdiff_solver,         ONLY: init_vdiff_solver
 
 #ifndef __NO_JSBACH__
+  ! land surface
   USE mo_master_control,       ONLY: master_namelist_filename
   USE mo_jsb_base,             ONLY: jsbach_init_base => init_base
   USE mo_jsb_model_init,       ONLY: jsbach_init_model => init_model
 #endif
 
-  ! test cases
-  USE mo_ha_testcases,         ONLY: ha_ape_sst_case => ape_sst_case
-  USE mo_nh_testcases_nml,     ONLY: nh_ape_sst_case => ape_sst_case, th_cbl, tpe_temp
-  USE mo_ape_params,           ONLY: ape_sst
-  USE mo_physical_constants,   ONLY: tmelt, Tf, albi, albedoW
-
-  ! radiation
-  USE mo_radiation_config,     ONLY: ssi_radt, tsi_radt, tsi, &
-    &                                ighg, isolrad, irad_aero
-  USE mo_psrad_srtm_setup,     ONLY: setup_srtm, ssi_amip, ssi_default, &
-    &                                ssi_preind, ssi_RCEdiurnOn, ssi_RCEdiurnOFF, &
-    &                                ssi_cmip6_picontrol
-  USE mo_lrtm_setup,           ONLY: lrtm_setup
-  USE mo_newcld_optics,        ONLY: setup_newcld_optics
-
-  ! vertical diffusion
-  USE mo_echam_vdiff_params,   ONLY: init_vdiff_params
-  USE mo_vdiff_solver,         ONLY: init_vdiff_solver
+  ! carbon cycle
+  USE mo_ccycle_config,        ONLY: print_ccycle_config
 
   ! cumulus convection
+  USE mo_echam_cnv_config,     ONLY: alloc_echam_cnv_config, eval_echam_cnv_config, print_echam_cnv_config
   USE mo_convect_tables,       ONLY: init_convect_tables
-  USE mo_echam_convect_tables, ONLY: init_echam_convect_tables => init_convect_tables 
+  USE mo_echam_convect_tables, ONLY: init_echam_convect_tables => init_convect_tables
 
-  ! air-sea-land interface
-  USE mo_echam_sfc_indices,    ONLY: nsfc_type, iwtr, iice, ilnd, init_sfc_indices
+  ! cloud microphysics
+  USE mo_echam_cld_config,     ONLY: print_echam_cld_config
 
-  ! domain and indices
-  USE mo_model_domain,         ONLY: t_patch
-  USE mo_loopindices,          ONLY: get_indices_c
-
-  ! atmospheric state
-  USE mo_echam_phy_memory,     ONLY: construct_echam_phy_state,    &
-    &                                prm_field, t_echam_phy_field, &
-    &                                prm_tend,  t_echam_phy_tend
-  ! for coupling
-  USE mo_coupling_config,      ONLY: is_coupled_run
-
-  USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
-    &                                timer_prep_echam_phy
-
-  ! for AMIP boundary conditions
-  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, calculate_time_interpolation_weights
-  USE mo_bc_sst_sic,             ONLY: read_bc_sst_sic, bc_sst_sic_time_interpolation
-  USE mo_bc_greenhouse_gases,    ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
-    &                                bc_greenhouse_gases_file_read
   ! Cariolle interactive ozone scheme
   USE mo_lcariolle_externals,  ONLY: read_bcast_real_3d_wrap, &
     &                                read_bcast_real_1d_wrap, &
     &                                closeFile_wrap, openInputFile_wrap, &
     &                                get_constants
+
   ! water vapour production by methane oxidation
+  ! and destruction by photolysis
   USE mo_methox,               ONLY: init_methox
-  ! for aeorosols in simple plumes
+
+  ! air-sea-land interface
+  USE mo_echam_sfc_indices,    ONLY: nsfc_type, iwtr, iice, ilnd, init_sfc_indices
+
+  ! for coupling
+  USE mo_coupling_config,      ONLY: is_coupled_run
+
+  ! for AMIP boundary conditions
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, calculate_time_interpolation_weights
+  USE mo_bc_sst_sic,           ONLY: read_bc_sst_sic, bc_sst_sic_time_interpolation
+  USE mo_bc_greenhouse_gases,  ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
+    &                                bc_greenhouse_gases_file_read
   USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
 
   ! radiative forcing diagnostics
@@ -123,17 +132,15 @@ CONTAINS
   !! Initial version by Hui Wan, MPI-M (2010-07)
   !! name change to init_echam_phy by Levi Silvers
   !!
-  SUBROUTINE init_echam_phy( p_patch, ctest_name, &
-                                nlev, vct_a, vct_b, mtime_current)
+  SUBROUTINE init_echam_phy( p_patch, ctest_name, nlev, mtime_current)
 
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch(:)
     CHARACTER(LEN=*),INTENT(in) :: ctest_name
     INTEGER,         INTENT(in) :: nlev
-    REAL(wp),        INTENT(in) :: vct_a(:), vct_b(:)
     TYPE(datetime),  INTENT(in), POINTER    :: mtime_current !< Date and time information
 
     INTEGER :: khydromet, ktrac
-    INTEGER :: jd, ndom, jg, ndomain
+    INTEGER :: jg
     TYPE(t_stream_id) :: stream_id
 
     CHARACTER(len=*), PARAMETER :: land_frac_fn = 'bc_land_frac.nc'
@@ -144,103 +151,41 @@ CONTAINS
 
     LOGICAL :: lany
 
+    ! Shortcuts to components of echam_rad_config
+    !
+    INTEGER, POINTER :: ighg(:), irad_aero(:)
+    !
+    ighg      => echam_rad_config(1:n_dom)% ighg
+    irad_aero => echam_rad_config(1:n_dom)% irad_aero
+    
     IF (timers_level > 1) CALL timer_start(timer_prep_echam_phy)
 
     !-------------------------------------------------------------------
     ! Initialize parameters and lookup tables
     !-------------------------------------------------------------------
-    ! Evaluate the MPI physics configuration variables mpi_phy_config(:)
-    ! and the derived time control variables mpi_phy_tc(:) on all grids
+    ! Evaluate the ECHAM physics configuration variables echam_phy_config(:)
+    ! and the derived time control variables echam_phy_tc(:) on all grids
     ! and for all controled processes.
 
-    CALL  eval_mpi_phy_config
-    CALL  eval_mpi_phy_tc
-    CALL print_mpi_phy_config
+    CALL  eval_echam_phy_config
+    CALL  eval_echam_phy_tc
+    CALL print_echam_phy_config
 
-    ndom = SIZE(mpi_phy_tc)
-    
     ! For radiation:
 
     lany=.FALSE.
-    DO jd = 1,ndom
-       lany = lany .OR. (mpi_phy_tc(jd)%dt_rad > dt_zero)
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_rad > dt_zero)
     END DO
     IF (lany) THEN
       !
-      SELECT CASE (isolrad)
-      CASE (0)
-        ssi_radt(:) = ssi_default(:)
-        tsi_radt = SUM(ssi_default)
-        tsi      = tsi_radt
-      CASE (1)
-        ! in this case, transient solar irradiation is used and has to be implemented inside
-        ! the time loop (mo_echam_phy_bcs)
-        CONTINUE
-      CASE (2)
-        ssi_radt(:) = ssi_preind(:)
-        tsi_radt = SUM(ssi_preind)
-        tsi      = tsi_radt
-      CASE (3)
-        ssi_radt(:) = ssi_amip(:)
-        tsi_radt = SUM(ssi_amip)
-        tsi      = tsi_radt
-      CASE (4)
-        ssi_radt(:) = ssi_RCEdiurnOn(:)
-        tsi_radt = SUM(ssi_RCEdiurnON)
-        tsi      = tsi_radt
-      CASE (5)
-        ssi_radt(:) = ssi_RCEdiurnOFF(:)
-        tsi_radt = SUM(ssi_RCEdiurnOFF)
-        tsi      = tsi_radt
-      CASE (6)
-        ssi_radt(:) = ssi_cmip6_picontrol(:)
-        tsi_radt = SUM(ssi_cmip6_picontrol)
-        tsi      = tsi_radt
-      CASE default
-        WRITE (message_text, '(a,i2,a)') &
-             'isolrad = ', isolrad, ' in radiation_nml namelist is not supported'
-        CALL finish('init_echam_phy', message_text)
-      END SELECT
+      CALL  eval_echam_rad_config
+      CALL print_echam_rad_config
       !
-      CALL setup_srtm
+      CALL setup_psrad
+      CALL setup_cloud_optics
       !
     END IF
-
-    lany=.FALSE.
-    DO jd = 1,ndom
-       lany = lany .OR. (mpi_phy_tc(jd)%dt_rad > dt_zero)
-    END DO
-    IF (lany) THEN
-      CALL lrtm_setup('rrtmg_lw.nc')
-    END IF
-
-    lany=.FALSE.
-    DO jd = 1,ndom
-       lany = lany .OR. (mpi_phy_tc(jd)%dt_rad > dt_zero)
-    END DO
-    IF (lany) THEN
-      CALL setup_newcld_optics('ECHAM6_CldOptProps.nc')
-    END IF
-
-    ! For cumulus convection:
-    ! - assign value to echam_conv_config%nmctop;
-    ! - allocate echam_conv_config%cevapcu(:) and assign values.
-    !
-    lany=.FALSE.
-    DO jd = 1,ndom
-       lany = lany .OR. (mpi_phy_tc(jd)%dt_cnv > dt_zero)
-    END DO
-    IF (lany) THEN
-      CALL configure_echam_convection(nlev, vct_a, vct_b)
-    END IF
-
-    lany=.FALSE.
-    DO jd = 1,ndom
-       lany = lany .OR. (mpi_phy_tc(jd)%dt_cld > dt_zero)
-    END DO
-    IF (lany) THEN
-      CALL configure_echam_cloud
-    END IF ! lcond
 
     ! For surface processes:
     ! nsfc_type, iwtr, etc. are set in this subroutine.
@@ -253,10 +198,16 @@ CONTAINS
     ! time stepping scheme; Compute time-independent parameters.
     !
     lany=.FALSE.
-    DO jd = 1,ndom
-       lany = lany .OR. (mpi_phy_tc(jd)%dt_vdf > dt_zero)
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_vdf > dt_zero)
     END DO
     IF (lany) THEN
+      !
+      CALL  eval_echam_vdf_config
+      CALL print_echam_vdf_config
+      !
+      CALL init_vdiff_params( nlev, nlev+1, nlev+1, vct )
+      !
       ! Currently the tracer indices are sorted such that we count
       ! the water substances first, and then other species like
       ! aerosols and their precursors. "ntracer" is the total number
@@ -269,32 +220,66 @@ CONTAINS
       ktrac = ntracer - iqt + 1  ! # of non-water species
       !
       CALL init_vdiff_solver( khydromet, ktrac, nlev )
-      CALL init_vdiff_params( nlev, nlev+1, nlev+1, vct )
+      !
     ENDIF
+
+    ! For cumulus convection:
+    !
+    lany=.FALSE.
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_cnv > dt_zero)
+    END DO
+    IF (lany) THEN
+      CALL alloc_echam_cnv_config 
+      CALL  eval_echam_cnv_config
+      CALL print_echam_cnv_config
+    END IF
+
+    lany=.FALSE.
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_cld > dt_zero)
+    END DO
+    IF (lany) THEN
+      CALL print_echam_cld_config
+    END IF
 
     ! Lookup tables for saturation vapour pressure
     !
     lany=.FALSE.
-    DO jd = 1,ndom
-       lany = lany .OR. (mpi_phy_tc(jd)%dt_cnv > dt_zero)
-       lany = lany .OR. (mpi_phy_tc(jd)%dt_cld > dt_zero)
-       lany = lany .OR. (mpi_phy_tc(jd)%dt_vdf > dt_zero)
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_cnv > dt_zero)
+       lany = lany .OR. (echam_phy_tc(jg)%dt_cld > dt_zero)
+       lany = lany .OR. (echam_phy_tc(jg)%dt_vdf > dt_zero)
     END DO
     IF (lany) THEN
        CALL init_convect_tables
        CALL init_echam_convect_tables 
     END IF
 
-    ! For subgrid scale orography scheme
+    ! For atmospheric gravity wave drag
     !
     lany=.FALSE.
-    DO jd = 1,ndom
-       lany = lany .OR. (mpi_phy_tc(jd)%dt_sso > dt_zero)
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_gwd > dt_zero)
     END DO
     IF (lany) THEN
-       CALL  eval_mpi_sso_config
-       CALL print_mpi_sso_config
+       CALL  eval_echam_gwd_config
+       CALL print_echam_gwd_config
     END IF
+
+    ! For subgrid scale orographic effects
+    !
+    lany=.FALSE.
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_sso > dt_zero)
+    END DO
+    IF (lany) THEN
+       CALL  eval_echam_sso_config
+       CALL print_echam_sso_config
+    END IF
+ 
+    ! carbon cycle
+    CALL print_ccycle_config
 
 
     !-------------------------------------------------------------------
@@ -302,9 +287,7 @@ CONTAINS
     !-------------------------------------------------------------------
     CALL construct_echam_phy_state( ntracer, p_patch )
 
-    ndomain = SIZE(p_patch)
-
-    DO jg= 1,ndomain
+    DO jg= 1,n_dom
 
       IF (ilnd <= nsfc_type) THEN
 
@@ -325,7 +308,7 @@ CONTAINS
         !
         ! At this point, %lsmask is the fraction of land (incl. glacier, but not lakes) in the grid box.
         ! If running without lakes, add lake mask to %lsmask to remove lakes and set %alake to zero.
-        IF (.NOT. mpi_phy_config(jg)%llake) THEN
+        IF (.NOT. echam_phy_config(jg)%llake) THEN
           prm_field(jg)%lsmask(:,:) = prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:)
           prm_field(jg)%alake (:,:) = 0._wp
         END IF
@@ -333,13 +316,13 @@ CONTAINS
         ! roughness length and background albedo
         stream_id = openInputFile(land_phys_fn, p_patch(jg), default_read_method)
 
-        IF (mpi_phy_tc(jg)%dt_vdf > dt_zero) THEN
+        IF (echam_phy_tc(jg)%dt_vdf > dt_zero) THEN
           CALL read_2D(stream_id=stream_id, location=on_cells, &
                 &       variable_name='roughness_length',      &
                 &       fill_array=prm_field(jg)% z0m(:,:))
         END IF
 
-        IF (mpi_phy_tc(jg)%dt_rad > dt_zero) THEN
+        IF (echam_phy_tc(jg)%dt_rad > dt_zero) THEN
           CALL read_2D(stream_id=stream_id, location=on_cells, &
                &       variable_name='albedo',                &
                &       fill_array=prm_field(jg)% alb(:,:))
@@ -348,11 +331,7 @@ CONTAINS
         CALL closeFile(stream_id)
 
         ! orography
-        lany=.FALSE.
-        DO jd = 1,ndom
-           lany = lany .OR. (mpi_phy_tc(jd)%dt_sso > dt_zero)
-        END DO
-        IF (lany) THEN
+        IF (echam_phy_tc(jg)%dt_sso > dt_zero) THEN
           stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
           CALL read_2D(stream_id=stream_id, location=on_cells, &
                &       variable_name='oromea',                &
@@ -391,10 +370,10 @@ CONTAINS
     ! read time-dependent boundary conditions from file
 
     ! well mixed greenhouse gases, horizontally constant
-    IF (ighg > 0) THEN
+    IF (ANY(ighg(:) > 0)) THEN
       ! read annual means
       IF (.NOT. bc_greenhouse_gases_file_read) THEN
-        CALL read_bc_greenhouse_gases(ighg)
+        CALL read_bc_greenhouse_gases
       END IF
       ! interpolate to the current date and time, placing the annual means at
       ! the mid points of the current and preceding or following year, if the
@@ -421,15 +400,15 @@ CONTAINS
 
     ! read data for simple plumes of aerosols
 
-    IF (irad_aero == 18) THEN
+    IF (ANY(irad_aero(:) == 18)) THEN
       CALL setup_bc_aeropt_splumes
     END IF
 
-    DO jg= 1,ndomain
+    DO jg= 1,n_dom
 
       ! Read AMIP SST and SIC data
       ! Note: For coupled runs, this is only used for initialization of surface temperatures
-      IF (mpi_phy_config(jg)%lamip .OR.                   &
+      IF (echam_phy_config(jg)%lamip .OR.                   &
           (is_coupled_run() .AND. .NOT. ltestcase) ) THEN
         !
         ! sea surface temperature, sea ice concentration and depth
@@ -452,17 +431,17 @@ CONTAINS
     END DO ! jg
 
     lany=.FALSE.
-    DO jd = 1,ndom
-       lany = lany .OR. (mpi_phy_tc(jd)%dt_car > dt_zero)
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_car > dt_zero)
     END DO
     IF (lany) THEN
       IF(io3 > ntracer) THEN
         CALL finish('init_echam_phy: mo_echam_phy_init.f90', &
                    &'cannot find an ozone tracer - abort')
       END IF
-      IF(jg > 1) THEN
+      IF(n_dom > 1) THEN
         CALL finish('init_echam_phy: mo_echam_phy_init.f90', &
-                   &'Cariolle initialization not ready for jg>1')
+                   &'Cariolle initialization not ready for n_dom>1')
       END IF
       CALL lcariolle_init(                                     &
          & openInputFile_wrap,       closeFile_wrap,           &
@@ -472,22 +451,22 @@ CONTAINS
 
     ! water vapour production by methane oxidation
     lany=.FALSE.
-    DO jd = 1,ndom
-      lany = lany .OR. (mpi_phy_tc(jd)%dt_mox > dt_zero)
+    DO jg = 1,n_dom
+      lany = lany .OR. (echam_phy_tc(jg)%dt_mox > dt_zero)
     END DO
     IF (lany) THEN
       CALL init_methox
     END IF
    
 #ifndef __NO_JSBACH__
-    IF (ilnd <= nsfc_type .AND. ANY(mpi_phy_config(:)%ljsb)) THEN
+    IF (ilnd <= nsfc_type .AND. ANY(echam_phy_config(:)%ljsb)) THEN
 
       ! Do basic initialization of JSBACH
       CALL jsbach_init_base(master_namelist_filename)
 
       ! Now continue initialization of JSBACH for the different grids
-      DO jg=1,ndomain
-        IF (mpi_phy_config(jg)%ljsb) THEN 
+      DO jg=1,n_dom
+        IF (echam_phy_config(jg)%ljsb) THEN 
           CALL jsbach_init_model( jg, p_patch(jg)) !< in
         END IF
       END DO ! jg
@@ -510,8 +489,7 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Hui Wan, MPI-M (2010-07)
   !!
-  SUBROUTINE initcond_echam_phy( jg             ,&
-    &                            p_patch        ,&
+  SUBROUTINE initcond_echam_phy( p_patch        ,&
     &                            z_ifc          ,&
     &                            z_mc           ,&
     &                            ddqz_z_full    ,&
@@ -521,7 +499,6 @@ CONTAINS
     &                            qv             ,&
     &                            ctest_name      )
 
-    INTEGER          ,INTENT(in) :: jg
     TYPE(t_patch)    ,INTENT(in) :: p_patch
     REAL(wp)         ,INTENT(in) :: z_ifc         (:,:,:)
     REAL(wp)         ,INTENT(in) :: z_mc          (:,:,:)
@@ -534,15 +511,15 @@ CONTAINS
 
     ! local variables and pointers
 
-    INTEGER  :: nblks_c, jb, jbs, jc, jcs, jce
+    INTEGER  :: jg, nblks_c, jb, jbs, jc, jcs, jce
     REAL(wp) :: zlat
-
-    CHARACTER(len=max_char_length)  :: ape_sst_case
 
     TYPE(t_echam_phy_field),POINTER :: field => NULL()
     TYPE(t_echam_phy_tend) ,POINTER :: tend  => NULL()
     !----
 
+      jg = p_patch%id
+    
       field => prm_field(jg)
       tend  => prm_tend (jg)
 
@@ -570,10 +547,12 @@ CONTAINS
       !
       ! initial conditions
       field% qtrc (:,:,:,iqv) = qv(:,:,:)
-      field% xvar (:,:,:)     = qv(:,:,:)*0.1_wp
  
       field% swflxsfc_tile(:,:,:) = 0._wp
       field% lwflxsfc_tile(:,:,:) = 0._wp
+
+      field% co2_flux_tile(:,:,:) = 0._wp
+      field% fco2nat(:,:)         = 0._wp
 
 !$OMP END WORKSHARE
 !$OMP END PARALLEL
@@ -583,7 +562,7 @@ CONTAINS
         field% ocv   (:,:)   = 0._wp
 !$OMP END PARALLEL WORKSHARE
 
-      IF (mpi_phy_tc(jg)%dt_vdf > dt_zero) THEN
+      IF (echam_phy_tc(jg)%dt_vdf > dt_zero) THEN
         IF (iwtr<=nsfc_type) field% z0m_tile(:,:,iwtr) = 1e-3_wp !see init_surf in echam (or z0m_oce?)
         IF (iice<=nsfc_type) field% z0m_tile(:,:,iice) = 1e-3_wp !see init_surf in echam (or z0m_ice?)
         IF (ilnd<=nsfc_type) THEN
@@ -605,7 +584,7 @@ CONTAINS
 
       IF (ilnd <= nsfc_type) THEN
 
-        IF (mpi_phy_config(jg)%lamip .OR. (is_coupled_run() .AND. .NOT. ltestcase)) THEN
+        IF (echam_phy_config(jg)%lamip .OR. (is_coupled_run() .AND. .NOT. ltestcase)) THEN
           prm_field(jg)%ts_tile(:,:,ilnd) = prm_field(jg)%ts_tile(:,:,iwtr)
         END IF
 
@@ -647,14 +626,6 @@ CONTAINS
       END IF
 
       ! For idealized test cases
-
-      IF (iequations == inh_atmosphere) THEN
-        ! use ape_sst_case from mo_nh_testcases_nml
-        ape_sst_case = nh_ape_sst_case
-      ELSE
-        ! use ape_sst_case from mo_ha_testcases
-        ape_sst_case = ha_ape_sst_case
-      END IF
 
       SELECT CASE (ctest_name)
       CASE('APE','APE_echam','RCEhydro','RCE_glb') !Note that there is only one surface type in this case
@@ -846,34 +817,17 @@ CONTAINS
     TYPE(t_patch),   INTENT(IN) :: p_patch(:)
     CHARACTER(LEN=*),INTENT(IN) :: ctest_name
 
-    INTEGER :: ndomain, nblks_c, jg, jb, jbs, jc, jcs, jce
+    INTEGER :: nblks_c, jg, jb, jbs, jc, jcs, jce
     REAL(wp):: zlat
-
-    CHARACTER(len=max_char_length)  :: ape_sst_case
 
     TYPE(t_echam_phy_field),POINTER :: field => NULL()
 
 !!$    CHARACTER(LEN=*),PARAMETER :: routine = 'additional_restart_init'
 
-    !----
-    ! total number of domains/ grid levels
-
-    ndomain = SIZE(prm_field)
-    IF (ndomain.eq.0) CALL finish('init_phy_memory', &
-       & 'ERROR: array prm_field has zero length')
-
-    IF (iequations == inh_atmosphere) THEN
-      ! use ape_sst_case from mo_nh_testcases_nml
-      ape_sst_case = nh_ape_sst_case
-    ELSE
-      ! use ape_sst_case from mo_ha_testcases
-      ape_sst_case = ha_ape_sst_case
-    END IF
-
     !-------------------------
     ! Loop over all domains
     !-------------------------
-    DO jg = 1,ndomain
+    DO jg = 1,n_dom
 
       field => prm_field(jg)
 

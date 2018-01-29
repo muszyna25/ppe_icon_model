@@ -73,7 +73,7 @@ MODULE mo_nh_stepping
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
     &                                    ntracer, iforcing, msg_level, test_mode,           &
     &                                    output_mode, lart
-  USE mo_mpi_phy_config,           ONLY: mpi_phy_config
+  USE mo_echam_phy_config,         ONLY: echam_phy_config
   USE mo_advection_config,         ONLY: advection_config
   USE mo_radiation_config,         ONLY: albedo_type
   USE mo_timer,                    ONLY: ltimer, timers_level, timer_start, timer_stop,   &
@@ -1848,18 +1848,22 @@ MODULE mo_nh_stepping
 
               ! echam physics
               IF (ltimer) CALL timer_start(timer_iconam_echam)
-              CALL interface_iconam_echam( dt_loc                         ,& !in
-                &                          datetime_local(jg)%ptr         ,& !in
-                &                          p_patch(jg)                    ,& !in
-                &                          p_int_state(jg)                ,& !in
-                &                          p_nh_state(jg)%metrics         ,& !in
-                &                          p_nh_state(jg)%prog(nnow(jg))  ,& !in
-                &                          p_nh_state(jg)%prog(n_now_rcf) ,& !in
-                &                          p_nh_state(jg)%prog(nnew(jg))  ,& !inout
-                &                          p_nh_state(jg)%prog(n_new_rcf) ,& !inout
-                &                          p_nh_state(jg)%diag,            &            
-                &                          p_nh_state_lists(jg)%prog_list(n_new_rcf))
-            
+              !
+              CALL interface_iconam_echam( dt_loc                                    & !in
+                &                         ,datetime_local(jg)%ptr                    & !in
+                &                         ,p_patch(jg)                               & !in
+                &                         ,p_int_state(jg)                           & !in
+                &                         ,p_nh_state(jg)%metrics                    & !in
+                &                         ,p_nh_state(jg)%prog(nnow(jg))             & !in
+                &                         ,p_nh_state(jg)%prog(n_now_rcf)            & !in
+                &                         ,p_nh_state(jg)%prog(nnew(jg))             & !inout
+                &                         ,p_nh_state(jg)%prog(n_new_rcf)            & !inout
+                &                         ,p_nh_state(jg)%diag                       &            
+#ifdef __ICON_ART
+                &                         ,p_nh_state_lists(jg)%prog_list(n_new_rcf) &
+#endif
+                &                                                                    )
+              !
               IF (ltimer) CALL timer_stop(timer_iconam_echam)
 
             END SELECT ! iforcing
@@ -2484,7 +2488,7 @@ MODULE mo_nh_stepping
 
       CASE (iecham) ! iforcing
 
-        SELECT CASE (mpi_phy_config(jg)%idcphycpl)
+        SELECT CASE (echam_phy_config(jg)%idcphycpl)
 
         CASE (1) ! idcphycpl
 
@@ -2498,22 +2502,27 @@ MODULE mo_nh_stepping
 
           ! echam physics, slow physics coupling
           IF (ltimer) CALL timer_start(timer_iconam_echam)
-          CALL interface_iconam_echam( dt_loc                         ,& !in
-            &                          mtime_current                  ,& !in
-            &                          p_patch(jg)                    ,& !in
-            &                          p_int_state(jg)                ,& !in
-            &                          p_nh_state(jg)%metrics         ,& !in
-            &                          p_nh_state(jg)%prog(nnow(jg))  ,& !inout
-            &                          p_nh_state(jg)%prog(n_now_rcf) ,& !inout
-            &                          p_nh_state(jg)%prog(nnow(jg))  ,& !inout
-            &                          p_nh_state(jg)%prog(n_now_rcf) ,& !inout
-            &                          p_nh_state(jg)%diag            ,&
-            &                          p_nh_state_lists(jg)%prog_list(n_now_rcf))
+          !
+          CALL interface_iconam_echam( dt_loc                                    & !in
+            &                         ,mtime_current                             & !in
+            &                         ,p_patch(jg)                               & !in
+            &                         ,p_int_state(jg)                           & !in
+            &                         ,p_nh_state(jg)%metrics                    & !in
+            &                         ,p_nh_state(jg)%prog(nnow(jg))             & !inout
+            &                         ,p_nh_state(jg)%prog(n_now_rcf)            & !inout
+            &                         ,p_nh_state(jg)%prog(nnow(jg))             & !inout
+            &                         ,p_nh_state(jg)%prog(n_now_rcf)            & !inout
+            &                         ,p_nh_state(jg)%diag                       &
+#ifdef __ICON_ART
+            &                         ,p_nh_state_lists(jg)%prog_list(n_now_rcf) &
+#endif
+            &                                                                    )
+          !
           IF (ltimer) CALL timer_stop(timer_iconam_echam)
 
         CASE DEFAULT ! idcphycpl
 
-          CALL finish (routine, 'mpi_phy_config(jg)%idcphycpl /= 1,2 currently not implemented')
+          CALL finish (routine, 'echam_phy_config(jg)%idcphycpl /= 1,2 currently not implemented')
 
         END SELECT ! idcphycpl
 

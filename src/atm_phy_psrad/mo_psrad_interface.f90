@@ -8,7 +8,7 @@
 MODULE mo_psrad_interface
   USE mo_kind,                       ONLY: wp
   USE mo_physical_constants,         ONLY: avo, amd, amw, amco2, amch4, amn2o, amo3, amo2, amc11, amc12, zemiss_def
-  USE mo_exception,                  ONLY: finish
+  USE mo_exception,                  ONLY: finish, message
   USE mo_model_domain,               ONLY: t_patch
   USE mo_parallel_config            ,ONLY: nproma
   USE mo_impl_constants             ,ONLY: min_rlcell_int, grf_bdywidth_c
@@ -56,14 +56,18 @@ CONTAINS
   !!   configuration of the radiation scheme.
   !
   SUBROUTINE setup_psrad
-!++jsr
-!    CALL setup_lrtm ! in echam6 with psrad: setup_lrtm, before: lrtm_setup
-!                    ! the longwave part did not really change (?) -> reuse
-!                    ! the "old" lrtm_setup
-!--jsr
-!!$    CALL lrtm_setup('rrtmg_lw.nc')
+    !
     CALL setup_lrtm
     CALL setup_srtm
+    !
+    CALL message('','')
+    CALL message('','PSrad setup')
+    CALL message('','===========')
+    CALL message('','- RRTM LW k-distribution data source version = "rrtm_lw_v3.01"')
+    CALL message('','- RRTM SW k-distribution data source version = "rrtm_sw_v2.5"')
+    CALL message('','- Water vapor continuum version              = "CKD_2.4"')
+    CALL message('','')
+    !
     IF(seed_size_random() > rng_seed_size) THEN 
       CALL finish('setup_psrad','Random number seed size (rng_seed_size) is smaller than true size')
     END IF

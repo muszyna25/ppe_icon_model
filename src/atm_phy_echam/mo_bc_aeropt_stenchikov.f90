@@ -19,8 +19,7 @@
 MODULE mo_bc_aeropt_stenchikov
 
   USE mo_kind,                   ONLY: wp, i8
-  USE mo_lrtm_par,               ONLY: nbndlw
-  USE mo_srtm_config,            ONLY: nbndsw=>jpsw
+  USE mo_psrad_general,          ONLY: nbndlw, nbndsw
   USE mo_exception,              ONLY: finish
   USE mo_read_interface,         ONLY: openInputFile, closeFile, read_1D, &
     &                                  read_1D_extdim_time, &
@@ -28,7 +27,7 @@ MODULE mo_bc_aeropt_stenchikov
   USE mo_latitude_interpolation, ONLY: latitude_weights_li
   USE mo_physical_constants,     ONLY: rgrav, rd
   USE mo_math_constants,         ONLY: deg2rad, pi_2
-  USE mo_mpi_phy_config,         ONLY: mpi_phy_config
+  USE mo_echam_phy_config,       ONLY: echam_phy_config
   USE mtime,                     ONLY: datetime 
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
        &                               calculate_time_interpolation_weights
@@ -59,7 +58,7 @@ MODULE mo_bc_aeropt_stenchikov
 
 CONTAINS
   !>
-  !! SUBROUTINE su_aero_kinne -- sets up the memory for fields in which
+  !! SUBROUTINE su_bc_aeropt_stenchikov -- sets up the memory for fields in which
   !! the aerosol optical properties are stored when needed
 SUBROUTINE su_bc_aeropt_stenchikov
 
@@ -472,7 +471,7 @@ END SUBROUTINE pressure_index
   END IF
   WRITE(ckyear,*) kyear
 
-  IF ( mpi_phy_config(p_patch_id)%lamip ) THEN
+  IF ( echam_phy_config(p_patch_id)%lamip ) THEN
     cfname='bc_aeropt_stenchikov_lw_b16_sw_b14_'//TRIM(ADJUSTL(ckyear))//'.nc'
   ELSE
     cfname='bc_aeropt_stenchikov_lw_b16_sw_b14.nc'

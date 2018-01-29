@@ -239,58 +239,61 @@ cat > ${atm_namelist} << EOF
  itype_hlimit     =   3,  4,  4,  4
  ihadv_tracer     =  52,  2,  2, 52
 /
-&mpi_phy_nml
+&echam_phy_nml
 !
 ! domain 1
 ! --------
 !
 ! atmospheric phyiscs (""=never)
- mpi_phy_config(1)%dt_rad = "PT2H"
- mpi_phy_config(1)%dt_vdf = "PT10M"
- mpi_phy_config(1)%dt_cnv = "PT10M"
- mpi_phy_config(1)%dt_cld = "PT10M"
- mpi_phy_config(1)%dt_gwd = "PT10M"
- mpi_phy_config(1)%dt_sso = "PT10M"
+ echam_phy_config(1)%dt_rad = "PT2H"
+ echam_phy_config(1)%dt_vdf = "PT10M"
+ echam_phy_config(1)%dt_cnv = "PT10M"
+ echam_phy_config(1)%dt_cld = "PT10M"
+ echam_phy_config(1)%dt_gwd = "PT10M"
+ echam_phy_config(1)%dt_sso = "PT10M"
 !
 ! atmospheric chemistry (""=never)
- mpi_phy_config(1)%dt_mox = ""
- mpi_phy_config(1)%dt_car = ""
- mpi_phy_config(1)%dt_art = ""
+ echam_phy_config(1)%dt_mox = ""
+ echam_phy_config(1)%dt_car = ""
+ echam_phy_config(1)%dt_art = ""
 !
 ! surface (.TRUE. or .FALSE.)
- mpi_phy_config(1)%ljsb  = ${ljsbach}
- mpi_phy_config(1)%lamip = .FALSE.
- mpi_phy_config(1)%lice  = .TRUE.
- mpi_phy_config(1)%lmlo  = .FALSE.
- mpi_phy_config(1)%llake  = ${llake}
+ echam_phy_config(1)%ljsb   = ${ljsbach}
+ echam_phy_config(1)%lamip  = .FALSE.
+ echam_phy_config(1)%lice   = .TRUE.
+ echam_phy_config(1)%lmlo   = .FALSE.
+ echam_phy_config(1)%llake  = ${llake}
 !
 /
-&radiation_nml
- irad_h2o         = 1           ! 1: prognostic vapor, liquid and ice
- irad_co2         = 2           ! 2: global constant; 4: from greenhouse gas scenario
- irad_ch4         = 2           ! 2: global constant; 4: from greenhouse gas scenario
- irad_n2o         = 2           ! 2: global constant; 4: from greenhouse gas scenario
- irad_o3          = 0           ! 8: horizontally and vertically variable
- irad_o2          = 2           ! 2: horizontally and vertically constant
- irad_cfc11       = 0           ! 0: no cfc
- irad_cfc12       = 0           ! 0: no cfc
- irad_aero        = 0           ! 0: no aerosol
- lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
- ighg             = 0           ! 0: select default values; 1: transient well mixed greenhouse gas concentrations
- izenith          = 4           ! 4: seasonal and diurnal cycle
- isolrad          = 6           ! 6: pre-industrial CMIP6 solar constant
- vmr_co2          = 284.317e-6  ! constant volume mixing ration
- vmr_ch4          = 808.249e-9  ! constant volume mixing ration
- vmr_n2o          = 273.021e-9  ! constant volume mixing ration
+&echam_rad_nml
+!
+! domain 1
+! --------
+!
+ echam_rad_config(1)%isolrad    =  6
+ echam_rad_config(1)%irad_h2o   =  1
+ echam_rad_config(1)%irad_co2   =  2
+ echam_rad_config(1)%irad_ch4   =  2
+ echam_rad_config(1)%irad_n2o   =  2
+ echam_rad_config(1)%irad_o3    =  8
+ echam_rad_config(1)%irad_o2    =  2
+ echam_rad_config(1)%irad_cfc11 =  0
+ echam_rad_config(1)%irad_cfc12 =  0
+ echam_rad_config(1)%irad_aero  =  0
+ echam_rad_config(1)%ighg       =  0
+ echam_rad_config(1)%vmr_co2    = 284.317e-6  ! constant volume mixing ration
+ echam_rad_config(1)%vmr_ch4    = 808.249e-9  ! constant volume mixing ration
+ echam_rad_config(1)%vmr_n2o    = 273.021e-9  ! constant volume mixing ration
 /
-&psrad_nml
-rad_perm          = 1           ! Integer for perturbing random number seeds
+&echam_gwd_nml
 /
-&echam_conv_nml
+&echam_sso_nml
 /
-&echam_cloud_nml
+&echam_vdf_nml
 /
-&gw_hines_nml
+&echam_cnv_nml
+/
+&echam_cld_nml
 /
 &sea_ice_nml
 /
@@ -1210,4 +1213,5 @@ add_required_file ${basedir}/externals/yac/input/component.xsd.in ./component.xs
 # set grid filenames to undefined to avoid copy mechanism by exec.iconrun (not tested, change later):
 #atmo_dyn_grids=""
 #ocean_grids=""
+
 

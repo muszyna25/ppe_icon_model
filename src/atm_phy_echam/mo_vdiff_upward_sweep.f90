@@ -40,7 +40,7 @@ CONTAINS
                        pum1,       pvm1,        ptm1,                    &! in
                        pmair,      pmdry,                                &! in
                        pqm1,       pxlm1,       pxim1,       pxtm1,      &! in
-                       pgeom1,      pztkevn,                             &! in
+                       pgeom1,      pztottevn,                           &! in
                        bb,                                               &! inout
                        pzthvvar,   pxvar,       pz0m_tile,               &! inout
                        pkedisp,                                          &! out
@@ -48,7 +48,7 @@ CONTAINS
                        pqte_vdf,   pxlte_vdf,   pxite_vdf,   pxtte_vdf,  &! out
                        pz0m,                                             &! out
                        pthvvar,                                          &! out
-                       ptke,                                             &! out
+                       ptotte,                                           &! out
                        psh_vdiff,  pqv_vdiff                             )! out
 
     INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1, ktrac
@@ -77,7 +77,7 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pxtm1   (kbdim,klev,ktrac) !< specific density of other tracers at step t-dt
 
     REAL(wp),INTENT(IN) :: pgeom1 (kbdim,klev)   !< geopotential above ground
-    REAL(wp),INTENT(IN) :: pztkevn(kbdim,klev)   !< intermediate value of tke
+    REAL(wp),INTENT(IN) :: pztottevn(kbdim,klev) !< intermediate value of TTE
 
     REAL(wp),INTENT(INOUT) :: bb    (kbdim,klev,nvar_vdiff)  !<
 
@@ -112,7 +112,7 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pz0m      (kbdim)      !< grid-box mean roughness height
     REAL(wp),INTENT(OUT) :: pthvvar   (kbdim,klev) !< variance of virtual potential temperature
                                                    !< at the new time step t
-    REAL(wp),INTENT(OUT) :: ptke      (kbdim,klev)
+    REAL(wp),INTENT(OUT) :: ptotte    (kbdim,klev)
     REAL(wp),INTENT(OUT) :: psh_vdiff (kbdim)      ! sens. heat flux
     REAL(wp),INTENT(OUT) :: pqv_vdiff (kbdim)      ! qv flux
 
@@ -130,13 +130,13 @@ CONTAINS
                          & pmair, pmdry,                                &! in
                          & pqm1, pxlm1, pxim1, pxtm1,                   &! in
                          & pgeom1, pcptgz,                              &! in
-                         & pztkevn, pzthvvar,                           &! in
+                         & pztottevn, pzthvvar,                         &! in
                          & pcfm_tile, pfrc, bb,                         &! in
                          & pkedisp,                                     &! out
                          & pxvar, pz0m_tile,                            &! inout
                          & pute_vdf, pvte_vdf, pq_vdf,                  &! out
                          & pqte_vdf, pxlte_vdf, pxite_vdf, pxtte_vdf,   &! out
-                         & pz0m, ptke, pthvvar,                         &! out
+                         & pz0m, ptotte, pthvvar,                       &! out
                          & psh_vdiff, pqv_vdiff                         )! out
 
     ! Note: computation of additional diagnostics, e.g., surface sensible heat flux,

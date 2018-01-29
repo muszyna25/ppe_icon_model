@@ -27,7 +27,7 @@ MODULE mo_psrad_cloud_optics
 
   USE mo_psrad_general, ONLY: wp, finish, pi, rhoh2o
 #ifndef PSRAD_ONLY
-  USE mo_echam_cloud_config, ONLY: echam_cloud_config
+  USE mo_echam_cld_config, ONLY: echam_cld_config
 #endif
 
   USE mo_psrad_io, ONLY: psrad_io_open, psrad_io_close, &
@@ -109,22 +109,34 @@ CONTAINS
   END SUBROUTINE
 #endif
 
+#ifdef PSRAD_ONLY
   SUBROUTINE setup_cloud_optics
+
+    zinhoml1 = 0.6 ! 0.7
+    zinhoml2 = 0.6 ! 0.7 for nn=31 in mo_control...
+    zinhomi  = 0.7
+    zinpar   = 0.10_wp
+
+#else
+  SUBROUTINE setup_cloud_optics(jg)
+
+    INTEGER, OPTIONAL, INTENT(in) :: jg
+
+    IF (PRESENT(jg)) THEN
+       zinhoml1      = echam_cld_config(jg)% cinhoml1
+       zinhoml2      = echam_cld_config(jg)% cinhoml2
+       zinhoml3      = echam_cld_config(jg)% cinhoml3
+       zinhomi       = echam_cld_config(jg)% cinhomi
+    ELSE
+       zinhoml1      = 0.8_wp
+       zinhoml2      = 0.4_wp
+       zinhoml3      = 0.8_wp
+       zinhomi       = 0.8_wp
+    ENDIF
+#endif
 
     ! Variable liquid cloud inhomogeneity is not used:
     l_variable_inhoml = .FALSE.
-
-#ifdef PSRAD_ONLY
-    zinhoml1 = 0.6 ! 0.7
-    zinhoml2 = 0.6 ! 0.7 for nn=31 in mo_control...
-    zinhomi = 0.7
-    zinpar  = 0.10_wp
-#else
-    zinhoml1      = echam_cloud_config% cinhoml1
-    zinhoml2      = echam_cloud_config% cinhoml2
-    zinhoml3      = echam_cloud_config% cinhoml3
-    zinhomi       = echam_cloud_config% cinhomi
-#endif
 
 
 !!$    IF (p_parallel_io) THEN

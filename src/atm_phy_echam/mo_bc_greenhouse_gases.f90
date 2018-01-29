@@ -70,9 +70,7 @@ MODULE mo_bc_greenhouse_gases
 
 CONTAINS
 
-  SUBROUTINE read_bc_greenhouse_gases(ighg)
-
-    INTEGER, INTENT(in) :: ighg
+  SUBROUTINE read_bc_greenhouse_gases
 
     INTEGER :: ncid, ndimid, nvarid
     INTEGER :: i
@@ -82,18 +80,10 @@ CONTAINS
       RETURN
     ENDIF
 
-    SELECT CASE(ighg) ! select scenario
-    CASE (0) 
-      CALL message('','Use predefined greenhouse gases secenario from 1990 based on CMIP5')
-      RETURN  
-    CASE (1)
-      CALL message('','Use transient, annually resolved greenhouse gases secenario based on CMIP5')
-      CALL nf_check(p_nf_open('bc_greenhouse_gases.nc', nf_read, ncid))
-      CALL nf_check(p_nf_inq_dimid (ncid, 'time', ndimid)) 
-      CALL nf_check(p_nf_inq_dimlen (ncid, ndimid, ghg_no_years))
-    CASE DEFAULT
-      CALL finish('','Greenhouse gases scenario not available ...')
-    END SELECT
+    CALL message('','Use transient, annually resolved greenhouse gases secenario based on CMIP5')
+    CALL nf_check(p_nf_open('bc_greenhouse_gases.nc', nf_read, ncid))
+    CALL nf_check(p_nf_inq_dimid (ncid, 'time', ndimid)) 
+    CALL nf_check(p_nf_inq_dimlen (ncid, ndimid, ghg_no_years))
 
     ALLOCATE (ghg_years(ghg_no_years))
     ALLOCATE (ghg_co2(ghg_no_years))
