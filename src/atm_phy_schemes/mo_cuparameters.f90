@@ -1143,9 +1143,13 @@ ENTSHALP=2.0_JPRB
 
 !     ENTSTPC1,2: SHALLOW ENTRAINMENT CONSTANTS FOR TRIGGER TEST PARCEL ONLY
 !     ----------
-
-ENTSTPC1=0.55_JPRB
-ENTSTPC2=1.E-4_JPRB
+IF (lshallow_only) THEN
+  ENTSTPC1=1.0_JPRB
+  ENTSTPC2=2.E-4_JPRB
+ELSE
+  ENTSTPC1=0.55_JPRB
+  ENTSTPC2=1.E-4_JPRB
+ENDIF
 !ENTSTPC1=0.8_JPRB        !40r3 default
 !ENTSTPC2=2.E-4_JPRB      !40r3 default
 
@@ -1172,8 +1176,11 @@ RMFDEPS=0.30_JPRB
 
 !     RDEPTHS:   MAXIMUM ALLOWED SHALLOW CLOUD DEPTH (Pa)
 !     -------
-
-rdepths=2.e4_jprb
+IF (lshallow_only) THEN
+  rdepths=1.e4_jprb
+ELSE
+  rdepths=2.e4_jprb
+ENDIF
 
 !     RPRCON:    COEFFICIENTS FOR DETERMINING CONVERSION FROM CLOUD WATER
 !     ------
@@ -1236,6 +1243,9 @@ ENDIF
 ! tuning parameter for organized entrainment of deep convection
 phy_params%entrorg = tune_entrorg + 1.2E-4_JPRB*LOG(zres_thresh/rsltn)
 
+IF (lshallow_only) THEN
+  phy_params%entrorg = 1.5_JPRB*phy_params%entrorg
+ENDIF
 
 ! resolution-dependent settings for 'excess values' of temperature and QV used for convection triggering (test parcel ascent)
 
@@ -1311,7 +1321,11 @@ lmfglac =.TRUE.   ! glaciation of precip in updraught
 
 !     RMFCFL:     MASSFLUX MULTIPLE OF CFL STABILITY CRITERIUM
 !     -------
-phy_params%mfcfl = 2._JPRB*MIN(2._JPRB,1._JPRB + 2.5e-5_JPRB*rsltn)
+IF (lshallow_only) THEN
+  phy_params%mfcfl = 1._JPRB
+ELSE
+  phy_params%mfcfl = 2._JPRB*MIN(2._JPRB,1._JPRB + 2.5e-5_JPRB*rsltn)
+ENDIF
 
 rmflic=1.0_JPRB   ! use CFL mass flux limit (1) or absolut limit (0)
 rmflia=0.0_JPRB   ! value of absolut mass flux limit

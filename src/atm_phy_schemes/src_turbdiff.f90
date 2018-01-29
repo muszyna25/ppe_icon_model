@@ -509,6 +509,9 @@ USE mo_data_turbdiff, ONLY : &
     imode_shshear,& ! mode of calculat. the separated horizontal shear mode related to 'ltkeshs', 'a_hshr')
                     ! 1: with a constant lenght scale
                     ! 2: with a Ri-dependent length sclale correction
+    imode_tkesso,&  ! mode of calculat. the SSO source term for TKE production
+                    ! 1: original implementation
+                    ! 2: with a Ri-dependent reduction factor for Ri>1
     imode_tkvmini,& ! mode of calculating the minimal turbulent diff. coeffecients
                     ! 1: with a constant value
                     ! 2: with a stability dependent correction
@@ -4467,9 +4470,10 @@ SUBROUTINE turbdiff
 !DIR$ IVDEP
                 DO i=istartpar,iendpar
                   ! Factor for variable 3D horizontal-vertical length scale proportional to 1/SQRT(Ri),
-                  ! decreasing to zero in the lowest kilometer above ground
+                  ! decreasing to zero in the lowest two kilometers above ground
 
-                  x4 = MIN( 1._ireals, 1.0e-3_ireals*(hhl(i,k)-hhl(i,ke1)) ) ! low-level reduction factor
+                  x4i = MIN( 1._ireals, 0.5e-3_ireals*(hhl(i,k)-hhl(i,ke1)) )
+                  x4 = 3._ireals*x4i**2 - 2._ireals*x4i**3                   ! low-level reduction factor
                   hor_scale(i,k) = lay(i)*MIN( 5.0_ireals, MAX( 0.01_ireals, x4*xri(i,k) ) )
                 END DO
               END DO
@@ -4559,10 +4563,15 @@ SUBROUTINE turbdiff
 
 !              Addition des Scherterms durch Nachlaufwirbel:
 
-               IF (ltkesso) THEN !Nachlaufwirbeltendenzen sollen beruecksichtigt werden
+               IF (imode_tkesso == 1) THEN !Nachlaufwirbeltendenzen sollen beruecksichtigt werden
 !DIR$ IVDEP
                   DO i=istartpar,iendpar
                      frm(i,k)=frm(i,k) + src(i)/tkvm(i,k)
+                  END DO
+               ELSE IF (imode_tkesso == 2) THEN ! Reduce TKE production in the presence of large Richardson numbers
+!DIR$ IVDEP
+                  DO i=istartpar,iendpar
+                     frm(i,k)=frm(i,k) + src(i)/tkvm(i,k)*MIN(1.0_ireals,MAX(0.01_ireals,xri(i,k)))
                   END DO
                END IF
 

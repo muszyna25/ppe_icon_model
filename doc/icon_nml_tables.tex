@@ -3865,6 +3865,25 @@ run\_nml:iforcing = inwp
 \tabularnewline
 
 \hline
+tune\_box\_liq&
+R&
+0.05&
+&
+Box width for liquid cloud diagnostic in cloud cover scheme&
+run\_nml:iforcing = inwp; inwp\_cldcover = 1
+\tabularnewline
+
+\hline
+tune\_box\_liq\_asy&
+R&
+2.5&
+&
+Asymmetry factor for liquid cloud cover diagnostic&
+run\_nml:iforcing = inwp; inwp\_cldcover = 1
+\tabularnewline
+
+
+\hline
 lcalib\_clcov&
 L&
 .TRUE.&
@@ -5629,6 +5648,12 @@ Same as \emph{icldm\_turb} but only for the transfer layer &
 \tabularnewline
 
 %\hline
+q\_crit &
+R                &    1.6      & &
+critical value for normalized super-saturation &
+\tabularnewline
+
+%\hline
 itype\_wcld &
 I                &     2      & &
 type of water cloud diagnosis within the turbulence scheme:\\
@@ -5656,8 +5681,16 @@ at non-convection-resolving model resolutions in order to get a non-negligible i
 
 %\hline
 ltkesso &
-L                &     .FALSE.      & &
+L                &     .TRUE.      & &
 Consider TKE-production by sub grid SSO wakes & inwp\_sso = 1
+\tabularnewline
+
+%\hline
+imode\_tkesso &
+I                &      1      & &
+mode of calculat. the SSO source term for TKE production:\\
+1: original implementation\\
+2: Ri-dependent reduction factor for Ri$>$1 & 
 \tabularnewline
 
 %\hline

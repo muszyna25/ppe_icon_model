@@ -2497,7 +2497,6 @@ END SUBROUTINE message
                 IF (itype_trvg == 3) THEN
                   ! Modification of rsmin depending on accumulated plant evaporation; the z0 dependency
                   ! is used to get a stronger effect for trees than for low vegetation
-                  IF (z0(i) <= 0.4_ireals) zxx = MIN(1.25_ireals, zxx)
                   zzz = MAX(0.5_ireals+MIN(0.5_ireals,1._ireals-laifac(i)), EXP(SQRT(z0(i))*LOG(zxx)) )
                 ELSE
                   zzz = 1._ireals

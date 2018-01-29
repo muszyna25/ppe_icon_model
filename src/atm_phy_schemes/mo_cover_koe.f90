@@ -50,7 +50,7 @@ MODULE mo_cover_koe
 
   USE mo_impl_constants,     ONLY: iedmf
 
-  USE mo_nwp_tuning_config,  ONLY: tune_box_liq
+  USE mo_nwp_tuning_config,  ONLY: tune_box_liq, tune_box_liq_asy
 
   IMPLICIT NONE
 
@@ -178,7 +178,7 @@ REAL(KIND=wp) :: &
   & fgew   , fgee   , fgqs   , & !fgqv   , & ! name of statement functions
   & ztt    , zzpv   , zzpa   , zzps   , &
   & zf_ice , deltaq , qisat_grid, &
-  & vap_pres, zaux, zqisat_m50, zqisat_m25, qi_mod, box_liq_ass, par1, par2, qcc, asyfac
+  & vap_pres, zaux, zqisat_m50, zqisat_m25, qi_mod, par1, par2, qcc, asyfac
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   zqlsat , zqisat, zagl_lim
@@ -189,7 +189,6 @@ REAL(KIND=wp), DIMENSION(klon,klev)  :: &
 REAL(KIND=wp), PARAMETER  :: &
   & zcldlim  = 1.0e-8_wp, & ! threshold of cloud water/ice for cloud cover  (kg/kg)
   & taudecay = 1500.0_wp, & ! decay time scale of convective anvils
-!  & box_liq  = 0.05_wp  , & ! box width scale liquid clouds - replaced by tuning namelist switch
   & box_ice  = 0.05_wp !,  &  ! box width scale ice clouds
 !  & zt_ice1 = tmelt -  5.0_wp, &
 !  & zt_ice2 = tmelt - 25.0_wp
@@ -219,8 +218,7 @@ zqisat_m50 = fgqs ( fgee(223.15_wp), 0._wp, 20000._wp )
 zqisat_m25 = fgqs ( fgee(248.15_wp), 0._wp, 70000._wp )
 
 ! asymmetry factor for water clouds and derived parameters
-box_liq_ass = 2.5_wp
-par1        = box_liq_ass+1._wp
+par1        = tune_box_liq_asy+1._wp
 par2        = par1**4
 
 ! Set cloud fields for stratospheric levels to zero
@@ -288,7 +286,7 @@ CASE( 1 )
         cc_turb_liq(jl,jk) = 1.0_wp
         qc_turb  (jl,jk)   = qv(jl,jk) + qc(jl,jk) - zqlsat(jl,jk)
       ELSE
-        zaux = qv(jl,jk) + qc(jl,jk) + box_liq_ass*deltaq - zqlsat(jl,jk)
+        zaux = qv(jl,jk) + qc(jl,jk) + tune_box_liq_asy*deltaq - zqlsat(jl,jk)
         cc_turb_liq(jl,jk) = SIGN((zaux/(par1*deltaq))**2,zaux)
         IF ( cc_turb_liq(jl,jk) > 0.0_wp ) THEN
           qc_turb  (jl,jk) = zaux**4 / (par2*asyfac*deltaq**3)
