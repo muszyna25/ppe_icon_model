@@ -34,7 +34,7 @@ MODULE mo_echam_phy_bcs
   USE mo_echam_phy_memory           ,ONLY: prm_field
   USE mo_echam_phy_config           ,ONLY: echam_phy_config, echam_phy_tc, dt_zero
   USE mo_echam_rad_config           ,ONLY: echam_rad_config
-  USE mo_psrad_srtm_setup           ,ONLY: ssi_radt, tsi_radt, tsi
+  USE mo_psrad_solar_data           ,ONLY: ssi_radt, tsi_radt, tsi
   USE mo_psrad_radiation            ,ONLY: pre_psrad_radiation
 
   USE mo_echam_sfc_indices          ,ONLY: nsfc_type, iwtr, iice
