@@ -37,8 +37,8 @@ MODULE mo_icosahedron_geometry
 
   USE mo_kind,               ONLY: wp
   USE mo_math_constants,     ONLY: pi_5
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, &
-    & rotate_x, rotate_y, rotate_z
+  USE mo_math_types,         ONLY: t_cartesian_coordinates
+  USE mo_math_utilities,     ONLY: rotate_x, rotate_y, rotate_z
   USE mo_base_geometry,      ONLY: x_rot_angle,y_rot_angle,z_rot_angle
 
   IMPLICIT NONE

@@ -44,9 +44,8 @@
     USE mo_run_config,          ONLY: ltimer
     USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, is_plane_torus
     USE mo_timer,               ONLY: timer_start, timer_stop, timer_lonlat_setup
-    USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, arc_length_v,                         &
-      &                               t_cartesian_coordinates,                                &
-      &                               t_geographical_coordinates
+    USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
+    USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, arc_length_v
     USE mo_math_utility_solvers, ONLY: solve_chol_v, choldec_v
     USE mo_lonlat_grid,         ONLY: t_lon_lat_grid, rotate_latlon_grid
     USE mo_parallel_config,     ONLY: nproma, p_test_run

@@ -25,7 +25,8 @@ MODULE mo_ocean_diagnostics
     & p_comm_work_test, p_comm_work, p_io, p_bcast
   USE mo_sync,               ONLY: global_sum_array, disable_sync_checks, enable_sync_checks, &
     &                              sync_c, sync_e, sync_patch_array
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, cvec2gvec
+  USE mo_math_types,         ONLY: t_cartesian_coordinates
+  USE mo_math_utilities,     ONLY: cvec2gvec
   USE mo_advection_utils,    ONLY: laxfr_upflux
   USE mo_util_dbg_prnt,      ONLY: dbg_print
   USE mo_dbg_nml,            ONLY: idbg_val

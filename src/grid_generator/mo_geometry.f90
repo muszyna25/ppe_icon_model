@@ -70,9 +70,9 @@ MODULE mo_geometry
   USE mo_exception,      ONLY: message_text, message, finish
   USE mo_math_constants, ONLY: pi
 
-  USE mo_math_utilities, ONLY: t_cartesian_coordinates, vector_product, &
-    & circum_center, cc2gc, arc_length,      &
-    & spherical_intersection2, spherical_intersection2_v, t_geographical_coordinates
+  USE mo_math_types,     ONLY: t_cartesian_coordinates, t_geographical_coordinates
+  USE mo_math_utilities, ONLY: vector_product, circum_center, cc2gc, arc_length,  &
+    & spherical_intersection2, spherical_intersection2_v
 
   USE mo_physical_constants, ONLY: earth_radius
 

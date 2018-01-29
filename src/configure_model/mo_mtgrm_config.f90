@@ -15,7 +15,7 @@
 MODULE mo_meteogram_config
 
   USE mo_impl_constants, ONLY: max_dom
-  USE mo_math_utilities, ONLY: t_geographical_coordinates
+  USE mo_math_types,     ONLY: t_geographical_coordinates
   USE mo_exception,      ONLY: message
 
   IMPLICIT NONE

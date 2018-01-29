@@ -48,9 +48,8 @@ MODULE mo_small_circle_c
   !
   !
   USE mo_kind,          ONLY: wp
-  USE mo_math_utilities, ONLY: t_cartesian_coordinates, &
-    & circum_center,         &
-    & arc_length
+  USE mo_math_types,    ONLY: t_cartesian_coordinates
+  USE mo_math_utilities, ONLY: circum_center, arc_length
   USE mo_base_datatypes,ONLY: t_triangle, t_spheres
   USE mo_topology,      ONLY: root, kroot, icosahedron
   USE mo_equal_area,    ONLY: edge_midpoint

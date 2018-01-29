@@ -72,7 +72,7 @@ MODULE mo_gnat_gridsearch
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_math_constants,      ONLY: pi_180
-  USE mo_math_utilities,      ONLY: t_geographical_coordinates
+  USE mo_math_types,          ONLY: t_geographical_coordinates
   USE mo_model_domain,        ONLY: t_grid_cells, t_grid_vertices, t_patch
   USE mo_impl_constants,      ONLY: min_rlcell_int
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e

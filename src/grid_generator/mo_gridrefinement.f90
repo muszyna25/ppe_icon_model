@@ -61,10 +61,10 @@ MODULE mo_gridref
   USE mo_namelist,           ONLY: position_nml, open_nml, positioned
   USE mo_grid,               ONLY: t_grid,                                  &
        &                           t_grid_cells, t_grid_vertices, t_grid_edges
-  USE mo_math_utilities,     ONLY: gvec2cvec, t_cartesian_coordinates,      &
-       &                           gc2cc, arc_length
+  USE mo_math_types,         ONLY: t_cartesian_coordinates
   USE mo_grid_levels,        ONLY: nf
-  USE mo_math_utilities,     ONLY: rotate_latlon, check_orientation
+  USE mo_math_utilities,     ONLY: rotate_latlon, check_orientation, gc2cc, arc_length, &
+    &                              gvec2cvec
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell, min_rlvert,    &
        &                           max_rlvert, min_rledge, max_rledge,    &
        &                           min_rlcell_int, min_rlvert_int,        &

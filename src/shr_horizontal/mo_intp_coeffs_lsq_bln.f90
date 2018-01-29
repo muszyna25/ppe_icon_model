@@ -153,7 +153,8 @@ USE mo_math_constants,      ONLY: pi2
 USE mo_exception,           ONLY: message, finish
 USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell
 USE mo_model_domain,        ONLY: t_patch
-USE mo_math_utilities,      ONLY: gnomonic_proj, rotate_latlon, t_cartesian_coordinates, &
+USE mo_math_types,          ONLY: t_cartesian_coordinates
+USE mo_math_utilities,      ONLY: gnomonic_proj, rotate_latlon, &
                                   plane_torus_closest_coordinates
 USE mo_math_utility_solvers, ONLY: qrdec
 USE mo_parallel_config,     ONLY: nproma

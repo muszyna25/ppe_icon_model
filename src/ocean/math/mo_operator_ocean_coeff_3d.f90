@@ -30,8 +30,8 @@ MODULE mo_operator_ocean_coeff_3d
     &                               max_char_length, beta_plane_coriolis,full_coriolis, &
     &                               SEA_BOUNDARY, BOUNDARY, SEA, min_dolic
   USE mo_math_constants,      ONLY: deg2rad, pi!, rad2deg
-  USE mo_math_utilities,      ONLY: gc2cc, cc2gc, t_cartesian_coordinates,      &
-    &  t_geographical_coordinates, vector_product, &
+  USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
+  USE mo_math_utilities,      ONLY: gc2cc, cc2gc, vector_product, &
     &  arc_length, cvec2gvec
   USE mo_ocean_nml,           ONLY: n_zlev, no_tracer, &
     & coriolis_type, basin_center_lat, basin_height_deg, &

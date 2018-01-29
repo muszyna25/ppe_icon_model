@@ -30,7 +30,8 @@ MODULE mo_spring_dynamics
   !
   !
   USE mo_kind,           ONLY: wp
-  USE mo_math_utilities,  ONLY: arc_length, t_cartesian_coordinates
+  USE mo_math_types,     ONLY: t_cartesian_coordinates
+  USE mo_math_utilities, ONLY: arc_length
   USE mo_base_datatypes, ONLY: t_spheres
   USE mo_math_constants, ONLY: pi
   USE mo_exception,      ONLY: message_text, message, finish

@@ -73,7 +73,7 @@ MODULE mo_grid
 
   USE mo_exception,       ONLY: message_text, message, finish
 
-  USE mo_math_utilities,   ONLY: t_geographical_coordinates,  &
+  USE mo_math_types,      ONLY: t_geographical_coordinates,  &
     & t_tangent_vectors
 
   USE mo_impl_constants,  ONLY: min_rlcell, max_rlcell, &

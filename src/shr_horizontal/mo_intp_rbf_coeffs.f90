@@ -153,8 +153,8 @@ USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int
 USE mo_model_domain,        ONLY: t_patch, t_tangent_vectors
 USE mo_grid_config,         ONLY: l_limited_area
 USE mo_dynamics_config,     ONLY: iequations
-USE mo_math_utilities,      ONLY: gvec2cvec, arc_length_v,  &
-  &                               t_cartesian_coordinates
+USE mo_math_types,          ONLY: t_cartesian_coordinates
+USE mo_math_utilities,      ONLY: gvec2cvec, arc_length_v
 USE mo_math_utility_solvers, ONLY: solve_chol_v, choldec_v
 USE mo_parallel_config,     ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v

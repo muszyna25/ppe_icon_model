@@ -40,7 +40,8 @@ MODULE mo_ice_fem_interface
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
   USE mo_sea_ice_nml,         ONLY: i_ice_advec
   USE mo_ice_fem_advection,   ONLY: fct_ice_solve, ice_TG_rhs
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec !, &
+  USE mo_math_types,          ONLY: t_cartesian_coordinates
+  USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
   USE mo_scalar_product,      ONLY: map_cell2edges_3D, map_edges2cell_3D
   USE mo_icon_interpolation_scalar, ONLY: verts2cells_scalar !, cells2verts_scalar
   USE mo_ice_fem_interpolation, ONLY: map_edges2verts, map_verts2edges,                 &

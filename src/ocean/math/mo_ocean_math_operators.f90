@@ -47,7 +47,8 @@ MODULE mo_ocean_math_operators
   USE mo_timer,              ONLY: timer_start, timer_stop, timer_div, timer_grad, timers_level
   USE mo_ocean_types,        ONLY: t_hydro_ocean_state, t_solvercoeff_singleprecision, &
     & t_verticaladvection_ppm_coefficients, t_operator_coeff
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, vector_product
+  USE mo_math_types,         ONLY: t_cartesian_coordinates
+  USE mo_math_utilities,     ONLY: vector_product
 !   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array

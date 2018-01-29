@@ -56,7 +56,7 @@ MODULE mo_ocean_state
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, grid_sphere_radius, grid_angular_velocity, &
     & use_dummy_cell_closure
   USE mo_dynamics_config,     ONLY: nnew,nold
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates, t_geographical_coordinates
+  USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
   
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &

@@ -26,7 +26,7 @@ MODULE mo_ocean_ab_timestepping_mimetic
 
   USE mo_kind,                      ONLY: wp, sp
   USE mo_parallel_config,           ONLY: nproma, l_fast_sum
-  USE mo_math_utilities,            ONLY: t_cartesian_coordinates
+  USE mo_math_types,                ONLY: t_cartesian_coordinates
   USE mo_sync,                      ONLY: sync_e, sync_c, sync_patch_array, sync_patch_array_mult
   USE mo_impl_constants,            ONLY: sea_boundary, &  !  sea,                          &
     & max_char_length, min_dolic

@@ -22,8 +22,8 @@ MODULE mo_name_list_output_gridinfo
   USE mo_parallel_config,                   ONLY: nproma
   USE mo_exception,                         ONLY: finish
   USE mo_model_domain,                      ONLY: t_patch, p_patch
-  USE mo_math_utilities,                    ONLY: t_geographical_coordinates,               &
-    &                                             check_orientation
+  USE mo_math_types,                        ONLY: t_geographical_coordinates
+  USE mo_math_utilities,                    ONLY: check_orientation
   USE mo_communication,                     ONLY: t_comm_gather_pattern, exchange_data,     &
     &                                             t_comm_allgather_pattern,       &
     &                                             setup_comm_allgather_pattern,   &

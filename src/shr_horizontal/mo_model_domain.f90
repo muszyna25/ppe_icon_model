@@ -87,7 +87,7 @@ MODULE mo_model_domain
   !
   !
   USE mo_kind
-  USE mo_math_utilities,          ONLY: t_geographical_coordinates, t_cartesian_coordinates
+  USE mo_math_types,              ONLY: t_geographical_coordinates, t_cartesian_coordinates
   USE mo_impl_constants,          ONLY: max_dom, max_phys_dom
   USE mo_communication,           ONLY: t_comm_pattern, t_comm_gather_pattern, t_scatterPattern
   USE mo_io_units,                ONLY: filename_max

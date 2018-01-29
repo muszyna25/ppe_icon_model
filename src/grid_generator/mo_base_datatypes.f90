@@ -51,7 +51,7 @@ MODULE mo_base_datatypes
   !
 
   USE mo_kind,          ONLY: wp
-  USE mo_math_utilities, ONLY: t_cartesian_coordinates, t_tangent_vectors
+  USE mo_math_types,    ONLY: t_cartesian_coordinates, t_tangent_vectors
 
   IMPLICIT NONE
 

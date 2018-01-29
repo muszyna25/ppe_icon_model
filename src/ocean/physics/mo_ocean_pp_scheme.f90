@@ -108,7 +108,7 @@ MODULE mo_ocean_pp_scheme
     & timer_extra10, timer_extra11
   USE mo_statistics,          ONLY: global_minmaxmean
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates
+  USE mo_math_types,          ONLY: t_cartesian_coordinates
 
   IMPLICIT NONE
   PRIVATE
