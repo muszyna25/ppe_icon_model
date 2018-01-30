@@ -1929,7 +1929,7 @@ MODULE mo_nonhydro_state
 
       ALLOCATE(p_diag%ddt_vn_adv_ptr(n_timlevs))
       DO jt =1,n_timlevs
-        WRITE(suffix,'(".TL",i1)') jt
+        suffix = get_timelevel_string(jt)
         CALL add_ref( p_diag_list, 'ddt_vn_adv',                                   &
                     & 'ddt_vn_adv'//suffix, p_diag%ddt_vn_adv_ptr(jt)%p_3d,        &
                     & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE,                           &
@@ -1951,7 +1951,7 @@ MODULE mo_nonhydro_state
 
       ALLOCATE(p_diag%ddt_w_adv_ptr(n_timlevs))
       DO jt =1,n_timlevs
-        WRITE(suffix,'(".TL",i1)') jt
+        suffix = get_timelevel_string(jt)
         CALL add_ref( p_diag_list, 'ddt_w_adv',                                     &
                     & 'ddt_w_adv'//suffix, p_diag%ddt_w_adv_ptr(jt)%p_3d,           &
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF,                       &
