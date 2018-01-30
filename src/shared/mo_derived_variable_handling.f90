@@ -112,6 +112,8 @@ CONTAINS
   function get_prognostics_source_pointer(destinationVariable, timelevelIndex) result(sourcePointer)
     type(t_list_element), pointer :: sourcePointer
     type(t_list_element)          :: destinationVariable
+
+    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::get_prognostics_source_pointer"
     INTEGER , INTENT(IN) :: timelevelIndex
 
     class(*), pointer :: dummy
