@@ -970,6 +970,13 @@ CONTAINS
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":add_var_list_element_5d"
 
     ! consistency check for restart and output
+    TYPE(t_list_element), POINTER :: duplicate
+
+    duplicate => find_element(name)
+    IF (ASSOCIATED(duplicate)) THEN
+      CALL message('ADD_VAR:','Found double entry for varname:'//TRIM(name))
+      NULLIFY(duplicate)
+    ENDIF
 
     is_restart_var = this_list%p%lrestart
     CALL assign_if_present(is_restart_var, lrestart)
