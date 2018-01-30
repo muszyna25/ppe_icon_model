@@ -4083,13 +4083,19 @@ CONTAINS
     caseInsensitive = .FALSE.
     CALL assign_if_present(caseInsensitive, opt_caseInsensitive)
 
+    ! go forward only if both variables have NO or THE SAME timelevel
+    IF (has_time_level(name2look4) .NEQV. has_time_level(element%field%info%name)) THEN
+      elementFoundByName = .FALSE. 
+      RETURN
+    ENDIF
+
     elementFoundByName = merge(tolower(name2look4) == tolower(get_var_name(element%field)), &
         &                      key2look4 == element%field%info%key, &
         &                      caseInsensitive)
 
   END FUNCTION elementFoundByName
   !-----------------------------------------------------------------------------
-  !
+  
   ! Should be overloaded to be able to search for the different information 
   ! In the proposed structure for the linked list, in the example only
   ! A character string is used so it is straight forward only one find
