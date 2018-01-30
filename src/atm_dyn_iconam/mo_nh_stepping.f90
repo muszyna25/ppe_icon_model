@@ -112,7 +112,7 @@ MODULE mo_nh_stepping
                                          outer_boundary_nudging, nest_boundary_nudging, &
                                          prep_rho_bdy_nudging, density_boundary_nudging,&
                                          prep_outer_bdy_nudging, save_progvars
-  USE mo_nh_feedback,              ONLY: feedback, relax_feedback
+  USE mo_nh_feedback,              ONLY: feedback, relax_feedback, lhn_feedback
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH,                          &
     &                                    inoforcing, iheldsuarez, inwp, iecham,             &
@@ -210,6 +210,9 @@ MODULE mo_nh_stepping
 
 #endif
 #endif
+
+  USE mo_radar_data_state,         ONLY: lhn_fields
+  USE mo_assimilation_config,      ONLY: assimilation_config
 
 #if defined( _OPENACC )
   USE mo_nonhydro_gpu_types,       ONLY: save_convenience_pointers, refresh_convenience_pointers
@@ -1840,6 +1843,7 @@ MODULE mo_nh_stepping
         CALL messy_physc(jg)
 #endif
 
+
       ENDIF  ! itime_scheme
 
       ! Update nudging tendency fields for limited-area mode
@@ -1986,6 +1990,10 @@ MODULE mo_nh_stepping
               CALL relax_feedback(  p_patch(n_dom_start:n_dom),            &
                 & p_nh_state(1:n_dom), p_int_state(n_dom_start:n_dom),     &
                 & p_grf_state(n_dom_start:n_dom), prm_diag, jgc, jg, dt_loc)
+            ENDIF
+            IF (assimilation_config(jgc)%dass_lhn%isActive(datetime_local(jgc)%ptr)) THEN
+              CALL lhn_feedback(p_patch(n_dom_start:n_dom), lhn_fields, &
+                p_grf_state(n_dom_start:n_dom), jgc, jg)
             ENDIF
             ! Note: the last argument of "feedback" ensures that tracer feedback is
             ! only done for those time steps in which transport and microphysics are called

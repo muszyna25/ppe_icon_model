@@ -167,20 +167,6 @@ USE environment,              ONLY : collapse, model_abort, get_free_unit, relea
 
 #endif
 
-#ifdef NUDGING
-USE data_lheat_nudge,           ONLY :  &
-    llhn,         & ! main switch for latent heat nudging
-    llhnverif,    & ! main switch for latent heat nudging
-    lhn_qrs,      & ! use integrated precipitaion flux as reference
-    tt_lheat,     & ! latent heat release of the model
-    qrsflux         ! total precipitation flux
-
-!------------------------------------------------------------------------------
-
-USE src_lheating,             ONLY :  &
-    get_gs_lheating            ! storage of grid scale latent heating for lhn
-#endif
-
 #ifdef __GME__
 
 USE prognostic_pp, ONLY : pi,gamma_fct, &
@@ -247,6 +233,8 @@ USE gscp_data
 USE data_hydci_pp_ice,     ONLY:    afrac_dust, &  !! look-up table of activated fraction of dust particles acting as ice nuclei
                                     afrac_soot, &  !! ... of soot particles
                                     afrac_orga     !! ... of organic material
+
+USE mo_run_config,         ONLY: ldass_lhn
 
 #endif
 
@@ -402,11 +390,10 @@ SUBROUTINE hydci_pp_ice (             &
   qi0,qc0,                            & !! cloud ice/water threshold for autoconversion
 #endif
   prr_gsp,prs_gsp,                    & !! surface precipitation rates
-#ifdef NUDGING
-  tinc_lh,                            & !  t-increment due to latent heat 
-  tt_lheat,                           & !  t-increments due to latent heating (nud) 
-  qrsflux,                            & !  total precipitation flux
+#ifdef __COSMO__
+  tinc_lh,                            & !  t-increments due to latent heating 
 #endif
+  qrsflux,                            & !  total precipitation flux
   l_cv,                               &
   ldiag_ttend,     ldiag_qtend     , &
   ddt_tend_t     , ddt_tend_qv      , &
@@ -496,12 +483,13 @@ SUBROUTINE hydci_pp_ice (             &
     qr              ,    & !! specific rain content                         (kg/kg)
     qs                     !! specific snow content                         (kg/kg)
 
-#ifdef NUDGING
+#ifdef __COSMO__
   REAL(KIND=ireals), INTENT(INOUT) :: &
        tinc_lh(:,:)   ,  & ! temperature increments due to heating             ( K/s )   
-       tt_lheat(:,:)  ,  & !  t-increments due to latent heating (nudg) ( K/s )
-       qrsflux(:,:)       ! total precipitation flux (nudg)
 #endif
+
+  REAL(KIND=ireals), INTENT(INOUT) :: &
+       qrsflux(:,:)       ! total precipitation flux (nudg)
 
   REAL(KIND=ireals), DIMENSION(:), INTENT(INOUT) ::   &   ! dim (ie)
     prr_gsp,             & !> precipitation rate of rain, grid-scale        (kg/(m2*s))
@@ -919,17 +907,11 @@ SUBROUTINE hydci_pp_ice (             &
 ! timestep for calculations
   zdtr  = 1.0_ireals / zdt
 
-#ifdef NUDGING
   ! add part of latent heating calculated in subroutine hydci_pp_ice to model latent
   ! heating field: subtract temperature from model latent heating field
-  IF (llhn .OR. llhnverif) THEN
-    IF (lhn_qrs) THEN
-!CDIR COLLAPSE
+  IF (ldass_lhn) THEN
       qrsflux(:,:) = 0.0_ireals
-    ENDIF
-    CALL get_gs_lheating ('add',1,ke)
   ENDIF
-#endif
 
 
 ! output for various debug levels
@@ -1865,13 +1847,11 @@ SUBROUTINE hydci_pp_ice (             &
           END IF
           !CK>
         
-#ifdef NUDGING
           ! for the latent heat nudging
-          IF ((llhn .OR. llhnverif) .AND. lhn_qrs) THEN
+          IF (ldass_lhn) THEN
             qrsflux(iv,k) = zprvr(iv)+zprvs(iv)
             qrsflux(iv,k) = 0.5*(qrsflux(iv,k)+zpkr(iv)+zpks(iv))
           ENDIF
-#endif
 
           IF (qrg+qr(iv,k+1) <= zqmin) THEN
             zvzr(iv)= 0.0_ireals
@@ -1922,11 +1902,9 @@ SUBROUTINE hydci_pp_ice (             &
                         0.5_ireals * (qig*rhog*zvzi(iv) + zpki(iv))     
 !CK<        
 
-#ifdef NUDGING
           ! for the latent heat nudging
-          IF ((llhn .OR. llhnverif) .AND. lhn_qrs)        &
+          IF (ldass_lhn) &
             qrsflux(iv,k) = prr_gsp(iv)+prs_gsp(iv)
-#endif
 
         ENDIF
 
@@ -1996,13 +1974,6 @@ SUBROUTINE hydci_pp_ice (             &
 #endif
 
 ENDDO loop_over_levels
-
-#ifdef NUDGING
-! add part of latent heating calculated in subroutine hydci to model latent
-! heating field: add temperature to model latent heating field
-IF (llhn .OR. llhnverif) &
- CALL get_gs_lheating ('inc',1,ke)
-#endif
 
 !------------------------------------------------------------------------------
 ! final tendency calculation for ICON

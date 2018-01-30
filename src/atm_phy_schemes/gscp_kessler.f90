@@ -140,14 +140,6 @@ USE src_stoch_physics,        ONLY : apply_tqx_tend_adj
 
 !------------------------------------------------------------------------------
 
-#ifdef NUDGING
-USE data_lheat_nudge,           ONLY :  &
-    llhn,         & ! main switch for latent heat nudging
-    llhnverif       ! main switch for latent heat nudging
-#endif
-
-!------------------------------------------------------------------------------
-
 #ifdef __ICON__
 USE mo_kind,               ONLY: wp         , &
                                  i4
@@ -168,6 +160,8 @@ USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing t
                                  b4w   => c4les     !!               -- " --
 USE mo_satad,              ONLY: sat_pres_water     !! saturation vapor pressure w.r.t. water
 USE mo_exception,          ONLY: message, message_text
+
+USE mo_run_config,         ONLY: ldass_lhn
 #endif
 
 !------------------------------------------------------------------------------
@@ -228,9 +222,7 @@ SUBROUTINE kessler  (             &
 #ifdef __COSMO__
   tinc_lh,                           & !  t-increment due to latent heat 
 #endif
-#ifdef NUDGING
-  tt_lheat,                          & !  t-increments due to latent heating (nud) 
-#endif
+  qrsflux,                           & !  precipitation flux
   l_cv,                              &
   ldiag_ttend,     ldiag_qtend     , &
   ddt_tend_t     , ddt_tend_qv     , &
@@ -302,10 +294,8 @@ SUBROUTINE kessler  (             &
        tinc_lh(:,:)    ! temperature increments due to heating             ( K/s ) 
 #endif  
 
-#ifdef NUDGING
   REAL(KIND=wp), INTENT(INOUT) :: &
-       tt_lheat(:,:)       !  t-increments due to latent heating (nudg) ( K/s )
-#endif
+       qrsflux(:,:)        !  precipitation flux
 
   REAL(KIND=wp), DIMENSION(:), INTENT(INOUT) ::   &   ! dim (ie)
     prr_gsp                !> precipitation rate of rain, grid-scale        (kg/(m2*s))
@@ -497,14 +487,12 @@ SUBROUTINE kessler  (             &
 ! timestep for calculations
   zdtr  = 1.0_wp / zdt
 
-#ifdef NUDGING
   ! add part of latent heating calculated in subroutine kessler to model latent
   ! heating field: subtract temperature from model latent heating field
-  IF (llhn) THEN
+  IF (ldass_lhn) THEN
     ! CALL get_gs_lheating ('add',1,ke) !XL :should not be called from block physics
-    tt_lheat(:,:) = tt_lheat(:,:) - t(:,:)
+    qrsflux(:,:) = 0.0_wp
   ENDIF
-#endif
 
 ! output for various debug levels
   IF (izdebug > 15) CALL message('','gscp_kessler:  Start of kessler')
@@ -678,9 +666,17 @@ loop_over_levels: DO k = 1, ke
       ! Store precipitation fluxes and sedimentation velocities for the next level
       zprvr(iv) = qrg*rhog*zvzr(iv)
       zvzr(iv)  = zvz0r * EXP(x1o8 * LOG(MAX((qrg+qr(iv,k+1))*0.5_wp*rhog,znull)))
+          ! for the latent heat nudging
+          IF (ldass_lhn) THEN
+            qrsflux(iv,k) = zprvr(iv)
+            qrsflux(iv,k) = 0.5_wp*(qrsflux(iv,k)+zpkr(iv))
+          ENDIF
     ELSE
       ! Precipitation flux at the ground
       prr_gsp(iv) = 0.5_wp * (qrg*rhog*zvzr(iv) + zpkr(iv))
+      ! for the latent heat nudging
+        IF (ldass_lhn) &
+           qrsflux(iv,k) = prr_gsp(iv)
     ENDIF
 
     ! Update of prognostic variables or tendencies
@@ -735,14 +731,6 @@ loop_over_levels: DO k = 1, ke
 #endif
 
 ENDDO loop_over_levels
-
-#ifdef NUDGING
-! add part of latent heating calculated in subroutine hydci to model latent
-! heating field: add temperature to model latent heating field
-IF (llhn .OR. llhnverif) &
-! CALL get_gs_lheating ('inc',1,ke)  !XL :this should be called from within the block
-     tt_lheat(:,:) = tt_lheat(:,:) + t(:,:)
-#endif
 
 !------------------------------------------------------------------------------
 ! final tendency calculation for ICON

@@ -28,6 +28,7 @@ USE mo_parallel_config,      ONLY: nproma, num_prefetch_proc
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
 USE mo_advection_config,     ONLY: configure_advection
 USE mo_art_config,           ONLY: configure_art
+USE mo_assimilation_config,  ONLY: configure_lhn
 USE mo_run_config,           ONLY: dtime,                & !    namelist parameter
   &                                ltestcase,            &
   &                                ldynamics,            &
@@ -37,7 +38,8 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
   &                                lvert_nest, ntracer,  &
   &                                nlev,                 &
   &                                iqv, iqc, iqt,        &
-  &                                number_of_grid_used
+  &                                number_of_grid_used,  &
+  &                                ldass_lhn
 USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
@@ -95,7 +97,7 @@ USE mo_turbulent_diagnostic,ONLY: init_les_turbulent_output, close_les_turbulent
 USE mo_limarea_config,      ONLY: latbc_config
 USE mo_async_latbc_types,   ONLY: t_latbc_data
 USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
-
+USE mo_radar_data_state,    ONLY: radar_data, init_radar_data, construct_lhn, lhn_fields, destruct_lhn
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
 USE mo_derived_variable_handling, ONLY: init_mean_stream, finish_mean_stream
@@ -260,6 +262,23 @@ CONTAINS
        &                      p_nh_state_lists(jg)%tracer_list(:)  )
     ENDDO
 
+   IF (ldass_lhn) THEN 
+     ALLOCATE (radar_data(n_dom), STAT=ist)
+     IF (ist /= SUCCESS) THEN
+          CALL finish(TRIM(routine),'allocation for radar_data failed')
+     ENDIF
+     ALLOCATE (lhn_fields(n_dom), STAT=ist)
+     IF (ist /= SUCCESS) THEN
+          CALL finish(TRIM(routine),'allocation for lhn_fields failed')
+     ENDIF
+     CALL message(TRIM(routine),'configure_lhn')
+     DO jg =1,n_dom
+       CALL configure_lhn(jg)
+     ENDDO 
+
+     CALL init_radar_data(p_patch(1:), radar_data)
+     CALL construct_lhn(lhn_fields,p_patch(1:))
+   ENDIF
 
     !---------------------------------------------------------------------
     ! 5. Perform time stepping
@@ -637,6 +656,15 @@ CONTAINS
        CALL close_les_turbulent_output(jg)
     END DO
 
+    IF (ldass_lhn) THEN 
+      ! deallocate ext_data array
+      DEALLOCATE(radar_data, STAT=ist)
+      IF (ist /= SUCCESS) THEN
+        CALL finish(TRIM(routine), 'deallocation of radar_data')
+      ENDIF
+      CALL destruct_lhn (lhn_fields)
+    ENDIF
+ 
     CALL message(TRIM(routine),'clean-up finished')
 
   END SUBROUTINE destruct_atmo_nonhydrostatic

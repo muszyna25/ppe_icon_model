@@ -18,6 +18,7 @@ MODULE mo_run_nml
                          & config_ltransport      => ltransport,      &
                          & config_ntracer         => ntracer,         &
                          & config_lart            => lart,            &
+                         & config_ldass_lhn         => ldass_lhn,         &
                          & config_lvert_nest      => lvert_nest,      &
                          & config_nlev            => nlev,            &
                          & config_num_lev         => num_lev,         &
@@ -74,6 +75,7 @@ MODULE mo_run_nml
   LOGICAL :: ltransport      ! if .TRUE., switch on large-scale tracer transport
   INTEGER :: ntracer         ! number of advected tracers
   LOGICAL :: lart            ! switch for ICON-ART (Treatment of Aerosols and Trace Gases)
+  LOGICAL :: ldass_lhn         ! switch for assimilation of radar data using latent heat nudging
 
   LOGICAL :: lvert_nest         ! if .TRUE., switch on vertical nesting
   INTEGER :: num_lev(max_dom)   ! number of full levels for each domain
@@ -114,6 +116,7 @@ MODULE mo_run_nml
                      iforcing,     ltransport,      &
                      ntracer,                       &
                      lart,                          &
+                     ldass_lhn,                       &
                      lvert_nest,                    &
                      num_lev,      nshift,          &
                      nsteps,       dtime,           &
@@ -150,6 +153,7 @@ CONTAINS
     ltransport      = .FALSE.
     ntracer         = 0
     lart            = .FALSE.
+    ldass_lhn         = .FALSE.
 
     lvert_nest = .FALSE. ! no vertical nesting
     num_lev(:) = 31    ! number of full levels for each domain
@@ -247,6 +251,7 @@ CONTAINS
     config_ltransport      = ltransport 
     config_ntracer         = ntracer 
     config_lart            = lart
+    config_ldass_lhn         = ldass_lhn
 
     config_lvert_nest      = lvert_nest
     config_nlev            = num_lev(1)

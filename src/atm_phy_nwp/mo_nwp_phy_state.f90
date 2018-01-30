@@ -62,7 +62,7 @@ USE mo_impl_constants,      ONLY: success, max_char_length,           &
 USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL,             &
   &                               GRID_CELL
 USE mo_parallel_config,     ONLY: nproma
-USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, lart
+USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, lart, ldass_lhn
 USE mo_exception,           ONLY: message, finish !,message_text
 USE mo_model_domain,        ONLY: t_patch, p_patch, p_patch_local_parent
 USE mo_grid_config,         ONLY: n_dom, n_dom_start
@@ -943,6 +943,57 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,               &
       & ldims=shape3d, lrestart=.FALSE.,                                      &
       & isteptype=TSTEP_CONSTANT )
+
+    IF (ldass_lhn) THEN
+      ! &      diag%tt_lheat(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('tt_lheat', 'K s-1',                &
+        &          '3d latent heat relaese', DATATYPE_FLT32)
+      grib2_desc = grib2_var(0, 255, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'tt_lheat', diag%tt_lheat,                       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,&
+                  & lrestart = .FALSE., & ! .TRUE. may be necessary for ART (to be evaluated)
+                  & ldims=shape3d,                                              &  
+                  & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
+                  &                                       fallback_type=HINTP_TYPE_LONLAT_RBF), &
+                  & isteptype=TSTEP_INSTANT )
+  
+      ! &      diag%qrs_flux(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('qrs_flux', 'kg m-2 s-1',                &
+        &          '3d precipitation flux', DATATYPE_FLT32)
+      grib2_desc = grib2_var(0, 255, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'qrs_flux', diag%qrs_flux,                       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,&
+                  & lrestart = .FALSE., & ! .TRUE. may be necessary for ART (to be evaluated)
+                  & ldims=shape3d,                                              &  
+                  & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
+                  &                                       fallback_type=HINTP_TYPE_LONLAT_RBF), &
+                  & isteptype=TSTEP_INSTANT )
+  
+      ! &      diag%lhn_diag(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('lhn_diag', '-',                &
+        &          'diagnose of LHN', DATATYPE_FLT32)
+      grib2_desc = grib2_var(0, 255, 3, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'lhn_diag', diag%lhn_diag,                       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,&
+                  & lrestart = .FALSE., & ! .TRUE. may be necessary for ART (to be evaluated)
+                  & ldims=shape3d,                                              &  
+                  & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB), &
+                  & isteptype=TSTEP_INSTANT )
+  
+      ! &      diag%lhn_diag(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('ttend_lhn', 'K s-1',                &
+        &          'tempature increment', DATATYPE_FLT32)
+      grib2_desc = grib2_var(0, 255, 4, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'ttend_lhn', diag%ttend_lhn,                       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,&
+                  & lrestart = .FALSE., & ! .TRUE. may be necessary for ART (to be evaluated)
+                  & ldims=shape3d,                                              &  
+                  & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
+                  &                                       fallback_type=HINTP_TYPE_LONLAT_RBF), &
+                  & isteptype=TSTEP_INSTANT )
+    ELSE
+      ALLOCATE (diag%qrs_flux(1,1,kblks))
+    ENDIF
 
 
     !      diag%tot_cld(nproma,nlev,nblks_c,3)

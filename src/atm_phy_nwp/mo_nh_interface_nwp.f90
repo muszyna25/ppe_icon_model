@@ -44,7 +44,6 @@ MODULE mo_nh_interface_nwp
 
   USE mtime,                      ONLY: datetime
   USE mo_util_mtime,              ONLY: getElapsedSimTimeInSeconds
-  USE mo_time_config,             ONLY: time_config
   USE mo_kind,                    ONLY: wp
 
   USE mo_timer
@@ -67,7 +66,7 @@ MODULE mo_nh_interface_nwp
   USE mo_parallel_config,         ONLY: nproma, p_test_run, use_icon_comm, use_physics_barrier
   USE mo_diffusion_config,        ONLY: diffusion_config
   USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqs, iqtvar, iqtke,  &
-    &                                   msg_level, ltimer, timers_level, lart
+    &                                   msg_level, ltimer, timers_level, lart, ldass_lhn
   USE mo_grid_config,             ONLY: l_limited_area
   USE mo_physical_constants,      ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cvd, cvv, tmelt, grav
 
@@ -90,8 +89,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_rad_interface,       ONLY: nwp_radiation
   USE mo_sync,                    ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E,      &
                                         SYNC_C, SYNC_C1
-  USE mo_mpi,                     ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier,     &
-    &                                   process_mpi_stdio_id
+  USE mo_mpi,                     ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier
   USE mo_nwp_diagnosis,           ONLY: nwp_statistics, nwp_diag_output_1, nwp_diag_output_2
   USE mo_icon_comm_lib,           ONLY: new_icon_comm_variable,                               &
     &                                   icon_comm_sync_all, is_ready, until_sync
@@ -106,6 +104,10 @@ MODULE mo_nh_interface_nwp
   USE mo_o3_util,                 ONLY: calc_o3_gems
   USE mo_edmf_param,              ONLY: edmf_conf
   USE mo_nh_supervise,            ONLY: compute_dpsdt
+
+  USE mo_radar_data_state,        ONLY: radar_data, lhn_fields
+  USE mo_latent_heat_nudging,     ONLY: organize_lhn
+  USE mo_assimilation_config,     ONLY: assimilation_config
 
   IMPLICIT NONE
 
@@ -180,9 +182,13 @@ CONTAINS
     ! Local scalars:
 
     INTEGER :: jc,jk,jb,jce      !loop indices
-    INTEGER :: jg                !domain id
+    INTEGER :: jg,jgc            !domain id
 
     LOGICAL :: ltemp, lpres, ltemp_ifc, l_any_fastphys, l_any_slowphys
+    LOGICAL :: lcall_lhn, lcall_lhn_v, lapply_lhn, lcall_lhn_c  !< switches for latent heat nudging
+    LOGICAL :: lcompute_tt_lheat                                !< TRUE: store temperature tendency
+                                                                ! due to grid scale microphysics 
+                                                                ! and satad for latent heat nudging
 
     INTEGER,  POINTER ::  iidx(:,:,:), iblk(:,:,:)
 
@@ -224,17 +230,23 @@ CONTAINS
 
     REAL(wp) :: p_sim_time      !< elapsed simulation time on this grid level
 
+
+    IF (ltimer) CALL timer_start(timer_physics)
+
     ! calculate elapsed simulation time in seconds (local time for
     ! this domain!)
     p_sim_time = getElapsedSimTimeInSeconds(mtime_datetime) 
-
-
-    IF (ltimer) CALL timer_start(timer_physics)
 
     ! local variables related to the blocking
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
+
+    IF (pt_patch%n_childdom > 0) THEN
+      jgc = pt_patch%child_id(jg)
+    ELSE
+      jgc = jg
+    ENDIF
 
     ! number of vertical levels
     nlev   = pt_patch%nlev
@@ -262,6 +274,22 @@ CONTAINS
 
     ! condensate tracer IDs
     condensate_list => advection_config(jg)%trHydroMass%list
+
+
+    ! Check whether latent heat nudging is active
+    !
+    IF (ldass_lhn .AND. .NOT. linit) THEN
+      !
+      IF ( jg == jgc )  CALL assimilation_config(jg)%dass_g%reinitEvents()
+      lcall_lhn   = assimilation_config(jg)%dass_lhn%isActive(mtime_datetime)
+      lcall_lhn_v = assimilation_config(jg)%dass_lhn_verif%isActive(mtime_datetime)
+      IF (msg_level >= 15) CALL assimilation_config(jg)%dass_g%printStatus(mtime_datetime)
+      !
+      lcompute_tt_lheat = lcall_lhn .OR. lcall_lhn_v
+    ELSE
+      lcompute_tt_lheat = .FALSE.
+    ENDIF
+
 
 
     IF ( lcall_phy_jg(itturb) .OR. lcall_phy_jg(itconv) .OR.           &
@@ -407,6 +435,11 @@ CONTAINS
 
       IF (lcall_phy_jg(itsatad)) THEN
 
+        ! initialize tt_lheat to be in used LHN
+        IF (lcompute_tt_lheat) THEN
+          prm_diag%tt_lheat (:,:,jb) = - pt_diag%temp   (:,:,jb)
+        ENDIF
+
         IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN   ! EDMF DUALM: no satad in PBL
 
           CALL satad_v_3D( &
@@ -468,6 +501,11 @@ CONTAINS
 
           ENDDO
         ENDDO
+
+        ! initialize tt_lheat to be in used LHN
+        IF (lcompute_tt_lheat) THEN
+          prm_diag%tt_lheat (:,:,jb) = prm_diag%tt_lheat (:,:,jb) + pt_diag%temp   (:,:,jb)
+        ENDIF
       ENDIF
 
       IF (lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb) .OR. lcall_phy_jg(itsfc)) THEN
@@ -604,7 +642,8 @@ CONTAINS
                             & pt_prog,                          & !>inout
                             & pt_prog_rcf,                      & !>inout
                             & pt_diag ,                         & !>inout
-                            & prm_diag, prm_nwp_tend            ) !>inout
+                            & prm_diag, prm_nwp_tend,           & !>inout
+                            & lcompute_tt_lheat                 ) !>in
 
       IF (timers_level > 1) CALL timer_stop(timer_nwp_microphysics)
 
@@ -634,6 +673,89 @@ CONTAINS
                 &          p_metrics,                          & !>in
                 &          pt_prog_rcf%tracer)                   !>inout
     ENDIF !lart
+
+
+    !!------------------------------------------------------------------
+    !> Latent heat nudging (optional)
+    !!------------------------------------------------------------------
+    IF (ldass_lhn .AND. .NOT. linit) THEN
+
+      IF (msg_level >= 15) CALL message('mo_nh_interface_nwp:', 'applying LHN')
+      IF (timers_level > 1) CALL timer_start(timer_datass)
+
+      IF (lcall_lhn .OR. lcall_lhn_v) THEN
+         CALL organize_lhn (   &
+                               & dt_loc,                           & !>input
+                               & p_sim_time,                       & ! in
+                               & pt_patch, p_metrics,              & !>input
+                               & pt_int_state,                     & !>input
+                               & pt_prog_rcf,                      & !>inout
+                               & pt_diag ,                         & !>inout
+                               & prm_diag,                         & !>inout
+                               & lhn_fields(jg),                   & !>inout
+                               & radar_data(jg),                   & 
+                               & prm_nwp_tend,                     &
+                               & mtime_datetime,                   &
+                               & lcall_lhn, lcall_lhn_v            )
+      ELSE IF (msg_level >= 15) THEN
+        WRITE (message_text,'(a,i10,i5)') 'LHN not running because of specified times!',p_sim_time,jg
+        CALL message('mo_nh_interface_nwp:', message_text)
+      ENDIF
+
+
+      lcall_lhn_c = assimilation_config(jgc)%dass_lhn%isActive(mtime_datetime)
+      lapply_lhn  = lcall_lhn .OR. lcall_lhn_c
+
+      IF (lapply_lhn) THEN
+
+        rl_start = grf_bdywidth_c+1
+        rl_end   = min_rlcell_int
+  
+        i_startblk = pt_patch%cells%start_blk(rl_start,1)
+        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = i_startblk, i_endblk
+  
+          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+            & i_startidx, i_endidx, rl_start, rl_end )
+  
+          ! update prognostic variables
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+              pt_diag%temp(jc,jk,jb) = pt_diag%temp(jc,jk,jb) + lhn_fields(jg)%ttend_lhn(jc,jk,jb) * dt_loc
+              pt_prog_rcf%tracer(jc,jk,jb,iqv) = pt_prog_rcf%tracer(jc,jk,jb,iqv) + lhn_fields(jg)%qvtend_lhn(jc,jk,jb) * dt_loc
+            ENDDO
+          ENDDO
+          !-------------------------------------------------------------------------
+          !   call the saturation adjustment
+          !-------------------------------------------------------------------------
+  
+          CALL satad_v_3D( &
+               & maxiter  = 10                             ,& !> IN
+               & tol      = 1.e-3_wp                       ,& !> IN
+               & te       = pt_diag%temp       (:,:,jb)    ,& !> INOUT
+               & qve      = pt_prog_rcf%tracer (:,:,jb,iqv),& !> INOUT
+               & qce      = pt_prog_rcf%tracer (:,:,jb,iqc),& !> INOUT
+               & rhotot   = pt_prog%rho        (:,:,jb)    ,& !> IN
+               & idim     = nproma                         ,& !> IN
+               & kdim     = nlev                           ,& !> IN
+               & ilo      = i_startidx                     ,& !> IN
+               & iup      = i_endidx                       ,& !> IN
+               & klo      = kstart_moist(jg)               ,& !> IN
+               & kup      = nlev                            ) !> IN
+  
+        ENDDO ! nblks
+  
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+      ENDIF
+
+      IF (timers_level > 1) CALL timer_stop(timer_datass)
+
+    ENDIF ! ldass_lhn
 
 
     IF (timers_level > 1) CALL timer_start(timer_fast_phys)
@@ -1398,7 +1520,6 @@ CONTAINS
       IF (timers_level > 10) CALL timer_stop(timer_phys_acc_1)
 
     END IF  !END OF slow physics tendency accumulation
-
 
 
     !--------------------------------------------------------

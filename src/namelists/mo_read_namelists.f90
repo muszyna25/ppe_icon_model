@@ -74,8 +74,11 @@ MODULE mo_read_namelists
   USE mo_les_nml             ,ONLY: read_les_namelist
   USE mo_ls_forcing_nml      ,ONLY: read_ls_forcing_namelist
   USE mo_limarea_nml         ,ONLY: read_limarea_namelist
-  USE mo_run_config          ,ONLY: iforcing, nsteps
+
+  USE mo_run_config          ,ONLY: iforcing
   USE mo_impl_constants      ,ONLY: IECHAM, ILDF_ECHAM, INWP
+  USE mo_assimilation_nml    ,ONLY: read_assimilation_namelist
+
   IMPLICIT NONE
 
   PRIVATE
@@ -200,6 +203,9 @@ CONTAINS
     ! Coupling
     !
     CALL read_coupling_namelist       (TRIM(atm_namelist_filename))
+
+    ! Assimilation
+    CALL read_assimilation_namelist   (TRIM(atm_namelist_filename))
     !-----------------------------------------------------------------
     ! Close the file in which all the namelist variables and their
     ! actual values were stored.
@@ -212,5 +218,6 @@ CONTAINS
 
   END SUBROUTINE read_atmo_namelists
   !-------------------------------------------------------------------------
+
 
 END MODULE mo_read_namelists

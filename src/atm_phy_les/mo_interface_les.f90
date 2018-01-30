@@ -532,7 +532,8 @@ CONTAINS
                             & pt_prog,                          & !>inout
                             & pt_prog_rcf,                      & !>inout
                             & pt_diag ,                         & !>inout
-                            & prm_diag, prm_nwp_tend            ) !>inout
+                            & prm_diag, prm_nwp_tend,           & !>inout
+                            & lcompute_tt_lheat=.FALSE.         ) !>in
 
       IF (timers_level > 1) CALL timer_stop(timer_nwp_microphysics)
 

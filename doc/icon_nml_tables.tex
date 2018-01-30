@@ -483,6 +483,329 @@ Namelist parameters for the ICON models are organized in several thematic
 Fortran namelists controling the experiment, and the properties of
 dynamics, transport, physics etc.
 
+%------------------------------------------------------------------------------
+% assimilation_nml:
+%------------------------------------------------------------------------------
+\subsection{assimilation\_nml}
+
+The main switch for the Latent heat nudging scheme is called ldass\_lhn and has to be set in run\_nml. 
+
+\begin{longtab}
+
+%\hline
+\textbf{nlhn\_start}&
+I&
+-9999&
+s&
+time in seconds when LHN is applied for the first time&
+run\_nml:ldass\_lhn = .true.
+\tabularnewline
+
+%\hline
+\textbf{nlhn\_end}&
+I&
+-9999&
+s&
+time in seconds when LHN is applied for the last time&
+run\_nml:ldass\_lhn = .true.
+\tabularnewline
+
+%\hline
+\textbf{lhn\_coef}&
+R&
+1.0&
+&
+Nudging coefficient of adding the increments&
+\tabularnewline
+
+%\hline
+\textbf{fac\_lhn\_up}&
+R&
+2.0&
+&
+Upper limit of the scaling factor of the temperature profile.&
+\tabularnewline
+
+%\hline
+\textbf{fac\_lhn\_down}&
+R&
+0.5&
+&
+Lower limit of the scaling factor of the temperature profile.&
+\tabularnewline
+
+%\hline
+\textbf{lhn\_logscale}&
+L&
+.TRUE.&
+&
+Apply all scaling factors as logarithmic values&
+fac\_lhn\_down, fac\_lhn\_up, fac\_lhn\_artif
+\tabularnewline
+
+%\hline
+\textbf{thres\_lhn}&
+R&
+0.1/3600.&
+mm/s&
+Minimal value of precipitation rate, either of model or radar. LHN will be applied first for precipitation above it.&
+\tabularnewline
+
+%\hline
+\textbf{start\_fadeout}&
+R&
+1.0&
+&
+Value to determine, at which model time step a fading out of the increments might start.&
+\tabularnewline
+
+%\hline
+\textbf{lhn\_qrs}&
+L&
+.TRUE.&
+&
+Use a vertical average of precipitation fluxes as reference to compare with radar observed precipitation, 
+to avoid severe overestimation due to displacement of model surface precipitation.\\
+If set .FALSE. the model surface precipitation rate is used as reference.&
+\tabularnewline
+
+%\hline
+\textbf{rqrsgmax}&
+R&
+1.0&
+&
+This value determines the height of the vertical averaging, to obtain the reference precipitation rate\\
+It is the model layer where the quotion of the maximal precipitation flux occurred for the first time.&
+lhn\_qrs = .TRUE.
+\tabularnewline
+
+%\hline
+\textbf{lhn\_hum\_adj}&
+L&
+.TRUE.&
+&
+Apply an increment of specific humidity with respect to the estimated temperature increment to maintain the relative humidty&
+\tabularnewline
+
+%\hline
+\textbf{lhn\_no\_ttend}&
+L&
+.FALSE.&
+&
+Only apply moisture increments. Temperature increments will only be used for calculation of moisture increments&
+lhn\_hum\_adj=.TRUE.
+\tabularnewline
+
+%\hline
+\textbf{lhn\_incloud}&
+L&
+.TRUE.&
+&
+Apply increments only in model layers where the underlying latent heat release of the model is positive.&
+lhn\_artif\_only=.FALSE.
+\tabularnewline
+
+%\hline
+\textbf{lhn\_limit}&
+L&
+.TRUE.&
+&
+Limitation of temperature increments&
+abs\_lhn\_lim
+\tabularnewline
+
+%\hline
+\textbf{abs\_lhn\_lim}&
+R&
+50./3600.&
+K/s&
+Lower and upper limit for temperature increments to be added.&
+lhn\_limit = .TRUE.
+\tabularnewline
+
+%\hline
+\textbf{lhn\_filt}&
+L&
+.TRUE.&
+&
+Vertical smoothing of the profile of temperature increments &
+\tabularnewline
+
+%\hline
+\textbf{lhn\_relax}&
+L&
+.FALSE.&
+&
+Horizontal smoothing of radar data but also of incorporated model fields &
+nlhn\_relax
+\tabularnewline
+
+%\hline
+\textbf{nlhn\_relax}&
+I&
+2&
+grid points&
+Number of horizontal grid point, where smoothing is applied.&
+lhn\_relax = .TRUE.
+\tabularnewline
+
+%\hline
+\textbf{lhn\_artif}&
+L&
+.TRUE.&
+&
+Apply an artificial temperature profile to estimate increments at model grid points without significant precipitation (determined by fac\_lhn\_artif).&
+fac\_lhn\_artif, tt\_artif\_max, zlev\_artif\_max, std\_artif\_ma
+\tabularnewline
+
+%\hline
+\textbf{fac\_lhn\_artif}&
+R&
+5.0&
+&
+Value of the ratio of radar to model precipitation rate, from which an artificial temperature profile is applied&
+lhn\_artif=.TRUE.
+\tabularnewline
+
+%\hline
+\textbf{lhn\_artif\_only}&
+L&
+.FALSE.&
+&
+Scaling the artificial temperature profile instead of local model profile of latent heat release for calculation the increments at any model grid point.\\
+The scaling factor is still be determined by the ratio of observed to modelled precipitation rate.&
+tt\_artif\_max, zlev\_artif\_max, std\_artif\_max
+\tabularnewline
+
+%\hline
+\textbf{tt\_artif\_max}&
+R&
+0.0015&
+K&
+Maximal temperature of Gaussian shaped function used a artificial temperature profile.&
+lhn\_artif, lhn\_artif\_only
+\tabularnewline
+
+%\hline
+\textbf{zlev\_artif\_max}&
+R&
+1000.0&
+m&
+Height of maximum of Gaussian shaped function used a artificial temperature profile.&
+lhn\_artif, lhn\_artif\_only
+\tabularnewline
+
+%\hline
+\textbf{std\_artif\_max}&
+R&
+4.0&
+m&
+Parameter defining width of Gaussian shaped function used a artificial temperature profile.&
+lhn\_artif, lhn\_artif\_only
+\tabularnewline
+
+%\hline
+\textbf{nlhnverif\_start}&
+I&
+-9999&
+s&
+time in seconds when online verification within LHN is active for the first time&
+run\_nml:ldass\_lhn = .true.
+\tabularnewline
+
+%\hline
+\textbf{nlhnverif\_end}&
+I&
+-9999&
+s&
+time in seconds when online verification within LHN is active for the last time&
+run\_nml:ldass\_lhn = .true.
+\tabularnewline
+
+%\hline
+\textbf{lhn\_diag}&
+L&
+.FALSE.&
+&
+Enable a extensive diagnostic output, writing into file lhn.log.\\
+lhn\_diag is set .TRUE. automatically, when online verification is active.&
+\tabularnewline
+
+%\hline
+\textbf{lhn\_dt\_obs}&
+R&
+300.0&
+s&
+Frequency of the radar observations&
+\tabularnewline
+
+%\hline
+\textbf{radar\_in}&
+C&
+'./'&
+&
+Path where the radar data file is expected.&
+\tabularnewline
+
+%\hline
+\textbf{radardata\_file(:)}&
+C (n\_dom)&
+&
+&
+Name of the radar data file. This might be either in GRIB2 or in NetCDF (recommended).&
+\tabularnewline
+
+%\hline
+\textbf{lhn\_black}&
+L&
+.FALSE.&
+&
+Apply a blacklist information in the radar data obtained by comparison against satelite clound information&
+\tabularnewline
+
+%\hline
+\textbf{blacklist\_file(:)}&
+C (n\_dom)&
+&
+&
+Name of blacklist file, containing a mask concerning the quality of the radar data.\\
+Value 1: good quality\\
+Value 0: bad quality\\
+This might be either in GRIB2 or in NetCDF (recommended).&
+lhn\_black=.TRUE.
+\tabularnewline
+
+%\hline
+\textbf{lhn\_bright}&
+L&
+.FALSE.&
+&
+Apply a model intern bright band detection to avoid strong overestimation due to uncertain radar observations.&
+\tabularnewline
+
+%\hline
+\textbf{height\_file(:)}&
+C (n\_dom)&
+&
+&
+Name of file containing the height of the lowest scan for each possible radar station within the given radar composite.\\
+This file is required, when applying bright band detection.\\
+This might be either in GRIB2 or in NetCDF (recommended).&
+lhn\_bright=.TRUE.
+\tabularnewline
+
+%\hline
+\textbf{nradar}&
+I (n\_dom)&
+200&
+&
+Maximal number of radar station contained within height\_file&
+lhn\_bright=.TRUE.
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: \verb+src/namelists/mo_assimilation_nml.f90+
 
 %------------------------------------------------------------------------------
 % coupling_model_nml:
@@ -5228,6 +5551,13 @@ TIMER\_MODE\_WRITE\_FILES=3.
 lart&
 L & .FALSE.& &
 Main switch which enables the treatment of atmospheric aerosol and trace gases (The ART package of KIT is needed for this purpose)
+&
+\tabularnewline
+
+\hline
+ldass\_lhn&
+L & .FALSE.& &
+Main switch which enables the assimilation of radar derived precipitation rate via Latent Heat Nudging
 &
 \tabularnewline
 

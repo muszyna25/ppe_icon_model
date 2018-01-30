@@ -57,7 +57,8 @@ MODULE mo_nwp_gscp_interface
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs,       &
                                      iqni, iqni_nuc, iqg, iqh, iqnr, iqns,     &
-                                     iqng, iqnh, iqnc, inccn, ininpot, ininact, iqtvar
+                                     iqng, iqnh, iqnc, inccn, ininpot, ininact,&
+                                     iqtvar
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, iprog_aero
   USE gscp_kessler,            ONLY: kessler
   USE gscp_cloudice,           ONLY: cloudice
@@ -92,7 +93,8 @@ CONTAINS
                             &   p_prog,                       & !>inout
                             &   p_prog_rcf,                   & !>inout
                             &   p_diag ,                      & !>inout
-                            &   prm_diag,prm_nwp_tend         ) !>inout 
+                            &   prm_diag,prm_nwp_tend,        & !>inout
+                            &   lcompute_tt_lheat             ) !>in 
 
 
 
@@ -107,6 +109,9 @@ CONTAINS
     REAL(wp)               , INTENT(in)   :: tcall_gscp_jg   !< time interval for 
                                                              !< microphysics
     LOGICAL                , INTENT(in)   :: lsatad          !< satad on/off
+
+    LOGICAL                , INTENT(in)   :: lcompute_tt_lheat !< TRUE: store temperature tendency
+                                                               ! due to microphysics for latent heat nudging
 
     ! Local array bounds:
 
@@ -132,7 +137,7 @@ CONTAINS
 
     ! number of vertical levels
     nlev   = p_patch%nlev
-    nlevp1 = p_patch%nlevp1 !CK<
+    nlevp1 = p_patch%nlevp1
 
     ! domain ID
     jg = p_patch%id
@@ -259,8 +264,14 @@ CONTAINS
 
         ENDIF
 
+        ! tt_lheat to be in used LHN
+        ! lateron the updated p_diag%temp is added again
+        IF (lcompute_tt_lheat) THEN
+          prm_diag%tt_lheat (:,:,jb) = prm_diag%tt_lheat (:,:,jb) - p_diag%temp   (:,:,jb)
+        ENDIF
 
         SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
+
 
         CASE(0)  ! no microphysics scheme - in this case, this interface should not be called anyway
           
@@ -291,6 +302,7 @@ CONTAINS
             & qnc    = qnc_s                           ,    & !< cloud number concentration
             & prr_gsp=prm_diag%rain_gsp_rate (:,jb)    ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%snow_gsp_rate (:,jb)    ,    & !< out: precipitation rate of snow
+            & qrsflux= prm_diag%qrs_flux (:,:,jb)      ,    & !< out: precipitation flux
             & ldiag_ttend = ldiag_ttend                ,    & !< in:  if temp. tendency shall be diagnosed
             & ldiag_qtend = ldiag_qtend                ,    & !< in:  if moisture tendencies shall be diagnosed
             & ddt_tend_t  = ddt_tend_t                 ,    & !< out: tendency temperature
@@ -328,6 +340,7 @@ CONTAINS
             & prr_gsp=prm_diag%rain_gsp_rate (:,jb)     ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%snow_gsp_rate (:,jb)     ,    & !< out: precipitation rate of snow
             & prg_gsp=prm_diag%graupel_gsp_rate (:,jb)  ,    & !< out: precipitation rate of snow
+            & qrsflux= prm_diag%qrs_flux (:,:,jb)       ,    & !< out: precipitation flux
             & ldiag_ttend = ldiag_ttend                 ,    & !< in:  if temp. tendency shall be diagnosed
             & ldiag_qtend = ldiag_qtend                 ,    & !< in:  if moisture tendencies shall be diagnosed
             & ddt_tend_t  = ddt_tend_t                  ,    & !< out: tendency temperature
@@ -366,6 +379,7 @@ CONTAINS
             & qs     =p_prog_rcf%tracer (:,:,jb,iqs)    ,    & !< in:  snow
             & prr_gsp=prm_diag%rain_gsp_rate (:,jb)     ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%snow_gsp_rate (:,jb)     ,    & !< out: precipitation rate of snow
+            & qrsflux= prm_diag%qrs_flux (:,:,jb)       ,    & !< out: precipitation flux
             & ldiag_ttend = ldiag_ttend                 ,    & !< in:  if temp. tendency shall be diagnosed
             & ldiag_qtend = ldiag_qtend                 ,    & !< in:  if moisture tendencies shall be diagnosed
             & ddt_tend_t  = ddt_tend_t                  ,    & !< out: tendency temperature
@@ -410,6 +424,9 @@ CONTAINS
                        prec_s = prm_diag%snow_gsp_rate (:,jb),  &!inout precp rate snow
                        prec_g = prm_diag%graupel_gsp_rate (:,jb),&!inout precp rate graupel
                        prec_h = prm_diag%hail_gsp_rate (:,jb),   &!inout precp rate hail
+!#ifdef NUDGING
+!                       qrsflux= prm_diag%qrs_flux  (:,:,jb)     ,    & !< out: precipitation flux
+!#endif
                        msg_level = msg_level                ,    &
                        l_cv=.TRUE.          )    
 
@@ -449,6 +466,9 @@ CONTAINS
                        prec_s = prm_diag%snow_gsp_rate (:,jb),  &!inout precp rate snow
                        prec_g = prm_diag%graupel_gsp_rate (:,jb),&!inout precp rate graupel
                        prec_h = prm_diag%hail_gsp_rate (:,jb),   &!inout precp rate hail
+!#ifdef NUDGING
+!                      qrsflux= prm_diag%qrs_flux  (:,:,jb)     ,    & !< out: precipitation flux
+!#endif
                        msg_level = msg_level                ,    &
                        l_cv=.TRUE.     )
     
@@ -477,6 +497,9 @@ CONTAINS
                        prec_g = prm_diag%graupel_gsp_rate (:,jb),&!inout precp rate graupel
                        prec_h = prm_diag%hail_gsp_rate (:,jb),   &!inout precp rate hail
                        tkvh   = prm_diag%tkvh(:,:,jb),           &!in: turbulent diffusion coefficients for heat     (m/s2 )
+!#ifdef NUDGING
+!                       qrsflux= prm_diag%qrs_flux  (:,:,jb)     ,    & !< out: precipitation flux
+!#endif
                        msg_level = msg_level,                    &
                        l_cv=.TRUE.     )
     
@@ -498,6 +521,7 @@ CONTAINS
             & qc     =p_prog_rcf%tracer (:,:,jb,iqc)    ,    & ! in:  cloud water
             & qr     =p_prog_rcf%tracer (:,:,jb,iqr)    ,    & ! in:  rain water
             & prr_gsp=prm_diag%rain_gsp_rate (:,jb)     ,    & ! out: precipitation rate of rain
+            & qrsflux= prm_diag%qrs_flux (:,:,jb)       ,    & !< out: precipitation flux
             & ldiag_ttend = ldiag_ttend                 ,    & !< in:  if temp. tendency shall be diagnosed
             & ldiag_qtend = ldiag_qtend                 ,    & !< in:  if moisture tendencies shall be diagnosed
             & ddt_tend_t  = ddt_tend_t                  ,    & !< out: tendency temperature
@@ -654,9 +678,15 @@ CONTAINS
 
         ENDIF
 
+        ! Update tt_lheat to be used in LHN
+        IF (lcompute_tt_lheat) THEN
+          prm_diag%tt_lheat (:,:,jb) = prm_diag%tt_lheat (:,:,jb) + p_diag%temp   (:,:,jb)
+        ENDIF
+
       ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
  
     ! Some more run time diagnostics (can also be used for other schemes)
     IF (msg_level>14 .AND. ltwomoment) THEN

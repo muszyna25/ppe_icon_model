@@ -246,7 +246,11 @@ MODULE mo_nwp_phy_types
       &  str_u_sso   (:,:),    & !! zonal sso surface stress [N/m2]
       &  str_v_sso   (:,:),    & !! meridional sso surface stress [N/m2]
       &  astr_u_sso  (:,:),    & !! zonal sso surface stress, accumulated or mean since model start
-      &  astr_v_sso  (:,:)       !! meridional sso surface stress, accumulated or mean since model start
+      &  astr_v_sso  (:,:),    & !! meridional sso surface stress, accumulated or mean since model start
+      &  lhn_diag (:,:,:),     & !! diagnostic output fields of LHN
+      &  tt_lheat (:,:,:),     & !! latent heat release
+      &  ttend_lhn (:,:,:),     & !! temperature increment of LHN
+      &  qrs_flux (:,:,:)        !! precipitation flux
 
 
 

@@ -151,17 +151,6 @@ USE src_stoch_physics,        ONLY : apply_tqx_tend_adj
 
 !------------------------------------------------------------------------------
 
-#ifdef NUDGING
-USE data_lheat_nudge,           ONLY :  &
-    llhn,         & ! main switch for latent heat nudging
-    llhnverif,    & ! main switch for latent heat nudging
-    lhn_qrs,      & ! use integrated precipitaion flux as reference
-    tt_lheat,     & ! latent heat release of the model
-    qrsflux         ! total precipitation flux
-#endif
-
-!------------------------------------------------------------------------------
-
 #ifdef __ICON__
 USE mo_kind,               ONLY: wp         , &
                                  i4
@@ -191,6 +180,7 @@ USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing t
 USE mo_satad,              ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
                                  sat_pres_ice!,   &  !! saturation vapor pressure w.r.t. ice
 USE mo_exception,          ONLY: message, message_text
+USE mo_run_config,         ONLY: ldass_lhn
 #endif
 
 !------------------------------------------------------------------------------
@@ -288,10 +278,7 @@ SUBROUTINE cloudice (             &
   tinc_lh,                           & !  t-increment due to latent heat 
   pstoph,                            & !  stochastic multiplier of physics tendencies
 #endif
-#ifdef NUDGING
-  tt_lheat,                          & !  t-increments due to latent heating (nud) 
   qrsflux,                           & !  total precipitation flux
-#endif
   l_cv,                              &
   ldiag_ttend,     ldiag_qtend     , &
   ddt_tend_t     , ddt_tend_qv     , &
@@ -375,11 +362,8 @@ SUBROUTINE cloudice (             &
        pstoph(:,:)     ! stochastic multiplier of physics tendencies
 #endif  
 
-#ifdef NUDGING
-  REAL(KIND=wp), INTENT(INOUT) :: &
-       tt_lheat(:,:)  ,  & !  t-increments due to latent heating (nudg) ( K/s )
-       qrsflux(:,:)       ! total precipitation flux (nudg)
-#endif
+  REAL(KIND=wp), DIMENSION(:,:), INTENT(INOUT) ::   &   ! dim (ie,ke)
+       qrsflux        ! total precipitation flux (nudg)
 
   REAL(KIND=wp), DIMENSION(:), INTENT(INOUT) ::   &   ! dim (ie)
     prr_gsp,             & !> precipitation rate of rain, grid-scale        (kg/(m2*s))
@@ -696,18 +680,12 @@ SUBROUTINE cloudice (             &
 ! timestep for calculations
   zdtr  = 1.0_wp / zdt
 
-#ifdef NUDGING
   ! add part of latent heating calculated in subroutine cloudice to model latent
   ! heating field: subtract temperature from model latent heating field
-  IF (llhn .OR. llhnverif) THEN
-    IF (lhn_qrs) THEN
+  IF (ldass_lhn) THEN
 !CDIR COLLAPSE
       qrsflux(:,:) = 0.0_wp
-    ENDIF
-    tt_lheat(:,:) = tt_lheat(:,:) - t(:,:)
-!    CALL get_gs_lheating ('add',1,ke) !XL :should not be called from block physics
   ENDIF
-#endif
 
 
 ! output for various debug levels
@@ -1459,9 +1437,8 @@ SUBROUTINE cloudice (             &
           IF (zprvs(iv) <= zqmin) zprvs(iv)=0.0_wp
           IF (zprvi(iv) <= zqmin) zprvi(iv)=0.0_wp
 
-#ifdef NUDGING
           ! for the latent heat nudging
-          IF ((llhn .OR. llhnverif) .AND. lhn_qrs) THEN
+          IF (ldass_lhn) THEN
             IF (lsedi_ice .OR. lorig_icon) THEN
               qrsflux(iv,k) = zprvr(iv)+zprvs(iv)+zprvi(iv)
               qrsflux(iv,k) = 0.5_wp*(qrsflux(iv,k)+zpkr(iv)+zpks(iv)+zpki(iv)) 
@@ -1470,7 +1447,6 @@ SUBROUTINE cloudice (             &
               qrsflux(iv,k) = 0.5_wp*(qrsflux(iv,k)+zpkr(iv)+zpks(iv))
             ENDIF
           ENDIF
-#endif
 
           IF (qrg+qr(iv,k+1) <= zqmin) THEN
             zvzr(iv)= 0.0_wp
@@ -1498,11 +1474,9 @@ SUBROUTINE cloudice (             &
           END IF
           
 
-#ifdef NUDGING
           ! for the latent heat nudging
-          IF ((llhn .OR. llhnverif) .AND. lhn_qrs)        &
+          IF (ldass_lhn) &
             qrsflux(iv,k) = prr_gsp(iv)+prs_gsp(iv)
-#endif
 
         ENDIF
 
@@ -1562,14 +1536,6 @@ SUBROUTINE cloudice (             &
 #endif
 
 ENDDO loop_over_levels
-
-#ifdef NUDGING
-! add part of latent heating calculated in subroutine hydci to model latent
-! heating field: add temperature to model latent heating field
-IF (llhn .OR. llhnverif) &
-! CALL get_gs_lheating ('inc',1,ke)  !XL :this should be called from within the block
-     tt_lheat(:,:) = tt_lheat(:,:) + t(:,:)
-#endif
 
 !------------------------------------------------------------------------------
 ! final tendency calculation for ICON
