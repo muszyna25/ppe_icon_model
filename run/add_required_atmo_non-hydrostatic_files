@@ -2,7 +2,6 @@
 DATADIR=${ICON_BASE_PATH}/data
 add_required_file ${DATADIR}/rrtmg_lw.nc           ./
 add_link_file ${basedir}/data/rrtmg_sw.nc          ./
-add_link_file ${basedir}/data/lsdata.nc          ./
 add_required_file ${DATADIR}/ECHAM6_CldOptProps.nc ./
 add_required_file ${DATADIR}/dmin_wetgrowth_lookup.dat ./   #for inwp_gscp==4
 add_required_file ${DATADIR}/sound_rce              ./

@@ -297,7 +297,6 @@ fi
 #
 add_link_file ${basedir}/data/rrtmg_lw.nc                               ./
 add_link_file ${basedir}/data/rrtmg_sw.nc                               ./
-add_link_file ${basedir}/data/lsdata.nc                               ./
 add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
 # namelist files

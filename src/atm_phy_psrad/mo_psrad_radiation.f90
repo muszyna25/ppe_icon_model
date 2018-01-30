@@ -83,7 +83,7 @@ MODULE mo_psrad_radiation
   USE mo_psrad_radiation_parameters, ONLY : rad_perm
 
 ! new to icon
-  USE mo_psrad_solar_data,    ONLY : ssi_default, ssi_amip,                    &
+  USE mo_psrad_srtm_setup,    ONLY : ssi_default, ssi_amip,                    &
                                      ssi_cmip5_picontrol, ssi_cmip6_picontrol, &
                                      ssi_RCEdiurnOn, ssi_RCEdiurnOff,          &
                                      ssi_radt, tsi_radt

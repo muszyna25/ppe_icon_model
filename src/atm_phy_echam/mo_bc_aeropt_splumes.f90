@@ -29,7 +29,7 @@ MODULE mo_bc_aeropt_splumes
                                    & read_bcast_real_2D, read_bcast_real_3D, &
                                    & closeFile
   USE mo_model_domain,         ONLY: p_patch
-  USE mo_psrad_srtm_kgs,       ONLY: &
+  USE mo_psrad_srtm_setup,     ONLY: &
       &  sw_wv1 => wavenum1     ,&     !< smallest wave number in each of the sw bands
       &  sw_wv2 => wavenum2            !< largest wave number in each of the sw bands
   USE mo_math_constants,       ONLY: rad2deg
