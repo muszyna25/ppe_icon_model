@@ -168,6 +168,9 @@ CONTAINS
     INTEGER  :: i_startblk,i_endblk
     INTEGER  :: jb             !< block index
     INTEGER  :: jcs, jce       !< start/end column index within this block
+#ifdef PSRAD_DEVEL
+    INTEGER, SAVE :: dump_offset = 0
+#endif
 
     jg         = patch%id
     rl_start   = grf_bdywidth_c+1
@@ -185,6 +188,9 @@ CONTAINS
     !-------------------------------------------------------------------
       CALL psrad_interface_onBlock(            jg              ,jb                   ,&
         & irad_aero       ,jce             ,nproma          ,klev                    ,& 
+#ifdef PSRAD_DEVEL
+       & dump_offset + jb - i_startblk + 1, &
+#endif
         & ktype(:,jb)                                                                ,&
         & loland(:,jb)    ,loglac(:,jb)    ,this_datetime                            ,&
         & pcos_mu0(:,jb)  ,daylght_frc(:,jb)                                         ,&
@@ -204,6 +210,9 @@ CONTAINS
         & vis_up_sfc(:,jb)      ,par_up_sfc(:,jb)      ,nir_up_sfc(:,jb)                       )
    END DO
 !$OMP END PARALLEL DO  
+#ifdef PSRAD_DEVEL
+   dump_offset = dump_offset + i_endblk - i_startblk + 1
+#endif
     !-------------------------------------------------------------------  
   END SUBROUTINE psrad_interface
  ! -------------------------------------------------------------------------------------
@@ -238,6 +247,10 @@ CONTAINS
 
   SUBROUTINE psrad_interface_onBlock(              jg              ,krow            ,&
        & iaero           ,kproma          ,kbdim           ,klev            ,&
+#ifdef PSRAD_DEVEL
+       & dump_index      , &
+#endif
+!!$       & ktrac                                                              ,&
        & ktype                                                              ,&
        & laland          ,laglac          ,this_datetime                    ,&
        & pcos_mu0            ,daylght_frc                                       ,&
@@ -260,6 +273,9 @@ CONTAINS
 !DIR$ OPTIMIZE:1
 #endif
 
+#ifdef PSRAD_DEVEL
+    USE mo_psrad_dump, ONLY: write_record
+#endif
     INTEGER,INTENT(IN)  :: &
          jg,               & !< domain index
          krow,             & !< first dimension of 2-d arrays
@@ -269,6 +285,10 @@ CONTAINS
          klev,             & !< number of levels
 !!$         ktrac,         & !< number of tracers
          ktype(:)        !< type of convection
+#ifdef PSRAD_DEVEL
+    INTEGER, INTENT(IN)     :: &
+    & dump_index       !< in
+#endif
 
     LOGICAL,INTENT(IN) :: &
          laland(:),   & !< land sea mask, land=.true.
@@ -373,6 +393,9 @@ CONTAINS
     ! Random seeds for sampling. Needs to get somewhere upstream 
     !
     INTEGER :: rnseeds(kbdim,rng_seed_size)
+#if PSRAD_DEVEL
+    INTEGER :: rnseeds1(kbdim,rng_seed_size), rnseeds2(kbdim,rng_seed_size)
+#endif
 
     REAL(wp), TARGET :: actual_scaleminorn2(KBDIM,klev)
     REAL(wp), TARGET :: actual_ratio(KBDIM,2,klev,nmixture) 
@@ -569,6 +592,9 @@ CONTAINS
     rnseeds(1:kproma,1:rng_seed_size) = &
       int((inverse_pressure_scale * pm_fl_vr(1:kproma,1:rng_seed_size) -  &
       int(inverse_pressure_scale * pm_fl_vr(1:kproma,1:rng_seed_size)))* 1E9 + rad_perm)
+#if PSRAD_DEVEL
+    rnseeds1 = rnseeds
+#endif
     ! Calculate information needed by the radiative transfer routine
     ! that is specific to this atmosphere, especially some of the 
     ! coefficients and indices needed to compute the optical depths
@@ -612,6 +638,9 @@ CONTAINS
     rnseeds(1:kproma,1:rng_seed_size) = &
       int((inverse_pressure_scale * pm_fl_vr(1:kproma,rng_seed_size:1:-1) - &
       int(inverse_pressure_scale * pm_fl_vr(1:kproma,rng_seed_size:1:-1)))* 1E9 + rad_perm)
+#if PSRAD_DEVEL
+    rnseeds2 = rnseeds
+#endif
 
     ! Potential pitfall - we're passing every argument but some may not be present
     IF (ltimer) CALL timer_start(timer_srtm)
@@ -634,6 +663,32 @@ CONTAINS
 
     IF (ltimer) CALL timer_stop(timer_srtm)
 
+    !
+    ! 5.0 Post Processing
+    ! --------------------------------
+    !
+    ! Lw fluxes are vertically reversed but SW fluxes are not
+    !
+#if PSRAD_DUMP
+    CALL write_record(kproma, kbdim, klev, &
+      .false., .false.,  dump_index, &
+      aer_cg_sw_loc, aer_piz_sw_loc, aer_tau_lw_loc, aer_tau_sw_loc, &
+      alb_nir_dif, alb_nir_dir, alb_vis_dif, alb_vis_dir, cld_cg_sw_loc, &
+      cld_frc_loc, cld_piz_sw_loc, cld_tau_lw_loc, cld_tau_sw_loc, col_dry_loc, &
+      daylght_frc, flx_dnlw_clr, flx_dnlw, flx_dnsw, flx_dnsw_clr, &
+      flx_uplw_clr, flx_uplw, flx_upsw, flx_upsw_clr, icldlyr_loc, ktype, &
+      laglac, laland, nir_dn_dff_sfc, nir_dn_dir_sfc, nir_up_sfc, &
+      par_dn_dff_sfc, par_dn_dir_sfc, par_up_sfc, pp_fl, pp_sfc, pcos_mu0, &
+      psctm, re_cryst, re_drop, rnseeds1, rnseeds2, ssi_factor, tk_fl, &
+      tk_hl, tk_sfc, vis_dn_dff_sfc, vis_dn_dir_sfc, vis_up_sfc, gases, &
+      wx_loc, cdnc, ziwc_loc, ziwp_loc, zlwc_loc, zlwp_loc, zsemiss)
+#endif
+
+!!$    !
+!!$    ! 6.0 Interface for submodel diagnosics after radiation calculation:
+!!$    ! ------------------------------------------------------------------
+!!$    IF (lanysubmodel)  CALL radiation_subm_2(kproma, kbdim, krow, klev, ktrac, iaero, xm_trc)
+!!$
   END SUBROUTINE psrad_interface_onBlock
 
   SUBROUTINE flip_ud(n, v, u)

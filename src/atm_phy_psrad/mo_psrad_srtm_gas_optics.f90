@@ -12,6 +12,13 @@ MODULE mo_psrad_srtm_gas_optics
     major_species, minor_species, h2o_absorption_flag, ngpt, fracs_mult, nsp
   USE mo_psrad_flat_data, ONLY: flat_data, sw_kmajor, sw_h2oref, sw_kgas, &
     sw_sfluxref, sw_rayl
+#ifdef PSRAD_DEVEL
+  USE mo_psrad_dump, ONLY: toggle_lw_sw, save_tau_major, save_correction, store
+#ifdef _OPENMP
+  USE omp_lib, ONLY: omp_get_thread_num
+#endif
+#endif
+
   USE mo_psrad_gas_optics, ONLY: get_tau_major_combined, &
     get_tau_major_simple, get_tau_minor, get_tau_gas
 #ifdef PSRAD_NO_INLINE
@@ -70,6 +77,17 @@ CONTAINS
     INTEGER :: atm_range(2,2), merge_range(2)
     CHARACTER(len=128) :: msg
 
+#ifdef PSRAD_DEVEL
+    INTEGER :: dump_range(2)
+    INTEGER :: thread_id
+#ifdef _OPENMP
+    thread_id = omp_get_thread_num() + 1
+#else
+    thread_id = 1
+#endif
+    CALL toggle_lw_sw(.false.)
+#endif
+
     merge_range = (/MINVAL(laytrop(1:kproma)), MAXVAL(laytrop(1:kproma))/)
     merge_size = merge_range(2) - merge_range(1)
     IF (merge_size > 0) THEN
@@ -105,9 +123,26 @@ CONTAINS
     ELSE
       merge_range(2) = merge_range(2) - 1
     ENDIF
+#ifdef PSRAD_DEVEL
+    IF (upwards) THEN
+      dump_range = (/1, merge_range(2)/)
+    ELSE
+      dump_range = (/merge_range(1), klev/)
+    ENDIF
+#endif
     CALL do_atmosphere(1, atm_range(:,1), tau_gas_ret, tau_aer_ret, 0)
+#ifdef PSRAD_DEVEL
+    IF (upwards) THEN
+      dump_range = (/merge_range(2)+1, klev/)
+    ELSE
+      dump_range = (/1, merge_range(1)-1/)
+    ENDIF
+#endif
     CALL do_atmosphere(2, atm_range(:,2), tau_gas_ret, tau_aer_ret, 0)
     IF (merge_size > 0) THEN
+#ifdef PSRAD_DEVEL
+      dump_range = merge_range
+#endif
       CALL do_atmosphere(2, merge_range, &
         tau_gas_merge, tau_aer_merge, 1-merge_range(1))
       DO gpt = 1,ngptsw
@@ -135,6 +170,18 @@ CONTAINS
 
     CALL get_solar_flux(kproma, KBDIM, klev, &
       jp, laytrop, gases, sflx_zen)
+
+#ifdef PSRAD_DEVEL
+    store(thread_id)%tau_sw(1:kproma,:,:) = tau_gas_ret(1:kproma,:,:)
+    store(thread_id)%tau_sw(kproma+1:kbdim,:,:) = 0
+    store(thread_id)%sflx_sw(1:kproma,:) = sflx_zen(1:kproma,:)
+    store(thread_id)%sflx_sw(kproma+1:kbdim,:) = 0
+    store(thread_id)%tau_aer_sw(1:kproma,:,:) = tau_aer_ret(1:kproma,:,:)
+    store(thread_id)%tau_aer_sw(kproma+1:kbdim,:,:) = 0
+    store(thread_id)%laytrop_sw(1:kproma) = laytrop(1:kproma)
+    store(thread_id)%laytrop_sw(kproma+1:kbdim) = 0
+#endif
+
 
   CONTAINS
 
@@ -164,6 +211,9 @@ CONTAINS
         ELSE
           tau_gas(1:kproma,range(1)+o:range(2)+o, gpt_range(1):gpt_range(2)) = 0
         ENDIF
+#ifdef PSRAD_DEVEL
+        CALL save_tau_major(kproma, kbdim, laytrop, dump_range, atm, gpt_range, tau_gas, o)
+#endif
         IF (h2o_absorption_flag(atm,band) > 0) THEN
           DO which = 1,2 ! self/foreign
             CALL get_tau_minor(kproma, kbdim, klev, laytrop, range, atm, &
@@ -194,6 +244,9 @@ CONTAINS
     REAL(wp), INTENT(INOUT) :: tau_aer(:,:,:)
     INTEGER :: i, lay, gpt, gpt_in, js(KBDIM)
     REAL(wp) :: fs(KBDIM)
+#ifdef PSRAD_DEVEL
+    REAL(wp) :: rayl_corr_save(KBDIM)
+#endif
 
     IF (rayl_type(atm,band) == 0) THEN
       gpt_in = 0
@@ -202,6 +255,11 @@ CONTAINS
         tau_aer(1:kproma,range(1)+o:range(2)+o,gpt) = &
           colmol(1:kproma,range(1):range(2)) * &
           flat_data(sw_rayl(atm,band)%o+1)
+#ifdef PSRAD_DEVEL
+        rayl_corr_save = flat_data(sw_rayl(atm,band)%o+1)
+        CALL save_correction(kproma, kbdim, laytrop, range, atm, gpt, &
+          rayl_corr_save)
+#endif
       ENDDO
     ELSEIF (rayl_type(atm,band) == 1) THEN
       gpt_in = 0
@@ -210,6 +268,11 @@ CONTAINS
         tau_aer(1:kproma,range(1)+o:range(2)+o,gpt) = &
           colmol(1:kproma,range(1):range(2)) * &
           flat_data(sw_rayl(atm,band)%o+gpt_in)
+#ifdef PSRAD_DEVEL
+        rayl_corr_save = flat_data(sw_rayl(atm,band)%o+gpt_in)
+        CALL save_correction(kproma, kbdim, laytrop, range, atm, gpt, &
+          rayl_corr_save)
+#endif
       END DO
     ELSE !this is a hack for band 9, atm 1
       DO lay = range(1),range(2)
@@ -225,6 +288,14 @@ CONTAINS
               (flat_data(js(i)) + fs(i) * &
               (flat_data(js(i)+1) - flat_data(js(i))))
           ENDDO
+#ifdef PSRAD_DEVEL
+          DO i = 1, kproma
+            rayl_corr_save(i) = (flat_data(js(i)) + fs(i) * &
+              (flat_data(js(i)+1) - flat_data(js(i))))
+            CALL save_correction(kproma, kbdim, laytrop, (/lay,lay/), atm, &
+              gpt, rayl_corr_save)
+          ENDDO
+#endif
           js = js + sw_rayl(atm,band)%s
         ENDDO
       ENDDO
