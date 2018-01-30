@@ -207,7 +207,7 @@ MODULE mo_ocean_model
       END IF
       sim_step_info%jstep0    = jstep0
       CALL init_mean_stream(ocean_patch_3d%p_patch_2d(1))
-      CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)
+      CALL init_name_list_output(sim_step_info, opt_lprintlist=.FALSE.,opt_l_is_ocean=.TRUE.)
       CALL create_mipz_level_selections(output_file)
       CALL create_vertical_axes(output_file)
     ENDIF
