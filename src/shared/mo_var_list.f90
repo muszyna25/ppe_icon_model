@@ -33,7 +33,8 @@ MODULE mo_var_list
   USE mo_var_metadata,     ONLY: create_vert_interp_metadata,       &
     &                            create_hor_interp_metadata,        &
     &                            post_op, groups, group_id,         &
-    &                            actions, add_member_to_vargroup
+    &                            actions, add_member_to_vargroup,   &
+    &                            TIMELEVEL_SUFFIX
   USE mo_tracer_metadata,  ONLY: create_tracer_metadata
   USE mo_tracer_metadata_types,ONLY: t_tracer_meta
   USE mo_var_list_element, ONLY: t_var_list_element
@@ -61,7 +62,6 @@ MODULE mo_var_list
   IMPLICIT NONE
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_list'
-  CHARACTER(LEN=3), PARAMETER :: TIMELEVEL_SUFFIX = '.TL'
 
   PRIVATE
 
@@ -87,7 +87,6 @@ MODULE mo_var_list
   PUBLIC :: get_var                   ! obtain reference to existing list entry
   PUBLIC :: get_all_var_names         ! obtain a list of variables names
 
-  PRIVATE:: TIMELEVEL_SUFFIX          ! separator for varname and time level
   PUBLIC :: get_var_name              ! return plain variable name (without timelevel)
   PUBLIC :: get_var_timelevel         ! return variable timelevel (or "-1")
   PUBLIC :: get_var_tileidx           ! return variable tile index

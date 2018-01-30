@@ -46,6 +46,7 @@ MODULE mo_var_metadata
 
   !> module name string
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_metadata'
+  CHARACTER(LEN=3), PARAMETER :: TIMELEVEL_SUFFIX = '.TL'        ! separator for varname and time level
 
   PUBLIC  :: create_hor_interp_metadata
   PUBLIC  :: create_vert_interp_metadata
@@ -58,6 +59,7 @@ MODULE mo_var_metadata
   PUBLIC  :: actions
   PUBLIC  :: add_member_to_vargroup
 
+  PUBLIC  :: TIMELEVEL_SUFFIX
 CONTAINS
 
 
@@ -293,7 +295,7 @@ CONTAINS
     ! check whether a group with name 'group_name_plain' exists and return its ID.
     !
     ! remove time level string from group name
-    idx = INDEX(group_name,'.TL')
+    idx = INDEX(group_name,TIMELEVEL_SUFFIX)
     IF (idx > 0) THEN
       group_name_plain = TRIM(group_name(1:idx-1))
     ELSE
