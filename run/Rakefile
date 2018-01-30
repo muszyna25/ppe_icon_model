@@ -113,7 +113,11 @@ CLEAN.include('*.run')
 RUNSCRIPT_KEYS = %w[with_mpi with_openmp cpu_time mpi_procs_pernode nproma openmp_threads omp_stacksize resources memory_model memory node_usage no_of_nodes queue out_script in_script job_name in_folder out_folder]
 # HELPER METHODS {{{ ==========================================================
 def dbg(item)
-  pp item if $DEBUG
+  if item.kind_of?(String) then
+    puts item
+  else
+    pp item
+  end if $DEBUG
 end
 def checkFiles4Presence(*files)
   files.each {|file|
@@ -582,7 +586,7 @@ end
 # CHECKING TESTS  ===========================================================
 # some standard setup
 @defaultPeriodsIDs = {
-  'spotEachTimeStep'      => 'spot1TS',
+  'spotEachTimeStep'      => 'spot',
   'meanEachTimeStep'      => 'mean1TS',
   'meanEachSecondTimeStep'=> 'mean2TS',
   'meanEachThirdTimeStep' => 'mean3TS',
@@ -606,7 +610,7 @@ end
 task :checkMelting => "../experiments/oce_omip_testSurface/finish.status" do |t|
   sh "cat #{t.prerequisites.join(' ')}"
 end
-desc "Check performance of last run with given experiment name"
+desc "Check performance of last run with given experiment name"# {{{{{{
 task :checkPerformance, :expname do |t,args|
   if args.expname.nil? then
     warn "No expname given"
@@ -665,7 +669,7 @@ task :checkPerformance, :expname do |t,args|
   dbg(['performanceInYearsPerDay:',runTimeInYearsPerDay])
   dbg(['comTimeInYearsPerDay:',meanCommunicationPart])
   puts [args.expname, runTimeInYearsPerDay,'years/day',"[com:#{meanCommunicationPart.round(2)}%]"].join(' ')
-end
+end# }}}}}}
 
 desc "check timeMeanOutput of given variables"
 task :checkTimeMeanIdentity, :spotFile, :meanFile, :spotVar, :meanVar, :initTimestamp do |t,args|
@@ -888,6 +892,10 @@ class MeanAnalyzer < DataAnalyzer
     end
     pp varlist if $DEBUG
 
+    varlist = Parallel.map(varlist,in_threads: 10) {|varname|
+     varname if 0 != @cdo.ntime(input: "-selname,#{varname} -seltimestep,1 #{@spotFile}").first.to_i
+    }.select {|v| not v.nil?}
+
     Parallel.map(varlist,in_threads: 10) {|varname|
     #varlist.each {|varname|
       TIMES2COMPARE[@meanPeriod].each {|timeStepPair|# list of timestep relations
@@ -897,15 +905,15 @@ class MeanAnalyzer < DataAnalyzer
           timeSelectionRef  = "-seltimestep,#{timeStepPair[:ref]}"
           timeSelectionMean = "-seltimestep,#{timeStepPair[:mean]}"
 
-          delNans           = "-setvals,nan,0,-nan,0"
+          delNans           = ''#"-setvals,nan,0,-nan,0"
 
           diff = @cdo.diffv(input: [ "-timmean #{timeSelectionRef}  #{delNans} -selname,#{varname} #{@spotFile}",
                                      "         #{timeSelectionMean} #{delNans} -selname,#{varname} #{@meanFile}" ].join(' '),
-                           :options => '-s')
+                           :options => '-L -s')
           diffFile = @cdo.sub(input: [ "-timmean #{timeSelectionRef}  #{delNans} -selname,#{varname} #{@spotFile}",
                                        "         #{timeSelectionMean} #{delNans} -selname,#{varname} #{@meanFile}" ].join(' '),
                              :returnArray => varname,
-                             :options => '-s',
+                             :options => '-L -s',
                              :output => [@meanPeriod, varname, File.basename(@spotFile)].map(&:to_s).join('_'))
 
           unless diff.empty? then
@@ -935,28 +943,46 @@ def getMeanAndSpotFiles(dir,periods=@defaultPeriodsIDs)
   spotFiles = allFiles.find_all {|f| spotIDs.map {|spotID| f.match(spotID).nil?}.include?(false) or f.include?('_restart_')}
   meanFiles = allFiles.find_all {|f| meanIDs.map {|meanID| f.match(meanID).nil?}.include?(false) or f.include?('_restart_')}
 
+  dbg("spotFiles:".colorize(:green));dbg(spotFiles)
+  dbg("meanFiles:".colorize(:green));dbg(meanFiles)
+  dbg("meanIDs:".colorize(:green));dbg(meanIDs)
+
   result = {}
 
-  meanIDs.each {|meanID|
-    # iterate ov all meanFiles with that periodID
-    meanFiles.grep(/#{meanID}/).each {|meanFile|
-      # find the corr. spot file
-      fileTags = meanFile.split(meanID)
-      spotFile = fileTags.reduce(spotFiles) {|memo,item|
-        md = memo.grep(/#{item}/)
-        md.nil? ? memo : md
-      }.first
-      (result[reversePeriodIDs[meanID]] ||= [] ) << {mean: meanFile, spot: spotFile}
+
+  spotID = spotIDs.first
+  spotFiles.each {|spotFile|
+    # compute uniq id for the mean files related to THIS spot file
+    # this is the rest of the filename
+    meanIDs.each {|meanID|
+      meanFile = spotFile.split(spotID).join(meanID)
+      if File.exists?(meanFile) then
+        (result[reversePeriodIDs[meanID]] ||= [] ) << {mean: meanFile, spot: spotFile}
+      end
     }
   }
+ #meanIDs.each {|meanID|
+ #  # iterate ov all meanFiles with that periodID
+ #  meanFiles.grep(/#{meanID}/).each {|meanFile|
+ #    # find the corr. spot file
+ #    fileTags = meanFile.split(meanID)
+ #    spotFile = fileTags.reduce(spotFiles) {|memo,item|
+ #      md = memo.grep(/#{item}/)
+ #      md.nil? ? memo : md
+ #    }.first
+ #    (result[reversePeriodIDs[meanID]] ||= [] ) << {mean: meanFile, spot: spotFile}
+ #  }
+ #}
+  dbg(result)
   result
 end
 desc "check general mean value: compare online and offline time avg"
 task :checkMeanStream, :dir, :what, :variable do |t,args|
 
   ap args
+  args.dir = '.'
   # collect all output files
-  getMeanAndSpotFiles(args.dir).each {|period,filelist|
+  getMeanAndSpotFiles('.').each {|period,filelist|
     filelist.each {|files|
       unless 'meanEachTimeStep' == period then
         analyzer = MeanAnalyzer.new(files[:spot],files[:mean],period,args.variable)
