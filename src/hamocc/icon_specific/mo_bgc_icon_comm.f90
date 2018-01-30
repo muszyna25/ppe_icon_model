@@ -217,9 +217,7 @@
     TYPE(t_hamocc_diag) :: p_diag
     TYPE(t_hydro_ocean_prog) :: p_prog
     
-    CHARACTER(LEN=max_char_length) :: timelevel_str
     !-------------------------------------------------------------------------
-    WRITE(timelevel_str,'(a,i2.2)') '_TL',timelevel
 
     p_diag%dic(:,:,:)        =  p_prog%tracer(:,:,:,isco212+no_tracer)
     p_diag%alk(:,:,:)        =  p_prog%tracer(:,:,:,ialkali+no_tracer)
