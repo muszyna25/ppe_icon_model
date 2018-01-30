@@ -25,28 +25,26 @@ MODULE mo_psrad_interface
   USE mo_psrad_gas_optics,           ONLY: precomputation
   USE mo_psrad_lrtm_driver,          ONLY: lrtm
   USE mo_psrad_srtm_driver,          ONLY: srtm, srtm_diags
-  USE mo_psrad_random,               ONLY: seed_size
-  USE mo_rad_diag,                   ONLY: rad_aero_diag
-  USE mtime,                         ONLY: datetime
-  USE mo_timer,                      ONLY: ltimer, timer_start, timer_stop, &
-   &                                       timer_lrtm, timer_srtm
+  USE mo_psrad_random, ONLY: rng_seed_size => seed_size
+  USE mo_rad_diag,     ONLY: rad_aero_diag
+  USE mtime,           ONLY: datetime
+  USE mo_timer,        ONLY: ltimer, timer_start, timer_stop, &
+   &                         timer_lrtm, timer_srtm
 #ifdef PSRAD_TIMING
-  USE mo_timer,                      ONLY: timer_rrtm_coeffs,   &
-                                           timer_cloud_optics,  &
-                                           timer_psrad_scaling, &
-                                           timer_psrad_aerosol
+  USE mo_timer,        ONLY: timer_rrtm_coeffs, timer_cloud_optics, &
+                             timer_psrad_scaling, timer_psrad_aerosol
 #endif
 
   IMPLICIT NONE
 
   PRIVATE
 
-  REAL(wp), PARAMETER :: pressure_scale = 100._wp,         &
-                         inverse_pressure_scale = 0.01_wp, &
-                         droplet_scale = 1.0e2
+  REAL(wp), PARAMETER :: pressure_scale = 100._wp, &
+    inverse_pressure_scale = 0.01_wp, &
+    droplet_scale = 1.0e2
 
   PUBLIC :: psrad_interface, pressure_scale, inverse_pressure_scale, &
-            droplet_scale
+    droplet_scale
   
 CONTAINS
   !>
@@ -185,27 +183,25 @@ CONTAINS
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
     !-------------------------------------------------------------------
-      CALL psrad_interface_onBlock(jg,             jb,                    &
-        irad_aero,            jce,                 nproma,                &
-        klev,                 ktype(:,jb),                                &
-        loland(:,jb),         loglac(:,jb),        this_datetime,         &
-        pcos_mu0(:,jb),       daylght_frc(:,jb),                          &
-        alb_vis_dir(:,jb),    alb_nir_dir(:,jb),                          &
-        alb_vis_dif(:,jb),    alb_nir_dif(:,jb),                          &
-        zf(:,:,jb),           zh(:,:,jb),          dz(:,:,jb),            &
-        pp_sfc(:,jb),         pp_fl(:,:,jb),                              &
-        tk_sfc(:,jb),         tk_fl(:,:,jb),       tk_hl(:,:,jb),         &
-        xm_dry(:,:,jb),       xm_vap(:,:,jb),      xm_liq(:,:,jb),        &
-        xm_ice(:,:,jb),       cdnc(:,:,jb),         xc_frc(:,:,jb),       &
-        xm_co2(:,:,jb),       xm_ch4(:,:,jb),       xm_n2o (:,:,jb),      &
-        xm_cfc (:,:,:,jb),    xm_o3(:,:,jb),        xm_o2(:,:,jb),        &
-        lw_upw (:,:,jb),      lw_upw_clr (:,:,jb),                        &
-        lw_dnw(:,:,jb),       lw_dnw_clr (:,:,jb),                        &
-        sw_upw(:,:,jb),       sw_upw_clr(:,:,jb),                         &
-        sw_dnw(:,:,jb),       sw_dnw_clr(:,:,jb),                         &
-        vis_dn_dir_sfc(:,jb), par_dn_dir_sfc(:,jb), nir_dn_dir_sfc(:,jb), &
-        vis_dn_dff_sfc(:,jb), par_dn_dff_sfc(:,jb), nir_dn_dff_sfc(:,jb), &
-        vis_up_sfc(:,jb),     par_up_sfc(:,jb),     nir_up_sfc(:,jb)      )
+      CALL psrad_interface_onBlock(            jg              ,jb                   ,&
+        & irad_aero       ,jce             ,nproma          ,klev                    ,& 
+        & ktype(:,jb)                                                                ,&
+        & loland(:,jb)    ,loglac(:,jb)    ,this_datetime                            ,&
+        & pcos_mu0(:,jb)  ,daylght_frc(:,jb)                                         ,&
+        & alb_vis_dir(:,jb) ,alb_nir_dir(:,jb),alb_vis_dif(:,jb)                     ,&
+        & alb_nir_dif(:,jb)                                                          ,&
+        & zf(:,:,jb)      ,zh(:,:,jb)      ,dz(:,:,jb)                               ,&
+        & pp_sfc(:,jb)    ,pp_fl(:,:,jb)                                             ,&
+        & tk_sfc(:,jb)    ,tk_fl(:,:,jb)   ,tk_hl(:,:,jb)                            ,&
+        & xm_dry(:,:,jb)  ,xm_vap(:,:,jb)  ,xm_liq(:,:,jb), xm_ice(:,:,jb)           ,&
+        & cdnc(:,:,jb)    ,xc_frc(:,:,jb)                                            ,&
+        & xm_co2(:,:,jb)  ,xm_ch4(:,:,jb)  ,xm_n2o (:,:,jb) ,xm_cfc (:,:,:,jb)       ,&
+        & xm_o3(:,:,jb)   ,xm_o2(:,:,jb)                                             ,&
+        & lw_upw (:,:,jb) ,lw_upw_clr (:,:,jb) ,lw_dnw(:,:,jb), lw_dnw_clr (:,:,jb)  ,&
+        & sw_upw(:,:,jb)  ,sw_upw_clr(:,:,jb)  ,sw_dnw(:,:,jb) ,sw_dnw_clr(:,:,jb)   ,&
+        & vis_dn_dir_sfc(:,jb) ,par_dn_dir_sfc(:,jb) ,nir_dn_dir_sfc(:,jb)           ,&
+        & vis_dn_dff_sfc(:,jb) ,par_dn_dff_sfc(:,jb) ,nir_dn_dff_sfc(:,jb)           ,&
+        & vis_up_sfc(:,jb)      ,par_up_sfc(:,jb)      ,nir_up_sfc(:,jb)                       )
    END DO
 !$OMP END PARALLEL DO  
     !-------------------------------------------------------------------  
@@ -240,27 +236,25 @@ CONTAINS
   ! NOTE: The above are not identical to the current ones in 
   ! psrad_general
 
-    SUBROUTINE psrad_interface_onBlock(jg,            jb, &
-      irad_aero,      jce,            nproma,             &
-      klev,           ktype,                              &
-      loland,         loglac,         this_datetime,      &
-      pcos_mu0,       daylght_frc,                        &
-      alb_vis_dir,    alb_nir_dir,                        &
-      alb_vis_dif,    alb_nir_dif,                        &
-      zf,             zh,             dz,                 &
-      pp_sfc,         pp_fl,                              &
-      tk_sfc,         tk_fl,          tk_hl,              &
-      xm_dry,         xm_vap,         xm_liq,             &
-      xm_ice,         cdnc,           xc_frc,             &
-      xm_co2,         xm_ch4,         xm_n2o ,            &
-      xm_cfc ,        xm_o3,          xm_o2,              &
-      lw_upw ,        lw_upw_clr ,                        &
-      lw_dnw,         lw_dnw_clr ,                        &
-      sw_upw,         sw_upw_clr,                         &
-      sw_dnw,         sw_dnw_clr,                         &
-      vis_dn_dir_sfc, par_dn_dir_sfc, nir_dn_dir_sfc,     &
-      vis_dn_dff_sfc, par_dn_dff_sfc, nir_dn_dff_sfc,     &
-      vis_up_sfc,     par_up_sfc,     nir_up_sfc          )
+  SUBROUTINE psrad_interface_onBlock(              jg              ,krow            ,&
+       & iaero           ,kproma          ,kbdim           ,klev            ,&
+       & ktype                                                              ,&
+       & laland          ,laglac          ,this_datetime                    ,&
+       & pcos_mu0            ,daylght_frc                                       ,&
+       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+       & zf              ,zh              ,dz                               ,&
+       & pp_sfc          ,pp_fl                                             ,&
+       & tk_sfc          ,tk_fl           ,tk_hl                            ,&
+       & xm_dry          ,xm_vap          ,xm_liq          ,xm_ice          ,&
+       & cdnc            ,cld_frc                                           ,&
+       & xm_co2          ,xm_ch4          ,xm_n2o          ,xm_cfc          ,&
+       & xm_o3           ,xm_o2                                             ,&
+!!$       & xm_trc                                                             ,&
+       & flx_uplw        ,flx_uplw_clr    ,flx_dnlw        ,flx_dnlw_clr    ,&
+       & flx_upsw        ,flx_upsw_clr    ,flx_dnsw        ,flx_dnsw_clr    ,&
+       & vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   ,&
+       & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
+       & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )
 
 #ifdef __INTEL_COMPILER
 !DIR$ OPTIMIZE:1
@@ -378,7 +372,7 @@ CONTAINS
     !
     ! Random seeds for sampling. Needs to get somewhere upstream 
     !
-    INTEGER :: rnseeds(kbdim,seed_size)
+    INTEGER :: rnseeds(kbdim,rng_seed_size)
 
     REAL(wp), TARGET :: actual_scaleminorn2(KBDIM,klev)
     REAL(wp), TARGET :: actual_ratio(KBDIM,2,klev,nmixture) 
@@ -488,11 +482,11 @@ CONTAINS
 ! iaero=13: only Kinne aerosols are used
 ! iaero=15: Kinne aerosols plus Stenchikov's volcanic aerosols are used
 ! iaero=18: Kinne background aerosols (of natural origin, 1850) are set
-      CALL set_bc_aeropt_kinne(this_datetime,                           &
-           & kproma,           kbdim,                 klev,             &
-           & krow,             nbndsw,                nbndlw,           &
-           & zf,               dz,                                      &
-           & aer_tau_sw_vr,    aer_piz_sw_vr,         aer_cg_sw_vr,     &
+      CALL set_bc_aeropt_kinne( this_datetime                          ,&
+           & kproma           ,kbdim                 ,klev             ,&
+           & krow             ,nbndsw                ,nbndlw           ,&
+           & zf               ,dz                                      ,&
+           & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
            & aer_tau_lw_vr                                              )
     END IF
     IF (iaero==14 .OR. iaero==15 .OR. iaero==18) THEN
@@ -500,43 +494,43 @@ CONTAINS
 ! iaero=15: Stenchikov's volcanic aerosols are added to Kinne aerosols
 ! iaero=18: Stenchikov's volcanic aerosols are added to Kinne background
 !           aerosols (of natural origin, 1850) 
-      CALL add_bc_aeropt_stenchikov(this_datetime,    jg,               &
-           & kproma,           kbdim,                 klev,             &
-           & krow,             nbndsw,                nbndlw,           &
-           & dz,               pp_fl,                                   &
-           & aer_tau_sw_vr,    aer_piz_sw_vr,         aer_cg_sw_vr,     &
+      CALL add_bc_aeropt_stenchikov( this_datetime   ,jg               ,&
+           & kproma           ,kbdim                 ,klev             ,&
+           & krow             ,nbndsw                ,nbndlw           ,&
+           & dz               ,pp_fl                                   ,&
+           & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
            & aer_tau_lw_vr                                              )
     END IF
 !!$    IF (iaero==16) THEN
 !!$      CALL add_aop_volc_ham( &
-!!$           & kproma,           kbdim,                 klev,             &
-!!$           & krow,             nbndlw,                nbndsw,           &
-!!$           & aer_tau_lw_vr,    aer_tau_sw_vr,         aer_piz_sw_vr,    &
+!!$           & kproma           ,kbdim                 ,klev             ,&
+!!$           & krow             ,nbndlw                ,nbndsw           ,&
+!!$           & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
 !!$           & aer_cg_sw_vr                                               )
 !!$    END IF
 !!$    IF (iaero==17) THEN
 !!$      CALL add_aop_volc_crow( &
-!!$           & kproma,           kbdim,                 klev,             &
-!!$           & krow,             nbndlw,                nbndsw,           &
-!!$           & aer_tau_lw_vr,    aer_tau_sw_vr,         aer_piz_sw_vr,    &
+!!$           & kproma           ,kbdim                 ,klev             ,&
+!!$           & krow             ,nbndlw                ,nbndsw           ,&
+!!$           & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
 !!$           & aer_cg_sw_vr                                               )
 !!$    END IF
     IF (iaero==18) THEN
 ! iaero=18: Simple plumes are added to Stenchikov's volcanic aerosols 
 !           and Kinne background aerosols (of natural origin, 1850) 
-      CALL add_bc_aeropt_splumes(jg,                                     &
-           & kproma,           kbdim,                 klev,             &
-           & krow,             nbndsw,                this_datetime,    &
-           & zf,               dz,                    zh(:,klev+1),     &
-           & aer_tau_sw_vr,    aer_piz_sw_vr,         aer_cg_sw_vr,     &
+      CALL add_bc_aeropt_splumes(jg                                     ,&
+           & kproma           ,kbdim                 ,klev             ,&
+           & krow             ,nbndsw                ,this_datetime    ,&
+           & zf               ,dz                    ,zh(:,klev+1)     ,&
+           & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
            & x_cdnc                                                     )
     END IF
 
     CALL rad_aero_diag (                                  &
-      & jg,              krow,            kproma,           &
-      & kbdim,           klev,            nbndlw,           &
-      & nbndsw,          aer_tau_lw_vr,   aer_tau_sw_vr,    &
-      & aer_piz_sw_vr,   aer_cg_sw_vr                       )
+      & jg              ,krow            ,kproma          , &
+      & kbdim           ,klev            ,nbndlw          , &
+      & nbndsw          ,aer_tau_lw_vr   ,aer_tau_sw_vr   , &
+      & aer_piz_sw_vr   ,aer_cg_sw_vr                       )
 
     DO jl = 1,nbndlw
       CALL flip_ud(kproma, aer_tau_lw_vr(:,:,jl), aer_tau_lw_loc(:,:,jl))
@@ -555,12 +549,12 @@ CONTAINS
 #ifdef PSRAD_TIMING
     IF (ltimer) CALL timer_start(timer_cloud_optics)
 #endif
-    CALL cloud_optics(                                                     &
-         & laglac,         laland,         kproma,         kbdim,          &
-         & klev,           ktype,                                          &
-         & icldlyr_loc,    zlwp_loc,       ziwp_loc,       zlwc_loc,       &
-         & ziwc_loc,       cdnc,           cld_tau_lw_loc, cld_tau_sw_loc, &
-         & cld_piz_sw_loc, cld_cg_sw_loc,  re_drop,        re_cryst        )
+    CALL cloud_optics(                                                  &
+         & laglac        ,laland        ,kproma        ,kbdim          ,& 
+         & klev          , ktype,&       
+         & icldlyr_loc       ,zlwp_loc       ,ziwp_loc       ,zlwc_loc        ,&
+         & ziwc_loc       ,cdnc       ,cld_tau_lw_loc ,cld_tau_sw_loc  ,&
+         & cld_piz_sw_loc ,cld_cg_sw_loc  ,re_drop       ,re_cryst    )  
 #ifdef PSRAD_TIMING
     IF (ltimer) CALL timer_stop(timer_cloud_optics)
 #endif
@@ -572,9 +566,9 @@ CONTAINS
     ! Seeds for random numbers come from least significant digits of 
     ! pressure field 
     !
-    rnseeds(1:kproma,1:seed_size) = &
-      int((inverse_pressure_scale * pm_fl_vr(1:kproma,1:seed_size) -  &
-      int(inverse_pressure_scale * pm_fl_vr(1:kproma,1:seed_size)))* 1E9 + rad_perm)
+    rnseeds(1:kproma,1:rng_seed_size) = &
+      int((inverse_pressure_scale * pm_fl_vr(1:kproma,1:rng_seed_size) -  &
+      int(inverse_pressure_scale * pm_fl_vr(1:kproma,1:rng_seed_size)))* 1E9 + rad_perm)
     ! Calculate information needed by the radiative transfer routine
     ! that is specific to this atmosphere, especially some of the 
     ! coefficients and indices needed to compute the optical depths
@@ -587,53 +581,56 @@ CONTAINS
 #ifdef PSRAD_TIMING
     IF (ltimer) CALL timer_start(timer_rrtm_coeffs)
 #endif
-    CALL precomputation(kproma,      kbdim,         klev,        &
-         & .false.,   pp_fl,         tk_fl,         col_dry_loc, &
-         & gases,     laytrop,       jp,            iabs,        &
-         & colbrd,    colmol,        fac,                        &
-         & ratio,     h2o_factor,    h2o_fraction,  h2o_index,   &
-         & minorfrac, scaleminor,    scaleminorn2,  indminor     )
+    CALL precomputation(kproma        ,kbdim         ,klev        , &
+         & .false.     ,&
+         & pp_fl   ,tk_fl         ,col_dry_loc  , &
+         & gases,      laytrop       ,jp            ,iabs        , &
+         & colbrd        ,colmol        ,fac         , &
+         & ratio       ,h2o_factor    ,h2o_fraction  ,h2o_index   , &
+         & minorfrac   ,scaleminor    ,scaleminorn2  ,indminor)
 #ifdef PSRAD_TIMING
     IF (ltimer) CALL timer_stop(timer_rrtm_coeffs)
 #endif
     IF (ltimer) CALL timer_start(timer_lrtm)
-    CALL lrtm(kproma,      kbdim,           klev,                        &
-         & pp_fl,          pp_sfc,                                       &
-         & tk_fl,          tk_hl,          tk_sfc,                       &
-         & gases, wx_loc,  col_dry_loc,    zsemiss,        cld_frc_loc,  &
-         & cld_tau_lw_loc, aer_tau_lw_loc, rnseeds,                      &
-         & ratio,          scaleminorn2,   fac,                          &
-         & laytrop,        iabs,           jp,             indminor,     &
-         & h2o_factor,     h2o_fraction,   h2o_index,      colbrd,       &
-         & minorfrac,      scaleminor,                                  &
-         & flx_uplw,       flx_dnlw,       flx_uplw_clr,   flx_dnlw_clr )
+    CALL lrtm(kproma                                                      , &
+         & kbdim           ,klev            , &
+         & pp_fl        ,pp_sfc      , &
+         & tk_fl        ,tk_hl        ,tk_sfc          ,&
+         & gases, wx_loc           ,col_dry_loc      ,zsemiss         ,cld_frc_loc  , &
+         & cld_tau_lw_loc   ,aer_tau_lw_loc   ,rnseeds         ,&
+         & ratio           ,scaleminorn2    ,fac         , &
+         & laytrop         ,iabs            ,jp              ,indminor    , &
+         & h2o_factor      ,h2o_fraction    ,h2o_index       ,colbrd      , &
+         & minorfrac       ,scaleminor      , &
+         & flx_uplw     ,flx_dnlw     ,flx_uplw_clr , &
+         & flx_dnlw_clr )
     IF (ltimer) CALL timer_stop(timer_lrtm)
 
     !
     ! Reset random seeds so SW doesn't depend on what's happened in LW but is also independent
     !
-    rnseeds(1:kproma,1:seed_size) = &
-      int((inverse_pressure_scale * pm_fl_vr(1:kproma,seed_size:1:-1) - &
-      int(inverse_pressure_scale * pm_fl_vr(1:kproma,seed_size:1:-1)))* 1E9 + rad_perm)
+    rnseeds(1:kproma,1:rng_seed_size) = &
+      int((inverse_pressure_scale * pm_fl_vr(1:kproma,rng_seed_size:1:-1) - &
+      int(inverse_pressure_scale * pm_fl_vr(1:kproma,rng_seed_size:1:-1)))* 1E9 + rad_perm)
 
     ! Potential pitfall - we're passing every argument but some may not be present
     IF (ltimer) CALL timer_start(timer_srtm)
-    CALL srtm(kproma,       kbdim,          klev,                           &
-         &  alb_vis_dir,    alb_vis_dif,    alb_nir_dir,   alb_nir_dif,     &
-         &  pcos_mu0,       daylght_frc,    ssi_factor,    psctm,           &
-         &  cld_frc_loc,    cld_tau_sw_loc, cld_cg_sw_loc,                  &
-         &  cld_piz_sw_loc, aer_tau_sw_loc, aer_cg_sw_loc, aer_piz_sw_loc,  & 
-         &  rnseeds,                                                        &
-         &  laytrop,        jp,             iabs,          gases,           &
-         &  colmol,         fac,            h2o_factor,    h2o_fraction,    &
-         &  h2o_index,                                                      &
-         &  flx_dnsw,       flx_upsw,       flx_dnsw_clr,  flx_upsw_clr,    &
-         &  bnd_wght,       per_band_flux)
+    CALL srtm(kproma                     , &
+         &  kbdim         ,klev          , &
+         &  alb_vis_dir   ,alb_vis_dif   ,alb_nir_dir   ,alb_nir_dif     , &
+         &  pcos_mu0          ,daylght_frc   ,ssi_factor    ,psctm           , &
+         &  cld_frc_loc    ,cld_tau_sw_loc ,cld_cg_sw_loc  , &
+         &  cld_piz_sw_loc ,aer_tau_sw_loc ,aer_cg_sw_loc  ,aer_piz_sw_loc   , & 
+         &  rnseeds       ,&
+         &  laytrop       ,jp            ,iabs          ,gases           , &
+         &  colmol        ,fac           ,h2o_factor    ,h2o_fraction    , &
+         &  h2o_index, &
+         &  flx_dnsw      ,flx_upsw      ,flx_dnsw_clr  ,flx_upsw_clr    , &
+         &  bnd_wght      ,per_band_flux)
 
-    CALL srtm_diags(kproma, kbdim, per_band_flux,     &
-      vis_dn_dir_sfc, par_dn_dir_sfc, nir_dn_dir_sfc, &
-      vis_dn_dff_sfc, par_dn_dff_sfc, nir_dn_dff_sfc, &
-      vis_up_sfc,     par_up_sfc,     nir_up_sfc      )
+    CALL srtm_diags(kproma, kbdim, per_band_flux, vis_dn_dir_sfc, par_dn_dir_sfc, &
+      nir_dn_dir_sfc, vis_dn_dff_sfc, par_dn_dff_sfc, nir_dn_dff_sfc, &
+      vis_up_sfc, par_up_sfc, nir_up_sfc)
 
     IF (ltimer) CALL timer_stop(timer_srtm)
 
@@ -647,5 +644,5 @@ CONTAINS
     m = SIZE(v,2)
     u(1:n,1:m) = v(1:n,m:1:-1)
   END SUBROUTINE flip_ud
-      
+
 END MODULE mo_psrad_interface
