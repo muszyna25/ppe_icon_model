@@ -241,9 +241,9 @@ CONTAINS
   ! psrad_general
 
     SUBROUTINE psrad_interface_onBlock(jg,            jb, &
-      iaero,          kproma,         kbdim,              &
+      irad_aero,      jce,            nproma,             &
       klev,           ktype,                              &
-      laland,         laglac,         this_datetime,      &
+      loland,         loglac,         this_datetime,      &
       pcos_mu0,       daylght_frc,                        &
       alb_vis_dir,    alb_nir_dir,                        &
       alb_vis_dif,    alb_nir_dif,                        &
@@ -251,13 +251,13 @@ CONTAINS
       pp_sfc,         pp_fl,                              &
       tk_sfc,         tk_fl,          tk_hl,              &
       xm_dry,         xm_vap,         xm_liq,             &
-      xm_ice,         cdnc,           cld_frc,            &
+      xm_ice,         cdnc,           xc_frc,             &
       xm_co2,         xm_ch4,         xm_n2o ,            &
       xm_cfc ,        xm_o3,          xm_o2,              &
-      flx_uplw,       flx_uplw_clr,                       &
-      flx_dnlw,       flx_dnlw_clr,                       &
-      flx_upsw,       flx_upsw_clr,                       &
-      flx_dnsw,       flx_dnsw_clr,                       &
+      lw_upw ,        lw_upw_clr ,                        &
+      lw_dnw,         lw_dnw_clr ,                        &
+      sw_upw,         sw_upw_clr,                         &
+      sw_dnw,         sw_dnw_clr,                         &
       vis_dn_dir_sfc, par_dn_dir_sfc, nir_dn_dir_sfc,     &
       vis_dn_dff_sfc, par_dn_dff_sfc, nir_dn_dff_sfc,     &
       vis_up_sfc,     par_up_sfc,     nir_up_sfc          )
@@ -268,7 +268,7 @@ CONTAINS
 
     INTEGER,INTENT(IN)  :: &
          jg,               & !< domain index
-         jb,             & !< first dimension of 2-d arrays
+         krow,             & !< first dimension of 2-d arrays
          iaero,            & !< aerosol control
          kproma,           & !< number of longitudes
          kbdim,            & !< first dimension of 2-d arrays
@@ -490,7 +490,7 @@ CONTAINS
 ! iaero=18: Kinne background aerosols (of natural origin, 1850) are set
       CALL set_bc_aeropt_kinne(this_datetime,                           &
            & kproma,           kbdim,                 klev,             &
-           & jb,             nbndsw,                nbndlw,           &
+           & krow,             nbndsw,                nbndlw,           &
            & zf,               dz,                                      &
            & aer_tau_sw_vr,    aer_piz_sw_vr,         aer_cg_sw_vr,     &
            & aer_tau_lw_vr                                              )
@@ -502,7 +502,7 @@ CONTAINS
 !           aerosols (of natural origin, 1850) 
       CALL add_bc_aeropt_stenchikov(this_datetime,    jg,               &
            & kproma,           kbdim,                 klev,             &
-           & jb,             nbndsw,                nbndlw,           &
+           & krow,             nbndsw,                nbndlw,           &
            & dz,               pp_fl,                                   &
            & aer_tau_sw_vr,    aer_piz_sw_vr,         aer_cg_sw_vr,     &
            & aer_tau_lw_vr                                              )
@@ -510,14 +510,14 @@ CONTAINS
 !!$    IF (iaero==16) THEN
 !!$      CALL add_aop_volc_ham( &
 !!$           & kproma,           kbdim,                 klev,             &
-!!$           & jb,             nbndlw,                nbndsw,           &
+!!$           & krow,             nbndlw,                nbndsw,           &
 !!$           & aer_tau_lw_vr,    aer_tau_sw_vr,         aer_piz_sw_vr,    &
 !!$           & aer_cg_sw_vr                                               )
 !!$    END IF
 !!$    IF (iaero==17) THEN
 !!$      CALL add_aop_volc_crow( &
 !!$           & kproma,           kbdim,                 klev,             &
-!!$           & jb,             nbndlw,                nbndsw,           &
+!!$           & krow,             nbndlw,                nbndsw,           &
 !!$           & aer_tau_lw_vr,    aer_tau_sw_vr,         aer_piz_sw_vr,    &
 !!$           & aer_cg_sw_vr                                               )
 !!$    END IF
@@ -526,14 +526,14 @@ CONTAINS
 !           and Kinne background aerosols (of natural origin, 1850) 
       CALL add_bc_aeropt_splumes(jg,                                     &
            & kproma,           kbdim,                 klev,             &
-           & jb,             nbndsw,                this_datetime,    &
+           & krow,             nbndsw,                this_datetime,    &
            & zf,               dz,                    zh(:,klev+1),     &
            & aer_tau_sw_vr,    aer_piz_sw_vr,         aer_cg_sw_vr,     &
            & x_cdnc                                                     )
     END IF
 
     CALL rad_aero_diag (                                  &
-      & jg,              jb,            kproma,           &
+      & jg,              krow,            kproma,           &
       & kbdim,           klev,            nbndlw,           &
       & nbndsw,          aer_tau_lw_vr,   aer_tau_sw_vr,    &
       & aer_piz_sw_vr,   aer_cg_sw_vr                       )
