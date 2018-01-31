@@ -910,11 +910,6 @@ CONTAINS
       ENDDO
 !ICON_OMP_END_PARALLEL_DO 
      
-      ! update ocean state accumulated values
-      p_diag%h = sea_surface_height
-      p_diag%t = tracers(:,:,:,1)
-      p_diag%s = tracers(:,:,:,2)
-
       ! compute global mean sea surface height
       ssh_global_mean = 0.0_wp
       call levels_horizontal_mean( sea_surface_height, &
