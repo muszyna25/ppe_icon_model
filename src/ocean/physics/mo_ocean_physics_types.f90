@@ -291,20 +291,20 @@ CONTAINS
       ALLOCATE(params_oce%tracer_v_ptr(no_tracer))
       DO jtrc = 1,no_tracer
         CALL add_ref( ocean_params_list, 'TracerDiffusion_coeff',&
-          & 'K_tracer_h_'//TRIM(oce_config%tracer_names(jtrc)),     &
+          & 'K_tracer_h_'//TRIM(oce_config%tracer_shortnames(jtrc)),     &
           & params_oce%tracer_h_ptr(jtrc)%p,                             &
           & grid_unstructured_edge, za_depth_below_sea,               &
-          & t_cf_var('K_tracer_h_'//TRIM(oce_config%tracer_names(jtrc)), &
+          & t_cf_var('K_tracer_h_'//TRIM(oce_config%tracer_shortnames(jtrc)), &
           & 'kg/kg', &
           & TRIM(oce_config%tracer_longnames(jtrc))//'(K_tracer_h_)', &
           & datatype_flt), &
           & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
           & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
         CALL add_ref( ocean_params_list, 'A_tracer_v',&
-          & 'A_tracer_v_'//TRIM(oce_config%tracer_names(jtrc)),     &
+          & 'A_tracer_v_'//TRIM(oce_config%tracer_shortnames(jtrc)),     &
           & params_oce%tracer_h_ptr(jtrc)%p,                             &
           & grid_unstructured_cell, za_depth_below_sea_half,            &
-          & t_cf_var('A_tracer_v_'//TRIM(oce_config%tracer_names(jtrc)), &
+          & t_cf_var('A_tracer_v_'//TRIM(oce_config%tracer_shortnames(jtrc)), &
           & 'kg/kg', &
           & TRIM(oce_config%tracer_longnames(jtrc))//'(A_tracer_v)', &
           & datatype_flt), &
