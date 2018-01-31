@@ -421,13 +421,13 @@ MODULE mo_ocean_types
   END TYPE t_hydro_ocean_acc
   
   !-------------------------------
-  INTEGER,PARAMETER :: max_tracers = 20
+  INTEGER,PARAMETER :: max_tracers = 50
   TYPE t_oce_config
-    CHARACTER(LEN=max_char_length) :: tracer_names(max_tracers)
     CHARACTER(LEN=max_char_length) :: tracer_longnames(max_tracers)
+    CHARACTER(LEN=max_char_length) :: tracer_stdnames(max_tracers)
+    CHARACTER(LEN=max_char_length) :: tracer_shortnames(max_tracers)
     CHARACTER(LEN=max_char_length) :: tracer_units(max_tracers)
-    CHARACTER(LEN=max_char_length) :: tracer_tags(max_tracers)
-    INTEGER :: tracer_codes(max_tracers)
+    INTEGER                        :: tracer_codes(max_tracers)
   END TYPE t_oce_config
   
 
