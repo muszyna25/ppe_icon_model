@@ -94,6 +94,11 @@ MODULE mo_timer
   ! echam radiation
   PUBLIC :: timer_rrtm_prep, timer_rrtm_post
   PUBLIC :: timer_lrtm, timer_srtm
+#ifdef PSRAD_TIMING
+  PUBLIC :: timer_gas_optics_lw, timer_gas_optics_sw, timer_cloud_optics, &
+    timer_sample_cloud_lw, timer_sample_cloud_sw, &
+    timer_rrtm_coeffs, timer_psrad_scaling, timer_psrad_aerosol
+#endif
 
   PUBLIC :: timer_satad_v_3D
   PUBLIC :: timer_phys_exner
@@ -289,6 +294,11 @@ MODULE mo_timer
   ! echam radiation
   INTEGER :: timer_rrtm_prep, timer_rrtm_post
   INTEGER :: timer_lrtm, timer_srtm
+#ifdef PSRAD_TIMING
+  INTEGER :: timer_gas_optics_lw, timer_gas_optics_sw, timer_cloud_optics, &
+    timer_sample_cloud_lw, timer_sample_cloud_sw, &
+    timer_rrtm_coeffs, timer_psrad_scaling, timer_psrad_aerosol
+#endif
 
   INTEGER :: timer_omp_radiation
   INTEGER :: timer_write_output
@@ -578,6 +588,16 @@ CONTAINS
     timer_rrtm_post = new_timer("rrtm_post")
     timer_lrtm      = new_timer("lrtm")
     timer_srtm      = new_timer("srtm")
+#ifdef PSRAD_TIMING
+    timer_gas_optics_lw = new_timer("gas_optics_lw")
+    timer_gas_optics_sw = new_timer("gas_optics_sw")
+    timer_rrtm_coeffs = new_timer("rrtm_coeffs")
+    timer_cloud_optics = new_timer("cloud_optics")
+    timer_sample_cloud_lw = new_timer("sample_cloud")
+    timer_sample_cloud_sw = new_timer("sample_cloud")
+    timer_psrad_scaling = new_timer("psrad_scaling")
+    timer_psrad_aerosol = new_timer("psrad_aerosol")
+#endif
 
     ! physics timers
     timer_omp_radiation = new_timer("omp_radiation")

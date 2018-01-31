@@ -2,6 +2,7 @@
 DATADIR=${ICON_BASE_PATH}/data
 add_required_file ${DATADIR}/rrtmg_lw.nc           ./
 add_link_file ${basedir}/data/rrtmg_sw.nc          ./
+add_link_file ${basedir}/data/lsdata.nc          ./
 add_required_file ${DATADIR}/ECHAM6_CldOptProps.nc ./
 
 # APE BCs
