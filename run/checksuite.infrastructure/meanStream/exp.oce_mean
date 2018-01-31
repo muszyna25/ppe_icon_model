@@ -1,4 +1,3 @@
-#!/bin/bash
 #=============================================================================
 #-----------------------------------------------------------------------------
 # the namelist filename
@@ -7,6 +6,7 @@ ocean_namelist=NAMELIST_${EXPNAME}
 # global timing
 start_date="2001-01-01T00:00:00Z"
   end_date="2001-01-01T06:00:00Z"  #  201 years to ensure write of restart at end
+# end_date="2011-01-01T06:00:00Z"  #  201 years to ensure write of restart at end
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
@@ -15,12 +15,16 @@ checkpoint_interval="P10Y"
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
+output_interval="P1M"                  # ocean model output interval in days
+hourly="PT1H"
+Twohourly="PT2H"
+Threehourly="PT3H"
+Fourhourly="PT4H"
+Sixhourly="PT6H"
 daily="P1D"
+monthly="P1M"
 file_interval="P1Y"
 modelTimeStep="PT1H"
-modelTimeStepX2="PT2H"
-modelTimeStepX3="PT3H"
-modelTimeStepX4="PT4H"
 autoPostProcessing="false"                         # submit postprocessing job
 #steps_per_file=610                               # assigned output intervals per file interval
 #-----------------------------------------------------------------------------
@@ -33,6 +37,7 @@ ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-
 #-----------------------------------------------------------------------------
 #icon_data_rootFolder=/pool/data/ICON
 #
+varnames="'so','zos','to','sea_surface_height','sea_water_salinity','sea_water_potential_temperature'"
 # write namelist parameters
 # -------------------------
 cat > ${ocean_namelist} << EOF
@@ -42,6 +47,9 @@ cat > ${ocean_namelist} << EOF
  p_test_run     = .false.
  l_fast_sum     = .true.
 /
+&io_nml
+lnetcdf_flt64_output = .TRUE.
+/
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
  use_dummy_cell_closure = .true.
@@ -49,9 +57,6 @@ cat > ${ocean_namelist} << EOF
 /
 &dynamics_nml
  iequations           = -1           ! -1: hydrost. ocean model
-/
-&io_nml
-  lnetcdf_flt64_output = .TRUE.
 /
 &run_nml
  modelTimeStep        = "${modelTimeStep}"       ! model timestep in seconds
@@ -62,20 +67,21 @@ cat > ${ocean_namelist} << EOF
  timers_level         = 10
  debug_check_level    = 1
  restart_filename     = "${EXPNAME}_restart_oce_<rsttime>.nc"
+!test_mode            = 14
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_spot1TS"
+  output_filename  = "${EXPNAME}_spot"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${modelTimeStep}"
-  file_interval="P1Y"
+  output_interval  = "${hourly}"
+  file_interval    = "P1Y"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'group:oce_diag'
+  ml_varlist       = ${varnames}
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
@@ -83,14 +89,13 @@ cat > ${ocean_namelist} << EOF
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${modelTimeStep}"
-  file_interval="P1Y"
-  operation = "mean"
+  output_interval  = "${hourly}"
+  file_interval    = "P1Y"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'group:oce_diag'
+  ml_varlist       = ${varnames}
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
@@ -98,13 +103,14 @@ cat > ${ocean_namelist} << EOF
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${modelTimeStepX2}"
-  file_interval="P1Y"
-  operation = "mean"
+  output_interval  = "${Twohourly}"
+  file_interval    = "P20Y"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
   output_grid      = .TRUE.
-  ml_varlist       = 'group:oce_diag'
+  operation        = "mean"
+  filename_format  = "<output_filename>_<datetime2>"
+ ml_varlist       = ${varnames}
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
@@ -112,30 +118,76 @@ cat > ${ocean_namelist} << EOF
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${modelTimeStepX3}"
-  file_interval="P1Y"
-  operation = "mean"
+  output_interval  = "${Threehourly}"
+  file_interval    = "P20Y"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
   output_grid      = .TRUE.
-  ml_varlist       = 'group:oce_diag'
+  filename_format  = "<output_filename>_<datetime2>"
+  operation        = "mean"
+ ml_varlist       = ${varnames}
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_mean4TS"
+  output_filename  = "${EXPNAME}_mean4TD"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${modelTimeStepX4}"
-  file_interval="P1Y"
-  operation = "mean"
+  output_interval  = "${Fourhourly}"
+  file_interval    = "P20Y"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
   output_grid      = .TRUE.
-  ml_varlist       = 'group:oce_diag'
+  filename_format  = "<output_filename>_<datetime2>"
+  operation        = "mean"
+ ml_varlist       = ${varnames}
+/
+&output_nml
+  filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_globalDiag_spot"
+  filename_format  = "<output_filename>_<datetime2>"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${hourly}"
+  file_interval    = "P20Y"
+  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  include_last     = .false.
+  output_grid      = .TRUE.
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       = 'ssh_global'
+/
+&output_nml
+  filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_globalDiag_mean1TS"
+  filename_format  = "<output_filename>_<datetime2>"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${hourly}"
+  file_interval    = "P20Y"
+  mode             =  1                              ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  include_last     = .false.
+  output_grid      = .TRUE.
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       = 'ssh_global'
+  operation        = "mean"
+/
+&output_nml
+  filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_globalDiag_mean2TS"
+  filename_format  = "<output_filename>_<datetime2>"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${Twohourly}"
+  file_interval    = "P20Y"
+  mode             =  1                              ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  include_last     = .false.
+  output_grid      = .TRUE.
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       = 'ssh_global'
+  operation        = "mean"
 /
 &dbg_index_nml
-  idbg_mxmn=2                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
@@ -215,7 +267,7 @@ cat > ${ocean_namelist} << EOF
   k_tracer_isoneutral_parameter   = 600.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
   k_tracer_dianeutral_parameter   = 0.0       !1.0E-5  !
   SWITCH_OFF_DIAGONAL_VERT_EXPL          =.TRUE.
-  GMREDI_COMBINED_DIAGNOSTIC             =.TRUE.
+  GMREDI_COMBINED_DIAGNOSTIC             =.false.
   SWITCH_ON_REDI_BALANCE_DIAGONSTIC      =.FALSE.
   REVERT_VERTICAL_RECON_AND_TRANSPOSED   =.TRUE.
   SLOPE_CALC_VIA_TEMPERTURE_SALINITY = .true.
