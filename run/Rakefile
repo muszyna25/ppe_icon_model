@@ -281,7 +281,7 @@ def templateCheck(name,allTemplates,allSuites,suite=nil)
     msg = "WARNING: Count not find template '#{name}' "
     msg << "from suite '#{name}'" unless suite.nil?
     msg << "!!!"
-    warn msg unless $QUIET
+#   warn msg unless $QUIET
     #exit(1) if $DEBUG
     return false
   end
@@ -881,8 +881,9 @@ class DataAnalyzer
 end
 class MeanAnalyzer < DataAnalyzer
   def run
-    puts "Compare mean file #@meanFile with spot file #@spotFile".colorize(:color => :blue, :background => :white)
-    puts "\t #{@meanPeriod}".colorize(:color => :blue, :background => :white)
+    puts '#'+'='*80
+    puts "Compare mean file #@meanFile with spot file #@spotFile".colorize(:color => :dark_blue, :background => :white)
+    puts "\t #{@meanPeriod}".colorize(:color => :black, :background => :light_yellow)
 
     # loop over all input variables
     if @varname.nil? then
@@ -892,15 +893,17 @@ class MeanAnalyzer < DataAnalyzer
     end
     pp varlist if $DEBUG
 
+    # filter time constant variables
     varlist = Parallel.map(varlist,in_threads: 10) {|varname|
      varname if 0 != @cdo.ntime(input: "-selname,#{varname} -seltimestep,1 #{@spotFile}").first.to_i
     }.select {|v| not v.nil?}
 
-    Parallel.map(varlist,in_threads: 10) {|varname|
     #varlist.each {|varname|
-      TIMES2COMPARE[@meanPeriod].each {|timeStepPair|# list of timestep relations
+    TIMES2COMPARE[@meanPeriod].each {|timeStepPair|# list of timestep relations
+      s = "\tref tstep:#{timeStepPair[:ref]} | mean tstep:#{timeStepPair[:mean]}".colorize(:color => :black, :background => :yellow)
+      puts ['#'+'-'*75,s].join("\n")
+      Parallel.map(varlist,in_threads: 10) {|varname|
 #       pp timeStepPair
-          s = "\tref tstep:#{timeStepPair[:ref]} | mean tstep:#{timeStepPair[:mean]}".colorize(:color => :blue, :background => :white)
 
           timeSelectionRef  = "-seltimestep,#{timeStepPair[:ref]}"
           timeSelectionMean = "-seltimestep,#{timeStepPair[:mean]}"
@@ -910,16 +913,21 @@ class MeanAnalyzer < DataAnalyzer
           diff = @cdo.diffv(input: [ "-timmean #{timeSelectionRef}  #{delNans} -selname,#{varname} #{@spotFile}",
                                      "         #{timeSelectionMean} #{delNans} -selname,#{varname} #{@meanFile}" ].join(' '),
                            :options => '-L -s')
-          diffFile = @cdo.sub(input: [ "-timmean #{timeSelectionRef}  #{delNans} -selname,#{varname} #{@spotFile}",
-                                       "         #{timeSelectionMean} #{delNans} -selname,#{varname} #{@meanFile}" ].join(' '),
-                             :returnArray => varname,
-                             :options => '-L -s',
-                             :output => [@meanPeriod, varname, File.basename(@spotFile)].map(&:to_s).join('_'))
 
           unless diff.empty? then
-            puts [s,varname.colorize(:red), "\t#{diff.join("\n\t")}".colorize(:yellow)].join("\n")
+            # compute the difference 
+            diffVal = @cdo.sub(input: [ "-timmean #{timeSelectionRef}  #{delNans} -selname,#{varname} #{@spotFile}",
+                                        "         #{timeSelectionMean} #{delNans} -selname,#{varname} #{@meanFile}" ].join(' '),
+                              :returnArray => varname,
+                              :options => '-L -s',
+                              :output => [@meanPeriod, varname, File.basename(@spotFile)].map(&:to_s).join('_'))
+
+            diffMax =  diffVal.abs.max.to_s
+#           diff << diffMax
+
+            puts [varname.colorize(:red), "\t#{diff.join("\n\t")}".colorize(:yellow),"\t"+diffMax.colorize(:blue)]
           else
-            puts [s,"#{varname}".colorize(:green)].join("\n")
+            puts [varname.colorize(:green)].join
           end
         }
 #     }
@@ -977,11 +985,10 @@ def getMeanAndSpotFiles(dir,periods=@defaultPeriodsIDs)
   result
 end
 desc "check general mean value: compare online and offline time avg"
-task :checkMeanStream, :dir, :what, :variable do |t,args|
+task :checkMeanStream do |t,args|
 
-  ap args
-  args.dir = '.'
-  # collect all output files
+  variable = ENV['VAR']
+  # collect all output files from the local directory
   getMeanAndSpotFiles('.').each {|period,filelist|
     filelist.each {|files|
       unless 'meanEachTimeStep' == period then
