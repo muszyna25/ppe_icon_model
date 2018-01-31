@@ -38,6 +38,7 @@ ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-
 #icon_data_rootFolder=/pool/data/ICON
 #
 varnames="'so','zos','to','sea_surface_height','sea_water_salinity','sea_water_potential_temperature'"
+varnames="'so','zos','to'"
 # write namelist parameters
 # -------------------------
 cat > ${ocean_namelist} << EOF
@@ -129,7 +130,7 @@ lnetcdf_flt64_output = .TRUE.
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_mean4TD"
+  output_filename  = "${EXPNAME}_mean4TS"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
