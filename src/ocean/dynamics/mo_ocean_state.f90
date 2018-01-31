@@ -86,7 +86,6 @@ MODULE mo_ocean_state
   PUBLIC :: construct_hydro_ocean_state
   PUBLIC :: destruct_hydro_ocean_state
   PUBLIC :: construct_patch_3d, destruct_patch_3d
-  PUBLIC :: set_oce_tracer_info
   PUBLIC :: construct_ocean_var_lists
   !
   
@@ -168,6 +167,8 @@ CONTAINS
     ! Using Adams-Bashforth semi-implicit timestepping with 3 prognostic time levels:
     prlength = 3
     
+    CALL setup_tracer_info(oce_config)
+
     !create state array for each domain     
     ALLOCATE(ocean_state(1)%p_prog(1:prlength), stat=i_status)
     IF (i_status/=success) THEN
@@ -2330,52 +2331,21 @@ CONTAINS
      
   END SUBROUTINE construct_patch_3d
   
-  !-------------------------------------------------------------------------
-  !>
-  !!
-  !!
-  !! @par Revision History
-  !! Developed  by  Stephan Lorenz, MPI-M (2011).
-  !!
+  !------------------------------------------------------------------------------------
 !<Optimize:inUse>
-  SUBROUTINE set_oce_tracer_info(max_oce_tracer,&
-    & oce_tracer_names,&
-    & oce_tracer_longnames,&
-    & oce_tracer_codes,&
-    & oce_tracer_units,&
-    & suffix)
+  SUBROUTINE setup_tracer_info(oce_config)
+      TYPE(t_oce_config) :: oce_config
+    oce_config%tracer_shortnames(1) = 'to'
+    oce_config%tracer_stdnames(1)   = 'sea_water_potential_temperature'
+    oce_config%tracer_longnames(1)  = 'sea water potential temperature'
+    oce_config%tracer_units(1)      = 'deg C'
+    oce_config%tracer_codes(1)      = 2
     
-    INTEGER, INTENT(in)            :: max_oce_tracer
-    CHARACTER(LEN=max_char_length) :: oce_tracer_names(max_oce_tracer),&
-      & oce_tracer_units(max_oce_tracer),&
-      & oce_tracer_longnames(max_oce_tracer)
-    INTEGER :: oce_tracer_codes(max_oce_tracer)
-    CHARACTER(LEN=max_char_length), OPTIONAL :: suffix
-    
-    IF (max_oce_tracer < no_tracer) THEN
-      CALL finish('set_oce_tracer_info','Too many tracers! Please provide trace info')
-    ENDIF
-    IF (PRESENT(suffix)) THEN
-      !     write(0,*)'suffix:',suffix
-    END IF
-    oce_tracer_names(1)     = 'sea_water_potential_temperature'
-    IF (PRESENT(suffix)) THEN
-      oce_tracer_names(1) = 'sea_water_potential_temperature'//TRIM(suffix)
-    END IF
-    oce_tracer_longnames(1) = 'sea water potential temperature'
-    oce_tracer_units(1)     = 'deg C'
-    oce_tracer_codes(1)     = 2
-   
-    oce_tracer_names(2)     = 'sea_water_salinity'
-    IF (PRESENT(suffix)) THEN
-      oce_tracer_names(2) = 'sea_water_salinity'//TRIM(suffix)
-    END IF
-    oce_tracer_longnames(2) = 'sea water salinity'
-    oce_tracer_units(2)     = 'psu'
-    oce_tracer_codes(2)     = 5
-    
-  END SUBROUTINE
-  !-------------------------------------------------------------------------
-  
+    oce_config%tracer_shortnames(2) = 'so'
+    oce_config%tracer_stdnames(2)   = 'sea_water_salinity'
+    oce_config%tracer_longnames(2)  = 'sea water salinity'
+    oce_config%tracer_units(2)      = 'psu'
+    oce_config%tracer_codes(2)      = 5
+  END SUBROUTINE setup_tracer_info
   
 END MODULE mo_ocean_state

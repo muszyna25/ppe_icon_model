@@ -70,7 +70,7 @@ MODULE mo_ocean_model
     & construct_patch_3d, destruct_patch_3d, &
     & ocean_default_list, ocean_restart_list, construct_ocean_var_lists
   USE mo_ocean_initialization, ONLY: init_ho_base, &
-    & init_ho_basins, init_coriolis_oce, init_oce_config,  init_patch_3d,   &
+    & init_ho_basins, init_coriolis_oce,  init_patch_3d,   &
     & init_patch_3d
   USE mo_hamocc_output,        ONLY: construct_hamocc_var_lists, construct_hamocc_state, &
     &                                destruct_hamocc_state         
@@ -517,8 +517,6 @@ MODULE mo_ocean_model
     !------------------------------------------------------------------
     ! construct ocean state and physics
     !------------------------------------------------------------------
-    CALL init_oce_config
-
     ! initialize ocean indices for debug output (before ocean state, no 3-dim)
     CALL init_dbg_index(patch_3d%p_patch_2d(1))!(patch_2D(1))
 

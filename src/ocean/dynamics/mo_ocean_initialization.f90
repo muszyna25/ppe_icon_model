@@ -66,13 +66,7 @@ MODULE mo_ocean_initialization
   USE mo_grib2
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range, fill_subset
   ! USE mo_ocean_config,        ONLY: ignore_land_points
-  USE mo_ocean_types, ONLY: t_hydro_ocean_state, &
-    & t_hydro_ocean_base, &
-    & t_hydro_ocean_prog, &
-    & t_hydro_ocean_diag, &
-    & t_hydro_ocean_aux, &
-    & t_oce_config, &
-    & t_ocean_tracer
+  USE mo_ocean_types, ONLY: t_hydro_ocean_base
   USE mo_ocean_diagnostics_types, ONLY: &
     & t_ocean_regions, &
     & t_ocean_region_volumes, &
@@ -80,8 +74,7 @@ MODULE mo_ocean_initialization
     & t_ocean_basins
   USE mo_ocean_state, ONLY:  ocean_restart_list, &
     & ocean_default_list, &
-    & v_base, &
-    & oce_config
+    & v_base
   USE mo_util_dbg_prnt,       ONLY: dbg_print, debug_print_MaxMinMean
   
   USE mo_ocean_check_tools, ONLY: ocean_check_level_sea_land_mask, check_ocean_subsets
@@ -98,7 +91,6 @@ MODULE mo_ocean_initialization
   PUBLIC :: init_ho_basins
   PUBLIC :: init_coriolis_oce
   PUBLIC :: is_initial_timestep
-  PUBLIC :: init_oce_config
   PUBLIC :: check_ocean_subsets
   
   PUBLIC :: init_patch_3d
@@ -1925,21 +1917,6 @@ CONTAINS
   !------------------------------------------------------------------------------------
   
   
-  !------------------------------------------------------------------------------------
-!<Optimize:inUse>
-  SUBROUTINE init_oce_config()
-    oce_config%tracer_names(1)     = 'T'
-    oce_config%tracer_longnames(1) = 'potential temperature'
-    oce_config%tracer_units(1)     = 'deg C'
-    oce_config%tracer_codes(1)     = 200
-    oce_config%tracer_tags(1)      = '_'//TRIM(oce_config%tracer_names(1))
-    
-    oce_config%tracer_names(2)     = 'S'
-    oce_config%tracer_longnames(2) = 'salinity'
-    oce_config%tracer_units(2)     = 'psu'
-    oce_config%tracer_codes(2)     = 201
-    oce_config%tracer_tags(2)      = '_'//TRIM(oce_config%tracer_names(2))
-  END SUBROUTINE
 !<Optimize:inUse>
   FUNCTION is_initial_timestep(timestep)
     INTEGER :: timestep

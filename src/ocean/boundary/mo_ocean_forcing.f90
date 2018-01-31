@@ -53,7 +53,6 @@ MODULE mo_ocean_forcing
   USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, success
   USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
   USE mo_ocean_surface_types, ONLY: t_ocean_surface, t_atmos_for_ocean
-  USE mo_ocean_state,           ONLY: set_oce_tracer_info
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state
   USE mo_dynamics_config,     ONLY: nold
 
