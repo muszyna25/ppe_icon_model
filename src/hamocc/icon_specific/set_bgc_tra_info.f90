@@ -3,13 +3,13 @@
       SUBROUTINE set_bgc_tracer_info(no_tracer,max_oce_tracer,bgc_tracer_names,&
       & bgc_tracer_longnames,&
       & bgc_tracer_codes,&
-      & bgc_tracer_units, suffix)
+      & bgc_tracer_units, bgc_tracer_shortnames, suffix)
       USE mo_impl_constants,         ONLY: max_char_length
 
       INTEGER, INTENT(in)            :: max_oce_tracer, no_tracer
       CHARACTER(LEN=max_char_length) :: bgc_tracer_names(max_oce_tracer),&
       & bgc_tracer_units(max_oce_tracer),&
-      & bgc_tracer_longnames(max_oce_tracer)
+      & bgc_tracer_longnames(max_oce_tracer), bgc_tracer_shortnames(max_oce_tracer)
       INTEGER :: bgc_tracer_codes(max_oce_tracer),itrac, last_oce_code
       CHARACTER(LEN=max_char_length), OPTIONAL :: suffix
     
@@ -25,6 +25,7 @@
        bgc_tracer_longnames(itrac) = 'dissolved inorganic carbon'
        bgc_tracer_units(itrac)     = 'kmol C m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
+       bgc_tracer_shortnames(itrac)= 'dic'
     
        itrac=itrac+1
        bgc_tracer_names(itrac)     = 'alk'
@@ -34,6 +35,7 @@
        bgc_tracer_longnames(itrac) = 'alkalinity'
        bgc_tracer_units(itrac)     = 'kmol m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
+       bgc_tracer_shortnames(itrac)= 'alk'
     
        itrac=itrac+1
        bgc_tracer_names(itrac)     = 'phosph'
@@ -43,6 +45,7 @@
        bgc_tracer_longnames(itrac) = 'phosphate'
        bgc_tracer_units(itrac)     = 'kmol P m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
+       bgc_tracer_shortnames(itrac)= 'phosph'
 
        itrac=itrac+1
        bgc_tracer_names(itrac)     = 'nitrate'
@@ -52,6 +55,7 @@
        bgc_tracer_longnames(itrac) = 'nitrate'
        bgc_tracer_units(itrac)     = 'kmol P m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
+       bgc_tracer_shortnames(itrac)= 'nitrate'
 
        itrac=itrac+1
        bgc_tracer_names(itrac)     = 'gasnit'
@@ -61,6 +65,7 @@
        bgc_tracer_longnames(itrac) = 'gaseous nitrogen'
        bgc_tracer_units(itrac)     = 'kmol N m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
+       bgc_tracer_shortnames(itrac)= 'gasnit'
 
        itrac=itrac+1
        bgc_tracer_names(itrac)     = 'phy'
@@ -70,6 +75,7 @@
        bgc_tracer_longnames(itrac) = 'phytoplankton'
        bgc_tracer_units(itrac)     = 'kmol P m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
+       bgc_tracer_shortnames(itrac)= 'phy'
 
        itrac=itrac+1
        bgc_tracer_names(itrac)     = 'zoo'
@@ -79,6 +85,7 @@
        bgc_tracer_longnames(itrac) = 'zooplankton'
        bgc_tracer_units(itrac)     = 'kmol P m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
+       bgc_tracer_shortnames(itrac)= 'zoo'
 
        itrac=itrac+1
        bgc_tracer_names(itrac)     = 'cyano'
@@ -88,6 +95,7 @@
        bgc_tracer_longnames(itrac) = 'cyanobacteria'
        bgc_tracer_units(itrac)     = 'kmol P m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
+       bgc_tracer_shortnames(itrac)= 'cyano'
 
        itrac=itrac+1
        bgc_tracer_names(itrac)     = 'oxygen'
@@ -97,6 +105,7 @@
        bgc_tracer_longnames(itrac) = 'oxygen'
        bgc_tracer_units(itrac)     = 'kmol m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
+       bgc_tracer_shortnames(itrac)= 'oxygen'
 
        itrac=itrac+1
        bgc_tracer_names(itrac)     = 'silica'
@@ -106,6 +115,7 @@
        bgc_tracer_longnames(itrac) = 'silicate'
        bgc_tracer_units(itrac)     = 'kmol m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
+       bgc_tracer_shortnames(itrac)= 'silica'
 
        itrac=itrac+1
        bgc_tracer_names(itrac)     = 'doc'
@@ -115,6 +125,7 @@
        bgc_tracer_longnames(itrac) = 'dissolved_organic_carbon'
        bgc_tracer_units(itrac)     = 'kmol P m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
+       bgc_tracer_shortnames(itrac)= 'doc'
 
        itrac=itrac+1
        bgc_tracer_names(itrac)     = 'an2o'
@@ -124,6 +135,7 @@
        bgc_tracer_longnames(itrac) = 'an2o'
        bgc_tracer_units(itrac)     = 'kmol  m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
+       bgc_tracer_shortnames(itrac)= 'an2o'
 
        itrac=itrac+1
        bgc_tracer_names(itrac)     = 'det'
@@ -133,6 +145,7 @@
        bgc_tracer_longnames(itrac) = 'particulate_organic_carbon'
        bgc_tracer_units(itrac)     = 'kmol P m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
+       bgc_tracer_shortnames(itrac)= 'det'
       
        itrac=itrac+1
        bgc_tracer_names(itrac)     = 'iron'
@@ -142,6 +155,7 @@
        bgc_tracer_longnames(itrac) = 'iron'
        bgc_tracer_units(itrac)     = 'kmol Fe m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
+       bgc_tracer_shortnames(itrac)= 'icon'
 
        itrac=itrac+1
        bgc_tracer_names(itrac)     = 'dms'
@@ -151,6 +165,7 @@
        bgc_tracer_longnames(itrac) = 'dms'
        bgc_tracer_units(itrac)     = 'kmol DMS m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
+       bgc_tracer_shortnames(itrac)= 'dms'
       
        itrac=itrac+1
        bgc_tracer_names(itrac)     = 'h2s'
@@ -160,6 +175,7 @@
        bgc_tracer_longnames(itrac) = 'h2s'
        bgc_tracer_units(itrac)     = 'kmol m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
+       bgc_tracer_shortnames(itrac)= 'h2s'
 
        itrac=itrac+1
        bgc_tracer_names(itrac)     = 'calc'
@@ -169,6 +185,7 @@
        bgc_tracer_longnames(itrac) = 'calcium_carbonate'
        bgc_tracer_units(itrac)     = 'kmol C m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
+       bgc_tracer_shortnames(itrac)= 'calc'
 
        itrac=itrac+1
        bgc_tracer_names(itrac)     = 'opal'
@@ -178,6 +195,7 @@
        bgc_tracer_longnames(itrac) = 'opal shells'
        bgc_tracer_units(itrac)     = 'kmol m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
+       bgc_tracer_shortnames(itrac)= 'opal'
 
 
        itrac=itrac+1
@@ -188,5 +206,6 @@
        bgc_tracer_longnames(itrac) = 'free dust in seawater'
        bgc_tracer_units(itrac)     = 'kmol m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
+       bgc_tracer_shortnames(itrac)= 'dust'
 
        END SUBROUTINE
