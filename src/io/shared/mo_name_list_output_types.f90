@@ -405,6 +405,7 @@ MODULE mo_name_list_output_types
     INTEGER                               :: cdiVlistId_orig                  !< cdi vlist handler, storing the model internal vlist id during append
     INTEGER                               :: cdiCellGridID
     INTEGER                               :: cdiSingleGridID
+    INTEGER                               :: cdiZonal1DegID
     INTEGER                               :: cdiVertGridID
     INTEGER                               :: cdiEdgeGridID
     INTEGER                               :: cdiLonLatGridID
