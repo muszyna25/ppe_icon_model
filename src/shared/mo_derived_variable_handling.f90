@@ -35,7 +35,7 @@ MODULE mo_derived_variable_handling
   USE mtime_datetime, ONLY: datetimeToString
   USE mo_output_event_types,  ONLY: t_sim_step_info
   USE mo_time_config,         ONLY: time_config
-  USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, GRID_LONLAT
+  USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, GRID_LONLAT, GRID_ZONAL
 
   IMPLICIT NONE
 
@@ -319,6 +319,8 @@ CONTAINS
               & src_element => find_element ( TRIM(varlist(i)),opt_hgrid=GRID_UNSTRUCTURED_VERT,opt_caseInsensitive=.true.)
           IF (.not. ASSOCIATED(src_element) ) &
               & src_element => find_element ( TRIM(varlist(i)),opt_hgrid=GRID_LONLAT,opt_caseInsensitive=.true.)
+          IF (.not. ASSOCIATED(src_element) ) &
+              & src_element => find_element ( TRIM(varlist(i)),opt_hgrid=GRID_ZONAL,opt_caseInsensitive=.true.)
 
           ! if not found: maybe it is a prognostic variable, so it has the
           ! time-level in its name
@@ -528,11 +530,18 @@ if (my_process_is_stdio()) write(0,*)'IS pROGNOSTIC:',TRIM(varlist(i))
           &             has_missvals=destination%field%info%lmiss, &
           &             missval=destination%field%info%missval%rval)
       CASE(2)
-        call add_fields(destination%field%r_ptr(:,:,1,1,1), &
-          &             source%field%r_ptr(:,:,1,1,1), &
-          &             destination%field%info%subset, &
-          &             has_missvals=destination%field%info%lmiss, &
-          &             missval=destination%field%info%missval%rval)
+        IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
+          call add_fields(destination%field%r_ptr(:,:,1,1,1), &
+            &             source%field%r_ptr(:,:,1,1,1), &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ELSE
+          call add_fields(destination%field%r_ptr(:,:,1,1,1), &
+            &             source%field%r_ptr(:,:,1,1,1), &
+            &             destination%field%info%subset, &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ENDIF
       CASE DEFAULT
         destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,:,:)
       END SELECT

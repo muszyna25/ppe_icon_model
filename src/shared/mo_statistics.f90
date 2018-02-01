@@ -245,6 +245,7 @@ MODULE mo_statistics
   INTERFACE add_fields
     MODULE PROCEDURE add_fields_3d
     MODULE PROCEDURE add_fields_2d
+    MODULE PROCEDURE add_fields_2d_nosubset
   END INTERFACE add_fields
   
   INTERFACE add_sqr_fields
@@ -1817,6 +1818,30 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE add_fields_2d
 
+  SUBROUTINE add_fields_2d_nosubset(sum_field,field,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: sum_field(:,:)
+    REAL(wp),INTENT(in)             :: field(:,:)
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+    
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+    
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = LBOUND(field,2),UBOUND(field,2)
+      DO jc = LBOUND(field,1),UBOUND(field,1)
+        sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + field(jc,jb), my_has_missvals .AND. (field(jc,jb) == my_miss))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE add_fields_2d_nosubset
   
   SUBROUTINE add_sqr_fields_2d(sum_field,field,subset)
     REAL(wp),INTENT(inout)          :: sum_field(:,:)
