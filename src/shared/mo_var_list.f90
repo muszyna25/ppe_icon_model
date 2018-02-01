@@ -1046,6 +1046,7 @@ CONTAINS
     IF (.NOT. referenced) THEN
       idims(1:ndims)    = new_list_element%field%info%used_dimensions(1:ndims)
       idims((ndims+1):) = 1
+
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%s_ptr)
       NULLIFY(new_list_element%field%i_ptr)
