@@ -123,6 +123,7 @@ module mo_cdi
   integer(c_int), public, parameter :: GRID_LAEA = 13
   integer(c_int), public, parameter :: GRID_SINUSOIDAL = 14
   integer(c_int), public, parameter :: GRID_PROJECTION = 15
+  integer(c_int), public, parameter :: GRID_ZONAL = 16
   integer(c_int), public, parameter :: ZAXIS_SURFACE = 0
   integer(c_int), public, parameter :: ZAXIS_GENERIC = 1
   integer(c_int), public, parameter :: ZAXIS_HYBRID = 2

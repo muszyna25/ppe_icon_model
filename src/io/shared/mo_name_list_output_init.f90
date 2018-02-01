@@ -35,7 +35,7 @@ MODULE mo_name_list_output_init
     &                                             gridDefXlongname, gridDefYlongname, taxisDefTunit,         &
     &                                             taxisDefCalendar, taxisDefRdate, taxisDefRtime,            &
     &                                             vlistDefTaxis, vlistDefAttTxt, CDI_GLOBAL, gridDefXpole,   &
-    &                                             gridDefYpole, vlistDefVarDblKey
+    &                                             gridDefYpole, vlistDefVarDblKey, GRID_ZONAL
   USE mo_kind,                              ONLY: wp, i8, dp, sp
   USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS,                   &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il,   &
@@ -1425,6 +1425,7 @@ CONTAINS
               p_of%cdiEdgeGridID   = CDI_UNDEFID
               p_of%cdiVertGridID   = CDI_UNDEFID
               p_of%cdiLonLatGridID = CDI_UNDEFID
+              p_of%cdiZonal1DegID  = CDI_UNDEFID
               p_of%cdiTaxisID      = CDI_UNDEFID
               p_of%cdiVlistID      = CDI_UNDEFID
 
@@ -2502,6 +2503,15 @@ CONTAINS
       CALL griddefxvals(of%cdiSingleGridID, (/0.0_wp/))
       CALL griddefyvals(of%cdiSingleGridID, (/0.0_wp/))
 
+      ! Zonal 1 degree grid
+      of%cdiZonal1DegID  = gridCreate(GRID_LONLAT,180)
+      CALL griddefxsize(of%cdiZonal1DegID, 1)
+      CALL griddefxvals(of%cdiZonal1DegID, (/0.0_wp/))
+      CALL griddefysize(of%cdiZonal1DegID, 180)
+      ALLOCATE(p_lonlat(180))
+      DO k=1,180; p_lonlat(k) = -90.5_wp + REAL(k,KIND=wp); END DO
+      CALL griddefyvals(of%cdiZonal1DegID, p_lonlat)
+      DEALLOCATE(p_lonlat)
 
       ! Verts
 
@@ -2674,6 +2684,8 @@ CONTAINS
         info%cdiGridID = of%cdiCellGridID
       CASE(GRID_LONLAT)
         info%cdiGridID = of%cdiSingleGridID
+      CASE(GRID_ZONAL)
+        info%cdiGridID = of%cdiZonal1DegID
       CASE(GRID_UNSTRUCTURED_VERT)
         info%cdiGridID = of%cdiVertGridID
       CASE(GRID_UNSTRUCTURED_EDGE)
