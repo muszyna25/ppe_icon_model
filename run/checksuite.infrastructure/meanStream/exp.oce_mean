@@ -38,7 +38,7 @@ ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-
 #icon_data_rootFolder=/pool/data/ICON
 #
 varnames="'so','zos','to','sea_surface_height','sea_water_salinity','sea_water_potential_temperature'"
-varnames="'so','zos','to'"
+varnames="'so','zos','to','global_moc'"
 # write namelist parameters
 # -------------------------
 cat > ${ocean_namelist} << EOF
@@ -50,6 +50,7 @@ cat > ${ocean_namelist} << EOF
 /
 &io_nml
 lnetcdf_flt64_output = .TRUE.
+lkeep_in_sync = .true.
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
