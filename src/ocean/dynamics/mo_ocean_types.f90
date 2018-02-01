@@ -204,7 +204,10 @@ MODULE mo_ocean_types
       & condep           ,&! convection depth index
       & h                ,&! dummy pointer for output variables 
       & Rossby_Radius    ,&      
-      & Wavespeed_baroclinic
+      & Wavespeed_baroclinic ,&
+      & global_moc       ,& ! MOC global
+      & atlantic_moc     ,& ! MOC atantic
+      & pacific_moc         ! MOC pacific
       
       
     onCells_Type(t_cartesian_coordinates) :: &
