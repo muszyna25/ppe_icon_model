@@ -524,7 +524,8 @@ CONTAINS
         & patch_2d%verts%owned,&
         & n_zlev)
 
-    CALL calc_fast_oce_diagnostics( patch_2d,      &
+    CALL calc_fast_oce_diagnostics( patch_2d, &
+        & patch_3d, &
         & patch_3d%p_patch_1d(1)%dolic_c, &
         & patch_3d%p_patch_1d(1)%prism_thick_c, &
         & patch_3d%p_patch_1d(1)%zlev_m, &
