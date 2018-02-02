@@ -413,7 +413,7 @@ MODULE mo_async_latbc
 
       TYPE (t_dictionary)           :: latbc_varnames_dict
       TYPE(t_netcdf_att_int)        :: opt_att(2)            ! optional attribute values
-      INTEGER                       :: ierrstat
+      INTEGER                       :: ierrstat, ic, idx_c, blk_c
       
       ! bcast_root is not used in this case
       bcast_root = 0
@@ -513,6 +513,19 @@ MODULE mo_async_latbc
           WRITE (0,'(3a,i0,a,i0,a)')      &
             &   " ", routine, ": ", COUNT(.NOT. latbc%patch_data%edges%pe_skip), " of ", num_work_procs, &
             &   " worker PEs are involved in the LATBC read-in."
+        END IF
+
+        IF (.NOT. my_process_is_pref()) THEN
+          ! consistency check: test if all nudging points are filled by
+          ! the LATBC read-in
+          DO ic=1,p_nh_state(1)%metrics%nudge_c_dim
+            idx_c = p_nh_state(1)%metrics%nudge_c_idx(ic)
+            blk_c = p_nh_state(1)%metrics%nudge_c_blk(ic)
+            IF (.NOT. latbc%patch_data%cells%read_mask(idx_c,blk_c)) THEN
+              CALL finish(routine, "Nudging zone width mismatch: "//&
+                &" Not all nudging points are filled by the LATBC READ-in.")
+            END IF
+          END DO
         END IF
 
       ELSE
