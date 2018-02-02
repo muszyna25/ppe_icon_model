@@ -17,7 +17,8 @@ MODULE mo_reorder_info
   USE mo_util_sort, ONLY: quicksort
 #ifdef HAVE_CDI_PIO
   USE yaxt, ONLY: xt_idxlist, xt_is_null, xt_idxvec_new, &
-       xt_idxlist_delete, xt_idxstripes_from_idxlist_new
+       xt_idxlist_delete, xt_idxstripes_from_idxlist_new, &
+       xt_int_kind
 #endif
   IMPLICIT NONE
   PRIVATE
@@ -213,7 +214,7 @@ CONTAINS
     END DO
 #ifdef HAVE_CDI_PIO
     ALLOCATE(ri%reorder_idxlst_xt(1))
-    idxvec = xt_idxvec_new(ri%reorder_index_own)
+    idxvec = xt_idxvec_new(int(ri%reorder_index_own, xt_int_kind))
     ri%reorder_idxlst_xt(1) = xt_idxstripes_from_idxlist_new(idxvec)
     CALL xt_idxlist_delete(idxvec)
 #endif
