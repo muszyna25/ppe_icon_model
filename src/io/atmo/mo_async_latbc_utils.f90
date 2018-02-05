@@ -875,8 +875,7 @@
     !!       subroutines:
     !!
     !!     convert_omega2w
-    !!     compute_input_pressure_and_height
-    !!     (both operating in the column only)
+    !!     (operating in the column only)
     !!
     !!
     !! @par Revision History
@@ -1126,8 +1125,10 @@
         CALL sync_patch_array(SYNC_C, p_patch, psfc)
 
         IF (.NOT. latbc%patch_data%cells%this_skip .OR. .NOT. latbc_config%lsparse_latbc) THEN
-          CALL compute_input_pressure_and_height(p_patch, psfc, phi_sfc, latbc%latbc_data(tlev))
+          CALL compute_input_pressure_and_height(p_patch, psfc, phi_sfc, latbc%latbc_data(tlev), &
+            &                                    opt_lmask=latbc%patch_data%cells%read_mask)
         END IF
+
       END IF
 
       IF (latbc%buffer%lconvert_omega2w) THEN
@@ -1141,6 +1142,7 @@
             &                  latbc%latbc_data(tlev)%atm_in%temp,  &
             &                  nblks_c, p_patch%npromz_c, nlev_in )
         END IF
+
       END IF
 
       ! cleanup

@@ -76,13 +76,15 @@ CONTAINS
   !  OUT: initicon%const%z_mc_in
   !       initicon%atm_in%pres
   !
-  SUBROUTINE compute_input_pressure_and_height(p_patch, psfc, phi_sfc, initicon)
+  SUBROUTINE compute_input_pressure_and_height(p_patch, psfc, phi_sfc, initicon, opt_lmask)
     TYPE(t_patch),          INTENT(IN)       :: p_patch
     REAL(wp),               INTENT(INOUT)    :: psfc(:,:)
-    REAL(wp),               INTENT(IN)       :: phi_sfc(:,:)
+    REAL(wp),               INTENT(INOUT)    :: phi_sfc(:,:)
     CLASS(t_init_state),    INTENT(INOUT)    :: initicon
+    LOGICAL, OPTIONAL,      INTENT(IN)       :: opt_lmask(:,:)
     ! LOCAL VARIABLES
     INTEGER :: jb, nlen, nlev_in
+    INTEGER :: jc, jc1, jb1
     REAL(wp), DIMENSION(nproma,initicon%atm_in%nlev  ) :: delp, rdelp, rdlnpr, rdalpha, geop_mc
     REAL(wp), DIMENSION(nproma,initicon%atm_in%nlev,p_patch%nblks_c) :: temp_v_in
     REAL(wp), DIMENSION(nproma,initicon%atm_in%nlev+1) :: pres_ic, lnp_ic, geop_ic
@@ -94,7 +96,51 @@ CONTAINS
                       initicon%atm_in%qi, initicon%atm_in%qr, initicon%atm_in%qs,            &
                       temp_v=temp_v_in)
 
+
     ! 1. Compute pressure and height of input data, using the IFS routines
+
+    ! If mask field is provided, fill data-void points (mask=.FALSE.) 
+    ! with dummy value.
+    IF (PRESENT(opt_lmask)) THEN
+      !
+      ! Detect first grid point for which the mask field is .true.
+      outer: DO jb = 1, p_patch%nblks_c
+        IF (jb /= p_patch%nblks_c) THEN
+          nlen = nproma
+        ELSE
+         nlen = p_patch%npromz_c
+        ENDIF
+        inner: DO jc = 1, nlen
+          IF (opt_lmask(jc,jb)) THEN
+            jc1 = jc
+            jb1 = jb
+            EXIT outer
+          ENDIF
+        ENDDO inner
+      ENDDO outer
+
+      ! Do filling for psfc, phi_sfc, temp_v_in
+!$OMP PARALLEL DO PRIVATE(jb,jc,nlen)
+      DO jb = 1,p_patch%nblks_c
+
+        IF (jb /= p_patch%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = p_patch%npromz_c
+        ENDIF
+
+        DO jc = 1, nlen
+          IF (.NOT. opt_lmask(jc,jb)) THEN
+            psfc(jc,jb)                = psfc(jc1,jb1)
+            phi_sfc(jc,jb)             = phi_sfc(jc1,jb1)
+            temp_v_in(jc,1:nlev_in,jb) = temp_v_in(jc1,1:nlev_in,jb1)
+          ENDIF
+        ENDDO
+      ENDDO  ! jb
+!$OMP END PARALLEL DO
+
+    ENDIF
+
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen, pres_ic, lnp_ic, geop_ic, delp, rdelp, rdlnpr, &
