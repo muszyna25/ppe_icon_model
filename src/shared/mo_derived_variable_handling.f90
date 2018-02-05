@@ -524,11 +524,21 @@ if (my_process_is_stdio()) write(0,*)'IS pROGNOSTIC:',TRIM(varlist(i))
       ! tackle 1d, 2d and 3d
       SELECT CASE(destination%field%info%ndims)
       CASE(3)
-        call add_fields(destination%field%r_ptr(:,:,:,1,1), &
-          &             source%field%r_ptr(:,:,:,1,1), &
-          &             destination%field%info%subset, &
-          &             has_missvals=destination%field%info%lmiss, &
-          &             missval=destination%field%info%missval%rval)
+       !hack for sea ice variables which uses vertical level for ice class
+        if (1 == destination%field%info%used_dimensions(2)) then
+          call add_fields(destination%field%r_ptr(:,:,:,1,1), &
+            &             source%field%r_ptr(:,:,:,1,1), &
+            &             destination%field%info%subset, &
+            &             levels=1, &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        else
+          call add_fields(destination%field%r_ptr(:,:,:,1,1), &
+            &             source%field%r_ptr(:,:,:,1,1), &
+            &             destination%field%info%subset, &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        endif
       CASE(2)
         IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
           call add_fields(destination%field%r_ptr(:,:,1,1,1), &
