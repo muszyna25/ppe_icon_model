@@ -64,6 +64,7 @@ MODULE mo_name_list_output_init
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference,                &
     &                                             sort_and_compress_list, real2string
+  USE mo_util_hash,                         ONLY: util_hashword
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
   USE mo_restart_attributes,                ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
@@ -189,12 +190,14 @@ MODULE mo_name_list_output_init
   PUBLIC :: setup_output_vlist
   PUBLIC :: collect_requested_ipz_levels
   PUBLIC :: create_vertical_axes
+  PUBLIC :: isRegistered
 
   !------------------------------------------------------------------------------------------------
 
   TYPE(t_output_file),   ALLOCATABLE, TARGET :: output_file(:)
   TYPE(t_patch_info),    ALLOCATABLE, TARGET :: patch_info (:)
   TYPE(t_patch_info_ll), ALLOCATABLE, TARGET :: lonlat_info(:,:)
+  TYPE(vector), SAVE                         :: outputRegiser
 
   ! Number of output domains. This depends on l_output_phys_patch and is either the number
   ! of physical or the number of logical domains.
@@ -325,6 +328,10 @@ CONTAINS
       nh_pzlev_config(jg)%ilevels%sort_smallest_first = .FALSE.
     END DO
 #endif
+
+    ! create variable of registering output variables. should be used later for
+    ! triggering computation only in case of output request
+    outputRegiser = vector(verbose=.FALSE.)
 
     ! -- Open input file and position to first namelist 'output_nml'
 
@@ -1951,6 +1958,9 @@ CONTAINS
           ! Check for matching name
           IF(tolower(varlist(ivar)) /= tolower(get_var_name(element%field))) CYCLE
 
+          ! register variable 
+          CALL registerOutputVariable(varlist(ivar))
+
           ! Found it, add it to the variable list of output file
           p_var_desc => var_desc
 
@@ -3122,7 +3132,21 @@ CONTAINS
     END DO
 
   END SUBROUTINE replicate_coordinate_data_on_io_procs
+  
+  SUBROUTINE registerOutputVariable(name)
+    CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: name
 
+    INTEGER :: key
+
+    key = util_hashword(TRIM(tolower(name)),LEN_TRIM(name),0)
+    CALL outputRegiser%add(key)
+  END SUBROUTINE registerOutputVariable
+
+  LOGICAL FUNCTION isRegistered(name)
+    CHARACTER(LEN=*), INTENT(IN) :: name
+
+    isRegistered = outputRegiser%includes(util_hashword(TRIM(tolower(name)),LEN_TRIM(name),0))
+  END FUNCTION
 
 #ifndef NOMPI
 
