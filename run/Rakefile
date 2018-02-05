@@ -913,6 +913,7 @@ class MeanAnalyzer < DataAnalyzer
           diff = @cdo.diffv(input: [ "-timmean #{timeSelectionRef}  #{delNans} -selname,#{varname} #{@spotFile}",
                                      "         #{timeSelectionMean} #{delNans} -selname,#{varname} #{@meanFile}" ].join(' '),
                            :options => '-L -s')
+          meanValueRange = "(%g)" % @cdo.timmean(input: "#{timeSelectionRef}  #{delNans} -selname,#{varname} #{@spotFile}",returnMaArray: varname).mean
 
           unless diff.empty? then
             # compute the difference 
@@ -927,7 +928,7 @@ class MeanAnalyzer < DataAnalyzer
 
             puts [varname.colorize(:red), "\t#{diff.join("\n\t")}".colorize(:yellow),"\t"+diffMax.colorize(:blue)]
           else
-            puts [varname.colorize(:green)].join
+            puts [varname.colorize(:green),meanValueRange.colorize(:blue)].join("\t")
           end
         }
 #     }
