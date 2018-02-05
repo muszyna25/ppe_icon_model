@@ -88,6 +88,7 @@ MODULE mo_ocean_diagnostics
   USE mo_zaxis_type,         ONLY: ZA_DEPTH_BELOW_SEA
   USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_sum
   USE mo_io_config,          ONLY: lnetcdf_flt64_output
+  USE mo_name_list_output_init, ONLY: isRegistered
 
   USE mtime,                 ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToPosixString
 
@@ -921,39 +922,49 @@ CONTAINS
       ! {{{ compute global mean values of:
       ! sea surface height
       ssh_global_mean = 0.0_wp
-      call levels_horizontal_mean( sea_surface_height, &
-          & patch_2d%cells%area(:,:), &
-          & owned_cells, &
-          & ssh_global_mean)
+      IF (isRegistered('ssh_global')) THEN
+        CALL levels_horizontal_mean( sea_surface_height, &
+            & patch_2d%cells%area(:,:), &
+            & owned_cells, &
+            & ssh_global_mean)
+      END IF
       monitor%ssh_global = ssh_global_mean
       ! total heat flux
       total_heat_flux = 0.0_wp
+      IF (isRegistered('HeatFlux_Total_Global')) THEN
       call levels_horizontal_mean( p_atm_f%HeatFlux_Total, &
           & patch_2d%cells%area(:,:), &
           & owned_cells, &
           & total_heat_flux)
+      END IF
       monitor%HeatFlux_Total = total_heat_flux
 
       ! total fresh water flux
       total_fresh_water_flux = 0.0_wp
+      IF (isRegistered('FrshFlux_Precipitation_Global')) THEN
       call levels_horizontal_mean( p_atm_f%FrshFlux_Precipitation, &
           & patch_2d%cells%area(:,:), &
           & owned_cells, &
           & total_fresh_water_flux)
+      END IF
       monitor%FrshFlux_Precipitation = total_fresh_water_flux
       ! total evaporation
       total_evaporation_flux = 0.0_wp
+      IF (isRegistered('FrshFlux_Evaporation_Global')) THEN
       call levels_horizontal_mean( p_atm_f%FrshFlux_Evaporation, &
           & patch_2d%cells%area(:,:), &
           & owned_cells, &
           & total_evaporation_flux)
+      END IF
       monitor%FrshFlux_Evaporation = total_evaporation_flux
       ! total runoff
       total_runoff_flux = 0.0_wp
+      IF (isRegistered('FrshFlux_Runoff_Global')) THEN
       call levels_horizontal_mean( p_atm_f%FrshFlux_Runoff, &
           & patch_2d%cells%area(:,:), &
           & owned_cells, &
           & total_runoff_flux)
+      END IF
       monitor%FrshFlux_Runoff = total_runoff_flux
       !}}}
 
