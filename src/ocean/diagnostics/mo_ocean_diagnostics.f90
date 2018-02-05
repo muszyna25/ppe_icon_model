@@ -63,7 +63,7 @@ MODULE mo_ocean_diagnostics
     &  t_ocean_region_areas, t_ocean_monitor
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text
-  USE mo_sea_ice_types,      ONLY: t_sea_ice
+  USE mo_sea_ice_types,      ONLY: t_atmos_fluxes, t_sea_ice
   USE mo_ocean_surface_types,ONLY: t_ocean_surface
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
@@ -522,7 +522,8 @@ CONTAINS
     INTEGER :: edge_2_of_cell_idx, edge_2_of_cell_blk
     INTEGER :: edge_3_of_cell_idx, edge_3_of_cell_blk
     INTEGER :: i_no_t, i
-    REAL(wp):: prism_vol, surface_height, prism_area, surface_area, z_w, ssh_global_mean
+    REAL(wp):: prism_vol, surface_height, prism_area, surface_area, z_w
+!   REAL(wp):: ssh_global_mean !TODO
     INTEGER :: reference_timestep
     TYPE(t_patch), POINTER :: patch_2d
     REAL(wp) :: sflux
@@ -677,13 +678,13 @@ CONTAINS
           monitor%HeatFlux_LongWave    = monitor%HeatFlux_LongWave    + surface_fluxes%HeatFlux_LongWave (jc,blockNo)*prism_area
           monitor%HeatFlux_Sensible    = monitor%HeatFlux_Sensible    + surface_fluxes%HeatFlux_Sensible (jc,blockNo)*prism_area
           monitor%HeatFlux_Latent      = monitor%HeatFlux_Latent      + surface_fluxes%HeatFlux_Latent   (jc,blockNo)*prism_area
-          monitor%HeatFlux_Total       = monitor%HeatFlux_Total       + surface_fluxes%HeatFlux_Total    (jc,blockNo)*prism_area
-          monitor%FrshFlux_Precipitation  = monitor%FrshFlux_Precipitation  + &
-            & surface_fluxes%FrshFlux_Precipitation(jc,blockNo)*prism_area
+!TODO          monitor%HeatFlux_Total       = monitor%HeatFlux_Total       + surface_fluxes%HeatFlux_Total    (jc,blockNo)*prism_area
+!TODO         monitor%FrshFlux_Precipitation  = monitor%FrshFlux_Precipitation  + &
+!TODO           & surface_fluxes%FrshFlux_Precipitation(jc,blockNo)*prism_area
           monitor%FrshFlux_SnowFall    = monitor%FrshFlux_SnowFall    + surface_fluxes%FrshFlux_SnowFall(jc,blockNo)*prism_area
-          monitor%FrshFlux_Evaporation    = monitor%FrshFlux_Evaporation    + &
-            & surface_fluxes%FrshFlux_Evaporation(jc,blockNo)*prism_area
-          monitor%FrshFlux_Runoff  = monitor%FrshFlux_Runoff  + surface_fluxes%FrshFlux_Runoff(jc,blockNo)*prism_area
+!TODO         monitor%FrshFlux_Evaporation    = monitor%FrshFlux_Evaporation    + &
+!TODO           & surface_fluxes%FrshFlux_Evaporation(jc,blockNo)*prism_area
+!TODO          monitor%FrshFlux_Runoff  = monitor%FrshFlux_Runoff  + surface_fluxes%FrshFlux_Runoff(jc,blockNo)*prism_area
           monitor%FrshFlux_TotalSalt   = monitor%FrshFlux_TotalSalt   + surface_fluxes%FrshFlux_TotalSalt(jc,blockNo)*prism_area
           monitor%FrshFlux_TotalOcean    = monitor%FrshFlux_TotalOcean    + &
             & surface_fluxes%FrshFlux_TotalOcean(jc,blockNo)*prism_area
@@ -760,12 +761,12 @@ CONTAINS
     monitor%vorticity                  = global_sum_array(monitor%vorticity)
 
 
-  ! ssh_global_mean = 0.0_wp
-  ! call levels_horizontal_mean( ocean_state%p_prog(nnew(1))%h(:,:), &
-  !   & patch_2d%cells%area(:,:), &
-  !   & owned_cells, &
-  !   & ssh_global_mean)
-  ! monitor%ssh_global = ssh_global_mean
+  !TODO ssh_global_mean = 0.0_wp
+  !TODO call levels_horizontal_mean( ocean_state%p_prog(nnew(1))%h(:,:), &
+  !TODO   & patch_2d%cells%area(:,:), &
+  !TODO   & owned_cells, &
+  !TODO   & ssh_global_mean)
+  !TODO monitor%ssh_global = ssh_global_mean
 
     monitor%potential_enstrophy        = global_sum_array(monitor%potential_enstrophy)
     monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)/surface_area
@@ -775,11 +776,11 @@ CONTAINS
       monitor%HeatFlux_LongWave          = global_sum_array(monitor%HeatFlux_LongWave )/surface_area
       monitor%HeatFlux_Sensible          = global_sum_array(monitor%HeatFlux_Sensible )/surface_area
       monitor%HeatFlux_Latent            = global_sum_array(monitor%HeatFlux_Latent   )/surface_area
-      monitor%HeatFlux_Total             = global_sum_array(monitor%HeatFlux_Total    )/surface_area
-      monitor%FrshFlux_Precipitation     = global_sum_array(monitor%FrshFlux_Precipitation)/surface_area
+!TODO     monitor%HeatFlux_Total             = global_sum_array(monitor%HeatFlux_Total    )/surface_area
+!TODO     monitor%FrshFlux_Precipitation     = global_sum_array(monitor%FrshFlux_Precipitation)/surface_area
+!TODO     monitor%FrshFlux_Evaporation       = global_sum_array(monitor%FrshFlux_Evaporation)/surface_area
+!TODO     monitor%FrshFlux_Runoff            = global_sum_array(monitor%FrshFlux_Runoff)/surface_area
       monitor%FrshFlux_SnowFall          = global_sum_array(monitor%FrshFlux_SnowFall)/surface_area
-      monitor%FrshFlux_Evaporation       = global_sum_array(monitor%FrshFlux_Evaporation)/surface_area
-      monitor%FrshFlux_Runoff            = global_sum_array(monitor%FrshFlux_Runoff)/surface_area
       monitor%FrshFlux_TotalSalt         = global_sum_array(monitor%FrshFlux_TotalSalt)/surface_area
       monitor%FrshFlux_TotalOcean        = global_sum_array(monitor%FrshFlux_TotalOcean)/surface_area
       monitor%FrshFlux_TotalIce          = global_sum_array(monitor%FrshFlux_TotalIce)/surface_area
@@ -863,20 +864,23 @@ CONTAINS
 
 !<Optimize:inUse>
   SUBROUTINE calc_fast_oce_diagnostics(patch_2d, patch_3d, dolic, prism_thickness, depths, &
-          &  p_diag, sea_surface_height, tracers)
+          &  p_diag, sea_surface_height, tracers, p_atm_f, sea_ice)
     TYPE(t_patch ),TARGET :: patch_2d
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)  :: patch_3d
-    INTEGER,  POINTER :: dolic(:,:)
-    REAL(wp), POINTER :: prism_thickness(:,:,:)
-    REAL(wp), INTENT(in)              :: depths(:)
-    TYPE(t_hydro_ocean_diag), TARGET :: p_diag
-    REAL(wp), POINTER :: sea_surface_height(:,:)
-    REAL(wp), POINTER :: tracers(:,:,:,:)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    INTEGER,  POINTER                       :: dolic(:,:)
+    REAL(wp), POINTER                       :: prism_thickness(:,:,:)
+    REAL(wp), INTENT(in)                    :: depths(:)
+    TYPE(t_hydro_ocean_diag), TARGET        :: p_diag
+    REAL(wp), POINTER                       :: sea_surface_height(:,:)
+    REAL(wp), POINTER                       :: tracers(:,:,:,:)
+    TYPE(t_atmos_fluxes ),    INTENT(IN)    :: p_atm_f
+    TYPE(t_sea_ice),          INTENT(inout) :: sea_ice
 
     !Local variables
     INTEGER :: start_cell_index, end_cell_index!,i_startblk_c, i_endblk_c,
     INTEGER :: jk,jc,blockNo!,je
-    REAL(wp):: ssh_global_mean
+    REAL(wp):: ssh_global_mean,total_runoff_flux,total_heat_flux, &
+      &        total_fresh_water_flux,total_evaporation_flux
 
     TYPE(t_subset_range), POINTER :: owned_cells
     TYPE(t_ocean_monitor),  POINTER :: monitor
@@ -914,13 +918,44 @@ CONTAINS
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
-      ! compute global mean sea surface height
+      ! {{{ compute global mean values of:
+      ! sea surface height
       ssh_global_mean = 0.0_wp
       call levels_horizontal_mean( sea_surface_height, &
           & patch_2d%cells%area(:,:), &
           & owned_cells, &
           & ssh_global_mean)
       monitor%ssh_global = ssh_global_mean
+      ! total heat flux
+      total_heat_flux = 0.0_wp
+      call levels_horizontal_mean( p_atm_f%HeatFlux_Total, &
+          & patch_2d%cells%area(:,:), &
+          & owned_cells, &
+          & total_heat_flux)
+      monitor%HeatFlux_Total = total_heat_flux
+
+      ! total fresh water flux
+      total_fresh_water_flux = 0.0_wp
+      call levels_horizontal_mean( p_atm_f%FrshFlux_Precipitation, &
+          & patch_2d%cells%area(:,:), &
+          & owned_cells, &
+          & total_fresh_water_flux)
+      monitor%FrshFlux_Precipitation = total_fresh_water_flux
+      ! total evaporation
+      total_evaporation_flux = 0.0_wp
+      call levels_horizontal_mean( p_atm_f%FrshFlux_Evaporation, &
+          & patch_2d%cells%area(:,:), &
+          & owned_cells, &
+          & total_evaporation_flux)
+      monitor%FrshFlux_Evaporation = total_evaporation_flux
+      ! total runoff
+      total_runoff_flux = 0.0_wp
+      call levels_horizontal_mean( p_atm_f%FrshFlux_Runoff, &
+          & patch_2d%cells%area(:,:), &
+          & owned_cells, &
+          & total_runoff_flux)
+      monitor%FrshFlux_Runoff = total_runoff_flux
+      !}}}
 
       ! calc moc each timestep from non-accumulated vertical veloc
       CALL calc_moc (patch_2d, patch_3d, &
@@ -1839,11 +1874,11 @@ CONTAINS
     monitor%HeatFlux_LongWave(:)          = 0.0_wp
     monitor%HeatFlux_Sensible(:)          = 0.0_wp
     monitor%HeatFlux_Latent(:)            = 0.0_wp
-    monitor%HeatFlux_Total(:)             = 0.0_wp
-    monitor%FrshFlux_Precipitation(:)     = 0.0_wp
+!TODO   monitor%HeatFlux_Total(:)             = 0.0_wp
+!TODO   monitor%FrshFlux_Precipitation(:)     = 0.0_wp
+!TODO   monitor%FrshFlux_Evaporation(:)       = 0.0_wp
+!TODO   monitor%FrshFlux_Runoff(:)            = 0.0_wp
     monitor%FrshFlux_SnowFall(:)          = 0.0_wp
-    monitor%FrshFlux_Evaporation(:)       = 0.0_wp
-    monitor%FrshFlux_Runoff(:)            = 0.0_wp
     monitor%FrshFlux_TotalSalt(:)         = 0.0_wp
     monitor%FrshFlux_TotalOcean(:)        = 0.0_wp
     monitor%FrshFlux_TotalIce(:)          = 0.0_wp

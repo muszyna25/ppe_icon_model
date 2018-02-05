@@ -531,7 +531,9 @@ CONTAINS
         & patch_3d%p_patch_1d(1)%zlev_m, &
         & ocean_state(jg)%p_diag, &
         & ocean_state(jg)%p_prog(nnew(1))%h, &
-        & ocean_state(jg)%p_prog(nnew(1))%tracer) 
+        & ocean_state(jg)%p_prog(nnew(1))%tracer, &
+        & p_atm_f, &
+        & sea_ice) 
 
 
       stop_detail_timer(timer_extra20,5)
