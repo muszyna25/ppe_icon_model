@@ -53,6 +53,7 @@ MODULE mo_ocean_state
     &                               grid_vertex
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch,t_patch_3d, t_grid_cells, t_grid_edges
+  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, grid_sphere_radius, grid_angular_velocity, &
     & use_dummy_cell_closure
   USE mo_dynamics_config,     ONLY: nnew,nold
@@ -500,7 +501,8 @@ CONTAINS
     INTEGER :: oce_tracer_codes(max_oce_tracer)
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_ocean_state:construct_hydro_ocean_diag'
-    INTEGER :: datatype_flt
+    INTEGER :: datatype_flt, jc, blockNo
+    TYPE(t_subset_range), POINTER :: owned_cells
 
     IF ( lnetcdf_flt64_output ) THEN
       datatype_flt = DATATYPE_FLT64
@@ -1205,10 +1207,38 @@ CONTAINS
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
    CALL add_var(ocean_default_list,'Wavespeed_baroclinic',ocean_state_diag%Wavespeed_baroclinic,grid_unstructured_cell,&
-      & za_depth_below_sea, &
+      & za_surface, &
       & t_cf_var('temp_insitu', 'm', 'Baroclinic wavespeed', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+
+   ! masks for northern and southern part of the earth {{{
+   CALL add_var(ocean_default_list,'northernHemisphere',ocean_state_diag%northernHemisphere,&
+      & grid_unstructured_cell,&
+      & za_surface, &
+      & t_cf_var('northern_hemisphere', '', 'northern hemisphere ', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),loutput=.FALSE.)
+   CALL add_var(ocean_default_list,'southernHemisphere',ocean_state_diag%southernHemisphere, &
+      & grid_unstructured_cell,&
+      & za_surface, &
+      & t_cf_var('southern_hemisphere', '', 'southern hemisphere ', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),loutput=.FALSE.)
+   owned_cells    => patch_2d%cells%owned
+   DO blockNo = owned_cells%start_block, owned_cells%end_block
+     CALL get_index_range(owned_cells, blockNo, start_cell_index, end_cell_index)
+     DO jc =  start_cell_index, end_cell_index
+       IF (patch_2d%cells%center(jc,blockNo)%lat > equator) THEN
+         ocean_state_diag%northernHemisphere  = 1
+         ocean_state_diag%southernHemisphere  = 0
+       ELSE
+         ocean_state_diag%northernHemisphere  = 0
+         ocean_state_diag%southernHemisphere  = 1
+       END IF
+     END DO
+   END DO
+   !}}}
 
    CALL add_var(ocean_default_list,'osaltGMRedi',ocean_state_diag%osaltGMRedi,grid_unstructured_cell,&
       & za_depth_below_sea, &

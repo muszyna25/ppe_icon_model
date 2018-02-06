@@ -209,6 +209,9 @@ MODULE mo_ocean_types
       & atlantic_moc     ,& ! MOC atantic
       & pacific_moc         ! MOC pacific
       
+   onCells_2D :: &
+      & northernHemisphere ,&
+      & southernHemisphere
       
     onCells_Type(t_cartesian_coordinates) :: &
       & p_vn              ! reconstructed velocity at cell center in cartesian coordinates

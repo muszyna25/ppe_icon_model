@@ -929,6 +929,7 @@ CONTAINS
             & ssh_global_mean)
       END IF
       monitor%ssh_global = ssh_global_mean
+
       ! total heat flux
       total_heat_flux = 0.0_wp
       IF (isRegistered('HeatFlux_Total_Global')) THEN
@@ -948,6 +949,7 @@ CONTAINS
           & total_fresh_water_flux)
       END IF
       monitor%FrshFlux_Precipitation = total_fresh_water_flux
+
       ! total evaporation
       total_evaporation_flux = 0.0_wp
       IF (isRegistered('FrshFlux_Evaporation_Global')) THEN
@@ -957,6 +959,7 @@ CONTAINS
           & total_evaporation_flux)
       END IF
       monitor%FrshFlux_Evaporation = total_evaporation_flux
+
       ! total runoff
       total_runoff_flux = 0.0_wp
       IF (isRegistered('FrshFlux_Runoff_Global')) THEN
@@ -966,6 +969,44 @@ CONTAINS
           & total_runoff_flux)
       END IF
       monitor%FrshFlux_Runoff = total_runoff_flux
+
+      ! ice volume and extend
+      ice_volume_nh = 0.0_wp
+      IF (isRegistered('ice_volume_nh')) THEN
+      call levels_horizontal_mean( SUM(ice%vol,2)*p_diag%northernHemisphere(:,:)
+          & patch_2d%cells%area(:,:), & !TODO: no weigting needed
+          & owned_cells, &
+          & ice_volume_nh)
+      END IF
+      monitor%ice_volume_nh = ice_volume_nh
+
+      ice_volume_sh = 0.0_wp
+      IF (isRegistered('ice_volume_sh')) THEN
+      call levels_horizontal_mean( SUM(ice%vol,2)*p_diag%southernHemisphere(:,:)
+          & patch_2d%cells%area(:,:), & !TODO: no weigting needed
+          & owned_cells, &
+          & ice_volume_sh)
+      END IF
+      monitor%ice_volume_sh = ice_volume_sh
+
+      ice_extent_nh = 0.0_wp
+      IF (isRegistered('ice_extent_nh')) THEN
+      call levels_horizontal_mean( ice%concsum(:,:)*p_diag%northernHemisphere(:,:)
+          & patch_2d%cells%area(:,:), &
+          & owned_cells, &
+          & ice_extent_nh)
+      END IF
+      monitor%ice_extent_nh = ice_extent_nh
+
+      ice_extent_sh = 0.0_wp
+      IF (isRegistered('ice_extent_sh')) THEN
+      call levels_horizontal_mean( ice%concsum(:,:)*p_diag%northernHemisphere(:,:)
+          & patch_2d%cells%area(:,:), &
+          & owned_cells, &
+          & ice_extent_sh)
+      END IF
+      monitor%ice_extent_sh = ice_extent_sh
+
       !}}}
 
       ! calc moc each timestep from non-accumulated vertical veloc
