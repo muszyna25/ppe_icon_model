@@ -304,7 +304,7 @@ CASE (3) ! (cell_type == 3)
 !$ACC PRESENT( ptr_patch, z_rot_v, z_div_c, nabla2_vec_e ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -849,7 +849,7 @@ ELSE
 !$ACC PRESENT( ptr_patch, ptr_int, psi_c, nabla2_psi_c ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -1122,7 +1122,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !$ACC PRESENT( ptr_patch, ptr_int, psi_c, aux_c ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -1183,7 +1183,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !$ACC PRESENT( ptr_patch, ptr_int, avg_coeff, aux_c, nabla2_psi_c ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
 #endif

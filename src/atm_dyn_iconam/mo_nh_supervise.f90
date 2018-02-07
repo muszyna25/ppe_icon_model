@@ -668,7 +668,7 @@ CONTAINS
 
 #ifdef _OPENACC
 !$ACC PARALLEL PRESENT( patch, vn, vn_aux ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -686,7 +686,7 @@ CONTAINS
 #ifdef _OPENACC
 !$ACC END PARALLEL
 !$ACC PARALLEL PRESENT( patch, w, w_aux ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP END DO
 !$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
