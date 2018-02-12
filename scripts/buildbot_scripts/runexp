@@ -172,7 +172,8 @@ run_scripts_submit()
                   echo 0 > ${EXP_FILE}.status
               ;;
               *)
-                  echo 191 > ${EXP_FILE}.status                  
+                  echo "$job_state" > ${EXP_FILE}.status
+                  echo 191 > ${EXP_FILE}.status         
               ;;
           esac    
       fi
