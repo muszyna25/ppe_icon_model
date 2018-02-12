@@ -906,7 +906,7 @@ set_run_target_daint_cpu()
   else
     job_type=parallel
     tasks_per_node=$use_mpi_procs_pernode
-    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=2"
+    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=6"
   fi
 
   if [[ "x$BB_SYSTEM" != "x" ]]; then

@@ -237,10 +237,12 @@ case "$ac_sitename" in
                 case "$fortran_compiler" in
                     gcc)
                         config_target=daint_cpu
-                        load_modules =modules craype daint-gpu PrgEnv-gnu cray-netcdf
+                        load_modules =modules craype daint-gpu PrgEnv-gnu cray-netcdf cray-hdf5
                         CFLAGS      = -DgFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
                         NETCDFROOT  = ${NETCDF_DIR}
-                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/gnu
+                        HDF5ROOT    = ${HDF5_DIR}
+                        LAPACKROOT    = ${CRAY_LIBSCI_PREFIX_DIR}
+                        LAPACK_LIB    = -lsci_gnu
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/GNU/5.3.0/lib -ljasper -dynamic -L/usr/lib64 -llzma
 			;;
                     intel)
@@ -271,8 +273,6 @@ case "$ac_sitename" in
                         LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
                         LAPACK_LIB  = -lsci_cray
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -dynamic -L/usr/lib64 -llzma -lpgas-dmapp
-                        #SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/cray
-                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2_cce8.5.5
                         ;;
                     cray_gpu)
                         config_target=daint_gpu
@@ -284,8 +284,6 @@ case "$ac_sitename" in
                         LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
                         LAPACK_LIB  = -lsci_cray
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -llzma -lpgas-dmapp
-                        #SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/cray
-                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2_cce8.5.5
 			                  ;;
                     *)
                         echo
