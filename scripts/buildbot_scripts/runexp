@@ -162,8 +162,14 @@ run_scripts_submit()
 
       if [[ "$batch_system" = "slurm" ]]
       then
+          sleep 15
           slurm_jobid=${job_submitted["$EXP_FILE"]}
-          job_state=`sacct -j ${slurm_jobid} -n -o jobid,state,exitcode | awk 'NR==1{print $2}'`
+          job_state=COMPLETING
+          while [[ "${job_state}" = "COMPLETING" || "${job_state}" = "RUNNING" ]]
+          do
+              sleep 5
+              job_state=`sacct -j ${slurm_jobid} -n -o jobid,state,exitcode | awk 'NR==1{print $2}'`
+          done
           case "$job_state" in
               TIMEOUT)
                   echo 127 > ${EXP_FILE}.status
@@ -172,7 +178,6 @@ run_scripts_submit()
                   echo 0 > ${EXP_FILE}.status
               ;;
               *)
-                  echo "$job_state" > ${EXP_FILE}.status
                   echo 191 > ${EXP_FILE}.status         
               ;;
           esac    
