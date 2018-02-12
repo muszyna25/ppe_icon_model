@@ -273,6 +273,7 @@ case "$ac_sitename" in
                         LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
                         LAPACK_LIB  = -lsci_cray
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -dynamic -L/usr/lib64 -llzma -lpgas-dmapp
+                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2_cce8.5.5
                         ;;
                     cray_gpu)
                         config_target=daint_gpu
@@ -284,6 +285,7 @@ case "$ac_sitename" in
                         LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
                         LAPACK_LIB  = -lsci_cray
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -llzma -lpgas-dmapp
+                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2_cce8.5.5
 			                  ;;
                     *)
                         echo
