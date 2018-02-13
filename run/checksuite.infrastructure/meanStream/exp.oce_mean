@@ -37,7 +37,7 @@ ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-
 #-----------------------------------------------------------------------------
 #icon_data_rootFolder=/pool/data/ICON
 #
-varnames="'so','zos','to','global_moc','HeatFlux_Total_Global','FrshFlux_Evaporation_Global','FrshFlux_Runoff_Global','FrshFlux_Precipitation_Global','Qtop'"
+varnames="'so','zos','to','global_moc','HeatFlux_Total_Global','FrshFlux_Evaporation_Global','FrshFlux_Runoff_Global','FrshFlux_Precipitation_Global','Qtop','ice_volume_nh','ice_volume_sh','ice_extent_nh','ice_extent_sh'"
 # write namelist parameters
 # -------------------------
 cat > ${ocean_namelist} << EOF
@@ -188,7 +188,7 @@ lkeep_in_sync = .true.
   operation        = "mean"
 /
 &dbg_index_nml
-  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=2                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
