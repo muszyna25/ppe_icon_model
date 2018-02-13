@@ -679,13 +679,7 @@ CONTAINS
           monitor%HeatFlux_LongWave    = monitor%HeatFlux_LongWave    + surface_fluxes%HeatFlux_LongWave (jc,blockNo)*prism_area
           monitor%HeatFlux_Sensible    = monitor%HeatFlux_Sensible    + surface_fluxes%HeatFlux_Sensible (jc,blockNo)*prism_area
           monitor%HeatFlux_Latent      = monitor%HeatFlux_Latent      + surface_fluxes%HeatFlux_Latent   (jc,blockNo)*prism_area
-!TODO          monitor%HeatFlux_Total       = monitor%HeatFlux_Total       + surface_fluxes%HeatFlux_Total    (jc,blockNo)*prism_area
-!TODO         monitor%FrshFlux_Precipitation  = monitor%FrshFlux_Precipitation  + &
-!TODO           & surface_fluxes%FrshFlux_Precipitation(jc,blockNo)*prism_area
           monitor%FrshFlux_SnowFall    = monitor%FrshFlux_SnowFall    + surface_fluxes%FrshFlux_SnowFall(jc,blockNo)*prism_area
-!TODO         monitor%FrshFlux_Evaporation    = monitor%FrshFlux_Evaporation    + &
-!TODO           & surface_fluxes%FrshFlux_Evaporation(jc,blockNo)*prism_area
-!TODO          monitor%FrshFlux_Runoff  = monitor%FrshFlux_Runoff  + surface_fluxes%FrshFlux_Runoff(jc,blockNo)*prism_area
           monitor%FrshFlux_TotalSalt   = monitor%FrshFlux_TotalSalt   + surface_fluxes%FrshFlux_TotalSalt(jc,blockNo)*prism_area
           monitor%FrshFlux_TotalOcean    = monitor%FrshFlux_TotalOcean    + &
             & surface_fluxes%FrshFlux_TotalOcean(jc,blockNo)*prism_area
@@ -697,16 +691,6 @@ CONTAINS
           monitor%FrshFlux_Relax = monitor%FrshFlux_Relax + surface_fluxes%FrshFlux_Relax(jc,blockNo)*prism_area
           monitor%TempFlux_Relax = monitor%TempFlux_Relax + surface_fluxes%TempFlux_Relax(jc,blockNo)*prism_area
           monitor%SaltFlux_Relax = monitor%SaltFlux_Relax + surface_fluxes%SaltFlux_Relax(jc,blockNo)*prism_area
-
-          ! northern hemisphere
-          IF (patch_2d%cells%center(jc,blockNo)%lat > equator) THEN
-            monitor%ice_volume_nh  = monitor%ice_volume_nh + SUM(ice%vol(jc,:,blockNo))!prism_area*SUM(ice%vol(jc,:,blockNo))*ice%conc(jc,:,blockNo))
-            monitor%ice_extent_nh  = monitor%ice_extent_nh + ice%concsum(jc,blockNo)*prism_area
-          ELSE
-            ! southern hemisphere
-            monitor%ice_volume_sh  = monitor%ice_volume_sh + SUM(ice%vol(jc,:,blockNo))!prism_area*SUM(ice%vol(jc,:,blockNo))*ice%conc(jc,:,blockNo))
-            monitor%ice_extent_sh  = monitor%ice_extent_sh + ice%concsum(jc,blockNo)*prism_area
-          END IF
 
           ! ice budgets
           ! heat
@@ -762,12 +746,6 @@ CONTAINS
     monitor%vorticity                  = global_sum_array(monitor%vorticity)
 
 
-  !TODO ssh_global_mean = 0.0_wp
-  !TODO call levels_horizontal_mean( ocean_state%p_prog(nnew(1))%h(:,:), &
-  !TODO   & patch_2d%cells%area(:,:), &
-  !TODO   & owned_cells, &
-  !TODO   & ssh_global_mean)
-  !TODO monitor%ssh_global = ssh_global_mean
 
     monitor%potential_enstrophy        = global_sum_array(monitor%potential_enstrophy)
     monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)/surface_area
@@ -777,10 +755,6 @@ CONTAINS
       monitor%HeatFlux_LongWave          = global_sum_array(monitor%HeatFlux_LongWave )/surface_area
       monitor%HeatFlux_Sensible          = global_sum_array(monitor%HeatFlux_Sensible )/surface_area
       monitor%HeatFlux_Latent            = global_sum_array(monitor%HeatFlux_Latent   )/surface_area
-!TODO     monitor%HeatFlux_Total             = global_sum_array(monitor%HeatFlux_Total    )/surface_area
-!TODO     monitor%FrshFlux_Precipitation     = global_sum_array(monitor%FrshFlux_Precipitation)/surface_area
-!TODO     monitor%FrshFlux_Evaporation       = global_sum_array(monitor%FrshFlux_Evaporation)/surface_area
-!TODO     monitor%FrshFlux_Runoff            = global_sum_array(monitor%FrshFlux_Runoff)/surface_area
       monitor%FrshFlux_SnowFall          = global_sum_array(monitor%FrshFlux_SnowFall)/surface_area
       monitor%FrshFlux_TotalSalt         = global_sum_array(monitor%FrshFlux_TotalSalt)/surface_area
       monitor%FrshFlux_TotalOcean        = global_sum_array(monitor%FrshFlux_TotalOcean)/surface_area
@@ -793,12 +767,6 @@ CONTAINS
       monitor%TempFlux_Relax             = global_sum_array(monitor%TempFlux_Relax)/surface_area
     ENDIF
 
-    IF (i_sea_ice >= 1) THEN
-      monitor%ice_volume_nh              = global_sum_array(monitor%ice_volume_nh)/1.0e9_wp
-      monitor%ice_volume_sh              = global_sum_array(monitor%ice_volume_sh)/1.0e9_wp
-      monitor%ice_extent_nh              = global_sum_array(monitor%ice_extent_nh)/1.0e6_wp
-      monitor%ice_extent_sh              = global_sum_array(monitor%ice_extent_sh)/1.0e6_wp
-    ENDIF
     CALL enable_sync_checks()
 
     ! fluxes through given paths
@@ -865,7 +833,7 @@ CONTAINS
 
 !<Optimize:inUse>
   SUBROUTINE calc_fast_oce_diagnostics(patch_2d, patch_3d, dolic, prism_thickness, depths, &
-          &  p_diag, sea_surface_height, tracers, p_atm_f, sea_ice)
+          &  p_diag, sea_surface_height, tracers, p_atm_f, ice)
     TYPE(t_patch ),TARGET :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     INTEGER,  POINTER                       :: dolic(:,:)
@@ -875,13 +843,14 @@ CONTAINS
     REAL(wp), POINTER                       :: sea_surface_height(:,:)
     REAL(wp), POINTER                       :: tracers(:,:,:,:)
     TYPE(t_atmos_fluxes ),    INTENT(IN)    :: p_atm_f
-    TYPE(t_sea_ice),          INTENT(inout) :: sea_ice
+    TYPE(t_sea_ice),          INTENT(inout) :: ice
 
     !Local variables
     INTEGER :: start_cell_index, end_cell_index!,i_startblk_c, i_endblk_c,
     INTEGER :: jk,jc,blockNo!,je
     REAL(wp):: ssh_global_mean,total_runoff_flux,total_heat_flux, &
-      &        total_fresh_water_flux,total_evaporation_flux
+      &        total_fresh_water_flux,total_evaporation_flux, &
+      &        ice_volume_nh, ice_volume_sh, ice_extent_nh, ice_extent_sh
 
     TYPE(t_subset_range), POINTER :: owned_cells
     TYPE(t_ocean_monitor),  POINTER :: monitor
@@ -973,39 +942,31 @@ CONTAINS
       ! ice volume and extend
       ice_volume_nh = 0.0_wp
       IF (isRegistered('ice_volume_nh')) THEN
-      call levels_horizontal_mean( SUM(ice%vol,2)*p_diag%northernHemisphere(:,:)
-          & patch_2d%cells%area(:,:), & !TODO: no weigting needed
-          & owned_cells, &
-          & ice_volume_nh)
+      ice_volume_nh = subset_sum( ice%vol(:,1,:)*p_diag%northernHemisphere(:,:), &
+          & owned_cells )
       END IF
-      monitor%ice_volume_nh = ice_volume_nh
+      monitor%ice_volume_nh = ice_volume_nh/1.0e9_wp !scaling to km^3
 
       ice_volume_sh = 0.0_wp
       IF (isRegistered('ice_volume_sh')) THEN
-      call levels_horizontal_mean( SUM(ice%vol,2)*p_diag%southernHemisphere(:,:)
-          & patch_2d%cells%area(:,:), & !TODO: no weigting needed
-          & owned_cells, &
-          & ice_volume_sh)
+      ice_volume_sh = subset_sum( ice%vol(:,1,:)*p_diag%southernHemisphere(:,:), &
+          & owned_cells)
       END IF
-      monitor%ice_volume_sh = ice_volume_sh
+      monitor%ice_volume_sh = ice_volume_sh/1.0e9_wp !scaling to km^3
 
       ice_extent_nh = 0.0_wp
       IF (isRegistered('ice_extent_nh')) THEN
-      call levels_horizontal_mean( ice%concsum(:,:)*p_diag%northernHemisphere(:,:)
-          & patch_2d%cells%area(:,:), &
-          & owned_cells, &
-          & ice_extent_nh)
+      ice_extent_nh = subset_sum( ice%concsum*p_diag%northernHemisphere*patch_2d%cells%area, &
+          & owned_cells)
       END IF
-      monitor%ice_extent_nh = ice_extent_nh
+      monitor%ice_extent_nh = ice_extent_nh/1.0e6_wp !scaling to km^2
 
       ice_extent_sh = 0.0_wp
       IF (isRegistered('ice_extent_sh')) THEN
-      call levels_horizontal_mean( ice%concsum(:,:)*p_diag%northernHemisphere(:,:)
-          & patch_2d%cells%area(:,:), &
-          & owned_cells, &
-          & ice_extent_sh)
+      ice_extent_sh = subset_sum( ice%concsum*p_diag%southernHemisphere*patch_2d%cells%area, &
+          & owned_cells)
       END IF
-      monitor%ice_extent_sh = ice_extent_sh
+      monitor%ice_extent_sh = ice_extent_sh/1.0e6_wp !scaling to km^2
 
       !}}}
 
@@ -1926,10 +1887,6 @@ CONTAINS
     monitor%HeatFlux_LongWave(:)          = 0.0_wp
     monitor%HeatFlux_Sensible(:)          = 0.0_wp
     monitor%HeatFlux_Latent(:)            = 0.0_wp
-!TODO   monitor%HeatFlux_Total(:)             = 0.0_wp
-!TODO   monitor%FrshFlux_Precipitation(:)     = 0.0_wp
-!TODO   monitor%FrshFlux_Evaporation(:)       = 0.0_wp
-!TODO   monitor%FrshFlux_Runoff(:)            = 0.0_wp
     monitor%FrshFlux_SnowFall(:)          = 0.0_wp
     monitor%FrshFlux_TotalSalt(:)         = 0.0_wp
     monitor%FrshFlux_TotalOcean(:)        = 0.0_wp
@@ -1940,10 +1897,6 @@ CONTAINS
     monitor%FrshFlux_Relax(:)             = 0.0_wp
     monitor%TempFlux_Relax(:)             = 0.0_wp
     monitor%SaltFlux_Relax(:)             = 0.0_wp
-    monitor%ice_volume_nh(:)              = 0.0_wp
-    monitor%ice_volume_sh(:)              = 0.0_wp
-    monitor%ice_extent_nh(:)              = 0.0_wp
-    monitor%ice_extent_sh(:)              = 0.0_wp
     monitor%ice_framStrait(:)             = 0.0_wp
     monitor%florida_strait(:)             = 0.0_wp
     monitor%gibraltar(:)                  = 0.0_wp
