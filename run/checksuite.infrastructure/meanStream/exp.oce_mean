@@ -37,7 +37,8 @@ ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-
 #-----------------------------------------------------------------------------
 #icon_data_rootFolder=/pool/data/ICON
 #
-varnames="'so','zos','to','global_moc','HeatFlux_Total_Global','FrshFlux_Evaporation_Global','FrshFlux_Runoff_Global','FrshFlux_Precipitation_Global','Qtop','ice_volume_nh','ice_volume_sh','ice_extent_nh','ice_extent_sh'"
+varnames="'so','zos','to','global_moc'"
+monitor_varnames="'ssh_global','HeatFlux_Total_Global','FrshFlux_Evaporation_Global','FrshFlux_Runoff_Global','FrshFlux_Precipitation_Global','Qtop','ice_volume_nh','ice_volume_sh','ice_extent_nh','ice_extent_sh'"
 # write namelist parameters
 # -------------------------
 cat > ${ocean_namelist} << EOF
@@ -155,7 +156,7 @@ lkeep_in_sync = .true.
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'ssh_global'
+  ml_varlist       = ${monitor_varnames}
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
@@ -169,7 +170,7 @@ lkeep_in_sync = .true.
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'ssh_global'
+  ml_varlist       = ${monitor_varnames}
   operation        = "mean"
 /
 &output_nml
@@ -184,7 +185,22 @@ lkeep_in_sync = .true.
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'ssh_global'
+  ml_varlist       = ${monitor_varnames}
+  operation        = "mean"
+/
+&output_nml
+  filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_globalDiag_mean3TS"
+  filename_format  = "<output_filename>_<datetime2>"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${Threehourly}"
+  file_interval    = "P20Y"
+  mode             =  1                              ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  include_last     = .false.
+  output_grid      = .TRUE.
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       = ${monitor_varnames}
   operation        = "mean"
 /
 &dbg_index_nml
