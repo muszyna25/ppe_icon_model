@@ -68,6 +68,7 @@ MODULE mo_ocean_state
     &                               add_ref
   USE mo_var_metadata,        ONLY: groups
   USE mo_cf_convention
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_grib2,               ONLY: grib2_var, t_grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_INT8, DATATYPE_PACK16, &
     &                               tstep_constant, GRID_LONLAT, GRID_UNSTRUCTURED, GRID_ZONAL
@@ -501,7 +502,8 @@ CONTAINS
     INTEGER :: oce_tracer_codes(max_oce_tracer)
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_ocean_state:construct_hydro_ocean_diag'
-    INTEGER :: datatype_flt, jc, blockNo
+    INTEGER :: datatype_flt, jc, blockNo, start_cell_index, end_cell_index
+    REAL(wp), PARAMETER :: equator = 0.00001_wp
     TYPE(t_subset_range), POINTER :: owned_cells
 
     IF ( lnetcdf_flt64_output ) THEN
@@ -1230,14 +1232,15 @@ CONTAINS
      CALL get_index_range(owned_cells, blockNo, start_cell_index, end_cell_index)
      DO jc =  start_cell_index, end_cell_index
        IF (patch_2d%cells%center(jc,blockNo)%lat > equator) THEN
-         ocean_state_diag%northernHemisphere  = 1
-         ocean_state_diag%southernHemisphere  = 0
+         ocean_state_diag%northernHemisphere(jc,blockNo) = 1.0_wp
+         ocean_state_diag%southernHemisphere(jc,blockNo) = 0.0_wp
        ELSE
-         ocean_state_diag%northernHemisphere  = 0
-         ocean_state_diag%southernHemisphere  = 1
+         ocean_state_diag%northernHemisphere(jc,blockNo) = 0.0_wp
+         ocean_state_diag%southernHemisphere(jc,blockNo) = 1.0_wp
        END IF
      END DO
    END DO
+
    !}}}
 
    CALL add_var(ocean_default_list,'osaltGMRedi',ocean_state_diag%osaltGMRedi,grid_unstructured_cell,&
