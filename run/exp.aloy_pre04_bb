@@ -871,6 +871,7 @@ if [[ "$output_oce_min" == "yes" ]]; then
   include_last     = .false.
   m_levels         = "1,2"                            ! surface and subsurface level only
   filename_format  = "<output_filename>_<datetime2>"
+  operation        = "mean"
   ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c',
                       'Qtop', 'Qbot','CondHeat', 'zHeatOceI','heatOceI','heatOceW','draftave','zUnderIce',
                       'mld','condep','zos','u_vint','hi','hs','conc','to','so','u',
@@ -899,6 +900,7 @@ if [[ "$output_oce_def" == "yes" ]]; then
   output_grid      = .TRUE.
   mode             =  2                               ! 1: forecast mode (relative t-axis),
                                                       ! 2: climate mode (absolute t-axis)
+  operation        = "mean"
   include_last     = .false.
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'group:oce_default','group:oce_essentials'
