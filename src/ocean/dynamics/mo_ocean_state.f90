@@ -1128,7 +1128,7 @@ CONTAINS
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
     ! number of deepest convection layer
     CALL add_var(ocean_default_list, 'condep', ocean_state_diag%condep , grid_unstructured_cell, za_surface,&
-      &         t_cf_var('condep', '', 'convection depth index', DATATYPE_INT8),&
+      &         t_cf_var('condep', '', 'convection depth index', datatype_flt),&
       &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
     IF (cfl_write) THEN
@@ -2157,7 +2157,7 @@ CONTAINS
       & grid_unstructured_cell, za_depth_below_sea, &
       & t_cf_var('lsm_c','','3d lsm on cells', DATATYPE_INT8),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_geometry","oce_default"),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_geometry"),&
       & isteptype=tstep_constant)
     ! edges
     CALL add_var(ocean_default_list, 'lsm_e', patch_3d%lsm_e, &
@@ -2165,7 +2165,7 @@ CONTAINS
       & za_depth_below_sea, &
       & t_cf_var('lsm_e','','3d lsm on edges', DATATYPE_INT8),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_geometry","oce_default"),&
+      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_geometry"),&
       & isteptype=tstep_constant)
     ! surface cells
     CALL add_var(ocean_default_list, 'surface_cell_sea_land_mask', patch_3d%surface_cell_sea_land_mask , &
@@ -2206,13 +2206,13 @@ CONTAINS
       & grid_unstructured_cell, za_surface, &
       & t_cf_var('basin_c', '', 'basin_c', DATATYPE_INT8),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_geometry","oce_default","oce_essentials"), &
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_geometry"), &
       & isteptype=tstep_constant)
     CALL add_var(ocean_default_list, 'regio_c', patch_3d%regio_c , &
       & grid_unstructured_cell, za_surface, &
       & t_cf_var('regio_c', '', 'regio_c', DATATYPE_INT8),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_geometry","oce_default","oce_essentials"), &
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_geometry"), &
       & isteptype=tstep_constant)
     ! 2-dim bottom and column thickness
     CALL add_var(ocean_default_list, 'bottom_thick_c', patch_3d%bottom_thick_c , &
