@@ -191,6 +191,9 @@ MODULE mo_name_list_output_init
   USE ppm_extents,                          ONLY: extent
   USE mo_decomposition_tools,               ONLY: uniform_partition_start
   USE mo_name_list_output_gridinfo,         ONLY: distribute_all_grid_info
+  USE yaxt,                                 ONLY: xt_idxlist, &
+       xt_idxvec_new, xt_idxlist_delete, xt_idxstripes_from_idxlist_new, &
+       xt_int_kind
 #endif
   IMPLICIT NONE
 
@@ -2389,6 +2392,10 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_info_lonlat"
     INTEGER :: ierrstat, i, n_own, n
+#ifdef HAVE_CDI_PIO
+    TYPE(xt_idxlist) :: idxvec
+    INTEGER(xt_int_kind), ALLOCATABLE :: reorder_index_own_pio(:)
+#endif
 
     ! Just for safety
     IF(my_process_is_io()) CALL finish(routine, 'Must not be called on IO PEs')
@@ -2425,6 +2432,19 @@ CONTAINS
     DO i=1,n_own
       patch_info_ll%ri%reorder_index_own(i) = intp%global_idx(i)
     END DO
+
+#ifdef HAVE_CDI_PIO
+    ALLOCATE(reorder_index_own_pio(n_own),          &
+      &      patch_info_ll%ri%reorder_idxlst_xt(1), &
+      &      STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+    ! CDI-PIO acts C like...
+    reorder_index_own_pio = patch_info_ll%ri%reorder_index_own - 1
+    idxvec = xt_idxvec_new(reorder_index_own_pio)
+    patch_info_ll%ri%reorder_idxlst_xt(1) = xt_idxstripes_from_idxlist_new(idxvec)
+    CALL xt_idxlist_delete(idxvec)
+#endif
 
     IF (patch_info_ll%grid_info_mode == GRID_INFO_FILE) THEN
       ! mapping between logical and physical patch is trivial for
