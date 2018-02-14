@@ -45,7 +45,6 @@ MODULE mo_atm_phy_nwp_config
   USE mo_util_table,          ONLY: t_table, initialize_table, add_table_column, &
     &                               set_table_entry, print_table, finalize_table
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_name_list_output_config, ONLY: first_output_name_list, is_variable_in_output
   USE mo_phy_events,          ONLY: t_phyProcFast, t_phyProcSlow, t_phyProcGroup
 
   IMPLICIT NONE
@@ -131,8 +130,6 @@ MODULE mo_atm_phy_nwp_config
                                    !       are not computed in operational runs.
                                    !       lcalc_extra_avg is set to true automatically, if any of the 
                                    !       non-standard fields is specified in the output namelist.
-
-    LOGICAL :: lcalc_dpsdt         ! TRUE: compute dpsdt for output even if a low message level (<= 10) is selected
 
     LOGICAL :: is_les_phy          !>TRUE is turbulence is 3D 
                                    !>FALSE otherwise
@@ -242,10 +239,6 @@ CONTAINS
     TYPE(timedelta), POINTER :: td_start, td_end, td_dt   => NULL()
 
   !-------------------------------------------------------------------------
-
-    ! check whether dpsdt should be computed for output purposes
-    atm_phy_nwp_config(1:n_dom)%lcalc_dpsdt = &
-      is_variable_in_output(first_output_name_list, var_name='ddt_pres_sfc')
 
     ! for each fast physics process the time interval is set 
     ! equal to the time interval for advection.
@@ -502,7 +495,7 @@ CONTAINS
       tune_ozone_zmid2  = 26000.0_wp
       tune_ozone_zmid   = 20000.0_wp
       tune_ozone_zbot   = 17000.0_wp
-      tune_ozone_fac    = 0.15_wp
+      tune_ozone_fac    = 0.2_wp
       ozone_shapemode   = 2
       tune_ozone_lat    = 30._wp
       tune_ozone_maxinc = 1.e-6_wp

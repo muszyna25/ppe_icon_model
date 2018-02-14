@@ -177,6 +177,9 @@ PUBLIC :: rbf_vec_index_cell, rbf_c2grad_index, rbf_vec_compute_coeff_cell,     
           & rbf_compute_coeff_c2grad, rbf_vec_index_vertex, rbf_vec_index_edge, &
           & rbf_vec_compute_coeff_vertex, rbf_vec_compute_coeff_edge
 
+!> module name
+CHARACTER(LEN=*), PARAMETER :: modname = 'mo_intp_rbf_coeffs'
+
 CONTAINS
 
 #include "intp_functions.inc"
@@ -482,7 +485,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_v,1),UBOUND(ptr_int%rbf_vec
 !$OMP PARALLEL PRIVATE(ile,ibe,ist)
   ALLOCATE( ile(rbf_vec_dim_v), ibe(rbf_vec_dim_v), STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:rbf_vec_index_vertex',  &
+    CALL finish (modname//':rbf_vec_index_vertex',  &
       &             'allocation for ile, ibe failed')
   ENDIF
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jje,istencil,ll_pent,iie) ICON_OMP_DEFAULT_SCHEDULE
@@ -520,7 +523,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_v,1),UBOUND(ptr_int%rbf_vec
 
       IF (iie /= istencil) THEN
         PRINT *, "ERROR ==>  iie = ", iie,  " /= istencil = ", istencil
-        CALL finish ('mo_interpolation:rbf_vec_index_vertex',  &
+        CALL finish (modname//':rbf_vec_index_vertex',  &
           &             'wrong number of stencil points')
       ENDIF
 
@@ -551,7 +554,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_v,1),UBOUND(ptr_int%rbf_vec
 
   DEALLOCATE( ile, ibe, STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:rbf_vec_index_vertex',  &
+    CALL finish (modname//':rbf_vec_index_vertex',  &
       &             'deallocation for ile, ibe failed')
   ENDIF
 !$OMP END PARALLEL
@@ -569,14 +572,14 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_v,1),UBOUND(ptr_int%rbf_vec
 !   PRINT *, "ERROR ==>  ipent = ", ipent,  " /= 12 -- no finish (ocean)"
     IF ( iequations == -1 )  THEN    !  hydrostatic ocean: less than  12 pentagons allowed
       WRITE(message_text,'(a,i3,a,i3,a)')  &
-        &  'mo_interpolation:rbf_vec_index_vertex: no of pentagons =',ipent, &
+        &  modname//':rbf_vec_index_vertex: no of pentagons =',ipent, &
         &  ' iequations =',iequations,' ==> ok.'
       CALL message('', TRIM(message_text))
     ELSE                      !  other cases: may stop the run
 !Please note: This is the normal case for parallel runs!
-      CALL message('mo_interpolation:rbf_vec_index_vertex',  &
+      CALL message(modname//':rbf_vec_index_vertex',  &
         &             'wrong number of detected pentagons')
-!     CALL finish ('mo_interpolation:rbf_vec_index_vertex',  &
+!     CALL finish (modname//':rbf_vec_index_vertex',  &
 !       &             'wrong number of detected pentagons')
     ENDIF
   ENDIF
@@ -754,7 +757,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
 
 !--------------------------------------------------------------------
 
-  CALL message('mo_interpolation:rbf_vec_compute_coeff_cell', '')
+  CALL message(modname//':rbf_vec_compute_coeff_cell', '')
 
   jg = ptr_patch%id
 
@@ -773,7 +776,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
             z_rhs1(nproma,rbf_vec_dim_c),                  &
             z_rhs2(nproma,rbf_vec_dim_c), STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:rbf_vec_compute_coeff_cell',  &
+    CALL finish (modname//':rbf_vec_compute_coeff_cell',  &
       &             'allocation for working arrays failed')
   ENDIF
 
@@ -1051,7 +1054,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
   DEALLOCATE( z_rbfmat, z_diag, z_rbfval, z_rhs1, z_rhs2,  &
     STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:rbf_vec_compute_coeff_cell',  &
+    CALL finish (modname//':rbf_vec_compute_coeff_cell',  &
       &             'deallocation for working arrays failed')
   ENDIF
 !$OMP END PARALLEL
@@ -1272,7 +1275,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
 
 !--------------------------------------------------------------------
 
-  CALL message('mo_interpolation:rbf_vec_compute_coeff_vertex', '')
+  CALL message(modname//':rbf_vec_compute_coeff_vertex', '')
 
   jg = ptr_patch%id
 
@@ -1301,7 +1304,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
             z_rhs1(nproma,rbf_vec_dim_v),                  &
             z_rhs2(nproma,rbf_vec_dim_v), STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:rbf_compute_coeff_vertex',  &
+    CALL finish (modname//':rbf_compute_coeff_vertex',  &
       &             'allocation for working arrays failed')
   ENDIF
 
@@ -1585,7 +1588,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
   DEALLOCATE( z_rbfmat, z_diag, z_rbfval, z_rhs1, z_rhs2,  &
     STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:rbf_vec_compute_coeff_vertex',  &
+    CALL finish (modname//':rbf_vec_compute_coeff_vertex',  &
       &             'deallocation for working arrays failed')
   ENDIF
 !$OMP END PARALLEL
@@ -1699,7 +1702,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
 
 !--------------------------------------------------------------------
 
-  CALL message('mo_interpolation:rbf_vec_compute_coeff_edge', '')
+  CALL message(modname//':rbf_vec_compute_coeff_edge', '')
 
   jg = ptr_patch%id
 
@@ -1729,7 +1732,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
             z_diag(nproma,rbf_vec_dim_e),                  &
             z_rbfval(nproma,rbf_vec_dim_e), STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:rbf_vec_compute_coeff_edge_t',  &
+    CALL finish (modname//':rbf_vec_compute_coeff_edge_t',  &
       &             'allocation for working arrays failed')
   ENDIF
 
@@ -1986,7 +1989,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
 
   DEALLOCATE( z_rbfmat, z_diag, z_rbfval, STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:rbf_vec_compute_coeff_edge',  &
+    CALL finish (modname//':rbf_vec_compute_coeff_edge',  &
       &             'deallocation for working arrays failed')
   ENDIF
 !$OMP END PARALLEL

@@ -160,9 +160,10 @@ case "$fortran_compiler" in
         CC          = cc
         FC          = ftn
         F77         = $FC
-        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc  -O cache0 -r am -Ktrap=divz,ovf,inv
-        CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -O3
+        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2              -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc  -O cache0 -r am -Ktrap=divz,ovf,inv
+        CFLAGS      = -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -O3
         F77FLAGS    = $FFLAGS
+        LDFLAGS     = -hflex_mp=conservative  -Ktrap=divz,ovf,inv
         FCLIBS      = 
         GEN_FLAGS   =
         FDEBUG      = -g -R abc
@@ -222,10 +223,10 @@ case "$ac_sitename" in
     cscs.ch)
         case "$HOST" in
             *daint*|*dom*)
-                make_command="make" "-j" "8"
-                load_profile="/opt/modules/default/etc/modules.sh"
-                submit="sbatch"
-                sync_submit="sbatch_synced"
+                make_command = make -j 8
+                load_profile = /opt/modules/default/etc/modules.sh
+                submit       = sbatch
+                sync_submit  = sbatch --wait
                 CC = cc
                 FC = ftn
                 F77= ftn
@@ -283,13 +284,12 @@ case "$ac_sitename" in
                         exit 1
                         ;;
                 esac
-                mpi_startrun="srun" "-n" "\$mpi_total_procs" "--ntasks-per-node" "\$mpi_procs_pernode" "--threads-per-core=1" "--cpus-per-task" "\$OMP_NUM_THREADS"
+                mpi_startrun = srun -n \$mpi_total_procs --ntasks-per-node \$mpi_procs_pernode --threads-per-core=1 --cpus-per-task \$OMP_NUM_THREADS
                 ;;
             *tave*)
-                make_command="make" "-j" "8"
-                load_profile="/opt/modules/default/etc/modules.sh"
-                submit="sbatch"
-                sync_submit="sbatch"
+                make_command = make -j 8
+                load_profile = /opt/modules/default/etc/modules.sh
+                submit       = sbatch
                 CC = cc
                 FC = ftn
                 F77= ftn
@@ -300,7 +300,7 @@ case "$ac_sitename" in
                         config_target=tave_knl
                         load_modules =PrgEnv-gnu cray-netcdf cray-mpich craype-mic-knl
                         CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF
-                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
+                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
 			;;
                     intel)
                         config_target=tave_knl
@@ -309,7 +309,7 @@ case "$ac_sitename" in
                         STD_FLAGS   = -O2 -mavx -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
                         FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/INTEL/15.0
-                        F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
+                        F77FLAGS    = $FFLAGS $STD_FLAGS
                         MODDIR      = -I
 			;;
                     pgi)
@@ -335,7 +335,7 @@ case "$ac_sitename" in
                         exit 1
                         ;;
                 esac
-                mpi_startrun="srun" "-n" "\$mpi_total_procs" "--ntasks-per-node" "\$mpi_procs_pernode" "--threads-per-core=1" "--cpus-per-task" "\$OMP_NUM_THREADS"
+                mpi_startrun = srun -n \$mpi_total_procs --ntasks-per-node \$mpi_procs_pernode --threads-per-core=1 --cpus-per-task \$OMP_NUM_THREADS
                 ;;
         esac
         ;;
@@ -349,7 +349,9 @@ case "$ac_sitename" in
                 NETCDFROOT  = ${NETCDF_DIR}
                 CC          = cc
                 FC          = ftn
-                F77         = ftn 
+                F77         = ftn
+                submit      = qsub
+                sync_submit = qsub -Wblock=true
 
                 make_command=make -j 8
                 case "$fortran_compiler" in
@@ -379,20 +381,20 @@ case "$ac_sitename" in
                 ;;
             lc*)
                 NETCDFROOT = ${NETCDF_DIR}
-                make_command="make" "-j" "8"
+                make_command = make -j 8
                 case "$fortran_compiler" in
                     intel*)
-                      load_modules    = "netcdf" "${load_modules}"
+                      load_modules    = netcdf ${load_modules}
                       CFLAGS          = -DHAVE_LIBNETCDF ${CFLAGS}
                       STD_FLAGS       = -O2 -xAVX -fltconsistency -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
                       FFLAGS          = ${FFLAGS}
-                      F77FLAGS        = "$FFLAGS" "$STD_FLAGS"
+                      F77FLAGS        = ${FFLAGS} ${STD_FLAGS}
                       LIBS            = ${LIBS}
                       FC              = ifort
                       CC              = icc
                       ;;
                     default|gcc)
-                      load_modules    = "netcdf" "${load_modules}"
+                      load_modules    = netcdf ${load_modules}
                       FFLAGS          = ${FFLAGS}
                       FC              = gfortran
                       CC              = gcc
@@ -408,8 +410,6 @@ case "$ac_sitename" in
                 MPI_INCLUDE           = /usr/lib64/mpi/gcc/openmpi/include
                 config_target         = oflws
                 make_command          = make -j8
-                submit                = qsub
-                sync_submit           = qsub -sync y
                 ;;
             *)                  # hpc
                 NETCDFROOT  = /usr/local/pkg
@@ -425,14 +425,14 @@ case "$ac_sitename" in
 
     dkrz.de|bullx)
         case "$(hostname)" in
-            btc*|mlogin*)
+            btlogin*|mlogin*)
                 load_modules  = ncl/6.2.1-gccsys cdo/default svn/1.8.13 ${load_modules}
-                load_profile  = "/etc/profile"
+                load_profile  = /etc/profile
                 software_tree = /sw/rhel6-x64
                 config_target = bullx
-                make_command  = make -j8
+                make_command  = make -j 8
                 submit        = sbatch
-                sync_submit   = srunjob
+                sync_submit   = sbatch --wait
                 queue         = compute
                 case "$fortran_compiler" in
                     intel*)
@@ -452,7 +452,7 @@ case "$ac_sitename" in
                         esac
                         config_compiler = intel
                         CC          = icc
-                        CFLAGS      = -std=gnu99 -g -O3 -ftz -march=native -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2 -DHAVE_LIBSZ -DgFortran
+                        CFLAGS      = -std=gnu99 -g -O3 -qno-opt-dynamic-align -ftz -march=native -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2 -DHAVE_LIBSZ -DgFortran
                         ccversion   = $(icc --version 2>&1 | awk 'NR==1')
                         F77         = ifort
                         FC          = ifort
@@ -512,9 +512,26 @@ case "$ac_sitename" in
                                 NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-parallel-impi-intel14
                                 HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-parallel-impi-intel14
                                 ;;
-                            no)
+                            "$software_tree/intel/impi/2017.2.174")
+                                load_modules = ${load_modules} intelmpi/2017.2.174
+                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DHAVE_PARALLEL_NETCDF
+                                MPIROOT      = /sw/rhel6-x64/intel/impi/2017.2.174/compilers_and_libraries/linux/mpi/intel64
+                                MPI_LIB      = $WLFLAG,--disable-new-dtags -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread
+                                NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-impi-intel14
+                                NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-parallel-impi-intel14
+                                HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-parallel-impi-intel14
                                 ;;
-                            /opt/mpi/bullxmpi_mlx/1.2.9.2|*)
+                            "${software_tree}/mpi/openmpi-1.10.1_mlx-intel16")
+                                load_modules = ${load_modules} openmpi/1.10.1_mlx-intel16
+                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DHAVE_PARALLEL_NETCDF
+                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DHAVE_PARALLEL_NETCDF
+                                MPIROOT      = ${software_tree}/mpi/openmpi-1.10.1_mlx-intel16
+                                MPI_LIB      = -L${MPIROOT}/lib     -Wl,-rpath -Wl,${MPIROOT}/lib -Wl,--enable-new-dtags -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lm -lnuma -ldl -losmcomp -libverbs -lutil
+                                NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-impi-intel14
+                                NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-parallel-impi-intel14
+                                HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-parallel-impi-intel14
+                                ;;
+                            /opt/mpi/bullxmpi_mlx/1.2.9.2)
                                 load_modules = ${load_modules} fca/2.5.2431 mxm/3.4.3082 bullxmpi_mlx/bullxmpi_mlx-1.2.9.2
                                 FFLAGS       = $FFLAGS -DHAVE_PARALLEL_NETCDF
                                 MPIROOT      = /opt/mpi/bullxmpi_mlx/1.2.9.2
@@ -523,12 +540,24 @@ case "$ac_sitename" in
                                 NETCDFFROOT  = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-bullxmpi-intel14
                                 NETCDFROOT   = $software_tree/netcdf/netcdf_c-4.3.2-parallel-bullxmpi-intel14
                                 HDF5ROOT     = $software_tree/hdf5/hdf5-1.8.14-parallel-bullxmpi-intel14
-                                ;;                              
+                                ;;
+                            no)
+                                ;;
+                            "$software_tree/mpi/openmpi-2.0.2p1_hpcx-intel14/"|"openmpi/2.0.2p1_hpcx-intel14"|*)
+                                load_modules = ${load_modules} hpcx/1.9.7 openmpi/2.0.2p1_hpcx-intel14
+                                FFLAGS       = $FFLAGS -DHAVE_PARALLEL_NETCDF
+                                MPIROOT      = $software_tree/mpi/openmpi-2.0.2p1_hpcx-intel14
+                                SYS_LIBS     = -ldl -lm -lnuma $WLFLAG,--export-dynamic -lrt -lnsl -lutil -lm -ldl
+                                MPI_LIB      = $WLFLAG,-rpath $WLFLAG,/sw/rhel6-x64/mpi/openmpi-2.0.2p1_hpcx-intel14/lib $WLFLAG,--enable-new-dtags -L/sw/rhel6-x64/mpi/openmpi-2.0.2p1_hpcx-intel14/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+                                NETCDFFROOT  = $software_tree/netcdf/netcdf_fortran-4.4.3-parallel-openmpi2-intel14
+                                NETCDFROOT   = $software_tree/netcdf/netcdf_c-4.4.0-parallel-openmpi2-intel14
+                                HDF5ROOT     = $software_tree/hdf5/hdf5-1.8.18-parallel-openmpi2-intel14
+                                ;;
                         esac
                         mpi_startrun = srun
                         ;;
                     gcc*)
-                        load_modules    = gcc/6.2.0 intelmpi/2017.0.098  ${load_modules}
+                        load_modules    = gcc/6.2.0 ${load_modules}
                         config_compiler = gcc
                         c_compiler_version = $(gcc --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
                         CC     = gcc
@@ -546,7 +575,13 @@ case "$ac_sitename" in
                         GRIBAPIROOT = $software_tree/grib_api/grib_api-1.15.0-gcc48
 
                         case "$with_mpi" in
-                            "$software_tree/intel/impi/2017.0.098"|*)
+                            "${software_tree}/mpi/openmpi-1.8.4-gcc62")
+                                load_modules = ${load_modules} openmpi/1.8.4-gcc62
+                                MPIROOT      = $software_tree/mpi/openmpi-1.8.4-gcc62
+                                MPI_LIB=-L$(MPIROOT)/lib/openmpi -Wl,-rpath -Wl,$(MPIROOT)/lib/openmpi -Wl,--enable-new-dtags -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+                                MPI_INCLUDE=-I$(MPIROOT)/include
+                                ;;
+                            "${software_tree}/intel/impi/2017.0.098"|*)
                                 load_modules = ${load_modules} intelmpi/2017.0.098
                                 FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
                                 MPIROOT      = $software_tree/intel/impi/2017.0.098/compilers_and_libraries_2017.0.098/linux/mpi/intel64
@@ -608,7 +643,7 @@ case "$ac_sitename" in
         esac
         ;;
 #===============================================
-    kfa-juelich.de|*jureca*)
+    kfa-juelich.de|fz-juelich.de|*jureca*)
         case "$(hostname)" in
             jrl*)
                 NETCDFROOT    = $EBROOTNETCDF
@@ -631,6 +666,7 @@ case "$ac_sitename" in
                 NETCDFROOT = /homeb/slmet/slmet027/opt/netcdf-c-4.3.2-parallel
                 NETCDFFROOT = /homeb/slmet/slmet027/opt/netcdf-fortran-4.4.0-parallel
                 HDF5ROOT = /bgsys/local/hdf5
+                GRIBAPIROOT = /homea/jjsc20/jjsc2003/opt/grib_api/grib_api-1.23-bgsys
                 SZIPROOT = /bgsys/local/szip
                 ZLIBROOT = /bgsys/local/zlib
                 CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2
@@ -705,7 +741,7 @@ case "$ac_sitename" in
         software_tree = /sw/${dist_codename}-x64
         case "$host" in
             x86_64-*-linux-*)        # 64 bit squeeze, wheezy, jessie MPI/ZMAW workstation
-                load_profile  = "/client/etc/profile.zmaw"
+                load_profile  = /client/etc/profile.zmaw
                 config_target = mpipc
                 make_command  = make -j 2
                 submit        =

@@ -18,14 +18,14 @@ MODULE mo_load_restart
       &                              vlistInqVarName, vlistInqVarGrid, vlistInqVarZaxis,          &
       &                              taxisInqVdate, taxisInqVtime, zaxisInqType, zaxisInqSize,    &
       &                              gridInqSize, ZAXIS_SURFACE, cdiStringError
-    USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT,              &
-      &                              GRID_UNSTRUCTURED_EDGE
     USE mo_fortran_tools,      ONLY: t_alloc_character
     USE mo_dictionary,         ONLY: t_dictionary, dict_size, dict_getKey, dict_set, dict_init,   &
       &                              dict_finalize
     USE mo_communication,      ONLY: t_ScatterPattern
     USE mo_exception,          ONLY: message, finish, warning
     USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SINGLE_T, REAL_T, INT_T, SUCCESS
+    USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT,              &
+      &                              GRID_UNSTRUCTURED_EDGE
     USE mo_load_multifile_restart, ONLY: multifileReadPatch, multifileCheckRestartFiles
     USE mo_load_singlefile_restart, ONLY: singlefileReadPatch, singlefileCheckRestartFiles
     USE mo_kind,               ONLY: dp, sp

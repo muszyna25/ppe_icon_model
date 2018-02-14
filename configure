@@ -2665,7 +2665,7 @@ case $ac_hostname in #(
   wizard*) :
     ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename ;; #(
-  mlogin*|btc*) :
+  mlogin*|btlogin*) :
     ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename ;; #(
   daint*|tave*|santis*) :
@@ -2695,7 +2695,7 @@ fi ;;
 esac
 
 if  test -n "$fqdn" ; then :
-  if test -z ac_sitename; then :
+  if test -z "$ac_sitename"; then :
   ac_sitename=local.net
 fi
 else
@@ -4415,7 +4415,7 @@ if test -n "$SZIPROOT" ; then
      exit 1
   fi
   case $ac_hostname in
-  mlogin*|btc*)
+  mlogin*|btlogin*)
     case $FC in
     nagfor)
       SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -4466,7 +4466,7 @@ if test -n "$HDF5ROOT" ; then
      exit 1
   fi
   case $ac_hostname in
-  mlogin*|btc*)
+  mlogin*|btlogin*)
     case $FC in
     nagfor)
       HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -4541,7 +4541,7 @@ if test -n "$NETCDFROOT" ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
   case $ac_hostname in
-  mlogin*|btc*)
+  mlogin*|btlogin*)
     case $FC in
     nagfor)
       NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -4568,7 +4568,7 @@ if test -n "$NETCDFROOT" ; then
          NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
          case $ac_hostname in
-         mlogin*|btc*)
+         mlogin*|btlogin*)
            case $FC in
            nagfor)
              NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -4734,7 +4734,7 @@ fi
        FFLAGS="${FFLAGS} ${DEFOPT}HAVE_LIBGRIB ${DEFOPT}HAVE_LIBGRIB_API"
        CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_LIBGRIB ${DEFCOPT}HAVE_LIBGRIB_API"
        case $ac_hostname in #(
-  mlogin*|btc*|daint*) :
+  mlogin*|btlogin*|daint*) :
     case $FC in #(
   nagfor) :
     GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g') ;; #(
@@ -5986,8 +5986,8 @@ fi
 fi
 	  ;;
 	  # Ignore these flags.
-	-lang* | -lcrt*.o | -lc | -lgcc* | -lSystem | -libmil | -little \
-	  |-LANG:=* | -LIST:* | -LNO:* | -link | -ltcmalloc | -ltcmalloc_minimal)
+	-lang* | -lcrt*.o | -lc | -lgcc* | -lSystem | -ltcmalloc | -ltcmalloc_minimal | -libmil | -little \
+	  |-LANG:=* | -LIST:* | -LNO:* | -link)
 	  ;;
 	-lkernel32)
 	  case $host_os in

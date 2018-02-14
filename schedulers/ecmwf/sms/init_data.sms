@@ -359,7 +359,8 @@ if [[ ${INI_IFS_ICON} -eq 1 ]] ; then
   # module load hdf5/1.8.13
 
     export OMP_NUM_THREADS=$EC_threads_per_task 
-    aprun -N $EC_tasks_per_node -n $EC_total_tasks -d $EC_threads_per_task -j $EC_hyperthreads iconremap_mpi --remap_nml=NAMELIST_PREPICON -vvvv
+    aprun -N $EC_tasks_per_node -n $EC_total_tasks -d $EC_threads_per_task -j $EC_hyperthreads iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
+
   fi
 
   ls -l ${IFS_FILENAME_NC}

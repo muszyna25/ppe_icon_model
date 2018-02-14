@@ -31,6 +31,7 @@ MODULE mo_radiation_nml
                                  & config_albedo_type=> albedo_type, &
                                  & config_direct_albedo => direct_albedo, &
                                  & config_icld_overlap => icld_overlap, &
+                                 & config_islope_rad => islope_rad,  &
                                  & config_irad_h2o   => irad_h2o,    &
                                  & config_irad_co2   => irad_co2,    &
                                  & config_irad_ch4   => irad_ch4,    &
@@ -112,6 +113,11 @@ MODULE mo_radiation_nml
                              ! 3: maximum overlap
                              ! 4: random overlap
 
+  INTEGER :: islope_rad      ! slope correction for surface radiation
+                             ! 0: none
+                             ! 1: slope correction for solar radiation without shading effects
+                             ! option 2 is reserved for slope-dependent radiation with shading (not yet implemented)
+
   ! --- Switches for radiative agents
   !     irad_x=0 : radiation uses tracer x = 0
   !     irad_x=1 : radiation uses tracer x from a tracer variable
@@ -171,7 +177,8 @@ MODULE mo_radiation_nml
     &                      irad_cfc12, vmr_cfc12, &
     &                      irad_aero,             &
     &                      lrad_aero_diag,        &
-    &                      izenith, icld_overlap
+    &                      izenith, icld_overlap, &
+    &                      islope_rad
 
 CONTAINS
 
@@ -211,6 +218,7 @@ CONTAINS
     albedo_type    = 1
     direct_albedo  = 4   ! Parameterization after Briegleb (1992)
     icld_overlap   = 2   ! generalized random overlap
+    islope_rad     = 0   ! no slope correction
 
     irad_h2o    = 1
     irad_co2    = 2
@@ -275,6 +283,7 @@ CONTAINS
     config_albedo_type= albedo_type
     config_direct_albedo = direct_albedo
     config_icld_overlap = icld_overlap
+    config_islope_rad = islope_rad
     config_irad_h2o   = irad_h2o
     config_irad_co2   = irad_co2
     config_irad_ch4   = irad_ch4

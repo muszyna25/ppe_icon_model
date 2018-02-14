@@ -235,10 +235,8 @@ MODULE mo_var_metadata_types
     !                                                      ... more may follow
     !
     INTEGER                    :: cdiVarID
-    INTEGER                    :: cdiVarID_2            ! for 2nd vector component in LatLon interpolation
     INTEGER                    :: cdiGridID
     INTEGER                    :: cdiZaxisID
-    INTEGER                    :: cdiDataType
     !
     ! Metadata for "post-ops" (small arithmetic operations)
     !

@@ -110,7 +110,7 @@ MODULE mo_timer
   PUBLIC :: timer_nwp_convection
   PUBLIC :: timer_nwp_radiation
   PUBLIC :: timer_pre_radiation_nwp
-  PUBLIC :: timer_phys_acc, timer_phys_acc_1,timer_phys_acc_2
+  PUBLIC :: timer_phys_acc, timer_phys_acc_1,timer_phys_acc_2, timer_phys_dpsdt
   PUBLIC :: timer_phys_sync_tracers
   PUBLIC :: timer_phys_sync_tempv
   PUBLIC :: timer_phys_acc_par
@@ -243,7 +243,7 @@ MODULE mo_timer
   INTEGER :: timer_radiaton_recv, timer_radiaton_comp, timer_radiaton_send, &
        &     timer_preradiaton
   INTEGER :: timer_pre_radiation_nwp
-  INTEGER :: timer_phys_acc, timer_phys_acc_1,timer_phys_acc_2
+  INTEGER :: timer_phys_acc, timer_phys_acc_1,timer_phys_acc_2, timer_phys_dpsdt
   INTEGER :: timer_phys_sync_tracers
   INTEGER :: timer_phys_sync_tempv
   INTEGER :: timer_phys_acc_par
@@ -610,6 +610,7 @@ CONTAINS
     timer_phys_exner = new_timer("phys_exner")
     timer_phys_acc_1 = new_timer("phys_acc_1")
     timer_phys_acc_2 = new_timer("phys_acc_2")
+    timer_phys_dpsdt = new_timer("phys_dpsdt")
     timer_phys_sync_tracers = new_timer("phys_sync_tracer")
     timer_phys_sync_tempv    = new_timer("phys_sync_tempv")
     timer_phys_acc_par  = new_timer("phys_acc_par")

@@ -1909,7 +1909,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
   TYPE(t_wtr_prog),             POINTER :: ptr_wprogc ! child level water prog state
 
   ! Local fields
-  INTEGER, PARAMETER  :: nfields_p1=63   ! Number of positive-definite 2D physics fields for which boundary interpolation is needed
+  INTEGER, PARAMETER  :: nfields_p1=66   ! Number of positive-definite 2D physics fields for which boundary interpolation is needed
   INTEGER, PARAMETER  :: nfields_p2=18   ! Number of remaining 2D physics fields for which boundary interpolation is needed
   INTEGER, PARAMETER  :: nfields_l2=18   ! Number of 2D land state fields
 
@@ -2022,7 +2022,6 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
       z_aux3dp1_p(jc,49:51,jb) = prm_diag(jg)%tot_cld_vi(jc,jb,1:3)
       z_aux3dp1_p(jc,52:56,jb) = p_nh_state(jg)%diag%tracer_vi(jc,jb,1:5)
       z_aux3dp1_p(jc,57,jb) = prm_diag(jg)%clct_mod(jc,jb)
-      z_aux3dp1_p(jc,63,jb) = prm_diag(jg)%cldepth(jc,jb)
 
       IF (atm_phy_nwp_config(jg)%inwp_gscp == 2) THEN
         z_aux3dp1_p(jc,58,jb) = prm_diag(jg)%graupel_gsp(jc,jb)
@@ -2034,6 +2033,10 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
       z_aux3dp1_p(jc,60,jb) = prm_diag(jg)%tvm(jc,jb)
       z_aux3dp1_p(jc,61,jb) = prm_diag(jg)%tvh(jc,jb)
       z_aux3dp1_p(jc,62,jb) = prm_diag(jg)%tkr(jc,jb)
+      z_aux3dp1_p(jc,63,jb) = prm_diag(jg)%cldepth(jc,jb)
+      z_aux3dp1_p(jc,64,jb) = prm_diag(jg)%t_2m_land(jc,jb)
+      z_aux3dp1_p(jc,65,jb) = prm_diag(jg)%td_2m_land(jc,jb)
+      z_aux3dp1_p(jc,66,jb) = prm_diag(jg)%rh_2m_land(jc,jb)
 
       z_aux3dp2_p(jc,1,jb) = prm_diag(jg)%u_10m(jc,jb)
       z_aux3dp2_p(jc,2,jb) = prm_diag(jg)%v_10m(jc,jb)
@@ -2223,7 +2226,6 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
       prm_diag(jgc)%tot_cld_vi(jc,jb,1:3) = z_aux3dp1_c(jc,49:51,jb)
       p_nh_state(jgc)%diag%tracer_vi(jc,jb,1:5) = z_aux3dp1_c(jc,52:56,jb)
       prm_diag(jgc)%clct_mod(jc,jb)       = MIN(1._wp,z_aux3dp1_c(jc,57,jb))
-      prm_diag(jgc)%cldepth(jc,jb)        = MIN(1._wp,z_aux3dp1_c(jc,63,jb))
 
       IF (atm_phy_nwp_config(jgc)%inwp_gscp == 2) THEN
         prm_diag(jgc)%graupel_gsp(jc,jb)      = MAX(z_aux3dp1_c(jc,58,jb),prm_diag(jgc)%graupel_gsp(jc,jb))
@@ -2232,6 +2234,10 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
       prm_diag(jgc)%tvm(jc,jb)            = z_aux3dp1_c(jc,60,jb)
       prm_diag(jgc)%tvh(jc,jb)            = z_aux3dp1_c(jc,61,jb)
       prm_diag(jgc)%tkr(jc,jb)            = z_aux3dp1_c(jc,62,jb)
+      prm_diag(jgc)%cldepth(jc,jb)        = MIN(1._wp,z_aux3dp1_c(jc,63,jb))
+      prm_diag(jgc)%t_2m_land(jc,jb)      = z_aux3dp1_c(jc,64,jb)
+      prm_diag(jgc)%td_2m_land(jc,jb)     = z_aux3dp1_c(jc,65,jb)
+      prm_diag(jgc)%rh_2m_land(jc,jb)     = z_aux3dp1_c(jc,66,jb)
 
       prm_diag(jgc)%u_10m(jc,jb)          = z_aux3dp2_c(jc,1,jb)
       prm_diag(jgc)%v_10m(jc,jb)          = z_aux3dp2_c(jc,2,jb)

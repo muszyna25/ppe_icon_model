@@ -18,17 +18,21 @@
 MODULE mo_read_netcdf_distributed
 
   USE mo_kind, ONLY: wp
-  USE mo_exception, ONLY: finish, message, em_warn, message_text
+  USE mo_exception, ONLY: finish, message, em_warn
   USE mo_mpi, ONLY: p_n_work, p_pe_work, p_bcast, p_comm_work
+  USE ppm_extents, ONLY: extent
   USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, &
     & t_glb2loc_index_lookup, &
     & init_glb2loc_index_lookup, &
     & set_inner_glb_index, &
-    & deallocate_glb2loc_index_lookup
+    & deallocate_glb2loc_index_lookup, &
+    & uniform_partition, partidx_of_elem_uniform_deco
   USE mo_communication, ONLY: t_comm_pattern, idx_no, blk_no, &
     & setup_comm_pattern, delete_comm_pattern, &
     & exchange_data
-  USE mo_parallel_config, ONLY: nproma
+  USE mo_parallel_config, ONLY: nproma, &
+       config_io_process_stride => io_process_stride, &
+       config_io_process_rotate => io_process_rotate
 
   IMPLICIT NONE
 
@@ -73,9 +77,9 @@ MODULE mo_read_netcdf_distributed
 
   TYPE t_basic_distrib_read_data
     INTEGER :: n_g ! global number of points (-1 if unused)
-    INTEGER :: start, COUNT ! io decomposition
+    TYPE(extent) :: io_chunk ! io decomposition
     TYPE(t_glb2loc_index_lookup), POINTER :: glb2loc_index
-    INTEGER :: num_points_per_io_process, io_process_stride
+    INTEGER :: io_process_stride, num_io_processes
 
     INTEGER :: n_ref ! number of times this data is referenced
   END TYPE t_basic_distrib_read_data
@@ -169,35 +173,35 @@ CONTAINS
     INTEGER, INTENT(in) :: n_g
 
     INTEGER :: n_io_processes, io_process_stride
-    INTEGER :: num_points_per_io_process
 
     ! data required for the communication pattern
-    INTEGER :: i
+    INTEGER :: i, n
+    INTEGER, ALLOCATABLE :: idxmap(:,:)
 
     basic_read_data%n_g = n_g
-    n_io_processes = NINT(SQRT(REAL(p_n_work)))
-    io_process_stride = (p_n_work + n_io_processes - 1) / n_io_processes
-    num_points_per_io_process = (n_g + n_io_processes - 1) / n_io_processes
+    CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
 
-    basic_read_data%num_points_per_io_process = num_points_per_io_process
     basic_read_data%io_process_stride = io_process_stride
+    basic_read_data%num_io_processes = n_io_processes
 
     ALLOCATE(basic_read_data%glb2loc_index)
 
     CALL init_glb2loc_index_lookup(basic_read_data%glb2loc_index, n_g)
 
     ! if the process takes part in the reading
-    IF (MOD(p_pe_work, io_process_stride) == 0) THEN
-      basic_read_data%start = (p_pe_work / n_io_processes) * num_points_per_io_process + 1
-      basic_read_data%COUNT = MIN(num_points_per_io_process, n_g - basic_read_data%start + 1)
-
-      CALL set_inner_glb_index(basic_read_data%glb2loc_index, (/(i + basic_read_data%start - 1, &
-        & i = 1, &
-        & basic_read_data%COUNT)/), &
-        & (/(i, i = 1, basic_read_data%COUNT)/))
+    IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
+      basic_read_data%io_chunk = uniform_partition(extent(1, n_g), &
+           n_io_processes, p_pe_work / io_process_stride + 1)
+      n = basic_read_data%io_chunk%size
+      ALLOCATE(idxmap(n, 2))
+      DO i = 1, n
+        idxmap(i, 1) = i + basic_read_data%io_chunk%first - 1
+        idxmap(i, 2) = i
+      END DO
+      CALL set_inner_glb_index(basic_read_data%glb2loc_index, &
+           idxmap(:, 1), idxmap(:, 2))
     ELSE
-      basic_read_data%start = 1
-      basic_read_data%COUNT = 0
+      basic_read_data%io_chunk = extent(1, 0)
     END IF
 
   END SUBROUTINE init_basic_distrib_read_data
@@ -238,6 +242,43 @@ CONTAINS
   END FUNCTION get_basic_distrib_read_data
 
   !-------------------------------------------------------------------------
+  ELEMENTAL SUBROUTINE distrib_nf_io_rank_distribution(&
+       n_io_processes, io_process_stride)
+    INTEGER, INTENT(out) :: n_io_processes, io_process_stride
+    INTEGER :: io_process_rotate
+
+    IF (config_io_process_stride > 0) THEN
+      io_process_stride = MAX(1, MODULO(config_io_process_stride, p_n_work))
+      io_process_rotate = MODULO(config_io_process_rotate, io_process_stride)
+      n_io_processes = (p_n_work - io_process_rotate + io_process_stride - 1)&
+           / io_process_stride
+    ELSE
+      n_io_processes = NINT(SQRT(REAL(p_n_work)))
+      io_process_stride = (p_n_work + n_io_processes - 1) / n_io_processes
+    END IF
+  END SUBROUTINE distrib_nf_io_rank_distribution
+
+  FUNCTION distrib_nf_rank_does_io(n_io_processes, io_process_stride) &
+       RESULT (do_open)
+    INTEGER, INTENT(in) :: n_io_processes, io_process_stride
+    LOGICAL :: do_open
+    do_open = MOD(p_pe_work, io_process_stride) &
+         == MODULO(config_io_process_rotate, io_process_stride)
+  END FUNCTION distrib_nf_rank_does_io
+
+  SUBROUTINE distrib_read_compute_owner(n, glb_index, owner, basic_io_data)
+    INTEGER, INTENT(in) :: n
+    INTEGER, INTENT(in) :: glb_index(n)
+    INTEGER, INTENT(out) :: owner(n)
+    TYPE(t_basic_distrib_read_data), INTENT(in) :: basic_io_data
+
+    owner = (partidx_of_elem_uniform_deco(extent(1, basic_io_data%n_g), &
+         basic_io_data%num_io_processes, glb_index) - 1) &
+         * basic_io_data%io_process_stride &
+         + MODULO(config_io_process_rotate, basic_io_data%io_process_stride)
+  END SUBROUTINE distrib_read_compute_owner
+
+  !-------------------------------------------------------------------------
 
   INTEGER FUNCTION distrib_nf_open(path)
 
@@ -245,10 +286,8 @@ CONTAINS
 
     INTEGER :: n_io_processes, io_process_stride
 
-    n_io_processes = NINT(SQRT(REAL(p_n_work)))
-    io_process_stride = (p_n_work + n_io_processes - 1) / n_io_processes
-
-    IF (MOD(p_pe_work, io_process_stride) == 0) THEN
+    CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
+    IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
       CALL nf(nf_open(path, nf_nowrite, distrib_nf_open))
     ELSE
       distrib_nf_open = -1
@@ -264,10 +303,9 @@ CONTAINS
 
     INTEGER :: n_io_processes, io_process_stride
 
-    n_io_processes = NINT(SQRT(REAL(p_n_work)))
-    io_process_stride = (p_n_work + n_io_processes - 1) / n_io_processes
+    CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
 
-    IF (MOD(p_pe_work, io_process_stride) == 0) THEN
+    IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
       CALL nf(nf_close(ncid))
     END IF
 
@@ -301,20 +339,6 @@ CONTAINS
     DEALLOCATE(owner)
 
   END SUBROUTINE setup_distrib_read
-
-  !-------------------------------------------------------------------------
-
-  SUBROUTINE distrib_read_compute_owner(n, glb_index, owner, basic_io_data)
-
-    INTEGER, INTENT(in) :: n
-    INTEGER, INTENT(in) :: glb_index(n)
-    INTEGER, INTENT(out) :: owner(n)
-    TYPE(t_basic_distrib_read_data), INTENT(in) :: basic_io_data
-
-    owner(:) = ((glb_index(:) - 1) / basic_io_data%num_points_per_io_process) &
-      & * basic_io_data%io_process_stride
-
-  END SUBROUTINE distrib_read_compute_owner
 
   !-------------------------------------------------------------------------
 
@@ -358,7 +382,8 @@ CONTAINS
 
     TYPE(t_distrib_read_data), INTENT(in) :: io_data
 
-    distrib_read_get_buffer_size = basic_data(io_data%basic_data_index)%COUNT
+    distrib_read_get_buffer_size &
+      = basic_data(io_data%basic_data_index)%io_chunk%size
 
   END FUNCTION distrib_read_get_buffer_size
 
@@ -421,7 +446,7 @@ CONTAINS
       &      local_buffer_2d(nproma, buffer_nblks))
 
     ! read data from file into io decomposition
-    IF (basic_io_data%COUNT > 0) THEN
+    IF (basic_io_data%io_chunk%size > 0) THEN
       CALL nf(nf_inq_varid(ncid, var_name, varid))
       CALL nf(nf_inq_vartype(ncid, varid, var_type))
 
@@ -429,8 +454,8 @@ CONTAINS
         CALL finish("distrib_read_int_2d_multi_var", "invalid var_type")
 
       ! only read io_decomp part
-      CALL nf(nf_get_vara_int(ncid, varid, (/basic_io_data%start/), &
-        & (/basic_io_data%COUNT/), local_buffer_1d(:)))
+      CALL nf(nf_get_vara_int(ncid, varid, (/basic_io_data%io_chunk%first/), &
+        & (/basic_io_data%io_chunk%size/), local_buffer_1d(:)))
 
       DO i = 1, SIZE(local_buffer_1d(:))
         local_buffer_2d(idx_no(i),blk_no(i)) = local_buffer_1d(i)
@@ -492,11 +517,11 @@ CONTAINS
       &      local_buffer_2d(nproma, buffer_nblks))
 
     ! read data from file into io decomposition
-    IF (basic_io_data%COUNT > 0) THEN
+    IF (basic_io_data%io_chunk%size > 0) THEN
       CALL nf(nf_inq_varid(ncid, var_name, varid))
       ! only read io_decomp part
-      CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%start/), &
-        & (/basic_io_data%COUNT/), local_buffer_1d(:)))
+      CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%io_chunk%first/), &
+        & (/basic_io_data%io_chunk%size/), local_buffer_1d(:)))
       DO i = 1, SIZE(local_buffer_1d(:))
         local_buffer_2d(idx_no(i),blk_no(i)) = local_buffer_1d(i)
       END DO
@@ -580,7 +605,7 @@ CONTAINS
         CALL finish("distrib_read_real_3d_multi_var", "invalid dim_order")
     END SELECT
 
-    IF (basic_io_data%COUNT > 0) THEN
+    IF (basic_io_data%io_chunk%size > 0) THEN
 
       CALL nf(nf_inq_varid(ncid, var_name, varid))
       CALL nf(nf_inq_vartype(ncid, varid, var_type))
@@ -591,19 +616,19 @@ CONTAINS
       ! only read io_decomp part
       IF (PRESENT(start_ext_dim)) THEN
         CALL nf(nf_get_vara_int(ncid, varid, &
-          &                     (/basic_io_data%start, start_ext_dim/), &
-          &                     (/basic_io_data%COUNT, ext_dim_size/), &
+          &                     (/basic_io_data%io_chunk%first, start_ext_dim/), &
+          &                     (/basic_io_data%io_chunk%size, ext_dim_size/), &
           &                     local_buffer_2d(:,:)))
       ELSE
-        CALL nf(nf_get_vara_int(ncid, varid, (/basic_io_data%start, 1/), &
-          &                     (/basic_io_data%COUNT, ext_dim_size/), &
+        CALL nf(nf_get_vara_int(ncid, varid, (/basic_io_data%io_chunk%first, 1/), &
+          &                     (/basic_io_data%io_chunk%size, ext_dim_size/), &
           &                     local_buffer_2d(:,:)))
       END IF
     END IF
 
     IF (dim_order == idx_blk_time) THEN
       DO j = 1, ext_dim_size
-        DO i = 1, basic_io_data%COUNT
+        DO i = 1, basic_io_data%io_chunk%size
           local_buffer_3d(idx_no(i),blk_no(i), j) = local_buffer_2d(i, j)
         END DO
       END DO
@@ -618,7 +643,7 @@ CONTAINS
       END DO
     ELSE
       DO j = 1, ext_dim_size
-        DO i = 1, basic_io_data%COUNT
+        DO i = 1, basic_io_data%io_chunk%size
           local_buffer_3d(idx_no(i), j, blk_no(i)) = local_buffer_2d(i, j)
         END DO
       END DO
@@ -704,25 +729,25 @@ CONTAINS
         CALL finish("distrib_read_real_3d_multi_var", "invalid dim_order")
     END SELECT
 
-    IF (basic_io_data%COUNT > 0) THEN
+    IF (basic_io_data%io_chunk%size > 0) THEN
 
       CALL nf(nf_inq_varid(ncid, var_name, varid))
       ! only read io_decomp part
       IF (PRESENT(start_ext_dim)) THEN
         CALL nf(nf_get_vara_double(ncid, varid, &
-          &                        (/basic_io_data%start, start_ext_dim/), &
-          &                        (/basic_io_data%COUNT, ext_dim_size/), &
+          &                        (/basic_io_data%io_chunk%first, start_ext_dim/), &
+          &                        (/basic_io_data%io_chunk%size, ext_dim_size/), &
           &                        local_buffer_2d(:,:)))
       ELSE
-        CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%start, 1/), &
-          &                        (/basic_io_data%COUNT, ext_dim_size/), &
+        CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%io_chunk%first, 1/), &
+          &                        (/basic_io_data%io_chunk%size, ext_dim_size/), &
           &                        local_buffer_2d(:,:)))
       END IF
     END IF
 
     IF (dim_order == idx_blk_time) THEN
       DO j = 1, ext_dim_size
-        DO i = 1, basic_io_data%COUNT
+        DO i = 1, basic_io_data%io_chunk%size
           local_buffer_3d(idx_no(i),blk_no(i), j) = local_buffer_2d(i, j)
         END DO
       END DO
@@ -736,7 +761,7 @@ CONTAINS
       END DO
     ELSE
       DO j = 1, ext_dim_size
-        DO i = 1, basic_io_data%COUNT
+        DO i = 1, basic_io_data%io_chunk%size
           local_buffer_3d(idx_no(i), j, blk_no(i)) = local_buffer_2d(i, j)
         END DO
       END DO
@@ -804,7 +829,7 @@ CONTAINS
     ALLOCATE(local_buffer_4d(nproma, ext_dim_size(1), buffer_nblks, &
       &                      ext_dim_size(2)))
 
-    IF (basic_io_data%COUNT > 0) THEN
+    IF (basic_io_data%io_chunk%size > 0) THEN
 
       CALL nf(nf_inq_varid(ncid, var_name, varid))
       CALL nf(nf_inq_vartype(ncid, varid, var_type))
@@ -813,14 +838,14 @@ CONTAINS
         CALL finish("distrib_read_int_3d_multi_var", "invalid var_type")
 
       ! only read io_decomp part
-      CALL nf(nf_get_vara_int(ncid, varid, (/basic_io_data%start, 1, 1/), &
-        & (/basic_io_data%COUNT, ext_dim_size(1), ext_dim_size(2)/), &
+      CALL nf(nf_get_vara_int(ncid, varid, (/basic_io_data%io_chunk%first, 1, 1/), &
+        & (/basic_io_data%io_chunk%size, ext_dim_size(1), ext_dim_size(2)/), &
         & local_buffer_3d(:,:,:)))
     END IF
 
     DO k = 1, ext_dim_size(2)
       DO j = 1, ext_dim_size(1)
-        DO i = 1, basic_io_data%COUNT
+        DO i = 1, basic_io_data%io_chunk%size
           local_buffer_4d(idx_no(i),j,blk_no(i), k) = local_buffer_3d(i, j, k)
         END DO
       END DO
@@ -901,26 +926,26 @@ CONTAINS
     ALLOCATE(local_buffer_4d(nproma, ext_dim_size(1), buffer_nblks, &
       &                      ext_dim_size(2)))
 
-    IF (basic_io_data%COUNT > 0) THEN
+    IF (basic_io_data%io_chunk%size > 0) THEN
 
       CALL nf(nf_inq_varid(ncid, var_name, varid))
       ! only read io_decomp part
       IF (PRESENT(start_ext_dim)) THEN
-        CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%start, &
+        CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%io_chunk%first, &
           &                                       start_ext_dim(1), &
           &                                       start_ext_dim(2)/), &
-          & (/basic_io_data%COUNT, ext_dim_size(1), ext_dim_size(2)/), &
+          & (/basic_io_data%io_chunk%size, ext_dim_size(1), ext_dim_size(2)/), &
           & local_buffer_3d(:,:,:)))
       ELSE
-        CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%start, 1, 1/), &
-          & (/basic_io_data%COUNT, ext_dim_size(1), ext_dim_size(2)/), &
+        CALL nf(nf_get_vara_double(ncid, varid, (/basic_io_data%io_chunk%first, 1, 1/), &
+          & (/basic_io_data%io_chunk%size, ext_dim_size(1), ext_dim_size(2)/), &
           & local_buffer_3d(:,:,:)))
       END IF
     END IF
 
     DO k = 1, ext_dim_size(2)
       DO j = 1, ext_dim_size(1)
-        DO i = 1, basic_io_data%COUNT
+        DO i = 1, basic_io_data%io_chunk%size
           local_buffer_4d(idx_no(i),j,blk_no(i), k) = local_buffer_3d(i, j, k)
         END DO
       END DO

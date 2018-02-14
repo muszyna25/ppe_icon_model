@@ -39,7 +39,7 @@ AS_CASE([$ac_hostname],
         [wizard*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],  
-        [mlogin*|btc*],
+        [mlogin*|btlogin*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],
         [daint*|tave*|santis*],
@@ -63,7 +63,7 @@ AS_CASE([$ac_hostname],
            [ac_sitename=])])
 
 AS_IF([ test -n "$fqdn" ],
-      [AS_IF([test -z ac_sitename],
+      [AS_IF([test -z "$ac_sitename"],
              [ac_sitename=local.net],
              [])],
       [AS_IF([ test -n "$PE_ENV" ],
@@ -483,7 +483,7 @@ if test -n "$SZIPROOT" ; then
      exit 1    
   fi
   case $ac_hostname in
-  mlogin*|btc*)
+  mlogin*|btlogin*)
     case $FC in
     nagfor)
       SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -532,7 +532,7 @@ if test -n "$HDF5ROOT" ; then
      exit 1    
   fi
   case $ac_hostname in
-  mlogin*|btc*)  
+  mlogin*|btlogin*)
     case $FC in
     nagfor)
       HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -590,7 +590,7 @@ if test -n "$NETCDFROOT" ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
   case $ac_hostname in
-  mlogin*|btc*)
+  mlogin*|btlogin*)
     case $FC in
     nagfor)
       NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -617,7 +617,7 @@ if test -n "$NETCDFROOT" ; then
          NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
          case $ac_hostname in
-         mlogin*|btc*)
+         mlogin*|btlogin*)
            case $FC in
            nagfor)
              NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -740,7 +740,7 @@ AS_IF([test -n "$GRIBAPIROOT"],
        FFLAGS="${FFLAGS} ${DEFOPT}HAVE_LIBGRIB ${DEFOPT}HAVE_LIBGRIB_API"
        CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_LIBGRIB ${DEFCOPT}HAVE_LIBGRIB_API"
        AS_CASE([$ac_hostname],
-               [mlogin*|btc*|daint*],
+               [mlogin*|btlogin*|daint*],
                [AS_CASE([$FC],
                         [nagfor],
                         [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
@@ -973,7 +973,10 @@ dnl Check for byte ordering
 
 dnl Check for Fortran naming convention
 
+dnl  the m4_pushdef of lSystem inserts a hack by Cray also with stock autoconf
+   m4_pushdef([lSystem],[lSy[]stem | -ltcmalloc | -ltcmalloc_minimal])dnl
    AC_FC_WRAPPERS
+   m4_popdef([lSystem])dnl
 
 fi # ! CROSS
 
