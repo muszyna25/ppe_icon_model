@@ -406,7 +406,8 @@ CONTAINS
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,    &
       & t_cf_var('zos'//TRIM(var_suffix), 'm', 'surface elevation at cell center', DATATYPE_FLT64,'zos'),&
       & grib2_var(255, 255, 1, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/), tlev_source=TLEV_NNEW)
+      & ldims=(/nproma,alloc_cell_blocks/), tlev_source=TLEV_NNEW,&
+      & in_group=groups("oce_default", "oce_essentials"))
 
     !! normal velocity component
     CALL add_var(ocean_restart_list,'normal_velocity'//TRIM(var_suffix),ocean_state_prog%vn,grid_unstructured_edge, &
@@ -447,7 +448,8 @@ CONTAINS
                     & DATATYPE_FLT64, &
                     & TRIM(oce_config%tracer_shortnames(jtrc))), &
           & grib2_var(255, 255, oce_config%tracer_codes(jtrc), DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-          & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW)
+          & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
+          & in_group=groups("oce_default", "oce_essentials"))
       END DO
 
       ! use of the ocean_tracers structure
@@ -826,13 +828,13 @@ CONTAINS
       & za_depth_below_sea, &
       & t_cf_var('rho', 'kg/m^3', 'insitu density', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
 
     CALL add_var(ocean_default_list, 'rhopot', ocean_state_diag%rhopot , grid_unstructured_cell,&
       & za_depth_below_sea, &
       & t_cf_var('rhopot', 'kg/m^3', 'potential density', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
 
     CALL add_var(ocean_default_list, 'rhopo_GM', ocean_state_diag%rho_GM , grid_unstructured_cell,&
       & za_depth_below_sea, &
@@ -886,14 +888,15 @@ CONTAINS
       & grid_unstructured_edge,&
       & za_depth_below_sea, t_cf_var('mass flux','',' mass flux at edges', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_default"),lrestart_cont=.FALSE.)
 
     ! velocities
     CALL add_var(ocean_restart_list, 'w', ocean_state_diag%w, grid_unstructured_cell, &
       & za_depth_below_sea_half, &
       & t_cf_var('w','m/s','vertical velocity at cells', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
+      & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default"), &
+      & lrestart_cont=.TRUE.)
     CALL add_var(ocean_restart_list, 'w_old', ocean_state_diag%w_old, grid_unstructured_cell, &
       & za_depth_below_sea_half,&
       & t_cf_var('w_old','m/s','vertical velocity at cells', datatype_flt),&
@@ -952,13 +955,13 @@ CONTAINS
       & za_depth_below_sea, &
       & t_cf_var('u','m/s','u zonal velocity component', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
     ! reconstructed v velocity component
     CALL add_var(ocean_default_list, 'v', ocean_state_diag%v, grid_unstructured_cell, &
       & za_depth_below_sea, &
       & t_cf_var('v','m/s','v meridional velocity component', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
     ! reconstrcuted velocity in cartesian coordinates
     !   CALL add_var(ocean_restart_list, 'p_vn', ocean_state_diag%p_vn, GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA, &
     !   &            t_cf_var('p_vn','m/s','normal velocity in cartesian coordinates', datatype_flt),&
@@ -969,12 +972,15 @@ CONTAINS
       & za_surface, &
       & t_cf_var('u_vint','m*m/s','barotropic zonal velocity', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+      & ldims=(/nproma,alloc_cell_blocks/), &
+      & in_group=groups("oce_diag","oce_default", "oce_essentials"), &
+      & lrestart_cont=.FALSE.)
     CALL add_var(ocean_default_list, 'v_vint', ocean_state_diag%v_vint, grid_unstructured_cell, &
       & za_surface, &
       & t_cf_var('v_vint','m*m/s','barotropic meridional velocity', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/))
+      & ldims=(/nproma,alloc_cell_blocks/),&
+      & in_group=groups("oce_default", "oce_essentials"))
 
     CALL add_var(ocean_restart_list, 'ptp_vn', ocean_state_diag%ptp_vn, &
       & grid_unstructured_edge, za_depth_below_sea, &
@@ -1807,7 +1813,7 @@ CONTAINS
       & grid_unstructured_cell, za_surface, &
       & t_cf_var('h_acc', 'm', 'surface elevation at cell center', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_essentials"))
+      & ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(ocean_default_list, 'h_sqr', ocean_state_acc%h_sqr , &
       & grid_unstructured_cell, za_surface, &
       & t_cf_var('h_sqr', 'm', 'surface elevation squared at cell center', datatype_flt),&
@@ -1817,13 +1823,13 @@ CONTAINS
       & za_depth_below_sea, &
       & t_cf_var('u_acc','m/s','zonal velocity component', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default", "oce_essentials"))
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/))
     ! reconstructed v velocity component
     CALL add_var(ocean_default_list, 'v_acc', ocean_state_acc%v, grid_unstructured_cell, &
       & za_depth_below_sea, &
       & t_cf_var('v_acc','m/s','meridional velocity component', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/))
     CALL add_var(ocean_default_list, 'rhopot_acc', ocean_state_acc%rhopot, grid_unstructured_cell, &
       & za_depth_below_sea, &
       & t_cf_var('rhopot_acc','kg/m^3','potential density', datatype_flt),&
@@ -1857,7 +1863,7 @@ CONTAINS
       & za_depth_below_sea_half, &
       & t_cf_var('w_acc','m/s','vertical velocity', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_default"))
+      & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/))
     CALL add_var(ocean_default_list, 'mass_flx_e_acc', ocean_state_acc%mass_flx_e, grid_unstructured_edge, &
       & za_depth_below_sea, &
       & t_cf_var('mass_flx_e_acc','','mass flux at edges', datatype_flt),&
@@ -1872,12 +1878,12 @@ CONTAINS
       & grid_unstructured_edge, za_surface, &
       & t_cf_var('edgeFlux_total_acc', 'm*m/s', 'vertically integrated edge flux', DATATYPE_FLT32),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
-      & ldims=(/nproma,nblks_e/),in_group=groups("oce_default"))
+      & ldims=(/nproma,nblks_e/))
     CALL add_var(ocean_default_list, 'u_vint_acc', ocean_state_acc%u_vint , &
       & grid_unstructured_cell, za_surface, &
       & t_cf_var('u_vint_acc', 'm*m/s', 'barotropic zonal velocity', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_essentials"))
+      & ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(ocean_default_list, 'v_vint_acc', ocean_state_acc%v_vint , &
       & grid_unstructured_cell, za_surface, &
       & t_cf_var('v_vint_acc', 'm*m/s', 'barotropic meridional velocity', datatype_flt),&
@@ -1934,7 +1940,7 @@ CONTAINS
           & TRIM(oce_config%tracer_units(jtrc)), &
           & TRIM(oce_config%tracer_longnames(jtrc)), datatype_flt), &
           & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-          & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default", "oce_essentials"))
+          & ldims=(/nproma,n_zlev,alloc_cell_blocks/))
 
       END DO
 
