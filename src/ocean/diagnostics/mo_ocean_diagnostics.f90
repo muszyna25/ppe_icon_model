@@ -882,7 +882,7 @@ CONTAINS
             & dolic(jc,blockNo), &
             & prism_thickness(jc,:,blockNo), &
             & depths(1)),p_diag%mld(jc,blockNo))
-          p_diag%condep(jc,blockNo) = calc_condep(p_diag%zgrad_rho(jc,:,blockNo), dolic(jc,blockNo))
+          p_diag%condep(jc,blockNo) = REAL(calc_condep(p_diag%zgrad_rho(jc,:,blockNo), dolic(jc,blockNo)),KIND=wp)
 
         ENDDO
       ENDDO
