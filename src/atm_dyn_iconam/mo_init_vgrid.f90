@@ -396,7 +396,7 @@ CONTAINS
     ierr(:) = 0
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk, jk1, z_fac1, z_fac2, z_topo_dev, min_lay_spacing,&
+!$OMP DO PRIVATE(jb, jc, nlen, jk, jk1, z_fac1, z_fac2, z_topo_dev, min_lay_spacing,&
 !$OMP dvct, wfac, ktop_thicklimit, dz1, dz2, dz3, dzr) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks
 
