@@ -873,13 +873,11 @@ if [[ "$output_oce_min" == "yes" ]]; then
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c',
                       'Qtop', 'Qbot','CondHeat', 'zHeatOceI','heatOceI','heatOceW','draftave','zUnderIce',
-                      'Qtop_acc', 'Qbot_acc','CondHeat_acc','zHeatOceI_acc','heatOceI_acc','heatOceW_acc',
-                      'draftave_acc','zUnderIce_acc',
-                      'mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc','t_acc','s_acc','u_acc',
-                      'HeatFlux_Total_acc','atmos_fluxes_HeatFlux_ShortWave','atmos_fluxes_HeatFlux_LongWave',
-                      'HeatFlux_ShortWave_acc','HeatFlux_LongWave_acc','HeatFlux_Sensible_acc','HeatFlux_Latent_acc',
-                      'FrshFlux_Runoff_acc','FrshFlux_Precipitation_acc','FrshFlux_Evaporation_acc','FrshFlux_SnowFall_acc',
-                      'FrshFlux_TotalOcean_acc', 'Wind_Speed_10m'
+                      'mld','condep','zos','u_vint','hi','hs','conc','to','so','u',
+                      'HeatFlux_Total','atmos_fluxes_HeatFlux_ShortWave','atmos_fluxes_HeatFlux_LongWave',
+                      'HeatFlux_ShortWave','HeatFlux_LongWave','HeatFlux_Sensible','HeatFlux_Latent',
+                      'FrshFlux_Runoff','FrshFlux_Precipitation','FrshFlux_Evaporation','FrshFlux_SnowFall',
+                      'FrshFlux_TotalOcean', 'Wind_Speed_10m'
 /
 EOF
 fi
