@@ -542,9 +542,7 @@ case "$ac_sitename" in
                                 NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-parallel-impi-intel14
                                 HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-parallel-impi-intel14
                                 ;;
-                            no)
-                                ;;
-                            /opt/mpi/bullxmpi_mlx/1.2.9.2|*)
+                            /opt/mpi/bullxmpi_mlx/1.2.9.2)
                                 load_modules = ${load_modules} fca/2.5.2431 mxm/3.4.3082 bullxmpi_mlx/bullxmpi_mlx-1.2.9.2
                                 FFLAGS       = $FFLAGS -DHAVE_PARALLEL_NETCDF
                                 MPIROOT      = /opt/mpi/bullxmpi_mlx/1.2.9.2
@@ -553,7 +551,19 @@ case "$ac_sitename" in
                                 NETCDFFROOT  = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-bullxmpi-intel14
                                 NETCDFROOT   = $software_tree/netcdf/netcdf_c-4.3.2-parallel-bullxmpi-intel14
                                 HDF5ROOT     = $software_tree/hdf5/hdf5-1.8.14-parallel-bullxmpi-intel14
-                                ;;                              
+                                ;;
+                            no)
+                                ;;
+                            "$software_tree/mpi/openmpi-2.0.2p1_hpcx-intel14/"|"openmpi/2.0.2p1_hpcx-intel14"|*)
+                                load_modules = ${load_modules} hpcx/1.9.7 openmpi/2.0.2p1_hpcx-intel14
+                                FFLAGS       = $FFLAGS -DHAVE_PARALLEL_NETCDF
+                                MPIROOT      = $software_tree/mpi/openmpi-2.0.2p1_hpcx-intel14
+                                SYS_LIBS     = -ldl -lm -lnuma $WLFLAG,--export-dynamic -lrt -lnsl -lutil -lm -ldl
+                                MPI_LIB      = $WLFLAG,-rpath $WLFLAG,/sw/rhel6-x64/mpi/openmpi-2.0.2p1_hpcx-intel14/lib $WLFLAG,--enable-new-dtags -L/sw/rhel6-x64/mpi/openmpi-2.0.2p1_hpcx-intel14/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+                                NETCDFFROOT  = $software_tree/netcdf/netcdf_fortran-4.4.3-parallel-openmpi2-intel14
+                                NETCDFROOT   = $software_tree/netcdf/netcdf_c-4.4.0-parallel-openmpi2-intel14
+                                HDF5ROOT     = $software_tree/hdf5/hdf5-1.8.18-parallel-openmpi2-intel14
+                                ;;
                         esac
                         mpi_startrun = srun
                         ;;
