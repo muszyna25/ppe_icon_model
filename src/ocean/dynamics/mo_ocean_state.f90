@@ -523,37 +523,37 @@ CONTAINS
     nblks_v = patch_2d%nblks_v
 
     ! add monitoring
-    CALL add_var(ocean_default_list, 'volume_Global', ocean_state_diag%monitor%volume , &
+    CALL add_var(ocean_default_list, 'volume_global', ocean_state_diag%monitor%volume , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('volume', 'm^3', 'volume', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'kin_energy_Global', ocean_state_diag%monitor%kin_energy , &
+    CALL add_var(ocean_default_list, 'kin_energy_global', ocean_state_diag%monitor%kin_energy , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('kin_energy', 'J', 'kin_energy', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'pot_energy_Global', ocean_state_diag%monitor%pot_energy , &
+    CALL add_var(ocean_default_list, 'pot_energy_global', ocean_state_diag%monitor%pot_energy , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('pot_energy', 'J', 'pot_energy', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'total_energy_Global', ocean_state_diag%monitor%total_energy , &
+    CALL add_var(ocean_default_list, 'total_energy_global', ocean_state_diag%monitor%total_energy , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('total_energy', 'J', 'total_energy', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'total_salt_Global', ocean_state_diag%monitor%total_salt , &
+    CALL add_var(ocean_default_list, 'total_salt_global', ocean_state_diag%monitor%total_salt , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('total_salt', 'kg', 'total_salt', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'vorticity_Global', ocean_state_diag%monitor%vorticity , &
+    CALL add_var(ocean_default_list, 'vorticity_global', ocean_state_diag%monitor%vorticity , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('vorticity', '', 'vorticity', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
@@ -565,121 +565,121 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_LONLAT),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'potential_enstrophy_Global', ocean_state_diag%monitor%potential_enstrophy , &
+    CALL add_var(ocean_default_list, 'potential_enstrophy_global', ocean_state_diag%monitor%potential_enstrophy , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('potential_enstrophy', '', 'potential_enstrophy', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'absolute_vertical_velocity_Global', ocean_state_diag%monitor%absolute_vertical_velocity , &
+    CALL add_var(ocean_default_list, 'absolute_vertical_velocity_global', ocean_state_diag%monitor%absolute_vertical_velocity , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('absolute_vertical_velocity', 'm/s', 'absolute_vertical_velocity', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'HeatFlux_ShortWave_Global', ocean_state_diag%monitor%HeatFlux_ShortWave , &
+    CALL add_var(ocean_default_list, 'HeatFlux_ShortWave_global', ocean_state_diag%monitor%HeatFlux_ShortWave , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('HeatFlux_ShortWave', 'W/m2', 'HeatFlux_ShortWave', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'HeatFlux_LongWave_Global', ocean_state_diag%monitor%HeatFlux_LongWave , &
+    CALL add_var(ocean_default_list, 'HeatFlux_LongWave_global', ocean_state_diag%monitor%HeatFlux_LongWave , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('HeatFlux_LongWave', 'W/m2', 'HeatFlux_LongWave_Global', datatype_flt),&
+      & t_cf_var('HeatFlux_LongWave', 'W/m2', 'HeatFlux_LongWave_global', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'HeatFlux_Sensible_Global', ocean_state_diag%monitor%HeatFlux_Sensible , &
+    CALL add_var(ocean_default_list, 'HeatFlux_Sensible_global', ocean_state_diag%monitor%HeatFlux_Sensible , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('HeatFlux_Sensible', 'W/m2', 'HeatFlux_Sensible', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'HeatFlux_Latent_Global', ocean_state_diag%monitor%HeatFlux_Latent , &
+    CALL add_var(ocean_default_list, 'HeatFlux_Latent_global', ocean_state_diag%monitor%HeatFlux_Latent , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('HeatFlux_Latent', 'W/m2', 'HeatFlux_Latent', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'HeatFlux_Total_Global', ocean_state_diag%monitor%HeatFlux_Total , &
+    CALL add_var(ocean_default_list, 'HeatFlux_Total_global', ocean_state_diag%monitor%HeatFlux_Total , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('HeatFlux_Total', 'W/m2', 'HeatFlux_Total', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'FrshFlux_Precipitation_Global', ocean_state_diag%monitor%FrshFlux_Precipitation , &
+    CALL add_var(ocean_default_list, 'FrshFlux_Precipitation_global', ocean_state_diag%monitor%FrshFlux_Precipitation , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('FrshFlux_Precipitation', 'm/s', 'FrshFlux_Precipitation', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'FrshFlux_SnowFall_Global', ocean_state_diag%monitor%FrshFlux_SnowFall , &
+    CALL add_var(ocean_default_list, 'FrshFlux_SnowFall_global', ocean_state_diag%monitor%FrshFlux_SnowFall , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('FrshFlux_SnowFall', 'm/s', 'FrshFlux_SnowFall_Global', datatype_flt),&
+      & t_cf_var('FrshFlux_SnowFall', 'm/s', 'FrshFlux_SnowFall_global', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'FrshFlux_Evaporation_Global', ocean_state_diag%monitor%FrshFlux_Evaporation , &
+    CALL add_var(ocean_default_list, 'FrshFlux_Evaporation_global', ocean_state_diag%monitor%FrshFlux_Evaporation , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('FrshFlux_Evaporation', 'm/s', 'FrshFlux_Evaporation_Global', datatype_flt),&
+      & t_cf_var('FrshFlux_Evaporation', 'm/s', 'FrshFlux_Evaporation_global', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'FrshFlux_Runoff_Global', ocean_state_diag%monitor%FrshFlux_Runoff , &
+    CALL add_var(ocean_default_list, 'FrshFlux_Runoff_global', ocean_state_diag%monitor%FrshFlux_Runoff , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('FrshFlux_Runoff', 'm/s', 'FrshFlux_Runoff', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'FrshFlux_TotalSalt_Global', ocean_state_diag%monitor%FrshFlux_TotalSalt , &
+    CALL add_var(ocean_default_list, 'FrshFlux_TotalSalt_global', ocean_state_diag%monitor%FrshFlux_TotalSalt , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('FrshFlux_TotalSalt', 'm/s', 'FrshFlux_TotalSalt', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'FrshFlux_TotalOcean_Global', ocean_state_diag%monitor%FrshFlux_TotalOcean , &
+    CALL add_var(ocean_default_list, 'FrshFlux_TotalOcean_global', ocean_state_diag%monitor%FrshFlux_TotalOcean , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('FrshFlux_TotalOcean', 'm/s', 'FrshFlux_TotalOcean', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'FrshFlux_TotalIce_Global', ocean_state_diag%monitor%FrshFlux_TotalIce , &
+    CALL add_var(ocean_default_list, 'FrshFlux_TotalIce_global', ocean_state_diag%monitor%FrshFlux_TotalIce , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('FrshFlux_TotalIce', 'm/s', 'FrshFlux_TotalIce', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'FrshFlux_VolumeIce_Global', ocean_state_diag%monitor%FrshFlux_VolumeIce , &
+    CALL add_var(ocean_default_list, 'FrshFlux_VolumeIce_global', ocean_state_diag%monitor%FrshFlux_VolumeIce , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('FrshFlux_VolumeIce', 'm/s', 'FrshFlux_VolumeIce', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'FrshFlux_VolumeTotal_Global', ocean_state_diag%monitor%FrshFlux_VolumeTotal , &
+    CALL add_var(ocean_default_list, 'FrshFlux_VolumeTotal_global', ocean_state_diag%monitor%FrshFlux_VolumeTotal , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('FrshFlux_VolumeTotal', 'm/s', 'FrshFlux_VolumeTotal', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'HeatFlux_Relax_Global', ocean_state_diag%monitor%HeatFlux_Relax , &
+    CALL add_var(ocean_default_list, 'HeatFlux_Relax_global', ocean_state_diag%monitor%HeatFlux_Relax , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('HeatFlux_Relax', 'W/m2', 'HeatFlux_Relax', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'FrshFlux_Relax_Global', ocean_state_diag%monitor%FrshFlux_Relax , &
+    CALL add_var(ocean_default_list, 'FrshFlux_Relax_global', ocean_state_diag%monitor%FrshFlux_Relax , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('FrshFlux_Relax', 'm/m', 'FrshFlux_Relax', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'TempFlux_Relax_Global', ocean_state_diag%monitor%TempFlux_Relax , &
+    CALL add_var(ocean_default_list, 'TempFlux_Relax_global', ocean_state_diag%monitor%TempFlux_Relax , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('TempFlux_Relax', 'T/s', 'TempFlux_Relax', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
-    CALL add_var(ocean_default_list, 'SaltFlux_Relax_Global', ocean_state_diag%monitor%SaltFlux_Relax , &
+    CALL add_var(ocean_default_list, 'SaltFlux_Relax_global', ocean_state_diag%monitor%SaltFlux_Relax , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('SaltFlux_Relax', 'psu/s', 'SaltFlux_Relax', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
