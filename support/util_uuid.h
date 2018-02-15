@@ -19,6 +19,8 @@
 #include <time.h>
 #include <ctype.h>
 
+#define UUID_STRING_LENGTH 36
+
 typedef struct
 {
   unsigned char data[16];
