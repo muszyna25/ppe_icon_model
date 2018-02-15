@@ -276,10 +276,10 @@ case "$ac_sitename" in
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -llzma
 			;;
                     *)
-                        (>&6 echo "")
-                        (>&6 echo "")
-                        (>&6 echo "No supported Fortran compiler selected.")
-                        (>&6 echo "")
+                        echo
+                        echo
+                        echo "No supported Fortran compiler selected."
+                        echo
                         exit 1
                         ;;
                 esac
@@ -327,10 +327,10 @@ case "$ac_sitename" in
                         OTHER_LIBS  =
 			;;
                     *)
-                        (>&6 echo "")
-                        (>&6 echo "")
-                        (>&6 echo "No supported Fortran compiler selected.")
-                        (>&6 echo "")
+                        echo
+                        echo
+                        echo "No supported Fortran compiler selected."
+                        echo
                         exit 1
                         ;;
                 esac
