@@ -62,7 +62,7 @@ MODULE mo_ocean_diagnostics
   USE mo_ocean_diagnostics_types,  ONLY: t_ocean_regions, t_ocean_region_volumes, &
     &  t_ocean_region_areas, t_ocean_monitor
   USE mo_ext_data_types,     ONLY: t_external_data
-  USE mo_exception,          ONLY: message, finish, message_text
+  USE mo_exception,          ONLY: message, finish, message_text, warning
   USE mo_sea_ice_types,      ONLY: t_atmos_fluxes, t_sea_ice
   USE mo_ocean_surface_types,ONLY: t_ocean_surface
   USE mo_linked_list,        ONLY: t_var_list
@@ -70,7 +70,7 @@ MODULE mo_ocean_diagnostics
   USE mo_scalar_product,     ONLY: map_edges2cell_3d
   USE mo_io_units,           ONLY: find_next_free_unit
   USE mo_util_file,          ONLY: util_symlink, util_rename, util_islink, util_unlink
-  USE mo_statistics,         ONLY: subset_sum, levels_horizontal_mean
+  USE mo_statistics,         ONLY: subset_sum, levels_horizontal_mean, total_mean, gather_sums
   USE mo_fortran_tools,      ONLY: assign_if_present
 
   USE mo_linked_list,        ONLY: t_var_list
@@ -140,6 +140,7 @@ MODULE mo_ocean_diagnostics
     & mass_flx_e_u(:,:,:), mass_flx_e_v(:,:,:), pressure_grad_u(:,:,:), pressure_grad_v(:,:,:), &
     & potential_vort_e(:,:,:), potential_vort_c(:,:,:)
 
+ CHARACTER(LEN=*), PARAMETER :: module_name="mo_ocean_statistics"
 
 CONTAINS
 
@@ -850,7 +851,9 @@ CONTAINS
     INTEGER :: jk,jc,blockNo!,je
     REAL(wp):: ssh_global_mean,total_runoff_flux,total_heat_flux, &
       &        total_fresh_water_flux,total_evaporation_flux, &
-      &        ice_volume_nh, ice_volume_sh, ice_extent_nh, ice_extent_sh
+      &        ice_volume_nh, ice_volume_sh, ice_extent_nh, ice_extent_sh, &
+      &        global_mean_potEnergy, global_mean_kinEnergy, global_mean_totalEnergy, &
+      &        global_mean_potEnstrophy
 
     TYPE(t_subset_range), POINTER :: owned_cells
     TYPE(t_ocean_monitor),  POINTER :: monitor
@@ -968,6 +971,37 @@ CONTAINS
       END IF
       monitor%ice_extent_sh = ice_extent_sh/1.0e6_wp !scaling to km^2
 
+      ! energy/enstrophy
+      global_mean_potEnergy = 0.0_wp
+      IF (isRegistered('pot_energy_global')) THEN
+        global_mean_potEnergy = potential_energy(& 
+            & p_diag%w, &
+!TODO       & p_prog(nold(1))%h,&
+            & sea_surface_height , & ! this is h_new, the old implementation used h_old
+            & p_diag%rho, &
+            & patch_3D%p_patch_1d(1)%del_zlev_i, &
+            & patch_3D%p_patch_1d(1)%prism_volume, &
+            & owned_cells)
+      END IF
+      monitor%pot_energy = global_mean_potEnergy
+
+      global_mean_kinEnergy = 0.0_wp
+      IF (isRegistered('kin_energy_global')) THEN
+         global_mean_kinEnergy = total_mean( p_diag%kin, &
+          & patch_3d%p_patch_1d(1)%prism_volume, &
+          & owned_cells )
+      END IF
+      monitor%kin_energy = global_mean_kinEnergy
+
+      global_mean_totalEnergy = 0.0_wp
+      IF (isRegistered('total_energy_global')) THEN
+      END IF
+      monitor%total_energy = global_mean_totalEnergy
+
+      global_mean_potEnstrophy = 0.0_wp
+      IF (isRegistered('potential_enstrophy_global')) THEN
+      END IF
+      monitor%potential_enstrophy = global_mean_potEnstrophy
       !}}}
 
       ! calc moc each timestep from non-accumulated vertical veloc
@@ -982,6 +1016,145 @@ CONTAINS
   END SUBROUTINE calc_fast_oce_diagnostics
   !-------------------------------------------------------------------------
 
+  !TODO potential_energy(&
+  !TODO     & p_diag%w,p_prog(nold(1))%h,&
+  !TODO     & p_diag%rho, &
+  !TODO     & patch_3D%p_patch_1d(1))%del_zlev_i, &
+  !TODO     & patch_3D%p_patch_1d(1)%prism_volume, &
+  !TODO     & owned_cells)
+  !-------------------------------------------------------------------------
+  FUNCTION potential_energy(w,h,rho,del_zlev_i,weights,in_subset)
+    REAL(wp), INTENT(IN) :: w(:,:,:)
+    REAL(wp), INTENT(IN) :: h(:,:)
+    REAL(wp), INTENT(IN) :: rho(:,:,:)
+    REAL(wp), INTENT(IN) :: del_zlev_i(:)
+    REAL(wp), INTENT(IN) :: weights(:,:,:)
+    TYPE(t_subset_range), INTENT(IN) :: in_subset
+
+    REAL(wp) :: potential_energy
+
+#define VerticalDim_Position 2
+
+    REAL(wp), ALLOCATABLE :: sum_value(:,:), sum_weight(:,:), total_weight(:), total_sum(:)
+    INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
+    INTEGER :: allocated_levels, no_of_threads, myThreadNo
+    REAL(wp) :: z_w, totalSum, totalWeight
+
+    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':potential_energy'
+
+
+    IF (in_subset%no_of_holes > 0) CALL warning(method_name, "there are holes in the subset")
+
+    no_of_threads = 1
+    myThreadNo = 0
+#ifdef _OPENMP
+    no_of_threads = omp_get_max_threads()
+#endif
+
+    allocated_levels = SIZE(w,VerticalDim_Position)
+    ALLOCATE( sum_value(allocated_levels, 0:no_of_threads-1), &
+      & sum_weight(allocated_levels, 0:no_of_threads-1), &
+      & total_weight(allocated_levels) )
+
+    start_vertical = 1
+    end_vertical = SIZE(w, VerticalDim_Position)
+
+    IF (start_vertical > end_vertical) &
+      & CALL finish(method_name, "start_vertical > end_vertical")
+    IF ( allocated_levels < end_vertical) &
+      & CALL finish(method_name, "allocated_levels < end_vertical")
+
+!ICON_OMP_PARALLEL PRIVATE(myThreadNo)
+!$  myThreadNo = omp_get_thread_num()
+!ICON_OMP_SINGLE
+!$  no_of_threads = OMP_GET_NUM_THREADS()
+!ICON_OMP_END_SINGLE NOWAIT
+    sum_value(:,  myThreadNo) = 0.0_wp
+    sum_weight(:,  myThreadNo) = 0.0_wp
+    IF (ASSOCIATED(in_subset%vertical_levels)) THEN
+!ICON_OMP_DO PRIVATE(block, start_index, end_index, idx)
+      DO block = in_subset%start_block, in_subset%end_block
+        CALL get_index_range(in_subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+          DO level = start_vertical, MIN(end_vertical, in_subset%vertical_levels(idx,block)) - 1
+            z_w = MERGE( &
+              & (w(idx,level,block)*h(idx,block) &
+              &  + w(idx,level+1,block)*0.5_wp*del_zlev_i(level)) &
+              & /(0.5_wp*del_zlev_i(level)+h(idx,block)) &
+              & , &
+              & (w(idx,level,block)*del_zlev_i(level) &
+              &  + w(idx,level+1,block)*del_zlev_i(level+1)) &
+              & /(del_zlev_i(level)+del_zlev_i(level+1)) &
+              & , &
+              & 1 .EQ. level)
+
+            sum_value(level, myThreadNo)  = sum_value(level, myThreadNo) + &
+              & grav*z_w*rho(idx, level, block) * weights(idx, level, block)
+
+            sum_weight(level, myThreadNo)  = sum_weight(level, myThreadNo) + weights(idx, level, block)
+
+          ENDDO
+        ENDDO
+      ENDDO
+!ICON_OMP_END_DO
+
+    ELSE ! no in_subset%vertical_levels
+
+!ICON_OMP_DO PRIVATE(block, start_index, end_index)
+      DO block = in_subset%start_block, in_subset%end_block
+        CALL get_index_range(in_subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+          ! since we have the same numbder of vertical layers, the weight is the same
+          ! for all levels. Compute it only for the first level, and then copy it
+          DO level = start_vertical, end_vertical - 1
+            z_w = MERGE( &
+              & (w(idx,level,block)*h(idx,block) &
+              &  + w(idx,level+1,block)*0.5_wp*del_zlev_i(level)) &
+              & /(0.5_wp*del_zlev_i(level)+h(idx,block)) &
+              & , &
+              & (w(idx,level,block)*del_zlev_i(level) &
+              &  + w(idx,level+1,block)*del_zlev_i(level+1)) &
+              & /(del_zlev_i(level)+del_zlev_i(level+1)) &
+              & , &
+              & 1 .EQ. level)
+
+            sum_value(level, myThreadNo)  = sum_value(level, myThreadNo) + &
+              & grav*z_w*rho(idx, level, block) * weights(idx,level, block)
+            sum_weight(level, myThreadNo)  = sum_weight(start_vertical, myThreadNo) + weights(idx, level, block)
+          ENDDO
+        ENDDO
+      ENDDO
+!ICON_OMP_END_DO
+
+    ENDIF
+!ICON_OMP_END_PARALLEL
+
+    ! gather the total level sum of this process in total_sum(level)
+    total_sum(:)     = 0.0_wp
+    total_weight(:) = 0.0_wp
+    DO myThreadNo=0, no_of_threads-1
+      DO level = start_vertical, end_vertical - 1
+        ! write(0,*) myThreadNo, level, " sum=", sum_value(level, myThreadNo), sum_weight(level, myThreadNo)
+        total_sum(level)    = total_sum(level)    + sum_value(level, myThreadNo)
+        total_weight(level) = total_weight(level) + sum_weight(level, myThreadNo)
+      ENDDO
+    ENDDO
+    DEALLOCATE(sum_value, sum_weight)
+
+    ! Collect the value and weight sums (at all procs)
+    CALL gather_sums(total_sum, total_weight)
+
+    DEALLOCATE(total_weight)
+
+    totalSum = 0.0_wp
+    totalWeight = 0.0_wp
+    DO level = start_vertical, end_vertical
+      totalSum    = totalSum    + total_sum(level)
+      totalWeight = totalWeight + total_weight(level)
+    ENDDO
+
+    potential_energy = totalSum / totalWeight
+  END FUNCTION potential_energy
 
   !-------------------------------------------------------------------------
   REAL(wp) FUNCTION section_flux(in_oce_section, velocity_values)
