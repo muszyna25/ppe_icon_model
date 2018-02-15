@@ -48,9 +48,10 @@ MODULE mo_statistics
   PUBLIC :: L2Norm, LInfNorm
   PUBLIC :: accumulate_mean, levels_horizontal_mean, horizontal_mean, total_mean
   PUBLIC :: horizontal_sum
-  PUBLIc :: print_value_location
-  PUBLIc :: add_verticallyIntegrated_field
-  PUBLIc :: add_verticalSum_field
+  PUBLIC :: print_value_location
+  PUBLIC :: add_verticallyIntegrated_field
+  PUBLIC :: add_verticalSum_field
+  PUBLIC :: gather_sums
   
   ! simple min max mean (no weights)
   ! uses the range in_subset
