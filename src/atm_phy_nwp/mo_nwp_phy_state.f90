@@ -73,10 +73,11 @@ USE mo_radiation_config,    ONLY: irad_aero
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: default_var_list_settings, &
   &                               add_var, add_ref, new_var_list, delete_var_list
+USE mo_var_groups,          ONLY: groups
 USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, CLASS_SYNSAT, CLASS_CHEM, VARNAME_LEN
 USE mo_var_metadata,        ONLY: create_vert_interp_metadata,  &
   &                               create_hor_interp_metadata,   &
-  &                               groups, vintp_types, post_op, &
+  &                               vintp_types, post_op, &
   &                               new_action, actions
 USE mo_nwp_parameters,      ONLY: t_phy_params
 USE mo_cf_convention,       ONLY: t_cf_var

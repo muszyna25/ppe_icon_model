@@ -49,7 +49,9 @@
 
       USE mo_hamocc_nml,         ONLY: io_stdo_bgc
 
-      USE mo_var_metadata,       ONLY: groups, post_op
+      USE mo_var_metadata,       ONLY: post_op
+
+      USE mo_var_groups, ONLY: groups
 
       USE mo_var_metadata_types, ONLY: POST_OP_SCALE
 

@@ -67,9 +67,10 @@ MODULE mo_nwp_lnd_state
     &                                add_var, add_ref,           &
     &                                new_var_list,               &
     &                                delete_var_list
+  USE mo_var_groups,           ONLY: groups
   USE mo_var_metadata_types,   ONLY: POST_OP_SCALE, CLASS_TILE, CLASS_TILE_LAND
   USE mo_var_metadata,         ONLY: create_hor_interp_metadata, &
-    &                                groups, post_op
+    &                                post_op
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var, t_grib2_int_key, OPERATOR(+)
   USE mo_cdi,                  ONLY: DATATYPE_PACK16, DATATYPE_PACK24, DATATYPE_FLT32, &

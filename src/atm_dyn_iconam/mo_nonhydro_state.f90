@@ -73,11 +73,11 @@ MODULE mo_nonhydro_state
     &                                add_var_list_reference, get_timelevel_string, &
     &                                find_list_element
   USE mo_linked_list,          ONLY: t_list_element
-  USE mo_var_metadata_types,   ONLY: t_var_metadata,t_var_metadata_dynamic,  &
-    &                                MAX_GROUPS
+  USE mo_var_groups,           ONLY: MAX_GROUPS, groups
+  USE mo_var_metadata_types,   ONLY: t_var_metadata,t_var_metadata_dynamic
   USE mo_var_metadata,         ONLY: create_vert_interp_metadata,            &
     &                                create_hor_interp_metadata,             &
-    &                                groups, vintp_types, new_action, actions
+    &                                vintp_types, new_action, actions
   USE mo_tracer_metadata,      ONLY: create_tracer_metadata,                 &
     &                                create_tracer_metadata_hydro
   USE mo_add_tracer_ref,       ONLY: add_tracer_ref

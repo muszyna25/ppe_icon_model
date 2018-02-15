@@ -60,7 +60,6 @@ MODULE mo_ocean_initialization
     & delete_var_list,          &
     & default_var_list_settings,&
     & add_ref
-  USE mo_var_metadata,        ONLY: groups
   USE mo_cf_convention
   USE mo_grib2
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range, fill_subset

@@ -62,9 +62,10 @@ MODULE mo_opt_diagnostics
   USE mo_gribout_config,       ONLY: gribout_config
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var
+  USE mo_var_groups,           ONLY: groups
   USE mo_var_metadata,         ONLY: create_vert_interp_metadata,                      &
     &                                create_hor_interp_metadata,                       &
-    &                                groups, vintp_types
+    &                                vintp_types
   USE mo_tracer_metadata,      ONLY: create_tracer_metadata
   USE mo_statistics,           ONLY: add_fields
   USE mo_util_dbg_prnt,        ONLY: dbg_print

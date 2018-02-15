@@ -49,6 +49,8 @@ MODULE mo_util_string
   PUBLIC :: sort_and_compress_list
   PUBLIC :: tohex                ! For debugging: Produce a hex dump of the given string, revealing any unprintable characters.
   PUBLIC :: remove_whitespace
+  PUBLIC :: pretty_print_string_list
+  PUBLIC :: find_trailing_number
 
   !functions to handle character arrays as strings
   PUBLIC :: toCharArray     ! convert a fortran string to a character array of kind = c_char
@@ -876,5 +878,74 @@ CONTAINS
         END IF
     END DO
   END SUBROUTINE charArray_toLower
+
+  !> "pretty-print" a list of strings (comma-separated).
+  !
+  !  After at most "max_ll" characters-per-line a new line is inserted.
+  !  Each line is indented by an (optional) prefix string.
+  !
+  SUBROUTINE pretty_print_string_list(list, opt_max_ll, opt_dst, opt_prefix)
+    CHARACTER(LEN=*),           INTENT(IN) :: list(:)     ! string list for print-out
+    INTEGER, OPTIONAL,          INTENT(IN) :: opt_max_ll  ! max. line length
+    INTEGER, OPTIONAL,          INTENT(IN) :: opt_dst     ! (optional:) WRITE destination
+    CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: opt_prefix  ! (optional:) line prefix
+
+    INTEGER :: dst, max_ll, ccnt, i, len_i
+    CHARACTER(len=:), ALLOCATABLE :: prefix
+
+    dst = 0
+    IF (PRESENT(opt_dst))     dst = opt_dst
+    max_ll = 80
+    IF (PRESENT(opt_max_ll))  max_ll = opt_max_ll
+
+    IF (PRESENT(opt_prefix)) THEN
+      prefix = opt_prefix
+    ELSE
+      ALLOCATE(CHARACTER(1) :: prefix)
+      prefix = " "
+    END IF
+
+    ccnt = max_ll
+    DO i=1,SIZE(list)
+      len_i = LEN_TRIM(list(i))
+      ! start new line (if necessary)
+      IF (ccnt + len_i + 2 > max_ll) THEN
+        IF (i>1)  WRITE (dst,"(a)") " "
+        WRITE (dst,"(a)", advance='no') prefix
+        ccnt = LEN(prefix)
+      END IF
+      WRITE (dst,"(a)", advance='no') TRIM(list(i))
+      IF (i < SIZE(list))  WRITE (dst,"(a)", advance='no') ", "
+      ccnt = ccnt + len_i + 2
+    END DO
+    WRITE (dst,"(a)") " "
+
+    DEALLOCATE(prefix)
+  END SUBROUTINE pretty_print_string_list
+
+
+  !> find position of numeric suffix in the character string "str",
+  !  return "-1" if no such suffix is found.
+  !
+  RECURSIVE FUNCTION find_trailing_number(str) RESULT(pos)
+    INTEGER                      :: pos
+    CHARACTER(LEN=*), INTENT(IN) :: str  !< input string
+    INTEGER :: len
+
+    pos   = -1
+    len   = LEN_TRIM(str)
+    IF (len == 0) RETURN
+
+    IF (is_number(str(len:len))) THEN
+      IF (len > 1)   pos = find_trailing_number(str(1:(len-1)))
+      IF (pos == -1) pos = len
+    END IF
+
+  CONTAINS
+    LOGICAL FUNCTION is_number(char)
+      CHARACTER, INTENT(IN) :: char
+      is_number = (IACHAR(char) - IACHAR('0')) <= 9
+    END FUNCTION is_number
+  END FUNCTION find_trailing_number
 
 END MODULE mo_util_string

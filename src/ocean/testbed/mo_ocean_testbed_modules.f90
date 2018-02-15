@@ -496,7 +496,8 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & method_name = 'mo_ocean_testbed_modules:ocean_test_advection'
     !------------------------------------------------------------------
-    
+
+    jg = 1    
     patch_2D      => patch_3d%p_patch_2d(1)
     CALL datetimeToString(this_datetime, datestring)
 

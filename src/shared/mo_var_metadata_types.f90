@@ -1,3 +1,5 @@
+!! Meta-data type definitions for ICON variables.
+!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -13,98 +15,20 @@ MODULE mo_var_metadata_types
   USE mo_action_types,          ONLY: t_var_action
   USE mo_cf_convention,         ONLY: t_cf_var
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta
-  USE mo_model_domain,   ONLY: t_subset_range
+  USE mo_model_domain,          ONLY: t_subset_range
+  USE mo_var_groups,            ONLY: MAX_GROUPS
 
   IMPLICIT NONE
 
   PRIVATE
 
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_metadata_types'
+
+
   ! ---------------------------------------------------------------
   ! CONSTANTS
   ! ---------------------------------------------------------------
-
-
-  ! List of variable groups
-  ! 
-  ! A variable can have any combination of this which means that it is
-  ! part of each of these different variable sets.
-  ! A variable is added to an existing group by setting the meta-data
-  ! information "in_group" as follows
-  !
-  !   CALL add_var( p_prog_list, ..., in_group=groups("nh_prog_vars") )
-  !
-  ! It is also possible to add a variable to more than one group:
-  !
-  !   CALL add_var( diag_list, ...,   &
-  !                 in_group=groups("multisnow_vars", "snow_vars"))
-  !
-  ! New groups can be added by extending the VAR_GROUPS list.
-  !
-
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(55) = &
-    (/ "ALL                   ",  &
-    &  "ATMO_ML_VARS          ",  &
-    &  "ATMO_PL_VARS          ",  &
-    &  "ATMO_ZL_VARS          ",  &
-    &  "NH_PROG_VARS          ",  &
-    &  "ATMO_DERIVED_VARS     ",  &
-    &  "RAD_VARS              ",  &
-    &  "PRECIP_VARS           ",  &
-    &  "CLOUD_DIAG            ",  &
-    &  "PBL_VARS              ",  &
-    &  "PHYS_TENDENCIES       ",  &
-    &  "PROG_TIMEMEAN         ",  &
-    &  "ECHAM_TIMEMEAN        ",  &
-    &  "TRACER_TIMEMEAN       ",  &
-    &  "ATMO_TIMEMEAN         ",  &
-    &  "LAND_VARS             ",  &
-    &  "LAND_TILE_VARS        ",  &
-    &  "MULTISNOW_VARS        ",  &
-    &  "ADDITIONAL_PRECIP_VARS",  &
-    &  "SNOW_VARS             ",  &
-    &  "DWD_FG_ATM_VARS       ",  &  ! DWD First Guess (atmosphere) 
-    &  "DWD_FG_SFC_VARS       ",  &  ! DWD First Guess (surface/soil)
-    &  "DWD_FG_SFC_VARS_T     ",  &  ! DWD First Guess (surface/soil) tiles
-    &  "MODE_DWD_FG_IN        ",  &  ! Input first guess fields for MODE_DWD
-    &  "MODE_DWD_ANA_IN       ",  &  ! Input analysis fields for MODE_DWD
-    &  "MODE_IAU_FG_IN        ",  &  ! First guess input for IAU
-    &  "MODE_IAU_ANA_IN       ",  &  ! Analysis input for IAU
-    &  "MODE_IAU_ANAATM_IN    ",  &  ! Atmospheric analysis input for (old/new) IAU
-    &  "MODE_IAU_OLD_FG_IN    ",  &  ! First guess input for old IAU mode
-    &  "MODE_IAU_OLD_ANA_IN   ",  &  ! Analysis input for old IAU mode
-    &  "MODE_COMBINED_IN      ",  &  ! Input fields for MODE_COMBINED
-    &  "MODE_COSMO_IN         ",  &  ! Input fields for MODE_COSMO
-    &  "OCE_PROG              ",  &
-    &  "OCE_DIAG              ",  &
-    &  "OCE_DEFAULT           ",  &
-    &  "HAMOCC_BASE           ",  &
-    &  "HAMOCC_TEND           ",  &
-    &  "HAMOCC_MONI           ",  &
-    &  "HAMOCC_SED            ",  &
-    &  "oce_essentials        ",  &
-    &  "oce_force_essentials  ",  &
-    &  "OCE_AUX               ",  &
-    &  "OCEAN_MONITOR         ",  &
-    &  "OCE_GEOMETRY          ",  &
-    &  "OCE_PHYSICS           ",  &
-    &  "OCE_COEFFS            ",  &
-    &  "ICE_DEFAULT           ",  &
-    &  "ICE_BUDGETS           ",  &
-    &  "ICE_DIAG              ",  &
-    &  "LATBC_PREFETCH_VARS   ",  &
-    &  "ART_AEROSOL           ",  &  ! ICON-ART fields for aerosol particles
-    &  "ART_CHEMISTRY         ",  &  ! ICON-ART fields for chemical tracers
-    &  "ART_PASSIVE           ",  &  ! ICON-ART fields for passive tracers
-    &  "ART_DIAGNOSTICS       ",  &  ! ICON-ART fields for diagnostic fields
-    &  "RTTOV                 " /)
-
-  ! maximum number of variable groups supported by info state
-  INTEGER, PARAMETER :: MAX_GROUPS = 99
-
-  ! List of dynamic variable groups, which are used for tiles
-  !
-  CHARACTER(len=VARNAME_LEN), ALLOCATABLE :: var_groups_dyn(:)
-
 
   ! list of vertical interpolation types
   ! 
@@ -139,10 +63,10 @@ MODULE mo_var_metadata_types
   INTEGER, PARAMETER, PUBLIC :: CLASS_DISTR_STAT    = 8   !< variable based on a distribuition function (PDT 40467)
                                                           !< statistical process
 
-  ! ---------------------------------------------------------------
-  ! TYPE DEFINITIONS
-  ! ---------------------------------------------------------------
 
+  ! ---------------------------------------------------------------
+  ! META-DATA TYPE DEFINITIONS
+  ! ---------------------------------------------------------------
 
   TYPE t_union_vals
     REAL(dp) :: rval
@@ -277,6 +201,7 @@ MODULE mo_var_metadata_types
     CLASS(t_tracer_meta), POINTER       :: tracer      ! Tracer-specific metadata
   END TYPE t_var_metadata_dynamic
 
+
   PUBLIC :: VINTP_TYPE_LIST
   PUBLIC :: VARNAME_LEN
   PUBLIC :: MAX_GROUPS
@@ -287,8 +212,5 @@ MODULE mo_var_metadata_types
   PUBLIC :: t_vert_interp_meta
   PUBLIC :: t_hor_interp_meta
   PUBLIC :: t_post_op_meta
-
-  PUBLIC :: var_groups
-  PUBLIC :: var_groups_dyn
 
 END MODULE mo_var_metadata_types

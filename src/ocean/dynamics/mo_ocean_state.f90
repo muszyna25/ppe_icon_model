@@ -64,7 +64,7 @@ MODULE mo_ocean_state
     &                               delete_var_list,          &
     &                               default_var_list_settings,&
     &                               add_ref
-  USE mo_var_metadata,        ONLY: groups 
+  USE mo_var_groups,          ONLY: groups 
   USE mo_cf_convention
   USE mo_grib2,               ONLY: grib2_var, t_grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_INT8, DATATYPE_PACK16, &

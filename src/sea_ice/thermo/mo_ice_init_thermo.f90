@@ -44,7 +44,7 @@ MODULE mo_ice_init_thermo
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_ocean_state,         ONLY: v_base, ocean_restart_list, ocean_default_list
   USE mo_var_list,            ONLY: add_var
-  USE mo_var_metadata,        ONLY: groups
+  USE mo_var_groups,          ONLY: groups
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: grib2_var

@@ -107,7 +107,8 @@ MODULE mo_name_list_output_init
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_nml_annotate,                      ONLY: temp_defaults, temp_settings
   ! variable lists
-  USE mo_var_metadata_types,                ONLY: t_var_metadata, VARNAME_LEN, var_groups_dyn
+  USE mo_var_groups,                        ONLY: var_groups_dyn
+  USE mo_var_metadata_types,                ONLY: t_var_metadata, VARNAME_LEN
   USE mo_linked_list,                       ONLY: t_var_list, t_list_element
   USE mo_var_list,                          ONLY: nvar_lists, max_var_lists, var_lists,           &
     &                                             new_var_list,                                   &
@@ -2991,15 +2992,15 @@ CONTAINS
     ! var_groups_dyn is required in function 'group_id', which is called in
     ! parse_variable_groups. Thus, a broadcast of var_groups_dyn is required.
     size_var_groups_dyn = 0
-    if (allocated(var_groups_dyn)) then
-       size_var_groups_dyn = SIZE(var_groups_dyn)
+    IF (ALLOCATED(var_groups_dyn%name)) THEN
+       size_var_groups_dyn = SIZE(var_groups_dyn%name)
     end if
-    CALL p_bcast(size_var_groups_dyn                        , bcast_root, p_comm_work_2_io)
+    CALL p_bcast(size_var_groups_dyn, bcast_root, p_comm_work_2_io)
     if (size_var_groups_dyn > 0) then
-       IF (.NOT. ALLOCATED(var_groups_dyn)) THEN
-          ALLOCATE(var_groups_dyn(size_var_groups_dyn))
+       IF (.NOT. ALLOCATED(var_groups_dyn%name)) THEN
+          ALLOCATE(var_groups_dyn%name(size_var_groups_dyn))
        ENDIF
-       CALL p_bcast(var_groups_dyn                             , bcast_root, p_comm_work_2_io)
+       CALL p_bcast(var_groups_dyn%name, bcast_root, p_comm_work_2_io)
     end if
 
     ! Map the variable groups given in the output namelist onto the

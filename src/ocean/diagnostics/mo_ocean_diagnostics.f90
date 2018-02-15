@@ -80,7 +80,7 @@ MODULE mo_ocean_diagnostics
     &                               delete_var_list,          &
     &                               default_var_list_settings,&
     &                               add_ref
-  USE mo_var_metadata,        ONLY: groups
+  USE mo_var_groups,         ONLY: groups
   USE mo_cf_convention
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, GRID_UNSTRUCTURED

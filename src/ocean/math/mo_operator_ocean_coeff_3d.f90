@@ -47,7 +47,6 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
   USE mo_run_config,          ONLY: dtime
   USE mo_var_list,            ONLY: add_var, add_ref
-  USE mo_var_metadata,        ONLY: groups
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var

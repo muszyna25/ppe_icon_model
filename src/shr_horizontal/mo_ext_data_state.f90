@@ -48,8 +48,9 @@ MODULE mo_ext_data_state
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos_td, &
     &                              t_external_atmos
   USE mo_linked_list,        ONLY: t_var_list
+  USE mo_var_groups,         ONLY: groups
   USE mo_var_metadata_types, ONLY: POST_OP_SCALE, POST_OP_LUC, CLASS_TILE
-  USE mo_var_metadata,       ONLY: groups, post_op, create_hor_interp_metadata
+  USE mo_var_metadata,       ONLY: post_op, create_hor_interp_metadata
   USE mo_var_list,           ONLY: new_var_list, delete_var_list, add_var, add_ref, &
     &                              default_var_list_settings
   USE mo_cf_convention,      ONLY: t_cf_var

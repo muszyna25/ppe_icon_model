@@ -16,7 +16,7 @@ MODULE mo_atmo_nonhydrostatic
 USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish
 USE mo_fortran_tools,        ONLY: copy, init
-USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
+USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham, VARNAME_LEN
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, timer_init_latbc, &
   &                                timer_model_init, timer_init_icon, timer_read_restart
 USE mo_master_config,        ONLY: isRestart
@@ -39,7 +39,7 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
   &                                nlev,                 &
   &                                iqv, iqc, iqt,        &
   &                                number_of_grid_used,  &
-  &                                ldass_lhn
+  &                                ldass_lhn, msg_level
 USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
@@ -101,6 +101,8 @@ USE mo_radar_data_state,    ONLY: radar_data, init_radar_data, construct_lhn, lh
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
 USE mo_derived_variable_handling, ONLY: init_mean_stream, finish_mean_stream
+USE mo_mpi,                 ONLY: my_process_is_stdio
+USE mo_var_list,            ONLY: print_group_details
 
 !-------------------------------------------------------------------------
 
@@ -251,7 +253,7 @@ CONTAINS
     ! via add_ref/add_tracer_ref for ICON-ART, configure_advection is called
     ! AFTER the nh_state is created. Otherwise, potential modifications of the
     ! advection-Namelist can not be taken into account properly.
-    ! Unfortunatley this conflicts with our trying to call the config-routines
+    ! Unfortunately this conflicts with our trying to call the config-routines
     ! as early as possible.
     DO jg =1,n_dom
      CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,  &
@@ -569,6 +571,19 @@ CONTAINS
            &                              time_config%tc_startdate, l_rh(jg), ldelete=(.NOT. isRestart()))
 
     END DO
+
+
+    !-------------------------------------------------------!
+    !  (Optional) detailed print-out of some variable info  !
+    !-------------------------------------------------------!
+
+    ! variable group information
+    IF (my_process_is_stdio() .AND. (msg_level >= 15)) THEN
+      CALL print_group_details(idom=1,                            &
+        &                      opt_latex_fmt           = .FALSE., &
+        &                      opt_reduce_trailing_num = .TRUE.,  &
+        &                      opt_skip_trivial        = .TRUE.)
+    END IF
 
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 

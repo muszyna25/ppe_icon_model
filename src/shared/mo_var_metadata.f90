@@ -27,14 +27,14 @@ MODULE mo_var_metadata
     &                              MAX_CHAR_LENGTH
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
+  USE mo_var_groups,         ONLY: var_groups_dyn
   USE mo_var_metadata_types, ONLY: t_hor_interp_meta, t_vert_interp_meta, &
     &                              t_union_vals,                          &
-    &                              t_post_op_meta, VAR_GROUPS,            &
-    &                              MAX_GROUPS, var_groups_dyn,            &
+    &                              t_post_op_meta,                        &
     &                              VINTP_TYPE_LIST, POST_OP_NONE
   USE mo_action_types,       ONLY: t_var_action_element, t_var_action
   USE mo_util_string,        ONLY: toupper
-  USE mo_fortran_tools,      ONLY: assign_if_present, resize_arr_c1d
+  USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_time_config,        ONLY: time_config
   USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime,    &
     &                              timedelta, newTimedelta, deallocateTimedelta, &
@@ -49,14 +49,11 @@ MODULE mo_var_metadata
 
   PUBLIC  :: create_hor_interp_metadata
   PUBLIC  :: create_vert_interp_metadata
-  PUBLIC  :: groups
-  PUBLIC  :: group_id
   PUBLIC  :: post_op
   PUBLIC  :: vintp_types
   PUBLIC  :: vintp_type_id
   PUBLIC  :: new_action
   PUBLIC  :: actions
-  PUBLIC  :: add_member_to_vargroup
 
 CONTAINS
 
@@ -97,7 +94,7 @@ CONTAINS
   FUNCTION vintp_type_id(in_str)
     INTEGER                      :: vintp_type_id, ivintp_type
     CHARACTER(LEN=*), INTENT(IN) :: in_str
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_var_list:vintp_type_id")
+    CHARACTER(*), PARAMETER :: routine = modname//"::vintp_type_id"
 
     vintp_type_id = 0
     LOOP_VINTP_TYPES : DO ivintp_type=1,SIZE(VINTP_TYPE_LIST)
@@ -114,7 +111,7 @@ CONTAINS
 
   !> Utility function with *a lot* of optional string parameters v1,
   !  v2, v3, v4, ...; mapping those onto a
-  !  LOGICAL(DIMENSION=MAX_VAR_GROUPS) according to the "group_id"
+  !  LOGICAL(:) according to the "vintp_type_id"
   !  function.
   !
   FUNCTION vintp_types(v01, v02, v03, v04, v05, v06, v07, v08, v09, v10)
@@ -184,155 +181,8 @@ CONTAINS
   END FUNCTION create_vert_interp_metadata
 
 
-  !------------------------------------------------------------------------------------------------
-  ! HANDLING OF VARIABLE GROUPS
-  !------------------------------------------------------------------------------------------------
-
-  !> Implements a (somewhat randomly chosen) one-to-one mapping
-  !  between a string and an integer ID number between 1 and
-  !  MAX_VAR_GROUPS + MAX_VAR_GROUPS_DYN.
-  !
-  FUNCTION group_id(in_str,opt_lcheck)
-    INTEGER                       :: group_id, igrp
-    CHARACTER(LEN=*) , INTENT(IN) :: in_str
-    LOGICAL, OPTIONAL, INTENT(IN) :: opt_lcheck           
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_var_list:group_id")
-    !
-    ! Local
-    LOGICAL :: lcheck
-    INTEGER :: max_size
-
-    IF (PRESENT(opt_lcheck)) THEN
-      lcheck = opt_lcheck
-    ELSE
-      lcheck = .TRUE.
-    ENDIF
-
-    group_id = 0
-    LOOP_GROUPS : DO igrp=1,SIZE(VAR_GROUPS)
-      IF (toupper(TRIM(in_str)) == toupper(TRIM(VAR_GROUPS(igrp)))) THEN
-        group_id = igrp
-        EXIT LOOP_GROUPS
-      END IF
-    END DO LOOP_GROUPS
-    !
-    ! If no matching name was found, search the dynamic variable group
-    IF (group_id == 0 .AND. ALLOCATED(var_groups_dyn)) THEN
-      LOOP_DYN_GROUPS : DO igrp=1,SIZE(var_groups_dyn)
-        IF (toupper(TRIM(in_str)) == toupper(TRIM(var_groups_dyn(igrp)))) THEN
-          ! includes offset from static VAR_GROUP.
-          group_id = igrp + SIZE(VAR_GROUPS)
-          EXIT LOOP_DYN_GROUPS
-        END IF
-      END DO LOOP_DYN_GROUPS
-    ENDIF  ! group_id == 0
-    !
-    ! paranoia:
-    IF (lcheck) THEN
-      IF (ALLOCATED(var_groups_dyn)) THEN
-        max_size = SIZE(VAR_GROUPS) + SIZE(var_groups_dyn)
-      ELSE
-        max_size = SIZE(VAR_GROUPS)
-      ENDIF
-      IF ((group_id < 1) .OR. (group_id > max_size)) &
-        &  CALL finish(routine, "Invalid group ID: "//TRIM(in_str))
-    ENDIF
-
-  END FUNCTION group_id
-
-
 
   !----------------------------------------------------------------------------------------
-  !
-  !> Utility function with *a lot* of optional string parameters g1,
-  !  g2, g3, g4, ...; mapping those onto a
-  !  LOGICAL(DIMENSION=MAX_GROUPS) according to the "group_id"
-  !  function.
-  !
-  FUNCTION groups(g01, g02, g03, g04, g05, g06, g07, g08, g09, g10, g11)
-    LOGICAL :: groups(MAX_GROUPS)
-    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: &
-      &   g01, g02, g03, g04, g05, g06, g07, g08, g09, g10, g11
-
-    groups(:) = .FALSE.
-    groups(group_id("ALL")) = .TRUE.
-    IF (PRESENT(g01)) groups(group_id(g01)) = .TRUE.
-    IF (PRESENT(g02)) groups(group_id(g02)) = .TRUE.
-    IF (PRESENT(g03)) groups(group_id(g03)) = .TRUE.
-    IF (PRESENT(g04)) groups(group_id(g04)) = .TRUE.
-    IF (PRESENT(g05)) groups(group_id(g05)) = .TRUE.
-    IF (PRESENT(g06)) groups(group_id(g06)) = .TRUE.
-    IF (PRESENT(g07)) groups(group_id(g07)) = .TRUE.
-    IF (PRESENT(g08)) groups(group_id(g08)) = .TRUE.
-    IF (PRESENT(g09)) groups(group_id(g09)) = .TRUE.
-    IF (PRESENT(g10)) groups(group_id(g10)) = .TRUE.
-    IF (PRESENT(g11)) groups(group_id(g11)) = .TRUE.
-  END FUNCTION groups
-
-  !>
-  !! Add new (tile) member to variable group
-  !!
-  !! Adds new tile member to variable-specific tile-group. 
-  !! If the group does not exist, a group (named after the 
-  !! corresponding container) is added to the dynamic variable 
-  !! groups list var_groups_dyn first.
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2015-01-29)
-  !!
-  SUBROUTINE add_member_to_vargroup(group_name, in_group_new, opt_in_group)
-    CHARACTER(len=*) , INTENT(in)   :: group_name
-    LOGICAL          , INTENT(out)  :: in_group_new(:)
-    LOGICAL, OPTIONAL, INTENT(in)   :: opt_in_group(:)
-    !
-    ! Local
-    INTEGER  :: idx
-    INTEGER  :: grp_id
-    CHARACTER(len=LEN(group_name)) ::  group_name_plain
-
-    ! check whether a group with name 'group_name_plain' exists and return its ID.
-    !
-    ! remove time level string from group name
-    idx = INDEX(group_name,'.TL')
-    IF (idx > 0) THEN
-      group_name_plain = TRIM(group_name(1:idx-1))
-    ELSE
-      group_name_plain = TRIM(group_name)
-    ENDIF
-    grp_id = group_id(TRIM(group_name_plain),opt_lcheck=.FALSE.)
-
-    ! If the group does not exist, create it.
-    IF (grp_id == 0) THEN
-      !
-      ! increase dynamic groups array by one element
-      CALL resize_arr_c1d(var_groups_dyn,1)
-      !
-      ! add new group
-      var_groups_dyn(SIZE(var_groups_dyn)) = toupper(TRIM(group_name_plain))
-      !
-      ! return its group ID (including offset from static groups array)
-      grp_id = group_id(TRIM(group_name_plain))
-    ENDIF
-    !
-    ! update in_group metainfo
-    in_group_new(:) = groups()   ! initialization
-    IF (PRESENT(opt_in_group)) THEN
-      in_group_new(1:SIZE(opt_in_group)) = opt_in_group(:)
-    ENDIF
-    !
-    IF (grp_id > MAX_GROUPS) THEN
-      CALL finish('add_member_to_vargroup: grp_id exceeds MAX_GROUPS for ', TRIM(group_name))
-    ENDIF
-    in_group_new(grp_id) = .TRUE.
-
-  END SUBROUTINE add_member_to_vargroup
-
-  !----------------------------------------------------------------------------------------
-  !
-  !> Utility function with *a lot* of optional string parameters g1,
-  !  g2, g3, g4, ...; mapping those onto a
-  !  LOGICAL(DIMENSION=MAX_VAR_GROUPS) according to the "group_id"
-  !  function.
   !
   FUNCTION post_op(ipost_op_type, new_cf, new_grib2, arg1)
     TYPE(t_post_op_meta) :: post_op

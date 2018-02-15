@@ -32,6 +32,7 @@ MODULE mo_util_sort
   INTERFACE quicksort
     MODULE PROCEDURE quicksort_real
     MODULE PROCEDURE quicksort_int
+    MODULE PROCEDURE quicksort_string
   END INTERFACE
 
   INTERFACE insertion_sort
@@ -201,6 +202,83 @@ CONTAINS
       CALL quicksort(a,permutation,i+1,r)
     END IF
   END SUBROUTINE quicksort_int
+
+
+  SUBROUTINE swap_string(a, b, dummy)
+    CHARACTER(LEN=*),  INTENT(INOUT)  :: a,b,dummy  !< strings for in-situ swap
+    dummy = a
+    a     = b
+    b     = dummy
+  END SUBROUTINE swap_string
+
+
+  ! --------------------------------------------------------------------
+  !> Simple recursive implementation of Hoare's QuickSort algorithm
+  !  for a 1D array of INTEGER values.
+  ! 
+  !  Ordering after the sorting process: smallest...largest.
+  !
+  RECURSIVE SUBROUTINE quicksort_string(a, l_in, r_in)
+    CHARACTER(LEN=*), INTENT(INOUT)           :: a(:)           !< array for in-situ sorting
+    INTEGER,          INTENT(IN),    OPTIONAL :: l_in,r_in      !< left, right partition indices
+    ! local variables
+    INTEGER :: i,j,l,r,m
+    CHARACTER(len=:), ALLOCATABLE :: dummy, v, t
+
+    ALLOCATE(CHARACTER(LEN(a(1))) :: dummy)
+    ALLOCATE(CHARACTER(LEN(a(1))) :: v)
+    ALLOCATE(CHARACTER(LEN(a(1))) :: t)
+    
+    IF (PRESENT(l_in)) THEN
+      l = l_in
+    ELSE
+      l = 1
+    END IF
+    IF (PRESENT(r_in)) THEN
+      r = r_in
+    ELSE
+      r = SIZE(a,1)
+    END IF
+    IF (r>l) THEN
+      i = l-1
+      j = r
+      
+      ! median-of-three selection of partitioning element
+      IF ((r-l) > 3) THEN 
+        m = (l+r)/2
+        IF (a(l)>a(m))  CALL swap_string(a(l), a(m), dummy)
+        IF (a(l)>a(r)) THEN
+          CALL swap_string(a(l),a(r), dummy)
+        ELSE IF (a(r)>a(m)) THEN
+          CALL swap_string(a(r),a(m), dummy)
+        END IF
+      END IF
+
+      v = a(r)
+      LOOP : DO
+        CNTLOOP1 : DO
+          i = i+1
+          IF (a(i) >= v) EXIT CNTLOOP1
+        END DO CNTLOOP1
+        CNTLOOP2 : DO
+          j = j-1
+          IF ((a(j) <= v) .OR. (j==1)) EXIT CNTLOOP2
+        END DO CNTLOOP2
+        t    = a(i)
+        a(i) = a(j)
+        a(j) = t
+        IF (j <= i) EXIT LOOP
+      END DO LOOP
+      a(j) = a(i)
+      a(i) = a(r)
+      a(r) = t
+      CALL quicksort(a,l,i-1)
+      CALL quicksort(a,i+1,r)
+    END IF
+
+    DEALLOCATE(dummy, v, t)
+  END SUBROUTINE quicksort_string
+
 
   SUBROUTINE insertion_sort_int(a)
     INTEGER, INTENT(inout) :: a(:)

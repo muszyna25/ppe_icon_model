@@ -20,40 +20,42 @@ MODULE mo_var_list
        &                         CDI_UNDEFID
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var, grib2_var
+  USE mo_var_groups,       ONLY: var_groups_dyn, groups
   USE mo_var_metadata_types,ONLY: t_var_metadata, t_union_vals,     &
     &                            t_var_metadata_dynamic,            &
     &                            t_vert_interp_meta,                &
     &                            t_hor_interp_meta,                 &
-    &                            VARNAME_LEN, VAR_GROUPS,           &
-    &                            MAX_GROUPS,                        &
-    &                            VINTP_TYPE_LIST,                   &
+    &                            MAX_GROUPS, VINTP_TYPE_LIST,       &
     &                            t_post_op_meta,                    &
     &                            CLASS_DEFAULT, CLASS_TILE,         &
     &                            CLASS_TILE_LAND
   USE mo_var_metadata,     ONLY: create_vert_interp_metadata,       &
     &                            create_hor_interp_metadata,        &
-    &                            post_op, groups, group_id,         &
-    &                            actions, add_member_to_vargroup
+    &                            post_op, actions
   USE mo_tracer_metadata,  ONLY: create_tracer_metadata
   USE mo_tracer_metadata_types,ONLY: t_tracer_meta
-  USE mo_var_list_element, ONLY: t_var_list_element
+  USE mo_var_list_element, ONLY: t_var_list_element, level_type_ml
   USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
        &                         new_list, delete_list,             &
        &                         append_list_element,               &
        &                         delete_list_element
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_util_hash,        ONLY: util_hashword
-  USE mo_util_string,      ONLY: remove_duplicates, toupper
+  USE mo_util_string,      ONLY: remove_duplicates, toupper,        &
+    &                            pretty_print_string_list, tolower, &
+    &                            difference, find_trailing_number
   USE mo_impl_constants,   ONLY: max_var_lists, vname_len,          &
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS,   &
     &                            TLEV_NNOW, REAL_T, SINGLE_T,       &
-    &                            BOOL_T, INT_T, SUCCESS
+    &                            BOOL_T, INT_T, SUCCESS,            &
+    &                            MAX_CHAR_LENGTH, VARNAME_LEN
   USE mo_cdi_constants,    ONLY: GRID_UNSTRUCTURED_CELL,            &
     &                            GRID_REGULAR_LONLAT
   USE mo_fortran_tools,    ONLY: assign_if_present
   USE mo_action_types,     ONLY: t_var_action
   USE mo_io_config,        ONLY: restart_file_type
   USE mo_packed_message,   ONLY: t_PackedMessage, kPackOp, kUnpackOp
+  USE mo_util_sort,        ONLY: quicksort
 
   IMPLICIT NONE
 
@@ -102,6 +104,8 @@ MODULE mo_var_list
   PUBLIC :: find_element   ! find an element in the list
 
   PUBLIC :: varlistPacker
+
+  PUBLIC :: print_group_details
 
   INTERFACE find_element
     MODULE PROCEDURE find_list_element
@@ -919,7 +923,7 @@ CONTAINS
     LOGICAL,                 POINTER,    OPTIONAL :: p5_l(:,:,:,:,:)              ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
@@ -1113,7 +1117,7 @@ CONTAINS
     REAL(wp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
     TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
@@ -1173,7 +1177,7 @@ CONTAINS
     REAL(wp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
     TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
@@ -1233,7 +1237,7 @@ CONTAINS
     REAL(wp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
     TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
@@ -1292,7 +1296,7 @@ CONTAINS
     REAL(wp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
     TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
@@ -1351,7 +1355,7 @@ CONTAINS
     REAL(sp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
     TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
@@ -1411,7 +1415,7 @@ CONTAINS
     REAL(sp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
     TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
@@ -1471,7 +1475,7 @@ CONTAINS
     REAL(sp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
     TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
@@ -1530,7 +1534,7 @@ CONTAINS
     REAL(sp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
     TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
@@ -1589,7 +1593,7 @@ CONTAINS
     INTEGER,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
     TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
@@ -1648,7 +1652,7 @@ CONTAINS
     INTEGER,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
     TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
@@ -1707,7 +1711,7 @@ CONTAINS
     INTEGER,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
     TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
@@ -1766,7 +1770,7 @@ CONTAINS
     INTEGER,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
     TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
@@ -1824,7 +1828,7 @@ CONTAINS
     LOGICAL,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
     TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
@@ -1883,7 +1887,7 @@ CONTAINS
     LOGICAL,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
     TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
@@ -1942,7 +1946,7 @@ CONTAINS
     LOGICAL,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
     TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
@@ -2001,7 +2005,7 @@ CONTAINS
     LOGICAL,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose                      ! print information
     TYPE(t_list_element),    POINTER,    OPTIONAL :: new_element                  ! pointer to new var list element
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
@@ -2511,7 +2515,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,          OPTIONAL :: info                       ! returns reference to metadata
     TYPE(t_vert_interp_meta),INTENT(in),    OPTIONAL :: vert_interp                ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in),    OPTIONAL :: hor_interp                 ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in),    OPTIONAL :: in_group(SIZE(VAR_GROUPS)) ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in),    OPTIONAL :: in_group(:)                ! groups to which a variable belongs
     LOGICAL,                 INTENT(in),    OPTIONAL :: verbose
     TYPE(t_list_element), POINTER,          OPTIONAL :: new_element                ! pointer to new var list element
     INTEGER,                 INTENT(in),    OPTIONAL :: l_pp_scheduler_task        ! .TRUE., if field is updated by pp scheduler
@@ -2631,7 +2635,7 @@ CONTAINS
     IF (PRESENT(var_class)) THEN
       IF ( ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
         ! automatically add tile to its variable specific tile-group
-        CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
+        CALL var_groups_dyn%add(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
         !
         ! update in_group metainfo
         new_list_element%field%info%in_group(:) = in_group_new(:)
@@ -2718,7 +2722,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,       OPTIONAL :: info                        ! returns reference to metadata
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                 ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                  ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))  ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                 ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose
     TYPE(t_list_element), POINTER,       OPTIONAL :: new_element                 ! pointer to new var list element
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task         ! .TRUE., if field is updated by pp scheduler
@@ -2835,7 +2839,7 @@ CONTAINS
     IF (PRESENT(var_class)) THEN
       IF ( ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
         ! automatically add tile to its variable specific tile-group
-        CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
+        CALL var_groups_dyn%add(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
         !
         ! update in_group metainfo
         new_list_element%field%info%in_group(:) = in_group_new(:)
@@ -2913,7 +2917,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,          OPTIONAL :: info                       ! returns reference to metadata
     TYPE(t_vert_interp_meta),INTENT(in),    OPTIONAL :: vert_interp                ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in),    OPTIONAL :: hor_interp                 ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in),    OPTIONAL :: in_group(SIZE(VAR_GROUPS)) ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in),    OPTIONAL :: in_group(:)                ! groups to which a variable belongs
     LOGICAL,                 INTENT(in),    OPTIONAL :: verbose
     TYPE(t_list_element), POINTER,          OPTIONAL :: new_element                ! pointer to new var list element
     INTEGER,                 INTENT(in),    OPTIONAL :: l_pp_scheduler_task        ! .TRUE., if field is updated by pp scheduler
@@ -3033,7 +3037,7 @@ CONTAINS
     IF (PRESENT(var_class)) THEN
       IF ( ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
         ! automatically add tile to its variable specific tile-group
-        CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
+        CALL var_groups_dyn%add(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
         !
         ! update in_group metainfo
         new_list_element%field%info%in_group(:) = in_group_new(:)
@@ -3120,7 +3124,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,       OPTIONAL :: info                        ! returns reference to metadata
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                 ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                  ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))  ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                 ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose
     TYPE(t_list_element), POINTER,       OPTIONAL :: new_element                 ! pointer to new var list element
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task         ! .TRUE., if field is updated by pp scheduler
@@ -3237,7 +3241,7 @@ CONTAINS
     IF (PRESENT(var_class)) THEN
       IF ( ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
         ! automatically add tile to its variable specific tile-group
-        CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
+        CALL var_groups_dyn%add(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
         !
         ! update in_group metainfo
         new_list_element%field%info%in_group(:) = in_group_new(:)
@@ -3323,7 +3327,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,       OPTIONAL :: info                         ! returns reference to metadata
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
-    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))   ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose
     TYPE(t_list_element), POINTER,       OPTIONAL :: new_element                  ! pointer to new var list element
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
@@ -3438,7 +3442,7 @@ CONTAINS
     IF (PRESENT(var_class)) THEN
       IF ( ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
         ! automatically add tile to its variable specific tile-group
-        CALL add_member_to_vargroup(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
+        CALL var_groups_dyn%add(group_name=target_name, in_group_new=in_group_new, opt_in_group=in_group)
         !
         ! update in_group metainfo
         new_list_element%field%info%in_group(:) = in_group_new(:)
@@ -3819,12 +3823,12 @@ CONTAINS
         ! print groups, to which this variable belongs:
         IF (ANY(this_list_element%field%info%in_group(:))) THEN
           WRITE (message_text,'(a)')  'Variable group(s)                           :'
-          DO igrp=1,SIZE(var_groups)
+          DO igrp=1,SIZE(this_list_element%field%info%in_group)
             IF (this_list_element%field%info%in_group(igrp)) THEN
               IF (igrp == 1) THEN
-                message_text = TRIM(message_text)//" "//TRIM(var_groups(igrp))
+                message_text = TRIM(message_text)//" "//TRIM(var_groups_dyn%name(igrp))
               ELSE
-                message_text = TRIM(message_text)//", "//TRIM(var_groups(igrp))
+                message_text = TRIM(message_text)//", "//TRIM(var_groups_dyn%name(igrp))
               END IF
             ENDIF
           END DO
@@ -3883,7 +3887,8 @@ CONTAINS
   !
   SUBROUTINE collect_group(grp_name, var_name, nvars,       &
     &                      loutputvars_only, lremap_lonlat, &
-    &                      opt_vlevel_type, opt_dom_id)
+    &                      opt_vlevel_type, opt_dom_id,     &
+    &                      opt_lquiet)
     CHARACTER(LEN=*),           INTENT(IN)    :: grp_name
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: var_name(:)
     INTEGER,                    INTENT(OUT)   :: nvars
@@ -3898,16 +3903,21 @@ CONTAINS
     INTEGER, OPTIONAL,          INTENT(IN)    :: opt_vlevel_type
     ! (optional:) domain id
     INTEGER, OPTIONAL,          INTENT(IN)    :: opt_dom_id
+    ! (optional:) quiet mode (no log output)
+    LOGICAL, OPTIONAL,          INTENT(IN)    :: opt_lquiet
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":collect_group"
-    INTEGER :: i, grp_id
+    INTEGER                       :: i, grp_id
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_metadata), POINTER :: info
     CHARACTER(LEN=VARNAME_LEN)    :: name
+    LOGICAL                       :: lquiet
 
     nvars  = 0
-    grp_id = group_id(grp_name)
+    grp_id = var_groups_dyn%group_id(grp_name)
+    lquiet = .FALSE.
+    IF (PRESENT(opt_lquiet))  lquiet = opt_lquiet
 
     ! loop over all variable lists and variables
     DO i = 1,nvar_lists
@@ -3937,21 +3947,27 @@ CONTAINS
 
           ! Skip element if we need only output variables:
           IF (loutputvars_only .AND. &
-            & (.NOT. info%loutput) .OR. (.NOT. var_lists(i)%p%loutput)) THEN
-            CALL message(routine, "Skipping variable "//TRIM(name)//" for output.")
+            & ((.NOT. info%loutput) .OR. (.NOT. var_lists(i)%p%loutput))) THEN
+            IF (.NOT. lquiet) THEN
+              CALL message(routine, "Skipping variable "//TRIM(name)//" for output.")
+            END IF
             CYCLE LOOPVAR
           END IF
 
           IF (lremap_lonlat) THEN
             IF (info%hgrid /= GRID_UNSTRUCTURED_CELL) THEN
-              CALL message(routine, "Skipping variable "//TRIM(name)//" for lon-lat output.")
+              IF (.NOT. lquiet) THEN
+                CALL message(routine, "Skipping variable "//TRIM(name)//" for lon-lat output.")
+              END IF
               CYCLE LOOPVAR
             ENDIF
           ELSE IF (.NOT. lremap_lonlat) THEN
             ! If no lon-lat interpolation is requested for this output file,
             ! skip all variables of this kind:
-            IF (info%hgrid == GRID_REGULAR_LONLAT) THEN
-              CALL message(routine, "Skipping variable "//TRIM(name)//" for output.")
+            IF (loutputvars_only .AND. (info%hgrid == GRID_REGULAR_LONLAT)) THEN
+              IF (.NOT. lquiet) THEN
+                CALL message(routine, "Skipping variable "//TRIM(name)//" for output.")
+              END IF
               CYCLE LOOPVAR
             ENDIF
           END IF
@@ -4192,5 +4208,192 @@ CONTAINS
         DEALLOCATE(info_storage)
     END DO
   END SUBROUTINE varlistPacker
+
+
+  !>  Detailed print-out of variable groups.
+  !
+  SUBROUTINE print_group_details(idom, opt_latex_fmt, opt_reduce_trailing_num, opt_skip_trivial)
+    INTEGER, INTENT(IN)           :: idom          !< domain ID
+    LOGICAL, INTENT(IN), OPTIONAL :: opt_latex_fmt !< Flag: .TRUE., if output shall be formatted for LaTeX
+    LOGICAL, INTENT(IN), OPTIONAL :: opt_reduce_trailing_num !< Flag: replace trailing numbers by "*"
+    LOGICAL, INTENT(IN), OPTIONAL :: opt_skip_trivial        !< Flag: skip empty of single-entry groups
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = modname//"::print_group_details"
+    CHARACTER(len=VARNAME_LEN), ALLOCATABLE :: group_names(:)
+    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: grp_vars(:), grp_vars_output(:)
+    INTEGER,                    ALLOCATABLE :: slen(:)
+    INTEGER                                 :: ngrp_vars, ngrp_vars_output, ierrstat, i, j, k, t
+    LOGICAL                                 :: latex_fmt, reduce_trailing_num, skip_trivial, lfound
+
+    latex_fmt = .FALSE.
+    IF (PRESENT(opt_latex_fmt))  latex_fmt = opt_latex_fmt 
+    reduce_trailing_num = .FALSE.
+    IF (PRESENT(opt_reduce_trailing_num))  reduce_trailing_num = opt_reduce_trailing_num 
+    skip_trivial = .FALSE.
+    IF (PRESENT(opt_skip_trivial))  skip_trivial = opt_skip_trivial 
+
+    IF (latex_fmt) THEN
+      WRITE (0,*) " "
+      WRITE (0,*) "% ---------------------------------------"
+      WRITE (0,'(a,i0,a)') " % Variable group info (for domain #", idom, "):"
+      WRITE (0,*) "% ---------------------------------------"
+      WRITE (0,*) "% "
+      WRITE (0,*) "% LaTeX formatted output, requires suitable environment 'varlist' and"
+      WRITE (0,*) "% macros 'varname' and 'grpname'."
+      WRITE (0,*) " "
+    ELSE
+      WRITE (0,*) " "
+      WRITE (0,*) "---------------------------------------"
+      WRITE (0,'(a,i0,a)') " Variable group info (for domain #", idom, "):"
+      WRITE (0,*) "---------------------------------------"
+      WRITE (0,*) " "
+    END IF
+
+    group_names = var_groups_dyn%alphabetical_list()
+    IF (latex_fmt) THEN
+      WRITE (0,*) "% List of groups:"
+      CALL pretty_print_string_list(group_names, opt_prefix=" %    ")
+    ELSE
+      WRITE (0,*) "List of groups:"
+      CALL pretty_print_string_list(group_names, opt_prefix="    ")
+    END IF
+    
+    ! temporary variables needed for variable group parsing
+    i = total_number_of_variables()
+    ALLOCATE(grp_vars_output(i), grp_vars(i), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+    
+    DO i=1,SIZE(group_names)
+      
+      ! for each group we collect the contained variables two times
+      ! - the first time we collect *all* model level variables on
+      ! the triangular grid, and the second time we collect only
+      ! those variables which are available for output.
+      CALL collect_group(group_names(i), grp_vars, ngrp_vars,    &
+        &               loutputvars_only = .FALSE.,              &
+        &               lremap_lonlat    = .FALSE.,              &
+        &               opt_vlevel_type  = level_type_ml,        &
+        &               opt_dom_id       = idom,                 &
+        &               opt_lquiet       = .TRUE.)
+     
+      IF (ngrp_vars > 0) THEN
+        
+        DO j=1,ngrp_vars
+          grp_vars(j) = tolower(grp_vars(j))
+        END DO
+        ! (optionally) replace trailing numbers by "*"
+        IF (reduce_trailing_num) THEN
+          ALLOCATE(slen(ngrp_vars))
+          DO j=1,ngrp_vars
+            slen(j) = find_trailing_number(grp_vars(j))
+          END DO
+          DO j=1,ngrp_vars
+            t = slen(j)
+            IF (t /= -1) THEN
+              ! replace trailing number if any other variable of "this
+              ! kind" exists:
+              lfound = .FALSE.
+              INNER_LOOP1 : DO k=1,ngrp_vars
+                IF (j==k)  CYCLE INNER_LOOP1
+                IF (grp_vars(j)(1:(t-1)) == grp_vars(k)(1:(slen(k)-1))) lfound = .TRUE.
+              END DO INNER_LOOP1
+              IF (lfound) THEN
+                grp_vars(j) = grp_vars(j)(1:(t-1))//"*"
+              END IF
+            END IF
+          END DO
+          CALL remove_duplicates(grp_vars(1:ngrp_vars), ngrp_vars)
+          DEALLOCATE(slen)
+        END IF
+        CALL quicksort(grp_vars(1:ngrp_vars))
+
+        IF ((skip_trivial) .AND. (ngrp_vars <= 1))  CYCLE
+               
+        CALL collect_group(group_names(i), grp_vars_output, ngrp_vars_output,    &
+          &               loutputvars_only = .TRUE.,               &
+          &               lremap_lonlat    = .FALSE.,              &
+          &               opt_vlevel_type  = level_type_ml,        &
+          &               opt_dom_id       = idom,                 &
+          &               opt_lquiet       = .TRUE.)
+        
+        DO j=1,ngrp_vars_output
+          grp_vars_output(j) = tolower(grp_vars_output(j))
+        END DO
+        ! (optionally) replace trailing numbers by "*"
+        IF (reduce_trailing_num) THEN
+          ALLOCATE(slen(ngrp_vars_output))
+          DO j=1,ngrp_vars_output
+            slen(j) = find_trailing_number(grp_vars_output(j))
+          END DO
+          DO j=1,ngrp_vars_output
+            t = slen(j)
+            IF (t /= -1) THEN
+              ! replace trailing number if any other variable of "this
+              ! kind" exists:
+              lfound = .FALSE.
+              INNER_LOOP2 : DO k=1,ngrp_vars_output
+                IF (j==k)  CYCLE INNER_LOOP2
+                IF (grp_vars_output(j)(1:(t-1)) == grp_vars_output(k)(1:(slen(k)-1))) lfound = .TRUE.
+              END DO INNER_LOOP2
+              IF (lfound) THEN
+                grp_vars_output(j) = grp_vars_output(j)(1:(t-1))//"*"
+              END IF
+            END IF
+          END DO
+          CALL remove_duplicates(grp_vars_output(1:ngrp_vars_output), ngrp_vars_output)
+          DEALLOCATE(slen)
+        END IF
+        CALL quicksort(grp_vars_output(1:ngrp_vars_output))
+
+        IF (latex_fmt) THEN
+          DO j=1,ngrp_vars
+            grp_vars(j) = "\varname{"//TRIM(grp_vars(j))//"}"
+          END DO
+          DO j=1,ngrp_vars_output
+            grp_vars_output(j) = "\varname{"//TRIM(grp_vars_output(j))//"}"
+          END DO
+        END IF
+        
+        WRITE (0,*) ' '
+        IF (latex_fmt) THEN
+          WRITE (0,*) "\begin{varlist}{\grpname{"//TRIM(group_names(i))//"}}"
+        ELSE
+          WRITE (0,*) 'GROUP "', TRIM(group_names(i)), '":'
+        END IF
+        CALL pretty_print_string_list(grp_vars_output(1:ngrp_vars_output), opt_prefix="    ")
+        
+        CALL difference(grp_vars, ngrp_vars, grp_vars_output, ngrp_vars_output)
+        IF (ngrp_vars > 0) THEN
+          WRITE (0,*) " "
+          WRITE (0,*) "   Non-output variables:"
+          WRITE (0,*) " "
+
+          CALL pretty_print_string_list(grp_vars(1:ngrp_vars), opt_prefix="    ")
+        END IF
+        
+      ELSE
+
+        IF ((skip_trivial) .AND. (ngrp_vars <= 1))  CYCLE
+
+        WRITE (0,*) ' '
+        IF (latex_fmt) THEN
+          WRITE (0,*) "\begin{varlist}{\grpname{"//TRIM(group_names(i))//"}}"
+        ELSE
+          WRITE (0,*) 'GROUP "', TRIM(group_names(i)), '":'
+        END IF
+        WRITE (0,*) "   -- empty --"
+        
+      END IF
+
+      IF (latex_fmt) THEN
+        WRITE (0,*) "\end{varlist}"
+      END IF
+    END DO
+    WRITE (0,*) " "
+    
+    DEALLOCATE(group_names, grp_vars, grp_vars_output, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+
+  END SUBROUTINE print_group_details
 
 END MODULE mo_var_list
