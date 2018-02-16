@@ -1201,7 +1201,8 @@ read -d '' my_pp_command <<EOF
 EOF
 ],
                             [cray*],
-                            [PP_FFLAGS=`echo $FFLAGS | sed -e 's/ -e Z //' -e 's/,ipa1//' -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../modul e||'`
+                            [PP_FFLAGS=`echo $FFLAGS | sed -e 's/ -e Z //' -e 's/,ipa1//' -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../module ||'`
+PP_FFLAGS="${PP_FFLAGS} ${NETCDF_INCLUDE}"
 read -d '' my_pp_command <<EOF
 ( cd src/;
   echo "Preprocessing files (CPP) ...";
