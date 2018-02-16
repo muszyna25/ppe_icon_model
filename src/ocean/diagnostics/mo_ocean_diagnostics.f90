@@ -19,6 +19,9 @@
 !----------------------------
 MODULE mo_ocean_diagnostics
   USE mo_kind,               ONLY: wp, dp, i8
+#ifdef _OPENMP
+  USE omp_lib
+#endif
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range, t_subset_indexed
   USE mo_grid_tools,         ONLY: get_oriented_edges_from_global_vertices, check_global_indexes
   USE mo_mpi,                ONLY: my_process_is_stdio, p_field_sum, get_my_mpi_work_id, &
