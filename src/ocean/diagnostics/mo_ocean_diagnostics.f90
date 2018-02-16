@@ -649,12 +649,12 @@ CONTAINS
             monitor%volume = monitor%volume + prism_vol
 
 
-            monitor%pot_energy = monitor%pot_energy &
-              & + 0.5_wp*grav* prism_vol*patch_3D%p_patch_1d(1)%prism_thick_c(jc,1,blockNo)
+!TODO          monitor%pot_energy = monitor%pot_energy &
+!TODO            & + 0.5_wp*grav* prism_vol*patch_3D%p_patch_1d(1)%prism_thick_c(jc,1,blockNo)
 
-            monitor%kin_energy = monitor%kin_energy + ocean_state%p_diag%kin(jc,1,blockNo)*prism_vol
+!TODO          monitor%kin_energy = monitor%kin_energy + ocean_state%p_diag%kin(jc,1,blockNo)*prism_vol
 
-            monitor%total_energy=monitor%kin_energy+monitor%pot_energy
+!TODO          monitor%total_energy=monitor%kin_energy+monitor%pot_energy
 !             DO i_no_t=1, no_tracer
 !               monitor%tracer_content(i_no_t) = monitor%tracer_content(i_no_t)&
 !                 & + prism_vol*ocean_state%p_prog(nold(1))%tracer(jc,1,blockNo,i_no_t)
@@ -709,19 +709,19 @@ CONTAINS
             monitor%volume = monitor%volume + prism_vol
 
             !kinetic energy
-            monitor%kin_energy = monitor%kin_energy + ocean_state%p_diag%kin(jc,jk,blockNo)*prism_vol
-
-            !Potential energy
-            IF(jk==1)THEN
-              z_w = (ocean_state%p_diag%w(jc,jk,blockNo)*ocean_state%p_prog(nold(1))%h(jc,blockNo)&
-                & +ocean_state%p_diag%w(jc,jk+1,blockNo)*0.5_wp*patch_3D%p_patch_1d(1)%del_zlev_i(jk))&
-                & /(0.5_wp*patch_3D%p_patch_1d(1)%del_zlev_i(jk)+ocean_state%p_prog(nold(1))%h(jc,blockNo))
-            ELSEIF(jk>1.AND.jk<n_zlev)THEN
-              z_w = (ocean_state%p_diag%w(jc,jk,blockNo)*patch_3D%p_patch_1d(1)%del_zlev_i(jk)&
-                & +ocean_state%p_diag%w(jc,jk+1,blockNo)*patch_3D%p_patch_1d(1)%del_zlev_i(jk+1))&
-                & /(patch_3D%p_patch_1d(1)%del_zlev_i(jk)+patch_3D%p_patch_1d(1)%del_zlev_i(jk+1))
-            ENDIF
-            monitor%pot_energy = monitor%pot_energy + grav*z_w* ocean_state%p_diag%rho(jc,jk,blockNo)* prism_vol
+!TODO           monitor%kin_energy = monitor%kin_energy + ocean_state%p_diag%kin(jc,jk,blockNo)*prism_vol
+!TODO
+!TODO           !Potential energy
+!TODO           IF(jk==1)THEN
+!TODO             z_w = (ocean_state%p_diag%w(jc,jk,blockNo)*ocean_state%p_prog(nold(1))%h(jc,blockNo)&
+!TODO               & +ocean_state%p_diag%w(jc,jk+1,blockNo)*0.5_wp*patch_3D%p_patch_1d(1)%del_zlev_i(jk))&
+!TODO               & /(0.5_wp*patch_3D%p_patch_1d(1)%del_zlev_i(jk)+ocean_state%p_prog(nold(1))%h(jc,blockNo))
+!TODO           ELSEIF(jk>1.AND.jk<n_zlev)THEN
+!TODO             z_w = (ocean_state%p_diag%w(jc,jk,blockNo)*patch_3D%p_patch_1d(1)%del_zlev_i(jk)&
+!TODO               & +ocean_state%p_diag%w(jc,jk+1,blockNo)*patch_3D%p_patch_1d(1)%del_zlev_i(jk+1))&
+!TODO               & /(patch_3D%p_patch_1d(1)%del_zlev_i(jk)+patch_3D%p_patch_1d(1)%del_zlev_i(jk+1))
+!TODO           ENDIF
+!TODO           monitor%pot_energy = monitor%pot_energy + grav*z_w* ocean_state%p_diag%rho(jc,jk,blockNo)* prism_vol
 
             !Tracer content
 !             DO i_no_t=1, no_tracer
@@ -738,17 +738,17 @@ CONTAINS
     CALL disable_sync_checks()
     monitor%volume                     = global_sum_array(monitor%volume)
     surface_area                       = global_sum_array(surface_area)
-    monitor%kin_energy                 = global_sum_array(monitor%kin_energy)/monitor%volume
-    monitor%pot_energy                 = global_sum_array(monitor%pot_energy)/monitor%volume
-    monitor%total_energy               = global_sum_array(monitor%total_energy)/monitor%volume
+!TODO    monitor%kin_energy                 = global_sum_array(monitor%kin_energy)/monitor%volume
+!TODO    monitor%pot_energy                 = global_sum_array(monitor%pot_energy)/monitor%volume
+!TODO    monitor%total_energy               = global_sum_array(monitor%total_energy)/monitor%volume
     monitor%total_salt                 = calc_total_salt_content(patch_2d, &
       &                                                          patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
       &                                                          ice, ocean_state,surface_fluxes,ice%zUnderIce)
-    monitor%vorticity                  = global_sum_array(monitor%vorticity)
+!TODO    monitor%vorticity                  = global_sum_array(monitor%vorticity)
 
 
 
-    monitor%potential_enstrophy        = global_sum_array(monitor%potential_enstrophy)
+!TODO    monitor%potential_enstrophy        = global_sum_array(monitor%potential_enstrophy)
     monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)/surface_area
 
     IF (iforc_oce > No_Forcing) THEN
@@ -995,6 +995,10 @@ CONTAINS
 
       global_mean_totalEnergy = 0.0_wp
       IF (isRegistered('total_energy_global')) THEN
+        ! use precomputed variables
+        IF (isRegistered('kin_energy_global') .AND. isRegistered('pot_energy_global')) THEN
+          global_mean_totalEnergy = global_mean_kinEnergy + global_mean_potEnergy
+        END IF
       END IF
       monitor%total_energy = global_mean_totalEnergy
 
@@ -1054,7 +1058,7 @@ CONTAINS
     allocated_levels = SIZE(w,VerticalDim_Position)
     ALLOCATE( sum_value(allocated_levels, 0:no_of_threads-1), &
       & sum_weight(allocated_levels, 0:no_of_threads-1), &
-      & total_weight(allocated_levels) )
+      & total_weight(allocated_levels), total_sum(allocated_levels) )
 
     start_vertical = 1
     end_vertical = SIZE(w, VerticalDim_Position)
@@ -1144,7 +1148,6 @@ CONTAINS
     ! Collect the value and weight sums (at all procs)
     CALL gather_sums(total_sum, total_weight)
 
-    DEALLOCATE(total_weight)
 
     totalSum = 0.0_wp
     totalWeight = 0.0_wp
@@ -1152,6 +1155,8 @@ CONTAINS
       totalSum    = totalSum    + total_sum(level)
       totalWeight = totalWeight + total_weight(level)
     ENDDO
+    DEALLOCATE(total_weight)
+    DEALLOCATE(total_sum)
 
     potential_energy = totalSum / totalWeight
   END FUNCTION potential_energy
@@ -2048,13 +2053,13 @@ CONTAINS
   SUBROUTINE reset_ocean_monitor(monitor)
     TYPE(t_ocean_monitor) :: monitor
     monitor%volume(:)                     = 0.0_wp
-    monitor%kin_energy(:)                 = 0.0_wp
-    monitor%pot_energy(:)                 = 0.0_wp
-    monitor%total_energy(:)               = 0.0_wp
+!   monitor%kin_energy(:)                 = 0.0_wp
+!   monitor%pot_energy(:)                 = 0.0_wp
+!   monitor%total_energy(:)               = 0.0_wp
     monitor%total_salt(:)                 = 0.0_wp
-    monitor%vorticity(:)                  = 0.0_wp
-    monitor%enstrophy(:)                  = 0.0_wp
-    monitor%potential_enstrophy(:)        = 0.0_wp
+!   monitor%vorticity(:)                  = 0.0_wp
+!   monitor%enstrophy(:)                  = 0.0_wp
+!   monitor%potential_enstrophy(:)        = 0.0_wp
     monitor%absolute_vertical_velocity(:) = 0.0_wp
     monitor%HeatFlux_ShortWave(:)         = 0.0_wp
     monitor%HeatFlux_LongWave(:)          = 0.0_wp
