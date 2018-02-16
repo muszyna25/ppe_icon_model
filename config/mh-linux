@@ -45,7 +45,7 @@ case "$fortran_compiler" in
         compiler_version = $(gfortran --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
         CFLAGS      = $CFLAGS -DpgiFortran
         FCPP        = -cpp
-        FLANG       = -std=f2008 -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-232
+        FLANG       = -std=f2008 -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132
         FWARN       = -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising
         FDEBUG      = -g -fbacktrace
         FCHECK      = -finit-real=nan -finit-integer=-2147483648 -finit-character=127
