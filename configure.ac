@@ -1193,14 +1193,15 @@ AS_IF([test "x$enable_serialization" != "xno"],
 EOF
                             AS_CASE([$fortran_compiler],
                                     [gcc*],
-                            [read -d '' my_pp_command <<EOF
+                            [PP_FFLAGS=`echo $FFLAGS | sed -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../module ||'`
+read -d '' my_pp_command <<EOF
 ( cd src/;
   echo "Preprocessing files (CPP) ...";
-  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec ${FC} -I./include -o "../${my_iconppdir}/{}" ${FFLAGS} -C -E "{}" \\\; )
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -o "../${my_iconppdir}/{}" -C -E \\\"{}\\\")" \\\; )
 EOF
 ],
                             [cray*],
-                            [PP_FFLAGS=`echo $FFLAGS | sed -e 's/ -e Z //' -e 's/,ipa1//'`
+                            [PP_FFLAGS=`echo $FFLAGS | sed -e 's/ -e Z //' -e 's/,ipa1//' -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../modul e||'`
 read -d '' my_pp_command <<EOF
 ( cd src/;
   echo "Preprocessing files (CPP) ...";
@@ -1209,10 +1210,11 @@ read -d '' my_pp_command <<EOF
 EOF
 ],
                             [pgi*],
-                            [read -d '' my_pp_command <<EOF
+                            [PP_FFLAGS=`echo $FFLAGS | sed -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../module ||'`
+read -d '' my_pp_command <<EOF
 ( cd src/;
   echo "Preprocessing files (CPP) ...";
-  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec ${FC} ${FFLAGS} -I./include -o "../${my_iconppdir}/{}" -Mcpp "{}" \\\; )
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -o "../${my_iconppdir}/{}" -Mcpp \\\"{}\\\")" \\\; )
 EOF
 ])
                             read -d '' my_pp_ser <<EOF
