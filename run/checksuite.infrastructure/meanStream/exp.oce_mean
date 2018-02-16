@@ -37,8 +37,9 @@ ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-
 #-----------------------------------------------------------------------------
 #icon_data_rootFolder=/pool/data/ICON
 #
-varnames="'so','zos','to','global_moc'"
-monitor_varnames="'ssh_global','HeatFlux_Total_Global','FrshFlux_Evaporation_Global','FrshFlux_Runoff_Global','FrshFlux_Precipitation_Global','Qtop','ice_volume_nh','ice_volume_sh','ice_extent_nh','ice_extent_sh'"
+varnames="'so','zos','to','global_moc','atlantic_moc','pacific_moc'"
+monitor_varnames="'ssh_global','HeatFlux_Total_global','FrshFlux_Evaporation_global','FrshFlux_Runoff_global','FrshFlux_Precipitation_global','Qtop','ice_volume_nh','ice_volume_sh','ice_extent_nh','ice_extent_sh'"
+monitor_varnames="${monitor_varnames},'pot_energy_global','kin_energy_global','total_energy_global'"
 # write namelist parameters
 # -------------------------
 cat > ${ocean_namelist} << EOF
