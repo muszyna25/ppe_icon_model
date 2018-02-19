@@ -79,6 +79,7 @@ MODULE mo_nwp_phy_nml
   LOGICAL  :: latm_above_top(max_dom) !! use extra layer above model top for radiation (reduced grid only)
   ! parameter for cloud microphysics
   real(wp) :: mu_rain            !! shape parameter in gamma distribution for rain
+  real(wp) :: rain_n0_factor     !! tuning factor for intercept parameter of raindrop size distribution
   real(wp) :: mu_snow            !! ...for snow
 
 
@@ -100,7 +101,7 @@ MODULE mo_nwp_phy_nml
     &                    mu_snow, icapdcycl, icpl_aero_conv,         &
     &                    lrtm_filename, cldopt_filename, icpl_o3_tp, &
     &                    iprog_aero, lshallowconv_only,              &
-    &                    ldetrain_conv_prec
+    &                    ldetrain_conv_prec, rain_n0_factor
 
   LOGICAL :: l_nwp_phy_namelist_read = .false.
   
@@ -177,6 +178,7 @@ CONTAINS
     ! shape parameter for gamma distribution for rain and snow
     mu_rain = 0.0_wp
     mu_snow = 0.0_wp
+    rain_n0_factor = 1.0_wp
 
     ustart_raylfric    = 160._wp
     efdt_min_raylfric  = 10800._wp
@@ -371,6 +373,7 @@ CONTAINS
       atm_phy_nwp_config(jg)%efdt_min_raylfric = efdt_min_raylfric
       atm_phy_nwp_config(jg)%latm_above_top  = latm_above_top(jg)
       atm_phy_nwp_config(jg)%mu_rain         = mu_rain
+      atm_phy_nwp_config(jg)%rain_n0_factor  = rain_n0_factor
       atm_phy_nwp_config(jg)%mu_snow         = mu_snow
       atm_phy_nwp_config(jg)%icpl_aero_gscp  = icpl_aero_gscp
     ENDDO

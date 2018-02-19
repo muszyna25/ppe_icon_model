@@ -102,6 +102,8 @@ MODULE mo_atm_phy_nwp_config
     ! hydci_pp                   
     REAL(wp) :: mu_rain          !! parameter in gamma distribution for rain
     REAL(wp) :: mu_snow          !! ...for snow
+    REAL(wp) :: rain_n0_factor   !! tuning factor for intercept parameter of raindrop size distribution
+
     REAL(wp) :: qi0, qc0
 
     INTEGER  :: icpl_aero_gscp     !! type of aerosol-microphysics coupling

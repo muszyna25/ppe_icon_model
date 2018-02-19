@@ -84,7 +84,7 @@ MODULE mo_cumaster
   !KF
   USE mo_cuparameters , ONLY :                                   &
     & rtwat                                                     ,&
-    & lmfdd    ,lmfdudv, rdepths   ,lmfit                       ,&
+    & lmfdd    ,lmfdudv            ,lmfit                       ,&
     & rmflic  ,rmflia  ,rmflmax, rmfsoluv                       ,&
     & ruvper    ,rmfsoltq,rmfsolct,rmfcmin  ,lmfsmooth,lmfwstar ,&
     & lmftrac   ,   LMFUVDIS                                    ,&
@@ -569,7 +569,7 @@ CALL cuinin &
 
 CALL cubasen &
   & ( kidia,    kfdia,    klon,   ktdia,    klev, &
-  & phy_params%kcon1, phy_params%kcon2, phy_params%entrorg, &
+  & phy_params%kcon1, phy_params%kcon2, phy_params%entrorg, phy_params%rdepths, &
   & phy_params%texc, phy_params%qexc, mtnmask, ldland, ldlake, &
   & ztenh,    zqenh,    pgeoh,    paph,&
   & pqhfl,    pahfs,    &
@@ -629,7 +629,7 @@ DO jl=kidia,kfdia
     ikb=kcbot(jl)
     itopm2=ictop0(jl)
     zpbmpt=paph(jl,ikb)-paph(jl,itopm2)
-    IF (zpbmpt >= rdepths) THEN
+    IF (zpbmpt >= phy_params%rdepths) THEN
       ktype(jl)=1
     ELSE
       ktype(jl)=2
@@ -749,8 +749,8 @@ DO jl=kidia,kfdia
     ikb=kcbot(jl)
     itopm2=kctop(jl)
     zpbmpt=paph(jl,ikb)-paph(jl,itopm2)
-    IF(ktype(jl) == 1.AND.zpbmpt < rdepths) ktype(jl)=2
-    IF(ktype(jl) == 2.AND.zpbmpt >= rdepths) ktype(jl)=1
+    IF(ktype(jl) == 1.AND.zpbmpt < phy_params%rdepths) ktype(jl)=2
+    IF(ktype(jl) == 2.AND.zpbmpt >= phy_params%rdepths) ktype(jl)=1
     ! Reset to deep convection for extreme CAPE values
     IF(pcape(jl) > zcapethresh) ktype(jl) = 1
     ictop0(jl)=kctop(jl)
@@ -1014,8 +1014,8 @@ IF(lmfit) THEN
       ikb=kcbot(jl)
       itopm2=kctop(jl)
       zpbmpt=paph(jl,ikb)-paph(jl,itopm2)
-      IF(ktype(jl) == 1.AND.zpbmpt < rdepths) ktype(jl)=2
-      IF(ktype(jl) == 2.AND.zpbmpt >= rdepths) ktype(jl)=1
+      IF(ktype(jl) == 1.AND.zpbmpt < phy_params%rdepths) ktype(jl)=2
+      IF(ktype(jl) == 2.AND.zpbmpt >= phy_params%rdepths) ktype(jl)=1
       ! Reset to deep convection for extreme CAPE values
       IF(pcape(jl) > zcapethresh) ktype(jl) = 1
     ENDIF

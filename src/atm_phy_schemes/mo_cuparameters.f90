@@ -343,7 +343,6 @@ MODULE mo_cuparameters
   REAL(KIND=jprb) :: rmfcmax
   REAL(KIND=jprb) :: rmfcmin
   REAL(KIND=jprb) :: rmfdeps
-  REAL(KIND=jprb) :: rdepths
   REAL(KIND=jprb) :: rprcon
   ! REAL(KIND=jprb) :: rtau -> moved into phy_params because it is resolution-dependent
   ! REAL(KIND=jprb) :: rtau0 -> moved into phy_params because it is resolution-dependent
@@ -481,7 +480,7 @@ MODULE mo_cuparameters
   !yoecumf
   PUBLIC :: entshalp ,entstpc1 ,entstpc2            ,&
           & rprcon   ,rmfcmax  ,rmfcmin   ,detrpen  ,&
-          & lmfdd    ,lmfdudv  , rdepths            ,&
+          & lmfdd    ,lmfdudv                       ,&
           & lmfit    ,rmflic                       ,&
           & rmflia   ,rmfsoluv ,rmflmax            ,&
           & ruvper   ,rmfsoltq ,rmfsolct ,&
@@ -1124,7 +1123,7 @@ nflevg=klev
 !     DETRPEN: AVERAGE DETRAINMENT RATE FOR PENETRATIVE CONVECTION (1/M)
 !     -------
 
-detrpen=0.75E-4_JPRB  
+detrpen=0.75E-4_JPRB
 
 !         NOTA:SHALLOW/DEEP ENTRAINMENT RATES ARE 
 !              VERTICALLY SCALED BY FUNCTION  (qs/qsb)**3
@@ -1177,9 +1176,9 @@ RMFDEPS=0.30_JPRB
 !     RDEPTHS:   MAXIMUM ALLOWED SHALLOW CLOUD DEPTH (Pa)
 !     -------
 IF (lshallow_only) THEN
-  rdepths=1.e4_jprb
+  phy_params%rdepths=1.3e4_jprb/MAX(1._jprb,(5.e3_jprb/rsltn)**0.75_jprb)
 ELSE
-  rdepths=2.e4_jprb
+  phy_params%rdepths=2.e4_jprb
 ENDIF
 
 !     RPRCON:    COEFFICIENTS FOR DETERMINING CONVERSION FROM CLOUD WATER
@@ -1201,7 +1200,7 @@ rtaumel=5._jprb*3.6E3_JPRB*1.5_JPRB
 !
 ! resolution-dependent setting of rhebc for mesh sizes below the threshold given by zres_thresh
 zres_thresh      = 20.0E3_JPRB   ! 20 km
-zres_thresh_trop = 12.5E3_JPRB   ! 12.5 km for tropics
+zres_thresh_trop = 20.0E3_JPRB   ! new since 02/18: 20 km also for tropics
 ztrans_end       = 1.0E3_JPRB    ! 1 km - end of transition range
 
 phy_params%rhebc_land       = tune_rhebc_land
@@ -1241,10 +1240,10 @@ ENDIF
 
 
 ! tuning parameter for organized entrainment of deep convection
-phy_params%entrorg = tune_entrorg + 1.2E-4_JPRB*LOG(zres_thresh/rsltn)
+phy_params%entrorg = tune_entrorg !!! + 1.2E-4_JPRB*LOG(zres_thresh/rsltn)
 
 IF (lshallow_only) THEN
-  phy_params%entrorg = 1.5_JPRB*phy_params%entrorg
+  phy_params%entrorg = phy_params%entrorg*MAX(1.25_jprb,SQRT(5.e3_jprb/rsltn))
 ENDIF
 
 ! resolution-dependent settings for 'excess values' of temperature and QV used for convection triggering (test parcel ascent)

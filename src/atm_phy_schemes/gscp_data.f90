@@ -299,7 +299,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i, &
-  &                               tune_mu_rain)
+  &                               tune_mu_rain, tune_rain_n0_factor)
 
 !------------------------------------------------------------------------------
 !> Description:
@@ -312,6 +312,7 @@ SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i,
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_v0snow
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_zvz0i
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_mu_rain
+  REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_rain_n0_factor
 
 ! Local variable
 #ifdef __COSMO__
@@ -347,6 +348,11 @@ SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i,
     mu_rain = 0.0_wp         ! COSMO-EU default
   ENDIF
 
+  IF (PRESENT(tune_rain_n0_factor)) THEN
+    rain_n0_factor = tune_rain_n0_factor
+  ELSE
+    rain_n0_factor = 1.0_wp         ! COSMO-EU default
+  ENDIF
 
   ! zconst = zkcau / (20.0_wp*zxstar*cloud_num*cloud_num) &
   !          * (zcnue+2.0_wp)*(zcnue+4.0_wp)/(zcnue+1.0_wp)**2

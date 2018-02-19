@@ -212,7 +212,7 @@ CONTAINS
     tune_zvz0i      = 1.25_wp      ! original value of Heymsfield+Donner 1990: 3.29
     !
     ! convection
-    tune_entrorg     = 1.85e-3_wp   ! entrainment parameter for deep convection valid at dx=20 km
+    tune_entrorg     = 1.95e-3_wp   ! entrainment parameter for deep convection
     tune_capdcfac_et = 0.125_wp     ! fraction of CAPE diurnal cycle correction applied in the extratropics
     tune_rhebc_land  = 0.75_wp      ! RH threshold for onset of evaporation below cloud base over land (original IFS value 0.7)
     tune_rhebc_ocean = 0.85_wp      ! RH threshold for onset of evaporation below cloud base over sea (original IFS value 0.9)
@@ -222,9 +222,9 @@ CONTAINS
                                     ! independent of grid-scale QV))
 
     ! The following switches allow separate tuning for evaporation below cloud base in the tropics
-    tune_rhebc_land_trop  = 0.75_wp
-    tune_rhebc_ocean_trop = 0.80_wp
-    tune_rcucov_trop      = 0.05_wp
+    tune_rhebc_land_trop  = 0.70_wp
+    tune_rhebc_ocean_trop = 0.76_wp
+    tune_rcucov_trop      = 0.03_wp
 
     !
     ! snow cover diagnosis
