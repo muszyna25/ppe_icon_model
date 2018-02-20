@@ -7377,7 +7377,7 @@ model expects {\bf height based} coordinates. For further information see $<$ico
 To speed up code parts strongly limited by memory bandwidth (primarily the dynamical core and the tracer advection), 
 an option exists to use single precision for variables that are presumed to be insensitive to computational accuracy.
 This affects most local arrays in the dynamical core routines (solve\_nonhydro and velocity\_advection), some local
-arreays in the tracer transport routines, the metrics coefficients,
+arrays in the tracer transport routines, the metrics coefficients,
 arrays used for storing tendencies or differenced fields (gradients, divergence etc.), reference atmosphere fields,
 and interpolation coefficients. Prognostic variables and intermediate variables affecting the accuracy of mass conservation
 are still treated in double precision. To activate the mixed-precision option, the cpp flags '-D\_\_MIXED\_PRECISION' and  
