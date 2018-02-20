@@ -49,10 +49,10 @@ MODULE mo_ice_init_thermo
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, GRID_UNSTRUCTURED
-  USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL,                 &
-    &                               GRID_CELL, ZA_GENERIC_ICE, ZA_SURFACE,  &
+  USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL,      &
     &                               GRID_UNSTRUCTURED_VERT, GRID_VERTEX,    &
     &                               GRID_UNSTRUCTURED_EDGE, GRID_EDGE
+  USE mo_zaxis_type,          ONLY: ZA_GENERIC_ICE, ZA_SURFACE
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
 

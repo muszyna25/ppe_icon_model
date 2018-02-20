@@ -121,6 +121,10 @@ run_scripts_submit()
         echo "---------------------------------------------------------"
 
         echo $run_command > submit.$EXP_FILE
+        if [ "_$submit" = "_qsub -Wblock=true" ] 
+        then
+            echo "echo \$? > ${EXP_FILE}.status.2" >> submit.$EXP_FILE
+        fi
         chmod +x submit.$EXP_FILE        
        ./submit.$EXP_FILE &    
 
@@ -158,8 +162,14 @@ run_scripts_submit()
 
       if [[ "$batch_system" = "slurm" ]]
       then
+          sleep 15
           slurm_jobid=${job_submitted["$EXP_FILE"]}
-          job_state=`sacct -j ${slurm_jobid} -n -o jobid,state,exitcode | awk 'NR==1{print $2}'`
+          job_state=COMPLETING
+          while [[ "${job_state}" = "COMPLETING" || "${job_state}" = "RUNNING" ]]
+          do
+              sleep 5
+              job_state=`sacct -j ${slurm_jobid} -n -o jobid,state,exitcode | awk 'NR==1{print $2}'`
+          done
           case "$job_state" in
               TIMEOUT)
                   echo 127 > ${EXP_FILE}.status
@@ -168,7 +178,7 @@ run_scripts_submit()
                   echo 0 > ${EXP_FILE}.status
               ;;
               *)
-                  echo 191 > ${EXP_FILE}.status                  
+                  echo 191 > ${EXP_FILE}.status         
               ;;
           esac    
       fi
@@ -177,6 +187,11 @@ run_scripts_submit()
       if [ -r $EXP_FILE.status ]
       then
         STATUS_IN_FILE=`cat ${EXP_FILE}.status`
+      else
+        if [ -r $EXP_FILE.status.2 ]
+	then
+   	  STATUS_IN_FILE=`cat ${EXP_FILE}.status.2`
+        fi
       fi
 
       $stop_check 0 $EXP_FILE

@@ -14,6 +14,7 @@ use File::Copy;
 use Getopt::Long;
 use File::Path;
 use File::Basename;
+use File::Spec;
 #__________________________________________________________________________________________________________________________________
 # Option processing
 
@@ -23,6 +24,9 @@ my $enable_atmo;
 my $enable_ocean;
 my $enable_jsbach;
 my $enable_testbed;
+my $enable_serialization;
+my $iconsrcdir = "src";
+my $iconppdir;
 
 GetOptions( 
 	    'target=s'  => \$target,
@@ -31,6 +35,9 @@ GetOptions(
             'enable_ocean=s' => \$enable_ocean,
             'enable_jsbach=s' => \$enable_jsbach,
             'enable_testbed=s' => \$enable_testbed,
+            'enable_serialization=s' => \$enable_serialization,
+            'iconsrcdir=s' => \$iconsrcdir,
+            'iconppdir=s' => \$iconppdir,
 	    ) or die "\n\nUsage: config/createMakefiles.pl --target=<OS_CPU> --srcdirs=< list of src directories>\n";  
 
 #__________________________________________________________________________________________________________________________________
@@ -41,6 +48,8 @@ $target =~ s/\s+//g;
 $srcdirs =~ s/[\"\']*//g;
 $srcdirs =~ s/\s+/ /g;
 $srcdirs =~ s/^\s+//;
+
+$iconsrcdir =~ s/\s+//g;
 
 my (@directories) = split / /, $srcdirs;
 
@@ -56,6 +65,12 @@ print "\n";
 print "createMakefiles:\n\n";
 
 my $build_path = &BuildSetup ($prefix, $target, \@directories);
+
+if (defined $iconppdir) {
+  $iconppdir = $prefix . "/" . $iconppdir;
+} else {
+  $iconppdir = $build_path . "/" . $iconsrcdir;
+}
 
 #__________________________________________________________________________________________________________________________________
 # collect include files in build tree
@@ -102,11 +117,10 @@ if ( -d "externals/yac/include" ) {
     }
 }
 
-# if ( -d ".git" and ($enable_jsbach eq "yes") and ! -d "src/lnd_phy_jsbach" ) {
-#     symlink "../externals/jsbach/src", "src/lnd_phy_jsbach"; 
-# }
-if ( ($enable_jsbach eq "yes") and ! -d "src/lnd_phy_jsbach" ) {
-    symlink "../externals/jsbach/src", "src/lnd_phy_jsbach"; 
+if ( ($enable_jsbach eq "yes")
+     and ! -d "$iconsrcdir/lnd_phy_jsbach"
+     and -d 'externals/jsbach/src' ) {
+    symlink File::Spec->abs2rel("$prefix/externals/jsbach/src", "$iconsrcdir"), "$iconsrcdir/lnd_phy_jsbach"; 
 }
 
 if ( ($enable_ocean eq "yes") and -d "src/ocean/include" ) {
@@ -157,6 +171,10 @@ foreach my $dir ( @directories ) {
 
     my $print_path = $build_path;
     $print_path =~ s/$prefix\///;
+    $dir =~ s/$print_path\///;
+
+    my $iconrelsrcdir = $iconsrcdir;
+    $iconrelsrcdir =~ s/$print_path\///;
 
     print "creating $print_path/$dir/Makefile\n";
 
@@ -169,7 +187,7 @@ foreach my $dir ( @directories ) {
     print MAKEFILE "\n";
 
     my $add_vpath_level = 0;
-    if ( "$dir" ne "src" ) {
+    if ( "$dir" ne "$iconrelsrcdir" ) {
 	if ( $dir =~ m/^externals/) {
 	    my @subdirs = split(/\//, $dir);
 	    print MAKEFILE "SHELL = /bin/bash\n\n";
@@ -276,7 +294,7 @@ foreach my $dir ( @directories ) {
     while ( my ($key, $value) = each(%target_programs) ) {
 	push @target_all, "../bin/$key";
     }
-    if ( "$dir" ne "src" ) {
+    if ( "$dir" ne "$iconrelsrcdir" ) {
 	if ( $dir =~ m/^externals/) {
 	    print MAKEFILE ".PHONY: \$(LIB)\n\n";
 	    print MAKEFILE "all: \$(LIB)\n\n";
@@ -291,7 +309,7 @@ foreach my $dir ( @directories ) {
     }
     print MAKEFILE "\n\n";
 
-    if ( "$dir" ne "src" ) {
+    if ( "$dir" ne "$iconrelsrcdir" ) {
 	if ( $dir =~ m/^externals/) {
         print MAKEFILE "../../../lib/lib\$(LIB).a: \$(OBJS)\n";
 	    print MAKEFILE "\t\$(AR) \$(ARFLAGS) ../../../lib/lib\$(LIB).a \$(OBJS)\n";
@@ -454,7 +472,8 @@ sub ScanDirectory {
         next if ($name eq "sw_options");
         next if (($enable_ocean eq "no") and (($name eq "ocean") or ($name eq "sea_ice") or ($name eq "hamocc")) );
         next if (($enable_jsbach eq "no") and ($name eq "lnd_phy_jsbach") );
-        next if (($enable_testbed eq "no") and ($name eq "testbed") and ($workpath eq "src") );
+        next if (($enable_serialization eq "no") and ($name eq "serialization") );
+        next if (($enable_testbed eq "no") and ($name eq "testbed") and ($workpath eq "$iconsrcdir") );
 
         if (-d $name){
             my $nextpath="$workpath/$name";
@@ -468,7 +487,7 @@ sub ScanDirectory {
                     # so that the Makefile dependencies can be generated here.
                     my ($bname, $path, $suffix) = fileparse($name, '\.[^\.]*');  # parts of original source file
                     $name = $bname . "_dsl4jsb" . $suffix ;                      # name of pre-processed JSBACH files
-                    open F, '<', $build_path . "/src/" . $name
+                    open F, '<', $iconppdir . "/" . $name
                         or die("Cannot open file $name", $!);
                 } else {
 		    open F, '<', $name

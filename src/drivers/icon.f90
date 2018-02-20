@@ -244,7 +244,7 @@ PROGRAM icon
 #endif
 
   CASE default
-    CALL finish("icon","my_process_component is unkown")
+    CALL finish("icon","my_process_component is unknown")
 
   END SELECT
 

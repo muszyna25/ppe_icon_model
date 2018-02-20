@@ -94,9 +94,10 @@ SUBROUTINE cover_koe( &
   & rho                             , & ! in:    density
   & rcld                            , & ! inout: standard deviation of saturation deficit
   & ldland                          , & ! in:    land/sea mask
-  & ldcum, kcbot, kctop             , & ! in:    convection: on/off, bottom, top
+  & ldcum, kcbot, kctop, ktype      , & ! in:    convection: on/off, bottom, top, type
   & pmfude_rate                     , & ! in:    convection: updraft detrainment rate
   & plu                             , & ! in:    convection: updraft condensate
+  & qc_tend                         , & ! in:    convective qc tendency
   & qv, qc, qi, qs, qtvar           , & ! inout: prognostic cloud variables
   & cc_tot, qv_tot, qc_tot, qi_tot )    ! out:   cloud output diagnostic
 
@@ -140,12 +141,14 @@ LOGICAL, DIMENSION(klon), INTENT(IN) ::  &
   & ldcum                ! true for convection points
 
 INTEGER(KIND=i4), DIMENSION(klon), INTENT(IN) ::  &
+  & ktype            , & ! convection type
   & kcbot            , & ! convective cloud base level (klev: bottom level, -1: no conv)
   & kctop                ! convective cloud top level
 
 REAL(KIND=wp), DIMENSION(klon,klev), INTENT(IN) ::  &
   & pmfude_rate      , & ! convective updraft detrainment rate           (kg/(m3*s))
-  & plu                  ! updraft condensate                            (kg/kg)
+  & plu              , & ! updraft condensate                            (kg/kg)
+  & qc_tend              ! convective qc tendency
 
 REAL(KIND=wp), DIMENSION(klon,klev), INTENT(INOUT) ::   &
   & cc_tot           , & ! cloud cover diagnostic
@@ -175,7 +178,7 @@ REAL(KIND=wp) :: &
   & fgew   , fgee   , fgqs   , & !fgqv   , & ! name of statement functions
   & ztt    , zzpv   , zzpa   , zzps   , &
   & zf_ice , deltaq , qisat_grid, &
-  & vap_pres, zaux, zqisat_m60, zqisat_m25, qi_mod, box_liq_ass, par1, par2
+  & vap_pres, zaux, zqisat_m50, zqisat_m25, qi_mod, box_liq_ass, par1, par2, qcc, asyfac
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   zqlsat , zqisat, zagl_lim
@@ -209,8 +212,8 @@ REAL(KIND=wp), PARAMETER  :: &
 
 !-----------------------------------------------------------------------
 
-! saturation mixing ratio at -60 C and 200 hPa
-zqisat_m60 = fgqs ( fgee(213.15_wp), 0._wp, 20000._wp )
+! saturation mixing ratio at -50 C and 200 hPa
+zqisat_m50 = fgqs ( fgee(223.15_wp), 0._wp, 20000._wp )
 
 ! saturation mixing ratio at -25 C and 700 hPa
 zqisat_m25 = fgqs ( fgee(248.15_wp), 0._wp, 70000._wp )
@@ -275,9 +278,12 @@ CASE( 1 )
 
 ! stratiform cloud
 !  liquid cloud
-     ! quadratic increase of cloud cover from 0 to 1 between RH = (100 - 2.5*tune_box_liq)% and (100 + tune_box_liq)%;
-     ! diagnosed cloud water is proportional to clcov**2
-      deltaq = MIN(tune_box_liq, zagl_lim(jl,jk)) * zqlsat(jl,jk)
+     ! quadratic increase of cloud cover from 0 to 1 between RH = (100 - 2.5*asyfac*tune_box_liq)% and (100 + tune_box_liq)%;
+     ! the additional asymmetry factor asyfac is 1.25 in subsaturated air at temperatures above freezing and smoothly
+     ! decreases to 1 if clouds are present and/or cold temperatures.
+     ! Diagnosed cloud water is proportional to clcov**2
+      asyfac = MAX(1._wp,1.25_wp-12.5_wp*qc(jl,jk)/zqlsat(jl,jk)+0.05_wp*MIN(0._wp,tt(jl,jk)-tmelt))
+      deltaq = MIN(tune_box_liq*asyfac, zagl_lim(jl,jk)) * zqlsat(jl,jk)
       IF ( ( qv(jl,jk) + qc(jl,jk) - deltaq ) > zqlsat(jl,jk) ) THEN
         cc_turb_liq(jl,jk) = 1.0_wp
         qc_turb  (jl,jk)   = qv(jl,jk) + qc(jl,jk) - zqlsat(jl,jk)
@@ -285,7 +291,7 @@ CASE( 1 )
         zaux = qv(jl,jk) + qc(jl,jk) + box_liq_ass*deltaq - zqlsat(jl,jk)
         cc_turb_liq(jl,jk) = SIGN((zaux/(par1*deltaq))**2,zaux)
         IF ( cc_turb_liq(jl,jk) > 0.0_wp ) THEN
-          qc_turb  (jl,jk) = zaux**4 / (par2*deltaq**3)
+          qc_turb  (jl,jk) = zaux**4 / (par2*asyfac*deltaq**3)
         ELSE
           qc_turb  (jl,jk) = 0.0_wp
         ENDIF
@@ -319,8 +325,8 @@ CASE( 1 )
       ENDIF
 
       ! reduce cloud cover fraction of very thin ice clouds, defined as clouds with a mixing ratio
-      ! of less than 5% of the saturation mixing ratio w.r.t. ice at -60 deg C
-      cc_turb_ice(jl,jk) = MIN(cc_turb_ice(jl,jk),qi_turb(jl,jk)/(box_ice*zqisat_m60))
+      ! of less than 5% of the saturation mixing ratio w.r.t. ice at -50 deg C
+      cc_turb_ice(jl,jk) = MIN(cc_turb_ice(jl,jk),qi_turb(jl,jk)/(box_ice*zqisat_m50))
 
       cc_turb(jl,jk) = max( cc_turb_liq(jl,jk), cc_turb_ice(jl,jk) )          ! max overlap liq/ice
       cc_turb(jl,jk) = min(max(0.0_wp,cc_turb(jl,jk)),1.0_wp)
@@ -331,8 +337,17 @@ CASE( 1 )
 ! convective cloud
       cc_conv(jl,jk) = ( pmfude_rate(jl,jk) / rho(jl,jk) ) &                  ! cc = detrainment / rho /
                    & / ( pmfude_rate(jl,jk) / rho(jl,jk) + 1.0_wp / taudecay )!      ( Du/rho + 1/tau,decay )
-      qc_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*      foealfcu(tt(jl,jk))  ! ql up  foealfa = liquid/(liquid+ice)
+      ! Assume 2% cloud cover in non-detraining updraft region
+      cc_conv(jl,jk) = MAX(cc_conv(jl,jk), MIN(0.02_wp,0.2_wp*plu(jl,jk)/zqlsat(jl,jk)) )
+      qc_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*       foealfcu(tt(jl,jk)) ! ql up  foealfa = liquid/(liquid+ice)
       qi_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*(1._wp-foealfcu(tt(jl,jk)))! qi up
+      IF (ktype(jl) == 2) THEN ! shallow convection
+        ! additional source term for convective clouds depending on detrained cloud water (qc_tend) and RH
+        qcc = MAX(0._wp, MIN(0.075_wp*tune_box_liq*zqlsat(jl,jk), qc_tend(jl,jk)*2._wp*taudecay* &
+          (1._wp - 6000._wp/taudecay*(1._wp-qv(jl,jk)/zqlsat(jl,jk))) ))
+        cc_conv(jl,jk) = MAX(cc_conv(jl,jk),SQRT(qcc/(tune_box_liq*zqlsat(jl,jk))) )
+        qc_conv(jl,jk) = MAX(qcc,qc_conv(jl,jk))
+      ENDIF
       cc_conv(jl,jk) = min(max(0.0_wp,cc_conv(jl,jk)),1.0_wp)
       qc_conv(jl,jk) = min(max(0.0_wp,qc_conv(jl,jk)),0.1_wp*qv(jl,jk))       ! qc limit to 10%qv
       qi_conv(jl,jk) = min(max(0.0_wp,qi_conv(jl,jk)),0.1_wp*qv(jl,jk))       ! qi limit to 10%qv
@@ -343,6 +358,7 @@ CASE( 1 )
 
     ENDDO
   ENDDO
+
 
   IF (inwp_turb == iedmf) THEN
     DO jk = kstart,klev

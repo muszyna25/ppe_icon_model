@@ -7,7 +7,7 @@ models are stored in run/. These scripts write namelist files containing
 the specified Fortran namelists. Programs are stored in $<$ icon home$>$/build/$<$architecture$>$/bin/.
 
 
-\begin{table}[ht]
+\begin{table}[htb]
 \caption{Namelist files}
 \begin{center}
 \begin{tabular}{llll}\hline
@@ -1914,7 +1914,7 @@ C& & &
 Dictionary file which maps internal variable names onto
 GRIB2 shortnames or NetCDF var names.
 This is a text file with two columns separated by whitespace, where
-left column: ICON variable name, right column: GRIB2 short name.
+left column: ICON variable name, right column: GRIB2 short name or NetCDF var name.
 &
 \tabularnewline
 
@@ -2685,6 +2685,14 @@ I & 2 &  & type of bare soil evaporation parameterization \\
 \tabularnewline
 
 %\hline
+itype\_trvg &
+I & 2 &  & type of plant transpiration parameterization \\
+2 = BATS scheme, Dickinson (1984)\\
+3 = Extended BATS scheme with additional prognostic variable for integrated plant transpiration since sunrise; 
+should be used only with an appropriate first guess for this variable coming from the assimilation cycle &
+\tabularnewline
+
+%\hline
 itype\_heatcond &
 I & 2 &  & type of soil heat conductivity \\
 1 = constant soil heat conductivity\\
@@ -2786,7 +2794,7 @@ C&
 Filename of SST input files for time dependent SST.
 Default is "$<$path$>$SST\_$<$year$>$\_<month>\_$<$gridfile$>$". May contain the
 keyword $<$path$>$ which will be substituted by model\_base\_dir&
-sstice\_mode=2,3
+sstice\_mode=3,4,5
 \tabularnewline
 %\hline
 ci\_td\_filename &
@@ -2796,7 +2804,7 @@ C&
 Filename of sea ice fraction input files for time dependent sea ice fraction.
 Default is "$<$path$>$CI\_$<$year$>$\_$<$month$>$\_$<$gridfile$>$". May contain
 the keyword $<$path$>$ which will be substituted by model\_base\_dir&
-sstice\_mode=2,3
+sstice\_mode=3,4,5
 \tabularnewline
 \end{longtab}
 
@@ -2985,6 +2993,20 @@ stationlist\_tot&
 &
 53.633,  9.983, 'Hamburg' &&
 list of meteogram stations (triples with lat, lon, name string)&
+\tabularnewline
+
+%\hline
+silent\_flush&
+L(n\_dom) &
+1&&
+do not warn about flushing to disk if .TRUE.&
+\tabularnewline
+
+%\hline
+max\_time\_stamps&
+I(n\_dom) &
+1&&
+number of output time steps to record in memory before flushing to disk&
 \tabularnewline
 
 %\hline
@@ -3722,7 +3744,7 @@ run\_nml:iforcing = inwp
 \hline
 tune\_zceff\_min&
 R&
-0.075&
+0.01&
 &
 Minimum value for sticking efficiency&
 run\_nml:iforcing = inwp
@@ -3783,7 +3805,7 @@ run\_nml:iforcing = inwp
 \hline
 tune\_rhebc\_land\_trop&
 R&
-0.70&
+0.75&
 &
 RH threshold for onset of evaporation below cloud base over land in the tropics&
 run\_nml:iforcing = inwp
@@ -4829,6 +4851,18 @@ Choice of zenith angle formula for the radiative transfer computation.\par
 \tabularnewline
 
 %\hline
+islope\_rad&
+I&
+0 &
+&
+Slope correction for surface radiation:\\
+0: None \\
+1: Slope correction for direct solar radiation without shading effects
+&
+\tabularnewline
+
+
+%\hline
 \textbf{albedo\_type}&
 I&
 1&
@@ -4895,7 +4929,7 @@ I&
 Switches for the concentration of radiative agents\par
 irad\_xyz = 0: set to zero\par
 irad\_h2o = 1: vapor, cloud water and cloud ice from tracer variables\par
-irad\_co2 = 1: CO$_2$ from tracer variable\par
+irad\_co2 = 1: CO\textsubscript{2} from tracer variable\par
 irad\_co2/ch4/n2o/o2/cfc11/cfc12 = 2: concentration given by vmr\_co2/ch4/n2o/o2/cfc11/cfc12\par
 irad\_ch4/n2o = 3: tanh-profile with surface concentration given by vmr\_ch4/n2o\par
 irad\_co2/cfc11/cfc12 = 4: time dependent concentration from greenhouse gas file

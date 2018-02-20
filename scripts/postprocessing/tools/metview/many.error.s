@@ -34,6 +34,7 @@ cd ${scriptdir}
 
 metview=metview
 #metview=/usr/local/apps/Metview/metview4_dev
+module swap metview/4.5.0
 
 met_job=met.job.all.$nstart
 \rm -rf $met_job
@@ -140,7 +141,7 @@ while [[ $nt < ${#inidate[*]} ]]; do
     echo ${metview} -b ${scriptdir}zonal.error $expnum $expref $var ml snap     ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}zonal.error $expnum $expref $var ml diff     ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}zonal.error $expnum $expref $var ml diff_ref ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
-#   echo ${metview} -b ${scriptdir}map.error   $expnum $expref $var ml snap     ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
+    echo ${metview} -b ${scriptdir}map.error   $expnum $expref $var ml snap     ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
   done
     
   # -------------------------------------------------------

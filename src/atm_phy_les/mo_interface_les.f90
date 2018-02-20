@@ -43,7 +43,8 @@ MODULE mo_interface_les
   USE mo_model_domain,       ONLY: t_patch
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nonhydrostatic_config, ONLY: kstart_moist, lhdiff_rcf, ih_clch, ih_clcm
+  USE mo_nonhydrostatic_config, ONLY: kstart_moist, lhdiff_rcf, ih_clch, ih_clcm, &
+    &                              lcalc_dpsdt
   USE mo_nwp_lnd_types,      ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
@@ -84,6 +85,7 @@ MODULE mo_interface_les
                                      is_sampling_time, is_writing_time
   USE mo_les_utilities,       ONLY: init_vertical_grid_for_les
   USE mo_fortran_tools,       ONLY: copy
+  USE mo_nh_supervise,        ONLY: compute_dpsdt
 
   IMPLICIT NONE
 
@@ -193,10 +195,7 @@ CONTAINS
 
     REAL(wp) :: z_qsum(nproma,pt_patch%nlev)  !< summand of virtual increment
     REAL(wp) :: z_ddt_qsum                    !< summand of tendency of virtual increment
-
-    ! Variables for dpsdt diagnostic
-    REAL(wp) :: dps_blk(pt_patch%nblks_c), dpsdt_avg
-    INTEGER  :: npoints_blk(pt_patch%nblks_c), npoints
+    REAL(wp) :: zqc_pconv(nproma,pt_patch%nlev)
 
     ! Variables for EDMF DUALM
     REAL(wp) :: qtvar(nproma,pt_patch%nlev)
@@ -608,6 +607,30 @@ CONTAINS
 
         !-------------------------------------------------------------------------
         !>
+        !! re-calculate saturation adjustment to avoid needle clouds
+        !!
+        !-------------------------------------------------------------------------
+
+        IF(ANY((/4,5/) == atm_phy_nwp_config(jg)%inwp_gscp))THEN
+          CALL satad_v_3D( &
+               & maxiter  = 10 ,& !> IN
+               & tol      = 1.e-3_wp ,& !> IN
+               & te       = pt_diag%temp       (:,:,jb) ,& !> INOUT
+               & qve      = pt_prog_rcf%tracer (:,:,jb,iqv),& !> INOUT
+               & qce      = pt_prog_rcf%tracer (:,:,jb,iqc),& !> INOUT
+               & rhotot   = pt_prog%rho        (:,:,jb) ,& !> IN
+               & idim     = nproma ,& !> IN
+               & kdim     = nlev ,& !> IN
+               & ilo      = i_startidx ,& !> IN
+               & iup      = i_endidx ,& !> IN
+               & klo      = kstart_moist(jg) ,& !> IN
+               & kup      = nlev & !> IN
+              !& count, errstat, !> OUT
+               )
+        ENDIF
+
+        !-------------------------------------------------------------------------
+        !>
         !! re-calculate scalar prognostic variables out of physics variables!
         !!
         !-------------------------------------------------------------------------
@@ -764,11 +787,14 @@ CONTAINS
       !-------------------------------------------------------------------------
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,zqc_pconv) ICON_OMP_GUIDED_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
+
+        ! dummy array for convective QC tendency field, which is not allocated in LES mode
+        zqc_pconv(:,:) = 0._wp
 
         CALL cover_koe &
 &             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
@@ -787,8 +813,10 @@ CONTAINS
 &              ldcum  = prm_diag%locum       (:,jb)       ,       & !! in:  convection on/off
 &              kcbot  = prm_diag%mbas_con    (:,jb)       ,       & !! in:  convective cloud base
 &              kctop  = prm_diag%mtop_con    (:,jb)       ,       & !! in:  convective cloud top
+&              ktype  = prm_diag%ktype       (:,jb)       ,       & !! in:  convection type
 &              pmfude_rate = prm_diag%con_udd(:,:,jb,3)   ,       & !! in:  convective updraft detrainment rate
 &              plu         = prm_diag%con_udd(:,:,jb,7)   ,       & !! in:  updraft condensate
+&              qc_tend     = zqc_pconv                    ,       & !! in:  convective qc tendency (does not exist in LES mode)
 &              qv     = pt_prog_rcf%tracer   (:,:,jb,iqv) ,       & !! in:  spec. humidity
 &              qc     = pt_prog_rcf%tracer   (:,:,jb,iqc) ,       & !! in:  cloud water
 &              qi     = pt_prog_rcf%tracer   (:,:,jb,iqi) ,       & !! in:  cloud ice
@@ -1268,13 +1296,6 @@ CONTAINS
     IF (timers_level > 4) CALL timer_stop(timer_phys_acc_par)
 
 
-    ! Initialize fields for runtime diagnostics
-    ! In case that average ABS(dpsdt) is diagnosed
-    IF (msg_level >= 11) THEN
-      dps_blk(:)   = 0._wp
-      npoints_blk(:) = 0
-    ENDIF
-
     !-------------------------------------------------------------------------
     !>
     !!    @par Interpolation from  u,v onto v_n
@@ -1366,58 +1387,27 @@ CONTAINS
 
     ENDDO
 !$OMP END DO
-
-
-    ! Diagnosis of ABS(dpsdt) if msg_level >= 11
-    IF (msg_level >= 11) THEN
-
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int
-
-      i_startblk = pt_patch%cells%start_blk(rl_start,1)
-      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
-
-        DO jc = i_startidx, i_endidx
-          ! Note: division by time step follows below
-          dps_blk(jb) = dps_blk(jb) + &
-            ABS(pt_diag%pres_sfc(jc,jb)-pt_diag%pres_sfc_old(jc,jb))
-          npoints_blk(jb) = npoints_blk(jb) + 1
-          pt_diag%pres_sfc_old(jc,jb) = pt_diag%pres_sfc(jc,jb)
-        ENDDO
-      ENDDO
-!$OMP END DO NOWAIT
-    ENDIF
-
 !$OMP END PARALLEL
 
+
     IF (timers_level > 4) CALL timer_stop(timer_phys_acc_2)
+
+
+    IF (timers_level > 10) CALL timer_start(timer_phys_dpsdt)
+    ! dpsdt diagnostic
+    IF (lcalc_dpsdt) THEN
+      CALL compute_dpsdt (pt_patch = pt_patch, &
+        &                 dt       = dt_loc,   &
+        &                 pt_diag  = pt_diag   )
+    ENDIF
+    IF (timers_level > 10) CALL timer_stop(timer_phys_dpsdt)
+
+
     IF (timers_level > 3) CALL timer_start(timer_phys_sync_vn)
     IF (lcall_phy_jg(itturb)) CALL sync_patch_array(SYNC_E, pt_patch, pt_prog%vn)
     IF (timers_level > 3) CALL timer_stop(timer_phys_sync_vn)
     IF (timers_level > 2) CALL timer_stop(timer_phys_acc)
 
-
-    ! dpsdt diagnostic - omitted in the case of a parallization test (p_test_run) because this
-    ! is a purely diagnostic quantitiy, for which it does not make sense to implement an order-invariant
-    ! summation
-    IF (.NOT. p_test_run .AND. msg_level >= 11) THEN
-      dpsdt_avg = SUM(dps_blk)
-      npoints   = SUM(npoints_blk)
-      dpsdt_avg = global_sum_array(dpsdt_avg)
-      npoints   = global_sum_array(npoints)
-      dpsdt_avg = dpsdt_avg/(REAL(npoints,wp)*dt_loc)
-      ! Exclude initial time step where pres_sfc_old is zero
-      IF (dpsdt_avg < 10000._wp/dt_loc) THEN
-        WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',jg
-        CALL message(TRIM(routine), TRIM(message_text))
-      ENDIF
-    ENDIF
 
     IF (msg_level >= 20) THEN ! extended diagnostic
       CALL nwp_diag_output_2(pt_patch, pt_prog_rcf, prm_nwp_tend, lcall_phy_jg(itturb))

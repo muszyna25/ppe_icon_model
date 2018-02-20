@@ -819,9 +819,9 @@ CONTAINS
             prm_diag%albnirdif_t(jc,jb,isub_water) = csalb(ist_seawtr)
 
             ! direct albedo
-            zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+            zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
               &                                             prm_diag%albvisdif_t(jc,jb,isub_water))
-            zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+            zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
               &                                             prm_diag%albnirdif_t(jc,jb,isub_water))
           ENDDO
 

@@ -15,11 +15,11 @@ MODULE mo_load_singlefile_restart
     USE mo_cdi,                ONLY: vlistInqTaxis, taxisInqVdate, taxisInqVtime, streamOpenRead, &
       &                              streamInqVlist, vlistNvars, vlistInqVarName, streamClose,    &
       &                              streamReadVarSlice, streamReadVarSliceF, vlistInqVarGrid, gridInqSize
-    USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
     USE mo_communication,      ONLY: t_ScatterPattern
     USE mo_exception,          ONLY: message, warning, finish
     USE mo_fortran_tools,      ONLY: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int, alloc
     USE mo_impl_constants,     ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
+    USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
     USE mo_kind,               ONLY: dp, sp
     USE mo_model_domain,       ONLY: t_patch
     USE mo_mpi,                ONLY: my_process_is_mpi_workroot, p_bcast, p_comm_work

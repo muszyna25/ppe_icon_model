@@ -32,7 +32,6 @@ MODULE mo_parallel_nml
     & config_write_div_to_file   => write_div_to_file,   &
     & config_use_div_from_file   => use_div_from_file,   &
     & config_ldiv_phys_dom       => ldiv_phys_dom,       &
-    & config_rad_division_file_name  => radiation_division_file_name,  &
     & config_l_log_checks        => l_log_checks,        &
     & config_l_fast_sum          => l_fast_sum,          &
     & config_p_test_run          => p_test_run,          &
@@ -43,13 +42,7 @@ MODULE mo_parallel_nml
     & config_num_prefetch_proc   => num_prefetch_proc,   &
     & config_itype_comm          => itype_comm,          &
     & config_iorder_sendrecv     => iorder_sendrecv,     &
-!     & config_radiation_threads   => radiation_ompthreads,   &
-!     & config_nh_stepping_threads => nh_stepping_ompthreads, &
-    & config_nproma              => nproma,                 &
-    & config_openmp_threads      => openmp_threads,         &
-!     & config_parallel_radiation_omp => parallel_radiation_omp,  &
-    & config_parallel_radiation_mode => parallel_radiation_mode,  &
-    & config_test_parallel_radiation=> test_parallel_radiation, &
+    & set_nproma, &
     & config_use_icon_comm       => use_icon_comm,        &
     & config_icon_comm_debug     => icon_comm_debug,        &
     & div_geometric, check_parallel_configuration,          &
@@ -66,14 +59,15 @@ MODULE mo_parallel_nml
     & config_use_physics_barrier  => use_physics_barrier,     &
     & config_restart_chunk_size => restart_chunk_size,        &
     & config_io_proc_chunk_size => io_proc_chunk_size,        &
-    & config_num_dist_array_replicas => num_dist_array_replicas
+    & config_num_dist_array_replicas => num_dist_array_replicas, &
+    & config_io_process_stride => io_process_stride,          &
+    & config_io_process_rotate => io_process_rotate
 
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: read_parallel_namelist
+  INTEGER :: tmp_nproma
 
-  CHARACTER(len=*), PARAMETER :: version = &
-    &  '$Id: mo_parallel_nml.f90 17581 2014-06-02 12:49:05Z mukund.pondkule $'
 
   CONTAINS
 
@@ -94,7 +88,6 @@ MODULE mo_parallel_nml
 !                      ext_div_from_file = 201 ! Read from file
 
     CHARACTER(LEN=filename_max) :: division_file_name(0:max_dom) ! if ext_div_from_file
-    CHARACTER(LEN=filename_max) :: radiation_division_file_name(max_dom) ! if ext_div_from_file
 
     LOGICAL :: write_div_to_file
     LOGICAL :: use_div_from_file
@@ -143,8 +136,8 @@ MODULE mo_parallel_nml
     INTEGER :: num_restart_procs
 
     ! Number of PEs used for async prefetching of input (0 means, the worker PE0 prefetches lateral boundary input)
-    INTEGER :: num_prefetch_proc 
-    
+    INTEGER :: num_prefetch_proc
+
     ! Type of (halo) communication:
     ! 1 = synchronous communication with local memory for exchange buffers
     ! 2 = synchronous communication with global memory for exchange buffers
@@ -158,18 +151,7 @@ MODULE mo_parallel_nml
     ! 3 = irecv, isend
     INTEGER :: iorder_sendrecv
 
-    !--------------------------------------------
-    ! namelist for parallel radiation
-!     LOGICAL :: parallel_radiation_omp
-    INTEGER :: parallel_radiation_mode(max_dom)
-    LOGICAL :: test_parallel_radiation
-! !     INTEGER :: radiation_threads
-! !     INTEGER :: nh_stepping_threads
-    !--------------------------------------------
-
     INTEGER :: nproma    ! inner loop length/vector length
-
-    INTEGER :: openmp_threads
 
     LOGICAL :: use_dp_mpi2io
 
@@ -181,6 +163,8 @@ MODULE mo_parallel_nml
     ! more than one 2D slice at once
     INTEGER :: io_proc_chunk_size
 
+    INTEGER :: io_process_stride, io_process_rotate
+
     ! number of replications being stored in the distributed arrays of the
     ! t_patch_pre
     INTEGER :: num_dist_array_replicas
@@ -191,19 +175,18 @@ MODULE mo_parallel_nml
       & num_restart_procs,                      &
       & num_io_procs,      pio_type,            &
       & itype_comm,        iorder_sendrecv,     &
-!       & radiation_threads, nh_stepping_threads, &
       & nproma,                                 &
-      & parallel_radiation_mode,  use_icon_comm, &
-      & test_parallel_radiation, openmp_threads, &
+      & use_icon_comm, &
       & icon_comm_debug, max_send_recv_buffer_size, &
-      & division_file_name, radiation_division_file_name, use_dycore_barrier, &
+      & division_file_name, use_dycore_barrier, &
       & write_div_to_file, use_div_from_file, &
       & use_dp_mpi2io, itype_exch_barrier,                &
       & icon_comm_method, max_no_of_comm_variables,       &
       & max_no_of_comm_processes, max_no_of_comm_patterns, &
       & sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
       & restart_chunk_size, io_proc_chunk_size, num_prefetch_proc, &
-      & num_dist_array_replicas !parallel_radiation_omp
+      & num_dist_array_replicas, io_process_stride, io_process_rotate
+    !parallel_radiation_omp
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -219,7 +202,6 @@ MODULE mo_parallel_nml
     n_ghost_rows = 1
     division_method(:) = div_geometric
     division_file_name(:) = ""
-    radiation_division_file_name(:) = ""
     write_div_to_file = .FALSE.
     use_div_from_file = .FALSE.
 
@@ -282,14 +264,6 @@ MODULE mo_parallel_nml
 
     ! inner loop length/vector length
     nproma = 1
-    openmp_threads = -1 ! < 0 means do not use this value
-
-    ! parallel_radiation
-    parallel_radiation_mode(:) = 0
-!     parallel_radiation_omp = .false.
-    test_parallel_radiation = .false.
-!     radiation_threads = 1
-!     nh_stepping_threads = 1
 
     ! MPI gather to output processes in DOUBLE PRECISION
     use_dp_mpi2io = .FALSE.
@@ -299,6 +273,9 @@ MODULE mo_parallel_nml
     io_proc_chunk_size = -1
 
     num_dist_array_replicas = 1
+
+    io_process_stride = -1
+    io_process_rotate = 0
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
@@ -349,7 +326,6 @@ MODULE mo_parallel_nml
     config_write_div_to_file   = write_div_to_file
     config_use_div_from_file   = use_div_from_file
     config_ldiv_phys_dom       = ldiv_phys_dom
-    config_rad_division_file_name(:)  = radiation_division_file_name(:)
     config_l_log_checks        = l_log_checks
     config_l_fast_sum          = l_fast_sum
     config_p_test_run          = p_test_run
@@ -360,10 +336,7 @@ MODULE mo_parallel_nml
     config_num_prefetch_proc   = num_prefetch_proc
     config_itype_comm          = itype_comm
     config_iorder_sendrecv     = iorder_sendrecv
-!     config_radiation_threads   = radiation_threads
-!     config_nh_stepping_threads = nh_stepping_threads
-    config_nproma              = nproma
-    config_openmp_threads         = openmp_threads
+    CALL set_nproma(nproma)
 
     config_use_icon_comm       = use_icon_comm
     config_icon_comm_debug     = icon_comm_debug
@@ -372,9 +345,6 @@ MODULE mo_parallel_nml
     config_max_no_of_comm_proc = max_no_of_comm_processes
     config_max_no_of_comm_patt = max_no_of_comm_patterns
     config_sync_barrier_mode   = sync_barrier_mode
-!     config_parallel_radiation_omp  = parallel_radiation_omp
-    config_parallel_radiation_mode(:) = parallel_radiation_mode(:)
-    config_test_parallel_radiation = test_parallel_radiation
     config_max_sr_buffer_size   = max_send_recv_buffer_size
     config_max_mpi_message_size = max_mpi_message_size
     config_use_dycore_barrier   = use_dycore_barrier
@@ -384,10 +354,12 @@ MODULE mo_parallel_nml
     config_restart_chunk_size   = restart_chunk_size
     config_io_proc_chunk_size   = io_proc_chunk_size
     config_num_dist_array_replicas   = num_dist_array_replicas
+    config_io_process_stride    = io_process_stride
+    config_io_process_rotate    = io_process_rotate
     !-----------------------------------------------------
     CALL check_parallel_configuration()
 
   END SUBROUTINE read_parallel_namelist
   !-------------------------------------------------------------------------
 
-END MODULE mo_parallel_nml
+END MODULE mo_parallel_nml	

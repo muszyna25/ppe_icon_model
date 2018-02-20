@@ -27,9 +27,8 @@ MODULE mo_master_control
   USE mo_exception,     ONLY: message, finish
   USE mo_mpi,           ONLY: set_process_mpi_name, get_my_global_mpi_id, split_global_mpi_communicator
   USE mo_io_units,      ONLY: filename_max
-  USE mo_master_config, ONLY: noOfModels, master_component_models
+  USE mo_master_config, ONLY: noOfModels, master_component_models, isRestart
   USE mo_master_nml,    ONLY: read_master_namelist
-  USE mo_master_config
 
   IMPLICIT NONE
 

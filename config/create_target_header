@@ -602,6 +602,22 @@ set_run_target_bullx()
       add_free_var OMPI_MCA_coll_fca_enable 1
       add_free_var OMPI_MCA_coll_fca_priority 95
       ;;
+    *openmpi*)
+      add_free_var OMPI_MCA_pml cm
+      add_free_var OMPI_MCA_mtl mxm
+      add_free_var OMPI_MCA_coll ^fca,hcoll
+      add_free_var MXM_RDMA_PORTS 'mlx5_0:1'
+      add_free_var HCOLL_MAIN_IB 'mlx5_0:1'
+      add_free_var HCOLL_ML_DISABLE_BARRIER 1
+      add_free_var HCOLL_ML_DISABLE_IBARRIER 1
+      add_free_var HCOLL_ML_DISABLE_BCAST 1
+      add_free_var HCOLL_ENABLE_MCAST_ALL 1
+      add_free_var HCOLL_ENABLE_MCAST 1
+      add_free_var OMPI_MCA_coll_sync_barrier_after_alltoallv 1
+      add_free_var OMPI_MCA_coll_sync_barrier_after_alltoallw 1
+      add_free_var MXM_HANDLE_ERRORS bt
+      add_free_var UCX_HANDLE_ERRORS bt
+      ;;
     *intel*mpi*)
       add_free_var I_MPI_FABRICS shm:dapl
       add_free_var I_MPI_DAPL_UD enable
@@ -876,13 +892,13 @@ set_run_target_daint_cpu()
   if [[ $use_mpi == "yes" ]]; then
     if [[ $use_openmp == "yes" ]]; then
       set_default use_mpi_procs_pernode 2
-      set_default use_openmp_threads 6
+      set_default use_openmp_threads 3
     else
-      set_default use_mpi_procs_pernode 12
+      set_default use_mpi_procs_pernode 6
     fi
   else
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 12
+      set_default use_openmp_threads 6
       set_default use_mpi_procs_pernode 1
      else
        is_serial_run="yes"
@@ -906,7 +922,7 @@ set_run_target_daint_cpu()
   else
     job_type=parallel
     tasks_per_node=$use_mpi_procs_pernode
-    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=2"
+    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=6"
   fi
 
   if [[ "x$BB_SYSTEM" != "x" ]]; then

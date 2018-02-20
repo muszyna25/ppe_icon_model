@@ -658,6 +658,9 @@ PROFILE_LIB
 LAPACK_LIB
 LAPACK_LIB_PATH
 LAPACKROOT
+SERIALBOX2_INCLUDE
+SERIALBOX2_LIB
+SERIALBOX2ROOT
 MPI_INCLUDE
 MPI_LIB
 MPIROOT
@@ -766,6 +769,7 @@ enable_atmo
 enable_jsbach
 enable_ocean
 enable_testbed
+enable_serialization
 enable_mh_file
 with_fortran
 with_openmp
@@ -1416,6 +1420,8 @@ Optional Features:
   --enable-jsbach         Use jsbach model component.
   --enable-ocean          Use ocean model component.
   --enable-testbed        Use testbed component.
+  --enable-serialization  Enable Serialbox2 serialization. Three modes are
+                          available: read (default), perturb, create
   --disable-mh-file       disable machine file usage
   --enable-eccodes=DIR    Update GRIB_API setup to successor ECCODES package
 
@@ -2559,7 +2565,7 @@ fi ;;
 esac
 
 if  test -n "$fqdn" ; then :
-  if test -z ac_sitename; then :
+  if test -z "$ac_sitename"; then :
   ac_sitename=local.net
 fi
 else
@@ -2618,6 +2624,36 @@ else
   enable_testbed=no
 fi
 
+
+
+# Check whether --enable-serialization was given.
+if test "${enable_serialization+set}" = set; then :
+  enableval=$enable_serialization;
+else
+  enable_serialization=no
+fi
+
+
+if test "x$enable_serialization" = "xyes"; then :
+  enable_serialization="read"
+fi
+
+if test "x$enable_serialization" != "xno"; then :
+  case "$enable_serialization" in #(
+  "read") :
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: \"Serialbox2 serialization is enabled in READ mode\"" >&5
+$as_echo "$as_me: WARNING: \"Serialbox2 serialization is enabled in READ mode\"" >&2;} ;; #(
+  "perturb") :
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: \"Serialbox2 serialization is enabled in READ & PERTURB mode\"" >&5
+$as_echo "$as_me: WARNING: \"Serialbox2 serialization is enabled in READ & PERTURB mode\"" >&2;} ;; #(
+  "create") :
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: \"Serialbox2 serialization is enabled in CREATE mode\"" >&5
+$as_echo "$as_me: WARNING: \"Serialbox2 serialization is enabled in CREATE mode\"" >&2;} ;; #(
+  *) :
+    as_fn_error $? "\"Serialbox2 serialization is enabled but UNKNOWN mode was requested\"" "$LINENO" 5 ;;
+esac
+
+fi
 
 
 # Check whether --enable-mh-file was given.
@@ -4833,7 +4869,6 @@ fi
 fi
 
 
-
 PROFILE_LIB=""
 PROFILE_INCLUDE=""
 
@@ -6284,7 +6319,30 @@ fi # ! CROSS
 
 test "x$exec_prefix" = xNONE && exec_prefix=build/${build_host}
 
-my_srcdirs="support src"
+if test "x$enable_serialization" != "xno"; then :
+
+     my_iconsrcdir="build/${build_host}/pp"
+     my_iconppdir="${my_iconsrcdir}"
+     FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE"
+     case "$enable_serialization" in #(
+  "read") :
+    FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_READ_REFERENCE" ;; #(
+  "perturb") :
+    FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_PERTURB_REFERENCE" ;; #(
+  "create") :
+    FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_CREATE_REFERENCE" ;; #(
+  *) :
+    as_fn_error $? "\"Serialbox2 serialization is enabled but UNKNOWN mode was requested\"" "$LINENO" 5 ;;
+esac
+
+else
+
+     my_iconsrcdir="src"
+     my_iconppdir="build/${build_host}/${my_iconsrcdir}"
+
+fi
+
+my_srcdirs="support ${my_iconsrcdir}"
 
 if [ "x$LAPACKROOT" = xlocal ] ; then
     my_srcdirs="blas lapack ${my_srcdirs}"
@@ -6335,6 +6393,7 @@ fi
 
 ac_objdirs=""
 for dir in $my_srcdirs ; do
+    dir=${dir#${exec_prefix}\/}
     ac_objdirs="${ac_objdirs} ${exec_prefix}/$dir"
 done
 
@@ -6363,7 +6422,7 @@ else
     fi
     FFLAGS="${MODOPT}../module ${FFLAGS}"
 fi
-FFLAGS="${MODOPT}../src ${MODOPT}../support ${FFLAGS}"
+FFLAGS="${MODOPT}../$(basename $my_iconppdir) ${MODOPT}../support ${FFLAGS}"
 
 #------------------------
 if test x$with_flags = x; then
@@ -6453,6 +6512,90 @@ else
 fi
 
 
+if test "x$enable_serialization" != "xno"; then :
+
+       if test -n "${SERIALBOX2ROOT}"; then :
+
+              if test -f "${SERIALBOX2ROOT}/lib/libSerialboxFortran.a"; then :
+
+                     SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
+                     SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+
+else
+
+                     as_fn_error $? "\"Cannot find Serialbox2 libSerialboxFortran.a library\"" "$LINENO" 5
+
+fi
+              if test -f "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"; then :
+
+                     if test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"; then :
+
+                            SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
+                            read -d '' my_pp_init <<EOF
+( echo "";
+  echo "Preprocessing files for serialization ...";
+  cd src/;
+  find ./ -type d -exec mkdir -p "../${my_iconppdir}/{}" \\\;
+  echo "Updating SHA1 ...";
+  find ./ -type f -regextype posix-egrep -regex \"\.\*\\\.(f90|inc|incf|F90)\$\" -exec sh -c "(test -e \\\"../${my_iconppdir}/{}.sha1\\\" && sha1sum --status -c \\\"../${my_iconppdir}/{}.sha1\\\") && rm -f \\\"../${my_iconppdir}/{}.modified\\\" || ( rm -f \\\"../${my_iconppdir}/{}.sha1\\\";sha1sum \\\"{}\\\" > \\\"../${my_iconppdir}/{}.modified\\\")" \\\;
+  echo "Updating headers ...";
+  find ./ -type f \\\( -name "*.inc" -o -name "*.incf" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( cp \\\"{}\\\" \\\"../${my_iconppdir}/{}\\\" && mv \\\"../${my_iconppdir}/{}.modified\\\" \\\"../${my_iconppdir}/{}.sha1\\\" )" \\\; )
+EOF
+                            case $fortran_compiler in #(
+  gcc*) :
+    read -d '' my_pp_command <<EOF
+( cd src/;
+  echo "Preprocessing files (CPP) ...";
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec ${FC} -I./include -o "../${my_iconppdir}/{}" ${FFLAGS} -C -E "{}" \\\; )
+EOF
+ ;; #(
+  cray*) :
+    PP_FFLAGS=`echo $FFLAGS | sed -e 's/ -e Z //' -e 's/,ipa1//'`
+read -d '' my_pp_command <<EOF
+( cd src/;
+  echo "Preprocessing files (CPP) ...";
+  my_abs_include="$(realpath src/include)"
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( pushd \\\\\`dirname \\\"{}\\\"\\\\\` > /dev/null;${FC} -I\$\{my_abs_include\} ${PP_FFLAGS} -eP \\\\\`basename \\\"{}\\\"\\\\\`;popd > /dev/null;mv \\\\\`echo \\\"{}\\\" | sed -e 's/.f90//I'\\\\\`.i \\\"../${my_iconppdir}/{}\\\")" \\\; )
+EOF
+ ;; #(
+  pgi*) :
+    read -d '' my_pp_command <<EOF
+( cd src/;
+  echo "Preprocessing files (CPP) ...";
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec ${FC} ${FFLAGS} -I./include -o "../${my_iconppdir}/{}" -Mcpp "{}" \\\; )
+EOF
+ ;; #(
+  *) :
+     ;;
+esac
+                            read -d '' my_pp_ser <<EOF
+  echo "Preprocessing files (Serialbox2) ...";
+  find ${my_iconppdir} -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"{}.modified\\\" && ( ${SERIALBOX2_PPSER} -o \\\"{}\\\" \\\"{}\\\" && mv \\\"{}.modified\\\" \\\"{}.sha1\\\")" \\\;
+EOF
+                            my_preprocess_command="${my_pp_init};${my_pp_command};${my_pp_ser}"
+                            make_command="${my_preprocess_command} ;$make_command;"
+
+else
+
+                            as_fn_error $? "\"pp_ser.py script from Serialbox2 is not executable\"" "$LINENO" 5
+
+fi
+
+else
+
+                     as_fn_error $? "\"Cannot find pp_ser.py script from Serialbox2\"" "$LINENO" 5
+
+fi
+
+else
+
+              as_fn_error $? "\"Serialization is enabled but SERIALBOX2ROOT is not defined\"" "$LINENO" 5
+
+fi
+
+fi
+
+
 ARCH=$arch
 
 OS=$target_os
@@ -6530,6 +6673,13 @@ MPIROOT=$MPIROOT
 MPI_LIB=$MPI_LIB
 
 MPI_INCLUDE=$MPI_INCLUDE
+
+
+SERIALBOX2ROOT=$SERIALBOX2ROOT
+
+SERIALBOX2_LIB=$SERIALBOX2_LIB
+
+SERIALBOX2_INCLUDE=$SERIALBOX2_INCLUDE
 
 
 LAPACKROOT=$LAPACKROOT
@@ -7508,12 +7658,18 @@ cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
 #
 # INIT-COMMANDS
 #
-build_host="${build_host}"
-                    my_srcdirs="$my_srcdirs"
+
+                    build_host="${build_host}"
+                    my_srcdirs="${my_srcdirs}"
+                    my_iconsrcdir="${my_iconsrcdir}"
+                    my_iconppdir="${my_iconppdir}"
                     enable_ocean="${enable_ocean}"
                     enable_atmo="${enable_atmo}"
                     enable_jsbach="${enable_jsbach}"
                     enable_testbed="${enable_testbed}"
+                    enable_serialization="${enable_serialization}"
+                    my_preprocess_command='${my_preprocess_command}'
+
 
 _ACEOF
 
@@ -8078,13 +8234,26 @@ $as_echo "$as_me: executing $ac_file commands" >&6;}
 
 
   case $ac_file$ac_mode in
-    "Makefiles":C) if test "x$enable_jsbach" = "xyes"; then :
-  if test -d build/${build_host}/src; then :
+    "Makefiles":C)
+                    if test "x$enable_serialization" != "xno"; then :
 
-else
-  mkdir -p build/${build_host}/src
+                           if ! test -d ${my_iconppdir}; then :
+
+                                  mkdir -p ${my_iconppdir}
+
 fi
-                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/src
+                           eval "${my_preprocess_command}"
+
+fi
+                    if test "x$enable_jsbach" = "xyes"; then :
+
+                           if ! test -d ${my_iconppdir}; then :
+
+                                  mkdir -p ${my_iconppdir}
+
+fi
+                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t ${my_iconppdir}
+
 fi
                     config/createMakefiles.pl \
                                               --target="${build_host}" \
@@ -8092,7 +8261,10 @@ fi
                                               --enable_ocean="${enable_ocean}" \
                                               --enable_atmo="${enable_atmo}" \
                                               --enable_jsbach="${enable_jsbach}" \
-                                              --enable_testbed="${enable_testbed}" ;;
+                                              --enable_testbed="${enable_testbed}" \
+                                              --enable_serialization="${enable_serialization}" \
+                                              --iconsrcdir="${my_iconsrcdir}" \
+                                              --iconppdir="${my_iconppdir}" ;;
     "build_command":F) chmod +x build_command ;;
 
   esac
@@ -8146,6 +8318,25 @@ if test -n "$CROSS" ; then
    fi
 fi
 
+
+if test "x$enable_serialization" != "xno"; then :
+
+       $as_echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+       $as_echo '!!                                                            !!'
+       case "$enable_serialization" in #(
+  "read") :
+    $as_echo "!!      Serialbox2 serialization is enabled in READ mode      !!" ;; #(
+  "perturb") :
+    $as_echo "!! Serialbox2 serialization is enabled in READ & PERTURB mode !!" ;; #(
+  "create") :
+    $as_echo "!!     Serialbox2 serialization is enabled in CREATE mode     !!" ;; #(
+  *) :
+     ;;
+esac
+       $as_echo '!!                                                            !!'
+       $as_echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+
+fi
 
 echo ""
 echo "Configuration done. Run GNU make to build ICON."
