@@ -368,7 +368,7 @@ case "$ac_sitename" in
                         MODDIR      = -J
                         config_target = kesch_cpu
                         FFLAGS        = $FLANG $FWARN -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -D__LOOP_EXCHANGE -DgFortran -cpp -O2
-                        CFLAGS        = -D_XOPEN_SOURCE=700 -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -O2 -cpp -std=c99 -DgFortran -DHAVE_LIBNETCDF
+                        CFLAGS        = -D_XOPEN_SOURCE=700 -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -O2 -cpp -std=c99 -DgFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
                         GRIBAPIROOT    = /project/c14/install/kesch/libgrib_api/v1.20.0.2/gnu/
                         SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2/gnu
                         config_tuning = $(tmp=${fortran_compiler#'gcc'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
@@ -400,7 +400,7 @@ case "$ac_sitename" in
                         MODDIR      = -module 
                         config_target = kesch_cpu
                         FFLAGS        = -Mpreprocess -Mrecursive -Mallocatable=03 -D__LOOP_EXCHANGE $INCLUDES
-                        CFLAGS        = -c99 -DpgiFortran -DHAVE_LIBNETCDF
+                        CFLAGS        = -c99 -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
                         GRIBAPIROOT    = /project/c14/install/kesch/libgrib_api/v1.20.0.2/pgi/
                         SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2/pgi
                         config_tuning = $(tmp=${fortran_compiler#'pgi'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
