@@ -597,7 +597,7 @@ MODULE mo_nh_stepping
                                                           ! lower boundary conditions in NWP mode
   TYPE(datetime)                      :: ref_datetime     ! reference datetime for computing 
                                                           ! climatological SST increments
-
+  TYPE(datetime)                      :: latbc_read_datetime  ! validity time of next lbc input file 
 !!$  INTEGER omp_get_num_threads
 
 !-----------------------------------------------------------------------
@@ -1168,15 +1168,15 @@ MODULE mo_nh_stepping
 
     ! prefetch boundary data if necessary
     IF(num_prefetch_proc >= 1 .AND. latbc_config%itype_latbc > 0) THEN
-      CALL recv_latbc_data(latbc         = latbc,              &
-        &                  p_patch       = p_patch(1),         &
-        &                  p_nh_state    = p_nh_state(1),      &
-        &                  p_int         = p_int_state(1),     &
-        &                  cur_datetime  = mtime_current,      &
-        &                  lcheck_read   = .TRUE.,             &
-        &                  ltime_incr    = .TRUE.,             &
-        &                  time_incr     = latbc%delta_dtime,  &
-        &                  tlev          = latbc%new_latbc_tlev)
+      latbc_read_datetime = latbc%mtime_last_read + latbc%delta_dtime
+      CALL recv_latbc_data(latbc               = latbc,              &
+        &                  p_patch             = p_patch(1),         &
+        &                  p_nh_state          = p_nh_state(1),      &
+        &                  p_int               = p_int_state(1),     &
+        &                  cur_datetime        = mtime_current,      &
+        &                  latbc_read_datetime = latbc_read_datetime,&
+        &                  lcheck_read         = .TRUE.,             &
+        &                  tlev                = latbc%new_latbc_tlev)
     ENDIF
 
     IF (mtime_current >= time_config%tc_stopdate) THEN

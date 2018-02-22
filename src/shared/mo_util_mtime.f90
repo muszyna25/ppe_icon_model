@@ -14,10 +14,12 @@ MODULE mo_util_mtime
   USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t
   USE mo_kind,                     ONLY: wp
   USE mo_impl_constants,           ONLY: MAX_CHAR_LENGTH
-  USE mtime,                       ONLY: datetime, timedelta, newTimeDelta, OPERATOR(-),   &
-    &                                    OPERATOR(+), juliandelta, newJulianDelta,         &
+  USE mtime,                       ONLY: datetime, newDatetime, timedelta, newTimeDelta,   &
+    &                                    OPERATOR(-), OPERATOR(+),                         &
+    &                                    juliandelta, newJulianDelta,                      &
     &                                    timeDeltaToJulianDelta, deallocateJulianDelta,    &
-    &                                    deallocateTimeDelta, getTimeDeltaFromDateTime,    &
+    &                                    deallocateTimeDelta, deallocateDatetime,          &
+    &                                    getTimeDeltaFromDateTime,                         &
     &                                    getTotalMillisecondsTimedelta
   USE mo_time_config,              ONLY: time_config
   USE mo_util_string,              ONLY: t_keyword_list,                   &
@@ -36,6 +38,7 @@ MODULE mo_util_mtime
   PUBLIC :: assumePrevMidnight
   PUBLIC :: assumeNextMidnight
   PUBLIC :: getElapsedSimTimeInSeconds
+  PUBLIC :: dummyDateTime
 
   PRIVATE
 
@@ -189,6 +192,32 @@ CONTAINS
     CALL deallocateTimedelta(time_diff)
 
   END FUNCTION getElapsedSimTimeInSeconds
+
+
+
+  !>
+  !! Creates a datetime object with a defined dummy date
+  !!
+  !! Creates a datetime object with a defined dummy date
+  !! Can be used for initializing a newly defined datetime 
+  !! object and for checking, whether the datetime object 
+  !! at hand has already been touched and filed with a meaningful value.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2018-12-01)
+  !!
+  TYPE(datetime) FUNCTION dummyDateTime()
+    !
+    ! local
+    TYPE(datetime), POINTER :: dummy_date
+    !---------------------------------------------------------
+
+    dummy_date    => newDatetime("0-01-01T00:00:00.000")
+    dummyDateTime =  dummy_date
+
+    CALL deallocateDatetime(dummy_date)
+
+  END FUNCTION dummyDateTime
 
 
 END MODULE mo_util_mtime

@@ -199,9 +199,9 @@ MODULE mo_async_latbc_types
   !
   TYPE t_latbc_data
 
-    TYPE(datetime),  POINTER :: mtime_read    => NULL()
-    TYPE(event),     POINTER :: prefetchEvent => NULL()
-    TYPE(timedelta), POINTER :: delta_dtime   => NULL()
+    TYPE(datetime),  POINTER :: mtime_last_read => NULL()
+    TYPE(event),     POINTER :: prefetchEvent   => NULL()
+    TYPE(timedelta), POINTER :: delta_dtime     => NULL()
 
     ! time level indices for  latbc_data. can be 1 or 2.
     INTEGER :: new_latbc_tlev
@@ -325,8 +325,8 @@ CONTAINS
     END IF
 
     ! deallocating date and time data structures
-    IF (ASSOCIATED(latbc%mtime_read)) THEN
-      CALL deallocateDatetime(latbc%mtime_read)
+    IF (ASSOCIATED(latbc%mtime_last_read)) THEN
+      CALL deallocateDatetime(latbc%mtime_last_read)
     END IF
     IF (ASSOCIATED(latbc%delta_dtime)) THEN
       CALL deallocateTimedelta(latbc%delta_dtime)

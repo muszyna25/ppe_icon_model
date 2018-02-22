@@ -65,7 +65,9 @@
          &                            datetimeToString, timedeltaToString,         &
          &                            OPERATOR(>=), OPERATOR(-), OPERATOR(>),      &
          &                            OPERATOR(/=), OPERATOR(+), OPERATOR(*),      &
-         &                            OPERATOR(<), getTriggerNextEventAtDateTime
+         &                            OPERATOR(<), OPERATOR(==),                   &
+         &                            getTriggerNextEventAtDateTime
+    USE mo_util_mtime,          ONLY: dummyDateTime
     USE mo_time_config,         ONLY: time_config
     USE mo_limarea_config,      ONLY: latbc_config, generate_filename, LATBC_TYPE_EXT
     USE mo_initicon_config,     ONLY: timeshift
@@ -184,6 +186,9 @@
            IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
          ENDIF
 
+        ! initialize validity dates with dymmy values
+        latbc%latbc_data(tlev)%vDateTime = dummyDateTime()
+
         ! initialize with zero to simplify implementation of sparse lateral boundary condition mode
 !$OMP PARALLEL
         CALL init(latbc%latbc_data(tlev)%atm_in%pres)
@@ -246,13 +251,13 @@
 #ifndef NOMPI
       ! local variables
       TYPE(datetime) :: nextActive          ! next trigger date for prefetch event
+      TYPE(datetime), POINTER :: latbc_read_datetime ! next input date to be read
       INTEGER        :: ierr
       REAL(wp)       :: seconds
-      TYPE(timedelta), POINTER :: ptr_time_incr
-      INTEGER       :: prev_latbc_tlev
-      CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_init_latbc_data"
+      INTEGER        :: prev_latbc_tlev
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string
-
+      CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: latbc_read_datetime_str
+      CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_init_latbc_data"
 
       IF (.NOT. my_process_is_work())  RETURN
 
@@ -269,31 +274,48 @@
       latbc%prefetchEvent => newEvent("Prefetch input", time_config%tc_exp_startdate, &
            time_config%tc_exp_startdate, time_config%tc_stopdate, latbc%delta_dtime)
 
-      latbc%mtime_read  => newDatetime(time_config%tc_current_date)
+      latbc%mtime_last_read  => newDatetime(time_config%tc_current_date)
+      latbc_read_datetime    => newDatetime(time_config%tc_current_date)
 
 
       ! if there is lrestart flag then prefetch processor needs to start reading
       ! the data from the new date time of restart file. Below the time at which
-      ! reading of the lbc files starts (mtime_read) is calculated. Basically, we 
-      ! query the prefetch Event to deduce the last trigger datetime. This is exactly 
+      ! reading of the lbc files starts (latbc_read_datetime) is calculated. Basically, 
+      ! we query the prefetch Event to deduce the last trigger datetime. This is exactly 
       ! the time at which reading of the lbc files has to (re-)start.
       IF(isRestart()) THEN
         !
         CALL getTriggerNextEventAtDateTime(latbc%prefetchEvent,time_config%tc_current_date,nextActive,ierr)
         IF (nextActive > time_config%tc_current_date) THEN
-          latbc%mtime_read = nextActive + latbc%delta_dtime*(-1._wp)
+          latbc_read_datetime = nextActive + latbc%delta_dtime*(-1._wp)
         ELSE
-          latbc%mtime_read = nextActive
+          latbc_read_datetime = nextActive
         ENDIF
       ENDIF
 
       ! prepare read/last indices
       tlev  = 1   ! read in the first time-level slot
 
+
+      ! read z_ifc from lbc file at vv=0 (if available)
+      CALL recv_latbc_data( latbc              = latbc,                      &
+        &                   p_patch            = p_patch,                    &
+        &                   p_nh_state         = p_nh_state,                 &
+        &                   p_int              = p_int_state,                &
+        &                   cur_datetime       = time_config%tc_current_date,&
+        &                   latbc_read_datetime= time_config%tc_exp_startdate, &
+        &                   lcheck_read        = .FALSE.,                    &
+        &                   tlev               = tlev,                       &
+        &                   opt_lconst_data_only = .TRUE.                    )
+
+
       ! read first two time steps
       IF (latbc_config%init_latbc_from_fg) THEN
 
-        CALL message(routine,'take lbc for initial time from fg')
+        CALL message('','take lbc for initial time from fg')
+        CALL datetimeToString(latbc_read_datetime, latbc_read_datetime_str)
+        WRITE (message_text, '(a,a)')  "  read date: ", TRIM(latbc_read_datetime_str)
+        CALL message('', message_text)
 
         prev_latbc_tlev = 3 - tlev
         tlev            = prev_latbc_tlev
@@ -304,39 +326,40 @@
         latbc%latbc_data(tlev)%vDateTime = time_config%tc_current_date
 
       ELSE
-        CALL recv_latbc_data( latbc             = latbc,                      &
-          &                   p_patch           = p_patch,                    &
-          &                   p_nh_state        = p_nh_state,                 &
-          &                   p_int             = p_int_state,                &
-          &                   cur_datetime      = time_config%tc_current_date,&
-          &                   lcheck_read       = .FALSE.,                    &
-          &                   ltime_incr        = .FALSE.,                    &
-          &                   time_incr         = latbc%delta_dtime,          &
-          &                   tlev              = tlev,                       &
-          &                   opt_linitial_file = .TRUE.                      )
+
+        CALL recv_latbc_data( latbc              = latbc,                      &
+          &                   p_patch            = p_patch,                    &
+          &                   p_nh_state         = p_nh_state,                 &
+          &                   p_int              = p_int_state,                &
+          &                   cur_datetime       = time_config%tc_current_date,&
+          &                   latbc_read_datetime= latbc_read_datetime,        &
+          &                   lcheck_read        = .FALSE.,                    &
+          &                   tlev               = tlev                        )
+
       ENDIF
       ! (note: if we initialize from FG, then the following call is
       ! the first file read-in!)
       IF(.NOT. isRestart()) THEN
         IF (timeshift%dt_shift < 0 ) THEN
-          ptr_time_incr => timeshift%mtime_absshift
+          ! For IAU, the second frame is always taken at tc_exp_startdate
+          ! which is equivalent to latbc_read_datetime + timeshift%mtime_absshift
+          latbc_read_datetime = time_config%tc_exp_startdate
         ELSE
-          ptr_time_incr => latbc%delta_dtime
+          latbc_read_datetime = latbc_read_datetime + latbc%delta_dtime
         ENDIF
       ELSE
-          ptr_time_incr => latbc%delta_dtime
+        latbc_read_datetime = latbc_read_datetime + latbc%delta_dtime
       ENDIF
+
 
       CALL recv_latbc_data( latbc              = latbc,                           &
         &                   p_patch            = p_patch,                         &
         &                   p_nh_state         = p_nh_state,                      &
         &                   p_int              = p_int_state,                     &
         &                   cur_datetime       = time_config%tc_current_date,     &
+        &                   latbc_read_datetime= latbc_read_datetime,             &
         &                   lcheck_read        = .FALSE.,                         &
-        &                   ltime_incr         = .TRUE. ,                         &
-        &                   time_incr          = ptr_time_incr,                   &
-        &                   tlev               = tlev,                            &
-        &                   opt_linitial_file  = latbc_config%init_latbc_from_fg  )
+        &                   tlev               = tlev                             )
 
 
       CALL message(routine,'done')
@@ -359,9 +382,9 @@
       ! local variables
       TYPE(datetime) :: nextActive             ! next trigger date for prefetch event
       INTEGER        :: ierr
-      TYPE(timedelta), POINTER :: ptr_time_incr
-      LOGICAL       :: done
-      REAL(wp)      :: seconds
+      TYPE(datetime), POINTER :: latbc_read_datetime    ! next input date to be read
+      LOGICAL        :: done
+      REAL(wp)       :: seconds
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::async_init_latbc_data"
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string
 
@@ -381,32 +404,43 @@
       latbc%prefetchEvent => newEvent("Prefetch input", time_config%tc_exp_startdate, &
            time_config%tc_exp_startdate, time_config%tc_stopdate, latbc%delta_dtime)
 
-      latbc%mtime_read  => newDatetime(time_config%tc_current_date)
-
+      latbc%mtime_last_read  => newDatetime(time_config%tc_current_date)
+      latbc_read_datetime    => newDatetime(time_config%tc_current_date)
 
 
       ! if there is lrestart flag then prefetch processor needs to start reading
       ! the data from the new date time of restart file. Below the time at which
-      ! reading of the lbc files starts (mtime_read) is calculated. Basically, we 
-      ! query the prefetch Event to deduce the last trigger datetime. This is exactly 
+      ! reading of the lbc files starts (latbc_read_datetime) is calculated. Basically, 
+      ! we query the prefetch Event to deduce the last trigger datetime. This is exactly 
       ! the time at which reading of the lbc files has to (re-)start.
       IF(isRestart()) THEN
         !
         CALL getTriggerNextEventAtDateTime(latbc%prefetchEvent,time_config%tc_current_date,nextActive,ierr)
         IF (nextActive > time_config%tc_current_date) THEN
-          latbc%mtime_read = nextActive + latbc%delta_dtime*(-1._wp)
+          latbc_read_datetime = nextActive + latbc%delta_dtime*(-1._wp)
         ELSE
-          latbc%mtime_read = nextActive
+          latbc_read_datetime = nextActive
         ENDIF
       ENDIF
+
+
+      ! read z_ifc from lbc file with validity time vv=0 (if available)
+      !
+      CALL read_latbc_data(latbc                = latbc,                        &
+        &                  latbc_read_datetime  = time_config%tc_exp_startdate, &
+        &                  opt_lconst_data_only = .TRUE.                        )
+
+      ! Inform compute PEs that we are done
+      CALL async_pref_send_handshake()
+      ! Wait for a message from the compute PEs to start
+      CALL async_pref_wait_for_start(done)
+
 
       ! read first two time steps
       IF (.NOT. latbc_config%init_latbc_from_fg) THEN
 
-        CALL read_latbc_data(latbc             = latbc,             &
-          &                  ltime_incr        = .FALSE.,           &
-          &                  time_incr         = latbc%delta_dtime, &
-          &                  opt_linitial_file = .TRUE.             )
+        CALL read_latbc_data(latbc              = latbc,              &
+          &                  latbc_read_datetime= latbc_read_datetime )
 
         ! Inform compute PEs that we are done
         CALL async_pref_send_handshake()
@@ -414,21 +448,23 @@
         CALL async_pref_wait_for_start(done)
 
       ENDIF
+      !
       IF(.NOT. isRestart()) THEN
         IF (timeshift%dt_shift < 0 ) THEN
-          ptr_time_incr => timeshift%mtime_absshift
+          ! For IAU, the second frame is always taken at tc_exp_startdate
+          ! which is equivalent to latbc_read_datetime + timeshift%mtime_absshift
+          latbc_read_datetime = time_config%tc_exp_startdate
         ELSE
-          ptr_time_incr => latbc%delta_dtime
+          latbc_read_datetime = latbc_read_datetime + latbc%delta_dtime
         ENDIF
       ELSE
-          ptr_time_incr => latbc%delta_dtime
+        latbc_read_datetime = latbc_read_datetime + latbc%delta_dtime
       ENDIF
       ! (note: if we initialize from FG, then the following call is
       ! the first file read-in!)
-      CALL read_latbc_data(latbc            = latbc,                  &
-        &                  ltime_incr       = .TRUE.,                 &
-        &                  time_incr        = ptr_time_incr,          &
-        &                  opt_linitial_file= latbc_config%init_latbc_from_fg)
+      CALL read_latbc_data(latbc               = latbc,                &
+        &                  latbc_read_datetime = latbc_read_datetime   )
+
 
       ! Inform compute PEs that we are done
       CALL async_pref_send_handshake()
@@ -458,19 +494,15 @@
     !! Modified version by M. Pondkule, DWD (2014-02-11)
     !!
 
-    SUBROUTINE read_latbc_data(latbc, ltime_incr, time_incr, opt_linitial_file)
+    SUBROUTINE read_latbc_data(latbc, latbc_read_datetime, opt_lconst_data_only)
 
       TYPE(t_latbc_data), TARGET, INTENT(INOUT)    :: latbc
 
-      ! flag to increment present datetime to next time level
-      LOGICAL                 , INTENT(IN) :: ltime_incr
-      ! timedelta to increment present datetime to next input time level.
-      ! present datetime is only incremented by time_incr if ltime_incr=.TRUE.
-      TYPE(timedelta), POINTER, INTENT(IN) :: time_incr
+      ! datetime of the next input time level
+      TYPE(datetime), INTENT(IN)         :: latbc_read_datetime
 
-      ! flag: indicates if this is the first file (where we expect
-      ! some constant data):
-      LOGICAL, INTENT(IN), OPTIONAL :: opt_linitial_file
+      ! read only constant fields from file and store in buffer
+      LOGICAL, OPTIONAL :: opt_lconst_data_only
 
 #ifndef NOMPI
       ! local variables
@@ -485,30 +517,30 @@
       CHARACTER(LEN=MAX_CHAR_LENGTH)        :: cdiErrorText
       CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: dstringA, dstringB
       TYPE(datetime), POINTER               :: mtime_vdate
-      LOGICAL                               :: linitial_file
+      LOGICAL                               :: lconst_data_only
       TYPE(datetime), POINTER               :: vDateTime_ptr  ! pointer to vDateTime
       character(len=max_datetime_str_len)   :: vDateTime_str  ! vDateTime in String format
 
 
-      linitial_file = .FALSE.
-      IF (PRESENT(opt_linitial_file))  linitial_file = opt_linitial_file
-
-      ! Prepare the mtime_read for the next time level
-      IF (ltime_incr) THEN
-         latbc%mtime_read = latbc%mtime_read + time_incr
-      ENDIF
+      lconst_data_only = .FALSE.
+      IF (PRESENT(opt_lconst_data_only)) lconst_data_only = opt_lconst_data_only
 
 
-      ! return if mtime_read is at least one full boundary data
+
+      ! return if latbc_read_datetime is at least one full boundary data
       ! interval beyond the simulation end, implying that no further
       ! data are required for correct results
-      IF (latbc%mtime_read >= time_config%tc_stopdate + latbc%delta_dtime) RETURN
+      IF (latbc_read_datetime >= time_config%tc_stopdate + latbc%delta_dtime) RETURN
 
       latbc_filename = generate_filename(nroot, latbc%patch_data%level, &
-        &                                latbc%mtime_read, time_config%tc_exp_startdate)
+        &                                latbc_read_datetime, time_config%tc_exp_startdate)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
 
-      WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename)
+      IF (lconst_data_only) THEN
+        WRITE(0,*) 'reading const data: ', TRIM(latbc_filename)
+      ELSE
+        WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename)
+      ENDIF
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
       IF (.NOT. l_exist) THEN
          CALL finish(routine, "File not found: "//TRIM(latbc_filename))
@@ -532,11 +564,11 @@
       CALL cdiDecodeDate(idate, iyear, imonth, iday)
       CALL cdiDecodeTime(itime, ihour, iminute, isecond)
       mtime_vdate => newDatetime(iyear, imonth, iday, ihour, iminute, isecond, 0, errno)
-      IF (mtime_vdate /= latbc%mtime_read) THEN
+      IF (mtime_vdate /= latbc_read_datetime) THEN
         CALL finish(routine, "requested date does not match file '"//TRIM(latbc_full_filename))
       END IF
       IF (msg_level >= 10) THEN
-        CALL datetimeToString(latbc%mtime_read, dstringA)
+        CALL datetimeToString(latbc_read_datetime, dstringA)
         CALL datetimeToString(mtime_vdate, dstringB)
         WRITE (0,*) "  read date: ", TRIM(dstringA)
         WRITE (0,*) "  file date: ", TRIM(dstringB)
@@ -560,40 +592,34 @@
       !
       ! Perform CDI read operation
       !
-      VARLOOP: DO jm = 1, latbc%buffer%ngrp_vars
-        ! WRITE (0,*) routine,'fetch variable '//TRIM(latbc%buffer%mapped_name(jm))
+      IF (lconst_data_only) THEN
 
-        ! ------------------------------------------------------------
-        ! skip constant variables
-        ! ------------------------------------------------------------
-        IF (.NOT. linitial_file) THEN
+        ZIFCLOOP: DO jm = 1, latbc%buffer%ngrp_vars
 
-          nlevs = latbc%buffer%nlev(jm)
-          IF (TRIM(tolower(latbc%buffer%internal_name(jm))) == TRIM(tolower(latbc%buffer%hhl_var))) THEN
+          IF (TRIM(tolower(latbc%buffer%internal_name(jm))) /= TRIM(tolower(latbc%buffer%hhl_var))) THEN
             ! when skipping a variable: be sure to move the buffer
             ! offset position, too
-            ioff(:) = ioff(:) + INT(nlevs * latbc%patch_data%cells%pe_own(:),i8)
-            CYCLE VARLOOP
-          END IF
-        END IF
+            SELECT CASE (latbc%buffer%hgrid(jm))
+            CASE(GRID_UNSTRUCTURED_CELL)
+              ioff(:) = ioff(:) + INT(latbc%buffer%nlev(jm) * latbc%patch_data%cells%pe_own(:),i8)
+            CASE(GRID_UNSTRUCTURED_EDGE)
+              ioff(:) = ioff(:) + INT(latbc%buffer%nlev(jm) * latbc%patch_data%edges%pe_own(:),i8)
+            CASE default
+              CALL finish(routine,'unknown grid type')
+            END SELECT
 
-        ! Get pointer to appropriate reorder_info
-        IF(latbc%buffer%nlev(jm) /= 1 ) THEN
+            CYCLE ZIFCLOOP
+          ENDIF
 
-          SELECT CASE (latbc%buffer%hgrid(jm))
-          CASE(GRID_UNSTRUCTURED_CELL)
-           
+          !WRITE (0,*) routine,'fetch variable '//TRIM(latbc%buffer%mapped_name(jm))
+
+
+          IF(latbc%buffer%nlev(jm) /= 1 ) THEN
             ! Read 3d variables
             CALL prefetch_cdi_3d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
               &                    nlevs_read, latbc%buffer%hgrid(jm), ioff )
-            
-          CASE(GRID_UNSTRUCTURED_EDGE)
-            CALL prefetch_cdi_3d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
-              &                    nlevs_read, latbc%buffer%hgrid(jm), ioff )
-          CASE default
-            CALL finish(routine,'unknown grid type')
-          END SELECT
-          
+          ENDIF
+
           ! consistency check
           IF (nlevs_read /= latbc%buffer%nlev(jm)) THEN
             WRITE (message_text, *) &
@@ -601,27 +627,78 @@
               & "': nlev=", nlevs_read, " but expected ", latbc%buffer%nlev(jm)
             CALL finish(routine, message_text)
           END IF
-          
-        ELSE
-          SELECT CASE (latbc%buffer%hgrid(jm))
-          CASE(GRID_UNSTRUCTURED_CELL)
-            ! Read 2d variables
-            CALL prefetch_cdi_2d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
-              &                    latbc%buffer%hgrid(jm), ioff )
+
+        ENDDO ZIFCLOOP
+
+      ELSE
+
+        VARLOOP: DO jm = 1, latbc%buffer%ngrp_vars
+
+          ! ------------------------------------------------------------
+          ! skip constant variables
+          ! ------------------------------------------------------------
+          IF (TRIM(tolower(latbc%buffer%internal_name(jm))) == TRIM(tolower(latbc%buffer%hhl_var))) THEN
+            nlevs = latbc%buffer%nlev(jm)
+            ! when skipping a variable: be sure to move the buffer
+            ! offset position, too
+            ioff(:) = ioff(:) + INT(nlevs * latbc%patch_data%cells%pe_own(:),i8)
+            CYCLE VARLOOP
+          END IF
+
+
+          !WRITE (0,*) routine,'fetch variable '//TRIM(latbc%buffer%mapped_name(jm))
+
+          ! Get pointer to appropriate reorder_info
+          IF(latbc%buffer%nlev(jm) /= 1 ) THEN
+
+            SELECT CASE (latbc%buffer%hgrid(jm))
+            CASE(GRID_UNSTRUCTURED_CELL)
+           
+              ! Read 3d variables
+              CALL prefetch_cdi_3d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
+                &                    nlevs_read, latbc%buffer%hgrid(jm), ioff )
             
-          CASE(GRID_UNSTRUCTURED_EDGE)
-            CALL prefetch_cdi_2d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
-              &                    latbc%buffer%hgrid(jm), ioff )
-            
-          CASE default
-            CALL finish(routine,'unknown grid type')
-          END SELECT
+            CASE(GRID_UNSTRUCTURED_EDGE)
+              CALL prefetch_cdi_3d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
+                &                    nlevs_read, latbc%buffer%hgrid(jm), ioff )
+            CASE default
+              CALL finish(routine,'unknown grid type')
+            END SELECT
           
-        ENDIF
-      ENDDO VARLOOP
+            ! consistency check
+            IF (nlevs_read /= latbc%buffer%nlev(jm)) THEN
+              WRITE (message_text, *) &
+                & "variable '", TRIM(latbc%buffer%mapped_name(jm)), &
+                & "': nlev=", nlevs_read, " but expected ", latbc%buffer%nlev(jm)
+              CALL finish(routine, message_text)
+            END IF
+          
+          ELSE
+            SELECT CASE (latbc%buffer%hgrid(jm))
+            CASE(GRID_UNSTRUCTURED_CELL)
+              ! Read 2d variables
+              CALL prefetch_cdi_2d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
+                &                    latbc%buffer%hgrid(jm), ioff )
+            
+            CASE(GRID_UNSTRUCTURED_EDGE)
+              CALL prefetch_cdi_2d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
+                &                    latbc%buffer%hgrid(jm), ioff )
+            
+            CASE default
+              CALL finish(routine,'unknown grid type')
+            END SELECT
+          
+          ENDIF
+
+        ENDDO VARLOOP
+      ENDIF  ! lconst_data_only
 
       ! close the open dataset file
-      CALL streamClose(latbc_fileID)   
+      CALL streamClose(latbc_fileID)
+
+      ! Store mtime_last_read
+      latbc%mtime_last_read = latbc_read_datetime
+
 #endif
     END SUBROUTINE read_latbc_data
 
@@ -637,10 +714,8 @@
     !! Initial version by S. Brdar, DWD (2013-07-19)
     !! Modified version by M. Pondkule, DWD (2014-02-11)
     !!
-
     SUBROUTINE recv_latbc_data(latbc, p_patch, p_nh_state, p_int, cur_datetime, &
-      &                        lcheck_read, ltime_incr, time_incr, tlev,        &
-      &                        opt_linitial_file)
+      &                        latbc_read_datetime, lcheck_read, tlev, opt_lconst_data_only)
 
       TYPE(t_latbc_data),     INTENT(INOUT) :: latbc
       TYPE(t_patch),          INTENT(IN)    :: p_patch
@@ -649,19 +724,15 @@
       TYPE(datetime), POINTER, INTENT(IN)   :: cur_datetime !< current time
       INTEGER,                INTENT(INOUT) :: tlev
 
+      ! datetime of the next input time level
+      TYPE(datetime),         INTENT(IN)    :: latbc_read_datetime
+
       ! flag to set wether compute processor need to read boundary
       ! data or need not and than they will return
       LOGICAL,      INTENT(IN)    :: lcheck_read
 
-      ! flag to increment present datetime to next time level
-      LOGICAL                 , INTENT(IN) :: ltime_incr
-      ! timedelta to increment present datetime to next input time level.
-      ! present datetime is only incremented by time_incr if ltime_incr=.TRUE.
-      TYPE(timedelta), POINTER, INTENT(IN) :: time_incr
-
-      ! flag: indicates if this is the first file (where we expect
-      ! some constant data):
-      LOGICAL, INTENT(IN), OPTIONAL :: opt_linitial_file
+      ! fetch only constant fields from buffer
+      LOGICAL, OPTIONAL :: opt_lconst_data_only
 
 #ifndef NOMPI
       ! local variables
@@ -671,7 +742,11 @@
       INTEGER                               :: prev_latbc_tlev
       character(len=max_datetime_str_len)   :: vDateTime_str
       TYPE(datetime), POINTER               :: vDateTime_ptr
+      LOGICAL                               :: lconst_data_only
 
+
+      lconst_data_only = .FALSE.
+      IF (PRESENT(opt_lconst_data_only)) lconst_data_only = opt_lconst_data_only
 
       ! check for event been active
       my_duration_slack => newTimedelta("PT0S")
@@ -683,15 +758,10 @@
       IF (lcheck_read .AND. (.NOT. isactive))  RETURN
 
 
-      ! Prepare the mtime_read for the next time level
-      IF (ltime_incr) THEN
-         latbc%mtime_read = latbc%mtime_read + time_incr
-      ENDIF
-
-      ! return if mtime_read is at least one full boundary data
+      ! return if latbc_read_datetime is at least one full boundary data
       ! interval beyond the simulation end, implying that no further
       ! data are required for correct results
-      IF (latbc%mtime_read >= time_config%tc_stopdate + latbc%delta_dtime) RETURN
+      IF (latbc_read_datetime >= time_config%tc_stopdate + latbc%delta_dtime) RETURN
 
 
       ! compute processors wait for msg from
@@ -714,24 +784,34 @@
       CALL p_bcast(latbc%buffer%vDateTime,0,p_comm_work)
 
 
-      ! Adjust read/last indices
-      !
-      ! New boundary data time-level is always read in latbc%latbc_data(tlev),
-      ! whereas latbc%latbc_data(prev_latbc_tlev) always holds the last read boundary data
-      !
-      prev_latbc_tlev = 3 - tlev
-      tlev  = prev_latbc_tlev
+      IF (lconst_data_only) THEN
 
-      ! start reading boundary data
-      IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
-        CALL compute_latbc_intp_data( latbc, p_patch, p_nh_state, p_int, tlev, opt_linitial_file )
+        ! start reading time-constant data
+        CALL recv_const_data( latbc, p_patch, tlev )
+
       ELSE
-        CALL compute_latbc_icon_data( latbc, p_patch, p_int, tlev )
-      END IF
+        ! Adjust read/last indices
+        !
+        ! New boundary data time-level is always read in latbc%latbc_data(tlev),
+        ! whereas latbc%latbc_data(prev_latbc_tlev) always holds the last read boundary data
+        !
+        prev_latbc_tlev = 3 - tlev
+        tlev  = prev_latbc_tlev
 
-      ! Compute tendencies for nest boundary update
-      IF (ltime_incr) CALL compute_boundary_tendencies(latbc%latbc_data, p_patch, p_nh_state, tlev)
-      
+        ! start reading boundary data
+        IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
+          CALL compute_latbc_intp_data( latbc, p_patch, p_nh_state, p_int, tlev )
+        ELSE
+          CALL compute_latbc_icon_data( latbc, p_patch, p_int, tlev )
+        END IF
+
+        ! Compute tendencies for nest boundary update
+        CALL compute_boundary_tendencies(latbc%latbc_data, p_patch, p_nh_state, tlev)
+
+      ENDIF
+
+      ! Store mtime_last_read
+      latbc%mtime_last_read = latbc_read_datetime
 #endif
     END SUBROUTINE recv_latbc_data
 
@@ -881,16 +961,12 @@
     !! @par Revision History
     !! Initial version by M. Pondkule, DWD (2014-05-19)
     !!
-    SUBROUTINE compute_latbc_intp_data( latbc, p_patch, p_nh_state, p_int, tlev, opt_linitial_file)
+    SUBROUTINE compute_latbc_intp_data( latbc, p_patch, p_nh_state, p_int, tlev)
       TYPE(t_latbc_data),     INTENT(INOUT), TARGET :: latbc  !< variable buffer for latbc data
       TYPE(t_patch),          INTENT(IN)            :: p_patch
       TYPE(t_nh_state),       INTENT(IN)            :: p_nh_state  !< nonhydrostatic state on the global domain
       TYPE(t_int_state),      INTENT(IN)            :: p_int
       INTEGER,                INTENT(IN)            :: tlev
-
-      ! flag: indicates if this is the first file (where we expect
-      ! some constant data):
-      LOGICAL, INTENT(IN), OPTIONAL :: opt_linitial_file
 
 #ifndef NOMPI
       ! local variables
@@ -900,11 +976,8 @@
       INTEGER                             :: jc, jk, jb, j, jv, nlev_in, nblks_c, ierrstat
       REAL(wp)                            :: log_exner, tempv
       REAL(wp), ALLOCATABLE               :: psfc(:,:), phi_sfc(:,:),    &
-        &                                    w_ifc(:,:,:), omega(:,:,:), z_ifc_in(:,:,:)
-      LOGICAL                             :: linitial_file
+        &                                    w_ifc(:,:,:), omega(:,:,:)
 
-      linitial_file = .FALSE.
-      IF (PRESENT(opt_linitial_file))  linitial_file = opt_linitial_file
 
       nblks_c = p_patch%nblks_c
       nlev_in = latbc%latbc_data(tlev)%atm_in%nlev
@@ -1020,32 +1093,6 @@
       ENDIF
 
 
-      IF (latbc%buffer%lread_hhl .and. linitial_file) THEN
-        
-        ! allocate temporary array:
-        ALLOCATE(z_ifc_in(nproma, (nlev_in+1), nblks_c), STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) THEN
-          WRITE (0,*) "nlev = ", nlev_in, "; nblks_c=", nblks_c
-          CALL finish(routine, "ALLOCATE failed!")
-        END IF
-
-        CALL fetch_from_buffer(latbc, latbc%buffer%hhl_var, z_ifc_in)
-
-!$OMP PARALLEL DO PRIVATE (jk,j,jb,jc) ICON_OMP_DEFAULT_SCHEDULE
-        DO jk = 1, nlev_in
-          DO j = 1, latbc%patch_data%cells%n_own
-            jb = latbc%patch_data%cells%own_blk(j) ! Block index in distributed patch
-            jc = latbc%patch_data%cells%own_idx(j) ! Line  index in distributed patch
-
-            IF (.NOT. latbc%patch_data%cells%read_mask(jc,jb)) CYCLE
-            
-            latbc%latbc_data_const%z_mc_in(jc,jk,jb)  = (z_ifc_in(jc,jk,jb) + z_ifc_in(jc,jk+1,jb) ) * 0.5_wp
-          ENDDO
-        ENDDO
-!$OMP END PARALLEL DO
-       
-      END IF
-
 
       ! Read vertical component of velocity (W) or OMEGA
 
@@ -1103,7 +1150,7 @@
       ! boundary exchange for a 2-D and 3-D array, needed because the
       ! vertical interpolation includes the halo region (otherwise, the 
       ! syncs would have to be called after vert_interp)
-      CALL sync_patch_array_mult(SYNC_C,p_patch,4, latbc%latbc_data_const%z_mc_in,  &
+      CALL sync_patch_array_mult(SYNC_C,p_patch,3,                                  &
         &                        latbc%latbc_data(tlev)%atm_in%w,                   &
         &                        latbc%latbc_data(tlev)%atm_in%pres,                &
         &                        latbc%latbc_data(tlev)%atm_in%temp)
@@ -1150,7 +1197,7 @@
       IF (ALLOCATED(psfc))     DEALLOCATE(psfc)
       IF (ALLOCATED(phi_sfc))  DEALLOCATE(phi_sfc)
       IF (ALLOCATED(w_ifc))    DEALLOCATE(w_ifc)
-      IF (ALLOCATED(z_ifc_in)) DEALLOCATE(z_ifc_in)
+
 
       ! perform vertical interpolation of horizontally interpolated analysis data.
       !
@@ -1174,6 +1221,109 @@
 
 #endif
     END SUBROUTINE compute_latbc_intp_data
+
+
+    !-------------------------------------------------------------------------
+    !>
+    !! Receive time-constant data from prefetch PEs
+    !!
+    !! This subroutine is called by compute processors.
+    !! The following steps are performed:
+    !! - Copy from memory window buffer, atmospheric time-constant data
+    !! - halo synchronization
+    !!
+    !! NOTE: Unfortunately, this subroutine is MPI-collective, since
+    !!       it contains several synchronization calls. It must
+    !!       therefore be passed by all worker PEs. However, there is
+    !!       the common situation where vertical interpolation shall
+    !!       performed on a subset of PEs only, while no valid data is
+    !!       available on the remaining PE. For this situation we need
+    !!       the optional "opt_lmask" parameter.
+    !!
+    !!
+    !! @par Revision History
+    !! Initial version by M. Pondkule, DWD (2014-05-19)
+    !! Excerpt from compute_latbc_intp_data, Daniel Reinert, DWD (2018-02-02)
+    !!
+    SUBROUTINE recv_const_data( latbc, p_patch, tlev)
+      TYPE(t_latbc_data),     INTENT(INOUT), TARGET :: latbc  !< variable buffer for latbc data
+      TYPE(t_patch),          INTENT(IN)            :: p_patch
+      INTEGER,                INTENT(IN)            :: tlev
+
+#ifndef NOMPI
+      ! local variables
+      CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_latbc_intp_data"
+      INTEGER(i8)                         :: eoff
+      INTEGER                             :: jc, jk, jb, j, jv, nlev_in, nblks_c, ierrstat
+      REAL(wp), ALLOCATABLE               :: z_ifc_in(:,:,:)
+
+
+      nblks_c = p_patch%nblks_c
+      nlev_in = latbc%latbc_data(tlev)%atm_in%nlev
+
+      ! consistency check
+      IF ((tlev <1) .OR. (SIZE(latbc%latbc_data) < tlev)) THEN
+        CALL finish(routine, "Internal error!")
+      END IF
+
+      ! Offset in memory window for async prefetching
+      eoff = 0_i8
+
+      DO jv = 1, latbc%buffer%ngrp_vars
+        ! Receive 2d and 3d variables
+        CALL compute_data_receive ( latbc%buffer%hgrid(jv), latbc%buffer%nlev(jv), &
+          latbc%buffer%vars(jv)%buffer, eoff, latbc%patch_data)
+      ENDDO
+
+      ! Reading the next time step
+      IF((.NOT. my_process_is_io()       .AND. &
+           & .NOT. my_process_is_pref()) .AND. &
+           & .NOT. my_process_is_mpi_test()) THEN
+         CALL compute_start_async_pref()
+      END IF
+
+
+      ! copying the variable values from prefetch buffer to the
+      ! respective allocated variable
+
+      IF (latbc%buffer%lread_hhl) THEN
+        
+        ! allocate temporary array:
+        ALLOCATE(z_ifc_in(nproma, (nlev_in+1), nblks_c), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) THEN
+          WRITE (0,*) "nlev = ", nlev_in, "; nblks_c=", nblks_c
+          CALL finish(routine, "ALLOCATE failed!")
+        END IF
+
+        CALL fetch_from_buffer(latbc, latbc%buffer%hhl_var, z_ifc_in)
+
+
+!$OMP PARALLEL DO PRIVATE (jk,j,jb,jc) ICON_OMP_DEFAULT_SCHEDULE
+        DO jk = 1, nlev_in
+          DO j = 1, latbc%patch_data%cells%n_own
+            jb = latbc%patch_data%cells%own_blk(j) ! Block index in distributed patch
+            jc = latbc%patch_data%cells%own_idx(j) ! Line  index in distributed patch
+
+            IF (.NOT. latbc%patch_data%cells%read_mask(jc,jb)) CYCLE
+            
+            latbc%latbc_data_const%z_mc_in(jc,jk,jb)  = (z_ifc_in(jc,jk,jb) + z_ifc_in(jc,jk+1,jb) ) * 0.5_wp
+          ENDDO
+        ENDDO
+!$OMP END PARALLEL DO
+
+        ! boundary exchange needed because the vertical interpolation 
+        ! includes the halo region (otherwise, the syncs would have to be 
+        ! called after vert_interp)
+        CALL sync_patch_array(SYNC_C, p_patch, latbc%latbc_data_const%z_mc_in)
+
+
+        ! cleanup
+        IF (ALLOCATED(z_ifc_in)) DEALLOCATE(z_ifc_in)
+      END IF
+
+#endif
+    END SUBROUTINE recv_const_data
+
 
 
     ! Wrapper routine for copying prognostic variables from initial state to the 
@@ -1223,6 +1373,11 @@
 
 
       prev_latbc_tlev = 3 - tlev
+
+      ! check if boundary tendency computation should be conducted or skipped
+      ! this is decided upon the validity dates of the time levels involved.
+      IF ((latbc_data(prev_latbc_tlev)%vDateTime == dummyDateTime()) .OR. &
+          (latbc_data(tlev)%vDateTime == latbc_data(prev_latbc_tlev)%vDateTime) ) RETURN
 
       nlev            = p_patch%nlev
       nlevp1          = p_patch%nlevp1

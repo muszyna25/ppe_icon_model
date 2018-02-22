@@ -116,6 +116,7 @@ MODULE mo_async_latbc
          &                                  dict_finalize
     USE mo_util_string,               ONLY: add_to_list, tolower
     USE mo_time_config,               ONLY: time_config
+    USE mtime,                        ONLY: datetime, OPERATOR(+)
     USE mo_cdi,                       ONLY: vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
          &                                  vlistNvars, zaxisInqSize, vlistInqVarName,         &
          &                                  streamClose, streamInqFiletype,                    &
@@ -182,6 +183,7 @@ MODULE mo_async_latbc
       CHARACTER(*), PARAMETER :: routine = modname//"::prefetch_main_proc"
       LOGICAL                 :: done
       TYPE(t_latbc_data)      :: latbc
+      TYPE(datetime)          :: latbc_read_datetime
 
       ! call to initalize the prefetch processor with grid data
       CALL init_prefetch(latbc)
@@ -191,7 +193,8 @@ MODULE mo_async_latbc
          CALL async_pref_wait_for_start(done)
          IF(done) EXIT ! leave loop, we are done
          ! perform input prefetching
-         CALL read_latbc_data(latbc, ltime_incr=.TRUE., time_incr=latbc%delta_dtime)
+         latbc_read_datetime = latbc%mtime_last_read + latbc%delta_dtime
+         CALL read_latbc_data(latbc, latbc_read_datetime)
          ! Inform compute PEs that we are done
          CALL async_pref_send_handshake()
       END DO
