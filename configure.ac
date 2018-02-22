@@ -42,7 +42,7 @@ AS_CASE([$ac_hostname],
         [mlogin*|btlogin*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],
-        [daint*|tave*|santis*],
+        [daint*|tave*|santis*|kesch*],
         [ac_sitename=cscs.ch
          fqdn=$ac_hostname.$ac_sitename],
         [ic2*],      
@@ -760,7 +760,7 @@ AS_IF([test -n "$GRIBAPIROOT"],
        FFLAGS="${FFLAGS} ${DEFOPT}HAVE_LIBGRIB ${DEFOPT}HAVE_LIBGRIB_API"
        CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_LIBGRIB ${DEFCOPT}HAVE_LIBGRIB_API"
        AS_CASE([$ac_hostname],
-               [mlogin*|btlogin*|daint*],
+               [mlogin*|btlogin*|daint*|kesch*],
                [AS_CASE([$FC],
                         [nagfor],
                         [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
@@ -1193,14 +1193,16 @@ AS_IF([test "x$enable_serialization" != "xno"],
 EOF
                             AS_CASE([$fortran_compiler],
                                     [gcc*],
-                            [read -d '' my_pp_command <<EOF
+                            [PP_FFLAGS=`echo $FFLAGS | sed -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../module ||'`
+read -d '' my_pp_command <<EOF
 ( cd src/;
   echo "Preprocessing files (CPP) ...";
-  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec ${FC} -I./include -o "../${my_iconppdir}/{}" ${FFLAGS} -C -E "{}" \\\; )
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -o "../${my_iconppdir}/{}" -C -E \\\"{}\\\")" \\\; )
 EOF
 ],
                             [cray*],
-                            [PP_FFLAGS=`echo $FFLAGS | sed -e 's/ -e Z //' -e 's/,ipa1//'`
+                            [PP_FFLAGS=`echo $FFLAGS | sed -e 's/ -e Z //' -e 's/,ipa1//' -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../module ||'`
+PP_FFLAGS="${PP_FFLAGS} ${NETCDF_INCLUDE}"
 read -d '' my_pp_command <<EOF
 ( cd src/;
   echo "Preprocessing files (CPP) ...";
@@ -1209,10 +1211,11 @@ read -d '' my_pp_command <<EOF
 EOF
 ],
                             [pgi*],
-                            [read -d '' my_pp_command <<EOF
+                            [PP_FFLAGS=`echo $FFLAGS | sed -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../module ||'`
+read -d '' my_pp_command <<EOF
 ( cd src/;
   echo "Preprocessing files (CPP) ...";
-  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec ${FC} ${FFLAGS} -I./include -o "../${my_iconppdir}/{}" -Mcpp "{}" \\\; )
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -o "../${my_iconppdir}/{}" -Mcpp \\\"{}\\\")" \\\; )
 EOF
 ])
                             read -d '' my_pp_ser <<EOF
