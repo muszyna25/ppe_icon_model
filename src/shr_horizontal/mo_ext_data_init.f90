@@ -2142,9 +2142,9 @@ CONTAINS
       CALL finish(routine, "Error!")
     END IF
 
-    ! exclude the boundary interpolation zone of nested domains
-    rl_start = grf_bdywidth_c+1
-    rl_end   = min_rlcell_int
+    ! include boundary interpolation zone and halo points 
+    rl_start = 1
+    rl_end   = min_rlcell
 
     i_startblk = p_patch%cells%start_block(rl_start)
     i_endblk   = p_patch%cells%end_block(rl_end)

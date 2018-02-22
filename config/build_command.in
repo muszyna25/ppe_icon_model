@@ -56,10 +56,14 @@ load_modules_in_use=${load_modules-}
 #________________________________________________________________
 #
 
-if [ ! -z $moduleshome_in_use ]
+if [ ! -z "$moduleshome_in_use" ]
 then
-    grep TCLSH $moduleshome_in_use/init/$shell_in_use > /dev/null && { export TCLSH=$(which tclsh); } 
+  if [ -r "$moduleshome_in_use/init/$shell_in_use" ]; then
+    grep TCLSH "$moduleshome_in_use/init/$shell_in_use" > /dev/null && { export TCLSH=$(which tclsh); }
     . $moduleshome_in_use/init/$shell_in_use
+  elif [ -r "$moduleshome_in_use/modulecmd.tcl" ]; then
+    eval `tclsh /usr/local/module/modulecmd.tcl sh autoinit`
+  fi
 else
     if [ x"$load_modules_in_use" != x"" ]
     then

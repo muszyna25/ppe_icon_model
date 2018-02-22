@@ -29,7 +29,7 @@ MODULE mo_initicon_types
   USE mo_var_metadata_types,   ONLY: VARNAME_LEN
   USE mo_dictionary,           ONLY: t_dictionary
   USE mo_ifs_coord,            ONLY: t_vct
-  USE mo_fortran_tools,        ONLY: DO_DEALLOCATE
+  USE mo_fortran_tools,        ONLY: DO_DEALLOCATE, DO_PTR_DEALLOCATE
   USE mtime,                   ONLY: datetime
 
   IMPLICIT NONE
@@ -244,20 +244,20 @@ CONTAINS
     CLASS(t_pi_atm_in), INTENT(INOUT) :: atm_in
 
     atm_in%linitialized = .FALSE.
-    CALL DO_DEALLOCATE(atm_in%temp)
-    CALL DO_DEALLOCATE(atm_in%pres)
-    CALL DO_DEALLOCATE(atm_in%u)
-    CALL DO_DEALLOCATE(atm_in%v)
-    CALL DO_DEALLOCATE(atm_in%w)
-    CALL DO_DEALLOCATE(atm_in%vn)
-    CALL DO_DEALLOCATE(atm_in%qv)
-    CALL DO_DEALLOCATE(atm_in%qc)
-    CALL DO_DEALLOCATE(atm_in%qi)
-    CALL DO_DEALLOCATE(atm_in%qr)
-    CALL DO_DEALLOCATE(atm_in%qs)
-    CALL DO_DEALLOCATE(atm_in%rho)
-    CALL DO_DEALLOCATE(atm_in%theta_v)
-    CALL DO_DEALLOCATE(atm_in%tke)
+    CALL DO_PTR_DEALLOCATE(atm_in%temp)
+    CALL DO_PTR_DEALLOCATE(atm_in%pres)
+    CALL DO_PTR_DEALLOCATE(atm_in%u)
+    CALL DO_PTR_DEALLOCATE(atm_in%v)
+    CALL DO_PTR_DEALLOCATE(atm_in%w)
+    CALL DO_PTR_DEALLOCATE(atm_in%vn)
+    CALL DO_PTR_DEALLOCATE(atm_in%qv)
+    CALL DO_PTR_DEALLOCATE(atm_in%qc)
+    CALL DO_PTR_DEALLOCATE(atm_in%qi)
+    CALL DO_PTR_DEALLOCATE(atm_in%qr)
+    CALL DO_PTR_DEALLOCATE(atm_in%qs)
+    CALL DO_PTR_DEALLOCATE(atm_in%rho)
+    CALL DO_PTR_DEALLOCATE(atm_in%theta_v)
+    CALL DO_PTR_DEALLOCATE(atm_in%tke)
   END SUBROUTINE t_pi_atm_in_finalize
 
 
@@ -268,7 +268,7 @@ CONTAINS
 
     CALL const%vct%finalize()
 
-    CALL DO_DEALLOCATE(const%z_mc_in)
+    CALL DO_PTR_DEALLOCATE(const%z_mc_in)
 
     ! note: these pointers are not owned by this object
     NULLIFY(const%topography_c)

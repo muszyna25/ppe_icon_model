@@ -1577,7 +1577,7 @@ CONTAINS
     REAL(wp)             :: nuc_n, nuc_q
     REAL(wp)             :: T_a, ssi, e_si
     REAL(wp)             :: ndiag, ndiag_dust, ndiag_all
-    REAL(wp), PARAMETER  :: eps  = 1.d-20
+    REAL(wp), PARAMETER  :: eps  = 1.0e-20_wp
     REAL(wp) :: infrac(3)
     LOGICAL :: lwrite_n_inpot
 
@@ -1674,7 +1674,7 @@ CONTAINS
           atmo%qv(i,k) = atmo%qv(i,k) - nuc_q
           n_inact(i,k) = n_inact(i,k) + nuc_n
 
-          lwrite_n_inpot = use_prog_in .AND. ndiag .GT. 1d-12
+          lwrite_n_inpot = use_prog_in .AND. ndiag .GT. 1.0e-12_wp
           ndiag_mask(i, k) = lwrite_n_inpot
 
           IF (lwrite_n_inpot) THEN
@@ -1718,7 +1718,7 @@ CONTAINS
     REAL(wp)             :: nuc_n, nuc_q
     REAL(wp)             :: T_a, ssi, e_si
     REAL(wp)             :: ndiag
-    REAL(wp), PARAMETER  :: eps  = 1.d-20
+    REAL(wp), PARAMETER  :: eps  = 1.0e-20_wp
 
     LOGICAL :: lwrite_n_inpot
 
@@ -1772,7 +1772,7 @@ CONTAINS
           atmo%qv(i,k) = atmo%qv(i,k) - nuc_q
           n_inact(i,k) = n_inact(i,k) + nuc_n
 
-          lwrite_n_inpot = use_prog_in .AND. ndiag .GT. 1d-12
+          lwrite_n_inpot = use_prog_in .AND. ndiag .GT. 1.0e-12_wp
           ndiag_mask(i, k) = lwrite_n_inpot
 
           nuc_n_a(i, k) = nuc_n
@@ -1810,7 +1810,7 @@ CONTAINS
     REAL(wp)            :: D_vtp
     REAL(wp)            :: zdt,qvsidiff,Xi_i,Xfac
     REAL(wp)            :: tau_i_i,tau_s_i,tau_g_i,tau_h_i
-    REAL(wp), PARAMETER :: eps  = 1.d-20
+    REAL(wp), PARAMETER :: eps  = 1.0e-20_wp
     REAL(wp)            :: T_a
     REAL(wp)            :: e_si            !..saturation water pressure over ice
     REAL(wp)            :: e_d,p_a,dep_sum !,weight
@@ -2066,7 +2066,7 @@ CONTAINS
                    ! oder dem Graupel oder Hagel. Hierzu erfolgt eine partielle Integration des Spektrums von 0
                    ! bis zu einer ersten Trennmasse xmax_ice (--> Eis), von dort bis zu xmax_gr (--> Graupel)
                    ! und von xmax_gr bis unendlich (--> Hagel).
-                   IF (j_het >= 1d-20) THEN
+                   IF (j_het >= 1.0e-20_wp) THEN
                       fr_n  = j_het * q_r
                       fr_q  = j_het * q_r * x_r * rain_coeffs%c_z
 
@@ -4106,7 +4106,7 @@ CONTAINS
     INTEGER             :: i,k,nuc_typ
     REAL(wp)            :: n_c,q_c
     REAL(wp)            :: nuc_n, nuc_q
-    REAL(wp), PARAMETER :: eps  = 1.d-20
+    REAL(wp), PARAMETER :: eps  = 1.0e-20_wp
 
     ! for activation tables
     INTEGER, PARAMETER :: n_ncn=8, n_r2=3, n_lsigs=5, n_wcb=4

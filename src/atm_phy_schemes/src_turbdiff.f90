@@ -5797,16 +5797,16 @@ REAL (KIND=ireals), DIMENSION(:,khi:), INTENT(INOUT) :: &
   rcld         !inp: standard deviation of oversaturation
                !out: saturation fraction
 
-REAL (KIND=ireals), DIMENSION(:,ktp:), TARGET, INTENT(INOUT) &
+REAL (KIND=ireals), TARGET, INTENT(INOUT) &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
      , CONTIGUOUS &
 #endif
      :: &
-  tet_l, &     !inp: liquid water potent. temp. (only if 'fip' is present)
+  tet_l(:,ktp:), &     !inp: liquid water potent. temp. (only if 'fip' is present)
                !out: liquid water potent. temp. (or adjust. 't' , if "ladjout")
-  q_h2o, &     !inp: total  water content (only if 'fip' is present)
+  q_h2o(:,ktp:), &     !inp: total  water content (only if 'fip' is present)
                !out: total  water content       (or adjust. 'qv', if "ladjout")
-  q_liq        !out: liquid water content after adjustment
+  q_liq(:,ktp:)        !out: liquid water content after adjustment
 
 !REAL (KIND=ireals), DIMENSION(:,khi:), OPTIONAL, INTENT(INOUT) :: & !doesn't work on NAG-compiler
  REAL (KIND=ireals), DIMENSION(ie,k_st:k_en), OPTIONAL, INTENT(INOUT) :: &
@@ -7135,7 +7135,7 @@ REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(IN) :: &
 !
     rho_s            ! air density at the surface                   (Kg/m3)
 
-REAL (KIND=ireals), DIMENSION(:,:), TARGET, INTENT(INOUT) &
+REAL (KIND=ireals), TARGET, INTENT(INOUT) &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
      , CONTIGUOUS &
 #endif
@@ -7144,14 +7144,14 @@ REAL (KIND=ireals), DIMENSION(:,:), TARGET, INTENT(INOUT) &
 !   Auxilary arrays:
 !
 !++++
-    disc_mom, &      ! prep_inp calc_inp: discretis. momentum (rho*dz/dt) on var. levels
-    expl_mom, &      ! prep_inp         : diffusion  momentum (rho*K/dz))
+    disc_mom(:,:), &      ! prep_inp calc_inp: discretis. momentum (rho*dz/dt) on var. levels
+    expl_mom(:,:), &      ! prep_inp         : diffusion  momentum (rho*K/dz))
                      ! prep_out calc_inp: explicit part of diffusion momentum
-    impl_mom, &      ! prep_out calc_inp: implicit  part of diffusion momentum
-    invs_mom, &      ! prep_out calc_inp: inverted momentum
-    invs_fac, &      ! prep_out calc_inp: inversion factor
-    scal_fac, &      ! prep_out calc_inp: scaling factor due to preconditioning
-    diff_dep         ! diffusion depth
+    impl_mom(:,:), &      ! prep_out calc_inp: implicit  part of diffusion momentum
+    invs_mom(:,:), &      ! prep_out calc_inp: inverted momentum
+    invs_fac(:,:), &      ! prep_out calc_inp: inversion factor
+    scal_fac(:,:), &      ! prep_out calc_inp: scaling factor due to preconditioning
+    diff_dep(:,:)         ! diffusion depth
 
                   ! DIMENSION(ie,ke1)
 REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(INOUT) :: &
@@ -7159,7 +7159,7 @@ REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(INOUT) :: &
     diff_mom         ! aux: saved comlete diffusion momentum (only in case of "itndcon.EQ.3")
 !++++
                   ! DIMENSION(ie,ke1)
-REAL (KIND=ireals), DIMENSION(:,:), INTENT(INOUT) &
+REAL (KIND=ireals), INTENT(INOUT) &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
      , CONTIGUOUS &
 #endif
@@ -7167,13 +7167,13 @@ REAL (KIND=ireals), DIMENSION(:,:), INTENT(INOUT) &
 !
 !   Inp-out-variable:
 !
-    cur_prof, &      ! inp     : current   variable profile (will be overwritten!)
+    cur_prof(:,:), &      ! inp     : current   variable profile (will be overwritten!)
                      ! calc_inp: corrected variable profile
                      ! calc_out: current   variable profile including tendency increment
-    eff_flux, &      ! inp     : effective gradient
+    eff_flux(:,:), &      ! inp     : effective gradient
                      ! out     : effective flux density (if "leff_flux=T")
                      ! aux     : downward flux density and related vertical profile increment
-    dif_tend         ! inp     : current time tendency of variable
+    dif_tend(:,:)         ! inp     : current time tendency of variable
                      ! calc_inp: updated   variable profile including tendency increment
                      ! calc_out: updated   variable profile including increments by tendency and diffusion
                      ! out     : pure (vertically smoothed) diffusion tendency

@@ -420,6 +420,7 @@ MODULE mo_nh_stepping
            !LES specific diagnostics only for output
            CALL les_cloud_diag    ( kstart_moist(jg),                       & !in
              &                      ih_clch(jg), ih_clcm(jg),               & !in
+             &                      phy_params(jg),                         & !in
              &                      p_patch(jg),                            & !in
              &                      p_nh_state(jg)%metrics,                 & !in
              &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
@@ -493,10 +494,7 @@ MODULE mo_nh_stepping
       IF (.NOT. output_mode%l_none .AND. &    ! meteogram output is not initialized for output=none
         & p_patch(jg)%ldom_active  .AND. &
         & meteogram_is_sample_step( meteogram_output_config(jg), 0 ) ) THEN
-        CALL meteogram_sample_vars(jg, 0, time_config%tc_startdate, ierr)
-        IF (ierr /= SUCCESS) THEN
-          CALL finish (routine, 'Error in meteogram sampling! Sampling buffer too small?')
-        ENDIF
+        CALL meteogram_sample_vars(jg, 0, time_config%tc_startdate)
       END IF
     END DO
 
@@ -941,6 +939,7 @@ MODULE mo_nh_stepping
             !LES specific diagnostics only for output
             CALL les_cloud_diag    ( kstart_moist(jg),                       & !in
               &                      ih_clch(jg), ih_clcm(jg),               & !in
+              &                      phy_params(jg),                         & !in
               &                      p_patch(jg),                            & !in
               &                      p_nh_state(jg)%metrics,                 & !in
               &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
@@ -1049,10 +1048,7 @@ MODULE mo_nh_stepping
       IF (.NOT. output_mode%l_none .AND. &    ! meteogram output is not initialized for output=none
         & p_patch(jg)%ldom_active  .AND. .NOT. (jstep == 0 .AND. iau_iter == 2) .AND. &
         & meteogram_is_sample_step(meteogram_output_config(jg), jstep)) THEN
-        CALL meteogram_sample_vars(jg, jstep, mtime_current, ierr)
-        IF (ierr /= SUCCESS) THEN
-          CALL finish (routine, 'Error in meteogram sampling! Sampling buffer too small?')
-        ENDIF
+        CALL meteogram_sample_vars(jg, jstep, mtime_current)
       END IF
     END DO
 

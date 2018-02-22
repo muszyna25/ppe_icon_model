@@ -2321,7 +2321,7 @@ esac
 
 
 if  test -n "$fqdn" ; then
-  if test -z ac_sitename; then
+  if test -z "$ac_sitename"; then
   ac_sitename=local.net
 fi
 

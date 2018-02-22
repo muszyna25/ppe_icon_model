@@ -30,22 +30,43 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #
 ##-----------------------------------------------------------------------------
 # global timing
-start_date="2013-04-25T00:00:00Z" 
+start_date="2013-04-24T00:00:00Z" 
 end_date="2013-04-26T00:00:00Z"
 ##KGinit_date=2013042500
 init_date=`echo ${start_date%%:*} | sed 's/\-//g' | sed 's/T//g'`
 
-#
-#
 ndays_restart=6
 dt_restart=`expr ${ndays_restart} \* 86400`
 #restart=".true."
 #
 #Timing for output
-out_start_day="2013-04-24T06:00:00Z" 
+
+typeset -Z4  years 
+typeset -Z2 months days hours  nhours
+
+ years=$(echo $start_date | cut -f1 -d -)
+months=$(echo $start_date | cut -f2 -d -)
+  days=$(echo $start_date | cut -f1 -d T | cut -f3 -d - )
+ hours=$(echo $start_date | cut -f2 -d T | cut -f1 -d : )
+  mins=$(echo $start_date | cut -f2 -d T | cut -f2-3 -d : )
+
+nhours=$((${hours} + 06))
+if [[ $nhours -gt 23 ]] ; then 
+   ndays=$((${days} + 01))
+   let "nhours= $((06 - (24 - ${hours})))"
+else
+   nhours=$((${hours} + 06))
+   ndays=${days}
+fi
+out_start_day="${years}-${months}-${ndays}T${nhours}:${mins}"
+#KG out_start_day="2013-04-24T06:00:00Z" 
 out_end_day=${end_date} 
 out_start_night=${start_date} 
 out_end_night=${out_start_day} 
+#Write out grid only once
+out_start_grid=${start_date}
+out_end_grid=${out_start_grid}
+#
 #
 #for 3D fine based on A-train overpass timing
 #which needs to be adjusted everywhere day
@@ -161,9 +182,10 @@ grids_folder="/work/bm0834/k203095/pool/GRIDS/HDCP_FINAL_4"
 #grids_folder="/work/bm0834/anurag/icon-GridGenerator-dev/grids/HDCP_FINAL_4"
 grid_1=hdcp2_cosmodom_R0625m
 grid_2=hdcp2_cosmodom_nest_R0312m
-grid_3=hdcp2_cosmodom_nest_R0156m
-atmo_dyn_grids="${grid_1}.nc  ${grid_2}.nc  ${grid_3}.nc"
-dynamics_parent_grid_id="0,   1,  2"
+atmo_dyn_grids="${grid_1}.nc  ${grid_2}.nc"
+dynamics_parent_grid_id="0,   1"
+out_dom=2
+#
 #
 # absolute path to directory with LAM data
 LAMDATA=/work/bm0834/k203095/pool/HDCP2_FINAL_INPUT_4
@@ -176,7 +198,6 @@ LATBC_PATH=${LAMDATA}/
 ext_data_path=${LAMDATA}
 add_link_file $ext_data_path/extpar_${grid_1}.nc  extpar_${grid_1}.nc
 add_link_file $ext_data_path/extpar_${grid_2}.nc  extpar_${grid_2}.nc
-add_link_file $ext_data_path/extpar_${grid_3}.nc  extpar_${grid_3}.nc
 
 #INITIAL DATA
 init_data_path=$LAMDATA
@@ -184,8 +205,6 @@ add_link_file $init_data_path/init_${grid_1}_${init_date}.nc ifs2icon_R2B12_DOM0
 add_link_file $init_data_path/init_${grid_1}_${init_date}.nc dwdFG_R2B12_DOM01.nc
 add_link_file $init_data_path/init_${grid_2}_${init_date}.nc ifs2icon_R2B13_DOM02.nc
 add_link_file $init_data_path/init_${grid_2}_${init_date}.nc dwdFG_R2B13_DOM02.nc
-add_link_file $init_data_path/init_${grid_3}_${init_date}.nc ifs2icon_R2B14_DOM03.nc
-add_link_file $init_data_path/init_${grid_3}_${init_date}.nc dwdFG_R2B14_DOM03.nc
 #
 #-----------------------------------------------------------------------------
 #
@@ -211,6 +230,7 @@ cat > ${atmo_namelist} << EOF
  num_io_procs   = 6
  io_proc_chunk_size = 26
  num_prefetch_proc = 0
+ write_div_to_file = .TRUE.
 /
 &grid_nml
  ! cell_type is not used = 3            ! triangular cells
@@ -221,12 +241,12 @@ cat > ${atmo_namelist} << EOF
 / 
 &initicon_nml
  init_mode              =  4 !4=cosmo, 2=ifs, 3=combined
-! ana_varnames_map_file  = '$ICON_BASE_PATH/run/ana_varnames_map_file.txt'
+ ana_varnames_map_file  = '$ICON_BASE_PATH/run/ana_varnames_map_file.txt'
  nlevsoil_in            =  8
  lread_ana              = .false.
 /
 &run_nml
- num_lev     = ${nlev},${nlev},${nlev},${nlev}  ! number of full levels of vertical grid
+ num_lev     = ${nlev},${nlev},${nlev}  ! number of full levels of vertical grid
  lvert_nest = .false.
  dtime       = ${dtime}     ! [s] timestep in seconds
  ldynamics   = .TRUE.       ! dynamics
@@ -235,6 +255,7 @@ cat > ${atmo_namelist} << EOF
  iforcing    = ${iforcing}  !
  ltimer      = .true.       ! 
  timers_level = 10          !
+ profiling_output = 3       !
  msg_level   = 12           ! detailed report during integration
  output      = 'nml','totint'      
 /
@@ -255,8 +276,7 @@ cat > ${atmo_namelist} << EOF
  latbc_varnames_map_file = '$ICON_BASE_PATH/run/dict.latbc'
 /
 &diffusion_nml
- hdiff_order      = 5 
- hdiff_smag_fac   = 0.01
+ hdiff_order      = 5
  lhdiff_vn        = .TRUE.
  lhdiff_temp      = .TRUE.
  lhdiff_w         = .TRUE.
@@ -269,15 +289,13 @@ inwp_cldcover   = 5,5,5
 inwp_turb       = 5,5,5
 inwp_satad      = 1,1,1
 inwp_surface    = 1,1,1
-latm_above_top  = .true.,.true.,.true.,.true.
+latm_above_top  = .true.,.true.,.true.
 efdt_min_raylfric = 7200.
 itype_z0         = 2
 dt_rad           = 900.,900.,900.
 /
 &les_nml
- smag_constant     = 0.23
  isrfc_type        = 1  !1=TERRA,2=Fixed flux, 5=fixed SST, 3=fixed bflux
- vert_scheme_type  = 2
  ldiag_les_out     = .FALSE.
  les_metric        = .TRUE.
 /
@@ -301,9 +319,9 @@ itype_lndtbl   =  2
 &interpol_nml
 nudge_zone_width  = 20  !-1 create nudge zone in grid
 lsq_high_ord      = 2
-rbf_vec_scale_c   = 0.03,  0.01, 0.004
-rbf_vec_scale_v   = 0.07, 0.025, 0.0025
-rbf_vec_scale_e   = 0.15,  0.05, 0.0125
+rbf_vec_scale_c   = 0.03, 0.01
+rbf_vec_scale_v   = 0.07, 0.025
+rbf_vec_scale_e   = 0.15, 0.05
 rbf_scale_mode_ll = 1 !2=default for automatic calculations
 /
 &gridref_nml
@@ -351,9 +369,10 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
  netcdf_dict      = "${dict_file}"
 /
 &meteogram_output_nml
- lmeteogram_enabled= .FALSE.,.FALSE.,.TRUE.
- n0_mtgrm          = 0             ! meteogram initial time step (0 is first step!)
- ninc_mtgrm        = 1,1,3       ! meteogram output interval (steps)
+ lmeteogram_enabled= .FALSE.,.TRUE.
+ n0_mtgrm          = 0           ! meteogram initial time step (0 is first step!)
+ ninc_mtgrm        = 1,3         ! meteogram output interval (steps)
+ max_time_stamps   = 1,400       !every 1 hour
  ldistributed      = .false,.false.,.false.
  stationlist_tot   =  50.909,   6.414, 'c1',             ! Lat,Lon
                       50.897,   6.464, 'c2',
@@ -405,7 +424,7 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
  reg_lon_def      = 4.5,0.017,14.5
  reg_lat_def      = 47.5,0.011,54.5
  filetype         = 5
- dom              = 3
+ dom              = ${out_dom}
 /
 &output_nml
  output_start     = "${out_start_day}"
@@ -420,19 +439,19 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
  reg_lon_def      = 4.5,0.017,14.5
  reg_lat_def      = 47.5,0.011,54.5
  filetype         = 5
- dom              = 3
+ dom              = ${out_dom}
 /
 &output_nml
  output_start     = "${sat_pass_in}"
  output_end       = "${sat_pass_out}"
  output_interval  = "${out_int}"
  file_interval    = "P01D"
- include_last     = ${inc_las}
+ include_last     = .FALSE.
  output_filename  = '3d_fine_day'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
  ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','qng','qnh','ninact','u','v','w','temp','pres','tkvh','clc'
  filetype         = 5
- dom              = 3
+ dom              = ${out_dom}
 /
 &output_nml
  output_start     = "${out_start_day}"
@@ -446,7 +465,7 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
                     'snow_gsp_rate','hail_gsp_rate','graupel_gsp_rate','hbas_con','htop_con',
                     'p_ctop','t_ctop','p_cbase','t_cbase','clch','clcm','clcl','htop_dc'
  filetype         = 5
- dom              = 3
+ dom              = ${out_dom}
 /
 &output_nml
  output_start     = "${out_start_night}"
@@ -460,7 +479,7 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
                     'snow_gsp_rate','hail_gsp_rate','graupel_gsp_rate','hbas_con','htop_con',
                     'p_ctop','t_ctop','p_cbase','t_cbase','clch','clcm','clcl','htop_dc'
  filetype         = 5
- dom              = 3
+ dom              = ${out_dom}
 /
 &output_nml
  output_start     = "${out_start_day}"
@@ -473,7 +492,7 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
  ml_varlist       = 'asob_s','asodird_s','asodifd_s','athb_s','athd_s','asob_t','asod_t','athb_t',
                     'albdif','albvisdif','albvisdir','albnirdif','albnirdir'
  filetype         = 5
- dom              = 3
+ dom              = ${out_dom}
 /
 &output_nml
  output_start     = "${out_start_night}"
@@ -486,7 +505,7 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
  ml_varlist       = 'asob_s','asodird_s','asodifd_s','athb_s','athd_s','asob_t','asod_t','athb_t',
                     'albdif','albvisdif','albvisdir','albnirdif','albnirdir'
  filetype         = 5
- dom              = 3
+ dom              = ${out_dom}
 /
 &output_nml
  output_start     = "${out_start_day}"
@@ -500,7 +519,7 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
                     'rh_2m','u_10m','v_10m','w_so','t_so','runoff_s','t_s','t_seasfc'
                     'tcm','tch'
  filetype         = 5
- dom              = 3
+ dom              = ${out_dom}
 /
 &output_nml
  output_start     = "${out_start_night}"
@@ -514,7 +533,7 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
                     'rh_2m','u_10m','v_10m','w_so','t_so','runoff_s','t_s','t_seasfc',
                     'tcm','tch'
  filetype         = 5
- dom              = 3
+ dom              = ${out_dom}
 /
 &output_nml
  output_start     = "${out_start_day}"
@@ -529,7 +548,52 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
  reg_lon_def      = 6.087,0.004,6.738
  reg_lat_def      = 50.704,0.003,51.112
  filetype         = 5
- dom              = 3
+ dom              = ${out_dom}
+/
+&output_nml
+ output_start     = "${out_start_grid}"
+ output_end       = "${out_end_grid}"
+ output_interval  = "PT01H"
+ file_interval    = "P01D"
+ include_last     = .FALSE.
+ output_filename  = 'GRID_3d_coarse_ll'
+ remap            = 1
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'z_ifc','z_mc'
+ reg_lon_def      = 4.5,0.017,14.5
+ reg_lat_def      = 47.5,0.011,54.5
+ filetype         = 5
+ dom              = ${out_dom}
+ output_grid      = .TRUE.
+/
+&output_nml
+ output_start     = "${out_start_grid}"
+ output_end       = "${out_end_grid}"
+ output_interval  = "PT01H"
+ file_interval    = "P01D"
+ include_last     = .FALSE.
+ output_filename  = 'GRID_3d_fine'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'z_ifc','z_mc'
+ filetype         = 5
+ dom              = ${out_dom}
+ output_grid      = .TRUE.
+/
+&output_nml
+ output_start     = "${out_start_grid}"
+ output_end       = "${out_end_grid}"
+ output_interval  = "PT15M"
+ file_interval    = "PT01H"
+ include_last     = .FALSE.
+ output_filename  = 'GRID_3d_fuzzy_hope_ll'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ remap            = 1
+ ml_varlist       = 'z_ifc','z_mc'
+ reg_lon_def      = 6.087,0.004,6.738
+ reg_lat_def      = 50.704,0.003,51.112
+ filetype         = 5
+ dom              = ${out_dom}
+ output_grid      = .TRUE.
 /
 &extpar_nml
  itopo          = 1
@@ -537,6 +601,6 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
  heightdiff_threshold = 1000.,500.,200
 /
 EOF
-#
 #----------------------------------------------------------------------------------------------------------
+
 
