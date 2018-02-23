@@ -46,6 +46,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag, t_lnd_state
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_parallel_config,     ONLY: nproma
+  USE mo_grid_config,         ONLY: l_limited_area
   USe mo_extpar_config,       ONLY: itopo, itype_vegetation_cycle
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
@@ -94,6 +95,67 @@ INTEGER, PARAMETER :: nlsnow= 2
 
 CONTAINS
 
+  !>
+  !! Initialize soil temperature in boundary zone of LAM domain
+  !!
+  !! Soil tempertures in the boundary zone of the LAM domain are 
+  !! filled with meaningful values. This has no immediate impact on the 
+  !! prognostic results. It is, however, necessary in order to minimize 
+  !! GRIB truncation errors.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2018-02-23)
+  !!
+  SUBROUTINE init_lamlatbc_phys (p_patch, p_prog_lnd_now, p_prog_lnd_new, p_lnd_diag)
+
+    TYPE(t_patch)     , INTENT(IN)    :: p_patch       ! patch info
+    TYPE(t_lnd_prog)  , INTENT(INOUT) :: p_prog_lnd_now, p_prog_lnd_new
+    TYPE(t_lnd_diag)  , INTENT(INOUT) :: p_lnd_diag
+
+    ! local variables
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jc
+
+  !-------------------------------------------------------------------------
+
+    ! only boundary cells
+    rl_start = 1
+    rl_end   = grf_bdywidth_c
+
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, rl_start, rl_end)
+
+      DO jc= i_startidx, i_endidx
+        ! tiled
+        p_prog_lnd_now%t_g_t(jc,jb,:)    = tmelt
+        p_prog_lnd_now%t_s_t(jc,jb,:)    = tmelt
+        p_prog_lnd_now%t_so_t(jc,:,jb,:) = tmelt
+        !
+        p_prog_lnd_new%t_g_t(jc,jb,:)    = tmelt
+        p_prog_lnd_new%t_s_t(jc,jb,:)    = tmelt
+        p_prog_lnd_new%t_so_t(jc,:,jb,:) = tmelt
+        !
+        ! agg
+        p_prog_lnd_now%t_g(jc,jb)    = tmelt
+        p_prog_lnd_new%t_g(jc,jb)    = tmelt
+        p_lnd_diag%t_s(jc,jb)        = tmelt
+        p_lnd_diag%t_so(jc,:,jb)     = tmelt
+      ENDDO
+
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+  END SUBROUTINE init_lamlatbc_phys
 
   !-------------------------------------------------------------------------
   !>
@@ -1035,6 +1097,13 @@ CONTAINS
      &                           p_lnd_diag )
     p_prog_lnd_new%t_g(:,:)  = p_prog_lnd_now%t_g(:,:)
 
+
+    ! limited area mode, only
+    ! Soil and surface tempertures in the boundary zone of the LAM 
+    ! domain are filled with meaningful values
+    IF (l_limited_area .AND. jg==1) THEN
+      CALL init_lamlatbc_phys(p_patch, p_prog_lnd_now, p_prog_lnd_new, p_lnd_diag)
+    ENDIF
 
   END SUBROUTINE nwp_surface_init
 
