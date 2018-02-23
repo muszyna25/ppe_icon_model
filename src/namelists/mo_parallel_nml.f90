@@ -42,7 +42,7 @@ MODULE mo_parallel_nml
     & config_num_prefetch_proc   => num_prefetch_proc,   &
     & config_itype_comm          => itype_comm,          &
     & config_iorder_sendrecv     => iorder_sendrecv,     &
-    & config_nproma              => nproma,                 &
+    & set_nproma, &
     & config_use_icon_comm       => use_icon_comm,        &
     & config_icon_comm_debug     => icon_comm_debug,        &
     & div_geometric, check_parallel_configuration,          &
@@ -64,6 +64,7 @@ MODULE mo_parallel_nml
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: read_parallel_namelist
+  INTEGER :: tmp_nproma
 
 
   CONTAINS
@@ -327,7 +328,7 @@ MODULE mo_parallel_nml
     config_num_prefetch_proc   = num_prefetch_proc
     config_itype_comm          = itype_comm
     config_iorder_sendrecv     = iorder_sendrecv
-    config_nproma              = nproma
+    CALL set_nproma(nproma)
 
     config_use_icon_comm       = use_icon_comm
     config_icon_comm_debug     = icon_comm_debug

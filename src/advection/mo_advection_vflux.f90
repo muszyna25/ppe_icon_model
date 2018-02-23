@@ -444,6 +444,7 @@ CONTAINS
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     !-------------------------------------------------------------------------
 
+
 #ifdef _OPENACC
 !$ACC DATA CREATE( zparent_topflx ), PCOPYIN( p_cc, p_mflx_contra_v ), PCOPYOUT( p_upflux ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_mflx_contra_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
@@ -498,10 +499,10 @@ CONTAINS
 
 #ifdef _OPENACC
 !$ACC PARALLEL &
-!$ACC PRESENT( p_patch, advection_config, p_cc, p_mflx_contra_v, p_upflux ), &
+!$ACC PRESENT( p_patch, advection_config, p_cc, p_mflx_contra_v, p_upflux ) &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -755,7 +756,7 @@ CONTAINS
 !$ACC PRESENT( z_cfl_p, z_cfl_m, z_slope, z_face, p_upflux ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikm1,z_weta_dt,ikp1, &
@@ -924,7 +925,7 @@ CONTAINS
 !$ACC PRESENT( p_patch, p_cc, z_face, z_face_up, z_face_low, z_slope ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jk,ikp1,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -974,7 +975,7 @@ CONTAINS
 !$ACC PRESENT( p_upflux ),                                                       &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_lext_1,z_lext_2,ikm1,z_delta_m, &
 !$OMP            z_delta_p,z_a11,z_a12) ICON_OMP_DEFAULT_SCHEDULE
@@ -1055,7 +1056,7 @@ CONTAINS
 !$ACC PRESENT( p_upflux ),                                                                &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_lext_1,z_lext_2,ikm1,z_delta_m, &
 !$OMP            z_delta_p,z_a11,z_a12) ICON_OMP_DEFAULT_SCHEDULE
