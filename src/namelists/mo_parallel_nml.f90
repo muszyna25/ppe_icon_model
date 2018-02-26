@@ -59,7 +59,9 @@ MODULE mo_parallel_nml
     & config_use_physics_barrier  => use_physics_barrier,     &
     & config_restart_chunk_size => restart_chunk_size,        &
     & config_io_proc_chunk_size => io_proc_chunk_size,        &
-    & config_num_dist_array_replicas => num_dist_array_replicas
+    & config_num_dist_array_replicas => num_dist_array_replicas, &
+    & config_io_process_stride => io_process_stride,          &
+    & config_io_process_rotate => io_process_rotate
 
   IMPLICIT NONE
   PRIVATE
@@ -134,8 +136,8 @@ MODULE mo_parallel_nml
     INTEGER :: num_restart_procs
 
     ! Number of PEs used for async prefetching of input (0 means, the worker PE0 prefetches lateral boundary input)
-    INTEGER :: num_prefetch_proc 
-    
+    INTEGER :: num_prefetch_proc
+
     ! Type of (halo) communication:
     ! 1 = synchronous communication with local memory for exchange buffers
     ! 2 = synchronous communication with global memory for exchange buffers
@@ -161,6 +163,8 @@ MODULE mo_parallel_nml
     ! more than one 2D slice at once
     INTEGER :: io_proc_chunk_size
 
+    INTEGER :: io_process_stride, io_process_rotate
+
     ! number of replications being stored in the distributed arrays of the
     ! t_patch_pre
     INTEGER :: num_dist_array_replicas
@@ -181,7 +185,8 @@ MODULE mo_parallel_nml
       & max_no_of_comm_processes, max_no_of_comm_patterns, &
       & sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
       & restart_chunk_size, io_proc_chunk_size, num_prefetch_proc, &
-      & num_dist_array_replicas
+      & num_dist_array_replicas, io_process_stride, io_process_rotate
+    !parallel_radiation_omp
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -269,6 +274,9 @@ MODULE mo_parallel_nml
 
     num_dist_array_replicas = 1
 
+    io_process_stride = -1
+    io_process_rotate = 0
+
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
     ! by values in the previous integration.
@@ -346,6 +354,8 @@ MODULE mo_parallel_nml
     config_restart_chunk_size   = restart_chunk_size
     config_io_proc_chunk_size   = io_proc_chunk_size
     config_num_dist_array_replicas   = num_dist_array_replicas
+    config_io_process_stride    = io_process_stride
+    config_io_process_rotate    = io_process_rotate
     !-----------------------------------------------------
     CALL check_parallel_configuration()
 
