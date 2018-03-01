@@ -445,6 +445,8 @@ MODULE mo_ocean_model
     IF (i_sea_ice >= 1) &
       &   CALL ice_init(ocean_patch_3D, ocean_state(1), v_sea_ice, v_oce_sfc%cellThicknessUnderIce)
 
+    IF (ltimer) CALL timer_stop(timer_model_init)
+
   END SUBROUTINE construct_ocean_model
   !--------------------------------------------------------------------------
 
@@ -571,9 +573,6 @@ MODULE mo_ocean_model
       CALL message(method_name,'asynchronous namelist I/O scheme is enabled.')
       ! consistency check
       IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
-        ! Stop timer which is already started but would not be stopped
-        ! since xxx_io_main_proc never returns
-        IF (ltimer) CALL timer_stop(timer_model_init)
 
         ! compute sim_start, sim_end
         CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
