@@ -4246,7 +4246,7 @@ CONTAINS
                 element%next_list_element => NULL()
 
                 ! these pointers don't make sense on the restart PEs, NULLIFY them
-                NULLIFY(element%field%r_ptr, element%field%i_ptr, element%field%l_ptr)
+                NULLIFY(element%field%r_ptr, element%field%s_ptr, element%field%i_ptr, element%field%l_ptr)
                 element%field%var_base_size = 0 ! Unknown here
 
                 ! set info structure from binary representation in info_storage
@@ -4255,7 +4255,6 @@ CONTAINS
             END DO
         END IF
 
-        DEALLOCATE(info_storage)
     END DO
   END SUBROUTINE varlistPacker
 

@@ -864,6 +864,7 @@ run/exp.hamocc_omip_long -text
 run/exp.hat_heldsuarez -text
 run/exp.hat_jww -text
 run/exp.hdcp2_final -text
+run/exp.hdcp2_final_2dom -text
 run/exp.hdcp2_final_3dom -text
 run/exp.hdcp2_germany_776km-diam_1250m_test -text
 run/exp.icon-testbed_read-netcdf -text

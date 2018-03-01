@@ -265,7 +265,7 @@ CONTAINS
 !$ACC PRESENT( z_mflx_low, z_anti ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -331,7 +331,7 @@ CONTAINS
 !$ACC PRIVATE( z_fluxdiv_c ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_fluxdiv_c,z_mflx_anti_1,z_mflx_anti_2,z_mflx_anti_3 ) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -468,7 +468,7 @@ CONTAINS
 !$ACC PRIVATE( z_max, z_min ),                                        &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_max,z_min) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -557,7 +557,7 @@ CONTAINS
 !$ACC PRESENT( z_mflx_low, z_anti, p_mflx_tracer_h ),              &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,r_frac,z_signum) ICON_OMP_DEFAULT_SCHEDULE
@@ -775,7 +775,7 @@ CONTAINS
 !$ACC PRIVATE( z_mflx ),                                          &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,p_m,z_mflx) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -855,7 +855,7 @@ CONTAINS
 !$ACC PRESENT( ptr_patch, r_m, p_mflx_tracer_h, iilc, iibc ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_signum) ICON_OMP_DEFAULT_SCHEDULE
@@ -1018,7 +1018,7 @@ CONTAINS
 !$ACC PRIVATE( r_m ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,jkp1,p_m,r_m,jkm1,&
@@ -1201,7 +1201,7 @@ CONTAINS
 !$ACC PRIVATE( r_m ),                                           &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,jkp1,p_m,r_m,jkm1,z_signum) ICON_OMP_DEFAULT_SCHEDULE

@@ -400,22 +400,9 @@ CONTAINS
     ! Exchange the number of points we want to receive with the respective senders
     DO np = 0, p_n_work-1 ! loop over PEs where to send the data
       num_rcv(np) = p_pat%recv_limits(np+1) - p_pat%recv_limits(np)
-      ! First send the number of points to be received
-      IF (np /= p_pe_work) CALL p_isend(num_rcv(np), np, 1, comm=p_comm_work)
     ENDDO
 
-    ! Now, we receive the number of points are needed from us
-    DO nr = 0, p_n_work-1
-
-      IF(nr /= p_pe_work) THEN
-        CALL p_recv(icnt(nr), nr, 1,  comm=p_comm_work)
-      ELSE
-        icnt(nr) = num_rcv(nr)
-      ENDIF
-
-    ENDDO
-    CALL p_wait
-
+    CALL p_alltoall(num_rcv, icnt, p_comm_work)
     ! Now send the global index of the points we need from PE np
     DO np = 0, p_n_work-1 ! loop over PEs where to send the data
 
@@ -684,7 +671,7 @@ CONTAINS
       DEALLOCATE(gather_pattern%recv_buffer_reorder_fill)
     ALLOCATE(gather_pattern%recv_buffer_reorder_fill(num_recv_points))
     gather_pattern%recv_buffer_reorder_fill(:) = &
-      MOD(recv_buffer, num_points_per_coll)
+      MOD(recv_buffer-1, num_points_per_coll)+1
 
     IF (PRESENT(disable_consistency_check)) THEN
       consistency_check = .NOT. disable_consistency_check
