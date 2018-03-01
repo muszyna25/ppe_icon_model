@@ -211,7 +211,7 @@ CONTAINS
   ! Sea ice statistics
   !
 
-    SUBROUTINE update_ice_statistic(p_acc, p_ice, subset)
+  SUBROUTINE update_ice_statistic(p_acc, p_ice, subset)
     TYPE(t_sea_ice_acc),  INTENT(INOUT) :: p_acc
     TYPE(t_sea_ice),      INTENT(IN)    :: p_ice
     TYPE(t_subset_range), INTENT(IN)    :: subset
@@ -221,17 +221,34 @@ CONTAINS
     CALL add_fields(p_acc%conc, p_ice%conc, subset , levels=p_ice%kice)
     CALL add_fields(p_acc%u   , p_ice%u   , subset)
     CALL add_fields(p_acc%v   , p_ice%v   , subset)
+    CALL add_fields(p_acc%HeatOceW , p_ice%HeatOceW , subset)
+    CALL add_fields(p_acc%zUnderIce, p_ice%zUnderIce, subset)
+    CALL add_fields(p_acc%draftave , p_ice%draftave , subset)
+    CALL add_fields(p_acc%Qtop     , p_ice%Qtop     , subset , levels=p_ice%kice)
+    CALL add_fields(p_acc%Qbot     , p_ice%Qbot     , subset , levels=p_ice%kice)
+    CALL add_fields(p_acc%CondHeat , p_ice%CondHeat , subset , levels=p_ice%kice)
+    CALL add_fields(p_acc%HeatOceI , p_ice%HeatOceI , subset , levels=p_ice%kice)
+    CALL add_fields(p_acc%zHeatOceI, p_ice%zHeatOceI, subset , levels=p_ice%kice)
   END SUBROUTINE update_ice_statistic
+
   SUBROUTINE compute_mean_ice_statistics(p_acc,nsteps_since_last_output)
     TYPE(t_sea_ice_acc), INTENT(INOUT) :: p_acc
     INTEGER,INTENT(IN)                 :: nsteps_since_last_output
-
-    p_acc%hi                        = p_acc%hi  /REAL(nsteps_since_last_output,wp)
-    p_acc%hs                        = p_acc%hs  /REAL(nsteps_since_last_output,wp)
-    p_acc%u                         = p_acc%u   /REAL(nsteps_since_last_output,wp)
-    p_acc%v                         = p_acc%v   /REAL(nsteps_since_last_output,wp)
-    p_acc%conc                      = p_acc%conc/REAL(nsteps_since_last_output,wp)
+    p_acc%hi                        = p_acc%hi       /REAL(nsteps_since_last_output,wp)
+    p_acc%hs                        = p_acc%hs       /REAL(nsteps_since_last_output,wp)
+    p_acc%u                         = p_acc%u        /REAL(nsteps_since_last_output,wp)
+    p_acc%v                         = p_acc%v        /REAL(nsteps_since_last_output,wp)
+    p_acc%conc                      = p_acc%conc     /REAL(nsteps_since_last_output,wp)
+    p_acc%Qtop                      = p_acc%Qtop     /REAL(nsteps_since_last_output,wp)
+    p_acc%Qbot                      = p_acc%Qbot     /REAL(nsteps_since_last_output,wp)
+    p_acc%CondHeat                  = p_acc%CondHeat /REAL(nsteps_since_last_output,wp)
+    p_acc%HeatOceI                  = p_acc%HeatOceI /REAL(nsteps_since_last_output,wp)
+    p_acc%HeatOceW                  = p_acc%HeatOceW /REAL(nsteps_since_last_output,wp)
+    p_acc%zHeatOceI                 = p_acc%zHeatOceI/REAL(nsteps_since_last_output,wp)
+    p_acc%zUnderIce                 = p_acc%zUnderIce/REAL(nsteps_since_last_output,wp)
+    p_acc%draftave                  = p_acc%draftave /REAL(nsteps_since_last_output,wp)
   END SUBROUTINE compute_mean_ice_statistics
+
   SUBROUTINE reset_ice_statistics(p_acc)
     TYPE(t_sea_ice_acc), INTENT(INOUT) :: p_acc
     p_acc%hi                        = 0.0_wp
@@ -239,6 +256,14 @@ CONTAINS
     p_acc%u                         = 0.0_wp
     p_acc%v                         = 0.0_wp
     p_acc%conc                      = 0.0_wp
+    p_acc%Qtop                      = 0.0_wp
+    p_acc%Qbot                      = 0.0_wp
+    p_acc%CondHeat                  = 0.0_wp
+    p_acc%HeatOceI                  = 0.0_wp
+    p_acc%HeatOceW                  = 0.0_wp
+    p_acc%zHeatOceI                 = 0.0_wp
+    p_acc%zUnderIce                 = 0.0_wp
+    p_acc%draftave                  = 0.0_wp
   END SUBROUTINE reset_ice_statistics
 
   END MODULE mo_ice_diagnostics

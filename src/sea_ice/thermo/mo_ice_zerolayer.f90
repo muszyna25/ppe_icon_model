@@ -88,6 +88,8 @@ CONTAINS
     !---------DEBUG DIAGNOSTICS-----------------------------------------------------------------
     CALL dbg_print('GrowZero bef.: Qtop' , ice%Qtop  , str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('GrowZero bef.: Qbot' , ice%Qbot  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero bef.: hi'   , ice%hi    , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero bef.: hs'   , ice%hs    , str_module, 4, in_subset=p_patch%cells%owned)
     !-------------------------------------------------------------------------------------------
 
 !ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, k, jc) SCHEDULE(dynamic)
@@ -122,7 +124,12 @@ CONTAINS
               ENDIF
             ENDIF
 
-            ! Add ocean-ice heat flux (zHeatOceI, positive upward) to Qbot = -F_S (i.e. minus upward conductive flux).
+            ! Save conductive heat flux calculated in ice_fast to new variable CondHeat 
+            ! minus is upward, heat release to the atmosphere, ice growth
+            ice%CondHeat(jc,k,jb) = ice%Qbot(jc,k,jb)
+
+            ! Add ocean-ice heat flux (zHeatOceI, positive upward is melting ice) to Qbot
+            !   Qbot = -F_S = CondHeat (i.e. plus upward conductive flux, melting ice).
             ice%Qbot(jc,k,jb) = ice%Qbot(jc,k,jb) + ice%zHeatOceI(jc,k,jb)
 
             !  Resulting flux Qbot>0 melts ice from below, while Qbot<0 grows ice.
@@ -151,12 +158,17 @@ CONTAINS
               ENDIF
             ENDIF
 
-            !  heatOceI - positive into ocean (positive=downward), i.e. same sign convention as HeatFlux_Total
+            ! heatOceI - positive into ocean (positive=downward), i.e. same sign convention as HeatFlux_Total
             ! put the surplus after complete melting into heating of the ocean
             ice%heatOceI(jc,k,jb) = - ice%zHeatOceI(jc,k,jb) + Q_surplus(jc,k,jb)
 
             ! rescale with concentration, since later we calculate: HeatFlux_Total = heatOceI + heatOceW
             ice%heatOceI(jc,k,jb) = ice%heatOceI(jc,k,jb)*ice%conc(jc,k,jb)
+
+            ! rescale with concentration in order to get output over whole cell-area
+            ice%zHeatOceI(jc,k,jb) = ice%zHeatOceI(jc,k,jb)*ice%conc(jc,k,jb)
+            ice%Qbot     (jc,k,jb) = ice%Qbot     (jc,k,jb)*ice%conc(jc,k,jb)
+            Q_surplus    (jc,k,jb) =     Q_surplus(jc,k,jb)*ice%conc(jc,k,jb)
 
             ! Calculate mean change in ice and snow thickness due to thermodynamic effects
             ice%delhi(jc,k,jb) = ( ice%hi(jc,k,jb) - hiold(jc,k,jb) ) * ice%conc(jc,k,jb)
@@ -173,8 +185,10 @@ CONTAINS
     CALL dbg_print('GrowZero aft.: hs'         , ice%hs         , str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('GrowZero aft.: heatOceI '  , ice%heatOceI   , str_module, 3, in_subset=p_patch%cells%owned)
 
+    CALL dbg_print('GrowZero aft.: zHeatOceI ' , ice%zHeatOceI  , str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('GrowZero aft.: Qbot'       , ice%Qbot       , str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('GrowZero aft.: Q_surplus'  , Q_surplus      , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero aft.: CondHeat'   , ice%CondHeat   , str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('GrowZero aft.: delhi'      , ice%delhi      , str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('GrowZero aft.: delhs '     , ice%delhs      , str_module, 4, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
@@ -271,7 +285,7 @@ CONTAINS
           ! Heat flux available for surface melting Qtop = -(F_A - F_S) evaluated at the new Tsurf.
           ! 1) if new Tsurf < 0, then surface fluxes are balanced, and Qtop == 0.
           ! 2) if new Tsurf = 0, then Qtop > 0 (goes into surface melting in ice_growth_zerolayer).
-            Qtop(jc,k) = - F_A + F_S - deltaTdenominator * deltaT
+          Qtop(jc,k) = - F_A + F_S - deltaTdenominator * deltaT
 
           ! Heat flux available for bottom melting/freezing Qbot = -F_S evaluated at the new Tsurf.
           ! Note that Qbot is missing the flux from ocean to ice (added in ice_growth_zerolayer).

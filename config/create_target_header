@@ -605,7 +605,7 @@ set_run_target_bullx()
     *openmpi*)
       add_free_var OMPI_MCA_pml cm
       add_free_var OMPI_MCA_mtl mxm
-      add_free_var OMPI_MCA_coll ^fca,hcoll
+      add_free_var OMPI_MCA_coll ^fca
       add_free_var MXM_RDMA_PORTS 'mlx5_0:1'
       add_free_var HCOLL_MAIN_IB 'mlx5_0:1'
       add_free_var HCOLL_ML_DISABLE_BARRIER 1

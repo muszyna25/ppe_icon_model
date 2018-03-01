@@ -1782,8 +1782,7 @@ CONTAINS
       & za_depth_below_sea, &
       & t_cf_var('rhopot_acc','kg/m^3','potential density', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
-
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
  !   CALL add_var(ocean_default_list, 'slopes_squared_acc', ocean_state_acc%slopes_squared, grid_unstructured_cell, &
  !     & za_depth_below_sea, &
  !     & t_cf_var('slopes_squared','1','slopes_squared', datatype_flt),&
@@ -1794,7 +1793,7 @@ CONTAINS
       & za_depth_below_sea, &
       & t_cf_var('rho_acc','kg/m^3','insitu density', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
       
     CALL add_var(ocean_default_list,'opottempGMRedi_acc',ocean_state_acc%opottempGMRedi, &
       & grid_unstructured_cell, za_depth_below_sea, &
@@ -1817,12 +1816,12 @@ CONTAINS
       & za_depth_below_sea, &
       & t_cf_var('mass_flx_e_acc','','mass flux at edges', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_default"))
+      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"))
     CALL add_var(ocean_default_list, 'div_mass_flx_c_acc', ocean_state_acc%div_mass_flx_c, grid_unstructured_cell, &
       & za_depth_below_sea, &
       & t_cf_var('div_mass_flx_c_acc','','divergence of mass flux', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
     CALL add_var(ocean_default_list, 'edgeFlux_total_acc', ocean_state_acc%edgeFlux_total, &
       & grid_unstructured_edge, za_surface, &
       & t_cf_var('edgeFlux_total_acc', 'm*m/s', 'vertically integrated edge flux', DATATYPE_FLT32),&
@@ -1842,14 +1841,14 @@ CONTAINS
       & grid_unstructured_vert, za_depth_below_sea, &
       & t_cf_var('vort_acc','1/s','vorticity', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_vertex),&
-      & ldims=(/nproma,n_zlev,nblks_v/),in_group=groups("oce_default"),lrestart_cont=.TRUE.)
+      & ldims=(/nproma,n_zlev,nblks_v/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
     
     ! kinetic energy component
     CALL add_var(ocean_default_list, 'kin_acc', ocean_state_acc%kin, grid_unstructured_cell, &
       & za_depth_below_sea, &
       & t_cf_var('kin_acc','J','kinetic energy', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
     ! & ptp_vn(:,:,:)           ,& ! normal velocity after mapping P^T P
     ! & vn_pred(:,:,:)          ,& ! predicted normal velocity vector at edges.
     ! & vn_impl_vert_diff(:,:,:),& ! predicted normal velocity vector at edges.
@@ -1911,7 +1910,7 @@ CONTAINS
       & za_depth_below_sea_half, &
       & t_cf_var('A_veloc_v_acc', 'kg/kg', 'vertical velocity diffusion', datatype_flt),&
       & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
-      & ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_physics","oce_default"))
+      & ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_physics","oce_diag"))
  
 !
 !   !! Tracers

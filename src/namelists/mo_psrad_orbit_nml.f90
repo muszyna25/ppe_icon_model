@@ -19,7 +19,7 @@ MODULE mo_psrad_orbit_nml
   USE mo_psrad_orbit_config,  ONLY: psrad_orbit_config
   USE mo_io_units,            ONLY: nnml
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
-  USE mo_master_config,       ONLY: isRestart
+  USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_mpi,                 ONLY: my_process_is_stdio
@@ -62,7 +62,7 @@ CONTAINS
     ! If this is a resumed integration, overwrite the defaults above 
     ! by values in the previous integration.
     !----------------------------------------------------------------
-    IF (isRestart()) THEN
+    IF (use_restart_namelists()) THEN
       funit = open_and_restore_namelist('psrad_orbit_nml')
       READ(funit,NML=psrad_orbit_nml)
       CALL close_tmpfile(funit)
