@@ -16,7 +16,7 @@ case "$ac_sitename" in
     enable_jsbach=yes
     ;;
   cscs.ch)
-    enable_jsbach=no
+    enable_jsbach=yes
     ;;
   *)
     enable_jsbach=no

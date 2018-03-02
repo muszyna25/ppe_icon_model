@@ -261,7 +261,6 @@ MODULE mo_solve_nonhydro
       ! for igradp_method = 3
       iplev(:), ipeidx(:), ipeblk(:)
 
-
     !-------------------------------------------------------------------
     IF (use_dycore_barrier) THEN
       CALL timer_start(timer_barrier)
@@ -477,7 +476,7 @@ MODULE mo_solve_nonhydro
 !$ACC                   z_dexner_dz_c, z_rth_pr, z_th_ddz_exner_c ), &
 !$ACC          PRIVATE( z_theta_v_pr_ic, z_exner_ic ), &
 !$ACC          IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_exner_ic,z_theta_v_pr_ic,z_w_backtraj,&
 !$OMP            z_theta_v_pr_mc_m1,z_theta_v_pr_mc,z_rho_tavg_m1,z_rho_tavg, &
@@ -759,7 +758,7 @@ __COLLAPSE_2_LOOPS
 
 #ifdef _OPENACC
 !$ACC PARALLEL PRESENT( p_patch, p_nh ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -888,7 +887,7 @@ __COLLAPSE_2_LOOPS
 !$ACC PRESENT( p_patch, p_int, p_nh, icidx, icblk, ividx, ivblk ), &
 !$ACC PRESENT( z_rho_v, z_theta_v_v, z_rth_pr, z_grad_rth ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0,lvn_pos,&
 !$OMP            z_ntdistv_bary_1,z_ntdistv_bary_2,distv_bary_1,distv_bary_2) ICON_OMP_DEFAULT_SCHEDULE
@@ -1039,7 +1038,7 @@ __COLLAPSE_2_LOOPS
 !$ACC PARALLEL &
 !$ACC PRESENT( p_patch, p_nh, icidx, icblk, z_dwdz_dd, z_graddiv_vn, kstart_dd3d ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -1088,7 +1087,7 @@ __COLLAPSE_2_LOOPS
 !$ACC PRESENT( p_patch, p_int, p_nh, icidx, icblk, ikidx, z_dexner_dz_c, z_exner_ex_pr ), &
 !$ACC PRESENT( z_gradh_exner, z_hydro_corr, nflatlev, nflat_gradp ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_theta1,z_theta2,ikp1,ikp2) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -1310,7 +1309,7 @@ __COLLAPSE_2_LOOPS
 !$ACC PRESENT( iqidx, iqblk, bdy_divdamp, scal_divdamp, nrdmax ), &
 !$ACC PRIVATE( z_graddiv2_vn  ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_graddiv2_vn) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -1485,7 +1484,7 @@ __COLLAPSE_2_LOOPS
 
 #ifdef _OPENACC
 !$ACC PARALLEL PRESENT( p_patch, p_nh ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -1587,7 +1586,7 @@ __COLLAPSE_2_LOOPS
 !$ACC PRESENT( iqidx, iqblk, z_graddiv_vn, z_theta_v_fl_e, z_w_concorr_me, z_vt_ie, z_kin_hor_e ), &
 !$ACC PRIVATE( z_vn_avg), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_vn_avg) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -1872,7 +1871,7 @@ __COLLAPSE_2_LOOPS
 ! This is one of the very few code divergences for OPENACC (see comment below)
 !
 !$ACC PARALLEL PRESENT( p_patch, p_nh, p_int, z_w_concorr_me, nflatlev ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -2060,7 +2059,7 @@ __COLLAPSE_2_LOOPS
 !$ACC PRIVATE( z_w_expl,z_contr_w_fl_l, z_rho_expl, z_exner_expl, z_q ),    &
 !$ACC PRIVATE( z_alpha,z_beta,z_flxdiv_mass,z_flxdiv_theta ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_w_expl,z_contr_w_fl_l,z_rho_expl,z_exner_expl, &
 !$OMP   z_a,z_b,z_c,z_g,z_q,z_alpha,z_beta,z_gamma,ic,z_flxdiv_mass,z_flxdiv_theta  ) ICON_OMP_DEFAULT_SCHEDULE
@@ -2506,7 +2505,7 @@ __COLLAPSE_2_LOOPS
 !$ACC PARALLEL &
 !$ACC PRESENT( p_patch, p_nh, prep_adv, z_dwdz_dd, kstart_dd3d ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -2723,7 +2722,7 @@ __COLLAPSE_2_LOOPS
 
 #ifdef _OPENACC
 !$ACC PARALLEL PRESENT( p_patch, p_nh ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 #ifndef __SX__
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
@@ -2765,7 +2764,7 @@ __COLLAPSE_2_LOOPS
 
 #ifdef _OPENACC
 !$ACC PARALLEL PRESENT( p_patch, p_nh ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 #ifndef __SX__
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE

@@ -10,8 +10,8 @@ start_date="2001-01-01T00:00:00Z"
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
-restart_interval="P1Y"
-checkpoint_interval="P1Y"
+restart_interval="P5Y"
+checkpoint_interval="P5Y"
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
@@ -19,8 +19,12 @@ output_interval="P1M"                  # ocean model output interval in days
 daily="P1D"
 monthly="P1M"
 file_interval="P1Y"
-#modelTimeStep="PT1800S"
 modelTimeStep="PT600S"
+restartSemaphoreFilename='isRestartRun.sem'
+if [ -f ../experiments/${EXPNAME}/${restartSemaphoreFilename} ]; then
+  modelTimeStep="PT1800S"
+fi
+
 autoPostProcessing="false"                         # submit postprocessing job
 #steps_per_file=610                               # assigned output intervals per file interval
 #-----------------------------------------------------------------------------
@@ -72,7 +76,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'group:oce_essentials', 'group:ice_default'
+  ml_varlist       = 'group:oce_default','group:oce_essentials', 'group:ice_default'
 /
 &output_nml
   output_start     = "${start_date}"
@@ -160,17 +164,16 @@ cat > ${ocean_namelist} << EOF
   bottom_drag_coeff               =   3.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
   use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
   lambda_wind                     = 0.03
-  tracer_TopWindMixing            = 4.0E-6
-  velocity_TopWindMixing          = 4.0E-6
+  tracer_TopWindMixing            = 1.0E-5
+  velocity_TopWindMixing          = 1.0E-5
   Salinity_ConvectionRestrict     = 0.0
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
   tapering_scheme=1
-    GMRedi_usesRelativeMaxSlopes = .false.
-  S_max=1.0e-3                                   !1.0
-  S_critical=0.05                             ! 1e-1 to 1e-2
-  S_d=0.0001                                 ! 5e-3 to 5e-4
+  GMRedi_usesRelativeMaxSlopes = .false.
+  S_max=1.0e-3                               
+  S_d=0.0001                                 ! 1e-3 to 1e-4
   k_tracer_GM_kappa_parameter     = 250.0     !
   k_tracer_isoneutral_parameter   = 250.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
   k_tracer_dianeutral_parameter   = 0.0       !1.0E-5  !

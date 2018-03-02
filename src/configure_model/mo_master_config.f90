@@ -30,9 +30,9 @@ MODULE mo_master_config
   PUBLIC :: lrestart_write_last
   PUBLIC :: experimentReferenceDate, experimentStartDate, experimentStopDate
   PUBLIC :: checkpointTimeIntval, restartTimeIntval
-  PUBLIC :: setRestart, setRestartWriteLast
+  PUBLIC :: setRestart, setRestartWriteLast, setReadRestartNamelists
   PUBLIC :: isRestart
-  
+  PUBLIC :: read_restart_namelists  
   ! component model configuration
   !_______________________________________________________________________________________________
   !
@@ -60,6 +60,8 @@ MODULE mo_master_config
   
   LOGICAL, PROTECTED :: lrestart = .false.
 
+
+   LOGICAL, PROTECTED :: read_restart_namelists = .true.
   !> Flag: True, if model run should create restart at experiment end.
   !  This is independent from the settings of the restart interval.
   LOGICAL, PROTECTED ::  lrestart_write_last = .TRUE.
@@ -87,6 +89,12 @@ CONTAINS
     LOGICAL, INTENT(in) :: lr
     lrestart = lr
   END SUBROUTINE setRestart
+
+  SUBROUTINE setReadRestartNamelists(lr)
+    LOGICAL, INTENT(in) :: lr
+    read_restart_namelists = lr
+  END SUBROUTINE setReadRestartNamelists
+
 
   SUBROUTINE setRestartWriteLast(lr)
     LOGICAL, INTENT(in) :: lr

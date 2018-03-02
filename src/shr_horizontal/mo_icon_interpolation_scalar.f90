@@ -267,7 +267,7 @@ IF (ltimer) CALL timer_start(timer_intp)
 !$ACC PRESENT( ptr_patch, c_int, p_vertex_in, p_edge_out ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -430,7 +430,7 @@ IF ( (l_limited_area .OR. ptr_patch%id > 1) .AND. lfill_latbc) THEN ! Fill outer
 !$ACC PRESENT( ptr_patch, p_cell_in, p_edge_out ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -482,7 +482,7 @@ IF (slev > 1) THEN
 !$ACC PRESENT( ptr_patch, c_int, p_cell_in, p_edge_out ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -523,7 +523,7 @@ ELSE
 !$ACC PRESENT( ptr_patch, c_int, p_cell_in, p_edge_out ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -714,7 +714,7 @@ ELSE IF (ptr_patch%geometry_info%cell_type == 3) THEN
 !$ACC PRESENT( ptr_patch, v_int, p_edge_in, p_vert_out ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -858,7 +858,7 @@ IF (ptr_patch%geometry_info%cell_type == 3) THEN
 !$ACC PRESENT( ptr_patch, c_int, p_edge_in, p_cell_out ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -900,7 +900,7 @@ ELSE IF (ptr_patch%geometry_info%cell_type == 6) THEN
 !$ACC PRESENT( ptr_patch, c_int, p_edge_in, p_cell_out ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -1034,7 +1034,7 @@ IF (ptr_patch%geometry_info%cell_type == 6) THEN
 !$ACC PRESENT( ptr_patch, p_cell_in, c_int, p_vert_out ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -1077,7 +1077,7 @@ ELSE IF (ptr_patch%geometry_info%cell_type == 3) THEN
 !$ACC PRESENT( ptr_patch, p_cell_in, c_int, p_vert_out ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -1206,7 +1206,7 @@ IF (ltimer) CALL timer_start(timer_intp)
 !$ACC PRESENT( ptr_patch, p_cell_in, c_int, p_vert_out ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -1644,7 +1644,7 @@ IF (ltimer) CALL timer_start(timer_intp)
 !$ACC PRESENT( ptr_patch, psi_c, avg_coeff, avg_psi_c ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,jk) ICON_OMP_DEFAULT_SCHEDULE
