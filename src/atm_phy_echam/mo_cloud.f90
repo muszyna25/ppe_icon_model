@@ -78,7 +78,7 @@ CONTAINS
     ! - INPUT  2D .
                            , papm1                                                   &
                            , pdz                                                     &
-                           , pmdry                                                   &
+                           , pmref                                                   &
                            , prho                                                    &
                            , pcpair                                                  &
                            , pacdnc                                                  &
@@ -109,7 +109,7 @@ CONTAINS
     REAL(wp), INTENT(IN)    ::     &
       & papm1    (kbdim,klev)     ,&!< pressure at full levels                   (n-1)
       & pdz      (kbdim,klev)     ,&!< geometric height thickness of layer
-      & pmdry    (kbdim,klev)     ,&!< dry air content
+      & pmref    (kbdim,klev)     ,&!< air content
       & prho     (kbdim,klev)     ,&!< air density
       & pcpair   (kbdim,klev)     ,&!< specific heat of moist air
       & pacdnc   (kbdim,klev)     ,&!< cloud droplet number concentration (specified)
@@ -317,12 +317,12 @@ CONTAINS
 !IBM* NOVECTOR
         DO 321 jl = 1,kproma
 
-           zcons     = (pmdry(jl,jk)/pdtime)/(zlsdcp(jl)-zlvdcp(jl))
+           zcons     = (pmref(jl,jk)/pdtime)/(zlsdcp(jl)-zlvdcp(jl))
            ztdif     = MAX(0.0_wp,ptm1(jl,jk)-tmelt)
            zsnmlt    = MIN(zxsec*zsfl(jl),zcons*ztdif)
            zrfl(jl)  = zrfl(jl)+zsnmlt
            zsfl(jl)  = zsfl(jl)-zsnmlt
-           zsmlt(jl) = zsnmlt/pmdry(jl,jk)*pdtime
+           zsmlt(jl) = zsnmlt/pmref(jl,jk)*pdtime
            zsnmlt    = MAX(0.0_wp,pxim1(jl,jk))
            zimlt(jl) = FSEL(-ztdif,0.0_wp,zsnmlt)
 321     END DO
@@ -385,11 +385,11 @@ CONTAINS
                zclcstar = zclcpre(jl)
                zcfac4c  = 0.78_wp*ztmp2(nl)+232.19_wp*ztmp1(nl)*ztmp3(nl)
                zzeps    = -zxsec*zsfl(jl)*zclcpre_inv(jl)
-               zzeps    = MAX(zzeps,zcoeff(jl)*zcfac4c*pmdry(jl,jk))
-               zsub(jl) = -(zzeps/pmdry(jl,jk))*pdtime*zclcstar
+               zzeps    = MAX(zzeps,zcoeff(jl)*zcfac4c*pmref(jl,jk))
+               zsub(jl) = -(zzeps/pmref(jl,jk))*pdtime*zclcstar
                zsub(jl) = MIN(zsub(jl),MAX(zxsec*(zqsi(jl)-pqm1(jl,jk)),0.0_wp))
                zsub(jl) = MAX(zsub(jl),0.0_wp)
-               zsub(jl) = MIN(zsub(jl),zsfl(jl)/pmdry(jl,jk)*pdtime)
+               zsub(jl) = MIN(zsub(jl),zsfl(jl)/pmref(jl,jk)*pdtime)
             END DO
           END IF
           !
@@ -427,11 +427,11 @@ CONTAINS
                zclcstar = zclcpre(jl)
                zzepr    = 870._wp*zsusatw*ztmp2(nl)*zqrho_sqrt(jl)/SQRT(1.3_wp)
                zzepr    = zzepr/ztmp1(nl)
-               zzepr    = MAX(-zxsec*zrfl(jl)*zclcpre_inv(jl),zzepr*pmdry(jl,jk))
-               zevp(jl) = -(zzepr/pmdry(jl,jk))*pdtime*zclcstar
+               zzepr    = MAX(-zxsec*zrfl(jl)*zclcpre_inv(jl),zzepr*pmref(jl,jk))
+               zevp(jl) = -(zzepr/pmref(jl,jk))*pdtime*zclcstar
                zevp(jl) = MIN(zevp(jl),MAX(zxsec*(zqsw-pqm1(jl,jk)),0.0_wp))
                zevp(jl) = MAX(zevp(jl),0.0_wp)
-               zevp(jl) = MIN(zevp(jl),zrfl(jl)/pmdry(jl,jk)*pdtime)
+               zevp(jl) = MIN(zevp(jl),zrfl(jl)/pmref(jl,jk)*pdtime)
             END DO
           END IF
           !
@@ -485,8 +485,8 @@ CONTAINS
         zal2          = zxitop/(prho(jl,jk)*zxifall)
         zxised(jl)    = MAX(0.0_wp,zxip1*ztmp3(jl)+zal2*(1._wp-ztmp3(jl)))
         zqsed(jl)     = zxised(jl)-zxip1
-        zxibot        = MAX(0.0_wp,zxitop-zqsed(jl)*pmdry(jl,jk)/pdtime)
-        zqsed(jl)     = (zxitop-zxibot)/pmdry(jl,jk)*pdtime
+        zxibot        = MAX(0.0_wp,zxitop-zqsed(jl)*pmref(jl,jk)/pdtime)
+        zqsed(jl)     = (zxitop-zxibot)/pmref(jl,jk)*pdtime
         zxised(jl)    = zxip1+zqsed(jl)
         zxiflux(jl)   = zxibot
 410   END DO
@@ -771,7 +771,7 @@ CONTAINS
     !!$              zzevp        = zxlb(jl)*zclcaux(jl)/pdtime
     !!$              pxlte_cld(jl,jk) = pxlte_cld(jl,jk)-zzevp
     !!$              pxite_cld(jl,jk) = pxite_cld(jl,jk)+zzevp
-    !!$              pq_cld  (jl,jk)  = pq_cld(jl,jk)+alf*zzevp*pmdry(jl,jk)
+    !!$              pq_cld  (jl,jk)  = pq_cld(jl,jk)+alf*zzevp*pmref(jl,jk)
     !!$              zxib(jl)     = zxib(jl)+zxlb(jl)
     !!$              zxlb(jl)     = 0.0_wp
     !!$           END IF
@@ -981,14 +981,14 @@ CONTAINS
 
 !IBM* NOVECTOR
       DO jl = 1,kproma
-         zzdrr       =  zrpr(jl)           *pmdry(jl,jk)/pdtime
-         zzdrs       = (zspr(jl)+zsacl(jl))*pmdry(jl,jk)/pdtime
+         zzdrr       =  zrpr(jl)           *pmref(jl,jk)/pdtime
+         zzdrs       = (zspr(jl)+zsacl(jl))*pmref(jl,jk)/pdtime
          zzdrs       = zzdrs+zxiflux(jl)
-         zcons       = (pmdry(jl,jk)/pdtime)/(zlsdcp(jl)-zlvdcp(jl))
+         zcons       = (pmref(jl,jk)/pdtime)/(zlsdcp(jl)-zlvdcp(jl))
          zsnmlt      = MIN(zxsec*zzdrs,zcons*MAX(0._wp,(ztp1tmp(jl)-tmelt)))
          zzdrr       = zzdrr+zsnmlt
          zzdrs       = zzdrs-zsnmlt
-         zsmlt(jl)   = zsmlt(jl)+zsnmlt/pmdry(jl,jk)*pdtime
+         zsmlt(jl)   = zsmlt(jl)+zsnmlt/pmref(jl,jk)*pdtime
          zpretot     = zrfl(jl)+zsfl(jl)
          zpredel     = zzdrr+zzdrs
          zclcpre(jl) = FSEL(zpredel-zpretot,zclcaux(jl),zclcpre(jl))
@@ -1018,8 +1018,8 @@ CONTAINS
 !!$         IF (zclcpre(jl) > zepsec) THEN
 !!$            zfrain(jl,jk)=(zrfl(jl)+zzdrr)/zclcpre(jl)
 !!$            zfsnow(jl,jk)=(zsfl(jl)+zzdrs)/zclcpre(jl)
-!!$            zfevapr(jl,jk)=(zevp(jl)*pmdry(jl,jk)/pdtime)/zclcpre(jl)
-!!$            zfsubls(jl,jk)=(zsub(jl)*pmdry(jl,jk)/pdtime)/zclcpre(jl)
+!!$            zfevapr(jl,jk)=(zevp(jl)*pmref(jl,jk)/pdtime)/zclcpre(jl)
+!!$            zfsubls(jl,jk)=(zsub(jl)*pmref(jl,jk)/pdtime)/zclcpre(jl)
 !!$         ELSE
 !!$            zfrain(jl,jk) =0.0_wp
 !!$            zfsnow(jl,jk) =0.0_wp
@@ -1027,16 +1027,16 @@ CONTAINS
 !!$            zfsubls(jl,jk)=0.0_wp
 !!$         ENDIF
 
-         zrfl(jl)    = zrfl(jl)+zzdrr-zevp(jl)*pmdry(jl,jk)/pdtime
-         zsfl(jl)    = zsfl(jl)+zzdrs-zsub(jl)*pmdry(jl,jk)/pdtime
+         zrfl(jl)    = zrfl(jl)+zzdrr-zevp(jl)*pmref(jl,jk)/pdtime
+         zsfl(jl)    = zsfl(jl)+zzdrs-zsub(jl)*pmref(jl,jk)/pdtime
       END DO
 
     ELSE
 
 !IBM* NOVECTOR
       DO jl = 1,kproma
-         zzdrr          =  zrpr(jl)           *pmdry(jl,jk)/pdtime
-         zzdrs          = (zspr(jl)+zsacl(jl))*pmdry(jl,jk)/pdtime
+         zzdrr          =  zrpr(jl)           *pmref(jl,jk)/pdtime
+         zzdrs          = (zspr(jl)+zsacl(jl))*pmref(jl,jk)/pdtime
          zpretot        = zrfl(jl)+zsfl(jl)
          zpredel        = zzdrr+zzdrs
          zclcpre(jl)    = FSEL(zpredel-zpretot,zclcaux(jl),zclcpre(jl))
@@ -1065,16 +1065,16 @@ CONTAINS
 !!$         IF (zclcpre(jl) > zepsec) THEN
 !!$           zfrain(jl,jk)=(zrfl(jl)+zzdrr)/zclcpre(jl)
 !!$           zfsnow(jl,jk)=(zsfl(jl)+zzdrs)/zclcpre(jl)
-!!$           zfevapr(jl,jk)=(zevp(jl)*pmdry(jl,jk)/pdtime)/zclcpre(jl)
-!!$           zfsubls(jl,jk)=(zsub(jl)*pmdry(jl,jk)/pdtime)/zclcpre(jl)
+!!$           zfevapr(jl,jk)=(zevp(jl)*pmref(jl,jk)/pdtime)/zclcpre(jl)
+!!$           zfsubls(jl,jk)=(zsub(jl)*pmref(jl,jk)/pdtime)/zclcpre(jl)
 !!$         ELSE
 !!$           zfrain(jl,jk) =0.0_wp
 !!$           zfsnow(jl,jk) =0.0_wp
 !!$           zfevapr(jl,jk)=0.0_wp
 !!$           zfsubls(jl,jk)=0.0_wp
 !!$         ENDIF
-         zrfl(jl)       = zrfl(jl)+zzdrr-zevp(jl)*pmdry(jl,jk)/pdtime
-         zsfl(jl)       = zsfl(jl)+zzdrs-zsub(jl)*pmdry(jl,jk)/pdtime
+         zrfl(jl)       = zrfl(jl)+zzdrr-zevp(jl)*pmref(jl,jk)/pdtime
+         zsfl(jl)       = zsfl(jl)+zzdrs-zsub(jl)*pmref(jl,jk)/pdtime
       END DO
 
     END IF
@@ -1113,7 +1113,7 @@ CONTAINS
        pqte_cld(jl,jk)   = pqte_cld(jl,jk)  + zqvte
        pxlte_cld(jl,jk)  = pxlte_cld(jl,jk) + zxlte
        pxite_cld(jl,jk)  = pxite_cld(jl,jk) + zxite
-       pq_cld(jl,jk)     = pq_cld(jl,jk)    + zq*pmdry(jl,jk)
+       pq_cld(jl,jk)     = pq_cld(jl,jk)    + zq*pmref(jl,jk)
 820 END DO
 
 !IBM* NOVECTOR
@@ -1140,7 +1140,7 @@ CONTAINS
        pxlte_cld(jl,jk)   = pxlte_cld(jl,jk) + zdxlcor
        pxite_cld(jl,jk)   = pxite_cld(jl,jk) + zdxicor
        pqte_cld(jl,jk)    = pqte_cld(jl,jk)  - zdxlcor - zdxicor
-       pq_cld(jl,jk)      = pq_cld(jl,jk)    + (alv*zdxlcor + als*zdxicor)*pmdry(jl,jk)
+       pq_cld(jl,jk)      = pq_cld(jl,jk)    + (alv*zdxlcor + als*zdxicor)*pmref(jl,jk)
 
 821 END DO
 
@@ -1189,7 +1189,7 @@ CONTAINS
     !
     DO 933 jk     = jks,klev
        DO 932 jl   = 1,kproma
-          zxlvi(jl)  = zxlvi(jl)   + (pxlm1 (jl,jk)+pxlte_cld(jl,jk)*pdtime)*pmdry(jl,jk)
+          zxlvi(jl)  = zxlvi(jl)   + (pxlm1 (jl,jk)+pxlte_cld(jl,jk)*pdtime)*pmref(jl,jk)
 932    END DO
 933 END DO
 
@@ -1198,7 +1198,7 @@ CONTAINS
        zxlvitop(jl) = 0.0_wp
        klevtop = kctop(jl) - 1
        DO 936 jk = jks, klevtop
-          zxlvitop(jl) = zxlvitop(jl)+(pxlm1 (jl,jk)+pxlte_cld(jl,jk)*pdtime)*pmdry(jl,jk)
+          zxlvitop(jl) = zxlvitop(jl)+(pxlm1 (jl,jk)+pxlte_cld(jl,jk)*pdtime)*pmref(jl,jk)
 936    END DO
 938 END DO
 

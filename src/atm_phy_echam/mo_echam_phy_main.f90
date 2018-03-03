@@ -42,7 +42,7 @@ MODULE mo_echam_phy_main
   USE mo_timer               ,ONLY: ltimer, timer_start, timer_stop,  &
     &                               timer_cover
   USE mtime                  ,ONLY: datetime, isCurrentEventActive, &
-    &                               OPERATOR(<=), OPERATOR(>)
+    &                               OPERATOR(==), OPERATOR(<=), OPERATOR(>)
   USE mo_echam_sfc_indices   ,ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_cover               ,ONLY: cover
 
@@ -133,6 +133,41 @@ CONTAINS
 
     ! initialize physics accumulated heating
     field% q_phy(:,:,:) = 0._wp
+
+    ! initialize output fields of unused parameterizations,
+    ! which may contain values from the restart file
+    ! (this block needs to be rearrranged later)
+    !
+    IF ( echam_phy_tc(jg)%dt_rad == dt_zero ) THEN
+       field% rsd_rt      (:,:,:) = 0.0_wp
+       field% rsu_rt      (:,:,:) = 0.0_wp
+       field% rsdcs_rt    (:,:,:) = 0.0_wp
+       field% rsucs_rt    (:,:,:) = 0.0_wp
+       field% rvds_dir_rt (:,  :) = 0.0_wp
+       field% rpds_dir_rt (:,  :) = 0.0_wp
+       field% rnds_dir_rt (:,  :) = 0.0_wp
+       field% rvds_dif_rt (:,  :) = 0.0_wp
+       field% rpds_dif_rt (:,  :) = 0.0_wp
+       field% rnds_dif_rt (:,  :) = 0.0_wp
+       field% rvus_rt     (:,  :) = 0.0_wp
+       field% rpus_rt     (:,  :) = 0.0_wp
+       field% rnus_rt     (:,  :) = 0.0_wp
+       field% rld_rt      (:,:,:) = 0.0_wp
+       field% rlu_rt      (:,:,:) = 0.0_wp
+       field% rldcs_rt    (:,:,:) = 0.0_wp
+       field% rlucs_rt    (:,:,:) = 0.0_wp
+    END IF
+    !
+    IF ( echam_phy_tc(jg)%dt_cnv == dt_zero ) THEN
+       field% rsfc  (:,:) = 0.0_wp
+       field% ssfc  (:,:) = 0.0_wp
+       field% rtype (:,:) = 0.0_wp
+    END IF
+    !
+    IF ( echam_phy_tc(jg)%dt_cld == dt_zero ) THEN
+       field% rsfl (:,:) = 0.0_wp
+       field% ssfl (:,:) = 0.0_wp
+    END IF
 
     !------------------------------------------------------------
     ! 3. COMPUTE SOME FIELDS NEEDED BY THE PHYSICAL ROUTINES.
@@ -382,8 +417,6 @@ CONTAINS
             &                   patch,                           &
             &                   datetime_old, pdtime             )
        !
-    ELSE
-       field% rtype(:,:) = 0.0_wp ! this probably is needed as is io in the echam_condensation
     END IF
 
     !-------------------------------------------------------------

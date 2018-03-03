@@ -29,7 +29,7 @@ MODULE mo_echam_cnv_config
   USE mo_grid_config          ,ONLY: n_dom
   USE mo_run_config           ,ONLY: nlev
   USE mo_vertical_coord_table ,ONLY: vct_a
-  USE mo_physical_constants   ,ONLY: grav, p0sl_bg, p0ref
+  USE mo_physical_constants   ,ONLY: p0sl_bg, p0ref
 
   IMPLICIT NONE
   PRIVATE
@@ -44,7 +44,7 @@ MODULE mo_echam_cnv_config
   PUBLIC :: dealloc_echam_cnv_config   !< deallocate
 
   ! variables
-  PUBLIC ::                  cevapcu   !< evaporation coefficient (n_dom,nlev)
+  PUBLIC ::                  cevapcu   !< evaporation coefficient (nlev,n_dom)
 
   !>
   !! Name of this unit
@@ -181,7 +181,7 @@ CONTAINS
     !
     DO jk = 1,nlev
        ztmp          = 1.E3_wp/(38.3_wp*0.293_wp)*SQRT(zeta(jk))
-       cevapcu(jk,:) = 1.93E-6_wp*261._wp*SQRT(ztmp)*0.5_wp/grav
+       cevapcu(jk,:) = 1.93E-6_wp*261._wp*SQRT(ztmp)*0.5_wp
     END DO
     !
   END SUBROUTINE eval_echam_cnv_config

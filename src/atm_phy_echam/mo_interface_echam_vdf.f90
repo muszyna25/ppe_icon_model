@@ -97,6 +97,7 @@ CONTAINS
     REAL(wp) :: zfactor_sfc(nproma)
     REAL(wp) :: zco2       (nproma)          !< co2 value passed on to jsbach
 
+    REAL(wp) :: zqx      (nproma,nlev)       !< total cloud condensate
     REAL(wp) :: zcptgz   (nproma,nlev)       !< dry static energy
     REAL(wp) :: zthvvar  (nproma,nlev)       !< intermediate value of thvvar
     REAL(wp) :: dummy    (nproma,nlev)       !< to replace thvvar
@@ -171,6 +172,9 @@ CONTAINS
           dummy (:,:)=0._wp
           dummyx(:,:)=0._wp 
           !
+          zqx(jcs:jce,:) =  prm_field(jg)%qtrc(jcs:jce,:,jb,iqc) &
+               &           +prm_field(jg)%qtrc(jcs:jce,:,jb,iqi)
+          !
           IF (ltimer) CALL timer_start(timer_vdiff_down)
           !
           ! Turbulent mixing, part I:
@@ -197,10 +201,10 @@ CONTAINS
                &          field% qtrc(:,:,jb,iqv),         &! in, qm1
                &          field% qtrc(:,:,jb,iqc),         &! in, xlm1
                &          field% qtrc(:,:,jb,iqi),         &! in, xim1
-               &          field%   qx(:,:,jb),             &! in, xlm1 + xim1
+               &                  zqx(:,:),                &! in, xlm1 + xim1
                &          field% qtrc(:,:,jb,iqt:),        &! in, xtm1
-               &          field% mair(:,:,jb),             &! in,     air mass
-               &          field% mdry(:,:,jb),             &! in, dry air mass
+               &          field% mair(:,:,jb),             &! in, moist     air mass
+               &          field% mref(:,:,jb),             &! in, reference air mass
                &          field% presi_old(:,:,jb),        &! in, aphm1
                &          field% presm_old(:,:,jb),        &! in, apm1
                &          field%   tv(:,:,jb),             &! in, virtual temperaturea
@@ -381,8 +385,8 @@ CONTAINS
                &        field%   ua(:,:,jb),             &! in, um1
                &        field%   va(:,:,jb),             &! in, vm1
                &        field%   ta(:,:,jb),             &! in, tm1
-               &        field% mair(:,:,jb),             &! in, moist air mass [kg/m2]
-               &        field% mdry(:,:,jb),             &! in, dry   air mass [kg/m2]
+               &        field% mair(:,:,jb),             &! in, moist     air mass [kg/m2]
+               &        field% mref(:,:,jb),             &! in, reference air mass [kg/m2]
                &        field% qtrc(:,:,jb,iqv),         &! in, qm1
                &        field% qtrc(:,:,jb,iqc),         &! in, xlm1
                &        field% qtrc(:,:,jb,iqi),         &! in, xim1
@@ -439,7 +443,7 @@ CONTAINS
             &          field%    ta(:,nlev,jb),         &! in tm1
             &          field% presm_old(:,nlev,jb),     &! in, apm1
             &          field% presi_old(:,nlevp1,jb),   &! in, aphm1
-            &          field%   qx(:,nlev,jb),          &! in, xlm1 + xim1
+            &                  zqx(:,nlev),             &! in, xlm1 + xim1
             &          field%   ua(:,nlev,jb),          &! in, um1
             &          field%   va(:,nlev,jb),          &! in, vm1
             &          field% ocu (:,jb),               &! in, ocean sfc velocity, u-component

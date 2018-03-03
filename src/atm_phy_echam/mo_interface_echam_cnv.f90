@@ -106,7 +106,7 @@ CONTAINS
                &       pdtime,                       &! in
                &       field% zf       (:,:,jb),     &! in
                &       field% zh       (:,:,jb),     &! in
-               &       field% mdry     (:,:,jb),     &! in
+               &       field% mref     (:,:,jb),     &! in
                &             zta       (:,:),        &! in
                &             zqtrc     (:,:,   iqv), &! in
                &             zqtrc_cnd (:,:),        &! in

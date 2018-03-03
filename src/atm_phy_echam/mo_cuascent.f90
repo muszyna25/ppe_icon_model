@@ -63,7 +63,7 @@ CONTAINS
   !!
   SUBROUTINE cuasc(    jg,                                                           &
     &        kproma,   kbdim,    klev,     klevp1,   klevm1,                         &
-    &        pzf,      pzh,      pmdry,                                              &
+    &        pzf,      pzh,      pmref,                                              &
     &        ptenh,    pqenh,    puen,     pven,                                     &
     &        ktrac,                                                                  &
     &        pdtime,                                                                 &
@@ -86,7 +86,7 @@ CONTAINS
     INTEGER :: jl, jk, jt, ik, icall, ikb, ikt, n, locnt
     REAL(wp),INTENT (IN) :: pdtime
     REAL(wp),INTENT (IN) :: pzf(kbdim,klev),  pzh(kbdim,klevp1)
-    REAL(wp),INTENT (IN) :: pmdry(kbdim,klev)
+    REAL(wp),INTENT (IN) :: pmref(kbdim,klev)
     
     REAL(wp) :: ptenh(kbdim,klev),       pqenh(kbdim,klev),                          &
       &         puen(kbdim,klev),        pven(kbdim,klev),                           &
@@ -292,7 +292,7 @@ CONTAINS
         END IF
         zph(jl)=paphp1(jl,jk)
         IF(ktype(jl).EQ.3.AND.jk.EQ.kcbot(jl)) THEN
-          zmfmax=pmdry(jl,jk-1)*zcons
+          zmfmax=pmref(jl,jk-1)*zcons
           IF(pmfub(jl).GT.zmfmax) THEN
             zfac=zmfmax/pmfub(jl)
             pmfu(jl,jk+1)=pmfu(jl,jk+1)*zfac
@@ -306,7 +306,7 @@ CONTAINS
       DO jt=1,ktrac
         DO jl=1,kproma
           IF(ktype(jl).EQ.3.AND.jk.EQ.kcbot(jl)) THEN
-            zmfmax=pmdry(jl,jk-1)*zcons
+            zmfmax=pmref(jl,jk-1)*zcons
             IF(pmfub(jl).GT.zmfmax) THEN
               zfac=zmfmax/pmfub(jl)
               pmfuxt(jl,jk+1,jt)=pmfuxt(jl,jk+1,jt)*zfac
@@ -319,7 +319,7 @@ CONTAINS
       !
       DO jl=1,kproma
         IF(ktype(jl).EQ.3.AND.jk.EQ.kcbot(jl)) THEN
-          zmfmax=pmdry(jl,jk-1)*zcons
+          zmfmax=pmref(jl,jk-1)*zcons
           pmfub(jl)=MIN(pmfub(jl),zmfmax)
         END IF
       END DO
@@ -331,7 +331,7 @@ CONTAINS
       ik=jk
       CALL cuentr(    jg,                                                             &
         &   kproma,   kbdim,    klev,     klevp1,   ik,                               &
-        &   pzh,      pmdry,                                                          &
+        &   pzh,      pmref,                                                          &
         &   ptenh,    pqenh,    pqte,     paphp1,                                     &
         &   klwmin,   ldcum,    ktype,    kcbot,    kctop0,                           &
         &   zpbase,   pmfu,     pentr,    zodetr,                                     &
@@ -350,7 +350,7 @@ CONTAINS
 
         IF(jk.LT.kcbot(jl)) THEN
           zmftest=pmfu(jl,jk+1)+zdmfen(jl)-zdmfde(jl)
-          zmfmax=MIN(zmftest,pmdry(jl,jk-1)*zcons)
+          zmfmax=MIN(zmftest,pmref(jl,jk-1)*zcons)
           zdmfen(jl)=MAX(zdmfen(jl)-MAX(zmftest-zmfmax,0._wp),0._wp)
         END IF
         zdmfde(jl)=MIN(zdmfde(jl),0.75_wp*pmfu(jl,jk+1))
@@ -359,7 +359,7 @@ CONTAINS
           zdprho=pzh(jl,jk)-pzh(jl,jk+1)
           zoentr(jl,jk)=zoentr(jl,jk)*zdprho*pmfu(jl,jk+1)
           zmftest=pmfu(jl,jk)+zoentr(jl,jk)-zodetr(jl,jk)
-          zmfmax=MIN(zmftest,pmdry(jl,jk-1)*zcons)
+          zmfmax=MIN(zmftest,pmref(jl,jk-1)*zcons)
           zoentr(jl,jk)=MAX(zoentr(jl,jk)-MAX(zmftest-zmfmax,0._wp),0._wp)
         ELSE
           zoentr(jl,jk)=0._wp
@@ -680,7 +680,7 @@ CONTAINS
   !!
   SUBROUTINE cuentr(   jg,                                                           &
     &        kproma,   kbdim,    klev,     klevp1,   kk,                             &
-    &        pzh,      pmdry,                                                        &
+    &        pzh,      pmref,                                                        &
     &        ptenh,    pqenh,    pqte,     paphp1,                                   &
     &        klwmin,   ldcum,    ktype,    kcbot,    kctop0,                         &
     &        ppbase,   pmfu,     pentr,    podetr,                                   &
@@ -690,7 +690,7 @@ CONTAINS
     INTEGER, INTENT (IN) :: jg
     INTEGER, INTENT (IN) :: kbdim, klev, klevp1, kproma, kk
     !
-    REAL(wp),INTENT (IN) :: pzh(kbdim,klevp1), pmdry(kbdim,klev)
+    REAL(wp),INTENT (IN) :: pzh(kbdim,klevp1), pmref(kbdim,klev)
 
     REAL(wp) :: ptenh(kbdim,klev),       pqenh(kbdim,klev),                          &
       &         paphp1(kbdim,klevp1),                                                &
@@ -730,7 +730,7 @@ CONTAINS
     DO jl=1,kproma
       ppbase(jl) = paphp1(jl,kcbot(jl))
       zrrho(jl)  = (rd*ptenh(jl,kk+1)*(1._wp+vtmpc1*pqenh(jl,kk+1)))/paphp1(jl,kk+1)
-      zdprho(jl) = pmdry(jl,kk)
+      zdprho(jl) = pmref(jl,kk)
       zpmid      = 0.5_wp*(ppbase(jl)+paphp1(jl,kctop0(jl)))
       icond1(jl) = FSEL(zpmid-paphp1(jl,kk),0._wp,1._wp)
       icond2(jl) = FSEL(0.2e5_wp - (ppbase(jl)-paphp1(jl,kk)),0._wp,1._wp)
@@ -789,7 +789,7 @@ CONTAINS
             ztmzk  =-(pzh(jl,ikh)-pzh(jl,ikt))
             zarg  =3.1415_wp*(zzmzk/ztmzk)*0.5_wp
             zorgde=TAN(zarg)*3.1415_wp*0.5_wp/ztmzk
-            zdprho(jl)=pmdry(jl,kk)*zrrho(jl)
+            zdprho(jl)=pmref(jl,kk)*zrrho(jl)
             podetr(jl,kk)=MIN(zorgde,centrmax)*pmfu(jl,kk+1)*zdprho(jl)
           ENDIF
         ENDIF

@@ -38,7 +38,7 @@ CONTAINS
                        pcfm_tile,                                        &! in 
                        aa,         pcptgz,                               &! in
                        pum1,       pvm1,        ptm1,                    &! in
-                       pmair,      pmdry,                                &! in
+                       pmair,      pmref,                                &! in
                        pqm1,       pxlm1,       pxim1,       pxtm1,      &! in
                        pgeom1,      pztottevn,                           &! in
                        bb,                                               &! inout
@@ -70,7 +70,7 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pvm1    (kbdim,klev)  !< q-wind at step t-dt
     REAL(wp),INTENT(IN) :: ptm1    (kbdim,klev)  !< temperature at step t-dt
     REAL(wp),INTENT(IN) :: pmair   (kbdim,klev)  !< moist air mass [kg/m2]
-    REAL(wp),INTENT(IN) :: pmdry   (kbdim,klev)  !< dry   air mass [kg/m2]
+    REAL(wp),INTENT(IN) :: pmref   (kbdim,klev)  !< dry   air mass [kg/m2]
     REAL(wp),INTENT(IN) :: pqm1    (kbdim,klev)  !< specific humidity at step t-dt
     REAL(wp),INTENT(IN) :: pxlm1   (kbdim,klev)  !< cloud water concentration at step t-dt
     REAL(wp),INTENT(IN) :: pxim1   (kbdim,klev)  !< cloud ice   concentration at step t-dt
@@ -127,7 +127,7 @@ CONTAINS
                          & ktrac, ksfc_type, idx_wtr,                   &! in
                          & pdtime,                                      &! in
                          & pum1, pvm1, ptm1,                            &! in
-                         & pmair, pmdry,                                &! in
+                         & pmair, pmref,                                &! in
                          & pqm1, pxlm1, pxim1, pxtm1,                   &! in
                          & pgeom1, pcptgz,                              &! in
                          & pztottevn, pzthvvar,                         &! in
