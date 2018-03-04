@@ -518,15 +518,22 @@ CONTAINS
       ! * (1. - fraction of sea ice in the sea/lake part of the grid box)
       ! => fraction of open water in the grid box
 
-      zfrw(jc) = MAX(1._wp-zfrl(jc),0._wp)*MAX(1._wp-(field%seaice(jc,jb)+field%lake_ice_frc(jc,jb)),0._wp)
+      IF (iwtr.LE.nsfc_type) THEN
+         zfrw(jc) = MAX(1._wp-zfrl(jc),0._wp)*MAX(1._wp-(field%seaice(jc,jb)+field%lake_ice_frc(jc,jb)),0._wp)
+      ELSE
+         zfrw(jc) = 0._wp
+      END IF
 
       ! fraction of sea ice in the grid box
       zfri(jc) = MAX(1._wp-zfrl(jc)-zfrw(jc),0._wp)
-      ! security for ice temperature with changing ice mask
       !
-      IF(zfri(jc) > 0._wp .AND. field%ts_tile(jc,jb,iice) == cdimissval ) THEN
-         field% ts_tile(jc,jb,iice)  = tmelt + Tf    ! = 271.35 K
+      IF (iice.LE.nsfc_type) THEN
+         ! security for ice temperature with changing ice mask
+         IF(zfri(jc) > 0._wp .AND. field%ts_tile(jc,jb,iice) == cdimissval ) THEN
+            field% ts_tile(jc,jb,iice)  = tmelt + Tf    ! = 271.35 K
+         END IF
       END IF
+
     END DO
 
     ! 3.4 Merge three pieces of information into one array for vdiff
@@ -548,6 +555,9 @@ CONTAINS
 
     INTEGER  :: itype(nbdim)              !< type of convection
 
+    REAL(wp) :: zfrw (nbdim)              !< fraction of water (without ice) in the grid point
+    REAL(wp) :: zfri (nbdim)              !< fraction of ice in the grid box
+
     !-------------------------------------------------------------------
     ! 3.13 DIAGNOSE CURRENT CLOUD COVER
     !-------------------------------------------------------------------
@@ -555,13 +565,25 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_cover)
 
     itype(jcs:jce) = NINT(field%rtype(jcs:jce,jb))
-      
+
+    IF (iwtr.LE.nsfc_type) THEN
+       zfrw(:) = field%frac_tile(:,jb,iwtr)
+    ELSE
+       zfrw(:) = 0.0_wp
+    END IF
+
+    IF (iice.LE.nsfc_type) THEN
+       zfri(:) = field%frac_tile(:,jb,iice)
+    ELSE
+       zfri(:) = 0.0_wp
+    END IF
+
     CALL cover(    jg,                        &! in
          &         jce, nbdim,                &! in
          &         nlev, nlevp1,              &! in
-         &         itype,                     &! zfrw, zfri,       &! in
-         &         field%frac_tile(:,jb,iwtr),&
-         &         field%frac_tile(:,jb,iice),&
+         &         itype,                     &! in
+         &         zfrw(:),                   &! in
+         &         zfri(:),                   &! in
          &         field% zf(:,:,jb),         &! in
          &         field% presi_old(:,:,jb),  &! in
          &         field% presm_old(:,:,jb),  &! in
