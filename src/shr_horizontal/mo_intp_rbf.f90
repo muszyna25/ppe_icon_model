@@ -296,7 +296,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !$ACC PRESENT( ptr_patch, ptr_int, p_vn_in, p_u_out, p_v_out ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), ICON_OMP_RUNTIME_SCHEDULE
@@ -464,7 +464,7 @@ ENDIF
 !$ACC PRESENT( ptr_patch, ptr_int, p_cell_in, grad_x, grad_y ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -627,7 +627,7 @@ i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 !$ACC PRESENT( ptr_patch, ptr_int, p_e_in, p_u_out, p_v_out ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jv), ICON_OMP_RUNTIME_SCHEDULE
@@ -766,7 +766,7 @@ i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 !$ACC PRESENT( ptr_patch, ptr_int, p_e_in, p_u_out, p_v_out ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jv), ICON_OMP_RUNTIME_SCHEDULE
@@ -914,7 +914,7 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 !$ACC PRESENT( ptr_patch, ptr_int, p_vn_in, p_vt_out ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE

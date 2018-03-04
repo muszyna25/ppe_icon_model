@@ -44,7 +44,7 @@ function directoryDiff {
         DIFF='diffWithExitCode'
       ;;
       *)
-        DIFF='diff'
+        DIFF='true' # disabled for not nc-files
       ;;
       esac
       ${DIFF} ${refFile} ${expDir}/${refFileBasename}

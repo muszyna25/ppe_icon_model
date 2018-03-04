@@ -231,15 +231,20 @@ case "$ac_sitename" in
                 FC = ftn
                 F77= ftn
                 GRIBAPIROOT = /apps/daint/UES/6.0.UP02/sandbox-ws/grib_api
-		XML2ROOT    = /apps/daint/UES/jenkins/6.0.UP02/gpu/easybuild/software/libxml2/2.9.3-CrayGNU-2016.11
+		            XML2ROOT    = /apps/daint/UES/jenkins/6.0.UP02/gpu/easybuild/software/libxml2/2.9.3-CrayGNU-2016.11
                 ZLIBROOT    = /usr
 
                 case "$fortran_compiler" in
                     gcc)
                         config_target=daint_cpu
-                        load_modules =modules craype daint-gpu PrgEnv-gnu cray-netcdf
-                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF
-                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
+                        load_modules =modules craype daint-gpu PrgEnv-gnu cray-netcdf cray-hdf5
+                        CFLAGS      = -DgFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
+                        NETCDFROOT  = ${NETCDF_DIR}
+                        HDF5ROOT    = ${HDF5_DIR}
+                        LAPACKROOT    = ${CRAY_LIBSCI_PREFIX_DIR}
+                        LAPACK_LIB    = -lsci_gnu
+                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/GNU/5.3.0/lib -ljasper -dynamic -L/usr/lib64 -llzma
+                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/gnu
 			;;
                     intel)
                         config_target=daint_cpu
@@ -256,26 +261,33 @@ case "$ac_sitename" in
                         load_modules = PrgEnv-pgi cray-netcdf
                         CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
+                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/pgi
 			;;
                     cray)
                         config_target=daint_cpu
-                        load_modules = modules craype daint-gpu PrgEnv-cray cdt/16.11 cray-netcdf
-        		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv
-                        CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -O3 -DUSE_XML2
-			LDFLAGS     = -Wl,--allow-multiple-definition
-                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
-			HDF5ROOT    = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
+                        load_modules = modules craype daint-gpu PrgEnv-cray cdt/16.11 cray-netcdf cray-hdf5
+                        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv
+                        CFLAGS      = -g -Df2cFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -O3 -DUSE_XML2
+                        LDFLAGS     = -Wl,--allow-multiple-definition
+                        NETCDFROOT  = ${NETCDF_DIR}
+                        HDF5ROOT    = ${HDF5_DIR}
+                        LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
+                        LAPACK_LIB  = -lsci_cray
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -dynamic -L/usr/lib64 -llzma
+                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2_cce8.5.5
                         ;;
                     cray_gpu)
                         config_target=daint_gpu
-                        load_modules = modules craype daint-gpu PrgEnv-cray cdt/16.11 cray-netcdf craype-accel-nvidia60
-        		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hnoomp -hflex_mp=intolerant -hfp0 -hadd_paren -hacc_model=deep_copy -O1,cache0,ipa1 -r am -Ktrap=divz,ovf,inv
-                        CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -O3 -DUSE_XML2
-                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
-			HDF5ROOT    = /opt/cray/pe/hdf5/1.10.0/CRAY/8.3
+                        load_modules = modules craype daint-gpu PrgEnv-cray cdt/16.11 cray-netcdf cray-hdf5 craype-accel-nvidia60
+                        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=intolerant -hfp0 -hacc -hnoomp -hadd_paren -hacc_model=deep_copy -O2 -h ipafrom=../../../src/shared/mo_loopindices.f90 -r am -Ktrap=divz,ovf,inv
+                        CFLAGS      = -g -Df2cFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2 -O3 -DUSE_XML2
+                        NETCDFROOT  = ${NETCDF_DIR}
+                        HDF5ROOT    = ${HDF5_DIR}
+                        LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
+                        LAPACK_LIB  = -lsci_cray
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -llzma
-			;;
+                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2_cce8.5.5
+			                  ;;
                     *)
                         echo
                         echo
@@ -332,6 +344,141 @@ case "$ac_sitename" in
                         echo
                         echo "No supported Fortran compiler selected."
                         echo
+                        exit 1
+                        ;;
+                esac
+                mpi_startrun = srun -n \$mpi_total_procs --ntasks-per-node \$mpi_procs_pernode --threads-per-core=1 --cpus-per-task \$OMP_NUM_THREADS
+                ;;
+            *kesch*)
+                make_command = make -j 6
+                load_profile ="/etc/profile.d/modules.sh"
+                submit       = sbatch
+                sync_submit  = sbatch --wait
+                XML2ROOT     = /usr
+                ZLIBROOT     = /usr
+
+                case "$fortran_compiler" in
+                    gcc*)
+                        CC = mpicc
+                        FC = mpif90
+                        F77= mpif90
+                        DEFOPT      = -D
+                        DEFCOPT     = -D
+                        MODOPT      = -I
+                        MODDIR      = -J
+                        config_target = kesch_cpu
+                        FFLAGS        = $FLANG $FWARN -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -D__LOOP_EXCHANGE -DgFortran -cpp -O2
+                        CFLAGS        = -D_XOPEN_SOURCE=700 -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -O2 -cpp -std=c99 -DgFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
+                        GRIBAPIROOT    = /project/c14/install/kesch/libgrib_api/v1.20.0.2/gnu/
+                        SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2/gnu
+                        config_tuning = $(tmp=${fortran_compiler#'gcc'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        case "${config_tuning}" in
+                            default)
+                                load_modules  = git/2.14.1 craype-haswell PrgEnv-gnu netcdf netcdf-fortran hdf5 cray-libsci
+                                NETCDFROOT    = ${EBROOTNETCDF}
+                                NETCDFFROOT   = ${EBROOTNETCDFMINFORTRAN}
+                                HDF5ROOT      = ${EBROOTHDF5}
+                                LAPACKROOT    = ${CRAY_LIBSCI_PREFIX_DIR}
+                                LAPACK_LIB    = -lsci_cray
+                                OTHER_LIBS    = -lpthread
+                                ;;
+                            *)
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "Unknown tuning $config_tuning for $fortran_compiler selected.")
+                                (>&6 echo "")
+                                ;;
+                        esac
+                        ;;
+                    pgi*)
+                        CC = mpicc
+                        FC = mpif90
+                        F77= mpif90
+                        DEFOPT      = -D
+                        DEFCOPT     = -D
+                        MODOPT      = -I
+                        MODDIR      = -module 
+                        config_target = kesch_cpu
+                        FFLAGS        = -Mpreprocess -Mrecursive -Mallocatable=03 -D__LOOP_EXCHANGE $INCLUDES
+                        CFLAGS        = -c99 -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
+                        GRIBAPIROOT    = /project/c14/install/kesch/libgrib_api/v1.20.0.2/pgi/
+                        SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2/pgi
+                        config_tuning = $(tmp=${fortran_compiler#'pgi'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        case "${config_tuning}" in
+                            default)
+                                load_modules  = git/2.14.1 craype-haswell PrgEnv-gnu netcdf netcdf-fortran hdf5 cray-libsci
+                                NETCDFROOT    = ${EBROOTNETCDF}
+                                NETCDFFROOT   = ${EBROOTNETCDFMINFORTRAN}
+                                HDF5ROOT      = ${EBROOTHDF5}
+                                ;;
+                            *)
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "Unknown tuning $config_tuning for $fortran_compiler selected.")
+                                (>&6 echo "")
+                                exit 1
+                                ;;
+                        esac
+                        ;;
+                    cray*)
+                        CC = cc
+                        FC = ftn
+                        F77= ftn
+                        DEFOPT      = -D
+                        DEFCOPT     = -D
+                        MODOPT      = -I
+                        MODDIR      = -J
+                        # FDEBUG        = -O0 -g -Rb -Rc -Rd -Rp #-Rs leads to ICE
+                        FFLAGS        = -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hadd_paren -r am -Ktrap=divz,ovf,inv
+                        # CDEBUG       = -O0 -g
+                        CFLAGS        = -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -Df2cFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -O3 -DUSE_XML2
+                        LDFLAGS       = -Wl,--allow-multiple-definition
+                        GRIBAPIROOT    = /project/c14/install/kesch/libgrib_api/v1.20.0.2/cray/
+                        SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2/cray
+                        config_tuning = $(tmp=${fortran_compiler#'cray'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        # Generic CPU/GPU setup
+                        case "${config_tuning}" in
+                            gpu*)
+                                config_target = kesch_gpu
+                                FFLAGS        = ${FFLAGS} -hnoomp -hflex_mp=intolerant -hfp0 -hacc_model=deep_copy -Ocache0,ipa1
+                                ;;
+                            *)
+                                config_target = kesch_cpu
+                                FFLAGS        = ${FFLAGS} -hflex_mp=conservative -hfp1 -hnoacc -Ocache0
+                                ;;
+                        esac
+                        # Setup of specific version
+                        case "${config_tuning}" in
+                            default)
+                                load_modules  = git/2.14.1 craype-haswell PrgEnv-cray netCDF netCDF-Fortran HDF5 cray-libsci
+                                NETCDFROOT    = ${EBROOTNETCDF}
+                                NETCDFFROOT   = ${EBROOTNETCDFMINFORTRAN}
+                                HDF5ROOT      = ${EBROOTHDF5}
+                                LAPACKROOT    = ${CRAY_LIBSCI_PREFIX_DIR}
+                                LAPACK_LIB    = -lsci_cray
+                                ;;
+                            gpu)
+                                load_modules  = git/2.14.1 craype-haswell PrgEnv-cray craype-accel-nvidia35 netCDF netCDF-Fortran HDF5 cray-libsci
+                                NETCDFROOT    = ${EBROOTNETCDF}
+                                NETCDFFROOT   = ${EBROOTNETCDFMINFORTRAN}
+                                HDF5ROOT      = ${EBROOTHDF5}
+                                LAPACKROOT    = ${CRAY_LIBSCI_PREFIX_DIR}
+                                LAPACK_LIB    = -lsci_cray
+                                ;;
+                            *)
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "Unknown tuning $config_tuning for $fortran_compiler selected.")
+                                (>&6 echo "")
+                                exit 1
+                                ;;
+                        esac
+                        ;;
+                    *)
+                        (>&6 echo "")
+                        (>&6 echo "")
+                        (>&6 echo "No supported Fortran compiler selected.")
+                        (>&6 echo "")
                         exit 1
                         ;;
                 esac
