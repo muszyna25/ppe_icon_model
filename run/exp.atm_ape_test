@@ -55,10 +55,13 @@ grid_name=icon_grid_0005_R02B04_G
 grids_folder=${icon_data_poolFolder}/grids
 atmo_dyn_grids=${grid_name}.nc
 
+resolution=$(awk -F'_' '{print $4}' <<< $grid_name)
+
 # start and end date+time
-start_date="1979-01-01T00:00:00Z"
-  end_date="1979-01-01T00:16:00Z"
-  calendar="360 day year"
+start_date=${start_date:="1979-01-01T00:00:00Z"}
+    end_date=${end_date:="1979-01-01T00:16:00Z"}
+    
+calendar="360 day year"
 
 # restart intervals
 checkpoint_interval="PT8M"
@@ -191,7 +194,7 @@ EOF
 
 # model files
 #
-add_link_file ${basedir}/data/lsdata.nc                               ./
+add_link_file ${basedir}/data/lsdata.nc                                 ./
 add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
 # namelist files
@@ -216,40 +219,12 @@ datadir=${icon_data_poolFolder}/greenhouse_gases
 add_link_file $datadir/greenhouse_historical.nc                         ./bc_greenhouse_gases.nc
 #
 # - ozone
-datadir=${icon_data_poolFolder}/external/ape_ozone/
-ozone_file="ape_o3_iconR2B04-ocean_aqua_planet.nc"
-add_required_file ${datadir}/${ozone_file}                              ./o3_icon_DOM01.nc
+datadir=${icon_data_poolFolder}/ozone/ape/${resolution}
+add_link_file ${datadir}/bc_ozone_ape.nc                                ./o3_icon_DOM01.nc
 
 #--------------------------------------------------------------------------------------------------
 
 # (5) Define the output
-
-# Define grids for horizontal remapping of output fields
-# ------------------------------------------------------
-#
-# The ICON RmBn grid has 3*m*2**n rows of triangles between the vertices at the N and S pole.
-# The number of triangles in a row around this axis increases linearly from 5 to 5*(1+2*(i-1))
-# at the base of the "polar" icosahedral triangles. In the "tropical" icosahedral triangles
-# all rows have a  5*(2*(m*2**n)) triangles. The triangles are either northward or southward
-# pointing. Thus the smallest periodic element in a tropical row is a rhombus formed by two
-# adjacent triangles. A tropical row has 5*(m*n**2) rhombi.
-#
-# The R2B4 grid has a total of 20480 triangular cells in 96 rows.
-# The tropical rows have 320 triangles or 160 rhombi.
-#
-# Therefore the following regular lon-lat grids are of interest for remapping:
-#
-# regular  grid: nlat=96, nlon=192, npts=18432, dlat=1.875 deg, dlon=1.875 deg
-reg_lat_def_reg=-89.0625,1.875,89.0625
-reg_lon_def_reg=0.,1.875,358.125
-#
-# rhombus  grid: nlat=96, nlon=160, npts=15360, dlat=1.875 deg, dlon=2.250 deg
-reg_lat_def_rmb=$reg_lat_def_reg
-reg_lon_def_rmb=0.,2.25,357.75
-#
-# triangle grid: nlat=96, nlon=320, npts=30720, dlat=1.875 deg, dlon=1.125 deg
-reg_lat_def_tri=$reg_lat_def_reg
-reg_lon_def_tri=0.,1.125,358.875
 
 # Parameters for all output files
 # -------------------------------
@@ -259,6 +234,7 @@ cat >> ${atmo_namelist} << EOF
  netcdf_dict      = "${dict_file}"
  lnetcdf_flt64_output = .TRUE.
  itype_pres_msl   = 4
+ restart_file_type= 5
 /
 EOF
 
@@ -278,6 +254,7 @@ if [[ "$output_atm_cgrid" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_atm_cgrid"
  filename_format  = "<output_filename>_<levtype_l>"
+ filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"       ! output_start = output_end
@@ -298,6 +275,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_atm_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
@@ -310,7 +288,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
                     'ua'      , 'va'      , 'wap'     ,
                     'hus'     , 'clw'     , 'cli'     ,
                     'hur'     , 'cl'      ,
-                    !'qo3'    ,
+                    !'qo3_phy' ,
 /
 EOF
 fi
@@ -324,6 +302,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_atm_2d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
@@ -353,7 +332,7 @@ EOF
 fi
 
 
-output_phy_3d=yes # "yes" increases the output volume significantly!
+output_phy_3d=yes
 #
 if [[ "$output_phy_3d" == "yes" ]]; then
   #
@@ -361,6 +340,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_phy_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
@@ -368,7 +348,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ps'           , 'pfull'        ,
+ ml_varlist       = 'ps'           , 'pfull'        , 'zg'           ,
                     'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
                     'tend_ta_vdf'  , 'tend_ta_gwd'  ,
@@ -381,12 +361,13 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_va_cnv'  ,
                     'tend_qhus'    , 'tend_qhus_dyn', 'tend_qhus_phy',
                     'tend_qhus_cld', 'tend_qhus_cnv', 'tend_qhus_vdf',
+                    !'tend_qhus_mox'
 /
 EOF
 fi
 
 
-output_trc_3d=yes # "yes" increases the output volume significantly!
+output_trc_3d=yes
 #
 if [[ "$output_trc_3d" == "yes" ]]; then
   #
@@ -394,6 +375,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
@@ -401,7 +383,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ps'        , 'pfull'     ,
+ ml_varlist       = 'ps'        , 'pfull'     , 'zg'        ,
                     'mairvi_phy',
                     'mdryvi_phy',
                     'mh2ovi_phy',
