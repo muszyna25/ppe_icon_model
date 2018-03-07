@@ -29,9 +29,11 @@ MODULE mo_interface_echam_vdf
   !$ser verbatim USE mo_ser_echam_vdiff_down, ONLY: serialize_vdiff_down_input => serialize_input, &
   !$ser&                                            serialize_vdiff_down_output => serialize_output
   !$ser verbatim USE mo_ser_echam_vdiff_up, ONLY: serialize_vdiff_up_input => serialize_input, &
-  !$ser&                                            serialize_vdiff_up_output => serialize_output
-  !$ser verbatim USE mo_ser_echam_surface, ONLY: serialize_surface_input => serialize_input, &
-  !$ser&                                         serialize_surface_output => serialize_output
+  !$ser&                                          serialize_vdiff_up_output => serialize_output
+  !$ser verbatim USE mo_ser_echam_update_surface, ONLY: serialize_update_surface_input => serialize_input, &
+  !$ser&                                                serialize_update_surface_output => serialize_output
+  !$ser verbatim USE mo_ser_echam_nsurf_diag, ONLY: serialize_nsurf_diag_input => serialize_input, &
+  !$ser&                                            serialize_nsurf_diag_output => serialize_output
   USE mo_kind                ,ONLY: wp
   USE mo_exception           ,ONLY: finish, warning
 
@@ -190,9 +192,11 @@ CONTAINS
           !
           !----------------------------------------------------------------------------------------
           ! Serialbox2 input fields serialization
-          !$ser verbatim call serialize_vdiff_down_input(jb, jce, nbdim, nlev,&
-          !$ser verbatim   nlevm1, nlevp1, ntrac, nsfc_type, iwtr, iice, ilnd,&
-          !$ser verbatim   pdtime, field)
+          !$ser verbatim call serialize_vdiff_down_input(jb, jg, jce, nproma,&
+          !$ser verbatim   nlev, nlevm1, nlevp1, ntrac, nsfc_type, iwtr, iice,&
+          !$ser verbatim   ilnd, pdtime, field, zqx, zxt_emis, dummy, dummyx,&
+          !$ser verbatim   zri_tile,zaa,zaa_btm,zbb,zbb_btm,zfactor_sfc,&
+          !$ser verbatim   zcpt_sfc_tile, zcptgz, zthvvar, ztottevn)
           !
           CALL vdiff_down(jg,                              &! in
                &          jce, nproma, nlev, nlevm1,nlevp1,&! in
@@ -262,9 +266,12 @@ CONTAINS
           !
           !----------------------------------------------------------------------------------------
           ! Serialbox2 output fields serialization
-          !$ser verbatim call serialize_vdiff_down_output(jb, jce, nbdim, nlev,&
-          !$ser verbatim   nlevm1, nlevp1, ntrac, nsfc_type, iwtr, iice, ilnd,&
-          !$ser verbatim   pdtime, field)
+          !$ser verbatim call serialize_vdiff_down_output(jb, jg, jce, nproma,&
+          !$ser verbatim   nlev, nlevm1, nlevp1, ntrac, nsfc_type, iwtr, iice,&
+          !$ser verbatim   ilnd, pdtime, field, zri_tile, zaa, zaa_btm, zbb,&
+          !$ser verbatim   zbb_btm, zfactor_sfc, zcpt_sfc_tile, zcptgz,&
+          !$ser verbatim   zthvvar, ztottevn, zch_tile, zbn_tile, zbhn_tile,&
+          !$ser verbatim   zbm_tile, zbh_tile)
           !
           IF (ltimer) CALL timer_stop(timer_vdiff_down)
           !
@@ -280,10 +287,10 @@ CONTAINS
           !
           !----------------------------------------------------------------------------------------
           ! Serialbox2 input fields serialization
-          !$ser verbatim call serialize_surface_input(jb, nlev, nlevp1, iqv, jg,&
-          !$ser verbatim   jce, nbdim, nlev, nsfc_type, iwtr, iice, ilnd, pdtime,&
-          !$ser verbatim   field, zfactor_sfc, zaa, zaa_btm, zbb, zbb_btm,&
-          !$ser verbatim   zcpt_sfc_tile, nblock = jb, pch_tile = zch_tile)
+          !$ser verbatim call serialize_update_surface_input(jb, jg, jce, nproma,&
+          !$ser verbatim   nlev, nsfc_type, iwtr, iice, ilnd,&
+          !$ser verbatim   pdtime, field, zfactor_sfc, zaa, zaa_btm, zbb, zbb_btm,&
+          !$ser verbatim   zcpt_sfc_tile, zco2, zch_tile)
           !
           CALL update_surface(jg, jce, nproma, field%kice,                    &! in
                &              nlev, nsfc_type,                                &! in
@@ -370,13 +377,13 @@ CONTAINS
                &              albnirdir_ice = field% albnirdir_ice(:,:,jb),   &! inout
                &              albvisdif_ice = field% albvisdif_ice(:,:,jb),   &! inout
                &              albnirdif_ice = field% albnirdif_ice(:,:,jb))    ! inout
-
+          !
           !----------------------------------------------------------------------------------------
           ! Serialbox2 output fields serialization
-          !$ser verbatim call serialize_surface_output(jb, jg, jce, nbdim, nlev, nsfc_type,&
-          !$ser verbatim   iwtr, iice, ilnd, pdtime, field, zaa, zaa_btm, zbb,&
-          !$ser verbatim   zbb_btm, zcpt_sfc_tile, nblock = jb,&
-          !$ser verbatim   q_snocpymlt = zq_snocpymlt)
+          !$ser verbatim call serialize_update_surface_output(jb, jg, jce, nproma,&
+          !$ser verbatim   nlev, nsfc_type, iwtr, iice, ilnd,&
+          !$ser verbatim   pdtime, field, zaa, zaa_btm, zbb, zbb_btm,&
+          !$ser verbatim   zcpt_sfc_tile, zq_snocpymlt)
           !
           IF (ltimer) CALL timer_stop(timer_surface)
           !
@@ -408,8 +415,9 @@ CONTAINS
           !
           !----------------------------------------------------------------------------------------
           ! Serialbox2 input fields serialization
-          !$ser verbatim call serialize_vdiff_up_input(jb, jce, nbdim, nlev,&
-          !$ser verbatim   nlevm1, ntrac, nsfc_type, iwtr, pdtime, field)
+          !$ser verbatim call serialize_vdiff_up_input(jb, jce, nproma, nlev,&
+          !$ser verbatim   nlevm1, ntrac, nsfc_type, iwtr, pdtime, field, zaa,&
+          !$ser verbatim   zcptgz, ztottevn, zbb, zthvvar, dummyx)
           !
           CALL vdiff_up(jce, nproma, nlev, nlevm1,       &! in
                &        ntrac, nsfc_type,                &! in
@@ -449,9 +457,10 @@ CONTAINS
                &        field%   qv_vdiff(:,  jb)        )! out, for energy diagnostic
           !
           !----------------------------------------------------------------------------------------
-          ! Serialbox2 input fields serialization
-          !$ser verbatim call serialize_vdiff_up_output(jb, jce, nbdim, nlev,&
-          !$ser verbatim   nlevm1, ntrac, nsfc_type, iwtr, pdtime, field)
+          ! Serialbox2 output fields serialization
+          !$ser verbatim call serialize_vdiff_up_output(jb, jce, nproma, nlev,&
+          !$ser verbatim   nlevm1, ntrac, nsfc_type, iwtr, pdtime, field, zbb,&
+          !$ser verbatim   dummyx, tend, dummy)
           !
           IF (ltimer) CALL timer_stop(timer_vdiff_up)
           !
@@ -477,6 +486,11 @@ CONTAINS
        !
        ! Turbulent mixing, part III:
        ! - Further diagnostics.
+       !----------------------------------------------------------------------------------------
+       ! Serialbox2 input fields serialization
+       !$ser verbatim call serialize_nsurf_diag_input(jb, jce, nproma, nsfc_type,&
+       !$ser verbatim   ilnd, field, zqx(:,nlev), zcptgz(:,nlev), zcpt_sfc_tile, zbn_tile,&
+       !$ser verbatim   zbhn_tile, zbh_tile, zbm_tile, zri_tile)
        !
        CALL nsurf_diag(jce, nproma, nsfc_type,          &! in
             &          ilnd,                            &! in
@@ -512,6 +526,10 @@ CONTAINS
             &          field%    uas_tile(:,jb,:),      &! out zonal wind in 10m on tiles
             &          field%    vas_tile(:,jb,:)       )! out meridional wind in 10m on tiles
        !
+       !----------------------------------------------------------------------------------------
+       ! Serialbox2 output fields serialization
+       !$ser verbatim call serialize_nsurf_diag_output(jb, jce, nproma,&
+       !$ser verbatim   nsfc_type, ilnd, field)
        !
     ELSE
        !
