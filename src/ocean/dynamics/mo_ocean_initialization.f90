@@ -64,7 +64,6 @@ MODULE mo_ocean_initialization
   USE mo_var_metadata,        ONLY: groups
   USE mo_cf_convention
   USE mo_grib2
-  USE mo_cdi_constants
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range, fill_subset
   ! USE mo_ocean_config,        ONLY: ignore_land_points
   USE mo_ocean_types, ONLY: t_hydro_ocean_state, &

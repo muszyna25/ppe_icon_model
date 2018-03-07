@@ -26,7 +26,7 @@ MODULE mo_real_timer
 
   USE mo_kind,            ONLY: dp
   USE mo_exception,       ONLY: finish, message, message_text
-  USE mo_util_string,     ONLY: separator, sort_and_compress_list, int2string
+  USE mo_util_string,     ONLY: separator, sort_and_compress_list, int2string, real2string
   USE mo_util_table,      ONLY: t_table, initialize_table, finalize_table,    &
     &                           set_table_entry, print_table
   USE mo_impl_constants,  ONLY: MAX_CHAR_LENGTH, TIMER_MODE_WRITE_FILES,      &
@@ -1081,7 +1081,7 @@ CONTAINS
     INTEGER,          INTENT(INOUT)       :: irow            !< table row index
     INTEGER,          INTENT(in)          :: it
     INTEGER,          INTENT(in)          :: nd              !< nesting depth (determines the print indention)
-    TYPE(t_timer_reductions), INTENT(in) :: tmr
+    TYPE(t_timer_reductions), INTENT(in)  :: tmr
     ! local variables
     REAL(dp)            :: val_avg
     CHARACTER(len=12)   :: min_str, avg_str, max_str, tot_min_str, tot_max_str
@@ -1100,7 +1100,14 @@ CONTAINS
 
       CALL set_table_entry(table, irow, "name",     &
         &                  REPEAT('   ',MAX(nd-1,0))//REPEAT(' L ',MIN(nd,1))//srt(it)%text)
-      CALL set_table_entry(table, irow, "# calls",  TRIM(int2string(INT(tmr%val_call_n(it)))))
+
+      ! avoid integer overflow; very large call counts are useless
+      ! anyway ...
+      IF (tmr%val_call_n(it) <= REAL(HUGE(INT(1)),dp)) THEN
+        CALL set_table_entry(table, irow, "# calls",  TRIM(int2string(INT(tmr%val_call_n(it)))))
+      ELSE
+        CALL set_table_entry(table, irow, "# calls",  TRIM(real2string(tmr%val_call_n(it),'(ES10.1)')))
+      END IF
       CALL set_table_entry(table, irow, "t_min",         TRIM(min_str))
       IF (num_work_procs > 1) &
         CALL set_table_entry(table, irow, "min rank", "["//TRIM(int2string(tmr%rank_min(it)))//"]")

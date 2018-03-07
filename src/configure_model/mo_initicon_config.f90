@@ -16,19 +16,22 @@
 MODULE mo_initicon_config
 
   USE mo_kind,               ONLY: wp
+  USE mo_exception,          ONLY: message_text, message
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                              int2string
-  USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, MAX_CHAR_LENGTH,  &
     &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMO,           &
     &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP
-  USE mo_grid_config,        ONLY: l_limited_area
+  USE mo_io_units,           ONLY: filename_max
+  USE mo_io_util,            ONLY: get_filetype
+  USE mo_model_domain,       ONLY: t_patch
+  USE mo_grid_config,        ONLY: l_limited_area, nroot
   USE mo_time_config,        ONLY: time_config
+  USE mo_master_config,      ONLY: getModelBaseDir
   USE mtime,                 ONLY: timedelta, newTimedelta,                          &
     &                              max_timedelta_str_len, datetime, OPERATOR(+),     &
     &                              OPERATOR(<=), OPERATOR(>=), &
     &                              getPTStringFromSeconds
-  USE mo_exception,          ONLY: message_text, message
 
   IMPLICIT NONE
 
@@ -47,6 +50,7 @@ MODULE mo_initicon_config
   PUBLIC :: use_lakeiceana
   PUBLIC :: lread_ana
   PUBLIC :: lread_vn
+  PUBLIC :: lread_tke
   PUBLIC :: lconsistency_checks
   PUBLIC :: l_coarse2fine_mode
   PUBLIC :: lp2cintp_incr, lp2cintp_sfcana
@@ -82,7 +86,10 @@ MODULE mo_initicon_config
   ! Functions
   PUBLIC :: generate_filename
   PUBLIC :: is_avgFG_time
-
+  PUBLIC :: fgFilename
+  PUBLIC :: fgFiletype
+  PUBLIC :: anaFilename
+  PUBLIC :: anaFiletype
 
   TYPE t_timeshift
     REAL(wp)                 :: dt_shift
@@ -181,6 +188,7 @@ MODULE mo_initicon_config
   ! ----------------------------------------------------------------------------
 
   LOGICAL :: lread_vn  = .FALSE. !< control variable that specifies if u/v or vn are read as wind field input
+  LOGICAL :: lread_tke = .FALSE. !< control variable that specifies if TKE has been found in the input (used for MODE_ICONVREMAP only)
   LOGICAL :: l_sst_in  = .TRUE.  !< logical switch, if sea surface temperature is provided as input
 
   INTEGER :: init_mode_soil     !< initialization mode of soil model (coldstart, warmstart, warmstart+IAU)
@@ -340,6 +348,41 @@ CONTAINS
     result_str = TRIM(with_keywords(keywords, TRIM(input_filename)))
 
   END FUNCTION generate_filename
+
+
+  FUNCTION fgFilename(p_patch) RESULT(resultVar)
+    CHARACTER(LEN = filename_max) :: resultVar
+    TYPE(t_patch), INTENT(IN) :: p_patch
+
+    resultVar = generate_filename(dwdfg_filename, getModelBaseDir(), nroot, p_patch%level, p_patch%id)
+  END FUNCTION fgFilename
+
+  FUNCTION anaFilename(p_patch) RESULT(resultVar)
+    CHARACTER(LEN = filename_max) :: resultVar
+    TYPE(t_patch), INTENT(IN) :: p_patch
+
+    resultVar = generate_filename(dwdana_filename, getModelBaseDir(), nroot, p_patch%level, p_patch%id)
+  END FUNCTION anaFilename
+
+  INTEGER FUNCTION fgFiletype() RESULT(resultVar)
+    IF(filetype == -1) THEN
+        ! get_filetype() ONLY uses the suffix, which IS already a part of the template IN dwdfg_filename.
+        ! This IS why it suffices to USE the dwdfg_filename directly here without expanding it first via generate_filename().
+        resultVar = get_filetype(TRIM(dwdfg_filename))
+    ELSE
+        resultVar = filetype
+    END IF
+  END FUNCTION fgFiletype
+
+  INTEGER FUNCTION anaFiletype() RESULT(resultVar)
+    IF(filetype == -1) THEN
+        ! get_filetype() ONLY uses the suffix, which IS already a part of the template IN dwdana_filename.
+        ! This IS why it suffices to USE the dwdana_filename directly here without expanding it first via generate_filename().
+        resultVar = get_filetype(TRIM(dwdana_filename))
+    ELSE
+        resultVar = filetype
+    END IF
+  END FUNCTION anaFiletype
 
 
   !>

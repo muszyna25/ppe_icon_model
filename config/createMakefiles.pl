@@ -84,6 +84,15 @@ if ( -d "externals/mtime/include" ) {
     }
 }
 
+if ( -d "externals/tixi/include" ) {
+    opendir(DIR, "externals/tixi/include");
+    @incs = grep /\.(inc|h)/, readdir(DIR);
+    closedir(DIR);
+    foreach my $inc ( @incs ) {
+	copy ( "externals/tixi/include/${inc}", "${build_path}/include/${inc}" );
+    }
+}
+
 if ( -d "externals/yac/include" ) {
     opendir(DIR, "externals/yac/include");
     @incs = grep /\.(inc|h)/, readdir(DIR);
@@ -93,11 +102,10 @@ if ( -d "externals/yac/include" ) {
     }
 }
 
-# if ( -d ".git" and ($enable_jsbach eq "yes") and ! -d "src/lnd_phy_jsbach" ) {
-#     symlink "../externals/jsbach/src", "src/lnd_phy_jsbach"; 
-# }
-if ( ($enable_jsbach eq "yes") and ! -d "src/lnd_phy_jsbach" ) {
-    symlink "../externals/jsbach/src", "src/lnd_phy_jsbach"; 
+if ( ($enable_jsbach eq 'yes')
+     and ! -d 'src/lnd_phy_jsbach'
+     and -d 'externals/jsbach/src' ) {
+    symlink '../externals/jsbach/src', 'src/lnd_phy_jsbach';
 }
 
 if ( ($enable_ocean eq "yes") and -d "src/ocean/include" ) {

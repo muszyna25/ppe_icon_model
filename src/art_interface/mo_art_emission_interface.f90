@@ -177,7 +177,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
         IF (iforcing == inwp) THEN
           CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
                                       &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &
-                                      &  current_date,prm_diag%swflx_par_sfc)
+                                      &  current_date,prm_diag%swflx_par_sfc(:,:))
         ELSE IF (iforcing == iecham) THEN
           CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
                                       &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &

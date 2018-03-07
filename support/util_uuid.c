@@ -55,6 +55,9 @@
 
 #include "util_uuid.h"
 
+// needed for memcpy
+#include <string.h>
+
 // irreducible polynomial x^64 + x^4 + x^3 +   x + 1
 // with the leading coefficient removed.
 const unsigned int P64[2] = { 0x0000001B, 0x0000 };
@@ -572,10 +575,15 @@ context_t *concat_fingerprints(context_t* context0, context_t *context1)
 void uuid_unparse(char *buffer, const uuid_t *uuid)
 {
   const unsigned char *d = uuid->data;
+	char preBuf[UUID_STRING_LENGTH+1];
 
-  sprintf(buffer,
+  sprintf(preBuf,
       "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x", 
            d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15]);
+
+	// use memcpy instead of strncpy to be sure not to introduce new \0s. Might
+	// not be neccessary.
+	memcpy(buffer, preBuf, UUID_STRING_LENGTH);
 }
 
 

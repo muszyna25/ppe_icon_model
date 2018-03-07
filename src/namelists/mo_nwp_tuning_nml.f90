@@ -190,7 +190,7 @@ CONTAINS
     tune_gfluxlaun  = 2.50e-3_wp   ! original IFS value 3.75e-3
     !
     ! grid scale microphysics
-    tune_zceff_min  = 0.075_wp
+    tune_zceff_min  = 0.01_wp
     tune_v0snow     = 25.0_wp      ! previous ICON value was 20
     tune_zvz0i      = 1.25_wp      ! original value of Heymsfield+Donner 1990: 3.29
     !
@@ -205,7 +205,7 @@ CONTAINS
                                     ! independent of grid-scale QV))
 
     ! The following switches allow separate tuning for evaporation below cloud base in the tropics
-    tune_rhebc_land_trop  = 0.70_wp
+    tune_rhebc_land_trop  = 0.75_wp
     tune_rhebc_ocean_trop = 0.80_wp
     tune_rcucov_trop      = 0.05_wp
 

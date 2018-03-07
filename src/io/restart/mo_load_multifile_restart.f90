@@ -33,11 +33,11 @@ MODULE mo_load_multifile_restart
     USE mo_broker_communication,   ONLY: t_BrokerCommunicationPattern
     USE mo_c_restart_util,         ONLY: checkMultifileDir
     USE mo_impl_constants,         ONLY: SUCCESS, VARNAME_LEN, SINGLE_T, REAL_T, INT_T
+    USE mo_cdi_constants,          ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT
     USE mo_cdi,                    ONLY: streamOpenRead, streamInqVlist, vlistNvars, vlistCopyVarName, &
       &                                  streamClose, streamReadVar,                                   &
       &                                  streamReadVarSlice, streamReadVarSliceF, CDI_GLOBAL,          &
       &                                  vlistInqAttInt
-    USE mo_cdi_constants,          ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT
     USE mo_communication,          ONLY: t_comm_pattern, setup_comm_pattern, delete_comm_pattern, exchange_data_noblk
     USE mo_decomposition_tools,    ONLY: t_glb2loc_index_lookup, init_glb2loc_index_lookup, set_inner_glb_index, &
       &                                  deallocate_glb2loc_index_lookup

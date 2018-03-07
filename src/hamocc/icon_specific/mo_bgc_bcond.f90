@@ -45,10 +45,8 @@ USE mo_kind,               ONLY: wp
     &                              read_3D
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword, with_keywords
-  USE mo_cdi,                ONLY: DATATYPE_FLT32 
-  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL,  &
-    &                              GRID_REFERENCE,         &
-    &                              GRID_CELL,  ZA_SURFACE
+  USE mo_cdi,                ONLY: DATATYPE_FLT32, GRID_UNSTRUCTURED
+  USE mo_zaxis_type,         ONLY: ZA_SURFACE
 
   USE mo_hamocc_nml,         ONLY: io_stdo_bgc
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_bgc
@@ -56,6 +54,8 @@ USE mo_kind,               ONLY: wp
   USE mtime,                 ONLY: datetime, &
        &                           getDayOfYearFromDateTime, &
        &                           getNoOfDaysInYearDateTime
+  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL,  &                         
+    &                              GRID_CELL
 
   
   IMPLICIT NONE
@@ -181,14 +181,14 @@ CONTAINS
 
     cf_desc    = t_cf_var('Dust cell center', 'kg m-2 yr-1', &
       &                   'DUST', DATATYPE_FLT32)
-    grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( p_ext_bgc_list, 'DUST', p_ext_bgc%dust,      &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
     CALL add_var( p_ext_bgc_list, 'DUSTY', p_ext_data_bgc%dusty,      &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
     cf_desc    = t_cf_var('Nitrogen cell center', 'kg m-2 yr-1', &
       &                   'NDEP', DATATYPE_FLT32)
-    grib2_desc = grib2_var( 192, 140, 239, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var( 192, 140, 239, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( p_ext_bgc_list, 'NDEP', p_ext_bgc%nitro,      &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
     CALL add_var( p_ext_bgc_list, 'NITRO', p_ext_data_bgc%nitro,      &

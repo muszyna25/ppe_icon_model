@@ -39,8 +39,8 @@ set ICON_HOME     /home/ms/de/deia
 set ICON_ID       deia 
 set RES           "R02B05"             #---ICON resolution dynamics
 set RESRAD        "R02B04"             #---ICON resolution radiation (requires namelist)
-set USER_ICON_DIR icon-nwp-dev         #---location of script, plot and sms files
-set DEIA_ICON_DIR icon-nwp-dev         #---location of build and binary in deia account (svn, build, cp)
+set USER_ICON_DIR icon-nwp             #---location of script, plot and sms files
+set DEIA_ICON_DIR icon-nwp             #---location of build and binary in deia account (svn, build, cp)
 
 # no. of time steps (10x86400s/72s)
 #set NSTEPS       12000  # R2B6 10d

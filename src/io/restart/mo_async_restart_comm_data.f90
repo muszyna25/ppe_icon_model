@@ -408,10 +408,11 @@ CONTAINS
         ! retrieve part of variable from every worker PE using MPI_Get
         DO sourceProc = 0, num_work_procs-1
             IF(reorderData%pe_own(sourceProc) == 0) CYCLE
-            CALL ensureSize(buffer, reorderData%pe_own(sourceProc))
 
             ! number of words to transfer
             doubleCount = reorderData%pe_own(sourceProc) * levelCount
+            CALL ensureSize(buffer, doubleCount)
+
             elapsedTime = elapsedTime -  p_mpi_wtime()
             CALL MPI_Win_lock(MPI_LOCK_SHARED, sourceProc, MPI_MODE_NOCHECK, me%mpiWindow, mpi_error)
             IF(mpi_error /= MPI_SUCCESS) THEN
@@ -474,10 +475,11 @@ CONTAINS
         ! retrieve part of variable from every worker PE using MPI_Get
         DO sourceProc = 0, num_work_procs-1
             IF(reorderData%pe_own(sourceProc) == 0) CYCLE
-            CALL ensureSize(buffer, reorderData%pe_own(sourceProc))
 
             ! number of words to transfer
             doubleCount = reorderData%pe_own(sourceProc) * levelCount
+            CALL ensureSize(buffer, doubleCount)
+
             elapsedTime = elapsedTime -  p_mpi_wtime()
             CALL MPI_Win_lock(MPI_LOCK_SHARED, sourceProc, MPI_MODE_NOCHECK, me%mpiWindow, mpi_error)
             IF(mpi_error /= MPI_SUCCESS) THEN
