@@ -8,7 +8,8 @@
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! A generic hash table
-! A container for any kind of objects that are stored under any kind of keys, with O(1) complexity for insertion, lookup, and removal.
+! A container for any kind of objects that are stored under any kind
+! of keys, with O(1) complexity for insertion, lookup, and removal.
 !
 ! Implementation note:
 ! The loops look more complex than they are:
@@ -59,7 +60,9 @@ MODULE mo_hash_table
     END TYPE
 
     ! provides sequential access to all entries of a hash table
-    ! <<< WARNING >>>: iterators are invalidated by setEntry(), removeEntry(), AND destruct() calls on the corresponding hash table
+    ! <<< WARNING >>>: iterators are invalidated by setEntry(),
+    ! removeEntry(), AND destruct() calls on the corresponding hash
+    ! table
     TYPE :: t_HashIterator
         PRIVATE
         TYPE(t_HashTable), POINTER :: table

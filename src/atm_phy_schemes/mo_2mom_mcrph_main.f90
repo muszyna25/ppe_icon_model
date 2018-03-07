@@ -576,7 +576,7 @@ CONTAINS
     END IF
 
     ! homogeneous and heterogeneous ice nucleation
-    CALL ice_nucleation_homhet(ik_slice, use_prog_in, atmo, cloud, ice, snow, n_inact, n_inpot)
+    CALL ice_nucleation_homhet(ik_slice, use_prog_in, atmo, cloud, ice, n_inact, n_inpot)
 
     ! homogeneous freezing of cloud droplets
     CALL cloud_freeze(ik_slice, dt, cloud_coeffs, qnc_const, atmo, cloud, ice)

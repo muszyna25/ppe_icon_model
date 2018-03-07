@@ -32,6 +32,14 @@
 #include "omp_definitions.inc"
 !----------------------------
 
+! Workaround note: With Cray Fortran 8.5.5, a segmentation fault occurred in
+! the SUBROUTINE radheat (source line 1892) when accessing the dummy array
+! "pqv".  the workaround here is to copy the "pqv" dummy array to a temporary
+! pqv=prm_diag%tot_cld(:,:,jb,iqv)
+#if _CRAYFTN == 1 && ( _RELEASE == 8 && _RELEASE_MINOR == 5)
+#define __CRAY8_5_5_WORKAROUND
+#endif
+
 MODULE mo_nh_interface_nwp
 
   USE mtime,                      ONLY: datetime, timeDelta, newTimedelta,             &
@@ -52,7 +60,8 @@ MODULE mo_nh_interface_nwp
   USE mo_model_domain,            ONLY: t_patch
   USE mo_intp_data_strc,          ONLY: t_int_state
   USE mo_nonhydro_types,          ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nonhydrostatic_config,   ONLY: kstart_moist, lhdiff_rcf, ih_clch, ih_clcm
+  USE mo_nonhydrostatic_config,   ONLY: kstart_moist, lhdiff_rcf, ih_clch, ih_clcm, &
+    &                                   lcalc_dpsdt
   USE mo_nwp_lnd_types,           ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_ext_data_types,          ONLY: t_external_data
   USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag, t_nwp_phy_tend
@@ -61,7 +70,7 @@ MODULE mo_nh_interface_nwp
   USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqs, iqtvar, iqtke,  &
     &                                   msg_level, ltimer, timers_level, lart
   USE mo_grid_config,             ONLY: l_limited_area
-  USE mo_physical_constants,      ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cvd, cvv, tmelt
+  USE mo_physical_constants,      ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cvd, cvv, tmelt, grav
 
   USE mo_nh_diagnose_pres_temp,   ONLY: diagnose_pres_temp, diag_pres, diag_temp
 
@@ -82,9 +91,9 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_conv_interface,      ONLY: nwp_convection
   USE mo_nwp_rad_interface,       ONLY: nwp_radiation
   USE mo_sync,                    ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E,      &
-                                        SYNC_C, SYNC_C1, global_sum_array
+                                        SYNC_C, SYNC_C1
   USE mo_mpi,                     ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier,     &
-    &                                   process_mpi_stdio_id, my_process_is_stdio
+    &                                   process_mpi_stdio_id
   USE mo_nwp_diagnosis,           ONLY: nwp_statistics, nwp_diag_output_1, nwp_diag_output_2
   USE mo_icon_comm_lib,           ONLY: new_icon_comm_variable,                               &
     &                                   icon_comm_sync_all, is_ready, until_sync
@@ -97,6 +106,7 @@ MODULE mo_nh_interface_nwp
   USE mo_ls_forcing,              ONLY: apply_ls_forcing
   USE mo_advection_config,        ONLY: advection_config
   USE mo_o3_util,                 ONLY: calc_o3_gems
+  USE mo_nh_supervise,            ONLY: compute_dpsdt
 
   IMPLICIT NONE
 
@@ -182,23 +192,22 @@ CONTAINS
       & z_ddt_v_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),& !< hor. wind tendencies
       & z_ddt_temp  (nproma,pt_patch%nlev)   !< Temperature tendency
 
-    REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c), z_tempv, &
-      zddt_u_raylfric(nproma,pt_patch%nlev), zddt_v_raylfric(nproma,pt_patch%nlev), convfac
+    REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c), z_tempv, sqrt_ri(nproma), n2, dvdz2, &
+      zddt_u_raylfric(nproma,pt_patch%nlev), zddt_v_raylfric(nproma,pt_patch%nlev), convfac, wfac
 
     !< vertical interfaces
 
     REAL(wp) :: zsct ! solar constant (at time of year)
-    REAL(wp) :: zcosmu0 (nproma,pt_patch%nblks_c)
+    REAL(wp) :: zcosmu0 (nproma,pt_patch%nblks_c), cosmu0_slope(nproma,pt_patch%nblks_c)
+#ifdef __CRAY8_5_5_WORKAROUND
+    REAL(wp) :: pqv(nproma,pt_patch%nlev)
+#endif
 
     REAL(wp) :: z_qsum(nproma,pt_patch%nlev)  !< summand of virtual increment
     REAL(wp) :: z_ddt_qsum                    !< summand of tendency of virtual increment
 
     ! auxiliaries for Rayleigh friction computation
     REAL(wp) :: vabs, rfric_fac, ustart, uoffset_q, ustart_q, max_relax
-
-    ! Variables for dpsdt diagnostic
-    REAL(wp) :: dps_blk(pt_patch%nblks_c), dpsdt_avg
-    INTEGER  :: npoints_blk(pt_patch%nblks_c), npoints
 
     ! Variables for EDMF DUALM
     REAL(wp) :: qtvar(nproma,pt_patch%nlev)
@@ -846,8 +855,10 @@ CONTAINS
 &              ldcum  = prm_diag%locum       (:,jb)       ,       & !! in:  convection on/off
 &              kcbot  = prm_diag%mbas_con    (:,jb)       ,       & !! in:  convective cloud base
 &              kctop  = prm_diag%mtop_con    (:,jb)       ,       & !! in:  convective cloud top
+&              ktype  = prm_diag%ktype       (:,jb)       ,       & !! in:  convection type
 &              pmfude_rate = prm_diag%con_udd(:,:,jb,3)   ,       & !! in:  convective updraft detrainment rate
 &              plu         = prm_diag%con_udd(:,:,jb,7)   ,       & !! in:  updraft condensate
+&              qc_tend= prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqc),& !! in:  convective qc tendency
 &              qv     = pt_prog_rcf%tracer   (:,:,jb,iqv) ,       & !! in:  spec. humidity
 &              qc     = pt_prog_rcf%tracer   (:,:,jb,iqc) ,       & !! in:  cloud water
 &              qi     = pt_prog_rcf%tracer   (:,:,jb,iqi) ,       & !! in:  cloud ice
@@ -906,7 +917,11 @@ CONTAINS
         & p_sim_time = p_sim_time,                  &
         & pt_patch   = pt_patch,                    &
         & zsmu0      = zcosmu0,                     &
-        & zsct       = zsct )
+        & zsct       = zsct,                        &
+        & slope_ang  = p_metrics%slope_angle,       &
+        & slope_azi  = p_metrics%slope_azimuth,     &
+        & cosmu0_slp = cosmu0_slope                 )
+
       IF (timers_level > 10) CALL timer_stop(timer_pre_radiation_nwp)
 
       ! exclude boundary interpolation zone of nested domains
@@ -917,8 +932,13 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
       IF (timers_level > 2) CALL timer_start(timer_radheat)
+#ifdef __CRAY8_5_5_WORKAROUND
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,pqv) ICON_OMP_DEFAULT_SCHEDULE
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#endif
 !
       DO jb = i_startblk, i_endblk
         !
@@ -936,6 +956,11 @@ CONTAINS
         prm_diag%swflxsfc (:,jb)=0._wp
         prm_diag%lwflxsfc (:,jb)=0._wp
         prm_diag%swflxtoa (:,jb)=0._wp
+
+#ifdef __CRAY8_5_5_WORKAROUND
+        ! workaround for Cray Fortran 8.5.5
+        pqv=prm_diag%tot_cld(:,:,jb,iqv)
+#endif
 
         IF (atm_phy_nwp_config(jg)%inwp_surface >= 1) THEN
 
@@ -955,7 +980,12 @@ CONTAINS
           & ntiles=ntiles_total                    ,&! in     number of tiles of sfc flux fields
           & ntiles_wtr=ntiles_water                ,&! in     number of extra tiles for ocean and lakes
           & pmair=pt_diag%airmass_new(:,:,jb)      ,&! in     layer air mass             [kg/m2]
+#ifdef __CRAY8_5_5_WORKAROUND
+          & pqv=pqv                                ,&! in     specific moisture           [kg/kg]
+#else
           & pqv=prm_diag%tot_cld(:,:,jb,iqv)       ,&! in     specific moisture           [kg/kg]
+#endif
+
           & pcd=cvd                                ,&! in     specific heat of dry air  [J/kg/K]
           & pcv=cvv                                ,&! in     specific heat of vapor    [J/kg/K]
           & pi0=prm_diag%flxdwswtoa(:,jb)          ,&! in     solar incoming flux at TOA  [W/m2]
@@ -973,7 +1003,8 @@ CONTAINS
           & idx_lst_t=ext_data%atm%idx_lst_t(:,jb,:), &! in   index list of land points per tile
           & idx_lst_spi=ext_data%atm%idx_lst_spi(:,jb),&! in  index list of seaice points
           & idx_lst_fp=ext_data%atm%idx_lst_fp(:,jb),&! in    index list of (f)lake points
-          & cosmu0=zcosmu0(:,jb)                   ,&! in     cosine of solar zenith angle
+          & cosmu0=zcosmu0(:,jb)                   ,&! in     cosine of solar zenith angle (w.r.t. plain surface)
+          & cosmu0_slp=cosmu0_slope(:,jb)          ,&! in     slope-dependent cosine of solar zenith angle
           & opt_nh_corr=.TRUE.                     ,&! in     switch for NH mode
           & ptsfc=lnd_prog_new%t_g(:,jb)           ,&! in     surface temperature         [K]
           & ptsfc_t=lnd_prog_new%t_g_t(:,jb,:)     ,&! in     tile-specific surface temperature         [K]
@@ -1018,7 +1049,11 @@ CONTAINS
           & ntiles=1                               ,&! in     number of tiles of sfc flux fields
           & ntiles_wtr=0                           ,&! in     number of extra tiles for ocean and lakes
           & pmair=pt_diag%airmass_new(:,:,jb)      ,&! in     layer air mass             [kg/m2]
+#ifdef __CRAY8_5_5_WORKAROUND
+          & pqv=pqv                                ,&! in     specific moisture           [kg/kg]
+#else
           & pqv=prm_diag%tot_cld(:,:,jb,iqv)       ,&! in     specific moisture           [kg/kg]
+#endif
           & pcd=cvd                                ,&! in     specific heat of dry air  [J/kg/K]
           & pcv=cvv                                ,&! in     specific heat of vapor    [J/kg/K]
           & pi0=prm_diag%flxdwswtoa(:,jb)          ,&! in     solar incoming flux at TOA  [W/m2]
@@ -1027,6 +1062,7 @@ CONTAINS
           & pqi=prm_diag%tot_cld    (:,:,jb,iqi)   ,&! in     specific cloud ice          [kg/kg]
           & ppres_ifc=pt_diag%pres_ifc(:,:,jb)     ,&! in     pressure at layer boundaries [Pa]
           & cosmu0=zcosmu0(:,jb)                   ,&! in     cosine of solar zenith angle
+          & cosmu0_slp=cosmu0_slope(:,jb)          ,&! in     slope-dependent cosine of solar zenith angle
           & opt_nh_corr=.TRUE.                     ,&! in     switch for NH mode
           & ptsfc=lnd_prog_new%t_g(:,jb)           ,&! in     surface temperature         [K]
           & ptsfctrad=prm_diag%tsfctrad(:,jb)      ,&! in     sfc temp. used for pflxlw   [K]
@@ -1157,7 +1193,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_qsum,z_ddt_temp,z_ddt_qsum,vabs, &
-!$OMP  rfric_fac,zddt_u_raylfric,zddt_v_raylfric,convfac) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP  rfric_fac,zddt_u_raylfric,zddt_v_raylfric,convfac,sqrt_ri,n2,dvdz2,wfac) ICON_OMP_DEFAULT_SCHEDULE
 !
       DO jb = i_startblk, i_endblk
 !
@@ -1184,10 +1220,21 @@ CONTAINS
           zddt_v_raylfric(:,:) = 0._wp
         ENDIF
 
+        ! SQRT of Richardson number between the two lowest model levels
+        ! This is used below to reduce frictional heating near the surface under very stable conditions
+        DO jc = i_startidx, i_endidx
+          n2 = 2._wp*grav/(pt_prog%theta_v(jc,nlev,jb)+pt_prog%theta_v(jc,nlev-1,jb)) * MAX(1.e-4_wp,        &
+               (pt_prog%theta_v(jc,nlev-1,jb)-pt_prog%theta_v(jc,nlev,jb))/p_metrics%ddqz_z_half(jc,nlev,jb) )
+          dvdz2 = MAX(1.e-6_wp, ( (pt_diag%u(jc,nlev-1,jb)-pt_diag%u(jc,nlev,jb))**2 +                      &
+                  (pt_diag%v(jc,nlev-1,jb)-pt_diag%v(jc,nlev,jb))**2 )/p_metrics%ddqz_z_half(jc,nlev,jb)**2 )
+          sqrt_ri(jc) = MAX(1._wp, SQRT(n2/dvdz2))
+        ENDDO
+
         ! heating related to momentum deposition by SSO, GWD and Rayleigh friction
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
+            wfac = MIN(1._wp, 0.004_wp*p_metrics%geopot_agl(jc,jk,jb)/grav)
             prm_nwp_tend%ddt_temp_drag(jc,jk,jb) = -rcvd*(pt_diag%u(jc,jk,jb)*             &
                                                    (prm_nwp_tend%ddt_u_sso(jc,jk,jb)+      &
                                                     prm_nwp_tend%ddt_u_gwd(jc,jk,jb)+      &
@@ -1195,7 +1242,8 @@ CONTAINS
                                                    +      pt_diag%v(jc,jk,jb)*             &
                                                    (prm_nwp_tend%ddt_v_sso(jc,jk,jb)+      &
                                                     prm_nwp_tend%ddt_v_gwd(jc,jk,jb)+      &
-                                                    zddt_v_raylfric(jc,jk))                )
+                                                    zddt_v_raylfric(jc,jk)) ) /            &
+                                                    ((1._wp-wfac)*sqrt_ri(jc) + wfac)
           ENDDO
         ENDDO
 !DIR$ IVDEP
@@ -1503,13 +1551,6 @@ CONTAINS
     IF (timers_level > 10) CALL timer_stop(timer_phys_acc_par)
 
 
-    ! Initialize fields for runtime diagnostics
-    ! In case that average ABS(dpsdt) is diagnosed
-    IF (msg_level >= 11) THEN
-      dps_blk(:)   = 0._wp
-      npoints_blk(:) = 0
-    ENDIF
-
     !-------------------------------------------------------------------------
     !>
     !!    @par Interpolation from  u,v onto v_n
@@ -1603,72 +1644,28 @@ CONTAINS
 
     ENDDO
 !$OMP END DO
-
-
-    ! Diagnosis of ABS(dpsdt) if msg_level >= 11
-    rl_start = grf_bdywidth_c+1
-    rl_end   = min_rlcell_int
-
-    i_startblk = pt_patch%cells%start_blk(rl_start,1)
-    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-    IF (msg_level >= 11) THEN
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
-
-        DO jc = i_startidx, i_endidx
-          pt_diag%ddt_pres_sfc(jc,jb) = (pt_diag%pres_sfc(jc,jb)-pt_diag%pres_sfc_old(jc,jb))/dt_loc
-          pt_diag%pres_sfc_old(jc,jb) = pt_diag%pres_sfc(jc,jb)
-
-          dps_blk(jb) = dps_blk(jb) + ABS(pt_diag%ddt_pres_sfc(jc,jb))
-          npoints_blk(jb) = npoints_blk(jb) + 1
-        ENDDO
-      ENDDO
-!$OMP END DO NOWAIT
-    ELSE IF (atm_phy_nwp_config(jg)%lcalc_dpsdt) THEN ! compute dpsdt field for output
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
-
-        DO jc = i_startidx, i_endidx
-          pt_diag%ddt_pres_sfc(jc,jb) = (pt_diag%pres_sfc(jc,jb)-pt_diag%pres_sfc_old(jc,jb))/dt_loc
-          pt_diag%pres_sfc_old(jc,jb) = pt_diag%pres_sfc(jc,jb)
-        ENDDO
-      ENDDO
-!$OMP END DO NOWAIT
-    ENDIF
-
 !$OMP END PARALLEL
 
     IF (timers_level > 10) CALL timer_stop(timer_phys_acc_2)
+
+
+    IF (timers_level > 10) CALL timer_start(timer_phys_dpsdt)
+    !
+    ! dpsdt diagnostic
+    IF (lcalc_dpsdt) THEN
+      CALL compute_dpsdt (pt_patch = pt_patch, &
+        &                 dt       = dt_loc,   &
+        &                 pt_diag  = pt_diag   )
+    ENDIF
+    IF (timers_level > 10) CALL timer_stop(timer_phys_dpsdt)
+
+
     IF (timers_level > 10) CALL timer_start(timer_phys_sync_vn)
     IF (lcall_phy_jg(itturb)) CALL sync_patch_array(SYNC_E, pt_patch, pt_prog%vn)
     IF (timers_level > 10) CALL timer_stop(timer_phys_sync_vn)
     IF (timers_level > 2) CALL timer_stop(timer_phys_acc)
 
 
-    ! dpsdt diagnostic - omitted in the case of a parallization test (p_test_run) because this
-    ! is a purely diagnostic quantitiy, for which it does not make sense to implement an order-invariant
-    ! summation
-    IF (.NOT. p_test_run .AND. msg_level >= 11) THEN
-      dpsdt_avg = SUM(dps_blk)
-      npoints   = SUM(npoints_blk)
-      dpsdt_avg = global_sum_array(dpsdt_avg, opt_iroot=process_mpi_stdio_id)
-      npoints   = global_sum_array(npoints  , opt_iroot=process_mpi_stdio_id)
-      IF (my_process_is_stdio()) THEN
-        dpsdt_avg = dpsdt_avg/(REAL(npoints,wp))
-        ! Exclude initial time step where pres_sfc_old is zero
-        IF (dpsdt_avg < 10000._wp/dt_loc) THEN
-          WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',jg
-          CALL message('nwp_nh_interface: ', TRIM(message_text))
-        ENDIF
-      ENDIF
-    ENDIF
 
     IF (msg_level >= 18) THEN ! extended diagnostic
       CALL nwp_diag_output_2(pt_patch, pt_prog_rcf, prm_nwp_tend, lcall_phy_jg(itturb))

@@ -20,7 +20,7 @@ MODULE mo_nwp_rad_interface
 
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_ext_data_types,       ONLY: t_external_data
-  USE mo_parallel_config,      ONLY: nproma, parallel_radiation_mode
+  USE mo_parallel_config,      ONLY: nproma
   USE mo_impl_constants,       ONLY: max_char_length, MODIS 
   USE mo_kind,                 ONLY: wp
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
@@ -31,7 +31,6 @@ MODULE mo_nwp_rad_interface
   USE mo_radiation,            ONLY: pre_radiation_nwp_steps
   USE mo_nwp_rrtm_interface,   ONLY: nwp_rrtm_radiation,             &
     &                                nwp_rrtm_radiation_reduced,     &
-    &                                nwp_rrtm_radiation_repartition, &
     &                                nwp_ozon_aerosol
   USE mo_nwp_rg_interface,     ONLY: nwp_rg_radiation,               &
     &                                nwp_rg_radiation_reduced
@@ -158,19 +157,10 @@ MODULE mo_nwp_rad_interface
         & pt_diag, prm_diag, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5 )
     
       IF ( .NOT. lredgrid ) THEN
-
-        SELECT CASE(parallel_radiation_mode(jg))
-        CASE(1) 
-          CALL nwp_rrtm_radiation_repartition ( mtime_datetime, pt_patch, ext_data, &
-            & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                    &
-            & pt_diag, prm_diag, lnd_prog )
           
-        CASE default
-          CALL nwp_rrtm_radiation ( mtime_datetime, pt_patch, ext_data, &
-            & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,        &
-            & pt_diag, prm_diag, lnd_prog, irad )
-
-        END SELECT
+        CALL nwp_rrtm_radiation ( mtime_datetime, pt_patch, ext_data, &
+          & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,        &
+          & pt_diag, prm_diag, lnd_prog, irad )
        
       ELSE 
 

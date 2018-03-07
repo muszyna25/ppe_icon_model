@@ -30,7 +30,8 @@ MODULE mo_ha_dynamics_adv
   USE mo_io_config,          ONLY: l_diagtime
   USE mo_parallel_config,    ONLY: nproma
   USE mo_run_config,         ONLY: nlev, nlevm1, nlevp1
-  USE mo_intp_data_strc,     ONLY: t_int_state, sick_a, sick_o
+  USE mo_intp_data_strc,     ONLY: t_int_state
+  USE mo_interpol_config,    ONLY: sick_a, sick_o
   USE mo_intp_rbf,           ONLY: rbf_vec_interpol_edge
   USE mo_intp,               ONLY: cells2edges_scalar, edges2cells_scalar, &
                                    verts2edges_scalar, cells2verts_scalar, &

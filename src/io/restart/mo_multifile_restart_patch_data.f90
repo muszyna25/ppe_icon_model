@@ -13,14 +13,15 @@
 MODULE mo_multifile_restart_patch_data
   USE mo_cdi,                         ONLY: FILETYPE_NC4, DATATYPE_FLT64, streamWriteVar, streamWriteVarSlice, &
     &                                       streamWriteVarSliceF
-  USE mo_cdi_constants,               ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE,                    &
-    &                                       GRID_UNSTRUCTURED_VERT, ZA_SURFACE
+  USE mo_zaxis_type,                  ONLY: ZA_SURFACE
   USE mo_cdi_ids,                     ONLY: t_CdiIds
   USE mtime,                          ONLY: datetime
   USE mo_decomposition_tools,         ONLY: t_grid_domain_decomp_info
   USE mo_exception,                   ONLY: finish
   USE mo_fortran_tools,               ONLY: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int
   USE mo_impl_constants,              ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
+  USE mo_cdi_constants,               ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE,                    &
+    &                                       GRID_UNSTRUCTURED_VERT
   USE mo_kind,                        ONLY: dp, sp, i8
   USE mo_model_domain,                ONLY: p_patch
   USE mo_mpi,                         ONLY: my_process_is_work

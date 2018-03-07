@@ -39,7 +39,7 @@ AS_CASE([$ac_hostname],
         [wizard*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],  
-        [mlogin*|btc*],
+        [mlogin*|btlogin*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],
         [daint*|tave*|santis*],
@@ -63,7 +63,7 @@ AS_CASE([$ac_hostname],
            [ac_sitename=])])
 
 AS_IF([ test -n "$fqdn" ],
-      [AS_IF([test -z ac_sitename],
+      [AS_IF([test -z "$ac_sitename"],
              [ac_sitename=local.net],
              [])],
       [AS_IF([ test -n "$PE_ENV" ],
@@ -483,7 +483,7 @@ if test -n "$SZIPROOT" ; then
      exit 1    
   fi
   case $ac_hostname in
-  mlogin*|btc*)
+  mlogin*|btlogin*)
     case $FC in
     nagfor)
       SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -532,7 +532,7 @@ if test -n "$HDF5ROOT" ; then
      exit 1    
   fi
   case $ac_hostname in
-  mlogin*|btc*)  
+  mlogin*|btlogin*)
     case $FC in
     nagfor)
       HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -590,7 +590,7 @@ if test -n "$NETCDFROOT" ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
   case $ac_hostname in
-  mlogin*|btc*)
+  mlogin*|btlogin*)
     case $FC in
     nagfor)
       NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -617,7 +617,7 @@ if test -n "$NETCDFROOT" ; then
          NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
          case $ac_hostname in
-         mlogin*|btc*)
+         mlogin*|btlogin*)
            case $FC in
            nagfor)
              NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -688,10 +688,12 @@ AS_IF(
 export CDIROOT	#inform config/createMakefiles.pl whether it should include cdilib.c in the support/Makefile .
 
 dnl ######################################################################
-dnl Checks for grib_api.
+dnl Checks for grib_api/eccodes.
 
 GRIBAPI_LIB=""
 GRIBAPI_INCLUDE=""
+
+LIB_GRIB_API_ROOT="grib_api"
 
 AC_ARG_WITH([grib_api],
             [AC_HELP_STRING([--with-grib_api=DIR],
@@ -699,31 +701,51 @@ AC_ARG_WITH([grib_api],
                             [],
                             with_grib_api=yes)
 
+
+AC_ARG_ENABLE([eccodes],
+            [AC_HELP_STRING([--enable-eccodes=DIR],
+                            [Update GRIB_API setup to successor ECCODES package])],
+                            [],
+                            enable_eccodes=no)
+
+AS_CASE([$enable_eccodes],
+        [no],
+        [],
+        [yes],
+        [AC_MSG_ERROR([--enable-eccodes requires an installation directory.])],
+        [GRIBAPIROOT=$enable_eccodes
+         with_grib_api=yes
+         LIB_GRIB_API_ROOT="eccodes"])
+
 AS_CASE([$with_grib_api],
         [no],
         [AC_MSG_CHECKING([for grib_api library])
          AC_MSG_RESULT([suppressed])],
         [yes],
-        [#AS_IF([test -f "$GRIBAPIROOT/lib/libgrib_api.a"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
-         AS_IF([test -f "$GRIBAPIROOT/include/grib_api.h"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h]))],
+        [AS_IF([test -f "$GRIBAPIROOT/include/grib_api.h"],
+               [],
+               [AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h])])],
         [GRIBAPIROOT=$with_grib_api
-         #AS_IF([test -f "$GRIBAPIROOT/lib/libgrib_api.a"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
-         AS_IF([test -f "$GRIBAPIROOT/include/grib_api.h"],[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h]))])
+         AS_IF([test -f "$GRIBAPIROOT/include/grib_api.h"],
+               [],
+               [AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h])])])
 
 AS_IF([test -n "$GRIBAPIROOT"],
-      [AS_IF([test -r "$GRIBAPIROOT/lib/libgrib_api.a" || test -r "$GRIBAPIROOT/lib/libgrib_api.dylib" || test -r "$GRIBAPIROOT/lib/libgrib_api.so"],
-             [GRIBAPI_LIB='-L$(GRIBAPIROOT)/lib -lgrib_api'],
-             [AC_MSG_ERROR([cannot read $GRIBAPIROOT/lib/libgrib_api.a])])
+      [AS_IF([test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.a" || test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.dylib" || test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.so"],
+             [GRIBAPI_LIB="-L\$(GRIBAPIROOT)/lib -l${LIB_GRIB_API_ROOT}"],
+             [AC_MSG_ERROR([cannot read $GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.a])])
        AS_IF([test -d "$GRIBAPIROOT/include"],
              [GRIBAPI_INCLUDE='-I$(GRIBAPIROOT)/include'],
              [AC_MSG_ERROR([cannot find $GRIBAPIROOT/include])])  
        FFLAGS="${FFLAGS} ${DEFOPT}HAVE_LIBGRIB ${DEFOPT}HAVE_LIBGRIB_API"
        CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_LIBGRIB ${DEFCOPT}HAVE_LIBGRIB_API"
        AS_CASE([$ac_hostname],
-               [mlogin*|btc*],
+               [mlogin*|btlogin*|daint*],
                [AS_CASE([$FC],
                         [nagfor],
                         [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
+			[cray],
+                        [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -dynamic -Wl,-rpath,\2!g')],
                         [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])],
                [])],
       [])
@@ -774,7 +796,7 @@ if test -n "$SCTROOT" ; then
                    [nagfor],
                    [SCT_LIB=$(echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
                    [SCT_LIB=$(echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])],
-          [])                   
+          [])
 
 dnl checks for additional libs needed for sct, eg. papi
 
@@ -951,7 +973,10 @@ dnl Check for byte ordering
 
 dnl Check for Fortran naming convention
 
+dnl  the m4_pushdef of lSystem inserts a hack by Cray also with stock autoconf
+   m4_pushdef([lSystem],[lSy[]stem | -ltcmalloc | -ltcmalloc_minimal])dnl
    AC_FC_WRAPPERS
+   m4_popdef([lSystem])dnl
 
 fi # ! CROSS
 
@@ -964,7 +989,7 @@ if [[ "x$LAPACKROOT" = xlocal ]] ; then
     LAPACKROOT=""
 fi
 
-my_srcdirs="externals/self/src externals/mtime/src ${my_srcdirs}"
+my_srcdirs="externals/self/src externals/mtime/src externals/tixi/src ${my_srcdirs}"
 
 if [[ "x$use_yac" = xyes ]] ; then
     my_srcdirs="externals/yac/src ${my_srcdirs}"
@@ -1168,7 +1193,7 @@ AC_SUBST(FFLAGS,$FFLAGS)
 AC_SUBST(FlibFLAGS,$FlibFLAGS)
 AC_SUBST(F77FLAGS,$F77FLAGS)
 
-ac_libs="${ac_libs} -lmtime -lself"
+ac_libs="${ac_libs} -ltixi -lmtime -lself"
 
 AC_SUBST(LIB,$ac_libs)
 

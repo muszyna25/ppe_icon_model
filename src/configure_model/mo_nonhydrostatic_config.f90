@@ -24,10 +24,12 @@
 !!
 MODULE mo_nonhydrostatic_config
 
-  USE mo_kind,                 ONLY: wp
-  USE mo_impl_constants,       ONLY: max_dom, MAX_CHAR_LENGTH
-  USE mo_exception,            ONLY: message, message_text
-  USE mo_vertical_coord_table, ONLY: vct_a
+  USE mo_kind,                    ONLY: wp
+  USE mo_impl_constants,          ONLY: max_dom, MAX_CHAR_LENGTH
+  USE mo_exception,               ONLY: message, message_text
+  USE mo_vertical_coord_table,    ONLY: vct_a
+  USE mo_run_config,              ONLY: msg_level
+  USE mo_name_list_output_config, ONLY: first_output_name_list, is_variable_in_output
 
   IMPLICIT NONE
 
@@ -58,15 +60,12 @@ MODULE mo_nonhydrostatic_config
     INTEGER :: divdamp_type             ! Type of divergence damping (2D or 3D divergence)
     REAL(wp):: divdamp_trans_start      ! Lower bound of transition zone between 2D and 3D div damping in case of divdamp_type = 32
     REAL(wp):: divdamp_trans_end        ! Upper bound of transition zone between 2D and 3D div damping in case of divdamp_type = 32
-    INTEGER :: kstart_dd3d(max_dom)     ! start level for 3D divergence damping terms (NOT a namelist variable)
     INTEGER :: ivctype                  ! Type of vertical coordinate (Gal-Chen / SLEVE)
     REAL(wp):: htop_moist_proc          ! Top height (in m) of the part of the model domain
                                         ! where processes related to moist physics are computed
-    INTEGER :: kstart_moist(max_dom)    ! related flow control variable (NOT a namelist variable)
     REAL(wp):: hbot_qvsubstep           ! Bottom height (in m) down to which water vapor is 
                                         ! advected with internal substepping (to circumvent CFL 
                                         ! instability in the stratopause region).
-    INTEGER :: kend_qvsubstep(max_dom)  ! related flow control variable (NOT a namelist variable)
     INTEGER :: ih_clch(max_dom)         ! end index for levels contributing to high-level clouds, clch
     INTEGER :: ih_clcm(max_dom)         ! end index for levels contributing to mid-level clouds, clcm
 
@@ -91,6 +90,13 @@ MODULE mo_nonhydrostatic_config
     REAL(wp):: thhgtd_zdiffu    ! threshold height difference between adjacent model grid points
                                 ! above which temperature diffusion is applied
 
+    ! derived variables
+    !
+    INTEGER :: kstart_dd3d(max_dom)     ! start level for 3D divergence damping terms
+    INTEGER :: kstart_moist(max_dom)    ! related flow control variable
+    INTEGER :: kend_qvsubstep(max_dom)  ! related flow control variable
+    LOGICAL :: lcalc_dpsdt              !< TRUE: compute dpsdt for output even if a
+                                        !  low message level (<= 10) is selected
 
 !  END TYPE t_nonhydrostatic_config 
   !>
@@ -190,6 +196,11 @@ CONTAINS
     ! initialization of control variables derived from ndyn_substeps
     ndyn_substeps_max    = ndyn_substeps + 3
     ndyn_substeps_var(:) = ndyn_substeps !** needs to be saved in restart attributes **
+
+
+    ! check whether dpsdt should be computed for output purposes
+    lcalc_dpsdt = (is_variable_in_output(first_output_name_list, var_name='ddt_pres_sfc')) &
+      &           .OR. (msg_level >= 11)
 
   END SUBROUTINE configure_nonhydrostatic
 

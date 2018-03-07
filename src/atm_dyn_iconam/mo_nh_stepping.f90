@@ -422,6 +422,7 @@ MODULE mo_nh_stepping
            !LES specific diagnostics only for output
            CALL les_cloud_diag    ( kstart_moist(jg),                       & !in
              &                      ih_clch(jg), ih_clcm(jg),               & !in
+             &                      phy_params(jg),                         & !in
              &                      p_patch(jg),                            & !in
              &                      p_nh_state(jg)%metrics,                 & !in
              &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
@@ -495,10 +496,7 @@ MODULE mo_nh_stepping
       IF (.NOT. output_mode%l_none .AND. &    ! meteogram output is not initialized for output=none
         & p_patch(jg)%ldom_active  .AND. &
         & meteogram_is_sample_step( meteogram_output_config(jg), 0 ) ) THEN
-        CALL meteogram_sample_vars(jg, 0, time_config%tc_startdate, ierr)
-        IF (ierr /= SUCCESS) THEN
-          CALL finish (routine, 'Error in meteogram sampling! Sampling buffer too small?')
-        ENDIF
+        CALL meteogram_sample_vars(jg, 0, time_config%tc_startdate)
       END IF
     END DO
 
@@ -530,35 +528,7 @@ MODULE mo_nh_stepping
 
   IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
-!   IF (parallel_radiation_omp) THEN
-!
-!     !---------------------------------------
-!     CALL init_ompthread_radiation()
-!
-! !$    CALL omp_set_nested(.true.)
-! !$    CALL omp_set_num_threads(2)
-! !$    write(0,*) 'omp_get_max_active_levels=',omp_get_max_active_levels
-! !$    write(0,*) 'omp_get_max_threads=',omp_get_max_threads()
-! !$OMP PARALLEL SECTIONS
-! !$OMP SECTION
-! !$  CALL omp_set_num_threads(nh_stepping_ompthreads)
-! !$    write(0,*) 'This is the nh_timeloop, max threads=',omp_get_max_threads()
-! !$    write(0,*) 'omp_get_num_threads=',omp_get_num_threads()
-!
-!     CALL perform_nh_timeloop (datetime_current, jfile, l_have_output )
-!     CALL model_end_ompthread()
-!
-! !$OMP SECTION
-! !$  write(0,*) 'This is the nwp_parallel_radiation_thread, max threads=',&
-! !$    omp_get_max_threads()
-!   CALL nwp_start_radiation_ompthread()
-! !$OMP END PARALLEL SECTIONS
-!
-!   ELSE
-    !---------------------------------------
-
-    CALL perform_nh_timeloop (mtime_current, latbc)
-!   ENDIF
+  CALL perform_nh_timeloop (mtime_current, latbc)
 
   CALL deallocate_nh_stepping (latbc)
 
@@ -1022,6 +992,7 @@ MODULE mo_nh_stepping
             !LES specific diagnostics only for output
             CALL les_cloud_diag    ( kstart_moist(jg),                       & !in
               &                      ih_clch(jg), ih_clcm(jg),               & !in
+              &                      phy_params(jg),                         & !in
               &                      p_patch(jg),                            & !in
               &                      p_nh_state(jg)%metrics,                 & !in
               &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
@@ -1130,10 +1101,7 @@ MODULE mo_nh_stepping
       IF (.NOT. output_mode%l_none .AND. &    ! meteogram output is not initialized for output=none
         & p_patch(jg)%ldom_active  .AND. .NOT. (jstep == 0 .AND. iau_iter == 2) .AND. &
         & meteogram_is_sample_step(meteogram_output_config(jg), jstep)) THEN
-        CALL meteogram_sample_vars(jg, jstep, mtime_current, ierr)
-        IF (ierr /= SUCCESS) THEN
-          CALL finish (routine, 'Error in meteogram sampling! Sampling buffer too small?')
-        ENDIF
+        CALL meteogram_sample_vars(jg, jstep, mtime_current)
       END IF
     END DO
 

@@ -96,13 +96,11 @@ MODULE mo_solve_nonhydro
 #endif
   LOGICAL, PARAMETER ::  acc_validate = .FALSE.    ! Only .TRUE. during unit testing
 #define __COLLAPSE_2_LOOPS !$ACC LOOP VECTOR COLLAPSE(2)
-
 #else
-
-#if __CRAY_FTN_VERSION > 850
+#if defined(_INTEL_COMPILER)
 #define __COLLAPSE_2_LOOPS !$OMP SIMD
 #else
-#define __COLLAPSE_2_LOOPS !SIMD not supported
+#define __COLLAPSE_2_LOOPS !NO LOOP COLLAPSE DIRECTIVE AVAILABLE
 #endif
 #endif
 

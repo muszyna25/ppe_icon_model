@@ -5,7 +5,7 @@ builder|BREEZE_gcc|--with-fortran=gcc|build_only
 builder|BREEZE_nag|--with-fortran=nag|build_only
 builder|BREEZE_intel_openmp|--with-fortran=intel --with-openmp|build_only
 machine|daint|
-builder|DAINT_CPU_cce|--with-fortran=cray --build=x86_64-cray-linux --host=x86_64-unknown-linux-gnu|Active
+builder|DAINT_CPU_cce|--with-fortran=cray|Active
 experiment|exp.nat_jww_nwp_mpiomp|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
@@ -50,7 +50,6 @@ experiment|exp.nat_jww_nwp_mpiomp|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_rce_les|cpu_time=00:30:00
 experiment|exp.nat_rce_cbl_120km_nwp|cpu_time=00:30:00
 experiment|exp.test_nwp_R02B04_R02B05_nest|cpu_time=00:30:00
-experiment|exp.couple_atmo-ocean|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/other/exp.oce_testbed_read|cpu_time=00:30:00
 experiment|exp.test_nwp_R02B04N06multi|cpu_time=00:30:00

@@ -49,7 +49,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile, isub_water, isub_seaice, isub_lake,    &
-    &                               itype_interception, l2lay_rho_snow, lprog_albsi
+    &                               itype_interception, l2lay_rho_snow, lprog_albsi, itype_trvg
   USE mo_nwp_tuning_config,   ONLY: tune_minsnowfrac
   USE mo_initicon_config,     ONLY: init_mode_soil, ltile_coldstart, init_mode, lanaread_tseasfc, use_lakeiceana
   USE mo_run_config,          ONLY: msg_level
@@ -925,7 +925,7 @@ CONTAINS
 
 
 
-      IF(lsnowtile .AND. .NOT. lsnowtile_warmstart) THEN ! snow is considered as separate tiles
+      IF(lsnowtile) THEN ! snow is considered as separate tiles
         DO isubs = 1, ntiles_lnd
 
           isubs_snow = isubs + ntiles_lnd
@@ -1180,6 +1180,11 @@ CONTAINS
           ENDDO
         ENDIF
 
+        IF (itype_trvg == 3) THEN
+          DO jc = i_startidx, i_endidx
+            lnd_diag%plantevap(jc,jb) = lnd_diag%plantevap_t(jc,jb,1)
+          ENDDO
+        ENDIF
 
         DO jk=1,nlev_soil
           DO jc = i_startidx, i_endidx
@@ -1233,6 +1238,10 @@ CONTAINS
         IF (itype_interception == 2) THEN
           lnd_diag%w_p    (:,jb)  = 0._wp
           lnd_diag%w_s    (:,jb)  = 0._wp
+        ENDIF
+
+        IF (itype_trvg == 3) THEN
+          lnd_diag%plantevap(:,jb) = 0._wp
         ENDIF
 
         IF (l2lay_rho_snow .OR. lmulti_snow) THEN
@@ -1299,6 +1308,18 @@ CONTAINS
             ENDDO
           ENDIF
 
+          IF (itype_trvg == 3) THEN
+            DO jc = i_startidx, i_endidx
+              !
+              ! note that frac_t must be re-scaled such that SUM(frac_t(1:ntiles_lnd)) = 1
+              ! therefore we multiply by inv_frland_from_tiles
+              tilefrac = ext_data%atm%frac_t(jc,jb,isubs)        &
+                &      * ext_data%atm%inv_frland_from_tiles(jc,jb)
+
+              lnd_diag%plantevap(jc,jb) = lnd_diag%plantevap(jc,jb) + tilefrac       &
+                &                       * lnd_diag%plantevap_t(jc,jb,isubs)
+            ENDDO
+          ENDIF
 
           DO jk=1,nlev_soil
             DO jc = i_startidx, i_endidx

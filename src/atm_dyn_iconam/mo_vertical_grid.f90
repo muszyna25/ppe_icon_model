@@ -49,6 +49,7 @@ MODULE mo_vertical_grid
   USE mo_math_gradients,        ONLY: grad_fd_norm, grad_fd_tang
   USE mo_intp_data_strc,        ONLY: t_int_state
   USE mo_intp,                  ONLY: cells2edges_scalar, cells2verts_scalar, cell_avg
+  USE mo_intp_rbf,              ONLY: rbf_vec_interpol_cell
   USE mo_math_constants,        ONLY: pi_2
   USE mo_loopindices,           ONLY: get_indices_e, get_indices_c
   USE mo_nonhydro_types,        ONLY: t_nh_state
@@ -118,7 +119,7 @@ MODULE mo_vertical_grid
     REAL(wp), ALLOCATABLE :: z_ifv(:,:,:)
     REAL(wp), ALLOCATABLE :: z_me(:,:,:),z_maxslp(:,:,:),z_maxhgtd(:,:,:),z_shift(:,:,:), &
                              z_ddxt_z_half_e(:,:,:), z_ddxn_z_half_e(:,:,:)
-    REAL(wp), ALLOCATABLE :: z_aux_c(:,:,:), z_aux_e(:,:,:)
+    REAL(wp), ALLOCATABLE :: z_aux_c(:,:,:), z_aux_c2(:,:,:), z_aux_e(:,:,:)
     REAL(wp) :: extrapol_dist
     INTEGER,  ALLOCATABLE :: flat_idx(:,:), imask(:,:,:),icount(:)
     INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk, inidx, inblk
@@ -334,6 +335,31 @@ MODULE mo_vertical_grid
 
       DEALLOCATE(z_aux_e)
 
+      ! slope angle and slope azimuth (used for slope-dependent radiation)
+      ALLOCATE (z_aux_c(nproma,1,nblks_c), z_aux_c2(nproma,1,nblks_c))
+      z_aux_c(:,:,:) = 0._wp ; z_aux_c2(:,:,:) = 0._wp
+      
+      CALL rbf_vec_interpol_cell(z_ddxn_z_half_e(:,nlevp1:nlevp1,:), p_patch(jg), p_int(jg), z_aux_c, z_aux_c2)
+
+      i_startblk = p_patch(jg)%cells%start_block(2)
+
+!$OMP PARALLEL DO PRIVATE(jb, i_startidx, i_endidx, jc)
+      DO jb = i_startblk,nblks_c
+
+        CALL get_indices_c(p_patch(jg), jb, i_startblk, nblks_c, i_startidx, i_endidx, 2)
+
+        DO jc = i_startidx, i_endidx
+          p_nh(jg)%metrics%slope_angle(jc,jb)   = ATAN(SQRT(z_aux_c(jc,1,jb)**2+z_aux_c2(jc,1,jb)**2))
+          IF (z_aux_c(jc,1,jb) /= 0._wp .OR. z_aux_c2(jc,1,jb) /= 0._wp) THEN
+            p_nh(jg)%metrics%slope_azimuth(jc,jb) = ATAN2(z_aux_c(jc,1,jb),z_aux_c2(jc,1,jb))
+          ELSE
+            p_nh(jg)%metrics%slope_azimuth(jc,jb) = 0._wp
+          ENDIF
+        ENDDO
+
+      ENDDO
+!$OMP END PARALLEL DO
+
 
       ! offcentering in vertical mass flux
       p_nh(jg)%metrics%vwind_impl_wgt(:,:)    = 0.5_wp + vwind_offctr
@@ -466,7 +492,7 @@ MODULE mo_vertical_grid
       i_startblk = p_patch(jg)%cells%start_block(2)
 
 
-      ALLOCATE (z_maxslp(nproma,nlev,nblks_c), z_maxhgtd(nproma,nlev,nblks_c), z_aux_c(nproma,1,nblks_c) )
+      ALLOCATE (z_maxslp(nproma,nlev,nblks_c), z_maxhgtd(nproma,nlev,nblks_c) )
 
 !$OMP PARALLEL
       ! Initialization to ensure that values are properly set at lateral boundaries
@@ -603,7 +629,7 @@ MODULE mo_vertical_grid
       CALL cell_avg(z_aux_c, p_patch(jg), p_int(jg)%c_bln_avg, z_aux_e)
       p_nh(jg)%metrics%mask_mtnpoints(:,:) = z_aux_e(:,1,:)
 
-      DEALLOCATE(z_aux_c,z_aux_e)
+      DEALLOCATE(z_aux_c,z_aux_c2,z_aux_e)
 
       ! Index lists for boundary nudging (including halo cells so that no
       ! sync is needed afterwards; halo edges are excluded, however, because
