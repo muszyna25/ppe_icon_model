@@ -1,6 +1,8 @@
 ! we want SINGULARITY_CHECKS to be enabled, since the high-res grids have
 ! problems with the default values.
+#ifndef _CRAYFTN
 #define SINGULARITY_CHECKS
+#endif
 
 ! LL: xlc has trouble optimizing routines with implicit shaped parameters
 #ifdef __xlC__
