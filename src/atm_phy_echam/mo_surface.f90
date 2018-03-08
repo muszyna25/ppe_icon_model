@@ -768,7 +768,8 @@ CONTAINS
        CALL surface_fluxes( kproma, kbdim, ksfc_type,             &! in
             &               idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
             &               pdtime,                               &! in
-            &               pfrc, alake, pcfh_tile, pfac_sfc,     &! in
+            &               pfrc, lsm, alake,                     &! in
+            &               pcfh_tile, pfac_sfc,                  &! in
             &               pcpt_tile, pqsat_tile,                &! in
             &               zca, zcs, bb_btm(:,:,ih:iqv),         &! in
             &               zlhflx_lnd, zlhflx_lwtr, zlhflx_lice, &! in
