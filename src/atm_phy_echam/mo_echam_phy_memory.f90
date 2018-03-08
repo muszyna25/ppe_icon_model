@@ -443,7 +443,10 @@ MODULE mo_echam_phy_memory
       & lhflx_tile(:,:,:),    &!< latent   heat flux at surface on tiles
       & shflx_tile(:,:,:),    &!< sensible heat flux at surface on tiles
       & evap_tile(:,:,:),     &!< evaporation at surface on tiles
-      & frac_tile(:,:,:)       !< surface fraction of tiles
+      & frac_tile(:,:,:)       !< surface fraction of tiles:
+                               !  - fraction of land without lakes
+                               !  - fraction of ice covered water in the grid box, for sea and lakes
+                               !  - fraction of open water in the grid box, for sea and lakes
 
     TYPE(t_ptr_2d),ALLOCATABLE :: lhflx_tile_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: shflx_tile_ptr(:)
@@ -2798,14 +2801,6 @@ CONTAINS
     CALL add_var( field_list, prefix//'lake_ice_frc', field%lake_ice_frc,  &
               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
               & initval=0._wp, lrestart=.TRUE., ldims=shape2d )
-
-    ! &       field% icefrc (nproma, nblks),                 &
-    cf_desc    = t_cf_var('ice_cover', '', 'ice cover given as fraction of grid box', & 
-         &                datatype_flt)
-    grib2_desc = grib2_var(10,2,0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'icefrc', field%icefrc,            &
-              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-              & lrestart=.FALSE., ldims=shape2d )
 
     !-----------------------------------
     ! &       field% ts(nproma,nblks), &
