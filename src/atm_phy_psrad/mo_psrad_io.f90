@@ -1,6 +1,6 @@
 MODULE mo_psrad_io
 
-  USE mo_psrad_general, ONLY : dp, finish
+  USE mo_psrad_general, ONLY: dp, finish
 
 #ifdef PSRAD_ONLY
   INCLUDE "netcdf.inc"
@@ -35,10 +35,13 @@ CONTAINS
     INTEGER, INTENT(IN) :: fileid
     INTEGER :: nf_status ! BUG: generates warning, but won't compile...
 
+!FIXME: bug on Aurora testbed
+#ifndef __NEC__
     nf_status = p_nf_close(fileid) !...unless this return value is stored
     IF (nf_status /= nf_noerr) THEN
       CALL finish('psrad_io_close', 'p_nf_close /= nf_noerr')
     ENDIF
+#endif
   END SUBROUTINE psrad_io_close
 
   SUBROUTINE psrad_io_copy_double(fileid, varname, src, tgt, buffer)

@@ -36,8 +36,10 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
   &                                output_mode,          &
   &                                lvert_nest, ntracer,  &
   &                                nlev,                 &
-  &                                iqv, iqc, iqt,        &
+  &                                iqv, iqc, iqt, ico2,  &
   &                                number_of_grid_used
+USE mo_radiation_config,     ONLY: mmr_co2, irad_co2
+USE mo_bc_greenhouse_gases,  ONLY: ghg_co2mmr
 USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
@@ -85,7 +87,6 @@ USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 USE mo_echam_phy_init,      ONLY: init_echam_phy, initcond_echam_phy
 USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
 
-USE mo_vertical_coord_table,ONLY: vct_a, vct_b
 USE mo_nh_testcases_nml,    ONLY: nh_test_name
 
 USE mtime,                  ONLY: datetimeToString, timeDelta, newTimeDelta,               &
@@ -284,16 +285,15 @@ CONTAINS
 ! LGS
 !
     IF ( iforcing == iecham ) THEN
-      CALL init_echam_phy( p_patch(1:), nh_test_name, &
-        & nlev, vct_a, vct_b, time_config%tc_current_date )
+      CALL init_echam_phy( p_patch(1:), nh_test_name, nlev, time_config%tc_current_date )
       !! many of the initial conditions for the echam 'field' are set here
       !! Note: it is not certain that p_nh_state(jg)%diag%temp has been initialized at this point in time.
       !!       initcond_echam_phy should therefore not rely on the fact that this has been properly set.
       !!       It is the case for some testcases, but not e.g. for coupled or AMIP runs if the atmosphere
       !!       is initialized with IFS analyses.
+      !! NOTE: tracer variables, e.g. o3 or co2 are not part of the IFS analyses.
       DO jg = 1,n_dom
-        CALL initcond_echam_phy( jg                                                 ,&
-          &                      p_patch(jg)                                        ,&
+        CALL initcond_echam_phy( p_patch(jg)                                        ,&
           &                      p_nh_state(jg)% metrics% z_ifc         (:,:,:)     ,&
           &                      p_nh_state(jg)% metrics% z_mc          (:,:,:)     ,&
           &                      p_nh_state(jg)% metrics% ddqz_z_full   (:,:,:)     ,&
@@ -365,12 +365,23 @@ CONTAINS
         ! initialize tracers fields jt=iqt to jt=ntracer, which are not available
         ! in the analysis file
         DO jg = 1,n_dom
-           IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-           DO jt = iqt,ntracer
+          IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+          DO jt = iqt,ntracer
 !$OMP PARALLEL
-             CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,jt),0.0_wp)
+            CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,jt),0.0_wp)
 !$OMP END PARALLEL
           END DO
+          IF ( iqt <= ico2 .AND. ico2 <= ntracer) THEN
+            IF (irad_co2 == 2) THEN
+!$OMP PARALLEL
+              CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,ico2),mmr_co2)
+!$OMP END PARALLEL
+            ELSE IF (irad_co2 == 4) THEN
+!$OMP PARALLEL
+              CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,ico2),ghg_co2mmr)
+!$OMP END PARALLEL
+            END IF
+          END IF
         END DO
 
         IF (timers_level > 5) CALL timer_stop(timer_init_icon)

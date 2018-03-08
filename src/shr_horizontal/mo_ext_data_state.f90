@@ -63,6 +63,7 @@ MODULE mo_ext_data_state
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_water, llake, &
     &                              sstice_mode
   USE mo_radiation_config,   ONLY: irad_o3, albedo_type
+  USE mo_echam_rad_config,   ONLY: echam_rad_config
   USE mo_extpar_config,      ONLY: i_lctype, nclass_lu, nmonths_ext
   USE mo_cdi,                ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64, &
     &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG,            &
@@ -1177,7 +1178,7 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ext_atm_td_list, TRIM(listname), patch_id=p_patch%id )
+    CALL new_var_list( p_ext_atm_td_list, TRIM(listname), patch_id=jg )
     CALL default_var_list_settings( p_ext_atm_td_list,         &
                                   & lrestart=.FALSE.,          &
                                   & loutput=.TRUE.  )
@@ -1192,7 +1193,8 @@ CONTAINS
     ! ATTENTION: a GRIB2 number will go to
     ! the ozone mass mixing ratio...
     !
-    IF(irad_o3 == io3_clim .OR. irad_o3 == io3_ape) THEN
+    IF (                           irad_o3 == io3_clim .OR.                      irad_o3 == io3_ape &
+       & .OR. echam_rad_config(jg)%irad_o3 == io3_clim .OR. echam_rad_config(jg)%irad_o3 == io3_ape ) THEN
 
       CALL message(routine, 'generate ext ozone field')
 

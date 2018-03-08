@@ -5,6 +5,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|checksuite.icon-dev/check.atm_amip|
+experiment|checksuite.icon-dev/check.atm_ape|
 experiment|checksuite.icon-dev/check.atm_heldsuarez|
 experiment|checksuite.ocean_internal/technical/exp.ocean_omip_ptest|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
@@ -26,6 +27,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|checksuite.icon-dev/check.atm_amip|
+experiment|checksuite.icon-dev/check.atm_ape|
 experiment|checksuite.icon-dev/check.atm_heldsuarez|
 experiment|checksuite.ocean_internal/technical/exp.ocean_omip_ptest|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
@@ -47,6 +49,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|checksuite.icon-dev/check.atm_amip|
+experiment|checksuite.icon-dev/check.atm_ape|
 experiment|checksuite.icon-dev/check.atm_heldsuarez|
 experiment|checksuite.ocean_internal/technical/exp.ocean_omip_ptest|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
@@ -67,6 +70,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|checksuite.icon-dev/check.atm_amip|
+experiment|checksuite.icon-dev/check.atm_ape|
 experiment|checksuite.icon-dev/check.atm_heldsuarez|
 experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_Hex|cpu_time=00:30:00
@@ -79,6 +83,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|checksuite.icon-dev/check.atm_amip|
+experiment|checksuite.icon-dev/check.atm_ape|
 experiment|checksuite.icon-dev/check.atm_heldsuarez|
 experiment|checksuite.ocean_internal/technical/exp.ocean_omip_ptest|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
