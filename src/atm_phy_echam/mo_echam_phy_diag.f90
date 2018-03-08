@@ -66,32 +66,39 @@ CONTAINS
 
     DO jc=jcs,jce
 
-      ! fraction of land in the grid box.
-      ! lsmask: land-sea mask, depends on input data, either:
-      ! fractional, including or excluding lakes in the land part or
-      ! non-fractional, each grid cell is either land, sea, or sea-ice.
-      ! See mo_echam_phy_init or input data set for details.
+      ! fraction of solid land in the grid box, i.e. land without lakes if lakes are used
+      ! see mo_echam_phy_init or input data set for details.
+      !
+      IF (ilnd.LE.nsfc_type) THEN
+         zfrl(jc) = MAX(MIN(            &
+              &     field%lsmask(jc,jb) &
+              &     ,1._wp),0._wp)
+      ELSE
+         zfrl(jc) = 0._wp
+      END IF
 
-      zfrl(jc) = MAX(field% lsmask(jc,jb),0._wp)
-
-      ! fraction of sea/lake in the grid box
-      ! * (1. - fraction of sea ice in the sea/lake part of the grid box)
-      ! => fraction of open water in the grid box
-
+      ! fraction of open water in the grid box, for sea and lakes
+      !
       IF (iwtr.LE.nsfc_type) THEN
-         zfrw(jc) = MAX(1._wp-zfrl(jc),0._wp)*MAX(1._wp-(field%seaice(jc,jb)+field%lake_ice_frc(jc,jb)),0._wp)
+         zfrw(jc) = MAX(MIN(                                                                          &
+              &      (1._wp-field%lsmask(jc,jb)-field%alake(jc,jb))*(1._wp-field%seaice(jc,jb))       & ! ocean
+              &     +field%alake(jc,jb)                            *(1._wp-field%lake_ice_frc(jc,jb)) & ! lakes
+              &     ,1._wp),0._wp)
       ELSE
          zfrw(jc) = 0._wp
       END IF
 
-      ! fraction of sea ice in the grid box
-      zfri(jc) = MAX(1._wp-zfrl(jc)-zfrw(jc),0._wp)
+      ! fraction of ice covered water in the grid box, for sea and lakes
       !
       IF (iice.LE.nsfc_type) THEN
+         zfri(jc) = 1._wp-zfrl(jc)-zfrw(jc)
+         !
          ! security for ice temperature with changing ice mask
          IF(zfri(jc) > 0._wp .AND. field%ts_tile(jc,jb,iice) == cdimissval ) THEN
-            field% ts_tile(jc,jb,iice)  = tmelt + Tf    ! = 271.35 K
+            field%ts_tile(jc,jb,iice)  = tmelt + Tf    ! = 271.35 K
          END IF
+      ELSE
+         zfri(jc) = 0._wp
       END IF
 
     END DO
