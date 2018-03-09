@@ -511,7 +511,7 @@ CONTAINS
 
     ! Add a special metrics variable containing the area weights of
     ! the regular lon-lat grid.
-    CALL compute_lonlat_area_weights(lonlat_grids)
+    CALL compute_lonlat_area_weights(lonlat_grids, p_nh_state_lists)
 
     ! Map the variable groups given in the output namelist onto the
     ! corresponding variable subsets:

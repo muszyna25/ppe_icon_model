@@ -31,7 +31,8 @@ MODULE mo_opt_diagnostics
   USE mo_parallel_config,      ONLY: nproma
   USE mo_linked_list,          ONLY: t_var_list
   USE mo_model_domain,         ONLY: t_patch, t_subset_range
-  USE mo_nonhydro_types,       ONLY: t_nh_diag,t_nh_prog
+  USE mo_nonhydro_types,       ONLY: t_nh_diag,t_nh_prog,      &
+                                     t_nh_state_lists
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH,           &
     &                                VINTP_METHOD_QV,                    &
     &                                VINTP_METHOD_PRES,                  &
@@ -52,7 +53,6 @@ MODULE mo_opt_diagnostics
     &                                TSTEP_CONSTANT
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL,                           &
     &                                GRID_CELL, GRID_REGULAR_LONLAT
-  USE mo_nonhydro_state,       ONLY: p_nh_state_lists
   USE mo_var_list,             ONLY: default_var_list_settings,                        &
     &                                new_var_list, delete_var_list, add_var, add_ref
   USE mo_var_list_element,     ONLY: level_type_ml, level_type_pl,                     &
@@ -905,8 +905,9 @@ CONTAINS
   !
   !  @note This new variable is time-constant!
   !
-  SUBROUTINE compute_lonlat_area_weights(lonlat_data)
+  SUBROUTINE compute_lonlat_area_weights(lonlat_data, p_nh_state_lists)
     TYPE (t_lon_lat_list), TARGET, INTENT(IN) :: lonlat_data
+    TYPE (t_nh_state_lists), INTENT(INOUT) :: p_nh_state_lists(:)
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::compute_lonlat_area_weights"
     TYPE(t_cf_var)       :: cf_desc
