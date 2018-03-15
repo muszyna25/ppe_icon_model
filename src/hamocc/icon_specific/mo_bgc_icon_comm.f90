@@ -32,7 +32,7 @@
 
       USE mo_hamocc_types,       ONLY: t_hamocc_diag, t_hamocc_state, &
     &                                  t_hamocc_sed, t_hamocc_tend,   &
-    &                                  t_hamocc_acc, t_hamocc_monitor                    
+    &                                  t_hamocc_monitor                    
    
 
        

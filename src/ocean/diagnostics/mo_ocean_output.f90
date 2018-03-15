@@ -56,8 +56,8 @@ MODULE mo_ocean_output
   USE mo_ocean_statistics
   USE mtime,                     ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToPosixString
   
-  USE mo_hamocc_statistics
-  USE mo_hamocc_types,           ONLY: t_hamocc_state, t_hamocc_acc, t_hamocc_tend
+ 
+  USE mo_hamocc_types,           ONLY: t_hamocc_state, t_hamocc_tend
   USE mo_bgc_icon_comm,          ONLY: set_bgc_output_pointers
   USE mo_hamocc_diagnostics,     ONLY: get_monitoring 
  
@@ -146,8 +146,7 @@ CONTAINS
     CALL compute_mean_ice_statistics(sea_ice%acc,nsteps_since_last_output)
   
     IF(lhamocc)THEN
-      CALL compute_mean_hamocc_statistics(hamocc%p_acc,nsteps_since_last_output)
-      CALL get_monitoring(hamocc,ocean_state(1),patch_3d)
+         CALL get_monitoring(hamocc,ocean_state(1),patch_3d)
     ENDIF
 
     IF (diagnostics_level > 0 ) THEN
@@ -172,7 +171,7 @@ CONTAINS
     CALL reset_ocean_statistics(ocean_state(1)%p_acc,ocean_state(1)%p_diag,surface_fluxes,nsteps_since_last_output)
     IF (i_sea_ice >= 1) CALL reset_ice_statistics(sea_ice%acc)
 
-    IF(lhamocc)CALL reset_hamocc_statistics(hamocc%p_acc,nsteps_since_last_output)
+    
         
   END SUBROUTINE output_ocean
   !-------------------------------------------------------------------------

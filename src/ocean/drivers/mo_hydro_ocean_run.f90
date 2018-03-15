@@ -73,7 +73,6 @@ MODULE mo_hydro_ocean_run
   USE mo_statistics
   USE mo_var_list
   USE mo_ocean_statistics
-  USE mo_hamocc_statistics,      ONLY: update_hamocc_statistics, reset_hamocc_statistics
   USE mo_hamocc_types,           ONLY: t_hamocc_state
   USE mo_derived_variable_handling, ONLY: perform_accumulation, reset_accumulation
   USE mo_ocean_output
@@ -430,11 +429,7 @@ CONTAINS
         
       IF (i_sea_ice >= 1) CALL update_ice_statistic(sea_ice%acc,sea_ice,patch_2d%cells%owned)
 
-      IF(lhamocc)CALL update_hamocc_statistics(hamocc_state,&
-        & patch_2d%cells%owned,&
-        & patch_2d%edges%owned,&
-        & patch_2d%verts%owned,&
-        & n_zlev)
+   
 
     CALL calc_fast_oce_diagnostics( patch_2d, &
         & patch_3d, &
@@ -598,12 +593,7 @@ CONTAINS
       & patch_2d%verts%owned,   &
       & n_zlev,p_phys_param=p_phys_param)
     IF (i_sea_ice >= 1) CALL update_ice_statistic(sea_ice%acc, sea_ice,patch_2d%cells%owned)
-      IF (lhamocc) CALL update_hamocc_statistics( &
-      & hamocc_state,            &
-      & patch_2d%cells%owned,   &
-      & patch_2d%edges%owned,   &
-      & patch_2d%verts%owned,   &
-      & n_zlev)
+  
 
     CALL perform_accumulation(nnew(1),0)
 
@@ -612,8 +602,7 @@ CONTAINS
     CALL reset_ocean_statistics(ocean_state%p_acc,ocean_state%p_diag,p_oce_sfc)
     CALL reset_accumulation
     IF (i_sea_ice >= 1) CALL reset_ice_statistics(sea_ice%acc)
-    IF (lhamocc) CALL reset_hamocc_statistics(hamocc_state%p_acc)
-
+ 
   END SUBROUTINE write_initial_ocean_timestep
   !-------------------------------------------------------------------------
 

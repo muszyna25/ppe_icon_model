@@ -28,6 +28,7 @@ MODULE mo_hamocc_diagnostics
 &                           ian2o, idet, iiron, icalc, iopal,&
 &                           idust, idms
 
+   USE mo_name_list_output_init, ONLY: isRegistered
 
 IMPLICIT NONE
 
@@ -118,63 +119,62 @@ REAL(wp) :: glob_n2b, glob_pwn2b
 i_time_stat=nold(1)
 
 
-! First try:  do not accumulate monitoring itself, but put accumulated fields into it
-CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%npp(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%phosy(1))
-CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%phoc(:,:,:), &
+if(isRegistered('HAMOCC_global_primary_production'))CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%npp(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%phosy(1))
+if(isRegistered('HAMOCC_global_npp_cya'))CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%phoc(:,:,:), &
 & i_time_stat, hamocc_state%p_tend%monitor%phosy_cya(1))
-CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%graz(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%grazing(1))
-CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%graton(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%graton(1))
-CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%exud(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%exud(1))
-CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%exudz(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%exudz(1))
-CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%zoomor(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%zoomor(1))
-CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%phymor(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%phymor(1))
-CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%delsil(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%delsil(1))
-CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%delcar(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%delcar(1))
-CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%bacfra(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%bacfra(1))
-CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%remina(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%remina(1))
+if(isRegistered('HAMOCC_global_zooplankton_grazing'))CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%graz(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%grazing(1))
+if(isRegistered('HAMOCC_global_remin_via_grazer'))CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%graton(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%graton(1))
+if(isRegistered('HAMOCC_global_exudation_phytoplankton'))CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%exud(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%exud(1))
+if(isRegistered('HAMOCC_global_exudation_zooplankton'))CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%exudz(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%exudz(1))
+if(isRegistered('HAMOCC_global_zooplankton_dying'))CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%zoomor(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%zoomor(1))
+if(isRegistered('HAMOCC_global_phytoplankton_dying'))CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%phymor(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%phymor(1))
+if(isRegistered('HAMOCC_global_opal_production'))CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%delsil(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%delsil(1))
+if(isRegistered('HAMOCC_global_caco3_production'))CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%delcar(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%delcar(1))
+if(isRegistered('HAMOCC_bacterial_activity'))CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%bacfra(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%bacfra(1))
+if(isRegistered('HAMOCC_Aerob_remin_of_detritus'))CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%remina(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%remina(1))
 if(l_cyadyn)then
-CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%nfix(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%n2fix(1))
-CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%cyloss(:,:,:), i_time_stat, &
+if(isRegistered('HAMOCC_N2_fixation'))CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%nfix(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%n2fix(1))
+if(isRegistered('HAMOCC_global_cya_loss_det'))CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%cyloss(:,:,:), i_time_stat, &
 & hamocc_state%p_tend%monitor%cyaldet(1))
 else
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%nfixd(:,:), i_time_stat,&
+if(isRegistered('HAMOCC_N2_fixation'))CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%nfixd(:,:), i_time_stat,&
 & hamocc_state%p_tend%monitor%n2fix(1), 1, ocean_state)
 endif
-CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%reminn(:,:,:), &
+if(isRegistered('HAMOCC_WC_denit'))CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%reminn(:,:,:), &
 & i_time_stat, hamocc_state%p_tend%monitor%wcdenit(1))
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%cflux(:,:), i_time_stat,&
+if(isRegistered('HAMOCC_global_net_co2_flux'))CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%cflux(:,:), i_time_stat,&
 & hamocc_state%p_tend%monitor%net_co2_flux(1), -2)
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%coex90(:,:), i_time_stat,&
+if(isRegistered('HAMOCC_global_OM_export_at_90m'))CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%coex90(:,:), i_time_stat,&
 & hamocc_state%p_tend%monitor%omex90(1), -2)
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%calex90(:,:), i_time_stat,&
+if(isRegistered('HAMOCC_global_calc_export_at_90m'))CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%calex90(:,:), i_time_stat,&
 & hamocc_state%p_tend%monitor%calex90(1), -2)
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%opex90(:,:), i_time_stat,&
+if(isRegistered('HAMOCC_global_opal_export_at_90m'))CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%opex90(:,:), i_time_stat,&
 & hamocc_state%p_tend%monitor%opex90(1), -2)
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%coex1000(:,:), i_time_stat,&
+if(isRegistered('HAMOCC_global_OM_export_at_1000m'))CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%coex1000(:,:), i_time_stat,&
 & hamocc_state%p_tend%monitor%omex1000(1), -2)
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%calex1000(:,:), i_time_stat,&
+if(isRegistered('HAMOCC_global_calc_export_at_1000m'))CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%calex1000(:,:), i_time_stat,&
 & hamocc_state%p_tend%monitor%calex1000(1), -2)
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%opex1000(:,:), i_time_stat,&
+if(isRegistered('HAMOCC_global_opal_export_at_1000m'))CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%opex1000(:,:), i_time_stat,&
 & hamocc_state%p_tend%monitor%opex1000(1), -2)
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%coex2000(:,:), i_time_stat,&
+if(isRegistered('HAMOCC_global_OM_export_at_2000m'))CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%coex2000(:,:), i_time_stat,&
 & hamocc_state%p_tend%monitor%omex2000(1), -2)
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%calex2000(:,:), i_time_stat,&
+if(isRegistered('HAMOCC_global_calc_export_at_2000m'))CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%calex2000(:,:), i_time_stat,&
 & hamocc_state%p_tend%monitor%calex2000(1), -2)
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%opex2000(:,:), i_time_stat,&
+if(isRegistered('HAMOCC_global_opal_export_at_2000m'))CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%opex2000(:,:), i_time_stat,&
 & hamocc_state%p_tend%monitor%opex2000(1), -2)
-CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,ialkali+no_tracer), &
+if(isRegistered('HAMOCC_global_surface_alk'))CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,ialkali+no_tracer), &
   i_time_stat,hamocc_state%p_tend%monitor%sfalk(1),-2)
-CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,isco212+no_tracer), &
+if(isRegistered('HAMOCC_global_surface_dic'))CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,isco212+no_tracer), &
   i_time_stat,hamocc_state%p_tend%monitor%sfdic(1),-2)
-CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,iphosph+no_tracer), &
+if(isRegistered('HAMOCC_global_surface_phosphate'))CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,iphosph+no_tracer), &
   i_time_stat,hamocc_state%p_tend%monitor%sfphos(1),-2)
-CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,isilica+no_tracer), &
+if(isRegistered('HAMOCC_global_surface_silicate'))CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,isilica+no_tracer), &
   i_time_stat,hamocc_state%p_tend%monitor%sfsil(1),-2)
 
-CALL calc_inventory_sed(p_patch_3d, hamocc_state%p_sed%pwn2b(:,:,:), porwat, glob_pwn2b)
-CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%n2budget(:,:,:), i_time_stat, glob_n2b,.TRUE.)
+if(isRegistered('HAMOCC_zalkn2'))CALL calc_inventory_sed(p_patch_3d, hamocc_state%p_sed%pwn2b(:,:,:), porwat, glob_pwn2b)
+if(isRegistered('HAMOCC_zalkn2'))CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%n2budget(:,:,:), i_time_stat, glob_n2b,.TRUE.)
 
-CALL calc_inventory_sed(p_patch_3d, hamocc_state%p_tend%sedrn(:,:,:), porwat, &
+if(isRegistered('HAMOCC_SED_denit'))CALL calc_inventory_sed(p_patch_3d, hamocc_state%p_tend%sedrn(:,:,:), porwat, &
 & hamocc_state%p_tend%monitor%seddenit(1))
 
 ! Unit conversion 
@@ -317,9 +317,9 @@ CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%cflux(:,:), i_time_stat, g
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%oflux(:,:), i_time_stat, glob_ofl, -2)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%nflux(:,:), i_time_stat, glob_n2fl, -2)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%n2oflux(:,:), i_time_stat, glob_n2ofl, 1)
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%orginp(:,:), i_time_stat, glob_orginp, 1, ocean_state)
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%silinp(:,:), i_time_stat, glob_silinp, 1, ocean_state)
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%calinp(:,:), i_time_stat, glob_calinp, 1, ocean_state)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%orginp(:,:), i_time_stat, glob_orginp, 1, ocean_state)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%silinp(:,:), i_time_stat, glob_silinp, 1, ocean_state)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%calinp(:,:), i_time_stat, glob_calinp, 1, ocean_state)
 CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%h2obudget(:,:,:), i_time_stat, glob_h2ob,.TRUE.)
 CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%n2budget(:,:,:), i_time_stat, glob_n2b,.TRUE.)
 

@@ -155,7 +155,7 @@
        bgc_tracer_longnames(itrac) = 'iron'
        bgc_tracer_units(itrac)     = 'kmol Fe m-3'
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
-       bgc_tracer_shortnames(itrac)= 'icon'
+       bgc_tracer_shortnames(itrac)= 'iron'
 
        itrac=itrac+1
        bgc_tracer_names(itrac)     = 'dms'
