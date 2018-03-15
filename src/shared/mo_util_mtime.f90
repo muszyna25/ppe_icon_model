@@ -34,7 +34,7 @@ MODULE mo_util_mtime
 
   PUBLIC :: t_mtime_utils, mtime_utils
   PUBLIC ::  FMT_DDHHMMSS_ANNOTATED, FMT_DDDHHMMSS_ANNOTATED, &
-    &        FMT_DDHHMMSS, FMT_DDDHHMMSS, FMT_DDDHH, FMT_DDHHMMSS_DAYSEP
+    &        FMT_DDHHMMSS, FMT_DDDHHMMSS, FMT_DDDHH, FMT_HHH, FMT_DDHHMMSS_DAYSEP
   PUBLIC :: assumePrevMidnight
   PUBLIC :: assumeNextMidnight
   PUBLIC :: getElapsedSimTimeInSeconds
@@ -52,6 +52,7 @@ MODULE mo_util_mtime
   CHARACTER(LEN=*), PARAMETER :: FMT_DDHHMMSS            = "<dd><hh><mm><ss><ms>"
   CHARACTER(LEN=*), PARAMETER :: FMT_DDDHHMMSS           = "<ddd><hh><mm><ss><ms>"
   CHARACTER(LEN=*), PARAMETER :: FMT_DDDHH               = "<ddd><hh>"
+  CHARACTER(LEN=*), PARAMETER :: FMT_HHH                 = "<hhh>"
 
   TYPE t_mtime_utils
   CONTAINS
@@ -92,6 +93,7 @@ CONTAINS
       CALL associate_keyword("<dd>",  TRIM(int2string(INT(julian_delta%day), '(i0)')),   keywords)
     END IF
     CALL associate_keyword("<ddd>", TRIM(int2string(INT(julian_delta%day), '(i3.3)')),   keywords)
+    CALL associate_keyword("<hhh>", TRIM(int2string(INT(julian_delta%day)*24+time_delta%hour, '(i3.3)')),   keywords)
     CALL associate_keyword("<hh>",  TRIM(int2string(time_delta%hour,       '(i2.2)')),   keywords)
     CALL associate_keyword("<mm>",  TRIM(int2string(time_delta%minute,     '(i2.2)')),   keywords)
     CALL associate_keyword("<ss>",  TRIM(int2string(time_delta%second,     '(i2.2)')),   keywords)

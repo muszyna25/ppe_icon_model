@@ -31,7 +31,7 @@ MODULE mo_limarea_config
     &                              newTimedelta, OPERATOR(-),        &
     &                              getTotalSecondsTimeDelta,         &
     &                              MAX_DATETIME_STR_LEN
-  USE mo_util_mtime,         ONLY: mtime_utils, FMT_DDDHH, FMT_DDHHMMSS
+  USE mo_util_mtime,         ONLY: mtime_utils, FMT_DDDHH, FMT_DDHHMMSS, FMT_HHH
   USE mo_parallel_config,    ONLY: num_prefetch_proc
 
   IMPLICIT NONE
@@ -191,6 +191,9 @@ CONTAINS
         &                    keywords)
       CALL associate_keyword("<dddhh>",    &
         &                    TRIM(mtime_utils%ddhhmmss(opt_mtime_begin, latbc_mtime, FMT_DDDHH)),    &
+        &                    keywords)
+      CALL associate_keyword("<hhh>",    &
+        &                    TRIM(mtime_utils%ddhhmmss(opt_mtime_begin, latbc_mtime, FMT_HHH)),    &
         &                    keywords)
     END IF
 
