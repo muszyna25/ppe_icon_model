@@ -20,6 +20,8 @@ listname=aes
 ./set_builder_flags Inactive --builders MISTRAL_ocean MISTRAL_nag_serial --list $listname
 # add amip tests to all builders
 $addexp "checksuite.icon-dev/check.atm_amip*" --list $listname
+# add ape test to all builders
+$addexp "checksuite.icon-dev/check.atm_ape" --list $listname
 # add held-suarez test to all builders
 $addexp "checksuite.icon-dev/check.atm_heldsuarez" --list $listname
 # set all builders to AES, but the amip needs the fast ice, which needs the ocean...We should change this

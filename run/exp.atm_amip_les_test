@@ -78,8 +78,8 @@ lnd_namelist=NAMELIST_${EXPNAME}_lnd
 # JSBACH settings
 run_jsbach=yes
 jsbach_usecase=jsbach_pfts                # jsbach_lite/jsbach_pfts
-jsbach_with_lakes=yes
 jsbach_with_hd=no
+jsbach_with_lakes=yes
 jsbach_with_carbon=yes                    # yes needs jsbach_pfts usecase
 jsbach_check_wbal=no                      # check water balance
 output_lnd=basic                          # amount of output: none/basic/medium/full
@@ -321,8 +321,7 @@ fi
 
 # model files
 #
-add_link_file ${basedir}/data/rrtmg_lw.nc                               ./
-add_link_file ${basedir}/data/rrtmg_sw.nc                               ./
+add_link_file ${basedir}/data/lsdata.nc                               ./
 add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
 # namelist files

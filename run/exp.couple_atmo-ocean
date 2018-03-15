@@ -58,7 +58,7 @@ atmo_namelist=NAMELIST_${EXPNAME}_atmo
 # global timing
 #
 start_date="2000-01-01T00:00:00Z"
-  end_date="2000-01-03T00:00:00Z"
+  end_date="2000-01-01T12:00:00Z"
 # global resolution
 #
 R=2   # nroot
@@ -77,10 +77,10 @@ restart_units=2
 (( dt_checkpoint = restart_units * day ))
 (( dt_restart    = restart_units * day ))
 #
-atmo_output_interval="PT6H"
-atmo_file_interval="P02D"    # 1 month
-ocean_output_interval="PT12H"
-ocean_file_interval="P02D"   # 1 month
+atmo_output_interval="PT3H"
+atmo_file_interval="PT6H"    # 1 month
+ocean_output_interval="PT6H"
+ocean_file_interval="PT6H"   # 1 month
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -766,8 +766,7 @@ incrank_list[1]=$ocean_inc_rank
 # atmosphere model files
 # ----------------------
 #
-add_required_file ${basedir}/data/rrtmg_lw.nc           ./
-add_required_file ${basedir}/data/rrtmg_sw.nc           ./
+add_required_file ${basedir}/data/lsdata.nc           ./
 add_required_file ${basedir}/data/ECHAM6_CldOptProps.nc ./
 #
 # namelist files
@@ -788,8 +787,8 @@ add_required_file ${thisdir}/${atmo_namelist} ./
 # ------------------------------
 #
 # - ozone
-ozone_file="ape_o3_iconR2B04-ocean_aqua_planet.nc"
-add_required_file ${icon_data_poolFolder}/external/ape_ozone/$ozone_file ./o3_icon_DOM01.nc
+datadir=/pool/data/ICON/grids/private/mpim/icon_preprocessing/source/ozone/ape/R02B04
+add_link_file ${datadir}/bc_ozone_ape.nc                                ./o3_icon_DOM01.nc
 #
 # dictionary for variable names
 # -----------------------------

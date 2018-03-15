@@ -211,7 +211,7 @@ CONTAINS
   ! Sea ice statistics
   !
 
-    SUBROUTINE update_ice_statistic(p_acc, p_ice, subset)
+  SUBROUTINE update_ice_statistic(p_acc, p_ice, subset)
     TYPE(t_sea_ice_acc),  INTENT(INOUT) :: p_acc
     TYPE(t_sea_ice),      INTENT(IN)    :: p_ice
     TYPE(t_subset_range), INTENT(IN)    :: subset

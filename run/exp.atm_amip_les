@@ -58,7 +58,7 @@ resolution_c=${resolution_a//0/}
 
 # start and end date+time
 start_date=${start_date:="1979-01-01T00:00:00Z"}
-    end_date=${end_date:="2015-01-01T00:00:00Z"}
+    end_date=${end_date:="2014-01-01T00:00:00Z"}
 
 # restart intervals
 checkpoint_interval="P1Y"
@@ -318,8 +318,7 @@ fi
 
 # model files
 #
-add_link_file ${basedir}/data/rrtmg_lw.nc                               ./
-add_link_file ${basedir}/data/rrtmg_sw.nc                               ./
+add_link_file ${basedir}/data/lsdata.nc                               ./
 add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
 # namelist files

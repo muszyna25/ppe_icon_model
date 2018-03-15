@@ -28,7 +28,7 @@ MODULE mo_nh_supervise
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_grid_config,         ONLY: n_dom, l_limited_area, grid_sphere_radius
   USE mo_math_constants,      ONLY: pi
-  USE mo_parallel_config,     ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_run_config,          ONLY: dtime, msg_level, output_mode,           &
     &                               ltransport, ntracer, lforcing, iforcing, &
     &                               iqm_max
@@ -64,7 +64,9 @@ MODULE mo_nh_supervise
 
   PUBLIC :: init_supervise_nh
   PUBLIC :: finalize_supervise_nh
-  PUBLIC :: supervise_total_integrals_nh, print_maxwinds
+  PUBLIC :: supervise_total_integrals_nh
+  PUBLIC :: print_maxwinds
+  PUBLIC :: compute_dpsdt
 
 #if defined( _OPENACC )
 #define ACC_DEBUG NOACC
@@ -666,7 +668,7 @@ CONTAINS
 
 #ifdef _OPENACC
 !$ACC PARALLEL PRESENT( patch, vn, vn_aux ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -684,7 +686,7 @@ CONTAINS
 #ifdef _OPENACC
 !$ACC END PARALLEL
 !$ACC PARALLEL PRESENT( patch, w, w_aux ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP END DO
 !$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -744,6 +746,100 @@ CONTAINS
 
   END SUBROUTINE calculate_maxwinds
 
+
+  !>
+  !! Compute surface pressure time tendency abs(dpsdt)
+  !!
+  !! Compute surface pressure time tendency. If desired, 
+  !! a spacial average is computed for the domain given 
+  !! and written to the log file. 
+  !! 
+  !!
+  !! @par Revision History
+  !! Moved here from the physics interfaces by Daniel Reinert, DWD (2017-09-19)
+  !!
+  SUBROUTINE compute_dpsdt (pt_patch, dt, pt_diag)
+
+    TYPE(t_patch),       INTENT(IN)    :: pt_patch     !< grid/patch info
+    REAL(wp),            INTENT(IN)    :: dt           !< time step [s]
+    TYPE(t_nh_diag),     INTENT(INOUT) :: pt_diag      !< the diagnostic variables
+
+    ! local
+    INTEGER :: jc, jb                         !< loop indices
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+
+    REAL(wp) :: dps_blk(pt_patch%nblks_c)
+    INTEGER  :: npoints_blk(pt_patch%nblks_c)
+    REAL(wp) :: dpsdt_avg                     !< spatial average of ABS(dpsdt)
+    INTEGER  :: npoints
+  !-------------------------------------------------------------------------
+
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = pt_patch%cells%start_block(rl_start)
+    i_endblk   = pt_patch%cells%end_block(rl_end)
+
+    ! Initialize fields for runtime diagnostics
+    ! In case that average ABS(dpsdt) is diagnosed
+    IF (msg_level >= 11) THEN
+      dps_blk(:)     = 0._wp
+      npoints_blk(:) = 0
+    ENDIF
+
+
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
+
+      DO jc = i_startidx, i_endidx
+        pt_diag%ddt_pres_sfc(jc,jb) = (pt_diag%pres_sfc(jc,jb)-pt_diag%pres_sfc_old(jc,jb))/dt
+        pt_diag%pres_sfc_old(jc,jb) = pt_diag%pres_sfc(jc,jb)
+      ENDDO
+    ENDDO
+!$OMP END DO
+
+    IF (msg_level >= 11 .AND. .NOT. p_test_run) THEN
+      ! dpsdt diagnostic - omitted in the case of a parallelization test (p_test_run) because this
+      ! is a purely diagnostic quantity, for which it does not make sense to implement an order-invariant
+      ! summation
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+
+        DO jc = i_startidx, i_endidx
+          dps_blk(jb) = dps_blk(jb) + ABS(pt_diag%ddt_pres_sfc(jc,jb))
+          npoints_blk(jb) = npoints_blk(jb) + 1
+        ENDDO
+      ENDDO
+!$OMP END DO
+
+!$OMP MASTER
+      dpsdt_avg = SUM(dps_blk)
+      npoints   = SUM(npoints_blk)
+      dpsdt_avg = global_sum_array(dpsdt_avg, opt_iroot=process_mpi_stdio_id)
+      npoints   = global_sum_array(npoints  , opt_iroot=process_mpi_stdio_id)
+      IF (my_process_is_stdio()) THEN
+        dpsdt_avg = dpsdt_avg/(REAL(npoints,wp))
+        ! Exclude initial time step where pres_sfc_old is zero
+        IF (dpsdt_avg < 10000._wp/dt) THEN
+          WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',pt_patch%id
+          CALL message('nwp_nh_interface: ', TRIM(message_text))
+       ENDIF
+      ENDIF
+!$OMP END MASTER
+    ENDIF  ! msg_level
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_dpsdt
 
 END MODULE mo_nh_supervise
 

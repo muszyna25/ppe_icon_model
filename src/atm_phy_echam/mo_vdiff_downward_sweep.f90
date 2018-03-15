@@ -43,7 +43,7 @@ CONTAINS
                        & ptsfc_tile, pocu,      pocv,       ppsfc,      &! in
                        & pum1,       pvm1,      ptm1,       pqm1,       &! in
                        & pxlm1,      pxim1,     pxm1,       pxtm1,      &! in
-                       & pmair,      pmdry,                             &! in
+                       & pmair,      pmref,                             &! in
                        & paphm1,     papm1,                             &! in
                        & ptvm1,      paclc,     pxt_emis,   pthvvar,    &! in
                        & pxvar,      pz0m_tile,                         &! in
@@ -92,7 +92,7 @@ CONTAINS
 
     REAL(wp),INTENT(IN) ::        &
       & pmair   (kbdim,klev)     ,&!<     air mass [kg/m2]
-      & pmdry   (kbdim,klev)     ,&!< dra air mass [kg/m2]
+      & pmref   (kbdim,klev)     ,&!< dra air mass [kg/m2]
       & paphm1  (kbdim,klevp1)   ,&!< half level pressure [Pa]
       & papm1   (kbdim,klev)     ,&!< full level pressure [Pa]
       & ptvm1   (kbdim,klev)     ,&!< virtual temperature
@@ -175,7 +175,7 @@ CONTAINS
     REAL(wp) :: zfactor(kbdim,klev)   !< prefactor for the exchange coefficients
     REAL(wp) :: zrmairm(kbdim,klev)
     REAL(wp) :: zrmairh(kbdim,klevm1)
-    REAL(wp) :: zrmdrym(kbdim,klev)
+    REAL(wp) :: zrmrefm(kbdim,klev)
 
     ! _b denotes value at the bottom level (the klev-th full level)
 
@@ -198,7 +198,7 @@ CONTAINS
     ! reciprocal layer mass
     zrmairm(1:kproma,:) = 1._wp/ pmair(1:kproma,:)
     zrmairh(1:kproma,:) = 2._wp/(pmair(1:kproma,1:klevm1)+pmair(1:kproma,2:klev))
-    zrmdrym(1:kproma,:) = 1._wp/ pmdry(1:kproma,:)
+    zrmrefm(1:kproma,:) = 1._wp/ pmref(1:kproma,:)
 
     !----------------------------------------------------------------------
     ! 1. Compute various thermodynamic variables; Diagnose PBL extension;
@@ -287,7 +287,7 @@ CONTAINS
                           & pcfh_tile(:,:),   pcfv  (:,:),                &! in
                           & pcftotte (:,:),   pcfthv(:,:),                &! in
                           & zfactor  (:,:),                               &! in
-                          & zrmairm, zrmairh, zrmdrym,                    &! in
+                          & zrmairm, zrmairh, zrmrefm,                    &! in
                           & aa, aa_btm                                    )! out
 
     ! Save for output, to be used in "update_surface"
@@ -305,7 +305,7 @@ CONTAINS
                   & ksfc_type, ktrac, pdtime,             &! in
                   & pum1, pvm1, pcptgz, pqm1,             &! in
                   & pxlm1, pxim1, pxvar, pxtm1, pxt_emis, &! in
-                  & zrmdrym, pztottevn, pzthvvar, aa,     &! in
+                  & zrmrefm, pztottevn, pzthvvar, aa,     &! in
                   & bb, bb_btm                            )! out
 
     CALL rhs_elim ( kproma, kbdim, itop, klev, klevm1, &! in

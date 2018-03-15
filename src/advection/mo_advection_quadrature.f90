@@ -193,7 +193,7 @@ CONTAINS
 !$ACC PRIVATE( z_x, z_y ),                           &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx,z_gauss_pts_1,z_gauss_pts_2,wgt_t_detjac,z_x,z_y &
@@ -548,7 +548,7 @@ CONTAINS
 !$ACC PRIVATE( z_x, z_y, wgt_t_detjac, z_gauss_pts, z_quad_vector ),&
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,&
@@ -973,7 +973,7 @@ CONTAINS
 !$ACC PRIVATE( z_x, z_y, wgt_t_detjac, z_gauss_pts, z_quad_vector ),&
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,&
@@ -1186,7 +1186,7 @@ CONTAINS
 !$ACC PRIVATE( z_x, z_y, wgt_t_detjac, z_gauss_pts, z_quad_vector ),&
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,&

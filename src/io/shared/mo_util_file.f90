@@ -123,12 +123,29 @@ MODULE mo_util_file
     END FUNCTION private_filesize
   END INTERFACE
 
+  INTERFACE
+    FUNCTION private_file_is_writable(filename) RESULT(iwritable) BIND(C,NAME='util_file_is_writable')
+#if defined (__SUNPRO_F95)
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
+#else
+      IMPORT :: C_INT, C_CHAR
+#endif
+      INTEGER(C_INT) :: iwritable
+#if defined (__SUNPRO_F95)
+      CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: filename
+#else
+      CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: filename
+#endif
+    END FUNCTION private_file_is_writable
+  END INTERFACE
+
   PUBLIC :: util_symlink
   PUBLIC :: util_unlink
   PUBLIC :: util_islink
   PUBLIC :: util_rename
   PUBLIC :: util_tmpnam
   PUBLIC :: util_filesize
+  PUBLIC :: util_file_is_writable
   PUBLIC :: putFile
   PUBLIC :: createSymlink
 
@@ -225,6 +242,12 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: filename
     flen = private_filesize(TRIM(filename)//C_NULL_CHAR)
   END FUNCTION util_filesize
+
+  FUNCTION util_file_is_writable(filename) RESULT(lwritable)
+    LOGICAL :: lwritable
+    CHARACTER(len=*), INTENT(in) :: filename
+    lwritable = (private_file_is_writable(TRIM(filename)//C_NULL_CHAR) == 1)
+  END FUNCTION util_file_is_writable
 
   INTEGER FUNCTION putFile(path, string, fileMode) RESULT(resultVar)
     CHARACTER(LEN = *), INTENT(IN) :: path, string

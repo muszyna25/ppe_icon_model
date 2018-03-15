@@ -37,7 +37,8 @@ MODULE mo_initicon
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, lvert_remap_fg, &
     &                               rho_incr_filter_wgt, lread_ana, ltile_init, &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart, lconsistency_checks, &
-    &                               niter_divdamp, niter_diffu, lanaread_tseasfc
+    &                               niter_divdamp, niter_diffu, lanaread_tseasfc, &
+    &                               fgFilename, fgFiletype, anaFilename, anaFiletype
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA,   &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,              &
@@ -56,7 +57,7 @@ MODULE mo_initicon
     &                               frlake_thrhld, lprog_albsi
   USE mo_seaice_nwp,          ONLY: frsi_min
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
-  USE mo_phyparam_soil,       ONLY: cporv, cadp, crhosmaxf, crhosmin_ml, crhosmax_ml
+  USE mo_phyparam_soil,       ONLY: cporv, cadp, cpwp, cfcap, crhosmaxf, crhosmin_ml, crhosmax_ml
   USE mo_nwp_soil_init,       ONLY: get_wsnow
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
@@ -66,14 +67,12 @@ MODULE mo_initicon
   USE mo_math_laplace,        ONLY: nabla2_vec, nabla4_vec
   USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval, FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2
   USE mo_flake,               ONLY: flake_coldinit
-  USE mo_initicon_utils,      ONLY: fill_tile_points, init_snowtiles,             &
-                                  & copy_initicon2prog_atm, copy_initicon2prog_sfc, construct_initicon, &
-                                  & deallocate_initicon,  &
-                                  & copy_fg2initicon, initVarnamesDict, printChecksums, init_aerosol
+  USE mo_initicon_utils,      ONLY: fill_tile_points, init_snowtiles, copy_initicon2prog_atm, copy_initicon2prog_sfc, &
+                                  & construct_initicon, deallocate_initicon, copy_fg2initicon, &
+                                  & initVarnamesDict, printChecksums, init_aerosol
   USE mo_initicon_io,         ONLY: read_extana_atm, read_extana_sfc, fetch_dwdfg_atm, fetch_dwdana_sfc, &
                                   & process_input_dwdana_sfc, process_input_dwdana_atm, process_input_dwdfg_sfc, &
-                                  & fetch_dwdfg_sfc, fetch_dwdfg_atm_ii, fetch_dwdana_atm, &
-                                  & fgFilename, fgFiletype, anaFilename, anaFiletype
+                                  & fetch_dwdfg_sfc, fetch_dwdfg_atm_ii, fetch_dwdana_atm
   USE mo_input_request_list,  ONLY: t_InputRequestList, InputRequestList_create
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_input_instructions,  ONLY: t_readInstructionListPtr, readInstructionList_make, kInputSourceAna, &
@@ -257,9 +256,7 @@ MODULE mo_initicon
                 CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(fgFilename(p_patch(jg))))
             ENDIF  ! p_io
             SELECT CASE(fgFiletype())
-                CASE(FILETYPE_NC2, FILETYPE_NC4)
-                    CALL requestList%readFile(p_patch(jg), TRIM(fgFilename(p_patch(jg))), .TRUE.)
-                CASE(FILETYPE_GRB2)
+                CASE(FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2)
                     CALL requestList%readFile(p_patch(jg), TRIM(fgFilename(p_patch(jg))), .TRUE., opt_dict = ana_varnames_dict)
                 CASE DEFAULT
                     CALL finish(routine, "Unknown file TYPE")
@@ -340,7 +337,7 @@ MODULE mo_initicon
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":read_dwdana"
-#ifndef __GFORTRAN__ || __GNUC__ >= 6
+#if !defined __GFORTRAN__ || __GNUC__ >= 6
 
     CHARACTER(LEN = :), ALLOCATABLE :: incrementsList(:)
 #else
@@ -385,9 +382,7 @@ MODULE mo_initicon
                 CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(anaFilename(p_patch(jg))))
             ENDIF  ! p_io
             SELECT CASE(anaFiletype())
-                CASE(FILETYPE_NC2, FILETYPE_NC4)
-                    CALL requestList%readFile(p_patch(jg), TRIM(anaFilename(p_patch(jg))), .FALSE.)
-                CASE(FILETYPE_GRB2)
+                CASE(FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2)
                     CALL requestList%readFile(p_patch(jg), TRIM(anaFilename(p_patch(jg))), .FALSE., opt_dict = ana_varnames_dict)
                 CASE DEFAULT
                     CALL finish(routine, "Unknown file TYPE")
@@ -400,7 +395,7 @@ MODULE mo_initicon
 ! Workaround for GNU compiler (<6.0), which still does not fully support deferred length character arrays
 ! Make use of deferred length character arrays if the GNU compiler is not used, or if 
 ! its version number is at least equal to 6.0.
-#ifndef __GFORTRAN__ || __GNUC__ >= 6
+#if !defined __GFORTRAN__ || __GNUC__ >= 6
             SELECT CASE(init_mode)
                 CASE(MODE_IAU)
                     incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so', 'h_snow', 'freshsnow']
@@ -1536,6 +1531,7 @@ MODULE mo_initicon
     TYPE(t_lnd_diag), POINTER :: lnd_diag          ! shortcut to diagnostic land state
 
     REAL(wp) :: h_snow_t_fg(nproma,ntiles_total)   ! intermediate storage of h_snow first guess
+    REAL(wp) :: wso_inc(nproma,nlev_soil)          ! local copy of w_so increment
     REAL(wp) :: snowfrac_lim
 
     REAL(wp), PARAMETER :: min_hsnow_inc=0.001_wp  ! minimum hsnow increment (1mm absolute value)
@@ -1559,7 +1555,7 @@ MODULE mo_initicon
       lnd_diag     =>p_lnd_state(jg)%diag_lnd
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jk,ic,jc,i_startidx,i_endidx,lerr,h_snow_t_fg,snowfrac_lim,ist)
+!$OMP DO PRIVATE(jb,jt,jk,ic,jc,i_startidx,i_endidx,lerr,h_snow_t_fg,snowfrac_lim,ist,wso_inc)
       DO jb = 1, nblks_c
 
         ! (re)-initialize error flag
@@ -1573,6 +1569,27 @@ MODULE mo_initicon
         !
         DO jt = 1, ntiles_total
 
+          wso_inc(:,:) = initicon(jg)%sfc_inc%w_so(:,:,jb)
+
+          ! Impose physical limits on w_so increments from SMA:
+          ! - no removal of water in soil layers 3-5 if soil moisture is already below wilting point
+          ! - no addition of water in soil layers 3-5 if soil moisture is already above field capacity
+
+          DO jk = 3, 5
+            DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+              ist = ext_data(jg)%atm%soiltyp(jc,jb)
+              SELECT CASE(ist)
+                CASE (3,4,5,6,7,8) ! soil types with non-zero water content
+                IF (lnd_prog_now%w_so_t(jc,jk,jb,jt) <= dzsoil_icon(jk)*cpwp(ist)) THEN
+                  wso_inc(jc,jk) = MAX(0._wp,wso_inc(jc,jk))
+                ELSE IF (lnd_prog_now%w_so_t(jc,jk,jb,jt) >= dzsoil_icon(jk)*cfcap(ist)) THEN
+                  wso_inc(jc,jk) = MIN(0._wp,wso_inc(jc,jk))
+                ENDIF
+              END SELECT
+            ENDDO
+          ENDDO
+
           DO jk = 1, nlev_soil
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
@@ -1583,8 +1600,7 @@ MODULE mo_initicon
                 ! set soil water content to 50% of pore volume on newly appeared (non-dominant) land points
                 lnd_prog_now%w_so_t(jc,jk,jb,jt) = 0.5_wp*cporv(ext_data(jg)%atm%soiltyp(jc,jb))*dzsoil_icon(jk)
               ELSE ! add w_so increment from SMA
-                lnd_prog_now%w_so_t(jc,jk,jb,jt) = lnd_prog_now%w_so_t(jc,jk,jb,jt)  &
-                   &                              + initicon(jg)%sfc_inc%w_so(jc,jk,jb)
+                lnd_prog_now%w_so_t(jc,jk,jb,jt) = lnd_prog_now%w_so_t(jc,jk,jb,jt) + wso_inc(jc,jk)
               ENDIF
 
               ! Safety limits:  min=air dryness point, max=pore volume
@@ -1639,6 +1655,11 @@ MODULE mo_initicon
                   snowfrac_lim = MAX(0.01_wp, lnd_diag%snowfrac_lc_t(jc,jb,jt))
                   lnd_diag%h_snow_t   (jc,jb,jt) = MIN(40._wp,MAX(0._wp,lnd_diag%h_snow_t(jc,jb,jt) &
                     &                            + initicon(jg)%sfc_inc%h_snow(jc,jb)/snowfrac_lim ))
+                  ! reset snow-cover fraction if snow has disappeared
+                  IF (lnd_diag%h_snow_t(jc,jb,jt) == 0._wp) THEN
+                    lnd_diag%snowfrac_lc_t(jc,jb,jt) = 0._wp
+                    lnd_diag%snowfrac_lc_t(jc,jb,jt-ntiles_lnd) = 0._wp
+                  ENDIF
                 ELSE IF (lsnowtile .AND. initicon(jg)%sfc_inc%h_snow(jc,jb) > 0._wp .AND. &
                          lnd_diag%snowfrac_lc_t(jc,jb,jt) == 0._wp .AND. jt <= ntiles_lnd) THEN
                   ! if new snow is generated by the snow analysis (snowfrac_lc_t = 0 means that no corresponding
@@ -1894,7 +1915,7 @@ MODULE mo_initicon
              ENDIF
           ENDDO  ! ic
 
-          IF (init_mode == MODE_ICONVREMAP) THEN
+          IF (ANY((/MODE_COMBINED,MODE_COSMO,MODE_ICONVREMAP/) == init_mode)) THEN
 
             ! Constrain both rho_snow and t_snow because initial fields interpolated from a coarser grid
             ! may suffer from missing values near coasts
@@ -1910,8 +1931,8 @@ MODULE mo_initicon
                 p_lnd_state(jg)%prog_lnd(ntlr)%t_snow_t(jc,jb,jt) = &
                 MAX(p_lnd_state(jg)%prog_lnd(ntlr)%t_snow_t(jc,jb,jt), p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,jt)-10._wp)
 
-             ENDDO
-           ENDIF
+            ENDDO
+          ENDIF
 
 
           ! Catch problematic coast cases: ICON-land but GME ocean for moisture

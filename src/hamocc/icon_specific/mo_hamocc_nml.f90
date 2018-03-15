@@ -14,7 +14,7 @@ MODULE mo_hamocc_nml
   USE mo_kind,                ONLY: wp
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_io_units,            ONLY: nnml, nnml_output, find_next_free_unit
-  USE mo_master_config,       ONLY: isRestart
+  USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist, &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_exception,           ONLY: finish, message
@@ -136,7 +136,7 @@ CONTAINS
     ! If this is a resumed integration, overwrite the defaults above
     ! by values used in the previous integration.
     !------------------------------------------------------------------
-    IF (isRestart()) THEN
+    IF (use_restart_namelists()) THEN
       funit = open_and_restore_namelist('hamocc_nml')
       READ(funit,NML=hamocc_nml)
       CALL close_tmpfile(funit)

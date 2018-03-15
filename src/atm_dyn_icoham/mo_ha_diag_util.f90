@@ -40,11 +40,11 @@ MODULE mo_ha_diag_util
     &                              divisionquotienttimespan, timedelta, newTimedelta
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_intp_data_strc,     ONLY: t_int_state, sick_a, sick_o
+  USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_intp,               ONLY: cells2verts_scalar,        &
                                    cells2edges_scalar, edges2cells_scalar, &
                                    verts2edges_scalar, cell_avg
-  USE mo_interpol_config,    ONLY: i_cori_method                                   
+  USE mo_interpol_config,    ONLY: i_cori_method, sick_a, sick_o
   USE mo_intp_rbf,           ONLY: rbf_vec_interpol_cell
   USE mo_eta_coord_diag,     ONLY: half_level_pressure, full_level_pressure, &
                                    auxhyb, geopot

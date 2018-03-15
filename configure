@@ -658,6 +658,9 @@ PROFILE_LIB
 LAPACK_LIB
 LAPACK_LIB_PATH
 LAPACKROOT
+SERIALBOX2_INCLUDE
+SERIALBOX2_LIB
+SERIALBOX2ROOT
 MPI_INCLUDE
 MPI_LIB
 MPIROOT
@@ -766,6 +769,7 @@ enable_atmo
 enable_jsbach
 enable_ocean
 enable_testbed
+enable_serialization
 enable_mh_file
 with_fortran
 with_openmp
@@ -1416,6 +1420,8 @@ Optional Features:
   --enable-jsbach         Use jsbach model component.
   --enable-ocean          Use ocean model component.
   --enable-testbed        Use testbed component.
+  --enable-serialization  Enable Serialbox2 serialization. Three modes are
+                          available: read (default), perturb, create
   --disable-mh-file       disable machine file usage
   --enable-eccodes=DIR    Update GRIB_API setup to successor ECCODES package
 
@@ -2524,151 +2530,15 @@ $as_echo "$ac_cv_path_SED" >&6; }
   rm -f conftest.sed
 
 
-{ $as_echo "$as_me:$LINENO: checking for grep that handles long lines and -e" >&5
-$as_echo_n "checking for grep that handles long lines and -e... " >&6; }
-if test "${ac_cv_path_GREP+set}" = set; then
-  $as_echo_n "(cached) " >&6
-else
-  if test -z "$GREP"; then
-  ac_path_GREP_found=false
-  # Loop through the user's path and test for each of PROGNAME-LIST
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH$PATH_SEPARATOR/usr/xpg4/bin
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-  for ac_prog in grep ggrep; do
-    for ac_exec_ext in '' $ac_executable_extensions; do
-      ac_path_GREP="$as_dir/$ac_prog$ac_exec_ext"
-      { test -f "$ac_path_GREP" && $as_test_x "$ac_path_GREP"; } || continue
-# Check for GNU ac_path_GREP and select it if it is found.
-  # Check for GNU $ac_path_GREP
-case `"$ac_path_GREP" --version 2>&1` in
-*GNU*)
-  ac_cv_path_GREP="$ac_path_GREP" ac_path_GREP_found=:;;
-*)
-  ac_count=0
-  $as_echo_n 0123456789 >"conftest.in"
-  while :
-  do
-    cat "conftest.in" "conftest.in" >"conftest.tmp"
-    mv "conftest.tmp" "conftest.in"
-    cp "conftest.in" "conftest.nl"
-    $as_echo 'GREP' >> "conftest.nl"
-    "$ac_path_GREP" -e 'GREP$' -e '-(cannot match)-' < "conftest.nl" >"conftest.out" 2>/dev/null || break
-    diff "conftest.out" "conftest.nl" >/dev/null 2>&1 || break
-    ac_count=`expr $ac_count + 1`
-    if test $ac_count -gt ${ac_path_GREP_max-0}; then
-      # Best one so far, save it but keep looking for a better one
-      ac_cv_path_GREP="$ac_path_GREP"
-      ac_path_GREP_max=$ac_count
-    fi
-    # 10*(2^10) chars as input seems more than enough
-    test $ac_count -gt 10 && break
-  done
-  rm -f conftest.in conftest.tmp conftest.nl conftest.out;;
-esac
-
-      $ac_path_GREP_found && break 3
-    done
-  done
-done
-IFS=$as_save_IFS
-  if test -z "$ac_cv_path_GREP"; then
-    { { $as_echo "$as_me:$LINENO: error: no acceptable grep could be found in $PATH$PATH_SEPARATOR/usr/xpg4/bin" >&5
-$as_echo "$as_me: error: no acceptable grep could be found in $PATH$PATH_SEPARATOR/usr/xpg4/bin" >&2;}
-   { (exit 1); exit 1; }; }
-  fi
-else
-  ac_cv_path_GREP=$GREP
-fi
-
-fi
-{ $as_echo "$as_me:$LINENO: result: $ac_cv_path_GREP" >&5
-$as_echo "$ac_cv_path_GREP" >&6; }
- GREP="$ac_cv_path_GREP"
-
-
-{ $as_echo "$as_me:$LINENO: checking for a sed that does not truncate output" >&5
-$as_echo_n "checking for a sed that does not truncate output... " >&6; }
-if test "${ac_cv_path_SED+set}" = set; then
-  $as_echo_n "(cached) " >&6
-else
-            ac_script=s/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/
-     for ac_i in 1 2 3 4 5 6 7; do
-       ac_script="$ac_script$as_nl$ac_script"
-     done
-     echo "$ac_script" 2>/dev/null | sed 99q >conftest.sed
-     $as_unset ac_script || ac_script=
-     if test -z "$SED"; then
-  ac_path_SED_found=false
-  # Loop through the user's path and test for each of PROGNAME-LIST
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-  for ac_prog in sed gsed; do
-    for ac_exec_ext in '' $ac_executable_extensions; do
-      ac_path_SED="$as_dir/$ac_prog$ac_exec_ext"
-      { test -f "$ac_path_SED" && $as_test_x "$ac_path_SED"; } || continue
-# Check for GNU ac_path_SED and select it if it is found.
-  # Check for GNU $ac_path_SED
-case `"$ac_path_SED" --version 2>&1` in
-*GNU*)
-  ac_cv_path_SED="$ac_path_SED" ac_path_SED_found=:;;
-*)
-  ac_count=0
-  $as_echo_n 0123456789 >"conftest.in"
-  while :
-  do
-    cat "conftest.in" "conftest.in" >"conftest.tmp"
-    mv "conftest.tmp" "conftest.in"
-    cp "conftest.in" "conftest.nl"
-    $as_echo '' >> "conftest.nl"
-    "$ac_path_SED" -f conftest.sed < "conftest.nl" >"conftest.out" 2>/dev/null || break
-    diff "conftest.out" "conftest.nl" >/dev/null 2>&1 || break
-    ac_count=`expr $ac_count + 1`
-    if test $ac_count -gt ${ac_path_SED_max-0}; then
-      # Best one so far, save it but keep looking for a better one
-      ac_cv_path_SED="$ac_path_SED"
-      ac_path_SED_max=$ac_count
-    fi
-    # 10*(2^10) chars as input seems more than enough
-    test $ac_count -gt 10 && break
-  done
-  rm -f conftest.in conftest.tmp conftest.nl conftest.out;;
-esac
-
-      $ac_path_SED_found && break 3
-    done
-  done
-done
-IFS=$as_save_IFS
-  if test -z "$ac_cv_path_SED"; then
-    { { $as_echo "$as_me:$LINENO: error: no acceptable sed could be found in \$PATH" >&5
-$as_echo "$as_me: error: no acceptable sed could be found in \$PATH" >&2;}
-   { (exit 1); exit 1; }; }
-  fi
-else
-  ac_cv_path_SED=$SED
-fi
-
-fi
-{ $as_echo "$as_me:$LINENO: result: $ac_cv_path_SED" >&5
-$as_echo "$ac_cv_path_SED" >&6; }
- SED="$ac_cv_path_SED"
-  rm -f conftest.sed
-
 
 case $ac_hostname in #(
   wizard*) :
     ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename ;; #(
-  mlogin*|btc*) :
+  mlogin*|btlogin*) :
     ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename ;; #(
-  daint*|tave*|santis*) :
+  daint*|tave*|santis*|kesch*) :
     ac_sitename=cscs.ch
          fqdn=$ac_hostname.$ac_sitename ;; #(
   ic2*) :
@@ -2695,7 +2565,7 @@ fi ;;
 esac
 
 if  test -n "$fqdn" ; then :
-  if test -z ac_sitename; then :
+  if test -z "$ac_sitename"; then :
   ac_sitename=local.net
 fi
 else
@@ -2756,6 +2626,36 @@ fi
 
 
 
+# Check whether --enable-serialization was given.
+if test "${enable_serialization+set}" = set; then :
+  enableval=$enable_serialization;
+else
+  enable_serialization=no
+fi
+
+
+if test "x$enable_serialization" = "xyes"; then :
+  enable_serialization="read"
+fi
+
+if test "x$enable_serialization" != "xno"; then :
+  case "$enable_serialization" in #(
+  "read") :
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: \"Serialbox2 serialization is enabled in READ mode\"" >&5
+$as_echo "$as_me: WARNING: \"Serialbox2 serialization is enabled in READ mode\"" >&2;} ;; #(
+  "perturb") :
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: \"Serialbox2 serialization is enabled in READ & PERTURB mode\"" >&5
+$as_echo "$as_me: WARNING: \"Serialbox2 serialization is enabled in READ & PERTURB mode\"" >&2;} ;; #(
+  "create") :
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: \"Serialbox2 serialization is enabled in CREATE mode\"" >&5
+$as_echo "$as_me: WARNING: \"Serialbox2 serialization is enabled in CREATE mode\"" >&2;} ;; #(
+  *) :
+    as_fn_error $? "\"Serialbox2 serialization is enabled but UNKNOWN mode was requested\"" "$LINENO" 5 ;;
+esac
+
+fi
+
+
 # Check whether --enable-mh-file was given.
 if test "${enable_mh_file+set}" = set; then :
   enableval=$enable_mh_file; use_mh_file=no
@@ -2778,7 +2678,6 @@ if test -n "$with_fortran"; then :
 else
   fortran_compiler="default"
 fi
-
 
 
 
@@ -2805,7 +2704,6 @@ fi
 
 
 
-
 # Check whether --with-messy was given.
 if test "${with_messy+set}" = set; then :
   withval=$with_messy;
@@ -2817,7 +2715,6 @@ if test "x$with_messy" = "xyes"; then :
 else
   use_messy="no"
 fi
-
 
 
 
@@ -4415,7 +4312,7 @@ if test -n "$SZIPROOT" ; then
      exit 1
   fi
   case $ac_hostname in
-  mlogin*|btc*)
+  mlogin*|btlogin*)
     case $FC in
     nagfor)
       SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -4466,7 +4363,7 @@ if test -n "$HDF5ROOT" ; then
      exit 1
   fi
   case $ac_hostname in
-  mlogin*|btc*)
+  mlogin*|btlogin*)
     case $FC in
     nagfor)
       HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -4541,7 +4438,7 @@ if test -n "$NETCDFROOT" ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
   case $ac_hostname in
-  mlogin*|btc*)
+  mlogin*|btlogin*)
     case $FC in
     nagfor)
       NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -4568,7 +4465,7 @@ if test -n "$NETCDFROOT" ; then
          NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
          case $ac_hostname in
-         mlogin*|btc*)
+         mlogin*|btlogin*)
            case $FC in
            nagfor)
              NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -4734,7 +4631,7 @@ fi
        FFLAGS="${FFLAGS} ${DEFOPT}HAVE_LIBGRIB ${DEFOPT}HAVE_LIBGRIB_API"
        CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_LIBGRIB ${DEFCOPT}HAVE_LIBGRIB_API"
        case $ac_hostname in #(
-  mlogin*|btc*|daint*) :
+  mlogin*|btlogin*|daint*|kesch*) :
     case $FC in #(
   nagfor) :
     GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g') ;; #(
@@ -4970,8 +4867,6 @@ else
     MPI_LIB=""
 fi
 fi
-
-
 
 
 PROFILE_LIB=""
@@ -5986,8 +5881,8 @@ fi
 fi
 	  ;;
 	  # Ignore these flags.
-	-lang* | -lcrt*.o | -lc | -lgcc* | -lSystem | -libmil | -little \
-	  |-LANG:=* | -LIST:* | -LNO:* | -link | -ltcmalloc | -ltcmalloc_minimal)
+	-lang* | -lcrt*.o | -lc | -lgcc* | -lSystem | -ltcmalloc | -ltcmalloc_minimal | -libmil | -little \
+	  |-LANG:=* | -LIST:* | -LNO:* | -link)
 	  ;;
 	-lkernel32)
 	  case $host_os in
@@ -6424,7 +6319,30 @@ fi # ! CROSS
 
 test "x$exec_prefix" = xNONE && exec_prefix=build/${build_host}
 
-my_srcdirs="support src"
+if test "x$enable_serialization" != "xno"; then :
+
+     my_iconsrcdir="build/${build_host}/pp"
+     my_iconppdir="${my_iconsrcdir}"
+     FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE"
+     case "$enable_serialization" in #(
+  "read") :
+    FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_READ_REFERENCE" ;; #(
+  "perturb") :
+    FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_PERTURB_REFERENCE" ;; #(
+  "create") :
+    FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_CREATE_REFERENCE" ;; #(
+  *) :
+    as_fn_error $? "\"Serialbox2 serialization is enabled but UNKNOWN mode was requested\"" "$LINENO" 5 ;;
+esac
+
+else
+
+     my_iconsrcdir="src"
+     my_iconppdir="build/${build_host}/${my_iconsrcdir}"
+
+fi
+
+my_srcdirs="support ${my_iconsrcdir}"
 
 if [ "x$LAPACKROOT" = xlocal ] ; then
     my_srcdirs="blas lapack ${my_srcdirs}"
@@ -6475,6 +6393,7 @@ fi
 
 ac_objdirs=""
 for dir in $my_srcdirs ; do
+    dir=${dir#${exec_prefix}\/}
     ac_objdirs="${ac_objdirs} ${exec_prefix}/$dir"
 done
 
@@ -6503,7 +6422,7 @@ else
     fi
     FFLAGS="${MODOPT}../module ${FFLAGS}"
 fi
-FFLAGS="${MODOPT}../src ${MODOPT}../support ${FFLAGS}"
+FFLAGS="${MODOPT}../$(basename $my_iconppdir) ${MODOPT}../support ${FFLAGS}"
 
 #------------------------
 if test x$with_flags = x; then
@@ -6593,6 +6512,93 @@ else
 fi
 
 
+if test "x$enable_serialization" != "xno"; then :
+
+       if test -n "${SERIALBOX2ROOT}"; then :
+
+              if test -f "${SERIALBOX2ROOT}/lib/libSerialboxFortran.a"; then :
+
+                     SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
+                     SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+
+else
+
+                     as_fn_error $? "\"Cannot find Serialbox2 libSerialboxFortran.a library\"" "$LINENO" 5
+
+fi
+              if test -f "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"; then :
+
+                     if test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"; then :
+
+                            SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
+                            read -d '' my_pp_init <<EOF
+( echo "";
+  echo "Preprocessing files for serialization ...";
+  cd src/;
+  find ./ -type d -exec mkdir -p "../${my_iconppdir}/{}" \\\;
+  echo "Updating SHA1 ...";
+  find ./ -type f -regextype posix-egrep -regex \"\.\*\\\.(f90|inc|incf|F90)\$\" -exec sh -c "(test -e \\\"../${my_iconppdir}/{}.sha1\\\" && sha1sum --status -c \\\"../${my_iconppdir}/{}.sha1\\\") && rm -f \\\"../${my_iconppdir}/{}.modified\\\" || ( rm -f \\\"../${my_iconppdir}/{}.sha1\\\";sha1sum \\\"{}\\\" > \\\"../${my_iconppdir}/{}.modified\\\")" \\\;
+  echo "Updating headers ...";
+  find ./ -type f \\\( -name "*.inc" -o -name "*.incf" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( cp \\\"{}\\\" \\\"../${my_iconppdir}/{}\\\" && mv \\\"../${my_iconppdir}/{}.modified\\\" \\\"../${my_iconppdir}/{}.sha1\\\" )" \\\; )
+EOF
+                            case $fortran_compiler in #(
+  gcc*) :
+    PP_FFLAGS=`echo $FFLAGS | sed -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../module ||'`
+read -d '' my_pp_command <<EOF
+( cd src/;
+  echo "Preprocessing files (CPP) ...";
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -o "../${my_iconppdir}/{}" -C -E \\\"{}\\\")" \\\; )
+EOF
+ ;; #(
+  cray*) :
+    PP_FFLAGS=`echo $FFLAGS | sed -e 's/ -e Z //' -e 's/,ipa1//' -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../module ||'`
+PP_FFLAGS="${PP_FFLAGS} ${NETCDF_INCLUDE}"
+read -d '' my_pp_command <<EOF
+( cd src/;
+  echo "Preprocessing files (CPP) ...";
+  my_abs_include="$(realpath src/include)"
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( pushd \\\\\`dirname \\\"{}\\\"\\\\\` > /dev/null;${FC} -I\$\{my_abs_include\} ${PP_FFLAGS} -eP \\\\\`basename \\\"{}\\\"\\\\\`;popd > /dev/null;mv \\\\\`echo \\\"{}\\\" | sed -e 's/.f90//I'\\\\\`.i \\\"../${my_iconppdir}/{}\\\")" \\\; )
+EOF
+ ;; #(
+  pgi*) :
+    PP_FFLAGS=`echo $FFLAGS | sed -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../module ||'`
+read -d '' my_pp_command <<EOF
+( cd src/;
+  echo "Preprocessing files (CPP) ...";
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -o "../${my_iconppdir}/{}" -Mcpp \\\"{}\\\")" \\\; )
+EOF
+ ;; #(
+  *) :
+     ;;
+esac
+                            read -d '' my_pp_ser <<EOF
+  echo "Preprocessing files (Serialbox2) ...";
+  find ${my_iconppdir} -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"{}.modified\\\" && ( ${SERIALBOX2_PPSER} -o \\\"{}\\\" \\\"{}\\\" && mv \\\"{}.modified\\\" \\\"{}.sha1\\\")" \\\;
+EOF
+                            my_preprocess_command="${my_pp_init};${my_pp_command};${my_pp_ser}"
+                            make_command="${my_preprocess_command} ;$make_command;"
+
+else
+
+                            as_fn_error $? "\"pp_ser.py script from Serialbox2 is not executable\"" "$LINENO" 5
+
+fi
+
+else
+
+                     as_fn_error $? "\"Cannot find pp_ser.py script from Serialbox2\"" "$LINENO" 5
+
+fi
+
+else
+
+              as_fn_error $? "\"Serialization is enabled but SERIALBOX2ROOT is not defined\"" "$LINENO" 5
+
+fi
+
+fi
+
+
 ARCH=$arch
 
 OS=$target_os
@@ -6670,6 +6676,13 @@ MPIROOT=$MPIROOT
 MPI_LIB=$MPI_LIB
 
 MPI_INCLUDE=$MPI_INCLUDE
+
+
+SERIALBOX2ROOT=$SERIALBOX2ROOT
+
+SERIALBOX2_LIB=$SERIALBOX2_LIB
+
+SERIALBOX2_INCLUDE=$SERIALBOX2_INCLUDE
 
 
 LAPACKROOT=$LAPACKROOT
@@ -7648,12 +7661,18 @@ cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
 #
 # INIT-COMMANDS
 #
-build_host="${build_host}"
-                    my_srcdirs="$my_srcdirs"
+
+                    build_host="${build_host}"
+                    my_srcdirs="${my_srcdirs}"
+                    my_iconsrcdir="${my_iconsrcdir}"
+                    my_iconppdir="${my_iconppdir}"
                     enable_ocean="${enable_ocean}"
                     enable_atmo="${enable_atmo}"
                     enable_jsbach="${enable_jsbach}"
                     enable_testbed="${enable_testbed}"
+                    enable_serialization="${enable_serialization}"
+                    my_preprocess_command='${my_preprocess_command}'
+
 
 _ACEOF
 
@@ -8218,13 +8237,26 @@ $as_echo "$as_me: executing $ac_file commands" >&6;}
 
 
   case $ac_file$ac_mode in
-    "Makefiles":C) if test "x$enable_jsbach" = "xyes"; then :
-  if test -d build/${build_host}/src; then :
+    "Makefiles":C)
+                    if test "x$enable_serialization" != "xno"; then :
 
-else
-  mkdir -p build/${build_host}/src
+                           if ! test -d ${my_iconppdir}; then :
+
+                                  mkdir -p ${my_iconppdir}
+
 fi
-                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/src
+                           eval "${my_preprocess_command}"
+
+fi
+                    if test "x$enable_jsbach" = "xyes"; then :
+
+                           if ! test -d ${my_iconppdir}; then :
+
+                                  mkdir -p ${my_iconppdir}
+
+fi
+                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t ${my_iconppdir}
+
 fi
                     config/createMakefiles.pl \
                                               --target="${build_host}" \
@@ -8232,7 +8264,10 @@ fi
                                               --enable_ocean="${enable_ocean}" \
                                               --enable_atmo="${enable_atmo}" \
                                               --enable_jsbach="${enable_jsbach}" \
-                                              --enable_testbed="${enable_testbed}" ;;
+                                              --enable_testbed="${enable_testbed}" \
+                                              --enable_serialization="${enable_serialization}" \
+                                              --iconsrcdir="${my_iconsrcdir}" \
+                                              --iconppdir="${my_iconppdir}" ;;
     "build_command":F) chmod +x build_command ;;
 
   esac
@@ -8286,6 +8321,25 @@ if test -n "$CROSS" ; then
    fi
 fi
 
+
+if test "x$enable_serialization" != "xno"; then :
+
+       $as_echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+       $as_echo '!!                                                            !!'
+       case "$enable_serialization" in #(
+  "read") :
+    $as_echo "!!      Serialbox2 serialization is enabled in READ mode      !!" ;; #(
+  "perturb") :
+    $as_echo "!! Serialbox2 serialization is enabled in READ & PERTURB mode !!" ;; #(
+  "create") :
+    $as_echo "!!     Serialbox2 serialization is enabled in CREATE mode     !!" ;; #(
+  *) :
+     ;;
+esac
+       $as_echo '!!                                                            !!'
+       $as_echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+
+fi
 
 echo ""
 echo "Configuration done. Run GNU make to build ICON."

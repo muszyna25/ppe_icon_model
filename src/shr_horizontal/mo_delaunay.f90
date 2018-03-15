@@ -46,9 +46,9 @@
 MODULE mo_delaunay
 
   !$  USE OMP_LIB
-  USE mo_exception,         ONLY: finish
-  USE mo_impl_constants,    ONLY: SUCCESS
-  USE mo_kind,              ONLY: wp
+  USE mo_exception,      ONLY: finish
+  USE mo_impl_constants, ONLY: SUCCESS
+  USE mo_kind,           ONLY: wp
   USE mo_delaunay_types, ONLY: t_edge, t_point, t_triangle, t_point_list, t_triangulation,     &
     &                          t_spherical_cap, t_sphcap_list,                                 &
     &                          point_list, triangle, point, spherical_cap,                     &
@@ -61,13 +61,11 @@ MODULE mo_delaunay
 
   PUBLIC :: triangulate
   PUBLIC :: triangulate_mthreaded
-  PUBLIC :: write_triangulation_vtk
   PUBLIC :: point_cloud_diam
   PUBLIC :: create_thin_covering
 
   CHARACTER(LEN=*), PARAMETER :: modname   = 'mo_delaunay'
-  INTEGER,          PARAMETER :: dbg_level = 0
-
+  INTEGER, PARAMETER :: dbg_level = 0
 
 CONTAINS
 
@@ -300,12 +298,11 @@ CONTAINS
   ! --------------------------------------------------------------------
   !> Triangulation subroutine - multi-threaded version.
   !
-  SUBROUTINE triangulate_mthreaded(points, tri, subset, nthreads, ignore_completeness)
+  SUBROUTINE triangulate_mthreaded(points, tri, subset, ignore_completeness)
 
     TYPE(t_point_list),    INTENT(IN)            :: points
     TYPE(t_triangulation), INTENT(INOUT), TARGET :: tri
     TYPE(t_spherical_cap), INTENT(IN)            :: subset
-    INTEGER,               INTENT(IN)            :: nthreads
     LOGICAL,               INTENT(IN)            :: ignore_completeness
     ! local variables
 
@@ -387,11 +384,11 @@ CONTAINS
     ! all points have been processed or the requested radius has been
     ! reached without violating the global Delaunay condition.
     LOOP : DO ipt=3,(npts-1)
-      IF (dbg_level > 10) THEN
-        IF (MOD(ipt,1000) == 0) THEN
-          WRITE (0,*) "ipt = ", ipt
-        END IF
-      END IF
+      !      IF (dbg_level > 10) THEN
+      !        IF (MOD(ipt,1000) == 0) THEN
+      !          WRITE (0,*) "ipt = ", ipt
+      !        END IF
+      !      END IF
       IF (ipoint%ps > cos_radius) THEN
         IF ((ndiscard==0) .OR. ignore_completeness)  EXIT LOOP
       END IF
@@ -609,6 +606,7 @@ CONTAINS
     INTEGER, ALLOCATABLE  :: local_idx(:)
     TYPE(t_triangulation) :: tri0
     TYPE(t_point_list)    :: pts0
+    REAL(wp)              :: dist
 
     ! triangulate the partition points and use this triangulation to
     ! define the subset radii:
@@ -631,7 +629,7 @@ CONTAINS
 
     IF ((dbg_level >= 10) .AND. (this_rank == 0)) THEN
       ! debugging output to file
-      CALL write_triangulation_vtk("tri0.vtk", pts0, tri0)
+      CALL tri0%write_vtk("tri0.vtk", pts0, ldata=.FALSE.)
     END IF
     
     ! radii are set to max. distance between coarse Delaunay triangle
@@ -641,9 +639,11 @@ CONTAINS
         p1 = tri0%a(i)%p(j1)
         IF (point_set%a(p1)%gindex == this_rank) THEN
           p1_local = local_idx(p1)
-          subset%a(p1_local)%radius =         &
-            &  MAX(subset%a(p1_local)%radius, &
-            &      point_set%a(p1)%spherical_dist(tri0%a(i)%cc))
+          dist = point_set%a(p1)%spherical_dist(tri0%a(i)%cc)
+          IF ((dist < 0.5_wp) .OR. (tri0%nentries < 32)) THEN
+            subset%a(p1_local)%radius =         &
+              &  MAX(subset%a(p1_local)%radius, dist)
+          END IF
         END IF
       END DO
     END DO
@@ -652,43 +652,5 @@ CONTAINS
     DEALLOCATE(local_idx, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")    
   END SUBROUTINE create_thin_covering
-
-
-  !> Write out triangulation in VTK ASCII format.
-  !
-  SUBROUTINE write_triangulation_vtk(filename, p, tri)
-    CHARACTER(LEN=*)      :: filename
-    TYPE(t_point_list)    :: p
-    TYPE(t_triangulation) :: tri
-    ! local variables
-    INTEGER :: out_unit, i
-    
-    ! write triangles in vtk format
-    out_unit=20
-    OPEN (unit=out_unit,file=TRIM(filename),action="write",status="replace")
-    WRITE (out_unit,'(a)') "# vtk DataFile Version 2.0"
-    WRITE (out_unit,'(a)') "# delaunay example"
-    WRITE (out_unit,'(a)') "ASCII"
-    WRITE (out_unit,'(a)') "DATASET UNSTRUCTURED_GRID"
-    WRITE (out_unit,'(a,i0,a)') "POINTS ", p%nentries, " float"
-    DO i=0,(p%nentries-1)
-      WRITE (out_unit,'(3f12.8)') p%a(i)%x, p%a(i)%y, p%a(i)%z
-    END DO
-    WRITE (out_unit,'(a,i0,a,i0)') "CELLS ", tri%nentries," ", 4*tri%nentries
-    DO i=0,(tri%nentries-1)
-      WRITE (out_unit,'(3(a,i0))') "3 ", tri%a(i)%p(0)," ",tri%a(i)%p(1)," ",tri%a(i)%p(2)
-    END DO
-    WRITE (out_unit,'(a,i0)') "CELL_TYPES ", tri%nentries
-    DO i=0,(tri%nentries-1)
-      WRITE (out_unit,'(a)') "5"
-    END DO
-    WRITE (out_unit,'(a,i0)') "CELL_DATA ", tri%nentries
-    WRITE (out_unit,'(a)')    "SCALARS rdiscard float 1"
-    WRITE (out_unit,'(a)')    "LOOKUP_TABLE default"
-    DO i=0,(tri%nentries-1)
-      WRITE (out_unit,'(f7.3)') tri%a(i)%rdiscard
-    END DO
-    CLOSE(out_unit)
-  END SUBROUTINE write_triangulation_vtk
-  
+ 
 END MODULE mo_delaunay

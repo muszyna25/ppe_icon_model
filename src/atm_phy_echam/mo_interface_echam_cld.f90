@@ -78,7 +78,7 @@ CONTAINS
                &     field% ictop    (:,  jb),     &! in (from "cucall")
                &     field% presm_old(:,:,jb),     &! in
                &     field% dz       (:,:,jb),     &! in
-               &     field% mdry     (:,:,jb),     &! in
+               &     field% mref     (:,:,jb),     &! in
                &     field% rho      (:,:,jb),     &! in
                &     field% cpair    (:,:,jb),     &! in
                &     field% acdnc    (:,:,jb),     &! in  acdnc

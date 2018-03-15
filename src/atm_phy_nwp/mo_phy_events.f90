@@ -19,12 +19,6 @@
 !! headers of the routines.
 !!
 MODULE mo_phy_events
-! workaround for intel runtime error in 
-! phyProcGroup_printSetup
-! phyProcGroup_printStatus
-#ifdef __INTEL_COMPILER
-!DIR$ OPTIMIZE:1
-#endif
 
   USE mo_kind,                     ONLY: wp
   USE mo_impl_constants,           ONLY: MAX_CHAR_LENGTH, SUCCESS

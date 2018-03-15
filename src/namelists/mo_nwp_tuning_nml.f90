@@ -22,7 +22,7 @@ MODULE mo_nwp_tuning_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_io_units,            ONLY: nnml, nnml_output
-  USE mo_master_config,       ONLY: isRestart
+  USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,     &
@@ -190,7 +190,7 @@ CONTAINS
     tune_gfluxlaun  = 2.50e-3_wp   ! original IFS value 3.75e-3
     !
     ! grid scale microphysics
-    tune_zceff_min  = 0.075_wp
+    tune_zceff_min  = 0.01_wp
     tune_v0snow     = 25.0_wp      ! previous ICON value was 20
     tune_zvz0i      = 1.25_wp      ! original value of Heymsfield+Donner 1990: 3.29
     !
@@ -205,7 +205,7 @@ CONTAINS
                                     ! independent of grid-scale QV))
 
     ! The following switches allow separate tuning for evaporation below cloud base in the tropics
-    tune_rhebc_land_trop  = 0.70_wp
+    tune_rhebc_land_trop  = 0.75_wp
     tune_rhebc_ocean_trop = 0.80_wp
     tune_rcucov_trop      = 0.05_wp
 
@@ -228,7 +228,7 @@ CONTAINS
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
-    IF (isRestart()) THEN
+    IF (use_restart_namelists()) THEN
       funit = open_and_restore_namelist('nwp_tuning_nml')
       READ(funit,NML=nwp_tuning_nml)
       CALL close_tmpfile(funit)

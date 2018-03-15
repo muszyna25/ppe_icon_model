@@ -38,22 +38,22 @@ dnl find site and hostname
 AS_CASE([$ac_hostname],
         [wizard*],
         [ac_sitename=dkrz.de
-         fqdn=$ac_hostname.$ac_sitename],  
-        [mlogin*|btc*],
+         fqdn=$ac_hostname.$ac_sitename],
+        [mlogin*|btlogin*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],
-        [daint*|tave*|santis*],
+        [daint*|tave*|santis*|kesch*],
         [ac_sitename=cscs.ch
          fqdn=$ac_hostname.$ac_sitename],
         [ic2*],      
         [ac_sitename=kit.edu;
-         fqdn=$ac_hostname.$ac_sitename],         
+         fqdn=$ac_hostname.$ac_sitename],
         [uc1*],      
         [ac_sitename=kit.edu;
-         fqdn=$ac_hostname.$ac_sitename],         
+         fqdn=$ac_hostname.$ac_sitename],
         [fh2*],      
         [ac_sitename=kit.edu;
-         fqdn=$ac_hostname.$ac_sitename],         
+         fqdn=$ac_hostname.$ac_sitename],
         [
          AS_IF([test "x$(hostname)" = "x$ac_hostname"],
                [fqdn=$(host -n $ac_hostname | $AWK '/has address/ {print $1}')],
@@ -63,7 +63,7 @@ AS_CASE([$ac_hostname],
            [ac_sitename=])])
 
 AS_IF([ test -n "$fqdn" ],
-      [AS_IF([test -z ac_sitename],
+      [AS_IF([test -z "$ac_sitename"],
              [ac_sitename=local.net],
              [])],
       [AS_IF([ test -n "$PE_ENV" ],
@@ -103,6 +103,26 @@ AC_ARG_ENABLE([ocean],
 AC_ARG_ENABLE([testbed],
               AS_HELP_STRING([--enable-testbed],[Use testbed component.]),
               [],[enable_testbed=no])
+
+dnl ######################################################################
+dnl Serialbox2 serialization setup
+
+AC_ARG_ENABLE([serialization],
+              AS_HELP_STRING([--enable-serialization],[Enable Serialbox2 serialization. Three modes are available: read (default), perturb, create]),
+              [],[enable_serialization=no])
+
+AS_IF([test "x$enable_serialization" = "xyes"],
+      [enable_serialization="read"],
+      [])
+
+AS_IF([test "x$enable_serialization" != "xno"],
+         [AS_CASE(["$enable_serialization"],
+                 ["read"], [AC_MSG_WARN(["Serialbox2 serialization is enabled in READ mode"])],
+                 ["perturb"], [AC_MSG_WARN(["Serialbox2 serialization is enabled in READ & PERTURB mode"])],
+                 ["create"], [AC_MSG_WARN(["Serialbox2 serialization is enabled in CREATE mode"])],
+                 [AC_MSG_ERROR(["Serialbox2 serialization is enabled but UNKNOWN mode was requested"])])
+         ],
+      [])
 
 dnl ######################################################################
 dnl usage of mh-file
@@ -483,7 +503,7 @@ if test -n "$SZIPROOT" ; then
      exit 1    
   fi
   case $ac_hostname in
-  mlogin*|btc*)
+  mlogin*|btlogin*)
     case $FC in
     nagfor)
       SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -532,7 +552,7 @@ if test -n "$HDF5ROOT" ; then
      exit 1    
   fi
   case $ac_hostname in
-  mlogin*|btc*)  
+  mlogin*|btlogin*)
     case $FC in
     nagfor)
       HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -590,7 +610,7 @@ if test -n "$NETCDFROOT" ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
   case $ac_hostname in
-  mlogin*|btc*)
+  mlogin*|btlogin*)
     case $FC in
     nagfor)
       NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -617,7 +637,7 @@ if test -n "$NETCDFROOT" ; then
          NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
          case $ac_hostname in
-         mlogin*|btc*)
+         mlogin*|btlogin*)
            case $FC in
            nagfor)
              NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -688,16 +708,34 @@ AS_IF(
 export CDIROOT	#inform config/createMakefiles.pl whether it should include cdilib.c in the support/Makefile .
 
 dnl ######################################################################
-dnl Checks for grib_api.
+dnl Checks for grib_api/eccodes.
 
 GRIBAPI_LIB=""
 GRIBAPI_INCLUDE=""
+
+LIB_GRIB_API_ROOT="grib_api"
 
 AC_ARG_WITH([grib_api],
             [AC_HELP_STRING([--with-grib_api=DIR],
                             [Optional GRIB2 package])],
                             [],
                             with_grib_api=yes)
+
+
+AC_ARG_ENABLE([eccodes],
+            [AC_HELP_STRING([--enable-eccodes=DIR],
+                            [Update GRIB_API setup to successor ECCODES package])],
+                            [],
+                            enable_eccodes=no)
+
+AS_CASE([$enable_eccodes],
+        [no],
+        [],
+        [yes],
+        [AC_MSG_ERROR([--enable-eccodes requires an installation directory.])],
+        [GRIBAPIROOT=$enable_eccodes
+         with_grib_api=yes
+         LIB_GRIB_API_ROOT="eccodes"])
 
 AS_CASE([$with_grib_api],
         [no],
@@ -713,19 +751,21 @@ AS_CASE([$with_grib_api],
                [AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h])])])
 
 AS_IF([test -n "$GRIBAPIROOT"],
-      [AS_IF([test -r "$GRIBAPIROOT/lib/libgrib_api.a" || test -r "$GRIBAPIROOT/lib/libgrib_api.dylib" || test -r "$GRIBAPIROOT/lib/libgrib_api.so"],
-             [GRIBAPI_LIB='-L$(GRIBAPIROOT)/lib -lgrib_api'],
-             [AC_MSG_ERROR([cannot read $GRIBAPIROOT/lib/libgrib_api.a])])
+      [AS_IF([test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.a" || test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.dylib" || test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.so"],
+             [GRIBAPI_LIB="-L\$(GRIBAPIROOT)/lib -l${LIB_GRIB_API_ROOT}"],
+             [AC_MSG_ERROR([cannot read $GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.a])])
        AS_IF([test -d "$GRIBAPIROOT/include"],
              [GRIBAPI_INCLUDE='-I$(GRIBAPIROOT)/include'],
              [AC_MSG_ERROR([cannot find $GRIBAPIROOT/include])])  
        FFLAGS="${FFLAGS} ${DEFOPT}HAVE_LIBGRIB ${DEFOPT}HAVE_LIBGRIB_API"
        CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_LIBGRIB ${DEFCOPT}HAVE_LIBGRIB_API"
        AS_CASE([$ac_hostname],
-               [mlogin*|btc*],
+               [mlogin*|btlogin*|daint*|kesch*],
                [AS_CASE([$FC],
                         [nagfor],
                         [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
+			[cray],
+                        [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -dynamic -Wl,-rpath,\2!g')],
                         [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])],
                [])],
       [])
@@ -912,7 +952,6 @@ AS_IF([test x"$with_mpi" = xno],
    [MPI="${DEFOPT}NOMPI"
     MPI_LIB=""])])
 
-
 dnl ######################################################################
 dnl Checks for IBM'S hpm
 
@@ -953,20 +992,42 @@ dnl Check for byte ordering
 
 dnl Check for Fortran naming convention
 
+dnl  the m4_pushdef of lSystem inserts a hack by Cray also with stock autoconf
+   m4_pushdef([lSystem],[lSy[]stem | -ltcmalloc | -ltcmalloc_minimal])dnl
    AC_FC_WRAPPERS
+   m4_popdef([lSystem])dnl
 
 fi # ! CROSS
 
 test "x$exec_prefix" = xNONE && exec_prefix=build/${build_host}
 
-my_srcdirs="support src"
+AS_IF([test "x$enable_serialization" != "xno"],
+    [
+     my_iconsrcdir="build/${build_host}/pp"
+     my_iconppdir="${my_iconsrcdir}"
+     FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE"
+     AS_CASE(["$enable_serialization"],
+             ["read"],
+                [FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_READ_REFERENCE"],
+             ["perturb"],
+                [FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_PERTURB_REFERENCE"],
+             ["create"],
+                [FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_CREATE_REFERENCE"],
+             [AC_MSG_ERROR(["Serialbox2 serialization is enabled but UNKNOWN mode was requested"])])
+     ],
+    [
+     my_iconsrcdir="src"
+     my_iconppdir="build/${build_host}/${my_iconsrcdir}"
+     ])
+
+my_srcdirs="support ${my_iconsrcdir}"
 
 if [[ "x$LAPACKROOT" = xlocal ]] ; then
     my_srcdirs="blas lapack ${my_srcdirs}"
     LAPACKROOT=""
 fi
 
-my_srcdirs="externals/self/src externals/mtime/src ${my_srcdirs}"
+my_srcdirs="externals/self/src externals/mtime/src externals/tixi/src ${my_srcdirs}"
 
 if [[ "x$use_yac" = xyes ]] ; then
     my_srcdirs="externals/yac/src ${my_srcdirs}"
@@ -1010,6 +1071,7 @@ fi
 
 ac_objdirs=""
 for dir in $my_srcdirs ; do
+    dir=${dir#${exec_prefix}\/}
     ac_objdirs="${ac_objdirs} ${exec_prefix}/$dir"
 done
 
@@ -1038,7 +1100,7 @@ else
     fi
     FFLAGS="${MODOPT}../module ${FFLAGS}"
 fi
-FFLAGS="${MODOPT}../src ${MODOPT}../support ${FFLAGS}"
+FFLAGS="${MODOPT}../$(basename $my_iconppdir) ${MODOPT}../support ${FFLAGS}"
 
 #------------------------
 if test x$with_flags = x; then
@@ -1100,6 +1162,83 @@ else
 fi
 
 dnl ######################################################################
+dnl Checks for Serialbox2
+
+AS_IF([test "x$enable_serialization" != "xno"],
+      [
+       AS_IF([test -n "${SERIALBOX2ROOT}"],
+             [
+              AS_IF([test -f "${SERIALBOX2ROOT}/lib/libSerialboxFortran.a"],
+                    [
+                     SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
+                     SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                     ],
+                    [
+                     AC_MSG_ERROR(["Cannot find Serialbox2 libSerialboxFortran.a library"])
+                     ])
+              AS_IF([test -f "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"],
+                    [
+                     AS_IF([test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"],
+                           [
+                            SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
+                            read -d '' my_pp_init <<EOF
+( echo "";
+  echo "Preprocessing files for serialization ...";
+  cd src/;
+  find ./ -type d -exec mkdir -p "../${my_iconppdir}/{}" \\\;
+  echo "Updating SHA1 ...";
+  find ./ -type f -regextype posix-egrep -regex \"\.\*\\\.(f90|inc|incf|F90)\$\" -exec sh -c "(test -e \\\"../${my_iconppdir}/{}.sha1\\\" && sha1sum --status -c \\\"../${my_iconppdir}/{}.sha1\\\") && rm -f \\\"../${my_iconppdir}/{}.modified\\\" || ( rm -f \\\"../${my_iconppdir}/{}.sha1\\\";sha1sum \\\"{}\\\" > \\\"../${my_iconppdir}/{}.modified\\\")" \\\;
+  echo "Updating headers ...";
+  find ./ -type f \\\( -name "*.inc" -o -name "*.incf" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( cp \\\"{}\\\" \\\"../${my_iconppdir}/{}\\\" && mv \\\"../${my_iconppdir}/{}.modified\\\" \\\"../${my_iconppdir}/{}.sha1\\\" )" \\\; )
+EOF
+                            AS_CASE([$fortran_compiler],
+                                    [gcc*],
+                            [PP_FFLAGS=`echo $FFLAGS | sed -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../module ||'`
+read -d '' my_pp_command <<EOF
+( cd src/;
+  echo "Preprocessing files (CPP) ...";
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -o "../${my_iconppdir}/{}" -C -E \\\"{}\\\")" \\\; )
+EOF
+],
+                            [cray*],
+                            [PP_FFLAGS=`echo $FFLAGS | sed -e 's/ -e Z //' -e 's/,ipa1//' -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../module ||'`
+PP_FFLAGS="${PP_FFLAGS} ${NETCDF_INCLUDE}"
+read -d '' my_pp_command <<EOF
+( cd src/;
+  echo "Preprocessing files (CPP) ...";
+  my_abs_include="$(realpath src/include)"
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( pushd \\\\\`dirname \\\"{}\\\"\\\\\` > /dev/null;${FC} -I\$\{my_abs_include\} ${PP_FFLAGS} -eP \\\\\`basename \\\"{}\\\"\\\\\`;popd > /dev/null;mv \\\\\`echo \\\"{}\\\" | sed -e 's/.f90//I'\\\\\`.i \\\"../${my_iconppdir}/{}\\\")" \\\; )
+EOF
+],
+                            [pgi*],
+                            [PP_FFLAGS=`echo $FFLAGS | sed -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../module ||'`
+read -d '' my_pp_command <<EOF
+( cd src/;
+  echo "Preprocessing files (CPP) ...";
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -o "../${my_iconppdir}/{}" -Mcpp \\\"{}\\\")" \\\; )
+EOF
+])
+                            read -d '' my_pp_ser <<EOF
+  echo "Preprocessing files (Serialbox2) ...";
+  find ${my_iconppdir} -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"{}.modified\\\" && ( ${SERIALBOX2_PPSER} -o \\\"{}\\\" \\\"{}\\\" && mv \\\"{}.modified\\\" \\\"{}.sha1\\\")" \\\; 
+EOF
+                            my_preprocess_command="${my_pp_init};${my_pp_command};${my_pp_ser}"
+                            make_command="${my_preprocess_command} ;$make_command;"
+                            ],
+                           [
+                            AC_MSG_ERROR(["pp_ser.py script from Serialbox2 is not executable"])
+                            ])
+                     ],
+                    [
+                     AC_MSG_ERROR(["Cannot find pp_ser.py script from Serialbox2"])
+                     ])
+              ],
+             [
+              AC_MSG_ERROR(["Serialization is enabled but SERIALBOX2ROOT is not defined"])
+              ])
+       ])
+
+dnl ######################################################################
 dnl substitutions
 
 AC_SUBST(ARCH,$arch)
@@ -1147,6 +1286,10 @@ AC_SUBST(MPIROOT,$MPIROOT)
 AC_SUBST(MPI_LIB,$MPI_LIB)
 AC_SUBST(MPI_INCLUDE,$MPI_INCLUDE)
 
+AC_SUBST(SERIALBOX2ROOT,$SERIALBOX2ROOT)
+AC_SUBST(SERIALBOX2_LIB,$SERIALBOX2_LIB)
+AC_SUBST(SERIALBOX2_INCLUDE,$SERIALBOX2_INCLUDE)
+
 AC_SUBST(LAPACKROOT,$LAPACKROOT)
 AC_SUBST(LAPACK_LIB_PATH,$LAPACK_LIB_PATH)
 AC_SUBST(LAPACK_LIB,$LAPACK_LIB)
@@ -1170,7 +1313,7 @@ AC_SUBST(FFLAGS,$FFLAGS)
 AC_SUBST(FlibFLAGS,$FlibFLAGS)
 AC_SUBST(F77FLAGS,$F77FLAGS)
 
-ac_libs="${ac_libs} -lmtime -lself"
+ac_libs="${ac_libs} -ltixi -lmtime -lself"
 
 AC_SUBST(LIB,$ac_libs)
 
@@ -1363,24 +1506,45 @@ fi
 sync_submit=${sync_submit:=$submit}
 
 AC_CONFIG_COMMANDS([Makefiles],
-                   [AS_IF([test "x$enable_jsbach" = "xyes"],
-                          [AS_IF([test -d build/${build_host}/src],
-                                 [],
-                                 [mkdir -p build/${build_host}/src])
-                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t build/${build_host}/src])
+                   [
+                    AS_IF([test "x$enable_serialization" != "xno"],
+                          [
+                           AS_IF([! test -d ${my_iconppdir}],
+                                 [
+                                  mkdir -p ${my_iconppdir}
+                                  ])
+                           eval "${my_preprocess_command}"
+                           ])
+                    AS_IF([test "x$enable_jsbach" = "xyes"],
+                          [
+                           AS_IF([! test -d ${my_iconppdir}],
+                                 [
+                                  mkdir -p ${my_iconppdir}
+                                  ])
+                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t ${my_iconppdir}
+                           ])
                     config/createMakefiles.pl \
                                               --target="${build_host}" \
                                               --srcdirs="${my_srcdirs}" \
                                               --enable_ocean="${enable_ocean}" \
                                               --enable_atmo="${enable_atmo}" \
                                               --enable_jsbach="${enable_jsbach}" \
-                                              --enable_testbed="${enable_testbed}"],
-                   [build_host="${build_host}"
-                    my_srcdirs="$my_srcdirs"
+                                              --enable_testbed="${enable_testbed}" \
+                                              --enable_serialization="${enable_serialization}" \
+                                              --iconsrcdir="${my_iconsrcdir}" \
+                                              --iconppdir="${my_iconppdir}"],
+                   [
+                    build_host="${build_host}"
+                    my_srcdirs="${my_srcdirs}"
+                    my_iconsrcdir="${my_iconsrcdir}"
+                    my_iconppdir="${my_iconppdir}"
                     enable_ocean="${enable_ocean}"
                     enable_atmo="${enable_atmo}"
                     enable_jsbach="${enable_jsbach}"
-                    enable_testbed="${enable_testbed}"])
+                    enable_testbed="${enable_testbed}"
+                    enable_serialization="${enable_serialization}"
+                    my_preprocess_command='${my_preprocess_command}'
+                    ])
 
 AC_SUBST(config_target,$config_target)
 AC_SUBST(config_compiler,$config_compiler)
@@ -1430,6 +1594,21 @@ fi
 dnl echo ""
 dnl cat config/set-up.info
 dnl echo ""
+
+AS_IF([test "x$enable_serialization" != "xno"],
+      [
+       AS_ECHO(['!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'])
+       AS_ECHO(['!!                                                            !!'])
+       AS_CASE(["$enable_serialization"],
+               ["read"],
+                    [AS_ECHO(["!!      Serialbox2 serialization is enabled in READ mode      !!"])],
+               ["perturb"], 
+                    [AS_ECHO(["!! Serialbox2 serialization is enabled in READ & PERTURB mode !!"])],
+               ["create"],
+                    [AS_ECHO(["!!     Serialbox2 serialization is enabled in CREATE mode     !!"])])
+       AS_ECHO(['!!                                                            !!'])
+       AS_ECHO(['!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'])
+       ])
 
 echo ""
 echo "Configuration done. Run GNU make to build ICON."

@@ -31,6 +31,7 @@ MODULE mo_radiation_nml
                                  & config_albedo_type=> albedo_type, &
                                  & config_direct_albedo => direct_albedo, &
                                  & config_icld_overlap => icld_overlap, &
+                                 & config_islope_rad => islope_rad,  &
                                  & config_irad_h2o   => irad_h2o,    &
                                  & config_irad_co2   => irad_co2,    &
                                  & config_irad_ch4   => irad_ch4,    &
@@ -60,7 +61,7 @@ MODULE mo_radiation_nml
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amo2, amc11, amc12
-  USE mo_master_config,      ONLY: isRestart
+  USE mo_master_control,     ONLY: use_restart_namelists
   USE mo_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
@@ -111,6 +112,11 @@ MODULE mo_radiation_nml
                              ! 2: generalized overlap (Hogan, Illingworth, 2000)
                              ! 3: maximum overlap
                              ! 4: random overlap
+
+  INTEGER :: islope_rad      ! slope correction for surface radiation
+                             ! 0: none
+                             ! 1: slope correction for solar radiation without shading effects
+                             ! option 2 is reserved for slope-dependent radiation with shading (not yet implemented)
 
   ! --- Switches for radiative agents
   !     irad_x=0 : radiation uses tracer x = 0
@@ -171,7 +177,8 @@ MODULE mo_radiation_nml
     &                      irad_cfc12, vmr_cfc12, &
     &                      irad_aero,             &
     &                      lrad_aero_diag,        &
-    &                      izenith, icld_overlap
+    &                      izenith, icld_overlap, &
+    &                      islope_rad
 
 CONTAINS
 
@@ -211,6 +218,7 @@ CONTAINS
     albedo_type    = 1
     direct_albedo  = 4   ! Parameterization after Briegleb (1992)
     icld_overlap   = 2   ! generalized random overlap
+    islope_rad     = 0   ! no slope correction
 
     irad_h2o    = 1
     irad_co2    = 2
@@ -237,7 +245,7 @@ CONTAINS
     !    by values used in the previous integration.
     !------------------------------------------------------------------
 
-    IF (isRestart()) THEN
+    IF (use_restart_namelists()) THEN
       funit = open_and_restore_namelist('radiation_nml')
       READ(funit,NML=radiation_nml)
       CALL close_tmpfile(funit)
@@ -275,6 +283,7 @@ CONTAINS
     config_albedo_type= albedo_type
     config_direct_albedo = direct_albedo
     config_icld_overlap = icld_overlap
+    config_islope_rad = islope_rad
     config_irad_h2o   = irad_h2o
     config_irad_co2   = irad_co2
     config_irad_ch4   = irad_ch4

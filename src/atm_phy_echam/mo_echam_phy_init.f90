@@ -57,8 +57,6 @@ MODULE mo_echam_phy_init
 
   ! radiation
   USE mo_echam_rad_config,     ONLY: eval_echam_rad_config, print_echam_rad_config, echam_rad_config
-  USE mo_psrad_interface,      ONLY: setup_psrad
-  USE mo_psrad_cloud_optics,   ONLY: setup_cloud_optics  
 
   ! subgrid scale orographic effects
   USE mo_echam_sso_config,     ONLY: eval_echam_sso_config, print_echam_sso_config
@@ -181,9 +179,6 @@ CONTAINS
       !
       CALL  eval_echam_rad_config
       CALL print_echam_rad_config
-      !
-      CALL setup_psrad
-      CALL setup_cloud_optics
       !
     END IF
 

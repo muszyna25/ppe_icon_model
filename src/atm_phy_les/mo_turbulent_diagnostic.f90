@@ -54,6 +54,8 @@ MODULE mo_turbulent_diagnostic
     &                              deallocateTimedelta, getTimedeltaFromDatetime, &
     &                              getTotalMillisecondsTimedelta
   USE mo_time_config,        ONLY: time_config
+  USE mo_util_phys,          ONLY: cal_cape_cin
+  USE mo_nwp_parameters,     ONLY: t_phy_params
  
   IMPLICIT NONE
 
@@ -94,6 +96,7 @@ CONTAINS
   !!
   SUBROUTINE les_cloud_diag(  kstart_moist,               & !in
                             & ih_clch, ih_clcm,           & !in
+                            & phy_params,                 & !in
                             & p_patch, p_metrics,         & !in
                             & p_prog,                     & !in
                             & p_prog_rcf,                 & !in
@@ -105,7 +108,8 @@ CONTAINS
     !>
     ! !INPUT PARAMETERS:
     INTEGER                , INTENT(in)   :: kstart_moist
-    INTEGER                ,INTENT(IN)    :: ih_clch, ih_clcm
+    INTEGER                , INTENT(IN)   :: ih_clch, ih_clcm
+    TYPE(t_phy_params)     , INTENT(IN)   :: phy_params
 
     TYPE(t_patch),   TARGET, INTENT(in)   :: p_patch    !<grid/patch info.
     TYPE(t_lnd_prog),        INTENT(in)   :: p_prog_land
@@ -148,6 +152,7 @@ CONTAINS
     ! minimum top index for dry convection
     mtop_min = (ih_clch+ih_clcm)/2    
 
+   
     prm_diag%locum(:,:) = .FALSE.
 
 !$OMP PARALLEL 
@@ -160,28 +165,37 @@ CONTAINS
        !Cloud base and cloud top model levels
        DO jc = i_startidx, i_endidx
 
+         !cloud top
          found_cltop = -1
-         found_clbas = -1
          DO jk = kstart_moist, nlev-1
-
-           !cloud top- full level
-           IF(p_prog_rcf%tracer(jc,jk,jb,iqc)<qc_min.AND. &
+           IF(jk.EQ.kstart_moist.AND.p_prog_rcf%tracer(jc,jk,jb,iqc)>qc_min.AND.found_cltop/=1)THEN
+             prm_diag%mtop_con(jc,jb) = jk
+             found_cltop = 1
+           ELSEIF(p_prog_rcf%tracer(jc,jk,jb,iqc)<qc_min.AND. &
                p_prog_rcf%tracer(jc,jk+1,jb,iqc)>qc_min.AND.found_cltop/=1)THEN
              prm_diag%mtop_con(jc,jb) = jk
              found_cltop = 1
            END IF
-
-           !cloud base- half level
-           IF(p_prog_rcf%tracer(jc,jk,jb,iqc)>qc_min.AND. &
-               p_prog_rcf%tracer(jc,jk+1,jb,iqc)<qc_min.AND.found_clbas/=1)THEN
-             prm_diag%mbas_con(jc,jb) = jk    
-             found_clbas = 1   
-           END IF
-           
          END DO
 
+         !cloud base
+         found_clbas = -1
+         DO jk = nlev, kstart_moist+1, -1
+           IF(jk.EQ.nlev.AND.p_prog_rcf%tracer(jc,jk,jb,iqc)>qc_min.AND.found_clbas/=1)THEN !Fog
+             prm_diag%mbas_con(jc,jb) = jk    
+             found_clbas = 1
+           ELSEIF(p_prog_rcf%tracer(jc,jk,jb,iqc)<qc_min.AND. &
+               p_prog_rcf%tracer(jc,jk-1,jb,iqc)>qc_min.AND.found_clbas/=1)THEN !otherwise
+             prm_diag%mbas_con(jc,jb) = jk    
+             found_clbas = 1
+           END IF
+         END DO
+
+         !Accept only when both top and bottom exist and height of bottom is 
+         !lower than that of top
          IF(found_clbas==1.AND.found_cltop==1)THEN
-           prm_diag%locum(jc,jb) = .TRUE.
+           IF(prm_diag%mtop_con(jc,jb) < prm_diag%mbas_con(jc,jb)) &
+              prm_diag%locum(jc,jb) = .TRUE.
          ELSE
            prm_diag%mbas_con(jc,jb) = -1
            prm_diag%mtop_con(jc,jb) = -1
@@ -286,6 +300,22 @@ CONTAINS
            prm_diag%p_ctop(jc,jb)  = zundef
          END IF
        ENDDO  ! jc
+
+      !
+      !  CAPE and CIN of mean surface layer parcel
+      !
+      !  start level (kmoist) is limited to pressure heights above p=60hPa,
+      !  in order to avoid unphysically low test parcel temperature.
+      !  Otherwise computation crashes in sat_pres_water
+      CALL cal_cape_cin( i_startidx, i_endidx,                     &
+        &                kmoist  = MAX(kstart_moist,phy_params%k060), & !in
+        &                te      = p_diag%temp(:,:,jb)          , & !in
+        &                qve     = p_prog_rcf%tracer(:,:,jb,iqv), & !in
+        &                prs     = p_diag%pres(:,:,jb)          , & !in
+        &                hhl     = p_metrics%z_ifc(:,:,jb)       , & !in
+        &                cape_ml = prm_diag%cape_ml(:,jb)        , & !in
+        &                cin_ml  = prm_diag%cin_ml(:,jb) )
+
 
     ENDDO  ! jb
 !$OMP END DO

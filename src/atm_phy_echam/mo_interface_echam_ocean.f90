@@ -620,8 +620,8 @@ CONTAINS
     ! Precipitation is reduced by Factor fwf_fac
     ! factor calculated from run slo1014, used in run slo1016:
     ! Global imbalance D=1.7 mm/y; Precip P=1070 mm/y; D/P~0.0016; 1-D/P= 0.9984
-    fwf_fac = 0.9984_wp   
-    ! fwf_fac = 1.0_wp      ! neutral factor
+    ! fwf_fac = 0.9984_wp   
+    fwf_fac = 1.0_wp      ! neutral factor
 
     ! Aquaplanet coupling: surface types ocean and ice only
     IF (nsfc_type == 2) THEN

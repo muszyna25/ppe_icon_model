@@ -26,6 +26,14 @@
 
 MODULE mo_interface_echam_vdf
 
+  !$ser verbatim USE mo_ser_echam_vdiff_down, ONLY: serialize_vdiff_down_input => serialize_input, &
+  !$ser&                                            serialize_vdiff_down_output => serialize_output
+  !$ser verbatim USE mo_ser_echam_vdiff_up, ONLY: serialize_vdiff_up_input => serialize_input, &
+  !$ser&                                          serialize_vdiff_up_output => serialize_output
+  !$ser verbatim USE mo_ser_echam_update_surface, ONLY: serialize_update_surface_input => serialize_input, &
+  !$ser&                                                serialize_update_surface_output => serialize_output
+  !$ser verbatim USE mo_ser_echam_nsurf_diag, ONLY: serialize_nsurf_diag_input => serialize_input, &
+  !$ser&                                            serialize_nsurf_diag_output => serialize_output
   USE mo_kind                ,ONLY: wp
   USE mo_exception           ,ONLY: finish, warning
 
@@ -97,6 +105,7 @@ CONTAINS
     REAL(wp) :: zfactor_sfc(nproma)
     REAL(wp) :: zco2       (nproma)          !< co2 value passed on to jsbach
 
+    REAL(wp) :: zqx      (nproma,nlev)       !< total cloud condensate
     REAL(wp) :: zcptgz   (nproma,nlev)       !< dry static energy
     REAL(wp) :: zthvvar  (nproma,nlev)       !< intermediate value of thvvar
     REAL(wp) :: dummy    (nproma,nlev)       !< to replace thvvar
@@ -171,12 +180,23 @@ CONTAINS
           dummy (:,:)=0._wp
           dummyx(:,:)=0._wp 
           !
+          zqx(jcs:jce,:) =  prm_field(jg)%qtrc(jcs:jce,:,jb,iqc) &
+               &           +prm_field(jg)%qtrc(jcs:jce,:,jb,iqi)
+          !
           IF (ltimer) CALL timer_start(timer_vdiff_down)
           !
           ! Turbulent mixing, part I:
           ! - computation of exchange coefficients in the atmosphere and at the surface;
           ! - build up the tridiagonal linear algebraic system;
           ! - downward sweep (Gaussian elimination from top till level nlev-1)
+          !
+          !----------------------------------------------------------------------------------------
+          ! Serialbox2 input fields serialization
+          !$ser verbatim call serialize_vdiff_down_input(jb, jg, jce, nproma,&
+          !$ser verbatim   nlev, nlevm1, nlevp1, ntrac, nsfc_type, iwtr, iice,&
+          !$ser verbatim   ilnd, pdtime, field, zqx, zxt_emis, dummy, dummyx,&
+          !$ser verbatim   zri_tile,zaa,zaa_btm,zbb,zbb_btm,zfactor_sfc,&
+          !$ser verbatim   zcpt_sfc_tile, zcptgz, zthvvar, ztottevn)
           !
           CALL vdiff_down(jg,                              &! in
                &          jce, nproma, nlev, nlevm1,nlevp1,&! in
@@ -197,10 +217,10 @@ CONTAINS
                &          field% qtrc(:,:,jb,iqv),         &! in, qm1
                &          field% qtrc(:,:,jb,iqc),         &! in, xlm1
                &          field% qtrc(:,:,jb,iqi),         &! in, xim1
-               &          field%   qx(:,:,jb),             &! in, xlm1 + xim1
+               &                  zqx(:,:),                &! in, xlm1 + xim1
                &          field% qtrc(:,:,jb,iqt:),        &! in, xtm1
-               &          field% mair(:,:,jb),             &! in,     air mass
-               &          field% mdry(:,:,jb),             &! in, dry air mass
+               &          field% mair(:,:,jb),             &! in, moist     air mass
+               &          field% mref(:,:,jb),             &! in, reference air mass
                &          field% presi_old(:,:,jb),        &! in, aphm1
                &          field% presm_old(:,:,jb),        &! in, apm1
                &          field%   tv(:,:,jb),             &! in, virtual temperaturea
@@ -244,6 +264,15 @@ CONTAINS
                &          pcair = field% cair(:,jb),       &! in, optional, area fraction with wet land surface (air)
                &          paz0lh = field% z0h_lnd(:,jb))    ! in, optional, roughness length for heat over land
           !
+          !----------------------------------------------------------------------------------------
+          ! Serialbox2 output fields serialization
+          !$ser verbatim call serialize_vdiff_down_output(jb, jg, jce, nproma,&
+          !$ser verbatim   nlev, nlevm1, nlevp1, ntrac, nsfc_type, iwtr, iice,&
+          !$ser verbatim   ilnd, pdtime, field, zri_tile, zaa, zaa_btm, zbb,&
+          !$ser verbatim   zbb_btm, zfactor_sfc, zcpt_sfc_tile, zcptgz,&
+          !$ser verbatim   zthvvar, ztottevn, zch_tile, zbn_tile, zbhn_tile,&
+          !$ser verbatim   zbm_tile, zbh_tile)
+          !
           IF (ltimer) CALL timer_stop(timer_vdiff_down)
           !
           !
@@ -255,6 +284,13 @@ CONTAINS
           field% evap_tile (jcs:jce,jb,:) = 0._wp
           !
           IF (ltimer) CALL timer_start(timer_surface)
+          !
+          !----------------------------------------------------------------------------------------
+          ! Serialbox2 input fields serialization
+          !$ser verbatim call serialize_update_surface_input(jb, jg, jce, nproma,&
+          !$ser verbatim   nlev, nsfc_type, iwtr, iice, ilnd,&
+          !$ser verbatim   pdtime, field, zfactor_sfc, zaa, zaa_btm, zbb, zbb_btm,&
+          !$ser verbatim   zcpt_sfc_tile, zco2, zch_tile)
           !
           CALL update_surface(jg, jce, nproma, field%kice,                    &! in
                &              nlev, nsfc_type,                                &! in
@@ -342,6 +378,13 @@ CONTAINS
                &              albvisdif_ice = field% albvisdif_ice(:,:,jb),   &! inout
                &              albnirdif_ice = field% albnirdif_ice(:,:,jb))    ! inout
           !
+          !----------------------------------------------------------------------------------------
+          ! Serialbox2 output fields serialization
+          !$ser verbatim call serialize_update_surface_output(jb, jg, jce, nproma,&
+          !$ser verbatim   nlev, nsfc_type, iwtr, iice, ilnd,&
+          !$ser verbatim   pdtime, field, zaa, zaa_btm, zbb, zbb_btm,&
+          !$ser verbatim   zcpt_sfc_tile, zq_snocpymlt)
+          !
           IF (ltimer) CALL timer_stop(timer_surface)
           !
           !
@@ -370,6 +413,12 @@ CONTAINS
           !
           IF (ltimer) CALL timer_start(timer_vdiff_up)
           !
+          !----------------------------------------------------------------------------------------
+          ! Serialbox2 input fields serialization
+          !$ser verbatim call serialize_vdiff_up_input(jb, jce, nproma, nlev,&
+          !$ser verbatim   nlevm1, ntrac, nsfc_type, iwtr, pdtime, field, zaa,&
+          !$ser verbatim   zcptgz, ztottevn, zbb, zthvvar, dummyx)
+          !
           CALL vdiff_up(jce, nproma, nlev, nlevm1,       &! in
                &        ntrac, nsfc_type,                &! in
                &        iwtr,                            &! in, indices of different sfc types
@@ -381,8 +430,8 @@ CONTAINS
                &        field%   ua(:,:,jb),             &! in, um1
                &        field%   va(:,:,jb),             &! in, vm1
                &        field%   ta(:,:,jb),             &! in, tm1
-               &        field% mair(:,:,jb),             &! in, moist air mass [kg/m2]
-               &        field% mdry(:,:,jb),             &! in, dry   air mass [kg/m2]
+               &        field% mair(:,:,jb),             &! in, moist     air mass [kg/m2]
+               &        field% mref(:,:,jb),             &! in, reference air mass [kg/m2]
                &        field% qtrc(:,:,jb,iqv),         &! in, qm1
                &        field% qtrc(:,:,jb,iqc),         &! in, xlm1
                &        field% qtrc(:,:,jb,iqi),         &! in, xim1
@@ -406,6 +455,12 @@ CONTAINS
                &        field%      totte(:,:,jb),       &! out
                &        field%   sh_vdiff(:,  jb),       &! out, for energy diagnostic
                &        field%   qv_vdiff(:,  jb)        )! out, for energy diagnostic
+          !
+          !----------------------------------------------------------------------------------------
+          ! Serialbox2 output fields serialization
+          !$ser verbatim call serialize_vdiff_up_output(jb, jce, nproma, nlev,&
+          !$ser verbatim   nlevm1, ntrac, nsfc_type, iwtr, pdtime, field, zbb,&
+          !$ser verbatim   dummyx, tend, dummy)
           !
           IF (ltimer) CALL timer_stop(timer_vdiff_up)
           !
@@ -431,6 +486,11 @@ CONTAINS
        !
        ! Turbulent mixing, part III:
        ! - Further diagnostics.
+       !----------------------------------------------------------------------------------------
+       ! Serialbox2 input fields serialization
+       !$ser verbatim call serialize_nsurf_diag_input(jb, jce, nproma, nsfc_type,&
+       !$ser verbatim   ilnd, field, zqx(:,nlev), zcptgz(:,nlev), zcpt_sfc_tile, zbn_tile,&
+       !$ser verbatim   zbhn_tile, zbh_tile, zbm_tile, zri_tile)
        !
        CALL nsurf_diag(jce, nproma, nsfc_type,          &! in
             &          ilnd,                            &! in
@@ -439,7 +499,7 @@ CONTAINS
             &          field%    ta(:,nlev,jb),         &! in tm1
             &          field% presm_old(:,nlev,jb),     &! in, apm1
             &          field% presi_old(:,nlevp1,jb),   &! in, aphm1
-            &          field%   qx(:,nlev,jb),          &! in, xlm1 + xim1
+            &                  zqx(:,nlev),             &! in, xlm1 + xim1
             &          field%   ua(:,nlev,jb),          &! in, um1
             &          field%   va(:,nlev,jb),          &! in, vm1
             &          field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
@@ -466,6 +526,10 @@ CONTAINS
             &          field%    uas_tile(:,jb,:),      &! out zonal wind in 10m on tiles
             &          field%    vas_tile(:,jb,:)       )! out meridional wind in 10m on tiles
        !
+       !----------------------------------------------------------------------------------------
+       ! Serialbox2 output fields serialization
+       !$ser verbatim call serialize_nsurf_diag_output(jb, jce, nproma,&
+       !$ser verbatim   nsfc_type, ilnd, field)
        !
     ELSE
        !

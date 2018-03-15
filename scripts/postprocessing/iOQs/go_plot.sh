@@ -14,6 +14,7 @@ export CDO='cdo -s -P 4'
 export CHUNK=2  #number of years in each output file  
 export GRID=R2B6
 export LEV=L64
+#export PLOTGRID_2D='r3600x1800'
 export POOL=/mnt/lustre01/work/mh0033/m211054/projects/icon/FX
 OQSDIR=$(pwd)  #add here path to the OQs scripts 
 

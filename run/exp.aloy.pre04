@@ -76,8 +76,8 @@ ocean_grids='OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G.nc'
 # start and end date+time
 # -----------------------
 
-start_date="2196-01-01T00:00:00Z"        # ISO-format date+time
-  end_date="2196-01-03T00:00:00Z"        # ISO-format date+time
+start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
+  end_date="1980-01-01T00:00:00Z"        # ISO-format date+time
 
 # time step length
 # ----------------
@@ -154,22 +154,10 @@ cpl_xmlctrfn=XMLCTRFN_${EXPNAME}_cpl
 
 # JSBACH settings
 run_jsbach=yes
+jsbach_usecase=jsbach_lite                # jsbach_lite/jsbach_pfts
 jsbach_with_hd=yes
 jsbach_with_lakes=yes
-jsbach_usecase=jsbach_lite    # jsbach_lite or jsbach_pfts
 jsbach_check_wbal=yes          # check water balance
-#
-[[ $jsbach_with_lakes == yes ]] || jsbach_usecase=${jsbach_usecase}_nolake
-[[ $jsbach_with_hd == yes ]] && jsbach_usecase=${jsbach_usecase}_with_hd
-ljsbach=$([ "${run_jsbach:=no}" == yes ] && echo .TRUE. || echo .FALSE. )
-llake=$([ "${jsbach_with_lakes:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
-if [[ $jsbach_usecase == *pfts* ]]
-then
-  pft_file_tag="11pfts_"
-  nproma=64
-else
-  pft_file_tag=""
-fi
 
 #--------------------------------------------------------------------------------------------------
 # II. Atmosphere & land section
@@ -178,7 +166,20 @@ fi
 # II.1 Define the atmosphere and land model configuration
 # -------------------------------------------------------
 
-# II.1.1 Atmospheric dynamics and physics
+# II.1.1 Some further processing for land configuration
+# ---------------------------------------
+
+ljsbach=$([ "${run_jsbach:=no}" == yes ] && echo .TRUE. || echo .FALSE. )
+llake=$([ "${jsbach_with_lakes:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
+if [[ $jsbach_usecase == *pfts* ]]
+then
+  pft_file_tag="11pfts_"
+  #nproma=64
+else
+  pft_file_tag=""
+fi
+
+# II.1.2 Atmospheric dynamics and physics
 # ---------------------------------------
 
 cat > ${atm_namelist} << EOF
@@ -303,12 +304,13 @@ cat > ${atm_namelist} << EOF
 /
 EOF
 
-# II.1.2 Land surface and soil
+# II.1.3 Land surface and soil
 # ----------------------------
 
 cat > ${lnd_namelist} <<EOF
 &jsb_model_nml
   usecase         = "${jsbach_usecase}"
+  use_lakes       = ${llake}
   fract_filename  = "bc_land_frac.nc"
   l_compat401     = .TRUE.              ! TRUE: overwrites some of the settings below
 /
@@ -373,8 +375,7 @@ fi
 # II.2.1 Model files
 # ------------------
 
-add_link_file ${basedir}/data/rrtmg_lw.nc                               ./
-add_link_file ${basedir}/data/rrtmg_sw.nc                               ./
+add_link_file ${basedir}/data/lsdata.nc                               ./
 add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
 # II.2.2 Namelist files
@@ -1210,7 +1211,7 @@ cat > ${cpl_xmlctrfn} << EOF
             </timestep>
             <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation filename="runoff_a2o.weights.nc" method="user_file"/>
+               <interpolation method="user_file" filename="runoff_a2o.weights.nc"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
             <enforce_write_restart>false</enforce_write_restart>

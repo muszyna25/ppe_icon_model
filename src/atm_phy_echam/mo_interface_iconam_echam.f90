@@ -185,14 +185,14 @@ CONTAINS
     TYPE(timedelta), POINTER             :: neg_dt_loc_mtime  !< negative time delta as mtime variable
     TYPE(datetime) , POINTER             :: datetime_old      !< date and time at the beginning of this time step
 
+    REAL(wp) :: xref(nproma,nlev)    !< ratio mair/mref
+
     REAL(wp) :: z_exner              !< to save provisional new exner
     REAL(wp) :: z_qsum               !< summand of virtual increment
 !!$    REAL(wp) :: z_ddt_qsum           !< summand of virtual increment
 
     REAL(wp) :: zvn1, zvn2
     REAL(wp), POINTER :: zdudt(:,:,:), zdvdt(:,:,:)
-
-    TYPE(t_avi) :: avi
 
     INTEGER  :: return_status
 
@@ -201,6 +201,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: method_name = "interface_iconam_echam"
 
     ! Temporary variables for Cariolle scheme (ozone)
+    TYPE(t_avi) :: avi
     REAL(wp)    :: vmr_o3(nproma,nlev)
     TYPE(t_time_interpolation) :: time_interpolation
     EXTERNAL       lcariolle_lat_intp_li, lcariolle_pres_intp_li
@@ -439,13 +440,12 @@ CONTAINS
           !
           ! cloud water+ice
           IF (echam_phy_config(jg)%ldrymoist) THEN
-            prm_field(jg)%        qx(jc,jk,jb)     = ( pt_prog_new_rcf% tracer(jc,jk,jb,iqc)  &
-              &                                       +pt_prog_new_rcf% tracer(jc,jk,jb,iqi)) &
-              &                                      *prm_field(jg)%      mair(jc,jk,jb)      &
-              &                                      /prm_field(jg)%      mdry(jc,jk,jb)
+            prm_field(jg)%      mref(jc,jk,jb)     = prm_field(jg)%     mdry(jc,jk,jb)
+            xref(jc,jk)                            = prm_field(jg)%     mair(jc,jk,jb) &
+              &                                     /prm_field(jg)%     mdry(jc,jk,jb)
           ELSE
-            prm_field(jg)%        qx(jc,jk,jb)     = ( pt_prog_new_rcf% tracer(jc,jk,jb,iqc)  &
-              &                                       +pt_prog_new_rcf% tracer(jc,jk,jb,iqi))
+            prm_field(jg)%      mref(jc,jk,jb)     = prm_field(jg)%     mair(jc,jk,jb)
+            xref(jc,jk)                            = 1._wp
           END IF
           !
           ! vertical velocity in p-system
@@ -547,17 +547,12 @@ CONTAINS
           DO jc = jcs, jce
 
             ! Tracer mass
-            prm_field(jg)%      mtrc(jc,jk,jb,jt)  = pt_prog_new_rcf%  tracer(jc,jk,jb,jt) &
-               &                                    *prm_field(jg)%      mair(jc,jk,jb)
+            prm_field(jg)%      mtrc(jc,jk,jb,jt)  = pt_prog_new_rcf% tracer(jc,jk,jb,jt) &
+               &                                    *prm_field(jg)%     mair(jc,jk,jb)
             !
             ! Tracer mass fraction
-            IF (echam_phy_config(jg)%ldrymoist) THEN
-              prm_field(jg)%      qtrc(jc,jk,jb,jt)  = pt_prog_new_rcf% tracer(jc,jk,jb,jt) &
-                &                                     *prm_field(jg)%     mair(jc,jk,jb)    &
-                &                                     /prm_field(jg)%     mdry(jc,jk,jb)
-            ELSE
-              prm_field(jg)%      qtrc(jc,jk,jb,jt)  = pt_prog_new_rcf% tracer(jc,jk,jb,jt)
-            END IF
+            prm_field(jg)%      qtrc(jc,jk,jb,jt)  = pt_prog_new_rcf% tracer(jc,jk,jb,jt) &
+              &                                     *xref(jc,jk)
 
             SELECT CASE (echam_phy_config(jg)%idcphycpl)
                !
@@ -566,39 +561,28 @@ CONTAINS
             CASE (1) ! idcphycpl
                ! In this case the new state is provisional and updated only by dynamics:
                ! The dynamical tendency is diagnosed as the difference of the new and old(="now") state.
-               IF (echam_phy_config(jg)%ldrymoist) THEN
-                 prm_tend(jg)%   qtrc_dyn(jc,jk,jb,jt)  = pt_diag% ddt_tracer_adv(jc,jk,jb,jt) &
-                   &                                     *prm_field(jg)%     mair(jc,jk,jb)    &
-                   &                                     /prm_field(jg)%     mdry(jc,jk,jb)
-               ELSE
-                 prm_tend(jg)%   qtrc_dyn(jc,jk,jb,jt)  = pt_diag% ddt_tracer_adv(jc,jk,jb,jt)
-               END IF
+               prm_tend(jg)%   qtrc_dyn(jc,jk,jb,jt)  = pt_diag% ddt_tracer_adv(jc,jk,jb,jt) &
+                 &                                     *xref(jc,jk)
                !
                ! Initialize the total tendencies, to be computed later:
-               prm_tend(jg)%     qtrc    (jc,jk,jb,jt)  = 0.0_wp
+               prm_tend(jg)%   qtrc    (jc,jk,jb,jt)  = 0.0_wp
                !
                ! Now reset the physics tendencies before entering the physics
-               prm_tend(jg)%     qtrc_phy(jc,jk,jb,jt)  = 0.0_wp
+               prm_tend(jg)%   qtrc_phy(jc,jk,jb,jt)  = 0.0_wp
                !
             CASE (2) ! idcphycpl
                ! In this case the new state is final:
                ! The total tendency is diagnosed as the difference of the new and old(="now") state.
-               IF (echam_phy_config(jg)%ldrymoist) THEN
-                  prm_tend(jg)%   qtrc    (jc,jk,jb,jt)  = ( pt_prog_new_rcf% tracer(jc,jk,jb,jt)          &
-                       &                                    -pt_prog_old_rcf% tracer(jc,jk,jb,jt) )/dt_loc &
-                       &                                   *prm_field(jg)%     mair(jc,jk,jb)              &
-                       &                                   /prm_field(jg)%     mdry(jc,jk,jb)
-               ELSE
-                  prm_tend(jg)%   qtrc    (jc,jk,jb,jt)  = ( pt_prog_new_rcf% tracer(jc,jk,jb,jt)          &
-                       &                                    -pt_prog_new_rcf% tracer(jc,jk,jb,jt) )/dt_loc
-               END IF
+               prm_tend(jg)%   qtrc    (jc,jk,jb,jt)  = ( pt_prog_new_rcf% tracer(jc,jk,jb,jt)          &
+                 &                                       -pt_prog_old_rcf% tracer(jc,jk,jb,jt) )/dt_loc &
+                 &                                     *xref(jc,jk)
                !
                ! And the dynamic tendency can be diagnosed from the total and the old physics tendencies:
-               prm_tend(jg)%      qtrc_dyn(jc,jk,jb,jt)  =  prm_tend(jg)% qtrc    (jc,jk,jb,jt)  &
-                    &                                      -prm_tend(jg)% qtrc_phy(jc,jk,jb,jt)
+               prm_tend(jg)%   qtrc_dyn(jc,jk,jb,jt)  =  prm_tend(jg)% qtrc    (jc,jk,jb,jt)  &
+                 &                                      -prm_tend(jg)% qtrc_phy(jc,jk,jb,jt)
                !
                ! Now reset the physics tendencies before entering the physics
-               prm_tend(jg)%      qtrc_phy(jc,jk,jb,jt)  = 0.0_wp
+               prm_tend(jg)%   qtrc_phy(jc,jk,jb,jt)  = 0.0_wp
                !
             END SELECT
             !
@@ -838,13 +822,8 @@ CONTAINS
               ! (2.1) Tracer mixing ratio with respect to dry air
               !
               ! tracer mass tendency
-              IF (echam_phy_config(jg)%ldrymoist) THEN
-                prm_tend(jg)%   mtrc_phy(jc,jk,jb,jt)  = prm_tend(jg)%  qtrc_phy(jc,jk,jb,jt) &
-                  &                                     *prm_field(jg)% mdry    (jc,jk,jb)
-              ELSE
-                prm_tend(jg)%   mtrc_phy(jc,jk,jb,jt)  = prm_tend(jg)%  qtrc_phy(jc,jk,jb,jt) &
-                  &                                     *prm_field(jg)% mair    (jc,jk,jb)
-              END IF
+              prm_tend(jg)%   mtrc_phy(jc,jk,jb,jt)  = prm_tend(jg)%  qtrc_phy(jc,jk,jb,jt) &
+                &                                     *prm_field(jg)% mref    (jc,jk,jb)
               !
               ! tracer path tendency
               prm_tend(jg)% mtrcvi_phy(jc,   jb,jt)  = prm_tend(jg)% mtrcvi_phy(jc,   jb,jt) &
@@ -876,6 +855,7 @@ CONTAINS
           prm_field(jg)% mh2ovi(jc,jb) = 0.0_wp
           prm_field(jg)% mairvi(jc,jb) = 0.0_wp
           prm_field(jg)% mdryvi(jc,jb) = 0.0_wp
+          prm_field(jg)% mrefvi(jc,jb) = 0.0_wp
         END DO
         DO jk = 1,nlev
           DO jc = jcs, jce
@@ -885,14 +865,10 @@ CONTAINS
               &                              +prm_field(jg)%      mtrc (jc,jk,jb,iqc) &
               &                              +prm_field(jg)%      mtrc (jc,jk,jb,iqi)
             !
-            ! new h2o path
-            prm_field(jg)% mh2ovi(jc,   jb) = prm_field(jg)%      mh2ovi(jc,   jb) &
-                &                            +prm_field(jg)%      mh2o  (jc,jk,jb)
-            !
             IF (echam_phy_config(jg)%ldrymoist) THEN
               !
               ! new air mass
-              prm_field(jg)% mair  (jc,jk,jb) = prm_field(jg)%      mdry (jc,jk,jb) &
+              prm_field(jg)% mair  (jc,jk,jb) = prm_field(jg)%      mref (jc,jk,jb) &
                 &                              +prm_field(jg)%      mh2o (jc,jk,jb)
               !
               ! new density
@@ -906,18 +882,26 @@ CONTAINS
             ELSE
               !
               ! new dry air mass
-              prm_field(jg)% mdry  (jc,jk,jb) = prm_field(jg)%      mair (jc,jk,jb) &
+              prm_field(jg)% mdry  (jc,jk,jb) = prm_field(jg)%      mref (jc,jk,jb) &
                 &                              -prm_field(jg)%      mh2o (jc,jk,jb)
               !              
             END IF
             !
-            ! new air path
+            ! h2o path
+            prm_field(jg)% mh2ovi(jc,   jb) = prm_field(jg)%      mh2ovi(jc,   jb) &
+                &                            +prm_field(jg)%      mh2o  (jc,jk,jb)
+            !
+            ! air path
             prm_field(jg)% mairvi(jc,   jb) = prm_field(jg)%      mairvi(jc,   jb) &
                 &                            +prm_field(jg)%      mair  (jc,jk,jb)
             !
-            ! new dry air path
+            ! dry air path
             prm_field(jg)% mdryvi(jc,   jb) = prm_field(jg)%      mdryvi(jc,   jb) &
               &                              +prm_field(jg)%      mdry  (jc,jk,jb)
+            !
+            ! reference air path
+            prm_field(jg)% mrefvi(jc,   jb) = prm_field(jg)%      mrefvi(jc,   jb) &
+              &                              +prm_field(jg)%      mref  (jc,jk,jb)
             !
           END DO
         END DO
@@ -936,13 +920,8 @@ CONTAINS
             DO jc = jcs, jce
               !
               ! new tracer mass fraction with respect to dry air
-              IF (echam_phy_config(jg)%ldrymoist) THEN
-                prm_field(jg)%   qtrc   (jc,jk,jb,jt)  = prm_field(jg)%  mtrc(jc,jk,jb,jt) &
-                  &                                     /prm_field(jg)%  mdry(jc,jk,jb)
-              ELSE
-                prm_field(jg)%   qtrc   (jc,jk,jb,jt)  = prm_field(jg)%  mtrc(jc,jk,jb,jt) &
-                  &                                     /prm_field(jg)%  mair(jc,jk,jb)
-              END IF
+              prm_field(jg)%   qtrc   (jc,jk,jb,jt)  = prm_field(jg)%  mtrc(jc,jk,jb,jt) &
+                &                                     /prm_field(jg)%  mref(jc,jk,jb)
               !
               pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = prm_field(jg)%  mtrc(jc,jk,jb,jt) &
                 &                                     /prm_field(jg)%  mair(jc,jk,jb)
@@ -978,13 +957,8 @@ CONTAINS
             DO jc = jcs, jce
               !
               ! new tracer mass fraction with respect to dry air
-              IF (echam_phy_config(jg)%ldrymoist) THEN
-                prm_field(jg)%   qtrc   (jc,jk,jb,jt)  = prm_field(jg)%  mtrc(jc,jk,jb,jt) &
-                  &                                     /prm_field(jg)%  mdry(jc,jk,jb)
-              ELSE
-                prm_field(jg)%   qtrc   (jc,jk,jb,jt)  = prm_field(jg)%  mtrc(jc,jk,jb,jt) &
-                  &                                     /prm_field(jg)%  mair(jc,jk,jb)
-              END IF
+              prm_field(jg)%   qtrc   (jc,jk,jb,jt)  = prm_field(jg)%  mtrc(jc,jk,jb,jt) &
+                &                                     /prm_field(jg)%  mref(jc,jk,jb)
               !
               pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = prm_field(jg)%  mtrc(jc,jk,jb,jt) &
                 &                                     /prm_field(jg)%  mair(jc,jk,jb)

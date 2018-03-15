@@ -21,72 +21,59 @@ author_list="Marco Giorgetta, Sebastian Mueller, Sebastian Rast, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 
+# (0) unset some setting of create_target_header for mistral
+
+unset OMPI_MCA_coll_fca_enable
+unset OMPI_MCA_coll_fca_priority
+
+#--------------------------------------------------------------------------------------------------
+
 # (1) Variables provided by the scripting mechanism
 
 # EXPNAME                       = name of exp. in 'exp.<name>'
 # basedir                       = base directory, where src/, run/ etc exist
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
-# second, minute, hour, day     = length of these intervals in [s]
+
+# overwrite the default setting with the new path and handle daint (CSCS)
+
+if [ -d /users/icontest ]
+then
+    poolFolder_prefix=/users/icontest
+else
+    poolFolder_prefix=
+fi
+
+icon_data_poolFolder="$poolFolder_prefix/pool/data/ICON/grids/private/mpim/icon_preprocessing/source"
 
 #--------------------------------------------------------------------------------------------------
 
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
-grid_name=r2b4_amip
-grids_folder=${icon_data_poolFolder}/grids/private/${grid_name}/r0002
+grid_name=icon_grid_0005_R02B04_G
+grids_folder=${icon_data_poolFolder}/grids
 atmo_dyn_grids=${grid_name}.nc
 
+resolution=$(awk -F'_' '{print $4}' <<< $grid_name)
+
 # start and end date+time
-start_date="1979-01-01T00:00:00Z"
-  end_date="1979-01-01T00:16:00Z"
-  calendar="'360 day year'"
-  calendar_type=2
+start_date=${start_date:="1979-01-01T00:00:00Z"}
+    end_date=${end_date:="1979-01-01T00:16:00Z"}
+    
+calendar="360 day year"
+
 # restart intervals
-checkpoint_interval="PT08M"
+checkpoint_interval="PT8M"
 restart_interval="PT16M"
-#
-# NEEDED TO KEEP THIS TEST WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
-# TO BE DELETED AFTER THE "mtime time loop" IS COMPLETELY IMPLEMENTED.
-(( dt_checkpoint =  8 * minute))    # !! MUST BE EQUAL TO "checkpoint_interval"  !!
-(( dt_restart    = 16 * minute))    # !! MUST BE EQUAL TO "restart_interval"     !!
 
 # output intervals
-output_interval_3d="PT04M"
-output_interval_2d="PT04M"
-file_interval="PT04M"
+output_interval="PT4M"
+file_interval="PT4M"
 
 # namelist files
 atmo_namelist=NAMELIST_${EXPNAME}_atm
 
-#--------------------------------------------------------------------------------------------------
-# Define grids for horizontal remapping
-# -------------------------------------
-#
-# The ICON RmBn grid has 3*m*2**n rows of triangles between the vertices at the N and S pole.
-# The number of triangles in a row around this axis increases linearly from 5 to 5*(1+2*(i-1))
-# at the base of the "polar" icosahedral triangles. In the "tropical" icosahedral triangles
-# all rows have a  5*(2*(m*2**n)) triangles. The triangles are either northward or southward
-# pointing. Thus the smallest periodic element in a tropical row is a rhombus formed by two
-# adjacent triangles. A tropical row has 5*(m*n**2) rhombi.
-#
-# The R2B4 grid has a total of 20480 triangular cells in 96 rows.
-# The tropical rows have 320 triangles or 160 rhombi.
-#
-# Therefore the following regular lon-lat grids are of interest for remapping:
-#
-# regular  grid: nlat=96, nlon=192, npts=18432, dlat=1.875 deg, dlon=1.875 deg
-reg_lat_def_reg=-89.0625,1.875,89.0625
-reg_lon_def_reg=0.,1.875,358.125
-#
-# rhombus  grid: nlat=96, nlon=160, npts=15360, dlat=1.875 deg, dlon=2.250 deg
-reg_lat_def_rmb=$reg_lat_def_reg
-reg_lon_def_rmb=0.,2.25,357.75
-#
-# triangle grid: nlat=96, nlon=320, npts=30720, dlat=1.875 deg, dlon=1.125 deg
-reg_lat_def_tri=$reg_lat_def_reg
-reg_lon_def_tri=0.,1.125,358.875
 #--------------------------------------------------------------------------------------------------
 
 # (3) Define the model configuration
@@ -100,16 +87,15 @@ cat > ${atmo_namelist} << EOF
 /
 &grid_nml
  dynamics_grid_filename = "${atmo_dyn_grids}",
- grid_angular_velocity = 0.
+ grid_angular_velocity  = 0.
 /
 &run_nml
  num_lev          = 47          ! number of full levels
- dtime            = 240         ! [s] time step   !! MUST BE EQUAL TO "modelTimeStep" !!
- modelTimeStep    = "PT04M"
+ modelTimeStep    = "PT4M"
  ltestcase        = .TRUE.      ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
- ntracer          = 3           ! number of tracers
+ ntracer          = 3           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
@@ -145,9 +131,10 @@ cat > ${atmo_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
- ivadv_tracer     = 3,3,3
- itype_hlimit     = 3,4,4
- ihadv_tracer     = 52,2,2
+!                   hus,clw,cli, o3
+ ivadv_tracer     =   3,  3,  3,  3
+ itype_hlimit     =   3,  4,  4,  3
+ ihadv_tracer     =  52,  2,  2, 52
 /
 &echam_phy_nml
 !
@@ -159,19 +146,20 @@ cat > ${atmo_namelist} << EOF
  echam_phy_config(1)%dt_vdf = "PT4M"
  echam_phy_config(1)%dt_cnv = "PT4M"
  echam_phy_config(1)%dt_cld = "PT4M"
- echam_phy_config(1)%dt_sso = ""
  echam_phy_config(1)%dt_gwd = "PT4M"
+ echam_phy_config(1)%dt_sso = ""
 !
 ! atmospheric chemistry (""=never)
- echam_phy_config(1)%dt_mox = ""
+ echam_phy_config(1)%dt_mox = "PT4M"
  echam_phy_config(1)%dt_car = ""
  echam_phy_config(1)%dt_art = ""
 !
 ! surface (.TRUE. or .FALSE.)
- echam_phy_config(1)%ljsb   = .FALSE
+ echam_phy_config(1)%ljsb   = .FALSE.
  echam_phy_config(1)%lamip  = .FALSE.
  echam_phy_config(1)%lice   = .FALSE.
- echam_phy_config(1)%lmlo   = .TRUE.
+ echam_phy_config(1)%lmlo   = .FALSE.
+ echam_phy_config(1)%llake  = .FALSE.
 !
 /
 &echam_rad_nml
@@ -212,8 +200,7 @@ EOF
 
 # model files
 #
-add_link_file ${basedir}/data/rrtmg_lw.nc                               ./
-add_link_file ${basedir}/data/rrtmg_sw.nc                               ./
+add_link_file ${basedir}/data/lsdata.nc                                 ./
 add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
 # namelist files
@@ -226,8 +213,6 @@ dict_file="dict.${EXPNAME}"
 cat dict.iconam.mpim  > ${dict_file}
 add_required_file ${basedir}/run/${dict_file}                           ./
 
-INDATA=${icon_data_poolFolder}/input/r0004
-
 # boundary conditions
 #
 # range of years for yearly files
@@ -236,13 +221,12 @@ start_year=$(( ${start_date%%-*} - 1 ))
 end_year=$(( ${end_date%%-*} + 1 ))
 #
 # - well mixed greenhouse gases
-datadir=$INDATA/global/atm
-add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_greenhouse_gases.nc
+datadir=${icon_data_poolFolder}/greenhouse_gases
+add_link_file $datadir/greenhouse_historical.nc                         ./bc_greenhouse_gases.nc
 #
 # - ozone
-datadir=${icon_data_poolFolder}/external/ape_ozone/
-ozone_file="r2b4_ozone_rce.nc"
-add_required_file ${datadir}/${ozone_file}                              ./o3_icon_DOM01.nc
+datadir=${icon_data_poolFolder}/ozone/rce/${resolution}
+add_link_file ${datadir}/bc_ozone_rce.nc                                ./o3_icon_DOM01.nc
 
 #--------------------------------------------------------------------------------------------------
 
@@ -252,11 +236,11 @@ add_required_file ${datadir}/${ozone_file}                              ./o3_ico
 # -------------------------------
 cat >> ${atmo_namelist} << EOF
 &io_nml
- dt_checkpoint    = ${dt_checkpoint}  !  NEEDED TO KEEP THIS TEST WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
  lnetcdf_flt64_output = .TRUE.
  itype_pres_msl   = 4
+ restart_file_type= 5
 /
 EOF
 
@@ -264,6 +248,30 @@ EOF
 # -------------------
 #
 # output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
+#
+# 3-dimensional files include 'ps' and 'pfull' to allow the vertical
+# interpolation to pressure levels by cdo ap2pl.
+
+output_atm_cgrid=yes
+#
+if [[ "$output_atm_cgrid" == "yes" ]]; then
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_atm_cgrid"
+ filename_format  = "<output_filename>_<levtype_l>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"       ! output_start = output_end
+ output_end       = "${start_date}"       ! --> write once only irrespective of
+ output_interval  = "${output_interval}"  !     the output interval and
+ file_interval    = "${file_interval}"    !     the file interval
+ ml_varlist       = 'clon', 'clat', 'areacella', 'zghalf', 'zg'
+/
+EOF
+fi
+
 
 output_atm_3d=yes
 #
@@ -273,15 +281,20 @@ if [[ "$output_atm_3d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_atm_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval_3d}"
+ output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
-                    'zg','pfull','ps'
+ ml_varlist       = 'ps'      , 'pfull'   , 'zg'      ,
+                    'rho'     , 'ta'      ,
+                    'ua'      , 'va'      , 'wap'     ,
+                    'hus'     , 'clw'     , 'cli'     ,
+                    'hur'     , 'cl'      ,
+                    !'qo3_phy' ,
 /
 EOF
 fi
@@ -295,18 +308,20 @@ if [[ "$output_atm_2d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_atm_2d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval_2d}"
+ output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
+ ml_varlist       = 'orog'    ,
+                    'ps'      , 'psl'     ,
                     'cosmu0'  ,
                     'rsdt'    ,
-                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'
-                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'
+                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'  ,
+                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'  ,
                     'rsus'    , 'rsuscs'  , 'rlus'    ,
                     'ts'      ,
                     'sic'     , 'sit'     ,
@@ -317,48 +332,13 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'hfls'    , 'hfss'    , 'evspsbl' ,
                     'tauu'    , 'tauv'    ,
                     'sfcwind' , 'uas'     , 'vas'     ,
-                    'tas'     , 'dew2'
+                    'tas'     , 'dew2'    ,
 /
 EOF
 fi
-output_atm_2d_rmb=yes
-#
-if [[ "$output_atm_2d_rmb" == "yes" ]]; then
-  cat >> ${atmo_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_atm_2d_rmb"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 1
- reg_def_mode     = 1
- reg_lat_def      = ${reg_lat_def_rmb}
- reg_lon_def      = ${reg_lon_def_rmb}
- output_grid      = .TRUE.
- output_start     = "${start_date}"                  ! ISO-format date+time
- output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval_2d}"          ! ISO-format interval
- file_interval    = "${file_interval}"
-! steps_per_file   = ${output_steps_per_file}
- include_last     = .FALSE.
- ml_varlist       = 'ps','psl'
-                    'cosmu0'  ,
-                    'rsdt'    ,
-                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'
-                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'
-                    'rsus'    , 'rsuscs'  , 'rlus'    ,
-                    'ts'      ,
-                    'albedo'  ,
-                    'clt'     ,
-                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
-                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
-                    'hfls'    , 'hfss'    , 'evspsbl' ,
-                    'tauu'    , 'tauv'    ,
-                    'sfcwind' , 'uas'     , 'vas'     ,
-                    'tas'     , 'dew2'
-/
-EOF
-fi
-#
-output_phy_3d=yes # "yes" increases the output volume significantly!
+
+
+output_phy_3d=yes
 #
 if [[ "$output_phy_3d" == "yes" ]]; then
   #
@@ -366,14 +346,16 @@ if [[ "$output_phy_3d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_phy_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval_3d}"
+ output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
+ ml_varlist       = 'ps'           , 'pfull'        , 'zg'           ,
+                    'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
                     'tend_ta_vdf'  , 'tend_ta_gwd'  ,
                     'tend_ta_cnv'  , 'tend_ta_cld'  , 
@@ -383,45 +365,40 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
                     'tend_va_vdf'  , 'tend_va_gwd'  ,
                     'tend_va_cnv'  ,
-                    'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
-                    'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf' ,
-                    'pfull','ps'
+                    'tend_qhus'    , 'tend_qhus_dyn', 'tend_qhus_phy',
+                    'tend_qhus_cld', 'tend_qhus_cnv', 'tend_qhus_vdf',
+                    !'tend_qhus_mox'
 /
 EOF
 fi
+
+
+output_trc_3d=yes
 #
-output_phy_3d_rmb=yes # "yes" increases the output volume significantly!
-#
-if [[ "$output_phy_3d_rmb" == "yes" ]]; then
+if [[ "$output_trc_3d" == "yes" ]]; then
+  #
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_phy_3d_rmb"
+ output_filename  = "${EXPNAME}_trc_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
-  remap            = 1
- reg_def_mode     = 1
- reg_lat_def      = ${reg_lat_def_rmb}
- reg_lon_def      = ${reg_lon_def_rmb}
+ filetype         = 5
+ remap            = 0
  output_grid      = .TRUE.
- output_start     = "${start_date}"                  ! ISO-format date+time
- output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval_3d}"          ! ISO-format interval
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
-! steps_per_file   = ${output_steps_per_file}
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wa','wap','hus','hur','cl','clw','cli','rho','zg'
-                    'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
-                    'tend_ta_rlw'  , 'tend_ta_rsw'  ,
-                    'tend_ta_vdf'  , 'tend_ta_gwd'  , 
-                    'tend_ta_cnv'  , 'tend_ta_cld'  , 
-                    'tend_ua'      , 'tend_ua_dyn'  , 'tend_ua_phy'  ,
-                    'tend_ua_vdf'  , 'tend_ua_gwd'  , 
-                    'tend_ua_cnv'  , 
-                    'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
-                    'tend_va_vdf'  , 'tend_va_gwd'  , 
-                    'tend_va_cnv'  ,
-                    'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
-                    'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf'
+ ml_varlist       = 'ps'        , 'pfull'     , 'zg'        ,
+                    'mairvi_phy',
+                    'mdryvi_phy',
+                    'mh2ovi_phy',
+                    'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
+                    'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
+                    'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 EOF
 fi
+
 #--------------------------------------------------------------------------------------------------
