@@ -144,6 +144,11 @@ output_aer_3d=no # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
 atm_output_interval_3d="$atm_output_interval"
 atm_output_interval_2d="$atm_output_interval"
 
+
+# varnames for ocean from the oce_mean test
+oce_varnames="'so','zos','to','global_moc','atlantic_moc','pacific_moc','Qtop', 'Qbot', 'mld','condep','u_vint','hi','hs','conc','atmos_fluxes_HeatFlux_Latent','atmos_fluxes_HeatFlux_Sensible','Wind_Speed_10m'"
+oce_monitor_varnames="'ssh_global','HeatFlux_Total_global','FrshFlux_Evaporation_global','FrshFlux_Runoff_global','FrshFlux_Precipitation_global','Qtop','ice_volume_nh','ice_volume_sh','ice_extent_nh','ice_extent_sh'"
+oce_monitor_varnames="${oce_monitor_varnames},'pot_energy_global','kin_energy_global','total_energy_global'"
 # namelist files
 # --------------
 
@@ -710,17 +715,6 @@ cat > ${oce_namelist} << EOF
  timers_level         = 10
  debug_check_level    = 1
 /
-&output_nml
-  output_start     = "${start_date}"                  ! start date in ISO-format
-  output_end       = "${end_date}"                    ! end date in ISO-format
-  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
-  file_interval    = "${oce_file_interval}"           ! interval in ISO-format
-  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-  output_grid      = .TRUE.
-  output_filename  = "${EXPNAME}_oceanMonitor"
-  filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:ocean_monitor'
-/
 &dbg_index_nml
   idbg_mxmn        = 2                        ! initialize MIN/MAX  debug output
   idbg_val         = 0                        ! initialize one cell debug output
@@ -852,6 +846,17 @@ cat > ${oce_namelist} << EOF
 &io_nml
   lkeep_in_sync = .TRUE.          ! sync after each timestep
 /
+&output_nml
+  output_start     = "${start_date}"                  ! start date in ISO-format
+  output_end       = "${end_date}"                    ! end date in ISO-format
+  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
+  file_interval    = "${oce_file_interval}"           ! interval in ISO-format
+  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  output_grid      = .TRUE.
+  output_filename  = "${EXPNAME}_oceanMonitor"
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       =  ${oce_monitor_varnames}
+/
 EOF
 
 if [[ "$output_oce_min" == "yes" ]]; then
@@ -869,15 +874,8 @@ if [[ "$output_oce_min" == "yes" ]]; then
   mode             =  2                               ! 1: forecast mode (relative t-axis),
                                                       ! 2: climate mode (absolute t-axis)
   include_last     = .false.
-! m_levels         = "1...3,10"                       ! reduced output out of 64 levels
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'Qtop', 'Qbot',
-                      'mld','condep','u_vint','hi','hs','conc',
-                      'zos','to','so',
-                      'HeatFlux_Total_Global',
-                      'atmos_fluxes_HeatFlux_Latent','atmos_fluxes_HeatFlux_Sensible'
-                      'FrshFlux_Runoff_Global','FrshFlux_Precipitation_Global','FrshFlux_Evaporation_Global',
-                      'Wind_Speed_10m'
+  ml_varlist       =  ${oce_varnames}
 /
 &output_nml
   filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
@@ -891,16 +889,9 @@ if [[ "$output_oce_min" == "yes" ]]; then
   mode             =  2                               ! 1: forecast mode (relative t-axis),
                                                       ! 2: climate mode (absolute t-axis)
   include_last     = .false.
-! m_levels         = "1...3,10"                       ! reduced output out of 64 levels
   operation = "mean"
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'Qtop', 'Qbot',
-                      'mld','condep','u_vint','hi','hs','conc',
-                      'zos','to','so',
-                      'HeatFlux_Total_Global',
-                      'atmos_fluxes_HeatFlux_Latent','atmos_fluxes_HeatFlux_Sensible'
-                      'FrshFlux_Runoff_Global','FrshFlux_Precipitation_Global','FrshFlux_Evaporation_Global',
-                      'Wind_Speed_10m'
+  ml_varlist       =  ${oce_varnames}
 /
 &output_nml
   filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
@@ -914,16 +905,9 @@ if [[ "$output_oce_min" == "yes" ]]; then
   mode             =  2                               ! 1: forecast mode (relative t-axis),
                                                       ! 2: climate mode (absolute t-axis)
   include_last     = .false.
-! m_levels         = "1...3,10"                       ! reduced output out of 64 levels
   operation = "mean"
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'Qtop', 'Qbot',
-                      'mld','condep','u_vint','hi','hs','conc',
-                      'zos','to','so',
-                      'HeatFlux_Total_Global',
-                      'atmos_fluxes_HeatFlux_Latent','atmos_fluxes_HeatFlux_Sensible'
-                      'FrshFlux_Runoff_Global','FrshFlux_Precipitation_Global','FrshFlux_Evaporation_Global',
-                      'Wind_Speed_10m'
+  ml_varlist       =  ${oce_varnames}
 /
 &output_nml
   filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
@@ -937,16 +921,9 @@ if [[ "$output_oce_min" == "yes" ]]; then
   mode             =  2                               ! 1: forecast mode (relative t-axis),
                                                       ! 2: climate mode (absolute t-axis)
   include_last     = .false.
-! m_levels         = "1...3,10"                       ! reduced output out of 64 levels
   operation = "mean"
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'Qtop', 'Qbot',
-                      'mld','condep','u_vint','hi','hs','conc',
-                      'zos','to','so',
-                      'HeatFlux_Total_Global',
-                      'atmos_fluxes_HeatFlux_Latent','atmos_fluxes_HeatFlux_Sensible'
-                      'FrshFlux_Runoff_Global','FrshFlux_Precipitation_Global','FrshFlux_Evaporation_Global',
-                      'Wind_Speed_10m'
+  ml_varlist       =  ${oce_varnames}
 /
 &output_nml
   filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
@@ -960,7 +937,6 @@ if [[ "$output_oce_min" == "yes" ]]; then
   mode             =  2                               ! 1: forecast mode (relative t-axis),
                                                       ! 2: climate mode (absolute t-axis)
   include_last     = .false.
-! m_levels         = "1...3,10"                       ! reduced output out of 64 levels
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c'
 /
@@ -975,7 +951,7 @@ if [[ "$output_oce_def" == "yes" ]]; then
 
 &output_nml
   filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_oce_def"
+  output_filename  = "${EXPNAME}_oce_diag"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start date in ISO-format
   output_end       = "${end_date}"                    ! end date in ISO-format
@@ -986,9 +962,7 @@ if [[ "$output_oce_def" == "yes" ]]; then
                                                       ! 2: climate mode (absolute t-axis)
   include_last     = .false.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:oce_default','group:oce_essentials'
-  !ml_varlist       =  'group:oce_default','group:ice_diag'
-  !ml_varlist       =  'group:oce_diag','group:ice_diag','group:oce_geometry'
+  ml_varlist       =  'group:oce_diag','group:ice_diag'
 /
 EOF
 fi

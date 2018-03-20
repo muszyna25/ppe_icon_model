@@ -6,7 +6,7 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2100-01-01T00:00:00Z"  #  201 years to ensure write of restart at end
+  end_date="2001-04-01T00:00:00Z"  #  201 years to ensure write of restart at end
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
@@ -120,7 +120,8 @@ cat > ${ocean_namelist} << EOF
   operation        = "mean"
   output_filename  = "${EXPNAME}_oceanMonitor_autoMean"
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'ssh_global'
+  ml_varlist       =  'ssh_global','FrshFlux_Evaporation_global','FrshFlux_Precipitation_global',
+                      'ice_volume_sh','ice_extent_nh','kin_energy_global','pot_energy_global'
 /
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output
