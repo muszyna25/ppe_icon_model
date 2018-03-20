@@ -119,7 +119,7 @@ END SUBROUTINE get_omz
     i_time_stat=nold(1)
 
 
-    IF (isRegistered('HAMOCC_global_primary_production')) THEN
+    IF (isRegistered('HAMOCC_NPP_global')) THEN
       CALL calc_inventory3d(p_patch_3d, &
         &                   ocean_state, &
         &                   hamocc_state%p_tend%npp(:,:,:), &
@@ -132,7 +132,7 @@ END SUBROUTINE get_omz
        &                    hamocc_state%p_tend%phoc(:,:,:), &
        &                    i_time_stat, hamocc_state%p_tend%monitor%phosy_cya(1))
     ENDIF
-    IF (isRegistered('HAMOCC_global_zooplankton_grazing')) THEN
+    IF (isRegistered('HAMOCC_grazing_global')) THEN
       CALL calc_inventory3d(p_patch_3d, &
         &                   ocean_state, &
         &                   hamocc_state%p_tend%graz(:,:,:), &
