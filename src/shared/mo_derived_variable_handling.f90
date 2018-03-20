@@ -371,8 +371,8 @@ if (my_process_is_stdio()) write(0,*)'IS pROGNOSTIC:',TRIM(varlist(i))
           ! set output to double precission if necessary
           dest_element%field%info%cf%datatype = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
 
-          ! 2. update the nc-shortname to internal name of the source variable
-          dest_element%field%info%cf%short_name = get_var_name(src_element%field)
+          ! 2. update the nc-shortname to internal name of the source variable unless it is already set by the user
+          IF("" == dest_element%field%info%cf%short_name) dest_element%field%info%cf%short_name = get_var_name(src_element%field)
 
           ! Collect variable pointers for source and destination in the same list {{{
           CALL meanVariables%add(src_element)
