@@ -19,6 +19,7 @@ MODULE mo_derived_variable_handling
     &                          TLEV_NNOW_RCF, TLEV_NNEW_RCF, REAL_T
   USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT
   USE mo_name_list_output_types, ONLY: t_output_name_list
+  USE mo_zaxis_type, ONLY:  ZA_OCEAN_SEDIMENT
   USE mo_mpi, ONLY: my_process_is_stdio
   USE mo_var_list_element, ONLY: level_type_ml, level_type_pl, level_type_hl, level_type_il
   USE mo_name_list_output_metadata, ONLY: metainfo_get_timelevel
@@ -520,25 +521,26 @@ if (my_process_is_stdio()) write(0,*)'IS pROGNOSTIC:',TRIM(varlist(i))
         destination%field%r_ptr(:,:,:,:,:) = &
           & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,index:index,:)
       END SELECT
-    else
+    ELSe
       ! tackle 1d, 2d and 3d
       SELECT CASE(destination%field%info%ndims)
       CASE(3)
        !hack for sea ice variables which uses vertical level for ice class
-        if (1 == destination%field%info%used_dimensions(2)) then
+        IF (1 == destination%field%info%used_dimensions(2)) THEN
           call add_fields(destination%field%r_ptr(:,:,:,1,1), &
             &             source%field%r_ptr(:,:,:,1,1), &
             &             destination%field%info%subset, &
             &             levels=1, &
             &             has_missvals=destination%field%info%lmiss, &
             &             missval=destination%field%info%missval%rval)
-        else
+        ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
           call add_fields(destination%field%r_ptr(:,:,:,1,1), &
             &             source%field%r_ptr(:,:,:,1,1), &
             &             destination%field%info%subset, &
+            &             levels=destination%field%info%used_dimensions(2), &
             &             has_missvals=destination%field%info%lmiss, &
             &             missval=destination%field%info%missval%rval)
-        endif
+        ENDIF
       CASE(2)
         IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
           call add_fields(destination%field%r_ptr(:,:,1,1,1), &
