@@ -359,36 +359,36 @@ END SUBROUTINE get_omz
     ENDIF
 
     ! Unit conversion
-    hamocc_state%p_tend%monitor%phosy(1) = hamocc_state%p_tend%monitor%phosy(1) * p2gtc
-    hamocc_state%p_tend%monitor%phosy_cya(1) = hamocc_state%p_tend%monitor%phosy_cya(1) * p2gtc
-    hamocc_state%p_tend%monitor%grazing(1) = hamocc_state%p_tend%monitor%grazing(1) * p2gtc
-    hamocc_state%p_tend%monitor%remina(1) = hamocc_state%p_tend%monitor%remina(1) * p2gtc
-    hamocc_state%p_tend%monitor%exud(1) = hamocc_state%p_tend%monitor%exud(1) * p2gtc
-    hamocc_state%p_tend%monitor%exudz(1) = hamocc_state%p_tend%monitor%exudz(1) * p2gtc
-    hamocc_state%p_tend%monitor%zoomor(1) = hamocc_state%p_tend%monitor%zoomor(1) * p2gtc
-    hamocc_state%p_tend%monitor%phymor(1) = hamocc_state%p_tend%monitor%phymor(1) * p2gtc
-    hamocc_state%p_tend%monitor%graton(1) = hamocc_state%p_tend%monitor%graton(1) * p2gtc
-    hamocc_state%p_tend%monitor%bacfra(1) = hamocc_state%p_tend%monitor%bacfra(1) * p2gtc
+    hamocc_state%p_tend%monitor%phosy(1)        = hamocc_state%p_tend%monitor%phosy(1) * p2gtc
+    hamocc_state%p_tend%monitor%phosy_cya(1)    = hamocc_state%p_tend%monitor%phosy_cya(1) * p2gtc
+    hamocc_state%p_tend%monitor%grazing(1)      = hamocc_state%p_tend%monitor%grazing(1) * p2gtc
+    hamocc_state%p_tend%monitor%remina(1)       = hamocc_state%p_tend%monitor%remina(1) * p2gtc
+    hamocc_state%p_tend%monitor%exud(1)         = hamocc_state%p_tend%monitor%exud(1) * p2gtc
+    hamocc_state%p_tend%monitor%exudz(1)        = hamocc_state%p_tend%monitor%exudz(1) * p2gtc
+    hamocc_state%p_tend%monitor%zoomor(1)       = hamocc_state%p_tend%monitor%zoomor(1) * p2gtc
+    hamocc_state%p_tend%monitor%phymor(1)       = hamocc_state%p_tend%monitor%phymor(1) * p2gtc
+    hamocc_state%p_tend%monitor%graton(1)       = hamocc_state%p_tend%monitor%graton(1) * p2gtc
+    hamocc_state%p_tend%monitor%bacfra(1)       = hamocc_state%p_tend%monitor%bacfra(1) * p2gtc
     hamocc_state%p_tend%monitor%net_co2_flux(1) = hamocc_state%p_tend%monitor%net_co2_flux(1) * c2gtc
-    hamocc_state%p_tend%monitor%delcar(1) = hamocc_state%p_tend%monitor%delcar(1) * c2gtc
-    hamocc_state%p_tend%monitor%wcdenit(1) = hamocc_state%p_tend%monitor%wcdenit(1) * 2._wp * n2prod* n2tgn
-    hamocc_state%p_tend%monitor%n2fix(1) = hamocc_state%p_tend%monitor%n2fix(1) * n2tgn * rn2
-    hamocc_state%p_tend%monitor%omex90(1) = hamocc_state%p_tend%monitor%omex90(1) * p2gtc
-    hamocc_state%p_tend%monitor%calex90(1) = hamocc_state%p_tend%monitor%calex90(1) * c2gtc
-    hamocc_state%p_tend%monitor%omex1000(1) = hamocc_state%p_tend%monitor%omex1000(1) * p2gtc
-    hamocc_state%p_tend%monitor%calex1000(1) = hamocc_state%p_tend%monitor%calex1000(1) * c2gtc
-    hamocc_state%p_tend%monitor%omex2000(1) = hamocc_state%p_tend%monitor%omex2000(1) * p2gtc
-    hamocc_state%p_tend%monitor%calex2000(1) = hamocc_state%p_tend%monitor%calex2000(1) * c2gtc
-    hamocc_state%p_tend%monitor%seddenit(1) = hamocc_state%p_tend%monitor%seddenit(1) * 2._wp*n2prod*n2tgn
-    hamocc_state%p_tend%monitor%cyaldoc(1) = hamocc_state%p_tend%monitor%cyaldet(1) * p2gtc * doccya_fac
-    hamocc_state%p_tend%monitor%cyaldet(1) = hamocc_state%p_tend%monitor%cyaldet(1) * p2gtc *(1._wp - doccya_fac)
+    hamocc_state%p_tend%monitor%delcar(1)       = hamocc_state%p_tend%monitor%delcar(1) * c2gtc
+    hamocc_state%p_tend%monitor%wcdenit(1)      = hamocc_state%p_tend%monitor%wcdenit(1) * 2._wp * n2prod* n2tgn
+    hamocc_state%p_tend%monitor%n2fix(1)        = hamocc_state%p_tend%monitor%n2fix(1) * n2tgn * rn2
+    hamocc_state%p_tend%monitor%omex90(1)       = hamocc_state%p_tend%monitor%omex90(1) * p2gtc
+    hamocc_state%p_tend%monitor%calex90(1)      = hamocc_state%p_tend%monitor%calex90(1) * c2gtc
+    hamocc_state%p_tend%monitor%omex1000(1)     = hamocc_state%p_tend%monitor%omex1000(1) * p2gtc
+    hamocc_state%p_tend%monitor%calex1000(1)    = hamocc_state%p_tend%monitor%calex1000(1) * c2gtc
+    hamocc_state%p_tend%monitor%omex2000(1)     = hamocc_state%p_tend%monitor%omex2000(1) * p2gtc
+    hamocc_state%p_tend%monitor%calex2000(1)    = hamocc_state%p_tend%monitor%calex2000(1) * c2gtc
+    hamocc_state%p_tend%monitor%seddenit(1)     = hamocc_state%p_tend%monitor%seddenit(1) * 2._wp*n2prod*n2tgn
+    hamocc_state%p_tend%monitor%cyaldoc(1)      = hamocc_state%p_tend%monitor%cyaldet(1) * p2gtc * doccya_fac
+    hamocc_state%p_tend%monitor%cyaldet(1)      = hamocc_state%p_tend%monitor%cyaldet(1) * p2gtc *(1._wp - doccya_fac)
 
     ! mean values of surface concentrations
-    hamocc_state%p_tend%monitor%sfalk(1) = hamocc_state%p_tend%monitor%sfalk(1)/totalarea
-    hamocc_state%p_tend%monitor%sfdic(1) = hamocc_state%p_tend%monitor%sfdic(1)/totalarea
-    hamocc_state%p_tend%monitor%sfsil(1) = hamocc_state%p_tend%monitor%sfsil(1)/totalarea
-    hamocc_state%p_tend%monitor%sfphos(1) = hamocc_state%p_tend%monitor%sfphos(1)/totalarea
-    hamocc_state%p_tend%monitor%zalkn2(1) = glob_n2b + glob_pwn2b
+    hamocc_state%p_tend%monitor%sfalk(1)        = hamocc_state%p_tend%monitor%sfalk(1)/totalarea
+    hamocc_state%p_tend%monitor%sfdic(1)        = hamocc_state%p_tend%monitor%sfdic(1)/totalarea
+    hamocc_state%p_tend%monitor%sfsil(1)        = hamocc_state%p_tend%monitor%sfsil(1)/totalarea
+    hamocc_state%p_tend%monitor%sfphos(1)       = hamocc_state%p_tend%monitor%sfphos(1)/totalarea
+    hamocc_state%p_tend%monitor%zalkn2(1)       = glob_n2b + glob_pwn2b
 
   END SUBROUTINE get_monitoring
 
