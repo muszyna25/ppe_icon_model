@@ -419,7 +419,7 @@ CONTAINS
     !! Tracers
     IF ( no_tracer > 0 ) THEN
       if(lhamocc)then
-      CALL set_bgc_tracer_info(no_tracer,max_oce_tracer+nbgctra      , &
+      CALL set_bgc_tracer_info(no_tracer, max_oce_tracer , &
         & oce_config%tracer_shortnames, &
         & oce_config%tracer_longnames , &
         & oce_config%tracer_codes     , &
