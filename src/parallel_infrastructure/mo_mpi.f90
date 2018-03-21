@@ -9456,10 +9456,10 @@ CONTAINS
   END SUBROUTINE p_scatter_int_2d1d
 
   SUBROUTINE p_gather_real_0d1d (sendbuf, recvbuf, p_dest, comm)
-    REAL(dp),          INTENT(in) :: sendbuf
-    REAL(dp),          INTENT(out) :: recvbuf(:)
-    INTEGER,           INTENT(in) :: p_dest
-    INTEGER, OPTIONAL, INTENT(in) :: comm
+    REAL(dp),          INTENT(in   ) :: sendbuf
+    REAL(dp),          INTENT(inout) :: recvbuf(:)
+    INTEGER,           INTENT(in   ) :: p_dest
+    INTEGER, OPTIONAL, INTENT(in   ) :: comm
 
 #ifndef NOMPI
     INTEGER :: p_comm
@@ -9479,10 +9479,10 @@ CONTAINS
    END SUBROUTINE p_gather_real_0d1d
 
   SUBROUTINE p_gather_real_1d2d (sendbuf, recvbuf, p_dest, comm)
-    REAL(dp),          INTENT(in) :: sendbuf(:)
-    REAL(dp),          INTENT(out) :: recvbuf(:,:)
-    INTEGER,           INTENT(in) :: p_dest
-    INTEGER, OPTIONAL, INTENT(in) :: comm
+    REAL(dp),          INTENT(in   ) :: sendbuf(:)
+    REAL(dp),          INTENT(inout) :: recvbuf(:,:)
+    INTEGER,           INTENT(in   ) :: p_dest
+    INTEGER, OPTIONAL, INTENT(in   ) :: comm
 
 #ifndef NOMPI
     INTEGER :: p_comm
@@ -9502,10 +9502,10 @@ CONTAINS
    END SUBROUTINE p_gather_real_1d2d
 
    SUBROUTINE p_gather_real_5d6d (sendbuf, recvbuf, p_dest, comm)
-     REAL(dp),          INTENT(in) :: sendbuf(:,:,:,:,:)
-     REAL(dp),          INTENT(out):: recvbuf(:,:,:,:,:,:)
-     INTEGER,           INTENT(in) :: p_dest
-     INTEGER, OPTIONAL, INTENT(in) :: comm
+     REAL(dp),          INTENT(in   ) :: sendbuf(:,:,:,:,:)
+     REAL(dp),          INTENT(inout) :: recvbuf(:,:,:,:,:,:)
+     INTEGER,           INTENT(in   ) :: p_dest
+     INTEGER, OPTIONAL, INTENT(in   ) :: comm
 
 #ifndef NOMPI
      INTEGER :: p_comm
@@ -9533,10 +9533,10 @@ CONTAINS
 
 
   SUBROUTINE p_gather_real_1d1d (sendbuf, recvbuf, p_dest, comm)
-    REAL(dp),          INTENT(in) :: sendbuf(:)
+    REAL(dp),          INTENT(in   ) :: sendbuf(:)
     REAL(dp),          INTENT(inout) :: recvbuf(:)
-    INTEGER,           INTENT(in) :: p_dest
-    INTEGER, OPTIONAL, INTENT(in) :: comm
+    INTEGER,           INTENT(in   ) :: p_dest
+    INTEGER, OPTIONAL, INTENT(in   ) :: comm
 
 #ifndef NOMPI
     INTEGER :: p_comm
@@ -9560,10 +9560,10 @@ CONTAINS
   !> wrapper for MPI_Gather()
   !---------------------------------------------------------------------------------------------------------------------------------
    SUBROUTINE p_gather_int_0d1d (sendbuf, recvbuf, p_dest, comm)
-     INTEGER,           INTENT(in) :: sendbuf
+     INTEGER,           INTENT(in   ) :: sendbuf
      INTEGER,           INTENT(inout) :: recvbuf(:)
-     INTEGER,           INTENT(in) :: p_dest
-     INTEGER, OPTIONAL, INTENT(in) :: comm
+     INTEGER,           INTENT(in   ) :: p_dest
+     INTEGER, OPTIONAL, INTENT(in   ) :: comm
 
 #ifndef NOMPI
      CHARACTER(*), PARAMETER :: routine = modname//"::p_gather_int_0d1d"
@@ -9589,10 +9589,10 @@ CONTAINS
   !> wrapper for MPI_Gather()
   !---------------------------------------------------------------------------------------------------------------------------------
    SUBROUTINE p_gather_int_1d1d (sendbuf, recvbuf, p_dest, comm)
-     INTEGER,           INTENT(in) :: sendbuf(:)
+     INTEGER,           INTENT(in   ) :: sendbuf(:)
      INTEGER,           INTENT(inout) :: recvbuf(:)
-     INTEGER,           INTENT(in) :: p_dest
-     INTEGER, OPTIONAL, INTENT(in) :: comm
+     INTEGER,           INTENT(in   ) :: p_dest
+     INTEGER, OPTIONAL, INTENT(in   ) :: comm
 
 #ifndef NOMPI
      CHARACTER(*), PARAMETER :: routine = modname//"::p_gather_int_1d1d"
@@ -9678,9 +9678,10 @@ CONTAINS
   !> wrapper for MPI_Gather()
   !---------------------------------------------------------------------------------------------------------------------------------
    SUBROUTINE p_gather_bool_0d1d (sendbuf, recvbuf, p_dest, comm)
-     LOGICAL,           INTENT(inout) :: sendbuf, recvbuf(:)
-     INTEGER,           INTENT(in) :: p_dest
-     INTEGER, OPTIONAL, INTENT(in) :: comm
+     LOGICAL,           INTENT(in   ) :: sendbuf
+     LOGICAL,           INTENT(inout) :: recvbuf(:)
+     INTEGER,           INTENT(in   ) :: p_dest
+     INTEGER, OPTIONAL, INTENT(in   ) :: comm
 
 #ifndef NOMPI
      CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gather_bool_0d1d"
