@@ -1140,21 +1140,21 @@
       & loutput=.TRUE., lrestart=.FALSE.)
 
     CALL add_var(hamocc_sediment_list, 'HAMOCC_sed_remino2',hamocc_state_tend%sedro2,    &
-      & grid_unstructured_cell, za_surface,&
+      & grid_unstructured_cell, ZA_OCEAN_SEDIMENT,&
       & t_cf_var('sed_remino2','kmol P m-3 s-1','sediment aerob remineralization', DATATYPE_FLT32,'sed_remino2'), &
       & grib2_var(255, 255, 300, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
     CALL add_var(hamocc_sediment_list, 'HAMOCC_sed_reminn',hamocc_state_tend%sedrn,    &
-      & grid_unstructured_cell, za_surface,&
+      & grid_unstructured_cell, za_ocean_sediment,&
       & t_cf_var('sed_reminn','kmol P m-3 s-1','sediment denitrification', DATATYPE_FLT32,'sed_reminn'), &
       & grib2_var(255, 255, 301, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
     CALL add_var(hamocc_sediment_list, 'HAMOCC_sed_remins',hamocc_state_tend%sedrs,    &
-      & grid_unstructured_cell, za_surface,&
+      & grid_unstructured_cell, za_ocean_sediment,&
       & t_cf_var('sed_remins','kmol P m-3 s-1','sediment sulfate reduction', DATATYPE_FLT32,'sed_remins'), &
       & grib2_var(255, 255, 302, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,ks,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
