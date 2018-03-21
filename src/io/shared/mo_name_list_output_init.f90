@@ -1960,6 +1960,8 @@ CONTAINS
 
           ! register variable 
           CALL registerOutputVariable(varlist(ivar))
+          ! register shortnames, which are used by mvstream and possibly by the users
+          IF ("" /= element%field%info%cf%short_name) CALL registerOutputVariable(element%field%info%cf%short_name)
 
           ! Found it, add it to the variable list of output file
           p_var_desc => var_desc
