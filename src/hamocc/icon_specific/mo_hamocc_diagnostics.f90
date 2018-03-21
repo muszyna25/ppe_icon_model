@@ -116,6 +116,9 @@ END SUBROUTINE get_omz
     INTEGER:: i_time_stat
     REAL(wp) :: glob_n2b, glob_pwn2b
 
+    glob_n2b = 0.0_wp
+    glob_pwn2b = 0.0_wp
+
     i_time_stat=nold(1)
 
 
