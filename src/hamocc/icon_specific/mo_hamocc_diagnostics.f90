@@ -336,13 +336,11 @@ END SUBROUTINE get_omz
         &                   -2)
     ENDIF
 
-    IF (isRegistered('HAMOCC_zalkn2')) THEN
+    IF (isRegistered('global_zalkn2')) THEN
       CALL calc_inventory_sed(p_patch_3d, &
         &                     hamocc_state%p_sed%pwn2b(:,:,:), &
         &                     porwat, &
         &                     glob_pwn2b)
-    ENDIF
-    IF (isRegistered('HAMOCC_zalkn2')) THEN
       CALL calc_inventory3d(p_patch_3d, &
         &                   ocean_state, &
         &                   hamocc_state%p_tend%n2budget(:,:,:), &
