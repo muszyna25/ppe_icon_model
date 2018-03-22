@@ -25,6 +25,7 @@ daily="P1D"
 monthly="P1M"
 file_interval="P1Y"
 modelTimeStep="PT1H"
+icon_data_rootFolder=/pool/data/ICON
 autoPostProcessing="false"                         # submit postprocessing job
 #steps_per_file=610                               # assigned output intervals per file interval
 #-----------------------------------------------------------------------------
@@ -37,7 +38,8 @@ ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-
 #-----------------------------------------------------------------------------
 #icon_data_rootFolder=/pool/data/ICON
 #
-varnames="'so','zos','to','global_moc','atlantic_moc','pacific_moc'"
+varnames="'so','zos','to'"
+varnames="'group:oce_diag','group:oce_prog'"
 monitor_varnames="'ssh_global','HeatFlux_Total_global','FrshFlux_Evaporation_global','FrshFlux_Runoff_global','FrshFlux_Precipitation_global','Qtop','ice_volume_nh','ice_volume_sh','ice_extent_nh','ice_extent_sh'"
 monitor_varnames="${monitor_varnames},'pot_energy_global','kin_energy_global','total_energy_global'"
 # write namelist parameters
@@ -157,7 +159,7 @@ lkeep_in_sync = .true.
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = ${monitor_varnames}
+  ml_varlist       = "group:ocean_monitor"
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
@@ -171,7 +173,7 @@ lkeep_in_sync = .true.
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = ${monitor_varnames}
+  ml_varlist       = "group:ocean_monitor"
   operation        = "mean"
 /
 &output_nml
@@ -186,7 +188,7 @@ lkeep_in_sync = .true.
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = ${monitor_varnames}
+  ml_varlist       = "group:ocean_monitor"
   operation        = "mean"
 /
 &output_nml
@@ -201,7 +203,7 @@ lkeep_in_sync = .true.
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = ${monitor_varnames}
+  ml_varlist       = "group:ocean_monitor"
   operation        = "mean"
 /
 &dbg_index_nml
