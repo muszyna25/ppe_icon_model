@@ -41,7 +41,7 @@ MODULE mo_var_metadata_types
   ! New groups can be added by extending the VAR_GROUPS list.
   !
 
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(55) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(57) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -85,6 +85,8 @@ MODULE mo_var_metadata_types
     &  "oce_force_essentials  ",  &
     &  "OCE_AUX               ",  &
     &  "OCEAN_MONITOR         ",  &
+    &  "OCEAN_MOC             ",  &  ! meant o hold all kinds of overturning fields (atl, pac, global,...)
+    &  "OCEAN_FLOWS           ",  &  ! meant o hold all through flows
     &  "OCE_GEOMETRY          ",  &
     &  "OCE_PHYSICS           ",  &
     &  "OCE_COEFFS            ",  &
