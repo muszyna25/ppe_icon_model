@@ -1283,7 +1283,7 @@ CONTAINS
 
    CALL add_var(ocean_default_list,'vertical_mixing_coeff_GMRedi_implicit',&
    &ocean_state_diag%vertical_mixing_coeff_GMRedi_implicit,grid_unstructured_cell,&
-      & za_depth_below_sea, &
+      & za_depth_below_sea_half, &
       & t_cf_var('temp_insitu', 'm', 'vertical_mixing_coeff_GMRedi_implicit', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
