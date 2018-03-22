@@ -283,7 +283,7 @@ cat > ${lnd_namelist} << EOF
   fuel_algorithm         = 1
 /
 &jsb_disturb_nml
-  active                  = ${lcarbon}
+  active                  = .FALSE.
   ic_filename             = 'ic_land_soil.nc'
   bc_filename             = 'bc_land_phys.nc'
   fire_algorithm          = 1

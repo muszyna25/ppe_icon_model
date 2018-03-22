@@ -99,6 +99,15 @@ if ( -d "externals/mtime/include" ) {
     }
 }
 
+if ( -d "externals/tixi/include" ) {
+    opendir(DIR, "externals/tixi/include");
+    @incs = grep /\.(inc|h)/, readdir(DIR);
+    closedir(DIR);
+    foreach my $inc ( @incs ) {
+	copy ( "externals/tixi/include/${inc}", "${build_path}/include/${inc}" );
+    }
+}
+
 if ( -d "externals/yac/include" ) {
     opendir(DIR, "externals/yac/include");
     @incs = grep /\.(inc|h)/, readdir(DIR);

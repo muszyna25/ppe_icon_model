@@ -671,7 +671,7 @@ if [[ "$output_lnd_min" == "yes" ]]; then
                     'rad_alb_vis_box'             , 'rad_alb_nir_box'        ,
                     'rad_rad_srf_net_box'         , 'rad_lw_srf_net_box'     , 'rad_sw_srf_net_box',
                     'seb_latent_hflx_box'         , 'seb_sensible_hflx_box'  , 'pheno_lai_box'     ,
-                    'hydro_evapotranspiration_box', 'hydro_w_soil_column_box',
+                    'hydro_evapotrans_box'        , 'hydro_w_soil_column_box',
                     'hydro_runoff_box'            , 'hydro_drainage_box'     ,
                     'hydro_discharge_ocean_box'   , 'hydro_discharge_box'    ,
 /
