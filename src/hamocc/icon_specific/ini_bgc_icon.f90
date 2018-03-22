@@ -1,6 +1,6 @@
 #ifndef __NO_ICON_OCEAN__
 
-SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
+SUBROUTINE ini_bgc_icon(p_patch_3D, p_os,l_is_restart)
 
   USE mo_kind, ONLY           : wp, dp
   USE mo_hamocc_nml, ONLY     : l_cpl_co2, io_stdo_bgc
@@ -131,6 +131,7 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
   !
   CALL message(TRIM(routine), 'sediment_bottom')
   CALL sediment_bottom
+
   
   ! convert 1/d to 1/ts
   CALL bgc_param_conv_unit

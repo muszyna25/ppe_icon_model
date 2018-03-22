@@ -372,7 +372,7 @@ MODULE mo_ocean_model
 
     CALL construct_ocean_var_lists(ocean_patch_3d%p_patch_2d(1))
     
-    IF(lhamocc)CALL construct_hamocc_var_lists(ocean_patch_3d%p_patch_2d(1))
+    IF(lhamocc) CALL construct_hamocc_var_lists(ocean_patch_3d%p_patch_2d(1))
     !------------------------------------------------------------------
     ! step 5b: allocate state variables
     !------------------------------------------------------------------
@@ -514,7 +514,7 @@ MODULE mo_ocean_model
     CALL construct_hydro_ocean_state(patch_3d, ocean_state)
     ocean_state(1)%operator_coeff => operators_coefficients
 
-    if(lhamocc)CALL construct_hamocc_state(patch_3d%p_patch_2d, hamocc_state)
+    if(lhamocc) CALL construct_hamocc_state(patch_3d%p_patch_2d, hamocc_state)
 
     CALL construct_ho_params(patch_3d%p_patch_2d(1), p_phys_param, ocean_restart_list)
 
