@@ -1102,7 +1102,13 @@
          ALLOCATE(omega(nproma, (nlev_in+1), nblks_c), STAT=ierrstat)
          IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-         CALL fetch_from_buffer(latbc, 'w', omega)
+         IF (latbc%buffer%lread_w) THEN
+           CALL fetch_from_buffer(latbc, 'w', omega)
+         ELSE
+!$OMP PARALLEL
+           CALL init(omega(:,:,:))
+!$OMP END PARALLEL
+         ENDIF
 
       ELSE
 
@@ -1110,7 +1116,7 @@
          ALLOCATE(w_ifc(nproma,    (nlev_in+1), nblks_c), STAT=ierrstat)
          IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-         CALL fetch_from_buffer(latbc, 'w', w_ifc)
+         IF (latbc%buffer%lread_w) CALL fetch_from_buffer(latbc, 'w', w_ifc)
 
          ! Interpolate input 'w' from the interface levels to the main levels:
 
@@ -1119,19 +1125,24 @@
            CALL finish(routine, "Internal error!")
          END IF
 
+         IF (latbc%buffer%lread_w) THEN
 !$OMP PARALLEL DO PRIVATE (jk,j,jb,jc) ICON_OMP_DEFAULT_SCHEDULE
-         DO jk = 1, nlev_in
-            DO j = 1, p_ri%n_own
+           DO jk = 1, nlev_in
+             DO j = 1, p_ri%n_own
                jb = p_ri%own_blk(j) ! Block index in distributed patch
                jc = p_ri%own_idx(j) ! Line  index in distributed patch
 
                IF (.NOT. latbc%patch_data%cells%read_mask(jc,jb)) CYCLE
 
                latbc%latbc_data(tlev)%atm_in%w(jc,jk,jb) = (w_ifc(jc,jk,jb) + w_ifc(jc,jk+1,jb)) * 0.5_wp
-            ENDDO
-         ENDDO
+             ENDDO
+           ENDDO
 !$OMP END PARALLEL DO
-
+         ELSE
+!$OMP PARALLEL
+           CALL init(latbc%latbc_data(tlev)%atm_in%w(:,:,:))
+!$OMP END PARALLEL
+         ENDIF
       ENDIF
 
 

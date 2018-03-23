@@ -124,6 +124,9 @@ MODULE mo_async_latbc_types
      ! the input file
      LOGICAL                                     :: lread_ps_geop
 
+     ! .TRUE., if vertical wind or omega is available in input data
+     LOGICAL                                     :: lread_w
+
      ! .FALSE., if vertical component of velocity (W) is provided as input
      LOGICAL                                     :: lconvert_omega2w
 

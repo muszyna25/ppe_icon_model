@@ -25,7 +25,7 @@
   !! namelist parameter of the initial state setup!
   !!
   !! - If "VN" is available, then it is read from file, otherwise "U","V".
-  !! - "W" is always read (note that this may in fact contain OMEGA).
+  !! - "W" is optional and read if available in the input data (note that "W" may in fact contain OMEGA).
   !! - "QV", "QC", "QI" are always read
   !! - "QR", "QS" are read if available
   !!
@@ -47,14 +47,16 @@
   !!           ____yes___|____no______                    ___yes__|________no___________
   !!           |                      |                  |                              |
   !!           |               +----------------+        |                          +--------+
-  !! * read HHL,RHO,THETA_V,W  | P,T available? |     * read in PS,GEOP,OMEGA,T     | ERROR! | 
+  !! * read HHL,RHO,THETA_V    | P,T available? |     * read in PS,GEOP,T           | ERROR! | 
+  !! * read W if available     |                |     * read OMEGA if available     |        |
   !! * ignore PS,GEOP          +----------------+     * compute P,HHL               +--------+
   !! * diagnose P,T                   |               * CALL OMEGA -> W
   !!                          ___yes__|___no____
   !!                         |                  |
   !!                         |               +--------+
-  !!                    * read HHL,P,T,W     | ERROR! |
+  !!                    * read HHL,P,T       | ERROR! |
   !!                    * ignore PS,GEOP     +--------+
+  !!                    * read W if available
   !!
   !!
   !! Afterwards, we 
@@ -765,7 +767,7 @@ MODULE mo_async_latbc
       CHARACTER(*), PARAMETER        :: routine = modname//"::check_variables"
       INTEGER                        :: fileID_latbc
       LOGICAL                        :: l_exist, lhave_ps_geop, lhave_ps, lhave_geop,  &
-        &                               lhave_hhl, lhave_theta_rho, lhave_w, lhave_vn, &
+        &                               lhave_hhl, lhave_theta_rho, lhave_vn,          &
         &                               lhave_u, lhave_v, lhave_pres, lhave_temp
       CHARACTER(LEN=filename_max)    :: latbc_filename, latbc_file
       CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
@@ -799,7 +801,7 @@ MODULE mo_async_latbc
          ! --- CHECK WHICH VARIABLES ARE AVAILABLE IN THE DATA SET ---
 
          ! Check if vertical velocity (or OMEGA) is provided as input
-         lhave_w = (test_cdi_varID(fileID_latbc, 'W', latbc_dict) /= -1)
+         latbc%buffer%lread_w = (test_cdi_varID(fileID_latbc, 'W', latbc_dict) /= -1)
 
          ! Check if surface pressure (VN) is provided as input
          lhave_vn = (test_cdi_varID(fileID_latbc, 'VN', latbc_dict) /= -1)
@@ -910,13 +912,6 @@ MODULE mo_async_latbc
          !
          ! Consistency checks
          ! 
-
-         ! Check if vertical component of velocity (W) is provided as
-         ! input
-         IF (.NOT. lhave_w) THEN
-           CALL finish(routine, "Neither W nor OMEGA provided!")
-         END IF
-
          IF (latbc_config%init_latbc_from_fg .AND. .NOT. latbc%buffer%lread_hhl) THEN
            CALL finish(routine, "Init LATBC from first guess requires BCs from non-hydrostatic model!")
          END IF
@@ -943,7 +938,9 @@ MODULE mo_async_latbc
             CALL message(routine,'Input levels (HHL) are computed from sfc geopotential.')
          ENDIF
 
-         IF (latbc%buffer%lconvert_omega2w) THEN
+         IF (.NOT. latbc%buffer%lread_w) THEN
+           CALL message(routine, "Neither W nor OMEGA provided! W is set to zero at LBCs")
+         ELSE IF (latbc%buffer%lconvert_omega2w) THEN
             CALL message(routine,'Compute W from OMEGA.')
          ENDIF
 
@@ -986,6 +983,7 @@ MODULE mo_async_latbc
       CALL p_bcast(latbc%buffer%lread_qr,                 p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%lread_vn,                 p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%lread_u_v,                p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%lread_w,                  p_comm_work_pref_compute_pe0, p_comm_work_pref)
 
       CALL p_bcast(latbc%buffer%lread_hhl,                p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%lread_theta_rho,          p_comm_work_pref_compute_pe0, p_comm_work_pref)
