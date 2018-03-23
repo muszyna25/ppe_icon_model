@@ -144,10 +144,6 @@ CONTAINS
   
     CALL compute_mean_ocean_statistics(ocean_state(1)%p_acc,surface_fluxes,nsteps_since_last_output)
     CALL compute_mean_ice_statistics(sea_ice%acc,nsteps_since_last_output)
-  
-    IF(lhamocc)THEN
-         CALL get_monitoring(hamocc,ocean_state(1),patch_3d)
-    ENDIF
 
     IF (diagnostics_level > 0 ) THEN
       IF (no_tracer>=2) THEN
