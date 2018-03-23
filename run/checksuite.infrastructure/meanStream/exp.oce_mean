@@ -557,7 +557,7 @@ cat >> ${ocean_namelist} << EOF1
   output_filename  = "${EXPNAME}_hamocc_2d_tendencies_spot"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${daily}"
+  output_interval  = "${hourly}"
  !mode             =  2                             ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   file_interval="P1Y"
   output_grid      = .TRUE.
