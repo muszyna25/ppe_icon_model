@@ -540,6 +540,12 @@ if (my_process_is_stdio()) write(0,*)'IS pROGNOSTIC:',TRIM(varlist(i))
             &             levels=destination%field%info%used_dimensions(2), &
             &             has_missvals=destination%field%info%lmiss, &
             &             missval=destination%field%info%missval%rval)
+        ELSE
+          call add_fields(destination%field%r_ptr(:,:,:,1,1), &
+            &             source%field%r_ptr(:,:,:,1,1), &
+            &             destination%field%info%subset, &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
         ENDIF
       CASE(2)
         IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
