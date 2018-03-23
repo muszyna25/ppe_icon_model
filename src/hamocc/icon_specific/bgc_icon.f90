@@ -90,7 +90,8 @@ SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
  
 IF(l_bgc_check)THEN
  call message('before loop','inventories',io_stdo_bgc)
- call get_inventories(hamocc_state, p_os, p_patch_3d,nold(1))
+ call get_inventories(hamocc_state, p_os%p_prog(nnew(1))%h, p_os%p_prog(nnew(1))%tracer, p_patch_3d) 
+ ! TODO: use nold or nnew depending what is available
 ENDIF
 
 !DIR$ INLINE
@@ -267,7 +268,7 @@ CALL get_omz(hamocc_state,p_os,p_patch_3d)
 
 IF(l_bgc_check)THEN
  call message('after loop','inventories',io_stdo_bgc)
- call get_inventories(hamocc_state, p_os, p_patch_3d,nold(1))
+ call get_inventories(hamocc_state, p_os%p_prog(nnew(1))%h, p_os%p_prog(nnew(1))%tracer, p_patch_3d) 
 ENDIF
   
 
