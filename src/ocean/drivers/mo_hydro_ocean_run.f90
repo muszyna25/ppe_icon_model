@@ -441,7 +441,9 @@ CONTAINS
         & ocean_state(jg)%p_prog(nnew(1))%h, &
         & ocean_state(jg)%p_prog(nnew(1))%tracer, &
         & p_atm_f, &
-        & sea_ice) 
+        & hamocc_state, &
+        & sea_ice, &
+        & lhamocc) 
 
 
       stop_detail_timer(timer_extra20,5)
