@@ -122,83 +122,83 @@ END SUBROUTINE get_omz
     i_time_stat=nold(1)
 
 
-    IF (isRegistered('HAMOCC_NPP_global')) THEN
+    IF (isRegistered('global_primary_production')) THEN
       CALL calc_inventory3d(p_patch_3d, &
         &                   ocean_state, &
         &                   hamocc_state%p_tend%npp(:,:,:), &
         &                   i_time_stat,&
         &                   hamocc_state%p_tend%monitor%phosy(1))
     ENDIF
-    IF (isRegistered('HAMOCC_global_npp_cya')) THEN
+    IF (isRegistered('global_npp_cya')) THEN
       CALL calc_inventory3d(p_patch_3d, &
        &                    ocean_state, &
        &                    hamocc_state%p_tend%phoc(:,:,:), &
        &                    i_time_stat, hamocc_state%p_tend%monitor%phosy_cya(1))
     ENDIF
-    IF (isRegistered('HAMOCC_grazing_global')) THEN
+    IF (isRegistered('global_zooplankton_grazing')) THEN
       CALL calc_inventory3d(p_patch_3d, &
         &                   ocean_state, &
         &                   hamocc_state%p_tend%graz(:,:,:), &
         &                   i_time_stat,&
         &                   hamocc_state%p_tend%monitor%grazing(1))
     ENDIF
-    IF (isRegistered('HAMOCC_global_remin_via_grazer')) THEN
+    IF (isRegistered('global_remin_via_grazer')) THEN
       CALL calc_inventory3d(p_patch_3d, &
         &                   ocean_state, &
         &                   hamocc_state%p_tend%graton(:,:,:), &
         &                   i_time_stat,&
         &                   hamocc_state%p_tend%monitor%graton(1))
     ENDIF
-    IF (isRegistered('HAMOCC_global_exudation_phytoplankton')) THEN
+    IF (isRegistered('global_exudation_phytoplankton')) THEN
       CALL calc_inventory3d(p_patch_3d, &
         &                   ocean_state, &
         &                   hamocc_state%p_tend%exud(:,:,:), &
         &                   i_time_stat,&
         &                   hamocc_state%p_tend%monitor%exud(1))
     ENDIF
-    IF (isRegistered('HAMOCC_global_exudation_zooplankton')) THEN
+    IF (isRegistered('global_exudation_zooplankton')) THEN
       CALL calc_inventory3d(p_patch_3d, &
         &                   ocean_state, &
         &                   hamocc_state%p_tend%exudz(:,:,:), &
         &                   i_time_stat,&
         &                   hamocc_state%p_tend%monitor%exudz(1))
     ENDIF
-    IF (isRegistered('HAMOCC_global_zooplankton_dying')) THEN
+    IF (isRegistered('global_zooplankton_dying')) THEN
       CALL calc_inventory3d(p_patch_3d, &
         &                   ocean_state, &
         &                   hamocc_state%p_tend%zoomor(:,:,:), &
         &                   i_time_stat,&
         &                   hamocc_state%p_tend%monitor%zoomor(1))
     ENDIF
-    IF (isRegistered('HAMOCC_global_phytoplankton_dying')) THEN
+    IF (isRegistered('global_phytoplankton_dying')) THEN
       CALL calc_inventory3d(p_patch_3d, &
         &                   ocean_state, &
         &                   hamocc_state%p_tend%phymor(:,:,:), &
         &                   i_time_stat,&
         &                   hamocc_state%p_tend%monitor%phymor(1))
     ENDIF
-    IF (isRegistered('HAMOCC_global_opal_production')) THEN
+    IF (isRegistered('global_opal_production')) THEN
       CALL calc_inventory3d(p_patch_3d, &
         &                   ocean_state, &
         &                   hamocc_state%p_tend%delsil(:,:,:), &
         &                   i_time_stat,&
         &                   hamocc_state%p_tend%monitor%delsil(1))
     ENDIF
-    IF (isRegistered('HAMOCC_global_caco3_production')) THEN
+    IF (isRegistered('global_caco3_production')) THEN
       CALL calc_inventory3d(p_patch_3d, &
         &                   ocean_state, &
         &                   hamocc_state%p_tend%delcar(:,:,:), &
         &                   i_time_stat,&
         &                   hamocc_state%p_tend%monitor%delcar(1))
     ENDIF
-    IF (isRegistered('HAMOCC_bacterial_activity')) THEN
+    IF (isRegistered('bacterial_activity')) THEN
       CALL calc_inventory3d(p_patch_3d, &
         &                   ocean_state, &
         &                   hamocc_state%p_tend%bacfra(:,:,:), &
         &                   i_time_stat,&
         &                   hamocc_state%p_tend%monitor%bacfra(1))
     ENDIF
-    IF (isRegistered('HAMOCC_Aerob_remin_of_detritus')) THEN
+    IF (isRegistered('Aerob_remin_of_detritus')) THEN
       CALL calc_inventory3d(p_patch_3d, &
         &                   ocean_state, &
         &                   hamocc_state%p_tend%remina(:,:,:), &
@@ -206,14 +206,14 @@ END SUBROUTINE get_omz
         &                   hamocc_state%p_tend%monitor%remina(1))
     ENDIF
     IF (l_cyadyn) THEN
-      IF (isRegistered('HAMOCC_N2_fixation')) THEN
+      IF (isRegistered('N2_fixation')) THEN
       CALL calc_inventory3d(p_patch_3d, &
         &                   ocean_state, &
         &                   hamocc_state%p_tend%nfix(:,:,:), &
         &                   i_time_stat,&
         &                   hamocc_state%p_tend%monitor%n2fix(1))
       ENDIF
-      IF (isRegistered('HAMOCC_global_cya_loss_det')) THEN
+      IF (isRegistered('global_cya_loss_det')) THEN
         CALL calc_inventory3d(p_patch_3d, &
         &                     ocean_state, &
         &                     hamocc_state%p_tend%cyloss(:,:,:), &
@@ -221,7 +221,7 @@ END SUBROUTINE get_omz
         &                     hamocc_state%p_tend%monitor%cyaldet(1))
       ENDIF
     ELSE
-      IF (isRegistered('HAMOCC_N2_fixation')) THEN
+      IF (isRegistered('N2_fixation')) THEN
         CALL calc_inventory2d(p_patch_3d, &
           &                   hamocc_state%p_tend%nfixd(:,:), &
           &                   i_time_stat, &
@@ -230,105 +230,105 @@ END SUBROUTINE get_omz
           &                   ocean_state)
       ENDIF
     ENDIF
-    IF (isRegistered('HAMOCC_WC_denit')) THEN
+    IF (isRegistered('WC_denit')) THEN
       CALL calc_inventory3d(p_patch_3d, &
         &                   ocean_state, &
         &                   hamocc_state%p_tend%reminn(:,:,:), &
         &                   i_time_stat, &
         &                   hamocc_state%p_tend%monitor%wcdenit(1))
     ENDIF
-    IF (isRegistered('HAMOCC_global_net_co2_flux')) THEN
+    IF (isRegistered('global_net_co2_flux')) THEN
       CALL calc_inventory2d(p_patch_3d, &
         &                   hamocc_state%p_tend%cflux(:,:), &
         &                   i_time_stat, &
         &                   hamocc_state%p_tend%monitor%net_co2_flux(1), &
         &                   -2)
     ENDIF
-    IF (isRegistered('HAMOCC_global_OM_export_at_90m')) THEN
+    IF (isRegistered('global_OM_export_at_90m')) THEN
       CALL calc_inventory2d(p_patch_3d, &
         &                   hamocc_state%p_tend%coex90(:,:), &
         &                   i_time_stat, &
         &                   hamocc_state%p_tend%monitor%omex90(1), &
         &                   -2)
     ENDIF
-    IF (isRegistered('HAMOCC_global_calc_export_at_90m')) THEN
+    IF (isRegistered('global_calc_export_at_90m')) THEN
       CALL calc_inventory2d(p_patch_3d, &
         &                   hamocc_state%p_tend%calex90(:,:), &
         &                   i_time_stat, &
         &                   hamocc_state%p_tend%monitor%calex90(1), &
         &                   -2)
     ENDIF
-    IF (isRegistered('HAMOCC_global_opal_export_at_90m')) THEN
+    IF (isRegistered('global_opal_export_at_90m')) THEN
       CALL calc_inventory2d(p_patch_3d, &
         &                   hamocc_state%p_tend%opex90(:,:), &
         &                   i_time_stat, &
         &                   hamocc_state%p_tend%monitor%opex90(1), &
         &                   -2)
     ENDIF
-    IF (isRegistered('HAMOCC_global_OM_export_at_1000m')) THEN
+    IF (isRegistered('global_OM_export_at_1000m')) THEN
       CALL calc_inventory2d(p_patch_3d, &
         &                   hamocc_state%p_tend%coex1000(:,:), &
         &                   i_time_stat, &
         &                   hamocc_state%p_tend%monitor%omex1000(1), &
         &                   -2)
     ENDIF
-    IF (isRegistered('HAMOCC_global_calc_export_at_1000m')) THEN
+    IF (isRegistered('global_calc_export_at_1000m')) THEN
       CALL calc_inventory2d(p_patch_3d, &
         &                   hamocc_state%p_tend%calex1000(:,:), &
         &                   i_time_stat, &
         &                   hamocc_state%p_tend%monitor%calex1000(1), &
         &                   -2)
     ENDIF
-    IF (isRegistered('HAMOCC_global_opal_export_at_1000m')) THEN
+    IF (isRegistered('global_opal_export_at_1000m')) THEN
       CALL calc_inventory2d(p_patch_3d, &
         &                   hamocc_state%p_tend%opex1000(:,:), &
         &                   i_time_stat, &
         &                   hamocc_state%p_tend%monitor%opex1000(1), &
         &                   -2)
     ENDIF
-    IF (isRegistered('HAMOCC_global_OM_export_at_2000m')) THEN
+    IF (isRegistered('global_OM_export_at_2000m')) THEN
       CALL calc_inventory2d(p_patch_3d, &
         &                   hamocc_state%p_tend%coex2000(:,:), &
         &                   i_time_stat, &
         &                   hamocc_state%p_tend%monitor%omex2000(1), &
         &                   -2)
     ENDIF
-    IF (isRegistered('HAMOCC_global_calc_export_at_2000m')) THEN
+    IF (isRegistered('global_calc_export_at_2000m')) THEN
       CALL calc_inventory2d(p_patch_3d, &
         &                   hamocc_state%p_tend%calex2000(:,:), &
         &                   i_time_stat, &
         &                   hamocc_state%p_tend%monitor%calex2000(1), &
         &                   -2)
     ENDIF
-    IF (isRegistered('HAMOCC_global_opal_export_at_2000m')) THEN
+    IF (isRegistered('global_opal_export_at_2000m')) THEN
       CALL calc_inventory2d(p_patch_3d, &
         &                   hamocc_state%p_tend%opex2000(:,:), &
         &                   i_time_stat, &
         &                   hamocc_state%p_tend%monitor%opex2000(1), &
         &                   -2)
     ENDIF
-    IF (isRegistered('HAMOCC_global_surface_alk')) THEN
+    IF (isRegistered('global_surface_alk')) THEN
       CALL calc_inventory2d(p_patch_3d, &
         &                   ocean_state%p_prog(i_time_stat)%tracer(:,1,:,ialkali+no_tracer), &
         &                   i_time_stat, &
         &                   hamocc_state%p_tend%monitor%sfalk(1), &
         &                   -2)
     ENDIF
-    IF (isRegistered('HAMOCC_global_surface_dic')) THEN
+    IF (isRegistered('global_surface_dic')) THEN
       CALL calc_inventory2d(p_patch_3d, &
         &                   ocean_state%p_prog(i_time_stat)%tracer(:,1,:,isco212+no_tracer), &
         &                   i_time_stat, &
         &                   hamocc_state%p_tend%monitor%sfdic(1), &
         &                   -2)
     ENDIF
-    IF (isRegistered('HAMOCC_global_surface_phosphate')) THEN
+    IF (isRegistered('global_surface_phosphate')) THEN
       CALL calc_inventory2d(p_patch_3d, &
         &                   ocean_state%p_prog(i_time_stat)%tracer(:,1,:,iphosph+no_tracer), &
         &                   i_time_stat, &
         &                   hamocc_state%p_tend%monitor%sfphos(1), &
         &                   -2)
     ENDIF
-    IF (isRegistered('HAMOCC_global_surface_silicate')) THEN
+    IF (isRegistered('global_surface_silicate')) THEN
       CALL calc_inventory2d(p_patch_3d, &
         &                   ocean_state%p_prog(i_time_stat)%tracer(:,1,:,isilica+no_tracer), &
         &                   i_time_stat, &
@@ -349,7 +349,7 @@ END SUBROUTINE get_omz
         &                   .TRUE.)
     ENDIF
 
-    IF (isRegistered('HAMOCC_SED_denit')) THEN
+    IF (isRegistered('SED_denit')) THEN
       CALL calc_inventory_sed(p_patch_3d, &
         &                     hamocc_state%p_tend%sedrn(:,:,:), &
         &                     porwat, &

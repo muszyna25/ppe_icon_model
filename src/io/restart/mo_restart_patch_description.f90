@@ -34,7 +34,7 @@ MODULE mo_restart_patch_description
 
 #ifndef __NO_ICON_OCEAN__
     USE mo_ocean_nml, ONLY: lhamocc
-    USE mo_sedmnt, ONLY: ks, dzsed
+    USE mo_hamocc_nml, ONLY: ks, dzsed
     USE mo_math_utilities, ONLY: set_zlev
 #endif
 

@@ -80,7 +80,7 @@ MODULE mo_hydro_ocean_run
   USE mo_bgc_bcond,              ONLY: ext_data_bgc, update_bgc_bcond
   USE mo_hamocc_diagnostics,     ONLY: get_inventories
   USE mo_hamocc_nml,             ONLY: io_stdo_bgc
-
+  USE mo_end_bgc,                ONLY: cleanup_hamocc
   USE mo_ocean_time_events,   ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
 
   IMPLICIT NONE
@@ -158,6 +158,7 @@ CONTAINS
   SUBROUTINE end_ho_stepping()
 
     CALL destruct_ho_lhs_fields_mimetic()
+    if(lhamocc)call cleanup_hamocc
     
   END SUBROUTINE end_ho_stepping
   !-------------------------------------------------------------------------

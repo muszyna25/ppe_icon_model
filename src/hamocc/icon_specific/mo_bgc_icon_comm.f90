@@ -14,7 +14,7 @@
        &                                 bgc_land, bgc_ind, &
        &                                 bgc_soce, bgc_npac, bgc_carb
 
-      USE mo_sedmnt,               ONLY: ks, powtra, sedlay, burial, sedhpl
+      USE mo_sedmnt,               ONLY: powtra, sedlay, burial, sedhpl
 
       USE mo_exception, ONLY      : message, finish
 
@@ -38,7 +38,7 @@
        
       USE mo_parallel_config,     ONLY: nproma
 
-      USE mo_hamocc_nml,         ONLY: io_stdo_bgc
+      USE mo_hamocc_nml,         ONLY: io_stdo_bgc,ks
 
 
       IMPLICIT NONE

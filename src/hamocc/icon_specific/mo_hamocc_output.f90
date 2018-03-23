@@ -564,7 +564,8 @@
 
    CALL add_var(hamocc_tendency_list, 'HAMOCC_global_surface_phosphate', hamocc_state_moni%sfphos , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('global_surface_phoshate', 'kmol  m-3', 'global_surface_phosphate', DATATYPE_FLT32,'global_surface_phoshate'),&
+      & t_cf_var('global_surface_phosphate', 'kmol  m-3', 'global_surface_phosphate',&
+      &  DATATYPE_FLT32,'global_surface_phosphate'),&
       & grib2_var(255, 255, 536, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
       & loutput=.TRUE., lrestart=.FALSE.)
@@ -1106,7 +1107,7 @@
 
     CALL add_var(hamocc_sediment_list, 'HAMOCC_sedflux_n2',hamocc_state_tend%sedfln2,    &
       & grid_unstructured_cell, za_surface,&
-      & t_cf_var('sedflux_n2','kmol N m-2 s-1','sediment-ocean flux nitrogen', DATATYPE_FLT32), &
+      & t_cf_var('sedflux_n2','kmol N m-2 s-1','sediment-ocean flux nitrogen', DATATYPE_FLT32,'sedflux_n2'), &
       & grib2_var(255, 255, 284, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
       & loutput=.TRUE., lrestart=.FALSE.)

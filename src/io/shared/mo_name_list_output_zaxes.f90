@@ -78,7 +78,7 @@ MODULE mo_name_list_output_zaxes
 #endif
 #ifndef __NO_ICON_OCEAN__
   USE mo_ocean_nml,                         ONLY: n_zlev, dzlev_m,lhamocc
-  USE mo_sedmnt,                            ONLY: ks, ksp, dzsed
+  USE mo_hamocc_nml,                        ONLY: ks, ksp, dzsed
 #endif
 
   IMPLICIT NONE
@@ -407,10 +407,7 @@ CONTAINS
     ! ocean sediment
     ALLOCATE(levels_s(ks), levels_sp(ksp))
 
-!   CALL set_zlev(levels_sp, levels_s, ks, dzsed*1000._wp)
-!   TODO
-    levels_sp = 10
-    levels_s = 20
+    CALL set_zlev(levels_sp, levels_s, ks, dzsed)
     CALL verticalAxisList%append(t_verticalAxis(zaxisTypeList%getEntry(ZA_OCEAN_SEDIMENT), ks, &
       &                                         zaxisLevels=REAL(levels_s,dp)))
     DEALLOCATE(levels_s, levels_sp)
