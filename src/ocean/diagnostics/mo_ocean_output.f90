@@ -57,9 +57,8 @@ MODULE mo_ocean_output
   USE mtime,                     ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToPosixString
   
  
-  USE mo_hamocc_types,           ONLY: t_hamocc_state, t_hamocc_tend
+  USE mo_hamocc_types,           ONLY: t_3d_hamocc_state
   USE mo_bgc_icon_comm,          ONLY: set_bgc_output_pointers
-  USE mo_hamocc_diagnostics,     ONLY: get_monitoring 
  
   IMPLICIT NONE
 
