@@ -329,7 +329,6 @@ CONTAINS
          & this_datetime=current_time, &
          & surface_fluxes=p_oce_sfc, &
          & sea_ice=sea_ice,            &
-         & hamocc=hamocc_state,        &
          & jstep=jstep, jstep0=jstep0, &
          & force_output=.true.)
         CALL finish(TRIM(routine), 'solve_free_surface_eq_ab  returned error')
@@ -454,7 +453,6 @@ CONTAINS
         &                current_time,              &
         &                p_oce_sfc,             &
         &                sea_ice,                 &
-        &                hamocc_state,            &
         &                jstep, jstep0)
       
       CALL reset_accumulation

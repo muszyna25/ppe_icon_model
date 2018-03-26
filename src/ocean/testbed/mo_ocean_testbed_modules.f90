@@ -445,7 +445,6 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
           & this_datetime,                &
           & ocean_surface,          &
           & ocean_ice,               &
-          & hamocc_state,               &
           & jstep, jstep0)
 
         ! Shift time indices for the next loop
@@ -559,7 +558,6 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
           & this_datetime,                &
           & ocean_surface,          &
           & ocean_ice,               &
-          & hamocc_state,               &
           & jstep, jstep0)
 
         ! Shift time indices for the next loop
@@ -706,7 +704,6 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
         &                this_datetime,   &
         &                p_oce_sfc,  &
         &                p_ice,      &
-        &                hamocc_state,      &
         &                jstep, jstep0)
 
       CALL update_time_indices(n_dom)
@@ -926,7 +923,6 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
       !   & this_datetime=mtime_current, &
       !   & ocean_surface=ocean_surface, &
       !   & sea_ice=sea_ice,            &
-      !   & hamocc=hamocc_state,        &
       !   & jstep=jstep, jstep0=jstep0, &
       !   & force_output=.true.)
       !  CALL finish(TRIM(routine), 'solve_free_surface_eq_ab  returned error')
@@ -962,7 +958,6 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
         &                mtime_current,              &
         &                p_oce_sfc,             &
         &                sea_ice,                 &
-        &                hamocc_state,            &
         &                jstep, jstep0)
       
   
@@ -1224,7 +1219,6 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
         &                this_datetime,   &
         &                p_oce_sfc,  &
         &                p_ice,      &
-        &                hamocc_state,      &
         &                jstep, jstep0)
 
       CALL update_time_indices(n_dom)
@@ -1547,7 +1541,6 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
         &                this_datetime,   &
         &                p_oce_sfc,  &
         &                p_ice,      &
-        &                hamocc_state,      &
         &                jstep, jstep0)
 
       CALL update_time_indices(n_dom)
@@ -1789,7 +1782,7 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
       CALL update_ice_statistic(p_ice%acc,p_ice,owned_cells)
 
       CALL output_ocean( patch_3D, p_os(jg), mtime_current, p_oce_sfc,  &
-        &                p_ice, hamocc_state, jstep, jstep0)
+        &                p_ice, jstep, jstep0)
 
       ! Shift time indices for the next loop
       ! this HAS to ge into the restart files, because the start with the following loop

@@ -56,10 +56,6 @@ MODULE mo_ocean_output
   USE mo_ocean_statistics
   USE mtime,                     ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToPosixString
   
- 
-  USE mo_hamocc_types,           ONLY: t_3d_hamocc_state
-  USE mo_bgc_icon_comm,          ONLY: set_bgc_output_pointers
- 
   IMPLICIT NONE
 
   PRIVATE
@@ -84,7 +80,6 @@ CONTAINS
     & this_datetime,   &
     & surface_fluxes,  &
     & sea_ice,         &
-    & hamocc,          &
     & jstep, jstep0,   &
     & force_output)
 
@@ -94,7 +89,6 @@ CONTAINS
     TYPE(t_ocean_surface)                            :: surface_fluxes
     TYPE (t_sea_ice),         INTENT(inout)          :: sea_ice
     INTEGER,   INTENT(in)                            :: jstep, jstep0
-    TYPE(t_hamocc_state), TARGET, INTENT(inout)      :: hamocc
     LOGICAL, OPTIONAL                                :: force_output
    
     ! local variables
@@ -153,7 +147,6 @@ CONTAINS
 
    ! set the output variable pointer to the correct timelevel
 !   CALL set_output_pointers(nnew(1), ocean_state(jg)%p_diag, ocean_state(jg)%p_prog(nnew(1)))
-    IF(lhamocc)CALL set_bgc_output_pointers(nnew(1), hamocc%p_diag, ocean_state(jg)%p_prog(nnew(1)))
  
     IF (output_mode%l_nml) CALL write_name_list_output(out_step)
 
