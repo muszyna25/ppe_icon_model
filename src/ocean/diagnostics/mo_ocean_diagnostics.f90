@@ -66,6 +66,7 @@ MODULE mo_ocean_diagnostics
     &  t_ocean_region_areas, t_ocean_monitor
   USE mo_hamocc_types,       ONLY: t_hamocc_state
   USE mo_hamocc_diagnostics, ONLY: get_monitoring 
+  USE mo_bgc_icon_comm,      ONLY: set_bgc_output_pointers
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text, warning
   USE mo_sea_ice_types,      ONLY: t_atmos_fluxes, t_sea_ice
@@ -1025,6 +1026,7 @@ CONTAINS
       CALL dbg_print('Diag: mld',p_diag%mld,str_module,4,in_subset=owned_cells)
       
       ! hamocc global diagnostics
+      IF (lhamocc) CALL set_bgc_output_pointers(hamocc%p_diag, tracers)
       IF (lhamocc) CALL get_monitoring( hamocc, sea_surface_height , tracers, patch_3d)
 
     END SELECT
