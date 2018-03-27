@@ -76,6 +76,8 @@ MODULE mo_ocean_state
   !  USE mo_ocean_config,        ONLY: ignore_land_points
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
 
+  USE mo_hamocc_output,      ONLY: construct_hamocc_state_prog
+
   IMPLICIT NONE
   PRIVATE
 
@@ -178,6 +180,8 @@ CONTAINS
     END IF
     DO jp = 1, prlength
       CALL construct_hydro_ocean_prog(patch_2d, ocean_state(1)%p_prog(jp),jp)
+      if(lhamocc)CALL construct_hamocc_state_prog(ocean_restart_list,patch_2d, ocean_state(1)%p_prog(jp),&
+&                                      jp, oce_config%tracer_codes(no_tracer))
     END DO
 
     CALL construct_hydro_ocean_diag(patch_2d, ocean_state(1)%p_diag)
@@ -418,15 +422,6 @@ CONTAINS
 
     !! Tracers
     IF ( no_tracer > 0 ) THEN
-      if(lhamocc)then
-      CALL set_bgc_tracer_info(no_tracer, max_oce_tracer , &
-        & oce_config%tracer_shortnames, &
-        & oce_config%tracer_longnames , &
-        & oce_config%tracer_codes     , &
-        & oce_config%tracer_units     , &
-        & oce_config%tracer_shortnames, &
-        & var_suffix)
-      endif
       CALL add_var(ocean_restart_list, 'tracers'//TRIM(var_suffix), ocean_state_prog%tracer , &
         & grid_unstructured_cell, za_depth_below_sea, &
         & t_cf_var('tracers'//TRIM(var_suffix), '', '1:temperature 2:salinity', &
@@ -437,7 +432,7 @@ CONTAINS
 
       ! Reference to individual tracer, for I/O
       ALLOCATE(ocean_state_prog%tracer_ptr(no_tracer+nbgctra))
-      DO jtrc = 1,no_tracer+nbgctra
+      DO jtrc = 1,no_tracer
         CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
           & TRIM(oce_config%tracer_shortnames(jtrc))//TRIM(var_suffix),        &
           & ocean_state_prog%tracer_ptr(jtrc)%p,                         &

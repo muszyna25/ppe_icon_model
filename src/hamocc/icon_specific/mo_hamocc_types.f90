@@ -74,27 +74,8 @@ MODULE mo_hamocc_types
   TYPE t_hamocc_diag
     !--------------------------------------------
     ! dimension: (nproma,n_zlev, nblks_e)
-    REAL(wp), POINTER ::  phy(:,:,:)           
-    REAL(wp), POINTER ::  zoo(:,:,:)       
-    REAL(wp), POINTER ::  doc(:,:,:)         
     REAL(wp), POINTER ::  hi(:,:,:)          
     REAL(wp), POINTER ::  co3(:,:,:)     
-    REAL(wp), POINTER ::  cya(:,:,:)         
-    REAL(wp), POINTER ::  det(:,:,:)         
-    REAL(wp), POINTER ::  dic(:,:,:)         
-    REAL(wp), POINTER ::  alk(:,:,:)         
-    REAL(wp), POINTER ::  no3(:,:,:)         
-    REAL(wp), POINTER ::  po4(:,:,:)         
-    REAL(wp), POINTER ::  n2(:,:,:)         
-    REAL(wp), POINTER ::  o2(:,:,:)         
-    REAL(wp), POINTER ::  si(:,:,:)         
-    REAL(wp), POINTER ::  iron(:,:,:)           
-    REAL(wp), POINTER ::  n2o(:,:,:)         
-    REAL(wp), POINTER ::  dms(:,:,:)         
-    REAL(wp), POINTER ::  h2s(:,:,:)         
-    REAL(wp), POINTER ::  calc(:,:,:)         
-    REAL(wp), POINTER ::  opal(:,:,:)         
-    REAL(wp), POINTER ::  dust(:,:,:)         
     !--------------------------------------------
   END TYPE t_hamocc_diag
   !

@@ -206,40 +206,6 @@
       END SUBROUTINE
 
 !================================================================================== 
-   SUBROUTINE set_bgc_output_pointers(p_diag,tracer)
-    
-    USE mo_param1_bgc, ONLY: isco212, ialkali, iphosph,iano3, igasnit, &
-&                            iphy, izoo, icya, ioxygen, isilica, idoc, &
-&                            ian2o, idet, iiron, icalc, iopal,&
-&                            idust, idms, ih2s
-
-    TYPE(t_hamocc_diag)   :: p_diag
-    REAL(wp), INTENT(IN)  :: tracer(:,:,:,:)
-    
-    !-------------------------------------------------------------------------
-
-    p_diag%dic(:,:,:)        =  tracer(:,:,:,isco212+no_tracer)
-    p_diag%alk(:,:,:)        =  tracer(:,:,:,ialkali+no_tracer)
-    p_diag%po4(:,:,:)        =  tracer(:,:,:,iphosph+no_tracer)
-    p_diag%no3(:,:,:)        =  tracer(:,:,:,iano3+no_tracer)
-    p_diag%n2(:,:,:)         =  tracer(:,:,:,igasnit+no_tracer)
-    p_diag%phy(:,:,:)        =  tracer(:,:,:,iphy+no_tracer)
-    p_diag%zoo(:,:,:)        =  tracer(:,:,:,izoo+no_tracer)
-    p_diag%cya(:,:,:)        =  tracer(:,:,:,icya+no_tracer)
-    p_diag%o2(:,:,:)         =  tracer(:,:,:,ioxygen+no_tracer)
-    p_diag%si(:,:,:)         =  tracer(:,:,:,isilica+no_tracer)
-    p_diag%doc(:,:,:)        =  tracer(:,:,:,idoc+no_tracer)
-    p_diag%n2o(:,:,:)        =  tracer(:,:,:,ian2o+no_tracer)
-    p_diag%det(:,:,:)        =  tracer(:,:,:,idet+no_tracer)
-    p_diag%iron(:,:,:)       =  tracer(:,:,:,iiron+no_tracer)
-    p_diag%dms(:,:,:)        =  tracer(:,:,:,idms+no_tracer)
-    p_diag%h2s(:,:,:)        =  tracer(:,:,:,ih2s+no_tracer)
-    p_diag%calc(:,:,:)       =  tracer(:,:,:,icalc+no_tracer)
-    p_diag%opal(:,:,:)       =  tracer(:,:,:,iopal+no_tracer)
-    p_diag%dust(:,:,:)       =  tracer(:,:,:,idust+no_tracer)
-   
-  END SUBROUTINE 
-!================================================================================== 
   SUBROUTINE set_bgc_tendencies_output(start_idx, end_idx, &
 &             klevs,pddpo,jb,p_tend, p_diag, p_sed)
 
