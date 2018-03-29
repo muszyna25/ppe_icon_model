@@ -20,14 +20,13 @@ MODULE mo_bc_aeropt_kinne
   USE mo_kind,                 ONLY: wp, i8
   USE mo_model_domain,         ONLY: t_patch
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_lrtm_par,             ONLY: nbndlw
-  USE mo_srtm_config,          ONLY: nbndsw=>jpsw
+  USE mo_psrad_general,        ONLY: nbndlw, nbndsw
   USE mo_exception,            ONLY: finish, message
   USE mo_io_config,            ONLY: default_read_method
   USE mo_read_interface,       ONLY: openInputFile, closeFile, on_cells, &
     &                                t_stream_id, read_0D_real, read_3D_time
   USE mo_echam_phy_config,     ONLY: echam_phy_config
-  USE mtime,                     ONLY: datetime 
+  USE mtime,                   ONLY: datetime 
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
        &                               calculate_time_interpolation_weights
   
@@ -373,7 +372,7 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   IF (imnthb == 0) THEN
     WRITE(cyear,*) iyear-1
 
-    IF ( echam_phy_config%lamip ) THEN
+    IF ( echam_phy_config(p_patch%id)%lamip ) THEN
       cfnameyear=cfname//'_'//TRIM(ADJUSTL(cyear))//'.nc'
     ELSE
       cfnameyear=cfname//'.nc'
@@ -419,7 +418,7 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   IF (imnthe > 0) THEN
     WRITE(cyear,*) iyear
 
-    IF ( echam_phy_config%lamip ) THEN
+    IF ( echam_phy_config(p_patch%id)%lamip ) THEN
       cfnameyear=cfname//'_'//TRIM(ADJUSTL(cyear))//'.nc'
     ELSE
       cfnameyear=cfname//'.nc'
@@ -466,7 +465,7 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   IF (imnthe == 13) THEN
     WRITE(cyear,*) iyear+1
 
-    IF ( echam_phy_config%lamip ) THEN
+    IF ( echam_phy_config(p_patch%id)%lamip ) THEN
       cfnameyear=cfname//'_'//TRIM(ADJUSTL(cyear))//'.nc'
     ELSE
       cfnameyear=cfname//'.nc'

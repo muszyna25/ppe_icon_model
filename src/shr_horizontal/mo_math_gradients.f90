@@ -252,7 +252,7 @@ IF (timers_level > 5) CALL timer_start(timer_grad)
 !$ACC PRESENT( ptr_patch, iidx, iblk, psi_c, grad_norm_psi_e ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 
@@ -404,7 +404,7 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 !$ACC PRIVATE( ilv1, ibv1, ilv2, ibv2 ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !
 ! TODO: OpenMP
@@ -577,7 +577,7 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
 !$ACC PRESENT( ptr_patch, ptr_int, iidx, iblk, p_cc, p_grad ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -863,7 +863,7 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
 !$ACC PRESENT( ptr_patch, ptr_int, iidx, iblk, p_ccpr, p_grad ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -1061,7 +1061,7 @@ ENDIF
 !$ACC PRESENT( ptr_patch, ptr_int, iidx, iblk, p_cc, p_grad ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -1195,7 +1195,7 @@ END SUBROUTINE grad_green_gauss_cell_adv
 !$ACC PRESENT( ptr_patch, ptr_int, iidx, iblk, p_ccpr, p_grad ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
 #endif

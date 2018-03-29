@@ -73,7 +73,7 @@ MODULE mo_var_metadata_types
     &  "MODE_IAU_OLD_FG_IN    ",  &  ! First guess input for old IAU mode
     &  "MODE_IAU_OLD_ANA_IN   ",  &  ! Analysis input for old IAU mode
     &  "MODE_COMBINED_IN      ",  &  ! Input fields for MODE_COMBINED
-    &  "MODE_COSMODE_IN       ",  &  ! Input fields for MODE_COSMODE
+    &  "MODE_COSMO_IN         ",  &  ! Input fields for MODE_COSMO
     &  "OCE_PROG              ",  &
     &  "OCE_DIAG              ",  &
     &  "OCE_DEFAULT           ",  &
@@ -99,7 +99,7 @@ MODULE mo_var_metadata_types
     &  "RTTOV                 " /)
 
   ! maximum number of variable groups supported by info state
-  INTEGER, PARAMETER :: MAX_GROUPS = 99
+  INTEGER, PARAMETER :: MAX_GROUPS = 120
 
   ! List of dynamic variable groups, which are used for tiles
   !
@@ -130,7 +130,14 @@ MODULE mo_var_metadata_types
   INTEGER, PARAMETER, PUBLIC :: CLASS_TILE_LAND     = 2   !< variable contains tile-specific information
                                                           !< but is restricted to land-tiles only
   INTEGER, PARAMETER, PUBLIC :: CLASS_SYNSAT        = 3
-  INTEGER, PARAMETER, PUBLIC :: CLASS_CHEM          = 4   !< atmospheric chemical constituent
+  INTEGER, PARAMETER, PUBLIC :: CLASS_CHEM          = 4   !< atmospheric chemical constituent (PDT 40)
+  INTEGER, PARAMETER, PUBLIC :: CLASS_CHEM_STAT     = 5   !< atmospheric chemical constituent (PDT 42)
+                                                          !< statistical process
+  INTEGER, PARAMETER, PUBLIC :: CLASS_CHEM_OPTP     = 6   !< atmospheric chemical constituent (PDT 48)
+                                                          !< optical properties
+  INTEGER, PARAMETER, PUBLIC :: CLASS_DISTR         = 7   !< variable based on a distribuition function (PDT 57)
+  INTEGER, PARAMETER, PUBLIC :: CLASS_DISTR_STAT    = 8   !< variable based on a distribuition function (PDT 40467)
+                                                          !< statistical process
 
   ! ---------------------------------------------------------------
   ! TYPE DEFINITIONS
@@ -228,10 +235,7 @@ MODULE mo_var_metadata_types
     !                                                      ... more may follow
     !
     INTEGER                    :: cdiVarID
-    INTEGER                    :: cdiVarID_2            ! for 2nd vector component in LatLon interpolation
     INTEGER                    :: cdiGridID
-    INTEGER                    :: cdiZaxisID
-    INTEGER                    :: cdiDataType
     !
     ! Metadata for "post-ops" (small arithmetic operations)
     !

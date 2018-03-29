@@ -5,595 +5,314 @@
 !! file COPYING in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the headers of the routines.
 !!
-MODULE rrlw_planck
-  USE mo_kind,        ONLY : wp 
-  USE mo_rrtm_params, ONLY : nbndlw
+
+! Band (gpt_range): wave number range (low key species; high key species)
+! 1(1 - 10): 10-250 cm-1 (low - h2o; high - h2o)
+! 2(11 - 22): 250-500 cm-1 (low - h2o; high - h2o) - 
+! 3(23 - 38): 500-630 cm-1 (low - h2o,co2; high - h2o,co2)
+! 4(39 - 52): 630-700 cm-1 (low - h2o,co2; high - o3,co2)
+! 5(53 - 68): 700-820 cm-1 (low - h2o,co2; high - o3,co2)
+! 6(69 - 76): 820-980 cm-1 (low - h2o; high - nothing)
+! 7(77 - 88): 980-1080 cm-1 (low - h2o,o3; high - o3)
+! 8(89 - 96): 1080-1180 cm-1 (low (i.e.>~300mb) - h2o; high - o3)
+! 9(97 - 108): 1180-1390 cm-1 (low - h2o,ch4; high - ch4)
+! 10(109 - 114): 1390-1480 cm-1 (low - h2o; high - h2o)
+! 11(115 - 122): 1480-1800 cm-1 (low - h2o; high - h2o)
+! 12(123 - 130): 1800-2080 cm-1 (low - h2o,co2; high - nothing)
+! 13(131 - 134): 2080-2250 cm-1 (low - h2o,n2o; high - nothing)
+! 14(135 - 136): 2250-2380 cm-1 (low - co2; high - co2)
+! 15(137 - 138): 2380-2600 cm-1 (low - n2o,co2; high - nothing)
+! 16(139 - 140): 2600-3000 cm-1 (low - h2o,ch4; high - nothing)
+
+! band 1:  10-350 cm-1 (low key - h2o; low minor - n2)
+!                      (high key - h2o; high minor - n2)
+!   old:   10-250 cm-1 (low - h2o; high - h2o)
+! Minor gas mapping levels:
+!     lower - n2, p = 142.5490 mbar, t = 215.70 k
+!     upper - n2, p = 142.5490 mbar, t = 215.70 k
+! band 2:  350-500 cm-1 (low key - h2o; high key - h2o)
+!   old:   250-500 cm-1 (low - h2o; high - h2o)
+! band 3:  500-630 cm-1 (low key - h2o,co2; low minor - n2o)
+!                       (high key - h2o,co2; high minor - n2o)
+!    old:  500-630 cm-1 (low - h2o,co2; high - h2o,co2)
+! Minor gas mapping levels:
+!     lower - n2o, p = 706.272 mbar, t = 278.94 k
+!     upper - n2o, p = 95.58 mbar, t = 215.7 k
+! band 4:  630-700 cm-1 (low key - h2o,co2; high key - o3,co2)
+!    old:  630-700 cm-1 (low - h2o,co2; high - o3,co2)
+! band 5:  700-820 cm-1 (low key - h2o,co2; low minor - o3, ccl4)
+!                       (high key - o3,co2)
+!    old:  700-820 cm-1 (low - h2o,co2; high - o3,co2)
+! Minor gas mapping level :
+!     lower - o3, p = 317.34 mbar, t = 240.77 k
+!     lower - ccl4
+!band 6:  820-980 cm-1 (low key - h2o; low minor - co2)
+!                      (high key - nothing; high minor - cfc11, cfc12)
+!   old:  820-980 cm-1 (low - h2o; high - nothing)
+! NOTE: code has cfc11/12 in lower atmosphere as well.
+! Minor gas mapping level:
+!     lower - co2, p = 706.2720 mb, t = 294.2 k
+!     upper - cfc11, cfc12
+! band 7:  98051080 cm-1 (low key - h2o,o3; low minor - co2)
+!                        (high key - o3; high minor - co2)
+!    old:  980-1080 cm-1 (low - h2o,o3; high - o3)
+! Minor gas mapping level :
+!     lower - co2, p = 706.2620 mbar, t= 278.94 k
+!     upper - co2, p = 12.9350 mbar, t = 234.01 k
+! band 8:  1080-1180 cm-1 (low key - h2o; low minor - co2,o3,n2o)
+!                         (high key - o3; high minor - co2, n2o)
+! NOTE: Code contained cfc12 and cfc22 as well!!!
+!    old:  1080-1180 cm-1 (low (i.e.>~300mb) - h2o; high - o3)
+! Minor gas mapping level:
+!     lower - co2, p = 1053.63 mb, t = 294.2 k
+!     lower - o3,  p = 317.348 mb, t = 240.77 k
+!     lower - n2o, p = 706.2720 mb, t= 278.94 k
+!     lower - cfc12,cfc11
+!     upper - co2, p = 35.1632 mb, t = 223.28 k
+!     upper - n2o, p = 8.716e-2 mb, t = 226.03 k
+! band 9:  1180-1390 cm-1 (low key - h2o,ch4; low minor - n2o)
+!                         (high key - ch4; high minor - n2o)
+!    old:  1180-1390 cm-1 (low - h2o,ch4; high - ch4)
+! Minor gas mapping level :
+!     lower - n2o, p = 706.272 mbar, t = 278.94 k
+!     upper - n2o, p = 95.58 mbar, t = 215.7 k
+! band 10:  1390-1480 cm-1 (low key - h2o; high key - h2o)
+!     old:  1390-1480 cm-1 (low - h2o; high - h2o)
+! band 11:  1480-1800 cm-1 (low - h2o; low minor - o2)
+!                          (high key - h2o; high minor - o2)
+!     old:  1480-1800 cm-1 (low - h2o; low minor - o2)
+!                          (high key - h2o; high minor - o2)
+! Minor gas mapping level :
+!     lower - o2, p = 706.2720 mbar, t = 278.94 k
+!     upper - o2, p = 4.758820 mbarm t = 250.85 k
+! band 12:  1800-2080 cm-1 (low - h2o,co2; high - nothing)
+!     old:  1800-2080 cm-1 (low - h2o,co2; high - nothing)
+! band 13:  2080-2250 cm-1 (low key - h2o,n2o; high minor - o3 minor)
+!     old:  2080-2250 cm-1 (low - h2o,n2o; high - nothing)
+! NOTE: comment did not reflect code, see minor species for lower atm
+! Minor gas mapping levels :
+!     lower - co2, p = 1053.63 mb, t = 294.2 k
+!     lower - co, p = 706 mb, t = 278.94 k
+!     upper - o3, p = 95.5835 mb, t = 215.7 k
+! band 14:  2250-2380 cm-1 (low - co2; high - co2)
+!     old:  2250-2380 cm-1 (low - co2; high - co2)
+! band 15:  2380-2600 cm-1 (low - n2o,co2; low minor - n2)
+!                          (high - nothing)
+!     old:  2380-2600 cm-1 (low - n2o,co2; high - nothing)
+! Minor gas mapping level : 
+!     Lower - Nitrogen Continuum, P = 1053., T = 294.
+! band 16:  2600-3250 cm-1 (low key- h2o,ch4; high key - ch4)
+!     old:  2600-3000 cm-1 (low - h2o,ch4; high - nothing)
+
+
+MODULE mo_psrad_lrtm_kgs
+
+  USE mo_psrad_general
+
+  IMPLICIT NONE
 
   PUBLIC
+
+  REAL(wp), PARAMETER :: &
+    delwave(nbndlw) = (/& ! Spectral band width in wavenumbers
+      340._wp, 150._wp, 130._wp,  70._wp, 120._wp, 160._wp, &
+      100._wp, 100._wp, 210._wp,  90._wp, 320._wp, 280._wp, &
+      170._wp, 130._wp, 220._wp, 650._wp/)
+
+  REAL(wp), PARAMETER :: wavenum1(nbndlw) = (/ & !< Spectral band lower boundary in wavenumbers
+    10._wp, 350._wp, 500._wp, 630._wp, 700._wp, 820._wp, &
+    980._wp,1080._wp,1180._wp,1390._wp,1480._wp,1800._wp, &
+    2080._wp,2250._wp,2380._wp,2600._wp/)
+  REAL(wp), PARAMETER :: wavenum2(nbndlw) = (/ & !< Spectral band upper boundary in wavenumbers
+    350._wp, 500._wp, 630._wp, 700._wp, 820._wp, 980._wp, &
+    1080._wp,1180._wp,1390._wp,1480._wp,1800._wp,2080._wp, &
+    2250._wp,2380._wp,2600._wp,3250._wp/)
+
+  REAL(wp) :: chi_mls(ngas,59), planck_ratio(ngas,ngas,59), &
+    ! planck function for each band, scaled by delwave
+    totplanck(181,nbndlw), & 
+    totplanck16(181) ! for band 16 NOTE: not used
+
+  INTEGER, PARAMETER :: &
+    ngpt(nbndlw) = (/10,12,16,14,16, 8,12,8,12,6, 8,8,4,2,2, 2/),&
+    nsp(2,nbndlw) = RESHAPE((/& ! Number of reference lower/upper atmospheres
+      1,1,9,9,9, 1,9,1,9,1, 1,9,9,1,9, 9, &
+      1,1,5,5,5, 0,1,1,1,1, 1,0,0,1,0, 1/), &
+      SHAPE=(/2,nbndlw/), ORDER=(/2,1/)), &
+    nsp_fraction(2,nbndlw) = RESHAPE((/& ! Number of reference lower/upper atmospheres
+      1,1,9,9,9, 1,9,1,9,1, 1,9,9,1,9, 9, &
+      1,1,5,5,5, 1,1,1,1,1, 1,0,1,1,0, 1/), &
+      SHAPE=(/2,nbndlw/), ORDER=(/2,1/)), &
+    fracs_mult(2,nbndlw) = MAX(0,nsp_fraction-1), &
+    !NOTE: Arrays differ only by nsp_*(2,13) and (2,6)
+    nh2oref(2,nbndlw) = RESHAPE((/& 
+      10,10,10,10,10, 10,10,10,10,10, 10,10,10,10,10, 10, &
+      4,4,4,4,4,      4,4,4,4,4,     4,4,4,4,4, 4/), &
+      SHAPE=(/2,nbndlw/), ORDER=(/2,1/)), &
+    skip_atmosphere(2,nbndlw) = RESHAPE((/ &
+      0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0, 0, &
+      0,0,0,0,0, 0,0,0,0,0, 0,1,0,0,1, 0/), &
+      SHAPE=(/2,nbndlw/), ORDER=(/2,1/)), &
+    copy_planck_fraction_from_other_band(nbndlw) = &
+      (/0,0,0,0,0, 2,0,0,0,0, 0,0,0,0,0, 0/), &
+    h2o_absorption_flag(2,2,nbndlw) = RESHAPE((/ &
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, & ! self,lower
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, & ! self,upper
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, & ! foreign, lower
+      1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0/), & !foreign, upper
+      SHAPE = (/2,2,nbndlw/), ORDER = (/3,2,1/)), &
+    pressure_dependent_tau_correction(2,nbndlw) = RESHAPE((/ &
+      1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, &
+      2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0/), &
+      SHAPE=(/2,nbndlw/), ORDER=(/2,1/)), &
+    major_species(3,2,nbndlw) = RESHAPE((/ &
+      ih2o,0,0, ih2o,0,0, & ! Band 1
+      ih2o,0,0, ih2o,0,0, & ! Band 2
+      ih2o,ico2,ih2oco2, ih2o,ico2,ih2oco2, & ! Band 3
+      ih2o,ico2,ih2oco2, io3,ico2,io3co2, & ! Band 4
+      ih2o,ico2,ih2oco2, io3,ico2,io3co2, & ! Band 5
+      ih2o,0,0, 0,0,0, & ! Band 6
+      ih2o,io3,ih2oo3, io3,0,0, & ! Band 7
+      ih2o,0,0, io3,0,0, & ! Band 8
+      ih2o,ich4,ih2och4,  ich4,0,0, & ! Band 9
+      ih2o,0,0, ih2o,0,0, & ! Band 10
+      ih2o,0,0, ih2o,0,0, & ! Band 11
+      ih2o,ico2,ih2oco2, 0,0,0, & ! Band 12
+      ih2o,in2o,ih2on2o, 0,0,0, & ! Band 13
+      ico2,0,0, ico2,0,0, & ! Band 14
+      in2o,ico2,in2oco2, 0,0,0, & ! Band 15
+      ih2o,ich4,ih2och4, ich4,0,0/), & ! Band 16
+      SHAPE=(/3,2,nbndlw/)), &
+    planck_fraction_interpolation_layer(2,nbndlw) = RESHAPE((/ &
+      0,0,9,11,5,   0,3,0,9,0, 0,10,5,0,1, 6, &
+      0,0,13,13,43, 0,0,0,0,0, 0,0,0,0,0,  0/), &
+      SHAPE = (/2,nbndlw/), ORDER=(/2,1/)), &
+    stratosphere_fudge_idx(nbndlw) = &
+      (/ 0,0,0,1,0, 0,2,0,0,0, 0,0,0,0,0, 0/), &
+    use_fixed_secdiff(nbndlw) = &
+      (/1,0,0,1,0, 0,0,0,0,1, 1,1,1,1,1, 1/)
+
+  REAL(wp), PARAMETER :: &
+    minor_species_fudge(4,6) = RESHAPE((/ &
+      1.5_wp, 0.5_wp, 0.65_wp, 0.0_wp, &
+      3.0_wp, 2.0_wp, 0.77_wp, 0.0_wp, &
+      3.0_wp, 3.0_wp, 0.79_wp, 0.0_wp, &
+      3.0_wp, 2.0_wp, 0.79_wp, 0.0_wp, &
+      3.0_wp, 2.0_wp, 0.65_wp, 0.0_wp, &
+      3.0_wp, 2.0_wp, 0.68_wp, 3.55e-4_wp/), SHAPE=(/4,6/)), &
+    stratosphere_fudge(ngpt_orig,2) = RESHAPE((/ &
+      1.,1.,1.,1.,1.,  1.,1.,0.92,0.88,1.07,     1.1,0.99,0.88,0.943,0., 0., &
+      1.,1.,1.,1.,1.,  0.92,0.88,1.07,1.1,0.99,  0.855,1.,0.,0.,0., 0./), &
+      SHAPE=(/ngpt_orig,2/))
+
+  TYPE :: T !TMinorInfo => T for brevity
+    INTEGER :: gas, M, N, scaling_type, fudge_index, interpolation_layer
+  END TYPE
+
+  TYPE(T), PARAMETER :: O = T(0,0,0,0,0,0), &
+    minor_species(max_minor_species,2,nbndlw) = RESHAPE((/ &
+     T(in2,19,0,1,0,0),O,O,O,O, & ! Band1, lower
+     T(in2,19,0,1,0,0),O,O,O,O, & ! Band1, upper
+
+     O,O,O,O,O, & !Band 2, lower
+     O,O,O,O,O, & !Band 2, upper, and so on
+
+     T(in2o,9,19,4,1,3),O,O,O,O, &
+     T(in2o,5,19,4,1,13),O,O,O,O, &
+
+     O,O,O,O,O, &
+     O,O,O,O,O, &
+
+     T(io3,9,19,0,0,7), T(iccl4, 1, 0,0,0,0),O,O,O, & !Band 5, lower
+     O,O,O,O,O, & !Band 5, upper
+
+     T(ico2,19,0,4,2,0), T(icfc11,1,0,0,0,0), T(icfc12,1,0,0,0,0), &
+     O,O, & ! Band 6, lower
+     T(icfc11,1,0,0,0,0), T(icfc12,1,0,0,0,0), O,O,O, & !Band 6, upper
+
+     T(ico2,9,19,4,3,3),O,O,O,O, & !CHECK
+     T(ico2,19,0,4,4,0),O,O,O,O, &
+
+     T(ico2,19,0,4,5,0), T(io3,19,0,0,0,0), T(in2o,19,0,0,0,0), &
+     T(icfc12,1,0,0,0,0), T(icfc22,1,0,0,0,0), & !Band 8, lower
+     T(ico2,19,0,4,5,0), T(in2o,19,0,0,0,0), T(icfc12,1,0,0,0,0), &
+     T(icfc22,1,0,0,0,0), O, & !Band8, upper
+
+     T(in2o,9,19,4,1,3),O,O,O,O, &
+     T(in2o,19,0,4,1,0),O,O,O,O, &
+
+     O,O,O,O,O, &
+     O,O,O,O,O, &
+
+     T(io2,19,0,2,0,0),O,O,O,O, & !Band 11
+     T(io2,19,0,2,0,0),O,O,O,O, &
+
+     O,O,O,O,O, &
+     O,O,O,O,O, &
+
+     T(ico2,9,19,4,6,1),T(ico,9,19,0,0,3), O,O,O, &
+     T(io3,19,0,0,0,0),O,O,O,O, &
+
+     O,O,O,O,O, & !Band 14
+     O,O,O,O,O, &
+
+     T(in2,9,19,3,0,1),O,O,O,O, & 
+     O,O,O,O,O, &
+
+     O,O,O,O,O, &
+     O,O,O,O,O/), &
+     SHAPE=(/max_minor_species,2,nbndlw/))
+
+  REAL(wp) :: precipitable_vapor_factor
+  REAL(wp) :: pa1, pa2, pa3, pb1, pb2, pc1, pc2, pc3
+
+  PUBLIC :: lrtm_count_flat
+  PUBLIC :: lrtm_unpack_data
+
+CONTAINS
+
+  SUBROUTINE lrtm_count_flat(n_lrtm)
+    INTEGER, INTENT(OUT) :: n_lrtm
+    n_lrtm = ngas * 59 + & ! chi_mls
+      181 * nbndlw + & ! totplanck
+      ngas * ngas * 59 + & ! planck_ratio
+      9 !  precipitable_vapor_factor, pa1, pa2, pa3, pb1, pb2, pc1, pc2, pc3
+  END SUBROUTINE lrtm_count_flat
+
+  SUBROUTINE lrtm_unpack_data(lrtm_data)
+    REAL(wp), INTENT(IN) :: lrtm_data(:)
+    INTEGER :: offset, s, e, l
+    
+    offset = 0
+
+    l = ngas * 59
+    s = offset + 1
+    e = offset + l
+    chi_mls = RESHAPE(lrtm_data(s:e), SHAPE = (/ngas,59/))
+    offset = offset + l
+
+    l = 181 * nbndlw
+    s = offset + 1
+    e = offset + l
+    totplanck = RESHAPE(lrtm_data(s:e), SHAPE = (/181,nbndlw/))
+    offset = offset + l
+
+    l = ngas * ngas * 59
+    s = offset + 1
+    e = offset + l
+    planck_ratio = RESHAPE(lrtm_data(s:e), SHAPE = (/ngas,ngas,59/))
+    offset = offset + l
+
+    precipitable_vapor_factor = lrtm_data(offset + 1)
+    pa1 = lrtm_data(offset + 2)
+    pa2 = lrtm_data(offset + 3)
+    pa3 = lrtm_data(offset + 4)
+    pb1 = lrtm_data(offset + 5)
+    pb2 = lrtm_data(offset + 6)
+    pc1 = lrtm_data(offset + 7)
+    pc2 = lrtm_data(offset + 8)
+    pc3 = lrtm_data(offset + 9)
   
-  SAVE 
+  END SUBROUTINE lrtm_unpack_data
 
-  REAL(wp) :: chi_mls(7,59)
-  REAL(wp) :: totplanck(181,nbndlw) !< planck function for each band
-  REAL(wp) :: totplanck16(181)      !< for band 16
-
-END MODULE rrlw_planck
-
-!-----------------------------------------------------------------------------
-!>
-!! @brief LRTM Band 1 Parameters: 10-250 cm-1 (low - h2o; high - h2o)
-!
-MODULE psrad_rrlw_kg01
-
-  USE mo_kind ,ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no1  = 16 !< original abs coefficients
-
-  REAL(wp) :: fracrefao(no1)  , fracrefbo(no1)
-  REAL(wp) :: kao(5,13,no1)
-  REAL(wp) :: kbo(5,13:59,no1)
-  REAL(wp) :: kao_mn2(19,no1) , kbo_mn2(19,no1)
-  REAL(wp) :: selfrefo(10,no1), forrefo(4,no1)
-
-  INTEGER, PARAMETER :: ng1  = 10 !< combined abs. coefficients
-
-  REAL(wp) :: fracrefa(ng1)  , fracrefb(ng1)
-  REAL(wp) :: ka(5,13,ng1)   , absa(65,ng1)
-  REAL(wp) :: kb(5,13:59,ng1), absb(235,ng1)
-  REAL(wp) :: ka_mn2(19,ng1) , kb_mn2(19,ng1)
-  REAL(wp) :: selfref(10,ng1), forref(4,ng1)
-
-  EQUIVALENCE (ka(1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrlw_kg01
-!-----------------------------------------------------------------------------
-!>
-!! @brief LRTM Band 2 Parameters 250-500 cm-1 (low - h2o; high - h2o)
-!
-MODULE psrad_rrlw_kg02
-
-  USE mo_kind ,ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no2  = 16
-
-  REAL(wp) :: fracrefao(no2)   , fracrefbo(no2)
-  REAL(wp) :: kao(5,13,no2)
-  REAL(wp) :: kbo(5,13:59,no2)
-  REAL(wp) :: selfrefo(10,no2) , forrefo(4,no2)
-
-  INTEGER, PARAMETER :: ng2  = 12
-
-  REAL(wp) :: fracrefa(ng2)  , fracrefb(ng2)
-  REAL(wp) :: ka(5,13,ng2)   , absa(65,ng2)
-  REAL(wp) :: kb(5,13:59,ng2), absb(235,ng2)
-  REAL(wp) :: selfref(10,ng2), forref(4,ng2)
-  REAL(wp) :: refparam(13)
-
-  EQUIVALENCE (ka(1,1,1),absa(1,1)),(kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrlw_kg02
-!-----------------------------------------------------------------------------
-!>
-!! @brief LRTM Band 3 Parameters 500-630 cm-1 (low - h2o,co2; high - h2o,co2)
-!
-MODULE psrad_rrlw_kg03
-
-  USE mo_kind ,ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no3  = 16
-
-  REAL(wp) :: fracrefao(no3,9) ,fracrefbo(no3,5)
-  REAL(wp) :: kao(9,5,13,no3)
-  REAL(wp) :: kbo(5,5,13:59,no3)
-  REAL(wp) :: kao_mn2o(9,19,no3), kbo_mn2o(5,19,no3)
-  REAL(wp) :: selfrefo(10,no3)
-  REAL(wp) :: forrefo(4,no3)
-
-  INTEGER, PARAMETER :: ng3  = 16
-
-  REAL(wp) :: fracrefa(ng3,9) ,fracrefb(ng3,5)
-  REAL(wp) :: ka(9,5,13,ng3)  ,absa(585,ng3)
-  REAL(wp) :: kb(5,5,13:59,ng3),absb(1175,ng3)
-  REAL(wp) :: ka_mn2o(9,19,ng3), kb_mn2o(5,19,ng3)
-  REAL(wp) :: selfref(10,ng3)
-  REAL(wp) :: forref(4,ng3)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)),(kb(1,1,13,1),absb(1,1))
-
-END MODULE psrad_rrlw_kg03
-!-----------------------------------------------------------------------------
-!>
-!! @brief LRTM Band 4 Parameters 630-700 cm-1 (low - h2o,co2; high - o3,co2)
-!
-MODULE psrad_rrlw_kg04
-
-  USE mo_kind ,ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no4  = 16
-
-  REAL(wp) :: fracrefao(no4,9)  ,fracrefbo(no4,5)
-  REAL(wp) :: kao(9,5,13,no4)
-  REAL(wp) :: kbo(5,5,13:59,no4)
-  REAL(wp) :: selfrefo(10,no4)  ,forrefo(4,no4)
-
-  INTEGER, PARAMETER :: ng4  = 14
-
-  REAL(wp) :: fracrefa(ng4,9)  ,fracrefb(ng4,5)
-  REAL(wp) :: ka(9,5,13,ng4)   ,absa(585,ng4)
-  REAL(wp) :: kb(5,5,13:59,ng4),absb(1175,ng4)
-  REAL(wp) :: selfref(10,ng4)  ,forref(4,ng4)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)),(kb(1,1,13,1),absb(1,1))
-
-END MODULE psrad_rrlw_kg04
-!-----------------------------------------------------------------------------
-!>
-!! @brief LRTM Band 5 Parameters 700-820 cm-1 (low - h2o,co2; high - o3,co2)
-!
-MODULE psrad_rrlw_kg05
-
-  USE mo_kind ,ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE 
-
-  INTEGER, PARAMETER :: no5  = 16
-
-  REAL(wp) :: fracrefao(no5,9) ,fracrefbo(no5,5)
-  REAL(wp) :: kao(9,5,13,no5)
-  REAL(wp) :: kbo(5,5,13:59,no5)
-  REAL(wp) :: kao_mo3(9,19,no5)
-  REAL(wp) :: selfrefo(10,no5)
-  REAL(wp) :: forrefo(4,no5)
-  REAL(wp) :: ccl4o(no5)
-
-  INTEGER, PARAMETER :: ng5  = 16
-
-  REAL(wp) :: fracrefa(ng5,9) ,fracrefb(ng5,5)
-  REAL(wp) :: ka(9,5,13,ng5)   ,absa(585,ng5)
-  REAL(wp) :: kb(5,5,13:59,ng5),absb(1175,ng5)
-  REAL(wp) :: ka_mo3(9,19,ng5)
-  REAL(wp) :: selfref(10,ng5)
-  REAL(wp) :: forref(4,ng5)
-  REAL(wp) :: ccl4(ng5)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)),(kb(1,1,13,1),absb(1,1))
-
-END MODULE psrad_rrlw_kg05
-!-----------------------------------------------------------------------------
-!>
-!! @brief LRTM Band 6 Parameters 820-980 cm-1 (low - h2o; high - nothing)
-!
-MODULE psrad_rrlw_kg06
-
-  USE mo_kind ,ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no6  = 16
-
-  REAL(wp) , DIMENSION(no6) :: fracrefao
-  REAL(wp) :: kao(5,13,no6)
-  REAL(wp) :: kao_mco2(19,no6)
-  REAL(wp) :: selfrefo(10,no6)
-  REAL(wp) :: forrefo(4,no6)
-
-  REAL(wp) , DIMENSION(no6) :: cfc11adjo
-  REAL(wp) , DIMENSION(no6) :: cfc12o
-
-  INTEGER, PARAMETER :: ng6  = 8
-
-  REAL(wp) , DIMENSION(ng6) :: fracrefa
-  REAL(wp) :: ka(5,13,ng6),absa(65,ng6)
-  REAL(wp) :: ka_mco2(19,ng6)
-  REAL(wp) :: selfref(10,ng6)
-  REAL(wp) :: forref(4,ng6)
-
-  REAL(wp) , DIMENSION(ng6) :: cfc11adj
-  REAL(wp) , DIMENSION(ng6) :: cfc12
-
-  EQUIVALENCE (ka(1,1,1),absa(1,1))
-
-END MODULE psrad_rrlw_kg06
-!-----------------------------------------------------------------------------
-!>
-!! @brief LRTM Band 7 Parameters 980-1080 cm-1 (low - h2o,o3; high - o3)
-!
-MODULE psrad_rrlw_kg07
-
-  USE mo_kind ,ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no7  = 16
-
-  REAL(wp) , DIMENSION(no7) :: fracrefbo
-  REAL(wp) :: fracrefao(no7,9)
-  REAL(wp) :: kao(9,5,13,no7)
-  REAL(wp) :: kbo(5,13:59,no7)
-  REAL(wp) :: kao_mco2(9,19,no7)
-  REAL(wp) :: kbo_mco2(19,no7)
-  REAL(wp) :: selfrefo(10,no7)
-  REAL(wp) :: forrefo(4,no7)
-
-  INTEGER, PARAMETER :: ng7  = 12
-
-  REAL(wp) , DIMENSION(ng7) :: fracrefb
-  REAL(wp) :: fracrefa(ng7,9)
-  REAL(wp) :: ka(9,5,13,ng7) ,absa(585,ng7)
-  REAL(wp) :: kb(5,13:59,ng7),absb(235,ng7)
-  REAL(wp) :: ka_mco2(9,19,ng7)
-  REAL(wp) :: kb_mco2(19,ng7)
-  REAL(wp) :: selfref(10,ng7)
-  REAL(wp) :: forref(4,ng7)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)),(kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrlw_kg07
-!-----------------------------------------------------------------------------
-!>
-!! @brief LRTM Band 8 Parameters 1080-1180 cm-1 (low (i.e.>~300mb) - h2o; high - o3)
-!
-MODULE psrad_rrlw_kg08
-
-  USE mo_kind ,ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no8  = 16
-
-  REAL(wp) , DIMENSION(no8) :: fracrefao
-  REAL(wp) , DIMENSION(no8) :: fracrefbo
-  REAL(wp) , DIMENSION(no8) :: cfc12o
-  REAL(wp) , DIMENSION(no8) :: cfc22adjo
-
-  REAL(wp) :: kao(5,13,no8)
-  REAL(wp) :: kao_mco2(19,no8)
-  REAL(wp) :: kao_mn2o(19,no8)
-  REAL(wp) :: kao_mo3(19,no8)
-  REAL(wp) :: kbo(5,13:59,no8)
-  REAL(wp) :: kbo_mco2(19,no8)
-  REAL(wp) :: kbo_mn2o(19,no8)
-  REAL(wp) :: selfrefo(10,no8)
-  REAL(wp) :: forrefo(4,no8)
-
-  INTEGER, PARAMETER :: ng8  = 8
-
-  REAL(wp) , DIMENSION(ng8) :: fracrefa
-  REAL(wp) , DIMENSION(ng8) :: fracrefb
-  REAL(wp) , DIMENSION(ng8) :: cfc12
-  REAL(wp) , DIMENSION(ng8) :: cfc22adj
-
-  REAL(wp) :: ka(5,13,ng8)    ,absa(65,ng8)
-  REAL(wp) :: kb(5,13:59,ng8) ,absb(235,ng8)
-  REAL(wp) :: ka_mco2(19,ng8)
-  REAL(wp) :: ka_mn2o(19,ng8)
-  REAL(wp) :: ka_mo3(19,ng8)
-  REAL(wp) :: kb_mco2(19,ng8)
-  REAL(wp) :: kb_mn2o(19,ng8)
-  REAL(wp) :: selfref(10,ng8)
-  REAL(wp) :: forref(4,ng8)
-
-  EQUIVALENCE (ka(1,1,1),absa(1,1)),(kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrlw_kg08
-!-----------------------------------------------------------------------------
-!>
-!! @brief LRTM Band 9 parameters 1180-1390 cm-1 (low - h2o,ch4; high - ch4)
-!
-MODULE psrad_rrlw_kg09
-
-  USE mo_kind ,ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no9  = 16
-
-  REAL(wp) , DIMENSION(no9) :: fracrefbo
-
-  REAL(wp) :: fracrefao(no9,9)
-  REAL(wp) :: kao(9,5,13,no9)
-  REAL(wp) :: kbo(5,13:59,no9)
-  REAL(wp) :: kao_mn2o(9,19,no9)
-  REAL(wp) :: kbo_mn2o(19,no9)
-  REAL(wp) :: selfrefo(10,no9)
-  REAL(wp) :: forrefo(4,no9)
-
-  INTEGER, PARAMETER :: ng9  = 12
-
-  REAL(wp) , DIMENSION(ng9) :: fracrefb
-  REAL(wp) :: fracrefa(ng9,9)
-  REAL(wp) :: ka(9,5,13,ng9) ,absa(585,ng9)
-  REAL(wp) :: kb(5,13:59,ng9) ,absb(235,ng9)
-  REAL(wp) :: ka_mn2o(9,19,ng9)
-  REAL(wp) :: kb_mn2o(19,ng9)
-  REAL(wp) :: selfref(10,ng9)
-  REAL(wp) :: forref(4,ng9)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)),(kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrlw_kg09
-!-----------------------------------------------------------------------------
-!>
-!! @brief LRTM Band 10 Parameters 1390-1480 cm-1 (low - h2o; high - h2o)
-!
-MODULE psrad_rrlw_kg10
-
-  USE mo_kind ,ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no10 = 16
-
-  REAL(wp) , DIMENSION(no10) :: fracrefao
-  REAL(wp) , DIMENSION(no10) :: fracrefbo
-
-  REAL(wp) :: kao(5,13,no10)
-  REAL(wp) :: kbo(5,13:59,no10)
-  REAL(wp) :: selfrefo(10,no10)
-  REAL(wp) :: forrefo(4,no10)
-
-  INTEGER, PARAMETER :: ng10 = 6
-
-  REAL(wp) , DIMENSION(ng10) :: fracrefa
-  REAL(wp) , DIMENSION(ng10) :: fracrefb
-
-  REAL(wp) :: ka(5,13,ng10)   , absa(65,ng10)
-  REAL(wp) :: kb(5,13:59,ng10), absb(235,ng10)
-  REAL(wp) :: selfref(10,ng10)
-  REAL(wp) :: forref(4,ng10)
-
-  EQUIVALENCE (ka(1,1,1),absa(1,1)),(kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrlw_kg10
-!-----------------------------------------------------------------------------
-!>
-!! @brief LRTM Band 11 Parameters 1480-1800 cm-1 (low - h2o; high - h2o)
-!
-MODULE psrad_rrlw_kg11
-
-  USE mo_kind ,ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no11 = 16
-
-  REAL(wp) , DIMENSION(no11) :: fracrefao
-  REAL(wp) , DIMENSION(no11) :: fracrefbo
-
-  REAL(wp) :: kao(5,13,no11)
-  REAL(wp) :: kbo(5,13:59,no11)
-  REAL(wp) :: kao_mo2(19,no11)
-  REAL(wp) :: kbo_mo2(19,no11)
-  REAL(wp) :: selfrefo(10,no11)
-  REAL(wp) :: forrefo(4,no11)
-
-  INTEGER, PARAMETER :: ng11 = 8
-
-  REAL(wp) , DIMENSION(ng11) :: fracrefa
-  REAL(wp) , DIMENSION(ng11) :: fracrefb
-
-  REAL(wp) :: ka(5,13,ng11)   , absa(65,ng11)
-  REAL(wp) :: kb(5,13:59,ng11), absb(235,ng11)
-  REAL(wp) :: ka_mo2(19,ng11)
-  REAL(wp) :: kb_mo2(19,ng11)
-  REAL(wp) :: selfref(10,ng11)
-  REAL(wp) :: forref(4,ng11)
-
-  EQUIVALENCE (ka(1,1,1),absa(1,1)),(kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrlw_kg11
-!-----------------------------------------------------------------------------
-!>
-!! @brief LRTM Band 12 Parameters 1800-2080 cm-1 (low - h2o,co2; high - nothing)
-!
-MODULE psrad_rrlw_kg12
-
-  USE mo_kind ,ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no12 = 16
-
-  REAL(wp) :: fracrefao(no12,9)
-  REAL(wp) :: kao(9,5,13,no12)
-  REAL(wp) :: selfrefo(10,no12)
-  REAL(wp) :: forrefo(4,no12)
-
-  INTEGER, PARAMETER :: ng12 = 8
-
-  REAL(wp) :: fracrefa(ng12,9)
-  REAL(wp) :: ka(9,5,13,ng12) ,absa(585,ng12)
-  REAL(wp) :: selfref(10,ng12)
-  REAL(wp) :: forref(4,ng12)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1))
-
-END MODULE psrad_rrlw_kg12
-!-----------------------------------------------------------------------------
-!>
-!! @brief LRTM Band 13 Parameters 2080-2250 cm-1 (low - h2o,n2o; high - nothing)
-!
-MODULE psrad_rrlw_kg13
-
-  USE mo_kind ,ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no13 = 16
-
-  REAL(wp) , DIMENSION(no13) :: fracrefbo
-
-  REAL(wp) :: fracrefao(no13,9)
-  REAL(wp) :: kao(9,5,13,no13)
-  REAL(wp) :: kao_mco2(9,19,no13)
-  REAL(wp) :: kao_mco(9,19,no13)
-  REAL(wp) :: kbo_mo3(19,no13)
-  REAL(wp) :: selfrefo(10,no13)
-  REAL(wp) :: forrefo(4,no13)
-
-  INTEGER, PARAMETER :: ng13 = 4
-
-  REAL(wp) , DIMENSION(ng13) :: fracrefb
-
-  REAL(wp) :: fracrefa(ng13,9)
-  REAL(wp) :: ka(9,5,13,ng13) ,absa(585,ng13)
-  REAL(wp) :: ka_mco2(9,19,ng13)
-  REAL(wp) :: ka_mco(9,19,ng13)
-  REAL(wp) :: kb_mo3(19,ng13)
-  REAL(wp) :: selfref(10,ng13)
-  REAL(wp) :: forref(4,ng13)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1))
-
-END MODULE psrad_rrlw_kg13
-!-----------------------------------------------------------------------------
-!>
-!! @brief LRTM Band 14 Parameters 2250-2380 cm-1 (low - co2; high - co2)
-!
-MODULE psrad_rrlw_kg14
-
-  USE mo_kind ,ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no14 = 16
-
-  REAL(wp) , DIMENSION(no14) :: fracrefao
-  REAL(wp) , DIMENSION(no14) :: fracrefbo
-
-  REAL(wp) :: kao(5,13,no14)
-  REAL(wp) :: kbo(5,13:59,no14)
-  REAL(wp) :: selfrefo(10,no14)
-  REAL(wp) :: forrefo(4,no14)
-
-  INTEGER, PARAMETER :: ng14 = 2
-
-  REAL(wp) , DIMENSION(ng14) :: fracrefa
-  REAL(wp) , DIMENSION(ng14) :: fracrefb
-
-  REAL(wp) :: ka(5,13,ng14)   ,absa(65,ng14)
-  REAL(wp) :: kb(5,13:59,ng14),absb(235,ng14)
-  REAL(wp) :: selfref(10,ng14)
-  REAL(wp) :: forref(4,ng14)
-
-  EQUIVALENCE (ka(1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrlw_kg14
-!-----------------------------------------------------------------------------
-!>
-!! @brief LRTM Band 15 Parameters 2380-2600 cm-1 (low - n2o,co2; high - nothing)
-!
-MODULE psrad_rrlw_kg15
-
-  USE mo_kind ,ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no15 = 16
-
-  REAL(wp) :: fracrefao(no15,9)
-  REAL(wp) :: kao(9,5,13,no15)
-  REAL(wp) :: kao_mn2(9,19,no15)
-  REAL(wp) :: selfrefo(10,no15)
-  REAL(wp) :: forrefo(4,no15)
-
-  INTEGER, PARAMETER :: ng15 = 2
-
-  REAL(wp) :: fracrefa(ng15,9)
-  REAL(wp) :: ka(9,5,13,ng15) ,absa(585,ng15)
-  REAL(wp) :: ka_mn2(9,19,ng15)
-  REAL(wp) :: selfref(10,ng15)
-  REAL(wp) :: forref(4,ng15)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1))
-
-END MODULE psrad_rrlw_kg15
-!-----------------------------------------------------------------------------
-!>
-!! @brief LRTM Band 16 Parameters 2600-3000 cm-1 (low - h2o,ch4; high - nothing)
-!
-MODULE psrad_rrlw_kg16
-
-  USE mo_kind ,ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no16 = 16
-
-  REAL(wp) , DIMENSION(no16) :: fracrefbo
-
-  REAL(wp) :: fracrefao(no16,9)
-  REAL(wp) :: kao(9,5,13,no16)
-  REAL(wp) :: kbo(5,13:59,no16)
-  REAL(wp) :: selfrefo(10,no16)
-  REAL(wp) :: forrefo(4,no16)
-
-  INTEGER, PARAMETER :: ng16 = 2
-
-  REAL(wp) , DIMENSION(ng16) :: fracrefb
-
-  REAL(wp) :: fracrefa(ng16,9)
-  REAL(wp) :: ka(9,5,13,ng16) ,absa(585,ng16)
-  REAL(wp) :: kb(5,13:59,ng16), absb(235,ng16)
-  REAL(wp) :: selfref(10,ng16)
-  REAL(wp) :: forref(4,ng16)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrlw_kg16
+END MODULE mo_psrad_lrtm_kgs

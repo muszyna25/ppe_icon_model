@@ -54,6 +54,7 @@ USE mo_decomposition_tools,  ONLY: t_glb2loc_index_lookup, get_local_index
 USE mo_util_sort,            ONLY: quicksort
 USE mo_util_string,          ONLY: int2string
 USE mo_parallel_config,      ONLY: blk_no, idx_no, idx_1d
+USE mo_fortran_tools,        ONLY: t_ptr_3d
 #ifdef _OPENACC
 USE mo_mpi,                  ONLY: i_am_accel_node
 #endif
@@ -70,7 +71,7 @@ PUBLIC :: setup_comm_pattern, delete_comm_pattern, exchange_data,  &
           exchange_data_mult, exchange_data_grf,                   &
           start_async_comm, complete_async_comm,                   &
           exchange_data_4de1, exchange_data_mult_mixprec,          &
-          get_np_recv, get_np_send, get_pelist_recv
+          get_np_recv, get_np_send, get_pelist_recv, exchange_data_noblk
 PUBLIC :: t_comm_pattern
 
 PUBLIC :: t_comm_gather_pattern
@@ -221,6 +222,12 @@ INTERFACE exchange_data
    MODULE PROCEDURE gather_i_1d_deblock
    MODULE PROCEDURE allgather_r_1d_deblock
    MODULE PROCEDURE allgather_i_1d_deblock
+END INTERFACE
+
+INTERFACE exchange_data_noblk
+   MODULE PROCEDURE exchange_data_r1d_2d
+   MODULE PROCEDURE exchange_data_s1d_2d
+   MODULE PROCEDURE exchange_data_i1d_2d
 END INTERFACE
 
 INTERFACE exchange_data_seq
@@ -393,22 +400,9 @@ CONTAINS
     ! Exchange the number of points we want to receive with the respective senders
     DO np = 0, p_n_work-1 ! loop over PEs where to send the data
       num_rcv(np) = p_pat%recv_limits(np+1) - p_pat%recv_limits(np)
-      ! First send the number of points to be received
-      IF (np /= p_pe_work) CALL p_isend(num_rcv(np), np, 1, comm=p_comm_work)
     ENDDO
 
-    ! Now, we receive the number of points are needed from us
-    DO nr = 0, p_n_work-1
-
-      IF(nr /= p_pe_work) THEN
-        CALL p_recv(icnt(nr), nr, 1,  comm=p_comm_work)
-      ELSE
-        icnt(nr) = num_rcv(nr)
-      ENDIF
-
-    ENDDO
-    CALL p_wait
-
+    CALL p_alltoall(num_rcv, icnt, p_comm_work)
     ! Now send the global index of the points we need from PE np
     DO np = 0, p_n_work-1 ! loop over PEs where to send the data
 
@@ -677,7 +671,7 @@ CONTAINS
       DEALLOCATE(gather_pattern%recv_buffer_reorder_fill)
     ALLOCATE(gather_pattern%recv_buffer_reorder_fill(num_recv_points))
     gather_pattern%recv_buffer_reorder_fill(:) = &
-      MOD(recv_buffer, num_points_per_coll)
+      MOD(recv_buffer-1, num_points_per_coll)+1
 
     IF (PRESENT(disable_consistency_check)) THEN
       consistency_check = .NOT. disable_consistency_check
@@ -2123,7 +2117,7 @@ CONTAINS
   !!
   SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, recv2, send2,   &
     recv3, send3, recv4, send4,  recv5, send5, recv6, send6, recv7, send7,              &
-    recv4d, send4d, nshift)
+    recv4d, send4d, nshift, recv3d_arr, send3d_arr)
 
     TYPE(t_comm_pattern), INTENT(IN) :: p_pat
 
@@ -2135,6 +2129,8 @@ CONTAINS
       send7(:,:,:), send4d(:,:,:,:)
 
     INTEGER, INTENT(IN)           :: nfields, ndim2tot
+    TYPE(t_ptr_3d), INTENT(   IN), TARGET, OPTIONAL :: recv3d_arr(:)
+    TYPE(t_ptr_3d), INTENT(INOUT), TARGET, OPTIONAL :: send3d_arr(:)
     INTEGER, OPTIONAL, INTENT(IN) :: nshift
 
     TYPE t_fieldptr
@@ -2199,6 +2195,23 @@ CONTAINS
     ELSE
       nf4d = 0
     ENDIF
+
+
+    ! Set pointers to input fields
+    IF (PRESENT(recv3d_arr)) THEN
+      DO i = 1, SIZE(recv3d_arr)
+        recv(i+nf4d)%fld => recv3d_arr(i)%p
+      ENDDO
+      IF (PRESENT(send3d_arr)) THEN ! all 4D fields must have the same dimensions
+        DO i = 1, SIZE(recv3d_arr)
+          send(i+nf4d)%fld => send3d_arr(i)%p
+        ENDDO
+        lsend = .TRUE.
+      ENDIF
+      nf4d = nf4d + SIZE(recv3d_arr)
+    ENDIF
+
+
     IF (PRESENT(recv1)) THEN
       recv(nf4d+1)%fld => recv1
       IF (PRESENT(send1)) THEN
@@ -2433,6 +2446,8 @@ CONTAINS
     stop_sync_timer(timer_exch_data)
 
   END SUBROUTINE exchange_data_mult
+
+
 
   !>
   !! Does data exchange according to a communication pattern (in p_pat).
@@ -4380,6 +4395,179 @@ CONTAINS
 !$ACC END DATA
 
   END SUBROUTINE exchange_data_l2d
+
+
+  !================================================================================================
+  !
+  ! Variant of exchange routine that expects input as a 1D unblocked vector and provides
+  ! output as a blocked (nproma,nblks) 2D array.
+  !
+  SUBROUTINE exchange_data_r1d_2d(p_pat, recv, send)
+
+    TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
+    REAL(dp), INTENT(INOUT), TARGET          :: recv(:,:)
+    REAL(dp), INTENT(IN)                     :: send(:)
+
+    REAL(dp) :: send_buf(p_pat%n_send), recv_buf(p_pat%n_recv)
+
+    INTEGER :: i, il, k, np, irs, iss, pid, icount
+
+    !-----------------------------------------------------------------------
+
+    ! Set up irecv's for receive buffers
+    DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+
+      pid    = p_pat%pelist_recv(np) ! ID of receiver PE
+      irs    = p_pat%recv_startidx(np)
+      icount = p_pat%recv_count(np)
+      CALL p_irecv(recv_buf(irs), pid, 1, p_count=icount, comm=p_comm_work)
+
+    ENDDO
+
+    ! Set up send buffer
+!$OMP PARALLEL DO PRIVATE(il)
+    DO i = 1, p_pat%n_send
+      il = (p_pat%send_src_blk(i)-1)*nproma + p_pat%send_src_idx(i)
+      send_buf(i) = send(il)
+    ENDDO
+!$OMP END PARALLEL DO
+
+    ! Send our data
+    DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+      pid    = p_pat%pelist_send(np) ! ID of sender PE
+      iss    = p_pat%send_startidx(np)
+      icount = p_pat%send_count(np)
+      CALL p_isend(send_buf(iss), pid, 1, p_count=icount, comm=p_comm_work)
+
+    ENDDO
+
+    CALL p_wait
+
+    ! Fill in receive buffer
+!$OMP PARALLEL DO
+    DO i = 1, p_pat%n_pnts
+      recv(p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i)) = recv_buf(p_pat%recv_src(i))
+    ENDDO
+!$OMP END PARALLEL DO
+
+  END SUBROUTINE exchange_data_r1d_2d
+
+  !================================================================================================
+  !
+  ! Variant of exchange routine that expects input as a 1D unblocked vector and provides
+  ! output as a blocked (nproma,nblks) 2D array.
+  !
+  SUBROUTINE exchange_data_s1d_2d(p_pat, recv, send)
+
+    TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
+    REAL(sp), INTENT(INOUT), TARGET          :: recv(:,:)
+    REAL(sp), INTENT(IN)                     :: send(:)
+
+    REAL(sp) :: send_buf(p_pat%n_send), recv_buf(p_pat%n_recv)
+
+    INTEGER :: i, il, k, np, irs, iss, pid, icount
+
+    !-----------------------------------------------------------------------
+
+    ! Set up irecv's for receive buffers
+    DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+
+      pid    = p_pat%pelist_recv(np) ! ID of receiver PE
+      irs    = p_pat%recv_startidx(np)
+      icount = p_pat%recv_count(np)
+      CALL p_irecv(recv_buf(irs), pid, 1, p_count=icount, comm=p_comm_work)
+
+    ENDDO
+
+
+    ! Set up send buffer
+!$OMP PARALLEL DO PRIVATE(il)
+    DO i = 1, p_pat%n_send
+      il = (p_pat%send_src_blk(i)-1)*nproma + p_pat%send_src_idx(i)
+      send_buf(i) = send(il)
+    ENDDO
+!$OMP END PARALLEL DO
+
+
+    ! Send our data
+    DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+      pid    = p_pat%pelist_send(np) ! ID of sender PE
+      iss    = p_pat%send_startidx(np)
+      icount = p_pat%send_count(np)
+      CALL p_isend(send_buf(iss), pid, 1, p_count=icount, comm=p_comm_work)
+
+    ENDDO
+
+    CALL p_wait
+
+    ! Fill in receive buffer
+!$OMP PARALLEL DO
+    DO i = 1, p_pat%n_pnts
+      recv(p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i)) = recv_buf(p_pat%recv_src(i))
+    ENDDO
+!$OMP END PARALLEL DO
+
+  END SUBROUTINE exchange_data_s1d_2d
+
+  !================================================================================================
+  !
+  ! Variant of exchange routine that expects input as a 1D unblocked vector and provides
+  ! output as a blocked (nproma,nblks) 2D array.
+  !
+  SUBROUTINE exchange_data_i1d_2d(p_pat, recv, send)
+
+    TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
+    INTEGER, INTENT(INOUT), TARGET          :: recv(:,:)
+    INTEGER, INTENT(IN)                     :: send(:)
+
+    INTEGER :: send_buf(p_pat%n_send), recv_buf(p_pat%n_recv)
+
+    INTEGER :: i, il, k, np, irs, iss, pid, icount
+
+    !-----------------------------------------------------------------------
+
+    ! Set up irecv's for receive buffers
+    DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+
+      pid    = p_pat%pelist_recv(np) ! ID of receiver PE
+      irs    = p_pat%recv_startidx(np)
+      icount = p_pat%recv_count(np)
+      CALL p_irecv(recv_buf(irs), pid, 1, p_count=icount, comm=p_comm_work)
+
+    ENDDO
+
+
+    ! Set up send buffer
+!$OMP PARALLEL DO PRIVATE(il)
+    DO i = 1, p_pat%n_send
+      il = (p_pat%send_src_blk(i)-1)*nproma + p_pat%send_src_idx(i)
+      send_buf(i) = send(il)
+    ENDDO
+!$OMP END PARALLEL DO
+
+
+    ! Send our data
+    DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+      pid    = p_pat%pelist_send(np) ! ID of sender PE
+      iss    = p_pat%send_startidx(np)
+      icount = p_pat%send_count(np)
+      CALL p_isend(send_buf(iss), pid, 1, p_count=icount, comm=p_comm_work)
+
+    ENDDO
+
+    CALL p_wait
+
+    ! Fill in receive buffer
+!$OMP PARALLEL DO
+    DO i = 1, p_pat%n_pnts
+      recv(p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i)) = recv_buf(p_pat%recv_src(i))
+    ENDDO
+!$OMP END PARALLEL DO
+
+  END SUBROUTINE exchange_data_i1d_2d
 
 
   !-------------------------------------------------------------------------

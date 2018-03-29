@@ -430,8 +430,9 @@ CONTAINS
 
         DO ic = 1, icount
           ! reduction factor for thin cirrus clouds lying above optically thicker water clouds
-          ccrat = MIN(1._wp,20._wp*MAX(5.e-5_wp,1._wp-zflxd_sw_cld(ic,jk1)/zflxd_sw_clr(ic,jk1))/&
+          ccrat = MIN(1._wp,8._wp*MAX(5.e-5_wp,1._wp-zflxd_sw_cld(ic,jk1)/zflxd_sw_clr(ic,jk1))/&
                                    MAX(1.e-3_wp,1._wp-zrat_swdn(ic)) )
+          ccrat = MAX(ccrat,MIN(1._wp,0.1_wp*(ztk_fl_vr(ic,jkp1)-233.15_wp))) ! no reduction for T > -30C
           ccmax = MAX( ccrat*zfrcl(ic,jk),  zcloud(ic) )
           ccran =      ccrat*zfrcl(ic,jk) + zcloud(ic) - zfrcl(ic,jk) * zcloud(ic)
 

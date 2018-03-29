@@ -1,42 +1,20 @@
 #!/bin/sh 
 set -ex
 #
-TYP=$1
-echo $TYP
-#
-ANAME=$2
+ANAME=$1
+ADIR=$2
 #
 BNAME=$3
+BDIR=$4
 #
-echo $BNAME
-#
-WORKDIR=$4
-echo $WORKDIR
-#
-#
-echo QUELLE path $QUELLE 
 
-#
 echo QUELLE path $QUELLE
-echo WORKDIR path $WORKDIR
+
 #
-
-
-
-##
-AinDat="${WORKDIR}/atm_3d_${ANAME}"
-
-BinDat="${WORKDIR}/atm_3d_${BNAME}"
+AinDat="${ADIR}/${ANAME}_atm_3d_ml.nc"
+BinDat="${BDIR}/${BNAME}_atm_3d_ml.nc"
 #
 ###########################################################################
-# var.txt input for atm_3d.ncl
-
-
-# number of latitudes
-nlat=`cdo griddes F_LAND| grep ysize | cut -d"=" -f2`
-echo $nlat >>var.txt
-more var.txt
-#
 
 
 LEVELS="100900,99500,97100,93900,90200,86100,81700,77200,72500,67900,63300,58800,54300,49900,45700,41600,37700,33900,30402,27015,23833,20867,18116,15578,13239,11066,9102,7406,5964,4752,3743,2914,2235,1685,1245,901,637,440,296,193,122,74,43,23,11,4,1"
@@ -61,6 +39,14 @@ cdo -r remapycon,t63grid   Uatm_dyn_plB Uatm_dyn_t63B
 cdo sinfon   $BinDat
 cdo sinfon  Uatm_dyn_plB
 cdo sinfon  Uatm_dyn_t63B
+
+#--- var.txt input for atm_3d.ncl
+
+#--- number of latitudes
+nlat=`cdo griddes Uatm_dyn_t63A| grep ysize | cut -d"=" -f2`
+echo $nlat >>var.txt
+more var.txt
+#
 
 #
 #----code130--TA- Temperature---ZONAL--CMOR: ta ---

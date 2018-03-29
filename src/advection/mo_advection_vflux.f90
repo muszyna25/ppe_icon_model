@@ -65,8 +65,8 @@ MODULE mo_advection_vflux
   USE mo_model_domain,        ONLY: t_patch
   USE mo_parallel_config,     ONLY: nproma
   USE mo_dynamics_config,     ONLY: iequations 
-  USE mo_run_config,          ONLY: ntracer, msg_level, lvert_nest, timers_level, iqtke
-  USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup
+  USE mo_run_config,          ONLY: msg_level, lvert_nest, timers_level, iqtke
+  USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup, t_trList 
   USE mo_advection_utils,     ONLY: laxfr_upflux_v
   USE mo_advection_limiter,   ONLY: v_ppm_slimiter_mo, v_ppm_slimiter_sm,     &
    &                                vflx_limiter_pd, vflx_limiter_pd_ha
@@ -199,12 +199,15 @@ CONTAINS
                                         !< dim: (nproma,nblks_c,ntracer)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
-     &  opt_rlstart                    !< only valid for calculation of 'cell value'
+      &  opt_rlstart                   !< only valid for calculation of 'cell value'
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
-     &  opt_rlend                      !< (to avoid calculation of halo points)
+      &  opt_rlend                     !< (to avoid calculation of halo points)
 
-    INTEGER :: jt                      !< tracer loop index
+    TYPE(t_trList), POINTER ::  &      !< pointer to tracer sublist
+      trAdvect
+
+    INTEGER :: jt, nt                  !< tracer index and loop index
     INTEGER :: jg                      !< patch ID
     INTEGER :: jc, jb                  !< cell and block loop index
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
@@ -214,10 +217,12 @@ CONTAINS
     REAL(wp) :: z_mflx_contra_v(nproma) !< auxiliary variable for computing vertical nest interface quantities
     !-----------------------------------------------------------------------
 
+    IF (timers_level > 2) CALL timer_start(timer_adv_vert)
+
     ! get patch ID
     jg = p_patch%id
 
-    IF (timers_level > 2) CALL timer_start(timer_adv_vert)
+    trAdvect => advection_config(jg)%trAdvect
 
     !
     ! Loop over different tracers
@@ -230,7 +235,9 @@ CONTAINS
     ! values.
     IF (PRESENT(opt_topflx_tra)) THEN
 
-      DO jt = 1, ntracer
+      DO nt = 1, trAdvect%len
+
+        jt = trAdvect%list(nt)
 
         IF (.NOT. PRESENT(opt_rlend) .OR. (jt == iqtke .AND. advection_config(jg)%iadv_tke == 1)) THEN
           i_rlend_c = min_rlcell_int
@@ -297,7 +304,7 @@ CONTAINS
         i_endblk   = p_patch%cells%end_blk(i_rlend_c,i_nchdom)
 
 #ifndef _OPENACC
-!$OMP PARALLEL DO PRIVATE(jb,jt,jc,i_startidx,i_endidx,z_mflx_contra_v) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP PARALLEL DO PRIVATE(jb,jt,jc,nt,i_startidx,i_endidx,z_mflx_contra_v) ICON_OMP_DEFAULT_SCHEDULE
 #endif
         DO jb = i_startblk, i_endblk
           CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
@@ -309,7 +316,8 @@ CONTAINS
               &                                 p_mflx_contra_v(jc,p_patch%nshift_child,jb) )
           ENDDO
 
-          DO jt = 1, ntracer
+          DO nt = 1, trAdvect%len
+            jt = trAdvect%list(nt)
             DO jc = i_startidx, i_endidx
               opt_q_int(jc,jb,jt) = p_upflux(jc,p_patch%nshift_child,jb,jt) / z_mflx_contra_v(jc)
             ENDDO
@@ -324,7 +332,9 @@ CONTAINS
 
     ELSE ! opt_topflx_tra not present (i.e. for hydrostatic model)
 
-      DO jt = 1, ntracer
+      DO nt = 1, trAdvect%len
+
+        jt = trAdvect%list(nt)
 
         ! Select desired flux calculation method
         SELECT  CASE( p_ivadv_tracer(jt) )
@@ -434,6 +444,7 @@ CONTAINS
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     !-------------------------------------------------------------------------
 
+
 #ifdef _OPENACC
 !$ACC DATA CREATE( zparent_topflx ), PCOPYIN( p_cc, p_mflx_contra_v ), PCOPYOUT( p_upflux ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_mflx_contra_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
@@ -488,10 +499,10 @@ CONTAINS
 
 #ifdef _OPENACC
 !$ACC PARALLEL &
-!$ACC PRESENT( p_patch, advection_config, p_cc, p_mflx_contra_v, p_upflux ), &
+!$ACC PRESENT( p_patch, advection_config, p_cc, p_mflx_contra_v, p_upflux ) &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -745,7 +756,7 @@ CONTAINS
 !$ACC PRESENT( z_cfl_p, z_cfl_m, z_slope, z_face, p_upflux ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikm1,z_weta_dt,ikp1, &
@@ -914,7 +925,7 @@ CONTAINS
 !$ACC PRESENT( p_patch, p_cc, z_face, z_face_up, z_face_low, z_slope ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jk,ikp1,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -964,7 +975,7 @@ CONTAINS
 !$ACC PRESENT( p_upflux ),                                                       &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_lext_1,z_lext_2,ikm1,z_delta_m, &
 !$OMP            z_delta_p,z_a11,z_a12) ICON_OMP_DEFAULT_SCHEDULE
@@ -1045,7 +1056,7 @@ CONTAINS
 !$ACC PRESENT( p_upflux ),                                                                &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_lext_1,z_lext_2,ikm1,z_delta_m, &
 !$OMP            z_delta_p,z_a11,z_a12) ICON_OMP_DEFAULT_SCHEDULE

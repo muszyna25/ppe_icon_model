@@ -78,6 +78,11 @@ MODULE mo_radiation_config
                                ! 3: maximum overlap
                                ! 4: random overlap
 
+    INTEGER :: islope_rad      ! slope correction for surface radiation
+                               ! 0: none
+                               ! 1: slope correction for solar radiation without shading effects
+                               ! option 2 is reserved for slope-dependent radiation with shading (not yet implemented)
+
     ! --- Switches for radiative agents
     !     irad_x=0 : radiation uses tracer x = 0
     !     irad_x=1 : radiation uses tracer x from a tracer variable
@@ -96,12 +101,6 @@ MODULE mo_radiation_config
     INTEGER  :: irad_aero   !< aerosols
     LOGICAL  :: lrad_aero_diag  !< diagnose aerosols
     !
-    ! --- Select dynamic greenhouse gases scenario (read from file)
-    !     ighg = 0 : select default gas volume mixing ratios - 1990 values (CMIP5)
-    !     ighg = 1 : transient CMIP5 scenario from file
-    !
-    INTEGER :: ighg
-    !
     ! --- Default gas mixing ratios - 1990 values (CMIP5)
     !
     REAL(wp) :: vmr_co2  , mmr_co2   !< CO2
@@ -110,17 +109,6 @@ MODULE mo_radiation_config
     REAL(wp) :: vmr_ch4  , mmr_ch4   !< CH4
     REAL(wp) :: vmr_cfc11, mmr_cfc11 !< CFC 11
     REAL(wp) :: vmr_cfc12, mmr_cfc12 !< CFC 12
-
-    !
-    ! --- Scaling factor for mixing ratios
-    !
-    REAL(wp) :: fh2o
-    REAL(wp) :: fco2
-    REAL(wp) :: fn2o
-    REAL(wp) :: fo3
-    REAL(wp) :: fo2
-    REAL(wp) :: fch4
-    REAL(wp) :: fcfc
     !
     ! --- Different specifications of the zenith angle
     INTEGER  :: izenith     ! circular orbit, no seasonal cycle but with diurnal cycle 
@@ -152,12 +140,6 @@ MODULE mo_radiation_config
     !     rates)
     !
     REAL(wp) :: tsi
-    !
-    ! --- other parameters
-    !
-    !  REAL(wp) :: flx_ratio_cur
-    !  REAL(wp) :: flx_ratio_rad
-    !  REAL(wp) :: decl_sun_cur                  !< solar declination at current time step
     !
   
   !END TYPE t_radiation_config

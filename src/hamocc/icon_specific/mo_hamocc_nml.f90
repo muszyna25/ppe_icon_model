@@ -14,7 +14,7 @@ MODULE mo_hamocc_nml
   USE mo_kind,                ONLY: wp
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_io_units,            ONLY: nnml, nnml_output, find_next_free_unit
-  USE mo_master_config,       ONLY: isRestart
+  USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist, &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_exception,           ONLY: finish, message
@@ -46,8 +46,8 @@ MODULE mo_hamocc_nml
   INTEGER, PUBLIC  :: io_stdo_bgc        !<  io unit for HAMOCC LOG file
 
   LOGICAL, PUBLIC :: l_cyadyn         = .TRUE.   !  prognostic cyanobacteria
-  LOGICAL, PUBLIC :: l_cpl_co2        = .FALSE.   !  prognostic cyanobacteria
-  LOGICAL, PUBLIC :: l_diffat         = .FALSE.   !  prognostic cyanobacteria
+  LOGICAL, PUBLIC :: l_cpl_co2        = .FALSE.   !  co2 coupling to atm
+  LOGICAL, PUBLIC :: l_diffat         = .FALSE.   !  diffusive atm
   LOGICAL, PUBLIC :: l_bgc_check      = .FALSE.   ! MASS check at every time step?
   LOGICAL, PUBLIC :: l_up_sedshi      = .FALSE.   ! Upward sediment shifting
   LOGICAL, PUBLIC :: l_implsed        = .FALSE.   ! Implicit sediment formulation
@@ -136,7 +136,7 @@ CONTAINS
     ! If this is a resumed integration, overwrite the defaults above
     ! by values used in the previous integration.
     !------------------------------------------------------------------
-    IF (isRestart()) THEN
+    IF (use_restart_namelists()) THEN
       funit = open_and_restore_namelist('hamocc_nml')
       READ(funit,NML=hamocc_nml)
       CALL close_tmpfile(funit)

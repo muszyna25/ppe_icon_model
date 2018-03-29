@@ -27,9 +27,8 @@ MODULE mo_master_control
   USE mo_exception,     ONLY: message, finish
   USE mo_mpi,           ONLY: set_process_mpi_name, get_my_global_mpi_id, split_global_mpi_communicator
   USE mo_io_units,      ONLY: filename_max
-  USE mo_master_config, ONLY: noOfModels, master_component_models
+  USE mo_master_config, ONLY: noOfModels, master_component_models, isRestart, read_restart_namelists
   USE mo_master_nml,    ONLY: read_master_namelist
-  USE mo_master_config
 
   IMPLICIT NONE
 
@@ -263,7 +262,7 @@ CONTAINS
 
   !------------------------------------------------------------------------
   LOGICAL FUNCTION use_restart_namelists()
-    use_restart_namelists = (isRestart() .and. (my_process_model /= ocean_process))
+    use_restart_namelists = (isRestart() .and. read_restart_namelists .and. (my_process_model /= ocean_process))
   END FUNCTION use_restart_namelists
   !------------------------------------------------------------------------
 

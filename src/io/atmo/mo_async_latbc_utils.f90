@@ -31,19 +31,20 @@
     ! Processor numbers
     USE mo_mpi,                 ONLY: p_pref_pe0, p_pe_work, p_work_pe0, num_work_procs
     ! MPI Communication routines
-    USE mo_mpi,                 ONLY: p_isend, p_irecv, p_barrier, p_wait, &
+    USE mo_mpi,                 ONLY: p_isend, p_barrier, p_wait, &
          &                            p_send, p_recv
     USE mo_latbc_read_recv,     ONLY: prefetch_cdi_2d, prefetch_cdi_3d, compute_data_receive
 #endif
 
-    USE mo_async_latbc_types,   ONLY: t_patch_data, t_reorder_data, t_latbc_data
-    USE mo_kind,                ONLY: wp, sp, i8
+    USE mo_async_latbc_types,   ONLY: t_reorder_data, t_latbc_data
+    USE mo_kind,                ONLY: wp, i8
+    USE mo_util_string,         ONLY: int2string
     USE mo_parallel_config,     ONLY: nproma
     USE mo_model_domain,        ONLY: t_patch
     USE mo_grid_config,         ONLY: nroot
-    USE mo_exception,           ONLY: message, message_text, finish
-    USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_COSMODE, MODE_DWDANA, MODE_ICONVREMAP, &
-                                      MODE_IAU_OLD, MODE_IAU, SUCCESS
+    USE mo_exception,           ONLY: message, finish, message_text
+    USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS
+    USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
     USE mo_io_units,            ONLY: filename_max
     USE mo_nonhydro_types,      ONLY: t_nh_state
@@ -51,32 +52,30 @@
     USE mo_nh_vert_interp,      ONLY: vert_interp
     USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
     USE mo_util_phys,           ONLY: virtual_temp
-    USE mo_util_string,         ONLY: int2string
-    USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, convert_thdvars
+    USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, convert_thdvars, convert_omega2w, &
+      &                               compute_input_pressure_and_height
     USE mo_sync,                ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, SYNC_C
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
     USE mtime,                  ONLY: timedelta, newTimedelta, deallocateTimedelta, &
-         &                            event, newEvent, datetime, newDatetime,      &
+         &                            newEvent, datetime, newDatetime,             &
          &                            isCurrentEventActive, deallocateDatetime,    &
-         &                            MAX_DATETIME_STR_LEN, MAX_EVENTNAME_STR_LEN, &
+         &                            MAX_DATETIME_STR_LEN,                        &
          &                            MAX_TIMEDELTA_STR_LEN, getPTStringFromMS,    &
          &                            OPERATOR(>=), OPERATOR(-), OPERATOR(>),      &
          &                            OPERATOR(/=), datetimeToString,              &
-         &                            timedelta, newTimedelta, deallocateTimedelta,&
-         &                            OPERATOR(+), deallocateEvent, OPERATOR(*)
+         &                            OPERATOR(+), OPERATOR(*)
     USE mo_time_config,         ONLY: time_config
-    USE mo_limarea_config,      ONLY: latbc_config, generate_filename_mtime, LATBC_TYPE_EXT
+    USE mo_limarea_config,      ONLY: latbc_config, generate_filename, LATBC_TYPE_EXT
     USE mo_ext_data_types,      ONLY: t_external_data
-    USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime, nsteps, msg_level
+    USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, msg_level
     USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
-    USE mo_initicon_config,     ONLY: init_mode
-    USE mo_initicon_types,      ONLY: t_initicon_state
+    USE mo_initicon_types,      ONLY: t_init_state
     USE mo_cdi,                 ONLY: streamOpenRead, streamClose, streamInqVlist, vlistInqTaxis, &
       &                               taxisInqVDate, taxisInqVTime, cdiDecodeTime, cdiDecodeDate
-    USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_util_cdi,            ONLY: cdiGetStringError
     USE mo_master_config,       ONLY: isRestart
     USE mo_fortran_tools,       ONLY: copy, init
+    USE mo_util_string,         ONLY: tolower
     IMPLICIT NONE
 
     PRIVATE
@@ -85,12 +84,18 @@
     PUBLIC :: async_pref_send_handshake
     PUBLIC :: compute_wait_for_async_pref
     PUBLIC :: async_pref_wait_for_start
-    PUBLIC :: compute_start_async_pref
     PUBLIC :: compute_shutdown_async_pref
     PUBLIC :: allocate_pref_latbc_data
 
     PUBLIC ::  compute_init_latbc_data, async_init_latbc_data, read_latbc_data,     &
          &     update_lin_interpolation, recv_latbc_data
+
+
+    INTERFACE fetch_from_buffer
+      MODULE PROCEDURE fetch_from_buffer_2D
+      MODULE PROCEDURE fetch_from_buffer_3D_cells 
+      MODULE PROCEDURE fetch_from_buffer_3D_generic
+    END INTERFACE
 
 
 
@@ -105,10 +110,13 @@
     INTEGER, PARAMETER :: msg_pref_start    = 56984
     INTEGER, PARAMETER :: msg_pref_done     = 26884
     INTEGER, PARAMETER :: msg_pref_shutdown = 48965
-    INTEGER, PARAMETER :: msg_latbc_done    = 20883
+
+    INTEGER, PARAMETER :: TAG_PREFETCH2WORK = 2001
+    INTEGER, PARAMETER :: TAG_WORK2PREFETCH = 2002
 
 
   CONTAINS
+
 
     !-------------------------------------------------------------------------
     !>
@@ -118,26 +126,16 @@
     !!
     SUBROUTINE allocate_pref_latbc_data(latbc, nlev_in, p_nh_state, ext_data, p_patch)
 
-      TYPE(t_latbc_data),    INTENT(INOUT) :: latbc       !< variable buffer for latbc data
-      INTEGER,               INTENT(IN)    :: nlev_in     !< no. of vertical input levels
-      TYPE(t_nh_state),      INTENT(INOUT) :: p_nh_state  !< nonhydrostatic state on the global domain
-      TYPE(t_external_data), INTENT(IN)    :: ext_data    !< external data on the global domain
-      TYPE(t_patch),         INTENT(IN)    :: p_patch
+      TYPE(t_latbc_data), TARGET, INTENT(INOUT) :: latbc       !< variable buffer for latbc data
+      INTEGER,                    INTENT(IN)    :: nlev_in     !< no. of vertical input levels
+      TYPE(t_nh_state),           INTENT(INOUT) :: p_nh_state  !< nonhydrostatic state on the global domain
+      TYPE(t_external_data),      INTENT(IN)    :: ext_data    !< external data on the global domain
+      TYPE(t_patch),              INTENT(IN)    :: p_patch
 
 #ifndef NOMPI
       ! local variables
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_pref_latbc_data"
-      INTEGER       :: tlev, nlev, nlevp1, nblks_c, nblks_e, ioper_mode, ierrstat
-
-      ! Select operation mode determining the set of input fields to be allocated and read
-      SELECT CASE (init_mode)
-      CASE (MODE_COSMODE)
-        ioper_mode = 2
-      CASE (MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU_OLD, MODE_IAU)
-        ioper_mode = 3
-      CASE DEFAULT
-        ioper_mode = 1
-      END SELECT
+      INTEGER               :: tlev, nlev, nlevp1, nblks_c, nblks_e, ierrstat
 
       ! Allocate memory for variables (3D and 2D) on work processors
       nlev    = p_patch%nlev
@@ -145,48 +143,62 @@
       nblks_c = p_patch%nblks_c
       nblks_e = p_patch%nblks_e
 
+      ALLOCATE(latbc%latbc_data_const%z_mc_in(nproma,nlev_in,nblks_c), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+      
+      ! topography and metrics are time independent
+      latbc%latbc_data_const%topography_c => ext_data%atm%topography_c
+      latbc%latbc_data_const%z_ifc        => p_nh_state%metrics%z_ifc
+      latbc%latbc_data_const%z_mc         => p_nh_state%metrics%z_mc
+
       DO tlev = 1, 2
         ! For safety; tke is checked for being associated in vert_interp
         NULLIFY(latbc%latbc_data(tlev)%atm_in%tke)
-        NULLIFY(latbc%latbc_data(tlev)%atm_in%tke_ifc)
-
-         ! Basic icon_remap data
-         ALLOCATE(latbc%latbc_data(tlev)%topography_c(nproma,nblks_c),     &
-              latbc%latbc_data(tlev)%z_ifc       (nproma,nlevp1,nblks_c),  &
-              latbc%latbc_data(tlev)%z_mc        (nproma,nlev,nblks_c), STAT=ierrstat)
-         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
          ! Allocate atmospheric input data
-         ALLOCATE(latbc%latbc_data(tlev)%atm_in%psfc(nproma,     nblks_c), &
-              latbc%latbc_data(tlev)%atm_in%phi_sfc(nproma,      nblks_c), &
-              latbc%latbc_data(tlev)%atm_in%pres (nproma,nlev_in,nblks_c), &
-              latbc%latbc_data(tlev)%atm_in%z3d  (nproma,nlev_in,nblks_c), &
-              latbc%latbc_data(tlev)%atm_in%temp (nproma,nlev_in,nblks_c), &
-              latbc%latbc_data(tlev)%atm_in%u    (nproma,nlev_in,nblks_c), &
-              latbc%latbc_data(tlev)%atm_in%v    (nproma,nlev_in,nblks_c), &
-              latbc%latbc_data(tlev)%atm_in%w    (nproma,nlev_in,nblks_c), &
-              latbc%latbc_data(tlev)%atm_in%omega(nproma,nlev_in,nblks_c), &
-              latbc%latbc_data(tlev)%atm_in%qv   (nproma,nlev_in,nblks_c), &
-              latbc%latbc_data(tlev)%atm_in%qc   (nproma,nlev_in,nblks_c), &
-              latbc%latbc_data(tlev)%atm_in%qi   (nproma,nlev_in,nblks_c), &
-              latbc%latbc_data(tlev)%atm_in%qr   (nproma,nlev_in,nblks_c), &
-              latbc%latbc_data(tlev)%atm_in%qs   (nproma,nlev_in,nblks_c), STAT=ierrstat)
+         latbc%latbc_data(tlev)%atm_in%nlev = nlev_in
+         !
+         ALLOCATE( &
+           latbc%latbc_data(tlev)%atm_in%pres (nproma,nlev_in,nblks_c), &
+           latbc%latbc_data(tlev)%atm_in%temp (nproma,nlev_in,nblks_c), &
+           latbc%latbc_data(tlev)%atm_in%u    (nproma,nlev_in,nblks_c), &
+           latbc%latbc_data(tlev)%atm_in%v    (nproma,nlev_in,nblks_c), &
+           latbc%latbc_data(tlev)%atm_in%w    (nproma,nlev_in,nblks_c), &
+           latbc%latbc_data(tlev)%atm_in%qv   (nproma,nlev_in,nblks_c), &
+           latbc%latbc_data(tlev)%atm_in%qc   (nproma,nlev_in,nblks_c), &
+           latbc%latbc_data(tlev)%atm_in%qi   (nproma,nlev_in,nblks_c), &
+           latbc%latbc_data(tlev)%atm_in%qr   (nproma,nlev_in,nblks_c), &
+           latbc%latbc_data(tlev)%atm_in%qs   (nproma,nlev_in,nblks_c), STAT=ierrstat)
          IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
          ! allocate also vn (though sometimes not needed)
          ALLOCATE(latbc%latbc_data(tlev)%atm_in%vn(nproma, nlev_in, nblks_e), STAT=ierrstat)
          IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-         IF (ioper_mode >= 2) THEN
-           ALLOCATE(latbc%latbc_data(tlev)%atm_in%w_ifc(nproma,nlev_in+1,nblks_c), &
-                    latbc%latbc_data(tlev)%atm_in%z3d_ifc(nproma,nlev_in+1,nblks_c), STAT=ierrstat)
-           IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-         ENDIF
-         IF (ioper_mode == 3) THEN
+         IF (latbc%buffer%lread_theta_rho) THEN
            ALLOCATE(latbc%latbc_data(tlev)%atm_in%rho(nproma,nlev_in,nblks_c),   &
                     latbc%latbc_data(tlev)%atm_in%theta_v(nproma,nlev_in,nblks_c), STAT=ierrstat)
            IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
          ENDIF
+
+        ! initialize with zero to simplify implementation of sparse lateral boundary condition mode
+!$OMP PARALLEL
+        CALL init(latbc%latbc_data(tlev)%atm_in%pres)
+        CALL init(latbc%latbc_data(tlev)%atm_in%temp)
+        CALL init(latbc%latbc_data(tlev)%atm_in%u)
+        CALL init(latbc%latbc_data(tlev)%atm_in%v)
+        CALL init(latbc%latbc_data(tlev)%atm_in%w)
+        CALL init(latbc%latbc_data(tlev)%atm_in%qv)
+        CALL init(latbc%latbc_data(tlev)%atm_in%qc)
+        CALL init(latbc%latbc_data(tlev)%atm_in%qi)
+        CALL init(latbc%latbc_data(tlev)%atm_in%qr)
+        CALL init(latbc%latbc_data(tlev)%atm_in%qs)
+        CALL init(latbc%latbc_data(tlev)%atm_in%vn)
+        IF (latbc%buffer%lread_theta_rho) THEN
+          CALL init(latbc%latbc_data(tlev)%atm_in%rho)
+          CALL init(latbc%latbc_data(tlev)%atm_in%theta_v)
+        ENDIF
+!$OMP END PARALLEL
 
          ! Allocate atmospheric output data
          ALLOCATE(latbc%latbc_data(tlev)%atm%vn   (nproma,nlev,nblks_e), &
@@ -205,15 +217,7 @@
               latbc%latbc_data(tlev)%atm%qs       (nproma,nlev,nblks_c), STAT=ierrstat)
          IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-         ! topography and metrics are time independent
-!$OMP PARALLEL
-         CALL copy(ext_data%atm%topography_c(:,:), &
-              latbc%latbc_data(tlev)%topography_c(:,:))
-         CALL copy(p_nh_state%metrics%z_ifc(:,:,:), &
-              latbc%latbc_data(tlev)%z_ifc(:,:,:))
-         CALL copy(p_nh_state%metrics%z_mc (:,:,:), &
-              latbc%latbc_data(tlev)%z_mc (:,:,:))
-!$OMP END PARALLEL
+         latbc%latbc_data(tlev)%const => latbc%latbc_data_const
 
       END DO
 
@@ -238,11 +242,10 @@
 
 #ifndef NOMPI
       ! local variables
-      REAL(wp)     :: delta_tstep_secs, delta_dtime_secs
+      REAL(wp)     :: delta_tstep_secs, delta_dtime_secs, seconds
       TYPE(timedelta), POINTER :: delta_tstep
       TYPE(datetime),  POINTER :: mtime_current
       INTEGER       :: i, add_delta, prev_latbc_tlev
-      REAL(wp)      :: seconds
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_init_latbc_data"
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string
 
@@ -310,12 +313,13 @@
       ELSE
         CALL recv_latbc_data( latbc, p_patch, p_nh_state, p_int_state,            &
           &                   time_config%tc_current_date, lcheck_read=.FALSE., ltime_incr=.FALSE., &
-          &                   tlev=tlev)
-
+          &                   tlev=tlev, opt_linitial_file=.TRUE.)
       ENDIF
+      ! (note: if we initialize from FG, then the following call is
+      ! the first file read-in!)
       CALL recv_latbc_data( latbc, p_patch, p_nh_state, p_int_state,           &
         &                   time_config%tc_current_date, lcheck_read=.FALSE., ltime_incr=.TRUE., &
-        &                   tlev=tlev)
+        &                   tlev=tlev, opt_linitial_file=latbc_config%init_latbc_from_fg)
 
       CALL message(routine,'done')
 #endif
@@ -396,7 +400,7 @@
       ! read first two time steps
       IF (.NOT. latbc_config%init_latbc_from_fg) THEN
 
-        CALL read_latbc_data(latbc, ltime_incr=.FALSE.)
+        CALL read_latbc_data(latbc, ltime_incr=.FALSE., opt_linitial_file=.TRUE.)
 
         ! Inform compute PEs that we are done
         CALL async_pref_send_handshake()
@@ -405,7 +409,10 @@
 
       ENDIF
 
-      CALL read_latbc_data(latbc, ltime_incr=.TRUE.)
+      ! (note: if we initialize from FG, then the following call is
+      ! the first file read-in!)
+      CALL read_latbc_data(latbc, ltime_incr=.TRUE., &
+        &                  opt_linitial_file=latbc_config%init_latbc_from_fg)
       ! Inform compute PEs that we are done
       CALL async_pref_send_handshake()
 
@@ -434,12 +441,16 @@
     !! Modified version by M. Pondkule, DWD (2014-02-11)
     !!
 
-    SUBROUTINE read_latbc_data(latbc, ltime_incr)
+    SUBROUTINE read_latbc_data(latbc, ltime_incr, opt_linitial_file)
 
       TYPE(t_latbc_data), INTENT(IN)    :: latbc
 
       ! flag to increment present datetime to next time level
       LOGICAL,            INTENT(IN)    :: ltime_incr
+
+      ! flag: indicates if this is the first file (where we expect
+      ! some constant data):
+      LOGICAL, INTENT(IN), OPTIONAL :: opt_linitial_file
 
 #ifndef NOMPI
       ! local variables
@@ -448,14 +459,17 @@
       INTEGER(KIND=MPI_ADDRESS_KIND)        :: ioff(0:num_work_procs-1)
       INTEGER                               :: jm, latbc_fileID, vlistID, taxisID, errno,  &
         &                                      idate, iyear, imonth, iday, itime, ihour,   &
-        &                                      iminute, isecond, nlevs_read
+        &                                      iminute, isecond, nlevs_read, nlevs
       LOGICAL                               :: l_exist
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
-      CHARACTER(LEN=132)                    :: message_text
       CHARACTER(LEN=MAX_CHAR_LENGTH)        :: cdiErrorText
       CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: dstringA, dstringB
       TYPE(datetime), POINTER               :: mtime_vdate
+      LOGICAL                               :: linitial_file
 
+
+      linitial_file = .FALSE.
+      IF (PRESENT(opt_linitial_file))  linitial_file = opt_linitial_file
 
       ! Prepare the mtime_read for the next time level
       IF (ltime_incr) THEN
@@ -467,15 +481,14 @@
       ! data are required for correct results
       IF (latbc%mtime_read >= time_config%tc_stopdate + latbc%delta_dtime) RETURN
 
-      latbc_filename = generate_filename_mtime(nroot, latbc%patch_data%level, &
-        &                                      latbc%mtime_read, time_config%tc_exp_startdate)
+      latbc_filename = generate_filename(nroot, latbc%patch_data%level, &
+        &                                latbc%mtime_read, time_config%tc_exp_startdate)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
 
       WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename)
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
       IF (.NOT. l_exist) THEN
-         WRITE (message_text,'(a,a)') 'file not found:', TRIM(latbc_filename)
-         CALL finish(routine, message_text)
+         CALL finish(routine, "File not found: "//TRIM(latbc_filename))
       ENDIF
 
       ! opening and reading file
@@ -483,9 +496,7 @@
       ! check if the file could be opened
       IF (latbc_fileID < 0) THEN
          CALL cdiGetStringError(latbc_fileID, cdiErrorText)
-         WRITE(message_text,'(4a)') 'File ', TRIM(latbc_full_filename), &
-              ' cannot be opened: ', TRIM(cdiErrorText)
-         CALL finish(routine, TRIM(message_text))
+         CALL finish(routine, "File "//TRIM(latbc_full_filename)//" cannot be opened: "//TRIM(cdiErrorText))
       ENDIF
 
       ! consistency check: Make sure that the requested date is
@@ -514,46 +525,65 @@
       !
       ! Perform CDI read operation
       !
-      DO jm = 1, latbc%buffer%ngrp_vars
-         ! Get pointer to appropriate reorder_info
-         IF(latbc%buffer%nlev(jm) /= 1 ) THEN
-            SELECT CASE (latbc%buffer%hgrid(jm))
-            CASE(GRID_UNSTRUCTURED_CELL)
-               ! Read 3d variables
-               CALL prefetch_cdi_3d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
-                    &                 nlevs_read, latbc%buffer%hgrid(jm), ioff )
+      VARLOOP: DO jm = 1, latbc%buffer%ngrp_vars
+        ! WRITE (0,*) routine,'fetch variable '//TRIM(latbc%buffer%mapped_name(jm))
 
-            CASE(GRID_UNSTRUCTURED_EDGE)
-               CALL prefetch_cdi_3d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
-                    &                 nlevs_read, latbc%buffer%hgrid(jm), ioff )
-            CASE default
-               CALL finish(routine,'unknown grid type')
-            END SELECT
+        ! ------------------------------------------------------------
+        ! skip constant variables
+        ! ------------------------------------------------------------
+        IF (.NOT. linitial_file) THEN
 
-            ! consistency check
-            IF (nlevs_read /= latbc%buffer%nlev(jm)) THEN
-              CALL finish(routine, "variable '"//TRIM(latbc%buffer%mapped_name(jm))//&
-                &"': nlev="//TRIM(int2string(nlevs_read,'(i0)'))//" but expected "//&
-                &TRIM(int2string(latbc%buffer%nlev(jm),'(i0)')))
-            END IF
+          nlevs = latbc%buffer%nlev(jm)
+          IF (TRIM(tolower(latbc%buffer%internal_name(jm))) == TRIM(tolower(latbc%buffer%hhl_var))) THEN
+            ! when skipping a variable: be sure to move the buffer
+            ! offset position, too
+            ioff(:) = ioff(:) + INT(nlevs * latbc%patch_data%cells%pe_own(:),i8)
+            CYCLE VARLOOP
+          END IF
+        END IF
 
-         ELSE
-            SELECT CASE (latbc%buffer%hgrid(jm))
-            CASE(GRID_UNSTRUCTURED_CELL)
-               ! Read 2d variables
-               CALL prefetch_cdi_2d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
-                    &                 latbc%buffer%hgrid(jm), ioff )
+        ! Get pointer to appropriate reorder_info
+        IF(latbc%buffer%nlev(jm) /= 1 ) THEN
 
-            CASE(GRID_UNSTRUCTURED_EDGE)
-               CALL prefetch_cdi_2d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
-                    &                 latbc%buffer%hgrid(jm), ioff )
-
-            CASE default
-               CALL finish(routine,'unknown grid type')
-            END SELECT
-
-         ENDIF
-      ENDDO
+          SELECT CASE (latbc%buffer%hgrid(jm))
+          CASE(GRID_UNSTRUCTURED_CELL)
+           
+            ! Read 3d variables
+            CALL prefetch_cdi_3d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
+              &                    nlevs_read, latbc%buffer%hgrid(jm), ioff )
+            
+          CASE(GRID_UNSTRUCTURED_EDGE)
+            CALL prefetch_cdi_3d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
+              &                    nlevs_read, latbc%buffer%hgrid(jm), ioff )
+          CASE default
+            CALL finish(routine,'unknown grid type')
+          END SELECT
+          
+          ! consistency check
+          IF (nlevs_read /= latbc%buffer%nlev(jm)) THEN
+            WRITE (message_text, *) &
+              & "variable '", TRIM(latbc%buffer%mapped_name(jm)), &
+              & "': nlev=", nlevs_read, " but expected ", latbc%buffer%nlev(jm)
+            CALL finish(routine, message_text)
+          END IF
+          
+        ELSE
+          SELECT CASE (latbc%buffer%hgrid(jm))
+          CASE(GRID_UNSTRUCTURED_CELL)
+            ! Read 2d variables
+            CALL prefetch_cdi_2d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
+              &                    latbc%buffer%hgrid(jm), ioff )
+            
+          CASE(GRID_UNSTRUCTURED_EDGE)
+            CALL prefetch_cdi_2d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
+              &                    latbc%buffer%hgrid(jm), ioff )
+            
+          CASE default
+            CALL finish(routine,'unknown grid type')
+          END SELECT
+          
+        ENDIF
+      ENDDO VARLOOP
 
       ! close the open dataset file
       CALL streamClose(latbc_fileID)   
@@ -574,7 +604,7 @@
     !!
 
     SUBROUTINE recv_latbc_data(latbc, p_patch, p_nh_state, p_int, cur_datetime,&
-      &                        lcheck_read, ltime_incr, tlev)
+      &                        lcheck_read, ltime_incr, tlev, opt_linitial_file)
 
       TYPE(t_latbc_data),     INTENT(INOUT) :: latbc
       TYPE(t_patch),          INTENT(IN)    :: p_patch
@@ -590,16 +620,16 @@
       ! flag to increment present datetime to next time level
       LOGICAL,      INTENT(IN)    :: ltime_incr
 
+      ! flag: indicates if this is the first file (where we expect
+      ! some constant data):
+      LOGICAL, INTENT(IN), OPTIONAL :: opt_linitial_file
+
 #ifndef NOMPI
       ! local variables
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::recv_latbc_data"
       LOGICAL                               :: isactive
-      CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: sim_cur
-      REAL(wp)                              :: tdiff
-      CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: tdiff_string
       TYPE(timedelta), POINTER              :: my_duration_slack
       INTEGER                               :: prev_latbc_tlev
-      TYPE(datetime),  POINTER              :: mtime_date
 
       ! check for event been active
       my_duration_slack => newTimedelta("PT0S")
@@ -613,7 +643,7 @@
       ! compute processors wait for msg from
       ! prefetch processor that they can start
       ! reading latbc data from memory window
-      IF(.NOT. my_process_is_io() .AND. &
+      IF (.NOT. my_process_is_io() .AND. &
         & .NOT. my_process_is_mpi_test()) THEN
         CALL compute_wait_for_async_pref()
       END IF
@@ -633,7 +663,7 @@
 
       ! start reading boundary data
       IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
-        CALL compute_latbc_intp_data( latbc, p_patch, p_nh_state, p_int, tlev )
+        CALL compute_latbc_intp_data( latbc, p_patch, p_nh_state, p_int, tlev, opt_linitial_file )
       ELSE
         CALL compute_latbc_icon_data( latbc, p_patch, p_int, tlev )
       END IF
@@ -668,9 +698,8 @@
       ! local variables
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_latbc_icon_data"
       INTEGER(i8)                         :: eoff
-      TYPE(t_reorder_data), POINTER       :: p_ri
       REAL(wp)                            :: temp_v(nproma,p_patch%nlev,p_patch%nblks_c)
-      INTEGER                             :: jc, jk, jb, jm, j, jl, jv
+      INTEGER                             :: jv
       !-------------------------------------------------------------------------
 
       ! consistency check
@@ -688,206 +717,37 @@
 
       ! Reading the next time step
 #ifndef NOMPI
-      IF((.NOT. my_process_is_io() .AND. &
+      IF((.NOT. my_process_is_io()       .AND. &
            & .NOT. my_process_is_pref()) .AND. &
            & .NOT. my_process_is_mpi_test()) THEN
          CALL compute_start_async_pref()
       ENDIF
 #endif
 
-      ! Get patch ID
-      p_ri => latbc%patch_data%cells
-
       !
       ! get prognostic 3d fields
       !
       ! copying tha variable values from prefetch buffer to the respective allocated variable
 
-!$OMP PARALLEL PRIVATE(jm,jv,jc)
-      jm = get_field_index(latbc, 'temp')
-      IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'temp'!")
-
-      ! consistency check
-      IF ((SIZE(latbc%latbc_data(tlev)%atm%temp,2) < latbc%buffer%nlev(jm)) .OR.  &
-        & (SIZE(latbc%buffer%vars(jm)%buffer,2)    < latbc%buffer%nlev(jm))) THEN
-        CALL finish(routine, "Internal error!")
-      END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-      DO jk=1, latbc%buffer%nlev(jm)
-         DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
-            jb = p_ri%own_blk(j) ! Block index in distributed patch
-            jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            !       WRITE(0,*) 'compute_latbc_icon_data 01 ',latbc%latbc_data(tlev)%atm%temp(jl,jk,jb)
-            latbc%latbc_data(tlev)%atm%temp(jl,jk,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,jk,jb), wp)
-         ENDDO
-      ENDDO
-!$OMP END DO  !NOWAIT
-
-      jm = get_field_index(latbc, 'u')
-      IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'u'!")
-      jv = get_field_index(latbc, 'v')
-      IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'v'!")
-
-      ! consistency check
-      IF ((SIZE(latbc%latbc_data(tlev)%atm_in%u,2) < latbc%buffer%nlev(jm)) .OR.  &
-        & (SIZE(latbc%buffer%vars(jm)%buffer,2)    < latbc%buffer%nlev(jm))) THEN
-        CALL finish(routine, "Internal error!")
-      END IF
-      IF ((SIZE(latbc%latbc_data(tlev)%atm_in%v,2) < latbc%buffer%nlev(jv)) .OR.  &
-        & (SIZE(latbc%buffer%vars(jv)%buffer,2)    < latbc%buffer%nlev(jv))) THEN
-        CALL finish(routine, "Internal error!")
-      END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-      DO jk=1, latbc%buffer%nlev(jm)
-         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-            jb = p_ri%own_blk(j) ! Block index in distributed patch
-            jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc%latbc_data(tlev)%atm_in%u(jl,jk,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,jk,jb), wp)
-            latbc%latbc_data(tlev)%atm_in%v(jl,jk,jb) = REAL(latbc%buffer%vars(jv)%buffer(jl,jk,jb), wp)
-         ENDDO
-      ENDDO
-!$OMP END DO
-
-      jv = get_field_index(latbc, 'w')
-      IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'w'!")
-
-      ! consistency check
-      IF ((SIZE(latbc%latbc_data(tlev)%atm%w,2) < latbc%buffer%nlev(jv)) .OR.  &
-        & (SIZE(latbc%buffer%vars(jv)%buffer,2) < latbc%buffer%nlev(jv))) THEN
-        CALL finish(routine, "Internal error!")
-      END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-      DO jk=1, latbc%buffer%nlev(jv)
-         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-            jb = p_ri%own_blk(j) ! Block index in distributed patch
-            jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc%latbc_data(tlev)%atm%w(jl,jk,jb) = REAL(latbc%buffer%vars(jv)%buffer(jl,jk,jb), wp)
-         ENDDO
-      ENDDO
-!$OMP END DO
+      CALL fetch_from_buffer(latbc, 'temp', latbc%latbc_data(tlev)%atm%temp)
+      CALL fetch_from_buffer(latbc, 'u',    latbc%latbc_data(tlev)%atm_in%u)
+      CALL fetch_from_buffer(latbc, 'v',    latbc%latbc_data(tlev)%atm_in%v)
+      CALL fetch_from_buffer(latbc, 'w',    latbc%latbc_data(tlev)%atm%w)
 
       ! Read parameter Pressure
-      jv = get_field_index(latbc, 'pres')
-      IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'pres'!")
-
-      ! consistency check
-      IF ((SIZE(latbc%latbc_data(tlev)%atm%pres,2) < latbc%buffer%nlev(jv)) .OR.  &
-        & (SIZE(latbc%buffer%vars(jv)%buffer,2) < latbc%buffer%nlev(jv))) THEN
-        CALL finish(routine, "Internal error!")
-      END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-      DO jk=1, latbc%buffer%nlev(jv)
-         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-            jb = p_ri%own_blk(j) ! Block index in distributed patch
-            jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc%latbc_data(tlev)%atm%pres(jl,jk,jb) = REAL(latbc%buffer%vars(jv)%buffer(jl,jk,jb), wp)
-         ENDDO
-      ENDDO
-!$OMP END DO
+      CALL fetch_from_buffer(latbc, 'pres', latbc%latbc_data(tlev)%atm%pres)
 
       ! Read parameter qv
-      jv = get_field_index(latbc, 'qv')
-      IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qv'!")
-
-      ! consistency check
-      IF ((SIZE(latbc%latbc_data(tlev)%atm%qv,2) < latbc%buffer%nlev(jv)) .OR.  &
-        & (SIZE(latbc%buffer%vars(jv)%buffer,2) < latbc%buffer%nlev(jv))) THEN
-        CALL finish(routine, "Internal error!")
-      END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-      DO jk=1, latbc%buffer%nlev(jv)
-         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-            jb = p_ri%own_blk(j) ! Block index in distributed patch
-            jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc%latbc_data(tlev)%atm%qv(jl,jk,jb) = REAL(latbc%buffer%vars(jv)%buffer(jl,jk,jb), wp)
-         ENDDO
-      ENDDO
-!$OMP END DO
-
-      jc = get_field_index(latbc, 'qc')
-      IF (jc <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qc'!")
-
-      ! consistency check
-      IF ((SIZE(latbc%latbc_data(tlev)%atm%qc,2) < latbc%buffer%nlev(jc)) .OR.  &
-        & (SIZE(latbc%buffer%vars(jc)%buffer,2) < latbc%buffer%nlev(jc))) THEN
-        CALL finish(routine, "Internal error!")
-      END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-      DO jk=1, latbc%buffer%nlev(jc)
-         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-            jb = p_ri%own_blk(j) ! Block index in distributed patch
-            jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc%latbc_data(tlev)%atm%qc(jl,jk,jb) = REAL(latbc%buffer%vars(jc)%buffer(jl,jk,jb), wp)
-         ENDDO
-      ENDDO
-!$OMP END DO
-
+      CALL fetch_from_buffer(latbc, 'qv', latbc%latbc_data(tlev)%atm%qv)
+      ! Read parameter qc
+      CALL fetch_from_buffer(latbc, 'qc', latbc%latbc_data(tlev)%atm%qc)
       ! Read parameter qi
-      jm = get_field_index(latbc, 'qi')
-      IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qi'!")
-
-      ! consistency check
-      IF ((SIZE(latbc%latbc_data(tlev)%atm%qi,2) < latbc%buffer%nlev(jm)) .OR.  &
-        & (SIZE(latbc%buffer%vars(jm)%buffer,2) < latbc%buffer%nlev(jm))) THEN
-        CALL finish(routine, "Internal error!")
-      END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-      DO jk=1, latbc%buffer%nlev(jm)
-         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-            jb = p_ri%own_blk(j) ! Block index in distributed patch
-            jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc%latbc_data(tlev)%atm%qi(jl,jk,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,jk,jb), wp)
-         ENDDO
-      ENDDO
-!$OMP END DO
-
+      CALL fetch_from_buffer(latbc, 'qi', latbc%latbc_data(tlev)%atm%qi)
       ! Read parameter qr
-      jm = get_field_index(latbc, 'qr')
-      IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qr'!")
-
-      ! consistency check
-      IF ((SIZE(latbc%latbc_data(tlev)%atm%qr,2) < latbc%buffer%nlev(jm)) .OR.  &
-        & (SIZE(latbc%buffer%vars(jm)%buffer,2) < latbc%buffer%nlev(jm))) THEN
-        CALL finish(routine, "Internal error!")
-      END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-      DO jk=1, latbc%buffer%nlev(jm)
-         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-            jb = p_ri%own_blk(j) ! Block index in distributed patch
-            jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc%latbc_data(tlev)%atm%qr(jl,jk,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,jk,jb), wp)
-         ENDDO
-      ENDDO
-!$OMP END DO
-
+      CALL fetch_from_buffer(latbc, 'qr', latbc%latbc_data(tlev)%atm%qr)
       ! Read parameter qs
-      jv = get_field_index(latbc, 'qs')
-      IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qs'!")
+      CALL fetch_from_buffer(latbc, 'qs', latbc%latbc_data(tlev)%atm%qs)
 
-      ! consistency check
-      IF ((SIZE(latbc%latbc_data(tlev)%atm%qs,2) < latbc%buffer%nlev(jv)) .OR.  &
-        & (SIZE(latbc%buffer%vars(jv)%buffer,2) < latbc%buffer%nlev(jv))) THEN
-        CALL finish(routine, "Internal error!")
-      END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-      DO jk=1, latbc%buffer%nlev(jv)
-         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-            jb = p_ri%own_blk(j) ! Block index in distributed patch
-            jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc%latbc_data(tlev)%atm%qs(jl,jk,jb) = REAL(latbc%buffer%vars(jv)%buffer(jl,jk,jb), wp)
-         ENDDO
-      ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
 
       ! boundary exchange for a 2-D and 3-D array to fill HALO region.
       ! This addition by M.Pondkule, DWD (11/06/2014)
@@ -942,506 +802,308 @@
     !! - interpolate vertically from intermediate remapicon grid to ICON grid
     !!   and compute the prognostic NH variable set,
     !!
+    !! NOTE: Unfortunately, this subroutine is MPI-collective, since
+    !!       it contains several synchronization calls. It must
+    !!       therefore be passed by all worker PEs. However, there is
+    !!       the common situation where vertical interpolation shall
+    !!       performed on a subset of PEs only, while no valid data is
+    !!       available on the remaining PE. For this situation we need
+    !!       the optional "opt_lmask" parameter.
+    !!
+    !! TODO: NOT adjusted to the mask parameter are the following
+    !!       subroutines:
+    !!
+    !!     convert_omega2w
+    !!     compute_input_pressure_and_height
+    !!     (both operating in the column only)
+    !!
+    !!
     !! @par Revision History
     !! Initial version by M. Pondkule, DWD (2014-05-19)
     !!
-    SUBROUTINE compute_latbc_intp_data( latbc, p_patch, p_nh_state, p_int, tlev)
+    SUBROUTINE compute_latbc_intp_data( latbc, p_patch, p_nh_state, p_int, tlev, opt_linitial_file)
       TYPE(t_latbc_data),     INTENT(INOUT), TARGET :: latbc  !< variable buffer for latbc data
-      TYPE(t_patch),          INTENT(IN), TARGET    :: p_patch
+      TYPE(t_patch),          INTENT(IN)            :: p_patch
       TYPE(t_nh_state),       INTENT(IN)            :: p_nh_state  !< nonhydrostatic state on the global domain
       TYPE(t_int_state),      INTENT(IN)            :: p_int
       INTEGER,                INTENT(IN)            :: tlev
+
+      ! flag: indicates if this is the first file (where we expect
+      ! some constant data):
+      LOGICAL, INTENT(IN), OPTIONAL :: opt_linitial_file
 
 #ifndef NOMPI
       ! local variables
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_latbc_intp_data"
       INTEGER(i8)                         :: eoff
       TYPE(t_reorder_data), POINTER       :: p_ri
-      LOGICAL                             :: lconvert_omega2w
-      INTEGER                             :: jc, jk, jb, jm, j, jl, jv
-      INTEGER                             :: ioper_mode
+      INTEGER                             :: jc, jk, jb, j, jv, nlev_in, nblks_c, ierrstat
       REAL(wp)                            :: log_exner, tempv
-      INTEGER                             :: nlev     ! number of vertical levels in the boundary data
+      REAL(wp), ALLOCATABLE               :: psfc(:,:), phi_sfc(:,:),    &
+        &                                    w_ifc(:,:,:), omega(:,:,:), z_ifc_in(:,:,:)
+      LOGICAL                             :: linitial_file
+
+      linitial_file = .FALSE.
+      IF (PRESENT(opt_linitial_file))  linitial_file = opt_linitial_file
+
+      nblks_c = p_patch%nblks_c
+      nlev_in = latbc%latbc_data(tlev)%atm_in%nlev
 
       ! consistency check
       IF ((tlev <1) .OR. (SIZE(latbc%latbc_data) < tlev)) THEN
         CALL finish(routine, "Internal error!")
       END IF
 
-      ! Select operation mode determining the set of input fields to be allocated and read
-      SELECT CASE (init_mode)
-      CASE (MODE_COSMODE)
-        ioper_mode = 2
-      CASE (MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU_OLD, MODE_IAU)
-        ioper_mode = 3
-      CASE DEFAULT
-        ioper_mode = 1
-      END SELECT
-
       ! Offset in memory window for async prefetching
       eoff = 0_i8
 
       DO jv = 1, latbc%buffer%ngrp_vars
-         ! Receive 2d and 3d variables
-         CALL compute_data_receive ( latbc%buffer%hgrid(jv), latbc%buffer%nlev(jv), &
-                                     latbc%buffer%vars(jv)%buffer, eoff, latbc%patch_data)
+        ! Receive 2d and 3d variables
+        CALL compute_data_receive ( latbc%buffer%hgrid(jv), latbc%buffer%nlev(jv), &
+          latbc%buffer%vars(jv)%buffer, eoff, latbc%patch_data)
       ENDDO
 
-      IF (latbc%buffer%lthd_progvars .AND. ioper_mode /= 3) &
-        CALL finish(routine, 'Lateral boundary variables not consistent with init_mode')
-
       ! Reading the next time step
-      IF((.NOT. my_process_is_io() .AND. &
+      IF((.NOT. my_process_is_io()       .AND. &
            & .NOT. my_process_is_pref()) .AND. &
            & .NOT. my_process_is_mpi_test()) THEN
          CALL compute_start_async_pref()
       END IF
 
-      ! Get patch ID
       p_ri => latbc%patch_data%cells
-
-      ! retrieve the no. of vertical levels from the temp/theta_v variable:
-      IF (latbc%buffer%lthd_progvars) THEN
-        jm = get_field_index(latbc, 'theta_v')
-        IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'theta_v'!")
-        nlev = latbc%buffer%nlev(jm)
-      ELSE
-        jm = get_field_index(latbc, 'temp')
-        IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'temp'!")
-        nlev = latbc%buffer%nlev(jm)
-      END IF
 
       ! copying the variable values from prefetch buffer to the
       ! respective allocated variable
 
-!$OMP PARALLEL PRIVATE(jm,jv,jc)
-
-      IF (latbc%buffer%lthd_progvars) THEN
-        jm = get_field_index(latbc, 'theta_v')
-        IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'theta_v'!")
-
-        ! consistency check
-        IF ((SIZE(latbc%latbc_data(tlev)%atm_in%theta_v,2) < latbc%buffer%nlev(jm)) .OR.  &
-          & (SIZE(latbc%buffer%vars(jm)%buffer,2)    < latbc%buffer%nlev(jm))) THEN
-          CALL finish(routine, "Internal error!")
-        END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-        DO jk=1, nlev
-          DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
-            jb = p_ri%own_blk(j) ! Block index in distributed patch
-            jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc%latbc_data(tlev)%atm_in%theta_v(jl,jk,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,jk,jb), wp)
-          ENDDO
-        ENDDO
-!$OMP END DO
-
-        jm = get_field_index(latbc, 'rho')
-        IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'rho'!")
-
-        ! consistency check
-        IF ((SIZE(latbc%latbc_data(tlev)%atm_in%rho,2) < latbc%buffer%nlev(jm)) .OR.  &
-          & (SIZE(latbc%buffer%vars(jm)%buffer,2)    < latbc%buffer%nlev(jm))) THEN
-          CALL finish(routine, "Internal error!")
-        END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-        DO jk=1, latbc%buffer%nlev(jm)
-          DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
-            jb = p_ri%own_blk(j) ! Block index in distributed patch
-            jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc%latbc_data(tlev)%atm_in%rho(jl,jk,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,jk,jb), wp)
-          ENDDO
-        ENDDO
-!$OMP END DO
-
-      ELSE
-
-        jm = get_field_index(latbc, 'temp')
-        IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'temp'!")
-
-        ! consistency check
-        IF ((SIZE(latbc%latbc_data(tlev)%atm_in%temp,2) < latbc%buffer%nlev(jm)) .OR.  &
-          & (SIZE(latbc%buffer%vars(jm)%buffer,2)    < latbc%buffer%nlev(jm))) THEN
-          CALL finish(routine, "Internal error!")
-        END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-        DO jk=1, nlev
-          DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
-            jb = p_ri%own_blk(j) ! Block index in distributed patch
-            jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc%latbc_data(tlev)%atm_in%temp(jl,jk,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,jk,jb), wp)
-          ENDDO
-        ENDDO
-!$OMP END DO
-      ENDIF
-
-      ! Read horizontal component of velocity (U and V)
-      IF (latbc%buffer%lread_vn) THEN
-         jm = get_field_index(latbc, 'vn')
-         IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'vn'!")
-
-        ! consistency check
-        IF ((SIZE(latbc%latbc_data(tlev)%atm_in%vn,2) < latbc%buffer%nlev(jm)) .OR.  &
-          & (SIZE(latbc%buffer%vars(jm)%buffer,2)    < latbc%buffer%nlev(jm))) THEN
-          CALL finish(routine, "Internal error!")
-        END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-         DO jk=1, latbc%buffer%nlev(jm)
-            DO j = 1, latbc%patch_data%edges%n_own !p_patch%n_patch_cells
-               jb = latbc%patch_data%edges%own_blk(j) ! Block index in distributed patch
-               jl = latbc%patch_data%edges%own_idx(j) ! Line  index in distributed patch
-               latbc%latbc_data(tlev)%atm_in%vn(jl,jk,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,jk,jb), wp)
-            ENDDO
-         ENDDO
-!$OMP END DO
-      ELSE
-         jm = get_field_index(latbc, 'u')
-         IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'u'!")
-         jv = get_field_index(latbc, 'v')
-         IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'v'!")
-
-         ! consistency check
-         IF ((SIZE(latbc%latbc_data(tlev)%atm_in%u,2) < latbc%buffer%nlev(jm)) .OR.  &
-           & (SIZE(latbc%buffer%vars(jm)%buffer,2)    < latbc%buffer%nlev(jm))) THEN
-           CALL finish(routine, "Internal error!")
-         END IF
-         IF ((SIZE(latbc%latbc_data(tlev)%atm_in%v,2) < latbc%buffer%nlev(jv)) .OR.  &
-           & (SIZE(latbc%buffer%vars(jv)%buffer,2)    < latbc%buffer%nlev(jv))) THEN
-           CALL finish(routine, "Internal error!")
-         END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-         DO jk=1, latbc%buffer%nlev(jm)
-            DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-               jb = p_ri%own_blk(j) ! Block index in distributed patch
-               jl = p_ri%own_idx(j) ! Line  index in distributed patch
-               latbc%latbc_data(tlev)%atm_in%u(jl,jk,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,jk,jb), wp)
-               latbc%latbc_data(tlev)%atm_in%v(jl,jk,jb) = REAL(latbc%buffer%vars(jv)%buffer(jl,jk,jb), wp)
-            ENDDO
-         ENDDO
-!$OMP END DO
-      ENDIF
-
-      ! Read vertical component of velocity (W)
-      IF (ioper_mode == 1) THEN
-         lconvert_omega2w = .TRUE.
-         jv = get_field_index(latbc, 'w')
-         IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'w'!")
-
-         ! consistency check
-         IF ((SIZE(latbc%latbc_data(tlev)%atm_in%omega,2) < latbc%buffer%nlev(jv)) .OR.  &
-           & (SIZE(latbc%buffer%vars(jv)%buffer,2) < latbc%buffer%nlev(jv))) THEN
-           CALL finish(routine, "Internal error!")
-         END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-         DO jk=1, latbc%buffer%nlev(jv)
-            DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-               jb = p_ri%own_blk(j) ! Block index in distributed patch
-               jl = p_ri%own_idx(j) ! Line  index in distributed patch
-               latbc%latbc_data(tlev)%atm_in%omega(jl,jk,jb) = REAL(latbc%buffer%vars(jv)%buffer(jl,jk,jb), wp)
-            ENDDO
-         ENDDO
-!$OMP END DO
-      ELSE
-         lconvert_omega2w = .FALSE.
-         jv = get_field_index(latbc, 'w')
-         IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'w'!")
-
-         ! consistency check
-         IF ((SIZE(latbc%latbc_data(tlev)%atm_in%w_ifc,2) < latbc%buffer%nlev(jv)) .OR.  &
-           & (SIZE(latbc%buffer%vars(jv)%buffer,2) < latbc%buffer%nlev(jv))) THEN
-           CALL finish(routine, "Internal error!")
-         END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-         DO jk=1, latbc%buffer%nlev(jv)
-            DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-               jb = p_ri%own_blk(j) ! Block index in distributed patch
-               jl = p_ri%own_idx(j) ! Line  index in distributed patch
-               latbc%latbc_data(tlev)%atm_in%w_ifc(jl,jk,jb) = REAL(latbc%buffer%vars(jv)%buffer(jl,jk,jb), wp)
-            ENDDO
-         ENDDO
-!$OMP END DO
-      ENDIF
-
-      IF (ioper_mode >= 2) THEN
-         ! Read parameter HHL
-         jm = get_field_index(latbc, 'z_ifc')
-         IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'z_ifc'!")
-
-         ! consistency check
-         IF ((SIZE(latbc%latbc_data(tlev)%atm_in%z3d_ifc,2) < latbc%buffer%nlev(jm)) .OR.  &
-           & (SIZE(latbc%buffer%vars(jm)%buffer,2) < latbc%buffer%nlev(jm))) THEN
-           CALL finish(routine, "Internal error!")
-         END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-         DO jk=1, latbc%buffer%nlev(jm)
-            DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-               jb = p_ri%own_blk(j) ! Block index in distributed patch
-               jl = p_ri%own_idx(j) ! Line  index in distributed patch
-               latbc%latbc_data(tlev)%atm_in%z3d_ifc(jl,jk,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,jk,jb), wp)
-            ENDDO
-         ENDDO
-!$OMP END DO
-
-         ! Interpolate input 'z3d' and 'w' from the interface levels to the main levels
-         !
-
-         ! consistency check
-         IF ((SIZE(latbc%latbc_data(tlev)%atm_in%w,2) < nlev) .OR.  &
-           & (SIZE(latbc%latbc_data(tlev)%atm_in%w_ifc,2) < (nlev+1))) THEN
-           CALL finish(routine, "Internal error!")
-         END IF
-         IF ((SIZE(latbc%latbc_data(tlev)%atm_in%z3d,2) < nlev) .OR.  &
-           & (SIZE(latbc%latbc_data(tlev)%atm_in%z3d_ifc,2) < (nlev+1))) THEN
-           CALL finish(routine, "Internal error!")
-         END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jc) ICON_OMP_DEFAULT_SCHEDULE
-         DO jk = 1, nlev    !!!!!!!!need to reset nlev_in to a new value from stored n_lev values
-            DO j = 1, p_ri%n_own
-               jb = p_ri%own_blk(j) ! Block index in distributed patch
-               jc = p_ri%own_idx(j) ! Line  index in distributed patch
-
-               ! Note: In future, we want to z3d from boundary data.
-               !
-               latbc%latbc_data(tlev)%atm_in%z3d(jc,jk,jb) = (latbc%latbc_data(tlev)%atm_in%z3d_ifc(jc,jk,jb) + &
-                    &   latbc%latbc_data(tlev)%atm_in%z3d_ifc(jc,jk+1,jb) ) * 0.5_wp
-               latbc%latbc_data(tlev)%atm_in%w(jc,jk,jb) = (latbc%latbc_data(tlev)%atm_in%w_ifc(jc,jk,jb) + &
-                    &   latbc%latbc_data(tlev)%atm_in%w_ifc(jc,jk+1,jb)) * 0.5_wp
-            ENDDO
-         ENDDO
-!$OMP END DO
-      ENDIF
-
       ! Read parameter QV, QC and QI
-      jv = get_field_index(latbc, 'qv')
-      IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qv'!")
+      CALL fetch_from_buffer(latbc, 'qv', latbc%latbc_data(tlev)%atm_in%qv)
+      CALL fetch_from_buffer(latbc, 'qc', latbc%latbc_data(tlev)%atm_in%qc)
+      CALL fetch_from_buffer(latbc, 'qi', latbc%latbc_data(tlev)%atm_in%qi)
 
-      ! consistency check
-      IF ((SIZE(latbc%latbc_data(tlev)%atm_in%qv,2) < latbc%buffer%nlev(jv)) .OR.  &
-        & (SIZE(latbc%buffer%vars(jv)%buffer,2) < latbc%buffer%nlev(jv))) THEN
-        CALL finish(routine, "Internal error!")
-      END IF
 
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-      DO jk=1, latbc%buffer%nlev(jv)
-         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-            jb = p_ri%own_blk(j) ! Block index in distributed patch
-            jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc%latbc_data(tlev)%atm_in%qv(jl,jk,jb) = REAL(latbc%buffer%vars(jv)%buffer(jl,jk,jb), wp)
-         ENDDO
-      ENDDO
-!$OMP END DO
-
-      jc = get_field_index(latbc, 'qc')
-      IF (jc <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qc'!")
-
-      ! consistency check
-      IF ((SIZE(latbc%latbc_data(tlev)%atm_in%qc,2) < latbc%buffer%nlev(jc)) .OR.  &
-        & (SIZE(latbc%buffer%vars(jc)%buffer,2) < latbc%buffer%nlev(jc))) THEN
-        CALL finish(routine, "Internal error!")
-      END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-      DO jk=1, latbc%buffer%nlev(jc)
-         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-            jb = p_ri%own_blk(j) ! Block index in distributed patch
-            jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc%latbc_data(tlev)%atm_in%qc(jl,jk,jb) = REAL(latbc%buffer%vars(jc)%buffer(jl,jk,jb), wp)
-         ENDDO
-      ENDDO
-!$OMP END DO
-
-      jm = get_field_index(latbc, 'qi')
-      IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qi'!")
-
-      ! consistency check
-      IF ((SIZE(latbc%latbc_data(tlev)%atm_in%qi,2) < latbc%buffer%nlev(jm)) .OR.  &
-        & (SIZE(latbc%buffer%vars(jm)%buffer,2) < latbc%buffer%nlev(jm))) THEN
-        CALL finish(routine, "Internal error!")
-      END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-      DO jk=1, latbc%buffer%nlev(jm)
-         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-            jb = p_ri%own_blk(j) ! Block index in distributed patch
-            jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc%latbc_data(tlev)%atm_in%qi(jl,jk,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,jk,jb), wp)
-         ENDDO
-      ENDDO
-!$OMP END DO
-
+      ! Read parameter QR
       IF (latbc%buffer%lread_qr) THEN
-         ! Read parameter QR
-         jm = get_field_index(latbc, 'qr')
-         IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qr'!")
-
-         ! consistency check
-         IF ((SIZE(latbc%latbc_data(tlev)%atm_in%qr,2) < latbc%buffer%nlev(jm)) .OR.  &
-           & (SIZE(latbc%buffer%vars(jm)%buffer,2) < latbc%buffer%nlev(jm))) THEN
-           CALL finish(routine, "Internal error!")
-         END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-         DO jk=1, latbc%buffer%nlev(jm)
-            DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-               jb = p_ri%own_blk(j) ! Block index in distributed patch
-               jl = p_ri%own_idx(j) ! Line  index in distributed patch
-               latbc%latbc_data(tlev)%atm_in%qr(jl,jk,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,jk,jb), wp)
-            ENDDO
-         ENDDO
-!$OMP END DO
+        CALL fetch_from_buffer(latbc, 'qr', latbc%latbc_data(tlev)%atm_in%qr)
       ELSE
+!$OMP PARALLEL
         CALL init(latbc%latbc_data(tlev)%atm_in%qr(:,:,:))
-!$OMP BARRIER
+!$OMP END PARALLEL
       ENDIF
 
+
+      ! Read parameter QS
       IF (latbc%buffer%lread_qs) THEN
-         ! Read parameter QS
-         jv = get_field_index(latbc, 'qs')
-         IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'qs'!")
-
-         ! consistency check
-         IF ((SIZE(latbc%latbc_data(tlev)%atm_in%qs,2) < latbc%buffer%nlev(jv)) .OR.  &
-           & (SIZE(latbc%buffer%vars(jv)%buffer,2) < latbc%buffer%nlev(jv))) THEN
-           CALL finish(routine, "Internal error!")
-         END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-         DO jk=1, latbc%buffer%nlev(jv)
-            DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-               jb = p_ri%own_blk(j) ! Block index in distributed patch
-               jl = p_ri%own_idx(j) ! Line  index in distributed patch
-               latbc%latbc_data(tlev)%atm_in%qs(jl,jk,jb) = REAL(latbc%buffer%vars(jv)%buffer(jl,jk,jb), wp)
-            ENDDO
-         ENDDO
-!$OMP END DO
+        CALL fetch_from_buffer(latbc, 'qs', latbc%latbc_data(tlev)%atm_in%qs)
       ELSE
+!$OMP PARALLEL
         CALL init(latbc%latbc_data(tlev)%atm_in%qs(:,:,:))
-!$OMP BARRIER
+!$OMP END PARALLEL
       ENDIF
 
-      IF (ioper_mode >= 2 .AND. .NOT. latbc%buffer%lthd_progvars) THEN
-         ! Read parameter Pressure
-         jv = get_field_index(latbc, 'pres')
-         IF (jv <= 0)  CALL finish(routine, "Internal error, invalid field index for 'pres'!")
-
-         ! consistency check
-         IF ((SIZE(latbc%latbc_data(tlev)%atm_in%pres,2) < latbc%buffer%nlev(jv)) .OR.  &
-           & (SIZE(latbc%buffer%vars(jv)%buffer,2) < latbc%buffer%nlev(jv))) THEN
-           CALL finish(routine, "Internal error!")
-         END IF
-
-!$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-         DO jk=1, latbc%buffer%nlev(jv)
-            DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-               jb = p_ri%own_blk(j) ! Block index in distributed patch
-               jl = p_ri%own_idx(j) ! Line  index in distributed patch
-               latbc%latbc_data(tlev)%atm_in%pres(jl,jk,jb) = REAL(latbc%buffer%vars(jv)%buffer(jl,jk,jb), wp)
-            ENDDO
-         ENDDO
-!$OMP END DO
-      ENDIF
-
-      IF (ioper_mode /= 3) THEN
-        ! Read parameter surface pressure (LNPS)
-        jm = get_field_index(latbc, latbc%buffer%psvar,.TRUE.)
-        IF (jm <= 0) THEN
-          CALL finish(routine, "Internal error, invalid field index for "//TRIM(latbc%buffer%psvar)//"!")
-        END IF
-
-        ! consistency check
-        IF ((SIZE(latbc%latbc_data(tlev)%atm_in%psfc,2) < latbc%buffer%nlev(jm)) .OR.  &
-          & (SIZE(latbc%buffer%vars(jm)%buffer,2) < latbc%buffer%nlev(jm))) THEN
-          CALL finish(routine, "Internal error!")
-        END IF
-
-!$OMP DO PRIVATE (j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-           jb = p_ri%own_blk(j) ! Block index in distributed patch
-           jl = p_ri%own_idx(j) ! Line  index in distributed patch
-           latbc%latbc_data(tlev)%atm_in%psfc(jl,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,1,jb), wp)
-        ENDDO
-!$OMP END DO
-
-        ! Read parameter  surface Geopotential (GEOSP)
-        jm = get_field_index(latbc, latbc%buffer%geop_ml_var,.TRUE.)
-        IF (jm <= 0)  CALL finish(routine, "Internal error, invalid field index for geop_ml_var!")
-
-        ! consistency check
-        IF ((SIZE(latbc%latbc_data(tlev)%atm_in%phi_sfc,2) < latbc%buffer%nlev(jm)) .OR.  &
-          & (SIZE(latbc%buffer%vars(jm)%buffer,2) < latbc%buffer%nlev(jm))) THEN
-          CALL finish(routine, "Internal error!")
-        END IF
-
-!$OMP DO PRIVATE (j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
-         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
-           jb = p_ri%own_blk(j) ! Block index in distributed patch
-           jl = p_ri%own_idx(j) ! Line  index in distributed patch
-           latbc%latbc_data(tlev)%atm_in%phi_sfc(jl,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,1,jb), wp)
-         ENDDO
-!$OMP END DO
-
-      ELSE IF (latbc%buffer%lthd_progvars) THEN
+      IF (latbc%buffer%lread_theta_rho) THEN
+        
+        CALL fetch_from_buffer(latbc, 'theta_v', latbc%latbc_data(tlev)%atm_in%theta_v)
+        CALL fetch_from_buffer(latbc, 'rho',     latbc%latbc_data(tlev)%atm_in%rho)
 
         ! Diagnose pres and temp from prognostic ICON variables
-
-!$OMP DO PRIVATE (jk,j,jb,jc,log_exner,tempv)
-        DO jk = 1, nlev
+!$OMP PARALLEL DO PRIVATE (jk,j,jb,jc,log_exner,tempv)
+#ifdef __LOOP_EXCHANGE
+        DO j = 1, p_ri%n_own !p_patch%n_patch_cells
+          jb = p_ri%own_blk(j) ! Block index in distributed patch
+          jc = p_ri%own_idx(j) ! Line  index in distributed patch
+          IF (.NOT. latbc%patch_data%cells%read_mask(jc,jb)) CYCLE
+!DIR$ IVDEP
+          DO jk = 1, nlev_in
+#else
+        DO jk = 1, nlev_in
           DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jc = p_ri%own_idx(j) ! Line  index in distributed patch
+            IF (.NOT. latbc%patch_data%cells%read_mask(jc,jb)) CYCLE
+#endif
 
             log_exner = (1._wp/cvd_o_rd)*LOG(latbc%latbc_data(tlev)%atm_in%rho(jc,jk,jb)* &
               latbc%latbc_data(tlev)%atm_in%theta_v(jc,jk,jb)*rd/p0ref)
             tempv = latbc%latbc_data(tlev)%atm_in%theta_v(jc,jk,jb)*EXP(log_exner)
 
             latbc%latbc_data(tlev)%atm_in%pres(jc,jk,jb) = p0ref*EXP(cpd/rd*log_exner)
-            latbc%latbc_data(tlev)%atm_in%temp(jc,jk,jb) = tempv / (1._wp + vtmpc1*latbc%latbc_data(tlev)%atm_in%qv(jc,jk,jb) - &
-              (latbc%latbc_data(tlev)%atm_in%qc(jc,jk,jb) + latbc%latbc_data(tlev)%atm_in%qi(jc,jk,jb) +                        &
-               latbc%latbc_data(tlev)%atm_in%qr(jc,jk,jb) + latbc%latbc_data(tlev)%atm_in%qs(jc,jk,jb)) )
+            latbc%latbc_data(tlev)%atm_in%temp(jc,jk,jb) = &
+              &    tempv / (1._wp + vtmpc1*latbc%latbc_data(tlev)%atm_in%qv(jc,jk,jb) - &
+              &             (latbc%latbc_data(tlev)%atm_in%qc(jc,jk,jb) + &
+              &              latbc%latbc_data(tlev)%atm_in%qi(jc,jk,jb) + &
+              &              latbc%latbc_data(tlev)%atm_in%qr(jc,jk,jb) + &
+              &              latbc%latbc_data(tlev)%atm_in%qs(jc,jk,jb)) )
 
           ENDDO
         ENDDO
-!$OMP END DO
+!$OMP END PARALLEL DO
+
+      END IF
+
+
+      IF (latbc%buffer%lread_pres) THEN
+        CALL fetch_from_buffer(latbc, 'pres', latbc%latbc_data(tlev)%atm_in%pres)
+      ENDIF
+      IF (latbc%buffer%lread_temp) THEN
+        CALL fetch_from_buffer(latbc, 'temp', latbc%latbc_data(tlev)%atm_in%temp)
+      ENDIF
+      IF (latbc%buffer%lread_vn) THEN
+        CALL fetch_from_buffer(latbc, 'vn', latbc%latbc_data(tlev)%atm_in%vn, latbc%patch_data%edges)
+      END IF
+      IF (latbc%buffer%lread_u_v) THEN
+        CALL fetch_from_buffer(latbc, 'u', latbc%latbc_data(tlev)%atm_in%u)
+        CALL fetch_from_buffer(latbc, 'v', latbc%latbc_data(tlev)%atm_in%v)
       ENDIF
 
-!$OMP END PARALLEL
+
+      IF (latbc%buffer%lread_hhl .and. linitial_file) THEN
+        
+        ! allocate temporary array:
+        ALLOCATE(z_ifc_in(nproma, (nlev_in+1), nblks_c), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) THEN
+          WRITE (0,*) "nlev = ", nlev_in, "; nblks_c=", nblks_c
+          CALL finish(routine, "ALLOCATE failed!")
+        END IF
+
+        CALL fetch_from_buffer(latbc, latbc%buffer%hhl_var, z_ifc_in)
+
+!$OMP PARALLEL DO PRIVATE (jk,j,jb,jc) ICON_OMP_DEFAULT_SCHEDULE
+        DO jk = 1, nlev_in
+          DO j = 1, latbc%patch_data%cells%n_own
+            jb = latbc%patch_data%cells%own_blk(j) ! Block index in distributed patch
+            jc = latbc%patch_data%cells%own_idx(j) ! Line  index in distributed patch
+
+            IF (.NOT. latbc%patch_data%cells%read_mask(jc,jb)) CYCLE
+            
+            latbc%latbc_data_const%z_mc_in(jc,jk,jb)  = (z_ifc_in(jc,jk,jb) + z_ifc_in(jc,jk+1,jb) ) * 0.5_wp
+          ENDDO
+        ENDDO
+!$OMP END PARALLEL DO
+       
+      END IF
+
+
+      ! Read vertical component of velocity (W) or OMEGA
+
+      IF (latbc%buffer%lconvert_omega2w) THEN
+
+         ! allocate temporary array:
+         ALLOCATE(omega(nproma, (nlev_in+1), nblks_c), STAT=ierrstat)
+         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
+         CALL fetch_from_buffer(latbc, 'w', omega)
+
+      ELSE
+
+         ! allocate temporary array:
+         ALLOCATE(w_ifc(nproma,    (nlev_in+1), nblks_c), STAT=ierrstat)
+         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
+         CALL fetch_from_buffer(latbc, 'w', w_ifc)
+
+         ! Interpolate input 'w' from the interface levels to the main levels:
+
+         ! consistency check
+         IF ((SIZE(latbc%latbc_data(tlev)%atm_in%w,2) < nlev_in) .OR. (SIZE(w_ifc,2) < (nlev_in+1))) THEN
+           CALL finish(routine, "Internal error!")
+         END IF
+
+!$OMP PARALLEL DO PRIVATE (jk,j,jb,jc) ICON_OMP_DEFAULT_SCHEDULE
+         DO jk = 1, nlev_in
+            DO j = 1, p_ri%n_own
+               jb = p_ri%own_blk(j) ! Block index in distributed patch
+               jc = p_ri%own_idx(j) ! Line  index in distributed patch
+
+               IF (.NOT. latbc%patch_data%cells%read_mask(jc,jb)) CYCLE
+
+               latbc%latbc_data(tlev)%atm_in%w(jc,jk,jb) = (w_ifc(jc,jk,jb) + w_ifc(jc,jk+1,jb)) * 0.5_wp
+            ENDDO
+         ENDDO
+!$OMP END PARALLEL DO
+
+      ENDIF
+
+
+      IF (latbc%buffer%lread_ps_geop) THEN
+        ! allocate local temporary arrays:
+        ALLOCATE(psfc(nproma, nblks_c), phi_sfc(nproma, nblks_c), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
+        ! Read parameter surface pressure (LNPS)
+        CALL fetch_from_buffer(latbc, "pres_sfc", psfc)
+
+        ! Read parameter  surface Geopotential (GEOSP)
+        CALL fetch_from_buffer(latbc, latbc%buffer%geop_ml_var, phi_sfc)
+      ENDIF
 
       ! boundary exchange for a 2-D and 3-D array, needed because the
       ! vertical interpolation includes the halo region (otherwise, the 
       ! syncs would have to be called after vert_interp)
-      CALL sync_patch_array_mult(SYNC_C,p_patch,4,latbc%latbc_data(tlev)%atm_in%temp, &
-        &                        latbc%latbc_data(tlev)%atm_in%z3d,                   &
-        &                        latbc%latbc_data(tlev)%atm_in%w,                     &
-        &                        latbc%latbc_data(tlev)%atm_in%pres)
+      CALL sync_patch_array_mult(SYNC_C,p_patch,4, latbc%latbc_data_const%z_mc_in,  &
+        &                        latbc%latbc_data(tlev)%atm_in%w,                   &
+        &                        latbc%latbc_data(tlev)%atm_in%pres,                &
+        &                        latbc%latbc_data(tlev)%atm_in%temp)
       CALL sync_patch_array_mult(SYNC_C,p_patch,5,latbc%latbc_data(tlev)%atm_in%qv, &
         &                        latbc%latbc_data(tlev)%atm_in%qc,                  &
         &                        latbc%latbc_data(tlev)%atm_in%qi,                  &
         &                        latbc%latbc_data(tlev)%atm_in%qr,                  &
         &                        latbc%latbc_data(tlev)%atm_in%qs)
+
       IF (latbc%buffer%lread_vn) THEN
          CALL sync_patch_array(SYNC_E,p_patch,latbc%latbc_data(tlev)%atm_in%vn)
       ELSE
          CALL sync_patch_array_mult(SYNC_C,p_patch,2,latbc%latbc_data(tlev)%atm_in%u, &
            &                        latbc%latbc_data(tlev)%atm_in%v)
       ENDIF
-      IF (lconvert_omega2w) CALL sync_patch_array(SYNC_C,p_patch,latbc%latbc_data(tlev)%atm_in%omega)
-      IF (.NOT. latbc%buffer%lthd_progvars) THEN
-        CALL sync_patch_array(SYNC_C,p_patch,latbc%latbc_data(tlev)%atm_in%phi_sfc)
-        CALL sync_patch_array(SYNC_C,p_patch,latbc%latbc_data(tlev)%atm_in%psfc)
+
+      IF (latbc%buffer%lcompute_hhl_pres) THEN ! i.e. atmospheric data from IFS
+        CALL sync_patch_array(SYNC_C, p_patch, phi_sfc)
+        CALL sync_patch_array(SYNC_C, p_patch, psfc)
+
+        IF (.NOT. latbc%patch_data%cells%this_skip .OR. .NOT. latbc_config%lsparse_latbc) THEN
+          CALL compute_input_pressure_and_height(p_patch, psfc, phi_sfc, latbc%latbc_data(tlev))
+        END IF
+      END IF
+
+      IF (latbc%buffer%lconvert_omega2w) THEN
+        CALL sync_patch_array(SYNC_C, p_patch, omega)
+        ! (note that "convert_omega2w" requires the pressure field
+        ! which has been computed before)
+        IF (.NOT. latbc%patch_data%cells%this_skip .OR. .NOT. latbc_config%lsparse_latbc) THEN
+          CALL convert_omega2w(omega, &
+            &                  latbc%latbc_data(tlev)%atm_in%w,     &
+            &                  latbc%latbc_data(tlev)%atm_in%pres,  &
+            &                  latbc%latbc_data(tlev)%atm_in%temp,  &
+            &                  nblks_c, p_patch%npromz_c, nlev_in )
+        END IF
+      END IF
+
+      ! cleanup
+      IF (ALLOCATED(omega))    DEALLOCATE(omega)
+      IF (ALLOCATED(psfc))     DEALLOCATE(psfc)
+      IF (ALLOCATED(phi_sfc))  DEALLOCATE(phi_sfc)
+      IF (ALLOCATED(w_ifc))    DEALLOCATE(w_ifc)
+      IF (ALLOCATED(z_ifc_in)) DEALLOCATE(z_ifc_in)
+
+      ! perform vertical interpolation of horizontally interpolated analysis data.
+      !
+      ! - note that we compute RHO in this subroutine.
+      ! - note that "vert_interp" is MPI-collective, we cannot skip
+      !   this for single PEs
+      !
+      IF (latbc_config%lsparse_latbc) THEN
+        IF ( .NOT. (latbc%patch_data%cells%this_skip .AND. latbc%patch_data%edges%this_skip)) THEN
+          CALL vert_interp(p_patch, p_int, p_nh_state%metrics, latbc%latbc_data(tlev),   &
+            &    opt_use_vn=latbc%buffer%lread_vn,                                       &
+            &    opt_lmask_c=latbc%patch_data%cells%read_mask,                           &
+            &    opt_lmask_e=latbc%patch_data%edges%read_mask, opt_latbcmode=.TRUE.)
+        ENDIF
+      ELSE
+        CALL vert_interp(p_patch, p_int, p_nh_state%metrics, latbc%latbc_data(tlev),   &
+          &    opt_use_vn=latbc%buffer%lread_vn, opt_latbcmode=.TRUE.)
       ENDIF
 
-      ! perform vertical interpolation of horizonally interpolated analysis data
-      !
-      CALL vert_interp(p_patch, p_int, p_nh_state%metrics, nlev, latbc%latbc_data(tlev),              &
-           &    opt_convert_omega2w=lconvert_omega2w, opt_use_vn=latbc%buffer%lread_vn)
+      CALL sync_patch_array(SYNC_E,p_patch,latbc%latbc_data(tlev)%atm_in%vn)
 
 #endif
     END SUBROUTINE compute_latbc_intp_data
@@ -1451,13 +1113,11 @@
     ! first time level of the lateral boundary data
     !
     SUBROUTINE copy_fg_to_latbc(latbc_data, p_nh, tlev)
-      TYPE(t_initicon_state), INTENT(INOUT) :: latbc_data(:)
+      TYPE(t_init_state),     INTENT(INOUT) :: latbc_data(:)
       TYPE(t_nh_state),       INTENT(IN)    :: p_nh
       INTEGER,                INTENT(IN)    :: tlev
 
-      INTEGER :: jg
-
-      jg = 1
+      INTEGER, PARAMETER :: jg = 1
 
 !$OMP PARALLEL
       CALL copy(p_nh%prog(nnow(jg))%vn,      latbc_data(tlev)%atm%vn)
@@ -1473,23 +1133,22 @@
 
     END SUBROUTINE copy_fg_to_latbc
 
+
     !-------------------------------------------------------------------------
     !>
     !! @par Revision History
     !! Initial version by G. Zaengl, DWD (2013-10-22)
     !!
     SUBROUTINE compute_boundary_tendencies ( latbc_data, p_patch, p_nh, tlev )
-      TYPE(t_initicon_state), INTENT(IN)    :: latbc_data(:)
+      TYPE(t_init_state),     INTENT(IN)    :: latbc_data(:)
       TYPE(t_patch),          INTENT(IN)    :: p_patch
       TYPE(t_nh_state),       INTENT(INOUT) :: p_nh
       INTEGER,                INTENT(IN)    :: tlev
 
 #ifndef NOMPI
       ! Local variables
-      INTEGER                         :: i_startblk, i_endblk, &
-           &                                i_startidx, i_endidx
-      INTEGER                         :: jc, jk, jb, je
-      INTEGER                         :: nlev, nlevp1, prev_latbc_tlev
+      INTEGER                         :: i_startblk, i_endblk, i_startidx, i_endidx,    &
+        &                                jc, jk, jb, je, nlev, nlevp1, prev_latbc_tlev
       REAL(wp)                        :: rdt
 
       prev_latbc_tlev = 3 - tlev
@@ -1533,6 +1192,7 @@
               i_startidx, i_endidx, 1, grf_bdywidth_c)
 
          DO jk = 1, nlev
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
 
                p_nh%diag%grf_tend_rho(jc,jk,jb) = rdt * (            &
@@ -1602,10 +1262,9 @@
       ! Simply send a message from Input prefetching PE 0 to work PE 0
       ! p_pe_work == 0 signifies processor 0 in Input prefetching PEs
       IF(p_pe_work == 0) THEN
-         !     CALL p_wait()
-
         msg = msg_pref_done
-        CALL p_isend(msg, p_work_pe0, 0)
+        CALL p_isend(msg, p_work_pe0, TAG_PREFETCH2WORK)
+        CALL p_wait()
       ENDIF
 #endif
     END SUBROUTINE async_pref_send_handshake
@@ -1619,14 +1278,16 @@
     SUBROUTINE compute_wait_for_async_pref()
 #ifndef NOMPI
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_wait_for_async_pref"
-      INTEGER :: msg, action_tag
+      INTEGER :: msg
 
       ! First compute PE receives message from input prefetching leader
       IF(p_pe_work==0) THEN
-         CALL p_recv(msg, p_pref_pe0, 0)
-         action_tag = msg
+         msg = 0
+         CALL p_recv(msg, p_pref_pe0, TAG_PREFETCH2WORK)
          ! Just for safety: Check if we got the correct tag
-         IF(action_tag /= msg_pref_done) CALL finish(routine, 'Compute PE: Got illegal prefetching tag')
+         IF(msg /= msg_pref_done) THEN
+           CALL finish(routine, 'Compute PE: Got illegal prefetching tag: '//int2string(msg,'(i0)'))
+         END IF
       ENDIF
       ! Wait in barrier until message is here
       CALL p_barrier(p_comm_work)
@@ -1653,10 +1314,7 @@
 
       ! Receive message that we may start transferring the prefetching data (or should finish)
       IF(p_pe_work == 0) THEN
-         ! launch non-blocking receive request
-         CALL p_wait()
-         CALL p_irecv(msg, p_work_pe0, 0)
-         CALL p_wait()
+         CALL p_recv(msg, p_work_pe0, TAG_WORK2PREFETCH)
       END IF
 
       SELECT CASE(msg)
@@ -1685,10 +1343,8 @@
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_start_async_pref"
 
       !   CALL p_barrier(comm=p_comm_work) ! make sure all are here
-
       msg = msg_pref_start
-
-      IF(p_pe_work==0) CALL p_send(msg, p_pref_pe0, 0)
+      IF(p_pe_work==0) CALL p_send(msg, p_pref_pe0, TAG_WORK2PREFETCH)
 #endif
     END SUBROUTINE compute_start_async_pref
 
@@ -1703,54 +1359,36 @@
       INTEGER :: msg
 
       !  CALL p_barrier(comm=p_comm_work) ! make sure all are here
-
       msg = msg_pref_shutdown
-
-      IF(p_pe_work==0) CALL p_send(msg, p_pref_pe0, 0)
+      IF(p_pe_work==0) CALL p_send(msg, p_pref_pe0, TAG_WORK2PREFETCH)
 #endif
     END SUBROUTINE compute_shutdown_async_pref
 
     !-------------------------------------------------------------------------
     !>
-    ! Return the index for a give variable in mapped variable list
+    ! Return the index for a given variable in mapped variable list
     !
     !! @par Revision History
     !! Initial version by M. Pondkule, DWD (2013-05-19)
     !!
-    FUNCTION get_field_index(latbc,name,opt_lmap) RESULT(result_varID)
+    FUNCTION get_field_index(latbc,name) RESULT(result_varID)
       TYPE (t_latbc_data), INTENT(IN) :: latbc
       CHARACTER (LEN=*),   INTENT(IN) :: name !< variable name
-      LOGICAL, OPTIONAL,   INTENT(IN) :: opt_lmap
       ! local variables
       LOGICAL, PARAMETER :: ldebug = .FALSE.
       INTEGER :: result_varID, varID
-      LOGICAL :: lmap
-
-      lmap = .FALSE.
-      IF (PRESENT(opt_lmap)) THEN
-        IF (opt_lmap) lmap = .TRUE.
-      ENDIF
 
       IF (ldebug)  WRITE (0,*) "name : ", TRIM(name)
 
       result_varID = -1
-      ! looping over variable list in internal or mapped name
-      IF (lmap) THEN
-        DO varID=1, latbc%buffer%ngrp_vars
-          IF (ldebug)  WRITE (0,*) "mapped name : ", TRIM(latbc%buffer%mapped_name(varID))
-          IF (TRIM(name) == TRIM(latbc%buffer%mapped_name(varID))) THEN
-            result_varID = varID
-          END IF
-        END DO
-      ELSE
-        DO varID=1, latbc%buffer%ngrp_vars
-          IF (ldebug)  WRITE (0,*) "internal name : ", TRIM(latbc%buffer%internal_name(varID))
-          IF (TRIM(name) == TRIM(latbc%buffer%internal_name(varID))) THEN
-            result_varID = varID
-          END IF
-        END DO
-      ENDIF
-
+      ! looping over variable list in internal name
+      LOOP : DO varID=1, latbc%buffer%ngrp_vars
+        IF (ldebug)  WRITE (0,*) "internal name : ", TRIM(latbc%buffer%internal_name(varID))
+        IF (TRIM(tolower(name)) == TRIM(tolower(latbc%buffer%internal_name(varID)))) THEN
+          result_varID = varID
+          EXIT LOOP
+        END IF
+      END DO LOOP
     END FUNCTION get_field_index
 
     !-------------------------------------------------------------------------
@@ -1762,9 +1400,8 @@
     !!
     SUBROUTINE update_lin_interpolation( latbc, step_datetime )
       TYPE(t_latbc_data), INTENT(IN)    :: latbc
-      TYPE(datetime), pointer  :: step_datetime
-      TYPE(datetime), pointer  :: mtime_step
-      TYPE(timedelta), pointer :: delta_tstep
+      TYPE(datetime),  POINTER  :: step_datetime
+      TYPE(timedelta), POINTER  :: delta_tstep
 
       CHARACTER(LEN=*), PARAMETER         :: routine = modname//"::update_lin_interpolation"
 
@@ -1786,6 +1423,84 @@
 #endif
 
     END SUBROUTINE update_lin_interpolation
+
+
+    ! ----------------------------------------------------------------------
+    ! Auxiliary routine: fetches data from latbc buffer.
+    !
+    SUBROUTINE fetch_from_buffer_2D(latbc, name, target_buf, opt_p_ri)
+      TYPE(t_latbc_data), INTENT(IN), TARGET :: latbc             !< contains read buffer
+      CHARACTER(LEN=*),   INTENT(IN)         :: name              !< variable name
+      REAL(wp),           INTENT(INOUT)      :: target_buf(:,:)   !< target buffer
+      TYPE(t_reorder_data), POINTER, OPTIONAL, INTENT(IN) :: opt_p_ri         !< patch indices (cells, edges)
+      ! local variables
+      CHARACTER(LEN=*), PARAMETER :: routine = modname//"::fetch_from_buffer_2D"
+      INTEGER :: jm, j, jb, jl
+      TYPE(t_reorder_data), POINTER :: p_ri !< patch indices (cells, edges)
+
+      p_ri => latbc%patch_data%cells
+      IF (PRESENT(opt_p_ri))  p_ri => opt_p_ri
+
+      jm = get_field_index(latbc, TRIM(name))
+      IF (jm <= 0)  CALL finish(routine//"_"//TRIM(name), "Internal error, invalid field index!")
+
+!$OMP PARALLEL DO PRIVATE (j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+      DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
+        jb = p_ri%own_blk(j) ! Block index in distributed patch
+        jl = p_ri%own_idx(j) ! Line  index in distributed patch
+        IF (.NOT. p_ri%read_mask(jl,jb)) CYCLE
+        target_buf(jl,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,1,jb), wp)
+      ENDDO
+!$OMP END PARALLEL DO
+    END SUBROUTINE fetch_from_buffer_2D
+
+
+    SUBROUTINE fetch_from_buffer_3D_cells(latbc, name, target_buf)
+      TYPE(t_latbc_data), INTENT(IN), TARGET :: latbc             !< contains read buffer
+      CHARACTER(LEN=*),   INTENT(IN)         :: name              !< variable name
+      REAL(wp),           INTENT(INOUT)      :: target_buf(:,:,:) !< target buffer
+
+      CALL fetch_from_buffer_3D_generic(latbc, name, target_buf, latbc%patch_data%cells)
+    END SUBROUTINE fetch_from_buffer_3D_cells
+
+
+    SUBROUTINE fetch_from_buffer_3D_generic(latbc, name, target_buf, p_ri)
+      TYPE(t_latbc_data),   INTENT(IN), TARGET :: latbc             !< contains read buffer
+      CHARACTER(LEN=*),     INTENT(IN)         :: name              !< variable name
+      REAL(wp),             INTENT(INOUT)      :: target_buf(:,:,:) !< target buffer
+      TYPE(t_reorder_data), INTENT(IN)         :: p_ri              !< patch indices (cells, edges)
+      ! local variables
+      CHARACTER(LEN=*), PARAMETER :: routine = modname//"::fetch_from_buffer_3D_generic"
+      INTEGER :: jm, jk, j, jb, jl
+
+      jm = get_field_index(latbc, TRIM(name))
+      IF (jm <= 0)  CALL finish(routine//"_"//TRIM(name), "Internal error, invalid field index!")
+
+      ! consistency check
+      IF ((SIZE(target_buf,2) < latbc%buffer%nlev(jm)) .OR.  &
+        & (SIZE(latbc%buffer%vars(jm)%buffer,2) < latbc%buffer%nlev(jm))) THEN
+        CALL finish(routine//"_"//TRIM(name), "Internal error!")
+      END IF
+
+!$OMP PARALLEL DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
+#ifdef __LOOP_EXCHANGE
+      DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
+        jb = p_ri%own_blk(j) ! Block index in distributed patch
+        jl = p_ri%own_idx(j) ! Line  index in distributed patch
+        IF (.NOT. p_ri%read_mask(jl,jb)) CYCLE
+        DO jk=1, latbc%buffer%nlev(jm)
+#else
+      DO jk=1, latbc%buffer%nlev(jm)
+        DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
+          jb = p_ri%own_blk(j) ! Block index in distributed patch
+          jl = p_ri%own_idx(j) ! Line  index in distributed patch
+          IF (.NOT. p_ri%read_mask(jl,jb)) CYCLE
+#endif
+          target_buf(jl,jk,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,jk,jb), wp)
+        ENDDO
+      ENDDO
+!$OMP END PARALLEL DO
+    END SUBROUTINE fetch_from_buffer_3D_generic
 
     !-------------------------------------------------------------------------
 

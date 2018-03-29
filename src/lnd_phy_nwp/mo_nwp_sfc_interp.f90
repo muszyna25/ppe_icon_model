@@ -25,22 +25,24 @@ MODULE mo_nwp_sfc_interp
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_parallel_config,     ONLY: nproma 
-  USE mo_initicon_config,     ONLY: nlevsoil_in, nlevatm_in
-  USE mo_initicon_types,      ONLY: t_initicon_state
+  USE mo_initicon_types,      ONLY: t_init_state
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ibot_w_so
+  USE mo_run_config,          ONLY: msg_level
   USE mo_impl_constants,      ONLY: zml_soil, dzsoil_icon => dzsoil
   USE mo_physical_constants,  ONLY: grav, dtdz_standardatm
   USE mo_phyparam_soil,       ONLY: cporv, cadp, cfcap, cpwp
   USE mo_ext_data_state,      ONLY: ext_data
-  USE mo_exception,           ONLY: finish
+  USE mo_exception,           ONLY: finish, message_text, message
 
   IMPLICIT NONE
   PRIVATE
 
 
+  ! SUBROUTINE
   PUBLIC :: process_sfcfields
   PUBLIC :: smi_to_wsoil
   PUBLIC :: wsoil_to_smi
+  PUBLIC :: wsoil2smi
 
 CONTAINS
 
@@ -65,13 +67,13 @@ CONTAINS
 
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch
-    TYPE(t_initicon_state), INTENT(INOUT)    :: initicon
+    CLASS(t_init_state),    INTENT(INOUT)    :: initicon
 
     ! LOCAL VARIABLES
     CHARACTER(LEN=*), PARAMETER       :: routine = 'process_sfcfields'
 
     INTEGER  :: jg, jb, jk, jc, jk1, idx0(nlev_soil-1)
-    INTEGER  :: nlen, nlev, nlev_in
+    INTEGER  :: nlen, nlev, nlev_in, nlevsoil_in
 
     REAL(wp) :: tcorr1(nproma),tcorr2(nproma),wfac,wfac_vintp(nlev_soil-1),wfac_snow,snowdep
 
@@ -83,10 +85,14 @@ CONTAINS
     jg   = p_patch%id
     nlev = p_patch%nlev
 
-    nlev_in = nlevatm_in(jg)
+    nlev_in     = initicon%atm_in%nlev
+    nlevsoil_in = initicon%sfc_in%nlevsoil 
 
     IF (nlev_in == 0) THEN
       CALL finish(routine, "Number of input levels <nlev_in> not yet initialized.")
+    END IF
+    IF (nlevsoil_in /= SIZE(zsoil_ifs,1)) THEN
+      CALL finish(routine, "Number of soil levels <nlevsoil_in> does not match soil level heights <zsoil_ifs>.")
     END IF
 
     ! Vertical interpolation indices and weights
@@ -160,7 +166,7 @@ CONTAINS
         tcorr1(jc) = initicon%atm%temp(jc,nlev,jb) - initicon%atm_in%temp(jc,nlev_in,jb)
         ! climatological correction for deep soil levels
         tcorr2(jc) = dtdz_standardatm &
-          &        * (initicon%topography_c(jc,jb)-initicon%sfc_in%phi(jc,jb)/grav)
+          &        * (initicon%const%topography_c(jc,jb)-initicon%sfc_in%phi(jc,jb)/grav)
       ENDDO
 
       DO jk = 1, nlevsoil_in
@@ -259,6 +265,11 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER       :: routine = 'mo_nwp_sfc_interp:smi_to_wsoil'
 !-------------
+
+    IF (msg_level >= 10) THEN
+      WRITE(message_text,'(a)') 'convert SMI to W_SO'
+      CALL message('smi_to_wsoil:', TRIM(message_text))
+    ENDIF
 
     jg = p_patch%id
 
@@ -366,6 +377,11 @@ CONTAINS
 
 !-------------
 
+    IF (msg_level >= 10) THEN
+      WRITE(message_text,'(a)') 'convert W_SO to SMI'
+      CALL message('wsoil_to_smi:', TRIM(message_text))
+    ENDIF
+
     jg = p_patch%id
 
 !$OMP PARALLEL
@@ -445,5 +461,31 @@ CONTAINS
 
   END SUBROUTINE wsoil_to_smi
 
+
+  SUBROUTINE wsoil2smi(wsoil, dzsoil, soiltyp, smi, ierr)
+    !
+    REAL(wp), INTENT(IN) :: wsoil    !< soil moisture mass [m H2O]
+    REAL(wp), INTENT(IN) :: dzsoil   !< soil layer thickness [m]
+    INTEGER , INTENT(IN) :: soiltyp  !< soiltype
+    REAL(wp), INTENT(OUT):: smi      !< soil moisture index
+    INTEGER , INTENT(OUT):: ierr     !< error code
+
+    ierr = 0
+
+    SELECT CASE(soiltyp)
+      CASE (1,2)  !ice,rock
+      ! set wsoil to 0 for ice and rock
+      smi = 0._wp
+
+      CASE(3,4,5,6,7,8)  !sand,sandyloam,loam,clayloam,clay,peat
+      smi = (wsoil/dzsoil - cpwp(soiltyp))/(cfcap(soiltyp) - cpwp(soiltyp))
+
+      CASE(9,10)!sea water, sea ice
+      ! ERROR landpoint has soiltype sea water or sea ice
+      ierr = -1
+
+    END SELECT
+
+  END SUBROUTINE wsoil2smi
 
 END MODULE mo_nwp_sfc_interp

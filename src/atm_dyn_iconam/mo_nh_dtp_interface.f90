@@ -10,7 +10,7 @@
 !! First version for non-hydrostatic core by Daniel Reinert, DWD (2010-04-14)
 !! Modification by Daniel Reinert, DWD (2011-02-14)
 !! - included computation of nonzero fluxes at the upper boundary
-!!   (necessery if vertical nesting is swithced on)
+!!   (necessary if vertical nesting is switched on)
 !! Modification by William Sawyer, CSCS (2015-02-06)
 !! - OpenACC implementation
 !!
@@ -41,7 +41,7 @@ MODULE mo_nh_dtp_interface
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants,     ONLY: min_rledge_int, min_rlcell_int, min_rlcell
   USE mo_sync,               ONLY: SYNC_C, sync_patch_array, sync_patch_array_mult
-  USE mo_advection_config,   ONLY: advection_config
+  USE mo_advection_config,   ONLY: advection_config, t_trList
   USE mo_initicon_config,    ONLY: is_iau_active, iau_wgt_adv
   USE mo_timer,              ONLY: timers_level, timer_start, timer_stop, timer_prep_tracer
   USE mo_fortran_tools,      ONLY: init
@@ -123,11 +123,12 @@ CONTAINS
     ! Pointers to quad edge indices
     INTEGER,  POINTER :: iqidx(:,:,:), iqblk(:,:,:)
 
-    INTEGER  :: je, jc, jk, jb, jg, jt    !< loop indices and domain ID
+    INTEGER  :: je, jc, jk, jb, jg, jt, nt    !< loop indices and domain ID
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart_e, i_rlend_e, i_rlstart_c, i_rlend_c, i_nchdom
     INTEGER  :: nlev, nlevp1       !< number of full and half levels
 
+    TYPE(t_trList), POINTER :: trAdvect      !< Pointer to tracer sublist
   !--------------------------------------------------------------------------
     IF (timers_level > 2) CALL timer_start(timer_prep_tracer)
 
@@ -144,6 +145,9 @@ CONTAINS
 
     ! domain ID
     jg = p_patch%id
+
+    ! tracer fields which are advected
+    trAdvect => advection_config(jg)%trAdvect
 
     ! Set pointers to quad edges
     iqidx => p_patch%edges%quad_idx
@@ -406,12 +410,14 @@ CONTAINS
       i_startblk = p_patch%cells%start_blk(i_rlstart_c,1)
       i_endblk   = p_patch%cells%end_blk(i_rlend_c,i_nchdom)
 
-!$OMP PARALLEL DO PRIVATE(jb,jt,jc,i_startidx,i_endidx)
+!$OMP PARALLEL DO PRIVATE(jb,jt,jc,nt,i_startidx,i_endidx)
       DO jb = i_startblk, i_endblk
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
           &                 i_startidx, i_endidx, i_rlstart_c, i_rlend_c )
 
-        DO jt = 1, ntracer
+        DO nt = 1, trAdvect%len ! Tracer loop
+
+          jt = trAdvect%list(nt)
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             z_topflx_tra(jc,jt,jb) = p_nh_diag%q_ubc(jc,jb,jt)           &
@@ -426,12 +432,15 @@ CONTAINS
       i_startblk = p_patch%cells%start_blk(i_rlstart_c,1)
       i_endblk   = p_patch%cells%end_blk(min_rlcell,i_nchdom)
 
-!$OMP PARALLEL DO PRIVATE(jb,jt,jc,i_startidx,i_endidx)
+!$OMP PARALLEL DO PRIVATE(jb,jt,jc,nt,i_startidx,i_endidx)
       DO jb = i_startblk, i_endblk
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
           &                 i_startidx, i_endidx, i_rlstart_c, min_rlcell)
 
-        DO jt = 1, ntracer
+        DO nt = 1, trAdvect%len ! Tracer loop
+
+          jt = trAdvect%list(nt)
+
           DO jc = i_startidx, i_endidx
             p_topflx_tra(jc,jb,jt) = z_topflx_tra(jc,jt,jb)
           ENDDO
@@ -499,7 +508,7 @@ CONTAINS
 #ifdef _OPENACC
 !$ACC PARALLEL &
 !$ACC PRESENT( p_patch, p_nh_diag, p_prog, p_metrics ), IF( i_am_accel_node )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE

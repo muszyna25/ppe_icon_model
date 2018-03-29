@@ -905,7 +905,7 @@ SUBROUTINE organize_turbdiff ( &
 !
           i_st, i_en, i_stp, i_enp, &
 !
-          l_hori, hhl, dp0, trop_mask, &
+          l_hori, hhl, dp0, trop_mask, innertrop_mask, &
 !
           fr_land, depth_lk, h_ice, gz0, sai, &
 !
@@ -1179,8 +1179,8 @@ REAL (KIND=ireals), DIMENSION(:,:), TARGET, OPTIONAL, INTENT(INOUT) :: &
 
 REAL (KIND=ireals), DIMENSION(:), TARGET, OPTIONAL, INTENT(IN) :: &
 !
-     trop_mask      ! mask-factor (1: within tropics; 0: within extra-tropics)
-                    ! used for vertical smoothing of TKE forcing terms
+     trop_mask,  &   ! mask-factor (1: within tropics; 0: within extra-tropics)
+     innertrop_mask  ! used for vertical smoothing of TKE forcing terms
 REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(INOUT) :: &
 !
      qv_conv         ! qv-flux-convergence                            ( 1/s )
@@ -3558,7 +3558,7 @@ SUBROUTINE turbdiff
 !<For_Tuning
 !Achtung:
 ! x1,x2,x3, &
-           x4, xri(ie,ke)
+           x4, x4i, xri(ie,ke)
 !>For_Tuning
 
 ! Local arrays:
@@ -4837,15 +4837,19 @@ SUBROUTINE turbdiff
                val1=tkmmin*fakt; val2=tkhmin*fakt
 
                IF (tkhmin_strat.GT.z0 .OR. tkmmin_strat.GT.z0) THEN
-                  ! Enhanced diffusion in the stratosphere - very important for the data assimilation cycle,
-                  ! but can also be used in forecasting mode because there is no detectable detrimental
-                  ! impact on gravity waves:
-                  fakt = MIN( z1, 2.e-4_ireals*MAX( z0, hhl(i,k) - 25000._ireals ) ) !lin. incr. betw. 25 and 30 km
-                  fakt = fakt*MIN( 7.5_ireals, MAX( 0.125_ireals, xri(i,k) ) )
-
-                  val1=MAX( val1, tkmmin_strat*fakt ) ; val2=MAX( val2, tkhmin_strat*fakt )
+                  ! Enhanced diffusion in the stratosphere - needed primarily for momentum because 
+                  ! there is otherwise too little dynamic coupling between adjacent model levels
+                  fakt = MIN( z1, 2.e-4_ireals*MAX( z0, hhl(i,k) - 12500._ireals ) ) ! transition zone between 12.5 and 17.5 km
+                  ! Wider transition zone in the tropics in order to avoid too strong diffusion in the tropopause region
+                  x4  = z1-z1d3*trop_mask(i)*MIN(z1, 2.e-4_ireals*MAX(z0, 22500._ireals-hhl(i,k)) )
+                  x4i = z1-z1d2*innertrop_mask(i)*MIN(z1, 2.e-4_ireals*MAX(z0, 27500._ireals-hhl(i,k)) )
+                  fakt = fakt*MIN( x4*1.5_ireals, MAX( 0.25_ireals, SQRT(xri(i,k)) ) )
+                  val1=MAX( val1, tkmmin_strat*MIN(x4,x4i)*fakt ) ; val2=MAX( val2, tkhmin_strat*x4*fakt )
                END IF
-!>Tuning: This kind of correction can be substituded by a less ad-hoc approach.
+!>Tuning: This kind of correction can be substituted by a less ad-hoc approach.
+! Remark (GZ): The enhanced stratospheric diffusion seems to parameterize a missing process outside the turbulence scheme,
+! maybe momentum transports due to non-stationary gravity waves. This may also explain why we need a much larger
+! minimum diffusion coefficient for momentum than for heat.
             END IF
 
 !Achtung: Beschraenkung mit lam. diff.coef. fehlte bislang auch in ICON; macht ev. Unterschiede
@@ -5784,16 +5788,16 @@ REAL (KIND=ireals), DIMENSION(:,khi:), INTENT(INOUT) :: &
   rcld         !inp: standard deviation of oversaturation
                !out: saturation fraction
 
-REAL (KIND=ireals), DIMENSION(:,ktp:), TARGET, INTENT(INOUT) &
+REAL (KIND=ireals), TARGET, INTENT(INOUT) &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
      , CONTIGUOUS &
 #endif
      :: &
-  tet_l, &     !inp: liquid water potent. temp. (only if 'fip' is present)
+  tet_l(:,ktp:), &     !inp: liquid water potent. temp. (only if 'fip' is present)
                !out: liquid water potent. temp. (or adjust. 't' , if "ladjout")
-  q_h2o, &     !inp: total  water content (only if 'fip' is present)
+  q_h2o(:,ktp:), &     !inp: total  water content (only if 'fip' is present)
                !out: total  water content       (or adjust. 'qv', if "ladjout")
-  q_liq        !out: liquid water content after adjustment
+  q_liq(:,ktp:)        !out: liquid water content after adjustment
 
 !REAL (KIND=ireals), DIMENSION(:,khi:), OPTIONAL, INTENT(INOUT) :: & !doesn't work on NAG-compiler
  REAL (KIND=ireals), DIMENSION(ie,k_st:k_en), OPTIONAL, INTENT(INOUT) :: &
@@ -7122,7 +7126,7 @@ REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(IN) :: &
 !
     rho_s            ! air density at the surface                   (Kg/m3)
 
-REAL (KIND=ireals), DIMENSION(:,:), TARGET, INTENT(INOUT) &
+REAL (KIND=ireals), TARGET, INTENT(INOUT) &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
      , CONTIGUOUS &
 #endif
@@ -7131,14 +7135,14 @@ REAL (KIND=ireals), DIMENSION(:,:), TARGET, INTENT(INOUT) &
 !   Auxilary arrays:
 !
 !++++
-    disc_mom, &      ! prep_inp calc_inp: discretis. momentum (rho*dz/dt) on var. levels
-    expl_mom, &      ! prep_inp         : diffusion  momentum (rho*K/dz))
+    disc_mom(:,:), &      ! prep_inp calc_inp: discretis. momentum (rho*dz/dt) on var. levels
+    expl_mom(:,:), &      ! prep_inp         : diffusion  momentum (rho*K/dz))
                      ! prep_out calc_inp: explicit part of diffusion momentum
-    impl_mom, &      ! prep_out calc_inp: implicit  part of diffusion momentum
-    invs_mom, &      ! prep_out calc_inp: inverted momentum
-    invs_fac, &      ! prep_out calc_inp: inversion factor
-    scal_fac, &      ! prep_out calc_inp: scaling factor due to preconditioning
-    diff_dep         ! diffusion depth
+    impl_mom(:,:), &      ! prep_out calc_inp: implicit  part of diffusion momentum
+    invs_mom(:,:), &      ! prep_out calc_inp: inverted momentum
+    invs_fac(:,:), &      ! prep_out calc_inp: inversion factor
+    scal_fac(:,:), &      ! prep_out calc_inp: scaling factor due to preconditioning
+    diff_dep(:,:)         ! diffusion depth
 
                   ! DIMENSION(ie,ke1)
 REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(INOUT) :: &
@@ -7146,7 +7150,7 @@ REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(INOUT) :: &
     diff_mom         ! aux: saved comlete diffusion momentum (only in case of "itndcon.EQ.3")
 !++++
                   ! DIMENSION(ie,ke1)
-REAL (KIND=ireals), DIMENSION(:,:), INTENT(INOUT) &
+REAL (KIND=ireals), INTENT(INOUT) &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
      , CONTIGUOUS &
 #endif
@@ -7154,13 +7158,13 @@ REAL (KIND=ireals), DIMENSION(:,:), INTENT(INOUT) &
 !
 !   Inp-out-variable:
 !
-    cur_prof, &      ! inp     : current   variable profile (will be overwritten!)
+    cur_prof(:,:), &      ! inp     : current   variable profile (will be overwritten!)
                      ! calc_inp: corrected variable profile
                      ! calc_out: current   variable profile including tendency increment
-    eff_flux, &      ! inp     : effective gradient
+    eff_flux(:,:), &      ! inp     : effective gradient
                      ! out     : effective flux density (if "leff_flux=T")
                      ! aux     : downward flux density and related vertical profile increment
-    dif_tend         ! inp     : current time tendency of variable
+    dif_tend(:,:)         ! inp     : current time tendency of variable
                      ! calc_inp: updated   variable profile including tendency increment
                      ! calc_out: updated   variable profile including increments by tendency and diffusion
                      ! out     : pure (vertically smoothed) diffusion tendency

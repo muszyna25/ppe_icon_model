@@ -30,12 +30,10 @@ MODULE mo_util_cdi
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_init, dict_copy, dict_finalize, DICT_MAX_STRLEN
   USE mo_cdi,                ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, vlistNvars, vlistInqVarDatatype, &
-                                 & vlistInqVarIntKey, vlistInqVarZaxis, zaxisInqType, zaxisInqNlevRef, &
+                                 & vlistInqVarIntKey, vlistInqVarZaxis,  &
                                  & vlistInqVarGrid, gridInqSize, zaxisInqSize, DATATYPE_FLT64, DATATYPE_INT32, streamInqTimestep, &
-                                 & vlistInqVarTsteptype, TSTEP_CONSTANT, TSTEP_INSTANT, TSTEP_MAX, TSTEP_MIN, vlistInqTaxis, &
-                                 & taxisInqTunit, TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR, vlistDefVarIntKey, &
-                                 & vlistDefVarTypeOfGeneratingProcess, streamReadVarSliceF, streamReadVarSlice, vlistInqVarName, &
-                                 & TSTEP_AVG,TSTEP_ACCUM,TSTEP_MAX,TSTEP_MIN, vlistInqVarSubtype, subtypeInqSize, &
+                                 & streamReadVarSliceF, streamReadVarSlice, vlistInqVarName, &
+                                 & vlistInqVarSubtype, subtypeInqSize, &
                                  & subtypeDefActiveIndex, DATATYPE_PACK23, DATATYPE_PACK32, cdiStringError
 
   IMPLICIT NONE
@@ -515,8 +513,6 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: routine = modname//':timeStreamReadVarSlice'
     REAL(dp) :: startTime, duration
     INTEGER(i8) :: bytes
-    REAL(dp), SAVE :: totalTime
-    INTEGER(i8), SAVE :: totalBytes
 
     startTime = p_mpi_wtime()
     CALL streamReadVarSlice(parameters%streamID, varID, level, buffer, nmiss)
@@ -542,8 +538,6 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: routine = modname//':timeStreamReadVarSliceF'
     REAL(dp) :: startTime, duration
     INTEGER(i8) :: bytes
-    REAL(dp), SAVE :: totalTime
-    INTEGER(i8), SAVE :: totalBytes
 
     startTime = p_mpi_wtime()
     CALL streamReadVarSliceF(parameters%streamID, varID, level, buffer, nmiss)

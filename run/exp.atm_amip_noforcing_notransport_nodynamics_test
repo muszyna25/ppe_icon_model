@@ -15,24 +15,45 @@ author_list="Marco Giorgetta, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 
+# (0) unset some setting of create_target_header for mistral
+
+unset OMPI_MCA_coll_fca_enable
+unset OMPI_MCA_coll_fca_priority
+
+#--------------------------------------------------------------------------------------------------
+
 # (1) Variables provided by the scripting mechanism
 
 # EXPNAME                       = name of exp. in 'exp.<name>'
 # basedir                       = base directory, where src/, run/ etc exist
+# icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
+
+# overwrite the default setting with the new path and handle daint (CSCS)
+
+if [ -d /users/icontest ]
+then
+    poolFolder_prefix=/users/icontest
+else
+    poolFolder_prefix=
+fi
+
+icon_data_poolFolder="$poolFolder_prefix/pool/data/ICON/grids/private/mpim/icon_preprocessing/source"
 
 #--------------------------------------------------------------------------------------------------
 
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
-grid_name=r2b4_amip
-grids_folder=${icon_data_poolFolder}/grids/private/${grid_name}/r0002
+grid_name=icon_grid_0005_R02B04_G
+grids_folder=${icon_data_poolFolder}/grids
 atmo_dyn_grids=${grid_name}.nc
 
+resolution=$(awk -F'_' '{print $4}' <<< $grid_name)
+
 # start and end date+time
-start_date="1979-01-01T00:00:00Z"
-  end_date="1979-01-01T00:16:00Z"
+start_date=${start_date:="1979-01-01T00:00:00Z"}
+    end_date=${end_date:="1979-01-01T00:16:00Z"}
 
 # restart intervals
 checkpoint_interval="PT8M"
@@ -78,6 +99,7 @@ cat > ${atmo_namelist} << EOF
 /
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
+ ifs2icon_filename= "ifs2icon_1979010100_${resolution}_G.nc"
 /
 &sleve_nml
  min_lay_thckn    = 40.         ! [m]
@@ -89,7 +111,7 @@ cat > ${atmo_namelist} << EOF
  flat_height      = 16000.      ! [m]
 /
 &transport_nml
- tracer_names     = 'v','c','i','4'  ! water vapour, cloud water, cloud ice, tracer 4
+ tracer_names     = 'v','c','i','4'       ! water vapour, cloud water, cloud ice, tracer 4
 /
 EOF
 
@@ -109,11 +131,9 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 
 # initial conditions
 #
-INDATA=${icon_data_poolFolder}/input/r0004
-#
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
-datadir=${icon_data_poolFolder}/setup/ifs_iconremap_amip
-add_link_file $datadir/ifs_remap_${grid_name}_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
+datadir=${icon_data_poolFolder}/initial_condition
+add_link_file $datadir/ifs2icon_1979010100_${resolution}_G.nc           ./
 
 #--------------------------------------------------------------------------------------------------
 
@@ -126,6 +146,8 @@ cat >> ${atmo_namelist} << EOF
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
  lnetcdf_flt64_output = .TRUE.
+ itype_pres_msl   = 4
+ restart_file_type= 5
 /
 EOF
 
@@ -145,6 +167,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_atm_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
@@ -160,6 +183,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
 EOF
 fi
 
+
 output_trc_3d=yes
 #
 if [[ "$output_trc_3d" == "yes" ]]; then
@@ -168,6 +192,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
@@ -175,7 +200,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ps'        , 'pfull'     ,
+ ml_varlist       = 'ps'        , 'pfull'     , 'zg'        ,
                     'q4'        ,
 /
 EOF

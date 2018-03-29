@@ -23,7 +23,7 @@
 !!
 MODULE mo_radiation_nml
 
-    USE mo_radiation_config, ONLY: config_ldiur      => ldiur,       & 
+    USE mo_radiation_config, ONLY: config_ldiur      => ldiur,       &
                                  & config_nmonth     => nmonth,      &
                                  & config_lyr_perp   => lyr_perp,    &
                                  & config_yr_perp    => yr_perp,     &
@@ -31,6 +31,7 @@ MODULE mo_radiation_nml
                                  & config_albedo_type=> albedo_type, &
                                  & config_direct_albedo => direct_albedo, &
                                  & config_icld_overlap => icld_overlap, &
+                                 & config_islope_rad => islope_rad,  &
                                  & config_irad_h2o   => irad_h2o,    &
                                  & config_irad_co2   => irad_co2,    &
                                  & config_irad_ch4   => irad_ch4,    &
@@ -41,7 +42,6 @@ MODULE mo_radiation_nml
                                  & config_irad_cfc12 => irad_cfc12,  &
                                  & config_irad_aero  => irad_aero,   &
                                  & config_lrad_aero_diag => lrad_aero_diag,  &
-                                 & config_ighg       => ighg,        &
                                  & config_vmr_co2    => vmr_co2,     &
                                  & config_vmr_ch4    => vmr_ch4,     &
                                  & config_vmr_n2o    => vmr_n2o,     &
@@ -54,21 +54,14 @@ MODULE mo_radiation_nml
                                  & config_mmr_n2o    => mmr_n2o,     &
                                  & config_mmr_o2     => mmr_o2,      &
                                  & config_mmr_cfc11  => mmr_cfc11,   &
-                                 & config_mmr_cfc12  => mmr_cfc12,   &
-                                 & config_fh2o       => fh2o,        &
-                                 & config_fco2       => fco2,        &
-                                 & config_fch4       => fch4,        &
-                                 & config_fn2o       => fn2o,        &
-                                 & config_fo3        => fo3,         &
-                                 & config_fo2        => fo2,         &
-                                 & config_fcfc       => fcfc
+                                 & config_mmr_cfc12  => mmr_cfc12
 
   USE mo_kind,               ONLY: wp
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amo2, amc11, amc12
-  USE mo_master_config,      ONLY: isRestart
+  USE mo_master_control,     ONLY: use_restart_namelists
   USE mo_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
@@ -120,6 +113,11 @@ MODULE mo_radiation_nml
                              ! 3: maximum overlap
                              ! 4: random overlap
 
+  INTEGER :: islope_rad      ! slope correction for surface radiation
+                             ! 0: none
+                             ! 1: slope correction for solar radiation without shading effects
+                             ! option 2 is reserved for slope-dependent radiation with shading (not yet implemented)
+
   ! --- Switches for radiative agents
   !     irad_x=0 : radiation uses tracer x = 0
   !     irad_x=1 : radiation uses tracer x from a tracer variable
@@ -137,12 +135,6 @@ MODULE mo_radiation_nml
   INTEGER  :: irad_cfc12
   INTEGER  :: irad_aero
   LOGICAL  :: lrad_aero_diag
-  !
-  ! --- Select dynamic greenhouse gases scenario (read from file)
-  !     ighg = 0 : select default gas volume mixing ratios - 1990 values (CMIP5)
-  !     ighg = 1 : transient CMIP5 scenario from file
-  !
-  INTEGER  :: ighg
   !
   ! --- Default gas volume mixing ratios - 1990 values (CMIP5)
   !
@@ -163,16 +155,6 @@ MODULE mo_radiation_nml
   REAL(wp) :: vmr_cfc11
   REAL(wp) :: vmr_cfc12
 #endif
-  !
-  ! --- Scaling factor for mixing ratios
-  !
-  REAL(wp) :: fh2o
-  REAL(wp) :: fco2
-  REAL(wp) :: fch4
-  REAL(wp) :: fn2o
-  REAL(wp) :: fo3
-  REAL(wp) :: fo2
-  REAL(wp) :: fcfc
   !
   ! --- Time control
   !
@@ -195,10 +177,8 @@ MODULE mo_radiation_nml
     &                      irad_cfc12, vmr_cfc12, &
     &                      irad_aero,             &
     &                      lrad_aero_diag,        &
-    &                      ighg,                  &
-    &                      fh2o, fco2, fch4, fn2o,&
-    &                      fo3, fo2, fcfc,        &
-    &                      izenith, icld_overlap
+    &                      izenith, icld_overlap, &
+    &                      islope_rad
 
 CONTAINS
 
@@ -238,6 +218,7 @@ CONTAINS
     albedo_type    = 1
     direct_albedo  = 4   ! Parameterization after Briegleb (1992)
     icld_overlap   = 2   ! generalized random overlap
+    islope_rad     = 0   ! no slope correction
 
     irad_h2o    = 1
     irad_co2    = 2
@@ -250,23 +231,12 @@ CONTAINS
     irad_aero   = 2
     lrad_aero_diag = .FALSE.
 
-    ighg        = 0
-
     vmr_co2     = 348.0e-06_wp
     vmr_ch4     = 1650.0e-09_wp
     vmr_n2o     =  306.0e-09_wp
     vmr_o2      =    0.20946_wp
     vmr_cfc11   =  214.5e-12_wp
     vmr_cfc12   =  371.1e-12_wp
-
-    fh2o = 1.0_wp
-    fco2 = 1.0_wp
-    fch4 = 1.0_wp
-    fn2o = 1.0_wp
-    fo3  = 1.0_wp
-    fo2  = 1.0_wp
-    fcfc = 1.0_wp
-
 
     izenith     = 4  ! Default: seasonal orbit and diurnal cycle
 
@@ -275,7 +245,7 @@ CONTAINS
     !    by values used in the previous integration.
     !------------------------------------------------------------------
 
-    IF (isRestart()) THEN
+    IF (use_restart_namelists()) THEN
       funit = open_and_restore_namelist('radiation_nml')
       READ(funit,NML=radiation_nml)
       CALL close_tmpfile(funit)
@@ -313,6 +283,7 @@ CONTAINS
     config_albedo_type= albedo_type
     config_direct_albedo = direct_albedo
     config_icld_overlap = icld_overlap
+    config_islope_rad = islope_rad
     config_irad_h2o   = irad_h2o
     config_irad_co2   = irad_co2
     config_irad_ch4   = irad_ch4
@@ -323,7 +294,6 @@ CONTAINS
     config_irad_cfc12 = irad_cfc12
     config_irad_aero  = irad_aero
     config_lrad_aero_diag = lrad_aero_diag
-    config_ighg       = ighg
     config_vmr_co2    = vmr_co2
     config_vmr_ch4    = vmr_ch4
     config_vmr_n2o    = vmr_n2o
@@ -336,13 +306,6 @@ CONTAINS
     config_mmr_o2     = vmr_o2    * amo2 /amd
     config_mmr_cfc11  = vmr_cfc11 * amc11/amd
     config_mmr_cfc12  = vmr_cfc12 * amc12/amd
-    config_fh2o       = fh2o
-    config_fco2       = fco2
-    config_fch4       = fch4
-    config_fn2o       = fn2o
-    config_fo3        = fo3
-    config_fo2        = fo2
-    config_fcfc       = fcfc
 
     config_izenith    = izenith
 

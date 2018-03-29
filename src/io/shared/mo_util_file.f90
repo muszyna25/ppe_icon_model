@@ -7,11 +7,13 @@
 !! headers of the routines.
 MODULE mo_util_file
 
-  USE, INTRINSIC ::  ISO_C_BINDING, ONLY: C_INT, C_CHAR, C_NULL_CHAR, C_LONG
-  USE mo_kind,        ONLY: i8
-  
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR, C_NULL_CHAR, C_LONG, C_SIZE_T
+  USE mo_exception, ONLY: finish
+  USE mo_impl_constants, ONLY: SUCCESS
+  USE mo_kind, ONLY: i8
+
   IMPLICIT NONE
-  
+
   PRIVATE
 
   INTERFACE 
@@ -121,12 +123,33 @@ MODULE mo_util_file
     END FUNCTION private_filesize
   END INTERFACE
 
+  INTERFACE
+    FUNCTION private_file_is_writable(filename) RESULT(iwritable) BIND(C,NAME='util_file_is_writable')
+#if defined (__SUNPRO_F95)
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
+#else
+      IMPORT :: C_INT, C_CHAR
+#endif
+      INTEGER(C_INT) :: iwritable
+#if defined (__SUNPRO_F95)
+      CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: filename
+#else
+      CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: filename
+#endif
+    END FUNCTION private_file_is_writable
+  END INTERFACE
+
   PUBLIC :: util_symlink
   PUBLIC :: util_unlink
   PUBLIC :: util_islink
   PUBLIC :: util_rename
   PUBLIC :: util_tmpnam
   PUBLIC :: util_filesize
+  PUBLIC :: util_file_is_writable
+  PUBLIC :: putFile
+  PUBLIC :: createSymlink
+
+  CHARACTER(*), PARAMETER :: modname = "mo_util_file"
 
 CONTAINS
 
@@ -219,6 +242,74 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: filename
     flen = private_filesize(TRIM(filename)//C_NULL_CHAR)
   END FUNCTION util_filesize
+
+  FUNCTION util_file_is_writable(filename) RESULT(lwritable)
+    LOGICAL :: lwritable
+    CHARACTER(len=*), INTENT(in) :: filename
+    lwritable = (private_file_is_writable(TRIM(filename)//C_NULL_CHAR) == 1)
+  END FUNCTION util_file_is_writable
+
+  INTEGER FUNCTION putFile(path, string, fileMode) RESULT(resultVar)
+    CHARACTER(LEN = *), INTENT(IN) :: path, string
+    INTEGER(C_INT), VALUE :: fileMode
+
+    INTEGER :: error, i, pathLen, stringLen
+    CHARACTER(KIND = C_CHAR) :: pathCopy(LEN(path) + 1) ! path IS passed zero terminated
+    CHARACTER(KIND = C_CHAR), ALLOCATABLE :: stringCopy(:)
+    CHARACTER(*), PARAMETER :: routine = modname//":putFile"
+
+    INTERFACE
+        INTEGER(C_INT) FUNCTION c_putFile(c_path, c_dataSize, c_data, c_fileMode) BIND(C, NAME = "putFile")
+            IMPORT C_INT, C_CHAR, C_SIZE_T
+            CHARACTER(KIND = C_CHAR) :: c_path(*), c_data(*)
+            INTEGER(C_SIZE_T), VALUE :: c_dataSize
+            INTEGER(C_INT), VALUE :: c_fileMode
+        END FUNCTION c_putFile
+    END INTERFACE
+
+    pathLen = LEN(path)
+    stringLen = LEN(string)
+
+    ALLOCATE(stringCopy(stringLen), STAT = error) ! string IS passed with an explicit SIZE argument, so no need for a termination CHARACTER
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+
+    DO i = 1, pathLen
+        pathCopy(i) = path(i:i)
+    END DO
+    pathCopy(pathLen + 1) = C_NULL_CHAR
+
+    DO i = 1, stringLen
+        stringCopy(i) = string(i:i)
+    END DO
+
+    resultVar = c_putFile(pathCopy, INT(stringLen, C_SIZE_T), stringCopy, fileMode)
+  END FUNCTION putFile
+
+  INTEGER FUNCTION createSymlink(targetPath, linkName) RESULT(error)
+    CHARACTER(*), INTENT(IN) :: targetPath, linkName
+
+    INTEGER :: i
+    CHARACTER(KIND = C_CHAR) :: linkNameCopy(LEN(linkName) + 1), targetPathCopy(LEN(targetPath) + 1)
+
+    INTERFACE
+        INTEGER(C_INT) FUNCTION c_createSymlink(c_targetPath, c_linkName) BIND(C, NAME = "createSymlink")
+            IMPORT C_INT, C_CHAR
+            CHARACTER(KIND = C_CHAR) :: c_targetPath(*), c_linkName(*)
+        END FUNCTION c_createSymlink
+    END INTERFACE
+
+    DO i = 1, LEN(targetPath)
+        targetPathCopy(i) = targetPath(i:i)
+    END DO
+    targetPathCopy(i) = C_NULL_CHAR
+
+    DO i = 1, LEN(linkName)
+        linkNameCopy(i) = linkName(i:i)
+    END DO
+    linkNameCopy(i) = C_NULL_CHAR
+
+    error = c_createSymlink(targetPathCopy, linkNameCopy)
+  END FUNCTION createSymlink
 
 END MODULE mo_util_file
 

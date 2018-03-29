@@ -32,13 +32,13 @@ MODULE mo_nwp_phy_init
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ext_data_state,      ONLY: nlev_o3, nmonths
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_exception,           ONLY: message, finish, message_text
+  USE mo_exception,           ONLY: message, finish !, message_text
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape,  &
     &                               MODE_COMBINED, MODE_IFSANA, icosmo, ismag,      &
     &                               igme, iedmf, SUCCESS, MAX_CHAR_LENGTH,          &
-    &                               MODE_COSMODE, iss, iorg, ibc, iso4, idu
+    &                               MODE_COSMO, MODE_ICONVREMAP, iss, iorg, ibc, iso4, idu
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
@@ -60,13 +60,9 @@ MODULE mo_nwp_phy_init
     &                               zaef_rg, zaea_rg, zaes_rg, zaeg_rg,             &
     &                               zaea_rrtm, zaes_rrtm, zaeg_rrtm
   USE mo_o3_util,             ONLY: o3_pl2ml!, o3_zl2ml
-  USE mo_psrad_lrtm_setup,    ONLY: setup_lrtm
-  USE mo_psrad_srtm_setup,    ONLY: setup_srtm_psrad => setup_srtm
-  USE mo_psrad_spec_sampling, ONLY: set_spec_sampling_lw, set_spec_sampling_sw
-  USE mo_psrad_cloud_optics,  ONLY: setup_cloud_optics  
-  USE mo_psrad_interface,     ONLY: setup_psrad, lw_strat, sw_strat
-  USE mo_rrtm_params,         ONLY: nbndsw
-  USE mo_psrad_radiation_parameters, ONLY: nb_sw 
+  USE mo_psrad_setup    ,     ONLY: psrad_basic_setup
+  USE mo_echam_cld_config,  ONLY: echam_cld_config
+  USE mo_psrad_general,         ONLY: nbndsw
 
   ! microphysics
   USE gscp_data,              ONLY: gscp_set_coefficients
@@ -107,10 +103,9 @@ MODULE mo_nwp_phy_init
   USE mo_master_config,       ONLY: isRestart
   USE mo_nwp_parameters,      ONLY: t_phy_params
 
-  USE mo_initicon_config,     ONLY: init_mode
+  USE mo_initicon_config,     ONLY: init_mode, lread_tke
 
-  USE mo_nwp_ww,              ONLY: configure_ww
-  USE mo_nwp_tuning_config,   ONLY: tune_gkwake, tune_gkdrag, tune_gfrcrit, tune_zceff_min, &
+  USE mo_nwp_tuning_config,   ONLY: tune_gkwake, tune_gkdrag, tune_gfrcrit, tune_grcrit, tune_zceff_min, &
     &                               tune_v0snow, tune_zvz0i
   USE mo_sso_cosmo,           ONLY: sso_cosmo_init_param
   USE mo_cuparameters,        ONLY: sugwd
@@ -214,7 +209,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string, yyyymmdd
 
   ! Local control variable for extended turbulence initializations
-  IF (ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
+  IF (ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMO/) == init_mode) .OR. &
+      init_mode == MODE_ICONVREMAP .AND. .NOT. lread_tke) THEN
     lturb_init = .TRUE.
   ELSE
     lturb_init = .FALSE.
@@ -299,7 +295,20 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       ELSE
         prm_diag%tropics_mask(jc,jb) = (30._wp-zlat)/5._wp
       ENDIF
+      IF (zlat < 12.5_wp) THEN
+        prm_diag%innertropics_mask(jc,jb) = 1._wp
+      ELSE IF (zlat > 17.5_wp) THEN
+        prm_diag%innertropics_mask(jc,jb) = 0._wp
+      ELSE
+        prm_diag%innertropics_mask(jc,jb) = (17.5_wp-zlat)/5._wp
+      ENDIF
     ENDDO
+
+    ! pat_len field for circulation term in turbdiff
+    DO jc = i_startidx,i_endidx
+      prm_diag%pat_len(jc,jb) = 300._wp*EXP(1.5_wp*LOG(MAX(1.e-2_wp,(ext_data%atm%sso_stdh_raw(jc,jb)-150._wp)/300._wp)))
+    ENDDO
+
   ENDDO
 
   IF (linit_mode) THEN
@@ -725,14 +734,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       CALL lrtm_setup(lrtm_filename)
       CALL setup_newcld_optics(cldopt_filename)
     ELSE   ! PSRAD init
-      CALL setup_psrad
-      nb_sw = nbndsw
-      lw_strat = set_spec_sampling_lw(1, 1) 
-      sw_strat = set_spec_sampling_sw(1, 1)
-      CALL setup_cloud_optics
-      CALL setup_lrtm
-      CALL lrtm_setup(lrtm_filename) ! ** necessary because of incorrect USE statements in mo_psrad_lrtm_gas_optics **
-      CALL setup_srtm_psrad
+      CALL psrad_basic_setup(.false., nlev, 1.0_wp, 1.0_wp, &
+        & echam_cld_config(1)%cinhoml1 ,echam_cld_config(1)%cinhoml2, &
+        & echam_cld_config(1)%cinhoml3 ,echam_cld_config(1)%cinhomi)
     ENDIF
 
     rl_start = 1  ! Initialization should be done for all points
@@ -1015,13 +1019,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   !------------------------------------------
   !< call for convection
   !------------------------------------------
-  ! initialization.
-  ! k800, k400 will be used for inwp_convection==0 as well. 
-  ! Thus we need to make sure that they are initialized.
-  prm_diag%k850(:,:) = nlev
-  prm_diag%k950(:,:) = nlev
-  prm_diag%k800(:,:) = nlev
-  prm_diag%k400(:,:) = nlev
 
   IF ( atm_phy_nwp_config(jg)%inwp_convection == 1 .OR. &
     &  atm_phy_nwp_config(jg)%inwp_turb == iedmf )     THEN
@@ -1046,66 +1043,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     CALL suvdfs
     CALL sucldp
 
-
-    ! Initialize fields k850 and k950, which are required for computing the
-    ! convective contribution to wind gusts
-    rl_start = 1  ! Initialization should be done for all points
-    rl_end   = min_rlcell
-
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-
-    ! height of 850 and 950hPa surface for US standard atmosphere in m
-    ! For derivation, see documentation of US standard atmosphere
-    h850_standard = 1457.235199_wp
-    h950_standard = 540.3130233_wp
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,hag,zpres,zpres0) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-        &  i_startidx, i_endidx, rl_start, rl_end)
-
-      DO jc=i_startidx, i_endidx
-        ! initialization
-!!$        prm_diag%k850(jc,jb) = nlev
-!!$        prm_diag%k950(jc,jb) = nlev
-        DO jk=nlev, 1, -1
-          ! height above ground
-          hag = p_metrics%z_mc(jc,jk,jb)-ext_data%atm%topography_c(jc,jb)
-
-          IF (hag < h850_standard) THEN
-            prm_diag%k850(jc,jb) = jk
-          ENDIF
-          IF (hag < h950_standard) THEN
-            prm_diag%k950(jc,jb) = jk
-          ENDIF
-        ENDDO
-        ! security measure
-        prm_diag%k950(jc,jb) = MAX(prm_diag%k950(jc,jb),2)
-        prm_diag%k850(jc,jb) = MAX(prm_diag%k850(jc,jb),2)
-
-        ! analogous initialization of k800 and k400, based on reference pressure
-        ! because this is more meaningful for k400 in the presence of very high orography
-        zpres0 = p0ref * (p_metrics%exner_ref_mc(jc,nlev,jb))**(cpd/rd)
-!!$        prm_diag%k800(jc,jb) = nlev
-!!$        prm_diag%k400(jc,jb) = nlev
-        DO jk=nlev-1, 2, -1
-          zpres = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb))**(cpd/rd)
-          IF (zpres/zpres0 >= pr800) prm_diag%k800(jc,jb) = jk
-          IF (zpres/zpres0 >= pr400*SQRT(p0ref/zpres0)) THEN
-            prm_diag%k400(jc,jb) = jk
-          ELSE
-            EXIT
-          ENDIF
-        ENDDO
-
-      ENDDO  ! jc
-    ENDDO  ! jb
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
     CALL message('mo_nwp_phy_init:', 'convection initialized')
   ELSE
     ! initialize parameters that are accessed outside the convection scheme
@@ -1119,6 +1056,69 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     phy_params%texc             = 0._wp
     phy_params%qexc             = 0._wp
   ENDIF
+
+  ! Initialize fields k850 and k950, which are required for computing the
+  ! convective contribution to wind gusts
+  !
+  ! k800, k400 will be used for inwp_convection==0 as well. 
+  ! Thus we need to make sure that they are initialized.
+  prm_diag%k850(:,:) = nlev
+  prm_diag%k950(:,:) = nlev
+  prm_diag%k800(:,:) = nlev
+  prm_diag%k400(:,:) = nlev
+
+  rl_start = 1  ! Initialization should be done for all points
+  rl_end   = min_rlcell
+
+  i_startblk = p_patch%cells%start_blk(rl_start,1)
+  i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+  ! height of 850 and 950hPa surface for US standard atmosphere in m
+  ! For derivation, see documentation of US standard atmosphere
+  h850_standard = 1457.235199_wp
+  h950_standard = 540.3130233_wp
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,hag,zpres,zpres0) ICON_OMP_DEFAULT_SCHEDULE
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+      &  i_startidx, i_endidx, rl_start, rl_end)
+
+    DO jc=i_startidx, i_endidx
+
+      DO jk=nlev, 1, -1
+        ! height above ground
+        hag = p_metrics%z_mc(jc,jk,jb)-ext_data%atm%topography_c(jc,jb)
+
+        IF (hag < h850_standard) THEN
+          prm_diag%k850(jc,jb) = jk
+        ENDIF
+        IF (hag < h950_standard) THEN
+          prm_diag%k950(jc,jb) = jk
+        ENDIF
+      ENDDO
+      ! security measure
+      prm_diag%k950(jc,jb) = MAX(prm_diag%k950(jc,jb),2)
+      prm_diag%k850(jc,jb) = MAX(prm_diag%k850(jc,jb),2)
+
+      ! analogous initialization of k800 and k400, based on reference pressure
+      ! because this is more meaningful for k400 in the presence of very high orography
+      zpres0 = p0ref * (p_metrics%exner_ref_mc(jc,nlev,jb))**(cpd/rd)
+      DO jk=nlev-1, 2, -1
+        zpres = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb))**(cpd/rd)
+        IF (zpres/zpres0 >= pr800) prm_diag%k800(jc,jb) = jk
+        IF (zpres/zpres0 >= pr400*SQRT(p0ref/zpres0)) THEN
+          prm_diag%k400(jc,jb) = jk
+        ELSE
+          EXIT
+        ENDIF
+      ENDDO
+
+    ENDDO  ! jc
+  ENDDO  ! jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
 
 
   !------------------------------------------
@@ -1481,18 +1481,13 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   !
   SELECT CASE ( atm_phy_nwp_config(jg)%inwp_sso )
   CASE ( 1 )                                ! COSMO SSO scheme
-    IF (jg == 1) CALL sso_cosmo_init_param(tune_gkwake=tune_gkwake, tune_gkdrag=tune_gkdrag, tune_gfrcrit=tune_gfrcrit)
+    IF (jg == 1) CALL sso_cosmo_init_param(tune_gkwake=tune_gkwake, tune_gkdrag=tune_gkdrag, &
+                                           tune_gfrcrit=tune_gfrcrit, tune_grcrit=tune_grcrit)
     IF (linit_mode) prm_diag%ktop_envel(:,:) = nlev
   CASE ( 2 )                                ! IFS SSO scheme
     CALL sugwd(nlev, pref, phy_params )
     IF (linit_mode) prm_diag%ktop_envel(:,:) = nlev
   END SELECT
-
-  !  WW diagnostics
-  !
-  IF ( atm_phy_nwp_config(jg)%inwp_gscp > 0) THEN
-    CALL configure_ww(ini_date, jg, nlev, nshift)
-  END IF
 
 
 END SUBROUTINE init_nwp_phy
@@ -1520,7 +1515,7 @@ END SUBROUTINE init_nwp_phy
     jg = p_patch%id
     nlev = p_patch%nlev
 
-    IF (irad_aero /= 6) RETURN
+    IF (irad_aero /= 6 .AND. irad_aero /= 9) RETURN
     IF (atm_phy_nwp_config(jg)%icpl_aero_gscp /= 1 .AND. icpl_aero_conv /= 1) RETURN
 
     

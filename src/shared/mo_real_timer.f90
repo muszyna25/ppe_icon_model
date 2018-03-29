@@ -26,7 +26,7 @@ MODULE mo_real_timer
 
   USE mo_kind,            ONLY: dp
   USE mo_exception,       ONLY: finish, message, message_text
-  USE mo_util_string,     ONLY: separator, sort_and_compress_list, int2string
+  USE mo_util_string,     ONLY: separator, sort_and_compress_list, int2string, real2string
   USE mo_util_table,      ONLY: t_table, initialize_table, finalize_table,    &
     &                           set_table_entry, print_table
   USE mo_impl_constants,  ONLY: MAX_CHAR_LENGTH, TIMER_MODE_WRITE_FILES,      &
@@ -1059,9 +1059,14 @@ CONTAINS
         CALL print_report_hierch_agg(table, irow, subtimer_list(k), nd+1,tmr)
       ENDDO
     ELSE
-      IF (my_process_is_stdio()) &
-           WRITE (0, '(2a,3(", ",i0))') 'problem: sub-timers inconsistent! ', &
-           TRIM(srt(it)%text), it, irow - 1, n
+      IF (my_process_is_stdio()) THEN
+        WRITE (0, '(2a,3(", ",i0))') 'problem: sub-timers inconsistent! ', TRIM(srt(it)%text), it, irow - 1, n
+        IF(consistent_sub_timer_counts) THEN
+            WRITE(0,*) "cause: inconsistent timer lists"
+        ELSE
+            WRITE(0,*) "cause: inconsistent subtimer counts: ", tcounts
+        END IF
+      END IF
       tmr%inconsistent_timers = .TRUE.
     END IF
   END SUBROUTINE print_report_hierch_agg
@@ -1076,7 +1081,7 @@ CONTAINS
     INTEGER,          INTENT(INOUT)       :: irow            !< table row index
     INTEGER,          INTENT(in)          :: it
     INTEGER,          INTENT(in)          :: nd              !< nesting depth (determines the print indention)
-    TYPE(t_timer_reductions), INTENT(in) :: tmr
+    TYPE(t_timer_reductions), INTENT(in)  :: tmr
     ! local variables
     REAL(dp)            :: val_avg
     CHARACTER(len=12)   :: min_str, avg_str, max_str, tot_min_str, tot_max_str
@@ -1095,7 +1100,14 @@ CONTAINS
 
       CALL set_table_entry(table, irow, "name",     &
         &                  REPEAT('   ',MAX(nd-1,0))//REPEAT(' L ',MIN(nd,1))//srt(it)%text)
-      CALL set_table_entry(table, irow, "# calls",  TRIM(int2string(INT(tmr%val_call_n(it)))))
+
+      ! avoid integer overflow; very large call counts are useless
+      ! anyway ...
+      IF (tmr%val_call_n(it) <= REAL(HUGE(INT(1)),dp)) THEN
+        CALL set_table_entry(table, irow, "# calls",  TRIM(int2string(INT(tmr%val_call_n(it)))))
+      ELSE
+        CALL set_table_entry(table, irow, "# calls",  TRIM(real2string(tmr%val_call_n(it),'(ES10.1)')))
+      END IF
       CALL set_table_entry(table, irow, "t_min",         TRIM(min_str))
       IF (num_work_procs > 1) &
         CALL set_table_entry(table, irow, "min rank", "["//TRIM(int2string(tmr%rank_min(it)))//"]")
@@ -1195,15 +1207,20 @@ CONTAINS
     CHARACTER(len=2) :: d_str, h_str, m_str, s_str
     CHARACTER(len=12) :: x
 
+    ! ensure that we don't crash with illegal inputs
+    IF(ts > REAL(99*3600*24,dp)) THEN
+        time_str = '>99d'
+        RETURN
+    ENDIF
+    IF(ts < 0) THEN
+        time_str = 'negative'
+        RETURN
+    END IF
+
     rest = ts
 
     d = INT(rest/REAL(3600*24,dp))
     rest = rest-REAL(d*(3600*24),dp)
-    IF (d > 99) THEN
-      x = '>99d'
-      time_str = ADJUSTR(x)
-      RETURN
-    ENDIF
     WRITE(d_str,'(i2.2)') d
 
     h = INT(rest/3600.0_dp)

@@ -25,6 +25,7 @@ MODULE mo_psrad_memory
 
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
+  USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
   USE mo_exception,           ONLY: message, finish
   USE mo_parallel_config,     ONLY: nproma
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
@@ -38,11 +39,10 @@ MODULE mo_psrad_memory
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
-  USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_PACK24,  &
+  USE mo_cdi,                 ONLY: DATATYPE_PACK16, &
     &                               DATATYPE_FLT32,  DATATYPE_FLT64,   &
     &                               GRID_UNSTRUCTURED
-  USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL, &
-    &                               ZA_HYBRID, ZA_HYBRID_HALF,         &
+  USE mo_zaxis_type,          ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF,         &
     &                               ZA_SURFACE
   USE mo_radiation_config,    ONLY: lradforcing
   IMPLICIT NONE
@@ -230,12 +230,11 @@ CONTAINS
 
     INTEGER :: shape2d(2), shape3d(3), shape3d_layer_interfaces(3)
 !!$    INTEGER :: shape4d(4)
-    INTEGER :: ibits, iextbits
+    INTEGER :: ibits
     INTEGER :: datatype_flt
 !!$    INTEGER :: jsfc, jtrc
 
     ibits = DATATYPE_PACK16
-    iextbits = DATATYPE_PACK24
 
     IF ( lnetcdf_flt64_output ) THEN
       datatype_flt = DATATYPE_FLT64
@@ -258,7 +257,7 @@ CONTAINS
     cf_desc    = t_cf_var('emter_for', 'W m-2', 'thermal radiation flux', datatype_flt)
     grib2_desc = grib2_var(0, 5, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'emter_for', field%emter_for,                           &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,                &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,                &
                 & ldims=shape3d_layer_interfaces,                                             &
                 & vert_interp =                                                               &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ) )
@@ -266,7 +265,7 @@ CONTAINS
     cf_desc    = t_cf_var('emter_for', 'W m-2', 'thermal radiation flux', datatype_flt)
     grib2_desc = grib2_var(0, 5, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'emtef_for', field%emtef_for,                           &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,                &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,                &
                 & ldims=shape3d_layer_interfaces,                                             &
                 & vert_interp =                                                               &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ) )
@@ -276,7 +275,7 @@ CONTAINS
     cf_desc    = t_cf_var('trsol_for', 'W m-2', 'solar radiation flux', datatype_flt)
     grib2_desc = grib2_var(0, 4, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'trsol_for', field%trsol_for,                           &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,                &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,                &
                 & ldims=shape3d_layer_interfaces,                                             &
                 & vert_interp =                                                               &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ) )
@@ -284,7 +283,7 @@ CONTAINS
     cf_desc    = t_cf_var('trsof_for', 'W m-2', 'solar radiation flux', datatype_flt)
     grib2_desc = grib2_var(0, 4, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'trsof_for', field%trsof_for,                           &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,                &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,                &
                 & ldims=shape3d_layer_interfaces,                                             &
                 & vert_interp =                                                               &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ) )
@@ -357,7 +356,7 @@ CONTAINS
                & datatype_flt)
     grib2_desc = grib2_var(0, 4, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'d_aflx_sw', field%d_aflx_sw,                          &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,               &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,               &
                 ldims=shape3d_layer_interfaces,                                              &
                 & vert_interp =                                                              &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ),  &
@@ -367,7 +366,7 @@ CONTAINS
                & datatype_flt)
     grib2_desc = grib2_var(0, 4, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'d_aflx_swc', field%d_aflx_swc,                        &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,               &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,               &
                 & ldims=shape3d_layer_interfaces,                                            &
                 & vert_interp =                                                              &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ),  &
@@ -379,7 +378,7 @@ CONTAINS
                & datatype_flt)
     grib2_desc = grib2_var(0, 5, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'d_aflx_lw', field%d_aflx_lw,                          &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,               &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,               &
                 & ldims=shape3d_layer_interfaces,                                            &
                 & vert_interp =                                                              &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ),  &
@@ -389,7 +388,7 @@ CONTAINS
                & datatype_flt)
     grib2_desc = grib2_var(0, 5, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'d_aflx_lwc', field%d_aflx_lwc,                        &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,               &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,               &
                 & ldims=shape3d_layer_interfaces,                                            &
                 & vert_interp =                                                              &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ),  &
@@ -399,7 +398,7 @@ CONTAINS
                & datatype_flt)
     grib2_desc = grib2_var(0, 0, 22, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'netht_lw', field%netht_lw,                            &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d,     & 
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, ldims=shape3d,     & 
                 & vert_interp =                                                              &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ),  &
                 & lrestart=.FALSE. )
@@ -410,7 +409,7 @@ CONTAINS
                & datatype_flt)
     grib2_desc = grib2_var(0, 0, 23, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'netht_sw', field%netht_sw,                            &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d,     &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, ldims=shape3d,     &
                 & vert_interp =                                                              &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ),  &
                 & lrestart=.FALSE. )

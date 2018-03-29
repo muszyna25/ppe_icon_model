@@ -45,7 +45,6 @@ MODULE mo_sea_ice_refactor
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_util_dbg_prnt,       ONLY: dbg_print
 ! USE mo_dbg_nml,             ONLY: idbg_mxmn, idbg_val
-! USE mo_ice_fem_utils,       ONLY: fem_ice_wrap, ice_advection, ice_ocean_stress
 
 !  USE mo_grid_config,         ONLY: n_dom   ! restrict sea-ice model to the global domain for the time being
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
@@ -517,6 +516,17 @@ CONTAINS
 
     ! calculate heat flux from ocean to ice  (zHeatOceI) 
     SELECT CASE ( i_Qio_type )
+
+    CASE (0)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, jc) SCHEDULE(dynamic)
+      DO jb = 1,p_patch%nblks_c
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c,i_endidx_c
+          zHeatOceI(jc,:,jb) = 0.0_wp
+        ENDDO
+      ENDDO
+
     CASE (1)
 !ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, k, jc) SCHEDULE(dynamic)
       DO jb = 1,p_patch%nblks_c

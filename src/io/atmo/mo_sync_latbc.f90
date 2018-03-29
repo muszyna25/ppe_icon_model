@@ -39,7 +39,7 @@ MODULE mo_sync_latbc
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: nroot
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_COSMODE
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_COSMO, MODE_COMBINED, MODE_IFSANA, SUCCESS
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_mpi,                 ONLY: p_io, p_bcast, my_process_is_stdio,       &
                                     p_comm_work_test, p_comm_work
@@ -49,19 +49,19 @@ MODULE mo_sync_latbc
   USE mo_nh_vert_interp,      ONLY: vert_interp
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_util_string,         ONLY: int2string
-  USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, convert_thdvars
+  USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, convert_thdvars, convert_omega2w, &
+    &                               compute_input_pressure_and_height
   USE mo_io_config,           ONLY: default_read_method
   USE mo_read_interface,      ONLY: nf, openInputFile, closeFile, read_3D, read_3D_1time,&
                                     read_2D_1lev_1time, read_2D_1time, t_stream_id, on_cells, &
                                     on_edges
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, sync_patch_array
-  USE mo_initicon_types,      ONLY: t_initicon_state
+  USE mo_initicon_types,      ONLY: t_init_state, t_init_state_const
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_limarea_config,      ONLY: latbc_config, generate_filename, LATBC_TYPE_EXT
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport
   USE mo_initicon_config,     ONLY: init_mode
-  USE mo_fortran_tools,       ONLY: copy
   USE mtime,                  ONLY: datetime, newDatetime, deallocateDatetime,              &
     &                               divideDatetimeDifferenceInSeconds, deallocateTimedelta, &
     &                               divisionquotienttimespan,                               &
@@ -86,7 +86,10 @@ MODULE mo_sync_latbc
 
   ! ---------------------------------------------------------------------------------
   TYPE(datetime), POINTER :: last_latbc_mtime    ! last read time step (mtime)
-  TYPE(t_initicon_state)  :: p_latbc_data(2)     ! storage for two time-level boundary data
+  TYPE(t_init_state)      :: p_latbc_data(2)     ! storage for two time-level boundary data
+
+  ! storage for time-constant height level data
+  TYPE(t_init_state_const), TARGET :: p_latbc_data_const
 
 
   PUBLIC :: prepare_latbc_data, read_latbc_data, deallocate_latbc_data,   &
@@ -106,11 +109,11 @@ MODULE mo_sync_latbc
       INTEGER, INTENT(IN) :: nlev_in !< number of vertical levels in the boundary data
 
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_latbc_data"
-      INTEGER :: tlev, nlev, nlevp1, nblks_c, nblks_e
+      INTEGER :: tlev, nlev, nlevp1, nblks_c, nblks_e, ierrstat
       LOGICAL :: l_initialized
 
       ! --- skip this routine if it has already been called ----
-      l_initialized = ALLOCATED(p_latbc_data(1)%topography_c)
+      l_initialized = p_latbc_data_const%linitialized
       IF (l_initialized)  RETURN
       ! --------------------------------------------------------
 
@@ -119,43 +122,47 @@ MODULE mo_sync_latbc
       nblks_c = p_patch%nblks_c
       nblks_e = p_patch%nblks_e
 
+      ! Basic icon_remap data
+
+      p_latbc_data_const%linitialized = .TRUE.
+      ALLOCATE(p_latbc_data_const%z_mc_in(nproma,nlev_in,nblks_c), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")        
+
+      ! topography and metrics are time independent
+      p_latbc_data_const%topography_c => ext_data%atm%topography_c
+      p_latbc_data_const%z_ifc        => p_nh_state%metrics%z_ifc
+      p_latbc_data_const%z_mc         => p_nh_state%metrics%z_mc
+
       DO tlev = 1, 2
         NULLIFY(p_latbc_data(tlev)%atm_in%tke)
-        
-        ! Basic icon_remap data
-        ALLOCATE(p_latbc_data(tlev)%topography_c(nproma,nblks_c),         &
-          p_latbc_data(tlev)%z_ifc       (nproma,nlevp1,nblks_c),  &
-          p_latbc_data(tlev)%z_mc        (nproma,nlev  ,nblks_c)   )
-        
+
+        p_latbc_data(tlev)%atm_in%nlev = nlev_in
+       
         ! Allocate atmospheric input data
-        ALLOCATE(p_latbc_data(tlev)%atm_in%psfc(nproma,         nblks_c), &
-          p_latbc_data(tlev)%atm_in%phi_sfc(nproma,      nblks_c), &
+        ALLOCATE(&
           p_latbc_data(tlev)%atm_in%pres (nproma,nlev_in,nblks_c), &
-          p_latbc_data(tlev)%atm_in%z3d  (nproma,nlev_in,nblks_c), &
           p_latbc_data(tlev)%atm_in%temp (nproma,nlev_in,nblks_c), &
           p_latbc_data(tlev)%atm_in%u    (nproma,nlev_in,nblks_c), &
           p_latbc_data(tlev)%atm_in%v    (nproma,nlev_in,nblks_c), &
           p_latbc_data(tlev)%atm_in%w    (nproma,nlev_in,nblks_c), &
-          p_latbc_data(tlev)%atm_in%omega(nproma,nlev_in,nblks_c), &
           p_latbc_data(tlev)%atm_in%qv   (nproma,nlev_in,nblks_c), &
           p_latbc_data(tlev)%atm_in%qc   (nproma,nlev_in,nblks_c), &
           p_latbc_data(tlev)%atm_in%qi   (nproma,nlev_in,nblks_c), &
           p_latbc_data(tlev)%atm_in%qr   (nproma,nlev_in,nblks_c), &
           p_latbc_data(tlev)%atm_in%qs   (nproma,nlev_in,nblks_c)  )
-        
-        IF (init_mode == MODE_COSMODE) THEN
-          ALLOCATE(p_latbc_data(tlev)%atm_in%w_ifc(nproma,nlev_in+1,nblks_c))
-          ALLOCATE(p_latbc_data(tlev)%atm_in%z3d_ifc(nproma,nlev_in+1,nblks_c))
-        ENDIF
-        
+      
         ! Allocate atmospheric output data
+        ALLOCATE(&
+          p_latbc_data(tlev)%atm%temp     (nproma,nlev  ,nblks_c), &
+          p_latbc_data(tlev)%atm%exner    (nproma,nlev  ,nblks_c), &
+          p_latbc_data(tlev)%atm%pres     (nproma,nlev  ,nblks_c) )
+
         ALLOCATE(p_latbc_data(tlev)%atm%vn       (nproma,nlev  ,nblks_e), &
           p_latbc_data(tlev)%atm%u        (nproma,nlev  ,nblks_c), &
           p_latbc_data(tlev)%atm%v        (nproma,nlev  ,nblks_c), &
-          p_latbc_data(tlev)%atm%w        (nproma,nlevp1,nblks_c), &
-          p_latbc_data(tlev)%atm%temp     (nproma,nlev  ,nblks_c), &
-          p_latbc_data(tlev)%atm%exner    (nproma,nlev  ,nblks_c), &
-          p_latbc_data(tlev)%atm%pres     (nproma,nlev  ,nblks_c), &
+          p_latbc_data(tlev)%atm%w        (nproma,nlevp1,nblks_c))
+
+        ALLOCATE(&
           p_latbc_data(tlev)%atm%rho      (nproma,nlev  ,nblks_c), &
           p_latbc_data(tlev)%atm%theta_v  (nproma,nlev  ,nblks_c), &
           p_latbc_data(tlev)%atm%qv       (nproma,nlev  ,nblks_c), &
@@ -166,19 +173,11 @@ MODULE mo_sync_latbc
         
         ! allocate anyway (sometimes not needed)
         ALLOCATE(p_latbc_data(tlev)%atm_in%vn(nproma,nlev_in,p_patch%nblks_e))
-        
-        ! topography and metrics are time independent
-!$OMP PARALLEL
-        CALL copy(ext_data%atm%topography_c(:,:), &
-          p_latbc_data(tlev)%topography_c(:,:))
-        CALL copy(p_nh_state%metrics%z_ifc(:,:,:), &
-          p_latbc_data(tlev)%z_ifc(:,:,:))
-        CALL copy(p_nh_state%metrics%z_mc (:,:,:), &
-          p_latbc_data(tlev)%z_mc(:,:,:))
-!$OMP END PARALLEL
-        
+              
+        p_latbc_data(tlev)%const => p_latbc_data_const
+
       END DO
-      
+     
     END SUBROUTINE allocate_latbc_data
 
   !-------------------------------------------------------------------------
@@ -194,8 +193,7 @@ MODULE mo_sync_latbc
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_latbc_data"
-    INTEGER                              :: tlev
-    INTEGER                              :: nlev, nlevp1, nblks_c, nblks_e, errno, step
+    INTEGER                              :: errno, step
     TYPE(divisionquotienttimespan)       :: tq     
     TYPE(timedelta), POINTER             :: td
 
@@ -315,6 +313,7 @@ MODULE mo_sync_latbc
   !! Initial version by S. Brdar, DWD (2013-07-25)
   !!
   SUBROUTINE read_latbc_icon_data(p_patch, p_nh_state, ext_data, p_int)
+    USE mo_initicon_io, ONLY: height_or_lev
     TYPE(t_patch), TARGET,  INTENT(IN)  :: p_patch
     TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
     TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
@@ -330,6 +329,7 @@ MODULE mo_sync_latbc
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::read_latbc_icon_data"
     CHARACTER(LEN=filename_max)         :: latbc_filename, latbc_full_filename
+    CHARACTER(len=10) :: levstring
 
     ! NOTE: this subroutine is called only for
     !       (latbc_config%itype_latbc /= LATBC_TYPE_EXT). It is
@@ -344,7 +344,8 @@ MODULE mo_sync_latbc
       mpi_comm = p_comm_work
     ENDIF
 
-    latbc_filename = generate_filename(nroot, p_patch%level, last_latbc_mtime)
+    latbc_filename = generate_filename(nroot, p_patch%level, &
+      &                                last_latbc_mtime, time_config%tc_exp_startdate)
 
     latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
 
@@ -371,8 +372,7 @@ MODULE mo_sync_latbc
       !
       ! get number of vertical levels
       !
-      CALL nf(nf_inq_dimid(latbc_ncid, 'height', dimid), routine)
-      CALL nf(nf_inq_dimlen(latbc_ncid, dimid, no_levels), routine)
+      CALL height_or_lev(latbc_ncid, dimid, no_levels)
 
       ! consistency check
       IF (p_patch%nlev /= no_levels) THEN
@@ -476,6 +476,7 @@ MODULE mo_sync_latbc
   !! Initial version by S. Brdar, DWD (2013-06-13)
   !!
   SUBROUTINE read_latbc_ifs_data(p_patch, p_nh_state, ext_data, p_int)
+    USE mo_initicon_io, ONLY: height_or_lev
     TYPE(t_patch),          INTENT(IN)  :: p_patch
     TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
     TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
@@ -490,9 +491,13 @@ MODULE mo_sync_latbc
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::read_latbc_ifs_data"
     CHARACTER(LEN=filename_max)         :: latbc_filename, latbc_full_filename
-    INTEGER                             :: tlev
+    INTEGER                             :: tlev, nlev, ierrstat, nblks_c
+    REAL(wp), ALLOCATABLE               :: psfc(:,:), phi_sfc(:,:), z_ifc_in(:,:,:), &
+      &                                    w_ifc(:,:,:), omega(:,:,:)
+    CHARACTER(len=10) :: levstring
 
     tlev      = read_latbc_tlev
+    nblks_c   = p_patch%nblks_c
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -500,7 +505,8 @@ MODULE mo_sync_latbc
       mpi_comm = p_comm_work
     ENDIF
 
-    latbc_filename = generate_filename(nroot, p_patch%level, last_latbc_mtime)
+    latbc_filename = generate_filename(nroot, p_patch%level, &
+      &                                last_latbc_mtime, time_config%tc_exp_startdate)
 
     latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
 
@@ -527,8 +533,7 @@ MODULE mo_sync_latbc
       !
       ! get number of vertical levels
       !
-      CALL nf(nf_inq_dimid(latbc_ncid, 'lev', dimid), routine)
-      CALL nf(nf_inq_dimlen(latbc_ncid, dimid, no_levels), routine)
+      CALL height_or_lev(latbc_ncid, dimid, no_levels)
 
       !
       ! check the number of cells
@@ -618,19 +623,41 @@ MODULE mo_sync_latbc
         &          variable_name='V', fill_array=p_latbc_data(tlev)%atm_in%v)
     ENDIF
 
-    IF (init_mode /= MODE_COSMODE) THEN
+    IF (init_mode /= MODE_COSMO) THEN
       lconvert_omega2w = .TRUE.
+
+      ! allocate temporary array:
+      nlev = SIZE(p_latbc_data_const%z_mc_in,2)
+      ALLOCATE(omega(nproma, nlev, nblks_c), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
       CALL read_3D_1time(stream_id=latbc_stream_id, location=on_cells, &
-        &          variable_name='W', fill_array=p_latbc_data(tlev)%atm_in%omega)
+        &          variable_name='W', fill_array=omega)
     ELSE
       lconvert_omega2w = .FALSE.
+
+      ! allocate temporary array:
+      nlev = SIZE(p_latbc_data_const%z_mc_in,2)
+      ALLOCATE(w_ifc(nproma,    (nlev+1), nblks_c), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
       CALL read_3D_1time(stream_id=latbc_stream_id, location=on_cells, &
-        &          variable_name='W', fill_array=p_latbc_data(tlev)%atm_in%w_ifc)
+        &          variable_name='W', fill_array=w_ifc)
     ENDIF
 
-    IF (init_mode == MODE_COSMODE) THEN
+    IF (init_mode == MODE_COSMO) THEN
+      ! allocate temporary array:
+      nlev = SIZE(p_latbc_data_const%z_mc_in,2)
+      ALLOCATE(z_ifc_in(nproma, (nlev+1), nblks_c), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
+      IF (nlev /= no_levels) THEN
+        WRITE (message_text, *) "Non-matching no. of levels: nlev=", nlev, "; no_levels=",no_levels
+        CALL finish(routine, message_text)
+      END IF
+
       CALL read_3D_1time(stream_id=latbc_stream_id, location=on_cells, &
-        &          variable_name='HHL', fill_array=p_latbc_data(tlev)%atm_in%z3d_ifc)
+        &          variable_name='HHL', fill_array=z_ifc_in)
 
       ! Interpolate input 'z3d' and 'w' from the interface levels to the main levels
       !
@@ -649,14 +676,12 @@ MODULE mo_sync_latbc
 
         ! Note: In future, we want to z3d from boundary data.
         !
-        p_latbc_data(tlev)%atm_in%z3d(jc,jk,jb) = (p_latbc_data(tlev)%atm_in%z3d_ifc(jc,jk,jb) + &
-            &   p_latbc_data(tlev)%atm_in%z3d_ifc(jc,jk+1,jb)) * 0.5_wp
-        p_latbc_data(tlev)%atm_in%w(jc,jk,jb) = (p_latbc_data(tlev)%atm_in%w_ifc(jc,jk,jb) + &
-            &   p_latbc_data(tlev)%atm_in%w_ifc(jc,jk+1,jb)) * 0.5_wp
+        p_latbc_data_const%z_mc_in(jc,jk,jb)  = (z_ifc_in(jc,jk,jb) + z_ifc_in(jc,jk+1,jb)) * 0.5_wp
+        p_latbc_data(tlev)%atm_in%w(jc,jk,jb) = (w_ifc(jc,jk,jb)    + w_ifc(jc,jk+1,jb)) * 0.5_wp
 
-          ENDDO
-        ENDDO
       ENDDO
+    ENDDO
+  ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
 
@@ -682,23 +707,28 @@ MODULE mo_sync_latbc
       p_latbc_data(tlev)%atm_in%qs(:,:,:)=0._wp
     ENDIF
 
-    IF (init_mode == MODE_COSMODE) THEN
+    ! allocate local temporary arrays:
+    ALLOCATE(psfc(nproma, p_patch%nblks_c), phi_sfc(nproma, p_patch%nblks_c))
+
+    IF (init_mode == MODE_COSMO) THEN
       CALL read_2D_1time(stream_id=latbc_stream_id, location=on_cells, &
-       &                     variable_name=TRIM(psvar), &
-       &                     fill_array=p_latbc_data(tlev)%atm_in%psfc)
+       &                     variable_name=TRIM(psvar), fill_array=psfc)
       CALL read_2D_1time(stream_id=latbc_stream_id, location=on_cells, &
-        &                     variable_name=TRIM(geop_ml_var), &
-        &                     fill_array=p_latbc_data(tlev)%atm_in%phi_sfc)
+        &                     variable_name=TRIM(geop_ml_var), fill_array=phi_sfc)
     ELSE
       CALL read_2D_1lev_1time(stream_id=latbc_stream_id, location=on_cells, &
-        &                     variable_name=TRIM(psvar), &
-        &                     fill_array=p_latbc_data(tlev)%atm_in%psfc)
+        &                     variable_name=TRIM(psvar), fill_array=psfc)
       CALL read_2D_1lev_1time(stream_id=latbc_stream_id, location=on_cells, &
-        &                     variable_name=TRIM(geop_ml_var), &
-        &                     fill_array=p_latbc_data(tlev)%atm_in%phi_sfc)
+        &                     variable_name=TRIM(geop_ml_var), fill_array=phi_sfc)
     END IF
 
-    IF (init_mode == MODE_COSMODE) THEN
+    ! compute pressure and height of input data, using the IFS routines
+    IF (init_mode == MODE_IFSANA)  CALL p_latbc_data_const%vct%construct(latbc_ncid, p_io, mpi_comm)
+    IF ((init_mode == MODE_IFSANA) .OR. (init_mode == MODE_COMBINED)) THEN ! i.e. atmospheric data from IFS
+      CALL compute_input_pressure_and_height(p_patch, psfc, phi_sfc, p_latbc_data(tlev))
+    END IF
+
+    IF (init_mode == MODE_COSMO) THEN
       CALL read_3D_1time(stream_id=latbc_stream_id, location=on_cells, &
         &          variable_name='P', fill_array=p_latbc_data(tlev)%atm_in%pres)
     ENDIF
@@ -713,11 +743,28 @@ MODULE mo_sync_latbc
     END IF
     CALL closeFile(latbc_stream_id)
 
+    IF (lconvert_omega2w) THEN
+      CALL convert_omega2w(omega, &
+        &                  p_latbc_data(tlev)%atm_in%w,     &
+        &                  p_latbc_data(tlev)%atm_in%pres,  &
+        &                  p_latbc_data(tlev)%atm_in%temp,  &
+        &                  p_patch%nblks_c, p_patch%npromz_c,   &
+        &                  p_latbc_data(tlev)%atm_in%nlev )
+    END IF
+
+    ! cleanup
+    IF (ALLOCATED(omega))    DEALLOCATE(omega)
+    IF (ALLOCATED(psfc))     DEALLOCATE(psfc)
+    IF (ALLOCATED(phi_sfc))  DEALLOCATE(phi_sfc)
+    IF (ALLOCATED(z_ifc_in)) DEALLOCATE(z_ifc_in)
+    IF (ALLOCATED(w_ifc))    DEALLOCATE(w_ifc)
+
     !
     ! perform vertical interpolation of horizonally interpolated analysis data
     !
-    CALL vert_interp(p_patch, p_int, p_nh_state%metrics, no_levels, p_latbc_data(tlev),              &
-      &    opt_convert_omega2w=lconvert_omega2w, opt_use_vn=lread_vn)
+    CALL vert_interp(p_patch, p_int, p_nh_state%metrics, p_latbc_data(tlev), opt_use_vn=lread_vn)
+
+    CALL p_latbc_data_const%vct%finalize()
 
   END SUBROUTINE read_latbc_ifs_data
   !-------------------------------------------------------------------------
@@ -739,44 +786,10 @@ MODULE mo_sync_latbc
     ! deallocate boundary data memory
     !
     DO tlev = 1, 2
-      DEALLOCATE(p_latbc_data(tlev)%atm_in%psfc, &
-                 p_latbc_data(tlev)%atm_in%phi_sfc, &
-                 p_latbc_data(tlev)%atm_in%pres, &
-                 p_latbc_data(tlev)%atm_in%temp, &
-                 p_latbc_data(tlev)%atm_in%z3d, &
-                 p_latbc_data(tlev)%atm_in%u, &
-                 p_latbc_data(tlev)%atm_in%v, &
-                 p_latbc_data(tlev)%atm_in%w, &
-                 p_latbc_data(tlev)%atm_in%omega, &
-                 p_latbc_data(tlev)%atm_in%qv, &
-                 p_latbc_data(tlev)%atm_in%qc, &
-                 p_latbc_data(tlev)%atm_in%qi, &
-                 p_latbc_data(tlev)%atm_in%qr, &
-                 p_latbc_data(tlev)%atm_in%qs )
-
-      IF (init_mode == MODE_COSMODE) THEN
-        DEALLOCATE(p_latbc_data(tlev)%atm_in%w_ifc)
-        DEALLOCATE(p_latbc_data(tlev)%atm_in%z3d_ifc)
-      ENDIF
-
-      ! Allocate atmospheric output data
-      DEALLOCATE(p_latbc_data(tlev)%atm%vn, &
-                 p_latbc_data(tlev)%atm%u, &
-                 p_latbc_data(tlev)%atm%v, &
-                 p_latbc_data(tlev)%atm_in%vn, &
-                 p_latbc_data(tlev)%atm%w, &
-                 p_latbc_data(tlev)%atm%temp, &
-                 p_latbc_data(tlev)%atm%exner, &
-                 p_latbc_data(tlev)%atm%pres, &
-                 p_latbc_data(tlev)%atm%rho, &
-                 p_latbc_data(tlev)%atm%theta_v, &
-                 p_latbc_data(tlev)%atm%qv, &
-                 p_latbc_data(tlev)%atm%qc, &
-                 p_latbc_data(tlev)%atm%qi, &
-                 p_latbc_data(tlev)%atm%qr, &
-                 p_latbc_data(tlev)%atm%qs )
-
+      CALL p_latbc_data(tlev)%finalize()
     END DO
+
+    CALL p_latbc_data_const%finalize()
 
     ! clean up mtime calendar objects
     CALL deallocateDatetime(last_latbc_mtime)

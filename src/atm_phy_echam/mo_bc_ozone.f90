@@ -64,7 +64,7 @@ CONTAINS
         o3_plev(:,:,:,0:1)=o3_plev(:,:,:,12:13)
         write(cyear,'(i4)') year
 
-        IF ( echam_phy_config%lamip ) THEN
+        IF ( echam_phy_config(p_patch%id)%lamip ) THEN
           fname='bc_ozone_'//TRIM(cyear)//'.nc'
         ELSE
           fname='bc_ozone'//'.nc'
@@ -79,7 +79,7 @@ CONTAINS
         o3_plev(:,:,:,2:12)=vmr2mmr_o3*zo3_plev(:,:,:,1:11)
         write(cyear,'(i4)') year+1
 
-        IF ( echam_phy_config%lamip ) THEN
+        IF ( echam_phy_config(p_patch%id)%lamip ) THEN
           fname='bc_ozone_'//TRIM(cyear)//'.nc'
         ELSE
           fname='bc_ozone'//'.nc'
@@ -94,7 +94,7 @@ CONTAINS
       ELSE
         write(cyear,'(i4)') year
 
-        IF ( echam_phy_config%lamip ) THEN
+        IF ( echam_phy_config(p_patch%id)%lamip ) THEN
           fname='bc_ozone_'//TRIM(cyear)//'.nc'
         ELSE
           fname='bc_ozone'//'.nc'
@@ -109,7 +109,7 @@ CONTAINS
         o3_plev(:,:,:,1:12)=vmr2mmr_o3*zo3_plev
         write(cyear,'(i4)') year-1
 
-        IF ( echam_phy_config%lamip ) THEN
+        IF ( echam_phy_config(p_patch%id)%lamip ) THEN
           fname='bc_ozone_'//TRIM(cyear)//'.nc'
         ELSE
           fname='bc_ozone'//'.nc'
@@ -123,7 +123,7 @@ CONTAINS
         o3_plev(:,:,:,0)=vmr2mmr_o3*zo3_plev(:,:,:,1)
         write(cyear,'(i4)') year+1
 
-        IF ( echam_phy_config%lamip ) THEN
+        IF ( echam_phy_config(p_patch%id)%lamip ) THEN
           fname='bc_ozone_'//TRIM(cyear)//'.nc'
         ELSE
           fname='bc_ozone'//'.nc'

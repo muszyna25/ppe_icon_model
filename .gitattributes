@@ -864,6 +864,7 @@ run/exp.hamocc_omip_long -text
 run/exp.hat_heldsuarez -text
 run/exp.hat_jww -text
 run/exp.hdcp2_final -text
+run/exp.hdcp2_final_2dom -text
 run/exp.hdcp2_final_3dom -text
 run/exp.hdcp2_germany_776km-diam_1250m_test -text
 run/exp.icon-testbed_read-netcdf -text
@@ -1765,7 +1766,14 @@ src/io/atmo/mo_util_vgrid.f90 -text
 src/io/restart/mo_async_restart.f90 -text
 src/io/restart/mo_async_restart_comm_data.f90 -text
 src/io/restart/mo_async_restart_packer.f90 -text
+src/io/restart/mo_c_restart_util.f90 -text
+src/io/restart/mo_load_multifile_restart.f90 -text
 src/io/restart/mo_load_restart.f90 -text
+src/io/restart/mo_load_singlefile_restart.f90 -text
+src/io/restart/mo_multifile_restart.f90 -text
+src/io/restart/mo_multifile_restart_collector.f90 -text
+src/io/restart/mo_multifile_restart_patch_data.f90 -text
+src/io/restart/mo_multifile_restart_util.f90 -text
 src/io/restart/mo_restart.f90 -text
 src/io/restart/mo_restart_attributes.f90 -text
 src/io/restart/mo_restart_descriptor.f90 -text
@@ -1802,6 +1810,7 @@ src/io/shared/mo_read_interface.f90 -text
 src/io/shared/mo_read_netcdf_broadcast.f90 -text
 src/io/shared/mo_read_netcdf_broadcast_2.f90 -text
 src/io/shared/mo_read_netcdf_distributed.f90 -text
+src/io/shared/mo_serialized_data.f90 -text
 src/io/shared/mo_util_bool_table.f90 -text
 src/io/shared/mo_util_cdi.f90 -text
 src/io/shared/mo_util_file.f90 -text
@@ -1917,6 +1926,7 @@ src/ocean/testbed/mo_ocean_testbed_quads.f90 -text
 src/ocean/testbed/mo_ocean_testbed_read.f90 -text
 src/ocean/testbed/mo_ocean_testbed_solverMatrix.f90 -text
 src/ocean/testbed/mo_ocean_testbed_vertical_diffusion.f90 -text
+src/parallel_infrastructure/mo_broker_communication.f90 -text
 src/parallel_infrastructure/mo_build_decomposition.f90 -text
 src/parallel_infrastructure/mo_communication.f90 -text
 src/parallel_infrastructure/mo_complete_subdivision.f90 -text
@@ -1949,6 +1959,12 @@ src/sea_ice/dynamics_fem/mo_ice_init.f90 -text
 src/sea_ice/dynamics_fem/mo_ice_mesh.f90 -text
 src/sea_ice/dynamics_fem/mo_ice_parsup.f90 -text
 src/sea_ice/dynamics_fem/mo_icon_to_fem_interpolation.f90 -text
+src/sea_ice/thermo/mo_ice_refactor.f90 -text
+src/sea_ice/thermo/mo_ice_shared_sr.f90 -text
+src/sea_ice/thermo/mo_ice_thermo.f90 -text
+src/sea_ice/thermo/mo_ice_types.f90 -text
+src/sea_ice/thermo/mo_ice_winton.f90 -text
+src/sea_ice/thermo/mo_ice_zerolayer.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice_refactor.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90 -text
@@ -1988,6 +2004,7 @@ src/shared/mo_profile.f90 -text
 src/shared/mo_random_util.f90 -text
 src/shared/mo_real_timer.f90 -text
 src/shared/mo_statistics.f90 -text
+src/shared/mo_std_c_lib.f90 -text
 src/shared/mo_time_base.f90 -text
 src/shared/mo_time_management.f90 -text
 src/shared/mo_timer.f90 -text
@@ -2111,6 +2128,7 @@ support/util_backtrace.c -text
 support/util_convert.c -text
 support/util_file.c -text
 support/util_hash.c -text
+support/util_multifile_restart.c -text
 support/util_pbio.c -text
 support/util_postgresql.c -text
 support/util_reshape.c -text

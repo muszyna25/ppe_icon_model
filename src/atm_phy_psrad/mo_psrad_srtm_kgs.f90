@@ -5,365 +5,106 @@
 !! file COPYING in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the headers of the routines.
 !!
-MODULE psrad_rrsw_kg16
 
-  USE mo_kind, ONLY : wp
+! Bands 16->29 renumbered 1->14
+! Band (gpt_range): wave number range (low key species; high key species)
+! 16/1 (1-6): 2600-3250 cm-1 (low - h2o,ch4; high - ch4)
+! 17/2 (7-18): 3250-4000 cm-1 (low - h2o,co2; high - h2o,co2)
+! 18/3 (19-26): 4000-4650 cm-1 (low - h2o,ch4; high - ch4)
+! 19/4 (27-34): 4650-5150 cm-1 (low - h2o,co2; high - co2)
+! 20/5 (35-44): 5150-6150 cm-1 (low - h2o; high - h2o)
+! 21/6 (45-54): 6150-7700 cm-1 (low - h2o,co2; high - h2o,co2)
+! 22/7 (55-56): 6150-7700 cm-1 (low - h2o,co2; high - h2o,co2)
+! In this band the ratio of total O2 band intensity (lines 
+! and Mate continuum) to O2 band intensity (line only) is 1.6 and is used
+! to adjust the optical depths since the k's include only lines.  This is
+! done by multiplying swght1 by 1.6 and abs_ab(:,2,:) by 1.6 to account for 
+! this difference in below and above 100 hPa respectively.  Also note that
+! the minor gas does not have a g-point dependent absorption because the
+! o2 abosrption is a continuum effect
+
+! 23/8 (57-66): 8050-12850 cm-1 (low - h2o; high - nothing)
+!  Average Giver et al. correction factor for this band is 1.029
+!  and is implemented by multiplying the abosrption coefficients
+
+! 24/9 (67-74): 12850-16000 cm-1 (low - h2o,o2; high - o2)
+! 25/10 (75-80): 16000-22650 cm-1 (low - h2o; high - nothing)
+! 26/11 (81-86): 22650-29000 cm-1 (low - nothing; high - nothing)
+! 27/12 (87-94):  29000-38000 cm-1 (low - o3; high - o3)
+! Kurucz solar source function
+! The values in sfluxref were obtained using the "low resolution"
+! version of the Kurucz solar source function.  For unknown reasons,
+! the total irradiance in this band differs from the corresponding
+! total in the "high-resolution" version of the Kurucz function.
+! Therefore, these values are scaled below by the factor SCALEKUR.
+
+! 28/13 (95-100): 38000-50000 cm-1 (low - o3,o2; high - o3,o2)
+! 29/14 (101-112): 820-2600 cm-1 (low - h2o; high - co2)
+
+MODULE mo_psrad_srtm_kgs
+
+  USE mo_psrad_general
+
   IMPLICIT NONE
 
   PUBLIC
 
-  SAVE
-
-  INTEGER, PARAMETER :: no16 = 16
-  REAL(wp) :: kao(9,5,13,no16)
-  REAL(wp) :: kbo(5,13:59,no16)
-  REAL(wp) :: selfrefo(10,no16), forrefo(3,no16)
-  REAL(wp) :: sfluxrefo(no16)
-  REAL(wp) :: rayl
-
-  INTEGER, PARAMETER :: ng16 = 6
-  REAL(wp) :: ka(9,5,13,ng16) , absa(585,ng16)
-  REAL(wp) :: kb(5,13:59,ng16), absb(235,ng16)
-  REAL(wp) :: selfref(10,ng16), forref(3,ng16)
-  REAL(wp) :: sfluxref(ng16)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg16
-
-MODULE psrad_rrsw_kg17
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no17 = 16
-  REAL(wp) :: kao(9,5,13,no17)
-  REAL(wp) :: kbo(5,5,13:59,no17)
-  REAL(wp) :: selfrefo(10,no17), forrefo(4,no17)
-  REAL(wp) :: sfluxrefo(no17,5)
-  REAL(wp) :: rayl
-
-  INTEGER, PARAMETER :: ng17 = 12
-  REAL(wp) :: ka(9,5,13,ng17) , absa(585,ng17)
-  REAL(wp) :: kb(5,5,13:59,ng17), absb(1175,ng17)
-  REAL(wp) :: selfref(10,ng17), forref(4,ng17)
-  REAL(wp) :: sfluxref(ng17,5)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg17
-
-MODULE psrad_rrsw_kg18
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no18 = 16
-  REAL(wp) :: kao(9,5,13,no18)
-  REAL(wp) :: kbo(5,13:59,no18)
-  REAL(wp) :: selfrefo(10,no18), forrefo(3,no18)
-  REAL(wp) :: sfluxrefo(no18,9)
-  REAL(wp) :: rayl
-
-  INTEGER, PARAMETER :: ng18 = 8
-  REAL(wp) :: ka(9,5,13,ng18), absa(585,ng18)
-  REAL(wp) :: kb(5,13:59,ng18), absb(235,ng18)
-  REAL(wp) :: selfref(10,ng18), forref(3,ng18)
-  REAL(wp) :: sfluxref(ng18,9)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg18
-
-MODULE psrad_rrsw_kg19
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no19 = 16
-  REAL(wp) :: kao(9,5,13,no19)
-  REAL(wp) :: kbo(5,13:59,no19)
-  REAL(wp) :: selfrefo(10,no19), forrefo(3,no19)
-  REAL(wp) :: sfluxrefo(no19,9)
-  REAL(wp) :: rayl
-
-  INTEGER, PARAMETER :: ng19 = 8
-  REAL(wp) :: ka(9,5,13,ng19), absa(585,ng19)
-  REAL(wp) :: kb(5,13:59,ng19), absb(235,ng19)
-  REAL(wp) :: selfref(10,ng19), forref(3,ng19)
-  REAL(wp) :: sfluxref(ng19,9)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg19
-
-MODULE psrad_rrsw_kg20
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no20 = 16
-
-  REAL(wp) :: kao(5,13,no20)
-  REAL(wp) :: kbo(5,13:59,no20)
-  REAL(wp) :: selfrefo(10,no20), forrefo(4,no20)
-  REAL(wp) :: sfluxrefo(no20)
-  REAL(wp) :: absch4o(no20)
-
-  REAL(wp) :: rayl 
-
-  INTEGER, PARAMETER :: ng20 = 10
-  REAL(wp) :: ka(5,13,ng20), absa(65,ng20)
-  REAL(wp) :: kb(5,13:59,ng20), absb(235,ng20)
-  REAL(wp) :: selfref(10,ng20), forref(4,ng20)
-  REAL(wp) :: sfluxref(ng20)
-  REAL(wp) :: absch4(ng20)
-
-  EQUIVALENCE (ka(1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg20
-
-MODULE psrad_rrsw_kg21
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no21 = 16
-  REAL(wp) :: kao(9,5,13,no21)
-  REAL(wp) :: kbo(5,5,13:59,no21)
-  REAL(wp) :: selfrefo(10,no21), forrefo(4,no21)
-  REAL(wp) :: sfluxrefo(no21,9)
-  REAL(wp) :: rayl
-
-  INTEGER, PARAMETER :: ng21 = 10
-  REAL(wp) :: ka(9,5,13,ng21), absa(585,ng21)
-  REAL(wp) :: kb(5,5,13:59,ng21), absb(1175,ng21)
-  REAL(wp) :: selfref(10,ng21), forref(4,ng21)
-  REAL(wp) :: sfluxref(ng21,9)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg21
-
-MODULE psrad_rrsw_kg22
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no22 = 16
-
-  REAL(wp) :: kao(9,5,13,no22)
-  REAL(wp) :: kbo(5,13:59,no22)
-  REAL(wp) :: selfrefo(10,no22), forrefo(3,no22)
-  REAL(wp) :: sfluxrefo(no22,9)
-
-  REAL(wp) :: rayl
-
-  INTEGER, PARAMETER :: ng22 = 2
-  REAL(wp) :: ka(9,5,13,ng22), absa(585,ng22)
-  REAL(wp) :: kb(5,13:59,ng22), absb(235,ng22)
-  REAL(wp) :: selfref(10,ng22), forref(3,ng22)
-  REAL(wp) :: sfluxref(ng22,9)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg22
-
-MODULE psrad_rrsw_kg23
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no23 = 16
-  REAL(wp) :: kao(5,13,no23)
-  REAL(wp) :: selfrefo(10,no23), forrefo(3,no23)
-  REAL(wp) :: sfluxrefo(no23)
-  REAL(wp) :: raylo(no23)
-
-  INTEGER, PARAMETER :: ng23 = 10
-  REAL(wp) :: ka(5,13,ng23), absa(65,ng23)
-  REAL(wp) :: selfref(10,ng23), forref(3,ng23)
-  REAL(wp) :: sfluxref(ng23), rayl(ng23)
-
-  EQUIVALENCE (ka(1,1,1),absa(1,1))
-
-END MODULE psrad_rrsw_kg23
-
-MODULE psrad_rrsw_kg24
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no24 = 16
-  REAL(wp) :: kao(9,5,13,no24)
-  REAL(wp) :: kbo(5,13:59,no24)
-  REAL(wp) :: selfrefo(10,no24), forrefo(3,no24)
-  REAL(wp) :: sfluxrefo(no24,9)
-  REAL(wp) :: abso3ao(no24), abso3bo(no24)
-  REAL(wp) :: raylao(no24,9), raylbo(no24)
-
-  INTEGER, PARAMETER :: ng24 = 8
-  REAL(wp) :: ka(9,5,13,ng24), absa(585,ng24)
-  REAL(wp) :: kb(5,13:59,ng24), absb(235,ng24)
-  REAL(wp) :: selfref(10,ng24), forref(3,ng24)
-  REAL(wp) :: sfluxref(ng24,9)
-  REAL(wp) :: abso3a(ng24), abso3b(ng24)
-  REAL(wp) :: rayla(ng24,9), raylb(ng24)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg24
-
-MODULE psrad_rrsw_kg25
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no25 = 16
-  REAL(wp) :: kao(5,13,no25)
-  REAL(wp) :: sfluxrefo(no25)
-  REAL(wp) :: abso3ao(no25), abso3bo(no25)
-  REAL(wp) :: raylo(no25)
-
-  INTEGER, PARAMETER :: ng25 = 6
-  REAL(wp) :: ka(5,13,ng25), absa(65,ng25)
-  REAL(wp) :: sfluxref(ng25)
-  REAL(wp) :: abso3a(ng25), abso3b(ng25)
-  REAL(wp) :: rayl(ng25)
-
-  EQUIVALENCE (ka(1,1,1),absa(1,1))
-
-END MODULE psrad_rrsw_kg25
-
-MODULE psrad_rrsw_kg26
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no26 = 16
-  REAL(wp) :: sfluxrefo(no26)
-  REAL(wp) :: raylo(no26)
-
-  INTEGER, PARAMETER :: ng26 = 6
-  REAL(wp) :: sfluxref(ng26)
-  REAL(wp) :: rayl(ng26)
-
-END MODULE psrad_rrsw_kg26
-
-MODULE psrad_rrsw_kg27
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no27 = 16
-  REAL(wp) :: kao(5,13,no27)
-  REAL(wp) :: kbo(5,13:59,no27)
-  REAL(wp) :: sfluxrefo(no27)
-  REAL(wp) :: raylo(no27)
-
-  INTEGER, PARAMETER :: ng27 = 8
-  REAL(wp) :: ka(5,13,ng27), absa(65,ng27)
-  REAL(wp) :: kb(5,13:59,ng27), absb(235,ng27)
-  REAL(wp) :: sfluxref(ng27)
-  REAL(wp) :: rayl(ng27)
-
-  EQUIVALENCE (ka(1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg27
-
-MODULE psrad_rrsw_kg28
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no28 = 16
-  REAL(wp) :: kao(9,5,13,no28)
-  REAL(wp) :: kbo(5,5,13:59,no28)
-  REAL(wp) :: sfluxrefo(no28,5)
-  REAL(wp) :: rayl
-
-  INTEGER, PARAMETER :: ng28 = 6
-  REAL(wp) :: ka(9,5,13,ng28), absa(585,ng28)
-  REAL(wp) :: kb(5,5,13:59,ng28), absb(1175,ng28)
-  REAL(wp) :: sfluxref(ng28,5)
-
-  EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg28
-
-MODULE psrad_rrsw_kg29
-
-  USE mo_kind, ONLY : wp
-  IMPLICIT NONE
-
-  PUBLIC
-
-  SAVE
-
-  INTEGER, PARAMETER :: no29 = 16
-  REAL(wp) :: kao(5,13,no29)
-  REAL(wp) :: kbo(5,13:59,no29)
-  REAL(wp) :: selfrefo(10,no29), forrefo(4,no29)
-  REAL(wp) :: sfluxrefo(no29)
-  REAL(wp) :: absh2oo(no29), absco2o(no29)
-  REAL(wp) :: rayl
-
-  INTEGER, PARAMETER :: ng29 = 12
-  REAL(wp) :: ka(5,13,ng29), absa(65,ng29)
-  REAL(wp) :: kb(5,13:59,ng29), absb(235,ng29)
-  REAL(wp) :: selfref(10,ng29), forref(4,ng29)
-  REAL(wp) :: sfluxref(ng29)
-  REAL(wp) :: absh2o(ng29), absco2(ng29)
-
-  EQUIVALENCE (ka(1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
-
-END MODULE psrad_rrsw_kg29
+  INTEGER, PARAMETER :: &
+    ngpt(nbndsw) = (/6,12,8,8,10, 10,2,10,8,6, 6,8,6,12/), &
+    nsp(2,nbndsw) = RESHAPE((/& 
+      9,9,9,9,1, 9,9,1,9,1, 0,1,9,1, &
+      1,5,1,1,1, 5,1,0,1,0, 0,1,5,1/), &
+      SHAPE=(/2,nbndsw/), ORDER=(/2,1/)), &
+    fracs_mult(2,nbndsw) = MAX(0,nsp-1), &
+    minor_species(2,nbndsw) = RESHAPE((/ &
+      0,0,0,0,ich4, 0,io2,0,io3,io3, 0,0,0,ico2, &
+      0,0,0,0,ich4, 0,io2,0,io3,io3, 0,0,0,ih2o/), &
+      SHAPE=(/2,nbndsw/), ORDER=(/2,1/)), &
+    major_species(2,2,nbndsw) = RESHAPE((/& 
+      ih2o,ich4, ich4,0, & ! Band 1
+      ih2o,ico2, ih2o,ico2, & ! Band 2
+      ih2o,ich4, ich4,0, & ! Band 3
+      ih2o,ico2, ico2,0, & ! Band 4
+      ih2o,0, ih2o,0, & ! Band 5
+      ih2o,ico2, ih2o,ico2, & ! Band 6
+      ih2o,io2, io2,0, & ! Band 7
+      ih2o,0, 0,0, & ! Band 8
+      ih2o,io2, io2,0, & ! Band 9
+      ih2o,0, 0,0, & ! Band 10
+      0,0, 0,0, & ! Band 11
+      io3,0, io3,0, & ! Band 12
+      io3,io2, io3,io2, & ! Band 13
+      ih2o,0, ico2,0/), & ! Band 14
+      SHAPE=(/2,2,nbndsw/)), &
+    h2o_absorption_flag(2,nbndsw) = RESHAPE((/& 
+      1,1,1,1,1, 1,1,1,1,0, 0,0,0,1, &
+      0,1,0,0,1, 1,0,0,0,0, 0,0,0,0/), &
+      SHAPE=(/2,nbndsw/), ORDER=(/2,1/)), &
+    nh2oref(2,nbndsw) = RESHAPE((/& 
+      10,10,10,10,10, 10,10,10,10,0, 0,0,0,10, &
+      3,4,3,3,4,      4,3,3,3,0,     0,0,0,4/), &
+      SHAPE=(/2,nbndsw/), ORDER=(/2,1/)), &
+    nsfluxref(nbndsw) = (/1,5,9,9,1, 9,9,1,9,1, 1,1,5,1/), &
+    rayl_type(2,nbndsw) = RESHAPE((/ &
+      0,0,0,0,0, 0,0,1,9,1, 1,1,0,0, &
+      0,0,0,0,0, 0,0,1,1,1, 1,1,0,0/), &
+      SHAPE=(/2,nbndsw/), ORDER=(/2,1/)), &
+    minor_species_missing_data(2,nbndsw) = RESHAPE((/ &
+      0,0,0,0,0, 0,0,0,0,0, 0,0,0,0, &
+      0,0,0,0,1, 0,0,0,0,0, 0,0,0,0/), &
+      SHAPE=(/2,nbndsw/), ORDER=(/2,1/))
+
+
+  ! Shortwave spectral band limits (wavenumbers)
+  REAL(wp), PARAMETER :: wavenum1(nbndsw) = (/ &
+       2600._wp, 3250._wp, 4000._wp, 4650._wp, 5150._wp, 6150._wp, 7700._wp, &
+       8050._wp,12850._wp,16000._wp,22650._wp,29000._wp,38000._wp,  820._wp/)
+  REAL(wp), PARAMETER :: wavenum2(nbndsw) = (/ &
+       3250., 4000., 4650., 5150., 6150., 7700., 8050., &
+       12850.,16000.,22650.,29000.,38000.,50000., 2600./), &
+    delwave(nbndsw)  = (/ &
+       650.,  750.,  650.,  500., 1000., 1550.,  350., &
+       4800., 3150., 6650., 6350., 9000.,12000., 1780./)
+
+END MODULE mo_psrad_srtm_kgs
 

@@ -24,57 +24,39 @@ MODULE mo_echam_vdiff_params
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: clam, ckap, cchar, cb, cc, cfreec, cgam     !< parameters
-  PUBLIC :: eps_shear, eps_corio, tke_min, z0m_min      !< parameters
+  PUBLIC :: ckap, cchar, cb, cc                         !< parameters
+  PUBLIC :: eps_shear, eps_corio, totte_min, z0m_min    !< parameters
   PUBLIC :: z0m_ice, z0m_oce
-  PUBLIC :: chneu, shn, smn, da1, custf, cwstf          !< parameters
-  PUBLIC :: cons2, cons25, cons5                        !< parameters
+  PUBLIC :: chneu, shn, smn, da1                        !< parameters
+  PUBLIC :: cons5                                       !< parameters
   PUBLIC :: cvdifts, tpfac1, tpfac2, tpfac3, tpfac4     !< parameters
   PUBLIC :: itop, itopp1, ibl, iblm1, iblmin, iblmax    !< parameters
-  PUBLIC :: f_tau0, f_theta0, c_f, c_n, c_e, pr0        !< TTE scheme closure constants
-  PUBLIC :: wmc, fsl, fbl 
-  PUBLIC :: init_vdiff_params              !< subroutine
+  
+  PUBLIC :: lmix_max
+  PUBLIC :: init_vdiff_params                           !< subroutine
 
 
   !-------------------
   ! Module parameters
   !-------------------
 
-  REAL(wp),PARAMETER :: clam    = 150._wp      !< asymptotic mixing length for momentum
   REAL(wp),PARAMETER :: ckap    = 0.4_wp       !< karman constant.
   REAL(wp),PARAMETER :: cchar   = 0.018_wp     !< charnock constant.
   REAL(wp),PARAMETER :: cb      = 5._wp        !< stability parameter near neutrality.
   REAL(wp),PARAMETER :: cc      = 5._wp        !< stability parameter for unstable cases.
-! REAL(wp),PARAMETER :: cd      = 5._wp        !< stability parameter for stable cases.
-  REAL(wp),PARAMETER :: cfreec  = 0.001_wp     !< free convection parameter
-  REAL(wp),PARAMETER :: cgam    = 1.25_wp      !< free convection parameter
 
+  REAL(wp),PARAMETER :: lmix_max  = 1.e3_wp    !< maximum mixing length in neutral and stable conditions
   REAL(wp),PARAMETER :: eps_shear = 1.e-5_wp   !< zepshr in sbr. vdiff of ECHAM6
   REAL(wp),PARAMETER :: eps_corio = 5.e-5_wp   !< zepcor in sbr. vdiff of ECHAM6
-! REAL(wp),PARAMETER :: tke_min   = 1.e-10_wp  !< ztkemin in sbr. vdiff of ECHAM6
-  REAL(wp)           :: tke_min   = 1.e-10_wp  !< ztkemin in sbr. vdiff of ECHAM6
-! REAL(wp),PARAMETER :: tke_min   = 1.e-4_wp   !< ztkemin in sbr. vdiff of ECHAM6
+  REAL(wp),PARAMETER :: totte_min = 1.e-10_wp  !< minimum total turbulent energy 
   REAL(wp),PARAMETER :: z0m_min   = 1.5e-5_wp  !< zepzzo in sbr. vdiff of ECHAM5
   REAL(wp),PARAMETER :: z0m_ice   = 1e-3_wp    !< cz0ice in sbr. vdiff of ECHAM5
   REAL(wp),PARAMETER :: z0m_oce   = 5e-4_wp    !< see mo_surface_ocean.f90 of ECHAM6
 
   REAL(wp),PARAMETER :: chneu  = 0.3_wp
 
-  REAL(wp),PARAMETER :: cons2  = 0.5_wp*ckap/grav
-  REAL(wp),PARAMETER :: cons25 = cons2/clam
   REAL(wp),PARAMETER :: cons5  = 3._wp*cb*cc
 
-  REAL(wp),PARAMETER :: pr0      =  0.85_wp  ! neutral limit Prandtl number, can be varied from about 0.6 to 1.0
-  REAL(wp),PARAMETER :: f_tau0   =  0.17_wp  ! neutral non-dimensional stress factor
-  REAL(wp),PARAMETER :: f_theta0 = -SQRT(f_tau0**2/2.0_wp/pr0) ! neutral non-dimensional heat flux factor 
-  REAL(wp),PARAMETER :: c_f      =  0.185_wp ! mixing length: coriolis term tuning parameter
-  REAL(wp),PARAMETER :: c_n      =  2.0_wp   ! mixing length: stability term tuning parameter
-  REAL(wp),PARAMETER :: c_e      =  0.07_wp  ! dissipation coefficient (=f_tau0^(3/2))
-  REAL(wp),PARAMETER :: wmc      =  0.5_wp   ! ratio of typical horizontal velocity to wstar at free convection
-  REAL(wp),PARAMETER :: fsl      =  0.4_wp   ! fraction of first-level height at which surface fluxes
-                                             ! are nominally evaluated, tuning param for sfc stress
-  REAL(wp),PARAMETER :: fbl      =  3._wp    ! 1/fbl: fraction of BL height at which lmix hat its max
-  
   ! Parameters related to time step weighting in *rhs* of *vdiff* and *scv*
 
   REAL(wp),PARAMETER :: cvdifts = 1.5_wp
@@ -83,13 +65,13 @@ MODULE mo_echam_vdiff_params
   REAL(wp),PARAMETER :: tpfac3  = 1._wp - tpfac2
   REAL(wp),PARAMETER :: tpfac4  = 1._wp + tpfac3
 
+  REAL(wp),PARAMETER :: shn = 2.22_wp*0.22_wp*SQRT(2._wp)
+  REAL(wp),PARAMETER :: smn = shn*1.24_wp*2.37_wp/3.69_wp
+  REAL(wp),PARAMETER :: da1 = 1._wp/smn**3
+
   !-------------------
   ! Module variables
   !-------------------
-
-  REAL(wp) :: shn
-  REAL(wp) :: smn
-  REAL(wp) :: da1
 
   INTEGER :: itop
   INTEGER :: itopp1
@@ -97,10 +79,6 @@ MODULE mo_echam_vdiff_params
   INTEGER :: iblm1
   INTEGER :: iblmin
   INTEGER :: iblmax
-
-  ! For the surface scheme of ECHAM5
-
-  REAL(wp) :: custf, cwstf
 
 CONTAINS
   !-------------
@@ -115,12 +93,6 @@ CONTAINS
     REAL(wp) :: zph(klevp1), zp(klev), zh(klev)
 
     !------------------
-
-    shn    = 2.22_wp*0.22_wp*SQRT(2._wp)
-    smn    = shn*1.24_wp*2.37_wp/3.69_wp
-    da1    = 1._wp/smn**3
-    custf  = 1._wp/smn**2
-    cwstf  = 0.2_wp
 
     itop   = 1
     itopp1 = itop + 1

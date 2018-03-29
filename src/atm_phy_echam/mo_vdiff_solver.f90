@@ -19,9 +19,9 @@ MODULE mo_vdiff_solver
   USE mo_impl_constants,    ONLY: SUCCESS
   USE mo_exception,         ONLY: message, message_text, finish
   USE mo_physical_constants,ONLY: rgrav, cpd, cpv
-  USE mo_echam_vdiff_params,ONLY: tke_min, &
+  USE mo_echam_vdiff_params,ONLY: totte_min, &
     &                             tpfac1, tpfac2, tpfac3, cchar, z0m_min
-  USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config, get_lebudget
+  USE mo_echam_phy_config,  ONLY: echam_phy_config
 
   IMPLICIT NONE
   PRIVATE
@@ -41,7 +41,7 @@ MODULE mo_vdiff_solver
   INTEGER :: nvar_vdiff    !< total number of variables affected by turbulent mixing
   INTEGER :: iu, iv, ih, iqv
   INTEGER :: ixl, ixi, ixv
-  INTEGER :: itke, ithv
+  INTEGER :: itotte, ithv
   INTEGER :: itrc_start
   INTEGER :: nmatrix
   INTEGER :: imh, imqv, imuv
@@ -63,7 +63,7 @@ CONTAINS
   !!   u, v, T, qv                             |  4
   !!   all hydrometeors                        |  khydromet
   !!   variance of cloud droplet concentration |  1
-  !!   TKE                                     |  1
+  !!   TTE                                     |  1
   !!   variance of theta_v                     |  1
   !!   additional tracers                      |  ktrac
   !! -----------------------------------------------------------
@@ -82,7 +82,7 @@ CONTAINS
 
     iu   = 1;   iv   = 2
     ixl  = 3;   ixi  = 4;  ixv = 5
-    itke = 6;   ithv = 7
+    itotte= 6;  ithv = 7
     ih   = 8;   iqv  = 9
 
     !>KF suggestion
@@ -109,10 +109,10 @@ CONTAINS
 
     ibtm_var(:)    = klev
 
-    ! TKE and the variance of $\theta_v$ are solved at klev-1 half levels.
+    ! TTE and the variance of $\theta_v$ are solved at klev-1 half levels.
     ! The upper and lower boundaries of the atmosphere are excluded.  
 
-    ibtm_var(itke) = klev -1
+    ibtm_var(itotte) = klev -1
     ibtm_var(ithv) = klev -1
 
     !------------------------------------------
@@ -128,7 +128,7 @@ CONTAINS
     matrix_idx(ixl)  = 2
     matrix_idx(ixi)  = 2  ! cloud water and ice share the same exchange coeff.
     matrix_idx(ixv)  = 3
-    matrix_idx(itke) = 4
+    matrix_idx(itotte) = 4
     matrix_idx(ithv) = 5
     matrix_idx(ih)   = 6 ; imh  = 6
     matrix_idx(iqv)  = 7 ; imqv = 7
@@ -146,7 +146,7 @@ CONTAINS
     & 'Allocation of ibtm_mtrx failed')
 
     ibtm_mtrx(:)                = klev
-    ibtm_mtrx(matrix_idx(itke)) = klev -1
+    ibtm_mtrx(matrix_idx(itotte)) = klev -1
     ibtm_mtrx(matrix_idx(ithv)) = klev -1
 
   END SUBROUTINE init_vdiff_solver
@@ -173,9 +173,9 @@ CONTAINS
   SUBROUTINE matrix_setup_elim( kproma, kbdim, klev, klevm1,  &! in
                               & ksfc_type, itop,              &! in
                               & pcfm, pcfh, pcfh_tile, pcfv,  &! in
-                              & pcftke, pcfthv,               &! in
+                              & pcftotte, pcfthv,             &! in
                               & pprfac,                       &! in
-                              & prmairm, prmairh, prmdrym,    &! in
+                              & prmairm, prmairh, prmrefm,    &! in
                               & aa, aa_btm                    )! out
     ! Arguments
 
@@ -186,12 +186,12 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pcfh     (kbdim,klevm1)    !< exchange coeff. for heat and tracers
     REAL(wp),INTENT(IN) :: pcfh_tile(kbdim,ksfc_type) !< exchange coeff. for heat and qv, at surface
     REAL(wp),INTENT(IN) :: pcfv     (kbdim,klev)      !< exchange coeff. for total water variance
-    REAL(wp),INTENT(IN) :: pcftke   (kbdim,klev)      !< exchange coeff. for TKE
+    REAL(wp),INTENT(IN) :: pcftotte (kbdim,klev)      !< exchange coeff. for TTE
     REAL(wp),INTENT(IN) :: pcfthv   (kbdim,klev)      !< exchange coeff. for variance of theta_v
     REAL(wp),INTENT(IN) :: pprfac   (kbdim,klev)      !< prefactor for the exchange coefficients
     REAL(wp),INTENT(IN) :: prmairm  (kbdim,klev)      !< reciprocal of layer air mass, full levels
-    REAL(wp),INTENT(IN) :: prmairh  (kbdim,klevm1)    !< reciprocal of layer dry aor mass, half levels
-    REAL(wp),INTENT(IN) :: prmdrym  (kbdim,klev)      !< reciprocal of layer dry air mass, full levels
+    REAL(wp),INTENT(IN) :: prmairh  (kbdim,klevm1)    !< reciprocal of layer air mass, half levels
+    REAL(wp),INTENT(IN) :: prmrefm  (kbdim,klev)      !< reciprocal of layer ref air mass, full levels
 
     REAL(wp),INTENT(INOUT) :: aa    (kbdim,klev,3,nmatrix) !< exchange coeff. matrices    out
     REAL(wp),INTENT(INOUT) :: aa_btm(kbdim,3,ksfc_type,imh:imqv)   !  out
@@ -202,7 +202,7 @@ CONTAINS
 
     REAL(wp) :: zkstar (kbdim,itop-1:klev)     !< scaled exchange coeff on half-levels
     REAL(wp) :: zkh    (kbdim,itop-1:klevm1)   !< scaled exchange doeff on full-levels, 
-                                               !< for TKE and variance of theta_v
+                                               !< for TTE and variance of theta_v
     INTEGER  :: im             !< index of coefficient matrix
     INTEGER  :: jc, jk, jsfc   !< loop indices
     INTEGER  :: jkm1, jmax
@@ -263,8 +263,8 @@ CONTAINS
                                  &   *pcfh(1:kproma,itop:klevm1)
     DO jk = itop,klevm1
       DO jc = 1,kproma
-        aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prmdrym(jc,jk)  ! -K*_{k-1/2}/dm_k
-        aa(jc,jk,3,im) = -zkstar(jc,jk  )*prmdrym(jc,jk)  ! -K*_{k+1/2}/dm_k
+        aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prmrefm(jc,jk)  ! -K*_{k-1/2}/dm_k
+        aa(jc,jk,3,im) = -zkstar(jc,jk  )*prmrefm(jc,jk)  ! -K*_{k+1/2}/dm_k
         aa(jc,jk,2,im) = 1._wp - aa(jc,jk,1,im) - aa(jc,jk,3,im)
       ENDDO
     ENDDO
@@ -277,8 +277,8 @@ CONTAINS
     jk = klev
     DO jsfc = 1,ksfc_type
       DO jc = 1,kproma
-        aa_btm(jc,1,jsfc,im) = -zkstar(jc,jk-1)*prmdrym(jc,jk)    ! -K*_{k-1/2}/dm_k
-        aa_btm(jc,3,jsfc,im) = -pcfh_tile(jc,jsfc)*pprfac(jc,jk)*prmdrym(jc,jk)
+        aa_btm(jc,1,jsfc,im) = -zkstar(jc,jk-1)*prmrefm(jc,jk)    ! -K*_{k-1/2}/dm_k
+        aa_btm(jc,3,jsfc,im) = -pcfh_tile(jc,jsfc)*pprfac(jc,jk)*prmrefm(jc,jk)
         aa_btm(jc,2,jsfc,im) = 1._wp - aa_btm(jc,1,jsfc,im) - aa_btm(jc,3,jsfc,im)
       ENDDO
     ENDDO
@@ -292,8 +292,8 @@ CONTAINS
 
     DO jk = itop,klev
       DO jc = 1,kproma
-        aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prmdrym(jc,jk)  ! -K*_{k-1/2}/dm_k
-        aa(jc,jk,3,im) = -zkstar(jc,jk  )*prmdrym(jc,jk)  ! -K*_{k+1/2}/dm_k
+        aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prmrefm(jc,jk)  ! -K*_{k-1/2}/dm_k
+        aa(jc,jk,3,im) = -zkstar(jc,jk  )*prmrefm(jc,jk)  ! -K*_{k+1/2}/dm_k
         aa(jc,jk,2,im) = 1._wp - aa(jc,jk,1,im) - aa(jc,jk,3,im)
       ENDDO
     ENDDO
@@ -309,25 +309,25 @@ CONTAINS
                                &  *pcfv(1:kproma,itop:klev)
     DO jk = itop,klev
       DO jc = 1,kproma
-        aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prmdrym(jc,jk)
-        aa(jc,jk,3,im) = -zkstar(jc,jk  )*prmdrym(jc,jk)
+        aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prmrefm(jc,jk)
+        aa(jc,jk,3,im) = -zkstar(jc,jk  )*prmrefm(jc,jk)
         aa(jc,jk,2,im) = 1._wp - aa(jc,jk,1,im) - aa(jc,jk,3,im)
       ENDDO
     ENDDO
 
     !------------------------------------------------------------------------
-    ! For TKE: Note that
+    ! For TTE: Note that
     ! - Vertical averaging is needed to convert exchange coefficient from
-    !   half to full levels, because TKE equation is solved on half levels.
-    ! - TKE equation is solved only till array subscript klevm1, which
+    !   half to full levels, because TTE equation is solved on half levels.
+    ! - TTE equation is solved only till array subscript klevm1, which
     !   corresponds to half level (klev - 1/2), i.e., the lowest
-    !   interface above surface. Surface value of TKE is (already)
+    !   interface above surface. Surface value of TTE is (already)
     !   computed in subroutine "sfc_exchange_coeff".
     !------------------------------------------------------------------------
-    im = matrix_idx(itke)
+    im = matrix_idx(itotte)
 
     zkstar(1:kproma,itop:klev) =  pprfac(1:kproma,itop:klev) &
-                               & *pcftke(1:kproma,itop:klev)
+                               & *pcftotte(1:kproma,itop:klev)
     DO jk = itop,klevm1
       zkh(1:kproma,jk) = 0.5_wp*(zkstar(1:kproma,jk)+zkstar(1:kproma,jk+1))
     ENDDO
@@ -342,7 +342,7 @@ CONTAINS
     ENDDO
 
     !------------------------------------------------
-    ! For the variance of theta_v (similar to TKE)
+    ! For the variance of theta_v (similar to TTE)
     !------------------------------------------------
     im = matrix_idx(ithv)
     zkstar(1:kproma,itop:klev) =  pprfac(1:kproma,itop:klev) &
@@ -361,7 +361,7 @@ CONTAINS
 
     !-----------------------------------------------------------------------------
     ! Gauss elimination for the coefficient matrices at
-    ! - vertical levels [itop,klev-2], for TKE and variance of theta_v;
+    ! - vertical levels [itop,klev-2], for TTE and variance of theta_v;
     ! - vertical levels [itop,klev-1], for all the other variables.
     !-----------------------------------------------------------------------------
 
@@ -393,7 +393,7 @@ CONTAINS
                       & ksfc_type, ktrac, pdtime,            &! in
                       & pum1, pvm1, pcptgz, pqm1,            &! in
                       & pxlm1, pxim1, pxvar, pxtm1, pxt_emis,&! in
-                      & prmdrym, ptkevn, pzthvvar, aa,       &! in
+                      & prmrefm, ptottevn, pzthvvar, aa,     &! in
                       & bb, bb_btm                           )! out
 
     ! Arguments
@@ -412,9 +412,9 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pxtm1    (kbdim,klev,ktrac)
     REAL(wp),INTENT(IN) :: pxt_emis (kbdim,ktrac)
    !REAL(wp),INTENT(IN) :: pxt_emis (kbdim,klev,ktrac) ! backup for later use
-    REAL(wp),INTENT(IN) :: ptkevn   (kbdim,klev)
+    REAL(wp),INTENT(IN) :: ptottevn (kbdim,klev)
     REAL(wp),INTENT(IN) :: pzthvvar (kbdim,klev)
-    REAL(wp),INTENT(IN) :: prmdrym  (kbdim,klev)
+    REAL(wp),INTENT(IN) :: prmrefm  (kbdim,klev)
     REAL(wp),INTENT(IN) :: aa       (kbdim,klev,3,nmatrix)
 
     REAL(wp),INTENT(INOUT) :: bb    (kbdim,klev,nvar_vdiff)  ! OUT
@@ -457,16 +457,16 @@ CONTAINS
     ENDDO
 
     !-------------------------------------------------------------------
-    ! TKE and the variance of theta_v:
+    ! TTE and the variance of theta_v:
     ! These variables are defined at half levels. Array index jk
     ! correspond to half level k+1/2. Thus klev correspond to the
     ! lower boundary. The linear solver only solves till index klevm1.
     !-------------------------------------------------------------------
-    im = matrix_idx(itke)
-    bb(1:kproma,itop:klevm1,itke) =  ptkevn(1:kproma,itop:klevm1)
-    bb(1:kproma,     klevm1,itke) =  bb(1:kproma,klevm1,itke)   &
-                                  & -aa(1:kproma,klevm1,3,im)   &
-                                  & *ptkevn(1:kproma,klev)
+    im = matrix_idx(itotte)
+    bb(1:kproma,itop:klevm1,itotte) =  ptottevn(1:kproma,itop:klevm1)
+    bb(1:kproma,     klevm1,itotte) =  bb(1:kproma,klevm1,itotte)   &
+                                    & -aa(1:kproma,klevm1,3,im)     &
+                                    & *ptottevn(1:kproma,klev)
 
     im = matrix_idx(ithv)
     bb(1:kproma,itop:klevm1,ithv) =  pzthvvar(1:kproma,itop:klevm1)
@@ -480,8 +480,8 @@ CONTAINS
     !bb     = tpfac2*bb
     !bb_btm = tpfac2*bb_btm
 
-     bb(1:kproma,1:klev,  1:itke-1) = tpfac2*bb(1:kproma,1:klev,  1:itke-1)
-     bb(1:kproma,1:klevm1,itke:iqv) = tpfac2*bb(1:kproma,1:klevm1,itke:iqv)
+     bb(1:kproma,1:klev,  1:itotte-1) = tpfac2*bb(1:kproma,1:klev,  1:itotte-1)
+     bb(1:kproma,1:klevm1,itotte:iqv) = tpfac2*bb(1:kproma,1:klevm1,itotte:iqv)
 
      IF (ktrac>0) THEN
        bb(1:kproma,1:klev,itrc_start:) = tpfac2*bb(1:kproma,1:klev,itrc_start:)
@@ -495,7 +495,7 @@ CONTAINS
     ! Currently we follow ECHAM in which only the surface emission
     ! is treated in "vdiff".
 
-    ztmp(1:kproma,klev) = prmdrym(1:kproma,klev)*pdtime
+    ztmp(1:kproma,klev) = prmrefm(1:kproma,klev)*pdtime
 
     DO jt = 1,ktrac
        irhs = jt - 1 + itrc_start
@@ -507,7 +507,7 @@ CONTAINS
     ! Later we may consider treating emission on all vertical levels
     ! in the same way.
     !
-    !ztmp(1:kproma,itop:klev) = prmdrym(1:kproma,itop:klev)*pdtime
+    !ztmp(1:kproma,itop:klev) = prmrefm(1:kproma,itop:klev)*pdtime
     !
     !DO jt = 1,ktrac
     !   irhs = jt - 1 + itrc_start
@@ -543,7 +543,7 @@ CONTAINS
     REAL(wp) :: znum(kbdim), zden(kbdim)
     INTEGER  :: jvar, im, jk, jkm1, jmax
 
-    ! 1. Vertical levels [itop+1,klev-2] for TKE and variance of theta_v;
+    ! 1. Vertical levels [itop+1,klev-2] for TTE and variance of theta_v;
     !    [itop+1,klev-1] for all the other variables.
 
     DO jvar = 1,nvar_vdiff
@@ -581,7 +581,7 @@ CONTAINS
       END IF
     ENDDO !jvar: variable loop
 
-    ! Note that for TKE and the variance of theta_v, klev-1 is the lowest
+    ! Note that for TTE and the variance of theta_v, klev-1 is the lowest
     ! level above surface. Now set boundary condition for the variance 
     ! of theta_v.
 
@@ -596,14 +596,14 @@ CONTAINS
   !! Prepare the Richtmyer-Morton coeffcients for dry static energy and 
   !! moisture, to be used by the surface models (ocean, sea-ice, land).
   !!
-  SUBROUTINE matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
-                                      & aa, bb,                                  &! in
-                                      & aa_btm, bb_btm,                          &! inout
-                                      & pen_h, pfn_h, pen_qv, pfn_qv,            &! out
-                                      & pcair,                                   &! in
-                                      & pcsat)                                    ! in
+  SUBROUTINE matrix_to_richtmyer_coeff( jg, kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
+                                      & aa, bb,                                      &! in
+                                      & aa_btm, bb_btm,                              &! inout
+                                      & pen_h, pfn_h, pen_qv, pfn_qv,                &! out
+                                      & pcair,                                       &! in
+                                      & pcsat)                                        ! in
 
-    INTEGER,INTENT(IN)     :: kproma, kbdim, klev, ksfc_type, idx_lnd
+    INTEGER,INTENT(IN)     :: jg, kproma, kbdim, klev, ksfc_type, idx_lnd
     REAL(wp),INTENT(IN)    :: aa    (kbdim,klev,3,imh:imqv)
     REAL(wp),INTENT(IN)    :: bb    (kbdim,klev,ih:iqv)
     REAL(wp),INTENT(INOUT) :: aa_btm(kbdim,3,ksfc_type,imh:imqv)
@@ -626,7 +626,7 @@ CONTAINS
     !---------------------------------------------------------
     ! Evapotranspiration has to be considered over land 
 
-    IF (phy_config%ljsbach .AND. idx_lnd<=ksfc_type) THEN
+    IF (echam_phy_config(jg)%ljsb .AND. idx_lnd<=ksfc_type) THEN
 
       jsfc = idx_lnd
 
@@ -726,16 +726,16 @@ CONTAINS
                              & ktrac, ksfc_type, idx_wtr,                  &! in
                              & pdtime,                                     &! in
                              & pum1, pvm1, ptm1,                           &! in
-                             & pmair, pmdry,                               &! in
+                             & pmair, pmref,                               &! in
                              & pqm1, pxlm1, pxim1, pxtm1,                  &! in
                              & pgeom1, pcptgz,                             &! in
-                             & pztkevn, pzthvvar,                          &! in
+                             & pztottevn, pzthvvar,                        &! in
                              & pcfm_tile, pfrc, bb,                        &! in
                              & pkedisp,                                    &! out
                              & pxvar, pz0m_tile,                           &! inout
                              & pute_vdf, pvte_vdf, pq_vdf,                 &! out
                              & pqte_vdf, pxlte_vdf, pxite_vdf, pxtte_vdf,  &! out
-                             & pz0m, ptke, pthvvar,                        &! out
+                             & pz0m, ptotte, pthvvar,                      &! out
                              & psh_vdiff,pqv_vdiff                         )! out
 
     INTEGER, INTENT(IN) :: kproma, kbdim, itop, klev, klevm1, ktrac !!$, klevp1
@@ -746,14 +746,14 @@ CONTAINS
     REAL(wp),INTENT(IN)  :: pvm1   (kbdim,klev)
     REAL(wp),INTENT(IN)  :: ptm1   (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pmair  (kbdim,klev)  !< moist air mass [kg/m2]
-    REAL(wp),INTENT(IN)  :: pmdry  (kbdim,klev)  !< dry   air mass [kg/m2]
+    REAL(wp),INTENT(IN)  :: pmref  (kbdim,klev)  !< dry   air mass [kg/m2]
     REAL(wp),INTENT(IN)  :: pqm1   (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pxlm1  (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pxim1  (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pxtm1  (kbdim,klev,ktrac)
     REAL(wp),INTENT(IN)  :: pgeom1 (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pcptgz (kbdim,klev)
-    REAL(wp),INTENT(IN)  :: pztkevn (kbdim,klev)
+    REAL(wp),INTENT(IN)  :: pztottevn(kbdim,klev)
     REAL(wp),INTENT(IN)  :: pzthvvar(kbdim,klev)
     REAL(wp),INTENT(IN)  :: pcfm_tile     (kbdim,ksfc_type)
     REAL(wp),INTENT(IN)  :: pfrc          (kbdim,ksfc_type)
@@ -774,7 +774,7 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pxtte_vdf(kbdim,klev,ktrac)
 
     REAL(wp),INTENT(OUT) :: pz0m     (kbdim)
-    REAL(wp),INTENT(OUT) :: ptke     (kbdim,klev)
+    REAL(wp),INTENT(OUT) :: ptotte   (kbdim,klev)
     REAL(wp),INTENT(OUT) :: pthvvar  (kbdim,klev)
     REAL(wp),INTENT(OUT) :: psh_vdiff(kbdim)
     REAL(wp),INTENT(OUT) :: pqv_vdiff(kbdim)
@@ -797,28 +797,28 @@ CONTAINS
     pxite_vdf(:,:)   = 0._wp
     pxtte_vdf(:,:,:) = 0._wp
 
-    ptke     (:,:)   = 0._wp
+    ptotte   (:,:)   = 0._wp
     pthvvar  (:,:)   = 0._wp
     pz0m     (:)     = 0._wp
 
     !-------------------------------------------------------------------
-    ! Compute TKE at the new time step.
+    ! Compute TTE at the new time step.
     !-------------------------------------------------------------------
 
     DO jk = itop,klevm1
       ztest = 0._wp
       DO jl = 1,kproma
-        ptke(jl,jk) = bb(jl,jk,itke) + tpfac3*pztkevn(jl,jk)
-        ztest = ztest+MERGE(1._wp,0._wp,ptke(jl,jk)<0._wp)
+        ptotte(jl,jk) = bb(jl,jk,itotte) + tpfac3*pztottevn(jl,jk)
+        ztest = ztest+MERGE(1._wp,0._wp,ptotte(jl,jk)<0._wp)
       END DO
       IF(ztest.NE.0._wp) THEN
-        WRITE(message_text,'(a,I4,2E15.5)') 'level, MIN TKE components = ',&
-             & jk, MINVAL(bb(:,jk,itke)),MINVAL(pztkevn(:,jk))
+        WRITE(message_text,'(a,I4,2E15.5)') 'level, MIN TTE components = ',&
+             & jk, MINVAL(bb(:,jk,itotte)),MINVAL(pztottevn(:,jk))
         CALL message('', TRIM(message_text))
-        CALL finish('vdiff_tendencies','TKE IS NEGATIVE')
+        CALL finish('vdiff_tendencies','TTE IS NEGATIVE')
       ENDIF
     END DO
-    ptke(1:kproma,klev) = pztkevn(1:kproma,klev)
+    ptotte(1:kproma,klev) = pztottevn(1:kproma,klev)
 
 
     !-------------------------------------------------------------
@@ -827,7 +827,7 @@ CONTAINS
     DO jk = itop,klev
       DO jl = 1,kproma
         pthvvar(jl,jk) = bb(jl,jk,ithv) + tpfac3*pzthvvar(jl,jk)
-        pthvvar(jl,jk) = MAX(tke_min,pthvvar(jl,jk))
+        pthvvar(jl,jk) = MAX(totte_min,pthvvar(jl,jk))
       END DO
     END DO
 
@@ -880,19 +880,20 @@ CONTAINS
       END DO
     END DO
 
-    IF ( get_lebudget() ) THEN
-      psh_vdiff(:) = 0._wp
-      pqv_vdiff(:) = 0._wp
-      DO jk=itop,klev
-        ! compute heat budget diagnostic
-        psh_vdiff(1:kproma) = psh_vdiff(1:kproma) + pmdry(1:kproma,jk) * &
-        & (bb(1:kproma,jk,ih)  + (tpfac3 - 1._wp)*pcptgz(1:kproma,jk)) * zrdt
-        ! compute moisture budget diagnostic
-        ! ? zdis appears to be dissipation, probably we don't need this for qv??
-        pqv_vdiff(1:kproma) = pqv_vdiff(1:kproma) + pmdry(1:kproma,jk)* &
-        & (bb(1:kproma,jk,iqv) + (tpfac3 - 1._wp)*pqm1(1:kproma,jk)) * zrdt
-      END DO
-    END IF
+!!$    IF ( get_lebudget() ) THEN
+!!$      psh_vdiff(:) = 0._wp
+!!$      pqv_vdiff(:) = 0._wp
+!!$      DO jk=itop,klev
+!!$        ! compute heat budget diagnostic
+!!$        psh_vdiff(1:kproma) = psh_vdiff(1:kproma) + pmref(1:kproma,jk) * &
+!!$        & (bb(1:kproma,jk,ih)  + (tpfac3 - 1._wp)*pcptgz(1:kproma,jk)) * zrdt
+!!$        ! compute moisture budget diagnostic
+!!$        ! ? zdis appears to be dissipation, probably we don't need this for qv??
+!!$        pqv_vdiff(1:kproma) = pqv_vdiff(1:kproma) + pmref(1:kproma,jk)* &
+!!$        & (bb(1:kproma,jk,iqv) + (tpfac3 - 1._wp)*pqm1(1:kproma,jk)) * zrdt
+!!$      END DO
+!!$   END IF
+   
     !-------------------------------------------------------------
     ! Tendency of tracers
     !-------------------------------------------------------------

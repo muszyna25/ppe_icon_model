@@ -21,7 +21,7 @@ MODULE mo_ocean_coupling
   USE mo_master_control,      ONLY: get_my_process_name
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_exception,           ONLY: warning
+  USE mo_exception,           ONLY: warning, message
   USE mo_impl_constants,      ONLY: max_char_length
   USE mo_physical_constants,  ONLY: tmelt, rhoh2o
   USE mo_mpi,                 ONLY: p_pe_work
@@ -35,7 +35,8 @@ MODULE mo_ocean_coupling
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
 
   USE mo_ocean_types
-  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes,t_atmos_for_ocean
+  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
+  USE mo_ocean_surface_types, ONLY: t_atmos_for_ocean
   USE mo_time_config,         ONLY: set_tc_current_date
   USE mtime,                  ONLY: datetime, datetimeToString, &
     &                               MAX_DATETIME_STR_LEN
@@ -45,14 +46,16 @@ MODULE mo_ocean_coupling
   !
   USE mo_math_constants,      ONLY: pi
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_yac_finterface,      ONLY: yac_finit, yac_fdef_comp,                    &
+  USE mo_yac_finterface,      ONLY: yac_finit, yac_fdef_comp, yac_fget_version,  &
     &                               yac_fdef_datetime,                           &
     &                               yac_fdef_subdomain, yac_fconnect_subdomains, &
     &                               yac_fdef_elements, yac_fdef_points,          &
     &                               yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
-    &                               yac_ffinalize, yac_fput, yac_fget
+    &                               yac_ffinalize, yac_fput, yac_fget,           &
+    &                               YAC_LOCATION_CELL
   USE mo_coupling_config,     ONLY: is_coupled_run
   USE mo_time_config,         ONLY: time_config 
+  USE mo_hamocc_nml,          ONLY: l_cpl_co2
 
   !-------------------------------------------------------------
 
@@ -63,7 +66,7 @@ MODULE mo_ocean_coupling
   PUBLIC :: construct_ocean_coupling, destruct_ocean_coupling
   PUBLIC :: couple_ocean_toatmo_fluxes
 
-  INTEGER, PARAMETER    :: no_of_fields = 11
+  INTEGER, PARAMETER    :: no_of_fields = 13
   INTEGER               :: field_id(no_of_fields)
 
   REAL(wp), ALLOCATABLE :: buffer(:,:)
@@ -92,8 +95,6 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_horz
 
     INTEGER, PARAMETER :: nbr_subdomain_ids = 1
-    INTEGER, PARAMETER :: CELL = 0 ! one point per cell
-    ! (see definition of enum location in points.h)
 
     REAL(wp), PARAMETER :: deg = 180.0_wp / pi
 
@@ -140,6 +141,9 @@ CONTAINS
     ! Inform the coupler about what we are
     CALL yac_fdef_comp ( TRIM(comp_name), comp_id )
     comp_ids(1) = comp_id
+
+    ! Print the YAC version
+    CALL message('Running ICON ocean in coupled mode with YAC version ', TRIM(yac_fget_version()) )
 
     ! Overwrite job start and end date with component data
     CALL datetimeToString(time_config%tc_startdate, startdatestring)
@@ -227,7 +231,7 @@ CONTAINS
     CALL yac_fdef_points (        &
       & subdomain_id,             &
       & patch_horz%n_patch_cells, &
-      & CELL,                     &
+      & YAC_LOCATION_CELL,        &
       & buffer_lon,               &
       & buffer_lat,               &
       & cell_point_ids(1) )
@@ -252,7 +256,7 @@ CONTAINS
     CALL yac_fdef_index_location (              &
       & subdomain_id,                           &
       & patch_horz%n_patch_cells,               &
-      & CELL,                                   &
+      & YAC_LOCATION_CELL,                      &
       & patch_horz%cells%decomp_info%glb_index, &
       & ibuffer )
 
@@ -332,10 +336,13 @@ CONTAINS
     field_name(9) = "ocean_sea_ice_bundle"               ! bundled field containing three components
     field_name(10) = "10m_wind_speed"
     field_name(11) = "river_runoff"
+    field_name(12) = "co2_mixing_ratio"
+    field_name(13) = "co2_flux"
 
     ! Define the mask for all fields but the runoff (idx=1 to 10)
 
-    DO idx = 1, no_of_fields-1 
+    DO idx = 1, no_of_fields 
+      if(field_name(idx).ne. "river_runoff")then
       CALL yac_fdef_field (      &
         & TRIM(field_name(idx)), &
         & comp_id,               &
@@ -344,6 +351,7 @@ CONTAINS
         & cell_mask_ids(1),      &
         & 1,                     &
         & field_id(idx) )
+      endif
     ENDDO
 
     ! Define cell_mask_ids(2) for runoff: ocean coastal points only are valid.
@@ -381,13 +389,13 @@ CONTAINS
     !  - cell_mask_ids(2) is ocean coast points only for source point mapping (pre04, source_to_target_map)
 
     CALL yac_fdef_field (               &
-      & TRIM(field_name(no_of_fields)), &
+      & TRIM("river_runoff"), &
       & comp_id,                        &
       & domain_id,                      &
       & cell_point_ids,                 &
       & cell_mask_ids(2),               &
       & 1,                              &
-      & field_id(no_of_fields) )
+      & field_id(11) )
 
     CALL yac_fsearch ( 1, comp_ids, no_of_fields, field_id, error_status )
 
@@ -471,6 +479,7 @@ CONTAINS
     !   field_id(4) represents "total heat flux" bundle                   - short wave, long wave, sensible, latent heat flux
     !   field_id(5) represents "atmosphere_sea_ice_bundle"                - sea ice surface and bottom melt potentials
     !   field_id(10) represents "10m_wind_speed"                          - atmospheric wind speed
+    !   field_id(12) represents "co2_mixing_ratio"                        - co2 mixing ratio
     !
     !  Receive field from HD-model:
     !   field_id(11) represents "river_runoff"                            - river discharge into the ocean
@@ -610,6 +619,36 @@ CONTAINS
     ENDIF
 
 
+    IF(l_cpl_co2)then
+    !
+    ! ------------------------------
+    !  Send CO2 flux
+    !   field_id(13) represents "co2_flux" - co2flux
+    !
+    buffer(:,:) = 0.0_wp  ! temporarily
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
+    DO i_blk = 1, patch_horz%nblks_c
+      nn = (i_blk-1)*nproma
+      IF (i_blk /= patch_horz%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = patch_horz%npromz_c
+      END IF
+      DO n = 1, nlen
+        buffer(nn+n,1) = atmos_forcing%co2flx(n,i_blk) 
+      ENDDO
+    ENDDO
+!ICON_OMP_END_PARALLEL_DO
+    !    
+    IF (ltimer) CALL timer_start(timer_coupling_put)
+
+    CALL yac_fput ( field_id(13), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
+    IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fput called after end of run - id=13, CO2 flux')
+
+    IF (ltimer) CALL timer_stop(timer_coupling_put)
+
+    endif
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
     !  Receive fields from atmosphere
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
@@ -902,6 +941,50 @@ CONTAINS
       CALL sync_patch_array(sync_c, patch_horz, atmos_forcing%fu10(:,:))
     END IF
 
+    IF(l_cpl_co2)then
+    !
+    ! ------------------------------
+    !  Receive co2 mixing ratio
+    !   field_id(12) represents "co2 mixing ratio" - atmospheric co2 mixing
+    !   ratio
+    !
+    IF (ltimer) CALL timer_start(timer_coupling_get)
+
+    buffer(:,:) = 0.0_wp  ! temporarily
+    no_arr = 1
+    CALL yac_fget ( field_id(12), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
+    IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', &
+      &                                         'YAC says it is get for restart - id=12, co2 mr')
+    IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run - id=12, co2 mixing ratio')
+
+    IF (ltimer) CALL timer_stop(timer_coupling_get)
+    !
+    IF (info > 0 .AND. info < 7 ) THEN
+      !
+!!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
+      DO i_blk = 1, patch_horz%nblks_c
+        nn = (i_blk-1)*nproma
+        IF (i_blk /= patch_horz%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = patch_horz%npromz_c
+        END IF
+        DO n = 1, nlen
+          IF ( nn+n > nbr_inner_cells ) THEN
+            atmos_forcing%co2(n,i_blk) = dummy
+          ELSE
+            atmos_forcing%co2(n,i_blk) = buffer(nn+n,1)
+            IF ( atmos_forcing%co2(n,i_blk) < 0.0_wp ) atmos_forcing%co2(n,i_blk) = 0.0_wp
+          ENDIF
+        ENDDO
+      ENDDO
+!!ICON_OMP_END_PARALLEL_DO
+      !
+      !atmos_forcing%fu10(:,:) = MAX(atmos_forcing%fu10(:,:),0.0_wp) 
+      CALL sync_patch_array(sync_c, patch_horz, atmos_forcing%fu10(:,:))
+    END IF
+    END IF !l_cpl_co2
+
     !
     ! ------------------------------
     !  Receive river runoff
@@ -974,7 +1057,8 @@ MODULE mo_ocean_coupling
 
   USE mo_model_domain,        ONLY: t_patch_3d
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
-  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes, t_atmos_for_ocean
+  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
+  USE mo_ocean_surface_types, ONLY: t_atmos_for_ocean
   USE mo_coupling_config,     ONLY: is_coupled_run
   USE mo_exception,           ONLY: finish
   USE mtime,                  ONLY: datetime

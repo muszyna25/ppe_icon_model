@@ -791,7 +791,7 @@ CONTAINS
     REAL(wp) :: maxfac
 
     DO jb = 1, jpband
-      maxfac = tune_dust_abs*4._wp*(jpband-MAX(8,jb))/REAL(jpband-8,wp)
+      maxfac = tune_dust_abs*5._wp*(jpband-MAX(8,jb))/REAL(jpband-8,wp)
       DO jc = 1, iend
         tunefac(jc,jb) = 1._wp + maxfac*(1._wp - MIN(1._wp,((rad2deg*lat(jc)-15._wp)/20._wp)**4)) * &
          (1._wp - MIN(1._wp,((rad2deg*lon(jc)-20._wp)/50._wp)**4))

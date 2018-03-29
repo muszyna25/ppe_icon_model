@@ -97,7 +97,10 @@ cat > ${atmo_namelist} << EOF
  p_test_run     = .false.
  l_test_openmp  = .false.
  l_log_checks   = .false.
- num_io_procs   = 0
+ num_io_procs   = $(echo $(( 1 * ( mpi_total_procs > 5 ))))
+ io_proc_chunk_size = 26
+ num_restart_procs = $(echo $(( 1 * ( mpi_total_procs > 5 ))))
+ restart_chunk_size = 26
  num_prefetch_proc = 0
 /
 &grid_nml
@@ -109,7 +112,7 @@ cat > ${atmo_namelist} << EOF
 / 
 &initicon_nml
  init_mode              =  4 !4=cosmo, 2=ifs, 3=combined
- ana_varnames_map_file  = '$ICON_BASE_PATH/run/ana_varnames_map_file.txt'
+! ana_varnames_map_file  = '$ICON_BASE_PATH/run/ana_varnames_map_file.txt'
  nlevsoil_in            =  8
  lread_ana              = .false.
 /
@@ -137,7 +140,6 @@ cat > ${atmo_namelist} << EOF
 &limarea_nml
  itype_latbc     = 1
  dtime_latbc     = 3600.
- nlev_latbc      = 50
  latbc_path      = '${LATBC_PATH}'
  latbc_filename  = 'latbc_${grid_1}_<y><m><d><h>.nc'
 /
@@ -164,6 +166,7 @@ inwp_surface    = 1,1
 latm_above_top  = .true.,.true.
 efdt_min_raylfric = 7200.
 itype_z0         = 2
+dt_conv          = 10.,10.   !DR Test
 dt_rad           = 60.,60.
 /
 &les_nml
@@ -171,6 +174,7 @@ dt_rad           = 60.,60.
  isrfc_type        = 1  !1=TERRA,2=Fixed flux, 5=fixed SST, 3=fixed bflux
  vert_scheme_type  = 2
  ldiag_les_out     = .FALSE.
+ les_metric        = .TRUE.
 /
 &lnd_nml
 ntiles   = 1
@@ -192,6 +196,15 @@ itype_lndtbl   =  2
 &interpol_nml
 nudge_zone_width  = 8  !-1 create nudge zone in grid
 lsq_high_ord      = 2
+
+! there is a problem with the defaults, see #7829.
+! These values are found by reducing them until the singular matrices disappear
+! no warranty for this being correct.
+rbf_vec_scale_c   = -1, 0.2
+rbf_vec_scale_v   = -1, -1
+rbf_vec_scale_e   = -1, -1
+! dom1 is ok, v and e too
+
 /
 &gridref_nml
  grf_intmethod_e  = 6
@@ -232,10 +245,17 @@ lsq_high_ord      = 2
 &io_nml
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
 /
-&extpar_nml
- itopo          = 1
- n_iter_smooth_topo = 0
- heightdiff_threshold = 3000.
+
+&meteogram_output_nml
+ stationlist_tot   =  50.90,   8.41, 'TEST23S',
+                      50.89,   9.41, 'TEST42S',
+                      50.88,  10.41, 'TEST23SN',
+                      50.87,  11.41, 'TEST42SN',
+                      52.92,   6.41, 'TEST23N'
+ lmeteogram_enabled= .TRUE.
+ n0_mtgrm          = 0             ! meteogram initial time step (0 is first step!)
+ ninc_mtgrm        = 5            ! meteogram output interval (steps)
+ ldistributed      = .false.
 /
 &output_nml
  output_start     = "${start_date}"
@@ -248,6 +268,22 @@ lsq_high_ord      = 2
  ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qni','qnr','qns','qng','qnh','u','v','w','temp','pres'
  !ml_varlist       = 'qv','qc','qi','qr','qs','u','v','w','temp','pres'
  output_grid      = .TRUE.
+/
+&output_nml
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT30S"
+ file_interval    = "PT30S"
+ include_last     = .TRUE.
+ output_filename  = '${EXPNAME}_prog_vars_remap'
+ remap 						= 1
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qni','qnr','qns','qng','qnh','u','v','w','temp','pres'
+ !ml_varlist       = 'qv','qc','qi','qr','qs','u','v','w','temp','pres'
+ output_grid      = .TRUE.
+ reg_lon_def      = 7,0.25,12
+ reg_lat_def      = 49,0.2,53
+
 /
 &output_nml
  output_start     = "${start_date}"
@@ -281,6 +317,11 @@ lsq_high_ord      = 2
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
  ml_varlist       = 'group:rad_vars'
  output_grid      = .TRUE.
+/
+&extpar_nml
+ itopo          = 1
+ n_iter_smooth_topo = 0
+ heightdiff_threshold = 3000.
 /
 EOF
 #

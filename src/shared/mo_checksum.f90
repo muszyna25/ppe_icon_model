@@ -103,16 +103,16 @@ CONTAINS
 ! real functionality !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    CHARACTER(LEN = 8) FUNCTION checksumString(VALUE) RESULT(resultVar)
-        INTEGER(KIND = C_INT64_T), VALUE :: VALUE   !ONLY 32 bits are used, but there IS no unsigned IN fortran
+    CHARACTER(LEN = 8) FUNCTION checksumString(val) RESULT(resultVar)
+        INTEGER(KIND = C_INT64_T), VALUE :: val   !ONLY 32 bits are used, but there IS no unsigned IN fortran
 
         INTEGER :: i
         CHARACTER(LEN = *), PARAMETER :: routine = moduleName//":checksumString"
 
-        IF(VALUE < 0 .OR. VALUE >= 2_C_INT64_T**32) CALL finish(routine, "VALUE range error")
+        IF(val < 0 .OR. val >= 2_C_INT64_T**32) CALL finish(routine, "value range error")
         DO i = 1, 8
-            resultVar(9-i:9-i) = kNibbles(IAND(15_C_INT64_T, VALUE) + 1_C_INT64_T)
-            VALUE = ISHFT(VALUE, -4)
+            resultVar(9-i:9-i) = kNibbles(IAND(15_C_INT64_T, val) + 1_C_INT64_T)
+            val = ISHFT(val, -4)
         END DO
     END FUNCTION checksumString
 

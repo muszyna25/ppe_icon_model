@@ -157,13 +157,14 @@ MODULE mo_pp_scheduler
     &                                   TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I,  &
     &                                   TASK_FINALIZE_IPZ, TASK_INTP_HOR_LONLAT,            &
     &                                   TASK_INTP_VER_PLEV, TASK_INTP_SYNC, TASK_INTP_MSL,  &
-    &                                   TASK_COMPUTE_RH, TASK_COMPUTE_PV,                   &
+    &                                   TASK_COMPUTE_RH, TASK_COMPUTE_PV, TASK_COMPUTE_SMI, &
     &                                   TASK_INTP_VER_ZLEV,                                 &
     &                                   TASK_INTP_VER_ILEV, TASK_INTP_EDGE2CELL,            &
     &                                   max_phys_dom, UNDEF_TIMELEVEL, ALL_TIMELEVELS,      &
     &                                   vname_len, TASK_COMPUTE_OMEGA,                      &
     &                                   TLEV_NNOW, TLEV_NNOW_RCF, HINTP_TYPE_LONLAT_NNB,    &
     &                                   STR_HINTP_TYPE
+  USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT
   USE mo_model_domain,            ONLY: p_patch, p_phys_patch
   USE mo_var_list,                ONLY: add_var, nvar_lists, var_lists, get_var_name,       &
     &                                   get_var_timelevel, find_list_element
@@ -172,9 +173,8 @@ MODULE mo_pp_scheduler
   USE mo_var_metadata_types,      ONLY: t_var_metadata, t_var_metadata_dynamic, VARNAME_LEN,&
     &                                   t_post_op_meta
   USE mo_var_metadata,            ONLY: create_hor_interp_metadata, vintp_type_id
-  USE mo_intp_data_strc,          ONLY: lonlat_grid_list,                                   &
-    &                                   t_lon_lat_intp, p_int_state,                        &
-    &                                   MAX_LONLAT_GRIDS
+  USE mo_intp_data_strc,          ONLY: p_int_state
+  USE mo_intp_lonlat_types,       ONLY: t_lon_lat_intp, lonlat_grids
   USE mo_nonhydro_state,          ONLY: p_nh_state, p_nh_state_lists
   USE mo_opt_diagnostics,         ONLY: t_nh_diag_pz, p_nh_opt_diag
   USE mo_nwp_phy_state,           ONLY: prm_diag
@@ -189,9 +189,7 @@ MODULE mo_pp_scheduler
     &                                   difference, toupper, tolower
   USE mo_cdi,                     ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16,    &
     &                                   GRID_UNSTRUCTURED
-  USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,     &
-    &                                   ZA_PRESSURE, GRID_REGULAR_LONLAT,                   &
-    &                                   is_2d_field, ZA_ISENTROPIC
+  USE mo_zaxis_type,              ONLY: ZA_ALTITUDE, ZA_PRESSURE, ZA_ISENTROPIC, zaxisTypeList
   USE mo_linked_list,             ONLY: t_var_list, t_list_element
   USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_ipzlev_setup, &
     &                                   pp_task_ipzlev, pp_task_compute_field,              &
@@ -287,6 +285,11 @@ CONTAINS
             CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
               &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_PV )
             !
+          CASE (TASK_COMPUTE_SMI) 
+            ! soil moisture index
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_SMI )
+            !
           CASE (TASK_INTP_MSL)   
             ! mean sea level pressure
             !
@@ -380,7 +383,7 @@ CONTAINS
       ! loop only over model level variables
       IF (var_lists(i)%p%vlevel_type /= lev_type) CYCLE         
       ! loop only over variables of where domain was requested
-      IF (.NOT. lonlat_grid_list(ll_grid_id)%l_dom(jg)) CYCLE
+      IF (.NOT. lonlat_grids%list(ll_grid_id)%l_dom(jg)) CYCLE
 
       ! now, search for "vn" in the variable list:
       element => NULL()
@@ -412,7 +415,7 @@ CONTAINS
         
         !- predefined array shapes
         nlev = element%field%info%used_dimensions(2)
-        ptr_int_lonlat => lonlat_grid_list(ll_grid_id)%intp(jg)
+        ptr_int_lonlat => lonlat_grids%list(ll_grid_id)%intp(jg)
         nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
         shape3d_ll = (/ nproma, nlev, nblks_lonlat /)
 
@@ -482,7 +485,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine =  modname//"::pp_scheduler_init_lonlat"
     INTEGER                               :: &
       &  jg, ndom, ierrstat, ivar, i, j, nvars_ll, &
-      &  nblks_lonlat, ilev_type, max_var, ilev, n_uv_hrz_intp
+      &  nblks_lonlat, ilev_type, max_var, ilev, n_uv_hrz_intp, ngrids
     LOGICAL                               :: found, l_horintp, lvar_present
     TYPE (t_output_name_list), POINTER    :: p_onl
     TYPE(t_job_queue),         POINTER    :: task
@@ -499,11 +502,15 @@ CONTAINS
     TYPE(t_var_metadata_dynamic),POINTER  :: info_dyn
     INTEGER                               :: var_shape(5)
     TYPE (t_lon_lat_intp),     POINTER    :: ptr_int_lonlat
-    INTEGER                               :: uv_hrz_intp_grid(4*MAX_LONLAT_GRIDS), &
-      &                                      uv_hrz_intp_levs(4*MAX_LONLAT_GRIDS)
+    INTEGER, ALLOCATABLE                  :: uv_hrz_intp_grid(:), &
+      &                                      uv_hrz_intp_levs(:)
     CHARACTER(LEN=1)                      :: prefix
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
+
+    ngrids = 4*lonlat_grids%ngrids
+    ALLOCATE(uv_hrz_intp_grid(ngrids), uv_hrz_intp_levs(ngrids), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     ! initialize "new_element" pointer (cf. NEC compiler bugs DWD0121
     ! and DWD0123 for hybrid parallelization)
@@ -634,7 +641,7 @@ CONTAINS
         IF (var_lists(i)%p%vlevel_type/=ll_varlevs(ivar)) CYCLE LIST_LOOP
         ! loop only over variables on requested domains:
         jg = var_lists(i)%p%patch_id
-        IF (.NOT. lonlat_grid_list(ll_vargrid(ivar))%l_dom(jg)) CYCLE LIST_LOOP
+        IF (.NOT. lonlat_grids%list(ll_vargrid(ivar))%l_dom(jg)) CYCLE LIST_LOOP
         element => NULL()
         VAR_LOOP : DO
           IF(.NOT.ASSOCIATED(element)) THEN
@@ -684,13 +691,13 @@ CONTAINS
           END SELECT
 
           ! set local values for "nblks" and "npromz"
-          ptr_int_lonlat => lonlat_grid_list(ll_vargrid(ivar))%intp(jg)
+          ptr_int_lonlat => lonlat_grids%list(ll_vargrid(ivar))%intp(jg)
           nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
           var_shape      =  info%used_dimensions(:)
-          IF (is_2d_field(info%vgrid) .AND. (info%ndims /= 2)) THEN
+          IF (zaxisTypeList%is_2d(info%vgrid) .AND. (info%ndims /= 2)) THEN
             CALL finish(routine, "Inconsistent dimension info: "//TRIM(info%name)//"!")
           END IF
-          IF (is_2d_field(info%vgrid)) THEN
+          IF (zaxisTypeList%is_2d(info%vgrid)) THEN
             var_shape(2:3)   =  (/ 1, nblks_lonlat /)
           ELSE
             var_shape(3)     =  nblks_lonlat
@@ -771,11 +778,6 @@ CONTAINS
           ! even though it is not necessary. 
           IF (info%action_list%n_actions > 0 ) new_element%field%info%action_list = info%action_list
 
-
-          ! link this new variable to the (optionally existing) cdiZaxis of the original field
-          ! (in this case, info%vgrid in add_var above is by-passed):
-          new_element%field%info%cdiZaxisID = info%cdiZaxisID
-            
           !-- create and add post-processing task
           task => pp_task_insert(DEFAULT_PRIORITY4)
           WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", DOM ",jg, &
@@ -821,6 +823,9 @@ CONTAINS
       task%activity%check_dom_active = .FALSE. ! i.e. no domain-wise (in-)activity 
       task%activity%i_timelevel      = ALL_TIMELEVELS
     END IF
+
+    DEALLOCATE(uv_hrz_intp_grid, uv_hrz_intp_levs, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
     IF (dbg_level > 5)  CALL message(routine, "Done")
     
   END SUBROUTINE pp_scheduler_init_lonlat
@@ -1419,6 +1424,7 @@ CONTAINS
                 &           ldims=shape3d, lrestart=.FALSE.,                &
                 &           tracer_info=info_dyn%tracer,                    &
                 &           loutput=.TRUE., new_element=new_element,        &
+                &           isteptype=info%isteptype,                       &
                 &           post_op=info%post_op, var_class=info%var_class, &
                 &           tlev_source=info%tlev_source,                   &
                 &           hor_interp=info%hor_interp,                     &
@@ -1579,7 +1585,7 @@ CONTAINS
         CALL pp_task_intp_msl(ptr_task)
 
         ! compute relative humidty, vertical velocity, potential vorticity
-      CASE ( TASK_COMPUTE_RH, TASK_COMPUTE_OMEGA, TASK_COMPUTE_PV )
+      CASE ( TASK_COMPUTE_RH, TASK_COMPUTE_OMEGA, TASK_COMPUTE_PV, TASK_COMPUTE_SMI )
         CALL pp_task_compute_field(ptr_task)
 
         ! vector reconstruction on cell centers:

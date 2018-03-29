@@ -44,13 +44,15 @@ MODULE mo_nh_init_utils
   USE mo_math_laplace,          ONLY: nabla2_scalar
   USE mo_math_gradients,        ONLY: grad_fd_norm
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
-  USE mo_initicon_types,        ONLY: t_saveinit_state
+  USE mo_initicon_types,        ONLY: t_saveinit_state, t_init_state
   USE mo_initicon_config,       ONLY: type_iau_wgt, is_iau_active, &
     &                                 iau_wgt_dyn, iau_wgt_adv, ltile_coldstart
+  USE mo_util_phys,             ONLY: virtual_temp
   USE mo_atm_phy_nwp_config,    ONLY: iprog_aero
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, l2lay_rho_snow, ntiles_water, lmulti_snow, &
-                                      nlev_soil, nlev_snow, lsnowtile, lprog_albsi
+                                      nlev_soil, nlev_snow, lsnowtile, lprog_albsi, itype_trvg
   USE mo_fortran_tools,         ONLY: init, copy
+  USE mo_ifs_coord,             ONLY: geopot
 
   IMPLICIT NONE
 
@@ -64,8 +66,73 @@ MODULE mo_nh_init_utils
     &       hydro_adjust_downward
   PUBLIC :: save_initial_state, restore_initial_state
   PUBLIC :: compute_iau_wgt
+  PUBLIC :: compute_input_pressure_and_height
 
 CONTAINS
+
+  !-------------
+  !> Compute pressure and height of input data.
+  !
+  !  OUT: initicon%const%z_mc_in
+  !       initicon%atm_in%pres
+  !
+  SUBROUTINE compute_input_pressure_and_height(p_patch, psfc, phi_sfc, initicon)
+    TYPE(t_patch),          INTENT(IN)       :: p_patch
+    REAL(wp),               INTENT(INOUT)    :: psfc(:,:)
+    REAL(wp),               INTENT(IN)       :: phi_sfc(:,:)
+    CLASS(t_init_state),    INTENT(INOUT)    :: initicon
+    ! LOCAL VARIABLES
+    INTEGER :: jb, nlen, nlev_in
+    REAL(wp), DIMENSION(nproma,initicon%atm_in%nlev  ) :: delp, rdelp, rdlnpr, rdalpha, geop_mc
+    REAL(wp), DIMENSION(nproma,initicon%atm_in%nlev,p_patch%nblks_c) :: temp_v_in
+    REAL(wp), DIMENSION(nproma,initicon%atm_in%nlev+1) :: pres_ic, lnp_ic, geop_ic
+
+    nlev_in = initicon%atm_in%nlev
+
+    ! Compute virtual temperature of input data
+    CALL virtual_temp(p_patch, initicon%atm_in%temp, initicon%atm_in%qv, initicon%atm_in%qc, &
+                      initicon%atm_in%qi, initicon%atm_in%qr, initicon%atm_in%qs,            &
+                      temp_v=temp_v_in)
+
+    ! 1. Compute pressure and height of input data, using the IFS routines
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb, nlen, pres_ic, lnp_ic, geop_ic, delp, rdelp, rdlnpr, &
+!$OMP            rdalpha, geop_mc) ICON_OMP_DEFAULT_SCHEDULE
+
+    DO jb = 1,p_patch%nblks_c
+
+      IF (jb /= p_patch%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = p_patch%npromz_c
+      ENDIF
+      
+      ! Check if psfc is really psfc or LOG(psfc)
+      IF (MAXVAL(psfc(1:nlen,jb)) <= 100._wp) THEN
+        psfc(1:nlen,jb) = EXP(psfc(1:nlen,jb))
+      ENDIF
+      
+      CALL initicon%const%vct%half_level_pressure(psfc(:,jb), nproma, nlen, nlev_in, pres_ic)
+      
+      CALL initicon%const%vct%full_level_pressure(pres_ic,nproma, nlen, nlev_in, initicon%atm_in%pres(:,:,jb))
+      
+      CALL initicon%const%vct%auxhyb(pres_ic, nproma, nlen, nlev_in,     & ! in
+        delp, rdelp, lnp_ic, rdlnpr, rdalpha) ! out
+      
+      CALL geopot(temp_v_in(:,:,jb), rdlnpr, rdalpha, phi_sfc(:,jb), & ! in
+        nproma, 1, nlen, nlev_in, geop_mc, geop_ic ) ! inout
+      
+      ! Compute 3D height coordinate field
+      initicon%const%z_mc_in(1:nlen,1:nlev_in,jb) = geop_mc(1:nlen,1:nlev_in)/grav
+      
+    ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_input_pressure_and_height
+
+
   !-------------
   !>
   !! SUBROUTINE hydro_adjust
@@ -820,6 +887,7 @@ CONTAINS
 
       IF (iprog_aero == 1) ALLOCATE (saveinit(jg)%aerosol(nproma,nclass_aero,nblks_c))
       IF (lprog_albsi)     ALLOCATE (saveinit(jg)%alb_si(nproma,nblks_c))
+      IF (itype_trvg == 3) ALLOCATE (saveinit(jg)%plantevap_t(nproma,nblks_c,ntl))
 
 !$OMP PARALLEL
       CALL copy(lnd_diag%fr_seaice, saveinit(jg)%fr_seaice)
@@ -875,6 +943,7 @@ CONTAINS
 
       IF (iprog_aero == 1)  CALL copy(prm_diag(jg)%aerosol, saveinit(jg)%aerosol)
       IF (lprog_albsi)      CALL copy(wtr_prog%alb_si, saveinit(jg)%alb_si)
+      IF (itype_trvg == 3)  CALL copy(lnd_diag%plantevap_t, saveinit(jg)%plantevap_t)
 !$OMP END PARALLEL
 
     ENDDO
@@ -967,6 +1036,7 @@ CONTAINS
 
       IF (iprog_aero == 1)  CALL copy(saveinit(jg)%aerosol, prm_diag(jg)%aerosol)
       IF (lprog_albsi)      CALL copy(saveinit(jg)%alb_si, wtr_prog%alb_si)
+      IF (itype_trvg == 3)  CALL copy(saveinit(jg)%plantevap_t, lnd_diag%plantevap_t)
 
       ! Fields that need to be reset to zero in order to obtain identical results
       CALL init (p_nh(jg)%diag%ddt_vn_phy)
@@ -1009,6 +1079,7 @@ CONTAINS
 
       IF (iprog_aero == 1) DEALLOCATE (saveinit(jg)%aerosol)
       IF (lprog_albsi)     DEALLOCATE (saveinit(jg)%alb_si)
+      IF (itype_trvg == 3) DEALLOCATE (saveinit(jg)%plantevap_t)
     ENDDO
 
     DEALLOCATE(saveinit)

@@ -46,7 +46,7 @@ MPI_LIB     = -lmpifort -lmpi -lpmpi
 
 ZLIBROOT    = /opt/local
 SZIPROOT    = /opt/local
-HDF5ROOT    = /opt/local/lib/hdf5-18
+HDF5ROOT    = /opt/local
 NETCDFROOT  = /opt/local
 XML2ROOT    = /opt/local
 LAPACKROOT  =
@@ -70,7 +70,7 @@ FCHECK      = -finit-real=nan -finit-integer=-2147483648 -finit-character=127
 FOPTIONS    = "$FCPP" "$FLANG" "$FWARN" "$FDEBUG" "$FCHECK"
 
 CC          = gcc
-CFLAGS      = -march=core2 -O -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -std=gnu99 -g
+CFLAGS      = -march=core2 -O -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -std=gnu99 -g
 FC          = gfortran
 FFLAGS      = -march=core2 -O -ffast-math "$FOPTIONS"
 F77         = gfortran

@@ -59,6 +59,8 @@ CONTAINS
     CALL add_fields(hamocc_state%p_acc%bacfra          , hamocc_state%p_tend%bacfra          , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%delsil          , hamocc_state%p_tend%delsil          , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%delcar          , hamocc_state%p_tend%delcar          , cells,levels=max_zlev)
+    CALL add_fields(hamocc_state%p_acc%h2sprod         , hamocc_state%p_tend%h2sprod         , cells,levels=max_zlev)
+    CALL add_fields(hamocc_state%p_acc%h2sloss         , hamocc_state%p_tend%h2sloss         , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%dmsprod         , hamocc_state%p_tend%dmsprod         , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%dmsbac          , hamocc_state%p_tend%dmsbac          , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%dmsuv           , hamocc_state%p_tend%dmsuv           , cells,levels=max_zlev)
@@ -74,6 +76,7 @@ CONTAINS
     CALL add_fields(hamocc_state%p_acc%o2min           , hamocc_state%p_tend%o2min           , cells)
     CALL add_fields(hamocc_state%p_acc%zo2min          , hamocc_state%p_tend%zo2min          , cells)
     CALL add_fields(hamocc_state%p_acc%nfixd           , hamocc_state%p_tend%nfixd           , cells)
+    CALL add_fields(hamocc_state%p_acc%co2mr           , hamocc_state%p_tend%co2mr           , cells)
     CALL add_fields(hamocc_state%p_acc%cflux           , hamocc_state%p_tend%cflux           , cells)
     CALL add_fields(hamocc_state%p_acc%oflux           , hamocc_state%p_tend%oflux           , cells)
     CALL add_fields(hamocc_state%p_acc%dmsflux         , hamocc_state%p_tend%dmsflux         , cells)
@@ -134,6 +137,7 @@ CONTAINS
     p_acc%remina                      = p_acc%remina                     /REAL(nsteps_since_last_output,wp)
     p_acc%remins                      = p_acc%remins                     /REAL(nsteps_since_last_output,wp)
     p_acc%reminn                      = p_acc%reminn                     /REAL(nsteps_since_last_output,wp)
+    p_acc%co2mr                       = p_acc%co2mr                      /REAL(nsteps_since_last_output,wp)
     p_acc%cflux                       = p_acc%cflux                      /REAL(nsteps_since_last_output,wp)
     p_acc%oflux                       = p_acc%oflux                      /REAL(nsteps_since_last_output,wp)
     p_acc%dmsflux                     = p_acc%dmsflux                    /REAL(nsteps_since_last_output,wp)
@@ -166,6 +170,8 @@ CONTAINS
     p_acc%sedrs                       = p_acc%sedrs                      /REAL(nsteps_since_last_output,wp)
     p_acc%sedrn                       = p_acc%sedrn                      /REAL(nsteps_since_last_output,wp)
     p_acc%sedro2                      = p_acc%sedro2                     /REAL(nsteps_since_last_output,wp)
+    p_acc%h2sprod                     = p_acc%h2sprod                    /REAL(nsteps_since_last_output,wp)
+    p_acc%h2sloss                     = p_acc%h2sloss                    /REAL(nsteps_since_last_output,wp)
     p_acc%dmsprod                     = p_acc%dmsprod                    /REAL(nsteps_since_last_output,wp)
     p_acc%dmsbac                      = p_acc%dmsbac                     /REAL(nsteps_since_last_output,wp)
     p_acc%dmsuv                       = p_acc%dmsuv                      /REAL(nsteps_since_last_output,wp)
@@ -211,6 +217,7 @@ CONTAINS
     p_acc%remins                      = 0._wp
     p_acc%reminn                      = 0._wp
     p_acc%bacfra                      = 0._wp
+    p_acc%co2mr                       = 0._wp
     p_acc%cflux                       = 0._wp
     p_acc%oflux                       = 0._wp
     p_acc%dmsflux                     = 0._wp
@@ -248,6 +255,8 @@ CONTAINS
     p_acc%dmsbac                      = 0._wp
     p_acc%dmsuv                       = 0._wp
     p_acc%dmsprod                      = 0._wp
+    p_acc%h2sprod                      = 0._wp
+    p_acc%h2sloss                      = 0._wp
     p_acc%euexp                      = 0._wp
     p_acc%flim                       = 0._wp
     p_acc%plim                       = 0._wp

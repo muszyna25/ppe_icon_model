@@ -31,6 +31,7 @@ MODULE mo_read_namelists
 
 
   USE mo_grid_nml            ,ONLY: read_grid_namelist
+  USE mo_grid_config         ,ONLY: init_grid_configuration
   USE mo_gridref_nml         ,ONLY: read_gridref_namelist
   USE mo_dynamics_nml        ,ONLY: read_dynamics_namelist
   USE mo_interpol_nml        ,ONLY: read_interpol_namelist
@@ -41,18 +42,23 @@ MODULE mo_read_namelists
 
   USE mo_advection_nml       ,ONLY: read_transport_namelist
 
-  USE mo_echam_phy_nml       ,ONLY: read_echam_phy_namelist
+  USE mo_echam_phy_nml       ,ONLY: process_echam_phy_nml
+  USE mo_echam_cld_nml       ,ONLY: process_echam_cld_nml
+  USE mo_echam_cnv_nml       ,ONLY: process_echam_cnv_nml
+  USE mo_echam_gwd_nml       ,ONLY: process_echam_gwd_nml
+  USE mo_echam_rad_nml       ,ONLY: process_echam_rad_nml
+  USE mo_echam_sso_nml       ,ONLY: process_echam_sso_nml
+  USE mo_echam_vdf_nml       ,ONLY: process_echam_vdf_nml
+  
   USE mo_nwp_phy_nml         ,ONLY: read_nwp_phy_namelist
   USE mo_nwp_tuning_nml      ,ONLY: read_nwp_tuning_namelist
   USE mo_ensemble_pert_nml   ,ONLY: read_ensemble_pert_namelist
   USE mo_radiation_nml       ,ONLY: read_radiation_namelist
   USE mo_psrad_radiation     ,ONLY: setup_psrad_radiation
+  USE mo_ccycle_nml          ,ONLY: read_ccycle_nml
+  USE mo_ccycle_config       ,ONLY: init_ccycle_config
   USE mo_synsat_nml          ,ONLY: read_synsat_namelist
-  USE mo_vdiff_nml           ,ONLY: read_vdiff_namelist
-  USe mo_turbdiff_nml        ,ONLY: read_turbdiff_namelist
-  USE mo_echam_conv_nml      ,ONLY: read_echam_conv_namelist
-  USE mo_echam_cloud_nml     ,ONLY: read_echam_cloud_namelist
-  USE mo_gw_hines_nml        ,ONLY: read_gw_hines_namelist
+  USE mo_turbdiff_nml        ,ONLY: read_turbdiff_namelist
   USE mo_lnd_nwp_nml         ,ONLY: read_nwp_lnd_namelist
   USE mo_art_nml             ,ONLY: read_art_namelist
 
@@ -70,12 +76,12 @@ MODULE mo_read_namelists
   USE mo_les_nml             ,ONLY: read_les_namelist
   USE mo_ls_forcing_nml      ,ONLY: read_ls_forcing_namelist
   USE mo_limarea_nml         ,ONLY: read_limarea_namelist
-  USE mo_run_config          ,ONLY: iforcing
-  USE mo_impl_constants      ,ONLY: IECHAM, ILDF_ECHAM
+  USE mo_run_config          ,ONLY: iforcing, nsteps
+  USE mo_impl_constants      ,ONLY: IECHAM, ILDF_ECHAM, INWP
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: read_atmo_namelists, read_cpl_dummy_namelists
+  PUBLIC :: read_atmo_namelists
 
 CONTAINS
 
@@ -119,7 +125,7 @@ CONTAINS
     CALL read_name_list_output_namelists (TRIM(atm_namelist_filename))
     CALL read_dbg_namelist            (TRIM(atm_namelist_filename))
     CALL read_synsat_namelist         (TRIM(atm_namelist_filename))
-
+    
     ! Grid
     !
     CALL read_grid_namelist           (TRIM(atm_namelist_filename))
@@ -127,6 +133,9 @@ CONTAINS
     CALL read_interpol_namelist       (TRIM(atm_namelist_filename))
     CALL read_sleve_namelist          (TRIM(atm_namelist_filename))
     !
+    CALL init_grid_configuration()    ! so that the number of grids is known
+    !                                 ! and arrays can be allocated
+
     ! Dynamics
     !
     CALL read_dynamics_namelist       (TRIM(atm_namelist_filename))
@@ -140,24 +149,41 @@ CONTAINS
 
     ! Physics
     !
-    CALL read_echam_phy_namelist      (TRIM(atm_namelist_filename))
-    CALL read_nwp_phy_namelist        (TRIM(atm_namelist_filename))
-    CALL read_nwp_tuning_namelist     (TRIM(atm_namelist_filename))
-    CALL read_ensemble_pert_namelist  (TRIM(atm_namelist_filename))
-    CALL read_radiation_namelist      (TRIM(atm_namelist_filename))
-    CALL read_vdiff_namelist          (TRIM(atm_namelist_filename))
-    CALL read_turbdiff_namelist       (TRIM(atm_namelist_filename))
-    CALL read_echam_conv_namelist     (TRIM(atm_namelist_filename))
-    CALL read_echam_cloud_namelist    (TRIM(atm_namelist_filename))
-    CALL read_gw_hines_namelist       (TRIM(atm_namelist_filename))
-    CALL read_nwp_lnd_namelist        (TRIM(atm_namelist_filename))
-    CALL read_sea_ice_namelist        (TRIM(atm_namelist_filename))
-    CALL read_art_namelist            (TRIM(atm_namelist_filename))
-    CALL read_les_namelist            (TRIM(atm_namelist_filename))
-    CALL read_ls_forcing_namelist     (TRIM(atm_namelist_filename))
-    IF (iforcing == IECHAM .OR. iforcing == ILDF_ECHAM) THEN
-      CALL setup_psrad_radiation        (TRIM(atm_namelist_filename))
-    ENDIF
+    SELECT CASE (iforcing)
+    CASE (IECHAM, ILDF_ECHAM)
+       !
+       ! ECHAM physics ...
+       CALL process_echam_phy_nml        (TRIM(atm_namelist_filename))
+       !
+       ! ... and the employed parameterizations
+       CALL process_echam_cld_nml        (TRIM(atm_namelist_filename))
+       CALL process_echam_cnv_nml        (TRIM(atm_namelist_filename))
+       CALL process_echam_gwd_nml        (TRIM(atm_namelist_filename))
+       CALL process_echam_rad_nml        (TRIM(atm_namelist_filename))
+       CALL process_echam_sso_nml        (TRIM(atm_namelist_filename))
+       CALL process_echam_vdf_nml        (TRIM(atm_namelist_filename))
+       !
+       CALL read_sea_ice_namelist        (TRIM(atm_namelist_filename))
+       CALL read_art_namelist            (TRIM(atm_namelist_filename))
+       ! setup_psrad_radiation depends on cloud_config
+       CALL setup_psrad_radiation        (TRIM(atm_namelist_filename))
+       ! carbon cycle
+       CALL init_ccycle_config
+       CALL read_ccycle_nml              (TRIM(atm_namelist_filename))
+       !
+    CASE (INWP)
+       !
+       CALL read_nwp_phy_namelist        (TRIM(atm_namelist_filename))
+       CALL read_nwp_tuning_namelist     (TRIM(atm_namelist_filename))
+       CALL read_ensemble_pert_namelist  (TRIM(atm_namelist_filename))
+       CALL read_radiation_namelist      (TRIM(atm_namelist_filename))
+       CALL read_turbdiff_namelist       (TRIM(atm_namelist_filename))
+       CALL read_nwp_lnd_namelist        (TRIM(atm_namelist_filename))
+       CALL read_art_namelist            (TRIM(atm_namelist_filename))
+       CALL read_les_namelist            (TRIM(atm_namelist_filename))
+       CALL read_ls_forcing_namelist     (TRIM(atm_namelist_filename))
+       !
+    END SELECT
 
     ! Initial conditions
     !
@@ -170,8 +196,8 @@ CONTAINS
     CALL read_extpar_namelist         (TRIM(atm_namelist_filename))
     CALL read_limarea_namelist        (TRIM(atm_namelist_filename))
 
-    !
     ! GRIB output
+    !
     CALL read_gribout_namelist        (TRIM(atm_namelist_filename))
 
     ! Coupling
@@ -188,103 +214,6 @@ CONTAINS
     IF (my_process_is_stdio()) CALL log_nml_settings("nml.atmo.log")
 
   END SUBROUTINE read_atmo_namelists
-  !-------------------------------------------------------------------------
-
-
-  !---------------------------------------------------------------------
-  !>
-  !! Read namelists for coupling dummy models
-  !!
-  SUBROUTINE read_cpl_dummy_namelists(cpl_dummy_namelist,shr_namelist_filename)
-
-    CHARACTER(LEN=*), INTENT(in) :: cpl_dummy_namelist
-    CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
-
-    !-----------------------------------------------------------------
-    ! Create a new file in which all the namelist variables and their
-    ! actual values used in the model run will be stored.
-    !-----------------------------------------------------------------
-
-    IF(my_process_is_stdio()) CALL open_nml_output('NAMELIST_ICON_output_atm')
-
-    !-----------------------------------------------------------------
-    ! Read namelists that are shared by all components of the model.
-    ! This means that the same namelists with the same values are
-    ! read by all components of a coupled system.
-    !-----------------------------------------------------------------
-
-    CALL read_time_namelist           (TRIM(shr_namelist_filename))
-
-    !-----------------------------------------------------------------
-    ! Read namelist that are specific to the atm model.
-    ! In case of a coupled simulation, the ocean model may also
-    ! read some of these namelists, but probably from a different
-    ! ASCII file containing different values.
-    !-----------------------------------------------------------------
-
-    ! General
-    !
-    CALL read_parallel_namelist       (TRIM(cpl_dummy_namelist))
-    CALL read_run_namelist            (TRIM(cpl_dummy_namelist))
-    CALL read_io_namelist             (TRIM(cpl_dummy_namelist))
-    CALL read_dbg_namelist            (TRIM(cpl_dummy_namelist))
-
-    ! Grid
-    !
-    CALL read_grid_namelist           (TRIM(cpl_dummy_namelist))
-    CALL read_gridref_namelist        (TRIM(cpl_dummy_namelist))
-    CALL read_interpol_namelist       (TRIM(cpl_dummy_namelist))
-    CALL read_sleve_namelist          (TRIM(cpl_dummy_namelist))
-    !
-    ! Dynamics
-    !
-    CALL read_dynamics_namelist       (TRIM(cpl_dummy_namelist))
-    CALL read_ha_dyn_namelist         (TRIM(cpl_dummy_namelist))
-    CALL read_nonhydrostatic_namelist (TRIM(cpl_dummy_namelist))
-    CALL read_diffusion_namelist      (TRIM(cpl_dummy_namelist))
-
-    ! Transport
-    !
-    CALL read_transport_namelist      (TRIM(cpl_dummy_namelist))
-
-    ! Physics
-    !
-    CALL read_echam_phy_namelist      (TRIM(cpl_dummy_namelist))
-    CALL read_nwp_phy_namelist        (TRIM(cpl_dummy_namelist))
-    CALL read_nwp_tuning_namelist     (TRIM(cpl_dummy_namelist))
-    CALL read_ensemble_pert_namelist  (TRIM(cpl_dummy_namelist))
-    CALL read_radiation_namelist      (TRIM(cpl_dummy_namelist))
-    CALL read_vdiff_namelist          (TRIM(cpl_dummy_namelist))
-    CALL read_echam_conv_namelist     (TRIM(cpl_dummy_namelist))
-    CALL read_echam_cloud_namelist    (TRIM(cpl_dummy_namelist))
-    CALL read_gw_hines_namelist       (TRIM(cpl_dummy_namelist))
-    CALL read_nwp_lnd_namelist        (TRIM(cpl_dummy_namelist))
-    CALL read_sea_ice_namelist        (TRIM(cpl_dummy_namelist))
-
-    ! Initial conditions
-    !
-    CALL read_initicon_namelist       (TRIM(cpl_dummy_namelist))
-    CALL read_ha_testcase_namelist    (TRIM(cpl_dummy_namelist))
-    CALL read_nh_testcase_namelist    (TRIM(cpl_dummy_namelist))
-    ! Boundary conditions
-    !
-    CALL read_extpar_namelist         (TRIM(cpl_dummy_namelist))
-
-    ! Coupling
-    !
-    CALL read_coupling_namelist       (TRIM(cpl_dummy_namelist))
-
-    !-----------------------------------------------------------------
-    ! Close the file in which all the namelist variables and their
-    ! actual values were stored.
-    !-----------------------------------------------------------------
-
-    IF (my_process_is_stdio()) CALL close_nml_output
-
-    ! write an annotate table of all namelist settings to a text file
-    IF (my_process_is_stdio()) CALL log_nml_settings("nml.cpl.log")
-
-  END SUBROUTINE read_cpl_dummy_namelists
   !-------------------------------------------------------------------------
 
 END MODULE mo_read_namelists

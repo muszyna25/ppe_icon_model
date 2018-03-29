@@ -28,6 +28,7 @@ MODULE mo_bgc_constants
   REAL(wp), PARAMETER:: rmnit=14._wp
   REAL(wp), PARAMETER:: cmh2ms = 6.9722e-07_wp ! cm/hr to m/sec * a constant for piston velocity
 
+  REAL(wp), PARAMETER :: molw_co2=44.011_wp
 
   !---------------PARAMETERS USED in CHEMCON
 

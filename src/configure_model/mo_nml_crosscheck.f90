@@ -27,7 +27,8 @@ MODULE mo_nml_crosscheck
     &                              MCYCL, MIURA_MCYCL, MIURA3_MCYCL,                 &
     &                              FFSL_MCYCL, FFSL_HYB_MCYCL, iecham,               &
     &                              RAYLEIGH_CLASSIC,                                 &
-    &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD
+    &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD, MODE_IFSANA
+  USE mo_cdi,                ONLY: FILETYPE_GRB2
   USE mo_time_config,        ONLY: time_config, dt_restart
   USE mo_extpar_config,      ONLY: itopo                                             
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
@@ -56,19 +57,21 @@ MODULE mo_nml_crosscheck
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
   USE mo_lnd_nwp_config,     ONLY: ntiles_lnd, lsnowtile
   USE mo_echam_phy_config,   ONLY: echam_phy_config
-  USE mo_radiation_config
+  USE mo_radiation_config,   ONLY: irad_o3, irad_aero
   USE mo_turbdiff_config,    ONLY: turbdiff_config
-  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift
-  USE mo_nh_testcases_nml,   ONLY: linit_tracer_fv,nh_test_name
+  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift,     &
+    &                              ana_varnames_map_file, lread_ana, fgFiletype, anaFiletype
+  USE mo_nh_testcases_nml,   ONLY: nh_test_name
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
   USE mo_meteogram_config,   ONLY: check_meteogram_configuration
-  USE mo_grid_config,        ONLY: lplane, n_dom, init_grid_configuration, l_limited_area
+  USE mo_grid_config,        ONLY: lplane, n_dom, l_limited_area, start_time
 
   USE mo_art_config,         ONLY: art_config
   USE mo_time_management,    ONLY: compute_timestep_settings,                        &
     &                              compute_restart_settings,                         &
     &                              compute_date_settings
+  USE mo_event_manager,      ONLY: initEventManager
   USE mtime,                 ONLY: getTotalMilliSecondsTimeDelta, datetime,          &
     &                              newDatetime, deallocateDatetime
   USE mo_gridref_config
@@ -81,7 +84,6 @@ MODULE mo_nml_crosscheck
   PRIVATE
 
   PUBLIC :: atm_crosscheck
-
 
   CHARACTER(LEN = *), PARAMETER :: modname = "mo_nml_crosscheck"
 
@@ -99,6 +101,7 @@ CONTAINS
     
     !--------------------------------------------------------------------
     ! Compute date/time/time step settings
+    ! and initialize the event manager
     !--------------------------------------------------------------------
     !
     ! Note that the ordering of the following three calls must not be
@@ -107,7 +110,10 @@ CONTAINS
     CALL compute_timestep_settings()
     CALL compute_restart_settings()
     CALL compute_date_settings("atm", dt_restart, nsteps)
-
+    !
+    ! Create an event manager, ie. a collection of different events
+    !
+    CALL initEventManager(time_config%tc_exp_refdate)
 
     !--------------------------------------------------------------------
     ! Parallelization
@@ -119,9 +125,6 @@ CONTAINS
     ! Grid and dynamics
     !--------------------------------------------------------------------
 
-    ! check the configuration
-    CALL init_grid_configuration()
-    
     IF (lplane) CALL finish( TRIM(method_name),&
       'Currently a plane version is not available')
 
@@ -294,12 +297,12 @@ CONTAINS
 
         ! check radiation scheme in relation to chosen ozone and irad_aero=6 to itopo
 
-        IF ( (atm_phy_nwp_config(jg)%inwp_radiation > 0).OR.(echam_phy_config%lrad) )  THEN
+        IF ( (atm_phy_nwp_config(jg)%inwp_radiation > 0) )  THEN
 
           SELECT CASE (irad_o3)
           CASE (0) ! ok
             CALL message(TRIM(method_name),'radiation is used without ozone')
-          CASE (2,4,6,7,8,9,79) ! ok
+          CASE (2,4,6,7,8,9,79,97) ! ok
             CALL message(TRIM(method_name),'radiation is used with ozone')
           CASE (10) ! ok
             CALL message(TRIM(method_name),'radiation is used with ozone calculated from ART')
@@ -315,8 +318,9 @@ CONTAINS
             CALL finish(TRIM(method_name),'irad_aero=6 requires itopo=1')
           ENDIF
 
-          IF ( irad_aero /= 6 .AND. (atm_phy_nwp_config(jg)%icpl_aero_gscp > 0 .OR. icpl_aero_conv > 0)) THEN
-            CALL finish(TRIM(method_name),'aerosol-precipitation coupling requires irad_aero=6')
+          IF ( ( irad_aero /= 6 .AND. irad_aero /= 9 ) .AND.  &
+            &  ( atm_phy_nwp_config(jg)%icpl_aero_gscp > 0 .OR. icpl_aero_conv > 0 ) ) THEN
+            CALL finish(TRIM(method_name),'aerosol-precipitation coupling requires irad_aero=6 or =9')
           ENDIF
         ELSE
 
@@ -375,9 +379,9 @@ CONTAINS
       iqm_max= 3     !! end index of water species mixing ratios
       iqt    = 4     !! starting index of non-water species
       io3    = 4     !! O3
-      ich4   = 5     !! CH4
-      in2o   = 6     !! N2O
-      ico2   = 7     !! CO2
+      ico2   = 5     !! CO2
+      ich4   = 6     !! CH4
+      in2o   = 7     !! N2O
       nqtendphy = 0  !! number of water species for which convective and turbulent
                      !! tendencies are stored
 
@@ -436,8 +440,10 @@ CONTAINS
       ininact  = ntracer+100
 
       !
-      !
-      SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
+      ! Taking the 'highest' microphysics option in some cases allows using more
+      ! complex microphysics schemes in nested domains than in the global domain
+      ! However, a clean implementation would require a domain-dependent 'ntracer' dimension
+      SELECT CASE (MAXVAL(atm_phy_nwp_config(1:n_dom)%inwp_gscp))
         
 
       CASE(2)  ! COSMO-DE (3-cat ice: snow, cloud ice, graupel)
@@ -518,7 +524,7 @@ CONTAINS
       END SELECT ! microphysics schemes
 
 
-      IF (atm_phy_nwp_config(jg)%inwp_turb == iedmf) THEN ! EDMF turbulence
+      IF (atm_phy_nwp_config(1)%inwp_turb == iedmf) THEN ! EDMF turbulence
 
         iqtvar = iqt       !! qt variance
         iqt    = iqt + 1   !! start index of other tracers than hydrometeors
@@ -530,8 +536,8 @@ CONTAINS
 
       ENDIF
 
-      IF ( (advection_config(jg)%iadv_tke) > 0 ) THEN
-        IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
+      IF ( (advection_config(1)%iadv_tke) > 0 ) THEN
+        IF ( atm_phy_nwp_config(1)%inwp_turb == icosmo ) THEN
           iqtke = iqt        !! TKE
  
           ! Note that iqt is not increased, since TKE does not belong to the hydrometeor group.
@@ -543,7 +549,7 @@ CONTAINS
           CALL message(TRIM(method_name),message_text)
         ELSE
           WRITE(message_text,'(a,i2)') 'TKE advection not supported for inwp_turb= ', &
-            &                          atm_phy_nwp_config(jg)%inwp_turb
+            &                          atm_phy_nwp_config(1)%inwp_turb
           CALL finish(TRIM(method_name), TRIM(message_text) )
         ENDIF
       ENDIF
@@ -558,10 +564,10 @@ CONTAINS
 
       IF (lart) THEN
         
-        ntracer = ntracer + art_config(jg)%iart_ntracer
+        ntracer = ntracer + art_config(1)%iart_ntracer
         
         WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
-                                     'ntracer is increased by ',art_config(jg)%iart_ntracer, &
+                                     'ntracer is increased by ',art_config(1)%iart_ntracer, &
                                      ' to ',ntracer
         CALL message(TRIM(method_name),message_text)
 
@@ -634,16 +640,6 @@ CONTAINS
 
           ENDIF
 
-
-        CASE (inoforcing, iheldsuarez, iecham, ildf_dry, ildf_echam)
-        !...........................................................
-        ! Other types of adiabatic forcing
-        !...........................................................
-
-          IF (echam_phy_config%lrad) THEN
-            IF ( izenith > 5)  &
-              CALL finish(TRIM(method_name), 'Choose a valid case for rad_nml: izenith.')
-          ENDIF
         END SELECT ! iforcing
 
       END DO ! jg = 1,n_dom
@@ -782,6 +778,29 @@ CONTAINS
     ! Realcase runs
     !--------------------------------------------------------------------
 
+    ! mixed file formats are currently not foreseen.
+    ! check whether the analysis and first guess file have the same file format.
+    IF (lread_ana) THEN
+      IF (fgFiletype() /= anaFiletype()) THEN
+        CALL finish( TRIM(method_name),                         &
+          &  'first-guess and analysis file must be of the same filetype.')
+      ENDIF
+    ENDIF
+
+    ! Check whether a Map file for translating fileInputName<=>internalName is required
+    ! - a Map File is mandatory, if input is read in GRIB2-Format
+    ! - a Map File is optional, if input is read in NetCDF-Format
+    ! checking for fgFiletype is sufficient here, since we already ensured that the 
+    ! first-guess and analysis file have the same file format.
+    IF (.NOT. init_mode == MODE_IFSANA) THEN
+      IF (fgFiletype() == FILETYPE_GRB2) THEN
+        IF(TRIM(ana_varnames_map_file) == "") &
+        CALL finish( TRIM(method_name),                         &
+          &  'ana_varnames_map_file missing. It is required when trying to read data in GRIB format.')
+      END IF
+    ENDIF
+
+
     IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN  ! start from dwd analysis with incremental update
 
       ! check analysis update window
@@ -795,13 +814,26 @@ CONTAINS
       ENDIF 
 
       reference_dt => newDatetime("1980-06-01T00:00:00.000")
-      restart_time = MIN(dt_checkpoint, &
-        &                1000._wp * getTotalMilliSecondsTimeDelta(time_config%tc_dt_restart, reference_dt))
+
+      IF (dt_checkpoint > 0._wp) THEN
+        restart_time = MIN(dt_checkpoint, &
+          &                0.001_wp * getTotalMilliSecondsTimeDelta(time_config%tc_dt_restart, reference_dt))
+      ELSE
+        restart_time = 0.001_wp * getTotalMilliSecondsTimeDelta(time_config%tc_dt_restart, reference_dt)
+      ENDIF
+
       CALL deallocateDatetime(reference_dt)
       IF (.NOT. isRestart() .AND. (restart_time <= dt_iau+timeshift%dt_shift)) THEN
         WRITE (message_text,'(a)') "Restarting is not allowed within the IAU phase"
         CALL finish('atm_crosscheck:', TRIM(message_text))
       ENDIF
+
+      DO jg = 2, n_dom
+        IF (start_time(jg) > timeshift%dt_shift .AND. start_time(jg) < dt_iau+timeshift%dt_shift) THEN
+          WRITE (message_text,'(a)') "Starting a nest is not allowed within the IAU phase"
+          CALL finish('atm_crosscheck:', TRIM(message_text))
+        ENDIF
+      ENDDO
 
       ! IAU modes MODE_IAU_OLD cannot be combined with snowtiles
       ! when performing snowtile warmstart.
@@ -818,7 +850,8 @@ CONTAINS
     ! check meteogram configuration
     CALL check_meteogram_configuration(num_io_procs)
 
-    CALL land_crosscheck()
+    IF (iforcing==iecham) CALL land_crosscheck()
+
     CALL art_crosscheck()
 
   END  SUBROUTINE atm_crosscheck
@@ -826,26 +859,23 @@ CONTAINS
 
   !---------------------------------------------------------------------------------------
   SUBROUTINE land_crosscheck
-
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
 
 #ifdef __NO_JSBACH__
-    IF (echam_phy_config% ljsbach) THEN
-      CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__, or set ljsbach=.FALSE.")
+    IF (ANY(echam_phy_config(:)%ljsb)) THEN
+      CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__, or set ljsb=.FALSE.")
     ENDIF
-    echam_phy_config% ljsbach   = .FALSE.
-    echam_phy_config% llake     = .FALSE.     
 #else
-    IF (echam_phy_config% ljsbach) THEN
+    IF (ANY(echam_phy_config(:)%ljsb)) THEN
       IF (num_restart_procs > 0) THEN
         CALL finish(method_name, "JSBACH currently doesn't work with asynchronous restart. Set num_restart_procs=0 !")
       END IF
       IF (num_io_procs > 0) THEN
-        CALL finish(method_name, "JSBACH currently doesn't work with asynchronous IO. Set num_io_procs=0 !")
+        CALL message(method_name, "JSBACH output currently doesn't work with asynchronous parallel output !")
       END IF
-    ELSE IF (echam_phy_config%llake) THEN
-      CALL message(TRIM(method_name), 'Setting llake = .FALSE. since ljsbach = .FALSE.')
-      echam_phy_config%llake = .FALSE.
+    ELSE IF (ANY(echam_phy_config(:)%llake)) THEN
+      CALL message(TRIM(method_name), 'Setting llake = .FALSE. since ljsb = .FALSE.')
+      echam_phy_config(:)%llake = .FALSE.
     END IF
 #endif
 
@@ -892,10 +922,6 @@ CONTAINS
         CALL finish(TRIM(method_name),'iart_ari > 0 requires irad_aero=9')
       ENDIF
     ENDDO
-    
-    IF(art_config(jg)%lart_pntSrc .AND. .NOT. art_config(jg)%lart_passive) THEN
-      CALL finish(TRIM(method_name),'lart_pntSrc needs lart_passive to be .true.')
-    ENDIF
     
     ! XML specification checks
     

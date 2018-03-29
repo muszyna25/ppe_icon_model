@@ -64,7 +64,6 @@ atmo_model_equations=3 # equation system
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
 nlev=30              # nlev = number of full levels
-iforcing=0        # no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
@@ -113,7 +112,7 @@ cat > ${atmo_namelist} << EOF
  ldynamics       = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
  ltransport      = .FALSE.      ! switch off tracer transport   --> transport_ctl
  ntracer         = 0            ! number of tracers
- iforcing        = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
+ iforcing        = 0            ! no forcing
  msg_level       = 12           ! detailed report during integration 
  ltimer          = .FALSE.
 /

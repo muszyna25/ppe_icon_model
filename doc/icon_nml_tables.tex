@@ -7,7 +7,7 @@ models are stored in run/. These scripts write namelist files containing
 the specified Fortran namelists. Programs are stored in $<$ icon home$>$/build/$<$architecture$>$/bin/.
 
 
-\begin{table}[htd]
+\begin{table}[htb]
 \caption{Namelist files}
 \begin{center}
 \begin{tabular}{llll}\hline
@@ -473,6 +473,17 @@ Output name style\\
 
 Defined and used in: \verb+src/grid_generator/mo_gridrefinement.f90+
 
+%MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+%MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+%MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+
+\section{Namelist parameters defining the atmospheric model}
+
+Namelist parameters for the ICON models are organized in several thematic
+Fortran namelists controling the experiment, and the properties of
+dynamics, transport, physics etc.
+
+
 %------------------------------------------------------------------------------
 % coupling_model_nml:
 %------------------------------------------------------------------------------
@@ -490,16 +501,6 @@ L &
 
 Defined and used in: \verb+src/namelists/mo_coupling_nml.f90+
 
-
-%MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
-%MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
-%MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
-
-\section{Namelist parameters defining the atmospheric model}
-
-Namelist parameters for the ICON models are organized in several thematic
-Fortran namelists controling the experiment, and the properties of
-dynamics, transport, physics etc.
 
 %-----------------------------------------------------------------------------
 % diffusion_nml: horizontal (numerical) diffusion
@@ -688,198 +689,758 @@ Defined and used in: \verb+src/namelists/mo_dynamics_nml.f90+
 
 
 %------------------------------------------------------------------------------
-% echam_conv_nml:
+% echam_cld_nml:
 %------------------------------------------------------------------------------
-\subsection{echam\_conv\_nml}
+\subsection{echam\_cld\_nml}
+
+The parameterization of cloud microphysics for the ECHAM physics is configured by a data structure \textit{echam\_cld\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains. The structure contains parameters providing control over the parametrized effects:
 
 \begin{longtab}
-
 %\hline
-\textbf{iconv}&
-I & 1 &&
-Choice of cumulus convection scheme.\par
-1: Nordeng scheme\par
-2: Tiedtke scheme\par
-3: hybrid scheme &
-iforcing = 2 .AND. lconv = .TRUE.
+echam\_cld\_config(jg)\% \newline ccwmin &
+R & 1.0e-7 & kg/kg &
+cloud water and ice minimum mass mixing ratio for cover>0 &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
 \tabularnewline
 
-%\hline
-ncvmicro&
-I & 0 &&
-Choice of convective microphysics scheme.&
-
-iforcing = 2 .AND. lconv = .TRUE.
+echam\_cld\_config(jg)\% \newline cqtmin &
+R & 1.0e-12 & kg/kg &
+cloud water/ice minimum for microphysical processes &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
 \tabularnewline
 
-%\hline
-lmfpen &
-L& .TRUE.&&
-Switch on penetrative convection.&
-iforcing = 2 .AND. lconv = .TRUE.
+echam\_cld\_config(jg)\% \newline cthomi &
+R & Tmelt-35 = 238.15 & K &
+maximum temperature for homogeneous freezing &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
 \tabularnewline
 
-%\hline
-lmfmid &
-L& .TRUE.&&
-Switch on midlevel convection.&
-iforcing = 2 .AND. lconv = .TRUE.
+echam\_cld\_config(jg)\% \newline csecfrl &
+R & 5.0e-6 & kg/kg &
+minimum in-cloud water mass mixing ratio in mixed phase clouds &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
 \tabularnewline
 
-%\hline
-lmfdd &
-L& .TRUE.&&
-Switch on cumulus downdraft.&
-iforcing = 2 .AND. lconv = .TRUE.
+echam\_cld\_config(jg)\% \newline ccraut &
+R & 15. & &
+coefficient of autoconversion of cloud droplets to rain &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
 \tabularnewline
 
-%\hline
-lmfdudv &
-L& .TRUE.&&
-Switch on cumulus friction.&
-iforcing = 2 .AND. lconv = .TRUE.
+echam\_cld\_config(jg)\% \newline ccracl &
+R & 6. & &
+coefficient of accretion  of cloud droplets by falling rain &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
 \tabularnewline
 
-%\hline
-cmftau &
-R & 10800. &&
-Characteristic convective adjustment time scale.&
-iforcing = 2 .AND. lconv = .TRUE.
+echam\_cld\_config(jg)\% \newline cauloc &
+R & 10. & &
+coefficient of local rainwater production by autoconversion &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
 \tabularnewline
 
-%\hline
-cmfctop &
-R & 0.3 &&
-Fractional convective mass flux (valid range [0,1])
-across the top of cloud &
-iforcing = 2 .AND. lconv = .TRUE.
+echam\_cld\_config(jg)\% \newline clmin &
+R & 0.0 & &
+minimum for cauloc*dz/5000 &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
 \tabularnewline
 
-%\hline
-cprcon &
-R & 1.0e-4 &&
-Coefficient for determining conversion from cloud water to rain.&
-iforcing = 2 .AND. lconv = .TRUE.
+echam\_cld\_config(jg)\% \newline clmax &
+R & 0.5 & &
+maximum for cauloc*dz/5000 &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
 \tabularnewline
 
-%\hline
-cminbuoy &
-R & 0.025 &&
-Minimum excess buoyancy.&
-iforcing = 2 .AND. lconv = .TRUE.
+echam\_cld\_config(jg)\% \newline cvtfall &
+R & 2.5 & &
+coefficient of sedimentation velocity of cloud ice &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
 \tabularnewline
 
-%\hline
-entrpen &
-R & 1.0e-4 &&
-Entrainment rate for penetrative convection.&
-iforcing = 2 .AND. lconv = .TRUE.
+echam\_cld\_config(jg)\% \newline ceffmin &
+R & 10. & 1.e-6 m &
+min effective radius for ice cloud &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
 \tabularnewline
 
-%\hline
-dlev &
-R & 3.e4 & Pa &
-Critical thickness necessary for the onset of convective precipitation.&
-iforcing = 2 .AND. lconv = .TRUE.
+echam\_cld\_config(jg)\% \newline ceffmax &
+R & 150. & 1.e-6 m &
+max effective radius for ice cloud &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline crhoi &
+R & 500. & kg/m3 &
+density of cloud ice &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline crhosno &
+R & 100. & kg/m3 &
+bulk density of snow &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline ccsaut &
+R & 95.0 & &
+coefficient of autoconversion of cloud ice to snow &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline ccsacl &
+R & 0.1 & &
+coefficient of accretion of cloud droplets by falling snow &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline cn1lnd &
+R & defval & 1e6/m3 &
+cloud droplet number concentration over land, p <= 100 hPa &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline cn2lnd &
+R & defval & 1e6/m3 &
+cloud droplet number concentration over land, p >= 800 hPa &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline cn1sea &
+R & defval & 1e6/m3 &
+cloud droplet number concentration over sea, p <= 100 hPa &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline cn2sea &
+R & defval & 1e6/m3 &
+cloud droplet number concentration over sea, p >= 800 hPa &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline cinhomi &
+R & 0.8 & &
+ice    cloud inhomogeneity factor &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline cinhoml1 &
+R & 0.8 & &
+liquid cloud inhomogeneity factor, ktype = 0 = stratiform clouds &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline cinhoml2 &
+R & 0.4 & &
+liquid cloud inhomogeneity factor, ktype = 4 = shallow conv. (cf. clwprat) &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline cinhoml3 &
+R & 0.8 & &
+liquid cloud inhomogeneity factor, ktype = 1 = deep convection and ktype = 2 = shallow conv. (cf. clwprat) and ktype = 3 = mid-level conv. &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline clwprat &
+R & 4.0 & &
+critical ratio of cloud liq.+ice paths below and above the top of shallow convection; for ratio > clwprat -> change ktype from 2 to 4 &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline crs &
+R & 0.968 & &
+critical relative humidity at surface &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline crt &
+R & 0.8 & &
+critical relative humidity aloft &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline nex &
+I & 2 & &
+transition parameter for critical relative humidity profile &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline jbmin &
+I & 40 & &
+index of highest level for search of top level of inversion layer over sea (ca. 2 km) &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline jbmax &
+I & 45 & &
+index of bottom level of inversion layer over sea &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline cinv &
+R & 0.25 & &
+fraction of dry adiabatic lapse rate for search of top level of inversion layer over sea &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline csatsc &
+R & 0.7 & &
+minimum effective saturation for cloud cover below an invesion layer over sea &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+%%echam\_cld\_config(jg)\% \newline cptop &
+%%R & 1000. & Pa &
+%%pressure of highest level for tropopause calculation &
+%%echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+%%\tabularnewline
+%%
+%%echam\_cld\_config(jg)\% \newline cpbot &
+%%R & 50000. & Pa &
+%%pressure of lowest  level for tropopause calculation &
+%%echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+%%\tabularnewline
+%%
+echam\_cld\_config(jg)\% \newline ncctop &
+I & 13 & &
+index of highest  level for tropopause calculation &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% \newline nccbot &
+I & 35 & &
+index of lowest  level for tropopause calculation &
+echam\_phy\_config(jg)\% \newline dt\_cld > 0.000s
 \tabularnewline
 
 \end{longtab}
 
-Defined and used in: \verb+src/namelists/mo_echam_conv_nml.f90+
+%------------------------------------------------------------------------------
+% echam_cnv_nml:
+%------------------------------------------------------------------------------
+\subsection{echam\_cnv\_nml}
 
+The parameterization of convection for the ECHAM physics is configured by a data structure \textit{echam\_cnv\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains. The structure contains parameters providing control over the parametrized effects:
 
-\newpage
+\begin{longtab}
+%\hline
+echam\_cnv\_config(jg)\% \newline lmfpen &
+L& .TRUE.&&
+Switch on penetrative convection.&
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+%\hline
+echam\_cnv\_config(jg)\% \newline lmfmid &
+L& .TRUE.&&
+Switch on midlevel convection.&
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+%\hline
+echam\_cnv\_config(jg)\% \newline lmfdd &
+L& .TRUE.&&
+Switch on cumulus downdraft.&
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+%\hline
+echam\_cnv\_config(jg)\% \newline lmfdudv &
+L& .TRUE.&&
+Switch on cumulus friction.&
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+%\hline
+echam\_cnv\_config(jg)\% \newline entrmid &
+R & 2.0e-4 &&
+Entrainment rate for midlevel convection.&
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+%\hline
+echam\_cnv\_config(jg)\% \newline entrscv &
+R & 3.0e-3 &&
+Entrainment rate for shallow convection.&
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+%\hline
+echam\_cnv\_config(jg)\% \newline entrpen &
+R & 2.0e-4 &&
+Entrainment rate for penetrative convection.&
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+%\hline
+echam\_cnv\_config(jg)\% \newline entrdd &
+R & 4.0e-4 &&
+Entrainment rate for cumulus downdrafts.&
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+%\hline
+echam\_cnv\_config(jg)\% \newline cprcon &
+R & 2.5e-4 &&
+Coefficient for determining conversion from cloud water to rain.&
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+%\hline
+echam\_cnv\_config(jg)\% \newline cmfctop &
+R & 0.2 &&
+Fractional convective mass flux across the top of cloud. &
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+%\hline
+echam\_cnv\_config(jg)\% \newline cmfdeps &
+R & 0.3 &&
+Fractional convective mass flux for downdrafts at lfs. &
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+%\hline
+echam\_cnv\_config(jg)\% \newline cminbuoy &
+R & 0.02 &&
+Minimum excess buoyancy.&
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+%\hline
+echam\_cnv\_config(jg)\% \newline cmaxbuoy &
+R & 1.0 &&
+Maximum excess buoyancy.&
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+%\hline
+echam\_cnv\_config(jg)\% \newline cbfac &
+R & 1.0 &&
+Factor for std dev of virtual pot temp.&
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+%\hline
+echam\_cnv\_config(jg)\% \newline centrmax &
+R & 3.0e-4 &&
+Maximum entrainment/detrainment rate.&
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+%\hline
+echam\_cnv\_config(jg)\% \newline dlev\_land &
+R & 0 & Pa &
+Minimum pressure thickness of clouds for precipitation over land.&
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+%\hline
+echam\_cnv\_config(jg)\% \newline dlev\_ocean &
+R & 0 & Pa &
+Minimum pressure thickness of clouds for precipitation over ocean.&
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+%\hline
+echam\_cnv\_config(jg)\% \newline cmftau &
+R & 3600. &&
+Characteristic convective adjustment time scale.&
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+%\hline
+echam\_cnv\_config(jg)\% \newline cmfcmin &
+R & 1.0e-10 &&
+Minimum massflux value (for safety).&
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+%\hline
+echam\_cnv\_config(jg)\% \newline cmfcmax &
+R & 1.0 &&
+Maximum massflux value for updrafts.&
+echam\_phy\_config(jg)\% \newline dt\_cnv > 0.000s
+\tabularnewline
+
+\end{longtab}
+
+%------------------------------------------------------------------------------
+% echam_gwd_nml:
+%------------------------------------------------------------------------------
+\subsection{echam\_gwd\_nml}
+
+The parameterization of atmospheric gravity waves for the ECHAM physics is configured by a data structure \textit{echam\_gwd\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains. The structure contains parameters providing control over the parametrized effects:
+
+\begin{longtab}
+%\hline
+lheatcal    &
+L           &
+.FALSE.     &&
+.TRUE.: compute drag, heating rate and diffusion coefficient from the dissipation of gravity waves&
+echam\_phy\_config(jg)\% \newline dt\_gwd > 0.000s
+\tabularnewline
+&&&&
+.FALSE.: compute drag only &
+\tabularnewline
+
+%\hline
+emiss\_lev  &
+I           &
+10          &&
+Index of model level, counted from the surface, from which the gravity wave spectra are emitted &
+echam\_phy\_config(jg)\% \newline dt\_gwd > 0.000s
+\tabularnewline
+
+%\hline
+rmscon      &
+R           &
+0.87         &
+m/s         &
+Root mean square gravity wave wind at the emission level &
+echam\_phy\_config(jg)\% \newline dt\_gwd > 0.000s
+\tabularnewline
+
+%\hline
+kstar       &
+R           &
+5.0e-5      &
+1/m         &
+Typical gravity wave horizontal wavenumber &
+echam\_phy\_config(jg)\% \newline dt\_gwd > 0.000s
+\tabularnewline
+
+%\hline
+m\_min      &
+R           &
+0.0         &
+1/m         &
+Minimum bound in  vertical wavenumber &
+echam\_phy\_config(jg)\% \newline dt\_gwd > 0.000s
+\tabularnewline
+
+\end{longtab}
 
 %------------------------------------------------------------------------------
 % echam_phy_nml:
 %------------------------------------------------------------------------------
 \subsection{echam\_phy\_nml}
 
+The ECHAM physics is configured by a data structure \textit{echam\_phy\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains. The structure contains several parameters providing time control for atmospheric forcings and additional logical switches for controlling how the atmospheric boundary conditions for the ECHAM physics are determined. Time control parameters are available for the following atmospheric processes:
+
+\begin{table}[htbp]
+\begin{center}
+\begin{tabular}{l|l}
+\textit{prc} & \textit{parameterized process} \\
+\hline
+rad & LW and SW radiation \\
+vdf & vertical diffusion \\
+cnv & cumulus convection \\
+cld & cloud microphysics \\
+gwd & atmospheric gravity wave drag \\
+sso & sub grid scale orographic effects \\
+mox & methane oxidation and water vapor photolysis \\
+car & Cariolle's linearized ozone chemistry \\
+art & ART chemistry \\
+\end{tabular}
+\end{center}
+\label{default}
+\end{table}%
+
+The time control for an atmospheric forcing by a process \textit{prc} consists of three components, the time interval \textit{dt\_prc} for re-computing the forcing, and the start and end dates and times defining the interval \textit{[sd\_prc,ed\_prc[}, in which the forcing is either computed, if the date/time coincides with the interval \textit{dt\_prc}, or recycled. Recycling means that the forcing stored from the last computation is used again. Outside of the interval the forcing is set to zero.
+
+If \textit{dt\_prc} is not specified, or an empty string or a string of blanks or an interval of length 0s, e.g. \textit{"PT0S"} is given, then the forcing is switched off for the entire experiment and the start and end dates and times are irrelevant.
+
+If \textit{sd\_prc} or \textit{ed\_prc} are not specified, or an empty string or a string of blanks are given, then the experiment start date and the experiment stop date are used, respectively.
+
 \begin{longtab}
-
-\textbf{lrad} &
-L& .TRUE.&&
-.TRUE. for radiation.&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{dt\_rad} &
-R&
-3600.&
-s&
-time interval for radiative transfer computation&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{lvdiff} &
-L& .TRUE.&&
-.TRUE. for vertical turbulent diffusion&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{lconv} &
-L& .TRUE.&&
-.TRUE. for cumulus convection&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{lcond} &
-L& .TRUE.&&
-.TRUE. for large scale condensation&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{lgw\_hines} &
-L& .TRUE.&&
-.TRUE. for non-orographic gravity wave drag (Hines)&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{lssodrag} &
-L& .TRUE.&&
-.TRUE. for subgrid scale orographic effects (Lott and Miller)&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{lice} &
-L& .FALSE.&&
-.TRUE. for sea-ice temperature calculation&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{lmlo} &
-L& .FALSE.&&
-.TRUE. for mixed layer ocean&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{ljsbach} &
-L& .FALSE.&&
-.TRUE. for calculating land surface properties (JSBACH)&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{lamip} &
-L& .FALSE.&&
-.TRUE. for AMIP boundary conditions&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
+%
+echam\_phy\_config(jg)\% \newline dt\_prc & C & "" & &
+This is the time interval in ISO 8601-2004 format at which the forcing by the process \textit{prc} is computed. &
+run\_nml/iforcing = 2 \tabularnewline
+%
+echam\_phy\_config(jg)\% \newline sd\_prc & C & "" & &
+Defines the start date/time in ISO 8601-2004 format of the interval \textit{[sd\_prc,ed\_prc[}, in which the forcing by the process \textit{prc} is computed in intervals \textit{dt\_prc}. &
+run\_nml/iforcing = 2 and
+\textit{dt\_prc}  > 0.000s \tabularnewline
+%
+echam\_phy\_config(jg)\% \newline ed\_prc & C & "" & &
+Defines the end date/time in ISO 8601-2004 format of the interval \textit{[sd\_prc,ed\_prc[}, in which the forcing by the process \textit{prc} is computed in intervals \textit{dt\_prc}. &
+run\_nml/iforcing = 2 and
+\textit{dt\_prc}  > 0.000s \tabularnewline
+%
+echam\_phy\_config(jg)\% \newline lice & L & .FALSE. & &
+.TRUE. for sea-ice temperature calculation &
+run\_nml/iforcing = 2 \tabularnewline
+%
+echam\_phy\_config(jg)\% \newline lmlo & L & .FALSE. & &
+.TRUE. for mixed layer ocean &
+run\_nml/iforcing = 2 \tabularnewline
+%
+echam\_phy\_config(jg)\% \newline ljsb & L & .FALSE. & &
+.TRUE. for using the JSBACH land surface model &
+run\_nml/iforcing = 2 \tabularnewline
+%
+echam\_phy\_config(jg)\% \newline lamip & L & .FALSE. & &
+.TRUE. for AMIP boundary conditions &
+run\_nml/iforcing = 2 \tabularnewline
+%
 \end{longtab}
 
-Defined and used in: \verb+src/namelists/mo_echam_phy_nml.f90+
+%------------------------------------------------------------------------------
+% echam_rad_nml:
+%------------------------------------------------------------------------------
+\subsection{echam\_rad\_nml}
 
+The input  from ECHAM physics to the PSrad scheme is configured by a data structure \textit{echam\_rad\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains. The structure contains parameters providing control over the Earth orbit, the computation of the SW incoming flux at the top of the atmosphere and the atmospheric composition:
+
+\begin{longtab}
+%
+echam\_rad\_config(jg)\% \newline isolrad & I & 0 & &
+Selects the spectral solar irradiation (SSI) at 1 AU distance from the sun \\
+0: SSI of the SRTM scheme, TSI = 1368.222 W\/m2.\\
+1: SSI from an external file containing monthly mean time series \\
+2: Average 1844--1856 of the SSI time series provided for CMIP5, TSI = 1360.875 W/m2 \\
+3: Average 1979--1988 of the SSI time series provided for CMIP5, TSI = 1361.371 W/m2 \\
+4: SSI for RCE--type simulation with diurnal cycle, TSI = 1069.315 W/m2 \\
+5: SSI for RCE--type simulation without diurnal cycle, TSI = 433.3371 W/m2 \\
+6: Average 1850-1873 of the SSI time series provided for CMIP6, TSI = 1360.744 W/m2 \\ &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline fsolrad & R & 1 & &
+Scaling factor for the  SSI &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline l\_orbvsop87 & L & .TRUE. & &
+.TRUE. for the realistic VSOP87 Earth orbit \\ .FALSE. for the Kepler orbit &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline cecc & R & 0.016715 & &
+eccentricity of the Kepler orbit &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s and l\_orbvsop87 = .FALSE. \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline cobld & R & 23.44100 & deg &
+obliquity of the Earth rotation axis on the Kepler orbit &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s  and l\_orbvsop87 = .FALSE. \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline lyr\_perp & L & .FALSE. & &
+.FALSE. for transient VSOP87 Earth orbit \\ .TRUE.: VSOP87 Earth orbit of year yr\_perp is perpertuated &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s  and l\_orbvsop87 = .TRUE. \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline yr\_perp & L & -99999 & &
+year to be used for lyr\_perp = .TRUE. &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s  and l\_orbvsop87 = .TRUE. \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline nmonth & I & 0 & &
+0: Earth circles on orbit\\1-12: Earth orbit position fixed for specified month&
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline ldiur & L & .TRUE. & &
+.TRUE. for diurnal cycle in solar irradiation \\ .FALSE. for zonally averaged solar irradiation &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline l\_sph\_symm\_irr & L & .FALSE. & &
+.TRUE. for a horizontally independent solar irradiation; .FALSE. for a horizontally resolved solar irradiation & \tabularnewline 
+%
+echam\_rad\_config(jg)\% \newline irad\_h2o & I & 1 & &
+Selects source for concentration of water vapor, cloud water and cloud ice \\
+0: set to zero (or epsilon) \\
+1: from tracer &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline irad\_co2 & I & 2 & &
+Selects source for concentration of CO2 \\
+0: set to zero (or epsilon) \\
+1: from tracer  \\
+2: constant vol. mixing ration set by 'vmr \_co2'  \\
+4: spatially constant, time dependent vol. mixing ratio from file &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s and CO2 tracer is defined \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline irad\_ch4 & I & 3 & &
+Selects source for concentration of CH4 \\
+0: set to zero (or epsilon) \\
+2: constant vol. mixing ration set by 'vmr \_ch4'  \\
+3: horizontally constant, vertically decaying, with surface vol. mixing ratio set by 'vmr \_ch4'  \\
+4: horizontally constant, vertically decaying, time dependent with surface vol. mixing ratio from file &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline irad\_n2o & I & 3 & &
+Selects source for concentration of N2O \\
+0: set to zero (or epsilon) \\
+2: constant vol. mixing ration set by 'vmr \_n2o'  \\
+3: horizontally constant, vertically decaying, with surface vol. mixing ratio set by 'vmr \_n2o'  \\
+4: horizontally constant, vertically decaying, time dependent with surface vol. mixing ratio from file &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline irad\_o3 & I & 0 & &
+Selects source for concentration of O3 \\
+0: set to zero (or epsilon) \\
+1: from tracer \\
+2: 3-dim concentration of month 9 from file \\
+4: 3-dim concentration of month 1 from file \\
+8: 3-dim concentration, time dependent from file &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline irad\_o2 & I & 2 & &
+Selects source for concentration of O2 \\
+0: set to zero (or epsilon) \\
+2: constant vol. mixing ration set by 'vmr \_o2'  &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline irad\_cfc11 & I & 2 & &
+Selects source for concentration of CFC11 \\
+0: set to zero (or epsilon) \\
+2: constant vol. mixing ration set by 'vmr \_cfc11' \\
+4: spatially constant, time dependent vol. mixing ratio from file &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline irad\_cfc12 & I & 2 & &
+Selects source for concentration of CFC12 \\
+0: set to zero (or epsilon) \\
+2: constant vol. mixing ration set by 'vmr \_cfc12' \\
+4: spatially constant, time dependent vol. mixing ratio from file &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline irad\_aero & I & 2 & &
+Selects source for concentration of XYZ \\
+13: tropospheric 'Kinne' aerosols, time dependent from file \\
+14: stratospheric 'Stenchikov' aerosols, time dependent from file\\
+15: tropospheric 'Kinne' aerosols + stratospheric 'Stenchikov' aerosols, time dependent, both from file\\
+18: tropospheric natural 'Kinne' aerosols for 1850 + time dep. stratospheric 'Stenchikov' aerosols, both from file + param. time dep. antropogenic 'simple plumes' \\
+any other: set to zero &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline vmr\_co2 & R & 348.0e-06 & m3/m3 &
+Volume mixing ratio of CO2 &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline vmr\_ch4 & R & 1650.0e-09 & m3/m3 &
+Volume mixing ratio of CH4 &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline vmr\_n2o & R & 306.0e-09 & m3/m3 &
+Volume mixing ratio of N2O &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline vmr\_o2 & R & 0.20946 & m3/m3 &
+Volume mixing ratio of O2 &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline vmr\_cfc11 & R & 214.5e-12 & m3/m3 &
+Volume mixing ratio of CFC11 &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline vmr\_cfc12 & R & 371.1e-12 & m3/m3 &
+Volume mixing ratio of CFC11 &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline frad\_h2o & R & 1.0 & &
+Scaling factor for concentration of water vapor, cloud water and cloud ice &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline frad\_co2 & R & 1.0 & &
+Scaling factor for concentration of  CO2 &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline frad\_ch4 & R & 1.0 & &
+Scaling factor for concentration of CH4 &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline frad\_n2o & R & 1.0 & &
+Scaling factor for concentration of N2O &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline frad\_o3 & R & 1.0 & &
+Scaling factor for concentration of O3 &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline frad\_o2 & R & 1.0 & &
+Scaling factor for concentration of O2 &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+%
+echam\_rad\_config(jg)\% \newline frad\_cfc & R & 1.0 & &
+Scaling factor for concentration of CFC11 and CFC12 &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
+
+\end{longtab}
+
+%------------------------------------------------------------------------------
+% echam_sso_nml:
+%------------------------------------------------------------------------------
+\subsection{echam\_sso\_nml}
+
+The parameterization of subgrid scale orographic (SSO) effects for the ECHAM physics is configured by a data structure \textit{echam\_sso\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains. The structure contains parameters providing control over the parametrized effects:
+
+\begin{longtab}
+%
+echam\_sso\_config(jg)\% \newline gpicmea & R & 40. & m &
+Minimum height difference of peak height and mean height to activate the SSO parameterization. &
+echam\_phy\_config(jg)\% \newline dt\_sso > 0.000s \tabularnewline
+%
+echam\_sso\_config(jg)\% \newline gstd & R & 10. & m &
+Minimum standard deviation of the SSO height to activate the SSO parameterization. &
+echam\_phy\_config(jg)\% \newline dt\_sso > 0.000s \tabularnewline
+%
+echam\_sso\_config(jg)\% \newline gkdrag & R & 0.05 & &
+Coefficient for orographic gravity wave drag. &
+echam\_phy\_config(jg)\% \newline dt\_sso > 0.000s \tabularnewline
+%
+echam\_sso\_config(jg)\% \newline gkwake & R & 0. & &
+Coefficient for low level blocking. &
+echam\_phy\_config(jg)\% \newline dt\_sso > 0.000s \tabularnewline
+%
+echam\_sso\_config(jg)\% \newline gklift & R & 0. & &
+Coefficient for low level lift. &
+echam\_phy\_config(jg)\% \newline dt\_sso > 0.000s \tabularnewline
+%
+\end{longtab}
+
+%------------------------------------------------------------------------------
+% echam_vdf_nml:
+%------------------------------------------------------------------------------
+\subsection{echam\_vdf\_nml}
+
+The parameterization of vertical diffusion (VDF) for the ECHAM physics is configured by a data structure \textit{echam\_vdf\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains. The structure contains parameters providing control over some of the parametrized effects:
+
+\begin{longtab}
+%
+echam\_vdf\_config(jg)\% \newline lsfc\_mom\_flux & L & .TRUE. & &
+switch on/off surface momentum flux &
+echam\_phy\_config(jg)\% \newline dt\_vdf > 0.000s \tabularnewline
+%
+echam\_vdf\_config(jg)\% \newline lsfc\_heat\_flux & L & .TRUE. & &
+switch on/off surface heat flux &
+echam\_phy\_config(jg)\% \newline dt\_vdf > 0.000s \tabularnewline
+%
+echam\_vdf\_config(jg)\% \newline pr0 & R & 1.0 & &
+neutral limit Prandtl number, can be varied from about 0.6 to 1.0 &
+echam\_phy\_config(jg)\% \newline dt\_vdf > 0.000s \tabularnewline
+%
+echam\_vdf\_config(jg)\% \newline f\_tau0 & R & 0.17 & &
+neutral non-dimensional stress factor &
+echam\_phy\_config(jg)\% \newline dt\_vdf > 0.000s \tabularnewline
+%
+echam\_vdf\_config(jg)\% \newline c\_f & R & 0.185 & &
+mixing length: coriolis term tuning parameter &
+echam\_phy\_config(jg)\% \newline dt\_vdf > 0.000s \tabularnewline
+%
+echam\_vdf\_config(jg)\% \newline c\_n & R & 2.0 & &
+mixing length: stability term tuning parameter &
+echam\_phy\_config(jg)\% \newline dt\_vdf > 0.000s \tabularnewline
+%
+echam\_vdf\_config(jg)\% \newline wmc & R & 0.5 & &
+ratio of typical horizontal velocity to wstar at free convection &
+echam\_phy\_config(jg)\% \newline dt\_vdf > 0.000s \tabularnewline
+%
+echam\_vdf\_config(jg)\% \newline fsl & R & 0.4 & &
+fraction of first-level height at which surface fluxes are nominally evaluated, tuning param for sfc stress &
+echam\_phy\_config(jg)\% \newline dt\_vdf > 0.000s \tabularnewline
+%
+echam\_vdf\_config(jg)\% \newline fbl & R & 3.0 & &
+1/fbl: fraction of BL height at which lmix hat its max &
+echam\_phy\_config(jg)\% \newline dt\_vdf > 0.000s \tabularnewline
+%
+\end{longtab}
 
 %------------------------------------------------------------------------------
 % ensemble_pert_nml:
@@ -1560,103 +2121,6 @@ n\_dom>1 .AND. lfeedback = .TRUE. .AND. ifeedback\_type = 2 \tabularnewline
 
 Defined and used in: \verb+src/namelists/mo_gridref_nml.f90+
 
-
-%------------------------------------------------------------------------------
-% gw_hines_nml:
-%------------------------------------------------------------------------------
-\subsection{gw\_hines\_nml (Scope: lgw\_hines = .TRUE. in echam\_phy\_nml)}
-
-\begin{longtab}
-
-%\hline
-lheatcal    &
-L           &
-.FALSE.     &&
-.TRUE.: compute drag, heating rate and diffusion coefficient from the dissipation of gravity waves&
-\tabularnewline
-&&&&
-.FALSE.: compute drag only &
-\tabularnewline
-
-%\hline
-emiss\_lev  &
-I           &
-10          &&
-Index of model level, counted from the surface, from which the gravity wave spectra are emitted &
-\tabularnewline
-
-%\hline
-rmscon      &
-R           &
-1.0         &
-m/s         &
-Root mean square gravity wave wind at the emission level &
-\tabularnewline
-
-%\hline
-kstar       &
-R           &
-5.0e-5      &
-1/m         &
-Typical gravity wave horizontal wavenumber &
-\tabularnewline
-
-%\hline
-m\_min      &
-R           &
-0.0         &
-1/m         &
-Minimum bound in  vertical wavenumber &
-\tabularnewline
-
-%\hline
-lrmscon\_lat &
-L            &
-.FALSE.      &
-             &
-.TRUE.:  use latitude dependent rms wind &
-\tabularnewline
-&&&& - |latitude| $>$= lat\_rmscon: use rmscon &
-\tabularnewline
-&&&& - |latitude| $<$= lat\_rmscon\_eq: use rmscon\_eq &
-\tabularnewline
-&&&& - lat\_rmscon\_eq $<$ |latitude| $<$ lat\_rmscon: use linear interpolation between rmscon\_eq and rmscon &
-\tabularnewline
-&&&& .FALSE.: use globally constant rms wind rmscon &
-\tabularnewline
-
-%\hline
-lat\_rmscon\_eq &
-R               &
-5.0             &
-deg N           &
-rmscon\_eq is used equatorward of this latitude &
-lrmscon\_lat = .TRUE.
-\tabularnewline
-
-%\hline
-lat\_rmscon     &
-R               &
-10.0            &
-deg N           &
-rmscon is used polward of this latitude &
-lrmscon\_lat = .TRUE.
-\tabularnewline
-
-%\hline
-rmscon\_eq      &
-R               &
-1.2             &
-m/s             &
-is used equatorward of latitude lat\_rmscon\_eq &
-lrmscon\_lat = .TRUE.
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: \verb+src/namelists/mo_gw_hines_nml.f90+
-
-
 %-----------------------------------------------------------------------------
 % ha_dyn_nml: hydrostatic atm dynamics
 %-----------------------------------------------------------------------------
@@ -1774,7 +2238,7 @@ I & 2& &
 1: MODE\_DWDANA\\ \quad start from DWD analysis or FG \\
 2: MODE\_IFSANA\\ \quad start from IFS analysis \\
 3: MODE\_COMBINED\\ \quad IFS atm + ICON/GME soil \\
-4: MODE\_COSMODE\\ \quad start from COSMO-DE forecast \\
+4: MODE\_COSMO\\ \quad start from prognostic set of variables as used by COSMO \\
 5: MODE\_IAU\\ \quad start from DWD analysis with incremental analysis update. Extension of MODE\_IAU\_OLD including snow increments\\
 6: MODE\_IAU\_OLD\\ \quad start from DWD analysis with incremental analysis update. NOTE: Extension of mode MODE\_DWDANA\_INC 
    including W\_SO increments. \\
@@ -2007,7 +2471,7 @@ C& & &
 Dictionary file which maps internal variable names onto
 GRIB2 shortnames or NetCDF var names.
 This is a text file with two columns separated by whitespace, where
-left column: ICON variable name, right column: GRIB2 short name.
+left column: ICON variable name, right column: GRIB2 short name or NetCDF var name.
 &
 \tabularnewline
 
@@ -2294,14 +2758,34 @@ NetCDF output
 %\hline
 lnetcdf\_flt64\_output&
 L& .FALSE. & &
-If .TRUE. floating point variable output in NetCDF files is written in 64-bit instead of 32-bit accuracy. \\
-This is currently implemented for the atm. dynamical core and ECHAM physics. &
+If .TRUE. floating point variable output in NetCDF files is written in 64-bit instead of 32-bit accuracy. &
 \tabularnewline
 
 %\hline
 restart\_file\_type&
 I&  4& &
 Type of restart file. One of CDI's FILETYPE\_XXX. So far, only 4 (=FILETYPE\_NC2) is allowed&
+\tabularnewline
+
+%\hline
+restart\_write\_mode&
+C& '' '' & &
+Restart read/write mode. \\
+Allowed settings (character strings!) are listed below.
+&
+\tabularnewline
+
+%\hline
+nrestart\_streams&
+I& 1 & &
+%
+ When using the restart write mode "dedicated procs multifile", it is
+ possible to split the restart output into several files, as if
+ \verb+nrestart_streams * num_io_procs+ restart processes were
+ involved. This speeds up the read-in process, since all the files may
+ then be read in parallel.
+%
+& \verb+restart_write_mode+ = \verb+"dedicated procs multifile"+ 
 \tabularnewline
 
 %\hline
@@ -2312,6 +2796,55 @@ Set to \texttt{.TRUE.}, if interpolation zone should be masked in output.&
 
 %\hline
 \end{longtab}
+
+
+% -------------------------------------------------------------
+\subsubsection{Restart read/write mode:}
+% -------------------------------------------------------------
+
+Allowed settings for \texttt{restart\_write\_mode} are:\\[1em]
+\texttt{''sync''} \\
+\hspace*{2em} 
+\parbox{0.8\textwidth}{\raggedright%
+  'Old' synchronous mode. PE \# 0 reads and writes restart files. All other PEs have to wait.}\\[1em]
+%
+\texttt{''async''} \\
+\hspace*{2em} 
+\parbox{0.8\textwidth}{\raggedright%
+  Asynchronous restart writing:
+  Dedicated PEs (\texttt{num\_restart\_proc > 0}) write restart files
+  while the simulation continues.  Restart PEs can only parallelize
+  over different patches. --- Read-in: PE \# 0 reads while other PEs
+  have to wait.  } \\[1em]
+%
+\texttt{''joint procs multifile''} \\
+\hspace*{2em} 
+\parbox{0.8\textwidth}{\raggedright%
+  All worker PEs write restart files to a dedicated
+  directory. Therefore, the directory itself is called the restart
+  file.  The information is stored in a way that it can be read back
+  into the model independent from the processor count and the domain
+  decomposition. --- Read-in: All worker PEs read the data in parallel.
+ }\\[1em]
+%
+\texttt{''dedicated procs multifile''} \\
+\hspace*{2em} 
+\parbox{0.8\textwidth}{\raggedright%
+
+  In this case, all the restart data is first transfered to memory
+  buffers in dedicated restart writer PEs.  After that, the work
+  processes carry on with their work immediately, while the restart
+  writers perform the actual restart writing asynchronously.  Restart
+  PEs can parallelize over patches and horizontal indices.
+  --- Read-in: All worker PEs read the data in parallel..
+}\\[1em]
+%
+\texttt{'' ''} \\
+\hspace*{2em} 
+\parbox{0.8\textwidth}{\raggedright%
+  Fallback mode. \\ If \texttt{num\_restart\_proc == 0} (\texttt{parallel\_nml}),
+  then this behaves like \texttt{''sync''}, otherwise like \texttt{''async''}.
+}\\[1em]
 
 Defined and used in: \verb+src/namelists/mo_io_nml.f90+
 
@@ -2459,7 +2992,7 @@ Type of lateral boundary nudging.\\
 conditions,\\
 %
 1: time-dependent lateral boundary conditions provided by an external
-source (IFS, COSMO-DE or a coarser-resolution ICON run), \\
+source (IFS, COSMO or a coarser-resolution ICON run), \\
 %
 2: Test mode using time-dependent lateral boundary conditions from a
 nested ICON run in which the present limited-area domain was operated
@@ -2708,6 +3241,14 @@ I & 2 &  & type of bare soil evaporation parameterization \\
 \tabularnewline
 
 %\hline
+itype\_trvg &
+I & 2 &  & type of plant transpiration parameterization \\
+2 = BATS scheme, Dickinson (1984)\\
+3 = Extended BATS scheme with additional prognostic variable for integrated plant transpiration since sunrise; 
+should be used only with an appropriate first guess for this variable coming from the assimilation cycle &
+\tabularnewline
+
+%\hline
 itype\_heatcond &
 I & 2 &  & type of soil heat conductivity \\
 1 = constant soil heat conductivity\\
@@ -2809,7 +3350,7 @@ C&
 Filename of SST input files for time dependent SST.
 Default is "$<$path$>$SST\_$<$year$>$\_<month>\_$<$gridfile$>$". May contain the
 keyword $<$path$>$ which will be substituted by model\_base\_dir&
-sstice\_mode=2,3
+sstice\_mode=3,4,5
 \tabularnewline
 %\hline
 ci\_td\_filename &
@@ -2819,7 +3360,7 @@ C&
 Filename of sea ice fraction input files for time dependent sea ice fraction.
 Default is "$<$path$>$CI\_$<$year$>$\_$<$month$>$\_$<$gridfile$>$". May contain
 the keyword $<$path$>$ which will be substituted by model\_base\_dir&
-sstice\_mode=2,3
+sstice\_mode=3,4,5
 \tabularnewline
 \end{longtab}
 
@@ -3011,6 +3552,20 @@ list of meteogram stations (triples with lat, lon, name string)&
 \tabularnewline
 
 %\hline
+silent\_flush&
+L(n\_dom) &
+1&&
+do not warn about flushing to disk if .TRUE.&
+\tabularnewline
+
+%\hline
+max\_time\_stamps&
+I(n\_dom) &
+1&&
+number of output time steps to record in memory before flushing to disk&
+\tabularnewline
+
+%\hline
 var\_list&
 C(:)
 &
@@ -3026,7 +3581,6 @@ meteogram
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_mtgrm_nml.f90+
-
 
 
 %-----------------------------------------------------------------------------
@@ -3258,10 +3812,12 @@ The switches for the physics schemes and the time steps can be set for each mode
 If only one value is specified, it is copied to all child domains, implying that the same set
 of parameterizations and time steps is used in all domains. If the number of values given
 in the namelist is larger than 1 but less than the number of model domains, then the settings
-from the highest domain ID are used for the remaining model domains. If the time steps are not
-an integer multiple of the advective time step (dtime), then the time step of the
+from the highest domain ID are used for the remaining model domains. 
+
+If the time steps are not an integer multiple of the advective time step (dtime), then the time step of the
 respective physics parameterization is automatically rounded to the next higher integer multiple
-of the advective time step.
+of the advective time step. If the radiation time step is not an integer multiple of the cloud-cover 
+time step it is automatically rounded to the next higher integer multiple of the cloud cover time step.
 
 \begin{longtab}
 
@@ -3508,7 +4064,8 @@ inwp\_turb $>$ 0
 R (max\_ dom)&
 600.&
 s&
-time interval of convection call\\
+time interval of convection and cloud-cover call.\\
+If convection is switched off, dt\_conv controlls the time intervall of cloud-cover, only.\\
 currently each subdomain has the same value
 &run\_nml:iforcing = inwp
 \tabularnewline
@@ -3609,7 +4166,17 @@ run\_nml:iforcing = inwp
 \tabularnewline
 
 \hline
+
+tune\_grcrit&
+R&
+0.25&
+&
+critical Richardson number (controls onset of wave breaking)&
+run\_nml:iforcing = inwp
+\tabularnewline
+
 \hline
+
 \multicolumn{6}{|l|}{\textbf{GWD} (Warner McIntyre)} 
 \tabularnewline
 
@@ -3631,7 +4198,7 @@ run\_nml:iforcing = inwp
 \hline
 tune\_zceff\_min&
 R&
-0.075&
+0.01&
 &
 Minimum value for sticking efficiency&
 run\_nml:iforcing = inwp
@@ -3692,7 +4259,7 @@ run\_nml:iforcing = inwp
 \hline
 tune\_rhebc\_land\_trop&
 R&
-0.70&
+0.75&
 &
 RH threshold for onset of evaporation below cloud base over land in the tropics&
 run\_nml:iforcing = inwp
@@ -4625,48 +5192,6 @@ sw\_spec\_samp = 2: Monte--Carlo spectral integration (MSCI); lw\_gpts\_ts
 Defined and used in: \verb+src/echam_phy_psrad/mo_psrad_radiation.f90+
 
 %------------------------------------------------------------------------------
-% psrad_orbit_nml:
-%------------------------------------------------------------------------------
-\subsection{psrad\_orbit\_nml}
-
-\begin{longtab}
-
-%\hline
-cecc &
-R&
-0.016715&
-&
-eccentricity of earth's orbit&
-\tabularnewline
-
-cobld &
-R&
-23.44100&
-&
-obliquity of earth in degrees&
-\tabularnewline
-
-l\_orbvsop87 &
-L&
-.TRUE.&
-&
-switch on (.TRUE.) the (real) observed orbit of the earth (not
-idealized) or switch it off (.FALSE.). In the latter case, a Kepler
-orbit is used.&
-\tabularnewline
-
-l\_sph\_symm\_irr&
-L&
-.FALSE.&
-&
-switch on (.TRUE.) a spherically symmetric irradiation from all sides
-or use an irradiation by a point source like the sun (.FALSE.).&
-\tabularnewline 
-
-\end{longtab}
-
-Defined and used in: \verb+src/namelists/mo_psrad_radiation.f90+
-%------------------------------------------------------------------------------
 % radiation_nml:
 %------------------------------------------------------------------------------
 \subsection{radiation\_nml}
@@ -4738,6 +5263,18 @@ Choice of zenith angle formula for the radiative transfer computation.\par
 \tabularnewline
 
 %\hline
+islope\_rad&
+I&
+0 &
+&
+Slope correction for surface radiation:\\
+0: None \\
+1: Slope correction for direct solar radiation without shading effects
+&
+\tabularnewline
+
+
+%\hline
 \textbf{albedo\_type}&
 I&
 1&
@@ -4804,7 +5341,7 @@ I&
 Switches for the concentration of radiative agents\par
 irad\_xyz = 0: set to zero\par
 irad\_h2o = 1: vapor, cloud water and cloud ice from tracer variables\par
-irad\_co2 = 1: CO_2 from tracer variable\par
+irad\_co2 = 1: CO\textsubscript{2} from tracer variable\par
 irad\_co2/ch4/n2o/o2/cfc11/cfc12 = 2: concentration given by vmr\_co2/ch4/n2o/o2/cfc11/cfc12\par
 irad\_ch4/n2o = 3: tanh-profile with surface concentration given by vmr\_ch4/n2o\par
 irad\_co2/cfc11/cfc12 = 4: time dependent concentration from greenhouse gas file
@@ -4815,7 +5352,8 @@ irad\_o3 = 6: ozone climatology with T5 geographical distribution and Fourier se
 irad\_o3 = 7: GEMS ozone climatology (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
 irad\_o3 = 8: ozone climatology for AMIP \par
 irad\_o3 = 9: MACC ozone climatology (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
-irad\_o3 = 79: Blending between GEMS and MACC ozone climatologies (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
+irad\_o3 = 79: Blending between GEMS and MACC ozone climatologies (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)}; MACC is used over Antarctica \par
+irad\_o3 = 97: As 79, but MACC is also used above 1 hPa with transition zone between 5 hPa and 1 hPa \par
 irad\_o3 = 10: Linearized ozone chemistry (ART extension necessary) {\color{red}for run\_nml/iforcing = 3 (NWP)}
 &
 \tabularnewline
@@ -5604,28 +6142,28 @@ velocity dependence &
 %\hline
 tkhmin &
 R                &     0.75      & $\mathrm{m^2/s}$ &
-Scaling factor for minimum vertical diffusion coefficient (proportional to $1/\sqrt{Ri}$)
+Scaling factor for minimum vertical diffusion coefficient (proportional to ${Ri}^{-2/3}$)
 for heat and moisture &
 \tabularnewline
 
 %\hline
 tkmmin &
 R                &     0.75      & $\mathrm{m^2/s}$ &
-Scaling factor for minimum vertical diffusion coefficient (proportional to $1/\sqrt{Ri}$)
+Scaling factor for minimum vertical diffusion coefficient (proportional to ${Ri}^{-2/3}$)
  for momentum & 
 \tabularnewline
 
 
 tkmmin\_strat &
-R                &     5      & $\mathrm{m^2/s}$ &
-Enhanced scaling factor for minimum vertical diffusion coefficient (proportional to $1/\sqrt{Ri}$)
- for momentum, valid in the stratosphere above 30 km & 
+R                &    4      & $\mathrm{m^2/s}$ &
+Scaling factor for stratospheric minimum vertical diffusion coefficient (proportional to ${Ri}^{-1/3}$)
+ for momentum, valid above 17.5 km (tropics above 22.5 km)& 
 \tabularnewline
 
 tkhmin\_strat &
-R                &     5      & $\mathrm{m^2/s}$ &
-Enhanced scaling factor for minimum vertical diffusion coefficient (proportional to $1/\sqrt{Ri}$)
-for heat and moisture, valid in the stratosphere above 30 km  &
+R                &     0.75      & $\mathrm{m^2/s}$ &
+Scaling factor for stratospheric minimum vertical diffusion coefficient (proportional to ${Ri}^{-1/3}$)
+for heat and moisture, valid above 17.5 km (tropics above 22.5 km)  &
 \tabularnewline
 
 
@@ -5738,30 +6276,6 @@ consideration of fluctuations of the heat capacity of air &
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_turbdiff_nml.f90+
-
-
-%------------------------------------------------------------------------------
-% vdiff_nml:
-%------------------------------------------------------------------------------
-\subsection{vdiff\_nml}
-
-\begin{longtab}
-
-%\hline
-lsfc\_mon\_flux &
-L& .TRUE.&&
-Switch on surface momentum flux.& lvdiff = .TRUE.
-\tabularnewline
-
-%\hline
-lsfc\_heat\_flux &
-L                & .TRUE.           & &
-Switch on surface sensible and latent heat flux.& lvdiff = .TRUE.
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: \verb+src/namelists/mo_vdiff_nml.f90+
 
 % =============================================================================
 %
@@ -6858,3 +7372,21 @@ terrain following coordinates. The hybrid level specification is stored in
 $<$icon home$>$/hyb\_params/HYB\_PARAMS\_$<$nlev$>$.
 The {\bf hydrostatic} model assumes to get {\bf pressure based} coordinates, the {\bf nonhydrostatic}
 model expects {\bf height based} coordinates. For further information see $<$icon home$>$/hyb\_params/README.
+
+\section{Compile flag for mixed precision}
+
+To speed up code parts strongly limited by memory bandwidth (primarily the dynamical core and the tracer advection), 
+an option exists to use single precision for variables that are presumed to be insensitive to computational accuracy.
+This affects most local arrays in the dynamical core routines (solve\_nonhydro and velocity\_advection), some local
+arreays in the tracer transport routines, the metrics coefficients,
+arrays used for storing tendencies or differenced fields (gradients, divergence etc.), reference atmosphere fields,
+and interpolation coefficients. Prognostic variables and intermediate variables affecting the accuracy of mass conservation
+are still treated in double precision. To activate the mixed-precision option, the cpp flags '-D\_\_MIXED\_PRECISION' and  
+'-D\_\_MIXED\_PRECISION\_2' need to be specified in the configuration settings used for generating the Makefile.
+The latter flag is used for physics tendencies.
+Note that interpolation to a latitude-longitude grid is not supported for single-precision variables; if you desire to output
+physics tendency fields on a regular grid for diagnostic purposes, do not set '-D\_\_MIXED\_PRECISION\_2'.
+
+
+
+

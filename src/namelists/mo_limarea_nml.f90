@@ -25,12 +25,12 @@ MODULE mo_limarea_nml
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_master_control,      ONLY: use_restart_namelists
-  USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist     , &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_limarea_config,      ONLY: latbc_config
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
-  USE mtime,                  ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,            &
+  USE mtime,                  ONLY: MAX_TIMEDELTA_STR_LEN,                                  &
     &                               newTimedelta, deallocateTimedelta, OPERATOR(==),        &
     &                               getPTStringFromMS, timedelta,                           &
     &                               getTotalMilliSecondsTimeDelta, datetime, newDatetime,   &

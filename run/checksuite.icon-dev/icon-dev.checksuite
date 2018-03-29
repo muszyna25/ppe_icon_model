@@ -12,40 +12,80 @@ function copy_experiment
         echo 'no experiment '${EXP_ORI}' found'
         exit 1
     fi
-    if [ ! -f ${EXP_ORI}/${EXP_ORI}_restart_*${RESTART_DATE}.nc ]; then
-        echo "Cannot find restart file: ${EXP_ORI}/${EXP_ORI}_restart_*${RESTART_DATE}.nc !"
-        echo "The run ${EXP_ORI} did not write any restart at ${RESTART_DATE}"
-        exit 1
-    fi
+
     rm -rf ${EXP_NEW}
     mkdir ${EXP_NEW}
-    cd ${EXP_NEW}
+
+    # check for the existence of either
+    #   - a restart file, or
+    #   - a (multifile) "*.nc"-restart directory
+    #
     COMPS=''
-    if [ -f ../${EXP_ORI}/${EXP_ORI}_restart_atm_*${RESTART_DATE}.nc ]; then
-        COMPS=${COMPS}' atm'
-    fi
-    if [ -f ../${EXP_ORI}/${EXP_ORI}_restart_oce_*${RESTART_DATE}.nc ]; then
-        COMPS=${COMPS}' oce'
-    fi
-    if [ -f ../${EXP_ORI}/${EXP_ORI}_restart_lnd_*${RESTART_DATE}.nc ]; then
-        COMPS=${COMPS}' lnd'
-    fi
-    for COMP in ${COMPS}; do
-        cp ../${EXP_ORI}/${EXP_ORI}_restart_${COMP}_*${RESTART_DATE}.nc .
-        NDOM=`ls ${EXP_ORI}_restart_${COMP}_*${RESTART_DATE}.nc | wc -w`
-        DOM=01
-        while [ "${DOM}" -le "${NDOM}" ]; do
-            if [ ${#DOM} -lt 2 ]; then
-                DOM=0${DOM}
-            fi 
-            if [ ${NDOM} -eq 1 ]; then
-                ln -sf ${EXP_ORI}_restart_${COMP}_${RESTART_DATE}.nc restart_${COMP}_DOM${DOM}.nc
-            else
-                ln -sf ${EXP_ORI}_restart_${COMP}_DOM${DOM}_${RESTART_DATE}.nc restart_${COMP}_DOM${DOM}.nc
-            fi
-            DOM=$(( DOM + 1 ))
+    if [ -f ${EXP_ORI}/${EXP_ORI}_restart_*${RESTART_DATE}.nc ]; then
+
+        # CASE 1: (Standard) Single-file restart
+
+        echo "(Standard) Single-file restart"
+        if [ -f ${EXP_ORI}/${EXP_ORI}_restart_atm_*${RESTART_DATE}.nc ]; then
+            COMPS=${COMPS}' atm'
+        fi
+        if [ -f ${EXP_ORI}/${EXP_ORI}_restart_oce_*${RESTART_DATE}.nc ]; then
+            COMPS=${COMPS}' oce'
+        fi
+        if [ -f ${EXP_ORI}/${EXP_ORI}_restart_lnd_*${RESTART_DATE}.nc ]; then
+            COMPS=${COMPS}' lnd'
+        fi
+
+	cd ${EXP_NEW}
+
+        for COMP in ${COMPS}; do
+            cp ../${EXP_ORI}/${EXP_ORI}_restart_${COMP}_*${RESTART_DATE}.nc .
+            NDOM=`ls ../${EXP_ORI}/${EXP_ORI}_restart_${COMP}_*${RESTART_DATE}.nc | wc -w`
+            DOM=01
+            while [ "${DOM}" -le "${NDOM}" ]; do
+                if [ ${#DOM} -lt 2 ]; then
+                    DOM=0${DOM}
+                fi 
+                if [ ${NDOM} -eq 1 ]; then
+                    ln -sf ${EXP_ORI}_restart_${COMP}_${RESTART_DATE}.nc restart_${COMP}_DOM${DOM}.nc
+                else
+                    ln -sf ${EXP_ORI}_restart_${COMP}_DOM${DOM}_${RESTART_DATE}.nc restart_${COMP}_DOM${DOM}.nc
+                fi
+                DOM=$(( DOM + 1 ))
+            done
         done
-    done
+
+    else
+        if [ -d ${EXP_ORI}/${EXP_ORI}_restart_*${RESTART_DATE}.nc ]; then
+
+            # CASE 2: Multifile restart
+
+            echo "Multifile restart"
+            if [ -d ${EXP_ORI}/${EXP_ORI}_restart_atm_*${RESTART_DATE}.nc ]; then
+                COMPS=${COMPS}' atm'
+            fi
+            if [ -d ${EXP_ORI}/${EXP_ORI}_restart_oce_*${RESTART_DATE}.nc ]; then
+                COMPS=${COMPS}' oce'
+            fi
+            if [ -d ${EXP_ORI}/${EXP_ORI}_restart_lnd_*${RESTART_DATE}.nc ]; then
+                COMPS=${COMPS}' lnd'
+            fi
+
+	    cd ${EXP_NEW}
+
+            for COMP in ${COMPS}; do
+                cp -r ../${EXP_ORI}/${EXP_ORI}_restart_${COMP}_*${RESTART_DATE}.nc .
+                ln -sf ${EXP_ORI}_restart_${COMP}_DOM00_${RESTART_DATE}.nc multifile_restart_${COMP}.mfr
+            done
+
+        else
+
+            echo "Cannot find restart file: ${EXP_ORI}/${EXP_ORI}_restart_*${RESTART_DATE}.nc "
+            echo "and no multifile restart directory ../${EXP_ORI}/${EXP_ORI}_restart_atm_*${RESTART_DATE}.nc, too! "
+            echo "The run ${EXP_ORI} did not write any restart at ${RESTART_DATE}"
+            exit 1
+        fi
+    fi
 }
 #------------------------------------------------------------------------
 function print_mode
@@ -121,6 +161,9 @@ function diff_results
         wheezy)
             module load cdo/1.6.5.1
             ;;
+	jessie)
+	    eval `/usr/bin/tclsh /sw/share/Modules/modulecmd.tcl bash load cdo/1.8.0-gccsys`
+	    ;;
     esac
     #TYPES: defined in main script and used from main script 
     #DATES: defined in main script and used from main script 
@@ -399,7 +442,7 @@ if [ "${EXPERIMENT}" == 'atm_jww_hs_test' ]; then
     RESTART_DATE=${RESTART_DATE='20080901T003000Z'}
 fi
 if [ "${EXPERIMENT}" == 'atm_ape_test' ]; then
-    TYPES=${TYPES='atm_2d_ml atm_2d_rmb_ml phy_3d_ml phy_3d_rmb_ml'}
+    TYPES=${TYPES='atm_2d_ml atm_3d_ml phy_3d_ml trc_3d_ml'}
     DATES=${DATES='19790101T000000Z 19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'}
     RESTART_DATE=${RESTART_DATE='19790101T000800Z'}
 fi

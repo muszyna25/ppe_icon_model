@@ -5,6 +5,12 @@
 !! @author B. Stevens, K. Peters, J.S. Rast (MPI-M)
 !!
 !! @par Revision History
+!!         S. Rast, S. Fiedler (MPI-M): bug fixes for annual cycle,
+!!            Twomey effect (2017-02-16)
+!!         S. Rast, S. Fiedler (MPI-M): revised vertical distribution
+!!            to meter above sea level (was automatically included) (2017-02-16)
+!!         S. Rast, S. Fiedler (MPI-M): corrected artifical
+!!            gradients (2017-02-16)
 !!
 !! @par Copyright and License
 !!
@@ -23,11 +29,9 @@ MODULE mo_bc_aeropt_splumes
                                    & read_bcast_real_2D, read_bcast_real_3D, &
                                    & closeFile
   USE mo_model_domain,         ONLY: p_patch
-  USE mo_psrad_srtm_setup,     ONLY: &
+  USE mo_psrad_srtm_kgs,       ONLY: &
       &  sw_wv1 => wavenum1     ,&     !< smallest wave number in each of the sw bands
       &  sw_wv2 => wavenum2            !< largest wave number in each of the sw bands
-  USE mo_rrtm_params,          ONLY: &
-      &  jpb1                          !< index for lower sw band
   USE mo_math_constants,       ONLY: rad2deg
   USE mtime,                   ONLY: datetime, getDayOfYearFromDateTime, &
        &                             getNoOfSecondsElapsedInDayDateTime, &
@@ -55,7 +59,7 @@ MODULE mo_bc_aeropt_splumes
                            !< vertical profile
        aod_spmx    (:)  ,& !< (nplumes) aod at 550 for simple plume (maximum)
        aod_fmbg    (:)  ,& !< (nplumes) aod at 550 for fine mode 
-                           !< background (for twomey effect)
+                           !< natural background (for twomey effect)
        asy550      (:)  ,& !< (nplumes) asymmetry parameter for plume at 550nm
        ssa550      (:)  ,& !< (nplumes) single scattering albedo for 
                            !< plume at 550nm
@@ -74,7 +78,8 @@ MODULE mo_bc_aeropt_splumes
        year_weight (:,:)    ,& !< (nyear,nplumes) Yearly weight for plume
        ann_cycle   (:,:,:)     !< (nfeatures,ntimes,nplumes) annual cycle for feature
   REAL(wp)                 :: &
-    time_weight (nfeatures,nplumes)       !< Time-weights to account for BB background
+       time_weight (nfeatures,nplumes), &    !< Time-weights to account for BB background
+     & time_weight_bg (nfeatures,nplumes)    !< as time_wight but for natural background in Twomey effect
 
   CHARACTER(LEN=256)       :: cfname
   LOGICAL                  :: sp_initialized
@@ -205,13 +210,16 @@ MODULE mo_bc_aeropt_splumes
     !
     ! ---------- 
     !
-    iyear = FLOOR(year_fr) - 1850 + 1
+    iyear = FLOOR(year_fr) - 1849
     iweek = FLOOR((year_fr - FLOOR(year_fr)) * ntimes) + 1
 
     IF ((iweek > ntimes) .OR. (iweek < 1) .OR. (iyear > nyears) .OR. (iyear < 1)) STOP 'Time out of bounds in set_time_weight'
     DO iplume=1,nplumes
       time_weight(1,iplume) = year_weight(iyear,iplume) * ann_cycle(1,iweek,iplume)
       time_weight(2,iplume) = year_weight(iyear,iplume) * ann_cycle(2,iweek,iplume)
+      time_weight_bg(1,iplume) = ann_cycle(1,iweek,iplume)
+      time_weight_bg(2,iplume) = ann_cycle(2,iweek,iplume)  
+      
     END DO    
     RETURN
   END SUBROUTINE set_time_weight
@@ -243,7 +251,7 @@ MODULE mo_bc_aeropt_splumes
        & dz(ncol_max,nlevels)       !< level thickness (difference between half levels)
 
     REAL(wp), INTENT(OUT)      ::     &
-       & dNovrN(ncol)               , & !< anthropogenic incroment to cloud drop number concentration 
+       & dNovrN(ncol)               , & !< anthropogenic increment to cloud drop number concentration 
        & aod_prof(ncol_max,nlevels) , & !< profile of aerosol optical depth
        & ssa_prof(ncol_max,nlevels) , & !< profile of single scattering albedo
        & asy_prof(ncol_max,nlevels)     !< profile of asymmetry parameter
@@ -258,21 +266,24 @@ MODULE mo_bc_aeropt_splumes
        & ssa(ncol),                & !< aerosol optical depth 
        & asy(ncol),                & !< aerosol optical depth 
        & cw_an(ncol),              & !< column weight for simple plume (anthropogenic) aod at 550 nm
-       & cw_bg(ncol),              & !< column weight for fine-mode background aod at 550 nm
+       & cw_bg(ncol),              & !< column weight for fine-mode indurstrial background aod at 550 nm
        & caod_sp(ncol),            & !< column simple plume (anthropogenic) aod at 550 nm
-       & caod_bg(ncol),            & !< column fine-mode background aod at 550 nm
+       & caod_bg(ncol),            & !< column fine-mode natural background aod at 550 nm
        & a_plume1,                 & !< gaussian longitude factor for feature 1
        & a_plume2,                 & !< gaussian longitude factor for feature 2
        & b_plume1,                 & !< gaussian latitude factor for feature 1
        & b_plume2,                 & !< gaussian latitude factor for feature 2
        & delta_lat,                & !< latitude offset
        & delta_lon,                & !< longitude offset
+       & delta_lon_t,              & !< threshold for maximum longitudinal plume extent used in transition from 360 to 0 degrees
        & lon1,                     & !< rotated longitude for feature 1
        & lat1,                     & !< rotated latitude for feature 2
        & lon2,                     & !< rotated longitude for feature 1
        & lat2,                     & !< rotated latitude for feature 2
        & f1,                       & !< contribution from feature 1
        & f2,                       & !< contribution from feature 2
+       & f3,                       & !< contribution from feature 1 in natural background of Twomey effect
+       & f4,                       & !< contribution from feature 2 in natural background of Twomey effect
        & aod_550,                  & !< aerosol optical depth at 550nm
        & aod_lmd,                  & !< aerosol optical depth at input wavelength
        & lfactor                     !< factor to compute wavelength dependence of optical properties
@@ -334,7 +345,9 @@ MODULE mo_bc_aeropt_splumes
         !
         delta_lat = lat(icol) - plume_lat(iplume)
         delta_lon = lon(icol) - plume_lon(iplume)
-        delta_lon = MERGE ( delta_lon-SIGN(360._wp,delta_lon) , delta_lon , ABS(delta_lon) > 180._wp )
+        delta_lon_t = MERGE (260._wp, 180._wp, iplume == 1)
+        delta_lon = MERGE ( delta_lon-SIGN(360._wp,delta_lon) , delta_lon , ABS(delta_lon) > delta_lon_t)
+
         a_plume1  = 0.5_wp / (MERGE(sig_lon_E(1,iplume), sig_lon_W(1,iplume), delta_lon > 0.0_wp)**2)
         b_plume1  = 0.5_wp / (MERGE(sig_lat_E(1,iplume), sig_lat_W(1,iplume), delta_lon > 0.0_wp)**2)
         a_plume2  = 0.5_wp / (MERGE(sig_lon_E(2,iplume), sig_lon_W(2,iplume), delta_lon > 0.0_wp)**2)
@@ -352,9 +365,12 @@ MODULE mo_bc_aeropt_splumes
         !
         f1 = time_weight(1,iplume) * ftr_weight(1,iplume) * EXP(-1._wp* (a_plume1 * ((lon1)**2) + (b_plume1 * ((lat1)**2)))) 
         f2 = time_weight(2,iplume) * ftr_weight(2,iplume) * EXP(-1._wp* (a_plume2 * ((lon2)**2) + (b_plume2 * ((lat2)**2)))) 
+        f3 = time_weight_bg(1,iplume) * ftr_weight(1,iplume) * EXP(-1.* (a_plume1 * ((lon1)**2) + (b_plume1 * ((lat1)**2)))) 
+        f4 = time_weight_bg(2,iplume) * ftr_weight(2,iplume) * EXP(-1.* (a_plume2 * ((lon2)**2) + (b_plume2 * ((lat2)**2))))
+
 
         cw_an(icol) = f1 * aod_spmx(iplume) + f2 * aod_spmx(iplume)  
-        cw_bg(icol) = f1 * aod_fmbg(iplume) + f2 * aod_fmbg(iplume) 
+        cw_bg(icol) = f3 * aod_fmbg(iplume) + f4 * aod_fmbg(iplume) 
         !
         ! calculate wavelength-dependent scattering properties
         !
@@ -371,7 +387,7 @@ MODULE mo_bc_aeropt_splumes
         DO icol = 1,ncol
           aod_550          = prof(icol,k)     * cw_an(icol)
           aod_lmd          = aod_550          * lfactor
-          caod_sp(icol)    = caod_sp(icol)    + prof(icol,k) * cw_an(icol)
+          caod_sp(icol)    = caod_sp(icol)    + aod_550
           caod_bg(icol)    = caod_bg(icol)    + prof(icol,k) * cw_bg(icol)
           asy_prof(icol,k) = asy_prof(icol,k) + aod_lmd * ssa(icol) * asy(icol)
           ssa_prof(icol,k) = ssa_prof(icol,k) + aod_lmd * ssa(icol)
@@ -392,7 +408,7 @@ MODULE mo_bc_aeropt_splumes
     ! calcuate effective radius normalization (divisor) factor
     !
     DO icol=1,ncol
-      dNovrN(icol) = LOG((1000.0_wp * (caod_sp(icol) + caod_bg(icol))) + 3.0_wp)/LOG((1000.0_wp * caod_bg(icol)) + 3.0_wp)
+      dNovrN(icol) = LOG((1000.0_wp * (caod_sp(icol) + caod_bg(icol))) + 1.0_wp)/LOG((1000.0_wp * caod_bg(icol)) + 1.0_wp)
     END DO
 
     RETURN
@@ -436,8 +452,7 @@ MODULE mo_bc_aeropt_splumes
          jk                          ,& !< index for looping over vertical dimension
          jki                         ,& !< index for looping over vertical dimension for reversing
          jl                          ,& !< index for looping over block
-         jwl                         ,& !< index for looping over wavelengths
-         j_sw                           !< index for looping over wavelengths
+         jwl                            !< index for looping over wavelengths
     
     REAL(wp) ::                       &
          year_fr                     ,& !< time in year fraction (1989.0 is 0Z on Jan 1 1989)
@@ -474,8 +489,7 @@ MODULE mo_bc_aeropt_splumes
       ! get aerosol optical properties in each band, and adjust effective radius
       !
       DO jwl = 1,nb_sw
-        j_sw   = jpb1 + jwl - 1
-        lambda = 1.e7_wp/ (0.5_wp * (sw_wv1(j_sw) + sw_wv2(j_sw)))
+        lambda = 1.e7_wp/ (0.5_wp * (sw_wv1(jwl) + sw_wv2(jwl)))
         CALL sp_aop_profile                                                                   ( &
            & klev               ,kproma             ,kbdim               ,lambda              , &
            & z_sfc(:)           ,lon_sp(:)          ,lat_sp(:)           ,year_fr             , &
@@ -499,7 +513,6 @@ MODULE mo_bc_aeropt_splumes
 
       DO jl=1,kproma
         x_cdnc(jl) = sp_xcdnc(jl)
-        !*sp_xre(jl)
       END DO
       RETURN
     END IF
