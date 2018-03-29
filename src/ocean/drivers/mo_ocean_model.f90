@@ -48,7 +48,8 @@ MODULE mo_ocean_model
     & grid_generatingsubcenter  ! grid generating subcenter
 
   USE mo_ocean_nml_crosscheck,   ONLY: ocean_crosscheck
-  USE mo_ocean_nml,              ONLY: i_sea_ice, no_tracer, use_omip_forcing, lhamocc
+  USE mo_ocean_nml,              ONLY: i_sea_ice, no_tracer, use_omip_forcing, lhamocc, &
+    & initialize_fromRestart
 
   USE mo_model_domain,        ONLY: t_patch_3d, p_patch_local_parent
 
@@ -96,20 +97,20 @@ MODULE mo_ocean_model
   USE mo_ocean_forcing,       ONLY: init_ocean_forcing
   USE mo_impl_constants,      ONLY: success
 
-  USE mo_alloc_patches,       ONLY: destruct_patches
+  USE mo_alloc_patches,        ONLY: destruct_patches
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
   USE mo_load_restart,         ONLY: read_restart_header, read_restart_files
   USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting
-  USE mo_ocean_patch_setup,     ONLY: complete_ocean_patch
-  USE mo_icon_comm_interface, ONLY: construct_icon_communication, destruct_icon_communication
-  USE mo_output_event_types,  ONLY: t_sim_step_info
-  USE mo_grid_tools,          ONLY: create_dummy_cell_closure
-  USE mo_ocean_diagnostics,     ONLY: construct_oce_diagnostics, destruct_oce_diagnostics
-  USE mo_ocean_testbed,       ONLY: ocean_testbed
+  USE mo_ocean_patch_setup,    ONLY: complete_ocean_patch
+  USE mo_icon_comm_interface,  ONLY: construct_icon_communication, destruct_icon_communication
+  USE mo_output_event_types,   ONLY: t_sim_step_info
+  USE mo_grid_tools,           ONLY: create_dummy_cell_closure
+  USE mo_ocean_diagnostics,    ONLY: construct_oce_diagnostics, destruct_oce_diagnostics
+  USE mo_ocean_testbed,        ONLY: ocean_testbed
   USE mo_ocean_postprocessing, ONLY: ocean_postprocess
-  USE mo_io_config,           ONLY: write_initial_state, restartWritingParameters
-  USE mo_bgc_icon_comm,       ONLY: hamocc_state
-  USE mo_ocean_time_events,   ONLY: init_ocean_time_events, getCurrentDate_to_String
+  USE mo_io_config,            ONLY: write_initial_state, restartWritingParameters
+  USE mo_bgc_icon_comm,        ONLY: hamocc_state
+  USE mo_ocean_time_events,    ONLY: init_ocean_time_events, getCurrentDate_to_String
   !-------------------------------------------------------------
   ! For the coupling
   USE mo_ocean_coupling,      ONLY: construct_ocean_coupling, destruct_ocean_coupling
@@ -159,7 +160,7 @@ MODULE mo_ocean_model
     CALL construct_ocean_model(oce_namelist_filename,shr_namelist_filename)
 
     !-------------------------------------------------------------------
-    IF (isRestart()) THEN
+    IF (isRestart() .OR. initialize_fromRestart) THEN
       ! This is an resumed integration. Read model state from restart file(s).
       CALL read_restart_files( ocean_patch_3d%p_patch_2d(1) )
       CALL message(TRIM(method_name),'normal exit from read_restart_files')
