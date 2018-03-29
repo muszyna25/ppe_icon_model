@@ -778,11 +778,6 @@ CONTAINS
           ! even though it is not necessary. 
           IF (info%action_list%n_actions > 0 ) new_element%field%info%action_list = info%action_list
 
-
-          ! link this new variable to the (optionally existing) cdiZaxis of the original field
-          ! (in this case, info%vgrid in add_var above is by-passed):
-          new_element%field%info%cdiZaxisID = info%cdiZaxisID
-            
           !-- create and add post-processing task
           task => pp_task_insert(DEFAULT_PRIORITY4)
           WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", DOM ",jg, &
