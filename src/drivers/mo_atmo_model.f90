@@ -58,6 +58,12 @@ MODULE mo_atmo_model
     &                                   grid_generatingSubcenter,                             & ! grid generating subcenter
     &                                   iforcing
   USE mo_gribout_config,          ONLY: configure_gribout
+#ifndef __NO_JSBACH__
+  USE mo_echam_phy_config,        ONLY: echam_phy_config
+  USE mo_master_control,          ONLY: master_namelist_filename
+  USE mo_jsb_base,                ONLY: jsbach_setup => jsbach_setup_models, jsbach_setup_tiles
+  USE mo_jsb_model_init,          ONLY: jsbach_setup_grid
+#endif
 
   ! time stepping
   USE mo_atmo_hydrostatic,        ONLY: atmo_hydrostatic
@@ -272,6 +278,17 @@ CONTAINS
     !-------------------------------------------------------------------
 
     zaxisTypeList = t_zaxisTypeList()
+
+#ifndef __NO_JSBACH__
+    ! Setup JSBACH: read namelists, configure models for each domain
+    ! This has to be after (!) the ICON zaxes have been created in the above line but
+    ! before (!) the restart PEs are detached a few lines below since JSBACH
+    ! adds its zaxes to zaxisTypeList
+    IF (ANY(echam_phy_config(:)%ljsb)) THEN
+      ! Do basic initialization of JSBACH
+      CALL jsbach_setup(master_namelist_filename)
+    END IF
+#endif
 
 
     !-------------------------------------------------------------------
@@ -493,6 +510,15 @@ CONTAINS
       ENDDO
     ENDIF
 
+#ifndef __NO_JSBACH__
+    ! Setup horizontal grids and tiles for JSBACH
+    DO jg=1,n_dom
+      IF (echam_phy_config(jg)%ljsb) THEN 
+        CALL jsbach_setup_grid( jg, p_patch(jg)) !< in
+        CALL jsbach_setup_tiles(jg)
+      END IF
+    END DO
+#endif
 
 #ifdef MESSY
     CALL messy_initialize(n_dom)

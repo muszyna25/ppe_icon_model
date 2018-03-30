@@ -236,7 +236,6 @@ MODULE mo_var_metadata_types
     !
     INTEGER                    :: cdiVarID
     INTEGER                    :: cdiGridID
-    INTEGER                    :: cdiZaxisID
     !
     ! Metadata for "post-ops" (small arithmetic operations)
     !

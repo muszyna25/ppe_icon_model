@@ -296,8 +296,7 @@ CONTAINS
         IF(gridId == CDI_UNDEFID) CALL finish(routine, 'Grid type not defined for field '//TRIM(info%name))
 
         ! get the vertical axis ID
-        zaxisId = info%cdiZaxisID
-        if(zaxisId < 0) zaxisId = me%vgrids(info%vgrid)
+        zaxisId = me%vgrids(info%vgrid)
         IF(zaxisId == CDI_UNDEFID) CALL finish(routine, 'Z axis not defined for field '//TRIM(info%name))
 
         ! define the variable with the required info

@@ -262,7 +262,10 @@ cat > ${lnd_namelist} << EOF
   bc_filename            = 'bc_land_carbon.nc'
   ic_filename            = 'ic_land_carbon.nc'
   read_cpools            = .FALSE.
-  fuel_algorithm         = 0
+/
+&jsb_fuel_nml
+  active                 = .FALSE.
+  fuel_algorithm         = 1
 /
 &jsb_disturb_nml
   active                  = .FALSE.
@@ -601,7 +604,7 @@ if [[ "$output_lnd" == "min" ]]; then
                     'rad_rad_srf_net_box'   , 'rad_lw_srf_net_box'          , 'rad_sw_srf_net_box'     ,
                     'seb_latent_hflx_box'   , 'seb_sensible_hflx_box'       , 'pheno_lai_box'          ,
                     'hydro_q_snocpymlt_box' , 'hydro_w_skin_box'            , 'hydro_w_snow_box'       ,
-                    'hydro_snowmelt_box'    , 'hydro_evapotranspiration_box', 'hydro_w_soil_column_box'
+                    'hydro_snowmelt_box'    , 'hydro_evapotrans_box'        , 'hydro_w_soil_column_box'
 /
 EOF
 fi
@@ -694,13 +697,13 @@ if [[ "$output_lnd" == "full" ]]; then
  include_last     = .FALSE.
  ml_varlist       = 'hydro_q_snocpymlt_box'        , 'hydro_w_skin_box'       , 'hydro_w_snow_box'             ,
                     'hydro_snowmelt_box'           , 'hydro_w_soil_column_veg', 'hydro_w_soil_sl_veg'          , 
-                    'hydro_evapotranspiration_veg' , 'hydro_evapopot_veg'     , 'hydro_trans_veg'              ,
+                    'hydro_evapotrans_veg'         , 'hydro_evapopot_veg'     , 'hydro_trans_veg'              ,
                     'hydro_fract_water_veg'        , 'hydro_fract_snow_veg'   , 'hydro_w_skin_veg'             ,
                     'hydro_w_snow_veg'             , 'hydro_q_snocpymlt_veg'  ,
                     'hydro_fract_snow_soil_veg'    , 'hydro_w_snow_soil_veg'  , 'hydro_snow_accum_veg'         ,
                     'hydro_fract_snow_can_veg'     , 'hydro_w_snow_can_veg'   ,
                     'hydro_water_stress_veg'       , 'hydro_canopy_cond_veg'  , 'hydro_canopy_cond_limited_veg'
-                    'hydro_evapotranspiration_glac', 'hydro_evapopot_glac'    ,
+                    'hydro_evapotrans_glac'        , 'hydro_evapopot_glac'    ,
                     'hydro_snowmelt_glac'          , 'hydro_q_snocpymlt_glac'
 /
 &output_nml

@@ -276,8 +276,11 @@ cat > ${lnd_namelist} << EOF
   bc_filename            = 'bc_land_carbon.nc'
   ic_filename            = 'ic_land_carbon.nc'
   read_cpools            = .FALSE.
-  fuel_algorithm         = 0
   !fire_frac_wood_2_atmos = 0.2
+/
+&jsb_fuel_nml
+  active                 = ${lcarbon}
+  fuel_algorithm         = 1
 /
 &jsb_disturb_nml
   active                  = .FALSE.
