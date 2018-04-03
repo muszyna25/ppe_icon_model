@@ -516,6 +516,61 @@ if [[ "$output_atm_3d" == "yes" ]]; then
                     'hur'     , 'cl'      ,
 !                    'qo3_phy' ,
 /
+&output_nml
+ output_filename  = "${EXPNAME}_atm_global_spot"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT10M"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 't2m_global'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_atm_global_mean1TS"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT10M"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 't2m_global'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_atm_global_mean2TS"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT20M"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 't2m_global'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_atm_global_mean3TS"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT30M"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 't2m_global'
+/
 EOF
 fi
 
