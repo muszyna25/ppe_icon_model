@@ -60,7 +60,7 @@ MODULE mo_echam_phy_memory
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_PACK24,  &
     &                               DATATYPE_FLT32,  DATATYPE_FLT64,   &
-    &                               GRID_UNSTRUCTURED,                 &
+    &                               GRID_UNSTRUCTURED, GRID_LONLAT,    &
     &                               TSTEP_INSTANT, TSTEP_CONSTANT,     &
     &                               TSTEP_MIN, TSTEP_MAX,              &
     &                               cdiInqMissval
@@ -470,6 +470,9 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr_2d),ALLOCATABLE :: vas_tile_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: tas_tile_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: dew2_tile_ptr(:)
+
+    ! global diagnostics
+    REAL(wp),POINTER :: t2m_global(:)
 
   END TYPE t_echam_phy_field
 
@@ -3303,6 +3306,13 @@ CONTAINS
                   & lrestart=.FALSE., ldims=shape2d,                                &
                   & lmiss=.TRUE., missval=cdimissval )
     END DO
+
+    ! global diagnostics
+    cf_desc    = t_cf_var('t2m', 'K', 'temperature at 2m', datatype_flt)
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_LONLAT)
+    CALL add_var( field_list, prefix//'t2m_global', field%t2m_global,              &
+                & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=(/1/) )
 
   END SUBROUTINE new_echam_phy_field_list
   !-------------

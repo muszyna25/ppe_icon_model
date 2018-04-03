@@ -55,6 +55,7 @@ MODULE mo_echam_phy_main
   USE mo_interface_echam_sso,          ONLY: interface_echam_sso
   USE mo_interface_echam_condensation, ONLY: interface_echam_condensation
   USE mo_interface_echam_methox,       ONLY: interface_echam_methox
+  USE mo_echam_diagnostics,            ONLY: echam_global_diagnostics
   
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_loopindices         ,ONLY: get_indices_c
@@ -465,6 +466,9 @@ CONTAINS
       tend% ta_phy (jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb)*field%cpair(jcs:jce,:,jb)/field%cvair(jcs:jce,:,jb)
     END DO
 !$OMP END PARALLEL DO 
+
+    ! global diagnostics
+    CALL echam_global_diagnostics(patch)
 
     ! Done. Disassociate pointers.
     NULLIFY(field,tend)
