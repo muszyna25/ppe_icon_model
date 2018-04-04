@@ -523,7 +523,7 @@ CONTAINS
     CLASS(t_verticalAxisList), INTENT(INOUT) :: axisList
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::t_verticalAxisList_finalize'
 
-    CALL message(routine, "Deallocate vertical axes meta-data.")
+    !CALL message(routine, "Deallocate vertical axes meta-data.")
     IF (ASSOCIATED(axisList%axis)) THEN
       CALL axisList%axis%finalize()
       DEALLOCATE(axisList%axis)

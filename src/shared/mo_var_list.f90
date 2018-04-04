@@ -654,7 +654,6 @@ CONTAINS
     !
     this_info%cdiVarID            = CDI_UNDEFID
     this_info%cdiGridID           = CDI_UNDEFID
-    this_info%cdiZaxisID          = CDI_UNDEFID
     !
     this_info%vert_interp         = create_vert_interp_metadata()
     this_info%hor_interp          = create_hor_interp_metadata()
