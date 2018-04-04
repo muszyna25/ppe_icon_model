@@ -63,7 +63,7 @@ MODULE mo_echam_phy_memory
     &                               GRID_UNSTRUCTURED, GRID_LONLAT,    &
     &                               TSTEP_INSTANT, TSTEP_CONSTANT,     &
     &                               TSTEP_MIN, TSTEP_MAX,              &
-    &                               cdiInqMissval
+    &                               cdiInqMissval, DATATYPE_INT
   USE mo_zaxis_type,          ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF,         &
     &                               ZA_SURFACE, ZA_GENERIC_ICE
   USE mo_sea_ice_nml,         ONLY: kice
@@ -477,7 +477,7 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr_2d),ALLOCATABLE :: uas_tile_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: vas_tile_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: tas_tile_ptr(:)
-   TYPE(t_ptr_2d),ALLOCATABLE :: dew2_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: dew2_tile_ptr(:)
 
     ! global diagnostics
     REAL(wp),POINTER :: tas_gmean(:)

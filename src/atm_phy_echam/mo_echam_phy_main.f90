@@ -55,6 +55,7 @@ MODULE mo_echam_phy_main
   USE mo_interface_echam_gwd ,ONLY: echam_gwd
   USE mo_interface_echam_sso ,ONLY: echam_sso
   USE mo_interface_echam_cld ,ONLY: echam_cld
+  USE mo_interface_echam_mox ,ONLY: echam_mox
   USE mo_echam_diagnostics,            ONLY: echam_global_diagnostics
 
   USE mo_parallel_config     ,ONLY: nproma

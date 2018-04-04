@@ -1078,7 +1078,7 @@ CONTAINS
 
       var_ignore_level_selection = .FALSE.
 
-      IF (info%hgrid .eq. GRID_ZONAL) THEN ! zonal grids are 2-dim but WITH a vertical exis
+      IF (info%hgrid .eq. GRID_ZONAL) THEN ! zonal grids are 2-dim but WITH a vertical axis
         nlevs = info%used_dimensions(1)
       ELSE IF(info%ndims < 3) THEN ! other 2-dim. var are supposed to be horizontal only
         nlevs = 1
