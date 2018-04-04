@@ -472,7 +472,7 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr_2d),ALLOCATABLE :: dew2_tile_ptr(:)
 
     ! global diagnostics
-    REAL(wp),POINTER :: t2m_global(:)
+    REAL(wp),POINTER :: tas_gmean(:)
 
   END TYPE t_echam_phy_field
 
@@ -3308,9 +3308,9 @@ CONTAINS
     END DO
 
     ! global diagnostics
-    cf_desc    = t_cf_var('t2m', 'K', 'temperature at 2m', datatype_flt)
+    cf_desc    = t_cf_var('tas_gmean', 'K', 'temperature at 2m', datatype_flt,'tas_gmean')
     grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_LONLAT)
-    CALL add_var( field_list, prefix//'t2m_global', field%t2m_global,              &
+    CALL add_var( field_list, prefix//'tas_gmean', field%tas_gmean,              &
                 & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .FALSE., ldims=(/1/) )
 

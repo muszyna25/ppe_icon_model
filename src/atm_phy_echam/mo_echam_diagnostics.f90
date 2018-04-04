@@ -12,16 +12,16 @@ CONTAINS
   SUBROUTINE echam_global_diagnostics(patch)
     TYPE(t_patch)  ,TARGET ,INTENT(in) :: patch
 
-    REAL(wp) :: t2m_global
+    REAL(wp) :: tas_gmean
 
     ! global mean t2m if requested for output
-    t2m_global = 0.0_wp
-    IF ( isRegistered("t2m_global") ) THEN
+    tas_gmean = 0.0_wp
+    IF ( isRegistered("tas_gmean") ) THEN
       call levels_horizontal_mean( prm_field(patch%id)%tas(:,:), &
           & patch%cells%area(:,:), &
           & patch%cells%owned, &
-          & t2m_global)
+          & tas_gmean)
     END IF
-    prm_field(patch%id)%t2m_global = t2m_global
+    prm_field(patch%id)%tas_gmean = tas_gmean
   END SUBROUTINE echam_global_diagnostics
 END MODULE mo_echam_diagnostics
