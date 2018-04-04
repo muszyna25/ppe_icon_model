@@ -527,7 +527,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "PT10M"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 't2m_global'
+ ml_varlist       = 'tas_gmean'
 /
 &output_nml
  output_filename  = "${EXPNAME}_atm_global_mean1TS"
@@ -541,7 +541,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "PT10M"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 't2m_global'
+ ml_varlist       = 'tas_gmean'
 /
 &output_nml
  output_filename  = "${EXPNAME}_atm_global_mean2TS"
@@ -555,7 +555,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "PT20M"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 't2m_global'
+ ml_varlist       = 'tas_gmean'
 /
 &output_nml
  output_filename  = "${EXPNAME}_atm_global_mean3TS"
@@ -569,7 +569,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "PT30M"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 't2m_global'
+ ml_varlist       = 'tas_gmean'
 /
 EOF
 fi
