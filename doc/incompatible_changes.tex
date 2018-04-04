@@ -367,4 +367,41 @@
   \end{itemize}
 \end{changeitem}
 
+\begin{changeitem}{mpi\_phy\_nml / echam\_phy\_nml and mpi\_sso\_nml / echam\_sso\_nml}{2017-11-22}{icon-aes:icon-aes-cfgnml f84219511329281d441d81923fe97ce1d7ecf007}
+  \begin{itemize}
+   \item The namelists, configuration variables and related modules are renamed
+from ...mpi\_phy... to ...echam\_phy... because programmers felt that the acronym "mpi"  for "Max Planck Institute" in relation to physics cannot be distinguished from "mpi" for "Message Passing Interface" as used in the parallelization.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{gw\_hines\_nml / echam\_gwd\_nml}{2017-11-24}{icon-aes:icon-aes-cfgnml 699346b5d318d53be215e0b8e8b5ba8631d44c48}
+  \begin{itemize}
+   \item The namelists gw\_hines\_nml is replaced by the namelist echam\_gwd\_nml, which extends the control to multiple domains.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{vdiff\_nml / echam\_vdf\_nml}{2017-11-27}{icon-aes:icon-aes-cfgnml f1dec0a0d3b8ec506861975cd59a729fe43fdf8e}
+  \begin{itemize}
+   \item The namelists vdiff\_nml is replaced by the namelist echam\_vdf\_nml, which additionally includes tuning parameters for the total turbulent energy scheme, and extends the control to multiple domains.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{echam\_conv\_nml / echam\_cnv\_nml}{2017-11-29}{icon-aes:icon-aes-cfgnml 099c40f88dbaae6c7cc79ea878e5862847ef7e27}
+  \begin{itemize}
+   \item The namelists echam\_conv\_nml is replaced by the namelist echam\_cnv\_nml, which extends the control to multiple domains.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{echam\_cloud\_nml / echam\_cld\_nml}{2017-12-04}{icon-aes:icon-aes-cfgnml afacc102a87b03f78ff47ad0b7af8f348bacef6f}
+  \begin{itemize}
+   \item The namelists echam\_cloud\_nml is replaced by the namelist echam\_cld\_nml, which extends the control to multiple domains.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{psrad\_orbit\_nml / radiation\_nml / echam\_rad\_nml}{2017-12-12}{icon-aes:icon-aes-cfgnml 8da087238b81183c337a3b1ae81d2b2e3dafdba8}
+  \begin{itemize}
+   \item For controlling the input of ECHAM physics to the PSrad scheme, the namelists psrad\_orbit\_nml and radiation\_nml are replaced by the namelist echam\_rad\_nml, which extends the control to multiple domains. For controlling the input of NWP physics to the RRTMG radiation, the radiation\_nml namelist remains valid. The psrad\_orbit\_nml namelist, which is not used for RRTMG radiation, is deleted.
+  \end{itemize}
+\end{changeitem}
+
 % --------------------------------------------------------------------------------------------

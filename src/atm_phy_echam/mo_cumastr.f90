@@ -50,10 +50,11 @@
 !! Where software is supplied by third parties, it is indicated in the headers of the routines.
 !!
 MODULE mo_cumastr
+
   USE mo_kind,                 ONLY: wp
   USE mo_echam_convect_tables, ONLY: prepare_ua_index_spline,lookup_ua_spline, lookup_ubc
   USE mo_physical_constants,   ONLY: grav, alv, als, tmelt, vtmpc1, rd
-  USE mo_echam_conv_config,    ONLY: echam_conv_config
+  USE mo_echam_cnv_config,     ONLY: echam_cnv_config, cevapcu
   USE mo_cuinitialize,         ONLY: cuini, cubase
   USE mo_cuascent,             ONLY: cuasc
   USE mo_cudescent,            ONLY: cudlfs, cuddraf
@@ -63,19 +64,15 @@ MODULE mo_cumastr
   PRIVATE
   PUBLIC :: cumastr
 
-  ! to simplify access to components of echam_conv_config
-  LOGICAL , POINTER :: lmfdd, lmfdudv
-  REAL(wp), POINTER :: entrpen, entrscv, cmfdeps, cmftau
-  REAL(wp), POINTER :: cevapcu(:)
-
-
 CONTAINS
   !>
   !!
-  SUBROUTINE cumastr(  kproma, kbdim, klev, klevp1, klevm1,               &
+  SUBROUTINE cumastr(  jg,                                                &
+    &                  kproma,   kbdim,                                   &
+    &                  klev,     klevp1,   klevm1,                        &
     &                  pdtime,                                            &
     &                  pzf,      pzh,                                     &
-    &                  pmdry,                                             &
+    &                  pmref,                                             &
     &                  pten,     pqen,     pxen,     puen,     pven,      &
     &                  ktrac,    ldland,                                  &
     &                  pxten,                                             &
@@ -91,10 +88,11 @@ CONTAINS
     &                  pxtecl,   pxteci,                                  &
     &                  ptop                                               )
     !
+    INTEGER, INTENT(IN)   :: jg
     INTEGER, INTENT(IN)   :: kproma, kbdim, klev, klevp1, ktrac, klevm1
     REAL(wp),INTENT(IN)   :: pdtime
     REAL(wp),INTENT(IN)   :: pzf(kbdim,klev),         pzh(kbdim,klevp1)
-    REAL(wp),INTENT(IN)   :: pmdry(kbdim,klev)
+    REAL(wp),INTENT(IN)   :: pmref(kbdim,klev)
 
     REAL(wp),INTENT(IN)   :: pten(kbdim,klev),        pqen(kbdim,klev),        &
       &                      pxen(kbdim,klev),        pxten(kbdim,klev,ktrac), &
@@ -169,14 +167,20 @@ CONTAINS
     !
     !  Executable statements
 
-    ! to simplify access to components of echam_conv_config
-    lmfdd    => echam_conv_config% lmfdd
-    lmfdudv  => echam_conv_config% lmfdudv
-    entrscv  => echam_conv_config% entrscv
-    entrpen  => echam_conv_config% entrpen
-    cmfdeps  => echam_conv_config% cmfdeps
-    cmftau   => echam_conv_config% cmftau
-    cevapcu  => echam_conv_config% cevapcu
+    ! Shortcuts to components of echam_cnv_config
+    !
+    LOGICAL , POINTER :: lmfdd, lmfdudv
+    REAL(wp), POINTER :: entrpen, entrscv, cmfdeps, cmftau
+    REAL(wp), POINTER :: zevapcu(:)
+    !
+    lmfdd   => echam_cnv_config(jg)% lmfdd
+    lmfdudv => echam_cnv_config(jg)% lmfdudv
+    entrscv => echam_cnv_config(jg)% entrscv
+    entrpen => echam_cnv_config(jg)% entrpen
+    cmfdeps => echam_cnv_config(jg)% cmfdeps
+    cmftau  => echam_cnv_config(jg)% cmftau
+    !
+    zevapcu(1:klev) => cevapcu(1:klev,jg)
 
     !-----------------------------------------------------------------------
     !
@@ -190,7 +194,8 @@ CONTAINS
     !*    2.           Initialize values at vertical grid points in 'cuini'
     !                  ---------------------------------------------------
     !
-    CALL cuini(kproma, kbdim, klev, klevp1, klevm1,                      &
+    CALL cuini(jg,                                                       &
+      &        kproma, kbdim, klev, klevp1, klevm1,                      &
       &        pten,     pqen,     zqsen,    pxen,     puen,     pven,   &
       &        ktrac,                                                    &
       &        pxten,    zxtenh,   zxtu,     zxtd,     zmfuxt,   zmfdxt, &
@@ -211,7 +216,8 @@ CONTAINS
     !*             (A) Determine cloud base values in 'cubase'
     !                  ---------------------------------------
     !
-    CALL cubase(kproma, kbdim, klev, klevp1, klevm1,                     &
+    CALL cubase(jg,                                                      &
+      &         kproma,   kbdim,    klev,     klevp1,    klevm1,         &
       &         ztenh,    zqenh,    pgeoh,    paphp1,    pthvsig,        &
       &         ptu,      pqu,      plu,                                 &
       &         puen,     pven,     zuu,      zvu,                       &
@@ -227,13 +233,13 @@ CONTAINS
     jk=1
     DO jl=1,kproma
       zdqpbl(jl)=0.0_wp
-      zdqcv(jl)=pqte(jl,jk)*pmdry(jl,jk)
+      zdqcv(jl)=pqte(jl,jk)*pmref(jl,jk)
       idtop(jl)=0
     END DO
     DO jk=2,klev
       zjk = REAL(jk,wp)
       DO jl=1,kproma
-        zhelp      = pmdry(jl,jk)
+        zhelp      = pmref(jl,jk)
         zdqcv(jl)  = zdqcv(jl)+pqte(jl,jk)*zhelp
         zdqpbl(jl) = zdqpbl(jl) + FSEL(zjk - zkcbot(jl),pqte(jl,jk),0._wp)*zhelp
 #ifdef __ibmdbg__
@@ -261,7 +267,7 @@ CONTAINS
       zlo1 = FSEL(-zdqpbl(jl),0._wp,1._wp)
       zlo1 = FSEL(zdqmin - zqumqe,0._wp,zlo1) * zldcum(jl)
       zmfub(jl)=FSEL(-zlo1,0.01_wp,zdqpbl(jl)/MAX(zqumqe,zdqmin))
-      zmfmax=pmdry(jl,ikb-1)*zcons
+      zmfmax=pmref(jl,ikb-1)*zcons
       zmfub(jl)=MIN(zmfub(jl),zmfmax)
       zldcum(jl) = zlo1
       zhelp = MAX(0._wp,-1.1_wp*pqhfla(jl))
@@ -294,7 +300,7 @@ CONTAINS
       zcpcui(1:kproma,jk) = 1._wp/zcpcu(1:kproma,jk)
       IF (jk <= klevm1 .AND. jk >= 3) THEN
         ! mpuetz: too few instructions (FP dependencies)
-        CALL prepare_ua_index_spline('cumastr',kproma,ztenh(1,jk),loidx(1),za(1))
+        CALL prepare_ua_index_spline(jg,'cumastr',kproma,ztenh(1,jk),loidx(1),za(1))
         CALL lookup_ua_spline(kproma,loidx(1),za(1),ua(1),dua(1))
         CALL lookup_ubc(kproma,ztenh(1,jk),ub(1))
         zjk = REAL(jk,wp)
@@ -378,7 +384,7 @@ CONTAINS
       !  zalvs=MERGE(alv,als,ztenh(jl,jk)>tmelt)
         ikb   = kcbot(jl)
         zroi  = SWDIV_NOCHK(rd*ztenh(jl,jk)*(1._wp+vtmpc1*zqenh(jl,jk)),paphp1(jl,jk))
-        zdz   = pmdry(jl,jk-1)*zroi
+        zdz   = pmref(jl,jk-1)*zroi
         za1 = (zcpen(jl,jk-1)*pten(jl,jk-1) - zcpen(jl,jk)*pten(jl,jk)               &
              + zalvs*(pqen(jl,jk-1) - pqen(jl,jk))+(pgeo(jl,jk-1)-pgeo(jl,jk)))
         za2 = pzf(jl,jk-1)-pzf(jl,jk)
@@ -414,8 +420,9 @@ CONTAINS
     !*         (B) Do ascent in 'cuasc' in absence of downdrafts
     !              ---------------------------------------------
     !
-    CALL cuasc(kproma, kbdim, klev, klevp1, klevm1,                      &
-      &        pzf,      pzh,      pmdry,                                &
+    CALL cuasc(jg,                                                       &
+      &        kproma, kbdim, klev, klevp1, klevm1,                      &
+      &        pzf,      pzh,      pmref,                                &
       &        ztenh,    zqenh,    puen,     pven,                       &
       &        ktrac,                                                    &
       &        pdtime,                                                   &
@@ -468,7 +475,8 @@ CONTAINS
       !
       !*             (A) Determine lfs in 'cudlfs'
       !                  -------------------------
-      CALL cudlfs(kproma,   kbdim,    klev,     klevp1,                 &
+      CALL cudlfs(jg,                                                   &
+        &         kproma,   kbdim,    klev,     klevp1,                 &
         &         ztenh,    zqenh,    puen,     pven,                   &
         &         ktrac,                                                &
         &         zxtenh,   zxtu,     zxtd,     zmfdxt,                 &
@@ -482,8 +490,9 @@ CONTAINS
       !
       !*            (B)  Determine downdraft t,q and fluxes in 'cuddraf'
       !                  -----------------------------------------------
-      CALL cuddraf(kproma,   kbdim,    klev,     klevp1,                &
-        &          pmdry,                                               &
+      CALL cuddraf(jg,                                                  &
+        &          kproma,   kbdim,    klev,     klevp1,                &
+        &          pmref,                                               &
         &          ztenh,    zqenh,    puen,     pven,                  &
         &          ktrac,                                               &
         &          zxtenh,   zxtd,     zmfdxt,                          &
@@ -537,7 +546,7 @@ CONTAINS
         jl = loidx(nl)
         zroi = SWDIV_NOCHK(rd*ztenh(jl,jk)*(1._wp+vtmpc1*zqenh(jl,jk)),paphp1(jl,jk))
         ztenhi = SWDIV_NOCHK(1._wp,ztenh(jl,jk))
-        zdz    = pmdry(jl,jk-1)*zroi
+        zdz    = pmref(jl,jk-1)*zroi
         zheat(jl) = zheat(jl) + grav*((pten(jl,jk-1)-pten(jl,jk) + grav*zdz*zcpcui(jl,jk))*ztenhi  &
           &                           +vtmpc1*(pqen(jl,jk-1)-pqen(jl,jk)))                         &
           &                         *(pmfu(jl,jk)+pmfd(jl,jk))*zroi
@@ -555,7 +564,7 @@ CONTAINS
     !     DO jk=2,klev
     !        zro=paphp1(jl,jk)/(rd*ztenh(jl,jk)*                         &
     !             (1._wp+vtmpc1*zqenh(jl,jk)))
-    !        zdz=pmdry(jl,jk-1)/zro
+    !        zdz=pmref(jl,jk-1)/zro
     !        zhelp(jl)=zhelp(jl) +                               &
     !             (grav*(ptu(jl,jk)-ztenh(jl,jk))/ztenh(jl,jk)     &
     !             +grav*vtmpc1*(pqu(jl,jk)-zqenh(jl,jk))      &
@@ -568,7 +577,7 @@ CONTAINS
         ikb=kcbot(jl)
         zmfub1(jl) = SWDIV_NOCHK((zcape(jl)*zmfub(jl)),(zheat(jl)*cmftau))
         zmfub1(jl) = MAX(zmfub1(jl),0.001_wp)
-        zmfmax     = pmdry(jl,ikb-1)*zcons
+        zmfmax     = pmref(jl,ikb-1)*zcons
         zmfub1(jl) = MIN(zmfub1(jl),zmfmax)
       ENDIF
     ENDDO
@@ -593,7 +602,7 @@ CONTAINS
       zeps=MERGE(cmfdeps,0._wp,llo1)
       zqumqe=pqu(jl,ikb)+plu(jl,ikb)-zeps*zqd(jl,ikb)-(1._wp-zeps)*zqenh(jl,ikb)
       zdqmin=MAX(0.01_wp*zqenh(jl,ikb),1.e-10_wp)
-      zmfmax=pmdry(jl,ikb-1)*zcons
+      zmfmax=pmref(jl,ikb-1)*zcons
       llo1=zdqpbl(jl).GT.0._wp.AND.zqumqe.GT.zdqmin.AND.ldcum(jl)                    &
         &                                          .AND.zmfub(jl).LT.zmfmax
       zmfub1(jl)=MERGE(zdqpbl(jl)/MAX(zqumqe,zdqmin),zmfub(jl),llo1)
@@ -651,8 +660,9 @@ CONTAINS
     !*          and for mid-level convection (type=3).
     !           --------------------------------------------------
     !
-    CALL cuasc(kproma, kbdim, klev, klevp1, klevm1,                      &
-      &        pzf,      pzh,      pmdry,                                &
+    CALL cuasc(jg,                                                       &
+      &        kproma, kbdim, klev, klevp1, klevm1,                      &
+      &        pzf,      pzh,      pmref,                                &
       &        ztenh,    zqenh,    puen,     pven,                       &
       &        ktrac,                                                    &
       &        pdtime,                                                   &
@@ -675,11 +685,11 @@ CONTAINS
     !              --------------------------------------------
     !
     CALL cuflx(kproma,   kbdim,    klev,     klevp1,                     &
-      &        pmdry,                                                    &
+      &        pmref,                                                    &
       &        pqen,     zqsen,    ztenh,    zqenh,                      &
       &        ktrac,                                                    &
       &        pdtime,                                                   &
-      &        cevapcu,                                                  &
+      &        zevapcu,                                                  &
       &        zxtenh,   zmfuxt,   zmfdxt,                               &
       &        paphp1,   pgeoh,                                          &
       &        kcbot,    kctop,    idtop,                                &
@@ -699,7 +709,7 @@ CONTAINS
     !              ---------------------------------------------------
     !
     CALL cudtdq(kproma, kbdim, klev, itopm2, ldcum, ktrac,               &
-      &         pmdry,    pten,                                          &
+      &         pmref,    pten,                                          &
       &         zmfuxt,   zmfdxt,                                        &
       &         zmfus,    zmfds,    zmfuq,    zmfdq,                     &
       &         zmful,    zdmfup,   zdmfdp,   plude,                     &
@@ -717,7 +727,7 @@ CONTAINS
     IF(lmfdudv) THEN
       CALL cududv(kproma,   kbdim,    klev,     klevp1,                 &
         &         itopm2,   ktype,    kcbot,    paphp1,   ldcum,        &
-        &         pmdry,    puen,     pven,     pvom_cnv, pvol_cnv,     &
+        &         pmref,    puen,     pven,     pvom_cnv, pvol_cnv,     &
         &         zuu,      zud,      zvu,      zvd,                    &
         &         pmfu,     pmfd)
       !

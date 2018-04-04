@@ -150,10 +150,11 @@ MODULE mo_echam_phy_memory
       & mh2o      (:,:,:),  &!< [kg/m2] h2o content (vap+liq+ice)
       & mair      (:,:,:),  &!< [kg/m2] air content
       & mdry      (:,:,:),  &!< [kg/m2] dry air content
+      & mref      (:,:,:),  &!< [kg/m2] reference air content
       & mh2ovi    (:,:),    &!< [kg/m2] h2o content, vertically integrated through the atmospheric column
       & mairvi    (:,:),    &!< [kg/m2] air content, vertically integrated through the atmospheric column
       & mdryvi    (:,:),    &!< [kg/m2] dry air content, vertically integrated through the atmospheric column
-      & qx        (:,:,:),  &!< [kg/kg] total concentration of hydrometeors
+      & mrefvi    (:,:),    &!< [kg/m2] reference air content, vertically integrated through the atmospheric column
       & omega     (:,:,:),  &!< [Pa/s]  vertical velocity in pressure coord. ("vervel" in ECHAM)
       & geoi      (:,:,:),  &!< [m2/s2] geopotential above ground at half levels (vertical interfaces)
       & geom      (:,:,:),  &!< [m2/s2] geopotential above ground at full levels (layer ave. or mid-point value)
@@ -244,8 +245,6 @@ MODULE mo_echam_phy_memory
       & aclc      (:,:,:),  &!< [m2/m2] cloud area fractional
       & aclcov    (:,  :),  &!< [m2/m2] total cloud cover
       & acdnc     (:,:,:),  &!< cloud droplet number concentration [1/m**3]
-      & xvar      (:,:,:),  &!< variance of total water amount qv+qi+ql [kg/kg] (memory_g3b)
-      & xskew     (:,:,:),  &!< skewness of total water amount qv+qi+ql [kg/kg]
       & relhum    (:,:,:),  &!< relative humidity (relhum of memory_g3b in ECHAM)
       & rsfl      (:,  :),  &!< sfc rain flux, large scale [kg m-2 s-1]
       & rsfc      (:,  :),  &!< sfc rain flux, convective  [kg m-2 s-1]
@@ -253,23 +252,27 @@ MODULE mo_echam_phy_memory
       & ssfc      (:,  :),  &!< sfc snow flux, convective  [kg m-2 s-1]
       & totprec   (:,  :)    !< total precipitation flux,[kg m-2 s-1]
 
-    REAL(wp),POINTER :: &
+    REAL(wp),POINTER ::     &
       & rintop (:,  :),     &!< low lever inversion, computed by "cover" (memory_g3b)
       & rtype  (:,  :),     &!< type of convection 0...3. (in memory_g3b in ECHAM)
-      & topmax (:,  :),     &!< maximum height of convective cloud tops [Pa] (memory_g3b)
+      & topmax (:,  :)       !< maximum height of convective cloud tops [Pa] (memory_g3b)
+    INTEGER ,POINTER ::     &
+      & ictop  (:,  :)       !< level index of cnovective cloud top
+
+    ! Vertical diffusion
+    REAL(wp),POINTER ::     &
       & thvsig (:,  :)       !< Std. dev. of virtual potential temperature at the upper
                              !< interface of the lowest model layer.
-                             !< Computed in "vdiff" by getting the square root of
-                             !< thvvar(:,nlev-1,:). Used by "cucall".
+                             !< Computed in "vdiff" and used by "cucall".
 
-    REAL(wp),POINTER :: &
+    REAL(wp),POINTER ::     &
       & siced  (:,  :),     &!< ice depth
       & alake  (:,  :),     &!< lake mask
       & alb    (:,  :),     &!< surface background albedo
       & seaice (:,  :)       !< sea ice as read in from amip input
 
     ! Energy and moisture budget related diagnostic variables
-    REAL(wp),POINTER :: &
+    REAL(wp),POINTER ::     &
       & cpair    (:,:,:),   &!< specific heat of air at constant pressure [J/kg/K]
       & cvair    (:,:,:),   &!< specific heat of air at constant volume   [J/kg/K]
       & qconv    (:,:,:),   &!< convert heating to temp tend. [(K/s)/(W/m^2)]
@@ -315,6 +318,13 @@ MODULE mo_echam_phy_memory
       & csat       (:,  :),  &!<
       & cair       (:,  :)    !<
 
+    ! CO2
+    REAL(wp),POINTER :: &
+      & co2_flux_tile   (:,:,:),  &!< CO2 flux on tiles (land, ocean)
+      & fco2nat         (:,  :)    !< Surface Carbon Mass Flux into the Atmosphere Due to Natural Sources
+
+    TYPE(t_ptr_2d),ALLOCATABLE :: co2_flux_tile_ptr(:)
+
     ! Sea ice.
     ! See also sea_ice/thermodyn/mo_sea_ice_types.f90
     INTEGER              :: kice  ! Number of ice-thickness classes
@@ -340,17 +350,15 @@ MODULE mo_echam_phy_memory
 
     ! Turbulence
     REAL(wp),POINTER ::     &
-      & tke       (:,:,:),  &!< turbulent kinetik energy at step n+1
-      & tkem0     (:,:,:),  &!< turbulent kinetik energy at step n
-      & tkem1     (:,:,:)    !< turbulent kinetik energy at step n-1
+      & totte       (:,:,:),  &!< total turbulent energy at step n+1
+      & tottem0     (:,:,:),  &!< total turbulent energy at step n
+      & tottem1     (:,:,:)    !< total turbulent energy at step n-1
 
     ! need only for vdiff ++++
     REAL(wp),POINTER ::     &
       & ri        (:,:,:),  &!< moist Richardson number at layer interfaces
-      & mixlen    (:,:,:),  &!< mixing length at layer interfaces
-      & thvvar    (:,:,:)    !< variance of virtual potential temperature at layer interfaces.
-                             !< Computed in "vdiff" by solving a prognostic equation of
-                             !< the variance. Used for getting "thvsig".
+      & mixlen    (:,:,:)    !< mixing length at layer interfaces
+
 
     REAL(wp),POINTER ::      &
       & cfm     (:,:,:),     &!< turbulent exchange coefficient
@@ -358,7 +366,7 @@ MODULE mo_echam_phy_memory
       & cfh     (:,:,:),     &!< turbulent exchange coefficient
       & cfh_tile(:,:,:),     &!< turbulent exchange coefficient
       & cfv     (:,:,:),     &!< turbulent exchange coefficient
-      & cftke   (:,:,:),     &!< turbulent exchange coefficient
+      & cftotte (:,:,:),     &!< turbulent exchange coefficient
       & cfthv   (:,:,:)       !< turbulent exchange coefficient
 
     TYPE(t_ptr_2d),ALLOCATABLE :: cfm_tile_ptr(:)
@@ -366,7 +374,7 @@ MODULE mo_echam_phy_memory
 
     REAL(wp),POINTER ::     &
       & coriol(:,:),        &!< Coriolis parameter
-      & ghpbl (:,:),        &!< geopotential height of the top of the atmospheric boundary layer
+      & hdtcbl (:,:),       &!< height of the top of the atmospheric dry convective boundary layer
       & z0m_tile(:,:,:),    &!< aerodynamic roughness length (over each surface type)
       & z0m   (:,:),        &!< aerodynamic roughness length (grid box mean)
       & z0h_lnd(:,:),       &!< roughness length for heat (over land)
@@ -469,10 +477,15 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr_2d),ALLOCATABLE :: uas_tile_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: vas_tile_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: tas_tile_ptr(:)
-    TYPE(t_ptr_2d),ALLOCATABLE :: dew2_tile_ptr(:)
+   TYPE(t_ptr_2d),ALLOCATABLE :: dew2_tile_ptr(:)
 
     ! global diagnostics
     REAL(wp),POINTER :: tas_gmean(:)
+   
+    ! coupling to HAMOCC lcpl_co2_atmoce
+    REAL(wp),POINTER :: &
+      & co2mmr(:,:),   &  !< co2 mixing ratio
+      & co2flux(:,:)      !< co2 flux
 
   END TYPE t_echam_phy_field
 
@@ -1176,19 +1189,30 @@ CONTAINS
          &        lrestart = .FALSE.,                                          &
          &        isteptype=TSTEP_INSTANT )
 
-    ! &       field% qx        (nproma,nlev  ,nblks),          &
-    cf_desc    = t_cf_var('condensated_water', 'kg kg-1', 'cloud water + cloud ice', &
+    ! &       field% mref        (nproma,nlev  ,nblks),          &
+    cf_desc    = t_cf_var('ref_air_mass', 'kg m-2', 'ref air mass in layer', &
          &                datatype_flt)
     grib2_desc = grib2_var(0,1,21, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'clx_phy', field%qx,                     &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
-                & ldims=shape3d, lrestart = .FALSE.,                           &
-                & vert_interp=create_vert_interp_metadata(                     &
-                &             vert_intp_type=vintp_types("P","Z","I"),         & 
-                &             vert_intp_method=VINTP_METHOD_LIN,               &
-                &             l_loglin=.FALSE.,                                &
-                &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,           &
-                &             lower_limit=0._wp  ) )
+    CALL add_var( field_list, prefix//'mref_phy', field%mref,                  &
+         &        GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
+         &        ldims=shape3d, lrestart = .FALSE., initval=1.0_wp,           &
+         &        vert_interp=create_vert_interp_metadata(                     &
+         &                    vert_intp_type=vintp_types("P","Z","I"),         & 
+         &                    vert_intp_method=VINTP_METHOD_LIN,               &
+         &                    l_loglin=.FALSE.,                                &
+         &                    l_extrapol=.TRUE., l_pd_limit=.FALSE.,           &
+         &                    lower_limit=0._wp  ) )
+
+    ! &       field% mrefvi     (nproma,nblks),          &
+    cf_desc    = t_cf_var('atmosphere_ref_air_content', 'kg m-2', 'ref air path (physics)', &
+         &                datatype_flt)
+    grib2_desc = grib2_var(0,1,64, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'mrefvi_phy', field%mrefvi,              &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+         &        cf_desc, grib2_desc,                                         &
+         &        ldims=shape2d,                                               &
+         &        lrestart = .FALSE.,                                          &
+         &        isteptype=TSTEP_INSTANT )
 
     ! &       field% omega     (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('vertical_velocity', 'Pa s-1', 'vertical velocity in physics', datatype_flt)
@@ -1842,6 +1866,43 @@ CONTAINS
     !
     !------------------
     !
+    ! CO2
+
+    cf_desc = t_cf_var('fco2nat', 'kg m-2 s-1',                                &
+                & 'Surface Carbon Mass Flux into the Atmosphere Due to Natural Sources', datatype_flt)
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+
+    CALL add_var( field_list, prefix//'fco2nat', field%fco2nat,                &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,     &
+                & lrestart = .TRUE., initval =  0.0_wp, ldims=shape2d )
+
+    ! &       field% co2_flux_tile(nproma,nblks,nsfc_type), &
+    CALL add_var( field_list, prefix//'co2_flux_tile', field%co2_flux_tile,         &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                & t_cf_var('co2_flux_tile',  'kg m-2 s-1',                     &
+                & 'surface_upward_mass_flux_of_carbon_dioxide', datatype_flt), &
+                & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_CELL),&
+                & ldims=shapesfc, initval=0.0_wp,                              &
+                & lcontainer=.TRUE., lrestart=.FALSE.      )
+
+    ALLOCATE(field%co2_flux_tile_ptr(ksfc_type))
+
+    DO jsfc = 1,ksfc_type
+
+      CALL add_ref( field_list, prefix//'co2_flux_tile',                         &
+                  & prefix//'co2_flux_'//csfc(jsfc), field%co2_flux_tile_ptr(jsfc)%p,      &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                  & t_cf_var('co2_flux_'//csfc(jsfc), 'kg m-2 s-1',              &
+                  & 'surface_upward_mass_flux_of_carbon_dioxide', datatype_flt), &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_CELL),&
+                  & lrestart=.TRUE., ldims=shape2d,  initval=0.0_wp,             &
+                  & lmiss=.TRUE., missval=cdimissval )
+
+    END DO
+
+    !
+    !------------------
+    !
 
     ! Topography
     ! - resolved
@@ -2036,32 +2097,6 @@ CONTAINS
                 &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,                     &
                 &             lower_limit=0._wp ) )
 
-    ! &       field% xvar   (nproma,nlev  ,nblks), &
-    cf_desc    = t_cf_var('variance_of_total_water', '', 'subgrid variance of total water', &
-         &                datatype_flt)
-    grib2_desc = grib2_var(0,6,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'xvar', field%xvar,                                &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, ldims=shape3d, &
-                & lrestart = .FALSE.,                                                    &
-                & vert_interp=create_vert_interp_metadata(                               &
-                &             vert_intp_type=vintp_types("P","Z","I"),                   &
-                &             vert_intp_method=VINTP_METHOD_LIN,                         &
-                &             l_loglin=.FALSE.,                                          &
-                &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,                     &
-                &             lower_limit=0._wp ) )
-
-    ! &       field% xskew  (nproma,nlev  ,nblks), &
-    cf_desc    = t_cf_var('skewness_of_total_water', '', 'skewness of total water', datatype_flt)
-    grib2_desc = grib2_var(0,6,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'xskew', field%xskew,                              &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, ldims=shape3d, &
-                & lrestart = .FALSE., initval = 2._wp,                                   &
-                & vert_interp=create_vert_interp_metadata(                               &
-                &             vert_intp_type=vintp_types("P","Z","I"),                   &
-                &             vert_intp_method=VINTP_METHOD_LIN,                         &
-                &             l_loglin=.FALSE.,                                          &
-                &             l_extrapol=.TRUE., l_pd_limit=.FALSE. ) )
-
     ! &       field% relhum (nproma,nlev  ,nblks), &
     cf_desc    = t_cf_var('relative_humidity', '', 'relative humidity', datatype_flt)
     grib2_desc = grib2_var(0, 1, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -2151,11 +2186,20 @@ CONTAINS
                 & isteptype=TSTEP_MIN,                                     &
                 & action_list=actions(new_action(ACTION_RESET,"P1D"))      )
 
-    ! &       field% tke    (nproma,nlev  ,nblks), &
-    cf_desc    = t_cf_var('turbulent_kinetic_energy', 'J kg-1', 'turbulent kinetic energy', &
+    ! &       field% ictop  (nproma,       nblks), &
+    cf_desc    = t_cf_var('ictop', '-', 'level index of convective cloud tops', &
+         &                datatype_int)
+    grib2_desc = grib2_var(0,6,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'ictop', field%ictop,                &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d,                       &
+                & isteptype=TSTEP_INSTANT )
+
+    ! &       field% totte  (nproma,nlev  ,nblks), &
+    cf_desc    = t_cf_var('total_turbulent_energy', 'J kg-1', 'total turbulent energy', &
          &                datatype_flt)
     grib2_desc = grib2_var(0,19,11, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'tke_echam', field%tke,              &
+    CALL add_var( field_list, prefix//'totte', field%totte,                &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,  &
                 & lrestart = .FALSE., initval = 1.e-4_wp, ldims=shape3d,   &
                 & vert_interp=create_vert_interp_metadata(                 &
@@ -2462,25 +2506,17 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
                 & lrestart = .FALSE., initval = -999._wp, ldims=shape3d )
 
-      ! &       field% thvvar (nproma,nlev,nblks), &
-      cf_desc    = t_cf_var('thvvar', 'K2',                           &
-                 & 'subgrid variance of virtual potential temperature', datatype_flt)
+      ! &       field% tottem0 (nproma,nlev,nblks), &
+      cf_desc    = t_cf_var('totte', 'm2 s-2', 'TTE at step t', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( field_list, prefix//'thvvar', field%thvvar,           &
+      CALL add_var( field_list, prefix//'tottem0', field%tottem0,             &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
                 & lrestart = .FALSE., initval = 1.e-4_wp, ldims=shape3d )
 
-      ! &       field% tkem0  (nproma,nlev,nblks), &
-      cf_desc    = t_cf_var('tke', 'm2 s-2', 'TKE at step t', datatype_flt)
+      ! &       field% tottem1  (nproma,nlev,nblks), &
+      cf_desc    = t_cf_var('totte', 'm2 s-2', 'TTE at step t-dt', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( field_list, prefix//'tkem0', field%tkem0,             &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
-                & lrestart = .FALSE., initval = 1.e-4_wp, ldims=shape3d )
-
-      ! &       field% tkem1  (nproma,nlev,nblks), &
-      cf_desc    = t_cf_var('tke', 'm2 s-2', 'TKE at step t-dt', datatype_flt)
-      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( field_list, prefix//'tkem1', field%tkem1,             &
+      CALL add_var( field_list, prefix//'tottem1', field%tottem1,             &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
                 & lrestart = .TRUE., initval = 1.e-4_wp, ldims=shape3d )
 
@@ -2547,10 +2583,10 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
                 & lrestart = .FALSE., ldims=shape3d )
 
-      ! &       field% cftke  (nproma,nlev,     nblks), &
-      cf_desc    = t_cf_var('turb_exchng_coeff_tke', '', '', datatype_flt)
+      ! &       field% cftotte (nproma,nlev,     nblks), &
+      cf_desc    = t_cf_var('turb_exchng_coeff_totte', '', '', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( field_list, prefix//'cftke', field%cftke,             &
+      CALL add_var( field_list, prefix//'cftotte', field%cftotte,             &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
                 & lrestart = .FALSE., ldims=shape3d )
 
@@ -2568,10 +2604,10 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .FALSE., ldims=shape2d )
 
-      ! &       field% ghpbl  (nproma,nblks),                &
-      cf_desc    = t_cf_var('geopot_height_pbl_top', 'm', 'geopotential height of PBL top', datatype_flt)
+      ! &       field% hdtcbl  (nproma,nblks),                &
+      cf_desc    = t_cf_var('height_pbl_top', 'm', 'height of PBL top', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( field_list, prefix//'ghpbl', field%ghpbl,              &
+      CALL add_var( field_list, prefix//'hdtcbl', field%hdtcbl,              &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .FALSE., ldims=shape2d )
 
@@ -2912,6 +2948,15 @@ CONTAINS
     ! Surface fluxes
     !---------------------------
     ! gridbox mean
+    CALL add_var( field_list, prefix//'co2flux', field%co2flux,              &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
+                & t_cf_var('co2flux', 'kg m-2 s-1', 'co2 flux',           &
+                & datatype_flt),                                          &
+                & grib2_var(255,255,255,iextbits, GRID_UNSTRUCTURED, GRID_CELL),&
+                & ldims=shape2d,                                          &
+                & lrestart = .FALSE.,                                     &
+                & isteptype=TSTEP_INSTANT                                 )
+
 
     CALL add_var( field_list, prefix//'evspsbl', field%evap,              &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
@@ -3132,6 +3177,15 @@ CONTAINS
     ! near surface diagnostics, grid box mean
     !-----------------------------------------
 
+    CALL add_var( field_list, prefix//'co2mmr', field%co2mmr,                   &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                & t_cf_var('CO2 MR','kg kg-1','co2 mixing ratio',               &
+                &          datatype_flt),                                       &
+                & grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
+                & ldims=shape2d,                                                &
+                & lrestart = .FALSE.,                                           &
+                & isteptype=TSTEP_INSTANT                                       )
+
     CALL add_var( field_list, prefix//'sfcwind', field%sfcwind,                 &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                 & t_cf_var('sfcwind','m s-1','10m windspeed',                   &
@@ -3248,6 +3302,7 @@ CONTAINS
                 & lcontainer=.TRUE., lrestart=.FALSE.,                          &
                 & isteptype=TSTEP_INSTANT                                       )
 
+
     ALLOCATE(field%sfcwind_tile_ptr(ksfc_type))
     ALLOCATE(field%uas_tile_ptr(ksfc_type))
     ALLOCATE(field%vas_tile_ptr(ksfc_type))
@@ -3305,6 +3360,7 @@ CONTAINS
                   & grib2_var(0,0,6, ibits, GRID_UNSTRUCTURED, GRID_CELL),          &
                   & lrestart=.FALSE., ldims=shape2d,                                &
                   & lmiss=.TRUE., missval=cdimissval )
+
     END DO
 
     ! global diagnostics

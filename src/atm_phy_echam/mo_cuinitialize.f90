@@ -36,7 +36,7 @@
 MODULE mo_cuinitialize
   USE mo_kind,                 ONLY: wp
   USE mo_physical_constants,   ONLY: cpd, cpv, vtmpc1, alv, als, tmelt
-  USE mo_echam_conv_config,    ONLY: echam_conv_config
+  USE mo_echam_cnv_config,     ONLY: echam_cnv_config
   USE mo_echam_convect_tables, ONLY: prepare_ua_index_spline,lookup_ua_spline
   USE mo_cuadjust,             ONLY: cuadjtq
 
@@ -44,15 +44,11 @@ MODULE mo_cuinitialize
   PRIVATE
   PUBLIC :: cuini, cubase
 
-  ! to simplify access to components of echam_conv_config
-  LOGICAL , POINTER :: lmfdudv
-  REAL(wp), POINTER :: cbfac, cminbuoy, cmaxbuoy
-
-
 CONTAINS 
   !>
   !!
-  SUBROUTINE cuini(kproma, kbdim, klev, klevp1, klevm1,                              &
+  SUBROUTINE cuini(    jg,                                                           &
+    &        kproma,   kbdim,    klev,     klevp1,   klevm1,                         &
     &        pten,     pqen,     pqsen,    pxen,     puen,     pven,                 &
     &        ktrac,                                                                  &
     &        pxten,    pxtenh,   pxtu,     pxtd,     pmfuxt,   pmfdxt,               &
@@ -64,6 +60,7 @@ CONTAINS
     &        pmfuq,    pmfdq,    pdmfup,   pdmfdp,                                   &
     &        pcpen,    pcpcu,    palvsh,                                             &
     &        pdpmel,   plu,      plude,    pqude,    klab                            )
+    INTEGER, INTENT (IN) :: jg
     INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1, ktrac
     REAL(wp):: pten(kbdim,klev),          pqen(kbdim,klev),                          &
       &        puen(kbdim,klev),          pven(kbdim,klev),                          &
@@ -110,7 +107,7 @@ CONTAINS
     !
     DO jk=1,klev
 
-      CALL prepare_ua_index_spline('cuini',kproma,pten(1,jk),idx(1),za(1))
+      CALL prepare_ua_index_spline(jg,'cuini',kproma,pten(1,jk),idx(1),za(1))
       CALL lookup_ua_spline(kproma,idx(1),za(1),ua(1))
 
 
@@ -249,12 +246,15 @@ CONTAINS
   END SUBROUTINE cuini
   !>
   !!
-  SUBROUTINE cubase(   kproma, kbdim, klev, klevp1, klevm1,                          &
+  SUBROUTINE cubase(   jg,                                                           &
+    &        kproma,   kbdim,    klev,     klevp1, klevm1,                           &
     &        ptenh,    pqenh,    pgeoh,    paph,   pthvsig,                          &
     &        ptu,      pqu,      plu,                                                &
     &        puen,     pven,     puu,      pvu,                                      &
     &        pcpcu,                                                                  &
     &        ldcum,    kcbot,    klab)
+
+    INTEGER, INTENT (IN) :: jg
     INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1
     REAL(wp):: ptenh(kbdim,klev),       pqenh(kbdim,klev),                           &
       &        pgeoh(kbdim,klev),       paph(kbdim,klevp1),                          &
@@ -272,11 +272,15 @@ CONTAINS
     INTEGER :: jl, jk, nl, is, ik, ikb, icall
     REAL(wp):: zbuo, zz, zlift
 
-    ! to simplify access to components of echam_conv_config
-    lmfdudv  => echam_conv_config% lmfdudv
-    cbfac    => echam_conv_config% cbfac
-    cminbuoy => echam_conv_config% cminbuoy
-    cmaxbuoy => echam_conv_config% cmaxbuoy
+    ! Shortcuts to components of echam_cnv_config
+    !
+    LOGICAL , POINTER :: lmfdudv
+    REAL(wp), POINTER :: cbfac, cminbuoy, cmaxbuoy
+    !
+    lmfdudv  => echam_cnv_config(jg)% lmfdudv
+    cbfac    => echam_cnv_config(jg)% cbfac
+    cminbuoy => echam_cnv_config(jg)% cminbuoy
+    cmaxbuoy => echam_cnv_config(jg)% cmaxbuoy
 
     !
     !---------------------------------------------------------------------------------

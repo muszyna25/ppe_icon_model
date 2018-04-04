@@ -49,8 +49,8 @@ MODULE mo_hamocc_nml
   INTEGER, PUBLIC  :: ks,ksp
 
   LOGICAL, PUBLIC :: l_cyadyn         = .TRUE.   !  prognostic cyanobacteria
-  LOGICAL, PUBLIC :: l_cpl_co2        = .FALSE.   !  prognostic cyanobacteria
-  LOGICAL, PUBLIC :: l_diffat         = .FALSE.   !  prognostic cyanobacteria
+  LOGICAL, PUBLIC :: l_cpl_co2        = .FALSE.   !  co2 coupling to atm
+  LOGICAL, PUBLIC :: l_diffat         = .FALSE.   !  diffusive atm
   LOGICAL, PUBLIC :: l_bgc_check      = .FALSE.   ! MASS check at every time step?
   LOGICAL, PUBLIC :: l_up_sedshi      = .FALSE.   ! Upward sediment shifting
   LOGICAL, PUBLIC :: l_implsed        = .FALSE.   ! Implicit sediment formulation

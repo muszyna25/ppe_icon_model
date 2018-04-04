@@ -35,10 +35,12 @@
     &                                  t_hamocc_monitor                    
    
 
+      USE mo_bgc_constants,      ONLY: molw_co2
+
        
       USE mo_parallel_config,     ONLY: nproma
 
-      USE mo_hamocc_nml,         ONLY: io_stdo_bgc,ks
+      USE mo_hamocc_nml,         ONLY: io_stdo_bgc, l_cpl_co2, ks
 
 
       IMPLICIT NONE
@@ -81,15 +83,16 @@
 !================================================================================== 
     
       SUBROUTINE update_icon(start_idx, end_idx, &
-&             klevs, pddpo, ptracer)
+&             klevs, pddpo, ptracer,pco2flx)
 
-      USE mo_memory_bgc, ONLY: bgctra
-      USE mo_param1_bgc, ONLY: n_bgctra
+      USE mo_memory_bgc, ONLY: bgctra,bgcflux
+      USE mo_param1_bgc, ONLY: n_bgctra,kcflux
 
 
       REAL(wp)     :: ptracer(nproma,n_zlev,no_tracer+n_bgctra)    
       INTEGER, INTENT(in)::klevs(nproma)
       REAL(wp),INTENT(in) :: pddpo(nproma,n_zlev) !< size of scalar grid cell (3rd REAL) [m]
+      REAL(wp),INTENT(inout) :: pco2flx(nproma)
 
       INTEGER :: jc, jk, kpke
       INTEGER :: start_idx, end_idx
@@ -103,6 +106,7 @@
       DO jc=start_idx,end_idx 
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
+          pco2flx(jc)=bgcflux(jc,kcflux) * molw_co2
         DO jk =1,kpke
           DO itrac=no_tracer+1,no_tracer+n_bgctra
              ptracer(jc,jk,itrac) = bgctra(jc,jk,itrac-no_tracer)
@@ -116,23 +120,26 @@
 
 !================================================================================== 
       SUBROUTINE update_bgc(start_index, end_index, &
-&             klevs,pddpo,jb,ptracer,p_diag,p_sed,p_tend)
+&             klevs,pddpo,jb,ptracer,pco2mr,p_diag,p_sed,p_tend)
 
       USE mo_memory_bgc, ONLY: bgctra, co3, hi, bgctend, bgcflux, &
  &                         akw3,ak13,ak23,akb3,aksp,satoxy, &
- &                         satn2, satn2o, solco2,kbo,bolay
+ &                         satn2, satn2o, solco2,kbo,bolay,&
+&                          atm
       USE MO_PARAM1_BGC, ONLY: n_bgctra, issso12,         &
  &                             isssc12, issssil, issster, &
  &                             ipowaic, ipowaal, ipowaph, &
  &                             ipowaox, ipown2, ipowno3,  &
  &                             ipowasi, ipowafe, kn2b,    &
  &                             kh2ob, korginp, ksilinp,   &
-&                              kcalinp,keuexp, ipowh2s
+&                              kcalinp,keuexp, ipowh2s, &
+&                              iatmco2 
 
 
       USE mo_sedmnt,  ONLY: pown2bud, powh2obud
 
       REAL(wp)     :: ptracer(nproma,n_zlev,no_tracer+n_bgctra)    
+      REAL(wp)     :: pco2mr(nproma)
       INTEGER, INTENT(in)::klevs(nproma), jb
       TYPE(t_hamocc_diag) :: p_diag
       TYPE(t_hamocc_sed) :: p_sed
@@ -151,7 +158,7 @@
       DO jc=start_index,end_index 
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
-
+          if(l_cpl_co2)atm(jc,iatmco2) = pco2mr(jc)
           satn2(jc)  = p_tend%satn2(jc,jb)    
           satn2o(jc) = p_tend%satn2o(jc,jb)    
           solco2(jc) = p_tend%solco2(jc,jb)    
@@ -212,7 +219,7 @@
       
       USE mo_memory_bgc, ONLY: bgctend, bgcflux, hi, co3, bgctra, sedfluxo, &
  &                         akw3, akb3, aksp, ak13, ak23, satoxy, satn2, &
- &                         satn2o, solco2, bolay
+ &                         satn2o, solco2, bolay,atm
 
       USE mo_param1_bgc, ONLY: kphosy, ksred, kremin, kdenit, &
  &                             kcflux, koflux, knflux, knfixd, &
@@ -232,7 +239,7 @@
 &                              kopex1000,kopex2000,kcalex1000,&
 &                              kcalex2000, kaou, kcTlim, kcLlim, &
 &                              kcPlim, kcFlim, ipowh2s,kh2sprod, &   
-&                              kh2sloss
+&                              kh2sloss,iatmco2
   
       USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend, &
 &                           isremino, isreminn, isremins
@@ -254,6 +261,7 @@
 !HAMOCC_OMP_DO PRIVATE(jc,jk,kpke) HAMOCC_OMP_DEFAULT_SCHEDULE
       DO jc=start_idx,end_idx 
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
+        p_tend%co2mr(jc,jb) = atm(jc,iatmco2)
         p_tend%cflux(jc,jb) = bgcflux(jc,kcflux)
         p_tend%oflux(jc,jb) = bgcflux(jc,koflux)
         p_tend%nflux(jc,jb) = bgcflux(jc,knflux)
@@ -374,14 +382,15 @@
 !================================================================================== 
     
       SUBROUTINE initial_update_icon(start_index, end_index, &
-&             klevs,pddpo,jb,ptracer, p_sed,p_diag)
+&             klevs,pddpo,jb,ptracer, p_sed,p_diag,pco2flux)
 
-      USE mo_memory_bgc, ONLY: bgctra, hi, co3, kbo,bolay
+      USE mo_memory_bgc, ONLY: bgctra, hi, co3, kbo,bolay,bgcflux
       USE mo_param1_bgc, ONLY: n_bgctra, issso12, &
  &                             isssc12, issssil, issster, &
  &                             ipowaic, ipowaal, ipowaph, &
  &                             ipowaox, ipown2, ipowno3,  &
- &                             ipowasi, ipowafe, ipowh2s
+ &                             ipowasi, ipowafe, ipowh2s, &
+ &                             kcflux
   
 
 
@@ -390,6 +399,7 @@
       TYPE(t_hamocc_sed) :: p_sed
       TYPE(t_hamocc_diag) :: p_diag
       REAL(wp),INTENT(in) :: pddpo(nproma,n_zlev) !< size of scalar grid cell (3rd REAL) [m]
+      REAL(wp),INTENT(inout)  :: pco2flux(nproma)
 
       INTEGER :: jc, jk, kpke,jb
       INTEGER :: start_index, end_index
@@ -403,6 +413,7 @@
       DO jc=start_index,end_index 
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
+         if(l_cpl_co2)pco2flux(jc)=bgcflux(jc,kcflux) * molw_co2
         DO jk =1,kpke
           DO itrac=no_tracer+1,no_tracer+n_bgctra
              ptracer(jc,jk,itrac) = bgctra(jc,jk,itrac-no_tracer)

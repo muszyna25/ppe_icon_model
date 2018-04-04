@@ -124,6 +124,7 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  remins(:,:,:)       
     REAL(wp), POINTER ::  reminn(:,:,:)       
     REAL(wp), POINTER ::  bacfra(:,:,:)       
+    REAL(wp), POINTER ::  co2mr(:,:)       
     REAL(wp), POINTER ::  cflux(:,:)       
     REAL(wp), POINTER ::  nflux(:,:)       
     REAL(wp), POINTER ::  n2oflux(:,:)       

@@ -2922,7 +2922,6 @@ CONTAINS
     TYPE(t_sea_ice_acc),  INTENT(INOUT) :: p_acc
     TYPE(t_sea_ice),      INTENT(IN)    :: p_ice
     TYPE(t_subset_range), INTENT(IN)    :: subset
-
     CALL add_fields(p_acc%hi  , p_ice%hi  , subset , levels=p_ice%kice)
     CALL add_fields(p_acc%hs  , p_ice%hs  , subset , levels=p_ice%kice)
     CALL add_fields(p_acc%conc, p_ice%conc, subset , levels=p_ice%kice)

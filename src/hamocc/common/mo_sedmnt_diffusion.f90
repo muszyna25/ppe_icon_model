@@ -82,7 +82,8 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
   zcoeflo(ks) = 0.0_wp
 
   DO j = start_idx, end_idx
-
+        
+    if(bolay(j) > 0.5_wp)then
         k = 0
 
         tredsy(k,1) = zcoefsu(k)
@@ -106,8 +107,7 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
 
           sedb1( k, iv) = 0._wp
            ! tracer_concentration(kbo) * dz(kbo)
-          IF (bolay( j) > 0._wp)                                     &
-                & sedb1(k,iv) = bgctra(j,kbo(j),iv_oc) * bolay(j) 
+          sedb1(k,iv) = bgctra(j,kbo(j),iv_oc) * bolay(j) 
    
            
         END DO
@@ -126,16 +126,12 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
        END DO
 
        DO k = 1, ks
-
-           IF (bolay( j) > 0._wp) THEN
               ! this overwrites tredsy(k=0) for k=1
               tredsy(k-1,1) = tredsy(k,1) / tredsy(k-1,2)
               !                 diff upper    / conc (k-1)
               tredsy(k,2)   = tredsy(k,2)                      &
                    &          - tredsy(k-1,3) * tredsy(k,1) / tredsy(k-1,2)
               !   concentration -diff lower     * diff upper    / conc(k-1)
-           ENDIF
-
        END DO
 
      ! diffusion from above
@@ -149,11 +145,7 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
      ! sediment bottom layer
      k = ks
      DO iv = 1, npowtra
-
-           IF (bolay( j) > 0._wp) THEN
-              powtra(j,k,iv) = sedb1(k,iv) / tredsy(k,2)
-           ENDIF
-
+        powtra(j,k,iv) = sedb1(k,iv) / tredsy(k,2)
      END DO
 
 
@@ -161,11 +153,9 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
      DO iv = 1, npowtra
         DO k = 1, ks-1
            l = ks-k
-              IF (bolay( j) > 0._wp) THEN
-                 powtra(j,l,iv) = ( sedb1(l,iv)            &
+           powtra(j,l,iv) = ( sedb1(l,iv)            &
                       &             - tredsy(l,3) * powtra(j,l+1,iv) )    &
                       &             / tredsy(l,2)
-              ENDIF
         END DO
      END DO
 
@@ -184,23 +174,17 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
         if(iv == ipowaic) iv_oc = isco212
 
            l = 0
-           IF (bolay( j) > 0._wp) THEN
 
-              aprior = bgctra(j,kbo(j),iv_oc)
-              bgctra(j,kbo(j),iv_oc) =                                  &
-                   &         ( sedb1(l,iv) - tredsy(l,3) * powtra(j,l+1,iv) ) &
-                   &         / tredsy(l,2)
+         aprior = bgctra(j,kbo(j),iv_oc)
+         bgctra(j,kbo(j),iv_oc) =                                  &
+              &         ( sedb1(l,iv) - tredsy(l,3) * powtra(j,l+1,iv) ) &
+              &         / tredsy(l,2)
 
-              sedfluxo(j,iv) = (bgctra(j,kbo(j),iv_oc)-aprior)*bolay(j)/dtbgc
-           ENDIF       !----------------------------------------------------------------------
+         sedfluxo(j,iv) = (bgctra(j,kbo(j),iv_oc)-aprior)*bolay(j)/dtbgc
 
 
-
-     END DO
-     ! update AOU
-     IF (bolay( j) > 0._wp)bgctend(j,kbo(j),kaou) = satoxy(j,kbo(j)) - bgctra(j,kbo(j),ioxygen)
-     
-
+      END DO
+     endif
 
   END DO ! j loop
 

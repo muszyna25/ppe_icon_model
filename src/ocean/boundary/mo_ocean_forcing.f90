@@ -555,6 +555,8 @@ CONTAINS
              p_as%ftdew(nproma,alloc_cell_blocks),                      &
              p_as%fclou(nproma,alloc_cell_blocks),                      &
              p_as%fu10(nproma,alloc_cell_blocks),                       &
+             p_as%co2(nproma,alloc_cell_blocks),                        &
+             p_as%co2flx(nproma,alloc_cell_blocks),                     &
              p_as%fswr(nproma,alloc_cell_blocks),                       &
              p_as%pao(nproma,alloc_cell_blocks),                        &
              p_as%u(nproma,alloc_cell_blocks),                          &
@@ -577,6 +579,8 @@ CONTAINS
     p_as%ftdew (:,:)                    = 0.0_wp
     p_as%fclou (:,:)                    = 0.0_wp
     p_as%fu10  (:,:)                    = 0.0_wp
+    p_as%co2  (:,:)                     = 0.0_wp
+    p_as%co2flx  (:,:)                  = 0.0_wp
     p_as%fswr  (:,:)                    = 0.0_wp
     p_as%pao   (:,:)                    = 0.0_wp
     p_as%u     (:,:)                    = 0.0_wp
@@ -631,6 +635,16 @@ CONTAINS
     DEALLOCATE(p_as%fu10, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for fu10 failed')
+    END IF
+
+    DEALLOCATE(p_as%co2, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for co2 failed')
+    END IF
+
+    DEALLOCATE(p_as%co2flx, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for co2flx failed')
     END IF
 
     DEALLOCATE(p_as%fswr, STAT=ist)

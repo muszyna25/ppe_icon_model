@@ -40,7 +40,7 @@ MODULE mo_ocean_initialization
     & on_cells, on_edges, on_vertices
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, l_max_bottom, l_partial_cells, &
     & coriolis_type, basin_center_lat, basin_height_deg, iswm_oce, coriolis_fplane_latitude,   &
-    & use_smooth_ocean_boundary
+    & use_smooth_ocean_boundary, max_allocated_levels
   USE mo_util_dbg_prnt,       ONLY: c_i, c_b, nc_i, nc_b
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch,t_patch_3d, t_grid_cells, t_grid_edges
@@ -1897,7 +1897,7 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE set_del_zlev(n_zlev, dzlev_m, del_zlev_i, del_zlev_m, zlev_i, zlev_m)
     INTEGER,  INTENT(IN) :: n_zlev
-    REAL(wp), INTENT(IN) :: dzlev_m(100)
+    REAL(wp), INTENT(IN) :: dzlev_m(max_allocated_levels)
     REAL(wp)             :: del_zlev_i(n_zlev), del_zlev_m(n_zlev)
     REAL(wp)             :: zlev_i(n_zlev+1)  , zlev_m(n_zlev)
 

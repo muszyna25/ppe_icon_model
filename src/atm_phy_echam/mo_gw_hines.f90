@@ -31,16 +31,12 @@
 !!
 MODULE mo_gw_hines
 
-!!$#ifdef _PROFILE
-!!$  USE mo_profile,    ONLY: trace_start, trace_stop
-!!$#endif
-
   USE mo_exception,            ONLY: message_text, message, finish
 
   USE mo_kind,                 ONLY: wp
   USE mo_physical_constants,   ONLY: grav, rd, cpd !!$, re, rhoh2o
 
-  USE mo_gw_hines_config,      ONLY: gw_hines_config
+  USE mo_echam_gwd_config,     ONLY: echam_gwd_config
 
   USE mo_math_constants,       ONLY: cos45, one_third
   USE mo_fast_math_lib,        ONLY: vec_cbrt ! cube root
@@ -52,9 +48,7 @@ MODULE mo_gw_hines
 !!$  USE mo_memory_g2a,           ONLY: dtlm1, dtmm1, um1, vm1, dudlm1, dvdlm1
 
   IMPLICIT NONE
-
   PRIVATE
-
   PUBLIC :: gw_hines
 
   !----------------------------------
@@ -77,44 +71,6 @@ MODULE mo_gw_hines
   REAL(wp) :: smco       = 2.0_wp      !  (test value: smco = 1.0)
   INTEGER  :: nsmax      = 5           !  (test value: nsmax = 2)
 
-  !----------------------------------------------------
-  ! Grid level/domain specific configuration parameters
-  !----------------------------------------------------
-
-  LOGICAL  :: lheatcal      !< true : compute momentum flux dep., heating and diffusion coefficient
-                            !< false: compute only momentum flux deposition
-
-  INTEGER  :: emiss_lev     !< number of levels above the ground at which gw are emitted
-  REAL(wp) :: rmscon        !< [m/s] root mean square gravity wave wind at emission level
-  REAL(wp) :: kstar         !< [1/m] typical gravity wave horizontal wavenumber
-  REAL(wp) :: m_min         !< [1/m] minimum bound in  vertical wavenumber
-
-!!$  LOGICAL  :: lfront        !< true: compute gw sources emerging from fronts and background
-!!$                            !< (Charron and Manzini, 2002)
-!!$  REAL(wp) :: rms_front     !< [m/s] rms frontal gw wind at source level
-!!$  REAL(wp) :: front_thres   !< [(K/m)^2/hr] minimum value of the frontogenesis function,
-!!$                            !< for which gravity waves are emitted from fronts
-!!$
-!!$  LOGICAL  :: lozpr         !< true: for background enhancement associated with precipitation
-!!$                            !< (Manzini et al., 1997)
-!!$  REAL(wp) :: pcrit         !< [mm/d] critical precipitation value, above which
-!!$                            !< gravity wave rms wind enhancement is applied
-!!$  REAL(wp) :: pcons         !< [] adimensional factor for background enhancement
-!!$                            !< associated with precipitation
-
-  LOGICAL  :: lrmscon_lat   !< true:  use latitude dependent rmscon
-                            !< - |latitude| >= lat_rmscon:
-                            !<      use rmscon
-                            !< - |latitude| <= lat_rmscon_eq:
-                            !<      use rmscon_eq
-                            !< - lat_rmscon_eq < |latitude| < lat_rmscon:
-                            !<      use linear interpolation between rmscon_eq and rmscon
-                            !< false: use rmscon for all latitudes
-                            !< attention: may be overwritten if lfront or lozpr is true
-  REAL(wp) :: lat_rmscon_eq !< [degN] rmscon_eq is used equatorward of this latitude
-  REAL(wp) :: lat_rmscon    !< [degN] rmscon is used poleward of this latitude
-  REAL(wp) :: rmscon_eq     !< [m/s]  rms constant used equatorward of lat_rmscon_eq
-
 CONTAINS
 
   SUBROUTINE gw_hines ( jg         ,&! in,  grid level/domain index
@@ -131,7 +87,7 @@ CONTAINS
     &                   ptm1       ,&! in,  T                      [K]
     &                   pum1       ,&! in,  u                      [m/s]
     &                   pvm1       ,&! in,  v                      [m/s]
-    &                   lat_deg    ,&! in,  latitude               [degN]
+!!$    &                   lat_deg    ,&! in,  latitude               [degN]
 !!$    &                   paprflux   ,&! in, precipitation flux at surface
     &                   dissip_gwd ,&! out,     Q|Hines            [W/kg]
     &                   tend_u_gwd ,&! out, du/dt|Hines            [m/s2]
@@ -165,7 +121,7 @@ CONTAINS
     !  Array arguments with intent(IN):
     ! Input 1D
 !!$    REAL(wp) ,INTENT(in)  :: paprflux(nbdim)         ! precipitation flux
-    REAL(wp) ,INTENT(in)  :: lat_deg(nbdim)          ! latitude in deg N
+!!$    REAL(wp) ,INTENT(in)  :: lat_deg(nbdim)          ! latitude in deg N
     ! Input 2D
     REAL(wp) ,INTENT(in)  :: paphm1(nbdim,nlev+1)    ! half level pressure (t-dt)
     REAL(wp) ,INTENT(in)  :: papm1(nbdim,nlev)       ! full level pressure (t-dt)
@@ -231,42 +187,59 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines:gw_hines'
 
-#ifdef __PROFILE
-  CALL trace_start ('gw_hines', 20)
-#endif
+  ! Shortcuts to components of echam_gwd_config
+  !
+  INTEGER , POINTER :: emiss_lev     !< number of levels above the ground at which gw are emitted
+  REAL(wp), POINTER :: rmscon        !< [m/s] root mean square gravity wave wind at emission level
+  REAL(wp), POINTER :: kstar         !< [1/m] typical gravity wave horizontal wavenumber
+  !
+!!$  LOGICAL , POINTER :: lfront        !< true: compute gw sources emerging from fronts and background
+!!$                                     !< (Charron and Manzini, 2002)
+!!$                                     !< for which gravity waves are emitted from fronts
+!!$  !
+!!$  LOGICAL , POINTER :: lozpr         !< true: for background enhancement associated with precipitation
+!!$                                     !< (Manzini et al., 1997)
+!!$  REAL(wp), POINTER :: pcrit         !< [mm/d] critical precipitation value, above which
+!!$                                     !< gravity wave rms wind enhancement is applied
+!!$  REAL(wp), POINTER :: pcons         !< [] adimensional factor for background enhancement
+!!$                                     !< associated with precipitation
+!!$  !
+!!$  LOGICAL , POINTER :: lrmscon_lat   !< true:  use latitude dependent rmscon
+!!$                                     !< - |latitude| >= lat_rmscon:
+!!$                                     !<      use rmscon
+!!$                                     !< - |latitude| <= lat_rmscon_eq:
+!!$                                     !<      use rmscon_eq
+!!$                                     !< - lat_rmscon_eq < |latitude| < lat_rmscon:
+!!$                                     !<      use linear interpolation between rmscon_eq and rmscon
+!!$                                     !< false: use rmscon for all latitudes
+!!$                                     !< attention: may be overwritten if lfront or lozpr is true
+!!$  REAL(wp), POINTER :: lat_rmscon_eq !< [degN] rmscon_eq is used equatorward of this latitude
+!!$  REAL(wp), POINTER :: lat_rmscon    !< [degN] rmscon is used poleward of this latitude
+!!$  REAL(wp), POINTER :: rmscon_eq     !< [m/s]  rms constant used equatorward of lat_rmscon_eq
+    !
+    emiss_lev     => echam_gwd_config(jg)% emiss_lev
+    rmscon        => echam_gwd_config(jg)% rmscon
+    kstar         => echam_gwd_config(jg)% kstar
+    !
+!!$    lfront        => echam_gwd_config(jg)% lfront
+!!$    !
+!!$    lozpr         => echam_gwd_config(jg)% lozpr
+!!$    pcrit         => echam_gwd_config(jg)% pcrit
+!!$    pcons         => echam_gwd_config(jg)% pcons
+!!$    !
+!!$    lrmscon_lat   => echam_gwd_config(jg)% lrmscon_lat
+!!$    lat_rmscon_eq => echam_gwd_config(jg)% lat_rmscon_eq
+!!$    lat_rmscon    => echam_gwd_config(jg)% lat_rmscon
+!!$    rmscon_eq     => echam_gwd_config(jg)% rmscon_eq
 
     dissip_gwd(:,:) = 0.0_wp
     tend_u_gwd(:,:) = 0.0_wp
     tend_v_gwd(:,:) = 0.0_wp
 
-    !
     !--  Check consistency of nc, jcs and jce
     !
     IF ( nc /= jce-jcs+1 ) CALL finish(TRIM(routine),'nc /= jce-jcs+1')
-    !
-    !--  Set up domain specific configuration
-    !
 
-    lheatcal      = gw_hines_config(jg) %lheatcal
-    emiss_lev     = gw_hines_config(jg) %emiss_lev
-    rmscon        = gw_hines_config(jg) %rmscon
-    kstar         = gw_hines_config(jg) %kstar
-    m_min         = gw_hines_config(jg) %m_min
-
-!!$    lfront        = gw_hines_config(jg) %lfront
-!!$    rms_front     = gw_hines_config(jg) %rms_front
-!!$    front_thres   = gw_hines_config(jg) %front_thres
-!!$
-!!$    lozpr         = gw_hines_config(jg) %lozpr
-!!$    pcrit         = gw_hines_config(jg) %pcrit
-!!$    pcons         = gw_hines_config(jg) %pcons
-!!$
-    lrmscon_lat   = gw_hines_config(jg) %lrmscon_lat
-    lat_rmscon_eq = gw_hines_config(jg) %lat_rmscon_eq
-    lat_rmscon    = gw_hines_config(jg) %lat_rmscon
-    rmscon_eq     = gw_hines_config(jg) %rmscon_eq
-
-    !
     !--  Initialize the ccc/mam hines gwd scheme
     !
 
@@ -376,17 +349,17 @@ CONTAINS
 
     anis(1:nc,1:naz) = 1.0_wp/REAL(naz,wp)
 
-    IF (lrmscon_lat) THEN
-      ! latitude dependent gravity wave source
-      ! - poleward of lat_rmscon               : rmscon
-      ! - equatorward of lat_rmscon_eq         : rmscon_eq
-      ! - between lat_rmscon_eq and lat_rmscon : linear interpolation between rmscon and rmscon_eq
-      rmswind(1:nc) = ( MAX(MIN((ABS(lat_deg(1:nc))-lat_rmscon_eq),lat_rmscon-lat_rmscon_eq),0.0_wp) * rmscon      &
-        &              +MAX(MIN((lat_rmscon-ABS(lat_deg(1:nc)))   ,lat_rmscon-lat_rmscon_eq),0.0_wp) * rmscon_eq ) &
-        &            /(lat_rmscon-lat_rmscon_eq)
-    ELSE
+!!$    IF (lrmscon_lat) THEN
+!!$      ! latitude dependent gravity wave source
+!!$      ! - poleward of lat_rmscon               : rmscon
+!!$      ! - equatorward of lat_rmscon_eq         : rmscon_eq
+!!$      ! - between lat_rmscon_eq and lat_rmscon : linear interpolation between rmscon and rmscon_eq
+!!$      rmswind(1:nc) = ( MAX(MIN((ABS(lat_deg(1:nc))-lat_rmscon_eq),lat_rmscon-lat_rmscon_eq),0.0_wp) * rmscon      &
+!!$        &              +MAX(MIN((lat_rmscon-ABS(lat_deg(1:nc)))   ,lat_rmscon-lat_rmscon_eq),0.0_wp) * rmscon_eq ) &
+!!$        &            /(lat_rmscon-lat_rmscon_eq)
+!!$    ELSE
       rmswind(1:nc) = rmscon
-    ENDIF
+!!$    ENDIF
 
 !!$       !     * gravity waves from fronts:
 !!$       IF (lfront) THEN
@@ -412,7 +385,8 @@ CONTAINS
     !     * calculate gw tendencies (note that diffusion coefficient and
     !     * heating rate only calculated if lheatcal = .TRUE.).
     !
-    CALL hines_extro ( nc, nlev, nazmth,                          &
+    CALL hines_extro ( jg,                                        &
+      &                nc, nlev, nazmth,                          &
       &                tend_u_gwd(jcs:jce,:),                     &
       &                tend_v_gwd(jcs:jce,:),                     &
       &                dissip_gwd(jcs:jce,:),                     &
@@ -429,15 +403,12 @@ CONTAINS
       &                m_alpha,  mmin_alpha ,sigma_t, sigmatm,    &
       &                levbot, lorms)
 
-#ifdef __PROFILE
-  CALL trace_stop ('gw_hines', 20)
-#endif
-
   END SUBROUTINE gw_hines
   !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
-  SUBROUTINE hines_extro ( nlons, nlevs, nazmth,                      &
+  SUBROUTINE hines_extro ( jg,                                        &
+    &                      nlons, nlevs, nazmth,                      &
     &                      drag_u,                                    &
     &                      drag_v,                                    &
     &                      heat,                                      &
@@ -514,6 +485,7 @@ CONTAINS
 
     IMPLICIT NONE
 
+    INTEGER  :: jg
     INTEGER  :: nlons, nlevs, nazmth, lev2
 
     REAL(wp) :: drag_u(nlons,nlevs),   drag_v(nlons,nlevs)
@@ -540,9 +512,17 @@ CONTAINS
     INTEGER  :: i, n, l, lev1, il1, il2
 !!$    INTEGER :: iprint
 
-!!$#ifdef _PROFILE
-!!$  CALL trace_start ('hines_extro', 21)
-!!$#endif
+    ! Shortcuts to components of echam_gwd_config
+    !
+    LOGICAL , POINTER :: lheatcal      !< true : compute momentum flux dep., heating and diffusion coefficient
+    !                                  !< false: compute only momentum flux deposition
+    REAL(wp), POINTER :: kstar         !< [1/m] typical gravity wave horizontal wavenumber
+    REAL(wp), POINTER :: m_min         !< [1/m] minimum bound in  vertical wavenumber
+    !
+    lheatcal      => echam_gwd_config(jg)% lheatcal
+    kstar         => echam_gwd_config(jg)% kstar
+    m_min         => echam_gwd_config(jg)% m_min
+
     !-----------------------------------------------------------------------
     !
 
@@ -578,7 +558,8 @@ CONTAINS
     !
     !  calculate cutoff vertical wavenumber and velocity variances.
     !
-    CALL hines_wavnum ( m_alpha, sigma_t, sigma_alpha, ak_alpha,   &
+    CALL hines_wavnum ( jg,                                        &
+      &                 m_alpha, sigma_t, sigma_alpha, ak_alpha,   &
       &                 mmin_alpha, losigma_t,                     &
       &                 v_alpha, visc_mol, density, densb,         &
       &                 bvfreq, bvfb, rmswind, anis, lorms,        &
@@ -650,16 +631,13 @@ CONTAINS
          &  nazmth, losigma_t )
     END IF
 
-!!$#ifdef _PROFILE
-!!$     CALL trace_stop ('hines_extro', 21)
-!!$#endif
-
     !  finished.
     !
     !-----------------------------------------------------------------------
   END SUBROUTINE hines_extro
 
-  SUBROUTINE hines_wavnum ( m_alpha, sigma_t, sigma_alpha, ak_alpha,     &
+  SUBROUTINE hines_wavnum ( jg,                                          &
+    &                       m_alpha, sigma_t, sigma_alpha, ak_alpha,     &
     &                       mmin_alpha, losigma_t,                       &
     &                       v_alpha, visc_mol, density, densb,           &
     &                       bvfreq, bvfb, rms_wind, anis, lorms,         &
@@ -724,6 +702,7 @@ CONTAINS
 
     IMPLICIT NONE
 
+    INTEGER  :: jg
     INTEGER  :: il1, il2, levtop, levbot, nlons, nlevs, nazmth
     REAL(wp) :: m_alpha(nlons,nlevs,nazmth)
     REAL(wp) :: sigma_alpha(nlons,nlevs,nazmth)
@@ -765,9 +744,13 @@ CONTAINS
 
     !-----------------------------------------------------------------------
     !
-!!$#ifdef _PROFILE
-!!$     CALL trace_start ('hines_wavnum', 22)
-!!$#endif
+    ! Shortcuts to components of echam_gwd_config
+    !
+    REAL(wp), POINTER :: kstar         !< [1/m] typical gravity wave horizontal wavenumber
+    REAL(wp), POINTER :: m_min         !< [1/m] minimum bound in  vertical wavenumber
+    !
+    kstar => echam_gwd_config(jg)% kstar
+    m_min => echam_gwd_config(jg)% m_min
 
     visc_min = 1.e-10_wp
 
@@ -992,9 +975,6 @@ CONTAINS
        !  end of level loop.
        !
     END DO
-!!$#ifdef _PROFILE
-!!$     CALL trace_stop ('hines_wavnum', 22)
-!!$#endif
     !
     !-----------------------------------------------------------------------
   END SUBROUTINE hines_wavnum
@@ -1628,9 +1608,6 @@ CONTAINS
     !-----------------------------------------------------------------------
     !
     !  initialize local scalar and arrays
-!!$#ifdef _PROFILE
-!!$     CALL trace_start ('hines_intgrl', 23)
-!!$#endif
 
     q_min = 1.0_wp
     qm_min = 0.01_wp
@@ -1897,9 +1874,6 @@ CONTAINS
        END IF
 
     END DO
-!!$#ifdef _PROFILE
-!!$     CALL trace_stop ('hines_intgrl', 23)
-!!$#endif
     !
     !-----------------------------------------------------------------------
   END SUBROUTINE hines_intgrl
@@ -2141,9 +2115,6 @@ CONTAINS
     !
     !  calculate sum of weights.
     !
-!!$#ifdef _PROFILE
-!!$     CALL trace_start ('vert_smooth', 24)
-!!$#endif
     sum_wts = coeff + 2.0_wp
     !
     lev1p = lev1 + 1
@@ -2169,9 +2140,6 @@ CONTAINS
           END DO
        END DO
     END DO
-!!$#ifdef _PROFILE
-!!$     CALL trace_stop ('vert_smooth', 24)
-!!$#endif
     !
     !-----------------------------------------------------------------------
   END SUBROUTINE vert_smooth
@@ -2203,6 +2171,16 @@ CONTAINS
 !!$    INTEGER  :: opp(nazmth)
 !!$    REAL(wp) :: angle(nc), gen(nc)
 !!$
+!!$    ! Shortcuts to components of echam_gwd_config
+!!$    !
+!!$    REAL(wp), POINTER :: rmscon        !< [m/s] root mean square gravity wave wind at emission level
+!!$    REAL(wp), POINTER :: rms_front     !< [m/s] rms frontal gw wind at source level
+!!$    REAL(wp), POINTER :: front_thres   !< [(K/m)^2/hr] minimum value of the frontogenesis function,
+!!$                                       !< for which gravity waves are emitted from fronts
+!!$    !
+!!$    rmscon      => echam_gwd_config(jg)% rmscon
+!!$    rms_front   => echam_gwd_config(jg)% rms_front
+!!$    front_thres => echam_gwd_config(jg)% front_thres
 !!$
 !!$    IF ( naz == 8 ) THEN
 !!$       opp(1)=5
@@ -2272,6 +2250,12 @@ CONTAINS
 !!$    REAL(wp)                    :: term_5, term_6, term_7 , term_8
 !!$    REAL(wp), PARAMETER         :: pr=100000.0_wp
 !!$    REAL(wp), PARAMETER         :: kappa=2.0_wp/7.0_wp
+!!$
+!!$    ! Shortcuts to components of echam_gwd_config
+!!$    !
+!!$    INTEGER , POINTER :: emiss_lev     !< number of levels above the ground at which gw are emitted
+!!$    !
+!!$    emiss_lev => echam_gwd_config(jg)% emiss_lev
 !!$
 !!$!------------------------------------------------------------------------------
 !!$

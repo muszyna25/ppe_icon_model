@@ -157,6 +157,10 @@ MODULE mo_name_list_output_init
   USE mo_name_list_output_zaxes,            ONLY: setup_ml_axes_atmo, setup_pl_axis_atmo,         &
     &                                             setup_hl_axis_atmo, setup_il_axis_atmo,         &
     &                                             setup_zaxes_oce
+#ifndef __NO_JSBACH__
+  USE mo_echam_phy_config,                  ONLY: echam_phy_config
+  USE mo_jsb_vertical_axes,                 ONLY: setup_zaxes_jsbach
+#endif
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxisList, t_verticalAxis
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
   USE mo_derived_variable_handling,         ONLY: process_mean_stream
@@ -1837,6 +1841,9 @@ CONTAINS
         SELECT CASE(p_of%ilev_type)
         CASE (level_type_ml)
           CALL setup_ml_axes_atmo(p_of%verticalAxisList, p_of%level_selection, p_of%log_patch_id)
+#ifndef __NO_JSBACH__
+          IF (ANY(echam_phy_config(:)%ljsb)) CALL setup_zaxes_jsbach(p_of%verticalAxisList)
+#endif
 #ifndef __NO_ICON_ATMO__
         CASE (level_type_pl)
           CALL setup_pl_axis_atmo(p_of%verticalAxisList, nh_pzlev_config(p_of%log_patch_id)%plevels, &
