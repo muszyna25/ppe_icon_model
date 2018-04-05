@@ -284,14 +284,13 @@ CONTAINS
   ! This function is only a workaround for a compiler bug on the
   ! blizzard. May be reintegrated into inputParametersFindVarId() once
   ! we are not concerned about xlf anymore.
-  LOGICAL FUNCTION compareTiledVars(name1, idx1, att1, name2, idx2, att2) RESULT(resultvar)
+  PURE FUNCTION compareTiledVars(name1, idx1, att1, name2, idx2, att2) &
+       RESULT(is_equal)
     CHARACTER(LEN = *), INTENT(IN) :: name1, name2
-    INTEGER, VALUE :: idx1, att1, idx2, att2
-
-    resultVar = .TRUE.
-    IF(TRIM(tolower(name1)) /= TRIM(tolower(name2))) resultVar = .FALSE.
-    IF(idx1 /= idx2) resultVar = .FALSE.
-    IF(att1 /= att2) resultVar = .FALSE.
+    INTEGER, INTENT(in) :: idx1, att1, idx2, att2
+    LOGICAL :: is_equal
+    is_equal = idx1 == idx2 .AND. att1 == att2 &
+         .AND. tolower(name1) == tolower(name2)
   END FUNCTION compareTiledVars
 
   !---------------------------------------------------------------------------------------------------------------------------------
