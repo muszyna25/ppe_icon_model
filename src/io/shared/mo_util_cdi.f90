@@ -219,9 +219,9 @@ CONTAINS
 
                 me%variableTileinfo(i)%tile(ientry)       = t_tileinfo_grb2( idx, att )
                 me%variableTileinfo(i)%tile_index(ientry) = tile_index
-                ! reset active index
-                CALL subtypeDefActiveIndex(subtypeID,0)
               END DO
+              ! reset active index
+              CALL subtypeDefActiveIndex(subtypeID,0)
             ENDIF  ! totalNumberOfTileAttributePairs <= 0
 
         END do
