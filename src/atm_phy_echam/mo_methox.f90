@@ -82,7 +82,7 @@ MODULE mo_methox
 
 
 
-  SUBROUTINE methox(jcs, jce, kbdim, klev, pq, ptenq, pap)
+  SUBROUTINE methox(jcs, jce, kbdim, klev, pap, pq, ptenq)
 
 !**** *METHOX*   - Calculate humidity tendencies from methane
 !                  oxidation and photolysis
@@ -158,9 +158,9 @@ MODULE mo_methox
     INTEGER,INTENT(IN)    :: KBDIM
     INTEGER,INTENT(IN)    :: JCS, JCE
     INTEGER,INTENT(IN)    :: KLEV
-    REAL(KIND=wp)   ,INTENT(IN)    :: PQ(KBDIM,KLEV)
-    REAL(KIND=wp)   ,INTENT(INOUT) :: PTENQ(KBDIM,KLEV)
     REAL(KIND=wp)   ,INTENT(IN)    :: PAP(KBDIM,KLEV)
+    REAL(KIND=wp)   ,INTENT(IN)    :: PQ(KBDIM,KLEV)
+    REAL(KIND=wp)   ,INTENT(OUT)   :: PTENQ(KBDIM,KLEV)
 
     LOGICAL :: LLOXID,         LLPHOTO
 
@@ -170,6 +170,8 @@ MODULE mo_methox
 
     DO JK=1,KLEV
       DO JL=JCS,JCE
+
+        PTENQ(JL,JK)=0._wp
 
         LLOXID=PAP(JL,JK) < RPBOTOX.AND.PQ(JL,JK) < RQLIM
         LLPHOTO=PAP(JL,JK) < RPBOTPH

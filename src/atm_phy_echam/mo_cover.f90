@@ -58,24 +58,17 @@ MODULE mo_cover
   USE mo_kind,                 ONLY : wp
   USE mo_physical_constants,   ONLY : vtmpc1, cpd, grav
   USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline,lookup_ua_eor_uaw_spline
-  USE mo_echam_cloud_config,   ONLY: echam_cloud_config
-#ifdef _PROFILE
-  USE mo_profile,              ONLY : trace_start, trace_stop
-#endif
+  USE mo_echam_cld_config,     ONLY : echam_cld_config
 
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: cover
 
-  ! to simplify access to components of echam_cloud_config
-  INTEGER , POINTER :: jbmin, jbmax, nex, nadd
-  REAL(wp), POINTER :: csatsc, crt, crs, cinv
-
-
 CONTAINS
   !>
   !!
-  SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1                  & !in
+  SUBROUTINE cover (         jg                                                    & !in
+    &                      , kproma,   kbdim, klev, klevp1                         & !in
     &                      , ktype,    pfrw,     pfri                              & !in
     &                      , zf                                                    & !in
     &                      , paphm1,   papm1                                       & !in
@@ -85,7 +78,8 @@ CONTAINS
     &              )
     !---------------------------------------------------------------------------------
     !
-    INTEGER, INTENT(IN)    :: kbdim, klevp1, klev, kproma, ktdia
+    INTEGER, INTENT(IN)    :: jg
+    INTEGER, INTENT(IN)    :: kbdim, klevp1, klev, kproma
     INTEGER, INTENT(IN)    ::  &
       & ktype(kbdim)          !< type of convection
     REAL(wp),INTENT(IN)    ::  &
@@ -103,7 +97,7 @@ CONTAINS
     REAL(wp),INTENT(OUT)   ::  &
       & printop(kbdim)
 
-    INTEGER :: jl, jk, jb, jbn
+    INTEGER :: jl, jk, jb
     INTEGER :: locnt, nl, ilev
     REAL(wp):: zdtdz, zcor, zrhc, zsat, zqr
     INTEGER :: itv1(kproma*klev), itv2(kproma*klev)
@@ -131,19 +125,20 @@ CONTAINS
 
     INTEGER :: knvb(kbdim), loidx(kproma*klev)
 
-    ! to simplify access to components of echam_cloud_config
-    jbmin  => echam_cloud_config% jbmin
-    jbmax  => echam_cloud_config% jbmax
-    csatsc => echam_cloud_config% csatsc
-    crs    => echam_cloud_config% crs
-    crt    => echam_cloud_config% crt
-    nex    => echam_cloud_config% nex
-    nadd   => echam_cloud_config% nadd
-    cinv   => echam_cloud_config% cinv
+    ! Shortcuts to components of echam_cld_config
+    !
+    INTEGER , POINTER :: jks, jbmin, jbmax, nex
+    REAL(wp), POINTER :: csatsc, crt, crs, cinv
+    !
+    jks    => echam_cld_config(jg)% jks
+    jbmin  => echam_cld_config(jg)% jbmin
+    jbmax  => echam_cld_config(jg)% jbmax
+    csatsc => echam_cld_config(jg)% csatsc
+    crs    => echam_cld_config(jg)% crs
+    crt    => echam_cld_config(jg)% crt
+    nex    => echam_cld_config(jg)% nex
+    cinv   => echam_cld_config(jg)% cinv
 
-#ifdef _PROFILE
-    CALL trace_start ('cover', 9)
-#endif
     !
     !   Initialize variables
     !
@@ -153,7 +148,7 @@ CONTAINS
       printop(jl)= 0.0_wp
     END DO
     !
-    DO jk = ktdia,klev
+    DO jk = jks,klev
       DO jl = 1,kproma
          zpapm1i(jl,jk) = SWDIV_NOCHK(1._wp,papm1(jl,jk))
       END DO
@@ -194,11 +189,11 @@ CONTAINS
     !
     !       1.   Calculate the saturation mixing ratio
     !
-    IF (ktdia < klev+1) THEN
+    IF (jks < klev+1) THEN
 
-      DO jk = ktdia,klev
+      DO jk = jks,klev
 
-        CALL prepare_ua_index_spline('cover (2)',kproma,ptm1(1,jk),itv1(1),          &
+        CALL prepare_ua_index_spline(jg,'cover (2)',kproma,ptm1(1,jk),itv1(1),       &
                                          za(1),pxim1(1,jk),nphase,zphase,itv2)
         CALL lookup_ua_eor_uaw_spline(kproma,itv1(1),za(1),nphase,itv2(1),ua(1))
 
@@ -219,9 +214,8 @@ CONTAINS
           zrhc=crt+(crs-crt)*EXP(1._wp-(paphm1(jl,klevp1)/papm1(jl,jk))**nex)
           zsat=1._wp
           jb=knvb(jl)
-          jbn=jb+nadd                  ! mo_echam_cloud_params: nadd=0 except for T31
           lao=(jb.GE.jbmin .AND. jb.LE.jbmax)
-          lao1=(jk.EQ.jb .OR. jk.EQ.jbn)
+          lao1=(jk.EQ.jb)
           ilev=klev
           IF (lao .AND. lao1) THEN
           !  ilev=klevp1-jb
@@ -239,9 +233,6 @@ CONTAINS
       END DO  !jk
     END IF
 
-#ifdef _PROFILE
-    CALL trace_stop ('cover', 9)
-#endif
     !
     !
   END SUBROUTINE cover

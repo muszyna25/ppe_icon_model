@@ -21,7 +21,7 @@
 MODULE mo_vdiff_downward_sweep
 
   USE mo_kind,               ONLY: wp
-  USE mo_echam_vdiff_params, ONLY: tpfac1, itop, eps_corio
+  USE mo_echam_vdiff_params, ONLY: tpfac1, itop
   USE mo_turbulence_diag,    ONLY: atm_exchange_coeff, sfc_exchange_coeff
   USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv, imh, imqv, &
                                  & matrix_setup_elim, rhs_setup, rhs_elim
@@ -34,7 +34,8 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE vdiff_down( kproma, kbdim, klev, klevm1, klevp1, ktrac,    &! in
+  SUBROUTINE vdiff_down( jg,                                            &! in
+                       & kproma, kbdim, klev, klevm1, klevp1, ktrac,    &! in
                        & ksfc_type, idx_wtr, idx_ice, idx_lnd,          &! in
                        & pdtime,  pcoriol,                              &! in
                        & pzf, pzh,                                      &! in
@@ -42,20 +43,20 @@ CONTAINS
                        & ptsfc_tile, pocu,      pocv,       ppsfc,      &! in
                        & pum1,       pvm1,      ptm1,       pqm1,       &! in
                        & pxlm1,      pxim1,     pxm1,       pxtm1,      &! in
-                       & pmair,      pmdry,                             &! in
+                       & pmair,      pmref,                             &! in
                        & paphm1,     papm1,                             &! in
                        & ptvm1,      paclc,     pxt_emis,   pthvvar,    &! in
                        & pxvar,      pz0m_tile,                         &! in
-                       & ptkem1,                                        &! in
+                       & ptottem1,                                      &! in
                        & pustar,     pwstar,    pwstar_tile,            &! inout
-                       & pqsat_tile, pghpbl,                            &! out
+                       & pqsat_tile, phdtcbl,                           &! out
                        & pri,        pri_tile,  pmixlen,                &! out
                        & pcfm,       pcfm_tile, pcfh,       pcfh_tile,  &! out
-                       & pcfv,       pcftke,    pcfthv,                 &! out
+                       & pcfv,       pcftotte,  pcfthv,                 &! out
                        & aa,         aa_btm,    bb,         bb_btm,     &! out
                        & pfactor_sfc, pcpt_tile,                        &! out
                        & pcptgz,                                        &! out
-                       & pzthvvar,   pthvsig,   pztkevn,                &! out
+                       & pzthvvar,   pthvsig,   pztottevn,              &! out
                        & pch_tile,                                      &! out, for "nsurf_diag"
                        & pbn_tile,   pbhn_tile,                         &! out, for "nsurf_diag"
                        & pbm_tile,   pbh_tile,                          &! out, for "nsurf_diag"
@@ -64,6 +65,7 @@ CONTAINS
                        & paz0lh)
 
 
+    INTEGER, INTENT(IN) :: jg
     INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1, klevp1, ktrac
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
     REAL(wp),INTENT(IN) :: pdtime
@@ -90,7 +92,7 @@ CONTAINS
 
     REAL(wp),INTENT(IN) ::        &
       & pmair   (kbdim,klev)     ,&!<     air mass [kg/m2]
-      & pmdry   (kbdim,klev)     ,&!< dra air mass [kg/m2]
+      & pmref   (kbdim,klev)     ,&!< dra air mass [kg/m2]
       & paphm1  (kbdim,klevp1)   ,&!< half level pressure [Pa]
       & papm1   (kbdim,klev)     ,&!< full level pressure [Pa]
       & ptvm1   (kbdim,klev)     ,&!< virtual temperature
@@ -103,7 +105,7 @@ CONTAINS
       & pxvar    (kbdim,klev)     ,&!< step t-dt
       & pz0m_tile(kbdim,ksfc_type)  !< roughness length at step t-dt
 
-    REAL(wp),INTENT(IN)  :: ptkem1(kbdim,klev)    !< TKE at step t-dt
+    REAL(wp),INTENT(IN)  :: ptottem1(kbdim,klev)    !< TTE at step t-dt
 
     ! Grid-box mean friction velocity.
     ! In: value at step t-2dt computed in the previous time step,
@@ -120,7 +122,8 @@ CONTAINS
                                                           !< humidity at sfc.
                                                           !< (step t-dt)
 
-    REAL(wp),INTENT(INOUT) :: pghpbl(kbdim)  !< geopotential height of PBL top
+    REAL(wp),INTENT(INOUT) :: phdtcbl(kbdim)  !< height of the top of the atmospheric dry 
+                                              !< convective boundary layer
 
     REAL(wp),INTENT(INOUT) ::      &   ! out
       & pri      (kbdim,klev)     ,&!< Richardson number
@@ -131,7 +134,7 @@ CONTAINS
       & pcfh     (kbdim,klev)     ,&!< exchange coeff. for heat and tracers
       & pcfh_tile(kbdim,ksfc_type),&!< exchange coeff. for heat and tracers
       & pcfv     (kbdim,klev)     ,&!< exchange coeff. for variance of qx
-      & pcftke   (kbdim,klev)     ,&!< exchange coeff. for TKE
+      & pcftotte (kbdim,klev)     ,&!< exchange coeff. for TTE
       & pcfthv   (kbdim,klev)       !< exchange coeff. for variance of theta_v
 
     ! Coefficient matrices and right-hand-side vectors.
@@ -151,7 +154,7 @@ CONTAINS
       & pcptgz    (kbdim,klev)     ,&!< dry static energy
       & pzthvvar  (kbdim,klev)     ,&!<
       & pthvsig   (kbdim)          ,&
-      & pztkevn   (kbdim,klev)       !< intermediate value of TKE
+      & pztottevn (kbdim,klev)       !< intermediate value of TTE
 
     REAL(wp), INTENT(OUT) :: pch_tile(kbdim,ksfc_type)    ! out, for "nsurf_diag"
     REAL(wp), INTENT(OUT) :: pbn_tile(kbdim,ksfc_type)    ! out, for "nsurf_diag"
@@ -172,7 +175,7 @@ CONTAINS
     REAL(wp) :: zfactor(kbdim,klev)   !< prefactor for the exchange coefficients
     REAL(wp) :: zrmairm(kbdim,klev)
     REAL(wp) :: zrmairh(kbdim,klevm1)
-    REAL(wp) :: zrmdrym(kbdim,klev)
+    REAL(wp) :: zrmrefm(kbdim,klev)
 
     ! _b denotes value at the bottom level (the klev-th full level)
 
@@ -195,25 +198,28 @@ CONTAINS
     ! reciprocal layer mass
     zrmairm(1:kproma,:) = 1._wp/ pmair(1:kproma,:)
     zrmairh(1:kproma,:) = 2._wp/(pmair(1:kproma,1:klevm1)+pmair(1:kproma,2:klev))
-    zrmdrym(1:kproma,:) = 1._wp/ pmdry(1:kproma,:)
+    zrmrefm(1:kproma,:) = 1._wp/ pmref(1:kproma,:)
 
     !----------------------------------------------------------------------
     ! 1. Compute various thermodynamic variables; Diagnose PBL extension;
     !    Compute exchange coefficients for half levels [1+1/2, klev-1/2];
-    !    Get TKE and variance of theta_v at intermediate time step.
+    !    Get TTE and variance of theta_v at intermediate time step.
     !----------------------------------------------------------------------
 
-    CALL atm_exchange_coeff( kproma, kbdim, klev, klevm1, klevp1,     &! in
+    CALL atm_exchange_coeff( jg,                                      &! in
+                           & kproma, kbdim, klev, klevm1, klevp1,     &! in
                            & pdtime, pcoriol,                         &! in
                            & zghf, zghh,                              &! in
                            & pum1, pvm1, ptm1, ptvm1,                 &! in
                            & pqm1, pxm1,                              &! in
                            & papm1, paphm1, paclc, pustar,            &! in
-                           & pthvvar, ptkem1,                         &! in
-                           & pcptgz, pghpbl,                          &! out
-                           & pzthvvar(:,1:klevm1),pztkevn(:,1:klevm1),&! out
+                           & pthvvar, ptottem1,                       &! in
+                           & pcptgz, phdtcbl,                         &! out
+                           & pzthvvar(:,1:klevm1),                    &! out
+                           & pztottevn(:,1:klevm1),                   &! out
                            & pcfm    (:,1:klevm1), pcfh  (:,1:klevm1),&! out
-                           & pcfv    (:,1:klevm1), pcftke(:,1:klevm1),&! out
+                           & pcfv    (:,1:klevm1),                    &! out
+                           & pcftotte(:,1:klevm1),                    &! out
                            & pcfthv  (:,1:klevm1),zfactor(:,1:klevm1),&! out
                            & ztheta_b, zthetav_b, zthetal_b,          &! out, for "sfc_exchange_coeff"
                            & zqsat_b,  zlh_b,                         &! out, for "sfc_exchange_coeff"
@@ -223,13 +229,14 @@ CONTAINS
 
     !-----------------------------------------------------------------------
     ! 2. Compute exchange coefficients at the air-sea/ice/land interface.
-    !    Get boundary condition for TKE and variance of theta_v.
+    !    Get boundary condition for TTE and variance of theta_v.
     !-----------------------------------------------------------------------
 
-    CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,              &! in
+    CALL sfc_exchange_coeff( jg,                                    &! in
+                           & kproma, kbdim, ksfc_type,              &! in
                            & idx_wtr, idx_ice, idx_lnd,             &! in
                            & pz0m_tile(:,:),  ptsfc_tile(:,:),      &! in
-                           & pfrc(:,:),       pghpbl(:),            &! in
+                           & pfrc(:,:),       phdtcbl(:),           &! in
                            & pocu(:),         pocv(:),   ppsfc(:),  &! in
                            & zghf(:,klev),                          &! in
                            & pum1(:,klev),    pvm1  (:,klev),       &! in
@@ -238,7 +245,7 @@ CONTAINS
                            & zqsat_b  (:),    zlh_b    (:),         &! in
                            & ztheta_b (:),    zthetav_b(:),         &! in
                            & zthetal_b(:),    paclc (:,klev),       &! in
-                           & ptkem1(:,klev),  pzthvvar(:,klevm1),   &! in
+                           & ptottem1(:,klev),pzthvvar(:,klevm1),   &! in
                            & pthvsig(:),                            &! inout
                            & pwstar(:),       pwstar_tile(:,:),     &! inout
                            & pqsat_tile(:,:), pcpt_tile(:,:),       &! out
@@ -246,9 +253,10 @@ CONTAINS
                            & pcfm   (:,klev), pcfm_tile(:,:),       &! out
                            & pcfh   (:,klev), pcfh_tile(:,:),       &! out
                            & pcfv   (:,klev),                       &! out
-                           & pcftke (:,klev), pcfthv  (:,klev),     &! out
+                           & pcftotte(:,klev),pcfthv  (:,klev),     &! out
                            & zfactor(:,klev),                       &! out
-                           & pztkevn(:,klev), pzthvvar(:,klev),     &! out
+                           & pztottevn(:,klev),                     &! out
+                           & pzthvvar(:,klev),                      &! out
                            & pustar(:),                             &! out, for "atm_exchange_coeff" at next time step
                            & pch_tile(:,:),                         &! out, for "nsurf_diag"
                            & pbn_tile(:,:),   pbhn_tile(:,:),       &! out, for "nsurf_diag"
@@ -277,9 +285,9 @@ CONTAINS
     CALL matrix_setup_elim( kproma, kbdim, klev, klevm1, ksfc_type, itop, &! in
                           & pcfm     (:,:),   pcfh  (:,1:klevm1),         &! in
                           & pcfh_tile(:,:),   pcfv  (:,:),                &! in
-                          & pcftke   (:,:),   pcfthv(:,:),                &! in
+                          & pcftotte (:,:),   pcfthv(:,:),                &! in
                           & zfactor  (:,:),                               &! in
-                          & zrmairm, zrmairh, zrmdrym,                    &! in
+                          & zrmairm, zrmairh, zrmrefm,                    &! in
                           & aa, aa_btm                                    )! out
 
     ! Save for output, to be used in "update_surface"
@@ -297,7 +305,7 @@ CONTAINS
                   & ksfc_type, ktrac, pdtime,             &! in
                   & pum1, pvm1, pcptgz, pqm1,             &! in
                   & pxlm1, pxim1, pxvar, pxtm1, pxt_emis, &! in
-                  & zrmdrym, pztkevn, pzthvvar, aa,       &! in
+                  & zrmrefm, pztottevn, pzthvvar, aa,     &! in
                   & bb, bb_btm                            )! out
 
     CALL rhs_elim ( kproma, kbdim, itop, klev, klevm1, &! in

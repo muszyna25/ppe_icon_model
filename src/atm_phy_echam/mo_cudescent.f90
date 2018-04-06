@@ -34,25 +34,21 @@
 !! Where software is supplied by third parties, it is indicated in the headers of the routines.
 !!
 MODULE mo_cudescent
+
   USE mo_kind,                 ONLY : wp
   USE mo_physical_constants,   ONLY : grav, rd, vtmpc1
-  USE mo_echam_conv_config,    ONLY : echam_conv_config
+  USE mo_echam_cnv_config,     ONLY : echam_cnv_config
   USE mo_cuadjust,             ONLY : cuadjtq
-  !
  
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: cudlfs, cuddraf
 
-  ! to simplify access to components of echam_conv_config
-  LOGICAL , POINTER :: lmfdd, lmfdudv
-  REAL(wp), POINTER :: cmfdeps, cmfcmin, entrdd
-
-
 CONTAINS
   !>
   !!
-  SUBROUTINE cudlfs(   kproma, kbdim, klev, klevp1,                                  &
+  SUBROUTINE cudlfs(   jg,                                                           &
+    &        kproma,   kbdim,    klev,     klevp1,                                   &
     &        ptenh,    pqenh,    puen,     pven,                                     &
     &        ktrac,                                                                  &
     &        pxtenh,   pxtu,     pxtd,     pmfdxt,                                   &
@@ -64,7 +60,7 @@ CONTAINS
     &        pcpcu,                                                                  &
     &        kdtop,    lddraf                                                       )
     !
-    !
+    INTEGER, INTENT (IN) :: jg
     INTEGER, INTENT (IN) :: kbdim, klev, ktrac, kproma, klevp1
     REAL(wp) :: ptenh(kbdim,klev),       pqenh(kbdim,klev),                          &
       &         puen(kbdim,klev),        pven(kbdim,klev),                           &
@@ -93,12 +89,15 @@ CONTAINS
     INTEGER  :: jl, jk, ke, is, ik, icall, jt
     REAL(wp) :: zttest, zqtest, zbuo, zmftop
 
-    ! to simplify access to components of echam_conv_config
-    lmfdudv  => echam_conv_config% lmfdudv
-    lmfdd    => echam_conv_config% lmfdd
-    cmfdeps  => echam_conv_config% cmfdeps
-
+    ! Shortcuts to components of echam_cnv_config
     !
+    LOGICAL , POINTER :: lmfdd, lmfdudv
+    REAL(wp), POINTER :: cmfdeps
+    !
+    lmfdudv  => echam_cnv_config(jg)% lmfdudv
+    lmfdd    => echam_cnv_config(jg)% lmfdd
+    cmfdeps  => echam_cnv_config(jg)% cmfdeps
+
     !---------------------------------------------------------------------------------
     !
     !     1.           Set default values for downdrafts
@@ -203,8 +202,9 @@ CONTAINS
   END SUBROUTINE cudlfs
   !>
   !!
-  SUBROUTINE cuddraf(  kproma, kbdim, klev, klevp1,                                  &
-    &        pmdry,                                                                  &
+  SUBROUTINE cuddraf(  jg,                                                           &
+    &        kproma,   kbdim,    klev,     klevp1,                                   &
+    &        pmref,                                                                  &
     &        ptenh,    pqenh,    puen,     pven,                                     &
     &        ktrac,                                                                  &
     &        pxtenh,   pxtd,     pmfdxt,                                             &
@@ -214,9 +214,10 @@ CONTAINS
     &        pcpcu,                                                                  &
     &        lddraf                                                                 )
     !
+    INTEGER, INTENT (IN) :: jg
     INTEGER, INTENT (IN) :: kbdim, klev, ktrac, kproma, klevp1
     !
-    REAL(wp),INTENT (IN) :: pmdry(kbdim,klev)
+    REAL(wp),INTENT (IN) :: pmref(kbdim,klev)
     
     REAL(wp) :: ptenh(kbdim,klev),       pqenh(kbdim,klev),                          &
       &         puen(kbdim,klev),        pven(kbdim,klev),                           &
@@ -242,12 +243,15 @@ CONTAINS
     REAL(wp) :: zentr, zseen, zqeen, zsdde, zqdde, zmfdsk, zmfdqk, zxteen            &
       &       , zxtdde, zmfdxtk, zbuo, zdmfdp, zmfduk, zmfdvk
 
-    ! to simplify access to components of echam_conv_config
-    lmfdudv  => echam_conv_config% lmfdudv
-    cmfcmin  => echam_conv_config% cmfcmin
-    entrdd   => echam_conv_config% entrdd
-
+    ! Shortcuts to components of echam_cnv_config
     !
+    LOGICAL , POINTER :: lmfdudv
+    REAL(wp), POINTER :: cmfcmin, entrdd
+    !
+    lmfdudv  => echam_cnv_config(jg)% lmfdudv
+    cmfcmin  => echam_cnv_config(jg)% cmfcmin
+    entrdd   => echam_cnv_config(jg)% entrdd
+
     !----------------------------------------------------------------------
     !     1.  Calculate moist descent for cumulus downdraft by
     !        (A) Calculating entrainment rates, assuming
@@ -273,7 +277,7 @@ CONTAINS
       END DO
       DO jl=1,kproma
         IF(llo2(jl)) THEN
-          zentr=entrdd*pmfd(jl,jk-1)*rd*ptenh(jl,jk-1)/paphp1(jl,jk-1)*pmdry(jl,jk-1)
+          zentr=entrdd*pmfd(jl,jk-1)*rd*ptenh(jl,jk-1)/paphp1(jl,jk-1)*pmref(jl,jk-1)
           zdmfen(jl)=zentr
           zdmfde(jl)=zentr
         END IF
@@ -283,7 +287,7 @@ CONTAINS
         DO jl=1,kproma
           IF(llo2(jl)) THEN
             zdmfen(jl)=0._wp
-            zdmfde(jl)=pmfd(jl,itopde)* pmdry(jl,jk-1)*grav/             &
+            zdmfde(jl)=pmfd(jl,itopde)* pmref(jl,jk-1)*grav/             &
               &                         (paphp1(jl,klevp1)-paphp1(jl,itopde))
           END IF
         END DO

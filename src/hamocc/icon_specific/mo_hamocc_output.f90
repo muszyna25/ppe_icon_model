@@ -191,7 +191,7 @@
      
      CALL add_var(hamocc_default_list, 'no3',hamocc_state_diag%no3,    &
       & grid_unstructured_cell, za_depth_below_sea,&
-      & t_cf_var('no3','kmolP m-3','Nitrate concentration', DATATYPE_FLT32), &
+      & t_cf_var('no3','kmol N m-3','Nitrate concentration', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
       & loutput=.TRUE., lrestart=.FALSE.)
@@ -205,14 +205,14 @@
 
      CALL add_var(hamocc_default_list, 'n2',hamocc_state_diag%n2,    &
       & grid_unstructured_cell, za_depth_below_sea,&
-      & t_cf_var('n2','kmolP m-3','gaseous nitrogen concentration', DATATYPE_FLT32), &
+      & t_cf_var('n2','kmol N2 m-3','gaseous nitrogen concentration', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
      CALL add_var(hamocc_default_list, 'o2',hamocc_state_diag%o2,    &
       & grid_unstructured_cell, za_depth_below_sea,&
-      & t_cf_var('o2','kmolP m-3','oxygen concentration', DATATYPE_FLT32), &
+      & t_cf_var('o2','kmolP O2 m-3','oxygen concentration', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
       & loutput=.TRUE., lrestart=.FALSE.)
@@ -247,21 +247,21 @@
 
      CALL add_var(hamocc_default_list, 'n2o',hamocc_state_diag%n2o,    &
       & grid_unstructured_cell, za_depth_below_sea,&
-      & t_cf_var('n2o','kmolP m-3','N2O concentration', DATATYPE_FLT32), &
+      & t_cf_var('n2o','kmol  m-3','N2O concentration', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
      CALL add_var(hamocc_default_list, 'calc',hamocc_state_diag%calc,    &
       & grid_unstructured_cell, za_depth_below_sea,&
-      & t_cf_var('calc','kmolP m-3','calcium carbonate shells', DATATYPE_FLT32), &
+      & t_cf_var('calc','kmol C m-3','calcium carbonate shells', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
      CALL add_var(hamocc_default_list, 'opal',hamocc_state_diag%opal,    &
       & grid_unstructured_cell, za_depth_below_sea,&
-      & t_cf_var('opal','kmolP m-3','opal shells', DATATYPE_FLT32), &
+      & t_cf_var('opal','kmol Si m-3','opal shells', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
       & loutput=.TRUE., lrestart=.FALSE.)
@@ -447,6 +447,13 @@
       & t_cf_var('phymor','kmol P m-3 s-1','phytoplankton mortality', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_acc_list, 'co2mr',hamocc_state_acc%co2mr,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('co2mr','ppm','co2 mixing ratio in the atmosphere', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 92, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
     CALL add_var(hamocc_acc_list, 'co2flux',hamocc_state_acc%cflux,    &
@@ -1347,6 +1354,14 @@
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'co2mr',hamocc_state_tend%co2mr,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('co2mr','ppm','co2 mixing ratio', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
 
     CALL add_var(hamocc_tendency_list, 'co2flux',hamocc_state_tend%cflux,    &
       & grid_unstructured_cell, za_surface,&

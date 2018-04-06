@@ -72,10 +72,12 @@ MODULE mo_radiation
 
   USE mo_lrtm_par,             ONLY: jpband => nbndlw, jpxsec => maxxsec
   USE mo_lrtm,                 ONLY: lrtm
+  USE mo_psrad_gas_optics,     ONLY: psrad_precomputation => precomputation
   USE mo_psrad_lrtm_driver,    ONLY: psrad_lrtm => lrtm
   USE mo_srtm_config,          ONLY: jpsw, jpinpx
   USE mo_srtm,                 ONLY: srtm_srtm_224gp
-  USE mo_psrad_srtm_driver,    ONLY: psrad_srtm => srtm
+  USE mo_psrad_general,        ONLY: nbndsw, nmixture, ngas
+  USE mo_psrad_srtm_driver,    ONLY: psrad_srtm => srtm, psrad_srtm_diags => srtm_diags
   USE mo_psrad_solar_parameters, ONLY: psctm
   USE mo_timer,                ONLY: ltimer, timer_start, timer_stop,  &
     &                                timer_radiation,                  &
@@ -1299,7 +1301,6 @@ CONTAINS
       &  zlwgkg_vr(kbdim,klev),           & !< specific liquid water content
       &  zlwp_vr(kbdim,klev),             & !< liquid water path in g/m2
       &  zlwc_vr(kbdim,klev),             & !< liquid water content per
-      &  wkl_vr(kbdim,jpinpx,klev),       & !< number of molecules/cm2 of
       &  wx_vr(kbdim,jpxsec,klev),        & !< number of molecules/cm2 of
       &  cld_tau_lw_vr(kbdim,klev,jpband),& !< LW optical thickness of clouds
       &  cld_tau_sw_vr(kbdim,jpsw,klev),  & !< extincion
@@ -1318,6 +1319,8 @@ CONTAINS
       &  flx_dnsw(kbdim,klev+1),          & !< downward flux total sky
       &  flx_dnsw_clr(kbdim,klev+1)         !< downward flux clear sky
 
+    REAL(wp), TARGET ::                   &
+      &  wkl_vr(kbdim,jpinpx,klev)        !< number of molecules/cm2 of
     REAL(wp) :: tune_dust(kbdim,jpband)  ! local variable for LW absorption tuning of dust
 
     CHARACTER(LEN=3)     :: c_irad_aero
@@ -1332,11 +1335,36 @@ CONTAINS
          re_cryst  (kbdim,klev),       & !< effective radius of ice
          aux_out   (kbdim,9),          &
          zmu0      (kbdim),            &
-         zdayfrc   (kbdim)
+         zdayfrc   (kbdim), &
+         fac(kbdim,2,2,klev), &
+         h2o_factor(kbdim,klev,2), &
+         h2o_fraction(kbdim,klev,2), &
+         colbrd(kbdim,klev), &
+         colmol(kbdim,klev), &
+         minorfrac(kbdim,klev), &
+         scaleminor(kbdim,klev)
+
+    REAL(wp), TARGET ::                        &
+         actual_gases(kbdim,klev,ngas), &
+         actual_ratio(kbdim,2,klev,nmixture), &
+         actual_scaleminorn2(kbdim,klev)
+    REAL(wp), POINTER :: &
+         ratio(:,:,:,:), &
+         scaleminorn2(:,:)
+         
+    INTEGER :: &
+         laytrop(kbdim), &
+         iabs(kbdim,2,2,klev), &
+         jp_psrad(kbdim,klev), &
+         indminor(kbdim,klev), &
+         h2o_index(kbdim,klev,2)
 
     INTEGER, PARAMETER    :: rng_seed_size = 4
     INTEGER :: rnseeds(kbdim,rng_seed_size)
+    REAL(WP) :: per_band_flux(KBDIM,nbndsw,3), bnd_wght(nbndsw)
 
+    ratio => actual_ratio
+    scaleminorn2 => actual_scaleminorn2
     ! Initialize output variables
     flx_lw_net(:,:)     = 0._wp
     flx_lw_net_clr(:,:) = 0._wp
@@ -1604,13 +1632,24 @@ CONTAINS
     ELSE
       ! Seeds for random numbers come from least significant digits of pressure field 
       !
-      rnseeds(1:jce,1:rng_seed_size) = (pm_fl_vr(1:jce,1:rng_seed_size) -  &
-         int(pm_fl_vr(1:jce,1:rng_seed_size)))* 1E9
+      CALL psrad_precomputation(jce &
+        & ,kbdim        ,klev         ,.false.     ,pm_fl_vr     ,tk_fl_vr &
+        & ,col_dry_vr   ,wkl_vr       ,laytrop     ,jp_psrad     ,iabs     &
+        & ,colbrd       ,colmol      ,fac          ,ratio    &
+        & ,h2o_factor   ,h2o_fraction ,h2o_index   ,minorfrac    ,scaleminor &
+        & ,scaleminorn2 ,indminor)
+      rnseeds(1:jce,1:rng_seed_size) = int((pm_fl_vr(1:jce,1:rng_seed_size) -  &
+         int(pm_fl_vr(1:jce,1:rng_seed_size)))* 1E9)
       CALL psrad_lrtm(jce                                                       ,&
-           & kbdim           ,klev            ,pm_fl_vr        ,pm_sfc          ,&
+           & kbdim           ,klev            , pm_fl_vr        ,pm_sfc          ,&
            & tk_fl_vr        ,tk_hl_vr        ,tk_sfc          ,wkl_vr          ,&
            & wx_vr           ,col_dry_vr      ,zsemiss         ,cld_frc_vr      ,&
-           & cld_tau_lw_vr   ,aer_tau_lw_vr   ,rnseeds         ,flx_uplw_vr     ,&     
+           & cld_tau_lw_vr   ,aer_tau_lw_vr   ,rnseeds         ,&
+           
+      ratio, scaleminorn2, fac, laytrop, iabs, &
+      jp_psrad, indminor, h2o_factor, h2o_fraction, h2o_index, &
+      colbrd, minorfrac, scaleminor, &
+           flx_uplw_vr     ,&     
            & flx_dnlw_vr     ,flx_uplw_clr_vr ,flx_dnlw_clr_vr )
     ENDIF
     IF (ltimer) CALL timer_stop(timer_lrtm)
@@ -1639,8 +1678,8 @@ CONTAINS
     ELSE
       ! Reset random seeds so SW doesn't depend on what's happened in LW but is also independent
       !
-      rnseeds(1:jce,1:rng_seed_size) = (pm_fl_vr(1:jce,rng_seed_size:1:-1) - &
-         int(pm_fl_vr(1:jce,rng_seed_size:1:-1)))* 1E9
+      rnseeds(1:jce,1:rng_seed_size) = int((pm_fl_vr(1:jce,rng_seed_size:1:-1) - &
+         int(pm_fl_vr(1:jce,rng_seed_size:1:-1)))* 1E9)
       WHERE (pmu0(1:jce) > 0.0_wp)
          zdayfrc(1:jce) = 1.0_wp
       ELSEWHERE
@@ -1650,13 +1689,19 @@ CONTAINS
       
       !
       CALL psrad_srtm(jce                                                      , & 
-         &  kbdim           ,klev            ,pm_fl_vr        ,tk_fl_vr        , &
-         &  wkl_vr          ,col_dry_vr      ,alb_vis_dir     ,alb_vis_dif     , &
+         &  kbdim           ,klev            , &
+         &  alb_vis_dir     ,alb_vis_dif     , &
          &  alb_nir_dir     ,alb_nir_dif     ,zmu0, zdayfrc   ,ssi_radt/psctm  , &
          &  psctm           ,cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    , &
          &  cld_piz_sw_vr   ,aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr   , & 
-         &  rnseeds         ,flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    , &
-         & flx_upsw_clr     ,aux_out(:,1)    ,aux_out(:,2)    ,aux_out(:,3)    , &
+         &  rnseeds         ,&
+      laytrop, jp_psrad, iabs, wkl_vr, colmol, fac, &
+      h2o_factor, h2o_fraction, h2o_index, &
+         &  flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr    , &
+         &  bnd_wght        ,per_band_flux)
+
+      CALL psrad_srtm_diags(jce, kbdim, &
+         &  per_band_flux   ,aux_out(:,1)    ,aux_out(:,2)    ,aux_out(:,3)    , &
          &  aux_out(:,4)    ,aux_out(:,5)    ,aux_out(:,6)    ,aux_out(:,7)    , &
          aux_out(:,8)    ,aux_out(:,9) )
 

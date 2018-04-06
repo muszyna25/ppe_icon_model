@@ -125,8 +125,7 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
 
       !! Local variables
    
-      INTEGER  :: j,k, kpke
-      REAL(wp) :: oldigasnit                                                                          
+      INTEGER  :: j,k, kpke                                                                    
       REAL(wp) :: cyapro,cyaloss
       REAL(wp) :: avanut,avcyabac                                             
       REAL(wp) :: pho,xn,avanfe,pho_fe,pho_p 
@@ -139,7 +138,7 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
 !HAMOCC_OMP_PARALLEL 
 !HAMOCC_OMP_DO PRIVATE(j,kpke,k,avcyabac,avanut,avanfe,avnit,l_fe,l_I,T_min_Topt,&
 !HAMOCC_OMP           sgnT,l_T,xa_p,l_P,xa_fe,pho_fe,pho_p,xn_p,xn_fe,pho,phosy_cya, &
-!HAMOCC_OMP            cyapro,oldigasnit,xn,cyaloss,dyn_pi_alpha_cya) HAMOCC_OMP_DEFAULT_SCHEDULE
+!HAMOCC_OMP            cyapro,xn,cyaloss,dyn_pi_alpha_cya) HAMOCC_OMP_DEFAULT_SCHEDULE
 
   DO j = start_idx, end_idx
   
@@ -185,10 +184,7 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
               l_fe = xa_fe / (bkcya_fe + xa_fe)                  !iron limitation
               bgctend(j,k,kcFlim) = l_fe 
 
-              pho_fe = dtb*cya_growth_max*l_I*l_T*l_fe  
-              pho_p  = dtb*cya_growth_max*l_I*l_T*l_P
-
-        
+                 
               pho=dtb*cya_growth_max*l_I*l_T*l_P*l_fe            !growth 
 
         
@@ -203,12 +199,12 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
               bgctra(j,k,iphosph) = bgctra(j,k,iphosph) - phosy_cya    
               bgctra(j,k,iiron) = bgctra(j,k,iiron) - phosy_cya * riron  
               
-              oldigasnit = bgctra(j,k,igasnit)  
               bgctra(j,k,igasnit) = bgctra(j,k,igasnit) - (phosy_cya - cyapro)*rnit/rn2  ! gasnit [N2]
+              bgctend(j,k,knfix) = (phosy_cya - cyapro)*rnit/rn2/dtbgc  ! gasnit [N2]
   
            
 
-              bgctend(j,k,knfix) =  -1._wp * rn2 *(bgctra(j,k,igasnit) - oldigasnit)/dtbgc   ! N fixation
+              !bgctend(j,k,knfix) =  -1._wp * (bgctra(j,k,igasnit) - oldigasnit)/dtbgc   ! N fixation
               bgctend(j,k,kpho_cya) =  phosy_cya/dtbgc   
               bgctend(j,k,kn2b) = bgctend(j,k,kn2b) - (phosy_cya -cyapro) * rnit
  
