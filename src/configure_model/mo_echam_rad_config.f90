@@ -28,7 +28,6 @@ MODULE mo_echam_rad_config
   USE mo_impl_constants       ,ONLY: max_dom
   USE mo_grid_config          ,ONLY: n_dom
   USE mo_run_config           ,ONLY: iqt, ico2, io3, ntracer, lart
-  USE mo_physical_constants   ,ONLY: amd, amco2, amch4, amn2o, amo2, amc11, amc12
 
   IMPLICIT NONE
 

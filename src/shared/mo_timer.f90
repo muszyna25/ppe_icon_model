@@ -35,7 +35,9 @@ MODULE mo_timer
 
 #endif
 
-  USE mo_run_config, ONLY: ltimer, timers_level,  activate_sync_timers
+  USE mo_run_config, ONLY: ltimer, timers_level,  activate_sync_timers, iforcing
+
+  USE mo_impl_constants, ONLY: iecham
   
   IMPLICIT NONE
   PRIVATE
@@ -84,12 +86,15 @@ MODULE mo_timer
   PUBLIC :: timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
   !
   ! echam physics
-  PUBLIC :: timer_cover
-  PUBLIC :: timer_radiation, timer_radheat
-  PUBLIC :: timer_vdiff_down, timer_vdiff_up
-  PUBLIC :: timer_surface, timer_jsbach
-  PUBLIC :: timer_gw_hines, timer_ssodrag
-  PUBLIC :: timer_convection, timer_cloud
+  PUBLIC :: timer_cov
+  PUBLIC :: timer_rad , timer_rht
+  PUBLIC :: timer_vdf , timer_vdf_dn , timer_vdf_sf , timer_vdf_up
+  PUBLIC :: timer_gwd !!$, timer_sso
+  PUBLIC :: timer_cnv , timer_cld
+  PUBLIC :: timer_car , timer_mox
+  !
+  ! jsbach
+  PUBLIC :: timer_jsbach
   !
   ! echam radiation
   PUBLIC :: timer_rrtm_prep, timer_rrtm_post
@@ -125,6 +130,8 @@ MODULE mo_timer
 
   PUBLIC :: timer_sso
   PUBLIC :: timer_cover_koe
+  PUBLIC :: timer_radiation
+  PUBLIC :: timer_radheat
   PUBLIC :: timer_omp_radiation
   PUBLIC :: timer_lonlat_setup
   PUBLIC :: timer_write_output
@@ -256,6 +263,8 @@ MODULE mo_timer
 
   INTEGER :: timer_sso
   INTEGER :: timer_cover_koe
+  INTEGER :: timer_radiation
+  INTEGER :: timer_radheat
 
   ! Timer ID's for horizontal operators
   INTEGER :: timer_div
@@ -284,12 +293,15 @@ MODULE mo_timer
   INTEGER :: timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
   !
   ! echam physics
-  INTEGER :: timer_cover
-  INTEGER :: timer_radiation, timer_radheat
-  INTEGER :: timer_vdiff_down, timer_vdiff_up
-  INTEGER :: timer_surface, timer_jsbach
-  INTEGER :: timer_gw_hines, timer_ssodrag
-  INTEGER :: timer_convection, timer_cloud
+  INTEGER :: timer_cov
+  INTEGER :: timer_rad , timer_rht
+  INTEGER :: timer_vdf , timer_vdf_dn , timer_vdf_sf , timer_vdf_up
+  INTEGER :: timer_gwd !!$, timer_sso
+  INTEGER :: timer_cnv   , timer_cld
+  INTEGER :: timer_car , timer_mox
+  !
+  ! jsbach
+  INTEGER :: timer_jsbach
   !
   ! echam radiation
   INTEGER :: timer_rrtm_prep, timer_rrtm_post
@@ -557,33 +569,42 @@ CONTAINS
     timer_coupling_get    = new_timer("coupling_get")
     timer_coupling_put    = new_timer("coupling_put")
 
-    ! iconam - echam coupling
-    timer_iconam_echam= new_timer("iconam_echam")
-    timer_dyn2phy     = new_timer("dyn2phy")
-    timer_d2p_prep    = new_timer("d2p_prep")
-    timer_d2p_sync    = new_timer("d2p_sync")
-    timer_d2p_couple  = new_timer("d2p_couple")
-    timer_echam_bcs   = new_timer("echam_bcs")
-    timer_echam_phy   = new_timer("echam_phy")
-    timer_phy2dyn     = new_timer("phy2dyn")
-    timer_p2d_prep    = new_timer("p2d_prep")
-    timer_p2d_sync    = new_timer("p2d_sync")
-    timer_p2d_couple  = new_timer("p2d_couple")
+    IF (iforcing == iecham) THEN
+       !
+       ! iconam - echam coupling
+       timer_iconam_echam= new_timer("iconam_echam")
+       timer_dyn2phy     = new_timer("dyn2phy")
+       timer_d2p_prep    = new_timer("d2p_prep")
+       timer_d2p_sync    = new_timer("d2p_sync")
+       timer_d2p_couple  = new_timer("d2p_couple")
+       timer_echam_bcs   = new_timer("echam_bcs")
+       timer_echam_phy   = new_timer("echam_phy")
+       timer_phy2dyn     = new_timer("phy2dyn")
+       timer_p2d_prep    = new_timer("p2d_prep")
+       timer_p2d_sync    = new_timer("p2d_sync")
+       timer_p2d_couple  = new_timer("p2d_couple")
+       !
+       ! echam physics
+       timer_cov    = new_timer("interface_echam_cov")
+       timer_rad    = new_timer("interface_echam_rad")
+       timer_rht    = new_timer("interface_echam_rht")
+       timer_vdf    = new_timer("interface_echam_vdf")
+       timer_vdf_dn = new_timer("vdiff_down")
+       timer_vdf_sf = new_timer("update_surface")
+       timer_vdf_up = new_timer("vdiff_up")
+       timer_gwd    = new_timer("interface_echam_gwd")
+       timer_sso    = new_timer("interface_echam_sso")
+       timer_cnv    = new_timer("interface_echam_cnv")
+       timer_cld    = new_timer("interface_echam_cld")
+       timer_car    = new_timer("interface_echam_car")
+       timer_mox    = new_timer("interface_echam_mox")
+       !
+    END IF
     !
-    ! echam physics
-    timer_cover     = new_timer("cover")
-    timer_radiation = new_timer("radiation")
-    timer_radheat   = new_timer("radheat")
-    timer_vdiff_down= new_timer("vdiff_down")
-    timer_vdiff_up  = new_timer("vdiff_up")
-    timer_surface   = new_timer("surface")
-    timer_jsbach    = new_timer("jsbach")
-    timer_gw_hines  = new_timer("gw_hines")
-    timer_ssodrag   = new_timer("ssodrag")
-    timer_convection= new_timer("convection")
-    timer_cloud     = new_timer("cloud")
+    ! jsbach
+    timer_jsbach = new_timer("jsbach")
     !
-    ! echam radiation
+    ! radiation
     timer_rrtm_prep = new_timer("rrtm_prep")
     timer_rrtm_post = new_timer("rrtm_post")
     timer_lrtm      = new_timer("lrtm")
@@ -599,7 +620,7 @@ CONTAINS
     timer_psrad_aerosol = new_timer("psrad_aerosol")
 #endif
 
-    ! physics timers
+    ! nwp physics timers
     timer_omp_radiation = new_timer("omp_radiation")
     timer_nwp_radiation = new_timer("nwp_radiation")
     timer_radiaton_recv = new_timer("radiaton_recv")
@@ -632,8 +653,10 @@ CONTAINS
     timer_fast_phys = new_timer("rediag_prog_vars")
     timer_nwp_convection = new_timer("nwp_convection")
     timer_pre_radiation_nwp = new_timer("pre_radiation_nwp")
-    timer_sso = new_timer("sso")
+    IF (iforcing/=iecham) timer_sso = new_timer("sso")
     timer_cover_koe = new_timer("cloud_cover")
+    timer_radiation = new_timer("radiation")
+    timer_radheat   = new_timer("radheat")
     timer_synsat    = new_timer("synsat")
 
     timer_model_init    = new_timer("model_init")

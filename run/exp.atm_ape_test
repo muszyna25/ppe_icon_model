@@ -261,7 +261,9 @@ if [[ "$output_atm_cgrid" == "yes" ]]; then
  output_end       = "${start_date}"       ! --> write once only irrespective of
  output_interval  = "${output_interval}"  !     the output interval and
  file_interval    = "${file_interval}"    !     the file interval
- ml_varlist       = 'clon', 'clat', 'areacella', 'zghalf', 'zg'
+ ml_varlist       = 'clon'    , 'clat'    , 'areacella',
+                    'sftlf'   , 'sftgif'  , 'sftof'    ,
+                    'orog'    , 'zghalf'  , 'zg'       ,
 /
 EOF
 fi
@@ -310,8 +312,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'orog'    ,
-                    'ps'      , 'psl'     ,
+ ml_varlist       = 'ps'      , 'psl'     ,
                     'cosmu0'  ,
                     'rsdt'    ,
                     'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'  ,

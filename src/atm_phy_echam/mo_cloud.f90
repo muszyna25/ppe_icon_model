@@ -86,6 +86,7 @@ CONTAINS
                            , pqm1,         pxlm1,        pxim1                       &
                            , ptte                                                    &
                            , pqte                                                    &
+                           , lnew                                                    &
     ! - INPUT/OUTPUT 1D .
                            , ktype                                                   &
     ! - INPUT/OUTPUT 2D .
@@ -119,6 +120,8 @@ CONTAINS
       & pxim1    (kbdim,klev)     ,&!< cloud ice                                 (n-1)
       & ptte     (kbdim,klev)     ,&!< tendency of temperature
       & pqte     (kbdim,klev)       !< tendency of specific humidity
+    LOGICAL,  INTENT(in)    ::     &!< debug switch
+      & lnew
     REAL(wp), INTENT(INOUT) ::     &
       & paclc    (kbdim,klev)       !< cloud cover  (now diagnosed in cover)
     REAL(wp),INTENT(OUT)    ::     &
@@ -525,10 +528,18 @@ CONTAINS
       !         cond1(jl) = 0
       !       END IF
 
+        IF (.NOT.lnew) THEN
         zlo2(jl)  = FSEL(ptm1(jl,jk)+ptte(jl,jk)*pdtime-tmelt, 0._wp, 1._wp)
+        ELSE
+        zlo2(jl)  = FSEL(ptm1(jl,jk)-tmelt, 0._wp, 1._wp)
+        END IF
         zlo2(jl)  = FSEL(csecfrl-zxised(jl), 0._wp, zlo2(jl))
       !!$  zlo2(jl)  = FSEL(zsupsatw(jl)-zeps, 0._wp, zlo2(jl))
+        IF (.NOT.lnew) THEN
         zlo2(jl)  = FSEL(ptm1(jl,jk)+ptte(jl,jk)*pdtime-cthomi, zlo2(jl), 1._wp)
+        ELSE
+        zlo2(jl)  = FSEL(ptm1(jl,jk)-cthomi, zlo2(jl), 1._wp)
+        END IF
         cond1(jl) = INT(zlo2(jl))
         zlo2(jl)  = zlo2(jl)-0.5_wp ! zlo2 >= 0  <==> cond1 = 1
 421   END DO
@@ -582,12 +593,26 @@ CONTAINS
         zqsm1(jl)   = zqsm1(jl)*zcor
         zdqsdt      = zpapm1_inv(jl)*zcor**2*zdua
         zlcdqsdt    = zlc*zdqsdt
+        IF (.NOT.lnew) THEN
         zdtdt(jl)   = ptte(jl,jk)*pdtime-zlvdcp(jl)*(zevp(jl)+zxlevap(jl))           &
                     - zlsdcp(jl)*(zsub(jl)+zxievap(jl))                              &
                     - (zlsdcp(jl)-zlvdcp(jl))*(zsmlt(jl)+zimlt(jl))
+        ELSE
+        zdtdt(jl)   = - zlvdcp(jl)*(zevp(jl)+zxlevap(jl))                            &
+                      - zlsdcp(jl)*(zsub(jl)+zxievap(jl))                            &
+                      -(zlsdcp(jl)-zlvdcp(jl))*(zsmlt(jl)+zimlt(jl))
+        END IF
+        IF (.NOT.lnew) THEN
         zstar1(jl)  = zclcaux(jl)*zlc*pqte(jl,jk)*pdtime
+        ELSE
+        zstar1(jl)  = 0._wp
+        END IF
         zdqsat1(jl) = zdqsdt/(1._wp+zclcaux(jl)*zlcdqsdt)
+        IF (.NOT.lnew) THEN
         zqvdt(jl)   = pqte(jl,jk)*pdtime+zevp(jl)+zsub(jl)+zxievap(jl)+zxlevap(jl)
+        ELSE
+        zqvdt(jl)   = zevp(jl)+zsub(jl)+zxievap(jl)+zxlevap(jl)
+        END IF
         zqp1(jl)    = MAX(pqm1(jl,jk)+zqvdt(jl),0.0_wp)
         ztp1(jl)    = ptm1(jl,jk)+zdtdt(jl)
         zgenti(jl)  = 0.0_wp
@@ -606,7 +631,11 @@ CONTAINS
         zdtdtstar = zdtdt(jl)+zstar1(jl)
         zdqsat    = zdtdtstar*zdqsat1(jl)
         zxilb     = zxib(jl)+zxlb(jl)
+        IF (.NOT.lnew) THEN
         zqcdif    = (pqte(jl,jk)*pdtime-zdqsat)*zclcaux(jl)
+        ELSE
+        zqcdif    = -zdqsat*zclcaux(jl)
+        END IF
         zqcdif    = MAX(zqcdif,-zxilb*zclcaux(jl))
         zqcdif    = MIN(zqcdif,zqsec*zqp1(jl))
         ztmp1(jl) = zqcdif

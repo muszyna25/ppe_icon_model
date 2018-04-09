@@ -1,5 +1,5 @@
 !>
-!! @brief Subroutine echam_phy_main calls all the parameterization schemes
+!! @brief Subroutine interface_echam_mox calls the CH4 oxidation and H2O photolysis schemes.
 !!
 !! @author S. Rast, MPI-M
 !!
@@ -18,44 +18,53 @@
 MODULE mo_interface_echam_mox
   
   USE mo_kind                ,ONLY: wp
-
-  USE mo_parallel_config     ,ONLY: nproma
-  USE mo_run_config          ,ONLY: nlev, iqv
-
   USE mtime                  ,ONLY: datetime
+
+  USE mo_echam_phy_config    ,ONLY: echam_phy_config
   USE mo_echam_phy_memory    ,ONLY: t_echam_phy_field, prm_field, &
     &                               t_echam_phy_tend,  prm_tend
   
+  USE mo_timer               ,ONLY: ltimer, timer_start, timer_stop, timer_mox
+
+  USE mo_run_config          ,ONLY: iqv
   USE mo_methox              ,ONLY: methox
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: echam_mox
+  PUBLIC  :: interface_echam_mox
 
 CONTAINS
   
-  SUBROUTINE echam_mox(is_in_sd_ed_interval, &  
-       &               is_active,            &
-       &               jg, jb,jcs,jce,       &
-       &               datetime_old,         &
-       &               pdtime                )
+  SUBROUTINE interface_echam_mox(jg, jb,jcs,jce       ,&
+       &                         nproma,nlev          ,& 
+       &                         is_in_sd_ed_interval ,&  
+       &                         is_active            ,&
+       &                         datetime_old         ,&
+       &                         pdtime               )
 
+    ! Arguments
+    !
+    INTEGER                 ,INTENT(in) :: jg,jb,jcs,jce
+    INTEGER                 ,INTENT(in) :: nproma,nlev
     LOGICAL                 ,INTENT(in) :: is_in_sd_ed_interval
     LOGICAL                 ,INTENT(in) :: is_active
-    INTEGER                 ,INTENT(in) :: jg                  !< grid  index
-    INTEGER                 ,INTENT(in) :: jb                  !< block index
-    INTEGER                 ,INTENT(in) :: jcs, jce            !< start/end column index within this block
-    TYPE(datetime)          ,POINTER    :: datetime_old        !< generic input, not used in echam_mox
+    TYPE(datetime)          ,POINTER    :: datetime_old
     REAL(wp)                ,INTENT(in) :: pdtime
 
-    ! Local variables
+    ! Pointers
     !
+    LOGICAL                 ,POINTER    :: lparamcpl
+    INTEGER                 ,POINTER    :: fc_mox
     TYPE(t_echam_phy_field) ,POINTER    :: field
     TYPE(t_echam_phy_tend)  ,POINTER    :: tend
 
+    IF (ltimer) call timer_start(timer_mox)
+
     ! associate pointers
-    field => prm_field(jg)
-    tend  => prm_tend (jg)
+    lparamcpl => echam_phy_config(jg)%lparamcpl
+    fc_mox    => echam_phy_config(jg)%fc_mox
+    field     => prm_field(jg)
+    tend      => prm_tend (jg)
 
     IF ( is_in_sd_ed_interval ) THEN
        !
@@ -70,14 +79,37 @@ CONTAINS
           !
        END IF
        !
-       tend% qtrc_phy(jcs:jce,:,jb,iqv) = tend% qtrc_phy(jcs:jce,:,jb,iqv) + tend%qtrc_mox(jcs:jce,:,jb,iqv)
+       ! accumulate tendencies for later updating the model state
+       SELECT CASE(fc_mox)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1)
+          ! use tendency to update the model state
+          tend% qtrc_phy(jcs:jce,:,jb,iqv) = tend% qtrc_phy(jcs:jce,:,jb,iqv) + tend%qtrc_mox(jcs:jce,:,jb,iqv)
+!!$       CASE(2)
+!!$          ! use tendency as forcing in the dynamics
+!!$          ...
+       END SELECT
+       !
+       ! update physics state for input to the next physics process
+       IF (lparamcpl) THEN
+          field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv) + tend% qtrc_mox(jcs:jce,:,jb,iqv)*pdtime
+       END IF
        !
     ELSE
        !
        tend% qtrc_mox(jcs:jce,:,jb,iqv) = 0.0_wp
        !
     END IF
-    
-  END SUBROUTINE echam_mox
+
+    ! disassociate pointers
+    NULLIFY(lparamcpl)
+    NULLIFY(fc_mox)
+    NULLIFY(field)
+    NULLIFY(tend)
+
+    IF (ltimer) call timer_stop(timer_mox)
+
+  END SUBROUTINE interface_echam_mox
 
 END MODULE mo_interface_echam_mox

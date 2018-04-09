@@ -1,5 +1,5 @@
 !>
-!! @brief Subroutine echam_phy_main calls all the parameterization schemes
+!! @brief Subroutine interface_echam_vdf calls the vertical diffusion and the surface schemes.
 !!
 !! @author Hui Wan, MPI-M
 !! @author Marco Giorgetta, MPI-M
@@ -18,12 +18,6 @@
 !! headers of the routines.
 !!
 
-#if defined __xlC__ && !defined NOXLFPROCESS
-@PROCESS HOT
-@PROCESS SPILLSIZE(5000)
-#endif
-!OCL NOALIAS
-
 MODULE mo_interface_echam_vdf
 
   !$ser verbatim USE mo_ser_echam_vdiff_down, ONLY: serialize_vdiff_down_input => serialize_input, &
@@ -34,60 +28,67 @@ MODULE mo_interface_echam_vdf
   !$ser&                                                serialize_update_surface_output => serialize_output
   !$ser verbatim USE mo_ser_echam_nsurf_diag, ONLY: serialize_nsurf_diag_input => serialize_input, &
   !$ser&                                            serialize_nsurf_diag_output => serialize_output
+
   USE mo_kind                ,ONLY: wp
+  USE mtime                  ,ONLY: datetime
+
   USE mo_exception           ,ONLY: finish, warning
 
-  USE mo_parallel_config     ,ONLY: nproma
-  USE mo_run_config          ,ONLY: ntracer, nlev, nlevm1, nlevp1, iqv, iqc, iqi, iqt, ico2
-
-  USE mtime                  ,ONLY: datetime
+  USE mo_echam_phy_config    ,ONLY: echam_phy_config
   USE mo_echam_phy_memory    ,ONLY: t_echam_phy_field, prm_field, &
     &                               t_echam_phy_tend,  prm_tend
 
-  USE mo_timer               ,ONLY: ltimer, timer_start, timer_stop,  &
-       &                            timer_vdiff_down, timer_vdiff_up, &
-       &                            timer_surface
+  USE mo_timer               ,ONLY: ltimer, timer_start, timer_stop, timer_vdf, &
+    &                               timer_vdf_dn, timer_vdf_sf, timer_vdf_up
 
-  USE mo_echam_phy_config    ,ONLY: echam_phy_config
-  USE mo_ccycle_config       ,ONLY: ccycle_config
-
-  USE mo_physical_constants  ,ONLY: amco2, amd
   USE mo_echam_rad_config    ,ONLY: echam_rad_config
+  USE mo_ccycle_config       ,ONLY: ccycle_config
+  USE mo_physical_constants  ,ONLY: amco2, amd
   USE mo_bc_greenhouse_gases ,ONLY: ghg_co2mmr
-  USE mo_echam_sfc_indices   ,ONLY: nsfc_type, iwtr, iice, ilnd
 
+  USE mo_run_config          ,ONLY: ntracer, iqv, iqc, iqi, iqt, ico2
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep  ,ONLY: vdiff_up
   USE mo_vdiff_solver        ,ONLY: nvar_vdiff, nmatrix, imh, imqv, ih_vdiff=>ih, iqv_vdiff=>iqv
   
+  USE mo_echam_sfc_indices   ,ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_surface             ,ONLY: update_surface
   USE mo_surface_diag        ,ONLY: nsurf_diag
 
-  
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: echam_vdf
+  PUBLIC  :: interface_echam_vdf
 
 CONTAINS
 
-  SUBROUTINE echam_vdf(is_in_sd_ed_interval, &
-       &               is_active,            &
-       &               jg, jb, jcs, jce,     &
-       &               datetime_old,         &
-       &               pdtime                )
+  SUBROUTINE interface_echam_vdf(jg, jb, jcs, jce     ,&
+       &                         nproma,nlev          ,& 
+       &                         is_in_sd_ed_interval ,&
+       &                         is_active            ,&
+       &                         datetime_old         ,&
+       &                         pdtime               )
 
+    ! Arguments
+    !
+    INTEGER                 ,INTENT(in) :: jg,jb,jcs,jce
+    INTEGER                 ,INTENT(in) :: nproma,nlev
     LOGICAL                 ,INTENT(in) :: is_in_sd_ed_interval
     LOGICAL                 ,INTENT(in) :: is_active
-    INTEGER                 ,INTENT(in) :: jg             
-    INTEGER                 ,INTENT(in) :: jb                  !< block index
-    INTEGER                 ,INTENT(in) :: jcs, jce            !< start/end column index within this block
-    TYPE(datetime)          ,POINTER    :: datetime_old        !< generic input, not used in echam_sso
+    TYPE(datetime)          ,POINTER    :: datetime_old
     REAL(wp)                ,INTENT(in) :: pdtime
+
+    ! Pointers
+    !
+    LOGICAL                 ,POINTER    :: lparamcpl
+    INTEGER                 ,POINTER    :: fc_vdf
+    REAL(wp)                ,POINTER    :: vmr_co2
+    TYPE(t_echam_phy_field) ,POINTER    :: field
+    TYPE(t_echam_phy_tend)  ,POINTER    :: tend
 
     ! Local variables
     !
-    TYPE(t_echam_phy_field) ,POINTER    :: field
-    TYPE(t_echam_phy_tend)  ,POINTER    :: tend
+    INTEGER  :: nlevm1, nlevp1
+    INTEGER  :: ntrac
     !
     REAL(wp) :: zxt_emis(nproma,ntracer-iqt+1)   !< tracer tendency due to surface emission
 
@@ -122,20 +123,24 @@ CONTAINS
 
     REAL(wp) :: zq_snocpymlt(nproma)         !< heating by melting of snow on the canopy [W/m2]
     !                                        !  which warms the lowermost atmospheric layer (JSBACH)
+    
+    REAL(wp) :: zq_rlw_impl (nproma)         !< additional heating by LW rad. due to implicit coupling
+    !                                        !  in surface energy balance [W/m2]
+
     REAL(wp) :: mmr_co2
 
-    INTEGER  :: ntrac
-
-    ! Shortcuts to components of echam_rad_config
-    !
-    REAL(wp), POINTER :: vmr_co2
-    vmr_co2 => echam_rad_config(jg)%vmr_co2
+    IF (ltimer) CALL timer_start(timer_vdf)
 
     ! associate pointers
-    field => prm_field(jg)
-    tend  => prm_tend (jg)
+    lparamcpl => echam_phy_config(jg)%lparamcpl
+    fc_vdf    => echam_phy_config(jg)%fc_vdf
+    vmr_co2   => echam_rad_config(jg)%vmr_co2
+    field     => prm_field(jg)
+    tend      => prm_tend (jg)
 
-    ntrac = ntracer-iqt+1  ! number of tracers excluding water vapour and hydrometeors
+    nlevm1 = nlev-1
+    nlevp1 = nlev+1
+    ntrac  = ntracer-iqt+1  ! number of tracers excluding water vapour and hydrometeors
 
 !!$    ! Emission of aerosols or other tracers (not implemented yet)
 !!$    IF (ntrac>0) THEN
@@ -183,7 +188,7 @@ CONTAINS
           zqx(jcs:jce,:) =  prm_field(jg)%qtrc(jcs:jce,:,jb,iqc) &
                &           +prm_field(jg)%qtrc(jcs:jce,:,jb,iqi)
           !
-          IF (ltimer) CALL timer_start(timer_vdiff_down)
+          IF (ltimer) CALL timer_start(timer_vdf_dn)
           !
           ! Turbulent mixing, part I:
           ! - computation of exchange coefficients in the atmosphere and at the surface;
@@ -273,7 +278,7 @@ CONTAINS
           !$ser verbatim   zthvvar, ztottevn, zch_tile, zbn_tile, zbhn_tile,&
           !$ser verbatim   zbm_tile, zbh_tile)
           !
-          IF (ltimer) CALL timer_stop(timer_vdiff_down)
+          IF (ltimer) CALL timer_stop(timer_vdf_dn)
           !
           !
           ! Surface processes that provide time-dependent lower boundary
@@ -283,7 +288,7 @@ CONTAINS
           field% shflx_tile(jcs:jce,jb,:) = 0._wp
           field% evap_tile (jcs:jce,jb,:) = 0._wp
           !
-          IF (ltimer) CALL timer_start(timer_surface)
+          IF (ltimer) CALL timer_start(timer_vdf_sf)
           !
           !----------------------------------------------------------------------------------------
           ! Serialbox2 input fields serialization
@@ -385,24 +390,8 @@ CONTAINS
           !$ser verbatim   pdtime, field, zaa, zaa_btm, zbb, zbb_btm,&
           !$ser verbatim   zcpt_sfc_tile, zq_snocpymlt)
           !
-          IF (ltimer) CALL timer_stop(timer_surface)
+          IF (ltimer) CALL timer_stop(timer_vdf_sf)
           !
-          !
-          IF (echam_phy_config(jg)%ljsb) THEN
-             !
-             ! heating accumulated
-             ! zq_snocpymlt = heating for melting of snow on canopy
-             !              = cooling of atmosphere
-             ! --> negative sign
-             field% q_phy(jcs:jce,nlev,jb) = field% q_phy(jcs:jce,nlev,jb) - zq_snocpymlt(jcs:jce)
-             !
-             ! tendency
-             tend% ta_sfc(jcs:jce,jb)      = -zq_snocpymlt(jcs:jce) * field% qconv(jcs:jce,nlev,jb)
-             !
-             ! tendencies accumulated
-             tend% ta_phy(jcs:jce,nlev,jb) = tend% ta_phy(jcs:jce,nlev,jb) + tend% ta_sfc(jcs:jce,jb)
-             !
-          END IF
           !
           !
           ! Turbulent mixing, part II:
@@ -411,7 +400,7 @@ CONTAINS
           ! - Back substitution to get solution of the tridiagonal system;
           ! - Compute tendencies and additional diagnostics.
           !
-          IF (ltimer) CALL timer_start(timer_vdiff_up)
+          IF (ltimer) CALL timer_start(timer_vdf_up)
           !
           !----------------------------------------------------------------------------------------
           ! Serialbox2 input fields serialization
@@ -462,9 +451,44 @@ CONTAINS
           !$ser verbatim   nlevm1, ntrac, nsfc_type, iwtr, pdtime, field, zbb,&
           !$ser verbatim   dummyx, tend, dummy)
           !
-          IF (ltimer) CALL timer_stop(timer_vdiff_up)
+          IF (ltimer) CALL timer_stop(timer_vdf_up)
           !
        END IF
+       !
+       !
+       ! Surface effect on the lowermost layer
+       !
+       IF (echam_phy_config(jg)%ljsb) THEN
+          !
+          ! convert    heating
+          ! zq_snocpymlt = heating for melting of snow on canopy
+          !              = cooling of atmosphere --> negative sign
+          tend% ta_sfc(jcs:jce,jb)      = -zq_snocpymlt(jcs:jce) * field% qconv(jcs:jce,nlev,jb)
+          !
+          ! accumulate heating
+          field% q_phy(jcs:jce,nlev,jb) = field% q_phy(jcs:jce,nlev,jb) - zq_snocpymlt(jcs:jce)
+          !
+          ! accumulate tendencies for later updating the model state
+          SELECT CASE(fc_vdf)
+          CASE(0)
+             ! diagnostic, do not use tendency
+          CASE(1)
+             ! use tendency to update the model state
+             tend% ta_phy(jcs:jce,nlev,jb) = tend% ta_phy(jcs:jce,nlev,jb) + tend% ta_sfc(jcs:jce,jb)
+!!$          CASE(2)
+!!$             ! use tendency as forcing in the dynamics
+!!$             ...
+          END SELECT
+          !
+          ! update physics state for input to the next physics process
+          IF (lparamcpl) THEN
+             field% ta(jcs:jce,nlev,jb) = field% ta(jcs:jce,nlev,jb) + tend% ta_sfc(jcs:jce,jb)*pdtime
+          END IF
+          !
+       END IF
+       !
+       !
+       ! Vertical diffusion efect on the atmospheric column
        !
        ! convert    heating
        tend% ta_vdf(jcs:jce,:,jb) = field% q_vdf(jcs:jce,:,jb) * field% qconv(jcs:jce,:,jb)
@@ -472,18 +496,74 @@ CONTAINS
        ! accumulate heating
        field% q_phy(jcs:jce,:,jb) = field% q_phy(jcs:jce,:,jb) + field% q_vdf(jcs:jce,:,jb)
        !
-       ! accumulated tendencies
-       tend%   ua_phy(jcs:jce,:,jb)      = tend%   ua_phy(jcs:jce,:,jb)      + tend%   ua_vdf(jcs:jce,:,jb)
-       tend%   va_phy(jcs:jce,:,jb)      = tend%   va_phy(jcs:jce,:,jb)      + tend%   va_vdf(jcs:jce,:,jb)
-       tend%   ta_phy(jcs:jce,:,jb)      = tend%   ta_phy(jcs:jce,:,jb)      + tend%   ta_vdf(jcs:jce,:,jb)
-       tend% qtrc_phy(jcs:jce,:,jb,iqv)  = tend% qtrc_phy(jcs:jce,:,jb,iqv)  + tend% qtrc_vdf(jcs:jce,:,jb,iqv)
-       tend% qtrc_phy(jcs:jce,:,jb,iqc)  = tend% qtrc_phy(jcs:jce,:,jb,iqc)  + tend% qtrc_vdf(jcs:jce,:,jb,iqc)
-       tend% qtrc_phy(jcs:jce,:,jb,iqi)  = tend% qtrc_phy(jcs:jce,:,jb,iqi)  + tend% qtrc_vdf(jcs:jce,:,jb,iqi)
-       tend% qtrc_phy(jcs:jce,:,jb,iqt:) = tend% qtrc_phy(jcs:jce,:,jb,iqt:) + tend% qtrc_vdf(jcs:jce,:,jb,iqt:)
+       ! accumulate tendencies for later updating the model state
+       SELECT CASE(fc_vdf)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1)
+          ! use tendency to update the model state
+          tend%   ua_phy(jcs:jce,:,jb)      = tend%   ua_phy(jcs:jce,:,jb)      + tend%   ua_vdf(jcs:jce,:,jb)
+          tend%   va_phy(jcs:jce,:,jb)      = tend%   va_phy(jcs:jce,:,jb)      + tend%   va_vdf(jcs:jce,:,jb)
+          tend%   ta_phy(jcs:jce,:,jb)      = tend%   ta_phy(jcs:jce,:,jb)      + tend%   ta_vdf(jcs:jce,:,jb)
+          tend% qtrc_phy(jcs:jce,:,jb,iqv)  = tend% qtrc_phy(jcs:jce,:,jb,iqv)  + tend% qtrc_vdf(jcs:jce,:,jb,iqv)
+          tend% qtrc_phy(jcs:jce,:,jb,iqc)  = tend% qtrc_phy(jcs:jce,:,jb,iqc)  + tend% qtrc_vdf(jcs:jce,:,jb,iqc)
+          tend% qtrc_phy(jcs:jce,:,jb,iqi)  = tend% qtrc_phy(jcs:jce,:,jb,iqi)  + tend% qtrc_vdf(jcs:jce,:,jb,iqi)
+          tend% qtrc_phy(jcs:jce,:,jb,iqt:) = tend% qtrc_phy(jcs:jce,:,jb,iqt:) + tend% qtrc_vdf(jcs:jce,:,jb,iqt:)
+!!$       CASE(2)
+!!$          ! use tendency as forcing in the dynamics
+!!$          ...
+       END SELECT
+       !
+       ! update physics state for input to the next physics process
+       IF (lparamcpl) THEN
+          field%   ua(jcs:jce,:,jb)      = field%   ua(jcs:jce,:,jb)      + tend%   ua_vdf(jcs:jce,:,jb)     *pdtime
+          field%   va(jcs:jce,:,jb)      = field%   va(jcs:jce,:,jb)      + tend%   va_vdf(jcs:jce,:,jb)     *pdtime
+          field%   ta(jcs:jce,:,jb)      = field%   ta(jcs:jce,:,jb)      + tend%   ta_vdf(jcs:jce,:,jb)     *pdtime
+          field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv)  + tend% qtrc_vdf(jcs:jce,:,jb,iqv) *pdtime
+          field% qtrc(jcs:jce,:,jb,iqc)  = field% qtrc(jcs:jce,:,jb,iqc)  + tend% qtrc_vdf(jcs:jce,:,jb,iqc) *pdtime
+          field% qtrc(jcs:jce,:,jb,iqi)  = field% qtrc(jcs:jce,:,jb,iqi)  + tend% qtrc_vdf(jcs:jce,:,jb,iqi) *pdtime
+          field% qtrc(jcs:jce,:,jb,iqt:) = field% qtrc(jcs:jce,:,jb,iqt:) + tend% qtrc_vdf(jcs:jce,:,jb,iqt:)*pdtime
+       END IF
+       !
+       !
+       IF (echam_phy_config(jg)%lnew) THEN
+       ! Correction related to implicitness, due to the fact that surface model only used
+       ! part of longwave radiation to compute new surface temperature
+       ! 
+       zq_rlw_impl(jcs:jce) =                                                   &
+            &  ( (field%rld_rt(jcs:jce,nlev,jb)-field%rlu_rt(jcs:jce,nlev,jb))  & ! ( rln  from "radiation", at top of layer nlev
+            &   -(field%rlds  (jcs:jce,jb)     -field%rlus  (jcs:jce,jb)     )) & !  -rlns from "radheating" and "update_surface")
+            & -field%q_rlw(jcs:jce,nlev,jb)                                       ! -old heating in layer nlev from "radheating"
+       !
+       ! convert    heating
+       tend%ta_rlw_impl(jcs:jce,jb) = zq_rlw_impl(jcs:jce) * field% qconv(jcs:jce,nlev,jb)
+       !
+       ! accumulate heating
+       field% q_phy(jcs:jce,nlev,jb) = field% q_phy(jcs:jce,nlev,jb) + zq_rlw_impl(jcs:jce)
+       !
+       ! accumulate tendencies for later updating the model state
+       SELECT CASE(fc_vdf)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1)
+          ! use tendency to update the model state
+          tend%ta_phy(jcs:jce,nlev,jb) = tend%ta_phy(jcs:jce,nlev,jb) + tend%ta_rlw_impl(jcs:jce,jb)
+!!$       CASE(2)
+!!$          ! use tendency as forcing in the dynamics
+!!$          ...
+       END SELECT
+       !
+       ! update physics state for input to the next physics process
+       IF (lparamcpl) THEN
+          field% ta(jcs:jce,nlev,jb) = field% ta(jcs:jce,nlev,jb) + tend% ta_rlw_impl(jcs:jce,jb)*pdtime
+       END IF
+       !
+       END IF
 
        ! 2-tl-scheme
        field% tottem1(jcs:jce,:,jb) = field% totte (jcs:jce,:,jb)
-       !
+
+
        ! Turbulent mixing, part III:
        ! - Further diagnostics.
        !----------------------------------------------------------------------------------------
@@ -530,6 +610,9 @@ CONTAINS
        ! Serialbox2 output fields serialization
        !$ser verbatim call serialize_nsurf_diag_output(jb, jce, nproma,&
        !$ser verbatim   nsfc_type, ilnd, field)
+
+
+       !
        !
     ELSE
        !
@@ -611,6 +694,15 @@ CONTAINS
        !
     END IF
 
-  END SUBROUTINE echam_vdf
+    ! disassociate pointers
+    NULLIFY(lparamcpl)
+    NULLIFY(fc_vdf)
+    NULLIFY(vmr_co2)
+    NULLIFY(field)
+    NULLIFY(tend)
+
+    IF (ltimer) CALL timer_stop(timer_vdf)
+
+  END SUBROUTINE interface_echam_vdf
 
 END MODULE mo_interface_echam_vdf
