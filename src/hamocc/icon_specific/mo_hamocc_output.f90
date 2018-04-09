@@ -139,24 +139,7 @@
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
 
-    CALL add_ref( oce_restart_list, 'tracers'//TRIM(var_suffix),   &
-          & 'phy'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+iphy)%p,                         &
-          & grid_unstructured_cell, za_depth_below_sea,                  &
-          & t_cf_var('phyp','kmolP m-3','phytoplankton concentration', DATATYPE_FLT64,'phyp'), &
-          & grib2_var(255, 255, last_ocean_code+iphy, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-          & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
-          & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
-
-    CALL add_ref( oce_restart_list, 'tracers'//TRIM(var_suffix),   &
-          & 'zoo'//TRIM(var_suffix),        &
-          & ocean_state_prog%tracer_ptr(no_tracer+izoo)%p,                         &
-          & grid_unstructured_cell, za_depth_below_sea,                  &
-          & t_cf_var('zoop','kmolP m-3','zooplankton concentration', DATATYPE_FLT64,'zoop'), &
-          & grib2_var(255, 255, last_ocean_code+izoo, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-          & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
-          & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
-
+   write(0,*)'alk:', no_tracer+ialkali
     CALL add_ref( oce_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'alk'//TRIM(var_suffix),        &
           & ocean_state_prog%tracer_ptr(no_tracer+ialkali)%p,                         &
@@ -193,6 +176,25 @@
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
  
+   write(0,*)'phy:', no_tracer+iphy
+    CALL add_ref( oce_restart_list, 'tracers'//TRIM(var_suffix),   &
+          & 'phy'//TRIM(var_suffix),        &
+          & ocean_state_prog%tracer_ptr(no_tracer+iphy)%p,                         &
+          & grid_unstructured_cell, za_depth_below_sea,                  &
+          & t_cf_var('phyp','kmolP m-3','phytoplankton concentration', DATATYPE_FLT64,'phyp'), &
+          & grib2_var(255, 255, last_ocean_code+iphy, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
+          & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
+
+    CALL add_ref( oce_restart_list, 'tracers'//TRIM(var_suffix),   &
+          & 'zoo'//TRIM(var_suffix),        &
+          & ocean_state_prog%tracer_ptr(no_tracer+izoo)%p,                         &
+          & grid_unstructured_cell, za_depth_below_sea,                  &
+          & t_cf_var('zoop','kmolP m-3','zooplankton concentration', DATATYPE_FLT64,'zoop'), &
+          & grib2_var(255, 255, last_ocean_code+izoo, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
+          & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
+
     CALL add_ref( oce_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'cyano'//TRIM(var_suffix),        &
           & ocean_state_prog%tracer_ptr(no_tracer+icya)%p,                         &
