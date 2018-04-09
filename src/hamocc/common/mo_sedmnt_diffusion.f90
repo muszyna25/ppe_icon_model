@@ -5,6 +5,7 @@
 MODULE mo_sedmnt_diffusion
 
  USE mo_kind, ONLY           : wp
+ USE mo_hamocc_nml, ONLY     : ks,porwat
  
  IMPLICIT NONE
 
@@ -34,8 +35,7 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
   &                                 kbo, bolay
 
   USE mo_sedmnt, ONLY         : sedict, seddzi, seddw, &
-       &                        porwah, porwat, powtra,&
-       &                        ks
+       &                        porwah, powtra
 
   USE mo_control_bgc, ONLY    : dtbgc
 
@@ -198,7 +198,7 @@ SUBROUTINE powadi ( j,  solrat, sedb1, sediso, bolven)
 !!
 
 
-  USE mo_sedmnt, ONLY     : ks, sedict, seddzi, seddw, porwah, porwat
+  USE mo_sedmnt, ONLY     : sedict, seddzi, seddw, porwah
 
   USE mo_memory_bgc, ONLY     : bolay
 
