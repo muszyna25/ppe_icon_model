@@ -140,12 +140,12 @@ CONTAINS
 !!$                                       & *pcfh_tile(1:kproma,idx_wtr) &
 !!$                                       & *zdqv(1:kproma)
 !!$        END WHERE
-         WHERE (lsmask < 1._wp)
+         WHERE (lsmask(1:kproma) < 1._wp)
             pevap_tile(1:kproma,jsfc) = alake(1:kproma)*pevap_lwtr(1:kproma)               & ! lakes
                  &                     +(1._wp-lsmask(1:kproma)-alake(1:kproma))           & ! ocean
                  &                     *zconst*pfac_sfc(1:kproma)*pcfh_tile(1:kproma,jsfc) &
                  &                     *zdqv(1:kproma)
-            pevap_tile(1:kproma,jsfc) = pevap_tile(1:kproma,jsfc)/(1._wp-lsmask)
+            pevap_tile(1:kproma,jsfc) = pevap_tile(1:kproma,jsfc)/(1._wp-lsmask(1:kproma))
          ELSE WHERE
             pevap_tile(1:kproma,jsfc) = 0.0_wp
          END WHERE
@@ -161,12 +161,12 @@ CONTAINS
 !!$                                       & *pcfh_tile(1:kproma,idx_ice) &
 !!$                                       & *zdqv(1:kproma)
 !!$        END WHERE
-         WHERE (lsmask < 1._wp)
+         WHERE (lsmask(1:kproma) < 1._wp)
             pevap_tile(1:kproma,jsfc) = alake(1:kproma)*pevap_lice(1:kproma)               & ! lakes
                  &                     +(1._wp-lsmask(1:kproma)-alake(1:kproma))           & ! ocean
                  &                     *zconst*pfac_sfc(1:kproma)*pcfh_tile(1:kproma,jsfc) &
                  &                     *zdqv(1:kproma)
-            pevap_tile(1:kproma,jsfc) = pevap_tile(1:kproma,jsfc)/(1._wp-lsmask)
+            pevap_tile(1:kproma,jsfc) = pevap_tile(1:kproma,jsfc)/(1._wp-lsmask(1:kproma))
          ELSE WHERE
             pevap_tile(1:kproma,jsfc) = 0.0_wp
          END WHERE
