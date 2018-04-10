@@ -54,9 +54,6 @@ MODULE mo_var_list
   USE mo_fortran_tools,    ONLY: assign_if_present
   USE mo_action_types,     ONLY: t_var_action
   USE mo_io_config,        ONLY: restart_file_type
-#ifdef DEBUG_MVSTREAM
-  USE mo_mpi, ONLY: my_process_is_stdio
-#endif
   USE mo_packed_message,   ONLY: t_PackedMessage, kPackOp, kUnpackOp
 
   IMPLICIT NONE

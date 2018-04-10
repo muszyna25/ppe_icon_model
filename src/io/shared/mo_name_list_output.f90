@@ -801,9 +801,6 @@ CONTAINS
     DO iv = 1, of%num_vars
 
       info => of%var_desc(iv)%info
-#ifdef DEBUG_MVSTREAM
-      IF (my_process_is_stdio() ) write (0,*)'output varname:',info%name
-#endif
 
       ! inspect time-constant variables only if we are writing the
       ! first step in this file:
