@@ -119,10 +119,11 @@
   TYPE(t_patch), TARGET, INTENT(in)          :: patch_2d
   TYPE(t_hydro_ocean_prog), INTENT(inout)   :: ocean_state_prog
   INTEGER, INTENT(in)                       :: timelevel, last_ocean_code
-  INTEGER :: alloc_cell_blocks, nblks_e !, nblks_v
+  INTEGER :: alloc_cell_blocks, nblks_e, datatype_flt
 
   CHARACTER(LEN=max_char_length) :: var_suffix
 
+  datatype_flt = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
     !-------------------------------------------------------------------------
   var_suffix = get_timelevel_string(timelevel)
 
@@ -226,7 +227,7 @@
           & 'doc'//TRIM(var_suffix),        &
           & ocean_state_prog%tracer_ptr(no_tracer+idoc)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
-          & t_cf_var('dissoc','kmolP m-3','DOC concentration',DATATYPE_FLT32,'dissoc'), &
+          & t_cf_var('dissoc','kmolP m-3','DOC concentration',datatype_flt,'dissoc'), &
           & grib2_var(255, 255, last_ocean_code+idoc, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
@@ -298,7 +299,7 @@
           & 'dust'//TRIM(var_suffix),        &
           & ocean_state_prog%tracer_ptr(no_tracer+idust)%p,                         &
           & grid_unstructured_cell, za_depth_below_sea,                  &
-          & t_cf_var('fdust','kmol m-3','Dust concentration', DATATYPE_FLT32,'fdust'), &
+          & t_cf_var('fdust','kmol m-3','Dust concentration', datatype_flt,'fdust'), &
           & grib2_var(255, 255, last_ocean_code+idust, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.True.,in_group=groups("HAMOCC_BASE"))
@@ -316,7 +317,7 @@
 
     ! local variables
     
-    INTEGER :: alloc_cell_blocks, nblks_e, nblks_v
+    INTEGER :: alloc_cell_blocks, nblks_e, nblks_v, datatype_flt
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_bgc_icon_comm:construct_hamocc_diag'
 
@@ -325,18 +326,20 @@
     nblks_e = patch_2d%nblks_e
     nblks_v = patch_2d%nblks_v
 
+    datatype_flt = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
+
 
 ! !-----------------DIAG WITH RESTART---------------------------------------------------------------
      CALL add_var(hamocc_restart_list, 'HAMOCC_hion',hamocc_state_diag%hi,    &
       & grid_unstructured_cell, za_depth_below_sea,&
-      & t_cf_var('hion','kmol m-3','hydrogen ion concentration', DATATYPE_FLT32,'hi'), &
+      & t_cf_var('hion','kmol m-3','hydrogen ion concentration', datatype_flt,'hi'), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
       & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
      CALL add_var(hamocc_restart_list, 'HAMOCC_co3',hamocc_state_diag%co3,    &
       & grid_unstructured_cell, za_depth_below_sea,&
-      & t_cf_var('co3','kmol m-3','carbonate ion concentration', DATATYPE_FLT32,'co3'), &
+      & t_cf_var('co3','kmol m-3','carbonate ion concentration', datatype_flt,'co3'), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
       & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
@@ -362,11 +365,7 @@
     nblks_v = patch_2d%nblks_v
 
     ! set correct output data type
-    IF ( lnetcdf_flt64_output ) THEN
-      datatype_flt = DATATYPE_FLT64
-    ELSE
-      datatype_flt = DATATYPE_FLT32
-    ENDIF
+    datatype_flt = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
 
 
     !-----DIAG W/O restart-----------------------------------------------------------------
@@ -1010,7 +1009,7 @@
 
     CALL add_var(hamocc_tendency_list, 'co2mr',hamocc_state_tend%co2mr,    &
       & grid_unstructured_cell, za_surface,&
-      & t_cf_var('co2mr','ppm','co2 mixing ratio', DATATYPE_FLT32), &
+      & t_cf_var('co2mr','ppm','co2 mixing ratio', datatype_flt), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.FALSE., lrestart=.FALSE.)
@@ -1323,7 +1322,7 @@
     
     ! local variables
     
-    INTEGER :: alloc_cell_blocks, nblks_e, nblks_v
+    INTEGER :: alloc_cell_blocks, nblks_e, nblks_v, datatype_flt
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_bgc_icon_comm:construct_hamocc_sed'
 
@@ -1332,6 +1331,7 @@
     nblks_e = patch_2d%nblks_e
     nblks_v = patch_2d%nblks_v
 
+    datatype_flt = MERGE(DATATYPE_FLT64, datatype_flt, lnetcdf_flt64_output)
 
     CALL message(TRIM(routine), 'start to construct hamocc sed state')
   
@@ -1456,28 +1456,28 @@
 
     CALL add_var(hamocc_sediment_list, 'HAMOCC_BUR_C12',hamocc_state_sed%bc12,    &
       & grid_unstructured_cell, za_surface,&
-      & t_cf_var('BUR_C12','kmol C m-2 ','sediment burial calcium carbonate', DATATYPE_FLT32,'burc12'), &
+      & t_cf_var('BUR_C12','kmol C m-2 ','sediment burial calcium carbonate', datatype_flt,'burc12'), &
       & grib2_var(255, 255, 47, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
       & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'HAMOCC_BUR_clay',hamocc_state_sed%bter,    &
       & grid_unstructured_cell, za_surface,&
-      & t_cf_var('BUR_clay','kmol  m-2 ','sediment burial clay', DATATYPE_FLT32,'burter'), &
+      & t_cf_var('BUR_clay','kmol  m-2 ','sediment burial clay', datatype_flt,'burter'), &
       & grib2_var(255, 255, 49, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
       & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
 
     CALL add_var(hamocc_sediment_list, 'HAMOCC_BUR_si',hamocc_state_sed%bsil,    &
       & grid_unstructured_cell, za_surface,&
-      & t_cf_var('BUR_si','kmol Si m-2 ','sediment burial opal', DATATYPE_FLT32,'bursi'), &
+      & t_cf_var('BUR_si','kmol Si m-2 ','sediment burial opal', datatype_flt,'bursi'), &
       & grib2_var(255, 255, 48, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
       & loutput=.TRUE., lrestart=.TRUE.,lrestart_cont=.TRUE.)
   
    CALL add_var(hamocc_sediment_list, 'HAMOCC_bolay',hamocc_state_sed%bolay,    &
       & grid_unstructured_cell, za_surface,&
-      & t_cf_var('bolay','m ','bottom layer thickness', DATATYPE_FLT32,'bolay'), &
+      & t_cf_var('bolay','m ','bottom layer thickness', datatype_flt,'bolay'), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
       & loutput=.TRUE., lrestart=.FALSE.)
