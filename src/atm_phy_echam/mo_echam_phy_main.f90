@@ -51,6 +51,7 @@ MODULE mo_echam_phy_main
   USE mo_run_config          ,ONLY: iqc, iqi
 
   USE mo_interface_echam_cov ,ONLY: interface_echam_cov
+  USE mo_interface_echam_wmo ,ONLY: interface_echam_wmo
   USE mo_interface_echam_rad ,ONLY: interface_echam_rad
   USE mo_interface_echam_rht ,ONLY: interface_echam_rht
   USE mo_interface_echam_vdf ,ONLY: interface_echam_vdf
@@ -156,19 +157,10 @@ CONTAINS
     END IF
 
     !---------------------------------------------------------------------
-    ! 3.9 DETERMINE TROPOPAUSE HEIGHT AND MASS BUDGETS
-    !     (Needed only for sub-models. Note: sequence of arguments
-    !      different from the original ECHAM6)
+    ! 3.9 Determine tropopause height (diagnostic)
     !---------------------------------------------------------------------
     !
-    !CALL WMO_tropopause( jce, nproma, nlev,         &! in
-    !                   & ncctop, nccbot, lresum,   &! in
-    !                   & field% ta(:,:,jb),        &! in
-    !                   & field% presm_old(:,:,jb), &! in
-    !                   & field% tropo(:,jb),       &! out for diagnostics
-    !                   & itrpwmo, itrpwmop1        )! out for submodel
-    !---------------------------------------------------------------------
-
+    CALL omp_loop_cell(patch,interface_echam_wmo)
 
     !---------------------------------------------------------------------
     ! Cloud droplet number concentration (diagnostic)

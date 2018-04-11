@@ -92,6 +92,7 @@ MODULE mo_timer
   PUBLIC :: timer_gwd !!$, timer_sso
   PUBLIC :: timer_cnv , timer_cld
   PUBLIC :: timer_car , timer_mox
+  PUBLIC :: timer_wmo
   !
   ! jsbach
   PUBLIC :: timer_jsbach
@@ -297,8 +298,9 @@ MODULE mo_timer
   INTEGER :: timer_rad , timer_rht
   INTEGER :: timer_vdf , timer_vdf_dn , timer_vdf_sf , timer_vdf_up
   INTEGER :: timer_gwd !!$, timer_sso
-  INTEGER :: timer_cnv   , timer_cld
+  INTEGER :: timer_cnv , timer_cld
   INTEGER :: timer_car , timer_mox
+  INTEGER :: timer_wmo
   !
   ! jsbach
   INTEGER :: timer_jsbach
@@ -598,6 +600,7 @@ CONTAINS
        timer_cld    = new_timer("interface_echam_cld")
        timer_car    = new_timer("interface_echam_car")
        timer_mox    = new_timer("interface_echam_mox")
+       timer_wmo    = new_timer("interface_echam_wmo")
        !
     END IF
     !

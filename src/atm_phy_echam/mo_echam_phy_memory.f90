@@ -254,6 +254,10 @@ MODULE mo_echam_phy_memory
       & ssfc      (:,  :),  &!< sfc snow flux, convective  [kg m-2 s-1]
       & pr        (:,  :)    !< precipitation flux         [kg m-2 s-1]
 
+    ! Tropopause
+    REAL(wp),POINTER ::     &
+      & ptp       (:,  :)    !< tropopause air pressure [Pa]
+
     REAL(wp),POINTER ::     &
       & rintop (:,  :),     &!< low lever inversion, computed by "cover" (memory_g3b)
       & rtype  (:,  :),     &!< type of convection 0...3. (in memory_g3b in ECHAM)
@@ -2230,6 +2234,20 @@ CONTAINS
     CALL add_var( field_list, prefix//'thvsig', field%thvsig,              &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .FALSE., initval = 1.e-2_wp, ldims=shape2d )
+
+    !---------------------------
+    ! WMO tropopause
+    !---------------------------
+
+    ! &       field% ptp (nproma,       nblks), &
+    cf_desc    = t_cf_var('ptp', 'Pa', 'tropopause air pressure', datatype_flt)
+    grib2_desc = grib2_var(0,6,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'ptp', field%ptp,          &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .TRUE., initval = 20000.0_wp,       &
+         &        isteptype=TSTEP_INSTANT )
 
     !---------------------------
     ! Variables for energy diagnostic of echam6 physics

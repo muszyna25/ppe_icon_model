@@ -334,6 +334,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'tauu'    , 'tauv'    ,
                     'sfcwind' , 'uas'     , 'vas'     ,
                     'tas'     , 'dew2'    ,
+                    'ptp'     ,
 /
 EOF
 fi
