@@ -128,7 +128,7 @@ CONTAINS
   !
   ! Conversion: Uppercase -> Lowercase
   !
-  FUNCTION tolower (uppercase)
+  PURE FUNCTION tolower (uppercase)
     CHARACTER(len=*), INTENT(in) :: uppercase
     CHARACTER(len=LEN_TRIM(uppercase)) :: tolower
     !
@@ -151,7 +151,7 @@ CONTAINS
   !
   ! Conversion: Lowercase -> Uppercase
   !
-  FUNCTION toupper (lowercase)
+  PURE FUNCTION toupper (lowercase)
     CHARACTER(len=*), INTENT(in) :: lowercase
     CHARACTER(len=LEN_TRIM(lowercase)) :: toupper
     !
