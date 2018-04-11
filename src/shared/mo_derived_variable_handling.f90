@@ -47,6 +47,7 @@ MODULE mo_derived_variable_handling
   TYPE(map), SAVE    :: meanMap, meanEvents, meanEventsActivity, meanVarCounter, meanPrognosticPointers
   TYPE(vector), SAVE :: meanPrognostics
   TYPE(t_var_list)   :: mean_stream_list
+  CHARACTER(1), PARAMETER :: separator = achar(124)
 
   PUBLIC :: init_mean_stream
   PUBLIC :: finish_mean_stream
@@ -104,7 +105,8 @@ CONTAINS
   !!
   logical function is_meanPrognosticVariable(variable)
     type(t_list_element), intent(in) :: variable
-    is_meanPrognosticVariable = meanPrognostics%includes(variable%field%info%cf%short_name)
+    ! search for the original add-var-name
+    is_meanPrognosticVariable = meanPrognostics%includes(get_real_varname(variable%field%info%name))
   end function is_meanPrognosticVariable
 
   !>
@@ -121,7 +123,7 @@ CONTAINS
 
     dummy => meanPrognosticPointers%get( &
       & get_varname_with_timelevel( &
-      &   destinationVariable%field%info%cf%short_name, &
+      &   get_real_varname(destinationVariable%field%info%name), &
       &   timelevelIndex) &
       & )
 
@@ -298,6 +300,8 @@ CONTAINS
       call meanEventsActivity%add(eventKey,.false.)
 
       ! create adhoc copies of all variables for later accumulation
+      !
+      ! varlist MUST by a list of add_var-identifiers, i.e. the given name
       DO i=1, output_variables
         ! collect data variables only
         ! variables names like 'grid:clon' which should be excluded
@@ -337,16 +341,21 @@ CONTAINS
 #endif
               src_element => find_element(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
               if ( ASSOCIATED(src_element) ) then
-if (my_process_is_stdio()) write(0,*)'found prognostic:',TRIM(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
+#ifdef DEBUG_MVSTREAM
+                if (my_process_is_stdio()) write(0,*)'found prognostic:',&
+                    & TRIM(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
+#endif
                 if ( .not. foundPrognostic ) then
                   ! save the name of the original output variable if a prognosting version was found
                   call meanPrognostics%add(varlist(i))
                   foundPrognostic = .true.
+#ifdef DEBUG_MVSTREAM
                   if (my_process_is_stdio()) call print_error('meanPrognostics%add():'//varlist(i))
+#endif
                 end if
                 ! save the the pointers for all time levels of a prognostic variable
+                ! these must be used for correct accumulation during the time loop
                 call meanPrognosticPointers%add(get_varname_with_timelevel(varlist(i),timelevels(timelevel)),src_element)
-if (my_process_is_stdio()) write(0,*)'IS pROGNOSTIC:',TRIM(varlist(i))
               end if
             end do
           END IF
@@ -478,9 +487,7 @@ if (my_process_is_stdio()) write(0,*)'IS pROGNOSTIC:',TRIM(varlist(i))
     type(t_output_name_list) :: output_setup
 
     CHARACTER(LEN=VARNAME_LEN)  :: get_accumulation_varname
-    CHARACTER(LEN=1)            :: separator
 
-    separator = '_'
     get_accumulation_varname = &
       &TRIM(varname)//separator//&
       &TRIM(output_setup%operation)//separator//&
@@ -488,6 +495,17 @@ if (my_process_is_stdio()) write(0,*)'IS pROGNOSTIC:',TRIM(varlist(i))
       &TRIM(output_setup%output_start(1))
 
   END FUNCTION get_accumulation_varname
+
+  !>
+  !! return internal name from accumulation variable name
+  !!
+  FUNCTION get_real_varname(mean_varname)
+    CHARACTER(LEN=VARNAME_LEN)  :: mean_varname
+
+    CHARACTER(LEN=VARNAME_LEN)  :: get_real_varname
+
+    get_real_varname = mean_varname(1:INDEX(mean_varname,separator)-1)
+  END FUNCTION get_real_varname
 
   !>
   !! implement addition for source fields to the internal accumulation fields
@@ -662,7 +680,8 @@ if (my_process_is_stdio()) write(0,*)'IS pROGNOSTIC:',TRIM(varlist(i))
 
 #ifdef DEBUG_MVSTREAM
                     if (my_process_is_stdio()) &
-                      & call print_error("show meanPrognostic:"//TRIM(destinationVariable%field%info%name),stderr=.true.)
+                      & call print_error("destination var IS     prognostic:"//TRIM(destinationVariable%field%info%name),&
+                      & stderr=.true.)
 #endif
 
                     timelevel =  metainfo_get_timelevel(destinationVariable%field%info, 1)
@@ -671,6 +690,11 @@ if (my_process_is_stdio()) write(0,*)'IS pROGNOSTIC:',TRIM(varlist(i))
                   else
                   ! }}}
                     source    => sourceVariable
+#ifdef DEBUG_MVSTREAM
+                    if (my_process_is_stdio()) &
+                      & call print_error("destination var IS NOT prognostic:"//TRIM(destinationVariable%field%info%name),&
+                      & stderr=.true.)
+#endif
                   end if
                   destination => destinationVariable
                   counter     => meanVarCounter%get(destination%field%info%name)
@@ -824,13 +848,19 @@ if (my_process_is_stdio()) write(0,*)'IS pROGNOSTIC:',TRIM(varlist(i))
 #endif
                     end if
                   class default
+#ifdef DEBUG_MVSTREAM
                       if (my_process_is_stdio()) call print_error("       eventActive has wrong type",stderr=.true.)
+#endif
                   end select
               class default
+#ifdef DEBUG_MVSTREAM
                   if (my_process_is_stdio()) call print_error("     destinationVariable is not t_list_element",stderr=.true.)
+#endif
               end select
             else
+#ifdef DEBUG_MVSTREAM
               if (my_process_is_stdio()) call print_error(routine//TRIM(": cannot find destination variable!"),stderr=.true.)
+#endif
             end if
           end do
         end select 
