@@ -752,11 +752,7 @@
     nblks_v = patch_2d%nblks_v
 
     ! set correct output data type
-    IF ( lnetcdf_flt64_output ) THEN
-      datatype_flt = DATATYPE_FLT64
-    ELSE
-      datatype_flt = DATATYPE_FLT32
-    ENDIF
+    datatype_flt = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
 
 
     !-----DIAG W/O restart-----------------------------------------------------------------
