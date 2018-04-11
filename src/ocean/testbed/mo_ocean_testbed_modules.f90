@@ -26,7 +26,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d,t_subset_range
   USE mo_grid_config,            ONLY: n_dom
   USE mo_ocean_nml,              ONLY: n_zlev, GMRedi_configuration, GMRedi_combined, Cartesian_Mixing, &
-    & atmos_flux_analytical_type, no_tracer, surface_module, OceanReferenceDensity
+    & atmos_flux_analytical_type, no_tracer, OceanReferenceDensity
   USE mo_sea_ice_nml,            ONLY: init_analytic_conc_param, t_heat_base
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_run_config,             ONLY: nsteps, dtime, output_mode, test_mode !, test_param
@@ -44,8 +44,6 @@ MODULE mo_ocean_testbed_modules
   USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
   USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
-  USE mo_ocean_bulk,             ONLY: update_surface_flux
-  USE mo_ocean_surface,          ONLY: update_ocean_surface
   USE mo_ocean_surface_refactor, ONLY: update_ocean_surface_refactor
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface, t_atmos_for_ocean
   USE mo_sea_ice,                ONLY: salt_content_in_surface, energy_content_in_surface
@@ -135,9 +133,7 @@ CONTAINS
            & operators_coefficients)
 
       CASE (4)
-        CALL test_surface_flux( patch_3d, ocean_state,  &
-          & this_datetime, ocean_surface,    &
-          & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients)
+        CALL finish(method_name, "This test mode was removed - STOP")
 
       CASE (41)
         CALL test_surface_flux_slo( patch_3d, ocean_state,  &
@@ -634,8 +630,9 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
 
       !------------------------------------------------------------------------
       ! call surface model
-      CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, p_oce_sfc, jstep, this_datetime, &
-        &  operators_coefficients)
+
+      CALL update_ocean_surface_refactor(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, p_oce_sfc, &
+             & this_datetime, operators_coefficients)
 
       !------------------------------------------------------------------------
       ! output: TODO not working for 3d prognostics
@@ -881,17 +878,12 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
       
       !In case of a time-varying forcing:
       ! update_surface_flux or update_ocean_surface has changed p_prog(nold(1))%h, SST and SSS
-      if (jstep == jstep0 ) then
-        IF (surface_module == 1) THEN
-          CALL update_surface_flux( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, p_oce_sfc, &
-            & jstep, mtime_current, operators_coefficients)
-        ELSEIF (surface_module == 2) THEN
-          CALL update_ocean_surface( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, p_oce_sfc, &
-            & jstep, mtime_current, operators_coefficients)
-        ENDIF
-      endif
 
-    
+      IF (jstep == jstep0 ) THEN
+        CALL update_ocean_surface_refactor(patch_3D, ocean_state(n_dom), p_as, sea_ice, p_atm_f, p_oce_sfc, &
+             & this_datetime, operators_coefficients)
+      ENDIF
+
       if (jstep == jstep0 ) then
         CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, &
           & solvercoeff_sp)
@@ -1003,230 +995,6 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
   
     CALL timer_stop(timer_total)
   END SUBROUTINE test_events
-
-  SUBROUTINE test_surface_flux( patch_3d, p_os, &
-    & this_datetime, p_oce_sfc,        &
-    & p_as, atmos_fluxes, p_ice, operators_coefficients)
-    
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
-    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
-    TYPE(datetime), POINTER                          :: this_datetime
-    TYPE(t_ocean_surface),    INTENT(inout)          :: p_oce_sfc
-    TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
-    TYPE(t_atmos_fluxes ),    INTENT(inout)          :: atmos_fluxes
-    TYPE(t_sea_ice),          INTENT(inout)          :: p_ice
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
-    
-    ! local variables
-    TYPE (t_hamocc_state)        :: hamocc_State
-    REAL(wp), DIMENSION(nproma,patch_3D%p_patch_2D(1)%alloc_cell_blocks) &
-      &                                              :: draft, &
-      &                                                 saltBefore, saltAfter, saltBudget, &
-      &                                                 salinityBefore, salinityAfter, salinityBudget, &
-      &                                                 zUnderIceBefore, zUnderIceAfter
-    INTEGER :: jstep
-    INTEGER :: block, cell, cellStart,cellEnd
-    TYPE(t_subset_range), POINTER :: subset
-    !INTEGER :: ocean_statistics
-    !LOGICAL                         :: l_outputtime
-    CHARACTER(LEN=32)               :: datestring
-    TYPE(t_patch), POINTER :: patch_2d
-    INTEGER :: jstep0,computation_type
-    REAL(wp) :: delta_z
-
-    TYPE(timedelta), POINTER :: model_time_step => NULL()
-    
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & method_name = 'mo_ocean_testbed_modules:test_surface_flux'
-    !------------------------------------------------------------------
-    patch_2D      => patch_3d%p_patch_2d(1)
-
-    ! IF (ltimer) CALL timer_start(timer_total)
-    CALL timer_start(timer_total)
-
-    CALL datetimeToString(this_datetime, datestring)
-
-    jstep0                                                               = 0
-    draft(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)           = 0.0_wp
-    saltBefore(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)      = 0.0_wp
-    saltAfter(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)       = 0.0_wp
-    saltBudget(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)      = 0.0_wp
-    salinityBefore(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)  = 0.0_wp
-    salinityAfter(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)   = 0.0_wp
-    salinityBudget(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)  = 0.0_wp
-    zUnderIceBefore(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
-    zUnderIceAfter(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)  = 0.0_wp
-    !------------------------------------------------------------------
-
-    ! x-check if the saltbudget is correctly computed {{{
-    ! p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,1) = 30.0_wp
-    ! p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,2) = 30.0_wp
-    ! p_os(n_dom)%p_prog(nold(1))%h(:,:) =  0.0_wp
-    ! p_ice%hi(:,:,:) = 0.0_wp
-    ! p_ice%conc(:,:,:) = 0.0_wp
-    ! p_ice%concSum(:,:) = 0.0_wp
-    ! }}}
-
-    CALL dbg_print('TB sfcFlx: hi' ,p_ice%hi          ,debug_string, 4, in_subset=patch_2D%cells%owned)
-
-    !  Overwrite init:
-    ! p_ice%hs(:,1,:) = 0.0_wp
-
-  ! draft(:,:)           = (rhos * p_ice%hs(:,1,:) + rhoi * p_ice%hi(:,1,:)) / OceanReferenceDensity
-  ! p_ice%zUnderIce(:,:) = patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,1,:) +  p_os(n_dom)%p_prog(nold(1))%h(:,:) &
-  !   &                  - draft(:,:) * p_ice%conc(:,1,:)
-
-    CALL dbg_print('sfcflx: draft    ' ,draft          ,debug_string, 4, in_subset=patch_2D%cells%owned)
-    CALL dbg_print('sfcflx: zUnderIce' ,p_ice%zUnderIce,debug_string, 4, in_subset=patch_2D%cells%owned)
-
-    !------------------------------------------------------------------
-    ! write initial
-    ! this is done 
-!     IF (output_mode%l_nml) THEN
-!       CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),p_oce_sfc,p_ice)
-!     ENDIF
-
-
-    ! make sure, that h is zero at start
-    !p_os(n_dom)%p_prog(nold(1))%h(:,:) = 0.0_wp  !  do not change h
-
-    ! timeloop
-    DO jstep = (jstep0+1), (jstep0+nsteps)
-      CALL message('test_surface_flux','IceBudget === BEGIN TIMESTEP ======================================================&
-        &==============================================')
-    
-
-      CALL datetimeToString(this_datetime, datestring)
-      WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
-      CALL message (TRIM(method_name), message_text)
-
-      ! Set model time.
-      model_time_step => newTimedelta('+', 0, 0, 0, 0, 0, NINT(dtime), 0)
-      this_datetime = this_datetime + model_time_step
-      CALL deallocateTimedelta(model_time_step) 
-!      CALL add_time(dtime,0,0,0,this_datetime)
-
-      ! print out 3d salinity
-      CALL dbg_print('IceBudget: saltinity BEFORE' ,&
-        &            p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,2) ,&
-        &            debug_string, 4, in_subset=patch_2D%cells%owned)
-      CALL dbg_print('IceBudget: zUnderIce  BEFORE' ,&
-        &             p_ice%zUnderIce(:,:),debug_string,4,in_subset=patch_2D%cells%owned)
-
-      !------------------------------------------------------------------------
-      ! computation_type = test_param
-      computation_type = 5  ! #slo# merging ocean_sea-ice-thermodyn r208xx
-      ! BEFOR : {{{
-      zUnderIceBefore = p_ice%zUnderIce
-      !salinity
-      salinityBefore  = p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,2)
-      ! salt
-      saltBefore      = salt_content_in_surface(patch_2D, &
-        &                                       patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,1,:),&
-        &                                       p_ice, p_os(n_dom),p_oce_sfc,zUnderIceBefore,&
-        &                                       computation_type=computation_type,info='BEFORE')
-      ! liquid water height
-      !}}}
-
-      !------------------------------------------------------------------------
-      ! call surface model
-      CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, p_oce_sfc, &
-        &                       jstep, this_datetime, operators_coefficients)
-      CALL dbg_print('IceBudget: saltinity  AFTER' ,&
-        &             p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,2),debug_string,4,in_subset=patch_2D%cells%owned)
-
-      ! simplified update of old temperature with surface forcing
-      subset => patch_2D%cells%owned
-      DO block = subset%start_block, subset%end_block
-        CALL get_index_range(subset, block, cellStart, cellEnd)
-        DO cell = cellStart, cellEnd
-          IF (subset%vertical_levels(cell,block) < 1) CYCLE
-          delta_z = patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(cell,1,block)+p_os(n_dom)%p_prog(nold(1))%h(cell,block)
-            p_os(n_dom)%p_prog(nold(1))%tracer(cell,1,block,1) = p_os(n_dom)%p_prog(nold(1))%tracer(cell,1,block,1) + &
-              & (dtime/delta_z ) * p_oce_sfc%TopBC_Temp_vdiff(cell,block)
-        END DO
-      END DO
-      CALL dbg_print('sfcflx: trac_new ' ,p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,1),debug_string, 4, &
-        &  in_subset=patch_3d%p_patch_2D(1)%cells%owned)
-
-      !------------------------------------------------------------------------
-      ! AFTER {{{
-      zUnderIceAfter = p_ice%zUnderIce
-      saltAfter      = salt_content_in_surface(patch_2D, patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,1,:),&
-        &                                      p_ice, p_os(n_dom),p_oce_sfc,zUnderIceAfter,&
-        &                                      computation_type=computation_type,info='AFTER')
-      salinityAfter  = p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,2)
-      !}}}
-
-      ! print out 3d salinity
-      CALL dbg_print('IceBudget: saltinity  AFTER' ,&
-        &             p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,2),debug_string,4,in_subset=patch_2D%cells%owned)
-      CALL dbg_print('IceBudget: FrshFlux_TotalSalt  AFTER' ,&
-        &             p_oce_sfc%FrshFlux_TotalSalt,debug_string,4,in_subset=patch_2D%cells%owned)
-      CALL dbg_print('IceBudget: zUnderIce  AFTER' ,&
-        &             p_ice%zUnderIce(:,:),debug_string,4,in_subset=patch_2D%cells%owned)
-      CALL dbg_print('IceBudget: zUnderIce  DIFF ' ,&
-        &             zUnderIceAfter(:,:) - zUnderIceBefore(:,:),debug_string,4,in_subset=patch_2D%cells%owned)
-
-      ! compute budget
-      saltBudget     = saltAfter - saltBefore        ! this discribes the saltbudget in kg, which has to be zero
-      salinityBudget = salinityAfter - salinityBefore ! is not allowed to be changed by the sea ice model
-
-      ! SALT-FRESHWATER-CHECK:
-      ! (1) check if the FreshwaterFlux (created by the ice model only) is consistent with the zUnderIce variable:
-      !     (11) apply the freshwater flux to the upper most cell
-      !     (12) for that: switch off all external fresh water fluxes
-      !     (12)           ignore snow, i.e. set hs:=0 (no possible snow-to-ice conversion)
-      !     (13) check, if the new height correspondes with zUnderIce
-      !     PROBLEM: h is based on liquid representatoin of ice, a fresh water flux
-      !     PROBLEM: the total ich volume change is put into the
-      !     FrshFlux_VolumeIce and this is applied to the h. This seems to be
-      !     wrong, because the height does not change by ice groth and melt
-      ! (2) check salt content
-      !     (21) apply the saltinityFux to the uppermost cell
-      !          with (a) constant thickness
-      !               (b) zUnderIce
-      !          and compute the total salt content in each grid cell: has to be constant over time
-
-      !------------------------------------------------------------------------
-      ! output: TODO not working for 3d prognostics
-
-      ! add values to output field
-      subset => patch_2D%cells%owned
-      DO block = subset%start_block, subset%end_block
-        CALL get_index_range(subset, block, cellStart, cellEnd)
-        DO cell = cellStart, cellEnd
-          IF (subset%vertical_levels(cell,block) < 1) CYCLE
-          p_ice%budgets%salt_00(cell,block) = saltBudget(cell,block)
-        ENDDO
-      ENDDO
-
-      p_os(n_dom)%p_prog(nnew(1))%tracer = p_os(n_dom)%p_prog(nold(1))%tracer
-      p_os(n_dom)%p_prog(nnew(1))%h      = p_os(n_dom)%p_prog(nold(1))%h
-      p_os(n_dom)%p_diag%t               = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,1)
-      p_os(n_dom)%p_diag%s               = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,2)
-      p_os(n_dom)%p_diag%h               = p_os(n_dom)%p_prog(nold(1))%h
-      CALL output_ocean( patch_3D,   &
-        &                p_os(n_dom),&
-        &                this_datetime,   &
-        &                p_oce_sfc,  &
-        &                p_ice,      &
-        &                hamocc_state,      &
-        &                jstep, jstep0)
-
-      CALL update_time_indices(n_dom)
-
-      CALL dbg_print('IceBudget: salt     diff',saltBudget ,debug_string, 4, in_subset=patch_2D%cells%owned)
-      CALL dbg_print('IceBudget: salt    After',saltAfter ,debug_string, 4, in_subset=patch_2D%cells%owned)
-      CALL dbg_print('IceBudget: salt   Before',saltBefore ,debug_string, 4, in_subset=patch_2D%cells%owned)
-      CALL dbg_print('IceBudget: salinity diff',salinityBudget,debug_string,4,in_subset=patch_2D%cells%owned)
-      CALL dbg_print('IceBudget: salt_00' ,p_ice%budgets%salt_00 ,debug_string, 4, in_subset=patch_2D%cells%owned)
-    END DO
-    
-    CALL timer_stop(timer_total)
-    
-  END SUBROUTINE test_surface_flux
-  !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------
@@ -1369,22 +1137,8 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
 
       !-----------------------------------------------------------------------------------------------------------------
       ! call component
-      SELECT CASE (surface_module)
-
-          CASE (1)
-            CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, p_oce_sfc, &
-              &  jstep, this_datetime, operators_coefficients)
-          CASE (2)
-            CALL update_ocean_surface(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, p_oce_sfc, &
-              &  jstep, this_datetime, operators_coefficients)
-          CASE (3)
-            CALL update_ocean_surface_refactor(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, p_oce_sfc, &
-              & this_datetime, operators_coefficients)
-          CASE DEFAULT
-            CALL message(TRIM(method_name), 'STOP: surface_module option not implemented' )
-            CALL finish(TRIM(method_name), 'CHOSEN surface_module OPTION DOES NOT EXIST - TERMINATE')
-
-      END SELECT
+      CALL update_ocean_surface_refactor(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, p_oce_sfc, &
+           & this_datetime, operators_coefficients)
       !-----------------------------------------------------------------------------------------------------------------
 
       !---  energy  -----------------------------------------------------------
@@ -1732,19 +1486,10 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
       saltBefore  = salt_in_surface(p_patch, p_ice, sss(:,:), computation_type=budget_type_salt, &
         &                           dbg_lev=2, info='test_sea_ice: before surface call')
       !---------------------------------------------------------------------
-      SELECT CASE (surface_module)
 
-          CASE (2)
-            CALL update_ocean_surface(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, p_oce_sfc, &
-              &  jstep, this_datetime, operators_coefficients)
-          CASE (3)
-            CALL update_ocean_surface_refactor(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, p_oce_sfc, &
-              & this_datetime, operators_coefficients)
-          CASE DEFAULT
-            CALL message(TRIM(routine), 'STOP: surface_module option not available' )
-            CALL finish(TRIM(routine),  'TERMINATE')
+      CALL update_ocean_surface_refactor(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, p_oce_sfc, &
+           & this_datetime, operators_coefficients)
 
-      END SELECT
       !---------------------------------------------------------------------
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------

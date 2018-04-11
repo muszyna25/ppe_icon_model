@@ -72,9 +72,7 @@ MODULE mo_echam_phy_init
 
 #ifndef __NO_JSBACH__
   ! land surface
-  USE mo_master_control,       ONLY: master_namelist_filename
-  USE mo_jsb_base,             ONLY: jsbach_init_base => init_base
-  USE mo_jsb_model_init,       ONLY: jsbach_init_model => init_model
+  USE mo_jsb_model_init,       ONLY: jsbach_init
 #endif
 
   ! carbon cycle
@@ -220,19 +218,14 @@ CONTAINS
       !
       ! JSBACH land processes
       !
+
 #ifndef __NO_JSBACH__
       IF (ilnd <= nsfc_type .AND. ANY(echam_phy_config(:)%ljsb)) THEN
-        !
-        ! Do basic initialization of JSBACH
-        CALL jsbach_init_base(master_namelist_filename)
-        !
-        ! Now continue initialization of JSBACH for the different grids
         DO jg=1,n_dom
           IF (echam_phy_config(jg)%ljsb) THEN 
-            CALL jsbach_init_model( jg, p_patch(jg)) !< in
+            CALL jsbach_init(jg)
           END IF
         END DO ! jg
-        !
       END IF ! 
 #endif
 

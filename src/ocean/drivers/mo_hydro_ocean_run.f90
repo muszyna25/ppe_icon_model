@@ -53,8 +53,6 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
   USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
   USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
-  USE mo_ocean_bulk,             ONLY: update_surface_flux
-  USE mo_ocean_surface,          ONLY: update_ocean_surface
   USE mo_ocean_surface_refactor, ONLY: update_ocean_surface_refactor
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface, t_atmos_for_ocean
   USE mo_sea_ice,                ONLY: update_ice_statistic, reset_ice_statistics
@@ -272,18 +270,10 @@ CONTAINS
       !In case of a time-varying forcing:
       ! update_surface_flux or update_ocean_surface has changed p_prog(nold(1))%h, SST and SSS
       start_timer(timer_upd_flx,3)
-      IF (surface_module == 1) THEN
-        CALL update_surface_flux( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, p_oce_sfc, &
-          & jstep, current_time, operators_coefficients)
-      ELSEIF (surface_module == 2) THEN
-        CALL update_ocean_surface( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, p_oce_sfc, &
-          & jstep, current_time, operators_coefficients)
-      ELSEIF (surface_module == 3) THEN
-        CALL update_ocean_surface_refactor( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, p_oce_sfc, &
-          & current_time, operators_coefficients)
-      ENDIF
 
-    
+      CALL update_ocean_surface_refactor( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, p_oce_sfc, &
+           & current_time, operators_coefficients)
+
       IF(lhamocc)CALL update_bgc_bcond( patch_3d, ext_data_bgc, jstep, current_time)
       stop_timer(timer_upd_flx,3)
 
