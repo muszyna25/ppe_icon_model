@@ -105,6 +105,7 @@ cat > ${atmo_namelist} << EOF
 !
 &parallel_nml
  nproma           = ${nproma}
+ num_io_procs     = 3           ! for default setup
 /
 &grid_nml
  dynamics_grid_filename = "${atmo_dyn_grids}",
@@ -420,6 +421,7 @@ cat >> ${atmo_namelist} << EOF
  netcdf_dict      = "${dict_file}"
  itype_pres_msl   = 4
  restart_file_type= 5
+ !restart_write_mode = "joint procs multifile"    !not necessary/useful in default r2b4 setup
 /
 EOF
 
