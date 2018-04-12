@@ -43,6 +43,10 @@ fi
 
 icon_data_poolFolder="$poolFolder_prefix/pool/data/ICON/grids/private/mpim/icon_preprocessing/source"
 
+# set nproma default for production
+#
+nproma = 48
+
 #--------------------------------------------------------------------------------------------------
 
 # (2) Set variables needed by the scripting mechanism
@@ -76,7 +80,7 @@ lnd_namelist=NAMELIST_${EXPNAME}_lnd
 
 # JSBACH settings
 run_jsbach=yes
-jsbach_usecase=jsbach_lite    # jsbach_lite or jsbach_pfts
+jsbach_usecase=jsbach_pfts    # jsbach_lite or jsbach_pfts
 jsbach_with_lakes=yes
 jsbach_with_hd=no
 jsbach_with_carbon=no         # yes needs jsbach_pfts usecase
@@ -224,7 +228,7 @@ cat > ${lnd_namelist} << EOF
   ic_filename     = 'ic_land_soil.nc'
 /
 &jsb_rad_nml
-  use_alb_veg_simple = .TRUE.           ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
+  use_alb_veg_simple = .FALSE.          ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
   bc_filename     = 'bc_land_phys.nc'
   ic_filename     = 'ic_land_soil.nc'
 /
@@ -250,10 +254,10 @@ cat > ${lnd_namelist} << EOF
   bc_sso_filename = 'bc_land_sso.nc'
 /
 &jsb_assimi_nml
-  active          = .FALSE.             ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
+  active          = .TRUE.              ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
 /
 &jsb_pheno_nml
-  scheme          = 'climatology'       ! scheme = logrop / climatology; use climatology for jsbach_lite
+  scheme          = 'logrop'            ! scheme = logrop / climatology; use climatology for jsbach_lite
   bc_filename     = 'bc_land_phys.nc'
   ic_filename     = 'ic_land_soil.nc'
 /
