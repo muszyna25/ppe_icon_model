@@ -45,7 +45,7 @@ icon_data_poolFolder="$poolFolder_prefix/pool/data/ICON/grids/private/mpim/icon_
 
 # set nproma default for production
 #
-nproma = 48
+nproma=48
 
 #--------------------------------------------------------------------------------------------------
 
