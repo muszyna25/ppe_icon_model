@@ -58,7 +58,8 @@ MODULE mo_ocean_nml
   ! ------------------------------------------------------------------------
 
   INTEGER  :: n_zlev        ! number of ocean levels
-  REAL(wp) :: dzlev_m(100)  ! namelist input of layer thickness
+  INTEGER, PARAMETER :: max_allocated_levels = 1024
+  REAL(wp) :: dzlev_m(max_allocated_levels)  ! namelist input of layer thickness
 
   INTEGER, PARAMETER :: toplev    = 1   ! surface ocean level
 
@@ -735,6 +736,7 @@ MODULE mo_ocean_nml
   INTEGER  :: smooth_initial_height_iterations = 0
   REAL(wp) :: initial_perturbation_waveNumber = 2.0_wp 
   REAL(wp) :: initial_perturbation_max_ratio  = 0.05_wp 
+  LOGICAL  :: initialize_fromRestart = .false.
 
   ! test cases for ocean model; for the index see run scripts
   INTEGER            :: itestcase_oce  = 0
@@ -765,7 +767,8 @@ MODULE mo_ocean_nml
     & smooth_initial_temperature_iterations, &
     & initial_temperature_scale_depth, &
     & initial_perturbation_waveNumber, & 
-    & initial_perturbation_max_ratio
+    & initial_perturbation_max_ratio,  &
+    & initialize_fromRestart
   !----------------------------------------------------------------------------
   ! vertex list of throughflows
   INTEGER :: denmark_strait(100)         = -1

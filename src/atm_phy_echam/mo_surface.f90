@@ -37,7 +37,7 @@ MODULE mo_surface
 #endif
   USE mo_echam_sfc_indices, ONLY: nsfc_type
 #ifndef __NO_ICON_OCEAN__
-  USE mo_sea_ice,           ONLY: ice_fast
+  USE mo_ice_interface, ONLY: ice_fast
   USE mo_ml_ocean,          ONLY: ml_ocean
 #endif
 
