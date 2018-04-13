@@ -1312,7 +1312,6 @@ CONTAINS
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
 
-      ! Modified by Christopher Moseley:
       ! Call to apply_ls_forcing
       CALL apply_ls_forcing ( pt_patch,          &  !>in
         &                     p_metrics,         &  !>in
@@ -1326,13 +1325,13 @@ CONTAINS
         &                     prm_nwp_tend%ddt_v_ls,          & !>out
         &                     prm_nwp_tend%ddt_temp_ls,       & !>out
         &                     prm_nwp_tend%ddt_tracer_ls(:,iqv),& !>out
-        &                     prm_nwp_tend%ddt_temp_subs_ls,    & !>output
-        &                     prm_nwp_tend%ddt_qv_subs_ls,      & !>output
-        &                     prm_nwp_tend%ddt_temp_adv_ls,     & !>output
-        &                     prm_nwp_tend%ddt_qv_adv_ls,       & !>output
-        &                     prm_nwp_tend%ddt_temp_nud_ls,     & !>output
-        &                     prm_nwp_tend%ddt_qv_nud_ls,       & !>output
-        &                     prm_nwp_tend%wsub)                  !>output
+        &                     prm_nwp_tend%ddt_temp_subs_ls,    & !>out
+        &                     prm_nwp_tend%ddt_qv_subs_ls,      & !>out
+        &                     prm_nwp_tend%ddt_temp_adv_ls,     & !>out
+        &                     prm_nwp_tend%ddt_qv_adv_ls,       & !>out
+        &                     prm_nwp_tend%ddt_temp_nud_ls,     & !>out
+        &                     prm_nwp_tend%ddt_qv_nud_ls,       & !>out
+        &                     prm_nwp_tend%wsub)                  !>out
 
       IF (timers_level > 3) CALL timer_stop(timer_ls_forcing)
 
