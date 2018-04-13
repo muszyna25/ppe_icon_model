@@ -863,7 +863,7 @@ CONTAINS
        IF(atm_phy_nwp_config(jg)%inwp_gscp>0) &
          CALL levels_horizontal_mean(phy_tend%ddt_temp_gscp, p_patch%cells%area,  &
                                      p_patch%cells%owned, outvar(1:nlev))
-     ! Christopher Moseley: Forcing tendencies
+     ! Large-scale forcing tendencies
      CASE('dthls_w')
        outvar(1:nlev) = phy_tend%ddt_temp_subs_ls(1:nlev)
      CASE('dqls_w ')
@@ -1275,7 +1275,7 @@ CONTAINS
      CASE('dt_t_mc') 
        longname = 'microphysics temp tendency'
        unit     = 'K/s'
-     ! Christopher Moseley: LS forcing output
+     ! large scale forcing tendency output
      CASE('dthls_w') 
        longname = 'Tend. of vert. temperature adv. from LS forcing'
        unit     = 'K/s'
