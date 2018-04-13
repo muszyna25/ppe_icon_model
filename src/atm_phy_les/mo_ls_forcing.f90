@@ -62,7 +62,6 @@ MODULE mo_ls_forcing
     temp_nudg(:,:),       & !LS nudging temp [k]
     qv_nudg(:,:)            !LS nudging qv   [kg/kg]
 
-    ! Christopher Moseley:
     ! To make sure that LS forcing is not applied before it is read in
     REAL(wp), SAVE :: dt_forcing = 0._wp
     REAL(wp), SAVE :: dt_relax   = 0._wp
@@ -87,7 +86,7 @@ MODULE mo_ls_forcing
     REAL(wp), ALLOCATABLE, DIMENSION(:) :: zz, zw, zu, zv, z_dt_temp_adv, &
                                            z_dt_temp_rad, z_dt_qv_adv
     REAL(wp), ALLOCATABLE, DIMENSION(:) :: z_temp, z_qv 
-    REAL(wp)  :: end_time, dummy
+    REAL(wp)  :: end_time
     INTEGER   :: iunit, ist, nk, nt, jk, nlev, i, nskip, n
 
     nlev   = SIZE(p_metrics%z_mc,2)
@@ -108,7 +107,7 @@ MODULE mo_ls_forcing
       ENDIF
 
       !Read the input file till end. The order of file assumed is:
-      !Z(m) - u_geo - v_geo - w_ls - ddt_temp_hadv_ls - ddt_qv_hadv_ls - dt_temp_rad
+      !Z(m) - u_geo(m/s) - v_geo(m/s) - w_ls(m/s) - dt_temp_rad(K/s) - ddt_qv_hadv_ls(1/s) - ddt_temp_hadv_ls(K/s)
 
       !Skip the first line and read next 2 lines with information about vertical and time levels
       READ(iunit,*,IOSTAT=ist)                       !skip
@@ -138,7 +137,7 @@ MODULE mo_ls_forcing
 
         DO jk = nk , 1, -1
           READ(iunit,*,IOSTAT=ist)zz(jk),zu(jk),zv(jk),zw(jk),z_dt_temp_rad(jk),dummy, &
-        	  		  z_dt_qv_adv(jk),dummy,z_dt_temp_adv(jk)
+        	  		  z_dt_qv_adv(jk),z_dt_temp_adv(jk)
           IF(ist/=success)THEN
             CALL finish (TRIM(routine), 'something wrong in forcing.dat')
           END IF
@@ -191,7 +190,7 @@ MODULE mo_ls_forcing
       ENDIF
 
        !Read the input file till end. The order of file assumed is:
-       !Z(m) - tau - u - v - temp - qv
+       !Z(m) - tau(s) - u(m/s) - v(m/s) - temp(K) - qv(kg/kg) 
 
        !Skip the first line and read next 2 lines with information about vertical and time levels
        READ(iunit,*,IOSTAT=ist)                         !skip
@@ -215,7 +214,7 @@ MODULE mo_ls_forcing
        DO n = 1 , nt
 
          DO jk = nk , 1, -1
-           READ(iunit,*,IOSTAT=ist)zz(jk),dt_relax,zu(jk),zv(jk),dummy,z_temp(jk),z_qv(jk),dummy
+           READ(iunit,*,IOSTAT=ist)zz(jk),dt_relax,zu(jk),zv(jk),z_temp(jk),z_qv(jk)
            IF(ist/=success)THEN
                CALL finish (TRIM(routine), 'something wrong in nudging.dat')
            END IF
@@ -390,8 +389,8 @@ MODULE mo_ls_forcing
       CALL vert_intp_linear_1d(p_metrics%z_mc(1,:,1),temp_gb,p_metrics%z_ifc(1,:,1),temp_gb_hl)
       CALL vert_intp_linear_1d(p_metrics%z_mc(1,:,1),qv_gb,p_metrics%z_ifc(1,:,1),qv_gb_hl)
 
-      ddt_temp_subs_ls = -wsub*vertical_derivative(temp_gb_hl,inv_dz)  ! Christopher Moseley:
-      ddt_qv_subs_ls   = -wsub*vertical_derivative(qv_gb_hl  ,inv_dz)  ! vertical advective tendencies
+      ddt_temp_subs_ls = -wsub*vertical_derivative(temp_gb_hl,inv_dz)  ! vertical advective tendency for theta
+      ddt_qv_subs_ls   = -wsub*vertical_derivative(qv_gb_hl  ,inv_dz)  ! vertical advective tendenciy for qv
 
       ddt_temp_ls = ddt_temp_ls + ddt_temp_subs_ls
       ddt_qv_ls   = ddt_qv_ls   + ddt_qv_subs_ls
