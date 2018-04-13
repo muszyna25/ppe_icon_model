@@ -109,7 +109,7 @@ MODULE mo_surface_les
     REAL(wp) :: zrough, exner, var(nproma,p_patch%nblks_c), theta_nlev, qv_nlev
     REAL(wp) :: theta_sfc, shfl, lhfl, umfl, vmfl, bflx1, bflx2, theta_sfc1, diff
     REAL(wp) :: RIB, zh, tcn_mom, tcn_heat, t_sfc, ex_sfc, inv_bus_mom
-    REAL(wp) :: ustar_mean, dummy, stime, etime, int_weight
+    REAL(wp) :: ustar_mean, stime, etime, int_weight
     REAL(wp) :: pres_sfc(nproma,p_patch%nblks_c)
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
@@ -117,8 +117,6 @@ MODULE mo_surface_les
     INTEGER :: nlev, jg, itr, jkp1, n_curr, n_next
     INTEGER :: iunit, ist, nt, n
      
-    CHARACTER(len=1) :: dummy_str
-
     CHARACTER(len=*), PARAMETER :: routine = 'mo_surface_les:surface_conditions'
 
     IF (msg_level >= 15) &
@@ -464,7 +462,7 @@ MODULE mo_surface_les
 !$OMP END PARALLEL
 
     ! Added by Christopher Moseley:
-    !Time varying SST and qv_s case with prescribed roughness length: FOR HPS
+    ! Time varying SST and qv_s case with prescribed roughness length: semi-idealized setups
     CASE(6)
 
 
@@ -474,18 +472,18 @@ MODULE mo_surface_les
 
       !Open formatted file to read BC data
       iunit = find_next_free_unit(10,20)
-      OPEN (unit=iunit,file='sfc_bc_cosmo',access='SEQUENTIAL', &
+      OPEN (unit=iunit,file='sfc_forcing.dat',access='SEQUENTIAL', &
             form='FORMATTED', action='READ', status='OLD', IOSTAT=ist)
   
       IF(ist/=success)THEN
-        CALL finish (TRIM(routine), 'open sfc_bc_cosmo failed')
+        CALL finish (TRIM(routine), 'open sfc_forcing.dat failed')
       ENDIF  
   
-      !Read the input file till end. The order of file assumed is:
-      !Time(s) - H - LE - Ts - qs - ps
+      !Read the input file til end. The order of file assumed is:
+      !Ts(K) - qvs(kg/kg) - ps(Pa)
       
-      !Read first comment line as dummy
-      READ(iunit,*,IOSTAT=ist)dummy_str
+      !Skip the first line
+      READ(iunit,*,IOSTAT=ist)			      !skip
  
       !Read the second line with information about time levels 
       READ(iunit,*,IOSTAT=ist)stime,dt_interval,etime
@@ -496,10 +494,10 @@ MODULE mo_surface_les
 
       ALLOCATE( ts(nt), qvs(nt), ps(nt) )
       DO n = 1 , nt
-        READ(iunit,*,IOSTAT=ist)dummy,dummy,dummy,ts(n),qvs(n),ps(n)
-        IF(ist/=success) CALL finish (TRIM(routine), 'something wrong in sfc_bc_cosmo')
+        READ(iunit,*,IOSTAT=ist)ts(n),qvs(n),ps(n)
+        IF(ist/=success) CALL finish (TRIM(routine), 'something wrong in sfc_forcing.dat')
       END DO
-  
+
       CLOSE(iunit)
       
       WRITE(message_text,*)dt_interval

@@ -136,7 +136,7 @@ MODULE mo_ls_forcing
       DO n = 1,nt
 
         DO jk = nk , 1, -1
-          READ(iunit,*,IOSTAT=ist)zz(jk),zu(jk),zv(jk),zw(jk),z_dt_temp_rad(jk),dummy, &
+          READ(iunit,*,IOSTAT=ist)zz(jk),zu(jk),zv(jk),zw(jk),z_dt_temp_rad(jk), &
         	  		  z_dt_qv_adv(jk),z_dt_temp_adv(jk)
           IF(ist/=success)THEN
             CALL finish (TRIM(routine), 'something wrong in forcing.dat')
