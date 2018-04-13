@@ -1,0 +1,181 @@
+#=============================================================================
+#
+# This section of the run script containes the specifications of the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# EXPNAME and NPROMA must be defined in as environment variables or must 
+# they must be substituted with appropriate values.
+#
+# DWD, 2010-08-31
+#
+#-----------------------------------------------------------------------------
+#
+# Basic specifications of the simulation
+# --------------------------------------
+#
+# These variables are set in the header section of the completed run script:
+#
+# EXPNAME = experiment name
+# NPROMA  = array blocking length / inner loop length
+#-----------------------------------------------------------------------------
+#
+#-----------------------------------------------------------------------------
+# The following information is included to present some information on the buildbot-html main page
+#
+# _bb_table_Description_  Jablonowski Williamson steady-state test
+# _bb_table_Model_        non-hydrost. atmosph.
+# _bb_table_Grid_         triangle
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist = NAMELIST_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date = "2013-04-24T00:00:00Z"
+end_date = "2013-04-26T00:00:00Z"
+init_date = `echo ${start_date%%:*} | sed 's/\-//g' | sed 's/T//g'`
+
+dt_restart = `expr 12 \* 3600`
+restart_interval = "PT12H"
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=0.4
+dt_checkpoint=`expr 12 \* 3600 `  # write restart file every 12 hours
+#
+#-----------------------------------------------------------------------------
+# model parameters
+atmo_model_equations=3 # equation system
+#                     1=hydrost. atm. (T dynamics)
+#                     2=hydrost. atm. (theta dynamics)
+#                     3=non-hydrost. atm.,
+#                    -1=shallow water model
+#                    -2=hydrost. ocean
+nlev=144           # nlev = number of full levels
+iforcing=3         # 3 for inwp forcing; 0 for no forcing
+#
+#-----------------------------------------------------------------------------
+# the grid files
+atmo_dyn_grids='Torus_Triangles_96x96_50m.nc'
+#
+#-----------------------------------------------------------------------------
+#
+#
+#-----------------------------------------------------------------------------
+#
+# write icon namelist parameters
+# ------------------------
+# for a complete list see namelist_overview and namelist_overview.pdf
+#
+cat >> ${atmo_namelist} << EOF
+&parallel_nml
+ nproma        = ${nproma}
+ p_test_run    = .false.
+ l_test_openmp = .false.
+ l_log_checks  = .false.
+/
+&grid_nml
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+ corio_lat              = 50.92
+ is_plane_torus         = .TRUE.
+/
+&nh_testcase_nml
+ nh_test_name = 'GATE'     ! test case identifier also used for semi-idealized setups
+/
+&io_nml
+ dt_checkpoint = ${dt_checkpoint}
+ lkeep_in_sync = .true.
+/
+&run_nml
+ num_lev    = ${nlev},     ! number of full levels of vertical grid
+ dtime      = ${dtime}     ! timestep in seconds
+ ltransport = .TRUE.
+ ntracer    = 5            ! default: 0
+ iforcing   = 3            ! 3: NWP forcing; 6:inhecham forcing
+ ltestcase  = .TRUE.       ! run testcase
+ ltimer     = .TRUE.       ! 
+ msg_level  = 10           ! detailed report during integration
+ output     = 'nml'
+/
+&nwp_phy_nml
+ inwp_gscp       = 1 ! 1: COSMO-EU mircophysics, 2-cat ice: cloud ice, snow
+ inwp_convection = 0 ! 0: no convection scheme
+ inwp_radiation  = 0 ! 0: no radiation
+ inwp_cldcover   = 5 ! 5: grid scale clouds
+ inwp_turb       = 5 ! 5: Smagorinsky
+ inwp_satad      = 1 ! 1: saturation adjustment
+ inwp_surface    = 0 ! 0: none; 1: TERRA
+/
+&ls_forcing_nml
+ is_subsidence_moment = .FALSE.
+ is_subsidence_heat   = .TRUE.
+ is_advection         = .TRUE.
+ is_geowind           = .TRUE.
+ is_rad_forcing       = .FALSE.
+ is_nudging           = .TRUE.
+/
+&les_nml
+ isrfc_type       = 6     ! 6: fluxes constructed from sounding for time-varying SST and qv_s
+                          ! for semi-idealized configurations
+ expname          = '${EXPNAME}'
+ avg_interval_sec = 300.
+ sampl_freq_sec   = 30.
+ ldiag_les_out    = .TRUE.
+ km_min           = 0.0
+/
+&turbdiff_nml
+lconst_z0 = .TRUE.
+const_z0  = 0.449291
+/
+&diffusion_nml
+ lhdiff_temp = .TRUE.
+ lhdiff_vn   = .TRUE.
+ lhdiff_w    = .TRUE.
+ hdiff_order = 4
+/
+&nonhydrostatic_nml
+ ivctype        = 2       ! sleve vertical coordinate
+ damp_height    = 8000.   ! top_height-damp_height should be about 15km
+ l_open_ubc     = .false. ! top open upper boundary condition. might help to go higher
+ rayleigh_coeff = 0.0
+/
+&sleve_nml
+ top_height     = 13000.
+ min_lay_thckn = 20.    ! thickness of lowest model layer
+/
+&extpar_nml
+ itopo          = 0 ! 0: analytical topo; 1: topography/ext. data read from file
+/
+&dynamics_nml
+ iequations     = ${atmo_model_equations}       ! equation system
+ idiv_method    = 1
+ lcoriolis      = .TRUE.
+/
+&output_nml
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT02H"
+ file_interval    = "PT02H"
+ include_last     = .TRUE.
+ output_filename  = 'prog_vars'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'qv','qc','qi','qs','qr','rh','u','v','w','temp','pres','rho','theta_v','pres_sfc','div'
+ output_grid      = .TRUE.
+/
+EOF
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+# add standard atmo_non-hydrostatic_files
+. ${thisdir}/add_required_atmo_non-hydrostatic_files
+. ${thisdir}/add_required_atmo_hydrostatic_files
+DATADIR=${basedir}/data
+add_link_file ${DATADIR}/sound_in sound_in
+add_link_file ${DATADIR}/nudging.dat nudging.dat
+add_link_file ${DATADIR}/ls_forcing.dat ls_forcing.dat
+add_link_file ${DATADIR}/sfc_forcing.dat sfc_forcing.dat
+#-----------------------------------------------------------------------------
