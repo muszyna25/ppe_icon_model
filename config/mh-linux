@@ -53,7 +53,7 @@ case "$fortran_compiler" in
         FOTPTIM     = -march=native -O3 -ffast-math -D__LOOP_EXCHANGE
 
         DEBUG_FLAGS = -g -O -march=native -fbacktrace -fbounds-check -fstack-protector-all $FCHECK
-        STD_FLAGS   = -march=native -O2 -mpc64 $DEBUG_FLAGS -D__LOOP_EXCHANGE 
+        STD_FLAGS   = -g    -march=native -fbacktrace -fbounds-check -fstack-protector-all $FCHECK -march=native -O2 -mpc64 -D__LOOP_EXCHANGE 
         HIOPT_FLAGS = -march=native -O3 -ffast-math -mpc64 -D__LOOP_EXCHANGE -g
 
         FC          = gfortran
