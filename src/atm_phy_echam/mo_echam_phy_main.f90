@@ -18,9 +18,6 @@
 !! headers of the routines.
 !!
 
-!----------------------------
-#include "omp_definitions.inc"
-!----------------------------
 #if defined __xlC__ && !defined NOXLFPROCESS
 @PROCESS HOT
 @PROCESS SPILLSIZE(5000)
@@ -39,16 +36,12 @@ MODULE mo_echam_phy_main
   USE mo_omp_loop            ,ONLY: omp_loop_cell, &
     &                               omp_loop_cell_tc
 
-  USE mo_echam_phy_config    ,ONLY: echam_phy_tc, dt_zero, echam_phy_config
-  USE mo_echam_phy_memory    ,ONLY: t_echam_phy_field, prm_field, &
-    &                               t_echam_phy_tend,  prm_tend
+  USE mo_echam_phy_config    ,ONLY: echam_phy_tc, dt_zero
   USE mo_echam_phy_diag      ,ONLY: surface_fractions, &
     &                               droplet_number,    &
     &                               cpair_cvair_qconv, &
     &                               initialize,        &
     &                               finalize
-
-  USE mo_run_config          ,ONLY: iqc, iqi
 
   USE mo_interface_echam_cov ,ONLY: interface_echam_cov
   USE mo_interface_echam_wmo ,ONLY: interface_echam_wmo
@@ -62,11 +55,6 @@ MODULE mo_echam_phy_main
   USE mo_interface_echam_sso ,ONLY: interface_echam_sso
   USE mo_interface_echam_cld ,ONLY: interface_echam_cld
   USE mo_interface_echam_mox ,ONLY: interface_echam_mox
-
-  USE mo_run_config          ,ONLY: nlev
-  USE mo_parallel_config     ,ONLY: nproma
-  USE mo_loopindices         ,ONLY: get_indices_c
-  USE mo_impl_constants      ,ONLY: min_rlcell_int, grf_bdywidth_c
 
   IMPLICIT NONE
   PRIVATE
@@ -87,11 +75,6 @@ CONTAINS
     TYPE(datetime)         ,POINTER    :: datetime_old
     REAL(wp)               ,INTENT(in) :: pdtime
 
-    ! Pointers
-    !
-    TYPE(t_echam_phy_field) ,POINTER    :: field
-    TYPE(t_echam_phy_tend)  ,POINTER    :: tend
-
     ! Local variables
     !
     INTEGER  :: jg                                         !< grid level/domain index
@@ -99,21 +82,8 @@ CONTAINS
     LOGICAL  :: is_in_sd_ed_interval                       !< time is in process interval [sd,ed[
     LOGICAL  :: is_active                                  !< process is active
 
-    REAL(wp) :: zq_rlw_impl (nproma)                       !< additional heating by LW rad. due to implicit coupling
-                                                           !  in surface energy balance [W/m2]
-
-    INTEGER  :: rl_start, rl_end
-    INTEGER  :: i_nchdom
-    INTEGER  :: i_startblk,i_endblk
-    INTEGER  :: jb                                         !< block index
-    INTEGER  :: jcs, jce                                   !< start/end column index within this block
-
     jg = patch%id
 
-    ! associate pointers
-    field     => prm_field(jg)
-    tend      => prm_tend (jg)
-    
     !-------------------------------------------------------------------
     ! Initialize (diagnostic)
     !-------------------------------------------------------------------
@@ -136,25 +106,7 @@ CONTAINS
     ! Cloud cover (diagnostic)
     !-------------------------------------------------------------------
     !
-    IF (.NOT.echam_phy_config(jg)%lnew) THEN
-    !
-    IF ( echam_phy_tc(jg)%dt_cld > dt_zero ) THEN
-       !
-       IF   ( (echam_phy_tc(jg)%sd_cld <= datetime_old) .AND. &
-            & (echam_phy_tc(jg)%ed_cld >  datetime_old) .AND. &
-            & (echam_phy_tc(jg)%dt_cld >  dt_zero     )       ) THEN
-          !
-          CALL omp_loop_cell(patch,interface_echam_cov)
-          !
-       END IF
-       !
-    END IF
-    !
-    ELSE
-    !
     CALL omp_loop_cell(patch,interface_echam_cov)
-    !
-    END IF
 
     !---------------------------------------------------------------------
     ! 3.9 Determine tropopause height (diagnostic)
@@ -216,39 +168,6 @@ CONTAINS
             &                is_in_sd_ed_interval, is_active ,&
             &                datetime_old, pdtime            )
        !
-    END IF
-
-    IF (.NOT.echam_phy_config(jg)%lnew) THEN
-    !
-    rl_start = grf_bdywidth_c+1
-    rl_end   = min_rlcell_int
-    !
-    i_nchdom   = MAX(1,patch%n_childdom)
-    i_startblk = patch%cells%start_blk(rl_start,1)
-    i_endblk   = patch%cells%end_blk(rl_end,i_nchdom)
-    !
-    IF ( echam_phy_tc(jg)%dt_rad > dt_zero ) THEN
-!$OMP PARALLEL DO PRIVATE(jcs,jce, zq_rlw_impl)
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-        ! Heating due to the fact that surface model only used part of longwave radiation to compute new surface temperature
-        zq_rlw_impl(jcs:jce) =                                                  &
-          &   ( (field%rld_rt(jcs:jce,nlev,jb)-field%rlu_rt(jcs:jce,nlev,jb))   & ! (( rlns from "radiation"
-          &    -(field%rlds  (jcs:jce,jb)     -field%rlus  (jcs:jce,jb)     ))  & !   -rlns from "radheating" and "update_surface")
-          &  -field%q_rlw(jcs:jce,nlev,jb)                                                ! old heating from radheat
-
-        ! Heating accumulated
-        field% q_phy(jcs:jce,nlev,jb) = field% q_phy(jcs:jce,nlev,jb) + zq_rlw_impl(jcs:jce)
-
-        ! Tendency
-        tend%ta_rlw_impl(jcs:jce,jb) = zq_rlw_impl(jcs:jce) * field% qconv(jcs:jce,nlev,jb)
-
-        ! Tendencies accumulated
-        tend%ta_phy(jcs:jce,nlev,jb) = tend%ta_phy(jcs:jce,nlev,jb) + tend%ta_rlw_impl(jcs:jce,jb)
-      END DO
-!$OMP END PARALLEL DO 
-    END IF
-    !
     END IF
 
     !-------------------------------------------------------------------
@@ -356,12 +275,6 @@ CONTAINS
        !
     END IF
 
-    IF (.NOT.echam_phy_config(jg)%lnew) THEN
-    ! Update provisional physics state
-    field% qtrc(:,:,:,iqc) = field% qtrc(:,:,:,iqc) + tend% qtrc_phy(:,:,:,iqc)*pdtime
-    field% qtrc(:,:,:,iqi) = field% qtrc(:,:,:,iqi) + tend% qtrc_phy(:,:,:,iqi)*pdtime
-    END IF
-
     !-------------------------------------------------------------------
     ! Cloud processes
     !-------------------------------------------------------------------
@@ -406,10 +319,6 @@ CONTAINS
     !-------------------------------------------------------------------
     !
     CALL omp_loop_cell(patch,finalize)
-
-    ! disassociate pointers
-    NULLIFY(field)
-    NULLIFY(tend)
 
   END SUBROUTINE echam_phy_main
   !---------------------------------------------------------------------

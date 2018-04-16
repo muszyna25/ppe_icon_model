@@ -525,8 +525,6 @@ CONTAINS
           field% qtrc(jcs:jce,:,jb,iqt:) = field% qtrc(jcs:jce,:,jb,iqt:) + tend% qtrc_vdf(jcs:jce,:,jb,iqt:)*pdtime
        END IF
        !
-       !
-       IF (echam_phy_config(jg)%lnew) THEN
        ! Correction related to implicitness, due to the fact that surface model only used
        ! part of longwave radiation to compute new surface temperature
        ! 
@@ -556,8 +554,6 @@ CONTAINS
        ! update physics state for input to the next physics process
        IF (lparamcpl) THEN
           field% ta(jcs:jce,nlev,jb) = field% ta(jcs:jce,nlev,jb) + tend% ta_rlw_impl(jcs:jce,jb)*pdtime
-       END IF
-       !
        END IF
 
        ! 2-tl-scheme

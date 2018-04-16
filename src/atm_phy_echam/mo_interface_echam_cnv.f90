@@ -60,7 +60,6 @@ CONTAINS
     INTEGER                 ,POINTER    :: fc_cnv
     TYPE(t_echam_phy_field) ,POINTER    :: field
     TYPE(t_echam_phy_tend)  ,POINTER    :: tend
-    LOGICAL                 ,POINTER    :: lnew
 
     ! Local variables
     !
@@ -87,7 +86,6 @@ CONTAINS
     fc_cnv    => echam_phy_config(jg)%fc_cnv
     field     => prm_field(jg)
     tend      => prm_tend (jg)
-    lnew      => echam_phy_config(jg)%lnew
 
     nlevm1 = nlev-1
     nlevp1 = nlev+1
@@ -96,17 +94,10 @@ CONTAINS
        !
        IF ( is_active ) THEN
           !
-          IF(.NOT.lnew) THEN
-          zta  (jcs:jce,:)   =     field% ta  (jcs:jce,:,jb)   + pdtime*tend%   ta_phy(jcs:jce,:,jb)
-          zqtrc(jcs:jce,:,:) = MAX(field% qtrc(jcs:jce,:,jb,:) + pdtime*tend% qtrc_phy(jcs:jce,:,jb,:), 0.0_wp)
-          zua  (jcs:jce,:)   =     field% ua  (jcs:jce,:,jb)   + pdtime*tend%   ua_phy(jcs:jce,:,jb)
-          zva  (jcs:jce,:)   =     field% va  (jcs:jce,:,jb)   + pdtime*tend%   va_phy(jcs:jce,:,jb)
-          ELSE
           zta  (jcs:jce,:)   =     field% ta  (jcs:jce,:,jb)
           zqtrc(jcs:jce,:,:) = MAX(field% qtrc(jcs:jce,:,jb,:), 0.0_wp)
           zua  (jcs:jce,:)   =     field% ua  (jcs:jce,:,jb)
           zva  (jcs:jce,:)   =     field% va  (jcs:jce,:,jb)
-          END IF
           !
           ! Prepare input
           zqtrc_cnd(jcs:jce,:)   = zqtrc(jcs:jce,:,iqc) + zqtrc(jcs:jce,:,iqi)
@@ -228,7 +219,6 @@ CONTAINS
     NULLIFY(fc_cnv)
     NULLIFY(field)
     NULLIFY(tend)
-    NULLIFY(lnew)
 
     IF (ltimer) CALL timer_stop(timer_cnv)
 

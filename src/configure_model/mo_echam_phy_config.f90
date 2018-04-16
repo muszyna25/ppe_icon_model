@@ -138,8 +138,6 @@ MODULE mo_echam_phy_config
      LOGICAL                              :: lamip   !< .true. for AMIP simulations
      LOGICAL                              :: lcpl_co2_atmoce !< .true. for coupling of co2 atmo/ocean
      !
-     LOGICAL                              :: lnew
-     !
   END TYPE t_echam_phy_config
 
 
@@ -235,7 +233,7 @@ CONTAINS
     !
     ! dynamics physics coupling
     echam_phy_config(:)%ldcphycpl = .FALSE.
-    echam_phy_config(:)%lparamcpl = .FALSE.
+    echam_phy_config(:)%lparamcpl = .TRUE.
     echam_phy_config(:)%ldrymoist = .FALSE.
     !
     ! time control parameters
@@ -291,8 +289,6 @@ CONTAINS
     echam_phy_config(:)% lmlo  = .FALSE.
     echam_phy_config(:)% lice  = .FALSE.
     echam_phy_config(:)% lcpl_co2_atmoce  = .FALSE.
-    !
-    echam_phy_config(:)% lnew  = .FALSE.
     !
   END SUBROUTINE init_echam_phy_config
 
@@ -691,10 +687,6 @@ CONTAINS
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% llake',echam_phy_config(jg)% llake )
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% lamip',echam_phy_config(jg)% lamip )
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% lcpl_co2_atmoce',echam_phy_config(jg)% lcpl_co2_atmoce)
-       CALL message    ('','')
-       CALL print_value('    echam_phy_config('//TRIM(cg)//')% lnew ',echam_phy_config(jg)% lnew )
-       CALL message    ('','')
-       CALL message    ('','')
        !
        CALL message    ('','')
        CALL message    ('','Derived time control')

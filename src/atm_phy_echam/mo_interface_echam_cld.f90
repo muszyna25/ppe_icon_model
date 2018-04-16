@@ -93,9 +93,6 @@ CONTAINS
                &     field% qtrc     (:,:,jb,iqv), &! in  qm1
                &     field% qtrc     (:,:,jb,iqc), &! in  xlm1
                &     field% qtrc     (:,:,jb,iqi), &! in  xim1
-               &      tend%   ta_phy (:,:,jb),     &! in  tte
-               &      tend% qtrc_phy (:,:,jb,iqv), &! in  qte
-               &     echam_phy_config(jg)%lnew,    &! in
                !
                &     itype,                        &! inout
                &     field% aclc     (:,:,jb),     &! inout
