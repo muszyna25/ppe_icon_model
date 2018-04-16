@@ -204,7 +204,7 @@ case "$fortran_compiler" in
         F77         = $FC
         F77FLAGS    = $FFLAGS $STD_FLAGS
         OMPFLAG     = -qopenmp
-        CC_OMPFLAG  = -qopenmp
+        CC_OMPFLAG  = -fopenmp
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
